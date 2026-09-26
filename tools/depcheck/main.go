@@ -24,23 +24,43 @@ type rule struct {
 
 var rules = []rule{
 	{"core/...", []string{"core/..."}, nil},
+	{"schema", []string{"core/..."}, nil},
+	{"format/...", []string{"core/...", "schema"}, nil},
 	{"platform", []string{"core/...", "platform/input"}, nil},
 	{"platform/input", []string{"core/..."}, nil},
 	{"platform/sdl", []string{"core/...", "platform", "platform/input"}, nil},
 	{"platform/headless", []string{"core/...", "platform", "platform/input"}, nil},
 	{"gpu", []string{"core/..."}, nil},
 	{"gpu/null", []string{"core/...", "gpu"}, nil},
-	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/..."}, []string{"github.com/go-gl/gl/..."}},
+	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/..."}, nil},
 	{"gpu/gl33/gl", nil, nil},
 	{"gpu/gl33/internal/...", []string{"core/..."}, nil},
 	{"vfs", []string{"core/...", "vfs/osfs"}, nil},
 	{"vfs/osfs", []string{"core/..."}, nil},
-	{"engine", []string{"core/...", "platform/...", "gpu/...", "vfs/..."}, nil},
-	{"sdk", []string{"core/...", "engine"}, nil},
-	{"demos/...", []string{"core/...", "platform/...", "gpu", "vfs/...", "engine", "sdk", "demos/..."}, nil},
+	{"engine", []string{"core/...", "platform/...", "gpu/...", "vfs/...", "engine/res"}, nil},
+	{"engine/res", []string{"core/...", "vfs"}, nil},
+	{"engine/bootstrap", []string{"core/...", "project"}, nil},
+	{"render", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
+	{"render/module", []string{"core/...", "gpu", "engine", "render"}, nil},
+	{"render/...", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
+	{"asset", []string{"core/...", "gpu", "format/...", "render/texture"}, nil},
+	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture"}, nil},
+	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
+	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture"}, nil},
+	{"project", []string{"core/...", "format/..."}, nil},
+	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
+	{"scene/components", []string{"core/...", "schema", "asset", "gpu", "render/...", "scene"}, nil},
+	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene"}, nil},
+	{"scene/systems", []string{"core/...", "schema", "asset", "gpu", "engine", "render", "render/...", "scene", "scene/components"}, nil},
+	{"ui/...", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
+	{"editor/...", []string{"core/...", "platform/input", "gpu", "render", "render/...", "ui/...", "schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "editor/..."}, nil},
+	{"sdk", []string{"core/...", "engine", "schema", "scene", "asset", "asset/...", "render", "render/module"}, nil},
+	{"app/run", []string{"..."}, nil},
+	{"demos/...", []string{"..."}, nil},
 	{"cmd/...", []string{"..."}, nil},
 	{"tests/...", []string{"..."}, nil},
 	{"tools/...", []string{"..."}, nil},
+	{"examples/...", []string{"sdk"}, nil},
 }
 
 var osFileFuncs = map[string]bool{
@@ -49,7 +69,26 @@ var osFileFuncs = map[string]bool{
 	"Mkdir": true, "Remove": true, "RemoveAll": true, "Rename": true, "Stat": true,
 }
 
-var fsAllowed = []string{"vfs/...", "platform/...", "tools/...", "engine"}
+var fsAllowed = []string{
+	"vfs/...",
+	"platform/...",
+	"tools/...",
+	"cmd/...",
+	"project",
+	"asset/pipeline",
+	"engine/bootstrap",
+	"app/run",
+	"demos/asset-hot-reload",
+}
+
+var denied = []struct {
+	pkg  string
+	deny []string
+}{
+	{"app/run", []string{"editor/..."}},
+	{"runtime/...", []string{"editor/..."}},
+	{"sdk", []string{"editor/..."}},
+}
 
 var cgoAllowed = []string{"platform/sdl", "gpu/gl33/gl"}
 
@@ -217,6 +256,11 @@ func checkImports(module string, p pkgInfo) []string {
 		if l, ok := relPkg(module, imp); ok {
 			if !allowed(r.allow, l) {
 				out = append(out, fmt.Sprintf("%s: forbidden import %s (rule %s)", local, l, r.pkg))
+			}
+			for _, d := range denied {
+				if match(d.pkg, local) && allowed(d.deny, l) {
+					out = append(out, fmt.Sprintf("%s: denied import %s", local, l))
+				}
 			}
 			continue
 		}

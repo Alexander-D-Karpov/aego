@@ -1,0 +1,13 @@
+meta version=1 {
+  id="7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a29"
+  importer="texture"
+  importerVersion=1
+  settings {
+    atlas=""
+    extrude=true
+    filter=nearest
+    mips=false
+    padding=2
+    srgb=true
+  }
+}

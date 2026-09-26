@@ -66,6 +66,7 @@ const (
 	kindSampler
 	kindShader
 	kindPipeline
+	kindQuery
 )
 
 type pendingDestroy struct {
@@ -74,22 +75,24 @@ type pendingDestroy struct {
 }
 
 type Device struct {
-	log       *log.ChannelLogger
-	debug     bool
-	caps      gpu.Capabilities
-	api       realAPI
-	cache     *glstate.Cache
-	buffers   *handle.Arena[glBuffer]
-	textures  *handle.Arena[glTexture]
-	samplers  *handle.Arena[glSampler]
-	shaders   *handle.Arena[glShader]
-	pipelines *handle.Arena[glPipeline]
-	frame     frame
-	pass      pass
-	inFrame   bool
-	pending   []pendingDestroy
-	fbW, fbH  int
-	debugProc gl.DebugProc
+	log         *log.ChannelLogger
+	debug       bool
+	caps        gpu.Capabilities
+	api         realAPI
+	cache       *glstate.Cache
+	buffers     *handle.Arena[glBuffer]
+	textures    *handle.Arena[glTexture]
+	samplers    *handle.Arena[glSampler]
+	shaders     *handle.Arena[glShader]
+	pipelines   *handle.Arena[glPipeline]
+	queries     *handle.Arena[glQuery]
+	frame       frame
+	pass        pass
+	inFrame     bool
+	activeQuery uint32
+	pending     []pendingDestroy
+	fbW, fbH    int
+	debugProc   gl.DebugProc
 }
 
 func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
@@ -110,6 +113,7 @@ func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
 		samplers:  newArena[glSampler](logger, "sampler", 16),
 		shaders:   newArena[glShader](logger, "shader", 32),
 		pipelines: newArena[glPipeline](logger, "pipeline", 32),
+		queries:   newArena[glQuery](logger, "query", 16),
 		pending:   make([]pendingDestroy, 0, 64),
 	}
 	d.frame.d = d
@@ -286,10 +290,16 @@ func (d *Device) Close() {
 		id := b.id
 		gl.DeleteBuffers(1, &id)
 	})
+	d.queries.Each(func(_ handle.Handle[glQuery], q *glQuery) {
+		id := q.id
+		gl.DeleteQueries(1, &id)
+	})
 	d.pipelines.Clear()
 	d.shaders.Clear()
 	d.samplers.Clear()
 	d.textures.Clear()
 	d.buffers.Clear()
+	d.queries.Clear()
+	d.activeQuery = 0
 	d.cache.Invalidate()
 }

@@ -8,12 +8,23 @@ import (
 	"strings"
 
 	"aego/demos"
+	_ "aego/demos/asset-hot-reload"
 	_ "aego/demos/basic"
+	_ "aego/demos/camera"
 	_ "aego/demos/headless"
+	_ "aego/demos/hierarchy"
 	_ "aego/demos/input"
+	_ "aego/demos/layers"
+	_ "aego/demos/offscreen"
 	_ "aego/demos/resize"
+	_ "aego/demos/scene-load"
+	_ "aego/demos/sprites"
+	_ "aego/demos/stress"
+	_ "aego/demos/stress-scene"
+	_ "aego/demos/text"
 	"aego/engine"
 	"aego/platform"
+	rendermodule "aego/render/module"
 )
 
 func main() {
@@ -80,7 +91,11 @@ func run(args []string) int {
 		}
 	}
 
-	eng, err := engine.NewBuilder(cfg).Build()
+	builder := engine.NewBuilder(cfg)
+	if m, ok := demo.(interface{ Module() *rendermodule.Module }); ok {
+		builder.Use(m.Module())
+	}
+	eng, err := builder.Build()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "build:", err)
 		return 1

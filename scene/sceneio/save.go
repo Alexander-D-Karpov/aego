@@ -1,0 +1,183 @@
+package sceneio
+
+import (
+	"aego/core/mathx"
+	"aego/format/aetext"
+	"aego/scene"
+	"aego/schema"
+	"unsafe"
+)
+
+func Save(s *scene.Scene) []byte {
+	return save(s, s.Root(), "scene", false)
+}
+
+func SaveSubtree(s *scene.Scene, root scene.NodeHandle, asPrefab bool) []byte {
+	head := "scene"
+	if asPrefab {
+		head = "prefab"
+	}
+	return save(s, root, head, true)
+}
+
+func save(s *scene.Scene, root scene.NodeHandle, head string, includeRoot bool) []byte {
+	w := &writer{reg: s.Registry()}
+	doc := &aetext.Node{Head: head}
+	doc.Attrs = append(doc.Attrs, aetext.Field{Name: "version", Value: aetext.Int(FormatVersion)})
+	if includeRoot {
+		if n := w.node(s, root); n != nil {
+			doc.Blocks = append(doc.Blocks, n)
+		}
+	} else {
+		s.Children(root, func(h scene.NodeHandle) bool {
+			if n := w.node(s, h); n != nil {
+				doc.Blocks = append(doc.Blocks, n)
+			}
+			return true
+		})
+	}
+	return aetext.Write(doc)
+}
+
+type writer struct {
+	reg *schema.Registry
+}
+
+func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
+	if !s.IsAlive(h) {
+		return nil
+	}
+	n := &aetext.Node{Head: "node", Label: s.ID(h).String()}
+	n.Attrs = append(n.Attrs,
+		aetext.Field{Name: "name", Value: aetext.String(s.Name(h))},
+		aetext.Field{Name: "enabled", Value: aetext.Bool(s.Enabled(h))},
+		aetext.Field{Name: "layers", Value: aetext.Int(int64(s.Layers(h)))},
+	)
+	n.Blocks = append(n.Blocks, saveTransform(s.Local(h)))
+
+	var unknown *Unknown
+	if u, ok := scene.Get[Unknown](s, h); ok {
+		unknown = u
+	}
+	s.ComponentsOf(h, func(id schema.TypeID) {
+		td, ok := w.reg.ByID(id)
+		if !ok || td.FullName == "engine.Unknown" {
+			return
+		}
+		p, ok := s.GetByType(h, id)
+		if !ok {
+			return
+		}
+		n.Blocks = append(n.Blocks, w.component(td, p))
+	})
+	if unknown != nil {
+		for i := range unknown.Components {
+			c := &unknown.Components[i]
+			block := &aetext.Node{Head: "component", Label: c.TypeName}
+			block.Attrs = append(block.Attrs, aetext.Field{Name: "version", Value: aetext.Int(int64(c.Version))})
+			block.Fields = c.Fields
+			block.Blocks = c.Blocks
+			n.Blocks = append(n.Blocks, block)
+		}
+	}
+	s.Children(h, func(child scene.NodeHandle) bool {
+		if c := w.node(s, child); c != nil {
+			n.Blocks = append(n.Blocks, c)
+		}
+		return true
+	})
+	return n
+}
+
+func saveTransform(t scene.Transform2D) *aetext.Node {
+	n := &aetext.Node{Head: "transform"}
+	n.Fields = append(n.Fields,
+		aetext.Field{Name: "position", Value: vec2Value(t.Position)},
+		aetext.Field{Name: "rotation", Value: aetext.Float32(t.Rotation)},
+		aetext.Field{Name: "scale", Value: vec2Value(t.Scale)},
+	)
+	return n
+}
+
+func (w *writer) component(td *schema.TypeDescriptor, p unsafe.Pointer) *aetext.Node {
+	n := &aetext.Node{Head: "component", Label: td.FullName}
+	n.Attrs = append(n.Attrs, aetext.Field{Name: "version", Value: aetext.Int(int64(td.Version))})
+	td.Serializable(func(fd *schema.FieldDescriptor) {
+		var v schema.Value
+		fd.Get(p, &v)
+		n.Fields = append(n.Fields, aetext.Field{Name: fd.Name, Value: w.value(fd, v)})
+	})
+	return n
+}
+
+func (w *writer) value(fd *schema.FieldDescriptor, v schema.Value) aetext.Value {
+	switch v.Kind {
+	case schema.KindBool:
+		return aetext.Bool(v.I != 0)
+	case schema.KindInt32, schema.KindInt64:
+		return aetext.Int(v.I)
+	case schema.KindFloat32:
+		return aetext.Float32(float32(v.F))
+	case schema.KindFloat64:
+		return aetext.Float64(v.F)
+	case schema.KindString:
+		return aetext.String(v.S)
+	case schema.KindVec2:
+		return vec2Value(v.V)
+	case schema.KindColor:
+		return aetext.Color(packColor(v.C))
+	case schema.KindRect:
+		return aetext.List(
+			aetext.Float32(v.R.X), aetext.Float32(v.R.Y),
+			aetext.Float32(v.R.W), aetext.Float32(v.R.H),
+		)
+	case schema.KindEnum:
+		if name, ok := fd.EnumNameOf(v.I); ok {
+			return aetext.Ident(name)
+		}
+		return aetext.Int(v.I)
+	case schema.KindAssetRef:
+		return aetext.AssetRef(v.Asset.String())
+	case schema.KindNodeRef:
+		return aetext.NodeRef(v.Node.String())
+	case schema.KindList:
+		out := aetext.Value{Kind: aetext.VList}
+		elem := schema.FieldDescriptor{Kind: fd.Elem, Struct: fd.Struct, Enum: fd.Enum}
+		for _, item := range v.List {
+			out.List = append(out.List, w.value(&elem, item))
+		}
+		return out
+	case schema.KindStruct:
+		out := aetext.Value{Kind: aetext.VStruct}
+		if v.Obj == nil {
+			return out
+		}
+		td, ok := w.reg.ByID(v.Obj.Type)
+		if !ok {
+			return out
+		}
+		for i := range td.Fields {
+			if i >= len(v.Obj.Fields) {
+				break
+			}
+			out.Obj = append(out.Obj, aetext.Field{
+				Name:  td.Fields[i].Name,
+				Value: w.value(&td.Fields[i], v.Obj.Fields[i]),
+			})
+		}
+		return out
+	}
+	return aetext.Bool(false)
+}
+
+func vec2Value(v mathx.Vec2) aetext.Value {
+	return aetext.List(aetext.Float32(v.X), aetext.Float32(v.Y))
+}
+
+func packColor(c mathx.Color) uint32 {
+	enc := func(f float32) uint32 {
+		return uint32(mathx.Clamp(mathx.LinearToSRGB(mathx.Clamp(f, 0, 1)), 0, 1)*255 + 0.5)
+	}
+	alpha := uint32(mathx.Clamp(c.A, 0, 1)*255 + 0.5)
+	return enc(c.R)<<24 | enc(c.G)<<16 | enc(c.B)<<8 | alpha
+}

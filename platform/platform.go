@@ -63,6 +63,23 @@ func (m WindowMetrics) Aspect() float32 {
 	return float32(m.PixelW) / float32(m.PixelH)
 }
 
+func (m WindowMetrics) Density() float32 {
+	if m.LogicalW > 0 && m.PixelW > 0 {
+		return float32(m.PixelW) / float32(m.LogicalW)
+	}
+	if m.PixelDensity > 0 {
+		return m.PixelDensity
+	}
+	return 1
+}
+
+func (m WindowMetrics) UIScale() float32 {
+	if m.DisplayScale > 0 {
+		return m.DisplayScale
+	}
+	return 1
+}
+
 type Info struct {
 	OS, Arch, Backend, Version, VideoDriver string
 }

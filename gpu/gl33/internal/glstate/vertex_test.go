@@ -24,7 +24,7 @@ func TestSlotBoundOncePerKey(t *testing.T) {
 	m := &mockVertexAPI{}
 	var b VertexBinding
 	for i := 0; i < 3; i++ {
-		if !b.BindSlot(m, 0, Key{Index: 5, Gen: 1}, 42, attrs()) {
+		if !b.BindSlot(m, 0, Key{Index: 5, Gen: 1}, 42, 0, attrs()) {
 			t.Fatal("bind failed")
 		}
 	}
@@ -36,8 +36,8 @@ func TestSlotBoundOncePerKey(t *testing.T) {
 func TestRecreatedBufferInvalidatesBinding(t *testing.T) {
 	m := &mockVertexAPI{}
 	var b VertexBinding
-	b.BindSlot(m, 0, Key{Index: 5, Gen: 1}, 42, attrs())
-	b.BindSlot(m, 0, Key{Index: 5, Gen: 2}, 42, attrs())
+	b.BindSlot(m, 0, Key{Index: 5, Gen: 1}, 42, 0, attrs())
+	b.BindSlot(m, 0, Key{Index: 5, Gen: 2}, 42, 0, attrs())
 	if len(m.arrayBinds) != 2 {
 		t.Fatalf("same slot index with a new generation must rebind: %v", m.arrayBinds)
 	}
@@ -49,13 +49,13 @@ func TestRecreatedBufferInvalidatesBinding(t *testing.T) {
 func TestSlotsAreIndependent(t *testing.T) {
 	m := &mockVertexAPI{}
 	var b VertexBinding
-	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, attrs())
-	b.BindSlot(m, 1, Key{Index: 2, Gen: 1}, 20, attrs())
+	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, 0, attrs())
+	b.BindSlot(m, 1, Key{Index: 2, Gen: 1}, 20, 0, attrs())
 	if len(m.arrayBinds) != 2 || m.attribs != 3 {
 		t.Fatalf("binds=%v attribs=%d", m.arrayBinds, m.attribs)
 	}
 	m.attribs = 0
-	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, attrs())
+	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, 0, attrs())
 	if m.attribs != 0 {
 		t.Fatal("cached slot was rebound")
 	}
@@ -78,10 +78,10 @@ func TestIndexBinding(t *testing.T) {
 func TestInvalidate(t *testing.T) {
 	m := &mockVertexAPI{}
 	var b VertexBinding
-	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, attrs())
+	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, 0, attrs())
 	b.BindIndex(m, Key{Index: 2, Gen: 1}, 20)
 	b.Invalidate()
-	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, attrs())
+	b.BindSlot(m, 0, Key{Index: 1, Gen: 1}, 10, 0, attrs())
 	b.BindIndex(m, Key{Index: 2, Gen: 1}, 20)
 	if len(m.arrayBinds) != 2 || len(m.elementBinds) != 2 {
 		t.Fatal("invalidate did not force rebind")

@@ -16,6 +16,15 @@ type Configurer interface {
 	Configure(*engine.Config)
 }
 
+type Metric struct {
+	Name  string
+	Value float64
+}
+
+type MetricsReporter interface {
+	ReportMetrics(dst []Metric) []Metric
+}
+
 var Registry = map[string]func() Demo{}
 
 func Register(name string, ctor func() Demo) {

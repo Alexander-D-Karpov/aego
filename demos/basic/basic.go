@@ -4,7 +4,6 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/demos"
-	"aego/demos/internal/overlay"
 	"aego/demos/internal/quad"
 	"aego/engine"
 	"aego/gpu"
@@ -27,7 +26,6 @@ type Demo struct {
 	e          *engine.Engine
 	log        *log.ChannelLogger
 	quad       *quad.Renderer
-	overlay    *overlay.Overlay
 	pos        mathx.Vec2
 	prevPos    mathx.Vec2
 	angle      float32
@@ -54,7 +52,6 @@ func (d *Demo) Init(e *engine.Engine) error {
 	d.quad = q
 	d.vsync = e.VSync()
 	d.fullscreen = e.Config().Fullscreen
-	d.overlay = overlay.New(e)
 	return nil
 }
 
@@ -85,7 +82,6 @@ func (d *Demo) FixedUpdate(dt float64) {
 }
 
 func (d *Demo) Update(dt float64) {
-	d.overlay.Update(dt)
 	in := d.e.Input()
 	if in.KeyPressed(input.KeyEscape) {
 		d.e.Quit()

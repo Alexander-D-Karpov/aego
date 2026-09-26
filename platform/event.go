@@ -18,12 +18,18 @@ const (
 	EvMouseDown
 	EvMouseUp
 	EvMouseWheel
+	EvTextEditing
+	EvDropBegin
+	EvDropFile
+	EvDropText
+	EvDropComplete
 )
 
 var eventKindNames = [...]string{
 	"Quit", "WindowResized", "WindowFocusGained", "WindowFocusLost",
 	"WindowMinimized", "WindowRestored", "KeyDown", "KeyUp", "TextInput",
 	"MouseMove", "MouseDown", "MouseUp", "MouseWheel",
+	"TextEditing", "DropBegin", "DropFile", "DropText", "DropComplete",
 }
 
 func (k EventKind) String() string {
@@ -34,12 +40,15 @@ func (k EventKind) String() string {
 }
 
 type Event struct {
-	Kind   EventKind
-	Key    input.KeyEvent
-	Mouse  input.MouseEvent
-	Text   [32]byte
-	TextN  uint8
-	Window WindowMetrics
+	Kind      EventKind
+	Key       input.KeyEvent
+	Mouse     input.MouseEvent
+	Text      [32]byte
+	TextN     uint8
+	Str       string
+	EditStart int32
+	EditLen   int32
+	Window    WindowMetrics
 }
 
 func (e *Event) TextBytes() []byte {

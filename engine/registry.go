@@ -5,6 +5,7 @@ import (
 
 	"aego/core/errs"
 	"aego/core/log"
+	"aego/core/rng"
 )
 
 type ModuleInfo struct {
@@ -19,8 +20,6 @@ type Module interface {
 
 // ModuleIniter is an optional Module interface. Init runs during Build once the
 // platform, window and device exist, in Use order, after the registry is frozen.
-// Modules that need a live gpu.Device — to compile shaders or allocate buffers —
-// implement it so those failures surface from Build rather than in the first frame.
 type ModuleIniter interface {
 	Init(*Engine) error
 }
@@ -61,30 +60,44 @@ func (p Phase) String() string {
 	return "UnknownPhase"
 }
 
+type SystemScope uint8
+
+const (
+	ScopePlay SystemScope = 1 << iota
+	ScopeEditor
+	ScopeFrame
+)
+
+const ScopeWorld = ScopePlay | ScopeEditor
+
 type Context struct {
 	Engine *Engine
+	World  *World
 	Dt     float64
 	Alpha  float64
 	Frame  uint64
-}
-
-type System interface {
-	Run(*Context)
+	Random *rng.Source
 }
 
 type SystemDesc struct {
 	ID     string
 	Phase  Phase
+	Scope  SystemScope
 	Before []string
 	After  []string
 	System System
+}
+
+type scopedSystem struct {
+	sys   System
+	scope SystemScope
 }
 
 type SystemRegistry struct {
 	reg    *Registry
 	descs  []SystemDesc
 	index  map[string]int
-	phases [phaseCount][]System
+	phases [phaseCount][]scopedSystem
 	order  [phaseCount][]string
 }
 
@@ -101,16 +114,20 @@ func (s *SystemRegistry) Register(d SystemDesc) error {
 	if _, dup := s.index[d.ID]; dup {
 		return errs.New(errs.EngineSystemDup, "duplicate system id", log.F("system", d.ID))
 	}
+	if d.Scope == 0 {
+		d.Scope = ScopePlay
+	}
 	s.index[d.ID] = len(s.descs)
 	s.descs = append(s.descs, d)
 	return nil
 }
 
-func (s *SystemRegistry) Order(p Phase) []string {
-	if int(p) >= phaseCount {
-		return nil
+func (s *SystemRegistry) ScopeOf(id string) (SystemScope, bool) {
+	i, ok := s.index[id]
+	if !ok {
+		return 0, false
 	}
-	return s.order[p]
+	return s.descs[i].Scope, true
 }
 
 func (s *SystemRegistry) freeze() error {
@@ -124,11 +141,23 @@ func (s *SystemRegistry) freeze() error {
 			return err
 		}
 		for _, di := range sorted {
-			s.phases[p] = append(s.phases[p], s.descs[di].System)
-			s.order[p] = append(s.order[p], s.descs[di].ID)
+			d := &s.descs[di]
+			s.phases[p] = append(s.phases[p], scopedSystem{sys: d.System, scope: d.Scope})
+			s.order[p] = append(s.order[p], d.ID)
 		}
 	}
 	return nil
+}
+
+type System interface {
+	Run(*Context)
+}
+
+func (s *SystemRegistry) Order(p Phase) []string {
+	if int(p) >= phaseCount {
+		return nil
+	}
+	return s.order[p]
 }
 
 func (s *SystemRegistry) resolve(p Phase, from, id string) (int, error) {

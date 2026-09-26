@@ -31,6 +31,8 @@ type Config struct {
 	ResRoot           string
 	UserRoot          string
 	AppID             string
+	Seed              uint64
+	LoopScope         SystemScope
 }
 
 func (c Config) withDefaults() Config {
@@ -62,6 +64,9 @@ func (c Config) withDefaults() Config {
 		c.LogLevel = log.Info
 	} else if c.Debug && c.LogLevel == 0 {
 		c.LogLevel = log.Debug
+	}
+	if c.LoopScope == 0 {
+		c.LoopScope = ScopePlay
 	}
 	return c
 }

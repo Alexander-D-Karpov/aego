@@ -155,13 +155,19 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 		return errs.New(errs.GPUResource, "read pixels: must be called after EndFrame")
 	}
 	fbo := d.ensureFBO(t)
-	d.cache.BindFramebuffer(fbo)
-	// The caller's y is top-down; GL reads bottom-up, so flip the origin.
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, fbo)
+	d.cache.Invalidate()
+	if status := gl.CheckFramebufferStatus(gl.READ_FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
+		return errs.New(errs.GPUResource, "read framebuffer is incomplete", log.F("status", status))
+	}
+	gl.ReadBuffer(gl.COLOR_ATTACHMENT0)
 	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
+	for gl.GetError() != gl.NO_ERROR {
+	}
+	// The caller's y is top-down; GL reads bottom-up, so flip the origin.
 	gl.ReadPixels(int32(x), int32(t.h-y-h), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
-	d.cache.BindFramebuffer(0)
-	if err := d.checkError("read pixels", ""); err != nil {
-		return err
+	if e := gl.GetError(); e != gl.NO_ERROR {
+		return errs.New(errs.GPUResource, "glReadPixels failed", log.F("gl", glErrorName(e)))
 	}
 	flipRows(out[:w*h*4], w*4, h)
 	return nil
@@ -351,6 +357,19 @@ func (d *Device) destroyNow(kind resourceKind, index, gen uint32) {
 		d.cache.ForgetVertexArray(vao)
 		gl.DeleteVertexArrays(1, &vao)
 		d.pipelines.Free(h)
+	case kindQuery:
+		h := handle.Handle[glQuery]{Index: index, Gen: gen}
+		q, ok := d.queries.Get(h)
+		if !ok {
+			return
+		}
+		id := q.id
+		if d.activeQuery == id {
+			gl.EndQuery(gl.TIME_ELAPSED)
+			d.activeQuery = 0
+		}
+		gl.DeleteQueries(1, &id)
+		d.queries.Free(h)
 	}
 }
 

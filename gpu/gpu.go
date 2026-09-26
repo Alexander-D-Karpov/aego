@@ -306,3 +306,7 @@ type FrameStats struct {
 	TexSwitches      uint32
 	PipelineSwitches uint32
 }
+
+type queryTag struct{}
+
+type QueryHandle = handle.Handle[queryTag]

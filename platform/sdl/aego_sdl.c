@@ -1,8 +1,18 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include "aego_sdl.h"
 
 static char aego_title_buf[1024];
+static SDL_Cursor* aego_cursors[AEGO_CURSOR_COUNT];
+
+typedef struct {
+	char mime[128];
+	void* data;
+	size_t len;
+	char* text;
+	size_t textlen;
+} aego_clip;
 
 static Uint32 aego_mods(SDL_Keymod m) {
 	Uint32 r = 0;
@@ -31,6 +41,7 @@ bool aego_init(void) {
 }
 
 void aego_quit(void) {
+	aego_free_cursors();
 	SDL_Quit();
 }
 
@@ -156,6 +167,26 @@ int aego_poll(aego_event* e) {
 			e->textn = (int)n;
 		}
 		break;
+	case SDL_EVENT_TEXT_EDITING:
+		e->kind = AEGO_EV_TEXT_EDITING;
+		e->data = ev.edit.text;
+		e->start = ev.edit.start;
+		e->length = ev.edit.length;
+		break;
+	case SDL_EVENT_DROP_BEGIN:
+	case SDL_EVENT_DROP_FILE:
+	case SDL_EVENT_DROP_TEXT:
+	case SDL_EVENT_DROP_COMPLETE:
+		switch (ev.type) {
+		case SDL_EVENT_DROP_BEGIN: e->kind = AEGO_EV_DROP_BEGIN; break;
+		case SDL_EVENT_DROP_FILE: e->kind = AEGO_EV_DROP_FILE; break;
+		case SDL_EVENT_DROP_TEXT: e->kind = AEGO_EV_DROP_TEXT; break;
+		default: e->kind = AEGO_EV_DROP_COMPLETE; break;
+		}
+		e->x = ev.drop.x;
+		e->y = ev.drop.y;
+		e->data = ev.drop.data;
+		break;
 	case SDL_EVENT_MOUSE_MOTION:
 		e->kind = AEGO_EV_MOUSE_MOVE;
 		e->x = ev.motion.x;
@@ -183,4 +214,92 @@ int aego_poll(aego_event* e) {
 		break;
 	}
 	return 1;
+}
+
+void aego_text_input_area(SDL_Window* w, int x, int y, int ww, int hh, int cursor) {
+	SDL_Rect r;
+	r.x = x;
+	r.y = y;
+	r.w = ww;
+	r.h = hh;
+	SDL_SetTextInputArea(w, &r, cursor);
+}
+
+static const void* aego_clip_data(void* userdata, const char* mime, size_t* size) {
+	aego_clip* c = (aego_clip*)userdata;
+	if (mime && c->mime[0] && strcmp(mime, c->mime) == 0) {
+		*size = c->len;
+		return c->data;
+	}
+	if (mime && (strcmp(mime, "text/plain;charset=utf-8") == 0 || strcmp(mime, "text/plain") == 0)) {
+		*size = c->textlen;
+		return c->text;
+	}
+	*size = 0;
+	return NULL;
+}
+
+static void aego_clip_cleanup(void* userdata) {
+	aego_clip* c = (aego_clip*)userdata;
+	free(c->data);
+	free(c->text);
+	free(c);
+}
+
+bool aego_set_clipboard(const char* mime, const void* data, size_t len, const char* text, size_t textlen) {
+	aego_clip* c = (aego_clip*)calloc(1, sizeof(aego_clip));
+	if (!c) return false;
+	if (mime) {
+		strncpy(c->mime, mime, sizeof(c->mime) - 1);
+	}
+	if (len > 0) {
+		c->data = malloc(len);
+		if (!c->data) { aego_clip_cleanup(c); return false; }
+		memcpy(c->data, data, len);
+		c->len = len;
+	}
+	c->text = (char*)malloc(textlen + 1);
+	if (!c->text) { aego_clip_cleanup(c); return false; }
+	if (textlen > 0) memcpy(c->text, text, textlen);
+	c->text[textlen] = 0;
+	c->textlen = textlen;
+	const char* types[3] = { c->mime, "text/plain;charset=utf-8", "text/plain" };
+	if (!SDL_SetClipboardData(aego_clip_data, aego_clip_cleanup, c, types, 3)) {
+		aego_clip_cleanup(c);
+		return false;
+	}
+	return true;
+}
+
+void* aego_get_clipboard(const char* mime, size_t* len) {
+	*len = 0;
+	if (!SDL_HasClipboardData(mime)) return NULL;
+	return SDL_GetClipboardData(mime, len);
+}
+
+void aego_set_cursor(int shape) {
+	SDL_SystemCursor id = SDL_SYSTEM_CURSOR_DEFAULT;
+	switch (shape) {
+	case 1: id = SDL_SYSTEM_CURSOR_TEXT; break;
+	case 2: id = SDL_SYSTEM_CURSOR_POINTER; break;
+	case 3: id = SDL_SYSTEM_CURSOR_MOVE; break;
+	case 4: id = SDL_SYSTEM_CURSOR_EW_RESIZE; break;
+	case 5: id = SDL_SYSTEM_CURSOR_NS_RESIZE; break;
+	case 6: id = SDL_SYSTEM_CURSOR_NWSE_RESIZE; break;
+	case 7: id = SDL_SYSTEM_CURSOR_NESW_RESIZE; break;
+	case 8: id = SDL_SYSTEM_CURSOR_NOT_ALLOWED; break;
+	case 9: id = SDL_SYSTEM_CURSOR_CROSSHAIR; break;
+	default: shape = 0; break;
+	}
+	if (!aego_cursors[shape]) aego_cursors[shape] = SDL_CreateSystemCursor(id);
+	if (aego_cursors[shape]) SDL_SetCursor(aego_cursors[shape]);
+}
+
+void aego_free_cursors(void) {
+	for (int i = 0; i < AEGO_CURSOR_COUNT; i++) {
+		if (aego_cursors[i]) {
+			SDL_DestroyCursor(aego_cursors[i]);
+			aego_cursors[i] = NULL;
+		}
+	}
 }

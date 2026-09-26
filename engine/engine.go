@@ -8,7 +8,9 @@ import (
 	"aego/core/clock"
 	"aego/core/errs"
 	"aego/core/log"
+	"aego/core/rng"
 	"aego/core/stats"
+	"aego/engine/res"
 	"aego/gpu"
 	"aego/gpu/null"
 	"aego/platform"
@@ -38,6 +40,8 @@ type Engine struct {
 	stats     stats.Frame
 	metrics   platform.WindowMetrics
 	ctx       Context
+	main      *World
+	wctx      Context
 	app       App
 	onEvent   func(platform.Event)
 	vsync     platform.VSyncMode
@@ -62,11 +66,11 @@ type Builder struct {
 }
 
 func NewBuilder(cfg Config) *Builder {
-	b := &Builder{cfg: cfg, reg: newRegistry(), eng: &Engine{}}
+	b := &Builder{cfg: cfg, reg: newRegistry(), eng: &Engine{main: NewWorld("main")}}
 	sys := b.reg.Systems()
-	_ = sys.Register(SystemDesc{ID: SystemAppFixed, Phase: PhasePhysics, System: &appSystem{e: b.eng, kind: appFixed}})
-	_ = sys.Register(SystemDesc{ID: SystemAppUpdate, Phase: PhaseUpdate, System: &appSystem{e: b.eng, kind: appUpdate}})
-	_ = sys.Register(SystemDesc{ID: SystemAppRender, Phase: PhaseRender, System: &appSystem{e: b.eng, kind: appRender}})
+	_ = sys.Register(SystemDesc{ID: SystemAppFixed, Phase: PhasePhysics, Scope: ScopeFrame, System: &appSystem{e: b.eng, kind: appFixed}})
+	_ = sys.Register(SystemDesc{ID: SystemAppUpdate, Phase: PhaseUpdate, Scope: ScopeFrame, System: &appSystem{e: b.eng, kind: appUpdate}})
+	_ = sys.Register(SystemDesc{ID: SystemAppRender, Phase: PhaseRender, Scope: ScopeFrame, System: &appSystem{e: b.eng, kind: appRender}})
 	return b
 }
 
@@ -132,6 +136,7 @@ func (b *Builder) Build() (*Engine, error) {
 	e.elog = logger.With(log.Engine)
 	e.reg = b.reg
 	e.ctx.Engine = e
+	e.ctx.World = e.main
 	e.onEvent = e.handleEvent
 	e.counter = stats.NewCounter()
 	e.stepper = clock.FixedStepper{
@@ -147,6 +152,7 @@ func (b *Builder) Build() (*Engine, error) {
 	files, err := vfs.New(
 		vfs.Mount{Scheme: "res", Root: cfg.ResRoot, ReadOnly: true},
 		vfs.Mount{Scheme: "user", Root: cfg.userRoot()},
+		vfs.Mount{Scheme: "engine", Source: res.Source(), ReadOnly: true},
 	)
 	if err != nil {
 		e.Close()
@@ -154,6 +160,7 @@ func (b *Builder) Build() (*Engine, error) {
 	}
 	e.files = files
 	e.jobs = newJobs(cfg.Workers)
+	e.ctx.Random = rng.New(cfg.Seed)
 	e.logStartup()
 	if err := b.initModules(e); err != nil {
 		e.Close()

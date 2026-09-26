@@ -5,6 +5,7 @@ import (
 
 	"aego/core/clock"
 	"aego/core/errs"
+	"aego/core/mathx"
 	"aego/platform"
 )
 
@@ -13,20 +14,23 @@ type Options struct {
 }
 
 type Platform struct {
-	opts   Options
-	clock  *clock.Clock
-	sim    float64
-	win    *Window
-	queue  []platform.Event
-	events []platform.Event
+	opts     Options
+	clock    *clock.Clock
+	sim      float64
+	win      *Window
+	queue    []platform.Event
+	events   []platform.Event
+	clipText string
+	clipData map[string][]byte
 }
 
 func New(opts Options) *Platform {
 	return &Platform{
-		opts:   opts,
-		clock:  clock.New(),
-		queue:  make([]platform.Event, 0, 16),
-		events: make([]platform.Event, 0, 16),
+		opts:     opts,
+		clock:    clock.New(),
+		queue:    make([]platform.Event, 0, 16),
+		events:   make([]platform.Event, 0, 16),
+		clipData: map[string][]byte{},
 	}
 }
 
@@ -103,6 +107,10 @@ type Window struct {
 	metrics    platform.WindowMetrics
 	vsync      platform.VSyncMode
 	fullscreen bool
+	textInput  bool
+	textArea   mathx.Rect
+	cursor     platform.CursorShape
+	captured   bool
 }
 
 func (w *Window) Metrics() platform.WindowMetrics {
@@ -124,6 +132,70 @@ func (w *Window) Fullscreen() bool {
 	return w.fullscreen
 }
 
+func (w *Window) StartTextInput() {
+	w.textInput = true
+}
+
+func (w *Window) StopTextInput() {
+	w.textInput = false
+}
+
+func (w *Window) TextInputActive() bool {
+	return w.textInput
+}
+
+func (w *Window) SetTextInputArea(r mathx.Rect, cursor int) {
+	w.textArea = r
+}
+
+func (w *Window) ClipboardText() string {
+	if w.p == nil {
+		return ""
+	}
+	return w.p.clipText
+}
+
+func (w *Window) SetClipboardText(s string) {
+	if w.p == nil {
+		return
+	}
+	w.p.clipText = s
+	clear(w.p.clipData)
+}
+
+func (w *Window) SetClipboardData(mime string, data []byte, text string) bool {
+	if w.p == nil {
+		return false
+	}
+	clear(w.p.clipData)
+	w.p.clipData[mime] = append([]byte(nil), data...)
+	w.p.clipText = text
+	return true
+}
+
+func (w *Window) ClipboardData(mime string) ([]byte, bool) {
+	if w.p == nil {
+		return nil, false
+	}
+	d, ok := w.p.clipData[mime]
+	if !ok {
+		return nil, false
+	}
+	return append([]byte(nil), d...), true
+}
+
+func (w *Window) SetCursor(s platform.CursorShape) {
+	w.cursor = s
+}
+
+func (w *Window) Cursor() platform.CursorShape {
+	return w.cursor
+}
+
+func (w *Window) CaptureMouse(on bool) {
+	w.captured = on
+}
+
 func (w *Window) SwapBuffers() {}
 
 func (w *Window) Close() {
@@ -131,3 +203,10 @@ func (w *Window) Close() {
 		w.p.win = nil
 	}
 }
+
+var (
+	_ platform.TextInputer   = (*Window)(nil)
+	_ platform.Clipboard     = (*Window)(nil)
+	_ platform.Cursorer      = (*Window)(nil)
+	_ platform.MouseCapturer = (*Window)(nil)
+)

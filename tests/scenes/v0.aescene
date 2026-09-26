@@ -1,0 +1,9 @@
+scene version=0 {
+  node "3f9a0c21d4e84b7d9a1f2b3c4d5e6f70" name="Player" enabled=true layers=1 {
+    transform {
+      pos=[100, 200]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+}

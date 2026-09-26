@@ -1,6 +1,9 @@
 package input
 
-import "strings"
+import (
+	"runtime"
+	"strings"
+)
 
 type Scancode uint16
 
@@ -174,6 +177,24 @@ var namedKeys = map[Scancode]string{
 	KeyRShift:       "RShift",
 	KeyRAlt:         "RAlt",
 	KeyRGUI:         "RGUI",
+}
+
+func PrimaryMod() Mods {
+	if runtime.GOOS == "darwin" {
+		return ModSuper
+	}
+	return ModCtrl
+}
+
+func WordMod() Mods {
+	if runtime.GOOS == "darwin" {
+		return ModAlt
+	}
+	return ModCtrl
+}
+
+func (m Mods) Primary() bool {
+	return m&PrimaryMod() != 0
 }
 
 func (s Scancode) Valid() bool {

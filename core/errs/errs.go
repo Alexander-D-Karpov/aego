@@ -35,6 +35,49 @@ const (
 	EngineSystemDep   Code = "engine.system.unknown_dependency"
 	EngineSystemPhase Code = "engine.system.phase_mismatch"
 	EngineSystemCycle Code = "engine.system.cycle"
+	IDBadFormat       Code = "ids.bad_format"
+	SchemaFrozen      Code = "schema.frozen"
+	SchemaDuplicate   Code = "schema.duplicate"
+	SchemaCollision   Code = "schema.hash_collision"
+	SchemaBadField    Code = "schema.bad_field"
+	SchemaBadValue    Code = "schema.bad_value"
+	SchemaUnknownType Code = "schema.unknown_type"
+	SchemaNotStruct   Code = "schema.not_struct"
+
+	SceneDeadNode         Code = "scene.dead_node"
+	SceneBadReparent      Code = "scene.bad_reparent"
+	SceneUnknownComponent Code = "scene.unknown_component"
+	SceneNoComponent      Code = "scene.no_component"
+	SceneReadOnly         Code = "scene.read_only"
+
+	AssetBadIndex    Code = "asset.bad_index"
+	AssetBadArtifact Code = "asset.bad_artifact"
+	AssetNotFound    Code = "asset.not_found"
+	AssetLoadFailed  Code = "asset.load_failed"
+	AssetNotMounted  Code = "asset.not_mounted"
+
+	AssetBadMeta        Code = "asset.bad_meta"
+	AssetBadImporter    Code = "asset.bad_importer"
+	AssetImportFailed   Code = "asset.import_failed"
+	AssetNoProject      Code = "asset.no_project"
+	AssetSourceUnstable Code = "asset.source_unstable"
+
+	ProjectNotFound Code = "project.not_found"
+	ProjectBadFile  Code = "project.bad_file"
+	ProjectExists   Code = "project.exists"
+
+	SceneIOParse   Code = "sceneio.parse"
+	SceneIOVersion Code = "sceneio.version"
+	SceneIOStrict  Code = "sceneio.strict"
+	SceneIOMigrate Code = "sceneio.migrate"
+
+	BuildFailed Code = "build.failed"
+
+	UIBadLayout   Code = "ui.bad_layout"
+	EditorHistory Code = "editor.history"
+	EditorProps   Code = "editor.props"
+	EditorCommand Code = "editor.command"
+	RenderTarget  Code = "render.target"
 )
 
 type Error struct {

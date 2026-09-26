@@ -17,6 +17,11 @@
 #define AEGO_EV_MOUSE_DOWN    10
 #define AEGO_EV_MOUSE_UP      11
 #define AEGO_EV_WHEEL         12
+#define AEGO_EV_TEXT_EDITING  13
+#define AEGO_EV_DROP_BEGIN    14
+#define AEGO_EV_DROP_FILE     15
+#define AEGO_EV_DROP_TEXT     16
+#define AEGO_EV_DROP_COMPLETE 17
 
 #define AEGO_MOD_SHIFT  1
 #define AEGO_MOD_CTRL   2
@@ -33,6 +38,7 @@
 #define AEGO_BTN_OTHER  7
 
 #define AEGO_TEXT_CAPACITY 32
+#define AEGO_CURSOR_COUNT  16
 
 typedef struct {
 	int kind;
@@ -44,6 +50,9 @@ typedef struct {
 	float x, y, dx, dy, wx, wy;
 	int textn;
 	char text[AEGO_TEXT_CAPACITY];
+	const char* data;
+	int start;
+	int length;
 } aego_event;
 
 typedef struct {
@@ -72,5 +81,11 @@ int aego_get_swap_interval(void);
 void* aego_gl_proc(const char* name);
 
 int aego_poll(aego_event* e);
+
+void aego_text_input_area(SDL_Window* w, int x, int y, int ww, int hh, int cursor);
+bool aego_set_clipboard(const char* mime, const void* data, size_t len, const char* text, size_t textlen);
+void* aego_get_clipboard(const char* mime, size_t* len);
+void aego_set_cursor(int shape);
+void aego_free_cursors(void);
 
 #endif

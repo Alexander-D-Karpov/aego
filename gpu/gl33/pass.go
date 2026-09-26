@@ -9,8 +9,10 @@ import (
 )
 
 type frame struct {
-	d     *Device
-	stats gpu.FrameStats
+	d      *Device
+	stats  gpu.FrameStats
+	qAvail int32
+	qNS    uint64
 }
 
 func (f *frame) BeginPass(desc gpu.PassDesc) gpu.Pass {
@@ -27,10 +29,12 @@ type pass struct {
 	flipY   bool
 	pipe    *glPipeline
 	vb      [gpu.MaxVertexSlots]gpu.BufferHandle
+	vbOff   [gpu.MaxVertexSlots]int
 	ib      gpu.BufferHandle
 	ibType  uint32
 	ibSize  int
 	targetH int
+	query   gpu.QueryHandle
 }
 
 func (d *Device) beginPass(desc gpu.PassDesc) gpu.Pass {
@@ -106,12 +110,18 @@ func (p *pass) SetPipeline(h gpu.PipelineHandle) {
 }
 
 func (p *pass) SetVertexBuffer(slot int, h gpu.BufferHandle) {
-	if slot < 0 || slot >= gpu.MaxVertexSlots {
+	p.SetVertexBufferAt(slot, h, 0)
+}
+
+func (p *pass) SetVertexBufferAt(slot int, h gpu.BufferHandle, offsetBytes int) {
+	if slot < 0 || slot >= gpu.MaxVertexSlots || offsetBytes < 0 {
 		return
 	}
 	p.vb[slot] = gpu.BufferHandle{}
+	p.vbOff[slot] = 0
 	if b, ok := p.d.buffers.Get(handle.Cast[glBuffer](h)); ok && b.usage == gpu.BufferVertex {
 		p.vb[slot] = h
+		p.vbOff[slot] = offsetBytes
 	}
 }
 
@@ -168,7 +178,8 @@ func (p *pass) prepare(indexed bool) *glPipeline {
 		if !ok {
 			return nil
 		}
-		if !pl.bind.BindSlot(p.d.api, s, glstate.Key{Index: h.Index, Gen: h.Gen}, b.id, pl.attrs) {
+		key := glstate.Key{Index: h.Index, Gen: h.Gen, Offset: uint32(p.vbOff[s])}
+		if !pl.bind.BindSlot(p.d.api, s, key, b.id, p.vbOff[s], pl.attrs) {
 			return nil
 		}
 	}

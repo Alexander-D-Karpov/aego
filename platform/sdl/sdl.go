@@ -61,6 +61,13 @@ func boolInt(b bool) C.int {
 	return 0
 }
 
+func goStr(p *C.char) string {
+	if p == nil {
+		return ""
+	}
+	return C.GoString(p)
+}
+
 func (p *Platform) CreateWindow(desc platform.WindowDesc) (platform.Window, error) {
 	if p.win != nil {
 		return nil, errs.New(errs.PlatformWindow, "only one window is supported")
@@ -87,8 +94,9 @@ func (p *Platform) CreateWindow(desc platform.WindowDesc) (platform.Window, erro
 		C.SDL_DestroyWindow(sw)
 		return nil, err
 	}
-	w := &Window{p: p, win: sw, ctx: ctx, fullscreen: desc.Fullscreen}
+	w := &Window{p: p, win: sw, ctx: ctx, fullscreen: desc.Fullscreen, cursor: 255}
 	w.SetVSync(desc.VSync)
+	C.SDL_StopTextInput(sw)
 	if !desc.Hidden {
 		C.SDL_ShowWindow(sw)
 	}
@@ -147,6 +155,24 @@ func (p *Platform) translate() (platform.Event, bool) {
 			ev.Text[i] = byte(c.text[i])
 		}
 		ev.TextN = uint8(n)
+	case C.AEGO_EV_TEXT_EDITING:
+		ev.Kind = platform.EvTextEditing
+		ev.Str = goStr(c.data)
+		ev.EditStart = int32(c.start)
+		ev.EditLen = int32(c.length)
+	case C.AEGO_EV_DROP_BEGIN, C.AEGO_EV_DROP_FILE, C.AEGO_EV_DROP_TEXT, C.AEGO_EV_DROP_COMPLETE:
+		switch c.kind {
+		case C.AEGO_EV_DROP_BEGIN:
+			ev.Kind = platform.EvDropBegin
+		case C.AEGO_EV_DROP_FILE:
+			ev.Kind = platform.EvDropFile
+		case C.AEGO_EV_DROP_TEXT:
+			ev.Kind = platform.EvDropText
+		default:
+			ev.Kind = platform.EvDropComplete
+		}
+		ev.Str = goStr(c.data)
+		ev.Mouse.Pos = mathx.Vec2{X: float32(c.x), Y: float32(c.y)}
 	case C.AEGO_EV_MOUSE_MOVE:
 		ev.Kind = platform.EvMouseMove
 		ev.Mouse = input.MouseEvent{
@@ -202,6 +228,8 @@ type Window struct {
 	metrics    platform.WindowMetrics
 	vsync      platform.VSyncMode
 	fullscreen bool
+	cursor     platform.CursorShape
+	textInput  bool
 }
 
 func (w *Window) refresh() {
@@ -254,10 +282,88 @@ func (w *Window) SetFullscreen(on bool) {
 
 func (w *Window) SetTextInput(on bool) {
 	if on {
-		C.SDL_StartTextInput(w.win)
+		w.StartTextInput()
 	} else {
-		C.SDL_StopTextInput(w.win)
+		w.StopTextInput()
 	}
+}
+
+func (w *Window) StartTextInput() {
+	if w.win == nil || w.textInput {
+		return
+	}
+	C.SDL_StartTextInput(w.win)
+	w.textInput = true
+}
+
+func (w *Window) StopTextInput() {
+	if w.win == nil || !w.textInput {
+		return
+	}
+	C.SDL_StopTextInput(w.win)
+	w.textInput = false
+}
+
+func (w *Window) SetTextInputArea(r mathx.Rect, cursor int) {
+	if w.win == nil {
+		return
+	}
+	C.aego_text_input_area(w.win, C.int(r.X), C.int(r.Y), C.int(r.W), C.int(r.H), C.int(cursor))
+}
+
+func (w *Window) ClipboardText() string {
+	p := C.SDL_GetClipboardText()
+	if p == nil {
+		return ""
+	}
+	s := C.GoString(p)
+	C.SDL_free(unsafe.Pointer(p))
+	return s
+}
+
+func (w *Window) SetClipboardText(s string) {
+	cs := C.CString(s)
+	defer C.free(unsafe.Pointer(cs))
+	C.SDL_SetClipboardText(cs)
+}
+
+func (w *Window) SetClipboardData(mime string, data []byte, text string) bool {
+	cm := C.CString(mime)
+	defer C.free(unsafe.Pointer(cm))
+	var dp unsafe.Pointer
+	if len(data) > 0 {
+		dp = unsafe.Pointer(&data[0])
+	}
+	var tp *C.char
+	if len(text) > 0 {
+		tp = (*C.char)(unsafe.Pointer(unsafe.StringData(text)))
+	}
+	return bool(C.aego_set_clipboard(cm, dp, C.size_t(len(data)), tp, C.size_t(len(text))))
+}
+
+func (w *Window) ClipboardData(mime string) ([]byte, bool) {
+	cm := C.CString(mime)
+	defer C.free(unsafe.Pointer(cm))
+	var n C.size_t
+	p := C.aego_get_clipboard(cm, &n)
+	if p == nil {
+		return nil, false
+	}
+	out := C.GoBytes(p, C.int(n))
+	C.SDL_free(p)
+	return out, true
+}
+
+func (w *Window) SetCursor(shape platform.CursorShape) {
+	if shape == w.cursor {
+		return
+	}
+	w.cursor = shape
+	C.aego_set_cursor(C.int(shape))
+}
+
+func (w *Window) CaptureMouse(on bool) {
+	C.SDL_CaptureMouse(C.bool(on))
 }
 
 func (w *Window) SwapBuffers() {
@@ -291,3 +397,10 @@ func (w *Window) Close() {
 		w.p.win = nil
 	}
 }
+
+var (
+	_ platform.TextInputer   = (*Window)(nil)
+	_ platform.Clipboard     = (*Window)(nil)
+	_ platform.Cursorer      = (*Window)(nil)
+	_ platform.MouseCapturer = (*Window)(nil)
+)

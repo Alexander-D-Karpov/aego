@@ -162,6 +162,12 @@ func (d *Device) DestroyPipeline(h gpu.PipelineHandle) {
 	d.destroy(kindPipeline, h.Index, h.Gen)
 }
 
+func (d *Device) CreateQuery() (gpu.QueryHandle, error) {
+	return gpu.QueryHandle{}, errs.New(errs.GPUResource, "null backend does not support timer queries")
+}
+
+func (d *Device) DestroyQuery(h gpu.QueryHandle) {}
+
 func (d *Device) destroy(kind resourceKind, index, gen uint32) {
 	if d.inFrame {
 		d.pending = append(d.pending, pending{kind: kind, index: index, gen: gen})
@@ -226,6 +232,10 @@ func (f *frame) Stats() gpu.FrameStats {
 	return f.stats
 }
 
+func (f *frame) QueryResult(h gpu.QueryHandle) (uint64, bool) {
+	return 0, false
+}
+
 type pass struct {
 	d        *Device
 	active   bool
@@ -246,6 +256,8 @@ func (p *pass) SetPipeline(h gpu.PipelineHandle) {
 }
 
 func (p *pass) SetVertexBuffer(int, gpu.BufferHandle) {}
+
+func (p *pass) SetVertexBufferAt(int, gpu.BufferHandle, int) {}
 
 func (p *pass) SetIndexBuffer(gpu.BufferHandle) {}
 
@@ -287,6 +299,10 @@ func (p *pass) count(n, instances int) {
 	s.Vertices += uint32(n * instances)
 	s.Triangles += uint32(gpu.TriangleCount(prim, n) * instances)
 }
+
+func (p *pass) BeginQuery(gpu.QueryHandle) {}
+
+func (p *pass) EndQuery() {}
 
 func (p *pass) End() {
 	p.active = false

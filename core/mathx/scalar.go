@@ -63,6 +63,10 @@ func Cos(v float32) float32 {
 	return float32(math.Cos(float64(v)))
 }
 
+func Atan2(y, x float32) float32 {
+	return float32(math.Atan2(float64(y), float64(x)))
+}
+
 func NearlyEqual(a, b, eps float32) bool {
 	return Abs(a-b) <= eps
 }

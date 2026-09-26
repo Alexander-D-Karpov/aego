@@ -30,6 +30,7 @@ const (
 	flagDown uint8 = 1 << iota
 	flagPressed
 	flagReleased
+	flagRepeat
 )
 
 type KeyEvent struct {
@@ -76,7 +77,7 @@ func (s *State) BeginFrame() {
 func (s *State) Reset() {
 	for i, v := range s.f.Keys {
 		if v&flagDown != 0 {
-			s.f.Keys[i] = (v &^ flagDown) | flagReleased
+			s.f.Keys[i] = (v &^ (flagDown | flagRepeat)) | flagReleased
 		}
 	}
 	for i, v := range s.f.Buttons {
@@ -91,10 +92,18 @@ func (s *State) Reset() {
 
 func (s *State) ApplyKeyDown(scan Scancode, key Keycode, mods Mods, repeat bool) {
 	s.f.Mods = mods
-	if !scan.Valid() || repeat {
+	if !scan.Valid() {
+		return
+	}
+	if repeat {
+		s.f.Keys[scan] |= flagRepeat
 		return
 	}
 	apply(&s.f.Keys[scan], true)
+}
+
+func (s *State) KeyRepeated(k Scancode) bool {
+	return int(k) < ScancodeCount && s.f.Keys[k]&(flagPressed|flagRepeat) != 0
 }
 
 func (s *State) ApplyKeyUp(scan Scancode, key Keycode, mods Mods) {

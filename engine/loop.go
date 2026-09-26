@@ -26,8 +26,37 @@ func (e *Engine) Step(app App) bool {
 }
 
 func (e *Engine) runPhase(p Phase) {
+	mask := ScopeFrame | e.cfg.LoopScope
 	for _, s := range e.reg.systems.phases[p] {
-		s.Run(&e.ctx)
+		if s.scope&mask != 0 {
+			s.sys.Run(&e.ctx)
+		}
+	}
+}
+
+func (e *Engine) RunPhase(w *World, p Phase, scope SystemScope, dt, alpha float64) {
+	if w == nil || int(p) >= phaseCount {
+		return
+	}
+	saved := e.wctx
+	e.wctx = Context{Engine: e, World: w, Dt: dt, Alpha: alpha, Frame: e.frameNo, Random: e.ctx.Random}
+	for _, s := range e.reg.systems.phases[p] {
+		if s.scope&scope != 0 {
+			s.sys.Run(&e.wctx)
+		}
+	}
+	e.wctx = saved
+}
+
+func (e *Engine) RunFixed(w *World, scope SystemScope, dt float64) {
+	for p := PhaseFixedBegin; p <= PhaseFixedEnd; p++ {
+		e.RunPhase(w, p, scope, dt, 0)
+	}
+}
+
+func (e *Engine) RunVariable(w *World, scope SystemScope, dt, alpha float64) {
+	for p := PhasePreUpdate; p <= PhaseAnimation; p++ {
+		e.RunPhase(w, p, scope, dt, alpha)
 	}
 }
 
