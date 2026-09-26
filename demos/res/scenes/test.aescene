@@ -1,0 +1,77 @@
+scene version=1 {
+  node "0a1b2c3d4e5f60718293a4b5c6d7e8f9" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera" version=1 {
+      zoom=48
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#0a0d12ff
+      scale=free
+      virtual=[0, 0]
+      active=true
+    }
+  }
+  node "1b2c3d4e5f60718293a4b5c6d7e8f90a" name="Background" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("aaaaaaaabbbbbbbbccccccccdddddddd")
+      layer=0
+      order=0
+      tint=#1e2633ff
+      origin=[0.5, 0.5]
+      size=[20, 12]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "2c3d4e5f60718293a4b5c6d7e8f90a1b" name="Spinner" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("aaaaaaaabbbbbbbbccccccccdddddddd")
+      layer=1
+      order=0
+      tint=#e07b39ff
+      origin=[0.5, 0.5]
+      size=[2, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    node "3d4e5f60718293a4b5c6d7e8f90a1b2c" name="Satellite" enabled=true layers=1 {
+      transform {
+        position=[3, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("aaaaaaaabbbbbbbbccccccccdddddddd")
+        layer=1
+        order=1
+        tint=#52a7c9ff
+        origin=[0.5, 0.5]
+        size=[0.8, 0.8]
+        flipX=false
+        flipY=false
+        blend=premultiplied
+        filter=nearest
+      }
+    }
+  }
+}

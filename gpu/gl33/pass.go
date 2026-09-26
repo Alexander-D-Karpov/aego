@@ -1,0 +1,235 @@
+package gl33
+
+import (
+	"aego/core/handle"
+	"aego/core/mathx"
+	"aego/gpu"
+	"aego/gpu/gl33/gl"
+	"aego/gpu/gl33/internal/glstate"
+)
+
+type frame struct {
+	d      *Device
+	stats  gpu.FrameStats
+	qAvail int32
+	qNS    uint64
+}
+
+func (f *frame) BeginPass(desc gpu.PassDesc) gpu.Pass {
+	return f.d.beginPass(desc)
+}
+
+func (f *frame) Stats() gpu.FrameStats {
+	return f.stats
+}
+
+type pass struct {
+	d       *Device
+	active  bool
+	flipY   bool
+	pipe    *glPipeline
+	vb      [gpu.MaxVertexSlots]gpu.BufferHandle
+	vbOff   [gpu.MaxVertexSlots]int
+	ib      gpu.BufferHandle
+	ibType  uint32
+	ibSize  int
+	targetH int
+	query   gpu.QueryHandle
+}
+
+func (d *Device) beginPass(desc gpu.PassDesc) gpu.Pass {
+	p := &d.pass
+	if p.active {
+		d.log.Warn("previous render pass was not ended")
+	}
+	*p = pass{d: d, active: true, flipY: desc.Target.IsZero()}
+	fbo, w, h := uint32(0), d.fbW, d.fbH
+	if !desc.Target.IsZero() {
+		if t, ok := d.textures.Get(handle.Cast[glTexture](desc.Target)); ok {
+			fbo = d.ensureFBO(t)
+			w, h = t.w, t.h
+		} else {
+			d.log.Warn("render target handle is invalid, drawing to window")
+		}
+	}
+	p.targetH = h
+	d.cache.BindFramebuffer(fbo)
+	d.cache.SetViewport(glstate.Rect{W: int32(w), H: int32(h)})
+	d.cache.SetScissor(false, glstate.Rect{})
+	var mask uint32
+	if desc.Color == gpu.LoadClear {
+		c := desc.ClearColor
+		gl.ClearColor(c.R, c.G, c.B, c.A)
+		mask |= gl.COLOR_BUFFER_BIT
+	}
+	if desc.Depth == gpu.LoadClear {
+		gl.ClearDepth(float64(desc.ClearDepth))
+		d.cache.SetDepth(glstate.Depth{Write: true, Func: gl.LESS})
+		mask |= gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT
+	}
+	if mask != 0 {
+		gl.Clear(mask)
+	}
+	return p
+}
+
+func (p *pass) rect(r mathx.Rect) glstate.Rect {
+	x, y, w, h := int32(r.X), int32(r.Y), int32(r.W), int32(r.H)
+	if p.flipY {
+		y = int32(p.targetH) - y - h
+	}
+	return glstate.Rect{X: x, Y: y, W: w, H: h}
+}
+
+func (p *pass) SetViewport(r mathx.Rect) {
+	p.d.cache.SetViewport(p.rect(r))
+}
+
+func (p *pass) SetScissor(r mathx.Rect, enabled bool) {
+	p.d.cache.SetScissor(enabled, p.rect(r))
+}
+
+func (p *pass) SetPipeline(h gpu.PipelineHandle) {
+	pl, ok := p.d.pipelines.Get(handle.Cast[glPipeline](h))
+	if !ok {
+		p.pipe = nil
+		return
+	}
+	c := p.d.cache
+	changed := c.UseProgram(pl.program)
+	if c.BindVertexArray(pl.vao) {
+		changed = true
+	}
+	c.SetBlend(pl.blend)
+	c.SetDepth(pl.depth)
+	c.SetCull(pl.cull)
+	if changed || p.pipe != pl {
+		p.d.frame.stats.PipelineSwitches++
+	}
+	p.pipe = pl
+}
+
+func (p *pass) SetVertexBuffer(slot int, h gpu.BufferHandle) {
+	p.SetVertexBufferAt(slot, h, 0)
+}
+
+func (p *pass) SetVertexBufferAt(slot int, h gpu.BufferHandle, offsetBytes int) {
+	if slot < 0 || slot >= gpu.MaxVertexSlots || offsetBytes < 0 {
+		return
+	}
+	p.vb[slot] = gpu.BufferHandle{}
+	p.vbOff[slot] = 0
+	if b, ok := p.d.buffers.Get(handle.Cast[glBuffer](h)); ok && b.usage == gpu.BufferVertex {
+		p.vb[slot] = h
+		p.vbOff[slot] = offsetBytes
+	}
+}
+
+func (p *pass) SetIndexBuffer(h gpu.BufferHandle) {
+	p.ib = gpu.BufferHandle{}
+	b, ok := p.d.buffers.Get(handle.Cast[glBuffer](h))
+	if !ok || b.usage != gpu.BufferIndex {
+		return
+	}
+	p.ib = h
+	p.ibSize = b.index.Size()
+	p.ibType = gl.UNSIGNED_SHORT
+	if b.index == gpu.Index32 {
+		p.ibType = gl.UNSIGNED_INT
+	}
+}
+
+func (p *pass) SetUniformBuffer(slot int, h gpu.BufferHandle) {
+	if b, ok := p.d.buffers.Get(handle.Cast[glBuffer](h)); ok && b.usage == gpu.BufferUniform {
+		p.d.cache.BindUniformBuffer(slot, b.id)
+	}
+}
+
+func (p *pass) SetTexture(slot int, t gpu.TextureHandle, s gpu.SamplerHandle) {
+	if slot < 0 || slot >= scratchUnit {
+		return
+	}
+	var texID, smpID uint32
+	if tex, ok := p.d.textures.Get(handle.Cast[glTexture](t)); ok {
+		texID = tex.id
+	}
+	if smp, ok := p.d.samplers.Get(handle.Cast[glSampler](s)); ok {
+		smpID = smp.id
+	}
+	if p.d.cache.BindTexture(slot, texID) {
+		p.d.frame.stats.TexSwitches++
+	}
+	p.d.cache.BindSampler(slot, smpID)
+}
+
+func (p *pass) prepare(indexed bool) *glPipeline {
+	pl := p.pipe
+	if pl == nil || !p.active {
+		return nil
+	}
+	p.d.cache.UseProgram(pl.program)
+	p.d.cache.BindVertexArray(pl.vao)
+	for s := 0; s < gpu.MaxVertexSlots; s++ {
+		if !pl.used[s] {
+			continue
+		}
+		h := p.vb[s]
+		b, ok := p.d.buffers.Get(handle.Cast[glBuffer](h))
+		if !ok {
+			return nil
+		}
+		key := glstate.Key{Index: h.Index, Gen: h.Gen, Offset: uint32(p.vbOff[s])}
+		if !pl.bind.BindSlot(p.d.api, s, key, b.id, p.vbOff[s], pl.attrs) {
+			return nil
+		}
+	}
+	if indexed {
+		b, ok := p.d.buffers.Get(handle.Cast[glBuffer](p.ib))
+		if !ok {
+			return nil
+		}
+		if !pl.bind.BindIndex(p.d.api, glstate.Key{Index: p.ib.Index, Gen: p.ib.Gen}, b.id) {
+			return nil
+		}
+	}
+	return pl
+}
+
+func (p *pass) count(pl *glPipeline, n, instances int) {
+	s := &p.d.frame.stats
+	s.DrawCalls++
+	s.Vertices += uint32(n * instances)
+	s.Triangles += uint32(gpu.TriangleCount(pl.prim, n) * instances)
+}
+
+func (p *pass) Draw(first, count int) {
+	if pl := p.prepare(false); pl != nil {
+		gl.DrawArrays(pl.mode, int32(first), int32(count))
+		p.count(pl, count, 1)
+	}
+}
+
+func (p *pass) DrawIndexed(count, first int) {
+	if pl := p.prepare(true); pl != nil {
+		gl.DrawElements(pl.mode, int32(count), p.ibType, offsetPtr(first*p.ibSize))
+		p.count(pl, count, 1)
+	}
+}
+
+func (p *pass) DrawInstanced(count, instances int) {
+	if pl := p.prepare(false); pl != nil {
+		gl.DrawArraysInstanced(pl.mode, 0, int32(count), int32(instances))
+		p.count(pl, count, instances)
+	}
+}
+
+func (p *pass) DrawIndexedInstanced(count, first, instances int) {
+	if pl := p.prepare(true); pl != nil {
+		gl.DrawElementsInstanced(pl.mode, int32(count), p.ibType, offsetPtr(first*p.ibSize), int32(instances))
+		p.count(pl, count, instances)
+	}
+}
+
+func (p *pass) End() {
+	p.active = false
+}

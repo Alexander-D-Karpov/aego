@@ -1,0 +1,42 @@
+{
+  "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)": {
+    "demo": "",
+    "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+    "frames": 600,
+    "cpuRenderMs": 7.774508596666664,
+    "gpuMs": 0.49204112333333333,
+    "frameMs": 8.076929525000004,
+    "drawCalls": 8,
+    "batches": 7,
+    "sprites": 6135.69,
+    "allocsPerFrame": 4.993333333333333
+  },
+  "stress-scene|Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)": {
+    "demo": "stress-scene",
+    "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+    "frames": 600,
+    "cpuRenderMs": 3.9959817683333236,
+    "gpuMs": 0.2788946666666669,
+    "frameMs": 4.644484229999995,
+    "drawCalls": 1,
+    "batches": 1,
+    "sprites": 11512.93,
+    "allocsPerFrame": 0.0016666666666666668,
+    "extra": {
+      "extractMs": 3.9012460333333183,
+      "transformMs": 0.6319833600000309
+    }
+  },
+  "stress|Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)": {
+    "demo": "stress",
+    "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+    "frames": 600,
+    "cpuRenderMs": 7.897072719999995,
+    "gpuMs": 0.502236851666667,
+    "frameMs": 8.208117101666664,
+    "drawCalls": 2,
+    "batches": 1,
+    "sprites": 5949.825,
+    "allocsPerFrame": 0.0016666666666666668
+  }
+}

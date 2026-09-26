@@ -1,0 +1,7 @@
+.cache/
+.aego/
+exports/
+/sandbox
+/sandbox.exe
+.idea/
+.vscode/

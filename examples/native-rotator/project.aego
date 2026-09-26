@@ -1,0 +1,11 @@
+project version=1 {
+  name="Rotator"
+  module="rotator"
+  mainScene=asset("5d3c1a9f8e7b6a5c4d3e2f1a0b9c8d7e")
+  native=true
+  window {
+    width=1280
+    height=720
+    title="Rotator"
+  }
+}
