@@ -289,6 +289,10 @@ func (e *Engine) Quit() {
 	e.quit = true
 }
 
+func (e *Engine) CancelQuit() {
+	e.quit = false
+}
+
 func (e *Engine) Run(app App) error {
 	for e.Step(app) {
 	}

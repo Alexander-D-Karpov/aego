@@ -1,0 +1,55 @@
+package enemy
+
+import (
+	"aego/math"
+	"mygame/combat"
+	"mygame/shared"
+)
+
+script EnemyAI {
+	@export
+	var PointA NodeRef
+
+	@export
+	var PointB NodeRef
+
+	@export
+	var Target NodeRef
+
+	@export(min=0, max=10, unit="u/s")
+	var Speed float = 2.5
+
+	@export(min=0, max=5, unit="s")
+	var Cooldown float = 1
+
+	var toB bool = true
+	var wait float
+
+	func FixedUpdate(dt float) {
+		if PointA == nil || PointB == nil {
+			return
+		}
+		goal := PointA.Position()
+		if toB {
+			goal = PointB.Position()
+		}
+		p := node.Position()
+		p.X = shared.Approach(p.X, goal.X, Speed*dt)
+		p.Y = shared.GroundY
+		node.SetPosition(p)
+		if math.Abs(p.X-goal.X) < 0.01 {
+			toB = !toB
+		}
+		if wait > 0 {
+			wait -= dt
+			return
+		}
+		if Target != nil && Target.IsAlive() {
+			t := Target.Position()
+			if math.Abs(t.X-p.X) < 0.9 && math.Abs(t.Y-p.Y) < 0.9 {
+				combat.Damage(Target, 1)
+				wait = Cooldown
+			}
+		}
+	}
+}

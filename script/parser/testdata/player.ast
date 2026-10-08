@@ -1,0 +1,193 @@
+File player 1:1
+  Ident player 1:9
+  Import "aego/input" 4:2
+  Import "aego/log" 5:2
+  Import "aego/math" 6:2
+  Import "mygame/combat" 7:2
+  Enum 10:1
+    Ident State 10:6
+    Ident Idle 11:2
+    Ident Run 12:2
+  Struct 15:1
+    Ident Stats 15:6
+    Field 16:2
+      Ident Hp 16:2
+      NamedType 16:8
+        Ident int 16:8
+    Field 17:2
+      Ident Armor 17:2
+      NamedType 17:8
+        Ident float 17:8
+  Const 20:1
+    Ident MaxSpeed 20:7
+    NamedType 20:16
+      Ident float 20:16
+    BasicLit INT 600 20:24
+  Script 22:1
+    Ident PlayerController 22:8
+    ScriptVar 23:2
+      Attr 23:2
+        Ident export 23:3
+        AttrArg 23:10
+          Ident min 23:10
+          BasicLit INT 0 23:14
+        AttrArg 23:17
+          Ident max 23:17
+          BasicLit INT 600 23:21
+        AttrArg 23:26
+          Ident unit 23:26
+          BasicLit STRING "px/s" 23:31
+      Ident Speed 24:6
+      NamedType 24:12
+        Ident float 24:12
+      BasicLit INT 220 24:20
+    ScriptVar 26:2
+      Attr 26:2
+        Ident export 26:3
+      Ident Target 27:6
+      NamedType 27:13
+        Ident NodeRef 27:13
+    ScriptVar 29:2
+      Attr 29:2
+        Ident export 29:3
+      Ident Sprite 30:6
+      NamedType 30:13
+        Ident AssetRef 30:13
+        NamedType 30:22
+          Ident Texture 30:22
+    ScriptVar 32:2
+      Ident state 32:6
+      NamedType 32:12
+        Ident State 32:12
+    ScriptVar 33:2
+      Ident stats 33:6
+      NamedType 33:12
+        Ident Stats 33:12
+    ScriptVar 34:2
+      Ident hits 34:6
+      SliceType 34:11
+        NamedType 34:13
+          Ident int 34:13
+    Func 36:2
+      Ident Ready 36:7
+      Block 36:15
+        Assign = 37:3
+          Ident stats 37:3
+          CompositeLit 37:11
+            NamedType 37:11
+              Ident Stats 37:11
+            Element 37:17
+              Ident Hp 37:17
+              BasicLit INT 10 37:21
+            Element 37:25
+              Ident Armor 37:25
+              BasicLit FLOAT 0.5 37:32
+        ExprStmt 38:3
+          Call targs=0 args=1 38:3
+            Selector 38:3
+              Ident log 38:3
+              Ident Info 38:7
+            BasicLit STRING "ready" 38:12
+    Func 41:2
+      Ident Update 41:7
+      Param 41:14
+        Ident dt 41:14
+        NamedType 41:17
+          Ident float 41:17
+      Block 41:24
+        ShortVar 42:3
+          Ident x 42:3
+          Call targs=0 args=1 42:8
+            Selector 42:8
+              Ident input 42:8
+              Ident Axis 42:14
+            BasicLit STRING "horizontal" 42:19
+        If else 43:3
+          Binary != 43:6
+            Ident x 43:6
+            BasicLit INT 0 43:11
+          Block 43:13
+            Assign = 44:4
+              Ident state 44:4
+              Selector 44:12
+                Ident State 44:12
+                Ident Run 44:18
+          Block 45:10
+            Assign = 46:4
+              Ident state 46:4
+              Selector 46:12
+                Ident State 46:12
+                Ident Idle 46:18
+        ShortVar 48:3
+          Ident t 48:3
+          Call targs=0 args=0 48:8
+            Selector 48:8
+              Ident node 48:8
+              Ident Transform2D 48:13
+        Assign += 49:3
+          Selector 49:3
+            Selector 49:3
+              Ident t 49:3
+              Ident Position 49:5
+            Ident X 49:14
+          Binary * 49:19
+            Call targs=0 args=3 49:19
+              Selector 49:19
+                Ident math 49:19
+                Ident Clamp 49:24
+              Binary * 49:30
+                Ident x 49:30
+                Ident Speed 49:32
+              Unary - 49:39
+                Ident MaxSpeed 49:40
+              Ident MaxSpeed 49:50
+            Ident dt 49:62
+        ExprStmt 50:3
+          Call targs=0 args=1 50:3
+            Selector 50:3
+              Ident node 50:3
+              Ident SetTransform2D 50:8
+            Ident t 50:23
+        If 52:3
+          Call targs=1 args=0 52:6
+            Selector 52:6
+              Ident node 52:6
+              Ident Has 52:11
+            NamedType 52:15
+              Ident SpriteRenderer 52:15
+          Block 52:33
+            ShortVar 53:4
+              Ident sr 53:4
+              Call targs=1 args=0 53:10
+                Selector 53:10
+                  Ident node 53:10
+                  Ident Get 53:15
+                NamedType 53:19
+                  Ident SpriteRenderer 53:19
+            Assign = 54:4
+              Selector 54:4
+                Ident sr 54:4
+                Ident FlipX 54:7
+              Binary < 54:15
+                Ident x 54:15
+                BasicLit INT 0 54:19
+        If 56:3
+          Binary && 56:6
+            Binary != 56:6
+              Ident Target 56:6
+              BasicLit nil nil 56:16
+            Call targs=0 args=1 56:23
+              Selector 56:23
+                Ident input 56:23
+                Ident Pressed 56:29
+              Selector 56:37
+                Ident input 56:37
+                Ident KeySpace 56:43
+          Block 56:53
+            ExprStmt 57:4
+              Call targs=0 args=2 57:4
+                Selector 57:4
+                  Ident combat 57:4
+                  Ident Damage 57:11
+                Ident Target 57:18
+                BasicLit INT 5 57:26

@@ -2,6 +2,7 @@ package gl33
 
 import (
 	"aego/core/handle"
+	"aego/core/log"
 	"aego/core/mathx"
 	"aego/gpu"
 	"aego/gpu/gl33/gl"
@@ -42,27 +43,29 @@ func (d *Device) beginPass(desc gpu.PassDesc) gpu.Pass {
 	if p.active {
 		d.log.Warn("previous render pass was not ended")
 	}
-	*p = pass{d: d, active: true, flipY: desc.Target.IsZero()}
-	fbo, w, h := uint32(0), d.fbW, d.fbH
+	*p = pass{d: d, active: true, flipY: true}
+	fbo, w, h, hasDepth := uint32(0), d.fbW, d.fbH, true
 	if !desc.Target.IsZero() {
-		if t, ok := d.textures.Get(handle.Cast[glTexture](desc.Target)); ok {
-			fbo = d.ensureFBO(t)
-			w, h = t.w, t.h
+		f, fw, fh, depth, err := d.framebuffer(handle.Cast[glTexture](desc.Target), handle.Cast[glTexture](desc.DepthTarget))
+		if err == nil {
+			fbo, w, h, hasDepth = f, fw, fh, depth
+			p.flipY = false
 		} else {
-			d.log.Warn("render target handle is invalid, drawing to window")
+			d.log.Warn("render target is invalid, drawing to window", log.F("err", err.Error()))
 		}
 	}
 	p.targetH = h
 	d.cache.BindFramebuffer(fbo)
 	d.cache.SetViewport(glstate.Rect{W: int32(w), H: int32(h)})
 	d.cache.SetScissor(false, glstate.Rect{})
+	d.cache.SetFrontFace(desc.FlipWinding)
 	var mask uint32
 	if desc.Color == gpu.LoadClear {
 		c := desc.ClearColor
 		gl.ClearColor(c.R, c.G, c.B, c.A)
 		mask |= gl.COLOR_BUFFER_BIT
 	}
-	if desc.Depth == gpu.LoadClear {
+	if desc.Depth == gpu.LoadClear && hasDepth {
 		gl.ClearDepth(float64(desc.ClearDepth))
 		d.cache.SetDepth(glstate.Depth{Write: true, Func: gl.LESS})
 		mask |= gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT

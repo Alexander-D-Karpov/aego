@@ -1,0 +1,100 @@
+module mygame/player bytecode=1 lang=1
+import h0 aego/log.Info (string)
+import h1 aego/input.Axis (string) float
+import h2 #NodeRef.Transform2D (NodeRef) Transform2D
+import h3 aego/math.Clamp (float, float, float) float
+import h4 #NodeRef.SetTransform2D (NodeRef, Transform2D)
+import h5 #NodeRef.Has<engine.SpriteRenderer> (NodeRef) bool
+import h6 #NodeRef.Get<engine.SpriteRenderer> (NodeRef) ComponentRef<engine.SpriteRenderer>
+import h7 aego/input.Pressed (enum:aego/input.Key) bool
+import h8 mygame/combat.Damage (NodeRef, int)
+enum mygame/player.State Idle Run
+script mygame.player.PlayerController slots=8 ready=0 fixed=-1 update=1
+  field Speed float slot=1+1 export
+  field Target NodeRef slot=2+1 export
+  field Sprite AssetRef<texture> slot=3+1 export
+  field state enum:mygame/player.State slot=4+1
+  field stats struct:mygame/player.Stats slot=5+2
+  field hits []int slot=7+1
+
+func f0 PlayerController.Ready params=0 results=0 regs=2 script=0
+  ; mygame/player/main.aes:37 stats = Stats{Hp: 10, Armor: 0.5}
+  0000  LOADNIL  r0
+  0001  LOADNIL  r1
+  0002  LOADI    r0 10
+  0003  LOADK    r1 k0(0.5)
+  0004  SETSF    r0 self[5]
+  0005  SETSF    r1 self[6]
+  ; mygame/player/main.aes:38 log.Info("ready")
+  0006  LOADK    r0 k1("ready")
+  0007  CALLH    r0 h0(aego/log.Info)
+  ; mygame/player/main.aes:39 }
+  0008  RET      r0 0
+
+func f1 PlayerController.Update params=1 results=0 regs=12 script=0
+  ; mygame/player/main.aes:42 x := input.Axis("horizontal")
+  0000  LOADK    r2 k0("horizontal")
+  0001  CALLH    r2 h1(aego/input.Axis)
+  0002  MOVE     r1 r2
+  ; mygame/player/main.aes:43 if x != 0 {
+  0003  LOADNIL  r3
+  0004  EQF      r2 r1 r3
+  0005  NOT      r2 r2
+  0006  JMPNOT   r2 -> 10
+  ; mygame/player/main.aes:44 state = State.Run
+  0007  LOADI    r2 1
+  0008  SETSF    r2 self[4]
+  0009  JMP      -> 12
+  ; mygame/player/main.aes:46 state = State.Idle
+  0010  LOADI    r2 0
+  0011  SETSF    r2 self[4]
+  ; mygame/player/main.aes:48 t := node.Transform2D()
+  0012  GETSF    r5 self[0]
+  0013  CALLH    r5 h2(#NodeRef.Transform2D)
+  0014  MOVEN    r2 r5 3
+  ; mygame/player/main.aes:49 t.Position.X += math.Clamp(x*Speed, -MaxSpeed, MaxSpeed) * dt
+  0015  MOVE     r6 r2
+  0016  GETL     r5 r6 .x
+  0017  GETSF    r11 self[1]
+  0018  MULF     r8 r1 r11
+  0019  LOADK    r9 k1(-600)
+  0020  LOADK    r10 k2(600)
+  0021  CALLH    r8 h3(aego/math.Clamp)
+  0022  MOVE     r7 r8
+  0023  MULF     r6 r7 r0
+  0024  ADDF     r5 r5 r6
+  0025  MOVE     r7 r2
+  0026  SETL     r7 r5 .x
+  0027  MOVE     r2 r7
+  ; mygame/player/main.aes:50 node.SetTransform2D(t)
+  0028  GETSF    r5 self[0]
+  0029  MOVEN    r6 r2 3
+  0030  CALLH    r5 h4(#NodeRef.SetTransform2D)
+  ; mygame/player/main.aes:52 if node.Has<SpriteRenderer>() {
+  0031  GETSF    r6 self[0]
+  0032  CALLH    r6 h5(#NodeRef.Has<engine.SpriteRenderer>)
+  0033  MOVE     r5 r6
+  0034  JMPNOT   r5 -> 41
+  ; mygame/player/main.aes:53 sr := node.Get<SpriteRenderer>()
+  0035  GETSF    r6 self[0]
+  0036  CALLH    r6 h6(#NodeRef.Get<engine.SpriteRenderer>)
+  0037  MOVE     r5 r6
+  ; mygame/player/main.aes:54 sr.FlipX = x < 0
+  0038  LOADNIL  r7
+  0039  LTF      r6 r1 r7
+  0040  SETCF    r5 r6 0
+  ; mygame/player/main.aes:56 if Target != nil && input.Pressed(input.KeySpace) {
+  0041  GETSF    r6 self[2]
+  0042  ISNIL    r5 r6
+  0043  NOT      r5 r5
+  0044  JMPNOT   r5 -> 48
+  0045  LOADI    r6 44
+  0046  CALLH    r6 h7(aego/input.Pressed)
+  0047  MOVE     r5 r6
+  0048  JMPNOT   r5 -> 52
+  ; mygame/player/main.aes:57 combat.Damage(Target, 5)
+  0049  GETSF    r5 self[2]
+  0050  LOADI    r6 5
+  0051  CALLH    r5 h8(mygame/combat.Damage)
+  ; mygame/player/main.aes:59 }
+  0052  RET      r0 0

@@ -55,15 +55,34 @@ func Decompose(m mathx.Mat3) scene.Transform2D {
 	}
 }
 
-func PreserveWorld(s *scene.Scene, h, parent scene.NodeHandle) (scene.Transform2D, error) {
+func Unlift(m mathx.Mat4) mathx.Mat3 {
+	return mathx.Mat3{m[0], -m[1], 0, -m[4], m[5], 0, m[12], -m[13], 1}
+}
+
+func PreserveWorld(s *scene.Scene, h, parent scene.NodeHandle) (scene.Pose, error) {
 	s.UpdateTransforms()
-	pw := s.World(parent)
-	if mathx.Abs(pw[0]*pw[4]-pw[1]*pw[3]) < 1e-8 {
-		return scene.Transform2D{}, errs.New(errs.SceneBadReparent,
+	pose := s.Pose(h)
+	pw := s.World4(parent)
+	if mathx.Abs(pw.Col(0).Cross(pw.Col(1)).Dot(pw.Col(2))) < 1e-8 {
+		return pose, errs.New(errs.SceneBadReparent,
 			"new parent has a degenerate transform, the child world transform cannot be preserved",
 			log.F("parent", s.Name(parent)))
 	}
-	return Decompose(pw.Inverse().Mul(s.World(h))), nil
+	inv, ok := pw.InverseAffine()
+	if !ok {
+		return pose, errs.New(errs.SceneBadReparent, "new parent transform cannot be inverted", log.F("parent", s.Name(parent)))
+	}
+	rel := inv.Mul(s.World4(h))
+	if pose.Space == scene.Space3D {
+		pos, rot, sc, ok := rel.Decompose()
+		if !ok {
+			return pose, errs.New(errs.SceneBadReparent, "node has a degenerate transform", log.F("node", s.Name(h)))
+		}
+		pose.T3 = scene.Transform3D{Position: pos, Rotation: rot, Scale: sc}
+		return pose, nil
+	}
+	pose.T2 = Decompose(Unlift(rel))
+	return pose, nil
 }
 
 type SetTransform struct {
@@ -101,6 +120,78 @@ func (c *SetTransform) Merge(next history.Command) bool {
 	}
 	c.After = n.After
 	return true
+}
+
+type SetTransform3D struct {
+	Node   ids.NodeID
+	Before scene.Transform3D
+	After  scene.Transform3D
+}
+
+func (c *SetTransform3D) Label() string {
+	return "Transform"
+}
+
+func (c *SetTransform3D) Do(t history.Target) error {
+	s, h, err := node(t, c.Node)
+	if err != nil {
+		return err
+	}
+	s.SetLocal3D(h, c.After)
+	return nil
+}
+
+func (c *SetTransform3D) Undo(t history.Target) error {
+	s, h, err := node(t, c.Node)
+	if err != nil {
+		return err
+	}
+	s.SetLocal3D(h, c.Before)
+	return nil
+}
+
+func (c *SetTransform3D) Merge(next history.Command) bool {
+	n, ok := next.(*SetTransform3D)
+	if !ok || n.Node != c.Node {
+		return false
+	}
+	c.After = n.After
+	return true
+}
+
+type SetSpace struct {
+	Node   ids.NodeID
+	After  scene.Space
+	before scene.Pose
+}
+
+func (c *SetSpace) Label() string {
+	return "Change Space"
+}
+
+func (c *SetSpace) Do(t history.Target) error {
+	s, h, err := node(t, c.Node)
+	if err != nil {
+		return err
+	}
+	c.before = s.Pose(h)
+	return s.SetSpace(h, c.After)
+}
+
+func (c *SetSpace) Undo(t history.Target) error {
+	s, h, err := node(t, c.Node)
+	if err != nil {
+		return err
+	}
+	if err := s.SetSpace(h, c.before.Space); err != nil {
+		return err
+	}
+	s.SetPose(h, c.before)
+	return nil
+}
+
+func (c *SetSpace) Merge(history.Command) bool {
+	return false
 }
 
 type Rename struct {

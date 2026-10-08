@@ -1,0 +1,22 @@
+package broken
+
+import "aego/log"
+
+var counter int
+
+func A() {
+	x := 1 +
+}
+
+func B() {
+	if {
+	}
+	y := )
+}
+
+@export
+const K = 1
+
+func C() int {
+	return 1
+}

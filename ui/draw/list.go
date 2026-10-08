@@ -24,6 +24,7 @@ const (
 	cmdText
 	cmdPushClip
 	cmdPopClip
+	cmdPushClipAbs
 )
 
 type command struct {
@@ -37,11 +38,12 @@ type command struct {
 }
 
 type List struct {
-	streams [Layers][]command
-	order   [Layers]int16
-	chars   []byte
-	layer   int
-	stack   []int
+	streams   [Layers][]command
+	order     [Layers]int16
+	chars     []byte
+	layer     int
+	stack     []int
+	clipStack []mathx.Rect
 }
 
 func NewList(capacity int) *List {
@@ -75,6 +77,10 @@ func (l *List) Layer() int {
 	return l.layer
 }
 
+func (l *List) LayerDepth() int {
+	return len(l.stack)
+}
+
 func (l *List) PushLayer(n int) {
 	if n < 0 {
 		n = 0
@@ -94,7 +100,7 @@ func (l *List) PopLayer() {
 }
 
 func (l *List) add(c command) {
-	if c.kind != cmdPushClip && c.kind != cmdPopClip {
+	if c.kind != cmdPushClip && c.kind != cmdPopClip && c.kind != cmdPushClipAbs {
 		l.order[l.layer]++
 		c.order = l.order[l.layer]
 	}
@@ -150,20 +156,43 @@ func (l *List) PopClip() {
 	l.add(command{kind: cmdPopClip})
 }
 
+func (l *List) PushClipAbs(r mathx.Rect) {
+	l.add(command{kind: cmdPushClipAbs, rect: r})
+}
+
+func intersectRect(a, b mathx.Rect) mathx.Rect {
+	x0, y0 := max(a.X, b.X), max(a.Y, b.Y)
+	x1, y1 := min(a.X+a.W, b.X+b.W), min(a.Y+a.H, b.Y+b.H)
+	return mathx.Rect{X: x0, Y: y0, W: max(0, x1-x0), H: max(0, y1-y0)}
+}
+
 func (l *List) Flush(f *render.ViewFrame, font *text.Font, white texture.Region, layer int16) {
 	for li := range l.streams {
 		lay := layer + int16(li)
-		depth := 0
+		l.clipStack = l.clipStack[:0]
 		for i := range l.streams[li] {
 			c := &l.streams[li][i]
 			switch c.kind {
-			case cmdPushClip:
-				f.PushClip(c.rect)
-				depth++
-			case cmdPopClip:
-				if depth > 0 {
+			case cmdPushClip, cmdPushClipAbs:
+				r := c.rect
+				n := len(l.clipStack)
+				if c.kind == cmdPushClip && n > 0 {
+					r = intersectRect(r, l.clipStack[n-1])
+				}
+				if n > 0 {
 					f.PopClip()
-					depth--
+				}
+				l.clipStack = append(l.clipStack, r)
+				f.PushClip(r)
+			case cmdPopClip:
+				n := len(l.clipStack)
+				if n == 0 {
+					continue
+				}
+				l.clipStack = l.clipStack[:n-1]
+				f.PopClip()
+				if n > 1 {
+					f.PushClip(l.clipStack[n-2])
 				}
 			case cmdRect:
 				if c.rect.W <= 0 || c.rect.H <= 0 {
@@ -194,7 +223,7 @@ func (l *List) Flush(f *render.ViewFrame, font *text.Font, white texture.Region,
 				f.TextFont(font, s, mathx.Vec2{X: c.rect.X, Y: c.rect.Y}, 1, c.color, lay, c.order)
 			}
 		}
-		for ; depth > 0; depth-- {
+		if len(l.clipStack) > 0 {
 			f.PopClip()
 		}
 	}

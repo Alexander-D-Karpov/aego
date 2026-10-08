@@ -3,11 +3,13 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/format/aetext"
+	"aego/platform/input"
 )
 
 const (
@@ -27,6 +29,7 @@ type Project struct {
 	Module    string
 	MainScene ids.AssetID
 	Window    WindowSettings
+	Input     input.AxisConfig
 	Native    bool
 	Version   int
 }
@@ -37,6 +40,10 @@ func (p *Project) AssetsDir() string {
 
 func (p *Project) ScenesDir() string {
 	return filepath.Join(p.Root, "scenes")
+}
+
+func (p *Project) ScriptsDir() string {
+	return filepath.Join(p.Root, "scripts")
 }
 
 func (p *Project) NativeDir() string {
@@ -77,6 +84,60 @@ func Find(start string) (string, error) {
 	}
 }
 
+func parseInput(n *aetext.Node) (input.AxisConfig, error) {
+	axes := n.Block("axes", "")
+	if axes == nil {
+		return input.DefaultAxes(), nil
+	}
+	var cfg input.AxisConfig
+	for _, b := range axes.Blocks {
+		a := input.Axis{Name: b.Head}
+		for _, f := range b.Fields {
+			name := f.Value.Ident
+			if f.Value.Kind == aetext.VString {
+				name = f.Value.Str
+			}
+			k, ok := input.ParseKey(name)
+			if !ok {
+				return cfg, errs.New(errs.ProjectBadFile, "unknown key in an input axis",
+					log.F("axis", b.Head), log.F("key", name))
+			}
+			switch f.Name {
+			case "negative":
+				a.Negative = k
+			case "positive":
+				a.Positive = k
+			case "altNegative":
+				a.AltNegative = k
+			case "altPositive":
+				a.AltPositive = k
+			default:
+				return cfg, errs.New(errs.ProjectBadFile, "unknown input axis field",
+					log.F("axis", b.Head), log.F("field", f.Name))
+			}
+		}
+		cfg.Axes = append(cfg.Axes, a)
+	}
+	return cfg, nil
+}
+
+func inputBlock(cfg input.AxisConfig) *aetext.Node {
+	axes := &aetext.Node{Head: "axes"}
+	for _, a := range cfg.Axes {
+		b := &aetext.Node{Head: a.Name}
+		for _, k := range [...]struct {
+			name string
+			key  input.Scancode
+		}{{"negative", a.Negative}, {"positive", a.Positive}, {"altNegative", a.AltNegative}, {"altPositive", a.AltPositive}} {
+			if n, ok := input.KeyName(k.key); ok {
+				b.Fields = append(b.Fields, aetext.Field{Name: k.name, Value: aetext.Ident(n)})
+			}
+		}
+		axes.Blocks = append(axes.Blocks, b)
+	}
+	return &aetext.Node{Head: "input", Blocks: []*aetext.Node{axes}}
+}
+
 func Load(root string) (*Project, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
@@ -94,7 +155,7 @@ func Load(root string) (*Project, error) {
 	if doc.Head != "project" {
 		return nil, errs.New(errs.ProjectBadFile, "not a project file", log.F("head", doc.Head))
 	}
-	p := &Project{Root: abs, Version: Version, Window: WindowSettings{Width: 1280, Height: 720}}
+	p := &Project{Root: abs, Version: Version, Window: WindowSettings{Width: 1280, Height: 720}, Input: input.DefaultAxes()}
 	if v, ok := doc.Attr("version"); ok {
 		p.Version = int(v.AsInt())
 		if p.Version > Version {
@@ -107,6 +168,14 @@ func Load(root string) (*Project, error) {
 	}
 	if v, ok := doc.Field("module"); ok {
 		p.Module = v.Str
+		if !validModule(p.Module) {
+			return nil, errs.New(errs.ProjectBadFile, "module must match [a-z0-9_/-]+ with no dots",
+				log.F("module", p.Module))
+		}
+		if p.Module == "aego" || strings.HasPrefix(p.Module, "aego/") {
+			return nil, errs.New(errs.ProjectBadFile, "module path aego is reserved for the engine",
+				log.F("module", p.Module))
+		}
 	}
 	if v, ok := doc.Field("native"); ok {
 		p.Native = v.Bool
@@ -128,6 +197,13 @@ func Load(root string) (*Project, error) {
 		if v, ok := w.Field("title"); ok {
 			p.Window.Title = v.Str
 		}
+	}
+	if b := doc.Block("input", ""); b != nil {
+		cfg, err := parseInput(b)
+		if err != nil {
+			return nil, err
+		}
+		p.Input = cfg
 	}
 	if p.Name == "" {
 		p.Name = filepath.Base(abs)
@@ -160,6 +236,9 @@ func (p *Project) Save() error {
 		aetext.Field{Name: "title", Value: aetext.String(p.Window.Title)},
 	)
 	root.Blocks = append(root.Blocks, window)
+	if len(p.Input.Axes) > 0 {
+		root.Blocks = append(root.Blocks, inputBlock(p.Input))
+	}
 	if err := os.WriteFile(p.FilePath(), aetext.Write(root), 0o644); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write project.aego")
 	}
@@ -183,10 +262,12 @@ func Create(root, name string, native bool) (*Project, error) {
 		Module: moduleName(name),
 		Native: native,
 		Window: WindowSettings{Width: 1280, Height: 720, Title: name},
+		Input:  input.DefaultAxes(),
 	}
 	dirs := []string{
 		p.AssetsDir(),
 		p.ScenesDir(),
+		p.ScriptsDir(),
 		p.CacheDir(),
 		filepath.Join(p.Root, "exports"),
 	}
@@ -210,6 +291,24 @@ func Create(root, name string, native bool) (*Project, error) {
 const gitignore = `.aego/
 exports/
 `
+
+// validModule reports whether s is a legal module path: [a-z0-9_/-]+ with no
+// dots. The no-dot rule lets abi split a qualified name (module.Name for enums
+// and structs) on the last dot unambiguously; stdlib paths obey it too.
+func validModule(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9':
+		case c == '_' || c == '/' || c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 func moduleName(name string) string {
 	out := make([]byte, 0, len(name))

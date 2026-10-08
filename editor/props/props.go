@@ -224,6 +224,12 @@ func Equal(a, b schema.Value) bool {
 		return a.F == b.F
 	case schema.KindVec2:
 		return a.V == b.V
+	case schema.KindVec3:
+		return a.V3 == b.V3
+	case schema.KindVec4:
+		return a.V4 == b.V4
+	case schema.KindQuat:
+		return a.Q == b.Q
 	case schema.KindColor:
 		return a.C == b.C
 	case schema.KindRect:
@@ -258,5 +264,5 @@ func Equal(a, b schema.Value) bool {
 		}
 		return true
 	}
-	return true
+	return false
 }

@@ -1,0 +1,47 @@
+File broken 1:1
+  Ident broken 1:9
+  Import "aego/log" 3:8
+  BadDecl 5:1
+  Func 7:1
+    Ident A 7:6
+    Block 7:10
+      ShortVar 8:2
+        Ident x 8:2
+        Binary + 8:7
+          BasicLit INT 1 8:7
+          BadExpr 9:1
+  Func 11:1
+    Ident B 11:6
+    Block 11:10
+      If 12:2
+        BadExpr 12:5
+        Block 12:5
+      ShortVar 14:2
+        Ident y 14:2
+        BadExpr 14:7
+  Const 18:1
+    Ident K 18:7
+    BasicLit INT 1 18:11
+  Func 20:1
+    Ident C 20:6
+    NamedType 20:10
+      Ident int 20:10
+    Block 20:14
+      Return 21:2
+        BasicLit INT 1 21:9
+--- diagnostics
+errors.aes:5:1: error AES1105: package-level var is not allowed, use const or a script field
+    var counter int
+    ^~~
+errors.aes:9:1: error AES1101: expected expression, found '}'
+    }
+    ^
+errors.aes:12:5: error AES1101: expected expression, found '{'
+    	if {
+    	   ^
+errors.aes:14:7: error AES1101: expected expression, found ')'
+    	y := )
+    	     ^
+errors.aes:17:1: error AES1103: attributes are only allowed on scripts, script fields and functions
+    @export
+    ^~~~~~~

@@ -20,8 +20,11 @@ func (s *sceneApp) Init(*engine.Engine) error {
 	s.unsub = s.app.Loader.Subscribe(func(r asset.Reloaded) {
 		s.reloads++
 		s.lastKind = r.Kind
-		if r.Kind == asset.ArtScene && r.ID == s.app.sceneID {
+		switch {
+		case r.Kind == asset.ArtScene && r.ID == s.app.sceneID:
 			s.app.reloadScene()
+		case r.Kind == asset.ArtScript:
+			s.app.log.Warn("scripts changed, restart the game to apply them")
 		}
 	})
 	return nil
@@ -63,5 +66,8 @@ func (a *App) reloadScene() {
 	a.Scene = next
 	a.Runner.Bind(next, a.Renderer, a.Loader)
 	a.Engine.SetService(scene.ServiceID, next)
+	if err := a.Scripts.Instantiate(next); err != nil {
+		a.log.Error("scripts could not start on the reloaded scene", log.F("err", err.Error()))
+	}
 	a.log.Info("scene reloaded")
 }

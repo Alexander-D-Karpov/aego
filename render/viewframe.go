@@ -16,7 +16,9 @@ type ViewFrame struct {
 	r          *Renderer
 	view       view.View
 	pass       gpu.Pass
-	bounds     mathx.AABB
+	bounds     mathx.AABB2
+	frustum    mathx.Frustum
+	cam        mathx.Vec3
 	clips      [maxClipDepth]mathx.Rect
 	clipOn     [maxClipDepth]bool
 	depth      int
@@ -30,15 +32,42 @@ func (f *ViewFrame) reset(v view.View) {
 	v.Normalize(w, h, r.fbScale)
 	f.view = v
 	f.bounds = v.VisibleBounds()
+	f.frustum = v.Frustum()
+	f.cam = v.CameraPosition()
 	f.depth = 0
 	f.submission = 0
 	f.ended = false
 	f.pass = nil
 	r.batcher.Reset()
 	r.batcher.SetView(v.ZMin, v.ZMax, v.PixelsPerUnit)
+	r.sprites3d.Reset()
+	r.meshes.Reset()
 	r.dbg.Reset()
 }
 
+func (f *ViewFrame) End() {
+	if f.ended {
+		return
+	}
+	f.ended = true
+	r := f.r
+	r.batcher.Sort()
+	r.sprites3d.Sort()
+	r.meshes.Sort()
+	r.stats.ZClamped += r.batcher.Clamped()
+	if f.pass == nil {
+		return
+	}
+	r.passCtx = PassContext{Renderer: r, View: &f.view, Pass: f.pass, Frame: f}
+	for i := range r.order {
+		r.order[i].Pass.Execute(&r.passCtx)
+	}
+	if r.stats.Views == 1 {
+		r.prof.End(f.pass)
+	}
+	f.pass.End()
+	f.pass = nil
+}
 func (f *ViewFrame) View() *view.View {
 	return &f.view
 }
@@ -122,28 +151,6 @@ func (f *ViewFrame) Text(font *text.BitmapFont, s string, pos mathx.Vec2, scale 
 	r := f.r
 	r.textBuf = font.Layout(s, pos, scale, c, layer, order, r.textBuf[:0])
 	f.Sprites(r.textBuf)
-}
-
-func (f *ViewFrame) End() {
-	if f.ended {
-		return
-	}
-	f.ended = true
-	r := f.r
-	r.batcher.Sort()
-	r.stats.ZClamped += r.batcher.Clamped()
-	if f.pass == nil {
-		return
-	}
-	r.passCtx = PassContext{Renderer: r, View: &f.view, Pass: f.pass, Frame: f}
-	for i := range r.order {
-		r.order[i].Pass.Execute(&r.passCtx)
-	}
-	if r.stats.Views == 1 {
-		r.prof.End(f.pass)
-	}
-	f.pass.End()
-	f.pass = nil
 }
 
 func (f *ViewFrame) TextFont(font *text.Font, s string, pos mathx.Vec2, scale float32, c mathx.Color, layer, order int16) {

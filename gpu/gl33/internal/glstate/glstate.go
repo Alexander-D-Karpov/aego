@@ -37,6 +37,7 @@ type API interface {
 	SetBlend(b Blend)
 	SetDepth(d Depth)
 	SetCull(c Cull)
+	FrontFace(cw bool)
 	Viewport(r Rect)
 	Scissor(enabled bool, r Rect)
 }
@@ -55,6 +56,8 @@ type Cache struct {
 	depthOK  bool
 	cull     Cull
 	cullOK   bool
+	frontCW  bool
+	frontOK  bool
 	viewport Rect
 	viewOK   bool
 	scissor  Rect
@@ -82,8 +85,18 @@ func (c *Cache) Invalidate() {
 	c.blendOK = false
 	c.depthOK = false
 	c.cullOK = false
+	c.frontOK = false
 	c.viewOK = false
 	c.scissOK = false
+}
+
+func (c *Cache) SetFrontFace(cw bool) bool {
+	if c.frontOK && c.frontCW == cw {
+		return false
+	}
+	c.frontCW, c.frontOK = cw, true
+	c.api.FrontFace(cw)
+	return true
 }
 
 func (c *Cache) UseProgram(id uint32) bool {

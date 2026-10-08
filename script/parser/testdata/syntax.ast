@@ -1,0 +1,205 @@
+File syntax 1:1
+  Ident syntax 1:9
+  Import "aego/log" 4:2
+  Import "aego/math" 5:2
+  Const 8:1
+    Ident Limit 8:7
+    NamedType 8:13
+      Ident int 8:13
+    BasicLit INT 1_000 8:19
+  Const 9:1
+    Ident Ratio 9:7
+    BasicLit FLOAT .5 9:15
+  Const 10:1
+    Ident Name 10:7
+    BasicLit STRING "syn\ttax" 10:14
+  Enum 12:1
+    Ident Mode 12:6
+    Ident Off 13:2
+    Ident On 14:2
+  Struct 17:1
+    Ident Pair 17:6
+    Field 18:2
+      Ident A 18:2
+      NamedType 18:4
+        Ident int 18:4
+    Field 19:2
+      Ident B 19:2
+      NamedType 19:4
+        Ident float 19:4
+  Func 22:1
+    Ident add 22:6
+    Param 22:10
+      Ident a 22:10
+      NamedType 22:12
+        Ident int 22:12
+    Param 22:17
+      Ident b 22:17
+      NamedType 22:19
+        Ident int 22:19
+    NamedType 22:24
+      Ident int 22:24
+    Block 22:28
+      Return 23:2
+        Binary + 23:9
+          Ident a 23:9
+          Ident b 23:13
+  Script 26:1
+    Attr 26:1
+      Ident hide 26:2
+    Attr 27:1
+      Ident former 27:2
+      AttrArg 27:9
+        BasicLit STRING "OldSyntax" 27:9
+    Ident Syntax 28:8
+    ScriptVar 29:2
+      Attr 29:2
+        Ident export 29:3
+        AttrArg 29:10
+          Ident min 29:10
+          Unary - 29:14
+            BasicLit INT 1 29:15
+        AttrArg 29:18
+          Ident max 29:18
+          BasicLit INT 10 29:22
+        AttrArg 29:26
+          Ident unit 29:26
+          BasicLit STRING "m" 29:31
+        AttrArg 29:36
+          Ident display 29:36
+          BasicLit STRING "Count" 29:44
+      Ident Count 30:6
+      NamedType 30:12
+        Ident int 30:12
+      BasicLit INT 3 30:18
+    ScriptVar 32:2
+      Ident items 32:6
+      SliceType 32:12
+        NamedType 32:14
+          Ident int 32:14
+    ScriptVar 33:2
+      Ident pair 33:6
+      NamedType 33:11
+        Ident Pair 33:11
+    ScriptVar 34:2
+      Ident mode 34:6
+      NamedType 34:11
+        Ident Mode 34:11
+    Func 36:2
+      Ident Ready 36:7
+      Block 36:15
+        Assign = 37:3
+          Ident pair 37:3
+          CompositeLit 37:10
+            NamedType 37:10
+              Ident Pair 37:10
+            Element 37:15
+              Ident A 37:15
+              BasicLit INT 1 37:18
+            Element 37:21
+              Ident B 37:21
+              BasicLit FLOAT 2.5 37:24
+        Assign = 38:3
+          Ident items 38:3
+          Call targs=0 args=2 38:11
+            Ident append 38:11
+            Ident items 38:18
+            Call targs=0 args=2 38:25
+              Ident add 38:25
+              BasicLit INT 1 38:29
+              BasicLit INT 2 38:32
+        For init=true cond=true post=true 39:3
+          ShortVar 39:7
+            Ident i 39:7
+            BasicLit INT 0 39:12
+          Binary < 39:15
+            Ident i 39:15
+            Call targs=0 args=1 39:19
+              Ident len 39:19
+              Ident items 39:23
+          IncDec ++ 39:31
+            Ident i 39:31
+          Block 39:35
+            Assign *= 40:4
+              Index 40:4
+                Ident items 40:4
+                Ident i 40:10
+              BasicLit INT 2 40:16
+        For init=false cond=true post=false 42:3
+          Binary > 42:7
+            Ident Count 42:7
+            BasicLit INT 0 42:15
+          Block 42:17
+            IncDec -- 43:4
+              Ident Count 43:4
+        For init=false cond=false post=false 45:3
+          Block 45:7
+            Branch break 46:4
+        Switch 48:3
+          Ident mode 48:10
+          Case 49:3
+            Selector 49:8
+              Ident Mode 49:8
+              Ident Off 49:13
+            Selector 49:18
+              Ident Mode 49:18
+              Ident On 49:23
+            ExprStmt 50:4
+              Call targs=0 args=1 50:4
+                Selector 50:4
+                  Ident log 50:4
+                  Ident Info 50:8
+                BasicLit STRING "mode" 50:13
+          Default 51:3
+            Return 52:4
+        If else 54:3
+          Binary || 54:6
+            Unary ! 54:6
+              Paren 54:7
+                Binary && 54:8
+                  Binary >= 54:8
+                    Ident Count 54:8
+                    BasicLit INT 1 54:17
+                  Binary != 54:22
+                    Selector 54:22
+                      Ident pair 54:22
+                      Ident A 54:27
+                    BasicLit INT 0 54:32
+            Binary < 54:38
+              Ident Ratio 54:38
+              BasicLit FLOAT 1e3 54:46
+          Block 54:50
+            Var 55:4
+              Ident x 55:8
+              NamedType 55:10
+                Ident float 55:10
+              Unary - 55:18
+                Call targs=0 args=1 55:19
+                  Selector 55:19
+                    Ident math 55:19
+                    Ident Abs 55:24
+                  Unary - 55:28
+                    BasicLit FLOAT 1.5 55:29
+            Assign += 56:4
+              Ident x 56:4
+              Binary * 56:9
+                Call targs=0 args=1 56:9
+                  Ident float 56:9
+                  Ident Count 56:15
+                BasicLit INT 0x1f 56:24
+          If else 57:10
+            Call targs=1 args=0 57:13
+              Selector 57:13
+                Ident node 57:13
+                Ident Has 57:18
+              NamedType 57:22
+                Ident SpriteRenderer 57:22
+            Block 57:40
+              Block 58:4
+                Branch continue 59:5
+            Block 61:10
+              Assign = 62:4
+                Ident mode 62:4
+                Selector 62:11
+                  Ident Mode 62:11
+                  Ident On 62:16

@@ -1,0 +1,106 @@
+package player
+
+import (
+	"aego/input"
+	"aego/log"
+	"aego/math"
+	"mygame/shared"
+)
+
+enum State {
+	Idle
+	Run
+	Air
+	Bebrik
+}
+
+script PlayerController {
+	@export(min=0, max=20, unit="u/s")
+	var Speed float = 7
+
+	@export(min=0, max=30, unit="u/s")
+	var JumpSpeed float = 11
+
+	@export(display="Hit Tint")
+	var HitTint Color
+
+	var vy float
+	var state State
+	var base Color
+	var lastHits int
+	var flash float
+
+	func Ready() {
+		sr := node.Get<SpriteRenderer>()
+		if sr != nil {
+			base = sr.Tint
+		}
+		log.Info("player ready at x=" + string(node.Position().X))
+	}
+
+	var hopped bool
+
+	func FixedUpdate(dt float) {
+		p := node.Position()
+		x := input.Axis("horizontal")
+		p.X += x * Speed * dt
+		grounded := p.Y >= shared.GroundY
+		if grounded {
+			hopped = false
+			if input.Down(input.KeySpace) {
+				vy = -JumpSpeed
+			}
+		} else if x != 0 && !hopped {
+			vy = -JumpSpeed * 0.6
+			hopped = true
+		}
+		vy += shared.Gravity * dt
+		p.Y += vy * dt
+		if p.Y >= shared.GroundY {
+			p.Y = shared.GroundY
+			vy = 0
+		}
+		p.X = math.Clamp(p.X, -14, 14)
+		node.SetPosition(p)
+		if p.Y < shared.GroundY && x != 0 {
+			state = State.Bebrik
+		} else if p.Y < shared.GroundY {
+			state = State.Air
+		} else if x != 0 {
+			state = State.Run
+		} else {
+			state = State.Idle
+		}
+	}
+
+	func Update(dt float) {
+		sr := node.Get<SpriteRenderer>()
+		p := node.Position()
+		if sr == nil {
+			return
+		}
+		x := input.Axis("horizontal")
+		if x != 0 {
+			sr.FlipX = x < 0
+		}
+		hp := node.Get<Health>()
+		if hp != nil && hp.Hits != lastHits {
+			lastHits = hp.Hits
+			flash = 0.2
+		}
+		if state == State.Bebrik {
+			for x < 100 {
+				x++
+				p.X += 1
+			}
+		}
+		if flash > 0 {
+			flash -= dt
+			sr.Tint = HitTint
+		} else if state == State.Air {
+			sr.Tint = Color{base.R, base.G, base.B, 0.8}
+		} else {
+			sr.Tint = base
+		}
+	}
+}

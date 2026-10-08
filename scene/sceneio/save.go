@@ -1,11 +1,13 @@
 package sceneio
 
 import (
+	"aego/scene/components"
+	"unsafe"
+
 	"aego/core/mathx"
 	"aego/format/aetext"
 	"aego/scene"
 	"aego/schema"
-	"unsafe"
 )
 
 func Save(s *scene.Scene) []byte {
@@ -24,6 +26,9 @@ func save(s *scene.Scene, root scene.NodeHandle, head string, includeRoot bool) 
 	w := &writer{reg: s.Registry()}
 	doc := &aetext.Node{Head: head}
 	doc.Attrs = append(doc.Attrs, aetext.Field{Name: "version", Value: aetext.Int(FormatVersion)})
+	if !includeRoot && s.DefaultSpace() == scene.Space3D {
+		doc.Attrs = append(doc.Attrs, aetext.Field{Name: "space", Value: aetext.String(scene.Space3D.String())})
+	}
 	if includeRoot {
 		if n := w.node(s, root); n != nil {
 			doc.Blocks = append(doc.Blocks, n)
@@ -53,15 +58,15 @@ func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 		aetext.Field{Name: "enabled", Value: aetext.Bool(s.Enabled(h))},
 		aetext.Field{Name: "layers", Value: aetext.Int(int64(s.Layers(h)))},
 	)
-	n.Blocks = append(n.Blocks, saveTransform(s.Local(h)))
-
-	var unknown *Unknown
-	if u, ok := scene.Get[Unknown](s, h); ok {
-		unknown = u
+	if s.Space(h) == scene.Space3D {
+		n.Attrs = append(n.Attrs, aetext.Field{Name: "space", Value: aetext.String(scene.Space3D.String())})
+		n.Blocks = append(n.Blocks, saveTransform3D(s.Local3D(h)))
+	} else {
+		n.Blocks = append(n.Blocks, saveTransform(s.Local(h)))
 	}
 	s.ComponentsOf(h, func(id schema.TypeID) {
 		td, ok := w.reg.ByID(id)
-		if !ok || td.FullName == "engine.Unknown" {
+		if !ok || td.FullName == "engine.Unknown" || td.FullName == components.ScriptName {
 			return
 		}
 		p, ok := s.GetByType(h, id)
@@ -70,9 +75,12 @@ func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 		}
 		n.Blocks = append(n.Blocks, w.component(td, p))
 	})
-	if unknown != nil {
-		for i := range unknown.Components {
-			c := &unknown.Components[i]
+	if sc, ok := components.ScriptsOf(s, h); ok && len(sc.Attachments) > 0 {
+		n.Blocks = append(n.Blocks, w.scripts(sc))
+	}
+	if u, ok := scene.Get[Unknown](s, h); ok {
+		for i := range u.Components {
+			c := &u.Components[i]
 			block := &aetext.Node{Head: "component", Label: c.TypeName}
 			block.Attrs = append(block.Attrs, aetext.Field{Name: "version", Value: aetext.Int(int64(c.Version))})
 			block.Fields = c.Fields
@@ -95,6 +103,17 @@ func saveTransform(t scene.Transform2D) *aetext.Node {
 		aetext.Field{Name: "position", Value: vec2Value(t.Position)},
 		aetext.Field{Name: "rotation", Value: aetext.Float32(t.Rotation)},
 		aetext.Field{Name: "scale", Value: vec2Value(t.Scale)},
+	)
+	return n
+}
+
+func saveTransform3D(t scene.Transform3D) *aetext.Node {
+	q := t.Rotation
+	n := &aetext.Node{Head: "transform3d"}
+	n.Fields = append(n.Fields,
+		aetext.Field{Name: "position", Value: vec3Value(t.Position)},
+		aetext.Field{Name: "rotation", Value: vec4Value(mathx.Vec4{X: q.X, Y: q.Y, Z: q.Z, W: q.W})},
+		aetext.Field{Name: "scale", Value: vec3Value(t.Scale)},
 	)
 	return n
 }
@@ -124,6 +143,12 @@ func (w *writer) value(fd *schema.FieldDescriptor, v schema.Value) aetext.Value 
 		return aetext.String(v.S)
 	case schema.KindVec2:
 		return vec2Value(v.V)
+	case schema.KindVec3:
+		return vec3Value(v.V3)
+	case schema.KindVec4:
+		return vec4Value(v.V4)
+	case schema.KindQuat:
+		return vec4Value(mathx.Vec4{X: v.Q.X, Y: v.Q.Y, Z: v.Q.Z, W: v.Q.W})
 	case schema.KindColor:
 		return aetext.Color(packColor(v.C))
 	case schema.KindRect:
@@ -172,6 +197,14 @@ func (w *writer) value(fd *schema.FieldDescriptor, v schema.Value) aetext.Value 
 
 func vec2Value(v mathx.Vec2) aetext.Value {
 	return aetext.List(aetext.Float32(v.X), aetext.Float32(v.Y))
+}
+
+func vec3Value(v mathx.Vec3) aetext.Value {
+	return aetext.List(aetext.Float32(v.X), aetext.Float32(v.Y), aetext.Float32(v.Z))
+}
+
+func vec4Value(v mathx.Vec4) aetext.Value {
+	return aetext.List(aetext.Float32(v.X), aetext.Float32(v.Y), aetext.Float32(v.Z), aetext.Float32(v.W))
 }
 
 func packColor(c mathx.Color) uint32 {

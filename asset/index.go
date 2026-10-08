@@ -13,6 +13,7 @@ const IndexVersion = 1
 
 type Artifact struct {
 	Kind ArtifactKind
+	Name string
 	Path string
 	Hash string
 	Size int64
@@ -24,6 +25,7 @@ type Entry struct {
 	Name      string
 	Source    string
 	Missing   bool
+	Error     string
 	Deps      []ids.AssetID
 	Artifacts []Artifact
 }
@@ -45,6 +47,19 @@ type Index struct {
 
 func NewIndex() *Index {
 	return &Index{Version: IndexVersion, entries: map[ids.AssetID]*Entry{}}
+}
+
+func (i *Index) Clone() *Index {
+	out := &Index{
+		Version: i.Version,
+		entries: make(map[ids.AssetID]*Entry, len(i.entries)),
+		order:   append([]ids.AssetID(nil), i.order...),
+	}
+	for id, e := range i.entries {
+		cp := *e
+		out.entries[id] = &cp
+	}
+	return out
 }
 
 func (i *Index) Len() int {
@@ -110,6 +125,9 @@ func WriteIndex(i *Index) []byte {
 		if e.Missing {
 			n.Fields = append(n.Fields, aetext.Field{Name: "missing", Value: aetext.Bool(true)})
 		}
+		if e.Error != "" {
+			n.Fields = append(n.Fields, aetext.Field{Name: "error", Value: aetext.String(e.Error)})
+		}
 		if len(e.Deps) > 0 {
 			deps := make([]aetext.Value, len(e.Deps))
 			for k, d := range e.Deps {
@@ -119,6 +137,9 @@ func WriteIndex(i *Index) []byte {
 		}
 		for _, a := range e.Artifacts {
 			an := &aetext.Node{Head: "artifact", Label: string(a.Kind)}
+			if a.Name != "" {
+				an.Fields = append(an.Fields, aetext.Field{Name: "name", Value: aetext.String(a.Name)})
+			}
 			an.Fields = append(an.Fields,
 				aetext.Field{Name: "path", Value: aetext.String(a.Path)},
 				aetext.Field{Name: "hash", Value: aetext.String(a.Hash)},
@@ -170,6 +191,9 @@ func ReadIndex(src []byte, name string) (*Index, error) {
 		if v, ok := n.Field("missing"); ok {
 			e.Missing = v.Bool
 		}
+		if v, ok := n.Field("error"); ok {
+			e.Error = v.Str
+		}
 		if v, ok := n.Field("deps"); ok {
 			for _, d := range v.List {
 				dep, err := ids.ParseAssetID(d.Str)
@@ -182,6 +206,9 @@ func ReadIndex(src []byte, name string) (*Index, error) {
 		}
 		n.EachBlock("artifact", func(an *aetext.Node) {
 			a := Artifact{Kind: ArtifactKind(an.Label)}
+			if v, ok := an.Field("name"); ok {
+				a.Name = v.Str
+			}
 			if v, ok := an.Field("path"); ok {
 				a.Path = v.Str
 			}

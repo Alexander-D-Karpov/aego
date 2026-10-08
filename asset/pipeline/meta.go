@@ -46,6 +46,13 @@ func (s Settings) Int(key string, def int) int {
 	return def
 }
 
+func (s Settings) Float(key string, def float64) float64 {
+	if v, ok := s[key]; ok && (v.Kind == aetext.VInt || v.Kind == aetext.VFloat) {
+		return v.AsFloat()
+	}
+	return def
+}
+
 type Meta struct {
 	ID       ids.AssetID
 	Importer string

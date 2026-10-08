@@ -7,13 +7,17 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"aego/app/edit"
 	"aego/app/run"
+	"aego/app/supervise"
 	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/bootstrap"
 	"aego/format/aetext"
 	"aego/project"
+	"aego/script/abi"
+	"aego/script/stdlib"
 )
 
 func main() {
@@ -30,12 +34,18 @@ func dispatch(args []string) int {
 		return cmdNew(args[1:])
 	case "run":
 		return cmdRun(args[1:])
+	case "edit":
+		return cmdEdit(args[1:])
 	case "build":
 		return cmdBuild(args[1:])
 	case "import":
 		return cmdImport(args[1:])
 	case "check":
 		return cmdCheck(args[1:])
+	case "test":
+		return cmdTest(args[1:])
+	case "dump":
+		return cmdDump(args[1:])
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -50,9 +60,12 @@ func usage() {
 
   new <dir> [--native]   create a project
   run [dir]              import assets and run the game
+  edit [dir]             open the project in the editor
   build [dir]            build the native binary
   import [dir] [--force] reimport all assets
-  check [dir]            parse every document and report problems
+  check [dir]            parse every document, compile scripts and report problems
+  test [dir] [-run name] [-v]  run *_test.aes script tests headless
+  dump script <pkg|Type> [--func name]  disassemble a script package with source lines
 `)
 }
 
@@ -133,6 +146,10 @@ func (Module) Info() sdk.ModuleInfo {
 func (Module) Register(r *sdk.Registry) error {
 	return nil
 }
+
+func Modules() []sdk.Module {
+	return []sdk.Module{Module{}}
+}
 `
 
 func writeNativeStarter(p *project.Project, engine string) error {
@@ -185,6 +202,41 @@ func cmdRun(args []string) int {
 	return 0
 }
 
+func cmdEdit(args []string) int {
+	fs := flag.NewFlagSet("edit", flag.ContinueOnError)
+	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
+	hidden := fs.Bool("hidden", false, "create the window without showing it")
+	headless := fs.Bool("headless", false, "run without a window")
+	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
+	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
+	dir, rest := firstArg(args)
+	if err := fs.Parse(rest); err != nil {
+		return 2
+	}
+	p, err := openProject(dir)
+	if err != nil {
+		return fail(err)
+	}
+	profile := *cpu
+	if profile != "" {
+		if abs, err := filepath.Abs(profile); err == nil {
+			profile = abs
+		}
+	}
+	if bootstrap.NeedsNative(p) && !*headless && *frames == 0 {
+		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile}
+		if err := supervise.Run(p, opt); err != nil {
+			return fail(err)
+		}
+		return 0
+	}
+	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile}
+	if err := edit.Run(p, cfg); err != nil {
+		return fail(err)
+	}
+	return 0
+}
+
 func cmdBuild(args []string) int {
 	dir, _ := firstArg(args)
 	p, err := openProject(dir)
@@ -218,7 +270,11 @@ func cmdImport(args []string) int {
 		os.RemoveAll(filepath.Join(p.CacheDir(), "artifacts"))
 		os.Remove(filepath.Join(p.CacheDir(), "index.aetext"))
 	}
-	imps, err := run.DefaultImporters()
+	reg, err := run.ScriptBindings(p, stdlib.Options{})
+	if err != nil {
+		return fail(err)
+	}
+	imps, err := run.Importers(p.Module, func() abi.Surface { return reg.Surface() })
 	if err != nil {
 		return fail(err)
 	}
@@ -257,8 +313,7 @@ func cmdCheck(args []string) int {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		ext := filepath.Ext(path)
-		switch ext {
+		switch filepath.Ext(path) {
 		case ".aescene", ".aeprefab", ".aego", ".meta":
 		default:
 			return nil
@@ -280,8 +335,11 @@ func cmdCheck(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
+	if scriptTool(p, "check") != 0 {
+		problems++
+	}
 	if problems > 0 {
-		fmt.Fprintf(os.Stderr, "%d document(s) failed to parse\n", problems)
+		fmt.Fprintf(os.Stderr, "check: %d problem(s)\n", problems)
 		return 1
 	}
 	fmt.Println("check: ok")

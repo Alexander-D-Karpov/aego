@@ -29,9 +29,20 @@ type Theme struct {
 	TabActive    mathx.Color
 	AxisX        mathx.Color
 	AxisY        mathx.Color
+	AxisZ        mathx.Color
 	AxisHot      mathx.Color
+	PlayTint     mathx.Color
+	CardBg       mathx.Color
+	CardHeader   mathx.Color
+	Badge        mathx.Color
+	Unit         mathx.Color
+	BarBg        mathx.Color
+	BarBorder    mathx.Color
+	ButtonHover  mathx.Color
+	ButtonActive mathx.Color
 
 	Padding    float32
+	BarHeight  float32
 	RowHeight  float32
 	Spacing    float32
 	Indent     float32
@@ -89,7 +100,18 @@ func Editor() Theme {
 		TabActive:    mathx.ColorRGB8(0x1E, 0x21, 0x26),
 		AxisX:        mathx.ColorRGB8(0xE5, 0x53, 0x4B),
 		AxisY:        mathx.ColorRGB8(0x6B, 0xC4, 0x6D),
+		AxisZ:        mathx.ColorRGB8(0x4B, 0x8B, 0xE5),
 		AxisHot:      mathx.ColorRGB8(0xF5, 0xD7, 0x4B),
+		PlayTint:     mathx.Color{R: 0.88, G: 0.48, B: 0.22, A: 0.85},
+		CardBg:       mathx.ColorRGB8(0x22, 0x25, 0x2B),
+		CardHeader:   mathx.ColorRGB8(0x29, 0x2D, 0x34),
+		Badge:        mathx.ColorRGB8(0x34, 0x38, 0x40),
+		Unit:         mathx.ColorRGB8(0x7A, 0x80, 0x8C),
+		BarBg:        mathx.ColorRGB8(0x1A, 0x1C, 0x21),
+		BarBorder:    mathx.Color{R: 1, G: 1, B: 1, A: 0.06},
+		ButtonHover:  mathx.ColorRGB8(0x30, 0x34, 0x3C),
+		ButtonActive: mathx.ColorRGB8(0x2F, 0x5A, 0x8C),
+		BarHeight:    28,
 		Padding:      6,
 		RowHeight:    22,
 		Spacing:      2,

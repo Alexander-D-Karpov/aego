@@ -70,3 +70,19 @@ func Atan2(y, x float32) float32 {
 func NearlyEqual(a, b, eps float32) bool {
 	return Abs(a-b) <= eps
 }
+
+func Tan(v float32) float32 {
+	return float32(math.Tan(float64(v)))
+}
+
+func Asin(v float32) float32 {
+	return float32(math.Asin(float64(Clamp(v, -1, 1))))
+}
+
+func Acos(v float32) float32 {
+	return float32(math.Acos(float64(Clamp(v, -1, 1))))
+}
+
+func Inf() float32 {
+	return float32(math.Inf(1))
+}

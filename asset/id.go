@@ -3,6 +3,7 @@ package asset
 import (
 	"aego/core/handle"
 	"aego/core/ids"
+	"aego/render/mesh"
 	"aego/render/texture"
 )
 
@@ -16,8 +17,10 @@ type Scene struct{}
 
 type Prefab struct{}
 
+type Mesh struct{}
+
 type Kind interface {
-	Texture | Scene | Prefab
+	Texture | Scene | Prefab | Mesh
 }
 
 func kindName[T Kind]() string {
@@ -29,6 +32,8 @@ func kindName[T Kind]() string {
 		return "scene"
 	case Prefab:
 		return "prefab"
+	case Mesh:
+		return "mesh"
 	}
 	return "unknown"
 }
@@ -82,4 +87,11 @@ func (r *Ref[T]) Region(res Resolver) (texture.Region, bool) {
 	r.gen = res.Generation()
 	r.ok = true
 	return reg, true
+}
+
+func (r *Ref[T]) Mesh(res Resolver) (*mesh.Mesh, bool) {
+	if res == nil || r.ID.IsZero() {
+		return nil, false
+	}
+	return res.Mesh(r.ID)
 }

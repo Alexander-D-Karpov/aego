@@ -27,11 +27,15 @@ const (
 	KindNodeRef
 	KindList
 	KindStruct
+	KindVec3
+	KindVec4
+	KindQuat
 )
 
 var kindNames = [...]string{
 	"invalid", "bool", "int32", "int64", "float32", "float64",
 	"vec2", "color", "rect", "string", "enum", "assetRef", "nodeRef", "list", "struct",
+	"vec3", "vec4", "quat",
 }
 
 func (k Kind) String() string {
@@ -44,7 +48,7 @@ func (k Kind) String() string {
 func (k Kind) IsPOD() bool {
 	switch k {
 	case KindBool, KindInt32, KindInt64, KindFloat32, KindFloat64,
-		KindVec2, KindColor, KindRect, KindEnum:
+		KindVec2, KindVec3, KindVec4, KindQuat, KindColor, KindRect, KindEnum:
 		return true
 	}
 	return false
@@ -65,6 +69,9 @@ type Value struct {
 	I     int64
 	F     float64
 	V     mathx.Vec2
+	V3    mathx.Vec3
+	V4    mathx.Vec4
+	Q     mathx.Quat
 	C     mathx.Color
 	R     mathx.Rect
 	S     string
@@ -100,6 +107,18 @@ func Float64(v float64) Value {
 
 func Vec2(v mathx.Vec2) Value {
 	return Value{Kind: KindVec2, V: v}
+}
+
+func Vec3(v mathx.Vec3) Value {
+	return Value{Kind: KindVec3, V3: v}
+}
+
+func Vec4(v mathx.Vec4) Value {
+	return Value{Kind: KindVec4, V4: v}
+}
+
+func Quat(v mathx.Quat) Value {
+	return Value{Kind: KindQuat, Q: v}
 }
 
 func Color(v mathx.Color) Value {

@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -36,6 +37,7 @@ type testCase struct {
 }
 
 func TestGolden(t *testing.T) {
+	runtime.LockOSThread()
 	mod := rendermodule.New(render.Options{MaxSprites: 4096})
 	e, err := engine.NewBuilder(engine.Config{
 		Title:    "golden",
@@ -56,7 +58,7 @@ func TestGolden(t *testing.T) {
 	if !softwareRenderer(renderer) {
 		if os.Getenv("AEGO_GOLDEN_ALLOW_HARDWARE") == "" {
 			t.Fatalf("golden references require a software rasterizer, got %q; "+
-				"run with SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe, "+
+				"run through make golden (xvfb + llvmpipe), "+
 				"or set AEGO_GOLDEN_ALLOW_HARDWARE=1 to compare anyway", renderer)
 		}
 		t.Logf("comparing against golden references on a hardware renderer %q, results are advisory", renderer)

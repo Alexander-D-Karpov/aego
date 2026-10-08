@@ -129,8 +129,8 @@ type Reparent struct {
 	recorded  bool
 	oldParent ids.NodeID
 	oldIndex  int
-	oldLocal  scene.Transform2D
-	newLocal  scene.Transform2D
+	oldPose   scene.Pose
+	newPose   scene.Pose
 }
 
 func NewReorder(s *scene.Scene, h scene.NodeHandle, index int) *Reparent {
@@ -153,14 +153,14 @@ func (c *Reparent) Do(t history.Target) error {
 	if !c.recorded {
 		c.oldParent = s.ID(s.Parent(h))
 		c.oldIndex = ChildIndex(s, h)
-		c.oldLocal = s.Local(h)
-		c.newLocal = c.oldLocal
+		c.oldPose = s.Pose(h)
+		c.newPose = c.oldPose
 		if c.KeepWorld {
-			local, err := PreserveWorld(s, h, np)
+			pose, err := PreserveWorld(s, h, np)
 			if err != nil {
 				return err
 			}
-			c.newLocal = local
+			c.newPose = pose
 		}
 		c.recorded = true
 	}
@@ -168,7 +168,7 @@ func (c *Reparent) Do(t history.Target) error {
 		return err
 	}
 	s.Flush()
-	s.SetLocal(h, c.newLocal)
+	s.SetPose(h, c.newPose)
 	return nil
 }
 
@@ -185,7 +185,7 @@ func (c *Reparent) Undo(t history.Target) error {
 		return err
 	}
 	s.Flush()
-	s.SetLocal(h, c.oldLocal)
+	s.SetPose(h, c.oldPose)
 	return nil
 }
 

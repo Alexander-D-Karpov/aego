@@ -71,6 +71,39 @@ func (r *Registry) makeAccessors(fd *FieldDescriptor, ft reflect.Type, off uintp
 			*(*vec2)(unsafe.Add(p, off)) = v.V
 			return nil
 		}
+	case KindVec3:
+		fd.Get = func(p unsafe.Pointer, dst *Value) {
+			*dst = Vec3(*(*vec3)(unsafe.Add(p, off)))
+		}
+		fd.Set = func(p unsafe.Pointer, v Value) error {
+			if v.Kind != KindVec3 {
+				return badValue(name, v.Kind, KindVec3)
+			}
+			*(*vec3)(unsafe.Add(p, off)) = v.V3
+			return nil
+		}
+	case KindVec4:
+		fd.Get = func(p unsafe.Pointer, dst *Value) {
+			*dst = Vec4(*(*vec4)(unsafe.Add(p, off)))
+		}
+		fd.Set = func(p unsafe.Pointer, v Value) error {
+			if v.Kind != KindVec4 {
+				return badValue(name, v.Kind, KindVec4)
+			}
+			*(*vec4)(unsafe.Add(p, off)) = v.V4
+			return nil
+		}
+	case KindQuat:
+		fd.Get = func(p unsafe.Pointer, dst *Value) {
+			*dst = Quat(*(*quat)(unsafe.Add(p, off)))
+		}
+		fd.Set = func(p unsafe.Pointer, v Value) error {
+			if v.Kind != KindQuat {
+				return badValue(name, v.Kind, KindQuat)
+			}
+			*(*quat)(unsafe.Add(p, off)) = v.Q
+			return nil
+		}
 	case KindColor:
 		fd.Get = func(p unsafe.Pointer, dst *Value) {
 			*dst = Color(*(*color)(unsafe.Add(p, off)))
@@ -284,6 +317,12 @@ func (r *Registry) valueFrom(rv reflect.Value, k Kind, structID TypeID) Value {
 		return Enum(int64(rv.Uint()))
 	case KindVec2:
 		return Vec2(rv.Interface().(vec2))
+	case KindVec3:
+		return Vec3(rv.Interface().(vec3))
+	case KindVec4:
+		return Vec4(rv.Interface().(vec4))
+	case KindQuat:
+		return Quat(rv.Interface().(quat))
 	case KindColor:
 		return Color(rv.Interface().(color))
 	case KindRect:
@@ -325,6 +364,12 @@ func (r *Registry) assignTo(rv reflect.Value, v Value, k Kind, structID TypeID, 
 		}
 	case KindVec2:
 		rv.Set(reflect.ValueOf(v.V))
+	case KindVec3:
+		rv.Set(reflect.ValueOf(v.V3))
+	case KindVec4:
+		rv.Set(reflect.ValueOf(v.V4))
+	case KindQuat:
+		rv.Set(reflect.ValueOf(v.Q))
 	case KindColor:
 		rv.Set(reflect.ValueOf(v.C))
 	case KindRect:

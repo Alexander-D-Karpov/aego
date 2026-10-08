@@ -18,26 +18,28 @@ func (f FieldFlags) Has(o FieldFlags) bool {
 }
 
 type FieldDescriptor struct {
-	ID        FieldID
-	Name      string
-	Former    []string
-	Kind      Kind
-	Elem      Kind
-	Struct    TypeID
-	Enum      []EnumValue
-	EnumName  string
-	AssetKind string
-	Flags     FieldFlags
-	Offset    uintptr
-	Size      uintptr
-	Fast      bool
-	Min, Max  float64
-	HasMin    bool
-	HasMax    bool
-	Hints     EditorHints
-	Doc       string
-	Get       func(p unsafe.Pointer, dst *Value)
-	Set       func(p unsafe.Pointer, src Value) error
+	ID         FieldID
+	Name       string
+	Former     []string
+	Kind       Kind
+	Elem       Kind
+	Struct     TypeID
+	Enum       []EnumValue
+	EnumName   string
+	AssetKind  string
+	Flags      FieldFlags
+	Offset     uintptr
+	Size       uintptr
+	Fast       bool
+	Min, Max   float64
+	HasMin     bool
+	HasMax     bool
+	Hints      EditorHints
+	Doc        string
+	Default    Value
+	HasDefault bool
+	Get        func(p unsafe.Pointer, dst *Value)
+	Set        func(p unsafe.Pointer, src Value) error
 }
 
 func (f *FieldDescriptor) EnumNameOf(v int64) (string, bool) {
@@ -64,6 +66,7 @@ const (
 	TypeComponent TypeKind = iota
 	TypeStruct
 	TypeAsset
+	TypeScript
 )
 
 type TypeDescriptor struct {
@@ -73,7 +76,9 @@ type TypeDescriptor struct {
 	Version  uint32
 	Size     uintptr
 	Kind     TypeKind
+	Space    SpaceKind
 	Doc      string
+	Hidden   bool
 	Fields   []FieldDescriptor
 	index    map[string]int
 	byID     map[FieldID]int

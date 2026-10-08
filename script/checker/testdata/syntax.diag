@@ -1,0 +1,3 @@
+game/syntax/main.aes:59:5: error AES2014: continue is not in a loop
+    				continue
+    				^~~~~~~~

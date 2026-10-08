@@ -274,12 +274,14 @@ const (
 )
 
 type PassDesc struct {
-	Target     TextureHandle
-	ClearColor mathx.Color
-	ClearDepth float32
-	Color      LoadAction
-	Depth      LoadAction
-	Label      string
+	Target      TextureHandle
+	DepthTarget TextureHandle
+	ClearColor  mathx.Color
+	ClearDepth  float32
+	Color       LoadAction
+	Depth       LoadAction
+	FlipWinding bool
+	Label       string
 }
 
 type Capabilities struct {

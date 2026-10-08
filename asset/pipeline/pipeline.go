@@ -42,6 +42,7 @@ type record struct {
 	group    string
 	deps     []ids.AssetID
 	missing  bool
+	err      string
 }
 
 type Pipeline struct {
@@ -57,8 +58,11 @@ type Pipeline struct {
 	groupKey     map[string]string
 	groupResults map[string]map[ids.AssetID]*Result
 	pages        map[string]ids.AssetID
+	stale        map[string]bool
 	roots        []string
-	mu           sync.Mutex
+	mu           sync.RWMutex
+	pmu          sync.Mutex
+	rev          uint64
 }
 
 func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline, error) {
@@ -89,7 +93,8 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 		groupKey:     map[string]string{},
 		groupResults: map[string]map[ids.AssetID]*Result{},
 		pages:        map[string]ids.AssetID{},
-		roots:        []string{p.AssetsDir(), p.ScenesDir()},
+		stale:        map[string]bool{},
+		roots:        []string{p.AssetsDir(), p.ScenesDir(), p.ScriptsDir()},
 	}
 	if data, err := os.ReadFile(pl.indexPath()); err == nil {
 		if idx, err := asset.ReadIndex(data, "index.aetext"); err == nil {
@@ -115,11 +120,30 @@ func (p *Pipeline) Artifacts() vfs.FS {
 	return p.artifacts
 }
 
+func (p *Pipeline) Revision() uint64 {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.rev
+}
+
 func (p *Pipeline) indexPath() string {
 	return filepath.Join(p.project.CacheDir(), "index.aetext")
 }
 
+func (p *Pipeline) saveIndex() error {
+	if err := os.WriteFile(p.indexPath(), asset.WriteIndex(p.index), 0o644); err != nil {
+		return errs.Wrap(err, errs.VFSIO, "cannot write the asset index")
+	}
+	return nil
+}
+
 func (p *Pipeline) Lookup(path string) (ids.AssetID, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.lookup(path)
+}
+
+func (p *Pipeline) lookup(path string) (ids.AssetID, bool) {
 	r, ok := p.byPath[filepath.ToSlash(path)]
 	if !ok {
 		return ids.AssetID{}, false
@@ -128,6 +152,8 @@ func (p *Pipeline) Lookup(path string) (ids.AssetID, bool) {
 }
 
 func (p *Pipeline) PathOf(id ids.AssetID) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	r, ok := p.byID[id]
 	if !ok {
 		return "", false
@@ -136,6 +162,12 @@ func (p *Pipeline) PathOf(id ids.AssetID) (string, bool) {
 }
 
 func (p *Pipeline) Dependents(id ids.AssetID) []ids.AssetID {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.dependents(id)
+}
+
+func (p *Pipeline) dependents(id ids.AssetID) []ids.AssetID {
 	var out []ids.AssetID
 	for _, r := range p.byID {
 		for _, d := range r.deps {
@@ -149,6 +181,12 @@ func (p *Pipeline) Dependents(id ids.AssetID) []ids.AssetID {
 }
 
 func (p *Pipeline) Scan() (added, removed []ids.AssetID, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.scan()
+}
+
+func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
 	seen := map[string]bool{}
 	for _, root := range p.roots {
 		if err := p.scanRoot(root, seen, &added); err != nil {
@@ -161,11 +199,17 @@ func (p *Pipeline) Scan() (added, removed []ids.AssetID, err error) {
 		}
 		delete(p.byPath, path)
 		delete(p.byID, r.id)
+		if r.group != "" {
+			p.dropFromGroup(r.group, r.id)
+		}
 		removed = append(removed, r.id)
 		if e, ok := p.index.Lookup(r.id); ok {
 			e.Missing = true
 		}
 		p.log.Warn("asset source disappeared", log.F("path", path))
+	}
+	if len(added) > 0 || len(removed) > 0 {
+		p.rev++
 	}
 	return added, removed, nil
 }
@@ -259,6 +303,8 @@ func (p *Pipeline) loadOrCreateMeta(path string, imp Importer) (*Meta, bool, err
 }
 
 func (p *Pipeline) ImportAll() (*Batch, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	all := make([]ids.AssetID, 0, len(p.byID))
 	for id := range p.byID {
 		all = append(all, id)
@@ -266,12 +312,22 @@ func (p *Pipeline) ImportAll() (*Batch, error) {
 	sort.Slice(all, func(i, j int) bool {
 		return p.byID[all[i]].path < p.byID[all[j]].path
 	})
-	return p.Import(all...)
+	return p.importIDs(all...)
 }
 
 func (p *Pipeline) Import(list ...ids.AssetID) (*Batch, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.importIDs(list...)
+}
+
+func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 	batch := &Batch{Failed: map[ids.AssetID]error{}}
 	groupsTouched := map[string]bool{}
+	for g := range p.stale {
+		groupsTouched[g] = true
+	}
+	clear(p.stale)
 
 	for _, id := range list {
 		r, ok := p.byID[id]
@@ -285,9 +341,11 @@ func (p *Pipeline) Import(list ...ids.AssetID) (*Batch, error) {
 				continue
 			}
 			batch.Failed[id] = err
+			r.err = err.Error()
 			p.log.Error("import failed", log.F("path", r.path), log.F("err", err.Error()))
 			continue
 		}
+		r.err = ""
 		if res == nil {
 			continue
 		}
@@ -302,6 +360,7 @@ func (p *Pipeline) Import(list ...ids.AssetID) (*Batch, error) {
 		entry, err := p.writeArtifacts(r, res)
 		if err != nil {
 			batch.Failed[id] = err
+			r.err = err.Error()
 			continue
 		}
 		p.index.Put(entry)
@@ -309,20 +368,33 @@ func (p *Pipeline) Import(list ...ids.AssetID) (*Batch, error) {
 	}
 
 	for group := range groupsTouched {
-		entries, err := p.finalizeGroup(group)
+		entries, failed, err := p.finalizeGroup(group)
 		if err != nil {
-			p.log.Error("atlas group failed", log.F("group", group), log.F("err", err.Error()))
+			p.log.Error("import group failed", log.F("group", group), log.F("err", err.Error()))
 			for _, id := range p.groups[group] {
 				batch.Failed[id] = err
+				if r := p.byID[id]; r != nil {
+					r.err = err.Error()
+				}
 			}
 			continue
+		}
+		for id, ferr := range failed {
+			batch.Failed[id] = ferr
+			if r := p.byID[id]; r != nil {
+				r.err = ferr.Error()
+				p.log.Error("import failed", log.F("path", r.path), log.F("err", ferr.Error()))
+			}
 		}
 		batch.Imported = append(batch.Imported, entries...)
 	}
 
+	if len(batch.Imported) > 0 || len(batch.Failed) > 0 {
+		p.rev++
+	}
 	p.index.Sort()
-	if err := os.WriteFile(p.indexPath(), asset.WriteIndex(p.index), 0o644); err != nil {
-		return batch, errs.Wrap(err, errs.VFSIO, "cannot write the asset index")
+	if err := p.saveIndex(); err != nil {
+		return batch, err
 	}
 	return batch, nil
 }
@@ -360,7 +432,7 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 		Source: source,
 		Meta:   r.meta,
 		Log:    p.log,
-		Lookup: p.Lookup,
+		Lookup: p.lookup,
 	}
 	res, err := r.importer.Import(ctx)
 	if err != nil {
@@ -450,6 +522,10 @@ func artifactExt(kind asset.ArtifactKind) string {
 		return ".aescene"
 	case asset.ArtPrefab:
 		return ".aeprefab"
+	case asset.ArtMesh:
+		return ".aems"
+	case asset.ArtScript:
+		return ".aesb"
 	}
 	return ".bin"
 }
@@ -479,43 +555,43 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 
 	var schedule func()
 	fire := func() {
-		p.mu.Lock()
+		p.pmu.Lock()
 		paths := make(map[string]ChangeKind, len(pending))
 		for k, v := range pending {
 			paths[k] = v
 		}
 		pending = map[string]ChangeKind{}
-		p.mu.Unlock()
+		p.pmu.Unlock()
 
 		batch := p.applyChanges(paths)
 		if batch == nil {
 			return
 		}
 		if len(batch.Retry) > 0 {
-			p.mu.Lock()
+			p.pmu.Lock()
 			for _, id := range batch.Retry {
-				r, ok := p.byID[id]
-				if !ok || attempts[r.path] >= maxRetries {
+				path, ok := p.PathOf(id)
+				if !ok || attempts[path] >= maxRetries {
 					continue
 				}
-				attempts[r.path]++
-				pending[r.path] = ChangeWrite
+				attempts[path]++
+				pending[path] = ChangeWrite
 			}
-			p.mu.Unlock()
+			p.pmu.Unlock()
 			schedule()
 		}
+		p.pmu.Lock()
 		for _, e := range batch.Imported {
-			p.mu.Lock()
 			delete(attempts, e.Source)
-			p.mu.Unlock()
 		}
+		p.pmu.Unlock()
 		if !batch.Empty() {
 			fn(batch)
 		}
 	}
 	schedule = func() {
-		p.mu.Lock()
-		defer p.mu.Unlock()
+		p.pmu.Lock()
+		defer p.pmu.Unlock()
 		if len(pending) == 0 {
 			return
 		}
@@ -526,12 +602,11 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 	}
 
 	stop, err := p.watcher.Start(p.project.Root, []string{".aego", ".git", "exports", "native"}, interval, func(changes []Change) {
-		p.mu.Lock()
+		p.pmu.Lock()
 		for _, c := range changes {
-			path := strings.TrimSuffix(c.Path, MetaSuffix)
-			pending[path] = c.Kind
+			pending[strings.TrimSuffix(c.Path, MetaSuffix)] = c.Kind
 		}
-		p.mu.Unlock()
+		p.pmu.Unlock()
 		schedule()
 	})
 	if err != nil {
@@ -539,16 +614,18 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 	}
 	return func() {
 		stop()
-		p.mu.Lock()
+		p.pmu.Lock()
 		if timer != nil {
 			timer.Stop()
 		}
-		p.mu.Unlock()
+		p.pmu.Unlock()
 	}, nil
 }
 
 func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
-	if _, _, err := p.Scan(); err != nil {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if _, _, err := p.scan(); err != nil {
 		p.log.Error("rescan failed", log.F("err", err.Error()))
 		return nil
 	}
@@ -557,9 +634,6 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 	for path, kind := range paths {
 		r, ok := p.byPath[path]
 		if !ok {
-			if kind == ChangeRemove {
-				continue
-			}
 			continue
 		}
 		if kind == ChangeRemove {
@@ -567,7 +641,7 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 			continue
 		}
 		dirty[r.id] = true
-		for _, dep := range p.Dependents(r.id) {
+		for _, dep := range p.dependents(r.id) {
 			dirty[dep] = true
 		}
 		if r.group != "" {
@@ -576,7 +650,7 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 			}
 		}
 	}
-	if len(dirty) == 0 && len(removed) == 0 {
+	if len(dirty) == 0 && len(removed) == 0 && len(p.stale) == 0 {
 		return nil
 	}
 	list := make([]ids.AssetID, 0, len(dirty))
@@ -586,7 +660,7 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 	sort.Slice(list, func(i, j int) bool {
 		return p.byID[list[i]].path < p.byID[list[j]].path
 	})
-	batch, err := p.Import(list...)
+	batch, err := p.importIDs(list...)
 	if err != nil {
 		p.log.Error("import batch failed", log.F("err", err.Error()))
 	}
@@ -597,5 +671,7 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 }
 
 func (p *Pipeline) Close() {
-	_ = os.WriteFile(p.indexPath(), asset.WriteIndex(p.index), 0o644)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.saveIndex()
 }

@@ -100,6 +100,15 @@ func Standard(left, center, bottom, right []string) *Tree {
 	return t
 }
 
+func Columns(left, leftBottom, center, bottom, right []string) *Tree {
+	t := newTree()
+	l := t.newSplit(AxisY, 0.6, t.newTabs(left), t.newTabs(leftBottom))
+	c := t.newSplit(AxisY, 0.78, t.newTabs(center), t.newTabs(bottom))
+	t.root = t.newSplit(AxisX, 0.22, l, t.newSplit(AxisX, 0.78, c, t.newTabs(right)))
+	t.normalize()
+	return t
+}
+
 func (t *Tree) alloc(n *Node) NodeID {
 	t.next++
 	n.ID = t.next
@@ -570,20 +579,23 @@ func (t *Tree) dropTarget(m mathx.Vec2) (NodeID, Side, bool) {
 	if n == nil || n.Rect.W <= 0 || n.Rect.H <= 0 {
 		return 0, SideCenter, false
 	}
-	r := n.Rect
-	rx := (m.X - r.X) / r.W
-	ry := (m.Y - r.Y) / r.H
-	if rx > 0.3 && rx < 0.7 && ry > 0.3 && ry < 0.7 {
+	if m.Y < n.Rect.Y+t.tabH {
 		return id, SideCenter, true
 	}
-	side, best := SideLeft, rx
-	if v := 1 - rx; v < best {
-		side, best = SideRight, v
+	body := t.content(n)
+	ex := min(body.W*0.25, 80)
+	ey := min(body.H*0.25, 80)
+	side, best := SideCenter, float32(1e9)
+	if d := m.X - body.X; d < ex && d < best {
+		side, best = SideLeft, d
 	}
-	if ry < best {
-		side, best = SideTop, ry
+	if d := body.X + body.W - m.X; d < ex && d < best {
+		side, best = SideRight, d
 	}
-	if v := 1 - ry; v < best {
+	if d := m.Y - body.Y; d < ey && d < best {
+		side, best = SideTop, d
+	}
+	if d := body.Y + body.H - m.Y; d < ey && d < best {
 		side = SideBottom
 	}
 	return id, side, true
@@ -601,7 +613,7 @@ func (t *Tree) zoneRect(n *Node, side Side) mathx.Rect {
 	case SideBottom:
 		return mathx.Rect{X: r.X, Y: r.Y + r.H/2, W: r.W, H: r.H / 2}
 	}
-	return t.content(n)
+	return r
 }
 
 func (t *Tree) Save() []byte {

@@ -143,7 +143,8 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	if t.info.depth {
 		return errs.New(errs.GPUResource, "read pixels: depth textures are not readable")
 	}
-	if x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > t.w || y+h > t.h {
+	texH := t.h
+	if x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > t.w || y+h > texH {
 		return errs.New(errs.GPUResource, "read pixels: region out of range",
 			log.F("x", x), log.F("y", y), log.F("w", w), log.F("h", h))
 	}
@@ -154,18 +155,17 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	if d.inFrame {
 		return errs.New(errs.GPUResource, "read pixels: must be called after EndFrame")
 	}
-	fbo := d.ensureFBO(t)
+	fbo, _, _, _, err := d.framebuffer(handle.Cast[glTexture](th), handle.Handle[glTexture]{})
+	if err != nil {
+		return errs.Wrap(err, errs.GPUResource, "read pixels")
+	}
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, fbo)
 	d.cache.Invalidate()
-	if status := gl.CheckFramebufferStatus(gl.READ_FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-		return errs.New(errs.GPUResource, "read framebuffer is incomplete", log.F("status", status))
-	}
 	gl.ReadBuffer(gl.COLOR_ATTACHMENT0)
 	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
 	for gl.GetError() != gl.NO_ERROR {
 	}
-	// The caller's y is top-down; GL reads bottom-up, so flip the origin.
-	gl.ReadPixels(int32(x), int32(t.h-y-h), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
+	gl.ReadPixels(int32(x), int32(texH-y-h), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
 	if e := gl.GetError(); e != gl.NO_ERROR {
 		return errs.New(errs.GPUResource, "glReadPixels failed", log.F("gl", glErrorName(e)))
 	}
@@ -181,29 +181,6 @@ func flipRows(buf []byte, stride, rows int) {
 			a[i], b[i] = b[i], a[i]
 		}
 	}
-}
-
-func (d *Device) ensureFBO(t *glTexture) uint32 {
-	if t.fbo != 0 {
-		return t.fbo
-	}
-	var fbo uint32
-	gl.GenFramebuffers(1, &fbo)
-	d.cache.BindFramebuffer(fbo)
-	attach := uint32(gl.COLOR_ATTACHMENT0)
-	if t.info.depth {
-		attach = gl.DEPTH_STENCIL_ATTACHMENT
-	}
-	gl.FramebufferTexture2D(gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, t.id, 0)
-	if t.info.depth {
-		gl.DrawBuffer(gl.NONE)
-		gl.ReadBuffer(gl.NONE)
-	}
-	if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-		d.log.Error("framebuffer incomplete", log.F("status", status))
-	}
-	t.fbo = fbo
-	return fbo
 }
 
 func (d *Device) CreateSampler(desc gpu.SamplerDesc) (gpu.SamplerHandle, error) {
@@ -316,12 +293,8 @@ func (d *Device) destroyNow(kind resourceKind, index, gen uint32) {
 		if !ok {
 			return
 		}
-		if t.fbo != 0 {
-			fbo := t.fbo
-			d.cache.ForgetFramebuffer(fbo)
-			gl.DeleteFramebuffers(1, &fbo)
-		}
 		id := t.id
+		d.forgetFramebuffers(h)
 		d.cache.ForgetTexture(id)
 		gl.DeleteTextures(1, &id)
 		d.textures.Free(h)

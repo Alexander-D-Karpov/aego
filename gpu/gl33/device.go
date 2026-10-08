@@ -28,7 +28,6 @@ type glBuffer struct {
 
 type glTexture struct {
 	id   uint32
-	fbo  uint32
 	w, h int
 	info texInfo
 	mips bool
@@ -86,6 +85,7 @@ type Device struct {
 	shaders     *handle.Arena[glShader]
 	pipelines   *handle.Arena[glPipeline]
 	queries     *handle.Arena[glQuery]
+	fbos        map[fboKey]uint32
 	frame       frame
 	pass        pass
 	inFrame     bool
@@ -114,6 +114,7 @@ func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
 		shaders:   newArena[glShader](logger, "shader", 32),
 		pipelines: newArena[glPipeline](logger, "pipeline", 32),
 		queries:   newArena[glQuery](logger, "query", 16),
+		fbos:      make(map[fboKey]uint32, 16),
 		pending:   make([]pendingDestroy, 0, 64),
 	}
 	d.frame.d = d
@@ -267,6 +268,7 @@ func (d *Device) Close() {
 	d.cache.BindVertexArray(0)
 	d.cache.UseProgram(0)
 	d.cache.BindFramebuffer(0)
+	d.deleteFramebuffers()
 	d.pipelines.Each(func(_ handle.Handle[glPipeline], p *glPipeline) {
 		id := p.vao
 		gl.DeleteVertexArrays(1, &id)
@@ -279,10 +281,6 @@ func (d *Device) Close() {
 		gl.DeleteSamplers(1, &id)
 	})
 	d.textures.Each(func(_ handle.Handle[glTexture], t *glTexture) {
-		if t.fbo != 0 {
-			fbo := t.fbo
-			gl.DeleteFramebuffers(1, &fbo)
-		}
 		id := t.id
 		gl.DeleteTextures(1, &id)
 	})

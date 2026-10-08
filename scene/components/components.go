@@ -23,7 +23,7 @@ type SpriteRenderer struct {
 	Filter gpu.FilterMode           `aego:"filter"`
 }
 
-type Camera struct {
+type Camera2D struct {
 	Zoom       float32        `aego:"zoom,min=0.01"`
 	Viewport   mathx.Rect     `aego:"viewport"`
 	Mask       int64          `aego:"mask"`
@@ -35,6 +35,28 @@ type Camera struct {
 	Active     bool           `aego:"active"`
 }
 
+type Camera3D struct {
+	FOV        float32     `aego:"fov,min=1,max=179,unit=deg"`
+	Near       float32     `aego:"near,min=0.001"`
+	Far        float32     `aego:"far,min=0.01"`
+	Viewport   mathx.Rect  `aego:"viewport"`
+	Mask       int64       `aego:"mask"`
+	Order      int32       `aego:"order"`
+	Clear      bool        `aego:"clear"`
+	ClearColor mathx.Color `aego:"clearColor"`
+	Active     bool        `aego:"active"`
+}
+
+type MeshRenderer struct {
+	Mesh        asset.Ref[asset.Mesh]    `aego:"mesh,asset=mesh"`
+	Texture     asset.Ref[asset.Texture] `aego:"texture,asset=texture"`
+	Color       mathx.Color              `aego:"color"`
+	Blend       sprite.BlendMode         `aego:"blend"`
+	DoubleSided bool                     `aego:"doubleSided"`
+	Layer       int32                    `aego:"layer"`
+	Filter      gpu.FilterMode           `aego:"filter"`
+}
+
 func DefaultSpriteRenderer() SpriteRenderer {
 	return SpriteRenderer{
 		Tint:   mathx.Color{R: 1, G: 1, B: 1, A: 1},
@@ -42,14 +64,35 @@ func DefaultSpriteRenderer() SpriteRenderer {
 	}
 }
 
-func DefaultCamera() Camera {
-	return Camera{
+func DefaultCamera2D() Camera2D {
+	return Camera2D{
 		Zoom:       64,
 		Viewport:   mathx.Rect{W: 1, H: 1},
 		Mask:       -1,
 		Clear:      true,
 		ClearColor: mathx.Color{R: 0.04, G: 0.05, B: 0.07, A: 1},
 		Active:     true,
+	}
+}
+
+func DefaultCamera3D() Camera3D {
+	return Camera3D{
+		FOV:        60,
+		Near:       0.1,
+		Far:        1000,
+		Viewport:   mathx.Rect{W: 1, H: 1},
+		Mask:       -1,
+		Clear:      true,
+		ClearColor: mathx.Color{R: 0.04, G: 0.05, B: 0.07, A: 1},
+		Active:     true,
+	}
+}
+
+func DefaultMeshRenderer() MeshRenderer {
+	return MeshRenderer{
+		Color:  mathx.Color{R: 1, G: 1, B: 1, A: 1},
+		Blend:  sprite.BlendOpaque,
+		Filter: gpu.FilterLinear,
 	}
 }
 
@@ -77,10 +120,28 @@ func Register(t *scene.Types) error {
 	}
 	if err := scene.RegisterComponent[SpriteRenderer](t,
 		schema.Name("engine.SpriteRenderer"),
+		schema.Space(schema.Space2D),
 		schema.Doc("draws a texture region at the node transform")); err != nil {
 		return err
 	}
-	return scene.RegisterComponent[Camera](t,
-		schema.Name("engine.Camera"),
-		schema.Doc("renders a view from the node transform"))
+	if err := scene.RegisterComponent[Camera2D](t,
+		schema.Name("engine.Camera2D"),
+		schema.FormerName("engine.Camera"),
+		schema.Space(schema.Space2D),
+		schema.Doc("renders an orthographic view from the node transform")); err != nil {
+		return err
+	}
+	if err := scene.RegisterComponent[Camera3D](t,
+		schema.Name("engine.Camera3D"),
+		schema.Space(schema.Space3D),
+		schema.Doc("renders a perspective view looking down the node -Z axis")); err != nil {
+		return err
+	}
+	if err := scene.RegisterComponent[MeshRenderer](t,
+		schema.Name("engine.MeshRenderer"),
+		schema.Space(schema.Space3D),
+		schema.Doc("draws an unlit mesh at the node transform")); err != nil {
+		return err
+	}
+	return registerScripts(t)
 }

@@ -72,18 +72,6 @@ func TreeNode(c *core.Context, id core.ID, label string, open *bool, selected bo
 	return clicked
 }
 
-func Selectable(c *core.Context, id core.ID, label string, selected bool) bool {
-	r := c.Cursor().Next(0)
-	clicked := c.Clicked(id, r)
-	if selected {
-		c.List().Rect(r, c.Theme.WidgetDown)
-	} else if c.Hot() == id {
-		c.List().Rect(r, c.Theme.WidgetHot)
-	}
-	c.List().Text(label, mathx.Vec2{X: r.X + 4, Y: textY(c, r)}, c.Theme.Text)
-	return clicked
-}
-
 func DragFloat(c *core.Context, id core.ID, label string, v *float32, speed float32) bool {
 	r := c.Cursor().Next(0)
 	changed := false

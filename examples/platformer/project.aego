@@ -1,0 +1,27 @@
+project version=1 {
+  name="Platformer"
+  module="mygame"
+  mainScene=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c01")
+  native=true
+  window {
+    width=1280
+    height=720
+    title="Aego Platformer"
+  }
+  input {
+    axes {
+      horizontal {
+        negative=A
+        positive=D
+        altNegative=Left
+        altPositive=Right
+      }
+      vertical {
+        negative=W
+        positive=S
+        altNegative=Up
+        altPositive=Down
+      }
+    }
+  }
+}

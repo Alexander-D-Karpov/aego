@@ -19,14 +19,32 @@ const (
 	ScaleFitVirtual
 )
 
+type Projection uint8
+
+const (
+	Ortho2D Projection = iota
+	Perspective3D
+)
+
 type LayerMask uint32
 
 const AllLayers LayerMask = 0xffffffff
 
+const (
+	DefaultFOV  float32 = mathx.Pi / 3
+	DefaultNear float32 = 0.1
+	DefaultFar  float32 = 1000
+)
+
 type View struct {
+	Projection    Projection
 	Camera        Camera2D
+	Eye           mathx.Mat4
+	FOV           float32
+	Near, Far     float32
 	Viewport      mathx.Rect
 	Target        gpu.TextureHandle
+	DepthTarget   gpu.TextureHandle
 	TargetW       int
 	TargetH       int
 	PixelScale    float32
@@ -59,6 +77,23 @@ func ScreenView(pixelW, pixelH int, pixelScale float32) View {
 	}
 }
 
+func PerspectiveView(eye mathx.Mat4, fov, near, far float32, vp mathx.Rect) View {
+	return View{
+		Projection:    Perspective3D,
+		Camera:        Camera2D{Zoom: 1},
+		Eye:           eye,
+		FOV:           fov,
+		Near:          near,
+		Far:           far,
+		Viewport:      vp,
+		PixelScale:    1,
+		PixelsPerUnit: 1,
+		ZMax:          1,
+		Layers:        AllLayers,
+		Label:         "perspective",
+	}
+}
+
 func (v *View) Normalize(pixelW, pixelH int, pixelScale float32) {
 	if v.TargetW <= 0 || v.TargetH <= 0 {
 		v.TargetW, v.TargetH = pixelW, pixelH
@@ -84,6 +119,28 @@ func (v *View) Normalize(pixelW, pixelH int, pixelScale float32) {
 	if v.ZMax <= v.ZMin {
 		v.ZMin, v.ZMax = 0, 1
 	}
+	if v.Projection == Perspective3D {
+		if v.FOV <= 0 {
+			v.FOV = DefaultFOV
+		}
+		if v.Near <= 0 {
+			v.Near = DefaultNear
+		}
+		if v.Far <= v.Near {
+			v.Far = max(DefaultFar, v.Near*2)
+		}
+		if v.Eye == (mathx.Mat4{}) {
+			v.Eye = mathx.Mat4Identity()
+		}
+	}
+}
+
+func (v View) UsesDepth() bool {
+	return v.Projection == Perspective3D && (v.Target.IsZero() || !v.DepthTarget.IsZero())
+}
+
+func (v View) Flipped(caps gpu.Capabilities) bool {
+	return !v.Target.IsZero() && caps.OriginBottomLeft
 }
 
 func (v View) EffectiveZoom() float32 {
@@ -112,7 +169,7 @@ func (v View) virtualFit() float32 {
 }
 
 func (v View) LetterboxViewport() mathx.Rect {
-	if v.Scale == ScaleFree || v.Virtual.X <= 0 || v.Virtual.Y <= 0 {
+	if v.Projection == Perspective3D || v.Scale == ScaleFree || v.Virtual.X <= 0 || v.Virtual.Y <= 0 {
 		return v.Viewport
 	}
 	zoom := v.EffectiveZoom() / max(v.Camera.Zoom, 0.0001)
@@ -141,6 +198,14 @@ func (v View) cameraPosition() mathx.Vec2 {
 	}
 }
 
+func (v View) CameraPosition() mathx.Vec3 {
+	if v.Projection == Perspective3D {
+		return v.Eye.Translation()
+	}
+	p := v.cameraPosition()
+	return mathx.Vec3{X: p.X, Y: p.Y}
+}
+
 func (v View) ViewMatrix() mathx.Mat3 {
 	z := v.EffectiveZoom()
 	pos := v.cameraPosition()
@@ -149,21 +214,85 @@ func (v View) ViewMatrix() mathx.Mat3 {
 	return rotate.Mul(translate)
 }
 
-func (v View) Projection(caps gpu.Capabilities) mathx.Mat4 {
+func (v View) ViewMatrix4() mathx.Mat4 {
+	if v.Projection == Perspective3D {
+		if inv, ok := v.Eye.InverseAffine(); ok {
+			return inv
+		}
+		return mathx.Mat4Identity()
+	}
+	return mathx.Mat4FromMat3(v.ViewMatrix())
+}
+
+func (v View) glProjection() mathx.Mat4 {
 	vp := v.LetterboxViewport()
-	hw := vp.W / 2
-	hh := vp.H / 2
-	proj := mathx.Mat4Ortho(-hw, hw, hh, -hh, -1, 1)
-	if !v.Target.IsZero() && caps.OriginBottomLeft {
+	if v.Projection == Perspective3D {
+		aspect := float32(1)
+		if vp.H > 0 {
+			aspect = vp.W / vp.H
+		}
+		return mathx.Mat4Perspective(v.FOV, aspect, v.Near, v.Far)
+	}
+	hw, hh := vp.W/2, vp.H/2
+	return mathx.Mat4Ortho(-hw, hw, hh, -hh, -1, 1)
+}
+
+func (v View) ProjectionMatrix(caps gpu.Capabilities) mathx.Mat4 {
+	p := v.glProjection()
+	if v.Flipped(caps) {
 		flip := mathx.Mat4Identity()
 		flip[5] = -1
-		proj = flip.Mul(proj)
+		p = flip.Mul(p)
 	}
-	return proj
+	if caps.ClipZeroToOne {
+		fix := mathx.Mat4Identity()
+		fix[10] = 0.5
+		fix[14] = 0.5
+		p = fix.Mul(p)
+	}
+	return p
 }
 
 func (v View) ViewProjection(caps gpu.Capabilities) mathx.Mat4 {
-	return v.Projection(caps).Mul(mathx.Mat4FromMat3(v.ViewMatrix()))
+	return v.ProjectionMatrix(caps).Mul(v.ViewMatrix4())
+}
+
+func (v View) ViewProj(caps gpu.Capabilities) mathx.Mat4 {
+	return v.ViewProjection(caps)
+}
+
+func (v View) clipFromWorld() mathx.Mat4 {
+	return v.glProjection().Mul(v.ViewMatrix4())
+}
+
+func (v View) Frustum() mathx.Frustum {
+	return mathx.FrustumFromMat4(v.clipFromWorld())
+}
+
+func (v View) ScreenToRay(p mathx.Vec2) mathx.Ray3 {
+	vp := v.LetterboxViewport()
+	if vp.W <= 0 || vp.H <= 0 {
+		return mathx.Ray3{}
+	}
+	nx := (p.X-vp.X)/vp.W*2 - 1
+	ny := 1 - (p.Y-vp.Y)/vp.H*2
+	inv, ok := v.clipFromWorld().Inverse()
+	if !ok {
+		return mathx.Ray3{}
+	}
+	a := inv.TransformPoint(mathx.Vec3{X: nx, Y: ny, Z: -1})
+	b := inv.TransformPoint(mathx.Vec3{X: nx, Y: ny, Z: 1})
+	return mathx.Ray3{Origin: a, Dir: b.Sub(a).Normalized()}
+}
+
+func (v View) WorldToScreen3(p mathx.Vec3) (mathx.Vec2, bool) {
+	c := v.clipFromWorld().MulVec4(mathx.Vec4{X: p.X, Y: p.Y, Z: p.Z, W: 1})
+	if c.W <= 1e-6 {
+		return mathx.Vec2{}, false
+	}
+	vp := v.LetterboxViewport()
+	nx, ny := c.X/c.W, c.Y/c.W
+	return mathx.Vec2{X: vp.X + (nx+1)/2*vp.W, Y: vp.Y + (1-ny)/2*vp.H}, true
 }
 
 func (v View) WorldToScreen(p mathx.Vec2) mathx.Vec2 {
@@ -175,16 +304,24 @@ func (v View) WorldToScreen(p mathx.Vec2) mathx.Vec2 {
 func (v View) ScreenToWorld(p mathx.Vec2) mathx.Vec2 {
 	vp := v.LetterboxViewport()
 	local := mathx.Vec2{X: p.X - vp.X - vp.W/2, Y: p.Y - vp.Y - vp.H/2}
-	return v.ViewMatrix().Inverse().Apply(local)
+	inv, ok := v.ViewMatrix().Inverse()
+	if !ok {
+		return v.cameraPosition()
+	}
+	return inv.Apply(local)
 }
 
-func (v View) VisibleBounds() mathx.AABB {
+func (v View) VisibleBounds() mathx.AABB2 {
+	if v.Projection == Perspective3D {
+		inf := mathx.Inf()
+		return mathx.AABB2{Min: mathx.Vec2{X: -inf, Y: -inf}, Max: mathx.Vec2{X: inf, Y: inf}}
+	}
 	vp := v.LetterboxViewport()
 	c0 := v.ScreenToWorld(mathx.Vec2{X: vp.X, Y: vp.Y})
 	c1 := v.ScreenToWorld(mathx.Vec2{X: vp.X + vp.W, Y: vp.Y})
 	c2 := v.ScreenToWorld(mathx.Vec2{X: vp.X, Y: vp.Y + vp.H})
 	c3 := v.ScreenToWorld(mathx.Vec2{X: vp.X + vp.W, Y: vp.Y + vp.H})
-	return mathx.AABB{
+	return mathx.AABB2{
 		Min: mathx.Vec2{X: min(min(c0.X, c1.X), min(c2.X, c3.X)), Y: min(min(c0.Y, c1.Y), min(c2.Y, c3.Y))},
 		Max: mathx.Vec2{X: max(max(c0.X, c1.X), max(c2.X, c3.X)), Y: max(max(c0.Y, c1.Y), max(c2.Y, c3.Y))},
 	}

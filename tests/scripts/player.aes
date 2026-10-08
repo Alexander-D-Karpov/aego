@@ -1,0 +1,60 @@
+package player
+
+import (
+	"aego/input"
+	"aego/log"
+	"aego/math"
+	"mygame/combat"
+)
+
+enum State {
+	Idle
+	Run
+}
+
+type Stats struct {
+	Hp    int
+	Armor float
+}
+
+const MaxSpeed float = 600
+
+script PlayerController {
+	@export(min=0, max=600, unit="px/s")
+	var Speed float = 220
+
+	@export
+	var Target NodeRef
+
+	@export
+	var Sprite AssetRef<Texture>
+
+	var state State
+	var stats Stats
+	var hits []int
+
+	func Ready() {
+		stats = Stats{Hp: 10, Armor: 0.5}
+		log.Info("ready")
+	}
+
+	func Update(dt float) {
+		x := input.Axis("horizontal")
+		if x != 0 {
+			state = State.Run
+		} else {
+			state = State.Idle
+		}
+		t := node.Transform2D()
+		t.Position.X += math.Clamp(x*Speed, -MaxSpeed, MaxSpeed) * dt
+		node.SetTransform2D(t)
+
+		if node.Has<SpriteRenderer>() {
+			sr := node.Get<SpriteRenderer>()
+			sr.FlipX = x < 0
+		}
+		if Target != nil && input.Pressed(input.KeySpace) {
+			combat.Damage(Target, 5)
+		}
+	}
+}

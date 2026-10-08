@@ -19,6 +19,7 @@ func (m *mockAPI) BindFramebuffer(uint32)        { m.calls["fbo"]++ }
 func (m *mockAPI) SetBlend(Blend)                { m.calls["blend"]++ }
 func (m *mockAPI) SetDepth(Depth)                { m.calls["depth"]++ }
 func (m *mockAPI) SetCull(Cull)                  { m.calls["cull"]++ }
+func (m *mockAPI) FrontFace(bool)                { m.calls["front"]++ }
 func (m *mockAPI) Viewport(Rect)                 { m.calls["viewport"]++ }
 func (m *mockAPI) Scissor(bool, Rect)            { m.calls["scissor"]++ }
 
@@ -35,6 +36,7 @@ func TestRedundantCallsSkipped(t *testing.T) {
 		c.SetBlend(Blend{Enabled: true, SrcRGB: 1, DstRGB: 2, SrcA: 1, DstA: 2})
 		c.SetDepth(Depth{Test: false, Write: true, Func: 1})
 		c.SetCull(Cull{})
+		c.SetFrontFace(true)
 		c.SetViewport(Rect{W: 800, H: 600})
 		c.SetScissor(false, Rect{X: 1})
 	}
@@ -43,8 +45,20 @@ func TestRedundantCallsSkipped(t *testing.T) {
 			t.Fatalf("%s called %d times", name, n)
 		}
 	}
-	if len(m.calls) != 11 {
-		t.Fatalf("expected 11 distinct calls, got %v", m.calls)
+	if len(m.calls) != 12 {
+		t.Fatalf("expected 12 distinct calls, got %v", m.calls)
+	}
+}
+
+func TestFrontFaceTracksChanges(t *testing.T) {
+	m := newMock()
+	c := New(m)
+	if !c.SetFrontFace(false) || c.SetFrontFace(false) || !c.SetFrontFace(true) {
+		t.Fatal("front face change tracking wrong")
+	}
+	c.Invalidate()
+	if !c.SetFrontFace(true) {
+		t.Fatal("invalidate did not force front face")
 	}
 }
 

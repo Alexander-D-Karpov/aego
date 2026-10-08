@@ -1,0 +1,24 @@
+game/broken/main.aes:3:8: warning AES4008: "aego/log" imported and not used
+    import "aego/log"
+           ^~~~~~~~~~
+game/broken/main.aes:5:1: error AES1105: package-level var is not allowed, use const or a script field
+    var counter int
+    ^~~
+game/broken/main.aes:8:2: warning AES2031: x declared and not used
+    	x := 1 +
+    	^
+game/broken/main.aes:9:1: error AES1101: expected expression, found '}'
+    }
+    ^
+game/broken/main.aes:12:5: error AES1101: expected expression, found '{'
+    	if {
+    	   ^
+game/broken/main.aes:14:2: warning AES2031: y declared and not used
+    	y := )
+    	^
+game/broken/main.aes:14:7: error AES1101: expected expression, found ')'
+    	y := )
+    	     ^
+game/broken/main.aes:17:1: error AES1103: attributes are only allowed on scripts, script fields and functions
+    @export
+    ^~~~~~~
