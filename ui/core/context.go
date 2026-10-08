@@ -3,6 +3,7 @@ package core
 import (
 	"aego/core/mathx"
 	"aego/platform/input"
+	"aego/render/icons"
 	"aego/render/text"
 	"aego/ui/draw"
 	"aego/ui/textedit"
@@ -60,6 +61,27 @@ type Clipboard interface {
 	SetText(string)
 }
 
+type popup struct {
+	id     ID
+	at     mathx.Vec2
+	h      float32
+	rect   mathx.Rect
+	opened uint64
+	bg     int
+	need   float32
+	cur    float32
+}
+
+type Mark struct {
+	ids      int
+	cursors  int
+	clips    int
+	overlays int
+	popups   int
+	layers   int
+	modal    bool
+}
+
 const (
 	maxOverlays = 16
 	doubleClick = 0.35
@@ -68,6 +90,7 @@ const (
 type Context struct {
 	Theme     Theme
 	Clipboard Clipboard
+	Icons     *icons.Set
 	Time      float64
 
 	font  *text.Font
@@ -123,6 +146,13 @@ type Context struct {
 	lastClickTime float64
 	doubleID      ID
 
+	pressPos   mathx.Vec2
+	prevHot    ID
+	hotSince   float64
+	dragValue  float64
+	popups     []popup
+	popupStack []int
+
 	inFrame bool
 }
 
@@ -172,6 +202,7 @@ func (c *Context) Begin(in *input.State, size mathx.Vec2, scale float32) {
 	c.cursors = c.cursors[:0]
 	c.clips = c.clips[:0]
 	c.overlayClips = c.overlayClips[:0]
+	c.popupStack = c.popupStack[:0]
 	c.overlayDepth = 0
 	c.inModal = false
 	c.overlays = c.nextOverlays
@@ -196,6 +227,10 @@ func (c *Context) Begin(in *input.State, size mathx.Vec2, scale float32) {
 
 func (c *Context) End() *draw.List {
 	c.inFrame = false
+	if c.hot != c.prevHot {
+		c.prevHot = c.hot
+		c.hotSince = c.Time
+	}
 	if c.in != nil {
 		if c.in.ButtonPressed(input.MouseLeft) && c.focus != 0 && c.pressed != c.focus {
 			c.markLost(c.focus)
@@ -382,6 +417,7 @@ func (c *Context) Pressed(id ID, r mathx.Rect) bool {
 	}
 	c.active = id
 	c.pressed = id
+	c.pressPos = c.mouse
 	if c.lastClickID == id && c.Time-c.lastClickTime < doubleClick {
 		c.doubleID = id
 		c.lastClickID = 0
@@ -619,7 +655,7 @@ func (c *Context) BeginOverlay(r mathx.Rect, layer int) {
 	c.overlayClips = append(c.overlayClips, len(c.clips))
 	c.clips = append(c.clips, r)
 	c.list.PushLayer(layer)
-	c.list.PushClip(r)
+	c.list.PushClipAbs(r)
 }
 
 func (c *Context) EndOverlay() {
@@ -640,6 +676,184 @@ func (c *Context) EndOverlay() {
 
 func (c *Context) InOverlay() bool {
 	return c.overlayDepth > 0
+}
+
+func (c *Context) PressPos() mathx.Vec2 {
+	return c.pressPos
+}
+
+func (c *Context) DragValue() *float64 {
+	return &c.dragValue
+}
+
+func (c *Context) HoverDuration(id ID) float64 {
+	if id == 0 || c.hot != id || c.prevHot != id {
+		return 0
+	}
+	return c.Time - c.hotSince
+}
+
+func (c *Context) popupIndex(id ID) int {
+	for i := range c.popups {
+		if c.popups[i].id == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func (c *Context) OpenPopup(id ID, at mathx.Vec2) {
+	if i := c.popupIndex(id); i >= 0 {
+		c.popups = c.popups[:i]
+	}
+	c.popups = append(c.popups, popup{id: id, at: at, opened: c.frame})
+}
+
+func (c *Context) PopupOpen(id ID) bool {
+	return c.popupIndex(id) >= 0
+}
+
+func (c *Context) AnyPopup() bool {
+	return len(c.popups) > 0
+}
+
+func (c *Context) ClosePopup(id ID) {
+	if i := c.popupIndex(id); i >= 0 {
+		c.popups = c.popups[:i]
+	}
+}
+
+func (c *Context) CloseAllPopups() {
+	c.popups = c.popups[:0]
+}
+
+func (c *Context) CloseChildren() {
+	n := len(c.popupStack)
+	if n == 0 {
+		return
+	}
+	if i := c.popupStack[n-1]; i+1 < len(c.popups) {
+		c.popups = c.popups[:i+1]
+	}
+}
+
+func (c *Context) insidePopups(from int) bool {
+	for j := from; j < len(c.popups); j++ {
+		if c.popups[j].rect.Contains(c.mouse) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Context) BeginPopup(id ID, w float32) bool {
+	i := c.popupIndex(id)
+	if i < 0 {
+		return false
+	}
+	p := &c.popups[i]
+	w = max(w, p.need)
+	p.cur = 0
+	if c.frame != p.opened && c.in != nil {
+		pressed := c.in.ButtonPressed(input.MouseLeft) || c.in.ButtonPressed(input.MouseRight)
+		if pressed && !c.insidePopups(i) {
+			c.popups = c.popups[:i]
+			return false
+		}
+		if i == len(c.popups)-1 && c.in.KeyPressed(input.KeyEscape) {
+			c.popups = c.popups[:i]
+			return false
+		}
+	}
+	h := p.h
+	if h <= 0 {
+		h = min(float32(400), c.size.Y)
+	}
+	r := mathx.Rect{X: p.at.X, Y: p.at.Y, W: w, H: h}
+	if r.X+r.W > c.size.X {
+		r.X = max(0, c.size.X-r.W)
+	}
+	if r.Y+r.H > c.size.Y {
+		r.Y = max(0, c.size.Y-r.H)
+	}
+	p.rect = r
+	layer := draw.LayerPopup
+	if c.overlayDepth > 0 {
+		layer = draw.LayerTop
+	}
+	c.BeginOverlay(r, layer)
+	p.bg = c.list.Reserve()
+	c.Region(r)
+	c.popupStack = append(c.popupStack, i)
+	return true
+}
+
+func (c *Context) EndPopup() {
+	n := len(c.popupStack)
+	if n == 0 {
+		return
+	}
+	i := c.popupStack[n-1]
+	c.popupStack = c.popupStack[:n-1]
+	bottom := c.cursor.Y
+	c.PopCursor()
+	if i < len(c.popups) {
+		p := &c.popups[i]
+		p.need = p.cur + 2*c.Theme.Padding
+		p.h = bottom - p.rect.Y + c.Theme.Padding - c.Theme.Spacing
+		r := p.rect
+		r.H = min(p.h, r.H)
+		c.list.Patch(p.bg, r, c.Theme.PanelAlt)
+		c.list.RectOutline(r, c.Theme.Border, 1)
+	}
+	c.EndOverlay()
+}
+
+func (c *Context) FitPopup(contentW float32) {
+	n := len(c.popupStack)
+	if n == 0 {
+		return
+	}
+	if i := c.popupStack[n-1]; i < len(c.popups) {
+		if p := &c.popups[i]; contentW > p.cur {
+			p.cur = contentW
+		}
+	}
+}
+
+func (c *Context) Mark() Mark {
+	return Mark{
+		ids:      len(c.ids),
+		cursors:  len(c.cursors),
+		clips:    len(c.clips),
+		overlays: len(c.overlayClips),
+		popups:   len(c.popupStack),
+		layers:   c.list.LayerDepth(),
+		modal:    c.inModal,
+	}
+}
+
+func (c *Context) Restore(m Mark) {
+	if len(c.popupStack) > m.popups {
+		c.popupStack = c.popupStack[:m.popups]
+	}
+	for len(c.overlayClips) > m.overlays {
+		c.EndOverlay()
+	}
+	for len(c.clips) > m.clips {
+		c.PopClip()
+	}
+	if len(c.ids) > m.ids {
+		c.ids = c.ids[:m.ids]
+	}
+	if len(c.cursors) > m.cursors {
+		c.cursor = c.cursors[m.cursors]
+		c.cursors = c.cursors[:m.cursors]
+	}
+	for c.list.LayerDepth() > m.layers {
+		c.list.PopLayer()
+	}
+	c.inModal = m.modal
 }
 
 func (c *Context) Rect(r mathx.Rect, col mathx.Color) {

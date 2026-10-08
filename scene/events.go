@@ -16,11 +16,13 @@ const (
 	EvComponentRemoved
 	EvPropertyChanged
 	EvHierarchyChanged
+	EvSpaceChanged
 )
 
 var eventNames = [...]string{
 	"NodeCreated", "NodeDestroyed", "NodeReparented", "NodeRenamed",
 	"ComponentAdded", "ComponentRemoved", "PropertyChanged", "HierarchyChanged",
+	"SpaceChanged",
 }
 
 func (k EventKind) String() string {

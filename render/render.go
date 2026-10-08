@@ -10,6 +10,7 @@ import (
 	"aego/gpu"
 	"aego/render/debug"
 	"aego/render/gpuprof"
+	"aego/render/mesh"
 	"aego/render/sprite"
 	"aego/render/text"
 	"aego/render/texture"
@@ -18,15 +19,22 @@ import (
 )
 
 const (
-	spriteStride  = sprite.InstanceStride
-	uniformSize   = 64
-	defaultSprite = 8192
-	defaultDebug  = 8192
-	defaultBudget = 4 << 20
+	spriteStride    = sprite.InstanceStride
+	sprite3DStride  = sprite.Instance3DStride
+	uniformSize     = 64
+	drawUniformSize = 96
+	defaultSprite   = 8192
+	defaultSprite3D = 4096
+	defaultMeshes   = 4096
+	defaultDebug    = 8192
+	defaultBudget   = 4 << 20
+	blendModes      = 3
 )
 
 type Options struct {
 	MaxSprites    int
+	MaxSprites3D  int
+	MaxMeshes     int
 	MaxDebugVerts int
 	UploadBudget  int
 }
@@ -34,6 +42,12 @@ type Options struct {
 func (o Options) withDefaults() Options {
 	if o.MaxSprites <= 0 {
 		o.MaxSprites = defaultSprite
+	}
+	if o.MaxSprites3D <= 0 {
+		o.MaxSprites3D = defaultSprite3D
+	}
+	if o.MaxMeshes <= 0 {
+		o.MaxMeshes = defaultMeshes
 	}
 	if o.MaxDebugVerts <= 0 {
 		o.MaxDebugVerts = defaultDebug
@@ -45,55 +59,69 @@ func (o Options) withDefaults() Options {
 }
 
 type Stats struct {
-	Submitted     uint32
-	Visible       uint32
-	Culled        uint32
-	Dropped       uint32
-	ZClamped      uint32
-	Batches       uint32
-	DrawCalls     uint32
-	Instances     uint32
-	TexSwitches   uint32
-	DebugVerts    uint32
-	InstanceBytes uint32
-	CPURenderNS   uint64
-	GPUNS         uint64
-	GPUValid      bool
-	Views         uint32
+	Submitted      uint32
+	Visible        uint32
+	Culled         uint32
+	Dropped        uint32
+	ZClamped       uint32
+	Batches        uint32
+	DrawCalls      uint32
+	Instances      uint32
+	TexSwitches    uint32
+	DebugVerts     uint32
+	InstanceBytes  uint32
+	MeshDraws      uint32
+	MeshCulled     uint32
+	Sprites3D      uint32
+	Sprite3DCulled uint32
+	CPURenderNS    uint64
+	GPUNS          uint64
+	GPUValid       bool
+	Views          uint32
 }
 
 type Renderer struct {
-	dev          gpu.Device
-	caps         gpu.Capabilities
-	log          *log.ChannelLogger
-	files        vfs.FS
-	opt          Options
-	up           *texture.Uploader
-	samplers     map[gpu.SamplerDesc]gpu.SamplerHandle
-	batcher      *sprite.Batcher
-	dbg          *debug.Draw
-	font         *text.BitmapFont
-	white        texture.Region
-	spriteShader gpu.ShaderHandle
-	debugShader  gpu.ShaderHandle
-	spritePipes  [3]gpu.PipelineHandle
-	debugPipe    gpu.PipelineHandle
-	ub           gpu.BufferHandle
-	ubBuf        []byte
-	prof         *gpuprof.Profiler
-	passes       []PassDesc
-	order        []PassDesc
-	frozen       bool
-	frame        gpu.Frame
-	fbW, fbH     int
-	fbScale      float32
-	vf           ViewFrame
-	stats        Stats
-	textBuf      []sprite.Draw
-	passCtx      PassContext
-	defSampler   gpu.SamplerHandle
-	warned       bool
-	uiFont       *text.Font
+	dev            gpu.Device
+	caps           gpu.Capabilities
+	log            *log.ChannelLogger
+	files          vfs.FS
+	opt            Options
+	up             *texture.Uploader
+	samplers       map[gpu.SamplerDesc]gpu.SamplerHandle
+	batcher        *sprite.Batcher
+	sprites3d      *sprite.Batcher3D
+	meshes         *mesh.Batcher
+	dbg            *debug.Draw
+	font           *text.BitmapFont
+	white          texture.Region
+	spriteShader   gpu.ShaderHandle
+	sprite3dShader gpu.ShaderHandle
+	meshShader     gpu.ShaderHandle
+	debugShader    gpu.ShaderHandle
+	spritePipes    [blendModes]gpu.PipelineHandle
+	sprite3dPipes  [blendModes]gpu.PipelineHandle
+	meshPipes      [blendModes][2]gpu.PipelineHandle
+	debugPipe      gpu.PipelineHandle
+	debugDepthPipe gpu.PipelineHandle
+	ub             gpu.BufferHandle
+	ubDraw         gpu.BufferHandle
+	ubBuf          []byte
+	drawBuf        []byte
+	prof           *gpuprof.Profiler
+	passes         []PassDesc
+	order          []PassDesc
+	frozen         bool
+	frame          gpu.Frame
+	fbW, fbH       int
+	fbScale        float32
+	vf             ViewFrame
+	stats          Stats
+	textBuf        []sprite.Draw
+	passCtx        PassContext
+	defSampler     gpu.SamplerHandle
+	warned         bool
+	uiFont         *text.Font
+	depthSeen      []gpu.TextureHandle
 }
 
 func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, opt Options) (*Renderer, error) {
@@ -110,7 +138,9 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 		up:       texture.NewUploader(dev),
 		samplers: make(map[gpu.SamplerDesc]gpu.SamplerHandle, 8),
 		ubBuf:    make([]byte, uniformSize),
+		drawBuf:  make([]byte, drawUniformSize),
 		textBuf:  make([]sprite.Draw, 0, 256),
+		meshes:   mesh.NewBatcher(opt.MaxMeshes),
 	}
 	if err := r.initPipelines(); err != nil {
 		r.Close()
@@ -122,6 +152,12 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 		return nil, err
 	}
 	r.batcher = b
+	b3, err := sprite.NewBatcher3D(dev, opt.MaxSprites3D)
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
+	r.sprites3d = b3
 	d, err := debug.New(dev, opt.MaxDebugVerts)
 	if err != nil {
 		r.Close()
@@ -142,79 +178,109 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 	}
 	r.prof = gpuprof.New(dev, caps)
 	r.passes = []PassDesc{
-		{ID: "sprites", Pass: spritePass{}},
+		{ID: "mesh_opaque", Pass: meshOpaquePass{}},
+		{ID: "mesh_blend", After: []string{"mesh_opaque"}, Pass: meshBlendPass{}},
+		{ID: "sprites3d", After: []string{"mesh_blend"}, Pass: sprite3DPass{}},
+		{ID: "sprites", After: []string{"sprites3d"}, Pass: spritePass{}},
 		{ID: "debug", After: []string{"sprites"}, Pass: debugPass{}},
 	}
 	r.vf.r = r
 	return r, nil
 }
 
-func (r *Renderer) initPipelines() error {
-	vsrc, err := r.files.ReadFile("engine://shaders/sprite.vert")
+func (r *Renderer) loadShader(label, vert, frag string) (gpu.ShaderHandle, error) {
+	vsrc, err := r.files.ReadFile("engine://shaders/" + vert)
 	if err != nil {
-		return err
+		return gpu.ShaderHandle{}, err
 	}
-	fsrc, err := r.files.ReadFile("engine://shaders/sprite.frag")
+	fsrc, err := r.files.ReadFile("engine://shaders/" + frag)
 	if err != nil {
-		return err
+		return gpu.ShaderHandle{}, err
 	}
-	r.spriteShader, err = r.dev.CreateShader(gpu.ShaderDesc{
-		Label: "sprite",
+	return r.dev.CreateShader(gpu.ShaderDesc{
+		Label: label,
 		Sources: []gpu.ShaderSource{
 			{Stage: gpu.StageVertex, Source: string(vsrc)},
 			{Stage: gpu.StageFragment, Source: string(fsrc)},
 		},
 	})
-	if err != nil {
+}
+
+func (r *Renderer) initPipelines() error {
+	var err error
+	if r.spriteShader, err = r.loadShader("sprite", "sprite.vert", "sprite.frag"); err != nil {
 		return err
 	}
-	for m := sprite.BlendMode(0); m < 3; m++ {
-		p, err := r.dev.CreatePipeline(gpu.PipelineDesc{
+	if r.sprite3dShader, err = r.loadShader("sprite3d", "sprite3d.vert", "sprite.frag"); err != nil {
+		return err
+	}
+	if r.meshShader, err = r.loadShader("mesh", "mesh.vert", "mesh.frag"); err != nil {
+		return err
+	}
+	if r.debugShader, err = r.loadShader("debug", "debug.vert", "debug.frag"); err != nil {
+		return err
+	}
+	for m := sprite.BlendMode(0); m < blendModes; m++ {
+		if r.spritePipes[m], err = r.dev.CreatePipeline(gpu.PipelineDesc{
 			Shader:    r.spriteShader,
 			Layout:    sprite.Layout(),
 			Blend:     sprite.BlendState(m),
 			Primitive: gpu.PrimTriangleStrip,
 			Label:     "sprite",
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
-		r.spritePipes[m] = p
+		if r.sprite3dPipes[m], err = r.dev.CreatePipeline(gpu.PipelineDesc{
+			Shader:    r.sprite3dShader,
+			Layout:    sprite.Layout3D(),
+			Blend:     sprite.BlendState(m),
+			Depth:     gpu.DepthState{Test: true, Compare: gpu.CompareLessEqual},
+			Primitive: gpu.PrimTriangleStrip,
+			Label:     "sprite3d",
+		}); err != nil {
+			return err
+		}
+		for ds := 0; ds < 2; ds++ {
+			cull := gpu.CullBack
+			if ds == 1 {
+				cull = gpu.CullNone
+			}
+			if r.meshPipes[m][ds], err = r.dev.CreatePipeline(gpu.PipelineDesc{
+				Shader:    r.meshShader,
+				Layout:    mesh.Layout(),
+				Blend:     sprite.BlendState(m),
+				Depth:     gpu.DepthState{Test: true, Write: m == sprite.BlendOpaque, Compare: gpu.CompareLess},
+				Cull:      cull,
+				Primitive: gpu.PrimTriangles,
+				Label:     "mesh",
+			}); err != nil {
+				return err
+			}
+		}
 	}
-	dvsrc, err := r.files.ReadFile("engine://shaders/debug.vert")
-	if err != nil {
-		return err
-	}
-	dfsrc, err := r.files.ReadFile("engine://shaders/debug.frag")
-	if err != nil {
-		return err
-	}
-	r.debugShader, err = r.dev.CreateShader(gpu.ShaderDesc{
-		Label: "debug",
-		Sources: []gpu.ShaderSource{
-			{Stage: gpu.StageVertex, Source: string(dvsrc)},
-			{Stage: gpu.StageFragment, Source: string(dfsrc)},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	r.debugPipe, err = r.dev.CreatePipeline(gpu.PipelineDesc{
+	if r.debugPipe, err = r.dev.CreatePipeline(gpu.PipelineDesc{
 		Shader:    r.debugShader,
 		Layout:    debug.Layout(),
 		Blend:     gpu.BlendPremultiplied(),
 		Primitive: gpu.PrimLines,
 		Label:     "debug",
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
-	r.ub, err = r.dev.CreateBuffer(gpu.BufferDesc{
-		Usage:   gpu.BufferUniform,
-		Size:    uniformSize,
-		Dynamic: true,
-		Label:   "render.viewproj",
-	})
+	if r.debugDepthPipe, err = r.dev.CreatePipeline(gpu.PipelineDesc{
+		Shader:    r.debugShader,
+		Layout:    debug.Layout(),
+		Blend:     gpu.BlendPremultiplied(),
+		Depth:     gpu.DepthState{Test: true, Compare: gpu.CompareLessEqual},
+		Primitive: gpu.PrimLines,
+		Label:     "debug.depth",
+	}); err != nil {
+		return err
+	}
+	if r.ub, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: uniformSize, Dynamic: true, Label: "render.viewproj"}); err != nil {
+		return err
+	}
+	r.ubDraw, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: drawUniformSize, Dynamic: true, Label: "render.draw"})
 	return err
 }
 
@@ -225,9 +291,13 @@ func (r *Renderer) UIFont() *text.Font {
 	return r.uiFont
 }
 
+func putF32(b []byte, v float32) {
+	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
+}
+
 func (r *Renderer) setUniform(p gpu.Pass, m mathx.Mat4) {
 	for i, v := range m {
-		binary.LittleEndian.PutUint32(r.ubBuf[i*4:i*4+4], math.Float32bits(v))
+		putF32(r.ubBuf[i*4:], v)
 	}
 	r.dev.UpdateBuffer(r.ub, 0, r.ubBuf)
 	p.SetUniformBuffer(0, r.ub)
@@ -235,6 +305,10 @@ func (r *Renderer) setUniform(p gpu.Pass, m mathx.Mat4) {
 
 func (r *Renderer) Textures() *texture.Uploader {
 	return r.up
+}
+
+func (r *Renderer) Device() gpu.Device {
+	return r.dev
 }
 
 func (r *Renderer) White() texture.Region {
@@ -286,11 +360,22 @@ func (r *Renderer) BeginFrame(f gpu.Frame, pixelW, pixelH int, pixelScale float3
 	r.fbW, r.fbH = pixelW, pixelH
 	r.fbScale = pixelScale
 	r.stats = Stats{}
+	r.depthSeen = r.depthSeen[:0]
 	r.up.Drain(r.opt.UploadBudget)
 	if f != nil {
 		r.prof.Collect(f)
 	}
 	return nil
+}
+
+func (r *Renderer) firstDepthUse(t gpu.TextureHandle) bool {
+	for _, s := range r.depthSeen {
+		if s == t {
+			return false
+		}
+	}
+	r.depthSeen = append(r.depthSeen, t)
+	return true
 }
 
 func (r *Renderer) framebuffer() (int, int) {
@@ -304,13 +389,28 @@ func (r *Renderer) View(v view.View) *ViewFrame {
 	if r.frame == nil {
 		return f
 	}
+	fv := &f.view
+	depth := gpu.LoadKeep
+	if fv.UsesDepth() {
+		target := fv.Target
+		if !fv.DepthTarget.IsZero() {
+			target = fv.DepthTarget
+		}
+		if r.firstDepthUse(target) || fv.DoClear {
+			depth = gpu.LoadClear
+		}
+	}
 	f.pass = r.frame.BeginPass(gpu.PassDesc{
-		Target:     v.Target,
-		ClearColor: v.Clear,
-		Color:      clearAction(v.DoClear),
-		Label:      v.Label,
+		Target:      fv.Target,
+		DepthTarget: fv.DepthTarget,
+		ClearColor:  fv.Clear,
+		ClearDepth:  1,
+		Color:       clearAction(fv.DoClear),
+		Depth:       depth,
+		FlipWinding: fv.Flipped(r.caps),
+		Label:       fv.Label,
 	})
-	f.pass.SetViewport(f.view.LetterboxViewport())
+	f.pass.SetViewport(fv.LetterboxViewport())
 	if r.stats.Views == 1 {
 		r.prof.Begin(f.pass)
 	}
@@ -338,6 +438,18 @@ func (r *Renderer) EndFrame() Stats {
 	return r.stats
 }
 
+func (r *Renderer) destroyPipe(p gpu.PipelineHandle) {
+	if !p.IsZero() {
+		r.dev.DestroyPipeline(p)
+	}
+}
+
+func (r *Renderer) destroyShader(s gpu.ShaderHandle) {
+	if !s.IsZero() {
+		r.dev.DestroyShader(s)
+	}
+}
+
 func (r *Renderer) Close() {
 	if r.prof != nil {
 		r.prof.Close()
@@ -348,21 +460,25 @@ func (r *Renderer) Close() {
 	if r.batcher != nil {
 		r.batcher.Close()
 	}
+	if r.sprites3d != nil {
+		r.sprites3d.Close()
+	}
 	if !r.ub.IsZero() {
 		r.dev.DestroyBuffer(r.ub)
 	}
-	for _, p := range r.spritePipes {
-		if !p.IsZero() {
-			r.dev.DestroyPipeline(p)
-		}
+	if !r.ubDraw.IsZero() {
+		r.dev.DestroyBuffer(r.ubDraw)
 	}
-	if !r.debugPipe.IsZero() {
-		r.dev.DestroyPipeline(r.debugPipe)
+	for m := range r.spritePipes {
+		r.destroyPipe(r.spritePipes[m])
+		r.destroyPipe(r.sprite3dPipes[m])
+		r.destroyPipe(r.meshPipes[m][0])
+		r.destroyPipe(r.meshPipes[m][1])
 	}
-	if !r.spriteShader.IsZero() {
-		r.dev.DestroyShader(r.spriteShader)
-	}
-	if !r.debugShader.IsZero() {
-		r.dev.DestroyShader(r.debugShader)
-	}
+	r.destroyPipe(r.debugPipe)
+	r.destroyPipe(r.debugDepthPipe)
+	r.destroyShader(r.spriteShader)
+	r.destroyShader(r.sprite3dShader)
+	r.destroyShader(r.meshShader)
+	r.destroyShader(r.debugShader)
 }

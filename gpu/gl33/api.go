@@ -60,6 +60,14 @@ func (realAPI) SetCull(c glstate.Cull) {
 	gl.CullFace(c.Face)
 }
 
+func (realAPI) FrontFace(cw bool) {
+	if cw {
+		gl.FrontFace(gl.CW)
+		return
+	}
+	gl.FrontFace(gl.CCW)
+}
+
 func (realAPI) Viewport(r glstate.Rect) {
 	gl.Viewport(r.X, r.Y, r.W, r.H)
 }

@@ -36,3 +36,7 @@ func (Module) Register(r *sdk.Registry) error {
 		System: rotatorSystem{},
 	})
 }
+
+func Modules() []sdk.Module {
+	return []sdk.Module{Module{}}
+}

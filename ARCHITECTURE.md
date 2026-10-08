@@ -262,6 +262,62 @@ Decision IDs are stable references for design discussions, code reviews, migrati
 | **D70** | Text entry uses SDL text input/editing events. Text input starts on text-field focus and stops on blur. Enter/blur commit; Escape cancels. |
 | **D71** | Editor extension callbacks are protected by `recover`. A panicking extension is disabled and reported instead of taking down the editor. |
 | **D72** | Editor UI is not required to be allocation-free. Stage 4 idle budget is ≤64 KiB/frame and the target is 60 FPS with a 10k-node Hierarchy. `ui/draw.List` has independent base/popup/modal/top streams. |
+| **D73** | `aego edit` с `native/`: supervisor собирает cmd из `.aego/build/editor/main.go` (`-tags aego_editor`), следит за `native/*.go`, `go.mod`, `go.sum`. Протокол через `.aego/session/`: `build.status`, `restart` (запрос), `handoff.aetext` + `scenes/` + `handoff.ready` (коммит-маркер). Редактор на restart пишет handoff и выходит с кодом 3; новый бинарник забирает handoff. Если новый бинарник падает в первые 10 с, supervisor запускает предыдущий. |
+| **D74** | В Play редактор целиком переключается на play-мир: `Docs.Active()` возвращает play-вид документа (тот же ID/путь/вид, play-сцена, play-история, play-props). Save/Reload/recovery/dirty работают с реальными документами через `Docs.Get`/`Docs.Docs`. |
+| **D75** | Правки в Play — в отдельной history в `ModePlay` (Dirty=false, MarkSaved no-op, лейблы с префиксом `[Play]`); история уничтожается на Stop вместе с play-видом. |
+| **D76** | Inspector читает значения каждый кадр; поле, которое сейчас редактируется (active/focus/popup), показывает своё кэшированное значение до отпускания. |
+| **D77** | Компоненты в Inspector группируются по категории; DisplayName + бейдж модуля; порядок внутри категории — порядок добавления. |
+| **D78** | Шаблоны расширений — в подменю Create → `<module>`; встроенные — в корне. |
+| **D79** | Default layout: слева Hierarchy над Assets, центр Scene/Game, низ Console/Profiler, справа Inspector.<br>Реализация: `dock.Columns(left, leftBottom, center, bottom, right)`; `window.reset_layout` удаляет `.aego/user/layout.aetext`. |
+| **D80** | Верх редактора — MenuBar и Toolbar фиксированной высоты; имя документа и dirty — во вкладке и title окна.<br>Реализация: `theme.BarHeight`; меню из `command.Registry` (Category, Order, Label, Checked), разделитель при смене `Order/100`; Toolbar — инструменты, Grid/Snap/Zoom, Play/Pause/Step/Stop, Save; индикатор native — session `build.status` (building/ok/error). |
+| **D81** | Иконки — атлас `engine/res/icons` через `tools/genicons`; `ui.Icon(id)` — единственный способ рисовать иконку.<br>Реализация: `render/icons.Set` загружается из `engine://icons/icons.json`; `widgets.IconAt` рисует иконку или placeholder; `tools/genicons -init` пишет placeholder SVG только для отсутствующих ID. |
+
+## Stage 4.5 — 3D foundation
+
+**D82 Space.** Node.Space ∈ {Space2D, Space3D}. Новый узел наследует пространство родителя; дети корня получают Scene.DefaultSpace. CreateIn задаёт пространство явно. SetSpace разрешён только листу без Space-locked компонентов.
+
+**D83 Смешанное дерево.** 2D под 3D разрешено: world4 = nearest3D.World4 × Mat4Lift(world2D цепочки от первого 2D-потомка). 3D под 2D запрещено (кроме корня); Reparent и CreateIn возвращают SceneSpaceMismatch. Transform pass — один pre-order обход с тремя формулами.
+
+**D84 Конвенции.** Правая система, Y вверх, камера смотрит в −Z. Lift отображает 2D (x, y) в 3D (x, −y, 0). QuatEuler(x, y, z) = Rz·Ry·Rx. Euler существует только в UI (градусы, EulerCache против скачков); в aetext Quat пишется как [x, y, z, w].
+
+**D85 Depth.** gpu не знает о размерности. PassDesc.DepthTarget; FBO кешируется по паре (color, depth). rt.Pool.Acquire(w, h, depth) не смешивает цели с depth и без. Renderer очищает depth при первом использовании цели в кадре или при DoClear.
+
+**D86 Спрайты в 3D.** 2D-спрайты с 3D-предком рисуются отдельным pipeline sprites3d (на инстанс Pos/Right/Down/UV/Color, depth test без записи, сортировка back-to-front). Чистый 2D-путь не меняется.
+
+**D87 Меши.** Артефакт AEMS (magic, version, counts, AABB3, vertices, indices); импорт .obj. Примитивы Cube/Plane/Sphere/Cylinder — процедурные встроенные ассеты с зарезервированными AssetID (asset.Builtin*, Hi = 0xae90…); Loader резолвит их без pipeline, пикер ассетов показывает их отдельно. Instancing мешей отложен.
+
+**D88 SpaceKind компонентов.** schema.Space(k) на TypeDescriptor: SpaceAny/Space2D/Space3D. AddComponent проверяет совместимость; inspector фильтрует Add Component; SetSpace запрещён при Space-locked компонентах. Camera переименована в Camera2D с FormerName("engine.Camera").
+
+**D89 Обратимость.** Mat3.Inverse возвращает (Mat3, bool); тихий identity-fallback удалён. Вызывающие (view, gizmo, sceneview, templates, reparent) обрабатывают необратимый родитель явно.
+
+**D90 Отложено.** gizmo.Registry для расширений работает только в 2D; 3D-гизмо модулей (DrawCtx3) проектируются вместе с extension-API Stage 5.
+
+---
+
+## Stage 5 — Aego Script Core v1
+
+| ID | Decision |
+|---|---|
+| **D91** | Aego Script: статически типизированный язык с Go-подобным синтаксисом, компилируется в регистровый байткод. Файлы `*.aes`; пакет = каталог под корнем `scripts/` (тот же overlay `res://`). Путь пакета = `project.Module + "/" + относительный каталог`. Host-модули и скрипт-пакеты делят одно пространство имён, конфликт → AES4xxx; префикс `aego/` зарезервирован за stdlib, `module="aego"` — ошибка проекта. |
+| **D92** | Нет указателей, unsafe, горутин, каналов, defer, исключений, замыканий, функций первого класса, наследования, интерфейсов, общих generics, map и перегрузки операторов. Аргументы типов принимаются парсером, но резолвятся только для зарегистрированных generic-интринсиков (`node.Get<T>()`). |
+| **D93** | `int`=int64, `float`=float32, `bool`, `string` (неизменяемая, литералы интернированы). Engine value-типы: Vec2, Vec3, Color, Quat, Rect, Transform2D{Position Vec2, Rotation float, Scale Vec2}, Transform3D{Position Vec3, Rotation Quat, Scale Vec3}, NodeRef, AssetRef<T>, ComponentRef<T>. Пользовательские: struct (значение), enum, `[]T` (хип). Короткое имя компонента в `Get<T>` резолвится, если уникально среди компонентов Universe, иначе AES2xxx со списком кандидатов. |
+| **D94** | Нет изменяемых глобалов пакета, только `const`. Состояние живёт в инстансах скриптов и компонентах. |
+| **D95** | `script` — stateful-тип для прикрепления. Один ScriptComponent (`engine.Script`) на узел хранит attachments, не больше одного attachment каждого скрипт-типа. Attachment сохраняется собственным блоком `script "<FullName>" enabled=… { … }` по полному имени типа и паре имя/значение свойства, никогда по runtime-индексу. Авторские значения — `schema.PropertyBag`; неизвестные свойства и типы сохраняются как есть. |
+| **D96** | Скрипт-типы — динамический слой внутри `schema.Registry`: нативный слой замораживается `Freeze()`, `SetDynamic` атомарно подменяет только динамический и отклоняет коллизии имён/хэшей с нативным слоем, не меняя ничего. `ByID/ByName/Field` видят оба слоя, `Components()` — только нативные, `Scripts()` — динамические. Поля скрипт-типов работают на `PropertyBag`. `scene.Types.Overlay` маршрутизирует Get/SetProperty для `TypeScript` в ScriptComponent; `scene ✗ script` сохраняется. Отдельного типа Universe нет. |
+| **D97** | `vm.Value{A, B uint64}` — ровно 16 байт, без Kind. int/bool/enum в A; float в младших 32 битах A; Vec2 A=(x,y); Vec3 A=(x,y), B=(z,0); Color/Quat/Rect A=(x,y), B=(z,w); string/[]T — heap handle в A; NodeRef A=NodeHandle; AssetRef A,B=AssetID; ComponentRef A=NodeHandle, B=индекс таблицы компонентов линковки. struct = N подряд идущих Value (раскладка статическая, вложенные развёрнуты) в регистрах, полях инстанса и элементах слайса; копирование — MOVE. Хип — только `[]T` и string. GC mark-sweep только в safe point без активных фреймов; корни — поля инстансов (типы из дескриптора скрипт-типа), содержимое слайсов — по типу из заголовка heap-объекта. Слот 0 инстанса — `node`; поля скрипта начинаются со слота 1. Host-методы `NodeRef`/`AssetRef` импортируются из модулей `#NodeRef`/`#AssetRef` с получателем первым параметром; интринсики — `#NodeRef.Get<полное имя компонента>` и `Has<…>`. Окно `CALL`/`CALLH` всегда на вершине регистрового стека функции. |
+| **D98** | Native-биндинги резолвятся один раз при линковке; байткод хранит символьные host-импорты с сигнатурами; BindingRegistry выдаёт ABI-хэш, который входит в ключ кэша компиляции. Без reflection в горячем пути VM. |
+| **D99** | Байткод верифицируется до исполнения: границы, цели переходов, число регистров, сигнатуры host-импортов, ссылки на типы. Испорченные артефакты отклоняются и не исполняются. |
+| **D100** | Faults изолированы на уровне инстанса (Running/Faulted/Disabled). Бюджет инструкций на коллбэк (dev по умолчанию 100k). Паники native-биндингов перехватываются и сообщаются как AES6002 NativeBindingPanic. |
+| **D101** | Жизненный цикл v1: Ready, FixedUpdate(dt), Update(dt). Ready — после создания всех инстансов и резолва ссылок, в pre-order сцены. Update/FixedUpdate — в порядке создания инстансов. Системы `script.fixed` (PhasePrePhysics) и `script.update` (PhaseUpdate), обе только ScopePlay. |
+| **D102** | Авторское состояние (`@export` в .aescene) и runtime-состояние (поля инстанса) разделены; Play никогда не пишет в edit-сцену. |
+| **D103** | Компиляция транзакционна по пакету: неудача сохраняет last-good артефакт и помечает источник Invalid; Play заблокирован, пока есть Invalid-пакет. |
+| **D104** | Компилятор (`source/token/lexer/diag/ast/parser/types/resolver/checker/asm/compiler`) и runtime (`abi/bytecode/verify/bind/vm/runtime`) — раздельные подграфы; экспортированный runtime линкует только runtime-сторону. Общий лист — `script/abi` (Signature, TypeRef, ValueKind, Surface); checker принимает `abi.Surface`; `bind.Ctx.Self` — `vm.InstanceID`. IR-слоя нет: v1 компилирует AST → байткод напрямую, `script/asm` — это ассемблер (буфер инструкций, пул констант, метки), а не промежуточное представление; IR появится, только если понадобятся оптимизации. |
+| **D105** | Версии языка, байткода и ABI биндингов независимы и все записываются в артефакт. |
+| **D106** | `yield signal coroutine await select go chan defer interface map` — зарезервированы с v1 (AES1004). |
+| **D107** | Видимость по правилу Go (экспорт — с заглавной); `@export` — экспозиция в сцену и Inspector, с видимостью не связана. |
+| **D108** | `@former` на скрипт-типах и полях повторяет FormerName/FormerField native-схемы; неизвестные свойства скрипта в сцене сохраняются и пересохраняются с предупреждением. Оси ввода — `input.AxisConfig` в `platform/input`; `project` парсит блок `input {}`, `app/run` и `app/edit` передают его в stdlib. |
+| **D109** | Встроенная текстура `engine/textures/white` (AssetID `ae90…0010`) резолвится Loader без pipeline и нужна для прототипов: спрайты задаются `tint` и `size`. |
+| **D110** | Скрипт-пакеты импортируются одной группой `scripts`: checker видит весь проект, кэш компиляции — по пакету через `compiler.CacheKey`. ID группы детерминирован от имени группы, поэтому last-good артефакт пакета переживает рестарт. Импортёр публикует структурированный снимок диагностик с ревизией; редактор выводит его в Console. |
 
 ---
 
@@ -315,7 +371,22 @@ The import graph must remain acyclic. The layer diagram in §2.2 is intentionall
 - `render/text` exposes `Font` as the common text-facing abstraction with UTF-8 and kerning support. `BitmapFont.Font()` converts/adapts the Stage 2 built-in bitmap debug font to the same `Font` API.
 - Editor-only project Go code is isolated by the `aego_editor` build tag.
 
-### 4.5 Enforcement
+### 4.5 Stage 5 clarifications
+
+- `script/abi`, `script/diag`, `script/source`, `script/token` → `core`, `schema`.
+- `script/{lexer,ast,parser,types,resolver,checker,asm,compiler,build}` → `core`, `schema`, `format/aetext`, остальной dev-слой `script/*` (dev-only).
+- `script/{bytecode,verify,vm}` → `core`, `schema`, `script/{abi,diag,source}`.
+- `script/bind` → `script/{abi,vm}`, `scene`, `engine`, `asset`, `platform/input`, `core`.
+- `script/stdlib` → runtime-слой, `script/bind`, `scene/...`, `engine`, `asset`, `platform/input`.
+- `script/runtime` → `script/{abi,bytecode,verify,bind,vm}`, `scene/...`, `asset/...`, `engine`, `platform/input`.
+- `script/module` → `script/{bind,runtime,stdlib}`, `engine`, `scene`.
+- `asset/importers/script` → dev-слой `script/*`, `asset`, `asset/pipeline`.
+- `scene/components` → `format/aetext` (сырые свойства attachments); `scene/sceneio` → `scene/components`.
+- `project` → `platform/input` (`input.AxisConfig`).
+- `scene/...` ✗ `script/...`; `script/{bytecode,verify,vm,bind,stdlib,runtime,module}` ✗ `script/{lexer,parser,checker,asm,compiler,build,harness}`.
+- `editor/...` ✗ `script/...`: редактор работает через `context.ScriptHost`, реализованный в `app/edit`.
+
+### 4.6 Enforcement
 
 `tools/depcheck` enforces at least:
 
@@ -415,6 +486,7 @@ aego/
 │   ├── importer/
 │   │   ├── png/
 │   │   ├── atlas/
+│   │   ├── script/                        (5) .aes packages → ArtScript
 │   │   ├── font/                          (4)
 │   │   ├── audio/                         (9)
 │   │   └── shader/                        (12)
@@ -428,20 +500,26 @@ aego/
 ├── sceneio/                               (3)
 │
 ├── script/                                (5+)
+│   ├── abi/                               shared leaf: Signature, TypeRef, Surface
+│   ├── source/
 │   ├── token/
+│   ├── lexer/
+│   ├── diag/
 │   ├── ast/
 │   ├── parser/
 │   ├── types/
+│   ├── resolver/
 │   ├── checker/
-│   ├── ir/
+│   ├── asm/
 │   ├── compiler/
 │   ├── bytecode/
+│   ├── verify/
+│   ├── bind/
 │   ├── vm/
 │   ├── runtime/
-│   ├── bind/
 │   ├── stdlib/
-│   ├── reload/
-│   ├── lang/
+│   ├── module/
+│   ├── reload/                            (6)
 │   └── docgen/                            (7)
 │
 ├── physics/                               (8)

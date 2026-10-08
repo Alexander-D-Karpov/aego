@@ -8,6 +8,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/gpu"
+	"aego/render/mesh"
 	"aego/render/texture"
 	"aego/vfs"
 )
@@ -35,6 +36,7 @@ type Loader struct {
 	pages  map[ids.AssetID]pageEntry
 	region map[ids.AssetID]regionEntry
 	blobs  map[ids.AssetID][]byte
+	meshes map[ids.AssetID]*mesh.Mesh
 	failed map[ids.AssetID]bool
 	subs   []subscriber
 	nextID uint64
@@ -57,6 +59,7 @@ func New(dev gpu.Device, up *texture.Uploader, lg *log.Logger) *Loader {
 		pages:  map[ids.AssetID]pageEntry{},
 		region: map[ids.AssetID]regionEntry{},
 		blobs:  map[ids.AssetID][]byte{},
+		meshes: map[ids.AssetID]*mesh.Mesh{},
 		failed: map[ids.AssetID]bool{},
 		gen:    1,
 	}
@@ -66,7 +69,7 @@ func (l *Loader) Mount(idx *asset.Index, files vfs.FS) error {
 	if idx == nil || files == nil {
 		return errs.New(errs.AssetNotMounted, "loader needs both an index and an artifact file system")
 	}
-	l.index = idx
+	l.index = idx.Clone()
 	l.files = files
 	l.gen++
 	return nil
@@ -77,7 +80,7 @@ func (l *Loader) Generation() uint32 {
 }
 
 func (l *Loader) Resident() int {
-	return len(l.pages) + len(l.blobs)
+	return len(l.pages) + len(l.blobs) + len(l.meshes)
 }
 
 func (l *Loader) Subscribe(fn func(asset.Reloaded)) func() {
@@ -112,11 +115,47 @@ func (l *Loader) entry(id ids.AssetID) (*asset.Entry, bool) {
 }
 
 func (l *Loader) read(a asset.Artifact) ([]byte, error) {
-	data, err := l.files.ReadFile(a.Path)
-	if err != nil {
-		return nil, err
+	return l.files.ReadFile(a.Path)
+}
+
+func (l *Loader) Scripts() (map[string][]byte, error) {
+	out := map[string][]byte{}
+	if l.index == nil {
+		return out, nil
 	}
-	return data, nil
+	var first error
+	l.index.Each(func(e *asset.Entry) {
+		if e.Kind != asset.ArtScript || e.Missing {
+			return
+		}
+		for _, a := range e.Artifacts {
+			if a.Kind != asset.ArtScript || a.Name == "" {
+				continue
+			}
+			data, err := l.read(a)
+			if err != nil {
+				if first == nil {
+					first = errs.Wrap(err, errs.AssetLoadFailed, "cannot read a script artifact").With(log.F("package", a.Name))
+				}
+				continue
+			}
+			out[a.Name] = data
+		}
+	})
+	return out, first
+}
+
+func (l *Loader) builtinWhite() (texture.Region, bool) {
+	d := &texture.Data{Width: 1, Height: 1, Format: gpu.TexSRGBA8, Pixels: []byte{255, 255, 255, 255}, Premultiplied: true}
+	h, err := l.up.Upload(d, texture.UploadOptions{Label: "builtin.white"})
+	if err != nil {
+		l.fail(asset.BuiltinWhite, "cannot upload the builtin white texture", err)
+		return texture.Region{}, false
+	}
+	l.pages[asset.BuiltinWhite] = pageEntry{handle: h, width: 1, height: 1, filter: gpu.FilterNearest}
+	reg := texture.Whole(h, 1, 1)
+	l.region[asset.BuiltinWhite] = regionEntry{region: reg, page: asset.BuiltinWhite}
+	return reg, true
 }
 
 func (l *Loader) Texture(id ids.AssetID) (texture.Region, bool) {
@@ -125,6 +164,9 @@ func (l *Loader) Texture(id ids.AssetID) (texture.Region, bool) {
 	}
 	if l.failed[id] {
 		return texture.Region{}, false
+	}
+	if id == asset.BuiltinWhite {
+		return l.builtinWhite()
 	}
 	e, ok := l.entry(id)
 	if !ok {
@@ -161,19 +203,19 @@ func (l *Loader) loadRegion(id ids.AssetID, e *asset.Entry) (texture.Region, boo
 		l.fail(id, "malformed sprite region artifact", err)
 		return texture.Region{}, false
 	}
-	pageEntryValue, ok := l.pages[ra.Page]
+	page, ok := l.pages[ra.Page]
 	if !ok {
 		pe, pok := l.entry(ra.Page)
 		if !pok {
 			l.fail(id, "sprite region points at a missing page", nil)
 			return texture.Region{}, false
 		}
-		pageEntryValue, ok = l.loadPage(ra.Page, pe)
+		page, ok = l.loadPage(ra.Page, pe)
 		if !ok {
 			return texture.Region{}, false
 		}
 	}
-	whole := texture.Whole(pageEntryValue.handle, pageEntryValue.width, pageEntryValue.height)
+	whole := texture.Whole(page.handle, page.width, page.height)
 	reg := whole.Sub(ra.X, ra.Y, ra.W, ra.H)
 	l.region[id] = regionEntry{region: reg, page: ra.Page}
 	return reg, true
@@ -225,6 +267,47 @@ func (l *Loader) uploadTexture(data []byte) (pageEntry, error) {
 	return pageEntry{handle: h, width: ta.Width, height: ta.Height, filter: ta.Filter}, nil
 }
 
+func (l *Loader) readMesh(e *asset.Entry) (*mesh.Data, error) {
+	art, ok := e.Artifact(asset.ArtMesh)
+	if !ok {
+		return nil, errs.New(errs.AssetBadArtifact, "mesh artifact is missing", log.F("asset", e.ID.String()))
+	}
+	raw, err := l.read(art)
+	if err != nil {
+		return nil, err
+	}
+	return mesh.Decode(raw)
+}
+
+func (l *Loader) Mesh(id ids.AssetID) (*mesh.Mesh, bool) {
+	if m, ok := l.meshes[id]; ok {
+		return m, true
+	}
+	if id.IsZero() || l.failed[id] {
+		return nil, false
+	}
+	data, ok := asset.BuiltinMesh(id)
+	if !ok {
+		e, found := l.entry(id)
+		if !found || e.Kind != asset.ArtMesh {
+			return nil, false
+		}
+		var err error
+		data, err = l.readMesh(e)
+		if err != nil {
+			l.fail(id, "cannot load the mesh", err)
+			return nil, false
+		}
+	}
+	m, err := mesh.Upload(l.dev, data, "asset.mesh")
+	if err != nil {
+		l.fail(id, "cannot upload the mesh", err)
+		return nil, false
+	}
+	l.meshes[id] = m
+	return m, true
+}
+
 func (l *Loader) fail(id ids.AssetID, msg string, cause error) {
 	l.failed[id] = true
 	fields := []log.Field{log.F("asset", id.String())}
@@ -269,23 +352,35 @@ func (l *Loader) Prefab(id ids.AssetID) ([]byte, bool) {
 
 func (l *Loader) Preload(list ...ids.AssetID) error {
 	for _, id := range list {
+		if b, ok := asset.LookupBuiltin(id); ok {
+			loaded := false
+			if b.Kind == asset.ArtTexture {
+				_, loaded = l.Texture(id)
+			} else {
+				_, loaded = l.Mesh(id)
+			}
+			if !loaded {
+				return errs.New(errs.AssetLoadFailed, "builtin asset failed to load", log.F("asset", id.String()))
+			}
+			continue
+		}
 		e, ok := l.entry(id)
 		if !ok {
 			return errs.New(errs.AssetNotFound, "asset is not in the index", log.F("asset", id.String()))
 		}
+		ok = true
 		switch e.Kind {
 		case asset.ArtTexture, asset.ArtAtlasPage, asset.ArtSpriteRegion:
-			if _, ok := l.Texture(id); !ok {
-				return errs.New(errs.AssetLoadFailed, "texture failed to load", log.F("asset", id.String()))
-			}
+			_, ok = l.Texture(id)
+		case asset.ArtMesh:
+			_, ok = l.Mesh(id)
 		case asset.ArtScene:
-			if _, ok := l.Scene(id); !ok {
-				return errs.New(errs.AssetLoadFailed, "scene failed to load", log.F("asset", id.String()))
-			}
+			_, ok = l.Scene(id)
 		case asset.ArtPrefab:
-			if _, ok := l.Prefab(id); !ok {
-				return errs.New(errs.AssetLoadFailed, "prefab failed to load", log.F("asset", id.String()))
-			}
+			_, ok = l.Prefab(id)
+		}
+		if !ok {
+			return errs.New(errs.AssetLoadFailed, "asset failed to load", log.F("asset", id.String()), log.F("kind", string(e.Kind)))
 		}
 	}
 	return nil
@@ -295,9 +390,52 @@ type staged struct {
 	id        ids.AssetID
 	kind      asset.ArtifactKind
 	page      pageEntry
+	geo       *mesh.Mesh
 	blob      []byte
 	isTex     bool
 	unchanged bool
+}
+
+func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
+	switch e.Kind {
+	case asset.ArtTexture, asset.ArtAtlasPage:
+		art, ok := e.Artifact(e.Kind)
+		if !ok {
+			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
+		}
+		data, err := l.read(art)
+		if err != nil {
+			return staged{}, false, err
+		}
+		p, err := l.uploadTexture(data)
+		if err != nil {
+			return staged{}, false, err
+		}
+		return staged{id: e.ID, kind: e.Kind, page: p, isTex: true}, true, nil
+	case asset.ArtMesh:
+		data, err := l.readMesh(e)
+		if err != nil {
+			return staged{}, false, err
+		}
+		m, err := mesh.Upload(l.dev, data, "asset.mesh")
+		if err != nil {
+			return staged{}, false, err
+		}
+		return staged{id: e.ID, kind: e.Kind, geo: m}, true, nil
+	case asset.ArtScript:
+		return staged{id: e.ID, kind: e.Kind}, true, nil
+	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab:
+		art, ok := e.Artifact(e.Kind)
+		if !ok {
+			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
+		}
+		data, err := l.read(art)
+		if err != nil {
+			return staged{}, false, err
+		}
+		return staged{id: e.ID, kind: e.Kind, blob: data}, true, nil
+	}
+	return staged{}, false, nil
 }
 
 func (l *Loader) Swap(entries []asset.Entry, files vfs.FS) error {
@@ -309,40 +447,15 @@ func (l *Loader) Swap(entries []asset.Entry, files vfs.FS) error {
 	}
 	prepared := make([]staged, 0, len(entries))
 	for i := range entries {
-		e := entries[i]
-		switch e.Kind {
-		case asset.ArtTexture, asset.ArtAtlasPage:
-			art, ok := e.Artifact(e.Kind)
-			if !ok {
-				return errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind",
-					log.F("asset", e.ID.String()))
-			}
-			data, err := l.files.ReadFile(art.Path)
-			if err != nil {
-				l.rollback(prepared)
-				return err
-			}
-			p, err := l.uploadTexture(data)
-			if err != nil {
-				l.rollback(prepared)
-				return err
-			}
-			prepared = append(prepared, staged{id: e.ID, kind: e.Kind, page: p, isTex: true})
-		case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab:
-			art, ok := e.Artifact(e.Kind)
-			if !ok {
-				return errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind",
-					log.F("asset", e.ID.String()))
-			}
-			data, err := l.files.ReadFile(art.Path)
-			if err != nil {
-				l.rollback(prepared)
-				return err
-			}
-			prepared = append(prepared, staged{id: e.ID, kind: e.Kind, blob: data})
+		s, ok, err := l.prepare(&entries[i])
+		if err != nil {
+			l.rollback(prepared)
+			return err
+		}
+		if ok {
+			prepared = append(prepared, s)
 		}
 	}
-
 	for i := range entries {
 		l.index.Put(entries[i])
 	}
@@ -356,6 +469,12 @@ func (l *Loader) Swap(entries []asset.Entry, files vfs.FS) error {
 			}
 			l.pages[s.id] = s.page
 			l.invalidateRegionsOf(s.id)
+		case s.geo != nil:
+			if old, ok := l.meshes[s.id]; ok {
+				old.Destroy(l.dev)
+			}
+			l.meshes[s.id] = s.geo
+		case s.kind == asset.ArtScript:
 		case s.kind == asset.ArtSpriteRegion:
 			delete(l.region, s.id)
 		default:
@@ -389,6 +508,9 @@ func (l *Loader) rollback(prepared []staged) {
 		if s.isTex {
 			l.dev.DestroyTexture(s.page.handle)
 		}
+		if s.geo != nil {
+			s.geo.Destroy(l.dev)
+		}
 	}
 }
 
@@ -397,6 +519,10 @@ func (l *Loader) Drop(id ids.AssetID) {
 		l.dev.DestroyTexture(p.handle)
 		delete(l.pages, id)
 		l.invalidateRegionsOf(id)
+	}
+	if m, ok := l.meshes[id]; ok {
+		m.Destroy(l.dev)
+		delete(l.meshes, id)
 	}
 	delete(l.region, id)
 	delete(l.blobs, id)
@@ -408,6 +534,10 @@ func (l *Loader) Close() {
 	for id, p := range l.pages {
 		l.dev.DestroyTexture(p.handle)
 		delete(l.pages, id)
+	}
+	for id, m := range l.meshes {
+		m.Destroy(l.dev)
+		delete(l.meshes, id)
 	}
 	l.region = map[ids.AssetID]regionEntry{}
 	l.blobs = map[ids.AssetID][]byte{}

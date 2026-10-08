@@ -26,6 +26,8 @@ type Result struct {
 	Group     string
 	Raw       *texture.Data
 	RawFilter int
+	Source    []byte
+	Error     error
 }
 
 type ImportContext struct {
@@ -48,14 +50,16 @@ type Importer interface {
 type GroupMember struct {
 	ID       ids.AssetID
 	Name     string
+	Path     string
 	Settings Settings
 	Result   *Result
 }
 
 type GroupContext struct {
-	Group  string
-	PageID ids.AssetID
-	Log    *log.ChannelLogger
+	Group    string
+	PageID   ids.AssetID
+	Log      *log.ChannelLogger
+	Previous func(name string) ([]byte, bool)
 }
 
 type GroupImporter interface {

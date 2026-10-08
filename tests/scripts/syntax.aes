@@ -1,0 +1,65 @@
+package syntax
+
+import (
+	"aego/log"
+	"aego/math"
+)
+
+const Limit int = 1_000
+const Ratio = .5
+const Name = "syn\ttax"
+
+enum Mode {
+	Off
+	On
+}
+
+type Pair struct {
+	A int
+	B float
+}
+
+func add(a int, b int) int {
+	return a + b
+}
+
+@hide
+@former("OldSyntax")
+script Syntax {
+	@export(min=-1, max=10, unit="m", display="Count")
+	var Count int = 3
+
+	var items []int
+	var pair Pair
+	var mode Mode
+
+	func Ready() {
+		pair = Pair{A: 1, B: 2.5}
+		items = append(items, add(1, 2))
+		for i := 0; i < len(items); i++ {
+			items[i] *= 2
+		}
+		for Count > 0 {
+			Count--
+		}
+		for {
+			break
+		}
+		switch mode {
+		case Mode.Off, Mode.On:
+			log.Info("mode")
+		default:
+			return
+		}
+		if !(Count >= 1 && pair.A != 0) || Ratio < 1e3 {
+			var x float = -math.Abs(-1.5)
+			x += float(Count) * 0x1f
+		} else if node.Has<SpriteRenderer>() {
+			{
+				continue
+			}
+		} else {
+			mode = Mode.On
+		}
+	}
+}

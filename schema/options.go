@@ -5,6 +5,7 @@ type regOptions struct {
 	former       []string
 	version      uint32
 	doc          string
+	space        SpaceKind
 	formerFields map[string][]string
 }
 
@@ -34,6 +35,10 @@ func Version(v uint32) Option {
 
 func Doc(s string) Option {
 	return func(o *regOptions) { o.doc = s }
+}
+
+func Space(k SpaceKind) Option {
+	return func(o *regOptions) { o.space = k }
 }
 
 func FormerField(field string, former ...string) Option {

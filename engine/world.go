@@ -1,8 +1,18 @@
 package engine
 
+import "aego/platform/input"
+
 type World struct {
 	name     string
 	services []serviceEntry
+	Input    *input.State
+}
+
+func (c *Context) Input() *input.State {
+	if c.World != nil && c.World.Input != nil {
+		return c.World.Input
+	}
+	return c.Engine.Input()
 }
 
 func NewWorld(name string) *World {

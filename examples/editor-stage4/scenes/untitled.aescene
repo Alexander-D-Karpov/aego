@@ -1,0 +1,20 @@
+scene version=1 {
+  node "90f0de95ffa35715b6d47af652b348e3" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera" version=1 {
+      zoom=64
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#383f4bff
+      scale=free
+      virtual=[0, 0]
+      active=true
+    }
+  }
+}

@@ -75,9 +75,9 @@ func TestPixelPerfectIntegerZoomAndLetterbox(t *testing.T) {
 func TestProjectionFlipsOnlyForTargets(t *testing.T) {
 	caps := gpu.Capabilities{OriginBottomLeft: true}
 	v := testView()
-	window := v.Projection(caps)
+	window := v.ProjectionMatrix(caps)
 	v.Target = gpu.TextureHandle{Index: 1, Gen: 1}
-	target := v.Projection(caps)
+	target := v.ProjectionMatrix(caps)
 	for i := range window {
 		want := window[i]
 		if i == 5 || i == 13 {
@@ -88,7 +88,7 @@ func TestProjectionFlipsOnlyForTargets(t *testing.T) {
 		}
 	}
 	flat := gpu.Capabilities{}
-	if v.Projection(flat) != window {
+	if v.ProjectionMatrix(flat) != window {
 		t.Fatal("backends without OriginBottomLeft must not flip")
 	}
 }

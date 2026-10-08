@@ -1,0 +1,13 @@
+package shared
+
+import "aego/math"
+
+const Gravity float = 10
+const GroundY float = 3
+
+func Approach(value float, target float, step float) float {
+	if value < target {
+		return math.Min(value+step, target)
+	}
+	return math.Max(value-step, target)
+}

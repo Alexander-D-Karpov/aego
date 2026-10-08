@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -20,6 +21,27 @@ type rule struct {
 	pkg      string
 	allow    []string
 	external []string
+}
+
+func with(base []string, more ...string) []string {
+	return append(slices.Clone(base), more...)
+}
+
+var scriptDev = []string{
+	"core/...", "schema", "format/...",
+	"script/abi", "script/source", "script/token", "script/diag", "script/lexer", "script/ast",
+	"script/parser", "script/types", "script/resolver", "script/checker", "script/asm",
+	"script/compiler", "script/bytecode", "script/build",
+}
+
+var scriptRuntime = []string{
+	"core/...", "schema",
+	"script/abi", "script/source", "script/diag", "script/bytecode", "script/verify", "script/vm",
+}
+
+var scriptCompilerOnly = []string{
+	"script/token", "script/lexer", "script/ast", "script/parser", "script/types", "script/resolver",
+	"script/checker", "script/asm", "script/compiler", "script/build", "script/harness",
 }
 
 var rules = []rule{
@@ -43,24 +65,49 @@ var rules = []rule{
 	{"render", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
 	{"render/module", []string{"core/...", "gpu", "engine", "render"}, nil},
 	{"render/...", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
-	{"asset", []string{"core/...", "gpu", "format/...", "render/texture"}, nil},
-	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture"}, nil},
+	{"asset", []string{"core/...", "gpu", "format/...", "render/texture", "render/mesh"}, nil},
+	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture", "render/mesh"}, nil},
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
-	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture"}, nil},
-	{"project", []string{"core/...", "format/..."}, nil},
+	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
+	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
 	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
-	{"scene/components", []string{"core/...", "schema", "asset", "gpu", "render/...", "scene"}, nil},
-	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene"}, nil},
+	{"scene/components", []string{"core/...", "schema", "asset", "gpu", "render/...", "scene", "format/..."}, nil},
+	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/components"}, nil},
 	{"scene/systems", []string{"core/...", "schema", "asset", "gpu", "engine", "render", "render/...", "scene", "scene/components"}, nil},
+	{"ui", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
 	{"ui/...", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
-	{"editor/...", []string{"core/...", "platform/input", "gpu", "render", "render/...", "ui/...", "schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "editor/..."}, nil},
-	{"sdk", []string{"core/...", "engine", "schema", "scene", "asset", "asset/...", "render", "render/module"}, nil},
+	{"editor/...", []string{"core/...", "platform", "platform/input", "gpu", "render", "render/...", "ui/...", "schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "editor/..."}, nil},
+	{"app/edit", []string{"..."}, nil},
+	{"app/supervise", []string{"..."}, nil},
+	{"sdk", []string{"core/...", "engine", "schema", "scene", "scene/components", "asset", "asset/...", "render", "render/module", "platform/input", "script/bind"}, nil},
 	{"app/run", []string{"..."}, nil},
 	{"demos/...", []string{"..."}, nil},
 	{"cmd/...", []string{"..."}, nil},
 	{"tests/...", []string{"..."}, nil},
 	{"tools/...", []string{"..."}, nil},
 	{"examples/...", []string{"sdk"}, nil},
+	{"script/abi", []string{"core/...", "schema"}, nil},
+	{"script/source", scriptDev, nil},
+	{"script/token", scriptDev, nil},
+	{"script/diag", scriptDev, nil},
+	{"script/lexer", scriptDev, nil},
+	{"script/ast", scriptDev, nil},
+	{"script/parser", scriptDev, nil},
+	{"script/types", scriptDev, nil},
+	{"script/resolver", scriptDev, nil},
+	{"script/checker", scriptDev, nil},
+	{"script/asm", scriptDev, nil},
+	{"script/compiler", scriptDev, nil},
+	{"script/build", scriptDev, nil},
+	{"script/harness", with(scriptDev, "script/bind", "script/verify", "script/vm"), nil},
+	{"script/bytecode", scriptRuntime, nil},
+	{"script/verify", scriptRuntime, nil},
+	{"script/vm", scriptRuntime, nil},
+	{"script/bind", with(scriptRuntime, "scene", "engine", "asset", "platform/input"), nil},
+	{"script/stdlib", with(scriptRuntime, "script/bind", "scene", "scene/...", "engine", "asset", "platform/input"), nil},
+	{"script/runtime", with(scriptRuntime, "script/bind", "scene", "scene/...", "engine", "asset", "asset/...", "platform/input"), nil},
+	{"script/module", with(scriptRuntime, "script/bind", "script/runtime", "script/stdlib", "engine", "scene"), nil},
+	{"asset/importers/script", with(scriptDev, "asset", "asset/pipeline"), nil},
 }
 
 var osFileFuncs = map[string]bool{
@@ -78,6 +125,12 @@ var fsAllowed = []string{
 	"asset/pipeline",
 	"engine/bootstrap",
 	"app/run",
+	"app/edit",
+	"app/supervise",
+	"editor/assets",
+	"editor/document",
+	"editor/session",
+	"editor/state",
 	"demos/asset-hot-reload",
 }
 
@@ -88,6 +141,13 @@ var denied = []struct {
 	{"app/run", []string{"editor/..."}},
 	{"runtime/...", []string{"editor/..."}},
 	{"sdk", []string{"editor/..."}},
+	{"script/bytecode", scriptCompilerOnly},
+	{"script/verify", scriptCompilerOnly},
+	{"script/vm", scriptCompilerOnly},
+	{"script/bind", scriptCompilerOnly},
+	{"script/stdlib", scriptCompilerOnly},
+	{"script/runtime", scriptCompilerOnly},
+	{"script/module", scriptCompilerOnly},
 }
 
 var cgoAllowed = []string{"platform/sdl", "gpu/gl33/gl"}

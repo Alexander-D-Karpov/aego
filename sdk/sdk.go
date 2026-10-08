@@ -12,6 +12,7 @@ import (
 	rendermodule "aego/render/module"
 	"aego/scene"
 	"aego/schema"
+	"aego/script/bind"
 )
 
 const APIVersion = 1
@@ -68,6 +69,7 @@ type Registry struct {
 	Engine    *engine.Registry
 	Types     *scene.Types
 	Importers *pipeline.ImporterRegistry
+	Script    *bind.Registry
 }
 
 func (r *Registry) Schema() *schema.Registry {

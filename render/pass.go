@@ -129,24 +129,27 @@ type debugPass struct{}
 
 func (debugPass) Execute(ctx *PassContext) {
 	r := ctx.Renderer
-	worldFirst, worldCount, screenFirst, screenCount := r.dbg.Upload()
-	if worldCount == 0 && screenCount == 0 {
+	world, overlay, screen := r.dbg.Upload()
+	if world.Count == 0 && overlay.Count == 0 && screen.Count == 0 {
 		return
 	}
-	ctx.Pass.SetPipeline(r.debugPipe)
-	ctx.Pass.SetUniformBuffer(0, r.ub)
-	if worldCount > 0 {
-		r.setUniform(ctx.Pass, ctx.View.ViewProjection(r.caps))
-		ctx.Pass.SetVertexBuffer(0, r.dbg.Buffer())
-		ctx.Pass.Draw(worldFirst, worldCount)
-		r.stats.DebugVerts += uint32(worldCount)
+	p := ctx.Pass
+	if world.Count > 0 || overlay.Count > 0 {
+		vp := ctx.View.ViewProjection(r.caps)
+		if world.Count > 0 {
+			pipe := r.debugPipe
+			if ctx.View.UsesDepth() {
+				pipe = r.debugDepthPipe
+			}
+			r.drawLines(p, pipe, vp, world)
+		}
+		if overlay.Count > 0 {
+			r.drawLines(p, r.debugPipe, vp, overlay)
+		}
 	}
-	if screenCount > 0 {
-		screen := view.ScreenView(ctx.View.TargetW, ctx.View.TargetH, ctx.View.PixelScale)
-		screen.Target = ctx.View.Target
-		r.setUniform(ctx.Pass, screen.ViewProjection(r.caps))
-		ctx.Pass.SetVertexBuffer(0, r.dbg.Buffer())
-		ctx.Pass.Draw(screenFirst, screenCount)
-		r.stats.DebugVerts += uint32(screenCount)
+	if screen.Count > 0 {
+		sv := view.ScreenView(ctx.View.TargetW, ctx.View.TargetH, ctx.View.PixelScale)
+		sv.Target = ctx.View.Target
+		r.drawLines(p, r.debugPipe, sv.ViewProjection(r.caps), screen)
 	}
 }

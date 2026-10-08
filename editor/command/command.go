@@ -31,12 +31,12 @@ func (s Shortcut) IsZero() bool {
 	return s.Key == input.KeyUnknown
 }
 
-func (s Shortcut) String() string {
+func (s Shortcut) Format(goos string) string {
 	if s.IsZero() {
 		return ""
 	}
 	var b strings.Builder
-	mac := runtime.GOOS == "darwin"
+	mac := goos == "darwin"
 	if s.Mods&ModPrimary != 0 {
 		if mac {
 			b.WriteString("⌘")
@@ -60,6 +60,10 @@ func (s Shortcut) String() string {
 	}
 	b.WriteString(s.Key.String())
 	return b.String()
+}
+
+func (s Shortcut) String() string {
+	return s.Format(runtime.GOOS)
 }
 
 func FromInput(m input.Mods) Mods {
@@ -117,6 +121,9 @@ type Desc struct {
 	Category string
 	Scope    string
 	Shortcut Shortcut
+	Order    int
+	Label    func() string
+	Checked  func() bool
 	Enabled  func() bool
 	Run      func() error
 }
@@ -173,6 +180,37 @@ func (r *Registry) Rebind(id string, sc Shortcut) error {
 	}
 	d.Shortcut = sc
 	return nil
+}
+
+func (r *Registry) Shortcut(id string) string {
+	if d, ok := r.byID[id]; ok {
+		return d.Shortcut.String()
+	}
+	return ""
+}
+
+func (r *Registry) Category(cat string) []Desc {
+	var out []Desc
+	for _, id := range r.order {
+		if d := r.byID[id]; d.Category == cat {
+			out = append(out, *d)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Order < out[j].Order })
+	return out
+}
+
+func (r *Registry) Categories() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, id := range r.order {
+		c := r.byID[id].Category
+		if c != "" && !seen[c] {
+			seen[c] = true
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (r *Registry) Unregister(id string) {

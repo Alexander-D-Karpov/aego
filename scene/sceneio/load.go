@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/format/aetext"
 	"aego/scene"
+	"aego/scene/components"
 	"aego/schema"
 )
 
@@ -65,7 +66,7 @@ type deferredRef struct {
 
 func Load(src []byte, name string, types *scene.Types, res asset.Resolver, opt LoadOptions) (*scene.Scene, *Report, error) {
 	s := scene.New(types, res, scene.Options{})
-	_, report, err := LoadInto(s, s.Root(), src, name, opt)
+	_, report, err := loadInto(s, s.Root(), src, name, opt, true)
 	if err != nil {
 		return nil, report, err
 	}
@@ -73,6 +74,10 @@ func Load(src []byte, name string, types *scene.Types, res asset.Resolver, opt L
 }
 
 func LoadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, opt LoadOptions) ([]scene.NodeHandle, *Report, error) {
+	return loadInto(s, parent, src, name, opt, false)
+}
+
+func loadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, opt LoadOptions, whole bool) ([]scene.NodeHandle, *Report, error) {
 	report := &Report{}
 	l := &loader{
 		scene:   s,
@@ -87,6 +92,15 @@ func LoadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, 
 	if err != nil {
 		return nil, report, err
 	}
+	if whole {
+		if v, ok := doc.Attr("space"); ok {
+			sp, known := scene.ParseSpace(v.Str)
+			if !known {
+				report.warn(name, doc.Pos, "unknown scene space "+v.Str)
+			}
+			s.SetDefaultSpace(sp)
+		}
+	}
 	for _, block := range doc.Blocks {
 		if block.Head != "node" {
 			continue
@@ -99,6 +113,7 @@ func LoadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, 
 		return nil, report, err
 	}
 	s.Flush()
+	s.UpdateTransforms()
 	return l.created, report, nil
 }
 
@@ -147,11 +162,21 @@ func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
 	if v, ok := n.Attr("name"); ok {
 		name = v.Str
 	}
-	var h scene.NodeHandle
-	if id.IsZero() {
-		h = l.scene.Create(parent, name)
-	} else {
-		h = l.scene.CreateWithID(parent, name, id)
+	sp := scene.Space2D
+	if v, ok := n.Attr("space"); ok {
+		parsed, known := scene.ParseSpace(v.Str)
+		if !known {
+			if l.opt.Strict {
+				return errs.New(errs.SceneIOParse, "unknown node space", log.F("path", l.name), log.F("space", v.Str))
+			}
+			l.report.warn(l.name, n.Pos, "unknown node space "+v.Str+", loading as 2d")
+		}
+		sp = parsed
+	}
+	h, err := l.scene.CreateIn(parent, name, id, sp)
+	if err != nil {
+		return errs.Wrap(err, errs.SceneIOParse, "node cannot be placed under its parent").
+			With(log.F("path", l.name), log.F("node", name), log.F("line", n.Pos.Line))
 	}
 	if h.IsZero() {
 		return errs.New(errs.SceneIOParse, "cannot create a node", log.F("path", l.name))
@@ -169,7 +194,17 @@ func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
 	for _, block := range n.Blocks {
 		switch block.Head {
 		case "transform":
-			l.scene.SetLocal(h, readTransform(block))
+			if sp == scene.Space2D {
+				l.scene.SetLocal(h, readTransform(block))
+			} else {
+				l.report.warn(l.name, block.Pos, "2d transform on a 3d node is ignored")
+			}
+		case "transform3d":
+			if sp == scene.Space3D {
+				l.scene.SetLocal3D(h, readTransform3D(block))
+			} else {
+				l.report.warn(l.name, block.Pos, "3d transform on a 2d node is ignored")
+			}
 		case "component":
 			if err := l.loadComponent(h, block); err != nil {
 				return err
@@ -199,11 +234,45 @@ func readTransform(n *aetext.Node) scene.Transform2D {
 	return t
 }
 
+func readTransform3D(n *aetext.Node) scene.Transform3D {
+	t := scene.IdentityTransform3D()
+	if v, ok := n.Field("position"); ok {
+		t.Position = readVec3(v, t.Position)
+	}
+	if v, ok := n.Field("rotation"); ok {
+		q := readVec4(v, mathx.Vec4{W: 1})
+		t.Rotation = mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}
+	}
+	if v, ok := n.Field("scale"); ok {
+		t.Scale = readVec3(v, t.Scale)
+	}
+	return t
+}
+
 func readVec2(v aetext.Value, def mathx.Vec2) mathx.Vec2 {
 	if v.Kind != aetext.VList || len(v.List) != 2 {
 		return def
 	}
 	return mathx.Vec2{X: float32(v.List[0].AsFloat()), Y: float32(v.List[1].AsFloat())}
+}
+
+func readVec3(v aetext.Value, def mathx.Vec3) mathx.Vec3 {
+	if v.Kind != aetext.VList || len(v.List) != 3 {
+		return def
+	}
+	return mathx.Vec3{X: float32(v.List[0].AsFloat()), Y: float32(v.List[1].AsFloat()), Z: float32(v.List[2].AsFloat())}
+}
+
+func readVec4(v aetext.Value, def mathx.Vec4) mathx.Vec4 {
+	if v.Kind != aetext.VList || len(v.List) != 4 {
+		return def
+	}
+	return mathx.Vec4{
+		X: float32(v.List[0].AsFloat()),
+		Y: float32(v.List[1].AsFloat()),
+		Z: float32(v.List[2].AsFloat()),
+		W: float32(v.List[3].AsFloat()),
+	}
 }
 
 func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
@@ -217,6 +286,12 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 		l.storeUnknown(h, n)
 		l.report.Unknown = append(l.report.Unknown, typeName)
 		return nil
+	}
+	if td.FullName == components.ScriptName {
+		return l.loadScripts(h, n)
+	}
+	if !td.Space.Allows(l.scene.Space(h).Kind()) {
+		l.report.warn(l.name, n.Pos, "component "+td.FullName+" expects a "+td.Space.String()+" node")
 	}
 	p, err := l.scene.AddByType(h, td.ID)
 	if err != nil {
@@ -286,6 +361,13 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value, pos aetext.
 		return schema.String(v.Str), ids.NodeID{}, nil
 	case schema.KindVec2:
 		return schema.Vec2(readVec2(v, mathx.Vec2{})), ids.NodeID{}, nil
+	case schema.KindVec3:
+		return schema.Vec3(readVec3(v, mathx.Vec3{})), ids.NodeID{}, nil
+	case schema.KindVec4:
+		return schema.Vec4(readVec4(v, mathx.Vec4{})), ids.NodeID{}, nil
+	case schema.KindQuat:
+		q := readVec4(v, mathx.Vec4{W: 1})
+		return schema.Quat(mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}), ids.NodeID{}, nil
 	case schema.KindColor:
 		return schema.Color(unpackColor(v.Color)), ids.NodeID{}, nil
 	case schema.KindRect:
@@ -364,6 +446,9 @@ func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
 		return ok
 	case "prefab":
 		_, ok := l.res.Prefab(id)
+		return ok
+	case "mesh":
+		_, ok := l.res.Mesh(id)
 		return ok
 	default:
 		_, ok := l.res.Texture(id)

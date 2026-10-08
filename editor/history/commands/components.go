@@ -77,6 +77,10 @@ func (c *AddComponent) Do(t history.Target) error {
 	if !ok {
 		return errs.New(errs.SchemaUnknownType, "component type is not registered", log.F("type", c.Name))
 	}
+	if !td.Space.Allows(s.Space(h).Kind()) {
+		return errs.New(errs.SceneSpaceMismatch, "component does not fit the node space",
+			log.F("type", c.Name), log.F("space", s.Space(h).String()))
+	}
 	p, err := s.AddByType(h, c.Type)
 	if err != nil {
 		return err

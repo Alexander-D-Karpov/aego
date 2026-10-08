@@ -20,6 +20,7 @@ type NodeHandle = handle.Handle[nodeData]
 type Options struct {
 	InitialNodes      int
 	InitialComponents int
+	DefaultSpace      Space
 }
 
 type Stats struct {
@@ -72,6 +73,9 @@ type Scene struct {
 	structureRev uint64
 	stats        Stats
 	scratch      []NodeHandle
+	three        []node3
+	free3        []int32
+	defaultSpace Space
 }
 
 func New(types *Types, res asset.Resolver, opt Options) *Scene {
@@ -79,18 +83,20 @@ func New(types *Types, res asset.Resolver, opt Options) *Scene {
 		opt.InitialNodes = 1024
 	}
 	s := &Scene{
-		types:      types,
-		registry:   types.Schema(),
-		resolver:   res,
-		nodes:      handle.NewArena[nodeData](opt.InitialNodes),
-		interner:   strs.NewInterner(),
-		byID:       make(map[ids.NodeID]NodeHandle, opt.InitialNodes),
-		byName:     make(map[nameKey]NodeHandle, opt.InitialNodes),
-		storesByGo: map[reflect.Type]anyStore{},
-		storesByID: map[schema.TypeID]anyStore{},
-		ops:        make([]structuralOp, 0, 64),
-		preOrder:   make([]NodeHandle, 0, opt.InitialNodes),
-		scratch:    make([]NodeHandle, 0, 64),
+		types:        types,
+		registry:     types.Schema(),
+		resolver:     res,
+		nodes:        handle.NewArena[nodeData](opt.InitialNodes),
+		interner:     strs.NewInterner(),
+		byID:         make(map[ids.NodeID]NodeHandle, opt.InitialNodes),
+		byName:       make(map[nameKey]NodeHandle, opt.InitialNodes),
+		storesByGo:   map[reflect.Type]anyStore{},
+		storesByID:   map[schema.TypeID]anyStore{},
+		ops:          make([]structuralOp, 0, 64),
+		preOrder:     make([]NodeHandle, 0, opt.InitialNodes),
+		scratch:      make([]NodeHandle, 0, 64),
+		three:        make([]node3, 0, 16),
+		defaultSpace: opt.DefaultSpace,
 	}
 	h, n := s.nodes.Alloc()
 	*n = nodeData{
@@ -100,6 +106,7 @@ func New(types *Types, res asset.Resolver, opt Options) *Scene {
 		world:  mathx.Mat3Identity(),
 		layers: ^uint64(0),
 		flags:  flagAlive | flagEnabled | flagEffective | flagWorldDirty,
+		slot:   -1,
 	}
 	s.root = h
 	s.byID[n.id] = h
@@ -172,6 +179,13 @@ func (s *Scene) emit(e Event) {
 	s.events.dispatch(e)
 }
 
+func (s *Scene) inherit(parent NodeHandle) Space {
+	if parent == s.root {
+		return s.defaultSpace
+	}
+	return s.Space(parent)
+}
+
 func (s *Scene) Create(parent NodeHandle, name string) NodeHandle {
 	return s.CreateWithID(parent, name, ids.NewNodeID())
 }
@@ -183,6 +197,33 @@ func (s *Scene) CreateWithID(parent NodeHandle, name string, id ids.NodeID) Node
 	if _, ok := s.node(parent); !ok {
 		return NodeHandle{}
 	}
+	return s.create(parent, name, id, s.inherit(parent))
+}
+
+func (s *Scene) CreateIn(parent NodeHandle, name string, id ids.NodeID, sp Space) (NodeHandle, error) {
+	if parent.IsZero() {
+		parent = s.root
+	}
+	if _, ok := s.node(parent); !ok {
+		return NodeHandle{}, errs.New(errs.SceneDeadNode, "parent is not alive", log.F("node", name))
+	}
+	if !s.AllowsSpace(parent, sp) {
+		return NodeHandle{}, s.spaceError(name, parent)
+	}
+	return s.create(parent, name, id, sp), nil
+}
+
+func (s *Scene) Create2D(parent NodeHandle, name string) NodeHandle {
+	h, _ := s.CreateIn(parent, name, ids.NodeID{}, Space2D)
+	return h
+}
+
+func (s *Scene) Create3D(parent NodeHandle, name string) NodeHandle {
+	h, _ := s.CreateIn(parent, name, ids.NodeID{}, Space3D)
+	return h
+}
+
+func (s *Scene) create(parent NodeHandle, name string, id ids.NodeID, sp Space) NodeHandle {
 	if id.IsZero() {
 		id = ids.NewNodeID()
 	}
@@ -196,6 +237,11 @@ func (s *Scene) CreateWithID(parent NodeHandle, name string, id ids.NodeID) Node
 		world:  mathx.Mat3Identity(),
 		layers: 1,
 		flags:  flagAlive | flagEnabled | flagWorldDirty,
+		space:  sp,
+		slot:   -1,
+	}
+	if sp == Space3D {
+		n.slot = s.alloc3(h, IdentityTransform3D())
 	}
 	s.byID[id] = h
 	s.attach(h, parent, -1)
@@ -243,7 +289,8 @@ func (s *Scene) Reparent(h, parent NodeHandle, index int) error {
 	if h == s.root {
 		return errs.New(errs.SceneBadReparent, "the root node cannot be reparented")
 	}
-	if _, ok := s.node(h); !ok {
+	n, ok := s.node(h)
+	if !ok {
 		return errs.New(errs.SceneDeadNode, "node is not alive")
 	}
 	if parent.IsZero() {
@@ -252,16 +299,19 @@ func (s *Scene) Reparent(h, parent NodeHandle, index int) error {
 	if _, ok := s.node(parent); !ok {
 		return errs.New(errs.SceneDeadNode, "new parent is not alive")
 	}
+	if n.space == Space3D && !s.AllowsSpace(parent, Space3D) {
+		return s.spaceError(s.Name(h), parent)
+	}
 	for p := parent; !p.IsZero(); {
 		if p == h {
 			return errs.New(errs.SceneBadReparent, "reparenting would create a cycle",
 				log.F("node", s.Name(h)), log.F("parent", s.Name(parent)))
 		}
-		n, ok := s.nodes.Get(p)
+		pn, ok := s.nodes.Get(p)
 		if !ok {
 			break
 		}
-		p = n.parent
+		p = pn.parent
 	}
 	s.ops = append(s.ops, structuralOp{kind: opReparent, node: h, parent: parent, index: index})
 	s.queueStructural()
@@ -348,20 +398,21 @@ func (s *Scene) Flush() {
 		return
 	}
 	for _, op := range s.ops {
-		switch op.kind {
-		case opReparent:
-			n, ok := s.node(op.node)
-			if !ok || n.has(flagPendingDestroy) {
-				continue
-			}
-			name := n.name
-			s.detach(op.node)
-			s.attach(op.node, op.parent, op.index)
-			n.name = name
-			s.insertNameIndex(op.node, n)
-			n.set(flagWorldDirty, true)
-			s.emit(Event{Kind: EvNodeReparented, Node: op.node, ID: n.id})
+		if op.kind != opReparent {
+			continue
 		}
+		n, ok := s.node(op.node)
+		if !ok || n.has(flagPendingDestroy) {
+			continue
+		}
+		name := n.name
+		s.detach(op.node)
+		s.attach(op.node, op.parent, op.index)
+		n.name = name
+		s.insertNameIndex(op.node, n)
+		n.set(flagWorldDirty, false)
+		s.markWorldDirty(op.node)
+		s.emit(Event{Kind: EvNodeReparented, Node: op.node, ID: n.id})
 	}
 	for _, st := range s.storeList {
 		st.flush(s)
@@ -418,6 +469,10 @@ func (s *Scene) finalizeDestroy(h NodeHandle) {
 	}
 	s.detach(h)
 	delete(s.byID, n.id)
+	if n.slot >= 0 {
+		s.release3(n.slot)
+		n.slot = -1
+	}
 	n.set(flagAlive, false)
 	s.nodes.Free(h)
 }

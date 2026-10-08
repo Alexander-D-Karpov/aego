@@ -15,6 +15,7 @@ type Types struct {
 	byGo    map[reflect.Type]storeFactory
 	schema  *schema.Registry
 	ordered []schema.TypeID
+	overlay Overlay
 }
 
 func NewTypes(reg *schema.Registry) *Types {

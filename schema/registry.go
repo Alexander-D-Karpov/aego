@@ -12,12 +12,21 @@ import (
 
 type vec2 = mathx.Vec2
 
+type vec3 = mathx.Vec3
+
+type vec4 = mathx.Vec4
+
+type quat = mathx.Quat
+
 type color = mathx.Color
 
 type rect = mathx.Rect
 
 var (
 	vec2Type     = reflect.TypeFor[mathx.Vec2]()
+	vec3Type     = reflect.TypeFor[mathx.Vec3]()
+	vec4Type     = reflect.TypeFor[mathx.Vec4]()
+	quatType     = reflect.TypeFor[mathx.Quat]()
 	colorType    = reflect.TypeFor[mathx.Color]()
 	rectType     = reflect.TypeFor[mathx.Rect]()
 	assetRefType = reflect.TypeFor[AssetRef]()
@@ -36,6 +45,7 @@ type Registry struct {
 	byType map[reflect.Type]*TypeDescriptor
 	enums  map[reflect.Type]*enumInfo
 	order  []*TypeDescriptor
+	dyn    dynamic
 }
 
 func NewRegistry() *Registry {
@@ -52,13 +62,25 @@ func (r *Registry) Frozen() bool {
 }
 
 func (r *Registry) ByID(id TypeID) (*TypeDescriptor, bool) {
-	t, ok := r.byID[id]
-	return t, ok
+	if t, ok := r.byID[id]; ok {
+		return t, true
+	}
+	if l := r.dyn.layer.Load(); l != nil {
+		t, ok := l.byID[id]
+		return t, ok
+	}
+	return nil, false
 }
 
 func (r *Registry) ByName(name string) (*TypeDescriptor, bool) {
-	t, ok := r.byName[name]
-	return t, ok
+	if t, ok := r.byName[name]; ok {
+		return t, true
+	}
+	if l := r.dyn.layer.Load(); l != nil {
+		t, ok := l.byName[name]
+		return t, ok
+	}
+	return nil, false
 }
 
 func (r *Registry) ByGoType(t reflect.Type) (*TypeDescriptor, bool) {
@@ -67,7 +89,7 @@ func (r *Registry) ByGoType(t reflect.Type) (*TypeDescriptor, bool) {
 }
 
 func (r *Registry) Field(t TypeID, name string) (*FieldDescriptor, bool) {
-	td, ok := r.byID[t]
+	td, ok := r.ByID(t)
 	if !ok {
 		return nil, false
 	}
@@ -154,6 +176,7 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 		Version:  o.version,
 		Size:     rt.Size(),
 		Kind:     kind,
+		Space:    o.space,
 		Doc:      o.doc,
 		index:    map[string]int{},
 		byID:     map[FieldID]int{},
@@ -262,6 +285,12 @@ func (r *Registry) kindOf(typeName, field string, ft reflect.Type) (Kind, Kind, 
 	switch ft {
 	case vec2Type:
 		return KindVec2, KindInvalid, 0, nil
+	case vec3Type:
+		return KindVec3, KindInvalid, 0, nil
+	case vec4Type:
+		return KindVec4, KindInvalid, 0, nil
+	case quatType:
+		return KindQuat, KindInvalid, 0, nil
 	case colorType:
 		return KindColor, KindInvalid, 0, nil
 	case rectType:

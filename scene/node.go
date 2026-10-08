@@ -30,6 +30,7 @@ const (
 	flagEffective
 	flagWorldDirty
 	flagPendingDestroy
+	flagUnder3D
 )
 
 type nodeData struct {
@@ -44,7 +45,9 @@ type nodeData struct {
 	world      mathx.Mat3
 	layers     uint64
 	flags      uint8
+	space      Space
 	childCount int32
+	slot       int32
 }
 
 func (n *nodeData) has(f uint8) bool {

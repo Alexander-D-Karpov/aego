@@ -5,6 +5,13 @@ import (
 	"aego/scene"
 )
 
+type Mode uint8
+
+const (
+	ModeDocument Mode = iota
+	ModePlay
+)
+
 type Target interface {
 	Scene() *scene.Scene
 }
@@ -39,6 +46,8 @@ type History struct {
 	tx        *Transaction
 	subs      []subscriber
 	nextSub   uint64
+	locked    string
+	mode      Mode
 }
 
 func New(target Target) *History {
@@ -66,22 +75,46 @@ func (h *History) Cursor() int {
 	return len(h.undo)
 }
 
+func (h *History) SetMode(m Mode) {
+	h.mode = m
+	h.notify()
+}
+
+func (h *History) Mode() Mode {
+	return h.mode
+}
+
 func (h *History) MarkSaved() {
+	if h.mode == ModePlay {
+		return
+	}
 	h.saved = h.state()
 	h.savedLost = false
 	h.notify()
 }
 
 func (h *History) Dirty() bool {
+	if h.mode == ModePlay {
+		return false
+	}
 	return h.savedLost || h.state() != h.saved
 }
 
+func (h *History) SetLocked(reason string) {
+	h.locked = reason
+	h.notify()
+}
+
+func (h *History) Locked() (string, bool) {
+	return h.locked, h.locked != ""
+}
+
 func (h *History) CanUndo() bool {
-	return h.tx == nil && len(h.undo) > 0
+	return h.tx == nil && h.locked == "" && len(h.undo) > 0
 }
 
 func (h *History) CanRedo() bool {
-	return h.tx == nil && len(h.redo) > 0
+	return h.tx == nil && h.locked == "" && len(h.redo) > 0
 }
 
 func (h *History) InTransaction() bool {
@@ -125,6 +158,9 @@ func (h *History) push(e entry) {
 }
 
 func (h *History) Undo() error {
+	if h.locked != "" {
+		return errs.New(errs.EditorHistory, h.locked)
+	}
 	if h.tx != nil {
 		return errs.New(errs.EditorHistory, "cannot undo inside an open transaction")
 	}
@@ -146,6 +182,9 @@ func (h *History) Undo() error {
 }
 
 func (h *History) Redo() error {
+	if h.locked != "" {
+		return errs.New(errs.EditorHistory, h.locked)
+	}
 	if h.tx != nil {
 		return errs.New(errs.EditorHistory, "cannot redo inside an open transaction")
 	}
@@ -167,11 +206,15 @@ func (h *History) Redo() error {
 }
 
 func (h *History) Labels(n int) (undo, redo []string) {
+	prefix := ""
+	if h.mode == ModePlay {
+		prefix = "[Play] "
+	}
 	for i := len(h.undo) - 1; i >= 0 && len(undo) < n; i-- {
-		undo = append(undo, h.undo[i].label)
+		undo = append(undo, prefix+h.undo[i].label)
 	}
 	for i := len(h.redo) - 1; i >= 0 && len(redo) < n; i-- {
-		redo = append(redo, h.redo[i].label)
+		redo = append(redo, prefix+h.redo[i].label)
 	}
 	return undo, redo
 }
@@ -228,6 +271,9 @@ func (t *Transaction) Len() int {
 func (t *Transaction) Exec(c Command) error {
 	if t.done {
 		return errs.New(errs.EditorHistory, "transaction is already closed")
+	}
+	if t.h.locked != "" {
+		return errs.New(errs.EditorHistory, t.h.locked)
 	}
 	if err := c.Do(t.h.target); err != nil {
 		return err

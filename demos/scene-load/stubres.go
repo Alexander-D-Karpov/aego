@@ -3,6 +3,7 @@ package sceneload
 import (
 	"aego/asset"
 	"aego/core/ids"
+	"aego/render/mesh"
 	"aego/render/texture"
 )
 
@@ -12,6 +13,10 @@ type stubResolver struct {
 
 func (s *stubResolver) Texture(ids.AssetID) (texture.Region, bool) {
 	return s.region, !s.region.IsZero()
+}
+
+func (s *stubResolver) Mesh(ids.AssetID) (*mesh.Mesh, bool) {
+	return nil, false
 }
 
 func (s *stubResolver) Scene(ids.AssetID) ([]byte, bool) {

@@ -2,6 +2,7 @@ package props
 
 import (
 	"aego/core/ids"
+	"aego/core/mathx"
 	"aego/editor/history"
 	"aego/editor/history/commands"
 	"aego/scene"
@@ -59,12 +60,33 @@ func (a *Access) SetLayers(tx *history.Transaction, nodes []ids.NodeID, mask uin
 	})
 }
 
+func (a *Access) SetSpace(tx *history.Transaction, nodes []ids.NodeID, sp scene.Space) error {
+	return a.within(tx, "Change Space", func(tx *history.Transaction) error {
+		for _, n := range nodes {
+			h, err := a.handle(n)
+			if err != nil {
+				return err
+			}
+			if a.s.Space(h) == sp {
+				continue
+			}
+			if err := tx.Exec(&commands.SetSpace{Node: n, After: sp}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (a *Access) EditTransform(tx *history.Transaction, nodes []ids.NodeID, fn func(*scene.Transform2D)) error {
 	return a.within(tx, "Transform", func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
 				return err
+			}
+			if a.s.Space(h) != scene.Space2D {
+				continue
 			}
 			before := a.s.Local(h)
 			after := before
@@ -73,6 +95,30 @@ func (a *Access) EditTransform(tx *history.Transaction, nodes []ids.NodeID, fn f
 				continue
 			}
 			if err := tx.Exec(&commands.SetTransform{Node: n, Before: before, After: after}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (a *Access) EditTransform3D(tx *history.Transaction, nodes []ids.NodeID, fn func(*scene.Transform3D)) error {
+	return a.within(tx, "Transform", func(tx *history.Transaction) error {
+		for _, n := range nodes {
+			h, err := a.handle(n)
+			if err != nil {
+				return err
+			}
+			if a.s.Space(h) != scene.Space3D {
+				continue
+			}
+			before := a.s.Local3D(h)
+			after := before
+			fn(&after)
+			if after == before {
+				continue
+			}
+			if err := tx.Exec(&commands.SetTransform3D{Node: n, Before: before, After: after}); err != nil {
 				return err
 			}
 		}
@@ -100,4 +146,38 @@ func (a *Access) CommonTransform(nodes []ids.NodeID) (scene.Transform2D, [5]bool
 		mixed[4] = mixed[4] || t.Scale.Y != first.Scale.Y
 	}
 	return first, mixed
+}
+
+func transform3Values(t scene.Transform3D, euler mathx.Vec3) [9]float32 {
+	return [9]float32{
+		t.Position.X, t.Position.Y, t.Position.Z,
+		euler.X, euler.Y, euler.Z,
+		t.Scale.X, t.Scale.Y, t.Scale.Z,
+	}
+}
+
+func (a *Access) CommonTransform3D(nodes []ids.NodeID) (scene.Transform3D, mathx.Vec3, [9]bool) {
+	first := scene.IdentityTransform3D()
+	var euler mathx.Vec3
+	var mixed [9]bool
+	var base [9]float32
+	seen := false
+	for _, n := range nodes {
+		h := a.s.Handle(n)
+		if h.IsZero() || a.s.Space(h) != scene.Space3D {
+			continue
+		}
+		t := a.s.Local3D(h)
+		x, y, z := t.Rotation.Euler()
+		e := mathx.Vec3{X: x, Y: y, Z: z}
+		vals := transform3Values(t, e)
+		if !seen {
+			first, euler, base, seen = t, e, vals, true
+			continue
+		}
+		for i := range vals {
+			mixed[i] = mixed[i] || vals[i] != base[i]
+		}
+	}
+	return first, euler, mixed
 }

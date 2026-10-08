@@ -92,5 +92,24 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
         run: go test -tags aego_gltest ./tests/gl/
+      - name: golden
+        if: runner.os == 'Linux'
+        env:
+          SDL_VIDEODRIVER: offscreen
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+        run: go test -tags aego_golden ./tests/golden/...
       - name: headless smoke
         run: go run ./cmd/sandbox --demo headless --frames 600 --strict-allocs
+      - name: build the cli
+        run: go build -o /tmp/aego ./cmd/aego
+      - name: cli smoke
+        run: |
+          /tmp/aego new /tmp/clitest
+          /tmp/aego import /tmp/clitest
+          /tmp/aego check /tmp/clitest
+          /tmp/aego run /tmp/clitest --headless --frames 60
+      - name: example project
+        run: |
+          /tmp/aego check examples/native-rotator
+          /tmp/aego run examples/native-rotator --headless --frames 60

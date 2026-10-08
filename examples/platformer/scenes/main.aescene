@@ -1,0 +1,154 @@
+scene version=1 {
+  node "c0000000000000000000000000000002" name="Ground" enabled=true layers=1 {
+    transform {
+      position=[0, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[30, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "c0000000000000000000000000000003" name="Player" enabled=true layers=1 {
+    transform {
+      position=[0, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=2
+      tint=#4aa3ffff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "game.Health" version=1 {
+      max=5
+      current=5
+      hits=0
+    }
+    component "engine.Script" version=1 {
+      script "mygame.player.PlayerController" enabled=true {
+        Speed=7
+        JumpSpeed=11
+        HitTint=#ff9b4dff
+      }
+    }
+    node "c0000000000000000000000000000001" name="Camera" enabled=true layers=1 {
+      transform {
+        position=[0, -2]
+        rotation=-0
+        scale=[1, 1]
+      }
+      component "engine.Camera2D" version=1 {
+        zoom=48
+        viewport=[0, 0, 1, 1]
+        mask=-1
+        order=0
+        clear=true
+        clearColor=#1b2330ff
+        scale=free
+        virtual=[0, 0]
+        active=true
+      }
+    }
+  }
+  node "c0000000000000000000000000000005" name="PatrolA1" enabled=true layers=1 {
+    transform {
+      position=[-14.636914, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000006" name="PatrolB1" enabled=true layers=1 {
+    transform {
+      position=[-4, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000004" name="EnemyLeft" enabled=true layers=1 {
+    transform {
+      position=[-8, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#e0563bff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Script" version=1 {
+      script "mygame.enemy.EnemyAI" enabled=true {
+        PointA=node("c0000000000000000000000000000005")
+        PointB=node("c0000000000000000000000000000006")
+        Target=node("c0000000000000000000000000000003")
+        Speed=2.5
+        Cooldown=1
+      }
+    }
+  }
+  node "c0000000000000000000000000000008" name="PatrolA2" enabled=true layers=1 {
+    transform {
+      position=[4, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000009" name="PatrolB2" enabled=true layers=1 {
+    transform {
+      position=[11, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000007" name="EnemyRight" enabled=true layers=1 {
+    transform {
+      position=[8, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#e0563bff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Script" version=1 {
+      script "mygame.enemy.EnemyAI" enabled=true {
+        PointA=node("c0000000000000000000000000000008")
+        PointB=node("c0000000000000000000000000000009")
+        Target=node("c0000000000000000000000000000003")
+        Speed=3
+        Cooldown=1.5
+      }
+    }
+  }
+}

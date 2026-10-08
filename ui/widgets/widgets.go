@@ -74,7 +74,7 @@ func Separator(c *core.Context) {
 }
 
 func Button(c *core.Context, label string) bool {
-	id := core.IDOf(label)
+	id := c.ID(label)
 	r := c.Cursor().Next(0)
 	clicked := c.Clicked(id, r)
 	c.List().Rect(r, c.WidgetColor(id))
@@ -85,7 +85,7 @@ func Button(c *core.Context, label string) bool {
 }
 
 func Checkbox(c *core.Context, label string, v *bool) bool {
-	id := core.IDOf(label)
+	id := c.ID(label)
 	r := c.Cursor().Next(0)
 	box := mathx.Rect{X: r.X, Y: r.Y + 2, W: r.H - 4, H: r.H - 4}
 	changed := false
@@ -104,7 +104,7 @@ func Checkbox(c *core.Context, label string, v *bool) bool {
 }
 
 func Slider(c *core.Context, label string, v *float32, lo, hi float32) bool {
-	id := core.IDOf(label)
+	id := c.ID(label)
 	r := c.Cursor().Next(0)
 	if hi <= lo {
 		hi = lo + 1

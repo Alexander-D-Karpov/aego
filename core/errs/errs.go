@@ -49,6 +49,7 @@ const (
 	SceneUnknownComponent Code = "scene.unknown_component"
 	SceneNoComponent      Code = "scene.no_component"
 	SceneReadOnly         Code = "scene.read_only"
+	SceneSpaceMismatch    Code = "scene.space_mismatch"
 
 	AssetBadIndex    Code = "asset.bad_index"
 	AssetBadArtifact Code = "asset.bad_artifact"
@@ -73,11 +74,13 @@ const (
 
 	BuildFailed Code = "build.failed"
 
-	UIBadLayout   Code = "ui.bad_layout"
-	EditorHistory Code = "editor.history"
-	EditorProps   Code = "editor.props"
-	EditorCommand Code = "editor.command"
-	RenderTarget  Code = "render.target"
+	UIBadLayout    Code = "ui.bad_layout"
+	EditorHistory  Code = "editor.history"
+	EditorProps    Code = "editor.props"
+	EditorCommand  Code = "editor.command"
+	EditorDocument Code = "editor.document"
+	EditorPanel    Code = "editor.panel"
+	RenderTarget   Code = "render.target"
 )
 
 type Error struct {

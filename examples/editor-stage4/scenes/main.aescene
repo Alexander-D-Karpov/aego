@@ -1,0 +1,105 @@
+scene version=1 {
+  node "2b3c4d5e6f708192a3b4c5d6e7f8091a" name="Player" enabled=true layers=2 {
+    transform {
+      position=[-6.8315897, -12.028906]
+      rotation=0
+      scale=[3.8, 3.8]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a29")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[3, 3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "game.Rotator" version=1 {
+      speed=210.747
+    }
+  }
+  node "48666a4cde3f53fba29dde1d8365f0fd" name="Enemy" enabled=true layers=1 {
+    transform {
+      position=[0.16792083, -8.820393]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("e58698cc7dcbe1663fe7d8f20227d213")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "game.Rotator" version=1 {
+      speed=1
+    }
+    component "game.Health" version=1 {
+      max=50
+      current=50
+      regen=2
+    }
+  }
+  node "8676c049914dcf7c38a94be66eecdb6f" name="Cube" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, -3.5812502, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[6.017826, 1.80355, 7.024074]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000004")
+      texture=asset("e3933b97a8474225a7de18d98d8fcdb3")
+      color=#ffffffff
+      blend=opaque
+      doubleSided=false
+      layer=0
+      filter=nearest
+    }
+    component "game.Rotator3D" version=1 {
+      axis=[0, 4.3789186, 0]
+      speed=9.461963
+    }
+    node "6d2802a019d09386806843e4fef10bbd" name="Camera" enabled=true layers=1 space="3d" {
+      transform3d {
+        position=[0, 2.29775, 6]
+        rotation=[-0.16018224, 0, 0, 0.9870874]
+        scale=[1, 1, 1]
+      }
+      component "engine.Camera3D" version=1 {
+        fov=60
+        near=0.1
+        far=1000
+        viewport=[0, 0, 1, 1]
+        mask=-1
+        order=0
+        clear=true
+        clearColor=#383f4bff
+        active=true
+      }
+    }
+  }
+  node "274e3d9943b0104e70f14a5cc02ae944" name="Plane" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, -3.6993299, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[1, 1, 1]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000002")
+      texture=asset("7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a29")
+      color=#ffffffff
+      blend=opaque
+      doubleSided=false
+      layer=0
+      filter=linear
+    }
+  }
+}

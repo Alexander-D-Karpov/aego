@@ -5,7 +5,7 @@ import (
 	"aego/render/sprite"
 )
 
-func Bounds(d *sprite.Draw, pixelsPerUnit float32) mathx.AABB {
+func Bounds(d *sprite.Draw, pixelsPerUnit float32) mathx.AABB2 {
 	size := d.WorldSize(pixelsPerUnit)
 	origin := d.Origin
 	minX := -origin.X * size.X
@@ -13,7 +13,7 @@ func Bounds(d *sprite.Draw, pixelsPerUnit float32) mathx.AABB {
 	maxX := minX + size.X
 	maxY := minY + size.Y
 	if d.Rotation == 0 {
-		return mathx.AABB{
+		return mathx.AABB2{
 			Min: mathx.Vec2{X: d.Position.X + minX, Y: d.Position.Y + minY},
 			Max: mathx.Vec2{X: d.Position.X + maxX, Y: d.Position.Y + maxY},
 		}
@@ -32,14 +32,14 @@ func Bounds(d *sprite.Draw, pixelsPerUnit float32) mathx.AABB {
 		lo.X, lo.Y = min(lo.X, r.X), min(lo.Y, r.Y)
 		hi.X, hi.Y = max(hi.X, r.X), max(hi.Y, r.Y)
 	}
-	return mathx.AABB{Min: lo, Max: hi}
+	return mathx.AABB2{Min: lo, Max: hi}
 }
 
-func Visible(bounds mathx.AABB, d *sprite.Draw, pixelsPerUnit float32) bool {
+func Visible(bounds mathx.AABB2, d *sprite.Draw, pixelsPerUnit float32) bool {
 	return bounds.Intersects(Bounds(d, pixelsPerUnit))
 }
 
-func Cull(visible mathx.AABB, draws []sprite.Draw, pixelsPerUnit float32, out []uint32) []uint32 {
+func Cull(visible mathx.AABB2, draws []sprite.Draw, pixelsPerUnit float32, out []uint32) []uint32 {
 	out = out[:0]
 	for i := range draws {
 		if Visible(visible, &draws[i], pixelsPerUnit) {

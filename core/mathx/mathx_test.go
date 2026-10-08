@@ -25,7 +25,7 @@ func TestTRSApply(t *testing.T) {
 
 func TestInverse(t *testing.T) {
 	m := Mat3TRS(Vec2{X: -3, Y: 7}, 0.7, Vec2{X: 1.5, Y: 0.5})
-	inv := m.Inverse()
+	inv, _ := m.Inverse()
 	for _, p := range []Vec2{{X: 0, Y: 0}, {X: 1, Y: 2}, {X: -5, Y: 3.5}} {
 		back := inv.Apply(m.Apply(p))
 		if !back.NearlyEqual(p, eps) {

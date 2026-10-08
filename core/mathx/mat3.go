@@ -43,13 +43,13 @@ func (m Mat3) ApplyVector(v Vec2) Vec2 {
 	}
 }
 
-func (m Mat3) Inverse() Mat3 {
+func (m Mat3) Inverse() (Mat3, bool) {
 	a := m
 	det := a[0]*(a[4]*a[8]-a[5]*a[7]) -
 		a[1]*(a[3]*a[8]-a[5]*a[6]) +
 		a[2]*(a[3]*a[7]-a[4]*a[6])
-	if det == 0 {
-		return Mat3Identity()
+	if Abs(det) < 1e-20 {
+		return Mat3Identity(), false
 	}
 	inv := 1 / det
 	return Mat3{
@@ -62,5 +62,5 @@ func (m Mat3) Inverse() Mat3 {
 		(a[3]*a[7] - a[4]*a[6]) * inv,
 		(a[1]*a[6] - a[0]*a[7]) * inv,
 		(a[0]*a[4] - a[1]*a[3]) * inv,
-	}
+	}, true
 }

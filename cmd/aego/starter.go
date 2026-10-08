@@ -88,7 +88,7 @@ func nodeBlock(name string) *aetext.Node {
 
 func cameraNode() *aetext.Node {
 	n := nodeBlock("Camera")
-	c := &aetext.Node{Head: "component", Label: "engine.Camera"}
+	c := &aetext.Node{Head: "component", Label: "engine.Camera2D"}
 	c.Attrs = append(c.Attrs, aetext.Field{Name: "version", Value: aetext.Int(1)})
 	c.Fields = append(c.Fields,
 		aetext.Field{Name: "zoom", Value: aetext.Float32(64)},

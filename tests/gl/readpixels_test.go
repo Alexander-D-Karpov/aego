@@ -8,6 +8,7 @@ package gl
 
 import (
 	"math"
+	"runtime"
 	"testing"
 
 	"aego/core/log"
@@ -28,6 +29,7 @@ void main() { frag = vec4(1.0, 0.0, 0.0, 1.0); }
 
 func newGLEngine(t *testing.T) *engine.Engine {
 	t.Helper()
+	runtime.LockOSThread()
 	e, err := engine.NewBuilder(engine.Config{
 		Title: "aego-gltest", Width: 64, Height: 64, Hidden: true,
 		ResRoot: t.TempDir(), UserRoot: t.TempDir(), AppID: "aego-gltest",

@@ -91,15 +91,11 @@ func (s *Scene) ComponentsOf(h NodeHandle, fn func(schema.TypeID)) {
 }
 
 func (s *Scene) GetProperty(h NodeHandle, t schema.TypeID, f schema.FieldID) (schema.Value, error) {
-	st, ok := s.storesByID[t]
-	if !ok {
-		return schema.Value{}, errs.New(errs.SceneNoComponent, "node does not have this component")
+	p, td, err := s.target(h, t)
+	if err != nil {
+		return schema.Value{}, err
 	}
-	p, ok := st.pointer(h)
-	if !ok {
-		return schema.Value{}, errs.New(errs.SceneNoComponent, "node does not have this component")
-	}
-	fd, ok := st.descriptor().FieldByID(f)
+	fd, ok := td.FieldByID(f)
 	if !ok {
 		return schema.Value{}, errs.New(errs.SchemaBadField, "unknown field")
 	}
@@ -109,15 +105,11 @@ func (s *Scene) GetProperty(h NodeHandle, t schema.TypeID, f schema.FieldID) (sc
 }
 
 func (s *Scene) SetProperty(h NodeHandle, t schema.TypeID, f schema.FieldID, v schema.Value) error {
-	st, ok := s.storesByID[t]
-	if !ok {
-		return errs.New(errs.SceneNoComponent, "node does not have this component")
+	p, td, err := s.target(h, t)
+	if err != nil {
+		return err
 	}
-	p, ok := st.pointer(h)
-	if !ok {
-		return errs.New(errs.SceneNoComponent, "node does not have this component")
-	}
-	fd, ok := st.descriptor().FieldByID(f)
+	fd, ok := td.FieldByID(f)
 	if !ok {
 		return errs.New(errs.SchemaBadField, "unknown field")
 	}

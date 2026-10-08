@@ -112,7 +112,7 @@ func (d *Demo) Render(float64) {
 
 	dbg := f.Debug()
 	b := f.View().VisibleBounds()
-	inner := mathx.AABB{
+	inner := mathx.AABB2{
 		Min: b.Min.Add(b.Size().Scale(0.05)),
 		Max: b.Max.Sub(b.Size().Scale(0.05)),
 	}
