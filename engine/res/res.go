@@ -13,6 +13,7 @@ import (
 
 //go:embed shaders
 //go:embed fonts
+//go:embed docs
 //go:embed icons/*.png icons/*.json
 var files embed.FS
 

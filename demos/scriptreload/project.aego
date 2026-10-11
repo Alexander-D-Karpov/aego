@@ -1,0 +1,27 @@
+project version=1 {
+  name="scriptreload"
+  module="scriptreload"
+  mainScene=asset("77893a53170cd74d2864724cee8c7002")
+  native=false
+  window {
+    width=1280
+    height=720
+    title="scriptreload"
+  }
+  input {
+    axes {
+      horizontal {
+        negative=A
+        positive=D
+        altNegative=Left
+        altPositive=Right
+      }
+      vertical {
+        negative=W
+        positive=S
+        altNegative=Up
+        altPositive=Down
+      }
+    }
+  }
+}

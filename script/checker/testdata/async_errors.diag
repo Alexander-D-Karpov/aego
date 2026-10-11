@@ -1,0 +1,33 @@
+game/async_errors/main.aes:8:6: error AES2053: coroutine Top must be a script method without a result
+    func Top() coroutine {
+         ^~~
+game/async_errors/main.aes:15:21: error AES2058: unknown script type Missing, import the package that declares it
+    	var lost ScriptRef<Missing>
+    	                   ^~~~~~~
+game/async_errors/main.aes:17:7: error AES2056: lifecycle method Update cannot be a coroutine, start one from it instead
+    	func Update(dt float) coroutine {
+    	     ^~~~~~
+game/async_errors/main.aes:21:14: error AES2057: yield wait needs float, not bool
+    		yield wait(true)
+    		           ^~~~
+game/async_errors/main.aes:25:3: error AES2050: yield is only allowed in a coroutine, declare it as func Plain(...) coroutine
+    		yield
+    		^~~~~
+game/async_errors/main.aes:26:3: error AES2051: coroutine Blink is called without start, write start Blink(...)
+    		Blink()
+    		^~~~~~~
+game/async_errors/main.aes:27:9: error AES2052: start needs a coroutine method of this script, Plain is not one
+    		start Plain()
+    		      ^~~~~
+game/async_errors/main.aes:28:15: error AES2054: handler OnWrong does not match signal Hit
+    		Hit.Connect(OnWrong)
+    		            ^~~~~~~
+  game/async_errors/main.aes:12:9: note: signal Hit(string), handler OnWrong(int)
+    	signal Hit(s string)
+    	       ^~~
+game/async_errors/main.aes:29:15: error AES2055: Blink cannot handle a signal, use a plain method
+    		Hit.Connect(Blink)
+    		            ^~~~~
+game/async_errors/main.aes:30:9: error AES2059: Other.Ready cannot be called through a ScriptRef, lifecycle methods and coroutines run only on their own instance
+    		other.Ready()
+    		      ^~~~~

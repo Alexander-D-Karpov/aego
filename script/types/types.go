@@ -31,6 +31,9 @@ const (
 	KNil
 	KUntypedInt
 	KUntypedFloat
+	KCoroutine
+	KConnection
+	KScriptRef
 )
 
 type Field struct {
@@ -51,6 +54,7 @@ type Type struct {
 	Values    []int64
 	Asset     string
 	Component *abi.Component
+	Script    string
 	Host      bool
 	slots     int
 }
@@ -100,6 +104,8 @@ var (
 	Nil          = basic(KNil, "nil", 1)
 	UntypedInt   = basic(KUntypedInt, "untyped int", 1)
 	UntypedFloat = basic(KUntypedFloat, "untyped float", 1)
+	Coroutine    = basic(KCoroutine, "Coroutine", 1)
+	Connection   = basic(KConnection, "Connection", 1)
 )
 
 func shortPkg(pkg string) string {
@@ -212,7 +218,11 @@ func (t *Type) IsVector() bool {
 }
 
 func (t *Type) IsRef() bool {
-	return t.Kind == KNodeRef || t.Kind == KAssetRef || t.Kind == KComponentRef
+	switch t.Kind {
+	case KNodeRef, KAssetRef, KComponentRef, KCoroutine, KConnection, KScriptRef:
+		return true
+	}
+	return false
 }
 
 func (t *Type) IsHeap() bool {
@@ -291,19 +301,31 @@ func AssetKind(name string) (string, bool) {
 // that equal types share one *Type and Assignable can compare by pointer. It is
 // distinct from schema.Universe, which registers engine component schemas.
 type Interner struct {
-	slices map[*Type]*Type
-	assets map[string]*Type
-	comps  map[*abi.Component]*Type
-	enums  map[string]*Type
+	slices  map[*Type]*Type
+	assets  map[string]*Type
+	comps   map[*abi.Component]*Type
+	enums   map[string]*Type
+	scripts map[string]*Type
 }
 
 func NewInterner() *Interner {
 	return &Interner{
-		slices: map[*Type]*Type{},
-		assets: map[string]*Type{},
-		comps:  map[*abi.Component]*Type{},
-		enums:  map[string]*Type{},
+		slices:  map[*Type]*Type{},
+		assets:  map[string]*Type{},
+		comps:   map[*abi.Component]*Type{},
+		enums:   map[string]*Type{},
+		scripts: map[string]*Type{},
 	}
+}
+
+func (u *Interner) ScriptRef(full string) *Type {
+	if t, ok := u.scripts[full]; ok {
+		return t
+	}
+	short := full[strings.LastIndexByte(full, '.')+1:]
+	t := &Type{Kind: KScriptRef, Name: "ScriptRef<" + short + ">", Local: "ScriptRef", Script: full, slots: 1}
+	u.scripts[full] = t
+	return t
 }
 
 func (u *Interner) SliceOf(e *Type) *Type {
@@ -381,6 +403,12 @@ func (u *Interner) FromABI(r abi.TypeRef, s abi.Surface) *Type {
 		return Transform3D
 	case abi.NodeRef:
 		return NodeRef
+	case abi.Coroutine:
+		return Coroutine
+	case abi.Connection:
+		return Connection
+	case abi.ScriptRef:
+		return u.ScriptRef(r.Name)
 	case abi.AssetRef:
 		return u.AssetRef(r.Name)
 	case abi.ComponentRef:
@@ -433,6 +461,12 @@ func ToABI(t *Type) abi.TypeRef {
 		return abi.AssetOf(t.Asset)
 	case KComponentRef:
 		return abi.ComponentOf(t.Component.Name)
+	case KCoroutine:
+		return abi.T(abi.Coroutine)
+	case KConnection:
+		return abi.T(abi.Connection)
+	case KScriptRef:
+		return abi.ScriptRefOf(t.Script)
 	case KEnum:
 		return abi.EnumOf(t.Qualified())
 	case KStruct:

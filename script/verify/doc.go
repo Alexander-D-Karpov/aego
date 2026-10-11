@@ -19,6 +19,10 @@
 //     of the component reference held in register b, which is a runtime value.
 //   - CALLX: the extern's declared Params/Results are matched against the real
 //     target function at link time, when the other package's module is present.
+//   - CALLR / GETXF / SETXF / CONNECT: the target script lives in another
+//     module, so the method kind (not lifecycle, not coroutine), the field
+//     layout and the signal/handler pairing are resolved by name in vm.Link and
+//     rejected there.
 //
 // Each is a single comparison, listed here so it stays visible that the static
 // verifier has not already covered them.

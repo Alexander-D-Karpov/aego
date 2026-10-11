@@ -20,13 +20,14 @@ type alt struct {
 }
 
 type Lexer struct {
-	file  source.FileID
-	src   []byte
-	off   int
-	semi  bool
-	diags []diag.Diagnostic
-	buf   []byte
-	in    *source.Interner
+	file     source.FileID
+	src      []byte
+	off      int
+	semi     bool
+	diags    []diag.Diagnostic
+	buf      []byte
+	in       *source.Interner
+	comments []Comment
 }
 
 func New(file source.FileID, src []byte, in *source.Interner) *Lexer {
@@ -94,7 +95,7 @@ func endsStatement(k token.Kind) bool {
 	case token.Ident, token.Int, token.Float, token.String,
 		token.True, token.False, token.Nil,
 		token.RParen, token.RBrack, token.RBrace,
-		token.Return, token.Break, token.Continue,
+		token.Return, token.Break, token.Continue, token.Yield,
 		token.Inc, token.Dec:
 		return true
 	}
@@ -120,19 +121,23 @@ func (l *Lexer) Next() token.Token {
 			}
 			l.off++
 		case c == '/' && l.at(1) == '/':
+			start := l.off
 			for l.off < len(l.src) && l.src[l.off] != '\n' {
 				l.off++
 			}
+			l.comments = append(l.comments, Comment{Start: uint32(start), End: uint32(l.off), Line: true})
 		case c == '/' && l.at(1) == '*':
 			start := l.off
 			end := bytes.Index(l.src[l.off+2:], blockEnd)
 			if end < 0 {
 				l.errorf(diag.UnterminatedComment, start, start+2, "block comment is not terminated")
 				l.off = len(l.src)
+				l.comments = append(l.comments, Comment{Start: uint32(start), End: uint32(l.off)})
 				continue
 			}
 			body := l.src[l.off+2 : l.off+2+end]
 			l.off += end + 4
+			l.comments = append(l.comments, Comment{Start: uint32(start), End: uint32(l.off)})
 			if l.semi && bytes.IndexByte(body, '\n') >= 0 {
 				return l.auto(start)
 			}

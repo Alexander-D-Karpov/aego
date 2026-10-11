@@ -5,3 +5,5 @@ exports/
 /sandbox.exe
 .idea/
 .vscode/
+/depcheck
+tools/genicons/genicons

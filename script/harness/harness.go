@@ -3,14 +3,15 @@ package harness
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"aego/script/bind"
-	"aego/script/build"
 	"aego/script/vm"
+	"aego/script/workspace"
 )
 
 type Options struct {
@@ -33,7 +34,7 @@ type Report struct {
 }
 
 func IsTestFunc(f *vm.Func) bool {
-	if f.Script >= 0 || f.Params != 0 || f.Results != 0 || !build.IsTest(f.File) {
+	if f.Script >= 0 || f.Params != 0 || f.Results != 0 || !workspace.IsTest(f.File) {
 		return false
 	}
 	rest, ok := strings.CutPrefix(f.Name, "Test")
@@ -47,15 +48,20 @@ func IsTestFunc(f *vm.Func) bool {
 	return !unicode.IsLower(r)
 }
 
-func Run(res *build.Result, reg *bind.Registry, ctx *bind.Ctx, opt Options) (*Report, error) {
+func Run(g *workspace.Generation, reg *bind.Registry, ctx *bind.Ctx, opt Options) (*Report, error) {
 	if opt.VM.Budget == 0 {
 		opt.VM.Budget = 10_000_000
 	}
 	m := vm.New(opt.VM)
 	m.Env = ctx
-	mods := make([]*vm.Module, 0, len(res.Order))
-	for _, p := range res.Order {
-		lm, err := m.Load(res.Modules[p], reg.Resolve)
+	pkgs := make([]string, 0, len(g.Modules))
+	for p := range g.Modules {
+		pkgs = append(pkgs, p)
+	}
+	sort.Strings(pkgs)
+	mods := make([]*vm.Module, 0, len(pkgs))
+	for _, p := range pkgs {
+		lm, err := m.Load(g.Modules[p], reg.Resolve)
 		if err != nil {
 			return nil, err
 		}

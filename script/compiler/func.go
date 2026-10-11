@@ -51,8 +51,8 @@ func (u *unit) function(f *checker.Func, idx int) {
 	}
 	code, consts, lines, err := c.b.Finish()
 	regs := max(c.b.MaxReg(), 1)
-	if err == nil && regs > 255 {
-		err = fmt.Errorf("it needs %d registers, the limit is 255", regs)
+	if err == nil && regs > bytecode.MaxRegisters {
+		err = fmt.Errorf("it needs %d registers, the limit is %d", regs, bytecode.MaxRegisters)
 	}
 	if err != nil {
 		u.diags = append(u.diags, diag.Errorf(diag.RegisterLimit, f.Decl.Name.Sp, "%s cannot be compiled: %v", f.FullName(), err))
@@ -68,7 +68,8 @@ func (u *unit) function(f *checker.Func, idx int) {
 	}
 	u.mod.Functions[idx] = bytecode.Function{
 		Name: funcName(f), File: file, Params: uint8(params), Results: uint8(f.Result.Slots()),
-		Registers: uint8(regs), Script: script, Code: code, Consts: consts, Lines: lines,
+		Registers: uint8(regs), Script: script, Coroutine: f.Decl.Coroutine,
+		Code: code, Consts: consts, Lines: lines,
 	}
 }
 
@@ -128,9 +129,14 @@ func (c *fn) stmt(s ast.Stmt) {
 	case *ast.IncDecStmt:
 		c.incDec(s)
 	case *ast.ExprStmt:
-		if call, ok := unparen(s.X).(*ast.CallExpr); ok {
-			c.callTo(call, 0, false)
+		switch x := unparen(s.X).(type) {
+		case *ast.CallExpr:
+			c.callTo(x, 0, false)
+		case *ast.StartExpr:
+			c.startTo(x, c.alloc(1))
 		}
+	case *ast.YieldStmt:
+		c.yield(s)
 	case *ast.ReturnStmt:
 		if s.Value == nil {
 			c.b.ABC(bytecode.RET, 0, 0, 0)

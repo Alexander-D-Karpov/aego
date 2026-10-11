@@ -21,6 +21,7 @@ const (
 	Inspector = "inspector"
 	Assets    = "assets"
 	Console   = "console"
+	Problems  = "problems"
 	Profiler  = "profiler"
 )
 
@@ -29,7 +30,7 @@ func DefaultLayout() *dock.Tree {
 		[]string{Hierarchy},
 		[]string{Assets},
 		[]string{Scene, Game},
-		[]string{Console, Profiler},
+		[]string{Console, Problems, Profiler},
 		[]string{Inspector},
 	)
 }
@@ -69,12 +70,27 @@ func New(root string, lg *log.ChannelLogger) *Workspace {
 	return w
 }
 
+type Closer interface {
+	RequestClose()
+}
+
 func (w *Workspace) bind() {
 	w.Tree.Title = func(id string) string {
 		if p, ok := w.panels[id]; ok {
 			return p.Title()
 		}
 		return id
+	}
+	w.Tree.OnClose = func(id string) bool {
+		p, ok := w.panels[id]
+		if !ok {
+			return false
+		}
+		if c, ok := p.(Closer); ok {
+			c.RequestClose()
+			return true
+		}
+		return false
 	}
 }
 
@@ -170,6 +186,18 @@ func (w *Workspace) Show(id string) {
 	}
 	w.Tree.EnsurePanel(id)
 	w.Tree.Activate(id)
+}
+
+func (w *Workspace) ShowNear(id, near string) {
+	if !w.Has(id) {
+		return
+	}
+	if !w.Tree.Has(id) {
+		if t := w.Tree.FindPanel(near); t != 0 {
+			w.Tree.DockPanel(id, t, dock.SideCenter)
+		}
+	}
+	w.Show(id)
 }
 
 func (w *Workspace) Toggle(id string) {

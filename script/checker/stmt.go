@@ -45,6 +45,8 @@ func (c *checker) stmt(s ast.Stmt) {
 		}
 	case *ast.ExprStmt:
 		c.exprStmt(s)
+	case *ast.YieldStmt:
+		c.yieldStmt(s)
 	case *ast.ReturnStmt:
 		c.returnStmt(s)
 	case *ast.BranchStmt:
@@ -132,19 +134,23 @@ func unparen(e ast.Expr) ast.Expr {
 }
 
 func (c *checker) exprStmt(s *ast.ExprStmt) {
-	call, ok := unparen(s.X).(*ast.CallExpr)
-	if !ok {
-		if x := c.expr(s.X); x.mode != mInvalid {
-			c.errorf(diag.Unused, s.X.Span(), "value is not used")
+	switch x := unparen(s.X).(type) {
+	case *ast.StartExpr:
+		c.expr(x)
+		return
+	case *ast.CallExpr:
+		c.expr(x)
+		if k := c.a.Calls[x]; k != nil {
+			switch k.Kind {
+			case CallLen, CallAppend, CallConvert, CallGetComponent, CallHasComponent,
+				CallCoRunning, CallConnected, CallGetScript:
+				c.errorf(diag.Unused, s.X.Span(), "result of this call is not used")
+			}
 		}
 		return
 	}
-	c.expr(call)
-	if k := c.a.Calls[call]; k != nil {
-		switch k.Kind {
-		case CallLen, CallAppend, CallConvert, CallGetComponent, CallHasComponent:
-			c.errorf(diag.Unused, s.X.Span(), "result of this call is not used")
-		}
+	if x := c.expr(s.X); x.mode != mInvalid {
+		c.errorf(diag.Unused, s.X.Span(), "value is not used")
 	}
 }
 

@@ -1,0 +1,5 @@
+Rendering	engine.SpriteRenderer	Sprite Renderer	cat.rendering	-
+Rendering	engine.MeshRenderer	Mesh Renderer	cat.rendering	-
+Camera	engine.Camera2D	Camera 2D	cat.camera	-
+Camera	engine.Camera3D	Camera 3D	cat.camera	-
+game	game.Rotator	Rotator	cat.game	rotator

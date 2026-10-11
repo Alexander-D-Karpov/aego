@@ -15,10 +15,10 @@ func (Module) Info() sdk.ModuleInfo {
 }
 
 func (Module) Register(r *sdk.Registry) error {
-	if err := sdk.RegisterComponent[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character")); err != nil {
+	if err := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character")).Err(); err != nil {
 		return err
 	}
-	m := sdk.ScriptModule(r, "mygame/combat")
+	m := r.ScriptModule("mygame/combat")
 	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
 		if c.Scene == nil || !c.Scene.IsAlive(target) {
 			c.Fail("damage target is nil or destroyed")

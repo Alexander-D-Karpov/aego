@@ -4,15 +4,13 @@ import (
 	"aego/core/log"
 	"aego/demos"
 	"aego/demos/internal/app"
+	"aego/demos/internal/pipeline"
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
 	rendermodule "aego/render/module"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
-	"aego/scene/systems"
-	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/scenedebug"
 	"aego/ui/widgets"
@@ -26,13 +24,13 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod    *rendermodule.Module
-	scene  *scene.Scene
-	runner *systems.Runner
-	panel  *scenedebug.Panel
-	err    string
-	show   bool
-	time   float32
+	mod   *rendermodule.Module
+	scene *scene.Scene
+	pipe  *pipeline.Pipeline
+	panel *scenedebug.Panel
+	err   string
+	show  bool
+	time  float32
 }
 
 func New() *Demo {
@@ -61,7 +59,11 @@ func (d *Demo) reload() error {
 		d.err = err.Error()
 		return nil
 	}
-	types := newTypes()
+	types, man, err := pipeline.Types()
+	if err != nil {
+		d.err = err.Error()
+		return nil
+	}
 	res := &stubResolver{region: d.Renderer.White()}
 	s, report, err := sceneio.Load(src, scenePath, types, res, sceneio.LoadOptions{KeepIDs: true})
 	if err != nil {
@@ -73,18 +75,10 @@ func (d *Demo) reload() error {
 		d.Engine.Log().With(log.Game).Warn("scene warning", log.F("msg", w.Msg))
 	}
 	d.scene = s
-	d.runner = systems.New()
-	d.runner.Bind(s, d.Renderer, res)
+	d.pipe = pipeline.New(man)
+	d.pipe.Runner.Bind(s, d.Renderer, res)
 	d.panel = scenedebug.New(s, res)
 	return nil
-}
-
-func newTypes() *scene.Types {
-	t := scene.NewTypes(schema.NewRegistry())
-	components.Register(t)
-	sceneio.RegisterUnknown(t)
-	t.Schema().Freeze()
-	return t
 }
 
 func (d *Demo) Update(dt float64) {
@@ -109,10 +103,8 @@ func (d *Demo) Update(dt float64) {
 }
 
 func (d *Demo) Render(float64) {
-	if d.runner != nil {
-		m := d.Engine.Metrics()
-		d.runner.Prepare(m.PixelW, m.PixelH, m.Density())
-		d.runner.Extract(d.Renderer)
+	if d.pipe != nil {
+		d.pipe.Render(d.Engine, d.Renderer)
 	}
 	d.BeginUI()
 	d.DrawOverlay(func(c *core.Context) {
@@ -121,7 +113,7 @@ func (d *Demo) Render(float64) {
 			widgets.LabelDim(c, d.err)
 			return
 		}
-		st := d.runner.Stats()
+		st := d.pipe.Runner.Stats()
 		widgets.LabelDim(c, "F5 reload, F2 inspector")
 		widgets.Labelf(c, "views %d sprites %d missing %d", st.Views, st.Sprites, st.MissingAssets)
 		if d.show && d.panel != nil {

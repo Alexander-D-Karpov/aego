@@ -17,8 +17,8 @@ import (
 	"aego/editor/workspace"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -441,7 +441,7 @@ func (p *Panel) components(ctx *context.Editor, d *document.SceneDocument) {
 	unknown, hasUnknown := reg.ByName("engine.Unknown")
 	first := s.Handle(p.nodes[0])
 	p.types = p.types[:0]
-	scriptT := schema.HashName(components.ScriptName)
+	scriptT := schema.HashName(scriptcomp.ScriptName)
 	s.ComponentsOf(first, func(t schema.TypeID) {
 		if (hasUnknown && t == unknown.ID) || t == scriptT {
 			return
@@ -478,7 +478,7 @@ func (p *Panel) component(ctx *context.Editor, d *document.SceneDocument, t sche
 	ui.PushRawID(core.ID(t))
 	defer ui.PopID()
 	meta := p.reg.Meta(td)
-	c := p.beginCard(ctx, td.FullName, meta.DisplayName, Module(td.FullName), meta.Icon, "", true)
+	c := p.beginCard(ctx, td.FullName, meta.DisplayName, meta.Badge, meta.Icon, "", true)
 	c.typ = t
 	defer func() { p.endCard(ui, c) }()
 	menuID := ui.ID("menu")
@@ -544,6 +544,33 @@ func (p *Panel) reset(ctx *context.Editor, d *document.SceneDocument, td *schema
 	tx.Commit()
 }
 
+func (p *Panel) blocked(s *scene.Scene, reg *schema.Registry, td *schema.TypeDescriptor) string {
+	for _, name := range td.Requires {
+		req, ok := reg.ByName(name)
+		if !ok {
+			return "needs " + name
+		}
+		for _, n := range p.nodes {
+			if _, has := s.GetByType(s.Handle(n), req.ID); !has {
+				return "needs " + p.reg.Meta(req).DisplayName
+			}
+		}
+	}
+	if td.SceneUnique && (len(p.nodes) > 1 || inScene(s, td.ID)) {
+		return "one per scene"
+	}
+	return ""
+}
+
+func inScene(s *scene.Scene, t schema.TypeID) bool {
+	for _, h := range s.PreOrder() {
+		if _, ok := s.GetByType(h, t); ok && s.IsAlive(h) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Panel) addComponent(ctx *context.Editor, d *document.SceneDocument) {
 	ui := ctx.UI
 	th := &ui.Theme
@@ -578,7 +605,7 @@ func (p *Panel) addComponent(ctx *context.Editor, d *document.SceneDocument) {
 	unknown, hasUnknown := reg.ByName("engine.Unknown")
 	var candidates []schema.TypeID
 	for _, td := range reg.Components() {
-		if (hasUnknown && td.ID == unknown.ID) || td.FullName == components.ScriptName {
+		if (hasUnknown && td.ID == unknown.ID) || td.FullName == scriptcomp.ScriptName {
 			continue
 		}
 		if !d.Props.Fits(p.nodes, td.ID) {
@@ -608,10 +635,15 @@ func (p *Panel) addComponent(ctx *context.Editor, d *document.SceneDocument) {
 			if !ok {
 				continue
 			}
+			label := p.reg.Meta(td).DisplayName
+			if why := p.blocked(s, reg, td); why != "" {
+				widgets.LabelDim(ui, label+" — "+why)
+				continue
+			}
 			if first == nil {
 				first = td
 			}
-			if widgets.Selectable(ui, core.IDSeq(id, int(t)), p.reg.Meta(td).DisplayName, td == first && q != "") {
+			if widgets.Selectable(ui, core.IDSeq(id, int(t)), label, td == first && q != "") {
 				p.add(ctx, d, td)
 				ui.ClosePopup(id)
 			}

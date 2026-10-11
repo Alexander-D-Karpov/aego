@@ -1,10 +1,6 @@
 package edit
 
 import (
-	"aego/asset"
-	"aego/script/abi"
-	scriptmodule "aego/script/module"
-	"aego/script/stdlib"
 	"errors"
 	"flag"
 	"os"
@@ -12,19 +8,20 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"aego/app/run"
-	"aego/asset/loader"
+	"aego/app"
+	"aego/asset"
 	"aego/asset/pipeline"
-	"aego/core/errs"
 	"aego/core/log"
 	editorapp "aego/editor/app"
-	"aego/editor/extension"
+	"aego/editor/builtins"
+	"aego/editor/document"
+	"aego/editor/scripteditor"
 	"aego/editor/session"
 	"aego/engine"
+	"aego/engine/module"
 	"aego/project"
-	"aego/render"
-	rendermodule "aego/render/module"
-	"aego/scene/systems"
+	"aego/scene"
+	"aego/script/langsvc"
 	"aego/sdk"
 )
 
@@ -43,17 +40,32 @@ type Config struct {
 	Logger     *log.Logger
 }
 
+type docAttach struct {
+	id     document.ID
+	scene  *scene.Scene
+	detach func()
+}
+
+type driver struct {
+	*editorapp.App
+	s *Session
+}
+
+func (d *driver) Update(dt float64) {
+	d.s.syncDocs()
+	d.App.Update(dt)
+}
+
 type Session struct {
-	Project  *project.Project
-	Engine   *engine.Engine
-	Pipeline *pipeline.Pipeline
-	Loader   *loader.Loader
-	App      *editorapp.App
-	Scripts  *scriptHost
-	cfg      Config
-	log      *log.ChannelLogger
-	stop     func()
-	unsub    func()
+	*app.Host
+	App     *editorapp.App
+	Scripts *scriptHost
+	cfg     Config
+	log     *log.ChannelLogger
+	stop    func()
+	unsub   func()
+	docs    []docAttach
+	driver  *driver
 }
 
 func Main(mods ...sdk.Module) {
@@ -127,101 +139,47 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 }
 
 func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) {
-	lg := cfg.Logger
-	if lg == nil {
-		lg = log.New(log.NewTextSink(os.Stderr))
-		if cfg.Debug {
-			lg.SetLevel(log.Debug)
-		}
-	}
 	if cfg.Width <= 0 {
 		cfg.Width = 1600
 	}
 	if cfg.Height <= 0 {
 		cfg.Height = 900
 	}
-	s := &Session{Project: p, cfg: cfg, log: lg.With(editorapp.ChannelEditor)}
-
-	var surface abi.Surface
-	imps, err := run.Importers(p.Module, func() abi.Surface { return surface })
+	h, err := app.Build(p, app.Config{
+		Engine: engine.Config{
+			Title:    p.Name + " — Aego Editor",
+			Width:    cfg.Width,
+			Height:   cfg.Height,
+			Headless: cfg.Headless,
+			Hidden:   cfg.Hidden,
+			Debug:    cfg.Debug,
+			AppID:    p.Module + ".editor",
+		},
+		Logger:         cfg.Logger,
+		Debug:          cfg.Debug,
+		LoopScope:      engine.ScopeFrame,
+		LocateBindings: true,
+		Docs:           true,
+		Editor:         true,
+	}, app.Adapt(mods)...)
 	if err != nil {
 		return nil, err
 	}
-	rmod := rendermodule.New(render.Options{MaxSprites: 65536})
-	builder := engine.NewBuilder(engine.Config{
-		Title:     p.Name + " — Aego Editor",
-		Width:     cfg.Width,
-		Height:    cfg.Height,
-		Headless:  cfg.Headless,
-		Hidden:    cfg.Hidden,
-		Debug:     cfg.Debug,
-		AppID:     p.Module + ".editor",
-		ResRoot:   p.AssetsDir(),
-		LoopScope: engine.ScopeFrame,
-	}).WithLogger(lg).Use(rmod).Use(scriptmodule.New())
-
-	types := run.NewTypes()
-	bindings := scriptmodule.Bindings(stdlib.Options{Input: &p.Input})
-	reg := &sdk.Registry{Engine: builder.Registry(), Types: types, Importers: imps, Script: bindings}
-	if err := systems.Register(builder.Registry(), systems.New()); err != nil {
-		return nil, err
-	}
-	for _, m := range mods {
-		if err := m.Register(reg); err != nil {
-			return nil, errs.Wrap(err, errs.EngineModule, "user module registration failed").
-				With(log.F("module", m.Info().ID))
-		}
-	}
-	if err := types.Schema().Freeze(); err != nil {
-		return nil, err
-	}
-	if err := scriptmodule.Freeze(bindings, types.Schema()); err != nil {
-		return nil, errs.Wrap(err, errs.EngineModule, "script bindings are invalid")
-	}
-	surface = bindings.Surface()
-
-	s.Pipeline, err = pipeline.Open(p, imps, lg)
-	if err != nil {
-		return nil, err
-	}
-	if _, _, err := s.Pipeline.Scan(); err != nil {
-		s.Pipeline.Close()
-		return nil, err
-	}
-	batch, err := s.Pipeline.ImportAll()
-	if err != nil {
-		s.Pipeline.Close()
-		return nil, err
-	}
-	for id, ierr := range batch.Failed {
-		s.log.Error("asset import failed", log.F("asset", id.String()), log.F("err", ierr.Error()))
-	}
-
-	s.Engine, err = builder.Build()
-	if err != nil {
-		s.Pipeline.Close()
-		return nil, err
-	}
-	s.Loader = loader.New(s.Engine.GPU(), rmod.Renderer().Textures(), lg)
-	if err := s.Loader.Mount(s.Pipeline.Index(), s.Pipeline.Artifacts()); err != nil {
-		s.Close()
-		return nil, err
-	}
-	s.Engine.SetService(loader.ServiceID, s.Loader)
-	s.Engine.SetService(rendermodule.ServiceID, rmod.Renderer())
-
+	s := &Session{Host: h, cfg: cfg, log: h.Log.With(editorapp.ChannelEditor)}
 	s.Scripts = &scriptHost{
-		bindings: bindings,
-		schema:   types.Schema(),
-		loader:   s.Loader,
-		pipeline: s.Pipeline,
-		importer: run.ScriptImporter(imps),
-		log:      lg,
+		bindings: h.Bindings,
+		schema:   h.Types.Schema(),
+		pipeline: h.Pipeline,
+		importer: app.ScriptImporter(h.Importers),
+		ws:       h.Workspace,
+		log:      h.Log,
+		modules:  h.Modules,
 	}
+	lang := langsvc.New(h.Workspace, h.Engine.Jobs())
 	if err := s.Scripts.Reload(); err != nil {
 		s.log.Error("cannot publish script types", log.F("err", err.Error()))
 	}
-	s.unsub = s.Loader.Subscribe(func(r asset.Reloaded) {
+	s.unsub = h.Loader.Subscribe(func(r asset.Reloaded) {
 		if r.Kind != asset.ArtScript {
 			return
 		}
@@ -229,27 +187,70 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 			s.log.Error("cannot publish script types", log.F("err", err.Error()))
 		}
 	})
-
-	var exts []extension.Module
-	for _, m := range mods {
-		if em, ok := m.(extension.Module); ok {
-			exts = append(exts, em)
-		}
-	}
 	s.App = editorapp.New(editorapp.Options{
 		Project:     p,
-		Pipeline:    s.Pipeline,
-		Loader:      s.Loader,
-		Types:       types,
-		Renderer:    rmod.Renderer(),
-		Log:         lg,
-		Extensions:  exts,
-		RenderStats: rmod.Stats,
+		Pipeline:    h.Pipeline,
+		Loader:      h.Loader,
+		Types:       h.Types,
+		Renderer:    h.Renderer,
+		Log:         h.Log,
+		Modules:     h.Modules,
+		Hooks:       builtins.Hooks(h.Modules),
+		RenderStats: h.RenderStats,
 		Supervised:  cfg.Supervised,
 		Paced:       !cfg.Headless,
 		Scripts:     s.Scripts,
+		Code:        scripteditor.NewHost(lang),
 	})
+	s.driver = &driver{App: s.App, s: s}
 	return s, nil
+}
+
+func (s *Session) attachedTo(d *document.SceneDocument) bool {
+	for _, a := range s.docs {
+		if a.id == d.ID && a.scene == d.Scene() {
+			return true
+		}
+	}
+	return false
+}
+
+func live(docs []*document.SceneDocument, a docAttach) bool {
+	for _, d := range docs {
+		if d.ID == a.id && d.Scene() == a.scene {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Session) syncDocs() {
+	ctx := s.App.Context()
+	if ctx == nil || s.Modules == nil {
+		return
+	}
+	docs := ctx.Docs.Docs()
+	n := 0
+	for _, a := range s.docs {
+		if live(docs, a) {
+			s.docs[n] = a
+			n++
+			continue
+		}
+		a.detach()
+	}
+	s.docs = s.docs[:n]
+	for _, d := range docs {
+		if s.attachedTo(d) {
+			continue
+		}
+		det, err := s.Modules.Attach(&module.AttachContext{World: s.Engine.MainWorld(), Scene: d.Scene(), Log: s.Log, Editor: true})
+		if err != nil {
+			s.log.Error("modules could not attach to the scene", log.F("path", d.Path), log.F("err", err.Error()))
+			det = func() {}
+		}
+		s.docs = append(s.docs, docAttach{id: d.ID, scene: d.Scene(), detach: det})
+	}
 }
 
 func (s *Session) applyBatch(b *pipeline.Batch) {
@@ -266,7 +267,7 @@ func (s *Session) applyBatch(b *pipeline.Batch) {
 }
 
 func (s *Session) Step() bool {
-	return s.Engine.Step(s.App)
+	return s.Engine.Step(s.driver)
 }
 
 func (s *Session) Run() error {
@@ -290,13 +291,13 @@ func (s *Session) Run() error {
 	}()
 	if s.cfg.Frames > 0 {
 		for i := 0; i < s.cfg.Frames; i++ {
-			if !s.Engine.Step(s.App) {
+			if !s.Engine.Step(s.driver) {
 				break
 			}
 		}
 		return s.Engine.Close()
 	}
-	return s.Engine.Run(s.App)
+	return s.Engine.Run(s.driver)
 }
 
 func (s *Session) Close() {
@@ -308,15 +309,9 @@ func (s *Session) Close() {
 		s.unsub()
 		s.unsub = nil
 	}
-	if s.Engine != nil {
-		s.Engine.Close()
+	for i := len(s.docs) - 1; i >= 0; i-- {
+		s.docs[i].detach()
 	}
-	if s.Loader != nil {
-		s.Loader.Close()
-		s.Loader = nil
-	}
-	if s.Pipeline != nil {
-		s.Pipeline.Close()
-		s.Pipeline = nil
-	}
+	s.docs = nil
+	s.Host.Close()
 }

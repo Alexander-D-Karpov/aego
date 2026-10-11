@@ -29,12 +29,16 @@ const (
 	Enum
 	Struct
 	Slice
+	Coroutine
+	Connection
+	ScriptRef
 	kindCount
 )
 
 var kindNames = [kindCount]string{
 	"void", "bool", "int", "float", "string", "Vec2", "Vec3", "Color", "Quat", "Rect",
 	"Transform2D", "Transform3D", "NodeRef", "AssetRef", "ComponentRef", "enum", "struct", "slice",
+	"Coroutine", "Connection", "ScriptRef",
 }
 
 func (k Kind) String() string {
@@ -74,6 +78,10 @@ func StructOf(qualified string) TypeRef {
 	return TypeRef{Kind: Struct, Name: qualified}
 }
 
+func ScriptRefOf(script string) TypeRef {
+	return TypeRef{Kind: ScriptRef, Name: script}
+}
+
 func (t TypeRef) String() string {
 	switch t.Kind {
 	case Slice:
@@ -85,6 +93,8 @@ func (t TypeRef) String() string {
 		return "AssetRef<" + t.Name + ">"
 	case ComponentRef:
 		return "ComponentRef<" + t.Name + ">"
+	case ScriptRef:
+		return "ScriptRef<" + t.Name + ">"
 	case Enum:
 		return "enum:" + t.Name
 	case Struct:
@@ -105,10 +115,16 @@ func Parse(s string) (TypeRef, bool) {
 		return AssetOf(s[len("AssetRef<") : len(s)-1]), true
 	case strings.HasPrefix(s, "ComponentRef<") && strings.HasSuffix(s, ">"):
 		return ComponentOf(s[len("ComponentRef<") : len(s)-1]), true
+	case strings.HasPrefix(s, "ScriptRef<") && strings.HasSuffix(s, ">"):
+		return ScriptRefOf(s[len("ScriptRef<") : len(s)-1]), len(s) > len("ScriptRef<>")
 	case strings.HasPrefix(s, "enum:"):
 		return EnumOf(s[5:]), len(s) > 5
 	case strings.HasPrefix(s, "struct:"):
 		return StructOf(s[7:]), len(s) > 7
+	case s == "Coroutine":
+		return T(Coroutine), true
+	case s == "Connection":
+		return T(Connection), true
 	}
 	for k := Void; k < Enum; k++ {
 		if kindNames[k] == s && k != AssetRef && k != ComponentRef {
@@ -218,7 +234,7 @@ func (s Signature) Validate() error {
 
 func hostable(t TypeRef) bool {
 	switch t.Kind {
-	case Void, Struct, Slice:
+	case Void, Struct, Slice, Coroutine, Connection, ScriptRef:
 		return false
 	}
 	return true

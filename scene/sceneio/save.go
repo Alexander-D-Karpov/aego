@@ -1,12 +1,12 @@
 package sceneio
 
 import (
-	"aego/scene/components"
 	"unsafe"
 
 	"aego/core/mathx"
 	"aego/format/aetext"
 	"aego/scene"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
@@ -66,7 +66,7 @@ func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 	}
 	s.ComponentsOf(h, func(id schema.TypeID) {
 		td, ok := w.reg.ByID(id)
-		if !ok || td.FullName == "engine.Unknown" || td.FullName == components.ScriptName {
+		if !ok || td.FullName == "engine.Unknown" || td.FullName == scriptcomp.ScriptName {
 			return
 		}
 		p, ok := s.GetByType(h, id)
@@ -75,7 +75,7 @@ func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 		}
 		n.Blocks = append(n.Blocks, w.component(td, p))
 	})
-	if sc, ok := components.ScriptsOf(s, h); ok && len(sc.Attachments) > 0 {
+	if sc, ok := scriptcomp.ScriptsOf(s, h); ok && len(sc.Attachments) > 0 {
 		n.Blocks = append(n.Blocks, w.scripts(sc))
 	}
 	if u, ok := scene.Get[Unknown](s, h); ok {

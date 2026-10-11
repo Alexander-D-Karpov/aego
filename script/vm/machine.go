@@ -8,20 +8,21 @@ import (
 	"time"
 
 	"aego/script/bytecode"
+	"aego/script/diag"
 	"aego/script/verify"
 )
 
 const (
-	CodeBudget      = "AES6001"
-	CodeNativePanic = "AES6002"
-	CodeCallDepth   = "AES6003"
-	CodeNil         = "AES6004"
-	CodeIndex       = "AES6005"
-	CodeDivZero     = "AES6006"
-	CodeBadHandle   = "AES6007"
-	CodeExplicit    = "AES6008"
-	CodeLink        = "AES6009"
-	CodeHost        = "AES6010"
+	CodeBudget      = diag.CodeBudget
+	CodeNativePanic = diag.CodeNativePanic
+	CodeCallDepth   = diag.CodeCallDepth
+	CodeNil         = diag.CodeNil
+	CodeIndex       = diag.CodeIndex
+	CodeDivZero     = diag.CodeDivZero
+	CodeBadHandle   = diag.CodeBadHandle
+	CodeExplicit    = diag.CodeExplicit
+	CodeLink        = diag.CodeLink
+	CodeHost        = diag.CodeHost
 )
 
 type FrameInfo struct {
@@ -86,19 +87,25 @@ type Stats struct {
 	GCTime       time.Duration
 	HeapObjects  int
 	HeapBytes    int
+	Coroutines   int
 }
 
 type Func struct {
-	Name    string
-	File    string
-	Params  int
-	Results int
-	Regs    int
-	Script  int
-	code    []bytecode.Instr
-	consts  []Value
-	mod     *Module
-	src     *bytecode.Function
+	Name      string
+	File      string
+	Params    int
+	Results   int
+	Regs      int
+	Script    int
+	Coroutine bool
+	code      []bytecode.Instr
+	consts    []Value
+	mod       *Module
+	src       *bytecode.Function
+}
+
+func (f *Func) Module() *Module {
+	return f.mod
 }
 
 type sliceType struct {
@@ -107,13 +114,17 @@ type sliceType struct {
 }
 
 type Module struct {
-	Package string
-	Funcs   []*Func
-	src     *bytecode.Module
-	hosts   []HostFunc
-	windows []int
-	externs []*Func
-	types   []sliceType
+	Package  string
+	Funcs    []*Func
+	src      *bytecode.Module
+	hosts    []HostFunc
+	windows  []int
+	externs  []*Func
+	types    []sliceType
+	sigSlots [][]int
+	xfields  []xfield
+	xmethods []xmethod
+	connects []Connect
 }
 
 func (m *Module) Source() *bytecode.Module {
@@ -130,9 +141,13 @@ func (m *Module) Func(name string) *Func {
 }
 
 type frame struct {
-	f    *Func
-	base int
-	pc   int
+	f     *Func
+	base  int
+	pc    int
+	ret   int
+	self  []Value
+	owner InstanceID
+	co    uint32
 }
 
 type Machine struct {
@@ -142,13 +157,18 @@ type Machine struct {
 	interned map[string]Value
 	stack    []Value
 	frames   []frame
-	self     []Value
 	left     uint64
 	fault    *Fault
 	marker   Marker
 	stats    Stats
+	cos      []coroutine
+	cofree   []uint32
+	colive   int
 	Env      any
 	Comps    Components
+	Scripts  Scripts
+	Signals  Signals
+	Co       CoHooks
 }
 
 var errPanic = errors.New("native binding panicked")
@@ -224,12 +244,20 @@ func (m *Machine) Load(src *bytecode.Module, resolve func(bytecode.HostImport) (
 	for _, t := range src.Types {
 		mod.types = append(mod.types, sliceType{width: int(t.Width), mask: t.Mask})
 	}
+	for i := range src.Scripts {
+		sigs := src.Scripts[i].Signals
+		slots := make([]int, len(sigs))
+		for j, sg := range sigs {
+			slots[j] = int(sg.Slots)
+		}
+		mod.sigSlots = append(mod.sigSlots, slots)
+	}
 	for i := range src.Functions {
 		sf := &src.Functions[i]
 		f := &Func{
 			Name: sf.Name, File: sf.File, Params: int(sf.Params), Results: int(sf.Results),
-			Regs: int(sf.Registers), Script: int(sf.Script), code: sf.Code, mod: mod, src: sf,
-			consts: make([]Value, len(sf.Consts)),
+			Regs: int(sf.Registers), Script: int(sf.Script), Coroutine: sf.Coroutine,
+			code: sf.Code, mod: mod, src: sf, consts: make([]Value, len(sf.Consts)),
 		}
 		for j, k := range sf.Consts {
 			if k.Kind == bytecode.KString {
@@ -245,10 +273,19 @@ func (m *Machine) Load(src *bytecode.Module, resolve func(bytecode.HostImport) (
 
 func Link(mods []*Module) error {
 	byPkg := make(map[string]*Module, len(mods))
+	structs := map[string]*bytecode.StructDef{}
 	for _, mod := range mods {
 		byPkg[mod.Package] = mod
+		for i := range mod.src.Structs {
+			structs[mod.src.Structs[i].Name] = &mod.src.Structs[i]
+		}
 	}
 	for _, mod := range mods {
+		for i := range mod.src.Scripts {
+			if msgs := verify.ScriptRoots(&mod.src.Scripts[i], structs, true); len(msgs) > 0 {
+				return fmt.Errorf("%s: %s", mod.Package, msgs[0])
+			}
+		}
 		for i, e := range mod.src.Externs {
 			target := byPkg[e.Package]
 			if target == nil {
@@ -264,7 +301,7 @@ func Link(mods []*Module) error {
 			mod.externs[i] = f
 		}
 	}
-	return nil
+	return bindScripts(mods)
 }
 
 func (m *Machine) Busy() bool {
@@ -275,6 +312,7 @@ func (m *Machine) Stats() Stats {
 	s := m.stats
 	s.HeapObjects = m.heap.live
 	s.HeapBytes = m.heap.bytes
+	s.Coroutines = m.colive
 	return s
 }
 
@@ -289,30 +327,40 @@ func (m *Machine) grow(n int) {
 }
 
 func (m *Machine) Call(f *Func, self []Value, args []Value) ([]Value, *Fault) {
+	return m.CallAs(f, self, args, NoInstance)
+}
+
+func (m *Machine) CallAs(f *Func, self []Value, args []Value, owner InstanceID) ([]Value, *Fault) {
 	if len(m.frames) != 0 {
 		return nil, &Fault{Code: CodeLink, Message: "the machine is already running a call"}
 	}
-	if f == nil || len(args) != f.Params {
-		return nil, &Fault{Code: CodeLink, Message: "function is missing or the argument count does not match"}
+	if f == nil || f.Coroutine || len(args) != f.Params {
+		return nil, &Fault{Code: CodeLink, Message: "function is missing, is a coroutine or the argument count does not match"}
 	}
 	if f.Regs > len(m.stack) {
 		m.grow(f.Regs)
 	}
 	copy(m.stack, args)
 	clear(m.stack[len(args):f.Regs])
-	m.self = self
 	m.left = m.opt.Budget
-	m.frames = append(m.frames, frame{f: f})
+	m.frames = append(m.frames, frame{f: f, self: self, owner: owner})
 	m.stats.Calls++
-	m.run()
-	m.stats.Instructions += m.opt.Budget - m.left
-	m.frames = m.frames[:0]
-	m.self = nil
-	if fl := m.fault; fl != nil {
-		m.fault = nil
+	if fl := m.finish(); fl != nil {
 		return nil, fl
 	}
 	return m.stack[:f.Results], nil
+}
+
+func (m *Machine) finish() *Fault {
+	m.run(0)
+	m.stats.Instructions += m.opt.Budget - m.left
+	fl := m.fault
+	if fl != nil {
+		m.fault = nil
+		m.unwind(0)
+	}
+	m.frames = m.frames[:0]
+	return fl
 }
 
 func (m *Machine) raise(code, msg string) {
@@ -332,6 +380,15 @@ func (m *Machine) raise(code, msg string) {
 func (m *Machine) trap(top, pc int, code, msg string) {
 	m.frames[top].pc = pc
 	m.raise(code, msg)
+}
+
+func (m *Machine) trapErr(top, pc int, err error) {
+	var fl *Fault
+	if errors.As(err, &fl) {
+		m.trap(top, pc, fl.Code, fl.Message)
+		return
+	}
+	m.trap(top, pc, CodeHost, err.Error())
 }
 
 func (m *Machine) host(h HostFunc, w []Value) (err error) {

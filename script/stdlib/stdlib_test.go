@@ -2,15 +2,17 @@ package stdlib_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"aego/core/log"
 	"aego/script/bind"
-	"aego/script/build"
 	"aego/script/diag"
 	"aego/script/harness"
 	"aego/script/stdlib"
+	"aego/script/workspace"
 )
 
 const libTest = `package lib
@@ -62,17 +64,27 @@ func registry(t *testing.T, testingMod bool) *bind.Registry {
 
 func TestStdlibFromScript(t *testing.T) {
 	reg := registry(t, true)
-	res := build.Build(map[string][]build.File{
-		"game/lib": {{Path: "scripts/lib/lib_test.aes", Src: []byte(libTest)}},
-	}, reg.Surface(), build.Options{Tests: true})
-	if res.HasErrors() {
+	root := t.TempDir()
+	p := filepath.Join(root, "scripts", "lib", "lib_test.aes")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(libTest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := workspace.Open(workspace.Config{Root: root, Module: "game", Bindings: reg.Table()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, ds := ws.BuildWith(workspace.BuildOptions{IncludeTests: true})
+	if diag.HasErrors(ds) {
 		var b bytes.Buffer
-		diag.Print(&b, res.Sources, res.Diagnostics)
+		diag.Print(&b, g.Sources, ds)
 		t.Fatal(b.String())
 	}
 	sink := &log.MemorySink{}
 	ctx := &bind.Ctx{Frame: 7, Dt: 0.5, Log: log.New(sink).With("script")}
-	rep, err := harness.Run(res, reg, ctx, harness.Options{})
+	rep, err := harness.Run(g, reg, ctx, harness.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

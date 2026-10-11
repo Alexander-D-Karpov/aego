@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"aego/core/mathx"
+	"aego/engine/module"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
 	"aego/schema"
 )
@@ -15,6 +15,14 @@ type alphaComp struct {
 }
 
 type betaComp struct {
+	V float32 `aego:"v"`
+}
+
+type spriteComp struct {
+	Tint mathx.Color `aego:"tint"`
+}
+
+type camComp struct {
 	V float32 `aego:"v"`
 }
 
@@ -29,32 +37,46 @@ type rowsComp struct {
 	Name  string      `aego:"name"`
 }
 
+type testModule struct{}
+
+func (testModule) Info() module.Info {
+	return module.Info{ID: "test"}
+}
+
+func (testModule) Register(r *module.Registry) error {
+	if err := module.Component[alphaComp](r, schema.Name("test.Alpha")).Err(); err != nil {
+		return err
+	}
+	if err := module.Component[betaComp](r, schema.Name("test.Beta")).Category("Physics").Err(); err != nil {
+		return err
+	}
+	if err := module.Component[rowsComp](r, schema.Name("test.Rows")).Err(); err != nil {
+		return err
+	}
+	if err := module.Component[spriteComp](r, schema.Name("fx.Sprite")).
+		Category("Rendering").
+		Display("Sprite Renderer").
+		Default(func() spriteComp { return spriteComp{Tint: mathx.Color{R: 1, G: 1, B: 1, A: 1}} }).
+		Err(); err != nil {
+		return err
+	}
+	return module.Component[camComp](r, schema.Name("fx.Cam")).Category("Camera").Err()
+}
+
 func testTypes(t *testing.T) (*scene.Types, *Registry) {
 	t.Helper()
 	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
-		t.Fatal(err)
-	}
 	if err := sceneio.RegisterUnknown(types); err != nil {
 		t.Fatal(err)
 	}
-	if err := scene.RegisterComponent[alphaComp](types, schema.Name("test.Alpha")); err != nil {
-		t.Fatal(err)
-	}
-	if err := scene.RegisterComponent[betaComp](types, schema.Name("test.Beta")); err != nil {
-		t.Fatal(err)
-	}
-	if err := scene.RegisterComponent[rowsComp](types, schema.Name("test.Rows")); err != nil {
+	if _, err := module.Load(types, nil, testModule{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {
 		t.Fatal(err)
 	}
 	r := NewRegistry()
-	if err := RegisterBuiltin(r, types.Schema()); err != nil {
-		t.Fatal(err)
-	}
-	if err := RegisterMeta[betaComp](r, types.Schema(), Meta{Category: "Physics"}); err != nil {
+	if err := r.Load(types.Schema()); err != nil {
 		t.Fatal(err)
 	}
 	return types, r
@@ -72,12 +94,7 @@ func idOf(t *testing.T, reg *schema.Registry, name string) schema.TypeID {
 func TestGroupComponentsOrder(t *testing.T) {
 	types, r := testTypes(t)
 	reg := types.Schema()
-	in := []schema.TypeID{
-		idOf(t, reg, "test.Alpha"),
-		idOf(t, reg, "engine.SpriteRenderer"),
-		idOf(t, reg, "test.Beta"),
-		idOf(t, reg, "engine.Camera"),
-	}
+	in := []schema.TypeID{idOf(t, reg, "test.Alpha"), idOf(t, reg, "fx.Sprite"), idOf(t, reg, "test.Beta"), idOf(t, reg, "fx.Cam")}
 	got := groupComponents(r, reg, in)
 	want := []string{"Rendering", "Camera", "Physics", "test"}
 	if len(got) != len(want) {
@@ -93,13 +110,12 @@ func TestGroupComponentsOrder(t *testing.T) {
 func TestDefaultMeta(t *testing.T) {
 	types, r := testTypes(t)
 	td, _ := types.Schema().ByName("test.Alpha")
-	m := r.Meta(td)
-	if m.DisplayName != "Alpha" || m.Category != "test" || m.Icon != "cat.test" {
+	if m := r.Meta(td); m.DisplayName != "Alpha" || m.Category != "test" || m.Icon != "cat.test" || m.Badge != "test" {
 		t.Fatalf("meta = %+v", m)
 	}
-	sr, _ := types.Schema().ByName("engine.SpriteRenderer")
-	if r.Meta(sr).DisplayName != "Sprite Renderer" {
-		t.Fatal("builtin display name missing")
+	sr, _ := types.Schema().ByName("fx.Sprite")
+	if m := r.Meta(sr); m.DisplayName != "Sprite Renderer" || m.Badge != "test" {
+		t.Fatalf("meta = %+v", m)
 	}
 }
 

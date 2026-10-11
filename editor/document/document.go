@@ -142,6 +142,7 @@ type Manager struct {
 	opt       Options
 	log       *log.ChannelLogger
 	docs      []*SceneDocument
+	scripts   []*ScriptDocument
 	active    ID
 	next      ID
 	subs      []subscriber
@@ -286,12 +287,22 @@ func (m *Manager) Dirty() bool {
 			return true
 		}
 	}
+	for _, d := range m.scripts {
+		if d.Dirty() {
+			return true
+		}
+	}
 	return false
 }
 
 func (m *Manager) DirtyCount() int {
 	n := 0
 	for _, d := range m.docs {
+		if d.Dirty() {
+			n++
+		}
+	}
+	for _, d := range m.scripts {
 		if d.Dirty() {
 			n++
 		}
@@ -474,6 +485,14 @@ func (m *Manager) SaveAll() error {
 			first = err
 		}
 	}
+	for _, d := range m.scripts {
+		if !d.Dirty() {
+			continue
+		}
+		if err := m.SaveScript(d); err != nil && first == nil {
+			first = err
+		}
+	}
 	return first
 }
 
@@ -585,7 +604,11 @@ func (m *Manager) WriteRecovery() (int, error) {
 		}
 		n++
 	}
-	return n, first
+	sn, err := m.writeScriptRecovery()
+	if first == nil {
+		first = err
+	}
+	return n + sn, first
 }
 
 func (m *Manager) FindRecovery() []Recovery {

@@ -17,16 +17,23 @@ import (
 	"aego/editor/extension"
 	"aego/editor/gameview"
 	"aego/editor/gizmo"
+	"aego/editor/help"
 	"aego/editor/hierarchy"
 	"aego/editor/inspector"
 	"aego/editor/play"
+	"aego/editor/problems"
 	"aego/editor/profiler"
 	"aego/editor/sceneview"
+	"aego/editor/scripteditor"
+	"aego/editor/search"
 	"aego/editor/selection"
 	"aego/editor/session"
+	"aego/editor/shape"
 	"aego/editor/templates"
+	"aego/editor/welcome"
 	"aego/editor/workspace"
 	"aego/engine"
+	"aego/engine/module"
 	"aego/platform"
 	"aego/project"
 	"aego/render"
@@ -51,11 +58,13 @@ type Options struct {
 	Renderer    *render.Renderer
 	Log         *log.Logger
 	Panels      []workspace.Panel
-	Extensions  []extension.Module
+	Modules     *module.Manifest
+	Hooks       []module.Hook
 	RenderStats func() render.Stats
 	Supervised  bool
 	Paced       bool
 	Scripts     context.ScriptHost
+	Code        *scripteditor.Host
 }
 
 type App struct {
@@ -78,6 +87,7 @@ type App struct {
 	discard        bool
 	quitting       bool
 	templates      *templates.Registry
+	shapes         *shape.Registry
 	inspectors     *inspector.Registry
 	gizmos         *gizmo.Registry
 	hierarchy      *hierarchy.Panel
@@ -97,9 +107,20 @@ type App struct {
 	buildState     widgets.DotState
 	consolePanel   *console.Panel
 	inspectorPanel *inspector.Panel
+	problemsPanel  *problems.Panel
+	search         *search.Overlay
+	shiftAt        float64
+	shiftArmed     bool
+	welcome        *welcome.Panel
+	reference      *help.Reference
+	keymap         *help.Keymap
+	welcomeAt      float64
+	genAtPlay      uint64
+	wasPlaying     bool
+	pulse          pulse
+	playRect       mathx.Rect
 	scriptLog      *log.ChannelLogger
 	problemRev     uint64
-	scriptsChanged bool
 }
 
 func New(opt Options) *App {
@@ -120,6 +141,10 @@ func (a *App) Play() *play.Controller {
 
 func (a *App) Extensions() *extension.Registry {
 	return a.ext
+}
+
+func (a *App) Templates() *templates.Registry {
+	return a.templates
 }
 
 func (a *App) Init(e *engine.Engine) error {
@@ -156,6 +181,7 @@ func (a *App) Init(e *engine.Engine) error {
 		res = a.opt.Loader
 	}
 	p := a.opt.Project
+	a.shapes = shape.NewRegistry()
 	a.ctx = &context.Editor{
 		Engine:      e,
 		Renderer:    r,
@@ -174,6 +200,7 @@ func (a *App) Init(e *engine.Engine) error {
 		RenderStats: a.opt.RenderStats,
 		Scripts:     a.opt.Scripts,
 		Collapsed:   map[string]bool{},
+		Shapes:      a.shapes,
 	}
 	a.ctx.Commands.OnError = func(id string, err error) {
 		a.ctx.Notify(context.LevelError, err.Error())
@@ -183,19 +210,20 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 
 	a.templates = templates.New()
-	if err := templates.RegisterBuiltin(a.templates); err != nil {
-		return err
+	if a.opt.Modules != nil {
+		if err := a.templates.Load(a.opt.Modules.Templates); err != nil {
+			a.ctx.Notify(context.LevelError, err.Error())
+		}
 	}
 	a.inspectors = inspector.NewRegistry()
-	if err := inspector.RegisterBuiltin(a.inspectors, a.opt.Types.Schema()); err != nil {
-		return err
+	if err := a.inspectors.Load(a.opt.Types.Schema()); err != nil {
+		a.ctx.Notify(context.LevelError, err.Error())
 	}
 	a.gizmos = gizmo.NewRegistry()
 	a.play = play.New(a.ctx)
 	a.ctx.Play = a.play
 	a.play.Subscribe(func(st play.State) {
 		if st == play.Stopped {
-			a.scriptsChanged = false
 			for _, d := range a.ctx.Docs.Docs() {
 				a.ctx.PruneSelectionOf(d.ID)
 			}
@@ -217,7 +245,12 @@ func (a *App) Init(e *engine.Engine) error {
 		}
 	}
 	a.consolePanel = console.New(a.consoleSink)
+	a.problemsPanel = problems.New()
 	a.inspectorPanel = inspector.New(a.inspectors)
+	a.reference = help.NewReference(func() ([]byte, error) { return e.VFS().ReadFile("engine://docs/script.md") })
+	a.keymap = help.NewKeymap()
+	a.welcome = welcome.New(p.Root, a.welcomeChecks())
+	a.welcome.Reference = func() { a.ws.ShowNear(help.ReferenceID, workspace.Scene) }
 	builtins := []workspace.Panel{
 		a.hierarchy,
 		a.inspectorPanel,
@@ -225,7 +258,11 @@ func (a *App) Init(e *engine.Engine) error {
 		a.gameView,
 		a.assetsPanel,
 		a.consolePanel,
+		a.problemsPanel,
 		a.profiler,
+		a.welcome,
+		a.reference,
+		a.keymap,
 	}
 	for _, pn := range builtins {
 		if !a.ws.Has(pn.ID()) {
@@ -236,15 +273,23 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 	a.scriptLog = lg.With(log.Channel("script"))
 	a.ctx.ShowProblems = func(filter string) {
-		a.ws.Show(workspace.Console)
-		a.consolePanel.Focus(filter)
+		a.ws.Show(workspace.Problems)
+		a.problemsPanel.Focus(filter)
 	}
 	a.ctx.RevealPath = func(rel string) {
 		a.ws.Show(workspace.Assets)
 		a.assetsPanel.Reveal(a.ctx, rel)
 	}
-	a.consolePanel.OnOpen = a.ctx.RevealPath
+	a.search = search.New()
+	a.search.ShowHierarchy = func() { a.ws.Show(workspace.Hierarchy) }
+	a.attachCode()
 	if err := a.registerCommands(); err != nil {
+		return err
+	}
+	if err := a.registerSearch(); err != nil {
+		return err
+	}
+	if err := a.registerHelp(); err != nil {
 		return err
 	}
 	a.ext = extension.New(extension.Deps{
@@ -253,12 +298,13 @@ func (a *App) Init(e *engine.Engine) error {
 		Inspectors: a.inspectors,
 		Gizmos:     a.gizmos,
 		Templates:  a.templates,
+		Shapes:     a.shapes,
 		Commands:   a.ctx.Commands,
 		Schema:     a.opt.Types.Schema(),
 	})
-	for _, m := range a.opt.Extensions {
-		if err := a.ext.Load(m); err != nil {
-			a.ctx.Notify(context.LevelError, "extension "+extension.ModuleID(m)+" failed to register: "+err.Error())
+	for _, h := range a.opt.Hooks {
+		if err := a.ext.Run(h.Owner, h.Fn); err != nil {
+			a.ctx.Notify(context.LevelError, "extension "+h.Owner+" failed to register: "+err.Error())
 		}
 	}
 	if err := a.registerWindowCommands(); err != nil {
@@ -285,6 +331,7 @@ func (a *App) Init(e *engine.Engine) error {
 	for _, rec := range a.ctx.Docs.FindRecovery() {
 		a.push(modal{kind: modalRecovery, rec: rec})
 	}
+	a.firstRun()
 	now := e.Platform().Now()
 	a.checkAt, a.recoverAt = now+1, now+30
 	return nil
@@ -307,6 +354,8 @@ func (a *App) openMainScene() {
 func (a *App) Event(ev platform.Event) {
 	a.lastInput = a.eng.Platform().Now()
 	switch ev.Kind {
+	case platform.EvKeyDown:
+		a.shiftTap(ev)
 	case platform.EvTextEditing:
 		a.ui.SetComposition(ev.Str, int(ev.EditStart))
 	case platform.EvTextInput:
@@ -315,6 +364,9 @@ func (a *App) Event(ev platform.Event) {
 		a.checkAt = 0
 	case platform.EvWindowFocusLost:
 		a.gameView.Release()
+		if a.opt.Code != nil {
+			a.opt.Code.FlushAutosave()
+		}
 	case platform.EvDropFile:
 		a.drops = append(a.drops, ev.Str)
 		a.dropPos = ev.Mouse.Pos
@@ -379,9 +431,11 @@ func (a *App) Update(dt float64) {
 	a.drawStatus(bottom)
 	a.drawToolbar(toolR)
 	a.drawMenuBar(menuR)
+	a.drawPulse()
 	for _, q := range a.ctx.TakeQuestions() {
 		a.modals = append(a.modals, modal{kind: modalAsk, ask: q})
 	}
+	a.drawSearch()
 	a.drawModals()
 	a.ctx.DnD.Frame(ui)
 	a.ext.Flush()
@@ -479,11 +533,7 @@ func (a *App) reportScripts() {
 	if rev == a.problemRev {
 		return
 	}
-	first := a.problemRev == 0
 	a.problemRev = rev
-	if !first && a.play.State() != play.Stopped {
-		a.scriptsChanged = true
-	}
 	errors := 0
 	for _, p := range ps {
 		fields := []log.Field{log.F("path", p.Path), log.F("line", p.Line), log.F("col", p.Col), log.F("code", p.Code), log.F("package", p.Package)}
@@ -496,33 +546,11 @@ func (a *App) reportScripts() {
 	}
 	if errors == 0 {
 		a.scriptLog.Info("scripts compiled")
-	}
-}
-
-func (a *App) restartPlay() {
-	a.stopPlay()
-	if err := a.togglePlay(); err != nil {
-		a.ctx.Notify(context.LevelError, err.Error())
-	}
-}
-
-func (a *App) drawScriptsBanner(body mathx.Rect) {
-	if !a.scriptsChanged || a.play.State() == play.Stopped {
 		return
 	}
-	ui := a.ui
-	th := &ui.Theme
-	h := th.RowHeight + 8
-	w := min(body.W-16, 460)
-	r := mathx.Rect{X: body.X + (body.W-w)/2, Y: body.Y + 6, W: w, H: h}
-	ui.Rect(r, th.PanelAlt)
-	ui.Outline(r, th.Warn)
-	ui.PushClip(r)
-	ui.Text("Scripts changed — restart Play to apply", mathx.Vec2{X: r.X + th.Padding, Y: ui.TextY(r)}, th.Warn)
-	ui.PopClip()
-	br := mathx.Rect{X: r.X + r.W - 84, Y: r.Y + 4, W: 78, H: h - 8}
-	if widgets.ButtonRect(ui, ui.ID("scripts.restart"), br, "Restart") {
-		a.restartPlay()
+	if !a.welcome.Done(hintErrors) {
+		a.welcome.Mark(hintErrors)
+		a.ctx.Notify(context.LevelInfo, "Tip: click a problem in the Problems panel to jump to its line, F2 walks through errors")
 	}
 }
 
@@ -532,6 +560,10 @@ func (a *App) periodic(now float64) {
 		return
 	}
 	a.reportScripts()
+	if now >= a.welcomeAt {
+		a.welcomeAt = now + 0.5
+		a.welcome.Tick()
+	}
 	if now >= a.checkAt {
 		a.checkAt = now + 1
 		reloaded, conflicts := a.ctx.Docs.CheckExternal()
@@ -552,6 +584,9 @@ func (a *App) periodic(now float64) {
 		}
 	}
 	a.ws.Tick(now)
+	if a.opt.Code != nil {
+		a.opt.Code.Tick(now)
+	}
 	a.updateTitle()
 }
 

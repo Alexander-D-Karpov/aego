@@ -1,0 +1,49 @@
+package signals
+
+script Source {
+	signal Died(reason string)
+	signal Scored(points int)
+
+	var own int
+
+	func Ready() {
+		Scored.Connect(OnScore)
+	}
+
+	func Kill() {
+		Died.Emit("fall")
+		Scored.Emit(10)
+	}
+
+	func OnScore(points int) {
+		own += points
+	}
+}
+
+script Listener {
+	@export var Target NodeRef
+
+	var conn Connection
+	var total int
+
+	func Ready() {
+		if Target == nil {
+			return
+		}
+		src := Target.GetScript<Source>()
+		if src != nil {
+			conn = src.Died.Connect(OnDied)
+			src.Scored.Connect(OnScored)
+		}
+	}
+
+	func OnDied(reason string) {
+		if conn.Connected() {
+			conn.Disconnect()
+		}
+	}
+
+	func OnScored(points int) {
+		total += points
+	}
+}

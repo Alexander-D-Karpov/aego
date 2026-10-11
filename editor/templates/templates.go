@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -12,19 +13,31 @@ import (
 	"aego/editor/context"
 	"aego/editor/history/commands"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
+	"aego/schema"
 )
 
-const PixelsPerUnit = 32
+const (
+	Category3D  = "3D"
+	Moved3DNote = "a 3D node needs a 3D parent; created at the scene root"
+)
 
 type Template struct {
 	ID       string
 	Name     string
 	Module   string
 	Category string
+	Icon     string
+	Builtin  bool
 	Space    scene.Space
 	Build    func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle
+}
+
+type Drop struct {
+	Owner string
+	Kind  string
+	Space scene.Space
+	Setup func(s *scene.Scene, h scene.NodeHandle, id ids.AssetID)
 }
 
 type Place struct {
@@ -43,11 +56,63 @@ func (p Place) Fits(t Template) bool {
 }
 
 type Registry struct {
-	list []Template
+	list  []Template
+	drops []Drop
 }
 
 func New() *Registry {
 	return &Registry{}
+}
+
+func SpaceOf(k schema.SpaceKind) scene.Space {
+	if k == schema.Space3D {
+		return scene.Space3D
+	}
+	return scene.Space2D
+}
+
+func create(s *scene.Scene, parent scene.NodeHandle, sp scene.Space, name string) scene.NodeHandle {
+	if sp == scene.Space3D {
+		return s.Create3D(parent, name)
+	}
+	return s.Create(parent, name)
+}
+
+func FromDesc(d schema.TemplateDesc) (Template, error) {
+	setup, ok := d.Setup.(func(*scene.Scene, scene.NodeHandle))
+	if !ok {
+		return Template{}, errs.New(errs.EditorPanel, "template setup has an unsupported type",
+			log.F("template", d.ID), log.F("module", d.Owner))
+	}
+	node := d.Node
+	if node == "" {
+		node = d.Name
+	}
+	sp := SpaceOf(d.Space)
+	return Template{
+		ID: d.ID, Name: d.Name, Module: d.Owner, Category: d.Category, Icon: d.Icon, Builtin: d.Builtin, Space: sp,
+		Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
+			h := create(s, parent, sp, node)
+			if !h.IsZero() {
+				setup(s, h)
+			}
+			return h
+		},
+	}, nil
+}
+
+func (r *Registry) Load(descs []schema.TemplateDesc) error {
+	var all []error
+	for _, d := range descs {
+		t, err := FromDesc(d)
+		if err == nil {
+			err = r.Register(t)
+		}
+		if err != nil {
+			all = append(all, err)
+		}
+	}
+	return errors.Join(all...)
 }
 
 func (r *Registry) Register(t Template) error {
@@ -88,14 +153,18 @@ func (r *Registry) Get(id string) (Template, bool) {
 	return Template{}, false
 }
 
-func isRoot(t Template) bool {
-	return t.Module == "" || t.Module == "engine"
+func (r *Registry) Spawn(s *scene.Scene, parent scene.NodeHandle, id string) scene.NodeHandle {
+	t, ok := r.Get(id)
+	if !ok {
+		return scene.NodeHandle{}
+	}
+	return t.Build(s, parent)
 }
 
 func (r *Registry) Root() []Template {
 	var out []Template
 	for _, t := range r.list {
-		if isRoot(t) {
+		if t.Builtin {
 			out = append(out, t)
 		}
 	}
@@ -106,7 +175,7 @@ func (r *Registry) Modules() []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, t := range r.list {
-		if !isRoot(t) && !seen[t.Module] {
+		if !t.Builtin && !seen[t.Module] {
 			seen[t.Module] = true
 			out = append(out, t.Module)
 		}
@@ -118,7 +187,7 @@ func (r *Registry) Modules() []string {
 func (r *Registry) InModule(m string) []Template {
 	var out []Template
 	for _, t := range r.list {
-		if t.Module == m {
+		if !t.Builtin && t.Module == m {
 			out = append(out, t)
 		}
 	}
@@ -126,55 +195,66 @@ func (r *Registry) InModule(m string) []Template {
 	return out
 }
 
-func RegisterBuiltin(r *Registry) error {
-	list := append([]Template{Empty(), Sprite(), Camera()}, Builtin3D()...)
-	for _, t := range list {
-		if err := r.Register(t); err != nil {
-			return err
-		}
+func (r *Registry) AddDrop(d Drop) error {
+	if d.Kind == "" || d.Setup == nil {
+		return errs.New(errs.EditorPanel, "asset drop needs a kind and a setup", log.F("module", d.Owner))
 	}
+	r.drops = append(r.drops, d)
 	return nil
 }
 
-func Empty() Template {
-	return Template{ID: "engine.empty", Name: "Empty", Module: "engine", Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
-		return s.Create(parent, "Node")
-	}}
-}
-
-func Sprite() Template {
-	return SpriteWith(ids.AssetID{}, "Sprite", mathx.Vec2{X: 1, Y: 1})
-}
-
-func SpriteWith(id ids.AssetID, name string, size mathx.Vec2) Template {
-	if name == "" {
-		name = "Sprite"
-	}
-	return Template{ID: "engine.sprite", Name: "Sprite", Module: "engine", Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
-		h := s.Create(parent, name)
-		sr := scene.Add[components.SpriteRenderer](s, h)
-		*sr = components.DefaultSpriteRenderer()
-		sr.Sprite.SetAssetRefID(id)
-		sr.Size = size
-		return h
-	}}
-}
-
-func Camera() Template {
-	return Template{ID: "engine.camera", Name: "Camera", Module: "engine", Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
-		h := s.Create(parent, "Camera")
-		*scene.Add[components.Camera2D](s, h) = components.DefaultCamera2D()
-		return h
-	}}
-}
-
-func SpriteSize(ctx *context.Editor, id ids.AssetID) mathx.Vec2 {
-	if ctx.Loader != nil && !id.IsZero() {
-		if reg, ok := ctx.Loader.Texture(id); ok && reg.W > 0 && reg.H > 0 {
-			return mathx.Vec2{X: float32(reg.W) / PixelsPerUnit, Y: float32(reg.H) / PixelsPerUnit}
+func (r *Registry) RemoveDrops(owner string) {
+	out := r.drops[:0]
+	for _, d := range r.drops {
+		if d.Owner != owner {
+			out = append(out, d)
 		}
 	}
-	return mathx.Vec2{X: 1, Y: 1}
+	r.drops = out
+}
+
+func (r *Registry) drop(kind asset.ArtifactKind, space *scene.Space) (Drop, bool) {
+	for _, d := range r.drops {
+		if context.AssetMatches(d.Kind, kind) && (space == nil || d.Space == *space) {
+			return d, true
+		}
+	}
+	return Drop{}, false
+}
+
+func (r *Registry) Accepts(kind asset.ArtifactKind, space *scene.Space) bool {
+	_, ok := r.drop(kind, space)
+	return ok
+}
+
+func (r *Registry) ForAsset(kind asset.ArtifactKind, space *scene.Space, id ids.AssetID, name string) (Template, bool) {
+	d, ok := r.drop(kind, space)
+	if !ok {
+		return Template{}, false
+	}
+	if name == "" {
+		name = string(kind)
+	}
+	return Template{
+		ID: d.Owner + ".drop." + string(kind), Name: name, Module: d.Owner, Builtin: true, Space: d.Space,
+		Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
+			h := create(s, parent, d.Space, name)
+			if !h.IsZero() {
+				d.Setup(s, h, id)
+			}
+			return h
+		},
+	}, true
+}
+
+func Parent3D(s *scene.Scene, parent scene.NodeHandle) (scene.NodeHandle, string) {
+	if parent.IsZero() || !s.IsAlive(parent) {
+		return s.Root(), ""
+	}
+	if s.AllowsSpace(parent, scene.Space3D) {
+		return parent, ""
+	}
+	return s.Root(), Moved3DNote
 }
 
 func resolver(ctx *context.Editor) asset.Resolver {
@@ -183,7 +263,6 @@ func resolver(ctx *context.Editor) asset.Resolver {
 	}
 	return nil
 }
-
 func build(t Template, s *scene.Scene) (h scene.NodeHandle, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {

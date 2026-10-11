@@ -8,7 +8,7 @@ DEMO ?= basic
 UI_FONT ?= $(CURDIR)/third_party/fonts/Inter-Regular.ttf
 FUZZTIME ?= 15s
 
-.PHONY: bootstrap build test test-nonative test-gl vet lint depcheck smoke run genfont genicons golden golden-update bench bench-scripts cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update bench bench-scripts cli example example-platformer check-all ci clean fuzz
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 ifneq ($(XVFB),)
@@ -28,8 +28,18 @@ $(STAMP): third_party/sdl/version.txt tools/bootstrap-native.sh
 build: bootstrap
 	go build ./...
 
+RUNTIME_PKGS = ./engine/... ./scene/... ./render/... ./render2d/... ./render3d/... ./script/vm/... ./script/bytecode/... ./script/verify/... ./script/bind ./script/coroutine/... ./script/signal/... ./script/module/... ./sdk/...
+
 test: bootstrap
-	go test ./...
+	go test -race ./...
+
+test-editor: bootstrap
+	go build -tags aego_editor ./...
+	go test -tags aego_editor ./editor/... ./app/... ./sdk/...
+
+test-runtime: bootstrap
+	go build -tags aego_runtime ./...
+	go test -tags aego_runtime $(RUNTIME_PKGS)
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
@@ -61,7 +71,7 @@ genfont:
 
 # Regenerate the embedded icon atlas into engine/res/icons.
 genicons:
-	cd tools/genicons && go mod tidy && go run . -init
+	cd tools/genicons && go mod tidy && go run . -init -src "$$(cd ../.. && go run ./tools/iconsrc)"
 
 golden: bootstrap
 	$(GL_ENV) go test -tags aego_golden ./tests/golden/...
@@ -73,7 +83,7 @@ bench: bootstrap
 	go run ./tools/bench
 
 bench-scripts:
-	go test -run '^$$' -bench . -benchmem ./script/runtime
+	go test -run '^$$' -bench . -benchmem ./script/vm ./script/coroutine ./script/signal ./script/runtime ./script/bind
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego
@@ -93,8 +103,9 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzTokenize$$' -fuzztime $(FUZZTIME) ./script/lexer
 	go test -run '^$$' -fuzz '^FuzzParse$$' -fuzztime $(FUZZTIME) ./script/parser
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
+	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative smoke fuzz golden test-gl cli example example-platformer
+ci: build vet lint depcheck test test-nonative test-editor test-runtime smoke fuzz golden test-gl cli example example-platformer check-all bench-scripts
 
 clean:
 	rm -rf .cache/build

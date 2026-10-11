@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -31,7 +32,7 @@ var scriptDev = []string{
 	"core/...", "schema", "format/...",
 	"script/abi", "script/source", "script/token", "script/diag", "script/lexer", "script/ast",
 	"script/parser", "script/types", "script/resolver", "script/checker", "script/asm",
-	"script/compiler", "script/bytecode", "script/build",
+	"script/compiler", "script/bytecode",
 }
 
 var scriptRuntime = []string{
@@ -41,7 +42,13 @@ var scriptRuntime = []string{
 
 var scriptCompilerOnly = []string{
 	"script/token", "script/lexer", "script/ast", "script/parser", "script/types", "script/resolver",
-	"script/checker", "script/asm", "script/compiler", "script/build", "script/harness",
+	"script/checker", "script/asm", "script/compiler", "script/harness",
+	"script/workspace", "script/langsvc",
+}
+
+var editorAllow = []string{
+	"core/...", "platform", "platform/input", "gpu", "render", "render/...", "ui/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "editor/...",
 }
 
 var rules = []rule{
@@ -71,15 +78,25 @@ var rules = []rule{
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
 	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
 	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
-	{"scene/components", []string{"core/...", "schema", "asset", "gpu", "render/...", "scene", "format/..."}, nil},
-	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/components"}, nil},
-	{"scene/systems", []string{"core/...", "schema", "asset", "gpu", "engine", "render", "render/...", "scene", "scene/components"}, nil},
+	{"scene/scriptcomp", []string{"core/...", "schema", "scene", "format/..."}, nil},
+	{"scene/frame", []string{"core/...", "schema", "asset", "gpu", "engine", "render", "render/...", "scene"}, nil},
+	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/scriptcomp"}, nil},
+	{"render2d", []string{"core/...", "asset", "engine", "engine/module", "gpu", "render/...", "scene", "scene/frame", "schema"}, nil},
+	{"render2d/editor", with(editorAllow, "render2d"), nil},
+	{"render3d", []string{"core/...", "asset", "asset/pipeline", "asset/importers/obj", "engine", "engine/module", "gpu", "render", "render/...", "scene", "scene/frame", "schema"}, nil},
+	{"render3d/editor", with(editorAllow, "render3d"), nil},
 	{"ui", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
 	{"ui/...", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
-	{"editor/...", []string{"core/...", "platform", "platform/input", "gpu", "render", "render/...", "ui/...", "schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "editor/..."}, nil},
+	{"editor/...", editorAllow, nil},
+	{"editor/code/...", with(editorAllow, "script/token"), nil},
+	{"editor/builtins", with(editorAllow, "render2d", "render2d/editor", "render3d", "render3d/editor"), nil},
+	{"editor/scripteditor", with(editorAllow, "script/langsvc", "script/workspace", "script/source", "script/diag"), nil},
+	{"app", []string{"..."}, nil},
 	{"app/edit", []string{"..."}, nil},
 	{"app/supervise", []string{"..."}, nil},
-	{"sdk", []string{"core/...", "engine", "schema", "scene", "scene/components", "asset", "asset/...", "render", "render/module", "platform/input", "script/bind"}, nil},
+	{"engine/module", []string{"core/...", "engine", "engine/res", "schema", "scene", "asset", "script/bind"}, nil},
+	{"engine/builtin", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "render2d", "render3d", "script/engine", "script/bind", "script/bind/manifest", "script/stdlib"}, nil},
+	{"sdk", []string{"core/...", "engine", "engine/module", "schema", "scene", "asset", "asset/...", "render", "render/module", "render2d", "render3d", "platform/input", "script/bind"}, nil},
 	{"app/run", []string{"..."}, nil},
 	{"demos/...", []string{"..."}, nil},
 	{"cmd/...", []string{"..."}, nil},
@@ -98,16 +115,22 @@ var rules = []rule{
 	{"script/checker", scriptDev, nil},
 	{"script/asm", scriptDev, nil},
 	{"script/compiler", scriptDev, nil},
-	{"script/build", scriptDev, nil},
-	{"script/harness", with(scriptDev, "script/bind", "script/verify", "script/vm"), nil},
+	{"script/harness", with(scriptDev, "script/bind", "script/verify", "script/vm", "script/workspace"), nil},
 	{"script/bytecode", scriptRuntime, nil},
 	{"script/verify", scriptRuntime, nil},
 	{"script/vm", scriptRuntime, nil},
 	{"script/bind", with(scriptRuntime, "scene", "engine", "asset", "platform/input"), nil},
 	{"script/stdlib", with(scriptRuntime, "script/bind", "scene", "scene/...", "engine", "asset", "platform/input"), nil},
-	{"script/runtime", with(scriptRuntime, "script/bind", "scene", "scene/...", "engine", "asset", "asset/...", "platform/input"), nil},
+	{"script/coroutine", scriptRuntime, nil},
+	{"script/signal", scriptRuntime, nil},
+	{"script/runtime", with(scriptRuntime, "script/bind", "script/coroutine", "script/signal", "scene", "scene/...", "engine", "asset", "asset/...", "platform/input"), nil},
+	{"script/reload", with(scriptRuntime, "script/runtime"), nil},
 	{"script/module", with(scriptRuntime, "script/bind", "script/runtime", "script/stdlib", "engine", "scene"), nil},
-	{"asset/importers/script", with(scriptDev, "asset", "asset/pipeline"), nil},
+	{"script/engine", with(scriptRuntime, "engine", "engine/module", "scene", "scene/scriptcomp", "script/bind", "script/module", "script/stdlib", "asset/pipeline", "asset/importers/script", "script/workspace"), nil},
+	{"asset/importers/script", with(scriptDev, "asset", "asset/pipeline", "script/workspace"), nil},
+	{"script/bind/manifest", with(scriptRuntime, "script/bind", "script/runtime", "format/..."), nil},
+	{"script/workspace", with(scriptDev, "script/bind/manifest"), nil},
+	{"script/langsvc", with(scriptDev, "script/workspace", "script/bind/manifest"), nil},
 }
 
 var osFileFuncs = map[string]bool{
@@ -124,13 +147,17 @@ var fsAllowed = []string{
 	"project",
 	"asset/pipeline",
 	"engine/bootstrap",
+	"app",
 	"app/run",
 	"app/edit",
 	"app/supervise",
 	"editor/assets",
 	"editor/document",
+	"editor/scripteditor",
 	"editor/session",
 	"editor/state",
+	"editor/welcome",
+	"script/workspace",
 	"demos/asset-hot-reload",
 }
 
@@ -138,6 +165,15 @@ var denied = []struct {
 	pkg  string
 	deny []string
 }{
+	{"engine/module", []string{"editor/...", "asset/pipeline", "asset/importers/...", "app/..."}},
+	{"scene/...", []string{"engine/module"}},
+	{"schema", []string{"engine/module"}},
+	{"engine/module", []string{"engine/builtin"}},
+	{"render2d", []string{"render3d", "render3d/...", "script/...", "editor/...", "render2d/editor"}},
+	{"render3d", []string{"render2d", "render2d/...", "script/...", "editor/...", "render3d/editor"}},
+	{"script/engine", []string{"render2d", "render2d/...", "render3d", "render3d/...", "editor/..."}},
+	{"sdk", []string{"engine/builtin"}},
+	{"editor/...", []string{"engine/builtin", "script/engine"}},
 	{"app/run", []string{"editor/..."}},
 	{"runtime/...", []string{"editor/..."}},
 	{"sdk", []string{"editor/..."}},
@@ -145,9 +181,12 @@ var denied = []struct {
 	{"script/verify", scriptCompilerOnly},
 	{"script/vm", scriptCompilerOnly},
 	{"script/bind", scriptCompilerOnly},
+	{"script/coroutine", scriptCompilerOnly},
+	{"script/signal", scriptCompilerOnly},
 	{"script/stdlib", scriptCompilerOnly},
 	{"script/runtime", scriptCompilerOnly},
 	{"script/module", scriptCompilerOnly},
+	{"script/reload", scriptCompilerOnly},
 }
 
 var cgoAllowed = []string{"platform/sdl", "gpu/gl33/gl"}
@@ -162,6 +201,13 @@ var servicePkgs = map[string]bool{
 	"engine": true, "gpu": true, "gl33": true, "null": true, "platform": true,
 	"sdl": true, "headless": true, "log": true, "vfs": true,
 }
+
+var runtimeRoots = []string{
+	"engine", "engine/module", "engine/builtin", "scene", "scene/...", "render", "render/...",
+	"render2d", "render3d", "script/engine", "script/runtime", "script/stdlib", "script/bind", "script/module", "sdk",
+}
+
+var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...", "app/...")
 
 func main() {
 	root := "."
@@ -183,30 +229,53 @@ func main() {
 	fmt.Println("depcheck: ok")
 }
 
+var fileExceptions = map[string][]string{
+	"sdk/editor.go": {"editor/..."},
+}
+
 func Check(root string) ([]string, error) {
 	module, err := modulePath(root)
 	if err != nil {
 		return nil, err
 	}
-	pkgs, err := listPackages(root)
+	pkgs, err := listPackages(root, "")
 	if err != nil {
 		return nil, err
 	}
 	var out []string
 	for _, p := range pkgs {
-		out = append(out, checkImports(module, p)...)
+		local, ok := relPkg(module, p.path)
+		if ok && local != "" {
+			out = append(out, checkImports(module, local, local, p.imports, nil)...)
+		}
 	}
+	rt, err := listPackages(root, "aego_runtime")
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, checkRuntime(module, rt)...)
+	ed, err := listPackages(root, "aego_editor")
+	if err != nil {
+		return nil, err
+	}
+	ev, err := checkEditor(module, ed)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, ev...)
 	src, err := checkSources(root)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, src...)
 	sort.Strings(out)
-	return out, nil
+	return slices.Compact(out), nil
 }
 
 type pkgInfo struct {
 	path    string
+	dir     string
+	files   []string
 	imports []string
 }
 
@@ -224,8 +293,8 @@ func modulePath(root string) (string, error) {
 	return "", errors.New("module directive not found in go.mod")
 }
 
-func listPackages(root string) ([]pkgInfo, error) {
-	cmd := exec.Command("go", "list", "-e", "-f", "{{.ImportPath}}\t{{join .Imports \" \"}}", "./...")
+func listPackages(root, tags string) ([]pkgInfo, error) {
+	cmd := exec.Command("go", "list", "-e", "-json", "-tags", tags, "./...")
 	cmd.Dir = root
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -234,18 +303,64 @@ func listPackages(root string) ([]pkgInfo, error) {
 		return nil, fmt.Errorf("go list: %w: %s", err, stderr.String())
 	}
 	var pkgs []pkgInfo
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "" {
-			continue
+	dec := json.NewDecoder(bytes.NewReader(out))
+	for dec.More() {
+		var p struct {
+			ImportPath string
+			Dir        string
+			GoFiles    []string
+			CgoFiles   []string
+			Imports    []string
 		}
-		parts := strings.SplitN(line, "\t", 2)
-		p := pkgInfo{path: parts[0]}
-		if len(parts) == 2 && parts[1] != "" {
-			p.imports = strings.Fields(parts[1])
+		if err := dec.Decode(&p); err != nil {
+			return nil, err
 		}
-		pkgs = append(pkgs, p)
+		pkgs = append(pkgs, pkgInfo{path: p.ImportPath, dir: p.Dir, files: append(p.GoFiles, p.CgoFiles...), imports: p.Imports})
 	}
 	return pkgs, nil
+}
+
+func checkEditor(module string, pkgs []pkgInfo) ([]string, error) {
+	var out []string
+	fset := token.NewFileSet()
+	for _, p := range pkgs {
+		local, ok := relPkg(module, p.path)
+		if !ok || local == "" {
+			continue
+		}
+		for _, name := range p.files {
+			f, err := parser.ParseFile(fset, filepath.Join(p.dir, name), nil, parser.ImportsOnly)
+			if err != nil {
+				return nil, err
+			}
+			imps := make([]string, 0, len(f.Imports))
+			for _, imp := range f.Imports {
+				imps = append(imps, strings.Trim(imp.Path.Value, `"`))
+			}
+			out = append(out, checkFile(module, local, local+"/"+name, imps)...)
+		}
+	}
+	return out, nil
+}
+
+func checkFile(module, local, file string, imports []string) []string {
+	return checkImports(module, local, file, imports, fileExceptions[file])
+}
+
+func checkRuntime(module string, pkgs []pkgInfo) []string {
+	var out []string
+	for _, p := range pkgs {
+		local, ok := relPkg(module, p.path)
+		if !ok || !allowed(runtimeRoots, local) {
+			continue
+		}
+		for _, imp := range p.imports {
+			if l, ok := relPkg(module, imp); ok && allowed(runtimeForbidden, l) {
+				out = append(out, fmt.Sprintf("%s: runtime build (aego_runtime) imports dev package %s", local, l))
+			}
+		}
+	}
+	return out
 }
 
 func relPkg(module, path string) (string, bool) {
@@ -299,27 +414,26 @@ func isStdlib(path string) bool {
 	return !strings.Contains(first, ".")
 }
 
-func checkImports(module string, p pkgInfo) []string {
-	local, ok := relPkg(module, p.path)
-	if !ok || local == "" {
-		return nil
-	}
+func checkImports(module, local, where string, imports []string, extra []string) []string {
 	r, ok := ruleFor(local)
 	if !ok {
-		return []string{fmt.Sprintf("%s: no dependency rule for package", local)}
+		return []string{fmt.Sprintf("%s: no dependency rule for package", where)}
 	}
 	var out []string
-	for _, imp := range p.imports {
+	for _, imp := range imports {
 		if imp == "C" {
 			continue
 		}
 		if l, ok := relPkg(module, imp); ok {
+			if allowed(extra, l) {
+				continue
+			}
 			if !allowed(r.allow, l) {
-				out = append(out, fmt.Sprintf("%s: forbidden import %s (rule %s)", local, l, r.pkg))
+				out = append(out, fmt.Sprintf("%s: forbidden import %s (rule %s)", where, l, r.pkg))
 			}
 			for _, d := range denied {
 				if match(d.pkg, local) && allowed(d.deny, l) {
-					out = append(out, fmt.Sprintf("%s: denied import %s", local, l))
+					out = append(out, fmt.Sprintf("%s: denied import %s", where, l))
 				}
 			}
 			continue
@@ -328,7 +442,7 @@ func checkImports(module string, p pkgInfo) []string {
 			continue
 		}
 		if !allowed(r.external, imp) {
-			out = append(out, fmt.Sprintf("%s: forbidden external import %s (rule %s)", local, imp, r.pkg))
+			out = append(out, fmt.Sprintf("%s: forbidden external import %s (rule %s)", where, imp, r.pkg))
 		}
 	}
 	return out

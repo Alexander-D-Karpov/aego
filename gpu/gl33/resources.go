@@ -72,6 +72,7 @@ func (d *Device) DestroyBuffer(h gpu.BufferHandle) {
 }
 
 func (d *Device) bindScratch(id uint32) {
+	gl.ActiveTexture(gl.TEXTURE0 + scratchUnit)
 	d.cache.BindTexture(scratchUnit, id)
 }
 
@@ -165,22 +166,11 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
 	for gl.GetError() != gl.NO_ERROR {
 	}
-	gl.ReadPixels(int32(x), int32(texH-y-h), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
+	gl.ReadPixels(int32(x), int32(y), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
 	if e := gl.GetError(); e != gl.NO_ERROR {
 		return errs.New(errs.GPUResource, "glReadPixels failed", log.F("gl", glErrorName(e)))
 	}
-	flipRows(out[:w*h*4], w*4, h)
 	return nil
-}
-
-func flipRows(buf []byte, stride, rows int) {
-	for top, bot := 0, rows-1; top < bot; top, bot = top+1, bot-1 {
-		a := buf[top*stride : top*stride+stride]
-		b := buf[bot*stride : bot*stride+stride]
-		for i := range a {
-			a[i], b[i] = b[i], a[i]
-		}
-	}
 }
 
 func (d *Device) CreateSampler(desc gpu.SamplerDesc) (gpu.SamplerHandle, error) {

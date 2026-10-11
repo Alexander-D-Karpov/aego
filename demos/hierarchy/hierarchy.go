@@ -4,15 +4,13 @@ import (
 	"aego/core/mathx"
 	"aego/demos"
 	"aego/demos/internal/app"
+	"aego/demos/internal/pipeline"
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
 	rendermodule "aego/render/module"
 	"aego/render/sprite"
 	"aego/scene"
-	"aego/scene/components"
-	"aego/scene/sceneio"
-	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -49,14 +47,8 @@ func (d *Demo) Module() *rendermodule.Module {
 
 func (d *Demo) Init(e *engine.Engine) error {
 	d.Attach(e, d.Module())
-	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
-		return err
-	}
-	if err := sceneio.RegisterUnknown(types); err != nil {
-		return err
-	}
-	if err := types.Schema().Freeze(); err != nil {
+	types, _, err := pipeline.Types()
+	if err != nil {
 		return err
 	}
 	s := scene.New(types, nil, scene.Options{})

@@ -1,0 +1,98 @@
+package scripteditor
+
+import (
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+
+	"aego/core/errs"
+	"aego/editor/code"
+	"aego/editor/context"
+	"aego/editor/document"
+	"aego/script/langsvc"
+	"aego/ui/core"
+)
+
+const (
+	stubNote = "Library stub generated from the engine bindings · read-only"
+	goNote   = "Go source · read-only"
+)
+
+func (h *Host) virtual(p string) (*document.ScriptDocument, error) {
+	switch {
+	case strings.HasPrefix(p, context.StubPrefix):
+		h.ensure()
+		st, ok := h.lang.Stub(p)
+		if !ok {
+			return nil, errs.New(errs.EditorDocument, "no library stub for "+strings.TrimPrefix(p, context.StubPrefix))
+		}
+		return &document.ScriptDocument{Path: p, Code: code.New([]byte(st.Text)), ReadOnly: true, Note: stubNote}, nil
+	case strings.HasPrefix(p, context.GoPrefix):
+		data, err := os.ReadFile(strings.TrimPrefix(p, context.GoPrefix))
+		if err != nil {
+			return nil, errs.Wrap(err, errs.EditorDocument, "cannot read the Go source")
+		}
+		return &document.ScriptDocument{Path: p, Code: code.New(data), ReadOnly: true, Note: goNote}, nil
+	}
+	return nil, errs.New(errs.EditorDocument, "unknown virtual document "+p)
+}
+
+func (h *Host) openStub(l langsvc.Location) bool {
+	st, ok := h.lang.Stub(l.Stub)
+	if !ok {
+		return false
+	}
+	h.Goto(context.At(l.Stub, st.Lines[l.Symbol]+1, 1))
+	return true
+}
+
+func (h *Host) openGo(loc string) bool {
+	i := strings.LastIndexByte(loc, ':')
+	if i <= 0 {
+		return false
+	}
+	line, err := strconv.Atoi(loc[i+1:])
+	if err != nil {
+		return false
+	}
+	if _, err := os.Stat(loc[:i]); err != nil {
+		return false
+	}
+	h.Goto(context.At(context.GoPrefix+loc[:i], line, 1))
+	return true
+}
+
+func (p *Panel) stubSource(ui *core.Context) {
+	if !strings.HasPrefix(p.doc.Path, context.StubPrefix) {
+		p.flash(ui.Time, "This is read-only Go source")
+		return
+	}
+	st, ok := p.host.lang.Stub(p.doc.Path)
+	if !ok {
+		return
+	}
+	cur := p.doc.Code.Line(p.doc.Code.Cursor())
+	type entry struct {
+		key  string
+		line int
+	}
+	var list []entry
+	for k, l := range st.Lines {
+		if k != "" {
+			list = append(list, entry{k, l})
+		}
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].line < list[j].line })
+	key := ""
+	for _, e := range list {
+		if e.line >= cur {
+			key = e.key
+			break
+		}
+	}
+	if loc := st.Locs[key]; loc != "" && p.host.openGo(loc) {
+		return
+	}
+	p.flash(ui.Time, "No Go source location is known for this declaration")
+}

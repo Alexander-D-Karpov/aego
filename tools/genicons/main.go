@@ -54,21 +54,31 @@ type fileJSON struct {
 }
 
 func main() {
-	src := flag.String("src", "../../engine/res/icons/src", "directory with <id>.svg sources")
+	src := flag.String("src", "../../engine/res/icons/src", "comma-separated directories with <id>.svg sources")
 	out := flag.String("out", "../../engine/res/icons", "output directory")
 	initSrc := flag.Bool("init", false, "write placeholder svgs for ids that have no source yet")
 	sizes := flag.String("sizes", "16,24", "icon sizes in logical pixels")
 	scales := flag.String("scales", "1,2", "atlas scales")
 	flag.Parse()
 
+	dirs := strings.Split(*src, ",")
 	if *initSrc {
-		if err := writePlaceholders(*src); err != nil {
+		if err := writePlaceholders(dirs[0]); err != nil {
 			fail(err)
 		}
 	}
-	icons, err := loadDir(*src)
-	if err != nil {
-		fail(err)
+	icons := map[string]icon{}
+	for _, dir := range dirs {
+		part, err := loadDir(strings.TrimSpace(dir))
+		if err != nil {
+			fail(err)
+		}
+		for id, ic := range part {
+			if _, dup := icons[id]; dup {
+				fail(errors.New("icon " + id + " is defined in more than one source directory"))
+			}
+			icons[id] = ic
+		}
 	}
 	if len(icons) == 0 {
 		fail(errors.New("no svg sources found, run with -init"))
@@ -465,8 +475,12 @@ func writePlaceholders(dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
+	all := placeholders()
+	for id, svg := range extraPlaceholders() {
+		all[id] = svg
+	}
 	written := 0
-	for id, svg := range placeholders() {
+	for id, svg := range all {
 		path := filepath.Join(dir, id+".svg")
 		if _, err := os.Stat(path); err == nil {
 			continue

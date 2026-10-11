@@ -1,6 +1,7 @@
 package vm_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -251,7 +252,7 @@ func TestSelfFields(t *testing.T) {
 	f := fn("Tick", 0, 1, 2, bc.ABx(bc.GETSF, 0, 1), bc.AsBx(bc.LOADI, 1, 1), bc.ABC(bc.ADDI, 0, 0, 1), bc.ABx(bc.SETSF, 0, 1), bc.ABC(bc.RET, 0, 1, 0))
 	f.Script = 0
 	mod := module(f)
-	mod.Scripts = []bc.ScriptDef{{FullName: "test.S", Slots: 2, Fields: []bc.FieldDef{{Name: "N", Type: "int", Slot: 1, Slots: 1}}, Ready: -1, FixedUpdate: -1, Update: -1}}
+	mod.Scripts = []bc.ScriptDef{{FullName: "test.S", Slots: 2, Fields: []bc.FieldDef{{Name: "N", Type: "int", Slot: 1, Slots: 1}}, Ready: -1, FixedUpdate: -1, Update: -1, Reloaded: -1}}
 	m, lm := load(t, mod, nil)
 	self := []vm.Value{{}, vm.Int(41)}
 	out, fl := m.Call(lm.Func("Tick"), self, nil)
@@ -386,5 +387,86 @@ func TestCallDoesNotAllocate(t *testing.T) {
 	m.Call(f, nil, args)
 	if n := testing.AllocsPerRun(200, func() { m.Call(f, nil, args) }); n != 0 {
 		t.Fatalf("call allocates %.1f objects", n)
+	}
+}
+
+func TestHostFaultKeepsCode(t *testing.T) {
+	m, lm := load(t, hostModule(), map[string]vm.HostFunc{"t.add": func(*vm.Machine, []vm.Value) error {
+		return &vm.Fault{Code: vm.CodeNil, Message: "node reference is nil"}
+	}})
+	if _, fl := m.Call(lm.Func("h"), nil, nil); fl == nil || fl.Code != vm.CodeNil {
+		t.Fatalf("fault %v", fl)
+	}
+	m, lm = load(t, hostModule(), map[string]vm.HostFunc{"t.add": func(*vm.Machine, []vm.Value) error {
+		return errors.New("plain")
+	}})
+	if _, fl := m.Call(lm.Func("h"), nil, nil); fl == nil || fl.Code != vm.CodeHost {
+		t.Fatalf("fault %v", fl)
+	}
+}
+
+func crossStruct(heap []uint16) (*bc.Module, *bc.Module) {
+	a := bc.NewModule("game/a")
+	a.Structs = []bc.StructDef{{Name: "game/a.P", Slots: 1, Fields: []bc.StructField{{Name: "S", Type: "string", Slot: 0, Slots: 1}}}}
+	b := bc.NewModule("game/b")
+	b.Scripts = []bc.ScriptDef{{
+		FullName: "game.b.S", Slots: 2, HeapSlots: heap,
+		Fields: []bc.FieldDef{{Name: "P", Type: "struct:game/a.P", Slot: 1, Slots: 1}},
+		Ready:  -1, FixedUpdate: -1, Update: -1, Reloaded: -1,
+	}}
+	return a, b
+}
+
+func TestLinkChecksCrossModuleRoots(t *testing.T) {
+	for _, tc := range []struct {
+		heap []uint16
+		ok   bool
+	}{{nil, false}, {[]uint16{1}, true}} {
+		a, b := crossStruct(tc.heap)
+		m := vm.New(vm.Options{})
+		la, err := m.Load(a, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lb, err := m.Load(b, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := vm.Link([]*vm.Module{la, lb}); (err == nil) != tc.ok {
+			t.Fatalf("heap %v: link err %v", tc.heap, err)
+		}
+	}
+}
+
+func TestBadHandle(t *testing.T) {
+	f := fn("bad", 0, 1, 2, bc.ABx(bc.LOADK, 0, 0), bc.ABC(bc.LENS, 1, 0, 0), bc.ABC(bc.RET, 1, 1, 0))
+	f.Consts = []bc.Const{bc.RawK(uint64(9)<<32|1, 0)}
+	_, fl, _ := run(t, module(f), "bad")
+	if fl == nil || fl.Code != vm.CodeBadHandle {
+		t.Fatalf("fault %v", fl)
+	}
+}
+
+func TestCallLinkFault(t *testing.T) {
+	m, lm := load(t, module(sumFunc()), nil)
+	if _, fl := m.Call(lm.Func("missing"), nil, nil); fl == nil || fl.Code != vm.CodeLink {
+		t.Fatalf("fault %v", fl)
+	}
+}
+
+func TestCollectRefusedDuringCall(t *testing.T) {
+	collected := true
+	m, lm := load(t, hostModule(), map[string]vm.HostFunc{"t.add": func(m *vm.Machine, w []vm.Value) error {
+		collected = m.Collect(nil)
+		return nil
+	}})
+	if _, fl := m.Call(lm.Func("h"), nil, nil); fl != nil {
+		t.Fatal(fl)
+	}
+	if collected {
+		t.Fatal("Collect ran with an active frame")
+	}
+	if !m.Collect(nil) {
+		t.Fatal("Collect refused at a safe point")
 	}
 }

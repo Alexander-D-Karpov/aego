@@ -8,8 +8,8 @@ import (
 	"aego/editor/document"
 	"aego/editor/history/commands"
 	"aego/editor/templates"
+	"aego/render2d"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
 	"aego/schema"
 )
@@ -28,7 +28,7 @@ func openSpinner(t *testing.T) *spinFixture {
 	rel := "scenes/play.aescene"
 	writeScene(t, p, rel, func(s *scene.Scene) {
 		cam := s.Create(s.Root(), "Camera")
-		*scene.Add[components.Camera2D](s, cam) = components.DefaultCamera2D()
+		*scene.Add[render2d.Camera2D](s, cam) = render2d.DefaultCamera2D()
 		s.Create(s.Root(), "Spinner")
 	})
 	s, err := Open(p, headless(), spinModule{})
@@ -107,7 +107,8 @@ func TestPlayCreatedNodesVanishOnStop(t *testing.T) {
 	ctx := f.s.App.Context()
 	pc := f.s.App.Play()
 	pc.Start(f.doc)
-	created, err := templates.Instantiate(ctx, templates.Empty(), ids.NodeID{}, -1, nil)
+	empty, _ := f.s.App.Templates().Get("engine.empty")
+	created, err := templates.Instantiate(ctx, empty, ids.NodeID{}, -1, nil)
 	if err != nil || len(created) != 1 {
 		t.Fatalf("create in play: %v %v", created, err)
 	}

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
@@ -27,7 +27,7 @@ const scriptScene = `scene version=1 {
 
 func TestScriptAttachmentRoundTrip(t *testing.T) {
 	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
+	if err := scriptcomp.Register(types); err != nil {
 		t.Fatal(err)
 	}
 	if err := sceneio.RegisterUnknown(types); err != nil {

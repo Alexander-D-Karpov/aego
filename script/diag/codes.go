@@ -57,6 +57,17 @@ const (
 	UnusedVar        = "AES2031"
 	SliceTooWide     = "AES2032"
 
+	YieldOutside       = "AES2050"
+	CoroutineCall      = "AES2051"
+	StartTarget        = "AES2052"
+	CoroutineDecl      = "AES2053"
+	HandlerMismatch    = "AES2054"
+	BadConnect         = "AES2055"
+	CoroutineLifecycle = "AES2056"
+	YieldArg           = "AES2057"
+	ScriptRefTarget    = "AES2058"
+	ScriptRefCall      = "AES2059"
+
 	NotExportable = "AES3001"
 	UnknownAttr   = "AES3002"
 	BadAttrArg    = "AES3003"
@@ -78,4 +89,17 @@ const (
 	UnknownHost = "AES5001"
 
 	BadBytecode = "AES6100"
+)
+
+const (
+	CodeBudget      = "AES6001"
+	CodeNativePanic = "AES6002"
+	CodeCallDepth   = "AES6003"
+	CodeNil         = "AES6004"
+	CodeIndex       = "AES6005"
+	CodeDivZero     = "AES6006"
+	CodeBadHandle   = "AES6007"
+	CodeExplicit    = "AES6008"
+	CodeLink        = "AES6009"
+	CodeHost        = "AES6010"
 )

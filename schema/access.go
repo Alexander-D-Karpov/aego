@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"aego/core/errs"
-	"aego/core/ids"
 	"aego/core/log"
 )
 
@@ -395,5 +394,3 @@ func (r *Registry) assignTo(rv reflect.Value, v Value, k Kind, structID TypeID, 
 	}
 	return nil
 }
-
-var _ = ids.AssetID{}

@@ -1,0 +1,137 @@
+File signals 1:1
+  Ident signals 1:9
+  Script 3:1
+    Ident Source 3:8
+    Signal 4:2
+      Ident Died 4:9
+      Param 4:14
+        Ident reason 4:14
+        NamedType 4:21
+          Ident string 4:21
+    Signal 5:2
+      Ident Scored 5:9
+      Param 5:16
+        Ident points 5:16
+        NamedType 5:23
+          Ident int 5:23
+    ScriptVar 7:2
+      Ident own 7:6
+      NamedType 7:10
+        Ident int 7:10
+    Func 9:2
+      Ident Ready 9:7
+      Block 9:15
+        ExprStmt 10:3
+          Call targs=0 args=1 10:3
+            Selector 10:3
+              Ident Scored 10:3
+              Ident Connect 10:10
+            Ident OnScore 10:18
+    Func 13:2
+      Ident Kill 13:7
+      Block 13:14
+        ExprStmt 14:3
+          Call targs=0 args=1 14:3
+            Selector 14:3
+              Ident Died 14:3
+              Ident Emit 14:8
+            BasicLit STRING "fall" 14:13
+        ExprStmt 15:3
+          Call targs=0 args=1 15:3
+            Selector 15:3
+              Ident Scored 15:3
+              Ident Emit 15:10
+            BasicLit INT 10 15:15
+    Func 18:2
+      Ident OnScore 18:7
+      Param 18:15
+        Ident points 18:15
+        NamedType 18:22
+          Ident int 18:22
+      Block 18:27
+        Assign += 19:3
+          Ident own 19:3
+          Ident points 19:10
+  Script 23:1
+    Ident Listener 23:8
+    ScriptVar 24:2
+      Attr 24:2
+        Ident export 24:3
+      Ident Target 24:14
+      NamedType 24:21
+        Ident NodeRef 24:21
+    ScriptVar 26:2
+      Ident conn 26:6
+      NamedType 26:11
+        Ident Connection 26:11
+    ScriptVar 27:2
+      Ident total 27:6
+      NamedType 27:12
+        Ident int 27:12
+    Func 29:2
+      Ident Ready 29:7
+      Block 29:15
+        If 30:3
+          Binary == 30:6
+            Ident Target 30:6
+            BasicLit nil nil 30:16
+          Block 30:20
+            Return 31:4
+        ShortVar 33:3
+          Ident src 33:3
+          Call targs=1 args=0 33:10
+            Selector 33:10
+              Ident Target 33:10
+              Ident GetScript 33:17
+            NamedType 33:27
+              Ident Source 33:27
+        If 34:3
+          Binary != 34:6
+            Ident src 34:6
+            BasicLit nil nil 34:13
+          Block 34:17
+            Assign = 35:4
+              Ident conn 35:4
+              Call targs=0 args=1 35:11
+                Selector 35:11
+                  Selector 35:11
+                    Ident src 35:11
+                    Ident Died 35:15
+                  Ident Connect 35:20
+                Ident OnDied 35:28
+            ExprStmt 36:4
+              Call targs=0 args=1 36:4
+                Selector 36:4
+                  Selector 36:4
+                    Ident src 36:4
+                    Ident Scored 36:8
+                  Ident Connect 36:15
+                Ident OnScored 36:23
+    Func 40:2
+      Ident OnDied 40:7
+      Param 40:14
+        Ident reason 40:14
+        NamedType 40:21
+          Ident string 40:21
+      Block 40:29
+        If 41:3
+          Call targs=0 args=0 41:6
+            Selector 41:6
+              Ident conn 41:6
+              Ident Connected 41:11
+          Block 41:23
+            ExprStmt 42:4
+              Call targs=0 args=0 42:4
+                Selector 42:4
+                  Ident conn 42:4
+                  Ident Disconnect 42:9
+    Func 46:2
+      Ident OnScored 46:7
+      Param 46:16
+        Ident points 46:16
+        NamedType 46:23
+          Ident int 46:23
+      Block 46:28
+        Assign += 47:3
+          Ident total 47:3
+          Ident points 47:12

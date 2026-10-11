@@ -31,6 +31,8 @@ type FieldDescriptor struct {
 	Offset     uintptr
 	Size       uintptr
 	Fast       bool
+	Direct     bool
+	Unsigned   bool
 	Min, Max   float64
 	HasMin     bool
 	HasMax     bool
@@ -69,21 +71,64 @@ const (
 	TypeScript
 )
 
-type TypeDescriptor struct {
-	ID       TypeID
-	FullName string
-	Former   []string
-	Version  uint32
-	Size     uintptr
-	Kind     TypeKind
+type TemplateDesc struct {
+	ID       string
+	Name     string
+	Node     string
+	Category string
+	Icon     string
 	Space    SpaceKind
-	Doc      string
-	Hidden   bool
-	Fields   []FieldDescriptor
-	index    map[string]int
-	byID     map[FieldID]int
-	New      func() unsafe.Pointer
-	Copy     func(dst, src unsafe.Pointer)
+	Owner    string
+	Builtin  bool
+	Setup    any
+}
+
+type ScriptMethod struct {
+	Name string
+	Fn   any
+	Bind any
+	Opts []any
+}
+
+type TypeDescriptor struct {
+	ID            TypeID
+	FullName      string
+	Former        []string
+	Version       uint32
+	Size          uintptr
+	Kind          TypeKind
+	Space         SpaceKind
+	Doc           string
+	Hidden        bool
+	DisplayName   string
+	Category      string
+	Icon          string
+	Owner         string
+	Builtin       bool
+	SceneUnique   bool
+	Requires      []string
+	Default       func() unsafe.Pointer
+	Template      *TemplateDesc
+	ScriptFields  []FieldID
+	ScriptMethods []ScriptMethod
+	Inspector     any
+	Fields        []FieldDescriptor
+	index         map[string]int
+	byID          map[FieldID]int
+	New           func() unsafe.Pointer
+	Copy          func(dst, src unsafe.Pointer)
+}
+
+func (t *TypeDescriptor) Scripted(fd *FieldDescriptor) bool {
+	if t.ScriptFields == nil {
+		return fd.Flags.Has(FlagScript)
+	}
+	for _, id := range t.ScriptFields {
+		if id == fd.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func (t *TypeDescriptor) Field(name string) (*FieldDescriptor, bool) {

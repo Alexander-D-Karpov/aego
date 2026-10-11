@@ -93,7 +93,19 @@ func Label(n Node) string {
 	case *EnumDecl:
 		return "Enum"
 	case *FuncDecl:
+		if x.Coroutine {
+			return "Func coroutine"
+		}
 		return "Func"
+	case *SignalDecl:
+		return "Signal"
+	case *StartExpr:
+		if x.Name != nil {
+			return "Start " + x.Name.Name
+		}
+		return "Start"
+	case *YieldStmt:
+		return "Yield " + x.Kind.String()
 	case *Param:
 		return "Param"
 	case *ScriptDecl:

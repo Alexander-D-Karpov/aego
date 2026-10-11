@@ -5,33 +5,27 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"time"
 
-	"aego/asset/loader"
+	"aego/app"
 	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/module"
 	"aego/project"
-	"aego/render"
-	rendermodule "aego/render/module"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/frame"
 	"aego/scene/sceneio"
-	"aego/scene/systems"
-	"aego/schema"
-	"aego/script/abi"
-	"aego/script/bind"
-	scriptmodule "aego/script/module"
+	"aego/script/reload"
 	scriptruntime "aego/script/runtime"
-	"aego/script/stdlib"
 	"aego/sdk"
 )
 
 type Config struct {
 	Headless   bool
+	FrameTime  float64
 	Frames     int
 	Hidden     bool
 	Debug      bool
@@ -43,24 +37,19 @@ type Config struct {
 }
 
 type App struct {
-	Project  *project.Project
-	Engine   *engine.Engine
-	Scene    *scene.Scene
-	Pipeline *pipeline.Pipeline
-	Loader   *loader.Loader
-	Runner   *systems.Runner
-	Renderer *render.Renderer
-	Scripts  *scriptruntime.Runtime
+	*app.Host
+	Scene   *scene.Scene
+	Runner  *frame.Runner
+	Scripts *scriptruntime.Runtime
 
-	cfg      Config
-	log      *log.ChannelLogger
-	stopW    func()
-	modules  []sdk.Module
-	registry *sdk.Registry
-	bindings *bind.Registry
-	types    *scene.Types
-	sceneID  ids.AssetID
-	driver   *sceneApp
+	cfg     Config
+	log     *log.ChannelLogger
+	stopW   func()
+	detach  func()
+	sceneID ids.AssetID
+	driver  *sceneApp
+	prog    reload.Program
+	target  uint64
 }
 
 func Main(mods ...sdk.Module) {
@@ -110,145 +99,70 @@ func fail(err error) {
 }
 
 func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
-	lg := cfg.Logger
-	if lg == nil {
-		lg = log.New(log.NewTextSink(os.Stderr))
-		if cfg.Debug {
-			lg.SetLevel(log.Debug)
-		}
-	}
 	if cfg.ScenePath != "" && !filepath.IsAbs(cfg.ScenePath) {
 		if _, err := os.Stat(cfg.ScenePath); err != nil {
 			cfg.ScenePath = filepath.Join(p.Root, cfg.ScenePath)
 		}
 	}
-	app := &App{Project: p, cfg: cfg, log: lg.With(log.Engine), modules: mods}
-
-	var surface abi.Surface
-	imps, err := Importers(p.Module, func() abi.Surface { return surface })
+	h, err := app.Build(p, app.Config{
+		Engine: engine.Config{
+			Title:             p.Window.Title,
+			Width:             p.Window.Width,
+			Height:            p.Window.Height,
+			Headless:          cfg.Headless,
+			HeadlessFrameTime: cfg.FrameTime,
+			Hidden:            cfg.Hidden,
+			Debug:             cfg.Debug,
+			AppID:             p.Module,
+		},
+		Logger:             cfg.Logger,
+		Debug:              cfg.Debug,
+		FailOnScriptErrors: true,
+	}, app.Adapt(mods)...)
 	if err != nil {
 		return nil, err
 	}
-	rmod := rendermodule.New(render.Options{MaxSprites: 65536})
-	builder := engine.NewBuilder(engine.Config{
-		Title:    p.Window.Title,
-		Width:    p.Window.Width,
-		Height:   p.Window.Height,
-		Headless: cfg.Headless,
-		Hidden:   cfg.Hidden,
-		Debug:    cfg.Debug,
-		AppID:    p.Module,
-		ResRoot:  p.AssetsDir(),
-	}).WithLogger(lg).Use(rmod).Use(scriptmodule.New())
-
-	app.types = NewTypes()
-	app.bindings = scriptmodule.Bindings(stdlib.Options{Input: &p.Input})
-	app.registry = &sdk.Registry{
-		Engine:    builder.Registry(),
-		Types:     app.types,
-		Importers: imps,
-		Script:    app.bindings,
-	}
-	app.Runner = systems.New()
-	if err := systems.Register(builder.Registry(), app.Runner); err != nil {
+	a := &App{Host: h, cfg: cfg, log: h.Log.With(log.Engine), Runner: frame.New()}
+	if err := a.start(); err != nil {
+		a.Close()
 		return nil, err
 	}
-	for _, m := range mods {
-		if err := m.Register(app.registry); err != nil {
-			return nil, errs.Wrap(err, errs.EngineModule, "user module registration failed").
-				With(log.F("module", m.Info().ID))
-		}
-	}
-	if err := app.types.Schema().Freeze(); err != nil {
-		return nil, err
-	}
-	if err := scriptmodule.Freeze(app.bindings, app.types.Schema()); err != nil {
-		return nil, errs.Wrap(err, errs.EngineModule, "script bindings are invalid")
-	}
-	surface = app.bindings.Surface()
-
-	app.Pipeline, err = pipeline.Open(p, imps, lg)
-	if err != nil {
-		return nil, err
-	}
-	if _, _, err := app.Pipeline.Scan(); err != nil {
-		return nil, err
-	}
-	batch, err := app.Pipeline.ImportAll()
-	if err != nil {
-		return nil, err
-	}
-	for id, ierr := range batch.Failed {
-		app.log.Error("asset import failed", log.F("asset", id.String()), log.F("err", ierr.Error()))
-	}
-	if bad := ScriptErrors(app.Pipeline); len(bad) > 0 {
-		msg := strings.Join(bad, "\n")
-		if si := ScriptImporter(imps); si != nil {
-			if r := si.Report(); r != "" {
-				msg = r
-			}
-		}
-		app.Pipeline.Close()
-		return nil, errs.New(errs.BuildFailed, "script packages have errors, fix them before running:\n"+msg)
-	}
-
-	eng, err := builder.Build()
-	if err != nil {
-		return nil, err
-	}
-	app.Engine = eng
-	app.Renderer = rmod.Renderer()
-
-	app.Loader = loader.New(eng.GPU(), app.Renderer.Textures(), lg)
-	if err := app.Loader.Mount(app.Pipeline.Index(), app.Pipeline.Artifacts()); err != nil {
-		return nil, err
-	}
-	eng.SetService(loader.ServiceID, app.Loader)
-	eng.SetService(rendermodule.ServiceID, app.Renderer)
-
-	app.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: app.bindings, Schema: app.types.Schema(), Log: lg})
-	if err := app.linkScripts(); err != nil {
-		return nil, err
-	}
-	eng.SetService(scriptruntime.ServiceID, app.Scripts)
-
-	sceneID := cfg.SceneID
-	if sceneID.IsZero() {
-		sceneID = p.MainScene
-	}
-	if err := app.loadScene(app.types, sceneID, cfg.ScenePath); err != nil {
-		return nil, err
-	}
-	app.sceneID = sceneID
-	eng.SetService(scene.ServiceID, app.Scene)
-	app.Runner.Bind(app.Scene, app.Renderer, app.Loader)
-	if err := app.Scripts.Instantiate(app.Scene); err != nil {
-		return nil, err
-	}
-	return app, nil
+	return a, nil
 }
 
-func (a *App) linkScripts() error {
-	blobs, err := a.Loader.Scripts()
+func (a *App) start() error {
+	a.Engine.SetService(frame.ServiceID, a.Runner)
+	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log})
+	if err := a.linkScripts(); err != nil {
+		return err
+	}
+	a.Engine.SetService(scriptruntime.ServiceID, a.Scripts)
+	a.sceneID = a.cfg.SceneID
+	if a.sceneID.IsZero() {
+		a.sceneID = a.Project.MainScene
+	}
+	if err := a.loadScene(a.Types, a.sceneID, a.cfg.ScenePath); err != nil {
+		return err
+	}
+	a.Engine.SetService(scene.ServiceID, a.Scene)
+	a.Runner.Bind(a.Scene, a.Renderer, a.Loader)
+	if err := a.Scripts.Instantiate(a.Scene); err != nil {
+		return err
+	}
+	return a.attach()
+}
+
+func (a *App) attach() error {
+	if a.detach != nil {
+		a.detach()
+		a.detach = nil
+	}
+	d, err := a.Modules.Attach(&module.AttachContext{World: a.Engine.MainWorld(), Scene: a.Scene, Log: a.Engine.Log()})
 	if err != nil {
 		return err
 	}
-	mods, err := scriptruntime.DecodeAll(blobs)
-	if err != nil {
-		return err
-	}
-	return a.Scripts.Link(mods)
-}
-
-func NewTypes() *scene.Types {
-	t := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(t); err != nil {
-		panic("aego: builtin components failed to register: " + err.Error())
-	}
-	if err := sceneio.RegisterUnknown(t); err != nil {
-		panic("aego: unknown component holder failed to register: " + err.Error())
-	}
-	return t
+	a.detach = d
+	return nil
 }
 
 func (a *App) loadScene(types *scene.Types, id ids.AssetID, path string) error {
@@ -351,21 +265,20 @@ func (a *App) Close() {
 		a.stopW()
 		a.stopW = nil
 	}
+	if a.detach != nil {
+		a.detach()
+		a.detach = nil
+	}
 	if a.Scripts != nil {
 		a.Scripts.Close()
 	}
-	if a.Loader != nil {
-		a.Loader.Close()
-	}
-	if a.Pipeline != nil {
-		a.Pipeline.Close()
-	}
+	a.Host.Close()
 }
 
 func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
-	app, err := Open(p, cfg, mods...)
+	a, err := Open(p, cfg, mods...)
 	if err != nil {
 		return err
 	}
-	return app.Run()
+	return a.Run()
 }

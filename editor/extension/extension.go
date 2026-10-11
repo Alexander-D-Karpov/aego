@@ -2,35 +2,21 @@ package extension
 
 import (
 	"fmt"
-	"reflect"
 
+	"aego/asset"
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/editor/command"
 	"aego/editor/context"
 	"aego/editor/gizmo"
 	"aego/editor/inspector"
+	"aego/editor/shape"
 	"aego/editor/templates"
 	"aego/editor/workspace"
-	"aego/engine"
 	"aego/scene"
 	"aego/schema"
 )
-
-type Module interface {
-	RegisterEditor(*Registry) error
-}
-
-type named interface {
-	Info() engine.ModuleInfo
-}
-
-func ModuleID(m any) string {
-	if n, ok := m.(named); ok && n.Info().ID != "" {
-		return n.Info().ID
-	}
-	return reflect.TypeOf(m).String()
-}
 
 type Deps struct {
 	Editor     *context.Editor
@@ -38,13 +24,13 @@ type Deps struct {
 	Inspectors *inspector.Registry
 	Gizmos     *gizmo.Registry
 	Templates  *templates.Registry
+	Shapes     *shape.Registry
 	Commands   *command.Registry
 	Schema     *schema.Registry
 }
 
 type owned struct {
 	panels     []string
-	templates  []string
 	commands   []string
 	gizmos     []schema.TypeID
 	inspectors []schema.TypeID
@@ -88,12 +74,17 @@ func safeCall(fn func() error) (err error) {
 	return fn()
 }
 
-func (r *Registry) Load(m Module) error {
-	id := ModuleID(m)
-	r.current = id
+func (r *Registry) Run(owner string, fn any) error {
+	h, ok := fn.(func(*Registry) error)
+	if !ok {
+		err := errs.New(errs.EditorPanel, "editor hook of "+owner+" has the unsupported type "+fmt.Sprintf("%T", fn), log.F("module", owner))
+		r.disableNow(owner, err.Error())
+		return err
+	}
+	r.current = owner
 	defer func() { r.current = "" }()
-	if err := safeCall(func() error { return m.RegisterEditor(r) }); err != nil {
-		r.disableNow(id, err.Error())
+	if err := safeCall(func() error { return h(r) }); err != nil {
+		r.disableNow(owner, err.Error())
 		return err
 	}
 	return nil
@@ -136,9 +127,6 @@ func (r *Registry) disableNow(id, reason string) {
 		for _, p := range o.panels {
 			r.deps.Workspace.Unregister(p)
 		}
-		for _, t := range o.templates {
-			r.deps.Templates.Unregister(t)
-		}
 		for _, c := range o.commands {
 			r.deps.Commands.Unregister(c)
 		}
@@ -148,6 +136,12 @@ func (r *Registry) disableNow(id, reason string) {
 		for _, t := range o.inspectors {
 			r.deps.Inspectors.Disable(t, reason)
 		}
+	}
+	if r.deps.Shapes != nil {
+		r.deps.Shapes.Remove(id)
+	}
+	if r.deps.Templates != nil {
+		r.deps.Templates.RemoveDrops(id)
 	}
 	if r.deps.Editor != nil {
 		r.deps.Editor.Notify(context.LevelError, "extension "+id+" was disabled: "+reason)
@@ -167,7 +161,15 @@ func Safe(id string, r *Registry, fn func()) {
 	fn()
 }
 
-func (r *Registry) RegisterPanel(p workspace.Panel) error {
+func (r *Registry) typeOf(fullName string) (*schema.TypeDescriptor, error) {
+	td, ok := r.deps.Schema.ByName(fullName)
+	if !ok || td.Kind != schema.TypeComponent {
+		return nil, errs.New(errs.SchemaUnknownType, "component is not registered", log.F("type", fullName), log.F("module", r.ext()))
+	}
+	return td, nil
+}
+
+func (r *Registry) Panel(p workspace.Panel) error {
 	ext := r.ext()
 	if err := r.deps.Workspace.Register(&safePanel{inner: p, ext: ext, reg: r}); err != nil {
 		return err
@@ -177,53 +179,77 @@ func (r *Registry) RegisterPanel(p workspace.Panel) error {
 	return nil
 }
 
-func (r *Registry) RegisterInspector(t schema.TypeID, c inspector.Custom) error {
+func (r *Registry) Inspector(fullName string, c inspector.Custom) error {
+	td, err := r.typeOf(fullName)
+	if err != nil {
+		return err
+	}
 	ext := r.ext()
-	if err := r.deps.Inspectors.RegisterCustomID(t, &safeCustom{inner: c, ext: ext, reg: r}); err != nil {
+	if err := r.deps.Inspectors.RegisterCustomID(td.ID, &safeCustom{inner: c, ext: ext, reg: r}); err != nil {
 		return err
 	}
 	o := r.own(ext)
-	o.inspectors = append(o.inspectors, t)
+	o.inspectors = append(o.inspectors, td.ID)
 	return nil
 }
 
-func (r *Registry) RegisterGizmo(t schema.TypeID, g gizmo.Gizmo) error {
+func (r *Registry) Gizmo(fullName string, g gizmo.Gizmo) error {
+	td, err := r.typeOf(fullName)
+	if err != nil {
+		return err
+	}
 	ext := r.ext()
-	if err := r.deps.Gizmos.Register(t, &safeGizmo{inner: g, ext: ext, reg: r}); err != nil {
+	if err := r.deps.Gizmos.Register(td.ID, &safeGizmo{inner: g, ext: ext, reg: r}); err != nil {
 		return err
 	}
 	o := r.own(ext)
-	o.gizmos = append(o.gizmos, t)
+	o.gizmos = append(o.gizmos, td.ID)
 	return nil
 }
 
-func (r *Registry) RegisterTemplate(t templates.Template) error {
+func (r *Registry) Bounds(fullName string, fn shape.Func) error {
+	td, err := r.typeOf(fullName)
+	if err != nil {
+		return err
+	}
 	ext := r.ext()
-	if t.Module == "" {
-		t.Module = ext
-	}
-	build := t.Build
-	if build == nil {
-		return errs.New(errs.EditorPanel, "template needs a build function", log.F("template", t.ID))
-	}
-	t.Build = func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
+	return r.deps.Shapes.Register(ext, td.ID, func(s *scene.Scene, res asset.Resolver, h scene.NodeHandle) (sh shape.Shape, ok bool) {
 		defer func() {
 			if rec := recover(); rec != nil {
 				r.Disable(ext, fmt.Sprint(rec))
-				panic(rec)
+				sh, ok = shape.Shape{}, false
 			}
 		}()
-		return build(s, parent)
-	}
-	if err := r.deps.Templates.Register(t); err != nil {
-		return err
-	}
-	o := r.own(ext)
-	o.templates = append(o.templates, t.ID)
-	return nil
+		return fn(s, res, h)
+	})
 }
 
-func (r *Registry) RegisterCommand(d command.Desc) error {
+func (r *Registry) Overlay(fn shape.Overlay) {
+	ext := r.ext()
+	r.deps.Shapes.AddOverlay(ext, func(c *shape.OverlayCtx) {
+		Safe(ext, r, func() { fn(c) })
+	})
+}
+
+func (r *Registry) AssetDrop(kind string, space scene.Space, setup func(*scene.Scene, scene.NodeHandle, ids.AssetID)) error {
+	ext := r.ext()
+	return r.deps.Templates.AddDrop(templates.Drop{
+		Owner: ext,
+		Kind:  kind,
+		Space: space,
+		Setup: func(s *scene.Scene, h scene.NodeHandle, id ids.AssetID) {
+			defer func() {
+				if rec := recover(); rec != nil {
+					r.Disable(ext, fmt.Sprint(rec))
+					panic(rec)
+				}
+			}()
+			setup(s, h, id)
+		},
+	})
+}
+
+func (r *Registry) Command(d command.Desc) error {
 	ext := r.ext()
 	run, enabled := d.Run, d.Enabled
 	if run == nil {
@@ -258,29 +284,4 @@ func (r *Registry) RegisterCommand(d command.Desc) error {
 	o := r.own(ext)
 	o.commands = append(o.commands, d.ID)
 	return nil
-}
-
-func typeID[T any](r *Registry) (schema.TypeID, error) {
-	rt := reflect.TypeFor[T]()
-	td, ok := r.deps.Schema.ByGoType(rt)
-	if !ok {
-		return 0, errs.New(errs.SchemaUnknownType, "type is not registered as a component", log.F("type", rt.String()))
-	}
-	return td.ID, nil
-}
-
-func RegisterInspector[T any](r *Registry, c inspector.Custom) error {
-	t, err := typeID[T](r)
-	if err != nil {
-		return err
-	}
-	return r.RegisterInspector(t, c)
-}
-
-func RegisterGizmo[T any](r *Registry, g gizmo.Gizmo) error {
-	t, err := typeID[T](r)
-	if err != nil {
-		return err
-	}
-	return r.RegisterGizmo(t, g)
 }

@@ -32,8 +32,6 @@ func Module(m *bytecode.Module) []diag.Diagnostic {
 		if t.Width == 0 || t.Width > 32 || t.Mask>>t.Width != 0 {
 			v.bad("type t%d has width %d and mask %#x", i, t.Width, t.Mask)
 		}
-		// Element strings must round-trip through abi; for a non-struct the
-		// declared width must equal the element's slot count.
 		if elem, ok := abi.Parse(t.Elem); !ok {
 			v.bad("type t%d has an unparsable element %q", i, t.Elem)
 		} else if elem.Kind != abi.Struct && int(t.Width) != elem.Slots() {
@@ -41,11 +39,12 @@ func Module(m *bytecode.Module) []diag.Diagnostic {
 		}
 	}
 	for i, imp := range m.Imports {
-		if imp.Sig.Window() > 255 {
+		if imp.Sig.Window() > bytecode.MaxRegisters {
 			v.bad("import h%d %s.%s needs more than 255 registers", i, imp.Module, imp.Name)
 		}
 	}
 	v.unique()
+	v.tables()
 	for i := range m.Scripts {
 		v.script(i)
 	}
@@ -60,8 +59,6 @@ func (v *verifier) bad(format string, args ...any) {
 	v.diags = append(v.diags, diag.Errorf(diag.BadBytecode, source.Span{}, "module %s: "+format, args...))
 }
 
-// unique rejects duplicate names: the linker resolves functions and externs by
-// Name, scripts by FullName, so duplicates make linking non-deterministic.
 func (v *verifier) unique() {
 	m := v.m
 	fn := map[string]bool{}
@@ -97,56 +94,85 @@ func (v *verifier) unique() {
 	}
 }
 
+func (v *verifier) tables() {
+	m := v.m
+	for i, r := range m.ScriptRefs {
+		if r == "" {
+			v.bad("script ref s%d is empty", i)
+		}
+	}
+	if len(m.XFields) > bytecode.MaxScriptFieldRefs {
+		v.bad("module references %d script fields, more than %d", len(m.XFields), bytecode.MaxScriptFieldRefs)
+	}
+	for i, x := range m.XFields {
+		if int(x.Ref) >= len(m.ScriptRefs) {
+			v.bad("xfield f%d refers to missing script ref s%d", i, x.Ref)
+		}
+		if x.Name == "" || x.Slots == 0 {
+			v.bad("xfield f%d is malformed", i)
+		}
+		if _, ok := abi.Parse(x.Type); !ok {
+			v.bad("xfield f%d has an unparsable type %q", i, x.Type)
+		}
+	}
+	for i, x := range m.XMethods {
+		if int(x.Ref) >= len(m.ScriptRefs) {
+			v.bad("xmethod m%d refers to missing script ref s%d", i, x.Ref)
+		}
+		if x.Name == "" || int(x.Params)+1 > bytecode.MaxRegisters {
+			v.bad("xmethod m%d is malformed", i)
+		}
+	}
+	for i, c := range m.Connects {
+		if c.Source == "" || c.Signal == "" || c.Target == "" || c.Handler == "" {
+			v.bad("connect c%d is malformed", i)
+		}
+	}
+}
+
 func (v *verifier) script(si int) {
 	s := &v.m.Scripts[si]
-	heap := map[uint16]bool{}
 	for _, h := range s.HeapSlots {
 		if h >= s.Slots {
 			v.bad("script %s heap slot %d is out of %d", s.FullName, h, s.Slots)
 		}
-		heap[h] = true
 	}
-	// Slot 0 of every instance is node (D97); fields are laid out consecutively
-	// from slot 1, a contiguous sequence that must end exactly at Slots.
 	next := 1
 	for _, f := range s.Fields {
 		if f.Slots == 0 || int(f.Slot) != next {
 			v.bad("script %s field %s at slot %d, expected %d", s.FullName, f.Name, f.Slot, next)
 		}
-		v.fieldHeap(s, f, heap)
 		next += int(f.Slots)
 	}
 	if next != int(s.Slots) {
 		v.bad("script %s fields occupy %d slots of %d", s.FullName, next, s.Slots)
 	}
-	v.lifecycle(si, "Ready", s.Ready, 0)
-	v.lifecycle(si, "FixedUpdate", s.FixedUpdate, 1)
-	v.lifecycle(si, "Update", s.Update, 1)
-}
-
-// fieldHeap checks HeapSlots against the field's type: a String/Slice field's
-// slot must be a GC root; a definitely-non-heap field's slots must not be.
-// A struct flattens nested string/slice slots into its range and their offsets
-// are not recoverable from the type string, so struct fields are skipped.
-func (v *verifier) fieldHeap(s *bytecode.ScriptDef, f bytecode.FieldDef, heap map[uint16]bool) {
-	t, ok := abi.Parse(f.Type)
-	if !ok {
-		v.bad("script %s field %s has an unparsable type %q", s.FullName, f.Name, f.Type)
-		return
+	local := make(map[string]*bytecode.StructDef, len(v.m.Structs))
+	for i := range v.m.Structs {
+		local[v.m.Structs[i].Name] = &v.m.Structs[i]
 	}
-	switch t.Kind {
-	case abi.String, abi.Slice:
-		if !heap[f.Slot] {
-			v.bad("script %s field %s is a heap value but slot %d is not a GC root", s.FullName, f.Name, f.Slot)
+	for _, msg := range ScriptRoots(s, local, false) {
+		v.bad("%s", msg)
+	}
+	seen := map[string]bool{}
+	for _, sg := range s.Signals {
+		if sg.Name == "" || seen[sg.Name] {
+			v.bad("script %s has an empty or duplicate signal %q", s.FullName, sg.Name)
 		}
-	case abi.Struct:
-	default:
-		for sl := int(f.Slot); sl < int(f.Slot)+int(f.Slots); sl++ {
-			if heap[uint16(sl)] {
-				v.bad("script %s field %s is not a heap value but slot %d is a GC root", s.FullName, f.Name, sl)
+		seen[sg.Name] = true
+		if int(sg.Slots) < len(sg.Params) {
+			v.bad("script %s signal %s has %d params in %d slots", s.FullName, sg.Name, len(sg.Params), sg.Slots)
+		}
+		for _, p := range sg.Params {
+			if p.Kind == abi.Void {
+				v.bad("script %s signal %s has a void parameter", s.FullName, sg.Name)
 			}
 		}
 	}
+	v.lifecycle(si, "Ready", s.Ready, 0)
+	v.lifecycle(si, "FixedUpdate", s.FixedUpdate, 1)
+	v.lifecycle(si, "Update", s.Update, 1)
+	v.lifecycle(si, "Reloaded", s.Reloaded, 0)
 }
 
 func (v *verifier) lifecycle(si int, name string, idx int32, params uint8) {
@@ -159,8 +185,8 @@ func (v *verifier) lifecycle(si int, name string, idx int32, params uint8) {
 		return
 	}
 	f := &v.m.Functions[idx]
-	if f.Script != int32(si) || f.Params != params || f.Results != 0 {
-		v.bad("script %s %s refers to %s with the wrong owner or arity", s.FullName, name, f.Name)
+	if f.Script != int32(si) || f.Params != params || f.Results != 0 || f.Coroutine {
+		v.bad("script %s %s refers to %s with the wrong owner, arity or kind", s.FullName, name, f.Name)
 	}
 }
 
@@ -176,6 +202,9 @@ func (v *verifier) function(fi int) {
 	}
 	if f.Script < bytecode.NoScript || int(f.Script) >= len(m.Scripts) {
 		bad(-1, "script index %d is out of range", f.Script)
+	}
+	if f.Coroutine && (f.Script == bytecode.NoScript || f.Results != 0) {
+		bad(-1, "a coroutine must be a script method without results")
 	}
 	if len(f.Code) == 0 {
 		bad(-1, "function has no code")
@@ -264,6 +293,33 @@ func (v *verifier) operand(f *bytecode.Function, pc int, k bytecode.Operand, x i
 		if x > 1 {
 			bad(pc, "bool operand %d", x)
 		}
+	case bytecode.OpYield:
+		if x > int(bytecode.MaxWait) {
+			bad(pc, "yield kind %d does not exist", x)
+		}
+	case bytecode.OpSignal:
+		switch {
+		case f.Script < 0 || int(f.Script) >= len(m.Scripts):
+			bad(pc, "signal access outside a script method")
+		case x >= len(m.Scripts[f.Script].Signals):
+			bad(pc, "signal g%d is out of %d", x, len(m.Scripts[f.Script].Signals))
+		}
+	case bytecode.OpConnect:
+		if x >= len(m.Connects) {
+			bad(pc, "connect c%d does not exist", x)
+		}
+	case bytecode.OpScriptRef:
+		if x >= len(m.ScriptRefs) {
+			bad(pc, "script ref s%d does not exist", x)
+		}
+	case bytecode.OpXField:
+		if x >= len(m.XFields) {
+			bad(pc, "xfield f%d does not exist", x)
+		}
+	case bytecode.OpXMethod:
+		if x >= len(m.XMethods) {
+			bad(pc, "xmethod m%d does not exist", x)
+		}
 	}
 }
 
@@ -271,9 +327,9 @@ func (v *verifier) special(f *bytecode.Function, pc int, in bytecode.Instr, bad 
 	m := v.m
 	regs := int(f.Registers)
 	a, b, c, bx := int(in.A()), int(in.B()), int(in.C()), int(in.Bx())
-	window := func(n int) {
-		if a+n > regs {
-			bad(pc, "call window r%d..r%d exceeds %d registers", a, a+n-1, regs)
+	window := func(at, n int) {
+		if at+n > regs {
+			bad(pc, "window r%d..r%d exceeds %d registers", at, at+n-1, regs)
 		}
 	}
 	switch in.Op() {
@@ -289,22 +345,57 @@ func (v *verifier) special(f *bytecode.Function, pc int, in bytecode.Instr, bad 
 	case bytecode.CALL:
 		if bx < len(m.Functions) {
 			callee := &m.Functions[bx]
-			window(max(int(callee.Params), int(callee.Results)))
-			// A CALL passes the caller's self; calling another script's method
-			// (or any method from a package function) would hand it the wrong
-			// instance. CALLX's equivalent is enforced by the linker.
+			window(a, max(int(callee.Params), int(callee.Results)))
 			if callee.Script != bytecode.NoScript && callee.Script != f.Script {
 				bad(pc, "CALL to method %s of another script", callee.Name)
+			}
+			if callee.Coroutine {
+				bad(pc, "CALL to coroutine %s, use START", callee.Name)
 			}
 		}
 	case bytecode.CALLX:
 		if bx < len(m.Externs) {
 			e := m.Externs[bx]
-			window(max(int(e.Params), int(e.Results)))
+			window(a, max(int(e.Params), int(e.Results)))
 		}
 	case bytecode.CALLH:
 		if bx < len(m.Imports) {
-			window(m.Imports[bx].Sig.Window())
+			window(a, m.Imports[bx].Sig.Window())
+		}
+	case bytecode.START:
+		if bx < len(m.Functions) {
+			callee := &m.Functions[bx]
+			if !callee.Coroutine || callee.Script != f.Script || f.Script == bytecode.NoScript {
+				bad(pc, "START of %s, which is not a coroutine of this script", callee.Name)
+			}
+			window(a, max(int(callee.Params), 1))
+		}
+	case bytecode.YIELD:
+		if !f.Coroutine {
+			bad(pc, "YIELD outside a coroutine")
+		}
+	case bytecode.EMIT:
+		if f.Script >= 0 && int(f.Script) < len(m.Scripts) && bx < len(m.Scripts[f.Script].Signals) {
+			window(a, int(m.Scripts[f.Script].Signals[bx].Slots))
+		}
+	case bytecode.CONNECT:
+		window(a, 3)
+	case bytecode.GETXF:
+		if c < len(m.XFields) {
+			window(a, int(m.XFields[c].Slots))
+		}
+	case bytecode.SETXF:
+		if c < len(m.XFields) {
+			window(b, int(m.XFields[c].Slots))
+		}
+	case bytecode.CALLR:
+		if bx < len(m.XMethods) {
+			x := m.XMethods[bx]
+			window(a, max(int(x.Params)+1, int(x.Results)))
+		}
+	case bytecode.SELFREF:
+		if f.Script == bytecode.NoScript {
+			bad(pc, "SELFREF outside a script method")
 		}
 	case bytecode.RET:
 		if b != int(f.Results) || a+b > regs {

@@ -102,6 +102,8 @@ func (c *fn) exprTo(e ast.Expr, dst int) {
 		c.selectorTo(e, dst)
 	case *ast.CallExpr:
 		c.callTo(e, dst, true)
+	case *ast.StartExpr:
+		c.startTo(e, dst)
 	case *ast.UnaryExpr:
 		c.unaryTo(e, dst)
 	case *ast.BinaryExpr:
@@ -120,6 +122,7 @@ const (
 	pIndex
 	pComp
 	pLane
+	pXField
 )
 
 type place struct {
@@ -170,7 +173,7 @@ func (c *fn) placeOf(e ast.Expr) (place, bool) {
 				p.reg += sel.Field.Slot
 			case pSelf:
 				p.slot += sel.Field.Slot
-			case pIndex:
+			case pIndex, pXField:
 				p.off += sel.Field.Slot
 			default:
 				return place{}, false
@@ -185,6 +188,10 @@ func (c *fn) placeOf(e ast.Expr) (place, bool) {
 			return place{kind: pLane, lane: sel.Field.Lane, inner: &p, n: 1}, true
 		case checker.SelComponentField:
 			return place{kind: pComp, reg: c.operand(e.X), field: sel.Comp.Index, n: 1}, true
+		case checker.SelScriptField:
+			r := c.operand(e.X)
+			w := sel.ScriptField.Type.Slots()
+			return place{kind: pXField, reg: r, field: c.u.xfield(sel.Script, sel.ScriptField), width: w, n: w}, true
 		}
 	case *ast.IndexExpr:
 		s := c.operand(e.X)
@@ -214,6 +221,14 @@ func (c *fn) load(p place, dst int) {
 		t := c.alloc(p.width)
 		c.b.ABC(bytecode.INDEX, t, p.reg, p.idx)
 		c.move(dst, t+p.off, p.n)
+	case pXField:
+		if p.off == 0 && p.n == p.width {
+			c.b.ABC(bytecode.GETXF, dst, p.reg, p.field)
+			break
+		}
+		t := c.alloc(p.width)
+		c.b.ABC(bytecode.GETXF, t, p.reg, p.field)
+		c.move(dst, t+p.off, p.n)
 	case pLane:
 		t := c.alloc(1)
 		c.load(*p.inner, t)
@@ -242,6 +257,15 @@ func (c *fn) store(p place, src int) {
 		c.b.ABC(bytecode.INDEX, t, p.reg, p.idx)
 		c.move(t+p.off, src, p.n)
 		c.b.ABC(bytecode.SETINDEX, p.reg, p.idx, t)
+	case pXField:
+		if p.off == 0 && p.n == p.width {
+			c.b.ABC(bytecode.SETXF, p.reg, src, p.field)
+			break
+		}
+		t := c.alloc(p.width)
+		c.b.ABC(bytecode.GETXF, t, p.reg, p.field)
+		c.move(t+p.off, src, p.n)
+		c.b.ABC(bytecode.SETXF, p.reg, t, p.field)
 	case pLane:
 		t := c.alloc(1)
 		c.load(*p.inner, t)
@@ -277,7 +301,7 @@ func (c *fn) invoke(op bytecode.Opcode, idx int, args []ast.Expr, params []int, 
 	for _, n := range params {
 		total += n
 	}
-	window := max(total, results)
+	window := max(total, results, 1)
 	w := c.alloc(window)
 	off := 0
 	for i, a := range args {
@@ -326,17 +350,13 @@ func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 		c.convert(e, call.Type, dst)
 	case checker.CallFunc, checker.CallMethod:
 		f := call.Func
-		params := make([]int, len(f.Params))
-		for i, p := range f.Params {
-			params[i] = p.Type.Slots()
-		}
 		op, idx := bytecode.CALL, 0
 		if i, ok := c.u.funcs[f]; ok && f.Pkg == c.u.pkg.Path {
 			idx = i
 		} else {
 			op, idx = bytecode.CALLX, c.u.extern(f)
 		}
-		c.invoke(op, idx, e.Args, params, f.Result.Slots(), dst, want)
+		c.invoke(op, idx, e.Args, funcSlots(f), f.Result.Slots(), dst, want)
 	case checker.CallHost:
 		imp := c.u.hostImport(call.Module, call.Name, call.Sig)
 		c.invoke(bytecode.CALLH, imp, e.Args, refSlots(call.Sig.Params), call.Sig.ResultSlots(), dst, want)
@@ -354,6 +374,8 @@ func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 		sig := abi.Sig(res, abi.T(abi.NodeRef))
 		imp := c.u.hostImport("#NodeRef", name, sig)
 		c.invoke(bytecode.CALLH, imp, []ast.Expr{call.Recv}, []int{1}, 1, dst, want)
+	default:
+		c.asyncCall(e, call, dst, want)
 	}
 }
 

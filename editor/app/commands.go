@@ -13,7 +13,6 @@ import (
 	"aego/editor/workspace"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
 )
 
 const (
@@ -115,7 +114,11 @@ func (a *App) registerCommands() error {
 		{ID: command.SceneCreateNode, Name: "Create Empty", Category: "Scene", Order: 400,
 			Shortcut: command.Key(input.KeyN, command.ModPrimary|command.ModShift), Enabled: hasDoc,
 			Run: func() error {
-				_, err := templates.Instantiate(ctx, templates.Empty(), ids.NodeID{}, -1, nil)
+				t, ok := a.templates.Get("engine.empty")
+				if !ok {
+					return nil
+				}
+				_, err := templates.Instantiate(ctx, t, ids.NodeID{}, -1, nil)
 				return err
 			}},
 
@@ -236,6 +239,9 @@ func (a *App) togglePlay() error {
 		a.stopPlay()
 		return nil
 	}
+	if a.opt.Code != nil {
+		a.opt.Code.FlushAutosave()
+	}
 	var err error
 	if d := a.ctx.Docs.Edit(); d != nil {
 		err = a.play.Start(d)
@@ -277,8 +283,7 @@ func (a *App) newScene() error {
 		res = a.ctx.Loader
 	}
 	s := scene.New(a.opt.Types, res, scene.Options{})
-	cam := s.Create(s.Root(), "Camera")
-	*scene.Add[components.Camera2D](s, cam) = components.DefaultCamera2D()
+	a.templates.Spawn(s, s.Root(), "render2d.camera")
 	s.Flush()
 	rel := a.ctx.Docs.UniquePath("scenes/untitled.aescene")
 	a.ctx.Docs.New(rel, s)

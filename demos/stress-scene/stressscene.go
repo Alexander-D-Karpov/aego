@@ -5,15 +5,14 @@ import (
 	"aego/core/rng"
 	"aego/demos"
 	"aego/demos/internal/app"
+	"aego/demos/internal/pipeline"
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
 	rendermodule "aego/render/module"
 	"aego/render/sprite"
+	"aego/render2d"
 	"aego/scene"
-	"aego/scene/components"
-	"aego/scene/sceneio"
-	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -64,14 +63,8 @@ func (d *Demo) Module() *rendermodule.Module {
 
 func (d *Demo) Init(e *engine.Engine) error {
 	d.Attach(e, d.Module())
-	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
-		return err
-	}
-	if err := sceneio.RegisterUnknown(types); err != nil {
-		return err
-	}
-	if err := types.Schema().Freeze(); err != nil {
+	types, _, err := pipeline.Types()
+	if err != nil {
 		return err
 	}
 	s := scene.New(types, nil, scene.Options{InitialNodes: parents * (children + 1)})
@@ -94,8 +87,8 @@ func (d *Demo) Init(e *engine.Engine) error {
 				Position: mathx.Vec2{X: mathx.Cos(angle) * 1.5, Y: mathx.Sin(angle) * 1.5},
 				Scale:    mathx.Vec2{X: 1, Y: 1},
 			})
-			sr := scene.Add[components.SpriteRenderer](s, c)
-			*sr = components.DefaultSpriteRenderer()
+			sr := scene.Add[render2d.SpriteRenderer](s, c)
+			*sr = render2d.DefaultSpriteRenderer()
 			sr.Size = mathx.Vec2{X: 0.8, Y: 0.8}
 			sr.Tint = mathx.Color{
 				R: r.Range(0.3, 1),
@@ -147,8 +140,8 @@ func (d *Demo) Render(float64) {
 	f := d.Renderer.View(v)
 	white := d.Renderer.White()
 	s := d.scene
-	store := scene.Store[components.SpriteRenderer](s)
-	store.Each(func(h scene.NodeHandle, sr *components.SpriteRenderer) {
+	store := scene.Store[render2d.SpriteRenderer](s)
+	store.Each(func(h scene.NodeHandle, sr *render2d.SpriteRenderer) {
 		world := s.World(h)
 		f.Sprite(sprite.Draw{
 			Region:   white,

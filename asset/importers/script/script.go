@@ -11,14 +11,10 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/log"
-	"aego/script/abi"
-	"aego/script/ast"
 	"aego/script/bytecode"
-	"aego/script/checker"
-	"aego/script/compiler"
 	"aego/script/diag"
-	"aego/script/parser"
 	"aego/script/source"
+	"aego/script/workspace"
 )
 
 const (
@@ -49,30 +45,26 @@ type Problem struct {
 	Text    string
 }
 
-type cached struct {
-	key  [32]byte
+type page struct {
+	hash [32]byte
 	data []byte
 }
 
 type Importer struct {
-	module   string
-	surface  func() abi.Surface
-	cache    map[string]cached
+	ws       *workspace.Workspace
+	pages    map[string]page
 	mu       sync.Mutex
 	problems []Problem
 	rev      uint64
 }
 
-func New(module string, surface func() abi.Surface) *Importer {
-	if module == "" {
-		module = "game"
-	}
-	return &Importer{module: module, surface: surface, cache: map[string]cached{}}
+func New(ws *workspace.Workspace) *Importer {
+	return &Importer{ws: ws, pages: map[string]page{}}
 }
 
 func (*Importer) ID() string                  { return ImporterID }
 func (*Importer) Version() int                { return 1 }
-func (*Importer) GroupVersion() int           { return 1 }
+func (*Importer) GroupVersion() int           { return 2 }
 func (*Importer) Extensions() []string        { return []string{".aes"} }
 func (*Importer) Defaults() pipeline.Settings { return pipeline.Settings{} }
 
@@ -80,8 +72,15 @@ func (*Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
 	return &pipeline.Result{Kind: asset.ArtScript, Group: Group, Source: ctx.Source}, nil
 }
 
+func (i *Importer) Workspace() *workspace.Workspace {
+	return i.ws
+}
+
 func (i *Importer) Module() string {
-	return i.module
+	if i.ws == nil {
+		return "game"
+	}
+	return i.ws.Module()
 }
 
 func PackageOf(module, file string) string {
@@ -116,21 +115,6 @@ func (i *Importer) publish(ps []Problem) {
 	i.mu.Unlock()
 }
 
-func emptySurface() abi.Surface {
-	t := abi.NewTable()
-	t.Freeze()
-	return t
-}
-
-func (i *Importer) surfaceOf() abi.Surface {
-	if i.surface != nil {
-		if s := i.surface(); s != nil {
-			return s
-		}
-	}
-	return emptySurface()
-}
-
 func problemOf(sm *source.Manager, pkg string, d diag.Diagnostic) Problem {
 	line, col := sm.LineCol(d.Primary.File, d.Primary.Start)
 	return Problem{
@@ -145,136 +129,81 @@ func problemOf(sm *source.Manager, pkg string, d diag.Diagnostic) Problem {
 	}
 }
 
+func (i *Importer) encode(pkg string, g *workspace.Generation) []byte {
+	h := g.Hashes[pkg]
+	if p, ok := i.pages[pkg]; ok && p.hash == h {
+		return p.data
+	}
+	data := bytecode.Encode(g.Modules[pkg])
+	i.pages[pkg] = page{hash: h, data: data}
+	return data
+}
+
 func (i *Importer) Finalize(ctx *pipeline.GroupContext, members []pipeline.GroupMember) (map[ids.AssetID]*pipeline.Result, []pipeline.Produced, error) {
-	surface := i.surfaceOf()
-	sm := source.NewManager()
-	files := map[string][]*ast.File{}
-	sources := map[string]map[string][]byte{}
-	pkgOf := map[source.FileID]string{}
-	owners := map[string][]ids.AssetID{}
 	results := make(map[ids.AssetID]*pipeline.Result, len(members))
-	var parsed []diag.Diagnostic
+	files := make(map[string][]byte, len(members))
+	owners := map[string][]ids.AssetID{}
 	for _, m := range members {
 		results[m.ID] = &pipeline.Result{Kind: asset.ArtScript}
-		if m.Result == nil || strings.HasSuffix(m.Path, "_test.aes") {
+		if m.Result == nil {
 			continue
 		}
-		pkg := PackageOf(i.module, m.Path)
-		id := sm.Add(m.Path, m.Result.Source)
-		f, ds := parser.ParseFile(sm, id)
-		parsed = append(parsed, ds...)
-		files[pkg] = append(files[pkg], f)
-		pkgOf[id] = pkg
-		if sources[pkg] == nil {
-			sources[pkg] = map[string][]byte{}
+		files[m.Path] = m.Result.Source
+		if i.ws == nil || strings.HasSuffix(m.Path, "_test.aes") {
+			continue
 		}
-		sources[pkg][m.Path] = m.Result.Source
-		owners[pkg] = append(owners[pkg], m.ID)
+		if pkg, ok := i.ws.PackageOf(m.Path); ok {
+			owners[pkg] = append(owners[pkg], m.ID)
+		}
 	}
-	if len(files) == 0 {
+	if i.ws == nil {
 		i.publish(nil)
 		return results, nil, nil
 	}
-	a := checker.Check(sm, files, surface, checker.Options{Module: i.module})
-	a.Diagnostics = append(parsed, a.Diagnostics...)
-	diag.Sort(a.Diagnostics)
-	own := map[string][]diag.Diagnostic{}
+	i.ws.Sync(files)
+	gen, ds := i.ws.Build()
+	sm := gen.Sources
 	var problems []Problem
-	for _, d := range a.Diagnostics {
-		pkg := pkgOf[d.Primary.File]
-		own[pkg] = append(own[pkg], d)
-		if d.Severity != diag.Info {
-			problems = append(problems, problemOf(sm, pkg, d))
+	for _, d := range ds {
+		if d.Severity == diag.Info {
+			continue
+		}
+		pkg, _ := i.ws.PackageOf(sm.Path(d.Primary.File))
+		problems = append(problems, problemOf(sm, pkg, d))
+	}
+	failed := make([]string, 0, len(gen.Failed))
+	for pkg := range gen.Failed {
+		failed = append(failed, pkg)
+	}
+	sort.Strings(failed)
+	for _, pkg := range failed {
+		fds := gen.Failed[pkg]
+		for _, d := range fds {
+			if !d.Primary.Valid() {
+				problems = append(problems, problemOf(sm, pkg, d))
+			}
+		}
+		err := failure(sm, pkg, fds)
+		for _, id := range owners[pkg] {
+			results[id].Error = err
 		}
 	}
-	pkgs := make([]string, 0, len(files))
-	for p := range files {
-		pkgs = append(pkgs, p)
-	}
-	sort.Strings(pkgs)
-	abiHash := surface.Hash()
 	var pages []pipeline.Produced
-	for _, pkg := range pkgs {
-		data, extra, err := i.compile(a, sm, pkg, sources[pkg], abiHash, own)
-		for _, d := range extra {
-			problems = append(problems, problemOf(sm, pkg, d))
+	for pkg := range gen.Modules {
+		pages = append(pages, pipeline.Produced{Kind: asset.ArtScript, Name: pkg, Data: i.encode(pkg, gen)})
+	}
+	for _, pkg := range failed {
+		if _, ok := gen.Modules[pkg]; ok || ctx.Previous == nil {
+			continue
 		}
-		if err != nil {
-			for _, id := range owners[pkg] {
-				results[id].Error = err
-			}
-			prev, ok := []byte(nil), false
-			if ctx.Previous != nil {
-				prev, ok = ctx.Previous(pkg)
-			}
-			if !ok {
-				continue
-			}
-			data = prev
+		if data, ok := ctx.Previous(pkg); ok {
+			pages = append(pages, pipeline.Produced{Kind: asset.ArtScript, Name: pkg, Data: data})
 			ctx.Log.Warn("script package has errors, keeping the last good build", log.F("package", pkg))
 		}
-		pages = append(pages, pipeline.Produced{Kind: asset.ArtScript, Name: pkg, Data: data})
 	}
+	sort.Slice(pages, func(a, b int) bool { return pages[a].Name < pages[b].Name })
 	i.publish(problems)
 	return results, pages, nil
-}
-
-func (i *Importer) compile(a *checker.Analysis, sm *source.Manager, pkg string, srcs map[string][]byte, abiHash [32]byte, own map[string][]diag.Diagnostic) ([]byte, []diag.Diagnostic, error) {
-	if diag.HasErrors(own[pkg]) {
-		return nil, nil, failure(sm, pkg, own[pkg])
-	}
-	if dep := brokenDep(a, own, pkg); dep != "" {
-		s := "package " + pkg + " depends on broken package " + dep
-		return nil, nil, &CompileError{Package: pkg, Summary: s, Text: s + "\n"}
-	}
-	deps := map[string][32]byte{}
-	if cp := a.Packages[pkg]; cp != nil {
-		for _, d := range cp.Imports {
-			deps[d] = compiler.InterfaceHash(a, d)
-		}
-	}
-	key := compiler.CacheKey(srcs, deps, abiHash, compiler.Options{})
-	if c, ok := i.cache[pkg]; ok && c.key == key {
-		return c.data, nil, nil
-	}
-	mod, ds := compiler.Compile(a, pkg, compiler.Options{Sources: sm})
-	var extra []diag.Diagnostic
-	for _, d := range ds {
-		if d.Code != diag.CompileBlocked {
-			extra = append(extra, d)
-		}
-	}
-	if mod == nil {
-		return nil, extra, failure(sm, pkg, ds)
-	}
-	data := bytecode.Encode(mod)
-	i.cache[pkg] = cached{key: key, data: data}
-	return data, extra, nil
-}
-
-func brokenDep(a *checker.Analysis, own map[string][]diag.Diagnostic, pkg string) string {
-	seen := map[string]bool{}
-	var walk func(p string) string
-	walk = func(p string) string {
-		if seen[p] {
-			return ""
-		}
-		seen[p] = true
-		cp := a.Packages[p]
-		if cp == nil {
-			return ""
-		}
-		for _, d := range cp.Imports {
-			if diag.HasErrors(own[d]) {
-				return d
-			}
-			if b := walk(d); b != "" {
-				return b
-			}
-		}
-		return ""
-	}
-	return walk(pkg)
 }
 
 func failure(sm *source.Manager, pkg string, ds []diag.Diagnostic) *CompileError {

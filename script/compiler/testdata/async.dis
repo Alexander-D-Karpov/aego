@@ -1,0 +1,214 @@
+module game/coroutines bytecode=3 lang=2
+import h0 aego/log.Info (string)
+script game.coroutines.Blinker slots=5 ready=0 fixed=-1 update=3 reloaded=-1
+  field Period float slot=1+1 export
+  field on bool slot=2+1
+  field task Coroutine slot=3+1
+  field steps int slot=4+1
+
+func f0 Blinker.Ready params=0 results=0 regs=2 script=0
+  ; game/coroutines/main.aes:13 task = start Blink(3)
+  0000  LOADI    r1 3
+  0001  START    r1 f1(Blinker.Blink)
+  0002  MOVE     r0 r1
+  0003  SETSF    r0 self[3]
+  ; game/coroutines/main.aes:14 }
+  0004  RET      r0 0
+
+func f1 Blinker.Blink params=1 results=0 regs=4 script=0 coroutine
+  ; game/coroutines/main.aes:17 for i := 0; i < times; i++ {
+  0000  LOADI    r1 0
+  0001  LTI      r2 r1 r0
+  0002  JMPNOT   r2 -> 11
+  ; game/coroutines/main.aes:18 on = !on
+  0003  GETSF    r3 self[2]
+  0004  NOT      r2 r3
+  0005  SETSF    r2 self[2]
+  ; game/coroutines/main.aes:19 yield wait(Period)
+  0006  GETSF    r2 self[1]
+  0007  YIELD    r2 wait
+  ; game/coroutines/main.aes:17 for i := 0; i < times; i++ {
+  0008  LOADI    r2 1
+  0009  ADDI     r1 r1 r2
+  0010  JMP      -> 1
+  ; game/coroutines/main.aes:21 yield frames(2)
+  0011  LOADI    r1 2
+  0012  YIELD    r1 frames
+  ; game/coroutines/main.aes:22 yield fixed(1)
+  0013  LOADI    r1 1
+  0014  YIELD    r1 fixed
+  ; game/coroutines/main.aes:23 inner := start Step()
+  0015  START    r2 f2(Blinker.Step)
+  0016  MOVE     r1 r2
+  ; game/coroutines/main.aes:24 yield inner
+  0017  YIELD    r1 await
+  ; game/coroutines/main.aes:25 log.Info("done")
+  0018  LOADK    r2 k0("done")
+  0019  CALLH    r2 h0(aego/log.Info)
+  ; game/coroutines/main.aes:26 }
+  0020  RET      r0 0
+
+func f2 Blinker.Step params=0 results=0 regs=2 script=0 coroutine
+  ; game/coroutines/main.aes:29 steps++
+  0000  LOADI    r0 1
+  0001  GETSF    r1 self[4]
+  0002  ADDI     r1 r1 r0
+  0003  SETSF    r1 self[4]
+  ; game/coroutines/main.aes:30 yield
+  0004  YIELD    r0 next
+  ; game/coroutines/main.aes:31 }
+  0005  RET      r0 0
+
+func f3 Blinker.Update params=1 results=0 regs=4 script=0
+  ; game/coroutines/main.aes:34 if steps > 10 && task.Running() {
+  0000  GETSF    r2 self[4]
+  0001  LOADI    r3 10
+  0002  LTI      r1 r3 r2
+  0003  JMPNOT   r1 -> 6
+  0004  GETSF    r2 self[3]
+  0005  CORUN    r1 r2
+  0006  JMPNOT   r1 -> 9
+  ; game/coroutines/main.aes:35 task.Stop()
+  0007  GETSF    r2 self[3]
+  0008  COSTOP   r2
+  ; game/coroutines/main.aes:37 }
+  0009  RET      r0 0
+
+module game/scriptref bytecode=3 lang=2
+scriptref s0 game.scriptref.Enemy
+xfield f0 s0.Hp int slots=1
+xmethod m0 s0.Hit params=1 results=1
+script game.scriptref.Enemy slots=2 ready=-1 fixed=-1 update=-1 reloaded=-1
+  field Hp int slot=1+1
+script game.scriptref.Hunter slots=3 ready=-1 fixed=-1 update=1 reloaded=-1
+  field Prey NodeRef slot=1+1 export
+  field last int slot=2+1
+
+func f0 Enemy.Hit params=1 results=1 regs=2 script=0
+  ; game/scriptref/main.aes:7 Hp -= n
+  0000  GETSF    r1 self[1]
+  0001  SUBI     r1 r1 r0
+  0002  SETSF    r1 self[1]
+  ; game/scriptref/main.aes:8 return Hp
+  0003  GETSF    r1 self[1]
+  0004  RET      r1 1
+  ; game/scriptref/main.aes:9 }
+  0005  FAULT    k0("missing return in game.scriptref.Enemy.Hit")
+
+func f1 Hunter.Update params=1 results=0 regs=5 script=1
+  ; game/scriptref/main.aes:18 if Prey == nil {
+  0000  GETSF    r2 self[1]
+  0001  ISNIL    r1 r2
+  0002  JMPNOT   r1 -> 4
+  ; game/scriptref/main.aes:19 return
+  0003  RET      r0 0
+  ; game/scriptref/main.aes:21 e := Prey.GetScript<Enemy>()
+  0004  GETSF    r1 self[1]
+  0005  GETSCRIPT r1 s0(game.scriptref.Enemy)
+  ; game/scriptref/main.aes:22 if e == nil {
+  0006  ISNIL    r2 r1
+  0007  JMPNOT   r2 -> 9
+  ; game/scriptref/main.aes:23 return
+  0008  RET      r0 0
+  ; game/scriptref/main.aes:25 last = e.Hit(1)
+  0009  MOVE     r3 r1
+  0010  LOADI    r4 1
+  0011  CALLR    r3 m0(Enemy.Hit)
+  0012  MOVE     r2 r3
+  0013  SETSF    r2 self[2]
+  ; game/scriptref/main.aes:26 e.Hp += 0
+  0014  GETXF    r2 r1 f0(Enemy.Hp)
+  0015  LOADI    r3 0
+  0016  ADDI     r2 r2 r3
+  0017  SETXF    r1 r2 f0(Enemy.Hp)
+  ; game/scriptref/main.aes:27 }
+  0018  RET      r0 0
+
+module game/signals bytecode=3 lang=2
+scriptref s0 game.signals.Source
+connect c0 game.signals.Source.Scored -> game.signals.Source.OnScore
+connect c1 game.signals.Source.Died -> game.signals.Listener.OnDied
+connect c2 game.signals.Source.Scored -> game.signals.Listener.OnScored
+script game.signals.Source slots=2 ready=0 fixed=-1 update=-1 reloaded=-1
+  signal Died(string) slots=1
+  signal Scored(int) slots=1
+  field own int slot=1+1
+script game.signals.Listener slots=4 ready=3 fixed=-1 update=-1 reloaded=-1
+  field Target NodeRef slot=1+1 export
+  field conn Connection slot=2+1
+  field total int slot=3+1
+
+func f0 Source.Ready params=0 results=0 regs=4 script=0
+  ; game/signals/main.aes:10 Scored.Connect(OnScore)
+  0000  SELFREF  r2
+  0001  SELFREF  r3
+  0002  CONNECT  r1 c0(Source.Scored -> Source.OnScore)
+  0003  MOVE     r0 r1
+  ; game/signals/main.aes:11 }
+  0004  RET      r0 0
+
+func f1 Source.Kill params=0 results=0 regs=2 script=0
+  ; game/signals/main.aes:14 Died.Emit("fall")
+  0000  LOADK    r1 k0("fall")
+  0001  EMIT     r1 g0(Died)
+  ; game/signals/main.aes:15 Scored.Emit(10)
+  0002  LOADI    r1 10
+  0003  EMIT     r1 g1(Scored)
+  ; game/signals/main.aes:16 }
+  0004  RET      r0 0
+
+func f2 Source.OnScore params=1 results=0 regs=2 script=0
+  ; game/signals/main.aes:19 own += points
+  0000  GETSF    r1 self[1]
+  0001  ADDI     r1 r1 r0
+  0002  SETSF    r1 self[1]
+  ; game/signals/main.aes:20 }
+  0003  RET      r0 0
+
+func f3 Listener.Ready params=0 results=0 regs=5 script=1
+  ; game/signals/main.aes:30 if Target == nil {
+  0000  GETSF    r1 self[1]
+  0001  ISNIL    r0 r1
+  0002  JMPNOT   r0 -> 4
+  ; game/signals/main.aes:31 return
+  0003  RET      r0 0
+  ; game/signals/main.aes:33 src := Target.GetScript<Source>()
+  0004  GETSF    r0 self[1]
+  0005  GETSCRIPT r0 s0(game.signals.Source)
+  ; game/signals/main.aes:34 if src != nil {
+  0006  ISNIL    r1 r0
+  0007  NOT      r1 r1
+  0008  JMPNOT   r1 -> 18
+  ; game/signals/main.aes:35 conn = src.Died.Connect(OnDied)
+  0009  MOVE     r3 r0
+  0010  SELFREF  r4
+  0011  CONNECT  r2 c1(Source.Died -> Listener.OnDied)
+  0012  MOVE     r1 r2
+  0013  SETSF    r1 self[2]
+  ; game/signals/main.aes:36 src.Scored.Connect(OnScored)
+  0014  MOVE     r3 r0
+  0015  SELFREF  r4
+  0016  CONNECT  r2 c2(Source.Scored -> Listener.OnScored)
+  0017  MOVE     r1 r2
+  ; game/signals/main.aes:38 }
+  0018  RET      r0 0
+
+func f4 Listener.OnDied params=1 results=0 regs=3 script=1
+  ; game/signals/main.aes:41 if conn.Connected() {
+  0000  GETSF    r2 self[2]
+  0001  CONNECTED r1 r2
+  0002  JMPNOT   r1 -> 5
+  ; game/signals/main.aes:42 conn.Disconnect()
+  0003  GETSF    r2 self[2]
+  0004  DISCONNECT r2
+  ; game/signals/main.aes:44 }
+  0005  RET      r0 0
+
+func f5 Listener.OnScored params=1 results=0 regs=2 script=1
+  ; game/signals/main.aes:47 total += points
+  0000  GETSF    r1 self[3]
+  0001  ADDI     r1 r1 r0
+  0002  SETSF    r1 self[3]
+  ; game/signals/main.aes:48 }
+  0003  RET      r0 0
+

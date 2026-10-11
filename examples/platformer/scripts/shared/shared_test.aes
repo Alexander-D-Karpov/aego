@@ -1,0 +1,13 @@
+package shared
+
+import "aego/testing"
+
+func TestApproach() {
+	testing.EqualFloat(Approach(0, 1, 0.25), 0.25, 0.0001)
+	testing.EqualFloat(Approach(1, 0, 2), 0, 0)
+	testing.EqualFloat(Approach(5, 5, 1), 5, 0)
+}
+
+func TestGround() {
+	testing.True(GroundY > 0, "ground must be below the origin")
+}

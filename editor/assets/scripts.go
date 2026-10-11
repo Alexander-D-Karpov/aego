@@ -9,7 +9,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/context"
 	"aego/editor/history/commands"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
@@ -79,7 +79,7 @@ func AttachScript(ctx *context.Editor, nodes []ids.NodeID, typeName string) erro
 	s := d.Scene()
 	tx := d.History.Begin("Add " + shortName(typeName))
 	for _, n := range nodes {
-		if sc, ok := components.ScriptsOf(s, s.Handle(n)); ok && sc.Index(typeName) >= 0 {
+		if sc, ok := scriptcomp.ScriptsOf(s, s.Handle(n)); ok && sc.Index(typeName) >= 0 {
 			continue
 		}
 		if err := tx.Exec(&commands.AddScript{Node: n, TypeName: typeName}); err != nil {

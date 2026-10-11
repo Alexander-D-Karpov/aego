@@ -76,20 +76,11 @@ func TestGolden(t *testing.T) {
 	}
 
 	for _, tc := range cases(t, r) {
+		img, err := render1(e, r, target, tc.scene)
 		t.Run(tc.name, func(t *testing.T) {
-			frame := e.GPU().BeginFrame(size, size)
-			if err := r.BeginFrame(frame, size, size, 1); err != nil {
+			if err != nil {
 				t.Fatal(err)
 			}
-			tc.scene(r, target)
-			r.EndFrame()
-			e.GPU().EndFrame()
-
-			buf := make([]byte, size*size*4)
-			if err := e.GPU().ReadPixels(target, 0, 0, size, size, buf); err != nil {
-				t.Fatal(err)
-			}
-			img := &image.NRGBA{Pix: buf, Stride: size * 4, Rect: image.Rect(0, 0, size, size)}
 			path := filepath.Join("testdata", tc.name+".png")
 			if *update {
 				writePNG(t, path, img)
@@ -98,6 +89,21 @@ func TestGolden(t *testing.T) {
 			compare(t, path, img, tc.tolerance)
 		})
 	}
+}
+
+func render1(e *engine.Engine, r *render.Renderer, target gpu.TextureHandle, scene sceneFunc) (*image.NRGBA, error) {
+	frame := e.GPU().BeginFrame(size, size)
+	if err := r.BeginFrame(frame, size, size, 1); err != nil {
+		return nil, err
+	}
+	scene(r, target)
+	r.EndFrame()
+	e.GPU().EndFrame()
+	buf := make([]byte, size*size*4)
+	if err := e.GPU().ReadPixels(target, 0, 0, size, size, buf); err != nil {
+		return nil, err
+	}
+	return &image.NRGBA{Pix: buf, Stride: size * 4, Rect: image.Rect(0, 0, size, size)}, nil
 }
 
 func softwareRenderer(name string) bool {

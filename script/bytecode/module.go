@@ -10,8 +10,8 @@ import (
 
 const (
 	Magic              = "AESB"
-	Version     uint16 = 1
-	LangVersion uint16 = 1
+	Version     uint16 = 3
+	LangVersion uint16 = 2
 	NoScript           = -1
 )
 
@@ -70,6 +70,7 @@ type Function struct {
 	Results   uint8
 	Registers uint8
 	Script    int32
+	Coroutine bool
 	Code      []Instr
 	Consts    []Const
 	Lines     []LineEntry
@@ -128,6 +129,25 @@ type FieldDef struct {
 	Default    Const
 }
 
+type StructField struct {
+	Name  string
+	Type  string
+	Slot  uint16
+	Slots uint8
+}
+
+type StructDef struct {
+	Name   string
+	Slots  uint16
+	Fields []StructField
+}
+
+type SignalDef struct {
+	Name   string
+	Params []abi.TypeRef
+	Slots  uint8
+}
+
 type ScriptDef struct {
 	FullName    string
 	Former      []string
@@ -135,9 +155,50 @@ type ScriptDef struct {
 	Slots       uint16
 	HeapSlots   []uint16
 	Fields      []FieldDef
+	Signals     []SignalDef
 	Ready       int32
 	FixedUpdate int32
 	Update      int32
+	Reloaded    int32
+}
+
+func (s *ScriptDef) Field(name string) *FieldDef {
+	for i := range s.Fields {
+		if s.Fields[i].Name == name {
+			return &s.Fields[i]
+		}
+	}
+	return nil
+}
+
+func (s *ScriptDef) Signal(name string) int {
+	for i := range s.Signals {
+		if s.Signals[i].Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+type XFieldDef struct {
+	Ref   uint16
+	Name  string
+	Type  string
+	Slots uint8
+}
+
+type XMethodDef struct {
+	Ref     uint16
+	Name    string
+	Params  uint8
+	Results uint8
+}
+
+type ConnectDef struct {
+	Source  string
+	Signal  string
+	Target  string
+	Handler string
 }
 
 type Module struct {
@@ -151,7 +212,12 @@ type Module struct {
 	Externs     []Extern
 	Types       []TypeDef
 	Enums       []EnumDef
+	Structs     []StructDef
 	Scripts     []ScriptDef
+	ScriptRefs  []string
+	XFields     []XFieldDef
+	XMethods    []XMethodDef
+	Connects    []ConnectDef
 	Functions   []Function
 }
 

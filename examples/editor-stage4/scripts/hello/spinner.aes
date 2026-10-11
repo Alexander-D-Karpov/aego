@@ -1,0 +1,25 @@
+package hello
+
+import (
+	"aego/input"
+	"aego/math"
+)
+
+// Spinner turns its node and moves it with A/D or the arrow keys.
+// Attach it to a node, press Play, then change Speed in the Inspector.
+script Spinner {
+	// Turn speed in degrees per second.
+	@export(min=0, max=720, unit="deg/s")
+	var Speed float = 90
+
+	// Move speed in world units per second.
+	@export(min=0, max=20, unit="u/s")
+	var Move float = 4
+
+	func Update(dt float) {
+		node.SetRotation(node.Rotation() + math.Deg2Rad(Speed)*dt)
+		p := node.Position()
+		p.X += input.Axis("horizontal") * Move * dt
+		node.SetPosition(p)
+	}
+}

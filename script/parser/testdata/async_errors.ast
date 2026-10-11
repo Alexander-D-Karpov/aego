@@ -1,0 +1,76 @@
+File async_errors 1:1
+  Ident async_errors 1:9
+  Script 3:1
+    Ident Other 3:8
+    Func 4:2
+      Ident Ready 4:7
+      Block 4:15
+  Func coroutine 8:1
+    Ident Top 8:6
+    Block 8:22
+  Script 11:1
+    Ident Bad 11:8
+    Signal 12:2
+      Ident Hit 12:9
+      Param 12:13
+        Ident s 12:13
+        NamedType 12:15
+          Ident string 12:15
+    ScriptVar 14:2
+      Ident other 14:6
+      NamedType 14:12
+        Ident ScriptRef 14:12
+        NamedType 14:22
+          Ident Other 14:22
+    ScriptVar 15:2
+      Ident lost 15:6
+      NamedType 15:11
+        Ident ScriptRef 15:11
+        NamedType 15:21
+          Ident Missing 15:21
+    Func coroutine 17:2
+      Ident Update 17:7
+      Param 17:14
+        Ident dt 17:14
+        NamedType 17:17
+          Ident float 17:17
+      Block 17:34
+    Func coroutine 20:2
+      Ident Blink 20:7
+      Block 20:25
+        Yield wait 21:3
+          BasicLit true true 21:14
+    Func 24:2
+      Ident Plain 24:7
+      Block 24:15
+        Yield next 25:3
+        ExprStmt 26:3
+          Call targs=0 args=0 26:3
+            Ident Blink 26:3
+        ExprStmt 27:3
+          Start Plain 27:3
+            Ident Plain 27:9
+        ExprStmt 28:3
+          Call targs=0 args=1 28:3
+            Selector 28:3
+              Ident Hit 28:3
+              Ident Connect 28:7
+            Ident OnWrong 28:15
+        ExprStmt 29:3
+          Call targs=0 args=1 29:3
+            Selector 29:3
+              Ident Hit 29:3
+              Ident Connect 29:7
+            Ident Blink 29:15
+        ExprStmt 30:3
+          Call targs=0 args=0 30:3
+            Selector 30:3
+              Ident other 30:3
+              Ident Ready 30:9
+    Func 33:2
+      Ident OnWrong 33:7
+      Param 33:15
+        Ident x 33:15
+        NamedType 33:17
+          Ident int 33:17
+      Block 33:22

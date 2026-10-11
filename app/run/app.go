@@ -24,7 +24,7 @@ func (s *sceneApp) Init(*engine.Engine) error {
 		case r.Kind == asset.ArtScene && r.ID == s.app.sceneID:
 			s.app.reloadScene()
 		case r.Kind == asset.ArtScript:
-			s.app.log.Warn("scripts changed, restart the game to apply them")
+			s.app.hotReload()
 		}
 	})
 	return nil
@@ -55,7 +55,7 @@ func (a *App) reloadScene() {
 		a.log.Error("scene artifact disappeared", log.F("asset", a.sceneID.String()))
 		return
 	}
-	next, report, err := sceneio.Load(src, "main.aescene", a.types, a.Loader, sceneio.LoadOptions{KeepIDs: true})
+	next, report, err := sceneio.Load(src, "main.aescene", a.Types, a.Loader, sceneio.LoadOptions{KeepIDs: true})
 	if err != nil {
 		a.log.Error("scene reload failed, keeping the current scene", log.F("err", err.Error()))
 		return
@@ -68,6 +68,9 @@ func (a *App) reloadScene() {
 	a.Engine.SetService(scene.ServiceID, next)
 	if err := a.Scripts.Instantiate(next); err != nil {
 		a.log.Error("scripts could not start on the reloaded scene", log.F("err", err.Error()))
+	}
+	if err := a.attach(); err != nil {
+		a.log.Error("modules could not attach to the reloaded scene", log.F("err", err.Error()))
 	}
 	a.log.Info("scene reloaded")
 }

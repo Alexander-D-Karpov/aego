@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	LangVersion uint16 = 1
+	LangVersion uint16 = 2
 	NodeSlot           = 0
 )
 
@@ -26,16 +26,20 @@ type Options struct {
 }
 
 type unit struct {
-	a       *checker.Analysis
-	pkg     *checker.Package
-	opt     Options
-	mod     *bytecode.Module
-	funcs   map[*checker.Func]int
-	scripts map[*checker.ScriptType]int
-	imports map[string]int
-	externs map[string]int
-	types   map[*types.Type]int
-	diags   []diag.Diagnostic
+	a        *checker.Analysis
+	pkg      *checker.Package
+	opt      Options
+	mod      *bytecode.Module
+	funcs    map[*checker.Func]int
+	scripts  map[*checker.ScriptType]int
+	imports  map[string]int
+	externs  map[string]int
+	types    map[*types.Type]int
+	refs     map[string]int
+	xfields  map[string]int
+	xmethods map[string]int
+	connects map[bytecode.ConnectDef]int
+	diags    []diag.Diagnostic
 }
 
 func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []diag.Diagnostic) {
@@ -53,6 +57,8 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 		a: a, pkg: p, opt: opt, mod: bytecode.NewModule(pkg),
 		funcs: map[*checker.Func]int{}, scripts: map[*checker.ScriptType]int{},
 		imports: map[string]int{}, externs: map[string]int{}, types: map[*types.Type]int{},
+		refs: map[string]int{}, xfields: map[string]int{}, xmethods: map[string]int{},
+		connects: map[bytecode.ConnectDef]int{},
 	}
 	u.mod.LangVersion = opt.LangVersion
 	u.mod.Hash = InterfaceHash(a, pkg)
@@ -75,6 +81,18 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 	for _, t := range p.Enums {
 		u.mod.Enums = append(u.mod.Enums, bytecode.EnumDef{Name: t.Qualified(), Members: append([]string(nil), t.Members...)})
 	}
+	for _, t := range p.Structs {
+		sd := bytecode.StructDef{Name: t.Qualified(), Slots: uint16(t.Slots())}
+		for _, f := range t.Fields {
+			sd.Fields = append(sd.Fields, bytecode.StructField{
+				Name:  f.Name,
+				Type:  types.ToABI(f.Type).String(),
+				Slot:  uint16(f.Slot),
+				Slots: uint8(f.Type.Slots()),
+			})
+		}
+		u.mod.Structs = append(u.mod.Structs, sd)
+	}
 	for _, st := range p.Scripts {
 		u.script(st)
 	}
@@ -87,12 +105,6 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 	return u.mod, u.diags
 }
 
-// hasErrors reports whether p or any package it depends on, transitively, has
-// an error. A clean package built against a broken dependency would compile
-// against a stale interface and fail only at link time; blocking it here lets
-// the importer mark it Invalid with "depends on broken package X". The seen set
-// guards against import cycles (which the resolver marks Cyclic but still
-// appear in Imports).
 func hasErrors(a *checker.Analysis, p *checker.Package) bool {
 	seen := map[string]bool{}
 	var walk func(pk *checker.Package) bool
@@ -161,6 +173,7 @@ func (u *unit) script(st *checker.ScriptType) {
 	d := bytecode.ScriptDef{
 		FullName: st.FullName, Former: st.Former, Hidden: st.Hidden, Slots: uint16(st.Slots + 1),
 		Ready: u.index(st.Ready), FixedUpdate: u.index(st.FixedUpdate), Update: u.index(st.Update),
+		Reloaded: u.index(st.Reloaded),
 	}
 	for _, f := range st.Fields {
 		h := f.Hints
@@ -177,6 +190,20 @@ func (u *unit) script(st *checker.ScriptType) {
 		}
 		f.Type.HeapSlots(f.Slot+1, func(s int) { d.HeapSlots = append(d.HeapSlots, uint16(s)) })
 		d.Fields = append(d.Fields, fd)
+	}
+	for _, sg := range st.Signals {
+		sd := bytecode.SignalDef{Name: sg.Name}
+		n := 0
+		for _, p := range sg.Params {
+			sd.Params = append(sd.Params, types.ToABI(p))
+			n += p.Slots()
+		}
+		if n > bytecode.MaxRegisters {
+			u.diags = append(u.diags, diag.Errorf(diag.RegisterLimit, sg.Decl.Name.Sp,
+				"signal %s carries %d value slots, the limit is %d", sg.Name, n, bytecode.MaxRegisters))
+		}
+		sd.Slots = uint8(min(n, bytecode.MaxRegisters))
+		d.Signals = append(d.Signals, sd)
 	}
 	u.mod.Scripts = append(u.mod.Scripts, d)
 }
@@ -203,13 +230,63 @@ func (u *unit) extern(f *checker.Func) int {
 	return i
 }
 
+func (u *unit) scriptRef(full string) int {
+	if i, ok := u.refs[full]; ok {
+		return i
+	}
+	i := len(u.mod.ScriptRefs)
+	u.mod.ScriptRefs = append(u.mod.ScriptRefs, full)
+	u.refs[full] = i
+	return i
+}
+
+func (u *unit) xfield(st *checker.ScriptType, f *checker.ScriptField) int {
+	key := st.FullName + "." + f.Name
+	if i, ok := u.xfields[key]; ok {
+		return i
+	}
+	i := len(u.mod.XFields)
+	u.mod.XFields = append(u.mod.XFields, bytecode.XFieldDef{
+		Ref:   uint16(u.scriptRef(st.FullName)),
+		Name:  f.Name,
+		Type:  types.ToABI(f.Type).String(),
+		Slots: uint8(f.Type.Slots()),
+	})
+	u.xfields[key] = i
+	return i
+}
+
+func (u *unit) xmethod(f *checker.Func) int {
+	key := f.Script.FullName + "." + f.Name
+	if i, ok := u.xmethods[key]; ok {
+		return i
+	}
+	i := len(u.mod.XMethods)
+	u.mod.XMethods = append(u.mod.XMethods, bytecode.XMethodDef{
+		Ref:     uint16(u.scriptRef(f.Script.FullName)),
+		Name:    f.Name,
+		Params:  uint8(paramSlots(f)),
+		Results: uint8(f.Result.Slots()),
+	})
+	u.xmethods[key] = i
+	return i
+}
+
+func (u *unit) connect(d bytecode.ConnectDef) int {
+	if i, ok := u.connects[d]; ok {
+		return i
+	}
+	i := len(u.mod.Connects)
+	u.mod.Connects = append(u.mod.Connects, d)
+	u.connects[d] = i
+	return i
+}
+
 func (u *unit) typeIndex(t *types.Type, sp source.Span) int {
 	if i, ok := u.types[t]; ok {
 		return i
 	}
 	el := t.Elem
-	// The GC mask is a uint32 (one bit per element slot), so a wider element
-	// would lose roots; reject it instead of silently truncating.
 	if el.Slots() > bytecode.MaxSliceElemSlots {
 		u.diags = append(u.diags, diag.Errorf(diag.SliceTooWide, sp,
 			"slice element %s is %d slots, the limit is %d", el, el.Slots(), bytecode.MaxSliceElemSlots))
@@ -224,6 +301,51 @@ func (u *unit) typeIndex(t *types.Type, sp source.Span) int {
 	u.mod.Types = append(u.mod.Types, bytecode.TypeDef{Elem: types.ToABI(el).String(), Width: uint8(min(el.Slots(), 255)), Mask: mask})
 	u.types[t] = i
 	return i
+}
+
+func signature(f *checker.Func) string {
+	var b strings.Builder
+	b.WriteByte('(')
+	for i, prm := range f.Params {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(types.ToABI(prm.Type).String())
+	}
+	b.WriteString(")" + types.ToABI(f.Result).String())
+	if f.Decl.Coroutine {
+		b.WriteString(" coroutine")
+	}
+	return b.String()
+}
+
+func scriptInterface(st *checker.ScriptType) string {
+	var b strings.Builder
+	b.WriteString("x " + st.Name)
+	for _, f := range st.Fields {
+		if abi.Exported(f.Name) {
+			b.WriteString(" v:" + f.Name + ":" + types.ToABI(f.Type).String())
+		}
+	}
+	for _, sg := range st.Signals {
+		if !abi.Exported(sg.Name) {
+			continue
+		}
+		b.WriteString(" s:" + sg.Name + "(")
+		for i, p := range sg.Params {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(types.ToABI(p).String())
+		}
+		b.WriteByte(')')
+	}
+	for _, f := range st.Funcs {
+		if abi.Exported(f.Name) && !st.IsLifecycle(f) {
+			b.WriteString(" m:" + f.Name + signature(f))
+		}
+	}
+	return b.String()
 }
 
 func InterfaceHash(a *checker.Analysis, pkg string) [32]byte {
@@ -255,19 +377,14 @@ func InterfaceHash(a *checker.Analysis, pkg string) [32]byte {
 		}
 	}
 	for _, f := range p.Funcs {
-		if !abi.Exported(f.Name) {
-			continue
+		if abi.Exported(f.Name) {
+			lines = append(lines, "f "+f.Name+signature(f))
 		}
-		var b strings.Builder
-		b.WriteString("f " + f.Name + "(")
-		for i, prm := range f.Params {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			b.WriteString(types.ToABI(prm.Type).String())
+	}
+	for _, st := range p.Scripts {
+		if abi.Exported(st.Name) {
+			lines = append(lines, scriptInterface(st))
 		}
-		b.WriteString(")" + types.ToABI(f.Result).String())
-		lines = append(lines, b.String())
 	}
 	sort.Strings(lines)
 	h := sha256.New()

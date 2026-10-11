@@ -1,0 +1,231 @@
+package app
+
+import (
+	"math"
+	"runtime"
+	"strings"
+
+	"aego/core/mathx"
+	"aego/editor/command"
+	"aego/editor/context"
+	"aego/editor/document"
+	"aego/editor/help"
+	"aego/editor/play"
+	"aego/editor/welcome"
+	"aego/editor/workspace"
+	"aego/engine"
+	"aego/scene"
+	"aego/scene/scriptcomp"
+	"aego/ui/draw"
+)
+
+const (
+	CommandGettingStarted = "help.getting_started"
+	CommandReference      = "help.reference"
+	CommandKeymap         = "help.keymap"
+	CommandAbout          = "help.about"
+	pulseTime             = 2.5
+	pulseTarget           = "play"
+	hintErrors            = "hint.errors"
+)
+
+type pulse struct {
+	target string
+	until  float64
+}
+
+func (a *App) registerHelp() error {
+	list := []command.Desc{
+		{ID: CommandGettingStarted, Name: "Getting Started", Category: "Help", Order: 100,
+			Run: func() error {
+				a.ws.ShowNear(welcome.ID, workspace.Inspector)
+				return nil
+			}},
+		{ID: CommandReference, Name: "Script Reference", Category: "Help", Order: 110,
+			Run: func() error {
+				a.ws.ShowNear(help.ReferenceID, workspace.Scene)
+				return nil
+			}},
+		{ID: CommandKeymap, Name: "Keymap", Category: "Help", Order: 120,
+			Run: func() error {
+				a.ws.ShowNear(help.KeymapID, workspace.Inspector)
+				return nil
+			}},
+		{ID: CommandAbout, Name: "About Aego", Category: "Help", Order: 900,
+			Run: func() error {
+				a.ctx.Ask(context.Question{
+					Title:   "About Aego",
+					Message: "Aego engine " + engine.Version + " · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH,
+					Buttons: []string{"Close"},
+				})
+				return nil
+			}},
+	}
+	for _, d := range list {
+		if err := a.ctx.Commands.Register(d); err != nil {
+			return err
+		}
+	}
+	a.play.Subscribe(func(st play.State) {
+		if st != play.Stopped && !a.wasPlaying && a.ctx.Scripts != nil {
+			a.genAtPlay, _ = a.ctx.Scripts.Status()
+		}
+		a.wasPlaying = st != play.Stopped
+	})
+	return nil
+}
+
+func (a *App) highlight(target string) {
+	a.pulse = pulse{target: target, until: a.ui.Time + pulseTime}
+}
+
+func (a *App) showPanel(id string) {
+	a.ws.Show(id)
+	a.highlight(id)
+}
+
+func (a *App) drawPulse() {
+	if a.pulse.target == "" || a.ui.Time > a.pulse.until {
+		return
+	}
+	r := a.playRect
+	if a.pulse.target != pulseTarget {
+		pr, ok := a.ws.Tree.PanelRect(a.pulse.target)
+		if !ok {
+			return
+		}
+		r = pr
+	}
+	col := a.ui.Theme.Accent
+	col.A = float32(0.5 + 0.5*math.Sin(a.ui.Time*8))
+	l := a.ui.List()
+	l.PushLayer(draw.LayerTop)
+	l.RectOutline(mathx.Rect{X: r.X - 3, Y: r.Y - 3, W: r.W + 6, H: r.H + 6}, col, 2)
+	l.PopLayer()
+}
+
+func (a *App) attachedAny() bool {
+	for _, d := range a.ctx.Docs.Docs() {
+		found := false
+		scene.Store[scriptcomp.ScriptComponent](d.Scene()).EachAll(func(_ scene.NodeHandle, sc *scriptcomp.ScriptComponent) {
+			if len(sc.Attachments) > 0 {
+				found = true
+			}
+		})
+		if found {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) welcomeChecks() []welcome.Check {
+	base := map[document.ID]int{}
+	return []welcome.Check{
+		{
+			ID: "node", Title: "Create a node",
+			Hint: "Right-click in the Hierarchy and pick Create, or press Ctrl+Shift+N.",
+			Done: func() bool {
+				d := a.ctx.Docs.Edit()
+				if d == nil {
+					return false
+				}
+				n := d.Scene().Stats().Alive
+				b, ok := base[d.ID]
+				if !ok {
+					base[d.ID] = n
+					return false
+				}
+				return n > b
+			},
+			Show: func() { a.showPanel(workspace.Hierarchy) },
+		},
+		{
+			ID: "attach", Title: "Attach the Spinner script",
+			Hint: "Select the node and press Add Script in the Inspector, or drag " + welcome.ExamplePath + " onto it.",
+			Done: a.attachedAny,
+			Show: func() {
+				if a.ctx.RevealPath != nil {
+					a.ctx.RevealPath("scripts/hello")
+				}
+				a.showPanel(workspace.Inspector)
+			},
+		},
+		{
+			ID: "play", Title: "Press Play",
+			Hint: "Ctrl+P or the play button in the toolbar. The scene runs in a copy; Stop throws the copy away.",
+			Done: func() bool { return a.play.State() != play.Stopped },
+			Show: func() { a.highlight(pulseTarget) },
+		},
+		{
+			ID: "tweak", Title: "Change Speed in the Inspector while playing",
+			Hint: "Values change live. Right-click a component to copy play-mode values back to the edit scene.",
+			Done: func() bool {
+				h := a.play.History()
+				return a.play.State() != play.Stopped && h != nil && h.CanUndo()
+			},
+			Show: func() { a.showPanel(workspace.Inspector) },
+		},
+		{
+			ID: "reload", Title: "Edit the script and save while playing",
+			Hint: "Autosave writes the file a second after you stop typing; hot reload swaps the code without restarting.",
+			Done: func() bool {
+				if a.ctx.Scripts == nil || a.play.State() == play.Stopped {
+					return false
+				}
+				g, _ := a.ctx.Scripts.Status()
+				return g > a.genAtPlay
+			},
+			Show: func() {
+				if a.ctx.OpenScript != nil {
+					a.ctx.OpenScript(welcome.ExamplePath, 18)
+				}
+			},
+		},
+		{
+			ID: "error", Title: "Open a script error from Problems",
+			Hint: "Break a line on purpose, then click the problem: the editor jumps to it and explains the fix.",
+			Done: func() bool { return a.problemsPanel.Opened > 0 },
+			Show: func() {
+				if a.ctx.ShowProblems != nil {
+					a.ctx.ShowProblems("")
+				}
+				a.highlight(workspace.Problems)
+			},
+		},
+	}
+}
+
+func (a *App) firstRun() {
+	p := a.opt.Project
+	if !welcome.FirstRun(p.Root) {
+		return
+	}
+	if wrote, err := welcome.Example(p.ScriptsDir()); err != nil {
+		a.log.Warn("cannot write the example script: " + err.Error())
+	} else if wrote {
+		a.ctx.Notify(context.LevelInfo, "Created "+welcome.ExamplePath+" to get you started")
+	}
+	a.welcome.Save()
+	a.ws.ShowNear(welcome.ID, workspace.Inspector)
+}
+
+func (a *App) contextHint() string {
+	f := a.ctx.FocusedPanel
+	switch {
+	case strings.HasPrefix(f, "script:"):
+		if _, _, bad := a.ctx.FirstError(""); bad {
+			return "F2 next error · Ctrl+Q explain · Ctrl+Click go to"
+		}
+		return "Ctrl+Space completion · Ctrl+P parameters · Ctrl+Click go to"
+	case f == workspace.Scene:
+		return "Q W E R tools · F frame selection · Ctrl+D duplicate"
+	case f == workspace.Hierarchy:
+		return "F2 rename · Ctrl+D duplicate · drag to reparent"
+	case f == workspace.Inspector:
+		return "Ctrl+Click a script field to open its declaration"
+	case f == workspace.Assets:
+		return "Double-click to open · F2 rename · drop files to import"
+	}
+	return "Double Shift searches everywhere · Help → Keymap lists every shortcut"
+}

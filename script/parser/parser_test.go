@@ -67,7 +67,7 @@ func TestGolden(t *testing.T) {
 }
 
 func TestCleanFilesHaveNoDiagnostics(t *testing.T) {
-	for _, name := range []string{"player.aes", "syntax.aes"} {
+	for _, name := range []string{"player.aes", "syntax.aes", "coroutines.aes", "signals.aes", "scriptref.aes"} {
 		src, err := os.ReadFile(filepath.Join(scriptsDir, name))
 		if err != nil {
 			t.Fatal(err)

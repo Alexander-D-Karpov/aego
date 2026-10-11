@@ -2,7 +2,6 @@ package native
 
 import (
 	"aego/core/mathx"
-	"aego/engine"
 	"aego/platform/input"
 	"aego/scene"
 	"aego/schema"
@@ -30,33 +29,42 @@ func Modules() []sdk.Module {
 	return []sdk.Module{Module{}}
 }
 
-func (Module) Info() engine.ModuleInfo {
-	return engine.ModuleInfo{ID: "game"}
+func (Module) Info() sdk.ModuleInfo {
+	return sdk.ModuleInfo{ID: "game"}
 }
 
 func (Module) Register(r *sdk.Registry) error {
-	if err := scene.RegisterComponent[Rotator](r.Types, schema.Name("game.Rotator"), schema.Space(schema.Space2D)); err != nil {
+	if err := sdk.Component[Rotator](r, sdk.Name("game.Rotator"), schema.Space(schema.Space2D)).
+		Category("Scripts").Display("Rotator").Icon("cat.scripts").Err(); err != nil {
 		return err
 	}
-	if err := scene.RegisterComponent[Rotator3D](r.Types, schema.Name("game.Rotator3D"), schema.Space(schema.Space3D)); err != nil {
+	if err := sdk.Component[Rotator3D](r, sdk.Name("game.Rotator3D"), schema.Space(schema.Space3D)).
+		Category("Scripts").Display("Rotator 3D").Icon("cat.scripts").Err(); err != nil {
 		return err
 	}
-	if err := scene.RegisterComponent[Health](r.Types, schema.Name("game.Health")); err != nil {
+	if err := sdk.Component[Health](r, sdk.Name("game.Health")).
+		Category("Scripts").Display("Health").Icon("cat.scripts").Err(); err != nil {
 		return err
 	}
-	sys := r.Engine.Systems()
-	if err := sys.Register(engine.SystemDesc{ID: "game.rotate", Phase: engine.PhaseUpdate, System: rotateSystem{}}); err != nil {
-		return err
-	}
-	if err := sys.Register(engine.SystemDesc{ID: "game.rotate3d", Phase: engine.PhaseUpdate, System: rotate3DSystem{}}); err != nil {
-		return err
-	}
-	return sys.Register(engine.SystemDesc{ID: "game.health", Phase: engine.PhaseUpdate, System: healthSystem{}})
+	r.Template(sdk.TemplateDesc{ID: "game.enemy", Name: "Enemy", Category: "Actors", Setup: buildEnemy})
+	r.System(sdk.SystemDesc{ID: "game.rotate", Phase: sdk.PhaseUpdate, System: rotateSystem{}})
+	r.System(sdk.SystemDesc{ID: "game.rotate3d", Phase: sdk.PhaseUpdate, System: rotate3DSystem{}})
+	r.System(sdk.SystemDesc{ID: "game.health", Phase: sdk.PhaseUpdate, System: healthSystem{}})
+	registerEditor(r)
+	return nil
+}
+
+func buildEnemy(s *scene.Scene, h scene.NodeHandle) {
+	sr := scene.Add[sdk.SpriteRenderer](s, h)
+	*sr = sdk.DefaultSpriteRenderer()
+	sr.Size = mathx.Vec2{X: 1, Y: 1}
+	*scene.Add[Health](s, h) = Health{Max: 50, Current: 50, Regen: 2}
+	scene.Add[Rotator](s, h).Speed = 1
 }
 
 type rotateSystem struct{}
 
-func (rotateSystem) Run(ctx *engine.Context) {
+func (rotateSystem) Run(ctx *sdk.Context) {
 	s := sdk.SceneOf(ctx)
 	if s == nil {
 		return
@@ -71,7 +79,7 @@ func (rotateSystem) Run(ctx *engine.Context) {
 
 type rotate3DSystem struct{}
 
-func (rotate3DSystem) Run(ctx *engine.Context) {
+func (rotate3DSystem) Run(ctx *sdk.Context) {
 	s := sdk.SceneOf(ctx)
 	if s == nil {
 		return
@@ -89,7 +97,7 @@ func (rotate3DSystem) Run(ctx *engine.Context) {
 
 type healthSystem struct{}
 
-func (healthSystem) Run(ctx *engine.Context) {
+func (healthSystem) Run(ctx *sdk.Context) {
 	s := sdk.SceneOf(ctx)
 	if s == nil {
 		return

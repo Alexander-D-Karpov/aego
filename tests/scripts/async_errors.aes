@@ -1,0 +1,35 @@
+package async_errors
+
+script Other {
+	func Ready() {
+	}
+}
+
+func Top() coroutine {
+}
+
+script Bad {
+	signal Hit(s string)
+
+	var other ScriptRef<Other>
+	var lost ScriptRef<Missing>
+
+	func Update(dt float) coroutine {
+	}
+
+	func Blink() coroutine {
+		yield wait(true)
+	}
+
+	func Plain() {
+		yield
+		Blink()
+		start Plain()
+		Hit.Connect(OnWrong)
+		Hit.Connect(Blink)
+		other.Ready()
+	}
+
+	func OnWrong(x int) {
+	}
+}

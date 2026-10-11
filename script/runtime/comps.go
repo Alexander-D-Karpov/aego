@@ -1,10 +1,10 @@
 package runtime
 
 import (
-	"aego/core/ids"
 	"errors"
 	"unsafe"
 
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/schema"
 	"aego/script/bind"
@@ -13,9 +13,10 @@ import (
 
 var (
 	errBadComponent     = errors.New("component reference does not match the linked bindings")
-	errComponentGone    = errors.New("component is no longer on the node")
 	errReadOnly         = errors.New("component field is read-only")
 	errUnsupportedField = errors.New("component field kind cannot be set from a script")
+	faultComponentGone  = &vm.Fault{Code: vm.CodeNil, Message: "component is no longer on the node"}
+	faultNodeGone       = &vm.Fault{Code: vm.CodeNil, Message: "component reference points to a destroyed node"}
 )
 
 func (r *Runtime) component(ref vm.Value, field int) (unsafe.Pointer, *schema.FieldDescriptor, error) {
@@ -27,11 +28,64 @@ func (r *Runtime) component(ref vm.Value, field int) (unsafe.Pointer, *schema.Fi
 		return nil, nil, errBadComponent
 	}
 	c := &r.comps[idx]
-	p, ok := r.scene.GetByType(bind.NodeOf(ref), c.typ)
+	h := bind.NodeOf(ref)
+	if !r.scene.IsAlive(h) {
+		return nil, nil, faultNodeGone
+	}
+	p, ok := r.scene.GetByType(h, c.typ)
 	if !ok {
-		return nil, nil, errComponentGone
+		return nil, nil, faultComponentGone
 	}
 	return p, c.fields[field], nil
+}
+
+func readInt(q unsafe.Pointer, size uintptr, unsigned bool) int64 {
+	switch size {
+	case 1:
+		if unsigned {
+			return int64(*(*uint8)(q))
+		}
+		return int64(*(*int8)(q))
+	case 2:
+		if unsigned {
+			return int64(*(*uint16)(q))
+		}
+		return int64(*(*int16)(q))
+	case 4:
+		if unsigned {
+			return int64(*(*uint32)(q))
+		}
+		return int64(*(*int32)(q))
+	}
+	return *(*int64)(q)
+}
+
+func writeInt(q unsafe.Pointer, size uintptr, v int64) {
+	switch size {
+	case 1:
+		*(*uint8)(q) = uint8(v)
+	case 2:
+		*(*uint16)(q) = uint16(v)
+	case 4:
+		*(*uint32)(q) = uint32(v)
+	default:
+		*(*int64)(q) = v
+	}
+}
+
+func (r *Runtime) nodeValue(id ids.NodeID) vm.Value {
+	if id.IsZero() {
+		return vm.Value{}
+	}
+	return bind.NodeValue(r.scene.Handle(id))
+}
+
+func (r *Runtime) nodeID(v vm.Value) ids.NodeID {
+	h := bind.NodeOf(v)
+	if h.IsZero() || !r.scene.IsAlive(h) {
+		return ids.NodeID{}
+	}
+	return r.scene.ID(h)
 }
 
 func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
@@ -61,10 +115,22 @@ func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
 		*dst = bind.QuatValue(*(*mathx.Quat)(q))
 	case schema.KindRect:
 		*dst = bind.RectValue(*(*mathx.Rect)(q))
+	case schema.KindEnum:
+		*dst = vm.Int(readInt(q, fd.Size, fd.Unsigned))
+	case schema.KindString:
+		*dst = r.m.NewString(*(*string)(q))
+	case schema.KindAssetRef:
+		if !fd.Direct {
+			return r.getSlow(p, fd, dst)
+		}
+		*dst = bind.AssetValue(*(*ids.AssetID)(q))
+	case schema.KindNodeRef:
+		if !fd.Direct {
+			return r.getSlow(p, fd, dst)
+		}
+		*dst = r.nodeValue(*(*ids.NodeID)(q))
 	default:
-		var v schema.Value
-		fd.Get(p, &v)
-		*dst = r.fromSchema(v)
+		return r.getSlow(p, fd, dst)
 	}
 	return nil
 }
@@ -99,14 +165,40 @@ func (r *Runtime) SetField(ref vm.Value, field int, src vm.Value) error {
 		*(*mathx.Quat)(q) = bind.QuatOf(src)
 	case schema.KindRect:
 		*(*mathx.Rect)(q) = bind.RectOf(src)
-	default:
-		sv, err := r.toSchema(fd.Kind, src)
-		if err != nil {
-			return err
+	case schema.KindEnum:
+		writeInt(q, fd.Size, src.Int())
+	case schema.KindString:
+		s, _ := r.m.Str(src)
+		*(*string)(q) = s
+	case schema.KindAssetRef:
+		if !fd.Direct {
+			return r.setSlow(p, fd, src)
 		}
-		return fd.Set(p, sv)
+		*(*ids.AssetID)(q) = bind.AssetOf(src)
+	case schema.KindNodeRef:
+		if !fd.Direct {
+			return r.setSlow(p, fd, src)
+		}
+		*(*ids.NodeID)(q) = r.nodeID(src)
+	default:
+		return r.setSlow(p, fd, src)
 	}
 	return nil
+}
+
+func (r *Runtime) getSlow(p unsafe.Pointer, fd *schema.FieldDescriptor, dst *vm.Value) error {
+	var v schema.Value
+	fd.Get(p, &v)
+	*dst = r.fromSchema(v)
+	return nil
+}
+
+func (r *Runtime) setSlow(p unsafe.Pointer, fd *schema.FieldDescriptor, src vm.Value) error {
+	sv, err := r.toSchema(fd.Kind, src)
+	if err != nil {
+		return err
+	}
+	return fd.Set(p, sv)
 }
 
 func (r *Runtime) fromSchema(v schema.Value) vm.Value {
@@ -118,10 +210,7 @@ func (r *Runtime) fromSchema(v schema.Value) vm.Value {
 	case schema.KindAssetRef:
 		return bind.AssetValue(v.Asset)
 	case schema.KindNodeRef:
-		if v.Node.IsZero() {
-			return vm.Value{}
-		}
-		return bind.NodeValue(r.scene.Handle(v.Node))
+		return r.nodeValue(v.Node)
 	}
 	return vm.Value{}
 }
@@ -136,11 +225,7 @@ func (r *Runtime) toSchema(k schema.Kind, v vm.Value) (schema.Value, error) {
 	case schema.KindAssetRef:
 		return schema.Asset(bind.AssetOf(v)), nil
 	case schema.KindNodeRef:
-		h := bind.NodeOf(v)
-		if h.IsZero() || !r.scene.IsAlive(h) {
-			return schema.Node(ids.NodeID{}), nil
-		}
-		return schema.Node(r.scene.ID(h)), nil
+		return schema.Node(r.nodeID(v)), nil
 	}
 	return schema.Value{}, errUnsupportedField
 }

@@ -350,3 +350,17 @@ func TestRegisterLimit(t *testing.T) {
 		t.Fatalf("limit not reported: %v", ds)
 	}
 }
+
+func TestSliceTooWide(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("package t\ntype W struct {\n")
+	for i := 0; i < 33; i++ {
+		b.WriteString("\tF" + strconv.Itoa(i) + " int\n")
+	}
+	b.WriteString("}\nfunc F() int {\n\ts := []W{}\n\treturn len(s)\n}\n")
+	a, sm := build(t, map[string]string{"game/t": b.String()})
+	m, ds := Compile(a, "game/t", Options{Sources: sm})
+	if m != nil || len(ds) == 0 || ds[0].Code != diag.SliceTooWide {
+		t.Fatalf("limit not reported: %v", ds)
+	}
+}

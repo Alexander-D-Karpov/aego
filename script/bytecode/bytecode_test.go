@@ -2,6 +2,7 @@ package bytecode
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"reflect"
 	"strings"
@@ -92,5 +93,13 @@ func TestDisassemble(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in\n%s", want, out)
 		}
+	}
+}
+
+func TestDecodeRejectsOldVersion(t *testing.T) {
+	data := Encode(sample())
+	binary.LittleEndian.PutUint16(data[4:], 2)
+	if _, err := Decode(data); !errors.Is(err, ErrVersion) || !strings.Contains(err.Error(), "2") {
+		t.Fatalf("err = %v", err)
 	}
 }

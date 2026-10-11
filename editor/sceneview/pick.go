@@ -1,26 +1,15 @@
 package sceneview
 
 import (
-	"aego/asset"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/editor/context"
+	"aego/editor/shape"
 	"aego/scene"
-	"aego/scene/components"
 )
 
-func spriteRect(sr *components.SpriteRenderer, res asset.Resolver) (mathx.Rect, bool) {
-	size := sr.Size
-	if size.X == 0 && size.Y == 0 {
-		if res == nil {
-			return mathx.Rect{}, false
-		}
-		reg, ok := sr.Sprite.Region(res)
-		if !ok {
-			return mathx.Rect{}, false
-		}
-		size = reg.Size()
-	}
-	return mathx.Rect{X: -sr.Origin.X * size.X, Y: -sr.Origin.Y * size.Y, W: size.X, H: size.Y}, true
+func shapes(ctx *context.Editor) shape.Set {
+	return shape.Set{Reg: ctx.Shapes, Res: resolver(ctx)}
 }
 
 func quadOf(s *scene.Scene, h scene.NodeHandle, lr mathx.Rect) [4]mathx.Vec2 {
@@ -33,20 +22,16 @@ func quadOf(s *scene.Scene, h scene.NodeHandle, lr mathx.Rect) [4]mathx.Vec2 {
 	}
 }
 
-func Quad(s *scene.Scene, res asset.Resolver, h scene.NodeHandle) ([4]mathx.Vec2, bool) {
-	sr, ok := scene.Get[components.SpriteRenderer](s, h)
-	if !ok {
+func Quad(s *scene.Scene, sh shape.Set, h scene.NodeHandle) ([4]mathx.Vec2, bool) {
+	r, ok := sh.Of(s, h)
+	if !ok || r.Kind != shape.Rect {
 		return [4]mathx.Vec2{}, false
 	}
-	lr, ok := spriteRect(sr, res)
-	if !ok {
-		return [4]mathx.Vec2{}, false
-	}
-	return quadOf(s, h, lr), true
+	return quadOf(s, h, r.Local), true
 }
 
-func Bounds(s *scene.Scene, res asset.Resolver, h scene.NodeHandle) (mathx.AABB2, bool) {
-	q, ok := Quad(s, res, h)
+func Bounds(s *scene.Scene, sh shape.Set, h scene.NodeHandle) (mathx.AABB2, bool) {
+	q, ok := Quad(s, sh, h)
 	if !ok {
 		p := s.WorldPosition(h)
 		return mathx.AABB2{Min: p.Sub(mathx.Vec2{X: 0.5, Y: 0.5}), Max: p.Add(mathx.Vec2{X: 0.5, Y: 0.5})}, false
@@ -58,35 +43,40 @@ func Bounds(s *scene.Scene, res asset.Resolver, h scene.NodeHandle) (mathx.AABB2
 	return b, true
 }
 
-func Pick(s *scene.Scene, res asset.Resolver, p mathx.Vec2) (scene.NodeHandle, bool) {
+func Pick(s *scene.Scene, sh shape.Set, p mathx.Vec2) (scene.NodeHandle, bool) {
 	s.UpdateTransforms()
 	var best scene.NodeHandle
 	var bestKey int64
 	found := false
 	idx := int64(0)
-	scene.Query1[components.SpriteRenderer](s).Each(func(h scene.NodeHandle, sr *components.SpriteRenderer) {
-		idx++
-		lr, ok := spriteRect(sr, res)
-		if !ok {
-			return
+	root := s.Root()
+	for _, h := range s.PreOrder() {
+		if h == root || !s.IsAlive(h) || !s.EffectiveEnabled(h) {
+			continue
 		}
+		r, ok := sh.Of(s, h)
+		if !ok || r.Kind != shape.Rect {
+			continue
+		}
+		idx++
 		inv, ok := s.World(h).Inverse()
 		if !ok {
-			return
+			continue
 		}
 		local := inv.Apply(p)
+		lr := r.Local
 		if local.X < lr.X || local.X > lr.X+lr.W || local.Y < lr.Y || local.Y > lr.Y+lr.H {
-			return
+			continue
 		}
-		key := (int64(sr.Layer)+1<<15)<<40 | (int64(sr.Order)+1<<15)<<24 | idx
+		key := r.Order<<24 | idx
 		if !found || key > bestKey {
 			best, bestKey, found = h, key, true
 		}
-	})
+	}
 	return best, found
 }
 
-func BoxSelect(s *scene.Scene, res asset.Resolver, box mathx.AABB2) []ids.NodeID {
+func BoxSelect(s *scene.Scene, sh shape.Set, box mathx.AABB2) []ids.NodeID {
 	s.UpdateTransforms()
 	root := s.Root()
 	var out []ids.NodeID
@@ -94,8 +84,8 @@ func BoxSelect(s *scene.Scene, res asset.Resolver, box mathx.AABB2) []ids.NodeID
 		if h == root || !s.IsAlive(h) || !s.EffectiveEnabled(h) {
 			continue
 		}
-		b, isSprite := Bounds(s, res, h)
-		if isSprite && b.Intersects(box) || !isSprite && box.Contains(s.WorldPosition(h)) {
+		b, isShape := Bounds(s, sh, h)
+		if isShape && b.Intersects(box) || !isShape && box.Contains(s.WorldPosition(h)) {
 			out = append(out, s.ID(h))
 		}
 	}

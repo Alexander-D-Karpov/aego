@@ -7,7 +7,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/script/ast"
 	"aego/script/bind"
@@ -48,7 +48,7 @@ type bench struct {
 func prepare(tb testing.TB, walkers, idle int) *bench {
 	tb.Helper()
 	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
+	if err := scriptcomp.Register(types); err != nil {
 		tb.Fatal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {
@@ -76,8 +76,8 @@ func prepare(tb testing.TB, walkers, idle int) *bench {
 	add := func(n int, typ string) {
 		for i := 0; i < n; i++ {
 			h := s.Create(s.Root(), typ+strconv.Itoa(i))
-			sc := scene.Add[components.ScriptComponent](s, h)
-			sc.Attachments = append(sc.Attachments, components.Attachment{TypeName: typ, Enabled: true})
+			sc := scene.Add[scriptcomp.ScriptComponent](s, h)
+			sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{TypeName: typ, Enabled: true})
 		}
 	}
 	add(walkers, "game.Walker")
@@ -133,5 +133,14 @@ func BenchmarkSchedule10k(bm *testing.B) {
 	bm.ResetTimer()
 	for i := 0; i < bm.N; i++ {
 		b.frame()
+	}
+}
+
+func TestSparseSchedule(t *testing.T) {
+	b := prepare(t, 20, 80)
+	b.frame()
+	b.frame()
+	if st := b.rt.Stats(); st.Update != 20 || st.Instances != 100 {
+		t.Fatalf("update schedule %d of %d instances, want 20 of 100", st.Update, st.Instances)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"aego/editor/context"
 	"aego/editor/gizmo"
 	"aego/editor/inspector"
+	"aego/editor/shape"
 	"aego/editor/templates"
 	"aego/editor/workspace"
 	"aego/scene"
@@ -21,21 +22,19 @@ func (boomPanel) ID() string                       { return "quest" }
 func (boomPanel) Title() string                    { return "Quest" }
 func (boomPanel) Draw(*context.Editor, mathx.Rect) { panic("boom") }
 
-type mod struct {
-	fail bool
-}
-
-func (m mod) RegisterEditor(r *Registry) error {
-	if err := r.RegisterPanel(boomPanel{}); err != nil {
-		return err
+func hook(fail bool) func(*Registry) error {
+	return func(r *Registry) error {
+		if err := r.Panel(boomPanel{}); err != nil {
+			return err
+		}
+		if err := r.Command(command.Desc{ID: "game.spawn", Run: func() error { panic("cmd") }}); err != nil {
+			return err
+		}
+		if fail {
+			return errors.New("nope")
+		}
+		return nil
 	}
-	if err := r.RegisterCommand(command.Desc{ID: "game.spawn", Run: func() error { panic("cmd") }}); err != nil {
-		return err
-	}
-	if m.fail {
-		return errors.New("nope")
-	}
-	return nil
 }
 
 func setup(t *testing.T) (*Registry, Deps) {
@@ -50,6 +49,7 @@ func setup(t *testing.T) (*Registry, Deps) {
 		Inspectors: inspector.NewRegistry(),
 		Gizmos:     gizmo.NewRegistry(),
 		Templates:  templates.New(),
+		Shapes:     shape.NewRegistry(),
 		Commands:   command.New(),
 		Schema:     types.Schema(),
 	}
@@ -58,7 +58,7 @@ func setup(t *testing.T) (*Registry, Deps) {
 
 func TestPanickingPanelDisablesExtension(t *testing.T) {
 	r, d := setup(t)
-	if err := r.Load(mod{}); err != nil {
+	if err := r.Run("game", hook(false)); err != nil {
 		t.Fatal(err)
 	}
 	p, ok := d.Workspace.Panel("quest")
@@ -70,7 +70,7 @@ func TestPanickingPanelDisablesExtension(t *testing.T) {
 		p.Draw(d.Editor, mathx.Rect{})
 	}()
 	r.Flush()
-	if _, ok := r.Disabled()[ModuleID(mod{})]; !ok {
+	if _, ok := r.Disabled()["game"]; !ok {
 		t.Fatal("extension not disabled")
 	}
 	if d.Workspace.Has("quest") {
@@ -83,7 +83,7 @@ func TestPanickingPanelDisablesExtension(t *testing.T) {
 
 func TestPanickingCommandReturnsError(t *testing.T) {
 	r, d := setup(t)
-	if err := r.Load(mod{}); err != nil {
+	if err := r.Run("game", hook(false)); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.Commands.Run("game.spawn"); err == nil {
@@ -97,7 +97,7 @@ func TestPanickingCommandReturnsError(t *testing.T) {
 
 func TestFailedRegistrationRollsBack(t *testing.T) {
 	r, d := setup(t)
-	if err := r.Load(mod{fail: true}); err == nil {
+	if err := r.Run("game", hook(true)); err == nil {
 		t.Fatal("registration error swallowed")
 	}
 	if d.Workspace.Has("quest") {
@@ -106,7 +106,7 @@ func TestFailedRegistrationRollsBack(t *testing.T) {
 	if _, ok := d.Commands.Get("game.spawn"); ok {
 		t.Fatal("command of a failed extension must be unregistered")
 	}
-	if _, ok := r.Disabled()[ModuleID(mod{fail: true})]; !ok {
+	if _, ok := r.Disabled()["game"]; !ok {
 		t.Fatal("failed extension must be marked disabled")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"aego/core/ids"
@@ -11,11 +12,13 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/script/abi"
 	"aego/script/bind"
 	"aego/script/bytecode"
+	"aego/script/coroutine"
+	"aego/script/signal"
 	"aego/script/vm"
 )
 
@@ -68,6 +71,13 @@ type Stats struct {
 	GCTime       time.Duration
 	Faults       int
 	BudgetAborts uint64
+	Coroutines   int
+	Sleeping     int
+	Resumes      uint64
+	CoCanceled   uint64
+	Connections  int
+	Emits        uint64
+	Handlers     uint64
 	Types        []TypeStats
 }
 
@@ -78,21 +88,25 @@ type fieldInit struct {
 }
 
 type scriptType struct {
-	name   string
-	former []string
-	slots  int
-	heap   []uint16
-	init   []vm.Value
-	fields []fieldInit
-	ready  *vm.Func
-	fixed  *vm.Func
-	update *vm.Func
-	vals   []vm.Value
-	free   []int
-	live   int
-	calls  uint64
-	time   time.Duration
-	faults int
+	name     string
+	former   []string
+	prefix   string
+	def      *bytecode.ScriptDef
+	slots    int
+	heap     []uint16
+	init     []vm.Value
+	fields   []fieldInit
+	methods  []*vm.Func
+	ready    *vm.Func
+	fixed    *vm.Func
+	update   *vm.Func
+	reloaded *vm.Func
+	vals     []vm.Value
+	free     []int
+	live     int
+	calls    uint64
+	time     time.Duration
+	faults   int
 }
 
 type instance struct {
@@ -106,6 +120,9 @@ type Runtime struct {
 	opt          Options
 	log          *log.ChannelLogger
 	m            *vm.Machine
+	co           *coroutine.Scheduler
+	sig          *signal.Registry
+	deliverFn    signal.Deliver
 	ctx          bind.Ctx
 	types        []*scriptType
 	byName       map[string]*scriptType
@@ -130,7 +147,13 @@ type Runtime struct {
 	instrMark    uint64
 	hostMark     uint64
 	budgetAborts uint64
+	emits        uint64
+	handlers     uint64
+	resumeMark   uint64
 	elapsed      float64
+	gen          uint64
+	dmu          sync.Mutex
+	deferred     []func()
 }
 
 func New(opt Options) *Runtime {
@@ -154,16 +177,24 @@ func funcAt(lm *vm.Module, idx int32) *vm.Func {
 	return lm.Funcs[idx]
 }
 
-func newType(m *vm.Machine, lm *vm.Module, def *bytecode.ScriptDef) *scriptType {
+func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef) *scriptType {
 	t := &scriptType{
-		name:   def.FullName,
-		former: def.Former,
-		slots:  int(def.Slots),
-		heap:   def.HeapSlots,
-		init:   make([]vm.Value, def.Slots),
-		ready:  funcAt(lm, def.Ready),
-		fixed:  funcAt(lm, def.FixedUpdate),
-		update: funcAt(lm, def.Update),
+		name:     def.FullName,
+		former:   def.Former,
+		prefix:   shortName(def.FullName) + ".",
+		def:      def,
+		slots:    int(def.Slots),
+		heap:     def.HeapSlots,
+		init:     make([]vm.Value, def.Slots),
+		ready:    funcAt(lm, def.Ready),
+		fixed:    funcAt(lm, def.FixedUpdate),
+		update:   funcAt(lm, def.Update),
+		reloaded: funcAt(lm, def.Reloaded),
+	}
+	for _, f := range lm.Funcs {
+		if f.Script == si {
+			t.methods = append(t.methods, f)
+		}
 	}
 	for _, f := range def.Fields {
 		if f.HasDefault {
@@ -181,6 +212,42 @@ func newType(m *vm.Machine, lm *vm.Module, def *bytecode.ScriptDef) *scriptType 
 	return t
 }
 
+func load(m *vm.Machine, b *bind.Registry, mods []*bytecode.Module) ([]*vm.Module, error) {
+	loaded := make([]*vm.Module, 0, len(mods))
+	for _, bm := range mods {
+		lm, err := m.Load(bm, b.Resolve)
+		if err != nil {
+			return nil, err
+		}
+		loaded = append(loaded, lm)
+	}
+	if err := vm.Link(loaded); err != nil {
+		return nil, err
+	}
+	return loaded, nil
+}
+
+func buildTypes(m *vm.Machine, loaded []*vm.Module, mods []*bytecode.Module) ([]*scriptType, map[string]*scriptType) {
+	var types []*scriptType
+	byName := map[string]*scriptType{}
+	for i, lm := range loaded {
+		src := mods[i]
+		for si := range src.Scripts {
+			t := newType(m, lm, si, &src.Scripts[si])
+			types = append(types, t)
+			byName[t.name] = t
+		}
+	}
+	for _, t := range types {
+		for _, f := range t.former {
+			if _, taken := byName[f]; !taken {
+				byName[f] = t
+			}
+		}
+	}
+	return types, byName
+}
+
 func (r *Runtime) Link(mods []*bytecode.Module) error {
 	if r.opt.Bindings == nil {
 		return errors.New("script runtime needs a binding registry")
@@ -189,15 +256,10 @@ func (r *Runtime) Link(mods []*bytecode.Module) error {
 	m := vm.New(r.opt.VM)
 	m.Env = &r.ctx
 	m.Comps = r
-	loaded := make([]*vm.Module, 0, len(mods))
-	for _, bm := range mods {
-		lm, err := m.Load(bm, r.opt.Bindings.Resolve)
-		if err != nil {
-			return err
-		}
-		loaded = append(loaded, lm)
-	}
-	if err := vm.Link(loaded); err != nil {
+	m.Scripts = bridge{r}
+	m.Signals = bridge{r}
+	loaded, err := load(m, r.opt.Bindings, mods)
+	if err != nil {
 		return err
 	}
 	if r.opt.Schema != nil {
@@ -206,26 +268,16 @@ func (r *Runtime) Link(mods []*bytecode.Module) error {
 		}
 	}
 	r.m = m
-	r.types = r.types[:0]
-	clear(r.byName)
-	for i, lm := range loaded {
-		src := mods[i]
-		for si := range src.Scripts {
-			t := newType(m, lm, &src.Scripts[si])
-			r.types = append(r.types, t)
-			r.byName[t.name] = t
-		}
-	}
-	for _, t := range r.types {
-		for _, f := range t.former {
-			if _, taken := r.byName[f]; !taken {
-				r.byName[f] = t
-			}
-		}
-	}
+	r.co = coroutine.New(m)
+	r.co.Self = r.selfOf
+	r.co.OnFault = r.fault
+	r.sig = signal.New()
+	r.deliverFn = r.deliver
+	r.types, r.byName = buildTypes(m, loaded, mods)
 	r.comps = linkComponents(r.opt.Bindings, r.opt.Schema)
-	r.scriptType = components.ScriptTypeID
+	r.scriptType = scriptcomp.ScriptTypeID
 	r.stats.Types = make([]TypeStats, len(r.types))
+	r.gen = 0
 	return nil
 }
 
@@ -241,6 +293,12 @@ func (r *Runtime) Reset() {
 	if r.unsub != nil {
 		r.unsub()
 		r.unsub = nil
+	}
+	if r.co != nil {
+		r.co.CancelAll()
+	}
+	if r.sig != nil {
+		r.sig.Reset()
 	}
 	r.scene, r.ctx.Scene = nil, nil
 	r.inst = r.inst[:0]
@@ -309,7 +367,7 @@ func (r *Runtime) spawnNode(h scene.NodeHandle) {
 	if !r.scene.IsAlive(h) {
 		return
 	}
-	sc, ok := components.ScriptsOf(r.scene, h)
+	sc, ok := scriptcomp.ScriptsOf(r.scene, h)
 	if !ok {
 		return
 	}
@@ -340,17 +398,30 @@ func (r *Runtime) spawnNode(h scene.NodeHandle) {
 	r.byNode[h] = list
 }
 
+func (r *Runtime) retire(id vm.InstanceID) {
+	in := &r.inst[id-1]
+	if in.state == dead {
+		return
+	}
+	in.state = dead
+	in.typ.live--
+	r.dirty = true
+	if r.co != nil {
+		r.co.CancelOwner(id)
+	}
+	if r.sig != nil {
+		r.sig.DropInstance(id)
+	}
+}
+
 func (r *Runtime) OnAttachmentRemoved(h scene.NodeHandle, typeName string) {
 	t := r.byName[typeName]
 	if t == nil {
 		return
 	}
 	for _, id := range r.byNode[h] {
-		in := &r.inst[id-1]
-		if in.typ == t && in.state != dead {
-			in.state = dead
-			in.typ.live--
-			r.dirty = true
+		if r.inst[id-1].typ == t {
+			r.retire(id)
 		}
 	}
 }
@@ -437,11 +508,7 @@ func (r *Runtime) killNode(h scene.NodeHandle) {
 		return
 	}
 	for _, id := range list {
-		in := &r.inst[id-1]
-		if in.state != dead {
-			in.state = dead
-			in.typ.live--
-		}
+		r.retire(id)
 	}
 	delete(r.byNode, h)
 	r.dirty = true
@@ -507,7 +574,7 @@ func (r *Runtime) call(id vm.InstanceID, f *vm.Func, args []vm.Value) {
 	if r.opt.Profile {
 		start = time.Now()
 	}
-	_, fl := r.m.Call(f, t.vals[in.base:in.base+t.slots], args)
+	_, fl := r.m.CallAs(f, t.vals[in.base:in.base+t.slots], args, id)
 	if r.opt.Profile {
 		t.time += time.Since(start)
 	}
@@ -518,6 +585,10 @@ func (r *Runtime) call(id vm.InstanceID, f *vm.Func, args []vm.Value) {
 }
 
 func (r *Runtime) fault(id vm.InstanceID, fl *vm.Fault) {
+	if id == vm.NoInstance || int(id) > len(r.inst) {
+		r.log.Error("script stopped: "+fl.Message, log.F("code", fl.Code))
+		return
+	}
 	in := &r.inst[id-1]
 	if in.state == Running {
 		in.state = Faulted
@@ -545,6 +616,12 @@ func (r *Runtime) fault(id vm.InstanceID, fl *vm.Fault) {
 		fields = append(fields, log.F("go", fl.Detail))
 	}
 	r.log.Error("script stopped: "+fl.Message, fields...)
+	if r.co != nil {
+		r.co.CancelOwner(id)
+	}
+	if r.sig != nil {
+		r.sig.DropInstance(id)
+	}
 }
 
 func inputOf(ec *engine.Context) *input.State {
@@ -592,6 +669,7 @@ func (r *Runtime) FixedUpdate(ec *engine.Context) {
 			r.call(id, in.typ.fixed, r.arg[:1])
 		}
 	}
+	r.co.Fixed()
 	r.end()
 }
 
@@ -625,6 +703,7 @@ func (r *Runtime) MarkRoots(mk *vm.Marker) {
 
 func (r *Runtime) rollFrame() {
 	vs := r.m.Stats()
+	cs := r.co.Stats()
 	s := &r.stats
 	s.Instructions, r.instrMark = vs.Instructions-r.instrMark, vs.Instructions
 	s.HostCalls, r.hostMark = vs.HostCalls-r.hostMark, vs.HostCalls
@@ -632,6 +711,13 @@ func (r *Runtime) rollFrame() {
 	s.GCRuns, s.GCTime = vs.GCRuns, vs.GCTime
 	s.Faults, s.BudgetAborts = len(r.faults), r.budgetAborts
 	s.Update, s.Fixed = len(r.update), len(r.fixed)
+	s.Coroutines = cs.Live
+	s.Sleeping = cs.Sleeping + cs.Fixed + cs.Awaiting
+	s.Resumes, r.resumeMark = cs.Resumed-r.resumeMark, cs.Resumed
+	s.CoCanceled = cs.Canceled
+	s.Connections = r.sig.Len()
+	s.Emits, r.emits = r.emits, 0
+	s.Handlers, r.handlers = r.handlers, 0
 	s.Instances = 0
 	for i, t := range r.types {
 		s.Instances += t.live
@@ -652,5 +738,8 @@ func (r *Runtime) Faults() []FaultReport {
 
 func (r *Runtime) Close() {
 	r.Reset()
-	r.m = nil
+	r.dmu.Lock()
+	r.deferred = nil
+	r.dmu.Unlock()
+	r.m, r.co, r.sig = nil, nil, nil
 }

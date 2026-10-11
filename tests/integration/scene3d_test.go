@@ -87,7 +87,7 @@ func (rotator3DModule) Register(r *sdk.Registry) error {
 		return err
 	}
 	return sdk.RegisterSystem(r, sdk.SystemDesc{
-		ID:     "game.rotator3d",
+		ID:     "game.rotator3d.spin",
 		Phase:  sdk.PhaseUpdate,
 		System: rotator3DSystem{},
 	})

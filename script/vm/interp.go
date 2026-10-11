@@ -7,12 +7,29 @@ import (
 	"aego/script/bytecode"
 )
 
-func (m *Machine) run() {
+func (m *Machine) at(top int) (*Func, int, int, []bytecode.Instr, []Value, []Value, InstanceID) {
+	fr := &m.frames[top]
+	return fr.f, fr.base, fr.pc, fr.f.code, m.stack[fr.base : fr.base+fr.f.Regs], fr.self, fr.owner
+}
+
+func (m *Machine) enter(top, pc int, callee *Func, nb, ret int, self []Value, owner InstanceID) bool {
+	if len(m.frames) >= m.opt.MaxCallDepth {
+		m.trap(top, pc, CodeCallDepth, "call depth exceeds "+strconv.Itoa(m.opt.MaxCallDepth))
+		return false
+	}
+	if need := nb + callee.Regs; need > len(m.stack) {
+		m.grow(need)
+	}
+	clear(m.stack[nb+callee.Params : nb+callee.Regs])
+	m.frames[top].pc = pc
+	m.frames = append(m.frames, frame{f: callee, base: nb, ret: ret, self: self, owner: owner})
+	m.stats.Calls++
+	return true
+}
+
+func (m *Machine) run(floor int) {
 	top := len(m.frames) - 1
-	fr := m.frames[top]
-	f, base, pc := fr.f, fr.base, fr.pc
-	code := f.code
-	regs := m.stack[base : base+f.Regs]
+	f, base, pc, code, regs, self, owner := m.at(top)
 	for {
 		if m.left == 0 {
 			m.stats.BudgetAborts++
@@ -155,51 +172,79 @@ func (m *Machine) run() {
 				m.trap(top, pc, CodeLink, "extern function is not linked")
 				return
 			}
-			if len(m.frames) >= m.opt.MaxCallDepth {
-				m.trap(top, pc, CodeCallDepth, "call depth exceeds "+strconv.Itoa(m.opt.MaxCallDepth))
+			if !m.enter(top, pc, callee, base+a, base+a, self, owner) {
 				return
 			}
-			nb := base + a
-			if need := nb + callee.Regs; need > len(m.stack) {
-				m.grow(need)
-			}
-			clear(m.stack[nb+callee.Params : nb+callee.Regs])
-			m.frames[top].pc = pc
-			m.frames = append(m.frames, frame{f: callee, base: nb})
 			top++
-			m.stats.Calls++
-			f, base, pc, code = callee, nb, 0, callee.code
-			regs = m.stack[base : base+f.Regs]
+			f, base, pc, code, regs, self, owner = m.at(top)
+		case bytecode.CALLR:
+			x := &f.mod.xmethods[in.Bx()]
+			if m.Scripts == nil {
+				m.trap(top, pc, CodeLink, "script references are not bound")
+				return
+			}
+			tgt, id, ok := m.Scripts.Instance(regs[a], x.script)
+			if !ok {
+				m.trap(top, pc, CodeNil, "script reference is nil or its instance is gone")
+				return
+			}
+			if !m.enter(top, pc, x.fn, base+a+1, base+a, tgt, id) {
+				return
+			}
+			top++
+			f, base, pc, code, regs, self, owner = m.at(top)
+		case bytecode.START:
+			callee := f.mod.Funcs[in.Bx()]
+			if !m.enter(top, pc, callee, base+a, base+a, self, owner) {
+				return
+			}
+			h := m.newCo(callee, owner)
+			top++
+			m.frames[top].co = h.Index + 1
+			f, base, pc, code, regs, self, owner = m.at(top)
 		case bytecode.CALLH:
 			bx := int(in.Bx())
 			m.frames[top].pc = pc
 			m.stats.HostCalls++
 			if err := m.host(f.mod.hosts[bx], regs[a:a+f.mod.windows[bx]]); err != nil {
 				if m.fault == nil {
-					m.raise(CodeHost, err.Error())
+					m.trapErr(top, pc, err)
 				}
 				return
 			}
-		case bytecode.RET:
-			copy(m.stack[base:base+b], regs[a:a+b])
+		case bytecode.RET, bytecode.YIELD:
+			fr := &m.frames[top]
+			switch {
+			case in.Op() == bytecode.YIELD && fr.co == 0:
+				m.trap(top, pc, CodeLink, "yield outside a coroutine frame")
+				return
+			case in.Op() == bytecode.YIELD:
+				arg := Value{}
+				if c != int(WaitNext) {
+					arg = regs[a]
+				}
+				m.yieldCo(fr.co-1, fr.ret, pc, regs, WaitKind(c), arg)
+			case fr.co != 0:
+				m.finishCo(fr.co-1, fr.ret)
+			default:
+				copy(m.stack[fr.ret:fr.ret+b], regs[a:a+b])
+			}
 			m.frames = m.frames[:top]
-			if top == 0 {
+			if top == floor {
 				return
 			}
 			top--
-			fr := &m.frames[top]
-			f, base, pc, code = fr.f, fr.base, fr.pc, fr.f.code
-			regs = m.stack[base : base+f.Regs]
+			f, base, pc, code, regs, self, owner = m.at(top)
 		case bytecode.GETSF, bytecode.SETSF:
 			bx := int(in.Bx())
-			if bx >= len(m.self) {
+			if bx >= len(self) {
 				m.trap(top, pc, CodeLink, "script field is outside the instance")
 				return
 			}
 			if in.Op() == bytecode.GETSF {
-				regs[a] = m.self[bx]
+				regs[a] = self[bx]
 			} else {
-				m.self[bx] = regs[a]
+				self[bx] = regs[a]
 			}
 		case bytecode.GETCF, bytecode.SETCF:
 			ref := regs[b]
@@ -224,6 +269,85 @@ func (m *Machine) run() {
 				m.trap(top, pc, CodeNil, err.Error())
 				return
 			}
+		case bytecode.GETXF, bytecode.SETXF:
+			x := &f.mod.xfields[c]
+			ref, val := regs[b], a
+			if in.Op() == bytecode.SETXF {
+				ref, val = regs[a], b
+			}
+			if m.Scripts == nil {
+				m.trap(top, pc, CodeLink, "script references are not bound")
+				return
+			}
+			tgt, _, ok := m.Scripts.Instance(ref, x.script)
+			if !ok || x.slot+x.width > len(tgt) {
+				m.trap(top, pc, CodeNil, "script reference is nil or its instance is gone")
+				return
+			}
+			if in.Op() == bytecode.GETXF {
+				copy(regs[val:val+x.width], tgt[x.slot:x.slot+x.width])
+			} else {
+				copy(tgt[x.slot:x.slot+x.width], regs[val:val+x.width])
+			}
+		case bytecode.GETSCRIPT:
+			if m.Scripts == nil {
+				m.trap(top, pc, CodeLink, "script references are not bound")
+				return
+			}
+			if regs[a].IsZero() {
+				m.trap(top, pc, CodeNil, "node reference is nil")
+				return
+			}
+			ref, err := m.Scripts.Find(regs[a], f.mod.src.ScriptRefs[in.Bx()])
+			if err != nil {
+				m.trap(top, pc, CodeNil, err.Error())
+				return
+			}
+			regs[a] = ref
+		case bytecode.SELFREF:
+			if len(self) == 0 {
+				m.trap(top, pc, CodeLink, "self reference outside a script instance")
+				return
+			}
+			regs[a] = Value{A: self[0].A, B: uint64(owner)}
+		case bytecode.COSTOP:
+			if !regs[a].IsZero() {
+				m.Cancel(CoOf(regs[a]))
+			}
+		case bytecode.CORUN:
+			regs[a] = Bool(m.CoRunning(regs[b]))
+		case bytecode.EMIT:
+			if m.Signals == nil {
+				m.trap(top, pc, CodeLink, "signals are not bound")
+				return
+			}
+			n := f.mod.sigSlots[f.Script][in.Bx()]
+			m.frames[top].pc = pc
+			if err := m.Signals.Emit(owner, int(in.Bx()), regs[a:a+n]); err != nil {
+				m.trapErr(top, pc, err)
+				return
+			}
+			if m.fault != nil {
+				return
+			}
+			f, base, pc, code, regs, self, owner = m.at(top)
+		case bytecode.CONNECT:
+			if m.Signals == nil {
+				m.trap(top, pc, CodeLink, "signals are not bound")
+				return
+			}
+			v, err := m.Signals.Connect(regs[a+1], regs[a+2], &f.mod.connects[in.Bx()])
+			if err != nil {
+				m.trap(top, pc, CodeNil, err.Error())
+				return
+			}
+			regs[a] = v
+		case bytecode.DISCONNECT:
+			if !regs[a].IsZero() && m.Signals != nil {
+				m.Signals.Disconnect(regs[a])
+			}
+		case bytecode.CONNECTED:
+			regs[a] = Bool(!regs[b].IsZero() && m.Signals != nil && m.Signals.Connected(regs[b]))
 		case bytecode.NEWSLICE:
 			t := f.mod.types[in.Bx()]
 			regs[a] = m.heap.newSlice(t.width, t.mask, 4)
@@ -325,9 +449,6 @@ func (m *Machine) run() {
 	}
 }
 
-// ftoi converts float32 to int64 deterministically across architectures. Go's
-// int64(float32) is platform-defined for NaN and out-of-range inputs (amd64
-// gives MinInt64, arm64 saturates); pinning it keeps replay reproducible.
 func ftoi(f float32) int64 {
 	switch {
 	case f != f:

@@ -10,7 +10,7 @@ import (
 	"aego/ui/draw"
 )
 
-const LayoutVersion = 1
+const LayoutVersion = 2
 
 type NodeID uint32
 
@@ -69,13 +69,17 @@ type dragState struct {
 
 type Tree struct {
 	Title   func(panel string) string
+	OnClose func(panel string) bool
 	MinSize float32
 	nodes   map[NodeID]*Node
+	floats  []Float
 	root    NodeID
 	next    NodeID
 	gap     float32
 	tabH    float32
+	bounds  mathx.Rect
 	drag    dragState
+	menu    menuState
 	changed bool
 }
 
@@ -230,7 +234,7 @@ func (t *Tree) FindPanel(panel string) NodeID {
 }
 
 func (t *Tree) Has(panel string) bool {
-	return t.FindPanel(panel) != 0
+	return t.FindPanel(panel) != 0 || t.floatIndex(panel) >= 0
 }
 
 func (t *Tree) Panels() []string {
@@ -238,6 +242,9 @@ func (t *Tree) Panels() []string {
 	t.walk(t.root, func(n *Node) {
 		out = append(out, n.Tabs...)
 	})
+	for _, f := range t.floats {
+		out = append(out, f.Panel)
+	}
 	return out
 }
 
@@ -255,6 +262,10 @@ func (t *Tree) walk(id NodeID, fn func(*Node)) {
 }
 
 func (t *Tree) Activate(panel string) bool {
+	if i := t.floatIndex(panel); i >= 0 {
+		t.raise(i)
+		return true
+	}
 	id := t.FindPanel(panel)
 	if id == 0 {
 		return false
@@ -305,6 +316,11 @@ func (t *Tree) EnsurePanel(panel string) {
 }
 
 func (t *Tree) Undock(panel string) bool {
+	if i := t.floatIndex(panel); i >= 0 {
+		t.floats = append(t.floats[:i], t.floats[i+1:]...)
+		t.changed = true
+		return true
+	}
 	id := t.FindPanel(panel)
 	if id == 0 {
 		return false
@@ -385,6 +401,9 @@ func (t *Tree) content(n *Node) mathx.Rect {
 }
 
 func (t *Tree) PanelRect(panel string) (mathx.Rect, bool) {
+	if i := t.floatIndex(panel); i >= 0 {
+		return t.floatContent(i), true
+	}
 	n := t.nodes[t.FindPanel(panel)]
 	if n == nil {
 		return mathx.Rect{}, false
@@ -396,6 +415,14 @@ func (t *Tree) PanelRect(panel string) (mathx.Rect, bool) {
 }
 
 func (t *Tree) PanelAt(p mathx.Vec2) (string, bool) {
+	for i := len(t.floats) - 1; i >= 0; i-- {
+		if t.floats[i].Rect.Contains(p) {
+			if t.floatContent(i).Contains(p) {
+				return t.floats[i].Panel, true
+			}
+			return "", false
+		}
+	}
 	id := t.leafAt(t.root, p)
 	n := t.nodes[id]
 	if n == nil || !t.content(n).Contains(p) {
@@ -426,9 +453,12 @@ func (t *Tree) Draw(ui *core.Context, r mathx.Rect, fn func(panel string, r math
 	if th.SplitterW > 0 {
 		t.gap = th.SplitterW
 	}
+	t.bounds = r
 	t.Layout(r)
 	t.drawNode(ui, t.root, fn)
+	t.drawFloats(ui, fn)
 	t.updateDrag(ui)
+	t.drawMenu(ui)
 }
 
 func (t *Tree) drawNode(ui *core.Context, id NodeID, fn func(string, mathx.Rect)) {
@@ -497,6 +527,9 @@ func (t *Tree) drawTabs(ui *core.Context, n *Node, fn func(string, mathx.Rect)) 
 			}
 			t.drag = dragState{panel: p, from: n.ID, start: ui.Mouse(), id: id, pending: true}
 		}
+		if ui.RightClicked(id, tr) {
+			t.openMenu(ui, p, false)
+		}
 		col := th.Tab
 		switch {
 		case i == n.Active:
@@ -530,9 +563,14 @@ func (t *Tree) updateDrag(ui *core.Context) {
 	if !d.pending && !d.active {
 		return
 	}
+	m := ui.Mouse()
+	floating := ui.Mods().Has(input.ModShift) || !t.bounds.Contains(m)
 	if !ui.MouseDown(input.MouseLeft) {
 		if d.active {
-			if target, side, ok := t.dropTarget(ui.Mouse()); ok {
+			target, side, ok := t.dropTarget(m)
+			if floating || !ok {
+				t.Float(d.panel, m)
+			} else {
 				t.move(d.panel, d.from, target, side)
 			}
 			ui.ReleaseMouse()
@@ -540,7 +578,7 @@ func (t *Tree) updateDrag(ui *core.Context) {
 		t.drag = dragState{}
 		return
 	}
-	if d.pending && ui.Mouse().Sub(d.start).Len() > 6 {
+	if d.pending && m.Sub(d.start).Len() > 6 {
 		d.pending = false
 		d.active = true
 		ui.CaptureMouse(d.id)
@@ -552,11 +590,14 @@ func (t *Tree) updateDrag(ui *core.Context) {
 	ui.SetCursorShape(core.CursorMove)
 	l := ui.List()
 	l.PushLayer(draw.LayerTop)
-	if target, side, ok := t.dropTarget(ui.Mouse()); ok {
+	if floating {
+		fr := t.floatAt(m)
+		l.Rect(fr, th.DropTarget)
+		l.RectOutline(fr, th.Accent, 1)
+	} else if target, side, ok := t.dropTarget(m); ok {
 		l.Rect(t.zoneRect(t.nodes[target], side), th.DropTarget)
 	}
 	title := t.title(d.panel)
-	m := ui.Mouse()
 	size := ui.TextSize(title)
 	ghost := mathx.Rect{X: m.X + 12, Y: m.Y + 12, W: size.X + 2*th.Padding, H: t.tabH}
 	l.Rect(ghost, th.TabActive)
@@ -622,6 +663,13 @@ func (t *Tree) Save() []byte {
 	if root := t.saveNode(t.root); root != nil {
 		doc.Blocks = append(doc.Blocks, root)
 	}
+	for _, f := range t.floats {
+		n := &aetext.Node{Head: "float", Label: f.Panel}
+		n.Fields = append(n.Fields, aetext.Field{Name: "rect", Value: aetext.List(
+			aetext.Float32(f.Rect.X), aetext.Float32(f.Rect.Y), aetext.Float32(f.Rect.W), aetext.Float32(f.Rect.H),
+		)})
+		doc.Blocks = append(doc.Blocks, n)
+	}
 	return aetext.Write(doc)
 }
 
@@ -658,18 +706,31 @@ func Load(data []byte) (*Tree, error) {
 	if err != nil {
 		return nil, err
 	}
-	if doc.Head != "dock" || len(doc.Blocks) != 1 {
+	if doc.Head != "dock" || len(doc.Blocks) == 0 {
 		return nil, errs.New(errs.UIBadLayout, "not a dock layout", log.F("head", doc.Head))
 	}
 	if v, ok := doc.Attr("version"); ok && int(v.AsInt()) > LayoutVersion {
 		return nil, errs.New(errs.UIBadLayout, "layout was written by a newer editor", log.F("version", v.AsInt()))
 	}
 	t := newTree()
-	root, err := t.load(doc.Blocks[0], map[string]bool{})
+	seen := map[string]bool{}
+	root, err := t.load(doc.Blocks[0], seen)
 	if err != nil {
 		return nil, err
 	}
 	t.root = root
+	for _, b := range doc.Blocks[1:] {
+		if b.Head != "float" || b.Label == "" || seen[b.Label] {
+			continue
+		}
+		v, ok := b.Field("rect")
+		if !ok || len(v.List) != 4 {
+			continue
+		}
+		seen[b.Label] = true
+		f := func(i int) float32 { return float32(v.List[i].AsFloat()) }
+		t.floats = append(t.floats, Float{Panel: b.Label, Rect: mathx.Rect{X: f(0), Y: f(1), W: f(2), H: f(3)}})
+	}
 	t.normalize()
 	return t, nil
 }

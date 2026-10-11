@@ -19,8 +19,8 @@ import (
 	"aego/platform/input"
 	"aego/render/rt"
 	"aego/scene"
+	"aego/scene/frame"
 	"aego/scene/sceneio"
-	"aego/scene/systems"
 	"aego/schema"
 )
 
@@ -44,7 +44,7 @@ type Controller struct {
 	ctx      *context.Editor
 	state    State
 	world    *engine.World
-	runner   *systems.Runner
+	runner   *frame.Runner
 	scene    *scene.Scene
 	doc      document.ID
 	stepper  clock.FixedStepper
@@ -190,9 +190,9 @@ func (c *Controller) start(data []byte, name string) error {
 	c.scene = s
 	c.world = engine.NewWorld("play")
 	c.world.Input = &c.input
-	c.runner = systems.New()
+	c.runner = frame.New()
 	c.runner.Bind(s, ctx.Renderer, res)
-	c.world.SetService(systems.RunnerServiceID, c.runner)
+	c.world.SetService(frame.ServiceID, c.runner)
 	c.world.SetService(scene.ServiceID, s)
 	cfg := ctx.Engine.Config()
 	c.stepper = clock.FixedStepper{
@@ -378,7 +378,13 @@ func (c *Controller) Tick(dt float64) {
 		c.Stop()
 		return
 	}
+	defer c.guard("update")
 	c.syncInput()
+	e := c.ctx.Engine
+	e.RunPhase(c.world, engine.PhaseFrameBegin, engine.ScopePlay, dt, 0)
+	if c.state == Stopped {
+		return
+	}
 	fixed := c.stepper.FixedDelta
 	steps, alpha := 0, 0.0
 	switch {
@@ -391,9 +397,7 @@ func (c *Controller) Tick(dt float64) {
 	default:
 		steps, alpha = c.stepper.Advance(dt)
 	}
-	defer c.guard("update")
 	start := time.Now()
-	e := c.ctx.Engine
 	for i := 0; i < steps; i++ {
 		e.RunFixed(c.world, engine.ScopePlay, fixed)
 	}

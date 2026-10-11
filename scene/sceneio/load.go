@@ -8,7 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/format/aetext"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
@@ -287,7 +287,7 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 		l.report.Unknown = append(l.report.Unknown, typeName)
 		return nil
 	}
-	if td.FullName == components.ScriptName {
+	if td.FullName == scriptcomp.ScriptName {
 		return l.loadScripts(h, n)
 	}
 	if !td.Space.Allows(l.scene.Space(h).Kind()) {

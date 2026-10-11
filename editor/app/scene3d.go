@@ -4,7 +4,6 @@ import (
 	"aego/asset"
 	"aego/core/mathx"
 	"aego/editor/document"
-	"aego/editor/templates"
 	"aego/scene"
 )
 
@@ -16,9 +15,9 @@ func (a *App) newScene3D() error {
 		res = a.ctx.Loader
 	}
 	s := scene.New(a.opt.Types, res, scene.Options{DefaultSpace: scene.Space3D})
-	templates.BuildCamera3D(s, s.Root())
-	templates.BuildShape3D(s, s.Root(), templates.Shapes3D[1])
-	cube := templates.BuildShape3D(s, s.Root(), templates.Shapes3D[0])
+	a.templates.Spawn(s, s.Root(), "render3d.camera")
+	a.templates.Spawn(s, s.Root(), "render3d.plane")
+	cube := a.templates.Spawn(s, s.Root(), "render3d.cube")
 	s.SetPosition3D(cube, mathx.Vec3{Y: 0.5})
 	s.Flush()
 	rel := a.ctx.Docs.UniquePath("scenes/untitled3d.aescene")

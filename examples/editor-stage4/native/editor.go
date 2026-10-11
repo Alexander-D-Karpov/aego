@@ -12,39 +12,28 @@ import (
 	"aego/editor/context"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/schema"
 	"aego/sdk"
 	"aego/ui/widgets"
 )
 
-func (Module) RegisterEditor(r *sdk.EditorRegistry) error {
-	if err := sdk.DescribeComponent[Health](r, sdk.ComponentMeta{DisplayName: "Health", Category: "Scripts", Icon: "cat.scripts"}); err != nil {
-		return err
-	}
-	if err := sdk.DescribeComponent[Rotator](r, sdk.ComponentMeta{DisplayName: "Rotator", Category: "Scripts", Icon: "cat.scripts"}); err != nil {
-		return err
-	}
-	if err := sdk.DescribeComponent[Rotator3D](r, sdk.ComponentMeta{DisplayName: "Rotator 3D", Category: "Scripts", Icon: "cat.scripts"}); err != nil {
-		return err
-	}
-	if err := sdk.RegisterInspector[Health](r, sdk.InspectorFunc(healthInspector)); err != nil {
-		return err
-	}
-	if err := r.RegisterPanel(&questPanel{}); err != nil {
-		return err
-	}
-	if err := r.RegisterTemplate(enemyTemplate()); err != nil {
-		return err
-	}
-	ed := r.Editor()
-	return r.RegisterCommand(sdk.CommandDesc{
-		ID:       "game.heal_all",
-		Name:     "Heal All",
-		Category: "Game",
-		Shortcut: command.Key(input.KeyH, command.ModPrimary|command.ModShift),
-		Enabled:  func() bool { return ed.Doc() != nil },
-		Run:      func() error { return heal(ed, healthNodes(ed)) },
+func registerEditor(r *sdk.Registry) {
+	sdk.EditorHook(r, func(e *sdk.EditorRegistry) error {
+		if err := e.Inspector("game.Health", sdk.InspectorFunc(healthInspector)); err != nil {
+			return err
+		}
+		if err := e.Panel(&questPanel{}); err != nil {
+			return err
+		}
+		ed := e.Editor()
+		return e.Command(sdk.CommandDesc{
+			ID:       "game.heal_all",
+			Name:     "Heal All",
+			Category: "Game",
+			Shortcut: command.Key(input.KeyH, command.ModPrimary|command.ModShift),
+			Enabled:  func() bool { return ed.Doc() != nil },
+			Run:      func() error { return heal(ed, healthNodes(ed)) },
+		})
 	})
 }
 
@@ -146,22 +135,5 @@ func (*questPanel) Draw(ed *sdk.Editor, r mathx.Rect) {
 	})
 	if i == 0 {
 		widgets.LabelDim(ui, "No node has Health yet. Create > Enemy adds one.")
-	}
-}
-
-func enemyTemplate() sdk.Template {
-	return sdk.Template{
-		ID:       "game.enemy",
-		Name:     "Enemy",
-		Category: "Actors",
-		Build: func(s *scene.Scene, parent scene.NodeHandle) scene.NodeHandle {
-			h := s.Create(parent, "Enemy")
-			sr := scene.Add[components.SpriteRenderer](s, h)
-			*sr = components.DefaultSpriteRenderer()
-			sr.Size = mathx.Vec2{X: 1, Y: 1}
-			*scene.Add[Health](s, h) = Health{Max: 50, Current: 50, Regen: 2}
-			scene.Add[Rotator](s, h).Speed = 1
-			return h
-		},
 	}
 }

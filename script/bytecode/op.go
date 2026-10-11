@@ -70,6 +70,19 @@ const (
 	VNEG
 	ISNIL
 	FAULT
+	START
+	YIELD
+	COSTOP
+	CORUN
+	EMIT
+	CONNECT
+	DISCONNECT
+	CONNECTED
+	GETSCRIPT
+	GETXF
+	SETXF
+	CALLR
+	SELFREF
 	opCount
 )
 
@@ -98,6 +111,12 @@ const (
 	OpSelf
 	OpType
 	OpField
+	OpYield
+	OpSignal
+	OpConnect
+	OpScriptRef
+	OpXField
+	OpXMethod
 )
 
 type OpInfo struct {
@@ -126,72 +145,89 @@ func un(name string) OpInfo {
 	return abc(name, OpReg, OpReg, OpNone)
 }
 
+func reg(name string) OpInfo {
+	return abc(name, OpReg, OpNone, OpNone)
+}
+
 var opInfo = [opCount]OpInfo{
-	NOP:      abc("NOP", OpNone, OpNone, OpNone),
-	MOVE:     un("MOVE"),
-	MOVEN:    abc("MOVEN", OpReg, OpReg, OpCount),
-	LOADK:    abx("LOADK", OpReg, OpConst),
-	LOADI:    asbx("LOADI", OpReg, OpInt),
-	LOADNIL:  abc("LOADNIL", OpReg, OpNone, OpNone),
-	LOADBOOL: abc("LOADBOOL", OpReg, OpBool, OpNone),
-	ADDI:     bin("ADDI"),
-	SUBI:     bin("SUBI"),
-	MULI:     bin("MULI"),
-	DIVI:     bin("DIVI"),
-	MODI:     bin("MODI"),
-	NEGI:     un("NEGI"),
-	ADDF:     bin("ADDF"),
-	SUBF:     bin("SUBF"),
-	MULF:     bin("MULF"),
-	DIVF:     bin("DIVF"),
-	NEGF:     un("NEGF"),
-	ITOF:     un("ITOF"),
-	FTOI:     un("FTOI"),
-	ITOS:     un("ITOS"),
-	FTOS:     un("FTOS"),
-	BTOS:     un("BTOS"),
-	ADDS:     bin("ADDS"),
-	LENS:     un("LENS"),
-	EQ:       bin("EQ"),
-	EQF:      bin("EQF"),
-	EQS:      bin("EQS"),
-	EQV:      bin("EQV"),
-	LTI:      bin("LTI"),
-	LEI:      bin("LEI"),
-	LTF:      bin("LTF"),
-	LEF:      bin("LEF"),
-	LTS:      bin("LTS"),
-	LES:      bin("LES"),
-	NOT:      un("NOT"),
-	JMP:      asbx("JMP", OpNone, OpJump),
-	JMPIF:    asbx("JMPIF", OpReg, OpJump),
-	JMPNOT:   asbx("JMPNOT", OpReg, OpJump),
-	CALL:     abx("CALL", OpReg, OpFunc),
-	CALLX:    abx("CALLX", OpReg, OpExtern),
-	CALLH:    abx("CALLH", OpReg, OpHost),
-	RET:      abc("RET", OpReg, OpCount, OpNone),
-	GETSF:    abx("GETSF", OpReg, OpSelf),
-	SETSF:    abx("SETSF", OpReg, OpSelf),
-	GETCF:    abc("GETCF", OpReg, OpReg, OpField),
-	SETCF:    abc("SETCF", OpReg, OpReg, OpField),
-	NEWSLICE: abx("NEWSLICE", OpReg, OpType),
-	ENSURE:   abx("ENSURE", OpReg, OpType),
-	LEN:      un("LEN"),
-	INDEX:    bin("INDEX"),
-	SETINDEX: bin("SETINDEX"),
-	APPEND:   bin("APPEND"),
-	VEC2:     un("VEC2"),
-	VEC3:     un("VEC3"),
-	VEC4:     un("VEC4"),
-	GETL:     abc("GETL", OpReg, OpReg, OpLane),
-	SETL:     abc("SETL", OpReg, OpReg, OpLane),
-	VADD:     bin("VADD"),
-	VSUB:     bin("VSUB"),
-	VMULS:    bin("VMULS"),
-	VDIVS:    bin("VDIVS"),
-	VNEG:     un("VNEG"),
-	ISNIL:    un("ISNIL"),
-	FAULT:    abx("FAULT", OpNone, OpConst),
+	NOP:        abc("NOP", OpNone, OpNone, OpNone),
+	MOVE:       un("MOVE"),
+	MOVEN:      abc("MOVEN", OpReg, OpReg, OpCount),
+	LOADK:      abx("LOADK", OpReg, OpConst),
+	LOADI:      asbx("LOADI", OpReg, OpInt),
+	LOADNIL:    reg("LOADNIL"),
+	LOADBOOL:   abc("LOADBOOL", OpReg, OpBool, OpNone),
+	ADDI:       bin("ADDI"),
+	SUBI:       bin("SUBI"),
+	MULI:       bin("MULI"),
+	DIVI:       bin("DIVI"),
+	MODI:       bin("MODI"),
+	NEGI:       un("NEGI"),
+	ADDF:       bin("ADDF"),
+	SUBF:       bin("SUBF"),
+	MULF:       bin("MULF"),
+	DIVF:       bin("DIVF"),
+	NEGF:       un("NEGF"),
+	ITOF:       un("ITOF"),
+	FTOI:       un("FTOI"),
+	ITOS:       un("ITOS"),
+	FTOS:       un("FTOS"),
+	BTOS:       un("BTOS"),
+	ADDS:       bin("ADDS"),
+	LENS:       un("LENS"),
+	EQ:         bin("EQ"),
+	EQF:        bin("EQF"),
+	EQS:        bin("EQS"),
+	EQV:        bin("EQV"),
+	LTI:        bin("LTI"),
+	LEI:        bin("LEI"),
+	LTF:        bin("LTF"),
+	LEF:        bin("LEF"),
+	LTS:        bin("LTS"),
+	LES:        bin("LES"),
+	NOT:        un("NOT"),
+	JMP:        asbx("JMP", OpNone, OpJump),
+	JMPIF:      asbx("JMPIF", OpReg, OpJump),
+	JMPNOT:     asbx("JMPNOT", OpReg, OpJump),
+	CALL:       abx("CALL", OpReg, OpFunc),
+	CALLX:      abx("CALLX", OpReg, OpExtern),
+	CALLH:      abx("CALLH", OpReg, OpHost),
+	RET:        abc("RET", OpReg, OpCount, OpNone),
+	GETSF:      abx("GETSF", OpReg, OpSelf),
+	SETSF:      abx("SETSF", OpReg, OpSelf),
+	GETCF:      abc("GETCF", OpReg, OpReg, OpField),
+	SETCF:      abc("SETCF", OpReg, OpReg, OpField),
+	NEWSLICE:   abx("NEWSLICE", OpReg, OpType),
+	ENSURE:     abx("ENSURE", OpReg, OpType),
+	LEN:        un("LEN"),
+	INDEX:      bin("INDEX"),
+	SETINDEX:   bin("SETINDEX"),
+	APPEND:     bin("APPEND"),
+	VEC2:       un("VEC2"),
+	VEC3:       un("VEC3"),
+	VEC4:       un("VEC4"),
+	GETL:       abc("GETL", OpReg, OpReg, OpLane),
+	SETL:       abc("SETL", OpReg, OpReg, OpLane),
+	VADD:       bin("VADD"),
+	VSUB:       bin("VSUB"),
+	VMULS:      bin("VMULS"),
+	VDIVS:      bin("VDIVS"),
+	VNEG:       un("VNEG"),
+	ISNIL:      un("ISNIL"),
+	FAULT:      abx("FAULT", OpNone, OpConst),
+	START:      abx("START", OpReg, OpFunc),
+	YIELD:      abc("YIELD", OpReg, OpNone, OpYield),
+	COSTOP:     reg("COSTOP"),
+	CORUN:      un("CORUN"),
+	EMIT:       abx("EMIT", OpReg, OpSignal),
+	CONNECT:    abx("CONNECT", OpReg, OpConnect),
+	DISCONNECT: reg("DISCONNECT"),
+	CONNECTED:  un("CONNECTED"),
+	GETSCRIPT:  abx("GETSCRIPT", OpReg, OpScriptRef),
+	GETXF:      abc("GETXF", OpReg, OpReg, OpXField),
+	SETXF:      abc("SETXF", OpReg, OpReg, OpXField),
+	CALLR:      abx("CALLR", OpReg, OpXMethod),
+	SELFREF:    reg("SELFREF"),
 }
 
 func (o Opcode) Valid() bool {
@@ -247,14 +283,21 @@ func (i Instr) SBx() int16 {
 	return int16(i.Bx())
 }
 
-// Encoding-derived limits. Each is forced by an operand's width, so a module
-// exceeding one cannot be encoded faithfully. The verifier rejects a module
-// that violates any of them; the compiler must also respect MaxJumpOffset and
-// MaxSliceElemSlots up front (reporting a source-level error) because it cannot
-// emit the instruction otherwise.
 const (
-	MaxRegisters       = 255   // Registers and A/B/C operands are uint8
-	MaxJumpOffset      = 32767 // JMP/JMPIF sbx is int16; caps a function's instruction count
-	MaxSliceElemSlots  = 32    // TypeDef.Mask is a uint32 bitset, one bit per element slot
-	MaxComponentFields = 255   // GETCF/SETCF field operand is uint8
+	WaitNext uint8 = iota
+	WaitTime
+	WaitFrames
+	WaitFixed
+	WaitAwait
+	MaxWait = WaitAwait
+)
+
+var WaitNames = [...]string{"next", "wait", "frames", "fixed", "await"}
+
+const (
+	MaxRegisters       = 255
+	MaxJumpOffset      = 32767
+	MaxSliceElemSlots  = 32
+	MaxComponentFields = 255
+	MaxScriptFieldRefs = 256
 )

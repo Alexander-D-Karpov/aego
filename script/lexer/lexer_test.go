@@ -95,12 +95,13 @@ func TestAutoSemicolonText(t *testing.T) {
 
 func TestKeywordsAndReserved(t *testing.T) {
 	for _, kw := range []string{"package", "import", "script", "type", "struct", "enum", "var", "const", "func",
-		"return", "if", "else", "for", "switch", "case", "default", "break", "continue", "true", "false", "nil"} {
+		"return", "if", "else", "for", "switch", "case", "default", "break", "continue", "true", "false", "nil",
+		"yield", "signal", "coroutine"} {
 		if k := token.Lookup(kw); !k.IsKeyword() {
 			t.Errorf("%s is not a keyword", kw)
 		}
 	}
-	for _, rw := range []string{"yield", "signal", "coroutine", "await", "select", "go", "chan", "defer", "interface", "map"} {
+	for _, rw := range []string{"await", "select", "go", "chan", "defer", "interface", "map"} {
 		toks, ds := Tokenize(1, []byte(rw))
 		if len(ds) != 1 || ds[0].Code != diag.ReservedWord {
 			t.Errorf("%s: diagnostics %v", rw, ds)
@@ -108,6 +109,12 @@ func TestKeywordsAndReserved(t *testing.T) {
 		if toks[0].Kind != token.Ident {
 			t.Errorf("%s must continue as an identifier", rw)
 		}
+	}
+	if k := token.Lookup("start"); k != token.Ident {
+		t.Error("start is contextual and must stay an identifier")
+	}
+	if got := kinds("yield\n"); !equal(got, []token.Kind{token.Yield, token.Semicolon, token.EOF}) {
+		t.Errorf("yield at line end: %v", got)
 	}
 }
 
@@ -205,7 +212,7 @@ func TestIllegalAndComments(t *testing.T) {
 	if c := codes("x /* open"); len(c) != 1 || c[0] != diag.UnterminatedComment {
 		t.Errorf("comment: %v", c)
 	}
-	if c := codes("x # y @@ 1__2 \"\\q\" yield"); len(c) != 4 {
+	if c := codes("x # y @@ 1__2 \"\\q\" await"); len(c) != 4 {
 		t.Errorf("all errors must be reported: %v", c)
 	}
 }

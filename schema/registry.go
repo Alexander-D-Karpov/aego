@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
 )
@@ -210,6 +211,12 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 		if former, ok := o.formerFields[fd.Name]; ok {
 			fd.Former = append(fd.Former, former...)
 		}
+		if doc, ok := o.fieldDocs[fd.Name]; ok {
+			fd.Doc = doc
+			if fd.Hints.Tooltip == "" {
+				fd.Hints.Tooltip = doc
+			}
+		}
 		fd.ID = HashField(id, fd.Name)
 		if prev, dup := td.index[fd.Name]; dup {
 			return nil, errs.New(errs.SchemaDuplicate, "duplicate field name",
@@ -223,12 +230,32 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 		td.byID[fd.ID] = len(td.Fields)
 		td.Fields = append(td.Fields, fd)
 	}
+	for name := range o.fieldDocs {
+		if _, ok := td.index[name]; !ok {
+			return nil, errs.New(errs.SchemaBadField, "FieldDoc names an unknown field",
+				log.F("type", full), log.F("field", name))
+		}
+	}
 
 	r.byID[id] = td
 	r.byName[full] = td
 	r.byType[rt] = td
 	r.order = append(r.order, td)
 	return td, nil
+}
+
+var (
+	assetIDType = reflect.TypeFor[ids.AssetID]()
+	nodeIDType  = reflect.TypeFor[ids.NodeID]()
+)
+
+func directRef(ft reflect.Type, k Kind) bool {
+	want := assetIDType
+	if k == KindNodeRef {
+		want = nodeIDType
+	}
+	return ft.Kind() == reflect.Struct && ft.NumField() == 1 &&
+		ft.Field(0).Type == want && ft.Field(0).Offset == 0 && ft.Size() == want.Size()
 }
 
 func (r *Registry) buildField(typeName string, sf reflect.StructField, info tagInfo) (FieldDescriptor, error) {
@@ -254,15 +281,23 @@ func (r *Registry) buildField(typeName string, sf reflect.StructField, info tagI
 	fd.Kind = kind
 	fd.Elem = elem
 	fd.Struct = structID
-	if kind == KindEnum {
+	switch kind {
+	case KindEnum:
 		if ei, ok := r.enums[ft]; ok {
 			fd.Enum = ei.values
 			fd.EnumName = ei.name
 		}
-	}
-	if kind == KindAssetRef && fd.AssetKind == "" {
-		zero := reflect.New(ft).Interface().(AssetRef)
-		fd.AssetKind = zero.AssetKind()
+		switch ft.Kind() {
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32:
+			fd.Unsigned = true
+		}
+	case KindAssetRef:
+		if fd.AssetKind == "" {
+			fd.AssetKind = reflect.New(ft).Interface().(AssetRef).AssetKind()
+		}
+		fd.Direct = directRef(ft, kind)
+	case KindNodeRef:
+		fd.Direct = directRef(ft, kind)
 	}
 	fd.Fast = kind.IsPOD()
 	if err := r.makeAccessors(&fd, ft, sf.Offset); err != nil {
@@ -272,8 +307,7 @@ func (r *Registry) buildField(typeName string, sf reflect.StructField, info tagI
 }
 
 func (r *Registry) kindOf(typeName, field string, ft reflect.Type) (Kind, Kind, TypeID, error) {
-	if ei, ok := r.enums[ft]; ok {
-		_ = ei
+	if _, ok := r.enums[ft]; ok {
 		return KindEnum, KindInvalid, 0, nil
 	}
 	if reflect.PointerTo(ft).Implements(assetRefType) {

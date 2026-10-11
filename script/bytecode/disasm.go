@@ -11,6 +11,10 @@ func Disassemble(w io.Writer, m *Module) {
 	DisassembleSource(w, m, nil)
 }
 
+func short(name string) string {
+	return name[strings.LastIndexByte(name, '.')+1:]
+}
+
 func DisassembleSource(w io.Writer, m *Module, source func(file string, line int) string) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "module %s bytecode=%d lang=%d\n", m.Package, m.Version, m.LangVersion)
@@ -26,9 +30,28 @@ func DisassembleSource(w io.Writer, m *Module, source func(file string, line int
 	for _, e := range m.Enums {
 		fmt.Fprintf(&b, "enum %s %s\n", e.Name, strings.Join(e.Members, " "))
 	}
+	for i, r := range m.ScriptRefs {
+		fmt.Fprintf(&b, "scriptref s%d %s\n", i, r)
+	}
+	for i, x := range m.XFields {
+		fmt.Fprintf(&b, "xfield f%d s%d.%s %s slots=%d\n", i, x.Ref, x.Name, x.Type, x.Slots)
+	}
+	for i, x := range m.XMethods {
+		fmt.Fprintf(&b, "xmethod m%d s%d.%s params=%d results=%d\n", i, x.Ref, x.Name, x.Params, x.Results)
+	}
+	for i, c := range m.Connects {
+		fmt.Fprintf(&b, "connect c%d %s.%s -> %s.%s\n", i, c.Source, c.Signal, c.Target, c.Handler)
+	}
 	for i := range m.Scripts {
 		s := &m.Scripts[i]
-		fmt.Fprintf(&b, "script %s slots=%d ready=%d fixed=%d update=%d\n", s.FullName, s.Slots, s.Ready, s.FixedUpdate, s.Update)
+		fmt.Fprintf(&b, "script %s slots=%d ready=%d fixed=%d update=%d reloaded=%d\n", s.FullName, s.Slots, s.Ready, s.FixedUpdate, s.Update, s.Reloaded)
+		for _, sg := range s.Signals {
+			params := make([]string, len(sg.Params))
+			for j, p := range sg.Params {
+				params[j] = p.String()
+			}
+			fmt.Fprintf(&b, "  signal %s(%s) slots=%d\n", sg.Name, strings.Join(params, ", "), sg.Slots)
+		}
 		for _, f := range s.Fields {
 			exp := ""
 			if f.Export {
@@ -48,6 +71,9 @@ func disasmFunc(b *strings.Builder, m *Module, fi int, source func(string, int) 
 	fmt.Fprintf(b, "\nfunc f%d %s params=%d results=%d regs=%d", fi, f.Name, f.Params, f.Results, f.Registers)
 	if f.Script >= 0 {
 		fmt.Fprintf(b, " script=%d", f.Script)
+	}
+	if f.Coroutine {
+		b.WriteString(" coroutine")
 	}
 	b.WriteByte('\n')
 	last := -1
@@ -122,6 +148,43 @@ func operand(m *Module, f *Function, pc int, k Operand, v int) string {
 		return "self[" + n + "]"
 	case OpType:
 		return "t" + n
+	case OpYield:
+		if v < len(WaitNames) {
+			return WaitNames[v]
+		}
+		return "wait" + n
+	case OpSignal:
+		if f.Script >= 0 && int(f.Script) < len(m.Scripts) && v < len(m.Scripts[f.Script].Signals) {
+			return "g" + n + "(" + m.Scripts[f.Script].Signals[v].Name + ")"
+		}
+		return "g" + n
+	case OpConnect:
+		if v < len(m.Connects) {
+			c := m.Connects[v]
+			return "c" + n + "(" + short(c.Source) + "." + c.Signal + " -> " + short(c.Target) + "." + c.Handler + ")"
+		}
+		return "c" + n
+	case OpScriptRef:
+		if v < len(m.ScriptRefs) {
+			return "s" + n + "(" + m.ScriptRefs[v] + ")"
+		}
+		return "s" + n
+	case OpXField:
+		if v < len(m.XFields) {
+			x := m.XFields[v]
+			if int(x.Ref) < len(m.ScriptRefs) {
+				return "f" + n + "(" + short(m.ScriptRefs[x.Ref]) + "." + x.Name + ")"
+			}
+		}
+		return "f" + n
+	case OpXMethod:
+		if v < len(m.XMethods) {
+			x := m.XMethods[v]
+			if int(x.Ref) < len(m.ScriptRefs) {
+				return "m" + n + "(" + short(m.ScriptRefs[x.Ref]) + "." + x.Name + ")"
+			}
+		}
+		return "m" + n
 	}
 	return ""
 }

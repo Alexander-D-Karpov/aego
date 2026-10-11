@@ -7,6 +7,8 @@ import (
 )
 
 script EnemyAI {
+	signal Died()
+
 	@export
 	var PointA NodeRef
 
@@ -40,16 +42,23 @@ script EnemyAI {
 		if math.Abs(p.X-goal.X) < 0.01 {
 			toB = !toB
 		}
+		if Target == nil || !Target.IsAlive() {
+			return
+		}
+		t := Target.Position()
+		dx := math.Abs(t.X - p.X)
+		if dx < 0.9 && t.Y < p.Y-0.5 && t.Y > p.Y-1.1 {
+			Died.Emit()
+			node.Destroy()
+			return
+		}
 		if wait > 0 {
 			wait -= dt
 			return
 		}
-		if Target != nil && Target.IsAlive() {
-			t := Target.Position()
-			if math.Abs(t.X-p.X) < 0.9 && math.Abs(t.Y-p.Y) < 0.9 {
-				combat.Damage(Target, 1)
-				wait = Cooldown
-			}
+		if dx < 0.9 && math.Abs(t.Y-p.Y) < 0.9 {
+			combat.Damage(Target, 1)
+			wait = Cooldown
 		}
 	}
 }

@@ -24,15 +24,19 @@ func (c *checker) noTypeArgs(e *ast.CallExpr) {
 	}
 }
 
-func (c *checker) arguments(e *ast.CallExpr, name string, params []*types.Type) {
-	if len(e.Args) != len(params) {
-		c.errorf(diag.ArgCount, e.Sp, "%s expects %d arguments, got %d", name, len(params), len(e.Args))
-		c.args(e.Args)
+func (c *checker) argList(sp source.Span, args []ast.Expr, name string, params []*types.Type) {
+	if len(args) != len(params) {
+		c.errorf(diag.ArgCount, sp, "%s expects %d arguments, got %d", name, len(params), len(args))
+		c.args(args)
 		return
 	}
-	for i, a := range e.Args {
+	for i, a := range args {
 		c.assign(a, c.value(a), params[i], "argument to "+name)
 	}
+}
+
+func (c *checker) arguments(e *ast.CallExpr, name string, params []*types.Type) {
+	c.argList(e.Sp, e.Args, name, params)
 }
 
 func (c *checker) abiTypes(list []abi.TypeRef) []*types.Type {
@@ -59,8 +63,16 @@ func (c *checker) call(e *ast.CallExpr) operand {
 			return c.callPackage(e, fun, p)
 		}
 		x := c.expr(fun.X)
-		if x.mode == mValue && (x.t.Kind == types.KNodeRef || x.t.Kind == types.KAssetRef) {
+		switch {
+		case x.mode == mSignal:
+			return c.callSignal(e, fun, x)
+		case x.mode != mValue:
+		case x.t.Kind == types.KNodeRef, x.t.Kind == types.KAssetRef:
 			return c.callMethod(e, fun, x)
+		case x.t.Kind == types.KScriptRef:
+			return c.callScriptMethod(e, fun, x)
+		case x.t.Kind == types.KCoroutine, x.t.Kind == types.KConnection:
+			return c.callHandle(e, fun, x)
 		}
 		if x.mode != mInvalid {
 			c.errorf(diag.NotCallable, fun.Sel.Sp, "%s is not a function", fun.Sel.Name)
@@ -102,11 +114,12 @@ func (c *checker) callObject(e *ast.CallExpr, sp source.Span, obj *resolver.Obje
 
 func (c *checker) callFunc(e *ast.CallExpr, f *Func, kind CallKind) operand {
 	c.noTypeArgs(e)
-	params := make([]*types.Type, len(f.Params))
-	for i, p := range f.Params {
-		params[i] = p.Type
+	if f.Decl.Coroutine {
+		c.errorf(diag.CoroutineCall, e.Sp, "coroutine %s is called without start, write start %s(...)", f.Name, f.Name)
+		c.args(e.Args)
+		return invalid
 	}
-	c.arguments(e, f.Name, params)
+	c.arguments(e, f.Name, funcParams(f))
 	c.a.Calls[e] = &Call{Kind: kind, Func: f}
 	return result(f.Result)
 }
@@ -142,8 +155,13 @@ func (c *checker) callPackage(e *ast.CallExpr, sel *ast.SelectorExpr, p *resolve
 
 func (c *checker) callMethod(e *ast.CallExpr, sel *ast.SelectorExpr, recv operand) operand {
 	name := sel.Sel.Name
-	if recv.t.Kind == types.KNodeRef && (name == "Get" || name == "Has") {
-		return c.intrinsic(e, sel, name)
+	if recv.t.Kind == types.KNodeRef {
+		switch name {
+		case "Get", "Has":
+			return c.intrinsic(e, sel, name)
+		case "GetScript":
+			return c.getScript(e, sel)
+		}
 	}
 	c.noTypeArgs(e)
 	sig, ok := c.surface.Method(types.ToABI(recv.t).Kind, name)

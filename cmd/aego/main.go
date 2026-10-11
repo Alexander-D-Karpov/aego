@@ -16,8 +16,7 @@ import (
 	"aego/engine/bootstrap"
 	"aego/format/aetext"
 	"aego/project"
-	"aego/script/abi"
-	"aego/script/stdlib"
+	"aego/script/diag"
 )
 
 func main() {
@@ -63,7 +62,7 @@ func usage() {
   edit [dir]             open the project in the editor
   build [dir]            build the native binary
   import [dir] [--force] reimport all assets
-  check [dir]            parse every document, compile scripts and report problems
+  check [dir] [--manifest file]  parse every document and type-check scripts against engine and native bindings
   test [dir] [-run name] [-v]  run *_test.aes script tests headless
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
 `)
@@ -262,6 +261,9 @@ func cmdImport(args []string) int {
 	if err := fs.Parse(rest); err != nil {
 		return 2
 	}
+	if dir == "" && fs.NArg() > 0 {
+		dir = fs.Arg(0)
+	}
 	p, err := openProject(dir)
 	if err != nil {
 		return fail(err)
@@ -270,11 +272,12 @@ func cmdImport(args []string) int {
 		os.RemoveAll(filepath.Join(p.CacheDir(), "artifacts"))
 		os.Remove(filepath.Join(p.CacheDir(), "index.aetext"))
 	}
-	reg, err := run.ScriptBindings(p, stdlib.Options{})
+	ws, err := openWorkspace(p, "", false)
 	if err != nil {
-		return fail(err)
+		fmt.Fprintln(os.Stderr, "aego:", err)
+		return 2
 	}
-	imps, err := run.Importers(p.Module, func() abi.Surface { return reg.Surface() })
+	imps, err := run.Importers(ws)
 	if err != nil {
 		return fail(err)
 	}
@@ -303,13 +306,39 @@ func cmdImport(args []string) int {
 }
 
 func cmdCheck(args []string) int {
-	dir, _ := firstArg(args)
+	fs := flag.NewFlagSet("check", flag.ContinueOnError)
+	manifestPath := fs.String("manifest", "", "check against this bindings manifest instead of building one")
+	dir, rest := firstArg(args)
+	if err := fs.Parse(rest); err != nil {
+		return 2
+	}
 	p, err := openProject(dir)
 	if err != nil {
 		return fail(err)
 	}
+	problems := checkDocuments(p)
+	ws, err := openWorkspace(p, *manifestPath, true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "aego:", err)
+		return 2
+	}
+	snap := ws.Snapshot()
+	diag.Print(os.Stderr, snap.Sources, snap.Diagnostics)
+	if n := snap.Errors(); n > 0 {
+		fmt.Fprintf(os.Stderr, "scripts: %d error(s)\n", n)
+		problems++
+	}
+	if problems > 0 {
+		fmt.Fprintf(os.Stderr, "check: %d problem(s)\n", problems)
+		return 1
+	}
+	fmt.Println("check: ok")
+	return 0
+}
+
+func checkDocuments(p *project.Project) int {
 	problems := 0
-	err = filepath.WalkDir(p.Root, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(p.Root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
@@ -333,17 +362,10 @@ func cmdCheck(args []string) int {
 		return nil
 	})
 	if err != nil {
-		return fail(err)
-	}
-	if scriptTool(p, "check") != 0 {
+		fmt.Fprintln(os.Stderr, "aego:", err)
 		problems++
 	}
-	if problems > 0 {
-		fmt.Fprintf(os.Stderr, "check: %d problem(s)\n", problems)
-		return 1
-	}
-	fmt.Println("check: ok")
-	return 0
+	return problems
 }
 
 func fail(err error) int {

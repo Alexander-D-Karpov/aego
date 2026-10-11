@@ -1,8 +1,6 @@
 package checker
 
 import (
-	"strings"
-
 	"aego/script/abi"
 	"aego/script/ast"
 	"aego/script/diag"
@@ -23,6 +21,7 @@ const (
 	mVoid
 	mType
 	mFunc
+	mSignal
 )
 
 type operand struct {
@@ -30,6 +29,8 @@ type operand struct {
 	t    *types.Type
 	c    *types.Const
 	addr bool
+	sig  *ScriptSignal
+	src  ast.Expr
 }
 
 var invalid = operand{mode: mInvalid, t: types.Invalid}
@@ -254,6 +255,12 @@ func (c *checker) signature(d *ast.FuncDecl, st *ScriptType) *Func {
 	if len(d.Attrs) > 0 {
 		c.errorf(diag.AttrTarget, d.Attrs[0].Sp, "attributes on functions are not supported yet")
 	}
+	if d.Coroutine {
+		c.a.Coroutines[d] = true
+		if st == nil || d.Result != nil {
+			c.errorf(diag.CoroutineDecl, d.Name.Sp, "coroutine %s must be a script method without a result", d.Name.Name)
+		}
+	}
 	f := &Func{Name: d.Name.Name, Pkg: c.rp.Path, Decl: d, Script: st, Result: types.Void}
 	seen := map[string]bool{}
 	for _, p := range d.Params {
@@ -286,16 +293,30 @@ func (c *checker) scriptHeader(obj *resolver.Object, d *ast.ScriptDecl) {
 	st := &ScriptType{
 		Name:     d.Name.Name,
 		Pkg:      c.rp.Path,
-		FullName: strings.ReplaceAll(c.rp.Path, "/", ".") + "." + d.Name.Name,
+		FullName: scriptFullName(c.rp.Path, d.Name.Name),
 		Methods:  map[string]*Func{},
 		Decl:     d,
 	}
 	obj.Data = st
 	c.pkg.Scripts = append(c.pkg.Scripts, st)
 	c.a.Scripts = append(c.a.Scripts, st)
+	c.a.scripts[st.FullName] = st
 	c.scriptAttrs(st, d.Attrs)
 	st.scope = resolver.NewScope(c.scope)
 	st.scope.Insert(&resolver.Object{Kind: resolver.ObjNode, Name: "node", Pkg: c.rp.Path, Type: types.NodeRef})
+	for _, sd := range d.Signals {
+		sg := &ScriptSignal{Name: sd.Name.Name, Script: st, Decl: sd}
+		for _, p := range sd.Params {
+			sg.Params = append(sg.Params, c.typeExpr(p.Type))
+			sg.Names = append(sg.Names, p.Name.Name)
+		}
+		so := &resolver.Object{Kind: resolver.ObjSignal, Name: sg.Name, Pkg: c.rp.Path, Ident: sd.Name, Decl: sd, Data: sg}
+		if c.insert(st.scope, so) {
+			sg.Index = len(st.Signals)
+			st.Signals = append(st.Signals, sg)
+		}
+		c.def(sd.Name, so)
+	}
 	for i, v := range d.Vars {
 		t := c.typeExpr(v.Type)
 		f := &ScriptField{Name: v.Name.Name, Type: t, Index: i, Slot: st.Slots, Decl: v}
@@ -339,6 +360,8 @@ func (c *checker) lifecycle(st *ScriptType, f *Func) {
 	switch f.Name {
 	case "Ready":
 		st.Ready = f
+	case "Reloaded":
+		st.Reloaded = f
 	case "FixedUpdate":
 		want = 1
 		st.FixedUpdate = f
@@ -347,6 +370,9 @@ func (c *checker) lifecycle(st *ScriptType, f *Func) {
 		st.Update = f
 	default:
 		return
+	}
+	if f.Decl.Coroutine {
+		c.errorf(diag.CoroutineLifecycle, f.Decl.Name.Sp, "lifecycle method %s cannot be a coroutine, start one from it instead", f.Name)
 	}
 	ok := len(f.Params) == want && f.Result == types.Void && (want == 0 || f.Params[0].Type == types.Float)
 	if !ok {

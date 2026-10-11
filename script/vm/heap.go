@@ -22,7 +22,7 @@ type Heap struct {
 	since int
 }
 
-func handle(idx, gen uint32) uint64 {
+func heapHandle(idx, gen uint32) uint64 {
 	return uint64(idx)<<32 | uint64(gen)
 }
 
@@ -65,7 +65,7 @@ func (h *Heap) get(a uint64) *object {
 func (h *Heap) newString(s string) Value {
 	idx, o := h.alloc(len(s) + 32)
 	o.str, o.s, o.elems, o.width, o.mask = true, s, nil, 0, 0
-	return Value{A: handle(idx, o.gen)}
+	return Value{A: heapHandle(idx, o.gen)}
 }
 
 func (h *Heap) newSlice(width int, mask uint32, capacity int) Value {
@@ -73,7 +73,7 @@ func (h *Heap) newSlice(width int, mask uint32, capacity int) Value {
 	o.str, o.s = false, ""
 	o.elems = make([]Value, 0, capacity*width)
 	o.width, o.mask = width, mask
-	return Value{A: handle(idx, o.gen)}
+	return Value{A: heapHandle(idx, o.gen)}
 }
 
 func (h *Heap) grow(o *object, delta int) {

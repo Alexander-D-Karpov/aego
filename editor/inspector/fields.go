@@ -133,15 +133,28 @@ func (p *Panel) fieldIn(ctx *context.Editor, d *document.SceneDocument, td *sche
 	}
 	cur := ui.Cursor()
 	rowTop := cur.Y
+	pre := mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: ui.Theme.RowHeight}
+	if at != nil {
+		pre = mathx.Rect{X: at[0].X, Y: at[0].Y, W: at[1].X + at[1].W - at[0].X, H: at[0].H}
+	}
+	jump := td.Kind == schema.TypeScript && ui.Primary() && ui.MousePressed(input.MouseLeft) && ui.Hit(pre) && !ui.MouseInOverlay()
 	ro := fd.Flags.Has(schema.FlagReadOnly)
 	var e widgets.Edit
 	var row mathx.Rect
 	if at != nil {
 		e = p.scalarIn(ctx, d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro, at[0], at[1])
-		row = mathx.Rect{X: at[0].X, Y: at[0].Y, W: at[1].X + at[1].W - at[0].X, H: at[0].H}
+		row = pre
 	} else {
 		e = p.value(ctx, d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
+	}
+	if jump {
+		ui.ReleaseMouse()
+		ui.CancelFocus()
+		ui.CloseAllPopups()
+		delete(p.live, key)
+		gotoScript(ctx, td.FullName, fd.Name)
+		return
 	}
 	if ui.Hit(row) && !ui.MouseInOverlay() {
 		p.hoverField = fieldRef{t: td.ID, f: fd.ID, ok: true}

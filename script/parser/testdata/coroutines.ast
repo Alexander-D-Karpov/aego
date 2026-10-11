@@ -1,0 +1,99 @@
+File coroutines 1:1
+  Ident coroutines 1:9
+  Import "aego/log" 3:8
+  Script 5:1
+    Ident Blinker 5:8
+    ScriptVar 6:2
+      Attr 6:2
+        Ident export 6:3
+      Ident Period 6:14
+      NamedType 6:21
+        Ident float 6:21
+      BasicLit FLOAT 0.1 6:29
+    ScriptVar 8:2
+      Ident on 8:6
+      NamedType 8:9
+        Ident bool 8:9
+    ScriptVar 9:2
+      Ident task 9:6
+      NamedType 9:11
+        Ident Coroutine 9:11
+    ScriptVar 10:2
+      Ident steps 10:6
+      NamedType 10:12
+        Ident int 10:12
+    Func 12:2
+      Ident Ready 12:7
+      Block 12:15
+        Assign = 13:3
+          Ident task 13:3
+          Start Blink 13:10
+            Ident Blink 13:16
+            BasicLit INT 3 13:22
+    Func coroutine 16:2
+      Ident Blink 16:7
+      Param 16:13
+        Ident times 16:13
+        NamedType 16:19
+          Ident int 16:19
+      Block 16:34
+        For init=true cond=true post=true 17:3
+          ShortVar 17:7
+            Ident i 17:7
+            BasicLit INT 0 17:12
+          Binary < 17:15
+            Ident i 17:15
+            Ident times 17:19
+          IncDec ++ 17:26
+            Ident i 17:26
+          Block 17:30
+            Assign = 18:4
+              Ident on 18:4
+              Unary ! 18:9
+                Ident on 18:10
+            Yield wait 19:4
+              Ident Period 19:15
+        Yield frames 21:3
+          BasicLit INT 2 21:16
+        Yield fixed 22:3
+          BasicLit INT 1 22:15
+        ShortVar 23:3
+          Ident inner 23:3
+          Start Step 23:12
+            Ident Step 23:18
+        Yield await 24:3
+          Ident inner 24:9
+        ExprStmt 25:3
+          Call targs=0 args=1 25:3
+            Selector 25:3
+              Ident log 25:3
+              Ident Info 25:7
+            BasicLit STRING "done" 25:12
+    Func coroutine 28:2
+      Ident Step 28:7
+      Block 28:24
+        IncDec ++ 29:3
+          Ident steps 29:3
+        Yield next 30:3
+    Func 33:2
+      Ident Update 33:7
+      Param 33:14
+        Ident dt 33:14
+        NamedType 33:17
+          Ident float 33:17
+      Block 33:24
+        If 34:3
+          Binary && 34:6
+            Binary > 34:6
+              Ident steps 34:6
+              BasicLit INT 10 34:14
+            Call targs=0 args=0 34:20
+              Selector 34:20
+                Ident task 34:20
+                Ident Running 34:25
+          Block 34:35
+            ExprStmt 35:4
+              Call targs=0 args=0 35:4
+                Selector 35:4
+                  Ident task 35:4
+                  Ident Stop 35:9

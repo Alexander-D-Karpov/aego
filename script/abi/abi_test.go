@@ -6,16 +6,20 @@ func TestTypeRefRoundTrip(t *testing.T) {
 	for _, r := range []TypeRef{
 		T(Int), T(Transform3D), SliceOf(SliceOf(T(String))), AssetOf("texture"),
 		ComponentOf("engine.SpriteRenderer"), EnumOf("aego/input.Key"), StructOf("game.Stats"),
+		T(Coroutine), T(Connection), ScriptRefOf("game.enemy.EnemyAI"), SliceOf(T(Coroutine)),
 	} {
 		got, ok := Parse(r.String())
 		if !ok || !got.Equal(r) {
 			t.Fatalf("%s -> %v %v", r, got, ok)
 		}
 	}
-	for _, bad := range []string{"", "[]void", "enum:", "Vec9", "AssetRef<texture"} {
+	for _, bad := range []string{"", "[]void", "enum:", "Vec9", "AssetRef<texture", "ScriptRef<>"} {
 		if _, ok := Parse(bad); ok {
 			t.Fatalf("%q parsed", bad)
 		}
+	}
+	if Sig(T(Void), T(Coroutine)).Validate() == nil {
+		t.Fatal("Coroutine must not cross the host boundary")
 	}
 }
 
