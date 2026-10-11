@@ -128,3 +128,7 @@ func sortedKeys(s Settings) []string {
 }
 
 var _ = vfs.Mount{}
+
+type DevEnv struct {
+	Workspace any
+}

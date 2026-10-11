@@ -41,6 +41,10 @@ func key(module, name string) string {
 	return module + "\x00" + name
 }
 
+func (r *Registry) Fail(err error) {
+	r.fail(err)
+}
+
 func (r *Registry) fail(err error) {
 	r.errs = append(r.errs, err)
 }

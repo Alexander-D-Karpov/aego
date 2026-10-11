@@ -384,3 +384,30 @@ func TestComponentsAndEach(t *testing.T) {
 		t.Fatalf("each visited %d types", count)
 	}
 }
+
+type wideRef struct {
+	id    ids.AssetID
+	cache int
+}
+
+func (r *wideRef) AssetRefID() ids.AssetID     { return r.id }
+func (r *wideRef) SetAssetRefID(v ids.AssetID) { r.id = v }
+func (r *wideRef) AssetKind() string           { return "texture" }
+
+func TestDirectRefLayout(t *testing.T) {
+	type refs struct {
+		Narrow testAssetRef `aego:"narrow"`
+		Wide   wideRef      `aego:"wide"`
+		Node   testNodeRef  `aego:"node"`
+	}
+	r := NewRegistry()
+	td, err := Register[refs](r, Name("test.Refs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]bool{"narrow": true, "wide": false, "node": true} {
+		if f, _ := td.Field(name); f.Direct != want {
+			t.Fatalf("%s direct = %v", name, f.Direct)
+		}
+	}
+}

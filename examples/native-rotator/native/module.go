@@ -23,18 +23,18 @@ func (rotatorSystem) Run(ctx *sdk.Context) {
 type Module struct{}
 
 func (Module) Info() sdk.ModuleInfo {
-	return sdk.ModuleInfo{ID: "game.rotator", Version: "0.1.0"}
+	return sdk.ModuleInfo{ID: "rotator", Version: "0.1.0"}
 }
 
 func (Module) Register(r *sdk.Registry) error {
-	if err := sdk.RegisterComponent[Rotator](r, sdk.Name("game.Rotator")); err != nil {
+	if err := sdk.Component[Rotator](r, sdk.Name("game.Rotator")).
+		Default(func() Rotator { return Rotator{Speed: 1} }).
+		Script("speed").
+		Err(); err != nil {
 		return err
 	}
-	return sdk.RegisterSystem(r, sdk.SystemDesc{
-		ID:     "game.rotator",
-		Phase:  sdk.PhaseUpdate,
-		System: rotatorSystem{},
-	})
+	r.System(sdk.SystemDesc{ID: "rotator.spin", Phase: sdk.PhaseUpdate, System: rotatorSystem{}})
+	return registerSpinner(r)
 }
 
 func Modules() []sdk.Module {

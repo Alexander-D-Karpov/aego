@@ -65,3 +65,10 @@ func TestCyclicPackageSkipsBodies(t *testing.T) {
 		t.Fatalf("cyclic package bodies must be skipped, no cascade:\n%s", dump(sm, ds))
 	}
 }
+
+func TestModuleConflict(t *testing.T) {
+	_, sm, ds := check(t, map[string]string{"mygame/combat": "package combat\n"})
+	if codes(ds)[diag.ModuleConflict] != 1 {
+		t.Fatalf("script package shadowing a host module was not reported:\n%s", dump(sm, ds))
+	}
+}

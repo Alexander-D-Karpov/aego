@@ -112,9 +112,43 @@ func Encode(m *Module) []byte {
 		w.str(e.Name)
 		w.strs(e.Members)
 	}
+	w.uv(len(m.Structs))
+	for _, s := range m.Structs {
+		w.str(s.Name)
+		w.u16(s.Slots)
+		w.uv(len(s.Fields))
+		for _, f := range s.Fields {
+			w.str(f.Name)
+			w.str(f.Type)
+			w.u16(f.Slot)
+			w.u8(f.Slots)
+		}
+	}
 	w.uv(len(m.Scripts))
 	for i := range m.Scripts {
 		w.script(&m.Scripts[i])
+	}
+	w.strs(m.ScriptRefs)
+	w.uv(len(m.XFields))
+	for _, x := range m.XFields {
+		w.u16(x.Ref)
+		w.str(x.Name)
+		w.str(x.Type)
+		w.u8(x.Slots)
+	}
+	w.uv(len(m.XMethods))
+	for _, x := range m.XMethods {
+		w.u16(x.Ref)
+		w.str(x.Name)
+		w.u8(x.Params)
+		w.u8(x.Results)
+	}
+	w.uv(len(m.Connects))
+	for _, c := range m.Connects {
+		w.str(c.Source)
+		w.str(c.Signal)
+		w.str(c.Target)
+		w.str(c.Handler)
 	}
 	w.uv(len(m.Functions))
 	for i := range m.Functions {
@@ -157,6 +191,104 @@ func (w *writer) script(s *ScriptDef) {
 	w.u32(uint32(s.Ready))
 	w.u32(uint32(s.FixedUpdate))
 	w.u32(uint32(s.Update))
+	w.u32(uint32(s.Reloaded))
+	w.uv(len(s.Signals))
+	for _, sg := range s.Signals {
+		w.str(sg.Name)
+		w.u8(sg.Slots)
+		w.uv(len(sg.Params))
+		for _, p := range sg.Params {
+			w.str(p.String())
+		}
+	}
+}
+
+func Decode(b []byte) (*Module, error) {
+	r := &reader{b: b}
+	m := &Module{}
+	copy(m.Magic[:], r.take(4))
+	if r.err == nil && string(m.Magic[:]) != Magic {
+		return nil, ErrMagic
+	}
+	m.Version = r.u16()
+	if r.err == nil && m.Version != Version {
+		return nil, fmt.Errorf("%w: %d", ErrVersion, m.Version)
+	}
+	m.LangVersion = r.u16()
+	m.Package = r.str()
+	copy(m.Hash[:], r.take(32))
+	copy(m.ABIHash[:], r.take(32))
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Imports = append(m.Imports, HostImport{Module: r.str(), Name: r.str(), Sig: r.sig()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Externs = append(m.Externs, Extern{Package: r.str(), Name: r.str(), Params: r.u8(), Results: r.u8()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Types = append(m.Types, TypeDef{Elem: r.str(), Width: r.u8(), Mask: r.u32()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Enums = append(m.Enums, EnumDef{Name: r.str(), Members: r.strs()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		s := StructDef{Name: r.str(), Slots: r.u16()}
+		for k, j := r.count(), 0; j < k && r.err == nil; j++ {
+			s.Fields = append(s.Fields, StructField{Name: r.str(), Type: r.str(), Slot: r.u16(), Slots: r.u8()})
+		}
+		m.Structs = append(m.Structs, s)
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Scripts = append(m.Scripts, r.script())
+	}
+	m.ScriptRefs = r.strs()
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.XFields = append(m.XFields, XFieldDef{Ref: r.u16(), Name: r.str(), Type: r.str(), Slots: r.u8()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.XMethods = append(m.XMethods, XMethodDef{Ref: r.u16(), Name: r.str(), Params: r.u8(), Results: r.u8()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Connects = append(m.Connects, ConnectDef{Source: r.str(), Signal: r.str(), Target: r.str(), Handler: r.str()})
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		m.Functions = append(m.Functions, r.function())
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.off != len(b) {
+		return nil, ErrTrailing
+	}
+	return m, nil
+}
+
+func (r *reader) script() ScriptDef {
+	s := ScriptDef{FullName: r.str(), Former: r.strs(), Hidden: r.flag(), Slots: r.u16()}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		s.HeapSlots = append(s.HeapSlots, r.u16())
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		f := FieldDef{Name: r.str(), Former: r.strs(), Type: r.str(), Slot: r.u16(), Slots: r.u8(), Export: r.flag()}
+		f.Hints = ExportHints{
+			Min: r.f64(), Max: r.f64(), Step: r.f64(), HasMin: r.flag(), HasMax: r.flag(),
+			Unit: r.str(), Display: r.str(), Tip: r.str(), Category: r.str(),
+		}
+		f.HasDefault = r.flag()
+		f.Default = r.konst()
+		s.Fields = append(s.Fields, f)
+	}
+	s.Ready = int32(r.u32())
+	s.FixedUpdate = int32(r.u32())
+	s.Update = int32(r.u32())
+	s.Reloaded = int32(r.u32())
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		sg := SignalDef{Name: r.str(), Slots: r.u8()}
+		for k, j := r.count(), 0; j < k && r.err == nil; j++ {
+			sg.Params = append(sg.Params, r.typeRef())
+		}
+		s.Signals = append(s.Signals, sg)
+	}
+	return s
 }
 
 func (w *writer) function(f *Function) {
@@ -166,6 +298,7 @@ func (w *writer) function(f *Function) {
 	w.u8(f.Results)
 	w.u8(f.Registers)
 	w.u32(uint32(f.Script))
+	w.flag(f.Coroutine)
 	w.uv(len(f.Code))
 	for _, in := range f.Code {
 		w.u32(uint32(in))
@@ -301,71 +434,8 @@ func (r *reader) sig() abi.Signature {
 	return s
 }
 
-func Decode(b []byte) (*Module, error) {
-	r := &reader{b: b}
-	m := &Module{}
-	copy(m.Magic[:], r.take(4))
-	if r.err == nil && string(m.Magic[:]) != Magic {
-		return nil, ErrMagic
-	}
-	m.Version = r.u16()
-	if r.err == nil && m.Version != Version {
-		return nil, fmt.Errorf("%w: %d", ErrVersion, m.Version)
-	}
-	m.LangVersion = r.u16()
-	m.Package = r.str()
-	copy(m.Hash[:], r.take(32))
-	copy(m.ABIHash[:], r.take(32))
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Imports = append(m.Imports, HostImport{Module: r.str(), Name: r.str(), Sig: r.sig()})
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Externs = append(m.Externs, Extern{Package: r.str(), Name: r.str(), Params: r.u8(), Results: r.u8()})
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Types = append(m.Types, TypeDef{Elem: r.str(), Width: r.u8(), Mask: r.u32()})
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Enums = append(m.Enums, EnumDef{Name: r.str(), Members: r.strs()})
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Scripts = append(m.Scripts, r.script())
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		m.Functions = append(m.Functions, r.function())
-	}
-	if r.err != nil {
-		return nil, r.err
-	}
-	if r.off != len(b) {
-		return nil, ErrTrailing
-	}
-	return m, nil
-}
-
-func (r *reader) script() ScriptDef {
-	s := ScriptDef{FullName: r.str(), Former: r.strs(), Hidden: r.flag(), Slots: r.u16()}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		s.HeapSlots = append(s.HeapSlots, r.u16())
-	}
-	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		f := FieldDef{Name: r.str(), Former: r.strs(), Type: r.str(), Slot: r.u16(), Slots: r.u8(), Export: r.flag()}
-		f.Hints = ExportHints{
-			Min: r.f64(), Max: r.f64(), Step: r.f64(), HasMin: r.flag(), HasMax: r.flag(),
-			Unit: r.str(), Display: r.str(), Tip: r.str(), Category: r.str(),
-		}
-		f.HasDefault = r.flag()
-		f.Default = r.konst()
-		s.Fields = append(s.Fields, f)
-	}
-	s.Ready = int32(r.u32())
-	s.FixedUpdate = int32(r.u32())
-	s.Update = int32(r.u32())
-	return s
-}
-
 func (r *reader) function() Function {
-	f := Function{Name: r.str(), File: r.str(), Params: r.u8(), Results: r.u8(), Registers: r.u8(), Script: int32(r.u32())}
+	f := Function{Name: r.str(), File: r.str(), Params: r.u8(), Results: r.u8(), Registers: r.u8(), Script: int32(r.u32()), Coroutine: r.flag()}
 	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
 		f.Code = append(f.Code, Instr(r.u32()))
 	}

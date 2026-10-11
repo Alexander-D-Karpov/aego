@@ -8,7 +8,7 @@ import (
 	"aego/core/log"
 	"aego/editor/history"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
@@ -16,8 +16,8 @@ func shortName(full string) string {
 	return full[strings.LastIndexByte(full, '.')+1:]
 }
 
-func attachments(s *scene.Scene, h scene.NodeHandle) (*components.ScriptComponent, bool) {
-	return components.ScriptsOf(s, h)
+func attachments(s *scene.Scene, h scene.NodeHandle) (*scriptcomp.ScriptComponent, bool) {
+	return scriptcomp.ScriptsOf(s, h)
 }
 
 func notAttached(name string) error {
@@ -43,12 +43,12 @@ func (c *AddScript) Do(t history.Target) error {
 	sc, ok := attachments(s, h)
 	c.created = !ok
 	if !ok {
-		sc = scene.Add[components.ScriptComponent](s, h)
+		sc = scene.Add[scriptcomp.ScriptComponent](s, h)
 	}
 	if sc.Index(c.TypeName) >= 0 {
 		return errs.New(errs.EditorProps, "script is already attached", log.F("script", c.TypeName))
 	}
-	sc.Attachments = append(sc.Attachments, components.Attachment{TypeName: c.TypeName, Enabled: true, Props: c.Props.Clone()})
+	sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{TypeName: c.TypeName, Enabled: true, Props: c.Props.Clone()})
 	s.Flush()
 	return nil
 }
@@ -64,7 +64,7 @@ func (c *AddScript) Undo(t history.Target) error {
 		}
 	}
 	if c.created {
-		scene.Remove[components.ScriptComponent](s, h)
+		scene.Remove[scriptcomp.ScriptComponent](s, h)
 	}
 	s.Flush()
 	return nil
@@ -78,7 +78,7 @@ type RemoveScript struct {
 	Node     ids.NodeID
 	TypeName string
 	index    int
-	saved    components.Attachment
+	saved    scriptcomp.Attachment
 	dropped  bool
 }
 
@@ -103,7 +103,7 @@ func (c *RemoveScript) Do(t history.Target) error {
 	sc.Attachments = append(sc.Attachments[:i], sc.Attachments[i+1:]...)
 	c.dropped = len(sc.Attachments) == 0
 	if c.dropped {
-		scene.Remove[components.ScriptComponent](s, h)
+		scene.Remove[scriptcomp.ScriptComponent](s, h)
 	}
 	s.Flush()
 	return nil
@@ -116,10 +116,10 @@ func (c *RemoveScript) Undo(t history.Target) error {
 	}
 	sc, ok := attachments(s, h)
 	if !ok {
-		sc = scene.Add[components.ScriptComponent](s, h)
+		sc = scene.Add[scriptcomp.ScriptComponent](s, h)
 	}
 	i := min(c.index, len(sc.Attachments))
-	sc.Attachments = append(sc.Attachments, components.Attachment{})
+	sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{})
 	copy(sc.Attachments[i+1:], sc.Attachments[i:])
 	sc.Attachments[i] = c.saved.Clone()
 	s.Flush()
@@ -191,7 +191,7 @@ func (c *ReorderScript) move(t history.Target, from, to int) error {
 	}
 	a := sc.Attachments[from]
 	sc.Attachments = append(sc.Attachments[:from], sc.Attachments[from+1:]...)
-	sc.Attachments = append(sc.Attachments, components.Attachment{})
+	sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{})
 	copy(sc.Attachments[to+1:], sc.Attachments[to:])
 	sc.Attachments[to] = a
 	return nil

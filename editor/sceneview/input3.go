@@ -3,13 +3,13 @@ package sceneview
 import (
 	"path"
 
-	"aego/asset"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/context"
 	"aego/editor/document"
 	"aego/editor/templates"
 	"aego/platform/input"
+	"aego/scene"
 	"aego/ui/widgets"
 )
 
@@ -116,9 +116,10 @@ func (p *Panel) drop3(ctx *context.Editor, r mathx.Rect) {
 	if p.cur == nil || !dn.Hovering(ui, r) {
 		return
 	}
+	sp := scene.Space3D
 	pl, _ := dn.Payload()
 	ap, ok := pl.Data.(context.AssetPayload)
-	if pl.Kind != context.KindAsset || !ok || (ap.Kind != asset.ArtMesh && !context.AssetMatches("texture", ap.Kind)) {
+	if pl.Kind != context.KindAsset || !ok || p.Templates == nil || !p.Templates.Accepts(ap.Kind, &sp) {
 		dn.Target(ui, r, "reject")
 		return
 	}
@@ -128,7 +129,10 @@ func (p *Panel) drop3(ctx *context.Editor, r mathx.Rect) {
 	}
 	ap = got.Data.(context.AssetPayload)
 	at := p.c3.DropPoint(p.host3(), p.toPixels(dn.Pos(ui)), p.snapStep(ctx))
-	t := templates.MeshFor(ap.ID, ap.Kind, path.Base(ap.Name))
+	t, ok := p.Templates.ForAsset(ap.Kind, &sp, ap.ID, path.Base(ap.Name))
+	if !ok {
+		return
+	}
 	if _, err := templates.InstantiateAt3(ctx, t, ids.NodeID{}, at); err != nil {
 		ctx.Notify(context.LevelError, err.Error())
 	}

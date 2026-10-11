@@ -41,6 +41,15 @@ func (m *Machine) Collect(r Roots) bool {
 	if r != nil {
 		r.MarkRoots(mk)
 	}
+	for i := range m.cos {
+		c := &m.cos[i]
+		if !c.live || c.state != CoSuspended {
+			continue
+		}
+		for _, v := range c.regs {
+			mk.Mark(v)
+		}
+	}
 	for len(mk.work) > 0 {
 		idx := mk.work[len(mk.work)-1]
 		mk.work = mk.work[:len(mk.work)-1]

@@ -14,6 +14,7 @@ type Entry struct {
 	Channel log.Channel
 	Text    string
 	Path    string
+	Line    int
 	Count   int
 }
 
@@ -49,20 +50,26 @@ func format(r log.Record) string {
 	return b.String()
 }
 
-func pathOf(r log.Record) string {
+func locOf(r log.Record) (string, int) {
+	p, line := "", 0
 	for _, f := range r.Fields {
-		if f.Key == "path" {
+		switch f.Key {
+		case "path":
 			if s, ok := f.Val.(string); ok {
-				return s
+				p = s
+			}
+		case "line":
+			if n, ok := f.Val.(int); ok {
+				line = n
 			}
 		}
 	}
-	return ""
+	return p, line
 }
 
 func (s *Sink) Write(r log.Record) {
 	text := format(r)
-	p := pathOf(r)
+	p, line := locOf(r)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if int(r.Level) < len(s.counts) {
@@ -77,7 +84,7 @@ func (s *Sink) Write(r log.Record) {
 			return
 		}
 	}
-	e := Entry{Time: r.Time, Level: r.Level, Channel: r.Channel, Text: text, Path: p, Count: 1}
+	e := Entry{Time: r.Time, Level: r.Level, Channel: r.Channel, Text: text, Path: p, Line: line, Count: 1}
 	if s.n < len(s.ring) {
 		s.ring[(s.start+s.n)%len(s.ring)] = e
 		s.n++

@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	SystemFixed  = "script.fixed"
-	SystemUpdate = "script.update"
+	SystemSwap       = "script.swap"
+	SystemFixed      = "script.fixed"
+	SystemUpdate     = "script.update"
+	SystemCoroutines = "script.coroutines"
 )
 
 type Module struct{}
@@ -25,20 +27,25 @@ func (*Module) Info() engine.ModuleInfo {
 
 func (*Module) Register(reg *engine.Registry) error {
 	sys := reg.Systems()
-	if err := sys.Register(engine.SystemDesc{
-		ID:     SystemFixed,
-		Phase:  engine.PhasePrePhysics,
-		Scope:  engine.ScopePlay,
-		System: fixedSystem{},
-	}); err != nil {
-		return err
+	for _, d := range []engine.SystemDesc{
+		{ID: SystemSwap, Phase: engine.PhaseFrameBegin, Scope: engine.ScopePlay, System: swapSystem{}},
+		{ID: SystemFixed, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, System: fixedSystem{}},
+		{ID: SystemUpdate, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, System: updateSystem{}},
+		{ID: SystemCoroutines, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, After: []string{SystemUpdate}, System: coroutineSystem{}},
+	} {
+		if err := sys.Register(d); err != nil {
+			return err
+		}
 	}
-	return sys.Register(engine.SystemDesc{
-		ID:     SystemUpdate,
-		Phase:  engine.PhaseUpdate,
-		Scope:  engine.ScopePlay,
-		System: updateSystem{},
-	})
+	return nil
+}
+
+type swapSystem struct{}
+
+func (swapSystem) Run(ctx *engine.Context) {
+	if rt := runtimeOf(ctx); rt != nil {
+		rt.RunDeferred()
+	}
 }
 
 func runtimeOf(ctx *engine.Context) *runtime.Runtime {
@@ -71,4 +78,12 @@ func Bindings(opt stdlib.Options) *bind.Registry {
 func Freeze(r *bind.Registry, sr *schema.Registry) error {
 	runtime.BindComponents(r, sr)
 	return r.Freeze()
+}
+
+type coroutineSystem struct{}
+
+func (coroutineSystem) Run(ctx *engine.Context) {
+	if rt := runtimeOf(ctx); rt != nil {
+		rt.Coroutines(ctx)
+	}
 }

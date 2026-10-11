@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	bc "aego/script/bytecode"
+	"aego/script/diag"
 	"aego/script/verify"
 )
 
@@ -13,7 +14,7 @@ func valid() *bc.Module {
 	m.Scripts = []bc.ScriptDef{{
 		FullName: "v.S", Slots: 3, HeapSlots: []uint16{2}, // slot 0 is node (D97); fields from slot 1
 		Fields: []bc.FieldDef{{Name: "A", Type: "int", Slot: 1, Slots: 1}, {Name: "B", Type: "string", Slot: 2, Slots: 1}},
-		Ready:  -1, FixedUpdate: -1, Update: 1,
+		Ready:  -1, FixedUpdate: -1, Update: 1, Reloaded: -1,
 	}}
 	m.Functions = []bc.Function{
 		{Name: "add", Params: 2, Results: 1, Registers: 3, Script: -1,
@@ -78,8 +79,12 @@ func TestCorruptModules(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			m := valid()
 			corrupt(m)
-			if ds := verify.Module(m); len(ds) == 0 {
+			ds := verify.Module(m)
+			if len(ds) == 0 {
 				t.Fatal("corruption was not detected")
+			}
+			if ds[0].Code != diag.BadBytecode {
+				t.Fatalf("code = %s", ds[0].Code)
 			}
 		})
 	}
@@ -90,8 +95,8 @@ func TestCrossScriptCall(t *testing.T) {
 	// A's self. Without the owner check this module is otherwise valid.
 	m := bc.NewModule("v")
 	m.Scripts = []bc.ScriptDef{
-		{FullName: "v.A", Slots: 1, Ready: -1, FixedUpdate: -1, Update: -1},
-		{FullName: "v.B", Slots: 1, Ready: -1, FixedUpdate: -1, Update: -1},
+		{FullName: "v.A", Slots: 1, Ready: -1, FixedUpdate: -1, Update: -1, Reloaded: -1},
+		{FullName: "v.B", Slots: 1, Ready: -1, FixedUpdate: -1, Update: -1, Reloaded: -1},
 	}
 	m.Functions = []bc.Function{
 		{Name: "A.m", Registers: 1, Script: 0, Code: []bc.Instr{bc.ABx(bc.CALL, 0, 1), bc.ABC(bc.RET, 0, 0, 0)}},
@@ -112,4 +117,24 @@ func FuzzDecodeVerify(f *testing.F) {
 		}
 		verify.Module(m)
 	})
+}
+
+func structModule(heap []uint16) *bc.Module {
+	m := valid()
+	m.Structs = []bc.StructDef{{Name: "v.P", Slots: 2, Fields: []bc.StructField{
+		{Name: "N", Type: "int", Slot: 0, Slots: 1},
+		{Name: "S", Type: "string", Slot: 1, Slots: 1},
+	}}}
+	m.Scripts[0].Fields = []bc.FieldDef{{Name: "P", Type: "struct:v.P", Slot: 1, Slots: 2}}
+	m.Scripts[0].HeapSlots = heap
+	return m
+}
+
+func TestStructFieldRoots(t *testing.T) {
+	if ds := verify.Module(structModule(nil)); len(ds) == 0 {
+		t.Fatal("a string inside a struct field without a GC root was accepted")
+	}
+	if ds := verify.Module(structModule([]uint16{2})); len(ds) != 0 {
+		t.Fatalf("correct roots rejected: %v", ds)
+	}
 }

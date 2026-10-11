@@ -1,0 +1,1734 @@
+manifest version=2 {
+  abi="770cfee47bb7f9121351e730a8e050882079b803ef1a35c10acbb9fdd186702b"
+  module "aego/input" {
+    func "Axis" {
+      params=["string"]
+      result="float"
+      names=["name"]
+      doc="Axis returns -1, 0 or 1 for a named axis.\nAxes are declared in project.aego → input → axes; horizontal and vertical exist by default."
+      example="x := input.Axis(\"horizontal\")"
+    }
+    func "Down" {
+      params=["enum:aego/input.Key"]
+      result="bool"
+      names=["key"]
+      doc="Down reports whether the key is held this frame."
+      example="if input.Down(input.KeyShift) {\n\tspeed *= 2\n}"
+    }
+    func "MouseDown" {
+      params=["enum:aego/input.Button"]
+      result="bool"
+      names=["button"]
+      doc="MouseDown reports whether the mouse button is held."
+      example="if input.MouseDown(input.MouseLeft) {\n\tfire()\n}"
+    }
+    func "MousePos" {
+      params=[]
+      result="Vec2"
+      doc="MousePos returns the cursor position in window pixels, (0, 0) at the top-left corner."
+      example="p := input.MousePos()"
+    }
+    func "MousePressed" {
+      params=["enum:aego/input.Button"]
+      result="bool"
+      names=["button"]
+      doc="MousePressed reports whether the mouse button went down this frame."
+      example="if input.MousePressed(input.MouseRight) {\n\taim()\n}"
+    }
+    func "Pressed" {
+      params=["enum:aego/input.Key"]
+      result="bool"
+      names=["key"]
+      doc="Pressed reports whether the key went down this frame. It is true for exactly one frame per press."
+      example="if input.Pressed(input.KeySpace) {\n\tjump()\n}"
+    }
+    func "Released" {
+      params=["enum:aego/input.Key"]
+      result="bool"
+      names=["key"]
+      doc="Released reports whether the key went up this frame."
+      example="if input.Released(input.KeySpace) {\n\tcutJump()\n}"
+    }
+    const "KeyA" {
+      type="enum:aego/input.Key"
+      int=4
+      float=0
+      bool=false
+      str=""
+      doc="The A key."
+    }
+    const "KeyB" {
+      type="enum:aego/input.Key"
+      int=5
+      float=0
+      bool=false
+      str=""
+      doc="The B key."
+    }
+    const "KeyBackspace" {
+      type="enum:aego/input.Key"
+      int=42
+      float=0
+      bool=false
+      str=""
+      doc="The Backspace key."
+    }
+    const "KeyC" {
+      type="enum:aego/input.Key"
+      int=6
+      float=0
+      bool=false
+      str=""
+      doc="The C key."
+    }
+    const "KeyCapsLock" {
+      type="enum:aego/input.Key"
+      int=57
+      float=0
+      bool=false
+      str=""
+      doc="The CapsLock key."
+    }
+    const "KeyD" {
+      type="enum:aego/input.Key"
+      int=7
+      float=0
+      bool=false
+      str=""
+      doc="The D key."
+    }
+    const "KeyDelete" {
+      type="enum:aego/input.Key"
+      int=76
+      float=0
+      bool=false
+      str=""
+      doc="The Delete key."
+    }
+    const "KeyDigit0" {
+      type="enum:aego/input.Key"
+      int=39
+      float=0
+      bool=false
+      str=""
+      doc="The Digit0 key."
+    }
+    const "KeyDigit1" {
+      type="enum:aego/input.Key"
+      int=30
+      float=0
+      bool=false
+      str=""
+      doc="The Digit1 key."
+    }
+    const "KeyDigit2" {
+      type="enum:aego/input.Key"
+      int=31
+      float=0
+      bool=false
+      str=""
+      doc="The Digit2 key."
+    }
+    const "KeyDigit3" {
+      type="enum:aego/input.Key"
+      int=32
+      float=0
+      bool=false
+      str=""
+      doc="The Digit3 key."
+    }
+    const "KeyDigit4" {
+      type="enum:aego/input.Key"
+      int=33
+      float=0
+      bool=false
+      str=""
+      doc="The Digit4 key."
+    }
+    const "KeyDigit5" {
+      type="enum:aego/input.Key"
+      int=34
+      float=0
+      bool=false
+      str=""
+      doc="The Digit5 key."
+    }
+    const "KeyDigit6" {
+      type="enum:aego/input.Key"
+      int=35
+      float=0
+      bool=false
+      str=""
+      doc="The Digit6 key."
+    }
+    const "KeyDigit7" {
+      type="enum:aego/input.Key"
+      int=36
+      float=0
+      bool=false
+      str=""
+      doc="The Digit7 key."
+    }
+    const "KeyDigit8" {
+      type="enum:aego/input.Key"
+      int=37
+      float=0
+      bool=false
+      str=""
+      doc="The Digit8 key."
+    }
+    const "KeyDigit9" {
+      type="enum:aego/input.Key"
+      int=38
+      float=0
+      bool=false
+      str=""
+      doc="The Digit9 key."
+    }
+    const "KeyDown" {
+      type="enum:aego/input.Key"
+      int=81
+      float=0
+      bool=false
+      str=""
+      doc="The Down key."
+    }
+    const "KeyE" {
+      type="enum:aego/input.Key"
+      int=8
+      float=0
+      bool=false
+      str=""
+      doc="The E key."
+    }
+    const "KeyEnd" {
+      type="enum:aego/input.Key"
+      int=77
+      float=0
+      bool=false
+      str=""
+      doc="The End key."
+    }
+    const "KeyEnter" {
+      type="enum:aego/input.Key"
+      int=40
+      float=0
+      bool=false
+      str=""
+      doc="The Enter key."
+    }
+    const "KeyEscape" {
+      type="enum:aego/input.Key"
+      int=41
+      float=0
+      bool=false
+      str=""
+      doc="The Escape key."
+    }
+    const "KeyF" {
+      type="enum:aego/input.Key"
+      int=9
+      float=0
+      bool=false
+      str=""
+      doc="The F key."
+    }
+    const "KeyF1" {
+      type="enum:aego/input.Key"
+      int=58
+      float=0
+      bool=false
+      str=""
+      doc="The F1 key."
+    }
+    const "KeyF10" {
+      type="enum:aego/input.Key"
+      int=67
+      float=0
+      bool=false
+      str=""
+      doc="The F10 key."
+    }
+    const "KeyF11" {
+      type="enum:aego/input.Key"
+      int=68
+      float=0
+      bool=false
+      str=""
+      doc="The F11 key."
+    }
+    const "KeyF12" {
+      type="enum:aego/input.Key"
+      int=69
+      float=0
+      bool=false
+      str=""
+      doc="The F12 key."
+    }
+    const "KeyF2" {
+      type="enum:aego/input.Key"
+      int=59
+      float=0
+      bool=false
+      str=""
+      doc="The F2 key."
+    }
+    const "KeyF3" {
+      type="enum:aego/input.Key"
+      int=60
+      float=0
+      bool=false
+      str=""
+      doc="The F3 key."
+    }
+    const "KeyF4" {
+      type="enum:aego/input.Key"
+      int=61
+      float=0
+      bool=false
+      str=""
+      doc="The F4 key."
+    }
+    const "KeyF5" {
+      type="enum:aego/input.Key"
+      int=62
+      float=0
+      bool=false
+      str=""
+      doc="The F5 key."
+    }
+    const "KeyF6" {
+      type="enum:aego/input.Key"
+      int=63
+      float=0
+      bool=false
+      str=""
+      doc="The F6 key."
+    }
+    const "KeyF7" {
+      type="enum:aego/input.Key"
+      int=64
+      float=0
+      bool=false
+      str=""
+      doc="The F7 key."
+    }
+    const "KeyF8" {
+      type="enum:aego/input.Key"
+      int=65
+      float=0
+      bool=false
+      str=""
+      doc="The F8 key."
+    }
+    const "KeyF9" {
+      type="enum:aego/input.Key"
+      int=66
+      float=0
+      bool=false
+      str=""
+      doc="The F9 key."
+    }
+    const "KeyG" {
+      type="enum:aego/input.Key"
+      int=10
+      float=0
+      bool=false
+      str=""
+      doc="The G key."
+    }
+    const "KeyH" {
+      type="enum:aego/input.Key"
+      int=11
+      float=0
+      bool=false
+      str=""
+      doc="The H key."
+    }
+    const "KeyHome" {
+      type="enum:aego/input.Key"
+      int=74
+      float=0
+      bool=false
+      str=""
+      doc="The Home key."
+    }
+    const "KeyI" {
+      type="enum:aego/input.Key"
+      int=12
+      float=0
+      bool=false
+      str=""
+      doc="The I key."
+    }
+    const "KeyInsert" {
+      type="enum:aego/input.Key"
+      int=73
+      float=0
+      bool=false
+      str=""
+      doc="The Insert key."
+    }
+    const "KeyJ" {
+      type="enum:aego/input.Key"
+      int=13
+      float=0
+      bool=false
+      str=""
+      doc="The J key."
+    }
+    const "KeyK" {
+      type="enum:aego/input.Key"
+      int=14
+      float=0
+      bool=false
+      str=""
+      doc="The K key."
+    }
+    const "KeyKP0" {
+      type="enum:aego/input.Key"
+      int=98
+      float=0
+      bool=false
+      str=""
+      doc="The KP0 key."
+    }
+    const "KeyKP1" {
+      type="enum:aego/input.Key"
+      int=89
+      float=0
+      bool=false
+      str=""
+      doc="The KP1 key."
+    }
+    const "KeyKP2" {
+      type="enum:aego/input.Key"
+      int=90
+      float=0
+      bool=false
+      str=""
+      doc="The KP2 key."
+    }
+    const "KeyKP3" {
+      type="enum:aego/input.Key"
+      int=91
+      float=0
+      bool=false
+      str=""
+      doc="The KP3 key."
+    }
+    const "KeyKP4" {
+      type="enum:aego/input.Key"
+      int=92
+      float=0
+      bool=false
+      str=""
+      doc="The KP4 key."
+    }
+    const "KeyKP5" {
+      type="enum:aego/input.Key"
+      int=93
+      float=0
+      bool=false
+      str=""
+      doc="The KP5 key."
+    }
+    const "KeyKP6" {
+      type="enum:aego/input.Key"
+      int=94
+      float=0
+      bool=false
+      str=""
+      doc="The KP6 key."
+    }
+    const "KeyKP7" {
+      type="enum:aego/input.Key"
+      int=95
+      float=0
+      bool=false
+      str=""
+      doc="The KP7 key."
+    }
+    const "KeyKP8" {
+      type="enum:aego/input.Key"
+      int=96
+      float=0
+      bool=false
+      str=""
+      doc="The KP8 key."
+    }
+    const "KeyKP9" {
+      type="enum:aego/input.Key"
+      int=97
+      float=0
+      bool=false
+      str=""
+      doc="The KP9 key."
+    }
+    const "KeyKPEnter" {
+      type="enum:aego/input.Key"
+      int=88
+      float=0
+      bool=false
+      str=""
+      doc="The KPEnter key."
+    }
+    const "KeyL" {
+      type="enum:aego/input.Key"
+      int=15
+      float=0
+      bool=false
+      str=""
+      doc="The L key."
+    }
+    const "KeyLAlt" {
+      type="enum:aego/input.Key"
+      int=226
+      float=0
+      bool=false
+      str=""
+      doc="The LAlt key."
+    }
+    const "KeyLCtrl" {
+      type="enum:aego/input.Key"
+      int=224
+      float=0
+      bool=false
+      str=""
+      doc="The LCtrl key."
+    }
+    const "KeyLGUI" {
+      type="enum:aego/input.Key"
+      int=227
+      float=0
+      bool=false
+      str=""
+      doc="The LGUI key."
+    }
+    const "KeyLShift" {
+      type="enum:aego/input.Key"
+      int=225
+      float=0
+      bool=false
+      str=""
+      doc="The LShift key."
+    }
+    const "KeyLeft" {
+      type="enum:aego/input.Key"
+      int=80
+      float=0
+      bool=false
+      str=""
+      doc="The Left key."
+    }
+    const "KeyM" {
+      type="enum:aego/input.Key"
+      int=16
+      float=0
+      bool=false
+      str=""
+      doc="The M key."
+    }
+    const "KeyN" {
+      type="enum:aego/input.Key"
+      int=17
+      float=0
+      bool=false
+      str=""
+      doc="The N key."
+    }
+    const "KeyNumLock" {
+      type="enum:aego/input.Key"
+      int=83
+      float=0
+      bool=false
+      str=""
+      doc="The NumLock key."
+    }
+    const "KeyO" {
+      type="enum:aego/input.Key"
+      int=18
+      float=0
+      bool=false
+      str=""
+      doc="The O key."
+    }
+    const "KeyP" {
+      type="enum:aego/input.Key"
+      int=19
+      float=0
+      bool=false
+      str=""
+      doc="The P key."
+    }
+    const "KeyPageDown" {
+      type="enum:aego/input.Key"
+      int=78
+      float=0
+      bool=false
+      str=""
+      doc="The PageDown key."
+    }
+    const "KeyPageUp" {
+      type="enum:aego/input.Key"
+      int=75
+      float=0
+      bool=false
+      str=""
+      doc="The PageUp key."
+    }
+    const "KeyPause" {
+      type="enum:aego/input.Key"
+      int=72
+      float=0
+      bool=false
+      str=""
+      doc="The Pause key."
+    }
+    const "KeyPrintScreen" {
+      type="enum:aego/input.Key"
+      int=70
+      float=0
+      bool=false
+      str=""
+      doc="The PrintScreen key."
+    }
+    const "KeyQ" {
+      type="enum:aego/input.Key"
+      int=20
+      float=0
+      bool=false
+      str=""
+      doc="The Q key."
+    }
+    const "KeyR" {
+      type="enum:aego/input.Key"
+      int=21
+      float=0
+      bool=false
+      str=""
+      doc="The R key."
+    }
+    const "KeyRAlt" {
+      type="enum:aego/input.Key"
+      int=230
+      float=0
+      bool=false
+      str=""
+      doc="The RAlt key."
+    }
+    const "KeyRCtrl" {
+      type="enum:aego/input.Key"
+      int=228
+      float=0
+      bool=false
+      str=""
+      doc="The RCtrl key."
+    }
+    const "KeyRGUI" {
+      type="enum:aego/input.Key"
+      int=231
+      float=0
+      bool=false
+      str=""
+      doc="The RGUI key."
+    }
+    const "KeyRShift" {
+      type="enum:aego/input.Key"
+      int=229
+      float=0
+      bool=false
+      str=""
+      doc="The RShift key."
+    }
+    const "KeyRight" {
+      type="enum:aego/input.Key"
+      int=79
+      float=0
+      bool=false
+      str=""
+      doc="The Right key."
+    }
+    const "KeyS" {
+      type="enum:aego/input.Key"
+      int=22
+      float=0
+      bool=false
+      str=""
+      doc="The S key."
+    }
+    const "KeyScrollLock" {
+      type="enum:aego/input.Key"
+      int=71
+      float=0
+      bool=false
+      str=""
+      doc="The ScrollLock key."
+    }
+    const "KeySpace" {
+      type="enum:aego/input.Key"
+      int=44
+      float=0
+      bool=false
+      str=""
+      doc="The Space key."
+    }
+    const "KeyT" {
+      type="enum:aego/input.Key"
+      int=23
+      float=0
+      bool=false
+      str=""
+      doc="The T key."
+    }
+    const "KeyTab" {
+      type="enum:aego/input.Key"
+      int=43
+      float=0
+      bool=false
+      str=""
+      doc="The Tab key."
+    }
+    const "KeyU" {
+      type="enum:aego/input.Key"
+      int=24
+      float=0
+      bool=false
+      str=""
+      doc="The U key."
+    }
+    const "KeyUp" {
+      type="enum:aego/input.Key"
+      int=82
+      float=0
+      bool=false
+      str=""
+      doc="The Up key."
+    }
+    const "KeyV" {
+      type="enum:aego/input.Key"
+      int=25
+      float=0
+      bool=false
+      str=""
+      doc="The V key."
+    }
+    const "KeyW" {
+      type="enum:aego/input.Key"
+      int=26
+      float=0
+      bool=false
+      str=""
+      doc="The W key."
+    }
+    const "KeyX" {
+      type="enum:aego/input.Key"
+      int=27
+      float=0
+      bool=false
+      str=""
+      doc="The X key."
+    }
+    const "KeyY" {
+      type="enum:aego/input.Key"
+      int=28
+      float=0
+      bool=false
+      str=""
+      doc="The Y key."
+    }
+    const "KeyZ" {
+      type="enum:aego/input.Key"
+      int=29
+      float=0
+      bool=false
+      str=""
+      doc="The Z key."
+    }
+    const "MouseLeft" {
+      type="enum:aego/input.Button"
+      int=0
+      float=0
+      bool=false
+      str=""
+      doc="The Left mouse button."
+    }
+    const "MouseMiddle" {
+      type="enum:aego/input.Button"
+      int=2
+      float=0
+      bool=false
+      str=""
+      doc="The Middle mouse button."
+    }
+    const "MouseRight" {
+      type="enum:aego/input.Button"
+      int=1
+      float=0
+      bool=false
+      str=""
+      doc="The Right mouse button."
+    }
+    const "MouseX1" {
+      type="enum:aego/input.Button"
+      int=3
+      float=0
+      bool=false
+      str=""
+      doc="The X1 mouse button."
+    }
+    const "MouseX2" {
+      type="enum:aego/input.Button"
+      int=4
+      float=0
+      bool=false
+      str=""
+      doc="The X2 mouse button."
+    }
+  }
+  module "aego/log" {
+    func "Debug" {
+      params=["string"]
+      result="void"
+      names=["msg"]
+      doc="Debug writes a message to the Console. Debug messages are hidden unless the editor runs with -debug."
+      example="log.Debug(\"state \" + string(int(state)))"
+    }
+    func "Error" {
+      params=["string"]
+      result="void"
+      names=["msg"]
+      doc="Error writes an error to the Console. It does not stop the script; use it for problems you can recover from."
+      example="log.Error(\"spawn point missing\")"
+    }
+    func "Info" {
+      params=["string"]
+      result="void"
+      names=["msg"]
+      doc="Info writes a message to the Console."
+      example="log.Info(\"ready \" + node.Name())"
+    }
+    func "Warn" {
+      params=["string"]
+      result="void"
+      names=["msg"]
+      doc="Warn writes a warning to the Console."
+      example="log.Warn(\"Target is not set\")"
+    }
+  }
+  module "aego/math" {
+    func "Abs" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Abs returns the absolute value of x."
+      example="dist := math.Abs(target - x)"
+    }
+    func "AbsInt" {
+      params=["int"]
+      result="int"
+      names=["x"]
+      doc="AbsInt returns the absolute value of an int."
+      example="steps := math.AbsInt(to - from)"
+    }
+    func "Acos" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Acos returns the angle in radians whose cosine is x, in [0, Pi]."
+      example="a := math.Acos(math.Dot(u, v))"
+    }
+    func "Angle" {
+      params=["Vec2"]
+      result="float"
+      names=["v"]
+      doc="Angle returns the direction of v in radians."
+      example="node.SetRotation(math.Angle(velocity))"
+    }
+    func "Asin" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Asin returns the angle in radians whose sine is x, in [-Pi/2, Pi/2]."
+      example="a := math.Asin(0.5)"
+    }
+    func "Atan2" {
+      params=["float", "float"]
+      result="float"
+      names=["y", "x"]
+      doc="Atan2 returns the angle in radians of the vector (x, y), in (-Pi, Pi]."
+      example="angle := math.Atan2(d.Y, d.X)"
+    }
+    func "Ceil" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Ceil returns the least whole number greater than or equal to x."
+      example="pages := math.Ceil(float(count) / 10)"
+    }
+    func "Clamp" {
+      params=["float", "float", "float"]
+      result="float"
+      names=["v", "lo", "hi"]
+      doc="Clamp limits v to the range [lo, hi]."
+      example="x = math.Clamp(x, -10, 10)"
+    }
+    func "ClampInt" {
+      params=["int", "int", "int"]
+      result="int"
+      names=["v", "lo", "hi"]
+      doc="ClampInt limits an int to the range [lo, hi]."
+      example="level = math.ClampInt(level, 1, 10)"
+    }
+    func "Cos" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Cos returns the cosine of an angle in radians."
+      example="x := math.Cos(angle) * Radius"
+    }
+    func "Cross" {
+      params=["Vec2", "Vec2"]
+      result="float"
+      names=["a", "b"]
+      doc="Cross returns the z component of the 3D cross product; its sign tells on which side b lies."
+      example="left := math.Cross(forward, toTarget) < 0"
+    }
+    func "Cross3" {
+      params=["Vec3", "Vec3"]
+      result="Vec3"
+      names=["a", "b"]
+      doc="Cross3 returns a vector perpendicular to a and b."
+      example="right := math.Cross3(forward, Vec3{0, 1, 0})"
+    }
+    func "Deg2Rad" {
+      params=["float"]
+      result="float"
+      names=["degrees"]
+      doc="Deg2Rad converts degrees to radians."
+      example="node.SetRotation(math.Deg2Rad(45))"
+    }
+    func "Dist" {
+      params=["Vec2", "Vec2"]
+      result="float"
+      names=["a", "b"]
+      doc="Dist returns the distance between two points."
+      example="if math.Dist(pos, goal) < 0.1 {"
+    }
+    func "Dist3" {
+      params=["Vec3", "Vec3"]
+      result="float"
+      names=["a", "b"]
+      doc="Dist3 returns the distance between two 3D points."
+      example="near := math.Dist3(a, b) < 2"
+    }
+    func "Dot" {
+      params=["Vec2", "Vec2"]
+      result="float"
+      names=["a", "b"]
+      doc="Dot returns the dot product of two Vec2."
+      example="facing := math.Dot(forward, toPlayer) > 0"
+    }
+    func "Dot3" {
+      params=["Vec3", "Vec3"]
+      result="float"
+      names=["a", "b"]
+      doc="Dot3 returns the dot product of two Vec3."
+      example="lit := math.Dot3(normal, light) > 0"
+    }
+    func "Exp" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Exp returns e raised to the power x."
+      example="decay := math.Exp(-dt * Damping)"
+    }
+    func "Floor" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Floor returns the greatest whole number less than or equal to x."
+      example="cell := math.Floor(pos.X / 32)"
+    }
+    func "Length" {
+      params=["Vec2"]
+      result="float"
+      names=["v"]
+      doc="Length returns the length of a Vec2."
+      example="speed := math.Length(velocity)"
+    }
+    func "Length3" {
+      params=["Vec3"]
+      result="float"
+      names=["v"]
+      doc="Length3 returns the length of a Vec3."
+      example="d := math.Length3(velocity)"
+    }
+    func "Lerp" {
+      params=["float", "float", "float"]
+      result="float"
+      names=["a", "b", "t"]
+      doc="Lerp blends from a to b. t = 0 gives a, t = 1 gives b; t is not clamped."
+      example="zoom = math.Lerp(zoom, target, 5 * dt)"
+    }
+    func "LerpVec2" {
+      params=["Vec2", "Vec2", "float"]
+      result="Vec2"
+      names=["a", "b", "t"]
+      doc="LerpVec2 blends two Vec2 component-wise."
+      example="cam = math.LerpVec2(cam, target, 4 * dt)"
+    }
+    func "LerpVec3" {
+      params=["Vec3", "Vec3", "float"]
+      result="Vec3"
+      names=["a", "b", "t"]
+      doc="LerpVec3 blends two Vec3 component-wise."
+      example="p := math.LerpVec3(from, to, t)"
+    }
+    func "Log" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Log returns the natural logarithm of x."
+      example="octave := math.Log(freq) / math.Log(2)"
+    }
+    func "Max" {
+      params=["float", "float"]
+      result="float"
+      names=["a", "b"]
+      doc="Max returns the larger of a and b."
+      example="hp := math.Max(hp - damage, 0)"
+    }
+    func "MaxInt" {
+      params=["int", "int"]
+      result="int"
+      names=["a", "b"]
+      doc="MaxInt returns the larger of two ints."
+      example="lives = math.MaxInt(lives - 1, 0)"
+    }
+    func "Min" {
+      params=["float", "float"]
+      result="float"
+      names=["a", "b"]
+      doc="Min returns the smaller of a and b."
+      example="speed := math.Min(speed, MaxSpeed)"
+    }
+    func "MinInt" {
+      params=["int", "int"]
+      result="int"
+      names=["a", "b"]
+      doc="MinInt returns the smaller of two ints."
+      example="ammo = math.MinInt(ammo + 10, MaxAmmo)"
+    }
+    func "Normalize" {
+      params=["Vec2"]
+      result="Vec2"
+      names=["v"]
+      doc="Normalize returns v scaled to length 1. A zero vector stays zero."
+      example="dir := math.Normalize(target - pos)"
+    }
+    func "Normalize3" {
+      params=["Vec3"]
+      result="Vec3"
+      names=["v"]
+      doc="Normalize3 returns v scaled to length 1."
+      example="dir := math.Normalize3(target - pos)"
+    }
+    func "Pow" {
+      params=["float", "float"]
+      result="float"
+      names=["x", "y"]
+      doc="Pow returns x raised to the power y."
+      example="ease := math.Pow(t, 3)"
+    }
+    func "QuatAxisAngle" {
+      params=["Vec3", "float"]
+      result="Quat"
+      names=["axis", "radians"]
+      doc="QuatAxisAngle builds a rotation of an angle in radians around an axis."
+      example="spin := math.QuatAxisAngle(Vec3{0, 1, 0}, Speed * dt)"
+    }
+    func "QuatEuler" {
+      params=["float", "float", "float"]
+      result="Quat"
+      names=["x", "y", "z"]
+      doc="QuatEuler builds a rotation from Euler angles in radians, applied as Z·Y·X."
+      example="node.SetRotation3(math.QuatEuler(0, math.Pi, 0))"
+    }
+    func "QuatLookDir" {
+      params=["Vec3"]
+      result="Quat"
+      names=["dir"]
+      doc="QuatLookDir returns the rotation that points -Z along d."
+      example="node.SetRotation3(math.QuatLookDir(target - pos))"
+    }
+    func "QuatMul" {
+      params=["Quat", "Quat"]
+      result="Quat"
+      names=["a", "b"]
+      doc="QuatMul combines two rotations: b is applied first, then a."
+      example="node.SetRotation3(math.QuatMul(spin, node.Rotation3()))"
+    }
+    func "QuatRotate" {
+      params=["Quat", "Vec3"]
+      result="Vec3"
+      names=["q", "v"]
+      doc="QuatRotate rotates a vector by q."
+      example="forward := math.QuatRotate(node.Rotation3(), Vec3{0, 0, -1})"
+    }
+    func "QuatSlerp" {
+      params=["Quat", "Quat", "float"]
+      result="Quat"
+      names=["a", "b", "t"]
+      doc="QuatSlerp blends two rotations along the shortest arc."
+      example="r := math.QuatSlerp(from, to, 0.5)"
+    }
+    func "Rad2Deg" {
+      params=["float"]
+      result="float"
+      names=["radians"]
+      doc="Rad2Deg converts radians to degrees."
+      example="log.Info(string(math.Rad2Deg(node.Rotation())))"
+    }
+    func "Rotate" {
+      params=["Vec2", "float"]
+      result="Vec2"
+      names=["v", "radians"]
+      doc="Rotate turns v clockwise by an angle in radians."
+      example="offset := math.Rotate(Vec2{1, 0}, node.Rotation())"
+    }
+    func "Round" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Round returns x rounded to the nearest whole number; halves round away from zero."
+      example="snapped := math.Round(x)"
+    }
+    func "Sign" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Sign returns -1, 0 or 1 depending on the sign of x."
+      example="dir := math.Sign(input.Axis(\"horizontal\"))"
+    }
+    func "Sin" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Sin returns the sine of an angle in radians."
+      example="y := math.Sin(time.Elapsed() * 2) * Amplitude"
+    }
+    func "Sqrt" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Sqrt returns the square root of x. Negative x gives NaN."
+      example="d := math.Sqrt(dx*dx + dy*dy)"
+    }
+    func "Tan" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Tan returns the tangent of an angle in radians."
+      example="slope := math.Tan(math.Deg2Rad(30))"
+    }
+    func "Trunc" {
+      params=["float"]
+      result="float"
+      names=["x"]
+      doc="Trunc drops the fractional part of x."
+      example="whole := math.Trunc(-2.7)"
+    }
+    const "Pi" {
+      type="float"
+      int=0
+      float=3.1415927410125732
+      bool=false
+      str=""
+      doc="Pi is the ratio of a circle's circumference to its diameter, about 3.14159."
+    }
+    const "Tau" {
+      type="float"
+      int=0
+      float=6.2831854820251465
+      bool=false
+      str=""
+      doc="Tau is a full turn in radians, 2·Pi."
+    }
+  }
+  module "aego/rand" {
+    func "Bool" {
+      params=[]
+      result="bool"
+      doc="Bool returns true or false with equal chance."
+      example="flip := rand.Bool()"
+    }
+    func "Float" {
+      params=[]
+      result="float"
+      doc="Float returns a random number in [0, 1)."
+      example="if rand.Float() < 0.25 {\n\tdropLoot()\n}"
+    }
+    func "Int" {
+      params=["int", "int"]
+      result="int"
+      names=["min", "max"]
+      doc="Int returns a random int in [min, max). It returns min when max <= min."
+      example="roll := rand.Int(1, 7)"
+    }
+    func "Range" {
+      params=["float", "float"]
+      result="float"
+      names=["min", "max"]
+      doc="Range returns a random float in [min, max)."
+      example="delay := rand.Range(0.5, 1.5)"
+    }
+    func "Seed" {
+      params=[]
+      result="int"
+      doc="Seed returns the seed of the world's generator. Replays with the same seed produce the same numbers."
+      example="log.Info(\"seed \" + string(rand.Seed()))"
+    }
+  }
+  module "aego/scene" {
+    func "Destroy" {
+      params=["NodeRef"]
+      result="void"
+      names=["node"]
+      doc="Destroy removes a node and its children at the end of the phase."
+      example="scene.Destroy(Target)"
+    }
+    func "Find" {
+      params=["string"]
+      result="NodeRef"
+      names=["path"]
+      doc="Find returns the node at a path from the scene root, or nil."
+      example="spawn := scene.Find(\"Level/Spawn\")"
+    }
+    func "Instantiate" {
+      params=["AssetRef<prefab>", "NodeRef"]
+      result="NodeRef"
+      names=["prefab", "parent"]
+      doc="Instantiate creates a copy of a prefab under parent, or under the root when parent is nil.\nThe new nodes appear at the end of the phase; their scripts get Ready before the next Update."
+      example="b := scene.Instantiate(Bullet, nil)\nb.SetPosition(node.WorldPosition())"
+    }
+  }
+  module "aego/testing" {
+    func "Equal" {
+      params=["int", "int"]
+      result="void"
+      names=["got", "want"]
+      doc="Equal fails the test when two ints differ."
+      example="testing.Equal(score(), 100)"
+    }
+    func "EqualFloat" {
+      params=["float", "float", "float"]
+      result="void"
+      names=["got", "want", "eps"]
+      doc="EqualFloat fails the test when got is further than eps from want, or is NaN."
+      example="testing.EqualFloat(math.Sqrt(2), 1.4142, 0.001)"
+    }
+    func "EqualString" {
+      params=["string", "string"]
+      result="void"
+      names=["got", "want"]
+      doc="EqualString fails the test when two strings differ."
+      example="testing.EqualString(name(), \"Player\")"
+    }
+    func "Fail" {
+      params=["string"]
+      result="void"
+      names=["msg"]
+      doc="Fail stops the test and reports msg."
+      example="testing.Fail(\"unreachable\")"
+    }
+    func "False" {
+      params=["bool", "string"]
+      result="void"
+      names=["v", "msg"]
+      doc="False fails the test with msg when v is true."
+      example="testing.False(dead, \"player should be alive\")"
+    }
+    func "True" {
+      params=["bool", "string"]
+      result="void"
+      names=["v", "msg"]
+      doc="True fails the test with msg when v is false."
+      example="testing.True(hp > 0, \"player should be alive\")"
+    }
+  }
+  module "aego/time" {
+    func "Delta" {
+      params=[]
+      result="float"
+      doc="Delta returns the seconds since the previous frame. Inside FixedUpdate it is the fixed step."
+      example="x += Speed * time.Delta()"
+    }
+    func "Elapsed" {
+      params=[]
+      result="float"
+      doc="Elapsed returns the seconds since Play started."
+      example="y := math.Sin(time.Elapsed() * 3)"
+    }
+    func "Fixed" {
+      params=[]
+      result="float"
+      doc="Fixed returns the fixed step length in seconds, 1/60 by default."
+      example="steps := int(1 / time.Fixed())"
+    }
+    func "Frame" {
+      params=[]
+      result="int"
+      doc="Frame returns the number of frames since Play started."
+      example="if time.Frame() % 60 == 0 {\n\tlog.Info(\"tick\")\n}"
+    }
+  }
+  enum "Button" module="aego/input" {
+    doc="Button is a mouse button. Use input.Button.Left or the constant input.MouseLeft."
+    member "Left" value=0 {}
+    member "Right" value=1 {}
+    member "Middle" value=2 {}
+    member "X1" value=3 {}
+    member "X2" value=4 {}
+  }
+  enum "Key" module="aego/input" {
+    doc="Key is a physical key, independent of the keyboard layout. Use input.Key.Space or the constant input.KeySpace."
+    member "A" value=4 {}
+    member "B" value=5 {}
+    member "C" value=6 {}
+    member "D" value=7 {}
+    member "E" value=8 {}
+    member "F" value=9 {}
+    member "G" value=10 {}
+    member "H" value=11 {}
+    member "I" value=12 {}
+    member "J" value=13 {}
+    member "K" value=14 {}
+    member "L" value=15 {}
+    member "M" value=16 {}
+    member "N" value=17 {}
+    member "O" value=18 {}
+    member "P" value=19 {}
+    member "Q" value=20 {}
+    member "R" value=21 {}
+    member "S" value=22 {}
+    member "T" value=23 {}
+    member "U" value=24 {}
+    member "V" value=25 {}
+    member "W" value=26 {}
+    member "X" value=27 {}
+    member "Y" value=28 {}
+    member "Z" value=29 {}
+    member "Digit1" value=30 {}
+    member "Digit2" value=31 {}
+    member "Digit3" value=32 {}
+    member "Digit4" value=33 {}
+    member "Digit5" value=34 {}
+    member "Digit6" value=35 {}
+    member "Digit7" value=36 {}
+    member "Digit8" value=37 {}
+    member "Digit9" value=38 {}
+    member "Digit0" value=39 {}
+    member "Enter" value=40 {}
+    member "Escape" value=41 {}
+    member "Backspace" value=42 {}
+    member "Tab" value=43 {}
+    member "Space" value=44 {}
+    member "CapsLock" value=57 {}
+    member "F1" value=58 {}
+    member "F2" value=59 {}
+    member "F3" value=60 {}
+    member "F4" value=61 {}
+    member "F5" value=62 {}
+    member "F6" value=63 {}
+    member "F7" value=64 {}
+    member "F8" value=65 {}
+    member "F9" value=66 {}
+    member "F10" value=67 {}
+    member "F11" value=68 {}
+    member "F12" value=69 {}
+    member "PrintScreen" value=70 {}
+    member "ScrollLock" value=71 {}
+    member "Pause" value=72 {}
+    member "Insert" value=73 {}
+    member "Home" value=74 {}
+    member "PageUp" value=75 {}
+    member "Delete" value=76 {}
+    member "End" value=77 {}
+    member "PageDown" value=78 {}
+    member "Right" value=79 {}
+    member "Left" value=80 {}
+    member "Down" value=81 {}
+    member "Up" value=82 {}
+    member "NumLock" value=83 {}
+    member "KPEnter" value=88 {}
+    member "KP1" value=89 {}
+    member "KP2" value=90 {}
+    member "KP3" value=91 {}
+    member "KP4" value=92 {}
+    member "KP5" value=93 {}
+    member "KP6" value=94 {}
+    member "KP7" value=95 {}
+    member "KP8" value=96 {}
+    member "KP9" value=97 {}
+    member "KP0" value=98 {}
+    member "LCtrl" value=224 {}
+    member "LShift" value=225 {}
+    member "LAlt" value=226 {}
+    member "LGUI" value=227 {}
+    member "RCtrl" value=228 {}
+    member "RShift" value=229 {}
+    member "RAlt" value=230 {}
+    member "RGUI" value=231 {}
+  }
+  method "Child" recv="NodeRef" {
+    params=["string"]
+    result="NodeRef"
+    names=["name"]
+    doc="Child returns the direct child with this name, or nil."
+    example="gun := node.Child(\"Gun\")"
+  }
+  method "Destroy" recv="NodeRef" {
+    params=[]
+    result="void"
+    doc="Destroy removes the node and its children at the end of the phase."
+    example="node.Destroy()"
+  }
+  method "Enabled" recv="NodeRef" {
+    params=[]
+    result="bool"
+    doc="Enabled reports the node's own enabled flag, ignoring its parents."
+    example="if !Door.Enabled() {"
+  }
+  method "Find" recv="NodeRef" {
+    params=["string"]
+    result="NodeRef"
+    names=["path"]
+    doc="Find resolves a path relative to the node: Weapon/Gun, ../Sibling or /Root/Player."
+    example="muzzle := node.Find(\"Weapon/Muzzle\")"
+  }
+  method "IsAlive" recv="NodeRef" {
+    params=[]
+    result="bool"
+    doc="IsAlive reports whether the node exists. It is false right after Destroy."
+    example="if Target != nil && Target.IsAlive() {"
+  }
+  method "Name" recv="NodeRef" {
+    params=[]
+    result="string"
+    doc="Name returns the node name, unique among its siblings."
+    example="log.Info(node.Name())"
+  }
+  method "Parent" recv="NodeRef" {
+    params=[]
+    result="NodeRef"
+    doc="Parent returns the parent node, or nil for top-level nodes."
+    example="owner := node.Parent()"
+  }
+  method "Position" recv="NodeRef" {
+    params=[]
+    result="Vec2"
+    doc="Position returns the local position relative to the parent."
+    example="p := node.Position()"
+  }
+  method "Position3" recv="NodeRef" {
+    params=[]
+    result="Vec3"
+    doc="Position3 returns the local 3D position."
+    example="p := node.Position3()"
+  }
+  method "Rotation" recv="NodeRef" {
+    params=[]
+    result="float"
+    doc="Rotation returns the local rotation in radians, clockwise."
+    example="a := node.Rotation()"
+  }
+  method "Rotation3" recv="NodeRef" {
+    params=[]
+    result="Quat"
+    doc="Rotation3 returns the local 3D rotation."
+    example="q := node.Rotation3()"
+  }
+  method "Scale" recv="NodeRef" {
+    params=[]
+    result="Vec2"
+    doc="Scale returns the local scale."
+    example="s := node.Scale()"
+  }
+  method "SetEnabled" recv="NodeRef" {
+    params=["bool"]
+    result="void"
+    names=["enabled"]
+    doc="SetEnabled turns the node on or off. Disabled nodes and their children are not drawn."
+    example="Shield.SetEnabled(false)"
+  }
+  method "SetPosition" recv="NodeRef" {
+    params=["Vec2"]
+    result="void"
+    names=["p"]
+    doc="SetPosition sets the local position."
+    example="node.SetPosition(node.Position() + velocity * dt)"
+  }
+  method "SetPosition3" recv="NodeRef" {
+    params=["Vec3"]
+    result="void"
+    names=["p"]
+    doc="SetPosition3 sets the local 3D position."
+    example="node.SetPosition3(node.Position3() + Vec3{0, 0, -Speed * dt})"
+  }
+  method "SetRotation" recv="NodeRef" {
+    params=["float"]
+    result="void"
+    names=["radians"]
+    doc="SetRotation sets the local rotation in radians."
+    example="node.SetRotation(node.Rotation() + Spin * dt)"
+  }
+  method "SetRotation3" recv="NodeRef" {
+    params=["Quat"]
+    result="void"
+    names=["q"]
+    doc="SetRotation3 sets the local 3D rotation."
+    example="node.SetRotation3(math.QuatEuler(0, angle, 0))"
+  }
+  method "SetScale" recv="NodeRef" {
+    params=["Vec2"]
+    result="void"
+    names=["scale"]
+    doc="SetScale sets the local scale. A negative X mirrors the node."
+    example="node.SetScale(Vec2{-1, 1})"
+  }
+  method "SetTransform2D" recv="NodeRef" {
+    params=["Transform2D"]
+    result="void"
+    names=["t"]
+    doc="SetTransform2D replaces the local 2D transform."
+    example="node.SetTransform2D(t)"
+  }
+  method "SetTransform3D" recv="NodeRef" {
+    params=["Transform3D"]
+    result="void"
+    names=["t"]
+    doc="SetTransform3D replaces the local 3D transform."
+    example="node.SetTransform3D(t)"
+  }
+  method "Space" recv="NodeRef" {
+    params=[]
+    result="int"
+    doc="Space returns 0 for 2D nodes and 1 for 3D nodes."
+    example="if node.Space() == 1 {"
+  }
+  method "Transform2D" recv="NodeRef" {
+    params=[]
+    result="Transform2D"
+    doc="Transform2D returns a copy of the local 2D transform. Change it and pass it to SetTransform2D."
+    example="t := node.Transform2D()\nt.Position.X += 1\nnode.SetTransform2D(t)"
+  }
+  method "Transform3D" recv="NodeRef" {
+    params=[]
+    result="Transform3D"
+    doc="Transform3D returns a copy of the local 3D transform."
+    example="t := node.Transform3D()\nt.Position.Y += 1\nnode.SetTransform3D(t)"
+  }
+  method "WorldPosition" recv="NodeRef" {
+    params=[]
+    result="Vec2"
+    doc="WorldPosition returns the position in world space, as of the last transform pass."
+    example="d := math.Dist(node.WorldPosition(), Target.WorldPosition())"
+  }
+  component "engine.SpriteRenderer" {
+    short="SpriteRenderer"
+    category="engine"
+    doc="Draws a texture region at the node transform."
+    field "Sprite" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Texture or atlas region to draw. Empty draws a solid rectangle in the tint color."
+    }
+    field "Layer" {
+      type="int"
+      readonly=false
+      doc="Sorting layer. Higher layers are drawn on top of lower ones."
+    }
+    field "Order" {
+      type="int"
+      readonly=false
+      doc="Order inside the layer. Higher values are drawn later, on top."
+    }
+    field "Tint" {
+      type="Color"
+      readonly=false
+      doc="Color multiplied with the texture. Alpha controls transparency."
+    }
+    field "Origin" {
+      type="Vec2"
+      readonly=false
+      doc="Pivot in normalized sprite space. (0.5, 0.5) is the center, (0, 0) the top-left corner."
+    }
+    field "Size" {
+      type="Vec2"
+      readonly=false
+      doc="Size in world units. Zero uses the texture size divided by the camera zoom."
+    }
+    field "FlipX" {
+      type="bool"
+      readonly=false
+      doc="Mirrors the sprite horizontally."
+    }
+    field "FlipY" {
+      type="bool"
+      readonly=false
+      doc="Mirrors the sprite vertically."
+    }
+    field "Blend" {
+      type="int"
+      readonly=false
+      doc="How the sprite blends with what is behind it: premultiplied alpha, opaque or additive."
+    }
+    field "Filter" {
+      type="int"
+      readonly=false
+      doc="Texture sampling: nearest keeps pixel art sharp, linear smooths it."
+    }
+  }
+  component "engine.Camera2D" {
+    short="Camera2D"
+    category="engine"
+    doc="Renders an orthographic view from the node transform."
+    field "Zoom" {
+      type="float"
+      readonly=false
+      doc="Pixels per world unit. Larger values show a smaller part of the world."
+    }
+    field "Viewport" {
+      type="Rect"
+      readonly=false
+      doc="Part of the screen the camera draws into, in normalized coordinates."
+    }
+    field "Mask" {
+      type="int"
+      readonly=false
+      doc="Visibility layers this camera renders. -1 renders every layer."
+    }
+    field "Order" {
+      type="int"
+      readonly=false
+      doc="Cameras with a lower order render first."
+    }
+    field "Clear" {
+      type="bool"
+      readonly=false
+      doc="Clears the viewport before drawing."
+    }
+    field "ClearColor" {
+      type="Color"
+      readonly=false
+      doc="Background color used when clear is on."
+    }
+    field "Scale" {
+      type="int"
+      readonly=false
+      doc="How the view adapts to the window: free, pixelPerfect or fitVirtual."
+    }
+    field "Virtual" {
+      type="Vec2"
+      readonly=false
+      doc="Virtual resolution used by fitVirtual and pixelPerfect."
+    }
+    field "Active" {
+      type="bool"
+      readonly=false
+      doc="Only active cameras render."
+    }
+  }
+  component "engine.Camera3D" {
+    short="Camera3D"
+    category="engine"
+    doc="Renders a perspective view looking down the node -Z axis."
+    field "Fov" {
+      type="float"
+      readonly=false
+      doc="Vertical field of view in degrees."
+    }
+    field "Near" {
+      type="float"
+      readonly=false
+      doc="Distance to the near clipping plane."
+    }
+    field "Far" {
+      type="float"
+      readonly=false
+      doc="Distance to the far clipping plane."
+    }
+    field "Viewport" {
+      type="Rect"
+      readonly=false
+      doc="Part of the screen the camera draws into, in normalized coordinates."
+    }
+    field "Mask" {
+      type="int"
+      readonly=false
+      doc="Visibility layers this camera renders. -1 renders every layer."
+    }
+    field "Order" {
+      type="int"
+      readonly=false
+      doc="Cameras with a lower order render first."
+    }
+    field "Clear" {
+      type="bool"
+      readonly=false
+      doc="Clears the viewport before drawing."
+    }
+    field "ClearColor" {
+      type="Color"
+      readonly=false
+      doc="Background color used when clear is on."
+    }
+    field "Active" {
+      type="bool"
+      readonly=false
+      doc="Only active cameras render."
+    }
+  }
+  component "engine.MeshRenderer" {
+    short="MeshRenderer"
+    category="engine"
+    doc="Draws an unlit mesh at the node transform."
+    field "Mesh" {
+      type="AssetRef<mesh>"
+      readonly=false
+      doc="Mesh to draw: an imported .obj or a builtin Cube, Plane, Sphere or Cylinder."
+    }
+    field "Texture" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Texture mapped onto the mesh. Empty uses white."
+    }
+    field "Color" {
+      type="Color"
+      readonly=false
+      doc="Color multiplied with the texture."
+    }
+    field "Blend" {
+      type="int"
+      readonly=false
+      doc="Opaque writes depth. Premultiplied and additive are drawn after opaque meshes."
+    }
+    field "DoubleSided" {
+      type="bool"
+      readonly=false
+      doc="Draws the back faces too."
+    }
+    field "Layer" {
+      type="int"
+      readonly=false
+      doc="Sorting layer for transparent meshes."
+    }
+    field "Filter" {
+      type="int"
+      readonly=false
+      doc="Texture sampling: nearest or linear."
+    }
+  }
+}
+

@@ -309,12 +309,13 @@ type Param struct {
 
 type FuncDecl struct {
 	Loc
-	Doc    string
-	Attrs  []*Attr
-	Name   *Ident
-	Params []*Param
-	Result TypeExpr
-	Body   *BlockStmt
+	Doc       string
+	Attrs     []*Attr
+	Name      *Ident
+	Params    []*Param
+	Result    TypeExpr
+	Coroutine bool
+	Body      *BlockStmt
 }
 
 type ScriptVar struct {
@@ -328,11 +329,12 @@ type ScriptVar struct {
 
 type ScriptDecl struct {
 	Loc
-	Doc   string
-	Attrs []*Attr
-	Name  *Ident
-	Vars  []*ScriptVar
-	Funcs []*FuncDecl
+	Doc     string
+	Attrs   []*Attr
+	Name    *Ident
+	Signals []*SignalDecl
+	Vars    []*ScriptVar
+	Funcs   []*FuncDecl
 }
 
 type BadDecl struct {

@@ -14,6 +14,7 @@ type parser struct {
 	file      source.FileID
 	src       []byte
 	toks      []token.Token
+	comments  []lexer.Comment
 	pos       int
 	tok       token.Token
 	diags     []diag.Diagnostic
@@ -28,8 +29,8 @@ type parser struct {
 
 func ParseFile(sm *source.Manager, id source.FileID) (*ast.File, []diag.Diagnostic) {
 	src := sm.Source(id)
-	toks, lexDiags := lexer.TokenizeIn(id, src, sm.Interner())
-	p := &parser{file: id, src: src, toks: toks, tok: toks[0], typeGt: -1}
+	toks, comments, lexDiags := lexer.TokenizeAll(id, src, sm.Interner())
+	p := &parser{file: id, src: src, toks: toks, comments: comments, tok: toks[0], typeGt: -1}
 	p.diags = append(p.diags, lexDiags...)
 	f := p.parseFile()
 	diag.Sort(p.diags)
@@ -176,6 +177,12 @@ func (p *parser) syncDecl() {
 	}
 }
 
+var yieldForms = map[string]ast.YieldKind{
+	"wait":   ast.YieldWait,
+	"frames": ast.YieldFrames,
+	"fixed":  ast.YieldFixed,
+}
+
 func (p *parser) syncStmt() {
 	depth := 0
 	for p.tok.Kind != token.EOF {
@@ -195,7 +202,8 @@ func (p *parser) syncStmt() {
 			if depth == 0 {
 				return
 			}
-		case token.Var, token.If, token.For, token.Switch, token.Return, token.Break, token.Continue, token.Func, token.At:
+		case token.Var, token.If, token.For, token.Switch, token.Return, token.Break, token.Continue,
+			token.Func, token.At, token.Yield, token.Signal:
 			if depth == 0 {
 				return
 			}
@@ -322,35 +330,41 @@ func (p *parser) misplaced(attrs []*ast.Attr) {
 
 func (p *parser) parseTopDecl() ast.Decl {
 	start := p.tok.Start
+	doc := p.docBefore(start)
 	attrs := p.parseAttrs()
-	if p.tok.Kind == token.Script {
-		return p.parseScript(attrs, start)
-	}
-	if p.tok.Kind == token.Func {
-		return p.parseFunc(attrs, start)
-	}
-	p.misplaced(attrs)
+	var d ast.Decl
 	switch p.tok.Kind {
-	case token.Const:
-		return p.parseConst()
-	case token.Type:
-		return p.parseStruct()
-	case token.Enum:
-		return p.parseEnum()
-	case token.Var:
-		vs := p.tok.Start
-		p.errorf(diag.PackageVar, p.tokSpan(), "package-level var is not allowed, use const or a script field")
-		p.parseVarStmt()
-		return &ast.BadDecl{Loc: p.loc(vs)}
+	case token.Script:
+		d = p.parseScript(attrs, start)
+	case token.Func:
+		d = p.parseFunc(attrs, start)
+	default:
+		p.misplaced(attrs)
+		switch p.tok.Kind {
+		case token.Const:
+			d = p.parseConst()
+		case token.Type:
+			d = p.parseStruct()
+		case token.Enum:
+			d = p.parseEnum()
+		case token.Var:
+			vs := p.tok.Start
+			p.errorf(diag.PackageVar, p.tokSpan(), "package-level var is not allowed, use const or a script field")
+			p.parseVarStmt()
+			return &ast.BadDecl{Loc: p.loc(vs)}
+		default:
+			if len(attrs) > 0 && p.tok.Kind == token.EOF {
+				return nil
+			}
+			bs := p.tok.Start
+			p.errorExpected("declaration")
+			p.next()
+			p.syncDecl()
+			return &ast.BadDecl{Loc: p.loc(bs)}
+		}
 	}
-	if len(attrs) > 0 && p.tok.Kind == token.EOF {
-		return nil
-	}
-	bs := p.tok.Start
-	p.errorExpected("declaration")
-	p.next()
-	p.syncDecl()
-	return &ast.BadDecl{Loc: p.loc(bs)}
+	setDoc(d, doc)
+	return d
 }
 
 func (p *parser) parseAttrs() []*ast.Attr {
@@ -445,9 +459,10 @@ func (p *parser) parseStruct() ast.Decl {
 	for p.tok.Kind != token.RBrace && p.tok.Kind != token.EOF {
 		before := p.pos
 		fs := p.tok.Start
+		doc := p.docBefore(fs)
 		name := p.parseIdent()
 		typ := p.parseType()
-		d.Fields = append(d.Fields, &ast.Field{Loc: p.loc(fs), Name: name, Type: typ})
+		d.Fields = append(d.Fields, &ast.Field{Loc: p.loc(fs), Doc: doc, Name: name, Type: typ})
 		p.sep(token.RBrace, "field")
 		if p.pos == before {
 			p.next()
@@ -480,6 +495,10 @@ func (p *parser) parseFunc(attrs []*ast.Attr, start uint32) *ast.FuncDecl {
 	p.next()
 	d := &ast.FuncDecl{Attrs: attrs, Name: p.parseIdent()}
 	d.Params, d.Result = p.parseSignature()
+	if p.tok.Kind == token.Coroutine {
+		d.Coroutine = true
+		p.next()
+	}
 	if p.tok.Kind == token.LBrace {
 		d.Body = p.parseBlock()
 	} else {
@@ -517,14 +536,24 @@ func (p *parser) parseScript(attrs []*ast.Attr, start uint32) ast.Decl {
 	for p.tok.Kind != token.RBrace && p.tok.Kind != token.EOF {
 		before := p.pos
 		ms := p.tok.Start
+		doc := p.docBefore(ms)
 		mattrs := p.parseAttrs()
 		switch p.tok.Kind {
 		case token.Var:
-			d.Vars = append(d.Vars, p.parseScriptVar(mattrs, ms))
+			v := p.parseScriptVar(mattrs, ms)
+			v.Doc = doc
+			d.Vars = append(d.Vars, v)
 		case token.Func:
-			d.Funcs = append(d.Funcs, p.parseFunc(mattrs, ms))
+			f := p.parseFunc(mattrs, ms)
+			f.Doc = doc
+			d.Funcs = append(d.Funcs, f)
+		case token.Signal:
+			p.misplaced(mattrs)
+			s := p.parseSignal(ms)
+			s.Doc = doc
+			d.Signals = append(d.Signals, s)
 		default:
-			p.errorExpected("script field or method")
+			p.errorExpected("script field, signal or method")
 			p.syncStmt()
 			if p.tok.Kind == token.Semicolon {
 				p.next()
@@ -540,6 +569,18 @@ func (p *parser) parseScript(attrs []*ast.Attr, start uint32) ast.Decl {
 		}
 	}
 	p.expect(token.RBrace)
+	d.Loc = p.loc(start)
+	return d
+}
+
+func (p *parser) parseSignal(start uint32) *ast.SignalDecl {
+	p.next()
+	d := &ast.SignalDecl{Name: p.parseIdent()}
+	var result ast.TypeExpr
+	d.Params, result = p.parseSignature()
+	if result != nil {
+		p.errorf(diag.UnexpectedToken, result.Span(), "signals do not return a value")
+	}
 	d.Loc = p.loc(start)
 	return d
 }
@@ -694,6 +735,8 @@ func (p *parser) parseStmt() ast.Stmt {
 		p.errorf(diag.MisplacedAttr, p.tokSpan(), "attributes are not allowed inside a function body")
 		p.parseAttrs()
 		return &ast.BadStmt{Loc: p.loc(start)}
+	case token.Yield:
+		return p.parseYield()
 	}
 	return p.parseSimpleStmt()
 }
@@ -1014,9 +1057,55 @@ func (p *parser) parseComposite(t ast.TypeExpr, start uint32) ast.Expr {
 	return lit
 }
 
+func (p *parser) parseYield() ast.Stmt {
+	start := p.tok.Start
+	p.next()
+	s := &ast.YieldStmt{}
+	if k, ok := yieldForms[p.tok.Text]; ok && p.tok.Kind == token.Ident && p.peek(1).Kind == token.LParen {
+		s.Kind = k
+		p.next()
+		p.next()
+		p.exprLev++
+		s.Value = p.parseExpr()
+		p.exprLev--
+		p.expect(token.RParen)
+	} else {
+		switch p.tok.Kind {
+		case token.Semicolon, token.RBrace, token.Case, token.Default, token.EOF:
+		default:
+			s.Kind = ast.YieldAwait
+			s.Value = p.parseExpr()
+		}
+	}
+	s.Loc = p.loc(start)
+	return s
+}
+
+func (p *parser) parseStart() ast.Expr {
+	start := p.tok.Start
+	p.next()
+	e := &ast.StartExpr{Name: p.parseIdent()}
+	p.expect(token.LParen)
+	p.exprLev++
+	for p.tok.Kind != token.RParen && p.tok.Kind != token.EOF {
+		e.Args = append(e.Args, p.parseExpr())
+		if p.tok.Kind != token.Comma {
+			break
+		}
+		p.next()
+	}
+	p.exprLev--
+	p.expect(token.RParen)
+	e.Loc = p.loc(start)
+	return e
+}
+
 func (p *parser) parseOperand() ast.Expr {
 	switch p.tok.Kind {
 	case token.Ident:
+		if p.tok.Text == "start" && p.peek(1).Kind == token.Ident && p.peek(2).Kind == token.LParen {
+			return p.parseStart()
+		}
 		return p.parseIdent()
 	case token.Int, token.Float, token.String, token.True, token.False, token.Nil:
 		lit := &ast.BasicLit{Loc: p.tokLoc(), Kind: p.tok.Kind, Raw: p.tok.Text, Str: p.tok.Value}

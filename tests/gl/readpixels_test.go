@@ -48,11 +48,11 @@ func newGLEngine(t *testing.T) *engine.Engine {
 //
 //   - D17: gl33 flips viewport and scissor only for the window, never for an
 //     offscreen target. A target-space viewport at y=H/2..H is therefore GL's
-//     own upper half.
-//   - ReadPixels always returns rows top-down, whatever the backend's origin.
-//
-// If either regresses the image comes back mirrored, which is precisely the
-// failure that would silently invalidate every Stage 2 golden.
+//     own upper half, which is memory rows H/2..H.
+//   - ReadPixels returns the target's memory rows in order. Render targets are
+//     stored top-down (render/view compensates Y), so row 0 is the top of
+//     anything drawn through the renderer, and a raw draw into GL's upper half
+//     comes back in the bottom rows.
 func TestReadPixelsOrientation(t *testing.T) {
 	e := newGLEngine(t)
 	defer e.Close()
@@ -127,7 +127,7 @@ func TestReadPixelsOrientation(t *testing.T) {
 	if at != 255 || ab != 255 {
 		t.Fatalf("alpha not opaque: top=%d bottom=%d", at, ab)
 	}
-	if !(rt > 200 && bt < 50) || !(rb < 50 && bb > 200) {
+	if !(rt < 50 && bt > 200) || !(rb > 200 && bb < 50) {
 		t.Fatalf("image is mirrored or wrong: top=(%d,_,%d) bottom=(%d,_,%d)", rt, bt, rb, bb)
 	}
 }
@@ -151,6 +151,63 @@ func TestReadPixelsRejectsBadArgs(t *testing.T) {
 	if err := dev.ReadPixels(gpu.TextureHandle{}, 0, 0, 8, 8, big); err == nil {
 		t.Fatal("invalid handle accepted")
 	}
+}
+
+// TestUpdateTextureKeepsItsScratchUnitActive covers the case where the texture
+// is already cached on the scratch unit, but another unit was activated since
+// the previous update. Target-based GL calls such as TexSubImage2D operate on
+// the active unit, so skipping both ActiveTexture and BindTexture would update
+// the texture on unit 0 instead.
+func TestUpdateTextureKeepsItsScratchUnitActive(t *testing.T) {
+	e := newGLEngine(t)
+	defer e.Close()
+	dev := e.GPU()
+
+	const size = 4
+	fill := func(r, g, b byte) []byte {
+		out := make([]byte, size*size*4)
+		for i := 0; i < len(out); i += 4 {
+			out[i], out[i+1], out[i+2], out[i+3] = r, g, b, 255
+		}
+		return out
+	}
+	a, err := dev.CreateTexture(gpu.TextureDesc{
+		Width: size, Height: size, Format: gpu.TexRGBA8, Data: fill(255, 0, 0), Label: "update-unit-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := dev.CreateTexture(gpu.TextureDesc{
+		Width: size, Height: size, Format: gpu.TexRGBA8, Data: fill(0, 0, 255), Label: "update-unit-b",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// B is now cached on the scratch unit. Make unit 0 active without changing
+	// that cached scratch binding, matching the state left by a rendered frame.
+	fr := dev.BeginFrame(size, size)
+	p := fr.BeginPass(gpu.PassDesc{Color: gpu.LoadKeep, Label: "activate-unit-zero"})
+	p.SetTexture(0, a, gpu.SamplerHandle{})
+	p.End()
+	dev.EndFrame()
+
+	dev.UpdateTexture(b, 0, 0, size, size, fill(0, 255, 0))
+
+	check := func(tex gpu.TextureHandle, want [4]byte) {
+		t.Helper()
+		out := make([]byte, size*size*4)
+		if err := dev.ReadPixels(tex, 0, 0, size, size, out); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < len(out); i += 4 {
+			if got := [4]byte(out[i : i+4]); got != want {
+				t.Fatalf("pixel %d: rgba=%v, want %v", i/4, got, want)
+			}
+		}
+	}
+	check(a, [4]byte{255, 0, 0, 255})
+	check(b, [4]byte{0, 255, 0, 255})
 }
 
 func f32bytes(vals ...float32) []byte {

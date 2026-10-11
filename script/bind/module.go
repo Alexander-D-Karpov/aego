@@ -36,6 +36,7 @@ func (m *Module) valid(name string, errs ...error) bool {
 func (m *Module) add(name string, params []abi.TypeRef, result abi.TypeRef, fn vm.HostFunc, opts []Option) {
 	r := m.reg
 	sig := abi.Signature{Params: params, Result: result}
+	visible := len(params)
 	var err error
 	switch {
 	case !m.method:
@@ -43,13 +44,14 @@ func (m *Module) add(name string, params []abi.TypeRef, result abi.TypeRef, fn v
 	case len(params) == 0 || params[0].Kind != m.recv:
 		err = fmt.Errorf("method needs a %s receiver as its first parameter", m.recv)
 	default:
+		visible--
 		err = r.table.AddMethod(m.recv, name, abi.Signature{Params: params[1:], Result: result})
 	}
 	if !m.valid(name, err) {
 		return
 	}
 	r.hosts[key(m.path, name)] = host{sig: sig, fn: fn}
-	r.describe(m.path, name, opts)
+	m.valid(name, r.describe(m.path, name, opts, visible))
 }
 
 func Func0[R any](m *Module, name string, f func(*Ctx) R, opts ...Option) {
@@ -213,7 +215,7 @@ func Const[T any](m *Module, name string, v T, opts ...Option) {
 		return
 	}
 	if m.valid(name, m.reg.table.AddConst(m.path, name, k)) {
-		m.reg.describe(m.path, name, opts)
+		m.valid(name, m.reg.describe(m.path, name, opts, -1))
 	}
 }
 
@@ -246,5 +248,5 @@ func Enum[T any](m *Module, name string, members ...abi.EnumMember) {
 		return
 	}
 	m.reg.enums[rt] = def.Qualified()
-	m.reg.describe(m.path, name, nil)
+	m.valid(name, m.reg.describe(m.path, name, nil, -1))
 }

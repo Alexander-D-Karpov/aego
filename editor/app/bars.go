@@ -96,9 +96,10 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 	if !a.opt.Supervised || a.buildState == widgets.DotOK {
 		return
 	}
-	label := "native building"
+	label, tip := "native building", "Native code is being rebuilt"
 	if a.buildState == widgets.DotError {
-		label = "native build failed"
+		label = "Native API is stale"
+		tip = "The last native build failed; the editor and scripts use the previous native API. Click to see the build output"
 	}
 	w := ui.TextSize(label).X + 24
 	dr := mathx.Rect{X: r.X + r.W - 8 - w, Y: r.Y + 2, W: w, H: r.H - 4}
@@ -110,7 +111,7 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 		a.ws.Show(workspace.Console)
 		a.consolePanel.Focus("build")
 	}
-	widgets.Tooltip(ui, did, "Click to see the build output")
+	widgets.Tooltip(ui, did, tip)
 }
 
 func (a *App) drawToolbar(r mathx.Rect) {
@@ -133,13 +134,14 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	x := max(r.X+(r.W-width)/2, r.X+6)
 	if x+width <= saveX-8 {
 		tb.SetX(x)
+		a.playRect = mathx.Rect{X: x, Y: r.Y + 3, W: tb.ButtonW() - 2, H: r.H - 6}
 		blocked := 0
 		if st == play.Stopped {
 			blocked = a.scriptErrors()
 		}
 		playTip := "Play (" + reg.Shortcut(command.PlayStart) + ")"
 		if blocked > 0 {
-			playTip = strconv.Itoa(blocked) + " script package error(s), see Console"
+			playTip = strconv.Itoa(blocked) + " script package error(s), see Problems"
 		}
 		if tb.Button(ui.ID("tb.play"), "play.start", playTip, st == play.Playing, blocked == 0) {
 			switch st {

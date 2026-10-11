@@ -22,7 +22,7 @@ import (
 	"aego/render/rt"
 	"aego/render/view"
 	"aego/scene"
-	"aego/scene/systems"
+	"aego/scene/frame"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -45,7 +45,7 @@ const (
 
 type world struct {
 	w      *engine.World
-	runner *systems.Runner
+	runner *frame.Runner
 	scene  *scene.Scene
 }
 
@@ -192,8 +192,8 @@ func (p *Panel) prune(ctx *context.Editor) {
 func (p *Panel) worldFor(ctx *context.Editor, d *document.SceneDocument) *world {
 	wd := p.worlds[d.ID]
 	if wd == nil {
-		wd = &world{w: engine.NewWorld("edit"), runner: systems.New()}
-		wd.w.SetService(systems.RunnerServiceID, wd.runner)
+		wd = &world{w: engine.NewWorld("edit"), runner: frame.New()}
+		wd.w.SetService(frame.ServiceID, wd.runner)
 		p.worlds[d.ID] = wd
 	}
 	if wd.scene != d.Scene() {
@@ -421,7 +421,7 @@ func (p *Panel) input(ctx *context.Editor, d *document.SceneDocument, r mathx.Re
 func (p *Panel) openMenu(ctx *context.Editor, d *document.SceneDocument) {
 	s := d.Scene()
 	p.menuAt = p.worldAt(ctx.UI.Mouse())
-	if h, ok := Pick(s, resolver(ctx), p.menuAt); ok {
+	if h, ok := Pick(s, shapes(ctx), p.menuAt); ok {
 		if id := s.ID(h); !ctx.IsSelected(id) {
 			ctx.Select(id)
 		}
@@ -564,7 +564,7 @@ func (p *Panel) press(ctx *context.Editor, d *document.SceneDocument, id core.ID
 		return
 	}
 	mods := ui.Mods()
-	if h, ok := Pick(s, resolver(ctx), mouse); ok {
+	if h, ok := Pick(s, shapes(ctx), mouse); ok {
 		nid := s.ID(h)
 		switch {
 		case mods.Primary():
@@ -681,7 +681,7 @@ func (p *Panel) dragBox(ctx *context.Editor, d *document.SceneDocument) {
 		Min: mathx.Vec2{X: min(a.X, b.X), Y: min(a.Y, b.Y)},
 		Max: mathx.Vec2{X: max(a.X, b.X), Y: max(a.Y, b.Y)},
 	}
-	found := BoxSelect(d.Scene(), resolver(ctx), box)
+	found := BoxSelect(d.Scene(), shapes(ctx), box)
 	if p.boxAdd {
 		ctx.AddToSelection(found...)
 	} else {
@@ -696,7 +696,7 @@ func (p *Panel) frame(ctx *context.Editor, nodes []ids.NodeID) {
 	}
 	s := d.Scene()
 	s.UpdateTransforms()
-	res := resolver(ctx)
+	sh := shapes(ctx)
 	if len(nodes) == 0 {
 		root := s.Root()
 		for _, h := range s.PreOrder() {
@@ -712,7 +712,7 @@ func (p *Panel) frame(ctx *context.Editor, nodes []ids.NodeID) {
 		if h.IsZero() || !s.IsAlive(h) {
 			continue
 		}
-		b, _ := Bounds(s, res, h)
+		b, _ := Bounds(s, sh, h)
 		if !has {
 			box, has = b, true
 			continue
@@ -750,10 +750,11 @@ func (p *Panel) drop(ctx *context.Editor, d *document.SceneDocument, r mathx.Rec
 	if ctx.Settings.Snap {
 		at = snapVec(at, ctx.Settings.SnapMove)
 	}
+	sp := scene.Space2D
 	switch pl.Kind {
 	case context.KindAsset:
 		ap, ok := pl.Data.(context.AssetPayload)
-		if !ok || !context.AssetMatches("texture", ap.Kind) {
+		if !ok || p.Templates == nil || !p.Templates.Accepts(ap.Kind, &sp) {
 			dn.Target(ui, r, "reject")
 			return
 		}
@@ -762,7 +763,7 @@ func (p *Panel) drop(ctx *context.Editor, d *document.SceneDocument, r mathx.Rec
 		}
 	case context.KindFiles:
 		got, ok := dn.Target(ui, r, context.KindFiles)
-		if !ok || ctx.Pipeline == nil {
+		if !ok || ctx.Pipeline == nil || p.Templates == nil {
 			return
 		}
 		files, _ := got.Data.([]string)
@@ -773,7 +774,7 @@ func (p *Panel) drop(ctx *context.Editor, d *document.SceneDocument, r mathx.Rec
 			return
 		}
 		for i, id := range created {
-			if e, ok := ctx.Pipeline.Entry(id); ok && context.AssetMatches("texture", e.Kind) {
+			if e, ok := ctx.Pipeline.Entry(id); ok && p.Templates.Accepts(e.Kind, &sp) {
 				p.spawn(ctx, context.AssetPayload{ID: id, Kind: e.Kind, Name: e.Name}, at.Add(mathx.Vec2{X: float32(i) * 0.5}))
 			}
 		}
@@ -783,7 +784,11 @@ func (p *Panel) drop(ctx *context.Editor, d *document.SceneDocument, r mathx.Rec
 }
 
 func (p *Panel) spawn(ctx *context.Editor, ap context.AssetPayload, at mathx.Vec2) {
-	t := templates.SpriteWith(ap.ID, path.Base(ap.Name), templates.SpriteSize(ctx, ap.ID))
+	sp := scene.Space2D
+	t, ok := p.Templates.ForAsset(ap.Kind, &sp, ap.ID, path.Base(ap.Name))
+	if !ok {
+		return
+	}
 	if _, err := templates.Instantiate(ctx, t, ids.NodeID{}, -1, &at); err != nil {
 		ctx.Notify(context.LevelError, err.Error())
 	}
@@ -804,7 +809,7 @@ func (p *Panel) FrameAll(ctx *context.Editor) {
 		if p.c3 == nil || p.cur == nil {
 			return
 		}
-		if b, ok := SceneBounds(p.cur.scene, resolver(ctx)); ok {
+		if b, ok := SceneBounds(p.cur.scene, shapes(ctx)); ok {
 			p.c3.Cam.Frame(b)
 		}
 		return
@@ -814,13 +819,13 @@ func (p *Panel) FrameAll(ctx *context.Editor) {
 
 func (p *Panel) drawSelection(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 	ctx := p.ctx
-	res := resolver(ctx)
+	sh := shapes(ctx)
 	for _, id := range ctx.Selected() {
 		h := s.Handle(id)
 		if h.IsZero() || !s.IsAlive(h) {
 			continue
 		}
-		if q, ok := Quad(s, res, h); ok {
+		if q, ok := Quad(s, sh, h); ok {
 			for i := 0; i < 4; i++ {
 				dbg.Line(q[i], q[(i+1)%4], th.Accent)
 			}

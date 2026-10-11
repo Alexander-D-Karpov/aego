@@ -3,49 +3,63 @@ package sdk
 import "aego/script/bind"
 
 type (
-	Bindings  = bind.Module
-	ScriptCtx = bind.Ctx
+	Bindings     = bind.Module
+	ScriptCtx    = bind.Ctx
+	ScriptOption = bind.Option
 )
 
+func ScriptDoc(s string) ScriptOption {
+	return bind.Doc(s)
+}
+
+func ScriptParams(names ...string) ScriptOption {
+	return bind.Params(names...)
+}
+
+func ScriptExample(s string) ScriptOption {
+	return bind.Example(s)
+}
+
+func ScriptDescribe(m *Bindings, name string, opts ...ScriptOption) {
+	bind.Describe(m, name, opts...)
+}
+
 func ScriptModule(r *Registry, path string) *Bindings {
-	if r.Script == nil {
-		r.Script = bind.New()
-	}
-	return r.Script.Module(path)
+	return r.ScriptModule(path)
 }
 
-func Func0[R any](m *Bindings, name string, f func(*ScriptCtx) R) {
-	bind.Func0(m, name, f)
+func Func0[R any](m *Bindings, name string, f func(*ScriptCtx) R, opts ...ScriptOption) {
+	bind.Func0(m, name, f, opts...)
 }
 
-func Func1[A, R any](m *Bindings, name string, f func(*ScriptCtx, A) R) {
-	bind.Func1(m, name, f)
+func Func1[A, R any](m *Bindings, name string, f func(*ScriptCtx, A) R, opts ...ScriptOption) {
+	bind.Func1(m, name, f, opts...)
 }
 
-func Func2[A, B, R any](m *Bindings, name string, f func(*ScriptCtx, A, B) R) {
-	bind.Func2(m, name, f)
+func Func2[A, B, R any](m *Bindings, name string, f func(*ScriptCtx, A, B) R, opts ...ScriptOption) {
+	bind.Func2(m, name, f, opts...)
 }
 
-func Func3[A, B, C, R any](m *Bindings, name string, f func(*ScriptCtx, A, B, C) R) {
-	bind.Func3(m, name, f)
+func Func3[A, B, C, R any](m *Bindings, name string, f func(*ScriptCtx, A, B, C) R, opts ...ScriptOption) {
+	bind.Func3(m, name, f, opts...)
 }
 
-func Proc0(m *Bindings, name string, f func(*ScriptCtx)) {
-	bind.Proc0(m, name, f)
+func Proc0(m *Bindings, name string, f func(*ScriptCtx), opts ...ScriptOption) {
+	bind.Proc0(m, name, f, opts...)
 }
 
-func Proc1[A any](m *Bindings, name string, f func(*ScriptCtx, A)) {
-	bind.Proc1(m, name, f)
+func Proc1[A any](m *Bindings, name string, f func(*ScriptCtx, A), opts ...ScriptOption) {
+	bind.Proc1(m, name, f, opts...)
 }
 
-func Proc2[A, B any](m *Bindings, name string, f func(*ScriptCtx, A, B)) {
-	bind.Proc2(m, name, f)
+func Proc2[A, B any](m *Bindings, name string, f func(*ScriptCtx, A, B), opts ...ScriptOption) {
+	bind.Proc2(m, name, f, opts...)
 }
 
-func Proc3[A, B, C any](m *Bindings, name string, f func(*ScriptCtx, A, B, C)) {
-	bind.Proc3(m, name, f)
+func Proc3[A, B, C any](m *Bindings, name string, f func(*ScriptCtx, A, B, C), opts ...ScriptOption) {
+	bind.Proc3(m, name, f, opts...)
 }
 
-func ScriptConst[T any](m *Bindings, name string, v T) {
-	bind.Const(m, name, v)
+func ScriptConst[T any](m *Bindings, name string, v T, opts ...ScriptOption) {
+	bind.Const(m, name, v, opts...)
 }

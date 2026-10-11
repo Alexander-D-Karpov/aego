@@ -48,3 +48,7 @@ func groupComponents(r *Registry, reg *schema.Registry, types []schema.TypeID) [
 	})
 	return out
 }
+
+func Sections(r *Registry, reg *schema.Registry, types []schema.TypeID) []Section {
+	return groupComponents(r, reg, types)
+}

@@ -24,7 +24,7 @@ type Panel struct {
 	scroll   float32
 	follow   bool
 	selected int
-	OnOpen   func(path string)
+	OnOpen   func(path string, line int)
 }
 
 func firstLine(s string) string {
@@ -164,7 +164,7 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 			p.selected = idx
 			p.follow = false
 			if ui.DoubleClicked(id) && e.Path != "" && p.OnOpen != nil {
-				p.OnOpen(e.Path)
+				p.OnOpen(e.Path, e.Line)
 			}
 		}
 		switch {

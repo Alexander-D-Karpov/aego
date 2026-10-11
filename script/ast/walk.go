@@ -175,12 +175,27 @@ func walk(n Node, visit func(Node)) {
 	case *ScriptDecl:
 		attrs(x.Attrs)
 		ident(x.Name)
+		for _, s := range x.Signals {
+			visit(s)
+		}
 		for _, v := range x.Vars {
 			visit(v)
 		}
 		for _, f := range x.Funcs {
 			visit(f)
 		}
+	case *SignalDecl:
+		ident(x.Name)
+		for _, p := range x.Params {
+			visit(p)
+		}
+	case *StartExpr:
+		ident(x.Name)
+		for _, a := range x.Args {
+			expr(a)
+		}
+	case *YieldStmt:
+		expr(x.Value)
 	case *ScriptVar:
 		attrs(x.Attrs)
 		ident(x.Name)

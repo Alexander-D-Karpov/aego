@@ -26,17 +26,30 @@ const (
 	CallConvert
 	CallGetComponent
 	CallHasComponent
+	CallStart
+	CallEmit
+	CallConnect
+	CallDisconnect
+	CallConnected
+	CallCoStop
+	CallCoRunning
+	CallGetScript
+	CallScriptMethod
 )
 
 type Call struct {
-	Kind      CallKind
-	Func      *Func
-	Module    string
-	Name      string
-	Sig       abi.Signature
-	Component *abi.Component
-	Type      *types.Type
-	Recv      ast.Expr
+	Kind        CallKind
+	Func        *Func
+	Module      string
+	Name        string
+	Sig         abi.Signature
+	Component   *abi.Component
+	Type        *types.Type
+	Recv        ast.Expr
+	Signal      *ScriptSignal
+	Handler     *Func
+	HandlerRecv ast.Expr
+	Target      string
 }
 
 type SelKind uint8
@@ -48,14 +61,19 @@ const (
 	SelEnumMember
 	SelComponentField
 	SelHostConst
+	SelSignal
+	SelScriptField
 )
 
 type Selection struct {
-	Kind   SelKind
-	Field  *types.Field
-	Object *resolver.Object
-	Value  int64
-	Comp   *abi.Field
+	Kind        SelKind
+	Field       *types.Field
+	Object      *resolver.Object
+	Value       int64
+	Comp        *abi.Field
+	Script      *ScriptType
+	ScriptField *ScriptField
+	Signal      *ScriptSignal
 }
 
 type Hints struct {
@@ -79,6 +97,15 @@ type ScriptField struct {
 	Decl    *ast.ScriptVar
 }
 
+type ScriptSignal struct {
+	Name   string
+	Params []*types.Type
+	Names  []string
+	Index  int
+	Script *ScriptType
+	Decl   *ast.SignalDecl
+}
+
 type ScriptType struct {
 	Name        string
 	Pkg         string
@@ -86,14 +113,38 @@ type ScriptType struct {
 	Former      []string
 	Hidden      bool
 	Fields      []*ScriptField
+	Signals     []*ScriptSignal
 	Funcs       []*Func
 	Methods     map[string]*Func
 	Ready       *Func
 	FixedUpdate *Func
 	Update      *Func
+	Reloaded    *Func
 	Slots       int
 	Decl        *ast.ScriptDecl
 	scope       *resolver.Scope
+}
+
+func (st *ScriptType) Field(name string) *ScriptField {
+	for _, f := range st.Fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func (st *ScriptType) Signal(name string) *ScriptSignal {
+	for _, s := range st.Signals {
+		if s.Name == name {
+			return s
+		}
+	}
+	return nil
+}
+
+func (st *ScriptType) IsLifecycle(f *Func) bool {
+	return f != nil && (f == st.Ready || f == st.FixedUpdate || f == st.Update || f == st.Reloaded)
 }
 
 type Func struct {
@@ -140,11 +191,14 @@ type Analysis struct {
 	Calls       map[*ast.CallExpr]*Call
 	Selections  map[*ast.SelectorExpr]*Selection
 	Composites  map[*ast.CompositeLit]*types.Type
+	Coroutines  map[*ast.FuncDecl]bool
+	Starts      map[*ast.StartExpr]*Func
 	References  []Reference
 	Diagnostics []diag.Diagnostic
 	Scripts     []*ScriptType
 	Universe    *types.Interner
 	Surface     abi.Surface
+	scripts     map[string]*ScriptType
 }
 
 func newAnalysis(tab *resolver.Table, s abi.Surface) *Analysis {
@@ -158,8 +212,11 @@ func newAnalysis(tab *resolver.Table, s abi.Surface) *Analysis {
 		Calls:      map[*ast.CallExpr]*Call{},
 		Selections: map[*ast.SelectorExpr]*Selection{},
 		Composites: map[*ast.CompositeLit]*types.Type{},
+		Coroutines: map[*ast.FuncDecl]bool{},
+		Starts:     map[*ast.StartExpr]*Func{},
 		Universe:   types.NewInterner(),
 		Surface:    s,
+		scripts:    map[string]*ScriptType{},
 	}
 }
 
@@ -172,4 +229,8 @@ func (a *Analysis) TypeOf(e ast.Expr) *types.Type {
 		return tv.Type
 	}
 	return types.Invalid
+}
+
+func (a *Analysis) ScriptByName(full string) *ScriptType {
+	return a.scripts[full]
 }

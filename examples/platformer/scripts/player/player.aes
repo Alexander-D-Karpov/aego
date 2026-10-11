@@ -4,6 +4,7 @@ import (
 	"aego/input"
 	"aego/log"
 	"aego/math"
+	"mygame/enemy"
 	"mygame/shared"
 )
 
@@ -11,7 +12,6 @@ enum State {
 	Idle
 	Run
 	Air
-	Bebrik
 }
 
 script PlayerController {
@@ -24,35 +24,77 @@ script PlayerController {
 	@export(display="Hit Tint")
 	var HitTint Color
 
+	@export
+	var EnemyA NodeRef
+
+	@export
+	var EnemyB NodeRef
+
 	var vy float
 	var state State
 	var base Color
 	var lastHits int
 	var flash float
+	var kills int
+	var blink Coroutine
 
 	func Ready() {
 		sr := node.Get<SpriteRenderer>()
 		if sr != nil {
 			base = sr.Tint
 		}
+		watch(EnemyA)
+		watch(EnemyB)
 		log.Info("player ready at x=" + string(node.Position().X))
 	}
 
-	var hopped bool
+	func watch(n NodeRef) {
+		if n == nil {
+			return
+		}
+		e := n.GetScript<enemy.EnemyAI>()
+		if e != nil {
+			e.Died.Connect(OnEnemyDied)
+		}
+	}
+
+	func OnEnemyDied() {
+		kills++
+		log.Info("kills=" + string(kills))
+	}
+
+	func Blink() coroutine {
+		on := true
+		for flash > 0 {
+			sr := node.Get<SpriteRenderer>()
+			if sr != nil {
+				if on {
+					sr.Tint = HitTint
+				} else {
+					sr.Tint = base
+				}
+			}
+			on = !on
+			yield wait(0.1)
+		}
+		sr := node.Get<SpriteRenderer>()
+		if sr != nil {
+			sr.Tint = base
+		}
+	}
+
+	func Reloaded() {
+		if flash > 0 {
+			blink = start Blink()
+		}
+	}
 
 	func FixedUpdate(dt float) {
 		p := node.Position()
 		x := input.Axis("horizontal")
 		p.X += x * Speed * dt
-		grounded := p.Y >= shared.GroundY
-		if grounded {
-			hopped = false
-			if input.Down(input.KeySpace) {
-				vy = -JumpSpeed
-			}
-		} else if x != 0 && !hopped {
-			vy = -JumpSpeed * 0.6
-			hopped = true
+		if p.Y >= shared.GroundY && input.Down(input.KeySpace) {
+			vy = -JumpSpeed
 		}
 		vy += shared.Gravity * dt
 		p.Y += vy * dt
@@ -62,9 +104,7 @@ script PlayerController {
 		}
 		p.X = math.Clamp(p.X, -14, 14)
 		node.SetPosition(p)
-		if p.Y < shared.GroundY && x != 0 {
-			state = State.Bebrik
-		} else if p.Y < shared.GroundY {
+		if p.Y < shared.GroundY {
 			state = State.Air
 		} else if x != 0 {
 			state = State.Run
@@ -75,7 +115,6 @@ script PlayerController {
 
 	func Update(dt float) {
 		sr := node.Get<SpriteRenderer>()
-		p := node.Position()
 		if sr == nil {
 			return
 		}
@@ -86,18 +125,16 @@ script PlayerController {
 		hp := node.Get<Health>()
 		if hp != nil && hp.Hits != lastHits {
 			lastHits = hp.Hits
-			flash = 0.2
-		}
-		if state == State.Bebrik {
-			for x < 100 {
-				x++
-				p.X += 1
+			flash = 1
+			if !blink.Running() {
+				blink = start Blink()
 			}
 		}
 		if flash > 0 {
 			flash -= dt
-			sr.Tint = HitTint
-		} else if state == State.Air {
+			return
+		}
+		if state == State.Air {
 			sr.Tint = Color{base.R, base.G, base.B, 0.8}
 		} else {
 			sr.Tint = base

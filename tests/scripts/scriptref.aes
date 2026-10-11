@@ -1,0 +1,28 @@
+package scriptref
+
+script Enemy {
+	var Hp int = 3
+
+	func Hit(n int) int {
+		Hp -= n
+		return Hp
+	}
+}
+
+script Hunter {
+	@export var Prey NodeRef
+
+	var last int
+
+	func Update(dt float) {
+		if Prey == nil {
+			return
+		}
+		e := Prey.GetScript<Enemy>()
+		if e == nil {
+			return
+		}
+		last = e.Hit(1)
+		e.Hp += 0
+	}
+}

@@ -30,6 +30,8 @@ const (
 	mScriptInstr
 	mScriptHost
 	mScriptHeap
+	mCoroutines
+	mEmits
 	metricCount
 )
 
@@ -95,6 +97,8 @@ func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats
 			s[mScriptInstr] = float32(sc.Instructions)
 			s[mScriptHost] = float32(sc.HostCalls)
 			s[mScriptHeap] = float32(sc.HeapBytes) / 1024
+			s[mCoroutines] = float32(sc.Coroutines.Active)
+			s[mEmits] = float32(sc.Signals.EmitsPerFrame)
 		}
 	}
 	if p.acc.frames == 0 {
@@ -134,6 +138,15 @@ func (p *Panel) scriptTable(ui *core.Context) {
 		"   budget aborts "+strconv.FormatUint(s.BudgetAborts, 10)+
 		"   heap objects "+strconv.Itoa(s.HeapObjects)+
 		"   GC "+strconv.FormatUint(s.GCRuns, 10)+" / "+ms(s.GCTime)+" ms")
+	co := &s.Coroutines
+	widgets.LabelDim(ui, "coroutines active "+strconv.Itoa(co.Active)+
+		"   sleeping "+strconv.Itoa(co.Sleeping)+
+		"   resumes/frame "+strconv.FormatUint(co.ResumesPerFrame, 10)+
+		"   canceled "+strconv.FormatUint(co.Canceled, 10))
+	sg := &s.Signals
+	widgets.LabelDim(ui, "signal connections "+strconv.Itoa(sg.Connections)+
+		"   emits/frame "+strconv.FormatUint(sg.EmitsPerFrame, 10)+
+		"   handlers/frame "+strconv.FormatUint(sg.HandlersPerFrame, 10))
 	cols := [5]float32{0, 0.5, 0.64, 0.78, 0.9}
 	names := [5]string{"script", "instances", "calls", "ms", "faults"}
 	row := func(vals [5]string, col mathx.Color) {
@@ -183,26 +196,60 @@ func (p *Panel) anyPlaying() bool {
 func (p *Panel) graph(ui *core.Context, title, unit string, prec int, budget float32, col mathx.Color, m int) {
 	th := &ui.Theme
 	last, avg, peak := p.series(m)
-	widgets.LabelDim(ui, title+"   "+fmtf(last, prec)+unit+"   avg "+fmtf(avg, prec)+"   max "+fmtf(peak, prec))
+
+	hr := ui.Cursor().Next(th.RowHeight)
+	ui.Rect(mathx.Rect{X: hr.X, Y: hr.Y + (hr.H-9)/2, W: 3, H: 9}, col)
+	tx := hr.X + 10
+	ui.Text(title, mathx.Vec2{X: tx, Y: ui.TextY(hr)}, th.Text)
+	tx += ui.TextSize(title).X + 12
+	valCol := th.Text
+	if budget > 0 && last > budget {
+		valCol = th.Warn
+	}
+	ui.Text(fmtf(last, prec)+unit, mathx.Vec2{X: tx, Y: ui.TextY(hr)}, valCol)
+	ui.TextIn(hr, "avg "+fmtf(avg, prec)+"    max "+fmtf(peak, prec), th.TextDim, core.AlignRight)
+
 	r := ui.Cursor().Next(th.RowHeight * 2.6)
 	ui.Rect(r, th.PanelAlt)
 	top := max(peak, budget, 1e-6) * 1.15
 	bw := r.W / history
-	bar, tick := col, col
-	bar.A = 0.55
-	for i := 0; i < p.n; i++ {
-		b := p.at(i)
-		x := r.X + float32(history-p.n+i)*bw
-		w := max(1, bw-1)
-		h := r.H * b.avg[m] / top
-		ui.Rect(mathx.Rect{X: x, Y: r.Y + r.H - h, W: w, H: h}, bar)
-		ph := r.H * b.peak[m] / top
-		ui.Rect(mathx.Rect{X: x, Y: r.Y + r.H - ph, W: w, H: 1}, tick)
+	if p.n > 0 {
+		base := r.Y + r.H
+		off := float32(history-p.n) * bw
+		fill, env, line := col, col, col
+		fill.A, env.A = 0.22, 0.09
+		yOf := func(v float32) float32 { return r.H * v / top }
+		sample := func(u float32) (float32, float32) {
+			k := int(u)
+			if k >= p.n-1 {
+				b := p.at(p.n - 1)
+				return b.avg[m], b.peak[m]
+			}
+			f := u - float32(k)
+			a, b := p.at(k), p.at(k+1)
+			return a.avg[m] + (b.avg[m]-a.avg[m])*f, a.peak[m] + (b.peak[m]-a.peak[m])*f
+		}
+		prev := float32(-1)
+		for px := int(off); px < int(r.W); px++ {
+			x := r.X + float32(px)
+			av, pk := sample((float32(px) - off) / bw)
+			ah, ph := yOf(av), yOf(pk)
+			ui.Rect(mathx.Rect{X: x, Y: base - ph, W: 1, H: ph}, env)
+			ui.Rect(mathx.Rect{X: x, Y: base - ah, W: 1, H: ah}, fill)
+			lo, hi := ah, ah
+			if prev >= 0 {
+				lo, hi = min(ah, prev), max(ah, prev)
+			}
+			ui.Rect(mathx.Rect{X: x, Y: base - hi - 1, W: 1, H: hi - lo + 2}, line)
+			prev = ah
+		}
 	}
 	if budget > 0 {
-		ui.Rect(mathx.Rect{X: r.X, Y: r.Y + r.H - r.H*budget/top, W: r.W, H: 1}, th.Warn)
+		warn := th.Warn
+		warn.A = 0.7
+		ui.Rect(mathx.Rect{X: r.X, Y: r.Y + r.H - r.H*budget/top, W: r.W, H: 1}, warn)
 	}
-	ui.Text(fmtf(top, prec)+unit, mathx.Vec2{X: r.X + 3, Y: r.Y + 1}, th.TextDisabled)
+	ui.TextIn(mathx.Rect{X: r.X, Y: r.Y + 2, W: r.W - 5, H: ui.LineHeight()}, fmtf(top, prec)+unit, th.TextDisabled, core.AlignRight)
 	if !ui.Hit(r) || p.n == 0 {
 		return
 	}
@@ -270,6 +317,8 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 			p.graph(ui, "script instructions", "", 0, 0, th.Accent, mScriptInstr)
 			p.graph(ui, "script host calls", "", 0, 0, th.AxisY, mScriptHost)
 			p.graph(ui, "script heap", " KB", 1, 0, th.Warn, mScriptHeap)
+			p.graph(ui, "coroutines", "", 0, 0, th.AxisZ, mCoroutines)
+			p.graph(ui, "signal emits", "", 0, 0, th.Selection, mEmits)
 			p.scriptTable(ui)
 		}
 	} else {

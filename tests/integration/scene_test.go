@@ -8,8 +8,8 @@ import (
 	"aego/app/run"
 	"aego/core/log"
 	"aego/project"
+	"aego/render2d"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
 	"aego/sdk"
 )
@@ -66,7 +66,7 @@ func (rotatorModule) Register(r *sdk.Registry) error {
 		return err
 	}
 	return sdk.RegisterSystem(r, sdk.SystemDesc{
-		ID:     "game.rotator",
+		ID:     "game.rotator.spin",
 		Phase:  sdk.PhaseUpdate,
 		System: rotatorSystem{},
 	})
@@ -135,7 +135,7 @@ func TestSceneLoadsWithoutTheNativeModule(t *testing.T) {
 	if player.IsZero() {
 		t.Fatal("player node missing")
 	}
-	if _, ok := scene.Get[components.SpriteRenderer](app.Scene, player); ok {
+	if _, ok := scene.Get[render2d.SpriteRenderer](app.Scene, player); ok {
 		t.Fatal("unexpected component")
 	}
 

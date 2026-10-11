@@ -10,7 +10,7 @@ type Meta struct {
 	DisplayName string
 	Category    string
 	Icon        string
-	Order       int32
+	Badge       string
 }
 
 func Module(full string) string {
@@ -20,25 +20,11 @@ func Module(full string) string {
 	return ""
 }
 
-func (r *Registry) SetMeta(t schema.TypeID, m Meta) {
-	r.meta[t] = m
-	delete(r.resolved, t)
-}
-
-func RegisterMeta[T any](r *Registry, reg *schema.Registry, m Meta) error {
-	td, err := typeOf[T](reg)
-	if err != nil {
-		return err
-	}
-	r.SetMeta(td.ID, m)
-	return nil
-}
-
 func (r *Registry) Meta(td *schema.TypeDescriptor) Meta {
 	if m, ok := r.resolved[td.ID]; ok {
 		return m
 	}
-	m := r.meta[td.ID]
+	m := Meta{DisplayName: td.DisplayName, Category: td.Category, Icon: td.Icon}
 	if m.DisplayName == "" {
 		name := td.FullName
 		if i := strings.LastIndexByte(name, '.'); i >= 0 {
@@ -51,6 +37,12 @@ func (r *Registry) Meta(td *schema.TypeDescriptor) Meta {
 	}
 	if m.Icon == "" {
 		m.Icon = "cat." + strings.ToLower(m.Category)
+	}
+	if !td.Builtin {
+		m.Badge = td.Owner
+		if m.Badge == "" {
+			m.Badge = Module(td.FullName)
+		}
 	}
 	r.resolved[td.ID] = m
 	return m

@@ -14,7 +14,7 @@ import (
 )
 
 func (c *checker) record(e ast.Expr, x operand) {
-	if x.mode != mInvalid {
+	if x.mode != mInvalid && x.mode != mSignal {
 		c.a.Types[e] = TypeAndValue{Type: x.t, Const: x.c, Addr: x.addr}
 	}
 }
@@ -34,6 +34,8 @@ func (c *checker) expr(e ast.Expr) operand {
 		x = c.index(e)
 	case *ast.CallExpr:
 		x = c.call(e)
+	case *ast.StartExpr:
+		x = c.start(e)
 	case *ast.UnaryExpr:
 		x = c.unary(e)
 	case *ast.BinaryExpr:
@@ -56,6 +58,8 @@ func (c *checker) value(e ast.Expr) operand {
 		c.errorf(diag.NotValue, e.Span(), "call does not return a value")
 	case mFunc:
 		c.errorf(diag.NotValue, e.Span(), "function must be called")
+	case mSignal:
+		c.errorf(diag.NotValue, e.Span(), "signal %s is not a value, use %s.Emit or %s.Connect", x.sig.Name, x.sig.Name, x.sig.Name)
 	default:
 		return x
 	}
@@ -81,6 +85,10 @@ func (c *checker) objectOperand(sp source.Span, obj *resolver.Object) operand {
 		return operand{mode: mType, t: obj.Type}
 	case resolver.ObjFunc, resolver.ObjBuiltin:
 		return operand{mode: mFunc, t: types.Invalid}
+	case resolver.ObjSignal:
+		if sg, ok := obj.Data.(*ScriptSignal); ok {
+			return operand{mode: mSignal, t: types.Void, sig: sg}
+		}
 	case resolver.ObjGeneric:
 		c.errorf(diag.BadTypeArg, sp, "%s needs a type argument", obj.Name)
 	case resolver.ObjPkg:
@@ -242,6 +250,11 @@ func (c *checker) field(s *ast.SelectorExpr, x operand) operand {
 			c.a.Selections[s] = &Selection{Kind: SelComponentField, Comp: cf}
 			return operand{mode: mValue, t: c.u.FromABI(cf.Type, c.surface), addr: !cf.ReadOnly}
 		}
+	case types.KScriptRef:
+		if st := c.a.scripts[t.Script]; st != nil {
+			return c.scriptMember(s, st)
+		}
+	case types.KCoroutine, types.KConnection:
 	case types.KNodeRef, types.KAssetRef:
 		if _, ok := c.surface.Method(types.ToABI(t).Kind, name); ok {
 			c.errorf(diag.NotValue, s.Sp, "method %s must be called", name)

@@ -1,12 +1,17 @@
 package runtime
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"aego/engine"
+	"aego/engine/module"
 	"aego/platform/input"
+	"aego/render2d"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/frame"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/script/ast"
 	"aego/script/bind"
@@ -52,7 +57,13 @@ script Spinner {
 func setup(t *testing.T) (*scene.Types, *bind.Registry, *bytecode.Module) {
 	t.Helper()
 	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
+	if err := frame.RegisterTypes(types); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := module.Load(types, nil, render2d.New()); err != nil {
+		t.Fatal(err)
+	}
+	if err := scriptcomp.Register(types); err != nil {
 		t.Fatal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {
@@ -81,8 +92,8 @@ func setup(t *testing.T) (*scene.Types, *bind.Registry, *bytecode.Module) {
 
 func attach(s *scene.Scene, name, typ string, props schema.PropertyBag) scene.NodeHandle {
 	h := s.Create(s.Root(), name)
-	sc := scene.Add[components.ScriptComponent](s, h)
-	sc.Attachments = append(sc.Attachments, components.Attachment{TypeName: typ, Enabled: true, Props: props})
+	sc := scene.Add[scriptcomp.ScriptComponent](s, h)
+	sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{TypeName: typ, Enabled: true, Props: props})
 	return h
 }
 
@@ -99,7 +110,7 @@ func TestRuntimeEndToEnd(t *testing.T) {
 	var props schema.PropertyBag
 	props.Set("Speed", schema.Float32(4))
 	mover := attach(s, "Mover", "game.Mover", props)
-	*scene.Add[components.SpriteRenderer](s, mover) = components.DefaultSpriteRenderer()
+	*scene.Add[render2d.SpriteRenderer](s, mover) = render2d.DefaultSpriteRenderer()
 	attach(s, "Spinner", "game.Spinner", schema.PropertyBag{})
 	s.Flush()
 	if err := rt.Instantiate(s); err != nil {
@@ -115,7 +126,7 @@ func TestRuntimeEndToEnd(t *testing.T) {
 	if got := s.Local(mover).Position.X; got != 4 {
 		t.Fatalf("mover x = %v, want 4 after two 0.5s frames at speed 4", got)
 	}
-	if sr, _ := scene.Get[components.SpriteRenderer](s, mover); !sr.FlipX {
+	if sr, _ := scene.Get[render2d.SpriteRenderer](s, mover); !sr.FlipX {
 		t.Fatal("script did not write the Go component through node.Get<SpriteRenderer>(), or Ready ran more than once")
 	}
 	if n := len(rt.Faults()); n != 1 || rt.Faults()[0].Fault.Code != vm.CodeBudget {
@@ -144,5 +155,42 @@ func TestRuntimeDestroyRemovesInstance(t *testing.T) {
 	rt.Update(&engine.Context{World: w, Dt: 0.1, Frame: 3})
 	if st := rt.Stats(); st.Instances != 0 || st.Update != 0 {
 		t.Fatalf("destroyed node still has %d instances and %d scheduled updates", st.Instances, st.Update)
+	}
+}
+
+func TestComponentRefOnDestroyedNode(t *testing.T) {
+	types, reg, mod := setup(t)
+	rt := New(Options{Bindings: reg, Schema: types.Schema()})
+	if err := rt.Link([]*bytecode.Module{mod}); err != nil {
+		t.Fatal(err)
+	}
+	s := scene.New(types, nil, scene.Options{})
+	h := s.Create(s.Root(), "N")
+	*scene.Add[render2d.SpriteRenderer](s, h) = render2d.DefaultSpriteRenderer()
+	s.Flush()
+	if err := rt.Instantiate(s); err != nil {
+		t.Fatal(err)
+	}
+	ref := vm.Value{A: bind.NodeValue(h).A, B: 0}
+	var v vm.Value
+	if err := rt.GetField(ref, 0, &v); err != nil {
+		t.Fatalf("live component: %v", err)
+	}
+	s.Destroy(h)
+	err := rt.GetField(ref, 0, &v)
+	var fl *vm.Fault
+	if !errors.As(err, &fl) || fl.Code != vm.CodeNil {
+		t.Fatalf("destroyed node: %v", err)
+	}
+}
+
+func TestComponentFieldLimit(t *testing.T) {
+	td := &schema.TypeDescriptor{FullName: "game.Big", Owner: "game"}
+	if err := fieldLimit(td, 255); err != nil {
+		t.Fatal(err)
+	}
+	err := fieldLimit(td, 256)
+	if err == nil || !strings.Contains(err.Error(), "game.Big") || !strings.Contains(err.Error(), "module game") {
+		t.Fatalf("err = %v", err)
 	}
 }

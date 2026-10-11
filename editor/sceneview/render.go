@@ -3,10 +3,10 @@ package sceneview
 import (
 	"aego/core/mathx"
 	"aego/editor/gizmo"
+	"aego/editor/shape"
 	"aego/engine"
 	"aego/render/debug"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/ui/core"
 )
 
@@ -53,26 +53,24 @@ func (p *Panel) render() {
 	f = r.View(ov)
 	dbg := f.Debug()
 	dbg.Space(debug.Overlay)
-	p.drawCameras(wd.scene, dbg, th)
+	p.drawOverlays(wd.scene, dbg, th)
 	p.drawSelection(wd.scene, dbg, th)
 	p.drawGizmos(wd.scene, dbg, th)
 	p.drawBox(dbg, th)
 	f.End()
 }
 
-func (p *Panel) drawCameras(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
+func (p *Panel) drawOverlays(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 	win := p.ctx.Project.Window
 	col := th.TextDim
 	col.A = 0.7
-	scene.Query1[components.Camera2D](s).Each(func(h scene.NodeHandle, cam *components.Camera2D) {
-		if cam.Zoom <= 0 {
-			return
-		}
-		m := s.World(h)
-		pos := mathx.Vec2{X: m[6], Y: m[7]}
-		size := mathx.Vec2{X: float32(win.Width) / cam.Zoom, Y: float32(win.Height) / cam.Zoom}
-		dbg.RectRot(pos, size, mathx.Atan2(m[1], m[0]), col)
-		dbg.Cross(pos, p.space.PxToWorld(10), col)
+	shapes(p.ctx).Overlays(&shape.OverlayCtx{
+		Scene:  s,
+		Debug:  dbg,
+		View:   p.view,
+		Window: mathx.Vec2{X: float32(win.Width), Y: float32(win.Height)},
+		Px:     p.space.PxToWorld(1),
+		Color:  col,
 	})
 }
 

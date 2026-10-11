@@ -56,9 +56,10 @@ func cmdDump(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	toolArgs := []string{"dump", target}
-	if *fn != "" {
-		toolArgs = append(toolArgs, "--func", *fn)
+	ws, err := openWorkspace(p, "", false)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "aego:", err)
+		return 2
 	}
-	return scriptTool(p, toolArgs...)
+	return run.Dump(ws, target, *fn, os.Stdout, os.Stderr)
 }

@@ -14,6 +14,7 @@ import (
 	"aego/editor/history"
 	"aego/editor/props"
 	"aego/editor/selection"
+	"aego/editor/shape"
 	"aego/engine"
 	"aego/project"
 	"aego/render"
@@ -81,6 +82,7 @@ type ScriptProblem struct {
 	Code    string
 	Error   bool
 	Message string
+	Help    string
 }
 
 type ScriptTypeStats struct {
@@ -89,6 +91,19 @@ type ScriptTypeStats struct {
 	Calls     uint64
 	Time      time.Duration
 	Faults    int
+}
+
+type ScriptCoroutineStats struct {
+	Active          int
+	Sleeping        int
+	ResumesPerFrame uint64
+	Canceled        uint64
+}
+
+type ScriptSignalStats struct {
+	Connections      int
+	EmitsPerFrame    uint64
+	HandlersPerFrame uint64
 }
 
 type ScriptStats struct {
@@ -103,6 +118,8 @@ type ScriptStats struct {
 	GCTime       time.Duration
 	Faults       int
 	BudgetAborts uint64
+	Coroutines   ScriptCoroutineStats
+	Signals      ScriptSignalStats
 	Types        []ScriptTypeStats
 }
 
@@ -111,6 +128,7 @@ type ScriptHost interface {
 	Attach(w *engine.World, s *scene.Scene) (func(), error)
 	Problems() ([]ScriptProblem, uint64)
 	Stats() (ScriptStats, bool)
+	Status() (generation uint64, latestFailed bool)
 }
 
 type Editor struct {
@@ -130,9 +148,12 @@ type Editor struct {
 	Settings  SceneSettings
 	Thumbs    ThumbSource
 	Scripts   ScriptHost
+	Code      ScriptNav
+	Shapes    *shape.Registry
 
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)
+	OpenScript   func(rel string, line int)
 
 	FocusedPanel string
 	AssetRev     uint64

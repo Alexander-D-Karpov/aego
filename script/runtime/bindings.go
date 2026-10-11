@@ -2,13 +2,15 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"unicode"
 	"unicode/utf8"
 
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/script/abi"
 	"aego/script/bind"
+	"aego/script/bytecode"
 	"aego/script/vm"
 )
 
@@ -57,7 +59,7 @@ func ComponentFields(td *schema.TypeDescriptor) []*schema.FieldDescriptor {
 	var out []*schema.FieldDescriptor
 	for i := range td.Fields {
 		fd := &td.Fields[i]
-		if !fd.Flags.Has(schema.FlagScript) {
+		if !td.Scripted(fd) {
 			continue
 		}
 		if _, ok := fieldABI(fd); ok {
@@ -68,7 +70,14 @@ func ComponentFields(td *schema.TypeDescriptor) []*schema.FieldDescriptor {
 }
 
 func scriptable(td *schema.TypeDescriptor) bool {
-	return td.FullName != components.ScriptName && td.FullName != unknownComponent
+	return td.FullName != scriptcomp.ScriptName && td.FullName != unknownComponent
+}
+
+func fieldLimit(td *schema.TypeDescriptor, n int) error {
+	if n <= bytecode.MaxComponentFields {
+		return nil
+	}
+	return fmt.Errorf("component %s of module %s exposes %d script fields, the limit is %d", td.FullName, td.Owner, n, bytecode.MaxComponentFields)
 }
 
 func BindComponents(reg *bind.Registry, sr *schema.Registry) {
@@ -76,8 +85,13 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 		if !scriptable(td) {
 			continue
 		}
+		fields := ComponentFields(td)
+		if err := fieldLimit(td, len(fields)); err != nil {
+			reg.Fail(err)
+			continue
+		}
 		c := &abi.Component{Name: td.FullName}
-		for _, fd := range ComponentFields(td) {
+		for _, fd := range fields {
 			t, _ := fieldABI(fd)
 			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: fd.Flags.Has(schema.FlagReadOnly)})
 		}
@@ -92,7 +106,7 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 				sc := ctx.Scene
 				h := bind.NodeOf(w[0])
 				if h.IsZero() {
-					return errors.New("node reference is nil")
+					return &vm.Fault{Code: vm.CodeNil, Message: "node reference is nil"}
 				}
 				if _, ok := sc.GetByType(h, tid); ok && sc.IsAlive(h) {
 					w[0] = vm.Value{A: w[0].A, B: idx}

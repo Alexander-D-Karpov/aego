@@ -41,10 +41,13 @@ type Editor struct {
 	WindowW    int
 	WindowH    int
 	Collapsed  []string
+	Autosave   bool
+	InlayHints bool
+	Minimap    bool
 }
 
 func Default() *Editor {
-	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1}
+	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true}
 }
 
 func userPath(root, name string) string {
@@ -122,6 +125,9 @@ func Encode(s *Editor) []byte {
 		aetext.Field{Name: "snapRotate", Value: aetext.Float32(s.SnapRotate)},
 		aetext.Field{Name: "snapScale", Value: aetext.Float32(s.SnapScale)},
 		aetext.Field{Name: "window", Value: aetext.List(aetext.Int(int64(s.WindowW)), aetext.Int(int64(s.WindowH)))},
+		aetext.Field{Name: "autosave", Value: aetext.Bool(s.Autosave)},
+		aetext.Field{Name: "inlayHints", Value: aetext.Bool(s.InlayHints)},
+		aetext.Field{Name: "minimap", Value: aetext.Bool(s.Minimap)},
 	)
 	collapsed := make([]aetext.Value, len(s.Collapsed))
 	for i, k := range s.Collapsed {
@@ -183,6 +189,15 @@ func Decode(data []byte, name string) (*Editor, error) {
 	}
 	if v, ok := doc.Field("window"); ok && len(v.List) == 2 {
 		s.WindowW, s.WindowH = int(v.List[0].AsInt()), int(v.List[1].AsInt())
+	}
+	if v, ok := doc.Field("autosave"); ok {
+		s.Autosave = v.Bool
+	}
+	if v, ok := doc.Field("inlayHints"); ok {
+		s.InlayHints = v.Bool
+	}
+	if v, ok := doc.Field("minimap"); ok {
+		s.Minimap = v.Bool
 	}
 	if v, ok := doc.Field("collapsed"); ok {
 		for _, item := range v.List {

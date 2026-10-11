@@ -69,12 +69,12 @@ const (
 	True
 	False
 	Nil
-	keywordEnd
-
-	reservedBeg
 	Yield
 	Signal
 	Coroutine
+	keywordEnd
+
+	reservedBeg
 	Await
 	Select
 	Go

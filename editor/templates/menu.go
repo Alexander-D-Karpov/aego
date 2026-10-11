@@ -1,10 +1,57 @@
 package templates
 
 import (
+	"slices"
+
 	"aego/core/ids"
 	"aego/editor/context"
+	"aego/scene"
 	"aego/ui/widgets"
 )
+
+type Section struct {
+	Title  string
+	Module bool
+	Items  []Template
+	Breaks []int
+}
+
+func Layout(r *Registry, pl Place) []Section {
+	root := Section{}
+	nested := Section{Title: Category3D}
+	for _, t := range r.Root() {
+		if !pl.Fits(t) {
+			continue
+		}
+		if t.Space == scene.Space3D && pl.At3 == nil {
+			nested.Items = append(nested.Items, t)
+			continue
+		}
+		root.Items = append(root.Items, t)
+	}
+	out := []Section{root}
+	if len(nested.Items) > 0 {
+		out = append(out, nested)
+	}
+	for _, m := range r.Modules() {
+		sec := Section{Title: m, Module: true}
+		last := ""
+		for _, t := range r.InModule(m) {
+			if !pl.Fits(t) {
+				continue
+			}
+			if len(sec.Items) > 0 && t.Category != last {
+				sec.Breaks = append(sec.Breaks, len(sec.Items))
+			}
+			last = t.Category
+			sec.Items = append(sec.Items, t)
+		}
+		if len(sec.Items) > 0 {
+			out = append(out, sec)
+		}
+	}
+	return out
+}
 
 func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreate func([]ids.NodeID)) {
 	ui := ctx.UI
@@ -22,57 +69,38 @@ func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreat
 			onCreate(created)
 		}
 	}
-	var nested []Template
-	for _, t := range r.Root() {
-		if !pl.Fits(t) {
-			continue
-		}
-		if t.Category == Category3D && pl.At3 == nil {
-			nested = append(nested, t)
-			continue
-		}
-		item(t)
-	}
-	if len(nested) > 0 {
-		ui.PushID("3d")
-		if widgets.SubMenu(ui, Category3D, 200) {
-			for _, t := range nested {
+	separated := false
+	for _, sec := range Layout(r, pl) {
+		switch {
+		case sec.Title == "":
+			for _, t := range sec.Items {
 				item(t)
 			}
-			widgets.EndSubMenu(ui)
-		}
-		ui.PopID()
-	}
-	var mods []string
-	for _, m := range r.Modules() {
-		for _, t := range r.InModule(m) {
-			if pl.Fits(t) {
-				mods = append(mods, m)
-				break
-			}
-		}
-	}
-	if len(mods) > 0 {
-		widgets.Separator(ui)
-	}
-	for _, m := range mods {
-		ui.PushID("mod/" + m)
-		if widgets.SubMenu(ui, m, 220) {
-			last := ""
-			first := true
-			for _, t := range r.InModule(m) {
-				if !pl.Fits(t) {
-					continue
+		case !sec.Module:
+			ui.PushID("3d")
+			if widgets.SubMenu(ui, sec.Title, 200) {
+				for _, t := range sec.Items {
+					item(t)
 				}
-				if !first && t.Category != last {
-					widgets.Separator(ui)
-				}
-				first = false
-				last = t.Category
-				item(t)
+				widgets.EndSubMenu(ui)
 			}
-			widgets.EndSubMenu(ui)
+			ui.PopID()
+		default:
+			if !separated {
+				widgets.Separator(ui)
+				separated = true
+			}
+			ui.PushID("mod/" + sec.Title)
+			if widgets.SubMenu(ui, sec.Title, 220) {
+				for i, t := range sec.Items {
+					if slices.Contains(sec.Breaks, i) {
+						widgets.Separator(ui)
+					}
+					item(t)
+				}
+				widgets.EndSubMenu(ui)
+			}
+			ui.PopID()
 		}
-		ui.PopID()
 	}
 }

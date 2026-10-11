@@ -1,28 +1,28 @@
 package sceneio
 
 import (
-	"aego/core/mathx"
 	"unsafe"
 
 	"aego/core/errs"
 	"aego/core/ids"
+	"aego/core/mathx"
 	"aego/format/aetext"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 )
 
 func (l *loader) loadScripts(h scene.NodeHandle, n *aetext.Node) error {
-	sc := scene.Add[components.ScriptComponent](l.scene, h)
+	sc := scene.Add[scriptcomp.ScriptComponent](l.scene, h)
 	if sc == nil {
 		return nil
 	}
 	for _, b := range n.Blocks {
 		if b.Head != "script" {
-			l.report.warn(l.name, b.Pos, "unknown block "+b.Head+" in "+components.ScriptName)
+			l.report.warn(l.name, b.Pos, "unknown block "+b.Head+" in "+scriptcomp.ScriptName)
 			continue
 		}
-		att := components.Attachment{TypeName: b.Label, Enabled: true}
+		att := scriptcomp.Attachment{TypeName: b.Label, Enabled: true}
 		if v, ok := b.Attr("enabled"); ok {
 			att.Enabled = v.Bool
 		}
@@ -149,8 +149,8 @@ func scriptValue(fd *schema.FieldDescriptor, v aetext.Value) (schema.Value, erro
 	return schema.Value{}, bad
 }
 
-func (w *writer) scripts(sc *components.ScriptComponent) *aetext.Node {
-	n := &aetext.Node{Head: "component", Label: components.ScriptName}
+func (w *writer) scripts(sc *scriptcomp.ScriptComponent) *aetext.Node {
+	n := &aetext.Node{Head: "component", Label: scriptcomp.ScriptName}
 	n.Attrs = append(n.Attrs, aetext.Field{Name: "version", Value: aetext.Int(1)})
 	for i := range sc.Attachments {
 		a := &sc.Attachments[i]

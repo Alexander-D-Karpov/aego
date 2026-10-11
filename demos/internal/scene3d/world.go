@@ -4,15 +4,15 @@ import (
 	"aego/asset/loader"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/demos/internal/pipeline"
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
 	"aego/render/texture"
+	"aego/render2d"
+	"aego/render3d"
 	"aego/scene"
-	"aego/scene/components"
-	"aego/scene/sceneio"
-	"aego/scene/systems"
-	"aego/schema"
+	"aego/scene/frame"
 )
 
 var WhiteSprite = ids.AssetID{Hi: 0xae91000000000000, Lo: 1}
@@ -31,33 +31,28 @@ func (r *resolver) Texture(id ids.AssetID) (texture.Region, bool) {
 
 type World struct {
 	Scene  *scene.Scene
-	Runner *systems.Runner
+	Runner *frame.Runner
+	pipe   *pipeline.Pipeline
 	loader *loader.Loader
 }
 
 func New(e *engine.Engine, r *render.Renderer, nodes int) (*World, error) {
-	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
-		return nil, err
-	}
-	if err := sceneio.RegisterUnknown(types); err != nil {
-		return nil, err
-	}
-	if err := types.Schema().Freeze(); err != nil {
+	types, man, err := pipeline.Types()
+	if err != nil {
 		return nil, err
 	}
 	l := loader.New(e.GPU(), r.Textures(), e.Log())
 	res := &resolver{Loader: l, white: r.White()}
 	s := scene.New(types, res, scene.Options{InitialNodes: nodes, DefaultSpace: scene.Space3D})
-	runner := systems.New()
-	runner.Bind(s, r, res)
-	return &World{Scene: s, Runner: runner, loader: l}, nil
+	pipe := pipeline.New(man)
+	pipe.Runner.Bind(s, r, res)
+	return &World{Scene: s, Runner: pipe.Runner, pipe: pipe, loader: l}, nil
 }
 
 func (w *World) Camera(pos, target mathx.Vec3) scene.NodeHandle {
 	s := w.Scene
 	h := s.Create3D(s.Root(), "Camera")
-	*scene.Add[components.Camera3D](s, h) = components.DefaultCamera3D()
+	*scene.Add[render3d.Camera3D](s, h) = render3d.DefaultCamera3D()
 	Aim(s, h, pos, target)
 	return h
 }
@@ -73,8 +68,8 @@ func Aim(s *scene.Scene, h scene.NodeHandle, pos, target mathx.Vec3) {
 func (w *World) Mesh(parent scene.NodeHandle, name string, mesh ids.AssetID, pos mathx.Vec3, color mathx.Color) scene.NodeHandle {
 	s := w.Scene
 	h := s.Create3D(parent, name)
-	mr := scene.Add[components.MeshRenderer](s, h)
-	*mr = components.DefaultMeshRenderer()
+	mr := scene.Add[render3d.MeshRenderer](s, h)
+	*mr = render3d.DefaultMeshRenderer()
 	mr.Mesh.SetAssetRefID(mesh)
 	mr.Color = color
 	s.SetPosition3D(h, pos)
@@ -87,8 +82,8 @@ func (w *World) Sprite(parent scene.NodeHandle, name string, pos, size mathx.Vec
 	if err != nil {
 		panic(err)
 	}
-	sr := scene.Add[components.SpriteRenderer](s, h)
-	*sr = components.DefaultSpriteRenderer()
+	sr := scene.Add[render2d.SpriteRenderer](s, h)
+	*sr = render2d.DefaultSpriteRenderer()
 	sr.Sprite.SetAssetRefID(WhiteSprite)
 	sr.Size = size
 	sr.Tint = tint
@@ -98,9 +93,7 @@ func (w *World) Sprite(parent scene.NodeHandle, name string, pos, size mathx.Vec
 }
 
 func (w *World) Render(e *engine.Engine, r *render.Renderer) {
-	m := e.Metrics()
-	w.Runner.Prepare(m.PixelW, m.PixelH, m.Density())
-	w.Runner.Extract(r)
+	w.pipe.Render(e, r)
 }
 
 func (w *World) Close() {

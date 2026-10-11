@@ -1,4 +1,4 @@
-module mygame/player bytecode=1 lang=1
+module mygame/player bytecode=3 lang=2
 import h0 aego/log.Info (string)
 import h1 aego/input.Axis (string) float
 import h2 #NodeRef.Transform2D (NodeRef) Transform2D
@@ -9,7 +9,7 @@ import h6 #NodeRef.Get<engine.SpriteRenderer> (NodeRef) ComponentRef<engine.Spri
 import h7 aego/input.Pressed (enum:aego/input.Key) bool
 import h8 mygame/combat.Damage (NodeRef, int)
 enum mygame/player.State Idle Run
-script mygame.player.PlayerController slots=8 ready=0 fixed=-1 update=1
+script mygame.player.PlayerController slots=8 ready=0 fixed=-1 update=1 reloaded=-1
   field Speed float slot=1+1 export
   field Target NodeRef slot=2+1 export
   field Sprite AssetRef<texture> slot=3+1 export

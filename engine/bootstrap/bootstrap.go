@@ -21,7 +21,36 @@ type Mode uint8
 const (
 	ModeRun Mode = iota
 	ModeRuntime
+	ModeManifest
 )
+
+const manifestTemplate = `package main
+
+import (
+	"os"
+
+	"aego/engine/builtin"
+	"aego/script/bind/manifest"
+	"aego/sdk"
+	native "%s/native"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		os.Stderr.WriteString("usage: manifest <out>\n")
+		os.Exit(2)
+	}
+	m, err := builtin.Manifest(sdk.Adapt(native.Module{}))
+	if err != nil {
+		os.Stderr.WriteString(err.Error() + "\n")
+		os.Exit(2)
+	}
+	if err := os.WriteFile(os.Args[1], manifest.Encode(m), 0o644); err != nil {
+		os.Stderr.WriteString(err.Error() + "\n")
+		os.Exit(3)
+	}
+}
+`
 
 type Target struct {
 	OS   string
@@ -64,12 +93,15 @@ func main() {
 `
 
 func Generate(p *project.Project, mode Mode) (string, error) {
-	dir := p.GeneratedDir()
+	dir, tmpl := p.GeneratedDir(), mainTemplate
+	if mode == ModeManifest {
+		dir, tmpl = filepath.Join(p.GeneratedDir(), "manifest"), manifestTemplate
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", errs.Wrap(err, errs.VFSIO, "cannot create the generated directory")
 	}
 	path := filepath.Join(dir, "main.go")
-	content := []byte(fmt.Sprintf(mainTemplate, p.Module))
+	content := []byte(fmt.Sprintf(tmpl, p.Module))
 	if existing, err := os.ReadFile(path); err == nil && string(existing) == string(content) {
 		return path, nil
 	}

@@ -1,0 +1,38 @@
+package coroutines
+
+import "aego/log"
+
+script Blinker {
+	@export var Period float = 0.1
+
+	var on bool
+	var task Coroutine
+	var steps int
+
+	func Ready() {
+		task = start Blink(3)
+	}
+
+	func Blink(times int) coroutine {
+		for i := 0; i < times; i++ {
+			on = !on
+			yield wait(Period)
+		}
+		yield frames(2)
+		yield fixed(1)
+		inner := start Step()
+		yield inner
+		log.Info("done")
+	}
+
+	func Step() coroutine {
+		steps++
+		yield
+	}
+
+	func Update(dt float) {
+		if steps > 10 && task.Running() {
+			task.Stop()
+		}
+	}
+}

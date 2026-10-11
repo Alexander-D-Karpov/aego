@@ -454,6 +454,10 @@ func (p *Panel) open(ctx *context.Editor, a *pipeline.AssetInfo) {
 			ctx.Notify(context.LevelError, err.Error())
 		}
 	case asset.ArtScript:
+		if ctx.OpenScript != nil {
+			ctx.OpenScript(a.Path, 0)
+			return
+		}
 		if err := openExternal(ctx.Pipeline.Abs(a.Path)); err != nil {
 			ctx.Notify(context.LevelError, err.Error())
 		}

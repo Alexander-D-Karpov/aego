@@ -1,0 +1,65 @@
+package demo
+
+import (
+	"aego/log"
+	"aego/math"
+)
+
+enum Phase {
+	Grow
+	Shrink
+}
+
+script Pulse {
+	signal Peaked(value float)
+
+	@export(min=0, max=10)
+	var Speed float = 2
+
+	var ticks int
+	var phase Phase
+	var history []float
+	var acc float
+	var peaks int
+	var ticker Coroutine
+
+	func Ready() {
+		Peaked.Connect(OnPeak)
+		ticker = start Tick()
+		log.Info("pulse ready")
+	}
+
+	func Tick() coroutine {
+		for {
+			yield wait(1.0)
+			log.Info("tick peaks=" + string(peaks) + " samples=" + string(len(history)))
+		}
+	}
+
+	func OnPeak(value float) {
+		peaks++
+	}
+
+	func Update(dt float) {
+		acc += dt * Speed
+		ticks++
+		s := 1 + math.Sin(acc)*0.5
+		node.SetScale(Vec2{s, s})
+		if phase == Phase.Grow && s <= 1 {
+			Peaked.Emit(s)
+		}
+		if s > 1 {
+			phase = Phase.Grow
+		} else {
+			phase = Phase.Shrink
+		}
+		if ticks%60 == 0 {
+			history = append(history, s)
+		}
+	}
+
+	func Reloaded() {
+		ticker = start Tick()
+		log.Info("reloaded, kept ticks=" + string(ticks) + " peaks=" + string(peaks) + ", the tick coroutine was restarted and Peaked stays connected")
+	}
+}

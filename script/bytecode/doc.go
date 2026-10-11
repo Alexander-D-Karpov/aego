@@ -82,7 +82,7 @@
 // # Integer arithmetic and faults
 //
 // Integer arithmetic (ADDI, SUBI, MULI, NEGI) wraps modulo 2^64, like Go.
-// DIVI and MODI by zero raise fault AES6003 rather than crashing the host. To
+// DIVI and MODI by zero raise fault AES6006 rather than crashing the host. To
 // stay total, MinInt64 / -1 is defined as MinInt64 and MinInt64 % -1 as 0 (Go
 // panics on the former; the VM must not). Floating arithmetic is plain IEEE-754
 // float32 with no faults.

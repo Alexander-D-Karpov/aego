@@ -3,20 +3,19 @@ package sceneview
 import (
 	"math"
 
-	"aego/asset"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/gizmo"
 	"aego/editor/props"
+	"aego/editor/shape"
 	"aego/render/debug"
 	"aego/render/view"
 	"aego/scene"
-	"aego/scene/components"
 )
 
 type Host3 interface {
 	Scene() *scene.Scene
-	Resolver() asset.Resolver
+	Shapes() shape.Set
 	Selected() []ids.NodeID
 	Select(nodes []ids.NodeID, additive bool)
 	Commit3D(label string, edits []props.Transform3DEdit)
@@ -307,11 +306,11 @@ func (c *Controller3) PickAt(h Host3, p mathx.Vec2) (scene.NodeHandle, bool) {
 	s := h.Scene()
 	ray := c.Ray(p)
 	v := c.View()
-	best, bestT, ok := Pick3D(s, h.Resolver(), ray, c.mask)
+	best, bestT, ok := Pick3D(s, h.Shapes(), ray, c.mask)
 	radius := func(at mathx.Vec3) float32 {
 		return gizmo.PxToWorld(v, at, pointPickPx)
 	}
-	if pt, t, pok := PickPoint3D(s, ray, c.mask, radius); pok && (!ok || t < bestT) {
+	if pt, t, pok := PickPoint3D(s, h.Shapes(), ray, c.mask, radius); pok && (!ok || t < bestT) {
 		return pt, true
 	}
 	return best, ok
@@ -319,9 +318,9 @@ func (c *Controller3) PickAt(h Host3, p mathx.Vec2) (scene.NodeHandle, bool) {
 
 func (c *Controller3) FrameSelection(h Host3) {
 	s := h.Scene()
-	b, ok := SelectionBounds(s, h.Resolver(), h.Selected())
+	b, ok := SelectionBounds(s, h.Shapes(), h.Selected())
 	if !ok {
-		b, ok = SceneBounds(s, h.Resolver())
+		b, ok = SceneBounds(s, h.Shapes())
 	}
 	if !ok {
 		b = mathx.AABB3{Min: mathx.Vec3{X: -1, Y: -1, Z: -1}, Max: mathx.Vec3{X: 1, Y: 1, Z: 1}}
@@ -332,7 +331,7 @@ func (c *Controller3) FrameSelection(h Host3) {
 func (c *Controller3) DropPoint(h Host3, p mathx.Vec2, snap float32) mathx.Vec3 {
 	ray := c.Ray(p)
 	var at mathx.Vec3
-	if _, t, ok := Pick3D(h.Scene(), h.Resolver(), ray, c.mask); ok {
+	if _, t, ok := Pick3D(h.Scene(), h.Shapes(), ray, c.mask); ok {
 		at = ray.At(t)
 	} else if t, ok := intersectPlane(ray, mathx.Vec3{}, mathx.Vec3{Y: 1}); ok {
 		at = ray.At(t)
@@ -378,42 +377,20 @@ func DrawGrid3(dbg *debug.Draw, cam Camera3D, step float32, th Theme3) {
 	dbg.Line3(mathx.Vec3{Z: center.Z - ext}, mathx.Vec3{Z: center.Z + ext}, th.Gizmo.Z)
 }
 
-func drawFrustum(dbg *debug.Draw, world mathx.Mat4, fovDeg, aspect, depth float32, col mathx.Color) {
-	hh := depth * float32(math.Tan(float64(mathx.Deg2Rad(fovDeg))/2))
-	hw := hh * aspect
-	o := world.Translation()
-	corners := [4]mathx.Vec3{
-		world.TransformPoint(mathx.Vec3{X: -hw, Y: hh, Z: -depth}),
-		world.TransformPoint(mathx.Vec3{X: hw, Y: hh, Z: -depth}),
-		world.TransformPoint(mathx.Vec3{X: hw, Y: -hh, Z: -depth}),
-		world.TransformPoint(mathx.Vec3{X: -hw, Y: -hh, Z: -depth}),
-	}
-	for i := range corners {
-		dbg.Line3(o, corners[i], col)
-		dbg.Line3(corners[i], corners[(i+1)%4], col)
-	}
-}
-
 func (c *Controller3) DrawOverlay(h Host3, dbg *debug.Draw, th Theme3) {
 	s := h.Scene()
 	v := c.View()
 	dbg.Space(debug.Overlay)
-	aspect := c.vp.W / c.vp.H
-	scene.Query1[components.Camera3D](s).Each(func(n scene.NodeHandle, cam *components.Camera3D) {
-		if s.Space(n) == scene.Space3D && s.EffectiveEnabled(n) {
-			drawFrustum(dbg, s.World4(n), cam.FOV, aspect, 1, th.Camera)
-		}
-	})
+	sh := h.Shapes()
+	sh.Overlays(&shape.OverlayCtx{Scene: s, Debug: dbg, View: v, Mode3D: true, Aspect: c.vp.W / c.vp.H, Color: th.Camera})
 	for _, id := range h.Selected() {
 		n := s.Handle(id)
 		if n.IsZero() || !s.IsAlive(n) {
 			continue
 		}
-		if mr, ok := scene.Get[components.MeshRenderer](s, n); ok {
-			if b, ok := MeshBounds(s, h.Resolver(), n, mr); ok {
-				dbg.AABB3(b, th.Selection)
-				continue
-			}
+		if b, ok := sh.Of(s, n); ok && b.Kind == shape.Box {
+			dbg.AABB3(b.Box, th.Selection)
+			continue
 		}
 		dbg.Axes3(s.World4(n), gizmo.PxToWorld(v, s.WorldPosition3D(n), 40))
 	}

@@ -1,15 +1,14 @@
 package inspector
 
 import (
-	"reflect"
-	"unsafe"
+	"errors"
+	"fmt"
 
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/editor/context"
 	"aego/editor/history/commands"
-	"aego/scene/components"
 	"aego/schema"
 )
 
@@ -23,43 +22,49 @@ func (f CustomFunc) Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields 
 	f(ctx, nodes, defaultFields)
 }
 
+func AsCustom(v any) (Custom, bool) {
+	switch c := v.(type) {
+	case Custom:
+		return c, true
+	case func(*context.Editor, []ids.NodeID, func()):
+		return CustomFunc(c), true
+	}
+	return nil, false
+}
+
 type Registry struct {
+	schema   *schema.Registry
 	custom   map[schema.TypeID]Custom
-	defaults map[schema.TypeID]func() []commands.FieldValue
 	disabled map[schema.TypeID]string
-	meta     map[schema.TypeID]Meta
 	resolved map[schema.TypeID]Meta
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		custom:   map[schema.TypeID]Custom{},
-		defaults: map[schema.TypeID]func() []commands.FieldValue{},
 		disabled: map[schema.TypeID]string{},
-		meta:     map[schema.TypeID]Meta{},
 		resolved: map[schema.TypeID]Meta{},
 	}
 }
 
-func typeOf[T any](reg *schema.Registry) (*schema.TypeDescriptor, error) {
-	rt := reflect.TypeFor[T]()
-	td, ok := reg.ByGoType(rt)
-	if !ok {
-		return nil, errs.New(errs.SchemaUnknownType, "type is not registered", log.F("type", rt.String()))
+func (r *Registry) Load(sr *schema.Registry) error {
+	r.schema = sr
+	clear(r.resolved)
+	var all []error
+	for _, td := range sr.Components() {
+		if td.Inspector == nil {
+			continue
+		}
+		c, ok := AsCustom(td.Inspector)
+		if !ok {
+			all = append(all, errs.New(errs.EditorPanel,
+				"custom inspector of "+td.FullName+" has the unsupported type "+fmt.Sprintf("%T", td.Inspector),
+				log.F("module", td.Owner)))
+			continue
+		}
+		r.custom[td.ID] = c
 	}
-	return td, nil
-}
-
-func RegisterCustom[T any](r *Registry, reg *schema.Registry, c Custom) error {
-	td, err := typeOf[T](reg)
-	if err != nil {
-		return err
-	}
-	if _, dup := r.custom[td.ID]; dup {
-		return errs.New(errs.EditorPanel, "custom inspector is already registered", log.F("type", td.FullName))
-	}
-	r.custom[td.ID] = c
-	return nil
+	return errors.Join(all...)
 }
 
 func (r *Registry) RegisterCustomID(t schema.TypeID, c Custom) error {
@@ -69,53 +74,6 @@ func (r *Registry) RegisterCustomID(t schema.TypeID, c Custom) error {
 	r.custom[t] = c
 	delete(r.disabled, t)
 	return nil
-}
-
-func RegisterDefaults[T any](r *Registry, reg *schema.Registry, fn func() T) error {
-	td, err := typeOf[T](reg)
-	if err != nil {
-		return err
-	}
-	r.defaults[td.ID] = func() []commands.FieldValue {
-		v := fn()
-		p := unsafe.Pointer(&v)
-		out := make([]commands.FieldValue, 0, len(td.Fields))
-		for i := range td.Fields {
-			var val schema.Value
-			td.Fields[i].Get(p, &val)
-			out = append(out, commands.FieldValue{Field: td.Fields[i].ID, Value: val})
-		}
-		return out
-	}
-	return nil
-}
-
-func RegisterBuiltin(r *Registry, reg *schema.Registry) error {
-	if err := RegisterDefaults(r, reg, components.DefaultSpriteRenderer); err != nil {
-		return err
-	}
-	if err := RegisterDefaults(r, reg, components.DefaultCamera2D); err != nil {
-		return err
-	}
-	if err := RegisterDefaults(r, reg, components.DefaultCamera3D); err != nil {
-		return err
-	}
-	if err := RegisterDefaults(r, reg, components.DefaultMeshRenderer); err != nil {
-		return err
-	}
-	if err := RegisterMeta[components.SpriteRenderer](r, reg, Meta{DisplayName: "Sprite Renderer", Category: "Rendering", Icon: "cat.rendering"}); err != nil {
-		return err
-	}
-	if err := RegisterMeta[components.MeshRenderer](r, reg, Meta{DisplayName: "Mesh Renderer", Category: "Rendering", Icon: "cat.rendering"}); err != nil {
-		return err
-	}
-	if err := RegisterMeta[components.Camera2D](r, reg, Meta{DisplayName: "Camera 2D", Category: "Camera", Icon: "cat.camera"}); err != nil {
-		return err
-	}
-	if err := RegisterMeta[components.ScriptComponent](r, reg, Meta{DisplayName: "Scripts", Category: "Scripts", Icon: "cat.scripts"}); err != nil {
-		return err
-	}
-	return RegisterMeta[components.Camera3D](r, reg, Meta{DisplayName: "Camera 3D", Category: "Camera", Icon: "cat.camera"})
 }
 
 func (r *Registry) Custom(t schema.TypeID) (Custom, bool) {
@@ -130,9 +88,27 @@ func (r *Registry) Disable(t schema.TypeID, reason string) {
 	r.disabled[t] = reason
 }
 
-func (r *Registry) Defaults(t schema.TypeID) []commands.FieldValue {
-	if fn, ok := r.defaults[t]; ok {
-		return fn()
+func DefaultValues(td *schema.TypeDescriptor) []commands.FieldValue {
+	if td.Default == nil {
+		return nil
 	}
-	return nil
+	p := td.Default()
+	out := make([]commands.FieldValue, 0, len(td.Fields))
+	for i := range td.Fields {
+		var v schema.Value
+		td.Fields[i].Get(p, &v)
+		out = append(out, commands.FieldValue{Field: td.Fields[i].ID, Value: v})
+	}
+	return out
+}
+
+func (r *Registry) Defaults(t schema.TypeID) []commands.FieldValue {
+	if r.schema == nil {
+		return nil
+	}
+	td, ok := r.schema.ByID(t)
+	if !ok {
+		return nil
+	}
+	return DefaultValues(td)
 }

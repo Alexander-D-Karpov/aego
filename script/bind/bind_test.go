@@ -8,6 +8,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/scene"
+	"aego/schema"
 	"aego/script/abi"
 	bc "aego/script/bytecode"
 	"aego/script/vm"
@@ -219,5 +220,77 @@ func TestABIHashIgnoresOrder(t *testing.T) {
 	}
 	if a.ABIHash() == c.ABIHash() {
 		t.Fatal("hash ignores a missing function")
+	}
+}
+
+type counter struct {
+	N int64 `aego:"n"`
+}
+
+func counterScene(tb testing.TB) (*scene.Scene, scene.NodeHandle, schema.TypeID) {
+	tb.Helper()
+	types := scene.NewTypes(schema.NewRegistry())
+	if err := scene.RegisterComponent[counter](types, schema.Name("t.Counter")); err != nil {
+		tb.Fatal(err)
+	}
+	if err := types.Schema().Freeze(); err != nil {
+		tb.Fatal(err)
+	}
+	td, _ := types.Schema().ByName("t.Counter")
+	s := scene.New(types, nil, scene.Options{})
+	h := s.Create(s.Root(), "N")
+	scene.Add[counter](s, h)
+	s.Flush()
+	return s, h, td.ID
+}
+
+func bumpHost(tb testing.TB, typ schema.TypeID) vm.HostFunc {
+	tb.Helper()
+	r := New()
+	Method1(r.Module("t/counter"), "Bump", typ, func(_ *Ctx, c *counter, by int64) int64 {
+		c.N += by
+		return c.N
+	})
+	if err := r.Freeze(); err != nil {
+		tb.Fatal(err)
+	}
+	fn, ok := r.Resolve(bc.HostImport{Module: "t/counter", Name: "Bump", Sig: abi.Sig(abi.T(abi.Int), abi.T(abi.NodeRef), abi.T(abi.Int))})
+	if !ok {
+		tb.Fatal("Bump does not resolve")
+	}
+	return fn
+}
+
+func TestComponentMethodZeroAllocs(t *testing.T) {
+	s, h, typ := counterScene(t)
+	fn := bumpHost(t, typ)
+	m := vm.New(vm.Options{})
+	m.Env = &Ctx{Scene: s}
+	w := make([]vm.Value, 2)
+	call := func() {
+		w[0], w[1] = NodeValue(h), vm.Int(1)
+		if err := fn(m, w); err != nil {
+			t.Fatal(err)
+		}
+	}
+	call()
+	if n := testing.AllocsPerRun(1000, call); n != 0 {
+		t.Fatalf("component method allocates %.1f objects per call", n)
+	}
+	if c, _ := scene.Get[counter](s, h); c.N != 1002 || w[0].Int() != 1002 {
+		t.Fatalf("counter = %d, result = %d", c.N, w[0].Int())
+	}
+}
+
+func BenchmarkComponentMethod(bm *testing.B) {
+	s, h, typ := counterScene(bm)
+	fn := bumpHost(bm, typ)
+	m := vm.New(vm.Options{})
+	m.Env = &Ctx{Scene: s}
+	w := make([]vm.Value, 2)
+	bm.ReportAllocs()
+	for i := 0; i < bm.N; i++ {
+		w[0], w[1] = NodeValue(h), vm.Int(1)
+		fn(m, w)
 	}
 }

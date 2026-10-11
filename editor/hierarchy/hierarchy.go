@@ -1,14 +1,14 @@
 package hierarchy
 
 import (
-	"aego/asset"
-	"aego/editor/assets"
 	"path"
 	"strconv"
 	"strings"
 
+	"aego/asset"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/editor/assets"
 	"aego/editor/clipboard"
 	"aego/editor/command"
 	"aego/editor/context"
@@ -360,7 +360,7 @@ func (p *Panel) accepts(d *document.SceneDocument, pl dnd.Payload, target ids.No
 			s := d.Scene()
 			return target != s.ID(s.Root())
 		}
-		return context.AssetMatches("texture", ap.Kind) || context.AssetMatches("mesh", ap.Kind)
+		return p.templates != nil && p.templates.Accepts(ap.Kind, nil)
 	}
 	return false
 }
@@ -449,7 +449,7 @@ func (p *Panel) drop(ctx *context.Editor, d *document.SceneDocument, pl dnd.Payl
 				index++
 			}
 		}
-		t, ok := templates.ForAsset(ctx, ap.ID, ap.Kind, path.Base(ap.Name))
+		t, ok := p.templates.ForAsset(ap.Kind, nil, ap.ID, path.Base(ap.Name))
 		if !ok {
 			return
 		}

@@ -19,6 +19,9 @@ func TestEveryDemoIsRegistered(t *testing.T) {
 		if !e.IsDir() || e.Name() == "internal" || e.Name() == "res" {
 			continue
 		}
+		if src, _ := filepath.Glob(filepath.Join("..", "..", "demos", e.Name(), "*.go")); len(src) == 0 {
+			continue
+		}
 		dirs++
 	}
 	if registered != dirs {

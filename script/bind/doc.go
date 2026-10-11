@@ -1,20 +1,31 @@
 package bind
 
 import (
+	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
 )
 
 type Info struct {
-	Doc string
-	Loc string
+	Doc     string
+	Params  []string
+	Example string
+	Loc     string
 }
 
 type Option func(*Info)
 
 func Doc(s string) Option {
 	return func(i *Info) { i.Doc = s }
+}
+
+func Params(names ...string) Option {
+	return func(i *Info) { i.Params = append([]string(nil), names...) }
+}
+
+func Example(s string) Option {
+	return func(i *Info) { i.Example = s }
 }
 
 func NewManifest() *Registry {
@@ -31,17 +42,30 @@ func (r *Registry) Info(module, name string) Info {
 	return r.docs[key(module, name)]
 }
 
-func (r *Registry) describe(module, name string, opts []Option) {
+func Describe(m *Module, name string, opts ...Option) {
+	k := key(m.path, name)
+	info := m.reg.docs[k]
+	for _, o := range opts {
+		o(&info)
+	}
+	m.reg.docs[k] = info
+}
+
+func (r *Registry) describe(module, name string, opts []Option, params int) error {
 	var info Info
 	for _, o := range opts {
 		o(&info)
 	}
+	if params >= 0 && len(info.Params) > 0 && len(info.Params) != params {
+		return fmt.Errorf("Params names %d parameters, the function has %d", len(info.Params), params)
+	}
 	if r.locate {
 		info.Loc = callerLoc()
 	}
-	if info.Doc != "" || info.Loc != "" {
+	if info.Doc != "" || info.Loc != "" || info.Example != "" || len(info.Params) > 0 {
 		r.docs[key(module, name)] = info
 	}
+	return nil
 }
 
 func callerLoc() string {

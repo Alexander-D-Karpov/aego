@@ -99,9 +99,9 @@ func NewScriptType(full string, former []string, fields []FieldDescriptor) (*Typ
 	return td, nil
 }
 
-func (r *Registry) SetDynamic(types []*TypeDescriptor) error {
+func (r *Registry) buildDynamic(types []*TypeDescriptor) (*dynamicLayer, error) {
 	if !r.frozen {
-		return errs.New(errs.SchemaFrozen, "the native layer must be frozen before script types are set")
+		return nil, errs.New(errs.SchemaFrozen, "the native layer must be frozen before script types are set")
 	}
 	l := &dynamicLayer{
 		byID:   make(map[TypeID]*TypeDescriptor, len(types)),
@@ -131,17 +131,30 @@ func (r *Registry) SetDynamic(types []*TypeDescriptor) error {
 	}
 	for _, td := range types {
 		if td == nil || td.Kind != TypeScript {
-			return errs.New(errs.SchemaBadValue, "only script types can be set dynamically")
+			return nil, errs.New(errs.SchemaBadValue, "only script types can be set dynamically")
 		}
 		if err := claim(td, td.FullName); err != nil {
-			return err
+			return nil, err
 		}
 		for _, alias := range td.Former {
 			if err := claim(td, alias); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		l.order = append(l.order, td)
+	}
+	return l, nil
+}
+
+func (r *Registry) CheckDynamic(types []*TypeDescriptor) error {
+	_, err := r.buildDynamic(types)
+	return err
+}
+
+func (r *Registry) SetDynamic(types []*TypeDescriptor) error {
+	l, err := r.buildDynamic(types)
+	if err != nil {
+		return err
 	}
 	r.dyn.layer.Store(l)
 	for i := range r.dyn.subs {

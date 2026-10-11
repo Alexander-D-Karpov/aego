@@ -13,7 +13,7 @@ import (
 	"aego/editor/history/commands"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/components"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -31,8 +31,8 @@ func scriptPackage(full string) string {
 	return strings.ReplaceAll(full[:i], ".", "/")
 }
 
-func attachment(s *scene.Scene, id ids.NodeID, name string) *components.Attachment {
-	sc, ok := components.ScriptsOf(s, s.Handle(id))
+func attachment(s *scene.Scene, id ids.NodeID, name string) *scriptcomp.Attachment {
+	sc, ok := scriptcomp.ScriptsOf(s, s.Handle(id))
 	if !ok {
 		return nil
 	}
@@ -44,7 +44,7 @@ func attachment(s *scene.Scene, id ids.NodeID, name string) *components.Attachme
 
 func (p *Panel) commonScripts(s *scene.Scene) []string {
 	p.scriptNames = p.scriptNames[:0]
-	first, ok := components.ScriptsOf(s, s.Handle(p.nodes[0]))
+	first, ok := scriptcomp.ScriptsOf(s, s.Handle(p.nodes[0]))
 	if !ok {
 		return nil
 	}
@@ -76,39 +76,6 @@ func (p *Panel) scripts(ctx *context.Editor, d *document.SceneDocument) {
 	for i, name := range list {
 		p.scriptCard(ctx, d, i, len(list), name)
 	}
-}
-
-func (p *Panel) scriptCard(ctx *context.Editor, d *document.SceneDocument, index, count int, name string) {
-	ui := ctx.UI
-	s := d.Scene()
-	td, known := s.Registry().ByName(name)
-	known = known && td.Kind == schema.TypeScript
-	ui.PushID("script/" + name)
-	defer ui.PopID()
-	c := p.beginCard(ctx, "script:"+name, humanize(shortScript(name)), scriptPackage(name), "cat.scripts", "", true)
-	defer func() { p.endCard(ui, c) }()
-	menuID := ui.ID("menu")
-	if ui.RightClicked(c.hid, c.hdr) {
-		p.rightUsed = true
-		widgets.OpenContextMenu(ui, menuID)
-	} else if c.more {
-		widgets.OpenContextMenu(ui, menuID)
-	}
-	if widgets.ContextMenu(ui, menuID) {
-		p.scriptMenu(ctx, d, name, td, known, index, count)
-		widgets.EndContextMenu(ui)
-	}
-	if !c.open {
-		return
-	}
-	p.scriptEnabled(ctx, d, name)
-	p.scriptProblems(ctx, name)
-	if known {
-		p.fields(ctx, d, td)
-	} else {
-		widgets.LabelDim(ui, "Not compiled, properties are kept as they are")
-	}
-	p.unknownProps(ctx, d, name, td, known)
 }
 
 func (p *Panel) scriptEnabled(ctx *context.Editor, d *document.SceneDocument, name string) {
@@ -151,41 +118,6 @@ func (p *Panel) scriptEnabled(ctx *context.Editor, d *document.SceneDocument, na
 	tx.Commit()
 }
 
-func (p *Panel) scriptProblems(ctx *context.Editor, name string) {
-	if ctx.Scripts == nil {
-		return
-	}
-	ps, _ := ctx.Scripts.Problems()
-	pkg := scriptPackage(name)
-	n := 0
-	var first context.ScriptProblem
-	for _, pr := range ps {
-		if pr.Error && pr.Package == pkg {
-			if n == 0 {
-				first = pr
-			}
-			n++
-		}
-	}
-	if n == 0 {
-		return
-	}
-	ui := ctx.UI
-	th := &ui.Theme
-	r := ui.Cursor().Next(0)
-	id := ui.ID("problems")
-	if ui.Clicked(id, r) && ctx.ShowProblems != nil {
-		ctx.ShowProblems(pkg)
-	}
-	bg := th.Error
-	bg.A = 0.18
-	ui.Rect(r, bg)
-	ui.PushClip(r)
-	ui.TextIn(r, strconv.Itoa(n)+" error(s) in "+pkg+", the last good build runs", th.Error, core.AlignLeft)
-	ui.PopClip()
-	widgets.Tooltip(ui, id, first.Path+":"+strconv.Itoa(first.Line)+": "+first.Message+" (click to open Console)")
-}
-
 func (p *Panel) unknownProps(ctx *context.Editor, d *document.SceneDocument, name string, td *schema.TypeDescriptor, known bool) {
 	a := attachment(d.Scene(), p.nodes[0], name)
 	if a == nil {
@@ -204,51 +136,6 @@ func (p *Panel) unknownProps(ctx *context.Editor, d *document.SceneDocument, nam
 		ui.PushClip(r)
 		ui.Text(f.Name+" is not in the script, kept on save", mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
 		ui.PopClip()
-	}
-}
-
-func (p *Panel) scriptMenu(ctx *context.Editor, d *document.SceneDocument, name string, td *schema.TypeDescriptor, known bool, index, count int) {
-	ui := ctx.UI
-	short := shortScript(name)
-	if widgets.MenuItem(ui, "Reset", "", known, false) {
-		reg := d.Scene().Registry()
-		tx := d.History.Begin("Reset " + short)
-		for i := range td.Fields {
-			fd := &td.Fields[i]
-			if err := d.Props.Set(tx, p.nodes, td.ID, fd.ID, p.defaultValue(reg, td, fd)); err != nil {
-				tx.Abort()
-				ctx.Notify(context.LevelError, err.Error())
-				return
-			}
-		}
-		tx.Commit()
-	}
-	if widgets.MenuItem(ui, "Remove", "", true, false) {
-		tx := d.History.Begin("Remove " + short)
-		for _, n := range p.nodes {
-			if err := tx.Exec(&commands.RemoveScript{Node: n, TypeName: name}); err != nil {
-				tx.Abort()
-				ctx.Notify(context.LevelError, err.Error())
-				return
-			}
-		}
-		tx.Commit()
-	}
-	widgets.Separator(ui)
-	single := len(p.nodes) == 1
-	if widgets.MenuItem(ui, "Move Up", "", single && index > 0, false) {
-		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index - 1}); err != nil {
-			ctx.Notify(context.LevelError, err.Error())
-		}
-	}
-	if widgets.MenuItem(ui, "Move Down", "", single && index < count-1, false) {
-		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index + 1}); err != nil {
-			ctx.Notify(context.LevelError, err.Error())
-		}
-	}
-	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Show Script Files", "", ctx.RevealPath != nil, false) {
-		ctx.RevealPath(assets.ScriptDir(ctx, name))
 	}
 }
 
@@ -341,5 +228,137 @@ func (p *Panel) dropScripts(ctx *context.Editor, r mathx.Rect) {
 	}
 	if got, ok := ctx.DnD.Target(ui, r, context.KindAsset); ok {
 		assets.AttachScriptAsset(ctx, p.nodes, got.Data.(context.AssetPayload).ID)
+	}
+}
+
+func gotoScript(ctx *context.Editor, typeName, field string) {
+	if ctx.Code == nil {
+		return
+	}
+	if l, ok := ctx.Code.Declaration(typeName, field); ok {
+		ctx.Open(l)
+		return
+	}
+	ctx.Notify(context.LevelInfo, "The declaration of "+shortScript(typeName)+" is not available until the scripts compile")
+}
+
+func (p *Panel) scriptCard(ctx *context.Editor, d *document.SceneDocument, index, count int, name string) {
+	ui := ctx.UI
+	s := d.Scene()
+	td, known := s.Registry().ByName(name)
+	known = known && td.Kind == schema.TypeScript
+	ui.PushID("script/" + name)
+	defer ui.PopID()
+	action := ""
+	if ctx.Code != nil {
+		action = "Edit"
+	}
+	c := p.beginCard(ctx, "script:"+name, humanize(shortScript(name)), scriptPackage(name), "cat.scripts", action, true)
+	defer func() { p.endCard(ui, c) }()
+	if c.action {
+		gotoScript(ctx, name, "")
+	}
+	menuID := ui.ID("menu")
+	if ui.RightClicked(c.hid, c.hdr) {
+		p.rightUsed = true
+		widgets.OpenContextMenu(ui, menuID)
+	} else if c.more {
+		widgets.OpenContextMenu(ui, menuID)
+	}
+	if widgets.ContextMenu(ui, menuID) {
+		p.scriptMenu(ctx, d, name, td, known, index, count)
+		widgets.EndContextMenu(ui)
+	}
+	if !c.open {
+		return
+	}
+	p.scriptEnabled(ctx, d, name)
+	p.scriptProblems(ctx, name)
+	if known {
+		p.fields(ctx, d, td)
+	} else {
+		widgets.LabelDim(ui, "Not compiled, properties are kept as they are")
+	}
+	p.unknownProps(ctx, d, name, td, known)
+}
+
+func (p *Panel) scriptProblems(ctx *context.Editor, name string) {
+	pkg := scriptPackage(name)
+	first, n, ok := ctx.FirstError(pkg)
+	if !ok {
+		return
+	}
+	ui := ctx.UI
+	th := &ui.Theme
+	r := ui.Cursor().Next(0)
+	id := ui.ID("problems")
+	if ui.Clicked(id, r) {
+		ctx.Open(first.Location())
+	}
+	bg := th.Error
+	bg.A = 0.18
+	ui.Rect(r, bg)
+	widgets.IconAt(ui, mathx.Rect{X: r.X + 2, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "log.error", th.Error)
+	ui.PushClip(r)
+	ui.Text(strconv.Itoa(n)+" error(s) in "+pkg+", the last good build runs", mathx.Vec2{X: r.X + 22, Y: ui.TextY(r)}, th.Error)
+	ui.PopClip()
+	tip := first.Path + ":" + strconv.Itoa(first.Line) + ": " + first.Message
+	if first.Help != "" {
+		tip += "\n" + first.Help
+	}
+	widgets.Tooltip(ui, id, tip+"\nClick to open the line")
+}
+
+func (p *Panel) scriptMenu(ctx *context.Editor, d *document.SceneDocument, name string, td *schema.TypeDescriptor, known bool, index, count int) {
+	ui := ctx.UI
+	short := shortScript(name)
+	if ctx.Code != nil {
+		if widgets.MenuItem(ui, "Edit Script", "", true, false) {
+			gotoScript(ctx, name, "")
+		}
+		if widgets.MenuItem(ui, "Find Usages", "", known, false) {
+			ctx.Code.FindUsages(name, "")
+		}
+		widgets.Separator(ui)
+	}
+	if widgets.MenuItem(ui, "Reset", "", known, false) {
+		reg := d.Scene().Registry()
+		tx := d.History.Begin("Reset " + short)
+		for i := range td.Fields {
+			fd := &td.Fields[i]
+			if err := d.Props.Set(tx, p.nodes, td.ID, fd.ID, p.defaultValue(reg, td, fd)); err != nil {
+				tx.Abort()
+				ctx.Notify(context.LevelError, err.Error())
+				return
+			}
+		}
+		tx.Commit()
+	}
+	if widgets.MenuItem(ui, "Remove", "", true, false) {
+		tx := d.History.Begin("Remove " + short)
+		for _, n := range p.nodes {
+			if err := tx.Exec(&commands.RemoveScript{Node: n, TypeName: name}); err != nil {
+				tx.Abort()
+				ctx.Notify(context.LevelError, err.Error())
+				return
+			}
+		}
+		tx.Commit()
+	}
+	widgets.Separator(ui)
+	single := len(p.nodes) == 1
+	if widgets.MenuItem(ui, "Move Up", "", single && index > 0, false) {
+		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index - 1}); err != nil {
+			ctx.Notify(context.LevelError, err.Error())
+		}
+	}
+	if widgets.MenuItem(ui, "Move Down", "", single && index < count-1, false) {
+		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index + 1}); err != nil {
+			ctx.Notify(context.LevelError, err.Error())
+		}
+	}
+	widgets.Separator(ui)
+	if widgets.MenuItem(ui, "Show Script Files", "", ctx.RevealPath != nil, false) {
+		ctx.RevealPath(assets.ScriptDir(ctx, name))
 	}
 }

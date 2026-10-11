@@ -1,11 +1,11 @@
 package sceneview
 
 import (
-	"aego/asset"
 	"aego/core/ids"
 	"aego/editor/context"
 	"aego/editor/gizmo"
 	"aego/editor/props"
+	"aego/editor/shape"
 	"aego/scene"
 )
 
@@ -26,8 +26,8 @@ func (h host3) Scene() *scene.Scene {
 	return h.s
 }
 
-func (h host3) Resolver() asset.Resolver {
-	return resolver(h.ctx)
+func (h host3) Shapes() shape.Set {
+	return shapes(h.ctx)
 }
 
 func (h host3) Selected() []ids.NodeID {

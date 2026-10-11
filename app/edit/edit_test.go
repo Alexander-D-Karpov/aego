@@ -9,17 +9,18 @@ import (
 	"testing"
 	"time"
 
-	"aego/app/run"
+	"aego/app"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/history/commands"
 	"aego/engine"
 	"aego/project"
+	"aego/render2d"
 	"aego/scene"
-	"aego/scene/components"
 	"aego/scene/sceneio"
 	"aego/schema"
+	"aego/script/stdlib"
 	"aego/sdk"
 )
 
@@ -44,20 +45,24 @@ func (spinSystem) Run(ctx *engine.Context) {
 
 type spinModule struct{}
 
-func (spinModule) Info() engine.ModuleInfo {
-	return engine.ModuleInfo{ID: "test.spin"}
+func (spinModule) Info() sdk.ModuleInfo {
+	return sdk.ModuleInfo{ID: "test"}
 }
 
 func (spinModule) Register(r *sdk.Registry) error {
-	if err := scene.RegisterComponent[Spin](r.Types, schema.Name("test.Spin")); err != nil {
+	if err := sdk.Component[Spin](r, schema.Name("test.Spin")).Err(); err != nil {
 		return err
 	}
-	return r.Engine.Systems().Register(engine.SystemDesc{ID: "test.spin", Phase: engine.PhaseUpdate, System: spinSystem{}})
+	r.System(engine.SystemDesc{ID: "test.spin", Phase: engine.PhaseUpdate, System: spinSystem{}})
+	return nil
 }
 
 func writeScene(t *testing.T, p *project.Project, rel string, build func(s *scene.Scene)) {
 	t.Helper()
-	types := run.NewTypes()
+	types := app.NewTypes()
+	if _, err := app.BuildModules(types, nil, stdlib.Options{}, nil); err != nil {
+		t.Fatal(err)
+	}
 	if err := types.Schema().Freeze(); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +92,7 @@ func TestPlayLeavesEditSceneByteIdentical(t *testing.T) {
 	rel := "scenes/play.aescene"
 	writeScene(t, p, rel, func(s *scene.Scene) {
 		cam := s.Create(s.Root(), "Camera")
-		*scene.Add[components.Camera2D](s, cam) = components.DefaultCamera2D()
+		*scene.Add[render2d.Camera2D](s, cam) = render2d.DefaultCamera2D()
 		s.Create(s.Root(), "Spinner")
 	})
 	s, err := Open(p, headless(), spinModule{})
@@ -212,15 +217,15 @@ func TestTenThousandNodesIdleBudget(t *testing.T) {
 	var parents []ids.NodeID
 	writeScene(t, p, rel, func(s *scene.Scene) {
 		cam := s.Create(s.Root(), "Camera")
-		*scene.Add[components.Camera2D](s, cam) = components.DefaultCamera2D()
+		*scene.Add[render2d.Camera2D](s, cam) = render2d.DefaultCamera2D()
 		for i := 0; i < 100; i++ {
 			g := s.Create(s.Root(), "Group "+strconv.Itoa(i))
 			parents = append(parents, s.ID(g))
 			for j := 0; j < 99; j++ {
 				n := s.Create(g, "Node "+strconv.Itoa(j))
 				s.SetPosition(n, mathx.Vec2{X: float32(j), Y: float32(i)})
-				sr := scene.Add[components.SpriteRenderer](s, n)
-				*sr = components.DefaultSpriteRenderer()
+				sr := scene.Add[render2d.SpriteRenderer](s, n)
+				*sr = render2d.DefaultSpriteRenderer()
 				sr.Size = mathx.Vec2{X: 1, Y: 1}
 			}
 		}

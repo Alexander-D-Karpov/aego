@@ -8,11 +8,11 @@ import (
 	"aego/core/mathx"
 	"aego/editor/gizmo"
 	"aego/editor/props"
+	"aego/editor/shape"
 	"aego/render/mesh"
 	"aego/render/texture"
+	"aego/render3d"
 	"aego/scene"
-	"aego/scene/components"
-	"aego/schema"
 )
 
 type meshRes struct {
@@ -28,13 +28,7 @@ func (r meshRes) Subscribe(func(asset.Reloaded)) func()      { return func() {} 
 
 func spatialScene(t *testing.T) (*scene.Scene, asset.Resolver) {
 	t.Helper()
-	types := scene.NewTypes(schema.NewRegistry())
-	if err := components.Register(types); err != nil {
-		t.Fatal(err)
-	}
-	if err := types.Schema().Freeze(); err != nil {
-		t.Fatal(err)
-	}
+	types := testTypes(t)
 	res := meshRes{m: &mesh.Mesh{Count: 36, Bounds: mathx.AABB3{
 		Min: mathx.Vec3{X: -0.5, Y: -0.5, Z: -0.5},
 		Max: mathx.Vec3{X: 0.5, Y: 0.5, Z: 0.5},
@@ -44,8 +38,8 @@ func spatialScene(t *testing.T) (*scene.Scene, asset.Resolver) {
 
 func cube(s *scene.Scene, at mathx.Vec3) scene.NodeHandle {
 	h := s.Create3D(s.Root(), "Cube")
-	mr := scene.Add[components.MeshRenderer](s, h)
-	*mr = components.DefaultMeshRenderer()
+	mr := scene.Add[render3d.MeshRenderer](s, h)
+	*mr = render3d.DefaultMeshRenderer()
 	mr.Mesh.SetAssetRefID(asset.BuiltinCube)
 	s.SetPosition3D(h, at)
 	return h
@@ -54,18 +48,19 @@ func cube(s *scene.Scene, at mathx.Vec3) scene.NodeHandle {
 type fakeHost struct {
 	s       *scene.Scene
 	res     asset.Resolver
+	sh      shape.Set
 	sel     []ids.NodeID
 	op      gizmo.Op3
 	commits [][]props.Transform3DEdit
 }
 
-func (h *fakeHost) Scene() *scene.Scene      { return h.s }
-func (h *fakeHost) Resolver() asset.Resolver { return h.res }
-func (h *fakeHost) Selected() []ids.NodeID   { return h.sel }
-func (h *fakeHost) Tool3() gizmo.Op3         { return h.op }
-func (h *fakeHost) ShowGizmo() bool          { return true }
-func (h *fakeHost) LocalAxes() bool          { return false }
-func (h *fakeHost) Snap3() gizmo.Snap3       { return gizmo.Snap3{} }
+func (h *fakeHost) Scene() *scene.Scene    { return h.s }
+func (h *fakeHost) Shapes() shape.Set      { return h.sh }
+func (h *fakeHost) Selected() []ids.NodeID { return h.sel }
+func (h *fakeHost) Tool3() gizmo.Op3       { return h.op }
+func (h *fakeHost) ShowGizmo() bool        { return true }
+func (h *fakeHost) LocalAxes() bool        { return false }
+func (h *fakeHost) Snap3() gizmo.Snap3     { return gizmo.Snap3{} }
 func (h *fakeHost) Select(n []ids.NodeID, add bool) {
 	if add {
 		h.sel = append(h.sel, n...)
@@ -147,13 +142,13 @@ func TestPick3DNearestAndDisabled(t *testing.T) {
 	b := cube(s, mathx.Vec3{Z: -5})
 	s.Flush()
 	ray := mathx.Ray3{Origin: mathx.Vec3{Z: 10}, Dir: mathx.Vec3{Z: -1}}
-	h, tt, ok := Pick3D(s, res, ray, ^uint64(0))
+	h, tt, ok := Pick3D(s, testShapes(t, s, res), ray, ^uint64(0))
 	if !ok || h != a || mathx.Abs(tt-9.5) > 1e-4 {
 		t.Fatalf("pick = %v %v %v", h, tt, ok)
 	}
 	s.SetEnabled(a, false)
 	s.UpdateTransforms()
-	if h, _, _ := Pick3D(s, res, ray, ^uint64(0)); h != b {
+	if h, _, _ := Pick3D(s, testShapes(t, s, res), ray, ^uint64(0)); h != b {
 		t.Fatal("disabled cube was picked")
 	}
 }
@@ -167,7 +162,7 @@ func TestPickPointAndBoxSelect(t *testing.T) {
 	s.Flush()
 	o := mathx.Vec3{Z: 10}
 	ray := mathx.Ray3{Origin: o, Dir: mathx.Vec3{X: 3}.Sub(o).Normalized()}
-	h, _, ok := PickPoint3D(s, ray, ^uint64(0), func(mathx.Vec3) float32 { return 0.1 })
+	h, _, ok := PickPoint3D(s, testShapes(t, s, nil), ray, ^uint64(0), func(mathx.Vec3) float32 { return 0.1 })
 	if !ok || h != e {
 		t.Fatal("empty node not picked")
 	}
@@ -182,7 +177,7 @@ func TestGizmoDragCommitsOnce(t *testing.T) {
 	s, res := spatialScene(t)
 	n := s.Create3D(s.Root(), "N")
 	s.Flush()
-	h := &fakeHost{s: s, res: res, sel: []ids.NodeID{s.ID(n)}}
+	h := &fakeHost{s: s, res: res, sh: testShapes(t, s, res), sel: []ids.NodeID{s.ID(n)}}
 	c := frontController()
 	l := gizmo.PxToWorld(c.View(), mathx.Vec3{}, gizmo.DefaultSize3)
 	grab := screenOf(t, c, mathx.Vec3{X: l * 0.7})
@@ -211,7 +206,7 @@ func TestClickSelectsAndClears(t *testing.T) {
 	a := cube(s, mathx.Vec3{})
 	cube(s, mathx.Vec3{Z: -5})
 	s.Flush()
-	h := &fakeHost{s: s, res: res}
+	h := &fakeHost{s: s, res: res, sh: testShapes(t, s, res)}
 	c := frontController()
 	click := func(p mathx.Vec2) {
 		c.Update(h, Input3{Mouse: p, Hovered: true, Down: [3]bool{true}, Pressed: [3]bool{true}})

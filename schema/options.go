@@ -7,6 +7,7 @@ type regOptions struct {
 	doc          string
 	space        SpaceKind
 	formerFields map[string][]string
+	fieldDocs    map[string]string
 }
 
 type EditorHints struct {
@@ -47,5 +48,14 @@ func FormerField(field string, former ...string) Option {
 			o.formerFields = map[string][]string{}
 		}
 		o.formerFields[field] = append(o.formerFields[field], former...)
+	}
+}
+
+func FieldDoc(field, doc string) Option {
+	return func(o *regOptions) {
+		if o.fieldDocs == nil {
+			o.fieldDocs = map[string]string{}
+		}
+		o.fieldDocs[field] = doc
 	}
 }

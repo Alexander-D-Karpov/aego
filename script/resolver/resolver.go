@@ -27,6 +27,7 @@ const (
 	ObjBuiltin
 	ObjNode
 	ObjGeneric
+	ObjSignal
 )
 
 type Object struct {
@@ -101,11 +102,13 @@ func Universe() *Scope {
 		"bool": types.Bool, "int": types.Int, "float": types.Float, "string": types.String,
 		"Vec2": types.Vec2, "Vec3": types.Vec3, "Color": types.Color, "Quat": types.Quat, "Rect": types.Rect,
 		"Transform2D": types.Transform2D, "Transform3D": types.Transform3D, "NodeRef": types.NodeRef,
+		"Coroutine": types.Coroutine, "Connection": types.Connection,
 	} {
 		s.Insert(&Object{Kind: ObjType, Name: name, Type: t})
 	}
 	s.Insert(&Object{Kind: ObjGeneric, Name: "AssetRef"})
 	s.Insert(&Object{Kind: ObjGeneric, Name: "ComponentRef"})
+	s.Insert(&Object{Kind: ObjGeneric, Name: "ScriptRef"})
 	s.Insert(&Object{Kind: ObjBuiltin, Name: "len"})
 	s.Insert(&Object{Kind: ObjBuiltin, Name: "append"})
 	return s
@@ -134,6 +137,16 @@ type resolver struct {
 	diags   []diag.Diagnostic
 }
 
+func pkgSpan(files []*ast.File) source.Span {
+	if len(files) == 0 {
+		return source.Span{}
+	}
+	if files[0].Package != nil {
+		return files[0].Package.Sp
+	}
+	return files[0].Sp
+}
+
 func Resolve(sm *source.Manager, files map[string][]*ast.File, surface abi.Surface) (*Table, []diag.Diagnostic) {
 	r := &resolver{tab: &Table{Universe: Universe(), Packages: map[string]*Package{}}, surface: surface}
 	paths := make([]string, 0, len(files))
@@ -149,6 +162,10 @@ func Resolve(sm *source.Manager, files map[string][]*ast.File, surface abi.Surfa
 	}
 	for _, p := range paths {
 		r.declare(p, files[p])
+		if surface != nil && surface.Module(p) {
+			r.errorf(diag.ModuleConflict, pkgSpan(files[p]),
+				"%s is both a script directory under scripts/ and an engine or native module; rename the script directory", p)
+		}
 	}
 	for _, p := range paths {
 		r.imports(r.tab.Packages[p])

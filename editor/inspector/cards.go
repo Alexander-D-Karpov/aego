@@ -185,6 +185,15 @@ func (p *Panel) fieldMenu(ctx *context.Editor, d *document.SceneDocument) {
 	if !ok {
 		return
 	}
+	if td.Kind == schema.TypeScript && ctx.Code != nil {
+		if widgets.MenuItem(ui, "Go to Declaration", "Ctrl+Click", true, false) {
+			gotoScript(ctx, td.FullName, fd.Name)
+		}
+		if widgets.MenuItem(ui, "Find Usages", "", true, false) {
+			ctx.Code.FindUsages(td.FullName, fd.Name)
+		}
+		widgets.Separator(ui)
+	}
 	ro := fd.Flags.Has(schema.FlagReadOnly)
 	if widgets.MenuItem(ui, "Copy Value", ctx.Commands.Shortcut(CommandCopy), true, false) {
 		p.copyValue(ctx, d, td, fd)
@@ -197,6 +206,9 @@ func (p *Panel) fieldMenu(ctx *context.Editor, d *document.SceneDocument) {
 		if err := d.Props.Set(nil, p.nodes, td.ID, fd.ID, p.defaultValue(d.Scene().Registry(), td, fd)); err != nil {
 			ctx.Notify(context.LevelError, err.Error())
 		}
+	}
+	if td.Kind == schema.TypeScript {
+		return
 	}
 	widgets.Separator(ui)
 	if widgets.MenuItem(ui, "Copy Component", "", true, false) {

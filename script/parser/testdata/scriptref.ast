@@ -1,0 +1,74 @@
+File scriptref 1:1
+  Ident scriptref 1:9
+  Script 3:1
+    Ident Enemy 3:8
+    ScriptVar 4:2
+      Ident Hp 4:6
+      NamedType 4:9
+        Ident int 4:9
+      BasicLit INT 3 4:15
+    Func 6:2
+      Ident Hit 6:7
+      Param 6:11
+        Ident n 6:11
+        NamedType 6:13
+          Ident int 6:13
+      NamedType 6:18
+        Ident int 6:18
+      Block 6:22
+        Assign -= 7:3
+          Ident Hp 7:3
+          Ident n 7:9
+        Return 8:3
+          Ident Hp 8:10
+  Script 12:1
+    Ident Hunter 12:8
+    ScriptVar 13:2
+      Attr 13:2
+        Ident export 13:3
+      Ident Prey 13:14
+      NamedType 13:19
+        Ident NodeRef 13:19
+    ScriptVar 15:2
+      Ident last 15:6
+      NamedType 15:11
+        Ident int 15:11
+    Func 17:2
+      Ident Update 17:7
+      Param 17:14
+        Ident dt 17:14
+        NamedType 17:17
+          Ident float 17:17
+      Block 17:24
+        If 18:3
+          Binary == 18:6
+            Ident Prey 18:6
+            BasicLit nil nil 18:14
+          Block 18:18
+            Return 19:4
+        ShortVar 21:3
+          Ident e 21:3
+          Call targs=1 args=0 21:8
+            Selector 21:8
+              Ident Prey 21:8
+              Ident GetScript 21:13
+            NamedType 21:23
+              Ident Enemy 21:23
+        If 22:3
+          Binary == 22:6
+            Ident e 22:6
+            BasicLit nil nil 22:11
+          Block 22:15
+            Return 23:4
+        Assign = 25:3
+          Ident last 25:3
+          Call targs=0 args=1 25:10
+            Selector 25:10
+              Ident e 25:10
+              Ident Hit 25:12
+            BasicLit INT 1 25:16
+        Assign += 26:3
+          Selector 26:3
+            Ident e 26:3
+            Ident Hp 26:5
+          BasicLit INT 0 26:11

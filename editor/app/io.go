@@ -96,6 +96,9 @@ func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
 	set.Tool = uint8(st.Tool)
 	set.Grid, set.Snap = st.Grid, st.Snap
 	set.SnapMove, set.SnapRotate, set.SnapScale = st.SnapMove, st.SnapRotate, st.SnapScale
+	if c := a.opt.Code; c != nil {
+		c.Autosave, c.Hints, c.Minimap = st.Autosave, st.InlayHints, st.Minimap
+	}
 	for _, k := range st.Collapsed {
 		a.ctx.Collapsed[k] = true
 	}
@@ -146,6 +149,9 @@ func (a *App) collect(all bool) *state.Editor {
 	st.Tool = int(set.Tool)
 	st.Grid, st.Snap = set.Grid, set.Snap
 	st.SnapMove, st.SnapRotate, st.SnapScale = set.SnapMove, set.SnapRotate, set.SnapScale
+	if c := a.opt.Code; c != nil {
+		st.Autosave, st.InlayHints, st.Minimap = c.Autosave, c.Hints, c.Minimap
+	}
 	for k, closed := range a.ctx.Collapsed {
 		if closed {
 			st.Collapsed = append(st.Collapsed, k)
