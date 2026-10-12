@@ -9,15 +9,17 @@ import (
 )
 
 type Camera3D struct {
-	FOV        float32     `aego:"fov,min=1,max=179,unit=deg"`
-	Near       float32     `aego:"near,min=0.001"`
-	Far        float32     `aego:"far,min=0.01"`
-	Viewport   mathx.Rect  `aego:"viewport"`
-	Mask       int64       `aego:"mask"`
-	Order      int32       `aego:"order"`
-	Clear      bool        `aego:"clear"`
-	ClearColor mathx.Color `aego:"clearColor"`
-	Active     bool        `aego:"active"`
+	FOV          float32     `aego:"fov,min=1,max=179,unit=deg"`
+	Near         float32     `aego:"near,min=0.001"`
+	Far          float32     `aego:"far,min=0.01"`
+	Viewport     mathx.Rect  `aego:"viewport"`
+	Mask         int64       `aego:"mask"`
+	Order        int32       `aego:"order"`
+	Clear        bool        `aego:"clear"`
+	ClearColor   mathx.Color `aego:"clearColor"`
+	Active       bool        `aego:"active"`
+	Orthographic bool        `aego:"orthographic"`
+	OrthoSize    float32     `aego:"orthoSize,min=0.01"`
 }
 
 type MeshRenderer struct {
@@ -52,6 +54,7 @@ func DefaultCamera3D() Camera3D {
 		Clear:      true,
 		ClearColor: mathx.Color{R: 0.04, G: 0.05, B: 0.07, A: 1},
 		Active:     true,
+		OrthoSize:  5,
 	}
 }
 

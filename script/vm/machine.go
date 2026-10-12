@@ -171,8 +171,6 @@ type Machine struct {
 	Co       CoHooks
 }
 
-var errPanic = errors.New("native binding panicked")
-
 func New(opt Options) *Machine {
 	opt = opt.withDefaults()
 	return &Machine{
@@ -352,7 +350,7 @@ func (m *Machine) CallAs(f *Func, self []Value, args []Value, owner InstanceID) 
 }
 
 func (m *Machine) finish() *Fault {
-	m.run(0)
+	m.exec(0)
 	m.stats.Instructions += m.opt.Budget - m.left
 	fl := m.fault
 	if fl != nil {
@@ -391,13 +389,18 @@ func (m *Machine) trapErr(top, pc int, err error) {
 	m.trap(top, pc, CodeHost, err.Error())
 }
 
-func (m *Machine) host(h HostFunc, w []Value) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			m.raise(CodeNativePanic, fmt.Sprint("native binding panicked: ", r))
-			m.fault.Detail = string(debug.Stack())
-			err = errPanic
-		}
-	}()
-	return h(m, w)
+func (m *Machine) exec(floor int) {
+	defer m.recoverHost()
+	m.run(floor)
+}
+
+func (m *Machine) recoverHost() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	if m.fault == nil {
+		m.raise(CodeNativePanic, fmt.Sprint("native binding panicked: ", r))
+	}
+	m.fault.Detail = string(debug.Stack())
 }

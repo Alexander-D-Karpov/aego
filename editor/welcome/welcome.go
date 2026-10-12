@@ -56,12 +56,16 @@ type Check struct {
 }
 
 type Panel struct {
-	Reference func()
-	root      string
-	checks    []Check
-	done      map[string]bool
-	scroll    float32
-	content   float32
+	Reference  func()
+	NewProject func()
+	Empty      func() bool
+	Heading    string
+	Outro      string
+	root       string
+	checks     []Check
+	done       map[string]bool
+	scroll     float32
+	content    float32
 }
 
 func statePath(root string) string {
@@ -168,7 +172,16 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 	cur := ui.Cursor()
 	top := cur.Y
 	cur.Y -= p.scroll
-	widgets.Label(ui, "Getting started with Aego")
+	heading := p.Heading
+	if heading == "" {
+		heading = "Getting started with Aego"
+	}
+	widgets.Label(ui, heading)
+	if p.NewProject != nil && (p.Empty == nil || p.Empty()) {
+		if widgets.Button(ui, "Create a project…") {
+			p.NewProject()
+		}
+	}
 	n := p.count()
 	widgets.LabelDim(ui, strconv.Itoa(n)+" of "+strconv.Itoa(len(p.checks))+" done")
 	bar := cur.Next(6)
@@ -210,10 +223,10 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 		cur.Y += 4
 		ui.PopID()
 	}
-	if p.Complete() {
-		widgets.LabelWrapped(ui, "All done. The Script Reference covers the whole language, the standard library and hot reload.", false)
+	if p.Complete() && p.Outro != "" {
+		widgets.LabelWrapped(ui, p.Outro, false)
 	}
-	if p.Reference != nil && widgets.Button(ui, "Open Script Reference") {
+	if p.Reference != nil && widgets.Button(ui, "Open Documentation") {
 		p.Reference()
 	}
 	if widgets.Button(ui, "Reset checklist") {

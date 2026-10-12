@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/context"
 	"aego/editor/document"
+	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -33,6 +34,8 @@ type modal struct {
 	lock    document.LockInfo
 	input   string
 	ask     context.Question
+	vals    []string
+	focus   bool
 }
 
 func (a *App) push(m modal) {
@@ -153,12 +156,77 @@ func (a *App) drawModals() {
 			a.pop()
 		}
 	case modalAsk:
+		if len(md.ask.Fields) > 0 {
+			a.drawPrompt(id)
+			return
+		}
 		if c := widgets.Confirm(ui, id, md.ask.Title, md.ask.Message, md.ask.Buttons...); c >= 0 {
 			a.pop()
 			if md.ask.Then != nil {
 				md.ask.Then(c)
 			}
 		}
+	}
+}
+
+func (a *App) drawPrompt(id core.ID) {
+	ui := a.ui
+	th := &ui.Theme
+	md := &a.modals[0]
+	q := md.ask
+	for len(md.vals) < len(q.Fields) {
+		md.vals = append(md.vals, "")
+	}
+	rows := 2 + 2*len(q.Fields)
+	if q.Message != "" {
+		rows++
+	}
+	sz := ui.Size()
+	w := min(float32(460), sz.X-40)
+	r := mathx.Rect{X: (sz.X - w) / 2, Y: sz.Y / 3, W: w, H: float32(rows)*(th.RowHeight+th.Spacing) + th.Padding*4}
+	if !ui.BeginModal(id, r) {
+		return
+	}
+	widgets.Label(ui, q.Title)
+	if q.Message != "" {
+		widgets.LabelDim(ui, q.Message)
+	}
+	base := ui.ID("prompt")
+	submit, escape := false, false
+	for i, f := range q.Fields {
+		widgets.LabelDim(ui, f)
+		fid := core.IDSeq(base, i)
+		if md.focus && i == 0 {
+			ui.SetFocus(fid)
+			ui.EditBuffer(fid, md.vals[i]).SelectAll()
+			md.focus = false
+		}
+		if ui.Focus() == fid {
+			submit = submit || ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter)
+			escape = escape || ui.KeyPressed(input.KeyEscape)
+		}
+		widgets.TextFieldRect(ui, fid, ui.Cursor().Next(0), &md.vals[i], true)
+	}
+	row := ui.Cursor().Next(0)
+	okLabel, cancelLabel := "OK", "Cancel"
+	if len(q.Buttons) > 0 {
+		okLabel = q.Buttons[0]
+	}
+	if len(q.Buttons) > 1 {
+		cancelLabel = q.Buttons[1]
+	}
+	ok := widgets.ButtonRect(ui, ui.ID("prompt.ok"), mathx.Rect{X: row.X + row.W - 184, Y: row.Y, W: 88, H: row.H}, okLabel)
+	cancel := widgets.ButtonRect(ui, ui.ID("prompt.cancel"), mathx.Rect{X: row.X + row.W - 90, Y: row.Y, W: 88, H: row.H}, cancelLabel)
+	ui.EndModal()
+	switch {
+	case ok || submit:
+		vals := md.vals
+		a.pop()
+		if q.Submit != nil {
+			q.Submit(vals)
+		}
+	case cancel || escape:
+		a.pop()
 	}
 }
 

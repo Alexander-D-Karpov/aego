@@ -1,5 +1,7 @@
 package diag
 
+import "sort"
+
 type Help struct {
 	What string
 	Fix  string
@@ -109,4 +111,13 @@ func HelpText(code string) string {
 		return h.What + " Fix: " + h.Fix
 	}
 	return ""
+}
+
+func Codes() []string {
+	out := make([]string, 0, len(help))
+	for c := range help {
+		out = append(out, c)
+	}
+	sort.Strings(out)
+	return out
 }

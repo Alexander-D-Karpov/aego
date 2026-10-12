@@ -45,7 +45,7 @@ func (p *Panel) follow() {
 	p.sem = append(p.sem[:0], prim.sem...)
 	p.semVer++
 	p.marksAt = ^uint64(0)
-	p.occKey = mark{}
+	p.occT = settle{}
 }
 
 func (p *Panel) RequestClose() {

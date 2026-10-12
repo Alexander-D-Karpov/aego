@@ -16,4 +16,5 @@ type Orbit struct {
 	Yaw      float32
 	Pitch    float32
 	FOV      float32
+	Ortho    bool
 }

@@ -54,7 +54,7 @@ func (extract) Run(ctx *engine.Context) {
 	views := r.Views()
 	for i := range views {
 		mask := uint64(views[i].Layers)
-		if views[i].Projection == view.Perspective3D {
+		if views[i].Is3D() {
 			collect3(r, r.Bucket(i), mask)
 		} else {
 			collect(r, r.Bucket(i), mask)

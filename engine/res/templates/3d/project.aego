@@ -1,0 +1,4 @@
+project version=1 {
+  module="{{module}}"
+  defaultSpace="3d"
+}

@@ -67,7 +67,11 @@ func TestDocsMentionOnlyRealCodes(t *testing.T) {
 	for _, c := range declaredCodes(t) {
 		known[c] = true
 	}
-	files, _ := filepath.Glob(filepath.Join("..", "..", "docs", "*.md"))
+	var files []string
+	for _, pat := range []string{"*/res/docs/*.md", "*/*/res/docs/*.md"} {
+		m, _ := filepath.Glob(filepath.Join("..", "..", pat))
+		files = append(files, m...)
+	}
 	if len(files) == 0 {
 		t.Fatal("docs not found")
 	}

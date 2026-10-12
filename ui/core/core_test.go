@@ -5,6 +5,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/platform/input"
+	"aego/render/text"
 )
 
 func newCtx() (*Context, *input.State) {
@@ -114,5 +115,25 @@ func TestIDDoesNotAllocate(t *testing.T) {
 		_ = IDSeq(IDOf("widget"), 7)
 	}); n != 0 {
 		t.Fatalf("IDOf/IDSeq allocate: %.1f", n)
+	}
+}
+
+func TestPushFontRestores(t *testing.T) {
+	base := text.NewFont(14, 1, 16, 12)
+	mono := text.NewFont(14, 1, 17, 12)
+	c := New(base)
+	in := &input.State{}
+	frame(c, in)
+	m := c.Mark()
+	c.PushFont(mono)
+	if c.Font() != mono || c.List().Font() != mono {
+		t.Fatal("push must switch the ui and the list font")
+	}
+	c.Restore(m)
+	if c.Font() != base || c.List().Font() != nil {
+		t.Fatal("restore must pop fonts pushed after the mark")
+	}
+	if c.MonoFont() != base {
+		t.Fatal("without a mono set the mono font falls back to the ui font")
 	}
 }

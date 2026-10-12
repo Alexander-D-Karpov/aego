@@ -1,4 +1,4 @@
-//go:build aego_nonative
+//go:build aego_nonative || js
 
 package engine
 

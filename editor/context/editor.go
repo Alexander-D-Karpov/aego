@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	KindFiles = "files"
-	KindAsset = "asset"
-	KindNodes = "nodes"
+	KindFiles  = "files"
+	KindAsset  = "asset"
+	KindAssets = "assets"
+	KindNodes  = "nodes"
 )
 
 type Level uint8
@@ -154,6 +155,9 @@ type Editor struct {
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)
 	OpenScript   func(rel string, line int)
+	ShowDocs     func(ref, query string)
+	NewScene     func(rel string) error
+	NewPrefab    func(rel string) error
 
 	FocusedPanel string
 	AssetRev     uint64
@@ -307,6 +311,11 @@ type AssetPayload struct {
 	Name string
 }
 
+type AssetsPayload struct {
+	Items []AssetPayload
+	Dirs  []string
+}
+
 type NodesPayload struct {
 	Doc   document.ID
 	Nodes []ids.NodeID
@@ -343,7 +352,10 @@ type Question struct {
 	Title   string
 	Message string
 	Buttons []string
+	Fields  []string
+	Values  []string
 	Then    func(choice int)
+	Submit  func(values []string)
 }
 
 func (e *Editor) Ask(q Question) {

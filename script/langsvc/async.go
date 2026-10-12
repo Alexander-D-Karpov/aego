@@ -87,21 +87,21 @@ func startItems(c *collector, snap *workspace.Snapshot, f *ast.File, off uint32)
 	}
 }
 
-func yieldItems(c *collector) {
+func yieldItems(c *collector, snap *workspace.Snapshot) {
 	for _, y := range []Item{
 		{Label: "wait", Detail: "yield wait(seconds float)", Insert: "wait(${1:seconds})"},
 		{Label: "frames", Detail: "yield frames(n int)", Insert: "frames(${1:n})"},
 		{Label: "fixed", Detail: "yield fixed(n int)", Insert: "fixed(${1:n})"},
 	} {
 		y.Kind = ItemSnippet
-		y.Doc = builtinText("yield " + y.Label)
+		y.Doc = builtinText(snap, "yield "+y.Label)
 		c.add(y)
 	}
 }
 
-func signalMembers(c *collector, sg *checker.ScriptSignal) {
-	c.add(Item{Label: "Emit", Detail: "Emit" + paramsText(sg), Doc: builtinText("Emit"), Kind: ItemMethod, Insert: "Emit("})
-	c.add(Item{Label: "Connect", Detail: "Connect(handler func" + paramsText(sg) + ") Connection", Doc: builtinText("Connect"), Kind: ItemMethod, Insert: "Connect("})
+func signalMembers(c *collector, snap *workspace.Snapshot, sg *checker.ScriptSignal) {
+	c.add(Item{Label: "Emit", Detail: "Emit" + paramsText(sg), Doc: builtinText(snap, "Emit"), Kind: ItemMethod, Insert: "Emit("})
+	c.add(Item{Label: "Connect", Detail: "Connect(handler func" + paramsText(sg) + ") Connection", Doc: builtinText(snap, "Connect"), Kind: ItemMethod, Insert: "Connect("})
 }
 
 func scriptRefMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg string) {
@@ -191,7 +191,7 @@ func scriptMethodNamed(a *checker.Analysis, pkg, name string) *checker.Func {
 	return found
 }
 
-func signalSignature(sg *checker.ScriptSignal, method string) Signature {
+func signalSignature(snap *workspace.Snapshot, sg *checker.ScriptSignal, method string) Signature {
 	var sb sigBuilder
 	sb.b.WriteString("func (signal " + sg.Name + ") " + method + "(")
 	if method == "Emit" {
@@ -203,26 +203,26 @@ func signalSignature(sg *checker.ScriptSignal, method string) Signature {
 		sb.param("handler func" + paramsText(sg))
 		sb.b.WriteString(") Connection")
 	}
-	return Signature{Label: sb.b.String(), Params: sb.params, Doc: builtinText(method)}
+	return Signature{Label: sb.b.String(), Params: sb.params, Doc: builtinText(snap, method)}
 }
 
-func asyncCallHover(k *checker.Call) (Hover, bool) {
+func asyncCallHover(snap *workspace.Snapshot, k *checker.Call) (Hover, bool) {
 	switch k.Kind {
 	case checker.CallEmit:
-		return Hover{Signature: "func (signal " + k.Signal.Name + ") Emit" + paramsText(k.Signal), Doc: builtinText("Emit")}, true
+		return Hover{Signature: "func (signal " + k.Signal.Name + ") Emit" + paramsText(k.Signal), Doc: builtinText(snap, "Emit")}, true
 	case checker.CallConnect:
-		return Hover{Signature: "func (signal " + k.Signal.Name + ") Connect(handler func" + paramsText(k.Signal) + ") Connection", Doc: builtinText("Connect")}, true
+		return Hover{Signature: "func (signal " + k.Signal.Name + ") Connect(handler func" + paramsText(k.Signal) + ") Connection", Doc: builtinText(snap, "Connect")}, true
 	case checker.CallDisconnect:
-		return Hover{Signature: "func (Connection) Disconnect()", Doc: builtinText("Disconnect")}, true
+		return Hover{Signature: "func (Connection) Disconnect()", Doc: builtinText(snap, "Disconnect")}, true
 	case checker.CallConnected:
-		return Hover{Signature: "func (Connection) Connected() bool", Doc: builtinText("Connected")}, true
+		return Hover{Signature: "func (Connection) Connected() bool", Doc: builtinText(snap, "Connected")}, true
 	case checker.CallCoStop:
-		return Hover{Signature: "func (Coroutine) Stop()", Doc: builtinText("Stop")}, true
+		return Hover{Signature: "func (Coroutine) Stop()", Doc: builtinText(snap, "Stop")}, true
 	case checker.CallCoRunning:
-		return Hover{Signature: "func (Coroutine) Running() bool", Doc: builtinText("Running")}, true
+		return Hover{Signature: "func (Coroutine) Running() bool", Doc: builtinText(snap, "Running")}, true
 	case checker.CallGetScript:
 		s := shortScript(k.Target)
-		return Hover{Signature: "func (NodeRef) GetScript<" + s + ">() ScriptRef<" + s + ">", Doc: builtinText("GetScript")}, true
+		return Hover{Signature: "func (NodeRef) GetScript<" + s + ">() ScriptRef<" + s + ">", Doc: builtinText(snap, "GetScript")}, true
 	}
 	return Hover{}, false
 }

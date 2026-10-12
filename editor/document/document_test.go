@@ -165,3 +165,27 @@ func TestLock(t *testing.T) {
 		t.Fatal("release did not remove the lock")
 	}
 }
+
+func TestRenamedMovesScripts(t *testing.T) {
+	m := newManager(t)
+	if err := WriteAtomic(m.Abs("scripts/a/enemy.aes"), []byte("package a\n")); err != nil {
+		t.Fatal(err)
+	}
+	d, err := m.OpenScript("scripts/a/enemy.aes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(m.Abs("scripts/b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(m.Abs("scripts/a"), m.Abs("scripts/b/a")); err != nil {
+		t.Fatal(err)
+	}
+	m.Renamed("scripts/a", "scripts/b/a")
+	if d.Path != "scripts/b/a/enemy.aes" || m.Script("scripts/b/a/enemy.aes") != d {
+		t.Fatalf("script path = %s", d.Path)
+	}
+	if _, conflicts := m.CheckExternalScripts(); len(conflicts) != 0 {
+		t.Fatal("a moved script must not report as deleted")
+	}
+}

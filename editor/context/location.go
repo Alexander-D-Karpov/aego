@@ -49,6 +49,7 @@ type ScriptNav interface {
 	FindUsages(typeName, field string)
 	LiveProblems() ([]ScriptProblem, uint64)
 	Symbols() []SearchItem
+	Renamed(oldRel, newRel string)
 }
 
 func (p ScriptProblem) Location() Location {

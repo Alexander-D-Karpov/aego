@@ -2,6 +2,8 @@ package module
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/fs"
 	"path"
 	"strconv"
@@ -63,6 +65,77 @@ func builtinIcons() map[string]bool {
 	return out
 }
 
+type IconProblemKind uint8
+
+const (
+	IconMissing IconProblemKind = iota
+	IconUnused
+	IconBadName
+	IconEmptySource
+)
+
+type IconProblem struct {
+	Kind  IconProblemKind
+	Owner string
+	Icon  string
+	By    string
+}
+
+func (p IconProblem) String() string {
+	switch p.Kind {
+	case IconMissing:
+		return p.By + " uses icon " + p.Icon + ", which no icon source provides"
+	case IconUnused:
+		return "icon " + p.Icon + " is not used by any component or template"
+	case IconBadName:
+		return "icon file " + p.Icon + " is not named <id>@<size>x<scale>.png"
+	}
+	return "icon source with prefix " + p.Icon + " has no <id>@<size>x<scale>.png files"
+}
+
+type IconReport struct {
+	Problems []IconProblem
+	used     map[string]bool
+	seen     map[string]bool
+}
+
+func (r *IconReport) Write(w io.Writer) int {
+	for _, p := range r.Problems {
+		fmt.Fprintln(w, p.Owner+": "+p.String())
+	}
+	if len(r.Problems) > 0 {
+		return 1
+	}
+	return 0
+}
+
+func (r *Registry) iconIssue(p IconProblem) {
+	switch {
+	case r.audit != nil:
+		key := strconv.Itoa(int(p.Kind)) + "|" + p.Owner + "|" + p.Icon
+		if !r.audit.seen[key] {
+			r.audit.seen[key] = true
+			r.audit.Problems = append(r.audit.Problems, p)
+		}
+	case p.Kind == IconBadName:
+		r.Warn(p.Owner, p.String())
+	default:
+		r.report(p.Owner, p.String())
+	}
+}
+
+func (r *Registry) useIcon(known map[string]bool, owner, icon, by string) {
+	if icon == "" {
+		return
+	}
+	if r.audit != nil {
+		r.audit.used[icon] = true
+	}
+	if !known[icon] {
+		r.iconIssue(IconProblem{Kind: IconMissing, Owner: owner, Icon: icon, By: by})
+	}
+}
+
 func (r *Registry) scanIcons() map[string]bool {
 	known := builtinIcons()
 	for i := range r.icons {
@@ -74,6 +147,9 @@ func (r *Registry) scanIcons() map[string]bool {
 			}
 			id, ok := iconID(path.Base(p))
 			if !ok {
+				if strings.HasSuffix(p, ".png") {
+					r.iconIssue(IconProblem{Kind: IconBadName, Owner: set.Owner, Icon: p})
+				}
 				return nil
 			}
 			full := set.Prefix + id
@@ -89,7 +165,7 @@ func (r *Registry) scanIcons() map[string]bool {
 			continue
 		}
 		if len(set.IDs) == 0 {
-			r.report(set.Owner, "icon source with prefix "+set.Prefix+" has no <id>@<size>x<scale>.png files")
+			r.iconIssue(IconProblem{Kind: IconEmptySource, Owner: set.Owner, Icon: set.Prefix})
 		}
 	}
 	return known

@@ -7,14 +7,16 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"aego/app/docstool"
 	"aego/app/edit"
+	"aego/app/projects"
 	"aego/app/run"
 	"aego/app/supervise"
 	"aego/asset/pipeline"
 	"aego/core/log"
+	"aego/editor/launcher"
 	"aego/engine"
 	"aego/engine/bootstrap"
-	"aego/format/aetext"
 	"aego/project"
 	"aego/script/diag"
 )
@@ -37,10 +39,16 @@ func dispatch(args []string) int {
 		return cmdEdit(args[1:])
 	case "build":
 		return cmdBuild(args[1:])
+	case "bootstrap":
+		return cmdBootstrap(args[1:])
 	case "import":
 		return cmdImport(args[1:])
 	case "check":
 		return cmdCheck(args[1:])
+	case "icons":
+		return cmdIcons(args[1:])
+	case "docs":
+		return cmdDocs(args[1:])
 	case "test":
 		return cmdTest(args[1:])
 	case "dump":
@@ -57,14 +65,18 @@ func dispatch(args []string) int {
 func usage() {
 	fmt.Fprint(os.Stderr, `aego <command> [flags]
 
-  new <dir> [--native]   create a project
+  new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]
+                         create a project from a template or an engine example
   run [dir]              import assets and run the game
-  edit [dir]             open the project in the editor
+  edit [dir]             open the project in the editor; without a project opens the launcher
   build [dir]            build the native binary
+  bootstrap [dir]        regenerate .aego/generated for the native module without building
   import [dir] [--force] reimport all assets
-  check [dir] [--manifest file]  parse every document and type-check scripts against engine and native bindings
+  check [dir] [--manifest file] [--explain]  parse every document and type-check scripts; --explain prints the reference for each reported code
+  icons [dir]            check module icon files against the icons components and templates use
   test [dir] [-run name] [-v]  run *_test.aes script tests headless
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
+  docs export|check|build|serve  documentation registry, site and playground
 `)
 }
 
@@ -88,76 +100,60 @@ func firstArg(args []string) (string, []string) {
 
 func cmdNew(args []string) int {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
+	tmpl := fs.String("template", projects.Template2D, "empty, 2d, 2.5d or 3d")
+	module := fs.String("module", "", "module path, defaults to the directory name")
+	example := fs.String("example", "", "copy an engine example instead of a template")
 	native := fs.Bool("native", false, "create a project with a native Go module")
-	engine := fs.String("engine", "", "path to the aego source tree for native projects")
+	engineDir := fs.String("engine", "", "path to the aego source tree for native projects and examples")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
 	}
 	if dir == "" {
-		fmt.Fprintln(os.Stderr, "usage: aego new <dir> [--native] [--engine <dir>]")
+		fmt.Fprintln(os.Stderr, "usage: aego new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native] [--engine dir]")
 		return 2
 	}
-	var root string
-	if *native {
-		r, err := engineRoot(*engine)
+	opt := projects.Options{Dir: dir, Template: *tmpl, Module: *module, Example: *example, Native: *native}
+	if *native || *example != "" {
+		root, err := projects.EngineRoot(*engineDir)
 		if err != nil {
 			return fail(err)
 		}
-		root = r
+		opt.Engine = root
 	}
-	p, err := project.Create(dir, filepath.Base(dir), *native)
+	p, err := projects.Create(opt)
 	if err != nil {
 		return fail(err)
 	}
-	if err := writeStarterScene(p); err != nil {
+	if err := projects.Verify(p, os.Stderr); err != nil {
 		return fail(err)
 	}
-	if *native {
-		if err := writeNativeStarter(p, root); err != nil {
-			return fail(err)
-		}
+	what := "template " + *tmpl
+	if *example != "" {
+		what = "example " + *example
 	}
-	fmt.Printf("created %s\n", p.Root)
+	fmt.Printf("Created %s (%s). Run: aego edit %s\n", dir, what, dir)
 	return 0
 }
 
-func transformBlock(x, y float32) *aetext.Node {
-	n := &aetext.Node{Head: "transform"}
-	n.Fields = append(n.Fields,
-		aetext.Field{Name: "position", Value: aetext.List(aetext.Float32(x), aetext.Float32(y))},
-		aetext.Field{Name: "rotation", Value: aetext.Float32(0)},
-		aetext.Field{Name: "scale", Value: aetext.List(aetext.Float32(1), aetext.Float32(1))},
-	)
-	return n
-}
-
-const nativeStarter = `package native
-
-import "aego/sdk"
-
-type Module struct{}
-
-func (Module) Info() sdk.ModuleInfo {
-	return sdk.ModuleInfo{ID: "game", Version: "0.1.0"}
-}
-
-func (Module) Register(r *sdk.Registry) error {
-	return nil
-}
-
-func Modules() []sdk.Module {
-	return []sdk.Module{Module{}}
-}
-`
-
-func writeNativeStarter(p *project.Project, engine string) error {
-	if err := os.WriteFile(filepath.Join(p.NativeDir(), "module.go"), []byte(nativeStarter), 0o644); err != nil {
-		return err
+func cmdBootstrap(args []string) int {
+	dir, _ := firstArg(args)
+	p, err := openProject(dir)
+	if err != nil {
+		return fail(err)
 	}
-	gomod := fmt.Sprintf("module %s\n\ngo 1.27\n\nrequire aego v0.0.0\n\nreplace aego => %s\n",
-		p.Module, filepath.ToSlash(engine))
-	return os.WriteFile(filepath.Join(p.Root, "go.mod"), []byte(gomod), 0o644)
+	if !p.Native {
+		fmt.Fprintln(os.Stderr, "project has native=false, nothing to bootstrap")
+		return 1
+	}
+	for _, m := range []bootstrap.Mode{bootstrap.ModeRun, bootstrap.ModeManifest} {
+		path, err := bootstrap.Generate(p, m)
+		if err != nil {
+			return fail(err)
+		}
+		fmt.Println(path)
+	}
+	return 0
 }
 
 func cmdRun(args []string) int {
@@ -212,6 +208,19 @@ func cmdEdit(args []string) int {
 	if err := fs.Parse(rest); err != nil {
 		return 2
 	}
+	recent, _ := launcher.RecentPath()
+	if dir == "" {
+		if _, err := project.Find("."); err != nil {
+			root, err := edit.Launch(edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, Recent: recent})
+			if err != nil {
+				return fail(err)
+			}
+			if root == "" {
+				return 0
+			}
+			dir = root
+		}
+	}
 	p, err := openProject(dir)
 	if err != nil {
 		return fail(err)
@@ -229,7 +238,7 @@ func cmdEdit(args []string) int {
 		}
 		return 0
 	}
-	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile}
+	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Recent: recent}
 	if err := edit.Run(p, cfg); err != nil {
 		return fail(err)
 	}
@@ -272,7 +281,7 @@ func cmdImport(args []string) int {
 		os.RemoveAll(filepath.Join(p.CacheDir(), "artifacts"))
 		os.Remove(filepath.Join(p.CacheDir(), "index.aetext"))
 	}
-	ws, err := openWorkspace(p, "", false)
+	ws, err := projects.OpenWorkspace(p, "", false)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aego:", err)
 		return 2
@@ -308,6 +317,7 @@ func cmdImport(args []string) int {
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	manifestPath := fs.String("manifest", "", "check against this bindings manifest instead of building one")
+	explain := fs.Bool("explain", false, "print the reference entry of every reported diagnostic code")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -316,14 +326,21 @@ func cmdCheck(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	problems := checkDocuments(p)
-	ws, err := openWorkspace(p, *manifestPath, true)
+	problems := projects.CheckDocuments(p, os.Stderr)
+	ws, err := projects.OpenWorkspace(p, *manifestPath, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aego:", err)
 		return 2
 	}
 	snap := ws.Snapshot()
 	diag.Print(os.Stderr, snap.Sources, snap.Diagnostics)
+	if *explain && len(snap.Diagnostics) > 0 {
+		if reg, err := docstool.Registry(nil, nil); err != nil {
+			fmt.Fprintln(os.Stderr, "aego: explain:", err)
+		} else {
+			docstool.Explain(os.Stderr, reg, snap.Diagnostics)
+		}
+	}
 	if n := snap.Errors(); n > 0 {
 		fmt.Fprintf(os.Stderr, "scripts: %d error(s)\n", n)
 		problems++
@@ -334,38 +351,6 @@ func cmdCheck(args []string) int {
 	}
 	fmt.Println("check: ok")
 	return 0
-}
-
-func checkDocuments(p *project.Project) int {
-	problems := 0
-	err := filepath.WalkDir(p.Root, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		switch filepath.Ext(path) {
-		case ".aescene", ".aeprefab", ".aego", ".meta":
-		default:
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		if _, err := aetext.Parse(data, path); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			problems++
-		}
-		if len(data) > 0 && data[len(data)-1] != '\n' {
-			fmt.Fprintf(os.Stderr, "%s: missing final newline\n", path)
-			problems++
-		}
-		return nil
-	})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "aego:", err)
-		problems++
-	}
-	return problems
 }
 
 func fail(err error) int {

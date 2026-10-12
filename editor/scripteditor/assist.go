@@ -224,34 +224,6 @@ func (p *Panel) jump(l langsvc.Location) {
 	p.host.OpenAt(l.Path, int(l.Span.Start))
 }
 
-func (p *Panel) definition(ui *core.Context) {
-	if p.doc.ReadOnly {
-		p.stubSource(ui)
-		return
-	}
-	file, ok := p.file()
-	off, ok2 := p.snapOffset()
-	if !ok || !ok2 {
-		p.flash(ui.Time, analyzing)
-		return
-	}
-	loc, ok := p.host.lang.DefinitionIn(p.snap, file, uint32(off))
-	switch {
-	case !ok:
-		p.flash(ui.Time, "No definition found")
-	case loc.Native && loc.Stub != "" && p.host.openStub(loc):
-	case loc.Native && loc.Path != "" && p.host.openGo(loc.Path):
-	case loc.Native:
-		msg := "Defined in native code"
-		if h, ok := p.host.lang.HoverIn(p.snap, file, uint32(off)); ok {
-			msg = h.Signature
-		}
-		p.flash(ui.Time, msg)
-	default:
-		p.jump(loc)
-	}
-}
-
 func box(ui *core.Context, at mathx.Vec2, lines []string, first mathx.Color) {
 	th := &ui.Theme
 	w, lh := float32(0), ui.LineHeight()+2
@@ -298,6 +270,9 @@ func (p *Panel) hoverLines(th *core.Theme) ([]string, mathx.Color) {
 	}
 	if p.hover.ok {
 		lines = append(lines, p.hover.info.Signature)
+		if p.hover.builtin {
+			lines = append(lines, "engine builtin")
+		}
 		if p.hover.info.Doc != "" {
 			lines = append(lines, strings.Split(p.hover.info.Doc, "\n")...)
 		}

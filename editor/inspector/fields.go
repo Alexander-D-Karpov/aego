@@ -384,7 +384,7 @@ func (p *Panel) scalar(ctx *context.Editor, d *document.SceneDocument, id core.I
 	case schema.KindAssetRef:
 		return p.assetField(ctx, id, r, fd, v, mixed)
 	case schema.KindNodeRef:
-		return p.nodeField(ctx, d, id, r, v, mixed)
+		return p.nodeField(ctx, d, id, r, v, mixed, fd.Component)
 	}
 	return widgets.Edit{}
 }
@@ -473,9 +473,9 @@ func (p *Panel) summary(ctx *context.Editor, d *document.SceneDocument, fd *sche
 		}
 		return strconv.FormatInt(v.I, 10)
 	case schema.KindAssetRef:
-		return assetName(ctx, v.Asset)
+		return assetState(ctx.Pipeline, v.Asset).label
 	case schema.KindNodeRef:
-		return nodeName(d, v.Node)
+		return nodeState(d.Scene(), v.Node, fd.Component).label
 	case schema.KindList:
 		return "[" + strconv.Itoa(len(v.List)) + "]"
 	}
@@ -490,6 +490,7 @@ func elemOf(fd *schema.FieldDescriptor) schema.FieldDescriptor {
 		Enum:      fd.Enum,
 		EnumName:  fd.EnumName,
 		AssetKind: fd.AssetKind,
+		Component: fd.Component,
 		Flags:     fd.Flags,
 		Min:       fd.Min,
 		Max:       fd.Max,

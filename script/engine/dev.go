@@ -1,4 +1,4 @@
-//go:build !aego_runtime
+//go:build !aego_runtime && !js
 
 package scriptengine
 
@@ -12,6 +12,7 @@ import (
 const reflectFallback = true
 
 func registerDev(r *module.Registry) {
+	registerDocs(r)
 	r.Dev(func(imps *pipeline.ImporterRegistry, env *pipeline.DevEnv) error {
 		var ws *workspace.Workspace
 		if env != nil {

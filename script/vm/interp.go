@@ -7,9 +7,9 @@ import (
 	"aego/script/bytecode"
 )
 
-func (m *Machine) at(top int) (*Func, int, int, []bytecode.Instr, []Value, []Value, InstanceID) {
+func (m *Machine) at(top int) (*frame, *Func, int, []bytecode.Instr, []Value) {
 	fr := &m.frames[top]
-	return fr.f, fr.base, fr.pc, fr.f.code, m.stack[fr.base : fr.base+fr.f.Regs], fr.self, fr.owner
+	return fr, fr.f, fr.pc, fr.f.code, m.stack[fr.base : fr.base+fr.f.Regs]
 }
 
 func (m *Machine) enter(top, pc int, callee *Func, nb, ret int, self []Value, owner InstanceID) bool {
@@ -29,7 +29,7 @@ func (m *Machine) enter(top, pc int, callee *Func, nb, ret int, self []Value, ow
 
 func (m *Machine) run(floor int) {
 	top := len(m.frames) - 1
-	f, base, pc, code, regs, self, owner := m.at(top)
+	fr, f, pc, code, regs := m.at(top)
 	for {
 		if m.left == 0 {
 			m.stats.BudgetAborts++
@@ -172,11 +172,11 @@ func (m *Machine) run(floor int) {
 				m.trap(top, pc, CodeLink, "extern function is not linked")
 				return
 			}
-			if !m.enter(top, pc, callee, base+a, base+a, self, owner) {
+			if !m.enter(top, pc, callee, fr.base+a, fr.base+a, fr.self, fr.owner) {
 				return
 			}
 			top++
-			f, base, pc, code, regs, self, owner = m.at(top)
+			fr, f, pc, code, regs = m.at(top)
 		case bytecode.CALLR:
 			x := &f.mod.xmethods[in.Bx()]
 			if m.Scripts == nil {
@@ -188,32 +188,31 @@ func (m *Machine) run(floor int) {
 				m.trap(top, pc, CodeNil, "script reference is nil or its instance is gone")
 				return
 			}
-			if !m.enter(top, pc, x.fn, base+a+1, base+a, tgt, id) {
+			if !m.enter(top, pc, x.fn, fr.base+a+1, fr.base+a, tgt, id) {
 				return
 			}
 			top++
-			f, base, pc, code, regs, self, owner = m.at(top)
+			fr, f, pc, code, regs = m.at(top)
 		case bytecode.START:
 			callee := f.mod.Funcs[in.Bx()]
-			if !m.enter(top, pc, callee, base+a, base+a, self, owner) {
+			if !m.enter(top, pc, callee, fr.base+a, fr.base+a, fr.self, fr.owner) {
 				return
 			}
-			h := m.newCo(callee, owner)
+			h := m.newCo(callee, fr.owner)
 			top++
 			m.frames[top].co = h.Index + 1
-			f, base, pc, code, regs, self, owner = m.at(top)
+			fr, f, pc, code, regs = m.at(top)
 		case bytecode.CALLH:
 			bx := int(in.Bx())
 			m.frames[top].pc = pc
 			m.stats.HostCalls++
-			if err := m.host(f.mod.hosts[bx], regs[a:a+f.mod.windows[bx]]); err != nil {
+			if err := f.mod.hosts[bx](m, regs[a:a+f.mod.windows[bx]]); err != nil {
 				if m.fault == nil {
 					m.trapErr(top, pc, err)
 				}
 				return
 			}
 		case bytecode.RET, bytecode.YIELD:
-			fr := &m.frames[top]
 			switch {
 			case in.Op() == bytecode.YIELD && fr.co == 0:
 				m.trap(top, pc, CodeLink, "yield outside a coroutine frame")
@@ -234,9 +233,10 @@ func (m *Machine) run(floor int) {
 				return
 			}
 			top--
-			f, base, pc, code, regs, self, owner = m.at(top)
+			fr, f, pc, code, regs = m.at(top)
 		case bytecode.GETSF, bytecode.SETSF:
 			bx := int(in.Bx())
+			self := fr.self
 			if bx >= len(self) {
 				m.trap(top, pc, CodeLink, "script field is outside the instance")
 				return
@@ -305,11 +305,11 @@ func (m *Machine) run(floor int) {
 			}
 			regs[a] = ref
 		case bytecode.SELFREF:
-			if len(self) == 0 {
+			if len(fr.self) == 0 {
 				m.trap(top, pc, CodeLink, "self reference outside a script instance")
 				return
 			}
-			regs[a] = Value{A: self[0].A, B: uint64(owner)}
+			regs[a] = Value{A: fr.self[0].A, B: uint64(fr.owner)}
 		case bytecode.COSTOP:
 			if !regs[a].IsZero() {
 				m.Cancel(CoOf(regs[a]))
@@ -323,14 +323,14 @@ func (m *Machine) run(floor int) {
 			}
 			n := f.mod.sigSlots[f.Script][in.Bx()]
 			m.frames[top].pc = pc
-			if err := m.Signals.Emit(owner, int(in.Bx()), regs[a:a+n]); err != nil {
+			if err := m.Signals.Emit(fr.owner, int(in.Bx()), regs[a:a+n]); err != nil {
 				m.trapErr(top, pc, err)
 				return
 			}
 			if m.fault != nil {
 				return
 			}
-			f, base, pc, code, regs, self, owner = m.at(top)
+			fr, f, pc, code, regs = m.at(top)
 		case bytecode.CONNECT:
 			if m.Signals == nil {
 				m.trap(top, pc, CodeLink, "signals are not bound")

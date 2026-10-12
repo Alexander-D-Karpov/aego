@@ -16,12 +16,17 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/engine"
+	"aego/engine/res"
 	"aego/gpu"
 	"aego/render"
 	rendermodule "aego/render/module"
 	"aego/render/sprite"
+	"aego/render/text"
 	"aego/render/texture"
 	"aego/render/view"
+	"aego/ui/draw"
+	"aego/ui/theme"
+	"aego/vfs"
 )
 
 const size = 256
@@ -75,7 +80,7 @@ func TestGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tc := range cases(t, r) {
+	for _, tc := range append(append(cases(t, r), monoCases(t, r)...), codeCases(t, r)...) {
 		img, err := render1(e, r, target, tc.scene)
 		t.Run(tc.name, func(t *testing.T) {
 			if err != nil {
@@ -145,15 +150,19 @@ func compare(t *testing.T, path string, got *image.NRGBA, tolerance int) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	b := got.Bounds()
+	if want.Bounds() != b {
+		t.Fatalf("reference is %v, got %v", want.Bounds(), b)
+	}
 	differing := 0
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
 			if diff(want.At(x, y), got.At(x, y)) > tolerance {
 				differing++
 			}
 		}
 	}
-	if pct := float64(differing) * 100 / float64(size*size); pct > 0.5 {
+	if pct := float64(differing) * 100 / float64(b.Dx()*b.Dy()); pct > 0.5 {
 		writePNG(t, filepath.Join("testdata", "actual-"+filepath.Base(path)), got)
 		t.Fatalf("%.3f%% of pixels differ beyond tolerance %d", pct, tolerance)
 	}
@@ -341,4 +350,49 @@ func buildAtlas(t *testing.T, r *render.Renderer) texture.Region {
 		t.Fatal(err)
 	}
 	return texture.Whole(tex, 64, 64)
+}
+
+func monoCases(t *testing.T, r *render.Renderer) []testCase {
+	t.Helper()
+	files, err := vfs.New(vfs.Mount{Scheme: "engine", Source: res.Source(), ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := text.LoadSet(files, r.Textures(), "engine://fonts", "ui-mono", []int{14}, []int{1})
+	if err != nil {
+		t.Fatalf("mono atlas missing, run make genfont: %v", err)
+	}
+	font := set.Fonts()[0]
+	code := theme.Code()
+	black := mathx.Color{A: 1}
+	white := mathx.Color{R: 1, G: 1, B: 1, A: 1}
+	screen := func(tgt gpu.TextureHandle) view.View {
+		v := view.ScreenView(size, size, 1)
+		v.Target, v.Clear, v.DoClear = tgt, black, true
+		return v
+	}
+	line := func(s string, marks []int, col mathx.Color) sceneFunc {
+		return func(r *render.Renderer, tgt gpu.TextureHandle) {
+			l := draw.NewList(64)
+			l.SetFont(font)
+			adv := font.Advance('0')
+			at := mathx.Vec2{X: 16, Y: 40}
+			l.Text(s, at, white)
+			for _, m := range marks {
+				l.RectOutline(mathx.Rect{X: at.X + float32(m)*adv, Y: at.Y, W: adv, H: font.LineHeight}, col, 1)
+			}
+			f := r.View(screen(tgt))
+			l.Flush(f, font, r.White(), 0)
+			f.End()
+		}
+	}
+	return []testCase{
+		{"mono_glyphs", 4, func(r *render.Renderer, tgt gpu.TextureHandle) {
+			f := r.View(screen(tgt))
+			f.TextFont(font, "{}[]()<>|&\n→ · …", mathx.Vec2{X: 16, Y: 24}, 2, white, 0, 0)
+			f.End()
+		}},
+		{"bracket_match", 4, line("call(a[0]) {}", []int{4, 9}, code.BracketMatch)},
+		{"bracket_mismatch", 4, line("call(a]", []int{4}, code.BracketMismatch)},
+	}
 }

@@ -15,6 +15,7 @@ import (
 	editorapp "aego/editor/app"
 	"aego/editor/builtins"
 	"aego/editor/document"
+	"aego/editor/launcher"
 	"aego/editor/scripteditor"
 	"aego/editor/session"
 	"aego/engine"
@@ -37,6 +38,7 @@ type Config struct {
 	NoWatch    bool
 	Supervised bool
 	CPUProfile string
+	Recent     string
 	Logger     *log.Logger
 }
 
@@ -96,6 +98,7 @@ func Main(mods ...sdk.Module) {
 		CPUProfile: *cpu,
 		Supervised: os.Getenv(session.EnvSupervised) == "1",
 	}
+	cfg.Recent, _ = launcher.RecentPath()
 	err = Run(p, cfg, mods...)
 	if errors.Is(err, ErrRestart) {
 		os.Exit(session.ExitRestart)
@@ -145,6 +148,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 	if cfg.Height <= 0 {
 		cfg.Height = 900
 	}
+	made, dirsErr := p.EnsureDirs()
 	h, err := app.Build(p, app.Config{
 		Engine: engine.Config{
 			Title:    p.Name + " — Aego Editor",
@@ -166,6 +170,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		return nil, err
 	}
 	s := &Session{Host: h, cfg: cfg, log: h.Log.With(editorapp.ChannelEditor)}
+	touchRecent(cfg, p.Root, p.Name, s.log)
 	s.Scripts = &scriptHost{
 		bindings: h.Bindings,
 		schema:   h.Types.Schema(),
@@ -176,6 +181,9 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		modules:  h.Modules,
 	}
 	lang := langsvc.New(h.Workspace, h.Engine.Jobs())
+	if p.Native {
+		lang.SetNativeRoot(p.NativeDir())
+	}
 	if err := s.Scripts.Reload(); err != nil {
 		s.log.Error("cannot publish script types", log.F("err", err.Error()))
 	}
@@ -201,6 +209,11 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Paced:       !cfg.Headless,
 		Scripts:     s.Scripts,
 		Code:        scripteditor.NewHost(lang),
+		CreatedDirs: made,
+		Help:        h.Docs,
+		RunSnippet:  snippets(),
+		DirsErr:     dirsErr,
+		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil

@@ -95,6 +95,9 @@ func (p *Panel) quickDoc(ui *core.Context) {
 	if file, ok := p.file(); ok && p.snap != nil {
 		if old, ok := c.Unmap(p.snapRev, h.off); ok {
 			h.info, h.ok = p.host.lang.HoverIn(p.snap, file, uint32(old))
+			if h.ok {
+				h.builtin = p.builtinAt(file, old)
+			}
 		}
 	}
 	if !h.ok && !h.hasDiag {

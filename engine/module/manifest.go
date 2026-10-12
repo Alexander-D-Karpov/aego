@@ -2,7 +2,6 @@ package module
 
 import (
 	"errors"
-	"io/fs"
 	"strings"
 
 	"aego/core/errs"
@@ -15,17 +14,18 @@ import (
 const EngineModuleID = "engine.modules"
 
 type Manifest struct {
-	Modules   []Info
-	Systems   []engine.SystemDesc
-	Templates []schema.TemplateDesc
-	Icons     []IconSet
-	Docs      []fs.FS
-	Dev       []Hook
-	Editor    []Hook
-	Warnings  []string
-	order     []*entry
-	services  []serviceDesc
-	engines   []engine.Module
+	Modules      []Info
+	Systems      []engine.SystemDesc
+	Templates    []schema.TemplateDesc
+	Icons        []IconSet
+	Docs         []DocSource
+	ScriptOwners map[string]string
+	Dev          []Hook
+	Editor       []Hook
+	Warnings     []string
+	order        []*entry
+	services     []serviceDesc
+	engines      []engine.Module
 }
 
 func (r *Registry) Build() (*Manifest, error) {
@@ -121,9 +121,7 @@ func (r *Registry) checkComponents(icons map[string]bool) {
 				r.report(d.Owner, "component "+d.FullName+" requires "+name+", which is not a registered component")
 			}
 		}
-		if d.Icon != "" && !icons[d.Icon] {
-			r.report(d.Owner, "component "+d.FullName+" uses icon "+d.Icon+", which no icon source provides")
-		}
+		r.useIcon(icons, d.Owner, d.Icon, "component "+d.FullName)
 		if t := d.Template; t != nil {
 			if t.Category == "" {
 				t.Category = d.Category
@@ -180,14 +178,16 @@ func (r *Registry) checkTemplates(icons map[string]bool) {
 		if _, ok := t.Setup.(func(*scene.Scene, scene.NodeHandle)); !ok {
 			r.report(t.Owner, "template "+t.ID+" needs Setup func(*scene.Scene, scene.NodeHandle)")
 		}
-		if t.Icon != "" && !icons[t.Icon] {
-			r.report(t.Owner, "template "+t.ID+" uses icon "+t.Icon+", which no icon source provides")
-		}
+		r.useIcon(icons, t.Owner, t.Icon, "template "+t.ID)
 	}
 }
 
 func (r *Registry) manifest(order []*entry) *Manifest {
-	m := &Manifest{order: order, services: r.services, engines: r.engines, Icons: r.icons, Docs: r.docs, Dev: r.dev, Editor: r.editor, Warnings: r.warns}
+	m := &Manifest{
+		order: order, services: r.services, engines: r.engines,
+		Icons: r.icons, Docs: r.docs, ScriptOwners: r.owners,
+		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
+	}
 	for _, e := range order {
 		m.Modules = append(m.Modules, e.info)
 	}

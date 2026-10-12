@@ -23,6 +23,7 @@ script EnemyAI {
 
 	@export(min=0, max=5, unit="s")
 	var Cooldown float = 1
+	
 
 	var toB bool = true
 	var wait float

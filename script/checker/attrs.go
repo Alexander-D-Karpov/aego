@@ -9,7 +9,7 @@ import (
 func exportable(t *types.Type) bool {
 	switch t.Kind {
 	case types.KBool, types.KInt, types.KFloat, types.KString, types.KVec2, types.KVec3,
-		types.KColor, types.KQuat, types.KRect, types.KEnum, types.KNodeRef, types.KAssetRef:
+		types.KColor, types.KQuat, types.KRect, types.KEnum, types.KNodeRef, types.KAssetRef, types.KComponentRef:
 		return true
 	}
 	return false

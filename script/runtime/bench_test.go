@@ -144,3 +144,20 @@ func TestSparseSchedule(t *testing.T) {
 		t.Fatalf("update schedule %d of %d instances, want 20 of 100", st.Update, st.Instances)
 	}
 }
+
+func BenchmarkEmit1k(bm *testing.B) {
+	g := newRig(bm, asyncProgram, 1000)
+	for i := 0; i < 1000; i++ {
+		attach(g.s, "Hub"+strconv.Itoa(i), "game.Hub", schema.PropertyBag{})
+	}
+	g.run(bm)
+	for i := 0; i < 30; i++ {
+		g.frame()
+	}
+	bm.ReportAllocs()
+	bm.ResetTimer()
+	for i := 0; i < bm.N; i++ {
+		g.frame()
+	}
+	bm.ReportMetric(float64(g.rt.Stats().Handlers), "handlers/frame")
+}

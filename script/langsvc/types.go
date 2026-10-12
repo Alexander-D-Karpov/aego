@@ -99,6 +99,7 @@ type Item struct {
 type Hover struct {
 	Signature string
 	Doc       string
+	Ref       string
 	Span      source.Span
 }
 

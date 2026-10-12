@@ -28,7 +28,7 @@ func (s *sigBuilder) param(text string) {
 	s.params = append(s.params, [2]int{start, s.b.Len()})
 }
 
-func funcSignature(f *checker.Func) Signature {
+func funcSignature(snap *workspace.Snapshot, f *checker.Func) Signature {
 	var sb sigBuilder
 	sb.b.WriteString("func ")
 	if f.Script != nil {
@@ -50,7 +50,7 @@ func funcSignature(f *checker.Func) Signature {
 		doc = f.Decl.Doc
 	}
 	if doc == "" && f.Script != nil {
-		doc = builtinText(f.Name)
+		doc = builtinText(snap, f.Name)
 	}
 	return Signature{Label: sb.b.String(), Params: sb.params, Doc: doc}
 }
@@ -72,7 +72,7 @@ func hostSignature(prefix string, s abi.Signature, names []string, doc, example 
 	return Signature{Label: sb.b.String(), Params: sb.params, Doc: hostDoc(doc, example)}
 }
 
-func builtinSignature(name string) (Signature, bool) {
+func builtinSignature(snap *workspace.Snapshot, name string) (Signature, bool) {
 	var sb sigBuilder
 	switch name {
 	case "len":
@@ -87,7 +87,7 @@ func builtinSignature(name string) (Signature, bool) {
 	default:
 		return Signature{}, false
 	}
-	return Signature{Label: sb.b.String(), Params: sb.params, Doc: builtinText(name)}, true
+	return Signature{Label: sb.b.String(), Params: sb.params, Doc: builtinText(snap, name)}, true
 }
 
 func (s *Service) SignatureAt(snap *workspace.Snapshot, file source.FileID, src []byte, off int) (Signature, bool) {
@@ -161,10 +161,10 @@ func resolveCallee(snap *workspace.Snapshot, file source.FileID, qual, name stri
 			switch o.Kind {
 			case resolver.ObjFunc:
 				if f, ok := o.Data.(*checker.Func); ok {
-					return funcSignature(f), true
+					return funcSignature(snap, f), true
 				}
 			case resolver.ObjBuiltin:
-				return builtinSignature(name)
+				return builtinSignature(snap, name)
 			}
 		}
 		for _, st := range a.Scripts {
@@ -172,7 +172,7 @@ func resolveCallee(snap *workspace.Snapshot, file source.FileID, qual, name stri
 				continue
 			}
 			if f := st.Methods[name]; f != nil {
-				return funcSignature(f), true
+				return funcSignature(snap, f), true
 			}
 		}
 		return Signature{}, false
@@ -189,7 +189,7 @@ func resolveCallee(snap *workspace.Snapshot, file source.FileID, qual, name stri
 		if tp := a.Symbols.Packages[o.Target]; tp != nil {
 			if x := tp.Scope.Lookup(name); x != nil && x.Kind == resolver.ObjFunc {
 				if f, ok := x.Data.(*checker.Func); ok {
-					return funcSignature(f), true
+					return funcSignature(snap, f), true
 				}
 			}
 		}
@@ -197,11 +197,11 @@ func resolveCallee(snap *workspace.Snapshot, file source.FileID, qual, name stri
 	}
 	if name == "Emit" || name == "Connect" {
 		if sg := signalNamed(a, pkg, qual); sg != nil {
-			return signalSignature(sg, name), true
+			return signalSignature(snap, sg, name), true
 		}
 	}
 	if f := scriptMethodNamed(a, pkg, name); f != nil {
-		return funcSignature(f), true
+		return funcSignature(snap, f), true
 	}
 	for _, recv := range [...]abi.Kind{abi.NodeRef, abi.AssetRef} {
 		if sig, ok := snap.Bindings.Method(recv, name); ok {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"sort"
 
 	"aego/core/ids"
@@ -10,38 +11,80 @@ import (
 	"aego/editor/session"
 	"aego/editor/state"
 	"aego/platform"
+	"aego/platform/clip"
 	"aego/scene/sceneio"
 )
 
+const clipTTL = 0.5
+
 type clipboard struct {
-	win platform.Window
+	win   platform.Window
+	now   func() float64
+	mimes []string
+	at    float64
+	fresh bool
 }
 
-func (c clipboard) Text() string {
+func (c *clipboard) invalidate() {
+	c.fresh = false
+}
+
+func (c *clipboard) Text() string {
 	if cb, ok := c.win.(platform.Clipboard); ok {
 		return cb.ClipboardText()
 	}
 	return ""
 }
 
-func (c clipboard) SetText(s string) {
+func (c *clipboard) SetText(s string) {
+	c.invalidate()
 	if cb, ok := c.win.(platform.Clipboard); ok {
 		cb.SetClipboardText(s)
 	}
 }
 
-func (c clipboard) SetData(mime string, data []byte, text string) bool {
+func (c *clipboard) SetData(mime string, data []byte, text string) bool {
+	c.invalidate()
 	if cb, ok := c.win.(platform.Clipboard); ok {
 		return cb.SetClipboardData(mime, data, text)
 	}
 	return false
 }
 
-func (c clipboard) Data(mime string) ([]byte, bool) {
+func (c *clipboard) Data(mime string) ([]byte, bool) {
 	if cb, ok := c.win.(platform.Clipboard); ok {
 		return cb.ClipboardData(mime)
 	}
 	return nil, false
+}
+
+func (c *clipboard) SetItems(items []clip.Item) bool {
+	c.invalidate()
+	if cb, ok := c.win.(platform.ClipboardItems); ok {
+		return cb.SetClipboardItems(items)
+	}
+	if len(items) == 0 {
+		return false
+	}
+	text := ""
+	for _, it := range items {
+		if it.Mime == clip.MimeText {
+			text = string(it.Data)
+		}
+	}
+	return c.SetData(items[0].Mime, items[0].Data, text)
+}
+
+func (c *clipboard) Has(mime string) bool {
+	cb, ok := c.win.(platform.ClipboardItems)
+	if !ok {
+		data, has := c.Data(mime)
+		return has && len(data) > 0
+	}
+	if now := c.now(); !c.fresh || now-c.at > clipTTL {
+		c.mimes, c.at, c.fresh = cb.ClipboardMimes(), now, true
+	}
+	return slices.Contains(c.mimes, mime)
 }
 
 func (a *App) applyPlatform() {
@@ -97,7 +140,7 @@ func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
 	set.Grid, set.Snap = st.Grid, st.Snap
 	set.SnapMove, set.SnapRotate, set.SnapScale = st.SnapMove, st.SnapRotate, st.SnapScale
 	if c := a.opt.Code; c != nil {
-		c.Autosave, c.Hints, c.Minimap = st.Autosave, st.InlayHints, st.Minimap
+		c.Autosave, c.Hints, c.Minimap, c.Rainbow, c.Block = st.Autosave, st.InlayHints, st.Minimap, st.RainbowBrackets, st.HighlightBlock
 	}
 	for _, k := range st.Collapsed {
 		a.ctx.Collapsed[k] = true
@@ -150,7 +193,7 @@ func (a *App) collect(all bool) *state.Editor {
 	st.Grid, st.Snap = set.Grid, set.Snap
 	st.SnapMove, st.SnapRotate, st.SnapScale = set.SnapMove, set.SnapRotate, set.SnapScale
 	if c := a.opt.Code; c != nil {
-		st.Autosave, st.InlayHints, st.Minimap = c.Autosave, c.Hints, c.Minimap
+		st.Autosave, st.InlayHints, st.Minimap, st.RainbowBrackets, st.HighlightBlock = c.Autosave, c.Hints, c.Minimap, c.Rainbow, c.Block
 	}
 	for k, closed := range a.ctx.Collapsed {
 		if closed {

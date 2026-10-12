@@ -14,12 +14,24 @@ import (
 	"aego/editor/command"
 	"aego/editor/context"
 	"aego/editor/workspace"
+	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
 )
 
 const tileW = 88
+
+const (
+	CommandRename    = "assets.rename"
+	CommandDelete    = "assets.delete"
+	CommandDuplicate = "assets.duplicate"
+	CommandUndo      = "assets.undo"
+	CommandRedo      = "assets.redo"
+	CommandCopy      = "assets.copy"
+	CommandCut       = "assets.cut"
+	CommandPaste     = "assets.paste"
+)
 
 type dirRow struct {
 	path  string
@@ -28,6 +40,8 @@ type dirRow struct {
 }
 
 type Panel struct {
+	Ops            Ops
+	Instantiate    func(id ids.AssetID, name string)
 	thumbs         *Thumbs
 	folder         string
 	expanded       map[string]bool
@@ -38,28 +52,35 @@ type Panel struct {
 	subdirs        []string
 	rev            uint64
 	dirsAt         float64
-	selected       ids.AssetID
+	sel            map[ids.AssetID]bool
+	active         ids.AssetID
+	anchor         ids.AssetID
+	pending        ids.AssetID
+	selDir         string
 	search         string
 	split          float32
 	treeScroll     float32
 	gridScroll     float32
+	overDir        bool
 	renaming       ids.AssetID
 	renameStart    bool
 	renameText     string
 	renamingDir    string
 	renameDirStart bool
 	renameDirText  string
-	menuAsset      ids.AssetID
 	menuDir        string
 	assetMenuID    core.ID
 	dirMenuID      core.ID
+	cut            cutSet
+	scrollTo       ids.AssetID
 }
 
 func New(t *Thumbs) *Panel {
 	return &Panel{
 		thumbs:   t,
 		folder:   "assets",
-		expanded: map[string]bool{"assets": true, "scenes": true},
+		expanded: map[string]bool{"assets": true, "scenes": true, "scripts": true, "prefabs": true},
+		sel:      map[ids.AssetID]bool{},
 		split:    0.28,
 		rev:      ^uint64(0),
 	}
@@ -78,7 +99,37 @@ func (p *Panel) Scope() string {
 }
 
 func (p *Panel) Selected() ids.AssetID {
-	return p.selected
+	return p.active
+}
+
+func (p *Panel) HasSelection() bool {
+	return len(p.sel) > 0
+}
+
+func (p *Panel) Single() bool {
+	return len(p.sel) == 1
+}
+
+func (p *Panel) Selection() []ids.AssetID {
+	out := make([]ids.AssetID, 0, len(p.sel))
+	for i := range p.items {
+		if p.sel[p.items[i].ID] {
+			out = append(out, p.items[i].ID)
+		}
+	}
+	return out
+}
+
+func (p *Panel) Undo(ctx *context.Editor) error {
+	err := p.Ops.Undo(ctx)
+	p.invalidate()
+	return err
+}
+
+func (p *Panel) Redo(ctx *context.Editor) error {
+	err := p.Ops.Redo(ctx)
+	p.invalidate()
+	return err
 }
 
 func (p *Panel) find(id ids.AssetID) *pipeline.AssetInfo {
@@ -102,6 +153,7 @@ func (p *Panel) refresh(ctx *context.Editor) {
 		p.items = pl.Assets()
 		p.dirs = pl.Dirs()
 		p.dirsAt = now
+		p.prune()
 	} else if now-p.dirsAt > 2 {
 		p.dirs = pl.Dirs()
 		p.dirsAt = now
@@ -118,6 +170,92 @@ func (p *Panel) refresh(ctx *context.Editor) {
 	}
 }
 
+func (p *Panel) prune() {
+	alive := make(map[ids.AssetID]bool, len(p.items))
+	for i := range p.items {
+		alive[p.items[i].ID] = true
+	}
+	for id := range p.sel {
+		if !alive[id] {
+			delete(p.sel, id)
+		}
+	}
+	if !alive[p.active] {
+		p.active = ids.AssetID{}
+	}
+}
+
+func (p *Panel) selectOnly(id ids.AssetID) {
+	clear(p.sel)
+	if !id.IsZero() {
+		p.sel[id] = true
+	}
+	p.active, p.anchor = id, id
+}
+
+func (p *Panel) toggle(id ids.AssetID) {
+	if p.sel[id] {
+		delete(p.sel, id)
+		if p.active == id {
+			p.active = ids.AssetID{}
+		}
+	} else {
+		p.sel[id] = true
+		p.active = id
+	}
+	p.anchor = id
+}
+
+func (p *Panel) viewIndex(id ids.AssetID) int {
+	for k, i := range p.view {
+		if p.items[i].ID == id {
+			return k
+		}
+	}
+	return -1
+}
+
+func (p *Panel) selectRange(id ids.AssetID) {
+	a, b := p.viewIndex(p.anchor), p.viewIndex(id)
+	if a < 0 || b < 0 {
+		p.selectOnly(id)
+		return
+	}
+	clear(p.sel)
+	for k := min(a, b); k <= max(a, b); k++ {
+		p.sel[p.items[p.view[k]].ID] = true
+	}
+	p.active = id
+}
+
+func (p *Panel) press(ctx *context.Editor, id ids.AssetID) {
+	mods := ctx.UI.Mods()
+	p.selDir = ""
+	switch {
+	case mods.Primary():
+		p.toggle(id)
+	case mods.Has(input.ModShift):
+		p.selectRange(id)
+	case p.sel[id] && len(p.sel) > 1:
+		p.pending, p.active = id, id
+	default:
+		p.selectOnly(id)
+	}
+}
+
+func (p *Panel) settle(ctx *context.Editor) {
+	if p.pending.IsZero() {
+		return
+	}
+	switch {
+	case ctx.DnD.Active():
+		p.pending = ids.AssetID{}
+	case !ctx.UI.MouseDown(input.MouseLeft):
+		p.selectOnly(p.pending)
+		p.pending = ids.AssetID{}
+	}
+}
+
 func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
@@ -128,6 +266,7 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 	p.assetMenuID = ui.ID("amenu")
 	p.dirMenuID = ui.ID("dmenu")
 	p.refresh(ctx)
+	p.settle(ctx)
 	bar := ui.Cursor().Next(0)
 	bw, label := float32(100), "New Folder"
 	if bar.W < 300 {
@@ -175,6 +314,10 @@ func (p *Panel) buildRows() {
 	}
 }
 
+func dirPayload(dir string) dnd.Payload {
+	return dnd.Payload{Kind: context.KindAssets, Label: path.Base(dir), Data: context.AssetsPayload{Dirs: []string{dir}}}
+}
+
 func (p *Panel) drawTree(ctx *context.Editor, r mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
@@ -204,8 +347,10 @@ func (p *Panel) drawTree(ctx *context.Editor, r mathx.Rect) {
 		}
 		if ev.RightClicked {
 			p.menuDir = row.path
-			p.menuAsset = ids.AssetID{}
 			widgets.OpenContextMenu(ui, p.dirMenuID)
+		}
+		if ui.Active() == id && path.Dir(row.path) != "." {
+			ctx.DnD.Source(ui, id, dirPayload(row.path))
 		}
 		p.dropOnDir(ctx, row.path, rr)
 	})
@@ -244,6 +389,8 @@ func (p *Panel) drawGrid(ctx *context.Editor, r mathx.Rect) {
 	cols := max(1, int(r.W/tileW))
 	tileH := float32(ThumbSize) + th.RowHeight + 12
 	rows := (count + cols - 1) / cols
+	p.scrollToTile(cols, tileH, r.H)
+	p.overDir = false
 	widgets.VirtualList(ui, ui.ID("grid"), r, rows, tileH, &p.gridScroll, func(row int, rr mathx.Rect) {
 		for c := 0; c < cols; c++ {
 			i := row*cols + c
@@ -261,19 +408,21 @@ func (p *Panel) drawGrid(ctx *context.Editor, r mathx.Rect) {
 	if count == 0 {
 		ui.TextIn(r, "Drop files here to import", th.TextDisabled, core.AlignCenter)
 	}
+	used := mathx.Clamp(float32(rows)*tileH-p.gridScroll, 0, r.H)
+	empty := mathx.Rect{X: r.X, Y: r.Y + used, W: r.W, H: r.H - used}
 	id := ui.ID("gridbg")
-	if ui.RightClicked(id, r) {
-		p.menuDir = p.folder
-		p.menuAsset = ids.AssetID{}
-		widgets.OpenContextMenu(ui, p.dirMenuID)
-	}
-	if ctx.DnD.Hovering(ui, r) {
-		if pl, _ := ctx.DnD.Payload(); pl.Kind == context.KindFiles {
-			if got, ok := ctx.DnD.Target(ui, r, context.KindFiles); ok {
-				files, _ := got.Data.([]string)
-				p.importFiles(ctx, files, p.folder)
-			}
+	if empty.H > 0 {
+		if ui.Pressed(id, empty) && !ui.Primary() && !ui.Mods().Has(input.ModShift) {
+			p.selectOnly(ids.AssetID{})
+			p.selDir = ""
 		}
+		if ui.RightClicked(id, empty) {
+			p.menuDir = p.folder
+			widgets.OpenContextMenu(ui, p.dirMenuID)
+		}
+	}
+	if !p.overDir {
+		p.dropOnDir(ctx, p.folder, r)
 	}
 }
 
@@ -301,30 +450,46 @@ func assetTileID(id ids.AssetID) core.ID {
 	return core.IDSeq(core.ID(id.Hi), int(uint32(id.Lo)))
 }
 
+func (p *Panel) payload(a *pipeline.AssetInfo) dnd.Payload {
+	if !p.sel[a.ID] || len(p.sel) < 2 {
+		return dnd.Payload{
+			Kind:  context.KindAsset,
+			Label: path.Base(a.Path),
+			Data:  context.AssetPayload{ID: a.ID, Kind: a.Kind, Name: a.Name},
+		}
+	}
+	items := make([]context.AssetPayload, 0, len(p.sel))
+	for i := range p.items {
+		if it := &p.items[i]; p.sel[it.ID] {
+			items = append(items, context.AssetPayload{ID: it.ID, Kind: it.Kind, Name: it.Name})
+		}
+	}
+	return dnd.Payload{Kind: context.KindAssets, Label: strconv.Itoa(len(items)) + " assets", Data: context.AssetsPayload{Items: items}}
+}
+
 func (p *Panel) assetTile(ctx *context.Editor, a *pipeline.AssetInfo, r mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
 	id := assetTileID(a.ID)
 	if ui.Pressed(id, r) {
-		p.selected = a.ID
+		p.press(ctx, a.ID)
 		if ui.DoubleClicked(id) {
+			p.selectOnly(a.ID)
 			p.open(ctx, a)
 		}
 	}
 	if ui.RightClicked(id, r) {
-		p.selected = a.ID
-		p.menuAsset = a.ID
+		if !p.sel[a.ID] {
+			p.selectOnly(a.ID)
+		}
+		p.active = a.ID
 		widgets.OpenContextMenu(ui, p.assetMenuID)
 	}
 	if ui.Active() == id {
-		ctx.DnD.Source(ui, id, dnd.Payload{
-			Kind:  context.KindAsset,
-			Label: path.Base(a.Path),
-			Data:  context.AssetPayload{ID: a.ID, Kind: a.Kind, Name: a.Name},
-		})
+		ctx.DnD.Source(ui, id, p.payload(a))
 	}
 	switch {
-	case p.selected == a.ID:
+	case p.sel[a.ID]:
 		ui.Rect(r, th.Selection)
 	case ui.Hot() == id:
 		ui.Rect(r, th.WidgetHot)
@@ -340,37 +505,57 @@ func (p *Panel) assetTile(ctx *context.Editor, a *pipeline.AssetInfo, r mathx.Re
 			ui.TextIn(img, kindLabel(a), th.TextDim, core.AlignCenter)
 		}
 	}
+	startup := ctx.Project != nil && a.ID == ctx.Project.MainScene
+	if startup {
+		widgets.IconAt(ui, mathx.Rect{X: img.X + img.W - 16, Y: img.Y, W: 16, H: 16}, "play.start", th.Accent)
+	}
 	nameR := mathx.Rect{X: r.X + 2, Y: img.Y + img.H + 2, W: r.W - 4, H: th.RowHeight}
 	if p.renaming == a.ID {
 		p.drawAssetRename(ctx, a, nameR)
 	} else {
 		ui.PushClip(nameR)
-		ui.TextIn(nameR, strings.TrimSuffix(path.Base(a.Path), path.Ext(a.Path)), th.Text, core.AlignCenter)
+		ui.TextIn(nameR, Stem(a.Path), th.Text, core.AlignCenter)
 		ui.PopClip()
+	}
+	tip := a.Path
+	if startup {
+		tip += " · startup scene"
 	}
 	if a.Error != "" {
 		ui.List().RectOutline(r, th.Error, 1)
-		widgets.Tooltip(ui, id, a.Error)
-	} else {
-		widgets.Tooltip(ui, id, a.Path)
+		tip = a.Error
 	}
+	widgets.Tooltip(ui, id, tip)
+}
+
+func (p *Panel) enter(dir string) {
+	p.folder = dir
+	p.expanded[path.Dir(dir)] = true
+	p.gridScroll = 0
+	p.selDir = ""
 }
 
 func (p *Panel) dirTile(ctx *context.Editor, dir string, r mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
 	id := core.IDOf("assets.tile/" + dir)
-	if ui.Pressed(id, r) && ui.DoubleClicked(id) {
-		p.folder = dir
-		p.expanded[path.Dir(dir)] = true
-		p.gridScroll = 0
+	if ui.Pressed(id, r) {
+		p.selDir = dir
+		if ui.DoubleClicked(id) {
+			p.enter(dir)
+		}
 	}
 	if ui.RightClicked(id, r) {
 		p.menuDir = dir
-		p.menuAsset = ids.AssetID{}
 		widgets.OpenContextMenu(ui, p.dirMenuID)
 	}
-	if ui.Hot() == id {
+	if ui.Active() == id && path.Dir(dir) != "." {
+		ctx.DnD.Source(ui, id, dirPayload(dir))
+	}
+	switch {
+	case p.selDir == dir:
+		ui.Rect(r, th.Selection)
+	case ui.Hot() == id:
 		ui.Rect(r, th.WidgetHot)
 	}
 	img := mathx.Rect{X: r.X + (r.W-ThumbSize)/2, Y: r.Y + 4, W: ThumbSize, H: ThumbSize}
@@ -379,7 +564,29 @@ func (p *Panel) dirTile(ctx *context.Editor, dir string, r mathx.Rect) {
 	ui.PushClip(nameR)
 	ui.TextIn(nameR, path.Base(dir), th.Text, core.AlignCenter)
 	ui.PopClip()
+	if ctx.DnD.Hovering(ui, r) {
+		p.overDir = true
+	}
 	p.dropOnDir(ctx, dir, r)
+}
+
+func (p *Panel) accepts(pl dnd.Payload, dir string) bool {
+	switch pl.Kind {
+	case context.KindFiles, context.KindAsset:
+		return true
+	case context.KindAssets:
+		ap, ok := pl.Data.(context.AssetsPayload)
+		if !ok {
+			return false
+		}
+		for _, d := range ap.Dirs {
+			if d == dir || Under(dir, d) || path.Dir(d) == dir {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func (p *Panel) dropOnDir(ctx *context.Editor, dir string, r mathx.Rect) {
@@ -389,36 +596,66 @@ func (p *Panel) dropOnDir(ctx *context.Editor, dir string, r mathx.Rect) {
 		return
 	}
 	pl, _ := dn.Payload()
-	switch pl.Kind {
-	case context.KindAsset:
-		if got, ok := dn.Target(ui, r, context.KindAsset); ok {
-			p.moveInto(ctx, got.Data.(context.AssetPayload).ID, dir)
-		}
-	case context.KindFiles:
-		if got, ok := dn.Target(ui, r, context.KindFiles); ok {
-			files, _ := got.Data.([]string)
-			p.importFiles(ctx, files, dir)
-		}
-	default:
+	if !p.accepts(pl, dir) {
 		dn.Target(ui, r, "reject")
+		return
+	}
+	got, ok := dn.Target(ui, r, context.KindAsset, context.KindAssets, context.KindFiles)
+	if !ok {
+		return
+	}
+	switch got.Kind {
+	case context.KindFiles:
+		files, _ := got.Data.([]string)
+		p.importFiles(ctx, files, dir)
+	case context.KindAsset:
+		ap, _ := got.Data.(context.AssetPayload)
+		p.moveInto(ctx, []context.AssetPayload{ap}, nil, dir)
+	case context.KindAssets:
+		as, _ := got.Data.(context.AssetsPayload)
+		p.moveInto(ctx, as.Items, as.Dirs, dir)
 	}
 }
 
-func (p *Panel) moveInto(ctx *context.Editor, id ids.AssetID, dir string) {
-	a := p.find(id)
-	if a == nil {
+func movedWith(src string, dirs []string) bool {
+	for _, d := range dirs {
+		if Under(src, d) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Panel) moveInto(ctx *context.Editor, items []context.AssetPayload, dirs []string, target string) {
+	var ops []FileOp
+	for _, d := range dirs {
+		dst := path.Join(target, path.Base(d))
+		if dst == d || d == target || Under(target, d) {
+			continue
+		}
+		ops = append(ops, FileOp{Dir: true, From: d, To: dst})
+	}
+	for _, it := range items {
+		src, ok := ctx.Pipeline.PathOf(it.ID)
+		if !ok || movedWith(src, dirs) {
+			continue
+		}
+		if dst := path.Join(target, path.Base(src)); dst != src {
+			ops = append(ops, FileOp{ID: it.ID, From: src, To: dst})
+		}
+	}
+	if len(ops) == 0 {
 		return
 	}
-	dst := path.Join(dir, path.Base(a.Path))
-	if dst == a.Path {
-		return
+	err := p.Ops.Apply(ctx, ops)
+	for _, op := range ops {
+		if op.Dir && !Exists(ctx, op.From) && (p.folder == op.From || Under(p.folder, op.From)) {
+			p.folder = op.To + strings.TrimPrefix(p.folder, op.From)
+		}
 	}
-	old := a.Path
-	if err := ctx.Pipeline.Move(id, dst); err != nil {
+	if err != nil {
 		ctx.Notify(context.LevelError, err.Error())
-		return
 	}
-	ctx.Docs.Renamed(old, dst)
 	p.invalidate()
 }
 
@@ -431,7 +668,7 @@ func (p *Panel) importFiles(ctx *context.Editor, files []string, dir string) {
 	}
 	ctx.Notify(context.LevelInfo, "Imported "+strconv.Itoa(len(created))+" file(s) into "+dir)
 	if len(created) > 0 {
-		p.selected = created[0]
+		p.selectOnly(created[0])
 		p.folder = dir
 	}
 	p.invalidate()
@@ -447,9 +684,13 @@ func openExternal(abs string) error {
 	return exec.Command("xdg-open", abs).Start()
 }
 
+func openable(k asset.ArtifactKind) bool {
+	return k == asset.ArtScene || k == asset.ArtScript || k == asset.ArtPrefab
+}
+
 func (p *Panel) open(ctx *context.Editor, a *pipeline.AssetInfo) {
 	switch a.Kind {
-	case asset.ArtScene:
+	case asset.ArtScene, asset.ArtPrefab:
 		if _, err := ctx.Docs.Open(a.Path); err != nil {
 			ctx.Notify(context.LevelError, err.Error())
 		}
@@ -474,7 +715,7 @@ func (p *Panel) Reveal(ctx *context.Editor, rel string) {
 	folder := path.Dir(rel)
 	for i := range p.items {
 		if p.items[i].Path == rel {
-			p.selected = p.items[i].ID
+			p.selectOnly(p.items[i].ID)
 			break
 		}
 	}
@@ -491,9 +732,8 @@ func (p *Panel) Reveal(ctx *context.Editor, rel string) {
 }
 
 func (p *Panel) StartRename() {
-	if !p.selected.IsZero() {
-		p.renaming = p.selected
-		p.renameStart = true
+	if len(p.sel) == 1 && p.sel[p.active] {
+		p.renaming, p.renameStart = p.active, true
 	}
 }
 
@@ -503,22 +743,20 @@ func (p *Panel) drawAssetRename(ctx *context.Editor, a *pipeline.AssetInfo, r ma
 	ext := path.Ext(a.Path)
 	if p.renameStart {
 		p.renameStart = false
-		p.renameText = strings.TrimSuffix(path.Base(a.Path), ext)
+		p.renameText = Stem(a.Path)
 		ui.SetFocus(fid)
 		ui.EditBuffer(fid, p.renameText).SelectAll()
 	}
 	if _, committed := widgets.TextFieldRect(ui, fid, r, &p.renameText, false); committed {
 		name := strings.TrimSpace(p.renameText)
-		if name != "" && !strings.ContainsAny(name, "/\\") {
+		if ValidName(name) {
 			if !strings.HasSuffix(name, ext) {
 				name += ext
 			}
-			dst := path.Join(path.Dir(a.Path), name)
-			old := a.Path
-			if err := ctx.Pipeline.Move(a.ID, dst); err != nil {
-				ctx.Notify(context.LevelError, err.Error())
-			} else {
-				ctx.Docs.Renamed(old, dst)
+			if dst := path.Join(path.Dir(a.Path), name); dst != a.Path {
+				if err := p.Ops.Apply(ctx, []FileOp{{ID: a.ID, From: a.Path, To: dst}}); err != nil {
+					ctx.Notify(context.LevelError, err.Error())
+				}
 				p.invalidate()
 			}
 		}
@@ -542,17 +780,17 @@ func (p *Panel) drawDirRename(ctx *context.Editor, row dirRow, rr mathx.Rect) {
 	}
 	if _, committed := widgets.TextFieldRect(ui, fid, fr, &p.renameDirText, false); committed {
 		name := strings.TrimSpace(p.renameDirText)
-		if name != "" && !strings.ContainsAny(name, "/\\") {
-			dst := path.Join(path.Dir(row.path), name)
-			if err := ctx.Pipeline.MoveDir(row.path, dst); err != nil {
+		dst := path.Join(path.Dir(row.path), name)
+		if ValidName(name) && dst != row.path {
+			if err := p.Ops.Apply(ctx, []FileOp{{Dir: true, From: row.path, To: dst}}); err != nil {
 				ctx.Notify(context.LevelError, err.Error())
 			} else {
-				ctx.Docs.Renamed(row.path, dst)
-				if p.folder == row.path || strings.HasPrefix(p.folder, row.path+"/") {
+				if p.folder == row.path || Under(p.folder, row.path) {
 					p.folder = dst + strings.TrimPrefix(p.folder, row.path)
 				}
-				p.invalidate()
+				p.expanded[dst] = p.expanded[row.path]
 			}
+			p.invalidate()
 		}
 	}
 	if ui.Focus() != fid {
@@ -567,60 +805,7 @@ func (p *Panel) newFolder(ctx *context.Editor, parent string) {
 		return
 	}
 	p.expanded[parent] = true
-	p.renamingDir = dir
-	p.renameDirStart = true
-	p.invalidate()
-}
-
-func (p *Panel) ReimportSelected(ctx *context.Editor) error {
-	if p.selected.IsZero() || ctx.Pipeline == nil {
-		return nil
-	}
-	batch, err := ctx.Pipeline.Reimport(p.selected)
-	ctx.ApplyBatch(batch)
-	if err == nil {
-		ctx.Notify(context.LevelInfo, "Reimported")
-	}
-	return err
-}
-
-func (p *Panel) DeleteSelected(ctx *context.Editor) {
-	a := p.find(p.selected)
-	if a == nil {
-		return
-	}
-	id, rel := a.ID, a.Path
-	ctx.Ask(context.Question{
-		Title:   "Delete asset",
-		Message: "Delete " + rel + "? Scenes that reference it keep the reference and show it as missing.",
-		Buttons: []string{"Delete", "Cancel"},
-		Then: func(choice int) {
-			if choice != 0 {
-				return
-			}
-			batch, err := ctx.Pipeline.Delete(id)
-			if err != nil {
-				ctx.Notify(context.LevelError, err.Error())
-				return
-			}
-			ctx.ApplyBatch(batch)
-			p.thumbs.Forget(id)
-			if p.selected == id {
-				p.selected = ids.AssetID{}
-			}
-			p.invalidate()
-		},
-	})
-}
-
-func (p *Panel) duplicate(ctx *context.Editor, id ids.AssetID) {
-	dup, batch, err := ctx.Pipeline.Duplicate(id)
-	ctx.ApplyBatch(batch)
-	if err != nil {
-		ctx.Notify(context.LevelError, err.Error())
-		return
-	}
-	p.selected = dup
+	p.renamingDir, p.renameDirStart = dir, true
 	p.invalidate()
 }
 
@@ -641,67 +826,4 @@ func reveal(abs string, isDir bool) error {
 		abs = path.Dir(abs)
 	}
 	return exec.Command("xdg-open", abs).Start()
-}
-
-func (p *Panel) menus(ctx *context.Editor) {
-	ui := ctx.UI
-	if widgets.ContextMenu(ui, p.assetMenuID) {
-		if a := p.find(p.menuAsset); a != nil {
-			id := a.ID
-			if widgets.MenuItem(ui, "Open", "", a.Kind == asset.ArtScene || a.Kind == asset.ArtScript, false) {
-				p.open(ctx, a)
-			}
-			if widgets.MenuItem(ui, "Rename", "F2", true, false) {
-				p.selected = id
-				p.StartRename()
-			}
-			if widgets.MenuItem(ui, "Duplicate", "", true, false) {
-				p.duplicate(ctx, id)
-			}
-			if widgets.MenuItem(ui, "Reimport", "", true, false) {
-				p.selected = id
-				if err := p.ReimportSelected(ctx); err != nil {
-					ctx.Notify(context.LevelError, err.Error())
-				}
-			}
-			if widgets.MenuItem(ui, "Reveal in File Manager", "", true, false) {
-				if err := reveal(ctx.Pipeline.Abs(a.Path), false); err != nil {
-					ctx.Notify(context.LevelError, err.Error())
-				}
-			}
-			widgets.Separator(ui)
-			if widgets.MenuItem(ui, "Delete", "Delete", true, false) {
-				p.selected = id
-				p.DeleteSelected(ctx)
-			}
-		}
-		widgets.EndContextMenu(ui)
-	}
-	if widgets.ContextMenu(ui, p.dirMenuID) {
-		dir := p.menuDir
-		if widgets.MenuItem(ui, "New Folder", "", true, false) {
-			p.newFolder(ctx, dir)
-		}
-		isRoot := path.Dir(dir) == "."
-		if widgets.MenuItem(ui, "Rename", "", !isRoot, false) {
-			p.renamingDir = dir
-			p.renameDirStart = true
-		}
-		if widgets.MenuItem(ui, "Delete Empty Folder", "", !isRoot, false) {
-			if err := ctx.Pipeline.RemoveDir(dir); err != nil {
-				ctx.Notify(context.LevelError, err.Error())
-			} else {
-				if p.folder == dir {
-					p.folder = path.Dir(dir)
-				}
-				p.invalidate()
-			}
-		}
-		if widgets.MenuItem(ui, "Reveal in File Manager", "", true, false) {
-			if err := reveal(ctx.Pipeline.Abs(dir), true); err != nil {
-				ctx.Notify(context.LevelError, err.Error())
-			}
-		}
-		widgets.EndContextMenu(ui)
-	}
 }

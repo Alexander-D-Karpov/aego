@@ -1,5 +1,7 @@
 package langsvc
 
+import "aego/script/workspace"
+
 var scriptSnippets = []Item{
 	{Label: "Ready", Detail: "lifecycle method", Kind: ItemSnippet, Insert: "func Ready() {\n\t\t${1}\n\t}"},
 	{Label: "Update", Detail: "lifecycle method", Kind: ItemSnippet, Insert: "func Update(dt float) {\n\t\t${1}\n\t}"},
@@ -16,7 +18,7 @@ var topSnippets = []Item{
 	{Label: "type", Detail: "struct declaration", Kind: ItemSnippet, Insert: "type $0 struct {\n}"},
 }
 
-func snippet(it Item) Item {
-	it.Doc = builtinText(it.Label)
+func snippet(snap *workspace.Snapshot, it Item) Item {
+	it.Doc = builtinText(snap, it.Label)
 	return it
 }

@@ -71,24 +71,24 @@ type group struct {
 }
 
 type Doc struct {
-	Sel     Selection
-	Now     func() time.Time
-	buf     *buffer.Table
-	idx     *lines.Index
-	states  []highlight.State
-	log     []edit
-	flat    []byte
-	flatRev uint64
-	goal    int
-	undo    []group
-	redo    []group
-	batch   *group
-	rev     uint64
-	saved   uint64
-	hash    uint64
-	hashed  bool
-	hashRev uint64
-	scratch []byte
+	Sel      Selection
+	Now      func() time.Time
+	buf      *buffer.Table
+	idx      *lines.Index
+	states   []highlight.State
+	log      []edit
+	br       bracketIndex
+	restated int
+	goal     int
+	undo     []group
+	redo     []group
+	batch    *group
+	rev      uint64
+	saved    uint64
+	hash     uint64
+	hashed   bool
+	hashRev  uint64
+	scratch  []byte
 }
 
 func normalize(b []byte) []byte {

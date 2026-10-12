@@ -478,7 +478,13 @@ func (p *Panel) toolbar(ctx *context.Editor, d *document.SceneDocument, r mathx.
 	h := th.BarHeight
 	bw := h - 6 + 2
 	w := 6 + 7*bw + 18 + ui.TextSize(modeLabel).X + 16 + 6
-	if !three {
+	projLabel := "Persp"
+	if p.c3.Cam.Ortho {
+		projLabel = "Ortho"
+	}
+	if three {
+		w += ui.TextSize(projLabel).X + 16
+	} else {
 		w += ui.TextSize(zoom).X + 16
 	}
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: min(w, r.W-12), H: h}
@@ -508,6 +514,11 @@ func (p *Panel) toolbar(ctx *context.Editor, d *document.SceneDocument, r mathx.
 	}
 	if clicked, _ := tb.TextButton(ui.ID("mode"), modeLabel, "Switch between the 2D and 3D view"); clicked {
 		p.toggleMode(ctx, d)
+	}
+	if three {
+		if clicked, _ := tb.TextButton(ui.ID("proj"), projLabel, "Switch between the perspective and orthographic 3D view"); clicked {
+			p.ToggleOrtho()
+		}
 	}
 	zid := ui.ID("zoom")
 	if !three {

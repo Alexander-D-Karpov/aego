@@ -7,3 +7,5 @@ exports/
 .vscode/
 /depcheck
 tools/genicons/genicons
+site/
+*.test

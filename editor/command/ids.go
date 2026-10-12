@@ -4,6 +4,7 @@ import "aego/platform/input"
 
 const (
 	FileSave        = "file.save"
+	FileSaveAs      = "file.save_as"
 	FileSaveAll     = "file.save_all"
 	FileOpen        = "file.open"
 	FileNewScene    = "file.new_scene"
@@ -39,7 +40,8 @@ const (
 func DefaultShortcuts() map[string]Shortcut {
 	return map[string]Shortcut{
 		FileSave:        Key(input.KeyS, ModPrimary),
-		FileSaveAll:     Key(input.KeyS, ModPrimary|ModShift),
+		FileSaveAs:      Key(input.KeyS, ModPrimary|ModShift),
+		FileSaveAll:     Key(input.KeyS, ModPrimary|ModAlt),
 		FileOpen:        Key(input.KeyO, ModPrimary),
 		FileNewScene:    Key(input.KeyN, ModPrimary),
 		EditUndo:        Key(input.KeyZ, ModPrimary),

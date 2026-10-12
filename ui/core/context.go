@@ -79,6 +79,7 @@ type Mark struct {
 	overlays int
 	popups   int
 	layers   int
+	fonts    int
 	modal    bool
 }
 
@@ -95,6 +96,11 @@ type Context struct {
 
 	font  *text.Font
 	fonts *text.FontSet
+
+	mono      *text.FontSet
+	monoFont  *text.Font
+	fontStack []fontFrame
+
 	list  *draw.List
 	in    *input.State
 	mouse mathx.Vec2
@@ -215,6 +221,8 @@ func (c *Context) Begin(in *input.State, size mathx.Vec2, scale float32) {
 			c.font = f
 		}
 	}
+	c.fontStack = c.fontStack[:0]
+	c.pickMono()
 	c.cursor = Cursor{
 		X:     c.Theme.Padding,
 		Y:     c.Theme.Padding,
@@ -821,6 +829,49 @@ func (c *Context) FitPopup(contentW float32) {
 	}
 }
 
+type fontFrame struct {
+	ui   *text.Font
+	list *text.Font
+}
+
+func (c *Context) SetMonoFonts(set *text.FontSet) {
+	c.mono = set
+	c.pickMono()
+}
+
+func (c *Context) pickMono() {
+	c.monoFont = nil
+	if c.mono != nil {
+		c.monoFont = c.mono.Closest(c.Theme.FontSize, c.scale)
+	}
+}
+
+func (c *Context) MonoFont() *text.Font {
+	if c.monoFont != nil {
+		return c.monoFont
+	}
+	return c.font
+}
+
+func (c *Context) PushFont(f *text.Font) {
+	c.fontStack = append(c.fontStack, fontFrame{ui: c.font, list: c.list.Font()})
+	if f != nil {
+		c.font = f
+		c.list.SetFont(f)
+	}
+}
+
+func (c *Context) PopFont() {
+	n := len(c.fontStack)
+	if n == 0 {
+		return
+	}
+	fr := c.fontStack[n-1]
+	c.fontStack = c.fontStack[:n-1]
+	c.font = fr.ui
+	c.list.SetFont(fr.list)
+}
+
 func (c *Context) Mark() Mark {
 	return Mark{
 		ids:      len(c.ids),
@@ -829,6 +880,7 @@ func (c *Context) Mark() Mark {
 		overlays: len(c.overlayClips),
 		popups:   len(c.popupStack),
 		layers:   c.list.LayerDepth(),
+		fonts:    len(c.fontStack),
 		modal:    c.inModal,
 	}
 }
@@ -842,6 +894,9 @@ func (c *Context) Restore(m Mark) {
 	}
 	for len(c.clips) > m.clips {
 		c.PopClip()
+	}
+	for len(c.fontStack) > m.fonts {
+		c.PopFont()
 	}
 	if len(c.ids) > m.ids {
 		c.ids = c.ids[:m.ids]

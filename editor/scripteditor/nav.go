@@ -85,6 +85,8 @@ func (p *Panel) command(ctx *context.Editor, primary, shift, alt bool) bool {
 		p.host.Back()
 	case primary && alt && ui.KeyPressed(input.KeyRight):
 		p.host.Forward()
+	case primary && alt && ui.KeyPressed(input.KeyB):
+		p.implementation(ui)
 	case !primary && ui.KeyPressed(input.KeyF2):
 		p.nextError(ctx, shift)
 	case alt && !primary && ui.KeyPressed(input.KeyF7):
@@ -97,6 +99,8 @@ func (p *Panel) command(ctx *context.Editor, primary, shift, alt bool) bool {
 		p.openOutline(ui)
 	case primary && !shift && ui.KeyPressed(input.KeyB):
 		p.definition(ui)
+	case !primary && !shift && !alt && ui.KeyPressed(input.KeyF1):
+		p.docsAt(ctx)
 	case primary && shift && ui.KeyPressed(input.KeyI):
 		p.peekDefinition(ui)
 	case primary && shift && ui.KeyPressed(input.KeyK):
@@ -460,6 +464,8 @@ func (p *Panel) drawPeek(ui *core.Context) {
 		return
 	}
 	th := &ui.Theme
+	ui.PushFont(ui.MonoFont())
+	defer ui.PopFont()
 	lh := p.lineH
 	w := min(p.area.W-24, 760)
 	h := lh*peekLines + th.RowHeight + 6
@@ -545,7 +551,7 @@ func (p *Panel) drawCrumbs(ctx *context.Editor, r mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
 	p.updateCrumbs()
-	ui.Rect(r, th.Code.Gutter)
+	ui.Rect(r, th.Code.GutterBg)
 	ui.PushClip(r)
 	ty := ui.TextY(r)
 	x := r.X + th.Padding
@@ -610,4 +616,19 @@ func lensLabel(n int) string {
 		return "attached to 1 node"
 	}
 	return "attached to " + strconv.Itoa(n) + " nodes"
+}
+
+func (p *Panel) docsAt(ctx *context.Editor) {
+	if ctx.ShowDocs == nil {
+		return
+	}
+	ref := ""
+	if file, ok := p.file(); ok && p.snap != nil {
+		if off, ok := p.snapOffset(); ok {
+			if h, ok := p.host.lang.HoverIn(p.snap, file, uint32(off)); ok {
+				ref = h.Ref
+			}
+		}
+	}
+	ctx.ShowDocs(ref, p.wordAt())
 }

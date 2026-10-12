@@ -51,22 +51,29 @@ func (d *Device) validDepth(colorDepth bool, cw, ch int, depth handle.Handle[glT
 	return handle.Handle[glTexture]{}
 }
 
+func fbStatus() (uint32, uint32) {
+	glErr := gl.GetError()
+	return gl.CheckFramebufferStatus(gl.FRAMEBUFFER), glErr
+}
+
 func (d *Device) framebuffer(color, depth handle.Handle[glTexture]) (uint32, int, int, bool, error) {
 	ct, ok := d.textures.Get(color)
 	if !ok {
 		return 0, 0, 0, false, errs.New(errs.GPUInvalidHandle, "framebuffer: color texture handle is invalid")
 	}
-	colorID, cw, ch, colorDepth := ct.id, ct.w, ct.h, ct.info.depth
+	colorID, cw, ch, colorInfo := ct.id, ct.w, ct.h, ct.info
+	colorDepth := colorInfo.depth
 	depth = d.validDepth(colorDepth, cw, ch, depth)
 	hasDepth := colorDepth || !depth.IsZero()
 	key := fboKey{color: color, depth: depth}
 	if fbo, ok := d.fbos[key]; ok {
 		return fbo, cw, ch, hasDepth, nil
 	}
+	depthInfo := texInfo{name: "none"}
 	var depthID uint32
 	if !depth.IsZero() {
 		dt, _ := d.textures.Get(depth)
-		depthID = dt.id
+		depthID, depthInfo = dt.id, dt.info
 	}
 	for gl.GetError() != gl.NO_ERROR {
 	}
@@ -74,27 +81,31 @@ func (d *Device) framebuffer(color, depth handle.Handle[glTexture]) (uint32, int
 	gl.GenFramebuffers(1, &fbo)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, fbo)
 	d.cache.Invalidate()
+	stage := "color"
 	if colorDepth {
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, colorID, 0)
+		stage = "depth-only"
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, colorInfo.attach, gl.TEXTURE_2D, colorID, 0)
 		gl.DrawBuffer(gl.NONE)
 		gl.ReadBuffer(gl.NONE)
 	} else {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorID, 0)
-		if depthID != 0 {
-			gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, depthID, 0)
-		}
 		gl.DrawBuffer(gl.COLOR_ATTACHMENT0)
 		gl.ReadBuffer(gl.COLOR_ATTACHMENT0)
 	}
-	glErr := gl.GetError()
-	status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER)
+	status, glErr := fbStatus()
+	if status == gl.FRAMEBUFFER_COMPLETE && glErr == gl.NO_ERROR && depthID != 0 {
+		stage = "depth"
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, depthInfo.attach, gl.TEXTURE_2D, depthID, 0)
+		status, glErr = fbStatus()
+	}
 	if status != gl.FRAMEBUFFER_COMPLETE || glErr != gl.NO_ERROR {
 		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 		gl.DeleteFramebuffers(1, &fbo)
 		d.cache.Invalidate()
 		return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer is incomplete",
-			log.F("status", fbStatusName(status)), log.F("gl", glErrorName(glErr)),
-			log.F("w", cw), log.F("h", ch), log.F("color_is_depth", colorDepth), log.F("depth_attached", depthID != 0))
+			log.F("stage", stage), log.F("status", fbStatusName(status)), log.F("status_code", status),
+			log.F("gl", glErrorName(glErr)), log.F("color_format", colorInfo.name), log.F("depth_format", depthInfo.name),
+			log.F("w", cw), log.F("h", ch), log.F("renderer", d.caps.Renderer))
 	}
 	d.fbos[key] = fbo
 	return fbo, cw, ch, hasDepth, nil

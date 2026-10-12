@@ -77,7 +77,7 @@ func (d *Device) bindScratch(id uint32) {
 }
 
 func (d *Device) CreateTexture(desc gpu.TextureDesc) (gpu.TextureHandle, error) {
-	info, ok := textureInfo(desc.Format)
+	info, ok := d.formatInfo(desc.Format)
 	if !ok {
 		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "unsupported texture format", log.F("label", desc.Label))
 	}

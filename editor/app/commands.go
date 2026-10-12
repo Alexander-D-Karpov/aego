@@ -1,8 +1,8 @@
 package app
 
 import (
-	"aego/asset"
 	"aego/core/ids"
+	"aego/editor/assets"
 	edclip "aego/editor/clipboard"
 	"aego/editor/command"
 	"aego/editor/context"
@@ -12,7 +12,6 @@ import (
 	"aego/editor/templates"
 	"aego/editor/workspace"
 	"aego/platform/input"
-	"aego/scene"
 )
 
 const (
@@ -21,9 +20,13 @@ const (
 )
 
 const (
-	CommandAssetsRename = "assets.rename"
-	CommandAssetsDelete = "assets.delete"
-	CommandResetLayout  = "window.reset_layout"
+	CommandAssetsRename    = assets.CommandRename
+	CommandAssetsDelete    = assets.CommandDelete
+	CommandAssetsDuplicate = assets.CommandDuplicate
+	CommandAssetsUndo      = assets.CommandUndo
+	CommandAssetsRedo      = assets.CommandRedo
+	CommandResetLayout     = "window.reset_layout"
+	CommandToggleOrtho     = "scene.toggle_ortho"
 )
 
 func (a *App) registerCommands() error {
@@ -31,6 +34,8 @@ func (a *App) registerCommands() error {
 	ctx := a.ctx
 	sc := command.DefaultShortcuts()
 	hasDoc := func() bool { return ctx.Doc() != nil }
+	inAssets := func() bool { return a.ws.Focused() == workspace.Assets }
+	assetSel := func() bool { return inAssets() && a.assetsPanel.HasSelection() }
 	hasSel := func() bool { return ctx.Doc() != nil && len(ctx.Selected()) > 0 }
 	playing := func() bool { return a.play.State() != play.Stopped }
 	historyLabel := func(undo bool) func() string {
@@ -58,7 +63,13 @@ func (a *App) registerCommands() error {
 	list := []command.Desc{
 		{ID: command.FileNewScene, Name: "New Scene", Category: "File", Order: 100, Run: a.newScene},
 		{ID: CommandNewScene3D, Name: "New 3D Scene", Category: "File", Order: 110, Run: a.newScene3D},
+		{ID: command.FileOpen, Name: "Open Scene…", Category: "File", Order: 120, Run: a.openScene},
 		{ID: command.FileSave, Name: "Save", Category: "File", Order: 200, Enabled: hasDoc, Run: a.save},
+		{ID: command.FileSaveAs, Name: "Save As…", Category: "File", Order: 205, Enabled: hasDoc,
+			Run: func() error {
+				assets.PromptSaveAs(ctx, ctx.Doc())
+				return nil
+			}},
 		{ID: command.FileSaveAll, Name: "Save All", Category: "File", Order: 210, Enabled: ctx.Docs.Dirty, Run: a.saveAll},
 		{ID: CommandCloseScene, Name: "Close Scene", Category: "File", Order: 300,
 			Shortcut: command.Key(input.KeyW, command.ModPrimary), Enabled: hasDoc, Run: a.closeActive},
@@ -111,6 +122,11 @@ func (a *App) registerCommands() error {
 				ctx.Settings.Snap = !ctx.Settings.Snap
 				return nil
 			}},
+		{ID: CommandToggleOrtho, Name: "Orthographic 3D View", Category: "Scene", Order: 320, Enabled: hasDoc,
+			Checked: a.sceneView.Ortho, Run: func() error {
+				a.sceneView.ToggleOrtho()
+				return nil
+			}},
 		{ID: command.SceneCreateNode, Name: "Create Empty", Category: "Scene", Order: 400,
 			Shortcut: command.Key(input.KeyN, command.ModPrimary|command.ModShift), Enabled: hasDoc,
 			Run: func() error {
@@ -150,22 +166,45 @@ func (a *App) registerCommands() error {
 			}},
 
 		{ID: command.AssetsReimport, Name: "Reimport Asset", Category: "Assets", Order: 100,
-			Enabled: func() bool { return !a.assetsPanel.Selected().IsZero() },
+			Enabled: a.assetsPanel.HasSelection,
 			Run:     func() error { return a.assetsPanel.ReimportSelected(ctx) }},
 		{ID: CommandAssetsRename, Name: "Rename Asset", Category: "Assets", Order: 110, Scope: command.ScopeAssets,
 			Shortcut: command.Key(input.KeyF2, 0),
-			Enabled:  func() bool { return !a.assetsPanel.Selected().IsZero() },
+			Enabled:  func() bool { return inAssets() && a.assetsPanel.Single() },
 			Run: func() error {
 				a.assetsPanel.StartRename()
 				return nil
 			}},
+		{ID: CommandAssetsDuplicate, Name: "Duplicate Asset", Category: "Assets", Order: 115, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyD, command.ModPrimary), Enabled: assetSel,
+			Run: func() error { return a.assetsPanel.DuplicateSelected(ctx) }},
 		{ID: CommandAssetsDelete, Name: "Delete Asset", Category: "Assets", Order: 120, Scope: command.ScopeAssets,
-			Shortcut: command.Key(input.KeyDelete, 0),
-			Enabled:  func() bool { return !a.assetsPanel.Selected().IsZero() },
+			Shortcut: command.Key(input.KeyDelete, 0), Enabled: assetSel,
 			Run: func() error {
 				a.assetsPanel.DeleteSelected(ctx)
 				return nil
 			}},
+		{ID: CommandAssetsUndo, Name: "Undo File Operation", Category: "Assets", Order: 200, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyZ, command.ModPrimary),
+			Enabled:  func() bool { return inAssets() && a.assetsPanel.Ops.CanUndo() },
+			Run:      func() error { return a.assetsPanel.Undo(ctx) }},
+		{ID: CommandAssetsRedo, Name: "Redo File Operation", Category: "Assets", Order: 210, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyZ, command.ModPrimary|command.ModShift),
+			Enabled:  func() bool { return inAssets() && a.assetsPanel.Ops.CanRedo() },
+			Run:      func() error { return a.assetsPanel.Redo(ctx) }},
+		{ID: assets.CommandCopy, Name: "Copy Asset", Category: "Assets", Order: 130, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyC, command.ModPrimary), Enabled: assetSel,
+			Run: func() error { return a.assetsPanel.CopySelected(ctx) }},
+		{ID: assets.CommandCut, Name: "Cut Asset", Category: "Assets", Order: 135, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyX, command.ModPrimary), Enabled: assetSel,
+			Run: func() error { return a.assetsPanel.CutSelected(ctx) }},
+		{ID: assets.CommandPaste, Name: "Paste into Folder", Category: "Assets", Order: 140, Scope: command.ScopeAssets,
+			Shortcut: command.Key(input.KeyV, command.ModPrimary), Enabled: inAssets,
+			Run: func() error { return a.assetsPanel.PasteHere(ctx) }},
+		{ID: sceneview.CommandPasteImage, Name: "Paste Image as Sprite", Category: "Scene", Order: 410, Scope: command.ScopeScene,
+			Shortcut: command.Key(input.KeyV, command.ModPrimary),
+			Enabled:  func() bool { return a.sceneView.CanPasteImage(ctx) },
+			Run:      func() error { return a.sceneView.PasteImage(ctx) }},
 
 		{ID: inspector.CommandCopy, Name: "Copy Field", Scope: inspector.Scope,
 			Shortcut: command.Key(input.KeyC, command.ModPrimary),
@@ -278,17 +317,7 @@ func (a *App) setTool(t uint8) func() error {
 }
 
 func (a *App) newScene() error {
-	var res asset.Resolver
-	if a.ctx.Loader != nil {
-		res = a.ctx.Loader
-	}
-	s := scene.New(a.opt.Types, res, scene.Options{})
-	a.templates.Spawn(s, s.Root(), "render2d.camera")
-	s.Flush()
-	rel := a.ctx.Docs.UniquePath("scenes/untitled.aescene")
-	a.ctx.Docs.New(rel, s)
-	a.ctx.Selection.Clear()
-	return nil
+	return a.newUnsaved("scenes/untitled.aescene", false)
 }
 
 func (a *App) save() error {

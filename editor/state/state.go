@@ -30,24 +30,26 @@ type Doc struct {
 }
 
 type Editor struct {
-	Docs       []Doc
-	Active     string
-	Tool       int
-	Grid       bool
-	Snap       bool
-	SnapMove   float32
-	SnapRotate float32
-	SnapScale  float32
-	WindowW    int
-	WindowH    int
-	Collapsed  []string
-	Autosave   bool
-	InlayHints bool
-	Minimap    bool
+	Docs            []Doc
+	Active          string
+	Tool            int
+	Grid            bool
+	Snap            bool
+	SnapMove        float32
+	SnapRotate      float32
+	SnapScale       float32
+	WindowW         int
+	WindowH         int
+	Collapsed       []string
+	Autosave        bool
+	InlayHints      bool
+	Minimap         bool
+	RainbowBrackets bool
+	HighlightBlock  bool
 }
 
 func Default() *Editor {
-	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true}
+	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true, RainbowBrackets: true, HighlightBlock: true}
 }
 
 func userPath(root, name string) string {
@@ -128,6 +130,8 @@ func Encode(s *Editor) []byte {
 		aetext.Field{Name: "autosave", Value: aetext.Bool(s.Autosave)},
 		aetext.Field{Name: "inlayHints", Value: aetext.Bool(s.InlayHints)},
 		aetext.Field{Name: "minimap", Value: aetext.Bool(s.Minimap)},
+		aetext.Field{Name: "codeRainbow", Value: aetext.Bool(s.RainbowBrackets)},
+		aetext.Field{Name: "highlightBlock", Value: aetext.Bool(s.HighlightBlock)},
 	)
 	collapsed := make([]aetext.Value, len(s.Collapsed))
 	for i, k := range s.Collapsed {
@@ -149,6 +153,9 @@ func Encode(s *Editor) []byte {
 			aetext.Field{Name: "expanded", Value: nodeList(d.Expanded)},
 			aetext.Field{Name: "selection", Value: nodeList(d.Selection)},
 		)
+		if o.Ortho {
+			n.Fields = append(n.Fields, aetext.Field{Name: "ortho", Value: aetext.Bool(true)})
+		}
 		root.Blocks = append(root.Blocks, n)
 	}
 	return aetext.Write(root)
@@ -199,6 +206,12 @@ func Decode(data []byte, name string) (*Editor, error) {
 	if v, ok := doc.Field("minimap"); ok {
 		s.Minimap = v.Bool
 	}
+	if v, ok := doc.Field("codeRainbow"); ok {
+		s.RainbowBrackets = v.Bool
+	}
+	if v, ok := doc.Field("highlightBlock"); ok {
+		s.HighlightBlock = v.Bool
+	}
 	if v, ok := doc.Field("collapsed"); ok {
 		for _, item := range v.List {
 			s.Collapsed = append(s.Collapsed, item.Str)
@@ -224,6 +237,9 @@ func Decode(data []byte, name string) (*Editor, error) {
 				Target:   mathx.Vec3{X: f(0), Y: f(1), Z: f(2)},
 				Distance: f(3), Yaw: f(4), Pitch: f(5), FOV: f(6),
 			}
+		}
+		if v, ok := n.Field("ortho"); ok {
+			d.Orbit.Ortho = v.Bool
 		}
 		if v, ok := n.Field("expanded"); ok {
 			d.Expanded = readNodes(v)

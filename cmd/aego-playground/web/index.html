@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aego Playground</title>
+<link rel="stylesheet" href="play.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../">Aego</a>
+  <span class="sep">/</span>
+  <span class="title">Playground</span>
+  <select id="examples" aria-label="Examples"><option value="">Examples…</option></select>
+  <label class="frames">Frames <input id="frames" type="number" min="1" max="3600" value="120"></label>
+  <button id="run" disabled>Run <kbd>Ctrl+Enter</kbd></button>
+  <span id="status" class="status">Loading…</span>
+</header>
+<main class="layout">
+  <section class="editor" aria-label="Script">
+    <div class="code">
+      <div id="marks" class="marks" aria-hidden="true"></div>
+      <pre id="highlight" class="highlight" aria-hidden="true"></pre>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+    </div>
+  </section>
+  <section class="side">
+    <div class="pane">
+      <h2>Problems <span id="problem-count" class="count"></span></h2>
+      <ul id="problems" class="list"></ul>
+    </div>
+    <div class="pane grow">
+      <h2>Console <button id="clear" class="link">Clear</button></h2>
+      <ul id="console" class="list mono"></ul>
+    </div>
+  </section>
+</main>
+<script src="wasm_exec.js"></script>
+<script src="play.js"></script>
+</body>
+</html>

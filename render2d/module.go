@@ -94,6 +94,7 @@ func (Module) Register(r *module.Registry) error {
 		Before: []string{frame.SystemSubmit},
 		System: extract{},
 	})
+	registerDocs(r)
 	return nil
 }
 

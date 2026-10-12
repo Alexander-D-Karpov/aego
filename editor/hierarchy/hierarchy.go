@@ -51,7 +51,9 @@ type Panel struct {
 	lastRev       uint64
 	menuNode      ids.NodeID
 	menuID        core.ID
+	sceneMenuID   core.ID
 	doc           document.ID
+	Files         *assets.Ops
 }
 
 func New(t *templates.Registry) *Panel {
@@ -96,6 +98,7 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 		p.renaming = ids.NodeID{}
 	}
 	p.menuID = ui.ID("menu")
+	p.sceneMenuID = ui.ID("scenemenu")
 	p.track(ctx, d)
 	if p.renameStart {
 		p.expandTo(d, p.renaming)
@@ -121,8 +124,10 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 		p.createItems(ctx, d, p.activeNode(ctx, d))
 		ui.EndPopup()
 	}
+	hdr := ui.Cursor().Next(0)
+	p.drawHeader(ctx, d, hdr)
 
-	top := bar.Y + bar.H + th.Spacing
+	top := hdr.Y + hdr.H + th.Spacing
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	p.build(d)
 	if !p.reveal.IsZero() {
@@ -159,6 +164,46 @@ func (p *Panel) Draw(ctx *context.Editor, r mathx.Rect) {
 		ctx.CommandItem(command.EditDelete, "Delete")
 		widgets.EndContextMenu(ui)
 	}
+	p.sceneMenu(ctx, d)
+}
+
+func (p *Panel) drawHeader(ctx *context.Editor, d *document.SceneDocument, r mathx.Rect) {
+	ui := ctx.UI
+	th := &ui.Theme
+	id := ui.ID("scene")
+	ui.Rect(r, th.Header)
+	name := path.Base(d.Path)
+	if d.Dirty() {
+		name += "*"
+	}
+	if !d.OnDisk {
+		name += "  (unsaved)"
+	}
+	ui.PushClip(r)
+	ui.Text(name, mathx.Vec2{X: r.X + th.Padding, Y: ui.TextY(r)}, th.Text)
+	ui.PopClip()
+	if ui.Pressed(id, r) && ui.DoubleClicked(id) {
+		assets.PromptRenameScene(ctx, p.Files, d)
+	}
+	if ui.RightClicked(id, r) {
+		widgets.OpenContextMenu(ui, p.sceneMenuID)
+	}
+	widgets.Tooltip(ui, id, d.Path)
+}
+
+func (p *Panel) sceneMenu(ctx *context.Editor, d *document.SceneDocument) {
+	ui := ctx.UI
+	if !widgets.ContextMenu(ui, p.sceneMenuID) {
+		return
+	}
+	ctx.CommandItem(command.FileSave, "Save Scene")
+	if widgets.MenuItem(ui, "Save Scene As…", ctx.Commands.Shortcut(command.FileSaveAs), true, false) {
+		assets.PromptSaveAs(ctx, d)
+	}
+	if widgets.MenuItem(ui, "Rename Scene…", "", true, false) {
+		assets.PromptRenameScene(ctx, p.Files, d)
+	}
+	widgets.EndContextMenu(ui)
 }
 
 func (p *Panel) activeNode(ctx *context.Editor, d *document.SceneDocument) ids.NodeID {

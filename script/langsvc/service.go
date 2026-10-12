@@ -32,6 +32,7 @@ type Service struct {
 	stubTab  *abi.Table
 	stubDocs *manifest.Manifest
 	stubs    map[string]*Stub
+	native   string
 }
 
 func New(w *workspace.Workspace, jobs Jobs) *Service {

@@ -60,12 +60,26 @@ func (id NodeID) IsZero() bool {
 	return id.Hi == 0 && id.Lo == 0
 }
 
+func (id NodeID) Short() string {
+	if id.IsZero() {
+		return "nil"
+	}
+	return id.String()[:8]
+}
+
 func (id AssetID) String() string {
 	return format(id.Hi, id.Lo)
 }
 
 func (id AssetID) IsZero() bool {
 	return id.Hi == 0 && id.Lo == 0
+}
+
+func (id AssetID) Short() string {
+	if id.IsZero() {
+		return "nil"
+	}
+	return id.String()[:8]
 }
 
 func ParseNodeID(s string) (NodeID, error) {

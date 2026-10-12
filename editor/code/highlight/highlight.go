@@ -34,15 +34,32 @@ const (
 	Error
 	Signal
 	Coroutine
+	Bracket
 	KindCount
 )
 
-type State uint8
+type State uint32
 
 const (
-	Normal State = iota
-	InComment
+	Normal    State = 0
+	InComment State = 1
 )
+
+func MakeState(depth int, comment bool) State {
+	s := State(max(depth, 0)) << 1
+	if comment {
+		s |= InComment
+	}
+	return s
+}
+
+func (s State) Comment() bool {
+	return s&InComment != 0
+}
+
+func (s State) Depth() int {
+	return int(s >> 1)
+}
 
 type Span struct {
 	Start int
@@ -56,6 +73,13 @@ type Sem struct {
 	Kind  Kind
 }
 
+type BracketPos struct {
+	Off   int
+	Ch    byte
+	Open  bool
+	Depth int
+}
+
 var builtinTypes = map[string]bool{
 	"bool": true, "int": true, "float": true, "string": true,
 	"Vec2": true, "Vec3": true, "Color": true, "Quat": true, "Rect": true,
@@ -65,7 +89,7 @@ var builtinTypes = map[string]bool{
 
 var builtinFuncs = map[string]bool{"len": true, "append": true}
 
-const punctuation = "(){}[],;:"
+const punctuation = ",;:"
 
 func letter(c byte) bool {
 	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
@@ -115,34 +139,120 @@ func prevNonSpace(text []byte, i int) byte {
 	return 0
 }
 
-func Scan(text []byte, in State) State {
+func typeArgEnd(text []byte, i int) int {
+	if i == 0 || !ident(text[i-1]) {
+		return -1
+	}
+	j := i + 1
+	for j < len(text) && (ident(text[j]) || text[j] == '.' || text[j] == ',' || text[j] == ' ') {
+		j++
+	}
+	if j == i+1 || j >= len(text) || text[j] != '>' {
+		return -1
+	}
+	if k := skipSpace(text, j+1); k >= len(text) || text[k] != '(' {
+		return -1
+	}
+	return j
+}
+
+func bracketAt(text []byte, i, shut int) int {
+	switch text[i] {
+	case '(', '[', '{':
+		return 1
+	case ')', ']', '}':
+		return -1
+	case '<':
+		if typeArgEnd(text, i) > 0 {
+			return 1
+		}
+	case '>':
+		if i == shut {
+			return -1
+		}
+	}
+	return 0
+}
+
+func Opens(c byte) bool {
+	return c == '(' || c == '[' || c == '{' || c == '<'
+}
+
+func walk(text []byte, in State, dst []BracketPos, keep bool) ([]BracketPos, State) {
 	n := len(text)
+	depth := in.Depth()
 	i := 0
-	if in == InComment {
+	if in.Comment() {
 		end := closeComment(text, 0)
 		if end < 0 {
-			return InComment
+			return dst, in
 		}
 		i = end
 	}
+	shut := -1
 	for i < n {
 		c := text[i]
 		switch {
 		case c == '"':
 			i = stringEnd(text, i)
+			continue
 		case c == '/' && i+1 < n && text[i+1] == '/':
-			return Normal
+			return dst, MakeState(depth, false)
 		case c == '/' && i+1 < n && text[i+1] == '*':
 			end := closeComment(text, i+2)
 			if end < 0 {
-				return InComment
+				return dst, MakeState(depth, true)
 			}
 			i = end
-		default:
-			i++
+			continue
 		}
+		switch bracketAt(text, i, shut) {
+		case 1:
+			if keep {
+				dst = append(dst, BracketPos{Off: i, Ch: c, Open: true, Depth: depth})
+			}
+			depth++
+			if c == '<' {
+				shut = typeArgEnd(text, i)
+			}
+		case -1:
+			depth = max(depth-1, 0)
+			if keep {
+				dst = append(dst, BracketPos{Off: i, Ch: c, Depth: depth})
+			}
+			if c == '>' {
+				shut = -1
+			}
+		}
+		i++
 	}
-	return Normal
+	return dst, MakeState(depth, false)
+}
+
+func Scan(text []byte, in State) State {
+	_, s := walk(text, in, nil, false)
+	return s
+}
+
+func Brackets(text []byte, in State, dst []BracketPos) ([]BracketPos, State) {
+	return walk(text, in, dst, true)
+}
+
+func BracketLevels(spans []Span, text []byte, depth int, dst []int) []int {
+	for _, s := range spans {
+		lv := -1
+		if s.Kind == Bracket && s.Start < len(text) {
+			if Opens(text[s.Start]) {
+				lv = depth
+				depth++
+			} else {
+				depth = max(depth-1, 0)
+				lv = depth
+			}
+		}
+		dst = append(dst, lv)
+	}
+	return dst
 }
 
 var yieldForms = map[string]bool{"wait": true, "frames": true, "fixed": true}
@@ -198,27 +308,29 @@ func classify(text []byte, i, j int, word, prev string) Kind {
 func Line(text []byte, in State, dst []Span) ([]Span, State) {
 	dst = dst[:0]
 	n := len(text)
+	depth := in.Depth()
 	i := 0
-	if in == InComment {
+	if in.Comment() {
 		end := closeComment(text, 0)
 		if end < 0 {
-			return append(dst, Span{0, n, Comment}), InComment
+			return append(dst, Span{0, n, Comment}), in
 		}
 		dst = append(dst, Span{0, end, Comment})
 		i = end
 	}
 	prev := ""
+	shut := -1
 	for i < n {
 		c := text[i]
 		switch {
 		case c == ' ' || c == '\t' || c == '\r':
 			i++
 		case c == '/' && i+1 < n && text[i+1] == '/':
-			return append(dst, Span{i, n, Comment}), Normal
+			return append(dst, Span{i, n, Comment}), MakeState(depth, false)
 		case c == '/' && i+1 < n && text[i+1] == '*':
 			end := closeComment(text, i+2)
 			if end < 0 {
-				return append(dst, Span{i, n, Comment}), InComment
+				return append(dst, Span{i, n, Comment}), MakeState(depth, true)
 			}
 			dst = append(dst, Span{i, end, Comment})
 			i, prev = end, ""
@@ -257,15 +369,30 @@ func Line(text []byte, in State, dst []Span) ([]Span, State) {
 			i, prev = j, ""
 		default:
 			k := Operator
-			if strings.IndexByte(punctuation, c) >= 0 {
-				k = Punctuation
+			switch bracketAt(text, i, shut) {
+			case 1:
+				k = Bracket
+				depth++
+				if c == '<' {
+					shut = typeArgEnd(text, i)
+				}
+			case -1:
+				k = Bracket
+				depth = max(depth-1, 0)
+				if c == '>' {
+					shut = -1
+				}
+			default:
+				if strings.IndexByte(punctuation, c) >= 0 {
+					k = Punctuation
+				}
 			}
 			dst = append(dst, Span{i, i + 1, k})
 			i++
 			prev = ""
 		}
 	}
-	return dst, Normal
+	return dst, MakeState(depth, false)
 }
 
 func overridable(k Kind) bool {

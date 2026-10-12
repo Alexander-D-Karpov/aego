@@ -5,6 +5,7 @@ import (
 	"aego/editor/clipboard"
 	"aego/editor/context"
 	"aego/editor/document"
+	"aego/platform/clip"
 	"aego/scene"
 	"aego/schema"
 	"aego/ui/core"
@@ -201,6 +202,13 @@ func (p *Panel) fieldMenu(ctx *context.Editor, d *document.SceneDocument) {
 	_, canPaste := clipboard.ReadValue(ctx, fd)
 	if widgets.MenuItem(ui, "Paste Value", ctx.Commands.Shortcut(CommandPaste), canPaste && !ro, false) {
 		p.pasteValue(ctx, d, td, fd)
+	}
+	if textureField(fd) {
+		if widgets.MenuItem(ui, "Paste Image", "", !ro && clip.HasImage(ctx.Clipboard), false) {
+			if err := p.pasteImage(ctx, d, td, fd); err != nil {
+				ctx.Notify(context.LevelError, err.Error())
+			}
+		}
 	}
 	if widgets.MenuItem(ui, "Reset to Default", "", !ro, false) {
 		if err := d.Props.Set(nil, p.nodes, td.ID, fd.ID, p.defaultValue(d.Scene().Registry(), td, fd)); err != nil {

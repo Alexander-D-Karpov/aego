@@ -9,6 +9,7 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/docs"
 	"aego/engine/module"
 	"aego/project"
 	"aego/render"
@@ -44,6 +45,7 @@ type Host struct {
 	Bindings    *bind.Registry
 	Workspace   *workspace.Workspace
 	Modules     *module.Manifest
+	Docs        *docs.Registry
 	Importers   *pipeline.ImporterRegistry
 	Log         *log.Logger
 	closed      bool
@@ -102,10 +104,16 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	}
 	h.Workspace.SetBindings(h.Bindings.Table())
 	if cfg.Docs {
-		if m, derr := manifest.FromRegistry(h.Bindings, h.Types.Schema()); derr == nil {
-			h.Workspace.SetDocs(m)
-		} else {
+		m, derr := manifest.FromRegistry(h.Bindings, h.Types.Schema())
+		if derr != nil {
 			ch.Warn("cannot describe the script bindings", log.F("err", derr.Error()))
+		} else {
+			h.Docs = docs.FromManifest(m, h.Types.Schema(), h.Modules)
+			m.Keywords = h.Docs.Keywords()
+			h.Workspace.SetDocs(m)
+			for _, p := range h.Docs.Problems() {
+				ch.Warn("documentation: "+p.Message, log.F("entry", p.ID))
+			}
 		}
 	}
 	if h.Pipeline, err = pipeline.Open(p, h.Importers, lg); err != nil {

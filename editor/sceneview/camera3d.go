@@ -35,6 +35,7 @@ type Camera3D struct {
 	Yaw      float32
 	Pitch    float32
 	FOV      float32
+	Ortho    bool
 }
 
 func DefaultCamera3D() Camera3D {
@@ -85,8 +86,15 @@ func (c Camera3D) clip() (float32, float32) {
 	return mathx.Clamp(d*0.002, 0.01, 1), max(d*50, 1000)
 }
 
+func (c Camera3D) halfHeight() float32 {
+	return c.dist() * float32(math.Tan(float64(c.fov())/2))
+}
+
 func (c Camera3D) View(vp mathx.Rect) view.View {
 	near, far := c.clip()
+	if c.Ortho {
+		return view.OrthoView(c.Eye(), c.halfHeight(), -far, far, vp)
+	}
 	return view.PerspectiveView(c.Eye(), c.fov(), near, far, vp)
 }
 
@@ -94,7 +102,7 @@ func (c Camera3D) WorldPerPixel(h float32) float32 {
 	if h <= 0 {
 		h = 1
 	}
-	return 2 * c.dist() * float32(math.Tan(float64(c.fov())/2)) / h
+	return 2 * c.halfHeight() / h
 }
 
 func (c *Camera3D) Orbit(dx, dy float32) {
@@ -117,5 +125,10 @@ func (c *Camera3D) Frame(b mathx.AABB3) {
 	if r < 0.25 {
 		r = 0.25
 	}
-	c.Distance = mathx.Clamp(r/float32(math.Sin(float64(c.fov())/2))*1.1, minDistance, maxDistance)
+	half := float64(c.fov()) / 2
+	d := r / float32(math.Sin(half)) * 1.1
+	if c.Ortho {
+		d = r / float32(math.Tan(half)) * 1.1
+	}
+	c.Distance = mathx.Clamp(d, minDistance, maxDistance)
 }

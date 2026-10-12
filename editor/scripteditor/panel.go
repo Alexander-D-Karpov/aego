@@ -41,6 +41,7 @@ type hoverState struct {
 	info    langsvc.Hover
 	hasDiag bool
 	dg      diag.Diagnostic
+	builtin bool
 }
 
 type findState struct {
@@ -53,9 +54,10 @@ type findState struct {
 }
 
 type mark struct {
-	rev  uint64
-	off  int
-	snap *workspace.Snapshot
+	rev    uint64
+	off    int
+	anchor int
+	snap   *workspace.Snapshot
 }
 
 type Panel struct {
@@ -85,11 +87,18 @@ type Panel struct {
 	marks     map[int]diag.Severity
 	sem       []highlight.Sem
 	occ       []highlight.Sem
-	occKey    mark
+	occWrite  []bool
+	occCur    int
+	occT      settle
 	brKey     mark
 	brA       int
 	brB       int
-	brOK      bool
+	brState   code.BracketState
+	block     code.Block
+	blockOK   bool
+	blockKey  mark
+	guides    []int
+	guideAt   int
 	views     map[int]*lineView
 	comp      compState
 	hover     hoverState
@@ -121,6 +130,8 @@ type Panel struct {
 	lineH     float32
 	viewLines int
 	line      []byte
+	pad       float32
+	pid       string
 }
 
 func newPanel(h *Host, d *document.ScriptDocument) *Panel {
@@ -136,14 +147,18 @@ func newPanel(h *Host, d *document.ScriptDocument) *Panel {
 		inlays:    map[int][]inlay{},
 		hover:     hoverState{off: -1},
 		flashLine: -1,
+		occCur:    -1,
 	}
 }
 
 func (p *Panel) ID() string {
-	if p.clone {
-		return PanelID(p.doc.Path) + "#" + strconv.Itoa(p.idx)
+	if p.pid == "" {
+		p.pid = PanelID(p.doc.Path)
+		if p.clone {
+			p.pid += "#" + strconv.Itoa(p.idx)
+		}
 	}
-	return PanelID(p.doc.Path)
+	return p.pid
 }
 
 func (p *Panel) Title() string {
@@ -168,8 +183,10 @@ func (p *Panel) synced() bool {
 
 func (p *Panel) resync() {
 	p.lastRev, p.sentRev, p.marksAt = ^uint64(0), ^uint64(0), ^uint64(0)
-	p.snap, p.diags, p.sem, p.occ = nil, nil, nil, nil
-	p.occKey, p.brKey, p.crumbKey, p.lensKey, p.inlayKey = mark{}, mark{}, mark{}, mark{}, mark{}
+	p.snap, p.diags, p.sem = nil, nil, nil
+	p.clearOcc()
+	p.occT = settle{}
+	p.brKey, p.blockKey, p.crumbKey, p.lensKey, p.inlayKey = mark{}, mark{}, mark{}, mark{}, mark{}
 	p.crumbs, p.lens, p.selStack = p.crumbs[:0], p.lens[:0], p.selStack[:0]
 	clear(p.inlays)
 	p.inlayVer++
@@ -222,7 +239,6 @@ func (p *Panel) receive(rev uint64, r langsvc.Result) {
 	}
 	p.semVer++
 	p.marksAt = ^uint64(0)
-	p.occKey = mark{}
 	p.remap()
 }
 
@@ -302,45 +318,6 @@ func (p *Panel) snapOffset() (int, bool) {
 		return 0, false
 	}
 	return p.doc.Code.Unmap(p.snapRev, p.doc.Code.Cursor())
-}
-
-func (p *Panel) occurrences() {
-	c := p.doc.Code
-	k := mark{rev: c.Rev(), off: c.Cursor(), snap: p.snap}
-	if k == p.occKey {
-		return
-	}
-	p.occKey = k
-	p.occ = p.occ[:0]
-	file, ok := p.file()
-	if !ok || p.snap == nil {
-		return
-	}
-	off, ok := c.Unmap(p.snapRev, c.Cursor())
-	if !ok {
-		return
-	}
-	for _, l := range p.host.lang.ReferencesIn(p.snap, file, uint32(off)) {
-		if l.File != file {
-			continue
-		}
-		if s, e, ok := c.MapSpan(p.snapRev, int(l.Span.Start), int(l.Span.End)); ok {
-			p.occ = append(p.occ, highlight.Sem{Start: s, End: e})
-		}
-	}
-	if len(p.occ) < 2 {
-		p.occ = p.occ[:0]
-	}
-}
-
-func (p *Panel) brackets() {
-	c := p.doc.Code
-	k := mark{rev: c.Rev(), off: c.Cursor()}
-	if k == p.brKey {
-		return
-	}
-	p.brKey = k
-	p.brA, p.brB, p.brOK = c.Bracket(c.Cursor())
 }
 
 func (p *Panel) diagAt(off int) (diag.Diagnostic, bool) {

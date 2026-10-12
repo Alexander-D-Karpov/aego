@@ -94,7 +94,7 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 		groupResults: map[string]map[ids.AssetID]*Result{},
 		pages:        map[string]ids.AssetID{},
 		stale:        map[string]bool{},
-		roots:        []string{p.AssetsDir(), p.ScenesDir(), p.ScriptsDir()},
+		roots:        []string{p.AssetsDir(), p.ScenesDir(), p.ScriptsDir(), p.PrefabsDir()},
 	}
 	if data, err := os.ReadFile(pl.indexPath()); err == nil {
 		if idx, err := asset.ReadIndex(data, "index.aetext"); err == nil {

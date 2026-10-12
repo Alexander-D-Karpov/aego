@@ -274,6 +274,23 @@ func (r *Registry) Lookup(sc Shortcut, scope string) (Desc, bool) {
 	return Desc{}, false
 }
 
+func (r *Registry) resolve(sc Shortcut, scope string) (*Desc, bool) {
+	var global *Desc
+	for _, id := range r.order {
+		d := r.byID[id]
+		if d.Shortcut != sc || (d.Enabled != nil && !d.Enabled()) {
+			continue
+		}
+		if scope != "" && d.Scope == scope {
+			return d, true
+		}
+		if d.Scope == "" && global == nil {
+			global = d
+		}
+	}
+	return global, global != nil
+}
+
 func (r *Registry) Dispatch(in *input.State, scope string) (string, bool) {
 	if in == nil {
 		return "", false
@@ -284,11 +301,9 @@ func (r *Registry) Dispatch(in *input.State, scope string) (string, bool) {
 		if hit != "" || isModifier(k) || !in.KeyRepeated(k) {
 			return
 		}
-		d, ok := r.Lookup(Shortcut{Key: k, Mods: mods}, scope)
-		if !ok || (d.Enabled != nil && !d.Enabled()) {
-			return
+		if d, ok := r.resolve(Shortcut{Key: k, Mods: mods}, scope); ok {
+			hit = d.ID
 		}
-		hit = d.ID
 	})
 	if hit == "" {
 		return "", false

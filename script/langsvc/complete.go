@@ -66,8 +66,8 @@ func (c *collector) sorted() []Item {
 	return c.items
 }
 
-func objectItem(o *resolver.Object) Item {
-	it := Item{Label: o.Name, Detail: describe(o), Doc: objectDoc(o)}
+func objectItem(snap *workspace.Snapshot, o *resolver.Object) Item {
+	it := Item{Label: o.Name, Detail: describe(o), Doc: objectDoc(snap, o)}
 	switch o.Kind {
 	case resolver.ObjFunc, resolver.ObjBuiltin:
 		it.Kind, it.Insert = ItemFunction, o.Name+"("
@@ -181,7 +181,7 @@ func (s *Service) complete(snap *workspace.Snapshot, file source.FileID, off uin
 	case n > 0 && before[n-1].Kind == token.Ident && before[n-1].Text == "start":
 		startItems(c, snap, f, off)
 	case n > 0 && before[n-1].Kind == token.Yield:
-		yieldItems(c)
+		yieldItems(c, snap)
 	case n > 0 && before[n-1].Kind == token.Period:
 		s.members(c, snap, f, src, before[n-1].Start, pkg)
 	case n > 2 && before[n-1].Kind == token.Lt && before[n-2].Kind == token.Ident && before[n-3].Kind == token.Period:
@@ -190,7 +190,7 @@ func (s *Service) complete(snap *workspace.Snapshot, file source.FileID, off uin
 		handlerItems(c, snap, f, src, before[n-3].Start, off)
 	case n > 0 && before[n-1].Kind == token.At:
 		for _, a := range []string{"export", "former", "hide"} {
-			c.add(Item{Label: a, Kind: ItemAttribute, Doc: builtinText("@" + a)})
+			c.add(Item{Label: a, Kind: ItemAttribute, Doc: builtinText(snap, "@"+a)})
 		}
 	case exportArgs(before):
 		for _, k := range []string{"min", "max", "step", "unit", "display", "tip", "category"} {
@@ -237,7 +237,7 @@ func (s *Service) members(c *collector, snap *workspace.Snapshot, f *ast.File, s
 	}
 	a := snap.Analysis
 	if sg := signalOf(a, x); sg != nil {
-		signalMembers(c, sg)
+		signalMembers(c, snap, sg)
 		return
 	}
 	if id, ok := x.(*ast.Ident); ok {
@@ -274,7 +274,7 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 		if t.Kind == types.KNodeRef {
 			c.add(Item{Label: "Get", Detail: "Get<Component>() ComponentRef", Kind: ItemMethod, Insert: "Get<"})
 			c.add(Item{Label: "Has", Detail: "Has<Component>() bool", Kind: ItemMethod, Insert: "Has<"})
-			c.add(Item{Label: "GetScript", Detail: "GetScript<Script>() ScriptRef", Doc: builtinText("GetScript"), Kind: ItemMethod, Insert: "GetScript<"})
+			c.add(Item{Label: "GetScript", Detail: "GetScript<Script>() ScriptRef", Doc: builtinText(snap, "GetScript"), Kind: ItemMethod, Insert: "GetScript<"})
 		}
 	case types.KComponentRef:
 		if t.Component == nil {
@@ -286,11 +286,11 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 	case types.KScriptRef:
 		scriptRefMembers(c, snap, t, pkg)
 	case types.KCoroutine:
-		c.add(Item{Label: "Stop", Detail: "Stop()", Doc: builtinText("Stop"), Kind: ItemMethod, Insert: "Stop()"})
-		c.add(Item{Label: "Running", Detail: "Running() bool", Doc: builtinText("Running"), Kind: ItemMethod, Insert: "Running()"})
+		c.add(Item{Label: "Stop", Detail: "Stop()", Doc: builtinText(snap, "Stop"), Kind: ItemMethod, Insert: "Stop()"})
+		c.add(Item{Label: "Running", Detail: "Running() bool", Doc: builtinText(snap, "Running"), Kind: ItemMethod, Insert: "Running()"})
 	case types.KConnection:
-		c.add(Item{Label: "Disconnect", Detail: "Disconnect()", Doc: builtinText("Disconnect"), Kind: ItemMethod, Insert: "Disconnect()"})
-		c.add(Item{Label: "Connected", Detail: "Connected() bool", Doc: builtinText("Connected"), Kind: ItemMethod, Insert: "Connected()"})
+		c.add(Item{Label: "Disconnect", Detail: "Disconnect()", Doc: builtinText(snap, "Disconnect"), Kind: ItemMethod, Insert: "Disconnect()"})
+		c.add(Item{Label: "Connected", Detail: "Connected() bool", Doc: builtinText(snap, "Connected"), Kind: ItemMethod, Insert: "Connected()"})
 	default:
 		for _, fl := range t.Fields {
 			c.add(Item{Label: fl.Name, Detail: typeString(fl.Type), Kind: ItemField})
@@ -306,7 +306,7 @@ func packageMembers(c *collector, snap *workspace.Snapshot, o *resolver.Object) 
 		if rp := snap.Analysis.Symbols.Packages[o.Target]; rp != nil {
 			for _, obj := range rp.Scope.Objects() {
 				if obj.Exported() {
-					c.add(objectItem(obj))
+					c.add(objectItem(snap, obj))
 				}
 			}
 		}
@@ -441,12 +441,12 @@ func scope(c *collector, snap *workspace.Snapshot, f *ast.File, off uint32) {
 		}
 		for i := len(ids) - 1; i >= 0; i-- {
 			if o := a.Defs[ids[i]]; o != nil {
-				c.add(objectItem(o))
+				c.add(objectItem(snap, o))
 			}
 		}
 		for _, p := range fd.Params {
 			if o := a.Defs[p.Name]; o != nil {
-				c.add(objectItem(o))
+				c.add(objectItem(snap, o))
 			}
 		}
 	}
@@ -456,14 +456,14 @@ func scope(c *collector, snap *workspace.Snapshot, f *ast.File, off uint32) {
 			if st.Decl != sd {
 				continue
 			}
-			c.add(Item{Label: "node", Detail: "NodeRef", Doc: builtinText("node"), Kind: ItemVariable})
+			c.add(Item{Label: "node", Detail: "NodeRef", Doc: builtinText(snap, "node"), Kind: ItemVariable})
 			for _, fl := range st.Fields {
 				c.add(Item{Label: fl.Name, Detail: scriptField(fl), Doc: fl.Decl.Doc, Kind: ItemField})
 			}
 			for _, fn := range st.Funcs {
 				doc := fn.Decl.Doc
 				if doc == "" {
-					doc = builtinText(fn.Name)
+					doc = builtinText(snap, fn.Name)
 				}
 				c.add(Item{Label: fn.Name, Detail: funcSig(fn), Doc: doc, Kind: ItemMethod, Insert: fn.Name + "("})
 			}
@@ -473,31 +473,31 @@ func scope(c *collector, snap *workspace.Snapshot, f *ast.File, off uint32) {
 	if pkg, ok := snap.Packages[f.ID]; ok {
 		if rp := a.Symbols.Packages[pkg]; rp != nil {
 			for _, o := range rp.Scope.Objects() {
-				c.add(objectItem(o))
+				c.add(objectItem(snap, o))
 			}
 			if fs := rp.FileScopes[f]; fs != nil {
 				for _, o := range fs.Objects() {
-					c.add(objectItem(o))
+					c.add(objectItem(snap, o))
 				}
 			}
 		}
 	}
 	c.rank = rankUniverse
 	for _, o := range a.Symbols.Universe.Objects() {
-		c.add(objectItem(o))
+		c.add(objectItem(snap, o))
 	}
 	c.rank = rankKeyword
 	switch {
 	case sd != nil && fd == nil:
 		for _, sn := range scriptSnippets {
-			c.add(snippet(sn))
+			c.add(snippet(snap, sn))
 		}
 	case sd == nil && fd == nil:
 		for _, sn := range topSnippets {
-			c.add(snippet(sn))
+			c.add(snippet(snap, sn))
 		}
 	}
 	for _, k := range keywords {
-		c.add(Item{Label: k, Kind: ItemKeyword, Doc: builtinText(k)})
+		c.add(Item{Label: k, Kind: ItemKeyword, Doc: builtinText(snap, k)})
 	}
 }
