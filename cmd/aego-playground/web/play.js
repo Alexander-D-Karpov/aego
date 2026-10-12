@@ -156,7 +156,10 @@ function run() {
         return;
     }
     for (const l of res.log || []) {
-        logLine("", `<span class="where">${l.frame}</span><span class="level ${l.level}">${l.level}</span>${escapeHTML(l.text)}`);
+        const head = `<span class="where">${l.frame}</span><span class="level ${l.level}">${l.level}</span>`;
+        const text = l.text.replace(/^\n+|\n+$/g, "");
+        const body = text.includes("\n") ? `<pre class="block">${escapeHTML(text)}</pre>` : escapeHTML(text);
+        logLine("", head + body);
     }
     for (const f of res.faults || []) {
         const where = f.line ? ` at ${escapeHTML(f.file)}:${f.line}` : "";
@@ -229,13 +232,67 @@ function newline() {
     insert(text, caret);
 }
 
+const loaderEl = $("loader");
+const loaderTitle = $("loader-title");
+const loaderBar = $("loader-bar");
+const loaderDetail = $("loader-detail");
+
+function mb(n) {
+    return (n / 1048576).toFixed(1) + " MB";
+}
+
+function loading(title, detail) {
+    loaderTitle.textContent = title;
+    loaderDetail.textContent = detail || "";
+}
+
+function starting() {
+    loaderTitle.textContent = "Starting engine…";
+    loaderBar.style.width = "";
+    loaderBar.classList.add("indeterminate");
+}
+
+async function fetchWasm(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
+    const plain = !resp.headers.get("Content-Encoding");
+    const total = (plain && parseInt(resp.headers.get("Content-Length"), 10)) || parseInt(loaderEl.dataset.wasmSize, 10) || 0;
+    if (!resp.body) {
+        starting();
+        return resp;
+    }
+    if (total) loaderBar.classList.remove("indeterminate");
+    let got = 0;
+    const reader = resp.body.getReader();
+    const body = new ReadableStream({
+        async pull(ctl) {
+            const { done, value } = await reader.read();
+            if (done) {
+                starting();
+                ctl.close();
+                return;
+            }
+            got += value.byteLength;
+            if (total) {
+                loaderBar.style.width = `${Math.min(100, (got / total) * 100)}%`;
+                loaderDetail.textContent = `${mb(got)} of ${mb(total)}`;
+            } else {
+                loaderDetail.textContent = mb(got);
+            }
+            ctl.enqueue(value);
+        },
+    });
+    return new Response(body, { headers: { "Content-Type": "application/wasm" } });
+}
+
 async function boot() {
     const go = new Go();
     const ready = new Promise((resolve) => (globalThis.aegoReady = resolve));
-    const resp = fetch("aego.wasm");
+    loading("Loading engine…");
+    const resp = await fetchWasm(`aego.wasm?v=${loaderEl.dataset.version || ""}`);
     const { instance } = WebAssembly.instantiateStreaming
         ? await WebAssembly.instantiateStreaming(resp, go.importObject)
-        : await WebAssembly.instantiate(await (await resp).arrayBuffer(), go.importObject);
+        : await WebAssembly.instantiate(await resp.arrayBuffer(), go.importObject);
     go.run(instance);
     await ready;
     if (globalThis.aego.error) throw new Error(globalThis.aego.error);
@@ -257,6 +314,8 @@ async function boot() {
     }
     runBtn.disabled = false;
     setStatus("Ready");
+    loaderEl.classList.add("done");
+    setTimeout(() => loaderEl.remove(), 250);
 }
 
 source.addEventListener("input", schedule);
@@ -269,4 +328,8 @@ runBtn.addEventListener("click", run);
 $("clear").addEventListener("click", () => (consoleEl.textContent = ""));
 examplesEl.addEventListener("change", () => examplesEl.value && loadExample(examplesEl.value, true));
 
-boot().catch((e) => setStatus(`Cannot start the playground: ${e.message}`, true));
+boot().catch((e) => {
+    setStatus("Cannot start the playground", true);
+    loaderEl.classList.add("failed");
+    loading("Cannot start the playground", e.message);
+});

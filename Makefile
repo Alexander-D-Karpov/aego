@@ -8,7 +8,7 @@ DEMO ?= basic
 UI_FONT ?= $(CURDIR)/third_party/fonts/Inter-Regular.ttf
 FUZZTIME ?= 15s
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update bench bench-scripts bench-build bench-compare bench-profile playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update site-headless bench bench-scripts bench-build bench-compare bench-profile playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -128,6 +128,13 @@ site: cli
 playground:
 	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
 	$(MAKE) site
+
+site-headless:
+	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR)
+	gzip -9 -k -f site/play/aego.wasm
+	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
+	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
 
 site-check: cli
 	.cache/bin/aego docs check

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="aego-root" content="{{.Root}}">
+    <title>{{.Title}} · {{.Site}}</title>
+    <link rel="stylesheet" href="{{.Root}}assets/style.css">
+</head>
+<body>
+<header class="top">
+    <button type="button" class="menu" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
+    <div class="search">
+        <input id="search" type="search" placeholder="Search docs  /" autocomplete="off" aria-label="Search">
+        <ul id="results" hidden></ul>
+    </div>
+    {{if .Playground}}<a class="play" href="{{.Root}}play/">Playground</a>{{end}}
+</header>
+<div class="shell">
+    <nav class="side" aria-label="Documentation">{{.Nav}}</nav>
+    <main class="doc">{{.Content}}</main>
+</div>
+<script src="{{.Root}}assets/site.js"></script>
+{{if .Playground}}<script src="{{.Root}}assets/run.js"></script>{{end}}
+</body>
+</html>

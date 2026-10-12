@@ -1,6 +1,7 @@
 package playground
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,14 +31,19 @@ import (
 	"aego/script/runtime"
 	"aego/script/source"
 	"aego/script/stdlib"
+	"aego/script/vm"
 	"aego/script/workspace"
 )
+
+//go:embed examples/donut.aes
+var donutSource string
 
 const (
 	Module        = "game"
 	ScriptsDir    = "scripts"
 	DefaultFrames = 120
 	MaxFrames     = 3600
+	Budget        = 2_000_000
 )
 
 type Diagnostic struct {
@@ -258,10 +264,13 @@ func (p *Playground) Run(files map[string]string, frames int) Result {
 	}
 	var frame uint64
 	lg := log.New(log.FuncSink(func(r log.Record) {
+		if strings.HasPrefix(r.Msg, "script stopped: ") {
+			return
+		}
 		res.Log = append(res.Log, record(&frame, r))
 	}))
 	lg.SetLevel(log.Debug)
-	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg})
+	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg, VM: vm.Options{Budget: Budget}})
 	defer rt.Close()
 	if err := rt.Link(mods); err != nil {
 		res.Diagnostics = append(res.Diagnostics, failed(err)...)
@@ -367,7 +376,7 @@ func (p *Playground) Stubs() map[string]string {
 }
 
 func (p *Playground) Examples() []Example {
-	var out []Example
+	out := []Example{{ID: "examples/donut", Title: "Software 3D donut", Code: donutSource}}
 	for _, e := range p.docs.All() {
 		n := 0
 		for _, s := range e.Snippets {

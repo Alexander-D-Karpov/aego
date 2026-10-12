@@ -103,3 +103,28 @@ func TestReply(t *testing.T) {
 		t.Fatalf("stubs reply has no aego/math")
 	}
 }
+
+func TestDonutRenders(t *testing.T) {
+	p := open(t)
+	res := p.Run(map[string]string{"main.aes": donutSource}, DefaultFrames)
+	if len(res.Faults) > 0 {
+		t.Fatalf("donut faulted: %+v", res.Faults)
+	}
+	frames := 0
+	for _, l := range res.Log {
+		if strings.HasPrefix(l.Text, "script stopped") {
+			t.Fatalf("fault is logged twice: %s", l.Text)
+		}
+		if !strings.HasPrefix(l.Text, "\n") {
+			continue
+		}
+		frames++
+		rows := strings.Split(strings.Trim(l.Text, "\n"), "\n")
+		if len(rows) != 22 || len(rows[0]) != 52 || !strings.ContainsAny(l.Text, "@#*") {
+			t.Fatalf("frame %d is %d rows, first %q", frames, len(rows), rows[0])
+		}
+	}
+	if frames != 1+DefaultFrames/12 {
+		t.Fatalf("rendered %d frames, want %d", frames, 1+DefaultFrames/12)
+	}
+}

@@ -1,6 +1,9 @@
 package docstool
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -138,11 +141,46 @@ func (e *Env) playground(dir string) error {
 	if err != nil {
 		return err
 	}
+	info, err := os.Stat(wasm)
+	if err != nil {
+		return err
+	}
+	blob, err := os.ReadFile(wasm)
+	if err != nil {
+		return err
+	}
+	h := sha256.New()
+	h.Write(blob)
 	for _, f := range files {
 		if f.IsDir() {
 			continue
 		}
-		if err := copyFile(filepath.Join(web, f.Name()), filepath.Join(dir, f.Name())); err != nil {
+		data, err := os.ReadFile(filepath.Join(web, f.Name()))
+		if err != nil {
+			return err
+		}
+		h.Write(data)
+	}
+	version := hex.EncodeToString(h.Sum(nil)[:5])
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		src, dst := filepath.Join(web, f.Name()), filepath.Join(dir, f.Name())
+		if f.Name() != "index.html" {
+			if err := copyFile(src, dst); err != nil {
+				return err
+			}
+			continue
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		data = bytes.ReplaceAll(data, []byte(`data-wasm-size="0"`), []byte(`data-wasm-size="`+strconv.FormatInt(info.Size(), 10)+`"`))
+		data = bytes.ReplaceAll(data, []byte(`data-version="dev"`), []byte(`data-version="`+version+`"`))
+		data = bytes.ReplaceAll(data, []byte(`?v=dev"`), []byte(`?v=`+version+`"`))
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
 			return err
 		}
 	}

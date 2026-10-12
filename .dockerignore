@@ -1,0 +1,7 @@
+.git
+.cache
+.aego
+site
+exports
+**/.aego
+*.test

@@ -66,7 +66,7 @@ func (o Options) withDefaults() Options {
 		o.MaxCallDepth = 256
 	}
 	if o.Budget == 0 {
-		o.Budget = 100_000
+		o.Budget = 1_000_000
 	}
 	if o.InitialStack <= 0 {
 		o.InitialStack = 4096

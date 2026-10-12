@@ -231,9 +231,25 @@ func summary(md string) string {
 		if fence || t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "|") {
 			continue
 		}
-		return unwrap(t)
+		return unwrap(trimMarker(t))
 	}
 	return ""
+}
+
+func trimMarker(t string) string {
+	for _, p := range []string{"- ", "* ", "+ ", "> "} {
+		if strings.HasPrefix(t, p) {
+			return strings.TrimSpace(t[len(p):])
+		}
+	}
+	i := 0
+	for i < len(t) && t[i] >= '0' && t[i] <= '9' {
+		i++
+	}
+	if i > 0 && strings.HasPrefix(t[i:], ". ") {
+		return strings.TrimSpace(t[i+2:])
+	}
+	return t
 }
 
 func refs(md string) []string {

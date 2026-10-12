@@ -1,0 +1,130 @@
+package demo
+
+import (
+    "aego/math"
+    "aego/log"
+)
+
+const Width int = 52
+const Height int = 22
+
+script Donut {
+    var frame int
+
+    func Ready() {
+        log.Info("=== AEGO SOFTWARE 3D ===")
+        log.Info("Torus renderer | Z-buffer | Lighting")
+        Render(0.0)
+    }
+
+    func Update(dt float) {
+        frame++
+
+        // New snapshot every 12 frames
+        if frame % 12 == 0 {
+            Render(float(frame) * 0.07)
+        }
+    }
+
+    func Render(t float) {
+        var pixels []string
+        var zbuffer []float
+
+        for i := 0; i < Width * Height; i++ {
+            pixels = append(pixels, " ")
+            zbuffer = append(zbuffer, 0.0)
+        }
+
+        shades := []string{
+            " ", ".", ",", "-", "~", ":",
+            ";", "=", "!", "*", "#", "@",
+        }
+
+        // Rotate around two axes
+        a := 0.25 + t * 0.8
+        b := t * 0.55
+
+        ca := math.Cos(a)
+        sa := math.Sin(a)
+        cb := math.Cos(b)
+        sb := math.Sin(b)
+
+        for u := 0.0; u < math.Tau; u += 0.28 {
+            cu := math.Cos(u)
+            su := math.Sin(u)
+
+            for v := 0.0; v < math.Tau; v += 0.16 {
+                cv := math.Cos(v)
+                sv := math.Sin(v)
+
+                // Torus surface
+                r := 2.0 + cu
+                x := r * cv
+                y := r * sv
+                z := su
+
+                // Rotation X
+                yy := y * ca - z * sa
+                zz := y * sa + z * ca
+
+                // Rotation Y
+                xx := x * cb + zz * sb
+                zz2 := -x * sb + zz * cb
+
+                // Perspective projection
+                depth := zz2 + 6.0
+                inv := 1.0 / depth
+
+                px := int(float(Width) * 0.5 + 31.0 * xx * inv)
+                py := int(float(Height) * 0.5 - 16.0 * yy * inv)
+
+                if px >= 0 && px < Width &&
+                   py >= 0 && py < Height {
+
+                    idx := py * Width + px
+
+                    if inv > zbuffer[idx] {
+                        zbuffer[idx] = inv
+
+                        // Surface normal
+                        nx := cu * cv
+                        ny := cu * sv
+                        nz := su
+
+                        ny1 := ny * ca - nz * sa
+                        nz1 := ny * sa + nz * ca
+
+                        nx2 := nx * cb + nz1 * sb
+                        nz2 := -nx * sb + nz1 * cb
+
+                        // Directional lighting
+                        light := nx2 * 0.2 -
+                                 ny1 * 0.65 +
+                                 nz2 * 0.7
+
+                        brightness := int(math.Clamp(
+                            (light + 1.0) * 5.5,
+                            1.0,
+                            11.0,
+                        ))
+
+                        pixels[idx] = shades[brightness]
+                    }
+                }
+            }
+        }
+
+        // Present frame in console
+        output := "\n"
+
+        for y := 0; y < Height; y++ {
+            line := ""
+            for x := 0; x < Width; x++ {
+                line += pixels[y * Width + x]
+            }
+            output += line + "\n"
+        }
+
+        log.Info(output)
+    }
+}
