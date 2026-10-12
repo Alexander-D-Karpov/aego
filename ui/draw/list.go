@@ -35,6 +35,7 @@ type command struct {
 	textAt int
 	textN  int
 	order  int16
+	font   *text.Font
 }
 
 type List struct {
@@ -44,6 +45,7 @@ type List struct {
 	layer     int
 	stack     []int
 	clipStack []mathx.Rect
+	font      *text.Font
 }
 
 func NewList(capacity int) *List {
@@ -62,6 +64,15 @@ func (l *List) Reset() {
 	l.chars = l.chars[:0]
 	l.layer = LayerBase
 	l.stack = l.stack[:0]
+	l.font = nil
+}
+
+func (l *List) SetFont(f *text.Font) {
+	l.font = f
+}
+
+func (l *List) Font() *text.Font {
+	return l.font
 }
 
 func (l *List) Empty() bool {
@@ -145,7 +156,7 @@ func (l *List) Text(s string, pos mathx.Vec2, c mathx.Color) {
 	}
 	at := len(l.chars)
 	l.chars = append(l.chars, s...)
-	l.add(command{kind: cmdText, rect: mathx.Rect{X: pos.X, Y: pos.Y}, color: c, textAt: at, textN: len(s)})
+	l.add(command{kind: cmdText, rect: mathx.Rect{X: pos.X, Y: pos.Y}, color: c, textAt: at, textN: len(s), font: l.font})
 }
 
 func (l *List) PushClip(r mathx.Rect) {
@@ -216,11 +227,15 @@ func (l *List) Flush(f *render.ViewFrame, font *text.Font, white texture.Region,
 					Order:    c.order,
 				})
 			case cmdText:
-				if font == nil {
+				fnt := c.font
+				if fnt == nil {
+					fnt = font
+				}
+				if fnt == nil {
 					continue
 				}
 				s := unsafeString(l.chars[c.textAt : c.textAt+c.textN])
-				f.TextFont(font, s, mathx.Vec2{X: c.rect.X, Y: c.rect.Y}, 1, c.color, lay, c.order)
+				f.TextFont(fnt, s, mathx.Vec2{X: c.rect.X, Y: c.rect.Y}, 1, c.color, lay, c.order)
 			}
 		}
 		if len(l.clipStack) > 0 {

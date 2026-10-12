@@ -19,6 +19,14 @@ type Manifest struct {
 	Components []Component
 	Enums      []Enum
 	Methods    []Method
+	Keywords   map[string]string
+}
+
+func (m *Manifest) Keyword(key string) string {
+	if m == nil {
+		return ""
+	}
+	return m.Keywords[key]
 }
 
 type Module struct {

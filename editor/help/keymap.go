@@ -20,6 +20,7 @@ var editorKeys = []kmRow{
 	{name: "Completion", keys: "Ctrl+Space"},
 	{name: "Parameter info", keys: "Ctrl+P"},
 	{name: "Quick documentation", keys: "Ctrl+Q"},
+	{name: "Open documentation", keys: "F1"},
 	{name: "Go to declaration", keys: "F12 · Ctrl+B · Ctrl+Click"},
 	{name: "Peek definition", keys: "Ctrl+Shift+I"},
 	{name: "Find usages", keys: "Shift+F12 · Alt+F7"},

@@ -13,6 +13,7 @@ import (
 	"aego/editor/command"
 	"aego/editor/console"
 	"aego/editor/context"
+	edocs "aego/editor/docs"
 	"aego/editor/document"
 	"aego/editor/extension"
 	"aego/editor/gameview"
@@ -33,6 +34,7 @@ import (
 	"aego/editor/welcome"
 	"aego/editor/workspace"
 	"aego/engine"
+	"aego/engine/docs"
 	"aego/engine/module"
 	"aego/platform"
 	"aego/project"
@@ -65,6 +67,11 @@ type Options struct {
 	Paced       bool
 	Scripts     context.ScriptHost
 	Code        *scripteditor.Host
+	CreatedDirs []string
+	DirsErr     error
+	Help        *docs.Registry
+	RunSnippet  func(code string) []string
+	NewProject  func(dir, template string) (string, error)
 }
 
 type App struct {
@@ -112,7 +119,7 @@ type App struct {
 	shiftAt        float64
 	shiftArmed     bool
 	welcome        *welcome.Panel
-	reference      *help.Reference
+	docs           *edocs.Panel
 	keymap         *help.Keymap
 	welcomeAt      float64
 	genAtPlay      uint64
@@ -121,6 +128,8 @@ type App struct {
 	playRect       mathx.Rect
 	scriptLog      *log.ChannelLogger
 	problemRev     uint64
+	clip           *clipboard
+	picker         scenePicker
 }
 
 func New(opt Options) *App {
@@ -156,6 +165,7 @@ func (a *App) Init(e *engine.Engine) error {
 	a.log = lg.With(ChannelEditor)
 	a.consoleSink = console.NewSink(4000)
 	lg.AddSink(a.consoleSink)
+	a.reportDirs()
 	r := a.opt.Renderer
 	ui := core.New(r.UIFont())
 	ui.Theme = theme.Editor()
@@ -164,8 +174,13 @@ func (a *App) Init(e *engine.Engine) error {
 	} else {
 		a.log.Warn("ui fonts are missing, using the debug font", log.F("err", err.Error()))
 	}
-	clip := clipboard{win: e.Window()}
-	ui.Clipboard = clip
+	if set, err := text.LoadSet(e.VFS(), r.Textures(), "engine://fonts", "ui-mono", []int{12, 14, 16, 20}, []int{1, 2}); err == nil {
+		ui.SetMonoFonts(set)
+	} else {
+		a.log.Warn("code fonts are missing, the script editor uses the ui font", log.F("err", err.Error()))
+	}
+	a.clip = &clipboard{win: e.Window(), now: e.Platform().Now}
+	ui.Clipboard = a.clip
 	a.ui = ui
 	if set, err := icons.Load(e.VFS(), r.Textures(), "engine://icons"); err == nil {
 		set.OnMissing = func(id string) {
@@ -194,7 +209,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Commands:    command.New(),
 		UI:          ui,
 		DnD:         &dnd.State{},
-		Clipboard:   clip,
+		Clipboard:   a.clip,
 		Log:         a.log,
 		Settings:    context.DefaultSettings(),
 		RenderStats: a.opt.RenderStats,
@@ -235,6 +250,10 @@ func (a *App) Init(e *engine.Engine) error {
 	a.sceneView = sceneview.New(a.gizmos)
 	a.sceneView.Templates = a.templates
 	a.assetsPanel = assets.New(a.thumbs)
+	a.assetsPanel.Instantiate = a.instantiatePrefab
+	a.hierarchy.Files = &a.assetsPanel.Ops
+	a.ctx.NewScene = a.createScene
+	a.ctx.NewPrefab = a.createPrefab
 	a.gameView = gameview.New(a.play)
 	a.profiler = profiler.New()
 
@@ -247,10 +266,21 @@ func (a *App) Init(e *engine.Engine) error {
 	a.consolePanel = console.New(a.consoleSink)
 	a.problemsPanel = problems.New()
 	a.inspectorPanel = inspector.New(a.inspectors)
-	a.reference = help.NewReference(func() ([]byte, error) { return e.VFS().ReadFile("engine://docs/script.md") })
+	a.docs = edocs.New(a.opt.Help)
+	a.docs.Run = a.opt.RunSnippet
+	a.ctx.ShowDocs = func(ref, query string) {
+		a.ws.ShowNear(edocs.ID, workspace.Scene)
+		a.docs.Show(ref, query)
+	}
 	a.keymap = help.NewKeymap()
 	a.welcome = welcome.New(p.Root, a.welcomeChecks())
-	a.welcome.Reference = func() { a.ws.ShowNear(help.ReferenceID, workspace.Scene) }
+	a.welcome.Heading, _ = a.helpEntry("welcome")
+	_, a.welcome.Outro = a.helpEntry("welcome/done")
+	a.welcome.Reference = func() { a.ctx.ShowDocs(edocs.Language, "") }
+	if a.opt.NewProject != nil {
+		a.welcome.NewProject = a.askNewProject
+		a.welcome.Empty = a.emptyProject
+	}
 	builtins := []workspace.Panel{
 		a.hierarchy,
 		a.inspectorPanel,
@@ -261,7 +291,7 @@ func (a *App) Init(e *engine.Engine) error {
 		a.problemsPanel,
 		a.profiler,
 		a.welcome,
-		a.reference,
+		a.docs,
 		a.keymap,
 	}
 	for _, pn := range builtins {
@@ -362,6 +392,7 @@ func (a *App) Event(ev platform.Event) {
 		a.ui.SetComposition("", 0)
 	case platform.EvWindowFocusGained:
 		a.checkAt = 0
+		a.clip.invalidate()
 	case platform.EvWindowFocusLost:
 		a.gameView.Release()
 		if a.opt.Code != nil {
@@ -433,9 +464,10 @@ func (a *App) Update(dt float64) {
 	a.drawMenuBar(menuR)
 	a.drawPulse()
 	for _, q := range a.ctx.TakeQuestions() {
-		a.modals = append(a.modals, modal{kind: modalAsk, ask: q})
+		a.modals = append(a.modals, modal{kind: modalAsk, ask: q, vals: append([]string(nil), q.Values...), focus: true})
 	}
 	a.drawSearch()
+	a.drawScenePicker()
 	a.drawModals()
 	a.ctx.DnD.Frame(ui)
 	a.ext.Flush()

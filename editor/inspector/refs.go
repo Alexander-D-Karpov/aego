@@ -5,41 +5,92 @@ import (
 	"strings"
 
 	"aego/asset"
+	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/context"
 	"aego/editor/document"
 	"aego/render/texture"
+	"aego/scene"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/draw"
 	"aego/ui/widgets"
 )
 
-func assetName(ctx *context.Editor, id ids.AssetID) string {
-	if id.IsZero() {
-		return "None"
-	}
-	if b, ok := asset.LookupBuiltin(id); ok {
-		return b.Name
-	}
-	if ctx.Pipeline != nil {
-		if e, ok := ctx.Pipeline.Entry(id); ok && !e.Missing {
-			return e.Name
-		}
-	}
-	return "(missing) " + id.String()[:8]
+type refKind uint8
+
+const (
+	refNil refKind = iota
+	refAlive
+	refExternal
+	refMissing
+	refNoComponent
+)
+
+type refInfo struct {
+	kind    refKind
+	label   string
+	tooltip string
 }
 
-func nodeName(d *document.SceneDocument, id ids.NodeID) string {
+func (k refKind) color(th *core.Theme) mathx.Color {
+	switch k {
+	case refNil:
+		return th.TextDisabled
+	case refMissing:
+		return th.Error
+	case refNoComponent:
+		return th.Warn
+	}
+	return th.Text
+}
+
+func shortType(full string) string {
+	return full[strings.LastIndexByte(full, '.')+1:]
+}
+
+func hasComponent(s *scene.Scene, h scene.NodeHandle, name string) bool {
+	td, ok := s.Registry().ByName(name)
+	if !ok {
+		return false
+	}
+	_, has := s.GetByType(h, td.ID)
+	return has
+}
+
+func nodeState(s *scene.Scene, id ids.NodeID, need string) refInfo {
 	if id.IsZero() {
-		return "None"
+		return refInfo{kind: refNil, label: "None"}
 	}
-	s := d.Scene()
-	if h := s.Handle(id); !h.IsZero() && s.IsAlive(h) {
-		return s.Path(h)
+	h := s.Handle(id)
+	if h.IsZero() || !s.IsAlive(h) {
+		return refInfo{kind: refMissing, label: "Missing", tooltip: "Node " + id.String() + " is not in this scene"}
 	}
-	return "(missing) " + id.String()[:8]
+	where := s.Path(h)
+	if need != "" && !hasComponent(s, h, need) {
+		return refInfo{kind: refNoComponent, label: s.Name(h) + " · no " + shortType(need), tooltip: where + " has no " + need}
+	}
+	return refInfo{kind: refAlive, label: s.Name(h), tooltip: where}
+}
+
+func assetState(pl *pipeline.Pipeline, id ids.AssetID) refInfo {
+	if id.IsZero() {
+		return refInfo{kind: refNil, label: "None"}
+	}
+	if b, ok := asset.LookupBuiltin(id); ok {
+		return refInfo{kind: refExternal, label: path.Base(b.Name), tooltip: "Engine builtin " + b.Name}
+	}
+	if pl != nil {
+		if e, ok := pl.Entry(id); ok && !e.Missing {
+			return refInfo{kind: refAlive, label: path.Base(e.Name), tooltip: e.Name}
+		}
+	}
+	return refInfo{kind: refMissing, label: "Missing asset", tooltip: "Asset " + id.String() + " is not imported"}
+}
+
+func assetName(ctx *context.Editor, id ids.AssetID) string {
+	return assetState(ctx.Pipeline, id).label
 }
 
 func fitThumb(box mathx.Rect, reg texture.Region) mathx.Rect {
@@ -71,15 +122,29 @@ func preview(ui *core.Context, reg texture.Region) {
 	l.PopLayer()
 }
 
-func refBox(ctx *context.Editor, id core.ID, r mathx.Rect, label string, mixed bool, thumb texture.Region, hasThumb bool) (mathx.Rect, bool, core.ID) {
+func refBox(ctx *context.Editor, id core.ID, r mathx.Rect, info refInfo, mixed bool, thumb texture.Region, hasThumb bool) (mathx.Rect, bool, bool, core.ID) {
 	ui := ctx.UI
 	th := &ui.Theme
 	bw := r.H
-	box := mathx.Rect{X: r.X, Y: r.Y, W: r.W - 2*bw - 4, H: r.H}
-	cr := mathx.Rect{X: box.X + box.W + 2, Y: r.Y, W: bw, H: r.H}
-	pr := mathx.Rect{X: cr.X + bw + 2, Y: r.Y, W: bw, H: r.H}
+	set := mixed || info.kind != refNil
+	right := bw + 2
+	if set {
+		right += bw + 2
+	}
+	box := mathx.Rect{X: r.X, Y: r.Y, W: r.W - right, H: r.H}
+	hid := core.IDSeq(id, 3)
+	picked := false
+	if !mixed && (info.kind == refAlive || info.kind == refNoComponent) {
+		picked = ui.Clicked(hid, box)
+	} else {
+		ui.MouseOver(hid, box)
+	}
 	ui.Rect(box, th.Widget)
-	ui.Outline(box, th.Border)
+	border := th.Border
+	if !mixed && info.kind == refMissing {
+		border = th.Error
+	}
+	ui.Outline(box, border)
 	tx := box.X + th.Padding
 	if hasThumb && !mixed {
 		s := box.H - 4
@@ -87,20 +152,26 @@ func refBox(ctx *context.Editor, id core.ID, r mathx.Rect, label string, mixed b
 		ui.Rect(ir, th.Background)
 		ui.List().Texture(thumb, fitThumb(ir, thumb), mathx.Color{R: 1, G: 1, B: 1, A: 1})
 		tx = ir.X + ir.W + 6
-		hid := core.IDSeq(id, 3)
-		ui.MouseOver(hid, box)
 		if ui.HoverDuration(hid) > 0.35 {
 			preview(ui, thumb)
 		}
+	} else if !mixed {
+		widgets.Tooltip(ui, hid, info.tooltip)
 	}
-	text := label
+	text, col := info.label, info.kind.color(th)
 	if mixed {
-		text = th.Mixed
+		text, col = th.Mixed, th.Text
 	}
 	ui.PushClip(mathx.Rect{X: tx, Y: box.Y, W: max(0, box.X+box.W-tx-2), H: box.H})
-	ui.Text(text, mathx.Vec2{X: tx, Y: ui.TextY(box)}, th.Text)
+	ui.Text(text, mathx.Vec2{X: tx, Y: ui.TextY(box)}, col)
 	ui.PopClip()
-	clear := widgets.ButtonRect(ui, core.IDSeq(id, 1), cr, widgets.Glyph(ui, '×', "x"))
+	x := box.X + box.W + 2
+	clear := false
+	if set {
+		clear = widgets.ButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}, widgets.Glyph(ui, '×', "x"))
+		x += bw + 2
+	}
+	pr := mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}
 	pid := core.IDSeq(id, 2)
 	if ui.Pressed(pid, pr) {
 		if ui.PopupOpen(pid) {
@@ -112,7 +183,7 @@ func refBox(ctx *context.Editor, id core.ID, r mathx.Rect, label string, mixed b
 	}
 	ui.Rect(pr, ui.WidgetColor(pid))
 	ui.TextIn(pr, widgets.Glyph(ui, '…', "..."), th.Text, core.AlignCenter)
-	return box, clear, pid
+	return box, picked, clear, pid
 }
 
 func thumbRow(ctx *context.Editor, id core.ID, label string, asset ids.AssetID, selected bool) bool {
@@ -143,17 +214,19 @@ func (p *Panel) assetField(ctx *context.Editor, id core.ID, r mathx.Rect, fd *sc
 	ui := ctx.UI
 	cur := v.Asset
 	var e widgets.Edit
-	name := assetName(ctx, cur)
-	if !cur.IsZero() && !strings.HasPrefix(name, "(missing)") {
-		name = path.Base(name)
-	}
+	info := assetState(ctx.Pipeline, cur)
 	var thumb texture.Region
 	hasThumb := false
-	if ctx.Thumbs != nil && !cur.IsZero() {
+	if ctx.Thumbs != nil && (info.kind == refAlive || info.kind == refExternal) {
 		thumb, hasThumb = ctx.Thumbs.ByID(cur)
 	}
-	box, clear, pid := refBox(ctx, id, r, name, mixed, thumb, hasThumb)
-	if clear && (!cur.IsZero() || mixed) {
+	box, picked, clear, pid := refBox(ctx, id, r, info, mixed, thumb, hasThumb)
+	if picked && ctx.RevealPath != nil && ctx.Pipeline != nil {
+		if rel, ok := ctx.Pipeline.PathOf(cur); ok {
+			ctx.RevealPath(rel)
+		}
+	}
+	if clear {
 		*v = schema.Asset(ids.AssetID{})
 		e = all
 	}
@@ -210,13 +283,16 @@ func (p *Panel) assetField(ctx *context.Editor, id core.ID, r mathx.Rect, fd *sc
 	return e
 }
 
-func (p *Panel) nodeField(ctx *context.Editor, d *document.SceneDocument, id core.ID, r mathx.Rect, v *schema.Value, mixed bool) widgets.Edit {
+func (p *Panel) nodeField(ctx *context.Editor, d *document.SceneDocument, id core.ID, r mathx.Rect, v *schema.Value, mixed bool, need string) widgets.Edit {
 	ui := ctx.UI
 	s := d.Scene()
 	cur := v.Node
 	var e widgets.Edit
-	box, clear, pid := refBox(ctx, id, r, nodeName(d, cur), mixed, texture.Region{}, false)
-	if clear && (!cur.IsZero() || mixed) {
+	box, picked, clear, pid := refBox(ctx, id, r, nodeState(s, cur, need), mixed, texture.Region{}, false)
+	if picked {
+		ctx.Select(cur)
+	}
+	if clear {
 		*v = schema.Node(ids.NodeID{})
 		e = all
 	}
@@ -251,6 +327,9 @@ func (p *Panel) nodeField(ctx *context.Editor, d *document.SceneDocument, id cor
 			continue
 		}
 		if q != "" && !strings.Contains(strings.ToLower(s.Name(h)), q) {
+			continue
+		}
+		if need != "" && !hasComponent(s, h, need) {
 			continue
 		}
 		count++

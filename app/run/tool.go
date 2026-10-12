@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"aego/app"
+	"aego/app/docstool"
 	"aego/core/log"
 	"aego/core/rng"
 	"aego/project"
@@ -25,7 +27,7 @@ const toolChannel log.Channel = "script"
 
 func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...sdk.Module) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: --tool check | test [-run name] [-v] [-budget n] [-seed n]")
+		fmt.Fprintln(stderr, "usage: --tool check | test [-run name] [-v] [-budget n] [-seed n] | docs export|check")
 		return 2
 	}
 	switch args[0] {
@@ -33,6 +35,8 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...s
 		return toolCheck(p, stderr, mods)
 	case "test":
 		return toolTest(p, args[1:], stdout, stderr, mods)
+	case "docs":
+		return docstool.Tool(p, args[1:], stdout, stderr, app.Adapt(mods)...)
 	}
 	fmt.Fprintf(stderr, "unknown tool %q\n", args[0])
 	return 2

@@ -77,3 +77,29 @@ func TestParseShortcut(t *testing.T) {
 		t.Fatal("unknown key accepted")
 	}
 }
+
+func TestDispatchFallsBackPastDisabledScoped(t *testing.T) {
+	r := New()
+	ran := ""
+	focused := false
+	sc := Key(input.KeyD, ModPrimary)
+	r.Register(Desc{ID: EditDuplicate, Shortcut: sc, Run: func() error { ran = EditDuplicate; return nil }})
+	r.Register(Desc{ID: "assets.duplicate", Scope: ScopeAssets, Shortcut: sc,
+		Enabled: func() bool { return focused },
+		Run:     func() error { ran = "assets.duplicate"; return nil }})
+	press := func() {
+		var in input.State
+		in.BeginFrame()
+		in.ApplyKeyDown(input.KeyD, 0, input.PrimaryMod(), false)
+		r.Dispatch(&in, ScopeAssets)
+	}
+	press()
+	if ran != EditDuplicate {
+		t.Fatalf("unfocused panel must fall back to the global command, ran %q", ran)
+	}
+	focused = true
+	press()
+	if ran != "assets.duplicate" {
+		t.Fatalf("focused panel must win, ran %q", ran)
+	}
+}

@@ -1,0 +1,52 @@
+scene version=1 space="3d" {
+  node "a0000000000000000000000000000001" name="Camera" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 2, 6]
+      rotation=[-0.16018, 0, 0, 0.98709]
+      scale=[1, 1, 1]
+    }
+    component "engine.Camera3D" version=1 {
+      fov=60
+      near=0.1
+      far=1000
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#0a0d12ff
+      active=true
+      orthographic=false
+      orthoSize=5
+    }
+  }
+  node "a0000000000000000000000000000002" name="Plane" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[8, 1, 8]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("{{plane}}")
+      color=#55606eff
+      blend=opaque
+      doubleSided=false
+      layer=0
+      filter=linear
+    }
+  }
+  node "a0000000000000000000000000000003" name="Cube" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0.5, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[1, 1, 1]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("{{cube}}")
+      color=#e07b39ff
+      blend=opaque
+      doubleSided=false
+      layer=0
+      filter=linear
+    }
+  }
+}

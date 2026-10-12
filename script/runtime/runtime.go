@@ -85,6 +85,7 @@ type fieldInit struct {
 	name string
 	slot int
 	kind abi.Kind
+	comp string
 }
 
 type scriptType struct {
@@ -206,7 +207,7 @@ func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef) *scr
 		}
 		if f.Export {
 			tr, _ := abi.Parse(f.Type)
-			t.fields = append(t.fields, fieldInit{name: f.Name, slot: int(f.Slot), kind: tr.Kind})
+			t.fields = append(t.fields, fieldInit{name: f.Name, slot: int(f.Slot), kind: tr.Kind, comp: tr.Name})
 		}
 	}
 	return t
@@ -487,7 +488,7 @@ func (r *Runtime) convert(t *scriptType, f fieldInit, v schema.Value, owner scen
 		return bind.RectValue(v.R)
 	case abi.AssetRef:
 		return bind.AssetValue(v.Asset)
-	case abi.NodeRef:
+	case abi.NodeRef, abi.ComponentRef:
 		if v.Node.IsZero() {
 			return vm.Value{}
 		}
@@ -497,9 +498,34 @@ func (r *Runtime) convert(t *scriptType, f fieldInit, v schema.Value, owner scen
 				log.F("script", t.name), log.F("field", f.name), log.F("node", r.scene.Path(owner)), log.F("target", v.Node.String()))
 			return vm.Value{}
 		}
-		return bind.NodeValue(h)
+		if f.kind == abi.NodeRef {
+			return bind.NodeValue(h)
+		}
+		idx, ok := r.componentRef(h, f.comp)
+		if !ok {
+			r.warnOnce("comp:"+v.Node.String()+":"+f.comp, "referenced node has no "+f.comp+", the field starts as nil",
+				log.F("script", t.name), log.F("field", f.name), log.F("node", r.scene.Path(owner)), log.F("target", r.scene.Path(h)))
+			return vm.Value{}
+		}
+		return vm.Value{A: bind.NodeValue(h).A, B: uint64(idx)}
 	}
 	return vm.Value{}
+}
+
+func (r *Runtime) componentRef(h scene.NodeHandle, name string) (int, bool) {
+	td, ok := r.scene.Registry().ByName(name)
+	if !ok {
+		return 0, false
+	}
+	if _, has := r.scene.GetByType(h, td.ID); !has {
+		return 0, false
+	}
+	for i := range r.comps {
+		if r.comps[i].typ == td.ID {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 func (r *Runtime) killNode(h scene.NodeHandle) {

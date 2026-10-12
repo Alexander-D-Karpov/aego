@@ -112,6 +112,9 @@ func PxToWorld(v view.View, at mathx.Vec3, px float32) float32 {
 	if h <= 0 {
 		h = 1
 	}
+	if v.Projection == view.Ortho3D {
+		return px * 2 * v.OrthoSize / h
+	}
 	d := at.Sub(camPos(v)).Dot(camForward(v))
 	if d < 1e-3 {
 		d = 1e-3

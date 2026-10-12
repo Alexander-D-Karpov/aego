@@ -1,0 +1,67 @@
+scene version=1 space="3d" {
+  node "a0000000000000000000000000000001" name="Camera" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0, 10]
+      rotation=[0, 0, 0, 1]
+      scale=[1, 1, 1]
+    }
+    component "engine.Camera3D" version=1 {
+      fov=60
+      near=0.1
+      far=100
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#0a0d12ff
+      active=true
+      orthographic=true
+      orthoSize=5
+    }
+  }
+  node "a0000000000000000000000000000002" name="World" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[1, 1, 1]
+    }
+    node "a0000000000000000000000000000003" name="Ground" enabled=true layers=1 {
+      transform {
+        position=[0, 2]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("{{white}}")
+        layer=0
+        order=0
+        tint=#55606eff
+        origin=[0.5, 0.5]
+        size=[12, 0.5]
+        flipX=false
+        flipY=false
+        blend=premultiplied
+        filter=nearest
+      }
+    }
+    node "a0000000000000000000000000000004" name="Sprite" enabled=true layers=1 {
+      transform {
+        position=[0, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("{{white}}")
+        layer=0
+        order=1
+        tint=#e07b39ff
+        origin=[0.5, 0.5]
+        size=[1, 1]
+        flipX=false
+        flipY=false
+        blend=premultiplied
+        filter=nearest
+      }
+    }
+  }
+}

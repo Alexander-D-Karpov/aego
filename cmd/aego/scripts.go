@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	"aego/app/projects"
 	"aego/app/run"
 	"aego/engine"
 	"aego/engine/bootstrap"
@@ -56,7 +57,7 @@ func cmdDump(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	ws, err := openWorkspace(p, "", false)
+	ws, err := projects.OpenWorkspace(p, "", false)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aego:", err)
 		return 2

@@ -27,6 +27,7 @@ type FieldDescriptor struct {
 	Enum       []EnumValue
 	EnumName   string
 	AssetKind  string
+	Component  string
 	Flags      FieldFlags
 	Offset     uintptr
 	Size       uintptr

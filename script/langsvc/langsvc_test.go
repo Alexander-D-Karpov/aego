@@ -1,6 +1,7 @@
 package langsvc
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -57,7 +58,7 @@ func (q *queue) run() {
 	}
 }
 
-func setup(t *testing.T) (*Service, *workspace.Workspace, *queue) {
+func setup(t *testing.T, extra ...func(*bind.Registry)) (*Service, *workspace.Workspace, *queue) {
 	t.Helper()
 	root := t.TempDir()
 	for rel, src := range map[string]string{"scripts/a/a.aes": srcA, "scripts/b/b.aes": srcB} {
@@ -78,8 +79,18 @@ func setup(t *testing.T) (*Service, *workspace.Workspace, *queue) {
 		t.Fatal(err)
 	}
 	bind.Proc2(r.Module("game/combat"), "Damage", func(*bind.Ctx, int64, float32) {}, bind.Doc("deals damage"))
+	for _, fn := range extra {
+		fn(r)
+	}
 	m, err := manifest.FromRegistry(r, types.Schema())
 	if err != nil {
+		t.Fatal(err)
+	}
+	kw, err := os.ReadFile("../../engine/docs/testdata/keywords.golden.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(kw, &m.Keywords); err != nil {
 		t.Fatal(err)
 	}
 	tab, err := m.Table()
@@ -185,6 +196,63 @@ func TestDefinitionReferencesHover(t *testing.T) {
 	refs := s.References(a, uint32(strings.Index(srcA, "Add(")+1))
 	if len(refs) != 2 || refs[0].Path != "scripts/a/a.aes" || refs[1].Path != "scripts/b/b.aes" {
 		t.Fatalf("references = %+v", refs)
+	}
+}
+
+func TestDefinitionHostStub(t *testing.T) {
+	s, w, _ := setup(t)
+	cases := []struct {
+		call, name, stub, symbol string
+	}{
+		{"combat.Damage(1, 2)", "Damage", StubPath("game/combat"), "func:Damage"},
+		{"x := node.IsAlive()", "IsAlive", StubPath(StubBuiltin), "method:NodeRef.IsAlive"},
+	}
+	for _, tc := range cases {
+		src := strings.Replace(scriptTmpl, "CURSOR", "\t\t"+tc.call, 1)
+		id, _ := overlay(t, s, w, src+"|")
+		def, ok := s.Definition(id, uint32(strings.Index(src, tc.name)+1))
+		if !ok || !def.Native || def.Path != "" || def.Stub != tc.stub || def.Symbol != tc.symbol {
+			t.Fatalf("%s: definition = %+v", tc.name, def)
+		}
+		st, ok := s.Stub(def.Stub)
+		if !ok {
+			t.Fatalf("%s: no stub %s", tc.name, def.Stub)
+		}
+		if _, ok := st.Lines[def.Symbol]; !ok {
+			t.Fatalf("%s: stub has no line for %s", tc.name, def.Symbol)
+		}
+	}
+}
+
+func TestImplementationInNativeRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "native")
+	strike := filepath.Join(root, "combat", "strike.go")
+	s, w, _ := setup(t, func(r *bind.Registry) {
+		m := r.Module("mygame/combat")
+		bind.Proc1(m, "Strike", func(*bind.Ctx, int64) {})
+		bind.Describe(m, "Strike", func(i *bind.Info) { i.Loc = strike + ":12" })
+	})
+	s.SetNativeRoot(root)
+	src := strings.Replace(strings.Replace(scriptTmpl, "\"game/combat\"", "\"mygame/combat\"", 1),
+		"CURSOR", "\t\tcombat.Strike(1)\n\t\tx := math.Clamp(1, 0, 2)", 1)
+	id, _ := overlay(t, s, w, src+"|")
+	if st, ok := s.Stub(StubPath("mygame/combat")); !ok || st.Locs["func:Strike"] != strike+":12" {
+		t.Fatalf("stub loc = %v", st)
+	}
+	def, ok := s.Definition(id, uint32(strings.Index(src, "Strike")+1))
+	if !ok || !def.Native || def.Path != "" || def.Stub != StubPath("mygame/combat") || def.Symbol != "func:Strike" {
+		t.Fatalf("definition = %+v", def)
+	}
+	impl, ok := s.Implementation(def)
+	if !ok || impl.Path != strike || impl.Line != 12 {
+		t.Fatalf("implementation = %+v %v", impl, ok)
+	}
+	def, ok = s.Definition(id, uint32(strings.Index(src, "Clamp")+1))
+	if !ok || !def.Native {
+		t.Fatalf("clamp definition = %+v", def)
+	}
+	if impl, ok := s.Implementation(def); ok {
+		t.Fatalf("an engine builtin resolved to %+v", impl)
 	}
 }
 

@@ -42,6 +42,8 @@ func (Module) Register(r *module.Registry) error {
 		schema.FieldDoc("clear", "Clears the viewport before drawing."),
 		schema.FieldDoc("clearColor", "Background color used when clear is on."),
 		schema.FieldDoc("active", "Only active cameras render."),
+		schema.FieldDoc("orthographic", "Projects without perspective; sprites and meshes keep their size at any depth."),
+		schema.FieldDoc("orthoSize", "Half of the vertical extent in world units when orthographic is on."),
 	).
 		Category("Camera").
 		Display("Camera 3D").

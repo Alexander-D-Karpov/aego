@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -75,9 +76,11 @@ type bakedGlyph struct {
 func main() {
 	out := flag.String("out", "../../engine/res/fonts", "output directory")
 	ttf := flag.String("ttf", "", "OFL font (Inter or Noto Sans) to bake ui atlases from")
-	sizes := flag.String("sizes", "12,14,16,20", "ui font sizes in logical pixels")
+	mono := flag.String("mono", "", "OFL monospace font (JetBrains Mono) to bake code atlases from")
+	sizes := flag.String("sizes", "12,14,16,20", "font sizes in logical pixels")
 	scales := flag.String("scales", "1,2", "atlas scales")
 	name := flag.String("name", "ui", "ui atlas file prefix")
+	monoName := flag.String("mononame", "ui-mono", "code atlas file prefix")
 	flag.Parse()
 
 	if err := os.MkdirAll(*out, 0o755); err != nil {
@@ -86,27 +89,152 @@ func main() {
 	if err := bakeDebug(*out); err != nil {
 		fail(err)
 	}
-	if *ttf == "" {
-		fmt.Println("no -ttf given, ui atlases were not baked")
+	if *ttf == "" && *mono == "" {
+		fmt.Println("no -ttf or -mono given, only the debug font was baked")
 		return
 	}
-	data, err := os.ReadFile(*ttf)
-	if err != nil {
-		fail(err)
-	}
-	fnt, err := opentype.Parse(data)
-	if err != nil {
-		fail(err)
-	}
 	charset := uiCharset()
-	for _, size := range parseInts(*sizes) {
-		for _, scale := range parseInts(*scales) {
-			if err := bakeUI(fnt, *out, *name, size, scale, charset); err != nil {
-				fail(err)
+	sz, sc := parseInts(*sizes), parseInts(*scales)
+	if *ttf != "" {
+		fnt := parseFont(*ttf)
+		for _, size := range sz {
+			for _, scale := range sc {
+				if err := bakeUI(fnt, *out, *name, size, scale, charset); err != nil {
+					fail(err)
+				}
 			}
 		}
 	}
-	fmt.Println("remember to copy the font license into", filepath.Join(*out, "LICENSE"))
+	if *mono != "" {
+		fnt := parseFont(*mono)
+		for _, size := range sz {
+			for _, scale := range sc {
+				if err := bakeMono(fnt, *out, *monoName, size, scale, charset); err != nil {
+					fail(err)
+				}
+			}
+		}
+	}
+	fmt.Println("remember to copy the font licenses into", filepath.Join(*out, "LICENSE"))
+}
+
+func compose(glyphs []*bakedGlyph, w, h int) (*image.NRGBA, int, int) {
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for _, g := range glyphs {
+		if g.img == nil {
+			continue
+		}
+		b := g.img.Bounds()
+		for y := 0; y < b.Dy(); y++ {
+			for x := 0; x < b.Dx(); x++ {
+				if a := g.img.AlphaAt(x, y).A; a != 0 {
+					img.SetNRGBA(g.x+x, g.y+y, color.NRGBA{R: 255, G: 255, B: 255, A: a})
+				}
+			}
+		}
+	}
+	wx, wy := w-3, h-3
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.SetNRGBA(wx+x, wy+y, color.NRGBA{R: 255, G: 255, B: 255, A: 255})
+		}
+	}
+	return img, wx, wy
+}
+
+func bakeMono(fnt *opentype.Font, out, name string, size, scale int, charset []rune) error {
+	face, err := opentype.NewFace(fnt, &opentype.FaceOptions{Size: float64(size * scale), DPI: 72, Hinting: font.HintingFull})
+	if err != nil {
+		return err
+	}
+	defer face.Close()
+	m := face.Metrics()
+	ascent := m.Ascent.Ceil()
+	lineH := m.Height.Ceil()
+	if lineH <= 0 {
+		lineH = ascent + m.Descent.Ceil()
+	}
+	cell, ok := face.GlyphAdvance('0')
+	if !ok {
+		return fmt.Errorf("%s: the font has no '0'", name)
+	}
+	cellW := int(math.Ceil(float64(cell) / 64))
+	var buf sfnt.Buffer
+	var glyphs []*bakedGlyph
+	var missing []rune
+	for _, r := range charset {
+		ascii := r >= 0x20 && r <= 0x7E
+		idx, err := fnt.GlyphIndex(&buf, r)
+		if err != nil || (idx == 0 && r != ' ') {
+			if ascii {
+				missing = append(missing, r)
+			}
+			continue
+		}
+		adv, ok := face.GlyphAdvance(r)
+		if !ok {
+			continue
+		}
+		if adv != cell {
+			if ascii {
+				return fmt.Errorf("%s: %q advance %v differs from the cell %v, the font is not monospaced", name, r, adv, cell)
+			}
+			continue
+		}
+		g := &bakedGlyph{r: r, adv: adv}
+		if dr, mask, mp, _, ok := face.Glyph(fixed.P(0, ascent), r); ok && !dr.Empty() {
+			g.img = image.NewAlpha(image.Rect(0, 0, cellW, lineH))
+			draw.Draw(g.img, dr, mask, mp, draw.Over)
+			g.dr = g.img.Bounds()
+		}
+		glyphs = append(glyphs, g)
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%s: missing ASCII glyphs %q", name, string(missing))
+	}
+	w, h := packGlyphs(glyphs, 1)
+	img, wx, wy := compose(glyphs, w, h)
+	s := float32(scale)
+	meta := uiFontJSON{
+		Name:       name + "-" + strconv.Itoa(size),
+		Size:       float32(size),
+		Scale:      s,
+		LineHeight: float32(lineH) / s,
+		Ascent:     float32(ascent) / s,
+		White:      whiteJSON{X: wx, Y: wy, W: 2, H: 2},
+	}
+	for _, g := range glyphs {
+		gj := glyphJSON{C: int(g.r), Advance: float32(g.adv) / 64 / s}
+		if g.img != nil {
+			gj.X, gj.Y, gj.W, gj.H = g.x, g.y, cellW, lineH
+		}
+		meta.Glyphs = append(meta.Glyphs, gj)
+	}
+	base := filepath.Join(out, name+"-"+strconv.Itoa(size)+"@"+strconv.Itoa(scale))
+	if err := writePNG(base+".png", img); err != nil {
+		return err
+	}
+	blob, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(base+".json", append(blob, '\n'), 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s (%dx%d, cell %dx%d, %d glyphs)\n", base, w, h, cellW, lineH, len(meta.Glyphs))
+	return nil
+}
+
+func parseFont(p string) *opentype.Font {
+	data, err := os.ReadFile(p)
+	if err != nil {
+		fail(err)
+	}
+	f, err := opentype.Parse(data)
+	if err != nil {
+		fail(err)
+	}
+	return f
 }
 
 func parseInts(s string) []int {
@@ -181,28 +309,7 @@ func bakeUI(fnt *opentype.Font, out, name string, size, scale int, charset []run
 	}
 
 	w, h := packGlyphs(glyphs, 1)
-	img := image.NewNRGBA(image.Rect(0, 0, w, h))
-	for _, g := range glyphs {
-		if g.img == nil {
-			continue
-		}
-		b := g.img.Bounds()
-		for y := 0; y < b.Dy(); y++ {
-			for x := 0; x < b.Dx(); x++ {
-				a := g.img.AlphaAt(x, y).A
-				if a == 0 {
-					continue
-				}
-				img.SetNRGBA(g.x+x, g.y+y, color.NRGBA{R: 255, G: 255, B: 255, A: a})
-			}
-		}
-	}
-	wx, wy := w-3, h-3
-	for y := 0; y < 2; y++ {
-		for x := 0; x < 2; x++ {
-			img.SetNRGBA(wx+x, wy+y, color.NRGBA{R: 255, G: 255, B: 255, A: 255})
-		}
-	}
+	img, wx, wy := compose(glyphs, w, h)
 
 	s := float32(scale)
 	meta := uiFontJSON{

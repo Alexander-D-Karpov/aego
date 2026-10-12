@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ const Ext = ".aes"
 
 type Config struct {
 	Root     string
+	FS       fs.FS
 	Module   string
 	Scripts  string
 	Bindings *abi.Table
@@ -78,6 +80,7 @@ type Workspace struct {
 	mu        sync.Mutex
 	bmu       sync.Mutex
 	cfg       Config
+	fs        fs.FS
 	scripts   string
 	files     map[string]*entry
 	order     []*entry
@@ -99,29 +102,27 @@ func newGeneration() *Generation {
 }
 
 func Open(cfg Config) (*Workspace, error) {
-	root, err := filepath.Abs(cfg.Root)
+	if cfg.FS == nil {
+		root, err := filepath.Abs(cfg.Root)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Root = root
+		cfg.FS = os.DirFS(root)
+	}
+	scripts, err := scriptsDir(cfg)
 	if err != nil {
 		return nil, err
-	}
-	cfg.Root = root
-	switch {
-	case cfg.Scripts == "":
-		cfg.Scripts = filepath.Join(root, "scripts")
-	case !filepath.IsAbs(cfg.Scripts):
-		cfg.Scripts = filepath.Join(root, cfg.Scripts)
 	}
 	if cfg.Module == "" {
 		cfg.Module = "game"
-	}
-	rel, err := filepath.Rel(root, cfg.Scripts)
-	if err != nil {
-		return nil, err
 	}
 	empty := abi.NewTable()
 	empty.Freeze()
 	w := &Workspace{
 		cfg:       cfg,
-		scripts:   filepath.ToSlash(rel),
+		fs:        cfg.FS,
+		scripts:   scripts,
 		files:     map[string]*entry{},
 		empty:     empty,
 		state:     map[string]built{},
@@ -131,6 +132,28 @@ func Open(cfg Config) (*Workspace, error) {
 		return nil, err
 	}
 	return w, nil
+}
+
+func scriptsDir(cfg Config) (string, error) {
+	s := cfg.Scripts
+	switch {
+	case s == "":
+		return "scripts", nil
+	case filepath.IsAbs(s):
+		if cfg.Root == "" {
+			return "", errors.New("an absolute scripts directory needs a workspace root")
+		}
+		r, err := filepath.Rel(cfg.Root, s)
+		if err != nil {
+			return "", err
+		}
+		s = r
+	}
+	s = path.Clean(filepath.ToSlash(s))
+	if s == ".." || strings.HasPrefix(s, "../") || strings.HasPrefix(s, "/") {
+		return "", errors.New("scripts directory " + cfg.Scripts + " is outside the workspace")
+	}
+	return s, nil
 }
 
 func (w *Workspace) Module() string {
@@ -150,7 +173,7 @@ func (w *Workspace) Version() uint64 {
 }
 
 func (w *Workspace) rel(p string) string {
-	if filepath.IsAbs(p) {
+	if filepath.IsAbs(p) && w.cfg.Root != "" {
 		if r, err := filepath.Rel(w.cfg.Root, p); err == nil {
 			p = r
 		}
@@ -196,27 +219,27 @@ func (w *Workspace) touch() {
 
 func (w *Workspace) Rescan() error {
 	found := map[string][]byte{}
-	err := filepath.WalkDir(w.cfg.Scripts, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(w.fs, w.scripts, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) && p == w.cfg.Scripts {
-				return filepath.SkipDir
+			if errors.Is(err, fs.ErrNotExist) && p == w.scripts {
+				return fs.SkipDir
 			}
 			return err
 		}
 		if d.IsDir() {
-			if p != w.cfg.Scripts && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
+			if p != w.scripts && strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
 			}
 			return nil
 		}
-		if filepath.Ext(p) != Ext {
+		if path.Ext(p) != Ext {
 			return nil
 		}
-		src, err := os.ReadFile(p)
+		src, err := fs.ReadFile(w.fs, p)
 		if err != nil {
 			return err
 		}
-		found[w.rel(p)] = src
+		found[p] = src
 		return nil
 	})
 	if err != nil {
@@ -256,7 +279,7 @@ func (w *Workspace) Changed(paths []string) {
 		if !strings.HasSuffix(r, Ext) {
 			continue
 		}
-		src, err := os.ReadFile(filepath.Join(w.cfg.Root, filepath.FromSlash(r)))
+		src, err := fs.ReadFile(w.fs, r)
 		reads = append(reads, read{path: r, src: src, ok: err == nil})
 	}
 	if len(reads) == 0 {

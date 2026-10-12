@@ -24,6 +24,7 @@ type Projection uint8
 const (
 	Ortho2D Projection = iota
 	Perspective3D
+	Ortho3D
 )
 
 type LayerMask uint32
@@ -31,9 +32,10 @@ type LayerMask uint32
 const AllLayers LayerMask = 0xffffffff
 
 const (
-	DefaultFOV  float32 = mathx.Pi / 3
-	DefaultNear float32 = 0.1
-	DefaultFar  float32 = 1000
+	DefaultFOV       float32 = mathx.Pi / 3
+	DefaultNear      float32 = 0.1
+	DefaultFar       float32 = 1000
+	DefaultOrthoSize float32 = 5
 )
 
 type View struct {
@@ -41,6 +43,7 @@ type View struct {
 	Camera        Camera2D
 	Eye           mathx.Mat4
 	FOV           float32
+	OrthoSize     float32
 	Near, Far     float32
 	Viewport      mathx.Rect
 	Target        gpu.TextureHandle
@@ -94,6 +97,18 @@ func PerspectiveView(eye mathx.Mat4, fov, near, far float32, vp mathx.Rect) View
 	}
 }
 
+func OrthoView(eye mathx.Mat4, size, near, far float32, vp mathx.Rect) View {
+	v := PerspectiveView(eye, 0, near, far, vp)
+	v.Projection = Ortho3D
+	v.OrthoSize = size
+	v.Label = "ortho"
+	return v
+}
+
+func (v View) Is3D() bool {
+	return v.Projection == Perspective3D || v.Projection == Ortho3D
+}
+
 func (v *View) Normalize(pixelW, pixelH int, pixelScale float32) {
 	if v.TargetW <= 0 || v.TargetH <= 0 {
 		v.TargetW, v.TargetH = pixelW, pixelH
@@ -119,24 +134,34 @@ func (v *View) Normalize(pixelW, pixelH int, pixelScale float32) {
 	if v.ZMax <= v.ZMin {
 		v.ZMin, v.ZMax = 0, 1
 	}
-	if v.Projection == Perspective3D {
-		if v.FOV <= 0 {
-			v.FOV = DefaultFOV
-		}
-		if v.Near <= 0 {
-			v.Near = DefaultNear
+	if !v.Is3D() {
+		return
+	}
+	if v.Eye == (mathx.Mat4{}) {
+		v.Eye = mathx.Mat4Identity()
+	}
+	if v.Projection == Ortho3D {
+		if v.OrthoSize <= 0 {
+			v.OrthoSize = DefaultOrthoSize
 		}
 		if v.Far <= v.Near {
-			v.Far = max(DefaultFar, v.Near*2)
+			v.Near, v.Far = DefaultNear, DefaultFar
 		}
-		if v.Eye == (mathx.Mat4{}) {
-			v.Eye = mathx.Mat4Identity()
-		}
+		return
+	}
+	if v.FOV <= 0 {
+		v.FOV = DefaultFOV
+	}
+	if v.Near <= 0 {
+		v.Near = DefaultNear
+	}
+	if v.Far <= v.Near {
+		v.Far = max(DefaultFar, v.Near*2)
 	}
 }
 
 func (v View) UsesDepth() bool {
-	return v.Projection == Perspective3D && (v.Target.IsZero() || !v.DepthTarget.IsZero())
+	return v.Is3D() && (v.Target.IsZero() || !v.DepthTarget.IsZero())
 }
 
 func (v View) Flipped(caps gpu.Capabilities) bool {
@@ -169,7 +194,7 @@ func (v View) virtualFit() float32 {
 }
 
 func (v View) LetterboxViewport() mathx.Rect {
-	if v.Projection == Perspective3D || v.Scale == ScaleFree || v.Virtual.X <= 0 || v.Virtual.Y <= 0 {
+	if v.Is3D() || v.Scale == ScaleFree || v.Virtual.X <= 0 || v.Virtual.Y <= 0 {
 		return v.Viewport
 	}
 	zoom := v.EffectiveZoom() / max(v.Camera.Zoom, 0.0001)
@@ -199,7 +224,7 @@ func (v View) cameraPosition() mathx.Vec2 {
 }
 
 func (v View) CameraPosition() mathx.Vec3 {
-	if v.Projection == Perspective3D {
+	if v.Is3D() {
 		return v.Eye.Translation()
 	}
 	p := v.cameraPosition()
@@ -215,7 +240,7 @@ func (v View) ViewMatrix() mathx.Mat3 {
 }
 
 func (v View) ViewMatrix4() mathx.Mat4 {
-	if v.Projection == Perspective3D {
+	if v.Is3D() {
 		if inv, ok := v.Eye.InverseAffine(); ok {
 			return inv
 		}
@@ -226,12 +251,17 @@ func (v View) ViewMatrix4() mathx.Mat4 {
 
 func (v View) glProjection() mathx.Mat4 {
 	vp := v.LetterboxViewport()
-	if v.Projection == Perspective3D {
-		aspect := float32(1)
-		if vp.H > 0 {
-			aspect = vp.W / vp.H
-		}
+	aspect := float32(1)
+	if vp.H > 0 {
+		aspect = vp.W / vp.H
+	}
+	switch v.Projection {
+	case Perspective3D:
 		return mathx.Mat4Perspective(v.FOV, aspect, v.Near, v.Far)
+	case Ortho3D:
+		hh := v.OrthoSize
+		hw := hh * aspect
+		return mathx.Mat4Ortho(-hw, hw, -hh, hh, v.Near, v.Far)
 	}
 	hw, hh := vp.W/2, vp.H/2
 	return mathx.Mat4Ortho(-hw, hw, hh, -hh, -1, 1)
@@ -312,7 +342,7 @@ func (v View) ScreenToWorld(p mathx.Vec2) mathx.Vec2 {
 }
 
 func (v View) VisibleBounds() mathx.AABB2 {
-	if v.Projection == Perspective3D {
+	if v.Is3D() {
 		inf := mathx.Inf()
 		return mathx.AABB2{Min: mathx.Vec2{X: -inf, Y: -inf}, Max: mathx.Vec2{X: inf, Y: inf}}
 	}

@@ -42,6 +42,16 @@ func LabelWrapped(c *core.Context, s string, dim bool) {
 	}
 }
 
+func WrapLines(c *core.Context, s string, width float32) []string {
+	var out []string
+	for len(s) > 0 {
+		line := fitLine(c, s, width)
+		out = append(out, line)
+		s = strings.TrimLeft(s[len(line):], " ")
+	}
+	return out
+}
+
 func fitLine(c *core.Context, s string, width float32) string {
 	if c.TextSize(s).X <= width {
 		return s

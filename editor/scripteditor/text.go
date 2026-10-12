@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	tabWidth     = 4
+	tabWidth     = code.TabWidth
 	revealMargin = 3
 	viewKeep     = 512
 	viewSlack    = 64
@@ -40,6 +40,7 @@ type lineView struct {
 	disp    []rune
 	idx     []int
 	base    []highlight.Span
+	levels  []int
 	spans   []highlight.Span
 	texts   []string
 	xs      []float32
@@ -109,6 +110,7 @@ func palette(th *core.Theme) [highlight.KindCount]mathx.Color {
 	p[highlight.Comment] = t.Comment
 	p[highlight.Operator] = t.Operator
 	p[highlight.Punctuation] = t.Punctuation
+	p[highlight.Bracket] = t.Punctuation
 	p[highlight.Attribute] = t.Attribute
 	p[highlight.Namespace] = t.Namespace
 	p[highlight.Type] = t.Type
@@ -189,6 +191,7 @@ func (p *Panel) view(l int, font *text.Font) *lineView {
 	if !v.valid || v.hash != h || v.in != in {
 		v.disp, v.idx = expand(p.line, v.disp[:0], v.idx[:0])
 		v.base, _ = highlight.Line(p.line, in, v.base[:0])
+		v.levels = highlight.BracketLevels(v.base, p.line, in.Depth(), v.levels[:0])
 		v.indent = indentOf(v.disp)
 		v.hash, v.in, v.valid, v.font = h, in, true, nil
 	}
@@ -256,7 +259,7 @@ func (p *Panel) hit(ui *core.Context, txt mathx.Rect) int {
 	l := min(max(int((m.Y-txt.Y+p.scrollY)/p.lineH), 0), c.Lines()-1)
 	font := ui.Font()
 	v := p.view(l, font)
-	d := v.index(font, m.X-(txt.X+6-p.scrollX))
+	d := v.index(font, m.X-(txt.X+p.pad-p.scrollX))
 	return c.LineStart(l) + byteAt(v.idx, d)
 }
 
@@ -282,6 +285,9 @@ func (p *Panel) trackHover(ui *core.Context, txt mathx.Rect) {
 	}
 	if old, ok := p.doc.Code.Unmap(p.snapRev, off); ok {
 		p.hover.info, p.hover.ok = p.host.lang.HoverIn(p.snap, file, uint32(old))
+		if p.hover.ok {
+			p.hover.builtin = p.builtinAt(file, old)
+		}
 	}
 }
 
@@ -516,22 +522,13 @@ func (p *Panel) keys(ctx *context.Editor) {
 	}
 }
 
-func (p *Panel) fill(ui *core.Context, font *text.Font, v *lineView, x0, y float32, ls, le int, spans []highlight.Sem, col mathx.Color) {
-	for _, s := range spans {
-		if s.End <= ls || s.Start > le {
-			continue
-		}
-		a, b := max(s.Start, ls)-ls, min(s.End, le)-ls
-		xa := x0 + v.x(font, v.idx[a])
-		xb := x0 + v.x(font, v.idx[b])
-		ui.Rect(mathx.Rect{X: xa, Y: y, W: xb - xa, H: p.lineH}, col)
+func wave(ui *core.Context, xa, xb, base float32, col mathx.Color) {
+	if xb-xa < 6 {
+		xb = xa + 6
 	}
-}
-
-func indentGuides(ui *core.Context, v *lineView, x0, y, lh, spaceW float32, col mathx.Color) {
-	for k := 0; k*tabWidth < v.indent; k++ {
-		x := x0 + float32(k*tabWidth)*spaceW
-		ui.Rect(mathx.Rect{X: x, Y: y, W: 1, H: lh}, col)
+	for x := xa; x < xb; x += 4 {
+		ui.Rect(mathx.Rect{X: x, Y: base, W: 2, H: 1.5}, col)
+		ui.Rect(mathx.Rect{X: x + 2, Y: base + 1, W: 2, H: 1.5}, col)
 	}
 }
 
@@ -546,20 +543,52 @@ func (p *Panel) underlines(ui *core.Context, font *text.Font, v *lineView, x0, y
 			continue
 		}
 		a, b := max(s, ls)-ls, min(e, le)-ls
-		xa := x0 + v.x(font, v.idx[a])
-		xb := x0 + v.x(font, v.idx[b])
-		if xb-xa < 6 {
-			xb = xa + 6
-		}
 		col := th.Error
 		if d.Severity == diag.Warning {
 			col = th.Warn
 		}
-		base := y + p.lineH - 3
-		for x := xa; x < xb; x += 4 {
-			ui.Rect(mathx.Rect{X: x, Y: base, W: 2, H: 1.5}, col)
-			ui.Rect(mathx.Rect{X: x + 2, Y: base + 1, W: 2, H: 1.5}, col)
+		wave(ui, x0+v.x(font, v.idx[a]), x0+v.x(font, v.idx[b]), y+p.lineH-3, col)
+	}
+}
+
+func (p *Panel) drawBrackets(ui *core.Context, font *text.Font, v *lineView, x0, y float32, ls, le int) {
+	if p.brState == code.BracketNone {
+		return
+	}
+	ct := &ui.Theme.Code
+	col, at, n := ct.BracketMatch, [2]int{p.brA, p.brB}, 2
+	if p.brState == code.BracketUnmatched {
+		col, n = ct.BracketMismatch, 1
+	}
+	for _, a := range at[:n] {
+		if a < ls || a >= le {
+			continue
 		}
+		xa := x0 + v.x(font, v.idx[a-ls])
+		xb := x0 + v.x(font, v.idx[a-ls+1])
+		ui.List().RectOutline(mathx.Rect{X: xa, Y: y + 1, W: xb - xa, H: p.lineH - 2}, col, 1)
+	}
+}
+
+func (p *Panel) drawSpans(ui *core.Context, font *text.Font, v *lineView, x0, y, ty float32, ls int, pal *[highlight.KindCount]mathx.Color) {
+	ct := &ui.Theme.Code
+	c := p.doc.Code
+	for i, s := range v.spans {
+		t := v.texts[i]
+		if t == "" {
+			continue
+		}
+		col := pal[s.Kind]
+		if s.Kind == highlight.Bracket {
+			switch {
+			case c.Unmatched(ls + s.Start):
+				col = ct.BracketMismatch
+				wave(ui, x0+v.xs[i], x0+v.x(font, v.idx[s.End]), y+p.lineH-3, col)
+			case p.host.Rainbow && v.levels[i] >= 0:
+				col = ct.Rainbow[v.levels[i]%len(ct.Rainbow)]
+			}
+		}
+		ui.Text(t, mathx.Vec2{X: x0 + v.xs[i], Y: ty}, col)
 	}
 }
 
@@ -567,6 +596,8 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 	ui := ctx.UI
 	th := &ui.Theme
 	ct := &th.Code
+	ui.PushFont(ui.MonoFont())
+	defer ui.PopFont()
 	font := ui.Font()
 	if font == nil || area.H <= 0 {
 		return
@@ -576,7 +607,11 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 	p.lineH = ui.LineHeight() + 3
 	lh := p.lineH
 	count := c.Lines()
-	gw := ui.TextSize(strconv.Itoa(count)).X + 22
+	charW := font.Advance('0')
+	markerW := ct.Gutter.MarkerW * charW
+	numEnd := area.X + markerW + float32(len(strconv.Itoa(count))+1)*charW
+	gw := numEnd - area.X + ct.Gutter.NumberPad*charW
+	p.pad = ct.Gutter.CodePad * charW
 	mw := float32(0)
 	if p.host.Minimap && area.W-gw > mapMinW {
 		mw = mapWidth
@@ -598,20 +633,22 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 	}
 	p.scrollY = mathx.Clamp(p.scrollY, 0, max(0, float32(count)*lh-area.H+lh))
 	p.scrollX = max(0, p.scrollX)
-	p.occurrences()
+	p.occurrences(ui.Time)
 	p.brackets()
+	p.updateBlock()
 	p.updateLens()
 	for i := range p.lens {
 		p.lens[i].rect = mathx.Rect{}
 	}
 	ui.Rect(area, ct.Background)
-	ui.Rect(mathx.Rect{X: area.X, Y: area.Y, W: gw, H: area.H}, ct.Gutter)
+	ui.Rect(mathx.Rect{X: area.X, Y: area.Y, W: gw, H: area.H}, ct.GutterBg)
 	ui.PushClip(area)
 	first := int(p.scrollY / lh)
 	last := min(count, first+int(area.H/lh)+2)
+	p.buildGuides(first, last)
 	lo, hi := c.Sel.Range()
 	caretLine := c.Line(c.Cursor())
-	x0 := txt.X + 6 - p.scrollX
+	x0 := txt.X + p.pad - p.scrollX
 	spaceW := font.Advance(' ')
 	if ct.GuideColumn > 0 {
 		gx := x0 + float32(ct.GuideColumn)*spaceW
@@ -625,18 +662,21 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 		ls, le := c.LineStart(l), c.LineEnd(l)
 		ty := y + (lh-ui.LineHeight())/2
 		ui.PushClip(txt)
+		if p.inBlock(l) {
+			ui.Rect(mathx.Rect{X: txt.X, Y: y, W: txt.W, H: lh}, ct.CurrentBlock)
+		}
 		if l == caretLine && focused {
 			ui.Rect(mathx.Rect{X: txt.X, Y: y, W: txt.W, H: lh}, ct.CurrentLine)
 		}
 		if l == p.flashLine {
 			if t := ui.Time - p.flashAt; t >= 0 && t < flashTime {
-				col := th.Accent
-				col.A = 0.35 * float32(1-t/flashTime)
+				col := ct.Occurrence
+				col.A = float32(1 - t/flashTime)
 				ui.Rect(mathx.Rect{X: txt.X, Y: y, W: txt.W, H: lh}, col)
 			}
 		}
-		indentGuides(ui, v, x0, y, lh, spaceW, ct.IndentGuide)
-		p.fill(ui, font, v, x0, y, ls, le, p.occ, ct.Occurrence)
+		p.drawGuides(ui, v, x0, y, spaceW, l)
+		p.drawOcc(ui, font, v, x0, y, ls, le)
 		if hi > lo && hi >= ls && lo <= le {
 			a, b := max(lo, ls)-ls, min(hi, le)-ls
 			xa := x0 + v.x(font, v.idx[a])
@@ -646,26 +686,13 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 			}
 			ui.Rect(mathx.Rect{X: xa, Y: y, W: xb - xa, H: lh}, th.Selection)
 		}
-		if p.brOK {
-			for _, at := range [2]int{p.brA, p.brB} {
-				if at < ls || at >= le {
-					continue
-				}
-				xa := x0 + v.x(font, v.idx[at-ls])
-				xb := x0 + v.x(font, v.idx[at-ls+1])
-				ui.Outline(mathx.Rect{X: xa, Y: y + 1, W: xb - xa, H: lh - 2}, ct.Bracket)
-			}
-		}
 		for _, h := range v.hints {
 			hx := x0 + v.x(font, h.at) - h.w
 			ui.Rect(mathx.Rect{X: hx + 1, Y: y + 2, W: h.w - 3, H: lh - 4}, th.Badge)
 			ui.Text(h.label, mathx.Vec2{X: hx + hintPad/2, Y: ty}, th.Unit)
 		}
-		for i, s := range v.spans {
-			if v.texts[i] != "" {
-				ui.Text(v.texts[i], mathx.Vec2{X: x0 + v.xs[i], Y: ty}, pal[s.Kind])
-			}
-		}
+		p.drawSpans(ui, font, v, x0, y, ty, ls, &pal)
+		p.drawBrackets(ui, font, v, x0, y, ls, le)
 		for i := range p.lens {
 			if p.lens[i].line != l {
 				continue
@@ -687,13 +714,13 @@ func (p *Panel) drawText(ctx *context.Editor, area mathx.Rect) {
 		if l == caretLine {
 			nc = ct.LineNoActive
 		}
-		ui.Text(num, mathx.Vec2{X: area.X + gw - 10 - ui.TextSize(num).X, Y: ty}, nc)
+		ui.Text(num, mathx.Vec2{X: numEnd - ui.TextSize(num).X, Y: ty}, nc)
 		if sev, ok := p.marks[l]; ok {
 			col := th.Error
 			if sev == diag.Warning {
 				col = th.Warn
 			}
-			ui.Rect(mathx.Rect{X: area.X + 2, Y: y + 3, W: 3, H: lh - 6}, col)
+			ui.Rect(mathx.Rect{X: area.X + max(0, (markerW-3)/2), Y: y + 3, W: 3, H: lh - 6}, col)
 		}
 	}
 	if mw > 0 {

@@ -167,16 +167,29 @@ func (m *Manager) Abs(rel string) string {
 	return filepath.Join(m.opt.Root, filepath.FromSlash(rel))
 }
 
+func movedPath(p, oldRel, newRel string) (string, bool) {
+	switch {
+	case p == oldRel:
+		return newRel, true
+	case strings.HasPrefix(p, oldRel+"/"):
+		return newRel + strings.TrimPrefix(p, oldRel), true
+	}
+	return "", false
+}
+
 func (m *Manager) Renamed(oldRel, newRel string) {
 	oldRel, newRel = Clean(oldRel), Clean(newRel)
 	for _, d := range m.docs {
-		switch {
-		case d.Path == oldRel:
+		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
 			m.ClearRecovery(d.Path)
-			d.Path = newRel
-		case strings.HasPrefix(d.Path, oldRel+"/"):
-			m.ClearRecovery(d.Path)
-			d.Path = newRel + strings.TrimPrefix(d.Path, oldRel)
+			d.Path = np
+		}
+	}
+	for _, d := range m.scripts {
+		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
+			os.Remove(m.scriptRecoveryFile(d.Path))
+			d.Path = np
+			m.statScript(d)
 		}
 	}
 }

@@ -159,7 +159,7 @@ func (p *Panel) CopyHovered(ctx *context.Editor) error {
 		return nil
 	}
 	if p.hoverField.ok {
-		if td, fd, ok := p.lookup(d, p.hoverField); ok {
+		if td, fd, ok := p.lookup(d, p.hoverField); ok && !p.copyTexture(ctx, d, td, fd) {
 			p.copyValue(ctx, d, td, fd)
 		}
 		return nil
@@ -179,6 +179,9 @@ func (p *Panel) PasteHovered(ctx *context.Editor) error {
 		if td, fd, ok := p.lookup(d, p.hoverField); ok {
 			if v, ok := clipboard.ReadValue(ctx, fd); ok {
 				return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v)
+			}
+			if done, err := p.pasteAsset(ctx, d, td, fd); done {
+				return err
 			}
 		}
 	}
@@ -480,6 +483,9 @@ func (p *Panel) component(ctx *context.Editor, d *document.SceneDocument, t sche
 	meta := p.reg.Meta(td)
 	c := p.beginCard(ctx, td.FullName, meta.DisplayName, meta.Badge, meta.Icon, "", true)
 	c.typ = t
+	if ui.Hot() == c.hid && ui.KeyPressed(input.KeyF1) && ctx.ShowDocs != nil {
+		ctx.ShowDocs(td.FullName, meta.DisplayName)
+	}
 	defer func() { p.endCard(ui, c) }()
 	menuID := ui.ID("menu")
 	if ui.RightClicked(c.hid, c.hdr) {

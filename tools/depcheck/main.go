@@ -47,8 +47,8 @@ var scriptCompilerOnly = []string{
 }
 
 var editorAllow = []string{
-	"core/...", "platform", "platform/input", "gpu", "render", "render/...", "ui/...",
-	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "editor/...",
+	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/docs", "editor/...",
 }
 
 var rules = []rule{
@@ -56,6 +56,7 @@ var rules = []rule{
 	{"schema", []string{"core/..."}, nil},
 	{"format/...", []string{"core/...", "schema"}, nil},
 	{"platform", []string{"core/...", "platform/input"}, nil},
+	{"platform/clip", []string{"core/...", "platform"}, nil},
 	{"platform/input", []string{"core/..."}, nil},
 	{"platform/sdl", []string{"core/...", "platform", "platform/input"}, nil},
 	{"platform/headless", []string{"core/...", "platform", "platform/input"}, nil},
@@ -92,12 +93,17 @@ var rules = []rule{
 	{"editor/builtins", with(editorAllow, "render2d", "render2d/editor", "render3d", "render3d/editor"), nil},
 	{"editor/scripteditor", with(editorAllow, "script/langsvc", "script/workspace", "script/source", "script/diag"), nil},
 	{"app", []string{"..."}, nil},
+	{"app/docstool", []string{"..."}, nil},
 	{"app/edit", []string{"..."}, nil},
+	{"app/projects", []string{"..."}, nil},
 	{"app/supervise", []string{"..."}, nil},
 	{"engine/module", []string{"core/...", "engine", "engine/res", "schema", "scene", "asset", "script/bind"}, nil},
-	{"engine/builtin", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "render2d", "render3d", "script/engine", "script/bind", "script/bind/manifest", "script/stdlib"}, nil},
+	{"engine/builtin/headless", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "render2d", "script/engine", "script/stdlib"}, nil},
+	{"engine/builtin", []string{"core/...", "engine", "engine/module", "engine/builtin/headless", "schema", "scene", "scene/...", "render2d", "render3d", "script/engine", "script/bind", "script/bind/manifest", "script/stdlib"}, nil},
+	{"engine/docs", []string{"core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
 	{"sdk", []string{"core/...", "engine", "engine/module", "schema", "scene", "asset", "asset/...", "render", "render/module", "render2d", "render3d", "platform/input", "script/bind"}, nil},
 	{"app/run", []string{"..."}, nil},
+	{"app/playground", []string{"core/...", "engine", "engine/builtin/headless", "engine/docs", "engine/module", "platform/input", "render2d", "scene", "scene/...", "schema", "script/..."}, nil},
 	{"demos/...", []string{"..."}, nil},
 	{"cmd/...", []string{"..."}, nil},
 	{"tests/...", []string{"..."}, nil},
@@ -148,11 +154,14 @@ var fsAllowed = []string{
 	"asset/pipeline",
 	"engine/bootstrap",
 	"app",
+	"app/docstool",
 	"app/run",
 	"app/edit",
+	"app/projects",
 	"app/supervise",
 	"editor/assets",
 	"editor/document",
+	"editor/launcher",
 	"editor/scripteditor",
 	"editor/session",
 	"editor/state",
@@ -168,13 +177,16 @@ var denied = []struct {
 	{"engine/module", []string{"editor/...", "asset/pipeline", "asset/importers/...", "app/..."}},
 	{"scene/...", []string{"engine/module"}},
 	{"schema", []string{"engine/module"}},
-	{"engine/module", []string{"engine/builtin"}},
+	{"engine/module", []string{"engine/builtin", "engine/builtin/headless"}},
 	{"render2d", []string{"render3d", "render3d/...", "script/...", "editor/...", "render2d/editor"}},
 	{"render3d", []string{"render2d", "render2d/...", "script/...", "editor/...", "render3d/editor"}},
 	{"script/engine", []string{"render2d", "render2d/...", "render3d", "render3d/...", "editor/..."}},
-	{"sdk", []string{"engine/builtin"}},
-	{"editor/...", []string{"engine/builtin", "script/engine"}},
+	{"sdk", []string{"engine/builtin", "engine/builtin/headless"}},
+	{"editor/...", []string{"engine/builtin", "engine/builtin/headless", "script/engine"}},
 	{"app/run", []string{"editor/..."}},
+	{"app/projects", []string{"editor/..."}},
+	{"engine/builtin/headless", []string{"render3d", "render3d/...", "asset/pipeline", "asset/importers/...", "editor/..."}},
+	{"app/playground", []string{"platform/sdl", "gpu/gl33", "gpu/gl33/...", "asset/pipeline", "asset/importers/...", "render3d", "render3d/...", "editor/..."}},
 	{"runtime/...", []string{"editor/..."}},
 	{"sdk", []string{"editor/..."}},
 	{"script/bytecode", scriptCompilerOnly},
@@ -207,7 +219,7 @@ var runtimeRoots = []string{
 	"render2d", "render3d", "script/engine", "script/runtime", "script/stdlib", "script/bind", "script/module", "sdk",
 }
 
-var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...", "app/...")
+var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...", "app/...", "engine/docs")
 
 func main() {
 	root := "."

@@ -206,7 +206,7 @@ func (r *Runner) Prepare(pixelW, pixelH int, scale float32) {
 	v := r.fixed
 	if r.targetW > 0 {
 		v.Target, v.TargetW, v.TargetH = r.target, r.targetW, r.targetH
-		if v.Projection == view.Perspective3D {
+		if v.Is3D() {
 			v.DepthTarget = r.depth
 		}
 	}
@@ -231,7 +231,7 @@ func (r *Runner) Submit(dst *render.Renderer) {
 		v := r.views[i]
 		b := &r.buckets[i]
 		f := dst.View(v)
-		if v.Projection == view.Perspective3D {
+		if v.Is3D() {
 			f.Meshes(b.Meshes)
 			f.Sprites3D(b.Sprites3D)
 		} else {

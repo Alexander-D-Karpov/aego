@@ -1,5 +1,5 @@
 manifest version=2 {
-  abi="770cfee47bb7f9121351e730a8e050882079b803ef1a35c10acbb9fdd186702b"
+  abi="012abb6ad82a0d9a657148b4ed0001338f685204a226d1fc6efb17f3470abf73"
   module "aego/input" {
     func "Axis" {
       params=["string"]
@@ -1688,6 +1688,16 @@ manifest version=2 {
       type="bool"
       readonly=false
       doc="Only active cameras render."
+    }
+    field "Orthographic" {
+      type="bool"
+      readonly=false
+      doc="Projects without perspective; sprites and meshes keep their size at any depth."
+    }
+    field "OrthoSize" {
+      type="float"
+      readonly=false
+      doc="Half of the vertical extent in world units when orthographic is on."
     }
   }
   component "engine.MeshRenderer" {

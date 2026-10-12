@@ -2,41 +2,56 @@ package theme
 
 import "aego/core/mathx"
 
+type GutterMetrics struct {
+	MarkerW   float32
+	NumberPad float32
+	CodePad   float32
+}
+
 type CodeTheme struct {
-	Background   mathx.Color
-	Gutter       mathx.Color
-	LineNo       mathx.Color
-	LineNoActive mathx.Color
-	CurrentLine  mathx.Color
-	Guide        mathx.Color
-	IndentGuide  mathx.Color
-	Bracket      mathx.Color
-	Occurrence   mathx.Color
-	Plain        mathx.Color
-	Keyword      mathx.Color
-	Type         mathx.Color
-	BuiltinType  mathx.Color
-	Function     mathx.Color
-	Method       mathx.Color
-	Field        mathx.Color
-	Property     mathx.Color
-	Param        mathx.Color
-	Local        mathx.Color
-	Const        mathx.Color
-	EnumMember   mathx.Color
-	String       mathx.Color
-	Number       mathx.Color
-	Comment      mathx.Color
-	Attribute    mathx.Color
-	Namespace    mathx.Color
-	Script       mathx.Color
-	Signal       mathx.Color
-	Coroutine    mathx.Color
-	Builtin      mathx.Color
-	Operator     mathx.Color
-	Punctuation  mathx.Color
-	Error        mathx.Color
-	GuideColumn  int
+	Background         mathx.Color
+	GutterBg           mathx.Color
+	Gutter             GutterMetrics
+	LineNo             mathx.Color
+	LineNoActive       mathx.Color
+	CurrentLine        mathx.Color
+	CurrentBlock       mathx.Color
+	Guide              mathx.Color
+	IndentGuide        mathx.Color
+	IndentGuideActive  mathx.Color
+	GuideRainbow       [6]mathx.Color
+	GuideRainbowActive [6]mathx.Color
+	BracketMatch       mathx.Color
+	BracketMismatch    mathx.Color
+	Rainbow            [6]mathx.Color
+	Occurrence         mathx.Color
+	OccurrenceDim      mathx.Color
+	OccurrenceWrite    mathx.Color
+	Plain              mathx.Color
+	Keyword            mathx.Color
+	Type               mathx.Color
+	BuiltinType        mathx.Color
+	Function           mathx.Color
+	Method             mathx.Color
+	Field              mathx.Color
+	Property           mathx.Color
+	Param              mathx.Color
+	Local              mathx.Color
+	Const              mathx.Color
+	EnumMember         mathx.Color
+	String             mathx.Color
+	Number             mathx.Color
+	Comment            mathx.Color
+	Attribute          mathx.Color
+	Namespace          mathx.Color
+	Script             mathx.Color
+	Signal             mathx.Color
+	Coroutine          mathx.Color
+	Builtin            mathx.Color
+	Operator           mathx.Color
+	Punctuation        mathx.Color
+	Error              mathx.Color
+	GuideColumn        int
 }
 
 type Theme struct {
@@ -110,42 +125,80 @@ func Default() Theme {
 	return t
 }
 
+func Mix(a, b mathx.Color, t float32) mathx.Color {
+	ch := func(x, y float32) float32 {
+		s := mathx.LinearToSRGB(mathx.Clamp(x, 0, 1))
+		d := mathx.LinearToSRGB(mathx.Clamp(y, 0, 1))
+		return mathx.SRGBToLinear(s + (d-s)*t)
+	}
+	return mathx.Color{R: ch(a.R, b.R), G: ch(a.G, b.G), B: ch(a.B, b.B), A: 1}
+}
+
+func mixAll(bg mathx.Color, cs [6]mathx.Color, t float32) [6]mathx.Color {
+	var out [6]mathx.Color
+	for i, c := range cs {
+		out[i] = Mix(bg, c, t)
+	}
+	return out
+}
+
 func Code() CodeTheme {
+	bg := mathx.ColorRGB8(0x1A, 0x1D, 0x22)
+	white := mathx.Color{R: 1, G: 1, B: 1, A: 1}
+	blue := mathx.ColorRGB8(0x4D, 0x78, 0xB8)
+	warm := mathx.ColorRGB8(0xE5, 0x9B, 0x4B)
+	rainbow := [6]mathx.Color{
+		mathx.ColorRGB8(0xE5, 0xC0, 0x7B),
+		mathx.ColorRGB8(0xC6, 0x78, 0xDD),
+		mathx.ColorRGB8(0x61, 0xAF, 0xEF),
+		mathx.ColorRGB8(0x98, 0xC3, 0x79),
+		mathx.ColorRGB8(0xD1, 0x9A, 0x66),
+		mathx.ColorRGB8(0x56, 0xB6, 0xC2),
+	}
 	return CodeTheme{
-		Background:   mathx.ColorRGB8(0x1A, 0x1D, 0x22),
-		Gutter:       mathx.ColorRGB8(0x17, 0x19, 0x1D),
-		LineNo:       mathx.ColorRGB8(0x5C, 0x61, 0x6B),
-		LineNoActive: mathx.ColorRGB8(0xB0, 0xB5, 0xBF),
-		CurrentLine:  mathx.Color{R: 1, G: 1, B: 1, A: 0.04},
-		Guide:        mathx.Color{R: 1, G: 1, B: 1, A: 0.06},
-		IndentGuide:  mathx.Color{R: 1, G: 1, B: 1, A: 0.05},
-		Bracket:      mathx.Color{R: 0.9, G: 0.75, B: 0.48, A: 0.7},
-		Occurrence:   mathx.Color{R: 0.3, G: 0.45, B: 0.7, A: 0.25},
-		Plain:        mathx.ColorRGB8(0xD8, 0xDB, 0xE2),
-		Keyword:      mathx.ColorRGB8(0xC6, 0x78, 0xDD),
-		Type:         mathx.ColorRGB8(0x56, 0xB6, 0xC2),
-		BuiltinType:  mathx.ColorRGB8(0x56, 0xB6, 0xC2),
-		Function:     mathx.ColorRGB8(0x61, 0xAF, 0xEF),
-		Method:       mathx.ColorRGB8(0x61, 0xAF, 0xEF),
-		Field:        mathx.ColorRGB8(0xE0, 0x6C, 0x75),
-		Property:     mathx.ColorRGB8(0xE0, 0x6C, 0x75),
-		Param:        mathx.ColorRGB8(0xE8, 0xA8, 0x7C),
-		Local:        mathx.ColorRGB8(0xD8, 0xDB, 0xE2),
-		Const:        mathx.ColorRGB8(0xD1, 0x9A, 0x66),
-		EnumMember:   mathx.ColorRGB8(0xD1, 0x9A, 0x66),
-		String:       mathx.ColorRGB8(0x98, 0xC3, 0x79),
-		Number:       mathx.ColorRGB8(0xD1, 0x9A, 0x66),
-		Comment:      mathx.ColorRGB8(0x6B, 0x72, 0x80),
-		Attribute:    mathx.ColorRGB8(0xE5, 0xC0, 0x7B),
-		Namespace:    mathx.ColorRGB8(0xE0, 0x7B, 0x39),
-		Script:       mathx.ColorRGB8(0x56, 0xB6, 0xC2),
-		Signal:       mathx.ColorRGB8(0xF2, 0x9E, 0x74),
-		Coroutine:    mathx.ColorRGB8(0x7F, 0xCF, 0xC9),
-		Builtin:      mathx.ColorRGB8(0xE5, 0x8E, 0xC6),
-		Operator:     mathx.ColorRGB8(0xAB, 0xB2, 0xBF),
-		Punctuation:  mathx.ColorRGB8(0x8B, 0x92, 0x9E),
-		Error:        mathx.ColorRGB8(0xE5, 0x53, 0x4B),
-		GuideColumn:  100,
+		Background:         bg,
+		GutterBg:           mathx.ColorRGB8(0x17, 0x19, 0x1D),
+		Gutter:             GutterMetrics{MarkerW: 1, NumberPad: 1, CodePad: 1},
+		LineNo:             mathx.ColorRGB8(0x5C, 0x61, 0x6B),
+		LineNoActive:       mathx.ColorRGB8(0xB0, 0xB5, 0xBF),
+		CurrentLine:        Mix(bg, white, 0.035),
+		CurrentBlock:       Mix(bg, white, 0.012),
+		Guide:              Mix(bg, white, 0.05),
+		IndentGuide:        Mix(bg, white, 0.07),
+		IndentGuideActive:  Mix(bg, white, 0.16),
+		GuideRainbow:       mixAll(bg, rainbow, 0.18),
+		GuideRainbowActive: mixAll(bg, rainbow, 0.4),
+		BracketMatch:       mathx.ColorRGB8(0xE5, 0xC0, 0x7B),
+		BracketMismatch:    mathx.ColorRGB8(0xE5, 0x53, 0x4B),
+		Rainbow:            rainbow,
+		Occurrence:         Mix(bg, blue, 0.22),
+		OccurrenceDim:      Mix(bg, blue, 0.12),
+		OccurrenceWrite:    Mix(bg, warm, 0.55),
+		Plain:              mathx.ColorRGB8(0xD8, 0xDB, 0xE2),
+		Keyword:            mathx.ColorRGB8(0xC6, 0x78, 0xDD),
+		Type:               mathx.ColorRGB8(0x56, 0xB6, 0xC2),
+		BuiltinType:        mathx.ColorRGB8(0x56, 0xB6, 0xC2),
+		Function:           mathx.ColorRGB8(0x61, 0xAF, 0xEF),
+		Method:             mathx.ColorRGB8(0x61, 0xAF, 0xEF),
+		Field:              mathx.ColorRGB8(0xE0, 0x6C, 0x75),
+		Property:           mathx.ColorRGB8(0xE0, 0x6C, 0x75),
+		Param:              mathx.ColorRGB8(0xE8, 0xA8, 0x7C),
+		Local:              mathx.ColorRGB8(0xD8, 0xDB, 0xE2),
+		Const:              mathx.ColorRGB8(0xD1, 0x9A, 0x66),
+		EnumMember:         mathx.ColorRGB8(0xD1, 0x9A, 0x66),
+		String:             mathx.ColorRGB8(0x98, 0xC3, 0x79),
+		Number:             mathx.ColorRGB8(0xD1, 0x9A, 0x66),
+		Comment:            mathx.ColorRGB8(0x6B, 0x72, 0x80),
+		Attribute:          mathx.ColorRGB8(0xE5, 0xC0, 0x7B),
+		Namespace:          mathx.ColorRGB8(0xE0, 0x7B, 0x39),
+		Script:             mathx.ColorRGB8(0x56, 0xB6, 0xC2),
+		Signal:             mathx.ColorRGB8(0xF2, 0x9E, 0x74),
+		Coroutine:          mathx.ColorRGB8(0x7F, 0xCF, 0xC9),
+		Builtin:            mathx.ColorRGB8(0xE5, 0x8E, 0xC6),
+		Operator:           mathx.ColorRGB8(0xAB, 0xB2, 0xBF),
+		Punctuation:        mathx.ColorRGB8(0x8B, 0x92, 0x9E),
+		Error:              mathx.ColorRGB8(0xE5, 0x53, 0x4B),
+		GuideColumn:        100,
 	}
 }
 

@@ -15,20 +15,28 @@ type texInfo struct {
 	xtype    uint32
 	bpp      int
 	depth    bool
+	attach   uint32
+	name     string
+}
+
+var depthFormats = []texInfo{
+	{internal: gl.DEPTH24_STENCIL8, format: gl.DEPTH_STENCIL, xtype: gl.UNSIGNED_INT_24_8, bpp: 4, depth: true, attach: gl.DEPTH_STENCIL_ATTACHMENT, name: "DEPTH24_STENCIL8"},
+	{internal: gl.DEPTH_COMPONENT24, format: gl.DEPTH_COMPONENT, xtype: gl.UNSIGNED_INT, bpp: 4, depth: true, attach: gl.DEPTH_ATTACHMENT, name: "DEPTH_COMPONENT24"},
+	{internal: gl.DEPTH_COMPONENT32F, format: gl.DEPTH_COMPONENT, xtype: gl.FLOAT, bpp: 4, depth: true, attach: gl.DEPTH_ATTACHMENT, name: "DEPTH_COMPONENT32F"},
 }
 
 func textureInfo(f gpu.TextureFormat) (texInfo, bool) {
 	switch f {
 	case gpu.TexRGBA8:
-		return texInfo{gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, 4, false}, true
+		return texInfo{internal: gl.RGBA8, format: gl.RGBA, xtype: gl.UNSIGNED_BYTE, bpp: 4, name: "RGBA8"}, true
 	case gpu.TexSRGBA8:
-		return texInfo{gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, 4, false}, true
+		return texInfo{internal: gl.SRGB8_ALPHA8, format: gl.RGBA, xtype: gl.UNSIGNED_BYTE, bpp: 4, name: "SRGB8_ALPHA8"}, true
 	case gpu.TexR8:
-		return texInfo{gl.R8, gl.RED, gl.UNSIGNED_BYTE, 1, false}, true
+		return texInfo{internal: gl.R8, format: gl.RED, xtype: gl.UNSIGNED_BYTE, bpp: 1, name: "R8"}, true
 	case gpu.TexRGBA16F:
-		return texInfo{gl.RGBA16F, gl.RGBA, gl.FLOAT, 16, false}, true
+		return texInfo{internal: gl.RGBA16F, format: gl.RGBA, xtype: gl.FLOAT, bpp: 16, name: "RGBA16F"}, true
 	case gpu.TexDepth24Stencil8:
-		return texInfo{gl.DEPTH24_STENCIL8, gl.DEPTH_STENCIL, gl.UNSIGNED_INT_24_8, 4, true}, true
+		return depthFormats[0], true
 	}
 	return texInfo{}, false
 }

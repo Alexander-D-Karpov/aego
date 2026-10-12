@@ -22,7 +22,28 @@ const (
 	ModeRun Mode = iota
 	ModeRuntime
 	ModeManifest
+	ModeIcons
 )
+
+const iconsTemplate = `package main
+
+import (
+	"os"
+
+	"aego/engine/builtin"
+	"aego/sdk"
+	native "%s/native"
+)
+
+func main() {
+	rep, err := builtin.AuditIcons(sdk.Adapt(native.Module{}))
+	if err != nil {
+		os.Stderr.WriteString(err.Error() + "\n")
+		os.Exit(2)
+	}
+	os.Exit(rep.Write(os.Stdout))
+}
+`
 
 const manifestTemplate = `package main
 
@@ -94,8 +115,11 @@ func main() {
 
 func Generate(p *project.Project, mode Mode) (string, error) {
 	dir, tmpl := p.GeneratedDir(), mainTemplate
-	if mode == ModeManifest {
+	switch mode {
+	case ModeManifest:
 		dir, tmpl = filepath.Join(p.GeneratedDir(), "manifest"), manifestTemplate
+	case ModeIcons:
+		dir, tmpl = filepath.Join(p.GeneratedDir(), "icons"), iconsTemplate
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", errs.Wrap(err, errs.VFSIO, "cannot create the generated directory")
@@ -137,7 +161,7 @@ func Build(p *project.Project, t Target, mode Mode, engineVersion string, lg *lo
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return "", errs.Wrap(err, errs.VFSIO, "cannot create the build directory")
 	}
-	args := []string{"build", "-trimpath", "-o", binary}
+	args := []string{"build", "-o", binary}
 	if len(t.Tags) > 0 {
 		args = append(args, "-tags", strings.Join(t.Tags, ","))
 	}

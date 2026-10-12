@@ -12,6 +12,13 @@ import (
 
 type cameras struct{}
 
+func cameraView(cam *Camera3D, world mathx.Mat4, vp mathx.Rect) view.View {
+	if cam.Orthographic {
+		return view.OrthoView(world, cam.OrthoSize, cam.Near, cam.Far, vp)
+	}
+	return view.PerspectiveView(world, mathx.Deg2Rad(cam.FOV), cam.Near, cam.Far, vp)
+}
+
 func (cameras) Run(ctx *engine.Context) {
 	r := frame.Of(ctx)
 	if r == nil || r.Fixed() || r.Scene() == nil {
@@ -23,7 +30,7 @@ func (cameras) Run(ctx *engine.Context) {
 		if !cam.Active || sc.Space(h) != scene.Space3D {
 			return
 		}
-		v := view.PerspectiveView(sc.World4(h), mathx.Deg2Rad(cam.FOV), cam.Near, cam.Far, r.Viewport(cam.Viewport))
+		v := cameraView(cam, sc.World4(h), r.Viewport(cam.Viewport))
 		v.Target, v.TargetW, v.TargetH = target, tw, th
 		v.DepthTarget = r.Depth()
 		v.PixelScale = r.PixelScale()
@@ -43,7 +50,7 @@ func (extract) Run(ctx *engine.Context) {
 	}
 	views := r.Views()
 	for i := range views {
-		if views[i].Projection == view.Perspective3D {
+		if views[i].Is3D() {
 			collect(r, r.Bucket(i), uint64(views[i].Layers))
 		}
 	}

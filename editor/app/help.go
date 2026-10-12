@@ -8,12 +8,14 @@ import (
 	"aego/core/mathx"
 	"aego/editor/command"
 	"aego/editor/context"
+	edocs "aego/editor/docs"
 	"aego/editor/document"
 	"aego/editor/help"
 	"aego/editor/play"
 	"aego/editor/welcome"
 	"aego/editor/workspace"
 	"aego/engine"
+	"aego/engine/docs"
 	"aego/scene"
 	"aego/scene/scriptcomp"
 	"aego/ui/draw"
@@ -41,9 +43,9 @@ func (a *App) registerHelp() error {
 				a.ws.ShowNear(welcome.ID, workspace.Inspector)
 				return nil
 			}},
-		{ID: CommandReference, Name: "Script Reference", Category: "Help", Order: 110,
+		{ID: CommandReference, Name: "Documentation", Category: "Help", Order: 110,
 			Run: func() error {
-				a.ws.ShowNear(help.ReferenceID, workspace.Scene)
+				a.ctx.ShowDocs(edocs.Language, "")
 				return nil
 			}},
 		{ID: CommandKeymap, Name: "Keymap", Category: "Help", Order: 120,
@@ -119,12 +121,22 @@ func (a *App) attachedAny() bool {
 	return false
 }
 
+func (a *App) helpEntry(id string) (string, string) {
+	if a.opt.Help == nil {
+		return id, ""
+	}
+	e, ok := a.opt.Help.Get(id)
+	if !ok {
+		return id, ""
+	}
+	return e.Title, docs.Plain(e.Body)
+}
+
 func (a *App) welcomeChecks() []welcome.Check {
 	base := map[document.ID]int{}
-	return []welcome.Check{
+	checks := []welcome.Check{
 		{
-			ID: "node", Title: "Create a node",
-			Hint: "Right-click in the Hierarchy and pick Create, or press Ctrl+Shift+N.",
+			ID: "node",
 			Done: func() bool {
 				d := a.ctx.Docs.Edit()
 				if d == nil {
@@ -141,8 +153,7 @@ func (a *App) welcomeChecks() []welcome.Check {
 			Show: func() { a.showPanel(workspace.Hierarchy) },
 		},
 		{
-			ID: "attach", Title: "Attach the Spinner script",
-			Hint: "Select the node and press Add Script in the Inspector, or drag " + welcome.ExamplePath + " onto it.",
+			ID:   "attach",
 			Done: a.attachedAny,
 			Show: func() {
 				if a.ctx.RevealPath != nil {
@@ -152,14 +163,12 @@ func (a *App) welcomeChecks() []welcome.Check {
 			},
 		},
 		{
-			ID: "play", Title: "Press Play",
-			Hint: "Ctrl+P or the play button in the toolbar. The scene runs in a copy; Stop throws the copy away.",
+			ID:   "play",
 			Done: func() bool { return a.play.State() != play.Stopped },
 			Show: func() { a.highlight(pulseTarget) },
 		},
 		{
-			ID: "tweak", Title: "Change Speed in the Inspector while playing",
-			Hint: "Values change live. Right-click a component to copy play-mode values back to the edit scene.",
+			ID: "tweak",
 			Done: func() bool {
 				h := a.play.History()
 				return a.play.State() != play.Stopped && h != nil && h.CanUndo()
@@ -167,8 +176,7 @@ func (a *App) welcomeChecks() []welcome.Check {
 			Show: func() { a.showPanel(workspace.Inspector) },
 		},
 		{
-			ID: "reload", Title: "Edit the script and save while playing",
-			Hint: "Autosave writes the file a second after you stop typing; hot reload swaps the code without restarting.",
+			ID: "reload",
 			Done: func() bool {
 				if a.ctx.Scripts == nil || a.play.State() == play.Stopped {
 					return false
@@ -183,8 +191,7 @@ func (a *App) welcomeChecks() []welcome.Check {
 			},
 		},
 		{
-			ID: "error", Title: "Open a script error from Problems",
-			Hint: "Break a line on purpose, then click the problem: the editor jumps to it and explains the fix.",
+			ID:   "error",
 			Done: func() bool { return a.problemsPanel.Opened > 0 },
 			Show: func() {
 				if a.ctx.ShowProblems != nil {
@@ -194,6 +201,10 @@ func (a *App) welcomeChecks() []welcome.Check {
 			},
 		},
 	}
+	for i := range checks {
+		checks[i].Title, checks[i].Hint = a.helpEntry("welcome/" + checks[i].ID)
+	}
+	return checks
 }
 
 func (a *App) firstRun() {
@@ -217,7 +228,7 @@ func (a *App) contextHint() string {
 		if _, _, bad := a.ctx.FirstError(""); bad {
 			return "F2 next error · Ctrl+Q explain · Ctrl+Click go to"
 		}
-		return "Ctrl+Space completion · Ctrl+P parameters · Ctrl+Click go to"
+		return "Ctrl+Space completion · F1 documentation · Ctrl+Click go to"
 	case f == workspace.Scene:
 		return "Q W E R tools · F frame selection · Ctrl+D duplicate"
 	case f == workspace.Hierarchy:

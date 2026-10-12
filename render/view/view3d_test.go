@@ -80,3 +80,28 @@ func TestOrthoViewMatrix4MatchesMat3(t *testing.T) {
 		t.Fatalf("ortho ViewMatrix4 diverges from ViewMatrix: %v vs %v", b, a)
 	}
 }
+
+func TestOrthoViewIgnoresDepth(t *testing.T) {
+	eye := mathx.Mat4Translate(mathx.Vec3{Z: 10})
+	v := OrthoView(eye, 5, 0.1, 100, mathx.Rect{W: 200, H: 100})
+	v.Normalize(200, 100, 1)
+	if !v.Is3D() || !v.UsesDepth() {
+		t.Fatal("ortho view must be a 3D view with depth")
+	}
+	a, okA := v.WorldToScreen3(mathx.Vec3{X: 2, Y: 1})
+	b, okB := v.WorldToScreen3(mathx.Vec3{X: 2, Y: 1, Z: -50})
+	if !okA || !okB {
+		t.Fatal("points in front of the camera must project")
+	}
+	if a.Sub(b).Len() > 1e-3 {
+		t.Fatalf("depth changed the pixel: %v vs %v", a, b)
+	}
+	want := mathx.Vec2{X: 120, Y: 40}
+	if a.Sub(want).Len() > 1e-3 {
+		t.Fatalf("pixel = %v, want %v", a, want)
+	}
+	ray := v.ScreenToRay(a)
+	if ray.Dir.Sub(mathx.Vec3{Z: -1}).Len() > 1e-4 {
+		t.Fatalf("ray dir = %v", ray.Dir)
+	}
+}

@@ -32,6 +32,11 @@ type finalizer struct {
 	fn    func(*Registry) error
 }
 
+type DocSource struct {
+	Owner string
+	FS    fs.FS
+}
+
 type Registry struct {
 	types     *scene.Types
 	script    *bind.Registry
@@ -43,17 +48,19 @@ type Registry struct {
 	services  []serviceDesc
 	templates []*schema.TemplateDesc
 	icons     []IconSet
-	docs      []fs.FS
+	docs      []DocSource
+	owners    map[string]string
 	dev       []Hook
 	editor    []Hook
 	finals    []finalizer
 	warns     []string
 	errs      []error
 	built     bool
+	audit     *IconReport
 }
 
 func New(types *scene.Types, script *bind.Registry) *Registry {
-	return &Registry{types: types, script: script}
+	return &Registry{types: types, script: script, owners: map[string]string{}}
 }
 
 func (r *Registry) Types() *scene.Types {
@@ -149,6 +156,9 @@ func (r *Registry) ScriptModule(path string) *bind.Module {
 		r.fail("script module " + path + " needs script bindings")
 		return bind.New().Module(path)
 	}
+	if _, ok := r.owners[path]; !ok && r.cur != nil {
+		r.owners[path] = r.cur.info.ID
+	}
 	return r.script.Module(path)
 }
 
@@ -175,7 +185,7 @@ func (r *Registry) Docs(fsys fs.FS) {
 		r.fail("docs source is nil")
 		return
 	}
-	r.docs = append(r.docs, fsys)
+	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys})
 }
 
 func (r *Registry) Dev(fn any) {

@@ -50,7 +50,7 @@ type loader struct {
 	opt      LoadOptions
 	report   *Report
 	name     string
-	nodeIDs  map[ids.NodeID]scene.NodeHandle
+	fileIDs  map[ids.NodeID]scene.NodeHandle
 	deferred []deferredRef
 	created  []scene.NodeHandle
 }
@@ -59,7 +59,8 @@ type deferredRef struct {
 	node   scene.NodeHandle
 	typeID schema.TypeID
 	field  schema.FieldID
-	target ids.NodeID
+	script string
+	value  schema.Value
 	name   string
 	fname  string
 }
@@ -86,7 +87,7 @@ func loadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, 
 		opt:     opt,
 		report:  report,
 		name:    name,
-		nodeIDs: map[ids.NodeID]scene.NodeHandle{},
+		fileIDs: map[ids.NodeID]scene.NodeHandle{},
 	}
 	doc, err := parseDocument(src, name, report)
 	if err != nil {
@@ -146,16 +147,19 @@ func parseDocument(src []byte, name string, report *Report) (*aetext.Node, error
 }
 
 func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
-	var id ids.NodeID
-	if n.Label != "" && l.opt.KeepIDs {
+	var id, fileID ids.NodeID
+	if n.Label != "" {
 		parsed, err := ids.ParseNodeID(n.Label)
-		if err != nil {
-			if l.opt.Strict {
-				return errs.Wrap(err, errs.SceneIOParse, "malformed node id").With(log.F("path", l.name))
+		switch {
+		case err == nil:
+			fileID = parsed
+			if l.opt.KeepIDs {
+				id = parsed
 			}
+		case l.opt.KeepIDs && l.opt.Strict:
+			return errs.Wrap(err, errs.SceneIOParse, "malformed node id").With(log.F("path", l.name))
+		case l.opt.KeepIDs:
 			l.report.warn(l.name, n.Pos, "malformed node id, generating a new one")
-		} else {
-			id = parsed
 		}
 	}
 	name := "Node"
@@ -182,7 +186,9 @@ func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
 		return errs.New(errs.SceneIOParse, "cannot create a node", log.F("path", l.name))
 	}
 	l.created = append(l.created, h)
-	l.nodeIDs[l.scene.ID(h)] = h
+	if !fileID.IsZero() {
+		l.fileIDs[fileID] = h
+	}
 
 	if v, ok := n.Attr("enabled"); ok {
 		l.scene.SetEnabled(h, v.Bool)
@@ -303,7 +309,7 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 			l.report.warn(l.name, f.Pos, "unknown field "+typeName+"."+f.Name)
 			continue
 		}
-		value, deferredTarget, err := l.convert(fd, f.Value, f.Pos)
+		value, err := l.convert(fd, f.Value)
 		if err != nil {
 			if l.opt.Strict {
 				return err
@@ -311,10 +317,9 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 			l.report.warn(l.name, f.Pos, err.Error())
 			continue
 		}
-		if !deferredTarget.IsZero() {
+		if hasNodes(value) {
 			l.deferred = append(l.deferred, deferredRef{
-				node: h, typeID: td.ID, field: fd.ID, target: deferredTarget,
-				name: typeName, fname: fd.Name,
+				node: h, typeID: td.ID, field: fd.ID, value: value, name: typeName, fname: fd.Name,
 			})
 			continue
 		}
@@ -345,80 +350,80 @@ func (l *loader) storeUnknown(h scene.NodeHandle, n *aetext.Node) {
 	})
 }
 
-func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value, pos aetext.Pos) (schema.Value, ids.NodeID, error) {
+func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Value, error) {
 	switch fd.Kind {
 	case schema.KindBool:
-		return schema.Bool(v.Bool), ids.NodeID{}, nil
+		return schema.Bool(v.Bool), nil
 	case schema.KindInt32:
-		return schema.Int32(int32(v.AsInt())), ids.NodeID{}, nil
+		return schema.Int32(int32(v.AsInt())), nil
 	case schema.KindInt64:
-		return schema.Int64(v.AsInt()), ids.NodeID{}, nil
+		return schema.Int64(v.AsInt()), nil
 	case schema.KindFloat32:
-		return schema.Float32(float32(v.AsFloat())), ids.NodeID{}, nil
+		return schema.Float32(float32(v.AsFloat())), nil
 	case schema.KindFloat64:
-		return schema.Float64(v.AsFloat()), ids.NodeID{}, nil
+		return schema.Float64(v.AsFloat()), nil
 	case schema.KindString:
-		return schema.String(v.Str), ids.NodeID{}, nil
+		return schema.String(v.Str), nil
 	case schema.KindVec2:
-		return schema.Vec2(readVec2(v, mathx.Vec2{})), ids.NodeID{}, nil
+		return schema.Vec2(readVec2(v, mathx.Vec2{})), nil
 	case schema.KindVec3:
-		return schema.Vec3(readVec3(v, mathx.Vec3{})), ids.NodeID{}, nil
+		return schema.Vec3(readVec3(v, mathx.Vec3{})), nil
 	case schema.KindVec4:
-		return schema.Vec4(readVec4(v, mathx.Vec4{})), ids.NodeID{}, nil
+		return schema.Vec4(readVec4(v, mathx.Vec4{})), nil
 	case schema.KindQuat:
 		q := readVec4(v, mathx.Vec4{W: 1})
-		return schema.Quat(mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}), ids.NodeID{}, nil
+		return schema.Quat(mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}), nil
 	case schema.KindColor:
-		return schema.Color(unpackColor(v.Color)), ids.NodeID{}, nil
+		return schema.Color(unpackColor(v.Color)), nil
 	case schema.KindRect:
-		return schema.Rect(readRect(v)), ids.NodeID{}, nil
+		return schema.Rect(readRect(v)), nil
 	case schema.KindEnum:
 		if v.Kind == aetext.VIdent {
 			if n, ok := fd.EnumValueOf(v.Ident); ok {
-				return schema.Enum(n), ids.NodeID{}, nil
+				return schema.Enum(n), nil
 			}
-			return schema.Value{}, ids.NodeID{}, errs.New(errs.SceneIOParse,
+			return schema.Value{}, errs.New(errs.SceneIOParse,
 				"unknown enum value "+v.Ident+" for field "+fd.Name)
 		}
-		return schema.Enum(v.AsInt()), ids.NodeID{}, nil
+		return schema.Enum(v.AsInt()), nil
 	case schema.KindAssetRef:
 		if v.Str == "" {
-			return schema.Asset(ids.AssetID{}), ids.NodeID{}, nil
+			return schema.Asset(ids.AssetID{}), nil
 		}
 		id, err := ids.ParseAssetID(v.Str)
 		if err != nil {
-			return schema.Value{}, ids.NodeID{}, err
+			return schema.Value{}, err
 		}
-		if l.res != nil && !l.resolves(fd, id) {
+		if !id.IsZero() && l.res != nil && !l.resolves(fd, id) {
 			l.report.Unresolved = append(l.report.Unresolved, Unresolved{
 				Asset: id, Type: fd.AssetKind, Field: fd.Name,
 			})
 		}
-		return schema.Asset(id), ids.NodeID{}, nil
+		return schema.Asset(id), nil
 	case schema.KindNodeRef:
 		if v.Str == "" {
-			return schema.Node(ids.NodeID{}), ids.NodeID{}, nil
+			return schema.Node(ids.NodeID{}), nil
 		}
 		id, err := ids.ParseNodeID(v.Str)
 		if err != nil {
-			return schema.Value{}, ids.NodeID{}, err
+			return schema.Value{}, err
 		}
-		return schema.Value{}, id, nil
+		return schema.Node(id), nil
 	case schema.KindList:
 		out := schema.Value{Kind: schema.KindList}
+		elem := schema.FieldDescriptor{Kind: fd.Elem, Struct: fd.Struct, Enum: fd.Enum, AssetKind: fd.AssetKind, Name: fd.Name}
 		for _, item := range v.List {
-			elem := schema.FieldDescriptor{Kind: fd.Elem, Struct: fd.Struct, Enum: fd.Enum, Name: fd.Name}
-			ev, _, err := l.convert(&elem, item, pos)
+			ev, err := l.convert(&elem, item)
 			if err != nil {
-				return schema.Value{}, ids.NodeID{}, err
+				return schema.Value{}, err
 			}
 			out.List = append(out.List, ev)
 		}
-		return out, ids.NodeID{}, nil
+		return out, nil
 	case schema.KindStruct:
 		td, ok := l.reg.ByID(fd.Struct)
 		if !ok {
-			return schema.Value{}, ids.NodeID{}, errs.New(errs.SceneIOParse, "unregistered nested struct")
+			return schema.Value{}, errs.New(errs.SceneIOParse, "unregistered nested struct")
 		}
 		obj := &schema.Object{Type: td.ID, Fields: make([]schema.Value, len(td.Fields))}
 		for i := range td.Fields {
@@ -426,17 +431,76 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value, pos aetext.
 				if f.Name != td.Fields[i].Name {
 					continue
 				}
-				ev, _, err := l.convert(&td.Fields[i], f.Value, pos)
+				ev, err := l.convert(&td.Fields[i], f.Value)
 				if err != nil {
-					return schema.Value{}, ids.NodeID{}, err
+					return schema.Value{}, err
 				}
 				obj.Fields[i] = ev
 			}
 		}
-		return schema.Value{Kind: schema.KindStruct, Obj: obj}, ids.NodeID{}, nil
+		return schema.Value{Kind: schema.KindStruct, Obj: obj}, nil
 	}
-	return schema.Value{}, ids.NodeID{}, errs.New(errs.SceneIOParse, "field kind cannot be read from text",
+	return schema.Value{}, errs.New(errs.SceneIOParse, "field kind cannot be read from text",
 		log.F("field", fd.Name))
+}
+
+func hasNodes(v schema.Value) bool {
+	switch v.Kind {
+	case schema.KindNodeRef:
+		return !v.Node.IsZero()
+	case schema.KindList:
+		for _, e := range v.List {
+			if hasNodes(e) {
+				return true
+			}
+		}
+	case schema.KindStruct:
+		if v.Obj != nil {
+			for _, e := range v.Obj.Fields {
+				if hasNodes(e) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (l *loader) remap(v *schema.Value, typ, field string) error {
+	switch v.Kind {
+	case schema.KindNodeRef:
+		if v.Node.IsZero() {
+			return nil
+		}
+		if h, ok := l.fileIDs[v.Node]; ok {
+			v.Node = l.scene.ID(h)
+			return nil
+		}
+		if h := l.scene.Handle(v.Node); !h.IsZero() {
+			return nil
+		}
+		if l.opt.Strict {
+			return errs.New(errs.SceneIOStrict, "node reference does not resolve",
+				log.F("path", l.name), log.F("field", typ+"."+field), log.F("target", v.Node.String()))
+		}
+		l.report.Unresolved = append(l.report.Unresolved, Unresolved{Target: v.Node, Type: typ, Field: field})
+	case schema.KindList:
+		for i := range v.List {
+			if err := l.remap(&v.List[i], typ, field); err != nil {
+				return err
+			}
+		}
+	case schema.KindStruct:
+		if v.Obj == nil {
+			return nil
+		}
+		for i := range v.Obj.Fields {
+			if err := l.remap(&v.Obj.Fields[i], typ, field); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
@@ -458,21 +522,19 @@ func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
 
 func (l *loader) resolveDeferred() error {
 	for _, d := range l.deferred {
-		h, ok := l.nodeIDs[d.target]
-		if !ok {
-			h = l.scene.Handle(d.target)
+		v := d.value
+		if err := l.remap(&v, d.name, d.fname); err != nil {
+			return err
 		}
-		if h.IsZero() {
-			if l.opt.Strict {
-				return errs.New(errs.SceneIOStrict, "node reference does not resolve",
-					log.F("path", l.name), log.F("field", d.name+"."+d.fname),
-					log.F("target", d.target.String()))
+		if d.script != "" {
+			if sc, ok := scriptcomp.ScriptsOf(l.scene, d.node); ok {
+				if i := sc.Index(d.script); i >= 0 {
+					sc.Attachments[i].Props.Set(d.fname, v)
+				}
 			}
-			l.report.Unresolved = append(l.report.Unresolved, Unresolved{
-				Target: d.target, Type: d.name, Field: d.fname,
-			})
+			continue
 		}
-		if err := l.scene.SetProperty(d.node, d.typeID, d.field, schema.Node(d.target)); err != nil {
+		if err := l.scene.SetProperty(d.node, d.typeID, d.field, v); err != nil {
 			l.report.warn(l.name, aetext.Pos{}, err.Error())
 		}
 	}

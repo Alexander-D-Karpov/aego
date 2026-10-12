@@ -14,6 +14,7 @@ import (
 //go:embed shaders
 //go:embed fonts
 //go:embed docs
+//go:embed all:templates
 //go:embed icons/*.png icons/*.json
 var files embed.FS
 

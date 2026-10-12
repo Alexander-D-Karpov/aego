@@ -29,16 +29,19 @@ const (
 )
 
 const (
-	CommandFindInScripts = "code.find_in_scripts"
-	CommandBack          = "code.back"
-	CommandForward       = "code.forward"
-	CommandInlineErrors  = "code.inline_errors"
-	CommandProblems      = "code.problems"
-	CommandInlayHints    = "code.inlay_hints"
-	CommandMinimap       = "code.minimap"
-	CommandSplitRight    = "code.split_right"
-	CommandSplitDown     = "code.split_down"
-	CommandAutosave      = "file.autosave"
+	CommandFindInScripts  = "code.find_in_scripts"
+	CommandBack           = "code.back"
+	CommandForward        = "code.forward"
+	CommandInlineErrors   = "code.inline_errors"
+	CommandProblems       = "code.problems"
+	CommandInlayHints     = "code.inlay_hints"
+	CommandMinimap        = "code.minimap"
+	CommandSplitRight     = "code.split_right"
+	CommandSplitDown      = "code.split_down"
+	CommandAutosave       = "file.autosave"
+	CommandImplementation = "code.implementation"
+	CommandRainbow        = "code.rainbow_brackets"
+	CommandHighlightBlock = "code.highlight_block"
 )
 
 func PanelID(rel string) string {
@@ -82,6 +85,8 @@ type Host struct {
 	Inline     bool
 	Hints      bool
 	Minimap    bool
+	Rainbow    bool
+	Block      bool
 	Autosave   bool
 	Virtual    func(path string) (*document.ScriptDocument, error)
 }
@@ -97,6 +102,8 @@ func NewHost(lang *langsvc.Service) *Host {
 		Inline:   true,
 		Hints:    true,
 		Minimap:  true,
+		Rainbow:  true,
+		Block:    true,
 		Autosave: true,
 	}
 	h.find = newFindPanel(h)
@@ -152,6 +159,17 @@ func (h *Host) registerCommands() {
 				h.Forward()
 				return nil
 			}},
+		{ID: CommandImplementation, Name: "Go to Implementation", Category: "Scripts", Order: 220,
+			Shortcut: command.Key(input.KeyB, command.ModPrimary|command.ModAlt), Enabled: hasActive,
+			Run: func() error {
+				p := h.active
+				h.queue = append(h.queue, func() {
+					if h.owns(p) {
+						p.implementation(h.ctx.UI)
+					}
+				})
+				return nil
+			}},
 		{ID: CommandProblems, Name: "Problems", Category: "Scripts", Order: 300,
 			Run: func() error {
 				if h.ctx.ShowProblems != nil {
@@ -175,6 +193,10 @@ func (h *Host) registerCommands() {
 			Checked: func() bool { return h.Hints }, Run: h.toggle(&h.Hints)},
 		{ID: CommandMinimap, Name: "Minimap", Category: "Scripts", Order: 420,
 			Checked: func() bool { return h.Minimap }, Run: h.toggle(&h.Minimap)},
+		{ID: CommandRainbow, Name: "Rainbow Brackets", Category: "Scripts", Order: 430,
+			Checked: func() bool { return h.Rainbow }, Run: h.toggle(&h.Rainbow)},
+		{ID: CommandHighlightBlock, Name: "Highlight Current Block", Category: "Scripts", Order: 440,
+			Checked: func() bool { return h.Block }, Run: h.toggle(&h.Block)},
 		{ID: CommandAutosave, Name: "Autosave Scripts", Category: "File", Order: 250,
 			Checked: func() bool { return h.Autosave }, Run: h.toggle(&h.Autosave)},
 	}
@@ -225,15 +247,21 @@ func (h *Host) goTo(l context.Location, record bool) {
 	p := h.show(d)
 	c := d.Code
 	p.restoreSel()
+	jump := true
 	switch {
 	case l.Offset >= 0:
 		c.SetCursor(l.Offset, false)
 	case l.Line > 0:
 		c.SetCursor(c.Offset(l.Line-1, max(l.Col-1, 0)), false)
+	default:
+		jump = false
 	}
 	p.saveSel()
-	p.reveal, p.wantFocus = true, true
-	p.flashLine, p.flashAt = c.Line(c.Cursor()), h.ctx.Now()
+	p.wantFocus = true
+	if jump {
+		p.reveal = true
+		p.flashLine, p.flashAt = c.Line(c.Cursor()), h.ctx.Now()
+	}
 	h.active = p
 }
 
@@ -704,4 +732,55 @@ func (h *Host) selectAttached(full string) {
 	docs.SetActive(target.ID)
 	h.ctx.Select(nodes...)
 	h.dock.Show(edws.Hierarchy)
+}
+
+func (h *Host) Renamed(oldRel, newRel string) {
+	moved := func(p string) (string, bool) {
+		switch {
+		case p == oldRel:
+			return newRel, true
+		case strings.HasPrefix(p, oldRel+"/"):
+			return newRel + strings.TrimPrefix(p, oldRel), true
+		}
+		return "", false
+	}
+	type move struct {
+		from, to string
+		p        *Panel
+	}
+	var list []move
+	for path, pn := range h.panels {
+		if np, ok := moved(path); ok {
+			list = append(list, move{path, np, pn})
+		}
+	}
+	for _, mv := range list {
+		delete(h.panels, mv.from)
+		h.panels[mv.to] = mv.p
+		h.ws.ClearOverlay(mv.from)
+		mv.p.resync()
+	}
+	for _, s := range [][]spot{h.back, h.fwd} {
+		for i := range s {
+			if np, ok := moved(s[i].path); ok {
+				s[i].path = np
+			}
+		}
+	}
+	if len(list) > 0 {
+		h.lang.Invalidate()
+	}
+}
+
+func (h *Host) GotoSymbol(stub, symbol string) {
+	h.queue = append(h.queue, func() {
+		h.ensure()
+		line := 1
+		if st, ok := h.lang.Stub(stub); ok {
+			if l, ok := st.Lines[symbol]; ok {
+				line = l + 1
+			}
+		}
+		h.goTo(context.At(stub, line, 1), true)
+	})
 }

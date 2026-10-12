@@ -26,7 +26,7 @@ func (s *Service) HoverIn(snap *workspace.Snapshot, file source.FileID, off uint
 	}
 	if id, stack := identAt(f, off); id != nil {
 		if o := object(snap.Analysis, id); o != nil {
-			return Hover{Signature: describe(o), Doc: objectDoc(o), Span: id.Sp}, true
+			return Hover{Signature: describe(o), Doc: objectDoc(snap, o), Ref: objectRef(snap, o), Span: id.Sp}, true
 		}
 		if h, ok := hoverMember(snap, id, stack); ok {
 			h.Span = id.Sp
@@ -34,8 +34,8 @@ func (s *Service) HoverIn(snap *workspace.Snapshot, file source.FileID, off uint
 		}
 		if n := len(stack); n > 0 {
 			if a, ok := stack[n-1].(*ast.Attr); ok && a.Name == id {
-				if d := builtinText("@" + id.Name); d != "" {
-					return Hover{Signature: "@" + id.Name, Doc: d, Span: id.Sp}, true
+				if d := builtinText(snap, "@"+id.Name); d != "" {
+					return Hover{Signature: "@" + id.Name, Doc: d, Ref: KeyRef("@" + id.Name), Span: id.Sp}, true
 				}
 			}
 		}
@@ -46,7 +46,7 @@ func (s *Service) HoverIn(snap *workspace.Snapshot, file source.FileID, off uint
 func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hover, bool) {
 	a, docs := snap.Analysis, snap.Docs
 	if k := componentArg(a, id, stack); k != nil {
-		return Hover{Signature: "component " + k.Component.Name, Doc: componentDoc(docs, k.Component.Name)}, true
+		return Hover{Signature: "component " + k.Component.Name, Doc: componentDoc(docs, k.Component.Name), Ref: k.Component.Name}, true
 	}
 	sel := selectorWith(stack, id)
 	if sel == nil {
@@ -54,26 +54,33 @@ func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hov
 	}
 	if call := callOf(stack, sel); call != nil {
 		if k := a.Calls[call]; k != nil {
-			if h, ok := asyncCallHover(k); ok {
+			if h, ok := asyncCallHover(snap, k); ok {
 				return h, true
 			}
 			switch k.Kind {
 			case checker.CallHost:
 				f := funcDoc(docs, k.Module, k.Name)
-				return Hover{Signature: hostSig("func "+k.Module+"."+k.Name, k.Sig, f.Params), Doc: hostDoc(f.Doc, f.Example)}, true
+				return Hover{Signature: hostSig("func "+k.Module+"."+k.Name, k.Sig, f.Params), Doc: hostDoc(f.Doc, f.Example), Ref: k.Module + "." + k.Name}, true
 			case checker.CallHostMethod:
 				recv := a.TypeOf(k.Recv)
-				me := methodDoc(docs, types.ToABI(recv).Kind, k.Name)
-				return Hover{Signature: hostSig("func ("+recv.String()+") "+k.Name, k.Sig, me.Params), Doc: hostDoc(me.Doc, me.Example)}, true
+				kind := types.ToABI(recv).Kind
+				me := methodDoc(docs, kind, k.Name)
+				return Hover{
+					Signature: hostSig("func ("+recv.String()+") "+k.Name, k.Sig, me.Params),
+					Doc:       hostDoc(me.Doc, me.Example),
+					Ref:       StubBuiltin + "." + kind.String() + "." + k.Name,
+				}, true
 			case checker.CallGetComponent:
 				return Hover{
 					Signature: "func (NodeRef) Get<" + k.Component.Name + ">() ComponentRef<" + k.Component.Short + ">",
 					Doc:       componentDoc(docs, k.Component.Name),
+					Ref:       k.Component.Name,
 				}, true
 			case checker.CallHasComponent:
 				return Hover{
 					Signature: "func (NodeRef) Has<" + k.Component.Name + ">() bool",
 					Doc:       componentDoc(docs, k.Component.Name),
+					Ref:       k.Component.Name,
 				}, true
 			}
 		}
@@ -88,7 +95,11 @@ func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hov
 		if t := a.TypeOf(sel.X); t.Component != nil {
 			comp = t.Component.Name
 		}
-		return Hover{Signature: "field " + x.Comp.Name + " " + abiType(x.Comp.Type), Doc: fieldDoc(docs, comp, x.Comp.Name)}, true
+		return Hover{
+			Signature: "field " + x.Comp.Name + " " + abiType(x.Comp.Type),
+			Doc:       fieldDoc(docs, comp, x.Comp.Name),
+			Ref:       comp + "." + x.Comp.Name,
+		}, true
 	case checker.SelField, checker.SelLane:
 		h := Hover{Signature: "field " + x.Field.Name + " " + typeString(x.Field.Type)}
 		if d := fieldDecl(a, x.Field); d != nil {
@@ -103,7 +114,11 @@ func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hov
 			if mc, ok := docs.ConstDoc(x.Object.Target, sel.Sel.Name); ok {
 				doc = mc.Doc
 			}
-			return Hover{Signature: "const " + x.Object.Target + "." + sel.Sel.Name + " " + abiType(c.Type) + " = " + constValue(c), Doc: doc}, true
+			return Hover{
+				Signature: "const " + x.Object.Target + "." + sel.Sel.Name + " " + abiType(c.Type) + " = " + constValue(c),
+				Doc:       doc,
+				Ref:       x.Object.Target + "." + sel.Sel.Name,
+			}, true
 		}
 	case checker.SelSignal:
 		return Hover{Signature: signalDecl(x.Signal), Doc: x.Signal.Decl.Doc}, true
@@ -127,7 +142,7 @@ func (s *Service) DefinitionIn(snap *workspace.Snapshot, file source.FileID, off
 	if id == nil {
 		return Location{}, false
 	}
-	a, docs := snap.Analysis, snap.Docs
+	a := snap.Analysis
 	builtin := StubPath(StubBuiltin)
 	comps := StubPath(StubComponents)
 	if o := object(a, id); o != nil {
@@ -160,12 +175,10 @@ func (s *Service) DefinitionIn(snap *workspace.Snapshot, file source.FileID, off
 		if k := a.Calls[call]; k != nil {
 			switch k.Kind {
 			case checker.CallHost:
-				fd := funcDoc(docs, k.Module, k.Name)
-				return Location{Native: true, Path: fd.Loc, Stub: StubPath(k.Module), Symbol: "func:" + k.Name}, true
+				return Location{Native: true, Stub: StubPath(k.Module), Symbol: "func:" + k.Name}, true
 			case checker.CallHostMethod:
 				kind := types.ToABI(a.TypeOf(k.Recv)).Kind
-				me := methodDoc(docs, kind, k.Name)
-				return Location{Native: true, Path: me.Loc, Stub: builtin, Symbol: "method:" + kind.String() + "." + k.Name}, true
+				return Location{Native: true, Stub: builtin, Symbol: "method:" + kind.String() + "." + k.Name}, true
 			case checker.CallGetComponent, checker.CallHasComponent:
 				return Location{Native: true, Stub: comps, Symbol: "component:" + k.Component.Name}, true
 			}

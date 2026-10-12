@@ -93,6 +93,7 @@ type Device struct {
 	pending     []pendingDestroy
 	fbW, fbH    int
 	debugProc   gl.DebugProc
+	depth       texInfo
 }
 
 func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
@@ -120,6 +121,7 @@ func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
 	d.frame.d = d
 	d.pass.d = d
 	d.queryCaps()
+	d.depth = d.probeDepth()
 	if d.debug && d.caps.DebugOutput {
 		d.installDebugOutput()
 	}
@@ -300,4 +302,51 @@ func (d *Device) Close() {
 	d.queries.Clear()
 	d.activeQuery = 0
 	d.cache.Invalidate()
+}
+
+func (d *Device) formatInfo(f gpu.TextureFormat) (texInfo, bool) {
+	if f == gpu.TexDepth24Stencil8 && d.depth.internal != 0 {
+		return d.depth, true
+	}
+	return textureInfo(f)
+}
+
+func (d *Device) probeDepth() texInfo {
+	for i, cand := range depthFormats {
+		if !d.depthWorks(cand) {
+			continue
+		}
+		if i > 0 {
+			d.log.Warn("depth-stencil render targets are incomplete on this driver, using a depth-only format",
+				log.F("format", cand.name), log.F("renderer", d.caps.Renderer))
+		}
+		return cand
+	}
+	d.log.Error("no depth format is renderable, 3D views will fail to create render targets", log.F("renderer", d.caps.Renderer))
+	return depthFormats[0]
+}
+
+func (d *Device) depthWorks(info texInfo) bool {
+	for gl.GetError() != gl.NO_ERROR {
+	}
+	var tex [2]uint32
+	gl.GenTextures(2, &tex[0])
+	d.bindScratch(tex[0])
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 4, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	d.bindScratch(tex[1])
+	gl.TexImage2D(gl.TEXTURE_2D, 0, info.internal, 4, 4, 0, info.format, info.xtype, nil)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	var fbo uint32
+	gl.GenFramebuffers(1, &fbo)
+	gl.BindFramebuffer(gl.FRAMEBUFFER, fbo)
+	gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex[0], 0)
+	gl.FramebufferTexture2D(gl.FRAMEBUFFER, info.attach, gl.TEXTURE_2D, tex[1], 0)
+	ok := gl.CheckFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE && gl.GetError() == gl.NO_ERROR
+	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+	gl.DeleteFramebuffers(1, &fbo)
+	d.cache.ForgetTexture(tex[0])
+	d.cache.ForgetTexture(tex[1])
+	gl.DeleteTextures(2, &tex[0])
+	d.cache.Invalidate()
+	return ok
 }

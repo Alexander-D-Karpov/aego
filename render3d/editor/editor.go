@@ -42,10 +42,32 @@ func frustums(c *shape.OverlayCtx) {
 	}
 	s := c.Scene
 	scene.Query1[render3d.Camera3D](s).Each(func(n scene.NodeHandle, cam *render3d.Camera3D) {
-		if s.Space(n) == scene.Space3D && s.EffectiveEnabled(n) {
-			drawFrustum(c.Debug, s.World4(n), cam.FOV, c.Aspect, 1, c.Color)
+		if s.Space(n) != scene.Space3D || !s.EffectiveEnabled(n) {
+			return
 		}
+		if cam.Orthographic {
+			drawOrthoBox(c.Debug, s.World4(n), cam.OrthoSize, c.Aspect, max(cam.Near, 0), cam.OrthoSize, c.Color)
+			return
+		}
+		drawFrustum(c.Debug, s.World4(n), cam.FOV, c.Aspect, 1, c.Color)
 	})
+}
+
+func drawOrthoBox(dbg *debug.Draw, world mathx.Mat4, size, aspect, near, depth float32, col mathx.Color) {
+	hh, hw := size, size*aspect
+	xs := [4]float32{-hw, hw, hw, -hw}
+	ys := [4]float32{hh, hh, -hh, -hh}
+	var front, back [4]mathx.Vec3
+	for i := range front {
+		front[i] = world.TransformPoint(mathx.Vec3{X: xs[i], Y: ys[i], Z: -near})
+		back[i] = world.TransformPoint(mathx.Vec3{X: xs[i], Y: ys[i], Z: -near - depth})
+	}
+	for i := range front {
+		j := (i + 1) % 4
+		dbg.Line3(front[i], front[j], col)
+		dbg.Line3(back[i], back[j], col)
+		dbg.Line3(front[i], back[i], col)
+	}
 }
 
 func drawFrustum(dbg *debug.Draw, world mathx.Mat4, fovDeg, aspect, depth float32, col mathx.Color) {

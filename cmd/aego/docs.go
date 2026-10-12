@@ -1,0 +1,98 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"aego/app/docstool"
+	"aego/app/projects"
+	"aego/engine/bootstrap"
+	"aego/project"
+)
+
+const docsUsage = `usage: aego docs <command> [flags]
+
+  export [--out file]          write the documentation registry as JSON
+  check [--strict]             broken links, empty summaries, undocumented bindings
+  build [--out site]           generate the static site with the playground
+  serve [--addr host:port]     build, serve on localhost and rebuild on changes
+
+flags: --project dir, --engine dir, --playground=false`
+
+func docsEnv(dir, engineDir string) (*docstool.Env, error) {
+	env := &docstool.Env{Stdout: os.Stdout, Stderr: os.Stderr}
+	if root, err := projects.EngineRoot(engineDir); err == nil {
+		env.Engine = root
+	}
+	start := dir
+	if start == "" {
+		start = "."
+	}
+	root, err := project.Find(start)
+	if err != nil {
+		if dir != "" {
+			return nil, err
+		}
+		return env, nil
+	}
+	p, err := project.Load(root)
+	if err != nil {
+		return nil, err
+	}
+	env.Project = p
+	if bootstrap.NeedsNative(p) {
+		env.Native = func(args ...string) error {
+			if code := scriptTool(p, args...); code != 0 {
+				return fmt.Errorf("project tool exited with status %d", code)
+			}
+			return nil
+		}
+	}
+	return env, nil
+}
+
+func cmdDocs(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, docsUsage)
+		return 2
+	}
+	fs := flag.NewFlagSet("docs "+args[0], flag.ContinueOnError)
+	out := fs.String("out", "", "output file for export, directory for build and serve")
+	strict := fs.Bool("strict", false, "undocumented project bindings are errors")
+	addr := fs.String("addr", "127.0.0.1:6060", "listen address for serve")
+	play := fs.Bool("playground", true, "build the playground and Run buttons")
+	engineDir := fs.String("engine", "", "path to the aego source tree")
+	dir := fs.String("project", "", "project directory")
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+	env, err := docsEnv(*dir, *engineDir)
+	if err != nil {
+		return fail(err)
+	}
+	site := func(def string) string {
+		if *out != "" {
+			return *out
+		}
+		return def
+	}
+	switch args[0] {
+	case "export":
+		return env.Export(*out)
+	case "check":
+		return env.Check(*strict)
+	case "build":
+		if err := env.Build(site("site"), *play); err != nil {
+			return fail(err)
+		}
+		return 0
+	case "serve":
+		if err := env.Serve(*addr, site(".cache/docs-site"), *play); err != nil {
+			return fail(err)
+		}
+		return 0
+	}
+	fmt.Fprintln(os.Stderr, docsUsage)
+	return 2
+}

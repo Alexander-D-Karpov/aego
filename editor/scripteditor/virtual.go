@@ -3,7 +3,6 @@ package scripteditor
 import (
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"aego/core/errs"
@@ -47,22 +46,6 @@ func (h *Host) openStub(l langsvc.Location) bool {
 	return true
 }
 
-func (h *Host) openGo(loc string) bool {
-	i := strings.LastIndexByte(loc, ':')
-	if i <= 0 {
-		return false
-	}
-	line, err := strconv.Atoi(loc[i+1:])
-	if err != nil {
-		return false
-	}
-	if _, err := os.Stat(loc[:i]); err != nil {
-		return false
-	}
-	h.Goto(context.At(context.GoPrefix+loc[:i], line, 1))
-	return true
-}
-
 func (p *Panel) stubSource(ui *core.Context) {
 	if !strings.HasPrefix(p.doc.Path, context.StubPrefix) {
 		p.flash(ui.Time, "This is read-only Go source")
@@ -91,8 +74,10 @@ func (p *Panel) stubSource(ui *core.Context) {
 			break
 		}
 	}
-	if loc := st.Locs[key]; loc != "" && p.host.openGo(loc) {
+	impl, ok := p.host.lang.StubImplementation(p.doc.Path, key)
+	if !ok {
+		p.flash(ui.Time, builtinNote)
 		return
 	}
-	p.flash(ui.Time, "No Go source location is known for this declaration")
+	p.host.Goto(context.At(context.GoPrefix+impl.Path, impl.Line, 1))
 }

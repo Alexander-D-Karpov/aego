@@ -33,6 +33,7 @@ func CacheKey(p *project.Project, t Target, engineVersion string) (Key, error) {
 	writeString(h, engineVersion)
 	writeString(h, SDKVersion)
 	writeString(h, runtime.Version())
+	writeString(h, "fullpaths")
 	writeString(h, t.OS)
 	writeString(h, t.Arch)
 	for _, tag := range t.Tags {

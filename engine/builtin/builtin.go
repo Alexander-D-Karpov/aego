@@ -1,53 +1,31 @@
 package builtin
 
 import (
-	"aego/engine"
+	"aego/engine/builtin/headless"
 	"aego/engine/module"
 	"aego/render2d"
 	"aego/render3d"
 	"aego/scene"
-	"aego/scene/frame"
-	"aego/scene/sceneio"
-	"aego/schema"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
 	scriptengine "aego/script/engine"
 	"aego/script/stdlib"
 )
 
-const ID = "engine"
+const ID = headless.CoreID
 
-type Core struct{}
-
-func (Core) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true}
-}
-
-func (Core) Register(r *module.Registry) error {
-	r.Template(schema.TemplateDesc{ID: ID + ".empty", Name: "Empty", Node: "Node", Setup: empty})
-	r.Template(schema.TemplateDesc{ID: ID + ".empty3d", Name: "Empty", Space: schema.Space3D, Setup: empty})
-	return nil
-}
-
-func empty(*scene.Scene, scene.NodeHandle) {}
+type Core = headless.Core
 
 func Modules(opt stdlib.Options) []module.Module {
-	return []module.Module{Core{}, render2d.New(), render3d.New(), scriptengine.New(opt)}
+	return []module.Module{headless.Core{}, render2d.New(), render3d.New(), scriptengine.New(opt)}
 }
 
 func RegisterTypes(t *scene.Types) error {
-	if err := frame.RegisterTypes(t); err != nil {
-		return err
-	}
-	return sceneio.RegisterUnknown(t)
+	return headless.RegisterTypes(t)
 }
 
 func NewTypes() (*scene.Types, error) {
-	t := scene.NewTypes(schema.NewRegistry())
-	if err := RegisterTypes(t); err != nil {
-		return nil, err
-	}
-	return t, nil
+	return headless.NewTypes()
 }
 
 func Load(types *scene.Types, script *bind.Registry, opt stdlib.Options, user ...module.Module) (*module.Manifest, error) {
@@ -64,6 +42,14 @@ func Manifest(user ...module.Module) (*manifest.Manifest, error) {
 		return nil, err
 	}
 	return manifest.FromRegistry(script, types.Schema())
+}
+
+func AuditIcons(user ...module.Module) (*module.IconReport, error) {
+	types, err := NewTypes()
+	if err != nil {
+		return nil, err
+	}
+	return module.Audit(types, bind.NewManifest(), append(Modules(stdlib.Options{}), user...)...)
 }
 
 type iconDir interface {

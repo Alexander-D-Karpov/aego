@@ -88,3 +88,30 @@ func TestSaveIsCanonical(t *testing.T) {
 		t.Fatalf("save is not stable:\n%s\n---\n%s", first, second)
 	}
 }
+
+func TestLoadKeepsLayoutEnsureDirsCreates(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, FileName), []byte("project version=1 {\n  name=\"T\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range DefaultDirs {
+		if _, err := os.Stat(filepath.Join(root, d)); !os.IsNotExist(err) {
+			t.Fatalf("Load created %s", d)
+		}
+	}
+	made, err := p.EnsureDirs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(made) != len(DefaultDirs) {
+		t.Fatalf("created %v, want %v", made, DefaultDirs)
+	}
+	again, err := p.EnsureDirs()
+	if err != nil || len(again) != 0 {
+		t.Fatalf("second EnsureDirs created %v, err %v", again, err)
+	}
+}

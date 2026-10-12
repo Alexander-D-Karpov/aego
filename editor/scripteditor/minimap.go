@@ -137,7 +137,7 @@ func (m *mapView) draw(p *Panel, ui *core.Context, r mathx.Rect, first int) {
 	if hot {
 		ui.SetCursorShape(core.CursorPointer)
 	}
-	ui.Rect(r, th.Code.Gutter)
+	ui.Rect(r, th.Code.GutterBg)
 	ui.PushClip(r)
 	white := mathx.Color{R: 1, G: 1, B: 1, A: 1}
 	x := r.X + 5

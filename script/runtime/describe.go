@@ -33,7 +33,7 @@ func fieldKind(t abi.TypeRef) (schema.Kind, bool) {
 		return schema.KindRect, true
 	case abi.Enum:
 		return schema.KindEnum, true
-	case abi.NodeRef:
+	case abi.NodeRef, abi.ComponentRef:
 		return schema.KindNodeRef, true
 	case abi.AssetRef:
 		return schema.KindAssetRef, true
@@ -115,6 +115,10 @@ func Describe(mods []*bytecode.Module, s abi.Surface) ([]*schema.TypeDescriptor,
 				switch kind {
 				case schema.KindAssetRef:
 					fd.AssetKind = t.Name
+				case schema.KindNodeRef:
+					if t.Kind == abi.ComponentRef {
+						fd.Component = t.Name
+					}
 				case schema.KindEnum:
 					fd.EnumName = t.Name
 					fd.Enum = enumValues(t.Name, local, s)

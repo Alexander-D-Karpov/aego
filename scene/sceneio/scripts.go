@@ -22,6 +22,7 @@ func (l *loader) loadScripts(h scene.NodeHandle, n *aetext.Node) error {
 			l.report.warn(l.name, b.Pos, "unknown block "+b.Head+" in "+scriptcomp.ScriptName)
 			continue
 		}
+		var refs []deferredRef
 		att := scriptcomp.Attachment{TypeName: b.Label, Enabled: true}
 		if v, ok := b.Attr("enabled"); ok {
 			att.Enabled = v.Bool
@@ -45,6 +46,9 @@ func (l *loader) loadScripts(h scene.NodeHandle, n *aetext.Node) error {
 					l.report.warn(l.name, f.Pos, err.Error())
 					continue
 				}
+				if hasNodes(v) {
+					refs = append(refs, deferredRef{node: h, value: v, fname: fd.Name})
+				}
 				att.Props.Set(fd.Name, v)
 			}
 		} else {
@@ -56,6 +60,10 @@ func (l *loader) loadScripts(h scene.NodeHandle, n *aetext.Node) error {
 			continue
 		}
 		sc.Attachments = append(sc.Attachments, att)
+		for _, r := range refs {
+			r.script, r.name = att.TypeName, att.TypeName
+			l.deferred = append(l.deferred, r)
+		}
 	}
 	return nil
 }

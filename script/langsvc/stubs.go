@@ -1,6 +1,7 @@
 package langsvc
 
 import (
+	"sort"
 	"strings"
 
 	"aego/script/workspace"
@@ -89,6 +90,15 @@ func (s *Service) Stub(path string) (*Stub, bool) {
 	if st, ok := s.stubs[path]; ok {
 		return st, true
 	}
+	st, ok := StubFor(snap, path)
+	if !ok {
+		return nil, false
+	}
+	s.stubs[path] = st
+	return st, true
+}
+
+func StubFor(snap *workspace.Snapshot, path string) (*Stub, bool) {
 	module := strings.TrimSuffix(strings.TrimPrefix(path, StubPrefix), ".aes")
 	var st *Stub
 	switch {
@@ -102,8 +112,34 @@ func (s *Service) Stub(path string) (*Stub, bool) {
 		return nil, false
 	}
 	st.Path = path
-	s.stubs[path] = st
 	return st, true
+}
+
+func StubPaths(snap *workspace.Snapshot) []string {
+	tab := snap.Bindings
+	seen := map[string]bool{}
+	var mods []string
+	add := func(m string) {
+		if !seen[m] {
+			seen[m] = true
+			mods = append(mods, m)
+		}
+	}
+	for _, f := range tab.FuncList() {
+		add(f.Module)
+	}
+	for _, e := range tab.EnumList() {
+		add(e.Module)
+	}
+	for _, k := range tab.ConstList() {
+		add(k.Module)
+	}
+	sort.Strings(mods)
+	out := []string{StubPath(StubBuiltin), StubPath(StubComponents)}
+	for _, m := range mods {
+		out = append(out, StubPath(m))
+	}
+	return out
 }
 
 func moduleStub(snap *workspace.Snapshot, module string) *Stub {
@@ -160,10 +196,10 @@ func builtinStub(snap *workspace.Snapshot) *Stub {
 		if decl == "" {
 			decl = "type " + name
 		}
-		w.symbol("type:"+name, decl, builtinText(name), "", "")
+		w.symbol("type:"+name, decl, builtinText(snap, name), "", "")
 	}
-	w.symbol("func:len", "func len(v string | []T) int", builtinText("len"), "", "")
-	w.symbol("func:append", "func append(s []T, v T) []T", builtinText("append"), "", "")
+	w.symbol("func:len", "func len(v string | []T) int", builtinText(snap, "len"), "", "")
+	w.symbol("func:append", "func append(s []T, v T) []T", builtinText(snap, "append"), "", "")
 	w.symbol("method:NodeRef.Get", "func (NodeRef) Get<Component>() ComponentRef<Component>",
 		"Get returns the component of the given type on the node, or nil.", "sr := node.Get<SpriteRenderer>()", "")
 	w.symbol("method:NodeRef.Has", "func (NodeRef) Has<Component>() bool",

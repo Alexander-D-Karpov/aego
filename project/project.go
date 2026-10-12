@@ -15,7 +15,11 @@ import (
 const (
 	FileName = "project.aego"
 	Version  = 1
+	Space2D  = "2d"
+	Space3D  = "3d"
 )
+
+var DefaultDirs = []string{"assets", "scenes", "scripts", "prefabs"}
 
 type WindowSettings struct {
 	Width  int
@@ -24,14 +28,15 @@ type WindowSettings struct {
 }
 
 type Project struct {
-	Root      string
-	Name      string
-	Module    string
-	MainScene ids.AssetID
-	Window    WindowSettings
-	Input     input.AxisConfig
-	Native    bool
-	Version   int
+	Root         string
+	Name         string
+	Module       string
+	MainScene    ids.AssetID
+	DefaultSpace string
+	Window       WindowSettings
+	Input        input.AxisConfig
+	Native       bool
+	Version      int
 }
 
 func (p *Project) AssetsDir() string {
@@ -64,6 +69,29 @@ func (p *Project) BuildDir() string {
 
 func (p *Project) FilePath() string {
 	return filepath.Join(p.Root, FileName)
+}
+
+func (p *Project) PrefabsDir() string {
+	return filepath.Join(p.Root, "prefabs")
+}
+
+func (p *Project) EnsureDirs() ([]string, error) {
+	var made []string
+	for _, d := range DefaultDirs {
+		abs := filepath.Join(p.Root, d)
+		_, err := os.Stat(abs)
+		if err == nil {
+			continue
+		}
+		if !os.IsNotExist(err) {
+			return made, errs.Wrap(err, errs.VFSIO, "cannot check the project layout").With(log.F("dir", d))
+		}
+		if err := os.MkdirAll(abs, 0o755); err != nil {
+			return made, errs.Wrap(err, errs.VFSIO, "cannot create a project folder").With(log.F("dir", d))
+		}
+		made = append(made, d)
+	}
+	return made, nil
 }
 
 func Find(start string) (string, error) {
@@ -155,7 +183,7 @@ func Load(root string) (*Project, error) {
 	if doc.Head != "project" {
 		return nil, errs.New(errs.ProjectBadFile, "not a project file", log.F("head", doc.Head))
 	}
-	p := &Project{Root: abs, Version: Version, Window: WindowSettings{Width: 1280, Height: 720}, Input: input.DefaultAxes()}
+	p := &Project{Root: abs, Version: Version, DefaultSpace: Space2D, Window: WindowSettings{Width: 1280, Height: 720}, Input: input.DefaultAxes()}
 	if v, ok := doc.Attr("version"); ok {
 		p.Version = int(v.AsInt())
 		if p.Version > Version {
@@ -168,17 +196,23 @@ func Load(root string) (*Project, error) {
 	}
 	if v, ok := doc.Field("module"); ok {
 		p.Module = v.Str
-		if !validModule(p.Module) {
+		if !ValidModule(p.Module) {
 			return nil, errs.New(errs.ProjectBadFile, "module must match [a-z0-9_/-]+ with no dots",
 				log.F("module", p.Module))
 		}
-		if p.Module == "aego" || strings.HasPrefix(p.Module, "aego/") {
+		if ReservedModule(p.Module) {
 			return nil, errs.New(errs.ProjectBadFile, "module path aego is reserved for the engine",
 				log.F("module", p.Module))
 		}
 	}
 	if v, ok := doc.Field("native"); ok {
 		p.Native = v.Bool
+	}
+	if v, ok := doc.Field("defaultSpace"); ok {
+		if v.Str != Space2D && v.Str != Space3D {
+			return nil, errs.New(errs.ProjectBadFile, "defaultSpace must be \"2d\" or \"3d\"", log.F("defaultSpace", v.Str))
+		}
+		p.DefaultSpace = v.Str
 	}
 	if v, ok := doc.Field("mainScene"); ok && v.Str != "" {
 		id, err := ids.ParseAssetID(v.Str)
@@ -229,6 +263,9 @@ func (p *Project) Save() error {
 		aetext.Field{Name: "mainScene", Value: aetext.AssetRef(p.MainScene.String())},
 		aetext.Field{Name: "native", Value: aetext.Bool(p.Native)},
 	)
+	if p.DefaultSpace == Space3D {
+		root.Fields = append(root.Fields, aetext.Field{Name: "defaultSpace", Value: aetext.String(Space3D)})
+	}
 	window := &aetext.Node{Head: "window"}
 	window.Fields = append(window.Fields,
 		aetext.Field{Name: "width", Value: aetext.Int(int64(p.Window.Width))},
@@ -259,7 +296,7 @@ func Create(root, name string, native bool) (*Project, error) {
 	p := &Project{
 		Root:   abs,
 		Name:   name,
-		Module: moduleName(name),
+		Module: ModuleName(name),
 		Native: native,
 		Window: WindowSettings{Width: 1280, Height: 720, Title: name},
 		Input:  input.DefaultAxes(),
@@ -292,10 +329,10 @@ const gitignore = `.aego/
 exports/
 `
 
-// validModule reports whether s is a legal module path: [a-z0-9_/-]+ with no
+// ValidModule reports whether s is a legal module path: [a-z0-9_/-]+ with no
 // dots. The no-dot rule lets abi split a qualified name (module.Name for enums
 // and structs) on the last dot unambiguously; stdlib paths obey it too.
-func validModule(s string) bool {
+func ValidModule(s string) bool {
 	if s == "" {
 		return false
 	}
@@ -310,7 +347,11 @@ func validModule(s string) bool {
 	return true
 }
 
-func moduleName(name string) string {
+func ReservedModule(s string) bool {
+	return s == "aego" || strings.HasPrefix(s, "aego/")
+}
+
+func ModuleName(name string) string {
 	out := make([]byte, 0, len(name))
 	for i := 0; i < len(name); i++ {
 		c := name[i]

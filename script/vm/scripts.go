@@ -164,7 +164,7 @@ func (m *Machine) Invoke(f *Func, self []Value, args []Value, owner InstanceID) 
 	floor := len(m.frames)
 	m.frames = append(m.frames, frame{f: f, base: nb, ret: nb, self: self, owner: owner})
 	m.stats.Calls++
-	m.run(floor)
+	m.exec(floor)
 	fl := m.fault
 	if fl != nil {
 		m.fault = nil
