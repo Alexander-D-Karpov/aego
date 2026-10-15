@@ -43,13 +43,13 @@ func (c *checker) namedType(t *ast.NamedType) *types.Type {
 		case p.Target == "":
 			return types.Invalid
 		case p.Host:
-			e, ok := c.surface.Enum(p.Target, t.Name.Name)
-			if !ok {
+			ht := c.hostType(p.Target, t.Name.Name)
+			if ht == nil {
 				c.errorf(diag.UnknownHost, t.Name.Sp, "%s has no type %s", p.Target, t.Name.Name)
 				return types.Invalid
 			}
 			c.noArgs(t)
-			return c.u.HostEnum(e)
+			return ht
 		}
 		if obj = c.member(t.Name, p); obj == nil {
 			return types.Invalid

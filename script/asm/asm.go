@@ -1,8 +1,4 @@
-// Package asm is the bytecode assembler: an instruction buffer, a value-deduped
-// constant pool, labels with range-checked fixups, and a line table. v1 compiles
-// AST straight to bytecode through this builder — there is no separate IR, which
-// a language this size would not benefit from. Register allocation is the
-// compiler's job; the builder only tracks the high-water mark via Use.
+// Package asm is the bytecode assembler: instructions, deduped constants, labels and the line table.
 package asm
 
 import (

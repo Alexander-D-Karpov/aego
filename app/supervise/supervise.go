@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"aego/editor/session"
+	"aego/editor/core/session"
 	"aego/project"
 )
 

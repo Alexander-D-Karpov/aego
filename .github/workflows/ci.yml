@@ -33,8 +33,8 @@ jobs:
       - run: bash tools/bootstrap-native.sh
       - run: go vet -cgocall=false -unsafeptr=false $(go list ./... | grep -v '/gpu/gl33/gl$')
       - run: go vet ./platform/sdl
-      - run: go run honnef.co/go/tools/cmd/staticcheck@latest $(go list ./... | grep -v '/gpu/gl33/gl$')
-      - run: go run ./tools/depcheck .
+      - run: make lint
+      - run: make depcheck
 
   build:
     strategy:

@@ -5,21 +5,24 @@ package golden
 import (
 	"testing"
 
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/asset"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
-	"aego/editor/command"
-	"aego/editor/context"
-	"aego/editor/document"
-	"aego/editor/inspector"
-	"aego/editor/selection"
-	"aego/engine/builtin"
+	"aego/editor/core/clipboard"
+	"aego/editor/core/command"
+	"aego/editor/core/context"
+	"aego/editor/core/document"
+	"aego/editor/core/selection"
+	"aego/editor/core/services"
+	"aego/editor/ext/inspect"
+	"aego/editor/panels/inspector"
 	"aego/engine/module"
 	"aego/scene"
 	"aego/schema"
 	"aego/script/bind"
-	"aego/script/stdlib"
 	"aego/ui/dnd"
 )
 
@@ -44,11 +47,11 @@ func (goldenModule) Register(r *module.Registry) error {
 
 func TestEditorInspectorRefs(t *testing.T) {
 	env := newEditorEnv(t)
-	types, err := builtin.NewTypes()
+	types, err := assembly.NewTypes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := builtin.Load(types, bind.NewManifest(), stdlib.Options{}, goldenModule{}); err != nil {
+	if _, err := builtin.Default().Load(types, bind.NewManifest(), assembly.Options{}, goldenModule{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {
@@ -82,11 +85,21 @@ func TestEditorInspectorRefs(t *testing.T) {
 	}
 	ctx.Docs.New("scenes/refs.aescene", s)
 	ctx.Select(s.ID(holder))
-	reg := inspector.NewRegistry()
+	reg := inspect.NewRegistry()
 	if err := reg.Load(types.Schema()); err != nil {
 		t.Fatal(err)
 	}
-	p := inspector.New(reg)
-	img, err := env.draw(func(full mathx.Rect) { p.Draw(ctx, full) })
+	reg.SetEditor(ctx)
+	p := inspector.New(reg, inspector.Deps{
+		Docs:      ctx,
+		Selection: ctx,
+		Commands:  ctx.Commands,
+		Notices:   ctx,
+		Nav:       ctx,
+		Problems:  ctx,
+		Clip:      clipboard.EnvOf(ctx),
+		Collapsed: ctx.Collapsed,
+	})
+	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui, DnD: ctx.DnD}, full) })
 	checkGolden(t, "editor_inspector_refs", img, err)
 }

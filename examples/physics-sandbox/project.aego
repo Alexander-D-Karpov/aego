@@ -1,0 +1,27 @@
+project version=1 {
+  name="physics-sandbox"
+  module="sandbox"
+  mainScene=asset("276255fa8b8123f3d171c9978484afcb")
+  native=false
+  window {
+    width=1280
+    height=720
+    title="physics-sandbox"
+  }
+  input {
+    axes {
+      horizontal {
+        negative=A
+        positive=D
+        altNegative=Left
+        altPositive=Right
+      }
+      vertical {
+        negative=W
+        positive=S
+        altNegative=Up
+        altPositive=Down
+      }
+    }
+  }
+}

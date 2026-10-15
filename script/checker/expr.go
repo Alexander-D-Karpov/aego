@@ -219,6 +219,9 @@ func (c *checker) pkgMember(s *ast.SelectorExpr, p *resolver.Object) operand {
 	if e, ok := c.surface.Enum(p.Target, name); ok {
 		return operand{mode: mType, t: c.u.HostEnum(e)}
 	}
+	if sd, ok := c.surface.Struct(p.Target, name); ok {
+		return operand{mode: mType, t: c.u.HostStruct(sd, c.surface)}
+	}
 	if _, ok := c.surface.Func(p.Target, name); ok {
 		c.errorf(diag.NotValue, s.Sp, "function %s.%s must be called", p.Name, name)
 		return invalid

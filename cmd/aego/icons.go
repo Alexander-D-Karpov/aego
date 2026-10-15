@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"aego/app/assembly/builtin"
+	"aego/app/bootstrap"
 	"aego/engine"
-	"aego/engine/bootstrap"
-	"aego/engine/builtin"
 )
 
 func cmdIcons(args []string) int {

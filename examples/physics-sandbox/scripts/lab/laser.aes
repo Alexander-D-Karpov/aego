@@ -1,0 +1,39 @@
+package lab
+
+import (
+	"aego/math"
+	"aego/physics"
+)
+
+script Laser {
+	@export(gizmo="vector")
+	var Dir Vec2 = Vec2{1, 0}
+
+	@export(min=1, max=100, unit="u")
+	var Range float = 40
+
+	@export
+	var Beam NodeRef
+
+	var hits int
+
+	func FixedUpdate(dt float) {
+		d := math.Normalize(Dir)
+		from := node.Position()
+		length := Range
+		hit := physics.Raycast(from, d, Range)
+		if hit.Hit {
+			length = hit.Distance
+			hits++
+		}
+		if Beam == nil {
+			return
+		}
+		Beam.SetPosition(from)
+		Beam.SetRotation(math.Angle(d))
+		sr := Beam.Get<SpriteRenderer>()
+		if sr != nil {
+			sr.Size = Vec2{length, 0.06}
+		}
+	}
+}

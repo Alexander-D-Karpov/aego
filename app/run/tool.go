@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"aego/app"
+	"aego/app/assembly"
 	"aego/app/docstool"
 	"aego/core/log"
 	"aego/core/rng"
@@ -17,7 +17,6 @@ import (
 	"aego/script/bytecode"
 	"aego/script/diag"
 	"aego/script/harness"
-	"aego/script/stdlib"
 	"aego/script/vm"
 	"aego/script/workspace"
 	"aego/sdk"
@@ -36,7 +35,7 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...s
 	case "test":
 		return toolTest(p, args[1:], stdout, stderr, mods)
 	case "docs":
-		return docstool.Tool(p, args[1:], stdout, stderr, app.Adapt(mods)...)
+		return docstool.Tool(p, args[1:], stdout, stderr, sdk.AdaptAll(mods)...)
 	}
 	fmt.Fprintf(stderr, "unknown tool %q\n", args[0])
 	return 2
@@ -53,7 +52,7 @@ func toolWorkspace(p *project.Project, reg *bind.Registry, tests bool) (*workspa
 }
 
 func toolCheck(p *project.Project, stderr io.Writer, mods []sdk.Module) int {
-	reg, err := ScriptBindings(p, stdlib.Options{Seed: 1, Testing: true}, mods...)
+	reg, err := ScriptBindings(p, assembly.Options{Seed: 1, Testing: true}, mods...)
 	if err != nil {
 		fmt.Fprintln(stderr, "aego:", err)
 		return 2
@@ -82,7 +81,7 @@ func toolTest(p *project.Project, args []string, stdout, stderr io.Writer, mods 
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
-	reg, err := ScriptBindings(p, stdlib.Options{Seed: *seed, Testing: true}, mods...)
+	reg, err := ScriptBindings(p, assembly.Options{Seed: *seed, Testing: true}, mods...)
 	if err != nil {
 		fmt.Fprintln(stderr, "aego:", err)
 		return 2

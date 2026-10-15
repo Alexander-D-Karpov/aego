@@ -17,6 +17,12 @@ type MethodEntry struct {
 	Sig  Signature
 }
 
+type ComponentMethodEntry struct {
+	Comp string
+	Name string
+	Sig  Signature
+}
+
 type ConstEntry struct {
 	Module string
 	Name   string
@@ -77,6 +83,31 @@ func (t *Table) MethodList() []MethodEntry {
 	return out
 }
 
+func (t *Table) ComponentMethodList() []ComponentMethodEntry {
+	out := make([]ComponentMethodEntry, 0, len(t.cmethods))
+	for k, s := range t.cmethods {
+		c, n := splitKey(k)
+		out = append(out, ComponentMethodEntry{Comp: c, Name: n, Sig: s})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Comp != out[j].Comp {
+			return out[i].Comp < out[j].Comp
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+func (t *Table) ComponentMethods(comp string) []ComponentMethodEntry {
+	var out []ComponentMethodEntry
+	for _, m := range t.ComponentMethodList() {
+		if m.Comp == comp {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 func (t *Table) ConstList() []ConstEntry {
 	out := make([]ConstEntry, 0, len(t.consts))
 	for k, c := range t.consts {
@@ -104,4 +135,17 @@ func (t *Table) EnumList() []*EnumDef {
 		return out[i].Name < out[j].Name
 	})
 	return out
+}
+
+func (t *Table) StructList() []*StructDef {
+	out := make([]*StructDef, 0, len(t.structs))
+	for _, s := range t.structs {
+		out = append(out, s)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Qualified() < out[j].Qualified() })
+	return out
+}
+
+func (t *Table) EventList() []EventDef {
+	return append([]EventDef(nil), t.events...)
 }

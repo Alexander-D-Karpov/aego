@@ -10,6 +10,7 @@ import (
 	"aego/core/log"
 	"aego/core/rng"
 	"aego/core/stats"
+	"aego/core/trace"
 	"aego/engine/res"
 	"aego/gpu"
 	"aego/gpu/null"
@@ -52,6 +53,11 @@ type Engine struct {
 	quit      bool
 	closed    bool
 	err       error
+
+	tracer     *trace.Tracer
+	phaseZones [phaseCount]trace.ZoneID
+	zPoll      trace.ZoneID
+	zSwap      trace.ZoneID
 }
 
 type Builder struct {
@@ -135,6 +141,7 @@ func (b *Builder) Build() (*Engine, error) {
 	e.log = logger
 	e.elog = logger.With(log.Engine)
 	e.reg = b.reg
+	e.initTrace()
 	e.ctx.Engine = e
 	e.ctx.World = e.main
 	e.onEvent = e.handleEvent
@@ -167,6 +174,24 @@ func (b *Builder) Build() (*Engine, error) {
 		return nil, err
 	}
 	return e, nil
+}
+
+func (e *Engine) initTrace() {
+	e.tracer = trace.New(trace.Options{})
+	for p := range e.reg.systems.phases {
+		e.phaseZones[p] = e.tracer.Zone("phase." + Phase(p).String())
+		for i := range e.reg.systems.phases[p] {
+			s := &e.reg.systems.phases[p][i]
+			s.zone = e.tracer.Zone(s.id)
+		}
+	}
+	e.zPoll = e.tracer.Zone("engine.poll")
+	e.zSwap = e.tracer.Zone("engine.swap")
+	e.tracer.SetEnabled(e.cfg.Trace)
+}
+
+func (e *Engine) Trace() *trace.Tracer {
+	return e.tracer
 }
 
 func (b *Builder) initModules(e *Engine) error {

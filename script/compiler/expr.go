@@ -316,14 +316,6 @@ func (c *fn) invoke(op bytecode.Opcode, idx int, args []ast.Expr, params []int, 
 	c.top = mark
 }
 
-func refSlots(list []abi.TypeRef) []int {
-	out := make([]int, len(list))
-	for i, r := range list {
-		out[i] = r.Slots()
-	}
-	return out
-}
-
 func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 	call := c.u.a.Calls[e]
 	if call == nil {
@@ -359,13 +351,19 @@ func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 		c.invoke(op, idx, e.Args, funcSlots(f), f.Result.Slots(), dst, want)
 	case checker.CallHost:
 		imp := c.u.hostImport(call.Module, call.Name, call.Sig)
-		c.invoke(bytecode.CALLH, imp, e.Args, refSlots(call.Sig.Params), call.Sig.ResultSlots(), dst, want)
+		c.invoke(bytecode.CALLH, imp, e.Args, c.u.sigSlots(call.Sig.Params), c.u.abiSlots(call.Sig.Result), dst, want)
 	case checker.CallHostMethod:
 		recv := types.ToABI(c.typ(call.Recv))
 		sig := abi.Signature{Params: append([]abi.TypeRef{recv}, call.Sig.Params...), Result: call.Sig.Result}
 		imp := c.u.hostImport("#"+recv.Kind.String(), call.Name, sig)
 		args := append([]ast.Expr{call.Recv}, e.Args...)
-		c.invoke(bytecode.CALLH, imp, args, refSlots(sig.Params), sig.ResultSlots(), dst, want)
+		c.invoke(bytecode.CALLH, imp, args, c.u.sigSlots(sig.Params), c.u.abiSlots(sig.Result), dst, want)
+	case checker.CallComponentMethod:
+		recv := abi.ComponentOf(call.Component.Name)
+		sig := abi.Signature{Params: append([]abi.TypeRef{recv}, call.Sig.Params...), Result: call.Sig.Result}
+		imp := c.u.hostImport("#"+call.Component.Name, call.Name, sig)
+		args := append([]ast.Expr{call.Recv}, e.Args...)
+		c.invoke(bytecode.CALLH, imp, args, c.u.sigSlots(sig.Params), c.u.abiSlots(sig.Result), dst, want)
 	case checker.CallGetComponent, checker.CallHasComponent:
 		name, res := "Get<"+call.Component.Name+">", abi.ComponentOf(call.Component.Name)
 		if call.Kind == checker.CallHasComponent {
@@ -426,8 +424,7 @@ func (c *fn) binaryTo(e *ast.BinaryExpr, dst int) {
 		c.b.Mark(end)
 		return
 	}
-	// x == nil / x != nil is the most common test in gameplay code; ISNIL does
-	// it in one instruction without materializing the nil operand.
+	// ISNIL tests x == nil without loading nil.
 	if e.Op == token.Eq || e.Op == token.Ne {
 		if other, ok := nilCompareOther(e); ok {
 			r := c.operand(other)

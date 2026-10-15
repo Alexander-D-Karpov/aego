@@ -11,7 +11,15 @@ import (
 )
 
 func Save(s *scene.Scene) []byte {
-	return save(s, s.Root(), "scene", false)
+	return SaveWith(s, nil)
+}
+
+func SaveWith(s *scene.Scene, lib *Library) []byte {
+	return save(s, s.Root(), "scene", false, lib)
+}
+
+func SavePrefab(s *scene.Scene) []byte {
+	return save(s, s.Root(), "prefab", false, nil)
 }
 
 func SaveSubtree(s *scene.Scene, root scene.NodeHandle, asPrefab bool) []byte {
@@ -19,11 +27,14 @@ func SaveSubtree(s *scene.Scene, root scene.NodeHandle, asPrefab bool) []byte {
 	if asPrefab {
 		head = "prefab"
 	}
-	return save(s, root, head, true)
+	return save(s, root, head, true, nil)
 }
 
-func save(s *scene.Scene, root scene.NodeHandle, head string, includeRoot bool) []byte {
-	w := &writer{reg: s.Registry()}
+func save(s *scene.Scene, root scene.NodeHandle, head string, includeRoot bool, lib *Library) []byte {
+	if lib == nil {
+		lib = NewLibrary(s.Registry(), s.Resolver())
+	}
+	w := &writer{reg: s.Registry(), lib: lib}
 	doc := &aetext.Node{Head: head}
 	doc.Attrs = append(doc.Attrs, aetext.Field{Name: "version", Value: aetext.Int(FormatVersion)})
 	if !includeRoot && s.DefaultSpace() == scene.Space3D {
@@ -45,12 +56,22 @@ func save(s *scene.Scene, root scene.NodeHandle, head string, includeRoot bool) 
 }
 
 type writer struct {
-	reg *schema.Registry
+	reg     *schema.Registry
+	lib     *Library
+	flatten scene.NodeHandle
+	plain   bool
 }
 
 func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 	if !s.IsAlive(h) {
 		return nil
+	}
+	pi, marked := InstanceOf(s, h)
+	inner := marked && h != w.flatten && !w.plain
+	if inner && (pi.Owner || pi.Missing) {
+		if b := w.instance(s, h, pi); b != nil {
+			return b
+		}
 	}
 	n := &aetext.Node{Head: "node", Label: s.ID(h).String()}
 	n.Attrs = append(n.Attrs,
@@ -64,9 +85,12 @@ func (w *writer) node(s *scene.Scene, h scene.NodeHandle) *aetext.Node {
 	} else {
 		n.Blocks = append(n.Blocks, saveTransform(s.Local(h)))
 	}
+	if inner && !pi.Owner && !pi.Missing {
+		n.Attrs = append(n.Attrs, aetext.Field{Name: "instanceOf", Value: aetext.AssetRef(pi.Prefab.String())})
+	}
 	s.ComponentsOf(h, func(id schema.TypeID) {
 		td, ok := w.reg.ByID(id)
-		if !ok || td.FullName == "engine.Unknown" || td.FullName == scriptcomp.ScriptName {
+		if !ok || td.FullName == "engine.Unknown" || td.FullName == scriptcomp.ScriptName || td.FullName == PrefabName {
 			return
 		}
 		p, ok := s.GetByType(h, id)
@@ -112,7 +136,7 @@ func saveTransform3D(t scene.Transform3D) *aetext.Node {
 	n := &aetext.Node{Head: "transform3d"}
 	n.Fields = append(n.Fields,
 		aetext.Field{Name: "position", Value: vec3Value(t.Position)},
-		aetext.Field{Name: "rotation", Value: vec4Value(mathx.Vec4{X: q.X, Y: q.Y, Z: q.Z, W: q.W})},
+		aetext.Field{Name: "rotation", Value: vec4Value(mathx.Vec4(q))},
 		aetext.Field{Name: "scale", Value: vec3Value(t.Scale)},
 	)
 	return n

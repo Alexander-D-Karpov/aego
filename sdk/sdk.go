@@ -11,7 +11,7 @@ import (
 	"aego/engine"
 	"aego/engine/module"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/scene"
 	"aego/schema"
 )
@@ -96,15 +96,35 @@ func (a adapted) Init(ctx *module.InitContext) error {
 	return nil
 }
 
-func (a adapted) Attach(ctx *module.AttachContext) (func(), error) {
-	if at, ok := a.m.(module.Attacher); ok {
-		return at.Attach(ctx)
+func (a adapted) AttachWorld(ctx *module.AttachContext) error {
+	if at, ok := a.m.(module.WorldAttacher); ok {
+		return at.AttachWorld(ctx)
 	}
-	return nil, nil
+	return nil
+}
+
+func (a adapted) DetachWorld(ctx *module.AttachContext) {
+	if at, ok := a.m.(module.WorldAttacher); ok {
+		at.DetachWorld(ctx)
+	}
+}
+
+func (a adapted) Shutdown() {
+	if sd, ok := a.m.(module.Shutdowner); ok {
+		sd.Shutdown()
+	}
 }
 
 func Adapt(m Module) module.Module {
 	return adapted{m: m}
+}
+
+func AdaptAll(mods []Module) []module.Module {
+	out := make([]module.Module, len(mods))
+	for i, m := range mods {
+		out[i] = Adapt(m)
+	}
+	return out
 }
 
 func (r *Registry) Schema() *schema.Registry {
@@ -184,6 +204,18 @@ func Version(v uint32) schema.Option {
 	return schema.Version(v)
 }
 
+func ChoicesFrom(field, section, list string) schema.Option {
+	return schema.ChoicesFrom(field, section, list)
+}
+
+func Bitset(field, section, list string) schema.Option {
+	return schema.Bitset(field, section, list)
+}
+
+func Runtime(fields ...string) schema.Option {
+	return schema.Runtime(fields...)
+}
+
 func SceneOf(ctx *Context) *Scene {
 	if ctx.World != nil {
 		if s, ok := engine.ServiceOf[*scene.Scene](ctx.World, scene.ServiceID); ok {
@@ -195,7 +227,7 @@ func SceneOf(ctx *Context) *Scene {
 }
 
 func RendererOf(ctx *Context) *render.Renderer {
-	r, _ := engine.Service[*render.Renderer](ctx.Engine, rendermodule.ServiceID)
+	r, _ := engine.Service[*render.Renderer](ctx.Engine, renderhost.ServiceID)
 	return r
 }
 

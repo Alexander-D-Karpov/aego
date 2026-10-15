@@ -7,8 +7,8 @@ import (
 
 	"aego/app/run"
 	"aego/core/log"
+	"aego/modules/render2d"
 	"aego/project"
-	"aego/render2d"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/sdk"

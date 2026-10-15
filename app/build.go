@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
 	"aego/core/errs"
@@ -11,15 +13,15 @@ import (
 	"aego/engine"
 	"aego/engine/docs"
 	"aego/engine/module"
+	"aego/engine/problems"
+	scriptsystems "aego/modules/scripting/systems"
 	"aego/project"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/scene"
 	"aego/scene/frame"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
-	scriptmodule "aego/script/module"
-	"aego/script/stdlib"
 	"aego/script/workspace"
 )
 
@@ -32,6 +34,7 @@ type Config struct {
 	Docs               bool
 	Editor             bool
 	FailOnScriptErrors bool
+	Catalog            assembly.Catalog
 }
 
 type Host struct {
@@ -45,6 +48,8 @@ type Host struct {
 	Bindings    *bind.Registry
 	Workspace   *workspace.Workspace
 	Modules     *module.Manifest
+	Sections    *module.Sections
+	Problems    *problems.Service
 	Docs        *docs.Registry
 	Importers   *pipeline.ImporterRegistry
 	Log         *log.Logger
@@ -74,7 +79,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if h.Workspace, err = workspace.Open(workspace.Config{Root: p.Root, Module: p.Module, Scripts: p.ScriptsDir()}); err != nil {
 		return err
 	}
-	rmod := rendermodule.New(render.Options{MaxSprites: 65536})
+	rmod := renderhost.New(render.Options{MaxSprites: 65536})
 	ecfg := cfg.Engine
 	if ecfg.ResRoot == "" {
 		ecfg.ResRoot = p.AssetsDir()
@@ -83,13 +88,22 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 		ecfg.LoopScope = cfg.LoopScope
 	}
 	builder := engine.NewBuilder(ecfg).WithLogger(lg).Use(rmod)
-	h.Types = NewTypes()
+	if h.Types, err = assembly.NewTypes(); err != nil {
+		return err
+	}
 	h.Bindings = bind.New()
 	h.Bindings.Locate(cfg.LocateBindings)
 	if err = frame.Register(builder.Registry()); err != nil {
 		return err
 	}
-	if h.Modules, err = BuildModules(h.Types, h.Bindings, stdlib.Options{Input: &p.Input}, mods); err != nil {
+	cat := cfg.Catalog
+	if cat == nil {
+		cat = builtin.Default()
+	}
+	if h.Modules, err = cat.Load(h.Types, h.Bindings, assembly.Options{Input: &p.Input}, mods...); err != nil {
+		return err
+	}
+	if h.Sections, err = h.Modules.LoadSections(p.Block, project.CoreBlocks...); err != nil {
 		return err
 	}
 	builder.Use(h.Modules.Engine())
@@ -99,7 +113,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if err = h.Types.Schema().Freeze(); err != nil {
 		return err
 	}
-	if err = scriptmodule.Freeze(h.Bindings, h.Types.Schema()); err != nil {
+	if err = scriptsystems.Freeze(h.Bindings, h.Types.Schema()); err != nil {
 		return errs.Wrap(err, errs.EngineModule, "script bindings are invalid")
 	}
 	h.Workspace.SetBindings(h.Bindings.Table())
@@ -150,8 +164,10 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 		return err
 	}
 	h.Engine.SetService(loader.ServiceID, h.Loader)
-	h.Engine.SetService(rendermodule.ServiceID, h.Renderer)
-	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor}); err != nil {
+	h.Engine.SetService(renderhost.ServiceID, h.Renderer)
+	h.Problems = problems.New()
+	h.Engine.SetService(problems.ServiceID, h.Problems)
+	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems}); err != nil {
 		return err
 	}
 	for _, w := range h.Modules.Warnings {
@@ -165,6 +181,9 @@ func (h *Host) Close() {
 		return
 	}
 	h.closed = true
+	if h.Modules != nil {
+		h.Modules.Shutdown()
+	}
 	if h.Engine != nil {
 		h.Engine.Close()
 	}

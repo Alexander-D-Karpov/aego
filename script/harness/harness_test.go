@@ -1,6 +1,7 @@
 package harness_test
 
 import (
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func write(t *testing.T, root, rel, src string) {
 func project(t *testing.T) (*workspace.Workspace, *bind.Registry) {
 	t.Helper()
 	reg := bind.New()
-	stdlib.Install(reg, stdlib.Options{Seed: 1, Testing: true})
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1, Testing: true})
 	if err := reg.Freeze(); err != nil {
 		t.Fatal(err)
 	}

@@ -7,15 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"aego/editor/inspector"
-	"aego/editor/templates"
-	"aego/engine/builtin"
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
+	"aego/editor/core/templates"
+	"aego/editor/ext/inspect"
+	"aego/editor/panels/inspector"
 	"aego/scene"
 	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
-	"aego/script/stdlib"
 	"aego/sdk"
 )
 
@@ -58,11 +59,11 @@ func moduleGolden(t *testing.T, name string, got string) {
 
 func probeTypes(t *testing.T) (*scene.Types, []schema.TemplateDesc) {
 	t.Helper()
-	types, err := builtin.NewTypes()
+	types, err := assembly.NewTypes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	man, err := builtin.Load(types, bind.New(), stdlib.Options{Seed: 1}, sdk.Adapt(probeModule{}))
+	man, err := builtin.Default().Load(types, bind.New(), assembly.Options{Seed: 1}, sdk.Adapt(probeModule{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +94,13 @@ func TestCreateMenuLayout(t *testing.T) {
 func TestInspectorSections(t *testing.T) {
 	types, _ := probeTypes(t)
 	sr := types.Schema()
-	reg := inspector.NewRegistry()
+	reg := inspect.NewRegistry()
 	if err := reg.Load(sr); err != nil {
 		t.Fatal(err)
 	}
 	var list []schema.TypeID
 	for _, td := range sr.Components() {
-		if td.FullName == "engine.Unknown" || td.ID == scriptcomp.ScriptTypeID {
+		if td.FullName == "engine.Unknown" || td.ID == scriptcomp.ScriptTypeID || td.Hidden {
 			continue
 		}
 		list = append(list, td.ID)

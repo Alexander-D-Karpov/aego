@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"aego/app/bootstrap"
 	"aego/app/run"
 	"aego/asset/pipeline"
 	"aego/engine"
-	"aego/engine/bootstrap"
 	"aego/project"
 )
 

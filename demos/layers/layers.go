@@ -8,7 +8,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/texture"
 )
@@ -24,7 +24,7 @@ type Demo struct {
 	atlas   texture.Region
 	time    float32
 	reverse bool
-	mod     *rendermodule.Module
+	mod     *renderhost.Module
 }
 
 func New() *Demo {
@@ -35,9 +35,9 @@ func (d *Demo) Name() string {
 	return "layers"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 1024})
+		d.mod = renderhost.New(render.Options{MaxSprites: 1024})
 	}
 	return d.mod
 }

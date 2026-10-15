@@ -48,6 +48,8 @@ type nodeData struct {
 	space      Space
 	childCount int32
 	slot       int32
+	pres       int32
+	rslot      int32
 }
 
 func (n *nodeData) has(f uint8) bool {

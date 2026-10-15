@@ -138,7 +138,19 @@ func intCodec[T any, I integer](c *codec[T]) {
 	c.put = func(_ *vm.Machine, w []vm.Value, v T) { w[0] = vm.Int(int64(cast[I](v))) }
 }
 
+type outer interface {
+	outCodec(r *Registry) (any, error)
+}
+
 func codecOf[T any](r *Registry) (codec[T], error) {
+	var zero T
+	if o, ok := any(zero).(outer); ok {
+		c, err := o.outCodec(r)
+		if err != nil {
+			return codec[T]{}, err
+		}
+		return c.(codec[T]), nil
+	}
 	c := codec[T]{slots: 1}
 	rt := reflect.TypeFor[T]()
 	switch rt {
@@ -167,6 +179,10 @@ func codecOf[T any](r *Registry) (codec[T], error) {
 	case tMesh:
 		assetCodec[T, asset.Mesh](&c, "mesh")
 	default:
+		if d, ok := r.structs[rt]; ok {
+			structCodec(&c, d)
+			return c, nil
+		}
 		return c, scalarCodec(r, rt, &c)
 	}
 	return c, nil
@@ -226,5 +242,6 @@ func scalarCodec[T any](r *Registry, rt reflect.Type, c *codec[T]) error {
 		}
 		return nil
 	}
+	//lint:ignore ST1005 "Go" is a proper noun
 	return fmt.Errorf("Go type %s cannot cross the script boundary", rt)
 }

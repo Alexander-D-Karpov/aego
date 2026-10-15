@@ -3,6 +3,7 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aego/core/errs"
@@ -19,7 +20,10 @@ const (
 	Space3D  = "3d"
 )
 
-var DefaultDirs = []string{"assets", "scenes", "scripts", "prefabs"}
+var (
+	DefaultDirs = []string{"assets", "scenes", "scripts", "prefabs"}
+	CoreBlocks  = []string{"window", "input"}
+)
 
 type WindowSettings struct {
 	Width  int
@@ -35,6 +39,7 @@ type Project struct {
 	DefaultSpace string
 	Window       WindowSettings
 	Input        input.AxisConfig
+	Extra        []*aetext.Node
 	Native       bool
 	Version      int
 }
@@ -166,6 +171,42 @@ func inputBlock(cfg input.AxisConfig) *aetext.Node {
 	return &aetext.Node{Head: "input", Blocks: []*aetext.Node{axes}}
 }
 
+func (p *Project) Block(head string) *aetext.Node {
+	for _, b := range p.Extra {
+		if b.Head == head {
+			return b
+		}
+	}
+	return nil
+}
+
+func (p *Project) SetBlock(n *aetext.Node) {
+	p.ReplaceBlock(n, n.Head)
+}
+
+func (p *Project) RemoveBlock(heads ...string) {
+	p.ReplaceBlock(nil, heads...)
+}
+
+func (p *Project) ReplaceBlock(n *aetext.Node, heads ...string) {
+	out := make([]*aetext.Node, 0, len(p.Extra)+1)
+	placed := false
+	for _, b := range p.Extra {
+		if !slices.Contains(heads, b.Head) {
+			out = append(out, b)
+			continue
+		}
+		if !placed && n != nil {
+			out = append(out, n)
+		}
+		placed = true
+	}
+	if !placed && n != nil {
+		out = append(out, n)
+	}
+	p.Extra = out
+}
+
 func Load(root string) (*Project, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
@@ -239,6 +280,11 @@ func Load(root string) (*Project, error) {
 		}
 		p.Input = cfg
 	}
+	for _, b := range doc.Blocks {
+		if !slices.Contains(CoreBlocks, b.Head) {
+			p.Extra = append(p.Extra, b)
+		}
+	}
 	if p.Name == "" {
 		p.Name = filepath.Base(abs)
 	}
@@ -254,7 +300,7 @@ func Load(root string) (*Project, error) {
 	return p, nil
 }
 
-func (p *Project) Save() error {
+func (p *Project) Encode() []byte {
 	root := &aetext.Node{Head: "project"}
 	root.Attrs = append(root.Attrs, aetext.Field{Name: "version", Value: aetext.Int(Version)})
 	root.Fields = append(root.Fields,
@@ -276,7 +322,12 @@ func (p *Project) Save() error {
 	if len(p.Input.Axes) > 0 {
 		root.Blocks = append(root.Blocks, inputBlock(p.Input))
 	}
-	if err := os.WriteFile(p.FilePath(), aetext.Write(root), 0o644); err != nil {
+	root.Blocks = append(root.Blocks, p.Extra...)
+	return aetext.Write(root)
+}
+
+func (p *Project) Save() error {
+	if err := os.WriteFile(p.FilePath(), p.Encode(), 0o644); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write project.aego")
 	}
 	return nil
@@ -329,9 +380,7 @@ const gitignore = `.aego/
 exports/
 `
 
-// ValidModule reports whether s is a legal module path: [a-z0-9_/-]+ with no
-// dots. The no-dot rule lets abi split a qualified name (module.Name for enums
-// and structs) on the last dot unambiguously; stdlib paths obey it too.
+// ValidModule reports whether s matches [a-z0-9_/-]+; no dots, so abi splits names on the last dot.
 func ValidModule(s string) bool {
 	if s == "" {
 		return false

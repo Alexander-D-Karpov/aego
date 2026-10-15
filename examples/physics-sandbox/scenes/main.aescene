@@ -1,0 +1,953 @@
+scene version=1 {
+  node "e0000000000000000000000000000001" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, -2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=32
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#1b2330ff
+      scale=free
+      virtual=[0, 0]
+      active=true
+    }
+  }
+  node "e0000000000000000000000000000002" name="Ground" enabled=true layers=1 {
+    transform {
+      position=[0, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[40, 0.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-20, -16], [-20, -0.2], [20, -0.2], [20, -16]]
+      loop=false
+      oneSided=false
+    }
+  }
+  node "e0000000000000000000000000000010" name="Brick0" enabled=true layers=1 {
+    transform {
+      position=[-7, 3.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000011" name="Brick1" enabled=true layers=1 {
+    transform {
+      position=[-6, 3.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000012" name="Brick2" enabled=true layers=1 {
+    transform {
+      position=[-5, 3.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000013" name="Brick3" enabled=true layers=1 {
+    transform {
+      position=[-7, 2.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000014" name="Brick4" enabled=true layers=1 {
+    transform {
+      position=[-6, 2.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000015" name="Brick5" enabled=true layers=1 {
+    transform {
+      position=[-5, 2.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000016" name="Brick6" enabled=true layers=1 {
+    transform {
+      position=[-7, 1.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000017" name="Brick7" enabled=true layers=1 {
+    transform {
+      position=[-6, 1.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000018" name="Brick8" enabled=true layers=1 {
+    transform {
+      position=[-5, 1.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000019" name="Brick9" enabled=true layers=1 {
+    transform {
+      position=[-7, 0.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e000000000000000000000000000001a" name="Brick10" enabled=true layers=1 {
+    transform {
+      position=[-6, 0.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c8a165ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e000000000000000000000000000001b" name="Brick11" enabled=true layers=1 {
+    transform {
+      position=[-5, 0.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#b38f58ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[1, 1]
+    }
+  }
+  node "e0000000000000000000000000000030" prefab=asset("276255fa8b8123f3d171c9978484afd0") {
+    id "e2000000000000000000000000000001" node=node("e0000000000000000000000000000030") {}
+    override "e2000000000000000000000000000001" prop="node.name" value="Crate0" {}
+    override "e2000000000000000000000000000001" prop="transform.position" value=[10, 3.3] {}
+    override "e2000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e2000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "e0000000000000000000000000000031" prefab=asset("276255fa8b8123f3d171c9978484afd0") {
+    id "e2000000000000000000000000000001" node=node("e0000000000000000000000000000031") {}
+    override "e2000000000000000000000000000001" prop="node.name" value="Crate1" {}
+    override "e2000000000000000000000000000001" prop="transform.position" value=[11.2, 3.3] {}
+    override "e2000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e2000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "e0000000000000000000000000000032" prefab=asset("276255fa8b8123f3d171c9978484afd0") {
+    id "e2000000000000000000000000000001" node=node("e0000000000000000000000000000032") {}
+    override "e2000000000000000000000000000001" prop="node.name" value="Crate2" {}
+    override "e2000000000000000000000000000001" prop="transform.position" value=[12.4, 3.3] {}
+    override "e2000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e2000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "e0000000000000000000000000000040" name="Link0" enabled=true layers=1 {
+    transform {
+      position=[4, -5.75]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000002")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000041" name="Link1" enabled=true layers=1 {
+    transform {
+      position=[4, -5.25]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000040")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000042" name="Link2" enabled=true layers=1 {
+    transform {
+      position=[4, -4.75]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000041")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000043" name="Link3" enabled=true layers=1 {
+    transform {
+      position=[4, -4.25]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000042")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000044" name="Link4" enabled=true layers=1 {
+    transform {
+      position=[4, -3.75]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000043")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000045" name="Link5" enabled=true layers=1 {
+    transform {
+      position=[4, -3.25]
+      rotation=1.5707964
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#c9d1d9ff
+      origin=[0.5, 0.5]
+      size=[0.5, 0.16]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.CapsuleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      length=0.5
+      radius=0.08
+    }
+    component "physics.RevoluteJoint2D" version=1 {
+      target=node("e0000000000000000000000000000044")
+      anchor=[-0.25, 0]
+      enableLimit=false
+      lower=0
+      upper=0
+      enableMotor=false
+      speed=0
+      maxTorque=0
+      collideConnected=false
+    }
+  }
+  node "e0000000000000000000000000000050" name="Laser" enabled=true layers=1 {
+    transform {
+      position=[-12, 0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=6
+      tint=#e0563bff
+      origin=[0.5, 0.5]
+      size=[0.4, 0.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Script" version=1 {
+      script "sandbox.lab.Laser" enabled=true {
+        Dir=[1, 0]
+        Range=40
+        Beam=node("e0000000000000000000000000000051")
+      }
+    }
+  }
+  node "e0000000000000000000000000000051" name="Beam" enabled=true layers=1 {
+    transform {
+      position=[-12, 0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=5
+      tint=#ff4d4dff
+      origin=[0, 0.5]
+      size=[1, 0.06]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "e0000000000000000000000000000052" name="Spawner" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Script" version=1 {
+      script "sandbox.lab.Spawner" enabled=true {
+        Camera=node("e0000000000000000000000000000001")
+        Crate=asset("276255fa8b8123f3d171c9978484afd0")
+        Limit=16
+      }
+    }
+  }
+}

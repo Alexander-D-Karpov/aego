@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
+	"aego/core/errs"
+	"aego/core/log"
 	"aego/scene"
 	"aego/schema"
 	"aego/script/bind"
@@ -74,7 +76,9 @@ func (b *ComponentBuilder[T]) edit() *schema.TypeDescriptor {
 		return nil
 	}
 	if b.r.Schema().Frozen() {
-		b.fail("component " + b.desc.FullName + " is changed after the schema was frozen")
+		if b.err == nil {
+			b.err = errs.New(errs.EngineFrozen, "component "+b.desc.FullName+" is changed after the schema was frozen", log.F("module", b.r.Owner()))
+		}
 		return nil
 	}
 	return b.desc

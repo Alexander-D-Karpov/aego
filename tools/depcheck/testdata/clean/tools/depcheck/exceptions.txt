@@ -1,0 +1,1 @@
+sdk/editor.go -> editor/..., *, editor bridge of the SDK

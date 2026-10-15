@@ -1,0 +1,2 @@
+core/a -> core/b, default,
+core/a -> core/c, tset, typo in the variant

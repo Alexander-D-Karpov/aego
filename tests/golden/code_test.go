@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"aego/core/mathx"
-	"aego/editor/code"
-	"aego/editor/code/highlight"
-	"aego/editor/code/search"
+	"aego/editor/core/code"
+	"aego/editor/core/code/highlight"
+	"aego/editor/core/code/search"
 	"aego/engine/res"
 	"aego/gpu"
 	"aego/render"

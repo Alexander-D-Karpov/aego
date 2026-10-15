@@ -31,3 +31,7 @@ type Resolver interface {
 	Generation() uint32
 	Subscribe(fn func(Reloaded)) func()
 }
+
+type Decoder interface {
+	Decoded(id ids.AssetID, key string, build func() (any, error)) (any, error)
+}

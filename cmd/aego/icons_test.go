@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"aego/app/bootstrap"
 	"aego/app/projects"
 	"aego/engine"
-	"aego/engine/bootstrap"
 )
 
 const iconModule = `package native

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"strconv"
 	"testing"
 
@@ -31,7 +32,7 @@ func compileGame(tb testing.TB, src string) (*scene.Types, *bind.Registry, *byte
 		tb.Fatal(err)
 	}
 	reg := bind.New()
-	stdlib.Install(reg, stdlib.Options{Seed: 1})
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1})
 	BindComponents(reg, types.Schema())
 	if err := reg.Freeze(); err != nil {
 		tb.Fatal(err)

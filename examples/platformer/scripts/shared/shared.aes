@@ -1,13 +1,17 @@
 package shared
 
-import "aego/math"
+const FloorNormal float = -0.5
 
-const Gravity float = 10
-const GroundY float = 3
+func IsFloor(n Vec2) bool {
+	return n.Y < FloorNormal
+}
 
-func Approach(value float, target float, step float) float {
-	if value < target {
-		return math.Min(value+step, target)
+func Toward(from float, to float, deadZone float) float {
+	if to-from > deadZone {
+		return 1
 	}
-	return math.Max(value-step, target)
+	if from-to > deadZone {
+		return -1
+	}
+	return 0
 }

@@ -33,6 +33,7 @@ type Config struct {
 	Supervised bool
 	SceneID    ids.AssetID
 	ScenePath  string
+	Trace      string
 	Logger     *log.Logger
 }
 
@@ -70,6 +71,7 @@ func Main(mods ...sdk.Module) {
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
 	supervised := fs.Bool("supervised", false, "accept restart commands on stdin")
+	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
 	fs.Parse(os.Args[1:])
 
 	root, err := project.Find(".")
@@ -87,6 +89,7 @@ func Main(mods ...sdk.Module) {
 		Watch:      *frames == 0,
 		Supervised: *supervised,
 		ScenePath:  *scenePath,
+		Trace:      *tracePath,
 	}
 	if err := Run(p, cfg, mods...); err != nil {
 		fail(err)
@@ -114,11 +117,12 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 			Hidden:            cfg.Hidden,
 			Debug:             cfg.Debug,
 			AppID:             p.Module,
+			Trace:             cfg.Trace != "",
 		},
 		Logger:             cfg.Logger,
 		Debug:              cfg.Debug,
 		FailOnScriptErrors: true,
-	}, app.Adapt(mods)...)
+	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +161,7 @@ func (a *App) attach() error {
 		a.detach()
 		a.detach = nil
 	}
-	d, err := a.Modules.Attach(&module.AttachContext{World: a.Engine.MainWorld(), Scene: a.Scene, Log: a.Engine.Log()})
+	d, err := a.Modules.Attach(&module.AttachContext{World: a.Engine.MainWorld(), Scene: a.Scene, Log: a.Engine.Log(), Play: true})
 	if err != nil {
 		return err
 	}
@@ -271,6 +275,11 @@ func (a *App) Close() {
 	}
 	if a.Scripts != nil {
 		a.Scripts.Close()
+	}
+	if a.cfg.Trace != "" && a.Engine != nil {
+		if err := WriteTrace(a.cfg.Trace, a.Engine.Trace()); err != nil {
+			a.log.Error("cannot write the trace", log.F("path", a.cfg.Trace), log.F("err", err.Error()))
+		}
 	}
 	a.Host.Close()
 }

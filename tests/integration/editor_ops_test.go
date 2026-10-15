@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"aego/editor/core/assetops"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,9 +12,8 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/log"
-	edapp "aego/editor/app"
-	"aego/editor/assets"
-	"aego/editor/context"
+	"aego/editor/core/context"
+	"aego/editor/shell"
 	"aego/project"
 )
 
@@ -67,12 +67,12 @@ func TestEditorCreatesFromMenu(t *testing.T) {
 	if ctx.Docs.Find("scenes/level.aescene") == nil || ctx.Doc() == nil || ctx.Doc().Path != "scenes/level.aescene" {
 		t.Fatal("new scene must be open and active")
 	}
-	prefab := "prefabs/crate" + assets.PrefabExt
+	prefab := "prefabs/crate" + assetops.PrefabExt
 	if err := ctx.NewPrefab(prefab); err != nil {
 		t.Fatal(err)
 	}
 	assetAt(t, ctx, prefab)
-	rel, err := assets.CreateScript(ctx, "scripts/enemy", "Enemy")
+	rel, err := assetops.CreateScript(ctx, "scripts/enemy", "Enemy")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,8 +95,8 @@ func TestEditorFileOpsKeepIDs(t *testing.T) {
 		t.Fatalf("import: %v %v", created, err)
 	}
 	tex := created[0]
-	var ops assets.Ops
-	if err := ops.Apply(ctx, []assets.FileOp{{Dir: true, From: "assets/chars", To: "assets/heroes"}}); err != nil {
+	var ops assetops.Ops
+	if err := ops.Apply(ctx, []assetops.FileOp{{Dir: true, From: "assets/chars", To: "assets/heroes"}}); err != nil {
 		t.Fatal(err)
 	}
 	if id := assetAt(t, ctx, "assets/heroes/hero.png"); id != tex {
@@ -109,20 +109,20 @@ func TestEditorFileOpsKeepIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	assetAt(t, ctx, "assets/chars/hero.png")
-	if err := ops.Apply(ctx, []assets.FileOp{{ID: tex, From: "assets/chars/hero.png", To: "assets/chars/knight.png"}}); err != nil {
+	if err := ops.Apply(ctx, []assetops.FileOp{{ID: tex, From: "assets/chars/hero.png", To: "assets/chars/knight.png"}}); err != nil {
 		t.Fatal(err)
 	}
 	if id := assetAt(t, ctx, "assets/chars/knight.png"); id != tex {
 		t.Fatal("rename changed the asset id")
 	}
-	dup, err := assets.Duplicate(ctx, tex)
+	dup, err := assetops.Duplicate(ctx, tex)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id := assetAt(t, ctx, "assets/chars/knight copy.png"); id != dup || dup == tex {
 		t.Fatal("duplicate must land next to the source with a fresh id")
 	}
-	if err := assets.Delete(ctx, []ids.AssetID{dup}); err != nil {
+	if err := assetops.Delete(ctx, []ids.AssetID{dup}); err != nil {
 		t.Fatal(err)
 	}
 	abs := ctx.Pipeline.Abs("assets/chars/knight copy.png")
@@ -133,7 +133,7 @@ func TestEditorFileOpsKeepIDs(t *testing.T) {
 
 func TestEditorScriptMoveRetargetsPackage(t *testing.T) {
 	_, ctx := openEditor(t)
-	rel, err := assets.CreateScript(ctx, "scripts/enemy", "Enemy")
+	rel, err := assetops.CreateScript(ctx, "scripts/enemy", "Enemy")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,9 +141,9 @@ func TestEditorScriptMoveRetargetsPackage(t *testing.T) {
 	if err := ctx.Pipeline.Mkdir("scripts/shared"); err != nil {
 		t.Fatal(err)
 	}
-	var ops assets.Ops
+	var ops assetops.Ops
 	dst := "scripts/shared/enemy.aes"
-	if err := ops.Apply(ctx, []assets.FileOp{{ID: id, From: rel, To: dst}}); err != nil {
+	if err := ops.Apply(ctx, []assetops.FileOp{{ID: id, From: rel, To: dst}}); err != nil {
 		t.Fatal(err)
 	}
 	if src := readRel(t, ctx, dst); !strings.HasPrefix(src, "package shared\n") {
@@ -152,7 +152,7 @@ func TestEditorScriptMoveRetargetsPackage(t *testing.T) {
 	if n, ok := ctx.LastNotice(); !ok || n.Level != context.LevelWarn || !strings.Contains(n.Text, "package shared") {
 		t.Fatalf("move must warn about imports: %+v", n)
 	}
-	if err := ops.Apply(ctx, []assets.FileOp{{Dir: true, From: "scripts/shared", To: "scripts/common"}}); err != nil {
+	if err := ops.Apply(ctx, []assetops.FileOp{{Dir: true, From: "scripts/shared", To: "scripts/common"}}); err != nil {
 		t.Fatal(err)
 	}
 	if src := readRel(t, ctx, "scripts/common/enemy.aes"); !strings.HasPrefix(src, "package common\n") {
@@ -166,7 +166,7 @@ func TestEditorSceneSaveAsStartupClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := ctx.Docs.Find("scenes/a.aescene")
-	assets.PromptSaveAs(ctx, d)
+	assetops.PromptSaveAs(ctx, d)
 	qs := ctx.TakeQuestions()
 	if len(qs) != 1 || qs[0].Submit == nil {
 		t.Fatalf("save as must ask for a path: %+v", qs)
@@ -179,13 +179,13 @@ func TestEditorSceneSaveAsStartupClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := assetAt(t, ctx, d.Path)
-	assets.SetStartup(ctx, id, d.Path)
+	assetops.SetStartup(ctx, id, d.Path)
 	back, err := project.Load(ctx.Project.Root)
 	if err != nil || back.MainScene != id {
 		t.Fatalf("startup scene not saved: %v", err)
 	}
 	d.MarkDirty()
-	ctx.Commands.Run(edapp.CommandCloseScene)
+	ctx.Commands.Run(shell.CommandCloseScene)
 	s.Step()
 	if ctx.Docs.Find(d.Path) == nil {
 		t.Fatal("a dirty scene must not close without the dialog")

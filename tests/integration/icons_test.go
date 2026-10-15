@@ -10,10 +10,7 @@ import (
 	"aego/vfs"
 )
 
-// The editor swallows an icon-atlas load failure into a warning and falls back
-// to placeholder letters, so a broken embed, VFS path, or JSON shape would pass
-// every other test silently. This loads the real embedded atlas end to end and
-// asserts the ids the toolbar and inspector actually reference resolve.
+// The editor hides atlas load failures, so load the embedded atlas end to end.
 func TestEmbeddedIconAtlasLoads(t *testing.T) {
 	v, err := vfs.New(vfs.Mount{Scheme: "engine", Source: res.Source(), ReadOnly: true})
 	if err != nil {

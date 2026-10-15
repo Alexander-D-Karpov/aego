@@ -12,24 +12,33 @@ import (
 // errFrozen is returned by every Add* once Freeze has sealed the table.
 var errFrozen = errors.New("abi: table is frozen")
 
+const MaxStructSlots = 32
+
 type Table struct {
-	modules map[string]bool
-	funcs   map[string]Signature
-	methods map[string]Signature
-	consts  map[string]Const
-	enums   map[string]*EnumDef
-	comps   []*Component
-	hash    [32]byte
-	frozen  bool
+	modules  map[string]bool
+	funcs    map[string]Signature
+	methods  map[string]Signature
+	cmethods map[string]Signature
+	consts   map[string]Const
+	enums    map[string]*EnumDef
+	structs  map[string]*StructDef
+	events   []EventDef
+	eventIdx map[string]int
+	comps    []*Component
+	hash     [32]byte
+	frozen   bool
 }
 
 func NewTable() *Table {
 	return &Table{
-		modules: map[string]bool{},
-		funcs:   map[string]Signature{},
-		methods: map[string]Signature{},
-		consts:  map[string]Const{},
-		enums:   map[string]*EnumDef{},
+		modules:  map[string]bool{},
+		funcs:    map[string]Signature{},
+		methods:  map[string]Signature{},
+		cmethods: map[string]Signature{},
+		consts:   map[string]Const{},
+		enums:    map[string]*EnumDef{},
+		structs:  map[string]*StructDef{},
+		eventIdx: map[string]int{},
 	}
 }
 
@@ -76,6 +85,21 @@ func (t *Table) AddMethod(recv Kind, name string, sig Signature) error {
 	return nil
 }
 
+func (t *Table) AddComponentMethod(comp, name string, sig Signature) error {
+	if t.frozen {
+		return errFrozen
+	}
+	if err := sig.Validate(); err != nil {
+		return fmt.Errorf("method %s.%s: %w", comp, name, err)
+	}
+	k := key(comp, name)
+	if _, dup := t.cmethods[k]; dup {
+		return fmt.Errorf("method %s.%s already registered", comp, name)
+	}
+	t.cmethods[k] = sig
+	return nil
+}
+
 func (t *Table) AddConst(module, name string, c Const) error {
 	if t.frozen {
 		return errFrozen
@@ -99,6 +123,47 @@ func (t *Table) AddEnum(e *EnumDef) error {
 	}
 	t.modules[e.Module] = true
 	t.enums[k] = e
+	return nil
+}
+
+func (t *Table) AddStruct(s *StructDef) error {
+	if t.frozen {
+		return errFrozen
+	}
+	q := s.Qualified()
+	if _, dup := t.structs[q]; dup {
+		return fmt.Errorf("struct %s already registered", q)
+	}
+	if s.Slots <= 0 || s.Slots > MaxStructSlots {
+		return fmt.Errorf("struct %s has %d value slots, the limit is %d", q, s.Slots, MaxStructSlots)
+	}
+	for _, f := range s.Fields {
+		if !Plain(f.Type) {
+			return fmt.Errorf("struct %s field %s has type %s, which cannot live in a host struct", q, f.Name, f.Type)
+		}
+	}
+	t.modules[s.Module] = true
+	t.structs[q] = s
+	return nil
+}
+
+func (t *Table) AddEvent(e EventDef) error {
+	if t.frozen {
+		return errFrozen
+	}
+	if !Exported(e.Name) {
+		return fmt.Errorf("event %q must have an exported name", e.Name)
+	}
+	if _, dup := t.eventIdx[e.Name]; dup {
+		return fmt.Errorf("event %s already registered", e.Name)
+	}
+	for i, p := range e.Params {
+		if !Plain(p) {
+			return fmt.Errorf("event %s param %d: %s cannot be an event parameter", e.Name, i, p)
+		}
+	}
+	t.eventIdx[e.Name] = len(t.events)
+	t.events = append(t.events, EventDef{Name: e.Name, Params: append([]TypeRef(nil), e.Params...)})
 	return nil
 }
 
@@ -136,6 +201,11 @@ func (t *Table) Method(recv Kind, name string) (Signature, bool) {
 	return s, ok
 }
 
+func (t *Table) ComponentMethod(comp, name string) (Signature, bool) {
+	s, ok := t.cmethods[key(comp, name)]
+	return s, ok
+}
+
 func (t *Table) Const(module, name string) (Const, bool) {
 	c, ok := t.consts[key(module, name)]
 	return c, ok
@@ -144,6 +214,33 @@ func (t *Table) Const(module, name string) (Const, bool) {
 func (t *Table) Enum(module, name string) (*EnumDef, bool) {
 	e, ok := t.enums[key(module, name)]
 	return e, ok
+}
+
+func (t *Table) Struct(module, name string) (*StructDef, bool) {
+	s, ok := t.structs[module+"."+name]
+	return s, ok
+}
+
+func (t *Table) Event(name string) (Signature, bool) {
+	i, ok := t.eventIdx[name]
+	if !ok {
+		return Signature{}, false
+	}
+	return t.events[i].Sig(), true
+}
+
+func (t *Table) EventIndex(name string) (int, bool) {
+	i, ok := t.eventIdx[name]
+	return i, ok
+}
+
+func (t *Table) Slots(r TypeRef) int {
+	if r.Kind == Struct {
+		if s, ok := t.structs[r.Name]; ok {
+			return s.Slots
+		}
+	}
+	return r.Slots()
 }
 
 func (t *Table) Components(name string) []*Component {
@@ -172,8 +269,7 @@ func (t *Table) Hash() [32]byte {
 	return t.hash
 }
 
-// Freeze seals the table and computes its hash. It is final: every later Add*
-// returns errFrozen. Calling it again is a no-op.
+// Freeze seals the table and computes its hash; later Add* calls return errFrozen.
 func (t *Table) Freeze() {
 	if t.frozen {
 		return
@@ -188,6 +284,9 @@ func (t *Table) Freeze() {
 	for k, s := range t.methods {
 		lines = append(lines, "m|"+k+"|"+s.String())
 	}
+	for k, s := range t.cmethods {
+		lines = append(lines, "q|"+k+"|"+s.String())
+	}
 	for k, c := range t.consts {
 		lines = append(lines, "c|"+k+"|"+c.Type.String()+"|"+strconv.FormatInt(c.Int, 10)+"|"+
 			strconv.FormatFloat(c.Float, 'g', -1, 64)+"|"+strconv.FormatBool(c.Bool)+"|"+c.Str)
@@ -199,6 +298,17 @@ func (t *Table) Freeze() {
 			b.WriteString("|" + m.Name + "=" + strconv.FormatInt(m.Value, 10))
 		}
 		lines = append(lines, b.String())
+	}
+	for k, s := range t.structs {
+		var b strings.Builder
+		b.WriteString("t|" + k + "|" + strconv.Itoa(s.Slots))
+		for _, f := range s.Fields {
+			b.WriteString("|" + f.Name + ":" + f.Type.String())
+		}
+		lines = append(lines, b.String())
+	}
+	for i, e := range t.events {
+		lines = append(lines, "v|"+strconv.Itoa(i)+"|"+e.Name+"|"+e.Sig().String())
 	}
 	for _, c := range t.comps {
 		var b strings.Builder

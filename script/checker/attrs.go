@@ -124,7 +124,7 @@ func (c *checker) exportArgs(f *ScriptField, a *ast.Attr) {
 			default:
 				h.Step = v
 			}
-		case "unit", "display", "tip", "category":
+		case "unit", "display", "tip", "category", "gizmo", "space":
 			if x.c == nil || x.c.Kind != types.CString {
 				c.errorf(diag.BadAttrArg, arg.Value.Span(), "%s must be a string", key)
 				continue
@@ -136,8 +136,18 @@ func (c *checker) exportArgs(f *ScriptField, a *ast.Attr) {
 				h.Display = x.c.Str
 			case "tip":
 				h.Tip = x.c.Str
-			default:
+			case "category":
 				h.Category = x.c.Str
+			case "gizmo":
+				if c.gizmoFits(f, x.c.Str, arg) {
+					h.Gizmo = x.c.Str
+				}
+			default:
+				if x.c.Str != "local" && x.c.Str != "world" {
+					c.errorf(diag.BadAttrArg, arg.Value.Span(), "space must be \"local\" or \"world\"")
+					continue
+				}
+				h.Space = x.c.Str
 			}
 		default:
 			c.errorf(diag.BadAttrArg, arg.Key.Sp, "unknown @export argument %s", key)
@@ -146,4 +156,29 @@ func (c *checker) exportArgs(f *ScriptField, a *ast.Attr) {
 	if h.HasMin && h.HasMax && h.Min > h.Max {
 		c.errorf(diag.BadAttrArg, a.Sp, "min %g is greater than max %g", h.Min, h.Max)
 	}
+	if h.Space != "" && h.Gizmo == "" {
+		c.errorf(diag.BadAttrArg, a.Sp, "space applies only together with gizmo")
+	}
+}
+
+func (c *checker) gizmoFits(f *ScriptField, g string, arg *ast.AttrArg) bool {
+	if f.Type == types.Invalid {
+		return false
+	}
+	switch g {
+	case "vector", "point":
+		if f.Type.Kind != types.KVec2 {
+			c.errorf(diag.BadAttrArg, arg.Value.Span(), "gizmo=%q needs a Vec2 field, %s has type %s", g, f.Name, f.Type)
+			return false
+		}
+	case "radius":
+		if f.Type.Kind != types.KFloat {
+			c.errorf(diag.BadAttrArg, arg.Value.Span(), "gizmo=\"radius\" needs a float field, %s has type %s", f.Name, f.Type)
+			return false
+		}
+	default:
+		c.errorf(diag.BadAttrArg, arg.Value.Span(), "unknown gizmo %q, use vector, point or radius", g)
+		return false
+	}
+	return true
 }

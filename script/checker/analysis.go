@@ -35,6 +35,7 @@ const (
 	CallCoRunning
 	CallGetScript
 	CallScriptMethod
+	CallComponentMethod
 )
 
 type Call struct {
@@ -83,6 +84,8 @@ type Hints struct {
 	Display        string
 	Tip            string
 	Category       string
+	Gizmo          string
+	Space          string
 }
 
 type ScriptField struct {
@@ -120,6 +123,7 @@ type ScriptType struct {
 	FixedUpdate *Func
 	Update      *Func
 	Reloaded    *Func
+	Events      []*Func
 	Slots       int
 	Decl        *ast.ScriptDecl
 	scope       *resolver.Scope
@@ -143,8 +147,17 @@ func (st *ScriptType) Signal(name string) *ScriptSignal {
 	return nil
 }
 
+func (st *ScriptType) IsEvent(f *Func) bool {
+	for _, e := range st.Events {
+		if e == f {
+			return true
+		}
+	}
+	return false
+}
+
 func (st *ScriptType) IsLifecycle(f *Func) bool {
-	return f != nil && (f == st.Ready || f == st.FixedUpdate || f == st.Update || f == st.Reloaded)
+	return f != nil && (f == st.Ready || f == st.FixedUpdate || f == st.Update || f == st.Reloaded || st.IsEvent(f))
 }
 
 type Func struct {

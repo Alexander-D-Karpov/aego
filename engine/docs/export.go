@@ -1,3 +1,5 @@
+//go:build !aego_runtime
+
 package docs
 
 import (

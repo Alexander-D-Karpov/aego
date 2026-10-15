@@ -1,12 +1,6 @@
 package source
 
-// Interner deduplicates identifier and keyword strings so that equal names
-// across a whole project share one backing array. Resolvers can then compare
-// names by pointer-backed string identity instead of re-hashing each file's
-// copies.
-//
-// An Interner is not safe for concurrent use: lex a project's files on a single
-// goroutine, or give each goroutine its own Interner.
+// Interner deduplicates identifier strings across a project; not safe for concurrent use.
 type Interner struct {
 	m map[string]string
 }

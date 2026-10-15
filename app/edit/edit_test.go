@@ -9,18 +9,18 @@ import (
 	"testing"
 	"time"
 
-	"aego/app"
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
-	"aego/editor/history/commands"
+	"aego/editor/core/history/commands"
 	"aego/engine"
+	"aego/modules/render2d"
 	"aego/project"
-	"aego/render2d"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/schema"
-	"aego/script/stdlib"
 	"aego/sdk"
 )
 
@@ -59,8 +59,11 @@ func (spinModule) Register(r *sdk.Registry) error {
 
 func writeScene(t *testing.T, p *project.Project, rel string, build func(s *scene.Scene)) {
 	t.Helper()
-	types := app.NewTypes()
-	if _, err := app.BuildModules(types, nil, stdlib.Options{}, nil); err != nil {
+	types, err := assembly.NewTypes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := builtin.Default().Load(types, nil, assembly.Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {

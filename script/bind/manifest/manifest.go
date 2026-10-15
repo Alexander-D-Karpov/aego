@@ -10,16 +10,41 @@ import (
 	"aego/script/runtime"
 )
 
-const Version uint32 = 2
+const Version uint32 = 4
 
 type Manifest struct {
-	Version    uint32
-	ABIHash    [32]byte
-	Modules    []Module
-	Components []Component
-	Enums      []Enum
-	Methods    []Method
-	Keywords   map[string]string
+	Version     uint32
+	ABIHash     [32]byte
+	Modules     []Module
+	Components  []Component
+	Enums       []Enum
+	Structs     []Struct
+	Events      []Event
+	Methods     []Method
+	CompMethods []CompMethod
+	Keywords    map[string]string
+}
+
+type CompMethod struct {
+	Comp    string
+	Name    string
+	Sig     abi.Signature
+	Params  []string
+	Example string
+	Doc     string
+	Loc     string
+}
+
+func (m *Manifest) CompMethodDoc(comp, name string) (CompMethod, bool) {
+	if m == nil {
+		return CompMethod{}, false
+	}
+	for _, cm := range m.CompMethods {
+		if cm.Comp == comp && cm.Name == name {
+			return cm, true
+		}
+	}
+	return CompMethod{}, false
 }
 
 func (m *Manifest) Keyword(key string) string {
@@ -72,6 +97,21 @@ type Enum struct {
 	Members []abi.EnumMember
 }
 
+type Struct struct {
+	Module string
+	Name   string
+	Doc    string
+	Slots  int
+	Fields []abi.StructField
+}
+
+type Event struct {
+	Name   string
+	Doc    string
+	Params []abi.TypeRef
+	Names  []string
+}
+
 type Method struct {
 	Recv    abi.Kind
 	Name    string
@@ -120,9 +160,26 @@ func FromRegistry(r *bind.Registry, sr *schema.Registry) (*Manifest, error) {
 			Members: append([]abi.EnumMember(nil), e.Members...),
 		})
 	}
+	for _, s := range t.StructList() {
+		m.Structs = append(m.Structs, Struct{
+			Module: s.Module,
+			Name:   s.Name,
+			Doc:    r.Info(s.Module, s.Name).Doc,
+			Slots:  s.Slots,
+			Fields: append([]abi.StructField(nil), s.Fields...),
+		})
+	}
+	for _, e := range t.EventList() {
+		info := r.Info(bind.EventModule, e.Name)
+		m.Events = append(m.Events, Event{Name: e.Name, Doc: info.Doc, Params: append([]abi.TypeRef(nil), e.Params...), Names: info.Params})
+	}
 	for _, me := range t.MethodList() {
 		info := r.Info("#"+me.Recv.String(), me.Name)
 		m.Methods = append(m.Methods, Method{Recv: me.Recv, Name: me.Name, Sig: me.Sig, Params: info.Params, Example: info.Example, Doc: info.Doc, Loc: info.Loc})
+	}
+	for _, cm := range t.ComponentMethodList() {
+		info := r.Info("#"+cm.Comp, cm.Name)
+		m.CompMethods = append(m.CompMethods, CompMethod{Comp: cm.Comp, Name: cm.Name, Sig: cm.Sig, Params: info.Params, Example: info.Example, Doc: info.Doc, Loc: info.Loc})
 	}
 	for _, c := range t.AllComponents() {
 		m.Components = append(m.Components, component(c, sr))
@@ -163,6 +220,12 @@ func (m *Manifest) Table() (*abi.Table, error) {
 			return nil, err
 		}
 	}
+	for _, s := range m.Structs {
+		def := &abi.StructDef{Module: s.Module, Name: s.Name, Slots: s.Slots, Fields: append([]abi.StructField(nil), s.Fields...)}
+		if err := t.AddStruct(def); err != nil {
+			return nil, err
+		}
+	}
 	for _, mod := range m.Modules {
 		for _, f := range mod.Funcs {
 			if err := t.AddFunc(mod.Path, f.Name, f.Sig); err != nil {
@@ -177,6 +240,16 @@ func (m *Manifest) Table() (*abi.Table, error) {
 	}
 	for _, me := range m.Methods {
 		if err := t.AddMethod(me.Recv, me.Name, me.Sig); err != nil {
+			return nil, err
+		}
+	}
+	for _, cm := range m.CompMethods {
+		if err := t.AddComponentMethod(cm.Comp, cm.Name, cm.Sig); err != nil {
+			return nil, err
+		}
+	}
+	for _, e := range m.Events {
+		if err := t.AddEvent(abi.EventDef{Name: e.Name, Params: e.Params}); err != nil {
 			return nil, err
 		}
 	}
@@ -261,4 +334,28 @@ func (c *Component) Field(name string) (Field, bool) {
 		}
 	}
 	return Field{}, false
+}
+
+func (m *Manifest) StructDoc(module, name string) (Struct, bool) {
+	if m == nil {
+		return Struct{}, false
+	}
+	for _, s := range m.Structs {
+		if s.Module == module && s.Name == name {
+			return s, true
+		}
+	}
+	return Struct{}, false
+}
+
+func (m *Manifest) EventDoc(name string) (Event, bool) {
+	if m == nil {
+		return Event{}, false
+	}
+	for _, e := range m.Events {
+		if e.Name == name {
+			return e, true
+		}
+	}
+	return Event{}, false
 }

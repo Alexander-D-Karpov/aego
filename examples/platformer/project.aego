@@ -24,4 +24,11 @@ project version=1 {
       }
     }
   }
+  physics {
+    layers=[Default, Ground, Player, Enemy]
+    collide {
+      Player=[Ground, Enemy]
+      Enemy=[Ground, Player]
+    }
+  }
 }

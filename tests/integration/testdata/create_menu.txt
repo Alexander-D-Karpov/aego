@@ -7,4 +7,9 @@ Camera
 3D/Plane
 3D/Sphere
 3D/Cylinder
+Physics/Rigid Body
+Physics/Static Collider
+Physics/Trigger
+Physics/Platform
+Physics/Ball
 rotator/Rotator

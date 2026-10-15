@@ -7,7 +7,7 @@ import (
 	scriptImporter "aego/asset/importers/script"
 	"aego/asset/pipeline"
 	"aego/core/log"
-	"aego/editor/context"
+	"aego/editor/core/context"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/scene"
@@ -170,7 +170,7 @@ func (h *scriptHost) Attach(w *engine.World, s *scene.Scene) (func(), error) {
 	h.last = rt
 	detachMods := func() {}
 	if h.modules != nil {
-		d, err := h.modules.Attach(&module.AttachContext{World: w, Scene: s, Log: h.log, Editor: true})
+		d, err := h.modules.Attach(&module.AttachContext{World: w, Scene: s, Log: h.log, Editor: true, Play: true})
 		if err != nil {
 			w.RemoveService(runtime.ServiceID)
 			rt.Close()

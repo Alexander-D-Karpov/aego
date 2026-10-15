@@ -43,8 +43,7 @@ type WindowDesc struct {
 	HighDPI    bool
 	SRGB       bool
 	Debug      bool
-	// Hidden creates the window without mapping it. The GL context is still
-	// current, so benchmarks render at full rate with no compositor in the way.
+	// Hidden creates an unmapped window with a current GL context.
 	Hidden bool
 	VSync  VSyncMode
 }

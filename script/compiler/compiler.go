@@ -14,10 +14,9 @@ import (
 	"aego/script/types"
 )
 
-const (
-	LangVersion uint16 = 2
-	NodeSlot           = 0
-)
+const LangVersion uint16 = 2
+
+const NodeSlot = 0
 
 type Options struct {
 	Debug       bool
@@ -39,6 +38,8 @@ type unit struct {
 	xfields  map[string]int
 	xmethods map[string]int
 	connects map[bytecode.ConnectDef]int
+	needed   map[string]bool
+	hostDefs []bytecode.StructDef
 	diags    []diag.Diagnostic
 }
 
@@ -58,7 +59,7 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 		funcs: map[*checker.Func]int{}, scripts: map[*checker.ScriptType]int{},
 		imports: map[string]int{}, externs: map[string]int{}, types: map[*types.Type]int{},
 		refs: map[string]int{}, xfields: map[string]int{}, xmethods: map[string]int{},
-		connects: map[bytecode.ConnectDef]int{},
+		connects: map[bytecode.ConnectDef]int{}, needed: map[string]bool{},
 	}
 	u.mod.LangVersion = opt.LangVersion
 	u.mod.Hash = InterfaceHash(a, pkg)
@@ -82,16 +83,8 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 		u.mod.Enums = append(u.mod.Enums, bytecode.EnumDef{Name: t.Qualified(), Members: append([]string(nil), t.Members...)})
 	}
 	for _, t := range p.Structs {
-		sd := bytecode.StructDef{Name: t.Qualified(), Slots: uint16(t.Slots())}
-		for _, f := range t.Fields {
-			sd.Fields = append(sd.Fields, bytecode.StructField{
-				Name:  f.Name,
-				Type:  types.ToABI(f.Type).String(),
-				Slot:  uint16(f.Slot),
-				Slots: uint8(f.Type.Slots()),
-			})
-		}
-		u.mod.Structs = append(u.mod.Structs, sd)
+		u.mod.Structs = append(u.mod.Structs, structDef(t))
+		u.need(t)
 	}
 	for _, st := range p.Scripts {
 		u.script(st)
@@ -99,10 +92,60 @@ func Compile(a *checker.Analysis, pkg string, opt Options) (*bytecode.Module, []
 	for i, f := range order {
 		u.function(f, i)
 	}
+	sort.Slice(u.hostDefs, func(i, j int) bool { return u.hostDefs[i].Name < u.hostDefs[j].Name })
+	u.mod.Structs = append(u.mod.Structs, u.hostDefs...)
 	if diag.HasErrors(u.diags) {
 		return nil, u.diags
 	}
 	return u.mod, u.diags
+}
+
+func structDef(t *types.Type) bytecode.StructDef {
+	sd := bytecode.StructDef{Name: t.Qualified(), Slots: uint16(t.Slots())}
+	for _, f := range t.Fields {
+		sd.Fields = append(sd.Fields, bytecode.StructField{
+			Name:  f.Name,
+			Type:  types.ToABI(f.Type).String(),
+			Slot:  uint16(f.Slot),
+			Slots: uint8(f.Type.Slots()),
+		})
+	}
+	return sd
+}
+
+func (u *unit) need(t *types.Type) {
+	switch t.Kind {
+	case types.KSlice:
+		u.need(t.Elem)
+	case types.KStruct:
+		q := t.Qualified()
+		if u.needed[q] {
+			return
+		}
+		u.needed[q] = true
+		for _, f := range t.Fields {
+			u.need(f.Type)
+		}
+		if t.Host {
+			u.hostDefs = append(u.hostDefs, structDef(t))
+		}
+	}
+}
+
+func (u *unit) abiType(r abi.TypeRef) *types.Type {
+	return u.a.Universe.FromABI(r, u.a.Surface)
+}
+
+func (u *unit) abiSlots(r abi.TypeRef) int {
+	return u.abiType(r).Slots()
+}
+
+func (u *unit) sigSlots(list []abi.TypeRef) []int {
+	out := make([]int, len(list))
+	for i, r := range list {
+		out[i] = u.abiSlots(r)
+	}
+	return out
 }
 
 func hasErrors(a *checker.Analysis, p *checker.Package) bool {
@@ -149,6 +192,12 @@ func paramSlots(f *checker.Func) int {
 
 func constValue(k *types.Const, t *types.Type) bytecode.Const {
 	switch {
+	case k.Kind == types.CLanes:
+		var l [4]float32
+		for i := range l {
+			l[i] = float32(k.Lanes[i])
+		}
+		return bytecode.LanesK(l)
 	case t.Kind == types.KFloat || t.Kind == types.KUntypedFloat:
 		return bytecode.FloatK(float32(k.Float64()))
 	case k.Kind == types.CString:
@@ -176,6 +225,7 @@ func (u *unit) script(st *checker.ScriptType) {
 		Reloaded: u.index(st.Reloaded),
 	}
 	for _, f := range st.Fields {
+		u.need(f.Type)
 		h := f.Hints
 		fd := bytecode.FieldDef{
 			Name: f.Name, Former: f.Former, Type: types.ToABI(f.Type).String(),
@@ -183,6 +233,7 @@ func (u *unit) script(st *checker.ScriptType) {
 			Hints: bytecode.ExportHints{
 				Min: h.Min, Max: h.Max, Step: h.Step, HasMin: h.HasMin, HasMax: h.HasMax,
 				Unit: h.Unit, Display: h.Display, Tip: h.Tip, Category: h.Category,
+				Gizmo: h.Gizmo, Space: h.Space,
 			},
 		}
 		if f.Default != nil {
@@ -195,6 +246,7 @@ func (u *unit) script(st *checker.ScriptType) {
 		sd := bytecode.SignalDef{Name: sg.Name}
 		n := 0
 		for _, p := range sg.Params {
+			u.need(p)
 			sd.Params = append(sd.Params, types.ToABI(p))
 			n += p.Slots()
 		}
@@ -205,6 +257,9 @@ func (u *unit) script(st *checker.ScriptType) {
 		sd.Slots = uint8(min(n, bytecode.MaxRegisters))
 		d.Signals = append(d.Signals, sd)
 	}
+	for _, f := range st.Events {
+		d.Events = append(d.Events, bytecode.HandlerDef{Name: f.Name, Func: u.index(f)})
+	}
 	u.mod.Scripts = append(u.mod.Scripts, d)
 }
 
@@ -213,6 +268,10 @@ func (u *unit) hostImport(module, name string, sig abi.Signature) int {
 	if i, ok := u.imports[key]; ok {
 		return i
 	}
+	for _, p := range sig.Params {
+		u.need(u.abiType(p))
+	}
+	u.need(u.abiType(sig.Result))
 	i := len(u.mod.Imports)
 	u.mod.Imports = append(u.mod.Imports, bytecode.HostImport{Module: module, Name: name, Sig: sig})
 	u.imports[key] = i
@@ -245,6 +304,7 @@ func (u *unit) xfield(st *checker.ScriptType, f *checker.ScriptField) int {
 	if i, ok := u.xfields[key]; ok {
 		return i
 	}
+	u.need(f.Type)
 	i := len(u.mod.XFields)
 	u.mod.XFields = append(u.mod.XFields, bytecode.XFieldDef{
 		Ref:   uint16(u.scriptRef(st.FullName)),
@@ -286,6 +346,7 @@ func (u *unit) typeIndex(t *types.Type, sp source.Span) int {
 	if i, ok := u.types[t]; ok {
 		return i
 	}
+	u.need(t)
 	el := t.Elem
 	if el.Slots() > bytecode.MaxSliceElemSlots {
 		u.diags = append(u.diags, diag.Errorf(diag.SliceTooWide, sp,

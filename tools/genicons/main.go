@@ -63,7 +63,7 @@ func main() {
 
 	dirs := strings.Split(*src, ",")
 	if *initSrc {
-		if err := writePlaceholders(dirs[0]); err != nil {
+		if err := writePlaceholders(dirs); err != nil {
 			fail(err)
 		}
 	}
@@ -471,7 +471,9 @@ func writePNG(path string, img image.Image) error {
 	return f.Close()
 }
 
-func writePlaceholders(dir string) error {
+// writePlaceholders fills dirs[0] with placeholders for ids without a source.
+func writePlaceholders(dirs []string) error {
+	dir := strings.TrimSpace(dirs[0])
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -481,15 +483,23 @@ func writePlaceholders(dir string) error {
 	}
 	written := 0
 	for id, svg := range all {
-		path := filepath.Join(dir, id+".svg")
-		if _, err := os.Stat(path); err == nil {
+		if hasSource(dirs, id) {
 			continue
 		}
-		if err := os.WriteFile(path, []byte(svg), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, id+".svg"), []byte(svg), 0o644); err != nil {
 			return err
 		}
 		written++
 	}
 	fmt.Printf("wrote %d placeholder svg files to %s\n", written, dir)
 	return nil
+}
+
+func hasSource(dirs []string, id string) bool {
+	for _, d := range dirs {
+		if _, err := os.Stat(filepath.Join(strings.TrimSpace(d), id+".svg")); err == nil {
+			return true
+		}
+	}
+	return false
 }

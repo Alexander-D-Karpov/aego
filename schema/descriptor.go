@@ -77,6 +77,7 @@ type TemplateDesc struct {
 	Name     string
 	Node     string
 	Category string
+	Menu     string
 	Icon     string
 	Space    SpaceKind
 	Owner    string
@@ -113,6 +114,10 @@ type TypeDescriptor struct {
 	ScriptFields  []FieldID
 	ScriptMethods []ScriptMethod
 	Inspector     any
+	OnAdd         any
+	OnRemoving    any
+	OnChanged     any
+	Validate      any
 	Fields        []FieldDescriptor
 	index         map[string]int
 	byID          map[FieldID]int

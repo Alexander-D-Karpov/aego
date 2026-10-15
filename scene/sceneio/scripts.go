@@ -111,7 +111,7 @@ func scriptValue(fd *schema.FieldDescriptor, v aetext.Value) (schema.Value, erro
 	case schema.KindQuat:
 		if v.Kind == aetext.VList && len(v.List) == 4 {
 			q := readVec4(v, schema.Value{}.V4)
-			return schema.Quat(mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}), nil
+			return schema.Quat(mathx.Quat(q)), nil
 		}
 	case schema.KindColor:
 		if v.Kind == aetext.VColor {

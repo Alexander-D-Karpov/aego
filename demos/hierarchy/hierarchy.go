@@ -8,7 +8,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/scene"
 	"aego/ui/core"
@@ -21,7 +21,7 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod    *rendermodule.Module
+	mod    *renderhost.Module
 	scene  *scene.Scene
 	ship   scene.NodeHandle
 	turret scene.NodeHandle
@@ -38,9 +38,9 @@ func (d *Demo) Name() string {
 	return "hierarchy"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 1024})
+		d.mod = renderhost.New(render.Options{MaxSprites: 1024})
 	}
 	return d.mod
 }

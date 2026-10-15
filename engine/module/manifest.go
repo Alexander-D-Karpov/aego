@@ -2,8 +2,10 @@ package module
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
+	"aego/contracts/scriptevents"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
@@ -19,13 +21,16 @@ type Manifest struct {
 	Templates    []schema.TemplateDesc
 	Icons        []IconSet
 	Docs         []DocSource
+	Events       []scriptevents.Event
+	Sections     []*Section
 	ScriptOwners map[string]string
 	Dev          []Hook
 	Editor       []Hook
 	Warnings     []string
 	order        []*entry
 	services     []serviceDesc
-	engines      []engine.Module
+	engines      []ownedEngine
+	inited       []*entry
 }
 
 func (r *Registry) Build() (*Manifest, error) {
@@ -54,6 +59,7 @@ func (r *Registry) Build() (*Manifest, error) {
 	r.checkSystems()
 	r.checkServices()
 	r.checkTemplates(icons)
+	r.checkSections()
 	if len(r.errs) > 0 {
 		return nil, errors.Join(r.errs...)
 	}
@@ -98,18 +104,45 @@ func (r *Registry) sort() ([]*entry, error) {
 			}
 		}
 		if next == nil {
-			var cyc []string
-			for _, e := range r.modules {
-				if !done[e.info.ID] {
-					cyc = append(cyc, e.info.ID)
-				}
-			}
-			return nil, errs.New(errs.EngineModule, "module requirements form a cycle: "+strings.Join(cyc, ", "))
+			return nil, errs.New(errs.EngineModule, "module requirements form a cycle: "+strings.Join(r.cycle(byID, done), " -> "))
 		}
 		done[next.info.ID] = true
 		out = append(out, next)
 	}
 	return out, nil
+}
+
+func (r *Registry) cycle(byID map[string]*entry, done map[string]bool) []string {
+	state := map[string]uint8{}
+	var stack, found []string
+	var visit func(id string) bool
+	visit = func(id string) bool {
+		state[id] = 1
+		stack = append(stack, id)
+		for _, dep := range byID[id].info.Requires {
+			if done[dep] {
+				continue
+			}
+			switch state[dep] {
+			case 1:
+				found = append(slices.Clone(stack[slices.Index(stack, dep):]), dep)
+				return true
+			case 0:
+				if visit(dep) {
+					return true
+				}
+			}
+		}
+		stack = stack[:len(stack)-1]
+		state[id] = 2
+		return false
+	}
+	for _, e := range r.modules {
+		if !done[e.info.ID] && state[e.info.ID] == 0 && visit(e.info.ID) {
+			return found
+		}
+	}
+	return nil
 }
 
 func (r *Registry) checkComponents(icons map[string]bool) {
@@ -182,11 +215,28 @@ func (r *Registry) checkTemplates(icons map[string]bool) {
 	}
 }
 
+func (r *Registry) checkSections() {
+	seen := map[string]string{}
+	for _, s := range r.sections {
+		if s.ID != s.Owner && !strings.HasPrefix(s.ID, s.Owner+".") {
+			r.report(s.Owner, "project section "+s.ID+" must be named "+s.Owner+" or "+s.Owner+".<name>")
+		}
+		for _, h := range s.Heads() {
+			if other, dup := seen[h]; dup {
+				r.report(s.Owner, "project section "+h+" is already registered by "+other)
+				continue
+			}
+			seen[h] = s.Owner
+		}
+	}
+}
+
 func (r *Registry) manifest(order []*entry) *Manifest {
 	m := &Manifest{
 		order: order, services: r.services, engines: r.engines,
 		Icons: r.icons, Docs: r.docs, ScriptOwners: r.owners,
 		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
+		Events: r.Events(), Sections: r.sections,
 	}
 	for _, e := range order {
 		m.Modules = append(m.Modules, e.info)
@@ -214,18 +264,24 @@ func (e engineModule) Register(reg *engine.Registry) error {
 			return err
 		}
 	}
-	for _, m := range e.m.engines {
-		if err := m.Register(reg); err != nil {
-			id := m.Info().ID
-			return errs.Wrap(err, errs.EngineModule, "engine module "+id+" failed to register").With(log.F("module", id))
+	for _, oe := range e.m.engines {
+		id := oe.m.Info().ID
+		before := len(reg.Systems().IDs())
+		if err := oe.m.Register(reg); err != nil {
+			return errs.Wrap(err, errs.EngineModule, "engine module "+id+" failed to register").With(log.F("module", oe.owner))
+		}
+		for _, sid := range reg.Systems().IDs()[before:] {
+			if !strings.HasPrefix(sid, oe.owner+".") {
+				return errs.New(errs.EngineModule, "system "+sid+" of engine module "+id+" must be named "+oe.owner+".<name>", log.F("module", oe.owner))
+			}
 		}
 	}
 	return nil
 }
 
 func (e engineModule) Init(eng *engine.Engine) error {
-	for _, m := range e.m.engines {
-		if in, ok := m.(engine.ModuleIniter); ok {
+	for _, oe := range e.m.engines {
+		if in, ok := oe.m.(engine.ModuleIniter); ok {
 			if err := in.Init(eng); err != nil {
 				return err
 			}
@@ -239,40 +295,58 @@ func (m *Manifest) Engine() engine.Module {
 }
 
 func (m *Manifest) Init(ctx *InitContext) error {
-	for _, s := range m.services {
-		ctx.Engine.SetService(s.id, s.value)
+	if ctx.Engine != nil {
+		for _, s := range m.services {
+			ctx.Engine.SetService(s.id, s.value)
+		}
 	}
 	for _, e := range m.order {
-		in, ok := e.mod.(Initer)
-		if !ok {
-			continue
+		if in, ok := e.mod.(Initer); ok {
+			if err := in.Init(ctx); err != nil {
+				m.Shutdown()
+				if ctx.Engine != nil {
+					for _, s := range m.services {
+						ctx.Engine.MainWorld().RemoveService(s.id)
+					}
+				}
+				return errs.Wrap(err, errs.EngineModule, "module "+e.info.ID+" failed to initialize").With(log.F("module", e.info.ID))
+			}
 		}
-		if err := in.Init(ctx); err != nil {
-			return errs.Wrap(err, errs.EngineModule, "module "+e.info.ID+" failed to initialize").With(log.F("module", e.info.ID))
-		}
+		m.inited = append(m.inited, e)
 	}
 	return nil
 }
 
+func (m *Manifest) Shutdown() {
+	for i := len(m.inited) - 1; i >= 0; i-- {
+		if sd, ok := m.inited[i].mod.(Shutdowner); ok {
+			sd.Shutdown()
+		}
+	}
+	m.inited = nil
+}
+
 func (m *Manifest) Attach(ctx *AttachContext) (func(), error) {
-	var undo []func()
+	var tried []WorldAttacher
+	done := false
 	detach := func() {
-		for i := len(undo) - 1; i >= 0; i-- {
-			undo[i]()
+		if done {
+			return
+		}
+		done = true
+		for i := len(tried) - 1; i >= 0; i-- {
+			tried[i].DetachWorld(ctx)
 		}
 	}
 	for _, e := range m.order {
-		at, ok := e.mod.(Attacher)
+		at, ok := e.mod.(WorldAttacher)
 		if !ok {
 			continue
 		}
-		d, err := at.Attach(ctx)
-		if err != nil {
+		tried = append(tried, at)
+		if err := at.AttachWorld(ctx); err != nil {
 			detach()
 			return nil, errs.Wrap(err, errs.EngineModule, "module "+e.info.ID+" failed to attach").With(log.F("module", e.info.ID))
-		}
-		if d != nil {
-			undo = append(undo, d)
 		}
 	}
 	return detach, nil

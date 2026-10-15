@@ -113,6 +113,7 @@ func scalarDyn(r *Registry, rt reflect.Type) (dyn, error) {
 		}
 		d.put = func(_ *vm.Machine, w []vm.Value, v reflect.Value) { w[0] = vm.Int(int64(v.Uint())) }
 	default:
+		//lint:ignore ST1005 "Go" is a proper noun
 		return d, fmt.Errorf("Go type %s cannot cross the script boundary", rt)
 	}
 	return d, nil
@@ -164,8 +165,9 @@ func Method(m *Module, name string, typ schema.TypeID, fn any, opts ...Option) e
 		}
 		out, result = d, d.ref
 	}
+	miss := name + ": the " + self.Name() + " reference is nil, its node is destroyed or the component was removed"
 	before := len(m.reg.errs)
-	m.add(name, params, result, func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, params, result, func(mc *vm.Machine, w []vm.Value) error {
 		x, err := ctxOf(mc)
 		if err != nil {
 			return err
@@ -174,11 +176,14 @@ func Method(m *Module, name string, typ schema.TypeID, fn any, opts ...Option) e
 			return errNoTarget
 		}
 		h := NodeOf(w[0])
-		p, ok := x.Scene.GetByType(h, typ)
-		if !ok || !x.Scene.IsAlive(h) {
-			x.Fail(name + ": the node has no " + self.Name())
-			return x.finish()
+		if !x.Scene.IsAlive(h) {
+			return &vm.Fault{Code: vm.CodeNil, Message: miss}
 		}
+		p, ok := x.Scene.GetByType(h, typ)
+		if !ok {
+			return &vm.Fault{Code: vm.CodeNil, Message: miss}
+		}
+		x.Recv = h
 		in := make([]reflect.Value, len(args)+2)
 		in[0] = reflect.ValueOf(x)
 		in[1] = reflect.NewAt(self, p)

@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"aego/app/bootstrap"
 	"aego/app/docstool"
 	"aego/app/edit"
 	"aego/app/projects"
@@ -14,9 +16,8 @@ import (
 	"aego/app/supervise"
 	"aego/asset/pipeline"
 	"aego/core/log"
-	"aego/editor/launcher"
+	"aego/editor/shell/launcher"
 	"aego/engine"
-	"aego/engine/bootstrap"
 	"aego/project"
 	"aego/script/diag"
 )
@@ -162,6 +163,7 @@ func cmdRun(args []string) int {
 	frames := fs.Int("frames", 0, "run a fixed number of frames")
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
+	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -171,6 +173,9 @@ func cmdRun(args []string) int {
 		return fail(err)
 	}
 	if bootstrap.NeedsNative(p) {
+		if *tracePath != "" {
+			rest = absTraceArg(rest, *tracePath)
+		}
 		if *headless || *frames > 0 {
 			binary, err := bootstrap.Build(p, bootstrap.HostTarget(), bootstrap.ModeRun, engine.Version, nil)
 			if err != nil {
@@ -190,11 +195,29 @@ func cmdRun(args []string) int {
 		Debug:     *debug,
 		Watch:     *frames == 0,
 		ScenePath: *scenePath,
+		Trace:     *tracePath,
 	}
 	if err := run.Run(p, cfg); err != nil {
 		return fail(err)
 	}
 	return 0
+}
+
+func absTraceArg(args []string, path string) []string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return args
+	}
+	out := append([]string(nil), args...)
+	for i, a := range out {
+		switch {
+		case (a == "-trace" || a == "--trace") && i+1 < len(out):
+			out[i+1] = abs
+		case strings.HasPrefix(a, "-trace=") || strings.HasPrefix(a, "--trace="):
+			out[i] = "--trace=" + abs
+		}
+	}
+	return out
 }
 
 func cmdEdit(args []string) int {
@@ -327,6 +350,7 @@ func cmdCheck(args []string) int {
 		return fail(err)
 	}
 	problems := projects.CheckDocuments(p, os.Stderr)
+	problems += projects.CheckSections(p, os.Stderr)
 	ws, err := projects.OpenWorkspace(p, *manifestPath, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aego:", err)

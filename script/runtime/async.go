@@ -35,7 +35,15 @@ func (t *scriptType) methodIndex(name string) int {
 }
 
 func (t *scriptType) lifecycle(f *vm.Func) bool {
-	return f == t.ready || f == t.fixed || f == t.update || f == t.reloaded
+	if f == t.ready || f == t.fixed || f == t.update || f == t.reloaded {
+		return true
+	}
+	for _, e := range t.events {
+		if e != nil && e == f {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Runtime) live(id vm.InstanceID) *instance {

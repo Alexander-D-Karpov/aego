@@ -72,6 +72,9 @@ const (
 	SceneIOStrict  Code = "sceneio.strict"
 	SceneIOMigrate Code = "sceneio.migrate"
 
+	PrefabCycle Code = "prefab.cycle"
+	PrefabDepth Code = "prefab.depth"
+
 	BuildFailed Code = "build.failed"
 
 	UIBadLayout    Code = "ui.bad_layout"

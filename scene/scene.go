@@ -71,11 +71,14 @@ type Scene struct {
 	revision     uint64
 	savedRev     uint64
 	structureRev uint64
-	stats        Stats
 	scratch      []NodeHandle
 	three        []node3
 	free3        []int32
 	defaultSpace Space
+	pres         []presEntry
+	render       []mathx.Mat3
+	presDirty    bool
+	presActive   bool
 }
 
 func New(types *Types, res asset.Resolver, opt Options) *Scene {

@@ -3,8 +3,8 @@ package sdk
 import (
 	"aego/asset"
 	"aego/core/mathx"
-	"aego/render2d"
-	"aego/render3d"
+	"aego/modules/render2d"
+	"aego/modules/render3d"
 	"aego/scene"
 	"aego/schema"
 )

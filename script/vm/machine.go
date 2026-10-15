@@ -237,7 +237,7 @@ func (m *Machine) Load(src *bytecode.Module, resolve func(bytecode.HostImport) (
 			return nil, fmt.Errorf("module %s imports unknown host function %s.%s %s", src.Package, imp.Module, imp.Name, imp.Sig)
 		}
 		mod.hosts = append(mod.hosts, h)
-		mod.windows = append(mod.windows, imp.Sig.Window())
+		mod.windows = append(mod.windows, src.Window(imp.Sig))
 	}
 	for _, t := range src.Types {
 		mod.types = append(mod.types, sliceType{width: int(t.Width), mask: t.Mask})

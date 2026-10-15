@@ -41,9 +41,41 @@ func Encode(m *Manifest) []byte {
 		}
 		root.Blocks = append(root.Blocks, n)
 	}
+	for _, s := range m.Structs {
+		n := &aetext.Node{Head: "struct", Label: s.Name}
+		n.Attrs = append(n.Attrs,
+			aetext.Field{Name: "module", Value: aetext.String(s.Module)},
+			aetext.Field{Name: "slots", Value: aetext.Int(int64(s.Slots))},
+		)
+		text(n, "doc", s.Doc)
+		for _, f := range s.Fields {
+			b := &aetext.Node{Head: "field", Label: f.Name}
+			b.Fields = append(b.Fields, aetext.Field{Name: "type", Value: aetext.String(f.Type.String())})
+			n.Blocks = append(n.Blocks, b)
+		}
+		root.Blocks = append(root.Blocks, n)
+	}
+	for _, e := range m.Events {
+		params := make([]string, len(e.Params))
+		for i, p := range e.Params {
+			params[i] = p.String()
+		}
+		n := &aetext.Node{Head: "event", Label: e.Name}
+		n.Fields = append(n.Fields, aetext.Field{Name: "params", Value: strList(params)})
+		if len(e.Names) > 0 {
+			n.Fields = append(n.Fields, aetext.Field{Name: "names", Value: strList(e.Names)})
+		}
+		text(n, "doc", e.Doc)
+		root.Blocks = append(root.Blocks, n)
+	}
 	for _, me := range m.Methods {
 		n := callable("method", me.Name, me.Sig, extra{me.Params, me.Example, me.Doc, me.Loc})
 		n.Attrs = append(n.Attrs, aetext.Field{Name: "recv", Value: aetext.String(me.Recv.String())})
+		root.Blocks = append(root.Blocks, n)
+	}
+	for _, cm := range m.CompMethods {
+		n := callable("cmethod", cm.Name, cm.Sig, extra{cm.Params, cm.Example, cm.Doc, cm.Loc})
+		n.Attrs = append(n.Attrs, aetext.Field{Name: "comp", Value: aetext.String(cm.Comp)})
 		root.Blocks = append(root.Blocks, n)
 	}
 	for _, c := range m.Components {
@@ -185,8 +217,14 @@ func Decode(b []byte) (*Manifest, error) {
 			err = m.readModule(n)
 		case "enum":
 			m.readEnum(n)
+		case "struct":
+			err = m.readStruct(n)
+		case "event":
+			err = m.readEvent(n)
 		case "method":
 			err = m.readMethod(n)
+		case "cmethod":
+			err = m.readCompMethod(n)
 		case "component":
 			err = m.readComponent(n)
 		default:
@@ -252,6 +290,40 @@ func (m *Manifest) readEnum(n *aetext.Node) {
 	m.Enums = append(m.Enums, e)
 }
 
+func (m *Manifest) readStruct(n *aetext.Node) error {
+	s := Struct{Name: n.Label, Doc: str(n, "doc")}
+	if v, ok := n.Attr("module"); ok {
+		s.Module = v.Str
+	}
+	if v, ok := n.Attr("slots"); ok {
+		s.Slots = int(v.AsInt())
+	}
+	var ferr error
+	n.EachBlock("field", func(b *aetext.Node) {
+		t, err := typeRef(str(b, "type"))
+		if err != nil {
+			ferr = err
+			return
+		}
+		s.Fields = append(s.Fields, abi.StructField{Name: b.Label, Type: t})
+	})
+	m.Structs = append(m.Structs, s)
+	return ferr
+}
+
+func (m *Manifest) readEvent(n *aetext.Node) error {
+	e := Event{Name: n.Label, Doc: str(n, "doc"), Names: list(n, "names")}
+	for _, p := range list(n, "params") {
+		t, err := typeRef(p)
+		if err != nil {
+			return err
+		}
+		e.Params = append(e.Params, t)
+	}
+	m.Events = append(m.Events, e)
+	return nil
+}
+
 func (m *Manifest) readMethod(n *aetext.Node) error {
 	recv := ""
 	if v, ok := n.Attr("recv"); ok {
@@ -267,6 +339,25 @@ func (m *Manifest) readMethod(n *aetext.Node) error {
 	}
 	m.Methods = append(m.Methods, Method{
 		Recv: kind, Name: n.Label, Sig: sig, Params: list(n, "names"), Example: str(n, "example"),
+		Doc: str(n, "doc"), Loc: str(n, "loc"),
+	})
+	return nil
+}
+
+func (m *Manifest) readCompMethod(n *aetext.Node) error {
+	comp := ""
+	if v, ok := n.Attr("comp"); ok {
+		comp = v.Str
+	}
+	if comp == "" {
+		return fmt.Errorf("manifest: component method %s has no component", n.Label)
+	}
+	sig, err := readSig(n)
+	if err != nil {
+		return err
+	}
+	m.CompMethods = append(m.CompMethods, CompMethod{
+		Comp: comp, Name: n.Label, Sig: sig, Params: list(n, "names"), Example: str(n, "example"),
 		Doc: str(n, "doc"), Loc: str(n, "loc"),
 	})
 	return nil

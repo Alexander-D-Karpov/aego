@@ -348,11 +348,42 @@ func (c *checker) fieldDefault(f *ScriptField, v *ast.ScriptVar) {
 	case x.mode == mInvalid:
 	case x.t == types.Nil:
 		c.assign(v.Value, x, f.Type, "field initializer")
+	case x.c == nil && x.t == f.Type && f.Type.IsVector():
+		if k, ok := c.laneConst(v.Value, f.Type); ok {
+			f.Default = k
+			return
+		}
+		c.errorf(diag.FieldInit, v.Value.Span(), "initial value of %s must be a constant, every component of the %s literal must be a constant", f.Name, f.Type)
 	case x.c == nil:
 		c.errorf(diag.FieldInit, v.Value.Span(), "initial value of %s must be a constant", f.Name)
 	case c.assign(v.Value, x, f.Type, "field initializer"):
 		f.Default = c.a.Types[v.Value].Const
 	}
+}
+
+func (c *checker) laneConst(e ast.Expr, t *types.Type) (*types.Const, bool) {
+	lit, ok := unparen(e).(*ast.CompositeLit)
+	if !ok || c.a.Composites[lit] != t || len(t.Fields) > 4 {
+		return nil, false
+	}
+	var lanes [4]float64
+	for i, el := range lit.Elems {
+		idx := i
+		if el.Key != nil {
+			idx = -1
+			for j, f := range t.Fields {
+				if f.Name == el.Key.Name {
+					idx = j
+				}
+			}
+		}
+		k := c.a.Types[el.Value].Const
+		if idx < 0 || idx >= len(t.Fields) || k == nil || (k.Kind != types.CInt && k.Kind != types.CFloat) {
+			return nil, false
+		}
+		lanes[idx] = float64(float32(k.Float64()))
+	}
+	return types.LanesConst(lanes, len(t.Fields)), true
 }
 
 func (c *checker) lifecycle(st *ScriptType, f *Func) {
@@ -369,6 +400,7 @@ func (c *checker) lifecycle(st *ScriptType, f *Func) {
 		want = 1
 		st.Update = f
 	default:
+		c.event(st, f)
 		return
 	}
 	if f.Decl.Coroutine {
@@ -382,6 +414,35 @@ func (c *checker) lifecycle(st *ScriptType, f *Func) {
 		}
 		c.errorf(diag.Lifecycle, f.Decl.Name.Sp, "%s must have the signature func %s%s", f.Name, f.Name, sig)
 	}
+}
+
+func (c *checker) event(st *ScriptType, f *Func) {
+	sig, ok := c.surface.Event(f.Name)
+	if !ok {
+		return
+	}
+	st.Events = append(st.Events, f)
+	if f.Decl.Coroutine {
+		c.errorf(diag.CoroutineLifecycle, f.Decl.Name.Sp, "event handler %s cannot be a coroutine, start one from it instead", f.Name)
+	}
+	want := c.abiTypes(sig.Params)
+	ok = len(f.Params) == len(want) && f.Result == types.Void
+	for i := 0; ok && i < len(want); i++ {
+		ok = f.Params[i].Type == want[i]
+	}
+	if !ok {
+		c.errorf(diag.EventSignature, f.Decl.Name.Sp, "%s handles the engine event %s and must have the signature func %s%s", f.Name, f.Name, f.Name, sig)
+	}
+}
+
+func (c *checker) hostType(target, name string) *types.Type {
+	if e, ok := c.surface.Enum(target, name); ok {
+		return c.u.HostEnum(e)
+	}
+	if sd, ok := c.surface.Struct(target, name); ok {
+		return c.u.HostStruct(sd, c.surface)
+	}
+	return nil
 }
 
 func (c *checker) bodies(p string) {

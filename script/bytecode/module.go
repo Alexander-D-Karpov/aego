@@ -10,7 +10,7 @@ import (
 
 const (
 	Magic              = "AESB"
-	Version     uint16 = 3
+	Version     uint16 = 5
 	LangVersion uint16 = 2
 	NoScript           = -1
 )
@@ -44,6 +44,18 @@ func StringK(s string) Const {
 
 func RawK(a, b uint64) Const {
 	return Const{Kind: KRaw, A: a, B: b}
+}
+
+func LanesK(l [4]float32) Const {
+	return RawK(uint64(math.Float32bits(l[0]))|uint64(math.Float32bits(l[1]))<<32,
+		uint64(math.Float32bits(l[2]))|uint64(math.Float32bits(l[3]))<<32)
+}
+
+func (k Const) Lanes() [4]float32 {
+	return [4]float32{
+		math.Float32frombits(uint32(k.A)), math.Float32frombits(uint32(k.A >> 32)),
+		math.Float32frombits(uint32(k.B)), math.Float32frombits(uint32(k.B >> 32)),
+	}
 }
 
 func (k Const) String() string {
@@ -115,6 +127,8 @@ type ExportHints struct {
 	Display        string
 	Tip            string
 	Category       string
+	Gizmo          string
+	Space          string
 }
 
 type FieldDef struct {
@@ -148,6 +162,11 @@ type SignalDef struct {
 	Slots  uint8
 }
 
+type HandlerDef struct {
+	Name string
+	Func int32
+}
+
 type ScriptDef struct {
 	FullName    string
 	Former      []string
@@ -156,6 +175,7 @@ type ScriptDef struct {
 	HeapSlots   []uint16
 	Fields      []FieldDef
 	Signals     []SignalDef
+	Events      []HandlerDef
 	Ready       int32
 	FixedUpdate int32
 	Update      int32
@@ -225,6 +245,32 @@ func NewModule(pkg string) *Module {
 	m := &Module{Version: Version, Package: pkg}
 	copy(m.Magic[:], Magic)
 	return m
+}
+
+func (m *Module) Struct(name string) *StructDef {
+	for i := range m.Structs {
+		if m.Structs[i].Name == name {
+			return &m.Structs[i]
+		}
+	}
+	return nil
+}
+
+func (m *Module) Slots(t abi.TypeRef) int {
+	if t.Kind == abi.Struct {
+		if s := m.Struct(t.Name); s != nil {
+			return int(s.Slots)
+		}
+	}
+	return t.Slots()
+}
+
+func (m *Module) Window(s abi.Signature) int {
+	n := 0
+	for _, p := range s.Params {
+		n += m.Slots(p)
+	}
+	return max(n, m.Slots(s.Result))
 }
 
 func (m *Module) FuncIndex(name string) int {

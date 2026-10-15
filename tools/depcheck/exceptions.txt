@@ -1,0 +1,18 @@
+# Dependency exceptions: the only place where depcheck lets a broken rule through (D212).
+#
+#   from -> to, variant, reason
+#
+# from: package pattern ("a/b", "a/...", "*" as one segment) or one file ("sdk/editor.go").
+# to:   package pattern, or a quoted literal pattern for the semantic pass ("physics", "script.*").
+# variant: default, editor, nonative, runtime, wasm, test, test-editor, semantic, "*" or a|b.
+# reason: required. An exception that matches nothing is a violation: remove it.
+
+# The SDK reaches the editor from one file only.
+sdk/editor.go -> editor/..., editor, sdk.EditorHook bridge for project editor code under aego_editor; the exception is per file (D145)
+
+# Test graph.
+script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene, aego/input), which the language layer cannot install (D203)
+
+# Semantic pass.
+... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
+scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it

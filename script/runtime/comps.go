@@ -88,6 +88,38 @@ func (r *Runtime) nodeID(v vm.Value) ids.NodeID {
 	return r.scene.ID(h)
 }
 
+// listValue copies a list field into a new VM slice on every read.
+func (r *Runtime) listValue(q unsafe.Pointer, elem schema.Kind) vm.Value {
+	buf := r.listBuf[:0]
+	switch elem {
+	case schema.KindVec2:
+		for _, v := range *(*[]mathx.Vec2)(q) {
+			buf = append(buf, bind.Vec2Value(v))
+		}
+	case schema.KindFloat32:
+		for _, v := range *(*[]float32)(q) {
+			buf = append(buf, vm.Float(v))
+		}
+	case schema.KindInt32:
+		for _, v := range *(*[]int32)(q) {
+			buf = append(buf, vm.Int(int64(v)))
+		}
+	case schema.KindInt64:
+		for _, v := range *(*[]int64)(q) {
+			buf = append(buf, vm.Int(v))
+		}
+	case schema.KindBool:
+		for _, v := range *(*[]bool)(q) {
+			buf = append(buf, vm.Bool(v))
+		}
+	}
+	r.listBuf = buf
+	if len(buf) == 0 {
+		return vm.Value{}
+	}
+	return r.m.MakeSlice(1, 0, buf)
+}
+
 func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
 	p, fd, err := r.component(ref, field)
 	if err != nil {
@@ -119,6 +151,8 @@ func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
 		*dst = vm.Int(readInt(q, fd.Size, fd.Unsigned))
 	case schema.KindString:
 		*dst = r.m.NewString(*(*string)(q))
+	case schema.KindList:
+		*dst = r.listValue(q, fd.Elem)
 	case schema.KindAssetRef:
 		if !fd.Direct {
 			return r.getSlow(p, fd, dst)
@@ -140,7 +174,7 @@ func (r *Runtime) SetField(ref vm.Value, field int, src vm.Value) error {
 	if err != nil {
 		return err
 	}
-	if fd.Flags.Has(schema.FlagReadOnly) {
+	if fd.Flags.Has(schema.FlagReadOnly) || fd.Kind == schema.KindList {
 		return errReadOnly
 	}
 	q := unsafe.Add(p, fd.Offset)

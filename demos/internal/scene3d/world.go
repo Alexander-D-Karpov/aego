@@ -6,11 +6,11 @@ import (
 	"aego/core/mathx"
 	"aego/demos/internal/pipeline"
 	"aego/engine"
+	"aego/modules/render2d"
+	"aego/modules/render3d"
 	"aego/platform/input"
 	"aego/render"
 	"aego/render/texture"
-	"aego/render2d"
-	"aego/render3d"
 	"aego/scene"
 	"aego/scene/frame"
 )

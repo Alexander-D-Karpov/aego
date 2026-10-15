@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"aego/app/bootstrap"
 	"aego/engine"
-	"aego/engine/bootstrap"
 	"aego/project"
 )
 

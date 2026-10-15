@@ -41,7 +41,7 @@ func TestHashIsStableAndSensitive(t *testing.T) {
 		tb.Freeze()
 		return tb
 	}
-	if build(false).Hash() != build(false).Hash() {
+	if a, b := build(false).Hash(), build(false).Hash(); a != b {
 		t.Fatal("hash is not deterministic")
 	}
 	if build(false).Hash() == build(true).Hash() {
@@ -69,12 +69,19 @@ func TestComponentIndexNotInHash(t *testing.T) {
 
 func TestRegistrationGuards(t *testing.T) {
 	tb := NewTable()
-	// Structs and slices cannot cross the host boundary.
-	if tb.AddFunc("m", "Bad", Sig(T(Void), StructOf("game.Stats"))) == nil {
-		t.Error("struct param must be rejected")
-	}
+	mustAdd(t, tb.AddFunc("m", "Struct", Sig(StructOf("m.Hit"), StructOf("m.Hit"))))
+	mustAdd(t, tb.AddFunc("m", "Fill", Sig(T(Int), SliceOf(StructOf("m.Hit")))))
 	if tb.AddFunc("m", "BadSlice", Sig(SliceOf(T(Int)))) == nil {
 		t.Error("slice result must be rejected")
+	}
+	if tb.AddFunc("m", "BadElem", Sig(T(Void), SliceOf(T(String)))) == nil {
+		t.Error("slice of heap values must be rejected")
+	}
+	if tb.AddStruct(&StructDef{Module: "m", Name: "Bad", Slots: 1, Fields: []StructField{{Name: "S", Type: T(String)}}}) == nil {
+		t.Error("struct with a heap field must be rejected")
+	}
+	if tb.AddEvent(EventDef{Name: "hit"}) == nil {
+		t.Error("unexported event must be rejected")
 	}
 	// Strings are allowed.
 	mustAdd(t, tb.AddFunc("m", "Ok", Sig(T(String), T(String))))

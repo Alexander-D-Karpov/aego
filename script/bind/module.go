@@ -13,6 +13,7 @@ type Module struct {
 	path   string
 	recv   abi.Kind
 	method bool
+	comp   string
 }
 
 func (m *Module) Path() string {
@@ -34,13 +35,25 @@ func (m *Module) valid(name string, errs ...error) bool {
 }
 
 func (m *Module) add(name string, params []abi.TypeRef, result abi.TypeRef, fn vm.HostFunc, opts []Option) {
+	m.addFunc(name, params, result, fn, opts, 0)
+}
+
+func (m *Module) addRecv(name string, params []abi.TypeRef, result abi.TypeRef, fn vm.HostFunc, opts []Option) {
+	m.addFunc(name, params, result, fn, opts, 1)
+}
+
+func (m *Module) addFunc(name string, params []abi.TypeRef, result abi.TypeRef, fn vm.HostFunc, opts []Option, recv int) {
 	r := m.reg
-	sig := abi.Signature{Params: params, Result: result}
-	visible := len(params)
+	visible := len(params) - recv
 	var err error
 	switch {
+	case m.comp != "" && (recv == 0 || len(params) == 0 || params[0].Kind != abi.NodeRef):
+		err = fmt.Errorf("component method needs the %s component as its receiver", m.comp)
+	case m.comp != "":
+		params = append([]abi.TypeRef{abi.ComponentOf(m.comp)}, params[1:]...)
+		err = r.table.AddComponentMethod(m.comp, name, abi.Signature{Params: params[1:], Result: result})
 	case !m.method:
-		err = r.table.AddFunc(m.path, name, sig)
+		err = r.table.AddFunc(m.path, name, abi.Signature{Params: params, Result: result})
 	case len(params) == 0 || params[0].Kind != m.recv:
 		err = fmt.Errorf("method needs a %s receiver as its first parameter", m.recv)
 	default:
@@ -50,7 +63,7 @@ func (m *Module) add(name string, params []abi.TypeRef, result abi.TypeRef, fn v
 	if !m.valid(name, err) {
 		return
 	}
-	r.hosts[key(m.path, name)] = host{sig: sig, fn: fn}
+	r.hosts[key(m.path, name)] = host{sig: abi.Signature{Params: params, Result: result}, fn: fn}
 	m.valid(name, r.describe(m.path, name, opts, visible))
 }
 

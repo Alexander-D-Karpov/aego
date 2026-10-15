@@ -8,7 +8,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/ui/core"
@@ -24,7 +24,7 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod   *rendermodule.Module
+	mod   *renderhost.Module
 	scene *scene.Scene
 	pipe  *pipeline.Pipeline
 	panel *scenedebug.Panel
@@ -41,9 +41,9 @@ func (d *Demo) Name() string {
 	return "scene-load"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 16384})
+		d.mod = renderhost.New(render.Options{MaxSprites: 16384})
 	}
 	return d.mod
 }

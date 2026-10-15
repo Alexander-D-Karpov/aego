@@ -1,0 +1,60 @@
+prefab version=1 {
+  node "e1000000000000000000000000000001" name="Enemy" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#e0563bff
+      origin=[0.5, 0.5]
+      size=[0.9, 0.9]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=true
+      bullet=false
+      allowSleep=false
+      interpolate=false
+      layer=3
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0
+      restitution=0
+      density=1
+      size=[0.9, 0.9]
+    }
+    component "physics.PolygonCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=true
+      friction=0.6
+      restitution=0
+      density=0
+      points=[[-0.35, -0.85], [0.35, -0.85], [0.35, -0.65], [-0.35, -0.65]]
+    }
+    component "engine.Script" version=1 {
+      script "mygame.enemy.EnemyAI" enabled=true {
+        PointA=node("00000000000000000000000000000000")
+        PointB=node("00000000000000000000000000000000")
+        Target=node("00000000000000000000000000000000")
+        Speed=2.5
+        Cooldown=1
+      }
+    }
+  }
+}

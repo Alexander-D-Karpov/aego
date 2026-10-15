@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"aego/engine"
-	"aego/engine/builtin"
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"aego/scene"
+	"aego/scene/frame"
 	"aego/scene/scriptcomp"
+	"aego/schema"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
 	"aego/script/diag"
@@ -191,7 +193,11 @@ func TestBrokenPlanKeepsGeneration(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "scripts", "demo", "demo.aes")
 	write(t, file, v1)
-	m, err := builtin.Manifest()
+	types, reg, err := prepare()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := manifest.FromRegistry(reg, types.Schema())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,13 +219,14 @@ func TestBrokenPlanKeepsGeneration(t *testing.T) {
 }
 
 func prepare() (*scene.Types, *bind.Registry, error) {
-	types, err := builtin.NewTypes()
-	if err != nil {
+	types := scene.NewTypes(schema.NewRegistry())
+	if err := frame.RegisterTypes(types); err != nil {
+		return nil, nil, err
+	}
+	if err := scriptcomp.Register(types); err != nil {
 		return nil, nil, err
 	}
 	reg := bind.NewManifest()
-	if _, err := builtin.Load(types, reg, stdlib.Options{Seed: 1, Testing: true}); err != nil {
-		return nil, nil, err
-	}
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1, Testing: true})
 	return types, reg, nil
 }

@@ -19,7 +19,7 @@ import (
 	"aego/engine/res"
 	"aego/gpu"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/text"
 	"aego/render/texture"
@@ -43,7 +43,7 @@ type testCase struct {
 
 func TestGolden(t *testing.T) {
 	runtime.LockOSThread()
-	mod := rendermodule.New(render.Options{MaxSprites: 4096})
+	mod := renderhost.New(render.Options{MaxSprites: 4096})
 	e, err := engine.NewBuilder(engine.Config{
 		Title:    "golden",
 		Width:    size,

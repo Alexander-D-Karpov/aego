@@ -8,7 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"aego/engine/builtin"
+	scriptstdlib "aego/modules/scripting/stdlib"
+	"aego/scene"
+	"aego/scene/frame"
+	"aego/scene/scriptcomp"
+	"aego/schema"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
 	"aego/script/source"
@@ -70,14 +74,18 @@ func setup(t *testing.T, extra ...func(*bind.Registry)) (*Service, *workspace.Wo
 			t.Fatal(err)
 		}
 	}
-	types, err := builtin.NewTypes()
-	if err != nil {
+	types := scene.NewTypes(schema.NewRegistry())
+	if err := frame.RegisterTypes(types); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerMarker(types); err != nil {
+		t.Fatal(err)
+	}
+	if err := scriptcomp.Register(types); err != nil {
 		t.Fatal(err)
 	}
 	r := bind.NewManifest()
-	if _, err := builtin.Load(types, r, stdlib.Options{Seed: 1, Testing: true}); err != nil {
-		t.Fatal(err)
-	}
+	scriptstdlib.Install(r, stdlib.Options{Seed: 1, Testing: true})
 	bind.Proc2(r.Module("game/combat"), "Damage", func(*bind.Ctx, int64, float32) {}, bind.Doc("deals damage"))
 	for _, fn := range extra {
 		fn(r)
@@ -86,7 +94,7 @@ func setup(t *testing.T, extra ...func(*bind.Registry)) (*Service, *workspace.Wo
 	if err != nil {
 		t.Fatal(err)
 	}
-	kw, err := os.ReadFile("../../engine/docs/testdata/keywords.golden.json")
+	kw, err := os.ReadFile("../../tests/docs/testdata/keywords.golden.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +160,7 @@ func TestCompletionContexts(t *testing.T) {
 	}{
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := math.|", 1), []string{"Clamp", "Pi"}},
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := node.|", 1), []string{"Position", "Get", "Has"}},
-		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := node.Get<|", 1), []string{"SpriteRenderer"}},
+		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := node.Get<|", 1), []string{"Marker"}},
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := spe|", 1), []string{"Speed"}},
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tcombat.|", 1), []string{"Damage"}},
 		{strings.Replace(scriptTmpl, "\t@export\n", "\t@|\n", 1), []string{"export", "former", "hide"}},
@@ -297,7 +305,7 @@ func TestStubs(t *testing.T) {
 		t.Fatalf("Clamp line = %q", line)
 	}
 	comps, ok := s.Stub(StubPath(StubComponents))
-	if !ok || !strings.Contains(comps.Text, "component engine.SpriteRenderer {") {
+	if !ok || !strings.Contains(comps.Text, "component test.Marker {") {
 		t.Fatal("components stub")
 	}
 	if _, ok := s.Stub(StubPath("nope/x")); ok {

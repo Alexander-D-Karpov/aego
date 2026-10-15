@@ -8,4 +8,7 @@ exports/
 /depcheck
 tools/genicons/genicons
 /site/
+/aego
+/aego-editor
+/aego-playground
 *.test

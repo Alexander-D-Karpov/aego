@@ -134,6 +134,25 @@ func (r *Runner) Views() []view.View {
 	return r.views
 }
 
+func (r *Runner) ScreenToWorld(px mathx.Vec2) (mathx.Vec2, bool) {
+	best, inside := -1, false
+	for i := range r.views {
+		v := &r.views[i]
+		if v.Is3D() {
+			continue
+		}
+		in := v.LetterboxViewport().Contains(px)
+		if best >= 0 && ((inside && !in) || (in == inside && r.order[i] < r.order[best])) {
+			continue
+		}
+		best, inside = i, in
+	}
+	if best < 0 {
+		return mathx.Vec2{}, false
+	}
+	return r.views[best].ScreenToWorld(px), inside
+}
+
 func (r *Runner) Bucket(i int) *Bucket {
 	return &r.buckets[i]
 }

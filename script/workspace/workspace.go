@@ -164,8 +164,7 @@ func (w *Workspace) Root() string {
 	return w.cfg.Root
 }
 
-// Version is the current edit generation; it advances on every mutation and
-// matches the Gen of the snapshot produced for that state.
+// Version is the edit generation, matching the Gen of its snapshot.
 func (w *Workspace) Version() uint64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()

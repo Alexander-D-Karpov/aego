@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"aego/app/bootstrap"
 	"aego/app/run"
 	"aego/core/log"
-	"aego/engine/bootstrap"
 	"aego/project"
 )
 

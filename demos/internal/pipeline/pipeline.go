@@ -1,21 +1,21 @@
 package pipeline
 
 import (
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/engine"
-	"aego/engine/builtin"
 	"aego/engine/module"
 	"aego/render"
 	"aego/scene"
 	"aego/scene/frame"
-	"aego/script/stdlib"
 )
 
 func Types() (*scene.Types, *module.Manifest, error) {
-	t, err := builtin.NewTypes()
+	t, err := assembly.NewTypes()
 	if err != nil {
 		return nil, nil, err
 	}
-	man, err := builtin.Load(t, nil, stdlib.Options{})
+	man, err := builtin.Default().Load(t, nil, assembly.Options{})
 	if err != nil {
 		return nil, nil, err
 	}

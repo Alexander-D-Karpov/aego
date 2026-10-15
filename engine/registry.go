@@ -6,6 +6,7 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/core/rng"
+	"aego/core/trace"
 )
 
 type ModuleInfo struct {
@@ -18,8 +19,7 @@ type Module interface {
 	Register(*Registry) error
 }
 
-// ModuleIniter is an optional Module interface. Init runs during Build once the
-// platform, window and device exist, in Use order, after the registry is frozen.
+// ModuleIniter is optional; Init runs in Build after the registry is frozen, in Use order.
 type ModuleIniter interface {
 	Init(*Engine) error
 }
@@ -91,6 +91,8 @@ type SystemDesc struct {
 type scopedSystem struct {
 	sys   System
 	scope SystemScope
+	id    string
+	zone  trace.ZoneID
 }
 
 type SystemRegistry struct {
@@ -122,6 +124,14 @@ func (s *SystemRegistry) Register(d SystemDesc) error {
 	return nil
 }
 
+func (s *SystemRegistry) IDs() []string {
+	out := make([]string, len(s.descs))
+	for i, d := range s.descs {
+		out[i] = d.ID
+	}
+	return out
+}
+
 func (s *SystemRegistry) ScopeOf(id string) (SystemScope, bool) {
 	i, ok := s.index[id]
 	if !ok {
@@ -142,7 +152,7 @@ func (s *SystemRegistry) freeze() error {
 		}
 		for _, di := range sorted {
 			d := &s.descs[di]
-			s.phases[p] = append(s.phases[p], scopedSystem{sys: d.System, scope: d.Scope})
+			s.phases[p] = append(s.phases[p], scopedSystem{sys: d.System, scope: d.Scope, id: d.ID})
 			s.order[p] = append(s.order[p], d.ID)
 		}
 	}

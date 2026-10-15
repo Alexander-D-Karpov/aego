@@ -3,7 +3,7 @@ package player
 import (
 	"aego/input"
 	"aego/log"
-	"aego/math"
+	"aego/physics"
 	"mygame/enemy"
 	"mygame/shared"
 )
@@ -18,8 +18,8 @@ script PlayerController {
 	@export(min=0, max=20, unit="u/s")
 	var Speed float = 7
 
-	@export(min=0, max=30, unit="u/s")
-	var JumpSpeed float = 11
+	@export(gizmo="vector")
+	var JumpImpulse Vec2 = Vec2{0, -5}
 
 	@export(display="Hit Tint")
 	var HitTint Color
@@ -30,7 +30,8 @@ script PlayerController {
 	@export
 	var EnemyB NodeRef
 
-	var vy float
+	var ground int
+	var jumpWait float
 	var state State
 	var base Color
 	var lastHits int
@@ -61,6 +62,25 @@ script PlayerController {
 	func OnEnemyDied() {
 		kills++
 		log.Info("kills=" + string(kills))
+		body := node.Get<Body2D>()
+		if body == nil {
+			return
+		}
+		v := body.Velocity
+		body.SetVelocity(Vec2{v.X, 0})
+		body.ApplyImpulse(JumpImpulse * 0.6)
+	}
+
+	func OnCollisionEnter(other NodeRef, c physics.Contact) {
+		if shared.IsFloor(c.Normal) {
+			ground++
+		}
+	}
+
+	func OnCollisionExit(other NodeRef, c physics.Contact) {
+		if shared.IsFloor(c.Normal) && ground > 0 {
+			ground--
+		}
 	}
 
 	func Blink() coroutine {
@@ -90,21 +110,23 @@ script PlayerController {
 	}
 
 	func FixedUpdate(dt float) {
-		p := node.Position()
+		body := node.Get<Body2D>()
+		if body == nil {
+			return
+		}
+		if jumpWait > 0 {
+			jumpWait -= dt
+		}
 		x := input.Axis("horizontal")
-		p.X += x * Speed * dt
-		if p.Y >= shared.GroundY && input.Down(input.KeySpace) {
-			vy = -JumpSpeed
+		v := body.Velocity
+		v.X = x * Speed
+		body.SetVelocity(v)
+		if ground > 0 && jumpWait <= 0 && input.Down(input.KeySpace) {
+			body.SetVelocity(Vec2{v.X, 0})
+			body.ApplyImpulse(JumpImpulse)
+			jumpWait = 0.25
 		}
-		vy += shared.Gravity * dt
-		p.Y += vy * dt
-		if p.Y >= shared.GroundY {
-			p.Y = shared.GroundY
-			vy = 0
-		}
-		p.X = math.Clamp(p.X, -14, 14)
-		node.SetPosition(p)
-		if p.Y < shared.GroundY {
+		if ground == 0 {
 			state = State.Air
 		} else if x != 0 {
 			state = State.Run

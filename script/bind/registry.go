@@ -17,23 +17,25 @@ type host struct {
 }
 
 type Registry struct {
-	table  *abi.Table
-	hosts  map[string]host
-	mods   map[string]*Module
-	enums  map[reflect.Type]string
-	docs   map[string]Info
-	errs   []error
-	frozen bool
-	locate bool
+	table   *abi.Table
+	hosts   map[string]host
+	mods    map[string]*Module
+	enums   map[reflect.Type]string
+	structs map[reflect.Type]*StructDesc
+	docs    map[string]Info
+	errs    []error
+	frozen  bool
+	locate  bool
 }
 
 func New() *Registry {
 	return &Registry{
-		table: abi.NewTable(),
-		hosts: map[string]host{},
-		mods:  map[string]*Module{},
-		enums: map[reflect.Type]string{},
-		docs:  map[string]Info{},
+		table:   abi.NewTable(),
+		hosts:   map[string]host{},
+		mods:    map[string]*Module{},
+		enums:   map[reflect.Type]string{},
+		structs: map[reflect.Type]*StructDesc{},
+		docs:    map[string]Info{},
 	}
 }
 
@@ -71,6 +73,16 @@ func (r *Registry) Methods(recv abi.Kind) *Module {
 		return m
 	}
 	m := &Module{reg: r, path: path, recv: recv, method: true}
+	r.mods[path] = m
+	return m
+}
+
+func (r *Registry) ComponentMethods(comp string) *Module {
+	path := "#" + comp
+	if m, ok := r.mods[path]; ok {
+		return m
+	}
+	m := &Module{reg: r, path: path, comp: comp}
 	r.mods[path] = m
 	return m
 }

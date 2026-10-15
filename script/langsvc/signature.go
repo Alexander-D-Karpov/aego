@@ -209,6 +209,10 @@ func resolveCallee(snap *workspace.Snapshot, file source.FileID, qual, name stri
 			return hostSignature("func ("+recv.String()+") "+name, sig, me.Params, me.Doc, me.Example), true
 		}
 	}
+	if comp, sig, ok := uniqueCompMethod(snap, name); ok {
+		me := compMethodDoc(snap.Docs, comp.Name, name)
+		return hostSignature("func ("+comp.Short+") "+name, sig, me.Params, me.Doc, me.Example), true
+	}
 	return Signature{}, false
 }
 
@@ -243,6 +247,8 @@ func (s *Service) HintsIn(snap *workspace.Snapshot, file source.FileID) []Hint {
 			names = funcDoc(snap.Docs, k.Module, k.Name).Params
 		case checker.CallHostMethod:
 			names = methodDoc(snap.Docs, types.ToABI(a.TypeOf(k.Recv)).Kind, k.Name).Params
+		case checker.CallComponentMethod:
+			names = compMethodDoc(snap.Docs, k.Component.Name, k.Name).Params
 		}
 		for i, arg := range call.Args {
 			if i >= len(names) || names[i] == "" {

@@ -8,6 +8,7 @@ func extraPlaceholders() map[string]string {
 		"view.split":     doc(rect(3, 4, 18, 16, false), rect(5, 6, 6, 12, true), rect(13, 6, 6, 12, true)),
 		"view.minimap":   doc(rect(3, 4, 18, 16, false), rect(5, 6, 9, 12, true), rect(15.5, 6, 3.5, 4, true)),
 		"view.dock":      doc(rect(3, 4, 18, 16, false), rect(5, 10, 14, 8, true)),
+		"view.vectors":   doc(bar(4.5, 19.5, 14.5, 9.5, 2.6), poly(false, 20, 4, 18, 14, 10, 6)),
 		"panel.problems": warn,
 		"status.warning": warn,
 		"help.book":      doc(poly(false, 3, 5, 11, 6.5, 11, 20, 3, 18.5), poly(false, 13, 6.5, 21, 5, 21, 18.5, 13, 20)),

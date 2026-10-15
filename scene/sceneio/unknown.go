@@ -18,7 +18,10 @@ type Unknown struct {
 }
 
 func RegisterUnknown(t *scene.Types) error {
-	return scene.RegisterComponent[Unknown](t,
+	if err := scene.RegisterComponent[Unknown](t,
 		schema.Name("engine.Unknown"),
-		schema.Doc("holds components whose type is not registered in this build"))
+		schema.Doc("holds components whose type is not registered in this build")); err != nil {
+		return err
+	}
+	return RegisterPrefab(t)
 }

@@ -39,7 +39,11 @@ func Module(m *bytecode.Module) []diag.Diagnostic {
 		}
 	}
 	for i, imp := range m.Imports {
-		if imp.Sig.Window() > bytecode.MaxRegisters {
+		for _, t := range imp.Sig.Params {
+			v.hostType(i, imp, t)
+		}
+		v.hostType(i, imp, imp.Sig.Result)
+		if m.Window(imp.Sig) > bytecode.MaxRegisters {
 			v.bad("import h%d %s.%s needs more than 255 registers", i, imp.Module, imp.Name)
 		}
 	}
@@ -173,6 +177,30 @@ func (v *verifier) script(si int) {
 	v.lifecycle(si, "FixedUpdate", s.FixedUpdate, 1)
 	v.lifecycle(si, "Update", s.Update, 1)
 	v.lifecycle(si, "Reloaded", s.Reloaded, 0)
+	events := map[string]bool{}
+	for _, h := range s.Events {
+		if h.Name == "" || events[h.Name] {
+			v.bad("script %s has an empty or duplicate event handler %q", s.FullName, h.Name)
+		}
+		events[h.Name] = true
+		if h.Func < 0 || int(h.Func) >= len(v.m.Functions) {
+			v.bad("script %s event %s refers to missing function %d", s.FullName, h.Name, h.Func)
+			continue
+		}
+		f := &v.m.Functions[h.Func]
+		if f.Script != int32(si) || f.Results != 0 || f.Coroutine {
+			v.bad("script %s event %s refers to %s with the wrong owner, result or kind", s.FullName, h.Name, f.Name)
+		}
+	}
+}
+
+func (v *verifier) hostType(i int, imp bytecode.HostImport, t abi.TypeRef) {
+	if t.Kind == abi.Slice && t.Elem != nil {
+		t = *t.Elem
+	}
+	if t.Kind == abi.Struct && v.m.Struct(t.Name) == nil {
+		v.bad("import h%d %s.%s uses struct %s, which has no layout in the module", i, imp.Module, imp.Name, t.Name)
+	}
 }
 
 func (v *verifier) lifecycle(si int, name string, idx int32, params uint8) {
@@ -360,7 +388,7 @@ func (v *verifier) special(f *bytecode.Function, pc int, in bytecode.Instr, bad 
 		}
 	case bytecode.CALLH:
 		if bx < len(m.Imports) {
-			window(a, m.Imports[bx].Sig.Window())
+			window(a, m.Window(m.Imports[bx].Sig))
 		}
 	case bytecode.START:
 		if bx < len(m.Functions) {

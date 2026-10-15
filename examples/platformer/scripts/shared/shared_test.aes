@@ -2,12 +2,14 @@ package shared
 
 import "aego/testing"
 
-func TestApproach() {
-	testing.EqualFloat(Approach(0, 1, 0.25), 0.25, 0.0001)
-	testing.EqualFloat(Approach(1, 0, 2), 0, 0)
-	testing.EqualFloat(Approach(5, 5, 1), 5, 0)
+func TestIsFloor() {
+	testing.True(IsFloor(Vec2{0, -1}), "a normal pointing up is a floor")
+	testing.False(IsFloor(Vec2{1, 0}), "a wall is not a floor")
+	testing.False(IsFloor(Vec2{0, 1}), "a ceiling is not a floor")
 }
 
-func TestGround() {
-	testing.True(GroundY > 0, "ground must be below the origin")
+func TestToward() {
+	testing.EqualFloat(Toward(0, 5, 0.1), 1, 0)
+	testing.EqualFloat(Toward(5, 0, 0.1), -1, 0)
+	testing.EqualFloat(Toward(1, 1.05, 0.1), 0, 0)
 }

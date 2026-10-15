@@ -6,7 +6,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/view"
 	"aego/ui/core"
 	"aego/ui/overlay"
@@ -18,11 +18,11 @@ type Base struct {
 	Renderer *render.Renderer
 	UI       *core.Context
 	Overlay  *overlay.Stats
-	Module   *rendermodule.Module
+	Module   *renderhost.Module
 	Show     bool
 }
 
-func (b *Base) Attach(e *engine.Engine, m *rendermodule.Module) {
+func (b *Base) Attach(e *engine.Engine, m *renderhost.Module) {
 	b.Engine = e
 	b.Module = m
 	b.Renderer = m.Renderer()

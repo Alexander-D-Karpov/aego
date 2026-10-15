@@ -12,14 +12,15 @@ import (
 	"aego/app/docstool"
 	"aego/core/log"
 	"aego/core/mathx"
-	"aego/editor/context"
-	edocs "aego/editor/docs"
+	"aego/editor/core/context"
+	"aego/editor/core/services"
+	edocs "aego/editor/panels/docs"
 	"aego/engine"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render"
+	renderhost "aego/render/host"
 	"aego/render/icons"
-	rendermodule "aego/render/module"
 	"aego/render/text"
 	"aego/render/view"
 	"aego/ui/core"
@@ -37,16 +38,21 @@ type editorEnv struct {
 	r      *render.Renderer
 	ui     *core.Context
 	target gpu.TextureHandle
+	w, h   int
 }
 
 func newEditorEnv(t *testing.T) *editorEnv {
+	return newEditorEnvSize(t, editorW, editorH)
+}
+
+func newEditorEnvSize(t *testing.T, w, h int) *editorEnv {
 	t.Helper()
 	runtime.LockOSThread()
-	mod := rendermodule.New(render.Options{MaxSprites: 4096})
+	mod := renderhost.New(render.Options{MaxSprites: 65536})
 	e, err := engine.NewBuilder(engine.Config{
 		Title:    "editor-golden",
-		Width:    editorW,
-		Height:   editorH,
+		Width:    w,
+		Height:   h,
 		Hidden:   true,
 		ResRoot:  "../../demos/res",
 		UserRoot: t.TempDir(),
@@ -73,30 +79,31 @@ func newEditorEnv(t *testing.T) *editorEnv {
 	if icons, err := icons.Load(e.VFS(), r.Textures(), "engine://icons"); err == nil {
 		ui.Icons = icons
 	}
-	target, err := e.GPU().CreateTexture(gpu.TextureDesc{Width: editorW, Height: editorH, Format: gpu.TexSRGBA8, Label: "editor.golden"})
+	target, err := e.GPU().CreateTexture(gpu.TextureDesc{Width: w, Height: h, Format: gpu.TexSRGBA8, Label: "editor.golden"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &editorEnv{e: e, r: r, ui: ui, target: target}
+	return &editorEnv{e: e, r: r, ui: ui, target: target, w: w, h: h}
 }
 
 func (env *editorEnv) draw(fn func(full mathx.Rect)) (*image.NRGBA, error) {
 	ui, r, e := env.ui, env.r, env.e
-	full := mathx.Rect{W: editorW, H: editorH}
+	w, h := env.w, env.h
+	full := mathx.Rect{W: float32(w), H: float32(h)}
 	var list *draw.List
 	for i := 0; i < 2; i++ {
-		ui.Begin(&input.State{}, mathx.Vec2{X: editorW, Y: editorH}, 1)
+		ui.Begin(&input.State{}, mathx.Vec2{X: float32(w), Y: float32(h)}, 1)
 		ui.Rect(full, ui.Theme.Background)
 		ui.Region(full)
 		fn(full)
 		ui.PopCursor()
 		list = ui.End()
 	}
-	frame := e.GPU().BeginFrame(editorW, editorH)
-	if err := r.BeginFrame(frame, editorW, editorH, 1); err != nil {
+	frame := e.GPU().BeginFrame(w, h)
+	if err := r.BeginFrame(frame, w, h, 1); err != nil {
 		return nil, err
 	}
-	v := view.ScreenView(editorW, editorH, 1)
+	v := view.ScreenView(w, h, 1)
 	v.Target, v.Clear, v.DoClear, v.Label = env.target, ui.Theme.Background, true, "editor.golden"
 	f := r.View(v)
 	white := r.White()
@@ -107,11 +114,11 @@ func (env *editorEnv) draw(fn func(full mathx.Rect)) (*image.NRGBA, error) {
 	f.End()
 	r.EndFrame()
 	e.GPU().EndFrame()
-	buf := make([]byte, editorW*editorH*4)
-	if err := e.GPU().ReadPixels(env.target, 0, 0, editorW, editorH, buf); err != nil {
+	buf := make([]byte, w*h*4)
+	if err := e.GPU().ReadPixels(env.target, 0, 0, w, h, buf); err != nil {
 		return nil, err
 	}
-	return &image.NRGBA{Pix: buf, Stride: editorW * 4, Rect: image.Rect(0, 0, editorW, editorH)}, nil
+	return &image.NRGBA{Pix: buf, Stride: w * 4, Rect: image.Rect(0, 0, w, h)}, nil
 }
 
 func checkGolden(t *testing.T, name string, img *image.NRGBA, err error) {
@@ -142,9 +149,9 @@ func TestEditorGolden(t *testing.T) {
 		{"editor_docs_coroutines", "language/coroutines", "language/coroutines"},
 		{"editor_docs_yield", "key:yield", "keyword/yield"},
 	} {
-		p := edocs.New(reg)
+		p := edocs.New(reg, ctx, ctx)
 		p.Show(tc.ref, "")
-		img, err := env.draw(func(full mathx.Rect) { p.Draw(ctx, full) })
+		img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui}, full) })
 		t.Run(tc.name, func(t *testing.T) {
 			if p.Current() != tc.want {
 				t.Fatalf("panel shows %q, want %q", p.Current(), tc.want)

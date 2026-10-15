@@ -1,6 +1,9 @@
 package scenefile
 
 import (
+	"slices"
+	"strings"
+
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/errs"
@@ -10,18 +13,18 @@ import (
 )
 
 type Importer struct {
-	kind asset.ArtifactKind
-	id   string
-	ext  string
-	head string
+	kind  asset.ArtifactKind
+	id    string
+	ext   string
+	heads []string
 }
 
 func NewScene() *Importer {
-	return &Importer{kind: asset.ArtScene, id: "scene", ext: ".aescene", head: "scene"}
+	return &Importer{kind: asset.ArtScene, id: "scene", ext: ".aescene", heads: []string{"scene"}}
 }
 
 func NewPrefab() *Importer {
-	return &Importer{kind: asset.ArtPrefab, id: "prefab", ext: ".aeprefab", head: "prefab"}
+	return &Importer{kind: asset.ArtPrefab, id: "prefab", ext: ".aeprefab", heads: []string{"prefab", "scene"}}
 }
 
 func (i *Importer) ID() string {
@@ -29,7 +32,7 @@ func (i *Importer) ID() string {
 }
 
 func (i *Importer) Version() int {
-	return 1
+	return 2
 }
 
 func (i *Importer) Extensions() []string {
@@ -45,9 +48,9 @@ func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error)
 	if err != nil {
 		return nil, errs.Wrap(err, errs.AssetImportFailed, "cannot parse the document")
 	}
-	if doc.Head != i.head {
+	if !slices.Contains(i.heads, doc.Head) {
 		return nil, errs.New(errs.AssetImportFailed, "unexpected document root",
-			log.F("path", ctx.Path), log.F("head", doc.Head), log.F("want", i.head))
+			log.F("path", ctx.Path), log.F("head", doc.Head), log.F("want", strings.Join(i.heads, " or ")))
 	}
 	deps := map[ids.AssetID]bool{}
 	collectDeps(doc, deps)
@@ -55,6 +58,7 @@ func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error)
 	for id := range deps {
 		list = append(list, id)
 	}
+	slices.SortFunc(list, func(a, b ids.AssetID) int { return strings.Compare(a.String(), b.String()) })
 	return &pipeline.Result{
 		Kind:      i.kind,
 		Deps:      list,

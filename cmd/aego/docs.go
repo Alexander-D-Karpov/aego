@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"aego/app/bootstrap"
 	"aego/app/docstool"
 	"aego/app/projects"
-	"aego/engine/bootstrap"
 	"aego/project"
 )
 

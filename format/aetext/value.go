@@ -171,3 +171,42 @@ func (n *Node) EachBlock(head string, fn func(*Node)) {
 		}
 	}
 }
+
+func (v Value) Clone() Value {
+	out := v
+	if v.List != nil {
+		out.List = make([]Value, len(v.List))
+		for i := range v.List {
+			out.List[i] = v.List[i].Clone()
+		}
+	}
+	out.Obj = cloneFields(v.Obj)
+	return out
+}
+
+func cloneFields(fs []Field) []Field {
+	if fs == nil {
+		return nil
+	}
+	out := make([]Field, len(fs))
+	for i, f := range fs {
+		out[i] = Field{Name: f.Name, Value: f.Value.Clone(), Pos: f.Pos}
+	}
+	return out
+}
+
+func (n *Node) Clone() *Node {
+	if n == nil {
+		return nil
+	}
+	out := *n
+	out.Attrs = cloneFields(n.Attrs)
+	out.Fields = cloneFields(n.Fields)
+	if n.Blocks != nil {
+		out.Blocks = make([]*Node, len(n.Blocks))
+		for i, b := range n.Blocks {
+			out.Blocks[i] = b.Clone()
+		}
+	}
+	return &out
+}
