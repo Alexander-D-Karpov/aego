@@ -100,7 +100,7 @@ case "$GOOS" in
     ;;
 esac
 
-cmake -S "$WORK/src" -B "$WORK/build" "${GENERATOR[@]}" "${CMAKE_ARGS[@]}"
+cmake -S "$WORK/src" -B "$WORK/build" ${GENERATOR[@]+"${GENERATOR[@]}"} "${CMAKE_ARGS[@]}"
 cmake --build "$WORK/build" --config Release --parallel
 rm -rf "$PREFIX"
 cmake --install "$WORK/build" --prefix "$PREFIX" --config Release

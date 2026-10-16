@@ -13,6 +13,7 @@ func main() {
 	out := flag.String("out", "site", "output directory")
 	title := flag.String("title", "", "site title, defaults to the export title")
 	play := flag.Bool("playground", false, "add Run buttons that load play/aego.wasm")
+	repo := flag.String("repo", "", "source repository linked from the header")
 	flag.Parse()
 	if *in == "" {
 		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground]")
@@ -26,7 +27,7 @@ func main() {
 	if *title != "" {
 		exp.Title = *title
 	}
-	rep, err := site.Build(exp, *out, site.Options{Playground: *play})
+	rep, err := site.Build(exp, *out, site.Options{Playground: *play, Repo: *repo})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)
 		os.Exit(1)

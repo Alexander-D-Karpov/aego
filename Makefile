@@ -6,6 +6,7 @@ STAMP := $(NATIVE)/.sdl-$(SDL_VERSION)
 SMOKE_FRAMES ?= 600
 DEMO ?= basic
 UI_FONT ?= $(CURDIR)/third_party/fonts/Inter-Regular.ttf
+DOCS_REPO ?= https://git.akarpov.ru/sanspie/aego
 FUZZTIME ?= 15s
 STATICCHECK_VERSION ?= v0.8.2
 # Benchmarks run pinned to one CPU.
@@ -164,7 +165,7 @@ bench-profile:
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
 site: cli
-	.cache/bin/aego docs build --out site
+	.cache/bin/aego docs build --out site --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
@@ -175,7 +176,7 @@ playground:
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
-	.cache/bin/aego-docs docs build --out site --engine $(CURDIR)
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi

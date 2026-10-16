@@ -63,6 +63,7 @@ func cmdDocs(args []string) int {
 	addr := fs.String("addr", "127.0.0.1:6060", "listen address for serve")
 	play := fs.Bool("playground", true, "build the playground and Run buttons")
 	engineDir := fs.String("engine", "", "path to the aego source tree")
+	repo := fs.String("repo", "", "source repository linked from the site header")
 	dir := fs.String("project", "", "project directory")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -71,6 +72,7 @@ func cmdDocs(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
+	env.Repo = *repo
 	site := func(def string) string {
 		if *out != "" {
 			return *out

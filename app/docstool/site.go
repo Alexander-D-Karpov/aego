@@ -27,6 +27,7 @@ type Env struct {
 	Native  func(args ...string) error
 	Stdout  io.Writer
 	Stderr  io.Writer
+	Repo    string
 }
 
 func (e *Env) export(path string) error {
@@ -103,6 +104,9 @@ func (e *Env) Build(out string, play bool) error {
 	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs}
 	if play {
 		args = append(args, "-playground")
+	}
+	if e.Repo != "" {
+		args = append(args, "-repo", e.Repo)
 	}
 	if err := e.goCmd(filepath.Join(e.Engine, "tools", "gendocs"), nil, args...); err != nil {
 		return fmt.Errorf("gendocs failed: %w", err)

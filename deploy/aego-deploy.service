@@ -1,0 +1,6 @@
+[Unit]
+Description=Deploy the aego site when master passes CI on git.akarpov.ru
+
+[Service]
+Type=oneshot
+ExecStart=%h/aego/deploy/watch.sh

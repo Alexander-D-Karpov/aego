@@ -71,7 +71,9 @@ a:hover { text-decoration: underline; }
 #results li a { display: block; padding: 4px 12px; color: var(--text); }
 #results li.active a, #results li a:hover { background: var(--bg); text-decoration: none; }
 #results .summary { display: block; color: var(--dim); font-size: 13px; }
-.play { margin-left: auto; }
+.links { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.repo { display: flex; color: var(--dim); }
+.repo:hover { color: var(--text); }
 
 .shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); }
 .side {
