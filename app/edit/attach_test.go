@@ -24,10 +24,13 @@ func (tracker) Register(*sdk.Registry) error {
 	return nil
 }
 
-func (t tracker) Attach(ctx *sdk.AttachContext) (func(), error) {
-	s := ctx.Scene
-	*t.log = append(*t.log, step{"attach", s})
-	return func() { *t.log = append(*t.log, step{"detach", s}) }, nil
+func (t tracker) AttachWorld(ctx *sdk.AttachContext) error {
+	*t.log = append(*t.log, step{"attach", ctx.Scene})
+	return nil
+}
+
+func (t tracker) DetachWorld(ctx *sdk.AttachContext) {
+	*t.log = append(*t.log, step{"detach", ctx.Scene})
 }
 
 func TestModulesAttachPerDocument(t *testing.T) {

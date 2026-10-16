@@ -154,9 +154,7 @@ func Resolve(sm *source.Manager, files map[string][]*ast.File, surface abi.Surfa
 		paths = append(paths, p)
 	}
 	sort.Strings(paths)
-	// Object order (and thus script field order, function indices and golden
-	// dumps) follows file order within a package, so sort files by path here
-	// rather than trusting the importer to pre-sort them.
+	// Object order follows file order, so sort files by path.
 	for _, fs := range files {
 		sort.Slice(fs, func(i, j int) bool { return sm.Path(fs[i].ID) < sm.Path(fs[j].ID) })
 	}
@@ -303,9 +301,7 @@ func (r *resolver) order(paths []string) {
 				}
 				chain := append(append([]string(nil), stack[start:]...), d)
 				r.errorf(diag.ImportCycle, pkg.importAt[d], "import cycle: %s", strings.Join(chain, " → "))
-				// Mark the whole cycle so the checker skips their bodies: a
-				// package whose deps are not fully collected would otherwise
-				// cascade undefined/nil-type errors on top of the cycle.
+				// Mark the whole cycle so the checker skips its bodies.
 				for _, cp := range chain {
 					if pk := r.tab.Packages[cp]; pk != nil {
 						pk.Cyclic = true

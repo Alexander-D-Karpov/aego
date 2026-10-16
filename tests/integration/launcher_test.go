@@ -7,7 +7,7 @@ import (
 
 	"aego/app/edit"
 	"aego/core/log"
-	"aego/editor/launcher"
+	"aego/editor/shell/launcher"
 	"aego/project"
 )
 

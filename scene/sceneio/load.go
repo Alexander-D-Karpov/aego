@@ -17,6 +17,7 @@ const FormatVersion = 1
 type LoadOptions struct {
 	Strict  bool
 	KeepIDs bool
+	Prefabs *Library
 }
 
 type Diag struct {
@@ -37,6 +38,7 @@ type Report struct {
 	Warnings   []Diag
 	Unknown    []string
 	Unresolved []Unresolved
+	Missing    []MissingPrefab
 }
 
 func (r *Report) warn(path string, pos aetext.Pos, msg string) {
@@ -47,6 +49,7 @@ type loader struct {
 	scene    *scene.Scene
 	reg      *schema.Registry
 	res      asset.Resolver
+	lib      *Library
 	opt      LoadOptions
 	report   *Report
 	name     string
@@ -80,10 +83,15 @@ func LoadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, 
 
 func loadInto(s *scene.Scene, parent scene.NodeHandle, src []byte, name string, opt LoadOptions, whole bool) ([]scene.NodeHandle, *Report, error) {
 	report := &Report{}
+	lib := opt.Prefabs
+	if lib == nil {
+		lib = NewLibrary(s.Registry(), s.Resolver())
+	}
 	l := &loader{
 		scene:   s,
 		reg:     s.Registry(),
 		res:     s.Resolver(),
+		lib:     lib,
 		opt:     opt,
 		report:  report,
 		name:    name,
@@ -147,6 +155,9 @@ func parseDocument(src []byte, name string, report *Report) (*aetext.Node, error
 }
 
 func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
+	if _, ok := n.Attr("prefab"); ok {
+		return l.loadInstance(n, parent)
+	}
 	var id, fileID ids.NodeID
 	if n.Label != "" {
 		parsed, err := ids.ParseNodeID(n.Label)
@@ -195,6 +206,13 @@ func (l *loader) loadNode(n *aetext.Node, parent scene.NodeHandle) error {
 	}
 	if v, ok := n.Attr("layers"); ok {
 		l.scene.SetLayers(h, uint64(v.AsInt()))
+	}
+	if v, ok := n.Attr("instanceOf"); ok {
+		if aid, err := ids.ParseAssetID(v.Str); err == nil {
+			if pi, ok := addInstance(l.scene, h); ok {
+				pi.Prefab, pi.Nested = aid, true
+			}
+		}
 	}
 
 	for _, block := range n.Blocks {
@@ -247,7 +265,7 @@ func readTransform3D(n *aetext.Node) scene.Transform3D {
 	}
 	if v, ok := n.Field("rotation"); ok {
 		q := readVec4(v, mathx.Vec4{W: 1})
-		t.Rotation = mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}
+		t.Rotation = mathx.Quat(q)
 	}
 	if v, ok := n.Field("scale"); ok {
 		t.Scale = readVec3(v, t.Scale)
@@ -302,6 +320,9 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 	p, err := l.scene.AddByType(h, td.ID)
 	if err != nil {
 		return err
+	}
+	if td.Default != nil && td.Copy != nil {
+		td.Copy(p, td.Default())
 	}
 	for _, f := range n.Fields {
 		fd, ok := td.Field(f.Name)
@@ -372,7 +393,7 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Val
 		return schema.Vec4(readVec4(v, mathx.Vec4{})), nil
 	case schema.KindQuat:
 		q := readVec4(v, mathx.Vec4{W: 1})
-		return schema.Quat(mathx.Quat{X: q.X, Y: q.Y, Z: q.Z, W: q.W}), nil
+		return schema.Quat(mathx.Quat(q)), nil
 	case schema.KindColor:
 		return schema.Color(unpackColor(v.Color)), nil
 	case schema.KindRect:

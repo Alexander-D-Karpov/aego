@@ -9,7 +9,7 @@ import (
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/texture"
 	"aego/ui/core"
@@ -29,7 +29,7 @@ type Demo struct {
 	bounds   bool
 	nearestS gpu.SamplerHandle
 	linearS  gpu.SamplerHandle
-	mod      *rendermodule.Module
+	mod      *renderhost.Module
 }
 
 func New() *Demo {
@@ -40,9 +40,9 @@ func (d *Demo) Name() string {
 	return "sprites"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 4096})
+		d.mod = renderhost.New(render.Options{MaxSprites: 4096})
 	}
 	return d.mod
 }

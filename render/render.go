@@ -7,6 +7,7 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/core/trace"
 	"aego/gpu"
 	"aego/render/debug"
 	"aego/render/gpuprof"
@@ -122,6 +123,8 @@ type Renderer struct {
 	warned         bool
 	uiFont         *text.Font
 	depthSeen      []gpu.TextureHandle
+	tracer         *trace.Tracer
+	passZone       []trace.ZoneID
 }
 
 func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, opt Options) (*Renderer, error) {
@@ -339,6 +342,10 @@ func (r *Renderer) Sampler(d gpu.SamplerDesc) gpu.SamplerHandle {
 	return h
 }
 
+func (r *Renderer) SetTracer(t *trace.Tracer) {
+	r.tracer = t
+}
+
 func (r *Renderer) AddPass(d PassDesc) error {
 	if r.frozen {
 		return errs.New(errs.EngineFrozen, "render passes are frozen after the first frame", log.F("pass", d.ID))
@@ -354,6 +361,10 @@ func (r *Renderer) BeginFrame(f gpu.Frame, pixelW, pixelH int, pixelScale float3
 			return err
 		}
 		r.order = order
+		r.passZone = make([]trace.ZoneID, len(order))
+		for i, d := range order {
+			r.passZone[i] = r.tracer.Zone("render." + d.ID)
+		}
 		r.frozen = true
 	}
 	r.frame = f

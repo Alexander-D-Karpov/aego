@@ -46,6 +46,12 @@ func fieldABI(fd *schema.FieldDescriptor) (abi.TypeRef, bool) {
 			kind = "texture"
 		}
 		return abi.AssetOf(kind), true
+	case schema.KindList:
+		switch fd.Elem {
+		case schema.KindVec2, schema.KindFloat32, schema.KindInt32, schema.KindInt64, schema.KindBool:
+			e, _ := fieldABI(&schema.FieldDescriptor{Kind: fd.Elem})
+			return abi.SliceOf(e), true
+		}
 	}
 	return abi.TypeRef{}, false
 }
@@ -93,7 +99,8 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 		c := &abi.Component{Name: td.FullName}
 		for _, fd := range fields {
 			t, _ := fieldABI(fd)
-			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: fd.Flags.Has(schema.FlagReadOnly)})
+			ro := fd.Flags.Has(schema.FlagReadOnly) || fd.Kind == schema.KindList
+			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: ro})
 		}
 		reg.Component(c)
 		idx, tid := uint64(c.Index), td.ID

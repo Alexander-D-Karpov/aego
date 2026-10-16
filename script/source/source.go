@@ -58,8 +58,7 @@ func NewManager() *Manager {
 	return &Manager{byPath: map[string]FileID{}, interner: NewInterner()}
 }
 
-// Interner returns the project-wide identifier interner. Pass it to lexer.New
-// so names are deduplicated across every file in the project.
+// Interner returns the project-wide identifier interner for lexer.New.
 func (m *Manager) Interner() *Interner {
 	return m.interner
 }

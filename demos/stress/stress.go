@@ -8,7 +8,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/texture"
 	"aego/ui/core"
@@ -30,7 +30,7 @@ type Demo struct {
 	draws  []sprite.Draw
 	time   float32
 	spin   bool
-	mod    *rendermodule.Module
+	mod    *renderhost.Module
 	custom customPass
 }
 
@@ -42,9 +42,9 @@ func (d *Demo) Name() string {
 	return "stress"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: spriteCount + 4096})
+		d.mod = renderhost.New(render.Options{MaxSprites: spriteCount + 4096})
 	}
 	return d.mod
 }

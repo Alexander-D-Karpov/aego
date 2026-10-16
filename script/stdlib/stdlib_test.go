@@ -105,7 +105,7 @@ func TestStdlibFromScript(t *testing.T) {
 }
 
 func TestStdlibHash(t *testing.T) {
-	if registry(t, false).ABIHash() != registry(t, false).ABIHash() {
+	if a, b := registry(t, false).ABIHash(), registry(t, false).ABIHash(); a != b {
 		t.Fatal("stdlib hash is not stable")
 	}
 	if registry(t, false).ABIHash() == registry(t, true).ABIHash() {

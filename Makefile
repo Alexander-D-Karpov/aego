@@ -6,9 +6,24 @@ STAMP := $(NATIVE)/.sdl-$(SDL_VERSION)
 SMOKE_FRAMES ?= 600
 DEMO ?= basic
 UI_FONT ?= $(CURDIR)/third_party/fonts/Inter-Regular.ttf
+DOCS_REPO ?= https://git.akarpov.ru/sanspie/aego
 FUZZTIME ?= 15s
+STATICCHECK_VERSION ?= v0.8.2
+# Benchmarks run pinned to one CPU.
+BENCH_COUNT ?= 10
+BENCH_CPU ?= 2
+BENCH_PIN = $(shell command -v taskset >/dev/null && echo taskset -c $(BENCH_CPU))
+# Module targets, appended by modules/*/module.mk.
+MODULE_CI :=
+MODULE_BENCH_ALLOCS :=
+MODULE_BENCH_BASELINE :=
+# Extra bench-compare scenarios, "package:pattern".
+MODULE_BENCH_COMPARE :=
+BENCH_PHYSICS_PKGS :=
+.DEFAULT_GOAL := bootstrap
+-include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update site-headless bench bench-scripts bench-build bench-compare bench-profile playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -29,24 +44,24 @@ $(STAMP): third_party/sdl/version.txt tools/bootstrap-native.sh
 build: bootstrap
 	go build ./...
 
-RUNTIME_PKGS = ./engine/... ./scene/... ./render/... ./render2d/... ./render3d/... ./script/vm/... ./script/bytecode/... ./script/verify/... ./script/bind ./script/coroutine/... ./script/signal/... ./script/module/... ./sdk/...
+# Every package minus the dev-only ones, as defined by depcheck runtimeForbidden.
+RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
 
 test: bootstrap
 	go test -race ./...
 
 test-editor: bootstrap
 	go build -tags aego_editor ./...
-	go test -tags aego_editor ./editor/... ./app/... ./sdk/...
+	go test -tags aego_editor ./editor/... ./app/... ./sdk/... ./modules/...
 
 test-runtime: bootstrap
-	go build -tags aego_runtime ./...
+	go build -tags aego_runtime $(RUNTIME_PKGS)
 	go test -tags aego_runtime $(RUNTIME_PKGS)
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
 
-# Tests needing a real GL context. Offscreen SDL + llvmpipe: no display server,
-# no GPU variance, so goldens compare byte-for-byte across machines.
+# Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
 
@@ -55,10 +70,12 @@ vet: bootstrap
 	go vet ./platform/sdl
 
 lint: bootstrap
-	go run honnef.co/go/tools/cmd/staticcheck@latest $(LINT_PKGS)
+	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) $(LINT_PKGS)
 
+# All graph variants, the semantic pass and the negative rule tests.
 depcheck:
-	go run ./tools/depcheck .
+	go run -tags aego_nonative ./tools/depcheck -v .
+	go test -tags aego_nonative -count=1 ./tools/depcheck
 
 smoke: bootstrap
 	go run ./cmd/sandbox --demo headless --frames $(SMOKE_FRAMES) --strict-allocs
@@ -80,37 +97,65 @@ golden: bootstrap
 golden-update: bootstrap
 	$(GL_ENV) go test -tags aego_golden ./tests/golden/... -update
 
+BENCH_DIR = $(CURDIR)/.cache/bench
+BENCH_BASELINE = $(BENCH_DIR)/baseline.json
+BENCH_OUT ?= $(BENCH_DIR)/out.txt
+BENCH_GATE = go run ./tools/benchgate
+BENCH_PKGS = ./script/vm ./script/coroutine ./script/signal ./script/runtime ./script/bind
+BENCH_BASE ?= stage5
+
+# Benchmark gate (D213).
 bench: bootstrap
-	go run ./tools/bench
+	go build -o .cache/bin/bench ./tools/bench
+	$(BENCH_PIN) .cache/bin/bench -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT)
+	$(BENCH_PIN) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT)
+
+bench-baseline: bootstrap $(MODULE_BENCH_BASELINE)
+	mkdir -p $(BENCH_DIR)
+	go build -o .cache/bin/bench ./tools/bench
+	$(BENCH_PIN) .cache/bin/bench -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT) -update
+	$(BENCH_PIN) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT) -update
+	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.base.txt
+
+bench-scripts-run:
+	mkdir -p $(BENCH_DIR)
+	$(BENCH_PIN) go test -run '^$$' -bench . -benchmem -count=$(BENCH_COUNT) $(BENCH_PKGS) > $(BENCH_OUT)
 
 bench-scripts:
-	go test -run '^$$' -bench . -benchmem ./script/vm ./script/coroutine ./script/signal ./script/runtime ./script/bind
+	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.txt
+	$(BENCH_GATE) -base $(BENCH_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.txt
 
-BENCH_PKGS = ./script/vm ./script/coroutine ./script/signal ./script/runtime ./script/bind
-BENCH_COUNT ?= 10
-BENCH_BASE ?= stage5
-BENCH_DIR = $(CURDIR)/.cache/bench
+# CI gate: allocations only, equal to the saved baseline.
+bench-allocs: bootstrap $(MODULE_BENCH_ALLOCS)
+	go build -o .cache/bin/bench ./tools/bench
+	$(GL_ENV) .cache/bin/bench -baseline $(BENCH_BASELINE) -count 1 -time=false
+	$(GL_ENV) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count 1 -time=false
+	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.allocs.txt BENCH_COUNT=1
+	$(BENCH_GATE) -time=false -base $(BENCH_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.allocs.txt
 
-BENCH_CPU ?= 2
-BENCH_PIN = $(shell command -v taskset >/dev/null && echo taskset -c $(BENCH_CPU))
 
 bench-build:
-	rm -rf $(BENCH_DIR) && mkdir -p $(BENCH_DIR)/base-bin $(BENCH_DIR)/head-bin
+	rm -rf $(BENCH_DIR)/base $(BENCH_DIR)/base-bin $(BENCH_DIR)/head-bin $(BENCH_DIR)/base.txt $(BENCH_DIR)/head.txt
+	mkdir -p $(BENCH_DIR)/base-bin $(BENCH_DIR)/head-bin
 	git worktree prune
 	git worktree add -f --detach $(BENCH_DIR)/base $(BENCH_BASE)
 	cd $(BENCH_DIR)/base && for p in $(BENCH_PKGS); do [ -d $$p ] && go test -c -o $(BENCH_DIR)/base-bin/$$(basename $$p).test $$p; done; true
+	cd $(BENCH_DIR)/base && for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; [ -d $$p ] && go test -c -o $(BENCH_DIR)/base-bin/$$(basename $$p).test $$p && echo "$${e#*:} $$p" > $(BENCH_DIR)/base-bin/$$(basename $$p).bench; done; true
 	git worktree remove --force $(BENCH_DIR)/base
 	for p in $(BENCH_PKGS); do go test -c -o $(BENCH_DIR)/head-bin/$$(basename $$p).test $$p; done
+	for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; go test -c -o $(BENCH_DIR)/head-bin/$$(basename $$p).test $$p && echo "$${e#*:} $$p" > $(BENCH_DIR)/head-bin/$$(basename $$p).bench; done
 
 bench-compare: bench-build
 	for i in $$(seq $(BENCH_COUNT)); do \
 		for v in base head; do \
 			for t in $(BENCH_DIR)/$$v-bin/*.test; do \
-				$(BENCH_PIN) $$t -test.run '^$$' -test.bench . -test.benchmem >> $(BENCH_DIR)/$$v.txt; \
+				b=.; d=.; [ -f $${t%.test}.bench ] && read b d < $${t%.test}.bench; \
+				(cd $$d && $(BENCH_PIN) $$t -test.run '^$$' -test.bench "$$b" -test.benchmem) >> $(BENCH_DIR)/$$v.txt; \
 			done; \
 		done; \
 	done
 	go run golang.org/x/perf/cmd/benchstat@latest $(BENCH_DIR)/base.txt $(BENCH_DIR)/head.txt
+	$(BENCH_GATE) -base $(BENCH_DIR)/base.txt -head $(BENCH_DIR)/head.txt
 
 bench-profile:
 	[ -x $(BENCH_DIR)/base-bin/runtime.test ] || $(MAKE) bench-build
@@ -120,18 +165,18 @@ bench-profile:
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
 site: cli
-	.cache/bin/aego docs build --out site
+	.cache/bin/aego docs build --out site --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
 
 playground:
-	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
+	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
 	$(MAKE) site
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
-	.cache/bin/aego-docs docs build --out site --engine $(CURDIR)
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
@@ -155,16 +200,20 @@ example-platformer: cli
 
 check-all: cli
 	.cache/bin/aego check examples/native-rotator
+	.cache/bin/aego check examples/platformer
+	.cache/bin/aego test examples/platformer
+	.cache/bin/aego check examples/native-settings
+	.cache/bin/aego check examples/native-editor
+	cd examples/native-editor && go vet -tags aego_editor ./...
 
-# Fuzz the lexer and parser for FUZZTIME each. Plain `go test` already runs the
-# seed corpus; this exercises the mutators. Wired into ci.
+# Fuzz the lexer and parser for FUZZTIME each.
 fuzz:
 	go test -run '^$$' -fuzz '^FuzzTokenize$$' -fuzztime $(FUZZTIME) ./script/lexer
 	go test -run '^$$' -fuzz '^FuzzParse$$' -fuzztime $(FUZZTIME) ./script/parser
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all bench-scripts
+ci: build vet lint depcheck test test-nonative test-editor test-runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all $(MODULE_CI) bench-allocs
 
 clean:
 	rm -rf .cache/build

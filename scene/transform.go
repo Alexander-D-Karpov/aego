@@ -233,6 +233,8 @@ func (s *Scene) SetLayers(h NodeHandle, m uint64) {
 }
 
 func (s *Scene) UpdateTransforms() {
+	track := len(s.pres) > 0 || s.presActive
+	s.render = s.render[:0]
 	for _, h := range s.PreOrder() {
 		n, ok := s.nodes.Get(h)
 		if !ok || !n.has(flagAlive) {
@@ -244,6 +246,7 @@ func (s *Scene) UpdateTransforms() {
 				n.set(flagWorldDirty, false)
 			}
 			n.set(flagEffective, n.has(flagEnabled))
+			n.rslot = 0
 			continue
 		}
 		p, ok := s.nodes.Get(n.parent)
@@ -270,5 +273,10 @@ func (s *Scene) UpdateTransforms() {
 			n.set(flagWorldDirty, false)
 		}
 		n.set(flagEffective, n.has(flagEnabled) && p.has(flagEffective) && !n.has(flagPendingDestroy))
+		if track {
+			s.renderOf(n, p, parent3)
+		}
 	}
+	s.presActive = len(s.pres) > 0
+	s.presDirty = false
 }

@@ -99,6 +99,8 @@ var help = map[string]Help{
 	YieldArg:            {"wait takes seconds as float, frames and fixed take a count as int, a bare yield value must be a Coroutine.", "Convert the value, for example yield wait(float(n)) or yield frames(int(t))."},
 	ScriptRefTarget:     {"ScriptRef and GetScript need the name of a script type.", "Use the script name, or pkg.Name when the short name is ambiguous."},
 	ScriptRefCall:       {"Lifecycle methods and coroutines run only on their own instance.", "Call a plain method of the target that does the work, or connect to a signal."},
+	EventSignature:      {"A script method named after an engine event receives that event and must match its signature.", "Use the parameter types shown in the hover for the event, or rename the method if it is not meant to be a handler."},
+	EventCall:           {"Engine event handlers are called only by the engine.", "Move the shared code into a plain method and call that from the handler and from your code."},
 }
 
 func Explain(code string) (Help, bool) {

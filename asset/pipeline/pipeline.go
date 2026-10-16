@@ -41,7 +41,6 @@ type record struct {
 	key      string
 	group    string
 	deps     []ids.AssetID
-	missing  bool
 	err      string
 }
 
@@ -420,7 +419,7 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 		return nil, "", errs.New(errs.AssetSourceUnstable, "asset source is still being written",
 			log.F("path", r.path))
 	}
-	key := p.cacheKey(r, source)
+	key := p.cacheKey(r, source, r.deps)
 	if key == r.key && r.group == "" {
 		if _, ok := p.index.Lookup(r.id); ok {
 			return nil, key, nil
@@ -438,17 +437,17 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return res, key, nil
+	return res, p.cacheKey(r, source, res.Deps), nil
 }
 
-func (p *Pipeline) cacheKey(r *record, source []byte) string {
+func (p *Pipeline) cacheKey(r *record, source []byte, deps []ids.AssetID) string {
 	h := sha256.New()
 	h.Write(source)
 	h.Write(canonicalSettings(r.meta.Settings))
 	writeUint(h, uint64(r.importer.Version()))
 	writeUint(h, PipelineVersion)
 	h.Write([]byte(r.importer.ID()))
-	for _, dep := range r.deps {
+	for _, dep := range deps {
 		if e, ok := p.index.Lookup(dep); ok {
 			for _, a := range e.Artifacts {
 				h.Write([]byte(a.Hash))

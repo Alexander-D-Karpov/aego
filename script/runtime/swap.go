@@ -62,7 +62,7 @@ func (s *Swap) LoadModules(mods []*bytecode.Module) error {
 		}
 		s.descs = descs
 	}
-	s.types, s.byName = buildTypes(r.m, loaded, mods)
+	s.types, s.byName = buildTypes(r.m, loaded, mods, r.evIndex)
 	s.loaded = true
 	return nil
 }
@@ -147,6 +147,7 @@ func (s *Swap) Commit(id uint64, changed func(name string) bool) ([]vm.InstanceI
 		}
 	}
 	r.types, r.byName = s.types, s.byName
+	r.relisten()
 	r.update = r.reschedule(r.update, func(t *scriptType) *vm.Func { return t.update }, true)
 	r.fixed = r.reschedule(r.fixed, func(t *scriptType) *vm.Func { return t.fixed }, true)
 	r.ready = r.reschedule(r.ready, func(t *scriptType) *vm.Func { return t.ready }, false)

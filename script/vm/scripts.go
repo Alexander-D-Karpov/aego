@@ -58,9 +58,21 @@ func (l scriptLoc) method(name string) *Func {
 	return nil
 }
 
+func (l scriptLoc) at(i int32) *Func {
+	if i < 0 || int(i) >= len(l.mod.Funcs) {
+		return nil
+	}
+	return l.mod.Funcs[i]
+}
+
 func (l scriptLoc) lifecycle(f *Func) bool {
 	for _, i := range [...]int32{l.def.Ready, l.def.FixedUpdate, l.def.Update, l.def.Reloaded} {
-		if i >= 0 && int(i) < len(l.mod.Funcs) && l.mod.Funcs[i] == f {
+		if l.at(i) == f {
+			return true
+		}
+	}
+	for _, h := range l.def.Events {
+		if l.at(h.Func) == f {
 			return true
 		}
 	}

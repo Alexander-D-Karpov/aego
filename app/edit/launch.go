@@ -9,13 +9,13 @@ import (
 	"aego/app/projects"
 	"aego/core/log"
 	"aego/core/mathx"
-	editorapp "aego/editor/app"
-	"aego/editor/launcher"
+	"aego/editor/shell"
+	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/platform"
 	"aego/render"
+	renderhost "aego/render/host"
 	"aego/render/icons"
-	rendermodule "aego/render/module"
 	"aego/render/text"
 	"aego/render/view"
 	"aego/ui/core"
@@ -72,7 +72,7 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	if lg == nil {
 		lg = log.New(log.NewTextSink(os.Stderr))
 	}
-	mod := rendermodule.New(render.Options{MaxSprites: 4096})
+	mod := renderhost.New(render.Options{MaxSprites: 4096})
 	e, err := engine.NewBuilder(engine.Config{
 		Title:    "Aego",
 		Width:    1100,
@@ -98,7 +98,7 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		RecentPath: cfg.Recent,
 		Home:       home,
 	})
-	ls.driver = &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(editorapp.ChannelEditor)}
+	ls.driver = &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor)}
 	return ls, nil
 }
 

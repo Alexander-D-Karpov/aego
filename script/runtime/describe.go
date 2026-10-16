@@ -110,6 +110,7 @@ func Describe(mods []*bytecode.Module, s abi.Surface) ([]*schema.TypeDescriptor,
 					Min:    h.Min, Max: h.Max, HasMin: h.HasMin, HasMax: h.HasMax,
 					Hints: schema.EditorHints{
 						DisplayName: h.Display, Tooltip: h.Tip, Category: h.Category, Step: h.Step, Unit: h.Unit,
+						Gizmo: h.Gizmo, GizmoSpace: h.Space,
 					},
 				}
 				switch kind {
@@ -124,7 +125,11 @@ func Describe(mods []*bytecode.Module, s abi.Surface) ([]*schema.TypeDescriptor,
 					fd.Enum = enumValues(t.Name, local, s)
 				}
 				if f.HasDefault {
-					fd.Default, fd.HasDefault = defaultValue(kind, f.Default), true
+					if v, ok := laneDefault(f.Default, f.Type); ok {
+						fd.Default, fd.HasDefault = v, true
+					} else {
+						fd.Default, fd.HasDefault = defaultValue(kind, f.Default), true
+					}
 				}
 				fields = append(fields, fd)
 			}

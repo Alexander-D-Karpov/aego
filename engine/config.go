@@ -33,6 +33,7 @@ type Config struct {
 	AppID             string
 	Seed              uint64
 	LoopScope         SystemScope
+	Trace             bool
 }
 
 func (c Config) withDefaults() Config {

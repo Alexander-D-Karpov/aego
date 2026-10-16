@@ -9,7 +9,11 @@ import (
 )
 
 func TestRepositoryRules(t *testing.T) {
-	violations, err := Check(filepath.Join("..", ".."))
+	cat, err := builtinCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	violations, err := Check(Config{Root: filepath.Join("..", ".."), Catalog: cat})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,6 +33,9 @@ func TestMatch(t *testing.T) {
 		{"platform", "platform/sdl", false},
 		{"platform/...", "platform/sdl", true},
 		{"...", "anything/at/all", true},
+		{"modules/*/editor", "modules/physics/editor", true},
+		{"modules/*/editor/...", "modules/physics/editor/x", true},
+		{"modules/*/editor", "modules/physics", false},
 	}
 	for _, c := range cases {
 		if got := match(c.pattern, c.pkg); got != c.want {
@@ -55,7 +62,7 @@ func TestStageSixGraph(t *testing.T) {
 	if _, ok := ruleFor("script/build"); ok {
 		t.Fatal("script/build must not have a rule, the package is removed")
 	}
-	for _, rt := range []string{"script/vm", "script/runtime", "script/module", "script/reload", "script/stdlib", "script/bind"} {
+	for _, rt := range []string{"script/vm", "script/runtime", "modules/scripting/systems", "script/reload", "script/stdlib", "script/bind"} {
 		for _, dev := range []string{"script/workspace", "script/langsvc", "script/harness"} {
 			found := false
 			for _, d := range denied {
@@ -72,21 +79,16 @@ func TestStageSixGraph(t *testing.T) {
 
 func TestModuleGraph(t *testing.T) {
 	pairs := [][2]string{
-		{"render2d", "render3d"}, {"render3d", "render2d"},
-		{"render2d", "script/engine"}, {"render3d", "script/engine"},
-		{"script/engine", "render2d"}, {"script/engine", "render3d"},
-		{"engine/module", "editor/inspector"}, {"scene", "engine/module"}, {"scene/frame", "engine/module"},
-		{"sdk", "engine/builtin"}, {"editor/inspector", "engine/builtin"},
+		{"modules/render2d", "modules/render3d"}, {"modules/render3d", "modules/render2d"},
+		{"modules/render2d", "modules/scripting"}, {"modules/render3d", "modules/scripting"},
+		{"modules/scripting", "modules/render2d"}, {"modules/scripting", "modules/render3d"},
+		{"engine/module", "editor/panels/inspector"}, {"scene", "engine/module"}, {"scene/frame", "engine/module"},
+		{"sdk", "app/assembly/builtin"}, {"editor/panels/inspector", "app/assembly/builtin"},
 	}
 	for _, p := range pairs {
-		blocked := false
-		for _, d := range denied {
-			if match(d.pkg, p[0]) && allowed(d.deny, p[1]) {
-				blocked = true
-			}
-		}
-		r, _ := ruleFor(p[0])
-		if !blocked && allowed(r.allow, p[1]) {
+		from, _ := groupOf(p[0])
+		to, _ := groupOf(p[1])
+		if groupRule(from, to) == "" && layerRule(p[0], p[1]) == "" {
 			t.Errorf("%s may import %s", p[0], p[1])
 		}
 	}
@@ -121,5 +123,96 @@ func TestNoLegacyPackages(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRuntimePackagesExcludeDev(t *testing.T) {
+	pkgs, err := RuntimePackages(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := map[string]bool{}
+	for _, p := range pkgs {
+		local := strings.TrimPrefix(p, "aego/")
+		if allowed(runtimeForbidden, local) {
+			t.Errorf("runtime list contains dev package %s", local)
+		}
+		have[local] = true
+	}
+	for _, want := range []string{"engine", "scene", "script/runtime", "sdk"} {
+		if !have[want] {
+			t.Errorf("runtime list misses %s", want)
+		}
+	}
+	for _, dev := range []string{"app", "cmd/aego", "editor/core/context", "project", "script/compiler"} {
+		if have[dev] {
+			t.Errorf("runtime list contains %s", dev)
+		}
+	}
+}
+
+func TestRuleCases(t *testing.T) {
+	cases := []struct {
+		dir     string
+		catalog *Catalog
+		want    []string // "rule where" substrings; empty means clean
+	}{
+		{"clean", &Catalog{Modules: []CatalogModule{{ID: "foo", Dir: "modules/foo"}}}, nil},
+		{"module-module", nil, []string{"modules/a/a.go: [module-imports-module] imports modules/b"}},
+		{"kernel-module", nil, []string{"scene/x/x.go: [kernel-imports-module] imports modules/a"}},
+		{"panel-panel", nil, []string{"editor/panels/p1/p1.go: [panel-imports-panel] imports editor/panels/p2"}},
+		{"runtime-dev", nil, []string{"engine/y: [runtime-reaches-dev] reaches project via engine/y -> project"}},
+		{"module-own-editor", nil, []string{"modules/a/a.go: [module-imports-own-editor] imports modules/a/editor"}},
+		{"literal", &Catalog{Modules: []CatalogModule{{ID: "fakemod", Dir: "modules/fakemod"}}}, []string{
+			`editor/panels/inspector/inspector.go:3: [module-literal] "fakemod.Thing" names module fakemod`,
+			`scene/s/s.go:3: [module-literal] "FAK001" names module fakemod`,
+		}},
+		{"empty-reason", nil, []string{"[exception-syntax]", "has no reason", "unknown variant \"tset\""}},
+		{"unused-exception", nil, []string{"[exception-unused] core/a -> modules/x"}},
+		{"file-exception", nil, []string{"sdk/other.go: [sdk-imports-editor] imports editor/core/c"}},
+		{"wasm", nil, []string{"[wasm-reaches-forbidden] reaches modules/render3d via cmd/aego-playground -> modules/render3d"}},
+		{"no-group", nil, []string{"weird/x: [no-group]"}},
+	}
+	for _, c := range cases {
+		t.Run(c.dir, func(t *testing.T) {
+			vs, err := Check(Config{Root: filepath.Join("testdata", c.dir), Catalog: c.catalog})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, v := range vs {
+				got = append(got, v.String())
+			}
+			all := strings.Join(got, "\n")
+			if len(c.want) == 0 && len(got) > 0 {
+				t.Fatalf("clean tree has violations:\n%s", all)
+			}
+			for _, w := range c.want {
+				if !strings.Contains(all, w) {
+					t.Errorf("missing %q in:\n%s", w, all)
+				}
+			}
+			if c.dir == "file-exception" && strings.Contains(all, "sdk/editor.go") {
+				t.Errorf("the excepted file is reported:\n%s", all)
+			}
+		})
+	}
+}
+
+func TestGoListErrorFails(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, data string) {
+		p := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module aego\n\ngo 1.27\n")
+	write("scene/x/x.go", "package x\n\nimport _ \"aego/scene/missing\"\n")
+	if _, err := Check(Config{Root: root}); err == nil || !strings.Contains(err.Error(), "go list reported errors") {
+		t.Fatalf("err = %v", err)
 	}
 }

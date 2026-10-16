@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"strconv"
 	"testing"
 
@@ -55,7 +56,7 @@ func prepare(tb testing.TB, walkers, idle int) *bench {
 		tb.Fatal(err)
 	}
 	reg := bind.New()
-	stdlib.Install(reg, stdlib.Options{Seed: 1})
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1})
 	BindComponents(reg, types.Schema())
 	if err := reg.Freeze(); err != nil {
 		tb.Fatal(err)

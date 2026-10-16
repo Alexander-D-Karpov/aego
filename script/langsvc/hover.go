@@ -70,6 +70,13 @@ func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hov
 					Doc:       hostDoc(me.Doc, me.Example),
 					Ref:       StubBuiltin + "." + kind.String() + "." + k.Name,
 				}, true
+			case checker.CallComponentMethod:
+				me := compMethodDoc(docs, k.Component.Name, k.Name)
+				return Hover{
+					Signature: hostSig("func ("+k.Component.Short+") "+k.Name, k.Sig, me.Params),
+					Doc:       hostDoc(me.Doc, me.Example),
+					Ref:       k.Component.Name + "." + k.Name,
+				}, true
 			case checker.CallGetComponent:
 				return Hover{
 					Signature: "func (NodeRef) Get<" + k.Component.Name + ">() ComponentRef<" + k.Component.Short + ">",
@@ -87,6 +94,11 @@ func hoverMember(snap *workspace.Snapshot, id *ast.Ident, stack []ast.Node) (Hov
 	}
 	x := a.Selections[sel]
 	if x == nil {
+		if t := a.TypeOf(sel); t.Kind == types.KStruct && t.Host {
+			if sd, ok := snap.Bindings.Struct(t.Pkg, t.Local); ok {
+				return Hover{Signature: structDecl(sd), Doc: hostStructDoc(snap, t.Pkg, t.Local), Ref: t.Pkg + "." + t.Local}, true
+			}
+		}
 		return Hover{}, false
 	}
 	switch x.Kind {
@@ -179,6 +191,8 @@ func (s *Service) DefinitionIn(snap *workspace.Snapshot, file source.FileID, off
 			case checker.CallHostMethod:
 				kind := types.ToABI(a.TypeOf(k.Recv)).Kind
 				return Location{Native: true, Stub: builtin, Symbol: "method:" + kind.String() + "." + k.Name}, true
+			case checker.CallComponentMethod:
+				return Location{Native: true, Stub: comps, Symbol: "method:" + k.Component.Name + "." + k.Name}, true
 			case checker.CallGetComponent, checker.CallHasComponent:
 				return Location{Native: true, Stub: comps, Symbol: "component:" + k.Component.Name}, true
 			}
@@ -199,6 +213,9 @@ func (s *Service) DefinitionIn(snap *workspace.Snapshot, file source.FileID, off
 		case checker.SelHostConst:
 			return Location{Native: true, Stub: StubPath(x.Object.Target), Symbol: "const:" + sel.Sel.Name}, true
 		}
+	}
+	if t := a.TypeOf(sel); t.Kind == types.KStruct && t.Host {
+		return Location{Native: true, Stub: StubPath(t.Pkg), Symbol: "type:" + t.Local}, true
 	}
 	return Location{}, false
 }

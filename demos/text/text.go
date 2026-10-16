@@ -7,7 +7,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/view"
 )
 
@@ -23,7 +23,7 @@ const sample = "The quick brown fox jumps over the lazy dog\n" +
 type Demo struct {
 	app.Base
 	scale float32
-	mod   *rendermodule.Module
+	mod   *renderhost.Module
 }
 
 func New() *Demo {
@@ -34,9 +34,9 @@ func (d *Demo) Name() string {
 	return "text"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 4096})
+		d.mod = renderhost.New(render.Options{MaxSprites: 4096})
 	}
 	return d.mod
 }

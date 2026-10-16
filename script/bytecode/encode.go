@@ -185,6 +185,8 @@ func (w *writer) script(s *ScriptDef) {
 		w.str(h.Display)
 		w.str(h.Tip)
 		w.str(h.Category)
+		w.str(h.Gizmo)
+		w.str(h.Space)
 		w.flag(f.HasDefault)
 		w.konst(f.Default)
 	}
@@ -200,6 +202,11 @@ func (w *writer) script(s *ScriptDef) {
 		for _, p := range sg.Params {
 			w.str(p.String())
 		}
+	}
+	w.uv(len(s.Events))
+	for _, h := range s.Events {
+		w.str(h.Name)
+		w.u32(uint32(h.Func))
 	}
 }
 
@@ -272,6 +279,7 @@ func (r *reader) script() ScriptDef {
 		f.Hints = ExportHints{
 			Min: r.f64(), Max: r.f64(), Step: r.f64(), HasMin: r.flag(), HasMax: r.flag(),
 			Unit: r.str(), Display: r.str(), Tip: r.str(), Category: r.str(),
+			Gizmo: r.str(), Space: r.str(),
 		}
 		f.HasDefault = r.flag()
 		f.Default = r.konst()
@@ -287,6 +295,9 @@ func (r *reader) script() ScriptDef {
 			sg.Params = append(sg.Params, r.typeRef())
 		}
 		s.Signals = append(s.Signals, sg)
+	}
+	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
+		s.Events = append(s.Events, HandlerDef{Name: r.str(), Func: int32(r.u32())})
 	}
 	return s
 }

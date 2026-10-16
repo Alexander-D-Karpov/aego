@@ -133,3 +133,19 @@ func TestExamplePlatformer(t *testing.T) {
 		t.Fatalf("%v\n%s", err, out.String())
 	}
 }
+
+func TestCheckSectionsReportsBadBlock(t *testing.T) {
+	dir := t.TempDir()
+	src := "project version=1 {\n  name=\"T\"\n  module=\"t\"\n  physics {\n    substeps=-3\n  }\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, project.FileName), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := project.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if n := projects.CheckSections(p, &out); n != 1 || !strings.Contains(out.String(), "substeps") {
+		t.Fatalf("n = %d, out = %q", n, out.String())
+	}
+}

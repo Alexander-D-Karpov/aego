@@ -21,6 +21,7 @@ var static embed.FS
 
 type Options struct {
 	Playground bool
+	Repo       string
 }
 
 type Report struct {
@@ -34,6 +35,7 @@ type layoutData struct {
 	Title      string
 	Site       string
 	Playground bool
+	Repo       string
 	Nav        template.HTML
 	Content    template.HTML
 }
@@ -385,6 +387,7 @@ func (b *builder) emit(rel, title, current, content string) error {
 		Title:      title,
 		Site:       b.exp.Title,
 		Playground: b.opt.Playground,
+		Repo:       b.opt.Repo,
 		Nav:        template.HTML(b.nav(root, current)),
 		Content:    template.HTML(content),
 	})

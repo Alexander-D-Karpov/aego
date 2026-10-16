@@ -1,6 +1,10 @@
 package sdk
 
-import "aego/script/bind"
+import (
+	"aego/contracts/scriptevents"
+	"aego/engine"
+	"aego/script/bind"
+)
 
 type (
 	Bindings     = bind.Module
@@ -62,4 +66,29 @@ func Proc3[A, B, C any](m *Bindings, name string, f func(*ScriptCtx, A, B, C), o
 
 func ScriptConst[T any](m *Bindings, name string, v T, opts ...ScriptOption) {
 	bind.Const(m, name, v, opts...)
+}
+
+type (
+	Out[T any]   = bind.Out[T]
+	ScriptStruct = bind.StructDesc
+	ScriptEvent  = scriptevents.Event
+	EventID      = scriptevents.EventID
+	EventSink    = scriptevents.Sink
+)
+
+const EventSinkID = scriptevents.ServiceID
+
+func Struct2Script[T any](m *Bindings, name string, opts ...ScriptOption) *ScriptStruct {
+	return bind.Struct[T](m, name, opts...)
+}
+
+func (r *Registry) ScriptEvent(ev ScriptEvent) EventID {
+	return r.r.ScriptEvent(ev)
+}
+
+func EventsOf(ctx *Context) (EventSink, bool) {
+	if ctx.World == nil {
+		return nil, false
+	}
+	return engine.ServiceOf[EventSink](ctx.World, EventSinkID)
 }

@@ -70,6 +70,10 @@ func parseTag(typeName, goName, tag string) (tagInfo, error) {
 			info.hints.Hidden = true
 		case "flags":
 			info.hints.Flags = strings.Split(value, "|")
+		case "gizmo":
+			info.hints.Gizmo = value
+		case "gizmospace":
+			info.hints.GizmoSpace = value
 		case "step":
 			f, err := strconv.ParseFloat(value, 64)
 			if err != nil {
@@ -97,6 +101,31 @@ func parseTag(typeName, goName, tag string) (tagInfo, error) {
 		info.hints.Tooltip = info.doc
 	}
 	return info, nil
+}
+
+func ValidGizmo(k Kind, gizmo, space string) error {
+	switch gizmo {
+	case "":
+		if space != "" {
+			return errs.New(errs.SchemaBadField, "gizmo space needs a gizmo")
+		}
+		return nil
+	case GizmoVector, GizmoPoint:
+		if k != KindVec2 {
+			return errs.New(errs.SchemaBadField, "gizmo "+gizmo+" needs a Vec2 field")
+		}
+	case GizmoRadius:
+		if k != KindFloat32 && k != KindFloat64 {
+			return errs.New(errs.SchemaBadField, "gizmo radius needs a float field")
+		}
+	default:
+		return errs.New(errs.SchemaBadField, "unknown gizmo "+gizmo+", use vector, point or radius")
+	}
+	switch space {
+	case "", GizmoLocal, GizmoWorld:
+		return nil
+	}
+	return errs.New(errs.SchemaBadField, "gizmo space must be local or world")
 }
 
 func tagError(typeName, field, msg string) error {

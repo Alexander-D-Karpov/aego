@@ -1,8 +1,6 @@
 package ast
 
-// Inspect calls fn for n, then for each child for which fn returned true,
-// recursively, in source order. It walks the tree without building a slice per
-// node, so it stays cheap when run over a whole file on every keystroke.
+// Inspect walks n in source order, descending while fn returns true, without allocating.
 func Inspect(n Node, fn func(Node) bool) {
 	if n == nil || !fn(n) {
 		return

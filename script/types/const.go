@@ -12,6 +12,7 @@ const (
 	CFloat
 	CBool
 	CString
+	CLanes
 )
 
 type Const struct {
@@ -20,6 +21,8 @@ type Const struct {
 	Float float64
 	Bool  bool
 	Str   string
+	Lanes [4]float64
+	N     int
 }
 
 func IntConst(v int64) *Const {
@@ -38,6 +41,10 @@ func StringConst(v string) *Const {
 	return &Const{Kind: CString, Str: v}
 }
 
+func LanesConst(lanes [4]float64, n int) *Const {
+	return &Const{Kind: CLanes, Lanes: lanes, N: n}
+}
+
 func (c *Const) Float64() float64 {
 	if c.Kind == CInt {
 		return float64(c.Int)
@@ -53,6 +60,15 @@ func (c *Const) String() string {
 		return strconv.FormatFloat(c.Float, 'g', -1, 64)
 	case CBool:
 		return strconv.FormatBool(c.Bool)
+	case CLanes:
+		b := []byte{'{'}
+		for i := 0; i < c.N; i++ {
+			if i > 0 {
+				b = append(b, ", "...)
+			}
+			b = strconv.AppendFloat(b, c.Lanes[i], 'g', -1, 32)
+		}
+		return string(append(b, '}'))
 	}
 	return strconv.Quote(c.Str)
 }

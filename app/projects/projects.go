@@ -300,7 +300,7 @@ func renamer(old, next string) func([]byte) []byte {
 	if old == "" || old == next {
 		return func(b []byte) []byte { return b }
 	}
-	re := regexp.MustCompile(`(?m)(^|[^A-Za-z0-9_./-])` + regexp.QuoteMeta(old) + `([^A-Za-z0-9_-]|$)`)
+	re := regexp.MustCompile(`(?m)(^|[^A-Za-z0-9_./-]|"script/)` + regexp.QuoteMeta(old) + `([^A-Za-z0-9_-]|$)`)
 	repl := []byte("${1}" + next + "${2}")
 	return func(b []byte) []byte { return re.ReplaceAll(b, repl) }
 }

@@ -102,6 +102,7 @@ type scriptType struct {
 	fixed    *vm.Func
 	update   *vm.Func
 	reloaded *vm.Func
+	events   []*vm.Func
 	vals     []vm.Value
 	free     []int
 	live     int
@@ -155,6 +156,14 @@ type Runtime struct {
 	gen          uint64
 	dmu          sync.Mutex
 	deferred     []func()
+	evIndex      map[string]int
+	evSlots      []int
+	listen       []bool
+	evq          []queued
+	evargs       []vm.Value
+	evWarned     bool
+	listBuf      []vm.Value
+	evCount      uint64
 }
 
 func New(opt Options) *Runtime {
@@ -178,7 +187,7 @@ func funcAt(lm *vm.Module, idx int32) *vm.Func {
 	return lm.Funcs[idx]
 }
 
-func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef) *scriptType {
+func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef, ev map[string]int) *scriptType {
 	t := &scriptType{
 		name:     def.FullName,
 		former:   def.Former,
@@ -210,6 +219,14 @@ func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef) *scr
 			t.fields = append(t.fields, fieldInit{name: f.Name, slot: int(f.Slot), kind: tr.Kind, comp: tr.Name})
 		}
 	}
+	if len(def.Events) > 0 {
+		t.events = make([]*vm.Func, len(ev))
+		for _, h := range def.Events {
+			if i, ok := ev[h.Name]; ok {
+				t.events[i] = funcAt(lm, h.Func)
+			}
+		}
+	}
 	return t
 }
 
@@ -228,13 +245,13 @@ func load(m *vm.Machine, b *bind.Registry, mods []*bytecode.Module) ([]*vm.Modul
 	return loaded, nil
 }
 
-func buildTypes(m *vm.Machine, loaded []*vm.Module, mods []*bytecode.Module) ([]*scriptType, map[string]*scriptType) {
+func buildTypes(m *vm.Machine, loaded []*vm.Module, mods []*bytecode.Module, ev map[string]int) ([]*scriptType, map[string]*scriptType) {
 	var types []*scriptType
 	byName := map[string]*scriptType{}
 	for i, lm := range loaded {
 		src := mods[i]
 		for si := range src.Scripts {
-			t := newType(m, lm, si, &src.Scripts[si])
+			t := newType(m, lm, si, &src.Scripts[si], ev)
 			types = append(types, t)
 			byName[t.name] = t
 		}
@@ -274,7 +291,9 @@ func (r *Runtime) Link(mods []*bytecode.Module) error {
 	r.co.OnFault = r.fault
 	r.sig = signal.New()
 	r.deliverFn = r.deliver
-	r.types, r.byName = buildTypes(m, loaded, mods)
+	r.linkEvents()
+	r.types, r.byName = buildTypes(m, loaded, mods, r.evIndex)
+	r.relisten()
 	r.comps = linkComponents(r.opt.Bindings, r.opt.Schema)
 	r.scriptType = scriptcomp.ScriptTypeID
 	r.stats.Types = make([]TypeStats, len(r.types))
@@ -305,6 +324,7 @@ func (r *Runtime) Reset() {
 	r.inst = r.inst[:0]
 	r.instFree = r.instFree[:0]
 	r.update, r.fixed, r.ready, r.spawn = r.update[:0], r.fixed[:0], r.ready[:0], r.spawn[:0]
+	r.evq, r.evargs = r.evq[:0], r.evargs[:0]
 	clear(r.byNode)
 	for _, t := range r.types {
 		t.vals, t.free, t.live = t.vals[:0], t.free[:0], 0

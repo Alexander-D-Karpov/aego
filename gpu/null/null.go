@@ -108,9 +108,7 @@ func (d *Device) DestroyTexture(h gpu.TextureHandle) {
 	d.destroy(kindTexture, h.Index, h.Gen)
 }
 
-// ReadPixels validates the request like a real backend and clears the
-// destination: the null device rasterizes nothing, so every texel reads as
-// transparent black. Callers comparing against goldens must skip this backend.
+// ReadPixels validates like a real backend and returns transparent black.
 func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) error {
 	t, ok := d.textures.Get(handle.Cast[texture](th))
 	if !ok {

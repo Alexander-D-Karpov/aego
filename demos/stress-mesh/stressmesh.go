@@ -10,7 +10,7 @@ import (
 	"aego/engine"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -29,7 +29,7 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod       *rendermodule.Module
+	mod       *renderhost.Module
 	world     *scene3d.World
 	cam       scene.NodeHandle
 	orbit     scene3d.Orbit
@@ -48,9 +48,9 @@ func (d *Demo) Name() string {
 	return "stress-mesh"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 1024})
+		d.mod = renderhost.New(render.Options{MaxSprites: 1024})
 	}
 	return d.mod
 }

@@ -52,6 +52,9 @@ func DisassembleSource(w io.Writer, m *Module, source func(file string, line int
 			}
 			fmt.Fprintf(&b, "  signal %s(%s) slots=%d\n", sg.Name, strings.Join(params, ", "), sg.Slots)
 		}
+		for _, h := range s.Events {
+			fmt.Fprintf(&b, "  event %s f%d\n", h.Name, h.Func)
+		}
 		for _, f := range s.Fields {
 			exp := ""
 			if f.Export {

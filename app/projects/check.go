@@ -9,13 +9,15 @@ import (
 	"runtime"
 	"strings"
 
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
+	"aego/app/bootstrap"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
-	"aego/engine/bootstrap"
-	"aego/engine/builtin"
 	"aego/format/aetext"
 	"aego/project"
+	"aego/script/bind"
 	"aego/script/bind/manifest"
 	"aego/script/diag"
 	"aego/script/workspace"
@@ -129,8 +131,26 @@ func CheckDocuments(p *project.Project, w io.Writer) int {
 	return problems
 }
 
+func CheckSections(p *project.Project, w io.Writer) int {
+	types, err := assembly.NewTypes()
+	if err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	man, err := builtin.Default().Load(types, bind.New(), assembly.Options{})
+	if err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	if _, err := man.LoadSections(p.Block, project.CoreBlocks...); err != nil {
+		fmt.Fprintf(w, "%s: %v\n", p.FilePath(), err)
+		return 1
+	}
+	return 0
+}
+
 func Verify(p *project.Project, w io.Writer) error {
-	n := CheckDocuments(p, w)
+	n := CheckDocuments(p, w) + CheckSections(p, w)
 	ws, err := OpenWorkspace(p, "", false)
 	if err != nil {
 		return err

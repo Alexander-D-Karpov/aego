@@ -17,10 +17,77 @@ scene version=1 {
       blend=premultiplied
       filter=nearest
     }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-15, -14], [-15, -0.5], [15, -0.5], [15, -14]]
+      loop=false
+      oneSided=false
+    }
+  }
+  node "c000000000000000000000000000000a" name="Platform" enabled=true layers=1 {
+    transform {
+      position=[5, 1.2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[4, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-2, -0.15], [2, -0.15]]
+      loop=false
+      oneSided=true
+    }
   }
   node "c0000000000000000000000000000003" name="Player" enabled=true layers=1 {
     transform {
-      position=[0, 3]
+      position=[0, 2.95]
       rotation=0
       scale=[1, 1]
     }
@@ -36,6 +103,20 @@ scene version=1 {
       blend=premultiplied
       filter=nearest
     }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=true
+      bullet=false
+      allowSleep=false
+      interpolate=true
+      layer=2
+      mask=-1
+    }
     component "game.Health" version=1 {
       max=5
       current=5
@@ -44,16 +125,32 @@ scene version=1 {
     component "engine.Script" version=1 {
       script "mygame.player.PlayerController" enabled=true {
         Speed=7
-        JumpSpeed=11
+        JumpImpulse=[0, -5]
         HitTint=#ff9b4dff
         EnemyA=node("c0000000000000000000000000000004")
         EnemyB=node("c0000000000000000000000000000007")
       }
     }
+    node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
+      transform {
+        position=[0, 0]
+        rotation=1.5707964
+        scale=[1, 1]
+      }
+      component "physics.CapsuleCollider2D" version=1 {
+        offset=[0, 0]
+        isTrigger=false
+        friction=0
+        restitution=0
+        density=1
+        length=1
+        radius=0.3
+      }
+    }
   }
   node "c0000000000000000000000000000005" name="PatrolA1" enabled=true layers=1 {
     transform {
-      position=[-14.636914, 3]
+      position=[-14, 3]
       rotation=0
       scale=[1, 1]
     }
@@ -65,33 +162,15 @@ scene version=1 {
       scale=[1, 1]
     }
   }
-  node "c0000000000000000000000000000004" name="EnemyLeft" enabled=true layers=1 {
-    transform {
-      position=[-8, 3]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=1
-      tint=#e0563bff
-      origin=[0.5, 0.5]
-      size=[1, 1]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "engine.Script" version=1 {
-      script "mygame.enemy.EnemyAI" enabled=true {
-        PointA=node("c0000000000000000000000000000005")
-        PointB=node("c0000000000000000000000000000006")
-        Target=node("c0000000000000000000000000000003")
-        Speed=2.5
-        Cooldown=1
-      }
-    }
+  node "c0000000000000000000000000000004" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("c0000000000000000000000000000004") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="EnemyLeft" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000005") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("c0000000000000000000000000000006") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Target" value=node("c0000000000000000000000000000003") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[-8, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
   }
   node "c0000000000000000000000000000008" name="PatrolA2" enabled=true layers=1 {
     transform {
@@ -107,38 +186,22 @@ scene version=1 {
       scale=[1, 1]
     }
   }
-  node "c0000000000000000000000000000007" name="EnemyRight" enabled=true layers=1 {
-    transform {
-      position=[8, 3]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=1
-      tint=#e0563bff
-      origin=[0.5, 0.5]
-      size=[1, 1]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "engine.Script" version=1 {
-      script "mygame.enemy.EnemyAI" enabled=true {
-        PointA=node("c0000000000000000000000000000008")
-        PointB=node("c0000000000000000000000000000009")
-        Target=node("c0000000000000000000000000000003")
-        Speed=3
-        Cooldown=1.5
-      }
-    }
+  node "c0000000000000000000000000000007" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("c0000000000000000000000000000007") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="EnemyRight" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Cooldown" value=1.5 {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000008") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("c0000000000000000000000000000009") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Speed" value=3 {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Target" value=node("c0000000000000000000000000000003") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[8, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
   }
   node "c0000000000000000000000000000001" name="Camera" enabled=true layers=1 {
     transform {
-      position=[0, -5.8883915]
-      rotation=-0
+      position=[0, -2]
+      rotation=0
       scale=[1, 1]
     }
     component "engine.Camera2D" version=1 {

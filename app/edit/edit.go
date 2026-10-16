@@ -9,15 +9,17 @@ import (
 	"time"
 
 	"aego/app"
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
+	"aego/app/assembly/editors"
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/log"
-	editorapp "aego/editor/app"
-	"aego/editor/builtins"
-	"aego/editor/document"
-	"aego/editor/launcher"
-	"aego/editor/scripteditor"
-	"aego/editor/session"
+	"aego/editor/core/document"
+	"aego/editor/core/session"
+	"aego/editor/panels/scripteditor"
+	"aego/editor/shell"
+	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/project"
@@ -40,6 +42,7 @@ type Config struct {
 	CPUProfile string
 	Recent     string
 	Logger     *log.Logger
+	Catalog    assembly.Catalog
 }
 
 type docAttach struct {
@@ -49,7 +52,7 @@ type docAttach struct {
 }
 
 type driver struct {
-	*editorapp.App
+	*shell.App
 	s *Session
 }
 
@@ -60,7 +63,7 @@ func (d *driver) Update(dt float64) {
 
 type Session struct {
 	*app.Host
-	App     *editorapp.App
+	App     *shell.App
 	Scripts *scriptHost
 	cfg     Config
 	log     *log.ChannelLogger
@@ -149,6 +152,10 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		cfg.Height = 900
 	}
 	made, dirsErr := p.EnsureDirs()
+	cat := cfg.Catalog
+	if cat == nil {
+		cat = editors.With(builtin.Default())
+	}
 	h, err := app.Build(p, app.Config{
 		Engine: engine.Config{
 			Title:    p.Name + " — Aego Editor",
@@ -158,6 +165,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 			Hidden:   cfg.Hidden,
 			Debug:    cfg.Debug,
 			AppID:    p.Module + ".editor",
+			Trace:    true,
 		},
 		Logger:         cfg.Logger,
 		Debug:          cfg.Debug,
@@ -165,11 +173,12 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		LocateBindings: true,
 		Docs:           true,
 		Editor:         true,
-	}, app.Adapt(mods)...)
+		Catalog:        cat,
+	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Session{Host: h, cfg: cfg, log: h.Log.With(editorapp.ChannelEditor)}
+	s := &Session{Host: h, cfg: cfg, log: h.Log.With(shell.ChannelEditor)}
 	touchRecent(cfg, p.Root, p.Name, s.log)
 	s.Scripts = &scriptHost{
 		bindings: h.Bindings,
@@ -195,7 +204,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 			s.log.Error("cannot publish script types", log.F("err", err.Error()))
 		}
 	})
-	s.App = editorapp.New(editorapp.Options{
+	s.App = shell.New(shell.Options{
 		Project:     p,
 		Pipeline:    h.Pipeline,
 		Loader:      h.Loader,
@@ -203,7 +212,9 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Renderer:    h.Renderer,
 		Log:         h.Log,
 		Modules:     h.Modules,
-		Hooks:       builtins.Hooks(h.Modules),
+		Sections:    h.Sections,
+		Problems:    h.Problems,
+		Hooks:       h.Modules.Editor,
 		RenderStats: h.RenderStats,
 		Supervised:  cfg.Supervised,
 		Paced:       !cfg.Headless,

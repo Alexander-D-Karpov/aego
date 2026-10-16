@@ -8,6 +8,15 @@ type regOptions struct {
 	space        SpaceKind
 	formerFields map[string][]string
 	fieldDocs    map[string]string
+	gizmos       map[string][2]string
+	choices      map[string]HintSource
+	bitsets      map[string]HintSource
+	runtime      map[string]bool
+}
+
+type HintSource struct {
+	Section string
+	List    string
 }
 
 type EditorHints struct {
@@ -18,7 +27,20 @@ type EditorHints struct {
 	Unit        string
 	Hidden      bool
 	Flags       []string
+	Gizmo       string
+	GizmoSpace  string
+	Choices     HintSource
+	Bitset      HintSource
+	Runtime     bool
 }
+
+const (
+	GizmoVector = "vector"
+	GizmoPoint  = "point"
+	GizmoRadius = "radius"
+	GizmoLocal  = "local"
+	GizmoWorld  = "world"
+)
 
 type Option func(*regOptions)
 
@@ -57,5 +79,47 @@ func FieldDoc(field, doc string) Option {
 			o.fieldDocs = map[string]string{}
 		}
 		o.fieldDocs[field] = doc
+	}
+}
+
+func Gizmo(field, kind string, space ...string) Option {
+	return func(o *regOptions) {
+		if o.gizmos == nil {
+			o.gizmos = map[string][2]string{}
+		}
+		sp := ""
+		if len(space) > 0 {
+			sp = space[0]
+		}
+		o.gizmos[field] = [2]string{kind, sp}
+	}
+}
+
+func ChoicesFrom(field, section, list string) Option {
+	return func(o *regOptions) {
+		if o.choices == nil {
+			o.choices = map[string]HintSource{}
+		}
+		o.choices[field] = HintSource{Section: section, List: list}
+	}
+}
+
+func Bitset(field, section, list string) Option {
+	return func(o *regOptions) {
+		if o.bitsets == nil {
+			o.bitsets = map[string]HintSource{}
+		}
+		o.bitsets[field] = HintSource{Section: section, List: list}
+	}
+}
+
+func Runtime(fields ...string) Option {
+	return func(o *regOptions) {
+		if o.runtime == nil {
+			o.runtime = map[string]bool{}
+		}
+		for _, f := range fields {
+			o.runtime[f] = true
+		}
 	}
 }

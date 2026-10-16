@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 
+	"aego/app/bootstrap"
 	"aego/app/projects"
 	"aego/app/run"
 	"aego/engine"
-	"aego/engine/bootstrap"
 	"aego/project"
 )
 

@@ -386,8 +386,8 @@ func TestComponentsAndEach(t *testing.T) {
 }
 
 type wideRef struct {
-	id    ids.AssetID
-	cache int
+	id ids.AssetID
+	_  int
 }
 
 func (r *wideRef) AssetRefID() ids.AssetID     { return r.id }

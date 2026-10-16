@@ -10,7 +10,7 @@ import (
 
 	"aego/app/projects"
 	"aego/core/mathx"
-	"aego/editor/launcher"
+	"aego/editor/shell/launcher"
 	"aego/project"
 )
 

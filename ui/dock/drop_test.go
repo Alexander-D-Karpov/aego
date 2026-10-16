@@ -6,8 +6,7 @@ import (
 	"aego/core/mathx"
 )
 
-// Dropping on the tab strip, or anywhere away from an edge, must add a tab
-// (SideCenter). Only the outer quarter — capped at 80px — splits the panel.
+// Only the outer quarter (max 80px) splits; elsewhere a drop adds a tab.
 func TestDropTargetZones(t *testing.T) {
 	tr := New()
 	tr.Layout(mathx.Rect{W: 1000, H: 800})

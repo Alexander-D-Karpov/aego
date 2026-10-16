@@ -138,6 +138,10 @@ func (r *Registry) useIcon(known map[string]bool, owner, icon, by string) {
 
 func (r *Registry) scanIcons() map[string]bool {
 	known := builtinIcons()
+	owners := map[string]string{}
+	for id := range known {
+		owners[id] = "engine"
+	}
 	for i := range r.icons {
 		set := &r.icons[i]
 		seen := map[string]bool{}
@@ -153,10 +157,20 @@ func (r *Registry) scanIcons() map[string]bool {
 				return nil
 			}
 			full := set.Prefix + id
-			if !seen[full] {
-				seen[full] = true
-				set.IDs = append(set.IDs, full)
+			if seen[full] {
+				return nil
 			}
+			seen[full] = true
+			if !strings.HasPrefix(full, set.Owner+".") && full != "cat."+set.Owner {
+				r.report(set.Owner, "icon "+full+" must be named "+set.Owner+".<name> or cat."+set.Owner)
+				return nil
+			}
+			if other, dup := owners[full]; dup {
+				r.report(set.Owner, "icon "+full+" is already provided by "+other)
+				return nil
+			}
+			owners[full] = set.Owner
+			set.IDs = append(set.IDs, full)
 			known[full] = true
 			return nil
 		})

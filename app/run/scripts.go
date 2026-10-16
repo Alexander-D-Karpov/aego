@@ -2,11 +2,12 @@ package run
 
 import (
 	"aego/app"
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/asset/pipeline"
+	scriptsystems "aego/modules/scripting/systems"
 	"aego/project"
 	"aego/script/bind"
-	scriptmodule "aego/script/module"
-	"aego/script/stdlib"
 	"aego/script/workspace"
 	"aego/sdk"
 )
@@ -16,24 +17,31 @@ func DefaultImporters() (*pipeline.ImporterRegistry, error) {
 }
 
 func Importers(ws *workspace.Workspace) (*pipeline.ImporterRegistry, error) {
-	man, err := app.BuildModules(app.NewTypes(), bind.New(), stdlib.Options{}, nil)
+	types, err := assembly.NewTypes()
+	if err != nil {
+		return nil, err
+	}
+	man, err := builtin.Default().Load(types, bind.New(), assembly.Options{})
 	if err != nil {
 		return nil, err
 	}
 	return app.DevImporters(ws, man)
 }
 
-func ScriptBindings(p *project.Project, opt stdlib.Options, mods ...sdk.Module) (*bind.Registry, error) {
-	types := app.NewTypes()
+func ScriptBindings(p *project.Project, opt assembly.Options, mods ...sdk.Module) (*bind.Registry, error) {
+	types, err := assembly.NewTypes()
+	if err != nil {
+		return nil, err
+	}
 	if opt.Input == nil {
 		opt.Input = &p.Input
 	}
 	reg := bind.New()
-	if _, err := app.BuildModules(types, reg, opt, app.Adapt(mods)); err != nil {
+	if _, err := builtin.Default().Load(types, reg, opt, sdk.AdaptAll(mods)...); err != nil {
 		return nil, err
 	}
 	if err := types.Schema().Freeze(); err != nil {
 		return nil, err
 	}
-	return reg, scriptmodule.Freeze(reg, types.Schema())
+	return reg, scriptsystems.Freeze(reg, types.Schema())
 }

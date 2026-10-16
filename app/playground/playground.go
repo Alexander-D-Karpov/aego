@@ -12,13 +12,14 @@ import (
 	"testing/fstest"
 	"unicode/utf8"
 
+	"aego/app/assembly"
+	playmods "aego/app/assembly/playground"
 	"aego/core/log"
 	"aego/engine"
-	"aego/engine/builtin/headless"
 	"aego/engine/docs"
-	"aego/engine/module"
+	"aego/modules/render2d"
+	scriptsystems "aego/modules/scripting/systems"
 	"aego/platform/input"
-	"aego/render2d"
 	"aego/scene"
 	"aego/scene/scriptcomp"
 	"aego/script/bind"
@@ -27,10 +28,8 @@ import (
 	"aego/script/diag"
 	"aego/script/langsvc"
 	"aego/script/lexer"
-	scriptmodule "aego/script/module"
 	"aego/script/runtime"
 	"aego/script/source"
-	"aego/script/stdlib"
 	"aego/script/vm"
 	"aego/script/workspace"
 )
@@ -100,19 +99,19 @@ type Playground struct {
 }
 
 func New() (*Playground, error) {
-	types, err := headless.NewTypes()
+	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, err
 	}
 	reg := bind.New()
-	man, err := module.Load(types, reg, headless.Modules(stdlib.Options{Seed: 1, Testing: true})...)
+	man, err := playmods.Catalog().Load(types, reg, assembly.Options{Seed: 1, Testing: true})
 	if err != nil {
 		return nil, err
 	}
 	if err := types.Schema().Freeze(); err != nil {
 		return nil, err
 	}
-	if err := scriptmodule.Freeze(reg, types.Schema()); err != nil {
+	if err := scriptsystems.Freeze(reg, types.Schema()); err != nil {
 		return nil, err
 	}
 	bm, err := manifest.FromRegistry(reg, types.Schema())

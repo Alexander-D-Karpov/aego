@@ -1,0 +1,14 @@
+project version=1 {
+  name="native-settings"
+  module="weather"
+  native=true
+  window {
+    width=1280
+    height=720
+    title="native-settings"
+  }
+  weather {
+    strength=2
+    direction=[1, 0]
+  }
+}

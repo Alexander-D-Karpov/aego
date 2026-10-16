@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"aego/engine"
-	"aego/engine/module"
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"aego/platform/input"
-	"aego/render2d"
 	"aego/scene"
 	"aego/scene/frame"
 	"aego/scene/scriptcomp"
@@ -39,9 +38,9 @@ script Mover {
 		p := node.Position()
 		p.X += Speed * dt
 		node.SetPosition(p)
-		if node.Has<SpriteRenderer>() {
-			sr := node.Get<SpriteRenderer>()
-			sr.FlipX = readies == 1
+		if node.Has<Marker>() {
+			m := node.Get<Marker>()
+			m.FlipX = readies == 1
 		}
 	}
 }
@@ -60,7 +59,7 @@ func setup(t *testing.T) (*scene.Types, *bind.Registry, *bytecode.Module) {
 	if err := frame.RegisterTypes(types); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := module.Load(types, nil, render2d.New()); err != nil {
+	if err := registerMarker(types); err != nil {
 		t.Fatal(err)
 	}
 	if err := scriptcomp.Register(types); err != nil {
@@ -70,7 +69,7 @@ func setup(t *testing.T) (*scene.Types, *bind.Registry, *bytecode.Module) {
 		t.Fatal(err)
 	}
 	reg := bind.New()
-	stdlib.Install(reg, stdlib.Options{Seed: 1})
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1})
 	BindComponents(reg, types.Schema())
 	if err := reg.Freeze(); err != nil {
 		t.Fatal(err)
@@ -110,7 +109,7 @@ func TestRuntimeEndToEnd(t *testing.T) {
 	var props schema.PropertyBag
 	props.Set("Speed", schema.Float32(4))
 	mover := attach(s, "Mover", "game.Mover", props)
-	*scene.Add[render2d.SpriteRenderer](s, mover) = render2d.DefaultSpriteRenderer()
+	*scene.Add[Marker](s, mover) = Marker{}
 	attach(s, "Spinner", "game.Spinner", schema.PropertyBag{})
 	s.Flush()
 	if err := rt.Instantiate(s); err != nil {
@@ -126,8 +125,8 @@ func TestRuntimeEndToEnd(t *testing.T) {
 	if got := s.Local(mover).Position.X; got != 4 {
 		t.Fatalf("mover x = %v, want 4 after two 0.5s frames at speed 4", got)
 	}
-	if sr, _ := scene.Get[render2d.SpriteRenderer](s, mover); !sr.FlipX {
-		t.Fatal("script did not write the Go component through node.Get<SpriteRenderer>(), or Ready ran more than once")
+	if m, _ := scene.Get[Marker](s, mover); !m.FlipX {
+		t.Fatal("script did not write the Go component through node.Get<Marker>(), or Ready ran more than once")
 	}
 	if n := len(rt.Faults()); n != 1 || rt.Faults()[0].Fault.Code != vm.CodeBudget {
 		t.Fatalf("faults = %+v, want one budget fault from Spinner", rt.Faults())
@@ -166,7 +165,7 @@ func TestComponentRefOnDestroyedNode(t *testing.T) {
 	}
 	s := scene.New(types, nil, scene.Options{})
 	h := s.Create(s.Root(), "N")
-	*scene.Add[render2d.SpriteRenderer](s, h) = render2d.DefaultSpriteRenderer()
+	*scene.Add[Marker](s, h) = Marker{}
 	s.Flush()
 	if err := rt.Instantiate(s); err != nil {
 		t.Fatal(err)

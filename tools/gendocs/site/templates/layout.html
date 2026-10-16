@@ -15,7 +15,10 @@
         <input id="search" type="search" placeholder="Search docs  /" autocomplete="off" aria-label="Search">
         <ul id="results" hidden></ul>
     </div>
-    {{if .Playground}}<a class="play" href="{{.Root}}play/">Playground</a>{{end}}
+    <div class="links">
+        {{if .Playground}}<a class="play" href="{{.Root}}play/">Playground</a>{{end}}
+        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
+    </div>
 </header>
 <div class="shell">
     <nav class="side" aria-label="Documentation">{{.Nav}}</nav>

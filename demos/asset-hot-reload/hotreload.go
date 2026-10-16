@@ -18,7 +18,7 @@ import (
 	"aego/platform/input"
 	"aego/project"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/texture"
 	"aego/ui/core"
@@ -31,7 +31,7 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod      *rendermodule.Module
+	mod      *renderhost.Module
 	project  *project.Project
 	pipeline *pipeline.Pipeline
 	loader   *loader.Loader
@@ -52,9 +52,9 @@ func (d *Demo) Name() string {
 	return "asset-hot-reload"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 1024})
+		d.mod = renderhost.New(render.Options{MaxSprites: 1024})
 	}
 	return d.mod
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"aego/engine/builtin"
+	"aego/app/assembly/builtin"
 )
 
 func main() {

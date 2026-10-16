@@ -27,20 +27,31 @@ type regionEntry struct {
 	page   ids.AssetID
 }
 
+type decodedKey struct {
+	id  ids.AssetID
+	key string
+}
+
+type decodedValue struct {
+	v   any
+	err error
+}
+
 type Loader struct {
-	dev    gpu.Device
-	up     *texture.Uploader
-	log    *log.ChannelLogger
-	index  *asset.Index
-	files  vfs.FS
-	pages  map[ids.AssetID]pageEntry
-	region map[ids.AssetID]regionEntry
-	blobs  map[ids.AssetID][]byte
-	meshes map[ids.AssetID]*mesh.Mesh
-	failed map[ids.AssetID]bool
-	subs   []subscriber
-	nextID uint64
-	gen    uint32
+	dev     gpu.Device
+	up      *texture.Uploader
+	log     *log.ChannelLogger
+	index   *asset.Index
+	files   vfs.FS
+	pages   map[ids.AssetID]pageEntry
+	region  map[ids.AssetID]regionEntry
+	blobs   map[ids.AssetID][]byte
+	meshes  map[ids.AssetID]*mesh.Mesh
+	failed  map[ids.AssetID]bool
+	decoded map[decodedKey]decodedValue
+	subs    []subscriber
+	nextID  uint64
+	gen     uint32
 }
 
 type subscriber struct {
@@ -53,15 +64,16 @@ func New(dev gpu.Device, up *texture.Uploader, lg *log.Logger) *Loader {
 		lg = log.Nop()
 	}
 	return &Loader{
-		dev:    dev,
-		up:     up,
-		log:    lg.With(log.Asset),
-		pages:  map[ids.AssetID]pageEntry{},
-		region: map[ids.AssetID]regionEntry{},
-		blobs:  map[ids.AssetID][]byte{},
-		meshes: map[ids.AssetID]*mesh.Mesh{},
-		failed: map[ids.AssetID]bool{},
-		gen:    1,
+		dev:     dev,
+		up:      up,
+		log:     lg.With(log.Asset),
+		pages:   map[ids.AssetID]pageEntry{},
+		region:  map[ids.AssetID]regionEntry{},
+		blobs:   map[ids.AssetID][]byte{},
+		meshes:  map[ids.AssetID]*mesh.Mesh{},
+		failed:  map[ids.AssetID]bool{},
+		decoded: map[decodedKey]decodedValue{},
+		gen:     1,
 	}
 }
 
@@ -71,8 +83,19 @@ func (l *Loader) Mount(idx *asset.Index, files vfs.FS) error {
 	}
 	l.index = idx.Clone()
 	l.files = files
+	clear(l.decoded)
 	l.gen++
 	return nil
+}
+
+func (l *Loader) Decoded(id ids.AssetID, key string, build func() (any, error)) (any, error) {
+	k := decodedKey{id: id, key: key}
+	if d, ok := l.decoded[k]; ok {
+		return d.v, d.err
+	}
+	v, err := build()
+	l.decoded[k] = decodedValue{v: v, err: err}
+	return v, err
 }
 
 func (l *Loader) Generation() uint32 {
@@ -485,6 +508,7 @@ func (l *Loader) Swap(entries []asset.Entry, files vfs.FS) error {
 			l.blobs[s.id] = s.blob
 		}
 	}
+	clear(l.decoded)
 	l.gen++
 	for i := range prepared {
 		if prepared[i].unchanged {
@@ -527,6 +551,7 @@ func (l *Loader) Drop(id ids.AssetID) {
 	delete(l.region, id)
 	delete(l.blobs, id)
 	delete(l.failed, id)
+	clear(l.decoded)
 	l.gen++
 }
 
@@ -542,7 +567,11 @@ func (l *Loader) Close() {
 	l.region = map[ids.AssetID]regionEntry{}
 	l.blobs = map[ids.AssetID][]byte{}
 	l.failed = map[ids.AssetID]bool{}
+	l.decoded = map[decodedKey]decodedValue{}
 	l.subs = nil
 }
 
-var _ asset.Resolver = (*Loader)(nil)
+var (
+	_ asset.Resolver = (*Loader)(nil)
+	_ asset.Decoder  = (*Loader)(nil)
+)

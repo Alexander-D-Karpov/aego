@@ -2,6 +2,8 @@ package module
 
 import (
 	"io/fs"
+	"regexp"
+	"strings"
 
 	"aego/core/errs"
 	"aego/core/log"
@@ -11,6 +13,8 @@ import (
 	"aego/script/bind"
 )
 
+var moduleIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`)
+
 type entry struct {
 	mod  Module
 	info Info
@@ -19,6 +23,11 @@ type entry struct {
 type ownedSystem struct {
 	desc  engine.SystemDesc
 	owner *entry
+}
+
+type ownedEngine struct {
+	m     engine.Module
+	owner string
 }
 
 type serviceDesc struct {
@@ -44,9 +53,11 @@ type Registry struct {
 	cur       *entry
 	comps     []*schema.TypeDescriptor
 	systems   []ownedSystem
-	engines   []engine.Module
+	events    []ownedEvent
+	engines   []ownedEngine
 	services  []serviceDesc
 	templates []*schema.TemplateDesc
+	sections  []*Section
 	icons     []IconSet
 	docs      []DocSource
 	owners    map[string]string
@@ -118,6 +129,12 @@ func (r *Registry) Add(m Module) error {
 	if info.ID == "" {
 		return errs.New(errs.EngineModule, "module needs an id")
 	}
+	if !moduleIDPattern.MatchString(info.ID) {
+		return errs.New(errs.EngineModule, "module id "+info.ID+" must be lowercase segments separated by dots", log.F("module", info.ID))
+	}
+	if !info.Builtin && (info.ID == "engine" || strings.HasPrefix(info.ID, "engine.")) {
+		return errs.New(errs.EngineModule, "module id "+info.ID+" is reserved for the engine", log.F("module", info.ID))
+	}
 	for _, e := range r.modules {
 		if e.info.ID == info.ID {
 			return errs.New(errs.EngineModule, "module "+info.ID+" is registered twice", log.F("module", info.ID))
@@ -136,11 +153,14 @@ func (r *Registry) System(d engine.SystemDesc) {
 }
 
 func (r *Registry) Use(m engine.Module) {
-	if m == nil {
+	switch {
+	case m == nil:
 		r.fail("engine module is nil")
-		return
+	case r.cur == nil:
+		r.fail("engine module " + m.Info().ID + " is used outside a module")
+	default:
+		r.engines = append(r.engines, ownedEngine{m: m, owner: r.cur.info.ID})
 	}
-	r.engines = append(r.engines, m)
 }
 
 func (r *Registry) Service(id string, v any) {

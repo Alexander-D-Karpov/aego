@@ -21,6 +21,7 @@ type Ctx struct {
 	Random  *rng.Source
 	Log     *log.ChannelLogger
 	Node    scene.NodeHandle
+	Recv    scene.NodeHandle
 	Self    vm.InstanceID
 	Dt      float32
 	Fixed   float32

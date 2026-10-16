@@ -71,6 +71,8 @@ func (c *checker) call(e *ast.CallExpr) operand {
 			return c.callMethod(e, fun, x)
 		case x.t.Kind == types.KScriptRef:
 			return c.callScriptMethod(e, fun, x)
+		case x.t.Kind == types.KComponentRef:
+			return c.callComponentMethod(e, fun, x)
 		case x.t.Kind == types.KCoroutine, x.t.Kind == types.KConnection:
 			return c.callHandle(e, fun, x)
 		}
@@ -116,6 +118,11 @@ func (c *checker) callFunc(e *ast.CallExpr, f *Func, kind CallKind) operand {
 	c.noTypeArgs(e)
 	if f.Decl.Coroutine {
 		c.errorf(diag.CoroutineCall, e.Sp, "coroutine %s is called without start, write start %s(...)", f.Name, f.Name)
+		c.args(e.Args)
+		return invalid
+	}
+	if f.Script != nil && f.Script.IsEvent(f) {
+		c.errorf(diag.EventCall, e.Sp, "%s is an engine event handler and only the engine calls it, move the shared code into a plain method", f.Name)
 		c.args(e.Args)
 		return invalid
 	}
@@ -172,6 +179,25 @@ func (c *checker) callMethod(e *ast.CallExpr, sel *ast.SelectorExpr, recv operan
 	}
 	c.arguments(e, name, c.abiTypes(sig.Params))
 	c.a.Calls[e] = &Call{Kind: CallHostMethod, Name: name, Sig: sig, Recv: sel.X}
+	return result(c.u.FromABI(sig.Result, c.surface))
+}
+
+func (c *checker) callComponentMethod(e *ast.CallExpr, sel *ast.SelectorExpr, recv operand) operand {
+	comp := recv.t.Component
+	name := sel.Sel.Name
+	c.noTypeArgs(e)
+	sig, ok := c.surface.ComponentMethod(comp.Name, name)
+	if !ok {
+		if _, field := comp.Field(name); field {
+			c.errorf(diag.NotCallable, sel.Sel.Sp, "%s is a field of %s, not a method", name, comp.Short)
+		} else {
+			c.errorf(diag.UnknownHost, sel.Sel.Sp, "%s has no method %s", comp.Short, name)
+		}
+		c.args(e.Args)
+		return invalid
+	}
+	c.arguments(e, comp.Short+"."+name, c.abiTypes(sig.Params))
+	c.a.Calls[e] = &Call{Kind: CallComponentMethod, Name: name, Sig: sig, Component: comp, Recv: sel.X}
 	return result(c.u.FromABI(sig.Result, c.surface))
 }
 

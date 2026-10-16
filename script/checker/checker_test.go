@@ -32,6 +32,13 @@ func surface() *abi.Table {
 	t.AddConst("aego/input", "KeySpace", abi.Const{Type: abi.EnumOf("aego/input.Key"), Int: 44})
 	t.AddFunc("aego/input", "Pressed", abi.Sig(abi.T(abi.Bool), abi.EnumOf("aego/input.Key")))
 	t.AddFunc("mygame/combat", "Damage", abi.Sig(abi.T(abi.Void), abi.T(abi.NodeRef), abi.T(abi.Int)))
+	t.AddStruct(&abi.StructDef{Module: "aego/probe", Name: "RayHit", Slots: 3, Fields: []abi.StructField{
+		{Name: "Point", Type: abi.T(abi.Vec2)},
+		{Name: "Distance", Type: f},
+		{Name: "Node", Type: abi.T(abi.NodeRef)},
+	}})
+	t.AddFunc("aego/probe", "Raycast", abi.Sig(abi.StructOf("aego/probe.RayHit"), abi.T(abi.Vec2), abi.T(abi.Vec2)))
+	t.AddEvent(abi.EventDef{Name: "BodyEntered", Params: []abi.TypeRef{abi.T(abi.NodeRef)}})
 	t.AddMethod(abi.NodeRef, "Transform2D", abi.Sig(abi.T(abi.Transform2D)))
 	t.AddMethod(abi.NodeRef, "SetTransform2D", abi.Sig(abi.T(abi.Void), abi.T(abi.Transform2D)))
 	t.AddComponent(&abi.Component{Name: "engine.SpriteRenderer", Fields: []abi.Field{
@@ -40,6 +47,8 @@ func surface() *abi.Table {
 		{Name: "Id", Type: abi.T(abi.Int), ReadOnly: true},
 	}})
 	t.AddComponent(&abi.Component{Name: "engine.Camera2D", Fields: []abi.Field{{Name: "Zoom", Type: f}}})
+	t.AddComponentMethod("engine.SpriteRenderer", "Flip", abi.Sig(abi.T(abi.Void), abi.T(abi.Bool)))
+	t.AddComponentMethod("engine.SpriteRenderer", "Pulse", abi.Sig(f, f, abi.T(abi.Vec2)))
 	t.AddComponent(&abi.Component{Name: "game.Camera2D", Fields: []abi.Field{{Name: "Shake", Type: f}}})
 	t.Freeze()
 	return t
@@ -179,6 +188,8 @@ func TestDiagnosticCodes(t *testing.T) {
 		{"exportType", "package t\nscript S {\n\t@export\n\tvar A []int\n}\n", diag.NotExportable},
 		{"exportArg", "package t\nscript S {\n\t@export(colour=1)\n\tvar A int\n}\n", diag.BadAttrArg},
 		{"exportRange", "package t\nscript S {\n\t@export(min=5, max=1)\n\tvar A int\n}\n", diag.BadAttrArg},
+		{"gizmoKind", "package t\nscript S {\n\t@export(gizmo=\"vector\")\n\tvar A float\n}\n", diag.BadAttrArg},
+		{"gizmoSpace", "package t\nscript S {\n\t@export(space=\"world\")\n\tvar A Vec2\n}\n", diag.BadAttrArg},
 		{"unknownAttr", "package t\n@tool\nscript S {\n}\n", diag.UnknownAttr},
 		{"lifecycle", "package t\nscript S {\n\tfunc Update() {\n\t}\n}\n", diag.Lifecycle},
 		{"recursive", "package t\ntype A struct {\n\tB B\n}\ntype B struct {\n\tA A\n}\n", diag.RecursiveStruct},
@@ -281,6 +292,18 @@ enum Kind {
 	}
 	if st.Ready == nil || st.Update == nil || st.FixedUpdate != nil {
 		t.Fatal("lifecycle")
+	}
+}
+
+func TestExportGizmo(t *testing.T) {
+	src := "package t\nscript S {\n\t@export(gizmo=\"vector\", space=\"world\")\n\tvar Push Vec2\n\t@export(gizmo=\"radius\")\n\tvar R float\n}\n"
+	a, sm, ds := check(t, map[string]string{"game/t": src})
+	if len(ds) > 0 {
+		t.Fatalf("diagnostics:\n%s", dump(sm, ds))
+	}
+	fs := a.Scripts[0].Fields
+	if fs[0].Hints.Gizmo != "vector" || fs[0].Hints.Space != "world" || fs[1].Hints.Gizmo != "radius" {
+		t.Fatalf("hints %+v %+v", fs[0].Hints, fs[1].Hints)
 	}
 }
 

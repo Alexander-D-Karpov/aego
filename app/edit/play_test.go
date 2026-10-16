@@ -5,10 +5,12 @@ import (
 	"testing"
 
 	"aego/core/ids"
-	"aego/editor/document"
-	"aego/editor/history/commands"
-	"aego/editor/templates"
-	"aego/render2d"
+	"aego/core/mathx"
+	"aego/editor/core/document"
+	"aego/editor/core/history/commands"
+	"aego/editor/core/templates"
+	"aego/modules/render2d"
+	"aego/platform/input"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/schema"
@@ -164,5 +166,43 @@ func TestUndoInsidePlay(t *testing.T) {
 	}
 	if f.doc.Dirty() {
 		t.Fatal("play undo touched the document")
+	}
+}
+
+func TestPlayMouseFollowsPanelOrigin(t *testing.T) {
+	f := openSpinner(t)
+	defer f.s.Close()
+	pc := f.s.App.Play()
+	if err := pc.Start(f.doc); err != nil {
+		t.Fatal(err)
+	}
+	cursor := mathx.Vec2{X: 500, Y: 300}
+	f.s.Engine.Input().ApplyMouseMove(cursor, mathx.Vec2{})
+	for _, origin := range []mathx.Vec2{{X: 100, Y: 50}, {X: 320, Y: 200}} {
+		pc.SetCapture(true, origin, mathx.Vec2{X: 1000, Y: 1000})
+		pc.Tick(1.0 / 60)
+		if got, want := pc.World().Input.MousePos(), cursor.Sub(origin); got != want {
+			t.Fatalf("origin %v: game mouse %v, want %v", origin, got, want)
+		}
+	}
+}
+
+func TestClickOutsideGameReleasesBeforeGameSeesIt(t *testing.T) {
+	f := openSpinner(t)
+	defer f.s.Close()
+	pc := f.s.App.Play()
+	if err := pc.Start(f.doc); err != nil {
+		t.Fatal(err)
+	}
+	pc.SetCapture(true, mathx.Vec2{X: 100, Y: 50}, mathx.Vec2{X: 400, Y: 300})
+	in := f.s.Engine.Input()
+	in.BeginFrame()
+	in.ApplyMouseDown(mathx.Vec2{X: 700, Y: 20}, input.MouseLeft)
+	pc.Tick(1.0 / 60)
+	if pc.Captured() {
+		t.Fatal("a click outside the game view must release the capture")
+	}
+	if pc.World().Input.ButtonPressed(input.MouseLeft) {
+		t.Fatal("the releasing click leaked into the game")
 	}
 }

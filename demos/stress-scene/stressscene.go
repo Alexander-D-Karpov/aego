@@ -7,11 +7,11 @@ import (
 	"aego/demos/internal/app"
 	"aego/demos/internal/pipeline"
 	"aego/engine"
+	"aego/modules/render2d"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
-	"aego/render2d"
 	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -29,7 +29,7 @@ func init() {
 
 type Demo struct {
 	app.Base
-	mod       *rendermodule.Module
+	mod       *renderhost.Module
 	scene     *scene.Scene
 	roots     []scene.NodeHandle
 	white     bool
@@ -54,9 +54,9 @@ func (d *Demo) ReportMetrics(dst []demos.Metric) []demos.Metric {
 	)
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 65536})
+		d.mod = renderhost.New(render.Options{MaxSprites: 65536})
 	}
 	return d.mod
 }

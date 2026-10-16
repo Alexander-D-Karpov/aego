@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"os"
 	"path/filepath"
 	"slices"
@@ -129,7 +130,7 @@ func TestBuildWithTests(t *testing.T) {
 
 func stdlibManifest() (*manifest.Manifest, error) {
 	r := bind.NewManifest()
-	stdlib.Install(r, stdlib.Options{Seed: 1, Testing: true})
+	scriptstdlib.Install(r, stdlib.Options{Seed: 1, Testing: true})
 	return manifest.FromRegistry(r, nil)
 }
 

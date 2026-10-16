@@ -1,4 +1,4 @@
-module mygame/player bytecode=3 lang=2
+module mygame/player bytecode=5 lang=2
 import h0 aego/log.Info (string)
 import h1 aego/input.Axis (string) float
 import h2 #NodeRef.Transform2D (NodeRef) Transform2D

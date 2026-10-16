@@ -136,11 +136,7 @@ func (t *Type) Qualified() string {
 	return t.Pkg + "." + t.Local
 }
 
-// Slots is the number of 16-byte Value slots this type occupies. For a struct
-// it is valid only after Layout has run; before that (slotsUnknown) it falls
-// back to 1. That fallback masks a compiler bug — a slice of such a struct would
-// get stride 1 and silently overwrite data — so the contract is that the
-// checker calls Layout on every declared struct before any Slots query.
+// Slots is the number of Value slots; a struct needs Layout first.
 func (t *Type) Slots() int {
 	if t.slots < 0 {
 		return 1
@@ -148,11 +144,7 @@ func (t *Type) Slots() int {
 	return t.slots
 }
 
-// Layout assigns each field a slot and lane and computes the struct's total
-// slot count, returning false on a recursive struct (which the checker reports
-// as an invalid recursive type). The checker must call it for every struct in a
-// package after all type declarations are collected, so SliceOf and Slots see a
-// laid-out element; SliceOf alone does not lay out its element.
+// Layout assigns field slots and lanes; false means a recursive struct.
 func (t *Type) Layout() bool {
 	switch t.slots {
 	case slotsBusy:
@@ -238,8 +230,7 @@ func (t *Type) Comparable() bool {
 	case KSlice, KVoid, KInvalid:
 		return false
 	case KQuat, KTransform2D, KTransform3D:
-		// == on a rotation is meaningless (q ≡ −q), and a Transform carries one,
-		// so the checker forbids comparing them. Vec2/Vec3/Color/Rect stay fine.
+		// Rotations are not comparable (q ≡ −q).
 		return false
 	case KStruct:
 		for _, f := range t.Fields {
@@ -275,8 +266,7 @@ func Default(t *Type) *Type {
 func Assignable(from, to *Type) bool {
 	switch {
 	case from == Invalid || to == Invalid:
-		// A prior type error already produced Invalid; swallow it here so one
-		// mistake does not cascade into "cannot use invalid as T" everywhere.
+		// Invalid is already reported; do not cascade.
 		return true
 	case from == to:
 		return true
@@ -297,15 +287,14 @@ func AssetKind(name string) (string, bool) {
 	return k, ok
 }
 
-// Interner deduplicates derived types (slices, asset/component/enum refs) so
-// that equal types share one *Type and Assignable can compare by pointer. It is
-// distinct from schema.Universe, which registers engine component schemas.
+// Interner deduplicates derived types so Assignable can compare by pointer.
 type Interner struct {
 	slices  map[*Type]*Type
 	assets  map[string]*Type
 	comps   map[*abi.Component]*Type
 	enums   map[string]*Type
 	scripts map[string]*Type
+	structs map[string]*Type
 }
 
 func NewInterner() *Interner {
@@ -315,6 +304,7 @@ func NewInterner() *Interner {
 		comps:   map[*abi.Component]*Type{},
 		enums:   map[string]*Type{},
 		scripts: map[string]*Type{},
+		structs: map[string]*Type{},
 	}
 }
 
@@ -375,6 +365,20 @@ func (u *Interner) HostEnum(e *abi.EnumDef) *Type {
 	return t
 }
 
+func (u *Interner) HostStruct(d *abi.StructDef, s abi.Surface) *Type {
+	q := d.Qualified()
+	if t, ok := u.structs[q]; ok {
+		return t
+	}
+	t := &Type{Kind: KStruct, Name: shortPkg(d.Module) + "." + d.Name, Local: d.Name, Pkg: d.Module, Host: true, slots: slotsUnknown}
+	u.structs[q] = t
+	for _, f := range d.Fields {
+		t.Fields = append(t.Fields, &Field{Name: f.Name, Type: u.FromABI(f.Type, s), Lane: -1})
+	}
+	t.Layout()
+	return t
+}
+
 func (u *Interner) FromABI(r abi.TypeRef, s abi.Surface) *Type {
 	switch r.Kind {
 	case abi.Void:
@@ -421,6 +425,12 @@ func (u *Interner) FromABI(r abi.TypeRef, s abi.Surface) *Type {
 		if i := strings.LastIndexByte(r.Name, '.'); s != nil && i > 0 {
 			if e, ok := s.Enum(r.Name[:i], r.Name[i+1:]); ok {
 				return u.HostEnum(e)
+			}
+		}
+	case abi.Struct:
+		if i := strings.LastIndexByte(r.Name, '.'); s != nil && i > 0 {
+			if d, ok := s.Struct(r.Name[:i], r.Name[i+1:]); ok {
+				return u.HostStruct(d, s)
 			}
 		}
 	case abi.Slice:

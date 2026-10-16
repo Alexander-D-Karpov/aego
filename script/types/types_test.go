@@ -28,7 +28,9 @@ func TestAssignableAndRepresent(t *testing.T) {
 	if !Assignable(Nil, NodeRef) || Assignable(Nil, Int) || !Assignable(UntypedInt, Float) || Assignable(UntypedFloat, Int) {
 		t.Fatal("assignability")
 	}
-	if u.SliceOf(Int) != u.SliceOf(Int) || u.AssetRef("texture") != u.AssetRef("texture") {
+	s1, s2 := u.SliceOf(Int), u.SliceOf(Int)
+	r1, r2 := u.AssetRef("texture"), u.AssetRef("texture")
+	if s1 != s2 || r1 != r2 {
 		t.Fatal("interning")
 	}
 	if _, why := Represent(FloatConst(1.5), Int); why == "" {

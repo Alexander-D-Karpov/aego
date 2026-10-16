@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"aego/script/abi"
 	"aego/script/workspace"
 )
 
@@ -134,6 +135,9 @@ func StubPaths(snap *workspace.Snapshot) []string {
 	for _, k := range tab.ConstList() {
 		add(k.Module)
 	}
+	for _, s := range tab.StructList() {
+		add(s.Module)
+	}
 	sort.Strings(mods)
 	out := []string{StubPath(StubBuiltin), StubPath(StubComponents)}
 	for _, m := range mods {
@@ -142,9 +146,39 @@ func StubPaths(snap *workspace.Snapshot) []string {
 	return out
 }
 
+func structDecl(sd *abi.StructDef) string {
+	var b strings.Builder
+	b.WriteString("type " + sd.Name + " struct {")
+	for _, f := range sd.Fields {
+		b.WriteString("\n\t" + f.Name + " " + abiType(f.Type))
+	}
+	b.WriteString("\n}")
+	return b.String()
+}
+
+func hostStructDoc(snap *workspace.Snapshot, module, name string) string {
+	if s, ok := snap.Docs.StructDoc(module, name); ok {
+		return s.Doc
+	}
+	return ""
+}
+
+func eventDoc(snap *workspace.Snapshot, name string) string {
+	text := "Engine event. Declare a script method with exactly this signature to receive it; only the engine calls it."
+	if e, ok := snap.Docs.EventDoc(name); ok && e.Doc != "" {
+		text = e.Doc + "\n" + text
+	}
+	return text
+}
+
 func moduleStub(snap *workspace.Snapshot, module string) *Stub {
 	tab := snap.Bindings
 	w := newStubWriter(module, module[strings.LastIndexByte(module, '/')+1:])
+	for _, sd := range tab.StructList() {
+		if sd.Module == module {
+			w.symbol("type:"+sd.Name, structDecl(sd), hostStructDoc(snap, module, sd.Name), "", "")
+		}
+	}
 	for _, fn := range tab.FuncList() {
 		if fn.Module != module {
 			continue
@@ -204,6 +238,13 @@ func builtinStub(snap *workspace.Snapshot) *Stub {
 		"Get returns the component of the given type on the node, or nil.", "sr := node.Get<SpriteRenderer>()", "")
 	w.symbol("method:NodeRef.Has", "func (NodeRef) Has<Component>() bool",
 		"Has reports whether the node has a component of the given type.", "if node.Has<Camera2D>() {", "")
+	for _, e := range snap.Bindings.EventList() {
+		var names []string
+		if d, ok := snap.Docs.EventDoc(e.Name); ok {
+			names = d.Names
+		}
+		w.symbol("event:"+e.Name, hostSig("func "+e.Name, e.Sig(), names), eventDoc(snap, e.Name), "", "")
+	}
 	for _, me := range snap.Bindings.MethodList() {
 		md := methodDoc(snap.Docs, me.Recv, me.Name)
 		key := "method:" + me.Recv.String() + "." + me.Name
@@ -227,6 +268,16 @@ func componentStub(snap *workspace.Snapshot) *Stub {
 				ro = " readonly"
 			}
 			w.write("\t" + f.Name + " " + abiType(f.Type) + ro)
+		}
+		for _, me := range snap.Bindings.ComponentMethods(c.Name) {
+			md := compMethodDoc(snap.Docs, c.Name, me.Name)
+			w.comment("\t", md.Doc)
+			key := "method:" + c.Name + "." + me.Name
+			w.lines[key] = w.line
+			if md.Loc != "" {
+				w.locs[key] = md.Loc
+			}
+			w.write("\t" + hostSig("func "+me.Name, me.Sig, md.Params))
 		}
 		w.write("}")
 		w.write("")

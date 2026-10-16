@@ -1,9 +1,6 @@
 //go:build aego_gltest
 
-// Package gl holds tests that need a real OpenGL context. They are excluded
-// from the default build; run them with `make test-gl`, which points SDL at the
-// offscreen video driver and Mesa at llvmpipe so results are deterministic and
-// no display server is required.
+// Package gl holds tests that need a real OpenGL context (make test-gl).
 package gl
 
 import (
@@ -44,15 +41,7 @@ func newGLEngine(t *testing.T) *engine.Engine {
 	return e
 }
 
-// TestReadPixelsOrientation pins two contracts at once:
-//
-//   - D17: gl33 flips viewport and scissor only for the window, never for an
-//     offscreen target. A target-space viewport at y=H/2..H is therefore GL's
-//     own upper half, which is memory rows H/2..H.
-//   - ReadPixels returns the target's memory rows in order. Render targets are
-//     stored top-down (render/view compensates Y), so row 0 is the top of
-//     anything drawn through the renderer, and a raw draw into GL's upper half
-//     comes back in the bottom rows.
+// TestReadPixelsOrientation pins D17 offscreen orientation and top-down ReadPixels rows.
 func TestReadPixelsOrientation(t *testing.T) {
 	e := newGLEngine(t)
 	defer e.Close()
@@ -153,11 +142,7 @@ func TestReadPixelsRejectsBadArgs(t *testing.T) {
 	}
 }
 
-// TestUpdateTextureKeepsItsScratchUnitActive covers the case where the texture
-// is already cached on the scratch unit, but another unit was activated since
-// the previous update. Target-based GL calls such as TexSubImage2D operate on
-// the active unit, so skipping both ActiveTexture and BindTexture would update
-// the texture on unit 0 instead.
+// TestUpdateTextureKeepsItsScratchUnitActive: TexSubImage2D must hit the scratch unit, not unit 0.
 func TestUpdateTextureKeepsItsScratchUnitActive(t *testing.T) {
 	e := newGLEngine(t)
 	defer e.Close()
@@ -184,8 +169,7 @@ func TestUpdateTextureKeepsItsScratchUnitActive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// B is now cached on the scratch unit. Make unit 0 active without changing
-	// that cached scratch binding, matching the state left by a rendered frame.
+	// Leave B cached on the scratch unit and make unit 0 active, as a rendered frame does.
 	fr := dev.BeginFrame(size, size)
 	p := fr.BeginPass(gpu.PassDesc{Color: gpu.LoadKeep, Label: "activate-unit-zero"})
 	p.SetTexture(0, a, gpu.SamplerHandle{})

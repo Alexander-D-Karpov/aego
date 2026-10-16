@@ -215,26 +215,31 @@ func (s Signature) Equal(o Signature) bool {
 	return true
 }
 
-// Validate rejects signatures that cannot cross the host boundary. Per D97 a
-// host function takes and returns only scalars, vectors, Transform, references
-// and enums: structs and slices have no stable Go-side read API yet, and their
-// Slots() would silently report 1 and corrupt the call window. Strings are
-// allowed — they cross as a heap handle the adapter copies.
 func (s Signature) Validate() error {
 	for i, p := range s.Params {
-		if !hostable(p) {
+		if !hostable(p, true) {
 			return fmt.Errorf("param %d: %s cannot cross the host boundary", i, p)
 		}
 	}
-	if s.Result.Kind != Void && !hostable(s.Result) {
+	if s.Result.Kind != Void && !hostable(s.Result, false) {
 		return fmt.Errorf("result: %s cannot cross the host boundary", s.Result)
 	}
 	return nil
 }
 
-func hostable(t TypeRef) bool {
+func hostable(t TypeRef, param bool) bool {
 	switch t.Kind {
-	case Void, Struct, Slice, Coroutine, Connection, ScriptRef:
+	case Void, Coroutine, Connection, ScriptRef:
+		return false
+	case Slice:
+		return param && t.Elem != nil && Plain(*t.Elem)
+	}
+	return true
+}
+
+func Plain(t TypeRef) bool {
+	switch t.Kind {
+	case Void, String, Slice, Coroutine, Connection, ScriptRef:
 		return false
 	}
 	return true
@@ -253,6 +258,31 @@ type EnumDef struct {
 
 func (e *EnumDef) Qualified() string {
 	return e.Module + "." + e.Name
+}
+
+type StructField struct {
+	Name string
+	Type TypeRef
+}
+
+type StructDef struct {
+	Module string
+	Name   string
+	Fields []StructField
+	Slots  int
+}
+
+func (s *StructDef) Qualified() string {
+	return s.Module + "." + s.Name
+}
+
+type EventDef struct {
+	Name   string
+	Params []TypeRef
+}
+
+func (e EventDef) Sig() Signature {
+	return Signature{Params: e.Params, Result: T(Void)}
 }
 
 type Const struct {
@@ -290,9 +320,13 @@ type Surface interface {
 	Module(path string) bool
 	Func(module, name string) (Signature, bool)
 	Method(recv Kind, name string) (Signature, bool)
+	ComponentMethod(comp, name string) (Signature, bool)
 	Const(module, name string) (Const, bool)
 	Enum(module, name string) (*EnumDef, bool)
+	Struct(module, name string) (*StructDef, bool)
+	Event(name string) (Signature, bool)
 	Components(name string) []*Component
+	Slots(t TypeRef) int
 	Hash() [32]byte
 }
 

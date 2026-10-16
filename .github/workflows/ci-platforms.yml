@@ -1,0 +1,97 @@
+name: ci-platforms
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  LINUX_PKGS: >-
+    build-essential cmake ninja-build pkg-config
+    libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev
+    libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev
+    libwayland-dev wayland-protocols libdecor-0-dev
+    libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
+
+jobs:
+  build:
+    if: vars.PLATFORM_RUNNERS == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, goos: windows, goarch: amd64 }
+          - { os: macos-15-intel, goos: darwin, goarch: amd64 }
+          - { os: macos-15, goos: darwin, goarch: arm64 }
+    runs-on: ${{ vars.PLATFORM_RUNNERS == 'true' && matrix.os || 'ubuntu-24.04' }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS
+      - name: msys2
+        if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+      - name: mingw path
+        if: runner.os == 'Windows'
+        run: echo "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin" >> "$GITHUB_PATH"
+      - name: macos tools
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: .cache/native
+          key: native-${{ matrix.goos }}_${{ matrix.goarch }}-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
+      - name: bootstrap native
+        run: bash tools/bootstrap-native.sh
+      - name: build
+        run: go build ./...
+      - name: test
+        run: go test ./...
+      - name: test without native backends
+        run: go test -tags aego_nonative $(go list ./... | grep -v -e '/platform/sdl$' -e '/gpu/gl33$' -e '/gpu/gl33/gl$')
+      - name: gl tests (offscreen, llvmpipe)
+        if: runner.os == 'Linux'
+        env:
+          SDL_VIDEODRIVER: offscreen
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+        run: go test -tags aego_gltest ./tests/gl/
+      - name: golden
+        if: runner.os == 'Linux'
+        env:
+          SDL_VIDEODRIVER: offscreen
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+        run: go test -tags aego_golden ./tests/golden/...
+      - name: headless smoke
+        run: go run ./cmd/sandbox --demo headless --frames 600 --strict-allocs
+      - name: build the cli
+        run: go build -o /tmp/aego ./cmd/aego
+      - name: cli smoke
+        run: |
+          /tmp/aego new /tmp/clitest
+          /tmp/aego import /tmp/clitest
+          /tmp/aego check /tmp/clitest
+          /tmp/aego run /tmp/clitest --headless --frames 60
+      - name: example project
+        run: |
+          /tmp/aego check examples/native-rotator
+          /tmp/aego run examples/native-rotator --headless --frames 60

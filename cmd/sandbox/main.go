@@ -18,6 +18,7 @@ import (
 	_ "aego/demos/mesh"
 	_ "aego/demos/mixed"
 	_ "aego/demos/offscreen"
+	_ "aego/demos/physics2d"
 	_ "aego/demos/resize"
 	_ "aego/demos/scene-load"
 	_ "aego/demos/sprites"
@@ -27,7 +28,7 @@ import (
 	_ "aego/demos/text"
 	"aego/engine"
 	"aego/platform"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 )
 
 func main() {
@@ -95,7 +96,7 @@ func run(args []string) int {
 	}
 
 	builder := engine.NewBuilder(cfg)
-	if m, ok := demo.(interface{ Module() *rendermodule.Module }); ok {
+	if m, ok := demo.(interface{ Module() *renderhost.Module }); ok {
 		builder.Use(m.Module())
 	}
 	eng, err := builder.Build()

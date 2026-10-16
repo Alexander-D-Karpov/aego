@@ -1,0 +1,1 @@
+core/a -> modules/x, default, nothing imports this

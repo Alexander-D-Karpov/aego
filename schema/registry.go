@@ -192,21 +192,70 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 		td.Version = 1
 	}
 
+	if err := r.addFields(td, rt, 0, &o); err != nil {
+		return nil, err
+	}
+	for name := range o.fieldDocs {
+		if _, ok := td.index[name]; !ok {
+			return nil, errs.New(errs.SchemaBadField, "FieldDoc names an unknown field",
+				log.F("type", full), log.F("field", name))
+		}
+	}
+	for name := range o.gizmos {
+		if _, ok := td.index[name]; !ok {
+			return nil, errs.New(errs.SchemaBadField, "Gizmo names an unknown field",
+				log.F("type", full), log.F("field", name))
+		}
+	}
+	for _, m := range []map[string]HintSource{o.choices, o.bitsets} {
+		for name := range m {
+			if _, ok := td.index[name]; !ok {
+				return nil, errs.New(errs.SchemaBadField, "hint names an unknown field", log.F("type", full), log.F("field", name))
+			}
+		}
+	}
+	for name := range o.runtime {
+		if _, ok := td.index[name]; !ok {
+			return nil, errs.New(errs.SchemaBadField, "Runtime names an unknown field", log.F("type", full), log.F("field", name))
+		}
+	}
+
+	r.byID[id] = td
+	r.byName[full] = td
+	r.byType[rt] = td
+	r.order = append(r.order, td)
+	return td, nil
+}
+
+// addFields flattens embedded exported structs with offsets relative to the owner.
+func (r *Registry) addFields(td *TypeDescriptor, rt reflect.Type, base uintptr, o *regOptions) error {
+	full := td.FullName
 	for i := 0; i < rt.NumField(); i++ {
 		sf := rt.Field(i)
 		if !sf.IsExported() {
 			continue
 		}
-		info, err := parseTag(full, sf.Name, sf.Tag.Get("aego"))
+		tag := sf.Tag.Get("aego")
+		if sf.Anonymous && sf.Type.Kind() == reflect.Struct {
+			if tag == "-" {
+				continue
+			}
+			if err := r.addFields(td, sf.Type, base+sf.Offset, o); err != nil {
+				return err
+			}
+			continue
+		}
+		info, err := parseTag(full, sf.Name, tag)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if info.skip {
 			continue
 		}
+		sf.Offset += base
 		fd, err := r.buildField(full, sf, info)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if former, ok := o.formerFields[fd.Name]; ok {
 			fd.Former = append(fd.Former, former...)
@@ -217,31 +266,39 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 				fd.Hints.Tooltip = doc
 			}
 		}
-		fd.ID = HashField(id, fd.Name)
+		if g, ok := o.gizmos[fd.Name]; ok {
+			fd.Hints.Gizmo, fd.Hints.GizmoSpace = g[0], g[1]
+		}
+		if h, ok := o.choices[fd.Name]; ok {
+			fd.Hints.Choices = h
+		}
+		if h, ok := o.bitsets[fd.Name]; ok {
+			fd.Hints.Bitset = h
+		}
+		if (fd.Hints.Choices.Section != "" || fd.Hints.Bitset.Section != "") && fd.Kind != KindInt32 && fd.Kind != KindInt64 {
+			return errs.New(errs.SchemaBadField, "choices and bitset hints need an integer field", log.F("type", full), log.F("field", fd.Name))
+		}
+		if o.runtime[fd.Name] {
+			fd.Hints.Runtime = true
+			fd.Flags |= FlagReadOnly
+		}
+		if err := ValidGizmo(fd.Kind, fd.Hints.Gizmo, fd.Hints.GizmoSpace); err != nil {
+			return errs.Wrap(err, errs.SchemaBadField, "bad gizmo").With(log.F("type", full), log.F("field", fd.Name))
+		}
+		fd.ID = HashField(td.ID, fd.Name)
 		if prev, dup := td.index[fd.Name]; dup {
-			return nil, errs.New(errs.SchemaDuplicate, "duplicate field name",
+			return errs.New(errs.SchemaDuplicate, "duplicate field name",
 				log.F("type", full), log.F("field", fd.Name), log.F("previous", td.Fields[prev].Name))
 		}
 		if prev, clash := td.byID[fd.ID]; clash {
-			return nil, errs.New(errs.SchemaCollision, "field name hash collides",
+			return errs.New(errs.SchemaCollision, "field name hash collides",
 				log.F("type", full), log.F("field", fd.Name), log.F("existing", td.Fields[prev].Name))
 		}
 		td.index[fd.Name] = len(td.Fields)
 		td.byID[fd.ID] = len(td.Fields)
 		td.Fields = append(td.Fields, fd)
 	}
-	for name := range o.fieldDocs {
-		if _, ok := td.index[name]; !ok {
-			return nil, errs.New(errs.SchemaBadField, "FieldDoc names an unknown field",
-				log.F("type", full), log.F("field", name))
-		}
-	}
-
-	r.byID[id] = td
-	r.byName[full] = td
-	r.byType[rt] = td
-	r.order = append(r.order, td)
-	return td, nil
+	return nil
 }
 
 var (

@@ -1,7 +1,7 @@
 package enemy
 
 import (
-	"aego/math"
+	"aego/physics"
 	"mygame/combat"
 	"mygame/shared"
 )
@@ -23,43 +23,53 @@ script EnemyAI {
 
 	@export(min=0, max=5, unit="s")
 	var Cooldown float = 1
-	
 
 	var toB bool = true
 	var wait float
+	var dead bool
 
 	func FixedUpdate(dt float) {
-		if PointA == nil || PointB == nil {
+		if wait > 0 {
+			wait -= dt
+		}
+		if dead || PointA == nil || PointB == nil {
+			return
+		}
+		body := node.Get<Body2D>()
+		if body == nil {
 			return
 		}
 		goal := PointA.Position()
 		if toB {
 			goal = PointB.Position()
 		}
-		p := node.Position()
-		p.X = shared.Approach(p.X, goal.X, Speed*dt)
-		p.Y = shared.GroundY
-		node.SetPosition(p)
-		if math.Abs(p.X-goal.X) < 0.01 {
+		dir := shared.Toward(node.Position().X, goal.X, 0.05)
+		if dir == 0 {
 			toB = !toB
 		}
-		if Target == nil || !Target.IsAlive() {
+		v := body.Velocity
+		v.X = dir * Speed
+		body.SetVelocity(v)
+	}
+
+	func OnTriggerEnter(other NodeRef) {
+		if dead || other != Target {
 			return
 		}
-		t := Target.Position()
-		dx := math.Abs(t.X - p.X)
-		if dx < 0.9 && t.Y < p.Y-0.5 && t.Y > p.Y-1.1 {
-			Died.Emit()
-			node.Destroy()
+		tb := other.Get<Body2D>()
+		if tb == nil || tb.Velocity.Y <= 0 {
 			return
 		}
-		if wait > 0 {
-			wait -= dt
+		dead = true
+		Died.Emit()
+		node.Destroy()
+	}
+
+	func OnCollisionEnter(other NodeRef, c physics.Contact) {
+		if dead || other != Target || wait > 0 || c.Normal.Y > 0.5 {
 			return
 		}
-		if dx < 0.9 && math.Abs(t.Y-p.Y) < 0.9 {
-			combat.Damage(Target, 1)
-			wait = Cooldown
-		}
+		combat.Damage(Target, 1)
+		wait = Cooldown
 	}
 }

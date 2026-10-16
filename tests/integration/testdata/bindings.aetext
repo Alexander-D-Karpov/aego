@@ -1,5 +1,5 @@
-manifest version=2 {
-  abi="012abb6ad82a0d9a657148b4ed0001338f685204a226d1fc6efb17f3470abf73"
+manifest version=4 {
+  abi="de644410847cd8a04ec38fdf34ef9d785deaab738e4722055195efbe69a40f50"
   module "aego/input" {
     func "Axis" {
       params=["string"]
@@ -25,7 +25,7 @@ manifest version=2 {
     func "MousePos" {
       params=[]
       result="Vec2"
-      doc="MousePos returns the cursor position in window pixels, (0, 0) at the top-left corner."
+      doc="MousePos returns the cursor position in logical pixels of the game area, (0, 0) at its top-left corner. Use MouseWorld for world coordinates."
       example="p := input.MousePos()"
     }
     func "MousePressed" {
@@ -34,6 +34,12 @@ manifest version=2 {
       names=["button"]
       doc="MousePressed reports whether the mouse button went down this frame."
       example="if input.MousePressed(input.MouseRight) {\n\taim()\n}"
+    }
+    func "MouseWorld" {
+      params=[]
+      result="Vec2"
+      doc="MouseWorld returns the cursor position in world units, seen through the camera under the cursor. Letterboxing and window or panel resizes are accounted for."
+      example="target := input.MouseWorld()"
     }
     func "Pressed" {
       params=["enum:aego/input.Key"]
@@ -1156,6 +1162,70 @@ manifest version=2 {
       doc="Tau is a full turn in radians, 2·Pi."
     }
   }
+  module "aego/physics" {
+    func "Gravity" {
+      params=[]
+      result="Vec2"
+      doc="Gravity returns the world gravity in units per second squared. +Y points down."
+    }
+    func "Layer" {
+      params=["string"]
+      result="int"
+      names=["name"]
+      doc="Layer returns the index of a named physics layer."
+    }
+    func "LayerMask" {
+      params=["string"]
+      result="int"
+      names=["name"]
+      doc="LayerMask returns the mask bit of a named layer. Add masks of different layers to combine them."
+      example="mask := physics.LayerMask(\"World\") + physics.LayerMask(\"Enemies\")"
+    }
+    func "Linecast" {
+      params=["Vec2", "Vec2", "int"]
+      result="struct:aego/physics.RayHit"
+      names=["from", "to", "mask"]
+      doc="Linecast returns the first hit between from and to on the layers in mask; -1 means every layer."
+      example="hit := physics.Linecast(eye, target, physics.LayerMask(\"World\"))"
+    }
+    func "OverlapBox" {
+      params=["Vec2", "Vec2", "[]NodeRef"]
+      result="int"
+      names=["center", "size", "out"]
+      doc="OverlapBox writes the bodies touching the axis-aligned box into out and returns the count."
+    }
+    func "OverlapCircle" {
+      params=["Vec2", "float", "[]NodeRef"]
+      result="int"
+      names=["center", "radius", "out"]
+      doc="OverlapCircle writes the bodies touching the circle into out and returns the count."
+    }
+    func "OverlapPoint" {
+      params=["Vec2", "[]NodeRef"]
+      result="int"
+      names=["point", "out"]
+      doc="OverlapPoint writes the bodies whose colliders contain p into out and returns the count."
+    }
+    func "Raycast" {
+      params=["Vec2", "Vec2", "float"]
+      result="struct:aego/physics.RayHit"
+      names=["origin", "dir", "maxDist"]
+      doc="Raycast returns the closest hit along dir within maxDist. The caller's own body is ignored, triggers are skipped."
+      example="hit := physics.Raycast(pos, Vec2{Y: 1}, 0.6)\nif hit.Hit {\n\tgrounded = true\n}"
+    }
+    func "RaycastAll" {
+      params=["Vec2", "Vec2", "[]struct:aego/physics.RayHit"]
+      result="int"
+      names=["from", "to", "out"]
+      doc="RaycastAll fills out with hits between from and to, nearest first, and returns how many it wrote. It writes at most len(out)."
+    }
+    func "SetGravity" {
+      params=["Vec2"]
+      result="void"
+      names=["gravity"]
+      doc="SetGravity changes the world gravity for the rest of the Play session."
+    }
+  }
   module "aego/rand" {
     func "Bool" {
       params=[]
@@ -1381,6 +1451,73 @@ manifest version=2 {
     member "RAlt" value=230 {}
     member "RGUI" value=231 {}
   }
+  struct "Contact" module="aego/physics" slots=6 {
+    doc="Contact describes a touch between two colliders from the receiver's side.\nNormal points from the other body into this one, RelativeVelocity is this body's velocity relative to the other at Point."
+    field "Point" {
+      type="Vec2"
+    }
+    field "Normal" {
+      type="Vec2"
+    }
+    field "NormalImpulse" {
+      type="float"
+    }
+    field "RelativeVelocity" {
+      type="Vec2"
+    }
+    field "SelfCollider" {
+      type="NodeRef"
+    }
+    field "OtherCollider" {
+      type="NodeRef"
+    }
+  }
+  struct "RayHit" module="aego/physics" slots=6 {
+    doc="RayHit is the result of a ray query. Hit is false when nothing was found; Node is the body, Collider the node of the shape that was hit."
+    field "Hit" {
+      type="bool"
+    }
+    field "Point" {
+      type="Vec2"
+    }
+    field "Normal" {
+      type="Vec2"
+    }
+    field "Distance" {
+      type="float"
+    }
+    field "Node" {
+      type="NodeRef"
+    }
+    field "Collider" {
+      type="NodeRef"
+    }
+  }
+  event "OnCollisionEnter" {
+    params=["NodeRef", "struct:aego/physics.Contact"]
+    names=["other", "contact"]
+    doc="OnCollisionEnter runs after the physics step in which this body started touching other."
+  }
+  event "OnCollisionStay" {
+    params=["NodeRef", "struct:aego/physics.Contact"]
+    names=["other", "contact"]
+    doc="OnCollisionStay runs after every later physics step while the bodies keep touching. It costs nothing when no script declares it."
+  }
+  event "OnCollisionExit" {
+    params=["NodeRef", "struct:aego/physics.Contact"]
+    names=["other", "contact"]
+    doc="OnCollisionExit runs when the bodies stop touching, including when one of them is destroyed or disabled. Contact.Point is the last known point."
+  }
+  event "OnTriggerEnter" {
+    params=["NodeRef"]
+    names=["other"]
+    doc="OnTriggerEnter runs when other's collider entered a trigger of this body, or this body entered other's trigger."
+  }
+  event "OnTriggerExit" {
+    params=["NodeRef"]
+    names=["other"]
+    doc="OnTriggerExit runs when the overlap with a trigger ends."
+  }
   method "Child" recv="NodeRef" {
     params=["string"]
     result="NodeRef"
@@ -1413,6 +1550,12 @@ manifest version=2 {
     doc="IsAlive reports whether the node exists. It is false right after Destroy."
     example="if Target != nil && Target.IsAlive() {"
   }
+  method "IsPrefabInstance" recv="NodeRef" {
+    params=[]
+    result="bool"
+    doc="IsPrefabInstance reports whether the node is a prefab copy or lies inside one."
+    example="if node.IsPrefabInstance() {"
+  }
   method "Name" recv="NodeRef" {
     params=[]
     result="string"
@@ -1436,6 +1579,12 @@ manifest version=2 {
     result="Vec3"
     doc="Position3 returns the local 3D position."
     example="p := node.Position3()"
+  }
+  method "PrefabRoot" recv="NodeRef" {
+    params=[]
+    result="NodeRef"
+    doc="PrefabRoot returns the root of the nearest prefab copy that holds the node, the node itself for a root, or nil."
+    example="owner := node.PrefabRoot()\nowner.Destroy()"
   }
   method "Rotation" recv="NodeRef" {
     params=[]
@@ -1534,6 +1683,81 @@ manifest version=2 {
     result="Vec2"
     doc="WorldPosition returns the position in world space, as of the last transform pass."
     example="d := math.Dist(node.WorldPosition(), Target.WorldPosition())"
+  }
+  cmethod "ApplyForce" comp="physics.Body2D" {
+    params=["Vec2"]
+    result="void"
+    names=["force"]
+    doc="ApplyForce pushes the body's center of mass during the next physics step. Call it from FixedUpdate."
+  }
+  cmethod "ApplyForceAt" comp="physics.Body2D" {
+    params=["Vec2", "Vec2"]
+    result="void"
+    names=["force", "point"]
+    doc="ApplyForceAt pushes the body at a world point, which also spins it."
+  }
+  cmethod "ApplyImpulse" comp="physics.Body2D" {
+    params=["Vec2"]
+    result="void"
+    names=["impulse"]
+    doc="ApplyImpulse changes the velocity at once, scaled by mass."
+    example="body.ApplyImpulse(Vec2{Y: -jumpImpulse})"
+  }
+  cmethod "ApplyImpulseAt" comp="physics.Body2D" {
+    params=["Vec2", "Vec2"]
+    result="void"
+    names=["impulse", "point"]
+    doc="ApplyImpulseAt applies an impulse at a world point."
+  }
+  cmethod "ApplyTorque" comp="physics.Body2D" {
+    params=["float"]
+    result="void"
+    names=["torque"]
+    doc="ApplyTorque spins the body during the next physics step."
+  }
+  cmethod "Mass" comp="physics.Body2D" {
+    params=[]
+    result="float"
+    doc="Mass returns the mass computed from the colliders or the override."
+  }
+  cmethod "MoveTo" comp="physics.Body2D" {
+    params=["Vec2", "float"]
+    result="void"
+    names=["position", "angle"]
+    doc="MoveTo drives a kinematic body to the pose by the end of the next physics step, pushing dynamic bodies on the way. Call it from FixedUpdate."
+  }
+  cmethod "SetAngularVelocity" comp="physics.Body2D" {
+    params=["float"]
+    result="void"
+    names=["velocity"]
+    doc="SetAngularVelocity sets the spin in radians per second."
+  }
+  cmethod "SetVelocity" comp="physics.Body2D" {
+    params=["Vec2"]
+    result="void"
+    names=["velocity"]
+    doc="SetVelocity sets the linear velocity in units per second."
+  }
+  cmethod "Sleep" comp="physics.Body2D" {
+    params=[]
+    result="void"
+    doc="Sleep stops the body until something touches it."
+  }
+  cmethod "Teleport" comp="physics.Body2D" {
+    params=["Vec2", "float"]
+    result="void"
+    names=["position", "angle"]
+    doc="Teleport moves the body to a world pose without sweeping, keeping its velocity."
+  }
+  cmethod "WakeUp" comp="physics.Body2D" {
+    params=[]
+    result="void"
+    doc="WakeUp makes a sleeping body simulate again."
+  }
+  component "engine.PrefabInstance" {
+    short="PrefabInstance"
+    category="engine"
+    doc="links a node to the prefab it was created from"
   }
   component "engine.SpriteRenderer" {
     short="SpriteRenderer"
@@ -1738,6 +1962,316 @@ manifest version=2 {
       type="int"
       readonly=false
       doc="Texture sampling: nearest or linear."
+    }
+  }
+  component "physics.Body2D" {
+    short="Body2D"
+    category="physics"
+    doc="Simulates the node as a rigid body. Colliders on the node and its children form its shape."
+    field "Type" {
+      type="int"
+      readonly=false
+      doc="static never moves, kinematic moves by velocity, dynamic reacts to forces and contacts."
+    }
+    field "MassMode" {
+      type="int"
+      readonly=false
+      doc="auto takes the mass from collider density, override uses Mass."
+    }
+    field "Mass" {
+      type="float"
+      readonly=false
+    }
+    field "GravityScale" {
+      type="float"
+      readonly=false
+      doc="Multiplier of the project gravity for this body."
+    }
+    field "LinearDamping" {
+      type="float"
+      readonly=false
+    }
+    field "AngularDamping" {
+      type="float"
+      readonly=false
+    }
+    field "FixedRotation" {
+      type="bool"
+      readonly=false
+    }
+    field "Bullet" {
+      type="bool"
+      readonly=false
+    }
+    field "AllowSleep" {
+      type="bool"
+      readonly=false
+    }
+    field "Interpolate" {
+      type="bool"
+      readonly=false
+      doc="Draws the body between physics steps for smooth motion; scripts still see the exact pose."
+    }
+    field "Layer" {
+      type="int"
+      readonly=false
+      doc="Collision layer, see Project Settings → Physics."
+    }
+    field "Mask" {
+      type="int"
+      readonly=false
+      doc="Layers this body collides with."
+    }
+    field "Velocity" {
+      type="Vec2"
+      readonly=true
+    }
+    field "AngularVelocity" {
+      type="float"
+      readonly=true
+    }
+    field "Awake" {
+      type="bool"
+      readonly=true
+    }
+  }
+  component "physics.BoxCollider2D" {
+    short="BoxCollider2D"
+    category="physics"
+    doc="Box shape in node space."
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+    }
+    field "IsTrigger" {
+      type="bool"
+      readonly=false
+    }
+    field "Friction" {
+      type="float"
+      readonly=false
+    }
+    field "Restitution" {
+      type="float"
+      readonly=false
+    }
+    field "Density" {
+      type="float"
+      readonly=false
+    }
+    field "Size" {
+      type="Vec2"
+      readonly=false
+    }
+  }
+  component "physics.CircleCollider2D" {
+    short="CircleCollider2D"
+    category="physics"
+    doc="Circle shape. Needs a uniform node scale."
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+    }
+    field "IsTrigger" {
+      type="bool"
+      readonly=false
+    }
+    field "Friction" {
+      type="float"
+      readonly=false
+    }
+    field "Restitution" {
+      type="float"
+      readonly=false
+    }
+    field "Density" {
+      type="float"
+      readonly=false
+    }
+    field "Radius" {
+      type="float"
+      readonly=false
+    }
+  }
+  component "physics.CapsuleCollider2D" {
+    short="CapsuleCollider2D"
+    category="physics"
+    doc="Capsule along the local X axis; Length is the full extent including the caps."
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+    }
+    field "IsTrigger" {
+      type="bool"
+      readonly=false
+    }
+    field "Friction" {
+      type="float"
+      readonly=false
+    }
+    field "Restitution" {
+      type="float"
+      readonly=false
+    }
+    field "Density" {
+      type="float"
+      readonly=false
+    }
+    field "Length" {
+      type="float"
+      readonly=false
+    }
+    field "Radius" {
+      type="float"
+      readonly=false
+    }
+  }
+  component "physics.PolygonCollider2D" {
+    short="PolygonCollider2D"
+    category="physics"
+    doc="Convex polygon of 3 to 8 points."
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+    }
+    field "IsTrigger" {
+      type="bool"
+      readonly=false
+    }
+    field "Friction" {
+      type="float"
+      readonly=false
+    }
+    field "Restitution" {
+      type="float"
+      readonly=false
+    }
+    field "Density" {
+      type="float"
+      readonly=false
+    }
+    field "Points" {
+      type="[]Vec2"
+      readonly=true
+    }
+  }
+  component "physics.EdgeCollider2D" {
+    short="EdgeCollider2D"
+    category="physics"
+    doc="Polyline for level geometry. OneSided lets bodies pass from below."
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+    }
+    field "IsTrigger" {
+      type="bool"
+      readonly=false
+    }
+    field "Friction" {
+      type="float"
+      readonly=false
+    }
+    field "Restitution" {
+      type="float"
+      readonly=false
+    }
+    field "Density" {
+      type="float"
+      readonly=false
+    }
+    field "Points" {
+      type="[]Vec2"
+      readonly=true
+    }
+    field "Loop" {
+      type="bool"
+      readonly=false
+    }
+    field "OneSided" {
+      type="bool"
+      readonly=false
+    }
+  }
+  component "physics.DistanceJoint2D" {
+    short="DistanceJoint2D"
+    category="physics"
+    doc="Keeps a distance between this body and the Target body. Length 0 uses the distance at start."
+    field "Target" {
+      type="NodeRef"
+      readonly=false
+    }
+    field "AnchorA" {
+      type="Vec2"
+      readonly=false
+    }
+    field "AnchorB" {
+      type="Vec2"
+      readonly=false
+    }
+    field "Length" {
+      type="float"
+      readonly=false
+    }
+    field "MinLength" {
+      type="float"
+      readonly=false
+    }
+    field "MaxLength" {
+      type="float"
+      readonly=false
+    }
+    field "Stiffness" {
+      type="float"
+      readonly=false
+    }
+    field "Damping" {
+      type="float"
+      readonly=false
+    }
+    field "CollideConnected" {
+      type="bool"
+      readonly=false
+    }
+  }
+  component "physics.RevoluteJoint2D" {
+    short="RevoluteJoint2D"
+    category="physics"
+    doc="Pins this body to the Target body at Anchor, with an optional limit and motor."
+    field "Target" {
+      type="NodeRef"
+      readonly=false
+    }
+    field "Anchor" {
+      type="Vec2"
+      readonly=false
+    }
+    field "EnableLimit" {
+      type="bool"
+      readonly=false
+    }
+    field "Lower" {
+      type="float"
+      readonly=false
+    }
+    field "Upper" {
+      type="float"
+      readonly=false
+    }
+    field "EnableMotor" {
+      type="bool"
+      readonly=false
+    }
+    field "Speed" {
+      type="float"
+      readonly=false
+    }
+    field "MaxTorque" {
+      type="float"
+      readonly=false
+    }
+    field "CollideConnected" {
+      type="bool"
+      readonly=false
     }
   }
 }

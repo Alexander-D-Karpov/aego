@@ -9,7 +9,7 @@ import (
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render"
-	rendermodule "aego/render/module"
+	renderhost "aego/render/host"
 	"aego/render/sprite"
 	"aego/render/texture"
 	"aego/render/view"
@@ -27,7 +27,7 @@ type Demo struct {
 	target gpu.TextureHandle
 	region texture.Region
 	time   float32
-	mod    *rendermodule.Module
+	mod    *renderhost.Module
 }
 
 func New() *Demo {
@@ -38,9 +38,9 @@ func (d *Demo) Name() string {
 	return "offscreen"
 }
 
-func (d *Demo) Module() *rendermodule.Module {
+func (d *Demo) Module() *renderhost.Module {
 	if d.mod == nil {
-		d.mod = rendermodule.New(render.Options{MaxSprites: 1024})
+		d.mod = renderhost.New(render.Options{MaxSprites: 1024})
 	}
 	return d.mod
 }

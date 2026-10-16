@@ -4,6 +4,7 @@ import (
 	"aego/asset"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/problems"
 	"aego/scene"
 )
 
@@ -23,15 +24,27 @@ type Initer interface {
 	Init(ctx *InitContext) error
 }
 
-type Attacher interface {
-	Attach(ctx *AttachContext) (func(), error)
+type WorldAttacher interface {
+	AttachWorld(ctx *AttachContext) error
+	DetachWorld(ctx *AttachContext)
+}
+
+type Shutdowner interface {
+	Shutdown()
 }
 
 type InitContext struct {
-	Engine *engine.Engine
-	Assets asset.Resolver
-	Log    *log.Logger
-	Editor bool
+	Engine   *engine.Engine
+	Assets   asset.Resolver
+	Log      *log.Logger
+	Editor   bool
+	Sections *Sections
+	Problems *problems.Service
+}
+
+func (c *InitContext) Section(id string) any {
+	v, _ := c.Sections.Get(id)
+	return v
 }
 
 type AttachContext struct {
@@ -39,6 +52,7 @@ type AttachContext struct {
 	Scene  *scene.Scene
 	Log    *log.Logger
 	Editor bool
+	Play   bool
 }
 
 type Hook struct {

@@ -91,8 +91,7 @@ func TestCorruptModules(t *testing.T) {
 }
 
 func TestCrossScriptCall(t *testing.T) {
-	// A method of script A calling a method of script B would run B's code with
-	// A's self. Without the owner check this module is otherwise valid.
+	// A cross-script method call would run B's code with A's self.
 	m := bc.NewModule("v")
 	m.Scripts = []bc.ScriptDef{
 		{FullName: "v.A", Slots: 1, Ready: -1, FixedUpdate: -1, Update: -1, Reloaded: -1},

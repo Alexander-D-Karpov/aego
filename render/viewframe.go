@@ -60,7 +60,9 @@ func (f *ViewFrame) End() {
 	}
 	r.passCtx = PassContext{Renderer: r, View: &f.view, Pass: f.pass, Frame: f}
 	for i := range r.order {
+		z := r.tracer.Begin(r.passZone[i])
 		r.order[i].Pass.Execute(&r.passCtx)
+		z.End()
 	}
 	if r.stats.Views == 1 {
 		r.prof.End(f.pass)

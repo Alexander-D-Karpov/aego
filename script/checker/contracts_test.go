@@ -32,16 +32,14 @@ func TestUnusedLocalVar(t *testing.T) {
 	if codes(ds)[diag.UnusedVar] == 0 {
 		t.Fatalf("unused local must warn:\n%s", dump(sm, ds))
 	}
-	// A var touched only through an assignment counts as used (matches the
-	// checker, where the assign target is evaluated and marked used).
+	// An assignment counts as a use of its target.
 	if _, _, ds := check(t, map[string]string{"game/t": "package t\nfunc f() int {\n\tx := 1\n\treturn x\n}\n"}); codes(ds)[diag.UnusedVar] != 0 {
 		t.Fatalf("used local must not warn: %v", codes(ds))
 	}
 }
 
 func TestVectorConstructor(t *testing.T) {
-	// Composite form is the only constructor; the call form is an arity error
-	// (Color(x) is a one-argument conversion). Documented in docs/script.md.
+	// Color has only the composite constructor; Color(x) is a conversion.
 	if _, sm, ds := check(t, map[string]string{"game/t": "package t\nfunc f() Color {\n\treturn Color{1, 0, 0, 1}\n}\n"}); len(ds) != 0 {
 		t.Fatalf("vector composite must be accepted:\n%s", dump(sm, ds))
 	}
@@ -51,8 +49,7 @@ func TestVectorConstructor(t *testing.T) {
 }
 
 func TestCyclicPackageSkipsBodies(t *testing.T) {
-	// The cycle is reported once; bodies of cyclic packages are not checked, so
-	// there is no undefined/not-exported cascade on top of it.
+	// A package cycle is reported once and cyclic bodies are not checked.
 	_, sm, ds := check(t, map[string]string{
 		"game/a": "package a\nimport \"game/b\"\nfunc fa() {\n\tb.fb()\n}\n",
 		"game/b": "package b\nimport \"game/a\"\nfunc fb() {\n\ta.fa()\n}\n",

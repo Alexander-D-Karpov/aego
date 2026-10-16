@@ -26,25 +26,45 @@ func (e *Engine) Step(app App) bool {
 }
 
 func (e *Engine) runPhase(p Phase) {
-	mask := ScopeFrame | e.cfg.LoopScope
-	for _, s := range e.reg.systems.phases[p] {
-		if s.scope&mask != 0 {
-			s.sys.Run(&e.ctx)
-		}
+	list := e.reg.systems.phases[p]
+	if len(list) == 0 {
+		return
 	}
+	mask := ScopeFrame | e.cfg.LoopScope
+	ps := e.tracer.Begin(e.phaseZones[p])
+	for i := range list {
+		s := &list[i]
+		if s.scope&mask == 0 {
+			continue
+		}
+		z := e.tracer.Begin(s.zone)
+		s.sys.Run(&e.ctx)
+		z.End()
+	}
+	ps.End()
 }
 
 func (e *Engine) RunPhase(w *World, p Phase, scope SystemScope, dt, alpha float64) {
 	if w == nil || int(p) >= phaseCount {
 		return
 	}
+	list := e.reg.systems.phases[p]
+	if len(list) == 0 {
+		return
+	}
 	saved := e.wctx
 	e.wctx = Context{Engine: e, World: w, Dt: dt, Alpha: alpha, Frame: e.frameNo, Random: e.ctx.Random}
-	for _, s := range e.reg.systems.phases[p] {
-		if s.scope&scope != 0 {
-			s.sys.Run(&e.wctx)
+	ps := e.tracer.Begin(e.phaseZones[p])
+	for i := range list {
+		s := &list[i]
+		if s.scope&scope == 0 {
+			continue
 		}
+		z := e.tracer.Begin(s.zone)
+		s.sys.Run(&e.wctx)
+		z.End()
 	}
+	ps.End()
 	e.wctx = saved
 }
 
@@ -61,6 +81,7 @@ func (e *Engine) RunVariable(w *World, scope SystemScope, dt, alpha float64) {
 }
 
 func (e *Engine) frame() {
+	e.tracer.BeginFrame()
 	now := e.plat.Now()
 	delta := 0.0
 	if e.frameNo > 0 {
@@ -79,7 +100,9 @@ func (e *Engine) frame() {
 	e.runPhase(PhaseFrameBegin)
 
 	e.input.BeginFrame()
+	pz := e.tracer.Begin(e.zPoll)
 	e.plat.PollEvents(e.onEvent)
+	pz.End()
 	e.runPhase(PhasePollEvents)
 	e.runPhase(PhaseInput)
 
@@ -110,7 +133,9 @@ func (e *Engine) frame() {
 		gs := e.curFrame.Stats()
 		e.dev.EndFrame()
 		e.curFrame = nil
+		sz := e.tracer.Begin(e.zSwap)
 		e.win.SwapBuffers()
+		sz.End()
 		e.stats.DrawCalls = gs.DrawCalls
 		e.stats.Vertices = gs.Vertices
 		e.stats.Triangles = gs.Triangles
@@ -123,4 +148,5 @@ func (e *Engine) frame() {
 	e.runPhase(PhaseFrameEnd)
 	e.stats.FrameTime = delta
 	e.counter.Sample(&e.stats)
+	e.tracer.EndFrame()
 }

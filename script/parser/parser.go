@@ -37,9 +37,7 @@ func ParseFile(sm *source.Manager, id source.FileID) (*ast.File, []diag.Diagnost
 	return f, p.diags
 }
 
-// typeArgsEnd: the lexer cannot insert ';' after '>' (a comparison may continue
-// on the next line), so a line break right after a closing type-argument '>'
-// terminates the declaration or statement here.
+// typeArgsEnd: a line break after a closing type-argument '>' ends the statement.
 func (p *parser) typeArgsEnd() bool {
 	if p.typeGt < 0 || p.typeGt != p.pos-1 {
 		return false

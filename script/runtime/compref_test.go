@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	"aego/engine"
-	"aego/engine/module"
+	scriptstdlib "aego/modules/scripting/stdlib"
 	"aego/platform/input"
-	"aego/render2d"
 	"aego/scene"
 	"aego/scene/frame"
 	"aego/scene/scriptcomp"
@@ -25,7 +24,7 @@ import (
 const compRefProgram = `package game
 
 script Painter {
-	@export var Sprite ComponentRef<engine.SpriteRenderer>
+	@export var Sprite ComponentRef<test.Marker>
 
 	var Got int
 
@@ -40,7 +39,7 @@ func TestExportedComponentRef(t *testing.T) {
 	if err := frame.RegisterTypes(types); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := module.Load(types, nil, render2d.New()); err != nil {
+	if err := registerMarker(types); err != nil {
 		t.Fatal(err)
 	}
 	if err := scriptcomp.Register(types); err != nil {
@@ -50,7 +49,7 @@ func TestExportedComponentRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	reg := bind.New()
-	stdlib.Install(reg, stdlib.Options{Seed: 1})
+	scriptstdlib.Install(reg, stdlib.Options{Seed: 1})
 	BindComponents(reg, types.Schema())
 	if err := reg.Freeze(); err != nil {
 		t.Fatal(err)
@@ -72,7 +71,7 @@ func TestExportedComponentRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd, ok := tds[0].Field("Sprite")
-	if !ok || fd.Kind != schema.KindNodeRef || fd.Component != "engine.SpriteRenderer" {
+	if !ok || fd.Kind != schema.KindNodeRef || fd.Component != "test.Marker" {
 		t.Fatalf("descriptor = %+v", fd)
 	}
 
@@ -81,12 +80,11 @@ func TestExportedComponentRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := scene.New(types, nil, scene.Options{})
-	sprite := s.Create(s.Root(), "Sprite")
-	sr := scene.Add[render2d.SpriteRenderer](s, sprite)
-	*sr = render2d.DefaultSpriteRenderer()
-	sr.Order = 7
+	marked := s.Create(s.Root(), "Marked")
+	m := scene.Add[Marker](s, marked)
+	m.Order = 7
 	bare := s.Create(s.Root(), "Bare")
-	good := attach(s, "Good", "game.Painter", refTo(s, sprite, "Sprite"))
+	good := attach(s, "Good", "game.Painter", refTo(s, marked, "Sprite"))
 	bad := attach(s, "Bad", "game.Painter", refTo(s, bare, "Sprite"))
 	s.Flush()
 	if err := rt.Instantiate(s); err != nil {

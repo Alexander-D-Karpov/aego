@@ -11,28 +11,30 @@ const (
 	ModRand    = "aego/rand"
 	ModTime    = "aego/time"
 	ModTesting = "aego/testing"
-	ModScene   = "aego/scene"
-	ModInput   = "aego/input"
 )
 
+// Options configure the script library; Input is read by modules/scripting/stdlib.
 type Options struct {
 	Seed    uint64
 	Testing bool
 	Input   *input.AxisConfig
 }
 
+// Install registers the language library: math, log, rand, time and, with Testing, testing.
 func Install(r *bind.Registry, opt Options) {
+	InstallBase(r, opt)
+	if opt.Testing {
+		InstallTesting(r)
+	}
+}
+
+func InstallBase(r *bind.Registry, opt Options) {
 	installMath(r)
 	installLog(r)
 	installRand(r, opt.Seed)
 	installTime(r)
-	installScene(r)
-	axes := input.DefaultAxes()
-	if opt.Input != nil {
-		axes = *opt.Input
-	}
-	installInput(r, axes)
-	if opt.Testing {
-		installTesting(r)
-	}
+}
+
+func InstallTesting(r *bind.Registry) {
+	installTesting(r)
 }

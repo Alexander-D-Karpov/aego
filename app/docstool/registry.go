@@ -7,33 +7,33 @@ import (
 	"os"
 	"strings"
 
-	"aego/engine/builtin"
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/engine/docs"
 	"aego/engine/module"
+	scriptsystems "aego/modules/scripting/systems"
 	"aego/project"
 	"aego/script/bind"
 	"aego/script/bind/manifest"
 	"aego/script/diag"
 	"aego/script/langsvc"
-	scriptmodule "aego/script/module"
-	"aego/script/stdlib"
 	"aego/script/workspace"
 )
 
 func build(p *project.Project, mods []module.Module) (*docs.Registry, *workspace.Workspace, error) {
-	types, err := builtin.NewTypes()
+	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, nil, err
 	}
 	reg := bind.New()
-	man, err := builtin.Load(types, reg, stdlib.Options{Seed: 1, Testing: true}, mods...)
+	man, err := builtin.Default().Load(types, reg, assembly.Options{Seed: 1, Testing: true}, mods...)
 	if err != nil {
 		return nil, nil, err
 	}
 	if err := types.Schema().Freeze(); err != nil {
 		return nil, nil, err
 	}
-	if err := scriptmodule.Freeze(reg, types.Schema()); err != nil {
+	if err := scriptsystems.Freeze(reg, types.Schema()); err != nil {
 		return nil, nil, err
 	}
 	bm, err := manifest.FromRegistry(reg, types.Schema())

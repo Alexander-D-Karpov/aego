@@ -12,7 +12,7 @@ import (
 var errMethodModule = errors.New("component methods cannot live in a method module")
 
 func missing[T any](name string) string {
-	return name + ": the node has no " + reflect.TypeFor[T]().Name()
+	return name + ": the " + reflect.TypeFor[T]().Name() + " reference is nil, its node is destroyed or the component was removed"
 }
 
 func receiver[T any](mc *vm.Machine, w []vm.Value, typ schema.TypeID, miss string) (*Ctx, *T, error) {
@@ -24,11 +24,14 @@ func receiver[T any](mc *vm.Machine, w []vm.Value, typ schema.TypeID, miss strin
 		return nil, nil, errNoTarget
 	}
 	h := NodeOf(w[0])
-	p, ok := x.Scene.GetByType(h, typ)
-	if !ok || !x.Scene.IsAlive(h) {
-		x.Fail(miss)
-		return nil, nil, x.finish()
+	if !x.Scene.IsAlive(h) {
+		return nil, nil, &vm.Fault{Code: vm.CodeNil, Message: miss}
 	}
+	p, ok := x.Scene.GetByType(h, typ)
+	if !ok {
+		return nil, nil, &vm.Fault{Code: vm.CodeNil, Message: miss}
+	}
+	x.Recv = h
 	return x, (*T)(p), nil
 }
 
@@ -61,7 +64,7 @@ func Method0[T, R any](m *Module, name string, typ schema.TypeID, f func(*Ctx, *
 		return
 	}
 	miss := missing[T](name)
-	m.add(name, nodeParams(), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err
@@ -78,7 +81,7 @@ func Method1[T, A, R any](m *Module, name string, typ schema.TypeID, f func(*Ctx
 		return
 	}
 	miss := missing[T](name)
-	m.add(name, nodeParams(ca.ref), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(ca.ref), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err
@@ -98,7 +101,7 @@ func Method2[T, A, B, R any](m *Module, name string, typ schema.TypeID, f func(*
 	}
 	miss := missing[T](name)
 	ob := 1 + ca.slots
-	m.add(name, nodeParams(ca.ref, cb.ref), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(ca.ref, cb.ref), cr.ref, func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err
@@ -114,7 +117,7 @@ func MethodProc0[T any](m *Module, name string, typ schema.TypeID, f func(*Ctx, 
 		return
 	}
 	miss := missing[T](name)
-	m.add(name, nodeParams(), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err
@@ -130,7 +133,7 @@ func MethodProc1[T, A any](m *Module, name string, typ schema.TypeID, f func(*Ct
 		return
 	}
 	miss := missing[T](name)
-	m.add(name, nodeParams(ca.ref), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(ca.ref), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err
@@ -148,7 +151,7 @@ func MethodProc2[T, A, B any](m *Module, name string, typ schema.TypeID, f func(
 	}
 	miss := missing[T](name)
 	ob := 1 + ca.slots
-	m.add(name, nodeParams(ca.ref, cb.ref), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
+	m.addRecv(name, nodeParams(ca.ref, cb.ref), abi.T(abi.Void), func(mc *vm.Machine, w []vm.Value) error {
 		x, p, err := receiver[T](mc, w, typ, miss)
 		if p == nil {
 			return err

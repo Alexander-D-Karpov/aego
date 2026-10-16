@@ -67,6 +67,8 @@ const (
 	YieldArg           = "AES2057"
 	ScriptRefTarget    = "AES2058"
 	ScriptRefCall      = "AES2059"
+	EventSignature     = "AES2060"
+	EventCall          = "AES2061"
 
 	NotExportable = "AES3001"
 	UnknownAttr   = "AES3002"
