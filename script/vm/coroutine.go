@@ -24,6 +24,7 @@ const (
 	WaitFrames
 	WaitFixed
 	WaitAwait
+	WaitUnscaled
 )
 
 type CoHooks interface {

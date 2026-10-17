@@ -164,7 +164,11 @@ func registerSystems(r *module.Registry, events engine.System) {
 		System: events,
 	})
 	r.System(engine.SystemDesc{
-		ID: SystemPresent, Phase: engine.PhaseAnimation, Scope: engine.ScopePlay,
+		ID: SystemDebug, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay,
+		System: debugSystem{sink: &drawSink{}},
+	})
+	r.System(engine.SystemDesc{
+		ID: SystemPresent, Phase: engine.PhaseAnimation, Scope: engine.ScopePlay, Pause: engine.PauseAlways,
 		System: simSystem(func(s *systems.Sim, ctx *engine.Context) { s.Present(float32(ctx.Alpha)) }),
 	})
 }

@@ -10,9 +10,15 @@ import (
 
 const (
 	Magic              = "AESB"
-	Version     uint16 = 5
+	Version     uint16 = 6
 	LangVersion uint16 = 2
 	NoScript           = -1
+)
+
+const (
+	PauseNormal uint8 = iota
+	PauseAlways
+	PauseWhenPaused
 )
 
 type ConstKind uint8
@@ -171,6 +177,7 @@ type ScriptDef struct {
 	FullName    string
 	Former      []string
 	Hidden      bool
+	Pause       uint8
 	Slots       uint16
 	HeapSlots   []uint16
 	Fields      []FieldDef

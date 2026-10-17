@@ -125,6 +125,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if !p.hasCamera {
 		ui.TextIn(r, "No active camera in the scene", th.Warn, core.AlignCenter)
 	}
+	for _, hud := range p.vp.GameHUD {
+		hud(ui, r)
+	}
 	widgets.Tooltip(ui, id, "Click to send input to the game")
 }
 

@@ -2,9 +2,13 @@ package runtime
 
 import (
 	"aego/contracts/scriptevents"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/recorder"
 	"aego/scene"
+	"aego/script/abi"
+	"aego/script/bind"
 	"aego/script/vm"
 )
 
@@ -34,9 +38,13 @@ func (r *Runtime) linkEvents() {
 	list := tab.EventList()
 	r.evIndex = make(map[string]int, len(list))
 	r.evSlots = make([]int, len(list))
+	r.evNames = make([]string, len(list))
+	r.evRef = make([]bool, len(list))
 	r.listen = make([]bool, len(list))
 	for i, e := range list {
 		r.evIndex[e.Name] = i
+		r.evNames[i] = e.Name
+		r.evRef[i] = len(e.Params) > 0 && e.Params[0].Kind == abi.NodeRef
 		n := 0
 		for _, p := range e.Params {
 			n += tab.Slots(p)
@@ -47,6 +55,24 @@ func (r *Runtime) linkEvents() {
 		r.evq = make([]queued, 0, eventQueue)
 		r.evargs = make([]vm.Value, 0, eventQueue*4)
 	}
+}
+func (r *Runtime) record(node scene.NodeHandle, i int, args []vm.Value, handled bool) {
+	rec := r.rec
+	if rec == nil || r.scene == nil {
+		return
+	}
+	id := r.scene.ID(node)
+	if !handled && !rec.Watching(id) {
+		rec.Count(recorder.Event)
+		return
+	}
+	var other ids.NodeID
+	if r.evRef[i] && len(args) > 0 {
+		if h := bind.NodeOf(args[0]); r.scene.IsAlive(h) {
+			other = r.scene.ID(h)
+		}
+	}
+	rec.Add(recorder.Event, id, other, r.evNames[i], "")
 }
 
 func (r *Runtime) relisten() {
@@ -81,10 +107,12 @@ func (r *Runtime) ListensOn(node scene.NodeHandle, ev scriptevents.EventID) bool
 
 func (r *Runtime) Emit(node scene.NodeHandle, ev scriptevents.EventID, args []vm.Value) {
 	i := int(ev)
-	if r.m == nil || i >= len(r.listen) || !r.listen[i] || len(args) != r.evSlots[i] {
+	if r.m == nil || i >= len(r.listen) || len(args) != r.evSlots[i] {
 		return
 	}
-	if _, ok := r.byNode[node]; !ok {
+	_, owned := r.byNode[node]
+	r.record(node, i, args, owned && r.listen[i])
+	if !owned || !r.listen[i] {
 		return
 	}
 	if (len(r.evq) == cap(r.evq) || len(r.evargs)+len(args) > cap(r.evargs)) && !r.evWarned {

@@ -28,6 +28,8 @@ const (
 	PlayStart       = "play.start"
 	PlayPause       = "play.pause"
 	PlayStep        = "play.step"
+	PlayStepFixed   = "play.step_fixed"
+	PlayScalePrefix = "play.scale."
 	PlayStop        = "play.stop"
 	AssetsReimport  = "assets.reimport"
 	CommandPalette  = "command.palette"
@@ -62,6 +64,7 @@ func DefaultShortcuts() map[string]Shortcut {
 		PlayStart:       Key(input.KeyP, ModPrimary),
 		PlayPause:       Key(input.KeyP, ModPrimary|ModShift),
 		PlayStep:        Key(input.KeyP, ModPrimary|ModAlt),
+		PlayStepFixed:   Key(input.KeyP, ModAlt),
 		CommandPalette:  Key(input.KeyP, ModPrimary|ModShift|ModAlt),
 	}
 }

@@ -136,6 +136,9 @@ func (v *verifier) tables() {
 
 func (v *verifier) script(si int) {
 	s := &v.m.Scripts[si]
+	if s.Pause > bytecode.PauseWhenPaused {
+		v.bad("script %s has an unknown pause mode %d", s.FullName, s.Pause)
+	}
 	for _, h := range s.HeapSlots {
 		if h >= s.Slots {
 			v.bad("script %s heap slot %d is out of %d", s.FullName, h, s.Slots)

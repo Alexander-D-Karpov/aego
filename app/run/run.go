@@ -5,15 +5,19 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"aego/app"
+	"aego/app/crash"
 	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/base"
 	"aego/engine/module"
+	"aego/engine/recorder"
 	"aego/project"
 	"aego/scene"
 	"aego/scene/frame"
@@ -51,6 +55,10 @@ type App struct {
 	driver  *sceneApp
 	prog    reload.Program
 	target  uint64
+	unrec   func()
+
+	ring       *crash.Ring
+	crashScene bool
 }
 
 func Main(mods ...sdk.Module) {
@@ -127,6 +135,12 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 		return nil, err
 	}
 	a := &App{Host: h, cfg: cfg, log: h.Log.With(log.Engine), Runner: frame.New()}
+	a.ring = crash.NewRing(500)
+	h.Log.AddSink(a.ring)
+	if st, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		a.crashScene = st.CrashScene
+	}
+	h.Engine.Jobs().SetPanicHandler(func(rec any, stack []byte) { a.crash("panic", "worker", rec, stack, "") })
 	if err := a.start(); err != nil {
 		a.Close()
 		return nil, err
@@ -136,7 +150,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 
 func (a *App) start() error {
 	a.Engine.SetService(frame.ServiceID, a.Runner)
-	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log})
+	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log, OnFault: a.fault})
 	if err := a.linkScripts(); err != nil {
 		return err
 	}
@@ -149,6 +163,9 @@ func (a *App) start() error {
 		return err
 	}
 	a.Engine.SetService(scene.ServiceID, a.Scene)
+	w := a.Engine.MainWorld()
+	w.Recorder = recorder.New(4096)
+	a.unrec = frame.Record(a.Scene, w.Recorder)
 	a.Runner.Bind(a.Scene, a.Renderer, a.Loader)
 	if err := a.Scripts.Instantiate(a.Scene); err != nil {
 		return err
@@ -289,5 +306,11 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			a.crash("panic", "run", rec, debug.Stack(), "")
+			panic(rec)
+		}
+	}()
 	return a.Run()
 }

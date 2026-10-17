@@ -90,6 +90,7 @@ func startItems(c *collector, snap *workspace.Snapshot, f *ast.File, off uint32)
 func yieldItems(c *collector, snap *workspace.Snapshot) {
 	for _, y := range []Item{
 		{Label: "wait", Detail: "yield wait(seconds float)", Insert: "wait(${1:seconds})"},
+		{Label: "waitUnscaled", Detail: "yield waitUnscaled(seconds float)", Insert: "waitUnscaled(${1:seconds})"},
 		{Label: "frames", Detail: "yield frames(n int)", Insert: "frames(${1:n})"},
 		{Label: "fixed", Detail: "yield fixed(n int)", Insert: "fixed(${1:n})"},
 	} {

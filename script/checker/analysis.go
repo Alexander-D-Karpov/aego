@@ -115,6 +115,7 @@ type ScriptType struct {
 	FullName    string
 	Former      []string
 	Hidden      bool
+	Pause       uint8
 	Fields      []*ScriptField
 	Signals     []*ScriptSignal
 	Funcs       []*Func

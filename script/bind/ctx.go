@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"aego/core/clock"
 	"aego/core/log"
 	"aego/core/rng"
 	"aego/engine"
@@ -20,6 +21,7 @@ type Ctx struct {
 	Input   *input.State
 	Random  *rng.Source
 	Log     *log.ChannelLogger
+	Time    *clock.Time
 	Node    scene.NodeHandle
 	Recv    scene.NodeHandle
 	Self    vm.InstanceID

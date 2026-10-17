@@ -163,7 +163,7 @@ func TestCompletionContexts(t *testing.T) {
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := node.Get<|", 1), []string{"Marker"}},
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tx := spe|", 1), []string{"Speed"}},
 		{strings.Replace(scriptTmpl, "CURSOR", "\t\tcombat.|", 1), []string{"Damage"}},
-		{strings.Replace(scriptTmpl, "\t@export\n", "\t@|\n", 1), []string{"export", "former", "hide"}},
+		{strings.Replace(scriptTmpl, "\t@export\n", "\t@|\n", 1), []string{"export", "former", "hide", "pause"}},
 		{strings.Replace(scriptTmpl, "\t@export\n", "\t@export(|)\n", 1), []string{"min", "unit"}},
 	}
 	for _, tc := range cases {

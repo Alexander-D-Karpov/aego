@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/app/assembly/editors"
+	"aego/app/crash"
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/log"
@@ -21,6 +23,7 @@ import (
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
 	"aego/engine"
+	"aego/engine/base"
 	"aego/engine/module"
 	"aego/project"
 	"aego/scene"
@@ -58,6 +61,7 @@ type driver struct {
 
 func (d *driver) Update(dt float64) {
 	d.s.syncDocs()
+	d.s.spike()
 	d.App.Update(dt)
 }
 
@@ -71,6 +75,11 @@ type Session struct {
 	unsub   func()
 	docs    []docAttach
 	driver  *driver
+
+	ring       *crash.Ring
+	crashScene bool
+	spikeMs    float64
+	lastSpike  float64
 }
 
 func Main(mods ...sdk.Module) {
@@ -135,6 +144,12 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			s.crash("panic", "editor", rec, debug.Stack(), "")
+			panic(rec)
+		}
+	}()
 	if err := s.Run(); err != nil {
 		return err
 	}
@@ -179,6 +194,12 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		return nil, err
 	}
 	s := &Session{Host: h, cfg: cfg, log: h.Log.With(shell.ChannelEditor)}
+	s.ring = crash.NewRing(500)
+	h.Log.AddSink(s.ring)
+	if st, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		s.crashScene, s.spikeMs = st.CrashScene, st.SpikeMs
+	}
+	h.Engine.Jobs().SetPanicHandler(func(rec any, stack []byte) { s.crash("panic", "worker", rec, stack, "") })
 	touchRecent(cfg, p.Root, p.Name, s.log)
 	s.Scripts = &scriptHost{
 		bindings: h.Bindings,
@@ -188,6 +209,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		ws:       h.Workspace,
 		log:      h.Log,
 		modules:  h.Modules,
+		fault:    s.fault,
 	}
 	lang := langsvc.New(h.Workspace, h.Engine.Jobs())
 	if p.Native {
@@ -225,6 +247,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		RunSnippet:  snippets(),
 		DirsErr:     dirsErr,
 		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
+		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil

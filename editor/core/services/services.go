@@ -94,6 +94,7 @@ type Viewport struct {
 	Overlay     *context.Overlays
 	OnRender    func(func())
 	RenderWorld func(w *engine.World)
+	GameHUD     []func(ui *core.Context, r mathx.Rect)
 }
 
 var (

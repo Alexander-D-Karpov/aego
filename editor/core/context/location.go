@@ -22,6 +22,7 @@ const (
 	TargetProblems
 	TargetSettings
 	TargetAsset
+	TargetEvents
 )
 
 type Location struct {
@@ -34,6 +35,7 @@ type Location struct {
 	Target Target
 	Ref    string
 	Query  string
+	Frame  uint64
 }
 
 func At(path string, line, col int) Location {
@@ -62,6 +64,10 @@ func SettingsAt(page string) Location {
 
 func AssetAt(path string) Location {
 	return Location{Target: TargetAsset, Path: path, Offset: -1}
+}
+
+func EventsAt(frame uint64) Location {
+	return Location{Target: TargetEvents, Frame: frame, Offset: -1}
 }
 
 func (l Location) IsScript() bool {
@@ -113,6 +119,11 @@ func (e *Editor) Open(l Location) {
 	case TargetAsset:
 		if e.RevealPath != nil {
 			e.RevealPath(l.Path)
+		}
+		return
+	case TargetEvents:
+		if e.ShowEvents != nil {
+			e.ShowEvents(l.Frame)
 		}
 		return
 	}

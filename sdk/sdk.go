@@ -68,6 +68,17 @@ const (
 	ScopeWorld  = engine.ScopeWorld
 )
 
+type (
+	PauseMode = engine.PauseMode
+	WorldID   = engine.WorldID
+)
+
+const (
+	PauseNormal     = engine.PauseNormal
+	PauseAlways     = engine.PauseAlways
+	PauseWhenPaused = engine.PauseWhenPaused
+)
+
 type Registry struct {
 	r *module.Registry
 }

@@ -7,12 +7,12 @@ import (
 	"aego/core/errs"
 )
 
-type recorder struct {
+type orderSys struct {
 	id  string
 	log *[]string
 }
 
-func (r recorder) Run(*Context) {
+func (r orderSys) Run(*Context) {
 	*r.log = append(*r.log, r.id)
 }
 
@@ -21,10 +21,10 @@ func TestTopologicalOrder(t *testing.T) {
 	r := newRegistry()
 	s := r.Systems()
 	for _, d := range []SystemDesc{
-		{ID: "c", Phase: PhaseUpdate, After: []string{"b"}, System: recorder{id: "c", log: &seen}},
-		{ID: "a", Phase: PhaseUpdate, Before: []string{"b"}, System: recorder{id: "a", log: &seen}},
-		{ID: "b", Phase: PhaseUpdate, System: recorder{id: "b", log: &seen}},
-		{ID: "r", Phase: PhaseRender, System: recorder{id: "r", log: &seen}},
+		{ID: "c", Phase: PhaseUpdate, After: []string{"b"}, System: orderSys{id: "c", log: &seen}},
+		{ID: "a", Phase: PhaseUpdate, Before: []string{"b"}, System: orderSys{id: "a", log: &seen}},
+		{ID: "b", Phase: PhaseUpdate, System: orderSys{id: "b", log: &seen}},
+		{ID: "r", Phase: PhaseRender, System: orderSys{id: "r", log: &seen}},
 	} {
 		if err := s.Register(d); err != nil {
 			t.Fatal(err)
@@ -48,18 +48,18 @@ func TestRegistryErrors(t *testing.T) {
 		code  errs.Code
 	}{
 		{"cycle", []SystemDesc{
-			{ID: "a", Phase: PhaseUpdate, After: []string{"b"}, System: recorder{}},
-			{ID: "b", Phase: PhaseUpdate, After: []string{"a"}, System: recorder{}},
+			{ID: "a", Phase: PhaseUpdate, After: []string{"b"}, System: orderSys{}},
+			{ID: "b", Phase: PhaseUpdate, After: []string{"a"}, System: orderSys{}},
 		}, errs.EngineSystemCycle},
 		{"self", []SystemDesc{
-			{ID: "a", Phase: PhaseUpdate, After: []string{"a"}, System: recorder{}},
+			{ID: "a", Phase: PhaseUpdate, After: []string{"a"}, System: orderSys{}},
 		}, errs.EngineSystemCycle},
 		{"unknown", []SystemDesc{
-			{ID: "a", Phase: PhaseUpdate, Before: []string{"ghost"}, System: recorder{}},
+			{ID: "a", Phase: PhaseUpdate, Before: []string{"ghost"}, System: orderSys{}},
 		}, errs.EngineSystemDep},
 		{"cross phase", []SystemDesc{
-			{ID: "a", Phase: PhaseUpdate, Before: []string{"b"}, System: recorder{}},
-			{ID: "b", Phase: PhaseRender, System: recorder{}},
+			{ID: "a", Phase: PhaseUpdate, Before: []string{"b"}, System: orderSys{}},
+			{ID: "b", Phase: PhaseRender, System: orderSys{}},
 		}, errs.EngineSystemPhase},
 	}
 	for _, c := range cases {
@@ -79,25 +79,25 @@ func TestRegistryErrors(t *testing.T) {
 func TestRegisterValidation(t *testing.T) {
 	r := newRegistry()
 	s := r.Systems()
-	if err := s.Register(SystemDesc{ID: "", Phase: PhaseUpdate, System: recorder{}}); !errs.Has(err, errs.EngineSystemBad) {
+	if err := s.Register(SystemDesc{ID: "", Phase: PhaseUpdate, System: orderSys{}}); !errs.Has(err, errs.EngineSystemBad) {
 		t.Fatalf("empty id: %v", err)
 	}
 	if err := s.Register(SystemDesc{ID: "a", Phase: PhaseUpdate}); !errs.Has(err, errs.EngineSystemBad) {
 		t.Fatalf("nil system: %v", err)
 	}
-	if err := s.Register(SystemDesc{ID: "a", Phase: Phase(200), System: recorder{}}); !errs.Has(err, errs.EngineSystemPhase) {
+	if err := s.Register(SystemDesc{ID: "a", Phase: Phase(200), System: orderSys{}}); !errs.Has(err, errs.EngineSystemPhase) {
 		t.Fatalf("bad phase: %v", err)
 	}
-	if err := s.Register(SystemDesc{ID: "a", Phase: PhaseUpdate, System: recorder{}}); err != nil {
+	if err := s.Register(SystemDesc{ID: "a", Phase: PhaseUpdate, System: orderSys{}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Register(SystemDesc{ID: "a", Phase: PhaseInput, System: recorder{}}); !errs.Has(err, errs.EngineSystemDup) {
+	if err := s.Register(SystemDesc{ID: "a", Phase: PhaseInput, System: orderSys{}}); !errs.Has(err, errs.EngineSystemDup) {
 		t.Fatalf("duplicate: %v", err)
 	}
 	if err := r.Freeze(); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Register(SystemDesc{ID: "b", Phase: PhaseUpdate, System: recorder{}}); !errs.Has(err, errs.EngineFrozen) {
+	if err := s.Register(SystemDesc{ID: "b", Phase: PhaseUpdate, System: orderSys{}}); !errs.Has(err, errs.EngineFrozen) {
 		t.Fatalf("frozen: %v", err)
 	}
 }

@@ -50,7 +50,7 @@ func New(dev gpu.Device, maxVerts int) (*Draw, error) {
 		Usage:   gpu.BufferVertex,
 		Size:    maxVerts * VertexStride,
 		Dynamic: true,
-		Label:   "debug.lines",
+		Label:   "render.debug_lines",
 	})
 	if err != nil {
 		return nil, err

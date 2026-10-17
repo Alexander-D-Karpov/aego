@@ -3,7 +3,9 @@ package fakephys
 import (
 	"errors"
 
+	"aego/contracts/debugdraw"
 	"aego/contracts/scriptevents"
+	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/engine/problems"
@@ -126,8 +128,15 @@ func StateOf(w *engine.World) *State {
 
 type tick struct{}
 
+var tickStyle = debugdraw.Style{Color: mathx.Color{R: 1, A: 1}, Channel: ID + ".ticks"}
+
 func (tick) Run(ctx *engine.Context) {
-	if s := StateOf(ctx.World); s != nil {
-		s.Ticks++
+	s := StateOf(ctx.World)
+	if s == nil {
+		return
+	}
+	s.Ticks++
+	if d, ok := engine.ServiceOf[debugdraw.Draw](ctx.World, debugdraw.ServiceID); ok {
+		d.Cross(mathx.Vec2{}, 0.5, &tickStyle)
 	}
 }

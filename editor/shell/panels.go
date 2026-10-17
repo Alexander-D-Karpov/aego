@@ -14,10 +14,13 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.consolePanel, Slot: workspace.SlotBottom, Order: 150},
 		{Panel: a.problemsPanel, Slot: workspace.SlotBottom, Order: 160},
 		{Panel: a.profiler, Slot: workspace.SlotBottom, Order: 170},
+		{Panel: a.eventsPanel, Slot: workspace.SlotBottom, Order: 175},
+		{Panel: a.watchPanel, Slot: workspace.SlotBottom, Order: 176},
 		{Panel: a.settings, Near: workspace.Inspector, Order: 200},
 		{Panel: a.docs, Near: workspace.Scene, Order: 210},
 		{Panel: a.welcome, Near: workspace.Inspector, Order: 220},
 		{Panel: a.keymap, Near: workspace.Inspector, Order: 230},
+		{Panel: a.crashesPanel, Near: workspace.Console, Order: 240},
 	}
 }
 

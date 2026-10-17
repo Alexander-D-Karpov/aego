@@ -126,12 +126,14 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		ui.Rect(r, tint)
 	}
 	saveX := r.X + r.W - tb.ButtonW() - 6
+	scale, tick := scaleLabel(a.play.TimeScale()), "+1 tick"
 	n := 3
 	if st != play.Stopped {
 		n = 4
 	}
-	width := float32(n) * tb.ButtonW()
+	width := float32(n)*tb.ButtonW() + ui.TextSize(scale).X + ui.TextSize(tick).X + 32
 	x := max(r.X+(r.W-width)/2, r.X+6)
+	sid := ui.ID("tb.scale")
 	if x+width <= saveX-8 {
 		tb.SetX(x)
 		a.playRect = mathx.Rect{X: x, Y: r.Y + 3, W: tb.ButtonW() - 2, H: r.H - 6}
@@ -155,11 +157,22 @@ func (a *App) drawToolbar(r mathx.Rect) {
 				a.play.Pause()
 			}
 		}
-		if tb.Button(ui.ID("tb.pause"), "play.pause", "Pause", st == play.Paused, st != play.Stopped) {
+		if tb.Button(ui.ID("tb.pause"), "play.pause", "Pause ("+reg.Shortcut(command.PlayPause)+")", st == play.Paused, st != play.Stopped) {
 			a.play.Pause()
 		}
-		if tb.Button(ui.ID("tb.step"), "play.step", "Step one frame", false, st == play.Paused) {
+		if tb.Button(ui.ID("tb.step"), "play.step", "Step one frame ("+reg.Shortcut(command.PlayStep)+")", false, st == play.Paused) {
 			a.play.Step()
+		}
+		if clicked, _ := tb.TextButton(ui.ID("tb.tick"), tick, "Step one fixed tick ("+reg.Shortcut(command.PlayStepFixed)+"), while paused"); clicked && reg.Enabled(command.PlayStepFixed) {
+			reg.Run(command.PlayStepFixed)
+		}
+		if clicked, sr := tb.TextButton(sid, scale, "Time scale"); clicked {
+			if ui.PopupOpen(sid) {
+				ui.ClosePopup(sid)
+			} else {
+				ui.CloseAllPopups()
+				ui.OpenPopup(sid, mathx.Vec2{X: sr.X, Y: sr.Y + sr.H})
+			}
 		}
 		if st != play.Stopped && tb.Button(ui.ID("tb.stop"), "play.stop", "Stop", false, true) {
 			a.stopPlay()
@@ -169,4 +182,5 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	if tb.Button(ui.ID("tb.save"), "file.save", "Save ("+reg.Shortcut(command.FileSave)+")", false, reg.Enabled(command.FileSave)) {
 		reg.Run(command.FileSave)
 	}
+	a.scalePopup(sid)
 }

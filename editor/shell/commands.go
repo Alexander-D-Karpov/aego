@@ -217,6 +217,10 @@ func (a *App) registerCommands() error {
 			Shortcut: command.Key(input.KeyV, command.ModPrimary),
 			Enabled:  hasDoc,
 			Run:      func() error { return a.inspectorPanel.PasteHovered() }},
+		{ID: inspector.CommandWatch, Name: "Add Field to Watch", Scope: inspector.Scope,
+			Shortcut: command.Key(input.KeyW, command.ModPrimary|command.ModAlt),
+			Enabled:  a.inspectorPanel.CanWatch,
+			Run:      func() error { return a.inspectorPanel.WatchHovered() }},
 	}
 	for _, d := range list {
 		if d.Shortcut.IsZero() {

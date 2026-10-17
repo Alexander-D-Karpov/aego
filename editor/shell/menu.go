@@ -6,7 +6,6 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
-	"aego/editor/core/play"
 )
 
 func clockText(sec float64) string {
@@ -71,13 +70,8 @@ func (a *App) drawStatus(r mathx.Rect) {
 			a.ctx.ShowProblems("")
 		}
 	}
-	switch a.play.State() {
-	case play.Playing:
-		item("Play "+clockText(a.play.SimTime()), th.Accent, "", true)
-	case play.Paused:
-		item("Paused "+clockText(a.play.SimTime()), th.Warn, "", true)
-	default:
-		item("Edit", th.TextDim, "", true)
+	if text, col := a.playStatus(); text != "" {
+		item(text, col, "", true)
 	}
 	if c := a.opt.Code; c != nil {
 		if strings.HasPrefix(a.ctx.FocusedPanel, "script:") {

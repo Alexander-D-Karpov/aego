@@ -24,6 +24,7 @@ const (
 	inTimed
 	inFixed
 	inAwait
+	inUnscaled
 )
 
 type rec struct {
@@ -61,16 +62,21 @@ type Scheduler struct {
 	frames   queue
 	timed    queue
 	fixed    queue
+	unscaled queue
 	run      []item
 	frun     []item
+	urun     []item
 	woken    []item
 	later    []uint32
 	seq      uint64
 	now      float64
+	real     float64
 	frame    uint64
+	uframe   uint64
 	fixedN   uint64
 	inFrame  bool
 	inFixed  bool
+	inU      bool
 	stats    Stats
 	Self     func(vm.InstanceID) ([]vm.Value, bool)
 	OnFault  func(vm.InstanceID, *vm.Fault)
@@ -83,6 +89,7 @@ func New(m *vm.Machine) *Scheduler {
 		frames:   queue{tag: inFrames},
 		timed:    queue{tag: inTimed},
 		fixed:    queue{tag: inFixed},
+		unscaled: queue{tag: inUnscaled},
 	}
 	m.Co = s
 	return s
@@ -200,6 +207,8 @@ func (s *Scheduler) unlink(i uint32) {
 		s.removeAt(&s.timed, r.pos)
 	case inFixed:
 		s.removeAt(&s.fixed, r.pos)
+	case inUnscaled:
+		s.removeAt(&s.unscaled, r.pos)
 	case inAwait:
 		ws := s.awaiting[r.target]
 		if k := slices.Index(ws, i); k >= 0 {
@@ -230,6 +239,13 @@ func (s *Scheduler) fixedDue(n int64) uint64 {
 	}
 	return due
 }
+func (s *Scheduler) unscaledDue() uint64 {
+	due := s.uframe + 1
+	if !s.inU {
+		due++
+	}
+	return due
+}
 
 func (s *Scheduler) Yielded(h vm.CoHandle, w vm.WaitKind, arg vm.Value) {
 	r := s.track(h)
@@ -239,6 +255,12 @@ func (s *Scheduler) Yielded(h vm.CoHandle, w vm.WaitKind, arg vm.Value) {
 		if d := float64(arg.Float()); d > 0 {
 			r.key, r.frame = s.now+d, s.frameDue(1)
 			s.push(&s.timed, i)
+			return
+		}
+	case vm.WaitUnscaled:
+		if d := float64(arg.Float()); d > 0 {
+			r.key, r.frame = s.real+d, s.unscaledDue()
+			s.push(&s.unscaled, i)
 			return
 		}
 	case vm.WaitFrames:
@@ -284,9 +306,12 @@ func (s *Scheduler) Ended(h vm.CoHandle, st vm.CoState) {
 		r := &s.recs[i]
 		r.where, r.target = inNone, vm.CoHandle{}
 		it := item{h: vm.CoHandle{Index: i, Gen: r.gen}, seq: r.seq}
-		if s.inFrame {
+		switch {
+		case s.inFrame:
 			s.run = append(s.run, it)
-		} else {
+		case s.inU:
+			s.urun = append(s.urun, it)
+		default:
 			s.woken = append(s.woken, it)
 		}
 	}
@@ -358,6 +383,30 @@ func (s *Scheduler) Fixed() {
 	}
 	s.inFixed = false
 }
+func (s *Scheduler) Unscaled(real float32) {
+	s.uframe++
+	s.real += float64(real)
+	s.inU = true
+	s.urun = s.urun[:0]
+	for len(s.unscaled.heap) > 0 && s.recs[s.unscaled.heap[0]].key <= s.real {
+		if s.recs[s.unscaled.heap[0]].frame > s.uframe {
+			s.later = append(s.later, s.removeAt(&s.unscaled, 0))
+			continue
+		}
+		s.urun = append(s.urun, s.take(&s.unscaled))
+	}
+	for _, i := range s.later {
+		s.push(&s.unscaled, i)
+	}
+	s.later = s.later[:0]
+	slices.SortFunc(s.urun, bySeq)
+	for k := 0; k < len(s.urun); k++ {
+		s.stats.Visits++
+		s.resume(s.urun[k].h)
+	}
+	s.urun = s.urun[:0]
+	s.inU = false
+}
 
 func (s *Scheduler) Stop(h vm.CoHandle) {
 	s.m.Cancel(h)
@@ -387,7 +436,7 @@ func (s *Scheduler) Stats() Stats {
 	st := s.stats
 	st.Live = s.live
 	st.Ready = len(s.woken)
-	st.Sleeping = len(s.frames.heap) + len(s.timed.heap)
+	st.Sleeping = len(s.frames.heap) + len(s.timed.heap) + len(s.unscaled.heap)
 	st.Fixed = len(s.fixed.heap)
 	st.Awaiting = s.waiters
 	return st

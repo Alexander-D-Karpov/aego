@@ -46,6 +46,7 @@ type Deps struct {
 	Assets    services.AssetOps
 	Scenes    services.SceneOps
 	Collapsed map[string]bool
+	Watch     func(expr string)
 }
 
 type Panel struct {
@@ -83,6 +84,7 @@ const (
 	Scope        = "inspector"
 	CommandCopy  = "inspector.copy"
 	CommandPaste = "inspector.paste"
+	CommandWatch = "inspector.watch"
 )
 
 type fieldRef struct {
@@ -222,6 +224,25 @@ func (p *Panel) CopyHovered() error {
 	if p.hoverType != 0 {
 		return p.d.Clip.CopyComponent(d.Scene(), p.nodes[0], p.hoverType)
 	}
+	return nil
+}
+
+func (p *Panel) CanWatch() bool {
+	return p.hoverField.ok && p.d.Watch != nil
+}
+
+func (p *Panel) WatchHovered() error {
+	d := p.d.Docs.Doc()
+	if d == nil || len(p.nodes) == 0 || !p.CanWatch() {
+		return nil
+	}
+	td, fd, ok := p.lookup(d, p.hoverField)
+	if !ok {
+		return nil
+	}
+	s := d.Scene()
+	comp := td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
+	p.d.Watch(s.Path(s.Handle(p.nodes[0])) + "." + comp + "." + fd.Name)
 	return nil
 }
 

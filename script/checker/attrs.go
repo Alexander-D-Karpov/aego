@@ -2,6 +2,7 @@ package checker
 
 import (
 	"aego/script/ast"
+	"aego/script/bytecode"
 	"aego/script/diag"
 	"aego/script/types"
 )
@@ -13,6 +14,24 @@ func exportable(t *types.Type) bool {
 		return true
 	}
 	return false
+}
+
+func (c *checker) pauseArg(st *ScriptType, a *ast.Attr) {
+	vals := c.stringArgs(a)
+	if len(vals) != 1 {
+		c.errorf(diag.BadAttrArg, a.Sp, "@pause takes one mode: \"normal\", \"always\" or \"whenPaused\"")
+		return
+	}
+	switch vals[0] {
+	case "normal":
+		st.Pause = bytecode.PauseNormal
+	case "always":
+		st.Pause = bytecode.PauseAlways
+	case "whenPaused":
+		st.Pause = bytecode.PauseWhenPaused
+	default:
+		c.errorf(diag.BadAttrArg, a.Args[0].Value.Span(), "unknown pause mode %q, use \"normal\", \"always\" or \"whenPaused\"", vals[0])
+	}
 }
 
 func (c *checker) scriptAttrs(st *ScriptType, attrs []*ast.Attr) {
@@ -32,6 +51,8 @@ func (c *checker) scriptAttrs(st *ScriptType, attrs []*ast.Attr) {
 			st.Hidden = true
 		case "former":
 			st.Former = append(st.Former, c.stringArgs(a)...)
+		case "pause":
+			c.pauseArg(st, a)
 		case "export":
 			c.errorf(diag.AttrTarget, a.Sp, "@export applies to script fields, not to scripts")
 		default:
@@ -58,8 +79,8 @@ func (c *checker) fieldAttrs(f *ScriptField, attrs []*ast.Attr) {
 			}
 		case "former":
 			f.Former = append(f.Former, c.stringArgs(a)...)
-		case "hide":
-			c.errorf(diag.AttrTarget, a.Sp, "@hide applies to scripts, not to fields")
+		case "hide", "pause":
+			c.errorf(diag.AttrTarget, a.Sp, "@%s applies to scripts, not to fields", name)
 		default:
 			c.errorf(diag.UnknownAttr, a.Name.Sp, "unknown attribute @%s", name)
 		}

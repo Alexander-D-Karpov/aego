@@ -3,6 +3,7 @@ package engine
 import (
 	"os"
 	"runtime"
+	"runtime/metrics"
 	"unsafe"
 
 	"aego/core/clock"
@@ -36,7 +37,6 @@ type Engine struct {
 	input     input.State
 	reg       *Registry
 	jobs      *Jobs
-	stepper   clock.FixedStepper
 	counter   *stats.Counter
 	stats     stats.Frame
 	metrics   platform.WindowMetrics
@@ -53,6 +53,11 @@ type Engine struct {
 	quit      bool
 	closed    bool
 	err       error
+
+	probe       bool
+	probeSample []metrics.Sample
+	allocs      [phaseCount]uint64
+	lastAllocs  [phaseCount]uint64
 
 	tracer     *trace.Tracer
 	phaseZones [phaseCount]trace.ZoneID
@@ -110,8 +115,19 @@ func (b *Builder) WithPlatform(p platform.Platform) *Builder {
 	return b
 }
 
+func (b *Builder) Configure(fn func(*Config)) *Builder {
+	if fn != nil {
+		fn(&b.cfg)
+	}
+	return b
+}
+
 func (b *Builder) Registry() *Registry {
 	return b.reg
+}
+
+func (e *Engine) TimeConfig() clock.Config {
+	return clock.Config{FixedDelta: 1 / e.cfg.FixedHz, MaxFrameDelta: e.cfg.MaxFrameDelta, MaxFixedSteps: e.cfg.MaxFixedSteps}
 }
 
 func (b *Builder) Build() (*Engine, error) {
@@ -146,11 +162,7 @@ func (b *Builder) Build() (*Engine, error) {
 	e.ctx.World = e.main
 	e.onEvent = e.handleEvent
 	e.counter = stats.NewCounter()
-	e.stepper = clock.FixedStepper{
-		FixedDelta:    1 / cfg.FixedHz,
-		MaxFrameDelta: cfg.MaxFrameDelta,
-		MaxSteps:      cfg.MaxFixedSteps,
-	}
+	e.main.Time.Configure(e.TimeConfig())
 
 	if err := e.initBackends(b.platform); err != nil {
 		e.Close()

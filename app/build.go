@@ -1,6 +1,7 @@
 package app
 
 import (
+	"aego/engine/base"
 	"os"
 	"strings"
 
@@ -106,6 +107,9 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if h.Sections, err = h.Modules.LoadSections(p.Block, project.CoreBlocks...); err != nil {
 		return err
 	}
+	if ts, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		builder.Configure(ts.Apply)
+	}
 	builder.Use(h.Modules.Engine())
 	if h.Importers, err = DevImporters(h.Workspace, h.Modules); err != nil {
 		return err
@@ -166,6 +170,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	h.Engine.SetService(loader.ServiceID, h.Loader)
 	h.Engine.SetService(renderhost.ServiceID, h.Renderer)
 	h.Problems = problems.New()
+	h.Problems.Add(MetaProblems(h.Pipeline))
 	h.Engine.SetService(problems.ServiceID, h.Problems)
 	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems}); err != nil {
 		return err

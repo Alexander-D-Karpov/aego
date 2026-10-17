@@ -1,11 +1,25 @@
 package engine
 
-import "aego/platform/input"
+import (
+	"sync/atomic"
+
+	"aego/core/clock"
+	"aego/engine/recorder"
+	"aego/platform/input"
+)
+
+type WorldID uint64
+
+var worldSeq atomic.Uint64
 
 type World struct {
+	id       WorldID
 	name     string
 	services []serviceEntry
 	Input    *input.State
+	Time     *clock.Time
+	Recorder *recorder.Recorder
+	Break    func() bool
 }
 
 func (c *Context) Input() *input.State {
@@ -16,7 +30,11 @@ func (c *Context) Input() *input.State {
 }
 
 func NewWorld(name string) *World {
-	return &World{name: name}
+	return &World{id: WorldID(worldSeq.Add(1)), name: name, Time: clock.NewTime(clock.Config{})}
+}
+
+func (w *World) ID() WorldID {
+	return w.id
 }
 
 func (w *World) Name() string {

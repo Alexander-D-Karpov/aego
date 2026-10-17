@@ -6,6 +6,7 @@ import (
 	"aego/engine"
 	"aego/platform"
 	"aego/scene"
+	"aego/scene/frame"
 	"aego/scene/sceneio"
 )
 
@@ -64,6 +65,10 @@ func (a *App) reloadScene() {
 		a.log.Warn("scene warning", log.F("path", w.Path), log.F("line", w.Pos.Line), log.F("msg", w.Msg))
 	}
 	a.Scene = next
+	if a.unrec != nil {
+		a.unrec()
+	}
+	a.unrec = frame.Record(next, a.Engine.MainWorld().Recorder)
 	a.Runner.Bind(next, a.Renderer, a.Loader)
 	a.Engine.SetService(scene.ServiceID, next)
 	if err := a.Scripts.Instantiate(next); err != nil {

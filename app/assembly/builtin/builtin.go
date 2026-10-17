@@ -4,6 +4,7 @@ import (
 	"aego/app/assembly"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/modules/debug"
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/render3d"
@@ -33,6 +34,10 @@ func physicsEntry() assembly.Entry {
 	return assembly.Entry{ID: physics.ID, New: func(assembly.Options) module.Module { return physics.New() }}
 }
 
+func debugEntry() assembly.Entry {
+	return assembly.Entry{ID: debug.ID, New: func(assembly.Options) module.Module { return debug.New() }}
+}
+
 func Default() assembly.Catalog {
-	return assembly.Catalog{core(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry()}
+	return assembly.Catalog{core(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry()}
 }

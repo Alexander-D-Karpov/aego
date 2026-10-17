@@ -1,5 +1,84 @@
 manifest version=4 {
-  abi="de644410847cd8a04ec38fdf34ef9d785deaab738e4722055195efbe69a40f50"
+  abi="9a01680400b00c41cb6546a114e4cbeb17fc6b42555a5d24b8749a8f28293666"
+  module "aego/debug" {
+    func "Arrow" {
+      params=["Vec2", "Vec2", "Color"]
+      result="void"
+      names=["from", "to", "color"]
+      doc="Arrow draws an arrow from one point to another."
+      example="debug.Arrow(p, p + body.Velocity * 0.2, Color{0, 1, 0, 1})"
+    }
+    func "Circle" {
+      params=["Vec2", "float", "Color"]
+      result="void"
+      names=["center", "radius", "color"]
+      doc="Circle draws a circle outline with radius r in world units."
+      example="debug.Circle(node.WorldPosition(), SightRange, Color{0, 0.6, 1, 1})"
+    }
+    func "Clear" {
+      params=["string"]
+      result="void"
+      names=["channel"]
+      doc="Clear removes every primitive whose channel starts with prefix."
+      example="debug.Clear(\"ai\")"
+    }
+    func "Cross" {
+      params=["Vec2", "float", "Color"]
+      result="void"
+      names=["p", "size", "color"]
+      doc="Cross draws a cross of the given size in world units."
+      example="debug.Cross(goal, 0.5, Color{1, 0, 1, 1})"
+    }
+    func "Line" {
+      params=["Vec2", "Vec2", "Color"]
+      result="void"
+      names=["a", "b", "color"]
+      doc="Line draws a line in world units. It lasts one frame unless Pen sets a lifetime."
+      example="debug.Line(node.WorldPosition(), Target.WorldPosition(), Color{1, 0, 0, 1})"
+    }
+    func "Pen" {
+      params=["string", "float"]
+      result="void"
+      names=["channel", "ttl"]
+      doc="Pen sets the channel and the lifetime of the next primitives this script draws: ttl 0 lasts one frame, a positive ttl lasts that many game seconds, a negative ttl lasts until Clear."
+      example="debug.Pen(\"ai.path\", 2)"
+    }
+    func "PenUnscaled" {
+      params=["string", "float"]
+      result="void"
+      names=["channel", "ttl"]
+      doc="PenUnscaled is Pen with a lifetime in real seconds; such primitives fade out while the game is paused."
+      example="debug.PenUnscaled(\"ui\", 1)"
+    }
+    func "Point" {
+      params=["Vec2", "Color"]
+      result="void"
+      names=["p", "color"]
+      doc="Point marks a point with a small cross of constant screen size."
+      example="debug.Point(hit.Point, Color{1, 0, 0, 1})"
+    }
+    func "Ray" {
+      params=["Vec2", "Vec2", "Color"]
+      result="void"
+      names=["origin", "dir", "color"]
+      doc="Ray draws an arrow from origin along dir; the length of dir is the length of the arrow."
+      example="debug.Ray(node.WorldPosition(), Vec2{0, 2}, Color{1, 1, 0, 1})"
+    }
+    func "Rect" {
+      params=["Rect", "Color"]
+      result="void"
+      names=["rect", "color"]
+      doc="Rect draws a rectangle outline."
+      example="debug.Rect(Rect{0, 0, 4, 2}, Color{1, 1, 1, 1})"
+    }
+    func "Text" {
+      params=["Vec2", "string", "Color"]
+      result="void"
+      names=["p", "text", "color"]
+      doc="Text draws a label at a world position; it keeps its screen size at any zoom."
+      example="debug.Text(node.WorldPosition(), string(state), Color{1, 1, 1, 1})"
+    }
+  }
   module "aego/input" {
     func "Axis" {
       params=["string"]
@@ -1331,26 +1410,70 @@ manifest version=4 {
     func "Delta" {
       params=[]
       result="float"
-      doc="Delta returns the seconds since the previous frame. Inside FixedUpdate it is the fixed step."
+      doc="Delta returns the game seconds since the previous frame: real time × Scale, 0 while paused. Inside FixedUpdate it is the fixed step."
       example="x += Speed * time.Delta()"
     }
     func "Elapsed" {
       params=[]
       result="float"
-      doc="Elapsed returns the seconds since Play started."
+      doc="Elapsed returns the game seconds since Play started. It stops while paused and follows Scale."
       example="y := math.Sin(time.Elapsed() * 3)"
     }
     func "Fixed" {
       params=[]
       result="float"
-      doc="Fixed returns the fixed step length in seconds, 1/60 by default."
+      doc="Fixed returns the fixed step length in seconds, 1/60 by default. Scale does not change it; it changes how many steps run."
       example="steps := int(1 / time.Fixed())"
     }
     func "Frame" {
       params=[]
       result="int"
-      doc="Frame returns the number of frames since Play started."
+      doc="Frame returns the number of frames this world has run, paused frames included."
       example="if time.Frame() % 60 == 0 {\n\tlog.Info(\"tick\")\n}"
+    }
+    func "IsPaused" {
+      params=[]
+      result="bool"
+      doc="IsPaused reports whether game time is paused."
+      example="if time.IsPaused() {"
+    }
+    func "Scale" {
+      params=[]
+      result="float"
+      doc="Scale returns the time scale: 1 is normal speed, 0.5 is half speed, 0 freezes game time without pausing."
+      example="if time.Scale() < 1 {"
+    }
+    func "SetPaused" {
+      params=["bool"]
+      result="void"
+      names=["paused"]
+      doc="SetPaused pauses or resumes game time. While paused, Update, FixedUpdate and game-time coroutines of ordinary scripts do not run."
+      example="time.SetPaused(true)"
+    }
+    func "SetScale" {
+      params=["float"]
+      result="void"
+      names=["scale"]
+      doc="SetScale sets the time scale from 0 to 8. The fixed step stays the same, so the simulation stays stable; only the number of steps changes."
+      example="time.SetScale(0.25)"
+    }
+    func "Tick" {
+      params=[]
+      result="int"
+      doc="Tick returns the number of the current or last fixed step. It is the same number the profiler and the Event Monitor show."
+      example="log.Info(\"landed on tick \" + string(time.Tick()))"
+    }
+    func "Unscaled" {
+      params=[]
+      result="float"
+      doc="Unscaled returns the real seconds since the previous frame, ignoring Scale and pause."
+      example="menuFade += time.Unscaled()"
+    }
+    func "UnscaledElapsed" {
+      params=[]
+      result="float"
+      doc="UnscaledElapsed returns the real seconds since Play started, pauses included."
+      example="blink := math.Sin(time.UnscaledElapsed() * 6)"
     }
   }
   enum "Button" module="aego/input" {

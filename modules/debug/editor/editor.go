@@ -1,0 +1,113 @@
+package editor
+
+import (
+	"strconv"
+	"strings"
+
+	"aego/core/mathx"
+	"aego/editor/core/context"
+	"aego/editor/core/services"
+	"aego/editor/core/shape"
+	"aego/editor/core/workspace"
+	"aego/editor/ext"
+	"aego/modules/debug"
+	"aego/ui/core"
+	"aego/ui/widgets"
+)
+
+const PanelID = debug.ID + ".panel"
+
+var presets = [...]struct {
+	name  string
+	match func(string) bool
+}{
+	{"All", func(string) bool { return true }},
+	{"None", func(string) bool { return false }},
+	{"Collision", func(n string) bool { return strings.HasPrefix(n, "physics.") }},
+	{"Velocity", func(n string) bool { return strings.Contains(n, "velocity") }},
+	{"AI", func(n string) bool { return strings.HasPrefix(n, "ai") }},
+	{"Camera", func(n string) bool { return strings.HasPrefix(n, "camera") }},
+}
+
+type plugin struct {
+	ed     *context.Editor
+	hidden map[string]bool
+}
+
+func Hook(e *ext.Registry) error {
+	p := &plugin{ed: e.Editor(), hidden: map[string]bool{}}
+	e.Overlay(p.overlay)
+	return e.Panel(workspace.Desc{Panel: p, Near: workspace.Console})
+}
+
+func (p *plugin) svc() *debug.Service {
+	if p.ed == nil {
+		return nil
+	}
+	return debug.Of(p.ed.PlayWorld())
+}
+
+func (p *plugin) apply(s *debug.Service) {
+	for ch, h := range p.hidden {
+		s.Hide(ch, h)
+	}
+}
+
+func (p *plugin) overlay(c *shape.OverlayCtx) {
+	if c.Mode3D || c.World == nil {
+		return
+	}
+	s := debug.Of(c.World)
+	if s == nil {
+		return
+	}
+	p.apply(s)
+	s.Lines(c.Debug, c.Px, 1, false)
+}
+
+func (*plugin) ID() string {
+	return PanelID
+}
+
+func (*plugin) Title() string {
+	return "Debug Draw"
+}
+
+func (p *plugin) set(s *debug.Service, name string, on bool) {
+	p.hidden[name] = !on
+	s.Hide(name, !on)
+}
+
+func (p *plugin) Draw(f *services.Frame, r mathx.Rect) {
+	ui := f.UI
+	s := p.svc()
+	if s == nil {
+		widgets.LabelDim(ui, "Debug channels appear here while Play runs")
+		return
+	}
+	p.apply(s)
+	widgets.LabelDim(ui, strconv.Itoa(s.Live())+" primitives   "+strconv.FormatUint(s.Dropped(), 10)+" dropped")
+	row := ui.Cursor().Next(0)
+	bw := row.W / float32(len(presets))
+	for i, pr := range presets {
+		rr := mathx.Rect{X: row.X + float32(i)*bw, Y: row.Y, W: bw - 4, H: row.H}
+		if widgets.ButtonRect(ui, core.IDSeq(ui.ID("preset"), i), rr, pr.name) {
+			s.EachChannel(func(name string, _ int, _ uint64) { p.set(s, name, pr.match(name)) })
+		}
+	}
+	base := ui.ID("channel")
+	i := 0
+	s.EachChannel(func(name string, count int, dropped uint64) {
+		on := s.Wants(name)
+		was := on
+		label := name + "   " + strconv.Itoa(count)
+		if dropped > 0 {
+			label += "   dropped " + strconv.FormatUint(dropped, 10)
+		}
+		widgets.ToggleButton(ui, core.IDSeq(base, i), ui.Cursor().Next(0), label, &on)
+		if on != was {
+			p.set(s, name, on)
+		}
+		i++
+	})
+}

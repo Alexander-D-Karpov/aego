@@ -145,6 +145,7 @@ func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
 	for _, k := range st.Collapsed {
 		a.ctx.Collapsed[k] = true
 	}
+	a.watchPanel.SetExprs(st.Watches)
 	var active *document.SceneDocument
 	var sel []ids.NodeID
 	for _, sd := range st.Docs {
@@ -201,6 +202,7 @@ func (a *App) collect(all bool) *state.Editor {
 		}
 	}
 	sort.Strings(st.Collapsed)
+	st.Watches = a.watchPanel.Exprs()
 	m := a.eng.Metrics()
 	st.WindowW, st.WindowH = m.LogicalW, m.LogicalH
 	active := a.ctx.Doc()

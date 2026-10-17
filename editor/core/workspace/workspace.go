@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sort"
 
 	"aego/core/errs"
@@ -66,6 +67,7 @@ type Workspace struct {
 	Tree      *dock.Tree
 	Notices   services.Notices
 	Tracer    *trace.Tracer
+	OnCrash   func(id string, rec any, stack []byte)
 	root      string
 	log       *log.ChannelLogger
 	descs     map[string]Desc
@@ -328,6 +330,9 @@ func (w *Workspace) drawPanel(ui *core.Context, id string, r mathx.Rect) {
 	}
 	defer func() {
 		if rec := recover(); rec != nil {
+			if w.OnCrash != nil {
+				w.OnCrash(id, rec, debug.Stack())
+			}
 			ui.Restore(mark)
 			ui.PushClip(r)
 			msg := fmt.Sprint(rec)

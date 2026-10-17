@@ -10,7 +10,7 @@ import (
 	"aego/script/types"
 )
 
-var yieldNames = [...]string{"", "wait", "frames", "fixed", "await"}
+var yieldNames = [...]string{"", "wait", "frames", "fixed", "await", "waitUnscaled"}
 
 func scriptFullName(pkg, name string) string {
 	return strings.ReplaceAll(pkg, "/", ".") + "." + name
@@ -313,7 +313,7 @@ func (c *checker) yieldStmt(s *ast.YieldStmt) {
 	}
 	var want *types.Type
 	switch s.Kind {
-	case ast.YieldWait:
+	case ast.YieldWait, ast.YieldWaitUnscaled:
 		want = types.Float
 	case ast.YieldFrames, ast.YieldFixed:
 		want = types.Int

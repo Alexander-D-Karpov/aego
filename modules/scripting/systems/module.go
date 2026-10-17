@@ -10,12 +10,15 @@ import (
 )
 
 const (
-	SystemSwap        = "script.swap"
-	SystemFixed       = "script.fixed"
-	SystemUpdate      = "script.update"
-	SystemCoroutines  = "script.coroutines"
-	SystemEventsFixed = "script.events_fixed"
-	SystemEvents      = "script.events"
+	SystemSwap               = "script.swap"
+	SystemFixed              = "script.fixed"
+	SystemUpdate             = "script.update"
+	SystemUpdateAlways       = "script.update_always"
+	SystemUpdatePaused       = "script.update_paused"
+	SystemCoroutines         = "script.coroutines"
+	SystemCoroutinesUnscaled = "script.coroutines_unscaled"
+	SystemEventsFixed        = "script.events_fixed"
+	SystemEvents             = "script.events"
 )
 
 type Module struct{}
@@ -35,7 +38,10 @@ func (*Module) Register(reg *engine.Registry) error {
 		{ID: SystemFixed, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, System: fixedSystem{}},
 		{ID: SystemEventsFixed, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay, System: eventsSystem{}},
 		{ID: SystemUpdate, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, System: updateSystem{}},
+		{ID: SystemUpdateAlways, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, Pause: engine.PauseAlways, After: []string{SystemUpdate}, System: alwaysSystem{}},
+		{ID: SystemUpdatePaused, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, Pause: engine.PauseWhenPaused, After: []string{SystemUpdate}, System: pausedSystem{}},
 		{ID: SystemCoroutines, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, After: []string{SystemUpdate}, System: coroutineSystem{}},
+		{ID: SystemCoroutinesUnscaled, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, Pause: engine.PauseAlways, After: []string{SystemCoroutines, SystemUpdateAlways}, System: unscaledSystem{}},
 		{ID: SystemEvents, Phase: engine.PhasePostUpdate, Scope: engine.ScopePlay, System: eventsSystem{}},
 	} {
 		if err := sys.Register(d); err != nil {
@@ -90,5 +96,29 @@ type coroutineSystem struct{}
 func (coroutineSystem) Run(ctx *engine.Context) {
 	if rt := runtimeOf(ctx); rt != nil {
 		rt.Coroutines(ctx)
+	}
+}
+
+type alwaysSystem struct{}
+
+func (alwaysSystem) Run(ctx *engine.Context) {
+	if rt := runtimeOf(ctx); rt != nil {
+		rt.UpdateAlways(ctx)
+	}
+}
+
+type pausedSystem struct{}
+
+func (pausedSystem) Run(ctx *engine.Context) {
+	if rt := runtimeOf(ctx); rt != nil {
+		rt.UpdatePaused(ctx)
+	}
+}
+
+type unscaledSystem struct{}
+
+func (unscaledSystem) Run(ctx *engine.Context) {
+	if rt := runtimeOf(ctx); rt != nil {
+		rt.CoroutinesUnscaled(ctx)
 	}
 }

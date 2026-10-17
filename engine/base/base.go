@@ -20,6 +20,9 @@ func (Core) Info() module.Info {
 func (Core) Register(r *module.Registry) error {
 	r.Template(schema.TemplateDesc{ID: CoreID + ".empty", Name: "Empty", Node: "Node", Setup: empty})
 	r.Template(schema.TemplateDesc{ID: CoreID + ".empty3d", Name: "Empty", Space: schema.Space3D, Setup: empty})
+	if err := registerSettings(r); err != nil {
+		return err
+	}
 	return nil
 }
 

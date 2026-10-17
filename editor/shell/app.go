@@ -31,7 +31,9 @@ import (
 	"aego/editor/ext/inspect"
 	"aego/editor/panels/assets"
 	"aego/editor/panels/console"
+	"aego/editor/panels/crashes"
 	edocs "aego/editor/panels/docs"
+	"aego/editor/panels/events"
 	"aego/editor/panels/gameview"
 	"aego/editor/panels/help"
 	"aego/editor/panels/hierarchy"
@@ -42,6 +44,7 @@ import (
 	"aego/editor/panels/sceneview"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/search"
+	"aego/editor/panels/watch"
 	"aego/editor/panels/welcome"
 	"aego/engine"
 	"aego/engine/docs"
@@ -85,6 +88,7 @@ type Options struct {
 	Help        *docs.Registry
 	RunSnippet  func(code string) []string
 	NewProject  func(dir, template string) (string, error)
+	Crash       func(where string, rec any, stack []byte)
 }
 
 type App struct {
@@ -133,6 +137,9 @@ type App struct {
 	consolePanel   *console.Panel
 	inspectorPanel *inspector.Panel
 	problemsPanel  *eproblems.Panel
+	eventsPanel    *events.Panel
+	watchPanel     *watch.Panel
+	crashesPanel   *crashes.Panel
 	search         *search.Overlay
 	shiftAt        float64
 	shiftArmed     bool
@@ -180,6 +187,11 @@ func (a *App) Profiler() *profiler.Panel {
 
 func (a *App) Viewport() *services.Viewport {
 	return a.viewport
+}
+
+// UIList is for golden tests only; it returns the last built UI frame.
+func (a *App) UIList() *draw.List {
+	return a.list
 }
 
 func (a *App) Init(e *engine.Engine) error {
@@ -355,16 +367,39 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ctx.NewPrefab = a.createPrefab
 	a.gameView = gameview.New(a.play, a.viewport)
 	a.profiler = profiler.New(profiler.Deps{
-		Tracer:   e.Trace(),
-		Root:     p.Root,
-		Notices:  a.ctx,
-		Sections: func() []context.ProfilerSection { return a.ctx.Profiler },
+		Tracer:      e.Trace(),
+		Root:        p.Root,
+		Notices:     a.ctx,
+		Nav:         a.ctx,
+		PhaseAllocs: e.PhaseAllocs,
+		SetProbe:    e.SetPhaseAllocs,
+		Sections:    func() []context.ProfilerSection { return a.ctx.Profiler },
 	})
 
 	a.ws = workspace.New(p.Root, a.log)
 	a.ws.Notices, a.ws.Tracer = a.ctx, e.Trace()
 	a.consolePanel = console.New(a.consoleSink)
 	a.problemsPanel = eproblems.New(a.ctx, a.ctx)
+	playWorld := func() *engine.World { return a.play.World() }
+	a.eventsPanel = events.New(events.Deps{World: playWorld, Selection: a.ctx, Notices: a.ctx, Root: p.Root})
+	a.watchPanel = watch.New(watch.Deps{World: playWorld, Scripts: func() context.ScriptHost { return a.ctx.Scripts }, Viewport: a.viewport})
+	a.crashesPanel = crashes.New(p.Root, a.ctx)
+	a.ctx.Crash = a.opt.Crash
+	a.ws.OnCrash = func(id string, rec any, stack []byte) {
+		if a.ctx.Crash != nil {
+			a.ctx.Crash("panel "+id, rec, stack)
+		}
+	}
+	a.ctx.ShowEvents = func(frame uint64) {
+		a.ws.Show(events.ID)
+		a.eventsPanel.Focus(frame)
+	}
+	a.play.SetBreak(func() (string, bool) {
+		if why, ok := a.eventsPanel.Check(); ok {
+			return why, true
+		}
+		return a.watchPanel.Check()
+	})
 	a.inspectorPanel = inspector.New(a.inspectors, inspector.Deps{
 		Docs:      a.ctx,
 		Selection: a.ctx,
@@ -381,7 +416,11 @@ func (a *App) Init(e *engine.Engine) error {
 		Assets:    sops,
 		Scenes:    sops,
 		Collapsed: a.ctx.Collapsed,
-		Prefabs:   a.prefabs,
+		Watch: func(expr string) {
+			a.watchPanel.Add(expr)
+			a.ws.Show(watch.ID)
+		},
+		Prefabs: a.prefabs,
 	})
 	a.docs = edocs.New(a.opt.Help, a.ctx, a.ctx)
 	a.docs.Run = a.opt.RunSnippet
@@ -434,6 +473,12 @@ func (a *App) Init(e *engine.Engine) error {
 	a.search.ShowHierarchy = func() { a.ws.Show(workspace.Hierarchy) }
 	a.attachCode()
 	if err := a.registerCommands(); err != nil {
+		return err
+	}
+	if err := a.registerMeta(); err != nil {
+		return err
+	}
+	if err := a.registerTime(); err != nil {
 		return err
 	}
 	if err := a.registerSearch(); err != nil {

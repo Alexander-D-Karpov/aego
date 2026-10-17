@@ -154,6 +154,7 @@ type ScriptHost interface {
 	Problems() ([]ScriptProblem, uint64)
 	Stats() (ScriptStats, bool)
 	Status() (generation uint64, latestFailed bool)
+	Watch(w *engine.World, node scene.NodeHandle, script, field string, lane int) (text string, num float64, isNum bool, ok bool)
 }
 
 type Editor struct {
@@ -182,6 +183,8 @@ type Editor struct {
 	RevealPath   func(rel string)
 	OpenScript   func(rel string, line int)
 	ShowDocs     func(ref, query string)
+	ShowEvents   func(frame uint64)
+	Crash        func(where string, rec any, stack []byte)
 	NewScene     func(rel string) error
 	NewPrefab    func(rel string) error
 

@@ -15,4 +15,5 @@ script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run sc
 
 # Semantic pass.
 ... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
+render/... -> "debug*", semantic, render/debug is the line backend that modules/debug drives; the debug pass, shader, depth pipeline and font names predate the module and are not module references (D231)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it

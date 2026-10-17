@@ -161,6 +161,7 @@ func (w *writer) script(s *ScriptDef) {
 	w.str(s.FullName)
 	w.strs(s.Former)
 	w.flag(s.Hidden)
+	w.u8(s.Pause)
 	w.u16(s.Slots)
 	w.uv(len(s.HeapSlots))
 	for _, h := range s.HeapSlots {
@@ -270,7 +271,7 @@ func Decode(b []byte) (*Module, error) {
 }
 
 func (r *reader) script() ScriptDef {
-	s := ScriptDef{FullName: r.str(), Former: r.strs(), Hidden: r.flag(), Slots: r.u16()}
+	s := ScriptDef{FullName: r.str(), Former: r.strs(), Hidden: r.flag(), Pause: r.u8(), Slots: r.u16()}
 	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
 		s.HeapSlots = append(s.HeapSlots, r.u16())
 	}

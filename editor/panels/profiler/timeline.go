@@ -57,7 +57,7 @@ func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 		tl.export(d, tr)
 	}
 	strip := mathx.Rect{X: r.X, Y: r.Y + th.RowHeight + th.Spacing, W: r.W, H: stripHeight}
-	tl.strip(ui, tr, strip)
+	tl.strip(ui, d, tr, strip)
 	top := strip.Y + strip.H + th.Spacing
 	head := mathx.Rect{X: r.X, Y: top, W: r.W, H: th.RowHeight}
 	flame := mathx.Rect{X: r.X, Y: top + head.H, W: r.W, H: max(0, r.Y+r.H-top-head.H)}
@@ -73,11 +73,17 @@ func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 	if f.Dropped > 0 {
 		info += "   dropped " + strconv.Itoa(int(f.Dropped))
 	}
+	if f.LastTick > 0 {
+		info += "   ticks " + strconv.FormatUint(f.FirstTick, 10) + "–" + strconv.FormatUint(f.LastTick, 10)
+	}
+	if f.FrameID > 0 {
+		info += "   world frame " + strconv.FormatUint(f.FrameID, 10)
+	}
 	ui.TextIn(head, info, th.TextDim, core.AlignLeft)
 	tl.flame(ui, tr, f, flame)
 }
 
-func (tl *Timeline) strip(ui *core.Context, tr *trace.Tracer, r mathx.Rect) {
+func (tl *Timeline) strip(ui *core.Context, d Deps, tr *trace.Tracer, r mathx.Rect) {
 	th := &ui.Theme
 	ui.Rect(r, th.PanelAlt)
 	n := min(tr.Frames(), int(r.W/3))
@@ -104,13 +110,17 @@ func (tl *Timeline) strip(ui *core.Context, tr *trace.Tracer, r mathx.Rect) {
 	}
 	line := r.Y + r.H - r.H*budgetNS/stripScaleNS
 	ui.Rect(mathx.Rect{X: r.X, Y: line, W: r.W, H: 1}, th.TextDim)
-	if ui.MousePressed(input.MouseLeft) && ui.Hit(r) {
-		k := min(int((ui.Mouse().X-r.X)/w), n-1)
-		tl.back = n - 1 - k
-		if !tl.paused {
-			tl.paused = true
-			tr.SetEnabled(false)
-		}
+	if !ui.MousePressed(input.MouseLeft) || !ui.Hit(r) {
+		return
+	}
+	k := min(int((ui.Mouse().X-r.X)/w), n-1)
+	tl.back = n - 1 - k
+	if !tl.paused {
+		tl.paused = true
+		tr.SetEnabled(false)
+	}
+	if f := tr.Frame(tl.back); f != nil && f.FrameID > 0 && d.Nav != nil {
+		d.Nav.Open(context.EventsAt(f.FrameID))
 	}
 }
 

@@ -189,7 +189,7 @@ func (s *Service) complete(snap *workspace.Snapshot, file source.FileID, off uin
 	case n > 3 && before[n-1].Kind == token.LParen && before[n-2].Kind == token.Ident && before[n-2].Text == "Connect" && before[n-3].Kind == token.Period:
 		handlerItems(c, snap, f, src, before[n-3].Start, off)
 	case n > 0 && before[n-1].Kind == token.At:
-		for _, a := range []string{"export", "former", "hide"} {
+		for _, a := range []string{"export", "former", "hide", "pause"} {
 			c.add(Item{Label: a, Kind: ItemAttribute, Doc: builtinText(snap, "@"+a)})
 		}
 	case exportArgs(before):

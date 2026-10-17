@@ -220,7 +220,7 @@ func (u *unit) index(f *checker.Func) int32 {
 
 func (u *unit) script(st *checker.ScriptType) {
 	d := bytecode.ScriptDef{
-		FullName: st.FullName, Former: st.Former, Hidden: st.Hidden, Slots: uint16(st.Slots + 1),
+		FullName: st.FullName, Former: st.Former, Hidden: st.Hidden, Pause: st.Pause, Slots: uint16(st.Slots + 1),
 		Ready: u.index(st.Ready), FixedUpdate: u.index(st.FixedUpdate), Update: u.index(st.Update),
 		Reloaded: u.index(st.Reloaded),
 	}

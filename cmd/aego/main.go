@@ -73,7 +73,7 @@ func usage() {
   build [dir]            build the native binary
   bootstrap [dir]        regenerate .aego/generated for the native module without building
   import [dir] [--force] reimport all assets
-  check [dir] [--manifest file] [--explain]  parse every document and type-check scripts; --explain prints the reference for each reported code
+  check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts
   icons [dir]            check module icon files against the icons components and templates use
   test [dir] [-run name] [-v]  run *_test.aes script tests headless
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
@@ -341,6 +341,7 @@ func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	manifestPath := fs.String("manifest", "", "check against this bindings manifest instead of building one")
 	explain := fs.Bool("explain", false, "print the reference entry of every reported diagnostic code")
+	ensure := fs.Bool("ensure-meta", false, "write missing .meta files instead of reporting them")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -355,6 +356,22 @@ func cmdCheck(args []string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aego:", err)
 		return 2
+	}
+	imps, err := run.Importers(ws)
+	if err != nil {
+		return fail(err)
+	}
+	mode := pipeline.MetaReadOnly
+	if *ensure {
+		mode = pipeline.MetaEnsure
+	}
+	issues, err := pipeline.Audit(p, imps, mode)
+	if err != nil {
+		return fail(err)
+	}
+	for _, is := range issues {
+		fmt.Fprintf(os.Stderr, "%s: %s %s\n", is.Path, is.Code(), is.Message())
+		problems++
 	}
 	snap := ws.Snapshot()
 	diag.Print(os.Stderr, snap.Sources, snap.Diagnostics)

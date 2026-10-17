@@ -26,6 +26,8 @@ func waitKind(k ast.YieldKind) uint8 {
 	switch k {
 	case ast.YieldWait:
 		return bytecode.WaitTime
+	case ast.YieldWaitUnscaled:
+		return bytecode.WaitUnscaled
 	case ast.YieldFrames:
 		return bytecode.WaitFrames
 	case ast.YieldFixed:

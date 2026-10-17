@@ -5,7 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"aego/core/ids"
 	"aego/engine"
+	"aego/engine/recorder"
 	"aego/script/abi"
 	"aego/script/bind"
 	"aego/script/coroutine"
@@ -185,8 +187,12 @@ func (b bridge) Instance(ref vm.Value, script string) ([]vm.Value, vm.InstanceID
 }
 
 func (b bridge) Emit(src vm.InstanceID, sig int, args []vm.Value) error {
-	b.r.emits++
-	return b.r.sig.Emit(src, sig, args, b.r.deliverFn)
+	r := b.r
+	r.emits++
+	if in := r.live(src); in != nil && r.rec != nil && r.scene != nil {
+		r.rec.Add(recorder.Signal, r.scene.ID(in.node), ids.NodeID{}, in.typ.def.Signals[sig].Name, shortName(in.typ.name))
+	}
+	return r.sig.Emit(src, sig, args, r.deliverFn)
 }
 
 func (b bridge) Connect(src, dst vm.Value, c *vm.Connect) (vm.Value, error) {
@@ -221,4 +227,16 @@ func (b bridge) Disconnect(c vm.Value) {
 
 func (b bridge) Connected(c vm.Value) bool {
 	return b.r.sig.Connected(signal.Of(c))
+}
+
+func (r *Runtime) CoroutinesUnscaled(ec *engine.Context) {
+	if !r.begin(ec) {
+		return
+	}
+	real := ec.Unscaled
+	if ec.Time == nil {
+		real = ec.Dt
+	}
+	r.co.Unscaled(float32(real))
+	r.end()
 }

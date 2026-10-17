@@ -42,6 +42,7 @@ type Editor struct {
 	WindowW         int
 	WindowH         int
 	Collapsed       []string
+	Watches         []string
 	Autosave        bool
 	InlayHints      bool
 	Minimap         bool
@@ -55,6 +56,11 @@ func Default() *Editor {
 
 func userPath(root, name string) string {
 	return filepath.Join(root, filepath.FromSlash(UserDir), name)
+}
+
+func WriteEvents(root string, data []byte) (string, error) {
+	p := userPath(root, "events.log")
+	return p, document.WriteAtomic(p, data)
 }
 
 func WriteTrace(root string, data []byte) (string, error) {
@@ -144,6 +150,11 @@ func Encode(s *Editor) []byte {
 		collapsed[i] = aetext.String(k)
 	}
 	root.Fields = append(root.Fields, aetext.Field{Name: "collapsed", Value: aetext.List(collapsed...)})
+	watches := make([]aetext.Value, len(s.Watches))
+	for i, w := range s.Watches {
+		watches[i] = aetext.String(w)
+	}
+	root.Fields = append(root.Fields, aetext.Field{Name: "watches", Value: aetext.List(watches...)})
 	for _, d := range s.Docs {
 		o := d.Orbit
 		n := &aetext.Node{Head: "doc", Label: d.Path}
@@ -221,6 +232,11 @@ func Decode(data []byte, name string) (*Editor, error) {
 	if v, ok := doc.Field("collapsed"); ok {
 		for _, item := range v.List {
 			s.Collapsed = append(s.Collapsed, item.Str)
+		}
+	}
+	if v, ok := doc.Field("watches"); ok {
+		for _, item := range v.List {
+			s.Watches = append(s.Watches, item.Str)
 		}
 	}
 	doc.EachBlock("doc", func(n *aetext.Node) {
