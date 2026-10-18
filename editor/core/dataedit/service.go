@@ -36,6 +36,7 @@ type Service struct {
 	typesRev  uint64
 	lib       *data.Library
 	libSrc    asset.DataSource
+	OnLive    func()
 }
 
 func New(ctx *context.Editor) *Service {
@@ -321,6 +322,9 @@ func (s *Service) LiveSet(id ids.AssetID, fd *schema.FieldDescriptor, v schema.V
 		if err := s.patch(h, fd, v, true); err != nil {
 			return err
 		}
+	}
+	if s.OnLive != nil {
+		s.OnLive()
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 
 	"aego/core/clock"
+	"aego/core/rng"
 	"aego/engine/recorder"
 	"aego/platform/input"
 )
@@ -18,6 +19,7 @@ type World struct {
 	services []serviceEntry
 	Input    *input.State
 	Time     *clock.Time
+	Random   *rng.Source
 	Recorder *recorder.Recorder
 	Break    func() bool
 }

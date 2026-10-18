@@ -41,6 +41,7 @@ type Config struct {
 	Trace      string
 	Profile    string
 	Logger     *log.Logger
+	Seed       uint64
 }
 
 type App struct {
@@ -130,6 +131,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 			Debug:             cfg.Debug,
 			AppID:             p.Module,
 			Trace:             cfg.Trace != "",
+			Seed:              cfg.Seed,
 		},
 		Logger:             cfg.Logger,
 		Debug:              cfg.Debug,

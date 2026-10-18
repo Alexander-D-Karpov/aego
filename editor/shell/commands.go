@@ -23,6 +23,11 @@ const (
 )
 
 const (
+	CommandPlayBack    = "play.back"
+	CommandPlayForward = "play.forward"
+)
+
+const (
 	CommandAssetsRename    = assets.CommandRename
 	CommandAssetsDelete    = assets.CommandDelete
 	CommandAssetsDuplicate = assets.CommandDuplicate
@@ -162,6 +167,14 @@ func (a *App) registerCommands() error {
 				a.play.Step()
 				return nil
 			}},
+		{ID: CommandPlayBack, Name: "Step Back", Category: "Play", Order: 121,
+			Shortcut: command.Key(input.KeyLeft, command.ModPrimary),
+			Enabled:  a.play.CanSeekBack,
+			Run:      a.play.StepBack},
+		{ID: CommandPlayForward, Name: "Step Forward", Category: "Play", Order: 122,
+			Shortcut: command.Key(input.KeyRight, command.ModPrimary),
+			Enabled:  playing,
+			Run:      a.play.StepForward},
 		{ID: command.PlayStop, Name: "Stop", Category: "Play", Order: 130, Enabled: playing,
 			Run: func() error {
 				a.stopPlay()

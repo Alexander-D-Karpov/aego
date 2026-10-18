@@ -320,9 +320,18 @@ func (a *App) Init(e *engine.Engine) error {
 			}
 		}
 	})
+	if a.opt.Modules != nil {
+		for _, m := range a.opt.Modules.Modules {
+			if m.NonDeterministic != "" {
+				a.play.SetBlocked("Rewind is off: module " + m.ID + " " + m.NonDeterministic)
+				break
+			}
+		}
+	}
 	a.files = assetfiles.New(a.ctx)
 	a.prefabs = prefabs.New(a.ctx)
 	a.data = dataedit.New(a.ctx)
+	a.data.OnLive = func() { a.play.Invalidate("a data asset was tuned during Play") }
 	a.ctx.Selection.Subscribe(a.data.Clear)
 	a.tablePanel = datatable.New(datatable.Deps{Data: a.data, Notices: a.ctx})
 	a.templates.SetPrefabs(a.prefabs)
@@ -957,6 +966,7 @@ func (a *App) liveSettings() string {
 	if a.play.State() == play.Stopped || a.opt.Modules == nil {
 		return ""
 	}
+	a.play.Invalidate("settings changed during Play")
 	ctx := &module.AttachContext{World: a.play.World(), Scene: a.play.Scene(), Log: a.opt.Log, Editor: true, Play: true}
 	if err := a.opt.Modules.Reconfigure(ctx); err != nil {
 		a.log.Warn("settings were saved but not applied to the running game", log.F("err", err.Error()))

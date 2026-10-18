@@ -53,7 +53,7 @@ script PlayerController {
 	}
 
 	func watch(n NodeRef) {
-		if n == nil {
+		if n == nil || !n.IsAlive() {
 			return
 		}
 		e := n.GetScript<enemy.EnemyAI>()

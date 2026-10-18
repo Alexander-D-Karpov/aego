@@ -10,10 +10,11 @@ import (
 )
 
 type Info struct {
-	ID       string
-	Version  string
-	Requires []string
-	Builtin  bool
+	ID               string
+	Version          string
+	Requires         []string
+	Builtin          bool
+	NonDeterministic string
 }
 
 type Module interface {

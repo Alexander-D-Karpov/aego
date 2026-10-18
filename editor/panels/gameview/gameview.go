@@ -1,6 +1,8 @@
 package gameview
 
 import (
+	"strconv"
+
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
@@ -28,6 +30,10 @@ type Panel struct {
 	hook      func()
 	rect      mathx.Rect
 	bar       mathx.Rect
+	tbar      mathx.Rect
+	dragging  bool
+	dragTo    int
+	seekErr   string
 	scale     float32
 	hasCamera bool
 	pending   bool
@@ -97,17 +103,19 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.vp.OnRender(p.hook)
 
 	if p.play.State() == play.Stopped {
-		p.bar = mathx.Rect{}
+		p.bar, p.tbar, p.dragging = mathx.Rect{}, mathx.Rect{}, false
 		ui.TextIn(r, "Press Play (Ctrl+P)", th.TextDim, core.AlignCenter)
 		return
 	}
 	id := ui.ID("view")
 	origin := mathx.Vec2{X: r.X, Y: r.Y}
-	p.bar = mathx.Rect{}
+	p.bar, p.tbar = mathx.Rect{}, mathx.Rect{}
 	if !p.play.Captured() {
 		p.toolbar(ui, r)
+		p.timeline(ui, r)
 	}
-	onBar := p.bar.Contains(ui.Mouse())
+	m := ui.Mouse()
+	onBar := p.bar.Contains(m) || p.tbar.Contains(m) || p.dragging
 	switch {
 	case p.play.Captured():
 		p.play.SetCapture(true, origin, mathx.Vec2{X: r.W, Y: r.H})
@@ -131,6 +139,63 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		hud(ui, r)
 	}
 	widgets.Tooltip(ui, id, "Click to send input to the game")
+}
+
+func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
+	tl := p.play.Timeline()
+	if tl.Frames == 0 && tl.Blocked == "" {
+		return
+	}
+	th := &ui.Theme
+	bar := mathx.Rect{X: r.X + 6, Y: r.Y + r.H - th.BarHeight - 6, W: max(0, r.W-12), H: th.BarHeight}
+	p.tbar = bar
+	ui.PushClip(r)
+	defer ui.PopClip()
+	ui.Rect(bar, th.PanelAlt)
+	ui.Outline(bar, th.BarBorder)
+	if tl.Blocked != "" {
+		ui.TextIn(bar, tl.Blocked, th.TextDim, core.AlignCenter)
+		return
+	}
+	label := "tick " + strconv.FormatUint(tl.Tick, 10) + " · " + strconv.Itoa(tl.Cursor) + "/" + strconv.Itoa(tl.Frames)
+	switch {
+	case p.seekErr != "":
+		label = p.seekErr
+	case tl.Why != "":
+		label += " · history ends: " + tl.Why
+	}
+	lw := min(ui.TextSize(label).X+12, bar.W*0.5)
+	track := mathx.Rect{X: bar.X + 8, Y: bar.Y + bar.H/2 - 3, W: max(1, bar.W-lw-20), H: 6}
+	total := max(tl.Frames, 1)
+	xAt := func(n int) float32 { return track.X + track.W*float32(n)/float32(total) }
+	frameAt := func(x float32) int {
+		return int(mathx.Clamp((x-track.X)/track.W, 0, 1)*float32(total) + 0.5)
+	}
+	ui.Rect(track, th.Widget)
+	ui.Rect(mathx.Rect{X: track.X, Y: track.Y, W: xAt(tl.Usable) - track.X, H: track.H}, th.AccentDim)
+	id := ui.ID("timeline")
+	hit := mathx.Rect{X: track.X - 4, Y: bar.Y, W: track.W + 8, H: bar.H}
+	if ui.Pressed(id, hit) {
+		p.dragging, p.seekErr = true, ""
+	}
+	cur := tl.Cursor
+	if tl.Beyond {
+		cur = tl.Frames
+	}
+	if p.dragging {
+		p.dragTo = min(frameAt(ui.Mouse().X), tl.Usable)
+		cur = p.dragTo
+		if !ui.MouseDown(input.MouseLeft) {
+			p.dragging = false
+			if err := p.play.Seek(p.dragTo); err != nil {
+				p.seekErr = err.Error()
+			}
+		}
+	}
+	hx := xAt(cur)
+	ui.Rect(mathx.Rect{X: hx - 2, Y: bar.Y + 3, W: 4, H: bar.H - 6}, th.Accent)
+	ui.TextIn(mathx.Rect{X: track.X + track.W + 8, Y: bar.Y, W: lw, H: bar.H}, label, th.TextDim, core.AlignLeft)
+	widgets.Tooltip(ui, id, "Drag to rewind the game; Ctrl+Left and Ctrl+Right step one frame")
 }
 
 func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {

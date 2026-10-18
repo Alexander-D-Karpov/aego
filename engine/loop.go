@@ -6,6 +6,7 @@ import (
 
 	"aego/core/clock"
 	"aego/core/errs"
+	"aego/core/rng"
 	"aego/platform"
 )
 
@@ -74,10 +75,17 @@ func (e *Engine) PhaseAllocs(dst []uint64) []uint64 {
 	return append(dst, e.lastAllocs[:]...)
 }
 
+func (e *Engine) random(w *World) *rng.Source {
+	if w != nil && w.Random != nil {
+		return w.Random
+	}
+	return e.ctx.Random
+}
+
 func (e *Engine) begin(ctx *Context, w *World, real float64) clock.Plan {
 	t := w.Time
 	plan := t.Begin(real)
-	rnd := e.ctx.Random
+	rnd := e.random(w)
 	*ctx = Context{
 		Engine:   e,
 		World:    w,
@@ -156,7 +164,7 @@ func (e *Engine) RunPhase(w *World, p Phase, scope SystemScope, dt, alpha float6
 		return
 	}
 	saved := e.wctx
-	e.wctx = Context{Engine: e, World: w, Dt: dt, Alpha: alpha, Frame: e.frameNo, Random: e.ctx.Random}
+	e.wctx = Context{Engine: e, World: w, Dt: dt, Alpha: alpha, Frame: e.frameNo, Random: e.random(w)}
 	if t := w.Time; t != nil {
 		e.wctx.Time, e.wctx.Frame, e.wctx.Tick = t, t.Frame(), t.Tick()
 		e.wctx.Unscaled = t.Span(clock.Real).Delta

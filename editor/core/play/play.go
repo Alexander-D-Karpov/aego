@@ -13,6 +13,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/core/rng"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
@@ -51,27 +52,39 @@ type Stats struct {
 }
 
 type Controller struct {
-	ctx      *context.Editor
-	state    State
-	world    *engine.World
-	runner   *frame.Runner
-	scene    *scene.Scene
-	doc      document.ID
-	scale    float64
-	input    input.State
-	captured bool
-	origin   mathx.Vec2
-	size     mathx.Vec2
-	stats    Stats
-	proxy    *document.SceneDocument
-	subs     []stateSub
-	nextSub  uint64
-	detach   func()
-	unrec    func()
-	breakFn  func() (string, bool)
-	breakWhy string
-	release  func(*input.State) bool
-	hint     func() string
+	ctx       *context.Editor
+	state     State
+	world     *engine.World
+	runner    *frame.Runner
+	scene     *scene.Scene
+	doc       document.ID
+	scale     float64
+	input     input.State
+	captured  bool
+	origin    mathx.Vec2
+	size      mathx.Vec2
+	stats     Stats
+	proxy     *document.SceneDocument
+	subs      []stateSub
+	nextSub   uint64
+	detach    func()
+	unrec     func()
+	breakFn   func() (string, bool)
+	breakWhy  string
+	release   func(*input.State) bool
+	hint      func() string
+	hist      *recording
+	limit     int
+	cursor    int
+	beyond    bool
+	replaying bool
+	stepReq   uint8
+	seed      uint64
+	blocked   string
+	assetRev  uint64
+	editUnsub func()
+	breaks    int32
+	broke     int32
 }
 
 func New(ctx *context.Editor) *Controller {
@@ -167,9 +180,11 @@ func (c *Controller) checkBreak() bool {
 	if c.breakFn == nil {
 		return false
 	}
+	c.breaks++
 	why, hit := c.breakFn()
 	if hit {
 		c.breakWhy = why
+		c.broke = c.breaks
 	}
 	return hit
 }
@@ -233,13 +248,20 @@ func (c *Controller) Start(d *document.SceneDocument) error {
 	if real == nil {
 		return errs.New(errs.EditorDocument, "scene is not open")
 	}
-	if err := c.start(sceneio.Save(real.Scene()), real.Path); err != nil {
+	data := sceneio.Save(real.Scene())
+	c.seed = uint64(time.Now().UnixNano()) | 1
+	if err := c.start(data, real.Path); err != nil {
 		return err
 	}
+	c.hist = newHistory(data, real.Path, c.limit)
+	c.cursor, c.beyond, c.stepReq = 0, false, stepNone
+	c.assetRev = c.ctx.AssetRev
 	c.doc = real.ID
 	c.proxy = real.PlayCopy(c.scene)
 	c.ctx.Docs.SetPlay(c.proxy, c.world)
+	c.watchEdits()
 	c.notify()
+	c.ctx.Notify(context.LevelInfo, "Play mode started")
 	return nil
 }
 
@@ -298,6 +320,7 @@ func (c *Controller) start(data []byte, name string) error {
 	c.scene = s
 	c.world = engine.NewWorld("play")
 	c.world.Input = &c.input
+	c.world.Random = rng.New(c.seed)
 	c.world.Time.Configure(ctx.Engine.TimeConfig())
 	c.world.Time.SetScale(c.scale)
 	c.world.Recorder = recorder.New(4096)
@@ -319,8 +342,22 @@ func (c *Controller) start(data []byte, name string) error {
 		c.detach = detach
 	}
 	c.state = Playing
-	ctx.Notify(context.LevelInfo, "Play mode started")
 	return nil
+}
+
+func (c *Controller) teardown() {
+	if c.editUnsub != nil {
+		c.editUnsub()
+		c.editUnsub = nil
+	}
+	if c.unrec != nil {
+		c.unrec()
+		c.unrec = nil
+	}
+	if c.detach != nil {
+		c.detach()
+		c.detach = nil
+	}
 }
 
 func (c *Controller) Pause() {
@@ -339,11 +376,14 @@ func (c *Controller) Pause() {
 func (c *Controller) Step() {
 	if c.state == Paused {
 		c.world.Time.StepFrame()
+		c.stepReq = stepFrame
 	}
 }
+
 func (c *Controller) StepFixed() {
 	if c.state == Paused {
 		c.world.Time.StepFixed()
+		c.stepReq = stepFixed
 	}
 }
 
@@ -356,14 +396,7 @@ func (c *Controller) Stop() {
 		real.View.Mode = c.proxy.View.Mode
 		real.View.Orbit = c.proxy.View.Orbit
 	}
-	if c.unrec != nil {
-		c.unrec()
-		c.unrec = nil
-	}
-	if c.detach != nil {
-		c.detach()
-		c.detach = nil
-	}
+	c.teardown()
 	c.ctx.Docs.ClearPlay()
 	c.proxy = nil
 	c.state = Stopped
@@ -372,6 +405,7 @@ func (c *Controller) Stop() {
 	c.captured = false
 	c.input = input.State{}
 	c.stats = Stats{}
+	c.hist, c.cursor, c.beyond, c.stepReq = nil, 0, false, stepNone
 	c.notify()
 	c.ctx.Notify(context.LevelInfo, "Play mode stopped")
 }
@@ -507,11 +541,21 @@ func (c *Controller) Tick(dt float64) {
 	}
 	defer c.guard("update")
 	c.syncInput()
+	h := c.hist
+	if h != nil && c.cursor < len(h.frames) && c.state == Paused && c.stepReq == stepNone {
+		return
+	}
 	w := c.world
+	recorded := h != nil && c.record(dt)
+	c.breaks, c.broke = 0, 0
 	start := time.Now()
 	plan := c.ctx.Engine.TickWorld(w, engine.ScopePlay, dt)
 	if c.state == Stopped {
 		return
+	}
+	if recorded {
+		f := &h.frames[len(h.frames)-1]
+		f.tick, f.brk = w.Time.Tick(), c.broke
 	}
 	c.stats.Update = 0
 	if plan.Update || plan.Steps > 0 {

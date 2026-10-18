@@ -13,6 +13,16 @@ order: 2
 - **Profiler.** During Play the Game section shows *coroutines* (active per interval) and *signal emits* graphs. The script table lists active and sleeping coroutines, resumes per frame and total cancelled, signal connections, emits and handler calls per frame, plus per-script instances, calls, time and faults.
 - **Restarting coroutines.** Coroutines of a changed script are cancelled by a reload; declare `func Reloaded()` to start them again. Signal connections survive when the signal and the handler keep their names and parameter types.
 
+## Rewinding Play
+
+While a game runs in the editor, every frame is recorded: its time step, time scale, pause and the input the game saw. The bar at the bottom of the Game view shows the recorded frames; drag it, or press Ctrl+Left and Ctrl+Right, to move one frame back or forward.
+
+Rewinding restarts the game from the scene as it was when Play started and plays the recording back to the chosen frame, without drawing; the game then waits paused at that frame. Pressing Play or Step from there starts a new timeline and forgets the frames after it.
+
+An edit in the running scene ends the recording at that frame; frames before it can still be rewound to. An asset or script reload, a tuned data asset or a changed setting would make the replay run with the new values, so they drop the whole recording. The memory limit of the history also ends it. A module that declares itself non-deterministic turns rewinding off, and the bar says which one.
+
+Selections, watches and the event monitor follow the rewound game: node ids stay the same, and events are recorded again as the frames play back.
+
 ## Event Monitor
 
 Window → Event Monitor lists what happened in the running game: script signals, engine events (collisions, triggers), script faults, nodes created and destroyed, scene changes. Every row carries the world frame and the fixed tick, the same numbers as the profiler; clicking a frame in the profiler's strip filters the monitor to it. Click a row to select its node. Engine events are listed for nodes with a handler; with *Selected nodes* on, every event of the selected nodes is listed, handler or not. Export writes the filtered rows to `.aego/user/events.log`.
