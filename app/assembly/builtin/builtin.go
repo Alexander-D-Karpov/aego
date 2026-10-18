@@ -13,6 +13,7 @@ import (
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/render3d"
+	"aego/modules/savegame"
 	"aego/modules/scripting"
 	settingsmod "aego/modules/settings"
 	"aego/modules/spawn"
@@ -78,7 +79,11 @@ func spawnEntry() assembly.Entry {
 	return assembly.Entry{ID: spawn.ID, New: func(assembly.Options) module.Module { return spawn.New() }}
 }
 
+func savegameEntry() assembly.Entry {
+	return assembly.Entry{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }}
+}
+
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), dataEntry(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), spawnEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), spawnEntry(), savegameEntry()}
 }

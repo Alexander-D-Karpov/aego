@@ -9,6 +9,7 @@ import (
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/format/aetext"
+	"aego/save"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/schema"
@@ -134,5 +135,46 @@ func TestPoolPrewarmsAndWaitsForScripts(t *testing.T) {
 	svc.Spawn(prefabID, scene.NodeHandle{}, mathx.Vec2{}, 0)
 	if svc.Pooled(prefabID) != 2 || s.Stats().Nodes != before {
 		t.Fatal("Spawn must take a prewarmed copy")
+	}
+}
+
+func TestPersistentIDs(t *testing.T) {
+	svc, s, _, _ := setup(t)
+	a, _ := svc.Spawn(prefabID, scene.NodeHandle{}, mathx.Vec2{}, 0)
+	b, _ := svc.Spawn(prefabID, scene.NodeHandle{}, mathx.Vec2{}, 0)
+	pa, _ := svc.PersistentID(a)
+	pb, _ := svc.PersistentID(b)
+	if pa != save.PersistentID(1) || pb != save.PersistentID(2) || svc.Counter() != 2 {
+		t.Fatalf("pids %v %v counter %d", pa, pb, svc.Counter())
+	}
+	if h, ok := svc.ByPersistentID(pb); !ok || h != b {
+		t.Fatal("lookup by pid")
+	}
+	svc.Despawn(a)
+	if _, ok := svc.PersistentID(a); ok {
+		t.Fatal("despawn keeps the pid")
+	}
+	var seen []ids.NodeID
+	svc.EachSpawned(func(_ scene.NodeHandle, _ ids.AssetID, pid ids.NodeID) { seen = append(seen, pid) })
+	if len(seen) != 1 || seen[0] != pb {
+		t.Fatalf("spawned %v", seen)
+	}
+	svc.Park()
+	s.Flush()
+	c, _ := svc.Spawn(prefabID, scene.NodeHandle{}, mathx.Vec2{}, 0)
+	if pc, _ := svc.PersistentID(c); pc != save.PersistentID(3) {
+		t.Fatalf("reused root got %v", pc)
+	}
+	d, _ := svc.SpawnAs(prefabID, scene.NodeHandle{}, mathx.Vec2{}, 0, save.PersistentID(10))
+	if pd, _ := svc.PersistentID(d); pd != save.PersistentID(10) || svc.Counter() != 10 {
+		t.Fatalf("SpawnAs pid %v counter %d", pd, svc.Counter())
+	}
+	s.Destroy(d)
+	s.Flush()
+	if _, ok := svc.ByPersistentID(save.PersistentID(10)); ok {
+		t.Fatal("destroyed root keeps its pid")
+	}
+	if _, err := svc.Spawn(ids.AssetID{}, scene.NodeHandle{}, mathx.Vec2{}, 0); err == nil || svc.Counter() != 10 {
+		t.Fatal("failed spawn must not burn a number")
 	}
 }

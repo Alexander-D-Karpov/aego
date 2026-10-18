@@ -1,14 +1,17 @@
 package spawn
 
 import (
+	"slices"
 	"unsafe"
 
+	"aego/contracts/persistence"
 	"aego/contracts/scriptevents"
 	"aego/contracts/scriptpool"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/engine"
+	"aego/save"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/scene/scriptcomp"
@@ -16,6 +19,8 @@ import (
 )
 
 const poolName = "Pool"
+
+var _ persistence.Spawner = (*Service)(nil)
 
 type compSnap struct {
 	td   *schema.TypeDescriptor
@@ -46,6 +51,10 @@ type Service struct {
 	parking []scene.NodeHandle
 	root    scene.NodeHandle
 	unsub   func()
+	pids    map[scene.NodeHandle]ids.NodeID
+	byPID   map[ids.NodeID]scene.NodeHandle
+	order   []scene.NodeHandle
+	counter uint64
 }
 
 func NewService(s *scene.Scene, w *engine.World, ev Events) *Service {
@@ -57,6 +66,8 @@ func NewService(s *scene.Scene, w *engine.World, ev Events) *Service {
 		tmpl:    map[ids.AssetID]*sceneio.Template{},
 		free:    map[ids.AssetID][]scene.NodeHandle{},
 		members: map[scene.NodeHandle]*member{},
+		pids:    map[scene.NodeHandle]ids.NodeID{},
+		byPID:   map[ids.NodeID]scene.NodeHandle{},
 	}
 	svc.unsub = s.Events().Subscribe(svc.onEvent)
 	return svc
@@ -72,7 +83,69 @@ func (s *Service) Close() {
 func (s *Service) onEvent(ev scene.Event) {
 	if ev.Kind == scene.EvNodeDestroyed {
 		delete(s.members, ev.Node)
+		s.unassign(ev.Node)
 	}
+}
+
+func (s *Service) assign(h scene.NodeHandle, pid ids.NodeID) {
+	if old, ok := s.byPID[pid]; ok {
+		s.unassign(old)
+	}
+	s.unassign(h)
+	s.pids[h] = pid
+	s.byPID[pid] = h
+	s.order = append(s.order, h)
+	if n := save.Counter(pid); n > s.counter {
+		s.counter = n
+	}
+}
+
+func (s *Service) unassign(h scene.NodeHandle) {
+	pid, ok := s.pids[h]
+	if !ok {
+		return
+	}
+	delete(s.pids, h)
+	delete(s.byPID, pid)
+	if i := slices.Index(s.order, h); i >= 0 {
+		s.order = slices.Delete(s.order, i, i+1)
+	}
+}
+
+func (s *Service) PersistentID(h scene.NodeHandle) (ids.NodeID, bool) {
+	pid, ok := s.pids[h]
+	return pid, ok
+}
+
+func (s *Service) ByPersistentID(pid ids.NodeID) (scene.NodeHandle, bool) {
+	h, ok := s.byPID[pid]
+	return h, ok && s.scene.IsAlive(h)
+}
+
+func (s *Service) Prefab(h scene.NodeHandle) (ids.AssetID, bool) {
+	m := s.members[h]
+	if m == nil {
+		return ids.AssetID{}, false
+	}
+	return m.prefab, true
+}
+
+func (s *Service) EachSpawned(fn func(root scene.NodeHandle, prefab ids.AssetID, pid ids.NodeID)) {
+	for _, h := range s.order {
+		m := s.members[h]
+		if m == nil || m.out || !s.scene.IsAlive(h) {
+			continue
+		}
+		fn(h, m.prefab, s.pids[h])
+	}
+}
+
+func (s *Service) Counter() uint64 {
+	return s.counter
+}
+
+func (s *Service) SetCounter(n uint64) {
+	s.counter = max(s.counter, n)
 }
 
 func (s *Service) Pooled(prefab ids.AssetID) int {
@@ -201,6 +274,10 @@ func (s *Service) instantiate(prefab ids.AssetID, parent scene.NodeHandle) (scen
 }
 
 func (s *Service) Spawn(prefab ids.AssetID, parent scene.NodeHandle, pos mathx.Vec2, rot float32) (scene.NodeHandle, error) {
+	return s.SpawnAs(prefab, parent, pos, rot, save.PersistentID(s.counter+1))
+}
+
+func (s *Service) SpawnAs(prefab ids.AssetID, parent scene.NodeHandle, pos mathx.Vec2, rot float32, pid ids.NodeID) (scene.NodeHandle, error) {
 	sc := s.scene
 	switch {
 	case parent.IsZero():
@@ -224,6 +301,9 @@ func (s *Service) Spawn(prefab ids.AssetID, parent scene.NodeHandle, pos mathx.V
 		s.restore(m)
 	}
 	m.out = false
+	if !pid.IsZero() {
+		s.assign(h, pid)
+	}
 	if sc.Space(h) == scene.Space2D {
 		t := sc.Local(h)
 		t.Position, t.Rotation = pos, rot
@@ -254,6 +334,7 @@ func (s *Service) Despawn(h scene.NodeHandle) {
 		return
 	}
 	m.out = true
+	s.unassign(h)
 	s.emit(m, s.ev.Despawned)
 	sc.SetEnabled(h, false)
 	s.parking = append(s.parking, h)

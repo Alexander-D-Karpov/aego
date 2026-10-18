@@ -97,6 +97,7 @@ type ScriptField struct {
 	Former  []string
 	Type    *types.Type
 	Export  bool
+	Persist bool
 	Hints   Hints
 	Default *types.Const
 	Index   int

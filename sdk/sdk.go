@@ -5,6 +5,7 @@ import (
 
 	"aego/asset"
 	"aego/asset/loader"
+	"aego/contracts/persistence"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/core/rng"
@@ -169,6 +170,10 @@ func (r *Registry) Icons(fsys fs.FS, prefix string) {
 	r.r.Icons(fsys, prefix)
 }
 
+func (r *Registry) SaveSection(id string, s persistence.Section) {
+	r.r.SaveSection(id, s)
+}
+
 func (r *Registry) Docs(fsys fs.FS) {
 	r.r.Docs(fsys)
 }
@@ -232,6 +237,10 @@ func Bitset(field, section, list string) schema.Option {
 
 func Runtime(fields ...string) schema.Option {
 	return schema.Runtime(fields...)
+}
+
+func Persist(fields ...string) schema.Option {
+	return schema.Persist(fields...)
 }
 
 func SceneOf(ctx *Context) *Scene {

@@ -10,6 +10,9 @@
 # The SDK reaches the editor from one file only.
 sdk/editor.go -> editor/..., editor, sdk.EditorHook bridge for project editor code under aego_editor; the exception is per file (D145)
 
+# Save sections read and write against the play world.
+contracts/persistence -> engine, *, persistence.Section takes the play world so a module section can reach its services (D259)
+
 # Test graph.
 script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene), which the language layer cannot install (D203)
 script/... -> modules/input, test|test-editor, toolchain tests run scripts against aego/input, which the input module owns (D234)
@@ -26,4 +29,7 @@ scene/scriptcomp -> "engine.Script", semantic, the script component is a core ty
 engine/recorder/recorder.go -> "spawn", semantic, the recorder event kind names spawn and despawn records (9.1) and predates the spawn module (D250)
 data/... -> "data*", semantic, the data module ID equals the artifact kind and document head of data assets and its decoder keys data.record and data.table (D252, D253)
 data/... -> "DAT*", semantic, the core data package reports the field checks DAT002 and DAT003 that the data module's validators publish (D256)
+save/... -> "save", semantic, the save module ID equals the document head of .aesave files (D262)
+contracts/persistence -> "save.*", semantic, the persistence contract names the save module's service, host and store IDs (D259)
+contracts/persistence -> "spawn.service", semantic, the persistence contract names the spawn service it reads through persistence.Spawner (D260)
 asset/... -> "data", semantic, the artifact kind and importer ID of .aedata files equal the data module ID (D252)

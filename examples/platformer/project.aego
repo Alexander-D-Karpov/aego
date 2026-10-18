@@ -41,9 +41,19 @@ project version=1 {
       type=button
       bind=["Key.Escape", "Pad.B"]
     }
+    action {
+      name=QuickSave
+      type=button
+      bind=["Key.F5"]
+    }
+    action {
+      name=QuickLoad
+      type=button
+      bind=["Key.F9"]
+    }
     context {
       name=Gameplay
-      actions=[Move, Jump, Attack, Pause]
+      actions=[Move, Jump, Attack, Pause, QuickSave, QuickLoad]
     }
     context {
       name=Menu

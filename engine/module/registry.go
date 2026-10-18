@@ -64,6 +64,7 @@ type Registry struct {
 	docs       []DocSource
 	provided   []provision
 	settings   []settings.Desc
+	saves      []OwnedSection
 	versions   []settings.OwnerVersion
 	owners     map[string]string
 	dev        []Hook

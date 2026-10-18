@@ -27,7 +27,7 @@ type group struct {
 }
 
 var lowRoots = []string{"core", "platform", "gpu", "format", "vfs"}
-var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data"}
+var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save"}
 
 func groupOf(p string) (group, bool) {
 	seg := strings.Split(p, "/")

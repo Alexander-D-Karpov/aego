@@ -411,3 +411,40 @@ func TestDirectRefLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestPersistOption(t *testing.T) {
+	type comp struct {
+		Hp    int32   `aego:"hp"`
+		Speed float32 `aego:"speed"`
+		Tmp   float32 `aego:"tmp,transient"`
+	}
+	r := NewRegistry()
+	td, err := Register[comp](r, Name("test.Some"), Persist("hp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hp, _ := td.Field("hp")
+	speed, _ := td.Field("speed")
+	if !hp.Flags.Has(FlagPersist) || speed.Flags.Has(FlagPersist) {
+		t.Fatal("Persist(names) flags wrong")
+	}
+	type all struct {
+		Hp  int32   `aego:"hp"`
+		Tmp float32 `aego:"tmp,transient"`
+	}
+	td, err = Register[all](r, Name("test.All"), Persist())
+	if err != nil {
+		t.Fatal(err)
+	}
+	hp, _ = td.Field("hp")
+	tmp, _ := td.Field("tmp")
+	if !hp.Flags.Has(FlagPersist) || tmp.Flags.Has(FlagPersist) {
+		t.Fatal("Persist() must mark serialized fields only")
+	}
+	type bad struct {
+		Hp int32 `aego:"hp"`
+	}
+	if _, err := Register[bad](r, Name("test.Bad"), Persist("nope")); !errs.Has(err, errs.SchemaBadField) {
+		t.Fatalf("unknown persisted field: %v", err)
+	}
+}

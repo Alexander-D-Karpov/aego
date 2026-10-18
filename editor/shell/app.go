@@ -8,6 +8,7 @@ import (
 	"aego/asset"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
+	"aego/contracts/persistence"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
@@ -44,6 +45,7 @@ import (
 	eproblems "aego/editor/panels/problems"
 	"aego/editor/panels/profiler"
 	"aego/editor/panels/projectsettings"
+	"aego/editor/panels/saves"
 	"aego/editor/panels/sceneview"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/search"
@@ -61,6 +63,7 @@ import (
 	"aego/render/icons"
 	"aego/render/text"
 	"aego/render/view"
+	"aego/save"
 	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/dnd"
@@ -148,6 +151,7 @@ type App struct {
 	eventsPanel    *events.Panel
 	watchPanel     *watch.Panel
 	crashesPanel   *crashes.Panel
+	savesPanel     *saves.Panel
 	search         *search.Overlay
 	shiftAt        float64
 	shiftArmed     bool
@@ -407,6 +411,29 @@ func (a *App) Init(e *engine.Engine) error {
 	a.eventsPanel = events.New(events.Deps{World: playWorld, Selection: a.ctx, Notices: a.ctx, Root: p.Root})
 	a.watchPanel = watch.New(watch.Deps{World: playWorld, Scripts: func() context.ScriptHost { return a.ctx.Scripts }, Viewport: a.viewport})
 	a.crashesPanel = crashes.New(p.Root, a.ctx)
+	a.savesPanel = saves.New(saves.Deps{
+		Store: func() *save.Store {
+			st, _ := engine.Service[*save.Store](e, persistence.StoreID)
+			return st
+		},
+		Service: func() persistence.Service {
+			w := a.play.World()
+			if w == nil {
+				return nil
+			}
+			s, _ := engine.ServiceOf[persistence.Service](w, persistence.ServiceID)
+			return s
+		},
+		Label: func(id ids.AssetID) string {
+			if a.opt.Pipeline != nil {
+				if rel, ok := a.opt.Pipeline.PathOf(id); ok {
+					return rel
+				}
+			}
+			return id.Short()
+		},
+		Notices: a.ctx,
+	})
 	a.ctx.Crash = a.opt.Crash
 	a.ws.OnCrash = func(id string, rec any, stack []byte) {
 		if a.ctx.Crash != nil {

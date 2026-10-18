@@ -122,6 +122,10 @@ scene version=1 {
       current=5
       hits=0
     }
+    component "save.Persist" version=1 {
+      noTransform=false
+      noEnabled=false
+    }
     component "engine.Script" version=1 {
       script "mygame.player.PlayerController" enabled=true {
         Speed=7

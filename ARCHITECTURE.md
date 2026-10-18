@@ -455,6 +455,10 @@ The Stage 8 specification numbered these decisions D153, D155, D158, D159, D168�
 | D256 | Validators: `module.Registry.Validator(kind, fn)` for an artifact kind; the manifest runs them over an asset store (`Revision`, `Index`, `Artifacts`): the loader in the editor and the game feeds Problems (re-run when the loader generation changes), `aego check` imports the project and prints them. A diagnostic defaults to the asset subject with the source path. Built in for data and tables: unreadable file, unknown type, missing or cyclic base, base of another type (DAT001/DAT004, errors that block Play), unknown or unconvertible fields (DAT005), values outside the field range (DAT002), references to missing assets (DAT003), plus the type's own `Validate`. For a native project `aego check` skips types it cannot see. |
 | D257 | Editing data. `editor/core/dataedit` keeps one document per `.aedata` (base and own fields, composed through `data.Library.Compose` with cycle and type checks; a broken base is ignored with an issue so the asset stays editable) and one per `.aetable` (rows as live values, unknown fields kept). Both have snapshot undo (200 steps, a drag merges into one step) and save by writing the source file and reimporting it. Selecting a `.aedata` in Assets shows it in the Inspector until a node is selected: fields the asset sets are marked and revert to the base from the context menu, the base is an asset picker filtered by type. Asset pickers for `data:` and `table:` kinds list only assets of that type. Double-clicking a `.aetable` opens the Table panel: sort by column, filter, inline editing of bool, number, string and enum cells, an edit on a selected row applies to all selected rows, add, duplicate, delete, rename by double-click, CSV export and import next to the table. New data assets and tables are created from Assets → New. |
 | D258 | Live tuning. During Play the Inspector shows a data asset from its running record; only live fields are editable, base, save and tables are locked. An edit patches the record in place and every record based on it that does not set the field, recording the value before the first change. When Play stops, the editor asks whether to keep the changes: Keep restores the records, writes the values into the assets and saves them; Discard restores the records. |
+| D259 | Persistence model. A save holds only marked state: component fields with `schema.Persist` (`FlagPersist`), script fields with `@persist` (bytecode 7, `FieldDef.Persist`; bool, int, float, string, vectors, enums, `NodeRef`, `AssetRef`, otherwise `AES3007`), the transform and enabled flag of nodes with the `save.Persist` marker, and values scripts write in `OnSave`. The scene part lists destroyed scene nodes and every live spawned object. Loading reloads the save's scene through `persistence.Host` and applies the save on top in `AttachWorld` of the `save` module: destroy, spawn, `Scripts.Prepare`, fields and poses, then `OnLoad` is queued, so scripts run `Ready` before `OnLoad` and see restored fields in `Ready`. Modules keep their own state through `module.Registry.SaveSection(id, Section)` with `Version`, `Save`, `Load`, `Migrate`; sections of modules that are not loaded are kept and written back. `contracts/persistence` carries `*engine.World` for sections. |
+| D260 | Persistent identity. Scene nodes are saved by `NodeID` (scenes load with `KeepIDs`). Every `Spawn` gets `save.PersistentID(n)` from the spawn service's counter (a fixed high word, the counter in the low word); a failed spawn uses no number, despawn and destroy release the id, and the counter is saved and restored, so the next id after a load is the same as after the save. References are written as `node("id")` for scene nodes and `{spawn="<pid>" path="A/B"}` for nodes inside spawned objects; a reference to a node created any other way is not saved. |
+| D261 | Script side: events `OnSave()` and `OnLoad()`; `save.Put*` work only while `OnSave` runs (the service emits `OnSave` to listening nodes and flushes the queue synchronously at the end of the frame), `save.Get*` read what the node wrote and return the default elsewhere; keys belong to the node. Game-wide progress is `save.SetGlobal*`/`save.Global*`, kept by the module across scene loads and written to every save. `save.Save`, `Load`, `Checkpoint`, `Autosave(seconds)`, `Exists`, `Delete`. |
+| D262 | Slots and files. `save.Store` keeps `<slot>.aesave` and an optional `<slot>.png` in `saves/` next to the player profile, writes atomically and lists slots with their meta: name, game modules and versions, engine version, scene, date, playtime, object count, spawn counter. A save is captured on the main thread in the `save.step` system (Animation, PauseAlways), encoded and written by a worker, and reported back on the main thread. Loads go through `OnMain`. The editor's Saves panel lists slots, shows what a save holds and saves, loads and deletes during Play. The format is aetext `save version=1`. |
 
 ## 4. Dependency rules
 
@@ -560,6 +564,7 @@ aego/
 ├── schema/          registry descriptor dynamic bag access refs kind options space tag hash methods  (3, 5)
 ├── format/aetext/   lex parse write value                                        (3)
 ├── data/            data types, records, tables, CSV, weighted, library           (9.4c)
+├── save/            save format, slots, persistent ids                           (9.4d)
 ├── project/         project.aego model, roots, native build inputs              (3, dev-only)
 ├── asset/           artifact id index resolver builtin  loader/  pipeline/
 │                    importers/{texture,atlas,obj,scenefile,script}               (3, 4.5, 5)   importers/datafile (9.4c)
@@ -569,13 +574,14 @@ aego/
 │                    bytecode verify bind vm runtime stdlib                       (5)
 │                    workspace langsvc reload coroutine signal                     (6)   docgen (7)
 ├── sdk/             sdk.go dev.go editor.go input.go script.go spatial.go      (3+, 6.5)
-├── contracts/       scriptevents physics2d debugdraw inputactions  scriptwait scriptfields signals scriptpool  (8A, 9.1, 9.2, 9.4)
+├── contracts/       scriptevents physics2d debugdraw inputactions  scriptwait scriptfields signals scriptpool persistence  (8A, 9.1, 9.2, 9.4)
 ├── modules/         built-in modules, one package tree each                      (8C)
 │   ├── input/       module config section service record script editor/ res/      (9.2)
 │   ├── display/ audio/ accessibility/ settings/                                   (9.3)
 │   ├── tween/       module service tweens timers actions                          (9.4)
 │   ├── spawn/       module service pools script                                   (9.4b)
 │   ├── dataasset/   module dev validate                                           (9.4c)
+│   ├── savegame/    module service capture apply refs script                      (9.4d)
 │   ├── render2d/    module components systems  editor/                           (6.5)
 │   ├── render3d/    module components systems dev  editor/                       (6.5)
 │   ├── scripting/   module events methods  systems/ stdlib/ (scene)               (6.5, 8C)
@@ -585,7 +591,7 @@ aego/
 │                    code clipboard templates gizmo vectors play fieldgizmo assetops assetfiles sceneops prefabs fuzzy   (4–8D)   dataedit (9.4c)
 │   ├── ext/         extension points for module editors and sdk; inspect/        (4, 8C)
 │   ├── panels/      assets console docs gameview help hierarchy inspector problems profiler
-│                    projectsettings sceneview scripteditor search welcome        (4–8C)   datatable (9.4c)
+│                    projectsettings sceneview scripteditor search welcome        (4–8C)   datatable (9.4c)   saves (9.4d)
 │   └── shell/       editor application, menus, modals, panel catalog; launcher/  (4, 6.5, 8C)
 ├── app/             build.go importers.go  run/ edit/ supervise/ bootstrap/   (3–4, 6.5 build; dev-only)
 │                    assembly/{builtin,playground,editors}/  module catalog and profiles (8C)

@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="34e0b4d766472f5547379b2501e2bc7aeaed8720749f08c953e68cb17836bf53"
+  abi="44dac91b1d52166c88af3401c51a066f82851af42cca4c12a2036a816460f3a0"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -1724,6 +1724,155 @@ manifest version=6 {
       example="log.Info(\"seed \" + string(rand.Seed()))"
     }
   }
+  module "aego/save" {
+    func "Autosave" {
+      params=["float"]
+      result="void"
+      names=["seconds"]
+      doc="Autosave saves to the slot named autosave every given number of real seconds; 0 turns it off."
+    }
+    func "Checkpoint" {
+      params=[]
+      result="void"
+      doc="Checkpoint saves the game to the slot named checkpoint."
+      example="save.Checkpoint()"
+    }
+    func "Delete" {
+      params=["string"]
+      result="void"
+      names=["slot"]
+      doc="Delete removes a save and its preview."
+    }
+    func "Exists" {
+      params=["string"]
+      result="bool"
+      names=["slot"]
+      doc="Exists reports whether a slot holds a save."
+    }
+    func "GetBool" {
+      params=["string", "bool"]
+      result="bool"
+      names=["key", "def"]
+      doc="GetBool reads a value this node stored, or def; it works in OnLoad."
+    }
+    func "GetFloat" {
+      params=["string", "float"]
+      result="float"
+      names=["key", "def"]
+      doc="GetFloat reads a value this node stored, or def; it works in OnLoad."
+    }
+    func "GetInt" {
+      params=["string", "int"]
+      result="int"
+      names=["key", "def"]
+      doc="GetInt reads a value this node stored, or def; it works in OnLoad."
+    }
+    func "GetString" {
+      params=["string", "string"]
+      result="string"
+      names=["key", "def"]
+      doc="GetString reads a value this node stored, or def; it works in OnLoad."
+    }
+    func "GetVec2" {
+      params=["string", "Vec2"]
+      result="Vec2"
+      names=["key", "def"]
+      doc="GetVec2 reads a value this node stored, or def; it works in OnLoad."
+    }
+    func "GlobalBool" {
+      params=["string", "bool"]
+      result="bool"
+      names=["key", "def"]
+      doc="GlobalBool reads game-wide progress, or def."
+    }
+    func "GlobalFloat" {
+      params=["string", "float"]
+      result="float"
+      names=["key", "def"]
+      doc="GlobalFloat reads game-wide progress, or def."
+    }
+    func "GlobalInt" {
+      params=["string", "int"]
+      result="int"
+      names=["key", "def"]
+      doc="GlobalInt reads game-wide progress, or def."
+      example="kills := save.GlobalInt(\"kills\", 0)"
+    }
+    func "GlobalString" {
+      params=["string", "string"]
+      result="string"
+      names=["key", "def"]
+      doc="GlobalString reads game-wide progress, or def."
+    }
+    func "Load" {
+      params=["string"]
+      result="void"
+      names=["slot"]
+      doc="Load reloads the saved scene and restores the slot at the end of the frame."
+      example="if save.Exists(\"slot1\") {\n  save.Load(\"slot1\")\n}"
+    }
+    func "PutBool" {
+      params=["string", "bool"]
+      result="void"
+      names=["key", "value"]
+      doc="PutBool stores a value for this node; call it in OnSave."
+    }
+    func "PutFloat" {
+      params=["string", "float"]
+      result="void"
+      names=["key", "value"]
+      doc="PutFloat stores a value for this node; call it in OnSave."
+    }
+    func "PutInt" {
+      params=["string", "int"]
+      result="void"
+      names=["key", "value"]
+      doc="PutInt stores a value for this node; call it in OnSave."
+    }
+    func "PutString" {
+      params=["string", "string"]
+      result="void"
+      names=["key", "value"]
+      doc="PutString stores a value for this node; call it in OnSave."
+    }
+    func "PutVec2" {
+      params=["string", "Vec2"]
+      result="void"
+      names=["key", "value"]
+      doc="PutVec2 stores a value for this node; call it in OnSave."
+    }
+    func "Save" {
+      params=["string"]
+      result="void"
+      names=["slot"]
+      doc="Save writes the game to a slot at the end of the frame."
+      example="save.Save(\"slot1\")"
+    }
+    func "SetGlobalBool" {
+      params=["string", "bool"]
+      result="void"
+      names=["key", "value"]
+      doc="SetGlobalBool stores game-wide progress that every save carries."
+    }
+    func "SetGlobalFloat" {
+      params=["string", "float"]
+      result="void"
+      names=["key", "value"]
+      doc="SetGlobalFloat stores game-wide progress that every save carries."
+    }
+    func "SetGlobalInt" {
+      params=["string", "int"]
+      result="void"
+      names=["key", "value"]
+      doc="SetGlobalInt stores game-wide progress that every save carries."
+    }
+    func "SetGlobalString" {
+      params=["string", "string"]
+      result="void"
+      names=["key", "value"]
+      doc="SetGlobalString stores game-wide progress that every save carries."
+    }
+  }
   module "aego/scene" {
     func "ByID" {
       params=["string"]
@@ -2343,6 +2492,14 @@ manifest version=6 {
   event "OnDespawned" {
     params=[]
     doc="OnDespawned runs on every script of a pooled copy when it is despawned, before its coroutines and connections end."
+  }
+  event "OnSave" {
+    params=[]
+    doc="OnSave runs on every script that has it while a game is saved; write values with save.Put*."
+  }
+  event "OnLoad" {
+    params=[]
+    doc="OnLoad runs after Ready on every script that has it when a saved game is loaded; read values with save.Get*."
   }
   method "AddTag" recv="NodeRef" {
     params=["string"]
@@ -3276,6 +3433,19 @@ manifest version=6 {
       readonly=false
     }
     field "CollideConnected" {
+      type="bool"
+      readonly=false
+    }
+  }
+  component "save.Persist" {
+    short="Persist"
+    category="save"
+    doc="Persist saves the node's transform and enabled flag in save games."
+    field "NoTransform" {
+      type="bool"
+      readonly=false
+    }
+    field "NoEnabled" {
       type="bool"
       readonly=false
     }

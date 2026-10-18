@@ -2,6 +2,8 @@ package run
 
 import (
 	"aego/asset"
+	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine"
 	"aego/platform"
@@ -78,4 +80,20 @@ func (a *App) reloadScene() {
 		a.log.Error("modules could not attach to the reloaded scene", log.F("err", err.Error()))
 	}
 	a.log.Info("scene reloaded")
+}
+
+func (a *App) SceneID() ids.AssetID {
+	return a.sceneID
+}
+
+func (a *App) LoadScene(id ids.AssetID) error {
+	if id.IsZero() {
+		return errs.New(errs.AssetNotFound, "the save names no scene")
+	}
+	if _, ok := a.Loader.Scene(id); !ok {
+		return errs.New(errs.AssetNotFound, "the saved scene is not in this build", log.F("asset", id.String()))
+	}
+	a.sceneID = id
+	a.reloadScene()
+	return nil
 }

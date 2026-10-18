@@ -25,7 +25,7 @@ func (Module) Info() sdk.ModuleInfo {
 }
 
 func (Module) Register(r *sdk.Registry) error {
-	if err := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character")).Err(); err != nil {
+	if err := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character"), sdk.Persist("current", "hits")).Err(); err != nil {
 		return err
 	}
 	if err := sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats"), sdk.Doc("movement and attack numbers of one kind of enemy")).Err(); err != nil {

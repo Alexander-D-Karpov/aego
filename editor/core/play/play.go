@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"aego/asset"
+	"aego/contracts/persistence"
 	"aego/core/clock"
 	"aego/core/errs"
 	"aego/core/ids"
@@ -242,6 +243,31 @@ func (c *Controller) Start(d *document.SceneDocument) error {
 	return nil
 }
 
+func (c *Controller) SceneID() ids.AssetID {
+	real := c.ctx.Docs.Get(c.doc)
+	if real == nil || c.ctx.Pipeline == nil {
+		return ids.AssetID{}
+	}
+	id, _ := c.ctx.Pipeline.Lookup(real.Path)
+	return id
+}
+
+func (c *Controller) LoadScene(id ids.AssetID) error {
+	ctx := c.ctx
+	if ctx.Pipeline == nil {
+		return errs.New(errs.EditorDocument, "the asset pipeline is not available")
+	}
+	rel, ok := ctx.Pipeline.PathOf(id)
+	if !ok {
+		return errs.New(errs.EditorDocument, "the saved scene is not in the project")
+	}
+	d, err := ctx.Docs.Open(rel)
+	if err != nil {
+		return err
+	}
+	return c.Start(d)
+}
+
 func (c *Controller) StartProject() error {
 	ctx := c.ctx
 	p := ctx.Project
@@ -280,6 +306,7 @@ func (c *Controller) start(data []byte, name string) error {
 	c.runner.Bind(s, ctx.Renderer, res)
 	c.world.SetService(frame.ServiceID, c.runner)
 	c.world.SetService(scene.ServiceID, s)
+	c.world.SetService(persistence.HostID, c)
 	c.unrec = frame.Record(s, c.world.Recorder)
 	c.world.Recorder.Add(recorder.SceneChange, ids.NodeID{}, ids.NodeID{}, name, "play")
 	c.input = input.State{}

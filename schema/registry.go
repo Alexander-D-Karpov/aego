@@ -230,9 +230,11 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 			}
 		}
 	}
-	for name := range o.runtime {
-		if _, ok := td.index[name]; !ok {
-			return nil, errs.New(errs.SchemaBadField, "Runtime names an unknown field", log.F("type", full), log.F("field", name))
+	for _, m := range []map[string]bool{o.runtime, o.persist} {
+		for name := range m {
+			if _, ok := td.index[name]; !ok {
+				return nil, errs.New(errs.SchemaBadField, "Runtime or Persist names an unknown field", log.F("type", full), log.F("field", name))
+			}
 		}
 	}
 
@@ -297,6 +299,9 @@ func (r *Registry) addFields(td *TypeDescriptor, rt reflect.Type, base uintptr, 
 		if o.runtime[fd.Name] {
 			fd.Hints.Runtime = true
 			fd.Flags |= FlagReadOnly
+		}
+		if o.persist[fd.Name] || (o.persistAll && fd.Flags.Has(FlagSerialize)) {
+			fd.Flags |= FlagPersist
 		}
 		if err := ValidGizmo(fd.Kind, fd.Hints.Gizmo, fd.Hints.GizmoSpace); err != nil {
 			return errs.Wrap(err, errs.SchemaBadField, "bad gizmo").With(log.F("type", full), log.F("field", fd.Name))

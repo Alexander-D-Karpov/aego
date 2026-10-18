@@ -60,6 +60,9 @@ func DisassembleSource(w io.Writer, m *Module, source func(file string, line int
 			if f.Export {
 				exp = " export"
 			}
+			if f.Persist {
+				exp += " persist"
+			}
 			fmt.Fprintf(&b, "  field %s %s slot=%d+%d%s\n", f.Name, f.Type, f.Slot, f.Slots, exp)
 		}
 	}

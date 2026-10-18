@@ -11,6 +11,7 @@ import (
 	"aego/app"
 	"aego/app/crash"
 	"aego/asset/pipeline"
+	"aego/contracts/persistence"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
@@ -159,6 +160,7 @@ func (a *App) start() error {
 		return err
 	}
 	a.Engine.SetService(scriptruntime.ServiceID, a.Scripts)
+	a.Engine.SetService(persistence.HostID, a)
 	a.sceneID = a.cfg.SceneID
 	if a.sceneID.IsZero() {
 		a.sceneID = a.Project.MainScene

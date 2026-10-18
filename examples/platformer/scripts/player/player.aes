@@ -4,6 +4,7 @@ import (
 	"aego/input"
 	"aego/log"
 	"aego/physics"
+	"aego/save"
 	"aego/settings"
 	"mygame/enemy"
 	"mygame/shared"
@@ -37,6 +38,7 @@ script PlayerController {
 	var base Color
 	var lastHits int
 	var flash float
+	@persist
 	var kills int
 	var blink Coroutine
 
@@ -62,6 +64,7 @@ script PlayerController {
 
 	func OnEnemyDied() {
 		kills++
+		save.SetGlobalInt("kills", save.GlobalInt("kills", 0) + 1)
 		log.Info("kills=" + string(kills))
 		body := node.Get<Body2D>()
 		if body == nil {
@@ -70,6 +73,19 @@ script PlayerController {
 		v := body.Velocity
 		body.SetVelocity(Vec2{v.X, 0})
 		body.ApplyImpulse(JumpImpulse * 0.6)
+	}
+
+	func OnSave() {
+		save.PutInt("state", int(state))
+	}
+
+	func OnLoad() {
+		state = State(save.GetInt("state", 0))
+		hp := node.Get<Health>()
+		if hp != nil {
+			lastHits = hp.Hits
+		}
+		log.Info("loaded, kills=" + string(kills) + ", total kills=" + string(save.GlobalInt("kills", 0)))
 	}
 
 	func OnCollisionEnter(other NodeRef, c physics.Contact) {
@@ -138,6 +154,13 @@ script PlayerController {
 	}
 
 	func Update(dt float) {
+		if input.Pressed("QuickSave") {
+			save.Save("quick")
+		}
+		if input.Pressed("QuickLoad") && save.Exists("quick") {
+			save.Load("quick")
+			return
+		}
 		if input.Pressed("Pause") {
 			settings.OpenView()
 			return

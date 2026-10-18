@@ -16,6 +16,15 @@ func exportable(t *types.Type) bool {
 	return false
 }
 
+func persistable(t *types.Type) bool {
+	switch t.Kind {
+	case types.KBool, types.KInt, types.KFloat, types.KString, types.KVec2, types.KVec3,
+		types.KColor, types.KQuat, types.KRect, types.KEnum, types.KNodeRef, types.KAssetRef:
+		return true
+	}
+	return false
+}
+
 func (c *checker) pauseArg(st *ScriptType, a *ast.Attr) {
 	vals := c.stringArgs(a)
 	if len(vals) != 1 {
@@ -76,6 +85,14 @@ func (c *checker) fieldAttrs(f *ScriptField, attrs []*ast.Attr) {
 			c.exportArgs(f, a)
 			if f.Type != types.Invalid && !exportable(f.Type) {
 				c.errorf(diag.NotExportable, f.Decl.Type.Span(), "fields of type %s cannot be exported", f.Type)
+			}
+		case "persist":
+			if len(a.Args) > 0 {
+				c.errorf(diag.BadAttrArg, a.Args[0].Sp, "@persist takes no arguments")
+			}
+			f.Persist = true
+			if f.Type != types.Invalid && !persistable(f.Type) {
+				c.errorf(diag.NotPersistable, f.Decl.Type.Span(), "fields of type %s cannot be saved; save what they point at in OnSave instead", f.Type)
 			}
 		case "former":
 			f.Former = append(f.Former, c.stringArgs(a)...)

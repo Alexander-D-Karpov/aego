@@ -10,7 +10,7 @@ import (
 
 const (
 	Magic              = "AESB"
-	Version     uint16 = 6
+	Version     uint16 = 7
 	LangVersion uint16 = 2
 	NoScript           = -1
 )
@@ -144,6 +144,7 @@ type FieldDef struct {
 	Slot       uint16
 	Slots      uint8
 	Export     bool
+	Persist    bool
 	Hints      ExportHints
 	HasDefault bool
 	Default    Const

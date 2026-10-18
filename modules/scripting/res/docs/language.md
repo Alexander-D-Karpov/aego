@@ -280,6 +280,7 @@ title: Attributes
 | `@export(min=0, max=100, step=1, unit="px/s", display="Speed", tip="…", category="Movement")` | field | same, with Inspector hints; `min/max/step` only on numeric fields |
 | `@former("OldName")` | script or field | the old name still loads from scenes; the scene is rewritten with the new name on save; also used to match fields across a hot reload |
 | `@hide` | script | not offered in Add Script |
+| `@persist` | field | kept by save games |
 
 Exportable field types: `bool int float string Vec2 Vec3 Color Quat Rect`, enums, `NodeRef`, `AssetRef<T>`, `ComponentRef<T>`. Slices, structs, `ScriptRef`, `Coroutine`, `Connection`, `Curve` and host handles cannot be exported (`AES3001`). An exported `ComponentRef<T>` is stored as a node reference; the Inspector only offers nodes that have `T`, and a node without `T` starts the field as `nil`.
 
@@ -288,6 +289,19 @@ A field default must be a constant. Composite literals of `Vec2`, `Vec3`, `Color
 Attribute arguments are literals (optionally negative). Attributes before `func` are parsed for forward compatibility but rejected (`AES3005`).
 
 Unknown properties found in a scene (a field that was removed or renamed without `@former`) are preserved and re-saved with a warning; they are not applied at runtime.
+
+## Persistent fields
+
+`@persist` marks a script field that save games keep:
+
+```
+@persist
+var Coins int
+```
+
+Persistent fields may be bool, int, float, string, a vector or color, an enum, `NodeRef` or `AssetRef`. Other types are AES3007; save what they point at in `OnSave` instead. `@persist` and `@export` may be combined.
+
+`OnSave()` runs while a game is saved and writes values with `save.PutInt`, `PutFloat`, `PutBool`, `PutString` and `PutVec2`; `OnLoad()` runs after `Ready` when a game is loaded and reads them back with `save.GetInt(key, def)` and the others. Keys belong to the node, so two scripts on one node share them.
 
 ---
 id: language/nodes-components-and-references

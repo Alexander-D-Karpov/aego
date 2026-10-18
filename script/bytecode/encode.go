@@ -176,6 +176,7 @@ func (w *writer) script(s *ScriptDef) {
 		w.u16(f.Slot)
 		w.u8(f.Slots)
 		w.flag(f.Export)
+		w.flag(f.Persist)
 		h := &f.Hints
 		w.f64(h.Min)
 		w.f64(h.Max)
@@ -276,7 +277,7 @@ func (r *reader) script() ScriptDef {
 		s.HeapSlots = append(s.HeapSlots, r.u16())
 	}
 	for n, i := r.count(), 0; i < n && r.err == nil; i++ {
-		f := FieldDef{Name: r.str(), Former: r.strs(), Type: r.str(), Slot: r.u16(), Slots: r.u8(), Export: r.flag()}
+		f := FieldDef{Name: r.str(), Former: r.strs(), Type: r.str(), Slot: r.u16(), Slots: r.u8(), Export: r.flag(), Persist: r.flag()}
 		f.Hints = ExportHints{
 			Min: r.f64(), Max: r.f64(), Step: r.f64(), HasMin: r.flag(), HasMax: r.flag(),
 			Unit: r.str(), Display: r.str(), Tip: r.str(), Category: r.str(),

@@ -66,6 +66,7 @@ var help = map[string]Help{
 	BadAttrArg:          {"The attribute argument is not valid.", "See the attribute in the Script Reference; hover it for the accepted arguments."},
 	DuplicateAttr:       {"The attribute or argument is given twice.", "Keep one."},
 	AttrTarget:          {"The attribute does not apply to this declaration.", "Move it to a script or field, or remove it."},
+	NotPersistable:      {"Only scalar, vector, enum, node and asset fields can be saved.", "Remove @persist and save the value in OnSave instead."},
 	FieldInit:           {"A field default must be a constant.", "Use a literal or constant, or set the value in Ready."},
 	PackageName:         {"The package clause must match the directory name.", "Rename the package clause or move the file."},
 	UnknownImport:       {"No script package or engine module has this path.", "Check the path; script packages are directories under scripts/."},

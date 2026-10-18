@@ -1,4 +1,5 @@
 Engine	engine.Tags	Tags	cat.engine	-
+Engine	save.Persist	Persist	cat.node	-
 Rendering	engine.SpriteRenderer	Sprite Renderer	cat.rendering	-
 Rendering	engine.MeshRenderer	Mesh Renderer	cat.rendering	-
 Camera	engine.Camera2D	Camera 2D	cat.camera	-

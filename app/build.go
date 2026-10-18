@@ -3,12 +3,14 @@ package app
 import (
 	"aego/engine/base"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
+	"aego/contracts/persistence"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
@@ -21,6 +23,7 @@ import (
 	"aego/project"
 	"aego/render"
 	renderhost "aego/render/host"
+	"aego/save"
 	"aego/scene"
 	"aego/scene/frame"
 	"aego/script/bind"
@@ -207,6 +210,7 @@ func (h *Host) loadProfile(name string, ch *log.ChannelLogger) {
 		return
 	}
 	h.ProfilePath = path
+	h.Engine.SetService(persistence.StoreID, save.NewStore(filepath.Join(filepath.Dir(path), "saves")))
 	data, err := platform.ReadProfile(path)
 	if err != nil {
 		ch.Warn("cannot read the player settings", log.F("path", path), log.F("err", err.Error()))

@@ -22,6 +22,7 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.welcome, Near: workspace.Inspector, Order: 220},
 		{Panel: a.keymap, Near: workspace.Inspector, Order: 230},
 		{Panel: a.crashesPanel, Near: workspace.Console, Order: 240},
+		{Panel: a.savesPanel, Near: workspace.Console, Order: 245},
 	}
 }
 
