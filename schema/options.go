@@ -1,5 +1,7 @@
 package schema
 
+import "unsafe"
+
 type regOptions struct {
 	name         string
 	former       []string
@@ -14,6 +16,7 @@ type regOptions struct {
 	runtime      map[string]bool
 	persist      map[string]bool
 	persistAll   bool
+	clone        func(dst, src unsafe.Pointer)
 }
 
 type HintSource struct {

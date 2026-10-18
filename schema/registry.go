@@ -211,6 +211,9 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 	if err := r.addFields(td, rt, 0, &o); err != nil {
 		return nil, err
 	}
+	if err := finishClone(td, rt, &o); err != nil {
+		return nil, err
+	}
 	for name := range o.fieldDocs {
 		if _, ok := td.index[name]; !ok {
 			return nil, errs.New(errs.SchemaBadField, "FieldDoc names an unknown field",

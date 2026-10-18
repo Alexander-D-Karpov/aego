@@ -161,8 +161,8 @@ func (l *loader) modelComp(b *aetext.Node) (prefab.Comp, error) {
 		return prefab.Comp{Owner: b.Label, Kind: prefab.CompUnknown, Raw: b.Clone()}, nil
 	}
 	p := td.New()
-	if td.Default != nil && td.Copy != nil {
-		td.Copy(p, td.Default())
+	if td.Default != nil && td.CloneInto != nil {
+		td.CloneInto(p, td.Default())
 	}
 	c := prefab.Comp{Owner: td.FullName, Kind: prefab.CompComponent}
 	td.Serializable(func(fd *schema.FieldDescriptor) {

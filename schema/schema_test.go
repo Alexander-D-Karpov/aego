@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -53,6 +54,8 @@ type comp struct {
 	hidden  int
 }
 
+var cloneComp = Clone(func(dst, src *comp) { dst.Cache = slices.Clone(src.Cache) })
+
 func newRegistry(t *testing.T) *Registry {
 	t.Helper()
 	r := NewRegistry()
@@ -70,7 +73,7 @@ func newRegistry(t *testing.T) *Registry {
 
 func TestRegisterFields(t *testing.T) {
 	r := newRegistry(t)
-	td, err := Register[comp](r, Name("test.Comp"), Version(2), Doc("component"))
+	td, err := Register[comp](r, cloneComp, Name("test.Comp"), Version(2), Doc("component"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +143,7 @@ func TestRegisterFields(t *testing.T) {
 
 func TestAccessorRoundTrip(t *testing.T) {
 	r := newRegistry(t)
-	td, err := Register[comp](r, Name("test.Comp"))
+	td, err := Register[comp](r, cloneComp, Name("test.Comp"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +207,7 @@ func TestAccessorRoundTrip(t *testing.T) {
 
 func TestNestedStructAccess(t *testing.T) {
 	r := newRegistry(t)
-	td, err := Register[comp](r, Name("test.Comp"))
+	td, err := Register[comp](r, cloneComp, Name("test.Comp"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +243,7 @@ func TestNestedStructAccess(t *testing.T) {
 
 func TestSetRejectsWrongKind(t *testing.T) {
 	r := newRegistry(t)
-	td, _ := Register[comp](r, Name("test.Comp"))
+	td, _ := Register[comp](r, cloneComp, Name("test.Comp"))
 	var c comp
 	f, _ := td.Field("label")
 	if err := f.Set(unsafe.Pointer(&c), Int32(1)); !errs.Has(err, errs.SchemaBadValue) {
@@ -260,7 +263,7 @@ func TestUnsupportedFieldIsAnError(t *testing.T) {
 		Ch chan int `aego:"-"`
 		OK int32    `aego:"ok"`
 	}
-	if _, err := Register[skipped](r, Name("test.Skipped")); err != nil {
+	if _, err := Register[skipped](r, Name("test.Skipped"), Clone(func(dst, src *skipped) {})); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -372,7 +375,7 @@ func TestLowerFirst(t *testing.T) {
 
 func TestComponentsAndEach(t *testing.T) {
 	r := newRegistry(t)
-	if _, err := Register[comp](r, Name("test.Comp")); err != nil {
+	if _, err := Register[comp](r, cloneComp, Name("test.Comp")); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(r.Components()); n != 1 {
@@ -419,7 +422,7 @@ func TestPersistOption(t *testing.T) {
 		Tmp   float32 `aego:"tmp,transient"`
 	}
 	r := NewRegistry()
-	td, err := Register[comp](r, Name("test.Some"), Persist("hp"))
+	td, err := Register[comp](r, cloneComp, Name("test.Some"), Persist("hp"))
 	if err != nil {
 		t.Fatal(err)
 	}

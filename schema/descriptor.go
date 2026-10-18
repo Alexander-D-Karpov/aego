@@ -127,6 +127,8 @@ type TypeDescriptor struct {
 	byID          map[FieldID]int
 	New           func() unsafe.Pointer
 	Copy          func(dst, src unsafe.Pointer)
+	Flat          bool
+	CloneInto     func(dst, src unsafe.Pointer)
 }
 
 func (t *TypeDescriptor) Scripted(fd *FieldDescriptor) bool {

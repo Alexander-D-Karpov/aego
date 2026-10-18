@@ -321,8 +321,8 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 	if err != nil {
 		return err
 	}
-	if td.Default != nil && td.Copy != nil {
-		td.Copy(p, td.Default())
+	if td.Default != nil && td.CloneInto != nil {
+		td.CloneInto(p, td.Default())
 	}
 	for _, f := range n.Fields {
 		fd, ok := td.Field(f.Name)

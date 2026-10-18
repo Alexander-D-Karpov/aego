@@ -204,7 +204,7 @@ func (s *Service) snap(h scene.NodeHandle) nodeSnap {
 	reg := sc.Registry()
 	sc.ComponentsOf(h, func(t schema.TypeID) {
 		td, ok := reg.ByID(t)
-		if !ok || td.Hidden || t == scriptcomp.ScriptTypeID || td.New == nil || td.Copy == nil {
+		if !ok || td.Hidden || t == scriptcomp.ScriptTypeID || td.New == nil || td.CloneInto == nil {
 			return
 		}
 		p, ok := sc.GetByType(h, t)
@@ -212,7 +212,7 @@ func (s *Service) snap(h scene.NodeHandle) nodeSnap {
 			return
 		}
 		data := td.New()
-		td.Copy(data, p)
+		td.CloneInto(data, p)
 		ns.comps = append(ns.comps, compSnap{td: td, data: data})
 	})
 	return ns
@@ -238,7 +238,7 @@ func (s *Service) restore(m *member) {
 		}
 		for _, c := range n.comps {
 			if p, ok := sc.GetByType(n.node, c.td.ID); ok {
-				c.td.Copy(p, c.data)
+				c.td.CloneInto(p, c.data)
 			}
 		}
 	}
