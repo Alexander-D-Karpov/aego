@@ -52,3 +52,11 @@ func (s *Source) IntN(n int) int {
 func (s *Source) Range(lo, hi float32) float32 {
 	return lo + (hi-lo)*s.Float32()
 }
+
+func (s *Source) State() uint64 {
+	return s.state
+}
+
+func (s *Source) SetState(v uint64) {
+	s.state = v
+}

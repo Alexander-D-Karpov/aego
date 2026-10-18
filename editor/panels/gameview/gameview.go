@@ -141,6 +141,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	widgets.Tooltip(ui, id, "Click to send input to the game")
 }
 
+func megabytes(b int) string {
+	return strconv.FormatFloat(float64(b)/(1<<20), 'f', 1, 64) + " MB"
+}
+
 func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
 	tl := p.play.Timeline()
 	if tl.Frames == 0 && tl.Blocked == "" {
@@ -164,6 +168,15 @@ func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
 	case tl.Why != "":
 		label += " · history ends: " + tl.Why
 	}
+	if p.seekErr == "" {
+		switch {
+		case tl.KeysOff != "":
+			label += " · keyframes off: " + tl.KeysOff
+		case tl.Keys > 0:
+			label += " · " + strconv.Itoa(tl.Keys) + " keys, " + megabytes(tl.KeyBytes) + ", last " + megabytes(tl.LastKey) +
+				" in " + strconv.FormatFloat(float64(tl.KeyTime.Microseconds())/1000, 'f', 2, 64) + " ms"
+		}
+	}
 	lw := min(ui.TextSize(label).X+12, bar.W*0.5)
 	track := mathx.Rect{X: bar.X + 8, Y: bar.Y + bar.H/2 - 3, W: max(1, bar.W-lw-20), H: 6}
 	total := max(tl.Frames, 1)
@@ -172,7 +185,8 @@ func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
 		return int(mathx.Clamp((x-track.X)/track.W, 0, 1)*float32(total) + 0.5)
 	}
 	ui.Rect(track, th.Widget)
-	ui.Rect(mathx.Rect{X: track.X, Y: track.Y, W: xAt(tl.Usable) - track.X, H: track.H}, th.AccentDim)
+	lo := xAt(tl.Floor)
+	ui.Rect(mathx.Rect{X: lo, Y: track.Y, W: max(0, xAt(tl.Usable)-lo), H: track.H}, th.AccentDim)
 	id := ui.ID("timeline")
 	hit := mathx.Rect{X: track.X - 4, Y: bar.Y, W: track.W + 8, H: bar.H}
 	if ui.Pressed(id, hit) {
@@ -183,7 +197,7 @@ func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
 		cur = tl.Frames
 	}
 	if p.dragging {
-		p.dragTo = min(frameAt(ui.Mouse().X), tl.Usable)
+		p.dragTo = min(max(frameAt(ui.Mouse().X), tl.Floor), tl.Usable)
 		cur = p.dragTo
 		if !ui.MouseDown(input.MouseLeft) {
 			p.dragging = false

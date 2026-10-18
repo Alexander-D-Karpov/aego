@@ -38,14 +38,15 @@ func Bit(k Kind) uint32 {
 }
 
 type Record struct {
-	World   uint64
-	Frame   uint64
-	Tick    uint64
-	Kind    Kind
-	Owner   ids.NodeID
-	Subject ids.NodeID
-	Name    string
-	Detail  string
+	World    uint64
+	Frame    uint64
+	Tick     uint64
+	Kind     Kind
+	Owner    ids.NodeID
+	Subject  ids.NodeID
+	Name     string
+	Detail   string
+	Replayed bool
 }
 
 func short(id ids.NodeID) string {
@@ -74,20 +75,21 @@ func (r *Record) Line(name func(ids.NodeID) string) string {
 }
 
 type Recorder struct {
-	ring    []Record
-	head    int
-	n       int
-	counts  [KindCount]uint64
-	mask    uint32
-	nodes   map[ids.NodeID]bool
-	world   uint64
-	frame   uint64
-	tick    uint64
-	rev     uint64
-	brMask  uint32
-	brText  string
-	tripped bool
-	trip    Record
+	ring      []Record
+	head      int
+	n         int
+	counts    [KindCount]uint64
+	mask      uint32
+	nodes     map[ids.NodeID]bool
+	world     uint64
+	frame     uint64
+	tick      uint64
+	rev       uint64
+	brMask    uint32
+	brText    string
+	tripped   bool
+	trip      Record
+	replaying bool
 }
 
 func New(size int) *Recorder {
@@ -127,6 +129,12 @@ func (r *Recorder) Count(k Kind) {
 	}
 }
 
+func (r *Recorder) SetReplaying(on bool) {
+	if r != nil {
+		r.replaying = on
+	}
+}
+
 func (r *Recorder) Add(k Kind, owner, subject ids.NodeID, name, detail string) {
 	if r == nil || k >= KindCount {
 		return
@@ -135,7 +143,7 @@ func (r *Recorder) Add(k Kind, owner, subject ids.NodeID, name, detail string) {
 	if r.mask&Bit(k) == 0 || (r.nodes != nil && !r.nodes[owner] && !r.nodes[subject]) {
 		return
 	}
-	rec := Record{World: r.world, Frame: r.frame, Tick: r.tick, Kind: k, Owner: owner, Subject: subject, Name: name, Detail: detail}
+	rec := Record{World: r.world, Frame: r.frame, Tick: r.tick, Kind: k, Owner: owner, Subject: subject, Name: name, Detail: detail, Replayed: r.replaying}
 	if r.n < len(r.ring) {
 		r.ring[(r.head+r.n)%len(r.ring)] = rec
 		r.n++
@@ -144,7 +152,7 @@ func (r *Recorder) Add(k Kind, owner, subject ids.NodeID, name, detail string) {
 		r.head = (r.head + 1) % len(r.ring)
 	}
 	r.rev++
-	if !r.tripped && r.brMask&Bit(k) != 0 && (r.brText == "" || strings.Contains(name, r.brText) || strings.Contains(detail, r.brText)) {
+	if !r.replaying && !r.tripped && r.brMask&Bit(k) != 0 && (r.brText == "" || strings.Contains(name, r.brText) || strings.Contains(detail, r.brText)) {
 		r.tripped, r.trip = true, rec
 	}
 }

@@ -114,12 +114,8 @@ func (m *pairMap) rehash() {
 	}
 }
 
-func (m *pairMap) clone() pairMap {
-	return pairMap{
-		keys:  append([]uint64(nil), m.keys...),
-		vals:  append([]int32(nil), m.vals...),
-		live:  m.live,
-		used:  m.used,
-		shift: m.shift,
-	}
+func (m *pairMap) cloneInto(dst *pairMap) {
+	dst.keys = append(dst.keys[:0], m.keys...)
+	dst.vals = append(dst.vals[:0], m.vals...)
+	dst.live, dst.used, dst.shift = m.live, m.used, m.shift
 }

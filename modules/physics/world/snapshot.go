@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"math"
-	"slices"
+	"unsafe"
 )
 
 type Snapshot struct {
@@ -28,44 +28,62 @@ type Snapshot struct {
 	deadS    []ShapeHandle
 	mark     uint32
 	steps    uint64
+	awake    []int32
 	raw      []byte
 }
 
 func cloneBody(dst, src *body) {
+	sh, jo, co := dst.shapes, dst.joints, dst.contacts
 	*dst = *src
-	dst.shapes = slices.Clone(src.shapes)
-	dst.joints = slices.Clone(src.joints)
-	dst.contacts = slices.Clone(src.contacts)
+	dst.shapes = append(sh[:0], src.shapes...)
+	dst.joints = append(jo[:0], src.joints...)
+	dst.contacts = append(co[:0], src.contacts...)
 }
 
 func cloneShape(dst, src *shape) {
+	px, ch := dst.proxies, dst.g.chain
 	*dst = *src
-	dst.g = src.g.clone()
-	dst.proxies = slices.Clone(src.proxies)
+	dst.proxies = append(px[:0], src.proxies...)
+	if src.g.chain == nil {
+		return
+	}
+	if ch == nil || ch == src.g.chain {
+		ch = &chainData{}
+	}
+	pts := ch.pts
+	*ch = *src.g.chain
+	ch.pts = append(pts[:0], src.g.chain.pts...)
+	dst.g.chain = ch
 }
 
 func (w *World) Snapshot() *Snapshot {
-	return &Snapshot{
-		cfg:      w.cfg,
-		bodies:   w.bodies.clone(cloneBody),
-		shapes:   w.shapes.clone(cloneShape),
-		joints:   w.joints.clone(nil),
-		tree:     w.tree.clone(),
-		prox:     slices.Clone(w.prox),
-		moveBuf:  slices.Clone(w.moveBuf),
-		pairs:    w.pairs.clone(),
-		touch:    w.touch.clone(),
-		contacts: slices.Clone(w.contacts),
-		freeC:    slices.Clone(w.freeC),
-		layers:   w.layers,
-		pending:  slices.Clone(w.pending),
-		dyingB:   slices.Clone(w.dyingB),
-		deadB:    slices.Clone(w.deadB),
-		dyingS:   slices.Clone(w.dyingS),
-		deadS:    slices.Clone(w.deadS),
-		mark:     w.mark,
-		steps:    w.steps,
-	}
+	s := &Snapshot{}
+	w.SnapshotInto(s)
+	return s
+}
+
+func (w *World) SnapshotInto(s *Snapshot) {
+	s.cfg = w.cfg
+	w.bodies.cloneInto(&s.bodies, cloneBody)
+	w.shapes.cloneInto(&s.shapes, cloneShape)
+	w.joints.cloneInto(&s.joints, nil)
+	w.tree.cloneInto(&s.tree)
+	s.prox = append(s.prox[:0], w.prox...)
+	s.moveBuf = append(s.moveBuf[:0], w.moveBuf...)
+	w.pairs.cloneInto(&s.pairs)
+	w.touch.cloneInto(&s.touch)
+	s.contacts = append(s.contacts[:0], w.contacts...)
+	s.freeC = append(s.freeC[:0], w.freeC...)
+	s.layers = w.layers
+	s.pending = append(s.pending[:0], w.pending...)
+	s.dyingB = append(s.dyingB[:0], w.dyingB...)
+	s.deadB = append(s.deadB[:0], w.deadB...)
+	s.dyingS = append(s.dyingS[:0], w.dyingS...)
+	s.deadS = append(s.deadS[:0], w.deadS...)
+	s.awake = append(s.awake[:0], w.awake...)
+	s.mark = w.mark
+	s.steps = w.steps
+	s.raw = nil
 }
 
 func (w *World) Restore(s *Snapshot) {
@@ -73,14 +91,14 @@ func (w *World) Restore(s *Snapshot) {
 		return
 	}
 	w.cfg = s.cfg
-	w.bodies = s.bodies.clone(cloneBody)
-	w.shapes = s.shapes.clone(cloneShape)
-	w.joints = s.joints.clone(nil)
-	w.tree = s.tree.clone()
+	s.bodies.cloneInto(&w.bodies, cloneBody)
+	s.shapes.cloneInto(&w.shapes, cloneShape)
+	s.joints.cloneInto(&w.joints, nil)
+	s.tree.cloneInto(&w.tree)
 	w.prox = append(w.prox[:0], s.prox...)
 	w.moveBuf = append(w.moveBuf[:0], s.moveBuf...)
-	w.pairs = s.pairs.clone()
-	w.touch = s.touch.clone()
+	s.pairs.cloneInto(&w.pairs)
+	s.touch.cloneInto(&w.touch)
 	w.contacts = append(w.contacts[:0], s.contacts...)
 	w.freeC = append(w.freeC[:0], s.freeC...)
 	w.layers = s.layers
@@ -96,7 +114,26 @@ func (w *World) Restore(s *Snapshot) {
 	w.newPairs = w.newPairs[:0]
 	w.stats = Stats{Steps: s.steps}
 	w.rebuildDerived()
+	items := w.bodies.items
+	for _, i := range w.awake {
+		items[i].listed = false
+	}
+	w.awake = append(w.awake[:0], s.awake...)
+	for _, i := range w.awake {
+		items[i].listed = true
+	}
 	w.countStats()
+}
+
+func (s *Snapshot) Size() int {
+	return len(s.bodies.items)*int(unsafe.Sizeof(body{})) +
+		len(s.shapes.items)*int(unsafe.Sizeof(shape{})) +
+		len(s.joints.items)*int(unsafe.Sizeof(joint{})) +
+		len(s.tree.nodes)*int(unsafe.Sizeof(treeNode{})) +
+		len(s.prox)*int(unsafe.Sizeof(proxyInfo{})) +
+		len(s.contacts)*int(unsafe.Sizeof(contact{})) +
+		12*(len(s.pairs.keys)+len(s.touch.keys)) +
+		4*(len(s.awake)+len(s.moveBuf)+len(s.freeC))
 }
 
 type enc struct {
@@ -304,6 +341,10 @@ func (s *Snapshot) Bytes() []byte {
 	}
 	for _, l := range s.layers {
 		e.u32(l)
+	}
+	e.u32(uint32(len(s.awake)))
+	for _, i := range s.awake {
+		e.i32(i)
 	}
 	s.raw = e.b
 	return s.raw

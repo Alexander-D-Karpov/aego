@@ -38,6 +38,7 @@ type Panel struct {
 	search   string
 	frame    uint64
 	selected bool
+	replayed bool
 	brk      bool
 	brkText  string
 	scroll   float32
@@ -139,7 +140,7 @@ func (p *Panel) refresh(rec *recorder.Recorder, s *scene.Scene) {
 	p.view = p.view[:0]
 	for i := range p.recs {
 		r := &p.recs[i]
-		if !p.show[r.Kind] || (p.frame != 0 && r.Frame != p.frame) {
+		if !p.show[r.Kind] || (r.Replayed && !p.replayed) || (p.frame != 0 && r.Frame != p.frame) {
 			continue
 		}
 		if q != "" && !strings.Contains(strings.ToLower(r.Line(name)), q) {
@@ -183,6 +184,7 @@ func (p *Panel) toolbar(ui *core.Context, s *scene.Scene) {
 		return r
 	}
 	widgets.ToggleButton(ui, ui.ID("selected"), place(130), "Selected nodes", &p.selected)
+	widgets.ToggleButton(ui, ui.ID("replayed"), place(130), "Show replayed", &p.replayed)
 	if p.frame != 0 && widgets.ButtonRect(ui, ui.ID("frame"), place(130), "frame "+strconv.FormatUint(p.frame, 10)+"  ×") {
 		p.frame = 0
 	}

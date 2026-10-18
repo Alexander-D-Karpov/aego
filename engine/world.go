@@ -14,14 +14,16 @@ type WorldID uint64
 var worldSeq atomic.Uint64
 
 type World struct {
-	id       WorldID
-	name     string
-	services []serviceEntry
-	Input    *input.State
-	Time     *clock.Time
-	Random   *rng.Source
-	Recorder *recorder.Recorder
-	Break    func() bool
+	id        WorldID
+	name      string
+	services  []serviceEntry
+	views     map[string]bool
+	replaying bool
+	Input     *input.State
+	Time      *clock.Time
+	Random    *rng.Source
+	Recorder  *recorder.Recorder
+	Break     func() bool
 }
 
 func (c *Context) Input() *input.State {
@@ -43,7 +45,7 @@ func (w *World) Name() string {
 	return w.name
 }
 
-func (w *World) SetService(id string, v any) {
+func (w *World) set(id string, v any) {
 	for i := range w.services {
 		if w.services[i].id == id {
 			w.services[i].value = v
@@ -53,13 +55,43 @@ func (w *World) SetService(id string, v any) {
 	w.services = append(w.services, serviceEntry{id: id, value: v})
 }
 
+func (w *World) SetService(id string, v any) {
+	delete(w.views, id)
+	w.set(id, v)
+}
+
+func (w *World) SetView(id string, v any) {
+	w.set(id, v)
+	if w.views == nil {
+		w.views = map[string]bool{}
+	}
+	w.views[id] = true
+}
+
 func (w *World) RemoveService(id string) {
+	delete(w.views, id)
 	for i := range w.services {
 		if w.services[i].id == id {
 			w.services = append(w.services[:i], w.services[i+1:]...)
 			return
 		}
 	}
+}
+
+func (w *World) EachOwner(fn func(id string, v any)) {
+	for i := range w.services {
+		if e := &w.services[i]; !w.views[e.id] {
+			fn(e.id, e.value)
+		}
+	}
+}
+
+func (w *World) Replaying() bool {
+	return w != nil && w.replaying
+}
+
+func (w *World) SetReplaying(on bool) {
+	w.replaying = on
 }
 
 func (w *World) ServiceAny(id string) (any, bool) {

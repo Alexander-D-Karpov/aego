@@ -54,12 +54,12 @@ func (Module) AttachWorld(ctx *module.AttachContext) error {
 	if !ctx.Play || ctx.World == nil {
 		return nil
 	}
-	ctx.World.SetService(scriptevents.ServiceID, scriptsystems.EventSink(ctx.World))
-	ctx.World.SetService(scriptfields.ServiceID, scriptsystems.FieldAccess(ctx.World))
-	ctx.World.SetService(scriptwait.ServiceID, scriptsystems.Waker(ctx.World))
-	ctx.World.SetService(signals.ServiceID, scriptsystems.Hub(ctx.World))
-	ctx.World.SetService(scriptpool.ServiceID, scriptsystems.Lifecycle(ctx.World))
-	ctx.World.SetService(persistence.ScriptsID, scriptsystems.Persist(ctx.World))
+	ctx.World.SetView(scriptevents.ServiceID, scriptsystems.EventSink(ctx.World))
+	ctx.World.SetView(scriptfields.ServiceID, scriptsystems.FieldAccess(ctx.World))
+	ctx.World.SetView(scriptwait.ServiceID, scriptsystems.Waker(ctx.World))
+	ctx.World.SetView(signals.ServiceID, scriptsystems.Hub(ctx.World))
+	ctx.World.SetView(scriptpool.ServiceID, scriptsystems.Lifecycle(ctx.World))
+	ctx.World.SetView(persistence.ScriptsID, scriptsystems.Persist(ctx.World))
 	return nil
 }
 

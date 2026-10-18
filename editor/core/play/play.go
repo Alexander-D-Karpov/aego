@@ -13,6 +13,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/core/rewind"
 	"aego/core/rng"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
@@ -85,6 +86,18 @@ type Controller struct {
 	editUnsub func()
 	breaks    int32
 	broke     int32
+	kf        []rewind.Keyframer
+	kfOff     string
+	keys      []*snapshot
+	spare     []*snapshot
+	keyBytes  int
+	keyEvery  uint64
+	lastTick  uint64
+	floor     int
+	rebase    bool
+	replayed  int
+	keyTime   time.Duration
+	hasher    *rewind.Hasher
 }
 
 func New(ctx *context.Editor) *Controller {
@@ -254,12 +267,16 @@ func (c *Controller) Start(d *document.SceneDocument) error {
 		return err
 	}
 	c.hist = newHistory(data, real.Path, c.limit)
-	c.cursor, c.beyond, c.stepReq = 0, false, stepNone
+	c.cursor, c.beyond, c.stepReq, c.rebase = 0, false, stepNone, false
 	c.assetRev = c.ctx.AssetRev
 	c.doc = real.ID
 	c.proxy = real.PlayCopy(c.scene)
 	c.ctx.Docs.SetPlay(c.proxy, c.world)
 	c.watchEdits()
+	c.bindKeys()
+	if c.keysOn() {
+		c.capture(0)
+	}
 	c.notify()
 	c.ctx.Notify(context.LevelInfo, "Play mode started")
 	return nil
@@ -327,9 +344,9 @@ func (c *Controller) start(data []byte, name string) error {
 	c.world.Break = c.checkBreak
 	c.runner = frame.New()
 	c.runner.Bind(s, ctx.Renderer, res)
-	c.world.SetService(frame.ServiceID, c.runner)
+	c.world.SetView(frame.ServiceID, c.runner)
 	c.world.SetService(scene.ServiceID, s)
-	c.world.SetService(persistence.HostID, c)
+	c.world.SetView(persistence.HostID, c)
 	c.unrec = frame.Record(s, c.world.Recorder)
 	c.world.Recorder.Add(recorder.SceneChange, ids.NodeID{}, ids.NodeID{}, name, "play")
 	c.input = input.State{}
@@ -400,6 +417,8 @@ func (c *Controller) Stop() {
 	c.ctx.Docs.ClearPlay()
 	c.proxy = nil
 	c.state = Stopped
+	c.dropKeys(-1)
+	c.kf, c.kfOff, c.spare, c.floor, c.rebase = c.kf[:0], "", nil, 0, false
 	c.world, c.runner, c.scene = nil, nil, nil
 	c.doc = 0
 	c.captured = false
@@ -541,6 +560,7 @@ func (c *Controller) Tick(dt float64) {
 	}
 	defer c.guard("update")
 	c.syncInput()
+	c.applyRebase()
 	h := c.hist
 	if h != nil && c.cursor < len(h.frames) && c.state == Paused && c.stepReq == stepNone {
 		return
@@ -549,13 +569,16 @@ func (c *Controller) Tick(dt float64) {
 	recorded := h != nil && c.record(dt)
 	c.breaks, c.broke = 0, 0
 	start := time.Now()
-	plan := c.ctx.Engine.TickWorld(w, engine.ScopePlay, dt)
+	plan := c.advance(dt)
 	if c.state == Stopped {
 		return
 	}
 	if recorded {
 		f := &h.frames[len(h.frames)-1]
 		f.tick, f.brk = w.Time.Tick(), c.broke
+		if c.keysOn() && w.Time.Tick() >= c.lastTick+c.every() {
+			c.capture(c.cursor)
+		}
 	}
 	c.stats.Update = 0
 	if plan.Update || plan.Steps > 0 {

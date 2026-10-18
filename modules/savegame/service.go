@@ -187,6 +187,10 @@ func (s *Service) Step(dt, real float64) {
 }
 
 func (s *Service) write(slot string) {
+	if s.world.Replaying() {
+		s.Capture(slot)
+		return
+	}
 	st := s.m.store()
 	if st == nil {
 		s.m.finish(Result{Slot: slot, Err: errs.New(errs.VFSIO, "saves are not available in this run")})

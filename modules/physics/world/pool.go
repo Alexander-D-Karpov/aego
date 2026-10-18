@@ -68,20 +68,24 @@ func (p *pool[T]) handleAt(i int) handle.Handle[T] {
 	return handle.Handle[T]{Index: uint32(i), Gen: p.gens[i]}
 }
 
-func (p *pool[T]) clone(cp func(dst, src *T)) pool[T] {
-	out := pool[T]{
-		items: make([]T, len(p.items), cap(p.items)),
-		gens:  append(make([]uint32, 0, cap(p.gens)), p.gens...),
-		alive: append(make([]bool, 0, cap(p.alive)), p.alive...),
-		free:  append(make([]uint32, 0, cap(p.free)), p.free...),
-		count: p.count,
+func (p *pool[T]) cloneInto(dst *pool[T], cp func(dst, src *T)) {
+	n := len(p.items)
+	if cap(dst.items) < n {
+		items := make([]T, n, max(cap(p.items), n))
+		copy(items, dst.items[:cap(dst.items)])
+		dst.items = items
+	} else {
+		dst.items = dst.items[:n]
 	}
+	dst.gens = append(dst.gens[:0], p.gens...)
+	dst.alive = append(dst.alive[:0], p.alive...)
+	dst.free = append(dst.free[:0], p.free...)
+	dst.count = p.count
 	for i := range p.items {
 		if cp != nil {
-			cp(&out.items[i], &p.items[i])
+			cp(&dst.items[i], &p.items[i])
 		} else {
-			out.items[i] = p.items[i]
+			dst.items[i] = p.items[i]
 		}
 	}
-	return out
 }

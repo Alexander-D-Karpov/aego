@@ -75,7 +75,7 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	s := NewService(m.cfg, m.keys)
 	s.SetRecorder(ctx.World.Recorder)
 	ctx.World.SetService(ServiceID, s)
-	ctx.World.SetService(inputactions.ReaderID, inputactions.Reader(s))
+	ctx.World.SetView(inputactions.ReaderID, inputactions.Reader(s))
 	return nil
 }
 

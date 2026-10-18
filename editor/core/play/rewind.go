@@ -5,7 +5,6 @@ import (
 
 	"aego/core/errs"
 	"aego/editor/core/context"
-	"aego/engine"
 )
 
 func (c *Controller) SetBlocked(why string) {
@@ -17,16 +16,24 @@ func (c *Controller) SetHistoryLimit(bytes int) {
 }
 
 func (c *Controller) Taint(why string) {
-	if c.hist != nil && !c.replaying {
-		c.hist.cutAt(c.cursor, why)
+	if c.hist == nil || c.replaying {
+		return
 	}
+	if c.cursor == 0 {
+		c.rebase = true
+		return
+	}
+	c.hist.cutAt(c.cursor, why)
+	c.dropKeys(c.cursor)
 }
 
 // Invalidate drops every recorded frame: a reboot would replay them with the changed code, assets or settings.
 func (c *Controller) Invalidate(why string) {
-	if c.hist != nil && !c.replaying {
-		c.hist.cutAt(0, why)
+	if c.hist == nil || c.replaying {
+		return
 	}
+	c.hist.cutAt(0, why)
+	c.dropKeys(-1)
 }
 
 func (c *Controller) Timeline() Timeline {
@@ -38,6 +45,11 @@ func (c *Controller) Timeline() Timeline {
 	tl.Frames, tl.Cursor, tl.Usable, tl.Why, tl.Beyond = len(h.frames), c.cursor, h.usable(), h.why, c.beyond
 	if c.cursor > 0 {
 		tl.Tick = h.frames[c.cursor-1].tick
+	}
+	tl.Floor, tl.Keys, tl.KeyBytes, tl.KeysOff = c.floor, len(c.keys), c.keyBytes, c.kfOff
+	tl.KeyTime = c.keyTime
+	if n := len(c.keys); n > 0 {
+		tl.LastKey = c.keys[n-1].size
 	}
 	return tl
 }
@@ -56,10 +68,12 @@ func (c *Controller) record(dt float64) bool {
 	h := c.hist
 	if c.cursor < len(h.frames) {
 		h.truncate(c.cursor)
+		c.dropKeys(c.cursor)
 	}
 	if rev := c.ctx.AssetRev; rev != c.assetRev {
 		c.assetRev = rev
 		h.cutAt(0, "assets were reloaded during Play")
+		c.dropKeys(-1)
 	}
 	t := c.world.Time
 	ok := h.add(dt, t.Scale(), t.Paused(), c.stepReq, &c.input)
@@ -69,8 +83,12 @@ func (c *Controller) record(dt float64) bool {
 	return ok
 }
 
+func (c *Controller) Replayed() int {
+	return c.replayed
+}
+
 func (c *Controller) CanSeekBack() bool {
-	return c.state != Stopped && c.hist != nil && c.blocked == "" && (c.cursor > 0 || c.beyond)
+	return c.state != Stopped && c.hist != nil && c.blocked == "" && (c.cursor > c.floor || c.beyond)
 }
 
 func (c *Controller) StepBack() error {
@@ -92,23 +110,40 @@ func (c *Controller) StepForward() error {
 	return nil
 }
 
-func (c *Controller) Seek(n int) (err error) {
-	h := c.hist
+func (c *Controller) Seek(n int) error {
 	switch {
-	case h == nil || c.state == Stopped:
+	case c.hist == nil || c.state == Stopped:
 		return errs.New(errs.EditorCommand, "rewind works during Play")
 	case c.blocked != "":
 		return errs.New(errs.EditorCommand, c.blocked)
 	}
-	n = min(max(n, 0), h.usable())
 	defer c.guard("rewind")
-	if n < c.cursor || c.beyond {
-		if err := c.reboot(); err != nil {
-			return err
-		}
+	c.applyRebase()
+	n = min(max(n, c.floor), c.hist.usable())
+	c.setReplaying(true)
+	defer c.setReplaying(false)
+	if err := c.rewindTo(n); err != nil {
+		return err
 	}
 	c.replay(n)
 	c.pauseHere()
+	return nil
+}
+
+func (c *Controller) rewindTo(n int) error {
+	if c.keysOn() {
+		k := c.keyAt(n)
+		switch {
+		case k == nil:
+			return c.reboot()
+		case c.beyond || n < c.cursor || k.frame > c.cursor:
+			c.restore(k)
+		}
+		return nil
+	}
+	if n < c.cursor || c.beyond {
+		return c.reboot()
+	}
 	return nil
 }
 
@@ -132,6 +167,15 @@ func (c *Controller) reboot() error {
 	c.watchEdits()
 	c.cursor, c.beyond = 0, false
 	c.assetRev = c.ctx.AssetRev
+	if h.end == 0 {
+		h.truncate(0)
+		h.end, h.why = -1, ""
+	}
+	c.bindKeys()
+	if c.keysOn() {
+		c.capture(0)
+	}
+	c.setReplaying(true)
 	return nil
 }
 
@@ -145,9 +189,10 @@ func (c *Controller) replayBreak(f *frameRec) func() bool {
 }
 
 func (c *Controller) replay(to int) {
-	h, w, e := c.hist, c.world, c.ctx.Engine
+	h, w := c.hist, c.world
 	brk := w.Break
 	c.replaying = true
+	c.replayed = max(to-c.cursor, 0)
 	for c.cursor < to {
 		f := h.frames[c.cursor]
 		t := w.Time
@@ -161,7 +206,7 @@ func (c *Controller) replay(to int) {
 		}
 		c.input = h.inputs[f.input]
 		w.Break = c.replayBreak(&f)
-		e.TickWorld(w, engine.ScopePlay, f.dt)
+		c.advance(f.dt)
 		c.cursor++
 	}
 	c.replaying = false

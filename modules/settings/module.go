@@ -88,7 +88,7 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	if !ctx.Play || ctx.World == nil || m.st == nil {
 		return nil
 	}
-	ctx.World.SetService(ServiceView, NewView(m.st, ctx.World))
+	ctx.World.SetView(ServiceView, NewView(m.st, ctx.World))
 	m.worlds = append(m.worlds, ctx.World)
 	return nil
 }

@@ -2,12 +2,13 @@ package play
 
 import (
 	"reflect"
+	"time"
 	"unsafe"
 
 	"aego/platform/input"
 )
 
-const DefaultHistoryLimit = 64 << 20
+const DefaultHistoryLimit = 256 << 20
 
 const (
 	stepNone uint8 = iota
@@ -98,11 +99,17 @@ func (h *recording) add(dt, scale float64, paused bool, step uint8, in *input.St
 }
 
 type Timeline struct {
-	Frames  int
-	Cursor  int
-	Usable  int
-	Tick    uint64
-	Why     string
-	Blocked string
-	Beyond  bool
+	Frames   int
+	Cursor   int
+	Usable   int
+	Floor    int
+	Keys     int
+	KeyBytes int
+	LastKey  int
+	KeyTime  time.Duration
+	Tick     uint64
+	Why      string
+	Blocked  string
+	KeysOff  string
+	Beyond   bool
 }

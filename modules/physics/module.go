@@ -81,7 +81,7 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	}
 	sim.SetLayers(p.Layers())
 	ctx.World.SetService(systems.ServiceID, sim)
-	ctx.World.SetService(physics2d.ServiceID, physics2d.Queries(sim))
+	ctx.World.SetView(physics2d.ServiceID, physics2d.Queries(sim))
 	if m.problems != nil {
 		scn := ctx.Scene
 		drop := m.problems.Add(problems.Source{
@@ -93,7 +93,7 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 				return appendSim(dst, sim, scn)
 			},
 		})
-		ctx.World.SetService(problemsService, drop)
+		ctx.World.SetView(problemsService, drop)
 	}
 	return nil
 }

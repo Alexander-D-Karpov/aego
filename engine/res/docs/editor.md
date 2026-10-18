@@ -17,11 +17,11 @@ order: 2
 
 While a game runs in the editor, every frame is recorded: its time step, time scale, pause and the input the game saw. The bar at the bottom of the Game view shows the recorded frames; drag it, or press Ctrl+Left and Ctrl+Right, to move one frame back or forward.
 
-Rewinding restarts the game from the scene as it was when Play started and plays the recording back to the chosen frame, without drawing; the game then waits paused at that frame. Pressing Play or Step from there starts a new timeline and forgets the frames after it.
+Every 300 ticks the editor also keeps a keyframe: a copy of the scene, the scripts and the state of every module. Rewinding restores the nearest keyframe before the chosen frame and plays the recording from there, without drawing; the game then waits paused at that frame. When a module keeps state that cannot be copied, the bar says "keyframes off" with its name, and rewinding restarts the game from the scene as it was when Play started. Saves made by the game during playback are not written to disk again. Pressing Play or Step from there starts a new timeline and forgets the frames after it.
 
-An edit in the running scene ends the recording at that frame; frames before it can still be rewound to. An asset or script reload, a tuned data asset or a changed setting would make the replay run with the new values, so they drop the whole recording. The memory limit of the history also ends it. A module that declares itself non-deterministic turns rewinding off, and the bar says which one.
+An edit in the running scene ends the recording at the frame you are on; frames before it can still be rewound to. An edit made before the first frame becomes the new start of the recording. An asset or script reload, a tuned data asset or a changed setting would make the replay run with the new values, so they drop the whole recording. When the history reaches its memory limit, the oldest keyframes are dropped and the bar starts later; without keyframes the limit ends the recording. A module that declares itself non-deterministic turns rewinding off, and the bar says which one.
 
-Selections, watches and the event monitor follow the rewound game: node ids stay the same, and events are recorded again as the frames play back.
+Selections, watches and the event monitor follow the rewound game: node ids stay the same, and events from playback are hidden unless Show replayed is on in the event monitor.
 
 ## Event Monitor
 

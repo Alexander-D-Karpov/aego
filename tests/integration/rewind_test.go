@@ -11,21 +11,30 @@ import (
 	"aego/platform"
 	"aego/platform/input"
 	"aego/project"
+	"aego/sdk"
 )
 
 func rewindSession(t *testing.T) (*edit.Session, *play.Controller) {
+	t.Helper()
+	return rewindSessionWith(t, 0, combatModule{})
+}
+
+func rewindSessionWith(t *testing.T, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
 	t.Helper()
 	p, err := project.Load(copyExample(t, "platformer"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := edit.Open(p, edit.Config{Headless: true, NoWatch: true, Logger: log.Nop()}, combatModule{})
+	s, err := edit.Open(p, edit.Config{Headless: true, NoWatch: true, Logger: log.Nop()}, mods...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
 	s.Step()
 	pc := s.App.Play()
+	if limit > 0 {
+		pc.SetHistoryLimit(limit)
+	}
 	if err := pc.StartProject(); err != nil {
 		t.Fatal(err)
 	}
