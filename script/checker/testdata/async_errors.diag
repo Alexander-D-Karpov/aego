@@ -7,7 +7,7 @@ game/async_errors/main.aes:15:21: error AES2058: unknown script type Missing, im
 game/async_errors/main.aes:17:7: error AES2056: lifecycle method Update cannot be a coroutine, start one from it instead
     	func Update(dt float) coroutine {
     	     ^~~~~~
-game/async_errors/main.aes:21:14: error AES2057: yield wait needs float, not bool
+game/async_errors/main.aes:21:14: error AES2057: yield wait needs float, a Coroutine or an awaitable handle, not bool
     		yield wait(true)
     		           ^~~~
 game/async_errors/main.aes:25:3: error AES2050: yield is only allowed in a coroutine, declare it as func Plain(...) coroutine

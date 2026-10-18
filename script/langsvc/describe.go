@@ -170,7 +170,7 @@ func assetDisplay(kind string) string {
 
 func abiType(t abi.TypeRef) string {
 	switch t.Kind {
-	case abi.Enum, abi.Struct:
+	case abi.Enum, abi.Struct, abi.Handle:
 		return t.Name[strings.LastIndexByte(t.Name, '/')+1:]
 	case abi.AssetRef:
 		return "AssetRef<" + assetDisplay(t.Name) + ">"

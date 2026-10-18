@@ -34,6 +34,8 @@ const (
 	KCoroutine
 	KConnection
 	KScriptRef
+	KCurve
+	KHandle
 )
 
 type Field struct {
@@ -55,6 +57,8 @@ type Type struct {
 	Asset     string
 	Component *abi.Component
 	Script    string
+	Handle    string
+	Await     bool
 	Host      bool
 	slots     int
 }
@@ -106,6 +110,7 @@ var (
 	UntypedFloat = basic(KUntypedFloat, "untyped float", 1)
 	Coroutine    = basic(KCoroutine, "Coroutine", 1)
 	Connection   = basic(KConnection, "Connection", 1)
+	Curve        = basic(KCurve, "Curve", 1)
 )
 
 func shortPkg(pkg string) string {
@@ -211,7 +216,7 @@ func (t *Type) IsVector() bool {
 
 func (t *Type) IsRef() bool {
 	switch t.Kind {
-	case KNodeRef, KAssetRef, KComponentRef, KCoroutine, KConnection, KScriptRef:
+	case KNodeRef, KAssetRef, KComponentRef, KCoroutine, KConnection, KScriptRef, KHandle:
 		return true
 	}
 	return false
@@ -227,10 +232,9 @@ func (t *Type) Ordered() bool {
 
 func (t *Type) Comparable() bool {
 	switch t.Kind {
-	case KSlice, KVoid, KInvalid:
+	case KSlice, KVoid, KInvalid, KCurve:
 		return false
 	case KQuat, KTransform2D, KTransform3D:
-		// Rotations are not comparable (q ≡ −q).
 		return false
 	case KStruct:
 		for _, f := range t.Fields {
@@ -295,6 +299,7 @@ type Interner struct {
 	enums   map[string]*Type
 	scripts map[string]*Type
 	structs map[string]*Type
+	handles map[string]*Type
 }
 
 func NewInterner() *Interner {
@@ -305,7 +310,19 @@ func NewInterner() *Interner {
 		enums:   map[string]*Type{},
 		scripts: map[string]*Type{},
 		structs: map[string]*Type{},
+		handles: map[string]*Type{},
 	}
+}
+
+func (u *Interner) Handle(d abi.HandleDef) *Type {
+	if t, ok := u.handles[d.Name]; ok {
+		return t
+	}
+	i := strings.LastIndexByte(d.Name, '.')
+	mod, local := d.Name[:max(i, 0)], d.Name[i+1:]
+	t := &Type{Kind: KHandle, Name: shortPkg(mod) + "." + local, Local: local, Pkg: mod, Handle: d.Name, Await: d.Await, Host: true, slots: 1}
+	u.handles[d.Name] = t
+	return t
 }
 
 func (u *Interner) ScriptRef(full string) *Type {
@@ -411,10 +428,18 @@ func (u *Interner) FromABI(r abi.TypeRef, s abi.Surface) *Type {
 		return Coroutine
 	case abi.Connection:
 		return Connection
+	case abi.Curve:
+		return Curve
 	case abi.ScriptRef:
 		return u.ScriptRef(r.Name)
 	case abi.AssetRef:
 		return u.AssetRef(r.Name)
+	case abi.Handle:
+		if s != nil {
+			if d, ok := s.Handle(r.Name); ok {
+				return u.Handle(d)
+			}
+		}
 	case abi.ComponentRef:
 		if s != nil {
 			if l := s.Components(r.Name); len(l) == 1 {
@@ -477,6 +502,10 @@ func ToABI(t *Type) abi.TypeRef {
 		return abi.T(abi.Connection)
 	case KScriptRef:
 		return abi.ScriptRefOf(t.Script)
+	case KCurve:
+		return abi.T(abi.Curve)
+	case KHandle:
+		return abi.HandleOf(t.Handle)
 	case KEnum:
 		return abi.EnumOf(t.Qualified())
 	case KStruct:

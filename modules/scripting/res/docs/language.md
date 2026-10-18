@@ -191,6 +191,8 @@ title: Types
 | `ScriptRef<T>` | reference to an instance of script `T`; may be `nil`; fields, plain methods and signals of `T` |
 | `Coroutine` | handle returned by `start`; may be `nil`; methods `Stop()`, `Running() bool` |
 | `Connection` | handle returned by `Connect`; may be `nil`; methods `Disconnect()`, `Connected() bool` |
+| `Curve` | read-only view of a curve field of a component (`fader.Alpha`); evaluated with `aego/curve` |
+| `tween.Tween`, `timer.Timer`, … | host handles returned by engine and native modules; may be `nil`; methods come from the module |
 | `struct` | package-level, value semantics, copied on assignment |
 | `enum` | package-level, `int`-backed, members `State.Idle` |
 | `[]T` | growable slice on the VM heap |
@@ -199,11 +201,11 @@ Rules:
 
 - No implicit numeric conversion. Use `int(x)`, `float(x)`, `string(x)` (from `bool`, `int`, `float`, `string`), `int(e)` for an enum and `State(i)` for int → enum. Untyped constants adapt to the context (`var f float = 1` is fine, `var i int = 1.5` is not).
 - `float` arithmetic is float32 everywhere, including constant folding.
-- `==`/`!=` work on scalars, strings, enums, references, handles, vectors, structs with comparable fields, and `Transform*`; `Quat` and slices are not comparable. `< <= > >=` work on numbers and strings.
+- `==`/`!=` work on scalars, strings, enums, references, handles, vectors, structs with comparable fields, and `Transform*`; `Quat`, `Curve` and slices are not comparable. `< <= > >=` work on numbers and strings.
 - Vector arithmetic: `v + w`, `v - w`, `v * s`, `s * v`, `v / s`, `-v`; vectors are constructed only with composite literals (`Vec2{x, y}`, `Color{1, 0, 0, 1}`), never with call syntax.
 - A struct is a value: `a = b` copies; passing to a function copies. Nested structs are allowed, including structs from other packages; a struct that contains itself by value is `AES2017`.
 - A slice element may occupy at most 32 value slots (`AES2032`); scalars, vectors, refs and small structs are far below it.
-- `nil` is valid for the six reference and handle types `NodeRef`, `AssetRef`, `ComponentRef`, `ScriptRef`, `Coroutine` and `Connection`. Reading or writing through a nil reference is a runtime fault (`AES6004`); calling a method on a nil `Coroutine` or `Connection` is not: `Running()` and `Connected()` return `false`, `Stop()` and `Disconnect()` do nothing.
+- `nil` is valid for `NodeRef`, `AssetRef`, `ComponentRef`, `ScriptRef`, `Coroutine`, `Connection` and host handles. Reading or writing through a nil reference is a runtime fault (`AES6004`); calling a method on a nil `Coroutine`, `Connection` or host handle is not: `Running()` and `Connected()` return `false`, `Done()` returns `true`, `Stop()`, `Cancel()` and `Disconnect()` do nothing.
 
 ---
 id: language/declarations-and-statements
@@ -279,7 +281,7 @@ title: Attributes
 | `@former("OldName")` | script or field | the old name still loads from scenes; the scene is rewritten with the new name on save; also used to match fields across a hot reload |
 | `@hide` | script | not offered in Add Script |
 
-Exportable field types: `bool int float string Vec2 Vec3 Color Quat Rect`, enums, `NodeRef`, `AssetRef<T>`, `ComponentRef<T>`. Slices, structs, `ScriptRef`, `Coroutine` and `Connection` cannot be exported (`AES3001`). An exported `ComponentRef<T>` is stored as a node reference; the Inspector only offers nodes that have `T`, and a node without `T` starts the field as `nil`.
+Exportable field types: `bool int float string Vec2 Vec3 Color Quat Rect`, enums, `NodeRef`, `AssetRef<T>`, `ComponentRef<T>`. Slices, structs, `ScriptRef`, `Coroutine`, `Connection`, `Curve` and host handles cannot be exported (`AES3001`). An exported `ComponentRef<T>` is stored as a node reference; the Inspector only offers nodes that have `T`, and a node without `T` starts the field as `nil`.
 
 A field default must be a constant. Composite literals of `Vec2`, `Vec3`, `Color`, `Quat` and `Rect` whose components are constants count as constants: `var Jump Vec2 = Vec2{0, -5}`, `var Tint Color = Color{R: 1, A: 1}`. The Inspector shows them as the default, and a scene that omits the property starts with them.
 
@@ -341,7 +343,7 @@ sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int6
 }, sdk.ScriptDoc("deals damage to a node with Health"))
 ```
 
-Scripts `import "mygame/combat"` and call `combat.Damage(target, 5)`. Use `Func0..Func3` for functions with a result, `Proc0..Proc3` without, `Const` and `Enum` for constants and host enums. Allowed parameter and result types: `bool`, Go integer types, `float32/float64`, `string`, `mathx.Vec2/Vec3/Color/Quat/Rect`, `scene.Transform2D/Transform3D`, `scene.NodeHandle` (a `NodeRef`), `asset.Ref[…]`, and integer types registered with `Enum`. Structs and slices cannot cross the boundary. `c.Fail(msg)` stops the calling instance with `AES6010`; a Go panic becomes `AES6002`.
+Scripts `import "mygame/combat"` and call `combat.Damage(target, 5)`. Use `Func0..Func5` for functions with a result, `Proc0..Proc3` without, `Const` and `Enum` for constants and host enums. Allowed parameter and result types: `bool`, Go integer types, `float32/float64`, `string`, `mathx.Vec2/Vec3/Color/Quat/Rect`, `scene.Transform2D/Transform3D`, `scene.NodeHandle` (a `NodeRef`), `asset.Ref[…]`, `sdk.ScriptCurve` (a `Curve` parameter, resolved with `Resolve()`), integer types registered with `Enum` and Go types registered as handles. Structs and slices cannot cross the boundary. `c.Fail(msg)` stops the calling instance with `AES6010`; a Go panic becomes `AES6002`.
 
 ## Component fields and methods
 
@@ -361,6 +363,19 @@ sdk.Proc0[Health](b, "Heal", func(c *sdk.ScriptCtx, h *Health) { h.Current = h.M
 
 The binding registry's hash covers every module, name and signature and is part of the compile cache key, so changing a native signature recompiles the scripts that use it. Changes in `native/` are never swapped in-process (§19).
 
+## Handles
+
+A module that owns long-lived objects hands them to scripts as handles:
+
+```go
+m := r.ScriptModule("mygame/net")
+sdk.ScriptHandle(m, "Request", true, RequestOf, Request.Key, sdk.ScriptDoc("Request is a pending HTTP call."))
+hm := m.Registry().HandleMethods("mygame/net.Request")
+sdk.Func1(hm, "Done", func(c *sdk.ScriptCtx, r Request) bool { return svc.Done(r) })
+```
+
+The Go type must be distinct for every handle type and convert to and from a non-zero `uint64` key; key `0` is `nil`. Scripts see the type as `net.Request` and call its methods. A handle registered as awaitable must have `Done() bool`; `yield req` then parks the coroutine until the module calls `Complete(abi.HandleID("mygame/net.Request"), key)` on the world service `scriptwait.ServiceID`. Call it when the object ends, fires or is cancelled.
+
 ---
 id: language/runtime-behaviour
 parent: language
@@ -379,7 +394,7 @@ title: Runtime behaviour
 | AES6001 | instruction budget exceeded |
 | AES6002 | native binding panicked |
 | AES6003 | call depth over 256, or a signal that re-emits itself without end |
-| AES6004 | nil or dead reference (`NodeRef`, `ComponentRef`, `ScriptRef`) |
+| AES6004 | nil or dead reference (`NodeRef`, `ComponentRef`, `ScriptRef`, `Curve`) |
 | AES6005 | index out of range |
 | AES6006 | integer division by zero |
 | AES6007 | invalid string or slice handle |
@@ -498,8 +513,9 @@ script Player {
 | `yield frames(n)` | after `n` frames (`int`) |
 | `yield fixed(n)` | after `n` fixed steps (`int`), before physics |
 | `yield c` | when coroutine `c` ends; it resumes in the same frame; a `nil`, finished or cancelled `c` resumes on the next frame |
+| `yield h` | when the tween or timer `h` (any awaitable host handle) ends, fires or is cancelled, on the next frame; a `nil` or finished `h` resumes on the next frame; it waits while the game is paused |
 
-A wrong argument type is `AES2057`.
+A wrong argument type, or a handle that cannot be awaited, is `AES2057`.
 - **Order.** Coroutines that are due in one frame resume in the order they were started. They run in `script.coroutines`, right after `script.update`; `fixed` waits run after `script.fixed`. Only coroutines that are due are visited; ten thousand sleeping coroutines cost nothing per frame.
 - **Ownership.** A coroutine belongs to the instance that started it. It is cancelled when the instance's node is destroyed, the script is removed or disabled, the instance faults, or its script changes in a hot reload. A fault inside a coroutine stops the owning instance, like a fault in `Update`. A cancelled coroutine releases its wait slot immediately; it does not linger until its timer would have fired.
 - **Handles.** `c.Stop()` cancels; `c.Running()` is false once the coroutine finished, was cancelled or faulted. The zero `Coroutine` is `nil` and never running. A handle from before a hot reload stays valid as a value but is never running again.
@@ -639,6 +655,7 @@ Instances keep their identity: `InstanceID`, node, heap strings and slices survi
 | `NodeRef`, `AssetRef`, `ComponentRef`, `ScriptRef` | kept |
 | `Coroutine` | kept as a value; see below for whether it is still running |
 | `Connection` | kept; rebound or invalidated, see below |
+| host handles, `Curve` | kept as values |
 
 After the swap, for every script whose package (or a dependency's interface) changed:
 

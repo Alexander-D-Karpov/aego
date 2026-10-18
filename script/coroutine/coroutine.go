@@ -25,6 +25,7 @@ const (
 	inFixed
 	inAwait
 	inUnscaled
+	inHandle
 )
 
 type rec struct {
@@ -37,6 +38,8 @@ type rec struct {
 	key    float64
 	frame  uint64
 	target vm.CoHandle
+	htyp   uint64
+	hid    uint64
 }
 
 type item struct {
@@ -58,6 +61,7 @@ type Scheduler struct {
 	recs     []rec
 	live     int
 	awaiting map[vm.CoHandle][]uint32
+	handles  map[[2]uint64][]uint32
 	waiters  int
 	frames   queue
 	timed    queue
@@ -67,6 +71,7 @@ type Scheduler struct {
 	frun     []item
 	urun     []item
 	woken    []item
+	hwoken   []item
 	later    []uint32
 	seq      uint64
 	now      float64
@@ -86,6 +91,7 @@ func New(m *vm.Machine) *Scheduler {
 	s := &Scheduler{
 		m:        m,
 		awaiting: map[vm.CoHandle][]uint32{},
+		handles:  map[[2]uint64][]uint32{},
 		frames:   queue{tag: inFrames},
 		timed:    queue{tag: inTimed},
 		fixed:    queue{tag: inFixed},
@@ -221,6 +227,19 @@ func (s *Scheduler) unlink(i uint32) {
 			}
 		}
 		r.where, r.target = inNone, vm.CoHandle{}
+	case inHandle:
+		key := [2]uint64{r.htyp, r.hid}
+		ws := s.handles[key]
+		if k := slices.Index(ws, i); k >= 0 {
+			ws = slices.Delete(ws, k, k+1)
+			s.waiters--
+			if len(ws) == 0 {
+				delete(s.handles, key)
+			} else {
+				s.handles[key] = ws
+			}
+		}
+		r.where, r.htyp, r.hid = inNone, 0, 0
 	}
 }
 
@@ -281,10 +300,33 @@ func (s *Scheduler) Yielded(h vm.CoHandle, w vm.WaitKind, arg vm.Value) {
 			s.waiters++
 			return
 		}
+	case vm.WaitHandle:
+		if !arg.IsZero() {
+			key := [2]uint64{arg.B, arg.A}
+			r.where, r.htyp, r.hid = inHandle, arg.B, arg.A
+			s.handles[key] = append(s.handles[key], i)
+			s.waiters++
+			return
+		}
 	}
 	r.frame = s.frameDue(1)
 	r.key = float64(r.frame)
 	s.push(&s.frames, i)
+}
+
+func (s *Scheduler) Complete(typ, id uint64) {
+	key := [2]uint64{typ, id}
+	ws, ok := s.handles[key]
+	if !ok {
+		return
+	}
+	delete(s.handles, key)
+	s.waiters -= len(ws)
+	for _, i := range ws {
+		r := &s.recs[i]
+		r.where, r.htyp, r.hid = inNone, 0, 0
+		s.hwoken = append(s.hwoken, item{h: vm.CoHandle{Index: i, Gen: r.gen}, seq: r.seq})
+	}
 }
 
 func (s *Scheduler) Ended(h vm.CoHandle, st vm.CoState) {
@@ -345,7 +387,8 @@ func (s *Scheduler) Frame(dt float32) {
 	s.now += float64(dt)
 	s.inFrame = true
 	s.run = append(s.run[:0], s.woken...)
-	s.woken = s.woken[:0]
+	s.run = append(s.run, s.hwoken...)
+	s.woken, s.hwoken = s.woken[:0], s.hwoken[:0]
 	for len(s.frames.heap) > 0 && s.recs[s.frames.heap[0]].frame <= s.frame {
 		s.run = append(s.run, s.take(&s.frames))
 	}
@@ -435,7 +478,7 @@ func (s *Scheduler) CancelAll() int {
 func (s *Scheduler) Stats() Stats {
 	st := s.stats
 	st.Live = s.live
-	st.Ready = len(s.woken)
+	st.Ready = len(s.woken) + len(s.hwoken)
 	st.Sleeping = len(s.frames.heap) + len(s.timed.heap) + len(s.unscaled.heap)
 	st.Fixed = len(s.fixed.heap)
 	st.Awaiting = s.waiters

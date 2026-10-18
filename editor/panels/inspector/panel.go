@@ -65,6 +65,7 @@ type Panel struct {
 	labels       map[string]string
 	typeNames    map[schema.TypeID][2]string
 	live         map[core.ID]schema.Value
+	curves       map[core.ID]*widgets.CurveState
 	liveT        *scene.Transform2D
 	euler        *props.EulerCache
 	info         *prefabs.Info
@@ -101,6 +102,7 @@ func New(reg *inspect.Registry, d Deps) *Panel {
 		labels:    map[string]string{},
 		typeNames: map[schema.TypeID][2]string{},
 		live:      map[core.ID]schema.Value{},
+		curves:    map[core.ID]*widgets.CurveState{},
 		euler:     props.NewEulerCache(),
 	}
 }

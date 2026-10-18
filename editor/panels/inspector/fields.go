@@ -3,6 +3,7 @@ package inspector
 import (
 	"strconv"
 
+	"aego/core/curve"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/document"
@@ -389,6 +390,18 @@ func (p *Panel) scalar(d *document.SceneDocument, id core.ID, r mathx.Rect, fd *
 			*v = schema.Enum(fd.Enum[cur].Value)
 			return all
 		}
+	case schema.KindCurve:
+		st := p.curves[id]
+		if st == nil {
+			st = widgets.NewCurveState()
+			p.curves[id] = st
+		}
+		cv := v.Cv
+		e := widgets.CurveField(ui, id, r, &cv, mixed, st)
+		if e.Changed {
+			*v = schema.Curve(cv)
+		}
+		return e
 	case schema.KindAssetRef:
 		return p.assetField(id, r, fd, v, mixed)
 	case schema.KindNodeRef:
@@ -421,6 +434,8 @@ func zeroValue(reg *schema.Registry, fd *schema.FieldDescriptor) schema.Value {
 		return schema.Color(mathx.Color{R: 1, G: 1, B: 1, A: 1})
 	case schema.KindRect:
 		return schema.Rect(mathx.Rect{})
+	case schema.KindCurve:
+		return schema.Curve(curve.Line(0, 0, 1, 1))
 	case schema.KindString:
 		return schema.String("")
 	case schema.KindEnum:
@@ -475,6 +490,11 @@ func (p *Panel) summary(d *document.SceneDocument, fd *schema.FieldDescriptor, v
 		return num(e.X) + "°, " + num(e.Y) + "°, " + num(e.Z) + "°"
 	case schema.KindColor:
 		return widgets.HexColor(v.C)
+	case schema.KindCurve:
+		if v.Cv.Ease != curve.None {
+			return v.Cv.Ease.String()
+		}
+		return strconv.Itoa(len(v.Cv.Keys)) + " keys"
 	case schema.KindEnum:
 		if name, ok := fd.EnumNameOf(v.I); ok {
 			return name

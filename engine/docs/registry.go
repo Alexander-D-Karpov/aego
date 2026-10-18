@@ -189,6 +189,7 @@ func Assemble(src Sources) *Registry {
 	r.add(Entry{ID: DiagnosticsID, Kind: Page, Owner: scriptOwner, Title: "Diagnostics"})
 	if src.Bindings != nil {
 		r.bindings(src.Bindings, src.Owners)
+		r.handles(src.Bindings, src.Owners)
 	}
 	if src.Schema != nil {
 		r.components(src.Schema, src.Bindings)
@@ -200,6 +201,28 @@ func Assemble(src Sources) *Registry {
 	}
 	r.index()
 	return r
+}
+
+func (r *Registry) handles(m *manifest.Manifest, owners map[string]string) {
+	for _, h := range m.Handles {
+		i := strings.LastIndexByte(h.Name, '.')
+		mod, name := h.Name[:i], h.Name[i+1:]
+		r.add(Entry{
+			ID: h.Name, Parent: mod, Kind: Type, Owner: r.ownerOf(mod, owners), Title: name,
+			Signature: "type " + name, Body: h.Doc,
+			Location: Location{Stub: StubPath(mod), Symbol: "type:" + name},
+		})
+	}
+	for _, hm := range m.HandleMethods {
+		i := strings.LastIndexByte(hm.Handle, '.')
+		mod, name := hm.Handle[:i], hm.Handle[i+1:]
+		ps := params(hm.Sig, hm.Params)
+		r.add(Entry{
+			ID: hm.Handle + "." + hm.Name, Parent: hm.Handle, Kind: Method, Owner: r.ownerOf(mod, owners), Title: name + "." + hm.Name,
+			Signature: signature("func ("+name+") "+hm.Name, ps, hm.Sig.Result), Params: ps, Body: hm.Doc, Example: hm.Example,
+			Location: Location{Path: hm.Loc, Stub: StubPath(mod), Symbol: "method:" + name + "." + hm.Name},
+		})
+	}
 }
 
 func (r *Registry) add(e Entry) int {

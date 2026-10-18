@@ -1,5 +1,211 @@
-manifest version=4 {
-  abi="40176cca99c2b58528c60d7417ab8c56da3a3ddd2af0db3b17566e68d4c3ea69"
+manifest version=5 {
+  abi="b44c05ba37271c9d5dbbdf7856bd57365903867926347d077e1260f2e1f97c5d"
+  module "aego/curve" {
+    func "Duration" {
+      params=["Curve"]
+      result="float"
+      names=["curve"]
+      doc="Duration returns the time between the first and the last key, 1 for a preset."
+      example="t := age / curve.Duration(fade)"
+    }
+    func "Ease" {
+      params=["enum:aego/curve.Easing", "float"]
+      result="float"
+      names=["easing", "t"]
+      doc="Ease returns a preset easing at t, clamped to 0..1."
+      example="x := math.Lerp(a, b, curve.Ease(curve.OutCubic, k))"
+    }
+    func "Eval" {
+      params=["Curve", "float"]
+      result="float"
+      names=["curve", "t"]
+      doc="Eval returns the value of a curve at time t; outside its keys the curve repeats as its Before and After settings say."
+      example="speed := Speed * curve.Eval(node.Get<Mover>().Accel, elapsed)"
+    }
+    func "EvalClamped" {
+      params=["Curve", "float"]
+      result="float"
+      names=["curve", "t"]
+      doc="EvalClamped returns the value at t clamped to the first and last key."
+      example="k := curve.EvalClamped(fade, age)"
+    }
+    const "InBack" {
+      type="enum:aego/curve.Easing"
+      int=14
+      float=0
+      bool=false
+      str=""
+      doc="InBack is the inBack easing preset."
+    }
+    const "InBounce" {
+      type="enum:aego/curve.Easing"
+      int=20
+      float=0
+      bool=false
+      str=""
+      doc="InBounce is the inBounce easing preset."
+    }
+    const "InCubic" {
+      type="enum:aego/curve.Easing"
+      int=5
+      float=0
+      bool=false
+      str=""
+      doc="InCubic is the inCubic easing preset."
+    }
+    const "InElastic" {
+      type="enum:aego/curve.Easing"
+      int=17
+      float=0
+      bool=false
+      str=""
+      doc="InElastic is the inElastic easing preset."
+    }
+    const "InExpo" {
+      type="enum:aego/curve.Easing"
+      int=11
+      float=0
+      bool=false
+      str=""
+      doc="InExpo is the inExpo easing preset."
+    }
+    const "InOutBack" {
+      type="enum:aego/curve.Easing"
+      int=16
+      float=0
+      bool=false
+      str=""
+      doc="InOutBack is the inOutBack easing preset."
+    }
+    const "InOutBounce" {
+      type="enum:aego/curve.Easing"
+      int=22
+      float=0
+      bool=false
+      str=""
+      doc="InOutBounce is the inOutBounce easing preset."
+    }
+    const "InOutCubic" {
+      type="enum:aego/curve.Easing"
+      int=7
+      float=0
+      bool=false
+      str=""
+      doc="InOutCubic is the inOutCubic easing preset."
+    }
+    const "InOutElastic" {
+      type="enum:aego/curve.Easing"
+      int=19
+      float=0
+      bool=false
+      str=""
+      doc="InOutElastic is the inOutElastic easing preset."
+    }
+    const "InOutExpo" {
+      type="enum:aego/curve.Easing"
+      int=13
+      float=0
+      bool=false
+      str=""
+      doc="InOutExpo is the inOutExpo easing preset."
+    }
+    const "InOutQuad" {
+      type="enum:aego/curve.Easing"
+      int=4
+      float=0
+      bool=false
+      str=""
+      doc="InOutQuad is the inOutQuad easing preset."
+    }
+    const "InOutSine" {
+      type="enum:aego/curve.Easing"
+      int=10
+      float=0
+      bool=false
+      str=""
+      doc="InOutSine is the inOutSine easing preset."
+    }
+    const "InQuad" {
+      type="enum:aego/curve.Easing"
+      int=2
+      float=0
+      bool=false
+      str=""
+      doc="InQuad is the inQuad easing preset."
+    }
+    const "InSine" {
+      type="enum:aego/curve.Easing"
+      int=8
+      float=0
+      bool=false
+      str=""
+      doc="InSine is the inSine easing preset."
+    }
+    const "Linear" {
+      type="enum:aego/curve.Easing"
+      int=1
+      float=0
+      bool=false
+      str=""
+      doc="Linear is the linear easing preset."
+    }
+    const "OutBack" {
+      type="enum:aego/curve.Easing"
+      int=15
+      float=0
+      bool=false
+      str=""
+      doc="OutBack is the outBack easing preset."
+    }
+    const "OutBounce" {
+      type="enum:aego/curve.Easing"
+      int=21
+      float=0
+      bool=false
+      str=""
+      doc="OutBounce is the outBounce easing preset."
+    }
+    const "OutCubic" {
+      type="enum:aego/curve.Easing"
+      int=6
+      float=0
+      bool=false
+      str=""
+      doc="OutCubic is the outCubic easing preset."
+    }
+    const "OutElastic" {
+      type="enum:aego/curve.Easing"
+      int=18
+      float=0
+      bool=false
+      str=""
+      doc="OutElastic is the outElastic easing preset."
+    }
+    const "OutExpo" {
+      type="enum:aego/curve.Easing"
+      int=12
+      float=0
+      bool=false
+      str=""
+      doc="OutExpo is the outExpo easing preset."
+    }
+    const "OutQuad" {
+      type="enum:aego/curve.Easing"
+      int=3
+      float=0
+      bool=false
+      str=""
+      doc="OutQuad is the outQuad easing preset."
+    }
+    const "OutSine" {
+      type="enum:aego/curve.Easing"
+      int=9
+      float=0
+      bool=false
+      str=""
+      doc="OutSine is the outSine easing preset."
+    }
+  }
   module "aego/debug" {
     func "Arrow" {
       params=["Vec2", "Vec2", "Color"]
@@ -1790,6 +1996,99 @@ manifest version=4 {
       example="blink := math.Sin(time.UnscaledElapsed() * 6)"
     }
   }
+  module "aego/timer" {
+    func "Cooldown" {
+      params=["float"]
+      result="Handle<aego/timer.Timer>"
+      names=["seconds"]
+      doc="Cooldown makes a timer that starts ready; Use takes it and starts the wait."
+      example="if attack.Use() {\n\tfire()\n}"
+    }
+    func "New" {
+      params=["float"]
+      result="Handle<aego/timer.Timer>"
+      names=["seconds"]
+      doc="New makes a timer that stays after it ends, so Restart can run it again."
+      example="spawn = timer.New(3).Repeat(-1)"
+    }
+    func "Start" {
+      params=["float"]
+      result="Handle<aego/timer.Timer>"
+      names=["seconds"]
+      doc="Start makes a one-shot timer that frees itself when it fires."
+      example="yield timer.Start(0.5)"
+    }
+  }
+  module "aego/tween" {
+    func "Position" {
+      params=["NodeRef", "Vec2", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "to", "duration", "ease"]
+      doc="Position moves a 2D node to a local position."
+      example="yield tween.Position(node, Vec2{4, 0}, 0.5, curve.OutCubic)"
+    }
+    func "ToColor" {
+      params=["NodeRef", "string", "Color", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "path", "to", "duration", "ease"]
+      doc="ToColor animates a Color property."
+      example="tween.ToColor(node, \"SpriteRenderer.Tint\", HitTint, 0.2, curve.Linear)"
+    }
+    func "ToFloat" {
+      params=["NodeRef", "string", "float", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "path", "to", "duration", "ease"]
+      doc="ToFloat animates a float or int property, or one lane of a vector or color.\nPaths: Component.Field, Component.Field.a, transform.rotation, script/Name.Field."
+      example="tween.ToFloat(node, \"SpriteRenderer.Tint.a\", 0, 0.3, curve.OutQuad)"
+    }
+    func "ToQuat" {
+      params=["NodeRef", "string", "Quat", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "path", "to", "duration", "ease"]
+      doc="ToQuat turns a rotation along the short arc."
+      example="tween.ToQuat(node, \"transform.rotation\", math.QuatEuler(0, 1.57, 0), 0.5, curve.InOutCubic)"
+    }
+    func "ToVec2" {
+      params=["NodeRef", "string", "Vec2", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "path", "to", "duration", "ease"]
+      doc="ToVec2 animates a Vec2 property."
+      example="tween.ToVec2(node, \"transform.scale\", Vec2{1.2, 1.2}, 0.1, curve.OutBack)"
+    }
+    func "ToVec3" {
+      params=["NodeRef", "string", "Vec3", "float", "enum:aego/curve.Easing"]
+      result="Handle<aego/tween.Tween>"
+      names=["node", "path", "to", "duration", "ease"]
+      doc="ToVec3 animates a Vec3 property, such as the position of a 3D node."
+      example="tween.ToVec3(node, \"transform.position\", Vec3{0, 2, 0}, 1, curve.InOutSine)"
+    }
+  }
+  enum "Easing" module="aego/curve" {
+    doc="Easing names a preset curve from 0 to 1. None and Linear move at a constant speed."
+    member "None" value=0 {}
+    member "Linear" value=1 {}
+    member "InQuad" value=2 {}
+    member "OutQuad" value=3 {}
+    member "InOutQuad" value=4 {}
+    member "InCubic" value=5 {}
+    member "OutCubic" value=6 {}
+    member "InOutCubic" value=7 {}
+    member "InSine" value=8 {}
+    member "OutSine" value=9 {}
+    member "InOutSine" value=10 {}
+    member "InExpo" value=11 {}
+    member "OutExpo" value=12 {}
+    member "InOutExpo" value=13 {}
+    member "InBack" value=14 {}
+    member "OutBack" value=15 {}
+    member "InOutBack" value=16 {}
+    member "InElastic" value=17 {}
+    member "OutElastic" value=18 {}
+    member "InOutElastic" value=19 {}
+    member "InBounce" value=20 {}
+    member "OutBounce" value=21 {}
+    member "InOutBounce" value=22 {}
+  }
   enum "Button" module="aego/input" {
     doc="Button is a mouse button."
     member "Left" value=0 {}
@@ -1929,6 +2228,12 @@ manifest version=4 {
     field "Collider" {
       type="NodeRef"
     }
+  }
+  handle "aego/timer.Timer" await=true {
+    doc="Timer counts down and fires. yield t waits for the next fire or the end; a timer dies with the node of the script that made it."
+  }
+  handle "aego/tween.Tween" await=true {
+    doc="Tween animates one property of a node. A finished, stopped or nil tween reads as done; yield t waits until it ends."
   }
   event "OnCollisionEnter" {
     params=["NodeRef", "struct:aego/physics.Contact"]
@@ -2195,6 +2500,107 @@ manifest version=4 {
     params=[]
     result="void"
     doc="WakeUp makes a sleeping body simulate again."
+  }
+  hmethod "Cancel" handle="aego/timer.Timer" {
+    params=[]
+    result="void"
+    doc="Cancel ends the timer without firing."
+  }
+  hmethod "Done" handle="aego/timer.Timer" {
+    params=[]
+    result="bool"
+    doc="Done reports whether the timer ended, was cancelled or is nil."
+  }
+  hmethod "Fired" handle="aego/timer.Timer" {
+    params=[]
+    result="int"
+    doc="Fired returns how many times the timer has fired."
+  }
+  hmethod "Pause" handle="aego/timer.Timer" {
+    params=[]
+    result="void"
+    doc="Pause stops the countdown."
+  }
+  hmethod "Ready" handle="aego/timer.Timer" {
+    params=[]
+    result="bool"
+    doc="Ready reports whether a cooldown can be used."
+  }
+  hmethod "Remaining" handle="aego/timer.Timer" {
+    params=[]
+    result="float"
+    doc="Remaining returns the seconds left until the next fire."
+  }
+  hmethod "Repeat" handle="aego/timer.Timer" {
+    params=["int"]
+    result="Handle<aego/timer.Timer>"
+    names=["count"]
+    doc="Repeat makes the timer fire n times; -1 repeats until Cancel."
+  }
+  hmethod "Restart" handle="aego/timer.Timer" {
+    params=[]
+    result="bool"
+    doc="Restart starts the countdown again; it does nothing on a one-shot timer that already fired."
+  }
+  hmethod "Resume" handle="aego/timer.Timer" {
+    params=[]
+    result="void"
+    doc="Resume continues a paused countdown."
+  }
+  hmethod "Unscaled" handle="aego/timer.Timer" {
+    params=[]
+    result="Handle<aego/timer.Timer>"
+    doc="Unscaled counts real time, also while the game is paused."
+  }
+  hmethod "Use" handle="aego/timer.Timer" {
+    params=[]
+    result="bool"
+    doc="Use takes a ready cooldown and starts its wait; it returns false while the cooldown runs."
+  }
+  hmethod "Curve" handle="aego/tween.Tween" {
+    params=["Curve"]
+    result="Handle<aego/tween.Tween>"
+    names=["curve"]
+    doc="Curve replaces the easing with a curve field; its time range is stretched over the duration."
+  }
+  hmethod "Delay" handle="aego/tween.Tween" {
+    params=["float"]
+    result="Handle<aego/tween.Tween>"
+    names=["seconds"]
+    doc="Delay waits before the tween starts; the start value is read when the delay ends. Call it right after creating the tween."
+    example="tween.ToFloat(node, \"Light.Range\", 4, 1, curve.Linear).Delay(0.5)"
+  }
+  hmethod "Done" handle="aego/tween.Tween" {
+    params=[]
+    result="bool"
+    doc="Done reports whether the tween finished, was stopped or is nil."
+  }
+  hmethod "Loop" handle="aego/tween.Tween" {
+    params=["int"]
+    result="Handle<aego/tween.Tween>"
+    names=["count"]
+    doc="Loop plays the tween n times from the start; -1 repeats until Stop."
+  }
+  hmethod "PingPong" handle="aego/tween.Tween" {
+    params=["int"]
+    result="Handle<aego/tween.Tween>"
+    names=["legs"]
+    doc="PingPong plays n legs, every second one backwards; 2 goes there and back, -1 repeats until Stop."
+  }
+  hmethod "Running" handle="aego/tween.Tween" {
+    params=[]
+    result="bool"
+    doc="Running is the opposite of Done."
+  }
+  hmethod "Stop" handle="aego/tween.Tween" {
+    params=[]
+    result="void"
+    doc="Stop ends the tween where it is; the property keeps its current value."
+  }
+  hmethod "Unscaled" handle="aego/tween.Tween" {
+    params=[]
+    result="Handle<aego/tween.Tween>"
+    doc="Unscaled runs the tween in real time, also while the game is paused."
   }
   component "engine.PrefabInstance" {
     short="PrefabInstance"

@@ -10,19 +10,37 @@ import (
 	"aego/script/runtime"
 )
 
-const Version uint32 = 4
+const Version uint32 = 5
 
 type Manifest struct {
-	Version     uint32
-	ABIHash     [32]byte
-	Modules     []Module
-	Components  []Component
-	Enums       []Enum
-	Structs     []Struct
-	Events      []Event
-	Methods     []Method
-	CompMethods []CompMethod
-	Keywords    map[string]string
+	Version       uint32
+	ABIHash       [32]byte
+	Modules       []Module
+	Components    []Component
+	Enums         []Enum
+	Structs       []Struct
+	Events        []Event
+	Methods       []Method
+	CompMethods   []CompMethod
+	Handles       []HandleType
+	HandleMethods []HandleMethod
+	Keywords      map[string]string
+}
+
+type HandleType struct {
+	Name  string
+	Await bool
+	Doc   string
+}
+
+type HandleMethod struct {
+	Handle  string
+	Name    string
+	Sig     abi.Signature
+	Params  []string
+	Example string
+	Doc     string
+	Loc     string
 }
 
 type CompMethod struct {
@@ -45,6 +63,26 @@ func (m *Manifest) CompMethodDoc(comp, name string) (CompMethod, bool) {
 		}
 	}
 	return CompMethod{}, false
+}
+
+func (m *Manifest) HandleMethodDoc(handle, name string) (HandleMethod, bool) {
+	if m == nil {
+		return HandleMethod{}, false
+	}
+	for _, hm := range m.HandleMethods {
+		if hm.Handle == handle && hm.Name == name {
+			return hm, true
+		}
+	}
+	return HandleMethod{}, false
+}
+
+func splitHandle(q string) (string, string) {
+	i := ststrings.LastIndexByte(q, '.')
+	if i < 0 {
+		return "", q
+	}
+	return q[:i], q[i+1:]
 }
 
 func (m *Manifest) Keyword(key string) string {
@@ -169,6 +207,10 @@ func FromRegistry(r *bind.Registry, sr *schema.Registry) (*Manifest, error) {
 			Fields: append([]abi.StructField(nil), s.Fields...),
 		})
 	}
+	for _, h := range t.HandleList() {
+		mod, name := splitHandle(h.Name)
+		m.Handles = append(m.Handles, HandleType{Name: h.Name, Await: h.Await, Doc: r.Info(mod, name).Doc})
+	}
 	for _, e := range t.EventList() {
 		info := r.Info(bind.EventModule, e.Name)
 		m.Events = append(m.Events, Event{Name: e.Name, Doc: info.Doc, Params: append([]abi.TypeRef(nil), e.Params...), Names: info.Params})
@@ -180,6 +222,10 @@ func FromRegistry(r *bind.Registry, sr *schema.Registry) (*Manifest, error) {
 	for _, cm := range t.ComponentMethodList() {
 		info := r.Info("#"+cm.Comp, cm.Name)
 		m.CompMethods = append(m.CompMethods, CompMethod{Comp: cm.Comp, Name: cm.Name, Sig: cm.Sig, Params: info.Params, Example: info.Example, Doc: info.Doc, Loc: info.Loc})
+	}
+	for _, hm := range t.HandleMethodList() {
+		info := r.Info("#"+hm.Handle, hm.Name)
+		m.HandleMethods = append(m.HandleMethods, HandleMethod{Handle: hm.Handle, Name: hm.Name, Sig: hm.Sig, Params: info.Params, Example: info.Example, Doc: info.Doc, Loc: info.Loc})
 	}
 	for _, c := range t.AllComponents() {
 		m.Components = append(m.Components, component(c, sr))
@@ -226,6 +272,11 @@ func (m *Manifest) Table() (*abi.Table, error) {
 			return nil, err
 		}
 	}
+	for _, h := range m.Handles {
+		if err := t.AddHandle(abi.HandleDef{Name: h.Name, Await: h.Await}); err != nil {
+			return nil, err
+		}
+	}
 	for _, mod := range m.Modules {
 		for _, f := range mod.Funcs {
 			if err := t.AddFunc(mod.Path, f.Name, f.Sig); err != nil {
@@ -245,6 +296,11 @@ func (m *Manifest) Table() (*abi.Table, error) {
 	}
 	for _, cm := range m.CompMethods {
 		if err := t.AddComponentMethod(cm.Comp, cm.Name, cm.Sig); err != nil {
+			return nil, err
+		}
+	}
+	for _, hm := range m.HandleMethods {
+		if err := t.AddHandleMethod(hm.Handle, hm.Name, hm.Sig); err != nil {
 			return nil, err
 		}
 	}

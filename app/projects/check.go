@@ -61,7 +61,7 @@ func LoadManifest(p *project.Project, path string) (*manifest.Manifest, error) {
 		if !bootstrap.NeedsNative(p) {
 			return builtin.Manifest()
 		}
-		built, err := bootstrap.BuildManifest(p, engine.Version, log.New(log.NewTextSink(os.Stderr)))
+		built, err := bootstrap.BuildManifest(p, fmt.Sprintf("%s+v%d", engine.Version, manifest.Version), log.New(log.NewTextSink(os.Stderr)))
 		if err != nil {
 			return nil, err
 		}

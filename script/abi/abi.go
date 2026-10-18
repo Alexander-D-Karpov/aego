@@ -32,13 +32,15 @@ const (
 	Coroutine
 	Connection
 	ScriptRef
+	Curve
+	Handle
 	kindCount
 )
 
 var kindNames = [kindCount]string{
 	"void", "bool", "int", "float", "string", "Vec2", "Vec3", "Color", "Quat", "Rect",
 	"Transform2D", "Transform3D", "NodeRef", "AssetRef", "ComponentRef", "enum", "struct", "slice",
-	"Coroutine", "Connection", "ScriptRef",
+	"Coroutine", "Connection", "ScriptRef", "Curve", "Handle",
 }
 
 func (k Kind) String() string {
@@ -82,6 +84,27 @@ func ScriptRefOf(script string) TypeRef {
 	return TypeRef{Kind: ScriptRef, Name: script}
 }
 
+func HandleOf(name string) TypeRef {
+	return TypeRef{Kind: Handle, Name: name}
+}
+
+func HandleID(name string) uint64 {
+	h := uint64(14695981039346656037)
+	for i := 0; i < len(name); i++ {
+		h ^= uint64(name[i])
+		h *= 1099511628211
+	}
+	if h == 0 {
+		h = 1
+	}
+	return h
+}
+
+type HandleDef struct {
+	Name  string
+	Await bool
+}
+
 func (t TypeRef) String() string {
 	switch t.Kind {
 	case Slice:
@@ -95,6 +118,8 @@ func (t TypeRef) String() string {
 		return "ComponentRef<" + t.Name + ">"
 	case ScriptRef:
 		return "ScriptRef<" + t.Name + ">"
+	case Handle:
+		return "Handle<" + t.Name + ">"
 	case Enum:
 		return "enum:" + t.Name
 	case Struct:
@@ -117,6 +142,8 @@ func Parse(s string) (TypeRef, bool) {
 		return ComponentOf(s[len("ComponentRef<") : len(s)-1]), true
 	case strings.HasPrefix(s, "ScriptRef<") && strings.HasSuffix(s, ">"):
 		return ScriptRefOf(s[len("ScriptRef<") : len(s)-1]), len(s) > len("ScriptRef<>")
+	case strings.HasPrefix(s, "Handle<") && strings.HasSuffix(s, ">"):
+		return HandleOf(s[len("Handle<") : len(s)-1]), len(s) > len("Handle<>")
 	case strings.HasPrefix(s, "enum:"):
 		return EnumOf(s[5:]), len(s) > 5
 	case strings.HasPrefix(s, "struct:"):
@@ -125,6 +152,8 @@ func Parse(s string) (TypeRef, bool) {
 		return T(Coroutine), true
 	case s == "Connection":
 		return T(Connection), true
+	case s == "Curve":
+		return T(Curve), true
 	}
 	for k := Void; k < Enum; k++ {
 		if kindNames[k] == s && k != AssetRef && k != ComponentRef {
@@ -325,6 +354,8 @@ type Surface interface {
 	Func(module, name string) (Signature, bool)
 	Method(recv Kind, name string) (Signature, bool)
 	ComponentMethod(comp, name string) (Signature, bool)
+	HandleMethod(handle, name string) (Signature, bool)
+	Handle(name string) (HandleDef, bool)
 	Const(module, name string) (Const, bool)
 	Enum(module, name string) (*EnumDef, bool)
 	Struct(module, name string) (*StructDef, bool)

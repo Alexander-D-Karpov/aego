@@ -38,6 +38,8 @@ func fieldABI(fd *schema.FieldDescriptor) (abi.TypeRef, bool) {
 		return abi.T(abi.Quat), true
 	case schema.KindRect:
 		return abi.T(abi.Rect), true
+	case schema.KindCurve:
+		return abi.T(abi.Curve), true
 	case schema.KindNodeRef:
 		return abi.T(abi.NodeRef), true
 	case schema.KindAssetRef:
@@ -54,6 +56,10 @@ func fieldABI(fd *schema.FieldDescriptor) (abi.TypeRef, bool) {
 		}
 	}
 	return abi.TypeRef{}, false
+}
+
+func readOnly(fd *schema.FieldDescriptor) bool {
+	return fd.Flags.Has(schema.FlagReadOnly) || fd.Kind == schema.KindList || fd.Kind == schema.KindCurve
 }
 
 func exportName(s string) string {
@@ -99,8 +105,7 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 		c := &abi.Component{Name: td.FullName}
 		for _, fd := range fields {
 			t, _ := fieldABI(fd)
-			ro := fd.Flags.Has(schema.FlagReadOnly) || fd.Kind == schema.KindList
-			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: ro})
+			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: readOnly(fd)})
 		}
 		reg.Component(c)
 		idx, tid := uint64(c.Index), td.ID

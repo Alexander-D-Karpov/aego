@@ -19,6 +19,8 @@ type Table struct {
 	funcs    map[string]Signature
 	methods  map[string]Signature
 	cmethods map[string]Signature
+	hmethods map[string]Signature
+	handles  map[string]HandleDef
 	consts   map[string]Const
 	enums    map[string]*EnumDef
 	structs  map[string]*StructDef
@@ -35,11 +37,84 @@ func NewTable() *Table {
 		funcs:    map[string]Signature{},
 		methods:  map[string]Signature{},
 		cmethods: map[string]Signature{},
+		hmethods: map[string]Signature{},
+		handles:  map[string]HandleDef{},
 		consts:   map[string]Const{},
 		enums:    map[string]*EnumDef{},
 		structs:  map[string]*StructDef{},
 		eventIdx: map[string]int{},
 	}
+}
+
+func (t *Table) AddHandle(h HandleDef) error {
+	if t.frozen {
+		return errFrozen
+	}
+	i := strings.LastIndexByte(h.Name, '.')
+	if i <= 0 || i == len(h.Name)-1 || !Exported(h.Name[i+1:]) {
+		return fmt.Errorf("handle type %q needs the form module.Name", h.Name)
+	}
+	if _, dup := t.handles[h.Name]; dup {
+		return fmt.Errorf("handle type %s already registered", h.Name)
+	}
+	t.modules[h.Name[:i]] = true
+	t.handles[h.Name] = h
+	return nil
+}
+
+func (t *Table) AddHandleMethod(handle, name string, sig Signature) error {
+	if t.frozen {
+		return errFrozen
+	}
+	if err := sig.Validate(); err != nil {
+		return fmt.Errorf("method %s.%s: %w", handle, name, err)
+	}
+	k := key(handle, name)
+	if _, dup := t.hmethods[k]; dup {
+		return fmt.Errorf("method %s.%s already registered", handle, name)
+	}
+	t.hmethods[k] = sig
+	return nil
+}
+
+func (t *Table) Handle(name string) (HandleDef, bool) {
+	h, ok := t.handles[name]
+	return h, ok
+}
+
+func (t *Table) HandleMethod(handle, name string) (Signature, bool) {
+	s, ok := t.hmethods[key(handle, name)]
+	return s, ok
+}
+
+type HandleMethodEntry struct {
+	Handle string
+	Name   string
+	Sig    Signature
+}
+
+func (t *Table) HandleList() []HandleDef {
+	out := make([]HandleDef, 0, len(t.handles))
+	for _, h := range t.handles {
+		out = append(out, h)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func (t *Table) HandleMethodList() []HandleMethodEntry {
+	out := make([]HandleMethodEntry, 0, len(t.hmethods))
+	for k, s := range t.hmethods {
+		h, n, _ := strings.Cut(k, "\x00")
+		out = append(out, HandleMethodEntry{Handle: h, Name: n, Sig: s})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Handle != out[j].Handle {
+			return out[i].Handle < out[j].Handle
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 func key(a, b string) string {
@@ -286,6 +361,12 @@ func (t *Table) Freeze() {
 	}
 	for k, s := range t.cmethods {
 		lines = append(lines, "q|"+k+"|"+s.String())
+	}
+	for k, s := range t.hmethods {
+		lines = append(lines, "y|"+k+"|"+s.String())
+	}
+	for k, h := range t.handles {
+		lines = append(lines, "h|"+k+"|"+strconv.FormatBool(h.Await))
 	}
 	for k, c := range t.consts {
 		lines = append(lines, "c|"+k+"|"+c.Type.String()+"|"+strconv.FormatInt(c.Int, 10)+"|"+

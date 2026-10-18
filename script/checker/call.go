@@ -73,6 +73,8 @@ func (c *checker) call(e *ast.CallExpr) operand {
 			return c.callScriptMethod(e, fun, x)
 		case x.t.Kind == types.KComponentRef:
 			return c.callComponentMethod(e, fun, x)
+		case x.t.Kind == types.KHandle:
+			return c.callHandleMethod(e, fun, x)
 		case x.t.Kind == types.KCoroutine, x.t.Kind == types.KConnection:
 			return c.callHandle(e, fun, x)
 		}
@@ -198,6 +200,20 @@ func (c *checker) callComponentMethod(e *ast.CallExpr, sel *ast.SelectorExpr, re
 	}
 	c.arguments(e, comp.Short+"."+name, c.abiTypes(sig.Params))
 	c.a.Calls[e] = &Call{Kind: CallComponentMethod, Name: name, Sig: sig, Component: comp, Recv: sel.X}
+	return result(c.u.FromABI(sig.Result, c.surface))
+}
+
+func (c *checker) callHandleMethod(e *ast.CallExpr, sel *ast.SelectorExpr, recv operand) operand {
+	name := sel.Sel.Name
+	c.noTypeArgs(e)
+	sig, ok := c.surface.HandleMethod(recv.t.Handle, name)
+	if !ok {
+		c.errorf(diag.UnknownHost, sel.Sel.Sp, "%s has no method %s", recv.t, name)
+		c.args(e.Args)
+		return invalid
+	}
+	c.arguments(e, recv.t.Local+"."+name, c.abiTypes(sig.Params))
+	c.a.Calls[e] = &Call{Kind: CallHostMethod, Name: name, Sig: sig, Recv: sel.X}
 	return result(c.u.FromABI(sig.Result, c.surface))
 }
 

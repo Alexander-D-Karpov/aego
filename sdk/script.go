@@ -10,6 +10,7 @@ type (
 	Bindings     = bind.Module
 	ScriptCtx    = bind.Ctx
 	ScriptOption = bind.Option
+	ScriptCurve  = bind.Curve
 )
 
 func ScriptDoc(s string) ScriptOption {
@@ -46,6 +47,18 @@ func Func2[A, B, R any](m *Bindings, name string, f func(*ScriptCtx, A, B) R, op
 
 func Func3[A, B, C, R any](m *Bindings, name string, f func(*ScriptCtx, A, B, C) R, opts ...ScriptOption) {
 	bind.Func3(m, name, f, opts...)
+}
+
+func Func4[A, B, C, D, R any](m *Bindings, name string, f func(*ScriptCtx, A, B, C, D) R, opts ...ScriptOption) {
+	bind.Func4(m, name, f, opts...)
+}
+
+func Func5[A, B, C, D, E, R any](m *Bindings, name string, f func(*ScriptCtx, A, B, C, D, E) R, opts ...ScriptOption) {
+	bind.Func5(m, name, f, opts...)
+}
+
+func ScriptHandle[T any](m *Bindings, name string, await bool, of func(uint64) T, key func(T) uint64, opts ...ScriptOption) {
+	bind.Handle(m, name, await, of, key, opts...)
 }
 
 func Proc0(m *Bindings, name string, f func(*ScriptCtx), opts ...ScriptOption) {

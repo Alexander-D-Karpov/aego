@@ -326,8 +326,14 @@ func (c *checker) yieldStmt(s *ast.YieldStmt) {
 	if x.mode == mInvalid {
 		return
 	}
+	if s.Kind == ast.YieldAwait && x.t.Kind == types.KHandle {
+		if _, ok := c.surface.HandleMethod(x.t.Handle, "Done"); !x.t.Await || !ok {
+			c.errorf(diag.YieldArg, s.Value.Span(), "%s cannot be awaited", x.t)
+		}
+		return
+	}
 	y := x
 	if !c.coerce(s.Value, &y, want) {
-		c.errorf(diag.YieldArg, s.Value.Span(), "yield %s needs %s, not %s", yieldNames[s.Kind], want, x.t)
+		c.errorf(diag.YieldArg, s.Value.Span(), "yield %s needs %s, a Coroutine or an awaitable handle, not %s", yieldNames[s.Kind], want, x.t)
 	}
 }

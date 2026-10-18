@@ -234,6 +234,8 @@ func Equal(a, b schema.Value) bool {
 		return a.C == b.C
 	case schema.KindRect:
 		return a.R == b.R
+	case schema.KindCurve:
+		return a.Cv.Equal(b.Cv)
 	case schema.KindString:
 		return a.S == b.S
 	case schema.KindAssetRef:

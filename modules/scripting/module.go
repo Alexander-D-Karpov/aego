@@ -2,6 +2,8 @@ package scripting
 
 import (
 	"aego/contracts/scriptevents"
+	"aego/contracts/scriptfields"
+	"aego/contracts/scriptwait"
 	"aego/engine"
 	"aego/engine/module"
 	scriptstdlib "aego/modules/scripting/stdlib"
@@ -50,6 +52,8 @@ func (Module) AttachWorld(ctx *module.AttachContext) error {
 		return nil
 	}
 	ctx.World.SetService(scriptevents.ServiceID, scriptsystems.EventSink(ctx.World))
+	ctx.World.SetService(scriptfields.ServiceID, scriptsystems.FieldAccess(ctx.World))
+	ctx.World.SetService(scriptwait.ServiceID, scriptsystems.Waker(ctx.World))
 	return nil
 }
 
@@ -58,4 +62,6 @@ func (Module) DetachWorld(ctx *module.AttachContext) {
 		return
 	}
 	ctx.World.RemoveService(scriptevents.ServiceID)
+	ctx.World.RemoveService(scriptfields.ServiceID)
+	ctx.World.RemoveService(scriptwait.ServiceID)
 }

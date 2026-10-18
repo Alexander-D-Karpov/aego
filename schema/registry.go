@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"aego/core/curve"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
@@ -30,6 +31,7 @@ var (
 	quatType     = reflect.TypeFor[mathx.Quat]()
 	colorType    = reflect.TypeFor[mathx.Color]()
 	rectType     = reflect.TypeFor[mathx.Rect]()
+	curveType    = reflect.TypeFor[curve.Curve]()
 	assetRefType = reflect.TypeFor[AssetRef]()
 	nodeRefType  = reflect.TypeFor[NodeRef]()
 )
@@ -386,6 +388,8 @@ func (r *Registry) kindOf(typeName, field string, ft reflect.Type) (Kind, Kind, 
 		return KindColor, KindInvalid, 0, nil
 	case rectType:
 		return KindRect, KindInvalid, 0, nil
+	case curveType:
+		return KindCurve, KindInvalid, 0, nil
 	}
 	switch ft.Kind() {
 	case reflect.Bool:

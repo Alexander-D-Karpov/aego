@@ -55,6 +55,12 @@ func Encode(m *Manifest) []byte {
 		}
 		root.Blocks = append(root.Blocks, n)
 	}
+	for _, h := range m.Handles {
+		n := &aetext.Node{Head: "handle", Label: h.Name}
+		n.Attrs = append(n.Attrs, aetext.Field{Name: "await", Value: aetext.Bool(h.Await)})
+		text(n, "doc", h.Doc)
+		root.Blocks = append(root.Blocks, n)
+	}
 	for _, e := range m.Events {
 		params := make([]string, len(e.Params))
 		for i, p := range e.Params {
@@ -76,6 +82,11 @@ func Encode(m *Manifest) []byte {
 	for _, cm := range m.CompMethods {
 		n := callable("cmethod", cm.Name, cm.Sig, extra{cm.Params, cm.Example, cm.Doc, cm.Loc})
 		n.Attrs = append(n.Attrs, aetext.Field{Name: "comp", Value: aetext.String(cm.Comp)})
+		root.Blocks = append(root.Blocks, n)
+	}
+	for _, hm := range m.HandleMethods {
+		n := callable("hmethod", hm.Name, hm.Sig, extra{hm.Params, hm.Example, hm.Doc, hm.Loc})
+		n.Attrs = append(n.Attrs, aetext.Field{Name: "handle", Value: aetext.String(hm.Handle)})
 		root.Blocks = append(root.Blocks, n)
 	}
 	for _, c := range m.Components {
@@ -219,12 +230,16 @@ func Decode(b []byte) (*Manifest, error) {
 			m.readEnum(n)
 		case "struct":
 			err = m.readStruct(n)
+		case "handle":
+			m.readHandle(n)
 		case "event":
 			err = m.readEvent(n)
 		case "method":
 			err = m.readMethod(n)
 		case "cmethod":
 			err = m.readCompMethod(n)
+		case "hmethod":
+			err = m.readHandleMethod(n)
 		case "component":
 			err = m.readComponent(n)
 		default:
@@ -358,6 +373,33 @@ func (m *Manifest) readCompMethod(n *aetext.Node) error {
 	}
 	m.CompMethods = append(m.CompMethods, CompMethod{
 		Comp: comp, Name: n.Label, Sig: sig, Params: list(n, "names"), Example: str(n, "example"),
+		Doc: str(n, "doc"), Loc: str(n, "loc"),
+	})
+	return nil
+}
+
+func (m *Manifest) readHandle(n *aetext.Node) {
+	h := HandleType{Name: n.Label, Doc: str(n, "doc")}
+	if v, ok := n.Attr("await"); ok {
+		h.Await = v.Bool
+	}
+	m.Handles = append(m.Handles, h)
+}
+
+func (m *Manifest) readHandleMethod(n *aetext.Node) error {
+	handle := ""
+	if v, ok := n.Attr("handle"); ok {
+		handle = v.Str
+	}
+	if handle == "" {
+		return fmt.Errorf("manifest: handle method %s has no handle type", n.Label)
+	}
+	sig, err := readSig(n)
+	if err != nil {
+		return err
+	}
+	m.HandleMethods = append(m.HandleMethods, HandleMethod{
+		Handle: handle, Name: n.Label, Sig: sig, Params: list(n, "names"), Example: str(n, "example"),
 		Doc: str(n, "doc"), Loc: str(n, "loc"),
 	})
 	return nil

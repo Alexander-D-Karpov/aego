@@ -276,6 +276,14 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 			c.add(Item{Label: "Has", Detail: "Has<Component>() bool", Kind: ItemMethod, Insert: "Has<"})
 			c.add(Item{Label: "GetScript", Detail: "GetScript<Script>() ScriptRef", Doc: builtinText(snap, "GetScript"), Kind: ItemMethod, Insert: "GetScript<"})
 		}
+	case types.KHandle:
+		for _, hm := range snap.Bindings.HandleMethodList() {
+			if hm.Handle != t.Handle {
+				continue
+			}
+			doc, _ := snap.Docs.HandleMethodDoc(hm.Handle, hm.Name)
+			c.add(Item{Label: hm.Name, Detail: hostSig("", hm.Sig, doc.Params), Doc: hostDoc(doc.Doc, doc.Example), Kind: ItemMethod, Insert: hm.Name + "("})
+		}
 	case types.KComponentRef:
 		if t.Component == nil {
 			return
@@ -291,6 +299,7 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 	case types.KConnection:
 		c.add(Item{Label: "Disconnect", Detail: "Disconnect()", Doc: builtinText(snap, "Disconnect"), Kind: ItemMethod, Insert: "Disconnect()"})
 		c.add(Item{Label: "Connected", Detail: "Connected() bool", Doc: builtinText(snap, "Connected"), Kind: ItemMethod, Insert: "Connected()"})
+	case types.KCurve:
 	default:
 		for _, fl := range t.Fields {
 			c.add(Item{Label: fl.Name, Detail: typeString(fl.Type), Kind: ItemField})

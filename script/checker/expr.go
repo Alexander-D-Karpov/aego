@@ -257,7 +257,7 @@ func (c *checker) field(s *ast.SelectorExpr, x operand) operand {
 		if st := c.a.scripts[t.Script]; st != nil {
 			return c.scriptMember(s, st)
 		}
-	case types.KCoroutine, types.KConnection:
+	case types.KCoroutine, types.KConnection, types.KHandle, types.KCurve:
 	case types.KNodeRef, types.KAssetRef:
 		if _, ok := c.surface.Method(types.ToABI(t).Kind, name); ok {
 			c.errorf(diag.NotValue, s.Sp, "method %s must be called", name)

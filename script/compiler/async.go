@@ -1,9 +1,11 @@
 package compiler
 
 import (
+	"aego/script/abi"
 	"aego/script/ast"
 	"aego/script/bytecode"
 	"aego/script/checker"
+	"aego/script/types"
 )
 
 func funcSlots(f *checker.Func) []int {
@@ -58,8 +60,28 @@ func (c *fn) yield(s *ast.YieldStmt) {
 	}
 	mark := c.top
 	r := c.operand(s.Value)
+	if t := c.typ(s.Value); s.Kind == ast.YieldAwait && t.Kind == types.KHandle {
+		c.awaitHandle(t, r)
+		c.top = mark
+		return
+	}
 	c.b.ABC(bytecode.YIELD, r, 0, kind)
 	c.top = mark
+}
+
+func (c *fn) awaitHandle(t *types.Type, r int) {
+	sig := abi.Sig(abi.T(abi.Bool), abi.HandleOf(t.Handle))
+	imp := c.u.hostImport("#"+t.Handle, "Done", sig)
+	w := c.alloc(1)
+	c.move(w, r, 1)
+	c.b.ABx(bytecode.CALLH, w, imp)
+	park, end := c.b.NewLabel(), c.b.NewLabel()
+	c.b.Jump(bytecode.JMPNOT, w, park)
+	c.b.ABC(bytecode.YIELD, 0, 0, int(bytecode.WaitNext))
+	c.b.Jump(bytecode.JMP, 0, end)
+	c.b.Mark(park)
+	c.b.ABC(bytecode.YIELD, r, 0, int(bytecode.WaitHandle))
+	c.b.Mark(end)
 }
 
 func (c *fn) selfOr(e ast.Expr, dst int) {

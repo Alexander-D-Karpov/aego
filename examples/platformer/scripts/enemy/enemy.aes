@@ -1,7 +1,10 @@
 package enemy
 
 import (
+	"aego/curve"
 	"aego/physics"
+	"aego/timer"
+	"aego/tween"
 	"mygame/combat"
 	"mygame/shared"
 )
@@ -25,13 +28,14 @@ script EnemyAI {
 	var Cooldown float = 1
 
 	var toB bool = true
-	var wait float
+	var hit timer.Timer
 	var dead bool
 
+	func Ready() {
+		hit = timer.Cooldown(Cooldown)
+	}
+
 	func FixedUpdate(dt float) {
-		if wait > 0 {
-			wait -= dt
-		}
 		if dead || PointA == nil || PointB == nil {
 			return
 		}
@@ -62,14 +66,18 @@ script EnemyAI {
 		}
 		dead = true
 		Died.Emit()
+		start Die()
+	}
+
+	func Die() coroutine {
+		yield tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad)
 		node.Destroy()
 	}
 
 	func OnCollisionEnter(other NodeRef, c physics.Contact) {
-		if dead || other != Target || wait > 0 || c.Normal.Y > 0.5 {
+		if dead || other != Target || c.Normal.Y > 0.5 || !hit.Use() {
 			return
 		}
 		combat.Damage(Target, 1)
-		wait = Cooldown
 	}
 }

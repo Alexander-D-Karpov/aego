@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"aego/core/curve"
 	"aego/core/errs"
 	"aego/core/log"
 )
@@ -134,6 +135,19 @@ func (r *Registry) makeAccessors(fd *FieldDescriptor, ft reflect.Type, off uintp
 				return badValue(name, v.Kind, KindString)
 			}
 			*(*string)(unsafe.Add(p, off)) = v.S
+			return nil
+		}
+	case KindCurve:
+		fd.Get = func(p unsafe.Pointer, dst *Value) {
+			*dst = Curve(*(*curve.Curve)(unsafe.Add(p, off)))
+		}
+		fd.Set = func(p unsafe.Pointer, v Value) error {
+			if v.Kind != KindCurve {
+				return badValue(name, v.Kind, KindCurve)
+			}
+			c := v.Cv.Clone()
+			c.Fix()
+			*(*curve.Curve)(unsafe.Add(p, off)) = c
 			return nil
 		}
 	case KindEnum:
@@ -326,6 +340,8 @@ func (r *Registry) valueFrom(rv reflect.Value, k Kind, structID TypeID) Value {
 		return Color(rv.Interface().(color))
 	case KindRect:
 		return Rect(rv.Interface().(rect))
+	case KindCurve:
+		return Curve(rv.Interface().(curve.Curve))
 	case KindAssetRef:
 		return Asset(rv.Addr().Interface().(AssetRef).AssetRefID())
 	case KindNodeRef:
@@ -373,6 +389,10 @@ func (r *Registry) assignTo(rv reflect.Value, v Value, k Kind, structID TypeID, 
 		rv.Set(reflect.ValueOf(v.C))
 	case KindRect:
 		rv.Set(reflect.ValueOf(v.R))
+	case KindCurve:
+		c := v.Cv.Clone()
+		c.Fix()
+		rv.Set(reflect.ValueOf(c))
 	case KindAssetRef:
 		rv.Addr().Interface().(AssetRef).SetAssetRefID(v.Asset)
 	case KindNodeRef:

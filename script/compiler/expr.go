@@ -316,6 +316,13 @@ func (c *fn) invoke(op bytecode.Opcode, idx int, args []ast.Expr, params []int, 
 	c.top = mark
 }
 
+func methodModule(recv abi.TypeRef) string {
+	if recv.Kind == abi.Handle {
+		return "#" + recv.Name
+	}
+	return "#" + recv.Kind.String()
+}
+
 func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 	call := c.u.a.Calls[e]
 	if call == nil {
@@ -355,7 +362,7 @@ func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 	case checker.CallHostMethod:
 		recv := types.ToABI(c.typ(call.Recv))
 		sig := abi.Signature{Params: append([]abi.TypeRef{recv}, call.Sig.Params...), Result: call.Sig.Result}
-		imp := c.u.hostImport("#"+recv.Kind.String(), call.Name, sig)
+		imp := c.u.hostImport(methodModule(recv), call.Name, sig)
 		args := append([]ast.Expr{call.Recv}, e.Args...)
 		c.invoke(bytecode.CALLH, imp, args, c.u.sigSlots(sig.Params), c.u.abiSlots(sig.Result), dst, want)
 	case checker.CallComponentMethod:

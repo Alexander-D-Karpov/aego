@@ -7,6 +7,7 @@ const (
 	ModLog     = "aego/log"
 	ModRand    = "aego/rand"
 	ModTime    = "aego/time"
+	ModCurve   = "aego/curve"
 	ModTesting = "aego/testing"
 )
 
@@ -16,7 +17,7 @@ type Options struct {
 	Testing bool
 }
 
-// Install registers the language library: math, log, rand, time and, with Testing, testing.
+// Install registers the language library: math, log, rand, time, curve and, with Testing, testing.
 func Install(r *bind.Registry, opt Options) {
 	InstallBase(r, opt)
 	if opt.Testing {
@@ -29,6 +30,7 @@ func InstallBase(r *bind.Registry, opt Options) {
 	installLog(r)
 	installRand(r, opt.Seed)
 	installTime(r)
+	installCurve(r)
 }
 
 func InstallTesting(r *bind.Registry) {

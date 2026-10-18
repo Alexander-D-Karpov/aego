@@ -180,6 +180,8 @@ func (w *writer) value(fd *schema.FieldDescriptor, v schema.Value) aetext.Value 
 			aetext.Float32(v.R.X), aetext.Float32(v.R.Y),
 			aetext.Float32(v.R.W), aetext.Float32(v.R.H),
 		)
+	case schema.KindCurve:
+		return CurveValue(v.Cv)
 	case schema.KindEnum:
 		if name, ok := fd.EnumNameOf(v.I); ok {
 			return aetext.Ident(name)

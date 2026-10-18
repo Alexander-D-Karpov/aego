@@ -6,6 +6,7 @@ import (
 	"aego/contracts/debugdraw"
 	"aego/contracts/inputactions"
 	"aego/contracts/scriptevents"
+	"aego/core/curve"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/module"
@@ -30,10 +31,11 @@ type Settings struct {
 }
 
 type Body struct {
-	Size  float32 `aego:"size"`
-	Layer int32   `aego:"layer"`
-	Mask  int32   `aego:"mask"`
-	Speed float32 `aego:"speed"`
+	Size    float32     `aego:"size"`
+	Layer   int32       `aego:"layer"`
+	Mask    int32       `aego:"mask"`
+	Speed   float32     `aego:"speed"`
+	Falloff curve.Curve `aego:"falloff"`
 }
 
 type State struct {
@@ -87,7 +89,7 @@ func (m *Module) Register(r *module.Registry) error {
 		schema.Bitset("mask", ID, Lists),
 		schema.Runtime("speed")).
 		Category("Fake").
-		Default(func() Body { return Body{Size: 1} }).
+		Default(func() Body { return Body{Size: 1, Falloff: curve.Line(0, 1, 1, 0)} }).
 		OnAdd(func(ctx module.AddContext, b *Body) {
 			if rc, ok := ctx.VisualRect(); ok {
 				b.Size = rc.W

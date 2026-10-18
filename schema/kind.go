@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"aego/core/curve"
 	"aego/core/ids"
 	"aego/core/mathx"
 )
@@ -30,12 +31,13 @@ const (
 	KindVec3
 	KindVec4
 	KindQuat
+	KindCurve
 )
 
 var kindNames = [...]string{
 	"invalid", "bool", "int32", "int64", "float32", "float64",
 	"vec2", "color", "rect", "string", "enum", "assetRef", "nodeRef", "list", "struct",
-	"vec3", "vec4", "quat",
+	"vec3", "vec4", "quat", "curve",
 }
 
 func (k Kind) String() string {
@@ -79,6 +81,11 @@ type Value struct {
 	Node  ids.NodeID
 	List  []Value
 	Obj   *Object
+	Cv    curve.Curve
+}
+
+func Curve(c curve.Curve) Value {
+	return Value{Kind: KindCurve, Cv: c.Clone()}
 }
 
 func Bool(v bool) Value {

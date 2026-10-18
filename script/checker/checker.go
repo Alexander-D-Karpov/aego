@@ -442,6 +442,9 @@ func (c *checker) hostType(target, name string) *types.Type {
 	if sd, ok := c.surface.Struct(target, name); ok {
 		return c.u.HostStruct(sd, c.surface)
 	}
+	if h, ok := c.surface.Handle(target + "." + name); ok {
+		return c.u.Handle(h)
+	}
 	return nil
 }
 

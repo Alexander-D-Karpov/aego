@@ -44,6 +44,12 @@ func (c *Ctx) Failf(format string, args ...any) {
 	}
 }
 
+func (c *Ctx) FailErr(err error) {
+	if c.err == nil && err != nil {
+		c.err = err
+	}
+}
+
 func (c *Ctx) Failed() bool {
 	return c.err != nil
 }

@@ -398,6 +398,12 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Val
 		return schema.Color(unpackColor(v.Color)), nil
 	case schema.KindRect:
 		return schema.Rect(readRect(v)), nil
+	case schema.KindCurve:
+		c, err := ReadCurve(v)
+		if err != nil {
+			return schema.Value{}, err
+		}
+		return schema.Value{Kind: schema.KindCurve, Cv: c}, nil
 	case schema.KindEnum:
 		if v.Kind == aetext.VIdent {
 			if n, ok := fd.EnumValueOf(v.Ident); ok {

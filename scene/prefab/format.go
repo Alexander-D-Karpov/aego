@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aego/core/curve"
 	"aego/schema"
 )
 
@@ -19,6 +20,16 @@ func floats(parts ...float32) string {
 		s[i] = f32(p)
 	}
 	return "[" + strings.Join(s, ", ") + "]"
+}
+
+func curveText(c curve.Curve) string {
+	var sb strings.Builder
+	sb.WriteString("curve(" + c.Ease.String() + " " + c.Pre.String() + " " + c.Post.String())
+	for _, k := range c.Keys {
+		sb.WriteString(" " + floats(k.T, k.V, k.In, k.Out) + k.Interp.String() + "/" + k.Tangent.String())
+	}
+	sb.WriteByte(')')
+	return sb.String()
 }
 
 func FormatValue(v schema.Value) string {
@@ -43,6 +54,8 @@ func FormatValue(v schema.Value) string {
 		return "r" + floats(v.R.X, v.R.Y, v.R.W, v.R.H)
 	case schema.KindColor:
 		return fmt.Sprintf("#%08x", ColorKey(v.C))
+	case schema.KindCurve:
+		return curveText(v.Cv)
 	case schema.KindString:
 		return strconv.Quote(v.S)
 	case schema.KindAssetRef:

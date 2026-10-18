@@ -232,7 +232,7 @@ func TestPlatformerStompEmitsDied(t *testing.T) {
 		sc.SetPosition(pf.player, mathx.Vec2{X: e.X, Y: e.Y - 1.3})
 		pf.step(1)
 	}
-	pf.step(2)
+	pf.step(20)
 	if k := pf.field("kills").Int(); k != 1 {
 		t.Fatalf("kills %d", k)
 	}

@@ -22,6 +22,7 @@ type Registry struct {
 	mods    map[string]*Module
 	enums   map[reflect.Type]string
 	structs map[reflect.Type]*StructDesc
+	handles map[reflect.Type]any
 	docs    map[string]Info
 	errs    []error
 	frozen  bool
@@ -35,6 +36,7 @@ func New() *Registry {
 		mods:    map[string]*Module{},
 		enums:   map[reflect.Type]string{},
 		structs: map[reflect.Type]*StructDesc{},
+		handles: map[reflect.Type]any{},
 		docs:    map[string]Info{},
 	}
 }
@@ -83,6 +85,16 @@ func (r *Registry) ComponentMethods(comp string) *Module {
 		return m
 	}
 	m := &Module{reg: r, path: path, comp: comp}
+	r.mods[path] = m
+	return m
+}
+
+func (r *Registry) HandleMethods(handle string) *Module {
+	path := "#" + handle
+	if m, ok := r.mods[path]; ok {
+		return m
+	}
+	m := &Module{reg: r, path: path, handle: handle}
 	r.mods[path] = m
 	return m
 }

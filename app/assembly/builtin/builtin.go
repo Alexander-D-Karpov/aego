@@ -14,6 +14,7 @@ import (
 	"aego/modules/render3d"
 	"aego/modules/scripting"
 	settingsmod "aego/modules/settings"
+	"aego/modules/tween"
 	"aego/script/stdlib"
 )
 
@@ -63,7 +64,11 @@ func settingsEntry() assembly.Entry {
 	return assembly.Entry{ID: settingsmod.ID, Requires: []string{inputmod.ID}, New: func(assembly.Options) module.Module { return settingsmod.New() }}
 }
 
+func tweenEntry() assembly.Entry {
+	return assembly.Entry{ID: tween.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return tween.New() }}
+}
+
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry()}
 }
