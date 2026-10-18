@@ -19,7 +19,7 @@ import (
 
 const ID = "events"
 
-var shown = [...]recorder.Kind{recorder.Signal, recorder.Event, recorder.Fault, recorder.Spawn, recorder.Despawn, recorder.SceneChange}
+var shown = [...]recorder.Kind{recorder.Signal, recorder.Event, recorder.Fault, recorder.Spawn, recorder.Despawn, recorder.SceneChange, recorder.Input}
 
 type Deps struct {
 	World     func() *engine.World

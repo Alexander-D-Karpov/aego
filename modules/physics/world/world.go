@@ -192,6 +192,17 @@ func (w *World) Config() Config {
 	return w.cfg
 }
 
+func (w *World) SetConfig(cfg Config) error {
+	cfg = cfg.withDefaults()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg.InitialBodies, cfg.InitialShapes, cfg.InitialContacts = w.cfg.InitialBodies, w.cfg.InitialShapes, w.cfg.InitialContacts
+	cfg.DebugVectors = w.cfg.DebugVectors
+	w.cfg = cfg
+	return nil
+}
+
 func (w *World) Gravity() Vec2 {
 	return w.cfg.Gravity
 }

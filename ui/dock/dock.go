@@ -537,7 +537,7 @@ func (t *Tree) drawTabs(ui *core.Context, n *Node, fn func(string, mathx.Rect)) 
 		case ui.Hot() == id:
 			col = th.TabHot
 		}
-		ui.Rect(tr, col)
+		ui.List().RoundRect(mathx.Rect{X: tr.X, Y: tr.Y + 3, W: tr.W, H: tr.H - 3}, th.Radius.Tab, col, draw.CornersTop)
 		textCol := th.TextDim
 		if i == n.Active {
 			ui.Rect(mathx.Rect{X: tr.X, Y: tr.Y + tr.H - 2, W: tr.W, H: 2}, th.Accent)

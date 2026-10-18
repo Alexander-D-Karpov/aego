@@ -6,6 +6,7 @@ import (
 
 	"aego/core/clock"
 	"aego/core/errs"
+	"aego/platform"
 )
 
 const idleSleep = 16 * time.Millisecond
@@ -144,6 +145,7 @@ func (e *Engine) TickWorld(w *World, scope SystemScope, real float64) clock.Plan
 	plan := e.begin(&e.wctx, w, real)
 	e.mark(w, plan.Steps)
 	e.exec(&e.wctx, PhaseFrameBegin, scope, plan.Paused)
+	e.exec(&e.wctx, PhaseInput, scope, plan.Paused)
 	e.simulate(&e.wctx, scope, plan)
 	e.wctx = saved
 	return plan
@@ -228,6 +230,11 @@ func (e *Engine) frame() {
 	}
 	e.stats.RenderTime = e.plat.Now() - renderStart
 
+	if lim := e.frameLimit; lim > 0 && e.vsync == platform.VSyncOff && !e.cfg.Headless {
+		if wait := 1/lim - (e.plat.Now() - now); wait > 0 {
+			time.Sleep(time.Duration(wait * float64(time.Second)))
+		}
+	}
 	e.exec(&e.ctx, PhaseFrameEnd, mask, plan.Paused)
 	e.stats.FrameTime = delta
 	e.counter.Sample(&e.stats)

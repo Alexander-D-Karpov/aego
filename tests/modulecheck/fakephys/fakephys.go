@@ -4,20 +4,24 @@ import (
 	"errors"
 
 	"aego/contracts/debugdraw"
+	"aego/contracts/inputactions"
 	"aego/contracts/scriptevents"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/engine/problems"
+	"aego/engine/settings"
 	"aego/scene"
 	"aego/schema"
 )
 
 const (
-	ID        = "fakephys"
-	Lists     = "layers"
-	stateID   = ID + ".state"
-	EventTick = "OnFakeTick"
+	ID          = "fakephys"
+	Lists       = "layers"
+	stateID     = ID + ".state"
+	EventTick   = "OnFakeTick"
+	ActionKick  = "FakeKick"
+	ContextFake = "Fake"
 )
 
 type Settings struct {
@@ -69,6 +73,14 @@ func (m *Module) Register(r *module.Registry) error {
 	r.Template(schema.TemplateDesc{ID: ID + ".body", Name: "Fake Body", Menu: "Fake", Space: schema.Space2D, Setup: func(s *scene.Scene, h scene.NodeHandle) {
 		*scene.Add[Body](s, h) = Body{Size: 1}
 	}})
+	r.Provide(inputactions.Kind, inputactions.Set{
+		Actions:  []inputactions.Action{{Name: ActionKick, Type: "button", Bindings: []string{"Key.K", "Pad.Y"}}},
+		Contexts: []inputactions.Context{{Name: ContextFake, Actions: []string{ActionKick}, Default: true}},
+	})
+	r.Setting(settings.Desc{
+		ID: ID + ".layer", Kind: schema.KindString, Default: schema.String("A"), Title: "Fake Layer",
+		Category: settings.CategoryGameplay, Flags: settings.User, ChoicesFrom: schema.HintSource{Section: ID, List: Lists},
+	})
 	r.ScriptEvent(scriptevents.Event{Name: EventTick})
 	return module.Component[Body](r, schema.Name("fakephys.Body"),
 		schema.ChoicesFrom("layer", ID, Lists),

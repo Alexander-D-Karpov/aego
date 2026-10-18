@@ -50,7 +50,9 @@ import (
 	"aego/engine/docs"
 	"aego/engine/module"
 	"aego/engine/problems"
+	"aego/engine/settings"
 	"aego/platform"
+	"aego/platform/input"
 	"aego/project"
 	"aego/render"
 	"aego/render/icons"
@@ -77,6 +79,7 @@ type Options struct {
 	Modules     *module.Manifest
 	Sections    *module.Sections
 	Problems    *problems.Service
+	Settings    *settings.Store
 	Hooks       []module.Hook
 	RenderStats func() render.Stats
 	Supervised  bool
@@ -207,6 +210,11 @@ func (a *App) Init(e *engine.Engine) error {
 	r := a.opt.Renderer
 	ui := core.New(r.UIFont())
 	ui.Theme = theme.Editor()
+	if sh, err := draw.NewShapes(e.GPU(), r.Textures()); err == nil {
+		ui.SetShapes(sh)
+	} else {
+		a.log.Warn("ui shapes are unavailable, corners stay square", log.F("err", err.Error()))
+	}
 	if set, err := text.LoadSet(e.VFS(), r.Textures(), "engine://fonts", "ui", []int{12, 14, 16, 20}, []int{1, 2}); err == nil {
 		ui.SetFonts(set)
 	} else {
@@ -374,6 +382,7 @@ func (a *App) Init(e *engine.Engine) error {
 		PhaseAllocs: e.PhaseAllocs,
 		SetProbe:    e.SetPhaseAllocs,
 		Sections:    func() []context.ProfilerSection { return a.ctx.Profiler },
+		Throttled:   func() bool { return a.opt.Paced && a.idle() },
 	})
 
 	a.ws = workspace.New(p.Root, a.log)
@@ -432,6 +441,8 @@ func (a *App) Init(e *engine.Engine) error {
 	a.settings = projectsettings.New(projectsettings.Deps{
 		Project:  p,
 		Sections: a.opt.Sections,
+		Settings: a.opt.Settings,
+		OnApply:  a.liveSettings,
 		Pages:    func() []context.SettingsPage { return a.ctx.Pages },
 		Pipeline: a.opt.Pipeline,
 		Notices:  a.ctx,
@@ -469,6 +480,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Commands:  a.ctx.Commands,
 		Notices:   a.ctx,
 		Nav:       a.ctx,
+		Settings:  a.settingItems,
 	})
 	a.search.ShowHierarchy = func() { a.ws.Show(workspace.Hierarchy) }
 	a.attachCode()
@@ -521,9 +533,22 @@ func (a *App) Init(e *engine.Engine) error {
 	}); err != nil {
 		return err
 	}
+	for _, d := range []command.Desc{
+		{ID: projectsettings.CommandUndo, Name: "Undo Settings Change", Scope: projectsettings.Scope,
+			Shortcut: command.Key(input.KeyZ, command.ModPrimary), Enabled: a.settings.CanUndo,
+			Run: func() error { a.settings.Undo(); return nil }},
+		{ID: projectsettings.CommandRedo, Name: "Redo Settings Change", Scope: projectsettings.Scope,
+			Shortcut: command.Key(input.KeyZ, command.ModPrimary|command.ModShift), Alt: []command.Shortcut{command.Key(input.KeyY, command.ModPrimary)},
+			Enabled: a.settings.CanRedo, Run: func() error { a.settings.Redo(); return nil }},
+	} {
+		if err := a.ctx.Commands.Register(d); err != nil {
+			return err
+		}
+	}
 	if err := a.registerWindowCommands(); err != nil {
 		return err
 	}
+	a.describeCommands()
 	a.ws.LoadLayout()
 
 	unlock, other, err := document.AcquireLock(p.Root)
@@ -570,6 +595,7 @@ func (a *App) Event(ev platform.Event) {
 	switch ev.Kind {
 	case platform.EvKeyDown:
 		a.shiftTap(ev)
+		a.paletteKey(ev)
 	case platform.EvTextEditing:
 		a.ui.SetComposition(ev.Str, int(ev.EditStart))
 	case platform.EvTextInput:
@@ -871,3 +897,27 @@ func (a *App) updateTitle() {
 }
 
 var _ services.Prefabs = (*prefabs.Service)(nil)
+
+func (a *App) settingItems() []search.Item {
+	refs := a.settings.Index()
+	out := make([]search.Item, len(refs))
+	for i, r := range refs {
+		out[i] = search.Item{Label: r.Label, Detail: r.Detail, Run: func() {
+			a.settings.FocusRef(r)
+			a.ws.Show(projectsettings.ID)
+		}}
+	}
+	return out
+}
+
+func (a *App) liveSettings() string {
+	if a.play.State() == play.Stopped || a.opt.Modules == nil {
+		return ""
+	}
+	ctx := &module.AttachContext{World: a.play.World(), Scene: a.play.Scene(), Log: a.opt.Log, Editor: true, Play: true}
+	if err := a.opt.Modules.Reconfigure(ctx); err != nil {
+		a.log.Warn("settings were saved but not applied to the running game", log.F("err", err.Error()))
+		return "some settings apply on the next Play"
+	}
+	return "applied to the running game"
+}

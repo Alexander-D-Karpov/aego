@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/play"
+	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -47,11 +48,30 @@ func (a *App) registerTime() error {
 			return nil
 		},
 	})
+	list = append(list, command.Desc{
+		ID: command.PlayReleaseInput, Name: "Release Game Input", Category: "Play", Order: 150,
+		Shortcut: command.Key(input.KeyEscape, command.ModShift),
+		Enabled:  a.play.Captured,
+		Run: func() error {
+			a.gameView.Release()
+			return nil
+		},
+	})
 	for _, d := range list {
 		if err := reg.Register(d); err != nil {
 			return err
 		}
 	}
+	a.play.SetRelease(
+		func(in *input.State) bool { return reg.Pressed(command.PlayReleaseInput, in) },
+		func() string {
+			d, ok := reg.Get(command.PlayReleaseInput)
+			if !ok {
+				return ""
+			}
+			return d.KeysText()
+		},
+	)
 	return nil
 }
 
@@ -94,12 +114,12 @@ func (a *App) scalePopup(id core.ID) {
 func (a *App) playStatus() (string, mathx.Color) {
 	th := &a.ui.Theme
 	st := a.play.Stats()
-	tail := " · Tick " + strconv.FormatUint(st.Tick, 10) + " · Frame " + strconv.FormatUint(st.Frame, 10) + " · " + scaleLabel(a.play.TimeScale())
+	tail := " · Tick " + strconv.FormatUint(st.Tick, 10) + " · Frame " + strconv.FormatUint(st.Updates, 10) + " · " + scaleLabel(a.play.TimeScale())
 	switch a.play.State() {
 	case play.Playing:
 		return "Play " + clockText(a.play.SimTime()) + tail, th.Accent
 	case play.Paused:
-		return "Paused " + clockText(a.play.SimTime()) + tail, th.Warn
+		return "Paused " + clockTextFine(a.play.SimTime()) + tail, th.Warn
 	}
 	return "Edit", th.TextDim
 }

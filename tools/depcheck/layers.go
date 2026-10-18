@@ -43,7 +43,7 @@ var scriptCompilerOnly = []string{
 
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
-	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "editor/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
 }
 
 var rules = []rule{
@@ -102,16 +102,21 @@ var rules = []rule{
 	{"modules/physics/stdlib", []string{"core/...", "engine", "engine/module", "scene", "schema", "script/bind", "script/abi", "script/vm", "contracts/...", "modules/physics/world", "modules/physics/components", "modules/physics/systems"}, nil},
 	{"modules/physics/settings", []string{"core/...", "engine/module", "format/...", "modules/physics/world"}, nil},
 	{"modules/physics/editor", with(editorAllow, "modules/physics", "modules/physics/components", "modules/physics/systems", "modules/physics/world", "modules/physics/settings", "contracts/..."), nil},
+	{"modules/input", []string{"core/...", "engine", "engine/module", "engine/recorder", "engine/settings", "format/...", "platform/input", "scene", "scene/frame", "schema", "script/bind", "script/abi", "script/vm", "contracts/inputactions"}, nil},
+	{"contracts/inputactions", []string{"core/..."}, nil},
+	{"modules/input/editor", with(editorAllow, "modules/input"), nil},
 	{"modules/debug", []string{"core/...", "engine", "engine/module", "scene", "scene/frame", "schema", "render", "render/...", "script/bind", "script/vm", "contracts/..."}, nil},
 	{"modules/debug/editor", with(editorAllow, "modules/debug", "contracts/..."), nil},
 	{"contracts/scriptevents", []string{"core/...", "scene", "script/abi", "script/vm"}, nil},
 	{"contracts/physics2d", []string{"core/...", "scene"}, nil},
 	{"contracts/debugdraw", []string{"core/...", "scene"}, nil},
 	{"engine/problems", []string{"core/...", "scene"}, nil},
-	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents"}, nil},
+	{"engine/settings", []string{"core/...", "engine/problems", "format/...", "schema"}, nil},
+	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
+	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents"}, nil},
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/..."}, nil},
 	{"engine/docs", []string{"core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
-	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/..."}, nil},
+	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/..."}, nil},
 	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},
 	{"app/run", []string{"..."}, nil},
 	{"app/playground", []string{"core/...", "engine", "app/assembly", "app/assembly/playground", "modules/scripting/systems", "engine/docs", "platform/input", "modules/render2d", "scene", "scene/...", "schema", "script/..."}, nil},
@@ -212,6 +217,7 @@ var denied = []struct {
 	{"modules/physics/systems", []string{"modules/physics/editor", "project"}},
 	{"modules/physics/settings", []string{"project", "editor/...", "script/..."}},
 	{"modules/physics/stdlib", []string{"script/runtime", "script/compiler", "script/checker", "editor/...", "render", "render/..."}},
+	{"modules/input", []string{"editor/...", "modules/input/editor", "project", "app/..."}},
 	{"contracts/...", []string{"modules/physics/...", "engine", "engine/...", "editor/...", "render", "render/..."}},
 	{"script/bytecode", scriptCompilerOnly},
 	{"script/verify", scriptCompilerOnly},

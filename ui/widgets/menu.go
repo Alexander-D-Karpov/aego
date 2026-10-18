@@ -41,7 +41,7 @@ func (m *MenuBar) Menu(label string, width float32) bool {
 		c.OpenPopup(id, at)
 	}
 	if c.PopupOpen(id) || c.Hovered(id) {
-		c.Rect(br, th.ButtonHover)
+		c.RoundRect(mathx.Rect{X: br.X, Y: br.Y + 3, W: br.W, H: br.H - 6}, th.Radius.Menu, th.ButtonHover)
 	}
 	c.TextIn(br, label, th.Text, core.AlignCenter)
 	return c.BeginPopup(id, width)
@@ -52,43 +52,13 @@ func (m *MenuBar) EndMenu() {
 }
 
 func MenuItem(c *core.Context, label, shortcut string, enabled, checked bool) bool {
-	th := &c.Theme
-	r := c.Cursor().Next(0)
-	need := 20 + c.TextSize(label).X + 8
-	if shortcut != "" {
-		need += 24 + c.TextSize(shortcut).X
-	}
-	c.FitPopup(need)
-	id := c.ID("item/" + label)
-	clicked := false
-	if enabled {
-		clicked = c.Clicked(id, r)
-		if c.Hot() == id {
-			c.CloseChildren()
-			c.Rect(r, th.Selection)
-		}
-	}
-	col := th.Text
-	if !enabled {
-		col = th.TextDisabled
-	}
-	if checked {
-		CheckMark(c, mathx.Rect{X: r.X + 2, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, th.Accent)
-	}
-	c.Text(label, mathx.Vec2{X: r.X + 20, Y: c.TextY(r)}, col)
-	if shortcut != "" {
-		c.TextIn(r, shortcut, th.TextDim, core.AlignRight)
-	}
-	if clicked {
-		c.CloseAllPopups()
-	}
-	return clicked
+	return Entry(c, Item{Label: label, Shortcut: shortcut, Enabled: enabled, Checked: checked})
 }
 
 func SubMenu(c *core.Context, label string, width float32) bool {
 	th := &c.Theme
 	r := c.Cursor().Next(0)
-	c.FitPopup(20 + c.TextSize(label).X + r.H + 8)
+	c.FitPopup(26 + c.TextSize(label).X + r.H + 8)
 	id := c.ID("sub/" + label)
 	hot := c.MouseOver(id, r)
 	open := c.PopupOpen(id)
@@ -98,13 +68,69 @@ func SubMenu(c *core.Context, label string, width float32) bool {
 		open = true
 	}
 	if hot || open {
-		c.Rect(r, th.Selection)
+		c.RoundRect(r, th.Radius.Menu, th.Selection)
 	}
-	c.Text(label, mathx.Vec2{X: r.X + 20, Y: c.TextY(r)}, th.Text)
+	c.Text(label, mathx.Vec2{X: r.X + 26, Y: c.TextY(r)}, th.Text)
 	Chevron(c, mathx.Rect{X: r.X + r.W - r.H, Y: r.Y, W: r.H, H: r.H}, false, th.TextDim)
 	return c.BeginPopup(id, width)
 }
 
 func EndSubMenu(c *core.Context) {
 	c.EndPopup()
+}
+
+const tipDelay = 0.6
+
+type Item struct {
+	Label    string
+	Shortcut string
+	Icon     string
+	Tip      string
+	Enabled  bool
+	Checked  bool
+}
+
+func HasIcon(c *core.Context, id string) bool {
+	return id != "" && c.Icons != nil && c.Icons.Has(id)
+}
+
+func Entry(c *core.Context, it Item) bool {
+	th := &c.Theme
+	r := c.Cursor().Next(0)
+	need := 26 + c.TextSize(it.Label).X + 8
+	if it.Shortcut != "" {
+		need += 24 + c.TextSize(it.Shortcut).X
+	}
+	c.FitPopup(need)
+	id := c.ID("item/" + it.Label)
+	clicked := false
+	if it.Enabled {
+		clicked = c.Clicked(id, r)
+		if c.Hot() == id {
+			c.CloseChildren()
+			c.RoundRect(r, th.Radius.Menu, th.Selection)
+		}
+	} else {
+		c.MouseOver(id, r)
+	}
+	col, tint := th.Text, th.TextDim
+	if !it.Enabled {
+		col, tint = th.TextDisabled, th.TextDisabled
+	}
+	box := mathx.Rect{X: r.X + 4, Y: r.Y + (r.H-16)/2, W: 16, H: 16}
+	switch {
+	case it.Checked:
+		CheckMark(c, box, th.Accent)
+	case HasIcon(c, it.Icon):
+		IconAt(c, box, it.Icon, tint)
+	}
+	c.Text(it.Label, mathx.Vec2{X: r.X + 26, Y: c.TextY(r)}, col)
+	if it.Shortcut != "" {
+		c.TextIn(r, it.Shortcut, th.TextDim, core.AlignRight)
+	}
+	TooltipAfter(c, id, it.Tip, tipDelay)
+	if clicked {
+		c.CloseAllPopups()
+	}
+	return clicked
 }

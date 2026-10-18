@@ -54,6 +54,15 @@ type CodeTheme struct {
 	GuideColumn        int
 }
 
+type Radius struct {
+	Button float32
+	Field  float32
+	Menu   float32
+	Popup  float32
+	Tab    float32
+	Card   float32
+}
+
 type Theme struct {
 	Text         mathx.Color
 	TextDim      mathx.Color
@@ -93,6 +102,11 @@ type Theme struct {
 	ButtonHover  mathx.Color
 	ButtonActive mathx.Color
 	Code         CodeTheme
+	Radius       Radius
+	Shadow       mathx.Color
+	ShadowBlur   float32
+	ShadowY      float32
+	TreeGuide    mathx.Color
 
 	Padding    float32
 	BarHeight  float32
@@ -122,6 +136,8 @@ func Default() Theme {
 	t.RowHeight = 16
 	t.Spacing = 4
 	t.FontSize = 13
+	t.Radius = Radius{}
+	t.Shadow = mathx.Color{}
 	return t
 }
 
@@ -242,6 +258,11 @@ func Editor() Theme {
 		ButtonHover:  mathx.ColorRGB8(0x30, 0x34, 0x3C),
 		ButtonActive: mathx.ColorRGB8(0x2F, 0x5A, 0x8C),
 		Code:         Code(),
+		Radius:       Radius{Button: 4, Field: 4, Menu: 4, Popup: 7, Tab: 5, Card: 6},
+		Shadow:       mathx.Color{A: 0.45},
+		ShadowBlur:   12,
+		ShadowY:      4,
+		TreeGuide:    mathx.Color{R: 1, G: 1, B: 1, A: 0.07},
 		BarHeight:    28,
 		Padding:      6,
 		RowHeight:    22,

@@ -53,6 +53,7 @@ type peekState struct {
 	off  int
 	line int
 	top  int
+	acc  float32
 }
 
 type crumb struct {
@@ -488,8 +489,11 @@ func (p *Panel) drawPeek(ui *core.Context) {
 	id := core.IDSeq(p.fid, peekBase)
 	open := false
 	if ui.MouseOver(id, body) {
-		if wy := ui.WheelY(); wy != 0 {
-			pk.top -= int(wy * 3)
+		if d := ui.ScrollY(lh * 3); d != 0 {
+			pk.acc -= d / lh
+			n := int(pk.acc)
+			pk.acc -= float32(n)
+			pk.top += n
 		}
 	}
 	if ui.Pressed(id, body) && ui.DoubleClicked(id) {

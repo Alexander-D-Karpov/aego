@@ -8,23 +8,52 @@ project version=1 {
     height=720
     title="Aego Platformer"
   }
-  input {
-    axes {
-      horizontal {
-        negative=A
-        positive=D
-        altNegative=Left
-        altPositive=Right
-      }
-      vertical {
-        negative=W
-        positive=S
-        altNegative=Up
-        altPositive=Down
-      }
+  defaults {
+    audio {
+      bus.music.volume=0.8
+    }
+  }
+  input version=2 {
+    stack=[Gameplay]
+    action {
+      name=Move
+      type=axis1
+      bind=["Key.A/Key.D", "Key.Left/Key.Right", "Pad.LeftX"]
+    }
+    action {
+      name=Jump
+      type=button
+      bind=["Key.Space", "Pad.A"]
+      buffer=0.1
+    }
+    action {
+      name=Attack
+      type=button
+      bind=["Key.J", "Pad.X"]
+    }
+    action {
+      name=Pause
+      type=button
+      bind=["Key.Escape", "Pad.Start"]
+    }
+    action {
+      name=Back
+      type=button
+      bind=["Key.Escape", "Pad.B"]
+    }
+    context {
+      name=Gameplay
+      actions=[Move, Jump, Attack, Pause]
+    }
+    context {
+      name=Menu
+      priority=10
+      consume=true
+      actions=[Back]
     }
   }
   physics {
+    gravity=[0, 9.81]
     layers=[Default, Ground, Player, Enemy]
     collide {
       Player=[Ground, Enemy]

@@ -211,7 +211,10 @@ func TestEventRegistration(t *testing.T) {
 	if err := r.Event(abi.EventDef{Name: "OnHit"}); err == nil {
 		t.Fatal("duplicate event accepted")
 	}
-	if err := r.Event(abi.EventDef{Name: "OnText", Params: []abi.TypeRef{abi.T(abi.String)}}); err == nil {
+	if err := r.Event(abi.EventDef{Name: "OnText", Params: []abi.TypeRef{abi.T(abi.String)}}); err != nil {
+		t.Fatalf("string parameter rejected: %v", err)
+	}
+	if err := r.Event(abi.EventDef{Name: "OnList", Params: []abi.TypeRef{abi.SliceOf(abi.T(abi.Int))}}); err == nil {
 		t.Fatal("heap parameter accepted")
 	}
 	if sig, ok := r.Surface().Event("OnHit"); !ok || len(sig.Params) != 1 {

@@ -87,6 +87,7 @@ type Deps struct {
 	PhaseAllocs func([]uint64) []uint64
 	SetProbe    func(bool)
 	Memory      func() MemStats
+	Throttled   func() bool
 }
 
 func (p *Panel) Sections() []string {
@@ -200,6 +201,10 @@ func (p *Panel) slowest() string {
 
 func (p *Panel) budget(now float64, f *stats.Frame) {
 	if f == nil {
+		return
+	}
+	if p.deps.Throttled != nil && p.deps.Throttled() {
+		p.slow = 0
 		return
 	}
 	if f.FrameTime*1000 > 2*1000.0/60 {
@@ -505,8 +510,8 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	y := bar.Y + bar.H + th.Spacing
 	body := mathx.Rect{X: r.X, Y: y, W: r.W, H: max(0, r.Y+r.H-y)}
 	if ui.MouseOver(ui.ID("scroll"), body) {
-		if w := ui.WheelY(); w != 0 {
-			p.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			p.scroll -= w
 		}
 	}
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-body.H+th.Padding))

@@ -5,6 +5,7 @@ import (
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/problems"
+	"aego/engine/settings"
 	"aego/scene"
 )
 
@@ -29,6 +30,10 @@ type WorldAttacher interface {
 	DetachWorld(ctx *AttachContext)
 }
 
+type Reconfigurer interface {
+	Reconfigure(ctx *AttachContext) error
+}
+
 type Shutdowner interface {
 	Shutdown()
 }
@@ -40,6 +45,27 @@ type InitContext struct {
 	Editor   bool
 	Sections *Sections
 	Problems *problems.Service
+	Settings *settings.Store
+	provided []provision
+	owner    string
+}
+
+func (c *InitContext) Setting(d settings.Desc) (settings.Key, error) {
+	if c.Settings == nil {
+		return 0, nil
+	}
+	d.Owner = c.owner
+	return c.Settings.Register(d)
+}
+
+func (c *InitContext) Provided(kind string) []Provision {
+	var out []Provision
+	for _, p := range c.provided {
+		if p.kind == kind {
+			out = append(out, p.Provision)
+		}
+	}
+	return out
 }
 
 func (c *InitContext) Section(id string) any {

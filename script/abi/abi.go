@@ -237,6 +237,10 @@ func hostable(t TypeRef, param bool) bool {
 	return true
 }
 
+func EventParam(t TypeRef) bool {
+	return Plain(t) || t.Kind == String
+}
+
 func Plain(t TypeRef) bool {
 	switch t.Kind {
 	case Void, String, Slice, Coroutine, Connection, ScriptRef:

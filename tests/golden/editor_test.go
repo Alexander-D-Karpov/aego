@@ -26,6 +26,7 @@ import (
 	"aego/ui/core"
 	"aego/ui/draw"
 	"aego/ui/theme"
+	"aego/ui/widgets"
 )
 
 const (
@@ -78,6 +79,9 @@ func newEditorEnvSize(t *testing.T, w, h int) *editorEnv {
 	}
 	if icons, err := icons.Load(e.VFS(), r.Textures(), "engine://icons"); err == nil {
 		ui.Icons = icons
+	}
+	if sh, err := draw.NewShapes(e.GPU(), r.Textures()); err == nil {
+		ui.SetShapes(sh)
 	}
 	target, err := e.GPU().CreateTexture(gpu.TextureDesc{Width: w, Height: h, Format: gpu.TexSRGBA8, Label: "editor.golden"})
 	if err != nil {
@@ -159,4 +163,26 @@ func TestEditorGolden(t *testing.T) {
 			checkGolden(t, tc.name, img, err)
 		})
 	}
+}
+
+func TestEditorMenuGolden(t *testing.T) {
+	env := newEditorEnv(t)
+	ui := env.ui
+	id := core.IDOf("golden.menu")
+	img, err := env.draw(func(full mathx.Rect) {
+		if !ui.PopupOpen(id) {
+			ui.OpenPopup(id, mathx.Vec2{X: 40, Y: 40})
+		}
+		if ui.BeginPopup(id, 240) {
+			widgets.Entry(ui, widgets.Item{Label: "Frame Selection", Shortcut: "F", Icon: "view.zoom", Enabled: true})
+			widgets.Entry(ui, widgets.Item{Label: "Snap", Icon: "view.snap", Enabled: true, Checked: true})
+			widgets.Separator(ui)
+			widgets.Entry(ui, widgets.Item{Label: "Delete", Shortcut: "Delete"})
+			ui.EndPopup()
+		}
+		widgets.ButtonRect(ui, ui.ID("btn"), mathx.Rect{X: 320, Y: 40, W: 120, H: 26}, "Button")
+		v := "field"
+		widgets.TextFieldRect(ui, ui.ID("fld"), mathx.Rect{X: 320, Y: 80, W: 160, H: 24}, &v, false)
+	})
+	checkGolden(t, "editor_menu_popup", img, err)
 }

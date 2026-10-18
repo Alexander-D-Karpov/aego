@@ -42,6 +42,7 @@ type Stats struct {
 	Sprites      int
 	Views        int
 	Frame        uint64
+	Updates      uint64
 	Tick         uint64
 	Alpha        float64
 	Scale        float64
@@ -68,10 +69,30 @@ type Controller struct {
 	unrec    func()
 	breakFn  func() (string, bool)
 	breakWhy string
+	release  func(*input.State) bool
+	hint     func() string
 }
 
 func New(ctx *context.Editor) *Controller {
 	return &Controller{ctx: ctx, scale: 1}
+}
+
+func (c *Controller) SetRelease(pressed func(*input.State) bool, hint func() string) {
+	c.release, c.hint = pressed, hint
+}
+
+func (c *Controller) ReleasePressed(in *input.State) bool {
+	return c.release != nil && c.release(in)
+}
+
+func (c *Controller) ReleaseHint() string {
+	if c.hint == nil {
+		return ""
+	}
+	if k := c.hint(); k != "" {
+		return k + " releases input"
+	}
+	return ""
 }
 
 func (c *Controller) State() State {
@@ -417,22 +438,25 @@ func (c *Controller) Captured() bool {
 }
 
 func (c *Controller) syncInput() {
+	in := c.ctx.Engine.Input()
 	if !c.captured {
 		c.input = input.State{}
+		c.input.CopyPads(in)
 		return
 	}
-	in := c.ctx.Engine.Input()
 	f := in.Snapshot()
 	pos := f.MousePos.Sub(c.origin)
 	outside := pos.X < 0 || pos.Y < 0 || pos.X >= c.size.X || pos.Y >= c.size.Y
 	click := in.ButtonPressed(input.MouseLeft) || in.ButtonPressed(input.MouseRight) || in.ButtonPressed(input.MouseMiddle)
-	if in.KeyPressed(input.KeyEscape) || (outside && click) {
+	if c.ReleasePressed(in) || (outside && click) {
 		c.captured = false
 		c.input = input.State{}
+		c.input.CopyPads(in)
 		return
 	}
 	f.MousePos = pos
 	c.input.Restore(f)
+	c.input.CopyPads(in)
 }
 
 func (c *Controller) guard(stage string) {
@@ -467,7 +491,7 @@ func (c *Controller) Tick(dt float64) {
 		c.stats.Update = time.Since(start).Seconds()
 	}
 	t := w.Time
-	c.stats.Frame, c.stats.Tick, c.stats.Alpha = t.Frame(), t.Tick(), t.Alpha()
+	c.stats.Frame, c.stats.Updates, c.stats.Tick, c.stats.Alpha = t.Frame(), t.Updates(), t.Tick(), t.Alpha()
 	c.stats.Scale, c.stats.DroppedFixed = t.Scale(), t.DroppedSteps()
 	if c.scene != nil {
 		c.stats.Nodes = c.scene.Stats().Alive - 1
@@ -499,6 +523,7 @@ func (c *Controller) Render(t *rt.Target) (cameras bool) {
 	alpha := c.world.Time.Alpha()
 	e.RunPhase(c.world, engine.PhaseRenderPrepare, engine.ScopePlay, 0, alpha)
 	e.RunPhase(c.world, engine.PhaseRender, engine.ScopePlay, 0, alpha)
+	e.RunPhase(c.world, engine.PhaseRenderUI, engine.ScopePlay, 0, alpha)
 	rs := c.runner.Stats()
 	c.stats.Render = time.Since(start).Seconds()
 	c.stats.Sprites = rs.Sprites + rs.Sprites3D + rs.Meshes

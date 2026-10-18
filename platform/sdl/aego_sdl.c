@@ -37,7 +37,9 @@ static int aego_button(Uint8 b) {
 }
 
 bool aego_init(void) {
-	return SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) return false;
+	SDL_InitSubSystem(SDL_INIT_GAMEPAD);
+	return true;
 }
 
 void aego_quit(void) {
@@ -205,12 +207,44 @@ int aego_poll(aego_event* e) {
 		e->kind = AEGO_EV_WHEEL;
 		e->wx = ev.wheel.x;
 		e->wy = ev.wheel.y;
-		if (ev.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
-			e->wx = -e->wx;
-			e->wy = -e->wy;
-		}
+		e->flipped = ev.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? 1 : 0;
 		e->x = ev.wheel.mouse_x;
 		e->y = ev.wheel.mouse_y;
+		break;
+	case SDL_EVENT_GAMEPAD_ADDED: {
+		SDL_Gamepad* g = SDL_OpenGamepad(ev.gdevice.which);
+		if (!g) break;
+		e->kind = AEGO_EV_PAD_ADDED;
+		e->pad = (int)ev.gdevice.which;
+		const char* n = SDL_GetGamepadName(g);
+		if (n) {
+			size_t k = strlen(n);
+			if (k > AEGO_TEXT_CAPACITY) k = AEGO_TEXT_CAPACITY;
+			memcpy(e->text, n, k);
+			e->textn = (int)k;
+		}
+		break;
+	}
+	case SDL_EVENT_GAMEPAD_REMOVED: {
+		SDL_Gamepad* g = SDL_GetGamepadFromID(ev.gdevice.which);
+		if (g) SDL_CloseGamepad(g);
+		e->kind = AEGO_EV_PAD_REMOVED;
+		e->pad = (int)ev.gdevice.which;
+		break;
+	}
+	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+	case SDL_EVENT_GAMEPAD_BUTTON_UP:
+		if (ev.gbutton.button >= AEGO_PAD_BUTTONS) break;
+		e->kind = ev.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? AEGO_EV_PAD_DOWN : AEGO_EV_PAD_UP;
+		e->pad = (int)ev.gbutton.which;
+		e->button = ev.gbutton.button;
+		break;
+	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+		if (ev.gaxis.axis >= AEGO_PAD_AXES) break;
+		e->kind = AEGO_EV_PAD_AXIS;
+		e->pad = (int)ev.gaxis.which;
+		e->button = ev.gaxis.axis;
+		e->wx = ev.gaxis.value < 0 ? ev.gaxis.value / 32768.0f : ev.gaxis.value / 32767.0f;
 		break;
 	}
 	return 1;
@@ -302,4 +336,65 @@ void aego_free_cursors(void) {
 			aego_cursors[i] = NULL;
 		}
 	}
+}
+
+int aego_displays(SDL_DisplayID* out, int max) {
+	int n = 0;
+	SDL_DisplayID* ids = SDL_GetDisplays(&n);
+	if (!ids) return 0;
+	if (n > max) n = max;
+	for (int i = 0; i < n; i++) out[i] = ids[i];
+	SDL_free(ids);
+	return n;
+}
+
+bool aego_display_current(SDL_DisplayID id, aego_mode* out) {
+	const SDL_DisplayMode* m = SDL_GetCurrentDisplayMode(id);
+	if (!m) return false;
+	out->w = m->w;
+	out->h = m->h;
+	out->hz = m->refresh_rate;
+	return true;
+}
+
+int aego_display_modes(SDL_DisplayID id, aego_mode* out, int max) {
+	int n = 0;
+	SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(id, &n);
+	if (!modes) return 0;
+	if (n > max) n = max;
+	for (int i = 0; i < n; i++) {
+		out[i].w = modes[i]->w;
+		out[i].h = modes[i]->h;
+		out[i].hz = modes[i]->refresh_rate;
+	}
+	SDL_free(modes);
+	return n;
+}
+
+bool aego_set_window_mode(SDL_Window* w, int mode, SDL_DisplayID id, int width, int height, float hz) {
+	SDL_Rect b;
+	if (!SDL_GetDisplayBounds(id, &b)) return false;
+	switch (mode) {
+	case 2: {
+		SDL_DisplayMode m;
+		if (!SDL_GetClosestFullscreenDisplayMode(id, width, height, hz, true, &m)) return false;
+		SDL_SetWindowPosition(w, SDL_WINDOWPOS_CENTERED_DISPLAY(id), SDL_WINDOWPOS_CENTERED_DISPLAY(id));
+		if (!SDL_SetWindowFullscreenMode(w, &m)) return false;
+		if (!SDL_SetWindowFullscreen(w, true)) return false;
+		break;
+	}
+	case 1:
+		SDL_SetWindowPosition(w, b.x, b.y);
+		if (!SDL_SetWindowFullscreenMode(w, NULL)) return false;
+		if (!SDL_SetWindowFullscreen(w, true)) return false;
+		break;
+	default:
+		if (!SDL_SetWindowFullscreen(w, false)) return false;
+		SDL_SetWindowBordered(w, true);
+		if (width > 0 && height > 0) SDL_SetWindowSize(w, width, height);
+		SDL_SetWindowPosition(w, SDL_WINDOWPOS_CENTERED_DISPLAY(id), SDL_WINDOWPOS_CENTERED_DISPLAY(id));
+		break;
+	}
+	SDL_SyncWindow(w);
+	return true;
 }

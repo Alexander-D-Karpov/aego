@@ -111,7 +111,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	switch {
 	case p.play.Captured():
 		p.play.SetCapture(true, origin, mathx.Vec2{X: r.W, Y: r.H})
-		if ui.KeyPressed(input.KeyEscape) || (ui.MousePressed(input.MouseLeft) && !r.Contains(ui.Mouse())) {
+		if ui.MousePressed(input.MouseLeft) && !r.Contains(ui.Mouse()) {
 			p.Release()
 		}
 	case !onBar && ui.Pressed(id, r):
@@ -119,8 +119,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	if p.play.Captured() {
 		ui.List().RectOutline(r, th.Accent, 2)
-		hint := mathx.Rect{X: r.X, Y: r.Y + r.H - th.RowHeight, W: r.W, H: th.RowHeight}
-		ui.TextIn(hint, "Esc releases input", th.TextDim, core.AlignCenter)
+		if hint := p.play.ReleaseHint(); hint != "" {
+			hr := mathx.Rect{X: r.X, Y: r.Y + r.H - th.RowHeight, W: r.W, H: th.RowHeight}
+			ui.TextIn(hr, hint, th.TextDim, core.AlignCenter)
+		}
 	}
 	if !p.hasCamera {
 		ui.TextIn(r, "No active camera in the scene", th.Warn, core.AlignCenter)

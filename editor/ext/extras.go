@@ -8,7 +8,7 @@ import (
 	"aego/editor/core/vectors"
 )
 
-func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) bool) error {
+func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) bool, keywords ...string) error {
 	ed := r.deps.Editor
 	ext := r.ext()
 	if ed == nil || draw == nil {
@@ -27,7 +27,7 @@ func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) 
 		changed := false
 		Safe(ext, r, func() { changed = draw(ed, d) })
 		return changed
-	}})
+	}, Keywords: keywords})
 	return nil
 }
 

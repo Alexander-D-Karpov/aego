@@ -22,8 +22,10 @@ type queued struct {
 }
 
 var (
-	_ scriptevents.Sink     = (*Runtime)(nil)
-	_ scriptevents.Listener = (*Runtime)(nil)
+	_ scriptevents.Sink        = (*Runtime)(nil)
+	_ scriptevents.Listener    = (*Runtime)(nil)
+	_ scriptevents.Strings     = (*Runtime)(nil)
+	_ scriptevents.Broadcaster = (*Runtime)(nil)
 )
 
 func (t *scriptType) event(i int) *vm.Func {
@@ -177,4 +179,22 @@ func (r *Runtime) DispatchEvents(ec *engine.Context) {
 	r.ctx.Dt = float32(ec.Dt)
 	r.Flush()
 	r.end()
+}
+
+func (r *Runtime) Intern(s string) vm.Value {
+	if r.m == nil {
+		return vm.Value{}
+	}
+	return r.m.Intern(s)
+}
+
+func (r *Runtime) Broadcast(ev scriptevents.EventID, args []vm.Value) {
+	if r.scene == nil || !r.Listens(ev) {
+		return
+	}
+	for _, h := range r.scene.PreOrder() {
+		if r.ListensOn(h, ev) {
+			r.Emit(h, ev, args)
+		}
+	}
 }

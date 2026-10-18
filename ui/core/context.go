@@ -68,6 +68,7 @@ type popup struct {
 	rect   mathx.Rect
 	opened uint64
 	bg     int
+	shadow int
 	need   float32
 	cur    float32
 }
@@ -93,6 +94,10 @@ type Context struct {
 	Clipboard Clipboard
 	Icons     *icons.Set
 	Time      float64
+	Flash     string
+	FlashAt   float64
+	FlashY    float32
+	FlashSeen bool
 
 	font  *text.Font
 	fonts *text.FontSet
@@ -497,11 +502,66 @@ func (c *Context) MouseDelta() mathx.Vec2 {
 	return c.in.MouseDelta()
 }
 
-func (c *Context) WheelY() float32 {
+type Scroll struct {
+	Lines  mathx.Vec2
+	Pixels mathx.Vec2
+}
+
+const (
+	PrecisePixels = 10
+	PreciseZoom   = 0.25
+)
+
+func (c *Context) Scroll() Scroll {
+	if c.in == nil {
+		return Scroll{}
+	}
+	return Scroll{Lines: c.in.WheelLines(), Pixels: c.in.WheelPrecise().Scale(PrecisePixels)}
+}
+
+func (c *Context) ScrollY(step float32) float32 {
+	s := c.Scroll()
+	return s.Lines.Y*step + s.Pixels.Y
+}
+
+func (c *Context) ScrollX(step float32) float32 {
+	s := c.Scroll()
+	return s.Lines.X*step + s.Pixels.X
+}
+
+func (c *Context) ZoomY() float32 {
 	if c.in == nil {
 		return 0
 	}
-	return c.in.Wheel().Y
+	z := c.in.WheelLines().Y + c.in.WheelPrecise().Y*PreciseZoom
+	if c.in.WheelFlipped() {
+		z = -z
+	}
+	return z
+}
+
+func (c *Context) SetShapes(s *draw.Shapes) {
+	c.list.SetShapes(s)
+}
+
+func (c *Context) RoundRect(r mathx.Rect, radius float32, col mathx.Color) {
+	c.list.RoundRect(r, radius, col, draw.CornersAll)
+}
+
+func (c *Context) Box(r mathx.Rect, radius float32, fill, border mathx.Color) {
+	if radius <= 0 || c.list.Shapes() == nil {
+		c.list.Rect(r, fill)
+		c.list.RectOutline(r, border, 1)
+		return
+	}
+	c.list.Box(r, radius, fill, border)
+}
+
+func (c *Context) Shadow(r mathx.Rect, radius float32) {
+	th := &c.Theme
+	if th.Shadow.A > 0 {
+		c.list.Shadow(r, radius, th.ShadowBlur, th.ShadowY, th.Shadow)
+	}
 }
 
 func (c *Context) KeyPressed(k input.Scancode) bool {
@@ -640,8 +700,8 @@ func (c *Context) BeginModal(id ID, r mathx.Rect) bool {
 	full := mathx.Rect{W: c.size.X, H: c.size.Y}
 	c.BeginOverlay(full, draw.LayerModal)
 	c.list.Rect(full, c.Theme.Overlay)
-	c.list.Rect(r, c.Theme.Panel)
-	c.list.RectOutline(r, c.Theme.Border, 1)
+	c.Shadow(r, c.Theme.Radius.Popup)
+	c.Box(r, c.Theme.Radius.Popup, c.Theme.Panel, c.Theme.Border)
 	c.PushClip(r)
 	c.Region(r)
 	return true
@@ -784,13 +844,17 @@ func (c *Context) BeginPopup(id ID, w float32) bool {
 	if r.Y+r.H > c.size.Y {
 		r.Y = max(0, c.size.Y-r.H)
 	}
+	r.X, r.Y, r.W = float32(int(r.X+0.5)), float32(int(r.Y+0.5)), float32(int(r.W+0.5))
 	p.rect = r
 	layer := draw.LayerPopup
 	if c.overlayDepth > 0 {
 		layer = draw.LayerTop
 	}
+	c.list.PushLayer(layer)
+	p.shadow = c.list.ReserveShadow()
+	c.list.PopLayer()
 	c.BeginOverlay(r, layer)
-	p.bg = c.list.Reserve()
+	p.bg = c.list.ReserveBox()
 	c.Region(r)
 	c.popupStack = append(c.popupStack, i)
 	return true
@@ -806,13 +870,14 @@ func (c *Context) EndPopup() {
 	bottom := c.cursor.Y
 	c.PopCursor()
 	if i < len(c.popups) {
+		th := &c.Theme
 		p := &c.popups[i]
-		p.need = p.cur + 2*c.Theme.Padding
-		p.h = bottom - p.rect.Y + c.Theme.Padding - c.Theme.Spacing
+		p.need = p.cur + 2*th.Padding
+		p.h = bottom - p.rect.Y + th.Padding - th.Spacing
 		r := p.rect
 		r.H = min(p.h, r.H)
-		c.list.Patch(p.bg, r, c.Theme.PanelAlt)
-		c.list.RectOutline(r, c.Theme.Border, 1)
+		c.list.PatchShadow(p.shadow, r, th.Radius.Popup, th.ShadowBlur, th.ShadowY, th.Shadow)
+		c.list.PatchBox(p.bg, r, th.Radius.Popup, th.PanelAlt, th.Border)
 	}
 	c.EndOverlay()
 }

@@ -19,6 +19,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/platform/input"
 	"aego/scene"
+	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
@@ -35,6 +36,8 @@ type row struct {
 	id    ids.NodeID
 	depth int
 	has   bool
+	last  bool
+	lines uint64
 }
 
 type Deps struct {
@@ -64,6 +67,8 @@ type Panel struct {
 	menuID        core.ID
 	sceneMenuID   core.ID
 	doc           document.ID
+	rank          map[schema.TypeID]int
+	rankReg       *schema.Registry
 }
 
 func New(d Deps) *Panel {
@@ -274,22 +279,32 @@ func (p *Panel) build(d *document.SceneDocument) {
 		}
 		return
 	}
-	p.walk(s, d.View.Expanded, s.Root(), 0)
+	p.walk(s, d.View.Expanded, s.Root(), 0, 0)
 }
 
-func (p *Panel) walk(s *scene.Scene, expanded map[ids.NodeID]bool, h scene.NodeHandle, depth int) {
-	s.Children(h, func(c scene.NodeHandle) bool {
-		if !s.IsAlive(c) {
-			return true
-		}
+func (p *Panel) walk(s *scene.Scene, expanded map[ids.NodeID]bool, h scene.NodeHandle, depth int, lines uint64) {
+	for c := nextAlive(s, s.FirstChild(h)); !c.IsZero(); {
+		next := nextAlive(s, s.NextSibling(c))
 		id := s.ID(c)
 		has := s.ChildCount(c) > 0
-		p.rows = append(p.rows, row{h: c, id: id, depth: depth, has: has})
+		last := next.IsZero()
+		p.rows = append(p.rows, row{h: c, id: id, depth: depth, has: has, last: last, lines: lines})
 		if has && expanded[id] {
-			p.walk(s, expanded, c, depth+1)
+			sub := lines
+			if !last && depth > 0 && depth <= 64 {
+				sub |= 1 << (depth - 1)
+			}
+			p.walk(s, expanded, c, depth+1, sub)
 		}
-		return true
-	})
+		c = next
+	}
+}
+
+func nextAlive(s *scene.Scene, c scene.NodeHandle) scene.NodeHandle {
+	for !c.IsZero() && !s.IsAlive(c) {
+		c = s.NextSibling(c)
+	}
+	return c
 }
 
 func (p *Panel) indexOf(id ids.NodeID) int {
@@ -305,6 +320,32 @@ func rowID(id ids.NodeID) core.ID {
 	return core.IDSeq(core.ID(id.Hi), int(uint32(id.Lo)))
 }
 
+func (p *Panel) nodeIcon(s *scene.Scene, h scene.NodeHandle) (string, bool) {
+	reg := s.Registry()
+	if p.rankReg != reg {
+		p.rankReg, p.rank = reg, map[schema.TypeID]int{}
+		for i, td := range reg.Components() {
+			p.rank[td.ID] = i
+		}
+	}
+	icon, prio, rank, any := "", 0, 0, false
+	s.ComponentsOf(h, func(t schema.TypeID) {
+		td, ok := reg.ByID(t)
+		if !ok || td.Hidden {
+			return
+		}
+		any = true
+		r := p.rank[t]
+		if td.NodeIcon > 0 && td.Icon != "" && (td.NodeIcon > prio || td.NodeIcon == prio && r < rank) {
+			icon, prio, rank = td.Icon, td.NodeIcon, r
+		}
+	})
+	if icon == "" && any {
+		icon = "cat.node"
+	}
+	return icon, !any
+}
+
 func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr mathx.Rect) {
 	ui := f.UI
 	s := d.Scene()
@@ -318,6 +359,7 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 	if p.filter != "" {
 		label = s.Path(rw.h)
 	}
+	icon, empty := p.nodeIcon(s, rw.h)
 	id := rowID(rw.id)
 	ev := widgets.TreeRowRect(ui, id, rr, widgets.TreeRow{
 		Depth:       rw.depth,
@@ -327,6 +369,11 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 		Selected:    selected,
 		Focused:     f.Focused,
 		Dim:         !s.EffectiveEnabled(rw.h),
+		Icon:        icon,
+		Marker:      empty,
+		Guides:      p.filter == "",
+		Last:        rw.last,
+		Lines:       rw.lines,
 	})
 	p.decorate(f, d, rw, rr)
 	if ev.Toggled {

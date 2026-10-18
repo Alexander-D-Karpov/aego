@@ -8,7 +8,6 @@ import (
 	"aego/core/log"
 	"aego/engine/base"
 	"aego/engine/module"
-	"aego/platform/input"
 	"aego/scene"
 	"aego/script/bind"
 )
@@ -16,7 +15,6 @@ import (
 type Options struct {
 	Seed    uint64
 	Testing bool
-	Input   *input.AxisConfig
 }
 
 type Entry struct {

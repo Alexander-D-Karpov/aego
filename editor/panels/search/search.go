@@ -33,10 +33,11 @@ const (
 	TabSymbols
 	TabNodes
 	TabActions
+	TabSettings
 	tabCount
 )
 
-var tabNames = [tabCount]string{"All", "Files", "Symbols", "Nodes", "Actions"}
+var tabNames = [tabCount]string{"All", "Files", "Symbols", "Nodes", "Actions", "Settings"}
 
 type Item struct {
 	Label  string
@@ -75,6 +76,7 @@ type Deps struct {
 	Commands  *command.Registry
 	Notices   services.Notices
 	Nav       services.Navigation
+	Settings  func() []Item
 }
 
 func New(d Deps) *Overlay {
@@ -153,6 +155,15 @@ func (o *Overlay) collect() {
 					}
 				},
 			})
+		}
+	}
+	if o.d.Settings != nil {
+		for _, it := range o.d.Settings() {
+			it.Tab, it.Kind = TabSettings, "setting"
+			if it.Icon == "" {
+				it.Icon = "ui.more"
+			}
+			o.items = append(o.items, it)
 		}
 	}
 	for _, d := range o.d.Commands.All() {

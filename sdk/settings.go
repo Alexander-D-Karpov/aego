@@ -1,8 +1,10 @@
 package sdk
 
 import (
+	"aego/engine"
 	"aego/engine/module"
 	"aego/engine/problems"
+	es "aego/engine/settings"
 )
 
 type (
@@ -34,4 +36,29 @@ func Section[T any](ctx *InitContext, id string) (*T, bool) {
 
 func Diagnostics(ctx *InitContext) *ProblemService {
 	return ctx.Problems
+}
+
+type (
+	SettingDesc   = es.Desc
+	SettingKey    = es.Key
+	SettingChoice = es.Choice
+	SettingsStore = es.Store
+)
+
+const (
+	SettingUser          = es.User
+	SettingProject       = es.Project
+	SettingRestart       = es.Restart
+	SettingTransient     = es.Transient
+	SettingAccessibility = es.Accessibility
+	SettingConfirm       = es.Confirm
+)
+
+func Setting(r *Registry, d SettingDesc) {
+	r.r.Setting(d)
+}
+
+func Settings(ctx *Context) *SettingsStore {
+	s, _ := engine.Service[*es.Store](ctx.Engine, es.ServiceID)
+	return s
 }

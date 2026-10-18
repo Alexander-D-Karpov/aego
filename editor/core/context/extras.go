@@ -11,10 +11,11 @@ import (
 const DefaultVectorScale = 0.1
 
 type SettingsPage struct {
-	Section string
-	Title   string
-	Order   int
-	Draw    func(draft any) bool
+	Section  string
+	Title    string
+	Order    int
+	Draw     func(draft any) bool
+	Keywords []string
 }
 
 type VectorLayer struct {

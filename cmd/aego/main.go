@@ -164,6 +164,7 @@ func cmdRun(args []string) int {
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
 	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
+	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -196,6 +197,7 @@ func cmdRun(args []string) int {
 		Watch:     *frames == 0,
 		ScenePath: *scenePath,
 		Trace:     *tracePath,
+		Profile:   *settingsProfile,
 	}
 	if err := run.Run(p, cfg); err != nil {
 		return fail(err)
@@ -227,6 +229,7 @@ func cmdEdit(args []string) int {
 	headless := fs.Bool("headless", false, "run without a window")
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
+	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -255,13 +258,13 @@ func cmdEdit(args []string) int {
 		}
 	}
 	if bootstrap.NeedsNative(p) && !*headless && *frames == 0 {
-		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile}
+		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile, Profile: *settingsProfile}
 		if err := supervise.Run(p, opt); err != nil {
 			return fail(err)
 		}
 		return 0
 	}
-	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Recent: recent}
+	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Profile: *settingsProfile, Recent: recent}
 	if err := edit.Run(p, cfg); err != nil {
 		return fail(err)
 	}

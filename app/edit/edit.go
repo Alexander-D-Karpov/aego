@@ -25,6 +25,7 @@ import (
 	"aego/engine"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/platform"
 	"aego/project"
 	"aego/scene"
 	"aego/script/langsvc"
@@ -44,6 +45,7 @@ type Config struct {
 	Supervised bool
 	CPUProfile string
 	Recent     string
+	Profile    string
 	Logger     *log.Logger
 	Catalog    assembly.Catalog
 }
@@ -89,6 +91,7 @@ func Main(mods ...sdk.Module) {
 	headless := fs.Bool("headless", false, "run without a window")
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
+	profile := fs.String("profile", "", "player settings profile, default when empty")
 	fs.Parse(os.Args[1:])
 	dir := "."
 	if fs.NArg() > 0 {
@@ -108,6 +111,7 @@ func Main(mods ...sdk.Module) {
 		Headless:   *headless,
 		Frames:     *frames,
 		CPUProfile: *cpu,
+		Profile:    *profile,
 		Supervised: os.Getenv(session.EnvSupervised) == "1",
 	}
 	cfg.Recent, _ = launcher.RecentPath()
@@ -160,6 +164,7 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 }
 
 func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) {
+	platform.SetAppMetadata(platform.AppMetadata{Name: "Aego Editor", Version: engine.Version, Identifier: "ru.akarpov.aego.editor"})
 	if cfg.Width <= 0 {
 		cfg.Width = 1600
 	}
@@ -189,6 +194,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Docs:           true,
 		Editor:         true,
 		Catalog:        cat,
+		Profile:        cfg.Profile,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
@@ -236,6 +242,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Modules:     h.Modules,
 		Sections:    h.Sections,
 		Problems:    h.Problems,
+		Settings:    h.Settings,
 		Hooks:       h.Modules.Editor,
 		RenderStats: h.RenderStats,
 		Supervised:  cfg.Supervised,

@@ -9,6 +9,7 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/settings"
 	"aego/scene"
 	"aego/schema"
 )
@@ -16,21 +17,24 @@ import (
 const EngineModuleID = "engine.modules"
 
 type Manifest struct {
-	Modules      []Info
-	Systems      []engine.SystemDesc
-	Templates    []schema.TemplateDesc
-	Icons        []IconSet
-	Docs         []DocSource
-	Events       []scriptevents.Event
-	Sections     []*Section
-	ScriptOwners map[string]string
-	Dev          []Hook
-	Editor       []Hook
-	Warnings     []string
-	order        []*entry
-	services     []serviceDesc
-	engines      []ownedEngine
-	inited       []*entry
+	Modules         []Info
+	Systems         []engine.SystemDesc
+	Templates       []schema.TemplateDesc
+	Icons           []IconSet
+	Docs            []DocSource
+	Events          []scriptevents.Event
+	Sections        []*Section
+	ScriptOwners    map[string]string
+	Dev             []Hook
+	Editor          []Hook
+	Warnings        []string
+	Settings        []settings.Desc
+	SettingVersions []settings.OwnerVersion
+	order           []*entry
+	services        []serviceDesc
+	engines         []ownedEngine
+	inited          []*entry
+	provided        []provision
 }
 
 func (r *Registry) Build() (*Manifest, error) {
@@ -60,6 +64,7 @@ func (r *Registry) Build() (*Manifest, error) {
 	r.checkServices()
 	r.checkTemplates(icons)
 	r.checkSections()
+	r.checkSettings()
 	if len(r.errs) > 0 {
 		return nil, errors.Join(r.errs...)
 	}
@@ -233,10 +238,11 @@ func (r *Registry) checkSections() {
 
 func (r *Registry) manifest(order []*entry) *Manifest {
 	m := &Manifest{
-		order: order, services: r.services, engines: r.engines,
+		order: order, services: r.services, engines: r.engines, provided: r.provided,
 		Icons: r.icons, Docs: r.docs, ScriptOwners: r.owners,
 		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
 		Events: r.Events(), Sections: r.sections,
+		Settings: r.settings, SettingVersions: r.versions,
 	}
 	for _, e := range order {
 		m.Modules = append(m.Modules, e.info)
@@ -294,7 +300,38 @@ func (m *Manifest) Engine() engine.Module {
 	return engineModule{m: m}
 }
 
+func (r *Registry) checkSettings() {
+	seen := map[string]string{}
+	for _, d := range r.settings {
+		if !strings.HasPrefix(d.ID, d.Owner+".") || !settings.ValidPath(d.ID) {
+			r.report(d.Owner, "setting "+d.ID+" must be named "+d.Owner+".<name>")
+		}
+		if other, dup := seen[d.ID]; dup {
+			r.report(d.Owner, "setting "+d.ID+" is already registered by "+other)
+			continue
+		}
+		seen[d.ID] = d.Owner
+	}
+}
+
+func (m *Manifest) NewSettings() (*settings.Store, error) {
+	st := settings.New()
+	var all []error
+	for _, v := range m.SettingVersions {
+		if err := st.OwnerVersion(v); err != nil {
+			all = append(all, err)
+		}
+	}
+	for _, d := range m.Settings {
+		if _, err := st.Register(d); err != nil {
+			all = append(all, err)
+		}
+	}
+	return st, errors.Join(all...)
+}
+
 func (m *Manifest) Init(ctx *InitContext) error {
+	ctx.provided = m.provided
 	if ctx.Engine != nil {
 		for _, s := range m.services {
 			ctx.Engine.SetService(s.id, s.value)
@@ -302,7 +339,10 @@ func (m *Manifest) Init(ctx *InitContext) error {
 	}
 	for _, e := range m.order {
 		if in, ok := e.mod.(Initer); ok {
-			if err := in.Init(ctx); err != nil {
+			ctx.owner = e.info.ID
+			err := in.Init(ctx)
+			ctx.owner = ""
+			if err != nil {
 				m.Shutdown()
 				if ctx.Engine != nil {
 					for _, s := range m.services {
@@ -350,4 +390,16 @@ func (m *Manifest) Attach(ctx *AttachContext) (func(), error) {
 		}
 	}
 	return detach, nil
+}
+
+func (m *Manifest) Reconfigure(ctx *AttachContext) error {
+	var all []error
+	for _, e := range m.order {
+		if rc, ok := e.mod.(Reconfigurer); ok {
+			if err := rc.Reconfigure(ctx); err != nil {
+				all = append(all, errs.Wrap(err, errs.EngineModule, "module "+e.info.ID+" cannot apply the new settings").With(log.F("module", e.info.ID)))
+			}
+		}
+	}
+	return errors.Join(all...)
 }

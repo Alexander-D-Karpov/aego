@@ -166,8 +166,8 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	th := &ui.Theme
 	if ui.MouseOver(ui.ID("scroll"), r) {
-		if w := ui.WheelY(); w != 0 {
-			p.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			p.scroll -= w
 		}
 	}
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-r.H+th.Padding*2))

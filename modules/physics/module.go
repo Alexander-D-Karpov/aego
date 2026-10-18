@@ -98,6 +98,22 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	return nil
 }
 
+func (m *Module) Reconfigure(ctx *module.AttachContext) error {
+	if !ctx.Play || ctx.World == nil {
+		return nil
+	}
+	sim := SimOf(ctx.World)
+	if sim == nil {
+		return nil
+	}
+	p := m.Project()
+	if err := sim.World().SetConfig(p.Config()); err != nil {
+		return err
+	}
+	sim.SetLayers(p.Layers())
+	return sim.World().SetLayerMatrix(p.Matrix())
+}
+
 func (m *Module) DetachWorld(ctx *module.AttachContext) {
 	if !ctx.Play || ctx.World == nil {
 		return

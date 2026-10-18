@@ -23,6 +23,11 @@ const (
 	EvDropFile
 	EvDropText
 	EvDropComplete
+	EvPadAdded
+	EvPadRemoved
+	EvPadButtonDown
+	EvPadButtonUp
+	EvPadAxis
 )
 
 var eventKindNames = [...]string{
@@ -49,6 +54,7 @@ type Event struct {
 	EditStart int32
 	EditLen   int32
 	Window    WindowMetrics
+	Pad       input.PadEvent
 }
 
 func (e *Event) TextBytes() []byte {
@@ -68,7 +74,17 @@ func ApplyInput(s *input.State, ev Event) {
 	case EvMouseUp:
 		s.ApplyMouseUp(ev.Mouse.Pos, ev.Mouse.Button)
 	case EvMouseWheel:
-		s.ApplyWheel(ev.Mouse.Pos, ev.Mouse.Wheel)
+		s.ApplyScroll(ev.Mouse.Pos, ev.Mouse.Wheel, ev.Mouse.Precise, ev.Mouse.Flipped)
+	case EvPadAdded:
+		s.ApplyPadAdded(ev.Pad.ID, ev.Pad.Name)
+	case EvPadRemoved:
+		s.ApplyPadRemoved(ev.Pad.ID)
+	case EvPadButtonDown:
+		s.ApplyPadButton(ev.Pad.ID, ev.Pad.Button, true)
+	case EvPadButtonUp:
+		s.ApplyPadButton(ev.Pad.ID, ev.Pad.Button, false)
+	case EvPadAxis:
+		s.ApplyPadAxis(ev.Pad.ID, ev.Pad.Axis, ev.Pad.Value)
 	case EvTextInput:
 		s.ApplyText(ev.Text[:ev.TextN])
 	case EvWindowFocusLost:

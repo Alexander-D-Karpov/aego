@@ -55,6 +55,7 @@ func (Module) Register(r *module.Registry) error {
 		Category("Rendering").
 		Display("Sprite Renderer").
 		Icon("cat.rendering").
+		NodeIcon(60).
 		Default(DefaultSpriteRenderer).
 		Template("Sprite", unitSprite).
 		Err(); err != nil {
@@ -78,6 +79,7 @@ func (Module) Register(r *module.Registry) error {
 		Category("Camera").
 		Display("Camera 2D").
 		Icon("cat.camera").
+		NodeIcon(100).
 		Default(DefaultCamera2D).
 		Template("Camera", nil).
 		Err(); err != nil {

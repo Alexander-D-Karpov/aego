@@ -70,7 +70,7 @@ script PlayerController {
 		if sr != nil {
 			sr.FlipX = x < 0
 		}
-		if Target != nil && input.Pressed(input.KeySpace) {
+		if Target != nil && input.KeyPressed(input.KeySpace) {
 			combat.Damage(Target, 5)
 		}
 	}

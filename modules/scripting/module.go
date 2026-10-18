@@ -29,6 +29,7 @@ func (m Module) Register(r *module.Registry) error {
 		Category("Scripts").
 		Display("Scripts").
 		Icon("cat.scripts").
+		NodeIcon(20).
 		ScriptNone().
 		Err(); err != nil {
 		return err

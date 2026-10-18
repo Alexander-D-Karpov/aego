@@ -37,3 +37,39 @@ type Cursorer interface {
 type MouseCapturer interface {
 	CaptureMouse(on bool)
 }
+
+type WindowMode uint8
+
+const (
+	Windowed WindowMode = iota
+	Borderless
+	Fullscreen
+)
+
+type DisplayMode struct {
+	W, H int
+	Hz   float32
+}
+
+type Display struct {
+	ID      uint32
+	Name    string
+	Current DisplayMode
+	Modes   []DisplayMode
+}
+
+func (d *Display) Has(m DisplayMode) bool {
+	for _, x := range d.Modes {
+		if x.W == m.W && x.H == m.H {
+			return true
+		}
+	}
+	return false
+}
+
+type Displayer interface {
+	Displays() []Display
+	WindowDisplay() int
+	WindowMode() WindowMode
+	SetWindowMode(mode WindowMode, display int, size DisplayMode) error
+}

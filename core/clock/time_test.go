@@ -93,3 +93,33 @@ func TestDeterministic(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdatesFreezeWhilePaused(t *testing.T) {
+	tm := NewTime(Config{})
+	run(tm, frame, 10)
+	tm.SetPaused(true)
+	run(tm, frame, 30)
+	if tm.Updates() != 10 || tm.Frame() != 40 {
+		t.Fatalf("updates %d frames %d", tm.Updates(), tm.Frame())
+	}
+	tm.StepFrame()
+	tm.Begin(frame)
+	if tm.Updates() != 11 {
+		t.Fatalf("step frame gave %d updates", tm.Updates())
+	}
+}
+
+func TestStepFixedCountsAsFrame(t *testing.T) {
+	tm := NewTime(Config{})
+	tm.SetPaused(true)
+	before, game := tm.Updates(), tm.Span(Game).Elapsed
+	tm.StepFixed()
+	tm.Begin(frame)
+	if tm.Updates() != before+1 || tm.Span(Game).Elapsed <= game {
+		t.Fatalf("updates %d, game %v", tm.Updates(), tm.Span(Game).Elapsed)
+	}
+	tm.Begin(frame)
+	if tm.Updates() != before+1 {
+		t.Fatal("a paused frame without a step counted")
+	}
+}

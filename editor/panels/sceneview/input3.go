@@ -57,7 +57,7 @@ func (p *Panel) input3(d *document.SceneDocument, r mathx.Rect) {
 		Cancel:  ui.KeyPressed(input.KeyEscape),
 	}
 	if over {
-		in.Wheel = ui.WheelY()
+		in.Wheel = ui.ZoomY()
 	}
 	for i, b := range [3]input.Button{input.MouseLeft, input.MouseRight, input.MouseMiddle} {
 		in.Down[i] = ui.MouseDown(b)

@@ -13,11 +13,12 @@ import (
 
 func intRow(ui *core.Context, label string, v *int, def int) bool {
 	f := float64(*v)
+	o := widgets.NumberOpts{Int: true, Speed: 0.1, Min: 0, Max: 64, HasMin: true, HasMax: true}
 	if *v == 0 {
 		f = float64(def)
-		label += " (default)"
+		o.Suffix = "  default"
 	}
-	e := widgets.DragNumber(ui, ui.ID(label), widgets.Field(ui, label), &f, widgets.NumberOpts{Int: true, Speed: 0.1, Min: 0, Max: 64, HasMin: true, HasMax: true})
+	e := widgets.DragNumber(ui, ui.ID(label), widgets.Field(ui, label), &f, o)
 	if e.Changed {
 		*v = int(f)
 	}
@@ -26,11 +27,12 @@ func intRow(ui *core.Context, label string, v *int, def int) bool {
 
 func floatRow(ui *core.Context, label string, v *float32, def float32) bool {
 	f := float64(*v)
+	o := widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true, Prec: 4}
 	if *v == 0 {
 		f = float64(def)
-		label += " (default)"
+		o.Suffix = "  default"
 	}
-	e := widgets.DragNumber(ui, ui.ID(label), widgets.Field(ui, label), &f, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true, Prec: 4})
+	e := widgets.DragNumber(ui, ui.ID(label), widgets.Field(ui, label), &f, o)
 	if e.Changed {
 		*v = float32(f)
 	}
@@ -45,34 +47,58 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 	ui := ctx.UI
 	def := world.DefaultConfig()
 	changed := false
+	cfg := ps.Config()
+	p.preview(ui, cfg)
+	focus := ""
+	hot := func(label, part string) {
+		if ui.Hot() == ui.ID(label) || ui.Active() == ui.ID(label) {
+			focus = part
+		}
+	}
 	widgets.Label(ui, "Simulation")
 	g := ps.Gravity
 	if !ps.HasGravity {
 		g = def.Gravity
 	}
-	if e := widgets.Vec2Field(ui, ui.ID("gravity"), widgets.Field(ui, "Gravity"), &g, widgets.NumberOpts{Speed: 0.05}, false, false); e.Changed {
+	gid := ui.ID("gravity")
+	if e := widgets.Vec2Field(ui, gid, widgets.Field(ui, "Gravity"), &g, widgets.NumberOpts{Speed: 0.05}, false, false); e.Changed {
 		ps.Gravity, ps.HasGravity = g, true
 		changed = true
 	}
-	changed = intRow(ui, "Substeps", &ps.Substeps, def.Substeps) || changed
-	changed = intRow(ui, "Velocity Iterations", &ps.VelocityIterations, def.VelocityIterations) || changed
-	changed = intRow(ui, "Relax Iterations", &ps.RelaxIterations, def.RelaxIterations) || changed
+	if h := ui.Hot(); h == core.IDSeq(gid, 0) || h == core.IDSeq(gid, 1) || ui.Active() == core.IDSeq(gid, 0) || ui.Active() == core.IDSeq(gid, 1) {
+		focus = "gravity"
+	}
 	for _, x := range []struct {
 		label string
+		v     *int
+		def   int
+	}{
+		{"Substeps", &ps.Substeps, def.Substeps},
+		{"Velocity Iterations", &ps.VelocityIterations, def.VelocityIterations},
+		{"Relax Iterations", &ps.RelaxIterations, def.RelaxIterations},
+	} {
+		changed = intRow(ui, x.label, x.v, x.def) || changed
+		hot(x.label, "solver")
+	}
+	for _, x := range []struct {
+		label string
+		part  string
 		v     *float32
 		def   float32
 	}{
-		{"Contact Hertz", &ps.ContactHertz, def.ContactHertz},
-		{"Contact Damping Ratio", &ps.ContactDampingRatio, def.ContactDampingRatio},
-		{"Contact Push Velocity", &ps.ContactPushVelocity, def.ContactPushVelocity},
-		{"Restitution Threshold", &ps.RestitutionThreshold, def.RestitutionThreshold},
-		{"Linear Slop", &ps.LinearSlop, def.LinearSlop},
-		{"Sleep Linear", &ps.SleepLinear, def.SleepLinear},
-		{"Sleep Angular", &ps.SleepAngular, def.SleepAngular},
-		{"Sleep Time", &ps.SleepTime, def.SleepTime},
+		{"Contact Hertz", "contact", &ps.ContactHertz, def.ContactHertz},
+		{"Contact Damping Ratio", "contact", &ps.ContactDampingRatio, def.ContactDampingRatio},
+		{"Contact Push Velocity", "contact", &ps.ContactPushVelocity, def.ContactPushVelocity},
+		{"Restitution Threshold", "bounce", &ps.RestitutionThreshold, def.RestitutionThreshold},
+		{"Linear Slop", "contact", &ps.LinearSlop, def.LinearSlop},
+		{"Sleep Linear", "sleep", &ps.SleepLinear, def.SleepLinear},
+		{"Sleep Angular", "sleep", &ps.SleepAngular, def.SleepAngular},
+		{"Sleep Time", "sleep", &ps.SleepTime, def.SleepTime},
 	} {
 		changed = floatRow(ui, x.label, x.v, x.def) || changed
+		hot(x.label, x.part)
 	}
+	p.focus = focus
 	if err := ps.Validate(); err != nil {
 		widgets.LabelWrapped(ui, err.Error(), false)
 	}
@@ -82,6 +108,7 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 	changed = layers(ctx, ps) || changed
 	widgets.Separator(ui)
 	widgets.Label(ui, "Collision Matrix")
+	widgets.LabelDim(ui, "A checked cell means bodies on those two layers collide.")
 	changed = matrix(ui, ps) || changed
 	return changed
 }
@@ -133,8 +160,10 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 	for i := 0; i <= last; i++ {
 		ui.PushIDInt(i)
 		row := ui.Cursor().Next(0)
-		ui.Text(strconv.Itoa(i), mathx.Vec2{X: row.X, Y: ui.TextY(row)}, th.TextDim)
-		fr := mathx.Rect{X: row.X + 28, Y: row.Y, W: row.W - 28 - row.H - 4, H: row.H}
+		chip := mathx.Rect{X: row.X, Y: row.Y + 2, W: 24, H: row.H - 4}
+		ui.RoundRect(chip, th.Radius.Button, th.Badge)
+		ui.TextIn(chip, strconv.Itoa(i), th.TextDim, core.AlignCenter)
+		fr := mathx.Rect{X: row.X + 30, Y: row.Y, W: row.W - 30 - row.H - 4, H: row.H}
 		name := names[i]
 		if _, ok := widgets.TextFieldRect(ui, ui.ID("name"), fr, &name, false); ok && name != names[i] {
 			switch {
@@ -149,7 +178,7 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 				changed = true
 			}
 		}
-		if i > 0 && widgets.ButtonRect(ui, ui.ID("clear"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "−") {
+		if i > 0 && widgets.IconButton(ui, ui.ID("clear"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.minus", "Clear the name; bodies keep index "+strconv.Itoa(i)) {
 			ensureLayers(ps, i+1)
 			ps.LayerNames[i] = ""
 			renameRules(ps, names[i], "")
@@ -157,7 +186,7 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 		}
 		ui.PopID()
 	}
-	if widgets.Button(ui, "Add Layer") {
+	if last < settings.MaxLayers-1 && widgets.Button(ui, "Add Layer") {
 		for i := 1; i < settings.MaxLayers; i++ {
 			if names[i] != "" {
 				continue
@@ -192,15 +221,40 @@ func matrix(ui *core.Context, ps *settings.Project) bool {
 	}
 	m := ps.Matrix()
 	changed := false
-	labelW := float32(110)
+	cs := ui.Theme.RowHeight
+	labelW := float32(30)
+	for _, i := range idx {
+		labelW = max(labelW, ui.TextSize(strconv.Itoa(i)+"  "+names[i]).X+16)
+	}
+	labelW = min(labelW, 160)
+	head := ui.Cursor().Next(0)
+	hotRow, hotCol := -1, -1
 	for row, i := range idx {
-		r := ui.Cursor().Next(0)
-		ui.PushClip(mathx.Rect{X: r.X, Y: r.Y, W: labelW - 4, H: r.H})
-		ui.Text(names[i], mathx.Vec2{X: r.X, Y: ui.TextY(r)}, th.TextDim)
-		ui.PopClip()
 		for col := 0; col <= row; col++ {
 			j := idx[col]
-			cell := mathx.Rect{X: r.X + labelW + float32(col)*(r.H+2), Y: r.Y, W: r.H, H: r.H}
+			if ui.Hot() == ui.IDInt(i*64+j) {
+				hotRow, hotCol = row, col
+			}
+		}
+	}
+	for col, j := range idx {
+		cr := mathx.Rect{X: head.X + labelW + float32(col)*(cs+2), Y: head.Y, W: cs, H: head.H}
+		c := th.TextDim
+		if col == hotCol || col == hotRow {
+			c = th.Text
+		}
+		ui.TextIn(cr, strconv.Itoa(j), c, core.AlignCenter)
+	}
+	for row, i := range idx {
+		r := ui.Cursor().Next(0)
+		c := th.TextDim
+		if row == hotRow || row == hotCol {
+			c = th.Text
+		}
+		ui.Text(widgets.Elide(ui, strconv.Itoa(i)+"  "+names[i], labelW-8), mathx.Vec2{X: r.X, Y: ui.TextY(r)}, c)
+		for col := 0; col <= row; col++ {
+			j := idx[col]
+			cell := mathx.Rect{X: r.X + labelW + float32(col)*(cs+2), Y: r.Y, W: cs, H: r.H}
 			id := ui.IDInt(i*64 + j)
 			on := (m[i]>>j)&1 == 1
 			if ui.Clicked(id, cell) {
@@ -214,12 +268,22 @@ func matrix(ui *core.Context, ps *settings.Project) bool {
 				}
 				changed = true
 			}
-			ui.Rect(cell, ui.WidgetColor(id))
-			ui.Outline(cell, th.Border)
-			if on {
-				widgets.CheckMark(ui, cell, th.Accent)
+			bg := th.Widget
+			if ui.Hot() == id {
+				bg = th.WidgetHot
 			}
-			widgets.Tooltip(ui, id, names[i]+" × "+names[j])
+			if on {
+				bg = th.Accent
+			}
+			ui.RoundRect(mathx.Rect{X: cell.X + 1, Y: cell.Y + 1, W: cell.W - 2, H: cell.H - 2}, th.Radius.Button, bg)
+			if on {
+				widgets.CheckMark(ui, cell, th.Background)
+			}
+			verb := " do not collide"
+			if on {
+				verb = " collide"
+			}
+			widgets.Tooltip(ui, id, names[i]+" and "+names[j]+verb)
 		}
 	}
 	if changed {

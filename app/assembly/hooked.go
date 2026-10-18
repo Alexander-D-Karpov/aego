@@ -44,3 +44,10 @@ func (h hooked) Shutdown() {
 		sd.Shutdown()
 	}
 }
+
+func (h hooked) Reconfigure(ctx *module.AttachContext) error {
+	if rc, ok := h.inner.(module.Reconfigurer); ok {
+		return rc.Reconfigure(ctx)
+	}
+	return nil
+}

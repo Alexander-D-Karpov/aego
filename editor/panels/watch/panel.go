@@ -328,7 +328,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.refresh()
 	row := ui.Cursor().Next(0)
 	bw := float32(60)
-	id := ui.ID("input")
+	id := ui.ID("expr")
 	_, submit := widgets.TextFieldRect(ui, id, mathx.Rect{X: row.X, Y: row.Y, W: row.W - 2*bw - 8, H: row.H}, &p.input, true)
 	if widgets.ButtonRect(ui, ui.ID("add"), mathx.Rect{X: row.X + row.W - 2*bw - 4, Y: row.Y, W: bw, H: row.H}, "Add") || submit {
 		p.Add(p.input)

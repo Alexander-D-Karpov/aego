@@ -299,12 +299,14 @@ func (p *Panel) mouse(ui *core.Context, area, txt mathx.Rect) {
 	}
 	over := ui.MouseOver(p.fid, area)
 	if over {
-		if w := ui.WheelY(); w != 0 {
-			if ui.Mods().Has(input.ModShift) {
-				p.scrollX -= w * 40
-			} else {
-				p.scrollY -= w * p.lineH * 3
-			}
+		h := ui.ScrollX(40)
+		v := ui.ScrollY(p.lineH * 3)
+		if ui.Mods().Has(input.ModShift) {
+			h, v = h-v, 0
+		}
+		if h != 0 || v != 0 {
+			p.scrollX += h
+			p.scrollY -= v
 			p.hover = hoverState{off: -1}
 		}
 	}
@@ -497,7 +499,7 @@ func (p *Panel) keys(ui *core.Context) {
 			p.host.requestClose(p)
 		case ui.KeyPressed(input.KeySpace):
 			edit(func() { p.requestCompletion(ui) })
-		case ui.KeyPressed(input.KeyP):
+		case !shift && ui.KeyPressed(input.KeyP):
 			if !p.querySignature() {
 				p.flash(ui.Time, "No call at the cursor")
 			}

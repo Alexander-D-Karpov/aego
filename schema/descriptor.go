@@ -105,6 +105,7 @@ type TypeDescriptor struct {
 	DisplayName   string
 	Category      string
 	Icon          string
+	NodeIcon      int
 	Owner         string
 	Builtin       bool
 	SceneUnique   bool

@@ -1,6 +1,8 @@
 package module
 
 import (
+	"aego/engine/settings"
+	"aego/format/aetext"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -60,6 +62,9 @@ type Registry struct {
 	sections  []*Section
 	icons     []IconSet
 	docs      []DocSource
+	provided  []provision
+	settings  []settings.Desc
+	versions  []settings.OwnerVersion
 	owners    map[string]string
 	dev       []Hook
 	editor    []Hook
@@ -230,4 +235,21 @@ func (r *Registry) Finalize(fn func(*Registry) error) {
 		return
 	}
 	r.finals = append(r.finals, finalizer{owner: r.Owner(), fn: fn})
+}
+
+func (r *Registry) Setting(d settings.Desc) {
+	if r.cur == nil {
+		r.fail("setting " + d.ID + " is registered outside a module")
+		return
+	}
+	d.Owner = r.Owner()
+	r.settings = append(r.settings, d)
+}
+
+func (r *Registry) SettingsVersion(v int, migrate func(n *aetext.Node, from, to int) error) {
+	if r.cur == nil {
+		r.fail("settings version is set outside a module")
+		return
+	}
+	r.versions = append(r.versions, settings.OwnerVersion{Owner: r.Owner(), Version: v, Migrate: migrate})
 }

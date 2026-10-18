@@ -11,9 +11,15 @@
 sdk/editor.go -> editor/..., editor, sdk.EditorHook bridge for project editor code under aego_editor; the exception is per file (D145)
 
 # Test graph.
-script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene, aego/input), which the language layer cannot install (D203)
+script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene), which the language layer cannot install (D203)
+script/... -> modules/input, test|test-editor, toolchain tests run scripts against aego/input, which the input module owns (D234)
 
 # Semantic pass.
 ... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
 render/... -> "debug*", semantic, render/debug is the line backend that modules/debug drives; the debug pass, shader, depth pipeline and font names predate the module and are not module references (D231)
+schema/... -> "display", semantic, the export attribute and struct tag key for a display name predate the display module (D238)
+script/... -> "display", semantic, the @export(display=...) attribute key and its completion predate the display module (D238)
+engine/engine.go -> "display", semantic, the startup log line labels display metrics; it is not a reference to the display module (D238)
+asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)
+platform/profile.go -> "settings*", semantic, settings.aetext is the player profile file name, not a module reference (D237)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it

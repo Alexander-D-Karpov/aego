@@ -42,7 +42,7 @@ A Go system chooses what it does while paused with `Pause` in its `SystemDesc`: 
     @pause("always")
     script PauseMenu {
       func Update(dt float) {
-        if input.Pressed(input.KeyEscape) {
+        if input.KeyPressed(input.KeyEscape) {
           time.SetPaused(!time.IsPaused())
         }
       }

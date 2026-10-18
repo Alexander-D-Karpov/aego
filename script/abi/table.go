@@ -158,7 +158,7 @@ func (t *Table) AddEvent(e EventDef) error {
 		return fmt.Errorf("event %s already registered", e.Name)
 	}
 	for i, p := range e.Params {
-		if !Plain(p) {
+		if !EventParam(p) {
 			return fmt.Errorf("event %s param %d: %s cannot be an event parameter", e.Name, i, p)
 		}
 	}

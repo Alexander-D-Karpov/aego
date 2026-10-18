@@ -3,40 +3,40 @@ package command
 import "aego/platform/input"
 
 const (
-	FileSave        = "file.save"
-	FileSaveAs      = "file.save_as"
-	FileSaveAll     = "file.save_all"
-	FileOpen        = "file.open"
-	FileNewScene    = "file.new_scene"
-	EditUndo        = "edit.undo"
-	EditRedo        = "edit.redo"
-	EditCopy        = "edit.copy"
-	EditCut         = "edit.cut"
-	EditPaste       = "edit.paste"
-	EditDuplicate   = "edit.duplicate"
-	EditDelete      = "edit.delete"
-	EditRename      = "edit.rename"
-	EditSelectAll   = "edit.select_all"
-	SceneCreateNode = "scene.create_node"
-	SceneFrame      = "scene.frame_selection"
-	SceneToolSelect = "scene.tool.select"
-	SceneToolMove   = "scene.tool.translate"
-	SceneToolRotate = "scene.tool.rotate"
-	SceneToolScale  = "scene.tool.scale"
-	SceneToggleGrid = "scene.toggle_grid"
-	SceneToggleSnap = "scene.toggle_snap"
-	PlayStart       = "play.start"
-	PlayPause       = "play.pause"
-	PlayStep        = "play.step"
-	PlayStepFixed   = "play.step_fixed"
-	PlayScalePrefix = "play.scale."
-	PlayStop        = "play.stop"
-	AssetsReimport  = "assets.reimport"
-	CommandPalette  = "command.palette"
-	WindowPrefix    = "window."
-	ScopeScene      = "scene"
-	ScopeHierarchy  = "hierarchy"
-	ScopeAssets     = "assets"
+	FileSave         = "file.save"
+	FileSaveAs       = "file.save_as"
+	FileSaveAll      = "file.save_all"
+	FileOpen         = "file.open"
+	FileNewScene     = "file.new_scene"
+	EditUndo         = "edit.undo"
+	EditRedo         = "edit.redo"
+	EditCopy         = "edit.copy"
+	EditCut          = "edit.cut"
+	EditPaste        = "edit.paste"
+	EditDuplicate    = "edit.duplicate"
+	EditDelete       = "edit.delete"
+	EditRename       = "edit.rename"
+	EditSelectAll    = "edit.select_all"
+	SceneCreateNode  = "scene.create_node"
+	SceneFrame       = "scene.frame_selection"
+	SceneToolSelect  = "scene.tool.select"
+	SceneToolMove    = "scene.tool.translate"
+	SceneToolRotate  = "scene.tool.rotate"
+	SceneToolScale   = "scene.tool.scale"
+	SceneToggleGrid  = "scene.toggle_grid"
+	SceneToggleSnap  = "scene.toggle_snap"
+	PlayStart        = "play.start"
+	PlayPause        = "play.pause"
+	PlayStep         = "play.step"
+	PlayStepFixed    = "play.step_fixed"
+	PlayScalePrefix  = "play.scale."
+	PlayStop         = "play.stop"
+	PlayReleaseInput = "play.release_input"
+	AssetsReimport   = "assets.reimport"
+	WindowPrefix     = "window."
+	ScopeScene       = "scene"
+	ScopeHierarchy   = "hierarchy"
+	ScopeAssets      = "assets"
 )
 
 func DefaultShortcuts() map[string]Shortcut {
@@ -62,10 +62,9 @@ func DefaultShortcuts() map[string]Shortcut {
 		SceneToolScale:  Key(input.KeyR, 0),
 		SceneToggleSnap: Key(input.KeyG, ModPrimary),
 		PlayStart:       Key(input.KeyP, ModPrimary),
-		PlayPause:       Key(input.KeyP, ModPrimary|ModShift),
-		PlayStep:        Key(input.KeyP, ModPrimary|ModAlt),
-		PlayStepFixed:   Key(input.KeyP, ModAlt),
-		CommandPalette:  Key(input.KeyP, ModPrimary|ModShift|ModAlt),
+		PlayPause:       Key(input.KeyF6, 0),
+		PlayStepFixed:   Key(input.KeyF7, 0),
+		PlayStep:        Key(input.KeyF8, 0),
 	}
 }
 

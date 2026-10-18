@@ -11,6 +11,7 @@ import (
 	"aego/scene/prefab"
 	"aego/schema"
 	"aego/ui/core"
+	"aego/ui/draw"
 	"aego/ui/widgets"
 )
 
@@ -29,11 +30,15 @@ func (p *Panel) beginCard(key, title, badge, icon, action string, menu bool) car
 	ui := p.f.UI
 	th := &ui.Theme
 	cur := ui.Cursor()
-	c := card{bg: ui.List().Reserve(), top: cur.Y}
+	c := card{bg: ui.List().ReserveBox(), top: cur.Y}
 	hdr := cur.Next(th.RowHeight + 4)
 	c.hdr = hdr
 	c.hid = ui.ID("card")
-	ui.Rect(hdr, th.CardHeader)
+	corners := draw.CornersAll
+	if p.d.Collapsed == nil || !p.d.Collapsed[key] {
+		corners = draw.CornersTop
+	}
+	ui.List().RoundRect(hdr, th.Radius.Card, th.CardHeader, corners)
 	right := hdr.X + hdr.W - 4
 	bh := hdr.H - 6
 	if menu {
@@ -55,7 +60,7 @@ func (p *Panel) beginCard(key, title, badge, icon, action string, menu bool) car
 	if ui.Hot() == c.hid {
 		hl := th.WidgetHot
 		hl.A = 0.5
-		ui.Rect(area, hl)
+		ui.List().RoundRect(area, th.Radius.Card, hl, corners)
 	}
 	x := hdr.X + 2
 	widgets.Chevron(ui, mathx.Rect{X: x, Y: hdr.Y, W: th.Indent, H: hdr.H}, c.open, th.TextDim)
@@ -91,7 +96,7 @@ func (p *Panel) endCard(ui *core.Context, c card) {
 		cur.Y += 2
 	}
 	rect := mathx.Rect{X: cur.X, Y: c.top, W: cur.W, H: cur.Y - c.top}
-	ui.List().Patch(c.bg, rect, ui.Theme.CardBg)
+	ui.List().PatchBox(c.bg, rect, ui.Theme.Radius.Card, ui.Theme.CardBg, mathx.Color{})
 	if c.typ != 0 && ui.Hit(rect) && !ui.MouseInOverlay() {
 		p.hoverType = c.typ
 	}

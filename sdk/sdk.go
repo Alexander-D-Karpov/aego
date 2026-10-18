@@ -126,6 +126,13 @@ func (a adapted) Shutdown() {
 	}
 }
 
+func (a adapted) Reconfigure(ctx *module.AttachContext) error {
+	if rc, ok := a.m.(module.Reconfigurer); ok {
+		return rc.Reconfigure(ctx)
+	}
+	return nil
+}
+
 func Adapt(m Module) module.Module {
 	return adapted{m: m}
 }

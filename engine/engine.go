@@ -26,33 +26,34 @@ type glWindow interface {
 }
 
 type Engine struct {
-	cfg       Config
-	log       *log.Logger
-	elog      *log.ChannelLogger
-	plat      platform.Platform
-	win       platform.Window
-	dev       gpu.Device
-	curFrame  gpu.Frame
-	files     *vfs.VFS
-	input     input.State
-	reg       *Registry
-	jobs      *Jobs
-	counter   *stats.Counter
-	stats     stats.Frame
-	metrics   platform.WindowMetrics
-	ctx       Context
-	main      *World
-	wctx      Context
-	app       App
-	onEvent   func(platform.Event)
-	vsync     platform.VSyncMode
-	frameNo   uint64
-	lastTime  float64
-	minimized bool
-	appInit   bool
-	quit      bool
-	closed    bool
-	err       error
+	cfg        Config
+	log        *log.Logger
+	elog       *log.ChannelLogger
+	plat       platform.Platform
+	win        platform.Window
+	dev        gpu.Device
+	curFrame   gpu.Frame
+	files      *vfs.VFS
+	input      input.State
+	reg        *Registry
+	jobs       *Jobs
+	counter    *stats.Counter
+	stats      stats.Frame
+	metrics    platform.WindowMetrics
+	ctx        Context
+	main       *World
+	wctx       Context
+	app        App
+	onEvent    func(platform.Event)
+	vsync      platform.VSyncMode
+	frameLimit float64
+	frameNo    uint64
+	lastTime   float64
+	minimized  bool
+	appInit    bool
+	quit       bool
+	closed     bool
+	err        error
 
 	probe       bool
 	probeSample []metrics.Sample
@@ -375,4 +376,12 @@ func (e *Engine) handleEvent(ev platform.Event) {
 	if e.app != nil {
 		e.app.Event(ev)
 	}
+}
+
+func (e *Engine) SetFrameLimit(fps float64) {
+	e.frameLimit = max(fps, 0)
+}
+
+func (e *Engine) FrameLimit() float64 {
+	return e.frameLimit
 }

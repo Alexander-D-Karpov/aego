@@ -24,7 +24,7 @@ const (
 
 const All = uint32(1)<<KindCount - 1
 
-var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "input", "animation", "custom"}
+var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "action", "animation", "custom"}
 
 func (k Kind) String() string {
 	if k < KindCount {

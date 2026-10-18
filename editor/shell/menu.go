@@ -19,6 +19,15 @@ func clockText(sec float64) string {
 	return strconv.Itoa(m) + ":" + pad + strconv.Itoa(s)
 }
 
+func clockTextFine(sec float64) string {
+	cs := int(sec*100) % 100
+	pad := ""
+	if cs < 10 {
+		pad = "0"
+	}
+	return clockText(sec) + "." + pad + strconv.Itoa(cs)
+}
+
 func (a *App) scriptStatus() (string, bool) {
 	if a.ctx.Scripts == nil {
 		return "", false

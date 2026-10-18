@@ -267,7 +267,7 @@ func uiCharset() []rune {
 	out = append(out,
 		0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026,
 		0x2116, 0x20BD, 0x2190, 0x2191, 0x2192, 0x2193, 0x25B8, 0x25BE,
-		0x2713, 0x2715, 0x2318, 0x21E7, 0x2325, 0x2039, 0x203A, 0x25CF,
+		0x2713, 0x2715, 0x2318, 0x21E7, 0x2325, 0x2039, 0x203A, 0x25CF, 0x2212,
 	)
 	return out
 }
@@ -332,9 +332,14 @@ func bakeUI(fnt *opentype.Font, out, name string, size, scale int, charset []run
 		meta.Glyphs = append(meta.Glyphs, gj)
 		present = append(present, g.r)
 	}
-	for _, a := range present {
-		for _, b := range present {
-			if k := face.Kern(a, b); k != 0 {
+	ppem := fixed.I(size * scale)
+	index := make([]sfnt.GlyphIndex, len(present))
+	for i, r := range present {
+		index[i], _ = fnt.GlyphIndex(&buf, r)
+	}
+	for i, a := range present {
+		for j, b := range present {
+			if k, err := fnt.Kern(&buf, index[i], index[j], ppem, font.HintingFull); err == nil && k != 0 {
 				meta.Kerning = append(meta.Kerning, kernJSON{A: int32(a), B: int32(b), K: float32(k) / 64 / s})
 			}
 		}

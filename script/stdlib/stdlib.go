@@ -1,9 +1,6 @@
 package stdlib
 
-import (
-	"aego/platform/input"
-	"aego/script/bind"
-)
+import "aego/script/bind"
 
 const (
 	ModMath    = "aego/math"
@@ -13,11 +10,10 @@ const (
 	ModTesting = "aego/testing"
 )
 
-// Options configure the script library; Input is read by modules/scripting/stdlib.
+// Options configure the script library.
 type Options struct {
 	Seed    uint64
 	Testing bool
-	Input   *input.AxisConfig
 }
 
 // Install registers the language library: math, log, rand, time and, with Testing, testing.

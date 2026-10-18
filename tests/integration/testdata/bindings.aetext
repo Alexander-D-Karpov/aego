@@ -1,5 +1,5 @@
 manifest version=4 {
-  abi="9a01680400b00c41cb6546a114e4cbeb17fc6b42555a5d24b8749a8f28293666"
+  abi="40176cca99c2b58528c60d7417ab8c56da3a3ddd2af0db3b17566e68d4c3ea69"
   module "aego/debug" {
     func "Arrow" {
       params=["Vec2", "Vec2", "Color"]
@@ -80,59 +80,225 @@ manifest version=4 {
     }
   }
   module "aego/input" {
+    func "ActiveDevice" {
+      params=[]
+      result="int"
+      doc="ActiveDevice returns the device player 0 used last: -1 none, 0 keyboard and mouse, 1 to 4 a gamepad."
+      example="onPad := input.ActiveDevice() > 0"
+    }
     func "Axis" {
       params=["string"]
       result="float"
-      names=["name"]
-      doc="Axis returns -1, 0 or 1 for a named axis.\nAxes are declared in project.aego → input → axes; horizontal and vertical exist by default."
-      example="x := input.Axis(\"horizontal\")"
+      names=["action"]
+      doc="Axis returns the value of an axis action from -1 to 1, or the press strength of a button action."
+      example="x := input.Axis(\"Move\")"
+    }
+    func "Axis2" {
+      params=["string"]
+      result="Vec2"
+      names=["action"]
+      doc="Axis2 returns a 2D action as a vector no longer than 1; Y grows downward like the 2D world."
+      example="v := input.Axis2(\"Move\") * Speed"
+    }
+    func "Axis2P" {
+      params=["int", "string"]
+      result="Vec2"
+      names=["player", "action"]
+      doc="Axis2P is Axis2 for one player."
+      example="v := input.Axis2P(1, \"Move\")"
+    }
+    func "AxisP" {
+      params=["int", "string"]
+      result="float"
+      names=["player", "action"]
+      doc="AxisP is Axis for one player."
+      example="x := input.AxisP(1, \"Move\")"
+    }
+    func "BeginRebind" {
+      params=["string", "int"]
+      result="bool"
+      names=["action", "slot"]
+      doc="BeginRebind waits for the next key, button or stick and binds it to the slot of the action. Escape cancels."
+      example="input.BeginRebind(\"Jump\", 0)"
+    }
+    func "Buffered" {
+      params=["string", "float"]
+      result="bool"
+      names=["action", "window"]
+      doc="Buffered reports whether the action was pressed in the last window game seconds and not consumed. A window of 0 uses the action's buffer setting."
+      example="if grounded && input.Buffered(\"Jump\", 0) {\n\tinput.Consume(\"Jump\")\n}"
+    }
+    func "Consume" {
+      params=["string"]
+      result="void"
+      names=["action"]
+      doc="Consume clears the press and the buffer of the action, so later readers this frame do not see it."
+      example="input.Consume(\"Jump\")"
+    }
+    func "DeviceChanged" {
+      params=[]
+      result="bool"
+      doc="DeviceChanged is true for the frame a gamepad was connected or removed."
+      example="if input.DeviceChanged() {"
     }
     func "Down" {
       params=["enum:aego/input.Key"]
       result="bool"
       names=["key"]
-      doc="Down reports whether the key is held this frame."
-      example="if input.Down(input.KeyShift) {\n\tspeed *= 2\n}"
+      doc="Down reports whether a raw key is held. For prototypes; release builds use actions."
+      example="if input.Down(input.KeyShift) {"
+    }
+    func "Glyph" {
+      params=["string"]
+      result="string"
+      names=["action"]
+      doc="Glyph returns the binding of the action for the active device as text, like [Space] or [A]."
+      example="hint.Text = \"Jump \" + input.Glyph(\"Jump\")"
+    }
+    func "Held" {
+      params=["string"]
+      result="bool"
+      names=["action"]
+      doc="Held reports whether the action is active."
+      example="if input.Held(\"Run\") {"
+    }
+    func "HeldP" {
+      params=["int", "string"]
+      result="bool"
+      names=["player", "action"]
+      doc="HeldP is Held for one player."
+      example="if input.HeldP(1, \"Run\") {"
+    }
+    func "KeyPressed" {
+      params=["enum:aego/input.Key"]
+      result="bool"
+      names=["key"]
+      doc="KeyPressed reports whether a raw key went down this frame. For prototypes."
+      example="if input.KeyPressed(input.KeyF5) {"
+    }
+    func "KeyReleased" {
+      params=["enum:aego/input.Key"]
+      result="bool"
+      names=["key"]
+      doc="KeyReleased reports whether a raw key went up this frame. For prototypes."
+      example="if input.KeyReleased(input.KeySpace) {"
     }
     func "MouseDown" {
       params=["enum:aego/input.Button"]
       result="bool"
       names=["button"]
-      doc="MouseDown reports whether the mouse button is held."
-      example="if input.MouseDown(input.MouseLeft) {\n\tfire()\n}"
+      doc="MouseDown reports whether a mouse button is held."
+      example="if input.MouseDown(input.MouseLeft) {"
     }
     func "MousePos" {
       params=[]
       result="Vec2"
-      doc="MousePos returns the cursor position in logical pixels of the game area, (0, 0) at its top-left corner. Use MouseWorld for world coordinates."
+      doc="MousePos returns the cursor in logical pixels of the game area."
       example="p := input.MousePos()"
     }
     func "MousePressed" {
       params=["enum:aego/input.Button"]
       result="bool"
       names=["button"]
-      doc="MousePressed reports whether the mouse button went down this frame."
-      example="if input.MousePressed(input.MouseRight) {\n\taim()\n}"
+      doc="MousePressed reports whether a mouse button went down this frame."
+      example="if input.MousePressed(input.MouseRight) {"
     }
     func "MouseWorld" {
       params=[]
       result="Vec2"
-      doc="MouseWorld returns the cursor position in world units, seen through the camera under the cursor. Letterboxing and window or panel resizes are accounted for."
+      doc="MouseWorld returns the cursor in world units through the camera under it."
       example="target := input.MouseWorld()"
     }
+    func "Pointer" {
+      params=[]
+      result="Vec2"
+      doc="Pointer returns the cursor in logical pixels."
+      example="p := input.Pointer()"
+    }
+    func "PointerDelta" {
+      params=[]
+      result="Vec2"
+      doc="PointerDelta returns how far the cursor moved this frame."
+      example="look += input.PointerDelta()"
+    }
+    func "PopContext" {
+      params=[]
+      result="void"
+      doc="PopContext removes the top input context."
+      example="input.PopContext()"
+    }
     func "Pressed" {
-      params=["enum:aego/input.Key"]
+      params=["string"]
       result="bool"
-      names=["key"]
-      doc="Pressed reports whether the key went down this frame. It is true for exactly one frame per press."
-      example="if input.Pressed(input.KeySpace) {\n\tjump()\n}"
+      names=["action"]
+      doc="Pressed reports whether the action started. In Update it is true for one frame; in FixedUpdate for the first fixed step after the press."
+      example="if input.Pressed(\"Attack\") {"
+    }
+    func "PressedP" {
+      params=["int", "string"]
+      result="bool"
+      names=["player", "action"]
+      doc="PressedP is Pressed for one player."
+      example="if input.PressedP(1, \"Jump\") {"
+    }
+    func "PushContext" {
+      params=["string"]
+      result="void"
+      names=["context"]
+      doc="PushContext puts an input context on top of the stack."
+      example="input.PushContext(\"Menu\")"
+    }
+    func "RebindConflict" {
+      params=[]
+      result="string"
+      doc="RebindConflict names the action that already used the new control, or explains why it was refused."
+      example="if input.RebindConflict() != \"\" {"
+    }
+    func "Rebinding" {
+      params=[]
+      result="bool"
+      doc="Rebinding reports whether a rebind waits for input."
+      example="if input.Rebinding() {"
     }
     func "Released" {
-      params=["enum:aego/input.Key"]
+      params=["string"]
       result="bool"
-      names=["key"]
-      doc="Released reports whether the key went up this frame."
-      example="if input.Released(input.KeySpace) {\n\tcutJump()\n}"
+      names=["action"]
+      doc="Released reports whether the action ended this frame or fixed step."
+      example="if input.Released(\"Jump\") {"
+    }
+    func "ReleasedP" {
+      params=["int", "string"]
+      result="bool"
+      names=["player", "action"]
+      doc="ReleasedP is Released for one player."
+      example="if input.ReleasedP(1, \"Jump\") {"
+    }
+    func "ResetBinding" {
+      params=["string"]
+      result="void"
+      names=["action"]
+      doc="ResetBinding restores the project bindings of the action."
+      example="input.ResetBinding(\"Jump\")"
+    }
+    func "ResetBindings" {
+      params=[]
+      result="void"
+      doc="ResetBindings restores every project binding."
+      example="input.ResetBindings()"
+    }
+    func "SaveBindings" {
+      params=[]
+      result="void"
+      doc="SaveBindings writes the player's settings profile now; changes are also saved on their own."
+      example="input.SaveBindings()"
+    }
+    func "SetContext" {
+      params=["string"]
+      result="void"
+      names=["context"]
+      doc="SetContext replaces the whole stack with one context."
+      example="input.SetContext(\"Gameplay\")"
     }
     const "KeyA" {
       type="enum:aego/input.Key"
@@ -1362,6 +1528,154 @@ manifest version=4 {
       example="b := scene.Instantiate(Bullet, nil)\nb.SetPosition(node.WorldPosition())"
     }
   }
+  module "aego/settings" {
+    func "Apply" {
+      params=[]
+      result="bool"
+      doc="Apply applies every staged value at once; if one fails, none change."
+      example="if !settings.Apply() {"
+    }
+    func "ClearOverride" {
+      params=["string"]
+      result="void"
+      names=["id"]
+      doc="ClearOverride removes a session override."
+      example="settings.ClearOverride(\"audio.bus.music.volume\")"
+    }
+    func "ClearOverrides" {
+      params=[]
+      result="void"
+      doc="ClearOverrides removes every session override."
+      example="settings.ClearOverrides()"
+    }
+    func "CloseView" {
+      params=[]
+      result="void"
+      doc="CloseView hides the settings screen."
+      example="settings.CloseView()"
+    }
+    func "GetBool" {
+      params=["string"]
+      result="bool"
+      names=["id"]
+      doc="GetBool returns the effective value of an on/off setting."
+      example="if settings.GetBool(\"accessibility.reducedMotion\") {"
+    }
+    func "GetFloat" {
+      params=["string"]
+      result="float"
+      names=["id"]
+      doc="GetFloat returns the effective value of a number setting."
+      example="shake *= settings.GetFloat(\"accessibility.screenShake\")"
+    }
+    func "GetInt" {
+      params=["string"]
+      result="int"
+      names=["id"]
+      doc="GetInt returns the effective value of an integer or choice setting."
+      example="fps := settings.GetInt(\"display.frameLimit\")"
+    }
+    func "GetString" {
+      params=["string"]
+      result="string"
+      names=["id"]
+      doc="GetString returns a text setting, or the name of the current choice."
+      example="mode := settings.GetString(\"display.window.mode\")"
+    }
+    func "NeedsRestart" {
+      params=[]
+      result="bool"
+      doc="NeedsRestart reports whether an applied setting takes effect only after a restart."
+      example="if settings.NeedsRestart() {"
+    }
+    func "OpenView" {
+      params=[]
+      result="void"
+      doc="OpenView shows the settings screen and pauses the game until it closes."
+      example="settings.OpenView()"
+    }
+    func "OverrideBool" {
+      params=["string", "bool"]
+      result="void"
+      names=["id", "value"]
+      doc="OverrideBool sets an on/off value for this session only."
+      example="settings.OverrideBool(\"audio.bus.sfx.mute\", true)"
+    }
+    func "OverrideFloat" {
+      params=["string", "float"]
+      result="void"
+      names=["id", "value"]
+      doc="OverrideFloat sets a value for this session only; it is never saved."
+      example="settings.OverrideFloat(\"audio.bus.music.volume\", 0.2)"
+    }
+    func "OverrideInt" {
+      params=["string", "int"]
+      result="void"
+      names=["id", "value"]
+      doc="OverrideInt sets an integer for this session only."
+      example="settings.OverrideInt(\"display.frameLimit\", 30)"
+    }
+    func "OverrideString" {
+      params=["string", "string"]
+      result="void"
+      names=["id", "value"]
+      doc="OverrideString sets a text value for this session only."
+      example="settings.OverrideString(\"display.window.resolution\", \"1280x720\")"
+    }
+    func "Reset" {
+      params=["string"]
+      result="void"
+      names=["id"]
+      doc="Reset stages a return to the project default."
+      example="settings.Reset(\"input.sensitivity\")"
+    }
+    func "Revert" {
+      params=[]
+      result="void"
+      doc="Revert drops the staged values."
+      example="settings.Revert()"
+    }
+    func "Save" {
+      params=[]
+      result="void"
+      doc="Save writes the player profile now; it is also saved on its own shortly after a change."
+      example="settings.Save()"
+    }
+    func "SetBool" {
+      params=["string", "bool"]
+      result="void"
+      names=["id", "value"]
+      doc="SetBool stages a value; Apply makes it take effect."
+      example="settings.SetBool(\"accessibility.subtitles\", true)"
+    }
+    func "SetFloat" {
+      params=["string", "float"]
+      result="void"
+      names=["id", "value"]
+      doc="SetFloat stages a number."
+      example="settings.SetFloat(\"audio.bus.music.volume\", 0.5)"
+    }
+    func "SetInt" {
+      params=["string", "int"]
+      result="void"
+      names=["id", "value"]
+      doc="SetInt stages an integer or choice index."
+      example="settings.SetInt(\"display.frameLimit\", 60)"
+    }
+    func "SetString" {
+      params=["string", "string"]
+      result="void"
+      names=["id", "value"]
+      doc="SetString stages a text value."
+      example="settings.SetString(\"display.window.resolution\", \"1920x1080\")"
+    }
+    func "ViewOpen" {
+      params=[]
+      result="bool"
+      doc="ViewOpen reports whether the settings screen is shown."
+      example="if settings.ViewOpen() {"
+    }
+  }
   module "aego/testing" {
     func "Equal" {
       params=["int", "int"]
@@ -1477,7 +1791,7 @@ manifest version=4 {
     }
   }
   enum "Button" module="aego/input" {
-    doc="Button is a mouse button. Use input.Button.Left or the constant input.MouseLeft."
+    doc="Button is a mouse button."
     member "Left" value=0 {}
     member "Right" value=1 {}
     member "Middle" value=2 {}
@@ -1485,7 +1799,7 @@ manifest version=4 {
     member "X2" value=4 {}
   }
   enum "Key" module="aego/input" {
-    doc="Key is a physical key, independent of the keyboard layout. Use input.Key.Space or the constant input.KeySpace."
+    doc="Key is a physical key, independent of the keyboard layout. Prefer actions; raw keys are for prototypes."
     member "A" value=4 {}
     member "B" value=5 {}
     member "C" value=6 {}
@@ -1640,6 +1954,11 @@ manifest version=4 {
     params=["NodeRef"]
     names=["other"]
     doc="OnTriggerExit runs when the overlap with a trigger ends."
+  }
+  event "OnSettingChanged" {
+    params=["string"]
+    names=["id"]
+    doc="OnSettingChanged runs on every script with this method after a setting's effective value changed: Apply, Revert, an override or a confirmation timeout."
   }
   method "Child" recv="NodeRef" {
     params=["string"]

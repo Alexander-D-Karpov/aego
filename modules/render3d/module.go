@@ -48,6 +48,7 @@ func (Module) Register(r *module.Registry) error {
 		Category("Camera").
 		Display("Camera 3D").
 		Icon("cat.camera").
+		NodeIcon(100).
 		Default(DefaultCamera3D).
 		Template("Camera", lookAtOrigin).
 		Err(); err != nil {
@@ -68,6 +69,7 @@ func (Module) Register(r *module.Registry) error {
 		Category("Rendering").
 		Display("Mesh Renderer").
 		Icon("cat.rendering").
+		NodeIcon(60).
 		Default(DefaultMeshRenderer).
 		Err(); err != nil {
 		return err

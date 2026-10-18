@@ -248,6 +248,7 @@ func (a *App) registerWindowCommands() error {
 			Name:     d.Panel.Title(),
 			Category: "Window",
 			Order:    d.Order,
+			Tip:      "Show or hide the " + d.Panel.Title() + " panel",
 			Checked:  func() bool { return a.ws.Visible(id) },
 			Run: func() error {
 				a.ws.Toggle(id)

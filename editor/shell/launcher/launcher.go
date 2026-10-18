@@ -109,8 +109,8 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	ui.Rect(r, th.Background)
 	if ui.MouseOver(ui.ID("launcher.scroll"), r) {
-		if w := ui.WheelY(); w != 0 {
-			l.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			l.scroll -= w
 		}
 	}
 	l.scroll = mathx.Clamp(l.scroll, 0, max(0, l.content-r.H+48))
@@ -192,8 +192,7 @@ func (l *Launcher) cards(ui *core.Context) {
 		case ui.Hot() == id:
 			bg = th.WidgetHot
 		}
-		ui.Rect(cr, bg)
-		ui.Outline(cr, border)
+		ui.Box(cr, th.Radius.Card, bg, border)
 		ui.PushClip(cr)
 		widgets.IconAt(ui, mathx.Rect{X: cr.X + 10, Y: cr.Y + 10, W: 32, H: 32}, t.Icon, th.Text)
 		ui.Text(t.Name, mathx.Vec2{X: cr.X + 52, Y: cr.Y + 18}, th.Text)

@@ -64,6 +64,7 @@ type Time struct {
 	acc      float64
 	alpha    float64
 	frame    uint64
+	updates  uint64
 	tick     uint64
 	dropped  uint64
 	clamped  float64
@@ -97,6 +98,10 @@ func (t *Time) Span(d Domain) Span {
 
 func (t *Time) Frame() uint64 {
 	return t.frame
+}
+
+func (t *Time) Updates() uint64 {
+	return t.updates
 }
 
 func (t *Time) Tick() uint64 {
@@ -214,6 +219,9 @@ func (t *Time) Begin(real float64) Plan {
 		}
 	}
 	t.pending = stepNone
+	if plan.Update || plan.Steps > 0 {
+		t.updates++
+	}
 	plan.Paused = t.paused && !plan.Update
 	fixed := float64(plan.Steps) * fd
 	t.set(Real, real)

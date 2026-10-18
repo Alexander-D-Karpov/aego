@@ -68,8 +68,8 @@ func ScrollArea(c *core.Context, id core.ID, height float32, offset *float32, fn
 	content := cur.Y + *offset - startY
 	c.PopClip()
 	if c.MouseOver(id, view) {
-		if wheel := c.WheelY(); wheel != 0 {
-			*offset = mathx.Clamp(*offset-wheel*c.Theme.RowHeight*3, 0, max(0, content-height))
+		if w := c.ScrollY(c.Theme.RowHeight * 3); w != 0 {
+			*offset = mathx.Clamp(*offset-w, 0, max(0, content-height))
 		}
 	}
 	cur.Y = startY + height + c.Theme.Spacing

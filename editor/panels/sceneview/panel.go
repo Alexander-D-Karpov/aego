@@ -424,7 +424,7 @@ func (p *Panel) input(d *document.SceneDocument, r mathx.Rect) {
 		p.dragBox(d)
 	}
 	if over {
-		if w := ui.WheelY(); w != 0 {
+		if w := ui.ZoomY(); w != 0 {
 			before := p.worldAt(ui.Mouse())
 			cam.Zoom = mathx.Clamp(cam.Zoom*float32(math.Pow(1.15, float64(w))), 1, 4096)
 			p.refreshView(d)
@@ -515,8 +515,9 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	}
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: min(w, r.W-12), H: h}
 	p.barRect = bar
-	tb := widgets.BeginToolbar(ui, bar)
-	ui.Outline(bar, th.BarBorder)
+	ui.Shadow(bar, th.Radius.Popup)
+	ui.RoundRect(bar, th.Radius.Popup, th.BarBg)
+	tb := widgets.BeginToolbarIn(ui, bar)
 	tools := [4]struct {
 		icon string
 		tip  string

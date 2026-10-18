@@ -72,12 +72,11 @@ func TextFieldRect(c *core.Context, id core.ID, r mathx.Rect, value *string, liv
 	case c.Hot() == id:
 		bg = th.WidgetHot
 	}
-	c.Rect(r, bg)
 	border := th.Border
 	if focused {
 		border = th.Accent
 	}
-	c.Outline(r, border)
+	c.Box(r, th.Radius.Field, bg, border)
 
 	c.PushClip(inner)
 	font := c.Font()

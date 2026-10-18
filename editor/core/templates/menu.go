@@ -69,7 +69,7 @@ func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreat
 	ui := ctx.UI
 	enabled := ctx.Doc() != nil
 	item := func(t Template) {
-		if !widgets.MenuItem(ui, t.Name, "", enabled, false) {
+		if !widgets.Entry(ui, widgets.Item{Label: t.Name, Icon: t.Icon, Enabled: enabled}) {
 			return
 		}
 		created, err := InstantiatePlace(ctx, t, parent, -1, pl)

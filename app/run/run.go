@@ -38,6 +38,7 @@ type Config struct {
 	SceneID    ids.AssetID
 	ScenePath  string
 	Trace      string
+	Profile    string
 	Logger     *log.Logger
 }
 
@@ -80,6 +81,7 @@ func Main(mods ...sdk.Module) {
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
 	supervised := fs.Bool("supervised", false, "accept restart commands on stdin")
 	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
+	profile := fs.String("profile", "", "player settings profile, default when empty")
 	fs.Parse(os.Args[1:])
 
 	root, err := project.Find(".")
@@ -98,6 +100,7 @@ func Main(mods ...sdk.Module) {
 		Supervised: *supervised,
 		ScenePath:  *scenePath,
 		Trace:      *tracePath,
+		Profile:    *profile,
 	}
 	if err := Run(p, cfg, mods...); err != nil {
 		fail(err)
@@ -130,6 +133,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 		Logger:             cfg.Logger,
 		Debug:              cfg.Debug,
 		FailOnScriptErrors: true,
+		Profile:            cfg.Profile,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
@@ -292,6 +296,9 @@ func (a *App) Close() {
 	}
 	if a.Scripts != nil {
 		a.Scripts.Close()
+	}
+	if a.Runner != nil {
+		a.Runner.Close()
 	}
 	if a.cfg.Trace != "" && a.Engine != nil {
 		if err := WriteTrace(a.cfg.Trace, a.Engine.Trace()); err != nil {

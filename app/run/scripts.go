@@ -33,9 +33,6 @@ func ScriptBindings(p *project.Project, opt assembly.Options, mods ...sdk.Module
 	if err != nil {
 		return nil, err
 	}
-	if opt.Input == nil {
-		opt.Input = &p.Input
-	}
 	reg := bind.New()
 	if _, err := builtin.Default().Load(types, reg, opt, sdk.AdaptAll(mods)...); err != nil {
 		return nil, err
