@@ -1,0 +1,6 @@
+data version=1 type="mygame.EnemyStats" {
+  speed=2.5
+  cooldown=1
+  damage=1
+  tint=#e0563bff
+}

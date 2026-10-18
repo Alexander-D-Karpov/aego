@@ -18,6 +18,7 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.watchPanel, Slot: workspace.SlotBottom, Order: 176},
 		{Panel: a.settings, Near: workspace.Inspector, Order: 200},
 		{Panel: a.docs, Near: workspace.Scene, Order: 210},
+		{Panel: a.tablePanel, Near: workspace.Scene, Order: 215},
 		{Panel: a.welcome, Near: workspace.Inspector, Order: 220},
 		{Panel: a.keymap, Near: workspace.Inspector, Order: 230},
 		{Panel: a.crashesPanel, Near: workspace.Console, Order: 240},

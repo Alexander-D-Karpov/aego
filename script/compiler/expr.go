@@ -280,6 +280,10 @@ func (c *fn) selectorTo(e *ast.SelectorExpr, dst int) {
 	if sel == nil {
 		return
 	}
+	if sel.Kind == checker.SelDataField {
+		c.dataFieldTo(e, sel, dst)
+		return
+	}
 	if p, ok := c.placeOf(e); ok {
 		c.load(p, dst)
 		return

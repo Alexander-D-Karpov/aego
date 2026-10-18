@@ -84,12 +84,18 @@ func (c *checker) generic(name string, t *ast.NamedType) *types.Type {
 	}
 	switch name {
 	case "AssetRef":
-		kind, ok := types.AssetKind(arg.Name.Name)
-		if !ok || arg.Pkg != nil || len(arg.Args) > 0 {
-			c.errorf(diag.BadTypeArg, arg.Sp, "AssetRef argument must be Texture, Scene, Prefab or Mesh")
-			return types.Invalid
+		if kind, ok := types.AssetKind(arg.Name.Name); ok && arg.Pkg == nil && len(arg.Args) == 0 {
+			return c.u.AssetRef(kind)
 		}
-		return c.u.AssetRef(kind)
+		if data, ok := c.dataArg(arg, name); ok {
+			return c.u.AssetRef(dataPrefix + data)
+		}
+		return types.Invalid
+	case "TableRef":
+		if data, ok := c.dataArg(arg, name); ok {
+			return c.u.AssetRef(tablePrefix + data)
+		}
+		return types.Invalid
 	case "ScriptRef":
 		full, ok := c.scriptTarget(arg)
 		if !ok {

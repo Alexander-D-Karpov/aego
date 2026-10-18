@@ -561,6 +561,10 @@ func artifactExt(kind asset.ArtifactKind) string {
 		return ".aems"
 	case asset.ArtScript:
 		return ".aesb"
+	case asset.ArtData:
+		return ".aedata"
+	case asset.ArtTable:
+		return ".aetable"
 	}
 	return ".bin"
 }

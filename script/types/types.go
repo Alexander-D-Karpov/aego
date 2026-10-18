@@ -348,13 +348,24 @@ func (u *Interner) AssetRef(kind string) *Type {
 	if t, ok := u.assets[kind]; ok {
 		return t
 	}
-	display := kind
-	for k, v := range assetKinds {
-		if v == kind {
-			display = k
+	local := "AssetRef"
+	var name string
+	switch {
+	case strings.HasPrefix(kind, "data:"):
+		name = "AssetRef<" + kind[len("data:"):] + ">"
+	case strings.HasPrefix(kind, "table:"):
+		local = "TableRef"
+		name = "TableRef<" + kind[len("table:"):] + ">"
+	default:
+		display := kind
+		for k, v := range assetKinds {
+			if v == kind {
+				display = k
+			}
 		}
+		name = "AssetRef<" + display + ">"
 	}
-	t := &Type{Kind: KAssetRef, Name: "AssetRef<" + display + ">", Local: "AssetRef", Asset: kind, slots: 1}
+	t := &Type{Kind: KAssetRef, Name: name, Local: local, Asset: kind, slots: 1}
 	u.assets[kind] = t
 	return t
 }

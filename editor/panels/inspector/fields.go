@@ -503,6 +503,9 @@ func (p *Panel) summary(d *document.SceneDocument, fd *schema.FieldDescriptor, v
 	case schema.KindAssetRef:
 		return assetState(p.d.Pipeline, v.Asset).label
 	case schema.KindNodeRef:
+		if d == nil {
+			return "—"
+		}
 		return nodeState(d.Scene(), v.Node, fd.Component).label
 	case schema.KindList:
 		return "[" + strconv.Itoa(len(v.List)) + "]"
@@ -560,7 +563,7 @@ func (p *Panel) listValue(d *document.SceneDocument, fd *schema.FieldDescriptor,
 	if editable {
 		elem := elemOf(fd)
 		if widgets.ButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: row.X + row.W - 2*bw - 2, Y: row.Y, W: bw, H: row.H}, "+") {
-			v.List = append(v.List, zeroValue(d.Scene().Registry(), &elem))
+			v.List = append(v.List, zeroValue(p.schemaOf(d), &elem))
 			e = all
 		}
 		if widgets.ButtonRect(ui, core.IDSeq(id, 2), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "-") && n > 0 {
@@ -588,7 +591,10 @@ func (p *Panel) listValue(d *document.SceneDocument, fd *schema.FieldDescriptor,
 func (p *Panel) structValue(d *document.SceneDocument, fd *schema.FieldDescriptor, v *schema.Value, mixed bool, label string, ro bool) widgets.Edit {
 	ui := p.f.UI
 	th := &ui.Theme
-	reg := d.Scene().Registry()
+	reg := p.schemaOf(d)
+	if reg == nil {
+		return widgets.Edit{}
+	}
 	td, ok := reg.ByID(fd.Struct)
 	if !ok {
 		return widgets.Edit{}

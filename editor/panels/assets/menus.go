@@ -7,9 +7,11 @@ import (
 
 	"aego/asset"
 	"aego/core/ids"
+	"aego/data"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/schema"
 	"aego/ui/widgets"
 )
 
@@ -131,6 +133,7 @@ func (p *Panel) dirItems(dir string) {
 		if widgets.MenuItem(ui, "Script Package…", "", true, false) {
 			p.newPackage(dir)
 		}
+		p.dataItems(dir)
 		widgets.EndSubMenu(ui)
 	}
 	if widgets.MenuItem(ui, "Paste", reg.Shortcut(CommandPaste), p.d.Files.CanPaste(), false) {
@@ -151,6 +154,65 @@ func (p *Panel) dirItems(dir string) {
 	}
 	if widgets.MenuItem(ui, "Copy Path", "", true, false) {
 		p.copyText(dir)
+	}
+}
+
+func (p *Panel) dataTypes() []*schema.TypeDescriptor {
+	if p.d.Schema == nil {
+		return nil
+	}
+	var out []*schema.TypeDescriptor
+	p.d.Schema.Each(func(td *schema.TypeDescriptor) {
+		if td.Kind == schema.TypeAsset && !td.Hidden {
+			out = append(out, td)
+		}
+	})
+	return out
+}
+
+func typeShort(full string) string {
+	return full[strings.LastIndexByte(full, '.')+1:]
+}
+
+func (p *Panel) newData(dir string, td *schema.TypeDescriptor, table bool) {
+	ext, title := ".aedata", "New "+typeShort(td.FullName)+" data"
+	if table {
+		ext, title = ".aetable", "New "+typeShort(td.FullName)+" table"
+	}
+	p.newDoc(dir, title, ext, func(rel string) error {
+		var b []byte
+		if table {
+			b = data.WriteTable(&data.TableDoc{Type: td.FullName})
+		} else {
+			b = data.WriteDoc(&data.Doc{Type: td.FullName})
+		}
+		_, err := p.d.Files.CreateFile(rel, b)
+		return err
+	})
+}
+
+func (p *Panel) dataItems(dir string) {
+	types := p.dataTypes()
+	if len(types) == 0 {
+		return
+	}
+	ui := p.f.UI
+	widgets.Separator(ui)
+	if widgets.SubMenu(ui, "Data Asset", 220) {
+		for _, td := range types {
+			if widgets.MenuItem(ui, typeShort(td.FullName)+"…", "", true, false) {
+				p.newData(dir, td, false)
+			}
+		}
+		widgets.EndSubMenu(ui)
+	}
+	if widgets.SubMenu(ui, "Data Table", 220) {
+		for _, td := range types {
+			if widgets.MenuItem(ui, typeShort(td.FullName)+"…", "", true, false) {
+				p.newData(dir, td, true)
+			}
+		}
+		widgets.EndSubMenu(ui)
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/platform/input"
 	"aego/project"
+	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
@@ -55,6 +56,9 @@ type Deps struct {
 	Notices   services.Notices
 	Nav       services.Navigation
 	Project   *project.Project
+	Schema    *schema.Registry
+	Inspect   func(id ids.AssetID)
+	OpenTable func(id ids.AssetID)
 }
 
 type Panel struct {
@@ -273,6 +277,18 @@ func (p *Panel) press(id ids.AssetID) {
 	default:
 		p.selectOnly(id)
 	}
+	p.inspectActive()
+}
+
+func (p *Panel) inspectActive() {
+	if p.d.Inspect == nil {
+		return
+	}
+	var target ids.AssetID
+	if a := p.find(p.active); a != nil && len(p.sel) == 1 && a.Kind == asset.ArtData {
+		target = a.ID
+	}
+	p.d.Inspect(target)
 }
 
 func (p *Panel) settle() {
@@ -285,6 +301,7 @@ func (p *Panel) settle() {
 	case !p.f.UI.MouseDown(input.MouseLeft):
 		p.selectOnly(p.pending)
 		p.pending = ids.AssetID{}
+		p.inspectActive()
 	}
 }
 
@@ -723,7 +740,11 @@ func openExternal(abs string) error {
 }
 
 func openable(k asset.ArtifactKind) bool {
-	return k == asset.ArtScene || k == asset.ArtScript || k == asset.ArtPrefab
+	switch k {
+	case asset.ArtScene, asset.ArtScript, asset.ArtPrefab, asset.ArtData, asset.ArtTable:
+		return true
+	}
+	return false
 }
 
 func (p *Panel) open(a *pipeline.AssetInfo) {
@@ -739,6 +760,14 @@ func (p *Panel) open(a *pipeline.AssetInfo) {
 		}
 		if err := openExternal(p.d.Pipeline.Abs(a.Path)); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
+		}
+	case asset.ArtData:
+		if p.d.Inspect != nil {
+			p.d.Inspect(a.ID)
+		}
+	case asset.ArtTable:
+		if p.d.OpenTable != nil {
+			p.d.OpenTable(a.ID)
 		}
 	}
 }

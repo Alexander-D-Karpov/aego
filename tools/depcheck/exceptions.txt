@@ -24,3 +24,6 @@ asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .
 platform/profile.go -> "settings*", semantic, settings.aetext is the player profile file name, not a module reference (D237)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it
 engine/recorder/recorder.go -> "spawn", semantic, the recorder event kind names spawn and despawn records (9.1) and predates the spawn module (D250)
+data/... -> "data*", semantic, the data module ID equals the artifact kind and document head of data assets and its decoder keys data.record and data.table (D252, D253)
+data/... -> "DAT*", semantic, the core data package reports the field checks DAT002 and DAT003 that the data module's validators publish (D256)
+asset/... -> "data", semantic, the artifact kind and importer ID of .aedata files equal the data module ID (D252)

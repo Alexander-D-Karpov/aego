@@ -98,6 +98,11 @@ func (l *Loader) Decoded(id ids.AssetID, key string, build func() (any, error)) 
 	return v, err
 }
 
+func (l *Loader) Cached(id ids.AssetID, key string) (any, bool, error) {
+	d, ok := l.decoded[decodedKey{id: id, key: key}]
+	return d.v, ok, d.err
+}
+
 func (l *Loader) Generation() uint32 {
 	return l.gen
 }
@@ -365,6 +370,26 @@ func (l *Loader) blob(id ids.AssetID, kind asset.ArtifactKind) ([]byte, bool) {
 	return data, true
 }
 
+func (l *Loader) Data(id ids.AssetID) ([]byte, bool) {
+	return l.blob(id, asset.ArtData)
+}
+
+func (l *Loader) Table(id ids.AssetID) ([]byte, bool) {
+	return l.blob(id, asset.ArtTable)
+}
+
+func (l *Loader) Revision() uint64 {
+	return uint64(l.gen)
+}
+
+func (l *Loader) Index() *asset.Index {
+	return l.index
+}
+
+func (l *Loader) Artifacts() vfs.FS {
+	return l.files
+}
+
 func (l *Loader) Scene(id ids.AssetID) ([]byte, bool) {
 	return l.blob(id, asset.ArtScene)
 }
@@ -401,6 +426,10 @@ func (l *Loader) Preload(list ...ids.AssetID) error {
 			_, ok = l.Scene(id)
 		case asset.ArtPrefab:
 			_, ok = l.Prefab(id)
+		case asset.ArtData:
+			_, ok = l.Data(id)
+		case asset.ArtTable:
+			_, ok = l.Table(id)
 		}
 		if !ok {
 			return errs.New(errs.AssetLoadFailed, "asset failed to load", log.F("asset", id.String()), log.F("kind", string(e.Kind)))
@@ -447,7 +476,7 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 		return staged{id: e.ID, kind: e.Kind, geo: m}, true, nil
 	case asset.ArtScript:
 		return staged{id: e.ID, kind: e.Kind}, true, nil
-	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab:
+	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable:
 		art, ok := e.Artifact(e.Kind)
 		if !ok {
 			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
@@ -572,6 +601,7 @@ func (l *Loader) Close() {
 }
 
 var (
-	_ asset.Resolver = (*Loader)(nil)
-	_ asset.Decoder  = (*Loader)(nil)
+	_ asset.Resolver   = (*Loader)(nil)
+	_ asset.Decoder    = (*Loader)(nil)
+	_ asset.DataSource = (*Loader)(nil)
 )

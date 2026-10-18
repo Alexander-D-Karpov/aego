@@ -107,6 +107,7 @@ func Universe() *Scope {
 		s.Insert(&Object{Kind: ObjType, Name: name, Type: t})
 	}
 	s.Insert(&Object{Kind: ObjGeneric, Name: "AssetRef"})
+	s.Insert(&Object{Kind: ObjGeneric, Name: "TableRef"})
 	s.Insert(&Object{Kind: ObjGeneric, Name: "ComponentRef"})
 	s.Insert(&Object{Kind: ObjGeneric, Name: "ScriptRef"})
 	s.Insert(&Object{Kind: ObjBuiltin, Name: "len"})

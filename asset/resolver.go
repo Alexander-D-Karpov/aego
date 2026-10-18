@@ -16,6 +16,8 @@ const (
 	ArtPrefab       ArtifactKind = "prefab"
 	ArtMesh         ArtifactKind = "mesh"
 	ArtScript       ArtifactKind = "script"
+	ArtData         ArtifactKind = "data"
+	ArtTable        ArtifactKind = "table"
 )
 
 type Reloaded struct {
@@ -34,4 +36,9 @@ type Resolver interface {
 
 type Decoder interface {
 	Decoded(id ids.AssetID, key string, build func() (any, error)) (any, error)
+}
+
+type DataSource interface {
+	Data(id ids.AssetID) ([]byte, bool)
+	Table(id ids.AssetID) ([]byte, bool)
 }

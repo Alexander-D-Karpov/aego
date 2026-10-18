@@ -541,6 +541,17 @@ func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
 	case "mesh":
 		_, ok := l.res.Mesh(id)
 		return ok
+	case string(asset.ArtData), string(asset.ArtTable):
+		ds, ok := l.res.(asset.DataSource)
+		if !ok {
+			return true
+		}
+		if fd.AssetKind == string(asset.ArtData) {
+			_, ok = ds.Data(id)
+		} else {
+			_, ok = ds.Table(id)
+		}
+		return ok
 	default:
 		_, ok := l.res.Texture(id)
 		return ok

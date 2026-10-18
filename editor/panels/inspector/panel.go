@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/clipboard"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
@@ -47,6 +48,8 @@ type Deps struct {
 	Scenes    services.SceneOps
 	Collapsed map[string]bool
 	Watch     func(expr string)
+	Data      *dataedit.Service
+	Schema    *schema.Registry
 }
 
 type Panel struct {
@@ -79,6 +82,9 @@ type Panel struct {
 	scriptNames  []string
 	scriptSearch string
 	focusScript  bool
+	dataMenuID   core.ID
+	dataMenu     string
+	dataStep     bool
 }
 
 const (
@@ -146,6 +152,12 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.hoverField, p.hoverType, p.rightUsed = fieldRef{}, 0, false
 	p.fieldMenuID, p.bgMenuID = ui.ID("fieldmenu"), ui.ID("bgmenu")
 	p.info = nil
+	if p.d.Data != nil {
+		if id := p.d.Data.Inspected(); !id.IsZero() {
+			p.drawData(r, id)
+			return
+		}
+	}
 	if d == nil {
 		widgets.LabelDim(ui, "No scene open")
 		return

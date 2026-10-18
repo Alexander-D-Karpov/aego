@@ -35,6 +35,7 @@ type Manifest struct {
 	engines         []ownedEngine
 	inited          []*entry
 	provided        []provision
+	validators      []ownedValidator
 }
 
 func (r *Registry) Build() (*Manifest, error) {
@@ -243,6 +244,7 @@ func (r *Registry) manifest(order []*entry) *Manifest {
 		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
 		Events: r.Events(), Sections: r.sections,
 		Settings: r.settings, SettingVersions: r.versions,
+		validators: r.validators,
 	}
 	for _, e := range order {
 		m.Modules = append(m.Modules, e.info)

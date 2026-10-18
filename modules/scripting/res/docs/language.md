@@ -696,3 +696,27 @@ title: Editor
 # Editor
 
 The editor's code editor, navigation, completion, hover, library stubs, Problems panel and Profiler sections for scripts are described in `docs/editor.md` (§ Scripts). Unsaved edits are analysed but never run; autosave writes them one second after the last keystroke, on focus loss and before Play.
+
+---
+id: language/data-assets
+parent: language
+order: 21
+title: Data assets
+---
+# Data assets
+
+A data type registered by a native module is available to scripts by its short name.
+
+```
+@export
+var Stats AssetRef<EnemyStats>
+
+@export
+var Loot TableRef<LootEntry>
+```
+
+`Stats.Speed` reads a field of the record the reference points to; every read sees the current record, so live tuning in the editor reaches the script on the next read. Fields cannot be assigned through a reference (AES2007). `Stats.Copy()` returns the record as a struct value of type `data.EnemyStats` that the script may change freely.
+
+A table reference has `Row(id string)`, `Has(id string) bool` and `Len() int`. `Row` returns a copy of the row.
+
+Reading through a nil reference or asking for a missing row stops the script with AES6004.

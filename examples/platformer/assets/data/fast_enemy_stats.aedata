@@ -1,0 +1,4 @@
+data version=1 type="mygame.EnemyStats" base=asset("da7a0000000000000000000000000001") {
+  speed=5
+  tint=#ff8a3dff
+}

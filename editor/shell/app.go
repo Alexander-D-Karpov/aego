@@ -8,12 +8,14 @@ import (
 	"aego/asset"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/assetfiles"
 	edclip "aego/editor/core/clipboard"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
 	"aego/editor/core/fieldgizmo"
 	"aego/editor/core/gizmo"
@@ -32,6 +34,7 @@ import (
 	"aego/editor/panels/assets"
 	"aego/editor/panels/console"
 	"aego/editor/panels/crashes"
+	"aego/editor/panels/datatable"
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/events"
 	"aego/editor/panels/gameview"
@@ -95,6 +98,8 @@ type Options struct {
 }
 
 type App struct {
+	data           *dataedit.Service
+	tablePanel     *datatable.Panel
 	opt            Options
 	eng            *engine.Engine
 	ui             *core.Context
@@ -306,10 +311,16 @@ func (a *App) Init(e *engine.Engine) error {
 				a.ctx.PruneSelectionOf(d.ID)
 			}
 			a.afterPlay()
+			if a.data != nil {
+				a.data.PlayStopped()
+			}
 		}
 	})
 	a.files = assetfiles.New(a.ctx)
 	a.prefabs = prefabs.New(a.ctx)
+	a.data = dataedit.New(a.ctx)
+	a.ctx.Selection.Subscribe(a.data.Clear)
+	a.tablePanel = datatable.New(datatable.Deps{Data: a.data, Notices: a.ctx})
 	a.templates.SetPrefabs(a.prefabs)
 	a.thumbs = assets.NewThumbs(assets.ThumbDeps{
 		Pipeline: a.opt.Pipeline,
@@ -322,6 +333,9 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ctx.Thumbs = a.thumbs
 	sops := sceneops.New(a.ctx, a.files.History())
 	a.assetsPanel = assets.New(assets.Deps{
+		Schema:    a.opt.Types.Schema(),
+		Inspect:   func(id ids.AssetID) { a.data.Inspect(id) },
+		OpenTable: a.openTable,
 		Files:     a.files,
 		Pipeline:  a.opt.Pipeline,
 		Thumbs:    a.thumbs,
@@ -410,6 +424,8 @@ func (a *App) Init(e *engine.Engine) error {
 		return a.watchPanel.Check()
 	})
 	a.inspectorPanel = inspector.New(a.inspectors, inspector.Deps{
+		Data:      a.data,
+		Schema:    a.opt.Types.Schema(),
 		Docs:      a.ctx,
 		Selection: a.ctx,
 		Commands:  a.ctx.Commands,
@@ -920,4 +936,12 @@ func (a *App) liveSettings() string {
 		return "some settings apply on the next Play"
 	}
 	return "applied to the running game"
+}
+
+func (a *App) openTable(id ids.AssetID) {
+	if err := a.tablePanel.Open(id); err != nil {
+		a.ctx.Notify(context.LevelError, err.Error())
+		return
+	}
+	a.ws.Show(datatable.ID)
 }

@@ -44,6 +44,7 @@ var scriptCompilerOnly = []string{
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
 	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
+	"data",
 }
 
 var rules = []rule{
@@ -73,6 +74,7 @@ var rules = []rule{
 	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture", "render/mesh"}, nil},
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
+	{"data", []string{"core/...", "asset", "format/aetext", "schema", "scene/sceneio", "scene/prefab"}, nil},
 	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
 	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
 	{"scene/scriptcomp", []string{"core/...", "schema", "scene", "format/..."}, nil},
@@ -117,10 +119,10 @@ var rules = []rule{
 	{"engine/problems", []string{"core/...", "scene"}, nil},
 	{"engine/settings", []string{"core/...", "engine/problems", "format/...", "schema"}, nil},
 	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
-	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals"}, nil},
+	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "vfs"}, nil},
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
 	{"engine/docs", []string{"core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
-	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm"}, nil},
+	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm", "data"}, nil},
 	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},
 	{"app/run", []string{"..."}, nil},
 	{"app/playground", []string{"core/...", "engine", "app/assembly", "app/assembly/playground", "modules/scripting/systems", "engine/docs", "platform/input", "modules/render2d", "scene", "scene/...", "schema", "script/..."}, nil},
@@ -183,6 +185,7 @@ var fsAllowed = []string{
 	"app/supervise",
 	"editor/core/assetops",
 	"editor/core/prefabs",
+	"editor/core/dataedit",
 	"editor/panels/assets",
 	"editor/core/document",
 	"editor/shell/launcher",

@@ -27,6 +27,13 @@ type Health struct {
 	Hits    int64   `aego:"hits"`
 }
 
+type EnemyStats struct {
+	Speed    float32     `aego:"speed,min=0,max=10"`
+	Cooldown float32     `aego:"cooldown,min=0,max=5"`
+	Damage   int64       `aego:"damage,min=0"`
+	Tint     mathx.Color `aego:"tint"`
+}
+
 type combatModule struct{}
 
 func (combatModule) Info() sdk.ModuleInfo {
@@ -41,6 +48,10 @@ func (combatModule) Register(r *sdk.Registry) error {
 	if err := b.Err(); err != nil {
 		return err
 	}
+	if err := sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats")).Err(); err != nil {
+		return err
+	}
+	sdk.Live[EnemyStats](r, "speed")
 	m := sdk.ScriptModule(r, "mygame/combat")
 	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
 		if c.Scene == nil || !c.Scene.IsAlive(target) {
@@ -351,4 +362,13 @@ func BenchmarkPlatformerFrame(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		pf.app.Engine.Step(d)
 	}
+}
+
+func TestPlatformerEnemySpeedFromData(t *testing.T) {
+	pf := openPlatformer(t)
+	pf.step(30)
+	if vx := math.Abs(float64(pf.body(pf.enemy).Velocity.X)); vx != 2.5 {
+		t.Fatalf("enemy speed %v, want 2.5 from enemy_stats.aedata", vx)
+	}
+	pf.noFaults(t)
 }

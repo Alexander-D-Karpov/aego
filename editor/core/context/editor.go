@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"aego/asset"
@@ -9,6 +10,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/data"
 	"aego/editor/core/command"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
@@ -364,13 +366,17 @@ type NodesPayload struct {
 }
 
 func AssetMatches(fieldKind string, kind asset.ArtifactKind) bool {
-	switch fieldKind {
-	case "scene":
+	switch {
+	case fieldKind == "scene":
 		return kind == asset.ArtScene
-	case "prefab":
+	case fieldKind == "prefab":
 		return kind == asset.ArtPrefab
-	case "mesh":
+	case fieldKind == "mesh":
 		return kind == asset.ArtMesh
+	case fieldKind == data.KindData || strings.HasPrefix(fieldKind, data.KindData+":"):
+		return kind == asset.ArtData
+	case fieldKind == data.KindTable || strings.HasPrefix(fieldKind, data.KindTable+":"):
+		return kind == asset.ArtTable
 	}
 	return kind == asset.ArtTexture || kind == asset.ArtSpriteRegion
 }

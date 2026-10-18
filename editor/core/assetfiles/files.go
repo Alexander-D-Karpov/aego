@@ -136,3 +136,7 @@ func (f *Files) Reimport(id ids.AssetID) error {
 func (f *Files) SetStartup(id ids.AssetID, rel string) {
 	assetops.SetStartup(f.ctx, id, rel)
 }
+
+func (f *Files) CreateFile(rel string, data []byte) (ids.AssetID, error) {
+	return assetops.CreateFile(f.ctx, rel, data)
+}

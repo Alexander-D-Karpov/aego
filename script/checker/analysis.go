@@ -66,6 +66,7 @@ const (
 	SelHostConst
 	SelSignal
 	SelScriptField
+	SelDataField
 )
 
 type Selection struct {
@@ -77,6 +78,7 @@ type Selection struct {
 	Script      *ScriptType
 	ScriptField *ScriptField
 	Signal      *ScriptSignal
+	Data        *types.Type
 }
 
 type Hints struct {

@@ -3,5 +3,5 @@ package builtin
 import "aego/app/assembly"
 
 func Headless() assembly.Catalog {
-	return assembly.Catalog{core(), inputEntry(), scriptEntry(), physicsEntry(), debugEntry(), displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), spawnEntry()}
+	return assembly.Catalog{core(), dataEntry(), inputEntry(), scriptEntry(), physicsEntry(), debugEntry(), displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), spawnEntry()}
 }

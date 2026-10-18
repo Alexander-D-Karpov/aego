@@ -177,6 +177,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	h.Engine.SetService(renderhost.ServiceID, h.Renderer)
 	h.Problems = problems.New()
 	h.Problems.Add(MetaProblems(h.Pipeline))
+	h.Problems.Add(h.Modules.AssetProblems(h.Types.Schema(), h.Loader))
 	h.Engine.SetService(problems.ServiceID, h.Problems)
 	if h.Settings, err = h.Modules.NewSettings(); err != nil {
 		return err

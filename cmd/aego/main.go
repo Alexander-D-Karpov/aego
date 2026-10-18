@@ -376,6 +376,7 @@ func cmdCheck(args []string) int {
 		fmt.Fprintf(os.Stderr, "%s: %s %s\n", is.Path, is.Code(), is.Message())
 		problems++
 	}
+	problems += projects.CheckAssets(p, imps, os.Stderr)
 	snap := ws.Snapshot()
 	diag.Print(os.Stderr, snap.Sources, snap.Diagnostics)
 	if *explain && len(snap.Diagnostics) > 0 {

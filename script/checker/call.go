@@ -172,6 +172,11 @@ func (c *checker) callMethod(e *ast.CallExpr, sel *ast.SelectorExpr, recv operan
 			return c.getScript(e, sel)
 		}
 	}
+	if recv.t.Kind == types.KAssetRef {
+		if x, ok := c.dataMethod(e, sel, recv); ok {
+			return x
+		}
+	}
 	c.noTypeArgs(e)
 	sig, ok := c.surface.Method(types.ToABI(recv.t).Kind, name)
 	if !ok {

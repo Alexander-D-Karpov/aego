@@ -271,6 +271,11 @@ func (c *checker) field(s *ast.SelectorExpr, x operand) operand {
 		}
 	case types.KCoroutine, types.KConnection, types.KCurve:
 	case types.KNodeRef, types.KAssetRef:
+		if t.Kind == types.KAssetRef {
+			if x, ok := c.dataField(s, t); ok {
+				return x
+			}
+		}
 		if _, ok := c.surface.Method(types.ToABI(t).Kind, name); ok {
 			c.errorf(diag.NotValue, s.Sp, "method %s must be called", name)
 			return invalid

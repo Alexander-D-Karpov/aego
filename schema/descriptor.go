@@ -11,6 +11,7 @@ const (
 	FlagTransient
 	FlagScript
 	FlagReplicated
+	FlagLive
 )
 
 func (f FieldFlags) Has(o FieldFlags) bool {

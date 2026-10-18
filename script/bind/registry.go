@@ -23,6 +23,7 @@ type Registry struct {
 	enums   map[reflect.Type]string
 	structs map[reflect.Type]*StructDesc
 	handles map[reflect.Type]any
+	refs    map[reflect.Type]string
 	docs    map[string]Info
 	errs    []error
 	frozen  bool
@@ -37,6 +38,7 @@ func New() *Registry {
 		enums:   map[reflect.Type]string{},
 		structs: map[reflect.Type]*StructDesc{},
 		handles: map[reflect.Type]any{},
+		refs:    map[reflect.Type]string{},
 		docs:    map[string]Info{},
 	}
 }

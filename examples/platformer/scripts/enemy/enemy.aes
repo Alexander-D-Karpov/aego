@@ -21,11 +21,8 @@ script EnemyAI {
 	@export
 	var Target NodeRef
 
-	@export(min=0, max=10, unit="u/s")
-	var Speed float = 2.5
-
-	@export(min=0, max=5, unit="s")
-	var Cooldown float = 1
+	@export(tip="Speed, cooldown, damage and tint of this kind of enemy")
+	var Stats AssetRef<EnemyStats>
 
 	var toB bool = true
 	var hit timer.Timer
@@ -33,7 +30,11 @@ script EnemyAI {
 	var fade Connection
 
 	func Ready() {
-		hit = timer.Cooldown(Cooldown)
+		hit = timer.Cooldown(Stats.Cooldown)
+		sprite := node.Get<SpriteRenderer>()
+		if sprite != nil {
+			sprite.Tint = Stats.Tint
+		}
 	}
 
 	func FixedUpdate(dt float) {
@@ -53,7 +54,7 @@ script EnemyAI {
 			toB = !toB
 		}
 		v := body.Velocity
-		v.X = dir * Speed
+		v.X = dir * Stats.Speed
 		body.SetVelocity(v)
 	}
 
@@ -78,6 +79,6 @@ script EnemyAI {
 		if dead || other != Target || c.Normal.Y > 0.5 || !hit.Use() {
 			return
 		}
-		combat.Damage(Target, 1)
+		combat.Damage(Target, Stats.Damage)
 	}
 }

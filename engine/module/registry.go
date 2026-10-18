@@ -49,30 +49,34 @@ type DocSource struct {
 }
 
 type Registry struct {
-	types     *scene.Types
-	script    *bind.Registry
-	modules   []*entry
-	cur       *entry
-	comps     []*schema.TypeDescriptor
-	systems   []ownedSystem
-	events    []ownedEvent
-	engines   []ownedEngine
-	services  []serviceDesc
-	templates []*schema.TemplateDesc
-	sections  []*Section
-	icons     []IconSet
-	docs      []DocSource
-	provided  []provision
-	settings  []settings.Desc
-	versions  []settings.OwnerVersion
-	owners    map[string]string
-	dev       []Hook
-	editor    []Hook
-	finals    []finalizer
-	warns     []string
-	errs      []error
-	built     bool
-	audit     *IconReport
+	types      *scene.Types
+	script     *bind.Registry
+	modules    []*entry
+	cur        *entry
+	comps      []*schema.TypeDescriptor
+	systems    []ownedSystem
+	events     []ownedEvent
+	engines    []ownedEngine
+	services   []serviceDesc
+	templates  []*schema.TemplateDesc
+	sections   []*Section
+	icons      []IconSet
+	docs       []DocSource
+	provided   []provision
+	settings   []settings.Desc
+	versions   []settings.OwnerVersion
+	owners     map[string]string
+	dev        []Hook
+	editor     []Hook
+	finals     []finalizer
+	warns      []string
+	errs       []error
+	built      bool
+	audit      *IconReport
+	datas      []*schema.TypeDescriptor
+	validators []ownedValidator
+	dataHooks  []DataHook
+	live       []liveDecl
 }
 
 func New(types *scene.Types, script *bind.Registry) *Registry {

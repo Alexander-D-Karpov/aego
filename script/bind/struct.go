@@ -128,6 +128,10 @@ func (r *Registry) leafFor(t reflect.Type) (abi.TypeRef, []leaf, int, error) {
 		l := leaf{kind: lAsset, off: id.Offset + fieldOff(id.Type, "Hi"), off2: id.Offset + fieldOff(id.Type, "Lo")}
 		return abi.AssetOf(kind), []leaf{l}, 1, nil
 	}
+	if kind, ok := r.refs[t]; ok {
+		l := leaf{kind: lAsset, off: fieldOff(idType, "Hi"), off2: fieldOff(idType, "Lo")}
+		return abi.AssetOf(kind), []leaf{l}, 1, nil
+	}
 	if d, ok := r.structs[t]; ok {
 		return abi.StructOf(d.Qualified()), append([]leaf(nil), d.leaves...), d.Slots, nil
 	}

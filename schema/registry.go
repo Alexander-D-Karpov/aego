@@ -142,6 +142,20 @@ func RegisterStruct[T any](r *Registry, opts ...Option) (*TypeDescriptor, error)
 	return r.register(reflect.TypeFor[T](), TypeStruct, opts)
 }
 
+func RegisterData[T any](r *Registry, opts ...Option) (*TypeDescriptor, error) {
+	return r.register(reflect.TypeFor[T](), TypeAsset, opts)
+}
+
+func (r *Registry) DataTypes() []*TypeDescriptor {
+	var out []*TypeDescriptor
+	for _, t := range r.order {
+		if t.Kind == TypeAsset {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*TypeDescriptor, error) {
 	if r.frozen {
 		return nil, errs.New(errs.SchemaFrozen, "registry is frozen", log.F("type", rt.String()))
