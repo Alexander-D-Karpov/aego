@@ -3,6 +3,7 @@ package tween
 import (
 	"aego/core/errs"
 	"aego/scene"
+	"aego/script/vm"
 )
 
 type TimerOptions struct {
@@ -23,6 +24,9 @@ type timer struct {
 	unscaled bool
 	keep     bool
 	done     bool
+	act      Handle
+	held     bool
+	moved    bool
 }
 
 func (s *Service) Timers() int {
@@ -119,42 +123,74 @@ func (s *Service) Use(h Handle) bool {
 	return s.Ready(h) && s.Restart(h)
 }
 
+func (s *Service) OnFired(h Handle, fn func(count int)) vm.Value {
+	if s.hub == nil || fn == nil || s.timers.get(h) == nil {
+		return vm.Value{}
+	}
+	return s.hub.Connect(handleSource(typeTimer, h.Key()), sigFired, func(a []vm.Value) { fn(int(a[0].Int())) })
+}
+
 func (s *Service) dropTimer(i uint32) {
 	h := s.timers.handle(i)
+	act := s.timers.s[i].v.act
+	key := h.Key()
 	s.timers.release(i)
-	s.wake(typeTimer, h.Key())
+	s.endHandle(handleSource(typeTimer, key))
+	s.wake(typeTimer, key)
+	if !act.IsZero() {
+		s.stepDone(act, stepTimer, h)
+	}
 }
 
 func (s *Service) stepTimers(dt float32, unscaled bool) {
 	for i := range s.timers.s {
 		e := &s.timers.s[i]
-		t := &e.v
-		if !e.live || t.unscaled != unscaled {
+		if !e.live || e.v.unscaled != unscaled {
 			continue
 		}
+		t := &e.v
 		if !t.owner.IsZero() && !s.scene.IsAlive(t.owner) {
 			s.dropTimer(uint32(i))
 			continue
 		}
-		if t.done || t.paused {
+		if t.done || t.paused || t.held {
 			continue
 		}
+		t.moved = true
 		t.left -= dt
-		for t.left <= 0 {
+		gen := e.gen
+		for {
+			e = &s.timers.s[i]
+			t = &e.v
+			if !e.live || e.gen != gen || t.done || t.left > 0 {
+				break
+			}
 			t.count++
-			key := s.timers.handle(uint32(i)).Key()
+			h := s.timers.handle(uint32(i))
+			key := h.Key()
+			src := handleSource(typeTimer, key)
+			count := vm.Int(int64(t.count))
 			if t.legs > 0 {
 				t.legs--
 			}
 			if t.legs == 0 || t.dur <= 0 {
 				t.done, t.left = true, 0
-				if !t.keep {
+				keep, act := t.keep, t.act
+				if !keep {
 					s.timers.release(uint32(i))
 				}
+				s.emitOne(src, sigFired, count)
+				if !keep {
+					s.endHandle(src)
+				}
 				s.wake(typeTimer, key)
+				if !act.IsZero() {
+					s.stepDone(act, stepTimer, h)
+				}
 				break
 			}
 			t.left += t.dur
+			s.emitOne(src, sigFired, count)
 			s.wake(typeTimer, key)
 		}
 	}

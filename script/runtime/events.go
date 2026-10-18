@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"slices"
+
 	"aego/contracts/scriptevents"
 	"aego/core/ids"
 	"aego/core/log"
@@ -113,6 +115,9 @@ func (r *Runtime) Emit(node scene.NodeHandle, ev scriptevents.EventID, args []vm
 		return
 	}
 	_, owned := r.byNode[node]
+	if !owned {
+		owned = slices.Contains(r.spawn, node)
+	}
 	r.record(node, i, args, owned && r.listen[i])
 	if !owned || !r.listen[i] {
 		return

@@ -318,6 +318,25 @@ func (e EventDef) Sig() Signature {
 	return Signature{Params: e.Params, Result: T(Void)}
 }
 
+const (
+	SignalModule     = "#signal"
+	ConnectComponent = "ConnectComponent"
+	ConnectHandle    = "ConnectHandle"
+)
+
+func ConnectSig(src TypeRef) Signature {
+	return Sig(T(Connection), src, T(Int), T(Int), T(String))
+}
+
+type SignalDef struct {
+	Name   string
+	Params []TypeRef
+}
+
+func (s SignalDef) Sig() Signature {
+	return Signature{Params: s.Params, Result: T(Void)}
+}
+
 type Const struct {
 	Type  TypeRef
 	Int   int64
@@ -334,10 +353,11 @@ type Field struct {
 }
 
 type Component struct {
-	Name   string
-	Short  string
-	Index  int
-	Fields []Field
+	Name    string
+	Short   string
+	Index   int
+	Fields  []Field
+	Signals []SignalDef
 }
 
 func (c *Component) Field(name string) (*Field, bool) {
@@ -349,12 +369,22 @@ func (c *Component) Field(name string) (*Field, bool) {
 	return nil, false
 }
 
+func (c *Component) Signal(name string) (int, bool) {
+	for i := range c.Signals {
+		if c.Signals[i].Name == name {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 type Surface interface {
 	Module(path string) bool
 	Func(module, name string) (Signature, bool)
 	Method(recv Kind, name string) (Signature, bool)
 	ComponentMethod(comp, name string) (Signature, bool)
 	HandleMethod(handle, name string) (Signature, bool)
+	HandleSignal(handle, name string) (int, SignalDef, bool)
 	Handle(name string) (HandleDef, bool)
 	Const(module, name string) (Const, bool)
 	Enum(module, name string) (*EnumDef, bool)

@@ -190,6 +190,7 @@ func Assemble(src Sources) *Registry {
 	if src.Bindings != nil {
 		r.bindings(src.Bindings, src.Owners)
 		r.handles(src.Bindings, src.Owners)
+		r.hostSignals(src.Bindings, src.Owners)
 	}
 	if src.Schema != nil {
 		r.components(src.Schema, src.Bindings)
@@ -221,6 +222,27 @@ func (r *Registry) handles(m *manifest.Manifest, owners map[string]string) {
 			ID: hm.Handle + "." + hm.Name, Parent: hm.Handle, Kind: Method, Owner: r.ownerOf(mod, owners), Title: name + "." + hm.Name,
 			Signature: signature("func ("+name+") "+hm.Name, ps, hm.Sig.Result), Params: ps, Body: hm.Doc, Example: hm.Example,
 			Location: Location{Path: hm.Loc, Stub: StubPath(mod), Symbol: "method:" + name + "." + hm.Name},
+		})
+	}
+}
+
+func (r *Registry) hostSignals(m *manifest.Manifest, owners map[string]string) {
+	for _, cs := range m.CompSignals {
+		ps := params(abi.Signature{Params: cs.Params}, cs.Names)
+		r.add(Entry{
+			ID: cs.Comp + "." + cs.Name, Parent: cs.Comp, Kind: Signal, Title: cs.Name,
+			Signature: signature("signal "+cs.Name, ps, abi.T(abi.Void)), Params: ps, Body: cs.Doc,
+			Location: Location{Stub: StubPath(ComponentsStub), Symbol: "signal:" + cs.Comp + "." + cs.Name},
+		})
+	}
+	for _, hs := range m.HandleSignals {
+		i := strings.LastIndexByte(hs.Handle, '.')
+		mod, short := hs.Handle[:i], hs.Handle[i+1:]
+		ps := params(abi.Signature{Params: hs.Params}, hs.Names)
+		r.add(Entry{
+			ID: hs.Handle + "." + hs.Name, Parent: hs.Handle, Kind: Signal, Owner: r.ownerOf(mod, owners), Title: short + "." + hs.Name,
+			Signature: signature("signal "+hs.Name, ps, abi.T(abi.Void)), Params: ps, Body: hs.Doc,
+			Location: Location{Stub: StubPath(mod), Symbol: "signal:" + short + "." + hs.Name},
 		})
 	}
 }

@@ -1,3 +1,4 @@
+Engine	engine.Tags	Tags	cat.engine	-
 Rendering	engine.SpriteRenderer	Sprite Renderer	cat.rendering	-
 Rendering	engine.MeshRenderer	Mesh Renderer	cat.rendering	-
 Camera	engine.Camera2D	Camera 2D	cat.camera	-

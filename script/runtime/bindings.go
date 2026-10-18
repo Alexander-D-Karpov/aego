@@ -11,6 +11,7 @@ import (
 	"aego/script/abi"
 	"aego/script/bind"
 	"aego/script/bytecode"
+	"aego/script/signal"
 	"aego/script/vm"
 )
 
@@ -92,7 +93,28 @@ func fieldLimit(td *schema.TypeDescriptor, n int) error {
 	return fmt.Errorf("component %s of module %s exposes %d script fields, the limit is %d", td.FullName, td.Owner, n, bytecode.MaxComponentFields)
 }
 
+func componentSignals(reg *bind.Registry, td *schema.TypeDescriptor, c *abi.Component) {
+	for _, sd := range td.Signals {
+		if _, clash := c.Field(sd.Name); clash {
+			reg.Fail(fmt.Errorf("component %s: signal %s has the name of a script field", td.FullName, sd.Name))
+			continue
+		}
+		def := abi.SignalDef{Name: sd.Name}
+		for _, p := range sd.Params {
+			t, ok := abi.Parse(p)
+			if !ok {
+				reg.Fail(fmt.Errorf("component %s: signal %s has a malformed parameter type %q", td.FullName, sd.Name, p))
+				return
+			}
+			def.Params = append(def.Params, t)
+		}
+		c.Signals = append(c.Signals, def)
+	}
+}
+
 func BindComponents(reg *bind.Registry, sr *schema.Registry) {
+	reg.Intrinsic(abi.SignalModule, abi.ConnectComponent, abi.ConnectSig(abi.ComponentOf("")), connectIntrinsic(signal.KindComponent))
+	reg.Intrinsic(abi.SignalModule, abi.ConnectHandle, abi.ConnectSig(abi.HandleOf("")), connectIntrinsic(signal.KindHandle))
 	for _, td := range sr.Components() {
 		if !scriptable(td) {
 			continue
@@ -107,6 +129,7 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 			t, _ := fieldABI(fd)
 			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: readOnly(fd)})
 		}
+		componentSignals(reg, td, c)
 		reg.Component(c)
 		idx, tid := uint64(c.Index), td.ID
 		reg.Intrinsic("#NodeRef", "Get<"+td.FullName+">", abi.Sig(abi.ComponentOf(td.FullName), abi.T(abi.NodeRef)),
@@ -143,19 +166,23 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 
 type compInfo struct {
 	typ    schema.TypeID
+	name   string
 	fields []*schema.FieldDescriptor
+	sigs   []abi.SignalDef
 }
 
-func linkComponents(reg *bind.Registry, sr *schema.Registry) []compInfo {
+func linkComponents(reg *bind.Registry, sr *schema.Registry) ([]compInfo, map[schema.TypeID]int) {
+	byType := map[schema.TypeID]int{}
 	if sr == nil {
-		return nil
+		return nil, byType
 	}
 	list := reg.Table().AllComponents()
 	out := make([]compInfo, len(list))
 	for i, c := range list {
 		if td, ok := sr.ByName(c.Name); ok {
-			out[i] = compInfo{typ: td.ID, fields: ComponentFields(td)}
+			out[i] = compInfo{typ: td.ID, name: c.Name, fields: ComponentFields(td), sigs: c.Signals}
+			byType[td.ID] = i
 		}
 	}
-	return out
+	return out, byType
 }

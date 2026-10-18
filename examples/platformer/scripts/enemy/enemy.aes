@@ -30,6 +30,7 @@ script EnemyAI {
 	var toB bool = true
 	var hit timer.Timer
 	var dead bool
+	var fade Connection
 
 	func Ready() {
 		hit = timer.Cooldown(Cooldown)
@@ -66,11 +67,10 @@ script EnemyAI {
 		}
 		dead = true
 		Died.Emit()
-		start Die()
+		fade = tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad).Completed.Connect(OnFaded)
 	}
 
-	func Die() coroutine {
-		yield tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad)
+	func OnFaded(finished bool) {
 		node.Destroy()
 	}
 

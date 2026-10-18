@@ -43,15 +43,27 @@ func (*Module) Register(r *module.Registry) error {
 	if r.Bindings() != nil {
 		installTween(r.ScriptModule(ScriptTween))
 		installTimer(r.ScriptModule(ScriptTimer))
+		installAction(r.ScriptModule(ScriptAction))
 	}
 	return nil
 }
+
+const (
+	sigCompleted = 0
+	sigFired     = 0
+)
 
 func (*Module) AttachWorld(ctx *module.AttachContext) error {
 	if !ctx.Play || ctx.World == nil || ctx.Scene == nil {
 		return nil
 	}
-	ctx.World.SetService(ServiceID, NewService(ctx.Scene, ctx.World))
+	svc := NewService(ctx.Scene, ctx.World)
+	ctx.World.SetService(ServiceID, svc)
+	if svc.hub != nil {
+		svc.hub.Probe(typeTween, svc.tweenAlive)
+		svc.hub.Probe(typeTimer, svc.timerAlive)
+		svc.hub.Probe(typeAction, svc.actionAlive)
+	}
 	return nil
 }
 
@@ -60,6 +72,11 @@ func (*Module) DetachWorld(ctx *module.AttachContext) {
 		return
 	}
 	if s := Of(ctx.World); s != nil {
+		if s.hub != nil {
+			s.hub.Probe(typeTween, nil)
+			s.hub.Probe(typeTimer, nil)
+			s.hub.Probe(typeAction, nil)
+		}
 		s.Close()
 	}
 	ctx.World.RemoveService(ServiceID)

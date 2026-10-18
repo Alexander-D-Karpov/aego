@@ -23,3 +23,4 @@ engine/engine.go -> "display", semantic, the startup log line labels display met
 asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)
 platform/profile.go -> "settings*", semantic, settings.aetext is the player profile file name, not a module reference (D237)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it
+engine/recorder/recorder.go -> "spawn", semantic, the recorder event kind names spawn and despawn records (9.1) and predates the spawn module (D250)

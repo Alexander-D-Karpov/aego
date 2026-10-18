@@ -62,6 +62,10 @@ func (a *App) crash(kind, where string, rec any, stack []byte, script string) {
 	a.log.Error("crash bundle written", log.F("dir", dir), log.F("where", where))
 }
 
+func (a *App) scriptPanic(boundary string, v any, stack []byte) {
+	a.crash("panic", boundary, v, stack, "")
+}
+
 func (a *App) fault(rep scriptruntime.FaultReport) {
 	if rep.Fault != nil && rep.Fault.Code == vm.CodeNativePanic {
 		a.crash("fault", rep.Type, rep.Fault.Message, []byte(rep.Fault.Detail), scriptStack(rep.Fault))

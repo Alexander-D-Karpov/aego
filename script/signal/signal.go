@@ -5,17 +5,43 @@ import (
 	"aego/script/vm"
 )
 
+const (
+	KindScript uint8 = iota
+	KindComponent
+	KindHandle
+)
+
+type Source struct {
+	Kind uint8
+	A    uint64
+	B    uint64
+}
+
+func ScriptSource(id vm.InstanceID) Source {
+	return Source{Kind: KindScript, A: uint64(id)}
+}
+
+func (s Source) Instance() vm.InstanceID {
+	if s.Kind != KindScript {
+		return vm.NoInstance
+	}
+	return vm.InstanceID(s.A)
+}
+
+type Handler func(args []vm.Value)
+
 type Conn struct {
-	Src     vm.InstanceID
+	Src     Source
 	Sig     int
 	Dst     vm.InstanceID
 	Method  int
+	Go      Handler
 	Signal  string
 	Handler string
 	Sign    abi.Signature
 }
 
-type Deliver func(dst vm.InstanceID, method int, args []vm.Value) (bool, error)
+type Deliver func(c Conn, args []vm.Value) (bool, error)
 
 type Handle struct {
 	Index uint32
@@ -48,15 +74,17 @@ type snap struct {
 type Registry struct {
 	conns   []entry
 	free    []uint32
-	bySrc   map[vm.InstanceID][]uint32
+	bySrc   map[Source][]uint32
 	scratch []snap
+	drop    []uint32
 	depth   int
 	pending bool
 	n       int
+	hosted  int
 }
 
 func New() *Registry {
-	return &Registry{bySrc: map[vm.InstanceID][]uint32{}}
+	return &Registry{bySrc: map[Source][]uint32{}}
 }
 
 func (r *Registry) get(h Handle) *entry {
@@ -91,12 +119,24 @@ func (r *Registry) Connect(c Conn) Handle {
 	e.live, e.dead, e.c = true, false, c
 	r.bySrc[c.Src] = append(r.bySrc[c.Src], i)
 	r.n++
+	if c.Src.Kind != KindScript {
+		r.hosted++
+	}
 	return Handle{Index: i, Gen: e.gen}
 }
 
 func (r *Registry) Connected(h Handle) bool {
 	e := r.get(h)
 	return e != nil && !e.dead
+}
+
+func (r *Registry) Has(src Source) bool {
+	for _, i := range r.bySrc[src] {
+		if !r.conns[i].dead {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Registry) Disconnect(h Handle) {
@@ -133,6 +173,9 @@ func (r *Registry) remove(i uint32) {
 	} else {
 		r.bySrc[src] = list
 	}
+	if src.Kind != KindScript {
+		r.hosted--
+	}
 	e.live, e.dead, e.c = false, false, Conn{}
 	r.free = append(r.free, i)
 }
@@ -146,7 +189,7 @@ func (r *Registry) compact() {
 	}
 }
 
-func (r *Registry) Emit(src vm.InstanceID, sig int, args []vm.Value, deliver Deliver) error {
+func (r *Registry) Emit(src Source, sig int, args []vm.Value, deliver Deliver) error {
 	list := r.bySrc[src]
 	if len(list) == 0 {
 		return nil
@@ -166,8 +209,8 @@ func (r *Registry) Emit(src vm.InstanceID, sig int, args []vm.Value, deliver Del
 		if !e.live || e.gen != s.gen {
 			continue
 		}
-		dst, method := e.c.Dst, e.c.Method
-		ok, derr := deliver(dst, method, args)
+		c := e.c
+		ok, derr := deliver(c, args)
 		if !ok {
 			if e := &r.conns[s.idx]; e.live && e.gen == s.gen {
 				r.kill(s.idx)
@@ -186,13 +229,46 @@ func (r *Registry) Emit(src vm.InstanceID, sig int, args []vm.Value, deliver Del
 	return err
 }
 
+func (r *Registry) killAll(list []uint32) {
+	r.drop = append(r.drop[:0], list...)
+	for _, i := range r.drop {
+		if e := &r.conns[i]; e.live && !e.dead {
+			r.kill(i)
+		}
+	}
+}
+
+func (r *Registry) DropSource(src Source) {
+	if list := r.bySrc[src]; len(list) > 0 {
+		r.killAll(list)
+	}
+}
+
+func (r *Registry) DropNode(node uint64) {
+	if r.hosted == 0 {
+		return
+	}
+	r.drop = r.drop[:0]
+	for src, list := range r.bySrc {
+		if src.Kind == KindComponent && src.A == node {
+			r.drop = append(r.drop, list...)
+		}
+	}
+	for _, i := range r.drop {
+		if e := &r.conns[i]; e.live && !e.dead {
+			r.kill(i)
+		}
+	}
+}
+
 func (r *Registry) DropInstance(id vm.InstanceID) {
 	if id == vm.NoInstance {
 		return
 	}
+	src := ScriptSource(id)
 	for i := range r.conns {
 		e := &r.conns[i]
-		if e.live && !e.dead && (e.c.Src == id || e.c.Dst == id) {
+		if e.live && !e.dead && (e.c.Src == src || e.c.Dst == id) {
 			r.kill(uint32(i))
 		}
 	}
@@ -223,5 +299,5 @@ func (r *Registry) Reset() {
 	}
 	clear(r.bySrc)
 	r.scratch = r.scratch[:0]
-	r.depth, r.pending, r.n = 0, false, 0
+	r.depth, r.pending, r.n, r.hosted = 0, false, 0, 0
 }

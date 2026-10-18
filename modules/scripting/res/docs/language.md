@@ -619,6 +619,20 @@ script Counter {
 }
 ```
 
+## Engine signals
+
+Components and engine handles have signals too. Scripts connect to them and never emit them:
+
+```aes
+hp := node.Get<Health>()
+conn = hp.Died.Connect(OnDied)
+fade = tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.3, curve.Linear).Completed.Connect(OnFaded)
+```
+
+The same rules apply as for script signals. A component signal's connections end when its node is destroyed or the component removed; a handle signal's connections end after the handle's last emit (a tween's `Completed`, the last `Fired` of a one-shot timer). Connecting to a finished handle returns a `nil` `Connection`. `Emit` on an engine signal is `AES2055`. Parameters of engine signals are numbers, vectors, colors, enums and references, never strings or slices.
+
+Go code subscribes with `sdk.Connect1[A](ctx, node, "Health.Died", fn)` or `"script/Enemy.Died"`. A Go handler that panics is disconnected and reported; it never stops a script.
+
 ---
 id: language/scriptref
 parent: language

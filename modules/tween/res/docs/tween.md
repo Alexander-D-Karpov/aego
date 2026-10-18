@@ -68,6 +68,7 @@ Options are chained right after the call:
 | `Curve(c)` | use a curve field instead of the easing, its time range stretched over the duration |
 | `Stop()` | end where it is; the property keeps its current value |
 | `Done() bool`, `Running() bool` | state; a `nil`, stopped or finished tween is done |
+| `Completed(finished bool)` | signal, once when the tween ends; `finished` is false after `Stop`, a replacement or a lost target |
 
 Rules:
 
@@ -106,8 +107,9 @@ title: Timers
 | `Repeat(n) Timer` | fire `n` times, `-1` until `Cancel` |
 | `Unscaled() Timer` | count real time |
 | `Pause()`, `Resume()`, `Restart() bool`, `Cancel()` | control |
-| `Done() bool`, `Remaining() float`, `Fired() int` | state |
+| `Done() bool`, `Remaining() float`, `Count() int` | state |
 | `Ready() bool`, `Use() bool` | cooldowns |
+| `Fired(count int)` | signal, on every fire |
 
 A timer made by a script belongs to that script's node and is cancelled when the node is destroyed. `Restart` on a one-shot timer that already fired does nothing: its slot is gone. Use `timer.New` for timers you restart.
 
@@ -144,9 +146,33 @@ How waits resume:
 There is no polling: a coroutine parked on a handle costs nothing until the handle wakes it.
 
 ---
-id: tween/go
+id: tween/actions
 parent: tween
 order: 5
+title: Actions
+---
+# Actions
+
+An action runs tweens and timers in order or together:
+
+    yield action.Sequence().
+      Then(tween.Position(node, Vec2{4, 0}, 0.5, curve.OutCubic)).
+      Wait(0.2).
+      Then(tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.3, curve.Linear))
+
+| Function or method | |
+|---|---|
+| `action.Sequence()`, `action.Parallel()` | a new action; it starts at the next tween update |
+| `Then(tween)`, `ThenTimer(timer)`, `ThenAction(action)`, `Wait(s)` | steps, added before the action starts |
+| `Stop()`, `Done()`, `Running()` | control and state |
+| `Completed(finished bool)` | signal when the action ends |
+
+A tween or timer passed to `Then` must be created in the same frame and belong to no other action; it waits for its turn. A step that ends early counts as done. `Stop` stops every unfinished step and ends the action with `finished=false`. An action is stopped when the node of the script that made it dies. A coroutine waits for an action with `yield a`; an action cannot wait for a coroutine.
+
+---
+id: tween/go
+parent: tween
+order: 6
 title: Go
 ---
 # Go
@@ -158,3 +184,5 @@ title: Go
 `TweenOptions` has `Ease`, `Curve`, `Delay`, `Legs`, `PingPong` and `Unscaled`. `TimerOptions` has `Repeat`, `Unscaled`, `Keep` and `Owner`. Handles are values; a stale handle reads as done.
 
 The systems `tween.game` (PostUpdate, stops while paused) and `tween.unscaled` (PostUpdate, always runs) advance the pools. A module that hands out its own awaitable handles registers them with `sdk.ScriptHandle` and calls `scriptwait.Waker.Complete` when an object ends (see Native bindings in the language reference).
+
+`OnCompleted(h, func(finished bool))` and `OnFired(h, func(count int))` connect Go code to the same signals and return a `Connection` for `Disconnect`.

@@ -216,6 +216,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		log:      h.Log,
 		modules:  h.Modules,
 		fault:    s.fault,
+		panicked: s.scriptPanic,
 	}
 	lang := langsvc.New(h.Workspace, h.Engine.Jobs())
 	if p.Native {

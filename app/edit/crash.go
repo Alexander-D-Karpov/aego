@@ -73,6 +73,10 @@ func (s *Session) crash(kind, where string, rec any, stack []byte, script string
 	}
 }
 
+func (s *Session) scriptPanic(boundary string, v any, stack []byte) {
+	s.crash("panic", boundary, v, stack, "")
+}
+
 func (s *Session) fault(rep runtime.FaultReport) {
 	if rep.Fault != nil && rep.Fault.Code == vm.CodeNativePanic {
 		s.crash("fault", rep.Type, rep.Fault.Message, []byte(rep.Fault.Detail), scriptStack(rep.Fault))

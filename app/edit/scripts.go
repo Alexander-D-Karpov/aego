@@ -37,6 +37,7 @@ type scriptHost struct {
 	probs    []context.ScriptProblem
 	stats    context.ScriptStats
 	fault    func(runtime.FaultReport)
+	panicked func(boundary string, v any, stack []byte)
 }
 
 func (h *scriptHost) channel() *log.ChannelLogger {
@@ -159,7 +160,7 @@ func (h *scriptHost) Attach(w *engine.World, s *scene.Scene) (func(), error) {
 	if err := h.sync(); err != nil {
 		return nil, err
 	}
-	rt := runtime.New(runtime.Options{Bindings: h.bindings, Schema: h.schema, Log: h.log, OnFault: h.fault})
+	rt := runtime.New(runtime.Options{Bindings: h.bindings, Schema: h.schema, Log: h.log, OnFault: h.fault, OnPanic: h.panicked})
 	if err := rt.Link(h.prog.Ordered()); err != nil {
 		return nil, err
 	}

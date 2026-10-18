@@ -5,12 +5,14 @@ import (
 
 	"aego/contracts/scriptfields"
 	"aego/contracts/scriptwait"
+	"aego/contracts/signals"
 	"aego/core/curve"
 	"aego/core/errs"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/scene"
 	"aego/schema"
+	"aego/script/vm"
 )
 
 type Options struct {
@@ -38,15 +40,20 @@ type tween struct {
 	rev      bool
 	started  bool
 	unscaled bool
+	act      Handle
+	held     bool
+	moved    bool
 }
 
 type Service struct {
-	scene  *scene.Scene
-	world  *engine.World
-	reg    *schema.Registry
-	short  map[string]schema.TypeID
-	tweens pool[tween]
-	timers pool[timer]
+	scene   *scene.Scene
+	world   *engine.World
+	reg     *schema.Registry
+	short   map[string]schema.TypeID
+	tweens  pool[tween]
+	timers  pool[timer]
+	actions pool[action]
+	hub     signals.Hub
 }
 
 func NewService(s *scene.Scene, w *engine.World) *Service {
@@ -59,12 +66,56 @@ func NewService(s *scene.Scene, w *engine.World) *Service {
 		}
 		svc.short[n] = td.ID
 	}
+	if w != nil {
+		svc.hub, _ = engine.ServiceOf[signals.Hub](w, signals.ServiceID)
+	}
 	return svc
+}
+
+func handleSource(typ, key uint64) signals.Source {
+	return signals.Source{Kind: signals.KindHandle, A: key, B: typ}
+}
+
+func (s *Service) emitOne(src signals.Source, sig int, v vm.Value) {
+	if s.hub == nil || !s.hub.Wants(src) {
+		return
+	}
+	args := s.hub.Args(1)
+	args[0] = v
+	s.hub.Emit(src, sig, args)
+}
+
+func (s *Service) endHandle(src signals.Source) {
+	if s.hub != nil {
+		s.hub.End(src)
+	}
+}
+
+func (s *Service) tweenAlive(key uint64) bool {
+	return s.tweens.get(HandleOf(key)) != nil
+}
+
+func (s *Service) timerAlive(key uint64) bool {
+	return s.timers.get(HandleOf(key)) != nil
+}
+
+func (s *Service) OnCompleted(h Handle, fn func(finished bool)) vm.Value {
+	if s.hub == nil || fn == nil || s.tweens.get(h) == nil {
+		return vm.Value{}
+	}
+	return s.hub.Connect(handleSource(typeTween, h.Key()), sigCompleted, func(a []vm.Value) { fn(a[0].Bool()) })
+}
+
+func (s *Service) Disconnect(c vm.Value) {
+	if s.hub != nil {
+		s.hub.Disconnect(c)
+	}
 }
 
 func (s *Service) Close() {
 	s.tweens = pool[tween]{}
 	s.timers = pool[timer]{}
+	s.actions = pool[action]{}
 }
 
 func (s *Service) fields() scriptfields.Fields {
@@ -151,14 +202,14 @@ func (s *Service) replace(node scene.NodeHandle, t *target) {
 	for i := range s.tweens.s {
 		e := &s.tweens.s[i]
 		if e.live && e.v.node == node && e.v.tgt.same(t) {
-			s.finish(uint32(i))
+			s.finish(uint32(i), false)
 		}
 	}
 }
 
 func (s *Service) Stop(h Handle) {
 	if s.tweens.get(h) != nil {
-		s.finish(h.Index)
+		s.finish(h.Index, false)
 	}
 }
 
@@ -170,10 +221,18 @@ func (s *Service) Running(h Handle) bool {
 	return !s.Done(h)
 }
 
-func (s *Service) finish(i uint32) {
+func (s *Service) finish(i uint32, finished bool) {
 	h := s.tweens.handle(i)
+	act := s.tweens.s[i].v.act
+	key := h.Key()
 	s.tweens.release(i)
-	s.wake(typeTween, h.Key())
+	src := handleSource(typeTween, key)
+	s.emitOne(src, sigCompleted, vm.Bool(finished))
+	s.endHandle(src)
+	s.wake(typeTween, key)
+	if !act.IsZero() {
+		s.stepDone(act, stepTween, h)
+	}
 }
 
 func normLegs(n int32) int32 {
@@ -218,6 +277,7 @@ func (s *Service) Step(dt float32, unscaled bool) {
 	if dt != dt || dt < 0 {
 		dt = 0
 	}
+	s.stepActions()
 	for i := range s.tweens.s {
 		e := &s.tweens.s[i]
 		if e.live && e.v.unscaled == unscaled {
@@ -229,9 +289,13 @@ func (s *Service) Step(dt float32, unscaled bool) {
 
 func (s *Service) advance(i uint32, tw *tween, dt float32) {
 	if !s.scene.IsAlive(tw.node) {
-		s.finish(i)
+		s.finish(i, false)
 		return
 	}
+	if tw.held {
+		return
+	}
+	tw.moved = true
 	if tw.delay > 0 {
 		tw.delay -= dt
 		if tw.delay > 0 {
@@ -243,7 +307,7 @@ func (s *Service) advance(i uint32, tw *tween, dt float32) {
 	if !tw.started {
 		from, ok := s.read(&tw.tgt, tw.node)
 		if !ok {
-			s.finish(i)
+			s.finish(i, false)
 			return
 		}
 		tw.from, tw.started = from, true
@@ -254,8 +318,8 @@ func (s *Service) advance(i uint32, tw *tween, dt float32) {
 			tw.legs--
 		}
 		if tw.legs == 0 || tw.dur <= 0 {
-			s.write(&tw.tgt, tw.node, tw.end())
-			s.finish(i)
+			ok := s.write(&tw.tgt, tw.node, tw.end())
+			s.finish(i, ok)
 			return
 		}
 		tw.t -= tw.dur
@@ -264,8 +328,12 @@ func (s *Service) advance(i uint32, tw *tween, dt float32) {
 		}
 	}
 	if !s.write(&tw.tgt, tw.node, tw.at(tw.t/tw.dur)) {
-		s.finish(i)
+		s.finish(i, false)
 	}
+}
+
+func (s *Service) actionAlive(key uint64) bool {
+	return s.actions.get(HandleOf(key)) != nil
 }
 
 func (tw *tween) end() [4]float32 {

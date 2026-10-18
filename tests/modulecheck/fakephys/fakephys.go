@@ -48,6 +48,7 @@ type Module struct {
 	Removed     int
 	LastRemoved Body
 	Attached    int
+	hit         module.Signal1[float32]
 }
 
 func (*Module) Info() module.Info {
@@ -71,7 +72,7 @@ func (m *Module) Register(r *module.Registry) error {
 		},
 		Names: func(*Settings, string) []string { return []string{"A", "B"} },
 	})
-	r.System(engine.SystemDesc{ID: ID + ".tick", Phase: engine.PhasePhysics, Scope: engine.ScopePlay, System: tick{}})
+	r.System(engine.SystemDesc{ID: ID + ".tick", Phase: engine.PhasePhysics, Scope: engine.ScopePlay, System: tick{m: m}})
 	r.Template(schema.TemplateDesc{ID: ID + ".body", Name: "Fake Body", Menu: "Fake", Space: schema.Space2D, Setup: func(s *scene.Scene, h scene.NodeHandle) {
 		*scene.Add[Body](s, h) = Body{Size: 1}
 	}})
@@ -84,7 +85,7 @@ func (m *Module) Register(r *module.Registry) error {
 		Category: settings.CategoryGameplay, Flags: settings.User, ChoicesFrom: schema.HintSource{Section: ID, List: Lists},
 	})
 	r.ScriptEvent(scriptevents.Event{Name: EventTick})
-	return module.Component[Body](r, schema.Name("fakephys.Body"),
+	b := module.Component[Body](r, schema.Name("fakephys.Body"),
 		schema.ChoicesFrom("layer", ID, Lists),
 		schema.Bitset("mask", ID, Lists),
 		schema.Runtime("speed")).
@@ -107,8 +108,9 @@ func (m *Module) Register(r *module.Registry) error {
 				return nil
 			}
 			return []problems.Diagnostic{{Code: "FAK001", Severity: problems.Error, Message: "fakephys.Body: size must be positive", BlocksPlay: true}}
-		}).
-		Err()
+		})
+	m.hit = b.Signal1[float32]("Hit", "Hit fires every fake physics tick for a body with a positive speed.", "force")
+	return b.Err()
 }
 
 func (m *Module) Init(ctx *module.InitContext) error {
@@ -140,11 +142,13 @@ func StateOf(w *engine.World) *State {
 	return s
 }
 
-type tick struct{}
+type tick struct {
+	m *Module
+}
 
 var tickStyle = debugdraw.Style{Color: mathx.Color{R: 1, A: 1}, Channel: ID + ".ticks"}
 
-func (tick) Run(ctx *engine.Context) {
+func (t tick) Run(ctx *engine.Context) {
 	s := StateOf(ctx.World)
 	if s == nil {
 		return
@@ -152,5 +156,12 @@ func (tick) Run(ctx *engine.Context) {
 	s.Ticks++
 	if d, ok := engine.ServiceOf[debugdraw.Draw](ctx.World, debugdraw.ServiceID); ok {
 		d.Cross(mathx.Vec2{}, 0.5, &tickStyle)
+	}
+	if sc, ok := engine.ServiceOf[*scene.Scene](ctx.World, scene.ServiceID); ok && t.m != nil {
+		scene.Store[Body](sc).Each(func(h scene.NodeHandle, b *Body) {
+			if b.Speed > 0 {
+				t.m.hit.Emit(ctx.World, h, b.Speed)
+			}
+		})
 	}
 }

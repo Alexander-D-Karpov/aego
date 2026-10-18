@@ -4,6 +4,7 @@ import (
 	"aego/core/curve"
 	"aego/core/mathx"
 	"aego/scene"
+	"aego/script/abi"
 	"aego/script/bind"
 )
 
@@ -156,6 +157,8 @@ func installTween(m *bind.Module) {
 		}
 		return h
 	}, bind.Doc("Curve replaces the easing with a curve field; its time range is stretched over the duration."), bind.Params("curve"))
+	bind.Signal(hm, "Completed", []abi.TypeRef{abi.T(abi.Bool)}, bind.Params("finished"),
+		bind.Doc("Completed runs once when the tween ends: finished is true at its natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."))
 }
 
 func installTimer(m *bind.Module) {
@@ -198,12 +201,12 @@ func installTimer(m *bind.Module) {
 		}
 		return 0
 	}, bind.Doc("Remaining returns the seconds left until the next fire."))
-	bind.Func1(hm, "Fired", func(c *bind.Ctx, h timerRef) int64 {
+	bind.Func1(hm, "Count", func(c *bind.Ctx, h timerRef) int64 {
 		if s := live(c); s != nil {
 			return int64(s.Fired(Handle(h)))
 		}
 		return 0
-	}, bind.Doc("Fired returns how many times the timer has fired."))
+	}, bind.Doc("Count returns how many times the timer has fired."))
 	bind.Proc1(hm, "Pause", func(c *bind.Ctx, h timerRef) {
 		if s := live(c); s != nil {
 			s.Pause(Handle(h))
@@ -243,4 +246,84 @@ func installTimer(m *bind.Module) {
 		s := live(c)
 		return s != nil && s.Use(Handle(h))
 	}, bind.Doc("Use takes a ready cooldown and starts its wait; it returns false while the cooldown runs."))
+	bind.Signal(hm, "Fired", []abi.TypeRef{abi.T(abi.Int)}, bind.Params("count"),
+		bind.Doc("Fired runs on every fire of the timer; count is the number of fires so far."))
+}
+
+type actionRef Handle
+
+func actionOf(k uint64) actionRef {
+	return actionRef(HandleOf(k))
+}
+
+func (a actionRef) key() uint64 {
+	return Handle(a).Key()
+}
+
+func added(c *bind.Ctx, a actionRef, err error) actionRef {
+	if err != nil {
+		c.Fail(err.Error())
+	}
+	return a
+}
+
+func installAction(m *bind.Module) {
+	bind.Handle(m, "Action", true, actionOf, actionRef.key,
+		bind.Doc("Action runs tweens, timers and other actions one after another or together; yield a waits until it ends."))
+	bind.Func0(m, "Sequence", func(c *bind.Ctx) actionRef {
+		s := scriptService(c)
+		if s == nil {
+			return actionRef{}
+		}
+		return actionRef(s.Sequence(c.Node))
+	}, bind.Doc("Sequence makes an action that runs its steps one after another, starting at the next tween update."),
+		bind.Example("yield action.Sequence().Then(tween.Position(node, Vec2{4, 0}, 0.5, curve.OutCubic)).Wait(0.2).Then(tween.ToFloat(node, \"SpriteRenderer.Tint.a\", 0, 0.3, curve.Linear))"))
+	bind.Func0(m, "Parallel", func(c *bind.Ctx) actionRef {
+		s := scriptService(c)
+		if s == nil {
+			return actionRef{}
+		}
+		return actionRef(s.Parallel(c.Node))
+	}, bind.Doc("Parallel makes an action that runs all its steps at once and ends after the last one."))
+
+	hm := m.Registry().HandleMethods(KindAction)
+	bind.Func2(hm, "Then", func(c *bind.Ctx, a actionRef, t Handle) actionRef {
+		if s := live(c); s != nil {
+			return added(c, a, s.ThenTween(Handle(a), t))
+		}
+		return a
+	}, bind.Doc("Then adds a tween created in this frame; it waits for its turn."), bind.Params("tween"))
+	bind.Func2(hm, "ThenTimer", func(c *bind.Ctx, a actionRef, t timerRef) actionRef {
+		if s := live(c); s != nil {
+			return added(c, a, s.ThenTimer(Handle(a), Handle(t)))
+		}
+		return a
+	}, bind.Doc("ThenTimer adds a timer created in this frame; the step ends when the timer ends."), bind.Params("timer"))
+	bind.Func2(hm, "ThenAction", func(c *bind.Ctx, a actionRef, b actionRef) actionRef {
+		if s := live(c); s != nil {
+			return added(c, a, s.ThenAction(Handle(a), Handle(b)))
+		}
+		return a
+	}, bind.Doc("ThenAction adds another action that has not started."), bind.Params("action"))
+	bind.Func2(hm, "Wait", func(c *bind.Ctx, a actionRef, sec float32) actionRef {
+		if s := live(c); s != nil {
+			return added(c, a, s.Wait(Handle(a), sec))
+		}
+		return a
+	}, bind.Doc("Wait adds a pause in game seconds."), bind.Params("seconds"))
+	bind.Func1(hm, "Done", func(c *bind.Ctx, a actionRef) bool {
+		s := live(c)
+		return s == nil || s.ActionDone(Handle(a))
+	}, bind.Doc("Done reports whether the action ended, was stopped or is nil."))
+	bind.Func1(hm, "Running", func(c *bind.Ctx, a actionRef) bool {
+		s := live(c)
+		return s != nil && !s.ActionDone(Handle(a))
+	}, bind.Doc("Running is the opposite of Done."))
+	bind.Proc1(hm, "Stop", func(c *bind.Ctx, a actionRef) {
+		if s := live(c); s != nil {
+			s.StopAction(Handle(a))
+		}
+	}, bind.Doc("Stop stops every unfinished step; the properties keep their current values."))
+	bind.Signal(hm, "Completed", []abi.TypeRef{abi.T(abi.Bool)}, bind.Params("finished"),
+		bind.Doc("Completed runs once when the action ends; finished is false after Stop or when the node of its script died."))
 }

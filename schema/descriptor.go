@@ -114,6 +114,7 @@ type TypeDescriptor struct {
 	Template      *TemplateDesc
 	ScriptFields  []FieldID
 	ScriptMethods []ScriptMethod
+	Signals       []SignalDesc
 	Inspector     any
 	OnAdd         any
 	OnRemoving    any
@@ -160,4 +161,11 @@ func (t *TypeDescriptor) Serializable(fn func(*FieldDescriptor)) {
 			fn(&t.Fields[i])
 		}
 	}
+}
+
+type SignalDesc struct {
+	Name   string
+	Params []string
+	Names  []string
+	Doc    string
 }

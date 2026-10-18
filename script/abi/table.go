@@ -20,6 +20,7 @@ type Table struct {
 	methods  map[string]Signature
 	cmethods map[string]Signature
 	hmethods map[string]Signature
+	hsignals map[string][]SignalDef
 	handles  map[string]HandleDef
 	consts   map[string]Const
 	enums    map[string]*EnumDef
@@ -38,6 +39,7 @@ func NewTable() *Table {
 		methods:  map[string]Signature{},
 		cmethods: map[string]Signature{},
 		hmethods: map[string]Signature{},
+		hsignals: map[string][]SignalDef{},
 		handles:  map[string]HandleDef{},
 		consts:   map[string]Const{},
 		enums:    map[string]*EnumDef{},
@@ -62,6 +64,15 @@ func (t *Table) AddHandle(h HandleDef) error {
 	return nil
 }
 
+func (t *Table) hasHandleSignal(handle, name string) bool {
+	for _, s := range t.hsignals[handle] {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *Table) AddHandleMethod(handle, name string, sig Signature) error {
 	if t.frozen {
 		return errFrozen
@@ -70,11 +81,65 @@ func (t *Table) AddHandleMethod(handle, name string, sig Signature) error {
 		return fmt.Errorf("method %s.%s: %w", handle, name, err)
 	}
 	k := key(handle, name)
-	if _, dup := t.hmethods[k]; dup {
+	if _, dup := t.hmethods[k]; dup || t.hasHandleSignal(handle, name) {
 		return fmt.Errorf("method %s.%s already registered", handle, name)
 	}
 	t.hmethods[k] = sig
 	return nil
+}
+
+func (t *Table) AddHandleSignal(handle string, s SignalDef) error {
+	if t.frozen {
+		return errFrozen
+	}
+	if !Exported(s.Name) {
+		return fmt.Errorf("signal %s.%s needs an exported name", handle, s.Name)
+	}
+	if _, dup := t.hmethods[key(handle, s.Name)]; dup || t.hasHandleSignal(handle, s.Name) {
+		return fmt.Errorf("signal %s.%s already registered", handle, s.Name)
+	}
+	for i, p := range s.Params {
+		if !Plain(p) {
+			return fmt.Errorf("signal %s.%s param %d: %s cannot be a signal parameter", handle, s.Name, i, p)
+		}
+	}
+	t.hsignals[handle] = append(t.hsignals[handle], SignalDef{Name: s.Name, Params: append([]TypeRef(nil), s.Params...)})
+	return nil
+}
+
+func (t *Table) HandleSignals(handle string) []SignalDef {
+	return t.hsignals[handle]
+}
+
+func (t *Table) HandleSignal(handle, name string) (int, SignalDef, bool) {
+	for i, s := range t.hsignals[handle] {
+		if s.Name == name {
+			return i, s, true
+		}
+	}
+	return -1, SignalDef{}, false
+}
+
+type HandleSignalEntry struct {
+	Handle string
+	Index  int
+	Def    SignalDef
+}
+
+func (t *Table) HandleSignalList() []HandleSignalEntry {
+	var out []HandleSignalEntry
+	for h, list := range t.hsignals {
+		for i, s := range list {
+			out = append(out, HandleSignalEntry{Handle: h, Index: i, Def: s})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Handle != out[j].Handle {
+			return out[i].Handle < out[j].Handle
+		}
+		return out[i].Index < out[j].Index
+	})
+	return out
 }
 
 func (t *Table) Handle(name string) (HandleDef, bool) {
@@ -365,6 +430,11 @@ func (t *Table) Freeze() {
 	for k, s := range t.hmethods {
 		lines = append(lines, "y|"+k+"|"+s.String())
 	}
+	for h, list := range t.hsignals {
+		for i, s := range list {
+			lines = append(lines, "z|"+h+"|"+strconv.Itoa(i)+"|"+s.Name+"|"+s.Sig().String())
+		}
+	}
 	for k, h := range t.handles {
 		lines = append(lines, "h|"+k+"|"+strconv.FormatBool(h.Await))
 	}
@@ -396,6 +466,9 @@ func (t *Table) Freeze() {
 		b.WriteString("k|" + c.Name)
 		for _, f := range c.Fields {
 			b.WriteString("|" + f.Name + ":" + f.Type.String() + ":" + strconv.FormatBool(f.ReadOnly))
+		}
+		for _, s := range c.Signals {
+			b.WriteString("|!" + s.Name + s.Sig().String())
 		}
 		lines = append(lines, b.String())
 	}

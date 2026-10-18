@@ -114,6 +114,8 @@ func (c *fn) asyncCall(e *ast.CallExpr, call *checker.Call, dst int, want bool) 
 		c.b.ABx(bytecode.CONNECT, w, idx)
 		c.move(dst, w, 1)
 		c.top = mark
+	case checker.CallHostConnect:
+		c.hostConnect(call, dst)
 	case checker.CallDisconnect:
 		mark := c.top
 		r := c.operand(call.Recv)
@@ -143,4 +145,22 @@ func (c *fn) asyncCall(e *ast.CallExpr, call *checker.Call, dst int, want bool) 
 		params := append([]int{1}, funcSlots(f)...)
 		c.invoke(bytecode.CALLR, c.u.xmethod(f), args, params, f.Result.Slots(), dst, want)
 	}
+}
+
+func (c *fn) hostConnect(call *checker.Call, dst int) {
+	hs := call.Host
+	name, src := abi.ConnectComponent, abi.ComponentOf("")
+	if hs.Comp == nil {
+		name, src = abi.ConnectHandle, abi.HandleOf("")
+	}
+	imp := c.u.hostImport(abi.SignalModule, name, abi.ConnectSig(src))
+	mark := c.top
+	w := c.alloc(4)
+	c.exprTo(call.Recv, w)
+	c.selfOr(call.HandlerRecv, w+1)
+	c.loadConst(w+2, types.IntConst(int64(hs.Index)), types.Int)
+	c.loadConst(w+3, types.StringConst(call.Handler.Name), types.String)
+	c.b.ABx(bytecode.CALLH, w, imp)
+	c.move(dst, w, 1)
+	c.top = mark
 }

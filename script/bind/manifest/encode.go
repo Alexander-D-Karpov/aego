@@ -89,6 +89,7 @@ func Encode(m *Manifest) []byte {
 		n.Attrs = append(n.Attrs, aetext.Field{Name: "handle", Value: aetext.String(hm.Handle)})
 		root.Blocks = append(root.Blocks, n)
 	}
+	m.encodeSignals(root)
 	for _, c := range m.Components {
 		n := &aetext.Node{Head: "component", Label: c.Name}
 		text(n, "short", c.Short)
@@ -240,6 +241,8 @@ func Decode(b []byte) (*Manifest, error) {
 			err = m.readCompMethod(n)
 		case "hmethod":
 			err = m.readHandleMethod(n)
+		case "csignal", "hsignal":
+			err = m.readSignal(n)
 		case "component":
 			err = m.readComponent(n)
 		default:
@@ -422,4 +425,57 @@ func (m *Manifest) readComponent(n *aetext.Node) error {
 	})
 	m.Components = append(m.Components, c)
 	return ferr
+}
+
+func signalBlock(head, label, attr, owner string, params []abi.TypeRef, names []string, doc string) *aetext.Node {
+	n := &aetext.Node{Head: head, Label: label}
+	n.Attrs = append(n.Attrs, aetext.Field{Name: attr, Value: aetext.String(owner)})
+	ps := make([]string, len(params))
+	for i, p := range params {
+		ps[i] = p.String()
+	}
+	n.Fields = append(n.Fields, aetext.Field{Name: "params", Value: strList(ps)})
+	if len(names) > 0 {
+		n.Fields = append(n.Fields, aetext.Field{Name: "names", Value: strList(names)})
+	}
+	text(n, "doc", doc)
+	return n
+}
+
+func (m *Manifest) encodeSignals(root *aetext.Node) {
+	for _, s := range m.CompSignals {
+		root.Blocks = append(root.Blocks, signalBlock("csignal", s.Name, "comp", s.Comp, s.Params, s.Names, s.Doc))
+	}
+	for _, s := range m.HandleSignals {
+		root.Blocks = append(root.Blocks, signalBlock("hsignal", s.Name, "handle", s.Handle, s.Params, s.Names, s.Doc))
+	}
+}
+
+func (m *Manifest) readSignal(n *aetext.Node) error {
+	var ps []abi.TypeRef
+	for _, s := range list(n, "params") {
+		t, ok := abi.Parse(s)
+		if !ok {
+			return fmt.Errorf("manifest: signal %s has a malformed parameter type %q", n.Label, s)
+		}
+		ps = append(ps, t)
+	}
+	attr := "comp"
+	if n.Head == "hsignal" {
+		attr = "handle"
+	}
+	owner := ""
+	if v, ok := n.Attr(attr); ok {
+		owner = v.Str
+	}
+	if owner == "" {
+		return fmt.Errorf("manifest: signal %s has no %s", n.Label, attr)
+	}
+	names, doc := list(n, "names"), str(n, "doc")
+	if n.Head == "hsignal" {
+		m.HandleSignals = append(m.HandleSignals, HandleSignal{Handle: owner, Name: n.Label, Params: ps, Names: names, Doc: doc})
+		return nil
+	}
+	m.CompSignals = append(m.CompSignals, CompSignal{Comp: owner, Name: n.Label, Params: ps, Names: names, Doc: doc})
+	return nil
 }

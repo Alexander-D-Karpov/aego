@@ -36,6 +36,7 @@ const (
 	CallGetScript
 	CallScriptMethod
 	CallComponentMethod
+	CallHostConnect
 )
 
 type Call struct {
@@ -48,6 +49,7 @@ type Call struct {
 	Type        *types.Type
 	Recv        ast.Expr
 	Signal      *ScriptSignal
+	Host        *HostSignal
 	Handler     *Func
 	HandlerRecv ast.Expr
 	Target      string
@@ -107,6 +109,14 @@ type ScriptSignal struct {
 	Index  int
 	Script *ScriptType
 	Decl   *ast.SignalDecl
+}
+
+type HostSignal struct {
+	Name   string
+	Index  int
+	Params []*types.Type
+	Comp   *abi.Component
+	Handle string
 }
 
 type ScriptType struct {

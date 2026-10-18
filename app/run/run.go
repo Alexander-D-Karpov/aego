@@ -154,7 +154,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 
 func (a *App) start() error {
 	a.Engine.SetService(frame.ServiceID, a.Runner)
-	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log, OnFault: a.fault})
+	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log, OnFault: a.fault, OnPanic: a.scriptPanic})
 	if err := a.linkScripts(); err != nil {
 		return err
 	}

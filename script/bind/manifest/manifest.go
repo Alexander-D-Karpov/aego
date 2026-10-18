@@ -10,7 +10,7 @@ import (
 	"aego/script/runtime"
 )
 
-const Version uint32 = 5
+const Version uint32 = 6
 
 type Manifest struct {
 	Version       uint32
@@ -24,6 +24,8 @@ type Manifest struct {
 	CompMethods   []CompMethod
 	Handles       []HandleType
 	HandleMethods []HandleMethod
+	CompSignals   []CompSignal
+	HandleSignals []HandleSignal
 	Keywords      map[string]string
 }
 
@@ -41,6 +43,45 @@ type HandleMethod struct {
 	Example string
 	Doc     string
 	Loc     string
+}
+
+type CompSignal struct {
+	Comp   string
+	Name   string
+	Params []abi.TypeRef
+	Names  []string
+	Doc    string
+}
+
+type HandleSignal struct {
+	Handle string
+	Name   string
+	Params []abi.TypeRef
+	Names  []string
+	Doc    string
+}
+
+func (m *Manifest) collectSignals(r *bind.Registry, sr *schema.Registry) {
+	t := r.Table()
+	for _, c := range t.AllComponents() {
+		var td *schema.TypeDescriptor
+		if sr != nil {
+			td, _ = sr.ByName(c.Name)
+		}
+		for i, s := range c.Signals {
+			cs := CompSignal{Comp: c.Name, Name: s.Name, Params: s.Params}
+			if td != nil && i < len(td.Signals) {
+				cs.Names, cs.Doc = td.Signals[i].Names, td.Signals[i].Doc
+			}
+			m.CompSignals = append(m.CompSignals, cs)
+		}
+	}
+	for _, hs := range t.HandleSignalList() {
+		info := r.Info("#"+hs.Handle, hs.Def.Name)
+		m.HandleSignals = append(m.HandleSignals, HandleSignal{
+			Handle: hs.Handle, Name: hs.Def.Name, Params: hs.Def.Params, Names: info.Params, Doc: info.Doc,
+		})
+	}
 }
 
 type CompMethod struct {
@@ -230,6 +271,7 @@ func FromRegistry(r *bind.Registry, sr *schema.Registry) (*Manifest, error) {
 	for _, c := range t.AllComponents() {
 		m.Components = append(m.Components, component(c, sr))
 	}
+	m.collectSignals(r, sr)
 	return m, nil
 }
 
@@ -304,6 +346,11 @@ func (m *Manifest) Table() (*abi.Table, error) {
 			return nil, err
 		}
 	}
+	for _, hs := range m.HandleSignals {
+		if err := t.AddHandleSignal(hs.Handle, abi.SignalDef{Name: hs.Name, Params: hs.Params}); err != nil {
+			return nil, err
+		}
+	}
 	for _, e := range m.Events {
 		if err := t.AddEvent(abi.EventDef{Name: e.Name, Params: e.Params}); err != nil {
 			return nil, err
@@ -313,6 +360,11 @@ func (m *Manifest) Table() (*abi.Table, error) {
 		ac := &abi.Component{Name: c.Name, Short: c.Short}
 		for _, f := range c.Fields {
 			ac.Fields = append(ac.Fields, abi.Field{Name: f.Name, Type: f.Type, ReadOnly: f.ReadOnly})
+		}
+		for _, cs := range m.CompSignals {
+			if cs.Comp == c.Name {
+				ac.Signals = append(ac.Signals, abi.SignalDef{Name: cs.Name, Params: cs.Params})
+			}
 		}
 		if err := t.AddComponent(ac); err != nil {
 			return nil, err

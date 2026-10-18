@@ -33,8 +33,12 @@ func (combatModule) Info() sdk.ModuleInfo {
 	return sdk.ModuleInfo{ID: "mygame", Version: "0.1.0"}
 }
 
+var healthHit sdk.Signal1[int64]
+
 func (combatModule) Register(r *sdk.Registry) error {
-	if err := sdk.RegisterComponent[Health](r, sdk.Name("game.Health")); err != nil {
+	b := sdk.Component[Health](r, sdk.Name("game.Health"))
+	healthHit = b.Signal1[int64]("Hit", "Hit fires when Damage lands; hits is the new hit count.", "hits")
+	if err := b.Err(); err != nil {
 		return err
 	}
 	m := sdk.ScriptModule(r, "mygame/combat")
@@ -52,6 +56,7 @@ func (combatModule) Register(r *sdk.Registry) error {
 		if h.Current <= 0 {
 			h.Current = h.Max
 		}
+		healthHit.Emit(c.World, target, h.Hits)
 	})
 	sdk.Func1(m, "HealthOf", func(c *sdk.ScriptCtx, target sdk.NodeHandle) float32 {
 		if h, ok := sdk.Get[Health](c.Scene, target); ok {
@@ -101,9 +106,8 @@ func copyExample(t testing.TB, name string) string {
 	return dst
 }
 
-func openExample(t testing.TB, name string, mods ...sdk.Module) (*run.App, string) {
+func openAt(t testing.TB, root string, mods ...sdk.Module) *run.App {
 	t.Helper()
-	root := copyExample(t, name)
 	p, err := project.Load(root)
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +117,13 @@ func openExample(t testing.TB, name string, mods ...sdk.Module) (*run.App, strin
 		t.Fatal(err)
 	}
 	t.Cleanup(app.Close)
-	return app, root
+	return app
+}
+
+func openExample(t testing.TB, name string, mods ...sdk.Module) (*run.App, string) {
+	t.Helper()
+	root := copyExample(t, name)
+	return openAt(t, root, mods...), root
 }
 
 type platformer struct {
@@ -124,9 +134,9 @@ type platformer struct {
 	pid    vm.InstanceID
 }
 
-func openPlatformer(t testing.TB) *platformer {
+func platformerAt(t testing.TB, root string) *platformer {
 	t.Helper()
-	app, root := openExample(t, "platformer", combatModule{})
+	app := openAt(t, root, combatModule{})
 	sc := app.Scene
 	pf := &platformer{app: app, root: root, player: sc.Find(sc.Root(), "Player"), enemy: sc.Find(sc.Root(), "EnemyLeft")}
 	id, ok := app.Scripts.InstanceOf(pf.player, playerType)
@@ -135,6 +145,24 @@ func openPlatformer(t testing.TB) *platformer {
 	}
 	pf.pid = id
 	return pf
+}
+
+func openPlatformer(t testing.TB) *platformer {
+	t.Helper()
+	return platformerAt(t, copyExample(t, "platformer"))
+}
+
+func (pf *platformer) hitPlayer(t testing.TB) {
+	t.Helper()
+	sc := pf.app.Scene
+	for i := 0; i < 240 && pf.health().Hits == 0; i++ {
+		e := sc.Local(pf.enemy).Position
+		sc.SetPosition(pf.player, mathx.Vec2{X: e.X - 0.74, Y: e.Y - 0.05})
+		pf.step(1)
+	}
+	if pf.health().Hits == 0 {
+		t.Fatal("the player was never hit")
+	}
 }
 
 func (pf *platformer) field(name string) vm.Value {

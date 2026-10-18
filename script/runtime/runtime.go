@@ -45,6 +45,7 @@ type Options struct {
 	VM       vm.Options
 	Profile  bool
 	OnFault  func(FaultReport)
+	OnPanic  func(boundary string, v any, stack []byte)
 }
 
 type FaultReport struct {
@@ -133,6 +134,10 @@ type Runtime struct {
 	types        []*scriptType
 	byName       map[string]*scriptType
 	comps        []compInfo
+	compByType   map[schema.TypeID]int
+	handles      map[uint64]hostHandle
+	argStack     []vm.Value
+	argTop       int
 	inst         []instance
 	instFree     []vm.InstanceID
 	byNode       map[scene.NodeHandle][]vm.InstanceID
@@ -304,7 +309,8 @@ func (r *Runtime) Link(mods []*bytecode.Module) error {
 	r.linkEvents()
 	r.types, r.byName = buildTypes(m, loaded, mods, r.evIndex)
 	r.relisten()
-	r.comps = linkComponents(r.opt.Bindings, r.opt.Schema)
+	r.comps, r.compByType = linkComponents(r.opt.Bindings, r.opt.Schema)
+	r.linkHandles()
 	r.scriptType = scriptcomp.ScriptTypeID
 	r.stats.Types = make([]TypeStats, len(r.types))
 	r.gen = 0
@@ -342,6 +348,7 @@ func (r *Runtime) Reset() {
 	}
 	r.faults = r.faults[:0]
 	clear(r.warned)
+	r.argTop = 0
 	r.dirty = false
 	r.elapsed = 0
 }
@@ -383,9 +390,15 @@ func (r *Runtime) onEvent(ev scene.Event) {
 	switch ev.Kind {
 	case scene.EvNodeDestroyed:
 		r.killNode(ev.Node)
+		if r.sig != nil {
+			r.sig.DropNode(bind.NodeValue(ev.Node).A)
+		}
 	case scene.EvComponentRemoved:
-		if ev.Type == r.scriptType {
+		switch {
+		case ev.Type == r.scriptType:
 			r.killNode(ev.Node)
+		case r.sig != nil:
+			r.sig.DropSource(signal.Source{Kind: signal.KindComponent, A: bind.NodeValue(ev.Node).A, B: uint64(ev.Type)})
 		}
 	case scene.EvComponentAdded:
 		if ev.Type == r.scriptType {
@@ -732,6 +745,9 @@ func (r *Runtime) begin(ec *engine.Context) bool {
 	}
 	r.ctx.Elapsed = r.elapsed
 	r.flush()
+	if !r.m.Busy() {
+		r.argTop = 0
+	}
 	return true
 }
 
