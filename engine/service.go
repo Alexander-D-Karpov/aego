@@ -9,6 +9,10 @@ func (e *Engine) SetService(id string, v any) {
 	e.main.SetService(id, v)
 }
 
+func (e *Engine) SetView(id string, v any) {
+	e.main.SetView(id, v)
+}
+
 func (e *Engine) ServiceAny(id string) (any, bool) {
 	return e.main.ServiceAny(id)
 }

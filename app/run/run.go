@@ -15,6 +15,7 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/core/rng"
 	"aego/engine"
 	"aego/engine/base"
 	"aego/engine/module"
@@ -156,13 +157,13 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 }
 
 func (a *App) start() error {
-	a.Engine.SetService(frame.ServiceID, a.Runner)
+	a.Engine.SetView(frame.ServiceID, a.Runner)
 	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log, OnFault: a.fault, OnPanic: a.scriptPanic})
 	if err := a.linkScripts(); err != nil {
 		return err
 	}
 	a.Engine.SetService(scriptruntime.ServiceID, a.Scripts)
-	a.Engine.SetService(persistence.HostID, a)
+	a.Engine.SetView(persistence.HostID, a)
 	a.sceneID = a.cfg.SceneID
 	if a.sceneID.IsZero() {
 		a.sceneID = a.Project.MainScene
@@ -173,6 +174,9 @@ func (a *App) start() error {
 	a.Engine.SetService(scene.ServiceID, a.Scene)
 	w := a.Engine.MainWorld()
 	w.Recorder = recorder.New(4096)
+	if a.cfg.Seed != 0 {
+		w.Random = rng.New(a.cfg.Seed)
+	}
 	a.unrec = frame.Record(a.Scene, w.Recorder)
 	a.Runner.Bind(a.Scene, a.Renderer, a.Loader)
 	if err := a.Scripts.Instantiate(a.Scene); err != nil {

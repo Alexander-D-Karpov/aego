@@ -122,8 +122,10 @@ func (s *Scene) Hash(h *rewind.Hasher) {
 			continue
 		}
 		hashHandle(h, nh)
-		h.U64(n.id.Hi)
-		h.U64(n.id.Lo)
+		if nh != s.root {
+			h.U64(n.id.Hi)
+			h.U64(n.id.Lo)
+		}
 		h.String(s.interner.String(n.name))
 		hashHandle(h, n.parent)
 		hashHandle(h, n.firstChild)

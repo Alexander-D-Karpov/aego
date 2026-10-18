@@ -26,6 +26,18 @@ type Provider interface {
 	Keyframer() Keyframer
 }
 
+func Of(v any) (Keyframer, bool) {
+	if k, ok := v.(Keyframer); ok {
+		return k, true
+	}
+	if p, ok := v.(Provider); ok {
+		if k := p.Keyframer(); k != nil {
+			return k, true
+		}
+	}
+	return nil, false
+}
+
 type Hasher struct {
 	h   hash.Hash
 	buf [8]byte

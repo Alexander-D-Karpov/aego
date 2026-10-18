@@ -39,18 +39,6 @@ func (c *Controller) keysOn() bool {
 	return c.kfOff == "" && len(c.kf) > 0
 }
 
-func keyframerOf(v any) (rewind.Keyframer, bool) {
-	if k, ok := v.(rewind.Keyframer); ok {
-		return k, true
-	}
-	if p, ok := v.(rewind.Provider); ok {
-		if k := p.Keyframer(); k != nil {
-			return k, true
-		}
-	}
-	return nil, false
-}
-
 func (c *Controller) bindKeys() {
 	c.dropKeys(-1)
 	c.kf, c.kfOff, c.floor, c.lastTick = c.kf[:0], "", 0, 0
@@ -58,7 +46,7 @@ func (c *Controller) bindKeys() {
 		return
 	}
 	c.world.EachOwner(func(id string, v any) {
-		k, ok := keyframerOf(v)
+		k, ok := rewind.Of(v)
 		switch {
 		case ok:
 			c.kf = append(c.kf, k)

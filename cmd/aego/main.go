@@ -75,7 +75,8 @@ func usage() {
   import [dir] [--force] reimport all assets
   check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts
   icons [dir]            check module icon files against the icons components and templates use
-  test [dir] [-run name] [-v]  run *_test.aes script tests headless
+  test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]
+                         run *_test.aes script tests headless, or run the game twice and compare state hashes
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
   docs export|check|build|serve  documentation registry, site and playground
 `)

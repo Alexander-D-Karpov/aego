@@ -472,12 +472,15 @@ title: CLI
 |---|---|
 | `aego check [dir] [--manifest file] [--explain code]` | type-check every script package against engine and native bindings |
 | `aego test [dir] [-run name] [-v] [-budget n] [-seed n]` | run `TestXxx()` functions from `*_test.aes` headless |
+| `aego test [dir] --determinism [--frames n] [--every n] [--seed s] [--scene file] [-v]` | run the game twice headless and compare state hashes |
 | `aego dump script <pkg\|Type> [--func name] [--project dir]` | bytecode with `; file:line source` comments; the header lists imports, externs, enums, signals, script refs, cross-script fields and methods, and connections |
 | `aego run [dir]` | refuses to start while a script package has errors |
 
 All of them use the same workspace as the editor and hot reload. `check` and `dump` use the bindings manifest. For a project with `native/`, a small helper that only calls the module's `Register` writes it to `.aego/cache/script-bindings`; it is rebuilt when `native/*.go`, `go.mod`/`go.sum` or the engine change. A native compile error or a failing `Register` is exit code 2. `test` on a project with `native/` builds the game binary and runs the tests inside it, because tests call the real native functions.
 
 Test functions are package functions; they have no scene, so coroutines, signals and script references are tested in play, not in `_test.aes`. `_test.aes` files are compiled only by `aego test`; they never enter Play or exported builds. A test that loops forever ends with `AES6001` and the next test runs.
+
+`aego test --determinism` checks that the game itself is deterministic. It runs the main scene (or `--scene file`) twice headless with the same seed (`--seed`, default 1) and a fixed 1/60 s frame, for `--frames` frames (default 600), and every `--every` frames (default 60) hashes the world time, the random source and the state of every service that supports rewind keyframes. If the hashes differ, it prints the first checkpoint where they do and exits with code 1. `-v` lists which services the hash covers and which it does not (engine services such as the asset loader and the renderer hold no game state). A difference usually means a script or module reads the wall clock, iterates a Go map, or keeps state outside the world.
 
 ---
 id: language/coroutines
