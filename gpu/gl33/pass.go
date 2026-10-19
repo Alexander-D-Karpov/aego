@@ -8,7 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/gpu"
 	"aego/gpu/gl33/gl"
-	"aego/gpu/gl33/internal/glstate"
+	"aego/gpu/internal/glstate"
 )
 
 type frame struct {

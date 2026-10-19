@@ -1,7 +1,8 @@
 package platform
 
 import (
-	"os"
+	"errors"
+	"io/fs"
 	"path/filepath"
 
 	"aego/core/errs"
@@ -35,7 +36,7 @@ func ProfileDir(module, profile string) (string, error) {
 	if !ValidProfile(profile) {
 		return "", errs.New(errs.PlatformConfig, "profile name may use letters, digits, - and _", log.F("profile", profile))
 	}
-	base, err := os.UserConfigDir()
+	base, err := configBase()
 	if err != nil {
 		return "", errs.Wrap(err, errs.PlatformConfig, "there is no user config directory")
 	}
@@ -51,35 +52,13 @@ func ProfilePath(module, profile string) (string, error) {
 }
 
 func ReadProfile(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	data, err := UserFiles().ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	return data, err
 }
 
 func WriteProfile(path string, data []byte) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(dir, ".settings-*")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	_, err = f.Write(data)
-	if err == nil {
-		err = f.Sync()
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmp, path)
-	}
-	if err != nil {
-		os.Remove(tmp)
-	}
-	return err
+	return UserFiles().WriteFile(path, data)
 }

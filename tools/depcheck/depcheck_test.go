@@ -49,8 +49,8 @@ func TestRuleSpecificity(t *testing.T) {
 	if !ok || r.pkg != "platform/sdl" {
 		t.Fatalf("rule = %v ok=%v", r.pkg, ok)
 	}
-	r, _ = ruleFor("gpu/gl33/internal/glstate")
-	if r.pkg != "gpu/gl33/internal/..." {
+	r, _ = ruleFor("gpu/internal/glstate")
+	if r.pkg != "gpu/internal/..." {
 		t.Fatalf("internal rule = %v", r.pkg)
 	}
 	if _, ok := ruleFor("nowhere/at/all"); ok {

@@ -498,6 +498,13 @@ The Stage 8 specification numbered these decisions D153, D155, D158, D159, D168�
 | D287 | Targets. host always; linux, windows and darwin when Go, a C compiler for the target (`--cc`, `CC_<OS>_<ARCH>`) and SDL for the target in `.cache/native/<os>_<arch>` exist, otherwise the export stops before building with the command to run; web is 9.5c. Windows: `app/export/winres` writes a COFF `.rsrc` object (`rsrc_windows_<arch>.syso`) with PNG icon frames from `project.aego icon=`, version info from `gameVersion` and a PerMonitorV2 manifest. macOS: `<Name>.app` with `Info.plist` (bundle id `dev.aego.<module>`), `PkgInfo`, `icon.icns` and the data in `Contents/Resources/data`; ad-hoc signed when `codesign` exists. Linux: binary, `data/`, `.desktop` and `icon.png`; SDL is static, so no `run.sh`. The editor on macOS mirrors its command menus into the system menu bar (`platform.MenuBar`, implemented by `platform/sdl` on darwin with an `NSMenu` subclass that never consumes key equivalents, so shortcuts keep their editor scopes); `make editor-app` bundles it with `tools/appbundle`. |
 | D288 | Pre-export checks run before any build on a pipeline snapshot (`export.Take` in the editor, `export.Fresh` from the CLI): script errors (EXP002), import failures (EXP003), duplicate `.meta` ids (EXP006), a missing or non-scene start scene (EXP001), dependencies that resolve neither to an exported asset nor to a builtin (EXP004, an error in release, a warning in development), an icon that is not a PNG (EXP005), asset validators of the runtime catalog, and loading every scene through `sceneio` (EXP007, unknown components EXP008 unless the project is native). Diagnostics are `engine/problems` with owner `export`; any error blocks the export, the CLI exits with 2. Project Health lists release blockers. |
 
+### 3.20 Stage 9.5b — Web runtime
+
+| ID | Decision |
+|---|---|
+| D289 | Web platform. `platform/web` (js/wasm, `syscall/js`) implements `platform.Platform` over one `<canvas>`: the one in `web.Options`, else `canvas[data-aego]`, else a new canvas appended to the body. The logical size is the canvas CSS box; the pixel size is CSS × `devicePixelRatio`, written back to `canvas.width/height`; a ResizeObserver (window `resize` as fallback) and a changed `devicePixelRatio` emit `EvWindowResized`; `PixelDensity` and `DisplayScale` are `devicePixelRatio`. Input: `KeyboardEvent.code` → scancode, `key` → keycode and text (no IME composition), pointer events on the canvas with pointer capture, primary pointer only (one-finger touch acts as the left button; multi-touch is Stage 18), wheel by `deltaMode` (100 px = one line, a page = 3 lines, fractional values are precise), focus and blur reset held state (9.2), gamepads polled through `navigator.getGamepads()` in the standard mapping while one is connected. The canvas takes keyboard focus on click; while focused it prevents the default of every key except browser shortcuts (Ctrl/Cmd combinations, F5, F11, F12). Pointer lock and fullscreen, which browsers grant only inside a user gesture, are queued and issued on the next pointer or key press; leaving them is immediate. Time is `performance.now()` and stops while the page is hidden. The loop is `platform.Driver`: `Engine.Run` hands `Step` to `requestAnimationFrame`, so VSync is always on and there is no frame limiter. Clipboard writes go to `navigator.clipboard.writeText` and an in-memory copy; reads return the copy, refreshed by `paste` events. Files go through `platform.UserFiles()` (localStorage), so profiles and saves work unchanged; the window is not a `platform.Displayer`, so display settings have nothing to apply. Translation code (scancodes, wheel, pads) lives in untagged files and is tested natively. |
+| D290 | WebGL2 backend. `gpu/webgl2` implements `gpu.Device` on `WebGL2RenderingContext`, reached through `webgl2.Surface` on the window. `engine/backends_js.go` selects it, `engine/backends_native.go` selects gl33; a window with neither gets the null backend. GL enums are numeric constants; JS objects live in a table indexed by `uint32`, so `gpu/internal/glstate` (moved from gl33) caches state for both backends. Context methods are bound once; every call goes through one counter (`Device.Calls()` = calls of the last frame). WebGL2 has no sRGB default framebuffer, so the window pass renders into an SRGB8_ALPHA8 texture with a depth-stencil renderbuffer and `EndFrame` draws it to the canvas with a fullscreen triangle that encodes linear to sRGB; orientation follows D17 (the backbuffer is the window: viewport and scissor flipped, offscreen targets GL-native). Shaders: the renderer loads `engine://shaders/es/` when `Capabilities.ESSL` is set; `render/shaderx` translates the GLSL 330 sources at build time (`make shaders`, part of `make res`), a test keeps the committed copies current and validates them with glslangValidator when installed; there is no translator at run time. Timer queries use `EXT_disjoint_timer_query_webgl2` when present (a disjoint result reads as 0), otherwise the GPU lane stays empty. Context loss is handled inside the device: it keeps descriptors, shader sources and CPU copies of static buffers and textures with data, and on `webglcontextrestored` recreates every object under the same table id, so handles held above stay valid and nothing above the device reloads; render-target contents and dynamic buffers are refilled by the next frame. Uploads copy through one growing `Uint8Array`. The default build never compiles `syscall/js`: depcheck requires a js-only build constraint or a `_js` file name on every importer. |
+
 ## 4. Dependency rules
 
 The import graph is acyclic. The rules below are enforced by `tools/depcheck`.
@@ -553,6 +560,7 @@ Inside low and kernel the fine-grained rules still hold:
 - `app` is development-only: it owns `Build`, which wires types, bindings, modules, importers, pipeline and loader for `aego run` and the editor.
 - `modules/physics/world` imports only `core/...`; `modules/physics/components` only `core`, `schema`, `scene`; `modules/physics/systems` adds `world`, `components`, `contracts`, `engine`; `modules/physics/stdlib` adds `systems` and `script/{abi,bind,vm}`, `engine/module`.
 - `contracts/...` import `core`, `scene`, `script/abi`, `script/vm`.
+- `platform/web` imports only `core`, `platform`, `platform/input`; `gpu/webgl2` only `core`, `gpu`, `gpu/internal/...`. `syscall/js` is imported only from files that build for js alone.
 
 ### 4.4 Script subgraphs
 
@@ -579,7 +587,7 @@ Stage 6:
 
 ### 4.5 Enforcement
 
-`make depcheck` runs `tools/depcheck` and its tests. depcheck lists the graph with `go list -deps` for the variants `default`, `aego_editor`, `aego_nonative`, `aego_runtime` (the runtime package set) and `js/wasm` (`cmd/aego-playground`), plus the test imports of the default and editor builds; a `go list` error fails depcheck. On every graph it applies the group rules, the layer rules, the runtime and playground reachability rules, then the literal pass, then the source checks (`os.*` outside approved packages, `import "C"` outside native bridges, mutable global service singletons). Violations name the rule, the file and the variants. The negative tests in `tools/depcheck/testdata` reproduce each rule on a small tree, so a rule that stops firing fails the tests.
+`make depcheck` runs `tools/depcheck` and its tests. depcheck lists the graph with `go list -deps` for the variants `default`, `aego_editor`, `aego_nonative`, `aego_runtime` (the runtime package set) and `js/wasm` (`cmd/aego-playground`), plus the test imports of the default and editor builds; a `go list` error fails depcheck. On every graph it applies the group rules, the layer rules, the runtime and playground reachability rules, then the literal pass, then the source checks (`os.*` outside approved packages, `import "C"` outside native bridges, mutable global service singletons). The wasm graph is checked with the same group and layer rules as the native variants. Violations name the rule, the file and the variants. The negative tests in `tools/depcheck/testdata` reproduce each rule on a small tree, so a rule that stops firing fails the tests.
 
 The runtime package set is not listed by hand: `go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .` prints every package minus the dev-only ones, and `make test-runtime` builds and tests exactly that set. depcheck runs with `aego_nonative` because it reads the module catalog (`app/assembly/builtin`) and must not need the native libraries.
 
@@ -593,13 +601,13 @@ Numbers are the stage in which the package becomes real. Placeholder packages ar
 aego/
 ├── go.mod  Makefile  ARCHITECTURE.md  docs/
 ├── core/            handle mathx clock log errs stats ids rng strs bits        (1–3)   rewind (9.4d)
-├── platform/        platform.go event.go ext.go  input/ sdl/ headless/          (1)   android/ (14)
-├── gpu/             device.go gpu.go  gl33/ (gl/ generated, internal/glstate)  null/ (1)   gles30/ shaderc/ (12–14)
+├── platform/        platform.go event.go ext.go  input/ sdl/ headless/          (1)   web/ (9.5b)   android/ (14)
+├── gpu/             device.go gpu.go  gl33/ (gl/ generated)  internal/glstate  webgl2/ (9.5b)  null/ (1)   gles30/ shaderc/ (12–14)
 ├── vfs/             vfs.go  osfs/                                                (1)   exportfs/ (9.5a)   pakfs/ assetfs/ (13–14)
 ├── engine/          engine registry world service config loop jobs app          (1)
 │                    res/ (2, engine://)  module/ (6.5)  base/ problems/ (8C)  settings/ settings/settingsui/ (9.3)
 ├── render/          render pass viewframe pass3d viewframe3d  view/ texture/ sprite/ culling/ debug/ text/
-│                    gpuprof/ rt/ mesh/ icons/ host/                              (2, 4.5)   material/ postfx/ light/ (12)
+│                    gpuprof/ rt/ mesh/ icons/ host/                              (2, 4.5)   shaderx/ (9.5b)   material/ postfx/ light/ (12)
 ├── ui/              core/ draw/ widgets/ overlay/ layout/ textedit/ dock/ theme/ dnd/ icon.go  (2–4)   scenedebug/ (dev)
 ├── schema/          registry descriptor dynamic bag access refs kind options space tag hash methods  (3, 5)
 ├── format/aetext/   lex parse write value                                        (3)
@@ -644,7 +652,7 @@ aego/
 │                    scene-load asset-hot-reload hierarchy stress-scene mesh mixed stress-mesh  (1–4.5)
 │                    physics2d                                                    (8A)
 ├── tests/           integration/ gl/ golden/ bench/ scenes/ scripts/
-├── tools/           bootstrap-native.sh gen-gl.sh depcheck/ bench/ genfont/ genicons/ (nested modules)   appbundle/ (9.5a)
+├── tools/           bootstrap-native.sh gen-gl.sh depcheck/ bench/ genfont/ genicons/ (nested modules)   appbundle/ (9.5a)   genshaders/ (9.5b)
 └── third_party/     sdl/version.txt fonts/
 ```
 
@@ -859,6 +867,7 @@ Runtime hot paths: zero steady-state allocations per frame, no frame-path loggin
 - `aego_nonative`: excludes SDL/GL packages for pure-Go CI, tests and tools; the whole script stack builds under it.
 - `Config.Headless`: a native binary without window/GPU (null backend).
 - `WindowDesc.Hidden`: GPU-capable hidden window for golden and benchmark runs.
+- js/wasm: `platform/web` + `gpu/webgl2` (D289–D290); `aego_nonative` still links no backend.
 
 SDL is pinned in `third_party/sdl/version.txt` and built by `tools/bootstrap-native.sh` into the cache; it is never built as a side effect of `go build`. GL bindings in `gpu/gl33/gl` are generated and excluded from manual edits and lint.
 
@@ -866,7 +875,7 @@ SDL is pinned in `third_party/sdl/version.txt` and built by `tools/bootstrap-nat
 
 ## 26. Testing and CI
 
-Unit (handles, math, stepper, sparse sets, hierarchy, schema freeze, aetext canonical form, VFS, dependency graph, history, UI state, lexer/parser/checker goldens, VM conformance, verifier), fuzz (lexer, bytecode decode, verifier), contract (real GL vs null backend), golden rendering and golden editor screenshots (llvmpipe, pinned fonts), scene/format round-trips and migrations, performance baselines, `depcheck`. CI runs `go test ./...`, `go vet`, staticcheck, depcheck, `aego_nonative` and native desktop builds, GL contract and golden tests, bench regression.
+Unit (handles, math, stepper, sparse sets, hierarchy, schema freeze, aetext canonical form, VFS, dependency graph, history, UI state, lexer/parser/checker goldens, VM conformance, verifier), fuzz (lexer, bytecode decode, verifier), contract (real GL vs null backend), golden rendering and golden editor screenshots (llvmpipe, pinned fonts), scene/format round-trips and migrations, performance baselines, `depcheck`. CI runs `go test ./...`, `go vet`, staticcheck, depcheck, `aego_nonative` and native desktop builds, GL contract and golden tests, bench regression, `make test-wasm` (engine on the null backend under Node).
 
 Module golden files (`tests/integration/testdata/create_menu.txt`, `inspector.txt`, `bindings.aetext`) are the reference as of commit 7bcf79f. `bindings.aetext` was generated from the pre-module code of 08f0b15 and matches the module build byte for byte (apart from source locations); the Create menu and Inspector goldens were checked against the template and inspector registration code of 08f0b15, which has no module system to run the same test against.
 
@@ -934,6 +943,7 @@ Packages are named by capability (`render/view`, `asset/loader`, `scene/sceneio`
 | 9.4a | Curves, tween, timers (`core/curve`, `modules/tween`, handles and `yield h`, `aego/curve\|tween\|timer`); done |
 | 9.4b–12 | Audio, pixel/sprite tools, animation, materials/shaders/lighting. Optional: in-context prefab editing — prefab mode draws the origin scene dimmed around the prefab, read-only, with the prefab subtree placed at the instance it was opened from. |
 | 9.5a | Export v1: `aego export`, `runtime/player`, `runtime/bundle`, `vfs/exportfs`, Windows resources, macOS app bundles, pre-export checks, Build Report, editor Export panel, native macOS menu bar, `make editor-app` |
+| 9.5b | Web runtime: `platform/web`, `gpu/webgl2`, ES shaders and `render/shaderx`, `platform.Driver`, `platform.UserFS`, playground with Game View, docs IA |
 | 13+ | Export/pak, networking/store, Android |
 
 ---

@@ -4,7 +4,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/metrics"
-	"unsafe"
 
 	"aego/core/clock"
 	"aego/core/errs"
@@ -20,10 +19,6 @@ import (
 	"aego/platform/input"
 	"aego/vfs"
 )
-
-type glWindow interface {
-	GLProcAddress(name string) unsafe.Pointer
-}
 
 type Engine struct {
 	cfg        Config
@@ -255,18 +250,18 @@ func (e *Engine) initBackends(p platform.Platform) error {
 	e.metrics = win.Metrics()
 	e.vsync = win.SetVSync(cfg.VSync)
 
-	if _, ok := win.(glWindow); !ok || cfg.Headless {
-		if !cfg.Headless {
-			e.elog.Warn("window has no OpenGL context, falling back to the null gpu backend")
+	if !cfg.Headless {
+		dev, err := newNativeDevice(win, cfg, e.log)
+		if err != nil {
+			return err
 		}
-		e.dev = null.New()
-		return nil
+		if dev != nil {
+			e.dev = dev
+			return nil
+		}
+		e.elog.Warn("window has no GPU context, falling back to the null gpu backend")
 	}
-	dev, err := newNativeDevice(win, cfg, e.log)
-	if err != nil {
-		return err
-	}
-	e.dev = dev
+	e.dev = null.New()
 	return nil
 }
 
@@ -332,7 +327,12 @@ func (e *Engine) CancelQuit() {
 }
 
 func (e *Engine) Run(app App) error {
-	for e.Step(app) {
+	step := func() bool { return e.Step(app) }
+	if d, ok := e.plat.(platform.Driver); ok {
+		d.Drive(step)
+	} else {
+		for step() {
+		}
 	}
 	return e.Close()
 }

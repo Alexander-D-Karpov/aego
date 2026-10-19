@@ -191,12 +191,21 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 	return r, nil
 }
 
+const (
+	shaderDir   = "engine://shaders/"
+	shaderDirES = "engine://shaders/es/"
+)
+
 func (r *Renderer) loadShader(label, vert, frag string) (gpu.ShaderHandle, error) {
-	vsrc, err := r.files.ReadFile("engine://shaders/" + vert)
+	dir := shaderDir
+	if r.caps.ESSL {
+		dir = shaderDirES
+	}
+	vsrc, err := r.files.ReadFile(dir + vert)
 	if err != nil {
 		return gpu.ShaderHandle{}, err
 	}
-	fsrc, err := r.files.ReadFile("engine://shaders/" + frag)
+	fsrc, err := r.files.ReadFile(dir + frag)
 	if err != nil {
 		return gpu.ShaderHandle{}, err
 	}

@@ -1,7 +1,8 @@
 package save
 
 import (
-	"os"
+	"errors"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"aego/core/errs"
 	"aego/core/log"
+	"aego/platform"
 )
 
 type SlotInfo struct {
@@ -22,11 +24,16 @@ type SlotInfo struct {
 }
 
 type Store struct {
-	dir string
+	dir   string
+	files platform.UserFS
 }
 
 func NewStore(dir string) *Store {
-	return &Store{dir: dir}
+	return NewStoreFS(dir, platform.UserFiles())
+}
+
+func NewStoreFS(dir string, files platform.UserFS) *Store {
+	return &Store{dir: dir, files: files}
 }
 
 func ValidSlot(name string) bool {
@@ -55,30 +62,8 @@ func (s *Store) Path(slot string) (string, error) {
 	return filepath.Join(s.dir, slot+Ext), nil
 }
 
-func writeAtomic(path string, data []byte) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(dir, ".save-*")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	_, err = f.Write(data)
-	if err == nil {
-		err = f.Sync()
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmp, path)
-	}
-	if err != nil {
-		os.Remove(tmp)
-	}
-	return err
+func previewOf(path string) string {
+	return strings.TrimSuffix(path, Ext) + PreviewExt
 }
 
 func (s *Store) Write(slot string, data, preview []byte) error {
@@ -86,15 +71,15 @@ func (s *Store) Write(slot string, data, preview []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := writeAtomic(path, data); err != nil {
+	if err := s.files.WriteFile(path, data); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write the save").With(log.F("slot", slot))
 	}
-	png := strings.TrimSuffix(path, Ext) + PreviewExt
+	png := previewOf(path)
 	if len(preview) == 0 {
-		os.Remove(png)
+		s.files.Remove(png)
 		return nil
 	}
-	if err := writeAtomic(png, preview); err != nil {
+	if err := s.files.WriteFile(png, preview); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write the save preview").With(log.F("slot", slot))
 	}
 	return nil
@@ -105,7 +90,7 @@ func (s *Store) Read(slot string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := s.files.ReadFile(path)
 	if err != nil {
 		return nil, errs.Wrap(err, errs.VFSIO, "cannot read the save").With(log.F("slot", slot))
 	}
@@ -125,7 +110,7 @@ func (s *Store) Exists(slot string) bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(path)
+	_, err = s.files.Stat(path)
 	return err == nil
 }
 
@@ -134,47 +119,38 @@ func (s *Store) Delete(slot string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := s.files.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return errs.Wrap(err, errs.VFSIO, "cannot delete the save").With(log.F("slot", slot))
 	}
-	os.Remove(strings.TrimSuffix(path, Ext) + PreviewExt)
+	s.files.Remove(previewOf(path))
 	return nil
 }
 
 func (s *Store) List() []SlotInfo {
-	entries, err := os.ReadDir(s.dir)
+	entries, err := s.files.List(s.dir)
 	if err != nil {
 		return nil
 	}
 	var out []SlotInfo
 	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, Ext) {
+		if e.Dir || !strings.HasSuffix(e.Name, Ext) {
 			continue
 		}
-		slot := strings.TrimSuffix(name, Ext)
-		path := filepath.Join(s.dir, name)
-		info := SlotInfo{Slot: slot, Path: path}
-		if st, err := e.Info(); err == nil {
-			info.Size, info.Mod = st.Size(), st.ModTime()
-		}
-		if data, err := os.ReadFile(path); err != nil {
+		slot := strings.TrimSuffix(e.Name, Ext)
+		path := filepath.Join(s.dir, e.Name)
+		info := SlotInfo{Slot: slot, Path: path, Size: e.Size, Mod: e.Mod}
+		if data, err := s.files.ReadFile(path); err != nil {
 			info.Err = err
-		} else if d, err := Decode(data, name); err != nil {
+		} else if d, err := Decode(data, e.Name); err != nil {
 			info.Err = err
 		} else {
 			info.Meta = d.Meta
 		}
-		if png := filepath.Join(s.dir, slot+PreviewExt); fileExists(png) {
-			info.Preview = png
+		if _, err := s.files.Stat(previewOf(path)); err == nil {
+			info.Preview = previewOf(path)
 		}
 		out = append(out, info)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Mod.After(out[j].Mod) })
 	return out
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }

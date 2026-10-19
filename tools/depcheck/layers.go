@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/build/constraint"
 	"go/parser"
 	"go/token"
 	"go/types"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -56,11 +58,13 @@ var rules = []rule{
 	{"platform/input", []string{"core/..."}, nil},
 	{"platform/sdl", []string{"core/...", "platform", "platform/input"}, nil},
 	{"platform/headless", []string{"core/...", "platform", "platform/input"}, nil},
+	{"platform/web", []string{"core/...", "platform", "platform/input"}, nil},
 	{"gpu", []string{"core/..."}, nil},
 	{"gpu/null", []string{"core/...", "gpu"}, nil},
-	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/..."}, nil},
+	{"gpu/webgl2", []string{"core/...", "gpu", "gpu/internal/..."}, nil},
+	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/...", "gpu/internal/..."}, nil},
 	{"gpu/gl33/gl", nil, nil},
-	{"gpu/gl33/internal/...", []string{"core/..."}, nil},
+	{"gpu/internal/...", []string{"core/..."}, nil},
 	{"vfs", []string{"core/...", "vfs/osfs"}, nil},
 	{"vfs/osfs", []string{"core/..."}, nil},
 	{"vfs/exportfs", []string{"core/...", "vfs", "vfs/osfs"}, nil},
@@ -83,7 +87,7 @@ var rules = []rule{
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
 	{"data", []string{"core/...", "asset", "format/aetext", "schema", "scene/sceneio", "scene/prefab"}, nil},
-	{"save", []string{"core/...", "format/aetext", "scene"}, nil},
+	{"save", []string{"core/...", "format/aetext", "scene", "platform"}, nil},
 	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
 	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
 	{"scene/scriptcomp", []string{"core/...", "schema", "scene", "format/..."}, nil},
@@ -310,7 +314,7 @@ func checkSources(root string) ([]string, error) {
 		}
 		rel = filepath.ToSlash(rel)
 		dir := filepath.ToSlash(filepath.Dir(rel))
-		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution|parser.ParseComments)
 		if err != nil {
 			return err
 		}
@@ -327,6 +331,9 @@ func inspectFile(fset *token.FileSet, f *ast.File, file, dir string) []string {
 		p := strings.Trim(imp.Path.Value, `"`)
 		if p == "C" && !allowed(cgoAllowed, dir) {
 			out = append(out, fmt.Sprintf("%s: cgo is only allowed in %v", file, cgoAllowed))
+		}
+		if p == "syscall/js" && !jsOnly(f, file) {
+			out = append(out, fmt.Sprintf("%s: syscall/js in a file that also builds outside js", file))
 		}
 		if p == "os" {
 			osName = "os"
@@ -415,4 +422,30 @@ func externalRule(from, imp string) string {
 		return "layer:" + r.pkg
 	}
 	return ""
+}
+
+func jsOnly(f *ast.File, file string) bool {
+	base := strings.TrimSuffix(path.Base(file), ".go")
+	if strings.HasSuffix(base, "_js") || strings.HasSuffix(base, "_js_wasm") {
+		return true
+	}
+	for _, cg := range f.Comments {
+		if cg.Pos() > f.Package {
+			break
+		}
+		for _, c := range cg.List {
+			if !constraint.IsGoBuild(c.Text) {
+				continue
+			}
+			x, err := constraint.Parse(c.Text)
+			if err != nil {
+				return false
+			}
+			others := func(v bool) func(string) bool {
+				return func(tag string) bool { return tag != "js" && tag != "wasm" && v }
+			}
+			return !x.Eval(others(true)) && !x.Eval(others(false))
+		}
+	}
+	return false
 }

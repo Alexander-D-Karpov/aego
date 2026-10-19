@@ -8,7 +8,7 @@ import (
 	"aego/core/log"
 	"aego/gpu"
 	"aego/gpu/gl33/gl"
-	"aego/gpu/gl33/internal/glstate"
+	"aego/gpu/internal/glstate"
 )
 
 func (d *Device) CreateShader(desc gpu.ShaderDesc) (gpu.ShaderHandle, error) {

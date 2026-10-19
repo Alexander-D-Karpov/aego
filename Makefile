@@ -27,7 +27,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -50,6 +50,8 @@ build: bootstrap
 
 # Every package minus the dev-only ones, as defined by depcheck runtimeForbidden.
 RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
+WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
+WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
 
 test: bootstrap
 	go test -race ./...
@@ -61,6 +63,12 @@ test-editor: bootstrap
 test-runtime: bootstrap
 	go build -tags aego_runtime $(RUNTIME_PKGS)
 	go test -tags aego_runtime $(RUNTIME_PKGS)
+
+# Engine on gpu/null under Node, plus the js packages compile (D289).
+test-wasm:
+	GOOS=js GOARCH=wasm go build ./cmd/aego-playground ./platform/web ./gpu/webgl2 ./engine
+	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
@@ -92,7 +100,11 @@ genfont:
 	cd tools/genfont && go mod tidy && go run . -ttf $(UI_FONT)
 
 # Regenerate the committed resources: the icon atlas and the template and example previews (D280).
-res: genicons genpreviews
+res: genicons genpreviews shaders
+
+# GLSL ES 3.00 copies of engine/res/shaders for WebGL2 (D290).
+shaders:
+	go run ./tools/genshaders
 
 genpreviews: bootstrap
 	$(GL_ENV) go run ./tools/genpreviews -root $(CURDIR)
@@ -229,7 +241,7 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
 
 runtime: bootstrap
 	go build -tags aego_runtime -o .cache/bin/aego-runtime ./cmd/aego-runtime

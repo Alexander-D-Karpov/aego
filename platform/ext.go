@@ -73,3 +73,7 @@ type Displayer interface {
 	WindowMode() WindowMode
 	SetWindowMode(mode WindowMode, display int, size DisplayMode) error
 }
+
+type Driver interface {
+	Drive(step func() bool)
+}

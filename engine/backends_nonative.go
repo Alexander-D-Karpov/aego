@@ -1,4 +1,4 @@
-//go:build aego_nonative || js
+//go:build aego_nonative
 
 package engine
 
@@ -10,9 +10,9 @@ import (
 )
 
 func newNativePlatform() (platform.Platform, error) {
-	return nil, errs.New(errs.EngineConfig, "built with the aego_nonative tag: SDL and OpenGL backends are not linked")
+	return nil, errs.New(errs.EngineConfig, "built with the aego_nonative tag: no window or GPU backend is linked")
 }
 
-func newNativeDevice(win platform.Window, cfg Config, l *log.Logger) (gpu.Device, error) {
-	return nil, errs.New(errs.GPUInit, "built with the aego_nonative tag: SDL and OpenGL backends are not linked")
+func newNativeDevice(platform.Window, Config, *log.Logger) (gpu.Device, error) {
+	return nil, nil
 }
