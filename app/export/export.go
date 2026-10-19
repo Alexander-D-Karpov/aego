@@ -40,7 +40,14 @@ type Target struct {
 }
 
 func (t Target) String() string {
+	if t.Web() {
+		return "web"
+	}
 	return t.OS + "/" + t.Arch
+}
+
+func (t Target) Web() bool {
+	return t.OS == "js"
 }
 
 func (t Target) Host() bool {
@@ -55,7 +62,7 @@ func (t Target) Exe(name string) string {
 }
 
 func Targets() []string {
-	return []string{"host", "linux", "windows", "darwin"}
+	return []string{"host", "linux", "windows", "darwin", "web"}
 }
 
 func ParseTarget(s string) (Target, error) {
@@ -63,13 +70,15 @@ func ParseTarget(s string) (Target, error) {
 	if s == "" || s == "host" {
 		return Target{OS: runtime.GOOS, Arch: runtime.GOARCH}, nil
 	}
+	switch s {
+	case "web", "js", "wasm", "js/wasm":
+		return Target{OS: "js", Arch: "wasm"}, nil
+	}
 	osName, arch, _ := strings.Cut(s, "/")
 	if arch == "" {
 		arch = runtime.GOARCH
 	}
 	switch osName {
-	case "web", "js", "wasm":
-		return Target{}, errs.New(errs.EngineConfig, "web export arrives in Stage 9.5c")
 	case "macos":
 		osName = "darwin"
 	case "linux", "windows", "darwin":
@@ -95,6 +104,9 @@ func ParseProfile(s string) (string, error) {
 }
 
 func DefaultOut(p *project.Project, t Target, profile string) string {
+	if t.Web() {
+		return filepath.Join(p.Root, "exports", "web-"+profile)
+	}
 	return filepath.Join(p.Root, "exports", t.OS+"-"+t.Arch+"-"+profile)
 }
 
@@ -126,6 +138,9 @@ type layout struct {
 }
 
 func layoutFor(t Target, out string, p *project.Project) layout {
+	if t.Web() {
+		return layout{root: out, bin: out, data: filepath.Join(out, bundle.DataDir), exe: WebWasm}
+	}
 	exe := t.Exe(ExeName(p))
 	if t.OS == "darwin" {
 		app := filepath.Join(out, AppName(p)+".app")
@@ -141,17 +156,20 @@ func (l layout) binary() string {
 }
 
 type job struct {
-	opt     Options
-	p       *project.Project
-	t       Target
-	profile string
-	out     string
-	l       layout
-	native  bool
-	snap    *Snapshot
-	icon    image.Image
-	rep     *Report
-	start   time.Time
+	opt          Options
+	p            *project.Project
+	t            Target
+	profile      string
+	out          string
+	l            layout
+	native       bool
+	snap         *Snapshot
+	icon         image.Image
+	rep          *Report
+	start        time.Time
+	goroot       string
+	files        []webFile
+	manifestSize int64
 }
 
 func Export(opt Options) (*Report, error) {
@@ -196,6 +214,9 @@ func (j *job) run() error {
 		j.snap = snap
 	}
 	ds := Check(j.p, j.snap, j.profile, j.native)
+	if j.t.Web() {
+		ds = append(ds, CheckWeb(j.snap, j.native)...)
+	}
 	j.rep.setDiagnostics(ds)
 	if j.rep.Blocked {
 		return errs.New(errs.BuildFailed, fmt.Sprintf("export is blocked by %d problem(s)", Blocking(ds)))
@@ -224,7 +245,7 @@ func (j *job) run() error {
 	if err := j.data(); err != nil {
 		return err
 	}
-	j.step(0.85, "packaging for "+j.t.OS)
+	j.step(0.85, "packaging for "+j.t.String())
 	if err := j.pack(); err != nil {
 		return err
 	}

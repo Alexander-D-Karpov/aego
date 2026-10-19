@@ -21,6 +21,8 @@ func (j *job) pack() error {
 		return j.packLinux()
 	case "darwin":
 		return j.packDarwin()
+	case "js":
+		return j.packWeb()
 	}
 	return nil
 }

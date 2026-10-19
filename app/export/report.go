@@ -24,6 +24,7 @@ type Report struct {
 	Out         string                `json:"out"`
 	Binary      string                `json:"binary,omitempty"`
 	BinarySize  int64                 `json:"binarySize"`
+	BinaryGzip  int64                 `json:"binaryGzip,omitempty"`
 	Data        []bundle.Size         `json:"data"`
 	DataSize    int64                 `json:"dataSize"`
 	Artifacts   int                   `json:"artifacts"`
@@ -70,7 +71,11 @@ func Bytes(n int64) string {
 func (r *Report) Lines() [][2]string {
 	out := [][2]string{{"Target", r.Target}, {"Profile", r.Profile}, {"Output", r.Out}}
 	if r.Binary != "" {
-		out = append(out, [2]string{"Binary", r.Binary + " (" + Bytes(r.BinarySize) + ")"})
+		s := r.Binary + " (" + Bytes(r.BinarySize)
+		if r.BinaryGzip > 0 {
+			s += ", gzip " + Bytes(r.BinaryGzip)
+		}
+		out = append(out, [2]string{"Binary", s + ")"})
 	}
 	if r.Artifacts > 0 {
 		out = append(out, [2]string{"Data", Bytes(r.DataSize) + " in " + strconv.Itoa(r.Artifacts) + " artifacts"})

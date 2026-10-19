@@ -39,14 +39,14 @@ func TestDataRoundTrip(t *testing.T) {
 }
 
 func TestExportRoundTrip(t *testing.T) {
-	in := &Export{Engine: "e", Game: "G", Target: "darwin/arm64", Profile: Development, Binary: "G.app/Contents/MacOS/g",
+	in := &Export{Engine: "e", Game: "G", Target: "darwin/arm64", Profile: Development, Binary: "G.app/Contents/MacOS/g", BinaryGzip: 7,
 		Modules: []string{"engine", "script"}, Libs: []Lib{{Name: "SDL3", Link: "static", License: "licenses/SDL3.txt"}},
 		Data: []Size{{Kind: "texture", Count: 2, Bytes: 10}}, Artifacts: 2, Hash: "ff"}
 	out, err := DecodeExport(EncodeExport(in), ExportFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Binary != in.Binary || len(out.Libs) != 1 || out.Libs[0].License != in.Libs[0].License || out.Data[0] != in.Data[0] || len(out.Modules) != 2 {
+	if out.Binary != in.Binary || out.BinaryGzip != 7 || len(out.Libs) != 1 || out.Libs[0].License != in.Libs[0].License || out.Data[0] != in.Data[0] || len(out.Modules) != 2 {
 		t.Fatalf("export manifest did not survive: %+v", out)
 	}
 }

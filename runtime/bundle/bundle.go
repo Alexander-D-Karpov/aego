@@ -86,6 +86,7 @@ type Export struct {
 	Profile     string
 	Binary      string
 	BinarySize  int64
+	BinaryGzip  int64
 	StartScene  ids.AssetID
 	Modules     []string
 	Libs        []Lib
@@ -251,6 +252,11 @@ func EncodeExport(x *Export) []byte {
 		text("profile", x.Profile),
 		text("binary", x.Binary),
 		integer("binarySize", x.BinarySize),
+	)
+	if x.BinaryGzip > 0 {
+		root.Fields = append(root.Fields, integer("binaryGzip", x.BinaryGzip))
+	}
+	root.Fields = append(root.Fields,
 		aetext.Field{Name: "startScene", Value: aetext.AssetRef(x.StartScene.String())},
 		strs("modules", x.Modules),
 		integer("dataSize", x.DataSize),
@@ -288,7 +294,7 @@ func DecodeExport(src []byte, file string) (*Export, error) {
 	x := &Export{
 		Engine: getStr(doc, "engine"), Game: getStr(doc, "game"), GameVersion: getStr(doc, "gameVersion"),
 		Module: getStr(doc, "module"), Target: getStr(doc, "target"), Profile: getStr(doc, "profile"),
-		Binary: getStr(doc, "binary"), BinarySize: getInt(doc, "binarySize"), Modules: getStrs(doc, "modules"),
+		Binary: getStr(doc, "binary"), BinarySize: getInt(doc, "binarySize"), BinaryGzip: getInt(doc, "binaryGzip"), Modules: getStrs(doc, "modules"),
 		DataSize: getInt(doc, "dataSize"), Artifacts: int(getInt(doc, "artifacts")), Hash: getStr(doc, "hash"),
 		BuildMillis: getInt(doc, "buildMillis"), Time: getStr(doc, "time"),
 	}

@@ -19,6 +19,7 @@ func main() {
 	version := flag.String("version", "", "engine version shown in the footer")
 	commit := flag.String("commit", "", "commit shown in the footer")
 	hero := flag.String("hero", "", "screenshot shown on the landing page")
+	demo := flag.Bool("demo", false, "link the web demo at demo/ from the landing page")
 	flag.Parse()
 	if *in == "" {
 		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground] [-repo url] [-version v] [-commit sha] [-hero png]")
@@ -33,7 +34,7 @@ func main() {
 		exp.Title = *title
 	}
 	rep, err := site.Build(exp, *out, site.Options{
-		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Time: time.Now(),
+		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Demo: *demo, Time: time.Now(),
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)

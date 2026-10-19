@@ -68,6 +68,7 @@ var rules = []rule{
 	{"vfs", []string{"core/...", "vfs/osfs"}, nil},
 	{"vfs/osfs", []string{"core/..."}, nil},
 	{"vfs/exportfs", []string{"core/...", "vfs", "vfs/osfs"}, nil},
+	{"vfs/memfs", []string{"core/...", "vfs"}, nil},
 	{"runtime/bundle", []string{"core/...", "asset", "format/..."}, nil},
 	{"runtime/player", []string{"core/...", "app/assembly", "app/assembly/builtin", "app/crash", "asset", "asset/loader",
 		"contracts/...", "engine", "engine/...", "format/...", "modules/input", "modules/scripting/systems", "platform",

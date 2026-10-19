@@ -61,6 +61,7 @@ type Options struct {
 	Version    string
 	Commit     string
 	Hero       string
+	Demo       bool
 	Time       time.Time
 }
 
@@ -667,6 +668,9 @@ func (b *builder) home() string {
 	c.WriteString(`<p class="lead">` + esc(homeLead) + `</p><div class="actions">`)
 	if u := b.firstOf(SectionStart); u != "" {
 		c.WriteString(`<a class="button primary" href="` + esc(u) + `">Get started</a>`)
+	}
+	if b.opt.Demo {
+		c.WriteString(`<a class="button" href="demo/">Play demo</a>`)
 	}
 	if b.opt.Playground {
 		c.WriteString(`<a class="button" href="play/">Open the playground</a>`)

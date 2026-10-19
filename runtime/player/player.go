@@ -3,7 +3,6 @@ package player
 import (
 	"io"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -64,6 +63,7 @@ type Config struct {
 	Seed      uint64
 	NoProfile bool
 	Logger    *log.Logger
+	Bundle    *Bundle
 }
 
 type Player struct {
@@ -145,7 +145,7 @@ func Open(cfg Config, mods ...module.Module) (*Player, error) {
 }
 
 func (p *Player) build(mods []module.Module) error {
-	data, files, err := Mount(p.cfg.Data)
+	data, files, err := p.mount()
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (p *Player) build(mods []module.Module) error {
 	g := &data.Game
 	if !p.cfg.NoProfile {
 		p.profileDir, p.profileErr = platform.ProfileDir(g.Module, p.cfg.Profile)
-		if p.profileErr == nil {
+		if p.profileErr == nil && hostFiles {
 			p.crashDir = filepath.Join(p.profileDir, "crash")
 		}
 	}
@@ -243,11 +243,11 @@ func (p *Player) logger() error {
 	}
 	p.Log = log.New(log.FuncSink(func(log.Record) {}))
 	release := p.Data.Release()
-	if !release || p.cfg.Debug {
+	if !release || p.cfg.Debug || !hostFiles {
 		p.Log.AddSink(log.NewTextSink(os.Stderr))
 	}
 	path := p.cfg.LogFile
-	if path == "" && release && p.profileDir != "" {
+	if path == "" && release && p.profileDir != "" && hostFiles {
 		path = filepath.Join(p.profileDir, "logs", "game.log")
 	}
 	if path != "" {
@@ -471,14 +471,7 @@ func (p *Player) Run() error {
 			panic(rec)
 		}
 	}()
-	interrupts := make(chan os.Signal, 1)
-	signal.Notify(interrupts, os.Interrupt)
-	defer signal.Stop(interrupts)
-	go func() {
-		if _, ok := <-interrupts; ok {
-			p.Engine.Jobs().OnMain(p.Engine.Quit)
-		}
-	}()
+	defer p.watchInterrupt()()
 	d := driver{}
 	if p.cfg.Frames > 0 {
 		for i := 0; i < p.cfg.Frames; i++ {

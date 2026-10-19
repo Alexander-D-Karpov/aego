@@ -326,9 +326,6 @@ func TestExportCrossWithoutToolchain(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "C compiler") {
 		t.Fatalf("want a toolchain error, got %v", err)
 	}
-	if _, err := export.ParseTarget("web"); err == nil {
-		t.Fatal("web export must be refused in 9.5a")
-	}
 }
 
 func TestExportWindowsUnderWine(t *testing.T) {

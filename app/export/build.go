@@ -67,6 +67,17 @@ func (j *job) toolchain() error {
 	if _, err := exec.LookPath("go"); err != nil {
 		return errs.New(errs.BuildFailed, "export needs the Go toolchain on this machine; the exported game does not, see docs/export.md")
 	}
+	if j.t.Web() {
+		root, err := goRoot()
+		if err != nil {
+			return err
+		}
+		if _, err := wasmExecPath(root); err != nil {
+			return err
+		}
+		j.goroot = root
+		return nil
+	}
 	cc := j.cc()
 	if !j.t.Host() && cc == "" {
 		return errs.New(errs.BuildFailed, "exporting to "+j.t.String()+" from "+runtime.GOOS+"/"+runtime.GOARCH+
@@ -164,8 +175,12 @@ func (j *job) build() error {
 	args = append(args, pkg)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "GOOS="+j.t.OS, "GOARCH="+j.t.Arch, "CGO_ENABLED=1")
-	if cc := j.cc(); cc != "" {
+	cgo := "CGO_ENABLED=1"
+	if j.t.Web() {
+		cgo = "CGO_ENABLED=0"
+	}
+	cmd.Env = append(os.Environ(), "GOOS="+j.t.OS, "GOARCH="+j.t.Arch, cgo)
+	if cc := j.cc(); cc != "" && !j.t.Web() {
 		cmd.Env = append(cmd.Env, "CC="+cc)
 	}
 	if j.t.OS == "darwin" {

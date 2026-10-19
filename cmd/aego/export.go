@@ -13,7 +13,7 @@ import (
 
 const exportUsage = `usage: aego export [dir] [flags]
 
-  --target host|linux|windows|darwin[/amd64|/arm64]   default host
+  --target host|linux|windows|darwin[/amd64|/arm64]|web   default host
   --development | --release                           default development
   --out dir        output directory, default <project>/exports/<os>-<arch>-<profile>
   --cc compiler    C compiler for a cross target, or CC_<OS>_<ARCH>

@@ -20,6 +20,10 @@ EXPORT_HOME = $(CURDIR)/.cache/export-home
 CHROMIUM ?= $(shell command -v chromium || command -v chromium-browser || command -v google-chrome)
 WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROMIUM) node smoke.mjs --site=$(CURDIR)/site
 WASM_BUDGET = 8388608
+WEB_DEMO_PROJECT ?= examples/platformer
+WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
+WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
@@ -70,6 +74,8 @@ test-runtime: bootstrap
 # Engine on gpu/null under Node, plus the js packages compile (D289).
 test-wasm:
 	GOOS=js GOARCH=wasm go build ./cmd/aego-playground ./platform/web ./gpu/webgl2 ./engine
+	GOOS=js GOARCH=wasm go build -tags aego_runtime -o /dev/null ./cmd/aego-runtime
+	@if GOOS=js GOARCH=wasm go list -tags aego_runtime -deps ./cmd/aego-runtime | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|editor)'; then echo "the web runtime pulls a native, pipeline or editor package"; exit 1; fi
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 
@@ -190,10 +196,12 @@ bench-profile:
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
 site: cli
-	.cache/bin/aego docs build --out site --repo $(DOCS_REPO)
+	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
+	.cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release --out site/demo
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
+	$(WEB_DEMO_BUDGET)
 
 playground:
 	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
@@ -201,10 +209,12 @@ playground:
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
-	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO)
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
+	.cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR) --out site/demo
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
+	$(WEB_DEMO_BUDGET)
 
 site-check: cli
 	.cache/bin/aego docs check
@@ -219,9 +229,11 @@ playground-size:
 
 web-smoke: site
 	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
+	$(WEB_DEMO)
 
 web-smoke-update: site
 	$(WEB_SMOKE) --update
+	$(WEB_DEMO) --update
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego

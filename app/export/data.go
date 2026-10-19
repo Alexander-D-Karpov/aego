@@ -70,6 +70,7 @@ func (j *job) data() error {
 	var total int64
 	count := 0
 	var failed error
+	j.files = j.files[:0]
 	j.snap.idx.Each(func(e *asset.Entry) {
 		if failed != nil || e.Missing || e.Error != "" || exportSkip(e.Kind) {
 			return
@@ -98,6 +99,7 @@ func (j *job) data() error {
 				}
 				written[name] = true
 				names = append(names, name)
+				j.files = append(j.files, webFile{Path: bundle.ArtifactsDir + "/" + name, Size: int64(len(raw))})
 				s.Bytes += int64(len(raw))
 				total += int64(len(raw))
 			}
@@ -120,7 +122,9 @@ func (j *job) data() error {
 	if err := os.WriteFile(filepath.Join(j.l.data, bundle.ManifestFile), raw, 0o644); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write the data manifest")
 	}
+	j.manifestSize = int64(len(raw))
 	slices.Sort(names)
+	slices.SortFunc(j.files, func(a, b webFile) int { return strings.Compare(a.Path, b.Path) })
 	h := sha256.New()
 	h.Write([]byte(strings.Join(names, "\n")))
 	h.Write(raw)
@@ -147,7 +151,7 @@ func (j *job) manifest() error {
 	p := j.p
 	x := &bundle.Export{
 		Engine: engine.Version, Game: p.Name, GameVersion: GameVersion(p), Module: p.Module,
-		Target: j.t.String(), Profile: j.profile, Binary: j.rep.Binary, BinarySize: j.rep.BinarySize,
+		Target: j.t.String(), Profile: j.profile, Binary: j.rep.Binary, BinarySize: j.rep.BinarySize, BinaryGzip: j.rep.BinaryGzip,
 		StartScene: p.MainScene, Modules: j.rep.Modules, Libs: j.libs(), Data: j.rep.Data,
 		DataSize: j.rep.DataSize, Artifacts: j.rep.Artifacts, Hash: j.rep.Hash,
 		BuildMillis: time.Since(j.start).Milliseconds(), Time: time.Now().UTC().Format(time.RFC3339),
@@ -169,19 +173,24 @@ func (j *job) sdlLicense() string {
 	return ""
 }
 
-func (j *job) libs() []bundle.Lib {
-	lib := bundle.Lib{Name: "SDL3", Link: "static"}
-	src := j.sdlLicense()
+func (j *job) license(lib bundle.Lib, src, name string) bundle.Lib {
 	if src == "" {
-		return []bundle.Lib{lib}
+		return lib
 	}
 	data, err := os.ReadFile(src)
 	if err != nil {
-		return []bundle.Lib{lib}
+		return lib
 	}
-	dst := filepath.Join(j.out, "licenses", "SDL3.txt")
+	dst := filepath.Join(j.out, "licenses", name)
 	if os.MkdirAll(filepath.Dir(dst), 0o755) == nil && os.WriteFile(dst, data, 0o644) == nil {
-		lib.License = "licenses/SDL3.txt"
+		lib.License = "licenses/" + name
 	}
-	return []bundle.Lib{lib}
+	return lib
+}
+
+func (j *job) libs() []bundle.Lib {
+	if j.t.Web() {
+		return []bundle.Lib{j.license(bundle.Lib{Name: "Go wasm_exec.js", Link: "script", File: webExec}, filepath.Join(j.goroot, "LICENSE"), "Go.txt")}
+	}
+	return []bundle.Lib{j.license(bundle.Lib{Name: "SDL3", Link: "static"}, j.sdlLicense(), "SDL3.txt")}
 }

@@ -29,6 +29,7 @@ type Env struct {
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Repo    string
+	Demo    bool
 }
 
 func (e *Env) export(path string) error {
@@ -126,6 +127,9 @@ func (e *Env) Build(out string, play bool) error {
 	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs, "-version", engine.Version}
 	if play {
 		args = append(args, "-playground")
+	}
+	if e.Demo {
+		args = append(args, "-demo")
 	}
 	if e.Repo != "" {
 		args = append(args, "-repo", e.Repo, "-edit", strings.TrimRight(e.Repo, "/")+"/src/branch/"+e.branch())

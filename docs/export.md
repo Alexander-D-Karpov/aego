@@ -3,7 +3,7 @@
 `aego export` builds a game that runs on a machine without Go, without the engine sources and without the project.
 
 ```
-aego export [dir] --target host|linux|windows|darwin[/amd64|/arm64] --development|--release --out dir
+aego export [dir] --target host|linux|windows|darwin[/amd64|/arm64]|web --development|--release --out dir
 aego export --check --release        pre-export checks only
 aego export --json                   report as JSON
 ```
@@ -77,13 +77,32 @@ The export needs Go and the SDL build for the target in `.cache/native/<os>_<arc
 | host | `make bootstrap` |
 | linux → windows | `CC=x86_64-w64-mingw32-gcc GOOS=windows make bootstrap`, then `aego export --target windows --cc x86_64-w64-mingw32-gcc`, or `zig cc -target x86_64-windows-gnu` |
 | linux → darwin | osxcross: `CC=o64-clang GOOS=darwin make bootstrap`, `--cc o64-clang` |
-| any → web | Stage 9.5c |
+| any → web | nothing beyond Go: the build is GOOS=js GOARCH=wasm without cgo |
 
 `CC_<OS>_<ARCH>` (for example `CC_WINDOWS_AMD64`) replaces `--cc`.
 
 ## Not in v1
 
-No `.aepak`, no pruning of unreferenced assets (every imported asset except presets is exported), no stripping of embedded engine resources, no web target, no installers or notarization.
+No `.aepak`, no pruning of unreferenced assets (every imported asset except presets is exported), no stripping of embedded engine resources, no installers or notarization.
+
+## Web (D295)
+
+`aego export --target web` builds the same runtime for `js/wasm` and writes a folder that any static server can host:
+
+| File | Content |
+|---|---|
+| `index.html` | a full-window canvas, the loader with progress and errors, a fullscreen button |
+| `loader.js` | fetches `data/files.json`, then `game.wasm`, the manifest and every artifact (six at a time), and starts the game |
+| `wasm_exec.js` | the Go WebAssembly support script of the toolchain that built the game, its license in `licenses/Go.txt` |
+| `game.wasm` | `cmd/aego-runtime` with `-tags aego_runtime`; release adds `-trimpath -s -w` |
+| `data/` | `manifest.aetext`, `artifacts/` and `files.json` with every file and its size |
+| `export.aetext` | as for desktop targets, plus `binaryGzip` |
+
+Every file that compresses by more than 10% gets a `.gz` copy next to it, and a `.br` copy when `brotli` is in PATH; serve them with `gzip_static`/`brotli_static` or the equivalent, and serve `.wasm` as `application/wasm`. Artifacts are named by content hash and can be cached forever; `index.html`, `game.wasm`, the manifest and `files.json` carry the export hash in their query strings.
+
+The game reads its data from memory: the loader hands the bytes to the runtime, which mounts them with `vfs/memfs` after checking every file against the manifest. Settings and saves go to `localStorage` through `platform.UserFiles()` (a few MB per site, writes past the quota fail with an error); there are no log files and no crash bundles, the log goes to the browser console. Fullscreen and pointer lock need a click or key press first. URL parameters `?scene=`, `?seed=`, `?profile=` and `?debug=1` replace the command-line flags.
+
+Checks: EXP010 warns about an asset kind the web runtime cannot load (none yet), EXP011 warns that a native module must build without cgo. The target budget is 8 MB gzip for `game.wasm`; `make site` exports the platformer to `site/demo/` and fails above it.
 
 ## Editor app on macOS
 
