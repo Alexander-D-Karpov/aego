@@ -9,8 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed templates/layout.html
@@ -19,15 +21,54 @@ var layoutSrc string
 //go:embed static
 var static embed.FS
 
+const (
+	SectionStart     = "start"
+	SectionGuides    = "guides"
+	SectionReference = "reference"
+	otherGroup       = "other"
+	heroAsset        = "assets/hero.png"
+	homeLead         = "Guides, the language reference and every engine module, generated from the same source as the editor's hover and docs panel."
+)
+
+var sectionOrder = []string{SectionStart, SectionGuides, SectionReference}
+
+var sectionTitles = map[string]string{
+	SectionStart:     "Getting started",
+	SectionGuides:    "Guides",
+	SectionReference: "Reference",
+}
+
+func sectionRank(s string) int {
+	for i, x := range sectionOrder {
+		if x == s {
+			return i
+		}
+	}
+	return len(sectionOrder)
+}
+
+func sectionTitle(s string) string {
+	if t, ok := sectionTitles[s]; ok {
+		return t
+	}
+	return s
+}
+
 type Options struct {
 	Playground bool
 	Repo       string
+	Edit       string
+	Version    string
+	Commit     string
+	Hero       string
+	Time       time.Time
 }
 
 type Report struct {
 	Pages   int
 	Entries int
 	Broken  []string
+	Outline string
 }
 
 type layoutData struct {
@@ -36,8 +77,12 @@ type layoutData struct {
 	Site       string
 	Playground bool
 	Repo       string
+	Home       bool
 	Nav        template.HTML
 	Content    template.HTML
+	Toc        template.HTML
+	Pager      template.HTML
+	Footer     template.HTML
 }
 
 type searchItem struct {
@@ -46,20 +91,31 @@ type searchItem struct {
 	Summary string `json:"s,omitempty"`
 	Kind    string `json:"k"`
 	ID      string `json:"i"`
+	Group   string `json:"g,omitempty"`
+	Section string `json:"c,omitempty"`
+}
+
+type navGroup struct {
+	Group
+	roots []string
 }
 
 type builder struct {
-	exp    *Export
-	out    string
-	opt    Options
-	byID   map[string]*Entry
-	kids   map[string][]string
-	roots  []string
-	own    map[string]bool
-	urls   map[string]string
-	conv   *converter
-	layout *template.Template
-	report Report
+	exp     *Export
+	out     string
+	opt     Options
+	byID    map[string]*Entry
+	kids    map[string][]string
+	groups  []navGroup
+	groupOf map[string]int
+	own     map[string]bool
+	urls    map[string]string
+	order   []string
+	pos     map[string]int
+	hero    bool
+	conv    *converter
+	layout  *template.Template
+	report  Report
 }
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
@@ -67,19 +123,30 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	if opt.Edit == "" && opt.Repo != "" {
+		opt.Edit = strings.TrimRight(opt.Repo, "/") + "/src/branch/main"
+	}
 	b := &builder{
-		exp:    exp,
-		out:    out,
-		opt:    opt,
-		byID:   map[string]*Entry{},
-		kids:   map[string][]string{},
-		own:    map[string]bool{},
-		urls:   map[string]string{},
-		conv:   newConverter(),
-		layout: layout,
+		exp:     exp,
+		out:     out,
+		opt:     opt,
+		byID:    map[string]*Entry{},
+		kids:    map[string][]string{},
+		groupOf: map[string]int{},
+		own:     map[string]bool{},
+		urls:    map[string]string{},
+		pos:     map[string]int{},
+		conv:    newConverter(),
+		layout:  layout,
+	}
+	if opt.Hero != "" {
+		if st, err := os.Stat(opt.Hero); err == nil && !st.IsDir() {
+			b.hero = true
+		}
 	}
 	b.index()
 	b.route()
+	b.report.Outline = b.outline()
 	if err := b.write(); err != nil {
 		return Report{}, err
 	}
@@ -91,21 +158,44 @@ func (b *builder) index() {
 		e := &b.exp.Entries[i]
 		b.byID[e.ID] = e
 	}
-	var walk func(parent string, nodes []Node)
-	walk = func(parent string, nodes []Node) {
+	seen := map[string]bool{}
+	var walk func(gi int, parent string, nodes []Node)
+	walk = func(gi int, parent string, nodes []Node) {
 		for _, n := range nodes {
-			if _, ok := b.byID[n.ID]; !ok {
+			if _, ok := b.byID[n.ID]; !ok || seen[n.ID] {
 				continue
 			}
+			seen[n.ID] = true
+			b.groupOf[n.ID] = gi
 			if parent == "" {
-				b.roots = append(b.roots, n.ID)
+				b.groups[gi].roots = append(b.groups[gi].roots, n.ID)
 			} else {
 				b.kids[parent] = append(b.kids[parent], n.ID)
 			}
-			walk(n.ID, n.Children)
+			walk(gi, n.ID, n.Children)
 		}
 	}
-	walk("", b.exp.Nav)
+	gs := append([]GroupNav(nil), b.exp.Groups...)
+	sort.SliceStable(gs, func(i, j int) bool {
+		if ri, rj := sectionRank(gs[i].Section), sectionRank(gs[j].Section); ri != rj {
+			return ri < rj
+		}
+		return gs[i].Order < gs[j].Order
+	})
+	for _, g := range gs {
+		b.groups = append(b.groups, navGroup{Group: g.Group})
+		walk(len(b.groups)-1, "", g.Nav)
+	}
+	var rest []Node
+	for _, n := range b.exp.Nav {
+		if !seen[n.ID] {
+			rest = append(rest, n)
+		}
+	}
+	if len(rest) > 0 {
+		b.groups = append(b.groups, navGroup{Group: Group{ID: otherGroup, Title: "Other", Section: SectionReference, Order: 1 << 20}})
+		walk(len(b.groups)-1, "", rest)
+	}
 }
 
 func (b *builder) ownPage(e *Entry) bool {
@@ -134,6 +224,8 @@ func (b *builder) route() {
 			if owner == "" || b.ownPage(e) {
 				b.own[id] = true
 				b.urls[id] = pagePath(e)
+				b.pos[id] = len(b.order)
+				b.order = append(b.order, id)
 				next = b.urls[id]
 			} else {
 				b.urls[id] = owner + "#" + id
@@ -141,7 +233,9 @@ func (b *builder) route() {
 			walk(next, b.kids[id])
 		}
 	}
-	walk("", b.roots)
+	for _, g := range b.groups {
+		walk("", g.roots)
+	}
 }
 
 func rootOf(p string) string {
@@ -156,6 +250,9 @@ var (
 	mdCode   = regexp.MustCompile("`([^`]+)`")
 	mdStrong = regexp.MustCompile(`\*\*([^*]+)\*\*|__([^_]+)__`)
 	mdEm     = regexp.MustCompile(`(^|[^\w*])\*([^*\s][^*]*)\*|(^|[^\w])_([^_\s][^_]*)_`)
+	headRe   = regexp.MustCompile(`<h([23]) id="([^"]+)"[^>]*>(.*?)</h[23]>`)
+	kindRe   = regexp.MustCompile(`<span class="kind[^"]*">[^<]*</span>`)
+	tagRe    = regexp.MustCompile(`<[^>]+>`)
 )
 
 func inlineMD(s string) string {
@@ -277,10 +374,18 @@ func (b *builder) crumbs(e *Entry, root string) string {
 		}
 		p = pe.Parent
 	}
+	if gi, ok := b.groupOf[e.ID]; ok {
+		g := b.groups[gi]
+		head := []string{"<span>" + esc(sectionTitle(g.Section)) + "</span>"}
+		if g.Title != sectionTitle(g.Section) {
+			head = append(head, "<span>"+esc(g.Title)+"</span>")
+		}
+		trail = append(head, trail...)
+	}
 	if len(trail) == 0 {
 		return ""
 	}
-	return `<nav class="crumbs">` + strings.Join(trail, ` <span>/</span> `) + "</nav>\n"
+	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">/</span>`) + "</nav>\n"
 }
 
 func (b *builder) content(e *Entry, root string) string {
@@ -290,6 +395,76 @@ func (b *builder) content(e *Entry, root string) string {
 	b.details(&c, e, root)
 	b.children(&c, e, root, 2)
 	return c.String()
+}
+
+func toc(content string) string {
+	m := headRe.FindAllStringSubmatch(content, -1)
+	if len(m) < 2 {
+		return ""
+	}
+	var c strings.Builder
+	c.WriteString(`<p class="toc-title">On this page</p><ul>`)
+	for _, x := range m {
+		text := strings.TrimSpace(html.UnescapeString(tagRe.ReplaceAllString(kindRe.ReplaceAllString(x[3], ""), "")))
+		c.WriteString(`<li class="l` + x[1] + `"><a href="#` + x[2] + `">` + esc(text) + "</a></li>")
+	}
+	c.WriteString("</ul>")
+	return c.String()
+}
+
+func (b *builder) pager(id, root string) string {
+	i, ok := b.pos[id]
+	if !ok {
+		return ""
+	}
+	var c strings.Builder
+	c.WriteString(`<nav class="pager">`)
+	if i > 0 {
+		p := b.order[i-1]
+		c.WriteString(`<a class="prev" href="` + esc(root+b.urls[p]) + `"><span>Previous</span>` + esc(b.byID[p].Title) + "</a>")
+	} else {
+		c.WriteString("<span></span>")
+	}
+	if i+1 < len(b.order) {
+		n := b.order[i+1]
+		c.WriteString(`<a class="next" href="` + esc(root+b.urls[n]) + `"><span>Next</span>` + esc(b.byID[n].Title) + "</a>")
+	}
+	c.WriteString("</nav>")
+	return c.String()
+}
+
+func (b *builder) footer(e *Entry, root string) string {
+	o := b.opt
+	name := "Aego"
+	if o.Version != "" {
+		name += " " + o.Version
+	}
+	left := []string{esc(name)}
+	if o.Commit != "" {
+		c := esc(o.Commit)
+		if o.Repo != "" {
+			c = `<a href="` + esc(strings.TrimRight(o.Repo, "/")+"/commit/"+o.Commit) + `">` + c + "</a>"
+		}
+		left = append(left, c)
+	}
+	if !o.Time.IsZero() {
+		left = append(left, "built "+o.Time.UTC().Format("2006-01-02"))
+	}
+	var right []string
+	if e != nil && e.Location.Source != "" && o.Edit != "" {
+		u := strings.TrimRight(o.Edit, "/") + "/" + e.Location.Source
+		if e.Location.Line > 0 {
+			u += "#L" + strconv.Itoa(e.Location.Line)
+		}
+		right = append(right, `<a href="`+esc(u)+`">Edit this page</a>`)
+	}
+	if o.Playground {
+		right = append(right, `<a href="`+root+`play/">Playground</a>`)
+	}
+	if o.Repo != "" {
+		right = append(right, `<a href="`+esc(o.Repo)+`">Source</a>`)
+	}
+	return `<footer class="foot"><span>` + strings.Join(left, " · ") + `</span><span class="links">` + strings.Join(right, "") + "</span></footer>"
 }
 
 func (b *builder) navTree(c *strings.Builder, ids []string, root, current string, open map[string]bool) {
@@ -307,7 +482,7 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 		}
 		cls := ""
 		if id == current {
-			cls = ` class="current"`
+			cls = ` class="current" aria-current="page"`
 		}
 		link := `<a` + cls + ` href="` + esc(root+b.urls[id]) + `">` + esc(e.Title) + "</a>"
 		if len(sub) == 0 {
@@ -335,63 +510,95 @@ func (b *builder) nav(root, current string) string {
 		}
 		p = e.Parent
 	}
-	var guides, reference []string
-	for _, id := range b.roots {
-		if b.byID[id].Kind == KindPage {
-			guides = append(guides, id)
-		} else {
-			reference = append(reference, id)
-		}
+	cur := -1
+	if gi, ok := b.groupOf[current]; ok {
+		cur = gi
 	}
 	var c strings.Builder
-	if len(guides) > 0 {
-		c.WriteString(`<p class="group">Guides</p>`)
-		b.navTree(&c, guides, root, current, open)
-	}
-	if len(reference) > 0 {
-		c.WriteString(`<p class="group">Reference</p>`)
-		b.navTree(&c, reference, root, current, open)
+	last := ""
+	for gi, g := range b.groups {
+		if g.Section != last {
+			c.WriteString(`<p class="section">` + esc(sectionTitle(g.Section)) + "</p>")
+			last = g.Section
+		}
+		attr := ""
+		if gi == cur {
+			attr = ` open data-current="true"`
+		}
+		c.WriteString(`<details class="group" data-group="` + esc(g.ID) + `"` + attr + "><summary>" + esc(g.Title) + "</summary>")
+		b.navTree(&c, g.roots, root, current, open)
+		c.WriteString("</details>")
 	}
 	return c.String()
+}
+
+func (b *builder) firstOf(section string) string {
+	for _, g := range b.groups {
+		if g.Section == section && len(g.roots) > 0 {
+			return b.urls[g.roots[0]]
+		}
+	}
+	return ""
 }
 
 func (b *builder) home() string {
 	var c strings.Builder
-	c.WriteString(`<h1>` + esc(b.exp.Title) + "</h1>\n")
-	c.WriteString(`<p class="lead">Guides, the language reference and every engine module, generated from the same source as the editor's hover and docs panel.</p>` + "\n")
-	group := func(title string, page bool) {
-		c.WriteString("<h2>" + esc(title) + "</h2>\n" + `<ul class="contents">` + "\n")
-		for _, id := range b.roots {
-			e := b.byID[id]
-			if (e.Kind == KindPage) != page {
+	c.WriteString(`<section class="hero"><div class="hero-text"><h1>` + esc(b.exp.Title) + "</h1>")
+	c.WriteString(`<p class="lead">` + esc(homeLead) + `</p><div class="actions">`)
+	if u := b.firstOf(SectionStart); u != "" {
+		c.WriteString(`<a class="button primary" href="` + esc(u) + `">Get started</a>`)
+	}
+	if b.opt.Playground {
+		c.WriteString(`<a class="button" href="play/">Open the playground</a>`)
+	}
+	if u := b.firstOf(SectionReference); u != "" {
+		c.WriteString(`<a class="button" href="` + esc(u) + `">Reference</a>`)
+	}
+	c.WriteString("</div></div>")
+	if b.hero {
+		c.WriteString(`<img class="hero-shot" src="` + heroAsset + `" alt="The Aego editor">`)
+	}
+	c.WriteString("</section>\n")
+	for _, s := range sectionOrder {
+		var cards []string
+		for _, g := range b.groups {
+			if g.Section != s || len(g.roots) == 0 {
 				continue
 			}
-			c.WriteString(`<li><a href="` + esc(b.urls[id]) + `">` + esc(e.Title) + "</a>" + kindLabel(e))
-			if e.Summary != "" {
-				c.WriteString(`<span class="summary">` + inlineMD(e.Summary) + "</span>")
+			first := b.byID[g.roots[0]]
+			card := `<a class="card" href="` + esc(b.urls[g.roots[0]]) + `"><strong>` + esc(g.Title) + "</strong>"
+			if first.Summary != "" {
+				card += "<span>" + inlineMD(first.Summary) + "</span>"
 			}
-			c.WriteString("</li>\n")
+			cards = append(cards, card+"</a>")
 		}
-		c.WriteString("</ul>\n")
+		if len(cards) == 0 {
+			continue
+		}
+		c.WriteString("<h2>" + esc(sectionTitle(s)) + `</h2><div class="cards">` + strings.Join(cards, "") + "</div>\n")
 	}
-	group("Guides", true)
-	group("Reference", false)
 	return c.String()
 }
 
-func (b *builder) emit(rel, title, current, content string) error {
+func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
-	var buf strings.Builder
-	err := b.layout.Execute(&buf, layoutData{
+	data := layoutData{
 		Root:       root,
 		Title:      title,
 		Site:       b.exp.Title,
 		Playground: b.opt.Playground,
 		Repo:       b.opt.Repo,
+		Home:       current == "",
 		Nav:        template.HTML(b.nav(root, current)),
 		Content:    template.HTML(content),
-	})
-	if err != nil {
+		Footer:     template.HTML(b.footer(e, root)),
+	}
+	if current != "" {
+		data.Toc = template.HTML(toc(content))
+		data.Pager = template.HTML(b.pager(current, root))
+	}
+	var buf strings.Builder
+	if err := b.layout.Execute(&buf, data); err != nil {
 		return err
 	}
 	dst := filepath.Join(b.out, filepath.FromSlash(rel))
@@ -400,6 +607,54 @@ func (b *builder) emit(rel, title, current, content string) error {
 	}
 	b.report.Pages++
 	return os.WriteFile(dst, []byte(buf.String()), 0o644)
+}
+
+func (b *builder) walkOwn(ids []string, depth int, fn func(id string, depth int)) {
+	for _, id := range ids {
+		if !b.own[id] {
+			continue
+		}
+		fn(id, depth)
+		b.walkOwn(b.kids[id], depth+1, fn)
+	}
+}
+
+func (b *builder) outline() string {
+	var c strings.Builder
+	last := ""
+	for _, g := range b.groups {
+		if g.Section != last {
+			c.WriteString(sectionTitle(g.Section) + "\n")
+			last = g.Section
+		}
+		c.WriteString("  " + g.Title + "\n")
+		b.walkOwn(g.roots, 2, func(id string, depth int) {
+			c.WriteString(strings.Repeat("  ", depth) + b.byID[id].Title + " -> " + b.urls[id] + "\n")
+		})
+	}
+	return c.String()
+}
+
+func (b *builder) llms() string {
+	var c strings.Builder
+	c.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n")
+	last := ""
+	for _, g := range b.groups {
+		if g.Section != last {
+			c.WriteString("\n## " + sectionTitle(g.Section) + "\n")
+			last = g.Section
+		}
+		c.WriteString("\n### " + g.Title + "\n\n")
+		b.walkOwn(g.roots, 0, func(id string, _ int) {
+			e := b.byID[id]
+			line := "- [" + e.Title + "](" + b.urls[id] + ")"
+			if s := plainMD(e.Summary); s != "" {
+				line += ": " + s
+			}
+			c.WriteString(line + "\n")
+		})
+	}
+	return c.String()
 }
 
 func (b *builder) write() error {
@@ -414,16 +669,20 @@ func (b *builder) write() error {
 			continue
 		}
 		b.report.Entries++
-		search = append(search, searchItem{Title: e.Title, URL: u, Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID})
-		if !b.own[e.ID] {
-			continue
+		item := searchItem{Title: e.Title, URL: u, Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID}
+		if gi, ok := b.groupOf[e.ID]; ok {
+			item.Group, item.Section = b.groups[gi].Title, b.groups[gi].Section
 		}
-		rel := b.urls[e.ID]
-		if err := b.emit(rel, e.Title, e.ID, b.content(e, rootOf(rel))); err != nil {
+		search = append(search, item)
+	}
+	for _, id := range b.order {
+		e := b.byID[id]
+		rel := b.urls[id]
+		if err := b.emit(rel, e.Title, id, b.content(e, rootOf(rel)), e); err != nil {
 			return err
 		}
 	}
-	if err := b.emit("index.html", b.exp.Title, "", b.home()); err != nil {
+	if err := b.emit("index.html", b.exp.Title, "", b.home(), nil); err != nil {
 		return err
 	}
 	data, err := json.Marshal(search)
@@ -433,11 +692,14 @@ func (b *builder) write() error {
 	if err := os.WriteFile(filepath.Join(b.out, "search.json"), data, 0o644); err != nil {
 		return err
 	}
+	if err := os.WriteFile(filepath.Join(b.out, "llms.txt"), []byte(b.llms()), 0o644); err != nil {
+		return err
+	}
 	return b.assets()
 }
 
 func (b *builder) assets() error {
-	return fs.WalkDir(static, "static", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(static, "static", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -451,4 +713,12 @@ func (b *builder) assets() error {
 		}
 		return os.WriteFile(dst, data, 0o644)
 	})
+	if err != nil || !b.hero {
+		return err
+	}
+	data, err := os.ReadFile(b.opt.Hero)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(b.out, filepath.FromSlash(heroAsset)), data, 0o644)
 }

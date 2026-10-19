@@ -1,7 +1,8 @@
 ---
 id: save
+group: gameplay
 title: Saving games
-order: 27
+order: 6
 ---
 # Saving games
 

@@ -26,7 +26,7 @@ func New(opt stdlib.Options) Module {
 }
 
 func (Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Aego Script", DocsOrder: 10}
 }
 
 func (m Module) Register(r *module.Registry) error {

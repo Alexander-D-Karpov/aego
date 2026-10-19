@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"aego/engine"
 	"aego/engine/module"
 	"aego/project"
 )
@@ -81,6 +82,27 @@ func (e *Env) goCmd(dir string, env []string, args ...string) error {
 	return cmd.Run()
 }
 
+const defaultBranch = "master"
+
+func (e *Env) git(args ...string) string {
+	out, err := exec.Command("git", append([]string{"-C", e.Engine}, args...)...).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func (e *Env) commit() string {
+	return e.git("rev-parse", "--short", "HEAD")
+}
+
+func (e *Env) branch() string {
+	if b := e.git("rev-parse", "--abbrev-ref", "HEAD"); b != "" && b != "HEAD" {
+		return b
+	}
+	return defaultBranch
+}
+
 func (e *Env) Build(out string, play bool) error {
 	if e.Engine == "" {
 		return errors.New("cannot locate the aego source tree; pass --engine <dir> or set AEGO_ROOT")
@@ -101,12 +123,18 @@ func (e *Env) Build(out string, play bool) error {
 	if err := e.export(tmp.Name()); err != nil {
 		return err
 	}
-	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs}
+	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs, "-version", engine.Version}
 	if play {
 		args = append(args, "-playground")
 	}
 	if e.Repo != "" {
-		args = append(args, "-repo", e.Repo)
+		args = append(args, "-repo", e.Repo, "-edit", strings.TrimRight(e.Repo, "/")+"/src/branch/"+e.branch())
+	}
+	if c := e.commit(); c != "" {
+		args = append(args, "-commit", c)
+	}
+	if hero := filepath.Join(e.Engine, "docs", "hero.png"); fileExists(hero) {
+		args = append(args, "-hero", hero)
 	}
 	if err := e.goCmd(filepath.Join(e.Engine, "tools", "gendocs"), nil, args...); err != nil {
 		return fmt.Errorf("gendocs failed: %w", err)
@@ -115,6 +143,11 @@ func (e *Env) Build(out string, play bool) error {
 		return e.playground(filepath.Join(abs, "play"))
 	}
 	return nil
+}
+
+func fileExists(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
 }
 
 func copyFile(src, dst string) error {

@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="aego-root" content="{{.Root}}">
     <title>{{.Title}} · {{.Site}}</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="{{.Root}}assets/style.css">
 </head>
-<body>
+<body{{if .Home}} class="home"{{end}}>
 <header class="top">
     <button type="button" class="menu" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
     <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
@@ -15,15 +16,18 @@
         <input id="search" type="search" placeholder="Search docs  /" autocomplete="off" aria-label="Search">
         <ul id="results" hidden></ul>
     </div>
-    <div class="links">
+    <nav class="links">
+        <a href="{{.Root}}index.html">Docs</a>
         {{if .Playground}}<a class="play" href="{{.Root}}play/">Playground</a>{{end}}
         {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
-    </div>
+    </nav>
 </header>
 <div class="shell">
     <nav class="side" aria-label="Documentation">{{.Nav}}</nav>
-    <main class="doc">{{.Content}}</main>
+    <main class="doc">{{.Content}}{{.Pager}}</main>
+    <aside class="toc">{{.Toc}}</aside>
 </div>
+{{.Footer}}
 <script src="{{.Root}}assets/site.js"></script>
 {{if .Playground}}<script src="{{.Root}}assets/run.js"></script>{{end}}
 </body>

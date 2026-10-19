@@ -1,5 +1,6 @@
 ---
 id: language
+group: script
 title: Aego Script
 order: 1
 ---

@@ -1,6 +1,6 @@
 ---
 id: render2d/cameras
-parent: module/render2d
+group: rendering
 order: 2
 title: Cameras
 ---

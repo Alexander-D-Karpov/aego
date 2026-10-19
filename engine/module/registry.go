@@ -4,6 +4,7 @@ import (
 	"aego/engine/settings"
 	"aego/format/aetext"
 	"io/fs"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -46,6 +47,7 @@ type finalizer struct {
 type DocSource struct {
 	Owner string
 	FS    fs.FS
+	Dir   string
 }
 
 type Registry struct {
@@ -215,7 +217,30 @@ func (r *Registry) Docs(fsys fs.FS) {
 		r.fail("docs source is nil")
 		return
 	}
-	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys})
+	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys, Dir: r.docsDir()})
+}
+
+func (r *Registry) docsDir() string {
+	if r.cur == nil {
+		return ""
+	}
+	m := r.cur.mod
+	for {
+		u, ok := m.(interface{ Unwrap() Module })
+		if !ok {
+			break
+		}
+		m = u.Unwrap()
+	}
+	t := reflect.TypeOf(m)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	dir, ok := strings.CutPrefix(t.PkgPath(), "aego/")
+	if !ok {
+		return ""
+	}
+	return dir + "/res/docs"
 }
 
 func (r *Registry) Dev(fn any) {

@@ -7,19 +7,25 @@ import (
 	"strconv"
 )
 
-const ExportVersion = 1
+const ExportVersion = 2
 
 type Node struct {
 	ID       string `json:"id"`
 	Children []Node `json:"children,omitempty"`
 }
 
+type GroupNav struct {
+	Group
+	Nav []Node `json:"nav"`
+}
+
 type Export struct {
-	Version  int       `json:"version"`
-	Title    string    `json:"title"`
-	Entries  []Entry   `json:"entries"`
-	Nav      []Node    `json:"nav"`
-	Problems []Problem `json:"problems"`
+	Version  int        `json:"version"`
+	Title    string     `json:"title"`
+	Entries  []Entry    `json:"entries"`
+	Nav      []Node     `json:"nav"`
+	Groups   []GroupNav `json:"groups"`
+	Problems []Problem  `json:"problems"`
 }
 
 func (k Kind) MarshalText() ([]byte, error) {
@@ -40,6 +46,15 @@ func (r *Registry) Export(title string) Export {
 	exp := Export{Version: ExportVersion, Title: title, Entries: r.All(), Problems: r.Check(false)}
 	for _, e := range r.Roots() {
 		exp.Nav = append(exp.Nav, r.node(e.ID, 0))
+	}
+	for _, g := range r.Groups() {
+		gn := GroupNav{Group: g}
+		for _, e := range r.GroupRoots(g.ID) {
+			gn.Nav = append(gn.Nav, r.node(e.ID, 0))
+		}
+		if len(gn.Nav) > 0 {
+			exp.Groups = append(exp.Groups, gn)
+		}
 	}
 	return exp
 }

@@ -1,7 +1,8 @@
 ---
 id: tags
+group: scenes
 title: Tags and queries
-order: 36
+order: 2
 ---
 # Tags and queries
 

@@ -1,7 +1,8 @@
 ---
 id: settings
+group: gameplay
 title: Settings
-order: 18
+order: 8
 ---
 # Settings
 

@@ -4,6 +4,7 @@ package docs
 
 import (
 	"io/fs"
+	"path"
 	"slices"
 	"sort"
 	"strconv"
@@ -43,7 +44,9 @@ const (
 	KeywordPrefix  = "keyword/"
 	StubPrefix     = "stub:"
 	EngineOwner    = "engine"
+	EngineDocsDir  = "engine/res/docs"
 	scriptOwner    = "script"
+	unknownOrder   = 1000
 )
 
 var kindNames = [...]string{"page", "module", "function", "type", "field", "method", "signal", "code", "const", "enum"}
@@ -67,6 +70,7 @@ type Location struct {
 	Line   int
 	Stub   string
 	Symbol string
+	Source string
 }
 
 type Snippet struct {
@@ -81,6 +85,7 @@ type Entry struct {
 	Parent    string
 	Kind      Kind
 	Owner     string
+	Group     string
 	Title     string
 	Summary   string
 	Body      string
@@ -111,12 +116,20 @@ type Sources struct {
 	Scripts  []ScriptSymbol
 }
 
+type pageMeta struct {
+	group   string
+	ordered bool
+}
+
 type Registry struct {
 	entries  []Entry
 	byID     map[string]int
 	children map[string][]int
 	keys     map[string]int
 	builtin  map[string]bool
+	mods     map[string]module.Info
+	meta     map[string]pageMeta
+	extra    []Group
 	problems []Problem
 }
 
@@ -163,7 +176,7 @@ func EngineDocs() module.DocSource {
 	if err != nil {
 		sub = res.FS()
 	}
-	return module.DocSource{Owner: EngineOwner, FS: sub}
+	return module.DocSource{Owner: EngineOwner, FS: sub, Dir: EngineDocsDir}
 }
 
 func (r *Registry) Keywords() map[string]string {
@@ -180,13 +193,16 @@ func Assemble(src Sources) *Registry {
 		children: map[string][]int{},
 		keys:     map[string]int{},
 		builtin:  map[string]bool{},
+		mods:     map[string]module.Info{},
+		meta:     map[string]pageMeta{},
 	}
 	for _, mi := range src.Modules {
 		r.builtin[mi.ID] = mi.Builtin
-		r.add(Entry{ID: ModulePrefix + mi.ID, Kind: Module, Owner: mi.ID, Title: mi.ID})
+		r.mods[mi.ID] = mi
 	}
-	r.add(Entry{ID: BuiltinID, Kind: Module, Owner: scriptOwner, Title: "Builtin types", Location: Location{Stub: StubPath(BuiltinID)}})
-	r.add(Entry{ID: DiagnosticsID, Kind: Page, Owner: scriptOwner, Title: "Diagnostics"})
+	r.add(Entry{ID: BuiltinID, Kind: Module, Owner: scriptOwner, Group: GroupScriptAPI, Order: -1, Title: "Builtin types", Location: Location{Stub: StubPath(BuiltinID)}})
+	r.add(Entry{ID: DiagnosticsID, Kind: Page, Owner: scriptOwner, Group: GroupDiagnostics, Title: "Diagnostics",
+		Body: "Every code the compiler, the script runtime and the engine report, with what it means and how to fix it."})
 	if src.Bindings != nil {
 		r.bindings(src.Bindings, src.Owners)
 		r.handles(src.Bindings, src.Owners)
@@ -202,6 +218,30 @@ func Assemble(src Sources) *Registry {
 	}
 	r.index()
 	return r
+}
+
+func (r *Registry) docsOrder(owner string) int {
+	if mi, ok := r.mods[owner]; ok {
+		return mi.DocsOrder
+	}
+	return unknownOrder
+}
+
+func (r *Registry) moduleTitle(owner string) string {
+	if mi, ok := r.mods[owner]; ok && mi.DisplayName != "" {
+		return mi.DisplayName
+	}
+	return owner
+}
+
+func (r *Registry) modulePage(owner string) string {
+	id := ModulePrefix + owner
+	if _, ok := r.byID[id]; !ok {
+		title := r.moduleTitle(owner)
+		r.add(Entry{ID: id, Kind: Module, Owner: owner, Group: GroupComponents, Order: r.docsOrder(owner), Title: title,
+			Body: "Components of the " + title + " module."})
+	}
+	return id
 }
 
 func (r *Registry) handles(m *manifest.Manifest, owners map[string]string) {
@@ -275,13 +315,6 @@ func (r *Registry) ownerOf(path string, owners map[string]string) string {
 	return ""
 }
 
-func moduleParent(owner string) string {
-	if owner == "" {
-		return ""
-	}
-	return ModulePrefix + owner
-}
-
 func params(s abi.Signature, names []string) []Param {
 	out := make([]Param, len(s.Params))
 	for i, p := range s.Params {
@@ -315,7 +348,7 @@ func (r *Registry) bindings(m *manifest.Manifest, owners map[string]string) {
 	for _, mod := range m.Modules {
 		owner := r.ownerOf(mod.Path, owners)
 		stub := StubPath(mod.Path)
-		r.add(Entry{ID: mod.Path, Parent: moduleParent(owner), Kind: Module, Owner: owner, Title: mod.Path, Location: Location{Stub: stub}})
+		r.add(Entry{ID: mod.Path, Kind: Module, Owner: owner, Group: GroupScriptAPI, Order: r.docsOrder(owner), Title: mod.Path, Location: Location{Stub: stub}})
 		for _, f := range mod.Funcs {
 			ps := params(f.Sig, f.Params)
 			r.add(Entry{
@@ -366,12 +399,16 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 		if td.Owner == "" && mc == nil {
 			continue
 		}
+		owner := td.Owner
+		if owner == "" {
+			owner = EngineOwner
+		}
 		title := td.DisplayName
 		if title == "" {
 			title = td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
 		}
 		r.add(Entry{
-			ID: td.FullName, Parent: moduleParent(td.Owner), Kind: Type, Owner: td.Owner, Title: title,
+			ID: td.FullName, Parent: r.modulePage(owner), Kind: Type, Owner: owner, Title: title,
 			Signature: "component " + td.FullName, Body: td.Doc,
 			Location: Location{Stub: stub, Symbol: "component:" + td.FullName},
 		})
@@ -393,7 +430,7 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 				}
 			}
 			r.add(Entry{
-				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: td.Owner, Title: name,
+				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: owner, Title: name,
 				Signature: sig, Body: fd.Doc, Location: loc,
 			})
 		}
@@ -436,13 +473,17 @@ func (r *Registry) pages(src module.DocSource) {
 			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: err.Error()})
 			continue
 		}
+		source := ""
+		if src.Dir != "" {
+			source = path.Join(src.Dir, f)
+		}
 		for _, rec := range recs {
-			r.page(src.Owner, f, rec)
+			r.page(src.Owner, f, source, rec)
 		}
 	}
 }
 
-func (r *Registry) page(owner, file string, rec record) {
+func (r *Registry) page(owner, file, source string, rec record) {
 	if i, ok := r.byID[rec.id]; ok {
 		e := &r.entries[i]
 		if e.Kind == Page {
@@ -464,10 +505,14 @@ func (r *Registry) page(owner, file string, rec record) {
 		title = rec.id
 	}
 	r.add(Entry{
-		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Title: title, Summary: rec.summary,
+		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Group: rec.group, Title: title, Summary: rec.summary,
 		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order,
-		Location: Location{Path: owner + ":" + file, Line: rec.line},
+		Location: Location{Path: owner + ":" + file, Line: rec.line, Source: source},
 	})
+	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered}
+	if rec.groupTitle != "" {
+		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder})
+	}
 }
 
 func joinBody(a, b string) string {
@@ -523,6 +568,21 @@ func (r *Registry) index() {
 			return x.Title < y.Title
 		})
 	}
+	for i := range r.entries {
+		if r.entries[i].Parent == "" {
+			r.spread(i, r.entries[i].Group, 0)
+		}
+	}
+}
+
+func (r *Registry) spread(i int, group string, depth int) {
+	r.entries[i].Group = group
+	if depth > 32 {
+		return
+	}
+	for _, c := range r.children[r.entries[i].ID] {
+		r.spread(c, group, depth+1)
+	}
 }
 
 func (r *Registry) Len() int {
@@ -567,6 +627,15 @@ func (r *Registry) Children(id string) []Entry {
 	return out
 }
 
+func sortRoots(out []Entry) {
+	sort.SliceStable(out, func(a, b int) bool {
+		if out[a].Order != out[b].Order {
+			return out[a].Order < out[b].Order
+		}
+		return out[a].Title < out[b].Title
+	})
+}
+
 func (r *Registry) Roots() []Entry {
 	var out []Entry
 	for i := range r.entries {
@@ -574,12 +643,18 @@ func (r *Registry) Roots() []Entry {
 			out = append(out, r.entries[i])
 		}
 	}
-	sort.SliceStable(out, func(a, b int) bool {
-		if out[a].Order != out[b].Order {
-			return out[a].Order < out[b].Order
+	sortRoots(out)
+	return out
+}
+
+func (r *Registry) GroupRoots(group string) []Entry {
+	var out []Entry
+	for i := range r.entries {
+		if e := &r.entries[i]; e.Parent == "" && e.Group == group {
+			out = append(out, *e)
 		}
-		return out[a].Title < out[b].Title
-	})
+	}
+	sortRoots(out)
 	return out
 }
 
@@ -587,8 +662,32 @@ func (r *Registry) Problems() []Problem {
 	return r.problems
 }
 
+func (r *Registry) checkPages(out []Problem) []Problem {
+	for id, m := range r.meta {
+		if r.entries[r.byID[id]].Parent != "" {
+			continue
+		}
+		g, ok := r.group(m.group)
+		switch {
+		case m.group == "":
+			out = append(out, Problem{ID: id, Error: true, Message: "root page has no group; add group: one of " + strings.Join(r.guideGroups(), ", ")})
+		case !ok || g.Section == SectionReference:
+			out = append(out, Problem{ID: id, Error: true, Message: "group " + m.group + " is not a guide group (" + strings.Join(r.guideGroups(), ", ") + ")"})
+		}
+		if !m.ordered {
+			out = append(out, Problem{ID: id, Error: true, Message: "root page has no order"})
+		}
+	}
+	for _, mi := range r.mods {
+		if mi.DisplayName == "" {
+			out = append(out, Problem{ID: ModulePrefix + mi.ID, Error: mi.Builtin, Message: "module has no DisplayName"})
+		}
+	}
+	return out
+}
+
 func (r *Registry) Check(strict bool) []Problem {
-	out := slices.Clone(r.problems)
+	out := r.checkPages(slices.Clone(r.problems))
 	for i := range r.entries {
 		e := &r.entries[i]
 		for _, l := range e.Links {

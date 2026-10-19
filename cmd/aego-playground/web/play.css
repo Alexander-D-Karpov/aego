@@ -1,10 +1,11 @@
 :root {
-    --bg: #f7f7f5;
-    --panel: #ffffff;
+    --bg: #fbfbfa;
+    --panel: #f3f2ef;
     --border: #e3e2de;
     --text: #1f1f1d;
     --dim: #6b6a65;
     --accent: #3b6fd8;
+    --code-bg: #f1f0ec;
     --error: #c4352b;
     --warn: #b7791f;
     --ok: #2f855a;
@@ -25,11 +26,12 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #17181b;
-        --panel: #1e2024;
+        --panel: #1d1f23;
         --border: #2d3036;
         --text: #e4e3df;
         --dim: #9a9890;
         --accent: #6e9bf5;
+        --code-bg: #222429;
         --error: #f0776c;
         --warn: #e8b04f;
         --ok: #6fcf97;

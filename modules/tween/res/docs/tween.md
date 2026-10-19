@@ -1,7 +1,8 @@
 ---
 id: tween
+group: gameplay
 title: Tweens and timers
-order: 25
+order: 3
 ---
 # Tweens and timers
 

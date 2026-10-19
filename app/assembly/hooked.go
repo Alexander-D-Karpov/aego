@@ -51,3 +51,7 @@ func (h hooked) Reconfigure(ctx *module.AttachContext) error {
 	}
 	return nil
 }
+
+func (h hooked) Unwrap() module.Module {
+	return h.inner
+}

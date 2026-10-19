@@ -41,7 +41,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"input"}, Builtin: true}
+	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"input"}, Builtin: true, DisplayName: "Settings", DocsOrder: 110}
 }
 
 func (m *Module) Register(r *module.Registry) error {

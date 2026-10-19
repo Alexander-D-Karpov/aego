@@ -1,7 +1,8 @@
 ---
 id: spawn
+group: gameplay
 title: Spawning and pools
-order: 26
+order: 5
 ---
 # Spawning and pools
 

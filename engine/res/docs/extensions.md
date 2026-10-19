@@ -1,7 +1,8 @@
 ---
 id: extensions
+group: extending
 title: Native extensions
-order: 3
+order: 1
 ---
 # Native extensions
 

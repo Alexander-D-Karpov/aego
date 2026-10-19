@@ -1,6 +1,6 @@
 ---
 id: render2d/sprites
-parent: module/render2d
+group: rendering
 order: 1
 title: Sprites
 ---

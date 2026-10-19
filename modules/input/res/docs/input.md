@@ -1,7 +1,8 @@
 ---
 id: input
+group: gameplay
 title: Input
-order: 15
+order: 1
 ---
 # Input
 

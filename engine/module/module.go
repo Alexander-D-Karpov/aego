@@ -15,6 +15,8 @@ type Info struct {
 	Requires         []string
 	Builtin          bool
 	NonDeterministic string
+	DisplayName      string
+	DocsOrder        int
 }
 
 type Module interface {

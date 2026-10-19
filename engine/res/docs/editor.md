@@ -1,7 +1,8 @@
 ---
 id: editor
+group: editor
 title: Editor
-order: 2
+order: 1
 ---
 # Editor
 

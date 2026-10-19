@@ -1,7 +1,8 @@
 ---
 id: debug
+group: tools
 title: Debug Draw
-order: 20
+order: 1
 ---
 # Debug Draw
 

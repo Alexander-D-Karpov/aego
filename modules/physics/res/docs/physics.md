@@ -1,7 +1,10 @@
 ---
 id: physics
+group: physics
+group_title: Physics 2D
+group_order: 50
 title: Physics 2D
-order: 30
+order: 1
 ---
 # Physics 2D
 

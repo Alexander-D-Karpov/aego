@@ -1,7 +1,8 @@
 ---
 id: curves
+group: gameplay
 title: Curves
-order: 35
+order: 4
 ---
 # Curves
 

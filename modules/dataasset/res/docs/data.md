@@ -1,7 +1,8 @@
 ---
 id: data
+group: gameplay
 title: Data assets
-order: 27
+order: 7
 ---
 # Data assets
 

@@ -1,7 +1,8 @@
 ---
 id: time
+group: gameplay
 title: Time
-order: 3
+order: 2
 ---
 # Time
 
