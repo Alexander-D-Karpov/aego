@@ -11,6 +11,8 @@ tools/genicons/genicons
 /aego
 /aego-editor
 /aego-playground
+/aego-runtime
+*.syso
 *.test
 
 /tests/golden/testdata/actual-*
