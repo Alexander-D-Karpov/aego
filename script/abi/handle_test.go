@@ -8,6 +8,9 @@ func TestHandleTypes(t *testing.T) {
 	if !ok || !back.Equal(r) || r.Slots() != 1 || !Plain(r) {
 		t.Fatalf("round trip %v %v", back, ok)
 	}
+	if h, ok := Parse(HandleOf("").String()); !ok || !h.Equal(HandleOf("")) {
+		t.Fatal("the untyped handle of connect does not round trip")
+	}
 	if c, ok := Parse("Curve"); !ok || c.Kind != Curve {
 		t.Fatal("Curve does not parse")
 	}

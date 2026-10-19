@@ -143,7 +143,7 @@ func Parse(s string) (TypeRef, bool) {
 	case strings.HasPrefix(s, "ScriptRef<") && strings.HasSuffix(s, ">"):
 		return ScriptRefOf(s[len("ScriptRef<") : len(s)-1]), len(s) > len("ScriptRef<>")
 	case strings.HasPrefix(s, "Handle<") && strings.HasSuffix(s, ">"):
-		return HandleOf(s[len("Handle<") : len(s)-1]), len(s) > len("Handle<>")
+		return HandleOf(s[len("Handle<") : len(s)-1]), true
 	case strings.HasPrefix(s, "enum:"):
 		return EnumOf(s[5:]), len(s) > 5
 	case strings.HasPrefix(s, "struct:"):
