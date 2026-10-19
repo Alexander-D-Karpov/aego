@@ -14,6 +14,7 @@ import (
 
 	"aego/engine/module"
 	"aego/engine/res"
+	"aego/engine/settings"
 	"aego/schema"
 	"aego/script/abi"
 	"aego/script/bind"
@@ -98,6 +99,9 @@ type Entry struct {
 	Requires  []string
 	Snippets  []Snippet
 	Order     int
+	Field     *FieldInfo
+	Component *ComponentInfo
+	Related   []string
 }
 
 type Problem struct {
@@ -114,6 +118,10 @@ type Sources struct {
 	Owners   map[string]string
 	Project  string
 	Scripts  []ScriptSymbol
+
+	Sections    []*module.Section
+	Settings    []settings.Desc
+	EventOwners map[string]string
 }
 
 type pageMeta struct {
@@ -130,6 +138,7 @@ type Registry struct {
 	mods     map[string]module.Info
 	meta     map[string]pageMeta
 	extra    []Group
+	evOwners map[string]string
 	problems []Problem
 }
 
@@ -162,6 +171,7 @@ func SourcesOf(bm *manifest.Manifest, s *schema.Registry, m *module.Manifest) So
 	src := Sources{Bindings: bm, Schema: s, Docs: []module.DocSource{EngineDocs()}}
 	if m != nil {
 		src.Modules, src.Owners = m.Modules, m.ScriptOwners
+		src.Sections, src.Settings, src.EventOwners = m.Sections, m.Settings, m.EventOwners
 		src.Docs = append(src.Docs, m.Docs...)
 	}
 	return src
@@ -208,15 +218,23 @@ func Assemble(src Sources) *Registry {
 		r.handles(src.Bindings, src.Owners)
 		r.hostSignals(src.Bindings, src.Owners)
 	}
+	r.evOwners = src.EventOwners
 	if src.Schema != nil {
 		r.components(src.Schema, src.Bindings)
 	}
+	if src.Bindings != nil {
+		r.compMethods(src.Bindings)
+		r.scriptEvents(src.Bindings)
+	}
+	r.projectSections(src.Sections)
+	r.playerSettings(src.Settings)
 	r.codes()
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
 		r.pages(d)
 	}
 	r.index()
+	r.related()
 	return r
 }
 
@@ -306,10 +324,14 @@ func (r *Registry) ownerOf(path string, owners map[string]string) string {
 	if o, ok := owners[path]; ok {
 		return o
 	}
-	if first, _, _ := strings.Cut(path, "/"); r.known(first) {
+	first, rest, _ := strings.Cut(path, "/")
+	if r.known(first) {
 		return first
 	}
-	if strings.HasPrefix(path, "aego/") {
+	if first == "aego" {
+		if seg, _, _ := strings.Cut(rest, "/"); r.known(seg) {
+			return seg
+		}
 		return scriptOwner
 	}
 	return ""
@@ -409,9 +431,10 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 		}
 		r.add(Entry{
 			ID: td.FullName, Parent: r.modulePage(owner), Kind: Type, Owner: owner, Title: title,
-			Signature: "component " + td.FullName, Body: td.Doc,
+			Signature: "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner),
 			Location: Location{Stub: stub, Symbol: "component:" + td.FullName},
 		})
+		base := defaultsOf(td)
 		for i := range td.Fields {
 			fd := &td.Fields[i]
 			if !fd.Flags.Has(schema.FlagEditor) && !td.Scripted(fd) {
@@ -419,19 +442,22 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 			}
 			name := exportName(fd.Name)
 			sig := "field " + name
+			info := fieldInfo(td, fd, base, true)
 			loc := Location{Stub: stub}
 			if mc != nil {
 				if f, ok := mc.Field(name); ok {
 					sig += " " + f.Type.String()
-					if f.ReadOnly {
+					info.Type = f.Type.String()
+					if f.ReadOnly && !slices.Contains(info.Notes, "read-only") {
 						sig += " readonly"
+						info.Notes = append(info.Notes, "read-only in scripts")
 					}
 					loc.Symbol = "field:" + td.FullName + "." + name
 				}
 			}
 			r.add(Entry{
 				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: owner, Title: name,
-				Signature: sig, Body: fd.Doc, Location: loc,
+				Signature: sig, Body: fd.Doc, Location: loc, Field: info,
 			})
 		}
 	}
@@ -671,7 +697,7 @@ func (r *Registry) checkPages(out []Problem) []Problem {
 		switch {
 		case m.group == "":
 			out = append(out, Problem{ID: id, Error: true, Message: "root page has no group; add group: one of " + strings.Join(r.guideGroups(), ", ")})
-		case !ok || g.Section == SectionReference:
+		case !ok || g.Section == SectionReference && g.ID != GroupCLI:
 			out = append(out, Problem{ID: id, Error: true, Message: "group " + m.group + " is not a guide group (" + strings.Join(r.guideGroups(), ", ") + ")"})
 		}
 		if !m.ordered {

@@ -26,6 +26,8 @@ type row struct {
 	depth int
 	title string
 	kids  bool
+	group bool
+	head  bool
 }
 
 type Panel struct {
@@ -45,12 +47,30 @@ type Panel struct {
 	split   float32
 	dirty   bool
 	reveal  bool
+	groups  []regdocs.GroupNav
 }
 
 func New(reg *regdocs.Registry, nav services.Navigation, notes services.Notices) *Panel {
 	p := &Panel{reg: reg, nav: nav, notes: notes, open: map[string]bool{}, split: 0.3, dirty: true}
 	p.text.Highlight = Highlight
+	if reg != nil {
+		p.groups = reg.Export("").Groups
+	}
 	return p
+}
+
+func groupKey(id string) string {
+	return "group:" + id
+}
+
+func sectionTitle(s string) string {
+	switch s {
+	case regdocs.SectionStart:
+		return "Getting started"
+	case regdocs.SectionGuides:
+		return "Guides"
+	}
+	return "Reference"
 }
 
 func (p *Panel) ID() string {
@@ -106,6 +126,9 @@ func (p *Panel) navigate(id string, record bool) {
 		p.fwd = p.fwd[:0]
 	}
 	p.current = id
+	if e.Group != "" {
+		p.open[groupKey(e.Group)] = true
+	}
 	for a := e.Parent; a != ""; {
 		p.open[a] = true
 		pe, ok := p.reg.Get(a)
@@ -179,10 +202,25 @@ func (p *Panel) page(e regdocs.Entry) []richtext.Block {
 		out = append(out, richtext.Block{Kind: richtext.Heading, Level: 2, Spans: spans("Contents", richtext.Plain)})
 		for _, k := range kids {
 			item := []richtext.Span{{Text: k.Title, Target: "ref:" + k.ID}}
+			if f := k.Field; f != nil {
+				t := "  " + f.Type
+				if f.Default != "" {
+					t += " = " + f.Default
+				}
+				item = append(item, richtext.Span{Text: t, Style: richtext.Code})
+			}
 			if k.Summary != "" {
 				item = append(item, richtext.Span{Text: " — " + k.Summary})
 			}
 			out = append(out, richtext.Block{Kind: richtext.ListItem, Spans: item})
+		}
+	}
+	if len(e.Related) > 0 {
+		out = append(out, richtext.Block{Kind: richtext.Heading, Level: 2, Spans: spans("Related guides", richtext.Plain)})
+		for _, id := range e.Related {
+			if re, ok := p.reg.Get(id); ok {
+				out = append(out, richtext.Block{Kind: richtext.ListItem, Spans: []richtext.Span{{Text: re.Title, Target: "ref:" + id}}})
+			}
 		}
 	}
 	p.autolink(out)
@@ -221,17 +259,31 @@ func (p *Panel) rebuild() {
 		}
 		return
 	}
-	var walk func(list []regdocs.Entry, depth int)
-	walk = func(list []regdocs.Entry, depth int) {
-		for _, e := range list {
-			kids := p.reg.Children(e.ID)
-			p.rows = append(p.rows, row{id: e.ID, depth: depth, title: e.Title, kids: len(kids) > 0})
-			if len(kids) > 0 && p.open[e.ID] {
-				walk(kids, depth+1)
+	var walk func(nodes []regdocs.Node, depth int)
+	walk = func(nodes []regdocs.Node, depth int) {
+		for _, n := range nodes {
+			e, ok := p.reg.Get(n.ID)
+			if !ok {
+				continue
+			}
+			p.rows = append(p.rows, row{id: n.ID, depth: depth, title: e.Title, kids: len(n.Children) > 0})
+			if len(n.Children) > 0 && p.open[n.ID] {
+				walk(n.Children, depth+1)
 			}
 		}
 	}
-	walk(p.reg.Roots(), 0)
+	section := ""
+	for _, g := range p.groups {
+		if g.Section != section {
+			section = g.Section
+			p.rows = append(p.rows, row{title: sectionTitle(section), head: true})
+		}
+		key := groupKey(g.ID)
+		p.rows = append(p.rows, row{id: key, title: g.Title, kids: true, group: true})
+		if p.open[key] {
+			walk(g.Nav, 1)
+		}
+	}
 }
 
 func (p *Panel) follow(target string) {
@@ -311,12 +363,16 @@ func (p *Panel) drawTree(ui *core.Context, r mathx.Rect) {
 	base := ui.ID("row")
 	widgets.VirtualList(ui, ui.ID("tree"), list, len(p.rows), th.RowHeight, &p.scroll, func(i int, rr mathx.Rect) {
 		rw := p.rows[i]
+		if rw.head {
+			ui.Text(rw.title, mathx.Vec2{X: rr.X + th.Padding, Y: ui.TextY(rr)}, th.TextDim)
+			return
+		}
 		ev := widgets.TreeRowRect(ui, core.IDSeq(base, i), rr, widgets.TreeRow{
 			Depth: rw.depth, Label: rw.title, HasChildren: rw.kids, Open: p.open[rw.id],
 			Selected: rw.id == p.current, Focused: true,
 		})
 		switch {
-		case ev.Toggled:
+		case ev.Toggled, ev.Pressed && rw.group:
 			p.open[rw.id] = !p.open[rw.id]
 			p.dirty = true
 		case ev.Pressed:

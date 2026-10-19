@@ -328,12 +328,113 @@ func (b *builder) details(c *strings.Builder, e *Entry, root string) {
 	}
 }
 
+func (b *builder) ref(root, id, text string) string {
+	if u, ok := b.urls[id]; ok {
+		return `<a href="` + esc(root+u) + `">` + esc(text) + "</a>"
+	}
+	return "<code>" + esc(text) + "</code>"
+}
+
+func (b *builder) titleOf(id string) string {
+	if e, ok := b.byID[id]; ok {
+		return e.Title
+	}
+	return id
+}
+
+func (b *builder) componentMeta(e *Entry, root string) string {
+	ci := e.Component
+	var parts []string
+	if ci.Category != "" {
+		parts = append(parts, "Category <strong>"+esc(ci.Category)+"</strong>")
+	}
+	if ci.Module != "" {
+		parts = append(parts, "Module <strong>"+esc(ci.Module)+"</strong>")
+	}
+	if ci.Space != "" {
+		parts = append(parts, esc(ci.Space)+" nodes")
+	}
+	if ci.Unique {
+		parts = append(parts, "one per scene")
+	}
+	if len(ci.Requires) > 0 {
+		links := make([]string, len(ci.Requires))
+		for i, id := range ci.Requires {
+			links[i] = b.ref(root, id, b.titleOf(id))
+		}
+		parts = append(parts, "requires "+strings.Join(links, ", "))
+	}
+	if ci.Create != "" {
+		parts = append(parts, `<span class="create">`+esc(ci.Create)+"</span>")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	for i, part := range parts {
+		parts[i] = "<span>" + part + "</span>"
+	}
+	return `<p class="meta">` + strings.Join(parts, `<span class="dot">·</span>`) + "</p>\n"
+}
+
+func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading bool) {
+	var rows []*Entry
+	for _, k := range b.kids[e.ID] {
+		if ke := b.byID[k]; ke.Field != nil {
+			rows = append(rows, ke)
+		}
+	}
+	if len(rows) == 0 {
+		return
+	}
+	if heading {
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-fields">Fields</h2>` + "\n")
+	} else {
+		c.WriteString(`<p class="label">Fields</p>` + "\n")
+	}
+	c.WriteString(`<table class="fields"><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Notes</th><th>Description</th></tr></thead><tbody>` + "\n")
+	for _, f := range rows {
+		fi := f.Field
+		def := "—"
+		if fi.Default != "" {
+			def = "<code>" + esc(fi.Default) + "</code>"
+		}
+		var notes []string
+		if fi.Range != "" {
+			notes = append(notes, `<span class="range">`+esc(fi.Range)+"</span>")
+		}
+		for _, n := range fi.Notes {
+			notes = append(notes, `<span class="note">`+esc(n)+"</span>")
+		}
+		c.WriteString(`<tr id="` + esc(f.ID) + `"><td><a class="anchor" href="#` + esc(f.ID) + `"><code>` + esc(f.Title) + "</code></a></td>")
+		c.WriteString("<td><code>" + esc(fi.Type) + "</code></td><td>" + def + "</td><td>" + strings.Join(notes, " ") + "</td>")
+		c.WriteString("<td>" + b.markdown(root, f.ID, f.Body) + "</td></tr>\n")
+	}
+	c.WriteString("</tbody></table>\n")
+}
+
+func (b *builder) entryList(c *strings.Builder, ids []string, root string) {
+	c.WriteString(`<ul class="contents">` + "\n")
+	for _, id := range ids {
+		ke, ok := b.byID[id]
+		if !ok {
+			continue
+		}
+		c.WriteString("<li>" + b.ref(root, id, ke.Title))
+		if ke.Summary != "" {
+			c.WriteString(`<span class="summary">` + inlineMD(ke.Summary) + "</span>")
+		}
+		c.WriteString("</li>\n")
+	}
+	c.WriteString("</ul>\n")
+}
+
 func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 	e := b.byID[id]
 	h := "h" + strconv.Itoa(min(depth, 4))
 	c.WriteString(`<section class="member">` + "\n")
 	c.WriteString("<" + h + ` id="` + esc(e.ID) + `"><a class="anchor" href="#` + esc(e.ID) + `">` + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
 	b.details(c, e, root)
+	b.fieldTable(c, e, root, false)
 	b.children(c, e, root, depth+1)
 	c.WriteString("</section>\n")
 }
@@ -341,11 +442,14 @@ func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int) {
 	var pages []string
 	for _, k := range b.kids[e.ID] {
-		if b.own[k] {
+		ke := b.byID[k]
+		switch {
+		case ke.Field != nil:
+		case b.own[k]:
 			pages = append(pages, k)
-			continue
+		default:
+			b.section(c, k, root, depth)
 		}
-		b.section(c, k, root, depth)
 	}
 	if len(pages) == 0 {
 		return
@@ -392,8 +496,24 @@ func (b *builder) content(e *Entry, root string) string {
 	var c strings.Builder
 	c.WriteString(b.crumbs(e, root))
 	c.WriteString(`<h1 id="` + esc(e.ID) + `">` + esc(e.Title) + kindLabel(e) + "</h1>\n")
+	if e.Component != nil {
+		c.WriteString(b.componentMeta(e, root))
+	}
 	b.details(&c, e, root)
+	b.fieldTable(&c, e, root, true)
 	b.children(&c, e, root, 2)
+	if e.Component != nil && len(e.Component.Events) > 0 {
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">Script events</h2>` + "\n")
+		c.WriteString("<p>Scripts on a node with this component receive these events from the " + esc(e.Component.Module) + " module.</p>\n")
+		b.entryList(&c, e.Component.Events, root)
+	}
+	if len(e.Related) > 0 {
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-related">Related guides</h2>` + "\n")
+		b.entryList(&c, e.Related, root)
+	}
+	if e.Component != nil {
+		c.WriteString(`<div class="try-it" data-component="` + esc(e.ID) + `" hidden></div>` + "\n")
+	}
 	return c.String()
 }
 

@@ -80,14 +80,15 @@ Guides
 Reference
   Script API
     Builtin types -> ref/aego/builtin.html
+    Script events -> ref/events.html
     aego/curve -> ref/aego/curve.html
     aego/log -> ref/aego/log.html
     aego/math -> ref/aego/math.html
-    aego/physics -> ref/aego/physics.html
     aego/rand -> ref/aego/rand.html
     aego/testing -> ref/aego/testing.html
     aego/time -> ref/aego/time.html
     aego/input -> ref/aego/input.html
+    aego/physics -> ref/aego/physics.html
     aego/action -> ref/aego/action.html
       Action -> ref/aego/action.Action.html
     aego/timer -> ref/aego/timer.html
@@ -121,5 +122,14 @@ Reference
       Mesh Renderer -> ref/engine.MeshRenderer.html
     Saving -> ref/module/save.html
       Persist -> ref/save.Persist.html
+  Project settings
+    Engine -> section/engine.html
+    Render -> section/render2d.html
+    Input -> section/input.html
+    Physics -> section/physics.html
+    Debug Draw -> section/debug.html
+    Player settings -> section/player.html
   Diagnostics
     Diagnostics -> diagnostics.html
+  CLI
+    The aego command -> cli.html

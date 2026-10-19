@@ -46,6 +46,14 @@ type Section struct {
 	names    func(any, string) []string
 }
 
+func (s *Section) DefaultValue() any {
+	return s.def()
+}
+
+func (s *Section) DefaultBlock() *aetext.Node {
+	return s.encode(s.def())
+}
+
 func (s *Section) Heads() []string {
 	return append([]string{s.ID}, s.Former...)
 }

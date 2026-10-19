@@ -58,6 +58,26 @@ type Entry struct {
 	Requires  []string
 	Snippets  []Snippet
 	Order     int
+	Field     *FieldInfo
+	Component *ComponentInfo
+	Related   []string
+}
+
+type FieldInfo struct {
+	Type    string
+	Default string
+	Range   string
+	Notes   []string
+}
+
+type ComponentInfo struct {
+	Category string
+	Module   string
+	Space    string
+	Unique   bool
+	Requires []string
+	Create   string
+	Events   []string
 }
 
 type Node struct {

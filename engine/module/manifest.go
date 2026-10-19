@@ -25,6 +25,7 @@ type Manifest struct {
 	Events          []scriptevents.Event
 	Sections        []*Section
 	ScriptOwners    map[string]string
+	EventOwners     map[string]string
 	Dev             []Hook
 	Editor          []Hook
 	Warnings        []string
@@ -245,7 +246,7 @@ func (r *Registry) manifest(order []*entry) *Manifest {
 		order: order, services: r.services, engines: r.engines, provided: r.provided,
 		Icons: r.icons, Docs: r.docs, ScriptOwners: r.owners,
 		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
-		Events: r.Events(), Sections: r.sections,
+		Events: r.Events(), Sections: r.sections, EventOwners: r.eventOwners(),
 		Settings: r.settings, SettingVersions: r.versions,
 		validators: r.validators,
 	}
@@ -259,6 +260,14 @@ func (r *Registry) manifest(order []*entry) *Manifest {
 		m.Templates = append(m.Templates, *t)
 	}
 	return m
+}
+
+func (r *Registry) eventOwners() map[string]string {
+	out := make(map[string]string, len(r.events))
+	for _, e := range r.events {
+		out[e.ev.Name] = e.owner
+	}
+	return out
 }
 
 type engineModule struct {

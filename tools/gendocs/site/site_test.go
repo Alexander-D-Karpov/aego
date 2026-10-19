@@ -274,3 +274,38 @@ func TestRealExport(t *testing.T) {
 	_, rep, _ := build(t, exp, Options{})
 	golden(t, "nav-real.golden", rep.Outline)
 }
+
+func TestComponentPage(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		e := &exp.Entries[i]
+		switch e.ID {
+		case "engine.SpriteRenderer":
+			e.Component = &ComponentInfo{Category: "Rendering", Module: "Aego Script", Space: "2D", Requires: []string{"engine.Missing"},
+				Create: "Create → Rendering → Sprite", Events: []string{"aego/math.Clamp"}}
+			e.Related = []string{"language"}
+		case "engine.SpriteRenderer.Tint":
+			e.Field = &FieldInfo{Type: "Color", Default: "rgba(1, 1, 1, 1)", Range: "0 – 1", Notes: []string{"read-only"}}
+		}
+	}
+	_, _, pages := build(t, exp, Options{})
+	p := pages["ref/engine.SpriteRenderer.html"]
+	for _, want := range []string{
+		`<tr id="engine.SpriteRenderer.Tint">`,
+		`<code>rgba(1, 1, 1, 1)</code>`,
+		`<span class="note">read-only</span>`,
+		`Create → Rendering → Sprite`,
+		`<code>engine.Missing</code>`,
+		`<a href="../language.html">Aego Script</a>`,
+		`href="../ref/aego/math.html#aego/math.Clamp"`,
+		`href="#engine.SpriteRenderer-fields">Fields</a>`,
+		`class="try-it"`,
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("component page has no %s", want)
+		}
+	}
+	if strings.Contains(p, `<h2 id="engine.SpriteRenderer.Tint"`) {
+		t.Error("a field is rendered both in the table and as a section")
+	}
+}
