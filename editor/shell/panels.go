@@ -10,7 +10,7 @@ import (
 )
 
 func (a *App) panelCatalog() []workspace.Desc {
-	return []workspace.Desc{
+	descs := []workspace.Desc{
 		{Panel: a.hierarchy, Slot: workspace.SlotLeft, Order: 100, Icon: "panel.hierarchy"},
 		{Panel: a.assetsPanel, Slot: workspace.SlotBrowser, Order: 110, Icon: "panel.assets"},
 		{Panel: scenes.New(scenes.Deps{
@@ -54,6 +54,10 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.healthP, Near: workspace.Console, Order: 253, Icon: "panel.health"},
 		{Panel: a.diffPanel, Near: workspace.Scene, Order: 216, Icon: "panel.diff"},
 	}
+	if a.exportP != nil {
+		descs = append(descs, workspace.Desc{Panel: a.exportP, Near: workspace.Console, Order: 254, Icon: "file.package"})
+	}
+	return descs
 }
 
 func (a *App) registerPanels() error {

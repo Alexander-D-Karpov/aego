@@ -61,6 +61,7 @@ func (r *Ring) Lines() []string {
 
 type Bundle struct {
 	Root   string
+	Dir    string
 	Kind   string
 	Where  string
 	Panic  any
@@ -86,7 +87,11 @@ func sanitizer() func(string) string {
 
 func Write(b Bundle) (string, error) {
 	clean := sanitizer()
-	dir := filepath.Join(b.Root, filepath.FromSlash(Dir), time.Now().Format("20060102-150405.000"))
+	parent := b.Dir
+	if parent == "" {
+		parent = filepath.Join(b.Root, filepath.FromSlash(Dir))
+	}
+	dir := filepath.Join(parent, time.Now().Format("20060102-150405.000"))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

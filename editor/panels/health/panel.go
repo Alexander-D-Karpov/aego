@@ -30,6 +30,7 @@ type Deps struct {
 	ShowMissing  func()
 	ShowProblems func()
 	Reveal       func(rel string)
+	Export       func() func() []core.Item
 }
 
 type Panel struct {
@@ -77,10 +78,17 @@ func (p *Panel) Run() {
 	if p.d.Cameras != nil {
 		cams = p.d.Cameras()
 	}
+	var exp func() []core.Item
+	if p.d.Export != nil {
+		exp = p.d.Export()
+	}
 	var found []core.Item
 	pl, limit := p.d.Pipeline, p.d.TextureLimit
-	p.running = p.d.Tasks.Work(tasks.Spec{Title: "Check textures and scenes", Kind: "health"}, func(*tasks.Task) error {
+	p.running = p.d.Tasks.Work(tasks.Spec{Title: "Check textures, scenes and export", Kind: "health"}, func(*tasks.Task) error {
 		found = core.Scan(pl, cams, limit)
+		if exp != nil {
+			found = append(found, exp()...)
+		}
 		return nil
 	}).Then(func(t *tasks.Task) {
 		p.running = nil

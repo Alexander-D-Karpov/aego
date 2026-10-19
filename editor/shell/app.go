@@ -46,6 +46,7 @@ import (
 	"aego/editor/panels/datatable"
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/events"
+	exportpanel "aego/editor/panels/export"
 	"aego/editor/panels/gameview"
 	"aego/editor/panels/health"
 	"aego/editor/panels/help"
@@ -111,6 +112,7 @@ type Options struct {
 	RunSnippet  func(code string) []string
 	NewProject  func(dir, template string) (string, error)
 	Crash       func(where string, rec any, stack []byte)
+	Exporter    services.Exporter
 }
 
 type App struct {
@@ -150,6 +152,8 @@ type App struct {
 	renameDlg      *batchrename.Dialog
 	diffPanel      *vcsdiff.Panel
 	healthP        *health.Panel
+	exportP        *exportpanel.Panel
+	native         *nativeMenu
 	taskPanel      *taskcenter.Panel
 	playDiff       *playdiffpanel.Dialog
 	diffMode       pd.Mode
@@ -410,6 +414,9 @@ func (a *App) Init(e *engine.Engine) error {
 	a.diffPanel = vcsdiff.New(vcsdiff.Deps{VCS: prov, Pipeline: a.opt.Pipeline, Docs: a.ctx, Selection: a.ctx, Notices: a.ctx, Tasks: a.tasks,
 		ShowHierarchy: func() { a.ws.Show(workspace.Hierarchy) }})
 	a.healthP = health.New(a.healthDeps())
+	if err := a.initExport(); err != nil {
+		return err
+	}
 	a.taskPanel = taskcenter.New(a.tasks)
 	var compare func(string)
 	if prov != nil {
@@ -703,6 +710,7 @@ func (a *App) Init(e *engine.Engine) error {
 	if err := a.registerWindowCommands(); err != nil {
 		return err
 	}
+	a.initNativeMenu()
 	a.describeCommands()
 	a.iconCommands()
 	a.ws.LoadLayout()
@@ -803,6 +811,7 @@ func (a *App) Update(dt float64) {
 	a.profiler.Record(now, e.Stats(), rs, a.play.Stats(), sc, hasSc, a.play.State() != play.Stopped)
 	a.play.Tick(dt)
 	a.tickTasks()
+	a.syncNativeMenu(now)
 	a.showPlayDiff()
 	if a.full && !a.play.Captured() {
 		a.exitFull()
@@ -830,14 +839,18 @@ func (a *App) Update(dt float64) {
 		ui.PopCursor()
 	} else {
 		bh := th.BarHeight
+		menuH := bh
+		if a.native != nil {
+			menuH = 0
+		}
 		tool := float32(0)
 		if a.ws.Toolbar() {
 			tool = bh
 		}
-		menuR := mathx.Rect{W: size.X, H: bh}
-		toolR := mathx.Rect{Y: bh, W: size.X, H: tool}
+		menuR := mathx.Rect{W: size.X, H: menuH}
+		toolR := mathx.Rect{Y: menuH, W: size.X, H: tool}
 		bottom := mathx.Rect{Y: size.Y - th.MenuHeight, W: size.X, H: th.MenuHeight}
-		body := mathx.Rect{Y: bh + tool, W: size.X, H: max(0, size.Y-bh-tool-bottom.H)}
+		body := mathx.Rect{Y: menuH + tool, W: size.X, H: max(0, size.Y-menuH-tool-bottom.H)}
 		a.ws.Draw(frame, body)
 		if a.play.State() != play.Stopped {
 			l := ui.List()
@@ -850,7 +863,9 @@ func (a *App) Update(dt float64) {
 		if tool > 0 {
 			a.drawToolbar(toolR)
 		}
-		a.drawMenuBar(menuR)
+		if menuH > 0 {
+			a.drawMenuBar(menuR)
+		}
 		a.drawPulse()
 	}
 	for _, q := range a.ctx.TakeQuestions() {
@@ -1088,6 +1103,14 @@ func (a *App) updateTitle() {
 			name += " [Paused]"
 		}
 		t = name + " — " + t
+	}
+	if a.native != nil && a.opt.Supervised {
+		switch a.buildState {
+		case widgets.DotBusy:
+			t += " — native building"
+		case widgets.DotError:
+			t += " — Native API is stale"
+		}
 	}
 	if t != a.title {
 		a.title = t

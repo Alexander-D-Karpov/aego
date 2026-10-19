@@ -56,6 +56,7 @@ func (a *App) healthDeps() health.Deps {
 		ShowMissing:  func() { a.ws.Show(references.MissingID) },
 		ShowProblems: func() { a.ws.Show(workspace.Problems) },
 		Reveal:       a.ctx.RevealPath,
+		Export:       a.exportWork,
 	}
 }
 

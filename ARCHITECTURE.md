@@ -490,6 +490,14 @@ The Stage 8 specification numbered these decisions D153, D155, D158, D159, D168�
 | D284 | Asset references. The reverse map is built on demand from `asset.Entry.Deps`, which every importer of a document writes (scene, prefab, data, table, preset); `project.aego` adds itself as a referrer of `mainScene`, and dirty open documents add themselves by scanning live values. Places are found lazily: open documents through schema access on the live scene, closed files by walking `aetext` values. Replacing a reference edits open documents in one History transaction each (prefab instances only where the field is overridden) and rewrites closed files by replacing the `asset("<id>")` token, after copying each original to `.aego/recovery/refs-<time>/<path>`; changed files are reimported and the work shows as one Task Center entry listing the files; closed files have no Undo. Safe Delete lists the referrers and offers Show References (replace or clear there, then delete), Delete Anyway or Cancel. The pipeline keeps a graveyard (`.aego/cache/graveyard.aetext`, at most 2000 entries: id, last path, kind, time) written whenever `scan` loses a source, so Safe Delete, outside deletions and index repair all record it; Missing References groups unknown ids with their referrers, suggests an asset with the same file name and kind, and replaces or clears; missing node references inside scenes and prefabs can be selected or cleared. Batch Rename plans names from a pattern (`{name}`, `{n}`, `{n:03}`, `{parent}`, `{ext}`), literal or regex find/replace and case, refuses empty, invalid and colliding names (case-insensitive for assets), renames assets through `assetops.Ops` (two-phase through temporary names when the batch renames into its own names) and nodes in one transaction. References from scripts by string path are not detected. |
 | D285 | Background work and project health. `editor/core/tasks.Queue` runs worker jobs and budgeted main and render steps; tasks carry title, kind, detail, progress, state and error, and the last 50 finished ones (successful previews excluded) stay listed. Task Center shows them with Cancel; the status bar shows a spinner and the count of non-preview tasks, or failed ones, and opens Task Center. Project Health runs on demand: import errors, problems by owner, missing references, unused assets (roots: the startup scene, every scene and prefab, every script, `assets/presets` and excluded paths; reached through `Deps`), scenes nothing references, names that differ only in case, then on a worker textures larger than 4096 px and scenes whose artifact holds no camera component (a camera that comes from a prefab is not seen, so this is informational). Opening a scene records its load time and node count; the panel shows them with the scene's asset and missing counts. `editor/core/vcs.Provider` (`Root`, `Show`, `Status`, `Log`) has one git implementation through `os/exec`, inside the project's repository only. Structural Diff compares the working copy with HEAD or one of the last 50 commits of the file: scenes and prefabs as trees matched by NodeID (added, removed, moved, reordered, renamed nodes, node attributes, components, fields, nested script and override blocks), other documents field by field; unsaved changes of an open document are not part of it. |
 
+### 3.19 Stage 9.5a — Export
+
+| ID | Decision |
+|---|---|
+| D286 | Export. `aego export` (`app/export`, dev-only) builds the runtime binary and copies game data into a distributable directory. The binary is `cmd/aego-runtime`, or for a native project a main generated in `.aego/generated/runtime`, built with `-tags aego_runtime` on the developer machine; the result needs neither Go nor the project. The runtime host is `runtime/player`, a new group `runtime` beside `app`: it composes `app/assembly/builtin.Runtime()`, the loader, settings, scripts linked from `loader.Scripts()` and the module lifecycle without pipeline, workspace, compiler or docs. Data is `data/manifest.aetext` (`runtime/bundle`: engine, profile, target, the `game` block with name, module, version, start scene, window, `defaults` and project sections, and the asset index) and `data/artifacts/<sha>.<kind>`, content-addressed, so no file looks like a source. Presets are not exported. `vfs/exportfs` mounts the scheme `data://` and opens only files the manifest lists with their size. `export.aetext` beside the game records engine and game versions, target, profile, modules, binary and size, libraries (SDL3 static, license copied to `licenses/`), start scene, data sizes by kind, content hash and build time; the same numbers are the Build Report of the CLI (`--json`) and the editor. Profiles: development keeps stderr logs and debug draw; release builds with `-trimpath -s -w` (`-H=windowsgui` on Windows), writes `debug { enabled=false }` into the exported sections and logs to the profile. Player data stays in `platform.ProfileDir(module, profile)`: settings, saves, `logs/`, `crash/` (`crash.Bundle.Dir`). `aego run` is unchanged. |
+| D287 | Targets. host always; linux, windows and darwin when Go, a C compiler for the target (`--cc`, `CC_<OS>_<ARCH>`) and SDL for the target in `.cache/native/<os>_<arch>` exist, otherwise the export stops before building with the command to run; web is 9.5c. Windows: `app/export/winres` writes a COFF `.rsrc` object (`rsrc_windows_<arch>.syso`) with PNG icon frames from `project.aego icon=`, version info from `gameVersion` and a PerMonitorV2 manifest. macOS: `<Name>.app` with `Info.plist` (bundle id `dev.aego.<module>`), `PkgInfo`, `icon.icns` and the data in `Contents/Resources/data`; ad-hoc signed when `codesign` exists. Linux: binary, `data/`, `.desktop` and `icon.png`; SDL is static, so no `run.sh`. The editor on macOS mirrors its command menus into the system menu bar (`platform.MenuBar`, implemented by `platform/sdl` on darwin with an `NSMenu` subclass that never consumes key equivalents, so shortcuts keep their editor scopes); `make editor-app` bundles it with `tools/appbundle`. |
+| D288 | Pre-export checks run before any build on a pipeline snapshot (`export.Take` in the editor, `export.Fresh` from the CLI): script errors (EXP002), import failures (EXP003), duplicate `.meta` ids (EXP006), a missing or non-scene start scene (EXP001), dependencies that resolve neither to an exported asset nor to a builtin (EXP004, an error in release, a warning in development), an icon that is not a PNG (EXP005), asset validators of the runtime catalog, and loading every scene through `sceneio` (EXP007, unknown components EXP008 unless the project is native). Diagnostics are `engine/problems` with owner `export`; any error blocks the export, the CLI exits with 2. Project Health lists release blockers. |
+
 ## 4. Dependency rules
 
 The import graph is acyclic. The rules below are enforced by `tools/depcheck`.
@@ -506,7 +514,8 @@ Every package belongs to one group by its path prefix (`tools/depcheck/groups.go
 | module editor X | `modules/X/editor/...` |
 | editor | `editor/core/...`, `editor/ext/...`, `editor/panels/<P>/...` (panel P), `editor/shell/...` |
 | sdk, app, cmd | `sdk`, `app/...`, `cmd/...` |
-| dev-only | `asset/pipeline`, `asset/importers/...`, `engine/docs`, `project`, the script compiler (`script/{token,lexer,ast,parser,types,resolver,checker,asm,compiler,harness,workspace,langsvc}`), `app/...`, `cmd/...`, `tools/...`, `demos/...`, `tests/...`, `examples/...`, `modules/*/editor/...`, `modules/*/dev/...` |
+| runtime | `runtime/...` |
+| dev-only | `asset/pipeline`, `asset/importers/...`, `engine/docs`, `project`, the script compiler (`script/{token,lexer,ast,parser,types,resolver,checker,asm,compiler,harness,workspace,langsvc}`), `app/...` except `app/assembly`, `app/assembly/builtin` and `app/crash`, `cmd/...` except `cmd/aego-runtime`, `tools/...`, `demos/...`, `tests/...`, `examples/...`, `modules/*/editor/...`, `modules/*/dev/...` |
 
 ### 4.2 Group rules
 
@@ -516,6 +525,7 @@ Every package belongs to one group by its path prefix (`tools/depcheck/groups.go
 - `editor/panels/P` ✗ `editor/panels/Q` (P ≠ Q), ✗ `editor/shell`; `editor/ext` ✗ panels, shell; `editor/core` ✗ panels, `editor/ext`, shell.
 - editor ✗ modules, except `editor/shell` (composition).
 - `sdk` → modules is allowed (composition facade, D201); `sdk` ✗ module editors; `sdk` ✗ editor except the file `sdk/editor.go`.
+- low, kernel, modules, editor, `sdk` ✗ `runtime`; `runtime` ✗ editor and module editors.
 - Runtime graph (`aego_runtime`, every package minus dev-only): no package reaches a dev-only package, transitively.
 - `scene/prefab/author` is dev-only; the runtime graph keeps `scene/prefab` until Stage 13 (D218).
 - Playground graph (`js/wasm`, `cmd/aego-playground`): only low and kernel packages without `gpu/gl33`, `platform/sdl`, `asset/pipeline`, `asset/importers`, plus `modules/render2d`, `modules/scripting/...`, `app/assembly`, `app/assembly/playground`, `app/playground`.
@@ -585,7 +595,7 @@ aego/
 ├── core/            handle mathx clock log errs stats ids rng strs bits        (1–3)   rewind (9.4d)
 ├── platform/        platform.go event.go ext.go  input/ sdl/ headless/          (1)   android/ (14)
 ├── gpu/             device.go gpu.go  gl33/ (gl/ generated, internal/glstate)  null/ (1)   gles30/ shaderc/ (12–14)
-├── vfs/             vfs.go  osfs/                                                (1)   pakfs/ assetfs/ (13–14)
+├── vfs/             vfs.go  osfs/                                                (1)   exportfs/ (9.5a)   pakfs/ assetfs/ (13–14)
 ├── engine/          engine registry world service config loop jobs app          (1)
 │                    res/ (2, engine://)  module/ (6.5)  base/ problems/ (8C)  settings/ settings/settingsui/ (9.3)
 ├── render/          render pass viewframe pass3d viewframe3d  view/ texture/ sprite/ culling/ debug/ text/
@@ -625,14 +635,16 @@ aego/
 │   └── shell/       editor application, menus, modals, panel catalog; launcher/  (4, 6.5, 8C)
 ├── app/             build.go importers.go  run/ edit/ supervise/ bootstrap/   (3–4, 6.5 build; dev-only)
 │                    assembly/{builtin,playground,editors}/  module catalog and profiles (8C)
-├── cmd/             sandbox/ aego/ aego-editor/                                  (1, 3, 4)   aego-runtime/ (13)
-├── audio/ (9)  anim/ (11)  net/ store/ (13)  runtime/ (13)  templates/ (13)
+│                    export/{icon,winres,macos}/                                  (9.5a)
+├── runtime/         bundle/ (manifest formats) player/ (exported game host)      (9.5a)
+├── cmd/             sandbox/ aego/ aego-editor/                                  (1, 3, 4)   aego-runtime/ (9.5a)
+├── audio/ (9)  anim/ (11)  net/ store/ (13)  templates/ (13)
 ├── examples/        native-rotator native-editor platformer physics-sandbox scriptreload  (3–5, 8B; sdk-only)
 ├── demos/           basic input resize headless sprites camera layers text offscreen stress
 │                    scene-load asset-hot-reload hierarchy stress-scene mesh mixed stress-mesh  (1–4.5)
 │                    physics2d                                                    (8A)
 ├── tests/           integration/ gl/ golden/ bench/ scenes/ scripts/
-├── tools/           bootstrap-native.sh gen-gl.sh depcheck/ bench/ genfont/ genicons/ (nested modules)
+├── tools/           bootstrap-native.sh gen-gl.sh depcheck/ bench/ genfont/ genicons/ (nested modules)   appbundle/ (9.5a)
 └── third_party/     sdl/version.txt fonts/
 ```
 
@@ -671,6 +683,8 @@ The engine treats `res://` as project content, never as a direct OS path. Projec
 | `.aes` | Aego Script source | text, UTF-8, comments allowed |
 | `.aeshader` | User shader (12) | text |
 | `AETX` / `AEMS` / `AESB` | Texture / mesh / script bytecode artifacts | binary |
+| `data/manifest.aetext` | Exported game data: game block, sections, asset index | canonical aetext |
+| `export.aetext` | Export Manifest beside the exported game | canonical aetext |
 | `.aepak` | Export package (13) | binary |
 
 Every format owns its own version (`scene_format`, `bytecode_version`, `lang_version`, `pak_format`, …); they are independent from the engine version.
@@ -919,6 +933,7 @@ Packages are named by capability (`render/view`, `asset/loader`, `scene/sceneio`
 | 9.3 | Settings: `engine/settings` registry, layers, transactions, confirm, presets, profile and project codecs, `platform` profiles and displays, frame limit, modules `display`, `audio` (stub), `accessibility`, `settings` (screen, `aego/settings`), input rebinds in the profile, Project Settings Defaults and Registry |
 | 9.4a | Curves, tween, timers (`core/curve`, `modules/tween`, handles and `yield h`, `aego/curve\|tween\|timer`); done |
 | 9.4b–12 | Audio, pixel/sprite tools, animation, materials/shaders/lighting. Optional: in-context prefab editing — prefab mode draws the origin scene dimmed around the prefab, read-only, with the prefab subtree placed at the instance it was opened from. |
+| 9.5a | Export v1: `aego export`, `runtime/player`, `runtime/bundle`, `vfs/exportfs`, Windows resources, macOS app bundles, pre-export checks, Build Report, editor Export panel, native macOS menu bar, `make editor-app` |
 | 13+ | Export/pak, networking/store, Android |
 
 ---
@@ -932,9 +947,10 @@ Packages are named by capability (`render/view`, `asset/loader`, `scene/sceneio`
 - `test [dir]` runs script tests; `make check-all` runs it for `examples/platformer` and `examples/physics-sandbox`;
 - `bootstrap [dir]` regenerates `.aego/generated` for the native module without building;
 - `icons [dir]` checks module icon files against the icons the module declares, exit 1 on any difference;
-- `docs export|check|build|serve` serves the documentation registry and playground.
+- `docs export|check|build|serve` serves the documentation registry and playground;
+- `export [dir] [--target …] [--release|--development] [--out dir] [--check] [--json]` builds a distributable game (D286–D288).
 
-Later: `export bench`. Native SDL is bootstrapped with `make bootstrap`. Binaries: `aego-editor`, `sandbox`, later `aego-runtime`.
+Later: `bench`. Native SDL is bootstrapped with `make bootstrap`. Binaries: `aego-editor`, `aego-runtime`, `sandbox`.
 
 ---
 

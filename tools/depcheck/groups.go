@@ -14,6 +14,7 @@ const (
 	kShell     = "editor-shell"
 	kSDK       = "sdk"
 	kApp       = "app"
+	kRuntime   = "runtime"
 	kCmd       = "cmd"
 	kTool      = "tool"
 	kDemo      = "demo"
@@ -62,6 +63,8 @@ func groupOf(p string) (group, bool) {
 		return group{kind: kSDK}, true
 	case "app":
 		return group{kind: kApp}, true
+	case "runtime":
+		return group{kind: kRuntime}, true
 	case "cmd":
 		return group{kind: kCmd}, true
 	case "tools":
@@ -107,6 +110,8 @@ func groupRule(from, to group) string {
 			return "kernel-imports-sdk"
 		case to.kind == kApp:
 			return "kernel-imports-app"
+		case to.kind == kRuntime:
+			return "kernel-imports-runtime"
 		}
 	case kModule, kModEditor:
 		switch {
@@ -122,6 +127,8 @@ func groupRule(from, to group) string {
 			return "module-imports-sdk"
 		case to.kind == kApp:
 			return "module-imports-app"
+		case to.kind == kRuntime:
+			return "module-imports-runtime"
 		}
 	case kEdCore:
 		switch to.kind {
@@ -140,6 +147,13 @@ func groupRule(from, to group) string {
 		case to.kind == kShell:
 			return "panel-imports-" + to.kind
 		}
+	case kRuntime:
+		if isEditor(to) || to.kind == kModEditor {
+			return "runtime-imports-editor"
+		}
+	}
+	if isEditor(from) && to.kind == kRuntime {
+		return "editor-imports-runtime"
 	}
 	if isEditor(from) && from.kind != kShell && (to.kind == kModule || to.kind == kModEditor) {
 		return "editor-imports-module"
@@ -150,12 +164,18 @@ func groupRule(from, to group) string {
 	if from.kind == kSDK && to.kind == kModEditor {
 		return "sdk-imports-module-editor"
 	}
+	if from.kind == kSDK && to.kind == kRuntime {
+		return "sdk-imports-runtime"
+	}
 	return ""
 }
 
 // runtimeForbidden lists what the aego_runtime build must never reach.
-var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...", "app/...", "engine/docs",
-	"cmd/...", "demos/...", "tests/...", "tools/...", "examples/...",
+var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...",
+	"app", "app/bootstrap", "app/docstool", "app/edit", "app/export", "app/export/...", "app/playground",
+	"app/projects", "app/run", "app/supervise", "app/assembly/editors", "app/assembly/playground",
+	"engine/docs", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",
+	"demos/...", "tests/...", "tools/...", "examples/...",
 	"modules/*/editor/...", "modules/*/dev/...", "scene/prefab/author")
 
 // wasmDenied lists what the playground (js/wasm) must not reach.

@@ -41,6 +41,8 @@ type Project struct {
 	Settings     *aetext.Node
 	Native       bool
 	Version      int
+	GameVersion  string
+	Icon         string
 }
 
 func (p *Project) AssetsDir() string {
@@ -194,6 +196,12 @@ func Load(root string) (*Project, error) {
 	if v, ok := doc.Field("native"); ok {
 		p.Native = v.Bool
 	}
+	if v, ok := doc.Field("gameVersion"); ok {
+		p.GameVersion = v.Str
+	}
+	if v, ok := doc.Field("icon"); ok {
+		p.Icon = filepath.ToSlash(v.Str)
+	}
 	if v, ok := doc.Field("defaultSpace"); ok {
 		if v.Str != Space2D && v.Str != Space3D {
 			return nil, errs.New(errs.ProjectBadFile, "defaultSpace must be \"2d\" or \"3d\"", log.F("defaultSpace", v.Str))
@@ -250,6 +258,12 @@ func (p *Project) Encode() []byte {
 		aetext.Field{Name: "mainScene", Value: aetext.AssetRef(p.MainScene.String())},
 		aetext.Field{Name: "native", Value: aetext.Bool(p.Native)},
 	)
+	if p.GameVersion != "" {
+		root.Fields = append(root.Fields, aetext.Field{Name: "gameVersion", Value: aetext.String(p.GameVersion)})
+	}
+	if p.Icon != "" {
+		root.Fields = append(root.Fields, aetext.Field{Name: "icon", Value: aetext.String(p.Icon)})
+	}
 	if p.DefaultSpace == Space3D {
 		root.Fields = append(root.Fields, aetext.Field{Name: "defaultSpace", Value: aetext.String(Space3D)})
 	}

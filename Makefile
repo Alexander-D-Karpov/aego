@@ -13,6 +13,10 @@ STATICCHECK_VERSION ?= v0.8.2
 BENCH_COUNT ?= 10
 BENCH_CPU ?= 2
 BENCH_PIN = $(shell command -v taskset >/dev/null && echo taskset -c $(BENCH_CPU))
+EDITOR_VERSION ?= 0.1.0
+EDITOR_ICON ?= third_party/brand/aego-1024.png
+EXPORT_SMOKE = $(CURDIR)/.cache/export-smoke
+EXPORT_HOME = $(CURDIR)/.cache/export-home
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
@@ -23,7 +27,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -225,7 +229,22 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck test test-nonative test-editor test-runtime runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+
+runtime: bootstrap
+	go build -tags aego_runtime -o .cache/bin/aego-runtime ./cmd/aego-runtime
+
+# Export the platformer and run it without Go, sources or the project cache (D286).
+export-smoke: cli
+	rm -rf $(EXPORT_SMOKE) $(EXPORT_HOME)
+	mkdir -p $(EXPORT_HOME)
+	.cache/bin/aego export examples/platformer --development --out $(EXPORT_SMOKE)
+	cd $(EXPORT_HOME) && env -i PATH=/usr/bin:/bin HOME=$(EXPORT_HOME) XDG_CONFIG_HOME=$(EXPORT_HOME) $(EXPORT_SMOKE)/platformer --headless --frames 120
+
+# macOS only: Aego Editor.app with the native menu bar.
+editor-app: bootstrap
+	go build -o .cache/bin/aego-editor ./cmd/aego-editor
+	go run ./tools/appbundle -bin .cache/bin/aego-editor -out .cache -version $(EDITOR_VERSION) $(if $(wildcard $(EDITOR_ICON)),-icon $(EDITOR_ICON))
 
 clean:
 	rm -rf .cache/build

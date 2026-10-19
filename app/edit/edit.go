@@ -256,6 +256,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		DirsErr:     dirsErr,
 		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
+		Exporter:    newExporter(p, h.Pipeline),
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil

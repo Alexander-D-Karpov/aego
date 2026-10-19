@@ -40,6 +40,8 @@ func dispatch(args []string) int {
 		return cmdEdit(args[1:])
 	case "build":
 		return cmdBuild(args[1:])
+	case "export":
+		return cmdExport(args[1:])
 	case "bootstrap":
 		return cmdBootstrap(args[1:])
 	case "import":
@@ -71,6 +73,8 @@ func usage() {
   run [dir]              import assets and run the game
   edit [dir]             open the project in the editor; without a project opens the launcher
   build [dir]            build the native binary
+  export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]
+                         build a distributable game that runs without Go and project sources
   bootstrap [dir]        regenerate .aego/generated for the native module without building
   import [dir] [--force] reimport all assets
   check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts
