@@ -12,3 +12,5 @@ tools/genicons/genicons
 /aego-editor
 /aego-playground
 *.test
+
+/tests/golden/testdata/actual-*

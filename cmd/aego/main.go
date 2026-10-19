@@ -74,7 +74,7 @@ func usage() {
   bootstrap [dir]        regenerate .aego/generated for the native module without building
   import [dir] [--force] reimport all assets
   check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts
-  icons [dir]            check module icon files against the icons components and templates use
+  icons [check|list] [dir] [--json] [--out file]  check icon use against the icon sources, or print the manifest
   test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]
                          run *_test.aes script tests headless, or run the game twice and compare state hashes
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines

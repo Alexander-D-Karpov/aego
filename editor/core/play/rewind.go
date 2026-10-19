@@ -111,6 +111,15 @@ func (c *Controller) StepForward() error {
 }
 
 func (c *Controller) Seek(n int) error {
+	return c.seek(n, true)
+}
+
+// Scrub seeks without a notice, for dragging the timeline.
+func (c *Controller) Scrub(n int) error {
+	return c.seek(n, false)
+}
+
+func (c *Controller) seek(n int, notice bool) error {
 	switch {
 	case c.hist == nil || c.state == Stopped:
 		return errs.New(errs.EditorCommand, "rewind works during Play")
@@ -126,13 +135,13 @@ func (c *Controller) Seek(n int) error {
 		return err
 	}
 	c.replay(n)
-	c.pauseHere()
+	c.pauseHere(notice)
 	return nil
 }
 
 func (c *Controller) rewindTo(n int) error {
 	if c.keysOn() {
-		k := c.keyAt(n)
+		k := c.keyAt(max(n-1, 0))
 		switch {
 		case k == nil:
 			return c.reboot()
@@ -213,14 +222,17 @@ func (c *Controller) replay(to int) {
 	w.Break = brk
 }
 
-func (c *Controller) pauseHere() {
+func (c *Controller) pauseHere(notice bool) {
 	t := c.world.Time
 	t.SetScale(c.scale)
 	t.SetPaused(true)
+	c.held = true
 	c.stats.Frame, c.stats.Updates, c.stats.Tick, c.stats.Alpha = t.Frame(), t.Updates(), t.Tick(), t.Alpha()
 	if c.state != Paused {
 		c.state = Paused
 		c.notify()
 	}
-	c.ctx.Notify(context.LevelInfo, "Rewound to tick "+strconv.FormatUint(t.Tick(), 10))
+	if notice {
+		c.ctx.Notify(context.LevelInfo, "Rewound to tick "+strconv.FormatUint(t.Tick(), 10))
+	}
 }

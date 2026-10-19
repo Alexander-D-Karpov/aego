@@ -22,8 +22,8 @@ func (Core) Info() module.Info {
 }
 
 func (Core) Register(r *module.Registry) error {
-	r.Template(schema.TemplateDesc{ID: CoreID + ".empty", Name: "Empty", Node: "Node", Setup: empty})
-	r.Template(schema.TemplateDesc{ID: CoreID + ".empty3d", Name: "Empty", Space: schema.Space3D, Setup: empty})
+	r.Template(schema.TemplateDesc{ID: CoreID + ".empty", Name: "Empty", Node: "Node", Icon: "node.empty", Setup: empty})
+	r.Template(schema.TemplateDesc{ID: CoreID + ".empty3d", Name: "Empty", Space: schema.Space3D, Icon: "node.empty", Setup: empty})
 	if err := registerSettings(r); err != nil {
 		return err
 	}
@@ -32,6 +32,7 @@ func (Core) Register(r *module.Registry) error {
 		schema.FieldDoc("tags", "Dot-separated names like Enemy.Flying; a node tagged Enemy.Flying is also found by Enemy.")).
 		Category("Engine").
 		Display("Tags").
+		Icon("comp.tags").
 		Validate(validateTags).
 		Err()
 }

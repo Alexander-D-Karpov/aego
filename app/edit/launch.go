@@ -3,7 +3,11 @@ package edit
 import (
 	"bytes"
 	"errors"
+	"image"
+	stddraw "image/draw"
+	"image/png"
 	"os"
+	"path/filepath"
 	"time"
 
 	"aego/app/projects"
@@ -12,11 +16,13 @@ import (
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
 	"aego/engine"
+	"aego/gpu"
 	"aego/platform"
 	"aego/render"
 	renderhost "aego/render/host"
 	"aego/render/icons"
 	"aego/render/text"
+	"aego/render/texture"
 	"aego/render/view"
 	"aego/ui/core"
 	"aego/ui/draw"
@@ -37,6 +43,12 @@ type launchDriver struct {
 	list     *draw.List
 	textOn   bool
 	log      *log.ChannelLogger
+	images   map[string]launchImage
+}
+
+type launchImage struct {
+	reg texture.Region
+	ok  bool
 }
 
 func CreateProject(dir, template, module, example string) (string, error) {
@@ -62,7 +74,20 @@ func CreateProject(dir, template, module, example string) (string, error) {
 func launcherTemplates() []launcher.Template {
 	out := make([]launcher.Template, len(projects.Templates))
 	for i, t := range projects.Templates {
-		out[i] = launcher.Template{ID: t.ID, Name: t.Name, Description: t.Description, Icon: t.Icon}
+		id := t.ID
+		out[i] = launcher.Template{
+			ID: t.ID, Name: t.Name, Description: t.Description, Icon: t.Icon,
+			Files:   projects.TemplateFiles(id),
+			Preview: func() ([]byte, error) { return projects.TemplatePreview(id) },
+		}
+	}
+	return out
+}
+
+func launcherWorkspaces() []launcher.Choice {
+	var out []launcher.Choice
+	for _, p := range shell.BuiltinWorkspaces() {
+		out = append(out, launcher.Choice{ID: p.ID, Title: p.Title})
 	}
 	return out
 }
@@ -87,19 +112,49 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	}
 	home, _ := os.UserHomeDir()
 	var examples []string
-	if root, err := projects.EngineRoot(""); err == nil {
-		examples = projects.Examples(root)
+	engineRoot, rootErr := projects.EngineRoot("")
+	if rootErr == nil {
+		examples = projects.Examples(engineRoot)
 	}
 	ls := &LaunchSession{Engine: e}
+	d := &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor), images: map[string]launchImage{}}
 	ls.UI = launcher.New(launcher.Options{
 		Templates:  launcherTemplates(),
 		Examples:   examples,
+		Workspaces: launcherWorkspaces(),
+		ExamplePreview: func(name string) ([]byte, error) {
+			return projects.ExamplePreview(engineRoot, name)
+		},
 		Create:     CreateProject,
 		RecentPath: cfg.Recent,
 		Home:       home,
+		Image:      d.image,
 	})
-	ls.driver = &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor)}
+	ls.driver = d
 	return ls, nil
+}
+
+func (d *launchDriver) image(key string, load func() ([]byte, error)) (texture.Region, bool) {
+	if c, ok := d.images[key]; ok {
+		return c.reg, c.ok
+	}
+	c := launchImage{}
+	if data, err := load(); err == nil {
+		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
+			n, ok := img.(*image.NRGBA)
+			if !ok {
+				n = image.NewNRGBA(img.Bounds())
+				stddraw.Draw(n, n.Bounds(), img, img.Bounds().Min, stddraw.Src)
+			}
+			w, h := n.Bounds().Dx(), n.Bounds().Dy()
+			tex, err := d.renderer.Textures().Upload(&texture.Data{Width: w, Height: h, Format: gpu.TexSRGBA8, Pixels: n.Pix, Premultiplied: true}, texture.UploadOptions{Label: "launcher." + filepath.Base(key)})
+			if err == nil {
+				c = launchImage{reg: texture.Whole(tex, w, h), ok: true}
+			}
+		}
+	}
+	d.images[key] = c
+	return c.reg, c.ok
 }
 
 func (ls *LaunchSession) Step() bool {

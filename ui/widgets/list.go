@@ -122,14 +122,14 @@ func TreeRowRect(c *core.Context, id core.ID, r mathx.Rect, row TreeRow) RowEven
 		col, tint = th.TextDisabled, th.TextDisabled
 	}
 	lx := x + th.Indent + 4
-	ir := mathx.Rect{X: lx, Y: r.Y + (r.H-14)/2, W: 14, H: 14}
+	ir := mathx.Rect{X: lx, Y: c.TextY(r) + c.LineHeight()/2 - 8, W: 16, H: 16}
 	switch {
 	case HasIcon(c, row.Icon):
 		IconAt(c, ir, row.Icon, tint)
-		lx += 18
+		lx += 20
 	case row.Marker:
-		c.RoundRect(mathx.Rect{X: ir.X + 4, Y: ir.Y + 4, W: 6, H: 6}, 3, th.TextDisabled)
-		lx += 18
+		c.RoundRect(mathx.Rect{X: ir.X + 5, Y: ir.Y + 5, W: 6, H: 6}, 3, th.TextDisabled)
+		lx += 20
 	}
 	c.Text(row.Label, mathx.Vec2{X: lx, Y: c.TextY(r)}, col)
 	return ev

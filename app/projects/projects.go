@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"aego/asset"
@@ -163,6 +164,33 @@ func templateIDs() string {
 	return strings.Join(ids, ", ")
 }
 
+const PreviewFile = "preview.png"
+
+func TemplatePreview(id string) ([]byte, error) {
+	return fs.ReadFile(res.FS(), path.Join(templatesDir, id, PreviewFile))
+}
+
+func ExamplePreview(engine, name string) ([]byte, error) {
+	return os.ReadFile(filepath.Join(engine, "examples", name, PreviewFile))
+}
+
+func TemplateFiles(id string) []string {
+	root := path.Join(templatesDir, id)
+	var out []string
+	fs.WalkDir(res.FS(), root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if name := d.Name(); name == PreviewFile || strings.HasPrefix(name, ".") {
+			return nil
+		}
+		out = append(out, strings.TrimPrefix(p, root+"/"))
+		return nil
+	})
+	sort.Strings(out)
+	return out
+}
+
 func writeTemplate(id, dst string, rep *strings.Replacer) error {
 	src := res.FS()
 	root := path.Join(templatesDir, id)
@@ -177,6 +205,9 @@ func writeTemplate(id, dst string, rep *strings.Replacer) error {
 		target := filepath.Join(dst, filepath.FromSlash(rel))
 		if d.IsDir() {
 			return os.MkdirAll(target, 0o755)
+		}
+		if rel == PreviewFile {
+			return nil
 		}
 		data, err := fs.ReadFile(src, p)
 		if err != nil {
@@ -267,7 +298,7 @@ func fromExample(abs, module string, opt Options) (*project.Project, error) {
 			}
 			return os.MkdirAll(filepath.Join(abs, rel), 0o755)
 		}
-		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), "_test.go") {
+		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), "_test.go") || rel == PreviewFile {
 			return nil
 		}
 		data, err := os.ReadFile(file)

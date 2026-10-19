@@ -23,7 +23,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -86,6 +86,12 @@ run: bootstrap
 # Regenerate the embedded bitmap font atlas into engine/res/fonts.
 genfont:
 	cd tools/genfont && go mod tidy && go run . -ttf $(UI_FONT)
+
+# Regenerate the committed resources: the icon atlas and the template and example previews (D280).
+res: genicons genpreviews
+
+genpreviews: bootstrap
+	$(GL_ENV) go run ./tools/genpreviews -root $(CURDIR)
 
 # Regenerate the embedded icon atlas into engine/res/icons.
 genicons:
@@ -191,6 +197,12 @@ playground-size:
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego
+
+icons-doc: cli
+	.cache/bin/aego icons list --out docs/icons.md
+
+icons: cli
+	.cache/bin/aego icons check
 
 example: cli
 	.cache/bin/aego run examples/native-rotator --headless --frames 120

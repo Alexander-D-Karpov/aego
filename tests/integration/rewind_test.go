@@ -139,3 +139,29 @@ func TestEditorRewindReplaysBreaks(t *testing.T) {
 		t.Fatal("replay of a frame cut short by a break differs")
 	}
 }
+
+func TestEditorPauseRecordsNothing(t *testing.T) {
+	_, pc := rewindSession(t)
+	for range 60 {
+		pc.Tick(1.0 / 60)
+	}
+	pc.Pause()
+	want := pc.Timeline()
+	hash := playHash(pc)
+	for range 300 {
+		pc.Tick(1.0 / 60)
+	}
+	if tl := pc.Timeline(); tl.Frames != want.Frames || tl.Cursor != want.Cursor || playHash(pc) != hash {
+		t.Fatalf("timeline %+v while paused, want %+v and an unchanged world", tl, want)
+	}
+	pc.Step()
+	pc.Tick(1.0 / 60)
+	if tl := pc.Timeline(); tl.Frames != want.Frames+1 || pc.State() != play.Paused {
+		t.Fatalf("timeline %+v after a step, want one more frame and still paused", tl)
+	}
+	pc.Pause()
+	pc.Tick(1.0 / 60)
+	if tl := pc.Timeline(); tl.Frames != want.Frames+2 {
+		t.Fatalf("timeline %+v after resuming, want recording to go on", tl)
+	}
+}

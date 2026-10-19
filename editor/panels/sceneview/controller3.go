@@ -291,7 +291,7 @@ func (c *Controller3) updatePress(h Host3, in Input3) bool {
 	c.pressing = false
 	if c.boxing {
 		c.boxing = false
-		h.Select(BoxSelect3D(h.Scene(), c.View(), c.pressAt, in.Mouse, c.mask), in.Shift)
+		h.Select(BoxSelect3D(h.Scene(), h.Shapes(), c.View(), c.pressAt, in.Mouse, c.mask), in.Shift)
 		return true
 	}
 	if n, ok := c.PickAt(h, in.Mouse); ok {

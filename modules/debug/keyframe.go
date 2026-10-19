@@ -52,10 +52,22 @@ func (s *Service) Restore(key rewind.Key) {
 	k := key.(*debugKey)
 	s.prims = append(s.prims[:0], k.prims...)
 	s.pts = append(s.pts[:0], k.pts...)
+	views := make([]channel, 0, len(s.chans))
+	for _, c := range s.chans {
+		views = append(views, channel{name: c.name, state: c.state})
+	}
 	s.chans = append(s.chans[:0], k.chans...)
 	clear(s.byName)
 	for i, c := range s.chans {
 		s.byName[c.name] = uint16(i)
+	}
+	for _, v := range views {
+		if i, ok := s.byName[v.name]; ok {
+			s.chans[i].state = v.state
+			continue
+		}
+		s.byName[v.name] = uint16(len(s.chans))
+		s.chans = append(s.chans, v)
 	}
 	if s.pens == nil {
 		s.pens = map[vm.InstanceID]pen{}
@@ -77,7 +89,7 @@ func (s *Service) Hash(h *rewind.Hasher) {
 		h.U64(uint64(p.kind))
 		h.Bool(p.gone)
 		h.U64(uint64(p.id))
-		h.U32(uint32(p.ch))
+		h.String(s.chans[p.ch].name)
 		h.F32(p.a.X)
 		h.F32(p.a.Y)
 		h.F32(p.b.X)
@@ -94,10 +106,11 @@ func (s *Service) Hash(h *rewind.Hasher) {
 		h.F32(v.X)
 		h.F32(v.Y)
 	}
-	h.Int(len(s.chans))
 	for _, c := range s.chans {
-		h.String(c.name)
-		h.Int(c.count)
+		if c.count > 0 {
+			h.String(c.name)
+			h.Int(c.count)
+		}
 	}
 	owners := make([]vm.InstanceID, 0, len(s.pens))
 	for o := range s.pens {

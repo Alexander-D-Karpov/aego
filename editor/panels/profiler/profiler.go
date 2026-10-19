@@ -500,15 +500,7 @@ func (p *Panel) sticky(ui *core.Context, body mathx.Rect) {
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
-	if p.deps.Tracer != nil {
-		h := min(TimelineHeight, r.H)
-		p.tl.Draw(ui, p.deps, mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: h - th.Padding})
-		r = mathx.Rect{X: r.X, Y: r.Y + h, W: r.W, H: r.H - h}
-	}
-	bar := mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
-	p.toolbar(ui, bar)
-	y := bar.Y + bar.H + th.Spacing
-	body := mathx.Rect{X: r.X, Y: y, W: r.W, H: max(0, r.Y+r.H-y)}
+	body := r
 	if ui.MouseOver(ui.ID("scroll"), body) {
 		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
 			p.scroll -= w
@@ -517,7 +509,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-body.H+th.Padding))
 	p.top = body.Y - p.scroll
 	ui.PushClip(body)
-	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: p.top, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
+	y := p.top
+	if p.deps.Tracer != nil {
+		p.tl.Draw(ui, p.deps, mathx.Rect{X: r.X + th.Padding, Y: y + th.Padding, W: r.W - 2*th.Padding, H: TimelineHeight - th.Padding})
+		y += TimelineHeight
+	}
+	bar := mathx.Rect{X: r.X + th.Padding, Y: y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
+	p.toolbar(ui, bar)
+	y = bar.Y + bar.H + th.Spacing
+	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: y, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	p.titles, p.marks = p.titles[:0], p.marks[:0]
 	p.section(ui, "Frame")
 	p.graph(ui, "frame", " ms", 2, 1000.0/60, th.Accent, mFrame)

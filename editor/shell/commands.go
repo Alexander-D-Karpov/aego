@@ -261,6 +261,7 @@ func (a *App) registerWindowCommands() error {
 			Name:     d.Panel.Title(),
 			Category: "Window",
 			Order:    d.Order,
+			Icon:     panelIcon(d),
 			Tip:      "Show or hide the " + d.Panel.Title() + " panel",
 			Checked:  func() bool { return a.ws.Visible(id) },
 			Run: func() error {
@@ -403,4 +404,13 @@ func (a *App) closeActive() error {
 	}
 	a.ctx.Selection.DropDoc(d.ID)
 	return a.ctx.Docs.Close(d.ID, false)
+}
+
+func panelIcon(d workspace.Desc) string {
+	if ic, ok := d.Panel.(workspace.Iconed); ok {
+		if s := ic.Icon(); s != "" {
+			return s
+		}
+	}
+	return d.Icon
 }

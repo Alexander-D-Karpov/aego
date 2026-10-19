@@ -43,9 +43,16 @@ type ViewState struct {
 	Expanded map[ids.NodeID]bool
 	Mode     ViewMode
 	Orbit    Orbit
+	Isolated map[ids.NodeID]bool
+}
+
+type LoadStats struct {
+	Took  time.Duration
+	Nodes int
 }
 
 type SceneDocument struct {
+	Load       LoadStats
 	ID         ID
 	Path       string
 	History    *history.History
@@ -378,6 +385,7 @@ func (m *Manager) Open(rel string) (*SceneDocument, error) {
 		m.SetActive(d.ID)
 		return d, nil
 	}
+	start := time.Now()
 	data, err := os.ReadFile(m.Abs(rel))
 	if err != nil {
 		return nil, errs.Wrap(err, errs.EditorDocument, "cannot read the scene").With(log.F("path", rel))
@@ -387,6 +395,7 @@ func (m *Manager) Open(rel string) (*SceneDocument, error) {
 		return nil, err
 	}
 	d := m.newDoc(rel, s)
+	d.Load = LoadStats{Took: time.Since(start), Nodes: max(0, len(s.PreOrder())-1)}
 	m.stat(d)
 	d.History.MarkSaved()
 	m.noteBack(d, prev)

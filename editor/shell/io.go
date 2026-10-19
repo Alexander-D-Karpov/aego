@@ -1,6 +1,7 @@
 package shell
 
 import (
+	pd "aego/editor/core/playdiff"
 	"slices"
 	"sort"
 
@@ -135,6 +136,10 @@ func (a *App) restoreState() {
 }
 
 func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
+	if st.Workspace != "" {
+		a.ws.Switch(st.Workspace)
+	}
+	a.diffMode = pd.ParseMode(st.PlayDiff)
 	set := &a.ctx.Settings
 	set.Tool = uint8(st.Tool)
 	set.Grid, set.Snap = st.Grid, st.Snap
@@ -190,6 +195,8 @@ func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
 func (a *App) collect(all bool) *state.Editor {
 	set := a.ctx.Settings
 	st := state.Default()
+	st.Workspace = a.ws.Current().ID
+	st.PlayDiff = a.diffMode.String()
 	st.Tool = int(set.Tool)
 	st.Grid, st.Snap = set.Grid, set.Snap
 	st.SnapMove, st.SnapRotate, st.SnapScale = set.SnapMove, set.SnapRotate, set.SnapScale

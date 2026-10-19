@@ -18,6 +18,7 @@ const (
 	ArtScript       ArtifactKind = "script"
 	ArtData         ArtifactKind = "data"
 	ArtTable        ArtifactKind = "table"
+	ArtPreset       ArtifactKind = "preset"
 )
 
 type Reloaded struct {

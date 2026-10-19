@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"aego/editor/panels/taskcenter"
+	"aego/ui/widgets"
 	"strconv"
 	"strings"
 
@@ -95,6 +97,16 @@ func (a *App) drawStatus(r mathx.Rect) {
 		}
 		if item(label, th.TextDim, "autosave", false) {
 			c.Autosave = !c.Autosave
+		}
+	}
+	if n, failed := a.taskCounts(); n > 0 {
+		spin := [...]rune{'◐', '◓', '◑', '◒'}[int(ui.Time*6)%4]
+		if item(widgets.Glyph(ui, spin, "*")+" "+strconv.Itoa(n)+" task(s)", th.TextDim, "tasks", false) {
+			a.ws.Show(taskcenter.ID)
+		}
+	} else if failed > 0 {
+		if item(strconv.Itoa(failed)+" task(s) failed", th.Error, "tasks", false) {
+			a.ws.Show(taskcenter.ID)
 		}
 	}
 	if n := a.ctx.Docs.DirtyCount(); n > 0 {

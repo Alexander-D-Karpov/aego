@@ -60,3 +60,8 @@ type Service interface {
 	Checkpoint() error
 	SetAutosave(seconds float64)
 }
+
+// Flusher runs queued saves and loads now, for a host that holds the world without ticking it.
+type Flusher interface {
+	Flush()
+}

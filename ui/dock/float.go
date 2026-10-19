@@ -101,12 +101,22 @@ func (t *Tree) drawMenu(ui *core.Context) {
 		return
 	}
 	p := t.menu.panel
-	if t.menu.floating {
+	label := "Maximize"
+	if t.Maximized() == p {
+		label = "Restore Layout"
+	}
+	if widgets.MenuItem(ui, label, "Shift+Space", true, false) {
+		t.ToggleMaximize(p)
+	}
+	switch {
+	case t.menu.floating:
 		if widgets.MenuItem(ui, "Dock", "", true, false) {
 			t.dockBack(p)
 		}
-	} else if widgets.MenuItem(ui, "Float", "Shift+drag", true, false) {
-		t.Float(p, ui.Mouse())
+	case t.Maximized() == "":
+		if widgets.MenuItem(ui, "Float", "Shift+drag", true, false) {
+			t.Float(p, ui.Mouse())
+		}
 	}
 	if widgets.MenuItem(ui, "Close", "", true, false) {
 		t.close(p)

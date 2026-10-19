@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	MIMEComponent = "application/x-aego-component"
-	MIMEValue     = "application/x-aego-value"
-	componentText = "aego-component\n"
+	MIMEComponent  = "application/x-aego-component"
+	MIMEComponents = "application/x-aego-components"
+	MIMEValue      = "application/x-aego-value"
+	componentText  = "aego-component\n"
+	componentsText = "aego-components\n"
 )
 
 type Kind uint8
@@ -33,6 +35,7 @@ const (
 	KindComponent
 	KindValue
 	KindText
+	KindComponents
 )
 
 type Env struct {
@@ -66,6 +69,9 @@ func (e Env) Peek() Kind {
 	if d, ok := c.Data(MIME); ok && len(d) > 0 {
 		return KindNodes
 	}
+	if d, ok := c.Data(MIMEComponents); ok && len(d) > 0 {
+		return KindComponents
+	}
 	if d, ok := c.Data(MIMEComponent); ok && len(d) > 0 {
 		return KindComponent
 	}
@@ -78,6 +84,8 @@ func (e Env) Peek() Kind {
 		return KindEmpty
 	case strings.HasPrefix(t, "prefab"):
 		return KindNodes
+	case strings.HasPrefix(t, strings.TrimSpace(componentsText)):
+		return KindComponents
 	case strings.HasPrefix(t, strings.TrimSpace(componentText)):
 		return KindComponent
 	}
@@ -196,30 +204,10 @@ func (e Env) PasteComponent(d *document.SceneDocument, nodes []ids.NodeID) error
 	if len(nodes) == 0 {
 		return errs.New(errs.EditorCommand, "select the nodes to paste the component onto")
 	}
-	s := d.Scene()
 	tx := d.History.Begin("Paste " + td.FullName)
-	for _, n := range nodes {
-		h := s.Handle(n)
-		if h.IsZero() || !s.IsAlive(h) {
-			continue
-		}
-		if _, has := s.GetByType(h, td.ID); !has {
-			if err := tx.Exec(&commands.AddComponent{Node: n, Type: td.ID, Name: td.FullName, Values: values, OnAdd: e.onAdd(td)}); err != nil {
-				tx.Abort()
-				return err
-			}
-			continue
-		}
-		for _, fv := range values {
-			fd, ok := td.FieldByID(fv.Field)
-			if !ok || fd.Flags.Has(schema.FlagReadOnly) {
-				continue
-			}
-			if err := d.Props.Set(tx, []ids.NodeID{n}, td.ID, fv.Field, fv.Value); err != nil {
-				tx.Abort()
-				return err
-			}
-		}
+	if err := e.pasteInto(tx, d, nodes, td, values); err != nil {
+		tx.Abort()
+		return err
 	}
 	tx.Commit()
 	return nil

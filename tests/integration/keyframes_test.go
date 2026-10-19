@@ -1,7 +1,10 @@
 package integration
 
 import (
+	"aego/contracts/debugdraw"
 	"aego/contracts/persistence"
+	"aego/modules/debug"
+	"aego/modules/physics"
 	"aego/save"
 	"aego/script/runtime"
 	"aego/script/vm"
@@ -294,5 +297,114 @@ func TestKeyframeCaptureTime(t *testing.T) {
 	t.Logf("median keyframe capture: %v", med)
 	if med > time.Millisecond {
 		t.Fatalf("median keyframe capture took %v, want at most 1 ms", med)
+	}
+}
+
+func TestKeyframeScrubFollowsTheJump(t *testing.T) {
+	s, pc := rewindSession(t)
+	e := s.Host.Engine
+	ys := map[int]float32{}
+	for i := 0; i < 400; i++ {
+		keyHold(e, input.KeySpace, i%120 >= 60 && i%120 < 64)
+		pc.Tick(1.0 / 60)
+		ys[i+1] = playerPos(pc).Y
+	}
+	lo, hi := ys[1], ys[1]
+	for _, y := range ys {
+		lo, hi = min(lo, y), max(hi, y)
+	}
+	if hi-lo < 0.5 {
+		t.Fatalf("the player never jumped: y in [%v, %v]", lo, hi)
+	}
+	for _, n := range []int{70, 80, 90, 75, 62, 85, 300, 190, 195, 185, 70} {
+		if err := pc.Scrub(n); err != nil {
+			t.Fatal(err)
+		}
+		if y := playerPos(pc).Y; y != ys[n] {
+			t.Fatalf("scrubbed to %d: player y %v, recorded %v", n, y, ys[n])
+		}
+	}
+}
+
+func shapeLines(t *testing.T, pc *play.Controller) int {
+	t.Helper()
+	d, ok := engine.ServiceOf[*debug.Service](pc.World(), debugdraw.ServiceID)
+	if !ok {
+		t.Fatal("no debug draw service in the play world")
+	}
+	n := 0
+	d.EachChannel(func(name string, count int, _ uint64) {
+		if name == physics.ChannelShapes {
+			n = count
+		}
+	})
+	return n
+}
+
+func TestKeyframeSeekKeepsOverlayVisibility(t *testing.T) {
+	s, pc := rewindSession(t)
+	pc.SetKeyEvery(60)
+	drive(s.Host.Engine, pc, 0, 400, nil)
+	if n := shapeLines(t, pc); n != 0 {
+		t.Fatalf("%d physics shape primitives while the overlay is off", n)
+	}
+	d, _ := engine.ServiceOf[*debug.Service](pc.World(), debugdraw.ServiceID)
+	d.Hide(physics.ChannelShapes, false)
+	drive(s.Host.Engine, pc, 400, 401, nil)
+	for _, n := range []int{100, 120, 60, 300} {
+		if err := pc.Seek(n); err != nil {
+			t.Fatal(err)
+		}
+		if shapeLines(t, pc) == 0 {
+			t.Fatalf("no physics shapes at frame %d after turning the overlay on at frame 400", n)
+		}
+	}
+}
+
+func TestLoadWhilePaused(t *testing.T) {
+	s, pc := rewindSession(t)
+	e := s.Host.Engine
+	drive(e, pc, 0, 120, nil)
+	svc, ok := engine.ServiceOf[persistence.Service](pc.World(), persistence.ServiceID)
+	if !ok {
+		t.Fatal("no save service in the play world")
+	}
+	if err := svc.Save("paused"); err != nil {
+		t.Fatal(err)
+	}
+	pc.Tick(1.0 / 60)
+	saved := playerPos(pc)
+	st, _ := engine.Service[*save.Store](e, persistence.StoreID)
+	deadline := time.Now().Add(5 * time.Second)
+	for !st.Exists("paused") {
+		s.Step()
+		if time.Now().After(deadline) {
+			t.Fatal("the save was never written")
+		}
+	}
+	drive(e, pc, 121, 240, nil)
+	if playerPos(pc) == saved {
+		t.Fatal("the player did not move after saving")
+	}
+	if pc.State() == play.Playing {
+		pc.Pause()
+	}
+	before := pc.Scene()
+	svc, _ = engine.ServiceOf[persistence.Service](pc.World(), persistence.ServiceID)
+	if err := svc.Load("paused"); err != nil {
+		t.Fatal(err)
+	}
+	for deadline = time.Now().Add(5 * time.Second); pc.Scene() == before; {
+		pc.Tick(1.0 / 60)
+		s.Step()
+		if time.Now().After(deadline) {
+			t.Fatal("loading while paused never happened")
+		}
+	}
+	if pc.State() != play.Paused {
+		t.Fatalf("state %v after loading while paused, want paused", pc.State())
+	}
+	if p := playerPos(pc); p.Sub(saved).Len() > 1e-3 {
+		t.Fatalf("player at %v after loading, saved at %v", p, saved)
 	}
 }

@@ -128,12 +128,14 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	st := a.play.State()
 	tb := widgets.BeginToolbar(ui, r)
 	saveX := r.X + r.W - tb.ButtonW() - 6
+	wsLabel := a.ws.Current().Title + "   "
+	wsX := saveX - ui.TextSize(wsLabel).X - 22
 	bw := tb.ButtonW()
 	scale, tick := scaleLabel(a.play.TimeScale())+"   ", "+1 tick"
 	width := 4*bw + ui.TextSize(scale).X + ui.TextSize(tick).X + 28 + 2*9 + 8
 	x := max(r.X+(r.W-width)/2, r.X+6)
 	sid := ui.ID("tb.scale")
-	if x+width <= saveX-8 {
+	if x+width <= wsX-8 {
 		if st != play.Stopped {
 			glow := th.PlayTint
 			glow.A = 0.22
@@ -147,7 +149,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		if st == play.Stopped {
 			blocked = a.scriptErrors()
 		}
-		playTip := "Play (" + reg.Shortcut(command.PlayStart) + ")"
+		playTip := "Play (" + reg.Shortcut(command.PlayStart) + "), full screen (" + reg.Shortcut(CommandFullscreenPlay) + ")"
 		noSource := st == play.Stopped && a.ctx.Docs.Edit() != nil && !a.canPlay()
 		switch {
 		case blocked > 0:
@@ -198,9 +200,24 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		}
 		tb.Active, tb.Label = mathx.Color{}, mathx.Color{}
 	}
+	wid := ui.ID("tb.workspace")
+	if wsX > r.X+6 {
+		tb.SetX(wsX)
+		clicked, wr := tb.TextButton(wid, wsLabel, "Workspace ("+reg.Shortcut(WorkspaceCommand(0))+"…4)")
+		widgets.Chevron(ui, mathx.Rect{X: wr.X + wr.W - 21, Y: float32(int(wr.Y + (wr.H-19)/2 + 1)), W: 19, H: 19}, true, th.TextDim)
+		if clicked {
+			if ui.PopupOpen(wid) {
+				ui.ClosePopup(wid)
+			} else {
+				ui.CloseAllPopups()
+				ui.OpenPopup(wid, mathx.Vec2{X: wr.X, Y: wr.Y + wr.H})
+			}
+		}
+	}
 	tb.SetX(saveX)
 	if tb.Button(ui.ID("tb.save"), "file.save", "Save ("+reg.Shortcut(command.FileSave)+")", false, reg.Enabled(command.FileSave)) {
 		reg.Run(command.FileSave)
 	}
 	a.scalePopup(sid)
+	a.workspacePopup(wid)
 }

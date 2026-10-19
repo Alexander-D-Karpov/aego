@@ -25,8 +25,8 @@ func Hook(e *ext.Registry) error {
 		}
 		return ed.Engine.Input()
 	}
-	if err := e.Panel(workspace.Desc{Panel: NewDevices(world, rawInput), Near: workspace.Console}); err != nil {
+	if err := e.Panel(workspace.Desc{Panel: NewDevices(world, rawInput), Near: workspace.Console, Icon: "panel.input_devices"}); err != nil {
 		return err
 	}
-	return e.Panel(workspace.Desc{Panel: NewFocus(world), Near: workspace.Console})
+	return e.Panel(workspace.Desc{Panel: NewFocus(world), Near: workspace.Console, Icon: "panel.input_focus"})
 }

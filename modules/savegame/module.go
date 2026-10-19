@@ -67,7 +67,7 @@ func (m *Module) Register(r *module.Registry) error {
 	registerDocs(r)
 	if err := module.Component[Persist](r, schema.Name(MarkerName),
 		schema.Doc("Persist saves the node's transform and enabled flag in save games.")).
-		Category("Engine").Display("Persist").Icon("cat.node").Err(); err != nil {
+		Category("Engine").Display("Persist").Icon("comp.persist").Err(); err != nil {
 		return err
 	}
 	m.ev.Save = r.ScriptEvent(scriptevents.Event{Name: EventSave,

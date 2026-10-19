@@ -141,6 +141,9 @@ func (r *Registry) disableNow(id, reason string) {
 			r.deps.Inspectors.Disable(t, reason)
 		}
 	}
+	if r.deps.Workspace != nil {
+		r.deps.Workspace.RemovePresets(id)
+	}
 	if r.deps.Shapes != nil {
 		r.deps.Shapes.Remove(id)
 	}

@@ -47,7 +47,7 @@ func (Module) Register(r *module.Registry) error {
 	).
 		Category("Camera").
 		Display("Camera 3D").
-		Icon("cat.camera").
+		Icon("comp.camera3d").
 		NodeIcon(100).
 		Default(DefaultCamera3D).
 		Template("Camera", lookAtOrigin).
@@ -68,7 +68,7 @@ func (Module) Register(r *module.Registry) error {
 	).
 		Category("Rendering").
 		Display("Mesh Renderer").
-		Icon("cat.rendering").
+		Icon("comp.mesh").
 		NodeIcon(60).
 		Default(DefaultMeshRenderer).
 		Err(); err != nil {
@@ -78,6 +78,7 @@ func (Module) Register(r *module.Registry) error {
 		r.Template(schema.TemplateDesc{
 			ID:    ID + "." + strings.ToLower(sh.Name),
 			Name:  sh.Name,
+			Icon:  "shape." + strings.ToLower(sh.Name),
 			Space: schema.Space3D,
 			Setup: ShapeSetup(sh.Mesh),
 		})

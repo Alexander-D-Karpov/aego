@@ -55,7 +55,15 @@ func MenuItem(c *core.Context, label, shortcut string, enabled, checked bool) bo
 	return Entry(c, Item{Label: label, Shortcut: shortcut, Enabled: enabled, Checked: checked})
 }
 
+func MenuItemIcon(c *core.Context, label, shortcut, icon string, enabled, checked bool) bool {
+	return Entry(c, Item{Label: label, Shortcut: shortcut, Icon: icon, Enabled: enabled, Checked: checked})
+}
+
 func SubMenu(c *core.Context, label string, width float32) bool {
+	return SubMenuIcon(c, label, "", width)
+}
+
+func SubMenuIcon(c *core.Context, label, icon string, width float32) bool {
 	th := &c.Theme
 	r := c.Cursor().Next(0)
 	c.FitPopup(26 + c.TextSize(label).X + r.H + 8)
@@ -69,6 +77,9 @@ func SubMenu(c *core.Context, label string, width float32) bool {
 	}
 	if hot || open {
 		c.RoundRect(r, th.Radius.Menu, th.Selection)
+	}
+	if HasIcon(c, icon) {
+		IconAt(c, mathx.Rect{X: r.X + 4, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, icon, th.TextDim)
 	}
 	c.Text(label, mathx.Vec2{X: r.X + 26, Y: c.TextY(r)}, th.Text)
 	Chevron(c, mathx.Rect{X: r.X + r.W - r.H, Y: r.Y, W: r.H, H: r.H}, false, th.TextDim)

@@ -24,6 +24,10 @@ func Manifest(user ...module.Module) (*manifest.Manifest, error) {
 }
 
 func AuditIcons(user ...module.Module) (*module.IconReport, error) {
+	return AuditIconsWith(nil, user...)
+}
+
+func AuditIconsWith(extra []module.IconUse, user ...module.Module) (*module.IconReport, error) {
 	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, err
@@ -32,7 +36,7 @@ func AuditIcons(user ...module.Module) (*module.IconReport, error) {
 	if err != nil {
 		return nil, err
 	}
-	return module.Audit(types, bind.NewManifest(), append(mods, user...)...)
+	return module.AuditUses(extra, types, bind.NewManifest(), append(mods, user...)...)
 }
 
 func IconSources() []string {

@@ -59,7 +59,7 @@ func (extract) Run(ctx *engine.Context) {
 func collect(r *frame.Runner, b *frame.Bucket, mask uint64) {
 	sc, res, st, dst := r.Scene(), r.Resolver(), r.Counters(), r.Renderer()
 	scene.Query1[MeshRenderer](sc).Each(func(h scene.NodeHandle, mr *MeshRenderer) {
-		if sc.Space(h) != scene.Space3D || sc.Layers(h)&mask == 0 {
+		if sc.Space(h) != scene.Space3D || sc.Layers(h)&mask == 0 || r.Hidden(h) {
 			return
 		}
 		m, ok := mr.Mesh.Mesh(res)

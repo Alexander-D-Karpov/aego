@@ -106,6 +106,38 @@ func Selectable(c *core.Context, id core.ID, label string, selected bool) bool {
 	return clicked
 }
 
+func SelectableIcon(c *core.Context, id core.ID, icon, label string, selected bool) bool {
+	th := &c.Theme
+	r := c.Cursor().Next(0)
+	c.FitPopup(c.TextSize(label).X + 34)
+	clicked := c.Clicked(id, r)
+	if selected {
+		c.RoundRect(r, th.Radius.Menu, th.WidgetDown)
+	} else if c.Hot() == id {
+		c.RoundRect(r, th.Radius.Menu, th.WidgetHot)
+	}
+	if HasIcon(c, icon) {
+		IconAt(c, mathx.Rect{X: r.X + 6, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, icon, th.TextDim)
+	}
+	c.List().Text(label, mathx.Vec2{X: r.X + 28, Y: textY(c, r)}, th.Text)
+	return clicked
+}
+
+func HeaderIcon(c *core.Context, icon, label string, dim bool) {
+	th := &c.Theme
+	r := c.Cursor().Next(0)
+	col := th.TextDim
+	if dim {
+		col = th.TextDisabled
+	}
+	x := r.X + 4
+	if HasIcon(c, icon) {
+		IconAt(c, mathx.Rect{X: x, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, icon, col)
+		x += 22
+	}
+	c.List().Text(label, mathx.Vec2{X: x, Y: textY(c, r)}, col)
+}
+
 func SearchField(c *core.Context, id core.ID, r mathx.Rect, q *string) bool {
 	th := &c.Theme
 	changed := false

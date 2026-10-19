@@ -155,3 +155,48 @@ func TestLimitKeepsSavedStateReachable(t *testing.T) {
 		t.Fatal("trimmed history lost the saved state")
 	}
 }
+
+func TestSeekWalksSteps(t *testing.T) {
+	c := &counter{}
+	h := New(nil)
+	for _, d := range []int{1, 2, 4} {
+		h.Exec(&add{c: c, delta: d})
+	}
+	h.Undo()
+	if got := h.Steps(nil); len(got) != 3 || h.Cursor() != 2 {
+		t.Fatalf("steps=%v cursor=%d", got, h.Cursor())
+	}
+	if err := h.Seek(0); err != nil || c.value != 0 || h.Cursor() != 0 {
+		t.Fatalf("seek 0: value=%d err=%v", c.value, err)
+	}
+	if err := h.Seek(3); err != nil || c.value != 7 {
+		t.Fatalf("seek 3: value=%d err=%v", c.value, err)
+	}
+	if err := h.Seek(99); err != nil || h.Cursor() != 3 {
+		t.Fatal("seek past the end must clamp")
+	}
+	h.SetLocked("locked")
+	if err := h.Seek(1); err == nil || c.value != 7 {
+		t.Fatal("seek must refuse a locked history")
+	}
+	h.SetLocked("")
+	tx := h.Begin("open")
+	if err := h.Seek(1); err == nil {
+		t.Fatal("seek must refuse an open transaction")
+	}
+	tx.Abort()
+}
+
+func TestWalkSkipsUndone(t *testing.T) {
+	c := &counter{}
+	h := New(nil)
+	a, b := &add{c: c, delta: 1}, &add{c: c, delta: 2}
+	h.Exec(a)
+	h.Exec(b)
+	h.Undo()
+	var seen []Command
+	h.Walk(func(cmd Command) { seen = append(seen, cmd) })
+	if len(seen) != 1 || seen[0] != a {
+		t.Fatalf("walk saw %d commands", len(seen))
+	}
+}

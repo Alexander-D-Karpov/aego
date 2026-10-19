@@ -132,7 +132,7 @@ func (p *Panel) unknownProps(d *document.SceneDocument, name string, td *schema.
 			}
 		}
 		r := ui.Cursor().Next(0)
-		widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "status.warning", th.Warn)
+		widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 		ui.PushClip(r)
 		ui.Text(f.Name+" is not in the script, kept on save", mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
 		ui.PopClip()
@@ -287,7 +287,7 @@ func (p *Panel) scriptProblems(name string) {
 	bg := th.Error
 	bg.A = 0.18
 	ui.Rect(r, bg)
-	widgets.IconAt(ui, mathx.Rect{X: r.X + 2, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "log.error", th.Error)
+	widgets.IconAt(ui, mathx.Rect{X: r.X + 2, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "log.error", th.Error)
 	ui.PushClip(r)
 	ui.Text(strconv.Itoa(n)+" error(s) in "+pkg+", the last good build runs", mathx.Vec2{X: r.X + 22, Y: ui.TextY(r)}, th.Error)
 	ui.PopClip()
@@ -302,15 +302,15 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 	ui := p.f.UI
 	short := shortScript(name)
 	if p.code() != nil {
-		if widgets.MenuItem(ui, "Edit Script", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Edit Script", "", "file.script", true, false) {
 			p.gotoScript(name, "")
 		}
-		if widgets.MenuItem(ui, "Find Usages", "", known, false) {
+		if widgets.MenuItemIcon(ui, "Find Usages", "", "ui.search", known, false) {
 			p.code().FindUsages(name, "")
 		}
 		widgets.Separator(ui)
 	}
-	if widgets.MenuItem(ui, "Reset", "", known, false) {
+	if widgets.MenuItemIcon(ui, "Reset", "", "ui.reset", known, false) {
 		reg := d.Scene().Registry()
 		tx := d.History.Begin("Reset " + short)
 		for i := range td.Fields {
@@ -323,7 +323,11 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 		}
 		tx.Commit()
 	}
-	if widgets.MenuItem(ui, "Remove", "", true, false) {
+	if known {
+		p.presetItems(d, td)
+		widgets.Separator(ui)
+	}
+	if widgets.MenuItemIcon(ui, "Remove", "", "edit.delete", true, false) {
 		tx := d.History.Begin("Remove " + short)
 		for _, n := range p.nodes {
 			if err := tx.Exec(&commands.RemoveScript{Node: n, TypeName: name}); err != nil {
@@ -336,18 +340,18 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 	}
 	widgets.Separator(ui)
 	single := len(p.nodes) == 1
-	if widgets.MenuItem(ui, "Move Up", "", single && index > 0, false) {
+	if widgets.MenuItemIcon(ui, "Move Up", "", "ui.move_up", single && index > 0, false) {
 		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index - 1}); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		}
 	}
-	if widgets.MenuItem(ui, "Move Down", "", single && index < count-1, false) {
+	if widgets.MenuItemIcon(ui, "Move Down", "", "ui.move_down", single && index < count-1, false) {
 		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index + 1}); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		}
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Show Script Files", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Show Script Files", "", "file.reveal", true, false) {
 		p.d.Nav.Open(context.AssetAt(p.d.Assets.ScriptDir(name)))
 	}
 }

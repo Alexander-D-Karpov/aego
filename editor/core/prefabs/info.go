@@ -241,8 +241,23 @@ func (s *Service) Targets(d *document.SceneDocument, node ids.NodeID) []Target {
 	}
 	for c := sc.Handle(node); !c.IsZero() && c != root; c = sc.Parent(c) {
 		if pi, ok := sceneio.InstanceOf(sc, c); ok && pi.Nested {
-			return append([]Target{{Name: s.stem(pi.Prefab), Nearest: true}}, out...)
+			name := s.stem(pi.Prefab)
+			if id, ok := s.nearestOf(d, node); ok {
+				if id == info.Prefab {
+					return out
+				}
+				name = s.stem(id)
+			}
+			return append([]Target{{Name: name, Nearest: true}}, out...)
 		}
 	}
 	return out
+}
+
+func (s *Service) nearestOf(d *document.SceneDocument, node ids.NodeID) (ids.AssetID, bool) {
+	_, pi, key, err := s.locate(d, Change{Node: node})
+	if err != nil {
+		return ids.AssetID{}, false
+	}
+	return newBaker(s.lib()).Nearest(pi.Prefab, key)
 }

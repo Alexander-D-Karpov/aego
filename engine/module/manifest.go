@@ -218,6 +218,9 @@ func (r *Registry) checkTemplates(icons map[string]bool) {
 			r.report(t.Owner, "template "+t.ID+" needs Setup func(*scene.Scene, scene.NodeHandle)")
 		}
 		r.useIcon(icons, t.Owner, t.Icon, "template "+t.ID)
+		if t.Menu != "" {
+			r.markIcon(t.Owner, "cat."+t.Owner, "template menu "+t.Menu)
+		}
 	}
 }
 

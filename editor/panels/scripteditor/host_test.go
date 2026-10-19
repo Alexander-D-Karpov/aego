@@ -32,3 +32,13 @@ func TestFindInScriptsShortcutIsUnique(t *testing.T) {
 		t.Fatalf("%d commands share %s", n, want.Shortcut.String())
 	}
 }
+
+func TestTabTitleAddsFolderOnCollision(t *testing.T) {
+	h := &Host{panels: map[string]*Panel{"scripts/player/move.aes": nil, "scripts/enemy/move.aes": nil, "scripts/ui/menu.aes": nil}}
+	if got := h.tabTitle("scripts/player/move.aes"); got != "move — player" {
+		t.Fatalf("collision title = %q", got)
+	}
+	if got := h.tabTitle("scripts/ui/menu.aes"); got != "menu" {
+		t.Fatalf("plain title = %q", got)
+	}
+}

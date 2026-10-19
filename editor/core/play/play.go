@@ -53,51 +53,53 @@ type Stats struct {
 }
 
 type Controller struct {
-	ctx       *context.Editor
-	state     State
-	world     *engine.World
-	runner    *frame.Runner
-	scene     *scene.Scene
-	doc       document.ID
-	scale     float64
-	input     input.State
-	captured  bool
-	origin    mathx.Vec2
-	size      mathx.Vec2
-	stats     Stats
-	proxy     *document.SceneDocument
-	subs      []stateSub
-	nextSub   uint64
-	detach    func()
-	unrec     func()
-	breakFn   func() (string, bool)
-	breakWhy  string
-	release   func(*input.State) bool
-	hint      func() string
-	hist      *recording
-	limit     int
-	cursor    int
-	beyond    bool
-	replaying bool
-	stepReq   uint8
-	seed      uint64
-	blocked   string
-	assetRev  uint64
-	editUnsub func()
-	breaks    int32
-	broke     int32
-	kf        []rewind.Keyframer
-	kfOff     string
-	keys      []*snapshot
-	spare     []*snapshot
-	keyBytes  int
-	keyEvery  uint64
-	lastTick  uint64
-	floor     int
-	rebase    bool
-	replayed  int
-	keyTime   time.Duration
-	hasher    *rewind.Hasher
+	beforeStop func()
+	ctx        *context.Editor
+	state      State
+	world      *engine.World
+	runner     *frame.Runner
+	scene      *scene.Scene
+	doc        document.ID
+	scale      float64
+	input      input.State
+	captured   bool
+	origin     mathx.Vec2
+	size       mathx.Vec2
+	stats      Stats
+	proxy      *document.SceneDocument
+	subs       []stateSub
+	nextSub    uint64
+	detach     func()
+	unrec      func()
+	breakFn    func() (string, bool)
+	breakWhy   string
+	release    func(*input.State) bool
+	hint       func() string
+	hist       *recording
+	limit      int
+	cursor     int
+	beyond     bool
+	replaying  bool
+	stepReq    uint8
+	seed       uint64
+	blocked    string
+	assetRev   uint64
+	editUnsub  func()
+	breaks     int32
+	broke      int32
+	kf         []rewind.Keyframer
+	kfOff      string
+	keys       []*snapshot
+	spare      []*snapshot
+	keyBytes   int
+	keyEvery   uint64
+	lastTick   uint64
+	floor      int
+	rebase     bool
+	replayed   int
+	keyTime    time.Duration
+	held       bool
+	hasher     *rewind.Hasher
 }
 
 func New(ctx *context.Editor) *Controller {
@@ -304,7 +306,14 @@ func (c *Controller) LoadScene(id ids.AssetID) error {
 	if err != nil {
 		return err
 	}
-	return c.Start(d)
+	held := c.held
+	if err := c.Start(d); err != nil {
+		return err
+	}
+	if held {
+		c.Pause()
+	}
+	return nil
 }
 
 func (c *Controller) StartProject() error {
@@ -358,7 +367,7 @@ func (c *Controller) start(data []byte, name string) error {
 		}
 		c.detach = detach
 	}
-	c.state = Playing
+	c.state, c.held = Playing, false
 	return nil
 }
 
@@ -386,7 +395,8 @@ func (c *Controller) Pause() {
 	default:
 		return
 	}
-	c.world.Time.SetPaused(c.state == Paused)
+	c.held = c.state == Paused
+	c.world.Time.SetPaused(c.held)
 	c.notify()
 }
 
@@ -404,9 +414,16 @@ func (c *Controller) StepFixed() {
 	}
 }
 
+func (c *Controller) SetBeforeStop(fn func()) {
+	c.beforeStop = fn
+}
+
 func (c *Controller) Stop() {
 	if c.state == Stopped {
 		return
+	}
+	if c.beforeStop != nil {
+		c.beforeStop()
 	}
 	if real := c.ctx.Docs.Get(c.doc); real != nil && c.proxy != nil {
 		real.View.Camera = c.proxy.View.Camera
@@ -416,7 +433,7 @@ func (c *Controller) Stop() {
 	c.teardown()
 	c.ctx.Docs.ClearPlay()
 	c.proxy = nil
-	c.state = Stopped
+	c.state, c.held = Stopped, false
 	c.dropKeys(-1)
 	c.kf, c.kfOff, c.spare, c.floor, c.rebase = c.kf[:0], "", nil, 0, false
 	c.world, c.runner, c.scene = nil, nil, nil
@@ -562,7 +579,10 @@ func (c *Controller) Tick(dt float64) {
 	c.syncInput()
 	c.applyRebase()
 	h := c.hist
-	if h != nil && c.cursor < len(h.frames) && c.state == Paused && c.stepReq == stepNone {
+	if c.stepReq == stepNone && (c.held || (h != nil && c.cursor < len(h.frames) && c.state == Paused)) {
+		if f, ok := engine.ServiceOf[persistence.Flusher](c.world, persistence.ServiceID); ok {
+			f.Flush()
+		}
 		return
 	}
 	w := c.world
@@ -590,7 +610,11 @@ func (c *Controller) Tick(dt float64) {
 	if c.scene != nil {
 		c.stats.Nodes = c.scene.Stats().Alive - 1
 	}
+	if c.broke > 0 {
+		c.held = true
+	}
 	if paused := t.Paused(); paused != (c.state == Paused) {
+		c.held = c.held && paused
 		c.state = Playing
 		if paused {
 			c.state = Paused

@@ -41,7 +41,10 @@ type Service struct {
 	vals      []persistence.ScriptValue
 }
 
-var _ persistence.Service = (*Service)(nil)
+var (
+	_ persistence.Service = (*Service)(nil)
+	_ persistence.Flusher = (*Service)(nil)
+)
 
 func NewService(m *Module, w *engine.World, s *scene.Scene) *Service {
 	svc := &Service{
@@ -172,6 +175,10 @@ func (s *Service) Step(dt, real float64) {
 			s.reqs = append(s.reqs, request{kind: reqSave, slot: SlotAutosave})
 		}
 	}
+	s.Flush()
+}
+
+func (s *Service) Flush() {
 	if len(s.reqs) == 0 {
 		return
 	}
@@ -205,6 +212,9 @@ func (s *Service) write(slot string) {
 }
 
 func (s *Service) read(slot string) {
+	if s.world.Replaying() {
+		return
+	}
 	st, host := s.m.store(), s.host()
 	switch {
 	case st == nil:

@@ -105,7 +105,7 @@ func (a *App) scalePopup(id core.ID) {
 		}
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Custom…", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Custom…", "", "play.speed", true, false) {
 		a.askTimeScale()
 	}
 	ui.EndPopup()

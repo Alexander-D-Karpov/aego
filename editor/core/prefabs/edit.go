@@ -262,10 +262,8 @@ func (s *Service) Apply(d *document.SceneDocument, c Change) error {
 	}
 	target := s.stem(pi.Prefab)
 	if c.Nearest {
-		for id := range b.edits {
-			if id != pi.Prefab {
-				target = s.stem(id)
-			}
+		if id, ok := b.Nearest(pi.Prefab, key); ok {
+			target = s.stem(id)
 		}
 	}
 	return s.commit("Apply to "+target, files, src)

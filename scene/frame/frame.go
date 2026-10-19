@@ -43,6 +43,7 @@ func (b *Bucket) reset() {
 }
 
 type Runner struct {
+	hidden   func(scene.NodeHandle) bool
 	scene    *scene.Scene
 	render   *render.Renderer
 	res      asset.Resolver
@@ -464,3 +465,11 @@ func (present) Run(ctx *engine.Context) {
 type anchor struct{}
 
 func (anchor) Run(*engine.Context) {}
+
+func (r *Runner) SetHidden(fn func(scene.NodeHandle) bool) {
+	r.hidden = fn
+}
+
+func (r *Runner) Hidden(h scene.NodeHandle) bool {
+	return r.hidden != nil && r.hidden(h)
+}

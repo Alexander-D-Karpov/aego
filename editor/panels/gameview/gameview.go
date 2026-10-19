@@ -1,8 +1,6 @@
 package gameview
 
 import (
-	"strconv"
-
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
@@ -30,17 +28,14 @@ type Panel struct {
 	hook      func()
 	rect      mathx.Rect
 	bar       mathx.Rect
-	tbar      mathx.Rect
-	dragging  bool
-	dragTo    int
-	seekErr   string
+	tl        *TimelineBar
 	scale     float32
 	hasCamera bool
 	pending   bool
 }
 
 func New(c *play.Controller, vp *services.Viewport) *Panel {
-	return &Panel{play: c, vp: vp, hasCamera: true}
+	return &Panel{play: c, vp: vp, hasCamera: true, tl: NewTimelineBar(c)}
 }
 
 func Register(cmds *command.Registry, o *context.Overlays) error {
@@ -103,19 +98,21 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.vp.OnRender(p.hook)
 
 	if p.play.State() == play.Stopped {
-		p.bar, p.tbar, p.dragging = mathx.Rect{}, mathx.Rect{}, false
+		p.bar = mathx.Rect{}
+		p.tl.Reset()
 		ui.TextIn(r, "Press Play (Ctrl+P)", th.TextDim, core.AlignCenter)
 		return
 	}
 	id := ui.ID("view")
 	origin := mathx.Vec2{X: r.X, Y: r.Y}
-	p.bar, p.tbar = mathx.Rect{}, mathx.Rect{}
+	p.bar = mathx.Rect{}
+	p.tl.Clear()
 	if !p.play.Captured() {
 		p.toolbar(ui, r)
-		p.timeline(ui, r)
+		p.tl.Draw(ui, r)
 	}
 	m := ui.Mouse()
-	onBar := p.bar.Contains(m) || p.tbar.Contains(m) || p.dragging
+	onBar := p.bar.Contains(m) || p.tl.Holds(m)
 	switch {
 	case p.play.Captured():
 		p.play.SetCapture(true, origin, mathx.Vec2{X: r.W, Y: r.H})
@@ -139,77 +136,6 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		hud(ui, r)
 	}
 	widgets.Tooltip(ui, id, "Click to send input to the game")
-}
-
-func megabytes(b int) string {
-	return strconv.FormatFloat(float64(b)/(1<<20), 'f', 1, 64) + " MB"
-}
-
-func (p *Panel) timeline(ui *core.Context, r mathx.Rect) {
-	tl := p.play.Timeline()
-	if tl.Frames == 0 && tl.Blocked == "" {
-		return
-	}
-	th := &ui.Theme
-	bar := mathx.Rect{X: r.X + 6, Y: r.Y + r.H - th.BarHeight - 6, W: max(0, r.W-12), H: th.BarHeight}
-	p.tbar = bar
-	ui.PushClip(r)
-	defer ui.PopClip()
-	ui.Rect(bar, th.PanelAlt)
-	ui.Outline(bar, th.BarBorder)
-	if tl.Blocked != "" {
-		ui.TextIn(bar, tl.Blocked, th.TextDim, core.AlignCenter)
-		return
-	}
-	label := "tick " + strconv.FormatUint(tl.Tick, 10) + " · " + strconv.Itoa(tl.Cursor) + "/" + strconv.Itoa(tl.Frames)
-	switch {
-	case p.seekErr != "":
-		label = p.seekErr
-	case tl.Why != "":
-		label += " · history ends: " + tl.Why
-	}
-	if p.seekErr == "" {
-		switch {
-		case tl.KeysOff != "":
-			label += " · keyframes off: " + tl.KeysOff
-		case tl.Keys > 0:
-			label += " · " + strconv.Itoa(tl.Keys) + " keys, " + megabytes(tl.KeyBytes) + ", last " + megabytes(tl.LastKey) +
-				" in " + strconv.FormatFloat(float64(tl.KeyTime.Microseconds())/1000, 'f', 2, 64) + " ms"
-		}
-	}
-	lw := min(ui.TextSize(label).X+12, bar.W*0.5)
-	track := mathx.Rect{X: bar.X + 8, Y: bar.Y + bar.H/2 - 3, W: max(1, bar.W-lw-20), H: 6}
-	total := max(tl.Frames, 1)
-	xAt := func(n int) float32 { return track.X + track.W*float32(n)/float32(total) }
-	frameAt := func(x float32) int {
-		return int(mathx.Clamp((x-track.X)/track.W, 0, 1)*float32(total) + 0.5)
-	}
-	ui.Rect(track, th.Widget)
-	lo := xAt(tl.Floor)
-	ui.Rect(mathx.Rect{X: lo, Y: track.Y, W: max(0, xAt(tl.Usable)-lo), H: track.H}, th.AccentDim)
-	id := ui.ID("timeline")
-	hit := mathx.Rect{X: track.X - 4, Y: bar.Y, W: track.W + 8, H: bar.H}
-	if ui.Pressed(id, hit) {
-		p.dragging, p.seekErr = true, ""
-	}
-	cur := tl.Cursor
-	if tl.Beyond {
-		cur = tl.Frames
-	}
-	if p.dragging {
-		p.dragTo = min(max(frameAt(ui.Mouse().X), tl.Floor), tl.Usable)
-		cur = p.dragTo
-		if !ui.MouseDown(input.MouseLeft) {
-			p.dragging = false
-			if err := p.play.Seek(p.dragTo); err != nil {
-				p.seekErr = err.Error()
-			}
-		}
-	}
-	hx := xAt(cur)
-	ui.Rect(mathx.Rect{X: hx - 2, Y: bar.Y + 3, W: 4, H: bar.H - 6}, th.Accent)
-	ui.TextIn(mathx.Rect{X: track.X + track.W + 8, Y: bar.Y, W: lw, H: bar.H}, label, th.TextDim, core.AlignLeft)
-	widgets.Tooltip(ui, id, "Drag to rewind the game; Ctrl+Left and Ctrl+Right step one frame")
 }
 
 func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {

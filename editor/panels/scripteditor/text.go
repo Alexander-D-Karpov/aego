@@ -100,34 +100,7 @@ func semKind(k langsvc.TokenKind) highlight.Kind {
 }
 
 func palette(th *core.Theme) [highlight.KindCount]mathx.Color {
-	t := &th.Code
-	var p [highlight.KindCount]mathx.Color
-	p[highlight.Plain] = t.Plain
-	p[highlight.Keyword] = t.Keyword
-	p[highlight.Number] = t.Number
-	p[highlight.String] = t.String
-	p[highlight.Comment] = t.Comment
-	p[highlight.Operator] = t.Operator
-	p[highlight.Punctuation] = t.Punctuation
-	p[highlight.Bracket] = t.Punctuation
-	p[highlight.Attribute] = t.Attribute
-	p[highlight.Namespace] = t.Namespace
-	p[highlight.Type] = t.Type
-	p[highlight.BuiltinType] = t.BuiltinType
-	p[highlight.Function] = t.Function
-	p[highlight.Method] = t.Method
-	p[highlight.Param] = t.Param
-	p[highlight.Variable] = t.Local
-	p[highlight.Field] = t.Field
-	p[highlight.Property] = t.Property
-	p[highlight.Constant] = t.Const
-	p[highlight.EnumMember] = t.EnumMember
-	p[highlight.Builtin] = t.Builtin
-	p[highlight.Script] = t.Script
-	p[highlight.Error] = t.Error
-	p[highlight.Signal] = t.Signal
-	p[highlight.Coroutine] = t.Coroutine
-	return p
+	return highlight.Palette(&th.Code)
 }
 
 func hashBytes(b []byte) uint64 {
@@ -612,7 +585,7 @@ func (p *Panel) drawText(ui *core.Context, area mathx.Rect) {
 	gw := numEnd - area.X + ct.Gutter.NumberPad*charW
 	p.pad = ct.Gutter.CodePad * charW
 	mw := float32(0)
-	if p.host.Minimap && area.W-gw > mapMinW {
+	if p.host.Minimap && !p.inZen() && area.W-gw > mapMinW {
 		mw = mapWidth
 	}
 	txt := mathx.Rect{X: area.X + gw, Y: area.Y, W: max(0, area.W-gw-mw), H: area.H}

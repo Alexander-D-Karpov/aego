@@ -71,6 +71,7 @@ type popup struct {
 	shadow int
 	need   float32
 	cur    float32
+	probe  bool
 }
 
 type Mark struct {
@@ -834,7 +835,8 @@ func (c *Context) BeginPopup(id ID, w float32) bool {
 		}
 	}
 	h := p.h
-	if h <= 0 {
+	p.probe = h <= 0
+	if p.probe {
 		h = min(float32(400), c.size.Y)
 	}
 	r := mathx.Rect{X: p.at.X, Y: p.at.Y, W: w, H: h}
@@ -856,6 +858,9 @@ func (c *Context) BeginPopup(id ID, w float32) bool {
 	c.BeginOverlay(r, layer)
 	p.bg = c.list.ReserveBox()
 	c.Region(r)
+	if p.probe {
+		c.PushClip(mathx.Rect{X: r.X, Y: r.Y})
+	}
 	c.popupStack = append(c.popupStack, i)
 	return true
 }
@@ -876,6 +881,10 @@ func (c *Context) EndPopup() {
 		p.h = bottom - p.rect.Y + th.Padding - th.Spacing
 		r := p.rect
 		r.H = min(p.h, r.H)
+		if p.probe {
+			c.PopClip()
+			r = mathx.Rect{X: r.X, Y: r.Y}
+		}
 		c.list.PatchShadow(p.shadow, r, th.Radius.Popup, th.ShadowBlur, th.ShadowY, th.Shadow)
 		c.list.PatchBox(p.bg, r, th.Radius.Popup, th.PanelAlt, th.Border)
 	}
@@ -916,6 +925,24 @@ func (c *Context) MonoFont() *text.Font {
 		return c.monoFont
 	}
 	return c.font
+}
+
+func (c *Context) FontAt(px float32) *text.Font {
+	if c.fonts != nil {
+		if f := c.fonts.Closest(px, c.scale); f != nil {
+			return f
+		}
+	}
+	return c.font
+}
+
+func (c *Context) MonoFontAt(px float32) *text.Font {
+	if c.mono != nil {
+		if f := c.mono.Closest(px, c.scale); f != nil {
+			return f
+		}
+	}
+	return c.MonoFont()
 }
 
 func (c *Context) PushFont(f *text.Font) {

@@ -33,6 +33,8 @@ type Doc struct {
 type Editor struct {
 	Docs            []Doc
 	Active          string
+	Workspace       string
+	PlayDiff        string
 	Tool            int
 	Grid            bool
 	Snap            bool
@@ -51,7 +53,7 @@ type Editor struct {
 }
 
 func Default() *Editor {
-	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true, RainbowBrackets: true, HighlightBlock: true}
+	return &Editor{PlayDiff: "if-changes", Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true, RainbowBrackets: true, HighlightBlock: true}
 }
 
 func userPath(root, name string) string {
@@ -132,6 +134,8 @@ func Encode(s *Editor) []byte {
 	root.Attrs = append(root.Attrs, aetext.Field{Name: "version", Value: aetext.Int(Version)})
 	root.Fields = append(root.Fields,
 		aetext.Field{Name: "active", Value: aetext.String(s.Active)},
+		aetext.Field{Name: "workspace", Value: aetext.String(s.Workspace)},
+		aetext.Field{Name: "play_diff", Value: aetext.String(s.PlayDiff)},
 		aetext.Field{Name: "tool", Value: aetext.Int(int64(s.Tool))},
 		aetext.Field{Name: "grid", Value: aetext.Bool(s.Grid)},
 		aetext.Field{Name: "snap", Value: aetext.Bool(s.Snap)},
@@ -192,6 +196,12 @@ func Decode(data []byte, name string) (*Editor, error) {
 	s := Default()
 	if v, ok := doc.Field("active"); ok {
 		s.Active = v.Str
+	}
+	if v, ok := doc.Field("workspace"); ok {
+		s.Workspace = v.Str
+	}
+	if v, ok := doc.Field("play_diff"); ok && v.Str != "" {
+		s.PlayDiff = v.Str
 	}
 	if v, ok := doc.Field("tool"); ok {
 		s.Tool = int(v.AsInt())

@@ -93,7 +93,7 @@ func (p *Panel) drawData(r mathx.Rect, id ids.AssetID) {
 	ui.PopID()
 	p.content = cur.Y + p.scroll - top
 	if widgets.ContextMenu(ui, p.dataMenuID) {
-		if widgets.MenuItem(ui, "Revert to Base", "", p.dataMenu != "", false) {
+		if widgets.MenuItemIcon(ui, "Reset to Base Value", "", "ui.reset", p.dataMenu != "", false) {
 			p.report(doc.Revert(p.dataMenu))
 		}
 		widgets.EndContextMenu(ui)
@@ -136,7 +136,7 @@ func (p *Panel) dataIssue(s string) {
 	ui := p.f.UI
 	th := &ui.Theme
 	r := ui.Cursor().Next(0)
-	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "status.warning", th.Warn)
+	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 	ui.PushClip(r)
 	ui.Text(s, mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
 	ui.PopClip()

@@ -131,6 +131,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 			delete(p.live, key)
 		}
 	}
+	tip := fd.Hints.Tooltip
+	if mixed {
+		tip = p.mixedTip(d, td, fd, tip)
+	}
 	cur := ui.Cursor()
 	rowTop := cur.Y
 	pre := mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: ui.Theme.RowHeight}
@@ -142,10 +146,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 	var e widgets.Edit
 	var row mathx.Rect
 	if at != nil {
-		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro, at[0], at[1])
+		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(fd), tip, ro, at[0], at[1])
 		row = pre
 	} else {
-		e = p.value(d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro)
+		e = p.value(d, fd, &v, mixed, p.labelOf(fd), tip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
 	}
 	if p.overridden(td, fd) {

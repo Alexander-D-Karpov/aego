@@ -2,7 +2,6 @@ package shell
 
 import (
 	"path"
-	"path/filepath"
 	"time"
 
 	"aego/asset"
@@ -13,42 +12,56 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/assetfiles"
+	"aego/editor/core/assetops"
 	edclip "aego/editor/core/clipboard"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
+	"aego/editor/core/favorites"
 	"aego/editor/core/fieldgizmo"
 	"aego/editor/core/gizmo"
 	"aego/editor/core/play"
+	pd "aego/editor/core/playdiff"
 	"aego/editor/core/prefabs"
+	"aego/editor/core/presets"
+	"aego/editor/core/preview"
+	"aego/editor/core/refs"
 	"aego/editor/core/sceneops"
 	"aego/editor/core/selection"
 	"aego/editor/core/services"
 	"aego/editor/core/session"
 	"aego/editor/core/shape"
+	"aego/editor/core/tasks"
 	"aego/editor/core/templates"
+	"aego/editor/core/vcs"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
 	"aego/editor/panels/assets"
+	"aego/editor/panels/batchrename"
 	"aego/editor/panels/console"
 	"aego/editor/panels/crashes"
 	"aego/editor/panels/datatable"
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/events"
 	"aego/editor/panels/gameview"
+	"aego/editor/panels/health"
 	"aego/editor/panels/help"
 	"aego/editor/panels/hierarchy"
 	"aego/editor/panels/inspector"
+	playdiffpanel "aego/editor/panels/playdiff"
 	eproblems "aego/editor/panels/problems"
 	"aego/editor/panels/profiler"
 	"aego/editor/panels/projectsettings"
+	"aego/editor/panels/references"
 	"aego/editor/panels/saves"
 	"aego/editor/panels/sceneview"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/search"
+	"aego/editor/panels/taskcenter"
+	"aego/editor/panels/vcsdiff"
 	"aego/editor/panels/watch"
 	"aego/editor/panels/welcome"
 	"aego/engine"
@@ -128,7 +141,22 @@ type App struct {
 	hierarchy      *hierarchy.Panel
 	sceneView      *sceneview.Panel
 	assetsPanel    *assets.Panel
-	thumbs         *assets.Thumbs
+	thumbs         *preview.Service
+	presets        *presets.Service
+	favs           *favorites.Store
+	refs           *refs.Service
+	refsPanel      *references.Panel
+	missing        *references.Missing
+	renameDlg      *batchrename.Dialog
+	diffPanel      *vcsdiff.Panel
+	healthP        *health.Panel
+	taskPanel      *taskcenter.Panel
+	playDiff       *playdiffpanel.Dialog
+	diffMode       pd.Mode
+	diffPending    bool
+	diffDoc        document.ID
+	diffRes        pd.Result
+	tasks          *tasks.Queue
 	files          *assetfiles.Files
 	prefabs        *prefabs.Service
 	gameView       *gameview.Panel
@@ -163,6 +191,7 @@ type App struct {
 	wasPlaying     bool
 	pulse          pulse
 	playRect       mathx.Rect
+	full           bool
 	scriptLog      *log.ChannelLogger
 	problemRev     uint64
 	clip           *clipboard
@@ -308,6 +337,7 @@ func (a *App) Init(e *engine.Engine) error {
 		return err
 	}
 	a.play = play.New(a.ctx)
+	a.play.SetBeforeStop(a.beforeStop)
 	a.ctx.Play = a.play
 	a.play.Subscribe(func(st play.State) {
 		if st == play.Stopped {
@@ -335,31 +365,81 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ctx.Selection.Subscribe(a.data.Clear)
 	a.tablePanel = datatable.New(datatable.Deps{Data: a.data, Notices: a.ctx})
 	a.templates.SetPrefabs(a.prefabs)
-	a.thumbs = assets.NewThumbs(assets.ThumbDeps{
-		Pipeline: a.opt.Pipeline,
-		Renderer: r,
-		GPU:      e.GPU(),
-		Dir:      filepath.Join(p.CacheDir(), "thumbnails"),
-		Submit:   func(fn func()) { e.Jobs().Submit(fn) },
-		OnMain:   func(fn func()) { e.Jobs().OnMain(fn) },
+	a.tasks = tasks.New(tasks.Deps{
+		Submit: func(fn func()) { e.Jobs().Submit(fn) },
+		OnMain: func(fn func()) { e.Jobs().OnMain(fn) },
+		Budget: 4 * time.Millisecond,
+	})
+	a.thumbs = preview.New(preview.Deps{
+		Engine:     e,
+		Pipeline:   a.opt.Pipeline,
+		Renderer:   r,
+		GPU:        e.GPU(),
+		Types:      a.opt.Types,
+		Resolver:   res,
+		Shapes:     a.shapes,
+		Tasks:      a.tasks,
+		CacheRoot:  p.CacheDir(),
+		Background: ui.Theme.Background,
+		Cover:      func() ids.AssetID { return a.opt.Project.MainScene },
+		Reference: func() mathx.Vec2 {
+			w := a.opt.Project.Window
+			return mathx.Vec2{X: float32(w.Width), Y: float32(w.Height)}
+		},
 	})
 	a.ctx.Thumbs = a.thumbs
 	sops := sceneops.New(a.ctx, a.files.History())
+	a.refs = refs.New(a.ctx)
+	a.refs.Prefabs = a.prefabs
+	rd := references.Deps{
+		Refs: a.refs, Pipeline: a.opt.Pipeline, Docs: a.ctx, Selection: a.ctx, Nav: a.ctx, Notices: a.ctx, Tasks: a.tasks,
+		Delete:        func(list []ids.AssetID) { a.assetsPanel.DeleteNow(list) },
+		Show:          func(id ids.AssetID) { a.showReferences(id, nil) },
+		ShowHierarchy: func() { a.ws.Show(workspace.Hierarchy) },
+	}
+	a.refsPanel = references.New(rd)
+	a.missing = references.NewMissing(rd)
+	a.renameDlg = batchrename.New(batchrename.Deps{
+		Pipeline: a.opt.Pipeline,
+		Docs:     a.ctx,
+		Exists:   func(rel string) bool { return assetops.Exists(a.ctx, rel) },
+		Move:     a.moveAssets,
+		Notices:  a.ctx,
+	})
+	prov, _ := vcs.Detect(p.Root)
+	a.diffPanel = vcsdiff.New(vcsdiff.Deps{VCS: prov, Pipeline: a.opt.Pipeline, Docs: a.ctx, Selection: a.ctx, Notices: a.ctx, Tasks: a.tasks,
+		ShowHierarchy: func() { a.ws.Show(workspace.Hierarchy) }})
+	a.healthP = health.New(a.healthDeps())
+	a.taskPanel = taskcenter.New(a.tasks)
+	var compare func(string)
+	if prov != nil {
+		compare = a.compare
+	}
+	a.favs = favorites.Load(p.Root)
+	if err := a.favs.Err(); err != nil {
+		a.log.Warn("favorites are unreadable", log.F("err", err.Error()))
+	}
 	a.assetsPanel = assets.New(assets.Deps{
-		Schema:    a.opt.Types.Schema(),
-		Inspect:   func(id ids.AssetID) { a.data.Inspect(id) },
-		OpenTable: a.openTable,
-		Files:     a.files,
-		Pipeline:  a.opt.Pipeline,
-		Thumbs:    a.thumbs,
-		Docs:      a.ctx,
-		Selection: a.ctx,
-		Scenes:    sops,
-		Commands:  a.ctx.Commands,
-		Notices:   a.ctx,
-		Nav:       a.ctx,
-		Project:   p,
-		Prefabs:   a.prefabs,
+		Favorites:      a.favs,
+		Refs:           a.refs,
+		ShowReferences: a.showReferences,
+		BatchRename:    a.batchRenameAssets,
+		Compare:        compare,
+		Schema:         a.opt.Types.Schema(),
+		Inspect:        func(id ids.AssetID) { a.data.Inspect(id) },
+		OpenTable:      a.openTable,
+		DataType:       a.data.TypeOf,
+		Files:          a.files,
+		Pipeline:       a.opt.Pipeline,
+		Thumbs:         a.thumbs,
+		Docs:           a.ctx,
+		Selection:      a.ctx,
+		Scenes:         sops,
+		Commands:       a.ctx.Commands,
+		Notices:        a.ctx,
+		Nav:            a.ctx,
+		Project:        p,
+		Prefabs:        a.prefabs,
 	})
 	a.assetsPanel.Instantiate = a.instantiatePrefab
 	a.hierarchy = hierarchy.New(hierarchy.Deps{
@@ -385,6 +465,7 @@ func (a *App) Init(e *engine.Engine) error {
 		},
 	}
 	a.sceneView = sceneview.New(a.gizmos, sceneview.Deps{
+		Capture:   a.captureTexture,
 		Viewport:  a.viewport,
 		Resolver:  res,
 		Docs:      a.ctx,
@@ -459,7 +540,9 @@ func (a *App) Init(e *engine.Engine) error {
 		}
 		return a.watchPanel.Check()
 	})
+	a.presets = presets.New(a.ctx)
 	a.inspectorPanel = inspector.New(a.inspectors, inspector.Deps{
+		Presets:   a.presets,
 		Data:      a.data,
 		Schema:    a.opt.Types.Schema(),
 		Docs:      a.ctx,
@@ -520,7 +603,8 @@ func (a *App) Init(e *engine.Engine) error {
 		a.assetsPanel.Reveal(rel)
 	}
 	a.search = search.New(search.Deps{
-		Pipeline: a.opt.Pipeline,
+		Favorites: a.favs,
+		Pipeline:  a.opt.Pipeline,
 		Symbols: func() []context.SearchItem {
 			if a.ctx.Code == nil {
 				return nil
@@ -549,6 +633,25 @@ func (a *App) Init(e *engine.Engine) error {
 		return err
 	}
 	if err := a.registerHelp(); err != nil {
+		return err
+	}
+	if err := a.registerWorkspaces(); err != nil {
+		return err
+	}
+	if err := a.registerEditExtras(); err != nil {
+		return err
+	}
+	if err := a.registerCapture(); err != nil {
+		return err
+	}
+	if err := a.registerReferences(); err != nil {
+		return err
+	}
+	if err := a.registerAssetTools(); err != nil {
+		return err
+	}
+	a.playDiff = playdiffpanel.New(playdiffpanel.Deps{Docs: a.ctx, Notices: a.ctx})
+	if err := a.registerPlayDiff(); err != nil {
 		return err
 	}
 	a.ext = ext.New(ext.Deps{
@@ -601,6 +704,7 @@ func (a *App) Init(e *engine.Engine) error {
 		return err
 	}
 	a.describeCommands()
+	a.iconCommands()
 	a.ws.LoadLayout()
 
 	unlock, other, err := document.AcquireLock(p.Root)
@@ -698,37 +802,63 @@ func (a *App) Update(dt float64) {
 	}
 	a.profiler.Record(now, e.Stats(), rs, a.play.Stats(), sc, hasSc, a.play.State() != play.Stopped)
 	a.play.Tick(dt)
+	a.tickTasks()
+	a.showPlayDiff()
+	if a.full && !a.play.Captured() {
+		a.exitFull()
+	}
 	in := e.Input()
-	if !ui.ModalActive() && ui.Focus() == 0 && !a.ws.Dragging() && !a.ctx.DnD.Active() && !a.play.Captured() {
+	switch {
+	case ui.ModalActive() || a.playDiff.Active() || a.renameDlg.Active() || a.ws.Dragging() || a.ctx.DnD.Active() || a.play.Captured():
+	case ui.Focus() == 0:
 		a.ctx.Commands.Dispatch(in, a.ws.Scope(a.ws.Hovered()))
+	default:
+		a.globalKeys(in)
 	}
 	m := e.Metrics()
 	size := mathx.Vec2{X: float32(m.LogicalW), Y: float32(m.LogicalH)}
 	ui.Begin(in, size, m.Density())
 	a.ctx.FocusedPanel = a.ws.Focused()
 	th := &ui.Theme
-	bh := th.BarHeight
-	menuR := mathx.Rect{W: size.X, H: bh}
-	toolR := mathx.Rect{Y: bh, W: size.X, H: bh}
-	bottom := mathx.Rect{Y: size.Y - th.MenuHeight, W: size.X, H: th.MenuHeight}
-	body := mathx.Rect{Y: 2 * bh, W: size.X, H: max(0, size.Y-2*bh-bottom.H)}
-	ui.Rect(mathx.Rect{W: size.X, H: size.Y}, th.Background)
-	a.ws.Draw(services.Frame{UI: ui, DnD: a.ctx.DnD, Now: now}, body)
-	if a.play.State() != play.Stopped {
-		l := ui.List()
-		l.PushLayer(draw.LayerTop)
-		l.RectOutline(body, th.PlayTint, 2)
-		l.PopLayer()
+	full := mathx.Rect{W: size.X, H: size.Y}
+	ui.Rect(full, th.Background)
+	frame := services.Frame{UI: ui, DnD: a.ctx.DnD, Now: now}
+	if a.full {
+		frame.Focused = true
+		ui.Region(full)
+		a.gameView.Draw(&frame, full)
+		ui.PopCursor()
+	} else {
+		bh := th.BarHeight
+		tool := float32(0)
+		if a.ws.Toolbar() {
+			tool = bh
+		}
+		menuR := mathx.Rect{W: size.X, H: bh}
+		toolR := mathx.Rect{Y: bh, W: size.X, H: tool}
+		bottom := mathx.Rect{Y: size.Y - th.MenuHeight, W: size.X, H: th.MenuHeight}
+		body := mathx.Rect{Y: bh + tool, W: size.X, H: max(0, size.Y-bh-tool-bottom.H)}
+		a.ws.Draw(frame, body)
+		if a.play.State() != play.Stopped {
+			l := ui.List()
+			l.PushLayer(draw.LayerTop)
+			l.RectOutline(body, th.PlayTint, 2)
+			l.PopLayer()
+		}
+		a.drawScriptsBanner(body)
+		a.drawStatus(bottom)
+		if tool > 0 {
+			a.drawToolbar(toolR)
+		}
+		a.drawMenuBar(menuR)
+		a.drawPulse()
 	}
-	a.drawScriptsBanner(body)
-	a.drawStatus(bottom)
-	a.drawToolbar(toolR)
-	a.drawMenuBar(menuR)
-	a.drawPulse()
 	for _, q := range a.ctx.TakeQuestions() {
 		a.modals = append(a.modals, modal{kind: modalAsk, ask: q, vals: append([]string(nil), q.Values...), focus: true})
 	}
 	a.drawSearch()
+	a.playDiff.Draw(ui)
+	a.renameDlg.Draw(ui)
 	a.drawScenePicker()
 	a.drawModals()
 	a.ctx.DnD.Frame(ui)
@@ -759,13 +889,29 @@ func (a *App) Render(float64) {
 	f.End()
 }
 
+func (a *App) tickTasks() {
+	a.thumbs.Begin()
+	a.tasks.Tick()
+	if a.tasks.WantsRender() {
+		a.ctx.OnRender(a.tasks.Render)
+	}
+}
+
+func (a *App) Previews() *preview.Service {
+	return a.thumbs
+}
+
+func (a *App) Tasks() *tasks.Queue {
+	return a.tasks
+}
+
 func (a *App) idle() bool {
 	now := a.eng.Platform().Now()
 	return a.play.State() == play.Stopped &&
 		now-a.lastInput > 1 &&
 		!a.ctx.DnD.Active() &&
 		!a.ws.Dragging() &&
-		!a.thumbs.Busy() &&
+		!a.tasks.Busy() &&
 		a.ui.Captured() == 0 &&
 		len(a.modals) == 0
 }
@@ -797,6 +943,7 @@ func (a *App) Shutdown() {
 	}
 	a.sceneView.Close()
 	a.gameView.Close()
+	a.tasks.CancelAll()
 	a.thumbs.Close()
 	if a.unlock != nil {
 		a.unlock()

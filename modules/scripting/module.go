@@ -33,7 +33,7 @@ func (m Module) Register(r *module.Registry) error {
 	if err := module.Component[scriptcomp.ScriptComponent](r, scriptcomp.Options()...).
 		Category("Scripts").
 		Display("Scripts").
-		Icon("cat.scripts").
+		Icon("comp.script").
 		NodeIcon(20).
 		ScriptNone().
 		Err(); err != nil {

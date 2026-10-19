@@ -69,6 +69,8 @@ type dragState struct {
 
 type Tree struct {
 	Title   func(panel string) string
+	Icon    func(panel string) string
+	Dirty   func(panel string) bool
 	OnClose func(panel string) bool
 	MinSize float32
 	nodes   map[NodeID]*Node
@@ -81,6 +83,8 @@ type Tree struct {
 	drag    dragState
 	menu    menuState
 	changed bool
+	max     string
+	maxRect mathx.Rect
 }
 
 func newTree() *Tree {
@@ -401,6 +405,12 @@ func (t *Tree) content(n *Node) mathx.Rect {
 }
 
 func (t *Tree) PanelRect(panel string) (mathx.Rect, bool) {
+	if m := t.Maximized(); m != "" {
+		if panel == m {
+			return t.maxRect, true
+		}
+		return mathx.Rect{}, false
+	}
 	if i := t.floatIndex(panel); i >= 0 {
 		return t.floatContent(i), true
 	}
@@ -415,6 +425,12 @@ func (t *Tree) PanelRect(panel string) (mathx.Rect, bool) {
 }
 
 func (t *Tree) PanelAt(p mathx.Vec2) (string, bool) {
+	if m := t.Maximized(); m != "" {
+		if t.maxRect.Contains(p) {
+			return m, true
+		}
+		return "", false
+	}
 	for i := len(t.floats) - 1; i >= 0; i-- {
 		if t.floats[i].Rect.Contains(p) {
 			if t.floatContent(i).Contains(p) {
@@ -454,6 +470,11 @@ func (t *Tree) Draw(ui *core.Context, r mathx.Rect, fn func(panel string, r math
 		t.gap = th.SplitterW
 	}
 	t.bounds = r
+	if p := t.Maximized(); p != "" {
+		t.drawMax(ui, r, p, fn)
+		t.drawMenu(ui)
+		return
+	}
 	t.Layout(r)
 	t.drawNode(ui, t.root, fn)
 	t.drawFloats(ui, fn)
@@ -516,16 +537,18 @@ func (t *Tree) drawTabs(ui *core.Context, n *Node, fn func(string, mathx.Rect)) 
 	ui.PushClip(bar)
 	x := bar.X
 	for i, p := range n.Tabs {
-		title := t.title(p)
-		w := ui.TextSize(title).X + 2*th.Padding + 8
-		tr := mathx.Rect{X: x, Y: bar.Y, W: w, H: bar.H}
+		tr := mathx.Rect{X: x, Y: bar.Y, W: t.tabWidth(ui, p), H: bar.H}
 		id := tabID(p)
 		if ui.Pressed(id, tr) {
 			if n.Active != i {
 				n.Active = i
 				t.changed = true
 			}
-			t.drag = dragState{panel: p, from: n.ID, start: ui.Mouse(), id: id, pending: true}
+			if ui.DoubleClicked(id) {
+				t.ToggleMaximize(p)
+			} else {
+				t.drag = dragState{panel: p, from: n.ID, start: ui.Mouse(), id: id, pending: true}
+			}
 		}
 		if ui.RightClicked(id, tr) {
 			t.openMenu(ui, p, false)
@@ -543,8 +566,8 @@ func (t *Tree) drawTabs(ui *core.Context, n *Node, fn func(string, mathx.Rect)) 
 			ui.Rect(mathx.Rect{X: tr.X, Y: tr.Y + tr.H - 2, W: tr.W, H: 2}, th.Accent)
 			textCol = th.Text
 		}
-		ui.Text(title, mathx.Vec2{X: tr.X + th.Padding + 4, Y: ui.TextY(tr)}, textCol)
-		x += w + 1
+		t.tabLabel(ui, p, tr, textCol)
+		x += tr.W + 1
 	}
 	ui.PopClip()
 	content := t.content(n)

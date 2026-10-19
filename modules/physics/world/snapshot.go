@@ -90,7 +90,9 @@ func (w *World) Restore(s *Snapshot) {
 	if s == nil {
 		return
 	}
+	dv := w.cfg.DebugVectors
 	w.cfg = s.cfg
+	w.cfg.DebugVectors = dv
 	s.bodies.cloneInto(&w.bodies, cloneBody)
 	s.shapes.cloneInto(&w.shapes, cloneShape)
 	s.joints.cloneInto(&w.joints, nil)

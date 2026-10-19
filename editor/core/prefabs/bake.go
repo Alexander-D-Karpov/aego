@@ -22,6 +22,8 @@ type dest struct {
 	node   *prefab.Node
 	parent *prefab.Node
 	inst   *prefab.Node
+	added  *prefab.Node
+	owner  ids.AssetID
 	rel    prefab.Key
 	maps   []map[ids.NodeID]ids.NodeID
 }
@@ -83,7 +85,7 @@ func (b *baker) route(id ids.AssetID, key prefab.Key, nearest, self bool) (dest,
 		if nested {
 			return dest{}, errs.New(errs.EditorCommand, "bad prefab key "+string(key))
 		}
-		return dest{node: n, parent: parent}, nil
+		return dest{node: n, parent: parent, owner: id}, nil
 	}
 	qid := n.Instance.Prefab
 	q, ok := b.lib.Prefab(qid)
@@ -93,6 +95,18 @@ func (b *baker) route(id ids.AssetID, key prefab.Key, nearest, self bool) (dest,
 	rel := prefab.LocalKey(q.Local)
 	if nested {
 		rel = prefab.Key(rest)
+	}
+	if nearest && nested {
+		if a, ap, ok := addedIn(n, rel); ok {
+			if a.Instance != nil {
+				return dest{}, errs.New(errs.EditorCommand, "a prefab added inside a nested prefab cannot be applied to the nearest prefab yet, apply it to the outer prefab")
+			}
+			d := dest{node: a, parent: ap, owner: id}
+			if ap == nil {
+				d.added = n
+			}
+			return d, nil
+		}
 	}
 	mp, err := b.remap(q, prefab.LocalKey(n.Local))
 	if err != nil {
@@ -106,7 +120,7 @@ func (b *baker) route(id ids.AssetID, key prefab.Key, nearest, self bool) (dest,
 		d.maps = append([]map[ids.NodeID]ids.NodeID{mp}, d.maps...)
 		return d, nil
 	}
-	return dest{inst: n, rel: rel, maps: []map[ids.NodeID]ids.NodeID{mp}}, nil
+	return dest{inst: n, rel: rel, owner: id, maps: []map[ids.NodeID]ids.NodeID{mp}}, nil
 }
 
 func (d dest) value(v schema.Value) schema.Value {
@@ -208,10 +222,15 @@ func (b *baker) bake(id ids.AssetID, o prefab.Overrides, nearest bool) error {
 			b.push(d, func(x *prefab.Overrides) { x.Remove = append(x.Remove, d.rel) })
 			continue
 		}
-		if d.parent == nil {
-			return errs.New(errs.EditorCommand, "the prefab root cannot be removed")
-		}
 		target := d.node
+		if d.parent == nil {
+			if d.added == nil {
+				return errs.New(errs.EditorCommand, "the prefab root cannot be removed")
+			}
+			ov := &d.added.Instance.Overrides
+			ov.AddNodes = slices.DeleteFunc(ov.AddNodes, func(a prefab.NodeAdd) bool { return a.Node == target })
+			continue
+		}
 		d.parent.Children = slices.DeleteFunc(d.parent.Children, func(c *prefab.Node) bool { return c == target })
 	}
 	for _, ord := range o.Order {
@@ -258,4 +277,35 @@ func (b *baker) bake(id ids.AssetID, o prefab.Overrides, nearest bool) error {
 		inst.Instance.Overrides = o
 	}
 	return nil
+}
+
+func addedIn(inst *prefab.Node, rel prefab.Key) (*prefab.Node, *prefab.Node, bool) {
+	s := string(rel)
+	if i := strings.LastIndexByte(s, '/'); i >= 0 {
+		s = s[i+1:]
+	}
+	local, err := ids.ParseNodeID(s)
+	if err != nil {
+		return nil, nil, false
+	}
+	for _, a := range inst.Instance.Overrides.AddNodes {
+		var found, parent *prefab.Node
+		a.Node.Walk(func(n, p *prefab.Node) {
+			if found == nil && n.Local == local {
+				found, parent = n, p
+			}
+		})
+		if found != nil {
+			return found, parent, true
+		}
+	}
+	return nil, nil, false
+}
+
+func (b *baker) Nearest(id ids.AssetID, key prefab.Key) (ids.AssetID, bool) {
+	d, err := b.route(id, key, true, false)
+	if err != nil || d.inst != nil {
+		return ids.AssetID{}, false
+	}
+	return d.owner, true
 }

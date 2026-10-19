@@ -58,7 +58,9 @@ func (p *Panel) render3D() {
 	wd.runner.SetDepthTarget(t.Depth)
 	wd.runner.SetViewportSize(t.W, t.H)
 	wd.runner.SetFixedView(sv)
+	wd.runner.SetHidden(p.runnerHide())
 	p.d.Viewport.RenderWorld(wd.w)
+	p.flushCapture()
 
 	ov := base
 	ov.DoClear = false

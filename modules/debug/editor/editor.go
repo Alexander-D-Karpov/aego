@@ -37,7 +37,7 @@ type plugin struct {
 func Hook(e *ext.Registry) error {
 	p := &plugin{ed: e.Editor(), hidden: map[string]bool{}}
 	e.Overlay(p.overlay)
-	return e.Panel(workspace.Desc{Panel: p, Near: workspace.Console})
+	return e.Panel(workspace.Desc{Panel: p, Near: workspace.Console, Icon: "panel.debug_draw"})
 }
 
 func (p *plugin) svc() *debug.Service {

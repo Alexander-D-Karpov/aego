@@ -1,6 +1,7 @@
 package search
 
 import (
+	favs "aego/editor/core/favorites"
 	"path"
 	"sort"
 	"strconv"
@@ -23,6 +24,7 @@ const (
 	maxHits     = 200
 	maxEmpty    = 60
 	detailCost  = 30
+	favBonus    = 40
 )
 
 type Tab uint8
@@ -46,6 +48,8 @@ type Item struct {
 	Tab    Tab
 	Icon   string
 	Run    func()
+	Fav    favs.Item
+	HasFav bool
 	score  int
 	pos    []int
 }
@@ -77,6 +81,7 @@ type Deps struct {
 	Notices   services.Notices
 	Nav       services.Navigation
 	Settings  func() []Item
+	Favorites *favs.Store
 }
 
 func New(d Deps) *Overlay {
@@ -112,18 +117,20 @@ func fileIcon(k asset.ArtifactKind) string {
 	case asset.ArtPrefab:
 		return "file.prefab"
 	case asset.ArtMesh:
-		return "cat.rendering"
+		return "file.mesh"
 	}
 	return "file.texture"
 }
 
 func (o *Overlay) collect() {
 	o.items = o.items[:0]
+	o.favorites()
 	if o.d.Pipeline != nil {
 		for _, a := range o.d.Pipeline.Assets() {
 			rel := a.Path
 			o.items = append(o.items, Item{
 				Label: path.Base(rel), Detail: path.Dir(rel), Kind: "file", Tab: TabFiles, Icon: fileIcon(a.Kind),
+				Fav: favs.Item{Kind: favs.Asset, Asset: a.ID, Label: path.Base(rel)}, HasFav: true,
 				Run: func() { o.d.Nav.Open(context.Location{Path: rel, Offset: -1}) },
 			})
 		}
@@ -139,7 +146,7 @@ func (o *Overlay) collect() {
 	}
 	if d := o.d.Docs.Doc(); d != nil {
 		s := d.Scene()
-		root, doc := s.Root(), d.ID
+		root, doc, scenePath := s.Root(), d.ID, d.Path
 		for _, h := range s.PreOrder() {
 			if h == root || !s.IsAlive(h) {
 				continue
@@ -147,6 +154,7 @@ func (o *Overlay) collect() {
 			id := s.ID(h)
 			o.items = append(o.items, Item{
 				Label: s.Name(h), Detail: s.Path(h), Kind: "node", Tab: TabNodes, Icon: "cat.node",
+				Fav: favs.Item{Kind: favs.Node, Scene: scenePath, Node: id, Label: s.Name(h)}, HasFav: true,
 				Run: func() {
 					o.d.Docs.Documents().SetActive(doc)
 					o.d.Selection.Select(id)
@@ -177,6 +185,7 @@ func (o *Overlay) collect() {
 		}
 		o.items = append(o.items, Item{
 			Label: d.Name, Detail: detail, Kind: "action", Tab: TabActions, Icon: "tool.select",
+			Fav: favs.Item{Kind: favs.Command, Command: id, Label: d.Name}, HasFav: true,
 			Run: func() {
 				if o.d.Commands.Enabled(id) {
 					o.d.Commands.Run(id)
@@ -196,6 +205,9 @@ func (o *Overlay) rank() {
 		if o.tab != TabAll && it.Tab != o.tab {
 			continue
 		}
+		if it.Kind == "favorite" && o.tab != TabAll {
+			continue
+		}
 		if q == "" {
 			it.score, it.pos = 0, it.pos[:0]
 			o.hits = append(o.hits, i)
@@ -209,6 +221,9 @@ func (o *Overlay) rank() {
 		}
 		if !ok {
 			continue
+		}
+		if it.Kind == "favorite" {
+			s += favBonus
 		}
 		it.score, it.pos = s, pos
 		o.hits = append(o.hits, i)
@@ -270,6 +285,8 @@ func (o *Overlay) Draw(ui *core.Context) {
 			return
 		case ui.KeyPressed(input.KeyEnter), ui.KeyPressed(input.KeyKPEnter):
 			run = o.sel
+		case ui.Primary() && ui.KeyPressed(input.KeyD):
+			o.star()
 		case ui.KeyPressed(input.KeyTab):
 			if ui.Mods().Has(input.ModShift) {
 				o.tab = (o.tab + tabCount - 1) % tabCount
@@ -313,7 +330,7 @@ func (o *Overlay) Draw(ui *core.Context) {
 	}
 	foot := mathx.Rect{X: r.X + th.Padding, Y: r.Y + r.H - th.RowHeight - th.Padding/2, W: r.W - 2*th.Padding, H: th.RowHeight}
 	ui.TextIn(foot, strconv.Itoa(len(o.hits))+" result(s)", th.TextDim, core.AlignLeft)
-	ui.TextIn(foot, "Enter open · Esc close", th.TextDim, core.AlignRight)
+	ui.TextIn(foot, "Enter open · Ctrl+D favorite · Esc close", th.TextDim, core.AlignRight)
 	ui.EndModal()
 	if run >= 0 && run < len(o.hits) {
 		it := o.items[o.hits[run]]
@@ -339,6 +356,10 @@ func (o *Overlay) drawItem(ui *core.Context, i int, rr mathx.Rect) bool {
 	tx := rr.X + 26
 	ty := ui.TextY(rr)
 	kw := ui.TextSize(it.Kind).X + 12
+	starred := it.Kind != "favorite" && it.HasFav && o.d.Favorites != nil && o.d.Favorites.Has(it.Fav)
+	if starred {
+		kw += 20
+	}
 	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-kw), H: rr.H})
 	ui.Text(it.Label, mathx.Vec2{X: tx, Y: ty}, th.Text)
 	for _, p := range it.pos {
@@ -350,6 +371,55 @@ func (o *Overlay) drawItem(ui *core.Context, i int, rr mathx.Rect) bool {
 	}
 	ui.Text(it.Detail, mathx.Vec2{X: tx + ui.TextSize(it.Label).X + 12, Y: ty}, th.TextDim)
 	ui.PopClip()
+	if starred {
+		widgets.IconAt(ui, mathx.Rect{X: rr.X + rr.W - kw + 2, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "ui.star", th.Accent)
+	}
 	ui.TextIn(rr, it.Kind, th.TextDisabled, core.AlignRight)
 	return pressed
+}
+
+func (o *Overlay) env() favs.Env {
+	return favs.Env{Pipeline: o.d.Pipeline, Docs: o.d.Docs, Selection: o.d.Selection, Commands: o.d.Commands, Nav: o.d.Nav, ShowHierarchy: o.ShowHierarchy}
+}
+
+func (o *Overlay) favorites() {
+	if o.d.Favorites == nil {
+		return
+	}
+	env := o.env()
+	for _, f := range o.d.Favorites.Items() {
+		it := f
+		label, detail, _, ok := favs.Describe(env, it)
+		if !ok {
+			continue
+		}
+		o.items = append(o.items, Item{
+			Label: label, Detail: detail, Kind: "favorite", Tab: TabAll, Icon: "ui.star", Fav: it, HasFav: true,
+			Run: func() {
+				if err := favs.Open(env, it); err != nil {
+					o.d.Notices.Notify(context.LevelInfo, err.Error())
+				}
+			},
+		})
+	}
+}
+
+func (o *Overlay) star() {
+	if o.d.Favorites == nil || o.sel < 0 || o.sel >= len(o.hits) {
+		return
+	}
+	it := &o.items[o.hits[o.sel]]
+	if !it.HasFav {
+		o.d.Notices.Notify(context.LevelInfo, "Only files, nodes and actions can be favorites")
+		return
+	}
+	added, err := o.d.Favorites.Toggle(it.Fav)
+	switch {
+	case err != nil:
+		o.d.Notices.Notify(context.LevelError, err.Error())
+	case added:
+		o.d.Notices.Notify(context.LevelInfo, "Added "+it.Fav.Label+" to Favorites")
+	default:
+		o.d.Notices.Notify(context.LevelInfo, "Removed "+it.Fav.Label+" from Favorites")
+	}
 }

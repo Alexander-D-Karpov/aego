@@ -100,3 +100,17 @@ func (s *safeGizmo) End(e *gizmo.EditCtx) {
 	defer s.guard()
 	s.inner.End(e)
 }
+
+func (s *safePanel) Icon() string {
+	if ic, ok := s.p.(workspace.Iconed); ok {
+		return ic.Icon()
+	}
+	return ""
+}
+
+func (s *safePanel) Dirty() bool {
+	if d, ok := s.p.(workspace.Dirtier); ok {
+		return d.Dirty()
+	}
+	return false
+}

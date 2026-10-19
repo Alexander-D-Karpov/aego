@@ -71,6 +71,8 @@ type Pipeline struct {
 	mu           sync.RWMutex
 	pmu          sync.Mutex
 	rev          uint64
+	graves       []Grave
+	gravesDirty  bool
 }
 
 func newPipeline(p *project.Project, imps *ImporterRegistry, lg *log.Logger) *Pipeline {
@@ -124,6 +126,7 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 			pl.log.Warn("asset index is unreadable, rebuilding", log.F("err", err.Error()))
 		}
 	}
+	pl.loadGraves()
 	return pl, nil
 }
 
@@ -221,6 +224,7 @@ func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
 		if w.seen[path] {
 			continue
 		}
+		p.bury(r.id, path)
 		delete(p.byPath, path)
 		delete(p.byID, r.id)
 		if r.group != "" {
@@ -234,6 +238,11 @@ func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
 	}
 	p.files, p.metas = w.files, w.metas
 	p.audit()
+	if len(removed) > 0 {
+		if err := p.saveGraves(); err != nil {
+			p.log.Warn("cannot write the asset graveyard", log.F("err", err.Error()))
+		}
+	}
 	if len(added) > 0 || len(removed) > 0 {
 		p.rev++
 	}

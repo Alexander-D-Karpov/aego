@@ -191,7 +191,7 @@ func (p *Panel) issue(s string) {
 	ui := p.f.UI
 	th := &ui.Theme
 	r := ui.Cursor().Next(0)
-	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "status.warning", th.Warn)
+	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 	ui.PushClip(r)
 	ui.Text(s, mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
 	ui.PopClip()

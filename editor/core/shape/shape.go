@@ -106,12 +106,17 @@ func (r *Registry) Remove(owner string) {
 }
 
 type Set struct {
-	Reg *Registry
-	Res asset.Resolver
+	Reg  *Registry
+	Res  asset.Resolver
+	Hide func(*scene.Scene, scene.NodeHandle) bool
+}
+
+func (s Set) Hidden(sc *scene.Scene, h scene.NodeHandle) bool {
+	return s.Hide != nil && s.Hide(sc, h)
 }
 
 func (s Set) Of(sc *scene.Scene, h scene.NodeHandle) (Shape, bool) {
-	if s.Reg == nil || sc == nil || h.IsZero() || !sc.IsAlive(h) {
+	if s.Reg == nil || sc == nil || h.IsZero() || !sc.IsAlive(h) || s.Hidden(sc, h) {
 		return Shape{}, false
 	}
 	var best Shape

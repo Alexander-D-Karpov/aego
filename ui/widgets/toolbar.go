@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"math"
 	"strings"
 
 	"aego/core/mathx"
@@ -17,6 +18,7 @@ const (
 )
 
 func IconAt(c *core.Context, r mathx.Rect, id string, tint mathx.Color) {
+	r = snap(r, c.Scale())
 	if c.Icons != nil {
 		if reg, ok := c.Icons.Region(id, r.H, c.Scale()); ok {
 			c.List().Texture(reg, r, tint)
@@ -160,4 +162,13 @@ func IconButton(c *core.Context, id core.ID, r mathx.Rect, icon, tooltip string)
 	IconAt(c, mathx.Rect{X: ix, Y: iy, W: is, H: is}, icon, tint)
 	Tooltip(c, id, tooltip)
 	return clicked
+}
+
+func snap(r mathx.Rect, scale float32) mathx.Rect {
+	if scale <= 0 {
+		scale = 1
+	}
+	round := func(v float32) float32 { return float32(math.Round(float64(v*scale))) / scale }
+	x, y := round(r.X), round(r.Y)
+	return mathx.Rect{X: x, Y: y, W: round(r.X+r.W) - x, H: round(r.Y+r.H) - y}
 }

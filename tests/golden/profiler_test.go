@@ -9,6 +9,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/core/stats"
+	"aego/core/trace"
 	"aego/editor/core/context"
 	"aego/editor/core/play"
 	"aego/editor/core/services"
@@ -64,4 +65,13 @@ func TestProfilerGolden(t *testing.T) {
 	}
 	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui}, full) })
 	checkGolden(t, "editor_profiler", img, err)
+}
+
+func TestProfilerShortPanel(t *testing.T) {
+	env := newEditorEnvSize(t, 800, 400)
+	p := profiler.New(profiler.Deps{Memory: fixedMemory, Tracer: trace.New(trace.Options{})})
+	img, err := env.draw(func(full mathx.Rect) {
+		p.Draw(&services.Frame{UI: env.ui}, mathx.Rect{X: full.X, Y: full.Y, W: full.W, H: 250})
+	})
+	checkGolden(t, "editor_profiler_short", img, err)
 }

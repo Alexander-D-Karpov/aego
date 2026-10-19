@@ -217,6 +217,13 @@ func Paste(ctx *context.Editor) error {
 			return nil
 		}
 		return PasteComponent(ctx, d, nodes)
+	case KindComponents:
+		nodes := append([]ids.NodeID(nil), ctx.Selected()...)
+		if len(nodes) == 0 {
+			ctx.Notify(context.LevelInfo, "Select the nodes to paste the components onto")
+			return nil
+		}
+		return EnvOf(ctx).PasteComponents(d, nodes)
 	case KindNodes:
 	default:
 		ctx.Notify(context.LevelInfo, "The clipboard holds nothing that can be pasted into the scene")
