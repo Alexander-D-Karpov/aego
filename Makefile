@@ -24,6 +24,10 @@ WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
+TRY_BUDGET = 10485760
+WEB_TRY = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node try.mjs --site=$(CURDIR)/site
+TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
+	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
@@ -34,7 +38,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -76,6 +80,8 @@ test-wasm:
 	GOOS=js GOARCH=wasm go build ./cmd/aego-playground ./platform/web ./gpu/webgl2 ./engine
 	GOOS=js GOARCH=wasm go build -tags aego_runtime -o /dev/null ./cmd/aego-runtime
 	@if GOOS=js GOARCH=wasm go list -tags aego_runtime -deps ./cmd/aego-runtime | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|editor)'; then echo "the web runtime pulls a native, pipeline or editor package"; exit 1; fi
+	GOOS=js GOARCH=wasm go build -tags aego_editor -o /dev/null ./cmd/aego-try
+	@if GOOS=js GOARCH=wasm go list -tags aego_editor -deps ./cmd/aego-try | grep -E '^aego/(platform/sdl|gpu/gl33|editor/shell|editor/panels/|asset/importers/script)' | grep -vE '^aego/editor/panels/(inspector|gameview)$$'; then echo "the docs runtime pulls a native, shell or extra panel package"; exit 1; fi
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 
@@ -202,6 +208,7 @@ site: cli
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
+	@$(TRY_SIZE_CHECK)
 
 playground:
 	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
@@ -215,6 +222,7 @@ site-headless:
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
+	@$(TRY_SIZE_CHECK)
 
 site-check: cli
 	.cache/bin/aego docs check
@@ -227,9 +235,16 @@ playground-size:
 	go run ./tools/wasmsize -top 40 .cache/aego-playground.wasm
 	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-playground.wasm
 
+try-size:
+	mkdir -p .cache
+	GOOS=js GOARCH=wasm go build -tags aego_editor -trimpath -o .cache/aego-try.wasm ./cmd/aego-try
+	go run ./tools/wasmsize -top 40 .cache/aego-try.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-try.wasm
+
 web-smoke: site
 	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
 	$(WEB_DEMO)
+	$(WEB_TRY)
 
 web-smoke-update: site
 	$(WEB_SMOKE) --update

@@ -59,6 +59,7 @@ type Options struct {
 	Budget       uint64
 	InitialStack int
 	GCThreshold  int
+	MaxHeap      int
 }
 
 func (o Options) withDefaults() Options {
@@ -173,12 +174,14 @@ type Machine struct {
 
 func New(opt Options) *Machine {
 	opt = opt.withDefaults()
-	return &Machine{
+	m := &Machine{
 		opt:      opt,
 		interned: map[string]Value{},
 		stack:    make([]Value, opt.InitialStack),
 		frames:   make([]frame, 0, opt.MaxCallDepth),
 	}
+	m.heap.limit = opt.MaxHeap
+	return m
 }
 
 func (m *Machine) Options() Options {
@@ -390,13 +393,25 @@ func (m *Machine) trapErr(top, pc int, err error) {
 }
 
 func (m *Machine) exec(floor int) {
+	m.heap.armed++
+	defer m.disarm()
 	defer m.recoverHost()
 	m.run(floor)
+}
+
+func (m *Machine) disarm() {
+	m.heap.armed--
 }
 
 func (m *Machine) recoverHost() {
 	r := recover()
 	if r == nil {
+		return
+	}
+	if hf, ok := r.(heapFull); ok {
+		if m.fault == nil {
+			m.raise(CodeBudget, hf.Error())
+		}
 		return
 	}
 	if m.fault == nil {

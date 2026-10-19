@@ -71,7 +71,11 @@ func (e *Env) Check(strict bool) int {
 		fmt.Fprintln(e.Stderr, "aego:", err)
 		return 1
 	}
-	return Check(reg, strict, e.Stdout)
+	code := Check(reg, strict, e.Stdout)
+	if CheckTry(reg, e.Stdout) > 0 && code == 0 {
+		code = 1
+	}
+	return code
 }
 
 func (e *Env) goCmd(dir string, env []string, args ...string) error {
@@ -144,9 +148,27 @@ func (e *Env) Build(out string, play bool) error {
 		return fmt.Errorf("gendocs failed: %w", err)
 	}
 	if play {
-		return e.playground(filepath.Join(abs, "play"))
+		if err := e.playground(filepath.Join(abs, "play")); err != nil {
+			return err
+		}
+		return e.tryApp(filepath.Join(abs, "try"))
 	}
 	return nil
+}
+
+func (e *Env) tryApp(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	wasm := filepath.Join(dir, "aego-docs.wasm")
+	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-tags", "aego_editor", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./cmd/aego-try"); err != nil {
+		return fmt.Errorf("docs runtime build failed: %w", err)
+	}
+	root, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		return err
+	}
+	return copyFile(filepath.Join(strings.TrimSpace(string(root)), "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js"))
 }
 
 func fileExists(p string) bool {

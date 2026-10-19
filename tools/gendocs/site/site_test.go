@@ -299,7 +299,6 @@ func TestComponentPage(t *testing.T) {
 		`<a href="../language.html">Aego Script</a>`,
 		`href="../ref/aego/math.html#aego/math.Clamp"`,
 		`href="#engine.SpriteRenderer-fields">Fields</a>`,
-		`class="try-it"`,
 	} {
 		if !strings.Contains(p, want) {
 			t.Errorf("component page has no %s", want)
@@ -307,5 +306,32 @@ func TestComponentPage(t *testing.T) {
 	}
 	if strings.Contains(p, `<h2 id="engine.SpriteRenderer.Tint"`) {
 		t.Error("a field is rendered both in the table and as a section")
+	}
+}
+
+func TestTryBlock(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		if exp.Entries[i].ID == "engine.SpriteRenderer" {
+			exp.Entries[i].Try = "scene version=1 {\n  node \"a\" name=\"<b>\" {}\n}\n"
+			exp.Entries[i].TrySelect = "engine.SpriteRenderer"
+		}
+	}
+	dir := t.TempDir()
+	if _, err := Build(exp, dir, Options{Playground: true}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "ref", "engine.SpriteRenderer.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`class="try"`, `data-select="engine.SpriteRenderer"`, `name=&#34;&lt;b&gt;&#34;`, `class="try-start"`, `id="engine.SpriteRenderer-try"`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("try block has no %s", want)
+		}
+	}
+	_, _, plain := build(t, exp, Options{})
+	if strings.Contains(plain["ref/engine.SpriteRenderer.html"], `class="try"`) {
+		t.Error("a try block without the docs runtime")
 	}
 }

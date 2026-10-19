@@ -31,7 +31,6 @@ import (
 	"aego/script/lexer"
 	"aego/script/runtime"
 	"aego/script/source"
-	"aego/script/vm"
 	"aego/script/workspace"
 )
 
@@ -43,7 +42,6 @@ const (
 	ScriptsDir    = "scripts"
 	DefaultFrames = 120
 	MaxFrames     = 3600
-	Budget        = 2_000_000
 )
 
 type Diagnostic struct {
@@ -284,7 +282,7 @@ func (p *Playground) Run(files map[string]string, frames int) Result {
 		res.Log = append(res.Log, record(&frame, r))
 	}))
 	lg.SetLevel(log.Debug)
-	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg, VM: vm.Options{Budget: Budget}})
+	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg, VM: playmods.SandboxVM()})
 	defer rt.Close()
 	if err := rt.Link(mods); err != nil {
 		res.Diagnostics = append(res.Diagnostics, failed(err)...)
@@ -494,4 +492,14 @@ func Format(res Result) []string {
 		out = append(out, f.Script+" stopped with "+f.Code+": "+f.Message)
 	}
 	return append(out, strconv.Itoa(res.Frames)+" frames")
+}
+
+func (p *Playground) TryScenes() []docs.Entry {
+	var out []docs.Entry
+	for _, e := range p.docs.All() {
+		if e.Try != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }

@@ -48,6 +48,8 @@ const (
 	EngineDocsDir  = "engine/res/docs"
 	scriptOwner    = "script"
 	unknownOrder   = 1000
+	TryDir         = "try"
+	TryExt         = ".aescene"
 )
 
 var kindNames = [...]string{"page", "module", "function", "type", "field", "method", "signal", "code", "const", "enum"}
@@ -102,6 +104,8 @@ type Entry struct {
 	Field     *FieldInfo
 	Component *ComponentInfo
 	Related   []string
+	Try       string
+	TrySelect string
 }
 
 type Problem struct {
@@ -232,6 +236,7 @@ func Assemble(src Sources) *Registry {
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
 		r.pages(d)
+		r.tries(d)
 	}
 	r.index()
 	r.related()
@@ -505,6 +510,9 @@ func (r *Registry) pages(src module.DocSource) {
 		}
 		for _, rec := range recs {
 			r.page(src.Owner, f, source, rec)
+			if rec.try != "" {
+				r.pageTry(src, rec)
+			}
 		}
 	}
 }
@@ -735,4 +743,56 @@ func (r *Registry) Check(strict bool) []Problem {
 		return out[a].ID < out[b].ID
 	})
 	return out
+}
+
+func (r *Registry) pageTry(src module.DocSource, rec record) {
+	i, ok := r.byID[rec.id]
+	if !ok {
+		return
+	}
+	data, err := fs.ReadFile(src.FS, path.Clean(rec.try))
+	if err != nil {
+		r.problems = append(r.problems, Problem{ID: rec.id, Error: true, Message: "try scene " + rec.try + " cannot be read: " + err.Error()})
+		return
+	}
+	r.entries[i].Try, r.entries[i].TrySelect = string(data), rec.trySelect
+}
+
+func (r *Registry) componentNamed(short, owner string) (int, bool) {
+	found := -1
+	for i := range r.entries {
+		e := &r.entries[i]
+		if e.Component == nil || !strings.HasSuffix(e.ID, "."+short) {
+			continue
+		}
+		if e.Owner == owner {
+			return i, true
+		}
+		if found < 0 {
+			found = i
+		}
+	}
+	return found, found >= 0
+}
+
+func (r *Registry) tries(src module.DocSource) {
+	files, err := fs.Glob(src.FS, TryDir+"/*"+TryExt)
+	if err != nil {
+		return
+	}
+	for _, f := range files {
+		short := strings.TrimSuffix(path.Base(f), TryExt)
+		i, ok := r.componentNamed(short, src.Owner)
+		if !ok {
+			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: "try scene names no component " + short})
+			continue
+		}
+		data, err := fs.ReadFile(src.FS, f)
+		if err != nil {
+			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: err.Error()})
+			continue
+		}
+		e := &r.entries[i]
+		e.Try, e.TrySelect = string(data), e.ID
+	}
 }

@@ -1,7 +1,10 @@
 package playground
 
 import (
+	"fmt"
 	"strings"
+
+	playmods "aego/app/assembly/playground"
 
 	"aego/asset"
 	"aego/asset/loader"
@@ -99,6 +102,7 @@ type Game struct {
 	bench    bench
 	running  bool
 	looping  bool
+	overflow bool
 }
 
 type driver struct {
@@ -195,7 +199,7 @@ func (g *Game) Engine() *engine.Engine {
 
 func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 	g.Stop()
-	rt := scriptruntime.New(scriptruntime.Options{Bindings: g.reg, Schema: g.types.Schema(), Log: g.log})
+	rt := scriptruntime.New(scriptruntime.Options{Bindings: g.reg, Schema: g.types.Schema(), Log: g.log, VM: playmods.SandboxVM()})
 	if err := rt.Link(mods); err != nil {
 		rt.Close()
 		return err
@@ -225,7 +229,7 @@ func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 		return err
 	}
 	g.detach = d
-	g.example, g.running, g.faults = name, true, 0
+	g.example, g.running, g.faults, g.overflow = name, true, 0, false
 	g.start()
 	return nil
 }
@@ -272,6 +276,10 @@ func (g *Game) update(dt float64) {
 		g.frameMs += (ft - g.frameMs) * statsAlpha
 	}
 	g.bench.t += dt
+	if g.scene != nil && !g.overflow && g.scene.Stats().Alive > playmods.SandboxNodes {
+		g.overflow = true
+		g.clog.Error(fmt.Sprintf("the scene grew past %d nodes, the game was stopped", playmods.SandboxNodes))
+	}
 }
 
 func hue(i, n int) mathx.Color {
@@ -351,6 +359,10 @@ func (g *Game) newFaults() []Fault {
 }
 
 func (g *Game) Poll() Poll {
+	if g.overflow {
+		g.overflow = false
+		g.Stop()
+	}
 	p := Poll{Log: g.lines, Faults: g.newFaults()}
 	g.lines = nil
 	s := &p.Stats

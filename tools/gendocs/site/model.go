@@ -61,6 +61,8 @@ type Entry struct {
 	Field     *FieldInfo
 	Component *ComponentInfo
 	Related   []string
+	Try       string
+	TrySelect string
 }
 
 type FieldInfo struct {

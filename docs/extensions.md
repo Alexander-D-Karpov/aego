@@ -162,3 +162,9 @@ func (q *questPanel) Draw(f *sdk.Frame, r mathx.Rect) {
 | Settings page, profiler section, vector layer | `SettingsPage`, `Profiler`, `Vectors` |
 
 A panel gets a fresh `Frame` every draw (`UI`, drag and drop, time, focus). Anything else it needs it captures at registration through `e.Editor()`. Built-in panels follow a stricter rule and never see the editor (D216). `PanelDesc.Slot` puts a panel into a column of the default layout; `Near` opens it next to a panel on demand; without `Order` extension panels follow the built-ins in the Window menu (D217).
+
+## Try it scenes
+
+A module can give any of its components a live example on the documentation site: put a scene in `res/docs/try/<Component>.aescene`, named after the last part of the component ID (`try/Body2D.aescene` for `physics.Body2D`). The page of that component gets a Try it block that runs the scene in the browser with the Inspector, selecting the first node that has the component; a guide page can show a scene with `try: try/name.aescene` and `try_select: module.Component` in its front matter.
+
+Try scenes run on the sandbox catalog (core, input, render2d, scripting, physics, debug) with builtin assets only and no scripts. `aego docs check` loads each one, runs it for 60 frames and fails on a load error, a warning or a fault, and on a scene of a module outside the sandbox. Keep the scene to what the component needs, put the documented node first, and add a camera.

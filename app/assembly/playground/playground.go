@@ -10,6 +10,7 @@ import (
 	"aego/modules/render2d"
 	"aego/modules/scripting"
 	"aego/script/stdlib"
+	"aego/script/vm"
 )
 
 func Catalog() assembly.Catalog {
@@ -23,4 +24,14 @@ func Catalog() assembly.Catalog {
 		{ID: physics.ID, New: func(assembly.Options) module.Module { return physics.New() }},
 		{ID: debug.ID, New: func(assembly.Options) module.Module { return debug.New() }},
 	}
+}
+
+const (
+	SandboxBudget = 2_000_000
+	SandboxHeap   = 64 << 20
+	SandboxNodes  = 10_000
+)
+
+func SandboxVM() vm.Options {
+	return vm.Options{Budget: SandboxBudget, MaxHeap: SandboxHeap}
 }

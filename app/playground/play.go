@@ -109,3 +109,14 @@ func (p *Playground) Poll() Poll {
 func (p *Playground) LoseContext(lose bool) bool {
 	return p.game != nil && p.game.LoseContext(lose)
 }
+
+func (p *Playground) PlayScene(name string, src []byte) PlayResult {
+	g, err := p.host()
+	if err != nil {
+		return PlayResult{Error: err.Error()}
+	}
+	if err := g.Play(name, src, nil); err != nil {
+		return PlayResult{Error: err.Error()}
+	}
+	return PlayResult{Started: true}
+}

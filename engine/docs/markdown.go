@@ -22,6 +22,8 @@ type record struct {
 	ordered    bool
 	keys       []string
 	requires   []string
+	try        string
+	trySelect  string
 	body       string
 	line       int
 }
@@ -141,6 +143,10 @@ func (r *record) set(key, val string) error {
 		r.keys, err = list(val)
 	case "requires":
 		r.requires, err = list(val)
+	case "try":
+		r.try, err = scalar(val)
+	case "try_select":
+		r.trySelect, err = scalar(val)
 	default:
 		return fmt.Errorf("unknown front matter key %q", key)
 	}

@@ -493,6 +493,14 @@ func (b *builder) crumbs(e *Entry, root string) string {
 	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">/</span>`) + "</nav>\n"
 }
 
+func (b *builder) tryBlock(c *strings.Builder, e *Entry) {
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-scene="` + esc(e.Try) + `">` + "\n")
+	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
+	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
+	c.WriteString(`<div class="try-bar"><button type="button" class="try-copy">Copy scene</button><button type="button" class="try-reset" disabled>Reset</button><span class="try-status" role="status"></span></div>` + "\n")
+	c.WriteString(`<details class="try-text"><summary>Scene file</summary><pre><code>` + esc(e.Try) + "</code></pre></details>\n</section>\n")
+}
+
 func (b *builder) content(e *Entry, root string) string {
 	var c strings.Builder
 	c.WriteString(b.crumbs(e, root))
@@ -501,6 +509,9 @@ func (b *builder) content(e *Entry, root string) string {
 		c.WriteString(b.componentMeta(e, root))
 	}
 	b.details(&c, e, root)
+	if e.Try != "" && b.opt.Playground {
+		b.tryBlock(&c, e)
+	}
 	b.fieldTable(&c, e, root, true)
 	b.children(&c, e, root, 2)
 	if e.Component != nil && len(e.Component.Events) > 0 {
@@ -511,9 +522,6 @@ func (b *builder) content(e *Entry, root string) string {
 	if len(e.Related) > 0 {
 		c.WriteString(`<h2 id="` + esc(e.ID) + `-related">Related guides</h2>` + "\n")
 		b.entryList(&c, e.Related, root)
-	}
-	if e.Component != nil {
-		c.WriteString(`<div class="try-it" data-component="` + esc(e.ID) + `" hidden></div>` + "\n")
 	}
 	return c.String()
 }
