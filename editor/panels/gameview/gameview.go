@@ -107,7 +107,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	origin := mathx.Vec2{X: r.X, Y: r.Y}
 	p.bar = mathx.Rect{}
 	p.tl.Clear()
-	if !p.play.Captured() {
+	if !p.play.Captured() && !p.vp.Bare {
 		p.toolbar(ui, r)
 		p.tl.Draw(ui, r)
 	}

@@ -46,6 +46,7 @@ type Options struct {
 	Clipboard context.DataClipboard
 	Log       *log.Logger
 	OnChange  func(text []byte)
+	Bare      bool
 }
 
 type State struct {
@@ -113,6 +114,10 @@ func (s *Session) manager() *document.Manager {
 		opt.Resolver = s.opt.Loader
 	}
 	return document.NewManager(opt)
+}
+
+func (s *Session) Bare() bool {
+	return s.opt.Bare
 }
 
 func (s *Session) Editor() *context.Editor {

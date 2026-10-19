@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="aego-root" content="{{.Root}}">
+    {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}">{{end}}
     <title>{{.Title}} · {{.Site}}</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="{{.Root}}assets/style.css">
@@ -29,7 +30,6 @@
 </div>
 {{.Footer}}
 <script src="{{.Root}}assets/site.js"></script>
-{{if .Playground}}<script src="{{.Root}}assets/run.js"></script>{{end}}
-{{if .Playground}}<script src="{{.Root}}assets/try.js"></script>{{end}}
+{{if .Playground}}<script src="{{.Root}}assets/loader.js"></script><script src="{{.Root}}assets/run.js"></script><script src="{{.Root}}assets/try.js"></script>{{end}}
 </body>
 </html>

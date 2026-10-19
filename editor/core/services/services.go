@@ -95,6 +95,7 @@ type Viewport struct {
 	OnRender    func(func())
 	RenderWorld func(w *engine.World)
 	GameHUD     []func(ui *core.Context, r mathx.Rect)
+	Bare        bool
 }
 
 var (

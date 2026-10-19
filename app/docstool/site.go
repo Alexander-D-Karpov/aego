@@ -119,6 +119,15 @@ func (e *Env) Build(out string, play bool) error {
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return err
 	}
+	var playV, tryV string
+	if play {
+		if playV, err = e.playground(filepath.Join(abs, "play")); err != nil {
+			return err
+		}
+		if tryV, err = e.tryApp(filepath.Join(abs, "try")); err != nil {
+			return err
+		}
+	}
 	tmp, err := os.CreateTemp("", "aego-docs-*.json")
 	if err != nil {
 		return err
@@ -130,7 +139,7 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs, "-version", engine.Version}
 	if play {
-		args = append(args, "-playground")
+		args = append(args, "-playground", "-play-version", playV, "-try-version", tryV)
 	}
 	if e.Demo {
 		args = append(args, "-demo")
@@ -147,28 +156,33 @@ func (e *Env) Build(out string, play bool) error {
 	if err := e.goCmd(filepath.Join(e.Engine, "tools", "gendocs"), nil, args...); err != nil {
 		return fmt.Errorf("gendocs failed: %w", err)
 	}
-	if play {
-		if err := e.playground(filepath.Join(abs, "play")); err != nil {
-			return err
-		}
-		return e.tryApp(filepath.Join(abs, "try"))
-	}
 	return nil
 }
 
-func (e *Env) tryApp(dir string) error {
+func (e *Env) tryApp(dir string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
 	wasm := filepath.Join(dir, "aego-docs.wasm")
 	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-tags", "aego_editor", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./cmd/aego-try"); err != nil {
-		return fmt.Errorf("docs runtime build failed: %w", err)
+		return "", fmt.Errorf("docs runtime build failed: %w", err)
 	}
-	root, err := exec.Command("go", "env", "GOROOT").Output()
+	root, err := goRoot()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return copyFile(filepath.Join(strings.TrimSpace(string(root)), "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js"))
+	support, err := os.ReadFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"))
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "wasm_exec.js"), support, 0o644); err != nil {
+		return "", err
+	}
+	blob, err := os.ReadFile(wasm)
+	if err != nil {
+		return "", err
+	}
+	return versionOf(blob, support), nil
 }
 
 func fileExists(p string) bool {
@@ -184,47 +198,62 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0o644)
 }
 
-func (e *Env) playground(dir string) error {
+func goRoot() (string, error) {
+	out, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func versionOf(parts ...[]byte) string {
+	h := sha256.New()
+	for _, p := range parts {
+		h.Write(p)
+	}
+	return hex.EncodeToString(h.Sum(nil)[:5])
+}
+
+func (e *Env) playground(dir string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
 	wasm := filepath.Join(dir, "aego.wasm")
 	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./cmd/aego-playground"); err != nil {
-		return fmt.Errorf("playground build failed: %w", err)
+		return "", fmt.Errorf("playground build failed: %w", err)
 	}
-	root, err := exec.Command("go", "env", "GOROOT").Output()
+	root, err := goRoot()
 	if err != nil {
-		return err
+		return "", err
 	}
-	if err := copyFile(filepath.Join(strings.TrimSpace(string(root)), "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js")); err != nil {
-		return err
+	if err := copyFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js")); err != nil {
+		return "", err
 	}
 	web := filepath.Join(e.Engine, "cmd", "aego-playground", "web")
 	files, err := os.ReadDir(web)
 	if err != nil {
-		return err
+		return "", err
 	}
 	info, err := os.Stat(wasm)
 	if err != nil {
-		return err
+		return "", err
 	}
 	blob, err := os.ReadFile(wasm)
 	if err != nil {
-		return err
+		return "", err
 	}
-	h := sha256.New()
-	h.Write(blob)
+	parts := [][]byte{blob}
 	for _, f := range files {
 		if f.IsDir() {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(web, f.Name()))
 		if err != nil {
-			return err
+			return "", err
 		}
-		h.Write(data)
+		parts = append(parts, data)
 	}
-	version := hex.EncodeToString(h.Sum(nil)[:5])
+	version := versionOf(parts...)
 	for _, f := range files {
 		if f.IsDir() {
 			continue
@@ -232,22 +261,22 @@ func (e *Env) playground(dir string) error {
 		src, dst := filepath.Join(web, f.Name()), filepath.Join(dir, f.Name())
 		if f.Name() != "index.html" {
 			if err := copyFile(src, dst); err != nil {
-				return err
+				return "", err
 			}
 			continue
 		}
 		data, err := os.ReadFile(src)
 		if err != nil {
-			return err
+			return "", err
 		}
 		data = bytes.ReplaceAll(data, []byte(`data-wasm-size="0"`), []byte(`data-wasm-size="`+strconv.FormatInt(info.Size(), 10)+`"`))
 		data = bytes.ReplaceAll(data, []byte(`data-version="dev"`), []byte(`data-version="`+version+`"`))
 		data = bytes.ReplaceAll(data, []byte(`?v=dev"`), []byte(`?v=`+version+`"`))
 		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			return err
+			return "", err
 		}
 	}
-	return nil
+	return version, nil
 }
 
 func (e *Env) watched() []string {

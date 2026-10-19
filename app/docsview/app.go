@@ -150,6 +150,7 @@ func New(opt Options) (*App, error) {
 		UI:        a.ui,
 		Clipboard: a.clip,
 		Log:       a.log,
+		Bare:      true,
 		OnChange: func(t []byte) {
 			if a.OnChange != nil {
 				a.OnChange(string(t))
@@ -213,6 +214,7 @@ func (a *App) initPanels() error {
 		Shapes:   ctx.Shapes,
 		Overlay:  &ctx.Overlay,
 		OnRender: ctx.OnRender,
+		Bare:     a.session.Bare(),
 		RenderWorld: func(w *engine.World) {
 			e.RunPhase(w, engine.PhaseRenderPrepare, engine.ScopeEditor, 0, 0)
 			e.RunPhase(w, engine.PhaseRender, engine.ScopeEditor, 0, 0)

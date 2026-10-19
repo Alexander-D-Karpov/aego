@@ -55,14 +55,16 @@ func sectionTitle(s string) string {
 }
 
 type Options struct {
-	Playground bool
-	Repo       string
-	Edit       string
-	Version    string
-	Commit     string
-	Hero       string
-	Demo       bool
-	Time       time.Time
+	Playground  bool
+	Repo        string
+	Edit        string
+	Version     string
+	Commit      string
+	Hero        string
+	Demo        bool
+	PlayVersion string
+	TryVersion  string
+	Time        time.Time
 }
 
 type Report struct {
@@ -73,17 +75,19 @@ type Report struct {
 }
 
 type layoutData struct {
-	Root       string
-	Title      string
-	Site       string
-	Playground bool
-	Repo       string
-	Home       bool
-	Nav        template.HTML
-	Content    template.HTML
-	Toc        template.HTML
-	Pager      template.HTML
-	Footer     template.HTML
+	Root        string
+	Title       string
+	Site        string
+	Playground  bool
+	PlayVersion string
+	TryVersion  string
+	Repo        string
+	Home        bool
+	Nav         template.HTML
+	Content     template.HTML
+	Toc         template.HTML
+	Pager       template.HTML
+	Footer      template.HTML
 }
 
 type searchItem struct {
@@ -715,15 +719,17 @@ func (b *builder) home() string {
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
-		Root:       root,
-		Title:      title,
-		Site:       b.exp.Title,
-		Playground: b.opt.Playground,
-		Repo:       b.opt.Repo,
-		Home:       current == "",
-		Nav:        template.HTML(b.nav(root, current)),
-		Content:    template.HTML(content),
-		Footer:     template.HTML(b.footer(e, root)),
+		Root:        root,
+		Title:       title,
+		Site:        b.exp.Title,
+		Playground:  b.opt.Playground,
+		PlayVersion: b.opt.PlayVersion,
+		TryVersion:  b.opt.TryVersion,
+		Repo:        b.opt.Repo,
+		Home:        current == "",
+		Nav:         template.HTML(b.nav(root, current)),
+		Content:     template.HTML(content),
+		Footer:      template.HTML(b.footer(e, root)),
 	}
 	if current != "" {
 		data.Toc = template.HTML(toc(content))

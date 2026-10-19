@@ -50,7 +50,17 @@ const call = (m, p = {}) => page.evaluate(([m, p]) => JSON.parse(globalThis.aego
 const text = () => page.locator(".try .try-text code").first().textContent();
 
 try {
+    let docsFetches = 0;
+    page.on("request", (r) => {
+        if (r.url().includes("/try/aego-docs.wasm")) docsFetches++;
+    });
     await page.goto(base + "/ref/physics.Body2D.html");
+    const shared = await page.evaluate(async () => {
+        const play = await globalThis.aegoRuntime("play", "aego.wasm", "aegoReady", "aego");
+        const code = 'package demo\n\nimport "aego/log"\n\nscript S {\n\tfunc Ready() {\n\t\tlog.Info("shared")\n\t}\n}\n';
+        return JSON.parse(play.call("run", JSON.stringify({ files: { "main.aes": code }, frames: 5 })));
+    });
+    if (shared.error || !(shared.log || []).some((l) => l.text.includes("shared"))) fail("the playground runtime did not run a snippet: " + JSON.stringify(shared));
     const started = Date.now();
     await page.click(".try .try-start");
     await page.waitForFunction(
@@ -64,7 +74,7 @@ try {
         null,
         { timeout: 120000, polling: 100 },
     );
-    console.log(`try: running after ${Date.now() - started} ms`);
+    console.log(`try: running after ${Date.now() - started} ms, next to the playground runtime`);
     const set = await call("set", { component: "physics.BoxCollider2D", field: "restitution", value: 0.75 });
     if (set.error) throw new Error("set: " + set.error);
     await page.waitForFunction(() => document.querySelector(".try .try-text code").textContent.includes("restitution=0.75"), null, { timeout: 10000 });
@@ -72,7 +82,14 @@ try {
     if (st.restarts < 1 || !st.running) fail(`the edit did not restart the scene: ${JSON.stringify(st)}`);
     await page.click(".try .try-reset");
     if ((await text()).includes("restitution=0.75")) fail("Reset kept the edit");
-    else console.log("try: edit, restart and reset work");
+    const again = await page.evaluate(async () => {
+        const a = await globalThis.aegoRuntime("try", "aego-docs.wasm", "aegoDocsReady", "aegoDocs");
+        const b = await globalThis.aegoRuntime("play", "aego.wasm", "aegoReady", "aego");
+        return a === globalThis.aegoDocs && JSON.parse(b.call("run", JSON.stringify({ files: { "main.aes": "package demo\n" }, frames: 1 }))).frames >= 1;
+    });
+    if (!again) fail("a second request did not reuse the runtimes");
+    if (docsFetches !== 1) fail(`aego-docs.wasm was fetched ${docsFetches} times`);
+    else console.log("try: edit, restart, reset and runtime reuse work");
 } catch (e) {
     fail(e.message);
 } finally {
