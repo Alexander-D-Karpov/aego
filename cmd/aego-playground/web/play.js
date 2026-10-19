@@ -6,16 +6,27 @@ const highlight = $("highlight");
 const marks = $("marks");
 const statusEl = $("status");
 const runBtn = $("run");
+const stopBtn = $("stop");
 const examplesEl = $("examples");
 const framesEl = $("frames");
+const framesLabel = $("frames-label");
 const problemsEl = $("problems");
 const problemCount = $("problem-count");
 const consoleEl = $("console");
+const canvas = $("game");
+const gamePane = $("game-pane");
+const gameHint = $("game-hint");
+const statsEl = $("stats");
 const FILE = "main.aes";
 const STORE = "aego.playground.source";
+const POLL_MS = 250;
+const MAX_CONSOLE = 2000;
+const bootStart = performance.now();
 
 let examples = [];
+let current = null;
 let timer = 0;
+let pollTimer = 0;
 
 const starter = `package demo
 
@@ -35,7 +46,7 @@ function setStatus(text, error) {
 
 function call(method, payload) {
     const out = JSON.parse(globalThis.aego.call(method, JSON.stringify(payload || {})));
-    if (out && !Array.isArray(out) && out.error) throw new Error(out.error);
+    if (out && !Array.isArray(out) && out.error && !("started" in out)) throw new Error(out.error);
     return out;
 }
 
@@ -96,7 +107,6 @@ function showProblems(diags) {
             const m = document.createElement("div");
             m.className = `mark ${d.severity}`;
             m.style.top = `${top + (d.line - 1) * lh}px`;
-            m.dataset.line = d.line;
             marks.appendChild(m);
         }
         problemsEl.appendChild(li);
@@ -132,11 +142,35 @@ function logLine(cls, html) {
     if (cls) li.className = cls;
     li.innerHTML = html;
     consoleEl.appendChild(li);
+    while (consoleEl.childElementCount > MAX_CONSOLE) consoleEl.firstElementChild.remove();
 }
 
-function run() {
-    clearTimeout(timer);
-    refresh();
+function logEntry(l) {
+    const head = `<span class="where">${l.frame}</span><span class="level ${l.level}">${l.level}</span>`;
+    const text = l.text.replace(/^\n+|\n+$/g, "");
+    const body = text.includes("\n") ? `<pre class="block">${escapeHTML(text)}</pre>` : escapeHTML(text);
+    logLine("", head + body);
+}
+
+function logFault(f) {
+    const where = f.line ? ` at ${escapeHTML(f.file)}:${f.line}` : "";
+    logLine("fault", `${escapeHTML(f.script)} stopped with ${escapeHTML(f.code)}${where}: ${escapeHTML(f.message)}`);
+}
+
+function scrollConsole() {
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function buildFailed(diags) {
+    const errors = (diags || []).filter((d) => d.severity === "error");
+    if (!errors.length) return false;
+    logLine("fault", `Build failed: ${errors.length} error(s), see Problems`);
+    setStatus("Build failed", true);
+    return true;
+}
+
+function runConsole() {
+    stopPolling(false);
     const frames = Math.max(1, Math.min(3600, parseInt(framesEl.value, 10) || 120));
     setStatus("Running…");
     const started = performance.now();
@@ -149,26 +183,95 @@ function run() {
     }
     consoleEl.textContent = "";
     showProblems(res.diagnostics || []);
-    const errors = (res.diagnostics || []).filter((d) => d.severity === "error");
-    if (errors.length) {
-        logLine("fault", `Build failed: ${errors.length} error(s), see Problems`);
-        setStatus("Build failed", true);
+    if (buildFailed(res.diagnostics)) return;
+    for (const l of res.log || []) logEntry(l);
+    for (const f of res.faults || []) logFault(f);
+    logLine("done", `${res.frames} frames in ${Math.round(performance.now() - started)} ms`);
+    scrollConsole();
+    const faults = (res.faults || []).length;
+    setStatus(faults ? `${faults} fault(s)` : "Done", faults > 0);
+}
+
+function play() {
+    setStatus("Starting…");
+    let res;
+    try {
+        res = call("play", { example: current.id, files: files() });
+    } catch (e) {
+        setStatus(e.message, true);
         return;
     }
-    for (const l of res.log || []) {
-        const head = `<span class="where">${l.frame}</span><span class="level ${l.level}">${l.level}</span>`;
-        const text = l.text.replace(/^\n+|\n+$/g, "");
-        const body = text.includes("\n") ? `<pre class="block">${escapeHTML(text)}</pre>` : escapeHTML(text);
-        logLine("", head + body);
+    consoleEl.textContent = "";
+    showProblems(res.diagnostics || []);
+    if (buildFailed(res.diagnostics)) return;
+    if (!res.started) {
+        logLine("fault", escapeHTML(res.error || "the game did not start"));
+        setStatus("Cannot start the game", true);
+        return;
     }
-    for (const f of res.faults || []) {
-        const where = f.line ? ` at ${escapeHTML(f.file)}:${f.line}` : "";
-        logLine("fault", `${escapeHTML(f.script)} stopped with ${escapeHTML(f.code)}${where}: ${escapeHTML(f.message)}`);
+    startPolling();
+    setStatus("Playing · click the view to control it");
+    canvas.focus();
+}
+
+function run() {
+    clearTimeout(timer);
+    refresh();
+    if (current && current.scene) play();
+    else runConsole();
+}
+
+function startBench(count) {
+    const res = call("bench", { count, animate: true });
+    if (!res.started) {
+        setStatus(res.error || "bench did not start", true);
+        return;
     }
-    const ms = Math.round(performance.now() - started);
-    logLine("done", `${res.frames} frames in ${ms} ms`);
-    consoleEl.scrollTop = consoleEl.scrollHeight;
-    setStatus(res.faults && res.faults.length ? `${res.faults.length} fault(s)` : "Done", !!(res.faults && res.faults.length));
+    startPolling();
+    setStatus(`Bench: ${count} sprites`);
+}
+
+function pollOnce() {
+    let p;
+    try {
+        p = call("poll");
+    } catch (e) {
+        setStatus(e.message, true);
+        stopPolling(false);
+        return;
+    }
+    const log = p.log || [];
+    for (const l of log) logEntry(l);
+    for (const f of p.faults || []) logFault(f);
+    if (log.length || (p.faults || []).length) scrollConsole();
+    const s = p.stats || {};
+    statsEl.textContent = s.running
+        ? `${(s.frameMs || 0).toFixed(1)} ms · ${s.drawCalls} draws · ${s.calls} GL calls${s.lost ? " · context lost" : ""}`
+        : "";
+}
+
+function startPolling() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(pollOnce, POLL_MS);
+    stopBtn.disabled = false;
+    gameHint.hidden = true;
+}
+
+function stopPolling(flush) {
+    if (!pollTimer) return;
+    if (flush) pollOnce();
+    clearInterval(pollTimer);
+    pollTimer = 0;
+    stopBtn.disabled = true;
+    statsEl.textContent = "";
+}
+
+function stop() {
+    try {
+        call("stop");
+    } catch (_) {}
+    stopPolling(true);
+    setStatus("Stopped");
 }
 
 function syncScroll() {
@@ -177,11 +280,21 @@ function syncScroll() {
     marks.style.transform = `translateY(${-source.scrollTop}px)`;
 }
 
+function selectExample(ex) {
+    current = ex;
+    framesLabel.hidden = !!(ex && ex.scene);
+    if (!pollTimer) {
+        gameHint.hidden = false;
+        gameHint.textContent = ex && ex.scene ? "Press Run to play this scene" : "Console example: output goes to Console";
+    }
+}
+
 function loadExample(id, push) {
     const ex = examples.find((e) => e.id === id);
     if (!ex) return false;
     source.value = ex.code.endsWith("\n") ? ex.code : ex.code + "\n";
     examplesEl.value = id;
+    selectExample(ex);
     if (push) {
         const url = new URL(location.href);
         url.searchParams.set("example", id);
@@ -300,31 +413,45 @@ async function boot() {
     for (const ex of examples) {
         const o = document.createElement("option");
         o.value = ex.id;
-        o.textContent = ex.title;
+        o.textContent = ex.scene ? `▶ ${ex.title}` : ex.title;
         examplesEl.appendChild(o);
     }
-    const wanted = new URL(location.href).searchParams.get("example");
+    const params = new URL(location.href).searchParams;
+    const wanted = params.get("example");
     if (!(wanted && loadExample(wanted, false))) {
         let saved = null;
         try {
             saved = localStorage.getItem(STORE);
         } catch (_) {}
         source.value = saved || starter;
+        selectExample(null);
         refresh();
     }
     runBtn.disabled = false;
-    setStatus("Ready");
     loaderEl.classList.add("done");
     setTimeout(() => loaderEl.remove(), 250);
+    window.aegoBoot = Math.round(performance.now() - bootStart);
+    setStatus(`Ready in ${(window.aegoBoot / 1000).toFixed(1)} s`);
+    const bench = parseInt(params.get("bench"), 10);
+    if (bench > 0) startBench(bench);
 }
 
 source.addEventListener("input", schedule);
 source.addEventListener("scroll", syncScroll);
 source.addEventListener("keydown", indent);
+canvas.addEventListener("focus", () => gamePane.classList.add("captured"));
+canvas.addEventListener("blur", () => gamePane.classList.remove("captured"));
 document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") e.preventDefault();
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") e.preventDefault();
+    if (k === "enter" && e.target !== source && !runBtn.disabled) {
+        e.preventDefault();
+        run();
+    }
 });
 runBtn.addEventListener("click", run);
+stopBtn.addEventListener("click", stop);
 $("clear").addEventListener("click", () => (consoleEl.textContent = ""));
 examplesEl.addEventListener("change", () => examplesEl.value && loadExample(examplesEl.value, true));
 

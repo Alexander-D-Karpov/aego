@@ -1,0 +1,721 @@
+scene version=1 {
+  node "f2000000000000000000000000000001" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=32
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#0f172aff
+      scale=fitVirtual
+      virtual=[960, 540]
+      active=true
+    }
+  }
+  node "f2000000000000000000000000000002" name="Floor" enabled=true layers=1 {
+    transform {
+      position=[0, 7.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#4b5563ff
+      origin=[0.5, 0.5]
+      size=[30, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[30, 1]
+    }
+  }
+  node "f2000000000000000000000000000101" name="Box1" enabled=true layers=1 {
+    transform {
+      position=[-2.1, 6.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#f97316ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000102" name="Box2" enabled=true layers=1 {
+    transform {
+      position=[-1.05, 6.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#eab308ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000103" name="Box3" enabled=true layers=1 {
+    transform {
+      position=[0, 6.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000104" name="Box4" enabled=true layers=1 {
+    transform {
+      position=[1.05, 6.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#06b6d4ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000105" name="Box5" enabled=true layers=1 {
+    transform {
+      position=[2.1, 6.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#3b82f6ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000106" name="Box6" enabled=true layers=1 {
+    transform {
+      position=[-1.575, 5.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#8b5cf6ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000107" name="Box7" enabled=true layers=1 {
+    transform {
+      position=[-0.525, 5.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#ec4899ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000108" name="Box8" enabled=true layers=1 {
+    transform {
+      position=[0.525, 5.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#ef4444ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f2000000000000000000000000000109" name="Box9" enabled=true layers=1 {
+    transform {
+      position=[1.575, 5.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#f97316ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010a" name="Box10" enabled=true layers=1 {
+    transform {
+      position=[-1.05, 4.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#eab308ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010b" name="Box11" enabled=true layers=1 {
+    transform {
+      position=[0, 4.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010c" name="Box12" enabled=true layers=1 {
+    transform {
+      position=[1.05, 4.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#06b6d4ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010d" name="Box13" enabled=true layers=1 {
+    transform {
+      position=[-0.525, 3.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#3b82f6ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010e" name="Box14" enabled=true layers=1 {
+    transform {
+      position=[0.525, 3.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#8b5cf6ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+  node "f200000000000000000000000000010f" name="Box15" enabled=true layers=1 {
+    transform {
+      position=[0, 2.75]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#ec4899ff
+      origin=[0.5, 0.5]
+      size=[0.98, 0.98]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      size=[0.98, 0.98]
+    }
+    component "engine.Script" version=1 {
+      script "game.boxes.Kick" enabled=true {}
+    }
+  }
+}

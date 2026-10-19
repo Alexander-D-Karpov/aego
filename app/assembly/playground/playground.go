@@ -4,7 +4,9 @@ import (
 	"aego/app/assembly"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/modules/debug"
 	inputmod "aego/modules/input"
+	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/scripting"
 	"aego/script/stdlib"
@@ -18,5 +20,7 @@ func Catalog() assembly.Catalog {
 		{ID: scripting.ID, New: func(o assembly.Options) module.Module {
 			return scripting.New(stdlib.Options{Seed: o.Seed, Testing: o.Testing})
 		}},
+		{ID: physics.ID, New: func(assembly.Options) module.Module { return physics.New() }},
+		{ID: debug.ID, New: func(assembly.Options) module.Module { return debug.New() }},
 	}
 }

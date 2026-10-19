@@ -1,0 +1,48 @@
+package platformer
+
+import (
+	"aego/input"
+	"aego/log"
+	"aego/physics"
+)
+
+script Player {
+	@export(min=0, max=20, unit="u/s")
+	var Speed float = 6
+
+	@export(gizmo="vector")
+	var JumpImpulse Vec2 = Vec2{0, -6}
+
+	var ground int
+
+	func Ready() {
+		log.Info("A/D or arrows to run, Space to jump")
+	}
+
+	func OnCollisionEnter(other NodeRef, c physics.Contact) {
+		if c.Normal.Y < -0.5 {
+			ground++
+		}
+	}
+
+	func OnCollisionExit(other NodeRef, c physics.Contact) {
+		if c.Normal.Y < -0.5 && ground > 0 {
+			ground--
+		}
+	}
+
+	func FixedUpdate(dt float) {
+		body := node.Get<Body2D>()
+		if body == nil {
+			return
+		}
+		v := body.Velocity
+		v.X = input.Axis("Move") * Speed
+		body.SetVelocity(v)
+		if ground > 0 && input.Buffered("Jump", 0) {
+			input.Consume("Jump")
+			body.SetVelocity(Vec2{v.X, 0})
+			body.ApplyImpulse(JumpImpulse)
+		}
+	}
+}

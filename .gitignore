@@ -16,3 +16,5 @@ tools/genicons/genicons
 *.test
 
 /tests/golden/testdata/actual-*
+tools/websmoke/node_modules/
+tools/websmoke/golden/actual-*.png

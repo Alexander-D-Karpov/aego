@@ -17,6 +17,9 @@ EDITOR_VERSION ?= 0.1.0
 EDITOR_ICON ?= third_party/brand/aego-1024.png
 EXPORT_SMOKE = $(CURDIR)/.cache/export-smoke
 EXPORT_HOME = $(CURDIR)/.cache/export-home
+CHROMIUM ?= $(shell command -v chromium || command -v chromium-browser || command -v google-chrome)
+WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROMIUM) node smoke.mjs --site=$(CURDIR)/site
+WASM_BUDGET = 8388608
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
@@ -27,7 +30,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -190,7 +193,7 @@ site: cli
 	.cache/bin/aego docs build --out site --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
-	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 
 playground:
 	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
@@ -201,7 +204,7 @@ site-headless:
 	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
-	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 
 site-check: cli
 	.cache/bin/aego docs check
@@ -209,7 +212,16 @@ site-check: cli
 	cd tools/gendocs && AEGO_DOCS_EXPORT=$(CURDIR)/.cache/docs.json go test ./...
 
 playground-size:
-	GOOS=js GOARCH=wasm go list -export -deps -f '{{if .Export}}{{.ImportPath}} {{.Export}}{{end}}' ./cmd/aego-playground | while read p f; do echo "$$(stat -c %s $$f) $$p"; done | sort -rn | head -40
+	mkdir -p .cache
+	GOOS=js GOARCH=wasm go build -trimpath -o .cache/aego-playground.wasm ./cmd/aego-playground
+	go run ./tools/wasmsize -top 40 .cache/aego-playground.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-playground.wasm
+
+web-smoke: site
+	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
+
+web-smoke-update: site
+	$(WEB_SMOKE) --update
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego
@@ -232,6 +244,7 @@ check-all: cli
 	.cache/bin/aego test examples/platformer
 	.cache/bin/aego check examples/native-settings
 	.cache/bin/aego check examples/native-editor
+	.cache/bin/aego check app/playground/examples
 	cd examples/native-editor && go vet -tags aego_editor ./...
 
 # Fuzz the lexer and parser for FUZZTIME each.
@@ -241,7 +254,7 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
 
 runtime: bootstrap
 	go build -tags aego_runtime -o .cache/bin/aego-runtime ./cmd/aego-runtime

@@ -1,0 +1,13 @@
+{
+  "name": "aego-websmoke",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "pixelmatch": "^6.0.0",
+    "playwright-core": "^1.48.0",
+    "pngjs": "^7.0.0"
+  }
+}
