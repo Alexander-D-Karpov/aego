@@ -3144,6 +3144,7 @@ manifest version=6 {
     field "Mass" {
       type="float"
       readonly=false
+      doc="Mass in kilograms when Mass Mode is override."
     }
     field "GravityScale" {
       type="float"
@@ -3153,22 +3154,27 @@ manifest version=6 {
     field "LinearDamping" {
       type="float"
       readonly=false
+      doc="Slows the movement every step, like air resistance; 0 keeps the speed."
     }
     field "AngularDamping" {
       type="float"
       readonly=false
+      doc="Slows the rotation every step; 0 keeps spinning."
     }
     field "FixedRotation" {
       type="bool"
       readonly=false
+      doc="Keeps the body upright: contacts and torque never rotate it."
     }
     field "Bullet" {
       type="bool"
       readonly=false
+      doc="Continuous collision against other dynamic bodies, so a fast body cannot pass through them. Costs more."
     }
     field "AllowSleep" {
       type="bool"
       readonly=false
+      doc="Lets the body sleep after it comes to rest, which saves time; contacts and scripts wake it."
     }
     field "Interpolate" {
       type="bool"
@@ -3188,14 +3194,17 @@ manifest version=6 {
     field "Velocity" {
       type="Vec2"
       readonly=true
+      doc="Current velocity in units per second, during Play."
     }
     field "AngularVelocity" {
       type="float"
       readonly=true
+      doc="Current rotation speed in radians per second, during Play."
     }
     field "Awake" {
       type="bool"
       readonly=true
+      doc="Whether the body is simulated this step or sleeping, during Play."
     }
   }
   component "physics.BoxCollider2D" {
@@ -3205,26 +3214,32 @@ manifest version=6 {
     field "Offset" {
       type="Vec2"
       readonly=false
+      doc="Position of the shape in node space."
     }
     field "IsTrigger" {
       type="bool"
       readonly=false
+      doc="Detects overlaps and sends trigger events without pushing bodies apart."
     }
     field "Friction" {
       type="float"
       readonly=false
+      doc="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
     }
     field "Restitution" {
       type="float"
       readonly=false
+      doc="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
     }
     field "Density" {
       type="float"
       readonly=false
+      doc="Mass per square unit; gives the body its mass when Mass Mode is auto."
     }
     field "Size" {
       type="Vec2"
       readonly=false
+      doc="Width and height in units, before the node scale."
     }
   }
   component "physics.CircleCollider2D" {
@@ -3234,26 +3249,32 @@ manifest version=6 {
     field "Offset" {
       type="Vec2"
       readonly=false
+      doc="Position of the shape in node space."
     }
     field "IsTrigger" {
       type="bool"
       readonly=false
+      doc="Detects overlaps and sends trigger events without pushing bodies apart."
     }
     field "Friction" {
       type="float"
       readonly=false
+      doc="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
     }
     field "Restitution" {
       type="float"
       readonly=false
+      doc="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
     }
     field "Density" {
       type="float"
       readonly=false
+      doc="Mass per square unit; gives the body its mass when Mass Mode is auto."
     }
     field "Radius" {
       type="float"
       readonly=false
+      doc="Radius in units, before the node scale."
     }
   }
   component "physics.CapsuleCollider2D" {
@@ -3263,30 +3284,37 @@ manifest version=6 {
     field "Offset" {
       type="Vec2"
       readonly=false
+      doc="Position of the shape in node space."
     }
     field "IsTrigger" {
       type="bool"
       readonly=false
+      doc="Detects overlaps and sends trigger events without pushing bodies apart."
     }
     field "Friction" {
       type="float"
       readonly=false
+      doc="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
     }
     field "Restitution" {
       type="float"
       readonly=false
+      doc="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
     }
     field "Density" {
       type="float"
       readonly=false
+      doc="Mass per square unit; gives the body its mass when Mass Mode is auto."
     }
     field "Length" {
       type="float"
       readonly=false
+      doc="Full length along the local X axis, caps included."
     }
     field "Radius" {
       type="float"
       readonly=false
+      doc="Radius of the caps and half the thickness."
     }
   }
   component "physics.PolygonCollider2D" {
@@ -3296,26 +3324,32 @@ manifest version=6 {
     field "Offset" {
       type="Vec2"
       readonly=false
+      doc="Position of the shape in node space."
     }
     field "IsTrigger" {
       type="bool"
       readonly=false
+      doc="Detects overlaps and sends trigger events without pushing bodies apart."
     }
     field "Friction" {
       type="float"
       readonly=false
+      doc="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
     }
     field "Restitution" {
       type="float"
       readonly=false
+      doc="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
     }
     field "Density" {
       type="float"
       readonly=false
+      doc="Mass per square unit; gives the body its mass when Mass Mode is auto."
     }
     field "Points" {
       type="[]Vec2"
       readonly=true
+      doc="Corners in node space, 3 to 8, forming a convex shape; edit them in the Scene View."
     }
   }
   component "physics.EdgeCollider2D" {
@@ -3325,34 +3359,42 @@ manifest version=6 {
     field "Offset" {
       type="Vec2"
       readonly=false
+      doc="Position of the shape in node space."
     }
     field "IsTrigger" {
       type="bool"
       readonly=false
+      doc="Detects overlaps and sends trigger events without pushing bodies apart."
     }
     field "Friction" {
       type="float"
       readonly=false
+      doc="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
     }
     field "Restitution" {
       type="float"
       readonly=false
+      doc="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
     }
     field "Density" {
       type="float"
       readonly=false
+      doc="Mass per square unit; gives the body its mass when Mass Mode is auto."
     }
     field "Points" {
       type="[]Vec2"
       readonly=true
+      doc="Points of the line in node space, at least 2; edit them in the Scene View."
     }
     field "Loop" {
       type="bool"
       readonly=false
+      doc="Joins the last point to the first, for closed outlines; needs at least 3 points."
     }
     field "OneSided" {
       type="bool"
       readonly=false
+      doc="Collides only from above, so bodies can jump through from below, as on a platform."
     }
   }
   component "physics.DistanceJoint2D" {
@@ -3362,38 +3404,47 @@ manifest version=6 {
     field "Target" {
       type="NodeRef"
       readonly=false
+      doc="The other body; both nodes need a Rigid Body 2D."
     }
     field "AnchorA" {
       type="Vec2"
       readonly=false
+      doc="Attachment point on this node, in node space."
     }
     field "AnchorB" {
       type="Vec2"
       readonly=false
+      doc="Attachment point on the Target node, in its node space."
     }
     field "Length" {
       type="float"
       readonly=false
+      doc="Rest length in units; 0 takes the distance between the anchors at start."
     }
     field "MinLength" {
       type="float"
       readonly=false
+      doc="Shortest allowed length. With Min and Max both 0 the joint is a rigid rod, or a spring without a lower limit when Stiffness is set."
     }
     field "MaxLength" {
       type="float"
       readonly=false
+      doc="Longest allowed length; a rope has Min 0 and Max at the rope length."
     }
     field "Stiffness" {
       type="float"
       readonly=false
+      doc="Spring stiffness in newtons per unit; 0 makes the length rigid within Min and Max."
     }
     field "Damping" {
       type="float"
       readonly=false
+      doc="Spring damping; higher values stop the oscillation sooner."
     }
     field "CollideConnected" {
       type="bool"
       readonly=false
+      doc="Lets the two connected bodies collide with each other."
     }
   }
   component "physics.RevoluteJoint2D" {
@@ -3403,38 +3454,47 @@ manifest version=6 {
     field "Target" {
       type="NodeRef"
       readonly=false
+      doc="The body this one turns around; both nodes need a Rigid Body 2D."
     }
     field "Anchor" {
       type="Vec2"
       readonly=false
+      doc="Pivot point in this node's space; both bodies turn around it."
     }
     field "EnableLimit" {
       type="bool"
       readonly=false
+      doc="Keeps the angle between Lower and Upper."
     }
     field "Lower" {
       type="float"
       readonly=false
+      doc="Smallest angle in radians, relative to the angle at start."
     }
     field "Upper" {
       type="float"
       readonly=false
+      doc="Largest angle in radians, relative to the angle at start."
     }
     field "EnableMotor" {
       type="bool"
       readonly=false
+      doc="Drives the joint at Speed, up to Max Torque."
     }
     field "Speed" {
       type="float"
       readonly=false
+      doc="Motor speed in radians per second; negative turns the other way."
     }
     field "MaxTorque" {
       type="float"
       readonly=false
+      doc="Strongest torque the motor may apply; with 0 the motor does nothing."
     }
     field "CollideConnected" {
       type="bool"
       readonly=false
+      doc="Lets the two connected bodies collide with each other."
     }
   }
   component "save.Persist" {
@@ -3444,10 +3504,12 @@ manifest version=6 {
     field "NoTransform" {
       type="bool"
       readonly=false
+      doc="Leaves the transform out of save games, for nodes whose position comes from elsewhere."
     }
     field "NoEnabled" {
       type="bool"
       readonly=false
+      doc="Leaves the enabled flag out of save games."
     }
   }
 }

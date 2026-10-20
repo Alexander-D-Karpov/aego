@@ -38,7 +38,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Audio", DocsOrder: 130}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Audio", DocsOrder: 130, DocsIcon: "cat.audio"}
 }
 
 func (*Module) Register(r *module.Registry) error {

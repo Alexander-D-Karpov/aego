@@ -17,6 +17,8 @@ type Info struct {
 	NonDeterministic string
 	DisplayName      string
 	DocsOrder        int
+	DocsIcon         string
+	DocsGroup        string
 }
 
 type Module interface {

@@ -17,7 +17,10 @@ type record struct {
 	summary    string
 	group      string
 	groupTitle string
+	groupIcon  string
 	groupOrder int
+	icon       string
+	editorOnly bool
 	order      int
 	ordered    bool
 	keys       []string
@@ -128,6 +131,8 @@ func (r *record) set(key, val string) error {
 		r.group, err = scalar(val)
 	case "group_title":
 		r.groupTitle, err = scalar(val)
+	case "group_icon":
+		r.groupIcon, err = scalar(val)
 	case "group_order":
 		var s string
 		if s, err = scalar(val); err == nil {
@@ -147,6 +152,13 @@ func (r *record) set(key, val string) error {
 		r.try, err = scalar(val)
 	case "try_select":
 		r.trySelect, err = scalar(val)
+	case "icon":
+		r.icon, err = scalar(val)
+	case "editor_only":
+		var v string
+		if v, err = scalar(val); err == nil {
+			r.editorOnly, err = strconv.ParseBool(v)
+		}
 	default:
 		return fmt.Errorf("unknown front matter key %q", key)
 	}
@@ -314,6 +326,7 @@ func snippets(md string) []Snippet {
 				if len(info) > 0 {
 					s.Lang = info[0]
 					s.Run = slices.Contains(info[1:], "run")
+					s.Check = slices.Contains(info[1:], "check")
 				}
 				cur, code = &s, code[:0]
 				continue

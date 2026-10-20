@@ -1,0 +1,58 @@
+scene version=1 space="3d" {
+  node "d4000000000000000000000000000001" name="Camera" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 2.5, 7]
+      rotation=[-0.17365, 0, 0, 0.98481]
+      scale=[1, 1, 1]
+    }
+    component "engine.Camera3D" version=1 {
+      fov=55
+      clearColor=#111827ff
+      active=true
+    }
+  }
+  node "d4000000000000000000000000000003" name="Cube" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[-2, 0.5, 0]
+      rotation=[0, 0.38268, 0, 0.92388]
+      scale=[1, 1, 1]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000001")
+      color=#e07b39ff
+    }
+  }
+  node "d4000000000000000000000000000004" name="Sphere" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0.75, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[1.5, 1.5, 1.5]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000003")
+      color=#4aa3ffff
+    }
+  }
+  node "d4000000000000000000000000000005" name="Cylinder" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[2, 0.75, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[1, 1.5, 1]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000004")
+      color=#6fcf97ff
+    }
+  }
+  node "d4000000000000000000000000000002" name="Floor" enabled=true layers=1 space="3d" {
+    transform3d {
+      position=[0, 0, 0]
+      rotation=[0, 0, 0, 1]
+      scale=[10, 1, 10]
+    }
+    component "engine.MeshRenderer" version=1 {
+      mesh=asset("ae900000000000000000000000000002")
+      color=#4b5563ff
+    }
+  }
+}

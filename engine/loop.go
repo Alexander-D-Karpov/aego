@@ -226,6 +226,9 @@ func (e *Engine) frame() {
 		gs := e.curFrame.Stats()
 		e.dev.EndFrame()
 		e.curFrame = nil
+		if e.capture != nil {
+			e.grab()
+		}
 		sz := e.tracer.Begin(e.zSwap)
 		e.win.SwapBuffers()
 		sz.End()

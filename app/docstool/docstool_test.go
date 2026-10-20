@@ -138,7 +138,7 @@ func TestF1Refs(t *testing.T) {
 	if err := os.WriteFile(path, []byte(probe), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	reg, ws, err := build(p, nil)
+	reg, ws, err := build(p, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,5 +167,19 @@ func TestF1Refs(t *testing.T) {
 		if !ok || e.ID != tc.want {
 			t.Errorf("%s: ref %q resolves to %q, want %q", tc.at, h.Ref, e.ID, tc.want)
 		}
+	}
+}
+
+func TestDiagnosticExamplesExported(t *testing.T) {
+	if ps := DiagnosticProblems(); len(ps) > 0 {
+		t.Fatalf("diagnostics examples: %v", ps)
+	}
+	reg, err := ExportRegistry(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok := reg.Get("AES2001")
+	if !ok || e.Diag == nil || e.Diag.Line == 0 || e.Diag.Severity != "error" || !strings.Contains(e.Diag.Message, "heigth") {
+		t.Fatalf("AES2001 example was not diagnosed: %+v", e.Diag)
 	}
 }

@@ -21,7 +21,11 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...m
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
-	reg, err := Registry(p, mods)
+	build := Registry
+	if args[0] == "export" {
+		build = ExportRegistry
+	}
+	reg, err := build(p, mods)
 	if err != nil {
 		fmt.Fprintln(stderr, "aego:", err)
 		return 1
@@ -34,7 +38,7 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...m
 		}
 		return 0
 	case "check":
-		return Check(reg, *strict, stdout)
+		return Check(reg, *strict, stdout, DiagnosticProblems()...)
 	}
 	fmt.Fprintf(stderr, "unknown docs command %q\n", args[0])
 	return 2

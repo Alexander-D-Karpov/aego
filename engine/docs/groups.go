@@ -13,6 +13,7 @@ const (
 	SectionReference = "reference"
 
 	GroupStart       = "start"
+	GroupScript      = "script"
 	GroupScriptAPI   = "ref-script"
 	GroupComponents  = "components"
 	GroupSettings    = "ref-settings"
@@ -26,23 +27,24 @@ type Group struct {
 	Title   string `json:"title"`
 	Section string `json:"section"`
 	Order   int    `json:"order"`
+	Icon    string `json:"icon,omitempty"`
 }
 
 var groups = []Group{
-	{GroupStart, "Getting started", SectionStart, 0},
-	{"editor", "Editor", SectionGuides, 10},
-	{"script", "Aego Script", SectionGuides, 20},
-	{"scenes", "Scenes & Prefabs", SectionGuides, 30},
-	{"gameplay", "Gameplay", SectionGuides, 40},
-	{"rendering", "Rendering", SectionGuides, 60},
-	{"extending", "Extending Aego", SectionGuides, 70},
-	{"tools", "Tools & Agents", SectionGuides, 80},
-	{GroupScriptAPI, "Script API", SectionReference, 100},
-	{GroupComponents, "Components", SectionReference, 110},
-	{GroupSettings, "Project settings", SectionReference, 120},
-	{GroupDiagnostics, "Diagnostics", SectionReference, 130},
-	{GroupCLI, "CLI", SectionReference, 140},
-	{GroupProject, "Project", SectionReference, 150},
+	{GroupStart, "Getting started", SectionStart, 0, "play.start"},
+	{"editor", "Editor", SectionGuides, 10, "panel.inspector"},
+	{GroupScript, "Aego Script", SectionGuides, 20, "file.script"},
+	{"scenes", "Scenes & Prefabs", SectionGuides, 30, "file.prefab"},
+	{"gameplay", "Gameplay", SectionGuides, 40, "cat.game"},
+	{"rendering", "Rendering", SectionGuides, 60, "cat.rendering"},
+	{"extending", "Extending Aego", SectionGuides, 70, "cat.scripts"},
+	{"tools", "Tools & Agents", SectionGuides, 80, "panel.console"},
+	{GroupScriptAPI, "Script API", SectionReference, 100, "code.block"},
+	{GroupComponents, "Components", SectionReference, 110, "node.empty"},
+	{GroupSettings, "Project settings", SectionReference, 120, "panel.settings"},
+	{GroupDiagnostics, "Diagnostics", SectionReference, 130, "panel.problems"},
+	{GroupCLI, "CLI", SectionReference, 140, "panel.console"},
+	{GroupProject, "Project", SectionReference, 150, "file.folder"},
 }
 
 func Groups() []Group {

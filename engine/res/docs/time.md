@@ -1,10 +1,13 @@
 ---
 id: time
+icon: play.speed
 group: gameplay
 title: Time
 order: 2
 ---
 # Time
+
+![Play mode: pause, step, time scale and the timeline under the Game View](shots/play.png)
 
 Every world has its own clock with several domains:
 

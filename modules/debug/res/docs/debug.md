@@ -1,5 +1,6 @@
 ---
 id: debug
+icon: panel.debug_draw
 group: tools
 title: Debug Draw
 order: 1

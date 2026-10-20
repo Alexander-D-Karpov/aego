@@ -21,6 +21,12 @@ import (
 
 func build(t *testing.T, extra ...module.DocSource) (*docs.Registry, *manifest.Manifest) {
 	t.Helper()
+	r, bm, _ := buildWith(t, extra...)
+	return r, bm
+}
+
+func buildWith(t *testing.T, extra ...module.DocSource) (*docs.Registry, *manifest.Manifest, *bind.Registry) {
+	t.Helper()
 	types, err := assembly.NewTypes()
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +47,7 @@ func build(t *testing.T, extra ...module.DocSource) (*docs.Registry, *manifest.M
 		t.Fatal(err)
 	}
 	man.Docs = append(man.Docs, extra...)
-	return docs.FromManifest(bm, types.Schema(), man), bm
+	return docs.FromManifest(bm, types.Schema(), man), bm, reg
 }
 
 func TestCoverage(t *testing.T) {

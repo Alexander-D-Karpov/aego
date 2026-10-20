@@ -29,7 +29,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Spawning", DocsOrder: 70}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Spawning", DocsOrder: 70, DocsIcon: "file.prefab"}
 }
 
 func (m *Module) Register(r *module.Registry) error {

@@ -77,10 +77,11 @@ type Location struct {
 }
 
 type Snippet struct {
-	Lang string
-	Code string
-	Run  bool
-	Line int
+	Lang  string
+	Code  string
+	Run   bool
+	Check bool
+	Line  int
 }
 
 type Entry struct {
@@ -106,6 +107,34 @@ type Entry struct {
 	Related   []string
 	Try       string
 	TrySelect string
+	Icon      string
+	// EditorOnly pages are shown in the editor's docs panel and left out of the site.
+	EditorOnly bool `json:",omitempty"`
+	Diag       *DiagInfo
+}
+
+type DiagFile struct {
+	Path string
+	Bad  string
+	Good string
+}
+
+// DiagInfo is the example of a diagnostic code; Severity, At and the position come from compiling Bad.
+type DiagInfo struct {
+	Phase    string
+	Fix      string
+	File     string
+	Bad      string
+	Good     string
+	Files    []DiagFile
+	Why      string
+	Severity string
+	At       string
+	Line     int
+	Col      int
+	EndLine  int
+	EndCol   int
+	Message  string
 }
 
 type Problem struct {
@@ -126,6 +155,7 @@ type Sources struct {
 	Sections    []*module.Section
 	Settings    []settings.Desc
 	EventOwners map[string]string
+	Diagnose    func(code string, d *DiagInfo)
 }
 
 type pageMeta struct {
@@ -138,6 +168,7 @@ type Registry struct {
 	byID     map[string]int
 	children map[string][]int
 	keys     map[string]int
+	alias    map[string]string
 	builtin  map[string]bool
 	mods     map[string]module.Info
 	meta     map[string]pageMeta
@@ -232,7 +263,7 @@ func Assemble(src Sources) *Registry {
 	}
 	r.projectSections(src.Sections)
 	r.playerSettings(src.Settings)
-	r.codes()
+	r.codes(src.Diagnose)
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
 		r.pages(d)
@@ -257,12 +288,15 @@ func (r *Registry) moduleTitle(owner string) string {
 	return owner
 }
 
+// componentGuideOrder puts components of a module documented in a guide group after the guide pages.
+const componentGuideOrder = 1000
+
 func (r *Registry) modulePage(owner string) string {
 	id := ModulePrefix + owner
 	if _, ok := r.byID[id]; !ok {
 		title := r.moduleTitle(owner)
 		r.add(Entry{ID: id, Kind: Module, Owner: owner, Group: GroupComponents, Order: r.docsOrder(owner), Title: title,
-			Body: "Components of the " + title + " module."})
+			Body: "Components of the " + title + " module.", Icon: r.mods[owner].DocsIcon})
 	}
 	return id
 }
@@ -316,6 +350,7 @@ func (r *Registry) add(e Entry) int {
 		return i
 	}
 	r.byID[e.ID] = len(r.entries)
+	r.alias = nil
 	r.entries = append(r.entries, e)
 	return len(r.entries) - 1
 }
@@ -434,9 +469,15 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 		if title == "" {
 			title = td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
 		}
+		parent, group, order := "", r.mods[owner].DocsGroup, 0
+		if group == "" {
+			parent = r.modulePage(owner)
+		} else {
+			order = componentGuideOrder
+		}
 		r.add(Entry{
-			ID: td.FullName, Parent: r.modulePage(owner), Kind: Type, Owner: owner, Title: title,
-			Signature: "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner),
+			ID: td.FullName, Parent: parent, Group: group, Order: order, Kind: Type, Owner: owner, Title: title,
+			Signature: "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner), Icon: td.Icon,
 			Location: Location{Stub: stub, Symbol: "component:" + td.FullName},
 		})
 		base := defaultsOf(td)
@@ -468,14 +509,33 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 	}
 }
 
-func (r *Registry) codes() {
+func (r *Registry) codes(diagnose func(string, *DiagInfo)) {
 	for _, c := range diag.Codes() {
 		h, _ := diag.Explain(c)
 		r.add(Entry{
 			ID: c, Parent: DiagnosticsID, Kind: Code, Owner: scriptOwner, Title: c,
-			Summary: h.What, Body: h.What + "\n\nFix: " + h.Fix,
+			Summary: h.What, Body: h.What + "\n\nFix: " + h.Fix, Diag: diagInfo(c, h, diagnose),
 		})
 	}
+}
+
+func diagInfo(code string, h diag.Help, diagnose func(string, *DiagInfo)) *DiagInfo {
+	d := &DiagInfo{Phase: diag.Phase(code), Fix: h.Fix}
+	ex, ok := diag.Example(code)
+	if !ok {
+		return d
+	}
+	d.Why = ex.Why
+	if ex.Why == "" {
+		d.File, d.Bad, d.Good = ex.MainFile(), strings.ToValidUTF8(ex.Bad, "\uFFFD"), ex.Good
+		for _, f := range ex.Files {
+			d.Files = append(d.Files, DiagFile{Path: f.Path, Bad: f.Bad, Good: f.Good})
+		}
+	}
+	if diagnose != nil {
+		diagnose(code, d)
+	}
+	return d
 }
 
 func (r *Registry) pages(src module.DocSource) {
@@ -526,6 +586,9 @@ func (r *Registry) page(owner, file, source string, rec record) {
 		}
 		e.Body = joinBody(e.Body, rec.body)
 		e.Keys = append(e.Keys, rec.keys...)
+		if rec.icon != "" {
+			e.Icon = rec.icon
+		}
 		if rec.summary != "" {
 			e.Summary = rec.summary
 		}
@@ -540,12 +603,12 @@ func (r *Registry) page(owner, file, source string, rec record) {
 	}
 	r.add(Entry{
 		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Group: rec.group, Title: title, Summary: rec.summary,
-		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order,
+		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order, Icon: rec.icon, EditorOnly: rec.editorOnly,
 		Location: Location{Path: owner + ":" + file, Line: rec.line, Source: source},
 	})
 	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered}
 	if rec.groupTitle != "" {
-		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder})
+		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder, Icon: rec.groupIcon})
 	}
 }
 
@@ -729,6 +792,9 @@ func (r *Registry) Check(strict bool) []Problem {
 				out = append(out, Problem{ID: e.ID, Error: true, Message: "broken link ref:" + l})
 			}
 		}
+		if r.needsRun(i) && !r.runs(i, 0) {
+			out = append(out, Problem{ID: e.ID, Error: true, Message: "has no runnable example (an ```aes run block)"})
+		}
 		switch {
 		case (e.Kind == Function || e.Kind == Method) && strings.TrimSpace(e.Body) == "":
 			out = append(out, Problem{ID: e.ID, Error: strict && e.Owner != "" && !r.builtin[e.Owner], Message: "has no documentation"})
@@ -743,6 +809,38 @@ func (r *Registry) Check(strict bool) []Problem {
 		return out[a].ID < out[b].ID
 	})
 	return out
+}
+
+func (r *Registry) needsRun(i int) bool {
+	e := &r.entries[i]
+	if e.Owner != scriptOwner && !r.builtin[e.Owner] {
+		return false
+	}
+	switch e.Kind {
+	case Module:
+		return e.Group == GroupScriptAPI
+	case Page:
+		return e.Group == GroupScript && len(e.Keys) == 0
+	}
+	return false
+}
+
+func (r *Registry) runs(i, depth int) bool {
+	e := &r.entries[i]
+	for _, s := range e.Snippets {
+		if (s.Run || s.Check && e.Kind == Module) && s.Lang == "aes" {
+			return true
+		}
+	}
+	if e.Kind != Page || depth > 32 {
+		return false
+	}
+	for _, c := range r.children[e.ID] {
+		if r.runs(c, depth+1) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Registry) pageTry(src module.DocSource, rec record) {

@@ -1,5 +1,6 @@
 ---
 id: render2d/cameras
+icon: comp.camera2d
 group: rendering
 order: 2
 title: Cameras

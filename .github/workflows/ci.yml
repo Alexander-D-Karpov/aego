@@ -3,6 +3,7 @@ name: ci
 on:
   push:
     branches: [master]
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -112,3 +113,37 @@ jobs:
         run: |
           /tmp/aego check examples/native-rotator
           /tmp/aego run examples/native-rotator --headless --frames 60
+
+  release:
+    needs: [checks, build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      CGO_ENABLED: "1"
+      GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITEA_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: linux packages
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: .cache/native
+          key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
+      - run: bash tools/bootstrap-native.sh
+      - name: windows tools
+        run: sudo apt-get install -y mingw-w64 nsis zip
+      - name: publish
+        env:
+          REQUIRE_WINDOWS: "1"
+        run: |
+          case "$GITHUB_REF" in
+          refs/tags/v*) sh tools/release/release.sh "$GITHUB_REF_NAME" ;;
+          refs/heads/master) sh tools/release/release.sh nightly ;;
+          esac

@@ -47,7 +47,8 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
 page.on("pageerror", (e) => fail("page error: " + e.message));
 const call = (m, p = {}) => page.evaluate(([m, p]) => JSON.parse(globalThis.aegoDocs.call(m, JSON.stringify(p))), [m, p]);
-const text = () => page.locator(".try .try-text code").first().textContent();
+const cell = '.try .st-fields .v[data-k$="component:physics.BoxCollider2D/restitution"]';
+const restitution = () => page.locator(cell).first().textContent();
 
 try {
     let docsFetches = 0;
@@ -77,11 +78,15 @@ try {
     console.log(`try: running after ${Date.now() - started} ms, next to the playground runtime`);
     const set = await call("set", { component: "physics.BoxCollider2D", field: "restitution", value: 0.75 });
     if (set.error) throw new Error("set: " + set.error);
-    await page.waitForFunction(() => document.querySelector(".try .try-text code").textContent.includes("restitution=0.75"), null, { timeout: 10000 });
+    await page.waitForFunction((sel) => {
+        const c = document.querySelector(sel);
+        return c && c.textContent === "0.75" && c.classList.contains("changed");
+    }, cell, { timeout: 10000 });
     const st = (await call("state")).state;
     if (st.restarts < 1 || !st.running) fail(`the edit did not restart the scene: ${JSON.stringify(st)}`);
     await page.click(".try .try-reset");
-    if ((await text()).includes("restitution=0.75")) fail("Reset kept the edit");
+    await page.waitForFunction((sel) => !document.querySelector(sel).classList.contains("changed"), cell, { timeout: 10000 }).catch(() => {});
+    if ((await restitution()) === "0.75") fail("Reset kept the edit");
     const again = await page.evaluate(async () => {
         const a = await globalThis.aegoRuntime("try", "aego-docs.wasm", "aegoDocsReady", "aegoDocs");
         const b = await globalThis.aegoRuntime("play", "aego.wasm", "aegoReady", "aego");

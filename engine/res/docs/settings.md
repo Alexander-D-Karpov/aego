@@ -1,5 +1,6 @@
 ---
 id: settings
+icon: panel.settings
 group: gameplay
 title: Settings
 order: 8

@@ -15,7 +15,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Data assets", DocsOrder: 90}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Data assets", DocsOrder: 90, DocsIcon: "file.data"}
 }
 
 func (*Module) Register(r *module.Registry) error {

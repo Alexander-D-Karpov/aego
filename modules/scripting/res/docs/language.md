@@ -1,5 +1,6 @@
 ---
 id: language
+icon: file.script
 group: script
 title: Aego Script
 order: 1
@@ -10,8 +11,34 @@ Aego Script is the gameplay language of the Aego engine. It is statically typed,
 
 This document is the normative reference for language version 2 (Stages 5–6). Language version 1 modules are no longer loaded; projects are recompiled on open.
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Hello {
+    @export var Greeting string = "hello from Aego Script"
+
+    var frames int
+
+    func Ready() {
+        log.Info(Greeting + " on node " + node.Name())
+    }
+
+    func Update(dt float) {
+        frames++
+        if frames == 60 {
+            log.Info("one second of frames: " + string(frames))
+        }
+    }
+}
+```
+
 ---
 id: language/overview
+icon: help.book
 parent: language
 order: 1
 title: Overview
@@ -57,7 +84,7 @@ script PlayerController {
 	}
 
 	func Update(dt float) {
-		x := input.Axis("horizontal")
+		x := input.Axis("Move")
 		if x != 0 {
 			state = State.Run
 		} else {
@@ -80,8 +107,71 @@ script PlayerController {
 
 Attach `PlayerController` to a node in the editor, set `Speed` and `Target` in the Inspector, press Play.
 
+Run it: the same controller without the `mygame/combat` import and the `Target` field, which need a project. The sandbox has no input devices, so the script pushes the axis to 1 on one frame.
+
+```aes run
+package player
+
+import (
+    "aego/input"
+    "aego/log"
+    "aego/math"
+)
+
+enum State {
+    Idle
+    Run
+}
+
+type Stats struct {
+    Hp    int
+    Armor float
+}
+
+const MaxSpeed float = 600
+
+script PlayerController {
+    @export(min=0, max=600, unit="px/s")
+    var Speed float = 220
+
+    var state State
+    var stats Stats
+    var frames int
+
+    func Ready() {
+        stats = Stats{Hp: 10, Armor: 0.5}
+        log.Info("ready with " + string(stats.Hp) + " hp")
+    }
+
+    func Update(dt float) {
+        x := input.Axis("Move")
+        if frames == 30 {
+            x = 1
+        }
+        if x != 0 {
+            state = State.Run
+        } else {
+            state = State.Idle
+        }
+        t := node.Transform2D()
+        t.Position.X += math.Clamp(x*Speed, -MaxSpeed, MaxSpeed) * dt
+        node.SetTransform2D(t)
+
+        sr := node.Get<SpriteRenderer>()
+        if sr != nil {
+            sr.FlipX = x < 0
+        }
+        frames++
+        if frames % 30 == 1 {
+            log.Info("frame " + string(frames) + ": state " + string(int(state)) + ", x " + string(node.Position().X))
+        }
+    }
+}
+```
+
 ---
 id: language/files-and-packages
+icon: file.folder
 parent: language
 order: 2
 title: Files and packages
@@ -98,8 +188,39 @@ title: Files and packages
 
 A package that fails to compile keeps its last good build; its files are marked invalid and Play is blocked until they compile again.
 
+Run it: one package with exported and package-private declarations. The sandbox compiles a single file, so imports between script packages need a project.
+
+```aes run
+package inventory
+
+import (
+    "aego/log"
+    "aego/math"
+)
+
+// MaxSlots is exported: other packages read it as inventory.MaxSlots.
+const MaxSlots int = 8
+
+// stackSize is package-private.
+const stackSize int = 20
+
+// Fit is exported and can be called from other packages.
+func Fit(count int) int {
+    return math.MinInt(count, MaxSlots * stackSize)
+}
+
+script Bag {
+    @export var Count int = 200
+
+    func Ready() {
+        log.Info("package inventory keeps " + string(Fit(Count)) + " of " + string(Count) + " items")
+    }
+}
+```
+
 ---
 id: language/lexical-structure
+icon: code.hints
 parent: language
 order: 3
 title: Lexical structure
@@ -124,8 +245,35 @@ Deliberately unsupported lexical forms (each has a diagnostic that names the int
 | `имя := 1` | identifiers are ASCII | ASCII names |
 | `a & b` | no bitwise arithmetic | `&&` / `\|\|` |
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+/* Literals and operators from this page. */
+script Lexer {
+    func Ready() {
+        hex := 0x1f
+        big := 1_000_000
+        half := .5
+        sci := 1e3
+        log.Info("ints " + string(hex) + " " + string(big) + ", floats " + string(half) + " " + string(sci))
+        log.Info("escapes: tab[\t] quote[\"] backslash[\\] unicode[\u00e9]")
+        log.Info("bytes in \"héllo\": " + string(len("héllo")))
+        a := 7
+        a += 3
+        a %= 4
+        a++
+        log.Info("(7 + 3) % 4 + 1 = " + string(a) + ", both: " + string(a > 2 && !(a == 0)))
+    }
+}
+```
+
 ---
 id: language/grammar
+icon: code.implementation
 parent: language
 order: 4
 title: Grammar
@@ -169,8 +317,58 @@ Precedence, high to low: unary `-` `!`; `* / %`; `+ -`; `== != < <= > >=`; `&&`;
 
 Composite literals are not allowed directly in the head of `if`, `for` or `switch`; parenthesize them (`if x == (Stats{}) {`).
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+const Limit int = 3
+
+type Point struct {
+    X int
+    Y int
+}
+
+enum Dir {
+    Left
+    Right
+}
+
+func flip(d Dir) Dir {
+    switch d {
+    case Dir.Left:
+        return Dir.Right
+    default:
+        return Dir.Left
+    }
+}
+
+script Grammar {
+    var steps []Point
+
+    func Ready() {
+        d := Dir.Left
+        for i := 0; i < Limit; i++ {
+            d = flip(d)
+            steps = append(steps, Point{X: i, Y: int(d)})
+        }
+        n := 0
+        for n < len(steps) {
+            log.Info("step " + string(n) + ": " + string(steps[n].X) + ", " + string(steps[n].Y))
+            n++
+        }
+        if steps[0] == (Point{0, 1}) {
+            log.Info("a composite literal in an if head needs parentheses")
+        }
+    }
+}
+```
+
 ---
 id: language/types
+icon: code.block
 parent: language
 order: 5
 title: Types
@@ -208,8 +406,55 @@ Rules:
 - A slice element may occupy at most 32 value slots (`AES2032`); scalars, vectors, refs and small structs are far below it.
 - `nil` is valid for `NodeRef`, `AssetRef`, `ComponentRef`, `ScriptRef`, `Coroutine`, `Connection` and host handles. Reading or writing through a nil reference is a runtime fault (`AES6004`); calling a method on a nil `Coroutine`, `Connection` or host handle is not: `Running()` and `Connected()` return `false`, `Done()` returns `true`, `Stop()`, `Cancel()` and `Disconnect()` do nothing.
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+type Stats struct {
+    Hp    int
+    Armor float
+}
+
+enum Mood {
+    Calm
+    Angry
+}
+
+script Types {
+    var conn Connection
+
+    func Ready() {
+        a := Stats{Hp: 10, Armor: 0.5}
+        b := a
+        b.Hp = 3
+        log.Info("structs copy: a.Hp " + string(a.Hp) + ", b.Hp " + string(b.Hp))
+
+        f := 7.9
+        log.Info("int(7.9) = " + string(int(f)) + ", float(7) / 2 = " + string(float(7) / 2) + ", 7 / 2 = " + string(7 / 2))
+
+        m := Mood(1)
+        log.Info("Mood(1) is Angry: " + string(m == Mood.Angry) + ", int " + string(int(m)))
+
+        v := Vec2{3, 4} * 2 - Vec2{1, 1}
+        c := Color{1, 0.5, 0, 1}
+        log.Info("vector " + string(v.X) + ", " + string(v.Y) + ", color green " + string(c.G))
+
+        var hits []int
+        hits = append(hits, 5)
+        hits = append(hits, 7)
+        log.Info("slice of " + string(len(hits)) + ", last " + string(hits[len(hits) - 1]))
+
+        log.Info("nil connection connected: " + string(conn.Connected()))
+    }
+}
+```
+
 ---
 id: language/declarations-and-statements
+icon: code.brackets
 parent: language
 order: 6
 title: Declarations and statements
@@ -226,8 +471,64 @@ title: Declarations and statements
 - Unused local variables are warnings.
 - There are no closures, lambdas, defer, goroutines, pointers or maps.
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+enum Weapon {
+    Sword
+    Bow
+    Staff
+}
+
+func damage(w Weapon) int {
+    switch w {
+    case Weapon.Sword:
+        return 12
+    case Weapon.Bow, Weapon.Staff:
+        return 8
+    }
+    return 0
+}
+
+func fib(n int) int {
+    if n < 2 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+script Statements {
+    func Ready() {
+        var total int
+        var scale float = 1.5
+        for w := 0; w < 3; w++ {
+            total += damage(Weapon(w))
+        }
+        log.Info("total damage " + string(total) + ", scaled " + string(float(total) * scale))
+
+        i := 0
+        for {
+            i++
+            if i % 2 == 0 {
+                continue
+            }
+            if i > 7 {
+                break
+            }
+            log.Info("odd " + string(i))
+        }
+        log.Info("fib(15) = " + string(fib(15)))
+    }
+}
+```
+
 ---
 id: language/scripts-and-lifecycle
+icon: panel.history
 parent: language
 order: 7
 title: Scripts and lifecycle
@@ -267,8 +568,52 @@ Lifecycle methods are recognised by name and must have exactly these signatures:
 
 Instances that do not declare a method are not visited for it; a scene with ten thousand instances that never declare `Update` costs nothing in the update phase. Lifecycle methods cannot be coroutines (`AES2056`), cannot be signal handlers (`AES2055`) and cannot be called through a `ScriptRef` (`AES2059`).
 
+Run it: the sandbox attaches each script to its own node.
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Enemy {
+    @export var Speed float = 2
+
+    var fixedSteps int
+    var frames int
+    var elapsed float
+
+    func Ready() {
+        log.Info("Ready on " + node.Name() + ", speed " + string(Speed))
+    }
+
+    func FixedUpdate(dt float) {
+        fixedSteps++
+    }
+
+    func Update(dt float) {
+        frames++
+        elapsed += dt
+        node.SetPosition(node.Position() + Vec2{Speed * dt, 0})
+        if frames % 40 == 0 {
+            log.Info("frame " + string(frames) + ", fixed steps " + string(fixedSteps) + ", elapsed " + string(elapsed) + ", x " + string(node.Position().X))
+        }
+    }
+
+    func helper() int {
+        return frames
+    }
+}
+
+script Spawner {
+    func Ready() {
+        log.Info("Ready on " + node.Name() + "; every Ready runs before the first Update")
+    }
+}
+```
+
 ---
 id: language/attributes
+icon: code.hints
 parent: language
 order: 8
 title: Attributes
@@ -304,8 +649,51 @@ Persistent fields may be bool, int, float, string, a vector or color, an enum, `
 
 `OnSave()` runs while a game is saved and writes values with `save.PutInt`, `PutFloat`, `PutBool`, `PutString` and `PutVec2`; `OnLoad()` runs after `Ready` when a game is loaded and reads them back with `save.GetInt(key, def)` and the others. Keys belong to the node, so two scripts on one node share them.
 
+Run it: attributes change what the Inspector, scenes and saves do with a field; in the sandbox every field starts with its default.
+
+```aes run
+package demo
+
+import "aego/log"
+
+enum Team {
+    Red
+    Blue
+}
+
+@former("Mover")
+script Walker {
+    @export(min=0, max=10, step=0.5, unit="u/s", display="Walk speed", tip="Units per second", category="Movement")
+    var Speed float = 2.5
+
+    @export
+    @former("Side")
+    var Team Team = Team.Blue
+
+    @export var Jump Vec2 = Vec2{0, -5}
+    @export var Tint Color = Color{R: 1, A: 1}
+
+    @persist
+    var Coins int
+
+    func Ready() {
+        log.Info("speed " + string(Speed) + ", team " + string(int(Team)) + ", jump " + string(Jump.Y) + ", tint red " + string(Tint.R))
+        Coins += 5
+        log.Info("coins " + string(Coins))
+    }
+}
+
+@hide
+script Helper {
+    func Ready() {
+        log.Info("Helper is attached here but not offered in Add Script")
+    }
+}
+```
+
 ---
 id: language/nodes-components-and-references
+icon: node.empty
 parent: language
 order: 9
 title: Nodes, components and references
@@ -321,7 +709,7 @@ title: Nodes, components and references
 | `Transform2D() Transform2D`, `SetTransform2D(t)`, `Position() Vec2`, `SetPosition(Vec2)`, `WorldPosition() Vec2`, `Rotation() float`, `SetRotation(float)`, `Scale() Vec2`, `SetScale(Vec2)` | 2D nodes |
 | `Transform3D() Transform3D`, `SetTransform3D(t)`, `Position3() Vec3`, `SetPosition3(Vec3)`, `Rotation3() Quat`, `SetRotation3(Quat)` | 3D nodes |
 | `Get<T>() ComponentRef<T>`, `Has<T>() bool` | components |
-| `GetScript<T>() ScriptRef<T>`, `HasScript<T>() bool` | scripts (§18) |
+| `GetScript<T>() ScriptRef<T>` (nil when the node has no T) | scripts (§18) |
 
 Transforms are read and written by value: `t := node.Transform2D(); t.Position.X += 1; node.SetTransform2D(t)`. A 2D method on a 3D node (and the reverse) faults. `Destroy` takes effect at the end of the phase; `IsAlive` is false immediately. `Get<T>()` and `GetScript<T>()` on a destroyed node return `nil`; on a `nil` reference they fault with `AES6004`.
 
@@ -337,8 +725,58 @@ A `ComponentRef` is safe to keep in a field: it is re-validated on every access 
 
 `IsNil() bool`, `Name() string`. Assets are assigned in the Inspector; scripts pass them to engine functions (`scene.Instantiate`).
 
+Run it: the sandbox puts each script on its own top-level node with a Sprite Renderer.
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Gun {
+    var shots int
+
+    func Fire() {
+        shots++
+    }
+}
+
+script Player {
+    var sprite ComponentRef<SpriteRenderer>
+    var frames int
+
+    func Ready() {
+        sprite = node.Get<SpriteRenderer>()
+        log.Info("has sprite: " + string(node.Has<SpriteRenderer>()))
+        gun := node.Find("../Gun")
+        if gun != nil && gun.IsAlive() {
+            log.Info("found " + gun.Name() + " next to " + node.Name())
+            gun.GetScript<Gun>().Fire()
+        }
+        t := node.Transform2D()
+        t.Position.X += 1
+        node.SetTransform2D(t)
+        log.Info("position " + string(node.Position().X) + ", world " + string(node.WorldPosition().X))
+    }
+
+    func Update(dt float) {
+        frames++
+        if frames == 30 {
+            sprite.FlipX = true
+            sprite.Tint = Color{1, 0, 0, 1}
+            log.Info("flipped: " + string(sprite.FlipX) + ", tint red " + string(sprite.Tint.R) + " green " + string(sprite.Tint.G))
+        }
+        if frames == 60 {
+            gun := node.Find("/Gun")
+            log.Info("gun has a sprite: " + string(gun.Has<SpriteRenderer>()))
+            log.Info("Gun fired " + string(gun.GetScript<Gun>().shots) + " time")
+        }
+    }
+}
+```
+
 ---
 id: language/native-bindings
+icon: cat.scripts
 parent: language
 order: 11
 title: Native bindings
@@ -391,8 +829,31 @@ sdk.Func1(hm, "Done", func(c *sdk.ScriptCtx, r Request) bool { return svc.Done(r
 
 The Go type must be distinct for every handle type and convert to and from a non-zero `uint64` key; key `0` is `nil`. Scripts see the type as `net.Request` and call its methods. A handle registered as awaitable must have `Done() bool`; `yield req` then parks the coroutine until the module calls `Complete(abi.HandleID("mygame/net.Request"), key)` on the world service `scriptwait.ServiceID`. Call it when the object ends, fires or is cancelled.
 
+Run it: the sandbox has no `native/` code, but the standard library and component fields are bound through the same SDK, so scripts call them the same way they call your own module.
+
+```aes run
+package demo
+
+import (
+    "aego/log"
+    "aego/math"
+    "aego/rand"
+)
+
+script Bindings {
+    func Ready() {
+        log.Info("math.Clamp from Go: " + string(math.Clamp(14, 0, 10)) + ", math.Pi " + string(math.Pi))
+        log.Info("rand.Int from Go: " + string(rand.Int(1, 7)))
+        sr := node.Get<SpriteRenderer>()
+        sr.FlipY = true
+        log.Info("SpriteRenderer.FlipY set through a component binding: " + string(sr.FlipY))
+    }
+}
+```
+
 ---
 id: language/runtime-behaviour
+icon: panel.profiler
 parent: language
 order: 12
 title: Runtime behaviour
@@ -419,8 +880,42 @@ title: Runtime behaviour
 
 Faults raised by the engine itself (a dead reference inside a component accessor, for instance) carry their exact code; only `c.Fail` from native code maps to `AES6010`.
 
+Run it:
+
+```aes run
+package demo
+
+import (
+    "aego/log"
+    "aego/math"
+)
+
+script Runtime {
+    var names []string
+    var frames int
+
+    func Ready() {
+        log.Info("int(1e20) saturates to " + string(int(1e20)))
+        log.Info("int(NaN) is " + string(int(math.Sqrt(-1))))
+        minInt := -9223372036854775807
+        minInt--
+        log.Info("MinInt / -1 = " + string(minInt / -1) + ", MinInt % -1 = " + string(minInt % -1))
+        log.Info("-7 / 2 = " + string(-7 / 2) + ", -7 % 2 = " + string(-7 % 2))
+    }
+
+    func Update(dt float) {
+        frames++
+        names = append(names, "frame " + string(frames))
+        if frames % 40 == 0 {
+            log.Info(string(len(names)) + " strings kept in a field, last \"" + names[len(names) - 1] + "\"")
+        }
+    }
+}
+```
+
 ---
 id: language/limits
+icon: status.warning
 parent: language
 order: 13
 title: Limits
@@ -429,8 +924,43 @@ title: Limits
 
 255 registers per function · 32 767 instructions per function · 32 value slots per slice element · 255 script-visible fields per component (checked when the component is registered) · call depth 256 · 1 000 000 instructions per callback (configurable).
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+func depth(n int) int {
+    if n == 0 {
+        return 0
+    }
+    return 1 + depth(n - 1)
+}
+
+script Limits {
+    var frames int
+    var sum int
+
+    func Ready() {
+        log.Info("recursion " + string(depth(200)) + " deep, below the limit of 256")
+    }
+
+    func Update(dt float) {
+        for i := 0; i < 20_000; i++ {
+            sum += i % 7
+        }
+        frames++
+        if frames % 60 == 0 {
+            log.Info("frame " + string(frames) + ": 20 000 iterations per frame fit the budget, sum " + string(sum))
+        }
+    }
+}
+```
+
 ---
 id: language/diagnostics
+icon: panel.problems
 parent: language
 order: 14
 title: Diagnostics
@@ -461,8 +991,52 @@ Codes specific to coroutines, signals and script references:
 | AES2058 | `ScriptRef` / `GetScript` target is not a script type, or is ambiguous |
 | AES2059 | lifecycle method or coroutine called through a `ScriptRef` |
 
+Run it: the checks below avoid the runtime faults AES6004, AES6005 and AES6006.
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Guards {
+    @export var Target NodeRef
+
+    var scores []int
+
+    func Ready() {
+        scores = append(scores, 40)
+        scores = append(scores, 15)
+        var none []int
+        log.Info("average " + string(average(scores)) + ", of none " + string(average(none)))
+        log.Info("score 5: " + string(at(5)))
+        if Target == nil {
+            log.Warn("Target is not set; Target.Name() would stop the script with AES6004")
+        }
+    }
+
+    func average(list []int) int {
+        if len(list) == 0 {
+            return 0
+        }
+        total := 0
+        for i := 0; i < len(list); i++ {
+            total += list[i]
+        }
+        return total / len(list)
+    }
+
+    func at(i int) int {
+        if i < 0 || i >= len(scores) {
+            return -1
+        }
+        return scores[i]
+    }
+}
+```
+
 ---
 id: language/cli
+icon: panel.console
 parent: language
 order: 15
 title: CLI
@@ -483,8 +1057,40 @@ Test functions are package functions; they have no scene, so coroutines, signals
 
 `aego test --determinism` checks that the game itself is deterministic. It runs the main scene (or `--scene file`) twice headless with the same seed (`--seed`, default 1) and a fixed 1/60 s frame, for `--frames` frames (default 600), and every `--every` frames (default 60) hashes the world time, the random source and the state of every service that supports rewind keyframes. If the hashes differ, it prints the first checkpoint where they do and exits with code 1. `-v` lists which services the hash covers and which it does not (engine services such as the asset loader and the renderer hold no game state). A difference usually means a script or module reads the wall clock, iterates a Go map, or keeps state outside the world.
 
+Run it: the sandbox has no test runner, so a script calls the test function from `Ready`. In a project, put `TestCombo` in a `_test.aes` file and run `aego test`.
+
+```aes run
+package demo
+
+import (
+    "aego/log"
+    "aego/testing"
+)
+
+func combo(hits int) int {
+    if hits < 3 {
+        return 1
+    }
+    return hits / 3 + 1
+}
+
+func TestCombo() {
+    testing.Equal(combo(0), 1)
+    testing.Equal(combo(3), 2)
+    testing.Equal(combo(9), 4)
+}
+
+script Runner {
+    func Ready() {
+        TestCombo()
+        log.Info("ok   TestCombo")
+    }
+}
+```
+
 ---
 id: language/coroutines
+icon: status.busy
 parent: language
 order: 16
 title: Coroutines
@@ -565,6 +1171,7 @@ script Blink {
 
 ---
 id: language/signals
+icon: panel.events
 parent: language
 order: 17
 title: Signals
@@ -653,6 +1260,7 @@ Go code subscribes with `sdk.Connect1[A](ctx, node, "Health.Died", fn)` or `"scr
 
 ---
 id: language/scriptref
+icon: panel.references
 parent: language
 order: 18
 title: ScriptRef
@@ -663,8 +1271,62 @@ title: ScriptRef
 
 Through a `ScriptRef` you can read and write fields (exported ones from other packages), call plain methods and connect to signals. Lifecycle methods and coroutines are not reachable (`AES2059`); call a plain method that does the work, or connect to a signal. A `ScriptRef` is re-validated on every access; once the target instance stops, access faults with `AES6004`. `ScriptRef` fields cannot be exported. A `ScriptRef` survives a hot reload of either side: fields and methods are re-resolved by name.
 
+Run it:
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Health {
+    @export var Max int = 10
+
+    var Current int
+
+    signal Died()
+
+    func Ready() {
+        Current = Max
+    }
+
+    func Damage(n int) {
+        Current -= n
+        if Current <= 0 {
+            Current = 0
+            Died.Emit()
+        }
+    }
+}
+
+script Attacker {
+    var target ScriptRef<Health>
+    var conn Connection
+    var frames int
+
+    func Ready() {
+        other := node.Find("/Health")
+        target = other.GetScript<Health>()
+        conn = target.Died.Connect(OnTargetDied)
+    }
+
+    func Update(dt float) {
+        frames++
+        if frames % 20 == 0 && target.Current > 0 {
+            target.Damage(4)
+            log.Info("hit, target has " + string(target.Current) + " of " + string(target.Max))
+        }
+    }
+
+    func OnTargetDied() {
+        log.Info("target died on frame " + string(frames))
+        conn.Disconnect()
+    }
+}
+```
+
 ---
 id: language/hot-reload
+icon: build.ok
 parent: language
 order: 19
 title: Hot reload
@@ -705,8 +1367,42 @@ func Reloaded() {
 
 `Ready` does not run again. Instances that faulted in a changed script resume running. Instances of a removed script stop. Coroutines and connections of unchanged scripts are untouched. The Console prints one line per reload: `Hot reload N → N+1: X migrated, Y reset, Z coroutines canceled, W handlers disconnected, … ms`; the same numbers appear in the Profiler's Scripts section. Changes in `native/` are never swapped in-process: the supervisor rebuilds and restarts.
 
+Run it: the sandbox never reloads, so `Reloaded` does not run here. In `aego run` or Play, change `Beat` and save; the coroutine is cancelled and `Reloaded` starts it again.
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Pulse {
+    @export var Period float = 0.5
+
+    var pulse Coroutine
+    var beats int
+
+    func Ready() {
+        pulse = start Beat()
+    }
+
+    func Reloaded() {
+        if !pulse.Running() {
+            pulse = start Beat()
+        }
+    }
+
+    func Beat() coroutine {
+        for {
+            beats++
+            log.Info("beat " + string(beats))
+            yield wait(Period)
+        }
+    }
+}
+```
+
 ---
 id: language/editor
+icon: panel.inspector
 parent: language
 order: 20
 title: Editor
@@ -715,8 +1411,42 @@ title: Editor
 
 The editor's code editor, navigation, completion, hover, library stubs, Problems panel and Profiler sections for scripts are described in `docs/editor.md` (§ Scripts). Unsaved edits are analysed but never run; autosave writes them one second after the last keystroke, on focus loss and before Play.
 
+Run it: in the code editor, hover over `Turret`, `Range` or `Rate` to see the comments above them; the Inspector groups the fields by `category`.
+
+```aes run
+package demo
+
+import "aego/log"
+
+// Turret aims at the nearest target. This comment is shown on hover.
+script Turret {
+    // Range is how far the turret sees, in world units.
+    @export(min=0, max=20, unit="u", category="Aim")
+    var Range float = 8
+
+    // Rate is shots per second.
+    @export(min=0.1, max=10, category="Fire")
+    var Rate float = 2
+
+    var cooldown float
+    var shots int
+
+    func Update(dt float) {
+        cooldown -= dt
+        if cooldown <= 0 {
+            cooldown = 1 / Rate
+            shots++
+            if shots % 2 == 0 {
+                log.Info("shot " + string(shots) + " at range " + string(Range))
+            }
+        }
+    }
+}
+```
+
 ---
 id: language/data-assets
+icon: file.data
 parent: language
 order: 21
 title: Data assets
@@ -738,3 +1468,35 @@ var Loot TableRef<LootEntry>
 A table reference has `Row(id string)`, `Has(id string) bool` and `Len() int`. `Row` returns a copy of the row.
 
 Reading through a nil reference or asking for a missing row stops the script with AES6004.
+
+Run it: `Stats.Copy()` returns a struct like `EnemyStats` below. The sandbox registers no data types, so the program builds the struct itself.
+
+```aes run
+package demo
+
+import "aego/log"
+
+type EnemyStats struct {
+    Speed float
+    Hp    int
+}
+
+script Enemy {
+    var stats EnemyStats
+
+    func Ready() {
+        stats = EnemyStats{Speed: 3, Hp: 20}
+        boss := stats
+        boss.Hp *= 5
+        log.Info("enemy " + string(stats.Hp) + " hp, boss copy " + string(boss.Hp) + " hp")
+    }
+
+    func Update(dt float) {
+        node.SetPosition(node.Position() + Vec2{stats.Speed * dt, 0})
+        if node.Position().X >= 3 && stats.Speed > 0 {
+            stats.Speed = 0
+            log.Info("stopped at x " + string(node.Position().X))
+        }
+    }
+}
+```

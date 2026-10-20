@@ -27,7 +27,7 @@ func tries(t *testing.T) []docs.Entry {
 		t.Fatal(err)
 	}
 	out := p.TryScenes()
-	if len(out) < 4 {
+	if len(out) < 10 {
 		t.Fatalf("only %d try scenes; does the module embed res/docs/try?", len(out))
 	}
 	return out

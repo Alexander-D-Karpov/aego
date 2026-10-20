@@ -1,14 +1,19 @@
 ---
 id: prefabs
+icon: file.prefab
 group: scenes
 title: Prefabs
 order: 1
 ---
 # Prefabs
 
+![A prefab instance selected in the Hierarchy: the orange cube marks instances](shots/prefab.png)
+
 A prefab is a reusable piece of a scene stored in an `.aeprefab` file. Every copy in a scene is an instance: it shows the prefab and keeps its own changes, the overrides. When the prefab changes, every instance follows it, and its overrides stay.
 
 ## Create and place
+
+![Prefab mode: the prefab opens on its own, with a breadcrumb back to the scene](shots/prefab-mode.png)
 
 - Drag a node from the Hierarchy onto a folder in Assets, or use Hierarchy → Prefab → Create Prefab. The node becomes an instance of the new prefab and keeps its node ids, so references to it keep working.
 - Drag an `.aeprefab` into the Hierarchy or the Scene View, or use Instantiate in Scene from its context menu.

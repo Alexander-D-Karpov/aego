@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"syscall/js"
 
 	"aego/app/docsview"
@@ -17,7 +18,8 @@ func main() {
 	} else {
 		app.OnChange = func(text string) {
 			if f := g.Get("aegoDocsChanged"); f.Type() == js.TypeFunction {
-				f.Invoke(text)
+				values, _ := json.Marshal(docsview.Values([]byte(text)))
+				f.Invoke(text, string(values))
 			}
 		}
 		api.Set("call", js.FuncOf(func(_ js.Value, args []js.Value) any {

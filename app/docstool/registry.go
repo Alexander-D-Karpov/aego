@@ -9,6 +9,7 @@ import (
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
+	"aego/app/playground"
 	"aego/engine/docs"
 	"aego/engine/module"
 	scriptsystems "aego/modules/scripting/systems"
@@ -20,7 +21,7 @@ import (
 	"aego/script/workspace"
 )
 
-func build(p *project.Project, mods []module.Module) (*docs.Registry, *workspace.Workspace, error) {
+func build(p *project.Project, mods []module.Module, diagnose func(string, *docs.DiagInfo)) (*docs.Registry, *workspace.Workspace, error) {
 	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, nil, err
@@ -41,6 +42,7 @@ func build(p *project.Project, mods []module.Module) (*docs.Registry, *workspace
 		return nil, nil, err
 	}
 	src := docs.SourcesOf(bm, types.Schema(), man)
+	src.Diagnose = diagnose
 	var ws *workspace.Workspace
 	if p != nil {
 		ws, err = workspace.Open(workspace.Config{Root: p.Root, Module: p.Module, Scripts: p.ScriptsDir(), Bindings: reg.Table(), Docs: bm})
@@ -61,7 +63,17 @@ func build(p *project.Project, mods []module.Module) (*docs.Registry, *workspace
 }
 
 func Registry(p *project.Project, mods []module.Module) (*docs.Registry, error) {
-	r, _, err := build(p, mods)
+	r, _, err := build(p, mods, nil)
+	return r, err
+}
+
+// ExportRegistry is Registry with the diagnostics examples compiled for their messages and positions.
+func ExportRegistry(p *project.Project, mods []module.Module) (*docs.Registry, error) {
+	pg, err := playground.New()
+	if err != nil {
+		return nil, err
+	}
+	r, _, err := build(p, mods, diagnoser(pg))
 	return r, err
 }
 
@@ -84,9 +96,9 @@ func WriteExport(reg *docs.Registry, title, path string, w io.Writer) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func Check(reg *docs.Registry, strict bool, w io.Writer) int {
+func Check(reg *docs.Registry, strict bool, w io.Writer, extra ...docs.Problem) int {
 	errs, warns := 0, 0
-	for _, p := range reg.Check(strict) {
+	for _, p := range append(reg.Check(strict), extra...) {
 		level := "warn "
 		if p.Error {
 			level = "error"

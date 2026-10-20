@@ -152,6 +152,8 @@ func TestEditorGolden(t *testing.T) {
 	}{
 		{"editor_docs_coroutines", "language/coroutines", "language/coroutines"},
 		{"editor_docs_yield", "key:yield", "keyword/yield"},
+		{"editor_docs_statements", "language/declarations-and-statements", "language/declarations-and-statements"},
+		{"editor_docs_types", "language/types", "language/types"},
 	} {
 		p := edocs.New(reg, ctx, ctx)
 		p.Show(tc.ref, "")

@@ -34,7 +34,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Physics 2D", DocsOrder: 30}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Physics 2D", DocsOrder: 30, DocsIcon: "cat.physics"}
 }
 
 func (*Module) IconDir() string {

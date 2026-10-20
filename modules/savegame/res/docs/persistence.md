@@ -1,5 +1,6 @@
 ---
 id: save
+icon: panel.saves
 group: gameplay
 title: Saving games
 order: 6
@@ -41,6 +42,7 @@ Slot names use letters, digits, `-` and `_`. Saves live next to the player setti
 
 ---
 id: save/load
+icon: file.open
 parent: save
 order: 1
 title: Loading order
@@ -59,6 +61,7 @@ References between saved nodes survive: a `NodeRef` to a scene node is saved by 
 
 ---
 id: save/go
+icon: code.brackets
 parent: save
 order: 2
 title: Modules

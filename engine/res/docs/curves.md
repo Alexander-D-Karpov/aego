@@ -1,5 +1,6 @@
 ---
 id: curves
+icon: vec.angular
 group: gameplay
 title: Curves
 order: 4
@@ -10,6 +11,7 @@ A curve maps time to a value. Component fields of type `curve.Curve` describe fa
 
 ---
 id: curves/shape
+icon: code.hints
 parent: curves
 order: 1
 title: Presets and keys
@@ -37,6 +39,7 @@ A curve is either a preset or a list of keys.
 
 ---
 id: curves/editor
+icon: edit.rename
 parent: curves
 order: 2
 title: Editing curves
@@ -54,6 +57,7 @@ Every drag is one undo step. Prefab instances show an overridden curve like any 
 
 ---
 id: curves/scripts
+icon: file.script
 parent: curves
 order: 3
 title: Curves in scripts
@@ -83,6 +87,7 @@ A `Curve` value is a read-only view of the field, not a copy: it sees edits made
 
 ---
 id: curves/go
+icon: code.brackets
 parent: curves
 order: 4
 title: Curves in Go

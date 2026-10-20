@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"aego/editor/core/docsession"
+	"aego/scene/sceneio"
 )
 
 type request struct {
@@ -18,10 +19,11 @@ type request struct {
 }
 
 type Reply struct {
-	Text  string            `json:"text,omitempty"`
-	Error string            `json:"error,omitempty"`
-	State *docsession.State `json:"state,omitempty"`
-	Log   []Line            `json:"log,omitempty"`
+	Text   string            `json:"text,omitempty"`
+	Values map[string]string `json:"values,omitempty"`
+	Error  string            `json:"error,omitempty"`
+	State  *docsession.State `json:"state,omitempty"`
+	Log    []Line            `json:"log,omitempty"`
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
@@ -61,7 +63,16 @@ func (a *App) Call(method string, payload []byte) Reply {
 		return Reply{Error: err.Error()}
 	}
 	st := s.State()
-	return Reply{Text: string(s.Text()), State: &st}
+	return Reply{Text: string(s.Text()), Values: Values(s.Text()), State: &st}
+}
+
+// Values flattens a scene file into the field keys the docs scene tree uses.
+func Values(text []byte) map[string]string {
+	nodes, err := sceneio.Outline(text)
+	if err != nil {
+		return nil
+	}
+	return sceneio.OutlineValues(nodes)
 }
 
 func (a *App) Reply(method, payload string) string {

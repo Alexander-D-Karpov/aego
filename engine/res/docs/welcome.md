@@ -1,6 +1,7 @@
 ---
 id: welcome
-group: start
+group: editor
+editor_only: true
 title: Getting started with Aego
 order: 0
 ---

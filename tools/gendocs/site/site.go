@@ -1,7 +1,9 @@
 package site
 
 import (
+	"crypto/sha256"
 	"embed"
+	hexenc "encoding/hex"
 	"encoding/json"
 	"html"
 	"html/template"
@@ -27,6 +29,9 @@ const (
 	SectionReference = "reference"
 	otherGroup       = "other"
 	heroAsset        = "assets/hero.png"
+	posterAsset      = "assets/demo-poster.png"
+	shotsDir         = "assets/shots/"
+	scriptSection    = "## From a script"
 	homeLead         = "Guides, the language reference and every engine module, generated from the same source as the editor's hover and docs panel."
 )
 
@@ -61,9 +66,12 @@ type Options struct {
 	Version     string
 	Commit      string
 	Hero        string
+	Poster      string
+	Shots       string
 	Demo        bool
 	PlayVersion string
 	TryVersion  string
+	Icons       []string
 	Time        time.Time
 }
 
@@ -75,13 +83,19 @@ type Report struct {
 }
 
 type layoutData struct {
+	AssetV      string
+	Rev         string
+	RevURL      string
 	Root        string
 	Title       string
 	Site        string
 	Playground  bool
 	PlayVersion string
 	TryVersion  string
+	PlaySize    int64
+	TrySize     int64
 	Repo        string
+	Demo        bool
 	Home        bool
 	Nav         template.HTML
 	Content     template.HTML
@@ -98,6 +112,7 @@ type searchItem struct {
 	ID      string `json:"i"`
 	Group   string `json:"g,omitempty"`
 	Section string `json:"c,omitempty"`
+	Icon    string `json:"ic,omitempty"`
 }
 
 type navGroup struct {
@@ -108,6 +123,8 @@ type navGroup struct {
 type builder struct {
 	exp     *Export
 	out     string
+	assetV  string
+	missing map[string]bool
 	opt     Options
 	byID    map[string]*Entry
 	kids    map[string][]string
@@ -118,15 +135,22 @@ type builder struct {
 	order   []string
 	pos     map[string]int
 	hero    bool
+	poster  bool
+	icons   iconSet
 	conv    *converter
 	layout  *template.Template
 	report  Report
 }
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
-	layout, err := template.New("layout").Parse(layoutSrc)
-	if err != nil {
-		return Report{}, err
+	exp.Entries = siteEntries(exp.Entries)
+	keep := make(map[string]bool, len(exp.Entries))
+	for _, e := range exp.Entries {
+		keep[e.ID] = true
+	}
+	exp.Nav = pruneNav(exp.Nav, keep)
+	for i := range exp.Groups {
+		exp.Groups[i].Nav = pruneNav(exp.Groups[i].Nav, keep)
 	}
 	if opt.Edit == "" && opt.Repo != "" {
 		opt.Edit = strings.TrimRight(opt.Repo, "/") + "/src/branch/main"
@@ -136,19 +160,25 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 		out:     out,
 		opt:     opt,
 		byID:    map[string]*Entry{},
+		missing: map[string]bool{},
 		kids:    map[string][]string{},
 		groupOf: map[string]int{},
 		own:     map[string]bool{},
 		urls:    map[string]string{},
 		pos:     map[string]int{},
 		conv:    newConverter(),
-		layout:  layout,
+		icons:   loadIcons(opt.Icons),
 	}
-	if opt.Hero != "" {
-		if st, err := os.Stat(opt.Hero); err == nil && !st.IsDir() {
-			b.hero = true
-		}
+	layout, err := template.New("layout").Funcs(template.FuncMap{
+		"icon": func(root, name string) template.HTML { return template.HTML(b.icon(root, name, "")) },
+	}).Parse(layoutSrc)
+	if err != nil {
+		return Report{}, err
 	}
+	b.layout = layout
+	b.assetV = b.assetVersion()
+	b.hero = isFile(opt.Hero)
+	b.poster = isFile(opt.Poster)
 	b.index()
 	b.route()
 	b.report.Outline = b.outline()
@@ -283,8 +313,27 @@ func plainMD(s string) string {
 }
 
 func (b *builder) resolve(id string) (string, bool) {
-	u, ok := b.urls[id]
-	return u, ok
+	if u, ok := b.urls[id]; ok {
+		return u, true
+	}
+	id = strings.TrimSuffix(strings.TrimSpace(id), "()")
+	if u, ok := b.urls[id]; ok {
+		return u, true
+	}
+	if real, ok := b.exp.Aliases[id]; ok {
+		u, ok := b.urls[real]
+		return u, ok
+	}
+	return "", false
+}
+
+func (b *builder) code(root, src string) string {
+	return highlightLinked(src, func(name string) string {
+		if u, ok := b.resolve(name); ok {
+			return root + u
+		}
+		return ""
+	})
 }
 
 func (b *builder) markdown(root, id, md string) string {
@@ -306,12 +355,16 @@ func kindLabel(e *Entry) string {
 	if e.Kind == KindPage {
 		return ""
 	}
-	return `<span class="kind kind-` + esc(e.Kind) + `">` + esc(e.Kind) + `</span>`
+	label := e.Kind
+	if e.Kind == KindType && e.Component != nil {
+		label = "component"
+	}
+	return `<span class="kind kind-` + esc(e.Kind) + `">` + esc(label) + `</span>`
 }
 
 func (b *builder) details(c *strings.Builder, e *Entry, root string) {
 	if e.Signature != "" {
-		c.WriteString(`<pre class="sig"><code>` + highlightAES(e.Signature) + "</code></pre>\n")
+		c.WriteString(`<pre class="sig"><code>` + b.code(root, e.Signature) + "</code></pre>\n")
 	}
 	body := e.Body
 	if b.own[e.ID] {
@@ -322,7 +375,9 @@ func (b *builder) details(c *strings.Builder, e *Entry, root string) {
 	}
 	if e.Example != "" {
 		c.WriteString(`<p class="label">Example</p>` + "\n")
-		c.WriteString(`<pre class="code"><code class="lang-aes">` + highlightAES(e.Example) + "</code></pre>\n")
+		c.WriteString(`<pre class="code" data-lang="aes"><code class="lang-aes">` + b.code(root, e.Example) + "</code></pre>\n")
+	} else if u := b.moduleExample(e); u != "" {
+		c.WriteString(`<p class="see-example">See the <a href="` + esc(root+u) + `">module example</a> for this function in use.</p>` + "\n")
 	}
 	if strings.HasPrefix(e.ID, ScriptsPrefix) && e.Location.Path != "" {
 		where := e.Location.Path
@@ -335,7 +390,11 @@ func (b *builder) details(c *strings.Builder, e *Entry, root string) {
 
 func (b *builder) ref(root, id, text string) string {
 	if u, ok := b.urls[id]; ok {
-		return `<a href="` + esc(root+u) + `">` + esc(text) + "</a>"
+		ic := ""
+		if e, ok := b.byID[id]; ok {
+			ic = b.icon(root, b.entryIcon(e), "")
+		}
+		return `<a class="xref" href="` + esc(root+u) + `">` + ic + esc(text) + "</a>"
 	}
 	return "<code>" + esc(text) + "</code>"
 }
@@ -350,35 +409,23 @@ func (b *builder) titleOf(id string) string {
 func (b *builder) componentMeta(e *Entry, root string) string {
 	ci := e.Component
 	var parts []string
-	if ci.Category != "" {
-		parts = append(parts, "Category <strong>"+esc(ci.Category)+"</strong>")
-	}
-	if ci.Module != "" {
-		parts = append(parts, "Module <strong>"+esc(ci.Module)+"</strong>")
-	}
-	if ci.Space != "" {
-		parts = append(parts, esc(ci.Space)+" nodes")
-	}
-	if ci.Unique {
-		parts = append(parts, "one per scene")
+	if ci.Create != "" {
+		parts = append(parts, `Add it with <span class="create">`+esc(ci.Create)+"</span>.")
 	}
 	if len(ci.Requires) > 0 {
 		links := make([]string, len(ci.Requires))
 		for i, id := range ci.Requires {
 			links[i] = b.ref(root, id, b.titleOf(id))
 		}
-		parts = append(parts, "requires "+strings.Join(links, ", "))
+		parts = append(parts, "Needs "+strings.Join(links, ", ")+" on the same node.")
 	}
-	if ci.Create != "" {
-		parts = append(parts, `<span class="create">`+esc(ci.Create)+"</span>")
+	if ci.Unique {
+		parts = append(parts, "One per scene.")
 	}
 	if len(parts) == 0 {
 		return ""
 	}
-	for i, part := range parts {
-		parts[i] = "<span>" + part + "</span>"
-	}
-	return `<p class="meta">` + strings.Join(parts, `<span class="dot">·</span>`) + "</p>\n"
+	return `<p class="meta">` + strings.Join(parts, " ") + "</p>\n"
 }
 
 func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading bool) {
@@ -410,7 +457,7 @@ func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading 
 		for _, n := range fi.Notes {
 			notes = append(notes, `<span class="note">`+esc(n)+"</span>")
 		}
-		c.WriteString(`<tr id="` + esc(f.ID) + `"><td><a class="anchor" href="#` + esc(f.ID) + `"><code>` + esc(f.Title) + "</code></a></td>")
+		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + `<code>` + esc(f.Title) + "</code></a></td>")
 		c.WriteString("<td><code>" + esc(fi.Type) + "</code></td><td>" + def + "</td><td>" + strings.Join(notes, " ") + "</td>")
 		c.WriteString("<td>" + b.markdown(root, f.ID, f.Body) + "</td></tr>\n")
 	}
@@ -436,8 +483,8 @@ func (b *builder) entryList(c *strings.Builder, ids []string, root string) {
 func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 	e := b.byID[id]
 	h := "h" + strconv.Itoa(min(depth, 4))
-	c.WriteString(`<section class="member">` + "\n")
-	c.WriteString("<" + h + ` id="` + esc(e.ID) + `"><a class="anchor" href="#` + esc(e.ID) + `">` + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
+	c.WriteString(`<section class="member" data-name="` + esc(strings.ToLower(e.Title)) + `">` + "\n")
+	c.WriteString("<" + h + ` id="` + esc(e.ID) + `"><a class="anchor" href="#` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "") + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
 	b.details(c, e, root)
 	b.fieldTable(c, e, root, false)
 	b.children(c, e, root, depth+1)
@@ -462,7 +509,7 @@ func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int)
 	c.WriteString(`<ul class="contents">` + "\n")
 	for _, k := range pages {
 		ke := b.byID[k]
-		c.WriteString(`<li><a href="` + esc(root+b.urls[k]) + `">` + esc(ke.Title) + "</a>" + kindLabel(ke))
+		c.WriteString(`<li><a href="` + esc(root+b.urls[k]) + `">` + b.icon(root, b.entryIcon(ke), "") + esc(ke.Title) + "</a>" + kindLabel(ke))
 		if ke.Summary != "" {
 			c.WriteString(`<span class="summary">` + inlineMD(ke.Summary) + "</span>")
 		}
@@ -494,30 +541,63 @@ func (b *builder) crumbs(e *Entry, root string) string {
 	if len(trail) == 0 {
 		return ""
 	}
-	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">/</span>`) + "</nav>\n"
+	sep := b.icon(root, "ui.chevron_right", "")
+	if sep == "" {
+		sep = "/"
+	}
+	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">`+sep+`</span>`) + "</nav>\n"
 }
 
-func (b *builder) tryBlock(c *strings.Builder, e *Entry) {
-	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-scene="` + esc(e.Try) + `">` + "\n")
+func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
+	name := e.ID
+	if i := strings.LastIndexByte(name, '.'); i >= 0 {
+		name = name[i+1:]
+	}
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `">` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
-	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
-	c.WriteString(`<div class="try-bar"><button type="button" class="try-copy">Copy scene</button><button type="button" class="try-reset" disabled>Reset</button><span class="try-status" role="status"></span></div>` + "\n")
-	c.WriteString(`<details class="try-text"><summary>Scene file</summary><pre><code>` + esc(e.Try) + "</code></pre></details>\n</section>\n")
+	c.WriteString(`<p class="try-caption">A live scene with ` + esc(e.Title) + `: edit its fields in the Inspector on the right and the scene restarts with them.</p>` + "\n")
+	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + `Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
+	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + `Open in editor</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + `Copy as .aescene</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + `Reset</button><span class="try-status" role="status"></span></div>` + "\n")
+	c.WriteString(b.sceneTree(e.Try, root))
+	c.WriteString("</section>\n")
 }
 
 func (b *builder) content(e *Entry, root string) string {
 	var c strings.Builder
 	c.WriteString(b.crumbs(e, root))
-	c.WriteString(`<h1 id="` + esc(e.ID) + `">` + esc(e.Title) + kindLabel(e) + "</h1>\n")
+	c.WriteString(`<h1 id="` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "ic-title") + esc(e.Title) + kindLabel(e) + "</h1>\n")
+	scripted := ""
 	if e.Component != nil {
-		c.WriteString(b.componentMeta(e, root))
+		if i := strings.Index(e.Body, scriptSection); i >= 0 {
+			head := *e
+			head.Body, scripted = e.Body[:i], e.Body[i:]
+			e = &head
+		}
 	}
-	b.details(&c, e, root)
+	if e.Component != nil {
+		head := *e
+		if strings.TrimSpace(head.Body) != "" {
+			c.WriteString(`<div class="lead">` + b.markdown(root, e.ID, head.Body) + "</div>\n")
+		}
+		c.WriteString(b.componentMeta(e, root))
+		head.Body = ""
+		b.details(&c, &head, root)
+	} else {
+		b.details(&c, e, root)
+	}
 	if e.Try != "" && b.opt.Playground {
-		b.tryBlock(&c, e)
+		b.tryBlock(&c, e, root)
 	}
 	b.fieldTable(&c, e, root, true)
-	b.children(&c, e, root, 2)
+	if scripted != "" {
+		c.WriteString(b.markdown(root, e.ID, scripted))
+	}
+	if e.Kind == KindModule && e.Group == groupScriptAPI {
+		b.apiIndex(&c, e, root)
+	}
+	if !b.diagnostics(&c, e, root) {
+		b.children(&c, e, root, 2)
+	}
 	if e.Component != nil && len(e.Component.Events) > 0 {
 		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">Script events</h2>` + "\n")
 		c.WriteString("<p>Scripts on a node with this component receive these events from the " + esc(e.Component.Module) + " module.</p>\n")
@@ -601,7 +681,8 @@ func (b *builder) footer(e *Entry, root string) string {
 }
 
 func (b *builder) navTree(c *strings.Builder, ids []string, root, current string, open map[string]bool) {
-	c.WriteString("<ul>")
+	c.WriteString(`<ul class="tree">`)
+	chev := b.icon(root, "ui.chevron_right", "chev")
 	for _, id := range ids {
 		if !b.own[id] {
 			continue
@@ -613,11 +694,13 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 				sub = append(sub, k)
 			}
 		}
-		cls := ""
+		cls := "item"
+		aria := ""
 		if id == current {
-			cls = ` class="current" aria-current="page"`
+			cls += " current"
+			aria = ` aria-current="page"`
 		}
-		link := `<a` + cls + ` href="` + esc(root+b.urls[id]) + `">` + esc(e.Title) + "</a>"
+		link := `<a class="` + cls + `"` + aria + ` href="` + esc(root+b.urls[id]) + `">` + b.icon(root, b.entryIcon(e), "") + `<span>` + esc(e.Title) + "</span></a>"
 		if len(sub) == 0 {
 			c.WriteString("<li>" + link + "</li>")
 			continue
@@ -626,7 +709,7 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 		if open[id] {
 			attr = " open"
 		}
-		c.WriteString("<li><details" + attr + "><summary>" + link + "</summary>")
+		c.WriteString(`<li><details` + attr + `><summary>` + link + chev + "</summary>")
 		b.navTree(c, sub, root, current, open)
 		c.WriteString("</details></li>")
 	}
@@ -647,6 +730,7 @@ func (b *builder) nav(root, current string) string {
 	if gi, ok := b.groupOf[current]; ok {
 		cur = gi
 	}
+	chev := b.icon(root, "ui.chevron_right", "chev")
 	var c strings.Builder
 	last := ""
 	for gi, g := range b.groups {
@@ -658,7 +742,7 @@ func (b *builder) nav(root, current string) string {
 		if gi == cur {
 			attr = ` open data-current="true"`
 		}
-		c.WriteString(`<details class="group" data-group="` + esc(g.ID) + `"` + attr + "><summary>" + esc(g.Title) + "</summary>")
+		c.WriteString(`<details class="group" data-group="` + esc(g.ID) + `"` + attr + "><summary>" + b.icon(root, g.Icon, "") + "<span>" + esc(g.Title) + "</span>" + chev + "</summary>")
 		b.navTree(&c, g.roots, root, current, open)
 		c.WriteString("</details>")
 	}
@@ -681,9 +765,6 @@ func (b *builder) home() string {
 	if u := b.firstOf(SectionStart); u != "" {
 		c.WriteString(`<a class="button primary" href="` + esc(u) + `">Get started</a>`)
 	}
-	if b.opt.Demo {
-		c.WriteString(`<a class="button" href="demo/">Play demo</a>`)
-	}
 	if b.opt.Playground {
 		c.WriteString(`<a class="button" href="play/">Open the playground</a>`)
 	}
@@ -691,7 +772,15 @@ func (b *builder) home() string {
 		c.WriteString(`<a class="button" href="` + esc(u) + `">Reference</a>`)
 	}
 	c.WriteString("</div></div>")
-	if b.hero {
+	switch {
+	case b.opt.Demo:
+		style := ""
+		if b.poster {
+			style = ` style="background-image:url(` + posterAsset + `)"`
+		}
+		c.WriteString(`<div class="hero-demo"><div class="demo" data-src="demo/"` + style + `><button type="button" class="demo-play" aria-label="Play the demo"><span class="disc">` + b.icon("", "play.start", "") + `</span><small>Play the demo · runs in the browser</small></button></div>`)
+		c.WriteString(`<p class="demo-caption">A small platformer made with Aego and exported for the web. A/D or arrows to move, Space to jump, J to attack. <a href="demo/">Open full screen</a></p></div>`)
+	case b.hero:
 		c.WriteString(`<img class="hero-shot" src="` + heroAsset + `" alt="The Aego editor">`)
 	}
 	c.WriteString("</section>\n")
@@ -702,7 +791,7 @@ func (b *builder) home() string {
 				continue
 			}
 			first := b.byID[g.roots[0]]
-			card := `<a class="card" href="` + esc(b.urls[g.roots[0]]) + `"><strong>` + esc(g.Title) + "</strong>"
+			card := `<a class="card" href="` + esc(b.urls[g.roots[0]]) + `"><strong>` + b.icon("", g.Icon, "") + esc(g.Title) + "</strong>"
 			if first.Summary != "" {
 				card += "<span>" + inlineMD(first.Summary) + "</span>"
 			}
@@ -719,13 +808,19 @@ func (b *builder) home() string {
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
+		AssetV:      b.assetV,
+		Rev:         b.opt.Commit,
+		RevURL:      b.revURL(),
 		Root:        root,
 		Title:       title,
 		Site:        b.exp.Title,
 		Playground:  b.opt.Playground,
 		PlayVersion: b.opt.PlayVersion,
 		TryVersion:  b.opt.TryVersion,
+		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
+		TrySize:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
 		Repo:        b.opt.Repo,
+		Demo:        b.opt.Demo,
 		Home:        current == "",
 		Nav:         template.HTML(b.nav(root, current)),
 		Content:     template.HTML(content),
@@ -807,7 +902,7 @@ func (b *builder) write() error {
 			continue
 		}
 		b.report.Entries++
-		item := searchItem{Title: e.Title, URL: u, Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID}
+		item := searchItem{Title: e.Title, URL: u, Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID, Icon: b.entryIcon(e)}
 		if gi, ok := b.groupOf[e.ID]; ok {
 			item.Group, item.Section = b.groups[gi].Title, b.groups[gi].Section
 		}
@@ -851,12 +946,187 @@ func (b *builder) assets() error {
 		}
 		return os.WriteFile(dst, data, 0o644)
 	})
-	if err != nil || !b.hero {
-		return err
-	}
-	data, err := os.ReadFile(b.opt.Hero)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(b.out, filepath.FromSlash(heroAsset)), data, 0o644)
+	if err := os.WriteFile(filepath.Join(b.out, "assets", "icons.svg"), []byte(b.icons.sprite), 0o644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(b.out, "assets", "code.css"), []byte(codeCSS()), 0o644); err != nil {
+		return err
+	}
+	if b.hero {
+		if err := copyFile(b.opt.Hero, filepath.Join(b.out, filepath.FromSlash(heroAsset))); err != nil {
+			return err
+		}
+	}
+	if b.poster {
+		if err := copyFile(b.opt.Poster, filepath.Join(b.out, filepath.FromSlash(posterAsset))); err != nil {
+			return err
+		}
+	}
+	if b.opt.Shots == "" {
+		return nil
+	}
+	shots, _ := filepath.Glob(filepath.Join(b.opt.Shots, "*.png"))
+	if len(shots) > 0 {
+		if err := os.MkdirAll(filepath.Join(b.out, filepath.FromSlash(shotsDir)), 0o755); err != nil {
+			return err
+		}
+	}
+	for _, f := range shots {
+		if err := copyFile(f, filepath.Join(b.out, filepath.FromSlash(shotsDir), filepath.Base(f))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isFile(path string) bool {
+	if path == "" {
+		return false
+	}
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
+}
+
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0o644)
+}
+
+func fileSize(path string) int64 {
+	st, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return st.Size()
+}
+
+// moduleExample links a Script API function without its own example to its module's runnable example.
+func (b *builder) moduleExample(e *Entry) string {
+	if e.Kind != KindFunction && e.Kind != KindMethod {
+		return ""
+	}
+	m, ok := b.byID[e.Parent]
+	if !ok || m.Kind != KindModule {
+		return ""
+	}
+	for _, s := range m.Snippets {
+		if (s.Run || s.Check) && s.Lang == "aes" {
+			if u, ok := b.urls[m.ID]; ok {
+				return u + "#example"
+			}
+		}
+	}
+	return ""
+}
+
+const groupScriptAPI = "ref-script"
+
+// apiIndex lists a Script API module's functions and types with their signatures, above the full sections.
+func (b *builder) apiIndex(c *strings.Builder, e *Entry, root string) {
+	var rows []*Entry
+	consts := 0
+	for _, k := range b.kids[e.ID] {
+		ke := b.byID[k]
+		switch ke.Kind {
+		case KindFunction, KindMethod, KindType:
+			rows = append(rows, ke)
+		default:
+			consts++
+		}
+	}
+	if len(rows) == 0 {
+		return
+	}
+	c.WriteString(`<h2 id="` + esc(e.ID) + `-index">Functions</h2>` + "\n")
+	c.WriteString(`<div class="api-index"><label class="member-filter">` + b.icon(root, "ui.search", "") + `<input type="search" placeholder="Filter ` + strconv.Itoa(len(rows)+consts) + ` members of ` + esc(e.Title) + `" aria-label="Filter members"></label>` + "\n")
+	c.WriteString(`<table class="api">` + "\n")
+	for _, r := range rows {
+		sig := r.Signature
+		if i := strings.IndexByte(sig, '('); i >= 0 && r.Kind != KindType {
+			sig = sig[i:]
+		} else {
+			sig = ""
+		}
+		href := "#" + r.ID
+		if b.own[r.ID] {
+			href = root + b.urls[r.ID]
+		}
+		c.WriteString(`<tr data-name="` + esc(strings.ToLower(r.Title)) + `"><td class="fname"><a href="` + esc(href) + `">` + b.icon(root, b.entryIcon(r), "") + esc(r.Title) + `</a></td><td><code class="lang-aes">` + b.code(root, sig) + `</code></td><td>` + inlineMD(r.Summary) + "</td></tr>\n")
+	}
+	c.WriteString("</table>")
+	if consts > 0 {
+		c.WriteString(`<p class="api-more">` + strconv.Itoa(consts) + ` constants and enum values are listed below.</p>`)
+	}
+	c.WriteString("</div>\n")
+}
+
+// siteEntries drops editor-only pages and everything under them.
+func siteEntries(all []Entry) []Entry {
+	parent := make(map[string]string, len(all))
+	only := map[string]bool{}
+	for _, e := range all {
+		parent[e.ID] = e.Parent
+		if e.EditorOnly {
+			only[e.ID] = true
+		}
+	}
+	hidden := func(id string) bool {
+		for n := 0; id != "" && n < 64; n++ {
+			if only[id] {
+				return true
+			}
+			id = parent[id]
+		}
+		return false
+	}
+	out := all[:0:0]
+	for _, e := range all {
+		if !hidden(e.ID) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func pruneNav(nodes []Node, keep map[string]bool) []Node {
+	var out []Node
+	for _, n := range nodes {
+		if keep[n.ID] {
+			n.Children = pruneNav(n.Children, keep)
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// assetVersion names the current styles, scripts and icons, so a new build gets new asset URLs.
+func (b *builder) assetVersion() string {
+	h := sha256.New()
+	_ = fs.WalkDir(static, "static", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := static.ReadFile(p)
+		if err == nil {
+			h.Write([]byte(p))
+			h.Write(data)
+		}
+		return err
+	})
+	h.Write([]byte(b.icons.sprite))
+	h.Write([]byte(codeCSS()))
+	return hexenc.EncodeToString(h.Sum(nil))[:12]
+}
+
+func (b *builder) revURL() string {
+	if b.opt.Commit == "" || b.opt.Repo == "" {
+		return ""
+	}
+	return strings.TrimRight(b.opt.Repo, "/") + "/commit/" + b.opt.Commit
 }

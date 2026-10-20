@@ -41,10 +41,11 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"input"}, Builtin: true, DisplayName: "Settings", DocsOrder: 110}
+	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"input"}, Builtin: true, DisplayName: "Settings", DocsOrder: 110, DocsIcon: "cat.settings"}
 }
 
 func (m *Module) Register(r *module.Registry) error {
+	registerDocs(r)
 	r.Provide(inputactions.Kind, inputactions.Set{
 		Actions:  []inputactions.Action{{Name: ActionToggle, Type: "button", Bindings: []string{"Key.F10"}}},
 		Contexts: []inputactions.Context{{Name: ContextView, Priority: 1000, Consume: true, Actions: []string{ActionToggle}, Default: true}},

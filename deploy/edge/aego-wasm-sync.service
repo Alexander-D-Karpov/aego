@@ -1,0 +1,8 @@
+[Unit]
+Description=Copy aego wasm binaries from mainserv to the edge
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/aego-wasm-sync
+Nice=10

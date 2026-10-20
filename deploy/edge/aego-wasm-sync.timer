@@ -1,0 +1,9 @@
+[Unit]
+Description=Copy aego wasm binaries to the edge every two minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

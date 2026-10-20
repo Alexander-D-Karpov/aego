@@ -1,15 +1,19 @@
 ---
 id: tags
+icon: comp.tags
 group: scenes
 title: Tags and queries
 order: 2
 ---
 # Tags and queries
 
+![The Tags component in the Inspector](shots/tags.png)
+
 Tags group nodes by meaning: `Enemy`, `Enemy.Flying`, `Pickup.Coin`. Add the Tags component in the Inspector or call `node.AddTag` from a script; find nodes with `scene.WithTag`.
 
 ---
 id: tags/names
+icon: edit.rename
 parent: tags
 order: 1
 title: Tag names
@@ -20,6 +24,7 @@ A tag is segments of letters, digits and `_` joined by dots. A node tagged `Enem
 
 ---
 id: tags/scripts
+icon: file.script
 parent: tags
 order: 2
 title: In scripts
@@ -53,6 +58,7 @@ Queries write at most `len(out)` nodes and allocate nothing; size the slice once
 
 ---
 id: tags/go
+icon: code.brackets
 parent: tags
 order: 3
 title: In Go

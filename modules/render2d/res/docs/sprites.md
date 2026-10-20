@@ -1,5 +1,6 @@
 ---
 id: render2d/sprites
+icon: comp.sprite
 group: rendering
 order: 1
 title: Sprites

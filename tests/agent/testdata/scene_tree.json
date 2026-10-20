@@ -50,6 +50,9 @@
             "type": "engine.SpriteRenderer"
           },
           {
+            "type": "engine.Tags"
+          },
+          {
             "type": "game.Health"
           },
           {

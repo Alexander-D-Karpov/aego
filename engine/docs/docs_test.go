@@ -4,6 +4,7 @@ package docs
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -61,5 +62,35 @@ func TestModuleDeclaresGuideGroup(t *testing.T) {
 	}
 	if problems["wings"] == "" || problems["lost"] == "" || problems["flight"] != "" {
 		t.Fatalf("problems %v", problems)
+	}
+}
+
+func runProblems(r *Registry) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range r.Check(false) {
+		if p.Error && strings.Contains(p.Message, "runnable example") {
+			out[p.ID] = true
+		}
+	}
+	return out
+}
+
+func TestScriptDocsNeedRunBlocks(t *testing.T) {
+	guide := "---\nid: lang\ngroup: script\norder: 1\n---\n\n# Lang\n\nText.\n\n" +
+		"---\nid: lang/a\nparent: lang\n---\n\n# A\n\n```aes run\npackage demo\n```\n\n" +
+		"---\nid: lang/b\nparent: lang\n---\n\n# B\n\n```aes\npackage demo\n```\n\n" +
+		"---\nid: lang/kw\nparent: lang/b\nkeys: [kw]\n---\n\nkw is a keyword.\n"
+	src := module.DocSource{Owner: scriptOwner, FS: fstest.MapFS{"lang.md": page(guide)}}
+	got := runProblems(Assemble(Sources{Docs: []module.DocSource{src}}))
+	if !got[BuiltinID] || !got["lang/b"] || got["lang"] || got["lang/a"] || got["lang/kw"] {
+		t.Fatalf("missing run blocks reported for %v", got)
+	}
+	api := module.DocSource{Owner: scriptOwner, FS: fstest.MapFS{"api.md": page("---\nid: " + BuiltinID + "\n---\n\n```aes run\npackage demo\n```\n")}}
+	if got := runProblems(Assemble(Sources{Docs: []module.DocSource{api}})); got[BuiltinID] {
+		t.Fatalf("a module with a run block is still reported: %v", got)
+	}
+	project := module.DocSource{Owner: "game", FS: fstest.MapFS{"g.md": page("---\nid: mine\ngroup: script\norder: 2\n---\n\n# Mine\n")}}
+	if got := runProblems(Assemble(Sources{Docs: []module.DocSource{project}})); got["mine"] {
+		t.Fatalf("a project page is held to the run block rule: %v", got)
 	}
 }

@@ -1,5 +1,6 @@
 ---
 id: data
+icon: file.data
 group: gameplay
 title: Data assets
 order: 7

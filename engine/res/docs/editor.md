@@ -1,12 +1,17 @@
 ---
 id: editor
+icon: panel.inspector
 group: editor
 title: Editor
 order: 1
 ---
 # Editor
 
+![The Design workspace: Hierarchy, Scene View, Inspector, Assets and Console](shots/editor.png)
+
 ## Workspaces and Layout
+
+![The Programming workspace: scripts open next to the Scene View](shots/workspace-programming.png)
 
 A workspace is a named layout: which panels are docked where and whether the toolbar is shown. The editor ships with four:
 
@@ -79,6 +84,8 @@ When you stop Play after changing something, the editor lists what differs from 
 
 ## Scripts during Play
 
+![A script open in the code editor next to the scene](shots/script.png)
+
 - **Autosave and reload.** With File → Autosave Scripts on (default), a script is saved one second after the last keystroke, and when the editor window loses focus. Each save that compiles is hot-reloaded into the running Play session at the start of the next frame. A save that does not compile leaves the running code untouched. The Problems panel and the red banner above the views show what is broken, and Play cannot be started again until it compiles.
 - **Banner.** While a script package has errors, a banner over the Scene and Game views says how many and which package; clicking it opens the first error. The script editor's top bar shows `Scripts: build N · ok | · K errors | · latest failed`.
 - **Console.** Every reload prints `Hot reload N → N+1: X migrated, Y reset, Z coroutines canceled, W handlers disconnected, … ms`. Warnings about reset fields and removed scripts follow it on the `script` channel.
@@ -86,6 +93,8 @@ When you stop Play after changing something, the editor lists what differs from 
 - **Restarting coroutines.** Coroutines of a changed script are cancelled by a reload; declare `func Reloaded()` to start them again. Signal connections survive when the signal and the handler keep their names and parameter types.
 
 ## Rewinding Play
+
+![Play mode: the Game View with the timeline under it](shots/play.png)
 
 While a game runs in the editor, every frame is recorded: its time step, time scale, pause and the input the game saw. The bar at the bottom of the Game view shows the recorded frames; drag it to scrub through them, or press Ctrl+Left and Ctrl+Right to move one frame back or forward. The Game view follows the handle while you drag, so a jump plays back and forth under the cursor.
 

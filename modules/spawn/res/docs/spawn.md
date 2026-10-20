@@ -1,5 +1,6 @@
 ---
 id: spawn
+icon: file.prefab
 group: gameplay
 title: Spawning and pools
 order: 5
@@ -27,6 +28,7 @@ order: 5
 
 ---
 id: spawn/lifecycle
+icon: panel.history
 parent: spawn
 order: 1
 title: Lifecycle

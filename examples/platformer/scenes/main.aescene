@@ -117,6 +117,9 @@ scene version=1 {
       layer=2
       mask=-1
     }
+    component "engine.Tags" version=1 {
+      tags=["Player", "Saved"]
+    }
     component "game.Health" version=1 {
       max=5
       current=5
@@ -207,14 +210,14 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.Camera2D" version=1 {
-      zoom=48
+      zoom=36
       viewport=[0, 0, 1, 1]
       mask=-1
       order=0
       clear=true
       clearColor=#1b2330ff
-      scale=free
-      virtual=[0, 0]
+      scale=fitVirtual
+      virtual=[960, 540]
       active=true
     }
   }

@@ -50,3 +50,10 @@ func TestParse(t *testing.T) {
 		t.Errorf("quote: %+v", bs[8])
 	}
 }
+
+func TestInlineDropsImages(t *testing.T) {
+	got := PlainText(Inline("before ![The editor](shots/editor.png) after"))
+	if got != "before  after" {
+		t.Fatalf("got %q", got)
+	}
+}

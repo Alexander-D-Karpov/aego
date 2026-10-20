@@ -138,3 +138,9 @@ func writeString(b *bytes.Buffer, s string) {
 	}
 	b.WriteByte('"')
 }
+
+func FormatValue(v Value) string {
+	var b bytes.Buffer
+	writeValue(&b, v)
+	return b.String()
+}

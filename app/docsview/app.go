@@ -7,6 +7,7 @@ import (
 	playmods "aego/app/assembly/playground"
 	"aego/asset"
 	"aego/asset/loader"
+	"aego/contracts/debugdraw"
 	"aego/core/log"
 	"aego/core/mathx"
 	edclip "aego/editor/core/clipboard"
@@ -20,6 +21,7 @@ import (
 	"aego/engine/base"
 	"aego/engine/module"
 	"aego/format/aetext"
+	"aego/modules/physics"
 	scriptsystems "aego/modules/scripting/systems"
 	"aego/platform"
 	"aego/render"
@@ -41,9 +43,11 @@ const (
 	maxSprites = 16384
 	gameShare  = 0.6
 	stackBelow = 640
-	maxLines   = 200
-	defaultW   = 960
-	defaultH   = 440
+	// inspectorMin keeps field names and values readable in narrow embeds.
+	inspectorMin = 400
+	maxLines     = 200
+	defaultW     = 960
+	defaultH     = 440
 )
 
 var coreBlocks = []string{"window", "defaults"}
@@ -77,6 +81,7 @@ type App struct {
 	log      *log.Logger
 	lines    []Line
 	textOn   bool
+	shown    *engine.World
 	closed   bool
 }
 
@@ -270,7 +275,7 @@ func layout(body mathx.Rect, gap float32) (game, insp mathx.Rect) {
 		return mathx.Rect{X: body.X, Y: body.Y, W: body.W, H: h},
 			mathx.Rect{X: body.X, Y: body.Y + h + gap, W: body.W, H: max(0, body.H-h-gap)}
 	}
-	w := body.W * gameShare
+	w := min(body.W*gameShare, body.W-inspectorMin)
 	return mathx.Rect{X: body.X, Y: body.Y, W: w, H: body.H},
 		mathx.Rect{X: body.X + w + gap, Y: body.Y, W: max(0, body.W-w-gap), H: body.H}
 }
@@ -308,10 +313,24 @@ func (a *App) toolbar(r mathx.Rect) {
 	}
 }
 
+// showPhysics draws collider and joint outlines in the game view, since docs scenes have no art for them.
+func (a *App) showPhysics() {
+	w := a.session.Controller().World()
+	if w == nil || w == a.shown {
+		return
+	}
+	if d, ok := engine.ServiceOf[debugdraw.Draw](w, debugdraw.ServiceID); ok {
+		d.Hide(physics.ChannelShapes, false)
+		d.Hide(physics.ChannelJoints, false)
+		a.shown = w
+	}
+}
+
 func (a *App) Update(dt float64) {
 	e := a.e
 	now := e.Platform().Now()
 	a.session.Tick(dt)
+	a.showPhysics()
 	ui := a.ui
 	ui.Time = now
 	m := e.Metrics()

@@ -1,10 +1,13 @@
 ---
 id: input
+icon: panel.input_devices
 group: gameplay
 title: Input
 order: 1
 ---
 # Input
+
+![Project Settings → Input: actions, bindings and contexts](shots/settings-input.png)
 
 Games read **actions**, not keys. An action has a name, a type and bindings; the same script works with a keyboard and a gamepad.
 

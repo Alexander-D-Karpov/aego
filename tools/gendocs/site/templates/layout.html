@@ -4,23 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="aego-root" content="{{.Root}}">
-    {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}">{{end}}
+    <meta name="aego-assets" content="{{.AssetV}}">
+    {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}"><meta name="aego-play-size" content="{{.PlaySize}}"><meta name="aego-try-size" content="{{.TrySize}}">{{end}}
     <title>{{.Title}} · {{.Site}}</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="{{.Root}}assets/style.css">
+    <link rel="stylesheet" href="{{.Root}}assets/style.css?v={{.AssetV}}">
+    <link rel="stylesheet" href="{{.Root}}assets/code.css?v={{.AssetV}}">
 </head>
 <body{{if .Home}} class="home"{{end}}>
 <header class="top">
     <button type="button" class="menu" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
-    <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
+    <a class="brand" href="{{.Root}}index.html"><span>{{.Site}}</span></a>{{if .Rev}}<a class="rev" href="{{.RevURL}}" title="Documentation revision">{{.Rev}}</a>{{end}}
     <div class="search">
-        <input id="search" type="search" placeholder="Search docs  /" autocomplete="off" aria-label="Search">
+        {{icon .Root "ui.search"}}
+        <input id="search" type="search" placeholder="Search the docs" autocomplete="off" aria-label="Search">
+        <kbd>/</kbd>
         <ul id="results" hidden></ul>
     </div>
     <nav class="links">
-        <a href="{{.Root}}index.html">Docs</a>
-        {{if .Playground}}<a class="play" href="{{.Root}}play/">Playground</a>{{end}}
-        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
+        <a href="{{.Root}}index.html">{{icon .Root "help.book"}}<span>Docs</span></a>
+        {{if .Playground}}<a href="{{.Root}}play/">{{icon .Root "file.script"}}<span>Playground</span></a>{{end}}
+        {{if .Demo}}<a href="{{.Root}}demo/">{{icon .Root "panel.game"}}<span>Demo</span></a>{{end}}
+        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
     </nav>
 </header>
 <div class="shell">
@@ -29,7 +34,7 @@
     <aside class="toc">{{.Toc}}</aside>
 </div>
 {{.Footer}}
-<script src="{{.Root}}assets/site.js"></script>
-{{if .Playground}}<script src="{{.Root}}assets/loader.js"></script><script src="{{.Root}}assets/run.js"></script><script src="{{.Root}}assets/try.js"></script>{{end}}
+<script src="{{.Root}}assets/site.js?v={{.AssetV}}"></script>
+{{if .Playground}}<script src="{{.Root}}assets/loader.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/run.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/try.js?v={{.AssetV}}"></script>{{end}}
 </body>
 </html>

@@ -185,7 +185,7 @@ var wasmDenied = []string{
 }
 
 var wasmExtra = []string{
-	"modules/render2d", "modules/scripting/...", "modules/input", "modules/physics/...", "modules/debug",
+	"modules/render2d", "modules/scripting/...", "modules/input", "modules/physics/...", "modules/debug", "modules/tween", "modules/render3d",
 	"app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
 }
 

@@ -1,5 +1,7 @@
 "use strict";
 
+const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).content || "";
+
 (function () {
     const root = document.querySelector('meta[name="aego-root"]').content;
     const input = document.getElementById("search");
@@ -34,8 +36,31 @@
             } catch (_) {}
         });
     }
+    const side = document.querySelector(".side");
     const current = document.querySelector(".side a.current");
-    if (current) current.scrollIntoView({ block: "center" });
+    if (side && current) {
+        const top = current.getBoundingClientRect().top - side.getBoundingClientRect().top + side.scrollTop;
+        side.scrollTop = Math.max(0, top - side.clientHeight / 2);
+    }
+
+    for (const pre of document.querySelectorAll(".doc pre")) {
+        const code = pre.querySelector("code");
+        if (!code || pre.classList.contains("sig")) continue;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "copy";
+        btn.textContent = "Copy";
+        btn.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(code.textContent);
+                btn.textContent = "Copied";
+            } catch (_) {
+                btn.textContent = "Blocked";
+            }
+            setTimeout(() => (btn.textContent = "Copy"), 1200);
+        });
+        pre.appendChild(btn);
+    }
 
     const tocLinks = [...document.querySelectorAll(".toc a")];
     if (tocLinks.length && "IntersectionObserver" in window) {
@@ -83,7 +108,8 @@
                 html += `<li class="cat">${escapeHTML(SECTIONS[it.c] || "Other")}</li>`;
                 last = it.c;
             }
-            html += `<li${i === active ? ' class="active"' : ""}><a href="${root}${it.u}">${escapeHTML(it.t)} <span class="kind">${escapeHTML(it.g || it.k)}</span><span class="summary">${escapeHTML(it.s || "")}</span></a></li>`;
+            const ic = it.ic ? `<svg width="16" height="16" class="ic" aria-hidden="true"><use href="${root}assets/icons.svg?v=${assetV}#${it.ic}"/></svg>` : "<span></span>";
+            html += `<li${i === active ? ' class="active"' : ""}><a href="${root}${it.u}">${ic}<span>${escapeHTML(it.t)}</span><span class="kind">${escapeHTML(it.g || it.k)}</span>${it.s ? `<span class="summary">${escapeHTML(it.s)}</span>` : ""}</a></li>`;
         });
         results.innerHTML = html;
         results.hidden = items.length === 0;
@@ -129,4 +155,60 @@
     document.addEventListener("click", (e) => {
         if (!e.target.closest(".search")) results.hidden = true;
     });
+})();
+
+(function () {
+    const demo = document.querySelector(".demo[data-src]");
+    if (!demo) return;
+    const play = () => {
+        if (demo.querySelector("iframe")) return;
+        const f = document.createElement("iframe");
+        f.src = demo.dataset.src;
+        f.title = "Aego demo";
+        f.allow = "fullscreen; gamepad; autoplay";
+        demo.textContent = "";
+        demo.appendChild(f);
+        f.addEventListener("load", () => f.focus());
+    };
+    const KEY = "aego-demo-played";
+    demo.querySelector(".demo-play").addEventListener("click", () => {
+        try {
+            localStorage.setItem(KEY, "1");
+        } catch (_) {}
+        play();
+    });
+    try {
+        if (localStorage.getItem(KEY)) play();
+    } catch (_) {}
+})();
+
+(function () {
+    const input = document.querySelector(".member-filter input");
+    if (!input) return;
+    const items = [...document.querySelectorAll("table.api tr[data-name], section.member[data-name]")];
+    input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        for (const el of items) el.classList.toggle("hidden-by-filter", q !== "" && !el.dataset.name.includes(q));
+    });
+})();
+
+(function () {
+    const done = new Set();
+    const prefetch = (href) => {
+        if (!href || done.has(href)) return;
+        done.add(href);
+        const l = document.createElement("link");
+        l.rel = "prefetch";
+        l.href = href;
+        document.head.appendChild(l);
+    };
+    const next = document.querySelector(".pager a.next");
+    if (next) prefetch(next.href);
+    const local = (a) => a && a.origin === location.origin && a.pathname !== location.pathname && /\.html$|\/$/.test(a.pathname);
+    const hover = (e) => {
+        const a = e.target.closest && e.target.closest("a[href]");
+        if (local(a)) prefetch(a.href.split("#")[0]);
+    };
+    document.addEventListener("pointerover", hover, { passive: true });
+    document.addEventListener("focusin", hover);
 })();

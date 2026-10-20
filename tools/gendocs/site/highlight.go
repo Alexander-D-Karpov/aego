@@ -1,89 +1,140 @@
 package site
 
 import (
+	"fmt"
 	"html"
 	"strings"
+
+	"aego/core/mathx"
+	"aego/editor/core/code/highlight"
+	"aego/ui/theme"
 )
 
-var aesKeywords = map[string]bool{
-	"package": true, "import": true, "script": true, "type": true, "struct": true, "enum": true,
-	"var": true, "const": true, "func": true, "return": true, "if": true, "else": true, "for": true,
-	"switch": true, "case": true, "default": true, "break": true, "continue": true, "true": true,
-	"false": true, "nil": true, "coroutine": true, "start": true, "yield": true, "signal": true,
-}
-
-func span(b *strings.Builder, kind, text string) {
-	if kind == "" {
-		b.WriteString(html.EscapeString(text))
-		return
-	}
-	b.WriteString(`<span class="t-` + kind + `">` + html.EscapeString(text) + `</span>`)
-}
-
-func isIdent(c byte) bool {
-	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+var tokenClass = [highlight.KindCount]string{
+	highlight.Plain:       "",
+	highlight.Keyword:     "kw",
+	highlight.Number:      "num",
+	highlight.String:      "str",
+	highlight.Comment:     "com",
+	highlight.Operator:    "op",
+	highlight.Punctuation: "pun",
+	highlight.Attribute:   "attr",
+	highlight.Namespace:   "ns",
+	highlight.Type:        "ty",
+	highlight.BuiltinType: "bty",
+	highlight.Function:    "fn",
+	highlight.Method:      "me",
+	highlight.Param:       "par",
+	highlight.Variable:    "var",
+	highlight.Field:       "fld",
+	highlight.Property:    "prop",
+	highlight.Constant:    "con",
+	highlight.EnumMember:  "en",
+	highlight.Builtin:     "bi",
+	highlight.Script:      "scr",
+	highlight.Error:       "err",
+	highlight.Signal:      "sig",
+	highlight.Coroutine:   "co",
+	highlight.Bracket:     "br",
 }
 
 func highlightAES(src string) string {
+	return highlightLinked(src, nil)
+}
+
+var linkable = map[highlight.Kind]bool{
+	highlight.Type: true, highlight.Function: true, highlight.Method: true, highlight.Field: true,
+	highlight.Namespace: true, highlight.Script: true, highlight.Signal: true, highlight.Plain: true,
+}
+
+var linkAlone = map[highlight.Kind]bool{highlight.Type: true, highlight.Namespace: true, highlight.Script: true}
+
+func highlightLinked(src string, link func(name string) string) string {
 	var b strings.Builder
-	i := 0
-	for i < len(src) {
-		c := src[i]
-		switch {
-		case c == '/' && i+1 < len(src) && src[i+1] == '/':
-			j := strings.IndexByte(src[i:], '\n')
-			if j < 0 {
-				j = len(src) - i
+	var spans []highlight.Span
+	state := highlight.Normal
+	lines := strings.SplitAfter(src, "\n")
+	for _, line := range lines {
+		text := strings.TrimSuffix(line, "\n")
+		spans, state = highlight.Line([]byte(text), state, spans)
+		at := 0
+		prevWord, prevDot, prevEnd := "", false, -1
+		for _, sp := range spans {
+			if sp.Start > at {
+				b.WriteString(html.EscapeString(text[at:sp.Start]))
 			}
-			span(&b, "comment", src[i:i+j])
-			i += j
-		case c == '/' && i+1 < len(src) && src[i+1] == '*':
-			j := strings.Index(src[i+2:], "*/")
-			end := len(src)
-			if j >= 0 {
-				end = i + 2 + j + 2
+			word := text[sp.Start:sp.End]
+			chunk := html.EscapeString(word)
+			if cls := tokenClass[sp.Kind]; cls != "" {
+				chunk = `<span class="t-` + cls + `">` + chunk + "</span>"
 			}
-			span(&b, "comment", src[i:end])
-			i = end
-		case c == '"' || c == '`':
-			j := i + 1
-			for j < len(src) && src[j] != c && src[j] != '\n' {
-				if c == '"' && src[j] == '\\' {
-					j++
+			if link != nil && linkable[sp.Kind] && isWord(word) {
+				href := ""
+				if prevDot && prevWord != "" {
+					href = link(prevWord + "." + word)
 				}
-				j++
+				alone := linkAlone[sp.Kind] || sp.Kind == highlight.Plain && word[0] >= 'A' && word[0] <= 'Z'
+				if href == "" && !prevDot && len(word) > 1 && alone && prevWord != "package" {
+					href = link(word)
+				}
+				if href != "" {
+					chunk = `<a class="code-ref" href="` + html.EscapeString(href) + `">` + chunk + "</a>"
+				}
 			}
-			j = min(j+1, len(src))
-			span(&b, "string", src[i:j])
-			i = j
-		case c >= '0' && c <= '9':
-			j := i
-			for j < len(src) && (isIdent(src[j]) || src[j] == '.') {
-				j++
-			}
-			span(&b, "number", src[i:j])
-			i = j
-		case c == '@' || isIdent(c):
-			j := i + 1
-			for j < len(src) && isIdent(src[j]) {
-				j++
-			}
-			w := src[i:j]
 			switch {
-			case c == '@':
-				span(&b, "attr", w)
-			case aesKeywords[w]:
-				span(&b, "keyword", w)
-			case w[0] >= 'A' && w[0] <= 'Z':
-				span(&b, "type", w)
+			case word == "." && sp.Start == prevEnd:
+				prevDot = true
+			case isWord(word):
+				prevWord, prevDot = word, false
 			default:
-				span(&b, "", w)
+				prevWord, prevDot = "", false
 			}
-			i = j
-		default:
-			span(&b, "", src[i:i+1])
-			i++
+			prevEnd = sp.End
+			b.WriteString(chunk)
+			at = sp.End
+		}
+		if at < len(text) {
+			b.WriteString(html.EscapeString(text[at:]))
+		}
+		if len(text) < len(line) {
+			b.WriteByte('\n')
 		}
 	}
 	return b.String()
+}
+
+func hex(c mathx.Color) string {
+	to := func(v float32) int {
+		return int(mathx.Clamp(mathx.LinearToSRGB(v), 0, 1)*255 + 0.5)
+	}
+	return fmt.Sprintf("#%02x%02x%02x", to(c.R), to(c.G), to(c.B))
+}
+
+func codeCSS() string {
+	t := theme.Code()
+	pal := highlight.Palette(&t)
+	var b strings.Builder
+	b.WriteString("/* generated from the editor's code theme (ui/theme.Code) */\n")
+	b.WriteString(":root {\n    --code-bg: " + hex(t.Background) + ";\n    --code-gutter: " + hex(t.GutterBg) + ";\n    --code-text: " + hex(t.Plain) + ";\n    --code-line: " + hex(t.LineNo) + ";\n    --code-error: " + hex(t.Error) + ";\n}\n")
+	for k, cls := range tokenClass {
+		if cls == "" {
+			continue
+		}
+		b.WriteString(".t-" + cls + " { color: " + hex(pal[k]) + "; }\n")
+	}
+	b.WriteString(".t-com { font-style: italic; }\n")
+	return b.String()
+}
+
+func isWord(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return !(s[0] >= '0' && s[0] <= '9')
 }

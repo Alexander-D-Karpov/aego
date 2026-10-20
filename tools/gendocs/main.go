@@ -4,10 +4,21 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"aego/tools/gendocs/site"
 )
+
+func splitList(s string) []string {
+	var out []string
+	for _, x := range strings.Split(s, ",") {
+		if x = strings.TrimSpace(x); x != "" {
+			out = append(out, x)
+		}
+	}
+	return out
+}
 
 func main() {
 	in := flag.String("in", "", "documentation export written by aego docs export")
@@ -19,9 +30,12 @@ func main() {
 	version := flag.String("version", "", "engine version shown in the footer")
 	commit := flag.String("commit", "", "commit shown in the footer")
 	hero := flag.String("hero", "", "screenshot shown on the landing page")
+	shots := flag.String("shots", "", "directory of editor screenshots that pages show as shots/<name>.png")
+	poster := flag.String("poster", "", "image shown before the home page demo starts")
 	demo := flag.Bool("demo", false, "link the web demo at demo/ from the landing page")
 	playVersion := flag.String("play-version", "", "cache key of play/aego.wasm")
 	tryVersion := flag.String("try-version", "", "cache key of try/aego-docs.wasm")
+	icons := flag.String("icons", "", "comma-separated directories with <id>.svg icons")
 	flag.Parse()
 	if *in == "" {
 		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground] [-repo url] [-version v] [-commit sha] [-hero png]")
@@ -36,7 +50,7 @@ func main() {
 		exp.Title = *title
 	}
 	rep, err := site.Build(exp, *out, site.Options{
-		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Time: time.Now(),
+		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Icons: splitList(*icons), Time: time.Now(),
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)

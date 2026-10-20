@@ -1,5 +1,6 @@
 ---
 id: tween
+icon: play.start
 group: gameplay
 title: Tweens and timers
 order: 3
@@ -21,6 +22,7 @@ A tween moves one property of a node from its current value to a target over tim
 
 ---
 id: tween/paths
+icon: view.vectors
 parent: tween
 order: 1
 title: Property paths
@@ -42,6 +44,7 @@ Tweening the transform of a dynamic physics body is a teleport at the next physi
 
 ---
 id: tween/scripts
+icon: file.script
 parent: tween
 order: 2
 title: Tweens in scripts
@@ -79,6 +82,7 @@ Rules:
 
 ---
 id: tween/timers
+icon: panel.profiler
 parent: tween
 order: 3
 title: Timers
@@ -116,6 +120,7 @@ A timer made by a script belongs to that script's node and is cancelled when the
 
 ---
 id: tween/waiting
+icon: status.busy
 parent: tween
 order: 4
 title: Waiting in coroutines
@@ -148,6 +153,7 @@ There is no polling: a coroutine parked on a handle costs nothing until the hand
 
 ---
 id: tween/actions
+icon: panel.tasks
 parent: tween
 order: 5
 title: Actions
@@ -172,6 +178,7 @@ A tween or timer passed to `Then` must be created in the same frame and belong t
 
 ---
 id: tween/go
+icon: code.brackets
 parent: tween
 order: 6
 title: Go

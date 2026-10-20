@@ -1,6 +1,6 @@
 Getting started
   Getting started
-    Getting started with Aego -> welcome.html
+    Install and run -> install.html
 Guides
   Editor
     Editor -> editor.html
@@ -28,6 +28,7 @@ Guides
       Editor -> language/editor.html
       Data assets -> language/data-assets.html
       Keywords and builtins -> language/builtins.html
+    Scripts -> ref/engine.Script.html
   Scenes & Prefabs
     Prefabs -> prefabs.html
     Tags and queries -> tags.html
@@ -77,6 +78,7 @@ Guides
   Tools & Agents
     Debug Draw -> debug.html
     Command line and agents -> tools.html
+    Working with AI agents -> agents.html
 Reference
   Script API
     Builtin types -> ref/aego/builtin.html
@@ -103,8 +105,6 @@ Reference
     Core -> ref/module/engine.html
       PrefabInstance -> ref/engine.PrefabInstance.html
       Tags -> ref/engine.Tags.html
-    Aego Script -> ref/module/script.html
-      Scripts -> ref/engine.Script.html
     Physics 2D -> ref/module/physics.html
       Box Collider 2D -> ref/physics.BoxCollider2D.html
       Capsule Collider 2D -> ref/physics.CapsuleCollider2D.html

@@ -5,6 +5,8 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        AEGO_COMMIT: ${AEGO_COMMIT:-}
     image: aego-site:latest
     container_name: aego-site
     restart: unless-stopped

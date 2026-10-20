@@ -1,4 +1,4 @@
-//go:build aego_runtime
+//go:build aego_runtime || js
 
 package render3d
 

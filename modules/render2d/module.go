@@ -23,7 +23,7 @@ func New() Module {
 }
 
 func (Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40, DocsIcon: "cat.rendering"}
 }
 
 func (Module) Register(r *module.Registry) error {

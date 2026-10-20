@@ -101,9 +101,16 @@ type Playground struct {
 	proj     *exampleProject
 	gameCfg  GameConfig
 	game     *Game
+
+	simEngine *engine.Engine
 }
 
 func New() (*Playground, error) {
+	return NewWith(playmods.Catalog())
+}
+
+// NewWith builds a playground over another module catalog, for checks that need every module's types.
+func NewWith(cat assembly.Catalog) (*Playground, error) {
 	proj, err := loadProject()
 	if err != nil {
 		return nil, err
@@ -113,7 +120,7 @@ func New() (*Playground, error) {
 		return nil, err
 	}
 	reg := bind.New()
-	man, err := playmods.Catalog().Load(types, reg, assembly.Options{Seed: 1, Testing: true})
+	man, err := cat.Load(types, reg, assembly.Options{Seed: 1, Testing: true})
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +212,23 @@ func diagnostics(sm *source.Manager, ds []diag.Diagnostic) []Diagnostic {
 	return out
 }
 
+func blocked(failed map[string][]diag.Diagnostic) []Diagnostic {
+	pkgs := make([]string, 0, len(failed))
+	for pkg := range failed {
+		pkgs = append(pkgs, pkg)
+	}
+	sort.Strings(pkgs)
+	var out []Diagnostic
+	for _, pkg := range pkgs {
+		for _, d := range failed[pkg] {
+			if d.Code == diag.CompileBlocked {
+				out = append(out, Diagnostic{Code: d.Code, Message: d.Message, Severity: severity(d)})
+			}
+		}
+	}
+	return out
+}
+
 func failed(err error) []Diagnostic {
 	return []Diagnostic{{Severity: "error", Message: err.Error()}}
 }
@@ -263,6 +287,7 @@ func (p *Playground) Run(files map[string]string, frames int) Result {
 	gen, ds := p.ws.Build()
 	res := Result{Diagnostics: diagnostics(gen.Sources, ds)}
 	if len(gen.Failed) > 0 || diag.HasErrors(ds) {
+		res.Diagnostics = append(res.Diagnostics, blocked(gen.Failed)...)
 		return res
 	}
 	pkgs := make([]string, 0, len(gen.Modules))
@@ -295,16 +320,17 @@ func (p *Playground) Run(files map[string]string, frames int) Result {
 	}
 	w := engine.NewWorld("playground")
 	w.Input = &input.State{}
-	ctx := engine.Context{World: w, Dt: 1.0 / 60}
+	w.SetService(scene.ServiceID, s)
+	w.SetService(runtime.ServiceID, rt)
+	e, detach, err := p.attach(w, s, lg)
+	if err != nil {
+		res.Diagnostics = append(res.Diagnostics, failed(err)...)
+		return res
+	}
+	defer detach()
 	for i := 0; i < frames; i++ {
-		ctx.Frame++
-		frame = ctx.Frame
-		rt.RunDeferred()
-		rt.FixedUpdate(&ctx)
-		rt.Update(&ctx)
-		rt.Coroutines(&ctx)
-		s.Flush()
-		s.UpdateTransforms()
+		frame = uint64(i + 1)
+		e.TickWorld(w, engine.ScopePlay, 1.0/60)
 	}
 	res.Frames = frames
 	for _, f := range rt.Faults() {

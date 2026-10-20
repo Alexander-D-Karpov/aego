@@ -1,5 +1,6 @@
 ---
 id: extensions
+icon: cat.scripts
 group: extending
 title: Native extensions
 order: 1

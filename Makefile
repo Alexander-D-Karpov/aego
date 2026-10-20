@@ -38,7 +38,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -212,7 +212,7 @@ site: cli
 	@$(TRY_SIZE_CHECK)
 
 playground:
-	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
+	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
 	$(MAKE) site
 
 site-headless:
@@ -282,7 +282,29 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+
+
+# Documentation screenshots of the real editor on the platformer example, under a clean user profile.
+SHOTS_TMP = $(CURDIR)/.cache/shots
+ifneq ($(XVFB),)
+SHOTS_ENV = $(XVFB) -a -s "-screen 0 1600x900x24" env SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
+else
+SHOTS_ENV = $(GL_ENV)
+endif
+SHOTS_RUN = rm -rf $(SHOTS_TMP)/project $(SHOTS_TMP)/home && mkdir -p $(SHOTS_TMP)/home && cp -R examples/platformer $(SHOTS_TMP)/project && \
+	rm -rf $(SHOTS_TMP)/project/.aego $(SHOTS_TMP)/project/exports && \
+	sed -i.bak 's|=> ../..|=> $(CURDIR)|' $(SHOTS_TMP)/project/go.mod && \
+	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_SHOTS=$(1) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
+
+shots: cli
+	rm -rf docs/shots
+	$(call SHOTS_RUN,$(CURDIR)/docs/shots)
+
+shots-check: cli
+	rm -rf $(SHOTS_TMP)/out
+	$(call SHOTS_RUN,$(SHOTS_TMP)/out)
+	go run ./tools/shotdiff -want docs/shots -got $(SHOTS_TMP)/out
 
 runtime: bootstrap
 	go build -tags aego_runtime -o .cache/bin/aego-runtime ./cmd/aego-runtime

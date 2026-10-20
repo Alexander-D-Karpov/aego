@@ -1,5 +1,6 @@
 ---
 id: language/standard-library
+icon: code.block
 parent: language
 order: 10
 title: Standard library
@@ -38,3 +39,36 @@ settings.Apply()
 `aego/testing` — available only under `aego test`: `True(cond bool, msg string)`, `False(…)`, `Equal(got, want int)`, `EqualFloat(got, want, eps float)`, `EqualString(got, want string)`, `Fail(msg string)`. A failed assertion stops the test and reports the file and line.
 
 Engine modules add their own host modules (`aego/physics`, `aego/audio`, …); each is documented in its module's reference and in the generated library stubs.
+
+Run it:
+
+```aes run
+package demo
+
+import (
+    "aego/log"
+    "aego/math"
+    "aego/rand"
+    "aego/scene"
+    "aego/time"
+)
+
+script Wander {
+    @export var Speed float = 2
+
+    var dir Vec2
+
+    func Ready() {
+        dir = math.Normalize(Vec2{rand.Range(-1, 1), rand.Range(-1, 1)})
+        log.Info("found myself: " + string(scene.Find("Wander") == node))
+    }
+
+    func Update(dt float) {
+        node.SetPosition(node.Position() + dir * Speed * dt)
+        if time.Frame() % 40 == 0 {
+            p := node.Position()
+            log.Info("t=" + string(time.Elapsed()) + " s, " + string(math.Length(p)) + " units from the start")
+        }
+    }
+}
+```

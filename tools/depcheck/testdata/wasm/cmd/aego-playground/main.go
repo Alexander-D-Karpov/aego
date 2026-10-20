@@ -1,5 +1,5 @@
 package main
 
-import _ "aego/modules/render3d"
+import _ "aego/modules/audio"
 
 func main() {}

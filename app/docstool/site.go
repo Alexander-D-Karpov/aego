@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"aego/app/assembly/builtin"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/project"
@@ -40,7 +41,7 @@ func (e *Env) export(path string) error {
 		}
 		return e.Native(args...)
 	}
-	reg, err := Registry(e.Project, e.Modules)
+	reg, err := ExportRegistry(e.Project, e.Modules)
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (e *Env) Check(strict bool) int {
 		fmt.Fprintln(e.Stderr, "aego:", err)
 		return 1
 	}
-	code := Check(reg, strict, e.Stdout)
+	code := Check(reg, strict, e.Stdout, DiagnosticProblems()...)
 	if CheckTry(reg, e.Stdout) > 0 && code == 0 {
 		code = 1
 	}
@@ -98,7 +99,10 @@ func (e *Env) git(args ...string) string {
 }
 
 func (e *Env) commit() string {
-	return e.git("rev-parse", "--short", "HEAD")
+	if c := e.git("rev-parse", "--short", "HEAD"); c != "" {
+		return c
+	}
+	return os.Getenv("AEGO_COMMIT")
 }
 
 func (e *Env) branch() string {
@@ -149,6 +153,14 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	if c := e.commit(); c != "" {
 		args = append(args, "-commit", c)
+	}
+	var icons []string
+	for _, d := range builtin.IconSources() {
+		icons = append(icons, filepath.Join(e.Engine, filepath.FromSlash(d)))
+	}
+	args = append(args, "-icons", strings.Join(icons, ","))
+	if shots := filepath.Join(e.Engine, "docs", "shots"); fileExists(filepath.Join(shots, "demo.png")) {
+		args = append(args, "-poster", filepath.Join(shots, "demo.png"), "-shots", shots)
 	}
 	if hero := filepath.Join(e.Engine, "docs", "hero.png"); fileExists(hero) {
 		args = append(args, "-hero", hero)

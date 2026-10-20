@@ -28,6 +28,12 @@
         }
       },
       {
+        "type": "engine.Tags",
+        "fields": {
+          "tags": "[\"Player\", \"Saved\"]"
+        }
+      },
+      {
         "type": "game.Health",
         "fields": {
           "current": "5",

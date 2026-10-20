@@ -15,7 +15,7 @@ else
   git checkout -q -f --detach "origin/$ref"
 fi
 sha=$(git rev-parse HEAD)
-docker compose -f deploy/compose.yml build
+AEGO_COMMIT=$(git rev-parse --short HEAD) docker compose -f deploy/compose.yml build
 docker compose -f deploy/compose.yml up -d --wait --remove-orphans
 docker image prune -f >/dev/null
 echo "$sha" >"$state/deployed"

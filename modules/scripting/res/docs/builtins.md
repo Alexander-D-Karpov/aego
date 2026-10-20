@@ -1,5 +1,6 @@
 ---
 id: language/builtins
+icon: code.block
 parent: language
 order: 100
 title: Keywords and builtins
@@ -8,6 +9,44 @@ title: Keywords and builtins
 # Keywords and builtins
 
 Every keyword, builtin type and builtin function of Aego Script. Hover in the script editor shows the same text.
+
+Run it: `append`, `len`, `start`, `yield frames`, `signal`, `Emit`, `Connect` and `Disconnect` in one script.
+
+```aes run
+package demo
+
+import "aego/log"
+
+script Builtins {
+    signal Counted(n int)
+
+    var words []string
+    var conn Connection
+    var count Coroutine
+
+    func Ready() {
+        words = append(words, "yield")
+        words = append(words, "start")
+        words = append(words, "signal")
+        conn = Counted.Connect(OnCounted)
+        count = start Count()
+        log.Info(string(len(words)) + " words, running: " + string(count.Running()))
+    }
+
+    func Count() coroutine {
+        for i := 0; i < len(words); i++ {
+            Counted.Emit(i)
+            yield frames(10)
+        }
+        conn.Disconnect()
+        log.Info("connected after Disconnect: " + string(conn.Connected()))
+    }
+
+    func OnCounted(n int) {
+        log.Info("word " + string(n) + ": " + words[n] + " (" + string(len(words[n])) + " bytes)")
+    }
+}
+```
 
 ---
 id: keyword/package

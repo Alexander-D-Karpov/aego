@@ -173,6 +173,30 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	return nil
 }
 
+// ReadBackbuffer reads the default framebuffer after EndFrame and before the swap.
+func (d *Device) ReadBackbuffer(w, h int, out []byte) error {
+	if need := w * h * 4; w <= 0 || h <= 0 || len(out) < need {
+		return errs.New(errs.GPUResource, "read backbuffer: bad size", log.F("w", w), log.F("h", h))
+	}
+	if d.inFrame {
+		return errs.New(errs.GPUResource, "read backbuffer: must be called after EndFrame")
+	}
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
+	d.cache.Invalidate()
+	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
+	var e uint32
+	for _, buf := range []uint32{gl.BACK, gl.FRONT} {
+		for gl.GetError() != gl.NO_ERROR {
+		}
+		gl.ReadBuffer(buf)
+		gl.ReadPixels(0, 0, int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
+		if e = gl.GetError(); e == gl.NO_ERROR {
+			return nil
+		}
+	}
+	return errs.New(errs.GPUResource, "glReadPixels failed", log.F("gl", glErrorName(e)))
+}
+
 func (d *Device) CreateSampler(desc gpu.SamplerDesc) (gpu.SamplerHandle, error) {
 	var id uint32
 	gl.GenSamplers(1, &id)

@@ -25,10 +25,11 @@ func New() Module {
 }
 
 func (Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 3D", DocsOrder: 50}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 3D", DocsOrder: 50, DocsIcon: "cat.3d"}
 }
 
 func (Module) Register(r *module.Registry) error {
+	registerDocs(r)
 	if err := module.Component[Camera3D](r,
 		schema.Name("engine.Camera3D"),
 		schema.Space(schema.Space3D),

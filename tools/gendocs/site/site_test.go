@@ -169,7 +169,7 @@ func TestFixtureSite(t *testing.T) {
 		`href="../language/builtins.html#keyword/yield"`,
 		`href="../ref/aego/math.html#aego/math.Clamp"`,
 		`href="../diagnostics.html#AES2050"`,
-		`<span class="t-keyword">package</span>`,
+		`<span class="t-kw">package</span>`,
 	} {
 		if !strings.Contains(co, want) {
 			t.Errorf("coroutines page has no %s", want)
@@ -296,7 +296,7 @@ func TestComponentPage(t *testing.T) {
 		`<span class="note">read-only</span>`,
 		`Create → Rendering → Sprite`,
 		`<code>engine.Missing</code>`,
-		`<a href="../language.html">Aego Script</a>`,
+		`<a class="xref" href="../language.html">Aego Script</a>`,
 		`href="../ref/aego/math.html#aego/math.Clamp"`,
 		`href="#engine.SpriteRenderer-fields">Fields</a>`,
 	} {

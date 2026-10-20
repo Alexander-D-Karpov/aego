@@ -30,7 +30,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Requires: []string{needsScripts}, Builtin: true, DisplayName: "Tweens and timers", DocsOrder: 60}
+	return module.Info{ID: ID, Version: engine.Version, Requires: []string{needsScripts}, Builtin: true, DisplayName: "Tweens and timers", DocsOrder: 60, DocsIcon: "play.speed"}
 }
 
 func (*Module) Register(r *module.Registry) error {

@@ -44,7 +44,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Display", DocsOrder: 120}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Display", DocsOrder: 120, DocsIcon: "view.fullscreen"}
 }
 
 func enum(name, label string, v int) settings.Choice {

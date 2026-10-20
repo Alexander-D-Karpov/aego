@@ -1,0 +1,87 @@
+#!/bin/sh
+# Copies the wasm binaries of the deployed aego site from mainserv to this edge, so the edge serves
+# them itself (see aego-edge.conf). Runs from a timer; slow downloads happen here, not for visitors.
+set -eu
+host=aego.akarpov.ru
+origin=79.142.92.250
+dir=/var/www/aego-wasm
+exec 9>/run/aego-wasm-sync.lock
+flock -n 9 || exit 0
+
+get() {
+	curl -fsS -m 900 --retry 20 --retry-delay 2 --retry-all-errors --resolve "$host:443:$origin" "$@"
+}
+
+# pull resumes a large download across the drops of the route to mainserv
+pull() {
+	dst=$1
+	shift
+	n=0
+	until curl -fsS -m 900 -C - --resolve "$host:443:$origin" -o "$dst" "$@"; do
+		n=$((n + 1))
+		[ "$n" -lt 30 ] || return 1
+		sleep 2
+	done
+}
+
+meta() {
+	sed -n "s/.*name=\"$1\" content=\"\([0-9a-f]*\)\".*/\1/p" | head -n 1
+}
+
+site=/var/www/aego-site
+ver=$(get "https://$host/__edge/version" | tr -cd '0-9a-f')
+if [ -n "$ver" ] && [ ! -d "$site/$ver" ]; then
+	mkdir -p "$site"
+	rm -rf "$site/$ver.part"
+	mkdir "$site/$ver.part"
+	rm -f "$site/$ver.tar.gz"
+	if pull "$site/$ver.tar.gz" "https://$host/__edge/site.tar.gz" &&
+		tar -xzf "$site/$ver.tar.gz" -C "$site/$ver.part"; then
+		chmod -R a+rX "$site/$ver.part"
+		mv "$site/$ver.part" "$site/$ver"
+		ln -sfn "$ver" "$site/current.new"
+		mv -T "$site/current.new" "$site/current"
+		echo "aego-wasm-sync: site $ver"
+	fi
+	rm -rf "$site/$ver.part" "$site/$ver.tar.gz"
+fi
+cur=$(readlink "$site/current" 2>/dev/null || true)
+find "$site" -mindepth 1 -maxdepth 1 -type d -mtime +2 | while read -r d; do
+	[ "$(basename "$d")" = "$cur" ] || rm -rf "$d"
+done
+
+page=$(get "https://$host/index.html")
+try=$(printf '%s' "$page" | meta aego-try)
+play=$(printf '%s' "$page" | meta aego-play)
+demo=$(get "https://$host/demo/" | sed -n 's/.*data-build="\([0-9a-f]*\)".*/\1/p' | head -n 1)
+
+fetch() {
+	v=$1 path=$2
+	[ -n "$v" ] || return 0
+	for enc in br gzip; do
+		ext=$enc
+		[ "$enc" = gzip ] && ext=gz
+		out="$dir/$v/$path.$ext"
+		[ -s "$out" ] && continue
+		mkdir -p "$(dirname "$out")"
+		tmp="$out.part"
+		hdr="$out.hdr"
+		rm -f "$tmp"
+		if pull "$tmp" -H "Accept-Encoding: $enc" -D "$hdr" "https://$host/$path?v=$v" &&
+			grep -qi "^content-encoding: $enc" "$hdr"; then
+			mv "$tmp" "$out"
+			chmod a+r "$out"
+			echo "aego-wasm-sync: $v/$path.$ext"
+		fi
+		rm -f "$tmp" "$hdr"
+	done
+}
+
+fetch "$try" try/aego-docs.wasm
+fetch "$play" play/aego.wasm
+fetch "$demo" demo/game.wasm
+
+# keep the current versions and anything from the last two weeks
+find "$dir" -mindepth 1 -maxdepth 1 -type d -mtime +14 | while read -r d; do
+	case "$(basename "$d")" in "$try" | "$play" | "$demo") ;; *) rm -rf "$d" ;; esac
+done

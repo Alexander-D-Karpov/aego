@@ -88,9 +88,19 @@ case "$GOOS" in
     ;;
   windows)
     export CC="${CC:-gcc}"
-    if [[ ${#GENERATOR[@]} -eq 0 ]]; then
-      GENERATOR=(-G "MinGW Makefiles")
-    fi
+    case "$(uname -s)" in
+      MINGW* | MSYS* | CYGWIN*)
+        if [[ ${#GENERATOR[@]} -eq 0 ]]; then
+          GENERATOR=(-G "MinGW Makefiles")
+        fi
+        ;;
+      *)
+        # Cross build from Linux or macOS with a mingw-w64 compiler such as x86_64-w64-mingw32-gcc.
+        TRIPLE="${CC%-gcc}"
+        CMAKE_ARGS+=(-DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER="$CC" -DCMAKE_RC_COMPILER="${TRIPLE}-windres"
+          -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY)
+        ;;
+    esac
     ;;
   linux)
     ;;

@@ -170,7 +170,7 @@ func TestRuleCases(t *testing.T) {
 		{"empty-reason", nil, []string{"[exception-syntax]", "has no reason", "unknown variant \"tset\""}},
 		{"unused-exception", nil, []string{"[exception-unused] core/a -> modules/x"}},
 		{"file-exception", nil, []string{"sdk/other.go: [sdk-imports-editor] imports editor/core/c"}},
-		{"wasm", nil, []string{"[wasm-reaches-forbidden] reaches modules/render3d via cmd/aego-playground -> modules/render3d"}},
+		{"wasm", nil, []string{"[wasm-reaches-forbidden] reaches modules/audio via cmd/aego-playground -> modules/audio"}},
 		{"no-group", nil, []string{"weird/x: [no-group]"}},
 	}
 	for _, c := range cases {

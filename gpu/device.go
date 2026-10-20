@@ -47,3 +47,7 @@ type Pass interface {
 	DrawIndexedInstanced(count, first, instances int)
 	End()
 }
+
+type BackbufferReader interface {
+	ReadBackbuffer(w, h int, out []byte) error
+}

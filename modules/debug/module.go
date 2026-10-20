@@ -24,7 +24,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Debug draw", DocsOrder: 100}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Debug draw", DocsOrder: 100, DocsIcon: "panel.debug_draw"}
 }
 
 func (m *Module) Register(r *module.Registry) error {

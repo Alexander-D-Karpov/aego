@@ -1,5 +1,6 @@
 ---
 id: agents
+icon: panel.console
 title: Working with AI agents
 group: tools
 order: 3

@@ -43,32 +43,37 @@
         "kind": "float32",
         "min": 0,
         "default": "0",
-        "saved": true
+        "saved": true,
+        "doc": "Slows the movement every step, like air resistance; 0 keeps the speed."
       },
       {
         "name": "angularDamping",
         "kind": "float32",
         "min": 0,
         "default": "0",
-        "saved": true
+        "saved": true,
+        "doc": "Slows the rotation every step; 0 keeps spinning."
       },
       {
         "name": "fixedRotation",
         "kind": "bool",
         "default": "false",
-        "saved": true
+        "saved": true,
+        "doc": "Keeps the body upright: contacts and torque never rotate it."
       },
       {
         "name": "bullet",
         "kind": "bool",
         "default": "false",
-        "saved": true
+        "saved": true,
+        "doc": "Continuous collision against other dynamic bodies, so a fast body cannot pass through them. Costs more."
       },
       {
         "name": "allowSleep",
         "kind": "bool",
         "default": "true",
-        "saved": true
+        "saved": true,
+        "doc": "Lets the body sleep after it comes to rest, which saves time; contacts and scripts wake it."
       },
       {
         "name": "interpolate",
@@ -98,21 +103,24 @@
         "kind": "vec2",
         "default": "[0, 0]",
         "readOnly": true,
-        "saved": false
+        "saved": false,
+        "doc": "Current velocity in units per second, during Play."
       },
       {
         "name": "angularVelocity",
         "kind": "float32",
         "default": "0",
         "readOnly": true,
-        "saved": false
+        "saved": false,
+        "doc": "Current rotation speed in radians per second, during Play."
       },
       {
         "name": "awake",
         "kind": "bool",
         "default": "false",
         "readOnly": true,
-        "saved": false
+        "saved": false,
+        "doc": "Whether the body is simulated this step or sleeping, during Play."
       }
     ]
   }

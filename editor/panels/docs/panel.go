@@ -231,8 +231,8 @@ func (p *Panel) link(list []richtext.Span) {
 	for i := range list {
 		sp := &list[i]
 		if sp.Style == richtext.Code && sp.Target == "" {
-			if _, ok := p.reg.Get(sp.Text); ok {
-				sp.Target = "ref:" + sp.Text
+			if e, ok := p.reg.Link(sp.Text); ok {
+				sp.Target = "ref:" + e.ID
 			}
 		}
 	}

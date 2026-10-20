@@ -12,13 +12,15 @@ import (
 
 const (
 	pixelsPerLine = 100
-	linesPerPage  = 3
-	scancodeBit   = 1 << 30
-	axisEpsilon   = 1.0 / 512
-	padLT         = 6
-	padRT         = 7
-	deltaPixel    = 0
-	deltaPage     = 2
+	// pixelsPerPrecise matches ui/core.PrecisePixels.
+	pixelsPerPrecise = 10
+	linesPerPage     = 3
+	scancodeBit      = 1 << 30
+	axisEpsilon      = 1.0 / 512
+	padLT            = 6
+	padRT            = 7
+	deltaPixel       = 0
+	deltaPage        = 2
 )
 
 var scancodes = buildScancodes()
@@ -122,7 +124,11 @@ func wheelOf(dx, dy float64, mode int) (mathx.Vec2, bool) {
 		sx, sy = sx*linesPerPage, sy*linesPerPage
 	}
 	v := mathx.Vec2{X: float32(sx), Y: float32(sy)}
-	return v, fractional(v.X) || fractional(v.Y)
+	if mode != deltaPixel || !fractional(v.X) && !fractional(v.Y) {
+		return v, false
+	}
+	// Precise units are pixelsPerPrecise pixels, so touchpads and smooth wheels scroll the page distance.
+	return mathx.Vec2{X: float32(dx / pixelsPerPrecise), Y: float32(-dy / pixelsPerPrecise)}, true
 }
 
 func pointerButton(b int) (input.Button, bool) {

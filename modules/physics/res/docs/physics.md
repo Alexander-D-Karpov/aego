@@ -1,7 +1,11 @@
 ---
 id: physics
+try: try/Body2D.aescene
+try_select: physics.Body2D
+icon: cat.physics
 group: physics
 group_title: Physics 2D
+group_icon: cat.physics
 group_order: 50
 title: Physics 2D
 order: 1
@@ -14,6 +18,7 @@ Quick start: Create → Physics → Rigid Body gives a falling box, Create → P
 
 ---
 id: physics/units
+icon: view.grid
 parent: physics
 order: 1
 title: Units and axes
@@ -26,6 +31,9 @@ Axes follow the 2D scene: +X right, +Y down, positive angles turn clockwise. Def
 
 ---
 id: physics/components
+try: try/CircleCollider2D.aescene
+try_select: physics.CircleCollider2D
+icon: comp.rigidbody
 parent: physics
 order: 2
 title: Components
@@ -58,6 +66,7 @@ Rigid Body 2D:
 
 ---
 id: physics/hierarchy
+icon: panel.hierarchy
 parent: physics
 order: 3
 title: Bodies and hierarchy
@@ -72,6 +81,7 @@ The transform of a moving body belongs to physics. Write it from `FixedUpdate` o
 
 ---
 id: physics/layers
+icon: view.overlays
 parent: physics
 order: 4
 title: Layers
@@ -94,6 +104,7 @@ A body stores its layer as an index, so renaming a layer keeps every body on it;
 
 ---
 id: physics/events
+icon: panel.events
 parent: physics
 order: 5
 title: Events
@@ -116,6 +127,7 @@ Destroying nodes inside a handler is safe: the removal happens after all handler
 
 ---
 id: physics/scripting
+icon: file.script
 parent: physics
 order: 6
 title: Scripting
@@ -153,11 +165,14 @@ Functions that fill `out` write at most `len(out)` entries; size the slice once 
 
 ---
 id: physics/settings
+icon: panel.settings
 parent: physics
 order: 7
 title: Settings
 ---
 # Settings
+
+![Project Settings → Physics with the gravity and contact previews](shots/settings-physics.png)
 
 Project Settings → Physics edits the `physics` block of `project.aego`: gravity, substeps, iterations, contact stiffness, sleep thresholds, layers and the matrix. An empty or zero field takes the engine default, shown greyed out. Substeps and both iteration counts accept 1 to 64. Changes apply at the next Play.
 
@@ -165,11 +180,16 @@ Tall free-standing stacks and fast motors need the stiff profile: `substeps=8` a
 
 ---
 id: physics/editor
+try: try/EdgeCollider2D.aescene
+try_select: physics.EdgeCollider2D
+icon: tool.move
 parent: physics
 order: 8
 title: Editor tools
 ---
 # Editor tools
+
+![Collider outlines and contacts drawn over the Game View during Play](shots/physics-debug.png)
 
 - **Handles.** Select a node with a collider to drag its sides, radius, length or vertices; double-click an edge of a polygon to add a vertex, Alt-click a vertex to remove it. Joints show anchors on both bodies. Every drag is one undo step.
 - **Snap to Sprite** in the inspector of box, circle and capsule colliders fits the shape to the node's sprite.
@@ -181,11 +201,14 @@ title: Editor tools
 
 ---
 id: physics/lifecycle
+icon: panel.history
 parent: physics
 order: 9
 title: Lifecycle
 ---
 # Lifecycle
+
+What happens to bodies, shapes and contact events when the scene changes during Play.
 
 | Action during Play | Result |
 |---|---|
@@ -204,6 +227,7 @@ title: Lifecycle
 
 ---
 id: physics/world
+icon: vec.gravity
 parent: physics
 order: 10
 title: World
@@ -230,6 +254,7 @@ The same binary on the same CPU with the same sequence of calls produces bit-ide
 
 ---
 id: physics/pitfalls
+icon: status.warning
 parent: physics
 order: 11
 title: Common mistakes

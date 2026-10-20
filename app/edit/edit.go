@@ -154,6 +154,9 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 			panic(rec)
 		}
 	}()
+	if dir := os.Getenv(EnvShots); dir != "" {
+		return s.shots(dir)
+	}
 	if err := s.Run(); err != nil {
 		return err
 	}

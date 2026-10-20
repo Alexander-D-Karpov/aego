@@ -234,6 +234,10 @@ func (a *App) Profiler() *profiler.Panel {
 	return a.profiler
 }
 
+func (a *App) Prefabs() *prefabs.Service {
+	return a.prefabs
+}
+
 func (a *App) Viewport() *services.Viewport {
 	return a.viewport
 }

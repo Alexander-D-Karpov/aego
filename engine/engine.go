@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"image"
 	"os"
 	"runtime"
 	"runtime/metrics"
@@ -27,6 +28,7 @@ type Engine struct {
 	plat       platform.Platform
 	win        platform.Window
 	dev        gpu.Device
+	capture    func(*image.RGBA, error)
 	curFrame   gpu.Frame
 	files      *vfs.VFS
 	input      input.State

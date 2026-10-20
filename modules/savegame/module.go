@@ -60,13 +60,15 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"script", "spawn"}, Builtin: true, DisplayName: "Saving", DocsOrder: 80}
+	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"script", "spawn"}, Builtin: true, DisplayName: "Saving", DocsOrder: 80, DocsIcon: "comp.persist"}
 }
 
 func (m *Module) Register(r *module.Registry) error {
 	registerDocs(r)
 	if err := module.Component[Persist](r, schema.Name(MarkerName),
-		schema.Doc("Persist saves the node's transform and enabled flag in save games.")).
+		schema.Doc("Persist saves the node's transform and enabled flag in save games."),
+		schema.FieldDoc("noTransform", "Leaves the transform out of save games, for nodes whose position comes from elsewhere."),
+		schema.FieldDoc("noEnabled", "Leaves the enabled flag out of save games.")).
 		Category("Engine").Display("Persist").Icon("comp.persist").Err(); err != nil {
 		return err
 	}

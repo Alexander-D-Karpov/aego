@@ -18,7 +18,7 @@ const CoreID = "engine"
 type Core struct{}
 
 func (Core) Info() module.Info {
-	return module.Info{ID: CoreID, Version: engine.Version, Builtin: true, DisplayName: "Core", DocsOrder: 0}
+	return module.Info{ID: CoreID, Version: engine.Version, Builtin: true, DisplayName: "Core", DocsOrder: 0, DocsIcon: "cat.node"}
 }
 
 func (Core) Register(r *module.Registry) error {

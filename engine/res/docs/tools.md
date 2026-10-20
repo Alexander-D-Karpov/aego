@@ -1,5 +1,6 @@
 ---
 id: tools
+icon: panel.console
 title: Command line and agents
 group: tools
 order: 2

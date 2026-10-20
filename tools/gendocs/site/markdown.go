@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"html"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,8 +53,18 @@ func (c *converter) render(p *pageCtx, md string) (string, error) {
 	if err := c.md.Convert([]byte(md), &buf); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	return tableCode.ReplaceAllStringFunc(buf.String(), func(t string) string {
+		return inlineCode.ReplaceAllStringFunc(t, func(c string) string {
+			src := html.UnescapeString(inlineCode.FindStringSubmatch(c)[1])
+			return `<code class="hl">` + highlightAES(src) + "</code>"
+		})
+	}), nil
 }
+
+var (
+	tableCode  = regexp.MustCompile(`(?s)<table>.*?</table>`)
+	inlineCode = regexp.MustCompile(`<code>([^<]*)</code>`)
+)
 
 type refTransformer struct {
 	c *converter
@@ -88,6 +99,11 @@ func (t refTransformer) Transform(doc *ast.Document, reader text.Reader, _ parse
 				}
 			}
 			return ast.WalkSkipChildren, nil
+		case *ast.Image:
+			if rest, ok := strings.CutPrefix(string(x.Destination), "shots/"); ok {
+				x.Destination = []byte(p.root + shotsDir + rest)
+			}
+			return ast.WalkSkipChildren, nil
 		case *ast.CodeSpan:
 			spans = append(spans, x)
 		}
@@ -112,6 +128,21 @@ type codeRenderer struct {
 
 func (r codeRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
 	reg.Register(ast.KindFencedCodeBlock, r.fenced)
+	reg.Register(ast.KindCodeBlock, r.indented)
+}
+
+func (r codeRenderer) indented(w util.BufWriter, src []byte, n ast.Node, entering bool) (ast.WalkStatus, error) {
+	if !entering {
+		return ast.WalkContinue, nil
+	}
+	var code strings.Builder
+	lines := n.Lines()
+	for i := 0; i < lines.Len(); i++ {
+		seg := lines.At(i)
+		code.Write(seg.Value(src))
+	}
+	w.WriteString(snippet(r.c.cur, "", code.String(), false))
+	return ast.WalkSkipChildren, nil
 }
 
 func (r codeRenderer) fenced(w util.BufWriter, src []byte, n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -139,10 +170,34 @@ func (r codeRenderer) fenced(w util.BufWriter, src []byte, n ast.Node, entering 
 
 func snippet(p *pageCtx, lang, code string, run bool) string {
 	body := html.EscapeString(code)
-	if lang == "aes" {
-		body = highlightAES(code)
+	kind := lang
+	if kind == "" {
+		kind = guessLang(code)
 	}
-	pre := `<pre class="code"><code class="lang-` + html.EscapeString(lang) + `">` + body + `</code></pre>`
+	switch kind {
+	case "go":
+		body = highlightAES(code)
+	case "aetext", "aescene", "aeprefab", "aego", "aedata":
+		body = highlightAEText(code)
+	case "sh", "bash", "shell", "powershell", "ps1":
+		body = highlightShell(code)
+	}
+	if kind == "aes" {
+		body = highlightLinked(code, func(name string) string {
+			if p.resolve == nil {
+				return ""
+			}
+			if u, ok := p.resolve(name); ok {
+				return p.root + u
+			}
+			return ""
+		})
+	}
+	attr := ""
+	if lang != "" {
+		attr = ` data-lang="` + html.EscapeString(lang) + `"`
+	}
+	pre := `<pre class="code"` + attr + `><code class="lang-` + html.EscapeString(lang) + `">` + body + `</code></pre>`
 	if !run {
 		return pre + "\n"
 	}

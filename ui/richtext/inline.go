@@ -63,6 +63,17 @@ func inline(s, target string) []Span {
 			emit()
 			out = push(out, s[i+1:i+1+j], Code, target)
 			i += j + 1
+		case c == '!' && i+1 < len(s) && s[i+1] == '[':
+			j := strings.Index(s[i:], "](")
+			k := -1
+			if j >= 0 {
+				k = strings.IndexByte(s[i+j+2:], ')')
+			}
+			if k < 0 {
+				cur.WriteByte(c)
+				continue
+			}
+			i += j + 2 + k
 		case c == '[':
 			j := strings.Index(s[i:], "](")
 			if j < 0 {

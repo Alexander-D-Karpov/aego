@@ -164,7 +164,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | Command | Meaning |
 |---|---|
 | `aego docs export [--out file]` | write the documentation registry as JSON |
-| `aego docs check [--strict]` | broken links, missing groups and orders, undocumented bindings |
+| `aego docs check [--strict]` | broken links, missing groups and orders, undocumented bindings, Script API modules and script guides without a runnable example |
 | `aego docs build [--out dir] [--playground=false] [--repo url]` | generate the static site with the playground |
 | `aego docs serve [--addr host:port]` | build, serve on localhost and rebuild on changes |
 

@@ -34,35 +34,62 @@ type Location struct {
 }
 
 type Snippet struct {
-	Lang string
-	Code string
-	Run  bool
-	Line int
+	Lang  string
+	Code  string
+	Run   bool
+	Check bool
+	Line  int
 }
 
 type Entry struct {
-	ID        string
-	Parent    string
-	Kind      string
-	Owner     string
-	Group     string
-	Title     string
-	Summary   string
-	Body      string
-	Signature string
-	Params    []Param
-	Example   string
-	Location  Location
-	Links     []string
-	Keys      []string
-	Requires  []string
-	Snippets  []Snippet
-	Order     int
-	Field     *FieldInfo
-	Component *ComponentInfo
-	Related   []string
-	Try       string
-	TrySelect string
+	ID         string
+	Parent     string
+	Kind       string
+	Owner      string
+	Group      string
+	Title      string
+	Summary    string
+	Body       string
+	Signature  string
+	Params     []Param
+	Example    string
+	Location   Location
+	Links      []string
+	Keys       []string
+	Requires   []string
+	Snippets   []Snippet
+	Order      int
+	Field      *FieldInfo
+	Component  *ComponentInfo
+	Related    []string
+	Try        string
+	TrySelect  string
+	Icon       string
+	EditorOnly bool
+	Diag       *DiagInfo
+}
+
+type DiagFile struct {
+	Path string
+	Bad  string
+	Good string
+}
+
+type DiagInfo struct {
+	Phase    string
+	Fix      string
+	File     string
+	Bad      string
+	Good     string
+	Files    []DiagFile
+	Why      string
+	Severity string
+	At       string
+	Line     int
+	Col      int
+	EndLine  int
+	EndCol   int
+	Message  string
 }
 
 type FieldInfo struct {
@@ -92,6 +119,7 @@ type Group struct {
 	Title   string `json:"title"`
 	Section string `json:"section"`
 	Order   int    `json:"order"`
+	Icon    string `json:"icon,omitempty"`
 }
 
 type GroupNav struct {
@@ -106,12 +134,13 @@ type Problem struct {
 }
 
 type Export struct {
-	Version  int        `json:"version"`
-	Title    string     `json:"title"`
-	Entries  []Entry    `json:"entries"`
-	Nav      []Node     `json:"nav"`
-	Groups   []GroupNav `json:"groups"`
-	Problems []Problem  `json:"problems"`
+	Version  int               `json:"version"`
+	Title    string            `json:"title"`
+	Entries  []Entry           `json:"entries"`
+	Nav      []Node            `json:"nav"`
+	Groups   []GroupNav        `json:"groups"`
+	Problems []Problem         `json:"problems"`
+	Aliases  map[string]string `json:"aliases"`
 }
 
 func Load(path string) (*Export, error) {

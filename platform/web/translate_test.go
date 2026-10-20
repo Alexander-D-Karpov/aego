@@ -162,3 +162,10 @@ func TestStandardMapping(t *testing.T) {
 		t.Fatalf("%d of %d pad axes mapped", len(axes), input.PadAxisCount)
 	}
 }
+
+func TestSmoothWheelScrollsPagePixels(t *testing.T) {
+	v, precise := wheelOf(0, 53, deltaPixel)
+	if !precise || v.Y > -5.29 || v.Y < -5.31 {
+		t.Fatalf("got %v %v, want -5.3 precise units (53 px)", v, precise)
+	}
+}
