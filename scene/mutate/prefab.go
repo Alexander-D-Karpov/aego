@@ -22,11 +22,10 @@ func (d *Document) instantiate(op Op, res *Result) (step, error) {
 		return step{}, err
 	}
 	lib := d.library()
-	t, err := lib.Template(id)
-	if err != nil {
+	if _, err := lib.Template(id); err != nil {
 		return step{}, err
 	}
-	h, err := sceneio.Instantiate(s, p, t)
+	h, err := d.load(p, sceneio.EncodeInstance(d.reg, ids.NewNodeID(), &prefab.Instance{Prefab: id}), "prefab")
 	if err != nil {
 		return step{}, err
 	}

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"aego/app/agent"
+	"aego/app/agent/mcp"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aego/app/bootstrap"
@@ -50,6 +53,8 @@ func dispatch(args []string) int {
 		return cmdCheck(args[1:])
 	case "icons":
 		return cmdIcons(args[1:])
+	case "mcp":
+		return cmdMcp(args[1:])
 	case "docs":
 		return cmdDocs(args[1:])
 	case "test":
@@ -59,6 +64,9 @@ func dispatch(args []string) int {
 	case "help", "-h", "--help":
 		usage()
 		return 0
+	}
+	if slices.Contains(agent.Groups(), args[0]) {
+		return cmdAgent(args)
 	}
 	fmt.Fprintf(os.Stderr, "unknown command %q\n", args[0])
 	usage()
@@ -83,6 +91,8 @@ func usage() {
                          run *_test.aes script tests headless, or run the game twice and compare state hashes
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
   docs export|check|build|serve  documentation registry, site and playground
+  mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)
+  scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
 `)
 }
 
@@ -95,6 +105,40 @@ func openProject(dir string) (*project.Project, error) {
 		return nil, err
 	}
 	return project.Load(root)
+}
+
+func projectFlag(args []string) string {
+	for i, a := range args {
+		switch {
+		case a == "--project" && i+1 < len(args):
+			return args[i+1]
+		case strings.HasPrefix(a, "--project="):
+			return strings.TrimPrefix(a, "--project=")
+		}
+	}
+	return ""
+}
+
+func cmdAgent(args []string) int {
+	p, err := openProject(projectFlag(args))
+	if err != nil {
+		return fail(err)
+	}
+	if bootstrap.NeedsNative(p) {
+		return scriptTool(p, append([]string{"agent"}, args...)...)
+	}
+	return agent.Main(p, args, os.Stdout, os.Stderr, agent.Options{Run: run.AgentRunner()})
+}
+
+func cmdMcp(args []string) int {
+	p, err := openProject(projectFlag(args))
+	if err != nil {
+		return fail(err)
+	}
+	if bootstrap.NeedsNative(p) {
+		return scriptTool(p, append([]string{"mcp"}, args...)...)
+	}
+	return mcp.Main(p, args, os.Stdin, os.Stdout, os.Stderr, agent.Options{Run: run.AgentRunner()})
 }
 
 func firstArg(args []string) (string, []string) {

@@ -43,6 +43,7 @@ type Config struct {
 	Profile    string
 	Logger     *log.Logger
 	Seed       uint64
+	NoProfile  bool
 }
 
 type App struct {
@@ -138,6 +139,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 		Debug:              cfg.Debug,
 		FailOnScriptErrors: true,
 		Profile:            cfg.Profile,
+		NoProfile:          cfg.NoProfile,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err

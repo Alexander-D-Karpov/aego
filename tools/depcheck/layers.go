@@ -194,6 +194,8 @@ var fsAllowed = []string{
 	"cmd/...",
 	"project",
 	"project/...",
+	"app/agent/...",
+	"tests/fixture",
 	"save", // slot files next to the player profile (D262)
 	"asset/pipeline",
 	"app/bootstrap",
@@ -244,6 +246,7 @@ var denied = []struct {
 	{"app/playground", []string{"platform/sdl", "gpu/gl33", "gpu/gl33/...", "asset/pipeline", "asset/importers/...", "modules/render3d", "modules/render3d/...", "editor/..."}},
 	{"app/docsview", []string{"platform/sdl", "gpu/gl33", "gpu/gl33/...", "editor/shell", "editor/shell/...", "asset/importers/...", "script/compiler", "script/workspace"}},
 	{"scene/mutate", []string{"editor/...", "ui/...", "platform/...", "engine", "engine/...", "app/..."}},
+	{"app/agent", []string{"editor/...", "ui/...", "platform/sdl"}},
 	{"runtime/...", []string{"editor/..."}},
 	{"runtime/...", []string{"asset/pipeline", "asset/importers/...", "project", "app/run", "app/edit", "app/export", "app/export/..."}},
 	{"sdk", []string{"editor/..."}},

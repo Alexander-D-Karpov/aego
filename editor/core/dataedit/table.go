@@ -22,18 +22,19 @@ type Row struct {
 }
 
 type Table struct {
-	ID     ids.AssetID
-	Path   string
-	Type   *schema.TypeDescriptor
-	Rows   []Row
-	Issues []string
-	reg    *schema.Registry
-	def    unsafe.Pointer
-	dd     *mutate.DataDocument
-	steps  steps
-	saved  []byte
-	disk   []byte
-	rev    uint64
+	ID       ids.AssetID
+	Path     string
+	Type     *schema.TypeDescriptor
+	Rows     []Row
+	Issues   []string
+	reg      *schema.Registry
+	def      unsafe.Pointer
+	dd       *mutate.DataDocument
+	steps    steps
+	saved    []byte
+	disk     []byte
+	conflict []byte
+	rev      uint64
 }
 
 func NewTable(env mutate.Env, id ids.AssetID, path string, raw []byte) (*Table, error) {

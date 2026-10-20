@@ -1,0 +1,170 @@
+{
+  "ok": true,
+  "value": {
+    "id": "Root",
+    "name": "root",
+    "path": "Root",
+    "enabled": true,
+    "children": [
+      {
+        "id": "#c0000000000000000000000000000002",
+        "name": "Ground",
+        "path": "Root/Ground",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "physics.EdgeCollider2D"
+          }
+        ]
+      },
+      {
+        "id": "#c000000000000000000000000000000a",
+        "name": "Platform",
+        "path": "Root/Platform",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "physics.EdgeCollider2D"
+          }
+        ]
+      },
+      {
+        "id": "#c0000000000000000000000000000003",
+        "name": "Player",
+        "path": "Root/Player",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "game.Health"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "save.Persist"
+          }
+        ],
+        "scripts": [
+          "mygame.player.PlayerController"
+        ],
+        "children": [
+          {
+            "id": "#c000000000000000000000000000000b",
+            "name": "Shape",
+            "path": "Root/Player/Shape",
+            "enabled": true,
+            "components": [
+              {
+                "type": "physics.CapsuleCollider2D"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "#c0000000000000000000000000000005",
+        "name": "PatrolA1",
+        "path": "Root/PatrolA1",
+        "enabled": true
+      },
+      {
+        "id": "#c0000000000000000000000000000006",
+        "name": "PatrolB1",
+        "path": "Root/PatrolB1",
+        "enabled": true
+      },
+      {
+        "id": "#c0000000000000000000000000000004",
+        "name": "EnemyLeft",
+        "path": "Root/EnemyLeft",
+        "enabled": true,
+        "prefab": "prefabs/enemy.aeprefab",
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "physics.BoxCollider2D"
+          },
+          {
+            "type": "physics.PolygonCollider2D"
+          },
+          {
+            "type": "save.Persist"
+          }
+        ],
+        "scripts": [
+          "mygame.enemy.EnemyAI"
+        ]
+      },
+      {
+        "id": "#c0000000000000000000000000000008",
+        "name": "PatrolA2",
+        "path": "Root/PatrolA2",
+        "enabled": true
+      },
+      {
+        "id": "#c0000000000000000000000000000009",
+        "name": "PatrolB2",
+        "path": "Root/PatrolB2",
+        "enabled": true
+      },
+      {
+        "id": "#c0000000000000000000000000000007",
+        "name": "EnemyRight",
+        "path": "Root/EnemyRight",
+        "enabled": true,
+        "prefab": "prefabs/enemy.aeprefab",
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "physics.BoxCollider2D"
+          },
+          {
+            "type": "physics.PolygonCollider2D"
+          },
+          {
+            "type": "save.Persist"
+          }
+        ],
+        "scripts": [
+          "mygame.enemy.EnemyAI"
+        ]
+      },
+      {
+        "id": "#c0000000000000000000000000000001",
+        "name": "Camera",
+        "path": "Root/Camera",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.Camera2D"
+          }
+        ]
+      }
+    ]
+  }
+}

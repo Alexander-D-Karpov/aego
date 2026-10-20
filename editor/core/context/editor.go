@@ -160,26 +160,27 @@ type ScriptHost interface {
 }
 
 type Editor struct {
-	Engine    *engine.Engine
-	Renderer  *render.Renderer
-	Project   *project.Project
-	Pipeline  *pipeline.Pipeline
-	Loader    *loader.Loader
-	Types     *scene.Types
-	Docs      *document.Manager
-	Selection *selection.Service
-	Commands  *command.Registry
-	UI        *core.Context
-	DnD       *dnd.State
-	Clipboard DataClipboard
-	Log       *log.ChannelLogger
-	Settings  SceneSettings
-	Thumbs    ThumbSource
-	Scripts   ScriptHost
-	Code      ScriptNav
-	Shapes    *shape.Registry
-	Problems  *problems.Service
-	Sections  *module.Sections
+	BeforeSwap func(*pipeline.Batch) func()
+	Engine     *engine.Engine
+	Renderer   *render.Renderer
+	Project    *project.Project
+	Pipeline   *pipeline.Pipeline
+	Loader     *loader.Loader
+	Types      *scene.Types
+	Docs       *document.Manager
+	Selection  *selection.Service
+	Commands   *command.Registry
+	UI         *core.Context
+	DnD        *dnd.State
+	Clipboard  DataClipboard
+	Log        *log.ChannelLogger
+	Settings   SceneSettings
+	Thumbs     ThumbSource
+	Scripts    ScriptHost
+	Code       ScriptNav
+	Shapes     *shape.Registry
+	Problems   *problems.Service
+	Sections   *module.Sections
 
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)
@@ -428,6 +429,10 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 	if b == nil {
 		return
 	}
+	var after func()
+	if e.BeforeSwap != nil {
+		after = e.BeforeSwap(b)
+	}
 	if e.Loader != nil && e.Pipeline != nil {
 		if len(b.Imported) > 0 {
 			if err := e.Loader.Swap(b.Imported, e.Pipeline.Artifacts()); err != nil {
@@ -437,6 +442,9 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 		for _, id := range b.Removed {
 			e.Loader.Drop(id)
 		}
+	}
+	if after != nil {
+		after()
 	}
 	for id, err := range b.Failed {
 		e.Notify(LevelWarn, "import failed for "+id.String()[:8]+": "+err.Error())

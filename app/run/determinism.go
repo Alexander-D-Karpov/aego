@@ -78,7 +78,7 @@ func WorldHash(w *engine.World, h *rewind.Hasher) (sum [32]byte, covered, skippe
 }
 
 func determinismPass(p *project.Project, o DeterminismOptions, mods []sdk.Module) ([]checkpoint, []string, []string, error) {
-	a, err := Open(p, Config{Headless: true, FrameTime: o.FrameTime, Seed: o.Seed, ScenePath: o.ScenePath, Logger: log.Nop()}, mods...)
+	a, err := Open(p, Config{Headless: true, FrameTime: o.FrameTime, Seed: o.Seed, ScenePath: o.ScenePath, Logger: log.Nop(), NoProfile: true}, mods...)
 	if err != nil {
 		return nil, nil, nil, err
 	}

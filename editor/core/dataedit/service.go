@@ -130,7 +130,12 @@ func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	if d != nil && (d.Dirty() || bytes.Equal(raw, d.disk)) {
+	if d != nil && d.Dirty() {
+		s.conflict(rel, raw, d.disk, &d.conflict)
+		d.Path, d.rev = rel, s.ctx.AssetRev
+		return d, d.load()
+	}
+	if d != nil && bytes.Equal(raw, d.disk) {
 		d.Path, d.rev = rel, s.ctx.AssetRev
 		return d, d.load()
 	}
@@ -149,14 +154,17 @@ func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
 
 func (s *Service) Table(id ids.AssetID) (*Table, error) {
 	t := s.tables[id]
-	if t != nil && (t.rev == s.ctx.AssetRev || t.Dirty()) {
+	if t != nil && t.rev == s.ctx.AssetRev {
 		return t, nil
 	}
 	rel, raw, err := s.file(id)
 	if err != nil {
 		return nil, err
 	}
-	if t != nil && bytes.Equal(raw, t.disk) {
+	if t != nil && (t.Dirty() || bytes.Equal(raw, t.disk)) {
+		if t.Dirty() {
+			s.conflict(rel, raw, t.disk, &t.conflict)
+		}
 		t.Path, t.rev = rel, s.ctx.AssetRev
 		return t, nil
 	}
@@ -167,6 +175,14 @@ func (s *Service) Table(id ids.AssetID) (*Table, error) {
 	nt.disk, nt.rev = raw, s.ctx.AssetRev
 	s.tables[id] = nt
 	return nt, nil
+}
+
+func (s *Service) conflict(rel string, raw, disk []byte, seen *[]byte) {
+	if bytes.Equal(raw, disk) || bytes.Equal(raw, *seen) {
+		return
+	}
+	*seen = raw
+	s.ctx.Notify(context.LevelWarn, rel+" changed on disk while it has unsaved changes: Save keeps yours, Revert loads the disk version")
 }
 
 func (s *Service) RevertDoc(id ids.AssetID) {

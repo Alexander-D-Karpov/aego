@@ -1,10 +1,13 @@
 package run
 
 import (
+	"aego/app/agent"
+	"aego/app/agent/mcp"
 	"bytes"
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -39,6 +42,10 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...s
 		return toolTest(p, args[1:], stdout, stderr, mods)
 	case "docs":
 		return docstool.Tool(p, args[1:], stdout, stderr, sdk.AdaptAll(mods)...)
+	case "agent":
+		return agent.Main(p, args[1:], stdout, stderr, agent.Options{Mods: mods, Run: AgentRunner(mods...)})
+	case "mcp":
+		return mcp.Main(p, args[1:], os.Stdin, stdout, stderr, agent.Options{Mods: mods, Run: AgentRunner(mods...)})
 	}
 	fmt.Fprintf(stderr, "unknown tool %q\n", args[0])
 	return 2

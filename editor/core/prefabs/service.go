@@ -24,9 +24,10 @@ import (
 const DefaultDir = "prefabs"
 
 type Service struct {
-	ctx   *context.Editor
-	infos map[infoKey]*Info
-	fixed *sceneio.Library
+	ctx     *context.Editor
+	infos   map[infoKey]*Info
+	writing bool
+	fixed   *sceneio.Library
 }
 
 func New(ctx *context.Editor) *Service {

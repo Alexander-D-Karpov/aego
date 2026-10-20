@@ -1,0 +1,140 @@
+{
+  "ok": true,
+  "value": [
+    {
+      "name": "engine.Unknown",
+      "kind": "component",
+      "doc": "holds components whose type is not registered in this build"
+    },
+    {
+      "name": "engine.Tags",
+      "kind": "component",
+      "display": "Tags",
+      "category": "Engine",
+      "owner": "engine",
+      "doc": "Tags names groups this node belongs to; scripts find them with scene.WithTag."
+    },
+    {
+      "name": "engine.SpriteRenderer",
+      "kind": "component",
+      "display": "Sprite Renderer",
+      "category": "Rendering",
+      "owner": "render2d",
+      "doc": "Draws a texture region at the node transform."
+    },
+    {
+      "name": "engine.Camera2D",
+      "kind": "component",
+      "display": "Camera 2D",
+      "category": "Camera",
+      "owner": "render2d",
+      "doc": "Renders an orthographic view from the node transform."
+    },
+    {
+      "name": "engine.Camera3D",
+      "kind": "component",
+      "display": "Camera 3D",
+      "category": "Camera",
+      "owner": "render3d",
+      "doc": "Renders a perspective view looking down the node -Z axis."
+    },
+    {
+      "name": "engine.MeshRenderer",
+      "kind": "component",
+      "display": "Mesh Renderer",
+      "category": "Rendering",
+      "owner": "render3d",
+      "doc": "Draws an unlit mesh at the node transform."
+    },
+    {
+      "name": "engine.Script",
+      "kind": "component",
+      "display": "Scripts",
+      "category": "Scripts",
+      "owner": "script",
+      "doc": "holds the Aego Script attachments of a node"
+    },
+    {
+      "name": "physics.Body2D",
+      "kind": "component",
+      "display": "Rigid Body 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Simulates the node as a rigid body. Colliders on the node and its children form its shape."
+    },
+    {
+      "name": "physics.BoxCollider2D",
+      "kind": "component",
+      "display": "Box Collider 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Box shape in node space."
+    },
+    {
+      "name": "physics.CircleCollider2D",
+      "kind": "component",
+      "display": "Circle Collider 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Circle shape. Needs a uniform node scale."
+    },
+    {
+      "name": "physics.CapsuleCollider2D",
+      "kind": "component",
+      "display": "Capsule Collider 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Capsule along the local X axis; Length is the full extent including the caps."
+    },
+    {
+      "name": "physics.PolygonCollider2D",
+      "kind": "component",
+      "display": "Polygon Collider 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Convex polygon of 3 to 8 points."
+    },
+    {
+      "name": "physics.EdgeCollider2D",
+      "kind": "component",
+      "display": "Edge Collider 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Polyline for level geometry. OneSided lets bodies pass from below."
+    },
+    {
+      "name": "physics.DistanceJoint2D",
+      "kind": "component",
+      "display": "Distance Joint 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Keeps a distance between this body and the Target body. Length 0 uses the distance at start."
+    },
+    {
+      "name": "physics.RevoluteJoint2D",
+      "kind": "component",
+      "display": "Revolute Joint 2D",
+      "category": "Physics",
+      "owner": "physics",
+      "doc": "Pins this body to the Target body at Anchor, with an optional limit and motor."
+    },
+    {
+      "name": "save.Persist",
+      "kind": "component",
+      "display": "Persist",
+      "category": "Engine",
+      "owner": "save",
+      "doc": "Persist saves the node's transform and enabled flag in save games."
+    },
+    {
+      "name": "game.Health",
+      "kind": "component",
+      "owner": "mygame"
+    },
+    {
+      "name": "mygame.EnemyStats",
+      "kind": "data",
+      "owner": "mygame"
+    }
+  ]
+}

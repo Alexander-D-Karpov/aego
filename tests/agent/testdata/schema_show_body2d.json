@@ -1,0 +1,119 @@
+{
+  "ok": true,
+  "value": {
+    "name": "physics.Body2D",
+    "kind": "component",
+    "display": "Rigid Body 2D",
+    "category": "Physics",
+    "owner": "physics",
+    "doc": "Simulates the node as a rigid body. Colliders on the node and its children form its shape.",
+    "fields": [
+      {
+        "name": "type",
+        "kind": "enum",
+        "enum": [
+          "static",
+          "kinematic",
+          "dynamic"
+        ],
+        "default": "dynamic",
+        "saved": true,
+        "doc": "static never moves, kinematic moves by velocity, dynamic reacts to forces and contacts."
+      },
+      {
+        "name": "massMode",
+        "kind": "enum",
+        "enum": [
+          "auto",
+          "override"
+        ],
+        "default": "auto",
+        "saved": true,
+        "doc": "auto takes the mass from collider density, override uses Mass."
+      },
+      {
+        "name": "gravityScale",
+        "kind": "float32",
+        "default": "1",
+        "saved": true,
+        "doc": "Multiplier of the project gravity for this body."
+      },
+      {
+        "name": "linearDamping",
+        "kind": "float32",
+        "min": 0,
+        "default": "0",
+        "saved": true
+      },
+      {
+        "name": "angularDamping",
+        "kind": "float32",
+        "min": 0,
+        "default": "0",
+        "saved": true
+      },
+      {
+        "name": "fixedRotation",
+        "kind": "bool",
+        "default": "false",
+        "saved": true
+      },
+      {
+        "name": "bullet",
+        "kind": "bool",
+        "default": "false",
+        "saved": true
+      },
+      {
+        "name": "allowSleep",
+        "kind": "bool",
+        "default": "true",
+        "saved": true
+      },
+      {
+        "name": "interpolate",
+        "kind": "bool",
+        "default": "false",
+        "saved": true,
+        "doc": "Draws the body between physics steps for smooth motion; scripts still see the exact pose."
+      },
+      {
+        "name": "layer",
+        "kind": "int32",
+        "min": 0,
+        "max": 31,
+        "default": "0",
+        "saved": true,
+        "doc": "Collision layer, see Project Settings → Physics."
+      },
+      {
+        "name": "mask",
+        "kind": "int64",
+        "default": "-1",
+        "saved": true,
+        "doc": "Layers this body collides with."
+      },
+      {
+        "name": "velocity",
+        "kind": "vec2",
+        "default": "[0, 0]",
+        "readOnly": true,
+        "saved": false
+      },
+      {
+        "name": "angularVelocity",
+        "kind": "float32",
+        "default": "0",
+        "readOnly": true,
+        "saved": false
+      },
+      {
+        "name": "awake",
+        "kind": "bool",
+        "default": "false",
+        "readOnly": true,
+        "saved": false
+      }
+    ]
+  }
+}

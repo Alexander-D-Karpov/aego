@@ -515,7 +515,10 @@ The Stage 8 specification numbered these decisions D153, D155, D158, D159, D168�
 | ID | Decision |
 |---|---|
 | D296 | Mutation service. `scene/mutate` edits a scene or prefab document held in memory without the editor: `Load` from bytes through `sceneio`, `Bytes` writes through the same codec. An operation is data (`Op`: kind, node, parent, name, component, path, value as `aetext.Value` or text, index, fragment, values block) applied by `Document.Apply(Tx)`; each operation returns its inverse addressed by node ID (`#<id>`, the root as `Root` because its ID is not saved), so `Result.Inverse` is exact even when the transaction renamed or moved nodes and still applies after the file is reloaded, and `Apply(tx)` then `Apply(Inverse)` gives the original bytes (tested on every operation). A failing operation rolls back the ones before it, so a failed `Apply` leaves the document unchanged; `DryRun` applies and rolls back and returns the same changes and problems. Addressing: a node by path from the root (`Root/Player/Sprite`, `Player/Sprite`) or `#<id>`; a component by full name, unique suffix (`Body2D`) or display name, an ambiguous suffix is an error listing the candidates; a field path `Comp.field`, `Comp.field.x|y|z|w|r|g|b|a|h` (one part of a vector, colour or rect), `Comp.list[i]`, `transform.position|rotation|scale[.lane]`, `enabled`. A value must have the shape of its field (a number for a float, `[x, y]` for a vec2, an enum name, a colour, `asset(…)` or a project path), unlike the tolerant scene loader, so a typo is an error and never a zero; it is then read with `sceneio.ReadValue` and checked before anything changes: read-only and runtime-only fields, ranges, finite numbers, enum names, asset references against `Env.Assets` (an asset field also takes a project path through `Env.Lookup`). Operations in 9.6a: add-node (optional ID, space, index), remove-node (the inverse is restore-node with a `SaveSubtree` fragment), move (keeps the local transform), rename, add-comp (defaults, optional values, `Env.OnAdd`; the inverse of remove-comp is a raw add-comp with the field snapshot), remove-comp (`Env.OnRemove`), set, reset (the registered default, identity for a transform). Missing required components are problems, not errors. A transaction is also an `.aetext` file (`tx version=1 { op "set" { node=… path=… value=… } }`), so batches can be stored and inverses written out. `scene/mutate` sees no editor, UI, platform, engine or app package; its tests live in `tests/mutate` because they load the builtin catalog. Amended in 9.6b: every operation also returns its pinned forward form, collected in `Result.Redo` (node references as `#id`, created nodes with their IDs, component and pose snapshots), so redoing after an undo recreates identical nodes and later history entries that name them stay valid. New operations: `insert` (one-root fragment; `restore-node` is its alias), `replace` (subtree swap, inverse is the saved subtree), move with `keepWorld` (`PreserveWorld` lives in mutate; the inverse restores the pose from a `values` block), `live` on set and reset (runtime-only fields, for Play), and the single-document prefab operations `prefab-instantiate` (redo as insert), `prefab-revert` (level, key, owner, field; overrides chosen by `scene/prefab.Pick`, shared with the editor's Apply) and `prefab-unpack` (deep or one level with promotion of nested instances). Removing `engine.Script` takes the node subtree as its inverse (`replace`), because script attachments are not schema fields and a field snapshot would lose them. Prefab Apply and Create From Node change the prefab file and other documents and move to `project/refactor` (9.6c). `DataDocument` applies `data-set`, `data-reset`, `row-add`, `row-remove`, `row-rename` to data assets and tables with the same validation and inverses. In the editor `commands.Mutation` runs a transaction as a history command (undo = `Inverse`, redo = `Redo`, a run of sets of one field merges, the change set is recorded from typed changes); `props.Access.Set`, `Rename` and `SetEnabled` and prefab Revert and Unpack go through it, so the Inspector and multi-edit use the mutation service. A test drives 5 × 50 random commands through the old commands and through the adapter and compares the scenes byte for byte at every step, after undoing everything and after redoing everything. Amended in 9.6b2: the editor's structural edits go through `commands.Mutation` as well. Paste, Duplicate and template instantiation are `insert` (a multi-root clipboard fragment splits into one insert per root, `commands.Fragments`), Delete is `remove-node`, hierarchy drag is `move` with `keepWorld`, Add, Remove and Reset Component in the Inspector, component paste and Copy to Edit Scene are `add-comp` and `remove-comp` (`Env.OnAdd` runs on the first Do only; redo replays the raw snapshot), and Create Prefab is `replace`. Clipboard scratch scenes load fragments with `sceneio.LoadInto` and add components as raw `add-comp`. The `Create`, `Delete`, `Reparent`, `AddComponent`, `RemoveComponent`, `Replace`, `Rename` and `SetEnabled` commands are removed; frozen copies live in `tests/mutate` for the equivalence test. Removing `engine.Script` in the Inspector now restores the attached scripts on undo. `playdiff.Touched` reads the typed changes of a `Mutation`, so Inspector edits made in Play stay checked in the Play diff. Transforms (`SetTransform`, `SetTransform3D`), gizmo property drags (`SetProperty`), layers, space and script attachments (`AddScript`, `RemoveScript`, `ReorderScript`, `SetScriptEnabled`) stay on their own commands until mutate has operations for them. |
+| D297 | External changes in the editor. Scenes and prefabs open in the editor are checked once a second and when the window gets focus (`document.Manager.CheckExternal`): a document without unsaved changes reloads, one with unsaved changes raises the Reload / Keep mine conflict. Data assets and tables reread their file when the asset revision changes; with unsaved changes they keep the user's version and warn once per disk version, Save overwrites and Revert loads the disk. A prefab file changed outside the editor refreshes its instances in open scenes: `ApplyBatch` asks `prefabs.Service.External` for the instance blocks under the old library before the loader swaps and replaces the instances after it, keeping node IDs, overrides, history and the clean state; the editor's own Apply and prefab save skip this (they reimport under `writing`), and instances in a scene being played follow on the next change. This is what lets `aego mcp`, the CLI and the editor work on one project at the same time. |
 | D298 | Project refactorings without the editor. `project/refs` finds what references an asset from the pipeline index (`Entry.Deps`) and `mainScene`, locates the places in a file from its text (node path, owner, field, list index), lists missing assets (with the graveyard entry and a same-name suggestion of the same kind) and node references to nodes a scene does not define; it reads through `refs.Source`, which `*pipeline.Pipeline` satisfies. An ID counts as known when it is a builtin, has a file, or is in the index without a grave, so the page artifact of a multi-file script package is not reported as missing. `project/refactor` plans and applies: `PlanReplace` collects the referring files, `Edits` computes their new bytes by replacing the `asset("<id>")` token (overrides, data assets, tables and presets included, which is why it is not a `mutate.Tx`), `Write` backs the originals up under `.aego/recovery/refs-<time>` and writes atomically, `ApplyProject` moves `mainScene`, `Reimport` reimports what changed; `Users` lists referrers outside a deleted set (safe delete), `Delete` deletes through the pipeline, whose scan buries the IDs in the graveyard; `Move` moves an asset with its `.meta` and rewrites the `package` line of a script that changes package; `PlanRename`, `RenameOps` (with the temporary-name pass when names swap) and `ApplyOps` (rolled back on failure) carry batch rename. The rename rules live in `project/rename`. `project.WriteAtomic` is the one atomic writer (`project.Save` and `document.WriteAtomic` use it; files are written 0644). The editor's References, Missing References, Batch Rename and asset move are adapters: open documents are still edited through their history, files on disk go through `project/refactor`. Prefab Apply and Create From Node follow in 9.6c2. Amended in 9.6c2: prefab Apply and Create From Node work without the editor. `refactor.PlanApply` locates the instance (`Locate`), splits its overrides with `prefab.Pick`, bakes the selection into the prefab models (the baker moved from the editor; `Nearest` routes an apply to the nearest nested prefab) and returns the new models, the instance block before and after; `ApplyPlan.Edits` encodes the changed prefab files. `ApplyPrefab` sets the baked models into the document's library and replaces the instance root and every other prefab instance of the document through `mutate`, so the other instances pick up the new values and keep their overrides; `Result.Inverse` carries the blocks taken before the apply and is valid against the old prefab files. `WriteAll` writes the files and rolls back on failure. `mutate.Document.Bytes` saves through `Env.Library`, so overrides on instances are written. `CheckCreate`, `LinkBlock` and `CreatePrefab` turn a node into a prefab file (written, scanned, imported) and link the node to it keeping every node ID; a failure removes the file and its `.meta`. `PrefabLibrary` builds a library from the prefab sources, so tools need no loader. The editor's Apply and Create Prefab call the same functions and keep their history across documents. The data asset and table editors (`editor/core/dataedit`) edit a `mutate.DataDocument`: every change is a `data-set`, `data-reset`, `data-base` (new: the base asset, by ID or path), `row-add`, `row-remove`, `row-restore` or `row-rename` with exact inverses, consecutive edits of one field merge, a value equal to the inherited one (the base for a data asset, the type default for a table row) resets the field, and saving writes the document's own bytes, so untouched fields keep their text. Gizmo property drags go through `commands.SetField` after `props.Normalize` clamps them to the field range; `commands.SetProperty` is gone. |
+| D299 | Agent layer and CLI. `app/agent` is one catalog of commands (`Command`: name `group.verb`, typed arguments with positional order, write flag, `Run(*Session, Args) (*Output, error)`) that the CLI and the MCP server share; a command's MCP tool name and JSON schema come from the same definition. A `Session` loads types, modules, importers and the pipeline like `app.Build` without the engine, renderer or loader, publishes the compiled script types, builds the prefab library from sources (`refactor.PrefabLibrary`) and resolves scenes and prefabs from files; it edits through `scene/mutate` and `project/refactor` and writes atomically, then reimports and reloads the library. Commands: `scene tree|get|set|reset|add-node|remove-node|move|rename|add-comp|remove-comp|apply|validate|new|run`, `prefab create|instantiate|apply|revert|unpack|overrides`, `data get|set|reset|base|rows|add-row|remove-row|rename-row|import|export`, `refs find|missing|fix`, `asset list|move|rename|delete`, `schema list|show`, `project validate`. The CLI form is `aego <group> <verb> <positional> [--flags]`; flags may follow positionals, `--` ends them, a value starting with one dash is positional. `--json` prints `Output` (ok, dryRun, changes, problems, created, files, notes, value) or `{"ok":false,"error":…}`; exit 0, 1 on error, 2 on error-level problems or, with `--strict`, any problem. `--dry-run` applies and rolls back in memory. A project with native code runs the commands in its own binary (`--tool agent`), so its types are known. When another process holds the asset index (`Pipeline.Shared`), commands that create assets refuse, so an asset never gets a derived ID the editor would later replace. `scene run` releases the session's pipeline and runs a scene headless in process through `run.AgentRunner` (no window, no player profile, warnings and errors of the log, the world hash of `run.WorldHash`). Module `OnAdd` hooks run without the editor's visual bounds. `prefab-instantiate` creates an owner instance block (as the editor does), not the runtime spawn copy. Closes D242. |
+| D300 | MCP server. `aego mcp` (`app/agent/mcp`) speaks MCP over stdio, one JSON-RPC message per line, without a dependency: `initialize` (protocol 2025-06-18, older 2025-03-26 and 2024-11-05 echoed), `ping`, `tools/list|call`, `resources/list|read|subscribe|unsubscribe`, `resources/templates/list`, `notifications/resources/updated|list_changed`. Tools are the D299 commands one to one (name with underscores, the command's JSON schema, `readOnlyHint` for commands that do not write) plus `docs_search` and `docs_read`; a failing command returns `isError` with the message, a successful one its `Output` as text and `structuredContent`. Resources: `aego://project/manifest`, `aego://project/problems`, `aego://docs/index|<id>`, `aego://schema/index|<type>`, `aego://file/<path>` for scenes, prefabs, data assets and tables. The server keeps an `agent.Kit` (types, modules, importers) and opens a pipeline session per request (a few milliseconds on the platformer), so it never holds the asset index lock between calls and an editor started later owns it. `--watch` polls the project with the pipeline's watcher and notifies subscribed resources; a document that appears or disappears also sends `list_changed`. A native project is served by its own binary (`--tool mcp`, stdin passed through). |
 
 ## 4. Dependency rules
 
@@ -957,7 +960,87 @@ Packages are named by capability (`render/view`, `asset/loader`, `scene/sceneio`
 | 9.5a | Export v1: `aego export`, `runtime/player`, `runtime/bundle`, `vfs/exportfs`, Windows resources, macOS app bundles, pre-export checks, Build Report, editor Export panel, native macOS menu bar, `make editor-app` |
 | 9.5b | Web runtime: `platform/web`, `gpu/webgl2`, ES shaders and `render/shaderx`, `platform.Driver`, `platform.UserFS`, playground with Game View, docs IA |
 | 9.5c | Web export, docs session with Inspector and Game View, Try it, playground sandbox |
+| 9.6 | Agent tooling: `scene/mutate` (transactions with exact inverses and redo, data documents), `project/refs`, `project/refactor`, `project/rename`, editor structure edits through mutate, `app/agent` command catalog and `aego <group> <verb>` CLI, `aego mcp`, external edits in the editor |
 | 13+ | Export/pak, networking/store, Android |
+
+### Stage 9 complete
+
+| ID | Decision | Stage |
+|---|---|---|
+| D227 | Prefab mode | 8D |
+| D228 | `.meta` reconcile | 9.1 |
+| D229 | Time domains live in `core/clock.Time`, one per `World` | 9.1 |
+| D230 | Pause and step | 9.1 |
+| D231 | Debug draw | 9.1 |
+| D232 | Event recorder | 9.1 |
+| D233 | Crash bundles | 9.1 |
+| D234 | Input actions live in the `input` module | 9.2–9.3 |
+| D235 | Module provisions | 9.2–9.3 |
+| D236 | Settings registry | 9.2–9.3 |
+| D237 | Storage | 9.2–9.3 |
+| D238 | Built-in settings modules | 9.2–9.3 |
+| D239 | `core/curve` depends only on `core/mathx` | 9.4a |
+| D240 | `schema.KindCurve` holds a `curve.Curve` by value in components and data | 9.4a |
+| D241 | Script view of a curve | 9.4a |
+| D242 | Host handle types | 9.4a |
+| D243 | `modules/tween` is a built-in module with a per-play-world service `tween.service` | 9.4a |
+| D244 | Timers live in the same module | 9.4a |
+| D245 | One connection registry for every signal source | 9.4b |
+| D246 | Component signals | 9.4b |
+| D247 | Handle signals | 9.4b |
+| D248 | Tags | 9.4b |
+| D249 | Queries fill a caller slice and return the count | 9.4b |
+| D250 | Spawn and pools live in the built-in module `spawn` (play-world service) | 9.4b |
+| D251 | Actions compose tweens and timers | 9.4b |
+| D252 | Data types | 9.4c |
+| D253 | Base and overrides | 9.4c |
+| D254 | Tables | 9.4c |
+| D255 | Script access to data | 9.4c |
+| D256 | Validators | 9.4c |
+| D257 | Editing data | 9.4c |
+| D258 | Live tuning | 9.4c |
+| D259 | Persistence model | 9.4d1 |
+| D260 | Persistent identity | 9.4d1 |
+| D261 | Script side | 9.4d1 |
+| D262 | Slots and files | 9.4d1 |
+| D263 | Rewind is deterministic replay | 9.4d2 |
+| D264 | core/rewind | 9.4d3 |
+| D265 | Services split into owners and views | 9.4d3 |
+| D266 | World time and randomness are part of every key, before any service | 9.4d3 |
+| D267 | A key is taken at a frame boundary in the play controller | 9.4d3 |
+| D268 | Scene keys keep the node arena exact | 9.4d3 |
+| D269 | The play controller flushes structural scene changes after every TickWorld | 9.4d3 |
+| D270 | TypeDescriptor.CloneInto(dst, src) is derived from the Go type at registration | 9.4d3 |
+| D271 | World.Replaying() is true during Restore and replay | 9.4d3 |
+| D272 | Script runtime key | 9.4d3 |
+| D273 | Physics key | 9.4d3 |
+| D274 | Module keys | 9.4d3 |
+| D275 | The history budget defaults to 256 MB and counts frame records, input states and key sizes | 9.4d3 |
+| D276 | rewind.Hasher is a streaming SHA-256 over canonical game state written by the time | 9.4d3 |
+| D277 | An edit during Play ends the history at the cursor; keys after it are dropped | 9.4d3 |
+| D278 | Workspaces | 9.0 |
+| D279 | Maximize | 9.0 |
+| D280 | Previews | 9.0 |
+| D281 | Icon manifest | 9.0 |
+| D282 | Multi-object editing, component sets and presets | 9.0 |
+| D283 | Play Changes Diff, isolation, viewport capture | 9.0 |
+| D284 | Asset references | 9.0 |
+| D285 | Background work and project health | 9.0 |
+| D286 | Export | 9.5a |
+| D287 | Targets | 9.5a |
+| D288 | Pre-export checks run before any build on a pipeline snapshot | 9.5a |
+| D289 | Web platform | 9.5b1 |
+| D290 | WebGL2 backend | 9.5b1 |
+| D291 | Playground runtime | 9.5b2 |
+| D292 | Documentation IA | 9.5b3a |
+| D293 | Docs session | 9.5c2 |
+| D294 | Try it and the sandbox | 9.5c2 |
+| D295 | Web export | 9.5c1 |
+| D296 | Mutation service | 9.6a |
+| D297 | External changes in the editor | 9.6d2 |
+| D298 | Project refactorings without the editor | 9.6c1 |
+| D299 | Agent layer and CLI | 9.6d1 |
+| D300 | MCP server | 9.6d2 |
 
 ---
 

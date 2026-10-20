@@ -23,6 +23,7 @@ func scriptTool(p *project.Project, args ...string) int {
 	}
 	cmd := exec.Command(binary, append([]string{"--tool"}, args...)...)
 	cmd.Dir = p.Root
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return exitCode(cmd.Run())

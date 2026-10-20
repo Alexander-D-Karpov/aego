@@ -214,6 +214,10 @@ func (a *App) Workspace() *workspace.Workspace {
 	return a.ws
 }
 
+func (a *App) Data() *dataedit.Service {
+	return a.data
+}
+
 func (a *App) Play() *play.Controller {
 	return a.play
 }
@@ -364,6 +368,7 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 	a.files = assetfiles.New(a.ctx)
 	a.prefabs = prefabs.New(a.ctx)
+	a.ctx.BeforeSwap = a.prefabs.External
 	a.data = dataedit.New(a.ctx)
 	a.data.OnLive = func() { a.play.Invalidate("a data asset was tuned during Play") }
 	a.ctx.Selection.Subscribe(a.data.Clear)

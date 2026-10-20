@@ -4,6 +4,8 @@ import (
 	"os"
 	"slices"
 
+	"aego/asset"
+	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/editor/core/context"
@@ -99,6 +101,8 @@ func (s *Service) reimport(list []ids.AssetID) error {
 	if len(list) == 0 {
 		return nil
 	}
+	s.writing = true
+	defer func() { s.writing = false }()
 	batch, err := s.ctx.Pipeline.Reimport(list...)
 	s.ctx.ApplyBatch(batch)
 	if err != nil {
@@ -290,4 +294,32 @@ func (s *Service) commit(label string, files []fileChange, src *source) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) External(b *pipeline.Batch) func() {
+	if s.writing || s.ctx.Docs.InPlay() {
+		return nil
+	}
+	changed := map[ids.AssetID]bool{}
+	for _, e := range b.Imported {
+		if e.Kind == asset.ArtPrefab {
+			changed[e.ID] = true
+		}
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	plan := s.affected(s.lib(), changed, true)
+	if len(plan) == 0 {
+		return nil
+	}
+	return func() {
+		lib := s.lib()
+		for _, t := range plan {
+			if _, err := commands.ReplaceNode(t.doc.Scene(), t.node, t.parent, t.index, t.block, lib); err != nil {
+				s.ctx.Notify(context.LevelError, "cannot refresh the prefab instances in "+t.doc.Path+": "+err.Error())
+			}
+		}
+		clear(s.infos)
+	}
 }

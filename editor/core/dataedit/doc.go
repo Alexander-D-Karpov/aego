@@ -84,19 +84,20 @@ func cloneFields(fs []aetext.Field) []aetext.Field {
 }
 
 type Doc struct {
-	ID     ids.AssetID
-	Path   string
-	Type   *schema.TypeDescriptor
-	reg    *schema.Registry
-	lib    *data.Library
-	dd     *mutate.DataDocument
-	ptr    unsafe.Pointer
-	origin unsafe.Pointer
-	issues []string
-	steps  steps
-	saved  []byte
-	disk   []byte
-	rev    uint64
+	ID       ids.AssetID
+	Path     string
+	Type     *schema.TypeDescriptor
+	reg      *schema.Registry
+	lib      *data.Library
+	dd       *mutate.DataDocument
+	ptr      unsafe.Pointer
+	origin   unsafe.Pointer
+	issues   []string
+	steps    steps
+	saved    []byte
+	disk     []byte
+	conflict []byte
+	rev      uint64
 }
 
 func NewDoc(env mutate.Env, lib *data.Library, id ids.AssetID, path string, raw []byte) (*Doc, error) {
