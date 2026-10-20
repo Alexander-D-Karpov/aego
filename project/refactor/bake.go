@@ -1,4 +1,4 @@
-package prefabs
+package refactor
 
 import (
 	"slices"
@@ -308,4 +308,8 @@ func (b *baker) Nearest(id ids.AssetID, key prefab.Key) (ids.AssetID, bool) {
 		return ids.AssetID{}, false
 	}
 	return d.owner, true
+}
+
+func Nearest(lib *sceneio.Library, id ids.AssetID, key prefab.Key) (ids.AssetID, bool) {
+	return newBaker(lib).Nearest(id, key)
 }

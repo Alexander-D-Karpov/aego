@@ -47,6 +47,7 @@ func (o Op) encode() (*aetext.Node, error) {
 	str("key", o.Key)
 	str("owner", o.Owner)
 	str("field", o.Field)
+	str("asset", o.Asset)
 	if o.Kind == KindSet || o.Kind == KindDataSet {
 		v, err := o.value()
 		if err != nil {
@@ -123,6 +124,7 @@ func ParseTx(src []byte, name string) (Tx, error) {
 		o.Node, o.Parent, o.Name, o.ID = get("node"), get("parent"), get("name"), get("id")
 		o.Space, o.Comp, o.Path, o.Fragment = get("space"), get("comp"), get("path"), get("fragment")
 		o.Prefab, o.Level, o.Key, o.Owner, o.Field = get("prefab"), get("level"), get("key"), get("owner"), get("field")
+		o.Asset = get("asset")
 		if v, ok := n.Field("value"); ok {
 			o.Value, o.HasValue = v, true
 		}

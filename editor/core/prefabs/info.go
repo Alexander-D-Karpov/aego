@@ -3,6 +3,7 @@ package prefabs
 import (
 	"aego/core/ids"
 	"aego/editor/core/document"
+	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/prefab"
 	"aego/scene/sceneio"
@@ -259,5 +260,5 @@ func (s *Service) nearestOf(d *document.SceneDocument, node ids.NodeID) (ids.Ass
 	if err != nil {
 		return ids.AssetID{}, false
 	}
-	return newBaker(s.lib()).Nearest(pi.Prefab, key)
+	return refactor.Nearest(s.lib(), pi.Prefab, key)
 }

@@ -51,6 +51,10 @@ func (d *Document) node(ref string) (scene.NodeHandle, error) {
 	return h, nil
 }
 
+func (d *Document) Node(ref string) (scene.NodeHandle, error) {
+	return d.node(ref)
+}
+
 func (d *Document) nodeName(h scene.NodeHandle) string {
 	s := d.Scene
 	if h == s.Root() {

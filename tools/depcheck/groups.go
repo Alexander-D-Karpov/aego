@@ -171,7 +171,7 @@ func groupRule(from, to group) string {
 }
 
 // runtimeForbidden lists what the aego_runtime build must never reach.
-var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "editor/...",
+var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
 	"app", "app/bootstrap", "app/docstool", "app/edit", "app/export", "app/export/...", "app/playground",
 	"app/projects", "app/run", "app/supervise", "app/assembly/editors", "app/assembly/playground",
 	"engine/docs", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",

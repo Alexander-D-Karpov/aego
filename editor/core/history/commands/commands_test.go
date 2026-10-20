@@ -145,21 +145,19 @@ func TestReparentUnderZeroScaleFails(t *testing.T) {
 	}
 }
 
-func TestSetPropertyMergesInTransaction(t *testing.T) {
+func TestSetFieldMergesInTransaction(t *testing.T) {
 	s := newScene(t)
 	a := s.Create(s.Root(), "A")
 	scene.Add[Health](s, a).Max = 1
 	s.Flush()
 	typeID := scene.Store[Health](s).Type()
 	fd, _ := s.Registry().Field(typeID, "max")
+	td, _ := s.Registry().ByID(typeID)
 
 	h := history.New(target{s})
 	tx := h.Begin("drag")
-	prev := schema.Float32(1)
 	for i := 2; i <= 5; i++ {
-		v := schema.Float32(float32(i))
-		tx.Exec(&SetProperty{Node: s.ID(a), Type: typeID, Field: fd.ID, Before: prev, After: v, Name: "max"})
-		prev = v
+		tx.Exec(SetField(s, s.ID(a), td, fd, schema.Float32(float32(i)), "max"))
 	}
 	tx.Commit()
 	if tx.Len() != 1 || h.Cursor() != 1 {

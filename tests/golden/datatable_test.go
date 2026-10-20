@@ -15,6 +15,7 @@ import (
 	"aego/editor/panels/datatable"
 	"aego/engine/module"
 	"aego/format/aetext"
+	"aego/scene/mutate"
 	"aego/schema"
 	"aego/script/bind"
 	"aego/ui/dnd"
@@ -63,7 +64,7 @@ func TestEditorDataTable(t *testing.T) {
 		row("troll", 1.2, 5, false, "Troll"),
 		row("wisp", 6, 0, true, "Wisp"),
 	}}
-	tab, err := dataedit.NewTable(types.Schema(), ids.AssetID{Hi: 0xda7a, Lo: 1}, "assets/data/enemies.aetable", doc)
+	tab, err := dataedit.NewTable(mutate.Env{Types: types}, ids.AssetID{Hi: 0xda7a, Lo: 1}, "assets/data/enemies.aetable", data.WriteTable(doc))
 	if err != nil {
 		t.Fatal(err)
 	}

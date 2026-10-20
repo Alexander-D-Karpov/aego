@@ -1,7 +1,7 @@
 package dataedit
 
 import (
-	"slices"
+	"bytes"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -10,18 +10,15 @@ import (
 	"aego/core/ids"
 	"aego/data"
 	"aego/format/aetext"
+	"aego/scene/mutate"
+	"aego/scene/prefab"
+	"aego/scene/sceneio"
 	"aego/schema"
 )
 
 type Row struct {
-	ID    string
-	Ptr   unsafe.Pointer
-	extra []aetext.Field
-}
-
-type tableState struct {
-	doc *data.TableDoc
-	seq uint64
+	ID  string
+	Ptr unsafe.Pointer
 }
 
 type Table struct {
@@ -32,30 +29,30 @@ type Table struct {
 	Issues []string
 	reg    *schema.Registry
 	def    unsafe.Pointer
-	undo   []tableState
-	redo   []tableState
-	seq    uint64
-	next   uint64
-	saved  uint64
-	open   string
+	dd     *mutate.DataDocument
+	steps  steps
+	saved  []byte
 	disk   []byte
 	rev    uint64
 }
 
-func NewTable(reg *schema.Registry, id ids.AssetID, path string, doc *data.TableDoc) (*Table, error) {
-	td, err := dataType(reg, doc.Type, path)
+func NewTable(env mutate.Env, id ids.AssetID, path string, raw []byte) (*Table, error) {
+	dd, err := mutate.LoadData(raw, path, env)
 	if err != nil {
 		return nil, err
 	}
-	t := &Table{ID: id, Path: path, Type: td, reg: reg, def: data.Fresh(td)}
-	t.load(doc)
+	if !dd.Table() {
+		return nil, errs.New(errs.EditorDocument, path+" is not a table")
+	}
+	t := &Table{ID: id, Path: path, Type: dd.Type, reg: env.Types.Schema(), def: data.Fresh(dd.Type), dd: dd, saved: dd.Bytes()}
+	t.load()
 	return t, nil
 }
 
-func (t *Table) load(doc *data.TableDoc) {
+func (t *Table) load() {
 	t.Rows, t.Issues = nil, nil
 	seen := map[string]bool{}
-	for _, r := range doc.Rows {
+	for _, r := range t.dd.TableDoc().Rows {
 		switch {
 		case r.ID == "":
 			t.Issues = append(t.Issues, "a row without an id is ignored")
@@ -69,36 +66,45 @@ func (t *Table) load(doc *data.TableDoc) {
 		for _, s := range issues {
 			t.Issues = append(t.Issues, "row "+r.ID+": "+s)
 		}
-		var extra []aetext.Field
-		for _, f := range r.Fields {
-			if _, ok := t.Type.Field(f.Name); !ok {
-				extra = append(extra, f)
-			}
-		}
-		t.Rows = append(t.Rows, Row{ID: r.ID, Ptr: p, extra: extra})
+		t.Rows = append(t.Rows, Row{ID: r.ID, Ptr: p})
 	}
 }
 
+func (t *Table) apply(key string, step bool, ops ...mutate.Op) error {
+	res, err := t.dd.Apply(mutate.Tx{Ops: ops})
+	if err != nil {
+		return err
+	}
+	t.steps.record(res, key, step)
+	t.load()
+	return nil
+}
+
 func (t *Table) Doc() *data.TableDoc {
-	out := &data.TableDoc{Type: t.Type.FullName}
-	for _, r := range t.Rows {
-		fs := data.Fields(t.reg, t.Type, r.Ptr, t.def)
-		out.Rows = append(out.Rows, data.TableRow{ID: r.ID, Fields: append(fs, cloneFields(r.extra)...)})
+	src := t.dd.TableDoc()
+	out := &data.TableDoc{Type: src.Type, Rows: make([]data.TableRow, len(src.Rows))}
+	for i, r := range src.Rows {
+		out.Rows[i] = data.TableRow{ID: r.ID, Fields: cloneFields(r.Fields)}
 	}
 	return out
 }
 
-func (t *Table) push() {
-	t.undo = append(t.undo, tableState{doc: t.Doc(), seq: t.seq})
-	if len(t.undo) > maxUndo {
-		t.undo = append(t.undo[:0], t.undo[1:]...)
+func (t *Table) fieldsOf(id string) []aetext.Field {
+	for _, r := range t.dd.TableDoc().Rows {
+		if r.ID == id {
+			return r.Fields
+		}
 	}
-	t.redo = t.redo[:0]
+	return nil
 }
 
-func (t *Table) bump() {
-	t.next++
-	t.seq = t.next
+func (t *Table) has(id, name string) bool {
+	for _, f := range t.fieldsOf(id) {
+		if f.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (t *Table) Value(i int, fd *schema.FieldDescriptor) schema.Value {
@@ -116,91 +122,95 @@ func (t *Table) Index(id string) int {
 	return -1
 }
 
-func (t *Table) unique(base string) string {
-	if t.Index(base) < 0 {
-		return base
+func (t *Table) unique(base string, taken map[string]bool) string {
+	free := func(id string) bool { return t.Index(id) < 0 && !taken[id] }
+	id := base
+	for n := 2; !free(id); n++ {
+		id = base + strconv.Itoa(n)
 	}
-	for n := 2; ; n++ {
-		if id := base + strconv.Itoa(n); t.Index(id) < 0 {
-			return id
-		}
-	}
+	taken[id] = true
+	return id
 }
 
 func (t *Table) Set(rows []int, fd *schema.FieldDescriptor, v schema.Value, step bool) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	if step || t.open != fd.Name {
-		t.push()
-		t.open = fd.Name
-	}
+	var dv schema.Value
+	fd.Get(t.def, &dv)
+	same := prefab.Equal(dv, v)
+	keys := []string{fd.Name}
+	var ops []mutate.Op
 	for _, i := range rows {
-		if err := fd.Set(t.Rows[i].Ptr, v); err != nil {
-			return err
+		id := t.Rows[i].ID
+		keys = append(keys, id)
+		switch {
+		case !same:
+			ops = append(ops, mutate.DataSetValue(id, fd.Name, sceneio.WriteValue(t.reg, fd, v)))
+		case t.has(id, fd.Name):
+			ops = append(ops, mutate.DataReset(id, fd.Name))
 		}
 	}
-	t.bump()
-	return nil
+	if len(ops) == 0 {
+		return nil
+	}
+	return t.apply(strings.Join(keys, "\x00"), step, ops...)
 }
 
 func (t *Table) Rename(i int, id string) error {
 	id = strings.TrimSpace(id)
+	old := t.Rows[i].ID
 	switch {
 	case id == "":
 		return errs.New(errs.EditorCommand, "a row id cannot be empty")
-	case id == t.Rows[i].ID:
+	case id == old:
 		return nil
 	case t.Index(id) >= 0:
 		return errs.New(errs.EditorCommand, "the table already has a row "+id)
 	}
-	t.push()
-	t.open = ""
-	t.Rows[i].ID = id
-	t.bump()
-	return nil
+	return t.apply("", true, mutate.RowRename(old, id))
 }
 
-func (t *Table) AddRow() int {
-	t.push()
-	t.open = ""
-	t.Rows = append(t.Rows, Row{ID: t.unique("row"), Ptr: data.Fresh(t.Type)})
-	t.bump()
-	return len(t.Rows) - 1
+func (t *Table) AddRow() (int, error) {
+	id := t.unique("row", map[string]bool{})
+	if err := t.apply("", true, mutate.RowAdd(id)); err != nil {
+		return -1, err
+	}
+	return t.Index(id), nil
 }
 
-func (t *Table) Duplicate(rows []int) []int {
+func (t *Table) Duplicate(rows []int) ([]int, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	taken := map[string]bool{}
+	made := make([]string, 0, len(rows))
+	ops := make([]mutate.Op, 0, len(rows))
+	for _, i := range rows {
+		src := t.Rows[i].ID
+		id := t.unique(src+"_copy", taken)
+		made = append(made, id)
+		ops = append(ops, mutate.RowRestore(id, t.fieldsOf(src)))
+	}
+	if err := t.apply("", true, ops...); err != nil {
+		return nil, err
+	}
+	out := make([]int, len(made))
+	for k, id := range made {
+		out[k] = t.Index(id)
+	}
+	return out, nil
+}
+
+func (t *Table) Delete(rows []int) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	t.push()
-	t.open = ""
-	var made []int
+	ops := make([]mutate.Op, 0, len(rows))
 	for _, i := range rows {
-		src := t.Rows[i]
-		p := data.Fresh(t.Type)
-		t.Type.Copy(p, src.Ptr)
-		t.Rows = append(t.Rows, Row{ID: t.unique(src.ID + "_copy"), Ptr: p, extra: cloneFields(src.extra)})
-		made = append(made, len(t.Rows)-1)
+		ops = append(ops, mutate.RowRemove(t.Rows[i].ID))
 	}
-	t.bump()
-	return made
-}
-
-func (t *Table) Delete(rows []int) {
-	if len(rows) == 0 {
-		return
-	}
-	t.push()
-	t.open = ""
-	out := make([]Row, 0, len(t.Rows))
-	for i, r := range t.Rows {
-		if !slices.Contains(rows, i) {
-			out = append(out, r)
-		}
-	}
-	t.Rows = out
-	t.bump()
+	return t.apply("", true, ops...)
 }
 
 func (t *Table) ExportCSV() ([]byte, error) {
@@ -212,53 +222,48 @@ func (t *Table) ImportCSV(src []byte) error {
 	if err != nil {
 		return err
 	}
-	t.push()
-	t.open = ""
-	t.load(doc)
-	t.bump()
-	return nil
+	var ops []mutate.Op
+	for _, r := range t.dd.TableDoc().Rows {
+		ops = append(ops, mutate.RowRemove(r.ID))
+	}
+	for _, r := range doc.Rows {
+		ops = append(ops, mutate.RowRestore(r.ID, r.Fields))
+	}
+	return t.apply("", true, ops...)
 }
 
 func (t *Table) CanUndo() bool {
-	return len(t.undo) > 0
+	return len(t.steps.undo) > 0
 }
 
 func (t *Table) CanRedo() bool {
-	return len(t.redo) > 0
+	return len(t.steps.redo) > 0
 }
 
-func (t *Table) Undo() {
-	n := len(t.undo)
-	if n == 0 {
-		return
+func (t *Table) Undo() error {
+	if err := t.steps.back(t.dd); err != nil {
+		return err
 	}
-	t.redo = append(t.redo, tableState{doc: t.Doc(), seq: t.seq})
-	s := t.undo[n-1]
-	t.undo = t.undo[:n-1]
-	t.load(s.doc)
-	t.seq, t.open = s.seq, ""
+	t.load()
+	return nil
 }
 
-func (t *Table) Redo() {
-	n := len(t.redo)
-	if n == 0 {
-		return
+func (t *Table) Redo() error {
+	if err := t.steps.forward(t.dd); err != nil {
+		return err
 	}
-	t.undo = append(t.undo, tableState{doc: t.Doc(), seq: t.seq})
-	s := t.redo[n-1]
-	t.redo = t.redo[:n-1]
-	t.load(s.doc)
-	t.seq, t.open = s.seq, ""
+	t.load()
+	return nil
 }
 
 func (t *Table) Dirty() bool {
-	return t.seq != t.saved
+	return !bytes.Equal(t.dd.Bytes(), t.saved)
 }
 
 func (t *Table) MarkSaved() {
-	t.saved = t.seq
+	t.saved = t.dd.Bytes()
 }
 
 func (t *Table) Bytes() []byte {
-	return data.WriteTable(t.Doc())
+	return t.dd.Bytes()
 }

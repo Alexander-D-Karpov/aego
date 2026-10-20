@@ -127,7 +127,7 @@ func commandPair(t *testing.T, r *rand.Rand, a, b *scene.Scene) (history.Command
 		if err != nil {
 			t.Fatal(err)
 		}
-		return &commands.SetProperty{Node: id, Type: f.td.ID, Field: f.fd.ID, Before: before, After: v, Name: f.fd.Name},
+		return &legacySetProperty{Node: id, Type: f.td.ID, Field: f.fd.ID, Before: before, After: v, Name: f.fd.Name},
 			commands.SetField(b, id, f.td, f.fd, v, f.fd.Name), "set " + f.td.FullName + "." + f.fd.Name
 	case 1:
 		name := fmt.Sprintf("N%d", r.IntN(1000))

@@ -9,6 +9,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/context"
 	"aego/editor/core/history/commands"
+	"aego/project/refactor"
 	"aego/scene/scriptcomp"
 	"aego/schema"
 )
@@ -20,10 +21,7 @@ func shortName(full string) string {
 }
 
 func moduleOf(ctx *context.Editor) string {
-	if ctx.Project != nil && ctx.Project.Module != "" {
-		return ctx.Project.Module
-	}
-	return "game"
+	return refactor.Module(ctx.Project)
 }
 
 func ScriptPrefix(ctx *context.Editor, rel string) string {

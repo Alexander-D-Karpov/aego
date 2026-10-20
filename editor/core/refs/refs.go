@@ -1,70 +1,40 @@
 package refs
 
 import (
-	"bytes"
-	"os"
-	"path"
-	"path/filepath"
-	"slices"
-	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"aego/asset"
-	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
-	"aego/core/log"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/prefabs"
-	"aego/editor/core/scenediff"
-	"aego/format/aetext"
-	"aego/project"
+	"aego/project/refactor"
+	prefs "aego/project/refs"
 	"aego/scene/prefab"
 	"aego/scene/scriptcomp"
 	"aego/schema"
+	"slices"
 )
 
-const RecoveryDir = ".aego/recovery"
+const RecoveryDir = refactor.RecoveryDir
 
-var (
-	vAsset = aetext.AssetRef("").Kind
-	vNode  = aetext.NodeRef("").Kind
+type (
+	Ref     = prefs.Ref
+	Place   = prefs.Place
+	Missing = prefs.Missing
 )
-
-type Ref struct {
-	Asset   ids.AssetID
-	Path    string
-	Kind    asset.ArtifactKind
-	Project bool
-}
-
-type Place struct {
-	Node  ids.NodeID
-	Path  string
-	Owner string
-	Field string
-}
-
-func (p Place) String() string {
-	var parts []string
-	for _, s := range []string{p.Path, p.Owner, p.Field} {
-		if s != "" {
-			parts = append(parts, s)
-		}
-	}
-	return strings.Join(parts, " · ")
-}
 
 type Hit struct {
-	Ref    Ref
-	Open   bool
-	Places []Place
-	Err    error
+	prefs.Hit
+	Open bool
+}
+
+type MissingNode struct {
+	prefs.MissingNode
+	Open bool
 }
 
 type PrefabInfo interface {
@@ -79,6 +49,13 @@ type Service struct {
 
 func New(ctx *context.Editor) *Service {
 	return &Service{ctx: ctx, Now: time.Now}
+}
+
+func (s *Service) source() prefs.Source {
+	if s.ctx.Pipeline == nil {
+		return nil
+	}
+	return s.ctx.Pipeline
 }
 
 func leafAny(v schema.Value, leaf func(schema.Value) bool) bool {
@@ -219,23 +196,15 @@ func (s *Service) livePlaces(d *document.SceneDocument, leaf func(schema.Value) 
 }
 
 func (s *Service) Referrers(target ids.AssetID) []Ref {
-	var out []Ref
-	if p := s.ctx.Project; p != nil && !target.IsZero() && p.MainScene == target {
-		out = append(out, Ref{Project: true, Path: project.FileName})
-	}
-	pl := s.ctx.Pipeline
-	if pl == nil {
+	src := s.source()
+	out := prefs.Referrers(s.ctx.Project, src, target)
+	if src == nil {
 		return out
 	}
+	pl := s.ctx.Pipeline
 	seen := map[string]bool{}
-	for _, a := range pl.Assets() {
-		if a.ID == target {
-			continue
-		}
-		if e, ok := pl.Entry(a.ID); ok && slices.Contains(e.Deps, target) {
-			out = append(out, Ref{Asset: a.ID, Path: a.Path, Kind: a.Kind})
-			seen[a.Path] = true
-		}
+	for _, r := range out {
+		seen[r.Path] = true
 	}
 	for _, d := range s.ctx.Docs.Docs() {
 		if seen[d.Path] || !d.Dirty() || d.IsPlay() || len(s.livePlaces(d, isAsset(target))) == 0 {
@@ -250,97 +219,20 @@ func (s *Service) Referrers(target ids.AssetID) []Ref {
 		}
 		out = append(out, r)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Project != out[j].Project {
-			return out[i].Project
-		}
-		return out[i].Path < out[j].Path
-	})
+	prefs.Sort(out)
 	return out
-}
-
-func textPlaces(doc *aetext.Node, kind aetext.ValueKind, target string) []Place {
-	var out []Place
-	var visit func(n *aetext.Node, pl Place)
-	var value func(v aetext.Value, field string, pl Place)
-	value = func(v aetext.Value, field string, pl Place) {
-		switch {
-		case v.Kind == kind && v.Str == target:
-			pl.Field = field
-			out = append(out, pl)
-		case v.Kind == aetext.VList:
-			for i, it := range v.List {
-				value(it, field+"["+itoa(i)+"]", pl)
-			}
-		case v.Kind == aetext.VStruct:
-			for _, f := range v.Obj {
-				value(f.Value, field+"."+f.Name, pl)
-			}
-		}
-	}
-	visit = func(n *aetext.Node, pl Place) {
-		switch n.Head {
-		case "node":
-			if id, err := ids.ParseNodeID(n.Label); err == nil {
-				pl.Node = id
-			}
-			name := n.Label
-			if v, ok := n.Attr("name"); ok {
-				name = v.Str
-			}
-			pl.Path = path.Join(pl.Path, name)
-			pl.Owner = ""
-		case "component", "script":
-			pl.Owner = n.Label
-		case "override":
-			if v, ok := n.Attr("prop"); ok {
-				pl.Owner = v.Str
-			}
-		}
-		for _, f := range n.Attrs {
-			value(f.Value, f.Name, pl)
-		}
-		for _, f := range n.Fields {
-			value(f.Value, f.Name, pl)
-		}
-		for _, b := range n.Blocks {
-			visit(b, pl)
-		}
-	}
-	visit(doc, Place{})
-	return out
-}
-
-func itoa(i int) string {
-	return strconv.Itoa(i)
 }
 
 func (s *Service) Find(target ids.AssetID) []Hit {
 	var out []Hit
 	for _, r := range s.Referrers(target) {
-		h := Hit{Ref: r}
-		switch {
-		case r.Project:
-			h.Places = []Place{{Field: "mainScene"}}
-		default:
+		if !r.Project {
 			if d := s.ctx.Docs.Find(r.Path); d != nil {
-				h.Open = true
-				h.Places = s.livePlaces(d, isAsset(target))
-				break
+				out = append(out, Hit{Hit: prefs.Hit{Ref: r, Places: s.livePlaces(d, isAsset(target))}, Open: true})
+				continue
 			}
-			data, err := os.ReadFile(s.ctx.Pipeline.Abs(r.Path))
-			if err != nil {
-				h.Err = err
-				break
-			}
-			doc, err := aetext.Parse(data, r.Path)
-			if err != nil {
-				h.Err = err
-				break
-			}
-			h.Places = textPlaces(doc, vAsset, target.String())
 		}
-		out = append(out, h)
+		out = append(out, Hit{Hit: prefs.FileHit(s.source(), r, target)})
 	}
 	return out
 }
@@ -352,13 +244,10 @@ type Job struct {
 	Files   []string
 	Backup  string
 	Project bool
+	plan    *refactor.Replacement
 	root    string
 	abs     func(string) string
 	changed []string
-}
-
-func token(id ids.AssetID) []byte {
-	return []byte(scenediff.ValueText(aetext.AssetRef(id.String())))
 }
 
 func (s *Service) replaceLive(d *document.SceneDocument, from, to ids.AssetID) (int, error) {
@@ -401,25 +290,14 @@ func apply(h *history.History, label string, fn func(*history.Transaction) error
 }
 
 func (s *Service) Begin(from, to ids.AssetID) (*Job, error) {
-	if from == to {
-		return nil, errs.New(errs.EditorCommand, "an asset cannot replace itself")
-	}
 	pl := s.ctx.Pipeline
 	if pl == nil || s.ctx.Project == nil {
 		return nil, errs.New(errs.EditorCommand, "the asset pipeline is not available")
 	}
-	if !to.IsZero() {
-		fe, fok := pl.Entry(from)
-		te, tok := pl.Entry(to)
-		if !tok {
-			return nil, errs.New(errs.EditorCommand, "the replacement is not an imported asset")
-		}
-		if fok && fe.Kind != te.Kind {
-			return nil, errs.New(errs.EditorCommand, "the replacement is a "+string(te.Kind)+", the references expect a "+string(fe.Kind))
-		}
+	if err := refactor.CheckReplace(pl, from, to); err != nil {
+		return nil, err
 	}
-	j := &Job{From: from, To: to, root: s.ctx.Project.Root, abs: pl.Abs}
-	j.Backup = filepath.ToSlash(filepath.Join(RecoveryDir, "refs-"+s.Now().Format("20060102-150405")))
+	j := &Job{From: from, To: to, root: s.ctx.Project.Root, abs: pl.Abs, Backup: refactor.BackupDir(s.Now())}
 	for _, r := range s.Referrers(from) {
 		switch {
 		case r.Project:
@@ -442,34 +320,14 @@ func (s *Service) Begin(from, to ids.AssetID) (*Job, error) {
 			j.Files = append(j.Files, r.Path)
 		}
 	}
+	j.plan = &refactor.Replacement{From: from, To: to, Project: j.Project, Files: j.Files}
 	return j, nil
 }
 
 func (j *Job) Rewrite() error {
-	from, to := token(j.From), token(j.To)
-	backup := filepath.Join(j.root, filepath.FromSlash(j.Backup))
-	for _, rel := range j.Files {
-		abs := j.abs(rel)
-		src, err := os.ReadFile(abs)
-		if err != nil {
-			return errs.Wrap(err, errs.EditorDocument, "cannot read "+rel)
-		}
-		if !bytes.Contains(src, from) {
-			continue
-		}
-		bak := filepath.Join(backup, filepath.FromSlash(rel))
-		if err := os.MkdirAll(filepath.Dir(bak), 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(bak, src, 0o644); err != nil {
-			return errs.Wrap(err, errs.EditorDocument, "cannot back up "+rel).With(log.F("backup", j.Backup))
-		}
-		if err := document.WriteAtomic(abs, bytes.ReplaceAll(src, from, to)); err != nil {
-			return errs.Wrap(err, errs.EditorDocument, "cannot write "+rel).With(log.F("backup", j.Backup))
-		}
-		j.changed = append(j.changed, rel)
-	}
-	return nil
+	changed, err := j.plan.Write(j.root, j.abs, j.Backup)
+	j.changed = changed
+	return err
 }
 
 func (j *Job) Changed() []string {
@@ -477,17 +335,7 @@ func (j *Job) Changed() []string {
 }
 
 func (s *Service) Finish(j *Job) error {
-	pl := s.ctx.Pipeline
-	var list []ids.AssetID
-	for _, rel := range j.changed {
-		if id, ok := pl.Lookup(rel); ok {
-			list = append(list, id)
-		}
-	}
-	if len(list) == 0 {
-		return nil
-	}
-	batch, err := pl.Reimport(list...)
+	batch, err := refactor.Reimport(s.ctx.Pipeline, j.changed)
 	s.ctx.ApplyBatch(batch)
 	return err
 }
@@ -503,91 +351,12 @@ func (s *Service) Replace(from, to ids.AssetID) (*Job, error) {
 	return j, s.Finish(j)
 }
 
-type Missing struct {
-	ID      ids.AssetID
-	Grave   pipeline.Grave
-	Buried  bool
-	Refs    []Ref
-	Suggest ids.AssetID
-	Path    string
-}
-
-func (m Missing) Label() string {
-	if m.Buried && m.Grave.Path != "" {
-		return m.Grave.Path
-	}
-	return m.ID.String()
-}
-
-func (s *Service) known(id ids.AssetID) bool {
-	if id.IsZero() {
-		return true
-	}
-	if _, ok := asset.LookupBuiltin(id); ok {
-		return true
-	}
-	_, ok := s.ctx.Pipeline.PathOf(id)
-	return ok
-}
-
 func (s *Service) MissingAssets() []Missing {
-	pl := s.ctx.Pipeline
-	if pl == nil {
+	src := s.source()
+	if src == nil {
 		return nil
 	}
-	by := map[ids.AssetID]*Missing{}
-	var order []ids.AssetID
-	add := func(id ids.AssetID, r Ref) {
-		m := by[id]
-		if m == nil {
-			m = &Missing{ID: id}
-			by[id] = m
-			order = append(order, id)
-		}
-		m.Refs = append(m.Refs, r)
-	}
-	if p := s.ctx.Project; p != nil && !s.known(p.MainScene) {
-		add(p.MainScene, Ref{Project: true, Path: project.FileName})
-	}
-	assets := pl.Assets()
-	for _, a := range assets {
-		e, ok := pl.Entry(a.ID)
-		if !ok {
-			continue
-		}
-		for _, d := range e.Deps {
-			if !s.known(d) {
-				add(d, Ref{Asset: a.ID, Path: a.Path, Kind: a.Kind})
-			}
-		}
-	}
-	out := make([]Missing, 0, len(order))
-	for _, id := range order {
-		m := by[id]
-		if g, ok := pl.Grave(id); ok {
-			m.Grave, m.Buried = g, true
-			base := strings.ToLower(path.Base(g.Path))
-			for _, a := range assets {
-				if a.Kind == g.Kind && strings.ToLower(path.Base(a.Path)) == base {
-					m.Suggest, m.Path = a.ID, a.Path
-					break
-				}
-			}
-		}
-		out = append(out, *m)
-	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Label() < out[j].Label() })
-	return out
-}
-
-type MissingNode struct {
-	Scene  string
-	Node   ids.NodeID
-	Path   string
-	Owner  string
-	Field  string
-	Target ids.NodeID
-	Open   bool
+	return prefs.MissingAssets(s.ctx.Project, src)
 }
 
 func (s *Service) MissingNodes() []MissingNode {
@@ -604,15 +373,9 @@ func (s *Service) MissingNodes() []MissingNode {
 			out = append(out, s.liveMissingNodes(d)...)
 			continue
 		}
-		data, err := os.ReadFile(pl.Abs(a.Path))
-		if err != nil {
-			continue
+		for _, m := range prefs.FileMissingNodes(pl, a.Path) {
+			out = append(out, MissingNode{MissingNode: m})
 		}
-		doc, err := aetext.Parse(data, a.Path)
-		if err != nil {
-			continue
-		}
-		out = append(out, textMissingNodes(doc, a.Path)...)
 	}
 	return out
 }
@@ -636,67 +399,9 @@ func (s *Service) liveMissingNodes(d *document.SceneDocument) []MissingNode {
 			}
 			return false
 		})
-		out = append(out, MissingNode{Scene: d.Path, Node: id, Path: sc.Path(sc.Handle(id)), Owner: td.FullName, Field: fd.Name, Target: target, Open: true})
+		m := prefs.MissingNode{Scene: d.Path, Node: id, Path: sc.Path(sc.Handle(id)), Owner: td.FullName, Field: fd.Name, Target: target}
+		out = append(out, MissingNode{MissingNode: m, Open: true})
 	})
-	return out
-}
-
-func textMissingNodes(doc *aetext.Node, scene string) []MissingNode {
-	defined := map[string]bool{}
-	var collect func(n *aetext.Node)
-	collect = func(n *aetext.Node) {
-		if n.Head == "node" {
-			defined[n.Label] = true
-		}
-		for _, b := range n.Blocks {
-			collect(b)
-		}
-	}
-	collect(doc)
-	var refs []string
-	var scan func(v aetext.Value)
-	scan = func(v aetext.Value) {
-		switch v.Kind {
-		case vNode:
-			refs = append(refs, v.Str)
-		case aetext.VList:
-			for _, it := range v.List {
-				scan(it)
-			}
-		case aetext.VStruct:
-			for _, f := range v.Obj {
-				scan(f.Value)
-			}
-		}
-	}
-	var walk func(n *aetext.Node)
-	walk = func(n *aetext.Node) {
-		for _, f := range n.Fields {
-			scan(f.Value)
-		}
-		for _, f := range n.Attrs {
-			scan(f.Value)
-		}
-		for _, b := range n.Blocks {
-			walk(b)
-		}
-	}
-	walk(doc)
-	var out []MissingNode
-	seen := map[string]bool{}
-	for _, id := range refs {
-		if id == "" || defined[id] || seen[id] {
-			continue
-		}
-		nid, err := ids.ParseNodeID(id)
-		if err != nil || nid.IsZero() {
-			continue
-		}
-		seen[id] = true
-		for _, pl := range textPlaces(doc, vNode, id) {
-			out = append(out, MissingNode{Scene: scene, Node: pl.Node, Path: pl.Path, Owner: pl.Owner, Field: pl.Field, Target: nid})
-		}
-	}
 	return out
 }
 

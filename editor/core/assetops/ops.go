@@ -3,7 +3,6 @@ package assetops
 import (
 	"os"
 	"path"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,14 +11,14 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/project/refactor"
+	"aego/project/rename"
 )
 
 const (
 	PrefabExt = ".aeprefab"
 	opsLimit  = 64
 )
-
-var packageDecl = regexp.MustCompile(`(?m)^[ \t]*package[ \t]+([A-Za-z_][A-Za-z0-9_]*)`)
 
 type FileOp struct {
 	Dir  bool
@@ -180,8 +179,8 @@ func setPackage(ctx *context.Editor, rel, pkg string) error {
 		return err
 	}
 	c := d.Code
-	if m := packageDecl.FindSubmatchIndex(c.Bytes()); m != nil {
-		c.ReplaceRanges([][2]int{{m[2], m[3]}}, [][]byte{[]byte(pkg)})
+	if a, b, ok := refactor.PackageSpan(c.Bytes()); ok {
+		c.ReplaceRanges([][2]int{{a, b}}, [][]byte{[]byte(pkg)})
 	} else {
 		c.ReplaceRanges([][2]int{{0, 0}}, [][]byte{[]byte("package " + pkg + "\n\n")})
 	}
@@ -207,7 +206,7 @@ func Stem(p string) string {
 }
 
 func ValidName(s string) bool {
-	return s != "" && s != "." && s != ".." && !strings.HasPrefix(s, ".") && !strings.ContainsAny(s, "/\\")
+	return rename.ValidName(s)
 }
 
 func ValidIdent(s string) bool {
@@ -270,11 +269,7 @@ func ScriptsRel(dir string) (string, bool) {
 }
 
 func PackageOf(ctx *context.Editor, dir string) string {
-	if rel, ok := ScriptsRel(dir); ok && rel != "" {
-		return path.Base(rel)
-	}
-	m := moduleOf(ctx)
-	return m[strings.LastIndexByte(m, '/')+1:]
+	return refactor.PackageOf(ctx.Project, dir)
 }
 
 func FileStem(name string) string {

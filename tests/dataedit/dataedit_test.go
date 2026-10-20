@@ -10,6 +10,8 @@ import (
 	"aego/editor/core/dataedit"
 	"aego/engine/module"
 	"aego/format/aetext"
+	"aego/scene"
+	"aego/scene/mutate"
 	"aego/schema"
 	"aego/script/bind"
 )
@@ -45,7 +47,13 @@ func (s *store) Table(id ids.AssetID) ([]byte, bool) {
 	return b, ok
 }
 
-func registry(t *testing.T) *schema.Registry {
+func envOf(t *testing.T) (mutate.Env, *schema.Registry) {
+	t.Helper()
+	ty := types(t)
+	return mutate.Env{Types: ty}, ty.Schema()
+}
+
+func types(t *testing.T) *scene.Types {
 	t.Helper()
 	types, err := assembly.NewTypes()
 	if err != nil {
@@ -57,7 +65,7 @@ func registry(t *testing.T) *schema.Registry {
 	if err := types.Schema().Freeze(); err != nil {
 		t.Fatal(err)
 	}
-	return types.Schema()
+	return types
 }
 
 func field(t *testing.T, reg *schema.Registry, name string) *schema.FieldDescriptor {
@@ -88,9 +96,9 @@ func baseStore() *store {
 }
 
 func TestDocOverridesBase(t *testing.T) {
-	reg := registry(t)
+	env, reg := envOf(t)
 	lib := data.NewLibrary(reg, baseStore())
-	d, err := dataedit.NewDoc(reg, lib, childID, "assets/fast.aedata", &data.Doc{Type: "test.Stats", Base: baseID})
+	d, err := dataedit.NewDoc(env, lib, childID, "assets/fast.aedata", data.WriteDoc(&data.Doc{Type: "test.Stats", Base: baseID}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,11 +146,11 @@ func TestDocOverridesBase(t *testing.T) {
 }
 
 func TestDocBaseCycle(t *testing.T) {
-	reg := registry(t)
+	env, reg := envOf(t)
 	src := baseStore()
 	src.docs[childID] = data.WriteDoc(&data.Doc{Type: "test.Stats", Base: baseID})
 	lib := data.NewLibrary(reg, src)
-	d, err := dataedit.NewDoc(reg, lib, baseID, "assets/base.aedata", &data.Doc{Type: "test.Stats"})
+	d, err := dataedit.NewDoc(env, lib, baseID, "assets/base.aedata", data.WriteDoc(&data.Doc{Type: "test.Stats"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,12 +166,12 @@ func TestDocBaseCycle(t *testing.T) {
 }
 
 func TestTableMassEditAndCSV(t *testing.T) {
-	reg := registry(t)
+	env, reg := envOf(t)
 	row := func(id string, speed float32) data.TableRow {
 		return data.TableRow{ID: id, Fields: []aetext.Field{{Name: "speed", Value: aetext.Float32(speed)}}}
 	}
 	doc := &data.TableDoc{Type: "test.Stats", Rows: []data.TableRow{row("goblin", 2), row("bat", 4), row("troll", 1)}}
-	tab, err := dataedit.NewTable(reg, ids.AssetID{Hi: 2, Lo: 1}, "assets/enemies.aetable", doc)
+	tab, err := dataedit.NewTable(env, ids.AssetID{Hi: 2, Lo: 1}, "assets/enemies.aetable", data.WriteTable(doc))
 	if err != nil {
 		t.Fatal(err)
 	}

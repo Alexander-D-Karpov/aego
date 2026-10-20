@@ -19,7 +19,11 @@ func SaveWith(s *scene.Scene, lib *Library) []byte {
 }
 
 func SavePrefab(s *scene.Scene) []byte {
-	return save(s, s.Root(), "prefab", false, nil)
+	return SavePrefabWith(s, nil)
+}
+
+func SavePrefabWith(s *scene.Scene, lib *Library) []byte {
+	return save(s, s.Root(), "prefab", false, lib)
 }
 
 func SaveSubtree(s *scene.Scene, root scene.NodeHandle, asPrefab bool) []byte {

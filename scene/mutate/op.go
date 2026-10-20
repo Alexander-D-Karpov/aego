@@ -19,6 +19,7 @@ const (
 	KindPrefabUnpack      = "prefab-unpack"
 	KindDataSet           = "data-set"
 	KindDataReset         = "data-reset"
+	KindDataBase          = "data-base"
 	KindRowAdd            = "row-add"
 	KindRowRemove         = "row-remove"
 	KindRowRestore        = "row-restore"
@@ -32,7 +33,7 @@ var sceneKinds = map[string]bool{
 }
 
 var dataKinds = map[string]bool{
-	KindDataSet: true, KindDataReset: true, KindRowAdd: true, KindRowRemove: true, KindRowRestore: true, KindRowRename: true,
+	KindDataSet: true, KindDataReset: true, KindDataBase: true, KindRowAdd: true, KindRowRemove: true, KindRowRestore: true, KindRowRename: true,
 }
 
 type Op struct {
@@ -54,6 +55,7 @@ type Op struct {
 	KeepWorld bool
 	Deep      bool
 	Prefab    string
+	Asset     string
 	Level     string
 	Key       string
 	Owner     string
@@ -149,6 +151,18 @@ func DataSet(row, path, text string) Op {
 
 func DataReset(row, path string) Op {
 	return Op{Kind: KindDataReset, Node: row, Path: path}
+}
+
+func DataSetValue(row, path string, v aetext.Value) Op {
+	return Op{Kind: KindDataSet, Node: row, Path: path, Value: v, HasValue: true}
+}
+
+func DataBase(asset string) Op {
+	return Op{Kind: KindDataBase, Asset: asset}
+}
+
+func RowRestore(id string, fields []aetext.Field) Op {
+	return Op{Kind: KindRowRestore, Node: id, Values: &aetext.Node{Head: "values", Fields: cloneFields(fields)}}
 }
 
 func RowAdd(id string) Op {

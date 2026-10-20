@@ -11,9 +11,10 @@ import (
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
-	"aego/editor/core/rename"
 	"aego/editor/core/services"
 	"aego/platform/input"
+	"aego/project/refactor"
+	"aego/project/rename"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -300,34 +301,10 @@ func (g *Dialog) applyNodes() error {
 }
 
 func (g *Dialog) applyAssets() error {
-	finals := map[string]bool{}
-	sources := map[string]bool{}
-	var ops []assetops.FileOp
-	for i, rel := range g.paths {
-		rw := g.rows[i]
-		if !rw.Changed() {
-			continue
-		}
-		to := path.Join(path.Dir(rel), rw.To+path.Ext(rel))
-		finals[strings.ToLower(to)] = true
-		sources[strings.ToLower(rel)] = true
-		ops = append(ops, assetops.FileOp{ID: g.assets[i], From: rel, To: to})
+	ops := refactor.RenameOps(g.paths, g.assets, g.rows)
+	list := make([]assetops.FileOp, len(ops))
+	for i, op := range ops {
+		list[i] = assetops.FileOp{ID: op.ID, From: op.From, To: op.To}
 	}
-	chain := false
-	for to := range finals {
-		if sources[to] {
-			chain = true
-			break
-		}
-	}
-	if chain {
-		var temp, final []assetops.FileOp
-		for i, op := range ops {
-			tmp := path.Join(path.Dir(op.From), "__rename_"+strconv.Itoa(i)+"_"+path.Base(op.From))
-			temp = append(temp, assetops.FileOp{ID: op.ID, From: op.From, To: tmp})
-			final = append(final, assetops.FileOp{ID: op.ID, From: tmp, To: op.To})
-		}
-		ops = append(temp, final...)
-	}
-	return g.d.Move(ops)
+	return g.d.Move(list)
 }

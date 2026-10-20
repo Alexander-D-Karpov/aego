@@ -282,7 +282,7 @@ func (p *Project) Encode() []byte {
 }
 
 func (p *Project) Save() error {
-	if err := os.WriteFile(p.FilePath(), p.Encode(), 0o644); err != nil {
+	if err := WriteAtomic(p.FilePath(), p.Encode()); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write project.aego")
 	}
 	return nil

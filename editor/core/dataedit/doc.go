@@ -1,22 +1,75 @@
 package dataedit
 
 import (
+	"bytes"
 	"unsafe"
 
 	"aego/core/errs"
 	"aego/core/ids"
-	"aego/core/log"
 	"aego/data"
 	"aego/format/aetext"
+	"aego/scene/mutate"
+	"aego/scene/prefab"
+	"aego/scene/sceneio"
 	"aego/schema"
 )
 
 const maxUndo = 200
 
-type state struct {
-	base   ids.AssetID
-	fields []aetext.Field
-	seq    uint64
+type entry struct {
+	key  string
+	inv  mutate.Tx
+	redo mutate.Tx
+}
+
+type steps struct {
+	undo []entry
+	redo []entry
+	open string
+}
+
+func (h *steps) record(res *mutate.Result, key string, step bool) {
+	n := len(h.undo)
+	if !step && key != "" && h.open == key && n > 0 {
+		h.undo[n-1].redo = res.Redo
+	} else {
+		h.undo = append(h.undo, entry{key: key, inv: res.Inverse, redo: res.Redo})
+		if len(h.undo) > maxUndo {
+			h.undo = append(h.undo[:0], h.undo[1:]...)
+		}
+	}
+	h.redo = h.redo[:0]
+	h.open = key
+}
+
+func (h *steps) back(dd *mutate.DataDocument) error {
+	n := len(h.undo)
+	if n == 0 {
+		return nil
+	}
+	e := h.undo[n-1]
+	if _, err := dd.Apply(e.inv); err != nil {
+		return err
+	}
+	h.undo = h.undo[:n-1]
+	h.redo = append(h.redo, e)
+	h.open = ""
+	return nil
+}
+
+func (h *steps) forward(dd *mutate.DataDocument) error {
+	n := len(h.redo)
+	if n == 0 {
+		return nil
+	}
+	e := h.redo[n-1]
+	if _, err := dd.Apply(e.redo); err != nil {
+		return err
+	}
+	h.redo = h.redo[:n-1]
+	h.undo = append(h.undo, e)
+	h.open = ""
+	return nil
 }
 
 func cloneFields(fs []aetext.Field) []aetext.Field {
@@ -30,63 +83,56 @@ func cloneFields(fs []aetext.Field) []aetext.Field {
 	return out
 }
 
-func (s state) clone() state {
-	return state{base: s.base, fields: cloneFields(s.fields), seq: s.seq}
-}
-
-func dataType(reg *schema.Registry, name, path string) (*schema.TypeDescriptor, error) {
-	td, ok := reg.ByName(name)
-	if !ok || td.Kind != schema.TypeAsset {
-		return nil, errs.New(errs.SchemaUnknownType, "unknown data type "+name, log.F("path", path))
-	}
-	return td, nil
-}
-
 type Doc struct {
 	ID     ids.AssetID
 	Path   string
 	Type   *schema.TypeDescriptor
 	reg    *schema.Registry
 	lib    *data.Library
-	cur    state
-	next   uint64
-	saved  uint64
+	dd     *mutate.DataDocument
 	ptr    unsafe.Pointer
 	origin unsafe.Pointer
 	issues []string
-	undo   []state
-	redo   []state
-	open   string
+	steps  steps
+	saved  []byte
 	disk   []byte
 	rev    uint64
 }
 
-func NewDoc(reg *schema.Registry, lib *data.Library, id ids.AssetID, path string, src *data.Doc) (*Doc, error) {
+func NewDoc(env mutate.Env, lib *data.Library, id ids.AssetID, path string, raw []byte) (*Doc, error) {
 	if lib == nil {
 		return nil, data.ErrNoSource
 	}
-	td, err := dataType(reg, src.Type, path)
+	dd, err := mutate.LoadData(raw, path, env)
 	if err != nil {
 		return nil, err
 	}
-	d := &Doc{ID: id, Path: path, Type: td, reg: reg, lib: lib, cur: state{base: src.Base, fields: cloneFields(src.Fields)}}
+	if dd.Table() {
+		return nil, errs.New(errs.EditorDocument, path+" is a table, open it in the table editor")
+	}
+	d := &Doc{ID: id, Path: path, Type: dd.Type, reg: env.Types.Schema(), lib: lib, dd: dd, saved: dd.Bytes()}
 	if err := d.load(); err != nil {
 		return nil, err
 	}
 	return d, nil
 }
 
+func (d *Doc) fields() []aetext.Field {
+	return d.dd.Doc().Fields
+}
+
 func (d *Doc) compose(base ids.AssetID) (*data.Record, error) {
-	return d.lib.Compose(d.ID, &data.Doc{Type: d.Type.FullName, Base: base, Fields: d.cur.fields})
+	return d.lib.Compose(d.ID, &data.Doc{Type: d.Type.FullName, Base: base, Fields: d.fields()})
 }
 
 func (d *Doc) load() error {
-	rec, err := d.compose(d.cur.base)
+	base := d.Base()
+	rec, err := d.compose(base)
 	if err == nil {
 		d.ptr, d.origin, d.issues = rec.Ptr, rec.Origin, rec.Issues
 		return nil
 	}
-	if d.cur.base.IsZero() {
+	if base.IsZero() {
 		return err
 	}
 	rec, err2 := d.compose(ids.AssetID{})
@@ -98,27 +144,13 @@ func (d *Doc) load() error {
 	return nil
 }
 
-func (d *Doc) push() {
-	d.undo = append(d.undo, d.cur.clone())
-	if len(d.undo) > maxUndo {
-		d.undo = append(d.undo[:0], d.undo[1:]...)
+func (d *Doc) apply(key string, step bool, ops ...mutate.Op) error {
+	res, err := d.dd.Apply(mutate.Tx{Ops: ops})
+	if err != nil {
+		return err
 	}
-	d.redo = d.redo[:0]
-}
-
-func (d *Doc) bump() {
-	d.next++
-	d.cur.seq = d.next
-}
-
-func (d *Doc) diff() []aetext.Field {
-	out := data.Fields(d.reg, d.Type, d.ptr, d.origin)
-	for _, f := range d.cur.fields {
-		if _, known := d.Type.Field(f.Name); !known {
-			out = append(out, f)
-		}
-	}
-	return out
+	d.steps.record(res, key, step)
+	return d.load()
 }
 
 func (d *Doc) Ptr() unsafe.Pointer {
@@ -126,7 +158,7 @@ func (d *Doc) Ptr() unsafe.Pointer {
 }
 
 func (d *Doc) Base() ids.AssetID {
-	return d.cur.base
+	return d.dd.Doc().Base
 }
 
 func (d *Doc) Issues() []string {
@@ -140,7 +172,7 @@ func (d *Doc) Value(fd *schema.FieldDescriptor) schema.Value {
 }
 
 func (d *Doc) Overridden(name string) bool {
-	for _, f := range d.cur.fields {
+	for _, f := range d.fields() {
 		if f.Name == name {
 			return true
 		}
@@ -149,94 +181,73 @@ func (d *Doc) Overridden(name string) bool {
 }
 
 func (d *Doc) Set(fd *schema.FieldDescriptor, v schema.Value, step bool) error {
-	if step || d.open != fd.Name {
-		d.push()
-		d.open = fd.Name
+	if d.origin != nil {
+		var inherited schema.Value
+		fd.Get(d.origin, &inherited)
+		if prefab.Equal(inherited, v) {
+			if !d.Overridden(fd.Name) {
+				return nil
+			}
+			return d.apply(fd.Name, step, mutate.DataReset("", fd.Name))
+		}
 	}
-	if err := fd.Set(d.ptr, v); err != nil {
-		return err
-	}
-	d.cur.fields = d.diff()
-	d.bump()
-	return nil
+	return d.apply(fd.Name, step, mutate.DataSetValue("", fd.Name, sceneio.WriteValue(d.reg, fd, v)))
 }
 
 func (d *Doc) Revert(name string) error {
 	if !d.Overridden(name) {
 		return nil
 	}
-	d.push()
-	d.open = ""
-	out := make([]aetext.Field, 0, len(d.cur.fields))
-	for _, f := range d.cur.fields {
-		if f.Name != name {
-			out = append(out, f)
-		}
-	}
-	d.cur.fields = out
-	d.bump()
-	return d.load()
+	return d.apply("", true, mutate.DataReset("", name))
 }
 
 func (d *Doc) SetBase(id ids.AssetID) error {
-	if id == d.cur.base {
+	if id == d.Base() {
 		return nil
 	}
 	if id == d.ID {
 		return errs.New(errs.EditorCommand, "a data asset cannot be its own base")
 	}
-	rec, err := d.compose(id)
-	if err != nil {
+	if _, err := d.compose(id); err != nil {
 		return err
 	}
-	d.push()
-	d.open = ""
-	d.cur.base = id
-	d.ptr, d.origin, d.issues = rec.Ptr, rec.Origin, rec.Issues
-	d.bump()
-	return nil
+	text := ""
+	if !id.IsZero() {
+		text = id.String()
+	}
+	return d.apply("", true, mutate.DataBase(text))
 }
 
 func (d *Doc) CanUndo() bool {
-	return len(d.undo) > 0
+	return len(d.steps.undo) > 0
 }
 
 func (d *Doc) CanRedo() bool {
-	return len(d.redo) > 0
+	return len(d.steps.redo) > 0
 }
 
 func (d *Doc) Undo() error {
-	n := len(d.undo)
-	if n == 0 {
-		return nil
+	if err := d.steps.back(d.dd); err != nil {
+		return err
 	}
-	d.redo = append(d.redo, d.cur)
-	d.cur = d.undo[n-1]
-	d.undo = d.undo[:n-1]
-	d.open = ""
 	return d.load()
 }
 
 func (d *Doc) Redo() error {
-	n := len(d.redo)
-	if n == 0 {
-		return nil
+	if err := d.steps.forward(d.dd); err != nil {
+		return err
 	}
-	d.undo = append(d.undo, d.cur)
-	d.cur = d.redo[n-1]
-	d.redo = d.redo[:n-1]
-	d.open = ""
 	return d.load()
 }
 
 func (d *Doc) Dirty() bool {
-	return d.cur.seq != d.saved
+	return !bytes.Equal(d.dd.Bytes(), d.saved)
 }
 
 func (d *Doc) MarkSaved() {
-	d.saved = d.cur.seq
+	d.saved = d.dd.Bytes()
 }
 
 func (d *Doc) Bytes() []byte {
-	return data.WriteDoc(&data.Doc{Type: d.Type.FullName, Base: d.cur.base, Fields: d.cur.fields})
+	return d.dd.Bytes()
 }

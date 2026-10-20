@@ -62,9 +62,9 @@ func Wrap(s *scene.Scene, name string, prefab bool, env Env) *Document {
 
 func (d *Document) Bytes() []byte {
 	if d.Prefab {
-		return sceneio.SavePrefab(d.Scene)
+		return sceneio.SavePrefabWith(d.Scene, d.env.Library)
 	}
-	return sceneio.Save(d.Scene)
+	return sceneio.SaveWith(d.Scene, d.env.Library)
 }
 
 func (d *Document) library() *sceneio.Library {

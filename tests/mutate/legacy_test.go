@@ -406,3 +406,44 @@ func (c *legacyRename) Undo(t history.Target) error {
 func (c *legacyRename) Merge(history.Command) bool {
 	return false
 }
+
+type legacySetProperty struct {
+	Node   ids.NodeID
+	Type   schema.TypeID
+	Field  schema.FieldID
+	Before schema.Value
+	After  schema.Value
+	Name   string
+}
+
+func (c *legacySetProperty) Label() string {
+	if c.Name != "" {
+		return "Set " + c.Name
+	}
+	return "Set Property"
+}
+
+func (c *legacySetProperty) Do(t history.Target) error {
+	s, h, err := legacyNode(t, c.Node)
+	if err != nil {
+		return err
+	}
+	return s.SetProperty(h, c.Type, c.Field, c.After)
+}
+
+func (c *legacySetProperty) Undo(t history.Target) error {
+	s, h, err := legacyNode(t, c.Node)
+	if err != nil {
+		return err
+	}
+	return s.SetProperty(h, c.Type, c.Field, c.Before)
+}
+
+func (c *legacySetProperty) Merge(next history.Command) bool {
+	n, ok := next.(*legacySetProperty)
+	if !ok || n.Node != c.Node || n.Type != c.Type || n.Field != c.Field {
+		return false
+	}
+	c.After = n.After
+	return true
+}

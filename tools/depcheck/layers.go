@@ -45,7 +45,7 @@ var scriptCompilerOnly = []string{
 
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
-	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "project/...", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
 	"data", "save", "contracts/persistence",
 }
 
@@ -193,6 +193,7 @@ var fsAllowed = []string{
 	"tools/...",
 	"cmd/...",
 	"project",
+	"project/...",
 	"save", // slot files next to the player profile (D262)
 	"asset/pipeline",
 	"app/bootstrap",

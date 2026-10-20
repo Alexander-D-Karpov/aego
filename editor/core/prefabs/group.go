@@ -3,7 +3,6 @@ package prefabs
 import (
 	"os"
 	"slices"
-	"strings"
 
 	"aego/core/errs"
 	"aego/core/ids"
@@ -11,6 +10,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/prefab"
 	"aego/scene/sceneio"
@@ -80,25 +80,18 @@ func readFile(abs string) ([]byte, error) {
 	return data, nil
 }
 
-func (s *Service) files(edits map[ids.AssetID]*prefab.Node) ([]fileChange, error) {
-	reg := s.ctx.Types.Schema()
-	var out []fileChange
-	for id, m := range edits {
-		rel, ok := s.pathOf(id)
-		if !ok {
-			return nil, errs.New(errs.EditorDocument, "prefab "+id.Short()+" is not in the project")
-		}
-		before, err := readFile(s.ctx.Pipeline.Abs(rel))
-		if err != nil {
-			return nil, err
-		}
-		after := sceneio.EncodePrefab(reg, m)
-		if string(after) == string(before) {
-			continue
-		}
-		out = append(out, fileChange{id: id, rel: rel, before: before, after: after})
+func (s *Service) files(plan *refactor.ApplyPlan) ([]fileChange, error) {
+	if s.ctx.Pipeline == nil {
+		return nil, errs.New(errs.EditorCommand, "the asset pipeline is not available")
 	}
-	slices.SortFunc(out, func(a, b fileChange) int { return strings.Compare(a.rel, b.rel) })
+	edits, err := plan.Edits(s.ctx.Types.Schema(), s.ctx.Pipeline)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]fileChange, len(edits))
+	for i, e := range edits {
+		out[i] = fileChange{id: e.ID, rel: e.Path, before: e.Before, after: e.After}
+	}
 	return out, nil
 }
 

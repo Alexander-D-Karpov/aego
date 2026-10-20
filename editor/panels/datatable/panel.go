@@ -236,11 +236,19 @@ func (p *Panel) act(a int, ro bool) {
 	}
 	switch a {
 	case actAdd:
-		i := t.AddRow()
+		i, err := t.AddRow()
+		if err != nil {
+			p.notify(err)
+			return
+		}
 		p.filter = ""
 		p.Select(t.Rows[i].ID)
 	case actDuplicate:
-		made := t.Duplicate(p.selected())
+		made, err := t.Duplicate(p.selected())
+		if err != nil {
+			p.notify(err)
+			return
+		}
 		ids := make([]string, len(made))
 		for k, i := range made {
 			ids[k] = t.Rows[i].ID
@@ -249,12 +257,12 @@ func (p *Panel) act(a int, ro bool) {
 			p.Select(ids...)
 		}
 	case actDelete:
-		t.Delete(p.selected())
+		p.notify(t.Delete(p.selected()))
 		clear(p.sel)
 	case actUndo:
-		t.Undo()
+		p.notify(t.Undo())
 	case actRedo:
-		t.Redo()
+		p.notify(t.Redo())
 	case actExport:
 		if p.d.Data == nil {
 			return

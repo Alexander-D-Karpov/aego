@@ -96,8 +96,6 @@ func Touched(h *history.History) map[Key]bool {
 	}
 	h.Walk(func(c history.Command) {
 		switch c := c.(type) {
-		case *commands.SetProperty:
-			out[Key{Node: c.Node, Type: c.Type, Field: c.Field}] = true
 		case *commands.Mutation:
 			for _, ch := range c.Changes() {
 				switch {

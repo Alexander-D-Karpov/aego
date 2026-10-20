@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"aego/core/ids"
 	"aego/data"
 	"aego/scene/mutate"
 	"aego/scene/sceneio"
@@ -115,5 +116,49 @@ func TestDataDocuments(t *testing.T) {
 	}
 	if _, err := tab.Apply(tx(mutate.RowAdd("c"))); err == nil {
 		t.Fatal("a duplicate row id was accepted")
+	}
+}
+
+func TestDataBase(t *testing.T) {
+	e := env(t)
+	td, _ := firstData(t, e)
+	base := ids.AssetID{Hi: 0xda7a, Lo: 1}
+	e.Assets = func(id ids.AssetID) bool { return id == base }
+	doc, err := mutate.LoadData(data.WriteDoc(&data.Doc{Type: td.FullName}), "a.aedata", e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := doc.Bytes()
+	res, err := doc.Apply(tx(mutate.DataBase(base.String())))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Doc().Base != base {
+		t.Fatalf("base %s", doc.Doc().Base)
+	}
+	after := doc.Bytes()
+	if _, err := doc.Apply(res.Inverse); err != nil || !bytes.Equal(doc.Bytes(), before) {
+		t.Fatalf("inverse: %v\n%s", err, doc.Bytes())
+	}
+	if _, err := doc.Apply(res.Redo); err != nil || !bytes.Equal(doc.Bytes(), after) {
+		t.Fatalf("redo: %v", err)
+	}
+	if _, err := doc.Apply(tx(mutate.DataBase(ids.AssetID{Hi: 9, Lo: 9}.String()))); err == nil {
+		t.Fatal("a base outside the project was accepted")
+	}
+	tab, err := mutate.LoadData(data.WriteTable(&data.TableDoc{Type: td.FullName}), "t.aetable", e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tab.Apply(tx(mutate.DataBase(base.String()))); err == nil {
+		t.Fatal("a table accepted a base")
+	}
+	src, err := tx(mutate.DataBase(base.String())).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := mutate.ParseTx(src, "base.aetext")
+	if err != nil || len(parsed.Ops) != 1 || parsed.Ops[0].Asset != base.String() {
+		t.Fatalf("parsed %+v: %v\n%s", parsed, err, src)
 	}
 }

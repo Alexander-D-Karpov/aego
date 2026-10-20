@@ -20,6 +20,7 @@ import (
 	"aego/editor/core/selection"
 	"aego/engine"
 	"aego/engine/module"
+	"aego/project"
 	"aego/scene"
 	"aego/scene/sceneio"
 )
@@ -441,29 +442,7 @@ func (m *Manager) UniquePath(rel string) string {
 }
 
 func WriteAtomic(abs string, data []byte) error {
-	dir := filepath.Dir(abs)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, ".aego-*.tmp")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(name)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(name)
-		return err
-	}
-	if err := os.Rename(name, abs); err != nil {
-		os.Remove(name)
-		return err
-	}
-	return nil
+	return project.WriteAtomic(abs, data)
 }
 
 func encode(d *SceneDocument) []byte {

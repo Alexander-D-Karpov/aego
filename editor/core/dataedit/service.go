@@ -15,6 +15,7 @@ import (
 	"aego/data"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/scene/mutate"
 	"aego/schema"
 )
 
@@ -108,6 +109,18 @@ func (s *Service) file(id ids.AssetID) (string, []byte, error) {
 	return rel, raw, nil
 }
 
+func (s *Service) env() mutate.Env {
+	env := mutate.Env{Types: s.ctx.Types}
+	if pl := s.ctx.Pipeline; pl != nil {
+		env.Lookup = pl.Lookup
+		env.Assets = func(id ids.AssetID) bool {
+			_, ok := pl.PathOf(id)
+			return ok || asset.IsBuiltin(id)
+		}
+	}
+	return env
+}
+
 func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
 	d := s.docs[id]
 	if d != nil && d.rev == s.ctx.AssetRev {
@@ -125,11 +138,7 @@ func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsed, err := data.ParseDoc(raw, rel)
-	if err != nil {
-		return nil, err
-	}
-	nd, err := NewDoc(s.reg(), lib, id, rel, parsed)
+	nd, err := NewDoc(s.env(), lib, id, rel, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +160,7 @@ func (s *Service) Table(id ids.AssetID) (*Table, error) {
 		t.Path, t.rev = rel, s.ctx.AssetRev
 		return t, nil
 	}
-	parsed, err := data.ParseTable(raw, rel)
-	if err != nil {
-		return nil, err
-	}
-	nt, err := NewTable(s.reg(), id, rel, parsed)
+	nt, err := NewTable(s.env(), id, rel, raw)
 	if err != nil {
 		return nil, err
 	}

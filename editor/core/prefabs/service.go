@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
+	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/mutate"
 	"aego/scene/prefab"
@@ -198,13 +199,9 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 	}
 	tx := d.History.Begin("Create Prefab")
 	for _, h := range tops {
-		if pi, ok := sceneio.InstanceOf(sc, h); ok && pi.Owner {
+		if err := refactor.CheckCreate(sc, h); err != nil {
 			tx.Abort()
-			return errs.New(errs.EditorCommand, sc.Name(h)+" is already a prefab instance, use Create Variant")
-		}
-		if root, _, ok := sceneio.OwnerRoot(sc, h); ok && root != h {
-			tx.Abort()
-			return errs.New(errs.EditorCommand, sc.Name(h)+" belongs to a prefab instance, unpack it first")
+			return err
 		}
 		rel := assetops.UniqueFile(s.ctx, dir, fileSafe(sc.Name(h)), document.PrefabExt)
 		before := sceneio.SaveSubtree(sc, h, true)
@@ -213,7 +210,7 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 			tx.Abort()
 			return err
 		}
-		after, err := s.linkBlock(sc, h, id)
+		after, err := refactor.LinkBlock(sc, h, s.lib(), id)
 		if err != nil {
 			tx.Abort()
 			return err
@@ -226,47 +223,6 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 	}
 	tx.Commit()
 	return nil
-}
-
-func (s *Service) linkBlock(sc *scene.Scene, h scene.NodeHandle, id ids.AssetID) ([]byte, error) {
-	lib := s.lib()
-	p, ok := lib.Prefab(id)
-	if !ok {
-		return nil, errs.New(errs.EditorCommand, "the new prefab did not import")
-	}
-	tree, _, err := prefab.Expand(lib, p, nil)
-	if err != nil {
-		return nil, err
-	}
-	inst := &prefab.Instance{Prefab: id, IDs: map[prefab.Key]ids.NodeID{}}
-	tree.Walk(func(n, _ *prefab.Node) {
-		if sid, ok := sceneIDOf(sc, n.Key); ok {
-			inst.IDs[n.Key] = sid
-		}
-	})
-	return sceneio.EncodeInstance(sc.Registry(), sc.ID(h), inst), nil
-}
-
-func sceneIDOf(sc *scene.Scene, k prefab.Key) (ids.NodeID, bool) {
-	head, rest, nested := strings.Cut(string(k), "/")
-	first, err := ids.ParseNodeID(head)
-	if err != nil {
-		return ids.NodeID{}, false
-	}
-	if !nested {
-		return first, !sc.Handle(first).IsZero()
-	}
-	if pi, ok := sceneio.InstanceOf(sc, sc.Handle(first)); ok {
-		for sid, kk := range pi.Keys {
-			if string(kk) == rest {
-				return sid, true
-			}
-		}
-	}
-	if local, ok := k.Local(); ok && !sc.Handle(local).IsZero() {
-		return local, true
-	}
-	return ids.NodeID{}, false
 }
 
 func (s *Service) CreateVariant(id ids.AssetID) error {

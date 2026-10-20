@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/data"
 	"aego/format/aetext"
@@ -99,6 +100,8 @@ func (d *DataDocument) do(op Op, res *Result) (step, error) {
 		return d.set(op, v, false)
 	case KindDataReset:
 		return d.set(op, aetext.Value{}, true)
+	case KindDataBase:
+		return d.setBase(op)
 	}
 	if d.table == nil && dataKinds[op.Kind] {
 		return step{}, errs.New(errs.EditorCommand, op.Kind+" applies to tables")
@@ -232,4 +235,39 @@ func (d *DataDocument) set(op Op, raw aetext.Value, reset bool) (step, error) {
 	}
 	ch.After = d.vals.text(fd, nv)
 	return step{inv: inv, redo: Op{Kind: KindDataSet, Node: op.Node, Path: fd.Name, Value: out.Clone(), HasValue: true}, change: ch}, nil
+}
+
+func (d *DataDocument) Doc() *data.Doc {
+	return d.doc
+}
+
+func (d *DataDocument) TableDoc() *data.TableDoc {
+	return d.table
+}
+
+func baseText(id ids.AssetID) string {
+	if id.IsZero() {
+		return ""
+	}
+	return id.String()
+}
+
+func (d *DataDocument) setBase(op Op) (step, error) {
+	if d.table != nil {
+		return step{}, errs.New(errs.EditorCommand, "a table has no base")
+	}
+	var id ids.AssetID
+	if op.Asset != "" {
+		var err error
+		if id, err = d.vals.assetID(op.Asset); err != nil {
+			return step{}, err
+		}
+		if d.vals.env.Assets != nil && !d.vals.env.Assets(id) {
+			return step{}, errNoAsset(op.Asset)
+		}
+	}
+	old := d.doc.Base
+	d.doc.Base = id
+	ch := Change{Op: op.Kind, Path: "base", Before: baseText(old), After: baseText(id)}
+	return step{inv: DataBase(baseText(old)), redo: DataBase(baseText(id)), change: ch}, nil
 }
