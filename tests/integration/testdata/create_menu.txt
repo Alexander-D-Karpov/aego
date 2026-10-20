@@ -1,6 +1,7 @@
 Empty
 Sprite
 Camera
+Follow Camera
 3D/Empty
 3D/Camera
 3D/Cube

@@ -38,7 +38,17 @@ Linux/x86_64 | Linux/amd64) target="linux-amd64" ;;
 	exit 1 ;;
 esac
 
-json=$(curl -fsSL "$api/releases/$which") || { say "install.sh: cannot read release $which"; exit 1; }
+json=$(curl -fsSL "$api/releases/$which" 2>/dev/null) || json=""
+if [ -z "$json" ] && [ "$which" = latest ]; then
+	say "No stable release yet; installing the nightly build."
+	which="tags/nightly"
+	json=$(curl -fsSL "$api/releases/$which" 2>/dev/null) || json=""
+fi
+if [ -z "$json" ]; then
+	say "install.sh: no Aego release is published yet (looked for ${which#tags/})."
+	say "Build it from source instead: $docs#build-from-source"
+	exit 1
+fi
 url=$(printf '%s' "$json" | tr ',' '\n' | sed -n "s/.*\"browser_download_url\":\"\([^\"]*-$target\.tar\.gz\)\".*/\1/p" | head -n 1)
 [ -n "$url" ] || { say "install.sh: release $which has no $target archive"; exit 1; }
 
@@ -47,8 +57,11 @@ trap 'rm -rf "$tmp"' EXIT
 file="$tmp/$(basename "$url")"
 say "Downloading $url"
 curl -fSL --progress-bar -o "$file" "$url"
-curl -fsSL -o "$file.sha256" "$url.sha256"
-want=$(cut -d' ' -f1 "$file.sha256")
+sums=$(printf '%s' "$json" | tr ',' '\n' | sed -n 's/.*"browser_download_url":"\([^"]*\/SHA256SUMS\.txt\)".*/\1/p' | head -n 1)
+[ -n "$sums" ] || { say "install.sh: the release has no SHA256SUMS.txt"; exit 1; }
+curl -fsSL -o "$tmp/SHA256SUMS.txt" "$sums"
+want=$(grep " $(basename "$url")\$" "$tmp/SHA256SUMS.txt" | cut -d' ' -f1)
+[ -n "$want" ] || { say "install.sh: SHA256SUMS.txt does not list $(basename "$url")"; exit 1; }
 if command -v sha256sum >/dev/null 2>&1; then
 	got=$(sha256sum "$file" | cut -d' ' -f1)
 else

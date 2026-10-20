@@ -119,6 +119,46 @@
       "doc": "Pins this body to the Target body at Anchor, with an optional limit and motor."
     },
     {
+      "name": "camera.VirtualCamera2D",
+      "kind": "component",
+      "display": "Virtual Camera 2D",
+      "category": "Camera",
+      "owner": "camera",
+      "doc": "A camera pose the brain can pick. The highest priority wins; switching blends from the current view."
+    },
+    {
+      "name": "camera.CameraFollow2D",
+      "kind": "component",
+      "display": "Camera Follow 2D",
+      "category": "Camera",
+      "owner": "camera",
+      "doc": "Moves its virtual camera after Target, with a deadzone, damping and lookahead."
+    },
+    {
+      "name": "camera.CameraShake2D",
+      "kind": "component",
+      "display": "Camera Shake 2D",
+      "category": "Camera",
+      "owner": "camera",
+      "doc": "Tunes the shake of its virtual camera. Shake grows with trauma and fades over time."
+    },
+    {
+      "name": "camera.CameraZone2D",
+      "kind": "component",
+      "display": "Camera Zone 2D",
+      "category": "Camera",
+      "owner": "camera",
+      "doc": "While Target is inside Area, Camera gets Priority and the zone's zoom and bounds."
+    },
+    {
+      "name": "camera.CameraBrain2D",
+      "kind": "component",
+      "display": "Camera Brain 2D",
+      "category": "Camera",
+      "owner": "camera",
+      "doc": "Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."
+    },
+    {
       "name": "save.Persist",
       "kind": "component",
       "display": "Persist",

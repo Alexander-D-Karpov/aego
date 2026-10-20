@@ -142,6 +142,7 @@ jobs:
       - name: publish
         env:
           REQUIRE_WINDOWS: "1"
+          GITEA_RESOLVE: git.akarpov.ru:443:79.142.92.250
         run: |
           case "$GITHUB_REF" in
           refs/tags/v*) sh tools/release/release.sh "$GITHUB_REF_NAME" ;;

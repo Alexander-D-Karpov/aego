@@ -1,6 +1,7 @@
 package render2d
 
 import (
+	"aego/contracts/camera2d"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/render/sprite"
@@ -18,12 +19,13 @@ func (cameras) Run(ctx *engine.Context) {
 	}
 	sc := r.Scene()
 	target, tw, th := r.Target()
+	adj, _ := engine.ServiceOf[camera2d.Adjuster](ctx.World, camera2d.ServiceID)
 	scene.Query1[Camera2D](sc).Each(func(h scene.NodeHandle, cam *Camera2D) {
 		if !cam.Active || sc.Space(h) != scene.Space2D || sc.Under3D(h) {
 			return
 		}
 		world := sc.RenderWorld(h)
-		r.AddView(view.View{
+		v := view.View{
 			Viewport:   r.Viewport(cam.Viewport),
 			Target:     target,
 			TargetW:    tw,
@@ -40,7 +42,11 @@ func (cameras) Run(ctx *engine.Context) {
 			Virtual: cam.Virtual,
 			Layers:  view.LayerMask(uint64(cam.Mask)),
 			Label:   sc.Name(h),
-		}, cam.Order)
+		}
+		if adj != nil {
+			v = adj.Adjust(h, v)
+		}
+		r.AddView(v, cam.Order)
 	})
 }
 

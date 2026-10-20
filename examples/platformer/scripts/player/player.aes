@@ -1,6 +1,7 @@
 package player
 
 import (
+	"aego/camera"
 	"aego/input"
 	"aego/log"
 	"aego/physics"
@@ -31,6 +32,9 @@ script PlayerController {
 
 	@export
 	var EnemyB NodeRef
+
+	@export(min=0)
+	var LandShake float = 5.6
 
 	var ground int
 	var jumpWait float
@@ -91,6 +95,9 @@ script PlayerController {
 	func OnCollisionEnter(other NodeRef, c physics.Contact) {
 		if shared.IsFloor(c.Normal) {
 			ground++
+		}
+		if shared.IsFloor(c.Normal) && c.NormalImpulse > LandShake {
+			camera.Shake(0.35)
 		}
 	}
 

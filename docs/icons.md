@@ -24,11 +24,12 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `code.hints` | engine | 16 | Scripts → Parameter Name Hints | ok |
 | `code.implementation` | engine | 16 | Scripts → Go to Implementation | ok |
 | `comp.box` | engine | 16 | component physics.BoxCollider2D | ok |
-| `comp.camera2d` | engine | 16 | component engine.Camera2D; template render2d.camera | ok |
+| `comp.camera2d` | engine | 16 | component camera.CameraBrain2D; component engine.Camera2D; template render2d.camera | ok |
 | `comp.camera3d` | engine | 16 | component engine.Camera3D; template render3d.camera | ok |
 | `comp.capsule` | engine | 16 | component physics.CapsuleCollider2D | ok |
 | `comp.circle` | engine | 16 | component physics.CircleCollider2D | ok |
 | `comp.edge` | engine | 16 | component physics.EdgeCollider2D | ok |
+| `comp.follow` | engine | 16 | component camera.CameraFollow2D; template camera.follow | ok |
 | `comp.joint_distance` | engine | 16 | component physics.DistanceJoint2D | ok |
 | `comp.joint_revolute` | engine | 16 | Revolute Joint 2D component; Joints debug overlay; component physics.RevoluteJoint2D | ok |
 | `comp.mesh` | engine | 16 | component engine.MeshRenderer | ok |
@@ -36,8 +37,11 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; component physics.PolygonCollider2D | ok |
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
 | `comp.script` | engine | 16 | Scripts component; Assets menu: Attach to Selected; component engine.Script | ok |
+| `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
 | `comp.sprite` | engine | 16 | component engine.SpriteRenderer; template render2d.sprite | ok |
 | `comp.tags` | engine | 16 | component engine.Tags | ok |
+| `comp.vcam` | engine | 16 | component camera.VirtualCamera2D | ok |
+| `comp.zone` | engine | 16 | component camera.CameraZone2D | ok |
 | `dbg.aabbs` | engine | 16 | AABBs debug overlay | ok |
 | `dbg.broadphase` | engine | 16 | Broadphase Tree debug overlay | ok |
 | `dbg.contacts` | engine | 16 | Contacts debug overlay; Vectors → Contact Impulses | ok |

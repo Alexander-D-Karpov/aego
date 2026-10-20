@@ -13,6 +13,9 @@ sdk/editor.go -> editor/..., editor, sdk.EditorHook bridge for project editor co
 # Save sections read and write against the play world.
 contracts/persistence -> engine, *, persistence.Section takes the play world so a module section can reach its services (D259)
 
+# The camera contract adjusts a built view.
+contracts/camera2d -> render/view, *, camera2d.Adjuster edits the view.View that render2d built for a Camera 2D, so the camera module never names render systems (D304)
+
 # Test graph.
 script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene), which the language layer cannot install (D203)
 script/... -> modules/input, test|test-editor, toolchain tests run scripts against aego/input, which the input module owns (D234)
@@ -23,6 +26,7 @@ render/... -> "debug*", semantic, render/debug is the line backend that modules/
 schema/... -> "display", semantic, the export attribute and struct tag key for a display name predate the display module (D238)
 asset/importers/preset -> "engine.Script", semantic, a preset file keeps a script attachment under the core script component name, which the importer reads without the scene layer (D282)
 editor/core/workspace/layouts.go -> "audio", semantic, the built-in Audio workspace ID is a layout name, not a reference to the audio module (D278)
+editor/core/state/state.go -> "camera", semantic, the scene view state field of the editor camera predates the camera module and does not name it (D304)
 script/... -> "display", semantic, the @export(display=...) attribute key and its completion predate the display module (D238)
 engine/engine.go -> "display", semantic, the startup log line labels display metrics; it is not a reference to the display module (D238)
 asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)

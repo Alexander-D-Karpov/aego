@@ -164,7 +164,30 @@
         "enabled": true,
         "components": [
           {
+            "type": "camera.CameraFollow2D"
+          },
+          {
+            "type": "camera.CameraShake2D"
+          },
+          {
+            "type": "camera.VirtualCamera2D"
+          },
+          {
             "type": "engine.Camera2D"
+          }
+        ]
+      },
+      {
+        "id": "#c000000000000000000000000000000c",
+        "name": "ArenaZone",
+        "path": "Root/ArenaZone",
+        "enabled": true,
+        "components": [
+          {
+            "type": "camera.CameraZone2D"
+          },
+          {
+            "type": "camera.VirtualCamera2D"
           }
         ]
       }

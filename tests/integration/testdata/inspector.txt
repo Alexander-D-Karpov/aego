@@ -4,6 +4,11 @@ Rendering	engine.SpriteRenderer	Sprite Renderer	comp.sprite	-
 Rendering	engine.MeshRenderer	Mesh Renderer	comp.mesh	-
 Camera	engine.Camera2D	Camera 2D	comp.camera2d	-
 Camera	engine.Camera3D	Camera 3D	comp.camera3d	-
+Camera	camera.VirtualCamera2D	Virtual Camera 2D	comp.vcam	-
+Camera	camera.CameraFollow2D	Camera Follow 2D	comp.follow	-
+Camera	camera.CameraShake2D	Camera Shake 2D	comp.shake	-
+Camera	camera.CameraZone2D	Camera Zone 2D	comp.zone	-
+Camera	camera.CameraBrain2D	Camera Brain 2D	comp.camera2d	-
 Physics	physics.Body2D	Rigid Body 2D	comp.rigidbody	-
 Physics	physics.BoxCollider2D	Box Collider 2D	comp.box	-
 Physics	physics.CircleCollider2D	Circle Collider 2D	comp.circle	-

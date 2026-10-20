@@ -25,7 +25,7 @@ The script downloads the [latest release](https://git.akarpov.ru/sanspie/aego/re
 |---|---|
 | (none) | the latest release |
 | `--nightly` | the [nightly pre-release](https://git.akarpov.ru/sanspie/aego/releases/tag/nightly), rebuilt from every green commit on master |
-| `--version v0.9.0` | one exact release |
+| `--version v0.9.0-beta.1` | one exact release |
 | `--prefix DIR` | into `DIR/share/aego` and `DIR/bin` instead of `~/.local` |
 | `--no-deps` | without installing system libraries |
 
@@ -33,13 +33,13 @@ The script downloads the [latest release](https://git.akarpov.ru/sanspie/aego/re
 curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly
 ```
 
-To install by hand, download `aego-<version>-linux-amd64.tar.gz` and its `.sha256` from the [releases page](https://git.akarpov.ru/sanspie/aego/releases), check the sum with `sha256sum -c`, unpack the archive anywhere and put its `bin` directory on `PATH`.
+To install by hand, download `aego-<version>-linux-amd64.tar.gz` and `SHA256SUMS.txt` from the [releases page](https://git.akarpov.ru/sanspie/aego/releases), check the archive with `sha256sum -c --ignore-missing SHA256SUMS.txt`, unpack it anywhere and put its `bin` directory on `PATH`.
 
 The prebuilt editor needs glibc 2.39 or newer (Ubuntu 24.04, Debian 13, Fedora 40 and later) and OpenGL 3.3 on X11 or Wayland. The script installs the system libraries it needs when they are missing (Mesa OpenGL, X11, Wayland and xkbcommon) with apt, dnf, pacman or zypper, using `sudo` when it is not run as root; `--no-deps` skips that. When `glxinfo` is present it also warns if the driver offers less than OpenGL 3.3. It edits, runs and exports projects that use scripts only. Projects with native Go modules, and exports to other operating systems, need Go and a source checkout: see below.
 
 ## Windows
 
-Download `aego-<version>-windows-amd64-setup.exe` from the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest) and run it. It installs for your user without administrator rights, into `%LOCALAPPDATA%\Programs\Aego`: the editor with Start menu and desktop shortcuts, and `aego` on `PATH` for terminals. Run a newer installer to update; uninstall from Settings → Apps. The editor needs a GPU driver with OpenGL 3.3, which every driver from the last ten years has.
+Download `aego-<version>-windows-amd64-setup.zip` from the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest), open it and run the setup program inside. It installs for your user without administrator rights, into `%LOCALAPPDATA%\Programs\Aego`: the editor with Start menu and desktop shortcuts, and `aego` on `PATH` for terminals. Run a newer installer to update; uninstall from Settings → Apps. The editor needs a GPU driver with OpenGL 3.3, which every driver from the last ten years has.
 
 The same from PowerShell, also for updating:
 

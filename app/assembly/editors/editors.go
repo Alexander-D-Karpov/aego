@@ -2,6 +2,8 @@ package editors
 
 import (
 	"aego/app/assembly"
+	"aego/modules/camera"
+	cameraeditor "aego/modules/camera/editor"
 	"aego/modules/debug"
 	debugeditor "aego/modules/debug/editor"
 	inputmod "aego/modules/input"
@@ -20,5 +22,6 @@ func With(c assembly.Catalog) assembly.Catalog {
 		With(render2d.ID, render2deditor.Hook).
 		With(render3d.ID, render3deditor.Hook).
 		With(physics.ID, physicseditor.Hook).
+		With(camera.ID, cameraeditor.Hook).
 		With(debug.ID, debugeditor.Hook)
 }

@@ -11,7 +11,7 @@ The kernel (`schema`, `scene`, `render`, `asset`, `engine`, `script`, `ui`, `pro
 | Frame phases and scheduling | `PhasePhysics`, `PhasePostPhysics`, `SystemDesc.Before/After` inside one module |
 | Scene data | presentation pose (`SetPresentationLocal`), component defaults, `OnAdd` |
 | Script host | host structs, component methods, script events (`module.Registry.ScriptEvent`), `bind.Ctx` |
-| Contracts | `contracts/scriptevents`, `contracts/physics2d`: interfaces between modules and scripts |
+| Contracts | `contracts/scriptevents`, `contracts/physics2d`, `contracts/camera2d`: interfaces between modules and scripts |
 | Editor core | documents, history, selection, `assetops`, `fuzzy`, gizmos, vectors, play, `services` (Frame and the panel services) |
 | Editor extension points | `editor/ext`: `SettingsPage`, `Problems`, `Profiler`, `GameOverlay`, `Vectors`, `Overlay`, `ext/inspect` custom inspectors |
 
@@ -29,6 +29,8 @@ The kernel (`schema`, `scene`, `render`, `asset`, `engine`, `script`, `ui`, `pro
 | lets a runtime package reach dev-only code | `runtime-reaches-dev` | put the dev part behind `!aego_runtime` or in a dev package |
 | lets the playground reach native or pipeline code | `wasm-reaches-forbidden` | keep it out of the playground profile |
 | holds or receives `*context.Editor` in `editor/panels/*` | `tests/modulecheck/panels_test.go` | take the services the panel needs in its `Deps` (D216) |
+
+A module can tune another module's behaviour without importing it by providing a value under a contract kind: `r.Provide(camera2d.AccessibilityKind, camera2d.Accessibility{ScreenShake: "...", ReducedMotion: "..."})` hands the camera module the IDs of settings it reads every frame. The consumer reads `ctx.Provided(kind)` in `Init`.
 
 ## Proof with a fake module
 

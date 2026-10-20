@@ -136,6 +136,7 @@ scene version=1 {
         HitTint=#ff9b4dff
         EnemyA=node("c0000000000000000000000000000004")
         EnemyB=node("c0000000000000000000000000000007")
+        LandShake=5.6
       }
     }
     node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
@@ -219,6 +220,60 @@ scene version=1 {
       scale=fitVirtual
       virtual=[960, 540]
       active=true
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=0
+      output=""
+      zoom=0
+      blendTime=0.6
+      blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=true
+      bounds=[-20, -14, 40, 19.5]
+      snapToPixels=true
+    }
+    component "camera.CameraFollow2D" version=1 {
+      target=node("c0000000000000000000000000000003")
+      deadzone=[0.35, 0.4, 0.3, 0.2]
+      damping=[6, 4]
+      lookahead=[0.4, 0]
+      maxLookahead=[3, 1]
+      lookaheadSmoothing=3
+      snapDistance=20
+    }
+    component "camera.CameraShake2D" version=1 {
+      decay=1.6
+      maxOffset=[0.35, 0.25]
+      maxAngle=0.03
+      frequency=25
+      exponent=2
+    }
+  }
+  node "c000000000000000000000000000000c" name="ArenaZone" enabled=true layers=1 {
+    transform {
+      position=[7.5, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=-1
+      output=""
+      zoom=0
+      blendTime=0.8
+      blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      snapToPixels=false
+    }
+    component "camera.CameraZone2D" version=1 {
+      target=node("c0000000000000000000000000000003")
+      camera=node("00000000000000000000000000000000")
+      priority=10
+      zoom=47
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      area=[-6, -3, 12, 7]
     }
   }
 }

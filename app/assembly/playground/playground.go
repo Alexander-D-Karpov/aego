@@ -4,6 +4,7 @@ import (
 	"aego/app/assembly"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/modules/camera"
 	"aego/modules/debug"
 	inputmod "aego/modules/input"
 	"aego/modules/physics"
@@ -26,6 +27,7 @@ func Catalog() assembly.Catalog {
 		{ID: physics.ID, New: func(assembly.Options) module.Module { return physics.New() }},
 		{ID: debug.ID, New: func(assembly.Options) module.Module { return debug.New() }},
 		{ID: tween.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return tween.New() }},
+		{ID: camera.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return camera.New() }},
 		{ID: render3d.ID, New: func(assembly.Options) module.Module { return render3d.New() }},
 	}
 }

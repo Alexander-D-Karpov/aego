@@ -24,3 +24,7 @@ title: Cameras
 ## Several cameras
 
 [Viewport](ref:engine.Camera2D.Viewport) is the part of the screen the camera draws into, in normalized coordinates; (0, 0, 1, 1) is the whole screen. Cameras render by [Order](ref:engine.Camera2D.Order), lower first. [Mask](ref:engine.Camera2D.Mask) selects visibility layers, -1 renders all of them. A camera drawn over another one usually turns [Clear](ref:engine.Camera2D.Clear) off; otherwise it fills its viewport with [ClearColor](ref:engine.Camera2D.ClearColor) first.
+
+## Virtual cameras
+
+A [Virtual Camera 2D](ref:camera.VirtualCamera2D) can drive the view of a Camera 2D: follow a target, blend between shots, shake and react to zones. See [Cameras 2D](ref:camera).

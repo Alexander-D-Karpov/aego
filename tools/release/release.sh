@@ -31,8 +31,9 @@ label="$version"
 dist="$root/.cache/dist"
 rm -rf "$dist" && mkdir -p "$dist"
 
+# sum adds a file to SHA256SUMS.txt; Gitea accepts only a few attachment types, .txt among them.
 sum() {
-	(cd "$dist" && sha256sum "$1" > "$1.sha256")
+	(cd "$dist" && sha256sum "$1" >> SHA256SUMS.txt)
 }
 
 stage() {
@@ -62,9 +63,11 @@ if command -v "$wcc" >/dev/null 2>&1 && command -v makensis >/dev/null 2>&1; the
 	rmdir "$dist/$win/bin"
 	(cd "$dist" && zip -qr "$win.zip" "$win")
 	sum "$win.zip"
-	makensis -V2 -DVERSION="$label" -DSRC="$dist/$win" -DOUT="$dist/$win-setup.exe" tools/release/windows/aego.nsi
-	sum "$win-setup.exe"
-	echo "release: built $win.zip and $win-setup.exe"
+	mkdir -p "$dist/setup"
+	makensis -V2 -DVERSION="$label" -DSRC="$dist/$win" -DOUT="$dist/setup/$win-setup.exe" tools/release/windows/aego.nsi
+	(cd "$dist/setup" && zip -q "../$win-setup.zip" "$win-setup.exe")
+	sum "$win-setup.zip"
+	echo "release: built $win.zip and $win-setup.zip"
 elif [ "${REQUIRE_WINDOWS:-0}" = 1 ]; then
 	echo "release: $wcc and makensis are needed for the Windows build" >&2
 	exit 1
@@ -75,16 +78,20 @@ body="Built from $short."
 
 if [ "$dry" = 1 ]; then
 	echo "release: dry run, would publish $name ($tag, prerelease=$pre) at $commit with:"
-	ls -l "$dist"/aego-*.*
+	ls -l "$dist"/aego-*.* "$dist"/SHA256SUMS.txt
+	cat "$dist"/SHA256SUMS.txt
 	exit 0
 fi
 
 : "${GITEA_TOKEN:?GITEA_TOKEN is not set}"
 : "${GITEA_API:?GITEA_API is not set}"
+# GITEA_RESOLVE=host:443:ip sends API calls straight to the Gitea server, past a slow proxy.
 api() {
 	method=$1
 	shift
-	curl -fsS -X "$method" -H "Authorization: token $GITEA_TOKEN" "$@"
+	set -- -fsS -m 1800 -X "$method" -H "Authorization: token $GITEA_TOKEN" "$@"
+	[ -n "${GITEA_RESOLVE:-}" ] && set -- --resolve "$GITEA_RESOLVE" "$@"
+	curl "$@"
 }
 release_id() {
 	api GET "$GITEA_API/releases/tags/$1" 2>/dev/null | sed -n 's/^{"id":\([0-9]*\),.*/\1/p'
@@ -101,12 +108,36 @@ if [ -z "$id" ]; then
 	id=$(api POST "$GITEA_API/releases" -H "Content-Type: application/json" -d "$json" | sed -n 's/^{"id":\([0-9]*\),.*/\1/p')
 fi
 [ -n "$id" ] || { echo "release: could not create release $tag" >&2; exit 1; }
-for f in "$dist"/aego-*.tar.gz "$dist"/aego-*.zip "$dist"/aego-*-setup.exe "$dist"/aego-*.sha256; do
+failed=""
+for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip; do
 	[ -f "$f" ] || continue
 	n=$(basename "$f")
 	old=$(api GET "$GITEA_API/releases/$id/assets" | tr '{' '\n' | sed -n "s/^\"id\":\([0-9]*\),\"name\":\"$n\".*/\1/p")
 	[ -n "$old" ] && api DELETE "$GITEA_API/releases/$id/assets/$old" >/dev/null
-	api POST "$GITEA_API/releases/$id/assets?name=$n" -F "attachment=@$f" >/dev/null
+	ok=0
+	for attempt in 1 2 3 4 5; do
+		code=$(curl -sS -m 1800 ${GITEA_RESOLVE:+--resolve "$GITEA_RESOLVE"} -o "$dist/upload.out" -w '%{http_code}' \
+			-H "Authorization: token $GITEA_TOKEN" -F "attachment=@$f" "$GITEA_API/releases/$id/assets?name=$n" || echo 000)
+		if [ "$code" = 201 ]; then
+			ok=1
+			break
+		fi
+		echo "release: upload of $n failed with HTTP $code, attempt $attempt: $(head -c 400 "$dist/upload.out" 2>/dev/null)" >&2
+		sleep 10
+		stale=$(api GET "$GITEA_API/releases/$id/assets" | tr '{' '\n' | sed -n "s/^\"id\":\([0-9]*\),\"name\":\"$n\".*/\1/p")
+		[ -n "$stale" ] && api DELETE "$GITEA_API/releases/$id/assets/$stale" >/dev/null
+	done
+	if [ "$ok" != 1 ]; then
+		why=$(printf 'Upload of %s failed with HTTP %s: %s' "$n" "$code" "$(head -c 300 "$dist/upload.out" 2>/dev/null | tr -d '"\\\n\r')")
+		api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d "{\"body\":\"$body $why\"}" >/dev/null || true
+		echo "release: $why" >&2
+		failed="$failed $n"
+		continue
+	fi
 	echo "release: uploaded $n"
 done
+if [ -n "$failed" ]; then
+	echo "release: published $tag without$failed" >&2
+	exit 1
+fi
 echo "release: published $tag"

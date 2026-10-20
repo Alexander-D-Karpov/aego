@@ -6,6 +6,7 @@ import (
 	"aego/engine/module"
 	"aego/modules/accessibility"
 	"aego/modules/audio"
+	"aego/modules/camera"
 	"aego/modules/dataasset"
 	"aego/modules/debug"
 	"aego/modules/display"
@@ -71,6 +72,10 @@ func tweenEntry() assembly.Entry {
 	return assembly.Entry{ID: tween.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return tween.New() }}
 }
 
+func cameraEntry() assembly.Entry {
+	return assembly.Entry{ID: camera.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return camera.New() }}
+}
+
 func dataEntry() assembly.Entry {
 	return assembly.Entry{ID: dataasset.ID, New: func(assembly.Options) module.Module { return dataasset.New() }}
 }
@@ -85,5 +90,5 @@ func savegameEntry() assembly.Entry {
 
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), dataEntry(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), spawnEntry(), savegameEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), cameraEntry(), spawnEntry(), savegameEntry()}
 }
