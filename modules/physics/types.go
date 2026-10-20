@@ -36,35 +36,35 @@ func registerTypes(r *module.Registry) error {
 		schema.ChoicesFrom("layer", settings.ID, settings.LayersList),
 		schema.Bitset("mask", settings.ID, settings.LayersList),
 		schema.Runtime("velocity", "angularVelocity", "awake"),
-	).Category(Menu).Display("Rigid Body 2D").Default(components.DefaultBody2D)
+	).Category(Menu).Display("Rigid Body 2D").Icon("comp.rigidbody").NodeIcon(80).Default(components.DefaultBody2D)
 	stdlib.BodyMethods(body)
 	return errors.Join(
 		body.Err(),
 		module.Component[components.BoxCollider2D](r, schema.Name(components.NameBox), space,
 			schema.Doc("Box shape in node space.")).
-			Category(Menu).Display("Box Collider 2D").Default(components.DefaultBox).OnAdd(fitBox).
+			Category(Menu).Display("Box Collider 2D").Icon("comp.box").NodeIcon(70).Default(components.DefaultBox).OnAdd(fitBox).
 			Validate(validator[components.BoxCollider2D](components.KindBox)).Err(),
 		module.Component[components.CircleCollider2D](r, schema.Name(components.NameCircle), space,
 			schema.Doc("Circle shape. Needs a uniform node scale.")).
-			Category(Menu).Display("Circle Collider 2D").Default(components.DefaultCircle).OnAdd(fitCircle).
+			Category(Menu).Display("Circle Collider 2D").Icon("comp.circle").NodeIcon(70).Default(components.DefaultCircle).OnAdd(fitCircle).
 			Validate(validator[components.CircleCollider2D](components.KindCircle)).Err(),
 		module.Component[components.CapsuleCollider2D](r, schema.Name(components.NameCapsule), space,
 			schema.Doc("Capsule along the local X axis; Length is the full extent including the caps.")).
-			Category(Menu).Display("Capsule Collider 2D").Default(components.DefaultCapsule).OnAdd(fitCapsule).
+			Category(Menu).Display("Capsule Collider 2D").Icon("comp.capsule").NodeIcon(70).Default(components.DefaultCapsule).OnAdd(fitCapsule).
 			Validate(validator[components.CapsuleCollider2D](components.KindCapsule)).Err(),
 		module.Component[components.PolygonCollider2D](r, schema.Name(components.NamePolygon), space,
 			schema.Doc("Convex polygon of 3 to 8 points.")).
-			Category(Menu).Display("Polygon Collider 2D").Default(components.DefaultPolygon).
+			Category(Menu).Display("Polygon Collider 2D").Icon("comp.polygon").NodeIcon(70).Default(components.DefaultPolygon).
 			Validate(validator[components.PolygonCollider2D](components.KindPolygon)).Err(),
 		module.Component[components.EdgeCollider2D](r, schema.Name(components.NameEdge), space,
 			schema.Doc("Polyline for level geometry. OneSided lets bodies pass from below.")).
-			Category(Menu).Display("Edge Collider 2D").Default(components.DefaultEdge).
+			Category(Menu).Display("Edge Collider 2D").Icon("comp.edge").NodeIcon(70).Default(components.DefaultEdge).
 			Validate(validator[components.EdgeCollider2D](components.KindEdge)).Err(),
 		module.Component[components.DistanceJoint2D](r, schema.Name(components.NameDistance), space,
 			schema.Doc("Keeps a distance between this body and the Target body. Length 0 uses the distance at start.")).
-			Category(Menu).Display("Distance Joint 2D").Default(components.DefaultDistance).Err(),
+			Category(Menu).Display("Distance Joint 2D").Icon("comp.joint_distance").Default(components.DefaultDistance).Err(),
 		module.Component[components.RevoluteJoint2D](r, schema.Name(components.NameRevolute), space,
 			schema.Doc("Pins this body to the Target body at Anchor, with an optional limit and motor.")).
-			Category(Menu).Display("Revolute Joint 2D").Default(components.DefaultRevolute).Err(),
+			Category(Menu).Display("Revolute Joint 2D").Icon("comp.joint_revolute").Default(components.DefaultRevolute).Err(),
 	)
 }

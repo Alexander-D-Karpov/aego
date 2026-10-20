@@ -116,12 +116,8 @@ func TestPlayLeavesEditSceneByteIdentical(t *testing.T) {
 		t.Fatal("Spin is not registered")
 	}
 	speed, _ := td.Field("speed")
-	add := &commands.AddComponent{
-		Node:   spinner,
-		Type:   td.ID,
-		Name:   td.FullName,
-		Values: []commands.FieldValue{{Field: speed.ID, Value: schema.Float32(3)}},
-	}
+	add := commands.NewMutation("Add "+td.FullName, commands.EnvFor(es),
+		commands.AddComp(es, spinner, td, []commands.FieldValue{{Field: speed.ID, Value: schema.Float32(3)}}))
 	if err := d.History.Exec(add); err != nil {
 		t.Fatal(err)
 	}

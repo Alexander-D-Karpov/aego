@@ -295,6 +295,7 @@ type Capabilities struct {
 	DebugOutput      bool
 	ClipZeroToOne    bool
 	OriginBottomLeft bool
+	ESSL             bool
 	Vendor           string
 	Renderer         string
 	Version          string

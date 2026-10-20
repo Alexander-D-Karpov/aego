@@ -220,7 +220,7 @@ func (u *unit) index(f *checker.Func) int32 {
 
 func (u *unit) script(st *checker.ScriptType) {
 	d := bytecode.ScriptDef{
-		FullName: st.FullName, Former: st.Former, Hidden: st.Hidden, Slots: uint16(st.Slots + 1),
+		FullName: st.FullName, Former: st.Former, Hidden: st.Hidden, Pause: st.Pause, Slots: uint16(st.Slots + 1),
 		Ready: u.index(st.Ready), FixedUpdate: u.index(st.FixedUpdate), Update: u.index(st.Update),
 		Reloaded: u.index(st.Reloaded),
 	}
@@ -229,7 +229,7 @@ func (u *unit) script(st *checker.ScriptType) {
 		h := f.Hints
 		fd := bytecode.FieldDef{
 			Name: f.Name, Former: f.Former, Type: types.ToABI(f.Type).String(),
-			Slot: uint16(f.Slot + 1), Slots: uint8(f.Type.Slots()), Export: f.Export,
+			Slot: uint16(f.Slot + 1), Slots: uint8(f.Type.Slots()), Export: f.Export, Persist: f.Persist,
 			Hints: bytecode.ExportHints{
 				Min: h.Min, Max: h.Max, Step: h.Step, HasMin: h.HasMin, HasMax: h.HasMax,
 				Unit: h.Unit, Display: h.Display, Tip: h.Tip, Category: h.Category,

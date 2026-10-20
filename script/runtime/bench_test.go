@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"aego/engine"
+	inputmod "aego/modules/input"
 	"aego/platform/input"
 	"aego/scene"
 	"aego/scene/scriptcomp"
@@ -57,6 +58,7 @@ func prepare(tb testing.TB, walkers, idle int) *bench {
 	}
 	reg := bind.New()
 	scriptstdlib.Install(reg, stdlib.Options{Seed: 1})
+	inputmod.InstallBindings(reg)
 	BindComponents(reg, types.Schema())
 	if err := reg.Freeze(); err != nil {
 		tb.Fatal(err)

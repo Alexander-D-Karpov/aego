@@ -1,35 +1,105 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"os"
 
 	"aego/app/assembly/builtin"
 	"aego/app/bootstrap"
+	"aego/app/projects"
+	"aego/editor/core/iconuse"
 	"aego/engine"
+	"aego/engine/module"
 )
 
+const iconsUsage = `usage: aego icons [check|list] [dir] [flags]
+
+  check            fail on icons that are used but missing, or provided but unused
+  list [--json]    print the icon manifest as markdown, or as JSON
+       [--out f]   write it to a file instead of stdout`
+
+func editorIcons() []module.IconUse {
+	out := iconuse.Uses()
+	for _, t := range projects.Templates {
+		if t.Icon != "" {
+			out = append(out, module.IconUse{ID: t.Icon, Owner: iconuse.Owner, By: "New Project: template " + t.ID, Size: 24})
+		}
+	}
+	return out
+}
+
+func builtinAudit(extra []module.IconUse) (*module.IconReport, error) {
+	return builtin.AuditIconsWith(extra)
+}
+
+func iconReport() (*module.IconReport, error) {
+	return builtin.AuditIconsWith(editorIcons())
+}
+
+func iconsMarkdown() ([]byte, error) {
+	rep, err := iconReport()
+	if err != nil {
+		return nil, err
+	}
+	var b bytes.Buffer
+	rep.WriteMarkdown(&b)
+	return b.Bytes(), nil
+}
+
 func cmdIcons(args []string) int {
-	dir, _ := firstArg(args)
-	p, err := openProject(dir)
+	sub := "check"
+	if len(args) > 0 && (args[0] == "check" || args[0] == "list") {
+		sub, args = args[0], args[1:]
+	}
+	fs := flag.NewFlagSet("icons "+sub, flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, "print JSON instead of markdown")
+	out := fs.String("out", "", "write the manifest to this file")
+	dir, rest := firstArg(args)
+	if err := fs.Parse(rest); err != nil {
+		fmt.Fprintln(os.Stderr, iconsUsage)
+		return 2
+	}
+	if sub == "check" {
+		if p, err := openProject(dir); err == nil && bootstrap.NeedsNative(p) {
+			code, err := bootstrap.RunIcons(p, engine.Version, os.Stdout)
+			if err != nil {
+				return fail(err)
+			}
+			if code == 0 {
+				fmt.Println("icons: ok")
+			}
+			return code
+		} else if err != nil && dir != "" {
+			return fail(err)
+		}
+	}
+	rep, err := iconReport()
 	if err != nil {
 		return fail(err)
 	}
-	code := 0
-	if bootstrap.NeedsNative(p) {
-		code, err = bootstrap.RunIcons(p, engine.Version, os.Stdout)
-		if err != nil {
+	if sub == "check" {
+		code := rep.Write(os.Stdout)
+		if code == 0 {
+			fmt.Println("icons: ok")
+		}
+		return code
+	}
+	var b bytes.Buffer
+	if *asJSON {
+		if err := rep.WriteJSON(&b); err != nil {
 			return fail(err)
 		}
 	} else {
-		rep, err := builtin.AuditIcons()
-		if err != nil {
-			return fail(err)
-		}
-		code = rep.Write(os.Stdout)
+		rep.WriteMarkdown(&b)
 	}
-	if code == 0 {
-		fmt.Println("icons: ok")
+	if *out == "" {
+		os.Stdout.Write(b.Bytes())
+		return 0
 	}
-	return code
+	if err := os.WriteFile(*out, b.Bytes(), 0o644); err != nil {
+		return fail(err)
+	}
+	return 0
 }

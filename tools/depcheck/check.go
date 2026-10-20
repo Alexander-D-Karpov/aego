@@ -126,7 +126,7 @@ func Check(cfg Config) ([]Violation, error) {
 			c.add("default", "no-group", p, "package path has no group prefix (see tools/depcheck/groups.go)")
 		}
 	}
-	for _, name := range []string{"default", "editor", "nonative"} {
+	for _, name := range []string{"default", "editor", "nonative", "wasm"} {
 		if g := graphs[name]; g != nil {
 			c.checkEdges(name, g, false)
 		}

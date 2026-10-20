@@ -40,6 +40,8 @@ func dispatch(args []string) int {
 		return cmdEdit(args[1:])
 	case "build":
 		return cmdBuild(args[1:])
+	case "export":
+		return cmdExport(args[1:])
 	case "bootstrap":
 		return cmdBootstrap(args[1:])
 	case "import":
@@ -71,11 +73,14 @@ func usage() {
   run [dir]              import assets and run the game
   edit [dir]             open the project in the editor; without a project opens the launcher
   build [dir]            build the native binary
+  export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]
+                         build a distributable game that runs without Go and project sources
   bootstrap [dir]        regenerate .aego/generated for the native module without building
   import [dir] [--force] reimport all assets
-  check [dir] [--manifest file] [--explain]  parse every document and type-check scripts; --explain prints the reference for each reported code
-  icons [dir]            check module icon files against the icons components and templates use
-  test [dir] [-run name] [-v]  run *_test.aes script tests headless
+  check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts
+  icons [check|list] [dir] [--json] [--out file]  check icon use against the icon sources, or print the manifest
+  test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]
+                         run *_test.aes script tests headless, or run the game twice and compare state hashes
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
   docs export|check|build|serve  documentation registry, site and playground
 `)
@@ -164,6 +169,7 @@ func cmdRun(args []string) int {
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
 	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
+	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -196,6 +202,7 @@ func cmdRun(args []string) int {
 		Watch:     *frames == 0,
 		ScenePath: *scenePath,
 		Trace:     *tracePath,
+		Profile:   *settingsProfile,
 	}
 	if err := run.Run(p, cfg); err != nil {
 		return fail(err)
@@ -227,6 +234,7 @@ func cmdEdit(args []string) int {
 	headless := fs.Bool("headless", false, "run without a window")
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
+	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -255,13 +263,13 @@ func cmdEdit(args []string) int {
 		}
 	}
 	if bootstrap.NeedsNative(p) && !*headless && *frames == 0 {
-		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile}
+		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile, Profile: *settingsProfile}
 		if err := supervise.Run(p, opt); err != nil {
 			return fail(err)
 		}
 		return 0
 	}
-	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Recent: recent}
+	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Profile: *settingsProfile, Recent: recent}
 	if err := edit.Run(p, cfg); err != nil {
 		return fail(err)
 	}
@@ -341,6 +349,7 @@ func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	manifestPath := fs.String("manifest", "", "check against this bindings manifest instead of building one")
 	explain := fs.Bool("explain", false, "print the reference entry of every reported diagnostic code")
+	ensure := fs.Bool("ensure-meta", false, "write missing .meta files instead of reporting them")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -356,6 +365,23 @@ func cmdCheck(args []string) int {
 		fmt.Fprintln(os.Stderr, "aego:", err)
 		return 2
 	}
+	imps, err := run.Importers(ws)
+	if err != nil {
+		return fail(err)
+	}
+	mode := pipeline.MetaReadOnly
+	if *ensure {
+		mode = pipeline.MetaEnsure
+	}
+	issues, err := pipeline.Audit(p, imps, mode)
+	if err != nil {
+		return fail(err)
+	}
+	for _, is := range issues {
+		fmt.Fprintf(os.Stderr, "%s: %s %s\n", is.Path, is.Code(), is.Message())
+		problems++
+	}
+	problems += projects.CheckAssets(p, imps, os.Stderr)
 	snap := ws.Snapshot()
 	diag.Print(os.Stderr, snap.Sources, snap.Diagnostics)
 	if *explain && len(snap.Diagnostics) > 0 {

@@ -59,7 +59,8 @@ func (c *checker) value(e ast.Expr) operand {
 	case mFunc:
 		c.errorf(diag.NotValue, e.Span(), "function must be called")
 	case mSignal:
-		c.errorf(diag.NotValue, e.Span(), "signal %s is not a value, use %s.Emit or %s.Connect", x.sig.Name, x.sig.Name, x.sig.Name)
+		n := x.signalName()
+		c.errorf(diag.NotValue, e.Span(), "signal %s is not a value, use %s.Emit or %s.Connect", n, n, n)
 	default:
 		return x
 	}
@@ -253,12 +254,28 @@ func (c *checker) field(s *ast.SelectorExpr, x operand) operand {
 			c.a.Selections[s] = &Selection{Kind: SelComponentField, Comp: cf}
 			return operand{mode: mValue, t: c.u.FromABI(cf.Type, c.surface), addr: !cf.ReadOnly}
 		}
+		if i, ok := t.Component.Signal(name); ok {
+			return c.hostSignal(s, i, t.Component.Signals[i], t.Component, "")
+		}
+	case types.KHandle:
+		if i, sd, ok := c.surface.HandleSignal(t.Handle, name); ok {
+			return c.hostSignal(s, i, sd, nil, t.Handle)
+		}
+		if _, ok := c.surface.HandleMethod(t.Handle, name); ok {
+			c.errorf(diag.NotValue, s.Sp, "method %s must be called", name)
+			return invalid
+		}
 	case types.KScriptRef:
 		if st := c.a.scripts[t.Script]; st != nil {
 			return c.scriptMember(s, st)
 		}
-	case types.KCoroutine, types.KConnection:
+	case types.KCoroutine, types.KConnection, types.KCurve:
 	case types.KNodeRef, types.KAssetRef:
+		if t.Kind == types.KAssetRef {
+			if x, ok := c.dataField(s, t); ok {
+				return x
+			}
+		}
 		if _, ok := c.surface.Method(types.ToABI(t).Kind, name); ok {
 			c.errorf(diag.NotValue, s.Sp, "method %s must be called", name)
 			return invalid

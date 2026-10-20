@@ -170,7 +170,7 @@ func TestProfilerSectionsFollowPlay(t *testing.T) {
 	}
 	prof := s.App.Profiler()
 	drawPanel(s, prof)
-	expectSections(t, prof.Sections(), "Frame")
+	expectSections(t, prof.Sections(), "Frame", "Memory")
 	pc := s.App.Play()
 	if err := pc.Start(d); err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestProfilerSectionsFollowPlay(t *testing.T) {
 		s.Step()
 	}
 	drawPanel(s, prof)
-	expectSections(t, prof.Sections(), "Frame", "Game", "Scripts", "Physics")
+	expectSections(t, prof.Sections(), "Frame", "Memory", "Game", "Scripts", "Physics")
 	if _, err := ctx.Docs.Open("scenes/other.aescene"); err != nil {
 		t.Fatal(err)
 	}
@@ -189,5 +189,5 @@ func TestProfilerSectionsFollowPlay(t *testing.T) {
 	pc.Stop()
 	s.Step()
 	drawPanel(s, prof)
-	expectSections(t, prof.Sections(), "Frame")
+	expectSections(t, prof.Sections(), "Frame", "Memory")
 }

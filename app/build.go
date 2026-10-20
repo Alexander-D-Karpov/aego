@@ -1,23 +1,29 @@
 package app
 
 import (
+	"aego/engine/base"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
+	"aego/contracts/persistence"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/docs"
 	"aego/engine/module"
 	"aego/engine/problems"
+	"aego/engine/settings"
 	scriptsystems "aego/modules/scripting/systems"
+	"aego/platform"
 	"aego/project"
 	"aego/render"
 	renderhost "aego/render/host"
+	"aego/save"
 	"aego/scene"
 	"aego/scene/frame"
 	"aego/script/bind"
@@ -35,6 +41,8 @@ type Config struct {
 	Editor             bool
 	FailOnScriptErrors bool
 	Catalog            assembly.Catalog
+	Profile            string
+	NoProfile          bool
 }
 
 type Host struct {
@@ -53,6 +61,8 @@ type Host struct {
 	Docs        *docs.Registry
 	Importers   *pipeline.ImporterRegistry
 	Log         *log.Logger
+	Settings    *settings.Store
+	ProfilePath string
 	closed      bool
 }
 
@@ -100,11 +110,14 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if cat == nil {
 		cat = builtin.Default()
 	}
-	if h.Modules, err = cat.Load(h.Types, h.Bindings, assembly.Options{Input: &p.Input}, mods...); err != nil {
+	if h.Modules, err = cat.Load(h.Types, h.Bindings, assembly.Options{}, mods...); err != nil {
 		return err
 	}
 	if h.Sections, err = h.Modules.LoadSections(p.Block, project.CoreBlocks...); err != nil {
 		return err
+	}
+	if ts, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		builder.Configure(ts.Apply)
 	}
 	builder.Use(h.Modules.Engine())
 	if h.Importers, err = DevImporters(h.Workspace, h.Modules); err != nil {
@@ -166,14 +179,47 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	h.Engine.SetService(loader.ServiceID, h.Loader)
 	h.Engine.SetService(renderhost.ServiceID, h.Renderer)
 	h.Problems = problems.New()
+	h.Problems.Add(MetaProblems(h.Pipeline))
+	h.Problems.Add(h.Modules.AssetProblems(h.Types.Schema(), h.Loader))
 	h.Engine.SetService(problems.ServiceID, h.Problems)
-	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems}); err != nil {
+	if h.Settings, err = h.Modules.NewSettings(); err != nil {
 		return err
 	}
+	h.Settings.SetNames(h.Sections.Names)
+	h.Engine.SetService(settings.ServiceID, h.Settings)
+	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems, Settings: h.Settings}); err != nil {
+		return err
+	}
+	h.Settings.Freeze()
+	h.Settings.LoadProject(p.Settings, project.FileName)
+	if !cfg.NoProfile {
+		h.loadProfile(cfg.Profile, ch)
+	}
+	h.Problems.Add(h.Settings.Problems())
+	h.Settings.Start()
 	for _, w := range h.Modules.Warnings {
 		ch.Warn(w)
 	}
 	return nil
+}
+
+func (h *Host) loadProfile(name string, ch *log.ChannelLogger) {
+	path, err := platform.ProfilePath(h.Project.Module, name)
+	if err != nil {
+		ch.Warn("player settings are not saved", log.F("err", err.Error()))
+		return
+	}
+	h.ProfilePath = path
+	h.Engine.SetService(persistence.StoreID, save.NewStore(filepath.Join(filepath.Dir(path), "saves")))
+	data, err := platform.ReadProfile(path)
+	if err != nil {
+		ch.Warn("cannot read the player settings", log.F("path", path), log.F("err", err.Error()))
+	}
+	if lerr := h.Settings.LoadProfile(data, path); lerr != nil && len(data) > 0 {
+		_ = platform.WriteProfile(path+".bad", data)
+		ch.Warn("the player settings are damaged, a copy is kept as settings.aetext.bad", log.F("path", path))
+	}
+	h.Settings.SetPersist(func(b []byte) error { return platform.WriteProfile(path, b) })
 }
 
 func (h *Host) Close() {

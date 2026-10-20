@@ -33,6 +33,8 @@ type Doc struct {
 type Editor struct {
 	Docs            []Doc
 	Active          string
+	Workspace       string
+	PlayDiff        string
 	Tool            int
 	Grid            bool
 	Snap            bool
@@ -42,6 +44,7 @@ type Editor struct {
 	WindowW         int
 	WindowH         int
 	Collapsed       []string
+	Watches         []string
 	Autosave        bool
 	InlayHints      bool
 	Minimap         bool
@@ -50,11 +53,16 @@ type Editor struct {
 }
 
 func Default() *Editor {
-	return &Editor{Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true, RainbowBrackets: true, HighlightBlock: true}
+	return &Editor{PlayDiff: "if-changes", Grid: true, SnapMove: 0.5, SnapRotate: 15, SnapScale: 0.1, Autosave: true, InlayHints: true, Minimap: true, RainbowBrackets: true, HighlightBlock: true}
 }
 
 func userPath(root, name string) string {
 	return filepath.Join(root, filepath.FromSlash(UserDir), name)
+}
+
+func WriteEvents(root string, data []byte) (string, error) {
+	p := userPath(root, "events.log")
+	return p, document.WriteAtomic(p, data)
 }
 
 func WriteTrace(root string, data []byte) (string, error) {
@@ -126,6 +134,8 @@ func Encode(s *Editor) []byte {
 	root.Attrs = append(root.Attrs, aetext.Field{Name: "version", Value: aetext.Int(Version)})
 	root.Fields = append(root.Fields,
 		aetext.Field{Name: "active", Value: aetext.String(s.Active)},
+		aetext.Field{Name: "workspace", Value: aetext.String(s.Workspace)},
+		aetext.Field{Name: "play_diff", Value: aetext.String(s.PlayDiff)},
 		aetext.Field{Name: "tool", Value: aetext.Int(int64(s.Tool))},
 		aetext.Field{Name: "grid", Value: aetext.Bool(s.Grid)},
 		aetext.Field{Name: "snap", Value: aetext.Bool(s.Snap)},
@@ -144,6 +154,11 @@ func Encode(s *Editor) []byte {
 		collapsed[i] = aetext.String(k)
 	}
 	root.Fields = append(root.Fields, aetext.Field{Name: "collapsed", Value: aetext.List(collapsed...)})
+	watches := make([]aetext.Value, len(s.Watches))
+	for i, w := range s.Watches {
+		watches[i] = aetext.String(w)
+	}
+	root.Fields = append(root.Fields, aetext.Field{Name: "watches", Value: aetext.List(watches...)})
 	for _, d := range s.Docs {
 		o := d.Orbit
 		n := &aetext.Node{Head: "doc", Label: d.Path}
@@ -181,6 +196,12 @@ func Decode(data []byte, name string) (*Editor, error) {
 	s := Default()
 	if v, ok := doc.Field("active"); ok {
 		s.Active = v.Str
+	}
+	if v, ok := doc.Field("workspace"); ok {
+		s.Workspace = v.Str
+	}
+	if v, ok := doc.Field("play_diff"); ok && v.Str != "" {
+		s.PlayDiff = v.Str
 	}
 	if v, ok := doc.Field("tool"); ok {
 		s.Tool = int(v.AsInt())
@@ -221,6 +242,11 @@ func Decode(data []byte, name string) (*Editor, error) {
 	if v, ok := doc.Field("collapsed"); ok {
 		for _, item := range v.List {
 			s.Collapsed = append(s.Collapsed, item.Str)
+		}
+	}
+	if v, ok := doc.Field("watches"); ok {
+		for _, item := range v.List {
+			s.Watches = append(s.Watches, item.Str)
 		}
 	}
 	doc.EachBlock("doc", func(n *aetext.Node) {

@@ -179,11 +179,11 @@ File player 1:1
             Call targs=0 args=1 56:23
               Selector 56:23
                 Ident input 56:23
-                Ident Pressed 56:29
-              Selector 56:37
-                Ident input 56:37
-                Ident KeySpace 56:43
-          Block 56:53
+                Ident KeyPressed 56:29
+              Selector 56:40
+                Ident input 56:40
+                Ident KeySpace 56:46
+          Block 56:56
             ExprStmt 57:4
               Call targs=0 args=2 57:4
                 Selector 57:4

@@ -12,10 +12,12 @@ import (
 	"aego/editor/core/clipboard"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/prefabs"
+	"aego/editor/core/presets"
 	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
@@ -46,6 +48,10 @@ type Deps struct {
 	Assets    services.AssetOps
 	Scenes    services.SceneOps
 	Collapsed map[string]bool
+	Watch     func(expr string)
+	Data      *dataedit.Service
+	Schema    *schema.Registry
+	Presets   *presets.Service
 }
 
 type Panel struct {
@@ -54,6 +60,10 @@ type Panel struct {
 	f            *services.Frame
 	tx           *history.Transaction
 	txDoc        document.ID
+	doc          *document.SceneDocument
+	locked       bool
+	lockDoc      document.ID
+	lockNodes    []ids.NodeID
 	collapsed    map[core.ID]bool
 	scroll       float32
 	content      float32
@@ -64,6 +74,7 @@ type Panel struct {
 	labels       map[string]string
 	typeNames    map[schema.TypeID][2]string
 	live         map[core.ID]schema.Value
+	curves       map[core.ID]*widgets.CurveState
 	liveT        *scene.Transform2D
 	euler        *props.EulerCache
 	info         *prefabs.Info
@@ -77,12 +88,16 @@ type Panel struct {
 	scriptNames  []string
 	scriptSearch string
 	focusScript  bool
+	dataMenuID   core.ID
+	dataMenu     string
+	dataStep     bool
 }
 
 const (
 	Scope        = "inspector"
 	CommandCopy  = "inspector.copy"
 	CommandPaste = "inspector.paste"
+	CommandWatch = "inspector.watch"
 )
 
 type fieldRef struct {
@@ -99,6 +114,7 @@ func New(reg *inspect.Registry, d Deps) *Panel {
 		labels:    map[string]string{},
 		typeNames: map[schema.TypeID][2]string{},
 		live:      map[core.ID]schema.Value{},
+		curves:    map[core.ID]*widgets.CurveState{},
 		euler:     props.NewEulerCache(),
 	}
 }
@@ -137,22 +153,43 @@ func (p *Panel) Scope() string {
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.f = f
 	ui := f.UI
-	d := p.d.Docs.Doc()
+	p.doc = nil
+	d := p.target()
 	p.settle(d)
 	p.hoverField, p.hoverType, p.rightUsed = fieldRef{}, 0, false
 	p.fieldMenuID, p.bgMenuID = ui.ID("fieldmenu"), ui.ID("bgmenu")
 	p.info = nil
+	if p.d.Data != nil && !p.locked {
+		if id := p.d.Data.Inspected(); !id.IsZero() {
+			p.drawData(r, id)
+			return
+		}
+	}
 	if d == nil {
 		widgets.LabelDim(ui, "No scene open")
 		return
 	}
+	p.doc = d
 	s := d.Scene()
 	p.nodes = p.nodes[:0]
-	for _, id := range p.d.Selection.Selected() {
+	src := p.d.Selection.Selected()
+	if p.locked {
+		src = p.lockNodes
+	}
+	for _, id := range src {
 		if h := s.Handle(id); !h.IsZero() && s.IsAlive(h) {
 			p.nodes = append(p.nodes, id)
 		}
 	}
+	if p.locked && len(p.nodes) == 0 {
+		p.unlock()
+		for _, id := range p.d.Selection.Selected() {
+			if h := s.Handle(id); !h.IsZero() && s.IsAlive(h) {
+				p.nodes = append(p.nodes, id)
+			}
+		}
+	}
+	r = p.lockBar(d, r)
 	if len(p.nodes) == 0 {
 		widgets.LabelDim(ui, "Nothing selected")
 		return
@@ -164,14 +201,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	th := &ui.Theme
 	if ui.MouseOver(ui.ID("scroll"), r) {
-		if w := ui.WheelY(); w != 0 {
-			p.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			p.scroll -= w
 		}
 	}
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-r.H+th.Padding*2))
 	cur := ui.Cursor()
 	top := cur.Y
 	cur.Y -= p.scroll
+	ui.PushClip(r)
 	p.header(d)
 	p.prefabCard(d)
 	p.transform(d)
@@ -179,6 +217,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.scripts(d)
 	p.addComponent(d)
 	p.addScript(d)
+	ui.PopClip()
 	p.content = cur.Y + p.scroll - top
 	p.menus(d, r)
 	p.dropScripts(r)
@@ -190,11 +229,12 @@ func (p *Panel) menus(d *document.SceneDocument, r mathx.Rect) {
 		widgets.OpenContextMenu(ui, p.bgMenuID)
 	}
 	if widgets.ContextMenu(ui, p.bgMenuID) {
-		can := p.d.Clip.Peek() == clipboard.KindComponent
-		if widgets.MenuItem(ui, "Paste Component", p.d.Commands.Shortcut(CommandPaste), can, false) {
-			if err := p.d.Clip.PasteComponent(d, p.nodes); err != nil {
-				p.d.Notices.Notify(context.LevelError, err.Error())
-			}
+		kind := p.d.Clip.Peek()
+		if widgets.MenuItemIcon(ui, "Paste Component", p.d.Commands.Shortcut(CommandPaste), "edit.paste", kind == clipboard.KindComponent, false) {
+			p.confirm(d, "Paste Component", func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+		}
+		if widgets.MenuItemIcon(ui, "Paste Components", "", "edit.paste", kind == clipboard.KindComponents, false) {
+			p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
 		}
 		widgets.EndContextMenu(ui)
 	}
@@ -209,7 +249,7 @@ func (p *Panel) CanCopy() bool {
 }
 
 func (p *Panel) CopyHovered() error {
-	d := p.d.Docs.Doc()
+	d := p.cur()
 	if d == nil || len(p.nodes) == 0 {
 		return nil
 	}
@@ -225,23 +265,48 @@ func (p *Panel) CopyHovered() error {
 	return nil
 }
 
+func (p *Panel) CanWatch() bool {
+	return p.hoverField.ok && p.d.Watch != nil
+}
+
+func (p *Panel) WatchHovered() error {
+	d := p.cur()
+	if d == nil || len(p.nodes) == 0 || !p.CanWatch() {
+		return nil
+	}
+	td, fd, ok := p.lookup(d, p.hoverField)
+	if !ok {
+		return nil
+	}
+	s := d.Scene()
+	comp := td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
+	p.d.Watch(s.Path(s.Handle(p.nodes[0])) + "." + comp + "." + fd.Name)
+	return nil
+}
+
 func (p *Panel) PasteHovered() error {
-	d := p.d.Docs.Doc()
+	d := p.cur()
 	if d == nil || len(p.nodes) == 0 {
 		return nil
 	}
 	if p.hoverField.ok {
 		if td, fd, ok := p.lookup(d, p.hoverField); ok {
 			if v, ok := p.d.Clip.ReadValue(fd); ok {
-				return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v)
+				p.confirm(d, "Paste "+p.labelOf(fd), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
+				return nil
 			}
 			if done, err := p.pasteAsset(d, td, fd); done {
 				return err
 			}
 		}
 	}
-	if p.d.Clip.Peek() == clipboard.KindComponent {
-		return p.d.Clip.PasteComponent(d, p.nodes)
+	switch p.d.Clip.Peek() {
+	case clipboard.KindComponent:
+		p.confirm(d, "Paste Component", func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+		return nil
+	case clipboard.KindComponents:
+		p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
+		return nil
 	}
 	p.d.Notices.Notify(context.LevelInfo, "The clipboard does not fit this field")
 	return nil
@@ -259,11 +324,23 @@ func (p *Panel) settle(d *document.SceneDocument) {
 }
 
 func (p *Panel) apply(e widgets.Edit, label string, fn func(*history.Transaction) error) {
-	d := p.d.Docs.Doc()
+	d := p.cur()
 	if d == nil || d.History == nil {
 		return
 	}
 	h := d.History
+	if e.Begin && e.Changed && e.End && p.tx == nil && len(p.nodes) > confirmOver {
+		p.confirm(d, label, func() error {
+			tx := h.Begin(label)
+			if err := fn(tx); err != nil {
+				tx.Abort()
+				return err
+			}
+			tx.Commit()
+			return nil
+		})
+		return
+	}
 	if e.Begin && p.tx == nil {
 		p.tx = h.Begin(label)
 		p.txDoc = d.ID
@@ -322,8 +399,19 @@ func (p *Panel) header(d *document.SceneDocument) {
 	th := &ui.Theme
 	ui.PushID("node")
 	defer ui.PopID()
-	c := p.beginCard("node", "Node", "", "cat.node", "", false)
+	c := p.beginCard("node", "Node", "", "cat.node", "", true)
 	defer p.endCard(ui, c)
+	menuID := ui.ID("menu")
+	if ui.RightClicked(c.hid, c.hdr) {
+		p.rightUsed = true
+		widgets.OpenContextMenu(ui, menuID)
+	} else if c.more {
+		widgets.OpenContextMenu(ui, menuID)
+	}
+	if widgets.ContextMenu(ui, menuID) {
+		p.nodeMenu(d)
+		widgets.EndContextMenu(ui)
+	}
 	if !c.open {
 		return
 	}
@@ -341,9 +429,8 @@ func (p *Panel) header(d *document.SceneDocument) {
 		}
 	}
 	if triCheck(ui, ui.ID("enabled"), mathx.Rect{X: row.X, Y: row.Y, W: row.H, H: row.H}, state) {
-		if err := d.Props.SetEnabled(nil, p.nodes, state != 1); err != nil {
-			p.d.Notices.Notify(context.LevelError, err.Error())
-		}
+		after := state != 1
+		p.confirm(d, "Toggle Enabled", func() error { return d.Props.SetEnabled(nil, p.nodes, after) })
 	}
 	nr := mathx.Rect{X: row.X + row.H + 4, Y: row.Y, W: row.W - row.H - 4, H: row.H}
 	if len(p.nodes) == 1 {
@@ -365,9 +452,8 @@ func (p *Panel) header(d *document.SceneDocument) {
 		}
 	}
 	if widgets.MaskField(ui, ui.ID("layers"), widgets.Field(ui, "Layers"), &mask, nil, mixed) {
-		if err := d.Props.SetLayers(nil, p.nodes, mask); err != nil {
-			p.d.Notices.Notify(context.LevelError, err.Error())
-		}
+		m := mask
+		p.confirm(d, "Set Layers", func() error { return d.Props.SetLayers(nil, p.nodes, m) })
 	}
 	p.spaceRow(d)
 }
@@ -560,32 +646,39 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 }
 
 func (p *Panel) remove(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	tx := d.History.Begin("Remove " + td.FullName)
-	for _, id := range p.nodes {
-		if err := tx.Exec(&commands.RemoveComponent{Node: id, Type: td.ID, Name: td.FullName}); err != nil {
-			tx.Abort()
-			p.d.Notices.Notify(context.LevelError, err.Error())
-			return
+	p.confirm(d, "Remove "+p.reg.Meta(td).DisplayName, func() error {
+		env := commands.EnvFor(d.Scene())
+		tx := d.History.Begin("Remove " + td.FullName)
+		for _, id := range p.nodes {
+			if err := tx.Exec(commands.NewMutation("Remove "+td.FullName, env, commands.RemoveComp(id, td))); err != nil {
+				tx.Abort()
+				return err
+			}
 		}
-	}
-	tx.Commit()
+		tx.Commit()
+		return nil
+	})
 }
 
 func (p *Panel) reset(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	tx := d.History.Begin("Reset " + td.FullName)
-	for _, id := range p.nodes {
-		if err := tx.Exec(&commands.RemoveComponent{Node: id, Type: td.ID, Name: td.FullName}); err != nil {
-			tx.Abort()
-			p.d.Notices.Notify(context.LevelError, err.Error())
-			return
+	p.confirm(d, "Reset "+p.reg.Meta(td).DisplayName, func() error {
+		s := d.Scene()
+		env := commands.EnvFor(s)
+		defaults := p.reg.Defaults(td.ID)
+		tx := d.History.Begin("Reset " + td.FullName)
+		for _, id := range p.nodes {
+			if err := tx.Exec(commands.NewMutation("Remove "+td.FullName, env, commands.RemoveComp(id, td))); err != nil {
+				tx.Abort()
+				return err
+			}
+			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, id, td, defaults))); err != nil {
+				tx.Abort()
+				return err
+			}
 		}
-		if err := tx.Exec(&commands.AddComponent{Node: id, Type: td.ID, Name: td.FullName, Values: p.reg.Defaults(td.ID)}); err != nil {
-			tx.Abort()
-			p.d.Notices.Notify(context.LevelError, err.Error())
-			return
-		}
-	}
-	tx.Commit()
+		tx.Commit()
+		return nil
+	})
 }
 
 func (p *Panel) blocked(s *scene.Scene, reg *schema.Registry, td *schema.TypeDescriptor) string {
@@ -673,21 +766,22 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 	}
 	var first *schema.TypeDescriptor
 	for _, sec := range groupComponents(p.reg, reg, candidates) {
-		widgets.LabelDim(ui, sec.Category)
+		widgets.HeaderIcon(ui, categoryIcon(ui, sec.Category), sec.Category, false)
 		for _, t := range sec.Types {
 			td, ok := reg.ByID(t)
 			if !ok {
 				continue
 			}
-			label := p.reg.Meta(td).DisplayName
+			meta := p.reg.Meta(td)
+			label := meta.DisplayName
 			if why := p.blocked(s, reg, td); why != "" {
-				widgets.LabelDim(ui, label+" — "+why)
+				widgets.HeaderIcon(ui, meta.Icon, label+" — "+why, true)
 				continue
 			}
 			if first == nil {
 				first = td
 			}
-			if widgets.Selectable(ui, core.IDSeq(id, int(t)), label, td == first && q != "") {
+			if widgets.SelectableIcon(ui, core.IDSeq(id, int(t)), meta.Icon, label, td == first && q != "") {
 				p.add(d, td)
 				ui.ClosePopup(id)
 			}
@@ -704,17 +798,43 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 }
 
 func (p *Panel) add(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	s := d.Scene()
-	tx := d.History.Begin("Add " + td.FullName)
-	for _, n := range p.nodes {
-		if _, ok := s.GetByType(s.Handle(n), td.ID); ok {
-			continue
+	p.confirm(d, "Add "+p.reg.Meta(td).DisplayName, func() error {
+		s := d.Scene()
+		env := commands.WithOnAdd(commands.EnvFor(s), p.d.Clip.OnAdd)
+		defaults := p.reg.Defaults(td.ID)
+		tx := d.History.Begin("Add " + td.FullName)
+		for _, n := range p.nodes {
+			if _, ok := s.GetByType(s.Handle(n), td.ID); ok {
+				continue
+			}
+			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, n, td, defaults))); err != nil {
+				tx.Abort()
+				return err
+			}
 		}
-		if err := tx.Exec(&commands.AddComponent{Node: n, Type: td.ID, Name: td.FullName, Values: p.reg.Defaults(td.ID), OnAdd: p.d.Clip.OnAdd(td)}); err != nil {
-			tx.Abort()
-			p.d.Notices.Notify(context.LevelError, err.Error())
-			return
+		tx.Commit()
+		return nil
+	})
+}
+
+func (p *Panel) nodeMenu(d *document.SceneDocument) {
+	ui := p.f.UI
+	if widgets.MenuItemIcon(ui, "Copy All Components", "", "edit.copy", len(p.types) > 0, false) {
+		if err := p.d.Clip.CopyComponents(d.Scene(), p.nodes[0], p.types); err != nil {
+			p.report(err)
+		} else {
+			p.d.Notices.Notify(context.LevelInfo, "Copied "+strconv.Itoa(len(p.types))+" component(s)")
 		}
 	}
-	tx.Commit()
+	can := p.d.Clip.Peek() == clipboard.KindComponents
+	if widgets.MenuItemIcon(ui, "Paste Components", "", "edit.paste", can, false) {
+		p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
+	}
+}
+
+func categoryIcon(ui *core.Context, category string) string {
+	if ic := "cat." + strings.ToLower(category); widgets.HasIcon(ui, ic) {
+		return ic
+	}
+	return "cat.node"
 }

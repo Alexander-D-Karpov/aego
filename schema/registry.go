@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"aego/core/curve"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
@@ -30,6 +31,7 @@ var (
 	quatType     = reflect.TypeFor[mathx.Quat]()
 	colorType    = reflect.TypeFor[mathx.Color]()
 	rectType     = reflect.TypeFor[mathx.Rect]()
+	curveType    = reflect.TypeFor[curve.Curve]()
 	assetRefType = reflect.TypeFor[AssetRef]()
 	nodeRefType  = reflect.TypeFor[NodeRef]()
 )
@@ -140,6 +142,20 @@ func RegisterStruct[T any](r *Registry, opts ...Option) (*TypeDescriptor, error)
 	return r.register(reflect.TypeFor[T](), TypeStruct, opts)
 }
 
+func RegisterData[T any](r *Registry, opts ...Option) (*TypeDescriptor, error) {
+	return r.register(reflect.TypeFor[T](), TypeAsset, opts)
+}
+
+func (r *Registry) DataTypes() []*TypeDescriptor {
+	var out []*TypeDescriptor
+	for _, t := range r.order {
+		if t.Kind == TypeAsset {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*TypeDescriptor, error) {
 	if r.frozen {
 		return nil, errs.New(errs.SchemaFrozen, "registry is frozen", log.F("type", rt.String()))
@@ -195,6 +211,9 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 	if err := r.addFields(td, rt, 0, &o); err != nil {
 		return nil, err
 	}
+	if err := finishClone(td, rt, &o); err != nil {
+		return nil, err
+	}
 	for name := range o.fieldDocs {
 		if _, ok := td.index[name]; !ok {
 			return nil, errs.New(errs.SchemaBadField, "FieldDoc names an unknown field",
@@ -214,9 +233,11 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 			}
 		}
 	}
-	for name := range o.runtime {
-		if _, ok := td.index[name]; !ok {
-			return nil, errs.New(errs.SchemaBadField, "Runtime names an unknown field", log.F("type", full), log.F("field", name))
+	for _, m := range []map[string]bool{o.runtime, o.persist} {
+		for name := range m {
+			if _, ok := td.index[name]; !ok {
+				return nil, errs.New(errs.SchemaBadField, "Runtime or Persist names an unknown field", log.F("type", full), log.F("field", name))
+			}
 		}
 	}
 
@@ -281,6 +302,9 @@ func (r *Registry) addFields(td *TypeDescriptor, rt reflect.Type, base uintptr, 
 		if o.runtime[fd.Name] {
 			fd.Hints.Runtime = true
 			fd.Flags |= FlagReadOnly
+		}
+		if o.persist[fd.Name] || (o.persistAll && fd.Flags.Has(FlagSerialize)) {
+			fd.Flags |= FlagPersist
 		}
 		if err := ValidGizmo(fd.Kind, fd.Hints.Gizmo, fd.Hints.GizmoSpace); err != nil {
 			return errs.Wrap(err, errs.SchemaBadField, "bad gizmo").With(log.F("type", full), log.F("field", fd.Name))
@@ -386,6 +410,8 @@ func (r *Registry) kindOf(typeName, field string, ft reflect.Type) (Kind, Kind, 
 		return KindColor, KindInvalid, 0, nil
 	case rectType:
 		return KindRect, KindInvalid, 0, nil
+	case curveType:
+		return KindCurve, KindInvalid, 0, nil
 	}
 	switch ft.Kind() {
 	case reflect.Bool:

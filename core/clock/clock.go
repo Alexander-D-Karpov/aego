@@ -7,8 +7,8 @@ import (
 
 const (
 	DefaultFixedDelta    = 1.0 / 60
-	DefaultMaxFrameDelta = 0.25
-	DefaultMaxSteps      = 8
+	DefaultMaxFrameDelta = 0.1
+	DefaultMaxSteps      = 4
 	stepEpsilon          = 1e-9
 )
 

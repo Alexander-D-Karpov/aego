@@ -6,9 +6,12 @@ import (
 	"aego/render"
 )
 
-const ID = "aego.render"
-
-const ServiceID = "render"
+const (
+	ID          = "aego.render"
+	ServiceID   = "render"
+	SystemBegin = "render.begin"
+	SystemEnd   = "render.end"
+)
 
 type Module struct {
 	opt   render.Options
@@ -29,7 +32,7 @@ func (m *Module) Info() engine.ModuleInfo {
 func (m *Module) Register(reg *engine.Registry) error {
 	sys := reg.Systems()
 	if err := sys.Register(engine.SystemDesc{
-		ID:     "render.begin",
+		ID:     SystemBegin,
 		Phase:  engine.PhaseRender,
 		Scope:  engine.ScopeFrame,
 		Before: []string{engine.SystemAppRender},
@@ -38,7 +41,7 @@ func (m *Module) Register(reg *engine.Registry) error {
 		return err
 	}
 	return sys.Register(engine.SystemDesc{
-		ID:     "render.end",
+		ID:     SystemEnd,
 		Phase:  engine.PhaseRenderUI,
 		Scope:  engine.ScopeFrame,
 		System: endSystem{m: m},

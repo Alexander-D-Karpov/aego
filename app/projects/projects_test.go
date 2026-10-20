@@ -149,3 +149,20 @@ func TestCheckSectionsReportsBadBlock(t *testing.T) {
 		t.Fatalf("n = %d, out = %q", n, out.String())
 	}
 }
+
+func TestTemplatePreviewIsNotCopied(t *testing.T) {
+	for _, tm := range projects.Templates {
+		for _, f := range projects.TemplateFiles(tm.ID) {
+			if f == projects.PreviewFile {
+				t.Fatalf("%s lists its preview as a project file", tm.ID)
+			}
+		}
+		p, err := projects.Create(projects.Options{Dir: filepath.Join(t.TempDir(), "p"), Template: tm.ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(p.Root, projects.PreviewFile)); err == nil {
+			t.Fatalf("template %s copied %s into the project", tm.ID, projects.PreviewFile)
+		}
+	}
+}

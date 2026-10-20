@@ -42,7 +42,9 @@ func (p *Panel) render() {
 	wd.runner.SetTarget(t.Texture, t.BucketW, t.BucketH)
 	wd.runner.SetViewportSize(t.W, t.H)
 	wd.runner.SetFixedView(sv)
+	wd.runner.SetHidden(p.runnerHide())
 	p.d.Viewport.RenderWorld(wd.w)
+	p.flushCapture()
 
 	ov := p.view
 	ov.DoClear = false

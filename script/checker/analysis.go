@@ -36,6 +36,7 @@ const (
 	CallGetScript
 	CallScriptMethod
 	CallComponentMethod
+	CallHostConnect
 )
 
 type Call struct {
@@ -48,6 +49,7 @@ type Call struct {
 	Type        *types.Type
 	Recv        ast.Expr
 	Signal      *ScriptSignal
+	Host        *HostSignal
 	Handler     *Func
 	HandlerRecv ast.Expr
 	Target      string
@@ -64,6 +66,7 @@ const (
 	SelHostConst
 	SelSignal
 	SelScriptField
+	SelDataField
 )
 
 type Selection struct {
@@ -75,6 +78,7 @@ type Selection struct {
 	Script      *ScriptType
 	ScriptField *ScriptField
 	Signal      *ScriptSignal
+	Data        *types.Type
 }
 
 type Hints struct {
@@ -93,6 +97,7 @@ type ScriptField struct {
 	Former  []string
 	Type    *types.Type
 	Export  bool
+	Persist bool
 	Hints   Hints
 	Default *types.Const
 	Index   int
@@ -109,12 +114,21 @@ type ScriptSignal struct {
 	Decl   *ast.SignalDecl
 }
 
+type HostSignal struct {
+	Name   string
+	Index  int
+	Params []*types.Type
+	Comp   *abi.Component
+	Handle string
+}
+
 type ScriptType struct {
 	Name        string
 	Pkg         string
 	FullName    string
 	Former      []string
 	Hidden      bool
+	Pause       uint8
 	Fields      []*ScriptField
 	Signals     []*ScriptSignal
 	Funcs       []*Func

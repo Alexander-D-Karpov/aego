@@ -65,7 +65,7 @@ func (extract) Run(ctx *engine.Context) {
 func collect(r *frame.Runner, b *frame.Bucket, mask uint64) {
 	sc, res, st := r.Scene(), r.Resolver(), r.Counters()
 	scene.Query1[SpriteRenderer](sc).Each(func(h scene.NodeHandle, sr *SpriteRenderer) {
-		if sc.Layers(h)&mask == 0 || sc.Space(h) != scene.Space2D || sc.Under3D(h) {
+		if sc.Layers(h)&mask == 0 || sc.Space(h) != scene.Space2D || sc.Under3D(h) || r.Hidden(h) {
 			return
 		}
 		region, ok := sr.Sprite.Region(res)
@@ -95,7 +95,7 @@ func collect(r *frame.Runner, b *frame.Bucket, mask uint64) {
 func collect3(r *frame.Runner, b *frame.Bucket, mask uint64) {
 	sc, res, st := r.Scene(), r.Resolver(), r.Counters()
 	scene.Query1[SpriteRenderer](sc).Each(func(h scene.NodeHandle, sr *SpriteRenderer) {
-		if !sc.Under3D(h) || sc.Layers(h)&mask == 0 {
+		if !sc.Under3D(h) || sc.Layers(h)&mask == 0 || r.Hidden(h) {
 			return
 		}
 		region, ok := sr.Sprite.Region(res)

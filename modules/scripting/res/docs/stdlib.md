@@ -14,16 +14,24 @@ title: Standard library
 
 `aego/time` — `Delta() float`, `Fixed() float`, `Elapsed() float`, `Frame() int`.
 
-`aego/input` — `Down(k) Pressed(k) Released(k) bool`, `MouseDown(b) MousePressed(b) bool`, `MousePos() Vec2` (logical pixels of the game area), `MouseWorld() Vec2` (world units through the camera under the cursor), `Axis(name string) float`. Keys are `input.Key.Space` or the constants `input.KeySpace`, digits `input.KeyDigit1`; buttons `input.MouseLeft`. Axes are declared in `project.aego`:
+`aego/input` — actions, contexts and raw keys; see [Input](ref:input).
+
+`aego/settings` — player and project settings; see [Settings](ref:settings).
 
 ```
-input {
-  axes {
-    horizontal { negative=A positive=D altNegative=Left altPositive=Right }
-    vertical   { negative=S positive=W altNegative=Down altPositive=Up }
-  }
-}
+import "aego/settings"
+
+shake := Strength * settings.GetFloat("accessibility.screenShake")
+settings.SetFloat("audio.bus.music.volume", 0.5)
+settings.Apply()
 ```
+
+| Function | |
+|---|---|
+| `GetBool GetInt GetFloat GetString(id)` | effective value |
+| `SetBool SetInt SetFloat SetString(id, v)`, `Reset(id)`, `Apply() bool`, `Revert()` | staged changes |
+| `OverrideBool OverrideInt OverrideFloat OverrideString(id, v)`, `ClearOverride(id)`, `ClearOverrides()` | session values |
+| `OpenView() CloseView() ViewOpen()`, `NeedsRestart()`, `Save()` | screen and profile |
 
 `aego/scene` — `Find(path string) NodeRef` from the scene root, `Instantiate(prefab AssetRef<Prefab>, parent NodeRef) NodeRef`, `Destroy(NodeRef)`. New nodes appear at the end of the phase; their scripts receive `Ready` before the next `Update`.
 

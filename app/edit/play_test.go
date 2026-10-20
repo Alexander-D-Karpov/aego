@@ -51,12 +51,8 @@ func openSpinner(t *testing.T) *spinFixture {
 	}
 	fd, _ := td.Field("speed")
 	f.typ, f.speed = td.ID, fd.ID
-	add := &commands.AddComponent{
-		Node:   f.spinner,
-		Type:   td.ID,
-		Name:   td.FullName,
-		Values: []commands.FieldValue{{Field: fd.ID, Value: schema.Float32(3)}},
-	}
+	add := commands.NewMutation("Add "+td.FullName, commands.EnvFor(es),
+		commands.AddComp(es, f.spinner, td, []commands.FieldValue{{Field: fd.ID, Value: schema.Float32(3)}}))
 	if err := d.History.Exec(add); err != nil {
 		t.Fatal(err)
 	}

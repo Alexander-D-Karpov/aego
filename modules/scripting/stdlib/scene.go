@@ -103,6 +103,8 @@ func installScene(r *bind.Registry) {
 		bind.Example("scene.Destroy(Target)"))
 	installNode(r.Methods(abi.NodeRef))
 	installPrefabNode(r.Methods(abi.NodeRef))
+	installQueries(m)
+	installTags(r.Methods(abi.NodeRef))
 }
 
 func installNode(n *bind.Module) {

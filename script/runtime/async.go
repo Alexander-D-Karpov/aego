@@ -5,7 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"aego/core/ids"
 	"aego/engine"
+	"aego/engine/recorder"
 	"aego/script/abi"
 	"aego/script/bind"
 	"aego/script/coroutine"
@@ -76,8 +78,11 @@ func (r *Runtime) selfOf(id vm.InstanceID) ([]vm.Value, bool) {
 	return t.vals[in.base : in.base+t.slots], true
 }
 
-func (r *Runtime) deliver(dst vm.InstanceID, method int, args []vm.Value) (bool, error) {
-	in := r.live(dst)
+func (r *Runtime) deliver(c signal.Conn, args []vm.Value) (bool, error) {
+	if c.Go != nil {
+		return r.callGo(c, args), nil
+	}
+	in := r.live(c.Dst)
 	if in == nil {
 		return false, nil
 	}
@@ -85,13 +90,13 @@ func (r *Runtime) deliver(dst vm.InstanceID, method int, args []vm.Value) (bool,
 		return true, nil
 	}
 	t := in.typ
-	if method < 0 || method >= len(t.methods) {
+	if c.Method < 0 || c.Method >= len(t.methods) {
 		return false, nil
 	}
 	r.handlers++
 	node, self := r.ctx.Node, r.ctx.Self
-	r.ctx.Node, r.ctx.Self = in.node, dst
-	fl := r.m.Invoke(t.methods[method], t.vals[in.base:in.base+t.slots], args, dst)
+	r.ctx.Node, r.ctx.Self = in.node, c.Dst
+	fl := r.m.Invoke(t.methods[c.Method], t.vals[in.base:in.base+t.slots], args, c.Dst)
 	r.ctx.Node, r.ctx.Self = node, self
 	if fl == nil {
 		return true, nil
@@ -99,7 +104,7 @@ func (r *Runtime) deliver(dst vm.InstanceID, method int, args []vm.Value) (bool,
 	if fl.Code == vm.CodeCallDepth {
 		return true, fl
 	}
-	r.fault(dst, fl)
+	r.fault(c.Dst, fl)
 	return true, nil
 }
 
@@ -137,13 +142,26 @@ func (r *Runtime) RebindSignals() int {
 }
 
 func (r *Runtime) rebind(c *signal.Conn) bool {
-	src, dst := r.live(c.Src), r.live(c.Dst)
-	if src == nil || dst == nil {
-		return false
+	slots := 0
+	if c.Src.Kind == signal.KindScript {
+		src := r.live(c.Src.Instance())
+		if src == nil {
+			return false
+		}
+		def := src.typ.def
+		si := def.Signal(c.Signal)
+		if si < 0 || !(abi.Signature{Params: def.Signals[si].Params}).Equal(c.Sign) {
+			return false
+		}
+		c.Sig, slots = si, int(def.Signals[si].Slots)
+	} else {
+		slots = r.paramSlots(c.Sign.Params)
 	}
-	def := src.typ.def
-	si := def.Signal(c.Signal)
-	if si < 0 || !(abi.Signature{Params: def.Signals[si].Params}).Equal(c.Sign) {
+	if c.Go != nil {
+		return true
+	}
+	dst := r.live(c.Dst)
+	if dst == nil {
 		return false
 	}
 	mi := dst.typ.methodIndex(c.Handler)
@@ -151,10 +169,10 @@ func (r *Runtime) rebind(c *signal.Conn) bool {
 		return false
 	}
 	f := dst.typ.methods[mi]
-	if f.Coroutine || dst.typ.lifecycle(f) || f.Results != 0 || f.Params != int(def.Signals[si].Slots) {
+	if f.Coroutine || dst.typ.lifecycle(f) || f.Results != 0 || f.Params != slots {
 		return false
 	}
-	c.Sig, c.Method = si, mi
+	c.Method = mi
 	return true
 }
 
@@ -185,8 +203,12 @@ func (b bridge) Instance(ref vm.Value, script string) ([]vm.Value, vm.InstanceID
 }
 
 func (b bridge) Emit(src vm.InstanceID, sig int, args []vm.Value) error {
-	b.r.emits++
-	return b.r.sig.Emit(src, sig, args, b.r.deliverFn)
+	r := b.r
+	r.emits++
+	if in := r.live(src); in != nil && r.rec != nil && r.scene != nil {
+		r.rec.Add(recorder.Signal, r.scene.ID(in.node), ids.NodeID{}, in.typ.def.Signals[sig].Name, shortName(in.typ.name))
+	}
+	return r.sig.Emit(signal.ScriptSource(src), sig, args, r.deliverFn)
 }
 
 func (b bridge) Connect(src, dst vm.Value, c *vm.Connect) (vm.Value, error) {
@@ -204,7 +226,7 @@ func (b bridge) Connect(src, dst vm.Value, c *vm.Connect) (vm.Value, error) {
 		return vm.Value{}, errHandler
 	}
 	h := r.sig.Connect(signal.Conn{
-		Src:     sid,
+		Src:     signal.ScriptSource(sid),
 		Sig:     c.Signal,
 		Dst:     did,
 		Method:  mi,
@@ -221,4 +243,16 @@ func (b bridge) Disconnect(c vm.Value) {
 
 func (b bridge) Connected(c vm.Value) bool {
 	return b.r.sig.Connected(signal.Of(c))
+}
+
+func (r *Runtime) CoroutinesUnscaled(ec *engine.Context) {
+	if !r.begin(ec) {
+		return
+	}
+	real := ec.Unscaled
+	if ec.Time == nil {
+		real = ec.Dt
+	}
+	r.co.Unscaled(float32(real))
+	r.end()
 }

@@ -1,6 +1,8 @@
 package sceneio
 
 import (
+	"maps"
+
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
@@ -27,13 +29,20 @@ type PrefabInstance struct {
 
 func RegisterPrefab(t *scene.Types) error {
 	if err := scene.RegisterComponent[PrefabInstance](t, schema.Name(PrefabName),
-		schema.Doc("links a node to the prefab it was created from")); err != nil {
+		schema.Doc("links a node to the prefab it was created from"), schema.Clone(clonePrefab)); err != nil {
 		return err
 	}
 	if td, ok := t.Schema().ByName(PrefabName); ok {
 		td.Hidden = true
 	}
 	return nil
+}
+
+func clonePrefab(dst, src *PrefabInstance) {
+	dst.Keys = maps.Clone(src.Keys)
+	dst.Orphans = src.Orphans.Clone()
+	dst.Extra = cloneNodes(src.Extra)
+	dst.Block = src.Block.Clone()
 }
 
 func InstanceOf(s *scene.Scene, h scene.NodeHandle) (*PrefabInstance, bool) {

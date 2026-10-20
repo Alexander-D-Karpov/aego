@@ -1,7 +1,10 @@
 package module
 
 import (
+	"aego/engine/settings"
+	"aego/format/aetext"
 	"io/fs"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -44,30 +47,39 @@ type finalizer struct {
 type DocSource struct {
 	Owner string
 	FS    fs.FS
+	Dir   string
 }
 
 type Registry struct {
-	types     *scene.Types
-	script    *bind.Registry
-	modules   []*entry
-	cur       *entry
-	comps     []*schema.TypeDescriptor
-	systems   []ownedSystem
-	events    []ownedEvent
-	engines   []ownedEngine
-	services  []serviceDesc
-	templates []*schema.TemplateDesc
-	sections  []*Section
-	icons     []IconSet
-	docs      []DocSource
-	owners    map[string]string
-	dev       []Hook
-	editor    []Hook
-	finals    []finalizer
-	warns     []string
-	errs      []error
-	built     bool
-	audit     *IconReport
+	types      *scene.Types
+	script     *bind.Registry
+	modules    []*entry
+	cur        *entry
+	comps      []*schema.TypeDescriptor
+	systems    []ownedSystem
+	events     []ownedEvent
+	engines    []ownedEngine
+	services   []serviceDesc
+	templates  []*schema.TemplateDesc
+	sections   []*Section
+	icons      []IconSet
+	docs       []DocSource
+	provided   []provision
+	settings   []settings.Desc
+	saves      []OwnedSection
+	versions   []settings.OwnerVersion
+	owners     map[string]string
+	dev        []Hook
+	editor     []Hook
+	finals     []finalizer
+	warns      []string
+	errs       []error
+	built      bool
+	audit      *IconReport
+	datas      []*schema.TypeDescriptor
+	validators []ownedValidator
+	dataHooks  []DataHook
+	live       []liveDecl
 }
 
 func New(types *scene.Types, script *bind.Registry) *Registry {
@@ -205,7 +217,30 @@ func (r *Registry) Docs(fsys fs.FS) {
 		r.fail("docs source is nil")
 		return
 	}
-	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys})
+	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys, Dir: r.docsDir()})
+}
+
+func (r *Registry) docsDir() string {
+	if r.cur == nil {
+		return ""
+	}
+	m := r.cur.mod
+	for {
+		u, ok := m.(interface{ Unwrap() Module })
+		if !ok {
+			break
+		}
+		m = u.Unwrap()
+	}
+	t := reflect.TypeOf(m)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	dir, ok := strings.CutPrefix(t.PkgPath(), "aego/")
+	if !ok {
+		return ""
+	}
+	return dir + "/res/docs"
 }
 
 func (r *Registry) Dev(fn any) {
@@ -230,4 +265,21 @@ func (r *Registry) Finalize(fn func(*Registry) error) {
 		return
 	}
 	r.finals = append(r.finals, finalizer{owner: r.Owner(), fn: fn})
+}
+
+func (r *Registry) Setting(d settings.Desc) {
+	if r.cur == nil {
+		r.fail("setting " + d.ID + " is registered outside a module")
+		return
+	}
+	d.Owner = r.Owner()
+	r.settings = append(r.settings, d)
+}
+
+func (r *Registry) SettingsVersion(v int, migrate func(n *aetext.Node, from, to int) error) {
+	if r.cur == nil {
+		r.fail("settings version is set outside a module")
+		return
+	}
+	r.versions = append(r.versions, settings.OwnerVersion{Owner: r.Owner(), Version: v, Migrate: migrate})
 }

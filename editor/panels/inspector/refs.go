@@ -228,7 +228,7 @@ func (p *Panel) assetField(id core.ID, r mathx.Rect, fd *schema.FieldDescriptor,
 	}
 	if pl, ok := p.f.DnD.Payload(); ok && p.f.DnD.Hovering(ui, box) {
 		ap, isAsset := pl.Data.(context.AssetPayload)
-		if pl.Kind == context.KindAsset && isAsset && context.AssetMatches(fd.AssetKind, ap.Kind) {
+		if pl.Kind == context.KindAsset && isAsset && context.AssetMatches(fd.AssetKind, ap.Kind) && p.dataFits(fd.AssetKind, ap.ID) {
 			if got, ok := p.f.DnD.Target(ui, box, context.KindAsset); ok {
 				*v = schema.Asset(got.Data.(context.AssetPayload).ID)
 				e = all
@@ -265,7 +265,7 @@ func (p *Panel) assetField(id core.ID, r mathx.Rect, fd *schema.FieldDescriptor,
 			if count >= 200 {
 				break
 			}
-			if !context.AssetMatches(fd.AssetKind, a.Kind) {
+			if !context.AssetMatches(fd.AssetKind, a.Kind) || !p.dataFits(fd.AssetKind, a.ID) {
 				continue
 			}
 			if q != "" && !strings.Contains(strings.ToLower(a.Name), q) {
@@ -281,6 +281,12 @@ func (p *Panel) assetField(id core.ID, r mathx.Rect, fd *schema.FieldDescriptor,
 
 func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v *schema.Value, mixed bool, need string) widgets.Edit {
 	ui := p.f.UI
+	if d == nil {
+		ui.PushClip(r)
+		ui.TextIn(r, "node references are not stored in data", ui.Theme.TextDisabled, core.AlignLeft)
+		ui.PopClip()
+		return widgets.Edit{}
+	}
 	s := d.Scene()
 	cur := v.Node
 	var e widgets.Edit

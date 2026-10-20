@@ -11,15 +11,21 @@ import (
 )
 
 type record struct {
-	id       string
-	title    string
-	parent   string
-	summary  string
-	order    int
-	keys     []string
-	requires []string
-	body     string
-	line     int
+	id         string
+	title      string
+	parent     string
+	summary    string
+	group      string
+	groupTitle string
+	groupOrder int
+	order      int
+	ordered    bool
+	keys       []string
+	requires   []string
+	try        string
+	trySelect  string
+	body       string
+	line       int
 }
 
 func isFence(l string) bool {
@@ -118,15 +124,29 @@ func (r *record) set(key, val string) error {
 		r.parent, err = scalar(val)
 	case "summary":
 		r.summary, err = scalar(val)
+	case "group":
+		r.group, err = scalar(val)
+	case "group_title":
+		r.groupTitle, err = scalar(val)
+	case "group_order":
+		var s string
+		if s, err = scalar(val); err == nil {
+			r.groupOrder, err = strconv.Atoi(s)
+		}
 	case "order":
 		var s string
 		if s, err = scalar(val); err == nil {
 			r.order, err = strconv.Atoi(s)
+			r.ordered = err == nil
 		}
 	case "keys":
 		r.keys, err = list(val)
 	case "requires":
 		r.requires, err = list(val)
+	case "try":
+		r.try, err = scalar(val)
+	case "try_select":
+		r.trySelect, err = scalar(val)
 	default:
 		return fmt.Errorf("unknown front matter key %q", key)
 	}

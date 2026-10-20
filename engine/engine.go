@@ -3,7 +3,7 @@ package engine
 import (
 	"os"
 	"runtime"
-	"unsafe"
+	"runtime/metrics"
 
 	"aego/core/clock"
 	"aego/core/errs"
@@ -20,39 +20,40 @@ import (
 	"aego/vfs"
 )
 
-type glWindow interface {
-	GLProcAddress(name string) unsafe.Pointer
-}
-
 type Engine struct {
-	cfg       Config
-	log       *log.Logger
-	elog      *log.ChannelLogger
-	plat      platform.Platform
-	win       platform.Window
-	dev       gpu.Device
-	curFrame  gpu.Frame
-	files     *vfs.VFS
-	input     input.State
-	reg       *Registry
-	jobs      *Jobs
-	stepper   clock.FixedStepper
-	counter   *stats.Counter
-	stats     stats.Frame
-	metrics   platform.WindowMetrics
-	ctx       Context
-	main      *World
-	wctx      Context
-	app       App
-	onEvent   func(platform.Event)
-	vsync     platform.VSyncMode
-	frameNo   uint64
-	lastTime  float64
-	minimized bool
-	appInit   bool
-	quit      bool
-	closed    bool
-	err       error
+	cfg        Config
+	log        *log.Logger
+	elog       *log.ChannelLogger
+	plat       platform.Platform
+	win        platform.Window
+	dev        gpu.Device
+	curFrame   gpu.Frame
+	files      *vfs.VFS
+	input      input.State
+	reg        *Registry
+	jobs       *Jobs
+	counter    *stats.Counter
+	stats      stats.Frame
+	metrics    platform.WindowMetrics
+	ctx        Context
+	main       *World
+	wctx       Context
+	app        App
+	onEvent    func(platform.Event)
+	vsync      platform.VSyncMode
+	frameLimit float64
+	frameNo    uint64
+	lastTime   float64
+	minimized  bool
+	appInit    bool
+	quit       bool
+	closed     bool
+	err        error
+
+	probe       bool
+	probeSample []metrics.Sample
+	allocs      [phaseCount]uint64
+	lastAllocs  [phaseCount]uint64
 
 	tracer     *trace.Tracer
 	phaseZones [phaseCount]trace.ZoneID
@@ -110,8 +111,19 @@ func (b *Builder) WithPlatform(p platform.Platform) *Builder {
 	return b
 }
 
+func (b *Builder) Configure(fn func(*Config)) *Builder {
+	if fn != nil {
+		fn(&b.cfg)
+	}
+	return b
+}
+
 func (b *Builder) Registry() *Registry {
 	return b.reg
+}
+
+func (e *Engine) TimeConfig() clock.Config {
+	return clock.Config{FixedDelta: 1 / e.cfg.FixedHz, MaxFrameDelta: e.cfg.MaxFrameDelta, MaxFixedSteps: e.cfg.MaxFixedSteps}
 }
 
 func (b *Builder) Build() (*Engine, error) {
@@ -146,11 +158,7 @@ func (b *Builder) Build() (*Engine, error) {
 	e.ctx.World = e.main
 	e.onEvent = e.handleEvent
 	e.counter = stats.NewCounter()
-	e.stepper = clock.FixedStepper{
-		FixedDelta:    1 / cfg.FixedHz,
-		MaxFrameDelta: cfg.MaxFrameDelta,
-		MaxSteps:      cfg.MaxFixedSteps,
-	}
+	e.main.Time.Configure(e.TimeConfig())
 
 	if err := e.initBackends(b.platform); err != nil {
 		e.Close()
@@ -242,18 +250,18 @@ func (e *Engine) initBackends(p platform.Platform) error {
 	e.metrics = win.Metrics()
 	e.vsync = win.SetVSync(cfg.VSync)
 
-	if _, ok := win.(glWindow); !ok || cfg.Headless {
-		if !cfg.Headless {
-			e.elog.Warn("window has no OpenGL context, falling back to the null gpu backend")
+	if !cfg.Headless {
+		dev, err := newNativeDevice(win, cfg, e.log)
+		if err != nil {
+			return err
 		}
-		e.dev = null.New()
-		return nil
+		if dev != nil {
+			e.dev = dev
+			return nil
+		}
+		e.elog.Warn("window has no GPU context, falling back to the null gpu backend")
 	}
-	dev, err := newNativeDevice(win, cfg, e.log)
-	if err != nil {
-		return err
-	}
-	e.dev = dev
+	e.dev = null.New()
 	return nil
 }
 
@@ -319,7 +327,12 @@ func (e *Engine) CancelQuit() {
 }
 
 func (e *Engine) Run(app App) error {
-	for e.Step(app) {
+	step := func() bool { return e.Step(app) }
+	if d, ok := e.plat.(platform.Driver); ok {
+		d.Drive(step)
+	} else {
+		for step() {
+		}
 	}
 	return e.Close()
 }
@@ -363,4 +376,12 @@ func (e *Engine) handleEvent(ev platform.Event) {
 	if e.app != nil {
 		e.app.Event(ev)
 	}
+}
+
+func (e *Engine) SetFrameLimit(fps float64) {
+	e.frameLimit = max(fps, 0)
+}
+
+func (e *Engine) FrameLimit() float64 {
+	return e.frameLimit
 }

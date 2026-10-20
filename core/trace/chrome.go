@@ -23,11 +23,13 @@ func WriteChrome(w io.Writer, t *Tracer, frames []Frame) error {
 			names[i] = string(q)
 		}
 	}
+	u := func(v uint64) string { return strconv.FormatUint(v, 10) }
 	for i := range frames {
 		f := &frames[i]
-		bw.WriteString(`,{"name":"frame ` + strconv.FormatUint(f.Index, 10) + `","ph":"X","pid":1,"tid":1,"ts":` + us(f.Start) +
-			`,"dur":` + us(f.Dur) + `,"args":{"gc":` + strconv.FormatUint(uint64(f.GC), 10) +
-			`,"dropped":` + strconv.FormatUint(uint64(f.Dropped), 10) + `}}`)
+		bw.WriteString(`,{"name":"frame ` + u(f.Index) + `","ph":"X","pid":1,"tid":1,"ts":` + us(f.Start) +
+			`,"dur":` + us(f.Dur) + `,"args":{"gc":` + u(uint64(f.GC)) +
+			`,"dropped":` + u(uint64(f.Dropped)) + `,"world":` + u(f.World) + `,"frameId":` + u(f.FrameID) +
+			`,"firstTick":` + u(f.FirstTick) + `,"lastTick":` + u(f.LastTick) + `}}`)
 		for _, e := range f.Events {
 			name := `""`
 			if int(e.Zone) < len(names) {

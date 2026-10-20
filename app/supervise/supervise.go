@@ -31,6 +31,7 @@ type Options struct {
 	Debug      bool
 	Hidden     bool
 	CPUProfile string
+	Profile    string
 	Stdout     io.Writer
 	Stderr     io.Writer
 }
@@ -139,6 +140,9 @@ func (s *supervisor) start(exited chan<- int) error {
 	}
 	if s.opt.CPUProfile != "" {
 		args = append(args, "-cpuprofile", s.opt.CPUProfile)
+	}
+	if s.opt.Profile != "" {
+		args = append(args, "-profile", s.opt.Profile)
 	}
 	args = append(args, s.p.Root)
 	cmd := exec.Command(s.current, args...)

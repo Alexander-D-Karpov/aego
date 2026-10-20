@@ -148,7 +148,9 @@ func (s *Swap) Commit(id uint64, changed func(name string) bool) ([]vm.InstanceI
 	}
 	r.types, r.byName = s.types, s.byName
 	r.relisten()
-	r.update = r.reschedule(r.update, func(t *scriptType) *vm.Func { return t.update }, true)
+	r.update = r.reschedule(r.update, updateIn(bytecode.PauseNormal), true)
+	r.always = r.reschedule(r.always, updateIn(bytecode.PauseAlways), true)
+	r.whenPaused = r.reschedule(r.whenPaused, updateIn(bytecode.PauseWhenPaused), true)
 	r.fixed = r.reschedule(r.fixed, func(t *scriptType) *vm.Func { return t.fixed }, true)
 	r.ready = r.reschedule(r.ready, func(t *scriptType) *vm.Func { return t.ready }, false)
 	r.stats.Types = make([]TypeStats, len(r.types))
@@ -160,6 +162,15 @@ func (s *Swap) Commit(id uint64, changed func(name string) bool) ([]vm.InstanceI
 
 func (s *Swap) Abort() {
 	s.types, s.byName, s.descs, s.moves, s.loaded = nil, nil, nil, nil, false
+}
+
+func updateIn(mode uint8) func(*scriptType) *vm.Func {
+	return func(t *scriptType) *vm.Func {
+		if t.pause != mode {
+			return nil
+		}
+		return t.update
+	}
 }
 
 func (r *Runtime) reschedule(list []vm.InstanceID, has func(*scriptType) *vm.Func, add bool) []vm.InstanceID {

@@ -46,7 +46,7 @@ func (r *Registry) scripts(project string, syms []ScriptSymbol) {
 		project = "Project"
 	}
 	r.add(Entry{
-		ID: ProjectID, Kind: Page, Owner: project, Title: project,
+		ID: ProjectID, Kind: Page, Owner: project, Group: GroupProject, Title: project,
 		Body: "Script packages of " + project + ", built from the doc comments above scripts, signals and exported declarations.",
 	})
 	seen := map[string]bool{}

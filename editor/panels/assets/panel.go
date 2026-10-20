@@ -1,6 +1,9 @@
 package assets
 
 import (
+	"aego/editor/core/code/highlight"
+	favs "aego/editor/core/favorites"
+	"aego/editor/core/refs"
 	"os/exec"
 	"path"
 	"runtime"
@@ -15,26 +18,27 @@ import (
 	"aego/editor/core/assetops"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/preview"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
 	"aego/platform/input"
 	"aego/project"
+	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
 )
 
-const tileW = 88
-
 const (
-	CommandRename    = "assets.rename"
-	CommandDelete    = "assets.delete"
-	CommandDuplicate = "assets.duplicate"
-	CommandUndo      = "assets.undo"
-	CommandRedo      = "assets.redo"
-	CommandCopy      = "assets.copy"
-	CommandCut       = "assets.cut"
-	CommandPaste     = "assets.paste"
+	CommandRename         = "assets.rename"
+	CommandDelete         = "assets.delete"
+	CommandDuplicate      = "assets.duplicate"
+	CommandUndo           = "assets.undo"
+	CommandRedo           = "assets.redo"
+	CommandCopy           = "assets.copy"
+	CommandCut            = "assets.cut"
+	CommandPaste          = "assets.paste"
+	CommandFindReferences = "assets.find_references"
 )
 
 type dirRow struct {
@@ -44,17 +48,26 @@ type dirRow struct {
 }
 
 type Deps struct {
-	Files     *assetfiles.Files
-	Pipeline  *pipeline.Pipeline
-	Thumbs    *Thumbs
-	Docs      services.Documents
-	Selection services.Selection
-	Scenes    services.SceneOps
-	Prefabs   services.Prefabs
-	Commands  *command.Registry
-	Notices   services.Notices
-	Nav       services.Navigation
-	Project   *project.Project
+	Files          *assetfiles.Files
+	Pipeline       *pipeline.Pipeline
+	Thumbs         *preview.Service
+	Docs           services.Documents
+	Selection      services.Selection
+	Scenes         services.SceneOps
+	Prefabs        services.Prefabs
+	Commands       *command.Registry
+	Notices        services.Notices
+	Nav            services.Navigation
+	Project        *project.Project
+	Schema         *schema.Registry
+	Inspect        func(id ids.AssetID)
+	OpenTable      func(id ids.AssetID)
+	DataType       func(id ids.AssetID) (string, bool)
+	Favorites      *favs.Store
+	Refs           *refs.Service
+	ShowReferences func(id ids.AssetID, deleting []ids.AssetID)
+	BatchRename    func(list []ids.AssetID)
+	Compare        func(rel string)
 }
 
 type Panel struct {
@@ -92,6 +105,10 @@ type Panel struct {
 	dirMenuID      core.ID
 	cut            cutSet
 	scrollTo       ids.AssetID
+	tile           float32
+	stacks         map[string][]int
+	stackRev       uint64
+	spans          []highlight.Span
 }
 
 func New(d Deps) *Panel {
@@ -273,6 +290,18 @@ func (p *Panel) press(id ids.AssetID) {
 	default:
 		p.selectOnly(id)
 	}
+	p.inspectActive()
+}
+
+func (p *Panel) inspectActive() {
+	if p.d.Inspect == nil {
+		return
+	}
+	var target ids.AssetID
+	if a := p.find(p.active); a != nil && len(p.sel) == 1 && a.Kind == asset.ArtData {
+		target = a.ID
+	}
+	p.d.Inspect(target)
 }
 
 func (p *Panel) settle() {
@@ -285,6 +314,7 @@ func (p *Panel) settle() {
 	case !p.f.UI.MouseDown(input.MouseLeft):
 		p.selectOnly(p.pending)
 		p.pending = ids.AssetID{}
+		p.inspectActive()
 	}
 }
 
@@ -305,8 +335,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if bar.W < 300 {
 		bw, label = bar.H, "+"
 	}
+	sw := float32(0)
+	if bar.W >= 260 {
+		sw = 3 * (bar.H + 4)
+	}
 	newID := ui.ID("newdir")
-	widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: bar.X, Y: bar.Y, W: max(0, bar.W-bw-4), H: bar.H}, &p.search)
+	widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: bar.X, Y: bar.Y, W: max(0, bar.W-bw-sw-8), H: bar.H}, &p.search)
+	if sw > 0 {
+		p.sizeButtons(mathx.Rect{X: bar.X + bar.W - bw - sw - 4, Y: bar.Y, W: sw, H: bar.H})
+	}
 	if widgets.ButtonRect(ui, newID, mathx.Rect{X: bar.X + bar.W - bw, Y: bar.Y, W: bw, H: bar.H}, label) {
 		p.newFolder(p.folder)
 	}
@@ -419,8 +456,9 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 	th := &ui.Theme
 	p.filter()
 	count := len(p.subdirs) + len(p.view)
-	cols := max(1, int(r.W/tileW))
-	tileH := float32(ThumbSize) + th.RowHeight + 12
+	tw := p.tileW()
+	cols := max(1, int(r.W/tw))
+	tileH := p.tileSize() + th.RowHeight + 12
 	rows := (count + cols - 1) / cols
 	p.scrollToTile(cols, tileH, r.H)
 	p.overDir = false
@@ -430,7 +468,7 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 			if i >= count {
 				break
 			}
-			tr := mathx.Rect{X: rr.X + float32(c)*tileW + 2, Y: rr.Y + 2, W: tileW - 4, H: tileH - 4}
+			tr := mathx.Rect{X: rr.X + float32(c)*tw + 2, Y: rr.Y + 2, W: tw - 4, H: tileH - 4}
 			if i < len(p.subdirs) {
 				p.dirTile(p.subdirs[i], tr)
 				continue
@@ -466,17 +504,6 @@ func fitRect(box mathx.Rect, w, h uint16) mathx.Rect {
 	s := min(box.W/float32(w), box.H/float32(h))
 	fw, fh := float32(w)*s, float32(h)*s
 	return mathx.Rect{X: box.X + (box.W-fw)/2, Y: box.Y + (box.H-fh)/2, W: fw, H: fh}
-}
-
-func iconRect(img mathx.Rect, pad float32) mathx.Rect {
-	return mathx.Rect{X: img.X + pad, Y: img.Y + pad, W: img.W - 2*pad, H: img.H - 2*pad}
-}
-
-func kindLabel(a *pipeline.AssetInfo) string {
-	if a.Kind == asset.ArtScene {
-		return "SCENE"
-	}
-	return strings.ToUpper(strings.TrimPrefix(path.Ext(a.Path), "."))
 }
 
 func assetTileID(id ids.AssetID) core.ID {
@@ -527,16 +554,15 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	case ui.Hot() == id:
 		ui.Rect(r, th.WidgetHot)
 	}
-	img := mathx.Rect{X: r.X + (r.W-ThumbSize)/2, Y: r.Y + 4, W: ThumbSize, H: ThumbSize}
+	ts := p.tileSize()
+	img := mathx.Rect{X: r.X + (r.W-ts)/2, Y: r.Y + 4, W: ts, H: ts}
 	if reg, ok := p.d.Thumbs.Get(*a); ok {
+		if preview.Image(a.Kind) || a.Kind == asset.ArtPrefab {
+			p.checker(img)
+		}
 		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.Color{R: 1, G: 1, B: 1, A: 1})
 	} else {
-		ui.Rect(img, th.Widget)
-		if a.Kind == asset.ArtScript {
-			widgets.IconAt(ui, iconRect(img, 10), "file.script", th.Text)
-		} else {
-			ui.TextIn(img, kindLabel(a), th.TextDim, core.AlignCenter)
-		}
+		p.schematic(a, img)
 	}
 	startup := p.d.Project != nil && a.ID == p.d.Project.MainScene
 	if startup {
@@ -547,7 +573,7 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		p.drawAssetRename(a, nameR)
 	} else {
 		ui.PushClip(nameR)
-		ui.TextIn(nameR, assetops.Stem(a.Path), th.Text, core.AlignCenter)
+		ui.TextIn(nameR, widgets.Elide(ui, assetops.Stem(a.Path), nameR.W), th.Text, core.AlignCenter)
 		ui.PopClip()
 	}
 	tip := a.Path
@@ -591,11 +617,12 @@ func (p *Panel) dirTile(dir string, r mathx.Rect) {
 	case ui.Hot() == id:
 		ui.Rect(r, th.WidgetHot)
 	}
-	img := mathx.Rect{X: r.X + (r.W-ThumbSize)/2, Y: r.Y + 4, W: ThumbSize, H: ThumbSize}
-	widgets.IconAt(ui, iconRect(img, 6), "file.folder", th.Accent)
+	ts := p.tileSize()
+	img := mathx.Rect{X: r.X + (r.W-ts)/2, Y: r.Y + 4, W: ts, H: ts}
+	p.folderStack(dir, img)
 	nameR := mathx.Rect{X: r.X + 2, Y: img.Y + img.H + 2, W: r.W - 4, H: th.RowHeight}
 	ui.PushClip(nameR)
-	ui.TextIn(nameR, path.Base(dir), th.Text, core.AlignCenter)
+	ui.TextIn(nameR, widgets.Elide(ui, path.Base(dir), nameR.W), th.Text, core.AlignCenter)
 	ui.PopClip()
 	if p.f.DnD.Hovering(ui, r) {
 		p.overDir = true
@@ -723,7 +750,11 @@ func openExternal(abs string) error {
 }
 
 func openable(k asset.ArtifactKind) bool {
-	return k == asset.ArtScene || k == asset.ArtScript || k == asset.ArtPrefab
+	switch k {
+	case asset.ArtScene, asset.ArtScript, asset.ArtPrefab, asset.ArtData, asset.ArtTable:
+		return true
+	}
+	return false
 }
 
 func (p *Panel) open(a *pipeline.AssetInfo) {
@@ -739,6 +770,14 @@ func (p *Panel) open(a *pipeline.AssetInfo) {
 		}
 		if err := openExternal(p.d.Pipeline.Abs(a.Path)); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
+		}
+	case asset.ArtData:
+		if p.d.Inspect != nil {
+			p.d.Inspect(a.ID)
+		}
+	case asset.ArtTable:
+		if p.d.OpenTable != nil {
+			p.d.OpenTable(a.ID)
 		}
 	}
 }

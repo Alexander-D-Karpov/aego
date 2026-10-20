@@ -1,5 +1,7 @@
 package schema
 
+import "unsafe"
+
 type regOptions struct {
 	name         string
 	former       []string
@@ -12,6 +14,9 @@ type regOptions struct {
 	choices      map[string]HintSource
 	bitsets      map[string]HintSource
 	runtime      map[string]bool
+	persist      map[string]bool
+	persistAll   bool
+	clone        func(dst, src unsafe.Pointer)
 }
 
 type HintSource struct {
@@ -120,6 +125,21 @@ func Runtime(fields ...string) Option {
 		}
 		for _, f := range fields {
 			o.runtime[f] = true
+		}
+	}
+}
+
+func Persist(fields ...string) Option {
+	return func(o *regOptions) {
+		if len(fields) == 0 {
+			o.persistAll = true
+			return
+		}
+		if o.persist == nil {
+			o.persist = map[string]bool{}
+		}
+		for _, f := range fields {
+			o.persist[f] = true
 		}
 	}
 }

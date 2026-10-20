@@ -42,7 +42,7 @@ func TestColliderFitsSprite(t *testing.T) {
 	}
 	for _, name := range []string{"Crate", "Bare"} {
 		id := es.ID(es.Find(es.Root(), name))
-		if err := d.History.Exec(&commands.AddComponent{Node: id, Type: td.ID, Name: td.FullName, OnAdd: ctx.OnAdd(td)}); err != nil {
+		if err := d.History.Exec(commands.NewMutation("Add "+td.FullName, commands.WithOnAdd(commands.EnvFor(es), ctx.OnAdd), commands.AddComp(es, id, td, nil))); err != nil {
 			t.Fatal(err)
 		}
 	}

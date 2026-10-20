@@ -3,6 +3,7 @@ package inspector
 import (
 	"strconv"
 
+	"aego/core/curve"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/document"
@@ -130,6 +131,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 			delete(p.live, key)
 		}
 	}
+	tip := fd.Hints.Tooltip
+	if mixed {
+		tip = p.mixedTip(d, td, fd, tip)
+	}
 	cur := ui.Cursor()
 	rowTop := cur.Y
 	pre := mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: ui.Theme.RowHeight}
@@ -141,10 +146,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 	var e widgets.Edit
 	var row mathx.Rect
 	if at != nil {
-		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro, at[0], at[1])
+		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(fd), tip, ro, at[0], at[1])
 		row = pre
 	} else {
-		e = p.value(d, fd, &v, mixed, p.labelOf(fd), fd.Hints.Tooltip, ro)
+		e = p.value(d, fd, &v, mixed, p.labelOf(fd), tip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
 	}
 	if p.overridden(td, fd) {
@@ -389,6 +394,18 @@ func (p *Panel) scalar(d *document.SceneDocument, id core.ID, r mathx.Rect, fd *
 			*v = schema.Enum(fd.Enum[cur].Value)
 			return all
 		}
+	case schema.KindCurve:
+		st := p.curves[id]
+		if st == nil {
+			st = widgets.NewCurveState()
+			p.curves[id] = st
+		}
+		cv := v.Cv
+		e := widgets.CurveField(ui, id, r, &cv, mixed, st)
+		if e.Changed {
+			*v = schema.Curve(cv)
+		}
+		return e
 	case schema.KindAssetRef:
 		return p.assetField(id, r, fd, v, mixed)
 	case schema.KindNodeRef:
@@ -421,6 +438,8 @@ func zeroValue(reg *schema.Registry, fd *schema.FieldDescriptor) schema.Value {
 		return schema.Color(mathx.Color{R: 1, G: 1, B: 1, A: 1})
 	case schema.KindRect:
 		return schema.Rect(mathx.Rect{})
+	case schema.KindCurve:
+		return schema.Curve(curve.Line(0, 0, 1, 1))
 	case schema.KindString:
 		return schema.String("")
 	case schema.KindEnum:
@@ -475,6 +494,11 @@ func (p *Panel) summary(d *document.SceneDocument, fd *schema.FieldDescriptor, v
 		return num(e.X) + "°, " + num(e.Y) + "°, " + num(e.Z) + "°"
 	case schema.KindColor:
 		return widgets.HexColor(v.C)
+	case schema.KindCurve:
+		if v.Cv.Ease != curve.None {
+			return v.Cv.Ease.String()
+		}
+		return strconv.Itoa(len(v.Cv.Keys)) + " keys"
 	case schema.KindEnum:
 		if name, ok := fd.EnumNameOf(v.I); ok {
 			return name
@@ -483,6 +507,9 @@ func (p *Panel) summary(d *document.SceneDocument, fd *schema.FieldDescriptor, v
 	case schema.KindAssetRef:
 		return assetState(p.d.Pipeline, v.Asset).label
 	case schema.KindNodeRef:
+		if d == nil {
+			return "—"
+		}
 		return nodeState(d.Scene(), v.Node, fd.Component).label
 	case schema.KindList:
 		return "[" + strconv.Itoa(len(v.List)) + "]"
@@ -540,7 +567,7 @@ func (p *Panel) listValue(d *document.SceneDocument, fd *schema.FieldDescriptor,
 	if editable {
 		elem := elemOf(fd)
 		if widgets.ButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: row.X + row.W - 2*bw - 2, Y: row.Y, W: bw, H: row.H}, "+") {
-			v.List = append(v.List, zeroValue(d.Scene().Registry(), &elem))
+			v.List = append(v.List, zeroValue(p.schemaOf(d), &elem))
 			e = all
 		}
 		if widgets.ButtonRect(ui, core.IDSeq(id, 2), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "-") && n > 0 {
@@ -568,7 +595,10 @@ func (p *Panel) listValue(d *document.SceneDocument, fd *schema.FieldDescriptor,
 func (p *Panel) structValue(d *document.SceneDocument, fd *schema.FieldDescriptor, v *schema.Value, mixed bool, label string, ro bool) widgets.Edit {
 	ui := p.f.UI
 	th := &ui.Theme
-	reg := d.Scene().Registry()
+	reg := p.schemaOf(d)
+	if reg == nil {
+		return widgets.Edit{}
+	}
 	td, ok := reg.ByID(fd.Struct)
 	if !ok {
 		return widgets.Edit{}

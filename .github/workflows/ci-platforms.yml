@@ -95,3 +95,13 @@ jobs:
         run: |
           /tmp/aego check examples/native-rotator
           /tmp/aego run examples/native-rotator --headless --frames 60
+      - name: export packages
+        run: go test -count=1 ./runtime/... ./vfs/exportfs ./app/export/...
+      - name: export and run headless
+        run: go test -count=1 -run 'TestExport' -v ./tests/integration
+      - name: editor app bundle
+        if: runner.os == 'macOS'
+        run: |
+          make editor-app
+          plutil -lint ".cache/Aego Editor.app/Contents/Info.plist"
+          codesign --verify --deep ".cache/Aego Editor.app"

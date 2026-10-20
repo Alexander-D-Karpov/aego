@@ -9,6 +9,7 @@ import "C"
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"unsafe"
 
 	"aego/core/errs"
@@ -29,7 +30,34 @@ type Platform struct {
 	start uint64
 }
 
+func fractional(v float32) bool {
+	return v != float32(int32(v))
+}
+
+func cstr(s string) *C.char {
+	if s == "" {
+		return nil
+	}
+	return C.CString(s)
+}
+
+func setMetadata(m platform.AppMetadata) {
+	if m.Name == "" {
+		return
+	}
+	name, ver, id := cstr(m.Name), cstr(m.Version), cstr(m.Identifier)
+	defer C.free(unsafe.Pointer(name))
+	if ver != nil {
+		defer C.free(unsafe.Pointer(ver))
+	}
+	if id != nil {
+		defer C.free(unsafe.Pointer(id))
+	}
+	C.SDL_SetAppMetadata(name, ver, id)
+}
+
 func New() (*Platform, error) {
+	setMetadata(platform.AppMeta())
 	if !C.aego_init() {
 		return nil, errs.New(errs.PlatformInit, "SDL_Init failed", log.F("sdl", lastError()))
 	}
@@ -190,10 +218,28 @@ func (p *Platform) translate() (platform.Event, bool) {
 		}
 	case C.AEGO_EV_WHEEL:
 		ev.Kind = platform.EvMouseWheel
+		w := mathx.Vec2{X: float32(c.wx), Y: float32(c.wy)}
 		ev.Mouse = input.MouseEvent{
-			Pos:   mathx.Vec2{X: float32(c.x), Y: float32(c.y)},
-			Wheel: mathx.Vec2{X: float32(c.wx), Y: float32(c.wy)},
+			Pos:     mathx.Vec2{X: float32(c.x), Y: float32(c.y)},
+			Wheel:   w,
+			Precise: fractional(w.X) || fractional(w.Y),
+			Flipped: c.flipped != 0,
 		}
+	case C.AEGO_EV_PAD_ADDED:
+		ev.Kind = platform.EvPadAdded
+		ev.Pad = input.PadEvent{ID: uint32(c.pad), Name: C.GoStringN(&c.text[0], c.textn)}
+	case C.AEGO_EV_PAD_REMOVED:
+		ev.Kind = platform.EvPadRemoved
+		ev.Pad = input.PadEvent{ID: uint32(c.pad)}
+	case C.AEGO_EV_PAD_DOWN, C.AEGO_EV_PAD_UP:
+		ev.Kind = platform.EvPadButtonDown
+		if c.kind == C.AEGO_EV_PAD_UP {
+			ev.Kind = platform.EvPadButtonUp
+		}
+		ev.Pad = input.PadEvent{ID: uint32(c.pad), Button: input.PadButton(c.button)}
+	case C.AEGO_EV_PAD_AXIS:
+		ev.Kind = platform.EvPadAxis
+		ev.Pad = input.PadEvent{ID: uint32(c.pad), Axis: input.PadAxis(c.button), Value: float32(c.wx)}
 	default:
 		return ev, false
 	}
@@ -230,6 +276,7 @@ type Window struct {
 	fullscreen bool
 	cursor     platform.CursorShape
 	textInput  bool
+	mode       platform.WindowMode
 }
 
 func (w *Window) refresh() {
@@ -403,4 +450,68 @@ var (
 	_ platform.Clipboard     = (*Window)(nil)
 	_ platform.Cursorer      = (*Window)(nil)
 	_ platform.MouseCapturer = (*Window)(nil)
+	_ platform.Displayer     = (*Window)(nil)
 )
+
+func toMode(m C.aego_mode) platform.DisplayMode {
+	return platform.DisplayMode{W: int(m.w), H: int(m.h), Hz: float32(m.hz)}
+}
+
+func (w *Window) displayIDs() []C.SDL_DisplayID {
+	var ids [16]C.SDL_DisplayID
+	n := int(C.aego_displays(&ids[0], 16))
+	return append([]C.SDL_DisplayID(nil), ids[:n]...)
+}
+
+func (w *Window) Displays() []platform.Display {
+	ids := w.displayIDs()
+	out := make([]platform.Display, 0, len(ids))
+	var modes [64]C.aego_mode
+	for _, id := range ids {
+		d := platform.Display{ID: uint32(id), Name: C.GoString(C.SDL_GetDisplayName(id))}
+		var cur C.aego_mode
+		if C.aego_display_current(id, &cur) {
+			d.Current = toMode(cur)
+		}
+		n := int(C.aego_display_modes(id, &modes[0], 64))
+		for i := 0; i < n; i++ {
+			d.Modes = append(d.Modes, toMode(modes[i]))
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+func (w *Window) WindowDisplay() int {
+	id := C.SDL_GetDisplayForWindow(w.win)
+	for i, x := range w.displayIDs() {
+		if x == id {
+			return i
+		}
+	}
+	return 0
+}
+
+func (w *Window) WindowMode() platform.WindowMode {
+	return w.mode
+}
+
+func (w *Window) SetWindowMode(m platform.WindowMode, display int, size platform.DisplayMode) error {
+	ids := w.displayIDs()
+	if display < 0 || display >= len(ids) {
+		return errs.New(errs.PlatformWindow, "there is no display "+strconv.Itoa(display))
+	}
+	if m == platform.Fullscreen && size.W <= 0 {
+		var cur C.aego_mode
+		if C.aego_display_current(ids[display], &cur) {
+			size = toMode(cur)
+		}
+	}
+	if !C.aego_set_window_mode(w.win, C.int(m), ids[display], C.int(size.W), C.int(size.H), C.float(size.Hz)) {
+		return errs.New(errs.PlatformWindow, "cannot change the window mode", log.F("sdl", lastError()))
+	}
+	w.mode = m
+	w.fullscreen = m != platform.Windowed
+	w.refresh()
+	return nil
+}

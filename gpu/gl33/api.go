@@ -2,7 +2,7 @@ package gl33
 
 import (
 	"aego/gpu/gl33/gl"
-	"aego/gpu/gl33/internal/glstate"
+	"aego/gpu/internal/glstate"
 )
 
 type realAPI struct{}

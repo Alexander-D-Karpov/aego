@@ -122,6 +122,10 @@ scene version=1 {
       current=5
       hits=0
     }
+    component "save.Persist" version=1 {
+      noTransform=false
+      noEnabled=false
+    }
     component "engine.Script" version=1 {
       script "mygame.player.PlayerController" enabled=true {
         Speed=7
@@ -189,10 +193,8 @@ scene version=1 {
   node "c0000000000000000000000000000007" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
     id "e1000000000000000000000000000001" node=node("c0000000000000000000000000000007") {}
     override "e1000000000000000000000000000001" prop="node.name" value="EnemyRight" {}
-    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Cooldown" value=1.5 {}
     override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000008") {}
     override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("c0000000000000000000000000000009") {}
-    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Speed" value=3 {}
     override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Target" value=node("c0000000000000000000000000000003") {}
     override "e1000000000000000000000000000001" prop="transform.position" value=[8, 3.04] {}
     override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}

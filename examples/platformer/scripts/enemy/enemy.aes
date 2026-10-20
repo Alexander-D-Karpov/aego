@@ -1,7 +1,10 @@
 package enemy
 
 import (
+	"aego/curve"
 	"aego/physics"
+	"aego/timer"
+	"aego/tween"
 	"mygame/combat"
 	"mygame/shared"
 )
@@ -18,20 +21,23 @@ script EnemyAI {
 	@export
 	var Target NodeRef
 
-	@export(min=0, max=10, unit="u/s")
-	var Speed float = 2.5
-
-	@export(min=0, max=5, unit="s")
-	var Cooldown float = 1
+	@export(tip="Speed, cooldown, damage and tint of this kind of enemy")
+	var Stats AssetRef<EnemyStats>
 
 	var toB bool = true
-	var wait float
+	var hit timer.Timer
 	var dead bool
+	var fade Connection
+
+	func Ready() {
+		hit = timer.Cooldown(Stats.Cooldown)
+		sprite := node.Get<SpriteRenderer>()
+		if sprite != nil {
+			sprite.Tint = Stats.Tint
+		}
+	}
 
 	func FixedUpdate(dt float) {
-		if wait > 0 {
-			wait -= dt
-		}
 		if dead || PointA == nil || PointB == nil {
 			return
 		}
@@ -48,7 +54,7 @@ script EnemyAI {
 			toB = !toB
 		}
 		v := body.Velocity
-		v.X = dir * Speed
+		v.X = dir * Stats.Speed
 		body.SetVelocity(v)
 	}
 
@@ -62,14 +68,17 @@ script EnemyAI {
 		}
 		dead = true
 		Died.Emit()
+		fade = tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad).Completed.Connect(OnFaded)
+	}
+
+	func OnFaded(finished bool) {
 		node.Destroy()
 	}
 
 	func OnCollisionEnter(other NodeRef, c physics.Contact) {
-		if dead || other != Target || wait > 0 || c.Normal.Y > 0.5 {
+		if dead || other != Target || c.Normal.Y > 0.5 || !hit.Use() {
 			return
 		}
-		combat.Damage(Target, 1)
-		wait = Cooldown
+		combat.Damage(Target, Stats.Damage)
 	}
 }

@@ -30,7 +30,6 @@ var editorKeys = []kmRow{
 	{name: "Next / previous error", keys: "F2 / Shift+F2"},
 	{name: "Find / replace in file", keys: "Ctrl+F / Ctrl+H"},
 	{name: "Find in scripts", keys: "Ctrl+Shift+F"},
-	{name: "Search everywhere", keys: "Shift Shift"},
 	{name: "Toggle comment", keys: "Ctrl+/"},
 	{name: "Indent / outdent", keys: "Tab / Shift+Tab"},
 	{name: "Duplicate line", keys: "Ctrl+D"},
@@ -84,8 +83,8 @@ func (k *Keymap) build() {
 	byCat := map[string][]kmRow{}
 	var cats []string
 	for _, d := range k.cmds.All() {
-		sc := d.Shortcut.String()
-		if sc == "" {
+		keys := d.KeysText()
+		if keys == "" {
 			continue
 		}
 		cat := d.Category
@@ -95,7 +94,7 @@ func (k *Keymap) build() {
 		if _, ok := byCat[cat]; !ok {
 			cats = append(cats, cat)
 		}
-		byCat[cat] = append(byCat[cat], kmRow{name: d.Name, keys: sc})
+		byCat[cat] = append(byCat[cat], kmRow{name: d.Name, keys: keys})
 	}
 	for _, c := range cats {
 		section(c, byCat[c])

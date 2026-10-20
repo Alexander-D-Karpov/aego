@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/history"
 	"aego/scene"
+	"aego/scene/mutate"
 	"aego/scene/sceneio"
 	"aego/schema"
 )
@@ -45,6 +47,14 @@ func newScene(t *testing.T) *scene.Scene {
 	return scene.New(types, nil, scene.Options{})
 }
 
+func del(s *scene.Scene, id ids.NodeID) *Mutation {
+	return NewMutation("Delete", EnvFor(s), mutate.RemoveNode(Ref(id)))
+}
+
+func reparent(s *scene.Scene, n, p scene.NodeHandle) *Mutation {
+	return NewMutation("Reparent", EnvFor(s), Move(s.ID(n), s.ID(p), -1, true))
+}
+
 func TestDeleteUndoRestoresIDsAndRefs(t *testing.T) {
 	s := newScene(t)
 	first := s.Create(s.Root(), "First")
@@ -57,7 +67,7 @@ func TestDeleteUndoRestoresIDsAndRefs(t *testing.T) {
 	aID, childID := s.ID(a), s.ID(child)
 
 	h := history.New(target{s})
-	if err := h.Exec(&Delete{Node: aID}); err != nil {
+	if err := h.Exec(del(s, aID)); err != nil {
 		t.Fatal(err)
 	}
 	if !s.Handle(aID).IsZero() || !s.Handle(childID).IsZero() {
@@ -100,7 +110,7 @@ func TestReparentPreservesWorld(t *testing.T) {
 	before := s.World(n)
 
 	h := history.New(target{s})
-	if err := h.Exec(&Reparent{Node: s.ID(n), NewParent: s.ID(p), NewIndex: -1, KeepWorld: true}); err != nil {
+	if err := h.Exec(reparent(s, n, p)); err != nil {
 		t.Fatal(err)
 	}
 	if s.Parent(n) != p {
@@ -126,7 +136,7 @@ func TestReparentUnderZeroScaleFails(t *testing.T) {
 	s.SetLocal(p, scene.Transform2D{Scale: mathx.Vec2{X: 0, Y: 1e-9}})
 	s.Flush()
 	h := history.New(target{s})
-	err := h.Exec(&Reparent{Node: s.ID(n), NewParent: s.ID(p), NewIndex: -1, KeepWorld: true})
+	err := h.Exec(reparent(s, n, p))
 	if !errs.Has(err, errs.SceneBadReparent) {
 		t.Fatalf("err = %v", err)
 	}
@@ -170,16 +180,17 @@ func TestCreateAndComponentRoundTrip(t *testing.T) {
 
 	s := newScene(t)
 	h := history.New(target{s})
-	c := &Create{Index: -1, Fragment: fragment, Name: "Enemy"}
+	c := NewMutation("Create Enemy", EnvFor(s), Insert(ids.NodeID{}, -1, string(fragment)))
 	if err := h.Exec(c); err != nil {
 		t.Fatal(err)
 	}
-	if len(c.Roots()) != 1 {
-		t.Fatalf("roots = %d", len(c.Roots()))
+	roots := c.Created()
+	if len(roots) != 1 {
+		t.Fatalf("roots = %d", len(roots))
 	}
-	n := s.Handle(c.Roots()[0])
-	typeID := scene.Store[Health](s).Type()
-	if err := h.Exec(&RemoveComponent{Node: s.ID(n), Type: typeID, Name: "Health"}); err != nil {
+	n := s.Handle(roots[0])
+	td, _ := s.Registry().ByID(scene.Store[Health](s).Type())
+	if err := h.Exec(NewMutation("Remove Health", EnvFor(s), RemoveComp(s.ID(n), td))); err != nil {
 		t.Fatal(err)
 	}
 	if scene.Has[Health](s, n) {
@@ -190,11 +201,11 @@ func TestCreateAndComponentRoundTrip(t *testing.T) {
 		t.Fatal("component data not restored")
 	}
 	h.Undo()
-	if !s.Handle(c.Roots()[0]).IsZero() {
+	if !s.Handle(roots[0]).IsZero() {
 		t.Fatal("create not undone")
 	}
 	h.Redo()
-	if s.Handle(c.Roots()[0]).IsZero() {
+	if s.Handle(roots[0]).IsZero() {
 		t.Fatal("redo must recreate the same node id")
 	}
 }

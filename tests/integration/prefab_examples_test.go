@@ -317,7 +317,7 @@ func TestPlatformerEnemyPrefabs(t *testing.T) {
 		}
 	}
 	out := string(sceneio.SaveWith(s, lib))
-	mustHave(t, out, `prop="script/mygame.enemy.EnemyAI.Speed" value=3`, `prop="node.name" value="EnemyRight"`)
+	mustHave(t, out, `prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000008")`, `prop="node.name" value="EnemyRight"`)
 	back, _, err := sceneio.Load([]byte(out), "main.aescene", types, nil, sceneio.LoadOptions{KeepIDs: true, Prefabs: lib})
 	if err != nil {
 		t.Fatal(err)

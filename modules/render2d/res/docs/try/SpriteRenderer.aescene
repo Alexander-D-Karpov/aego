@@ -1,0 +1,58 @@
+scene version=1 {
+  node "d3000000000000000000000000000001" name="Sprite" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#38bdf8ff
+      origin=[0.5, 0.5]
+      size=[4, 3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "d3000000000000000000000000000002" name="Backdrop" enabled=true layers=1 {
+    transform {
+      position=[1.5, 1]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#f43f5eff
+      origin=[0.5, 0.5]
+      size=[4, 3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "d3000000000000000000000000000003" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=48
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#111827ff
+      scale=fitVirtual
+      virtual=[960, 540]
+      active=true
+    }
+  }
+}

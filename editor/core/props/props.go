@@ -113,7 +113,7 @@ func (a *Access) within(tx *history.Transaction, label string, fn func(*history.
 }
 
 func (a *Access) Set(tx *history.Transaction, nodes []ids.NodeID, t schema.TypeID, f schema.FieldID, v schema.Value) error {
-	_, fd, err := a.Descriptor(t, f)
+	td, fd, err := a.Descriptor(t, f)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (a *Access) Set(tx *history.Transaction, nodes []ids.NodeID, t schema.TypeI
 			if Equal(before, nv) {
 				continue
 			}
-			if err := tx.Exec(&commands.SetProperty{Node: n, Type: t, Field: f, Before: before, After: nv, Name: name}); err != nil {
+			if err := tx.Exec(commands.SetField(a.s, n, td, fd, nv, name)); err != nil {
 				return err
 			}
 		}
@@ -234,6 +234,8 @@ func Equal(a, b schema.Value) bool {
 		return a.C == b.C
 	case schema.KindRect:
 		return a.R == b.R
+	case schema.KindCurve:
+		return a.Cv.Equal(b.Cv)
 	case schema.KindString:
 		return a.S == b.S
 	case schema.KindAssetRef:

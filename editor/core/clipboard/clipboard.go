@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/history/commands"
 	"aego/format/aetext"
 	"aego/scene"
+	"aego/scene/mutate"
 	"aego/scene/sceneio"
 )
 
@@ -217,6 +218,13 @@ func Paste(ctx *context.Editor) error {
 			return nil
 		}
 		return PasteComponent(ctx, d, nodes)
+	case KindComponents:
+		nodes := append([]ids.NodeID(nil), ctx.Selected()...)
+		if len(nodes) == 0 {
+			ctx.Notify(context.LevelInfo, "Select the nodes to paste the components onto")
+			return nil
+		}
+		return EnvOf(ctx).PasteComponents(d, nodes)
 	case KindNodes:
 	default:
 		ctx.Notify(context.LevelInfo, "The clipboard holds nothing that can be pasted into the scene")
@@ -230,12 +238,24 @@ func Paste(ctx *context.Editor) error {
 	if err != nil {
 		return err
 	}
+	frags, err := commands.Fragments(data)
+	if err != nil {
+		return err
+	}
 	parent, index := pasteTarget(ctx)
-	cmd := &commands.Create{Parent: parent, Index: index, Fragment: data, Name: "Paste"}
+	ops := make([]mutate.Op, len(frags))
+	for i, f := range frags {
+		at := -1
+		if index >= 0 {
+			at = index + i
+		}
+		ops[i] = commands.Insert(parent, at, f)
+	}
+	cmd := commands.NewMutation("Create Paste", commands.EnvFor(d.Scene()), ops...)
 	if err := d.History.Exec(cmd); err != nil {
 		return err
 	}
-	ctx.Select(append([]ids.NodeID(nil), cmd.Roots()...)...)
+	ctx.Select(cmd.Created()...)
 	return nil
 }
 
@@ -260,17 +280,13 @@ func Duplicate(ctx *context.Editor) error {
 			tx.Abort()
 			return err
 		}
-		c := &commands.Create{
-			Parent:   s.ID(s.Parent(h)),
-			Index:    commands.ChildIndex(s, h) + 1,
-			Fragment: data,
-			Name:     s.Name(h),
-		}
+		c := commands.NewMutation("Create "+s.Name(h), commands.EnvFor(s),
+			commands.Insert(s.ID(s.Parent(h)), commands.ChildIndex(s, h)+1, string(data)))
 		if err := tx.Exec(c); err != nil {
 			tx.Abort()
 			return err
 		}
-		created = append(created, c.Roots()...)
+		created = append(created, c.Created()...)
 	}
 	tx.Commit()
 	ctx.Select(created...)
@@ -287,18 +303,13 @@ func Delete(ctx *context.Editor) error {
 	if len(tops) == 0 {
 		return nil
 	}
-	targets := make([]ids.NodeID, len(tops))
+	ops := make([]mutate.Op, len(tops))
 	for i, h := range tops {
-		targets[i] = s.ID(h)
+		ops[i] = mutate.RemoveNode(commands.Ref(s.ID(h)))
 	}
-	tx := d.History.Begin("Delete")
-	for _, id := range targets {
-		if err := tx.Exec(&commands.Delete{Node: id}); err != nil {
-			tx.Abort()
-			return err
-		}
+	if err := d.History.Exec(commands.NewMutation("Delete", commands.EnvFor(s), ops...)); err != nil {
+		return err
 	}
-	tx.Commit()
 	ctx.Select()
 	return nil
 }

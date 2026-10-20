@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/scene"
+	"aego/scene/mutate"
 )
 
 func (a *Access) Rename(tx *history.Transaction, node ids.NodeID, name string) error {
@@ -13,27 +14,29 @@ func (a *Access) Rename(tx *history.Transaction, node ids.NodeID, name string) e
 	if err != nil {
 		return err
 	}
-	before := a.s.Name(h)
-	if before == name || name == "" {
+	if a.s.Name(h) == name || name == "" {
 		return nil
 	}
 	return a.within(tx, "Rename", func(tx *history.Transaction) error {
-		return tx.Exec(&commands.Rename{Node: node, Before: before, After: name})
+		return tx.Exec(commands.NewMutation("Rename", commands.EnvFor(a.s), mutate.Rename(commands.Ref(node), name)))
 	})
 }
 
 func (a *Access) SetEnabled(tx *history.Transaction, nodes []ids.NodeID, v bool) error {
+	text := "false"
+	if v {
+		text = "true"
+	}
 	return a.within(tx, "Toggle Enabled", func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
 				return err
 			}
-			before := a.s.Enabled(h)
-			if before == v {
+			if a.s.Enabled(h) == v {
 				continue
 			}
-			if err := tx.Exec(&commands.SetEnabled{Node: n, Before: before, After: v}); err != nil {
+			if err := tx.Exec(commands.NewMutation("Toggle Enabled", commands.EnvFor(a.s), mutate.Set(commands.Ref(n), "enabled", text))); err != nil {
 				return err
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/history"
 	"aego/scene"
+	"aego/scene/mutate"
 )
 
 func node(t history.Target, id ids.NodeID) (*scene.Scene, scene.NodeHandle, error) {
@@ -43,46 +44,15 @@ func ChildIndex(s *scene.Scene, h scene.NodeHandle) int {
 }
 
 func Decompose(m mathx.Mat3) scene.Transform2D {
-	sx := mathx.Sqrt(m[0]*m[0] + m[1]*m[1])
-	sy := mathx.Sqrt(m[3]*m[3] + m[4]*m[4])
-	if m[0]*m[4]-m[1]*m[3] < 0 {
-		sy = -sy
-	}
-	return scene.Transform2D{
-		Position: mathx.Vec2{X: m[6], Y: m[7]},
-		Rotation: mathx.Atan2(m[1], m[0]),
-		Scale:    mathx.Vec2{X: sx, Y: sy},
-	}
+	return mutate.Decompose(m)
 }
 
 func Unlift(m mathx.Mat4) mathx.Mat3 {
-	return mathx.Mat3{m[0], -m[1], 0, -m[4], m[5], 0, m[12], -m[13], 1}
+	return mutate.Unlift(m)
 }
 
 func PreserveWorld(s *scene.Scene, h, parent scene.NodeHandle) (scene.Pose, error) {
-	s.UpdateTransforms()
-	pose := s.Pose(h)
-	pw := s.World4(parent)
-	if mathx.Abs(pw.Col(0).Cross(pw.Col(1)).Dot(pw.Col(2))) < 1e-8 {
-		return pose, errs.New(errs.SceneBadReparent,
-			"new parent has a degenerate transform, the child world transform cannot be preserved",
-			log.F("parent", s.Name(parent)))
-	}
-	inv, ok := pw.InverseAffine()
-	if !ok {
-		return pose, errs.New(errs.SceneBadReparent, "new parent transform cannot be inverted", log.F("parent", s.Name(parent)))
-	}
-	rel := inv.Mul(s.World4(h))
-	if pose.Space == scene.Space3D {
-		pos, rot, sc, ok := rel.Decompose()
-		if !ok {
-			return pose, errs.New(errs.SceneBadReparent, "node has a degenerate transform", log.F("node", s.Name(h)))
-		}
-		pose.T3 = scene.Transform3D{Position: pos, Rotation: rot, Scale: sc}
-		return pose, nil
-	}
-	pose.T2 = Decompose(Unlift(rel))
-	return pose, nil
+	return mutate.PreserveWorld(s, h, parent)
 }
 
 type SetTransform struct {
@@ -191,70 +161,6 @@ func (c *SetSpace) Undo(t history.Target) error {
 }
 
 func (c *SetSpace) Merge(history.Command) bool {
-	return false
-}
-
-type Rename struct {
-	Node   ids.NodeID
-	Before string
-	After  string
-}
-
-func (c *Rename) Label() string {
-	return "Rename"
-}
-
-func (c *Rename) Do(t history.Target) error {
-	s, h, err := node(t, c.Node)
-	if err != nil {
-		return err
-	}
-	c.After = s.SetName(h, c.After)
-	return nil
-}
-
-func (c *Rename) Undo(t history.Target) error {
-	s, h, err := node(t, c.Node)
-	if err != nil {
-		return err
-	}
-	s.SetName(h, c.Before)
-	return nil
-}
-
-func (c *Rename) Merge(history.Command) bool {
-	return false
-}
-
-type SetEnabled struct {
-	Node   ids.NodeID
-	Before bool
-	After  bool
-}
-
-func (c *SetEnabled) Label() string {
-	return "Toggle Enabled"
-}
-
-func (c *SetEnabled) Do(t history.Target) error {
-	s, h, err := node(t, c.Node)
-	if err != nil {
-		return err
-	}
-	s.SetEnabled(h, c.After)
-	return nil
-}
-
-func (c *SetEnabled) Undo(t history.Target) error {
-	s, h, err := node(t, c.Node)
-	if err != nil {
-		return err
-	}
-	s.SetEnabled(h, c.Before)
-	return nil
-}
-
-func (c *SetEnabled) Merge(history.Command) bool {
 	return false
 }
 

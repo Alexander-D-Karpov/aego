@@ -189,7 +189,7 @@ func (s *Service) complete(snap *workspace.Snapshot, file source.FileID, off uin
 	case n > 3 && before[n-1].Kind == token.LParen && before[n-2].Kind == token.Ident && before[n-2].Text == "Connect" && before[n-3].Kind == token.Period:
 		handlerItems(c, snap, f, src, before[n-3].Start, off)
 	case n > 0 && before[n-1].Kind == token.At:
-		for _, a := range []string{"export", "former", "hide"} {
+		for _, a := range []string{"export", "former", "hide", "pause"} {
 			c.add(Item{Label: a, Kind: ItemAttribute, Doc: builtinText(snap, "@"+a)})
 		}
 	case exportArgs(before):
@@ -276,12 +276,26 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 			c.add(Item{Label: "Has", Detail: "Has<Component>() bool", Kind: ItemMethod, Insert: "Has<"})
 			c.add(Item{Label: "GetScript", Detail: "GetScript<Script>() ScriptRef", Doc: builtinText(snap, "GetScript"), Kind: ItemMethod, Insert: "GetScript<"})
 		}
+	case types.KHandle:
+		for _, hm := range snap.Bindings.HandleMethodList() {
+			if hm.Handle != t.Handle {
+				continue
+			}
+			doc, _ := snap.Docs.HandleMethodDoc(hm.Handle, hm.Name)
+			c.add(Item{Label: hm.Name, Detail: hostSig("", hm.Sig, doc.Params), Doc: hostDoc(doc.Doc, doc.Example), Kind: ItemMethod, Insert: hm.Name + "("})
+		}
+		for _, sg := range snap.Bindings.HandleSignals(t.Handle) {
+			c.add(Item{Label: sg.Name, Detail: hostSig("signal "+sg.Name, sg.Sig(), nil), Kind: ItemField})
+		}
 	case types.KComponentRef:
 		if t.Component == nil {
 			return
 		}
 		for _, fl := range t.Component.Fields {
 			c.add(Item{Label: fl.Name, Detail: abiType(fl.Type), Doc: fieldDoc(snap.Docs, t.Component.Name, fl.Name), Kind: ItemProperty})
+		}
+		for _, sg := range t.Component.Signals {
+			c.add(Item{Label: sg.Name, Detail: hostSig("signal "+sg.Name, sg.Sig(), nil), Kind: ItemField})
 		}
 	case types.KScriptRef:
 		scriptRefMembers(c, snap, t, pkg)
@@ -291,6 +305,7 @@ func typeMembers(c *collector, snap *workspace.Snapshot, t *types.Type, pkg stri
 	case types.KConnection:
 		c.add(Item{Label: "Disconnect", Detail: "Disconnect()", Doc: builtinText(snap, "Disconnect"), Kind: ItemMethod, Insert: "Disconnect()"})
 		c.add(Item{Label: "Connected", Detail: "Connected() bool", Doc: builtinText(snap, "Connected"), Kind: ItemMethod, Insert: "Connected()"})
+	case types.KCurve:
 	default:
 		for _, fl := range t.Fields {
 			c.add(Item{Label: fl.Name, Detail: typeString(fl.Type), Kind: ItemField})

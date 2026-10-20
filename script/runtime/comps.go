@@ -147,6 +147,8 @@ func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
 		*dst = bind.QuatValue(*(*mathx.Quat)(q))
 	case schema.KindRect:
 		*dst = bind.RectValue(*(*mathx.Rect)(q))
+	case schema.KindCurve:
+		*dst = vm.Value{A: ref.A, B: uint64(uint32(ref.B)) | uint64(field)<<32}
 	case schema.KindEnum:
 		*dst = vm.Int(readInt(q, fd.Size, fd.Unsigned))
 	case schema.KindString:

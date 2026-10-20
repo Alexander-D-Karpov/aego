@@ -34,7 +34,7 @@ func (r *Registry) ScriptEvent(ev scriptevents.Event) scriptevents.EventID {
 		}
 	}
 	for i, p := range ev.Params {
-		if !abi.Plain(p) {
+		if !abi.EventParam(p) {
 			r.fail("script event " + ev.Name + " param " + strconv.Itoa(i) + " has type " + p.String() + ", which cannot be an event parameter")
 			return scriptevents.NoEvent
 		}

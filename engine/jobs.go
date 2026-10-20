@@ -2,7 +2,9 @@ package engine
 
 import (
 	"runtime"
+	"runtime/debug"
 	"sync"
+	"sync/atomic"
 )
 
 type Jobs struct {
@@ -13,6 +15,7 @@ type Jobs struct {
 	spare   []func()
 	workers int
 	stopped bool
+	onPanic atomic.Pointer[func(any, []byte)]
 }
 
 func newJobs(workers int) *Jobs {
@@ -34,10 +37,26 @@ func newJobs(workers int) *Jobs {
 	return j
 }
 
+func (j *Jobs) SetPanicHandler(fn func(rec any, stack []byte)) {
+	j.onPanic.Store(&fn)
+}
+
 func (j *Jobs) loop() {
 	for fn := range j.work {
-		fn()
+		j.run(fn)
 	}
+}
+
+func (j *Jobs) run(fn func()) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			if h := j.onPanic.Load(); h != nil {
+				(*h)(rec, debug.Stack())
+			}
+			panic(rec)
+		}
+	}()
+	fn()
 }
 
 func (j *Jobs) Workers() int {

@@ -240,7 +240,7 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		icon, col = "log.error", th.Error
 	}
 	x := rr.X + th.Indent*1.5
-	widgets.IconAt(ui, mathx.Rect{X: x, Y: rr.Y + (rr.H-14)/2, W: 14, H: 14}, icon, col)
+	widgets.IconAt(ui, mathx.Rect{X: x, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, icon, col)
 	x += 20
 	code := pr.Code
 	if !pr.Script() {

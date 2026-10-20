@@ -1,11 +1,21 @@
 package native
 
-import "aego/sdk"
+import (
+	"aego/core/mathx"
+	"aego/sdk"
+)
 
 type Health struct {
 	Max     float32 `aego:"max,min=1"`
 	Current float32 `aego:"current,min=0"`
 	Hits    int64   `aego:"hits"`
+}
+
+type EnemyStats struct {
+	Speed    float32     `aego:"speed,min=0,max=10"`
+	Cooldown float32     `aego:"cooldown,min=0,max=5"`
+	Damage   int64       `aego:"damage,min=0"`
+	Tint     mathx.Color `aego:"tint"`
 }
 
 type Module struct{}
@@ -15,9 +25,13 @@ func (Module) Info() sdk.ModuleInfo {
 }
 
 func (Module) Register(r *sdk.Registry) error {
-	if err := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character")).Err(); err != nil {
+	if err := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Doc("hit points of a character"), sdk.Persist("current", "hits")).Err(); err != nil {
 		return err
 	}
+	if err := sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats"), sdk.Doc("movement and attack numbers of one kind of enemy")).Err(); err != nil {
+		return err
+	}
+	sdk.Live[EnemyStats](r, "speed")
 	m := r.ScriptModule("mygame/combat")
 	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
 		if c.Scene == nil || !c.Scene.IsAlive(target) {

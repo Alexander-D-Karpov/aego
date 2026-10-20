@@ -1,12 +1,14 @@
 package gl33
 
 import (
+	"math"
+
 	"aego/core/handle"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/gpu"
 	"aego/gpu/gl33/gl"
-	"aego/gpu/gl33/internal/glstate"
+	"aego/gpu/internal/glstate"
 )
 
 type frame struct {
@@ -89,7 +91,9 @@ func (p *pass) SetViewport(r mathx.Rect) {
 }
 
 func (p *pass) SetScissor(r mathx.Rect, enabled bool) {
-	p.d.cache.SetScissor(enabled, p.rect(r))
+	x0, y0 := float32(math.Floor(float64(r.X))), float32(math.Floor(float64(r.Y)))
+	x1, y1 := float32(math.Ceil(float64(r.X+r.W))), float32(math.Ceil(float64(r.Y+r.H)))
+	p.d.cache.SetScissor(enabled, p.rect(mathx.Rect{X: x0, Y: y0, W: x1 - x0, H: y1 - y0}))
 }
 
 func (p *pass) SetPipeline(h gpu.PipelineHandle) {

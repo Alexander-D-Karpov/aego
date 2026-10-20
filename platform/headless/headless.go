@@ -2,6 +2,7 @@ package headless
 
 import (
 	"runtime"
+	"strconv"
 
 	"aego/core/clock"
 	"aego/core/errs"
@@ -11,6 +12,7 @@ import (
 
 type Options struct {
 	FrameTime float64
+	Displays  []platform.Display
 }
 
 type Platform struct {
@@ -111,6 +113,8 @@ type Window struct {
 	textArea   mathx.Rect
 	cursor     platform.CursorShape
 	captured   bool
+	mode       platform.WindowMode
+	display    int
 }
 
 func (w *Window) Metrics() platform.WindowMetrics {
@@ -210,3 +214,53 @@ var (
 	_ platform.Cursorer      = (*Window)(nil)
 	_ platform.MouseCapturer = (*Window)(nil)
 )
+
+func defaultDisplays() []platform.Display {
+	return []platform.Display{{
+		ID: 1, Name: "Headless", Current: platform.DisplayMode{W: 1920, H: 1080, Hz: 60},
+		Modes: []platform.DisplayMode{{W: 1920, H: 1080, Hz: 60}, {W: 1280, H: 720, Hz: 60}},
+	}}
+}
+
+func (w *Window) Displays() []platform.Display {
+	if w.p != nil && len(w.p.opts.Displays) > 0 {
+		return w.p.opts.Displays
+	}
+	return defaultDisplays()
+}
+
+func (w *Window) WindowDisplay() int {
+	return w.display
+}
+
+func (w *Window) WindowMode() platform.WindowMode {
+	return w.mode
+}
+
+func (w *Window) SetWindowMode(m platform.WindowMode, display int, size platform.DisplayMode) error {
+	ds := w.Displays()
+	if display < 0 || display >= len(ds) {
+		return errs.New(errs.PlatformWindow, "there is no display "+strconv.Itoa(display))
+	}
+	d := &ds[display]
+	switch m {
+	case platform.Fullscreen:
+		if size.W <= 0 {
+			size = d.Current
+		}
+		if !d.Has(size) {
+			return errs.New(errs.PlatformWindow, "display "+d.Name+" has no mode "+strconv.Itoa(size.W)+"x"+strconv.Itoa(size.H))
+		}
+	case platform.Borderless:
+		size = d.Current
+	}
+	w.mode, w.display, w.fullscreen = m, display, m != platform.Windowed
+	if size.W > 0 && size.H > 0 && w.p != nil {
+		mt := w.metrics
+		mt.LogicalW, mt.LogicalH, mt.PixelW, mt.PixelH = size.W, size.H, size.W, size.H
+		w.p.Push(platform.Event{Kind: platform.EvWindowResized, Window: mt})
+	}
+	return nil
+}
+
+var _ platform.Displayer = (*Window)(nil)

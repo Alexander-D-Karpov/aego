@@ -95,3 +95,41 @@ script S {
 		t.Fatalf("diagnostics %v", codes(ds))
 	}
 }
+
+func TestPersistField(t *testing.T) {
+	src := `package t
+
+script S {
+	@persist
+	var Coins int
+	@persist @export
+	var Spawn Vec2
+	var Temp float
+}
+`
+	a, sm, ds := check(t, map[string]string{"game/t": src})
+	if len(ds) > 0 {
+		t.Fatalf("diagnostics:\n%s", dump(sm, ds))
+	}
+	fs := a.Scripts[0].Fields
+	if !fs[0].Persist || !fs[1].Persist || !fs[1].Export || fs[2].Persist {
+		t.Fatalf("persist flags %v %v %v", fs[0].Persist, fs[1].Persist, fs[2].Persist)
+	}
+}
+
+func TestPersistRejectsSlices(t *testing.T) {
+	src := `package t
+
+script S {
+	@persist
+	var Items []int
+	@persist("x")
+	var N int
+}
+`
+	_, _, ds := check(t, map[string]string{"game/t": src})
+	c := codes(ds)
+	if c["AES3007"] != 1 || c["AES3003"] != 1 {
+		t.Fatalf("diagnostics %v", c)
+	}
+}

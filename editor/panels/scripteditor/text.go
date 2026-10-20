@@ -100,34 +100,7 @@ func semKind(k langsvc.TokenKind) highlight.Kind {
 }
 
 func palette(th *core.Theme) [highlight.KindCount]mathx.Color {
-	t := &th.Code
-	var p [highlight.KindCount]mathx.Color
-	p[highlight.Plain] = t.Plain
-	p[highlight.Keyword] = t.Keyword
-	p[highlight.Number] = t.Number
-	p[highlight.String] = t.String
-	p[highlight.Comment] = t.Comment
-	p[highlight.Operator] = t.Operator
-	p[highlight.Punctuation] = t.Punctuation
-	p[highlight.Bracket] = t.Punctuation
-	p[highlight.Attribute] = t.Attribute
-	p[highlight.Namespace] = t.Namespace
-	p[highlight.Type] = t.Type
-	p[highlight.BuiltinType] = t.BuiltinType
-	p[highlight.Function] = t.Function
-	p[highlight.Method] = t.Method
-	p[highlight.Param] = t.Param
-	p[highlight.Variable] = t.Local
-	p[highlight.Field] = t.Field
-	p[highlight.Property] = t.Property
-	p[highlight.Constant] = t.Const
-	p[highlight.EnumMember] = t.EnumMember
-	p[highlight.Builtin] = t.Builtin
-	p[highlight.Script] = t.Script
-	p[highlight.Error] = t.Error
-	p[highlight.Signal] = t.Signal
-	p[highlight.Coroutine] = t.Coroutine
-	return p
+	return highlight.Palette(&th.Code)
 }
 
 func hashBytes(b []byte) uint64 {
@@ -299,12 +272,14 @@ func (p *Panel) mouse(ui *core.Context, area, txt mathx.Rect) {
 	}
 	over := ui.MouseOver(p.fid, area)
 	if over {
-		if w := ui.WheelY(); w != 0 {
-			if ui.Mods().Has(input.ModShift) {
-				p.scrollX -= w * 40
-			} else {
-				p.scrollY -= w * p.lineH * 3
-			}
+		h := ui.ScrollX(40)
+		v := ui.ScrollY(p.lineH * 3)
+		if ui.Mods().Has(input.ModShift) {
+			h, v = h-v, 0
+		}
+		if h != 0 || v != 0 {
+			p.scrollX += h
+			p.scrollY -= v
 			p.hover = hoverState{off: -1}
 		}
 	}
@@ -497,7 +472,7 @@ func (p *Panel) keys(ui *core.Context) {
 			p.host.requestClose(p)
 		case ui.KeyPressed(input.KeySpace):
 			edit(func() { p.requestCompletion(ui) })
-		case ui.KeyPressed(input.KeyP):
+		case !shift && ui.KeyPressed(input.KeyP):
 			if !p.querySignature() {
 				p.flash(ui.Time, "No call at the cursor")
 			}
@@ -610,7 +585,7 @@ func (p *Panel) drawText(ui *core.Context, area mathx.Rect) {
 	gw := numEnd - area.X + ct.Gutter.NumberPad*charW
 	p.pad = ct.Gutter.CodePad * charW
 	mw := float32(0)
-	if p.host.Minimap && area.W-gw > mapMinW {
+	if p.host.Minimap && !p.inZen() && area.W-gw > mapMinW {
 		mw = mapWidth
 	}
 	txt := mathx.Rect{X: area.X + gw, Y: area.Y, W: max(0, area.W-gw-mw), H: area.H}

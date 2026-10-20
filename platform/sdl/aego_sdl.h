@@ -22,6 +22,13 @@
 #define AEGO_EV_DROP_FILE     15
 #define AEGO_EV_DROP_TEXT     16
 #define AEGO_EV_DROP_COMPLETE 17
+#define AEGO_EV_PAD_ADDED     18
+#define AEGO_EV_PAD_REMOVED   19
+#define AEGO_EV_PAD_DOWN      20
+#define AEGO_EV_PAD_UP        21
+#define AEGO_EV_PAD_AXIS      22
+#define AEGO_PAD_BUTTONS      15
+#define AEGO_PAD_AXES         6
 
 #define AEGO_MOD_SHIFT  1
 #define AEGO_MOD_CTRL   2
@@ -48,6 +55,8 @@ typedef struct {
 	int repeat;
 	int button;
 	float x, y, dx, dy, wx, wy;
+	int flipped;
+	int pad;
 	int textn;
 	char text[AEGO_TEXT_CAPACITY];
 	const char* data;
@@ -87,5 +96,15 @@ bool aego_set_clipboard(const char* mime, const void* data, size_t len, const ch
 void* aego_get_clipboard(const char* mime, size_t* len);
 void aego_set_cursor(int shape);
 void aego_free_cursors(void);
+
+typedef struct {
+	int w, h;
+	float hz;
+} aego_mode;
+
+int aego_displays(SDL_DisplayID* out, int max);
+bool aego_display_current(SDL_DisplayID id, aego_mode* out);
+int aego_display_modes(SDL_DisplayID id, aego_mode* out, int max);
+bool aego_set_window_mode(SDL_Window* w, int mode, SDL_DisplayID id, int width, int height, float hz);
 
 #endif

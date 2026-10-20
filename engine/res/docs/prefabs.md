@@ -1,7 +1,8 @@
 ---
 id: prefabs
+group: scenes
 title: Prefabs
-order: 4
+order: 1
 ---
 # Prefabs
 

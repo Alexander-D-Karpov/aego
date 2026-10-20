@@ -33,6 +33,9 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...s
 	case "check":
 		return toolCheck(p, stderr, mods)
 	case "test":
+		if WantsDeterminism(args[1:]) {
+			return determinismTool(p, args[1:], stdout, stderr, mods)
+		}
 		return toolTest(p, args[1:], stdout, stderr, mods)
 	case "docs":
 		return docstool.Tool(p, args[1:], stdout, stderr, sdk.AdaptAll(mods)...)

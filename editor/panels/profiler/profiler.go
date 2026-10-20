@@ -1,6 +1,7 @@
 package profiler
 
 import (
+	"runtime/metrics"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"aego/editor/core/play"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/engine"
 	"aego/render"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -64,6 +66,12 @@ type Panel struct {
 	top        float32
 	scripts    context.ScriptStats
 	hasScripts bool
+	game       play.Stats
+	mem        []metrics.Sample
+	probe      bool
+	allocs     []uint64
+	slow       int
+	alertAt    float64
 	titles     []string
 	marks      []mark
 	tl         Timeline
@@ -71,10 +79,15 @@ type Panel struct {
 }
 
 type Deps struct {
-	Tracer   *trace.Tracer
-	Root     string
-	Notices  services.Notices
-	Sections func() []context.ProfilerSection
+	Tracer      *trace.Tracer
+	Root        string
+	Notices     services.Notices
+	Sections    func() []context.ProfilerSection
+	Nav         services.Navigation
+	PhaseAllocs func([]uint64) []uint64
+	SetProbe    func(bool)
+	Memory      func() MemStats
+	Throttled   func() bool
 }
 
 func (p *Panel) Sections() []string {
@@ -102,8 +115,112 @@ func intervals() [4]float64 {
 	return [4]float64{0.1, 0.25, 0.5, 1}
 }
 
+var memNames = [...]string{
+	"/memory/classes/heap/objects:bytes",
+	"/gc/heap/goal:bytes",
+	"/memory/classes/total:bytes",
+	"/sched/goroutines:goroutines",
+	"/gc/cycles/total:gc-cycles",
+}
+
 func New(d Deps) *Panel {
-	return &Panel{interval: 1, deps: d}
+	p := &Panel{interval: 1, deps: d}
+	p.mem = make([]metrics.Sample, len(memNames))
+	for i, n := range memNames {
+		p.mem[i].Name = n
+	}
+	return p
+}
+
+func mib(b uint64) string {
+	return strconv.FormatFloat(float64(b)/(1<<20), 'f', 1, 64) + " MiB"
+}
+
+type MemStats struct {
+	Heap       uint64
+	Goal       uint64
+	Process    uint64
+	Goroutines uint64
+	GC         uint64
+}
+
+func (p *Panel) readMemory() MemStats {
+	if p.deps.Memory != nil {
+		return p.deps.Memory()
+	}
+	metrics.Read(p.mem)
+	v := func(i int) uint64 {
+		if p.mem[i].Value.Kind() == metrics.KindUint64 {
+			return p.mem[i].Value.Uint64()
+		}
+		return 0
+	}
+	return MemStats{Heap: v(0), Goal: v(1), Process: v(2), Goroutines: v(3), GC: v(4)}
+}
+
+func (p *Panel) memory(ui *core.Context) {
+	m := p.readMemory()
+	widgets.LabelDim(ui, "Go heap "+mib(m.Heap)+"   goal "+mib(m.Goal)+"   process "+mib(m.Process)+
+		"   goroutines "+strconv.FormatUint(m.Goroutines, 10)+"   GC "+strconv.FormatUint(m.GC, 10))
+	if p.hasScripts {
+		widgets.LabelDim(ui, "script heap "+strconv.Itoa(p.scripts.HeapObjects)+" objects, "+mib(uint64(p.scripts.HeapBytes)))
+	}
+	label := "Allocations by phase: off"
+	if p.probe {
+		label = "Allocations by phase: on"
+	}
+	if widgets.Button(ui, label) && p.deps.SetProbe != nil {
+		p.probe = !p.probe
+		p.deps.SetProbe(p.probe)
+	}
+	if !p.probe || p.deps.PhaseAllocs == nil {
+		return
+	}
+	p.allocs = p.deps.PhaseAllocs(p.allocs[:0])
+	for i, n := range p.allocs {
+		if n > 0 {
+			widgets.LabelDim(ui, engine.Phase(i).String()+"   "+strconv.FormatUint(n, 10)+" objects")
+		}
+	}
+	widgets.LabelDim(ui, "Approximate: counted process-wide from phase start to end; a play world ticked inside a phase counts there too.")
+}
+
+func (p *Panel) slowest() string {
+	f := p.deps.Tracer.Frame(0)
+	if f == nil {
+		return ""
+	}
+	best, name := uint32(0), ""
+	for _, e := range f.Events {
+		if e.Depth == 1 && e.Dur > best {
+			best, name = e.Dur, p.deps.Tracer.Name(e.Zone)
+		}
+	}
+	return name
+}
+
+func (p *Panel) budget(now float64, f *stats.Frame) {
+	if f == nil {
+		return
+	}
+	if p.deps.Throttled != nil && p.deps.Throttled() {
+		p.slow = 0
+		return
+	}
+	if f.FrameTime*1000 > 2*1000.0/60 {
+		p.slow++
+	} else {
+		p.slow = 0
+	}
+	if p.slow != 3 || now-p.alertAt < 5 || p.deps.Notices == nil {
+		return
+	}
+	p.alertAt = now
+	msg := "Frame took " + strconv.FormatFloat(f.FrameTime*1000, 'f', 1, 64) + " ms for 3 frames in a row"
+	if z := p.slowest(); z != "" {
+		msg += ", slowest zone " + z
+	}
+	p.deps.Notices.Notify(context.LevelWarn, msg)
 }
 
 func (p *Panel) ID() string {
@@ -118,7 +235,17 @@ func (p *Panel) seconds() float64 {
 	return intervals()[p.interval]
 }
 
+func gameLine(g *play.Stats) string {
+	return "frame " + strconv.FormatUint(g.Frame, 10) +
+		"   tick " + strconv.FormatUint(g.Tick, 10) +
+		"   alpha " + strconv.FormatFloat(g.Alpha, 'f', 3, 64) +
+		"   scale ×" + strconv.FormatFloat(g.Scale, 'g', 3, 64) +
+		"   dropped ticks " + strconv.FormatUint(g.DroppedFixed, 10)
+}
+
 func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats, sc context.ScriptStats, hasSc, playing bool) {
+	p.game = g
+	p.budget(now, f)
 	if playing && !p.playing {
 		p.forget(mGameUpdate)
 	}
@@ -373,24 +500,24 @@ func (p *Panel) sticky(ui *core.Context, body mathx.Rect) {
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
-	if p.deps.Tracer != nil {
-		h := min(TimelineHeight, r.H)
-		p.tl.Draw(ui, p.deps, mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: h - th.Padding})
-		r = mathx.Rect{X: r.X, Y: r.Y + h, W: r.W, H: r.H - h}
-	}
-	bar := mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
-	p.toolbar(ui, bar)
-	y := bar.Y + bar.H + th.Spacing
-	body := mathx.Rect{X: r.X, Y: y, W: r.W, H: max(0, r.Y+r.H-y)}
+	body := r
 	if ui.MouseOver(ui.ID("scroll"), body) {
-		if w := ui.WheelY(); w != 0 {
-			p.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			p.scroll -= w
 		}
 	}
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-body.H+th.Padding))
 	p.top = body.Y - p.scroll
 	ui.PushClip(body)
-	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: p.top, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
+	y := p.top
+	if p.deps.Tracer != nil {
+		p.tl.Draw(ui, p.deps, mathx.Rect{X: r.X + th.Padding, Y: y + th.Padding, W: r.W - 2*th.Padding, H: TimelineHeight - th.Padding})
+		y += TimelineHeight
+	}
+	bar := mathx.Rect{X: r.X + th.Padding, Y: y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
+	p.toolbar(ui, bar)
+	y = bar.Y + bar.H + th.Spacing
+	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: y, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	p.titles, p.marks = p.titles[:0], p.marks[:0]
 	p.section(ui, "Frame")
 	p.graph(ui, "frame", " ms", 2, 1000.0/60, th.Accent, mFrame)
@@ -399,6 +526,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.graph(ui, "draw calls", "", 0, 0, th.Selection, mDraws)
 	p.graph(ui, "sprites", "", 0, 0, th.Selection, mSprites)
 	p.graph(ui, "garbage", " KB", 1, 64, th.Warn, mGarbage)
+	widgets.Separator(ui)
+	p.section(ui, "Memory")
+	p.memory(ui)
 	if p.playing {
 		widgets.Separator(ui)
 		p.section(ui, "Game")
@@ -406,6 +536,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.graph(ui, "game render", " ms", 2, 0, th.AxisX, mGameRender)
 		p.graph(ui, "game sprites", "", 0, 0, th.Selection, mGameSprites)
 		p.graph(ui, "game nodes", "", 0, 0, th.Selection, mGameNodes)
+		widgets.LabelDim(ui, gameLine(&p.game))
 		if p.hasScripts {
 			widgets.Separator(ui)
 			p.section(ui, "Scripts")

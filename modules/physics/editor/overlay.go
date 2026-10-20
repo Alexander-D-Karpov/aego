@@ -1,14 +1,14 @@
 package editor
 
 import (
+	"aego/contracts/debugdraw"
 	"aego/core/mathx"
 	"aego/editor/core/shape"
 	"aego/editor/core/vectors"
+	"aego/engine"
 	"aego/modules/physics"
 	"aego/modules/physics/components"
 	"aego/modules/physics/systems"
-	"aego/modules/physics/world"
-	"aego/render/debug"
 	"aego/scene"
 )
 
@@ -19,22 +19,27 @@ var (
 	colTrigger   = mathx.Color{R: 1, G: 0.9, B: 0.3, A: 0.8}
 	colOff       = mathx.Color{R: 0.55, G: 0.55, B: 0.55, A: 0.6}
 	colJoint     = mathx.Color{R: 0.5, G: 0.8, B: 0.8, A: 1}
-	treeColors   = [...]mathx.Color{
-		{R: 0.95, G: 0.45, B: 0.35, A: 0.5}, {R: 0.35, G: 0.75, B: 0.95, A: 0.5}, {R: 0.55, G: 0.9, B: 0.4, A: 0.5},
-		{R: 0.95, G: 0.8, B: 0.3, A: 0.5}, {R: 0.8, G: 0.45, B: 0.95, A: 0.5}, {R: 0.3, G: 0.9, B: 0.8, A: 0.5},
-	}
 )
 
-type drawer struct {
-	d *debug.Draw
+var channelFlags = [...]struct{ flag, channel string }{
+	{FlagShapes, physics.ChannelShapes},
+	{FlagContacts, physics.ChannelContacts},
+	{FlagAABBs, physics.ChannelAABBs},
+	{FlagJoints, physics.ChannelJoints},
+	{FlagIslands, physics.ChannelIslands},
+	{FlagBroad, physics.ChannelBroadphase},
 }
 
-func (r drawer) Line(a, b mathx.Vec2, c mathx.Color) {
-	r.d.Line(a, b, c)
-}
-
-func (r drawer) Circle(center mathx.Vec2, radius float32, segments int, c mathx.Color) {
-	r.d.Circle(center, radius, segments, c)
+func (p *plugin) applyChannels(w *engine.World) {
+	d, ok := engine.ServiceOf[debugdraw.Draw](w, debugdraw.ServiceID)
+	if !ok {
+		return
+	}
+	o := &p.ed.Overlay
+	master := o.On(CmdDebug)
+	for _, cf := range channelFlags {
+		d.Hide(cf.channel, !(master && o.On(cf.flag)))
+	}
 }
 
 func (p *plugin) overlay(c *shape.OverlayCtx) {
@@ -43,53 +48,18 @@ func (p *plugin) overlay(c *shape.OverlayCtx) {
 	}
 	o := &p.ed.Overlay
 	sim := physics.SimOf(c.World)
-	live := sim != nil && sim.Scene() == c.Scene
-	if live {
+	if sim != nil && sim.Scene() == c.Scene {
 		want := o.On(vectors.CommandToggle) && o.On(vectors.Prefix+layerForces)
 		if sim.World().Config().DebugVectors != want {
 			sim.World().SetDebugVectors(want)
 		}
-	}
-	if !o.On(CmdDebug) {
+		p.applyChannels(c.World)
 		return
 	}
-	if live {
-		p.drawWorld(c, sim.World())
-		return
-	}
-	if c.Game {
+	if !o.On(CmdDebug) || c.Game {
 		return
 	}
 	p.drawScene(c)
-}
-
-func (p *plugin) drawWorld(c *shape.OverlayCtx, w *world.World) {
-	o := &p.ed.Overlay
-	var f world.DebugFlags
-	for _, x := range [...]struct {
-		id   string
-		flag world.DebugFlags
-	}{
-		{FlagShapes, world.DrawShapes},
-		{FlagContacts, world.DrawContacts},
-		{FlagAABBs, world.DrawAABBs},
-		{FlagJoints, world.DrawJoints},
-		{FlagIslands, world.DrawIslands | world.DrawShapes},
-	} {
-		if o.On(x.id) {
-			f |= x.flag
-		}
-	}
-	w.DebugDraw(drawer{c.Debug}, f)
-	if !o.On(FlagBroad) {
-		return
-	}
-	w.DebugTree(func(b world.AABB, height int32, leaf bool) {
-		if leaf {
-			return
-		}
-		c.Debug.AABB(b, treeColors[int(height)%len(treeColors)])
-	})
 }
 
 func (p *plugin) colorOf(s *scene.Scene, h scene.NodeHandle, k components.Kind) mathx.Color {

@@ -321,8 +321,8 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 	if err != nil {
 		return err
 	}
-	if td.Default != nil && td.Copy != nil {
-		td.Copy(p, td.Default())
+	if td.Default != nil && td.CloneInto != nil {
+		td.CloneInto(p, td.Default())
 	}
 	for _, f := range n.Fields {
 		fd, ok := td.Field(f.Name)
@@ -398,6 +398,12 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Val
 		return schema.Color(unpackColor(v.Color)), nil
 	case schema.KindRect:
 		return schema.Rect(readRect(v)), nil
+	case schema.KindCurve:
+		c, err := ReadCurve(v)
+		if err != nil {
+			return schema.Value{}, err
+		}
+		return schema.Value{Kind: schema.KindCurve, Cv: c}, nil
 	case schema.KindEnum:
 		if v.Kind == aetext.VIdent {
 			if n, ok := fd.EnumValueOf(v.Ident); ok {
@@ -534,6 +540,17 @@ func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
 		return ok
 	case "mesh":
 		_, ok := l.res.Mesh(id)
+		return ok
+	case string(asset.ArtData), string(asset.ArtTable):
+		ds, ok := l.res.(asset.DataSource)
+		if !ok {
+			return true
+		}
+		if fd.AssetKind == string(asset.ArtData) {
+			_, ok = ds.Data(id)
+		} else {
+			_, ok = ds.Table(id)
+		}
 		return ok
 	default:
 		_, ok := l.res.Texture(id)

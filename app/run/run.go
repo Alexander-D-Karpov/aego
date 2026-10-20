@@ -5,15 +5,21 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"aego/app"
+	"aego/app/crash"
 	"aego/asset/pipeline"
+	"aego/contracts/persistence"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/core/rng"
 	"aego/engine"
+	"aego/engine/base"
 	"aego/engine/module"
+	"aego/engine/recorder"
 	"aego/project"
 	"aego/scene"
 	"aego/scene/frame"
@@ -34,7 +40,9 @@ type Config struct {
 	SceneID    ids.AssetID
 	ScenePath  string
 	Trace      string
+	Profile    string
 	Logger     *log.Logger
+	Seed       uint64
 }
 
 type App struct {
@@ -51,6 +59,10 @@ type App struct {
 	driver  *sceneApp
 	prog    reload.Program
 	target  uint64
+	unrec   func()
+
+	ring       *crash.Ring
+	crashScene bool
 }
 
 func Main(mods ...sdk.Module) {
@@ -72,6 +84,7 @@ func Main(mods ...sdk.Module) {
 	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
 	supervised := fs.Bool("supervised", false, "accept restart commands on stdin")
 	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
+	profile := fs.String("profile", "", "player settings profile, default when empty")
 	fs.Parse(os.Args[1:])
 
 	root, err := project.Find(".")
@@ -90,6 +103,7 @@ func Main(mods ...sdk.Module) {
 		Supervised: *supervised,
 		ScenePath:  *scenePath,
 		Trace:      *tracePath,
+		Profile:    *profile,
 	}
 	if err := Run(p, cfg, mods...); err != nil {
 		fail(err)
@@ -118,15 +132,23 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 			Debug:             cfg.Debug,
 			AppID:             p.Module,
 			Trace:             cfg.Trace != "",
+			Seed:              cfg.Seed,
 		},
 		Logger:             cfg.Logger,
 		Debug:              cfg.Debug,
 		FailOnScriptErrors: true,
+		Profile:            cfg.Profile,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
 	}
 	a := &App{Host: h, cfg: cfg, log: h.Log.With(log.Engine), Runner: frame.New()}
+	a.ring = crash.NewRing(500)
+	h.Log.AddSink(a.ring)
+	if st, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		a.crashScene = st.CrashScene
+	}
+	h.Engine.Jobs().SetPanicHandler(func(rec any, stack []byte) { a.crash("panic", "worker", rec, stack, "") })
 	if err := a.start(); err != nil {
 		a.Close()
 		return nil, err
@@ -135,12 +157,13 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 }
 
 func (a *App) start() error {
-	a.Engine.SetService(frame.ServiceID, a.Runner)
-	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log})
+	a.Engine.SetView(frame.ServiceID, a.Runner)
+	a.Scripts = scriptruntime.New(scriptruntime.Options{Bindings: a.Bindings, Schema: a.Types.Schema(), Log: a.Log, OnFault: a.fault, OnPanic: a.scriptPanic})
 	if err := a.linkScripts(); err != nil {
 		return err
 	}
 	a.Engine.SetService(scriptruntime.ServiceID, a.Scripts)
+	a.Engine.SetView(persistence.HostID, a)
 	a.sceneID = a.cfg.SceneID
 	if a.sceneID.IsZero() {
 		a.sceneID = a.Project.MainScene
@@ -149,6 +172,12 @@ func (a *App) start() error {
 		return err
 	}
 	a.Engine.SetService(scene.ServiceID, a.Scene)
+	w := a.Engine.MainWorld()
+	w.Recorder = recorder.New(4096)
+	if a.cfg.Seed != 0 {
+		w.Random = rng.New(a.cfg.Seed)
+	}
+	a.unrec = frame.Record(a.Scene, w.Recorder)
 	a.Runner.Bind(a.Scene, a.Renderer, a.Loader)
 	if err := a.Scripts.Instantiate(a.Scene); err != nil {
 		return err
@@ -276,6 +305,9 @@ func (a *App) Close() {
 	if a.Scripts != nil {
 		a.Scripts.Close()
 	}
+	if a.Runner != nil {
+		a.Runner.Close()
+	}
 	if a.cfg.Trace != "" && a.Engine != nil {
 		if err := WriteTrace(a.cfg.Trace, a.Engine.Trace()); err != nil {
 			a.log.Error("cannot write the trace", log.F("path", a.cfg.Trace), log.F("err", err.Error()))
@@ -289,5 +321,11 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			a.crash("panic", "run", rec, debug.Stack(), "")
+			panic(rec)
+		}
+	}()
 	return a.Run()
 }

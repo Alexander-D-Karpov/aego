@@ -10,7 +10,6 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/format/aetext"
-	"aego/platform/input"
 )
 
 const (
@@ -22,7 +21,7 @@ const (
 
 var (
 	DefaultDirs = []string{"assets", "scenes", "scripts", "prefabs"}
-	CoreBlocks  = []string{"window", "input"}
+	CoreBlocks  = []string{"window", "defaults"}
 )
 
 type WindowSettings struct {
@@ -38,10 +37,12 @@ type Project struct {
 	MainScene    ids.AssetID
 	DefaultSpace string
 	Window       WindowSettings
-	Input        input.AxisConfig
 	Extra        []*aetext.Node
+	Settings     *aetext.Node
 	Native       bool
 	Version      int
+	GameVersion  string
+	Icon         string
 }
 
 func (p *Project) AssetsDir() string {
@@ -117,60 +118,6 @@ func Find(start string) (string, error) {
 	}
 }
 
-func parseInput(n *aetext.Node) (input.AxisConfig, error) {
-	axes := n.Block("axes", "")
-	if axes == nil {
-		return input.DefaultAxes(), nil
-	}
-	var cfg input.AxisConfig
-	for _, b := range axes.Blocks {
-		a := input.Axis{Name: b.Head}
-		for _, f := range b.Fields {
-			name := f.Value.Ident
-			if f.Value.Kind == aetext.VString {
-				name = f.Value.Str
-			}
-			k, ok := input.ParseKey(name)
-			if !ok {
-				return cfg, errs.New(errs.ProjectBadFile, "unknown key in an input axis",
-					log.F("axis", b.Head), log.F("key", name))
-			}
-			switch f.Name {
-			case "negative":
-				a.Negative = k
-			case "positive":
-				a.Positive = k
-			case "altNegative":
-				a.AltNegative = k
-			case "altPositive":
-				a.AltPositive = k
-			default:
-				return cfg, errs.New(errs.ProjectBadFile, "unknown input axis field",
-					log.F("axis", b.Head), log.F("field", f.Name))
-			}
-		}
-		cfg.Axes = append(cfg.Axes, a)
-	}
-	return cfg, nil
-}
-
-func inputBlock(cfg input.AxisConfig) *aetext.Node {
-	axes := &aetext.Node{Head: "axes"}
-	for _, a := range cfg.Axes {
-		b := &aetext.Node{Head: a.Name}
-		for _, k := range [...]struct {
-			name string
-			key  input.Scancode
-		}{{"negative", a.Negative}, {"positive", a.Positive}, {"altNegative", a.AltNegative}, {"altPositive", a.AltPositive}} {
-			if n, ok := input.KeyName(k.key); ok {
-				b.Fields = append(b.Fields, aetext.Field{Name: k.name, Value: aetext.Ident(n)})
-			}
-		}
-		axes.Blocks = append(axes.Blocks, b)
-	}
-	return &aetext.Node{Head: "input", Blocks: []*aetext.Node{axes}}
-}
-
 func (p *Project) Block(head string) *aetext.Node {
 	for _, b := range p.Extra {
 		if b.Head == head {
@@ -224,7 +171,7 @@ func Load(root string) (*Project, error) {
 	if doc.Head != "project" {
 		return nil, errs.New(errs.ProjectBadFile, "not a project file", log.F("head", doc.Head))
 	}
-	p := &Project{Root: abs, Version: Version, DefaultSpace: Space2D, Window: WindowSettings{Width: 1280, Height: 720}, Input: input.DefaultAxes()}
+	p := &Project{Root: abs, Version: Version, DefaultSpace: Space2D, Window: WindowSettings{Width: 1280, Height: 720}}
 	if v, ok := doc.Attr("version"); ok {
 		p.Version = int(v.AsInt())
 		if p.Version > Version {
@@ -248,6 +195,12 @@ func Load(root string) (*Project, error) {
 	}
 	if v, ok := doc.Field("native"); ok {
 		p.Native = v.Bool
+	}
+	if v, ok := doc.Field("gameVersion"); ok {
+		p.GameVersion = v.Str
+	}
+	if v, ok := doc.Field("icon"); ok {
+		p.Icon = filepath.ToSlash(v.Str)
 	}
 	if v, ok := doc.Field("defaultSpace"); ok {
 		if v.Str != Space2D && v.Str != Space3D {
@@ -273,12 +226,8 @@ func Load(root string) (*Project, error) {
 			p.Window.Title = v.Str
 		}
 	}
-	if b := doc.Block("input", ""); b != nil {
-		cfg, err := parseInput(b)
-		if err != nil {
-			return nil, err
-		}
-		p.Input = cfg
+	if b := doc.Block("defaults", ""); b != nil {
+		p.Settings = b
 	}
 	for _, b := range doc.Blocks {
 		if !slices.Contains(CoreBlocks, b.Head) {
@@ -309,6 +258,12 @@ func (p *Project) Encode() []byte {
 		aetext.Field{Name: "mainScene", Value: aetext.AssetRef(p.MainScene.String())},
 		aetext.Field{Name: "native", Value: aetext.Bool(p.Native)},
 	)
+	if p.GameVersion != "" {
+		root.Fields = append(root.Fields, aetext.Field{Name: "gameVersion", Value: aetext.String(p.GameVersion)})
+	}
+	if p.Icon != "" {
+		root.Fields = append(root.Fields, aetext.Field{Name: "icon", Value: aetext.String(p.Icon)})
+	}
 	if p.DefaultSpace == Space3D {
 		root.Fields = append(root.Fields, aetext.Field{Name: "defaultSpace", Value: aetext.String(Space3D)})
 	}
@@ -319,8 +274,8 @@ func (p *Project) Encode() []byte {
 		aetext.Field{Name: "title", Value: aetext.String(p.Window.Title)},
 	)
 	root.Blocks = append(root.Blocks, window)
-	if len(p.Input.Axes) > 0 {
-		root.Blocks = append(root.Blocks, inputBlock(p.Input))
+	if p.Settings != nil && len(p.Settings.Blocks) > 0 {
+		root.Blocks = append(root.Blocks, p.Settings)
 	}
 	root.Blocks = append(root.Blocks, p.Extra...)
 	return aetext.Write(root)
@@ -350,7 +305,6 @@ func Create(root, name string, native bool) (*Project, error) {
 		Module: ModuleName(name),
 		Native: native,
 		Window: WindowSettings{Width: 1280, Height: 720, Title: name},
-		Input:  input.DefaultAxes(),
 	}
 	dirs := []string{
 		p.AssetsDir(),

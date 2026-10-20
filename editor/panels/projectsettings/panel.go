@@ -1,7 +1,6 @@
 package projectsettings
 
 import (
-	"slices"
 	"sort"
 
 	"aego/asset/pipeline"
@@ -9,13 +8,17 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/services"
 	"aego/engine/module"
+	es "aego/engine/settings"
+	"aego/engine/settings/settingsui"
 	"aego/format/aetext"
 	"aego/project"
+	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
 
 const (
+	narrowPanel = 420
 	ID          = "project_settings"
 	CommandOpen = "file.project_settings"
 )
@@ -23,24 +26,40 @@ const (
 type Deps struct {
 	Project  *project.Project
 	Sections *module.Sections
+	Settings *es.Store
 	Pages    func() []context.SettingsPage
 	Pipeline *pipeline.Pipeline
 	Notices  services.Notices
+	OnApply  func() string
 }
 
 type Panel struct {
-	d       Deps
-	work    *project.Project
-	drafts  map[string]any
-	page    string
-	dirty   bool
-	err     string
-	scroll  float32
-	content float32
+	d         Deps
+	work      *project.Project
+	drafts    map[string]any
+	proj      map[es.Key]schema.Value
+	projDirty bool
+	tab       map[string]int
+	filter    string
+	ed        settingsui.Editor
+	page      string
+	dirty     bool
+	err       string
+	scroll    float32
+	content   float32
+	bar       widgets.ScrollState
+	base      state
+	undo      []state
+	redo      []state
+	gesture   bool
+	touched   bool
+	flash     string
+	flashAt   float64
+	flashGo   bool
 }
 
 func New(d Deps) *Panel {
-	return &Panel{d: d, drafts: map[string]any{}}
+	return &Panel{d: d, drafts: map[string]any{}, tab: map[string]int{}}
 }
 
 func (p *Panel) ID() string {
@@ -63,11 +82,11 @@ func (p *Panel) Show(page string) {
 
 func clone(src *project.Project) *project.Project {
 	c := *src
-	c.Input.Axes = slices.Clone(src.Input.Axes)
 	c.Extra = make([]*aetext.Node, len(src.Extra))
 	for i, b := range src.Extra {
 		c.Extra[i] = b.Clone()
 	}
+	c.Settings = src.Settings.Clone()
 	return &c
 }
 
@@ -77,8 +96,9 @@ func (p *Panel) pages() []page {
 	if p.d.Pages != nil {
 		custom = p.d.Pages()
 	}
+	withSection := map[string]bool{}
 	for _, sec := range p.d.Sections.List() {
-		pg := page{id: sec.ID, title: sec.Title, order: sec.Order, section: sec.ID}
+		pg := page{id: sec.ID, title: sec.Title, order: sec.Order, section: sec.ID, owner: sec.Owner}
 		for _, sp := range custom {
 			if sp.Section == sec.ID {
 				pg.draw = sp.Draw
@@ -90,7 +110,16 @@ func (p *Panel) pages() []page {
 		}
 		if pg.draw != nil || pg.drawUI != nil {
 			out = append(out, pg)
+			withSection[sec.Owner] = true
 		}
+	}
+	for _, o := range p.projectOwners() {
+		if withSection[o.owner] {
+			continue
+		}
+		owner := o.owner
+		out = append(out, page{id: "defaults/" + owner, title: o.title, order: 500, owner: owner,
+			settings: func(ui *core.Context) bool { return p.drawDefaults(ui, owner) }})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].order < out[j].order })
 	return out
@@ -112,7 +141,13 @@ func (p *Panel) draft(id string) any {
 func (p *Panel) reset() {
 	p.work = clone(p.d.Project)
 	p.drafts = map[string]any{}
-	p.dirty, p.err = false, ""
+	p.proj = map[es.Key]schema.Value{}
+	if p.d.Settings != nil {
+		p.proj = p.d.Settings.ProjectValues()
+	}
+	p.dirty, p.projDirty, p.err = false, false, ""
+	p.undo, p.redo, p.gesture = nil, nil, false
+	p.base = p.capture()
 }
 
 func (p *Panel) apply() {
@@ -126,6 +161,10 @@ func (p *Panel) apply() {
 		sec, _ := p.d.Sections.Desc(id)
 		next.ReplaceBlock(n, sec.Heads()...)
 	}
+	st := p.d.Settings
+	if p.projDirty && st != nil {
+		next.Settings = st.ProjectNode(p.proj)
+	}
 	if err := next.Save(); err != nil {
 		p.err = err.Error()
 		return
@@ -136,9 +175,21 @@ func (p *Panel) apply() {
 			return
 		}
 	}
+	if p.projDirty && st != nil {
+		if err := st.SetProject(p.proj); err != nil {
+			p.err = err.Error()
+			return
+		}
+	}
 	*p.d.Project = *next
 	p.reset()
-	p.d.Notices.Notify(context.LevelInfo, "Saved project.aego, settings apply on the next Play")
+	msg := "Saved project.aego, settings apply on the next Play"
+	if p.d.OnApply != nil {
+		if note := p.d.OnApply(); note != "" {
+			msg = "Saved project.aego, " + note
+		}
+	}
+	p.d.Notices.Notify(context.LevelInfo, msg)
 }
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
@@ -163,56 +214,136 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.reset()
 	}
 	status := mathx.Rect{X: bar.X + 196, Y: bar.Y, W: max(0, bar.W-196), H: bar.H}
-	ui.PushClip(status)
 	switch {
 	case p.err != "":
-		ui.Text(p.err, mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Error)
+		ui.Text(widgets.Elide(ui, p.err, status.W), mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Error)
 	case p.dirty:
-		ui.Text("Unsaved changes", mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Warn)
+		ui.Text(widgets.Elide(ui, "Unsaved changes", status.W), mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Warn)
 	}
-	ui.PopClip()
 	top := bar.Y + bar.H + th.Spacing
-	left := mathx.Rect{X: r.X, Y: top, W: min(170, r.W*0.3), H: max(0, r.Y+r.H-top)}
-	ui.Rect(left, th.PanelAlt)
-	ui.PushCursor(core.Cursor{X: left.X + th.Padding, Y: left.Y + th.Padding, W: left.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
-	for i, pg := range pages {
-		if widgets.Selectable(ui, ui.IDInt(1000+i), pg.title, pg.id == p.page) {
-			p.page, p.scroll = pg.id, 0
+	sw := th.ScrollbarW
+	var body mathx.Rect
+	if r.W < narrowPanel {
+		sel := 0
+		names := make([]string, len(pages))
+		for i, pg := range pages {
+			names[i] = pg.title
+			if pg.id == p.page {
+				sel = i
+			}
 		}
+		row := mathx.Rect{X: r.X + th.Padding, Y: top, W: r.W - 2*th.Padding, H: th.RowHeight}
+		if widgets.Combo(ui, ui.ID("pages"), row, &sel, names, false) && sel < len(pages) {
+			p.page, p.scroll = pages[sel].id, 0
+		}
+		top += th.RowHeight + th.Spacing
+		body = mathx.Rect{X: r.X, Y: top, W: max(0, r.W-sw-2), H: max(0, r.Y+r.H-top)}
+	} else {
+		left := mathx.Rect{X: r.X, Y: top, W: min(180, max(120, r.W*0.24)), H: max(0, r.Y+r.H-top)}
+		p.nav(ui, left, pages)
+		body = mathx.Rect{X: left.X + left.W + 8, Y: top, W: max(0, r.X+r.W-left.X-left.W-8-sw-2), H: left.H}
 	}
-	ui.PopCursor()
-	body := mathx.Rect{X: left.X + left.W + 8, Y: top, W: max(0, r.X+r.W-left.X-left.W-8), H: left.H}
+	view := body.H - th.Padding*2
+	maxOff := max(0, p.content-view)
 	if ui.MouseOver(ui.ID("scroll"), body) {
-		if w := ui.WheelY(); w != 0 {
-			p.scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			p.scroll -= w
 		}
 	}
-	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-body.H+th.Padding*2))
+	p.scroll = mathx.Clamp(p.scroll, 0, maxOff)
 	ui.PushClip(body)
 	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: body.Y + th.Padding - p.scroll, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	start := ui.Cursor().Y
+	if p.flash != "" {
+		if p.flashAt == 0 {
+			p.flashAt = ui.Time
+		}
+		ui.Flash, ui.FlashAt, ui.FlashSeen = p.flash, p.flashAt, false
+	}
 	ui.PushID(p.page)
+	changed := false
 	for _, pg := range pages {
 		if pg.id != p.page {
 			continue
 		}
-		switch {
-		case pg.project != nil:
-			if pg.project(ui, p.work) {
-				p.dirty = true
-			}
-		case pg.draw != nil:
-			if d := p.draft(pg.section); d != nil && pg.draw(d) {
-				p.dirty = true
-			}
-		case pg.drawUI != nil:
-			if d := p.draft(pg.section); d != nil && pg.drawUI(ui, d) {
-				p.dirty = true
-			}
-		}
+		changed = p.drawPage(ui, pg) || changed
 	}
 	ui.PopID()
+	if p.flash != "" {
+		if ui.FlashSeen && p.flashGo {
+			p.scroll = mathx.Clamp(ui.FlashY-start-view/3, 0, max(0, ui.Cursor().Y-start-view))
+			p.flashGo = false
+		}
+		if ui.Time-p.flashAt > 2 {
+			p.flash = ""
+		}
+		ui.Flash = ""
+	}
 	p.content = ui.Cursor().Y - start
 	ui.PopCursor()
 	ui.PopClip()
+	track := mathx.Rect{X: body.X + body.W + 2, Y: body.Y, W: sw, H: body.H}
+	widgets.ScrollBar(ui, ui.ID("vbar"), track, &p.scroll, p.content, view, &p.bar)
+	if changed {
+		p.touch()
+	}
+	p.settle(ui)
+}
+
+func (p *Panel) nav(ui *core.Context, r mathx.Rect, pages []page) {
+	th := &ui.Theme
+	ui.Rect(r, th.PanelAlt)
+	ui.PushClip(r)
+	y := r.Y + th.Padding
+	for i, pg := range pages {
+		row := mathx.Rect{X: r.X + 4, Y: y, W: r.W - 8, H: th.RowHeight}
+		y += th.RowHeight + 2
+		id := ui.IDInt(1000 + i)
+		if ui.Clicked(id, row) {
+			p.page, p.scroll = pg.id, 0
+		}
+		sel := pg.id == p.page
+		col := th.TextDim
+		switch {
+		case sel:
+			ui.RoundRect(row, th.Radius.Menu, th.SelectionDim)
+			ui.Rect(mathx.Rect{X: row.X, Y: row.Y + 3, W: 2, H: row.H - 6}, th.Accent)
+			col = th.Text
+		case ui.Hot() == id:
+			ui.RoundRect(row, th.Radius.Menu, th.WidgetHot)
+			col = th.Text
+		}
+		ui.Text(widgets.Elide(ui, pg.title, row.W-14), mathx.Vec2{X: row.X + 10, Y: ui.TextY(row)}, col)
+		if ui.TextSize(pg.title).X > row.W-14 {
+			widgets.Tooltip(ui, id, pg.title)
+		}
+	}
+	ui.PopClip()
+}
+
+func (p *Panel) drawPage(ui *core.Context, pg page) bool {
+	if pg.settings != nil {
+		return pg.settings(ui)
+	}
+	if pg.owner != "" && p.hasDefaults(pg.owner) && p.tabs(ui, pg.id) == 1 {
+		return p.drawDefaults(ui, pg.owner)
+	}
+	switch {
+	case pg.project != nil:
+		return pg.project(ui, p.work)
+	case pg.draw != nil:
+		if d := p.draft(pg.section); d != nil {
+			return pg.draw(d)
+		}
+	case pg.drawUI != nil:
+		if d := p.draft(pg.section); d != nil {
+			return pg.drawUI(ui, d)
+		}
+	}
+	return false
+}
+
+func (p *Panel) Focus(page, field string) {
+	p.Show(page)
+	p.flash, p.flashAt, p.flashGo = field, 0, true
 }

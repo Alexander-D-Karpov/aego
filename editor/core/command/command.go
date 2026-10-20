@@ -2,6 +2,7 @@ package command
 
 import (
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -121,6 +122,10 @@ type Desc struct {
 	Category string
 	Scope    string
 	Shortcut Shortcut
+	Alt      []Shortcut
+	Hint     string
+	Icon     string
+	Tip      string
 	Order    int
 	Label    func() string
 	Checked  func() bool
@@ -145,26 +150,26 @@ func (r *Registry) Register(d Desc) error {
 	if _, dup := r.byID[d.ID]; dup {
 		return errs.New(errs.EditorCommand, "duplicate command id", log.F("command", d.ID))
 	}
-	if err := r.checkConflict(d.ID, d.Shortcut, d.Scope); err != nil {
+	if err := r.checkConflict(d.ID, d.Keys(), d.Scope); err != nil {
 		return err
 	}
 	if d.Name == "" {
 		d.Name = d.ID
 	}
 	cp := d
+	cp.Alt = slices.Clone(d.Alt)
 	r.byID[d.ID] = &cp
 	r.order = append(r.order, d.ID)
 	return nil
 }
 
-func (r *Registry) checkConflict(id string, sc Shortcut, scope string) error {
-	if sc.IsZero() {
-		return nil
-	}
-	for _, other := range r.byID {
-		if other.ID != id && other.Shortcut == sc && other.Scope == scope {
-			return errs.New(errs.EditorCommand, "shortcut is already bound",
-				log.F("command", id), log.F("other", other.ID), log.F("shortcut", sc.String()))
+func (r *Registry) checkConflict(id string, keys []Shortcut, scope string) error {
+	for _, sc := range keys {
+		for _, other := range r.byID {
+			if other.ID != id && other.Scope == scope && other.Matches(sc) {
+				return errs.New(errs.EditorCommand, "shortcut is already bound",
+					log.F("command", id), log.F("other", other.ID), log.F("shortcut", sc.String()))
+			}
 		}
 	}
 	return nil
@@ -175,8 +180,10 @@ func (r *Registry) Rebind(id string, sc Shortcut) error {
 	if !ok {
 		return errs.New(errs.EditorCommand, "unknown command", log.F("command", id))
 	}
-	if err := r.checkConflict(id, sc, d.Scope); err != nil {
-		return err
+	if !sc.IsZero() {
+		if err := r.checkConflict(id, []Shortcut{sc}, d.Scope); err != nil {
+			return err
+		}
 	}
 	d.Shortcut = sc
 	return nil
@@ -258,7 +265,7 @@ func (r *Registry) Lookup(sc Shortcut, scope string) (Desc, bool) {
 	var global *Desc
 	for _, id := range r.order {
 		d := r.byID[id]
-		if d.Shortcut != sc {
+		if !d.Matches(sc) {
 			continue
 		}
 		if scope != "" && d.Scope == scope {
@@ -278,7 +285,7 @@ func (r *Registry) resolve(sc Shortcut, scope string) (*Desc, bool) {
 	var global *Desc
 	for _, id := range r.order {
 		d := r.byID[id]
-		if d.Shortcut != sc || (d.Enabled != nil && !d.Enabled()) {
+		if !d.Matches(sc) || (d.Enabled != nil && !d.Enabled()) {
 			continue
 		}
 		if scope != "" && d.Scope == scope {
@@ -312,6 +319,20 @@ func (r *Registry) Dispatch(in *input.State, scope string) (string, bool) {
 	return hit, true
 }
 
+func (r *Registry) Pressed(id string, in *input.State) bool {
+	d, ok := r.Get(id)
+	if !ok || in == nil {
+		return false
+	}
+	mods := FromInput(in.Mods())
+	for _, s := range d.Keys() {
+		if in.KeyPressed(s.Key) && s.Mods == mods {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Registry) All() []Desc {
 	out := make([]Desc, 0, len(r.order))
 	for _, id := range r.order {
@@ -339,4 +360,48 @@ func (r *Registry) Search(q string) []Desc {
 		}
 	}
 	return out
+}
+
+func (d *Desc) Keys() []Shortcut {
+	out := make([]Shortcut, 0, 1+len(d.Alt))
+	if !d.Shortcut.IsZero() {
+		out = append(out, d.Shortcut)
+	}
+	for _, s := range d.Alt {
+		if !s.IsZero() {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func (d *Desc) Matches(sc Shortcut) bool {
+	if sc.IsZero() {
+		return false
+	}
+	return d.Shortcut == sc || slices.Contains(d.Alt, sc)
+}
+
+func (d *Desc) KeysText() string {
+	var parts []string
+	for _, k := range d.Keys() {
+		parts = append(parts, k.String())
+	}
+	if d.Hint != "" {
+		parts = append(parts, d.Hint)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func (r *Registry) Describe(id, icon, tip string) {
+	d, ok := r.byID[id]
+	if !ok {
+		return
+	}
+	if icon != "" {
+		d.Icon = icon
+	}
+	if tip != "" {
+		d.Tip = tip
+	}
 }

@@ -67,8 +67,7 @@ func Swatch(c *core.Context, r mathx.Rect, col mathx.Color, mixed bool) {
 
 func SwatchHex(c *core.Context, r mathx.Rect, col mathx.Color, mixed bool) {
 	th := &c.Theme
-	c.Rect(r, th.Widget)
-	c.Outline(r, th.Border)
+	c.Box(r, th.Radius.Field, th.Widget, th.Border)
 	s := min(r.H-6, 16)
 	sw := mathx.Rect{X: r.X + 4, Y: r.Y + (r.H-s)/2, W: s, H: s}
 	text := th.Mixed

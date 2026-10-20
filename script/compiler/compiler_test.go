@@ -33,7 +33,7 @@ func surface() *abi.Table {
 	t.AddFunc("aego/input", "Axis", abi.Sig(f, abi.T(abi.String)))
 	t.AddEnum(&abi.EnumDef{Module: "aego/input", Name: "Key", Members: []abi.EnumMember{{Name: "A", Value: 4}, {Name: "Space", Value: 44}}})
 	t.AddConst("aego/input", "KeySpace", abi.Const{Type: abi.EnumOf("aego/input.Key"), Int: 44})
-	t.AddFunc("aego/input", "Pressed", abi.Sig(abi.T(abi.Bool), abi.EnumOf("aego/input.Key")))
+	t.AddFunc("aego/input", "KeyPressed", abi.Sig(abi.T(abi.Bool), abi.EnumOf("aego/input.Key")))
 	t.AddFunc("mygame/combat", "Damage", abi.Sig(abi.T(abi.Void), abi.T(abi.NodeRef), abi.T(abi.Int)))
 	t.AddMethod(abi.NodeRef, "Transform2D", abi.Sig(abi.T(abi.Transform2D)))
 	t.AddMethod(abi.NodeRef, "SetTransform2D", abi.Sig(abi.T(abi.Void), abi.T(abi.Transform2D)))
@@ -76,8 +76,8 @@ func hosts(rec *record) func(bytecode.HostImport) (vm.HostFunc, bool) {
 			w[0] = vm.Float(max(w[0].Float(), -w[0].Float()))
 			return nil
 		},
-		"aego/input.Axis":    func(m *vm.Machine, w []vm.Value) error { w[0] = vm.Float(1); return nil },
-		"aego/input.Pressed": func(m *vm.Machine, w []vm.Value) error { w[0] = vm.Bool(w[0].Int() == 44); return nil },
+		"aego/input.Axis":       func(m *vm.Machine, w []vm.Value) error { w[0] = vm.Float(1); return nil },
+		"aego/input.KeyPressed": func(m *vm.Machine, w []vm.Value) error { w[0] = vm.Bool(w[0].Int() == 44); return nil },
 		"mygame/combat.Damage": func(m *vm.Machine, w []vm.Value) error {
 			rec.damage = append(rec.damage, w[1].Int())
 			return nil

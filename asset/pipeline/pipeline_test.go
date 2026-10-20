@@ -67,7 +67,7 @@ func write(t *testing.T, p *project.Project, rel, content string) string {
 	return full
 }
 
-func newPipeline(t *testing.T, p *project.Project, imp Importer) *Pipeline {
+func openPipeline(t *testing.T, p *project.Project, imp Importer) *Pipeline {
 	t.Helper()
 	reg := NewImporterRegistry()
 	if err := reg.Register(imp); err != nil {
@@ -84,7 +84,7 @@ func newPipeline(t *testing.T, p *project.Project, imp Importer) *Pipeline {
 func TestScanCreatesMeta(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 
 	added, removed, err := pl.Scan()
 	if err != nil {
@@ -112,7 +112,7 @@ func TestScanCreatesMeta(t *testing.T) {
 func TestIDSurvivesRename(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	added, _, _ := pl.Scan()
 	id := added[0]
 
@@ -127,7 +127,7 @@ func TestIDSurvivesRename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pl2 := newPipeline(t, p, &fakeImporter{version: 1})
+	pl2 := openPipeline(t, p, &fakeImporter{version: 1})
 	added2, _, _ := pl2.Scan()
 	if len(added2) != 1 || added2[0] != id {
 		t.Fatal("moving a file with its meta must keep the asset id")
@@ -140,14 +140,14 @@ func TestIDSurvivesRename(t *testing.T) {
 func TestFileWithoutMetaGetsNewID(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	added, _, _ := pl.Scan()
 	first := added[0]
 
 	if err := os.Remove(src + MetaSuffix); err != nil {
 		t.Fatal(err)
 	}
-	pl2 := newPipeline(t, p, &fakeImporter{version: 1})
+	pl2 := openPipeline(t, p, &fakeImporter{version: 1})
 	added2, _, _ := pl2.Scan()
 	if added2[0] == first {
 		t.Fatal("a file without meta must get a fresh id")
@@ -158,7 +158,7 @@ func TestCacheSkipsUnchangedImports(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
 	imp := &fakeImporter{version: 1}
-	pl := newPipeline(t, p, imp)
+	pl := openPipeline(t, p, imp)
 	pl.Scan()
 
 	if _, err := pl.ImportAll(); err != nil {
@@ -189,7 +189,7 @@ func TestSettingsChangeInvalidatesCache(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
 	imp := &fakeImporter{version: 1}
-	pl := newPipeline(t, p, imp)
+	pl := openPipeline(t, p, imp)
 	pl.Scan()
 	pl.ImportAll()
 
@@ -199,7 +199,7 @@ func TestSettingsChangeInvalidatesCache(t *testing.T) {
 	m.Settings["mode"] = aetext.Ident("fancy")
 	os.WriteFile(metaPath, WriteMeta(m), 0o644)
 
-	pl2 := newPipeline(t, p, imp)
+	pl2 := openPipeline(t, p, imp)
 	pl2.Scan()
 	pl2.ImportAll()
 	if imp.calls["assets/a.txt"] < 2 {
@@ -210,7 +210,7 @@ func TestSettingsChangeInvalidatesCache(t *testing.T) {
 func TestImportWritesIndexAndArtifacts(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	batch, err := pl.ImportAll()
 	if err != nil {
@@ -232,7 +232,7 @@ func TestImportWritesIndexAndArtifacts(t *testing.T) {
 		t.Fatal("index was not written")
 	}
 
-	reopened := newPipeline(t, p, &fakeImporter{version: 1})
+	reopened := openPipeline(t, p, &fakeImporter{version: 1})
 	if reopened.Index().Len() != 1 {
 		t.Fatal("index was not reloaded on open")
 	}
@@ -241,7 +241,7 @@ func TestImportWritesIndexAndArtifacts(t *testing.T) {
 func TestRemovedSourceMarksMissing(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	added, _, _ := pl.Scan()
 	pl.ImportAll()
 
@@ -263,7 +263,7 @@ func TestRemovedSourceMarksMissing(t *testing.T) {
 func TestWatchCoalesces(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	pl.ImportAll()
 
@@ -297,7 +297,7 @@ func TestWatchCoalesces(t *testing.T) {
 
 func TestDependents(t *testing.T) {
 	p := newProject(t)
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	a := ids.NewAssetID()
 	b := ids.NewAssetID()
 	pl.byID[a] = &record{id: a, path: "assets/a.txt"}
@@ -312,7 +312,7 @@ func TestEmptySourceIsRetriedNotFailed(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
 	imp := &fakeImporter{version: 1}
-	pl := newPipeline(t, p, imp)
+	pl := openPipeline(t, p, imp)
 	pl.Scan()
 	pl.ImportAll()
 
@@ -341,7 +341,7 @@ func TestEmptySourceIsRetriedNotFailed(t *testing.T) {
 func TestWatchRecoversFromPartialWrite(t *testing.T) {
 	p := newProject(t)
 	src := write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	pl.ImportAll()
 

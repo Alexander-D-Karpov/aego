@@ -289,10 +289,12 @@ const (
 	WaitFrames
 	WaitFixed
 	WaitAwait
-	MaxWait = WaitAwait
+	WaitUnscaled
+	WaitHandle
+	MaxWait = WaitHandle
 )
 
-var WaitNames = [...]string{"next", "wait", "frames", "fixed", "await"}
+var WaitNames = [...]string{"next", "wait", "frames", "fixed", "await", "waitUnscaled", "handle"}
 
 const (
 	MaxRegisters       = 255

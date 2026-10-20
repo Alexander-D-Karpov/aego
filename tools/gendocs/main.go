@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"aego/tools/gendocs/site"
 )
@@ -13,10 +14,17 @@ func main() {
 	out := flag.String("out", "site", "output directory")
 	title := flag.String("title", "", "site title, defaults to the export title")
 	play := flag.Bool("playground", false, "add Run buttons that load play/aego.wasm")
-	repo := flag.String("repo", "", "source repository linked from the header")
+	repo := flag.String("repo", "", "source repository linked from the header and footer")
+	edit := flag.String("edit", "", "base URL of Edit this page links, defaults to <repo>/src/branch/main")
+	version := flag.String("version", "", "engine version shown in the footer")
+	commit := flag.String("commit", "", "commit shown in the footer")
+	hero := flag.String("hero", "", "screenshot shown on the landing page")
+	demo := flag.Bool("demo", false, "link the web demo at demo/ from the landing page")
+	playVersion := flag.String("play-version", "", "cache key of play/aego.wasm")
+	tryVersion := flag.String("try-version", "", "cache key of try/aego-docs.wasm")
 	flag.Parse()
 	if *in == "" {
-		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground]")
+		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground] [-repo url] [-version v] [-commit sha] [-hero png]")
 		os.Exit(2)
 	}
 	exp, err := site.Load(*in)
@@ -27,7 +35,9 @@ func main() {
 	if *title != "" {
 		exp.Title = *title
 	}
-	rep, err := site.Build(exp, *out, site.Options{Playground: *play, Repo: *repo})
+	rep, err := site.Build(exp, *out, site.Options{
+		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Time: time.Now(),
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)
 		os.Exit(1)

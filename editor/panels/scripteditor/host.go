@@ -98,6 +98,7 @@ type Host struct {
 	counts     map[string]int
 	countsAt   float64
 	edits      map[*document.ScriptDocument]autosaveMark
+	zen        string
 	Inline     bool
 	Hints      bool
 	Minimap    bool
@@ -137,6 +138,7 @@ func (h *Host) Attach(d Deps, w *edws.Workspace) {
 		h.d.Notices.Notify(context.LevelError, err.Error())
 	}
 	h.registerCommands()
+	h.registerZen()
 	for _, rec := range h.docs().FindScriptRecovery() {
 		doc, err := h.docs().RestoreScriptRecovery(rec)
 		if err != nil {

@@ -10,6 +10,7 @@ var scriptSnippets = []Item{
 	{Label: "coroutine", Detail: "coroutine method", Kind: ItemSnippet, Insert: "func ${1:Name}() coroutine {\n\t\t${2}\n\t}"},
 	{Label: "signal", Detail: "signal declaration", Kind: ItemSnippet, Insert: "signal ${1:Name}(${2})"},
 	{Label: "export", Detail: "@export var field", Kind: ItemSnippet, Insert: "@export var ${1:Name} ${2:float}"},
+	{Label: "pause", Detail: "@pause script attribute", Kind: ItemSnippet, Insert: "@pause(\"${1:always}\")"},
 }
 
 var topSnippets = []Item{

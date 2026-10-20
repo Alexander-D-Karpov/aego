@@ -77,7 +77,7 @@ func (p *Panel) prefabCard(d *document.SceneDocument) {
 		return
 	}
 	r := ui.Cursor().Next(0)
-	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "status.warning", th.Warn)
+	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 	ui.Text("Unused overrides", mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.Warn)
 	remove := func(c prefabs.Change) func() {
 		return func() { p.report(pf.Revert(d, c)) }
@@ -119,11 +119,15 @@ func (p *Panel) prefabItems(d *document.SceneDocument, c prefabs.Change, enabled
 	widgets.Separator(ui)
 	for _, t := range p.d.Prefabs.Targets(d, c.Node) {
 		c.Nearest = t.Nearest
-		if widgets.MenuItem(ui, "Apply to "+t.Name, "", enabled, false) {
+		if widgets.MenuItemIcon(ui, "Apply to "+t.Name, "", "prefab.apply", enabled, false) {
 			p.report(p.d.Prefabs.Apply(d, c))
 		}
 	}
-	if widgets.MenuItem(ui, "Revert", "", enabled, false) {
+	label := "Reset to Prefab Value"
+	if c.Level != prefabs.LevelProperty {
+		label = "Revert to Prefab"
+	}
+	if widgets.MenuItemIcon(ui, label, "", "prefab.revert", enabled, false) {
 		p.report(p.d.Prefabs.Revert(d, c))
 	}
 }

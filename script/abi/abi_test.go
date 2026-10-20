@@ -104,3 +104,16 @@ func TestHashPanicsWhenUnfrozen(t *testing.T) {
 	}()
 	NewTable().Hash()
 }
+
+func TestEventStringParam(t *testing.T) {
+	tab := NewTable()
+	if err := tab.AddEvent(EventDef{Name: "OnNamed", Params: []TypeRef{T(String)}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tab.AddStruct(&StructDef{Module: "m", Name: "S", Slots: 1, Fields: []StructField{{Name: "s", Type: T(String)}}}); err == nil {
+		t.Fatal("a host struct accepted a string field")
+	}
+	if err := tab.AddEvent(EventDef{Name: "OnList", Params: []TypeRef{SliceOf(T(Int))}}); err == nil {
+		t.Fatal("an event accepted a slice")
+	}
+}

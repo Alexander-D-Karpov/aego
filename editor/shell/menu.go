@@ -1,12 +1,13 @@
 package shell
 
 import (
+	"aego/editor/panels/taskcenter"
+	"aego/ui/widgets"
 	"strconv"
 	"strings"
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
-	"aego/editor/core/play"
 )
 
 func clockText(sec float64) string {
@@ -18,6 +19,15 @@ func clockText(sec float64) string {
 		pad = "0"
 	}
 	return strconv.Itoa(m) + ":" + pad + strconv.Itoa(s)
+}
+
+func clockTextFine(sec float64) string {
+	cs := int(sec*100) % 100
+	pad := ""
+	if cs < 10 {
+		pad = "0"
+	}
+	return clockText(sec) + "." + pad + strconv.Itoa(cs)
 }
 
 func (a *App) scriptStatus() (string, bool) {
@@ -71,13 +81,8 @@ func (a *App) drawStatus(r mathx.Rect) {
 			a.ctx.ShowProblems("")
 		}
 	}
-	switch a.play.State() {
-	case play.Playing:
-		item("Play "+clockText(a.play.SimTime()), th.Accent, "", true)
-	case play.Paused:
-		item("Paused "+clockText(a.play.SimTime()), th.Warn, "", true)
-	default:
-		item("Edit", th.TextDim, "", true)
+	if text, col := a.playStatus(); text != "" {
+		item(text, col, "", true)
 	}
 	if c := a.opt.Code; c != nil {
 		if strings.HasPrefix(a.ctx.FocusedPanel, "script:") {
@@ -92,6 +97,16 @@ func (a *App) drawStatus(r mathx.Rect) {
 		}
 		if item(label, th.TextDim, "autosave", false) {
 			c.Autosave = !c.Autosave
+		}
+	}
+	if n, failed := a.taskCounts(); n > 0 {
+		spin := [...]rune{'◐', '◓', '◑', '◒'}[int(ui.Time*6)%4]
+		if item(widgets.Glyph(ui, spin, "*")+" "+strconv.Itoa(n)+" task(s)", th.TextDim, "tasks", false) {
+			a.ws.Show(taskcenter.ID)
+		}
+	} else if failed > 0 {
+		if item(strconv.Itoa(failed)+" task(s) failed", th.Error, "tasks", false) {
+			a.ws.Show(taskcenter.ID)
 		}
 	}
 	if n := a.ctx.Docs.DirtyCount(); n > 0 {

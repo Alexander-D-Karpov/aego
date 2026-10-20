@@ -6,7 +6,9 @@ import (
 	"aego/engine"
 	"aego/gpu"
 	"aego/render"
+	renderhost "aego/render/host"
 	"aego/render/mesh"
+	"aego/render/rt"
 	"aego/render/sprite"
 	"aego/render/view"
 	"aego/scene"
@@ -15,6 +17,8 @@ import (
 const (
 	SystemTransform = "engine.transform"
 	SystemSubmit    = "engine.views_submit"
+	SystemPresent   = "engine.present"
+	SystemOverlays  = "engine.overlays"
 	ServiceID       = "scene.runner"
 )
 
@@ -39,6 +43,7 @@ func (b *Bucket) reset() {
 }
 
 type Runner struct {
+	hidden   func(scene.NodeHandle) bool
 	scene    *scene.Scene
 	render   *render.Renderer
 	res      asset.Resolver
@@ -58,19 +63,32 @@ type Runner struct {
 	vpH      int
 	fixed    view.View
 	hasFixed bool
+	factor   float32
+	rscale   float32
+	external bool
+	scaling  bool
+	pool     *rt.Pool
+	scaled   *rt.Target
+	outW     int
+	outH     int
+	outScale float32
 }
 
 func New() *Runner {
 	return &Runner{
-		views: make([]view.View, 0, 4),
-		order: make([]int32, 0, 4),
-		perm:  make([]int, 0, 4),
-		scale: 1,
+		views:  make([]view.View, 0, 4),
+		order:  make([]int32, 0, 4),
+		perm:   make([]int, 0, 4),
+		scale:  1,
+		factor: 1,
+		rscale: 1,
 	}
 }
 
 func (r *Runner) SetTarget(t gpu.TextureHandle, w, h int) {
+	r.unscale()
 	r.target, r.targetW, r.targetH = t, w, h
+	r.external = true
 }
 
 func (r *Runner) SetDepthTarget(d gpu.TextureHandle) {
@@ -81,6 +99,7 @@ func (r *Runner) ClearTarget() {
 	r.target, r.targetW, r.targetH = gpu.TextureHandle{}, 0, 0
 	r.depth = gpu.TextureHandle{}
 	r.vpW, r.vpH = 0, 0
+	r.external, r.scaling, r.factor = false, false, 1
 }
 
 func (r *Runner) SetViewportSize(w, h int) {
@@ -209,8 +228,12 @@ func (r *Runner) Prepare(pixelW, pixelH int, scale float32) {
 	case r.targetW > 0 && r.targetH > 0:
 		pixelW, pixelH = r.targetW, r.targetH
 	}
+	f := r.factor
+	if f <= 0 {
+		f = 1
+	}
 	r.pixelW, r.pixelH = pixelW, pixelH
-	r.scale = scale
+	r.scale = scale * f
 	r.stats = Stats{}
 	r.views = r.views[:0]
 	r.order = r.order[:0]
@@ -284,12 +307,35 @@ func Register(reg *engine.Registry) error {
 	}); err != nil {
 		return err
 	}
-	return sys.Register(engine.SystemDesc{
+	if err := sys.Register(engine.SystemDesc{
 		ID:     SystemSubmit,
 		Phase:  engine.PhaseRender,
 		Scope:  engine.ScopeWorld,
 		Before: []string{engine.SystemAppRender},
 		System: submit{},
+	}); err != nil {
+		return err
+	}
+	var end []string
+	if _, ok := sys.ScopeOf(renderhost.SystemEnd); ok {
+		end = []string{renderhost.SystemEnd}
+	}
+	if err := sys.Register(engine.SystemDesc{
+		ID:     SystemPresent,
+		Phase:  engine.PhaseRenderUI,
+		Scope:  engine.ScopeWorld,
+		Before: end,
+		System: present{},
+	}); err != nil {
+		return err
+	}
+	return sys.Register(engine.SystemDesc{
+		ID:     SystemOverlays,
+		Phase:  engine.PhaseRenderUI,
+		Scope:  engine.ScopeWorld,
+		After:  []string{SystemPresent},
+		Before: end,
+		System: anchor{},
 	})
 }
 
@@ -301,7 +347,9 @@ func (transform) Run(ctx *engine.Context) {
 		return
 	}
 	m := ctx.Engine.Metrics()
-	r.Prepare(m.PixelW, m.PixelH, m.Density())
+	d := m.Density()
+	r.scaleTarget(ctx.Engine.GPU(), m.PixelW, m.PixelH, d)
+	r.Prepare(m.PixelW, m.PixelH, d)
 }
 
 type submit struct{}
@@ -310,4 +358,118 @@ func (submit) Run(ctx *engine.Context) {
 	if r := Of(ctx); r != nil {
 		r.Submit(r.render)
 	}
+}
+
+type Output struct {
+	Target  gpu.TextureHandle
+	W, H    int
+	TargetW int
+	TargetH int
+	Scale   float32
+}
+
+func (r *Runner) SetRenderScale(k float32) {
+	r.rscale = k
+}
+
+func (r *Runner) RenderScale() float32 {
+	if r.scaling {
+		return r.factor
+	}
+	return 1
+}
+
+func (r *Runner) scaleTarget(dev gpu.Device, w, h int, density float32) {
+	r.outW, r.outH, r.outScale = w, h, density
+	k := r.rscale
+	if r.external || k <= 0 || k == 1 || w <= 0 || h <= 0 || dev == nil {
+		r.unscale()
+		return
+	}
+	sw := max(1, int(float32(w)*k+0.5))
+	sh := max(1, int(float32(h)*k+0.5))
+	if r.pool == nil {
+		r.pool = rt.New(dev, gpu.TexSRGBA8, SystemPresent)
+	}
+	t, err := r.pool.Resize(r.scaled, sw, sh, true)
+	if err != nil {
+		r.rscale = 1
+		r.unscale()
+		return
+	}
+	r.scaled = t
+	r.target, r.targetW, r.targetH, r.depth = t.Texture, t.BucketW, t.BucketH, t.Depth
+	r.vpW, r.vpH = t.W, t.H
+	r.factor, r.scaling = k, true
+}
+
+func (r *Runner) unscale() {
+	if !r.scaling {
+		return
+	}
+	r.target, r.targetW, r.targetH, r.depth = gpu.TextureHandle{}, 0, 0, gpu.TextureHandle{}
+	r.vpW, r.vpH = 0, 0
+	r.factor, r.scaling = 1, false
+}
+
+func (r *Runner) Output() Output {
+	switch {
+	case r.scaling:
+		return Output{W: r.outW, H: r.outH, TargetW: r.outW, TargetH: r.outH, Scale: r.outScale}
+	case r.targetW > 0 && r.targetH > 0:
+		w, h := r.vpW, r.vpH
+		if w <= 0 || h <= 0 {
+			w, h = r.targetW, r.targetH
+		}
+		return Output{Target: r.target, W: w, H: h, TargetW: r.targetW, TargetH: r.targetH, Scale: r.scale}
+	}
+	return Output{W: r.pixelW, H: r.pixelH, TargetW: r.pixelW, TargetH: r.pixelH, Scale: r.scale}
+}
+
+func (r *Runner) Present() {
+	if !r.scaling || r.scaled == nil || r.render == nil || r.outScale <= 0 {
+		return
+	}
+	v := view.ScreenView(r.outW, r.outH, r.outScale)
+	v.DoClear, v.Clear, v.Label = true, mathx.Color{A: 1}, SystemPresent
+	f := r.render.View(v)
+	f.Sprite(sprite.Draw{
+		Region: r.scaled.Region(),
+		Size:   mathx.Vec2{X: float32(r.outW) / r.outScale, Y: float32(r.outH) / r.outScale},
+		Tint:   mathx.Color{R: 1, G: 1, B: 1, A: 1},
+	})
+	f.End()
+}
+
+func (r *Runner) Close() {
+	r.unscale()
+	if r.pool == nil {
+		return
+	}
+	if r.scaled != nil {
+		r.pool.Release(r.scaled)
+		r.scaled = nil
+	}
+	r.pool.Close()
+	r.pool = nil
+}
+
+type present struct{}
+
+func (present) Run(ctx *engine.Context) {
+	if r := Of(ctx); r != nil {
+		r.Present()
+	}
+}
+
+type anchor struct{}
+
+func (anchor) Run(*engine.Context) {}
+
+func (r *Runner) SetHidden(fn func(scene.NodeHandle) bool) {
+	r.hidden = fn
+}
+
+func (r *Runner) Hidden(h scene.NodeHandle) bool {
+	return r.hidden != nil && r.hidden(h)
 }

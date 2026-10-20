@@ -28,13 +28,14 @@ type Panel struct {
 	hook      func()
 	rect      mathx.Rect
 	bar       mathx.Rect
+	tl        *TimelineBar
 	scale     float32
 	hasCamera bool
 	pending   bool
 }
 
 func New(c *play.Controller, vp *services.Viewport) *Panel {
-	return &Panel{play: c, vp: vp, hasCamera: true}
+	return &Panel{play: c, vp: vp, hasCamera: true, tl: NewTimelineBar(c)}
 }
 
 func Register(cmds *command.Registry, o *context.Overlays) error {
@@ -98,20 +99,24 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 
 	if p.play.State() == play.Stopped {
 		p.bar = mathx.Rect{}
+		p.tl.Reset()
 		ui.TextIn(r, "Press Play (Ctrl+P)", th.TextDim, core.AlignCenter)
 		return
 	}
 	id := ui.ID("view")
 	origin := mathx.Vec2{X: r.X, Y: r.Y}
 	p.bar = mathx.Rect{}
-	if !p.play.Captured() {
+	p.tl.Clear()
+	if !p.play.Captured() && !p.vp.Bare {
 		p.toolbar(ui, r)
+		p.tl.Draw(ui, r)
 	}
-	onBar := p.bar.Contains(ui.Mouse())
+	m := ui.Mouse()
+	onBar := p.bar.Contains(m) || p.tl.Holds(m)
 	switch {
 	case p.play.Captured():
 		p.play.SetCapture(true, origin, mathx.Vec2{X: r.W, Y: r.H})
-		if ui.KeyPressed(input.KeyEscape) || (ui.MousePressed(input.MouseLeft) && !r.Contains(ui.Mouse())) {
+		if ui.MousePressed(input.MouseLeft) && !r.Contains(ui.Mouse()) {
 			p.Release()
 		}
 	case !onBar && ui.Pressed(id, r):
@@ -119,11 +124,16 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	if p.play.Captured() {
 		ui.List().RectOutline(r, th.Accent, 2)
-		hint := mathx.Rect{X: r.X, Y: r.Y + r.H - th.RowHeight, W: r.W, H: th.RowHeight}
-		ui.TextIn(hint, "Esc releases input", th.TextDim, core.AlignCenter)
+		if hint := p.play.ReleaseHint(); hint != "" {
+			hr := mathx.Rect{X: r.X, Y: r.Y + r.H - th.RowHeight, W: r.W, H: th.RowHeight}
+			ui.TextIn(hr, hint, th.TextDim, core.AlignCenter)
+		}
 	}
 	if !p.hasCamera {
 		ui.TextIn(r, "No active camera in the scene", th.Warn, core.AlignCenter)
+	}
+	for _, hud := range p.vp.GameHUD {
+		hud(ui, r)
 	}
 	widgets.Tooltip(ui, id, "Click to send input to the game")
 }

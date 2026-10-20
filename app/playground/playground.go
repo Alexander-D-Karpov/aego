@@ -17,6 +17,7 @@ import (
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/docs"
+	"aego/engine/module"
 	"aego/modules/render2d"
 	scriptsystems "aego/modules/scripting/systems"
 	"aego/platform/input"
@@ -30,11 +31,10 @@ import (
 	"aego/script/lexer"
 	"aego/script/runtime"
 	"aego/script/source"
-	"aego/script/vm"
 	"aego/script/workspace"
 )
 
-//go:embed examples/donut.aes
+//go:embed console/donut.aes
 var donutSource string
 
 const (
@@ -42,7 +42,6 @@ const (
 	ScriptsDir    = "scripts"
 	DefaultFrames = 120
 	MaxFrames     = 3600
-	Budget        = 2_000_000
 )
 
 type Diagnostic struct {
@@ -89,22 +88,36 @@ type Example struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Code  string `json:"code"`
+	Scene bool   `json:"scene,omitempty"`
 }
 
 type Playground struct {
-	types *scene.Types
-	reg   *bind.Registry
-	docs  *docs.Registry
-	ws    *workspace.Workspace
+	types    *scene.Types
+	reg      *bind.Registry
+	man      *module.Manifest
+	sections *module.Sections
+	docs     *docs.Registry
+	ws       *workspace.Workspace
+	proj     *exampleProject
+	gameCfg  GameConfig
+	game     *Game
 }
 
 func New() (*Playground, error) {
+	proj, err := loadProject()
+	if err != nil {
+		return nil, err
+	}
 	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, err
 	}
 	reg := bind.New()
 	man, err := playmods.Catalog().Load(types, reg, assembly.Options{Seed: 1, Testing: true})
+	if err != nil {
+		return nil, err
+	}
+	sections, err := man.LoadSections(proj.block, coreBlocks...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +143,7 @@ func New() (*Playground, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Playground{types: types, reg: reg, docs: d, ws: ws}, nil
+	return &Playground{types: types, reg: reg, man: man, sections: sections, docs: d, ws: ws, proj: proj}, nil
 }
 
 func (p *Playground) Docs() *docs.Registry {
@@ -269,7 +282,7 @@ func (p *Playground) Run(files map[string]string, frames int) Result {
 		res.Log = append(res.Log, record(&frame, r))
 	}))
 	lg.SetLevel(log.Debug)
-	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg, VM: vm.Options{Budget: Budget}})
+	rt := runtime.New(runtime.Options{Bindings: p.reg, Schema: p.types.Schema(), Log: lg, VM: playmods.SandboxVM()})
 	defer rt.Close()
 	if err := rt.Link(mods); err != nil {
 		res.Diagnostics = append(res.Diagnostics, failed(err)...)
@@ -375,7 +388,11 @@ func (p *Playground) Stubs() map[string]string {
 }
 
 func (p *Playground) Examples() []Example {
-	out := []Example{{ID: "examples/donut", Title: "Software 3D donut", Code: donutSource}}
+	out := make([]Example, 0, len(p.proj.scenes)+8)
+	for _, s := range p.proj.scenes {
+		out = append(out, Example{ID: ScenePrefix + s.name, Title: s.title, Code: s.files[s.main], Scene: true})
+	}
+	out = append(out, Example{ID: "console/donut", Title: "Software 3D donut (console)", Code: donutSource})
 	for _, e := range p.docs.All() {
 		n := 0
 		for _, s := range e.Snippets {
@@ -394,9 +411,13 @@ func (p *Playground) Examples() []Example {
 }
 
 type request struct {
-	Files  map[string]string `json:"files"`
-	Frames int               `json:"frames"`
-	Source string            `json:"source"`
+	Files   map[string]string `json:"files"`
+	Frames  int               `json:"frames"`
+	Source  string            `json:"source"`
+	Example string            `json:"example"`
+	Count   int               `json:"count"`
+	Animate bool              `json:"animate"`
+	Lose    bool              `json:"lose"`
 }
 
 func (p *Playground) Call(method string, payload []byte) ([]byte, error) {
@@ -411,6 +432,7 @@ func (p *Playground) Call(method string, payload []byte) ([]byte, error) {
 	case "compile":
 		out = p.Compile(req.Files)
 	case "run":
+		p.Stop()
 		out = p.Run(req.Files, req.Frames)
 	case "tokens":
 		out = Tokens(req.Source)
@@ -418,6 +440,17 @@ func (p *Playground) Call(method string, payload []byte) ([]byte, error) {
 		out = p.Stubs()
 	case "examples":
 		out = p.Examples()
+	case "play":
+		out = p.Play(req.Example, req.Files)
+	case "stop":
+		p.Stop()
+		out = true
+	case "poll":
+		out = p.Poll()
+	case "bench":
+		out = p.Bench(req.Count, req.Animate)
+	case "loseContext":
+		out = p.LoseContext(req.Lose)
 	default:
 		return nil, errors.New("unknown method " + strconv.Quote(method))
 	}
@@ -459,4 +492,14 @@ func Format(res Result) []string {
 		out = append(out, f.Script+" stopped with "+f.Code+": "+f.Message)
 	}
 	return append(out, strconv.Itoa(res.Frames)+" frames")
+}
+
+func (p *Playground) TryScenes() []docs.Entry {
+	var out []docs.Entry
+	for _, e := range p.docs.All() {
+		if e.Try != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }

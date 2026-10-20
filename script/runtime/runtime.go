@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"aego/core/clock"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/recorder"
 	"aego/platform/input"
 	"aego/scene"
 	"aego/scene/scriptcomp"
@@ -42,6 +44,8 @@ type Options struct {
 	Log      *log.Logger
 	VM       vm.Options
 	Profile  bool
+	OnFault  func(FaultReport)
+	OnPanic  func(boundary string, v any, stack []byte)
 }
 
 type FaultReport struct {
@@ -103,6 +107,7 @@ type scriptType struct {
 	update   *vm.Func
 	reloaded *vm.Func
 	events   []*vm.Func
+	pause    uint8
 	vals     []vm.Value
 	free     []int
 	live     int
@@ -129,10 +134,16 @@ type Runtime struct {
 	types        []*scriptType
 	byName       map[string]*scriptType
 	comps        []compInfo
+	compByType   map[schema.TypeID]int
+	handles      map[uint64]hostHandle
+	argStack     []vm.Value
+	argTop       int
 	inst         []instance
 	instFree     []vm.InstanceID
 	byNode       map[scene.NodeHandle][]vm.InstanceID
 	update       []vm.InstanceID
+	always       []vm.InstanceID
+	whenPaused   []vm.InstanceID
 	fixed        []vm.InstanceID
 	ready        []vm.InstanceID
 	readyRun     []vm.InstanceID
@@ -162,6 +173,9 @@ type Runtime struct {
 	evq          []queued
 	evargs       []vm.Value
 	evWarned     bool
+	evNames      []string
+	evRef        []bool
+	rec          *recorder.Recorder
 	listBuf      []vm.Value
 	evCount      uint64
 }
@@ -200,6 +214,7 @@ func newType(m *vm.Machine, lm *vm.Module, si int, def *bytecode.ScriptDef, ev m
 		fixed:    funcAt(lm, def.FixedUpdate),
 		update:   funcAt(lm, def.Update),
 		reloaded: funcAt(lm, def.Reloaded),
+		pause:    def.Pause,
 	}
 	for _, f := range lm.Funcs {
 		if f.Script == si {
@@ -294,7 +309,8 @@ func (r *Runtime) Link(mods []*bytecode.Module) error {
 	r.linkEvents()
 	r.types, r.byName = buildTypes(m, loaded, mods, r.evIndex)
 	r.relisten()
-	r.comps = linkComponents(r.opt.Bindings, r.opt.Schema)
+	r.comps, r.compByType = linkComponents(r.opt.Bindings, r.opt.Schema)
+	r.linkHandles()
 	r.scriptType = scriptcomp.ScriptTypeID
 	r.stats.Types = make([]TypeStats, len(r.types))
 	r.gen = 0
@@ -324,6 +340,7 @@ func (r *Runtime) Reset() {
 	r.inst = r.inst[:0]
 	r.instFree = r.instFree[:0]
 	r.update, r.fixed, r.ready, r.spawn = r.update[:0], r.fixed[:0], r.ready[:0], r.spawn[:0]
+	r.always, r.whenPaused = r.always[:0], r.whenPaused[:0]
 	r.evq, r.evargs = r.evq[:0], r.evargs[:0]
 	clear(r.byNode)
 	for _, t := range r.types {
@@ -331,8 +348,24 @@ func (r *Runtime) Reset() {
 	}
 	r.faults = r.faults[:0]
 	clear(r.warned)
+	r.argTop = 0
 	r.dirty = false
 	r.elapsed = 0
+}
+func (r *Runtime) schedule(id vm.InstanceID, t *scriptType) {
+	if t.update != nil {
+		switch t.pause {
+		case bytecode.PauseAlways:
+			r.always = append(r.always, id)
+		case bytecode.PauseWhenPaused:
+			r.whenPaused = append(r.whenPaused, id)
+		default:
+			r.update = append(r.update, id)
+		}
+	}
+	if t.fixed != nil {
+		r.fixed = append(r.fixed, id)
+	}
 }
 
 func (r *Runtime) Instantiate(s *scene.Scene) error {
@@ -357,9 +390,15 @@ func (r *Runtime) onEvent(ev scene.Event) {
 	switch ev.Kind {
 	case scene.EvNodeDestroyed:
 		r.killNode(ev.Node)
+		if r.sig != nil {
+			r.sig.DropNode(bind.NodeValue(ev.Node).A)
+		}
 	case scene.EvComponentRemoved:
-		if ev.Type == r.scriptType {
+		switch {
+		case ev.Type == r.scriptType:
 			r.killNode(ev.Node)
+		case r.sig != nil:
+			r.sig.DropSource(signal.Source{Kind: signal.KindComponent, A: bind.NodeValue(ev.Node).A, B: uint64(ev.Type)})
 		}
 	case scene.EvComponentAdded:
 		if ev.Type == r.scriptType {
@@ -474,12 +513,7 @@ func (r *Runtime) create(t *scriptType, h scene.NodeHandle, props *schema.Proper
 		r.inst = append(r.inst, instance{typ: t, base: base, node: h, state: Running})
 	}
 	t.live++
-	if t.update != nil {
-		r.update = append(r.update, id)
-	}
-	if t.fixed != nil {
-		r.fixed = append(r.fixed, id)
-	}
+	r.schedule(id, t)
 	if t.ready != nil {
 		r.ready = append(r.ready, id)
 	}
@@ -573,6 +607,8 @@ func keep(list []vm.InstanceID, inst []instance) []vm.InstanceID {
 
 func (r *Runtime) compact() {
 	r.update = keep(r.update, r.inst)
+	r.always = keep(r.always, r.inst)
+	r.whenPaused = keep(r.whenPaused, r.inst)
 	r.fixed = keep(r.fixed, r.inst)
 	r.ready = keep(r.ready, r.inst)
 	for i := range r.inst {
@@ -649,6 +685,12 @@ func (r *Runtime) fault(id vm.InstanceID, fl *vm.Fault) {
 		rep.Node, rep.Path = r.scene.ID(in.node), r.scene.Path(in.node)
 	}
 	r.faults = append(r.faults, rep)
+	if r.rec != nil {
+		r.rec.Add(recorder.Fault, rep.Node, ids.NodeID{}, t.name, fl.Message)
+	}
+	if r.opt.OnFault != nil {
+		r.opt.OnFault(rep)
+	}
 	var b strings.Builder
 	for _, f := range fl.Stack {
 		fmt.Fprintf(&b, "\n  at %s (%s:%d)", f.Function, f.File, f.Line)
@@ -684,6 +726,10 @@ func (r *Runtime) begin(ec *engine.Context) bool {
 	if r.m == nil || r.scene == nil {
 		return false
 	}
+	r.rec = nil
+	if ec.World != nil {
+		r.rec = ec.World.Recorder
+	}
 	if ec.Frame != r.frame {
 		r.rollFrame()
 		r.frame = ec.Frame
@@ -693,8 +739,15 @@ func (r *Runtime) begin(ec *engine.Context) bool {
 	r.ctx.Random = ec.Random
 	r.ctx.Frame = ec.Frame
 	r.ctx.Log = r.log
+	r.ctx.Time = ec.Time
+	if ec.Time != nil {
+		r.elapsed = ec.Time.Span(clock.Game).Elapsed
+	}
 	r.ctx.Elapsed = r.elapsed
 	r.flush()
+	if !r.m.Busy() {
+		r.argTop = 0
+	}
 	return true
 }
 
@@ -724,7 +777,9 @@ func (r *Runtime) Update(ec *engine.Context) {
 		return
 	}
 	dt := float32(ec.Dt)
-	r.elapsed += ec.Dt
+	if ec.Time == nil {
+		r.elapsed += ec.Dt
+	}
 	r.ctx.Dt, r.ctx.Elapsed = dt, r.elapsed
 	r.arg[0] = vm.Float(dt)
 	for i := 0; i < len(r.update); i++ {
@@ -734,6 +789,31 @@ func (r *Runtime) Update(ec *engine.Context) {
 		}
 	}
 	r.end()
+}
+func (r *Runtime) runUpdates(ec *engine.Context, list *[]vm.InstanceID) {
+	if !r.begin(ec) {
+		return
+	}
+	dt := ec.Unscaled
+	if ec.Time == nil {
+		dt = ec.Dt
+	}
+	d := float32(dt)
+	r.ctx.Dt = d
+	r.arg[0] = vm.Float(d)
+	for i := 0; i < len(*list); i++ {
+		id := (*list)[i]
+		if in := &r.inst[id-1]; in.state == Running {
+			r.call(id, in.typ.update, r.arg[:1])
+		}
+	}
+	r.end()
+}
+func (r *Runtime) UpdateAlways(ec *engine.Context) {
+	r.runUpdates(ec, &r.always)
+}
+func (r *Runtime) UpdatePaused(ec *engine.Context) {
+	r.runUpdates(ec, &r.whenPaused)
 }
 
 func (r *Runtime) MarkRoots(mk *vm.Marker) {
@@ -756,7 +836,7 @@ func (r *Runtime) rollFrame() {
 	s.HeapObjects, s.HeapBytes = vs.HeapObjects, vs.HeapBytes
 	s.GCRuns, s.GCTime = vs.GCRuns, vs.GCTime
 	s.Faults, s.BudgetAborts = len(r.faults), r.budgetAborts
-	s.Update, s.Fixed = len(r.update), len(r.fixed)
+	s.Update, s.Fixed = len(r.update)+len(r.always)+len(r.whenPaused), len(r.fixed)
 	s.Coroutines = cs.Live
 	s.Sleeping = cs.Sleeping + cs.Fixed + cs.Awaiting
 	s.Resumes, r.resumeMark = cs.Resumed-r.resumeMark, cs.Resumed

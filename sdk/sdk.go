@@ -5,6 +5,7 @@ import (
 
 	"aego/asset"
 	"aego/asset/loader"
+	"aego/contracts/persistence"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/core/rng"
@@ -68,6 +69,17 @@ const (
 	ScopeWorld  = engine.ScopeWorld
 )
 
+type (
+	PauseMode = engine.PauseMode
+	WorldID   = engine.WorldID
+)
+
+const (
+	PauseNormal     = engine.PauseNormal
+	PauseAlways     = engine.PauseAlways
+	PauseWhenPaused = engine.PauseWhenPaused
+)
+
 type Registry struct {
 	r *module.Registry
 }
@@ -115,6 +127,13 @@ func (a adapted) Shutdown() {
 	}
 }
 
+func (a adapted) Reconfigure(ctx *module.AttachContext) error {
+	if rc, ok := a.m.(module.Reconfigurer); ok {
+		return rc.Reconfigure(ctx)
+	}
+	return nil
+}
+
 func Adapt(m Module) module.Module {
 	return adapted{m: m}
 }
@@ -149,6 +168,10 @@ func (r *Registry) Template(t TemplateDesc) {
 
 func (r *Registry) Icons(fsys fs.FS, prefix string) {
 	r.r.Icons(fsys, prefix)
+}
+
+func (r *Registry) SaveSection(id string, s persistence.Section) {
+	r.r.SaveSection(id, s)
 }
 
 func (r *Registry) Docs(fsys fs.FS) {
@@ -214,6 +237,10 @@ func Bitset(field, section, list string) schema.Option {
 
 func Runtime(fields ...string) schema.Option {
 	return schema.Runtime(fields...)
+}
+
+func Persist(fields ...string) schema.Option {
+	return schema.Persist(fields...)
 }
 
 func SceneOf(ctx *Context) *Scene {

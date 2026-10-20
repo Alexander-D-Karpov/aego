@@ -9,7 +9,7 @@ import (
 func TestMoveKeepsIDAndMeta(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	pl.ImportAll()
 	id, _ := pl.Lookup("assets/a.txt")
@@ -32,7 +32,7 @@ func TestMoveKeepsIDAndMeta(t *testing.T) {
 	if err := pl.Move(id, "../outside.txt"); err == nil {
 		t.Fatal("move outside the roots accepted")
 	}
-	fresh := newPipeline(t, p, &fakeImporter{version: 1})
+	fresh := openPipeline(t, p, &fakeImporter{version: 1})
 	fresh.Scan()
 	if again, _ := fresh.Lookup("assets/sub/b.txt"); again != id {
 		t.Fatal("id changed after the move")
@@ -42,7 +42,7 @@ func TestMoveKeepsIDAndMeta(t *testing.T) {
 func TestMoveDir(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/chars/a.txt", "a")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	id, _ := pl.Lookup("assets/chars/a.txt")
 	if err := pl.MoveDir("assets/chars", "assets/heroes"); err != nil {
@@ -59,7 +59,7 @@ func TestMoveDir(t *testing.T) {
 func TestDuplicateAndDelete(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/a.txt", "hello")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	pl.ImportAll()
 	id, _ := pl.Lookup("assets/a.txt")
@@ -88,7 +88,7 @@ func TestDuplicateAndDelete(t *testing.T) {
 
 func TestImportExternal(t *testing.T) {
 	p := newProject(t)
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	src := filepath.Join(t.TempDir(), "dropped.txt")
 	os.WriteFile(src, []byte("external"), 0o644)
@@ -120,7 +120,7 @@ func TestImportExternal(t *testing.T) {
 func TestAssetsAndDirs(t *testing.T) {
 	p := newProject(t)
 	write(t, p, "assets/x/a.txt", "a")
-	pl := newPipeline(t, p, &fakeImporter{version: 1})
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
 	pl.Scan()
 	pl.ImportAll()
 	if err := pl.Mkdir("assets/empty"); err != nil {

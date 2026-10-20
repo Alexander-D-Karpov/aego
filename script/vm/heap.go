@@ -1,5 +1,7 @@
 package vm
 
+import "strconv"
+
 const staticBit = uint64(1) << 63
 
 type object struct {
@@ -14,12 +16,28 @@ type object struct {
 	size  int
 }
 
+type heapFull struct {
+	limit int
+}
+
+func (f heapFull) Error() string {
+	return "the script heap is over its " + strconv.Itoa(f.limit>>20) + " MB limit"
+}
+
 type Heap struct {
 	objs  []object
 	free  []uint32
 	live  int
 	bytes int
 	since int
+	limit int
+	armed int
+}
+
+func (h *Heap) charge(size int) {
+	if h.armed > 0 && h.limit > 0 && h.bytes+size > h.limit {
+		panic(heapFull{limit: h.limit})
+	}
 }
 
 func heapHandle(idx, gen uint32) uint64 {
@@ -27,6 +45,7 @@ func heapHandle(idx, gen uint32) uint64 {
 }
 
 func (h *Heap) alloc(size int) (uint32, *object) {
+	h.charge(size)
 	var idx uint32
 	if n := len(h.free); n > 0 {
 		idx = h.free[n-1]
@@ -77,6 +96,7 @@ func (h *Heap) newSlice(width int, mask uint32, capacity int) Value {
 }
 
 func (h *Heap) grow(o *object, delta int) {
+	h.charge(delta)
 	o.size += delta
 	h.bytes += delta
 	h.since += delta

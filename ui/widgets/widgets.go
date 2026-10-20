@@ -87,8 +87,7 @@ func Button(c *core.Context, label string) bool {
 	id := c.ID(label)
 	r := c.Cursor().Next(0)
 	clicked := c.Clicked(id, r)
-	c.List().Rect(r, c.WidgetColor(id))
-	c.List().RectOutline(r, c.Theme.Border, 1)
+	c.Box(r, c.Theme.Radius.Button, c.WidgetColor(id), c.Theme.Border)
 	size := c.TextSize(label)
 	c.List().Text(label, mathx.Vec2{X: r.X + (r.W-size.X)/2, Y: textY(c, r)}, c.Theme.Text)
 	return clicked
@@ -103,11 +102,10 @@ func Checkbox(c *core.Context, label string, v *bool) bool {
 		*v = !*v
 		changed = true
 	}
-	c.List().Rect(box, c.WidgetColor(id))
-	c.List().RectOutline(box, c.Theme.Border, 1)
+	c.Box(box, c.Theme.Radius.Field, c.WidgetColor(id), c.Theme.Border)
 	if *v {
 		inner := mathx.Rect{X: box.X + 3, Y: box.Y + 3, W: box.W - 6, H: box.H - 6}
-		c.List().Rect(inner, c.Theme.Accent)
+		c.RoundRect(inner, c.Theme.Radius.Field-2, c.Theme.Accent)
 	}
 	c.List().Text(label, mathx.Vec2{X: r.X + r.H + 4, Y: textY(c, r)}, c.Theme.Text)
 	return changed
@@ -136,4 +134,24 @@ func Slider(c *core.Context, label string, v *float32, lo, hi float32) bool {
 	buf = strconv.AppendFloat(buf, float64(*v), 'f', 2, 32)
 	c.List().Text(string(buf), mathx.Vec2{X: r.X + 4, Y: textY(c, r)}, c.Theme.Text)
 	return changed
+}
+
+func Elide(c *core.Context, s string, w float32) string {
+	if w <= 0 {
+		return ""
+	}
+	if c.TextSize(s).X <= w {
+		return s
+	}
+	rs := []rune(s)
+	lo, hi := 0, len(rs)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if c.TextSize(string(rs[:mid])+"…").X <= w {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	return string(rs[:lo]) + "…"
 }

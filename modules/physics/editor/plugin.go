@@ -48,6 +48,7 @@ type plugin struct {
 	tx       *history.Transaction
 	col      components.Collider
 	pts      []mathx.Vec2
+	focus    string
 }
 
 func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
@@ -119,7 +120,7 @@ func Hook(e *ext.Registry) error {
 			return err
 		}
 	}
-	if err := e.SettingsPage(settings.ID, p.settingsPage); err != nil {
+	if err := e.SettingsPage(settings.ID, p.settingsPage, "Gravity", "Substeps", "Velocity Iterations", "Relax Iterations", "Contact Hertz", "Contact Damping Ratio", "Contact Push Velocity", "Restitution Threshold", "Linear Slop", "Sleep Linear", "Sleep Angular", "Sleep Time", "Layers", "Collision Matrix"); err != nil {
 		return err
 	}
 	e.Profiler("Physics", true, p.profile)

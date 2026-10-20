@@ -37,6 +37,7 @@ var (
 	tScene  = reflect.TypeFor[asset.Ref[asset.Scene]]()
 	tPrefab = reflect.TypeFor[asset.Ref[asset.Prefab]]()
 	tMesh   = reflect.TypeFor[asset.Ref[asset.Mesh]]()
+	tCurve  = reflect.TypeFor[Curve]()
 )
 
 func cast[T, U any](u U) T {
@@ -151,8 +152,11 @@ func codecOf[T any](r *Registry) (codec[T], error) {
 		}
 		return c.(codec[T]), nil
 	}
-	c := codec[T]{slots: 1}
 	rt := reflect.TypeFor[T]()
+	if h, ok := r.handles[rt]; ok {
+		return h.(codec[T]), nil
+	}
+	c := codec[T]{slots: 1}
 	switch rt {
 	case tVec2:
 		lane(&c, abi.Vec2, Vec2Of, Vec2Value)
@@ -170,6 +174,8 @@ func codecOf[T any](r *Registry) (codec[T], error) {
 		transform2(&c)
 	case tT3:
 		transform3(&c)
+	case tCurve:
+		curveCodec(&c)
 	case tTex:
 		assetCodec[T, asset.Texture](&c, "texture")
 	case tScene:

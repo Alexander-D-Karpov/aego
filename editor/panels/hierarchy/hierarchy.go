@@ -1,6 +1,7 @@
 package hierarchy
 
 import (
+	"aego/editor/core/favorites"
 	"path"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/platform/input"
 	"aego/scene"
+	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
@@ -35,6 +37,8 @@ type row struct {
 	id    ids.NodeID
 	depth int
 	has   bool
+	last  bool
+	lines uint64
 }
 
 type Deps struct {
@@ -64,6 +68,8 @@ type Panel struct {
 	menuID        core.ID
 	sceneMenuID   core.ID
 	doc           document.ID
+	rank          map[schema.TypeID]int
+	rankReg       *schema.Registry
 }
 
 func New(d Deps) *Panel {
@@ -166,13 +172,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.emptyArea(f, d, mathx.Rect{X: list.X, Y: end, W: list.W, H: list.Y + list.H - end})
 	}
 	if widgets.ContextMenu(ui, p.menuID) {
-		if widgets.SubMenu(ui, "Create", 220) {
+		if widgets.SubMenuIcon(ui, "Create", "ui.plus", 220) {
 			p.createItems(d, p.menuNode)
 			widgets.EndSubMenu(ui)
 		}
 		widgets.Separator(ui)
 		p.prefabItems(f, d)
+		command.MenuItem(f.UI, p.d.Commands, favorites.CommandNode, "")
 		command.MenuItem(f.UI, p.d.Commands, command.EditRename, "Rename")
+		command.MenuItem(f.UI, p.d.Commands, "edit.batch_rename", "Batch Rename…")
 		command.MenuItem(f.UI, p.d.Commands, command.EditDuplicate, "Duplicate")
 		command.MenuItem(f.UI, p.d.Commands, command.EditCopy, "Copy")
 		command.MenuItem(f.UI, p.d.Commands, command.EditCut, "Cut")
@@ -217,10 +225,10 @@ func (p *Panel) sceneMenu(f *services.Frame, d *document.SceneDocument) {
 		return
 	}
 	command.MenuItem(f.UI, p.d.Commands, command.FileSave, "Save Scene")
-	if widgets.MenuItem(ui, "Save Scene As…", p.d.Commands.Shortcut(command.FileSaveAs), true, false) {
+	if widgets.MenuItemIcon(ui, "Save Scene As…", p.d.Commands.Shortcut(command.FileSaveAs), "file.save", true, false) {
 		p.d.Scenes.SaveSceneAs(d)
 	}
-	if widgets.MenuItem(ui, "Rename Scene…", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Rename Scene…", "", "edit.rename", true, false) {
 		p.d.Scenes.RenameScene(d)
 	}
 	widgets.EndContextMenu(ui)
@@ -274,22 +282,32 @@ func (p *Panel) build(d *document.SceneDocument) {
 		}
 		return
 	}
-	p.walk(s, d.View.Expanded, s.Root(), 0)
+	p.walk(s, d.View.Expanded, s.Root(), 0, 0)
 }
 
-func (p *Panel) walk(s *scene.Scene, expanded map[ids.NodeID]bool, h scene.NodeHandle, depth int) {
-	s.Children(h, func(c scene.NodeHandle) bool {
-		if !s.IsAlive(c) {
-			return true
-		}
+func (p *Panel) walk(s *scene.Scene, expanded map[ids.NodeID]bool, h scene.NodeHandle, depth int, lines uint64) {
+	for c := nextAlive(s, s.FirstChild(h)); !c.IsZero(); {
+		next := nextAlive(s, s.NextSibling(c))
 		id := s.ID(c)
 		has := s.ChildCount(c) > 0
-		p.rows = append(p.rows, row{h: c, id: id, depth: depth, has: has})
+		last := next.IsZero()
+		p.rows = append(p.rows, row{h: c, id: id, depth: depth, has: has, last: last, lines: lines})
 		if has && expanded[id] {
-			p.walk(s, expanded, c, depth+1)
+			sub := lines
+			if !last && depth > 0 && depth <= 64 {
+				sub |= 1 << (depth - 1)
+			}
+			p.walk(s, expanded, c, depth+1, sub)
 		}
-		return true
-	})
+		c = next
+	}
+}
+
+func nextAlive(s *scene.Scene, c scene.NodeHandle) scene.NodeHandle {
+	for !c.IsZero() && !s.IsAlive(c) {
+		c = s.NextSibling(c)
+	}
+	return c
 }
 
 func (p *Panel) indexOf(id ids.NodeID) int {
@@ -305,6 +323,32 @@ func rowID(id ids.NodeID) core.ID {
 	return core.IDSeq(core.ID(id.Hi), int(uint32(id.Lo)))
 }
 
+func (p *Panel) nodeIcon(s *scene.Scene, h scene.NodeHandle) (string, bool) {
+	reg := s.Registry()
+	if p.rankReg != reg {
+		p.rankReg, p.rank = reg, map[schema.TypeID]int{}
+		for i, td := range reg.Components() {
+			p.rank[td.ID] = i
+		}
+	}
+	icon, prio, rank, any := "", 0, 0, false
+	s.ComponentsOf(h, func(t schema.TypeID) {
+		td, ok := reg.ByID(t)
+		if !ok || td.Hidden {
+			return
+		}
+		any = true
+		r := p.rank[t]
+		if td.NodeIcon > 0 && td.Icon != "" && (td.NodeIcon > prio || td.NodeIcon == prio && r < rank) {
+			icon, prio, rank = td.Icon, td.NodeIcon, r
+		}
+	})
+	if icon == "" && any {
+		icon = "cat.node"
+	}
+	return icon, !any
+}
+
 func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr mathx.Rect) {
 	ui := f.UI
 	s := d.Scene()
@@ -318,6 +362,7 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 	if p.filter != "" {
 		label = s.Path(rw.h)
 	}
+	icon, empty := p.nodeIcon(s, rw.h)
 	id := rowID(rw.id)
 	ev := widgets.TreeRowRect(ui, id, rr, widgets.TreeRow{
 		Depth:       rw.depth,
@@ -327,6 +372,11 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 		Selected:    selected,
 		Focused:     f.Focused,
 		Dim:         !s.EffectiveEnabled(rw.h),
+		Icon:        icon,
+		Marker:      empty,
+		Guides:      p.filter == "",
+		Last:        rw.last,
+		Lines:       rw.lines,
 	})
 	p.decorate(f, d, rw, rr)
 	if ev.Toggled {
@@ -396,49 +446,49 @@ func (p *Panel) prefabItems(f *services.Frame, d *document.SceneDocument) {
 	ui := f.UI
 	info, ok := pf.Info(d, p.menuNode)
 	if !ok {
-		if widgets.MenuItem(ui, "Create Prefab", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Create Prefab", "", "file.prefab", true, false) {
 			p.report(pf.CreateFrom(d, p.d.Selection.Selected(), ""))
 		}
 		widgets.Separator(ui)
 		return
 	}
-	if widgets.SubMenu(ui, "Prefab", 260) {
+	if widgets.SubMenuIcon(ui, "Prefab", "file.prefab", 260) {
 		live := !info.Missing
-		if widgets.MenuItem(ui, "Open Prefab", "", live, false) {
+		if widgets.MenuItemIcon(ui, "Open Prefab", "", "file.open", live, false) {
 			p.report(pf.Open(info.Prefab))
 		}
-		if widgets.MenuItem(ui, "Select Prefab Asset", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Select Prefab Asset", "", "panel.assets", true, false) {
 			pf.SelectAsset(info.Prefab)
 		}
-		if widgets.MenuItem(ui, "Find Instances", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Find Instances", "", "ui.search", true, false) {
 			pf.FindInstances(info.Prefab)
 		}
 		widgets.Separator(ui)
 		touched := live && info.Touched(p.menuNode)
 		for i, t := range pf.Targets(d, p.menuNode) {
 			ui.PushIDInt(i)
-			if widgets.MenuItem(ui, "Apply Node to "+t.Name, "", touched, false) {
+			if widgets.MenuItemIcon(ui, "Apply Node to "+t.Name, "", "prefab.apply", touched, false) {
 				p.report(pf.Apply(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelNode, Nearest: t.Nearest}))
 			}
-			if widgets.MenuItem(ui, "Apply All to "+t.Name, "", live, false) {
+			if widgets.MenuItemIcon(ui, "Apply All to "+t.Name, "", "prefab.apply", live, false) {
 				p.report(pf.Apply(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelAll, Nearest: t.Nearest}))
 			}
 			ui.PopID()
 		}
-		if widgets.MenuItem(ui, "Revert Node", "", touched, false) {
+		if widgets.MenuItemIcon(ui, "Revert Node", "", "prefab.revert", touched, false) {
 			p.report(pf.Revert(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelNode}))
 		}
-		if widgets.MenuItem(ui, "Revert All", "", live, false) {
+		if widgets.MenuItemIcon(ui, "Revert All", "", "prefab.revert", live, false) {
 			p.report(pf.Revert(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelAll}))
 		}
 		widgets.Separator(ui)
-		if widgets.MenuItem(ui, "Unpack", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Unpack", "", "prefab.unpack", true, false) {
 			p.report(pf.Unpack(d, p.menuNode, false))
 		}
-		if widgets.MenuItem(ui, "Unpack Completely", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Unpack Completely", "", "prefab.unpack", true, false) {
 			p.report(pf.Unpack(d, p.menuNode, true))
 		}
-		if widgets.MenuItem(ui, "Create Variant", "", live, false) {
+		if widgets.MenuItemIcon(ui, "Create Variant", "", "prefab.variant", live, false) {
 			p.report(pf.CreateVariant(info.Prefab))
 		}
 		widgets.EndSubMenu(ui)
@@ -631,33 +681,29 @@ func (p *Panel) move(d *document.SceneDocument, nodes []ids.NodeID, target ids.N
 		if n == th {
 			continue
 		}
-		cmd := &commands.Reparent{Node: s.ID(n), KeepWorld: true}
+		parent, index := target, -1
 		switch zone {
-		case zoneInto:
-			cmd.NewParent = target
-			cmd.NewIndex = -1
 		case zoneBefore:
-			parent := s.Parent(th)
+			ph := s.Parent(th)
 			idx := commands.ChildIndex(s, th)
-			if s.Parent(n) == parent && commands.ChildIndex(s, n) < idx {
+			if s.Parent(n) == ph && commands.ChildIndex(s, n) < idx {
 				idx--
 			}
-			cmd.NewParent = s.ID(parent)
-			cmd.NewIndex = idx
+			parent, index = s.ID(ph), idx
 		case zoneAfter:
-			parent := s.Parent(anchor)
+			ph := s.Parent(anchor)
 			idx := commands.ChildIndex(s, anchor) + 1
-			if s.Parent(n) == parent && commands.ChildIndex(s, n) < idx {
+			if s.Parent(n) == ph && commands.ChildIndex(s, n) < idx {
 				idx--
 			}
-			cmd.NewParent = s.ID(parent)
-			cmd.NewIndex = idx
+			parent, index = s.ID(ph), idx
 		}
-		if p.d.Prefabs != nil && cmd.NewParent != s.ID(s.Parent(n)) && p.d.Prefabs.Locked(d, s.ID(n)) {
+		if p.d.Prefabs != nil && parent != s.ID(s.Parent(n)) && p.d.Prefabs.Locked(d, s.ID(n)) {
 			tx.Abort()
 			p.d.Notices.Notify(context.LevelWarn, s.Name(n)+" comes from a prefab and keeps its parent, unpack the instance to move it")
 			return
 		}
+		cmd := commands.NewMutation("Reparent", commands.EnvFor(s), commands.Move(s.ID(n), parent, index, true))
 		if err := tx.Exec(cmd); err != nil {
 			tx.Abort()
 			p.d.Notices.Notify(context.LevelError, err.Error())

@@ -163,11 +163,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	t := path.Base(p.doc.Path)
-	if p.doc.Dirty() {
-		t += "*"
-	}
-	return t
+	return p.host.tabTitle(p.doc.Path)
 }
 
 func (p *Panel) Scope() string {
@@ -384,10 +380,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if ui.Focus() == p.fid {
 		p.host.active = p
 	}
+	zen := p.inZen()
 	y := r.Y
-	bar := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight}
-	p.drawBar(ui, bar)
-	y += bar.H
+	if !zen {
+		bar := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight}
+		p.drawBar(ui, bar)
+		y += bar.H
+	}
 	if p.conflict {
 		b := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight + 4}
 		p.drawConflict(ui, b)
@@ -402,9 +401,11 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.drawFind(ui, fr)
 		y += fr.H
 	}
-	cr := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight - 2}
-	p.drawCrumbs(ui, cr)
-	y += cr.H
+	if !zen {
+		cr := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight - 2}
+		p.drawCrumbs(ui, cr)
+		y += cr.H
+	}
 	p.area = mathx.Rect{X: r.X, Y: y, W: r.W, H: max(0, r.Y+r.H-y)}
 	p.drawText(ui, p.area)
 	p.drawPopups(ui)

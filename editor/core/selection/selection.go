@@ -1,6 +1,10 @@
 package selection
 
-import "aego/core/ids"
+import (
+	"slices"
+
+	"aego/core/ids"
+)
 
 type DocID uint32
 
@@ -19,7 +23,11 @@ type Service struct {
 	rev     uint64
 	subs    []subscriber
 	nextSub uint64
+	trail   [][]Item
+	pos     int
 }
+
+const trailMax = 64
 
 func New() *Service {
 	return &Service{}
@@ -30,10 +38,8 @@ func (s *Service) Revision() uint64 {
 }
 
 func (s *Service) changed() {
-	s.rev++
-	for i := range s.subs {
-		s.subs[i].fn()
-	}
+	s.notify()
+	s.record()
 }
 
 func (s *Service) index(it Item) int {
@@ -130,7 +136,7 @@ func (s *Service) Prune(doc DocID, alive func(ids.NodeID) bool) {
 	}
 	if n != len(s.items) {
 		s.items = s.items[:n]
-		s.changed()
+		s.notify()
 	}
 }
 
@@ -150,4 +156,56 @@ func (s *Service) Subscribe(fn func()) func() {
 			}
 		}
 	}
+}
+
+func (s *Service) notify() {
+	s.rev++
+	for i := range s.subs {
+		s.subs[i].fn()
+	}
+}
+
+func (s *Service) record() {
+	if len(s.items) == 0 {
+		return
+	}
+	if s.pos > 0 && slices.Equal(s.trail[s.pos-1], s.items) {
+		return
+	}
+	s.trail = append(s.trail[:s.pos], slices.Clone(s.items))
+	if over := len(s.trail) - trailMax; over > 0 {
+		s.trail = slices.Delete(s.trail, 0, over)
+	}
+	s.pos = len(s.trail)
+}
+
+func (s *Service) restore(items []Item) {
+	s.items = append(s.items[:0], items...)
+	s.notify()
+}
+
+func (s *Service) CanBack() bool {
+	return s.pos > 1
+}
+
+func (s *Service) CanForward() bool {
+	return s.pos < len(s.trail)
+}
+
+func (s *Service) Back() bool {
+	if !s.CanBack() {
+		return false
+	}
+	s.pos--
+	s.restore(s.trail[s.pos-1])
+	return true
+}
+
+func (s *Service) Forward() bool {
+	if !s.CanForward() {
+		return false
+	}
+	s.pos++
+	s.restore(s.trail[s.pos-1])
+	return true
 }

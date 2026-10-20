@@ -79,6 +79,8 @@ type Scene struct {
 	render       []mathx.Mat3
 	presDirty    bool
 	presActive   bool
+	tags         *tagIndex
+	tagsChecked  bool
 }
 
 func New(types *Types, res asset.Resolver, opt Options) *Scene {
@@ -179,6 +181,9 @@ func (s *Scene) touch() {
 }
 
 func (s *Scene) emit(e Event) {
+	if s.tags != nil {
+		s.tags.observe(e)
+	}
 	s.events.dispatch(e)
 }
 

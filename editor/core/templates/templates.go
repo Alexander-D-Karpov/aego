@@ -372,16 +372,12 @@ func InstantiatePlace(ctx *context.Editor, t Template, parent ids.NodeID, index 
 	if err := place(s, scratch, h, parent, pl); err != nil {
 		return nil, err
 	}
-	cmd := &commands.Create{
-		Parent:   parent,
-		Index:    index,
-		Fragment: sceneio.SaveSubtree(scratch, h, true),
-		Name:     t.Name,
-	}
+	cmd := commands.NewMutation("Create "+t.Name, commands.EnvFor(s),
+		commands.Insert(parent, index, string(sceneio.SaveSubtree(scratch, h, true))))
 	if err := d.History.Exec(cmd); err != nil {
 		return nil, err
 	}
-	created := append([]ids.NodeID(nil), cmd.Roots()...)
+	created := cmd.Created()
 	ctx.Select(created...)
 	return created, nil
 }

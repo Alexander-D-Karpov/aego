@@ -23,7 +23,7 @@ func New() Module {
 }
 
 func (Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40}
 }
 
 func (Module) Register(r *module.Registry) error {
@@ -54,7 +54,8 @@ func (Module) Register(r *module.Registry) error {
 	).
 		Category("Rendering").
 		Display("Sprite Renderer").
-		Icon("cat.rendering").
+		Icon("comp.sprite").
+		NodeIcon(60).
 		Default(DefaultSpriteRenderer).
 		Template("Sprite", unitSprite).
 		Err(); err != nil {
@@ -77,7 +78,8 @@ func (Module) Register(r *module.Registry) error {
 	).
 		Category("Camera").
 		Display("Camera 2D").
-		Icon("cat.camera").
+		Icon("comp.camera2d").
+		NodeIcon(100).
 		Default(DefaultCamera2D).
 		Template("Camera", nil).
 		Err(); err != nil {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"aego/asset/importers/preset"
 	"sort"
 
 	"aego/asset/importers/atlas"
@@ -20,6 +21,7 @@ func CoreImporters() (*pipeline.ImporterRegistry, error) {
 		atlas.Wrap(texImporter.New()),
 		scenefile.NewScene(),
 		scenefile.NewPrefab(),
+		preset.New(),
 	} {
 		if err := reg.Register(imp); err != nil {
 			return nil, err

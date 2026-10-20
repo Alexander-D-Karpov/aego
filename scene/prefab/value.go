@@ -38,6 +38,8 @@ func Equal(a, b schema.Value) bool {
 		return a.R == b.R
 	case schema.KindColor:
 		return ColorKey(a.C) == ColorKey(b.C)
+	case schema.KindCurve:
+		return a.Cv.Equal(b.Cv)
 	case schema.KindString:
 		return a.S == b.S
 	case schema.KindAssetRef:

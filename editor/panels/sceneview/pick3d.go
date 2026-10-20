@@ -134,7 +134,7 @@ func PickPoint3D(s *scene.Scene, sh shape.Set, ray mathx.Ray3, mask uint64, radi
 		return best, 0, false
 	}
 	for _, h := range s.PreOrder() {
-		if !visible(s, h, mask) || s.Space(h) != scene.Space3D {
+		if !visible(s, h, mask) || s.Space(h) != scene.Space3D || sh.Hidden(s, h) {
 			continue
 		}
 		if b, ok := sh.Of(s, h); ok && b.Kind == shape.Box {
@@ -152,13 +152,13 @@ func PickPoint3D(s *scene.Scene, sh shape.Set, ray mathx.Ray3, mask uint64, radi
 	return best, bestT, !best.IsZero()
 }
 
-func BoxSelect3D(s *scene.Scene, v view.View, a, b mathx.Vec2, mask uint64) []ids.NodeID {
+func BoxSelect3D(s *scene.Scene, sh shape.Set, v view.View, a, b mathx.Vec2, mask uint64) []ids.NodeID {
 	s.UpdateTransforms()
 	lo := mathx.Vec2{X: min(a.X, b.X), Y: min(a.Y, b.Y)}
 	hi := mathx.Vec2{X: max(a.X, b.X), Y: max(a.Y, b.Y)}
 	var out []ids.NodeID
 	for _, h := range s.PreOrder() {
-		if !visible(s, h, mask) {
+		if !visible(s, h, mask) || sh.Hidden(s, h) {
 			continue
 		}
 		p, ok := v.WorldToScreen3(s.WorldPosition3D(h))

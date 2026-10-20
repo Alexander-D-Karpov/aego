@@ -13,7 +13,15 @@ func MenuItem(ui *core.Context, reg *Registry, id, label string) bool {
 	if label == "" {
 		label = d.Name
 	}
-	if widgets.MenuItem(ui, label, d.Shortcut.String(), reg.Enabled(id), false) {
+	it := widgets.Item{
+		Label:    label,
+		Shortcut: d.Shortcut.String(),
+		Icon:     d.Icon,
+		Tip:      d.Tip,
+		Enabled:  reg.Enabled(id),
+		Checked:  d.Checked != nil && d.Checked(),
+	}
+	if widgets.Entry(ui, it) {
 		reg.Run(id)
 		return true
 	}

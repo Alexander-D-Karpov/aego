@@ -4,6 +4,8 @@ import (
 	"aego/input"
 	"aego/log"
 	"aego/physics"
+	"aego/save"
+	"aego/settings"
 	"mygame/enemy"
 	"mygame/shared"
 )
@@ -36,6 +38,7 @@ script PlayerController {
 	var base Color
 	var lastHits int
 	var flash float
+	@persist
 	var kills int
 	var blink Coroutine
 
@@ -50,7 +53,7 @@ script PlayerController {
 	}
 
 	func watch(n NodeRef) {
-		if n == nil {
+		if n == nil || !n.IsAlive() {
 			return
 		}
 		e := n.GetScript<enemy.EnemyAI>()
@@ -61,6 +64,7 @@ script PlayerController {
 
 	func OnEnemyDied() {
 		kills++
+		save.SetGlobalInt("kills", save.GlobalInt("kills", 0) + 1)
 		log.Info("kills=" + string(kills))
 		body := node.Get<Body2D>()
 		if body == nil {
@@ -69,6 +73,19 @@ script PlayerController {
 		v := body.Velocity
 		body.SetVelocity(Vec2{v.X, 0})
 		body.ApplyImpulse(JumpImpulse * 0.6)
+	}
+
+	func OnSave() {
+		save.PutInt("state", int(state))
+	}
+
+	func OnLoad() {
+		state = State(save.GetInt("state", 0))
+		hp := node.Get<Health>()
+		if hp != nil {
+			lastHits = hp.Hits
+		}
+		log.Info("loaded, kills=" + string(kills) + ", total kills=" + string(save.GlobalInt("kills", 0)))
 	}
 
 	func OnCollisionEnter(other NodeRef, c physics.Contact) {
@@ -117,11 +134,12 @@ script PlayerController {
 		if jumpWait > 0 {
 			jumpWait -= dt
 		}
-		x := input.Axis("horizontal")
+		x := input.Axis("Move")
 		v := body.Velocity
 		v.X = x * Speed
 		body.SetVelocity(v)
-		if ground > 0 && jumpWait <= 0 && input.Down(input.KeySpace) {
+		if ground > 0 && jumpWait <= 0 && input.Buffered("Jump", 0) {
+			input.Consume("Jump")
 			body.SetVelocity(Vec2{v.X, 0})
 			body.ApplyImpulse(JumpImpulse)
 			jumpWait = 0.25
@@ -136,11 +154,22 @@ script PlayerController {
 	}
 
 	func Update(dt float) {
+		if input.Pressed("QuickSave") {
+			save.Save("quick")
+		}
+		if input.Pressed("QuickLoad") && save.Exists("quick") {
+			save.Load("quick")
+			return
+		}
+		if input.Pressed("Pause") {
+			settings.OpenView()
+			return
+		}
 		sr := node.Get<SpriteRenderer>()
 		if sr == nil {
 			return
 		}
-		x := input.Axis("horizontal")
+		x := input.Axis("Move")
 		if x != 0 {
 			sr.FlipX = x < 0
 		}
@@ -160,6 +189,12 @@ script PlayerController {
 			sr.Tint = Color{base.R, base.G, base.B, 0.8}
 		} else {
 			sr.Tint = base
+		}
+	}
+
+	func OnSettingChanged(id string) {
+		if id == "audio.bus.music.volume" {
+			log.Info("music volume " + string(settings.GetFloat(id)))
 		}
 	}
 }

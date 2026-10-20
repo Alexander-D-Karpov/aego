@@ -11,6 +11,8 @@ const (
 	FlagTransient
 	FlagScript
 	FlagReplicated
+	FlagLive
+	FlagPersist
 )
 
 func (f FieldFlags) Has(o FieldFlags) bool {
@@ -105,6 +107,7 @@ type TypeDescriptor struct {
 	DisplayName   string
 	Category      string
 	Icon          string
+	NodeIcon      int
 	Owner         string
 	Builtin       bool
 	SceneUnique   bool
@@ -113,6 +116,7 @@ type TypeDescriptor struct {
 	Template      *TemplateDesc
 	ScriptFields  []FieldID
 	ScriptMethods []ScriptMethod
+	Signals       []SignalDesc
 	Inspector     any
 	OnAdd         any
 	OnRemoving    any
@@ -123,6 +127,8 @@ type TypeDescriptor struct {
 	byID          map[FieldID]int
 	New           func() unsafe.Pointer
 	Copy          func(dst, src unsafe.Pointer)
+	Flat          bool
+	CloneInto     func(dst, src unsafe.Pointer)
 }
 
 func (t *TypeDescriptor) Scripted(fd *FieldDescriptor) bool {
@@ -159,4 +165,11 @@ func (t *TypeDescriptor) Serializable(fn func(*FieldDescriptor)) {
 			fn(&t.Fields[i])
 		}
 	}
+}
+
+type SignalDesc struct {
+	Name   string
+	Params []string
+	Names  []string
+	Doc    string
 }

@@ -9,7 +9,7 @@ import (
 	"aego/core/log"
 	"aego/gpu"
 	"aego/gpu/gl33/gl"
-	"aego/gpu/gl33/internal/glstate"
+	"aego/gpu/internal/glstate"
 )
 
 const scratchUnit = glstate.MaxTextureUnits - 1

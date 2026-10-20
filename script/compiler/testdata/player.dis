@@ -1,4 +1,4 @@
-module mygame/player bytecode=5 lang=2
+module mygame/player bytecode=7 lang=2
 import h0 aego/log.Info (string)
 import h1 aego/input.Axis (string) float
 import h2 #NodeRef.Transform2D (NodeRef) Transform2D
@@ -6,7 +6,7 @@ import h3 aego/math.Clamp (float, float, float) float
 import h4 #NodeRef.SetTransform2D (NodeRef, Transform2D)
 import h5 #NodeRef.Has<engine.SpriteRenderer> (NodeRef) bool
 import h6 #NodeRef.Get<engine.SpriteRenderer> (NodeRef) ComponentRef<engine.SpriteRenderer>
-import h7 aego/input.Pressed (enum:aego/input.Key) bool
+import h7 aego/input.KeyPressed (enum:aego/input.Key) bool
 import h8 mygame/combat.Damage (NodeRef, int)
 enum mygame/player.State Idle Run
 script mygame.player.PlayerController slots=8 ready=0 fixed=-1 update=1 reloaded=-1
@@ -83,13 +83,13 @@ func f1 PlayerController.Update params=1 results=0 regs=12 script=0
   0038  LOADNIL  r7
   0039  LTF      r6 r1 r7
   0040  SETCF    r5 r6 0
-  ; mygame/player/main.aes:56 if Target != nil && input.Pressed(input.KeySpace) {
+  ; mygame/player/main.aes:56 if Target != nil && input.KeyPressed(input.KeySpace) {
   0041  GETSF    r6 self[2]
   0042  ISNIL    r5 r6
   0043  NOT      r5 r5
   0044  JMPNOT   r5 -> 48
   0045  LOADI    r6 44
-  0046  CALLH    r6 h7(aego/input.Pressed)
+  0046  CALLH    r6 h7(aego/input.KeyPressed)
   0047  MOVE     r5 r6
   0048  JMPNOT   r5 -> 52
   ; mygame/player/main.aes:57 combat.Damage(Target, 5)

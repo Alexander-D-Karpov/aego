@@ -10,9 +10,28 @@
 # The SDK reaches the editor from one file only.
 sdk/editor.go -> editor/..., editor, sdk.EditorHook bridge for project editor code under aego_editor; the exception is per file (D145)
 
+# Save sections read and write against the play world.
+contracts/persistence -> engine, *, persistence.Section takes the play world so a module section can reach its services (D259)
+
 # Test graph.
-script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene, aego/input), which the language layer cannot install (D203)
+script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run scripts against the whole library (aego/scene), which the language layer cannot install (D203)
+script/... -> modules/input, test|test-editor, toolchain tests run scripts against aego/input, which the input module owns (D234)
 
 # Semantic pass.
 ... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
+render/... -> "debug*", semantic, render/debug is the line backend that modules/debug drives; the debug pass, shader, depth pipeline and font names predate the module and are not module references (D231)
+schema/... -> "display", semantic, the export attribute and struct tag key for a display name predate the display module (D238)
+asset/importers/preset -> "engine.Script", semantic, a preset file keeps a script attachment under the core script component name, which the importer reads without the scene layer (D282)
+editor/core/workspace/layouts.go -> "audio", semantic, the built-in Audio workspace ID is a layout name, not a reference to the audio module (D278)
+script/... -> "display", semantic, the @export(display=...) attribute key and its completion predate the display module (D238)
+engine/engine.go -> "display", semantic, the startup log line labels display metrics; it is not a reference to the display module (D238)
+asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)
+platform/profile.go -> "settings*", semantic, settings.aetext is the player profile file name, not a module reference (D237)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it
+engine/recorder/recorder.go -> "spawn", semantic, the recorder event kind names spawn and despawn records (9.1) and predates the spawn module (D250)
+data/... -> "data*", semantic, the data module ID equals the artifact kind and document head of data assets and its decoder keys data.record and data.table (D252, D253)
+data/... -> "DAT*", semantic, the core data package reports the field checks DAT002 and DAT003 that the data module's validators publish (D256)
+save/... -> "save", semantic, the save module ID equals the document head of .aesave files (D262)
+contracts/persistence -> "save.*", semantic, the persistence contract names the save module's service, host and store IDs (D259)
+contracts/persistence -> "spawn.service", semantic, the persistence contract names the spawn service it reads through persistence.Spawner (D260)
+asset/... -> "data", semantic, the artifact kind and importer ID of .aedata files equal the data module ID (D252)

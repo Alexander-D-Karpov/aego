@@ -176,9 +176,10 @@ func (p *parser) syncDecl() {
 }
 
 var yieldForms = map[string]ast.YieldKind{
-	"wait":   ast.YieldWait,
-	"frames": ast.YieldFrames,
-	"fixed":  ast.YieldFixed,
+	"wait":         ast.YieldWait,
+	"waitUnscaled": ast.YieldWaitUnscaled,
+	"frames":       ast.YieldFrames,
+	"fixed":        ast.YieldFixed,
 }
 
 func (p *parser) syncStmt() {

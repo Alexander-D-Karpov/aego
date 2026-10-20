@@ -1,4 +1,4 @@
-module game/coroutines bytecode=5 lang=2
+module game/coroutines bytecode=7 lang=2
 import h0 aego/log.Info (string)
 script game.coroutines.Blinker slots=5 ready=0 fixed=-1 update=3 reloaded=-1
   field Period float slot=1+1 export
@@ -74,7 +74,7 @@ func f3 Blinker.Update params=1 results=0 regs=4 script=0
   ; game/coroutines/main.aes:37 }
   0009  RET      r0 0
 
-module game/scriptref bytecode=5 lang=2
+module game/scriptref bytecode=7 lang=2
 scriptref s0 game.scriptref.Enemy
 xfield f0 s0.Hp int slots=1
 xmethod m0 s0.Hit params=1 results=1
@@ -124,7 +124,7 @@ func f1 Hunter.Update params=1 results=0 regs=5 script=1
   ; game/scriptref/main.aes:27 }
   0018  RET      r0 0
 
-module game/signals bytecode=5 lang=2
+module game/signals bytecode=7 lang=2
 scriptref s0 game.signals.Source
 connect c0 game.signals.Source.Scored -> game.signals.Source.OnScore
 connect c1 game.signals.Source.Died -> game.signals.Listener.OnDied

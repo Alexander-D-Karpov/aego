@@ -23,6 +23,11 @@ const (
 )
 
 const (
+	CommandPlayBack    = "play.back"
+	CommandPlayForward = "play.forward"
+)
+
+const (
 	CommandAssetsRename    = assets.CommandRename
 	CommandAssetsDelete    = assets.CommandDelete
 	CommandAssetsDuplicate = assets.CommandDuplicate
@@ -162,6 +167,14 @@ func (a *App) registerCommands() error {
 				a.play.Step()
 				return nil
 			}},
+		{ID: CommandPlayBack, Name: "Step Back", Category: "Play", Order: 121,
+			Shortcut: command.Key(input.KeyLeft, command.ModPrimary),
+			Enabled:  a.play.CanSeekBack,
+			Run:      a.play.StepBack},
+		{ID: CommandPlayForward, Name: "Step Forward", Category: "Play", Order: 122,
+			Shortcut: command.Key(input.KeyRight, command.ModPrimary),
+			Enabled:  playing,
+			Run:      a.play.StepForward},
 		{ID: command.PlayStop, Name: "Stop", Category: "Play", Order: 130, Enabled: playing,
 			Run: func() error {
 				a.stopPlay()
@@ -217,6 +230,10 @@ func (a *App) registerCommands() error {
 			Shortcut: command.Key(input.KeyV, command.ModPrimary),
 			Enabled:  hasDoc,
 			Run:      func() error { return a.inspectorPanel.PasteHovered() }},
+		{ID: inspector.CommandWatch, Name: "Add Field to Watch", Scope: inspector.Scope,
+			Shortcut: command.Key(input.KeyW, command.ModPrimary|command.ModAlt),
+			Enabled:  a.inspectorPanel.CanWatch,
+			Run:      func() error { return a.inspectorPanel.WatchHovered() }},
 	}
 	for _, d := range list {
 		if d.Shortcut.IsZero() {
@@ -244,6 +261,8 @@ func (a *App) registerWindowCommands() error {
 			Name:     d.Panel.Title(),
 			Category: "Window",
 			Order:    d.Order,
+			Icon:     panelIcon(d),
+			Tip:      "Show or hide the " + d.Panel.Title() + " panel",
 			Checked:  func() bool { return a.ws.Visible(id) },
 			Run: func() error {
 				a.ws.Toggle(id)
@@ -385,4 +404,13 @@ func (a *App) closeActive() error {
 	}
 	a.ctx.Selection.DropDoc(d.ID)
 	return a.ctx.Docs.Close(d.ID, false)
+}
+
+func panelIcon(d workspace.Desc) string {
+	if ic, ok := d.Panel.(workspace.Iconed); ok {
+		if s := ic.Icon(); s != "" {
+			return s
+		}
+	}
+	return d.Icon
 }

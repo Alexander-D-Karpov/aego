@@ -30,7 +30,7 @@ func surface() *abi.Table {
 	t.AddFunc("aego/input", "Axis", abi.Sig(f, abi.T(abi.String)))
 	t.AddEnum(&abi.EnumDef{Module: "aego/input", Name: "Key", Members: []abi.EnumMember{{Name: "A", Value: 4}, {Name: "Space", Value: 44}}})
 	t.AddConst("aego/input", "KeySpace", abi.Const{Type: abi.EnumOf("aego/input.Key"), Int: 44})
-	t.AddFunc("aego/input", "Pressed", abi.Sig(abi.T(abi.Bool), abi.EnumOf("aego/input.Key")))
+	t.AddFunc("aego/input", "KeyPressed", abi.Sig(abi.T(abi.Bool), abi.EnumOf("aego/input.Key")))
 	t.AddFunc("mygame/combat", "Damage", abi.Sig(abi.T(abi.Void), abi.T(abi.NodeRef), abi.T(abi.Int)))
 	t.AddStruct(&abi.StructDef{Module: "aego/probe", Name: "RayHit", Slots: 3, Fields: []abi.StructField{
 		{Name: "Point", Type: abi.T(abi.Vec2)},

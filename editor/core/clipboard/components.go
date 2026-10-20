@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	MIMEComponent = "application/x-aego-component"
-	MIMEValue     = "application/x-aego-value"
-	componentText = "aego-component\n"
+	MIMEComponent  = "application/x-aego-component"
+	MIMEComponents = "application/x-aego-components"
+	MIMEValue      = "application/x-aego-value"
+	componentText  = "aego-component\n"
+	componentsText = "aego-components\n"
 )
 
 type Kind uint8
@@ -33,6 +35,7 @@ const (
 	KindComponent
 	KindValue
 	KindText
+	KindComponents
 )
 
 type Env struct {
@@ -66,6 +69,9 @@ func (e Env) Peek() Kind {
 	if d, ok := c.Data(MIME); ok && len(d) > 0 {
 		return KindNodes
 	}
+	if d, ok := c.Data(MIMEComponents); ok && len(d) > 0 {
+		return KindComponents
+	}
 	if d, ok := c.Data(MIMEComponent); ok && len(d) > 0 {
 		return KindComponent
 	}
@@ -78,6 +84,8 @@ func (e Env) Peek() Kind {
 		return KindEmpty
 	case strings.HasPrefix(t, "prefab"):
 		return KindNodes
+	case strings.HasPrefix(t, strings.TrimSpace(componentsText)):
+		return KindComponents
 	case strings.HasPrefix(t, strings.TrimSpace(componentText)):
 		return KindComponent
 	}
@@ -105,8 +113,7 @@ func (e Env) encodeComponent(td *schema.TypeDescriptor, values []commands.FieldV
 	sc := e.scratch()
 	h := sc.Create(sc.Root(), "component")
 	sc.Flush()
-	add := &commands.AddComponent{Node: sc.ID(h), Type: td.ID, Name: td.FullName, Values: values}
-	if err := add.Do(target{sc}); err != nil {
+	if err := putComponent(sc, h, td, values); err != nil {
 		return nil, err
 	}
 	return sceneio.SaveSubtree(sc, h, true), nil
@@ -114,18 +121,14 @@ func (e Env) encodeComponent(td *schema.TypeDescriptor, values []commands.FieldV
 
 func (e Env) decodeComponent(data []byte) (*schema.TypeDescriptor, []commands.FieldValue, error) {
 	sc := e.scratch()
-	c := &commands.Create{Index: -1, Fragment: data}
-	if err := c.Do(target{sc}); err != nil {
+	root, err := loadScratch(sc, data)
+	if err != nil {
 		return nil, nil, err
-	}
-	roots := c.Roots()
-	if len(roots) == 0 {
-		return nil, nil, errs.New(errs.EditorCommand, "clipboard component is empty")
 	}
 	reg := sc.Registry()
 	unknown, hasUnknown := reg.ByName("engine.Unknown")
 	var td *schema.TypeDescriptor
-	sc.ComponentsOf(sc.Handle(roots[0]), func(t schema.TypeID) {
+	sc.ComponentsOf(sc.Handle(root), func(t schema.TypeID) {
 		if td != nil || (hasUnknown && t == unknown.ID) {
 			return
 		}
@@ -134,7 +137,7 @@ func (e Env) decodeComponent(data []byte) (*schema.TypeDescriptor, []commands.Fi
 	if td == nil {
 		return nil, nil, errs.New(errs.EditorCommand, "clipboard component type is not loaded in this editor")
 	}
-	values, err := componentValues(sc, roots[0], td)
+	values, err := componentValues(sc, root, td)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -181,13 +184,6 @@ func (e Env) ReadComponent() (*schema.TypeDescriptor, []commands.FieldValue, boo
 	return td, values, true
 }
 
-func (e Env) onAdd(td *schema.TypeDescriptor) func(*scene.Scene, scene.NodeHandle) {
-	if e.OnAdd == nil {
-		return nil
-	}
-	return e.OnAdd(td)
-}
-
 func (e Env) PasteComponent(d *document.SceneDocument, nodes []ids.NodeID) error {
 	td, values, ok := e.ReadComponent()
 	if !ok {
@@ -196,30 +192,10 @@ func (e Env) PasteComponent(d *document.SceneDocument, nodes []ids.NodeID) error
 	if len(nodes) == 0 {
 		return errs.New(errs.EditorCommand, "select the nodes to paste the component onto")
 	}
-	s := d.Scene()
 	tx := d.History.Begin("Paste " + td.FullName)
-	for _, n := range nodes {
-		h := s.Handle(n)
-		if h.IsZero() || !s.IsAlive(h) {
-			continue
-		}
-		if _, has := s.GetByType(h, td.ID); !has {
-			if err := tx.Exec(&commands.AddComponent{Node: n, Type: td.ID, Name: td.FullName, Values: values, OnAdd: e.onAdd(td)}); err != nil {
-				tx.Abort()
-				return err
-			}
-			continue
-		}
-		for _, fv := range values {
-			fd, ok := td.FieldByID(fv.Field)
-			if !ok || fd.Flags.Has(schema.FlagReadOnly) {
-				continue
-			}
-			if err := d.Props.Set(tx, []ids.NodeID{n}, td.ID, fv.Field, fv.Value); err != nil {
-				tx.Abort()
-				return err
-			}
-		}
+	if err := e.pasteInto(tx, d, nodes, td, values); err != nil {
+		tx.Abort()
+		return err
 	}
 	tx.Commit()
 	return nil

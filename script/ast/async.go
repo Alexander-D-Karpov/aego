@@ -8,9 +8,10 @@ const (
 	YieldFrames
 	YieldFixed
 	YieldAwait
+	YieldWaitUnscaled
 )
 
-var yieldKindNames = [...]string{"next", "wait", "frames", "fixed", "await"}
+var yieldKindNames = [...]string{"next", "wait", "frames", "fixed", "await", "waitUnscaled"}
 
 func (k YieldKind) String() string {
 	if int(k) < len(yieldKindNames) {

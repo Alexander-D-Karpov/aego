@@ -46,6 +46,14 @@ type Section struct {
 	names    func(any, string) []string
 }
 
+func (s *Section) DefaultValue() any {
+	return s.def()
+}
+
+func (s *Section) DefaultBlock() *aetext.Node {
+	return s.encode(s.def())
+}
+
 func (s *Section) Heads() []string {
 	return append([]string{s.ID}, s.Former...)
 }
@@ -272,4 +280,20 @@ func (s *Sections) Set(id string, v any) error {
 	}
 	s.vals[id] = v
 	return nil
+}
+
+func (s *Sections) Copy(id string, v any) (any, error) {
+	d, ok := s.Desc(id)
+	if !ok {
+		return nil, sectionErr(id, "no such project section")
+	}
+	return d.decode(d.encode(v))
+}
+
+func (s *Sections) Same(id string, a, b any) bool {
+	d, ok := s.Desc(id)
+	if !ok {
+		return false
+	}
+	return bytes.Equal(aetext.Write(d.encode(a)), aetext.Write(d.encode(b)))
 }

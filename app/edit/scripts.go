@@ -36,6 +36,8 @@ type scriptHost struct {
 	probRev  uint64
 	probs    []context.ScriptProblem
 	stats    context.ScriptStats
+	fault    func(runtime.FaultReport)
+	panicked func(boundary string, v any, stack []byte)
 }
 
 func (h *scriptHost) channel() *log.ChannelLogger {
@@ -158,7 +160,7 @@ func (h *scriptHost) Attach(w *engine.World, s *scene.Scene) (func(), error) {
 	if err := h.sync(); err != nil {
 		return nil, err
 	}
-	rt := runtime.New(runtime.Options{Bindings: h.bindings, Schema: h.schema, Log: h.log})
+	rt := runtime.New(runtime.Options{Bindings: h.bindings, Schema: h.schema, Log: h.log, OnFault: h.fault, OnPanic: h.panicked})
 	if err := rt.Link(h.prog.Ordered()); err != nil {
 		return nil, err
 	}
@@ -192,4 +194,12 @@ func (h *scriptHost) Attach(w *engine.World, s *scene.Scene) (func(), error) {
 			h.channel().Error("cannot publish script types", log.F("err", err.Error()))
 		}
 	}, nil
+}
+
+func (h *scriptHost) Watch(w *engine.World, node scene.NodeHandle, script, field string, lane int) (string, float64, bool, bool) {
+	rt, ok := engine.ServiceOf[*runtime.Runtime](w, runtime.ServiceID)
+	if !ok || rt == nil {
+		return "", 0, false, false
+	}
+	return rt.WatchField(node, script, field, lane)
 }

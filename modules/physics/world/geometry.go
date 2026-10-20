@@ -186,16 +186,6 @@ func (g *geom) childAABB(i int, x xform) AABB {
 	return g.c.aabb(x)
 }
 
-func (g *geom) clone() geom {
-	out := *g
-	if g.chain != nil {
-		ch := *g.chain
-		ch.pts = append([]Vec2(nil), g.chain.pts...)
-		out.chain = &ch
-	}
-	return out
-}
-
 func validTransform(t Transform) error {
 	if !finite2(t.Position) || !finite(t.Angle) {
 		return bad("local transform is not finite")

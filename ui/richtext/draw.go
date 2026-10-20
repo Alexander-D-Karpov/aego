@@ -164,8 +164,8 @@ func (t *Text) Draw(ui *core.Context, id core.ID, r mathx.Rect) Action {
 	content := d.Height + 2*pad
 	maxOff := max(0, content-r.H)
 	if ui.MouseOver(id, r) {
-		if w := ui.WheelY(); w != 0 {
-			t.Scroll -= w * th.RowHeight * 3
+		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
+			t.Scroll -= w
 		}
 	}
 	t.Scroll = mathx.Clamp(t.Scroll, 0, maxOff)

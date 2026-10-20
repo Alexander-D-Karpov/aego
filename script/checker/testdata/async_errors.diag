@@ -7,7 +7,7 @@ game/async_errors/main.aes:15:21: error AES2058: unknown script type Missing, im
 game/async_errors/main.aes:17:7: error AES2056: lifecycle method Update cannot be a coroutine, start one from it instead
     	func Update(dt float) coroutine {
     	     ^~~~~~
-game/async_errors/main.aes:21:14: error AES2057: yield wait needs float, not bool
+game/async_errors/main.aes:21:14: error AES2057: yield wait needs float, a Coroutine or an awaitable handle, not bool
     		yield wait(true)
     		           ^~~~
 game/async_errors/main.aes:25:3: error AES2050: yield is only allowed in a coroutine, declare it as func Plain(...) coroutine
@@ -19,10 +19,10 @@ game/async_errors/main.aes:26:3: error AES2051: coroutine Blink is called withou
 game/async_errors/main.aes:27:9: error AES2052: start needs a coroutine method of this script, Plain is not one
     		start Plain()
     		      ^~~~~
-game/async_errors/main.aes:28:15: error AES2054: handler OnWrong does not match signal Hit
+game/async_errors/main.aes:28:15: error AES2054: handler OnWrong(int) does not match signal Hit(string)
     		Hit.Connect(OnWrong)
     		            ^~~~~~~
-  game/async_errors/main.aes:12:9: note: signal Hit(string), handler OnWrong(int)
+  game/async_errors/main.aes:12:9: note: signal Hit(string)
     	signal Hit(s string)
     	       ^~~
 game/async_errors/main.aes:29:15: error AES2055: Blink cannot handle a signal, use a plain method

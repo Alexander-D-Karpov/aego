@@ -44,8 +44,15 @@ func (a *App) commandItems(cat string) {
 		if d.Label != nil {
 			label = d.Label()
 		}
-		checked := d.Checked != nil && d.Checked()
-		if widgets.MenuItem(ui, label, d.Shortcut.String(), reg.Enabled(d.ID), checked) {
+		it := widgets.Item{
+			Label:    label,
+			Shortcut: d.Shortcut.String(),
+			Icon:     d.Icon,
+			Tip:      d.Tip,
+			Enabled:  reg.Enabled(d.ID),
+			Checked:  d.Checked != nil && d.Checked(),
+		}
+		if widgets.Entry(ui, it) {
 			reg.Run(d.ID)
 		}
 	}
@@ -120,26 +127,29 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	reg := a.ctx.Commands
 	st := a.play.State()
 	tb := widgets.BeginToolbar(ui, r)
-	if st != play.Stopped {
-		tint := th.PlayTint
-		tint.A = 0.18
-		ui.Rect(r, tint)
-	}
 	saveX := r.X + r.W - tb.ButtonW() - 6
-	n := 3
-	if st != play.Stopped {
-		n = 4
-	}
-	width := float32(n) * tb.ButtonW()
+	wsLabel := a.ws.Current().Title + "   "
+	wsX := saveX - ui.TextSize(wsLabel).X - 22
+	bw := tb.ButtonW()
+	scale, tick := scaleLabel(a.play.TimeScale())+"   ", "+1 tick"
+	width := 4*bw + ui.TextSize(scale).X + ui.TextSize(tick).X + 28 + 2*9 + 8
 	x := max(r.X+(r.W-width)/2, r.X+6)
-	if x+width <= saveX-8 {
-		tb.SetX(x)
-		a.playRect = mathx.Rect{X: x, Y: r.Y + 3, W: tb.ButtonW() - 2, H: r.H - 6}
+	sid := ui.ID("tb.scale")
+	if x+width <= wsX-8 {
+		if st != play.Stopped {
+			glow := th.PlayTint
+			glow.A = 0.22
+			ui.RoundRect(mathx.Rect{X: x, Y: r.Y + 2, W: width, H: r.H - 4}, th.Radius.Popup, glow)
+			tb.Label = th.Text
+		}
+		tb.Active = th.Accent
+		tb.SetX(x + 4)
+		a.playRect = mathx.Rect{X: x + 4, Y: r.Y + 3, W: bw - 2, H: r.H - 6}
 		blocked := 0
 		if st == play.Stopped {
 			blocked = a.scriptErrors()
 		}
-		playTip := "Play (" + reg.Shortcut(command.PlayStart) + ")"
+		playTip := "Play (" + reg.Shortcut(command.PlayStart) + "), full screen (" + reg.Shortcut(CommandFullscreenPlay) + ")"
 		noSource := st == play.Stopped && a.ctx.Docs.Edit() != nil && !a.canPlay()
 		switch {
 		case blocked > 0:
@@ -147,7 +157,11 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		case noSource:
 			playTip = playPrefabHint
 		}
-		if tb.Button(ui.ID("tb.play"), "play.start", playTip, st == play.Playing, blocked == 0 && !noSource) {
+		playTint := th.Accent
+		if st == play.Playing {
+			playTint = th.Text
+		}
+		if tb.TintButton(ui.ID("tb.play"), "play.start", playTip, st == play.Playing, blocked == 0 && !noSource, playTint) {
 			switch st {
 			case play.Stopped:
 				reg.Run(command.PlayStart)
@@ -155,18 +169,55 @@ func (a *App) drawToolbar(r mathx.Rect) {
 				a.play.Pause()
 			}
 		}
-		if tb.Button(ui.ID("tb.pause"), "play.pause", "Pause", st == play.Paused, st != play.Stopped) {
+		if tb.Button(ui.ID("tb.pause"), "play.pause", "Pause ("+reg.Shortcut(command.PlayPause)+")", st == play.Paused, st != play.Stopped) {
 			a.play.Pause()
 		}
-		if tb.Button(ui.ID("tb.step"), "play.step", "Step one frame", false, st == play.Paused) {
+		if tb.Button(ui.ID("tb.step"), "play.step", "Step one frame ("+reg.Shortcut(command.PlayStep)+")", false, st == play.Paused) {
 			a.play.Step()
 		}
-		if st != play.Stopped && tb.Button(ui.ID("tb.stop"), "play.stop", "Stop", false, true) {
+		if clicked, _ := tb.TextButton(ui.ID("tb.tick"), tick, "Step one fixed tick ("+reg.Shortcut(command.PlayStepFixed)+"), while paused"); clicked && reg.Enabled(command.PlayStepFixed) {
+			reg.Run(command.PlayStepFixed)
+		}
+		tb.Separator()
+		clicked, sr := tb.TextButton(sid, scale, "Time scale")
+		caret := th.TextDim
+		if tb.Label.A > 0 {
+			caret = tb.Label
+		}
+		widgets.Chevron(ui, mathx.Rect{X: sr.X + sr.W - 21, Y: float32(int(sr.Y + (sr.H-19)/2 + 1)), W: 19, H: 19}, true, caret)
+		if clicked {
+			if ui.PopupOpen(sid) {
+				ui.ClosePopup(sid)
+			} else {
+				ui.CloseAllPopups()
+				ui.OpenPopup(sid, mathx.Vec2{X: sr.X, Y: sr.Y + sr.H})
+			}
+		}
+		tb.Separator()
+		tb.Active = th.Error
+		if tb.TintButton(ui.ID("tb.stop"), "play.stop", "Stop", st != play.Stopped, st != play.Stopped, th.Text) {
 			a.stopPlay()
+		}
+		tb.Active, tb.Label = mathx.Color{}, mathx.Color{}
+	}
+	wid := ui.ID("tb.workspace")
+	if wsX > r.X+6 {
+		tb.SetX(wsX)
+		clicked, wr := tb.TextButton(wid, wsLabel, "Workspace ("+reg.Shortcut(WorkspaceCommand(0))+"…4)")
+		widgets.Chevron(ui, mathx.Rect{X: wr.X + wr.W - 21, Y: float32(int(wr.Y + (wr.H-19)/2 + 1)), W: 19, H: 19}, true, th.TextDim)
+		if clicked {
+			if ui.PopupOpen(wid) {
+				ui.ClosePopup(wid)
+			} else {
+				ui.CloseAllPopups()
+				ui.OpenPopup(wid, mathx.Vec2{X: wr.X, Y: wr.Y + wr.H})
+			}
 		}
 	}
 	tb.SetX(saveX)
 	if tb.Button(ui.ID("tb.save"), "file.save", "Save ("+reg.Shortcut(command.FileSave)+")", false, reg.Enabled(command.FileSave)) {
 		reg.Run(command.FileSave)
 	}
+	a.scalePopup(sid)
+	a.workspacePopup(wid)
 }

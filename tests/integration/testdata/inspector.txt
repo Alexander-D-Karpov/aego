@@ -1,13 +1,15 @@
-Rendering	engine.SpriteRenderer	Sprite Renderer	cat.rendering	-
-Rendering	engine.MeshRenderer	Mesh Renderer	cat.rendering	-
-Camera	engine.Camera2D	Camera 2D	cat.camera	-
-Camera	engine.Camera3D	Camera 3D	cat.camera	-
-Physics	physics.Body2D	Rigid Body 2D	cat.physics	-
-Physics	physics.BoxCollider2D	Box Collider 2D	cat.physics	-
-Physics	physics.CircleCollider2D	Circle Collider 2D	cat.physics	-
-Physics	physics.CapsuleCollider2D	Capsule Collider 2D	cat.physics	-
-Physics	physics.PolygonCollider2D	Polygon Collider 2D	cat.physics	-
-Physics	physics.EdgeCollider2D	Edge Collider 2D	cat.physics	-
-Physics	physics.DistanceJoint2D	Distance Joint 2D	cat.physics	-
-Physics	physics.RevoluteJoint2D	Revolute Joint 2D	cat.physics	-
+Engine	engine.Tags	Tags	comp.tags	-
+Engine	save.Persist	Persist	comp.persist	-
+Rendering	engine.SpriteRenderer	Sprite Renderer	comp.sprite	-
+Rendering	engine.MeshRenderer	Mesh Renderer	comp.mesh	-
+Camera	engine.Camera2D	Camera 2D	comp.camera2d	-
+Camera	engine.Camera3D	Camera 3D	comp.camera3d	-
+Physics	physics.Body2D	Rigid Body 2D	comp.rigidbody	-
+Physics	physics.BoxCollider2D	Box Collider 2D	comp.box	-
+Physics	physics.CircleCollider2D	Circle Collider 2D	comp.circle	-
+Physics	physics.CapsuleCollider2D	Capsule Collider 2D	comp.capsule	-
+Physics	physics.PolygonCollider2D	Polygon Collider 2D	comp.polygon	-
+Physics	physics.EdgeCollider2D	Edge Collider 2D	comp.edge	-
+Physics	physics.DistanceJoint2D	Distance Joint 2D	comp.joint_distance	-
+Physics	physics.RevoluteJoint2D	Revolute Joint 2D	comp.joint_revolute	-
 game	game.Rotator	Rotator	cat.game	rotator

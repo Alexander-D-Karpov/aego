@@ -12,9 +12,11 @@ import (
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/app/bootstrap"
+	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/engine"
+	"aego/engine/problems"
 	"aego/format/aetext"
 	"aego/project"
 	"aego/script/bind"
@@ -61,7 +63,7 @@ func LoadManifest(p *project.Project, path string) (*manifest.Manifest, error) {
 		if !bootstrap.NeedsNative(p) {
 			return builtin.Manifest()
 		}
-		built, err := bootstrap.BuildManifest(p, engine.Version, log.New(log.NewTextSink(os.Stderr)))
+		built, err := bootstrap.BuildManifest(p, fmt.Sprintf("%s+v%d", engine.Version, manifest.Version), log.New(log.NewTextSink(os.Stderr)))
 		if err != nil {
 			return nil, err
 		}
@@ -162,4 +164,45 @@ func Verify(p *project.Project, w io.Writer) error {
 		return errs.New(errs.BuildFailed, fmt.Sprintf("the new project has %d problem(s)", n), log.F("root", p.Root))
 	}
 	return nil
+}
+
+func CheckAssets(p *project.Project, imps *pipeline.ImporterRegistry, w io.Writer) int {
+	types, err := assembly.NewTypes()
+	if err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	man, err := builtin.Default().Load(types, bind.New(), assembly.Options{})
+	if err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	if err := types.Schema().Freeze(); err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	pl, err := pipeline.Open(p, imps, log.Nop())
+	if err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	defer pl.Close()
+	if _, _, err := pl.Scan(); err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	if _, err := pl.ImportAll(); err != nil {
+		fmt.Fprintln(w, "aego:", err)
+		return 1
+	}
+	n := 0
+	for _, d := range man.ValidateAssets(types.Schema(), pl, bootstrap.NeedsNative(p), nil) {
+		sev := "warning"
+		if d.Severity == problems.Error {
+			sev = "error"
+			n++
+		}
+		fmt.Fprintf(w, "%s: %s %s: %s\n", d.Subject.File, sev, d.Code, d.Message)
+	}
+	return n
 }

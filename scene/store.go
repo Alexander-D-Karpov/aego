@@ -2,6 +2,7 @@ package scene
 
 import (
 	"aego/core/handle"
+	"aego/core/rewind"
 	"aego/schema"
 	"reflect"
 	"unsafe"
@@ -54,6 +55,10 @@ type anyStore interface {
 	dropNode(h NodeHandle)
 	flush(s *Scene)
 	count() int
+	collect(out []NodeHandle, all bool) int
+	capture(reuse rewind.Key) rewind.Key
+	restore(k rewind.Key)
+	hash(h *rewind.Hasher)
 }
 
 type pendingEntry[T any] struct {
@@ -350,3 +355,23 @@ func storeOf[T any](s *Scene) *ComponentStore[T] {
 }
 
 var _ = handle.Handle[nodeData]{}
+
+func (c *ComponentStore[T]) collect(out []NodeHandle, all bool) int {
+	n := 0
+	for i := range c.data {
+		if n == len(out) {
+			break
+		}
+		h := c.nodes[i]
+		if int(c.sparse.get(h.Index)) != i {
+			continue
+		}
+		nd, ok := c.scene.node(h)
+		if !ok || nd.has(flagPendingDestroy) || (!all && !nd.has(flagEffective)) {
+			continue
+		}
+		out[n] = h
+		n++
+	}
+	return n
+}

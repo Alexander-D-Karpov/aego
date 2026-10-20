@@ -1,0 +1,19 @@
+Getting started
+  Getting started
+    Getting started -> welcome.html
+Guides
+  Aego Script
+    Aego Script -> language.html
+      Coroutines -> language/coroutines.html
+      Keywords -> language/builtins.html
+Reference
+  Script API
+    aego/math -> ref/aego/math.html
+  Components
+    Aego Script -> ref/module/script.html
+      Sprite Renderer -> ref/engine.SpriteRenderer.html
+  Diagnostics
+    Diagnostics -> diagnostics.html
+  Project
+    My game -> project.html
+      game/player -> ref/scripts/game/player.html

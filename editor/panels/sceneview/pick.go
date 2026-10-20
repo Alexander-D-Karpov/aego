@@ -76,7 +76,7 @@ func BoxSelect(s *scene.Scene, sh shape.Set, box mathx.AABB2) []ids.NodeID {
 	root := s.Root()
 	var out []ids.NodeID
 	for _, h := range s.PreOrder() {
-		if h == root || !s.IsAlive(h) || !s.EffectiveEnabled(h) {
+		if h == root || !s.IsAlive(h) || !s.EffectiveEnabled(h) || sh.Hidden(s, h) {
 			continue
 		}
 		b, isShape := Bounds(s, sh, h)

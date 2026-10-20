@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/build/constraint"
 	"go/parser"
 	"go/token"
 	"go/types"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -43,7 +45,8 @@ var scriptCompilerOnly = []string{
 
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
-	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "editor/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
+	"data", "save", "contracts/persistence",
 }
 
 var rules = []rule{
@@ -55,14 +58,26 @@ var rules = []rule{
 	{"platform/input", []string{"core/..."}, nil},
 	{"platform/sdl", []string{"core/...", "platform", "platform/input"}, nil},
 	{"platform/headless", []string{"core/...", "platform", "platform/input"}, nil},
+	{"platform/web", []string{"core/...", "platform", "platform/input"}, nil},
 	{"gpu", []string{"core/..."}, nil},
 	{"gpu/null", []string{"core/...", "gpu"}, nil},
-	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/..."}, nil},
+	{"gpu/webgl2", []string{"core/...", "gpu", "gpu/internal/..."}, nil},
+	{"gpu/gl33", []string{"core/...", "gpu", "gpu/gl33/...", "gpu/internal/..."}, nil},
 	{"gpu/gl33/gl", nil, nil},
-	{"gpu/gl33/internal/...", []string{"core/..."}, nil},
+	{"gpu/internal/...", []string{"core/..."}, nil},
 	{"vfs", []string{"core/...", "vfs/osfs"}, nil},
 	{"vfs/osfs", []string{"core/..."}, nil},
-	{"engine", []string{"core/...", "platform/...", "gpu/...", "vfs/...", "engine/res"}, nil},
+	{"vfs/exportfs", []string{"core/...", "vfs", "vfs/osfs"}, nil},
+	{"vfs/memfs", []string{"core/...", "vfs"}, nil},
+	{"runtime/bundle", []string{"core/...", "asset", "format/..."}, nil},
+	{"runtime/player", []string{"core/...", "app/assembly", "app/assembly/builtin", "app/crash", "asset", "asset/loader",
+		"contracts/...", "engine", "engine/...", "format/...", "modules/input", "modules/scripting/systems", "platform",
+		"render", "render/host", "runtime/bundle", "save", "scene", "scene/frame", "scene/sceneio", "schema",
+		"script/bind", "script/bytecode", "script/runtime", "script/vm", "sdk", "vfs", "vfs/..."}, nil},
+	{"app/export", []string{"..."}, nil},
+	{"app/export/...", []string{"core/...", "app/export/icon"}, nil},
+	{"engine/recorder", []string{"core/..."}, nil},
+	{"engine", []string{"core/...", "platform/...", "gpu/...", "vfs/...", "engine/res", "engine/recorder"}, nil},
 	{"engine/res", []string{"core/...", "vfs"}, nil},
 	{"app/bootstrap", []string{"core/...", "project"}, nil},
 	{"render", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
@@ -72,10 +87,12 @@ var rules = []rule{
 	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture", "render/mesh"}, nil},
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
+	{"data", []string{"core/...", "asset", "format/aetext", "schema", "scene/sceneio", "scene/prefab"}, nil},
+	{"save", []string{"core/...", "format/aetext", "scene", "platform"}, nil},
 	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
 	{"scene", []string{"core/...", "schema", "asset", "render/..."}, nil},
 	{"scene/scriptcomp", []string{"core/...", "schema", "scene", "format/..."}, nil},
-	{"scene/frame", []string{"core/...", "schema", "asset", "gpu", "engine", "render", "render/...", "scene"}, nil},
+	{"scene/frame", []string{"core/...", "schema", "asset", "gpu", "engine", "engine/recorder", "render", "render/...", "scene"}, nil},
 	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/scriptcomp", "scene/prefab"}, nil},
 	{"scene/prefab", []string{"core/...", "schema"}, nil},
 	{"scene/prefab/author", []string{"core/...", "schema", "scene/prefab"}, nil},
@@ -91,6 +108,8 @@ var rules = []rule{
 	{"editor/panels/scripteditor", with(editorAllow, "script/langsvc", "script/workspace", "script/source", "script/diag"), nil},
 	{"app", []string{"..."}, nil},
 	{"app/docstool", []string{"..."}, nil},
+	{"app/docsview", []string{"..."}, nil},
+	{"scene/mutate", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/sceneio", "scene/prefab", "scene/scriptcomp", "data"}, nil},
 	{"app/edit", []string{"..."}, nil},
 	{"app/projects", []string{"..."}, nil},
 	{"app/supervise", []string{"..."}, nil},
@@ -101,15 +120,31 @@ var rules = []rule{
 	{"modules/physics/stdlib", []string{"core/...", "engine", "engine/module", "scene", "schema", "script/bind", "script/abi", "script/vm", "contracts/...", "modules/physics/world", "modules/physics/components", "modules/physics/systems"}, nil},
 	{"modules/physics/settings", []string{"core/...", "engine/module", "format/...", "modules/physics/world"}, nil},
 	{"modules/physics/editor", with(editorAllow, "modules/physics", "modules/physics/components", "modules/physics/systems", "modules/physics/world", "modules/physics/settings", "contracts/..."), nil},
+	{"modules/input", []string{"core/...", "engine", "engine/module", "engine/recorder", "engine/settings", "format/...", "platform/input", "scene", "scene/frame", "schema", "script/bind", "script/abi", "script/vm", "contracts/inputactions"}, nil},
+	{"contracts/inputactions", []string{"core/..."}, nil},
+	{"modules/input/editor", with(editorAllow, "modules/input"), nil},
+	{"modules/debug", []string{"core/...", "engine", "engine/module", "scene", "scene/frame", "schema", "render", "render/...", "script/bind", "script/vm", "contracts/..."}, nil},
+	{"modules/debug/editor", with(editorAllow, "modules/debug", "contracts/..."), nil},
 	{"contracts/scriptevents", []string{"core/...", "scene", "script/abi", "script/vm"}, nil},
+	{"contracts/scriptfields", []string{"core/...", "scene", "script/abi", "script/vm"}, nil},
+	{"contracts/scriptwait", []string{"core/..."}, nil},
+	{"contracts/signals", []string{"core/...", "scene", "script/vm"}, nil},
+	{"contracts/scriptpool", []string{"core/...", "scene"}, nil},
+	{"contracts/persistence", []string{"core/...", "engine", "format/aetext", "save", "scene", "script/abi", "script/vm"}, nil},
 	{"contracts/physics2d", []string{"core/...", "scene"}, nil},
+	{"contracts/debugdraw", []string{"core/...", "scene"}, nil},
 	{"engine/problems", []string{"core/...", "scene"}, nil},
-	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents"}, nil},
-	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/..."}, nil},
-	{"engine/docs", []string{"core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
-	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/scriptevents"}, nil},
+	{"engine/settings", []string{"core/...", "engine/problems", "format/...", "schema"}, nil},
+	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
+	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "contracts/persistence", "vfs"}, nil},
+	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
+	{"engine/docs", []string{"engine/settings", "format/...", "core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
+	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm", "data"}, nil},
+	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},
 	{"app/run", []string{"..."}, nil},
-	{"app/playground", []string{"core/...", "engine", "app/assembly", "app/assembly/playground", "modules/scripting/systems", "engine/docs", "platform/input", "modules/render2d", "scene", "scene/...", "schema", "script/..."}, nil},
+	{"app/playground", []string{"core/...", "asset", "asset/loader", "engine", "engine/base", "engine/module", "engine/recorder",
+		"engine/docs", "format/...", "app/assembly", "app/assembly/playground", "modules/scripting/systems", "modules/render2d",
+		"platform", "platform/input", "render", "render/...", "scene", "scene/...", "schema", "script/...", "vfs"}, nil},
 	{"demos/...", []string{"..."}, nil},
 	{"cmd/...", []string{"..."}, nil},
 	{"tests/...", []string{"..."}, nil},
@@ -135,11 +170,11 @@ var rules = []rule{
 	{"script/stdlib", with(scriptRuntime, "script/bind", "scene", "scene/...", "engine", "asset", "platform/input"), nil},
 	{"script/coroutine", scriptRuntime, nil},
 	{"script/signal", scriptRuntime, nil},
-	{"script/runtime", with(scriptRuntime, "script/bind", "script/coroutine", "script/signal", "scene", "scene/...", "engine", "asset", "asset/...", "platform/input", "contracts/scriptevents"), nil},
+	{"script/runtime", with(scriptRuntime, "script/bind", "script/coroutine", "script/signal", "scene", "scene/...", "engine", "engine/recorder", "asset", "asset/...", "platform/input", "contracts/scriptevents", "contracts/scriptfields", "contracts/signals", "contracts/persistence"), nil},
 	{"script/reload", with(scriptRuntime, "script/runtime"), nil},
-	{"modules/scripting/stdlib", with(scriptRuntime, "script/bind", "script/stdlib", "scene", "scene/...", "engine", "asset", "platform/input"), nil},
-	{"modules/scripting/systems", with(scriptRuntime, "script/bind", "script/runtime", "script/stdlib", "modules/scripting/stdlib", "engine", "scene", "contracts/scriptevents"), nil},
-	{"modules/scripting", with(scriptRuntime, "engine", "engine/module", "scene", "scene/scriptcomp", "script/bind", "modules/scripting/systems", "modules/scripting/stdlib", "script/stdlib", "asset/pipeline", "asset/importers/script", "script/workspace", "contracts/scriptevents"), nil},
+	{"modules/scripting/stdlib", with(scriptRuntime, "script/bind", "script/stdlib", "scene", "scene/...", "engine", "asset", "platform/input", "contracts/physics2d"), nil},
+	{"modules/scripting/systems", with(scriptRuntime, "script/bind", "script/runtime", "script/stdlib", "modules/scripting/stdlib", "engine", "scene", "contracts/scriptevents", "contracts/scriptfields", "contracts/scriptwait", "contracts/signals", "script/signal", "contracts/scriptpool", "contracts/persistence"), nil},
+	{"modules/scripting", with(scriptRuntime, "engine", "engine/module", "scene", "scene/scriptcomp", "script/bind", "modules/scripting/systems", "modules/scripting/stdlib", "script/stdlib", "asset/pipeline", "asset/importers/script", "script/workspace", "contracts/scriptevents", "contracts/scriptfields", "contracts/scriptwait", "contracts/signals", "contracts/scriptpool", "contracts/persistence"), nil},
 	{"asset/importers/script", with(scriptDev, "asset", "asset/pipeline", "script/workspace"), nil},
 	{"script/bind/manifest", with(scriptRuntime, "script/bind", "script/runtime", "format/..."), nil},
 	{"script/workspace", with(scriptDev, "script/bind/manifest"), nil},
@@ -158,16 +193,26 @@ var fsAllowed = []string{
 	"tools/...",
 	"cmd/...",
 	"project",
+	"save", // slot files next to the player profile (D262)
 	"asset/pipeline",
 	"app/bootstrap",
 	"app",
 	"app/docstool",
 	"app/run",
+	"app/crash",
 	"app/edit",
 	"app/projects",
 	"app/supervise",
+	"runtime/player",
+	"app/export",
+	"app/export/...",
 	"editor/core/assetops",
 	"editor/core/prefabs",
+	"editor/core/dataedit",
+	"editor/core/preview",
+	"editor/core/vcs",
+	"editor/core/capture",
+	"editor/core/refs",
 	"editor/panels/assets",
 	"editor/core/document",
 	"editor/shell/launcher",
@@ -196,7 +241,10 @@ var denied = []struct {
 	{"app/projects", []string{"editor/..."}},
 	{"engine/base", []string{"modules/render3d", "modules/render3d/...", "asset/pipeline", "asset/importers/...", "editor/..."}},
 	{"app/playground", []string{"platform/sdl", "gpu/gl33", "gpu/gl33/...", "asset/pipeline", "asset/importers/...", "modules/render3d", "modules/render3d/...", "editor/..."}},
+	{"app/docsview", []string{"platform/sdl", "gpu/gl33", "gpu/gl33/...", "editor/shell", "editor/shell/...", "asset/importers/...", "script/compiler", "script/workspace"}},
+	{"scene/mutate", []string{"editor/...", "ui/...", "platform/...", "engine", "engine/...", "app/..."}},
 	{"runtime/...", []string{"editor/..."}},
+	{"runtime/...", []string{"asset/pipeline", "asset/importers/...", "project", "app/run", "app/edit", "app/export", "app/export/..."}},
 	{"sdk", []string{"editor/..."}},
 	{"modules/physics/world", []string{"scene", "scene/...", "schema", "render", "render/...", "engine", "engine/...", "script/...", "contracts/..."}},
 	{"modules/physics/...", []string{"modules/render2d", "modules/render2d/...", "modules/render3d", "modules/render3d/...", "app/...", "asset/pipeline", "asset/importers/..."}},
@@ -206,6 +254,7 @@ var denied = []struct {
 	{"modules/physics/systems", []string{"modules/physics/editor", "project"}},
 	{"modules/physics/settings", []string{"project", "editor/...", "script/..."}},
 	{"modules/physics/stdlib", []string{"script/runtime", "script/compiler", "script/checker", "editor/...", "render", "render/..."}},
+	{"modules/input", []string{"editor/...", "modules/input/editor", "project", "app/..."}},
 	{"contracts/...", []string{"modules/physics/...", "engine", "engine/...", "editor/...", "render", "render/..."}},
 	{"script/bytecode", scriptCompilerOnly},
 	{"script/verify", scriptCompilerOnly},
@@ -272,7 +321,7 @@ func checkSources(root string) ([]string, error) {
 		}
 		rel = filepath.ToSlash(rel)
 		dir := filepath.ToSlash(filepath.Dir(rel))
-		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution|parser.ParseComments)
 		if err != nil {
 			return err
 		}
@@ -289,6 +338,9 @@ func inspectFile(fset *token.FileSet, f *ast.File, file, dir string) []string {
 		p := strings.Trim(imp.Path.Value, `"`)
 		if p == "C" && !allowed(cgoAllowed, dir) {
 			out = append(out, fmt.Sprintf("%s: cgo is only allowed in %v", file, cgoAllowed))
+		}
+		if p == "syscall/js" && !jsOnly(f, file) {
+			out = append(out, fmt.Sprintf("%s: syscall/js in a file that also builds outside js", file))
 		}
 		if p == "os" {
 			osName = "os"
@@ -377,4 +429,30 @@ func externalRule(from, imp string) string {
 		return "layer:" + r.pkg
 	}
 	return ""
+}
+
+func jsOnly(f *ast.File, file string) bool {
+	base := strings.TrimSuffix(path.Base(file), ".go")
+	if strings.HasSuffix(base, "_js") || strings.HasSuffix(base, "_js_wasm") {
+		return true
+	}
+	for _, cg := range f.Comments {
+		if cg.Pos() > f.Package {
+			break
+		}
+		for _, c := range cg.List {
+			if !constraint.IsGoBuild(c.Text) {
+				continue
+			}
+			x, err := constraint.Parse(c.Text)
+			if err != nil {
+				return false
+			}
+			others := func(v bool) func(string) bool {
+				return func(tag string) bool { return tag != "js" && tag != "wasm" && v }
+			}
+			return !x.Eval(others(true)) && !x.Eval(others(false))
+		}
+	}
+	return false
 }

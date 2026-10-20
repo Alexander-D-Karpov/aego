@@ -23,8 +23,7 @@ func Glyph(c *core.Context, r rune, fallback string) string {
 
 func dropdownBox(c *core.Context, id core.ID, r mathx.Rect, label string) {
 	th := &c.Theme
-	c.Rect(r, c.WidgetColor(id))
-	c.Outline(r, th.Border)
+	c.Box(r, th.Radius.Field, c.WidgetColor(id), th.Border)
 	inner := mathx.Rect{X: r.X, Y: r.Y, W: r.W - r.H, H: r.H}
 	c.PushClip(inner)
 	c.TextIn(inner, label, th.Text, core.AlignLeft)
@@ -87,6 +86,9 @@ func maskSummary(mask uint64, names []string, n int, mixed bool, th *core.Theme)
 		}
 		return "Layer " + strconv.Itoa(i)
 	}
+	if len(names) > 0 {
+		return strconv.Itoa(bits.OnesCount64(mask)) + " selected"
+	}
 	return strconv.Itoa(bits.OnesCount64(mask)) + " layers"
 }
 
@@ -95,15 +97,14 @@ func CheckRow(c *core.Context, id core.ID, label string, on bool) bool {
 	r := c.Cursor().Next(0)
 	clicked := c.Clicked(id, r)
 	if c.Hot() == id {
-		c.Rect(r, th.WidgetHot)
+		c.RoundRect(r, th.Radius.Menu, th.WidgetHot)
 	}
 	box := mathx.Rect{X: r.X + 2, Y: r.Y + 4, W: r.H - 8, H: r.H - 8}
 	if on {
-		c.Rect(box, th.Accent)
+		c.RoundRect(box, th.Radius.Field-1, th.Accent)
 		CheckMark(c, box, th.Background)
 	} else {
-		c.Rect(box, th.Widget)
-		c.Outline(box, th.Border)
+		c.Box(box, th.Radius.Field-1, th.Widget, th.Border)
 	}
 	c.Text(label, mathx.Vec2{X: box.X + box.W + 6, Y: c.TextY(r)}, th.Text)
 	return clicked
@@ -166,26 +167,7 @@ func EndContextMenu(c *core.Context) {
 }
 
 func Tooltip(c *core.Context, id core.ID, text string) {
-	if text == "" || c.HoverDuration(id) < 0.5 {
-		return
-	}
-	th := &c.Theme
-	m := c.Mouse()
-	size := c.TextSize(text)
-	r := mathx.Rect{X: m.X + 14, Y: m.Y + 18, W: size.X + 2*th.Padding, H: size.Y + th.Padding}
-	sz := c.Size()
-	if r.X+r.W > sz.X {
-		r.X = max(0, sz.X-r.W)
-	}
-	if r.Y+r.H > sz.Y {
-		r.Y = max(0, m.Y-r.H-4)
-	}
-	l := c.List()
-	l.PushLayer(draw.LayerTop)
-	l.Rect(r, th.PanelAlt)
-	l.RectOutline(r, th.Border, 1)
-	l.Text(text, mathx.Vec2{X: r.X + th.Padding, Y: r.Y + th.Padding/2}, th.Text)
-	l.PopLayer()
+	TooltipAfter(c, id, text, 0.5)
 }
 
 func Confirm(c *core.Context, id core.ID, title, message string, buttons ...string) int {
@@ -223,4 +205,27 @@ func Confirm(c *core.Context, id core.ID, title, message string, buttons ...stri
 	c.PopID()
 	c.EndModal()
 	return result
+}
+
+func TooltipAfter(c *core.Context, id core.ID, text string, delay float64) {
+	if text == "" || c.HoverDuration(id) < delay {
+		return
+	}
+	th := &c.Theme
+	m := c.Mouse()
+	size := c.TextSize(text)
+	r := mathx.Rect{X: m.X + 14, Y: m.Y + 18, W: size.X + 2*th.Padding, H: size.Y + th.Padding}
+	sz := c.Size()
+	if r.X+r.W > sz.X {
+		r.X = max(0, sz.X-r.W)
+	}
+	if r.Y+r.H > sz.Y {
+		r.Y = max(0, m.Y-r.H-4)
+	}
+	l := c.List()
+	l.PushLayer(draw.LayerTop)
+	c.Shadow(r, th.Radius.Popup)
+	c.Box(r, th.Radius.Popup, th.PanelAlt, th.Border)
+	l.Text(text, mathx.Vec2{X: r.X + th.Padding, Y: r.Y + th.Padding/2}, th.Text)
+	l.PopLayer()
 }

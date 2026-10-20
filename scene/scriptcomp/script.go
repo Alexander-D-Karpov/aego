@@ -83,7 +83,18 @@ func (Overlay) Bag(s *scene.Scene, h scene.NodeHandle, td *schema.TypeDescriptor
 }
 
 func Options() []schema.Option {
-	return []schema.Option{schema.Name(ScriptName), schema.Doc("holds the Aego Script attachments of a node")}
+	return []schema.Option{schema.Name(ScriptName), schema.Doc("holds the Aego Script attachments of a node"), schema.Clone(cloneScripts)}
+}
+
+func cloneScripts(dst, src *ScriptComponent) {
+	if src.Attachments == nil {
+		dst.Attachments = nil
+		return
+	}
+	dst.Attachments = make([]Attachment, len(src.Attachments))
+	for i := range src.Attachments {
+		dst.Attachments[i] = src.Attachments[i].Clone()
+	}
 }
 
 func Register(t *scene.Types) error {

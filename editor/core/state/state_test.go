@@ -40,3 +40,15 @@ func TestLoadMissingIsDefault(t *testing.T) {
 		t.Fatalf("s=%+v err=%v", s, err)
 	}
 }
+
+func TestWorkspaceRoundTrip(t *testing.T) {
+	s := Default()
+	s.Workspace = "user.mine"
+	got, err := Decode(Encode(s), "editor.aetext")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Workspace != "user.mine" {
+		t.Fatalf("workspace = %q", got.Workspace)
+	}
+}

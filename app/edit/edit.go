@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/app/assembly/editors"
+	"aego/app/crash"
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/log"
@@ -21,7 +23,9 @@ import (
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
 	"aego/engine"
+	"aego/engine/base"
 	"aego/engine/module"
+	"aego/platform"
 	"aego/project"
 	"aego/scene"
 	"aego/script/langsvc"
@@ -41,6 +45,7 @@ type Config struct {
 	Supervised bool
 	CPUProfile string
 	Recent     string
+	Profile    string
 	Logger     *log.Logger
 	Catalog    assembly.Catalog
 }
@@ -58,6 +63,7 @@ type driver struct {
 
 func (d *driver) Update(dt float64) {
 	d.s.syncDocs()
+	d.s.spike()
 	d.App.Update(dt)
 }
 
@@ -71,6 +77,11 @@ type Session struct {
 	unsub   func()
 	docs    []docAttach
 	driver  *driver
+
+	ring       *crash.Ring
+	crashScene bool
+	spikeMs    float64
+	lastSpike  float64
 }
 
 func Main(mods ...sdk.Module) {
@@ -80,6 +91,7 @@ func Main(mods ...sdk.Module) {
 	headless := fs.Bool("headless", false, "run without a window")
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
+	profile := fs.String("profile", "", "player settings profile, default when empty")
 	fs.Parse(os.Args[1:])
 	dir := "."
 	if fs.NArg() > 0 {
@@ -99,6 +111,7 @@ func Main(mods ...sdk.Module) {
 		Headless:   *headless,
 		Frames:     *frames,
 		CPUProfile: *cpu,
+		Profile:    *profile,
 		Supervised: os.Getenv(session.EnvSupervised) == "1",
 	}
 	cfg.Recent, _ = launcher.RecentPath()
@@ -135,6 +148,12 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			s.crash("panic", "editor", rec, debug.Stack(), "")
+			panic(rec)
+		}
+	}()
 	if err := s.Run(); err != nil {
 		return err
 	}
@@ -145,6 +164,7 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 }
 
 func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) {
+	platform.SetAppMetadata(platform.AppMetadata{Name: "Aego Editor", Version: engine.Version, Identifier: "ru.akarpov.aego.editor"})
 	if cfg.Width <= 0 {
 		cfg.Width = 1600
 	}
@@ -174,11 +194,18 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Docs:           true,
 		Editor:         true,
 		Catalog:        cat,
+		Profile:        cfg.Profile,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Session{Host: h, cfg: cfg, log: h.Log.With(shell.ChannelEditor)}
+	s.ring = crash.NewRing(500)
+	h.Log.AddSink(s.ring)
+	if st, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
+		s.crashScene, s.spikeMs = st.CrashScene, st.SpikeMs
+	}
+	h.Engine.Jobs().SetPanicHandler(func(rec any, stack []byte) { s.crash("panic", "worker", rec, stack, "") })
 	touchRecent(cfg, p.Root, p.Name, s.log)
 	s.Scripts = &scriptHost{
 		bindings: h.Bindings,
@@ -188,6 +215,8 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		ws:       h.Workspace,
 		log:      h.Log,
 		modules:  h.Modules,
+		fault:    s.fault,
+		panicked: s.scriptPanic,
 	}
 	lang := langsvc.New(h.Workspace, h.Engine.Jobs())
 	if p.Native {
@@ -214,6 +243,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Modules:     h.Modules,
 		Sections:    h.Sections,
 		Problems:    h.Problems,
+		Settings:    h.Settings,
 		Hooks:       h.Modules.Editor,
 		RenderStats: h.RenderStats,
 		Supervised:  cfg.Supervised,
@@ -225,6 +255,8 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		RunSnippet:  snippets(),
 		DirsErr:     dirsErr,
 		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
+		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
+		Exporter:    newExporter(p, h.Pipeline),
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil

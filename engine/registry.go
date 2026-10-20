@@ -3,6 +3,7 @@ package engine
 import (
 	"strings"
 
+	"aego/core/clock"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/core/rng"
@@ -70,19 +71,42 @@ const (
 
 const ScopeWorld = ScopePlay | ScopeEditor
 
+type PauseMode uint8
+
+const (
+	PauseNormal PauseMode = iota
+	PauseAlways
+	PauseWhenPaused
+)
+
+func (m PauseMode) runs(paused bool) bool {
+	switch m {
+	case PauseAlways:
+		return true
+	case PauseWhenPaused:
+		return paused
+	}
+	return !paused
+}
+
 type Context struct {
-	Engine *Engine
-	World  *World
-	Dt     float64
-	Alpha  float64
-	Frame  uint64
-	Random *rng.Source
+	Engine   *Engine
+	World    *World
+	Time     *clock.Time
+	Dt       float64
+	Unscaled float64
+	Alpha    float64
+	Frame    uint64
+	Tick     uint64
+	Paused   bool
+	Random   *rng.Source
 }
 
 type SystemDesc struct {
 	ID     string
 	Phase  Phase
 	Scope  SystemScope
+	Pause  PauseMode
 	Before []string
 	After  []string
 	System System
@@ -91,6 +115,7 @@ type SystemDesc struct {
 type scopedSystem struct {
 	sys   System
 	scope SystemScope
+	pause PauseMode
 	id    string
 	zone  trace.ZoneID
 }
@@ -112,6 +137,9 @@ func (s *SystemRegistry) Register(d SystemDesc) error {
 	}
 	if int(d.Phase) >= phaseCount {
 		return errs.New(errs.EngineSystemPhase, "unknown phase", log.F("system", d.ID), log.F("phase", int(d.Phase)))
+	}
+	if d.Pause > PauseWhenPaused {
+		return errs.New(errs.EngineSystemBad, "unknown pause mode", log.F("system", d.ID))
 	}
 	if _, dup := s.index[d.ID]; dup {
 		return errs.New(errs.EngineSystemDup, "duplicate system id", log.F("system", d.ID))
@@ -152,7 +180,7 @@ func (s *SystemRegistry) freeze() error {
 		}
 		for _, di := range sorted {
 			d := &s.descs[di]
-			s.phases[p] = append(s.phases[p], scopedSystem{sys: d.System, scope: d.Scope, id: d.ID})
+			s.phases[p] = append(s.phases[p], scopedSystem{sys: d.System, scope: d.Scope, pause: d.Pause, id: d.ID})
 			s.order[p] = append(s.order[p], d.ID)
 		}
 	}

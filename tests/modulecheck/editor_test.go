@@ -164,7 +164,7 @@ func TestFakeComponentHooks(t *testing.T) {
 	ctx := f.s.App.Context()
 	d := f.doc
 	crate := f.node("Crate")
-	add := &commands.AddComponent{Node: crate, Type: f.body.ID, Name: f.body.FullName, OnAdd: ctx.OnAdd(f.body)}
+	add := commands.NewMutation("Add "+f.body.FullName, commands.WithOnAdd(commands.EnvFor(d.Scene()), ctx.OnAdd), commands.AddComp(d.Scene(), crate, f.body, nil))
 	if err := d.History.Exec(add); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestFakeComponentHooks(t *testing.T) {
 	if f.m.Changed != 3 {
 		t.Fatalf("OnChanged after set and undo ran %d times, want 3", f.m.Changed)
 	}
-	if err := d.History.Exec(&commands.RemoveComponent{Node: crate, Type: f.body.ID, Name: f.body.FullName}); err != nil {
+	if err := d.History.Exec(commands.NewMutation("Remove "+f.body.FullName, commands.EnvFor(d.Scene()), commands.RemoveComp(crate, f.body))); err != nil {
 		t.Fatal(err)
 	}
 	if f.m.Removed != 1 || f.m.LastRemoved.Size != 2 {

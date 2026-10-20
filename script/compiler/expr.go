@@ -280,6 +280,10 @@ func (c *fn) selectorTo(e *ast.SelectorExpr, dst int) {
 	if sel == nil {
 		return
 	}
+	if sel.Kind == checker.SelDataField {
+		c.dataFieldTo(e, sel, dst)
+		return
+	}
 	if p, ok := c.placeOf(e); ok {
 		c.load(p, dst)
 		return
@@ -314,6 +318,13 @@ func (c *fn) invoke(op bytecode.Opcode, idx int, args []ast.Expr, params []int, 
 		c.move(dst, w, results)
 	}
 	c.top = mark
+}
+
+func methodModule(recv abi.TypeRef) string {
+	if recv.Kind == abi.Handle {
+		return "#" + recv.Name
+	}
+	return "#" + recv.Kind.String()
 }
 
 func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
@@ -355,7 +366,7 @@ func (c *fn) callTo(e *ast.CallExpr, dst int, want bool) {
 	case checker.CallHostMethod:
 		recv := types.ToABI(c.typ(call.Recv))
 		sig := abi.Signature{Params: append([]abi.TypeRef{recv}, call.Sig.Params...), Result: call.Sig.Result}
-		imp := c.u.hostImport("#"+recv.Kind.String(), call.Name, sig)
+		imp := c.u.hostImport(methodModule(recv), call.Name, sig)
 		args := append([]ast.Expr{call.Recv}, e.Args...)
 		c.invoke(bytecode.CALLH, imp, args, c.u.sigSlots(sig.Params), c.u.abiSlots(sig.Result), dst, want)
 	case checker.CallComponentMethod:

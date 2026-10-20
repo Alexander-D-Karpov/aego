@@ -2,20 +2,25 @@ package play
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"time"
 
 	"aego/asset"
+	"aego/contracts/persistence"
 	"aego/core/clock"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/core/rewind"
+	"aego/core/rng"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/engine"
+	"aego/engine/recorder"
 	"aego/platform/input"
 	"aego/render/rt"
 	"aego/render/view"
@@ -34,38 +39,89 @@ const (
 )
 
 type Stats struct {
-	Update  float64
-	Render  float64
-	Nodes   int
-	Sprites int
-	Views   int
+	Update       float64
+	Render       float64
+	Nodes        int
+	Sprites      int
+	Views        int
+	Frame        uint64
+	Updates      uint64
+	Tick         uint64
+	Alpha        float64
+	Scale        float64
+	DroppedFixed uint64
 }
 
 type Controller struct {
-	ctx      *context.Editor
-	state    State
-	world    *engine.World
-	runner   *frame.Runner
-	scene    *scene.Scene
-	doc      document.ID
-	stepper  clock.FixedStepper
-	stepOnce bool
-	input    input.State
-	captured bool
-	origin   mathx.Vec2
-	size     mathx.Vec2
-	frames   uint64
-	simTime  float64
-	alpha    float64
-	stats    Stats
-	proxy    *document.SceneDocument
-	subs     []stateSub
-	nextSub  uint64
-	detach   func()
+	beforeStop func()
+	ctx        *context.Editor
+	state      State
+	world      *engine.World
+	runner     *frame.Runner
+	scene      *scene.Scene
+	doc        document.ID
+	scale      float64
+	input      input.State
+	captured   bool
+	origin     mathx.Vec2
+	size       mathx.Vec2
+	stats      Stats
+	proxy      *document.SceneDocument
+	subs       []stateSub
+	nextSub    uint64
+	detach     func()
+	unrec      func()
+	breakFn    func() (string, bool)
+	breakWhy   string
+	release    func(*input.State) bool
+	hint       func() string
+	hist       *recording
+	limit      int
+	cursor     int
+	beyond     bool
+	replaying  bool
+	stepReq    uint8
+	seed       uint64
+	blocked    string
+	assetRev   uint64
+	editUnsub  func()
+	breaks     int32
+	broke      int32
+	kf         []rewind.Keyframer
+	kfOff      string
+	keys       []*snapshot
+	spare      []*snapshot
+	keyBytes   int
+	keyEvery   uint64
+	lastTick   uint64
+	floor      int
+	rebase     bool
+	replayed   int
+	keyTime    time.Duration
+	held       bool
+	hasher     *rewind.Hasher
 }
 
 func New(ctx *context.Editor) *Controller {
-	return &Controller{ctx: ctx}
+	return &Controller{ctx: ctx, scale: 1}
+}
+
+func (c *Controller) SetRelease(pressed func(*input.State) bool, hint func() string) {
+	c.release, c.hint = pressed, hint
+}
+
+func (c *Controller) ReleasePressed(in *input.State) bool {
+	return c.release != nil && c.release(in)
+}
+
+func (c *Controller) ReleaseHint() string {
+	if c.hint == nil {
+		return ""
+	}
+	if k := c.hint(); k != "" {
+		return k + " releases input"
+	}
+	return ""
 }
 
 func (c *Controller) State() State {
@@ -96,11 +152,56 @@ func (c *Controller) Doc() document.ID {
 }
 
 func (c *Controller) Frames() uint64 {
-	return c.frames
+	if c.world == nil {
+		return 0
+	}
+	return c.world.Time.Frame()
+}
+func (c *Controller) Ticks() uint64 {
+	if c.world == nil {
+		return 0
+	}
+	return c.world.Time.Tick()
 }
 
 func (c *Controller) SimTime() float64 {
-	return c.simTime
+	if c.world == nil {
+		return 0
+	}
+	return c.world.Time.Span(clock.Game).Elapsed
+}
+func (c *Controller) TimeScale() float64 {
+	return c.scale
+}
+func (c *Controller) SetTimeScale(s float64) {
+	c.scale = min(max(s, 0), clock.MaxScale)
+	if c.world != nil {
+		c.world.Time.SetScale(c.scale)
+	}
+}
+
+func (c *Controller) SetBreak(fn func() (string, bool)) {
+	c.breakFn = fn
+}
+
+func (c *Controller) Recorder() *recorder.Recorder {
+	if c.world == nil {
+		return nil
+	}
+	return c.world.Recorder
+}
+
+func (c *Controller) checkBreak() bool {
+	if c.breakFn == nil {
+		return false
+	}
+	c.breaks++
+	why, hit := c.breakFn()
+	if hit {
+		c.breakWhy = why
+		c.broke = c.breaks
+	}
+	return hit
 }
 
 func (c *Controller) resolver() asset.Resolver {
@@ -162,13 +263,56 @@ func (c *Controller) Start(d *document.SceneDocument) error {
 	if real == nil {
 		return errs.New(errs.EditorDocument, "scene is not open")
 	}
-	if err := c.start(sceneio.Save(real.Scene()), real.Path); err != nil {
+	data := sceneio.Save(real.Scene())
+	c.seed = uint64(time.Now().UnixNano()) | 1
+	if err := c.start(data, real.Path); err != nil {
 		return err
 	}
+	c.hist = newHistory(data, real.Path, c.limit)
+	c.cursor, c.beyond, c.stepReq, c.rebase = 0, false, stepNone, false
+	c.assetRev = c.ctx.AssetRev
 	c.doc = real.ID
 	c.proxy = real.PlayCopy(c.scene)
 	c.ctx.Docs.SetPlay(c.proxy, c.world)
+	c.watchEdits()
+	c.bindKeys()
+	if c.keysOn() {
+		c.capture(0)
+	}
 	c.notify()
+	c.ctx.Notify(context.LevelInfo, "Play mode started")
+	return nil
+}
+
+func (c *Controller) SceneID() ids.AssetID {
+	real := c.ctx.Docs.Get(c.doc)
+	if real == nil || c.ctx.Pipeline == nil {
+		return ids.AssetID{}
+	}
+	id, _ := c.ctx.Pipeline.Lookup(real.Path)
+	return id
+}
+
+func (c *Controller) LoadScene(id ids.AssetID) error {
+	ctx := c.ctx
+	if ctx.Pipeline == nil {
+		return errs.New(errs.EditorDocument, "the asset pipeline is not available")
+	}
+	rel, ok := ctx.Pipeline.PathOf(id)
+	if !ok {
+		return errs.New(errs.EditorDocument, "the saved scene is not in the project")
+	}
+	d, err := ctx.Docs.Open(rel)
+	if err != nil {
+		return err
+	}
+	held := c.held
+	if err := c.Start(d); err != nil {
+		return err
+	}
+	if held {
+		c.Pause()
+	}
 	return nil
 }
 
@@ -202,20 +346,19 @@ func (c *Controller) start(data []byte, name string) error {
 	c.scene = s
 	c.world = engine.NewWorld("play")
 	c.world.Input = &c.input
+	c.world.Random = rng.New(c.seed)
+	c.world.Time.Configure(ctx.Engine.TimeConfig())
+	c.world.Time.SetScale(c.scale)
+	c.world.Recorder = recorder.New(4096)
+	c.world.Break = c.checkBreak
 	c.runner = frame.New()
 	c.runner.Bind(s, ctx.Renderer, res)
-	c.world.SetService(frame.ServiceID, c.runner)
+	c.world.SetView(frame.ServiceID, c.runner)
 	c.world.SetService(scene.ServiceID, s)
-	cfg := ctx.Engine.Config()
-	c.stepper = clock.FixedStepper{
-		FixedDelta:    1 / cfg.FixedHz,
-		MaxFrameDelta: cfg.MaxFrameDelta,
-		MaxSteps:      cfg.MaxFixedSteps,
-	}
+	c.world.SetView(persistence.HostID, c)
+	c.unrec = frame.Record(s, c.world.Recorder)
+	c.world.Recorder.Add(recorder.SceneChange, ids.NodeID{}, ids.NodeID{}, name, "play")
 	c.input = input.State{}
-	c.frames, c.simTime = 0, 0
-	c.alpha = 0
-	c.stepOnce = false
 	if ctx.Scripts != nil {
 		detach, err := ctx.Scripts.Attach(c.world, s)
 		if err != nil {
@@ -224,9 +367,23 @@ func (c *Controller) start(data []byte, name string) error {
 		}
 		c.detach = detach
 	}
-	c.state = Playing
-	ctx.Notify(context.LevelInfo, "Play mode started")
+	c.state, c.held = Playing, false
 	return nil
+}
+
+func (c *Controller) teardown() {
+	if c.editUnsub != nil {
+		c.editUnsub()
+		c.editUnsub = nil
+	}
+	if c.unrec != nil {
+		c.unrec()
+		c.unrec = nil
+	}
+	if c.detach != nil {
+		c.detach()
+		c.detach = nil
+	}
 }
 
 func (c *Controller) Pause() {
@@ -238,37 +395,53 @@ func (c *Controller) Pause() {
 	default:
 		return
 	}
+	c.held = c.state == Paused
+	c.world.Time.SetPaused(c.held)
 	c.notify()
 }
 
 func (c *Controller) Step() {
-	if c.state != Paused {
-		return
+	if c.state == Paused {
+		c.world.Time.StepFrame()
+		c.stepReq = stepFrame
 	}
-	c.stepOnce = true
+}
+
+func (c *Controller) StepFixed() {
+	if c.state == Paused {
+		c.world.Time.StepFixed()
+		c.stepReq = stepFixed
+	}
+}
+
+func (c *Controller) SetBeforeStop(fn func()) {
+	c.beforeStop = fn
 }
 
 func (c *Controller) Stop() {
 	if c.state == Stopped {
 		return
 	}
+	if c.beforeStop != nil {
+		c.beforeStop()
+	}
 	if real := c.ctx.Docs.Get(c.doc); real != nil && c.proxy != nil {
 		real.View.Camera = c.proxy.View.Camera
 		real.View.Mode = c.proxy.View.Mode
 		real.View.Orbit = c.proxy.View.Orbit
 	}
-	if c.detach != nil {
-		c.detach()
-		c.detach = nil
-	}
+	c.teardown()
 	c.ctx.Docs.ClearPlay()
 	c.proxy = nil
-	c.state = Stopped
+	c.state, c.held = Stopped, false
+	c.dropKeys(-1)
+	c.kf, c.kfOff, c.spare, c.floor, c.rebase = c.kf[:0], "", nil, 0, false
 	c.world, c.runner, c.scene = nil, nil, nil
 	c.doc = 0
 	c.captured = false
 	c.input = input.State{}
 	c.stats = Stats{}
+	c.hist, c.cursor, c.beyond, c.stepReq = nil, 0, false, stepNone
 	c.notify()
 	c.ctx.Notify(context.LevelInfo, "Play mode stopped")
 }
@@ -307,6 +480,7 @@ func (c *Controller) CopyToEdit(nodes []ids.NodeID, t schema.TypeID) error {
 	if !ok {
 		return errs.New(errs.SchemaUnknownType, "component type is not registered")
 	}
+	env := commands.EnvFor(es)
 	tx := real.History.Begin("Copy " + td.FullName + " from Play")
 	for _, n := range nodes {
 		if _, has := es.GetByType(es.Handle(n), t); !has {
@@ -319,7 +493,7 @@ func (c *Controller) CopyToEdit(nodes []ids.NodeID, t schema.TypeID) error {
 				}
 				values = append(values, commands.FieldValue{Field: td.Fields[i].ID, Value: v})
 			}
-			if err := tx.Exec(&commands.AddComponent{Node: n, Type: t, Name: td.FullName, Values: values}); err != nil {
+			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(es, n, td, values))); err != nil {
 				tx.Abort()
 				return err
 			}
@@ -362,26 +536,32 @@ func (c *Controller) Captured() bool {
 }
 
 func (c *Controller) syncInput() {
+	in := c.ctx.Engine.Input()
 	if !c.captured {
 		c.input = input.State{}
+		c.input.CopyPads(in)
 		return
 	}
-	in := c.ctx.Engine.Input()
 	f := in.Snapshot()
 	pos := f.MousePos.Sub(c.origin)
 	outside := pos.X < 0 || pos.Y < 0 || pos.X >= c.size.X || pos.Y >= c.size.Y
 	click := in.ButtonPressed(input.MouseLeft) || in.ButtonPressed(input.MouseRight) || in.ButtonPressed(input.MouseMiddle)
-	if in.KeyPressed(input.KeyEscape) || (outside && click) {
+	if c.ReleasePressed(in) || (outside && click) {
 		c.captured = false
 		c.input = input.State{}
+		c.input.CopyPads(in)
 		return
 	}
 	f.MousePos = pos
 	c.input.Restore(f)
+	c.input.CopyPads(in)
 }
 
 func (c *Controller) guard(stage string) {
 	if rec := recover(); rec != nil {
+		if c.ctx.Crash != nil {
+			c.ctx.Crash("play "+stage, rec, debug.Stack())
+		}
 		c.ctx.Notify(context.LevelError, fmt.Sprintf("play mode stopped, %s panicked: %v", stage, rec))
 		c.ctx.Log.Error("gameplay panic", log.F("stage", stage), log.F("panic", fmt.Sprint(rec)))
 		c.Stop()
@@ -398,35 +578,54 @@ func (c *Controller) Tick(dt float64) {
 	}
 	defer c.guard("update")
 	c.syncInput()
-	e := c.ctx.Engine
-	e.RunPhase(c.world, engine.PhaseFrameBegin, engine.ScopePlay, dt, c.alpha)
+	c.applyRebase()
+	h := c.hist
+	if c.stepReq == stepNone && (c.held || (h != nil && c.cursor < len(h.frames) && c.state == Paused)) {
+		if f, ok := engine.ServiceOf[persistence.Flusher](c.world, persistence.ServiceID); ok {
+			f.Flush()
+		}
+		return
+	}
+	w := c.world
+	recorded := h != nil && c.record(dt)
+	c.breaks, c.broke = 0, 0
+	start := time.Now()
+	plan := c.advance(dt)
 	if c.state == Stopped {
 		return
 	}
-	fixed := c.stepper.FixedDelta
-	steps, alpha := 0, 0.0
-	switch {
-	case c.stepOnce:
-		steps, dt = 1, fixed
-		c.stepOnce = false
-	case c.state == Paused:
-		c.stats.Update = 0
-		return
-	default:
-		steps, alpha = c.stepper.Advance(dt)
+	if recorded {
+		f := &h.frames[len(h.frames)-1]
+		f.tick, f.brk = w.Time.Tick(), c.broke
+		if c.keysOn() && w.Time.Tick() >= c.lastTick+c.every() {
+			c.capture(c.cursor)
+		}
 	}
-	start := time.Now()
-	for i := 0; i < steps; i++ {
-		e.RunFixed(c.world, engine.ScopePlay, fixed)
+	c.stats.Update = 0
+	if plan.Update || plan.Steps > 0 {
+		c.stats.Update = time.Since(start).Seconds()
 	}
-	c.alpha = alpha
-	e.RunVariable(c.world, engine.ScopePlay, dt, alpha)
-	c.stats.Update = time.Since(start).Seconds()
+	t := w.Time
+	c.stats.Frame, c.stats.Updates, c.stats.Tick, c.stats.Alpha = t.Frame(), t.Updates(), t.Tick(), t.Alpha()
+	c.stats.Scale, c.stats.DroppedFixed = t.Scale(), t.DroppedSteps()
 	if c.scene != nil {
 		c.stats.Nodes = c.scene.Stats().Alive - 1
 	}
-	c.frames++
-	c.simTime += dt
+	if c.broke > 0 {
+		c.held = true
+	}
+	if paused := t.Paused(); paused != (c.state == Paused) {
+		c.held = c.held && paused
+		c.state = Playing
+		if paused {
+			c.state = Paused
+		}
+		c.notify()
+	}
+	if c.breakWhy != "" {
+		c.ctx.Notify(context.LevelWarn, "Paused on tick "+strconv.FormatUint(t.Tick(), 10)+": "+c.breakWhy)
+		c.breakWhy = ""
+	}
 }
 
 func (c *Controller) Render(t *rt.Target) (cameras bool) {
@@ -440,8 +639,10 @@ func (c *Controller) Render(t *rt.Target) (cameras bool) {
 	c.runner.SetViewportSize(t.W, t.H)
 	c.runner.ClearFixedView()
 	e := c.ctx.Engine
-	e.RunPhase(c.world, engine.PhaseRenderPrepare, engine.ScopePlay, 0, c.alpha)
-	e.RunPhase(c.world, engine.PhaseRender, engine.ScopePlay, 0, c.alpha)
+	alpha := c.world.Time.Alpha()
+	e.RunPhase(c.world, engine.PhaseRenderPrepare, engine.ScopePlay, 0, alpha)
+	e.RunPhase(c.world, engine.PhaseRender, engine.ScopePlay, 0, alpha)
+	e.RunPhase(c.world, engine.PhaseRenderUI, engine.ScopePlay, 0, alpha)
 	rs := c.runner.Stats()
 	c.stats.Render = time.Since(start).Seconds()
 	c.stats.Sprites = rs.Sprites + rs.Sprites3D + rs.Meshes

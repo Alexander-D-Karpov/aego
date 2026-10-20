@@ -13,6 +13,21 @@ STATICCHECK_VERSION ?= v0.8.2
 BENCH_COUNT ?= 10
 BENCH_CPU ?= 2
 BENCH_PIN = $(shell command -v taskset >/dev/null && echo taskset -c $(BENCH_CPU))
+EDITOR_VERSION ?= 0.1.0
+EDITOR_ICON ?= third_party/brand/aego-1024.png
+EXPORT_SMOKE = $(CURDIR)/.cache/export-smoke
+EXPORT_HOME = $(CURDIR)/.cache/export-home
+CHROMIUM ?= $(shell command -v chromium || command -v chromium-browser || command -v google-chrome)
+WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROMIUM) node smoke.mjs --site=$(CURDIR)/site
+WASM_BUDGET = 8388608
+WEB_DEMO_PROJECT ?= examples/platformer
+WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
+WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
+TRY_BUDGET = 10485760
+WEB_TRY = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node try.mjs --site=$(CURDIR)/site
+TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
+	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
@@ -23,7 +38,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz
+.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -46,6 +61,8 @@ build: bootstrap
 
 # Every package minus the dev-only ones, as defined by depcheck runtimeForbidden.
 RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
+WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
+WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
 
 test: bootstrap
 	go test -race ./...
@@ -57,6 +74,16 @@ test-editor: bootstrap
 test-runtime: bootstrap
 	go build -tags aego_runtime $(RUNTIME_PKGS)
 	go test -tags aego_runtime $(RUNTIME_PKGS)
+
+# Engine on gpu/null under Node, plus the js packages compile (D289).
+test-wasm:
+	GOOS=js GOARCH=wasm go build ./cmd/aego-playground ./platform/web ./gpu/webgl2 ./engine
+	GOOS=js GOARCH=wasm go build -tags aego_runtime -o /dev/null ./cmd/aego-runtime
+	@if GOOS=js GOARCH=wasm go list -tags aego_runtime -deps ./cmd/aego-runtime | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|editor)'; then echo "the web runtime pulls a native, pipeline or editor package"; exit 1; fi
+	GOOS=js GOARCH=wasm go build -tags aego_editor -o /dev/null ./cmd/aego-try
+	@if GOOS=js GOARCH=wasm go list -tags aego_editor -deps ./cmd/aego-try | grep -E '^aego/(platform/sdl|gpu/gl33|editor/shell|editor/panels/|asset/importers/script)' | grep -vE '^aego/editor/panels/(inspector|gameview)$$'; then echo "the docs runtime pulls a native, shell or extra panel package"; exit 1; fi
+	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
@@ -71,6 +98,7 @@ vet: bootstrap
 
 lint: bootstrap
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) $(LINT_PKGS)
+	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) -tags aego_editor ./editor/... ./app/... ./tests/...
 
 # All graph variants, the semantic pass and the negative rule tests.
 depcheck:
@@ -86,6 +114,16 @@ run: bootstrap
 # Regenerate the embedded bitmap font atlas into engine/res/fonts.
 genfont:
 	cd tools/genfont && go mod tidy && go run . -ttf $(UI_FONT)
+
+# Regenerate the committed resources: the icon atlas and the template and example previews (D280).
+res: genicons genpreviews shaders
+
+# GLSL ES 3.00 copies of engine/res/shaders for WebGL2 (D290).
+shaders:
+	go run ./tools/genshaders
+
+genpreviews: bootstrap
+	$(GL_ENV) go run ./tools/genpreviews -root $(CURDIR)
 
 # Regenerate the embedded icon atlas into engine/res/icons.
 genicons:
@@ -165,10 +203,13 @@ bench-profile:
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
 site: cli
-	.cache/bin/aego docs build --out site --repo $(DOCS_REPO)
+	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
+	.cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release --out site/demo
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
-	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
+	$(WEB_DEMO_BUDGET)
+	@$(TRY_SIZE_CHECK)
 
 playground:
 	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers|modules/render3d)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
@@ -176,10 +217,13 @@ playground:
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
-	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO)
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
+	.cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR) --out site/demo
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
-	if [ $$size -gt 4194304 ]; then echo "playground is over the 4 MB gzip budget, see make playground-size"; exit 1; fi
+	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
+	$(WEB_DEMO_BUDGET)
+	@$(TRY_SIZE_CHECK)
 
 site-check: cli
 	.cache/bin/aego docs check
@@ -187,10 +231,34 @@ site-check: cli
 	cd tools/gendocs && AEGO_DOCS_EXPORT=$(CURDIR)/.cache/docs.json go test ./...
 
 playground-size:
-	GOOS=js GOARCH=wasm go list -export -deps -f '{{if .Export}}{{.ImportPath}} {{.Export}}{{end}}' ./cmd/aego-playground | while read p f; do echo "$$(stat -c %s $$f) $$p"; done | sort -rn | head -40
+	mkdir -p .cache
+	GOOS=js GOARCH=wasm go build -trimpath -o .cache/aego-playground.wasm ./cmd/aego-playground
+	go run ./tools/wasmsize -top 40 .cache/aego-playground.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-playground.wasm
+
+try-size:
+	mkdir -p .cache
+	GOOS=js GOARCH=wasm go build -tags aego_editor -trimpath -o .cache/aego-try.wasm ./cmd/aego-try
+	go run ./tools/wasmsize -top 40 .cache/aego-try.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-try.wasm
+
+web-smoke: site
+	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
+	$(WEB_DEMO)
+	$(WEB_TRY)
+
+web-smoke-update: site
+	$(WEB_SMOKE) --update
+	$(WEB_DEMO) --update
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego
+
+icons-doc: cli
+	.cache/bin/aego icons list --out docs/icons.md
+
+icons: cli
+	.cache/bin/aego icons check
 
 example: cli
 	.cache/bin/aego run examples/native-rotator --headless --frames 120
@@ -204,6 +272,7 @@ check-all: cli
 	.cache/bin/aego test examples/platformer
 	.cache/bin/aego check examples/native-settings
 	.cache/bin/aego check examples/native-editor
+	.cache/bin/aego check app/playground/examples
 	cd examples/native-editor && go vet -tags aego_editor ./...
 
 # Fuzz the lexer and parser for FUZZTIME each.
@@ -213,7 +282,22 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime smoke fuzz golden test-gl cli playground site-check example example-platformer check-all $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+
+runtime: bootstrap
+	go build -tags aego_runtime -o .cache/bin/aego-runtime ./cmd/aego-runtime
+
+# Export the platformer and run it without Go, sources or the project cache (D286).
+export-smoke: cli
+	rm -rf $(EXPORT_SMOKE) $(EXPORT_HOME)
+	mkdir -p $(EXPORT_HOME)
+	.cache/bin/aego export examples/platformer --development --out $(EXPORT_SMOKE)
+	cd $(EXPORT_HOME) && env -i PATH=/usr/bin:/bin HOME=$(EXPORT_HOME) XDG_CONFIG_HOME=$(EXPORT_HOME) $(EXPORT_SMOKE)/platformer --headless --frames 120
+
+# macOS only: Aego Editor.app with the native menu bar.
+editor-app: bootstrap
+	go build -o .cache/bin/aego-editor ./cmd/aego-editor
+	go run ./tools/appbundle -bin .cache/bin/aego-editor -out .cache -version $(EDITOR_VERSION) $(if $(wildcard $(EDITOR_ICON)),-icon $(EDITOR_ICON))
 
 clean:
 	rm -rf .cache/build

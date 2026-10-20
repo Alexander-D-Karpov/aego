@@ -279,3 +279,27 @@ func (m Mods) String() string {
 	}
 	return sb.String()
 }
+
+func ident(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		letter := c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+		if !letter && (i == 0 || c < '0' || c > '9') {
+			return false
+		}
+	}
+	return s != ""
+}
+
+func KeyName(k Scancode) (string, bool) {
+	s := k.String()
+	switch {
+	case s == "Unknown":
+		return "", false
+	case len(s) == 1 && s[0] >= '0' && s[0] <= '9':
+		return "Digit" + s, true
+	case !ident(s):
+		return "", false
+	}
+	return s, true
+}

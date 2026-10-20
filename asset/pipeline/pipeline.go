@@ -42,6 +42,8 @@ type record struct {
 	group    string
 	deps     []ids.AssetID
 	err      string
+	derived  bool
+	dup      string
 }
 
 type Pipeline struct {
@@ -59,17 +61,46 @@ type Pipeline struct {
 	pages        map[string]ids.AssetID
 	stale        map[string]bool
 	roots        []string
+	mode         MetaMode
+	shared       bool
+	unlock       func()
+	files        map[string]bool
+	metas        map[string]bool
+	issues       []MetaIssue
+	issueRev     uint64
 	mu           sync.RWMutex
 	pmu          sync.Mutex
 	rev          uint64
+	graves       []Grave
+	gravesDirty  bool
+}
+
+func newPipeline(p *project.Project, imps *ImporterRegistry, lg *log.Logger) *Pipeline {
+	if lg == nil {
+		lg = log.Nop()
+	}
+	return &Pipeline{
+		project:      p,
+		imps:         imps,
+		log:          lg.With(log.Asset),
+		watcher:      PollWatcher{},
+		index:        asset.NewIndex(),
+		byID:         map[ids.AssetID]*record{},
+		byPath:       map[string]*record{},
+		groups:       map[string][]ids.AssetID{},
+		groupKey:     map[string]string{},
+		groupResults: map[string]map[ids.AssetID]*Result{},
+		pages:        map[string]ids.AssetID{},
+		stale:        map[string]bool{},
+		files:        map[string]bool{},
+		metas:        map[string]bool{},
+		roots:        []string{p.AssetsDir(), p.ScenesDir(), p.ScriptsDir(), p.PrefabsDir()},
+	}
 }
 
 func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline, error) {
 	if p == nil {
 		return nil, errs.New(errs.AssetNoProject, "pipeline needs a project")
-	}
-	if lg == nil {
-		lg = log.Nop()
 	}
 	cacheDir := p.CacheDir()
 	if err := os.MkdirAll(filepath.Join(cacheDir, "artifacts"), 0o755); err != nil {
@@ -79,21 +110,14 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 	if err != nil {
 		return nil, err
 	}
-	pl := &Pipeline{
-		project:      p,
-		imps:         imps,
-		log:          lg.With(log.Asset),
-		watcher:      PollWatcher{},
-		index:        asset.NewIndex(),
-		artifacts:    files,
-		byID:         map[ids.AssetID]*record{},
-		byPath:       map[string]*record{},
-		groups:       map[string][]ids.AssetID{},
-		groupKey:     map[string]string{},
-		groupResults: map[string]map[ids.AssetID]*Result{},
-		pages:        map[string]ids.AssetID{},
-		stale:        map[string]bool{},
-		roots:        []string{p.AssetsDir(), p.ScenesDir(), p.ScriptsDir(), p.PrefabsDir()},
+	pl := newPipeline(p, imps, lg)
+	pl.artifacts = files
+	unlock, owner := acquireIndexLock(cacheDir)
+	pl.unlock = unlock
+	if !owner {
+		pl.shared, pl.mode = true, MetaReadOnly
+		pl.log.Warn("another process holds the asset index, .meta files and the index are read-only here",
+			log.F("lock", filepath.Join(cacheDir, indexLock)))
 	}
 	if data, err := os.ReadFile(pl.indexPath()); err == nil {
 		if idx, err := asset.ReadIndex(data, "index.aetext"); err == nil {
@@ -102,6 +126,7 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 			pl.log.Warn("asset index is unreadable, rebuilding", log.F("err", err.Error()))
 		}
 	}
+	pl.loadGraves()
 	return pl, nil
 }
 
@@ -130,6 +155,9 @@ func (p *Pipeline) indexPath() string {
 }
 
 func (p *Pipeline) saveIndex() error {
+	if p.shared {
+		return nil
+	}
 	if err := os.WriteFile(p.indexPath(), asset.WriteIndex(p.index), 0o644); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write the asset index")
 	}
@@ -186,16 +214,17 @@ func (p *Pipeline) Scan() (added, removed []ids.AssetID, err error) {
 }
 
 func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
-	seen := map[string]bool{}
+	w := newWalk()
 	for _, root := range p.roots {
-		if err := p.scanRoot(root, seen, &added); err != nil {
+		if err := p.scanRoot(root, w, &added); err != nil {
 			return nil, nil, err
 		}
 	}
 	for path, r := range p.byPath {
-		if seen[path] {
+		if w.seen[path] {
 			continue
 		}
+		p.bury(r.id, path)
 		delete(p.byPath, path)
 		delete(p.byID, r.id)
 		if r.group != "" {
@@ -207,13 +236,20 @@ func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
 		}
 		p.log.Warn("asset source disappeared", log.F("path", path))
 	}
+	p.files, p.metas = w.files, w.metas
+	p.audit()
+	if len(removed) > 0 {
+		if err := p.saveGraves(); err != nil {
+			p.log.Warn("cannot write the asset graveyard", log.F("err", err.Error()))
+		}
+	}
 	if len(added) > 0 || len(removed) > 0 {
 		p.rev++
 	}
 	return added, removed, nil
 }
 
-func (p *Pipeline) scanRoot(root string, seen map[string]bool, added *[]ids.AssetID) error {
+func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return nil
 	}
@@ -228,15 +264,17 @@ func (p *Pipeline) scanRoot(root string, seen map[string]bool, added *[]ids.Asse
 			}
 			return nil
 		}
+		rel := p.rel(path)
 		if strings.HasSuffix(path, MetaSuffix) {
+			w.metas[rel] = true
 			return nil
 		}
-		rel := p.rel(path)
+		w.files[rel] = true
 		imp, ok := p.imps.ForPath(path)
 		if !ok {
 			return nil
 		}
-		seen[rel] = true
+		w.seen[rel] = true
 		if existing, ok := p.byPath[rel]; ok {
 			existing.importer = imp
 			return nil
@@ -246,21 +284,28 @@ func (p *Pipeline) scanRoot(root string, seen map[string]bool, added *[]ids.Asse
 			p.log.Error("cannot read the meta file", log.F("path", rel), log.F("err", err.Error()))
 			return nil
 		}
-		if other, dup := p.byID[meta.ID]; dup {
-			p.log.Error("duplicate asset id, regenerating",
-				log.F("path", rel), log.F("other", other.path))
-			meta.ID = ids.NewAssetID()
-			created = true
-		}
-		if created {
+		r := &record{path: rel, meta: meta, importer: imp}
+		switch {
+		case created && p.mode == MetaReadOnly:
+			r.derived = true
+			meta.ID = derivedID(rel)
+		case created:
 			if err := os.WriteFile(path+MetaSuffix, WriteMeta(meta), 0o644); err != nil {
-				return nil
+				p.log.Error("cannot write the meta file", log.F("path", rel), log.F("err", err.Error()))
+				r.derived = true
+				meta.ID = derivedID(rel)
+			} else {
+				w.metas[rel+MetaSuffix] = true
+			}
+		default:
+			if other, clash := p.byID[meta.ID]; clash {
+				p.settle(r, other, added)
 			}
 		}
-		r := &record{id: meta.ID, path: rel, meta: meta, importer: imp}
+		r.id = meta.ID
 		p.byPath[rel] = r
-		p.byID[meta.ID] = r
-		*added = append(*added, meta.ID)
+		p.byID[r.id] = r
+		*added = append(*added, r.id)
 		return nil
 	})
 }
@@ -525,6 +570,10 @@ func artifactExt(kind asset.ArtifactKind) string {
 		return ".aems"
 	case asset.ArtScript:
 		return ".aesb"
+	case asset.ArtData:
+		return ".aedata"
+	case asset.ArtTable:
+		return ".aetable"
 	}
 	return ".bin"
 }
@@ -673,4 +722,8 @@ func (p *Pipeline) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.saveIndex()
+	if p.unlock != nil {
+		p.unlock()
+		p.unlock = nil
+	}
 }

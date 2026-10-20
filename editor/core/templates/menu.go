@@ -11,6 +11,7 @@ import (
 
 type Section struct {
 	Title  string
+	Icon   string
 	Module bool
 	Items  []Template
 	Breaks []int
@@ -18,7 +19,7 @@ type Section struct {
 
 func Layout(r *Registry, pl Place) []Section {
 	root := Section{}
-	nested := Section{Title: Category3D}
+	nested := Section{Title: Category3D, Icon: "cat.3d"}
 	var menus []Section
 	index := map[string]int{}
 	for _, t := range r.Root() {
@@ -31,7 +32,7 @@ func Layout(r *Registry, pl Place) []Section {
 			if !ok {
 				i = len(menus)
 				index[t.Menu] = i
-				menus = append(menus, Section{Title: t.Menu})
+				menus = append(menus, Section{Title: t.Menu, Icon: "cat." + t.Module})
 			}
 			menus[i].Items = append(menus[i].Items, t)
 		case t.Space == scene.Space3D && pl.At3 == nil:
@@ -46,7 +47,7 @@ func Layout(r *Registry, pl Place) []Section {
 	}
 	out = append(out, menus...)
 	for _, m := range r.Modules() {
-		sec := Section{Title: m, Module: true}
+		sec := Section{Title: m, Icon: "cat." + m, Module: true}
 		last := ""
 		for _, t := range r.InModule(m) {
 			if !pl.Fits(t) {
@@ -69,7 +70,7 @@ func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreat
 	ui := ctx.UI
 	enabled := ctx.Doc() != nil
 	item := func(t Template) {
-		if !widgets.MenuItem(ui, t.Name, "", enabled, false) {
+		if !widgets.Entry(ui, widgets.Item{Label: t.Name, Icon: t.Icon, Enabled: enabled}) {
 			return
 		}
 		created, err := InstantiatePlace(ctx, t, parent, -1, pl)
@@ -90,7 +91,7 @@ func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreat
 			}
 		case !sec.Module:
 			ui.PushID("menu/" + sec.Title)
-			if widgets.SubMenu(ui, sec.Title, 200) {
+			if widgets.SubMenuIcon(ui, sec.Title, sec.Icon, 200) {
 				for _, t := range sec.Items {
 					item(t)
 				}
@@ -103,7 +104,7 @@ func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreat
 				separated = true
 			}
 			ui.PushID("mod/" + sec.Title)
-			if widgets.SubMenu(ui, sec.Title, 220) {
+			if widgets.SubMenuIcon(ui, sec.Title, sec.Icon, 220) {
 				for i, t := range sec.Items {
 					if slices.Contains(sec.Breaks, i) {
 						widgets.Separator(ui)

@@ -18,7 +18,7 @@ func TestReparent3DPreservesWorld(t *testing.T) {
 	s.Flush()
 	before := s.World4(n)
 	h := history.New(target{s})
-	if err := h.Exec(&Reparent{Node: s.ID(n), NewParent: s.ID(p), NewIndex: -1, KeepWorld: true}); err != nil {
+	if err := h.Exec(reparent(s, n, p)); err != nil {
 		t.Fatal(err)
 	}
 	if s.Parent(n) != p {
@@ -39,7 +39,7 @@ func TestReparent3DUnderTwoDFails(t *testing.T) {
 	n := s.Create3D(s.Root(), "N")
 	s.Flush()
 	h := history.New(target{s})
-	err := h.Exec(&Reparent{Node: s.ID(n), NewParent: s.ID(flat), NewIndex: -1, KeepWorld: true})
+	err := h.Exec(reparent(s, n, flat))
 	if !errs.Has(err, errs.SceneSpaceMismatch) {
 		t.Fatalf("err = %v", err)
 	}
@@ -57,7 +57,7 @@ func TestReparent2DIntoThreeDKeepsWorld(t *testing.T) {
 	s.Flush()
 	before := s.World4(n)
 	h := history.New(target{s})
-	if err := h.Exec(&Reparent{Node: s.ID(n), NewParent: s.ID(p), NewIndex: -1, KeepWorld: true}); err != nil {
+	if err := h.Exec(reparent(s, n, p)); err != nil {
 		t.Fatal(err)
 	}
 	if !s.Under3D(n) || !s.World4(n).NearlyEqual(before, 1e-4) {
@@ -97,7 +97,7 @@ func TestDeleteUndoKeepsSpace(t *testing.T) {
 	s.Flush()
 	id := s.ID(n)
 	h := history.New(target{s})
-	if err := h.Exec(&Delete{Node: id}); err != nil {
+	if err := h.Exec(del(s, id)); err != nil {
 		t.Fatal(err)
 	}
 	h.Undo()

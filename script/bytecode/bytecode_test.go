@@ -23,7 +23,7 @@ func sample() *Module {
 	m.Scripts = []ScriptDef{{
 		FullName: "game.player.P", Former: []string{"Old"}, Hidden: true, Slots: 4, HeapSlots: []uint16{3},
 		Fields: []FieldDef{
-			{Name: "Speed", Type: "float", Slot: 0, Slots: 1, Export: true,
+			{Name: "Speed", Type: "float", Slot: 0, Slots: 1, Export: true, Persist: true,
 				Hints:      ExportHints{Min: 0, Max: 600, HasMin: true, HasMax: true, Unit: "px/s"},
 				HasDefault: true, Default: FloatK(220)},
 			{Name: "Pose", Type: "Transform2D", Slot: 1, Slots: 3},

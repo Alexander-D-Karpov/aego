@@ -1,0 +1,18 @@
+package boxes
+
+import "aego/input"
+
+script Kick {
+	@export
+	var Impulse Vec2 = Vec2{0, -4}
+
+	func Update(dt float) {
+		if !input.Pressed("Jump") {
+			return
+		}
+		body := node.Get<Body2D>()
+		if body != nil {
+			body.ApplyImpulse(Impulse)
+		}
+	}
+}

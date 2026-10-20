@@ -35,3 +35,21 @@ func TestEditorLauncher(t *testing.T) {
 	img, err := env.draw(func(full mathx.Rect) { l.Draw(env.ui, full) })
 	checkGolden(t, "editor_launcher", img, err)
 }
+
+func TestEditorLauncherNewProject(t *testing.T) {
+	env := newEditorEnv(t)
+	var tmpl []launcher.Template
+	for _, t := range projects.Templates {
+		id := t.ID
+		tmpl = append(tmpl, launcher.Template{ID: t.ID, Name: t.Name, Description: t.Description, Icon: t.Icon,
+			Files: projects.TemplateFiles(id)})
+	}
+	l := launcher.New(launcher.Options{
+		Templates:  tmpl,
+		Workspaces: []launcher.Choice{{ID: "design", Title: "Design"}, {ID: "programming", Title: "Programming"}},
+		Home:       "/home/dev/games",
+	})
+	l.SetTab(launcher.TabNew)
+	img, err := env.draw(func(full mathx.Rect) { l.Draw(env.ui, full) })
+	checkGolden(t, "editor_launcher_new", img, err)
+}

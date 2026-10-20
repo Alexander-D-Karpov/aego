@@ -1,5 +1,6 @@
 ---
 id: welcome
+group: start
 title: Getting started with Aego
 order: 0
 ---

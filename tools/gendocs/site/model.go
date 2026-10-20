@@ -30,6 +30,7 @@ type Location struct {
 	Line   int
 	Stub   string
 	Symbol string
+	Source string
 }
 
 type Snippet struct {
@@ -44,6 +45,7 @@ type Entry struct {
 	Parent    string
 	Kind      string
 	Owner     string
+	Group     string
 	Title     string
 	Summary   string
 	Body      string
@@ -56,11 +58,45 @@ type Entry struct {
 	Requires  []string
 	Snippets  []Snippet
 	Order     int
+	Field     *FieldInfo
+	Component *ComponentInfo
+	Related   []string
+	Try       string
+	TrySelect string
+}
+
+type FieldInfo struct {
+	Type    string
+	Default string
+	Range   string
+	Notes   []string
+}
+
+type ComponentInfo struct {
+	Category string
+	Module   string
+	Space    string
+	Unique   bool
+	Requires []string
+	Create   string
+	Events   []string
 }
 
 type Node struct {
 	ID       string `json:"id"`
 	Children []Node `json:"children,omitempty"`
+}
+
+type Group struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Section string `json:"section"`
+	Order   int    `json:"order"`
+}
+
+type GroupNav struct {
+	Group
+	Nav []Node `json:"nav"`
 }
 
 type Problem struct {
@@ -70,11 +106,12 @@ type Problem struct {
 }
 
 type Export struct {
-	Version  int       `json:"version"`
-	Title    string    `json:"title"`
-	Entries  []Entry   `json:"entries"`
-	Nav      []Node    `json:"nav"`
-	Problems []Problem `json:"problems"`
+	Version  int        `json:"version"`
+	Title    string     `json:"title"`
+	Entries  []Entry    `json:"entries"`
+	Nav      []Node     `json:"nav"`
+	Groups   []GroupNav `json:"groups"`
+	Problems []Problem  `json:"problems"`
 }
 
 func Load(path string) (*Export, error) {

@@ -45,3 +45,16 @@ func (s sink) Flush() {
 func EventSink(w *engine.World) scriptevents.Sink {
 	return sink{w: w}
 }
+
+func (s sink) Intern(str string) vm.Value {
+	if rt := s.runtime(); rt != nil {
+		return rt.Intern(str)
+	}
+	return vm.Value{}
+}
+
+func (s sink) Broadcast(ev scriptevents.EventID, args []vm.Value) {
+	if rt := s.runtime(); rt != nil {
+		rt.Broadcast(ev, args)
+	}
+}

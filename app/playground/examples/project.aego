@@ -1,0 +1,32 @@
+project version=1 {
+  name="playground-examples"
+  module="game"
+  mainScene=asset("06e1b9da8af4e739c5cbc7693f032366")
+  native=false
+  window {
+    width=1280
+    height=720
+    title="Aego Playground"
+  }
+  input version=2 {
+    stack=[Gameplay]
+    action {
+      name=Move
+      type=axis1
+      bind=["Key.A/Key.D", "Key.Left/Key.Right", "Pad.LeftX"]
+    }
+    action {
+      name=Jump
+      type=button
+      bind=["Key.Space", "Key.W", "Key.Up", "Pad.A"]
+      buffer=0.1
+    }
+    context {
+      name=Gameplay
+      actions=[Move, Jump]
+    }
+  }
+  physics {
+    gravity=[0, 9.81]
+  }
+}

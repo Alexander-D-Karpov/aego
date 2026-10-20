@@ -332,12 +332,10 @@ func abs32(f float32) float32 {
 	return f
 }
 
-func (t *tree) clone() tree {
-	return tree{
-		nodes: append(make([]treeNode, 0, cap(t.nodes)), t.nodes...),
-		root:  t.root,
-		free:  t.free,
-		count: t.count,
-		stack: make([]int32, 0, cap(t.stack)),
+func (t *tree) cloneInto(dst *tree) {
+	dst.nodes = append(dst.nodes[:0], t.nodes...)
+	dst.root, dst.free, dst.count = t.root, t.free, t.count
+	if dst.stack == nil {
+		dst.stack = make([]int32, 0, max(cap(t.stack), 256))
 	}
 }

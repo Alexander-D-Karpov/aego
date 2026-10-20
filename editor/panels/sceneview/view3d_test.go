@@ -146,7 +146,7 @@ func TestPickPointAndBoxSelect(t *testing.T) {
 		t.Fatal("empty node not picked")
 	}
 	c := frontController()
-	got := BoxSelect3D(s, c.View(), mathx.Vec2{}, mathx.Vec2{X: 800, Y: 600}, ^uint64(0))
+	got := BoxSelect3D(s, shape.Set{}, c.View(), mathx.Vec2{}, mathx.Vec2{X: 800, Y: 600}, ^uint64(0))
 	if len(got) != 1 || got[0] != s.ID(e) {
 		t.Fatalf("box select = %v", got)
 	}

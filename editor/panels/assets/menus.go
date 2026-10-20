@@ -1,15 +1,19 @@
 package assets
 
 import (
+	favs "aego/editor/core/favorites"
+	"aego/editor/core/refs"
 	"path"
 	"strconv"
 	"strings"
 
 	"aego/asset"
 	"aego/core/ids"
+	"aego/data"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/schema"
 	"aego/ui/widgets"
 )
 
@@ -39,31 +43,48 @@ func (p *Panel) assetItems() {
 	}
 	single := len(p.sel) == 1
 	reg := p.d.Commands
-	if widgets.MenuItem(ui, "Open", "", single && openable(a.Kind), false) {
+	if widgets.MenuItemIcon(ui, "Open", "", "file.open", single && openable(a.Kind), false) {
 		p.open(a)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Copy", reg.Shortcut(CommandCopy), true, false) {
+	if widgets.MenuItemIcon(ui, "Copy", reg.Shortcut(CommandCopy), "edit.copy", true, false) {
 		p.report(p.CopySelected())
 	}
-	if widgets.MenuItem(ui, "Cut", reg.Shortcut(CommandCut), true, false) {
+	if widgets.MenuItemIcon(ui, "Cut", reg.Shortcut(CommandCut), "edit.cut", true, false) {
 		p.report(p.CutSelected())
 	}
-	if widgets.MenuItem(ui, "Paste", reg.Shortcut(CommandPaste), p.d.Files.CanPaste(), false) {
+	if widgets.MenuItemIcon(ui, "Paste", reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
 		p.report(p.Paste(path.Dir(a.Path)))
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Rename", reg.Shortcut(CommandRename), single, false) {
+	if widgets.MenuItemIcon(ui, "Rename", reg.Shortcut(CommandRename), "edit.rename", single, false) {
 		p.StartRename()
 	}
-	if widgets.MenuItem(ui, "Duplicate", reg.Shortcut(CommandDuplicate), true, false) {
+	if widgets.MenuItemIcon(ui, "Batch Rename…", "", "edit.batch_rename", len(p.sel) > 1 && p.d.BatchRename != nil, false) {
+		p.d.BatchRename(p.Selection())
+	}
+	if widgets.MenuItemIcon(ui, "Duplicate", reg.Shortcut(CommandDuplicate), "edit.duplicate", true, false) {
 		p.report(p.DuplicateSelected())
 	}
-	if widgets.MenuItem(ui, "Delete", reg.Shortcut(CommandDelete), true, false) {
+	if widgets.MenuItemIcon(ui, "Delete", reg.Shortcut(CommandDelete), "edit.delete", true, false) {
 		p.DeleteSelected()
 	}
-	if widgets.MenuItem(ui, "Reimport", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Reimport", "", "ui.reset", true, false) {
 		p.report(p.ReimportSelected())
+	}
+	if widgets.MenuItemIcon(ui, "Find References", reg.Shortcut(CommandFindReferences), "panel.references", single && p.d.ShowReferences != nil, false) {
+		p.d.ShowReferences(a.ID, nil)
+	}
+	if p.d.Favorites != nil && single {
+		fav := favs.Item{Kind: favs.Asset, Asset: a.ID, Label: path.Base(a.Path)}
+		label := "Add to Favorites"
+		if p.d.Favorites.Has(fav) {
+			label = "Remove from Favorites"
+		}
+		if widgets.MenuItemIcon(ui, label, "", "ui.star", true, false) {
+			_, err := p.d.Favorites.Toggle(fav)
+			p.report(err)
+		}
 	}
 	if single {
 		id, rel, name := a.ID, a.Path, a.Name
@@ -71,36 +92,41 @@ func (p *Panel) assetItems() {
 		case asset.ArtScene:
 			widgets.Separator(ui)
 			startup := p.d.Project != nil && p.d.Project.MainScene == id
-			if widgets.MenuItem(ui, "Set as Startup Scene", "", !startup, startup) {
+			if widgets.MenuItemIcon(ui, "Set as Startup Scene", "", "play.start", !startup, startup) {
 				p.d.Files.SetStartup(id, rel)
 			}
 		case asset.ArtPrefab:
 			widgets.Separator(ui)
-			if widgets.MenuItem(ui, "Instantiate in Scene", "", p.d.Docs.Doc() != nil && p.Instantiate != nil, false) {
+			if widgets.MenuItemIcon(ui, "Instantiate in Scene", "", "file.prefab", p.d.Docs.Doc() != nil && p.Instantiate != nil, false) {
 				p.Instantiate(id, path.Base(name))
 			}
 			if p.d.Prefabs != nil {
-				if widgets.MenuItem(ui, "Create Variant", "", true, false) {
+				if widgets.MenuItemIcon(ui, "Create Variant", "", "prefab.variant", true, false) {
 					p.report(p.d.Prefabs.CreateVariant(id))
 					p.invalidate()
 				}
-				if widgets.MenuItem(ui, "Find Instances", "", true, false) {
+				if widgets.MenuItemIcon(ui, "Find Instances", "", "ui.search", true, false) {
 					p.d.Prefabs.FindInstances(id)
 				}
 			}
 		case asset.ArtScript:
 			widgets.Separator(ui)
 			nodes := p.d.Selection.Selected()
-			if widgets.MenuItem(ui, "Attach to Selected", "", len(nodes) > 0, false) {
+			if widgets.MenuItemIcon(ui, "Attach to Selected", "", "comp.script", len(nodes) > 0, false) {
 				p.d.Scenes.AttachScript(nodes, id)
 			}
 		}
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Reveal in File Manager", "", single, false) {
+	if p.d.Compare != nil && single && diffable(a.Path) {
+		if widgets.MenuItemIcon(ui, "Compare with HEAD", "", "panel.diff", true, false) {
+			p.d.Compare(a.Path)
+		}
+	}
+	if widgets.MenuItemIcon(ui, "Reveal in File Manager", "", "file.reveal", single, false) {
 		p.report(reveal(p.d.Pipeline.Abs(a.Path), false))
 	}
-	if widgets.MenuItem(ui, "Copy Path", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Copy Path", "", "edit.copy_path", true, false) {
 		var paths []string
 		for _, id := range p.Selection() {
 			if rel, ok := p.d.Pipeline.PathOf(id); ok {
@@ -114,43 +140,103 @@ func (p *Panel) assetItems() {
 func (p *Panel) dirItems(dir string) {
 	ui := p.f.UI
 	reg := p.d.Commands
-	if widgets.SubMenu(ui, "New", 200) {
-		if widgets.MenuItem(ui, "Folder", "", true, false) {
+	if widgets.SubMenuIcon(ui, "New", "ui.plus", 200) {
+		if widgets.MenuItemIcon(ui, "Folder", "", "file.folder", true, false) {
 			p.newFolder(dir)
 		}
-		if widgets.MenuItem(ui, "Scene…", "", p.d.Files.CanNewScene(), false) {
+		if widgets.MenuItemIcon(ui, "Scene…", "", "file.scene", p.d.Files.CanNewScene(), false) {
 			p.newDoc(dir, "New scene", document.SceneExt, p.d.Files.NewScene)
 		}
-		if widgets.MenuItem(ui, "Prefab…", "", p.d.Files.CanNewPrefab(), false) {
+		if widgets.MenuItemIcon(ui, "Prefab…", "", "file.prefab", p.d.Files.CanNewPrefab(), false) {
 			p.newDoc(dir, "New prefab", assetops.PrefabExt, p.d.Files.NewPrefab)
 		}
 		widgets.Separator(ui)
-		if widgets.MenuItem(ui, "Script…", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Script…", "", "file.script", true, false) {
 			p.newScript(dir)
 		}
-		if widgets.MenuItem(ui, "Script Package…", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Script Package…", "", "file.package", true, false) {
 			p.newPackage(dir)
 		}
+		p.dataItems(dir)
 		widgets.EndSubMenu(ui)
 	}
-	if widgets.MenuItem(ui, "Paste", reg.Shortcut(CommandPaste), p.d.Files.CanPaste(), false) {
+	if widgets.MenuItemIcon(ui, "Paste", reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
 		p.report(p.Paste(dir))
 	}
 	widgets.Separator(ui)
 	top := path.Dir(dir) == "."
-	if widgets.MenuItem(ui, "Rename", "", !top, false) {
+	if widgets.MenuItemIcon(ui, "Rename", "", "edit.rename", !top, false) {
 		p.expanded[path.Dir(dir)] = true
 		p.renamingDir, p.renameDirStart = dir, true
 	}
-	if widgets.MenuItem(ui, "Delete…", "", !top, false) {
+	if widgets.MenuItemIcon(ui, "Delete…", "", "edit.delete", !top, false) {
 		p.deleteDir(dir)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItem(ui, "Reveal in File Manager", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Reveal in File Manager", "", "file.reveal", true, false) {
 		p.report(reveal(p.d.Pipeline.Abs(dir), true))
 	}
-	if widgets.MenuItem(ui, "Copy Path", "", true, false) {
+	if widgets.MenuItemIcon(ui, "Copy Path", "", "edit.copy_path", true, false) {
 		p.copyText(dir)
+	}
+}
+
+func (p *Panel) dataTypes() []*schema.TypeDescriptor {
+	if p.d.Schema == nil {
+		return nil
+	}
+	var out []*schema.TypeDescriptor
+	p.d.Schema.Each(func(td *schema.TypeDescriptor) {
+		if td.Kind == schema.TypeAsset && !td.Hidden {
+			out = append(out, td)
+		}
+	})
+	return out
+}
+
+func typeShort(full string) string {
+	return full[strings.LastIndexByte(full, '.')+1:]
+}
+
+func (p *Panel) newData(dir string, td *schema.TypeDescriptor, table bool) {
+	ext, title := ".aedata", "New "+typeShort(td.FullName)+" data"
+	if table {
+		ext, title = ".aetable", "New "+typeShort(td.FullName)+" table"
+	}
+	p.newDoc(dir, title, ext, func(rel string) error {
+		var b []byte
+		if table {
+			b = data.WriteTable(&data.TableDoc{Type: td.FullName})
+		} else {
+			b = data.WriteDoc(&data.Doc{Type: td.FullName})
+		}
+		_, err := p.d.Files.CreateFile(rel, b)
+		return err
+	})
+}
+
+func (p *Panel) dataItems(dir string) {
+	types := p.dataTypes()
+	if len(types) == 0 {
+		return
+	}
+	ui := p.f.UI
+	widgets.Separator(ui)
+	if widgets.SubMenuIcon(ui, "Data Asset", "file.data", 220) {
+		for _, td := range types {
+			if widgets.MenuItemIcon(ui, typeShort(td.FullName)+"…", "", "file.data", true, false) {
+				p.newData(dir, td, false)
+			}
+		}
+		widgets.EndSubMenu(ui)
+	}
+	if widgets.SubMenuIcon(ui, "Data Table", "file.table", 220) {
+		for _, td := range types {
+			if widgets.MenuItemIcon(ui, typeShort(td.FullName)+"…", "", "file.table", true, false) {
+				p.newData(dir, td, true)
+			}
+		}
+		widgets.EndSubMenu(ui)
 	}
 }
 
@@ -304,6 +390,28 @@ func (p *Panel) DeleteSelected() {
 	if len(list) == 0 {
 		return
 	}
+	if p.d.Refs != nil && p.d.ShowReferences != nil {
+		gone := map[ids.AssetID]bool{}
+		for _, id := range list {
+			gone[id] = true
+		}
+		var users []refs.Ref
+		var first ids.AssetID
+		for _, id := range list {
+			for _, r := range p.d.Refs.Referrers(id) {
+				if r.Project || !gone[r.Asset] {
+					users = append(users, r)
+					if first.IsZero() {
+						first = id
+					}
+				}
+			}
+		}
+		if len(users) > 0 {
+			p.askUsed(list, users, first)
+			return
+		}
+	}
 	title, msg := "Delete asset", ""
 	if len(list) == 1 {
 		rel, _ := p.d.Pipeline.PathOf(list[0])
@@ -313,22 +421,12 @@ func (p *Panel) DeleteSelected() {
 	}
 	p.d.Notices.Ask(context.Question{
 		Title:   title,
-		Message: msg + " Scenes that reference them keep the reference and show it as missing.",
+		Message: msg + " Nothing in the project references them.",
 		Buttons: []string{"Delete", "Cancel"},
 		Then: func(choice int) {
-			if choice != 0 {
-				return
+			if choice == 0 {
+				p.DeleteNow(list)
 			}
-			err := p.d.Files.Delete(list)
-			for _, id := range list {
-				p.d.Thumbs.Forget(id)
-				delete(p.sel, id)
-			}
-			p.active = ids.AssetID{}
-			if err != nil {
-				p.d.Notices.Notify(context.LevelError, err.Error())
-			}
-			p.invalidate()
 		},
 	})
 }
@@ -379,4 +477,49 @@ func (p *Panel) ReimportSelected() error {
 		p.d.Notices.Notify(context.LevelInfo, "Reimported")
 	}
 	return first
+}
+
+func (p *Panel) askUsed(list []ids.AssetID, users []refs.Ref, first ids.AssetID) {
+	var names []string
+	for i, r := range users {
+		if i == 8 {
+			names = append(names, "and "+strconv.Itoa(len(users)-i)+" more")
+			break
+		}
+		names = append(names, r.Path)
+	}
+	p.d.Notices.Ask(context.Question{
+		Title:   "Assets in use",
+		Message: "Still referenced by:\n" + strings.Join(names, "\n") + "\n\nDeleting them leaves these references missing.",
+		Buttons: []string{"Show References", "Delete Anyway", "Cancel"},
+		Then: func(choice int) {
+			switch choice {
+			case 0:
+				p.d.ShowReferences(first, list)
+			case 1:
+				p.DeleteNow(list)
+			}
+		},
+	})
+}
+
+func (p *Panel) DeleteNow(list []ids.AssetID) {
+	err := p.d.Files.Delete(list)
+	for _, id := range list {
+		p.d.Thumbs.Forget(id)
+		delete(p.sel, id)
+	}
+	p.active = ids.AssetID{}
+	if err != nil {
+		p.d.Notices.Notify(context.LevelError, err.Error())
+	}
+	p.invalidate()
+}
+
+func diffable(rel string) bool {
+	switch path.Ext(rel) {
+	case ".aescene", ".aeprefab", ".aedata", ".aetable", ".aepreset":
+		return true
+	}
+	return false
 }

@@ -12,15 +12,16 @@ func registerTemplates(r *module.Registry) {
 	for _, t := range []struct {
 		id    string
 		name  string
+		icon  string
 		setup func(*scene.Scene, scene.NodeHandle)
 	}{
-		{"rigidbody", "Rigid Body", rigidBody},
-		{"static", "Static Collider", staticCollider},
-		{"trigger", "Trigger", trigger},
-		{"platform", "Platform", platform},
-		{"ball", "Ball", ball},
+		{"rigidbody", "Rigid Body", "comp.rigidbody", rigidBody},
+		{"static", "Static Collider", "tpl.static", staticCollider},
+		{"trigger", "Trigger", "tpl.trigger", trigger},
+		{"platform", "Platform", "tpl.platform", platform},
+		{"ball", "Ball", "tpl.ball", ball},
 	} {
-		r.Template(schema.TemplateDesc{ID: ID + "." + t.id, Name: t.name, Menu: Menu, Space: schema.Space2D, Setup: t.setup})
+		r.Template(schema.TemplateDesc{ID: ID + "." + t.id, Name: t.name, Icon: t.icon, Menu: Menu, Space: schema.Space2D, Setup: t.setup})
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
 	"aego/scene"
+	"aego/scene/mutate"
 	"aego/scene/prefab"
 	"aego/scene/sceneio"
 )
@@ -217,7 +218,7 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 			tx.Abort()
 			return err
 		}
-		if err := tx.Exec(&commands.Replace{Node: sc.ID(h), Before: before, After: after, Name: "Create Prefab"}); err != nil {
+		if err := tx.Exec(commands.NewMutation("Create Prefab", s.env(sc), mutate.Replace(commands.Ref(sc.ID(h)), string(after)))); err != nil {
 			tx.Abort()
 			return err
 		}

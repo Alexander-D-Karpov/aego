@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/platform/input"
 	"aego/ui/core"
+	"aego/ui/draw"
 )
 
 type Edit struct {
@@ -25,17 +26,18 @@ func (e Edit) Any() bool {
 }
 
 type NumberOpts struct {
-	Speed  float64
-	Min    float64
-	Max    float64
-	HasMin bool
-	HasMax bool
-	Prec   int
-	Suffix string
-	Unit   string
-	Mixed  bool
-	Int    bool
-	Lead   float32
+	Speed   float64
+	Min     float64
+	Max     float64
+	HasMin  bool
+	HasMax  bool
+	Prec    int
+	Suffix  string
+	Unit    string
+	Mixed   bool
+	Int     bool
+	Lead    float32
+	Percent bool
 }
 
 func (o NumberOpts) clamp(v float64) float64 {
@@ -52,6 +54,9 @@ func (o NumberOpts) clamp(v float64) float64 {
 }
 
 func FormatNumber(v float64, o NumberOpts) string {
+	if o.Percent {
+		return strconv.FormatInt(int64(math.Round(v*100)), 10) + "%"
+	}
 	if o.Int {
 		return strconv.FormatInt(int64(math.Round(v)), 10) + o.Suffix
 	}
@@ -78,10 +83,15 @@ func ParseNumber(s string, o NumberOpts) (float64, bool) {
 	if o.Unit != "" {
 		s = strings.TrimSpace(strings.TrimSuffix(s, o.Unit))
 	}
+	pct := o.Percent && strings.HasSuffix(s, "%")
+	s = strings.TrimSpace(strings.TrimSuffix(s, "%"))
 	s = strings.ReplaceAll(s, ",", ".")
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, false
+	}
+	if pct || (o.Percent && f > 1) {
+		f /= 100
 	}
 	return o.clamp(f), true
 }
@@ -147,12 +157,16 @@ func DragNumber(c *core.Context, id core.ID, r mathx.Rect, v *float64, o NumberO
 			}
 		}
 	}
-	c.Rect(r, c.WidgetColor(id))
+	c.Box(r, th.Radius.Field, c.WidgetColor(id), th.Border)
 	if o.HasMin && o.HasMax && o.Max > o.Min && !o.Mixed {
-		t := float32((*v - o.Min) / (o.Max - o.Min))
-		c.Rect(mathx.Rect{X: r.X, Y: r.Y, W: r.W * mathx.Clamp(t, 0, 1), H: r.H}, th.SelectionDim)
+		t := mathx.Clamp(float32((*v-o.Min)/(o.Max-o.Min)), 0, 1)
+		corners := draw.CornersLeft
+		if t >= 1 {
+			corners = draw.CornersAll
+		}
+		bar := mathx.Rect{X: r.X + 1, Y: r.Y + 1, W: (r.W - 2) * t, H: r.H - 2}
+		c.List().RoundRect(bar, th.Radius.Field-1, th.SelectionDim, corners)
 	}
-	c.Outline(r, th.Border)
 	label := FormatNumber(*v, o)
 	if o.Mixed && !e.Changed {
 		label = th.Mixed
@@ -205,8 +219,8 @@ func vecField(c *core.Context, id core.ID, r mathx.Rect, ptrs []*float32, mixed 
 		oo.Lead = 14
 		e = e.Or(DragFloat32(c, sub, cell, ptr, oo))
 		if c.Focus() != sub {
-			c.Rect(mathx.Rect{X: cell.X, Y: cell.Y, W: 2, H: cell.H}, cols[i])
-			c.Text(names[i], mathx.Vec2{X: cell.X + 5, Y: c.TextY(cell)}, cols[i])
+			c.Rect(mathx.Rect{X: cell.X + 2, Y: cell.Y + 4, W: 2, H: cell.H - 8}, cols[i])
+			c.Text(names[i], mathx.Vec2{X: cell.X + 6, Y: c.TextY(cell)}, cols[i])
 		}
 	}
 	return e

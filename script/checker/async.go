@@ -7,10 +7,11 @@ import (
 	"aego/script/ast"
 	"aego/script/diag"
 	"aego/script/resolver"
+	"aego/script/source"
 	"aego/script/types"
 )
 
-var yieldNames = [...]string{"", "wait", "frames", "fixed", "await"}
+var yieldNames = [...]string{"", "wait", "frames", "fixed", "await", "waitUnscaled"}
 
 func scriptFullName(pkg, name string) string {
 	return strings.ReplaceAll(pkg, "/", ".") + "." + name
@@ -36,16 +37,21 @@ func typesText(ts []*types.Type) string {
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-func sameParams(f *Func, sg *ScriptSignal) bool {
-	if len(f.Params) != len(sg.Params) {
+func sameTypes(f *Func, params []*types.Type) bool {
+	if len(f.Params) != len(params) {
 		return false
 	}
 	for i, p := range f.Params {
-		if p.Type != sg.Params[i] {
+		if p.Type != params[i] {
 			return false
 		}
 	}
 	return true
+}
+
+func (c *checker) hostSignal(s *ast.SelectorExpr, i int, def abi.SignalDef, comp *abi.Component, handle string) operand {
+	hs := &HostSignal{Name: def.Name, Index: i, Params: c.abiTypes(def.Params), Comp: comp, Handle: handle}
+	return operand{mode: mSignal, t: types.Void, hsig: hs, src: s.X}
 }
 
 func (c *checker) start(e *ast.StartExpr) operand {
@@ -68,6 +74,9 @@ func (c *checker) start(e *ast.StartExpr) operand {
 }
 
 func (c *checker) callSignal(e *ast.CallExpr, sel *ast.SelectorExpr, x operand) operand {
+	if x.hsig != nil {
+		return c.callHostSignal(e, sel, x)
+	}
 	sg := x.sig
 	c.noTypeArgs(e)
 	switch sel.Sel.Name {
@@ -86,7 +95,8 @@ func (c *checker) callSignal(e *ast.CallExpr, sel *ast.SelectorExpr, x operand) 
 			c.args(e.Args)
 			return invalid
 		}
-		h, recv, ok := c.handler(e.Args[0], sg)
+		sp := sg.Decl.Name.Sp
+		h, recv, ok := c.handler(e.Args[0], sg.Name, sg.Params, &sp)
 		if !ok {
 			return invalid
 		}
@@ -98,7 +108,31 @@ func (c *checker) callSignal(e *ast.CallExpr, sel *ast.SelectorExpr, x operand) 
 	return invalid
 }
 
-func (c *checker) handler(arg ast.Expr, sg *ScriptSignal) (*Func, ast.Expr, bool) {
+func (c *checker) callHostSignal(e *ast.CallExpr, sel *ast.SelectorExpr, x operand) operand {
+	hs := x.hsig
+	c.noTypeArgs(e)
+	switch sel.Sel.Name {
+	case "Emit":
+		c.errorf(diag.BadConnect, sel.Sel.Sp, "signal %s is emitted by the engine, scripts can only connect to it", hs.Name)
+	case "Connect":
+		if len(e.Args) != 1 {
+			c.errorf(diag.ArgCount, e.Sp, "Connect takes exactly one handler")
+			break
+		}
+		h, recv, ok := c.handler(e.Args[0], hs.Name, hs.Params, nil)
+		if !ok {
+			return invalid
+		}
+		c.a.Calls[e] = &Call{Kind: CallHostConnect, Host: hs, Recv: x.src, Handler: h, HandlerRecv: recv}
+		return val(types.Connection)
+	default:
+		c.errorf(diag.UnknownField, sel.Sel.Sp, "signal %s has no method %s, use Connect", hs.Name, sel.Sel.Name)
+	}
+	c.args(e.Args)
+	return invalid
+}
+
+func (c *checker) handler(arg ast.Expr, name string, params []*types.Type, decl *source.Span) (*Func, ast.Expr, bool) {
 	var f *Func
 	var recv ast.Expr
 	switch a := unparen(arg).(type) {
@@ -130,10 +164,13 @@ func (c *checker) handler(arg ast.Expr, sg *ScriptSignal) (*Func, ast.Expr, bool
 		c.errorf(diag.BadConnect, arg.Span(), "%s cannot handle a signal, use a plain method", f.Name)
 		return nil, nil, false
 	}
-	if !sameParams(f, sg) || f.Result != types.Void {
-		c.a.Diagnostics = append(c.a.Diagnostics,
-			diag.Errorf(diag.HandlerMismatch, arg.Span(), "handler %s does not match signal %s", f.Name, sg.Name).
-				WithNote(sg.Decl.Name.Sp, "signal %s%s, handler %s%s", sg.Name, typesText(sg.Params), f.Name, typesText(funcParams(f))))
+	if !sameTypes(f, params) || f.Result != types.Void {
+		d := diag.Errorf(diag.HandlerMismatch, arg.Span(), "handler %s%s does not match signal %s%s",
+			f.Name, typesText(funcParams(f)), name, typesText(params))
+		if decl != nil {
+			d = d.WithNote(*decl, "signal %s%s", name, typesText(params))
+		}
+		c.a.Diagnostics = append(c.a.Diagnostics, d)
 		return nil, nil, false
 	}
 	return f, recv, true
@@ -313,7 +350,7 @@ func (c *checker) yieldStmt(s *ast.YieldStmt) {
 	}
 	var want *types.Type
 	switch s.Kind {
-	case ast.YieldWait:
+	case ast.YieldWait, ast.YieldWaitUnscaled:
 		want = types.Float
 	case ast.YieldFrames, ast.YieldFixed:
 		want = types.Int
@@ -326,8 +363,14 @@ func (c *checker) yieldStmt(s *ast.YieldStmt) {
 	if x.mode == mInvalid {
 		return
 	}
+	if s.Kind == ast.YieldAwait && x.t.Kind == types.KHandle {
+		if _, ok := c.surface.HandleMethod(x.t.Handle, "Done"); !x.t.Await || !ok {
+			c.errorf(diag.YieldArg, s.Value.Span(), "%s cannot be awaited", x.t)
+		}
+		return
+	}
 	y := x
 	if !c.coerce(s.Value, &y, want) {
-		c.errorf(diag.YieldArg, s.Value.Span(), "yield %s needs %s, not %s", yieldNames[s.Kind], want, x.t)
+		c.errorf(diag.YieldArg, s.Value.Span(), "yield %s needs %s, a Coroutine or an awaitable handle, not %s", yieldNames[s.Kind], want, x.t)
 	}
 }

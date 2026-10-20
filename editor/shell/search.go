@@ -15,6 +15,8 @@ func (a *App) registerSearch() error {
 		Name:     "Search Everywhere",
 		Category: "Edit",
 		Order:    400,
+		Shortcut: command.Key(input.KeyP, command.ModPrimary|command.ModShift),
+		Hint:     "Shift Shift",
 		Run: func() error {
 			a.openSearch(search.TabAll)
 			return nil
@@ -27,6 +29,16 @@ func (a *App) openSearch(tab search.Tab) {
 		return
 	}
 	a.search.Open(a.ui, tab)
+}
+
+func (a *App) paletteKey(ev platform.Event) {
+	if ev.Key.Repeat {
+		return
+	}
+	d, ok := a.ctx.Commands.Get(search.CommandOpen)
+	if ok && d.Matches(command.Shortcut{Key: ev.Key.Scan, Mods: command.FromInput(ev.Key.Mods)}) {
+		a.openSearch(search.TabAll)
+	}
 }
 
 func (a *App) shiftTap(ev platform.Event) {

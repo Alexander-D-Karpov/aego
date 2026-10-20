@@ -14,6 +14,7 @@ type Module struct {
 	recv   abi.Kind
 	method bool
 	comp   string
+	handle string
 }
 
 func (m *Module) Path() string {
@@ -52,6 +53,11 @@ func (m *Module) addFunc(name string, params []abi.TypeRef, result abi.TypeRef, 
 	case m.comp != "":
 		params = append([]abi.TypeRef{abi.ComponentOf(m.comp)}, params[1:]...)
 		err = r.table.AddComponentMethod(m.comp, name, abi.Signature{Params: params[1:], Result: result})
+	case m.handle != "" && (len(params) == 0 || params[0].Kind != abi.Handle || params[0].Name != m.handle):
+		err = fmt.Errorf("handle method needs a %s receiver as its first parameter", m.handle)
+	case m.handle != "":
+		visible--
+		err = r.table.AddHandleMethod(m.handle, name, abi.Signature{Params: params[1:], Result: result})
 	case !m.method:
 		err = r.table.AddFunc(m.path, name, abi.Signature{Params: params, Result: result})
 	case len(params) == 0 || params[0].Kind != m.recv:

@@ -141,3 +141,41 @@ func TestPrefabEditorFlow(t *testing.T) {
 		t.Fatal("instances without an override follow the prefab")
 	}
 }
+
+func TestCreatePrefabUndo(t *testing.T) {
+	_, ctx := openEditor(t)
+	if err := ctx.NewScene("scenes/undo.aescene"); err != nil {
+		t.Fatal(err)
+	}
+	d := ctx.Doc()
+	sc := d.Scene()
+	crate := sc.Create(sc.Root(), "Crate")
+	sc.Create(crate, "Lid")
+	sc.Flush()
+	id := sc.ID(crate)
+	before := sceneio.SaveSubtree(sc, crate, true)
+	if err := prefabs.New(ctx).CreateFrom(d, []ids.NodeID{id}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if pi, ok := sceneio.InstanceOf(sc, sc.Handle(id)); !ok || !pi.Owner {
+		t.Fatal("node must become a prefab instance")
+	}
+	if got := d.History.Steps(nil); len(got) == 0 || got[len(got)-1] != "Create Prefab" {
+		t.Fatalf("history %v", got)
+	}
+	if err := d.History.Undo(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := sceneio.InstanceOf(sc, sc.Handle(id)); ok {
+		t.Fatal("undo must turn the instance back into plain nodes")
+	}
+	if got := sceneio.SaveSubtree(sc, sc.Handle(id), true); string(got) != string(before) {
+		t.Fatalf("undo changed the subtree:\n%s", got)
+	}
+	if err := d.History.Redo(); err != nil {
+		t.Fatal(err)
+	}
+	if pi, ok := sceneio.InstanceOf(sc, sc.Handle(id)); !ok || !pi.Owner {
+		t.Fatal("redo must link the instance again")
+	}
+}

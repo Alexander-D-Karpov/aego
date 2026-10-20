@@ -3,6 +3,7 @@ package ext
 import (
 	"aego/editor/ext/inspect"
 	"fmt"
+	"runtime/debug"
 
 	"aego/asset"
 	"aego/core/errs"
@@ -107,6 +108,9 @@ func (r *Registry) own(id string) *owned {
 }
 
 func (r *Registry) Disable(id, reason string) {
+	if ed := r.deps.Editor; ed != nil && ed.Crash != nil {
+		ed.Crash("extension "+id, reason, debug.Stack())
+	}
 	r.pending = append(r.pending, pending{id: id, reason: reason})
 }
 
@@ -136,6 +140,9 @@ func (r *Registry) disableNow(id, reason string) {
 		for _, t := range o.inspectors {
 			r.deps.Inspectors.Disable(t, reason)
 		}
+	}
+	if r.deps.Workspace != nil {
+		r.deps.Workspace.RemovePresets(id)
 	}
 	if r.deps.Shapes != nil {
 		r.deps.Shapes.Remove(id)

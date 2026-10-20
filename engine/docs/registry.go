@@ -4,6 +4,7 @@ package docs
 
 import (
 	"io/fs"
+	"path"
 	"slices"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 
 	"aego/engine/module"
 	"aego/engine/res"
+	"aego/engine/settings"
 	"aego/schema"
 	"aego/script/abi"
 	"aego/script/bind"
@@ -43,7 +45,11 @@ const (
 	KeywordPrefix  = "keyword/"
 	StubPrefix     = "stub:"
 	EngineOwner    = "engine"
+	EngineDocsDir  = "engine/res/docs"
 	scriptOwner    = "script"
+	unknownOrder   = 1000
+	TryDir         = "try"
+	TryExt         = ".aescene"
 )
 
 var kindNames = [...]string{"page", "module", "function", "type", "field", "method", "signal", "code", "const", "enum"}
@@ -67,6 +73,7 @@ type Location struct {
 	Line   int
 	Stub   string
 	Symbol string
+	Source string
 }
 
 type Snippet struct {
@@ -81,6 +88,7 @@ type Entry struct {
 	Parent    string
 	Kind      Kind
 	Owner     string
+	Group     string
 	Title     string
 	Summary   string
 	Body      string
@@ -93,6 +101,11 @@ type Entry struct {
 	Requires  []string
 	Snippets  []Snippet
 	Order     int
+	Field     *FieldInfo
+	Component *ComponentInfo
+	Related   []string
+	Try       string
+	TrySelect string
 }
 
 type Problem struct {
@@ -109,6 +122,15 @@ type Sources struct {
 	Owners   map[string]string
 	Project  string
 	Scripts  []ScriptSymbol
+
+	Sections    []*module.Section
+	Settings    []settings.Desc
+	EventOwners map[string]string
+}
+
+type pageMeta struct {
+	group   string
+	ordered bool
 }
 
 type Registry struct {
@@ -117,6 +139,10 @@ type Registry struct {
 	children map[string][]int
 	keys     map[string]int
 	builtin  map[string]bool
+	mods     map[string]module.Info
+	meta     map[string]pageMeta
+	extra    []Group
+	evOwners map[string]string
 	problems []Problem
 }
 
@@ -149,6 +175,7 @@ func SourcesOf(bm *manifest.Manifest, s *schema.Registry, m *module.Manifest) So
 	src := Sources{Bindings: bm, Schema: s, Docs: []module.DocSource{EngineDocs()}}
 	if m != nil {
 		src.Modules, src.Owners = m.Modules, m.ScriptOwners
+		src.Sections, src.Settings, src.EventOwners = m.Sections, m.Settings, m.EventOwners
 		src.Docs = append(src.Docs, m.Docs...)
 	}
 	return src
@@ -163,7 +190,7 @@ func EngineDocs() module.DocSource {
 	if err != nil {
 		sub = res.FS()
 	}
-	return module.DocSource{Owner: EngineOwner, FS: sub}
+	return module.DocSource{Owner: EngineOwner, FS: sub, Dir: EngineDocsDir}
 }
 
 func (r *Registry) Keywords() map[string]string {
@@ -180,26 +207,107 @@ func Assemble(src Sources) *Registry {
 		children: map[string][]int{},
 		keys:     map[string]int{},
 		builtin:  map[string]bool{},
+		mods:     map[string]module.Info{},
+		meta:     map[string]pageMeta{},
 	}
 	for _, mi := range src.Modules {
 		r.builtin[mi.ID] = mi.Builtin
-		r.add(Entry{ID: ModulePrefix + mi.ID, Kind: Module, Owner: mi.ID, Title: mi.ID})
+		r.mods[mi.ID] = mi
 	}
-	r.add(Entry{ID: BuiltinID, Kind: Module, Owner: scriptOwner, Title: "Builtin types", Location: Location{Stub: StubPath(BuiltinID)}})
-	r.add(Entry{ID: DiagnosticsID, Kind: Page, Owner: scriptOwner, Title: "Diagnostics"})
+	r.add(Entry{ID: BuiltinID, Kind: Module, Owner: scriptOwner, Group: GroupScriptAPI, Order: -1, Title: "Builtin types", Location: Location{Stub: StubPath(BuiltinID)}})
+	r.add(Entry{ID: DiagnosticsID, Kind: Page, Owner: scriptOwner, Group: GroupDiagnostics, Title: "Diagnostics",
+		Body: "Every code the compiler, the script runtime and the engine report, with what it means and how to fix it."})
 	if src.Bindings != nil {
 		r.bindings(src.Bindings, src.Owners)
+		r.handles(src.Bindings, src.Owners)
+		r.hostSignals(src.Bindings, src.Owners)
 	}
+	r.evOwners = src.EventOwners
 	if src.Schema != nil {
 		r.components(src.Schema, src.Bindings)
 	}
+	if src.Bindings != nil {
+		r.compMethods(src.Bindings)
+		r.scriptEvents(src.Bindings)
+	}
+	r.projectSections(src.Sections)
+	r.playerSettings(src.Settings)
 	r.codes()
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
 		r.pages(d)
+		r.tries(d)
 	}
 	r.index()
+	r.related()
 	return r
+}
+
+func (r *Registry) docsOrder(owner string) int {
+	if mi, ok := r.mods[owner]; ok {
+		return mi.DocsOrder
+	}
+	return unknownOrder
+}
+
+func (r *Registry) moduleTitle(owner string) string {
+	if mi, ok := r.mods[owner]; ok && mi.DisplayName != "" {
+		return mi.DisplayName
+	}
+	return owner
+}
+
+func (r *Registry) modulePage(owner string) string {
+	id := ModulePrefix + owner
+	if _, ok := r.byID[id]; !ok {
+		title := r.moduleTitle(owner)
+		r.add(Entry{ID: id, Kind: Module, Owner: owner, Group: GroupComponents, Order: r.docsOrder(owner), Title: title,
+			Body: "Components of the " + title + " module."})
+	}
+	return id
+}
+
+func (r *Registry) handles(m *manifest.Manifest, owners map[string]string) {
+	for _, h := range m.Handles {
+		i := strings.LastIndexByte(h.Name, '.')
+		mod, name := h.Name[:i], h.Name[i+1:]
+		r.add(Entry{
+			ID: h.Name, Parent: mod, Kind: Type, Owner: r.ownerOf(mod, owners), Title: name,
+			Signature: "type " + name, Body: h.Doc,
+			Location: Location{Stub: StubPath(mod), Symbol: "type:" + name},
+		})
+	}
+	for _, hm := range m.HandleMethods {
+		i := strings.LastIndexByte(hm.Handle, '.')
+		mod, name := hm.Handle[:i], hm.Handle[i+1:]
+		ps := params(hm.Sig, hm.Params)
+		r.add(Entry{
+			ID: hm.Handle + "." + hm.Name, Parent: hm.Handle, Kind: Method, Owner: r.ownerOf(mod, owners), Title: name + "." + hm.Name,
+			Signature: signature("func ("+name+") "+hm.Name, ps, hm.Sig.Result), Params: ps, Body: hm.Doc, Example: hm.Example,
+			Location: Location{Path: hm.Loc, Stub: StubPath(mod), Symbol: "method:" + name + "." + hm.Name},
+		})
+	}
+}
+
+func (r *Registry) hostSignals(m *manifest.Manifest, owners map[string]string) {
+	for _, cs := range m.CompSignals {
+		ps := params(abi.Signature{Params: cs.Params}, cs.Names)
+		r.add(Entry{
+			ID: cs.Comp + "." + cs.Name, Parent: cs.Comp, Kind: Signal, Title: cs.Name,
+			Signature: signature("signal "+cs.Name, ps, abi.T(abi.Void)), Params: ps, Body: cs.Doc,
+			Location: Location{Stub: StubPath(ComponentsStub), Symbol: "signal:" + cs.Comp + "." + cs.Name},
+		})
+	}
+	for _, hs := range m.HandleSignals {
+		i := strings.LastIndexByte(hs.Handle, '.')
+		mod, short := hs.Handle[:i], hs.Handle[i+1:]
+		ps := params(abi.Signature{Params: hs.Params}, hs.Names)
+		r.add(Entry{
+			ID: hs.Handle + "." + hs.Name, Parent: hs.Handle, Kind: Signal, Owner: r.ownerOf(mod, owners), Title: short + "." + hs.Name,
+			Signature: signature("signal "+hs.Name, ps, abi.T(abi.Void)), Params: ps, Body: hs.Doc,
+			Location: Location{Stub: StubPath(mod), Symbol: "signal:" + short + "." + hs.Name},
+		})
+	}
 }
 
 func (r *Registry) add(e Entry) int {
@@ -221,20 +329,17 @@ func (r *Registry) ownerOf(path string, owners map[string]string) string {
 	if o, ok := owners[path]; ok {
 		return o
 	}
-	if first, _, _ := strings.Cut(path, "/"); r.known(first) {
+	first, rest, _ := strings.Cut(path, "/")
+	if r.known(first) {
 		return first
 	}
-	if strings.HasPrefix(path, "aego/") {
+	if first == "aego" {
+		if seg, _, _ := strings.Cut(rest, "/"); r.known(seg) {
+			return seg
+		}
 		return scriptOwner
 	}
 	return ""
-}
-
-func moduleParent(owner string) string {
-	if owner == "" {
-		return ""
-	}
-	return ModulePrefix + owner
 }
 
 func params(s abi.Signature, names []string) []Param {
@@ -270,7 +375,7 @@ func (r *Registry) bindings(m *manifest.Manifest, owners map[string]string) {
 	for _, mod := range m.Modules {
 		owner := r.ownerOf(mod.Path, owners)
 		stub := StubPath(mod.Path)
-		r.add(Entry{ID: mod.Path, Parent: moduleParent(owner), Kind: Module, Owner: owner, Title: mod.Path, Location: Location{Stub: stub}})
+		r.add(Entry{ID: mod.Path, Kind: Module, Owner: owner, Group: GroupScriptAPI, Order: r.docsOrder(owner), Title: mod.Path, Location: Location{Stub: stub}})
 		for _, f := range mod.Funcs {
 			ps := params(f.Sig, f.Params)
 			r.add(Entry{
@@ -321,15 +426,20 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 		if td.Owner == "" && mc == nil {
 			continue
 		}
+		owner := td.Owner
+		if owner == "" {
+			owner = EngineOwner
+		}
 		title := td.DisplayName
 		if title == "" {
 			title = td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
 		}
 		r.add(Entry{
-			ID: td.FullName, Parent: moduleParent(td.Owner), Kind: Type, Owner: td.Owner, Title: title,
-			Signature: "component " + td.FullName, Body: td.Doc,
+			ID: td.FullName, Parent: r.modulePage(owner), Kind: Type, Owner: owner, Title: title,
+			Signature: "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner),
 			Location: Location{Stub: stub, Symbol: "component:" + td.FullName},
 		})
+		base := defaultsOf(td)
 		for i := range td.Fields {
 			fd := &td.Fields[i]
 			if !fd.Flags.Has(schema.FlagEditor) && !td.Scripted(fd) {
@@ -337,19 +447,22 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 			}
 			name := exportName(fd.Name)
 			sig := "field " + name
+			info := fieldInfo(td, fd, base, true)
 			loc := Location{Stub: stub}
 			if mc != nil {
 				if f, ok := mc.Field(name); ok {
 					sig += " " + f.Type.String()
-					if f.ReadOnly {
+					info.Type = f.Type.String()
+					if f.ReadOnly && !slices.Contains(info.Notes, "read-only") {
 						sig += " readonly"
+						info.Notes = append(info.Notes, "read-only in scripts")
 					}
 					loc.Symbol = "field:" + td.FullName + "." + name
 				}
 			}
 			r.add(Entry{
-				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: td.Owner, Title: name,
-				Signature: sig, Body: fd.Doc, Location: loc,
+				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: owner, Title: name,
+				Signature: sig, Body: fd.Doc, Location: loc, Field: info,
 			})
 		}
 	}
@@ -391,13 +504,20 @@ func (r *Registry) pages(src module.DocSource) {
 			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: err.Error()})
 			continue
 		}
+		source := ""
+		if src.Dir != "" {
+			source = path.Join(src.Dir, f)
+		}
 		for _, rec := range recs {
-			r.page(src.Owner, f, rec)
+			r.page(src.Owner, f, source, rec)
+			if rec.try != "" {
+				r.pageTry(src, rec)
+			}
 		}
 	}
 }
 
-func (r *Registry) page(owner, file string, rec record) {
+func (r *Registry) page(owner, file, source string, rec record) {
 	if i, ok := r.byID[rec.id]; ok {
 		e := &r.entries[i]
 		if e.Kind == Page {
@@ -419,10 +539,14 @@ func (r *Registry) page(owner, file string, rec record) {
 		title = rec.id
 	}
 	r.add(Entry{
-		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Title: title, Summary: rec.summary,
+		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Group: rec.group, Title: title, Summary: rec.summary,
 		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order,
-		Location: Location{Path: owner + ":" + file, Line: rec.line},
+		Location: Location{Path: owner + ":" + file, Line: rec.line, Source: source},
 	})
+	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered}
+	if rec.groupTitle != "" {
+		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder})
+	}
 }
 
 func joinBody(a, b string) string {
@@ -478,6 +602,21 @@ func (r *Registry) index() {
 			return x.Title < y.Title
 		})
 	}
+	for i := range r.entries {
+		if r.entries[i].Parent == "" {
+			r.spread(i, r.entries[i].Group, 0)
+		}
+	}
+}
+
+func (r *Registry) spread(i int, group string, depth int) {
+	r.entries[i].Group = group
+	if depth > 32 {
+		return
+	}
+	for _, c := range r.children[r.entries[i].ID] {
+		r.spread(c, group, depth+1)
+	}
 }
 
 func (r *Registry) Len() int {
@@ -522,6 +661,15 @@ func (r *Registry) Children(id string) []Entry {
 	return out
 }
 
+func sortRoots(out []Entry) {
+	sort.SliceStable(out, func(a, b int) bool {
+		if out[a].Order != out[b].Order {
+			return out[a].Order < out[b].Order
+		}
+		return out[a].Title < out[b].Title
+	})
+}
+
 func (r *Registry) Roots() []Entry {
 	var out []Entry
 	for i := range r.entries {
@@ -529,12 +677,18 @@ func (r *Registry) Roots() []Entry {
 			out = append(out, r.entries[i])
 		}
 	}
-	sort.SliceStable(out, func(a, b int) bool {
-		if out[a].Order != out[b].Order {
-			return out[a].Order < out[b].Order
+	sortRoots(out)
+	return out
+}
+
+func (r *Registry) GroupRoots(group string) []Entry {
+	var out []Entry
+	for i := range r.entries {
+		if e := &r.entries[i]; e.Parent == "" && e.Group == group {
+			out = append(out, *e)
 		}
-		return out[a].Title < out[b].Title
-	})
+	}
+	sortRoots(out)
 	return out
 }
 
@@ -542,8 +696,32 @@ func (r *Registry) Problems() []Problem {
 	return r.problems
 }
 
+func (r *Registry) checkPages(out []Problem) []Problem {
+	for id, m := range r.meta {
+		if r.entries[r.byID[id]].Parent != "" {
+			continue
+		}
+		g, ok := r.group(m.group)
+		switch {
+		case m.group == "":
+			out = append(out, Problem{ID: id, Error: true, Message: "root page has no group; add group: one of " + strings.Join(r.guideGroups(), ", ")})
+		case !ok || g.Section == SectionReference && g.ID != GroupCLI:
+			out = append(out, Problem{ID: id, Error: true, Message: "group " + m.group + " is not a guide group (" + strings.Join(r.guideGroups(), ", ") + ")"})
+		}
+		if !m.ordered {
+			out = append(out, Problem{ID: id, Error: true, Message: "root page has no order"})
+		}
+	}
+	for _, mi := range r.mods {
+		if mi.DisplayName == "" {
+			out = append(out, Problem{ID: ModulePrefix + mi.ID, Error: mi.Builtin, Message: "module has no DisplayName"})
+		}
+	}
+	return out
+}
+
 func (r *Registry) Check(strict bool) []Problem {
-	out := slices.Clone(r.problems)
+	out := r.checkPages(slices.Clone(r.problems))
 	for i := range r.entries {
 		e := &r.entries[i]
 		for _, l := range e.Links {
@@ -565,4 +743,56 @@ func (r *Registry) Check(strict bool) []Problem {
 		return out[a].ID < out[b].ID
 	})
 	return out
+}
+
+func (r *Registry) pageTry(src module.DocSource, rec record) {
+	i, ok := r.byID[rec.id]
+	if !ok {
+		return
+	}
+	data, err := fs.ReadFile(src.FS, path.Clean(rec.try))
+	if err != nil {
+		r.problems = append(r.problems, Problem{ID: rec.id, Error: true, Message: "try scene " + rec.try + " cannot be read: " + err.Error()})
+		return
+	}
+	r.entries[i].Try, r.entries[i].TrySelect = string(data), rec.trySelect
+}
+
+func (r *Registry) componentNamed(short, owner string) (int, bool) {
+	found := -1
+	for i := range r.entries {
+		e := &r.entries[i]
+		if e.Component == nil || !strings.HasSuffix(e.ID, "."+short) {
+			continue
+		}
+		if e.Owner == owner {
+			return i, true
+		}
+		if found < 0 {
+			found = i
+		}
+	}
+	return found, found >= 0
+}
+
+func (r *Registry) tries(src module.DocSource) {
+	files, err := fs.Glob(src.FS, TryDir+"/*"+TryExt)
+	if err != nil {
+		return
+	}
+	for _, f := range files {
+		short := strings.TrimSuffix(path.Base(f), TryExt)
+		i, ok := r.componentNamed(short, src.Owner)
+		if !ok {
+			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: "try scene names no component " + short})
+			continue
+		}
+		data, err := fs.ReadFile(src.FS, f)
+		if err != nil {
+			r.problems = append(r.problems, Problem{ID: src.Owner + ":" + f, Error: true, Message: err.Error()})
+			continue
+		}
+		e := &r.entries[i]
+		e.Try, e.TrySelect = string(data), e.ID
+	}
 }

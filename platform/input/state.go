@@ -41,25 +41,36 @@ type KeyEvent struct {
 }
 
 type MouseEvent struct {
-	Pos    mathx.Vec2
-	Delta  mathx.Vec2
-	Wheel  mathx.Vec2
-	Button Button
+	Pos     mathx.Vec2
+	Delta   mathx.Vec2
+	Wheel   mathx.Vec2
+	Button  Button
+	Precise bool
+	Flipped bool
 }
 
 type Frame struct {
-	Keys       [ScancodeCount]uint8
-	Buttons    [ButtonCount]uint8
-	MousePos   mathx.Vec2
-	MouseDelta mathx.Vec2
-	Wheel      mathx.Vec2
-	Mods       Mods
-	Text       [TextCapacity]byte
-	TextN      uint8
+	Keys         [ScancodeCount]uint8
+	Buttons      [ButtonCount]uint8
+	MousePos     mathx.Vec2
+	MouseDelta   mathx.Vec2
+	Wheel        mathx.Vec2
+	WheelPrecise mathx.Vec2
+	WheelFlipped bool
+	Mods         Mods
+	Text         [TextCapacity]byte
+	TextN        uint8
 }
 
 type State struct {
-	f Frame
+	f    Frame
+	pads [MaxPads]pad
+}
+
+func (s *State) clearWheel() {
+	s.f.Wheel = mathx.Vec2{}
+	s.f.WheelPrecise = mathx.Vec2{}
+	s.f.WheelFlipped = false
 }
 
 func (s *State) BeginFrame() {
@@ -70,8 +81,9 @@ func (s *State) BeginFrame() {
 		s.f.Buttons[i] = v & flagDown
 	}
 	s.f.MouseDelta = mathx.Vec2{}
-	s.f.Wheel = mathx.Vec2{}
+	s.clearWheel()
 	s.f.TextN = 0
+	s.beginPads()
 }
 
 func (s *State) Reset() {
@@ -86,8 +98,9 @@ func (s *State) Reset() {
 		}
 	}
 	s.f.MouseDelta = mathx.Vec2{}
-	s.f.Wheel = mathx.Vec2{}
+	s.clearWheel()
 	s.f.Mods = 0
+	s.resetPads()
 }
 
 func (s *State) ApplyKeyDown(scan Scancode, key Keycode, mods Mods, repeat bool) {
@@ -136,8 +149,30 @@ func (s *State) ApplyMouseUp(pos mathx.Vec2, b Button) {
 }
 
 func (s *State) ApplyWheel(pos, wheel mathx.Vec2) {
+	s.ApplyScroll(pos, wheel, false, false)
+}
+
+func (s *State) ApplyScroll(pos, wheel mathx.Vec2, precise, flipped bool) {
 	s.f.MousePos = pos
 	s.f.Wheel = s.f.Wheel.Add(wheel)
+	if precise {
+		s.f.WheelPrecise = s.f.WheelPrecise.Add(wheel)
+	}
+	if flipped {
+		s.f.WheelFlipped = true
+	}
+}
+
+func (s *State) WheelLines() mathx.Vec2 {
+	return s.f.Wheel.Sub(s.f.WheelPrecise)
+}
+
+func (s *State) WheelPrecise() mathx.Vec2 {
+	return s.f.WheelPrecise
+}
+
+func (s *State) WheelFlipped() bool {
+	return s.f.WheelFlipped
 }
 
 func (s *State) ApplyText(text []byte) {

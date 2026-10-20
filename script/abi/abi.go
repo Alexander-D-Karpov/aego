@@ -32,13 +32,15 @@ const (
 	Coroutine
 	Connection
 	ScriptRef
+	Curve
+	Handle
 	kindCount
 )
 
 var kindNames = [kindCount]string{
 	"void", "bool", "int", "float", "string", "Vec2", "Vec3", "Color", "Quat", "Rect",
 	"Transform2D", "Transform3D", "NodeRef", "AssetRef", "ComponentRef", "enum", "struct", "slice",
-	"Coroutine", "Connection", "ScriptRef",
+	"Coroutine", "Connection", "ScriptRef", "Curve", "Handle",
 }
 
 func (k Kind) String() string {
@@ -82,6 +84,27 @@ func ScriptRefOf(script string) TypeRef {
 	return TypeRef{Kind: ScriptRef, Name: script}
 }
 
+func HandleOf(name string) TypeRef {
+	return TypeRef{Kind: Handle, Name: name}
+}
+
+func HandleID(name string) uint64 {
+	h := uint64(14695981039346656037)
+	for i := 0; i < len(name); i++ {
+		h ^= uint64(name[i])
+		h *= 1099511628211
+	}
+	if h == 0 {
+		h = 1
+	}
+	return h
+}
+
+type HandleDef struct {
+	Name  string
+	Await bool
+}
+
 func (t TypeRef) String() string {
 	switch t.Kind {
 	case Slice:
@@ -95,6 +118,8 @@ func (t TypeRef) String() string {
 		return "ComponentRef<" + t.Name + ">"
 	case ScriptRef:
 		return "ScriptRef<" + t.Name + ">"
+	case Handle:
+		return "Handle<" + t.Name + ">"
 	case Enum:
 		return "enum:" + t.Name
 	case Struct:
@@ -117,6 +142,8 @@ func Parse(s string) (TypeRef, bool) {
 		return ComponentOf(s[len("ComponentRef<") : len(s)-1]), true
 	case strings.HasPrefix(s, "ScriptRef<") && strings.HasSuffix(s, ">"):
 		return ScriptRefOf(s[len("ScriptRef<") : len(s)-1]), len(s) > len("ScriptRef<>")
+	case strings.HasPrefix(s, "Handle<") && strings.HasSuffix(s, ">"):
+		return HandleOf(s[len("Handle<") : len(s)-1]), true
 	case strings.HasPrefix(s, "enum:"):
 		return EnumOf(s[5:]), len(s) > 5
 	case strings.HasPrefix(s, "struct:"):
@@ -125,6 +152,8 @@ func Parse(s string) (TypeRef, bool) {
 		return T(Coroutine), true
 	case s == "Connection":
 		return T(Connection), true
+	case s == "Curve":
+		return T(Curve), true
 	}
 	for k := Void; k < Enum; k++ {
 		if kindNames[k] == s && k != AssetRef && k != ComponentRef {
@@ -237,6 +266,10 @@ func hostable(t TypeRef, param bool) bool {
 	return true
 }
 
+func EventParam(t TypeRef) bool {
+	return Plain(t) || t.Kind == String
+}
+
 func Plain(t TypeRef) bool {
 	switch t.Kind {
 	case Void, String, Slice, Coroutine, Connection, ScriptRef:
@@ -285,6 +318,25 @@ func (e EventDef) Sig() Signature {
 	return Signature{Params: e.Params, Result: T(Void)}
 }
 
+const (
+	SignalModule     = "#signal"
+	ConnectComponent = "ConnectComponent"
+	ConnectHandle    = "ConnectHandle"
+)
+
+func ConnectSig(src TypeRef) Signature {
+	return Sig(T(Connection), src, T(Int), T(Int), T(String))
+}
+
+type SignalDef struct {
+	Name   string
+	Params []TypeRef
+}
+
+func (s SignalDef) Sig() Signature {
+	return Signature{Params: s.Params, Result: T(Void)}
+}
+
 type Const struct {
 	Type  TypeRef
 	Int   int64
@@ -301,10 +353,11 @@ type Field struct {
 }
 
 type Component struct {
-	Name   string
-	Short  string
-	Index  int
-	Fields []Field
+	Name    string
+	Short   string
+	Index   int
+	Fields  []Field
+	Signals []SignalDef
 }
 
 func (c *Component) Field(name string) (*Field, bool) {
@@ -316,11 +369,23 @@ func (c *Component) Field(name string) (*Field, bool) {
 	return nil, false
 }
 
+func (c *Component) Signal(name string) (int, bool) {
+	for i := range c.Signals {
+		if c.Signals[i].Name == name {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 type Surface interface {
 	Module(path string) bool
 	Func(module, name string) (Signature, bool)
 	Method(recv Kind, name string) (Signature, bool)
 	ComponentMethod(comp, name string) (Signature, bool)
+	HandleMethod(handle, name string) (Signature, bool)
+	HandleSignal(handle, name string) (int, SignalDef, bool)
+	Handle(name string) (HandleDef, bool)
 	Const(module, name string) (Const, bool)
 	Enum(module, name string) (*EnumDef, bool)
 	Struct(module, name string) (*StructDef, bool)

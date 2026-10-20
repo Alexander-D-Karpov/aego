@@ -4,6 +4,7 @@ import (
 	"math"
 	"path"
 	"strconv"
+	"strings"
 
 	"aego/asset"
 	"aego/asset/pipeline"
@@ -49,6 +50,7 @@ type world struct {
 }
 
 type Deps struct {
+	Capture   func(tex gpu.TextureHandle, w, h int, name string)
 	Viewport  *services.Viewport
 	Resolver  asset.Resolver
 	Docs      services.Documents
@@ -65,6 +67,9 @@ type Deps struct {
 
 type Panel struct {
 	d          Deps
+	iso        isolation
+	isoVer     uint64
+	captureReq bool
 	f          *services.Frame
 	hook       func()
 	pool       *rt.Pool
@@ -94,6 +99,7 @@ type Panel struct {
 	hasPivot   bool
 	title      string
 	titleKey   titleKey
+	icon       string
 	barRect    mathx.Rect
 	menuID     core.ID
 	menuAt     mathx.Vec2
@@ -117,7 +123,7 @@ func (p *Panel) ui() *core.Context {
 }
 
 func (p *Panel) shapes() shape.Set {
-	return shape.Set{Reg: p.d.Viewport.Shapes, Res: p.d.Resolver}
+	return shape.Set{Reg: p.d.Viewport.Shapes, Res: p.d.Resolver, Hide: p.hidden}
 }
 
 func (p *Panel) docs() *document.Manager {
@@ -154,14 +160,26 @@ func (p *Panel) updateTitle(d *document.SceneDocument) {
 		return
 	}
 	p.titleKey = k
-	t := d.Label()
-	if k.dirty {
-		t += " " + document.DirtyMark
-	}
+	t := strings.TrimSuffix(path.Base(d.Path), path.Ext(d.Path))
 	if k.play {
 		t += " [Play]"
 	}
 	p.title = t
+	p.icon = "file.scene"
+	if d.IsPrefab() {
+		p.icon = "file.prefab"
+	}
+}
+
+func (p *Panel) Icon() string {
+	if p.icon == "" {
+		return "file.scene"
+	}
+	return p.icon
+}
+
+func (p *Panel) Dirty() bool {
+	return p.titleKey.dirty
 }
 
 func (p *Panel) ZoomLabel() string {
@@ -293,6 +311,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	p.updateTitle(d)
 	p.syncMode(d)
+	p.updateIsolation(d)
 	scale := ui.Scale()
 	pw, ph := int(r.W*scale), int(r.H*scale)
 	if pw < 8 || ph < 8 {
@@ -314,6 +333,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui.List().Texture(target.Region(), r, mathx.Color{R: 1, G: 1, B: 1, A: 1})
 	p.toolbar(d, r)
 	p.prefabBar(d, r)
+	p.isolationBar(d, r)
 	if p.viewMode == Mode3D {
 		p.c3.SetViewport(float32(target.W), float32(target.H))
 		p.input3(d, r)
@@ -424,7 +444,7 @@ func (p *Panel) input(d *document.SceneDocument, r mathx.Rect) {
 		p.dragBox(d)
 	}
 	if over {
-		if w := ui.WheelY(); w != 0 {
+		if w := ui.ZoomY(); w != 0 {
 			before := p.worldAt(ui.Mouse())
 			cam.Zoom = mathx.Clamp(cam.Zoom*float32(math.Pow(1.15, float64(w))), 1, 4096)
 			p.refreshView(d)
@@ -470,7 +490,7 @@ func (p *Panel) contextMenu(d *document.SceneDocument) {
 	if !widgets.ContextMenu(ui, p.menuID) {
 		return
 	}
-	if widgets.SubMenu(ui, "Create", 200) {
+	if widgets.SubMenuIcon(ui, "Create", "ui.plus", 200) {
 		if p.viewMode == Mode3D {
 			p.createAt3(p.menuAt3)
 		} else {
@@ -515,8 +535,9 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	}
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: min(w, r.W-12), H: h}
 	p.barRect = bar
-	tb := widgets.BeginToolbar(ui, bar)
-	ui.Outline(bar, th.BarBorder)
+	ui.Shadow(bar, th.Radius.Popup)
+	ui.RoundRect(bar, th.Radius.Popup, th.BarBg)
+	tb := widgets.BeginToolbarIn(ui, bar)
 	tools := [4]struct {
 		icon string
 		tip  string
@@ -572,7 +593,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		}
 	}
 	if ui.BeginPopup(zid, 120) {
-		if widgets.MenuItem(ui, "Fit", "", true, false) {
+		if widgets.MenuItemIcon(ui, "Fit", "", "view.zoom", true, false) {
 			p.FrameAll()
 		}
 		for _, z := range [...]struct {

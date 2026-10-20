@@ -230,6 +230,45 @@ func (h *History) Labels(n int) (undo, redo []string) {
 	return undo, redo
 }
 
+func (h *History) Steps(dst []string) []string {
+	for _, e := range h.undo {
+		dst = append(dst, e.label)
+	}
+	for i := len(h.redo) - 1; i >= 0; i-- {
+		dst = append(dst, h.redo[i].label)
+	}
+	return dst
+}
+
+func (h *History) Seek(n int) error {
+	if h.locked != "" {
+		return errs.New(errs.EditorHistory, h.locked)
+	}
+	if h.tx != nil {
+		return errs.New(errs.EditorHistory, "cannot move through the history inside an open transaction")
+	}
+	n = min(max(n, 0), len(h.undo)+len(h.redo))
+	for len(h.undo) > n {
+		if err := h.Undo(); err != nil {
+			return err
+		}
+	}
+	for len(h.undo) < n {
+		if err := h.Redo(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *History) Walk(fn func(Command)) {
+	for i := range h.undo {
+		for _, c := range h.undo[i].cmds {
+			fn(c)
+		}
+	}
+}
+
 func (h *History) Clear() {
 	h.undo = h.undo[:0]
 	h.redo = h.redo[:0]

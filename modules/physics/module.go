@@ -34,7 +34,7 @@ func New() *Module {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Physics 2D", DocsOrder: 30}
 }
 
 func (*Module) IconDir() string {
@@ -81,7 +81,7 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	}
 	sim.SetLayers(p.Layers())
 	ctx.World.SetService(systems.ServiceID, sim)
-	ctx.World.SetService(physics2d.ServiceID, physics2d.Queries(sim))
+	ctx.World.SetView(physics2d.ServiceID, physics2d.Queries(sim))
 	if m.problems != nil {
 		scn := ctx.Scene
 		drop := m.problems.Add(problems.Source{
@@ -93,9 +93,25 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 				return appendSim(dst, sim, scn)
 			},
 		})
-		ctx.World.SetService(problemsService, drop)
+		ctx.World.SetView(problemsService, drop)
 	}
 	return nil
+}
+
+func (m *Module) Reconfigure(ctx *module.AttachContext) error {
+	if !ctx.Play || ctx.World == nil {
+		return nil
+	}
+	sim := SimOf(ctx.World)
+	if sim == nil {
+		return nil
+	}
+	p := m.Project()
+	if err := sim.World().SetConfig(p.Config()); err != nil {
+		return err
+	}
+	sim.SetLayers(p.Layers())
+	return sim.World().SetLayerMatrix(p.Matrix())
 }
 
 func (m *Module) DetachWorld(ctx *module.AttachContext) {
@@ -164,7 +180,11 @@ func registerSystems(r *module.Registry, events engine.System) {
 		System: events,
 	})
 	r.System(engine.SystemDesc{
-		ID: SystemPresent, Phase: engine.PhaseAnimation, Scope: engine.ScopePlay,
+		ID: SystemDebug, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay,
+		System: debugSystem{sink: &drawSink{}},
+	})
+	r.System(engine.SystemDesc{
+		ID: SystemPresent, Phase: engine.PhaseAnimation, Scope: engine.ScopePlay, Pause: engine.PauseAlways,
 		System: simSystem(func(s *systems.Sim, ctx *engine.Context) { s.Present(float32(ctx.Alpha)) }),
 	})
 }

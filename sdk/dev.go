@@ -5,8 +5,8 @@ package sdk
 import "aego/asset/pipeline"
 
 type (
-	Importer = pipeline.Importer
-	Settings = pipeline.Settings
+	Importer       = pipeline.Importer
+	ImportSettings = pipeline.Settings
 )
 
 func RegisterImporter(r *Registry, imp Importer) error {

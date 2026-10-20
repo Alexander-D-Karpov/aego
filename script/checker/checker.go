@@ -30,7 +30,18 @@ type operand struct {
 	c    *types.Const
 	addr bool
 	sig  *ScriptSignal
+	hsig *HostSignal
 	src  ast.Expr
+}
+
+func (x operand) signalName() string {
+	switch {
+	case x.hsig != nil:
+		return x.hsig.Name
+	case x.sig != nil:
+		return x.sig.Name
+	}
+	return "signal"
 }
 
 var invalid = operand{mode: mInvalid, t: types.Invalid}
@@ -441,6 +452,9 @@ func (c *checker) hostType(target, name string) *types.Type {
 	}
 	if sd, ok := c.surface.Struct(target, name); ok {
 		return c.u.HostStruct(sd, c.surface)
+	}
+	if h, ok := c.surface.Handle(target + "." + name); ok {
+		return c.u.Handle(h)
 	}
 	return nil
 }

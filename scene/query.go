@@ -1,5 +1,10 @@
 package scene
 
+import (
+	"aego/core/mathx"
+	"aego/schema"
+)
+
 type Query1Of[A any] struct {
 	s *Scene
 	a *ComponentStore[A]
@@ -86,4 +91,34 @@ func (s *Scene) Query2[A, B any]() Query2Of[A, B] {
 
 func (s *Scene) Query3[A, B, C any]() Query3Of[A, B, C] {
 	return Query3[A, B, C](s)
+}
+
+func (s *Scene) WithComponent(t schema.TypeID, out []NodeHandle) int {
+	st, ok := s.storesByID[t]
+	if !ok || len(out) == 0 {
+		return 0
+	}
+	return st.collect(out, false)
+}
+
+func (s *Scene) InRect(r mathx.Rect, out []NodeHandle) int {
+	n := 0
+	for _, h := range s.PreOrder() {
+		if n == len(out) {
+			break
+		}
+		if h == s.root {
+			continue
+		}
+		nd, ok := s.node(h)
+		if !ok || nd.has(flagPendingDestroy) || !nd.has(flagEffective) || nd.space != Space2D || nd.has(flagUnder3D) {
+			continue
+		}
+		p := s.WorldPosition(h)
+		if p.X >= r.X && p.X <= r.X+r.W && p.Y >= r.Y && p.Y <= r.Y+r.H {
+			out[n] = h
+			n++
+		}
+	}
+	return n
 }
