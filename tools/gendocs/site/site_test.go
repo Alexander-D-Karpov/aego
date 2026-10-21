@@ -101,7 +101,7 @@ func crawl(t *testing.T, dir string) map[string]string {
 					file = path.Join(file, "index.html")
 				}
 			}
-			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") {
+			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") {
 				if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
 					t.Errorf("%s: missing asset %s", p, href)
 				}
@@ -203,7 +203,7 @@ func TestShell(t *testing.T) {
 		`Aego 1.2.3`,
 		`<a href="#install">Install</a>`,
 		`class="next" href="language.html"`,
-		`data-group="start" open data-current="true"`,
+		`class="item head current" aria-current="page"`,
 		`aria-current="page"`,
 	} {
 		if !strings.Contains(w, want) {
@@ -211,7 +211,7 @@ func TestShell(t *testing.T) {
 		}
 	}
 	co := pages["language/coroutines.html"]
-	if !strings.Contains(co, `<nav class="crumbs"><span>Guides</span><span class="sep">/</span><span>Aego Script</span><span class="sep">/</span><a href="../language.html">Aego Script</a></nav>`) {
+	if !strings.Contains(co, `<nav class="crumbs"><span>Guides</span><span class="sep">/</span><a href="../language.html">Aego Script</a></nav>`) {
 		t.Error("breadcrumbs are wrong on the coroutines page")
 	}
 	if !strings.Contains(pages["index.html"], `class="button primary" href="welcome.html"`) {
@@ -333,5 +333,39 @@ func TestTryBlock(t *testing.T) {
 	_, _, plain := build(t, exp, Options{})
 	if strings.Contains(plain["ref/engine.SpriteRenderer.html"], `class="try"`) {
 		t.Error("a try block without the docs runtime")
+	}
+}
+
+func TestDownloadBlock(t *testing.T) {
+	rel := &Release{Tag: "v1.0", URL: "https://git.example/aego/releases/tag/v1.0", Assets: []Asset{
+		{Name: "aego-1.0-linux-amd64.tar.gz", URL: "https://git.example/l.tar.gz", Size: 12 << 20},
+		{Name: "aego-1.0-windows-amd64-setup.zip", URL: "https://git.example/w.zip", Size: 17 << 20},
+		{Name: "SHA256SUMS.txt", URL: "https://git.example/sums", Size: 300},
+	}}
+	_, _, pages := build(t, fixture(), Options{Release: rel})
+	home := pages["index.html"]
+	for _, want := range []string{`class="button primary dl-main"`, `<li data-os="linux"><a href="https://git.example/l.tar.gz">Linux (.tar.gz)</a><span>12 MB</span></li>`, `data-os="windows"`, `v1.0`} {
+		if !strings.Contains(home, want) {
+			t.Errorf("home page download block has no %s", want)
+		}
+	}
+	if strings.Contains(home, "SHA256SUMS") || strings.Contains(home, `data-os="macos"`) {
+		t.Error("download block lists a file it should not")
+	}
+	if strings.Contains(home, `class="button primary" href="welcome.html"`) {
+		t.Error("two primary buttons on the landing page")
+	}
+}
+
+func TestMetaTags(t *testing.T) {
+	_, _, pages := build(t, fixture(), Options{})
+	if !strings.Contains(pages["index.html"], `<meta name="description" content="A 2D-first game engine`) {
+		t.Error("landing page has no description")
+	}
+	if !strings.Contains(pages["language.html"], `<meta property="og:description" content="The language.">`) {
+		t.Error("a page's description is not its summary")
+	}
+	if got := metaDescription("![shot](a.png) See [the guide](g.html) and `code`. " + strings.Repeat("word ", 50)); strings.ContainsAny(got, "[]`!") || len(got) > 165 {
+		t.Errorf("metaDescription = %q", got)
 	}
 }

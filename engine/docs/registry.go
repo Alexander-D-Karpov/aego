@@ -5,6 +5,7 @@ package docs
 import (
 	"io/fs"
 	"path"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -50,6 +51,7 @@ const (
 	unknownOrder   = 1000
 	TryDir         = "try"
 	TryExt         = ".aescene"
+	TryScriptExt   = ".aes"
 )
 
 var kindNames = [...]string{"page", "module", "function", "type", "field", "method", "signal", "code", "const", "enum"}
@@ -107,7 +109,12 @@ type Entry struct {
 	Related   []string
 	Try       string
 	TrySelect string
-	Icon      string
+	// TryScript is the script next to the try scene; TryCode is its compiled bytecode, base64 modules joined by commas.
+	TryScript string `json:",omitempty"`
+	TryCode   string `json:",omitempty"`
+	// TryPrefabs are the prefabs next to the try scene, by asset id.
+	TryPrefabs map[string]string `json:",omitempty"`
+	Icon       string
 	// EditorOnly pages are shown in the editor's docs panel and left out of the site.
 	EditorOnly bool `json:",omitempty"`
 	Diag       *DiagInfo
@@ -156,6 +163,8 @@ type Sources struct {
 	Settings    []settings.Desc
 	EventOwners map[string]string
 	Diagnose    func(code string, d *DiagInfo)
+	// CompileTry turns the script of a try scene into the bytecode the docs runtime loads.
+	CompileTry func(script string) (string, error)
 }
 
 type pageMeta struct {
@@ -269,6 +278,7 @@ func Assemble(src Sources) *Registry {
 		r.pages(d)
 		r.tries(d)
 	}
+	r.compileTries(src.CompileTry)
 	r.index()
 	r.related()
 	return r
@@ -854,6 +864,49 @@ func (r *Registry) pageTry(src module.DocSource, rec record) {
 		return
 	}
 	r.entries[i].Try, r.entries[i].TrySelect = string(data), rec.trySelect
+	r.tryExtras(&r.entries[i], src, rec.try)
+}
+
+var metaID = regexp.MustCompile(`\bid="([0-9a-f]{32})"`)
+
+// tryExtras reads the script X.aes and the prefabs X.<name>.aeprefab, ids from their .meta, next to the try scene X.aescene.
+func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
+	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
+	if data, err := fs.ReadFile(src.FS, base+TryScriptExt); err == nil {
+		e.TryScript = string(data)
+	}
+	files, _ := fs.Glob(src.FS, base+".*.aeprefab")
+	for _, f := range files {
+		text, err := fs.ReadFile(src.FS, f)
+		meta, merr := fs.ReadFile(src.FS, f+".meta")
+		m := metaID.FindSubmatch(meta)
+		if err != nil || merr != nil || m == nil {
+			r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: "try prefab " + f + " needs a .meta with its id"})
+			continue
+		}
+		if e.TryPrefabs == nil {
+			e.TryPrefabs = map[string]string{}
+		}
+		e.TryPrefabs[string(m[1])] = string(text)
+	}
+}
+
+func (r *Registry) compileTries(compile func(string) (string, error)) {
+	if compile == nil {
+		return
+	}
+	for i := range r.entries {
+		e := &r.entries[i]
+		if e.TryScript == "" {
+			continue
+		}
+		code, err := compile(e.TryScript)
+		if err != nil {
+			r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: "try script does not compile: " + err.Error()})
+			continue
+		}
+		e.TryCode = code
+	}
 }
 
 func (r *Registry) componentNamed(short, owner string) (int, bool) {
@@ -892,5 +945,6 @@ func (r *Registry) tries(src module.DocSource) {
 		}
 		e := &r.entries[i]
 		e.Try, e.TrySelect = string(data), e.ID
+		r.tryExtras(e, src, f)
 	}
 }

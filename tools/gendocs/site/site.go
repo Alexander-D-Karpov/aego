@@ -32,7 +32,9 @@ const (
 	posterAsset      = "assets/demo-poster.png"
 	shotsDir         = "assets/shots/"
 	scriptSection    = "## From a script"
-	homeLead         = "Guides, the language reference and every engine module, generated from the same source as the editor's hover and docs panel."
+	homeLead         = "A 2D-first game engine written in Go, with a built-in editor, its own scripting language and native Go extensions."
+	installCmd       = "curl -fsSL https://aego.akarpov.ru/install.sh | sh"
+	installPage      = "install"
 )
 
 var sectionOrder = []string{SectionStart, SectionGuides, SectionReference}
@@ -71,6 +73,7 @@ type Options struct {
 	Demo        bool
 	PlayVersion string
 	TryVersion  string
+	Release     *Release
 	Icons       []string
 	Time        time.Time
 }
@@ -84,10 +87,12 @@ type Report struct {
 
 type layoutData struct {
 	AssetV      string
-	Rev         string
-	RevURL      string
+	Background  template.CSS
+	CSS         template.CSS
 	Root        string
 	Title       string
+	PageTitle   string
+	Description string
 	Site        string
 	Playground  bool
 	PlayVersion string
@@ -139,6 +144,7 @@ type builder struct {
 	icons   iconSet
 	conv    *converter
 	layout  *template.Template
+	css     string
 	report  Report
 }
 
@@ -176,6 +182,11 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 		return Report{}, err
 	}
 	b.layout = layout
+	style, err := static.ReadFile("static/style.css")
+	if err != nil {
+		return Report{}, err
+	}
+	b.css = codeCSS() + string(style)
 	b.assetV = b.assetVersion()
 	b.hero = isFile(opt.Hero)
 	b.poster = isFile(opt.Poster)
@@ -285,9 +296,11 @@ var (
 	mdCode   = regexp.MustCompile("`([^`]+)`")
 	mdStrong = regexp.MustCompile(`\*\*([^*]+)\*\*|__([^_]+)__`)
 	mdEm     = regexp.MustCompile(`(^|[^\w*])\*([^*\s][^*]*)\*|(^|[^\w])_([^_\s][^_]*)_`)
-	headRe   = regexp.MustCompile(`<h([23]) id="([^"]+)"[^>]*>(.*?)</h[23]>`)
+	headRe   = regexp.MustCompile(`<h([23]) id="([^"]+)"( class="m")?[^>]*>(.*?)</h[23]>`)
 	kindRe   = regexp.MustCompile(`<span class="kind[^"]*">[^<]*</span>`)
 	tagRe    = regexp.MustCompile(`<[^>]+>`)
+	mdImage  = regexp.MustCompile(`!\[[^\]]*\]\([^)]*\)`)
+	mdLink   = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
 )
 
 func inlineMD(s string) string {
@@ -304,6 +317,23 @@ func inlineMD(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// metaDescription turns a summary into a plain sentence of at most about 160 characters.
+func metaDescription(s string) string {
+	s = mdLink.ReplaceAllString(mdImage.ReplaceAllString(s, ""), "$1")
+	s = strings.Join(strings.Fields(plainMD(s)), " ")
+	if strings.HasSuffix(s, ":") {
+		s = strings.TrimSuffix(s, ":") + "."
+	}
+	if len(s) <= 160 {
+		return s
+	}
+	cut := strings.LastIndexByte(s[:157], ' ')
+	if cut < 80 {
+		cut = 157
+	}
+	return strings.TrimRight(s[:cut], ",;:") + "…"
 }
 
 func plainMD(s string) string {
@@ -351,15 +381,18 @@ func (b *builder) markdown(root, id, md string) string {
 	return out
 }
 
+func kindName(e *Entry) string {
+	if e.Kind == KindType && e.Component != nil {
+		return "component"
+	}
+	return e.Kind
+}
+
 func kindLabel(e *Entry) string {
 	if e.Kind == KindPage {
 		return ""
 	}
-	label := e.Kind
-	if e.Kind == KindType && e.Component != nil {
-		label = "component"
-	}
-	return `<span class="kind kind-` + esc(e.Kind) + `">` + esc(label) + `</span>`
+	return `<span class="kind kind-` + esc(e.Kind) + `">` + esc(kindName(e)) + `</span>`
 }
 
 func (b *builder) details(c *strings.Builder, e *Entry, root string) {
@@ -410,7 +443,7 @@ func (b *builder) componentMeta(e *Entry, root string) string {
 	ci := e.Component
 	var parts []string
 	if ci.Create != "" {
-		parts = append(parts, `Add it with <span class="create">`+esc(ci.Create)+"</span>.")
+		parts = append(parts, `Add it with <code>`+esc(ci.Create)+"</code>.")
 	}
 	if len(ci.Requires) > 0 {
 		links := make([]string, len(ci.Requires))
@@ -425,7 +458,7 @@ func (b *builder) componentMeta(e *Entry, root string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return `<p class="meta">` + strings.Join(parts, " ") + "</p>\n"
+	return `<h2 id="` + esc(e.ID) + `-usage">Usage</h2>` + "\n<p>" + strings.Join(parts, " ") + "</p>\n"
 }
 
 func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading bool) {
@@ -443,7 +476,7 @@ func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading 
 	} else {
 		c.WriteString(`<p class="label">Fields</p>` + "\n")
 	}
-	c.WriteString(`<table class="fields"><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Notes</th><th>Description</th></tr></thead><tbody>` + "\n")
+	c.WriteString(`<table class="fields"><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>` + "\n")
 	for _, f := range rows {
 		fi := f.Field
 		def := "—"
@@ -458,8 +491,12 @@ func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading 
 			notes = append(notes, `<span class="note">`+esc(n)+"</span>")
 		}
 		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + `<code>` + esc(f.Title) + "</code></a></td>")
-		c.WriteString("<td><code>" + esc(fi.Type) + "</code></td><td>" + def + "</td><td>" + strings.Join(notes, " ") + "</td>")
-		c.WriteString("<td>" + b.markdown(root, f.ID, f.Body) + "</td></tr>\n")
+		c.WriteString(`<td class="ftype"><code>` + esc(fi.Type) + `</code></td><td class="fdef">` + def + "</td>")
+		desc := b.markdown(root, f.ID, f.Body)
+		if len(notes) > 0 {
+			desc += `<div class="fnotes">` + strings.Join(notes, " ") + "</div>"
+		}
+		c.WriteString(`<td class="fdesc">` + desc + "</td></tr>\n")
 	}
 	c.WriteString("</tbody></table>\n")
 }
@@ -484,7 +521,7 @@ func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 	e := b.byID[id]
 	h := "h" + strconv.Itoa(min(depth, 4))
 	c.WriteString(`<section class="member" data-name="` + esc(strings.ToLower(e.Title)) + `">` + "\n")
-	c.WriteString("<" + h + ` id="` + esc(e.ID) + `"><a class="anchor" href="#` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "") + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
+	c.WriteString("<" + h + ` id="` + esc(e.ID) + `" class="m"><a class="anchor" href="#` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "") + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
 	b.details(c, e, root)
 	b.fieldTable(c, e, root, false)
 	b.children(c, e, root, depth+1)
@@ -519,7 +556,7 @@ func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int)
 }
 
 func (b *builder) crumbs(e *Entry, root string) string {
-	var trail []string
+	var trail, titles []string
 	for p := e.Parent; p != ""; {
 		pe, ok := b.byID[p]
 		if !ok {
@@ -527,25 +564,29 @@ func (b *builder) crumbs(e *Entry, root string) string {
 		}
 		if b.own[p] {
 			trail = append([]string{`<a href="` + esc(root+b.urls[p]) + `">` + esc(pe.Title) + "</a>"}, trail...)
+			titles = append([]string{pe.Title}, titles...)
 		}
 		p = pe.Parent
 	}
 	if gi, ok := b.groupOf[e.ID]; ok {
 		g := b.groups[gi]
 		head := []string{"<span>" + esc(sectionTitle(g.Section)) + "</span>"}
-		if g.Title != sectionTitle(g.Section) {
+		next := e.Title
+		if len(titles) > 0 {
+			next = titles[0]
+		}
+		if g.Title != sectionTitle(g.Section) && g.Title != next {
 			head = append(head, "<span>"+esc(g.Title)+"</span>")
 		}
 		trail = append(head, trail...)
 	}
+	if e.Kind != KindPage {
+		trail = append([]string{`<b class="page-kind">` + esc(kindName(e)) + "</b>"}, trail...)
+	}
 	if len(trail) == 0 {
 		return ""
 	}
-	sep := b.icon(root, "ui.chevron_right", "")
-	if sep == "" {
-		sep = "/"
-	}
-	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">`+sep+`</span>`) + "</nav>\n"
+	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">/</span>`) + "</nav>\n"
 }
 
 func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
@@ -553,19 +594,32 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	if i := strings.LastIndexByte(name, '.'); i >= 0 {
 		name = name[i+1:]
 	}
-	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `">` + "\n")
+	prefabs := ""
+	if len(e.TryPrefabs) > 0 {
+		data, _ := json.Marshal(e.TryPrefabs)
+		prefabs = string(data)
+	}
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `">` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
 	c.WriteString(`<p class="try-caption">A live scene with ` + esc(e.Title) + `: edit its fields in the Inspector on the right and the scene restarts with them.</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + `Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
 	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + `Open in editor</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + `Copy as .aescene</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + `Reset</button><span class="try-status" role="status"></span></div>` + "\n")
 	c.WriteString(b.sceneTree(e.Try, root))
+	if e.TryScript != "" {
+		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>Script</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
+		c.WriteString(b.markdown(root, e.ID, "```aes\n"+strings.TrimRight(e.TryScript, "\n")+"\n```\n"))
+		c.WriteString("</details>\n")
+	}
 	c.WriteString("</section>\n")
 }
 
 func (b *builder) content(e *Entry, root string) string {
 	var c strings.Builder
 	c.WriteString(b.crumbs(e, root))
-	c.WriteString(`<h1 id="` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "ic-title") + esc(e.Title) + kindLabel(e) + "</h1>\n")
+	c.WriteString(`<h1 id="` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "ic-title") + esc(e.Title) + "</h1>\n")
+	if e.ID == installPage {
+		c.WriteString(b.downloadBlock(root))
+	}
 	scripted := ""
 	if e.Component != nil {
 		if i := strings.Index(e.Body, scriptSection); i >= 0 {
@@ -579,9 +633,9 @@ func (b *builder) content(e *Entry, root string) string {
 		if strings.TrimSpace(head.Body) != "" {
 			c.WriteString(`<div class="lead">` + b.markdown(root, e.ID, head.Body) + "</div>\n")
 		}
-		c.WriteString(b.componentMeta(e, root))
 		head.Body = ""
 		b.details(&c, &head, root)
+		c.WriteString(b.componentMeta(e, root))
 	} else {
 		b.details(&c, e, root)
 	}
@@ -610,19 +664,35 @@ func (b *builder) content(e *Entry, root string) string {
 	return c.String()
 }
 
+// tocMembers is how many member headings a toc lists before it leaves them to the page's index.
+const tocMembers = 8
+
 func toc(content string) string {
-	m := headRe.FindAllStringSubmatch(content, -1)
-	if len(m) < 2 {
-		return ""
+	var heads [][]string
+	members := 0
+	for _, x := range headRe.FindAllStringSubmatch(content, -1) {
+		if x[1] != "2" {
+			continue
+		}
+		if x[3] != "" {
+			members++
+		}
+		heads = append(heads, x)
 	}
 	var c strings.Builder
-	c.WriteString(`<p class="toc-title">On this page</p><ul>`)
-	for _, x := range m {
-		text := strings.TrimSpace(html.UnescapeString(tagRe.ReplaceAllString(kindRe.ReplaceAllString(x[3], ""), "")))
-		c.WriteString(`<li class="l` + x[1] + `"><a href="#` + x[2] + `">` + esc(text) + "</a></li>")
+	n := 0
+	for _, x := range heads {
+		if x[3] != "" && members > tocMembers {
+			continue
+		}
+		text := strings.TrimSpace(html.UnescapeString(tagRe.ReplaceAllString(kindRe.ReplaceAllString(x[4], ""), "")))
+		c.WriteString(`<li><a href="#` + x[2] + `">` + esc(text) + "</a></li>")
+		n++
 	}
-	c.WriteString("</ul>")
-	return c.String()
+	if n < 2 {
+		return ""
+	}
+	return `<p class="toc-title">On this page</p><ul>` + c.String() + "</ul>"
 }
 
 func (b *builder) pager(id, root string) string {
@@ -687,20 +757,8 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 		if !b.own[id] {
 			continue
 		}
-		e := b.byID[id]
-		var sub []string
-		for _, k := range b.kids[id] {
-			if b.own[k] {
-				sub = append(sub, k)
-			}
-		}
-		cls := "item"
-		aria := ""
-		if id == current {
-			cls += " current"
-			aria = ` aria-current="page"`
-		}
-		link := `<a class="` + cls + `"` + aria + ` href="` + esc(root+b.urls[id]) + `">` + b.icon(root, b.entryIcon(e), "") + `<span>` + esc(e.Title) + "</span></a>"
+		sub := b.ownKids(id)
+		link := b.navLink(id, root, current, b.icon(root, b.entryIcon(b.byID[id]), ""))
 		if len(sub) == 0 {
 			c.WriteString("<li>" + link + "</li>")
 			continue
@@ -714,6 +772,38 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 		c.WriteString("</details></li>")
 	}
 	c.WriteString("</ul>")
+}
+
+func (b *builder) ownKids(id string) []string {
+	var sub []string
+	for _, k := range b.kids[id] {
+		if b.own[k] {
+			sub = append(sub, k)
+		}
+	}
+	return sub
+}
+
+func (b *builder) navLink(id, root, current, ic string) string {
+	cls := "item"
+	aria := ""
+	if id == current {
+		cls += " current"
+		aria = ` aria-current="page"`
+	}
+	return `<a class="` + cls + `"` + aria + ` href="` + esc(root+b.urls[id]) + `">` + ic + `<span>` + esc(b.byID[id].Title) + "</span></a>"
+}
+
+// head returns the page that stands for a group in the nav and the entries listed under it.
+func (b *builder) head(g navGroup) (string, []string) {
+	if len(g.roots) == 0 {
+		return "", nil
+	}
+	first := g.roots[0]
+	if len(g.roots) > 1 && b.byID[first].Title != g.Title {
+		return "", g.roots
+	}
+	return first, append(b.ownKids(first), g.roots[1:]...)
 }
 
 func (b *builder) nav(root, current string) string {
@@ -735,16 +825,32 @@ func (b *builder) nav(root, current string) string {
 	last := ""
 	for gi, g := range b.groups {
 		if g.Section != last {
-			c.WriteString(`<p class="section">` + esc(sectionTitle(g.Section)) + "</p>")
+			if last != "" {
+				c.WriteString("</div>")
+			}
+			c.WriteString(`<div class="nav-section"><p class="section">` + esc(sectionTitle(g.Section)) + "</p>")
 			last = g.Section
+		}
+		ic := b.icon(root, g.Icon, "")
+		head, list := b.head(g)
+		if head != "" && len(list) == 0 {
+			c.WriteString(strings.Replace(b.navLink(head, root, current, ic), `class="item`, `class="item head`, 1))
+			continue
 		}
 		attr := ""
 		if gi == cur {
 			attr = ` open data-current="true"`
 		}
-		c.WriteString(`<details class="group" data-group="` + esc(g.ID) + `"` + attr + "><summary>" + b.icon(root, g.Icon, "") + "<span>" + esc(g.Title) + "</span>" + chev + "</summary>")
-		b.navTree(&c, g.roots, root, current, open)
+		summary := `<span class="item head">` + ic + "<span>" + esc(g.Title) + "</span></span>"
+		if head != "" {
+			summary = strings.Replace(b.navLink(head, root, current, ic), `class="item`, `class="item head`, 1)
+		}
+		c.WriteString(`<details class="group" data-group="` + esc(g.ID) + `"` + attr + "><summary>" + summary + chev + "</summary>")
+		b.navTree(&c, list, root, current, open)
 		c.WriteString("</details>")
+	}
+	if last != "" {
+		c.WriteString("</div>")
 	}
 	return c.String()
 }
@@ -761,15 +867,23 @@ func (b *builder) firstOf(section string) string {
 func (b *builder) home() string {
 	var c strings.Builder
 	c.WriteString(`<section class="hero"><div class="hero-text"><h1>` + esc(b.exp.Title) + "</h1>")
-	c.WriteString(`<p class="lead">` + esc(homeLead) + `</p><div class="actions">`)
+	c.WriteString(`<p class="lead">` + esc(homeLead) + "</p>")
+	dl := b.downloadBlock("")
+	c.WriteString(dl)
+	if u, ok := b.urls[installPage]; ok {
+		c.WriteString(`<pre class="code install" data-lang="sh"><code>` + esc(installCmd) + "</code></pre>")
+		c.WriteString(`<p class="install-note">Linux x86-64. <a href="` + esc(u) + `">Windows, macOS and source builds</a></p>`)
+	}
+	c.WriteString(`<div class="actions">`)
 	if u := b.firstOf(SectionStart); u != "" {
-		c.WriteString(`<a class="button primary" href="` + esc(u) + `">Get started</a>`)
+		cls := "button primary"
+		if dl != "" {
+			cls = "button"
+		}
+		c.WriteString(`<a class="` + cls + `" href="` + esc(u) + `">Get started</a>`)
 	}
 	if b.opt.Playground {
 		c.WriteString(`<a class="button" href="play/">Open the playground</a>`)
-	}
-	if u := b.firstOf(SectionReference); u != "" {
-		c.WriteString(`<a class="button" href="` + esc(u) + `">Reference</a>`)
 	}
 	c.WriteString("</div></div>")
 	switch {
@@ -785,22 +899,26 @@ func (b *builder) home() string {
 	}
 	c.WriteString("</section>\n")
 	for _, s := range sectionOrder {
-		var cards []string
+		var items []string
 		for _, g := range b.groups {
 			if g.Section != s || len(g.roots) == 0 {
 				continue
 			}
 			first := b.byID[g.roots[0]]
-			card := `<a class="card" href="` + esc(b.urls[g.roots[0]]) + `"><strong>` + b.icon("", g.Icon, "") + esc(g.Title) + "</strong>"
-			if first.Summary != "" {
-				card += "<span>" + inlineMD(first.Summary) + "</span>"
+			title := g.Title
+			if head, list := b.head(g); head != "" && len(list) == 0 {
+				title = first.Title
 			}
-			cards = append(cards, card+"</a>")
+			item := `<li><a href="` + esc(b.urls[g.roots[0]]) + `">` + b.icon("", g.Icon, "") + esc(title) + "</a>"
+			if sum := strings.TrimSpace(mdImage.ReplaceAllString(first.Summary, "")); sum != "" {
+				item += "<p>" + inlineMD(sum) + "</p>"
+			}
+			items = append(items, item+"</li>")
 		}
-		if len(cards) == 0 {
+		if len(items) == 0 {
 			continue
 		}
-		c.WriteString("<h2>" + esc(sectionTitle(s)) + `</h2><div class="cards">` + strings.Join(cards, "") + "</div>\n")
+		c.WriteString(`<h2 id="` + esc(s) + `">` + esc(sectionTitle(s)) + `</h2><ul class="index">` + strings.Join(items, "") + "</ul>\n")
 	}
 	return c.String()
 }
@@ -809,10 +927,12 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
 		AssetV:      b.assetV,
-		Rev:         b.opt.Commit,
-		RevURL:      b.revURL(),
+		Background:  template.CSS(pageBackground()),
+		CSS:         template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
 		Root:        root,
 		Title:       title,
+		PageTitle:   title + " · " + b.exp.Title,
+		Description: homeLead,
 		Site:        b.exp.Title,
 		Playground:  b.opt.Playground,
 		PlayVersion: b.opt.PlayVersion,
@@ -826,8 +946,21 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		Content:     template.HTML(content),
 		Footer:      template.HTML(b.footer(e, root)),
 	}
+	if current == "" {
+		data.PageTitle = b.exp.Title + " — 2D game engine in Go"
+	} else if e != nil {
+		if d := metaDescription(e.Summary); d != "" {
+			data.Description = d
+		}
+	}
 	if current != "" {
-		data.Toc = template.HTML(toc(content))
+		if t := toc(content); t != "" {
+			data.Toc = template.HTML(t)
+			inline := `<details class="toc-inline"><summary>On this page</summary>` + strings.TrimPrefix(t, `<p class="toc-title">On this page</p>`) + "</details>\n"
+			if i := strings.Index(content, "<h2"); i >= 0 {
+				data.Content = template.HTML(content[:i] + inline + content[i:])
+			}
+		}
 		data.Pager = template.HTML(b.pager(current, root))
 	}
 	var buf strings.Builder
@@ -860,8 +993,13 @@ func (b *builder) outline() string {
 			c.WriteString(sectionTitle(g.Section) + "\n")
 			last = g.Section
 		}
-		c.WriteString("  " + g.Title + "\n")
-		b.walkOwn(g.roots, 2, func(id string, depth int) {
+		head, list := b.head(g)
+		if head != "" {
+			c.WriteString("  " + b.byID[head].Title + " -> " + b.urls[head] + "\n")
+		} else {
+			c.WriteString("  " + g.Title + "\n")
+		}
+		b.walkOwn(list, 2, func(id string, depth int) {
 			c.WriteString(strings.Repeat("  ", depth) + b.byID[id].Title + " -> " + b.urls[id] + "\n")
 		})
 	}
@@ -1122,11 +1260,4 @@ func (b *builder) assetVersion() string {
 	h.Write([]byte(b.icons.sprite))
 	h.Write([]byte(codeCSS()))
 	return hexenc.EncodeToString(h.Sum(nil))[:12]
-}
-
-func (b *builder) revURL() string {
-	if b.opt.Commit == "" || b.opt.Repo == "" {
-		return ""
-	}
-	return strings.TrimRight(b.opt.Repo, "/") + "/commit/" + b.opt.Commit
 }

@@ -1,5 +1,7 @@
 ---
 id: save
+try: try/Persist.aescene
+try_select: save.Persist
 icon: panel.saves
 group: gameplay
 title: Saving games
@@ -8,6 +10,8 @@ order: 6
 # Saving games
 
 A save holds what you mark as persistent, not the whole scene. Loading a save reloads its scene from the project and then applies the save on top.
+
+In Try it, the Checkpoint script saves after one second and then loads that save every few seconds. The green ball has Persist and comes back to where it was saved; the grey one has not and starts over from the scene file. In Try it saves stay in memory and are gone when the page closes.
 
 | Mark | What is saved |
 |---|---|

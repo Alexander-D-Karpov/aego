@@ -295,16 +295,20 @@ func (c *Controller) SceneID() ids.AssetID {
 
 func (c *Controller) LoadScene(id ids.AssetID) error {
 	ctx := c.ctx
-	if ctx.Pipeline == nil {
-		return errs.New(errs.EditorDocument, "the asset pipeline is not available")
-	}
-	rel, ok := ctx.Pipeline.PathOf(id)
-	if !ok {
-		return errs.New(errs.EditorDocument, "the saved scene is not in the project")
-	}
-	d, err := ctx.Docs.Open(rel)
-	if err != nil {
-		return err
+	d := ctx.Docs.Get(c.doc)
+	// a scene that is not an asset, such as a docs Try it scene, saves with a zero id and reloads itself
+	if !id.IsZero() || d == nil {
+		if ctx.Pipeline == nil {
+			return errs.New(errs.EditorDocument, "the asset pipeline is not available")
+		}
+		rel, ok := ctx.Pipeline.PathOf(id)
+		if !ok {
+			return errs.New(errs.EditorDocument, "the saved scene is not in the project")
+		}
+		var err error
+		if d, err = ctx.Docs.Open(rel); err != nil {
+			return err
+		}
 	}
 	held := c.held
 	if err := c.Start(d); err != nil {

@@ -55,13 +55,14 @@ url=$(printf '%s' "$json" | tr ',' '\n' | sed -n "s/.*\"browser_download_url\":\
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 file="$tmp/$(basename "$url")"
-say "Downloading $url"
-curl -fSL --progress-bar -o "$file" "$url"
 sums=$(printf '%s' "$json" | tr ',' '\n' | sed -n 's/.*"browser_download_url":"\([^"]*\/SHA256SUMS\.txt\)".*/\1/p' | head -n 1)
 [ -n "$sums" ] || { say "install.sh: the release has no SHA256SUMS.txt"; exit 1; }
-curl -fsSL -o "$tmp/SHA256SUMS.txt" "$sums"
+curl -fsSL -o "$tmp/SHA256SUMS.txt" "$sums?t=$(date +%s)"
 want=$(grep " $(basename "$url")\$" "$tmp/SHA256SUMS.txt" | cut -d' ' -f1)
 [ -n "$want" ] || { say "install.sh: SHA256SUMS.txt does not list $(basename "$url")"; exit 1; }
+# the checksum in the URL keeps caching proxies from serving an earlier build under the same name
+say "Downloading $url"
+curl -fSL --progress-bar -o "$file" "$url?v=$want"
 if command -v sha256sum >/dev/null 2>&1; then
 	got=$(sha256sum "$file" | cut -d' ' -f1)
 else

@@ -49,8 +49,14 @@ func main() {
 	if *title != "" {
 		exp.Title = *title
 	}
+	var rel *site.Release
+	if *repo != "" {
+		if rel, err = site.FetchRelease(*repo); err != nil {
+			fmt.Fprintln(os.Stderr, "gendocs: no download buttons:", err)
+		}
+	}
 	rep, err := site.Build(exp, *out, site.Options{
-		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Icons: splitList(*icons), Time: time.Now(),
+		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Release: rel, Icons: splitList(*icons), Time: time.Now(),
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)

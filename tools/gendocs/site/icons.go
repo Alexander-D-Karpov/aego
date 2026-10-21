@@ -85,9 +85,23 @@ func (b *builder) icon(root, name, cls string) string {
 	return `<svg width="16" height="16" class="` + cls + `" aria-hidden="true"><use href="` + root + `assets/icons.svg?v=` + b.assetV + `#` + name + `"/></svg>`
 }
 
+// refIcons gives script packages and project settings sections the editor icon of what they cover.
+var refIcons = map[string]string{
+	"aego/builtin": "cat.node", "events": "panel.events", "aego/action": "panel.tasks", "aego/audio": "cat.audio",
+	"aego/camera": "cat.camera", "aego/curve": "panel.profiler", "aego/data": "file.data", "aego/debug": "panel.debug_draw",
+	"aego/input": "panel.input_devices", "aego/log": "panel.console", "aego/math": "cat.transform", "aego/physics": "cat.physics",
+	"aego/rand": "shape.cube", "aego/save": "panel.saves", "aego/scene": "file.scene", "aego/settings": "cat.settings",
+	"aego/testing": "status.ok", "aego/time": "play.speed", "aego/timer": "file.autosave", "aego/tween": "vec.velocity",
+	"section/engine": "panel.settings", "section/input": "panel.input_devices", "section/render2d": "cat.rendering",
+	"section/physics": "cat.physics", "section/debug": "panel.debug_draw", "section/player": "play.start", "section/audio": "cat.audio",
+}
+
 func (b *builder) entryIcon(e *Entry) string {
 	if e.Icon != "" {
 		return e.Icon
+	}
+	if ic, ok := refIcons[e.ID]; ok {
+		return ic
 	}
 	if e.Kind == KindField && e.Field != nil {
 		return fieldIcon(e.Title, e.Field.Type)

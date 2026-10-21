@@ -21,7 +21,8 @@ import (
 	"aego/script/workspace"
 )
 
-func build(p *project.Project, mods []module.Module, diagnose func(string, *docs.DiagInfo)) (*docs.Registry, *workspace.Workspace, error) {
+// build assembles the registry; with pg it also compiles the diagnostics examples and the try scripts.
+func build(p *project.Project, mods []module.Module, pg *playground.Playground) (*docs.Registry, *workspace.Workspace, error) {
 	types, err := assembly.NewTypes()
 	if err != nil {
 		return nil, nil, err
@@ -42,7 +43,10 @@ func build(p *project.Project, mods []module.Module, diagnose func(string, *docs
 		return nil, nil, err
 	}
 	src := docs.SourcesOf(bm, types.Schema(), man)
-	src.Diagnose = diagnose
+	if pg != nil {
+		src.Diagnose = diagnoser(pg)
+		src.CompileTry = pg.TryCode
+	}
 	var ws *workspace.Workspace
 	if p != nil {
 		ws, err = workspace.Open(workspace.Config{Root: p.Root, Module: p.Module, Scripts: p.ScriptsDir(), Bindings: reg.Table(), Docs: bm})
@@ -67,13 +71,13 @@ func Registry(p *project.Project, mods []module.Module) (*docs.Registry, error) 
 	return r, err
 }
 
-// ExportRegistry is Registry with the diagnostics examples compiled for their messages and positions.
+// ExportRegistry is Registry with the diagnostics examples compiled for their messages and positions, and the try scripts compiled.
 func ExportRegistry(p *project.Project, mods []module.Module) (*docs.Registry, error) {
 	pg, err := playground.New()
 	if err != nil {
 		return nil, err
 	}
-	r, _, err := build(p, mods, diagnoser(pg))
+	r, _, err := build(p, mods, pg)
 	return r, err
 }
 

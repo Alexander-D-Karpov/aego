@@ -94,3 +94,10 @@ func TestScriptDocsNeedRunBlocks(t *testing.T) {
 		t.Fatalf("a project page is held to the run block rule: %v", got)
 	}
 }
+
+func TestSummarySkipsImages(t *testing.T) {
+	got := summary("# Editor\n\n![The Design workspace](shots/editor.png)\n\nThe editor has workspaces.\n")
+	if got != "The editor has workspaces." {
+		t.Fatalf("summary = %q", got)
+	}
+}

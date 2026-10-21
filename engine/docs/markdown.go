@@ -262,7 +262,7 @@ func summary(md string) string {
 			continue
 		}
 		t := strings.TrimSpace(l)
-		if fence || t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "|") {
+		if fence || t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "|") || strings.HasPrefix(t, "![") && strings.HasSuffix(t, ")") {
 			continue
 		}
 		return unwrap(trimMarker(t))

@@ -3,6 +3,7 @@
 package docsview
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -46,11 +47,22 @@ func errorsOf(a *App) []string {
 
 func TestTryScenesRun(t *testing.T) {
 	a := newHeadless(t)
+	p, err := playground.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, e := range tries(t) {
-		if err := a.session.Load([]byte(e.Try), e.TrySelect); err != nil {
-			t.Fatalf("%s: %v", e.ID, err)
+		var code string
+		if e.TryScript != "" {
+			if code, err = p.TryCode(e.TryScript); err != nil {
+				t.Fatalf("%s: %v", e.ID, err)
+			}
 		}
-		if err := a.Step(60); err != nil {
+		req, _ := json.Marshal(map[string]any{"scene": e.Try, "select": e.TrySelect, "code": code, "prefabs": e.TryPrefabs})
+		if r := a.Call("load", req); r.Error != "" {
+			t.Fatalf("%s: %s", e.ID, r.Error)
+		}
+		if err := a.Step(400); err != nil {
 			t.Fatalf("%s: %v", e.ID, err)
 		}
 		st := a.session.State()

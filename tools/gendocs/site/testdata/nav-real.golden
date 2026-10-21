@@ -1,33 +1,30 @@
 Getting started
-  Getting started
-    Install and run -> install.html
+  Install and run -> install.html
 Guides
-  Editor
-    Editor -> editor.html
-  Aego Script
-    Aego Script -> language.html
-      Overview -> language/overview.html
-      Files and packages -> language/files-and-packages.html
-      Lexical structure -> language/lexical-structure.html
-      Grammar -> language/grammar.html
-      Types -> language/types.html
-      Declarations and statements -> language/declarations-and-statements.html
-      Scripts and lifecycle -> language/scripts-and-lifecycle.html
-      Attributes -> language/attributes.html
-      Nodes, components and references -> language/nodes-components-and-references.html
-      Standard library -> language/standard-library.html
-      Native bindings -> language/native-bindings.html
-      Runtime behaviour -> language/runtime-behaviour.html
-      Limits -> language/limits.html
-      Diagnostics -> language/diagnostics.html
-      CLI -> language/cli.html
-      Coroutines -> language/coroutines.html
-      Signals -> language/signals.html
-      ScriptRef -> language/scriptref.html
-      Hot reload -> language/hot-reload.html
-      Editor -> language/editor.html
-      Data assets -> language/data-assets.html
-      Keywords and builtins -> language/builtins.html
+  Editor -> editor.html
+  Aego Script -> language.html
+    Overview -> language/overview.html
+    Files and packages -> language/files-and-packages.html
+    Lexical structure -> language/lexical-structure.html
+    Grammar -> language/grammar.html
+    Types -> language/types.html
+    Declarations and statements -> language/declarations-and-statements.html
+    Scripts and lifecycle -> language/scripts-and-lifecycle.html
+    Attributes -> language/attributes.html
+    Nodes, components and references -> language/nodes-components-and-references.html
+    Standard library -> language/standard-library.html
+    Native bindings -> language/native-bindings.html
+    Runtime behaviour -> language/runtime-behaviour.html
+    Limits -> language/limits.html
+    Diagnostics -> language/diagnostics.html
+    CLI -> language/cli.html
+    Coroutines -> language/coroutines.html
+    Signals -> language/signals.html
+    ScriptRef -> language/scriptref.html
+    Hot reload -> language/hot-reload.html
+    Editor -> language/editor.html
+    Data assets -> language/data-assets.html
+    Keywords and builtins -> language/builtins.html
     Scripts -> ref/engine.Script.html
   Scenes & Prefabs
     Prefabs -> prefabs.html
@@ -57,24 +54,32 @@ Guides
       Modules -> save/go.html
     Data assets -> data.html
     Settings -> settings.html
-  Physics 2D
-    Physics 2D -> physics.html
-      Units and axes -> physics/units.html
-      Components -> physics/components.html
-      Bodies and hierarchy -> physics/hierarchy.html
-      Layers -> physics/layers.html
-      Events -> physics/events.html
-      Scripting -> physics/scripting.html
-      Settings -> physics/settings.html
-      Editor tools -> physics/editor.html
-      Lifecycle -> physics/lifecycle.html
-      World -> physics/world.html
-      Common mistakes -> physics/pitfalls.html
+  Physics 2D -> physics.html
+    Units and axes -> physics/units.html
+    Components -> physics/components.html
+    Bodies and hierarchy -> physics/hierarchy.html
+    Layers -> physics/layers.html
+    Events -> physics/events.html
+    Scripting -> physics/scripting.html
+    Settings -> physics/settings.html
+    Editor tools -> physics/editor.html
+    Lifecycle -> physics/lifecycle.html
+    World -> physics/world.html
+    Common mistakes -> physics/pitfalls.html
+  Cameras 2D -> camera.html
+    Virtual cameras -> camera/virtual.html
+    Outputs -> camera/outputs.html
+    Follow -> camera/follow.html
+    Zones -> camera/zones.html
+    Shake -> camera/shake.html
+    Time and replays -> camera/time.html
+    Scripting -> camera/scripting.html
+    Editor tools -> camera/editor.html
+    Go -> camera/go.html
   Rendering
     Sprites -> render2d/sprites.html
     Cameras -> render2d/cameras.html
-  Extending Aego
-    Native extensions -> extensions.html
+  Native extensions -> extensions.html
   Tools & Agents
     Debug Draw -> debug.html
     Command line and agents -> tools.html
@@ -91,6 +96,8 @@ Reference
     aego/time -> ref/aego/time.html
     aego/input -> ref/aego/input.html
     aego/physics -> ref/aego/physics.html
+    aego/camera -> ref/aego/camera.html
+      Blend -> ref/aego/camera.Blend.html
     aego/action -> ref/aego/action.html
       Action -> ref/aego/action.Action.html
     aego/timer -> ref/aego/timer.html
@@ -117,6 +124,12 @@ Reference
     Rendering 2D -> ref/module/render2d.html
       Camera 2D -> ref/engine.Camera2D.html
       Sprite Renderer -> ref/engine.SpriteRenderer.html
+    Cameras 2D -> ref/module/camera.html
+      Camera Brain 2D -> ref/camera.CameraBrain2D.html
+      Camera Follow 2D -> ref/camera.CameraFollow2D.html
+      Camera Shake 2D -> ref/camera.CameraShake2D.html
+      Camera Zone 2D -> ref/camera.CameraZone2D.html
+      Virtual Camera 2D -> ref/camera.VirtualCamera2D.html
     Rendering 3D -> ref/module/render3d.html
       Camera 3D -> ref/engine.Camera3D.html
       Mesh Renderer -> ref/engine.MeshRenderer.html
@@ -129,7 +142,5 @@ Reference
     Physics -> section/physics.html
     Debug Draw -> section/debug.html
     Player settings -> section/player.html
-  Diagnostics
-    Diagnostics -> diagnostics.html
-  CLI
-    The aego command -> cli.html
+  Diagnostics -> diagnostics.html
+  The aego command -> cli.html

@@ -1,16 +1,34 @@
 scene version=1 {
   node "d5200000000000000000000000000001" name="Close" enabled=true layers=1 {
     transform {
-      position=[6, 0]
-      rotation=0.08
+      position=[-6, 0]
+      rotation=0
       scale=[1, 1]
     }
     component "camera.VirtualCamera2D" version=1 {
       priority=-1
       output=""
-      zoom=96
+      zoom=110
       blendTime=1
       blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      snapToPixels=false
+    }
+  }
+  node "d5200000000000000000000000000009" name="Tilt" enabled=true layers=1 {
+    transform {
+      position=[6, -0.4]
+      rotation=0.14
+      scale=[1, 1]
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=-1
+      output=""
+      zoom=80
+      blendTime=1.5
+      blendCurve={ ease=outBack }
       timeDomain=unscaled
       useBounds=false
       bounds=[0, 0, 0, 0]
@@ -158,6 +176,20 @@ scene version=1 {
       flipY=false
       blend=premultiplied
       filter=nearest
+    }
+  }
+  node "d5200000000000000000000000000010" name="Director" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.Director" enabled=true {
+        Close=node("d5200000000000000000000000000001")
+        Tilt=node("d5200000000000000000000000000009")
+        Hold=2
+      }
     }
   }
 }

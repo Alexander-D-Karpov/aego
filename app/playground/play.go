@@ -1,10 +1,13 @@
 package playground
 
 import (
+	"errors"
+	"fmt"
 	"path"
 	"sort"
 	"strings"
 
+	playmods "aego/app/assembly/playground"
 	"aego/script/bytecode"
 	"aego/script/diag"
 )
@@ -110,13 +113,39 @@ func (p *Playground) LoseContext(lose bool) bool {
 	return p.game != nil && p.game.LoseContext(lose)
 }
 
-func (p *Playground) PlayScene(name string, src []byte) PlayResult {
+func (p *Playground) PlayScene(name string, src []byte, code string, prefabs map[string]string) PlayResult {
+	mods, err := playmods.DecodeTry(code)
+	if err != nil {
+		return PlayResult{Error: err.Error()}
+	}
 	g, err := p.host()
 	if err != nil {
 		return PlayResult{Error: err.Error()}
 	}
-	if err := g.Play(name, src, nil); err != nil {
+	if err := playmods.MountTry(g.loader, prefabs); err != nil {
+		return PlayResult{Error: err.Error()}
+	}
+	if err := g.Play(name, src, mods); err != nil {
 		return PlayResult{Error: err.Error()}
 	}
 	return PlayResult{Started: true}
+}
+
+// TryCode compiles the script of a try scene into the form DecodeTry reads.
+func (p *Playground) TryCode(script string) (string, error) {
+	placed, err := place(map[string]string{"main.aes": script})
+	if err != nil {
+		return "", err
+	}
+	p.ws.Sync(placed)
+	gen, ds := p.ws.Build()
+	if len(gen.Failed) > 0 || diag.HasErrors(ds) {
+		for _, d := range diagnostics(gen.Sources, ds) {
+			if d.Severity == "error" {
+				return "", fmt.Errorf("%s:%d:%d: %s", d.File, d.Line, d.Col, d.Message)
+			}
+		}
+		return "", errors.New("the script does not build")
+	}
+	return playmods.EncodeTry(ordered(gen.Modules)), nil
 }

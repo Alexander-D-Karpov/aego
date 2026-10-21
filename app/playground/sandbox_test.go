@@ -75,12 +75,18 @@ func TestSandboxHeapLimit(t *testing.T) {
 	}
 }
 
-func TestSandboxHasNoSaves(t *testing.T) {
+// The sandbox has aego/save for the Persist demo; its saves stay in memory, never in the visitor's storage.
+func TestSandboxSavesStayInMemory(t *testing.T) {
 	p := newHeadless(t)
-	for _, d := range p.Compile(map[string]string{"main.aes": saveScript}) {
+	res := p.Run(map[string]string{"main.aes": saveScript}, 10)
+	for _, d := range res.Diagnostics {
 		if d.Severity == "error" {
-			return
+			t.Fatalf("aego/save does not compile in the sandbox: %s", d.Message)
 		}
 	}
-	t.Fatal("aego/save compiled in the sandbox")
+	for _, l := range res.Log {
+		if strings.Contains(l.Text, "saves are not available") {
+			t.Fatal("the sandbox has no save store")
+		}
+	}
 }

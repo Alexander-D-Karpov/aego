@@ -152,6 +152,7 @@ func newGame(cfg GameConfig, types *scene.Types, reg *bind.Registry, man *module
 		return nil, err
 	}
 	e.SetService(loader.ServiceID, g.loader)
+	playmods.UseMemorySaves(e)
 	e.SetService(renderhost.ServiceID, g.renderer)
 	e.SetView(frame.ServiceID, g.runner)
 	e.MainWorld().Recorder = recorder.New(recordDepth)

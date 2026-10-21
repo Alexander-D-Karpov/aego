@@ -41,9 +41,16 @@ func CheckTry(reg *docs.Registry, w io.Writer) int {
 			}
 			msgs = append(msgs, msg)
 		}
-		switch res := pg.PlayScene(e.ID, []byte(e.Try)); {
+		var code string
+		var err error
+		if e.TryScript != "" {
+			code, err = pg.TryCode(e.TryScript)
+		}
+		switch res := pg.PlayScene(e.ID, []byte(e.Try), code, e.TryPrefabs); {
 		case !sandbox[e.ID]:
 			add("belongs to a module the docs runtime does not include")
+		case err != nil:
+			add("script does not compile: " + err.Error())
 		case !res.Started:
 			add("does not load: " + res.Error)
 		default:

@@ -45,7 +45,7 @@ Each frame the brain picks one virtual camera per output:
 
 The pose comes from the virtual camera's node: its interpolated position and rotation, and [Zoom](ref:camera.VirtualCamera2D.Zoom), where 0 keeps the zoom of the Camera 2D. A Camera Follow 2D on the same node replaces the position. The node's transform is never changed; the camera only moves the view.
 
-In Try it, select **Close** and set its Priority to 1: the view blends to it. Set it back to -1 and the view blends back.
+In Try it, the Director script raises **Close**, then **Tilt**, for two seconds each, and the view blends to them and back. Change Zoom, Blend Time or Blend Curve of Close in the Inspector and watch the next blend; the script is under the scene.
 
 ## Blends
 
@@ -118,12 +118,16 @@ In Try it, the purple area in the middle of the ramp is the zone: the view blend
 
 ---
 id: camera/shake
+try: try/CameraShake2D.aescene
+try_select: camera.CameraShake2D
 icon: comp.shake
 parent: camera
 order: 5
 title: Shake
 ---
 # Shake
+
+In Try it, the crate drops every two seconds and its script calls `camera.Shake(0.9)` when it lands. Raise Max Angle or lower Exponent and Decay on the camera to feel the difference.
 
 Shake is driven by trauma, a value from 0 to 1 per output. `camera.Shake(0.4)` adds trauma, which fades by [Decay](ref:camera.CameraShake2D.Decay) per second. The view moves by up to [Max Offset](ref:camera.CameraShake2D.MaxOffset) and turns by up to [Max Angle](ref:camera.CameraShake2D.MaxAngle), scaled by trauma to the power [Exponent](ref:camera.CameraShake2D.Exponent), so small hits stay subtle. Without a Camera Shake 2D on the active camera the defaults are used.
 

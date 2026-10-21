@@ -13,7 +13,40 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
     let active = 0;
     let shown = [];
 
-    document.querySelector(".menu").addEventListener("click", () => document.body.classList.toggle("nav-open"));
+    const menu = document.querySelector(".menu");
+    const scrim = document.querySelector(".scrim");
+    const doc = document.querySelector(".doc");
+    const narrow = matchMedia("(max-width: 899px)");
+    function setNav(open) {
+        document.body.classList.toggle("nav-open", open);
+        menu.setAttribute("aria-expanded", String(open));
+        scrim.hidden = !open;
+        doc.inert = open;
+        document.body.style.overflow = open ? "hidden" : "";
+
+    }
+    menu.addEventListener("click", () => setNav(!document.body.classList.contains("nav-open")));
+    scrim.addEventListener("click", () => setNav(false));
+    document.querySelector(".side").addEventListener("click", (e) => {
+        if (e.target.closest("a") && narrow.matches) setNav(false);
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && document.body.classList.contains("nav-open")) setNav(false);
+    });
+    narrow.addEventListener("change", (e) => {
+        if (!e.matches) setNav(false);
+    });
+
+    const THEME_KEY = "aego.docs.theme";
+    const prefersLight = matchMedia("(prefers-color-scheme: light)");
+    document.querySelector(".theme").addEventListener("click", () => {
+        const cur = document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
+        const next = cur === "light" ? "dark" : "light";
+        document.documentElement.dataset.theme = next;
+        try {
+            localStorage.setItem(THEME_KEY, next);
+        } catch (_) {}
+    });
 
     function loadState() {
         try {
@@ -26,9 +59,6 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
     const state = loadState();
     for (const d of document.querySelectorAll(".side details.group")) {
         const id = d.dataset.group;
-        if (d.dataset.current) d.open = true;
-        else if (id in state) d.open = !!state[id];
-        else d.open = id === "start";
         d.addEventListener("toggle", () => {
             state[id] = d.open;
             try {
@@ -37,11 +67,11 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         });
     }
     const side = document.querySelector(".side");
-    const current = document.querySelector(".side a.current");
-    if (side && current) {
-        const top = current.getBoundingClientRect().top - side.getBoundingClientRect().top + side.scrollTop;
-        side.scrollTop = Math.max(0, top - side.clientHeight / 2);
-    }
+    addEventListener("pagehide", () => {
+        try {
+            sessionStorage.setItem("aego.docs.side", String(side.scrollTop));
+        } catch (_) {}
+    });
 
     for (const pre of document.querySelectorAll(".doc pre")) {
         const code = pre.querySelector("code");
@@ -211,4 +241,22 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
     };
     document.addEventListener("pointerover", hover, { passive: true });
     document.addEventListener("focusin", hover);
+})();
+
+(function () {
+    const OS_NAMES = { windows: "Windows", macos: "macOS", linux: "Linux" };
+    const ua = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent).toLowerCase();
+    const os = /win/.test(ua) ? "windows" : /mac|iphone|ipad/.test(ua) ? "macos" : /linux|x11/.test(ua) && !/android/.test(ua) ? "linux" : "";
+    for (const box of document.querySelectorAll(".download")) {
+        const main = box.querySelector(".dl-main");
+        const pick = os && box.querySelector(`.dl-list li[data-os="${os}"] a`);
+        if (pick) {
+            main.href = pick.href;
+            main.querySelector("span").textContent = `Download for ${OS_NAMES[os]}`;
+            pick.parentElement.classList.add("picked");
+        } else {
+            main.href = box.dataset.fallback;
+            main.querySelector("span").textContent = os ? `Install on ${OS_NAMES[os]}` : "Install";
+        }
+    }
 })();

@@ -75,6 +75,7 @@ type App struct {
 	ui       *core.Context
 	clip     *docsession.Clipboard
 	session  *docsession.Session
+	scripts  *scriptHost
 	insp     *inspector.Panel
 	game     *gameview.Panel
 	list     *draw.List
@@ -143,15 +144,17 @@ func New(opt Options) (*App, error) {
 		return nil, err
 	}
 	a.e.SetService(loader.ServiceID, a.loader)
+	playmods.UseMemorySaves(a.e)
 	a.e.SetService(renderhost.ServiceID, a.renderer)
 	if err := a.man.Init(&module.InitContext{Engine: a.e, Assets: a.loader, Log: a.log, Editor: true, Sections: sections}); err != nil {
 		a.Close()
 		return nil, err
 	}
 	a.initUI()
+	a.scripts = &scriptHost{reg: reg, types: a.types, man: a.man, log: a.log}
 	a.session = docsession.New(docsession.Options{
 		Engine: a.e, Renderer: a.renderer, Loader: a.loader, Types: a.types, Sections: sections,
-		Scripts:   &scriptHost{reg: reg, types: a.types, man: a.man, log: a.log},
+		Scripts:   a.scripts,
 		UI:        a.ui,
 		Clipboard: a.clip,
 		Log:       a.log,

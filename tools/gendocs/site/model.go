@@ -64,6 +64,9 @@ type Entry struct {
 	Related    []string
 	Try        string
 	TrySelect  string
+	TryScript  string
+	TryCode    string
+	TryPrefabs map[string]string
 	Icon       string
 	EditorOnly bool
 	Diag       *DiagInfo

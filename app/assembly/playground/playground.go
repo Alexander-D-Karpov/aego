@@ -10,7 +10,9 @@ import (
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/render3d"
+	"aego/modules/savegame"
 	"aego/modules/scripting"
+	"aego/modules/spawn"
 	"aego/modules/tween"
 	"aego/script/stdlib"
 	"aego/script/vm"
@@ -29,6 +31,8 @@ func Catalog() assembly.Catalog {
 		{ID: tween.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return tween.New() }},
 		{ID: camera.ID, Requires: []string{scripting.ID}, New: func(assembly.Options) module.Module { return camera.New() }},
 		{ID: render3d.ID, New: func(assembly.Options) module.Module { return render3d.New() }},
+		{ID: spawn.ID, New: func(assembly.Options) module.Module { return spawn.New() }},
+		{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }},
 	}
 }
 

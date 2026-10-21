@@ -186,7 +186,7 @@ var wasmDenied = []string{
 
 var wasmExtra = []string{
 	"modules/render2d", "modules/scripting/...", "modules/input", "modules/physics/...", "modules/debug", "modules/tween", "modules/camera", "modules/render3d",
-	"app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
+	"modules/spawn", "modules/savegame", "app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
 }
 
 // match reports whether p matches pattern: "a/b", "a/...", "..." or "*" per segment.

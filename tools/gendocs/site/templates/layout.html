@@ -6,33 +6,50 @@
     <meta name="aego-root" content="{{.Root}}">
     <meta name="aego-assets" content="{{.AssetV}}">
     {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}"><meta name="aego-play-size" content="{{.PlaySize}}"><meta name="aego-try-size" content="{{.TrySize}}">{{end}}
-    <title>{{.Title}} · {{.Site}}</title>
+    <title>{{.PageTitle}}</title>
+    <meta name="description" content="{{.Description}}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{.Site}}">
+    <meta property="og:title" content="{{.PageTitle}}">
+    <meta property="og:description" content="{{.Description}}">
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="{{.Root}}assets/style.css?v={{.AssetV}}">
-    <link rel="stylesheet" href="{{.Root}}assets/code.css?v={{.AssetV}}">
+    <meta name="color-scheme" content="dark light">
+    <meta name="darkreader-lock">
+    <script>try { const t = localStorage.getItem("aego.docs.theme"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}</script>
+    <style>html { color-scheme: dark light; background: {{.Background}}; } html[data-theme="light"] { color-scheme: light; background: #fbfaf8; } html[data-theme="dark"] { color-scheme: dark; } @media (prefers-color-scheme: light) { html:not([data-theme="dark"]) { background: #fbfaf8; } }</style>
+    <link rel="preload" href="{{.Root}}assets/fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+    <style>{{.CSS}}</style>
 </head>
 <body{{if .Home}} class="home"{{end}}>
 <header class="top">
-    <button type="button" class="menu" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
-    <a class="brand" href="{{.Root}}index.html"><span>{{.Site}}</span></a>{{if .Rev}}<a class="rev" href="{{.RevURL}}" title="Documentation revision">{{.Rev}}</a>{{end}}
+<div class="top-inner">
+    <button type="button" class="menu" aria-label="Navigation" aria-expanded="false" aria-controls="side"><span></span><span></span><span></span></button>
+    <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
     <div class="search">
         {{icon .Root "ui.search"}}
         <input id="search" type="search" placeholder="Search the docs" autocomplete="off" aria-label="Search">
         <kbd>/</kbd>
         <ul id="results" hidden></ul>
     </div>
-    <nav class="links">
-        <a href="{{.Root}}index.html">{{icon .Root "help.book"}}<span>Docs</span></a>
-        {{if .Playground}}<a href="{{.Root}}play/">{{icon .Root "file.script"}}<span>Playground</span></a>{{end}}
-        {{if .Demo}}<a href="{{.Root}}demo/">{{icon .Root "panel.game"}}<span>Demo</span></a>{{end}}
-        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
+    <nav class="links" aria-label="Site">
+        <a href="{{.Root}}index.html">Docs</a>
+        {{if .Playground}}<a href="{{.Root}}play/">Playground</a>{{end}}
+        {{if .Demo}}<a href="{{.Root}}demo/">Demo</a>{{end}}
+        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
     </nav>
+    <button type="button" class="theme" aria-label="Switch theme" title="Switch theme"><svg class="sun" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="moon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M20.6 14.6A8.6 8.6 0 0 1 9.4 3.4a8.6 8.6 0 1 0 11.2 11.2Z"/></svg></button>
+</div>
 </header>
 <div class="shell">
-    <nav class="side" aria-label="Documentation">{{.Nav}}</nav>
+    <nav class="side" id="side" aria-label="Documentation">
+        <div class="side-links"><a href="{{.Root}}index.html">Docs</a>{{if .Playground}}<a href="{{.Root}}play/">Playground</a>{{end}}{{if .Demo}}<a href="{{.Root}}demo/">Demo</a>{{end}}{{if .Repo}}<a href="{{.Repo}}">Source</a>{{end}}</div>
+        {{.Nav}}
+    </nav>
+    <script>(function () { const side = document.getElementById("side"); try { const st = JSON.parse(localStorage.getItem("aego.docs.groups")) || {}; for (const d of side.querySelectorAll("details.group")) if (!d.dataset.current && d.dataset.group in st) d.open = !!st[d.dataset.group]; } catch (_) {} let y = null; try { y = sessionStorage.getItem("aego.docs.side"); } catch (_) {} if (y !== null) side.scrollTop = +y; const cur = side.querySelector("a.current"); if (cur) { const top = cur.offsetTop - side.offsetTop; if (top < side.scrollTop || top > side.scrollTop + side.clientHeight - 40) side.scrollTop = Math.max(0, top - side.clientHeight / 2); } })();</script>
     <main class="doc">{{.Content}}{{.Pager}}</main>
     <aside class="toc">{{.Toc}}</aside>
 </div>
+<div class="scrim" hidden></div>
 {{.Footer}}
 <script src="{{.Root}}assets/site.js?v={{.AssetV}}"></script>
 {{if .Playground}}<script src="{{.Root}}assets/loader.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/run.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/try.js?v={{.AssetV}}"></script>{{end}}

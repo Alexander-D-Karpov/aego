@@ -1,0 +1,27 @@
+package demo
+
+// Director raises Close, then Tilt, for Hold seconds each; the view blends between them.
+script Director {
+    @export var Close ComponentRef<VirtualCamera2D>
+    @export var Tilt ComponentRef<VirtualCamera2D>
+    @export var Hold float = 2
+
+    var t float
+    var shot int
+
+    func Update(dt float) {
+        t += dt
+        if t < Hold {
+            return
+        }
+        t = 0
+        shot = (shot + 1) % 4
+        Close.Priority = -1
+        Tilt.Priority = -1
+        if shot == 1 {
+            Close.Priority = 1
+        } else if shot == 3 {
+            Tilt.Priority = 1
+        }
+    }
+}

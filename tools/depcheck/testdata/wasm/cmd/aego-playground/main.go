@@ -1,5 +1,5 @@
 package main
 
-import _ "aego/modules/audio"
+import _ "aego/modules/accessibility"
 
 func main() {}

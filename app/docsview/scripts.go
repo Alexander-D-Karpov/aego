@@ -22,6 +22,15 @@ type scriptHost struct {
 	mods  []*bytecode.Module
 }
 
+// use makes mods the scripts of the next scene and publishes their types, so the scene keeps their fields.
+func (h *scriptHost) use(mods []*bytecode.Module) error {
+	if err := scriptruntime.Publish(h.types.Schema(), mods, h.reg.Surface()); err != nil {
+		return err
+	}
+	h.mods = mods
+	return nil
+}
+
 func (h *scriptHost) Errors() int {
 	return 0
 }

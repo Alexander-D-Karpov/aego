@@ -22,11 +22,11 @@ if (-not $sums) { throw "release $which has no SHA256SUMS.txt" }
 $dir = Join-Path $env:TEMP ("aego-setup-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $dir | Out-Null
 $zip = Join-Path $dir $setup.name
-Write-Host "Downloading $($setup.name)"
-Invoke-WebRequest $setup.browser_download_url -OutFile $zip -UseBasicParsing
-$line = ((Invoke-WebRequest $sums.browser_download_url -UseBasicParsing).Content -split "`n") | Where-Object { $_ -match [regex]::Escape($setup.name) + '\s*$' } | Select-Object -First 1
+$line = ((Invoke-WebRequest ($sums.browser_download_url + "?t=" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -UseBasicParsing).Content -split "`n") | Where-Object { $_ -match [regex]::Escape($setup.name) + '\s*$' } | Select-Object -First 1
 if (-not $line) { throw "SHA256SUMS.txt does not list $($setup.name)" }
 $want = ($line -split '\s+')[0]
+Write-Host "Downloading $($setup.name)"
+Invoke-WebRequest ($setup.browser_download_url + "?v=" + $want) -OutFile $zip -UseBasicParsing
 $got = (Get-FileHash $zip -Algorithm SHA256).Hash
 if ($want -ne $got) { Remove-Item -Recurse $dir; throw "checksum mismatch, refusing to install" }
 Expand-Archive $zip -DestinationPath $dir

@@ -112,7 +112,7 @@
             api = await boot(p.update);
             p.box.remove();
             if (active !== b) return;
-            const res = call("load", { scene: b.dataset.scene, select: b.dataset.select || "" });
+            const res = call("load", { scene: b.dataset.scene, select: b.dataset.select || "", code: b.dataset.code || "", prefabs: b.dataset.prefabs ? JSON.parse(b.dataset.prefabs) : {} });
             if (res.error) throw new Error(res.error);
             show(b, res.text, res.values);
             b.querySelector(".try-reset").disabled = false;

@@ -222,6 +222,7 @@ function run() {
 }
 
 function startBench(count) {
+    gamePane.hidden = false;
     const res = call("bench", { count, animate: true });
     if (!res.started) {
         setStatus(res.error || "bench did not start", true);
@@ -283,6 +284,7 @@ function syncScroll() {
 function selectExample(ex) {
     current = ex;
     framesLabel.hidden = !!(ex && ex.scene);
+    gamePane.hidden = !!(ex && !ex.scene);
     if (!pollTimer) {
         gameHint.hidden = false;
         gameHint.textContent = ex && ex.scene ? "Press Run to play this scene" : "Console example: output goes to Console";

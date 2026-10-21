@@ -6,16 +6,19 @@ import (
 	"encoding/json"
 	"strconv"
 
+	playmods "aego/app/assembly/playground"
 	"aego/editor/core/docsession"
 	"aego/scene/sceneio"
 )
 
 type request struct {
-	Scene     string  `json:"scene"`
-	Select    string  `json:"select"`
-	Component string  `json:"component"`
-	Field     string  `json:"field"`
-	Value     float64 `json:"value"`
+	Scene     string            `json:"scene"`
+	Select    string            `json:"select"`
+	Code      string            `json:"code"`
+	Prefabs   map[string]string `json:"prefabs"`
+	Component string            `json:"component"`
+	Field     string            `json:"field"`
+	Value     float64           `json:"value"`
 }
 
 type Reply struct {
@@ -37,7 +40,16 @@ func (a *App) Call(method string, payload []byte) Reply {
 	var err error
 	switch method {
 	case "load":
-		err = s.Load([]byte(req.Scene), req.Select)
+		mods, derr := playmods.DecodeTry(req.Code)
+		if err = derr; err == nil {
+			err = a.scripts.use(mods)
+		}
+		if err == nil {
+			err = playmods.MountTry(a.loader, req.Prefabs)
+		}
+		if err == nil {
+			err = s.Load([]byte(req.Scene), req.Select)
+		}
 	case "reset":
 		err = s.Reset()
 	case "text":

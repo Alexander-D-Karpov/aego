@@ -38,6 +38,14 @@ var tokenClass = [highlight.KindCount]string{
 	highlight.Bracket:     "br",
 }
 
+// lightTokens is the code palette for the docs' light theme; the dark one is the editor's.
+var lightTokens = map[string]string{
+	"kw": "#a626a4", "num": "#986801", "str": "#3f7f3a", "com": "#80838c", "op": "#4b4f58", "pun": "#6a6f7a",
+	"attr": "#946200", "ns": "#b4510f", "ty": "#0b7285", "bty": "#0b7285", "fn": "#2459c7", "me": "#2459c7",
+	"par": "#a3530a", "var": "#383a42", "fld": "#c0392b", "prop": "#c0392b", "con": "#986801", "en": "#986801",
+	"bi": "#b0257a", "scr": "#0b7285", "err": "#d1242f", "sig": "#b4510f", "co": "#0f766e", "br": "#6a6f7a",
+}
+
 func highlightAES(src string) string {
 	return highlightLinked(src, nil)
 }
@@ -110,17 +118,49 @@ func hex(c mathx.Color) string {
 	return fmt.Sprintf("#%02x%02x%02x", to(c.R), to(c.G), to(c.B))
 }
 
+func pageBackground() string {
+	return hex(theme.Editor().Background)
+}
+
+func cssColor(c mathx.Color) string {
+	if c.A >= 1 {
+		return hex(c)
+	}
+	h := hex(c)
+	return fmt.Sprintf("rgb(%s %s %s / %.2f)", fmt.Sprint(hexByte(h[1:3])), fmt.Sprint(hexByte(h[3:5])), fmt.Sprint(hexByte(h[5:7])), c.A)
+}
+
+func hexByte(s string) int {
+	var v int
+	fmt.Sscanf(s, "%02x", &v)
+	return v
+}
+
 func codeCSS() string {
 	t := theme.Code()
 	pal := highlight.Palette(&t)
 	var b strings.Builder
-	b.WriteString("/* generated from the editor's code theme (ui/theme.Code) */\n")
-	b.WriteString(":root {\n    --code-bg: " + hex(t.Background) + ";\n    --code-gutter: " + hex(t.GutterBg) + ";\n    --code-text: " + hex(t.Plain) + ";\n    --code-line: " + hex(t.LineNo) + ";\n    --code-error: " + hex(t.Error) + ";\n}\n")
+	b.WriteString("/* generated from the editor's themes (ui/theme.Code and ui/theme.Editor) */\n")
+	ld := func(light, dark string) string { return "light-dark(" + light + ", " + dark + ")" }
+	b.WriteString(":root {\n    --code-bg: " + ld("#f5f6f8", hex(t.Background)) + ";\n    --code-gutter: " + ld("#eceef1", hex(t.GutterBg)) + ";\n    --code-text: " + ld("#383a42", hex(t.Plain)) + ";\n    --code-line: " + ld("#9aa0a9", hex(t.LineNo)) + ";\n    --code-error: " + ld("#d1242f", hex(t.Error)) + ";\n")
+	e := theme.Editor()
+	for _, v := range []struct {
+		name string
+		c    mathx.Color
+	}{
+		{"bg", e.Background}, {"header", e.Header}, {"panel", e.Panel}, {"panel-alt", e.PanelAlt}, {"hover", e.TabHot}, {"widget", e.Widget},
+		{"border", e.Border}, {"separator", e.Separator}, {"text", e.Text}, {"text-dim", e.TextDim}, {"unit", e.Unit},
+		{"accent", e.Accent}, {"error", e.Error}, {"warn", e.Warn}, {"ok", e.Ok},
+		{"axis-x", e.AxisX}, {"axis-y", e.AxisY}, {"axis-z", e.AxisZ},
+	} {
+		b.WriteString("    --ed-" + v.name + ": " + cssColor(v.c) + ";\n")
+	}
+	b.WriteString("}\n")
 	for k, cls := range tokenClass {
 		if cls == "" {
 			continue
 		}
-		b.WriteString(".t-" + cls + " { color: " + hex(pal[k]) + "; }\n")
+		b.WriteString(".t-" + cls + " { color: " + ld(lightTokens[cls], hex(pal[k])) + "; }\n")
 	}
 	b.WriteString(".t-com { font-style: italic; }\n")
 	return b.String()
