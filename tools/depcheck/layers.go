@@ -46,7 +46,7 @@ var scriptCompilerOnly = []string{
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
 	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "project/...", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
-	"data", "save", "contracts/persistence",
+	"data", "save", "contracts/persistence", "audio/codec/...",
 }
 
 var rules = []rule{
@@ -86,7 +86,7 @@ var rules = []rule{
 	{"asset", []string{"core/...", "gpu", "format/...", "render/texture", "render/mesh"}, nil},
 	{"asset/loader", []string{"core/...", "gpu", "vfs", "asset", "render/texture", "render/mesh"}, nil},
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
-	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh"}, nil},
+	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh", "audio/..."}, nil},
 	{"data", []string{"core/...", "asset", "format/aetext", "schema", "scene/sceneio", "scene/prefab"}, nil},
 	{"save", []string{"core/...", "format/aetext", "scene", "platform"}, nil},
 	{"project", []string{"core/...", "format/...", "platform/input"}, nil},
@@ -96,6 +96,16 @@ var rules = []rule{
 	{"scene/sceneio", []string{"core/...", "schema", "asset", "format/...", "scene", "scene/scriptcomp", "scene/prefab"}, nil},
 	{"scene/prefab", []string{"core/...", "schema"}, nil},
 	{"scene/prefab/author", []string{"core/...", "schema", "scene/prefab"}, nil},
+	{"audio/dsp", []string{"core/..."}, nil},
+	{"audio/mix", []string{"core/...", "audio/dsp"}, nil},
+	{"audio/codec", []string{"core/...", "audio/dsp", "audio/mix"}, nil},
+	{"audio/codec/wav", []string{"core/...", "audio/codec"}, nil},
+	{"audio/codec/vorbis", []string{"core/...", "audio/codec", "audio/codec/vorbis/internal/oggvorbis"}, nil},
+	{"audio/codec/vorbis/internal/oggvorbis", []string{"audio/codec/vorbis/internal/vorbis"}, nil},
+	{"audio/codec/vorbis/internal/vorbis", nil, nil},
+	{"audio/pump", []string{"core/...", "audio/mix"}, nil},
+	{"modules/audio", []string{"core/...", "audio/...", "asset", "asset/pipeline", "asset/importers/audio", "contracts/...", "data", "engine", "engine/module", "engine/problems", "engine/recorder", "engine/settings", "platform", "platform/headless", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
+	{"modules/audio/editor", with(editorAllow, "modules/audio", "audio/...", "contracts/..."), nil},
 	{"modules/render2d", []string{"core/...", "asset", "engine", "engine/module", "gpu", "render/...", "scene", "scene/frame", "schema", "contracts/camera2d"}, nil},
 	{"modules/render2d/editor", with(editorAllow, "modules/render2d"), nil},
 	{"modules/render3d", []string{"core/...", "asset", "asset/pipeline", "asset/importers/obj", "engine", "engine/module", "gpu", "render", "render/...", "scene", "scene/frame", "schema"}, nil},
@@ -424,14 +434,6 @@ func layerRule(from, to string) string {
 		if match(d.pkg, from) && allowed(d.deny, to) {
 			return "denied:" + d.pkg
 		}
-	}
-	return ""
-}
-
-func externalRule(from, imp string) string {
-	r, ok := ruleFor(from)
-	if ok && !allowed(r.external, imp) {
-		return "layer:" + r.pkg
 	}
 	return ""
 }

@@ -1,0 +1,3 @@
+# External Go imports allowed in the root module. Anything not listed is an external-import violation.
+#   package -> import path prefix, reason
+# The list is empty: the root module has no external Go dependencies (§1); the Vorbis decoder is vendored (D309).

@@ -26,6 +26,7 @@ WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.w
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760
 WEB_TRY = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node try.mjs --site=$(CURDIR)/site
+WEB_AUDIO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node audio.mjs --site=$(CURDIR)/site
 TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
@@ -49,7 +50,7 @@ GL_ENV = env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=ll
 endif
 
 NONATIVE_PKGS = $$(go list ./... | grep -v -e '/platform/sdl$$' -e '/gpu/gl33$$' -e '/gpu/gl33/gl$$')
-LINT_PKGS = $$(go list ./... | grep -v '/gpu/gl33/gl$$')
+LINT_PKGS = $$(go list ./... | grep -v -e '/gpu/gl33/gl$$' -e '/audio/codec/vorbis/internal/')
 
 bootstrap: $(STAMP)
 
@@ -246,6 +247,7 @@ web-smoke: site
 	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
 	$(WEB_DEMO)
 	$(WEB_TRY)
+	$(WEB_AUDIO)
 
 web-smoke-update: site
 	$(WEB_SMOKE) --update
@@ -281,6 +283,8 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzParse$$' -fuzztime $(FUZZTIME) ./script/parser
 	go test -run '^$$' -fuzz '^FuzzDecodeVerify$$' -fuzztime $(FUZZTIME) ./script/verify
 	go test -run '^$$' -fuzz '^FuzzDecodeVerifyV3$$' -fuzztime $(FUZZTIME) ./script/verify
+	go test -run '^$$' -fuzz '^FuzzWAV$$' -fuzztime $(FUZZTIME) ./audio/codec
+	go test -run '^$$' -fuzz '^FuzzVorbis$$' -fuzztime $(FUZZTIME) ./audio/codec
 
 ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
 

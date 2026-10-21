@@ -17,4 +17,7 @@ Physics	physics.PolygonCollider2D	Polygon Collider 2D	comp.polygon	-
 Physics	physics.EdgeCollider2D	Edge Collider 2D	comp.edge	-
 Physics	physics.DistanceJoint2D	Distance Joint 2D	comp.joint_distance	-
 Physics	physics.RevoluteJoint2D	Revolute Joint 2D	comp.joint_revolute	-
+Audio	audio.AudioListener2D	Audio Listener 2D	audio.listener	-
+Audio	audio.AudioSource2D	Audio Source 2D	audio.source	-
+Audio	audio.AudioZone2D	Audio Zone 2D	audio.zone	-
 game	game.Rotator	Rotator	cat.game	rotator

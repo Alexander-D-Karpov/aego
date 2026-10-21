@@ -64,7 +64,7 @@ func firstData(t *testing.T, e mutate.Env) (*schema.TypeDescriptor, *schema.Fiel
 	for _, td := range e.Types.Schema().DataTypes() {
 		for i := range td.Fields {
 			fd := &td.Fields[i]
-			if fd.Flags.Has(schema.FlagSerialize) && !fd.Flags.Has(schema.FlagReadOnly) &&
+			if fd.Flags.Has(schema.FlagSerialize) && !fd.Flags.Has(schema.FlagReadOnly) && (!fd.HasMax || fd.Max >= 5) &&
 				(fd.Kind == schema.KindFloat32 || fd.Kind == schema.KindInt32 || fd.Kind == schema.KindInt64) {
 				return td, fd
 			}

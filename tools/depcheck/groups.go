@@ -28,7 +28,7 @@ type group struct {
 }
 
 var lowRoots = []string{"core", "platform", "gpu", "format", "vfs"}
-var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save"}
+var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save", "audio"}
 
 func groupOf(p string) (group, bool) {
 	seg := strings.Split(p, "/")
@@ -186,7 +186,7 @@ var wasmDenied = []string{
 
 var wasmExtra = []string{
 	"modules/render2d", "modules/scripting/...", "modules/input", "modules/physics/...", "modules/debug", "modules/tween", "modules/camera", "modules/render3d",
-	"modules/spawn", "modules/savegame", "app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
+	"modules/spawn", "modules/savegame", "modules/audio", "app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
 }
 
 // match reports whether p matches pattern: "a/b", "a/...", "..." or "*" per segment.

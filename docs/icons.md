@@ -6,11 +6,14 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | Icon | Owner | Size | Used by | Status |
 |---|---|---|---|---|
 | `app.quit` | engine | 16 | File → Quit | ok |
+| `audio.listener` | engine | 16 | component audio.AudioListener2D | ok |
+| `audio.source` | engine | 16 | component audio.AudioSource2D | ok |
+| `audio.zone` | engine | 16 | component audio.AudioZone2D | ok |
 | `build.busy` | engine | 16 | menu bar: native build running | ok |
 | `build.error` | engine | 16 | menu bar: native build failed | ok |
 | `build.ok` | engine | 16 | menu bar: native build ok | ok |
 | `cat.3d` | engine | 16 | Create → 3D submenu | ok |
-| `cat.audio` | engine | 16 | reserved until Stage 10: category icon of the audio components | ok |
+| `cat.audio` | engine | 16 | Documentation: Audio group and module | ok |
 | `cat.camera` | engine | 24 | New Project: template 2.5d | ok |
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own | ok |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results | ok |
@@ -95,6 +98,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `panel.input_focus` | engine | 16 | Input Focus tab | ok |
 | `panel.inspector` | engine | 16 | Inspector tab | ok |
 | `panel.keymap` | engine | 16 | Keymap tab | ok |
+| `panel.mixer` | engine | 16 | Audio Mixer tab | ok |
 | `panel.problems` | engine | 16 | Problems tab | ok |
 | `panel.profiler` | engine | 16 | Profiler tab | ok |
 | `panel.references` | engine | 16 | References tab | ok |

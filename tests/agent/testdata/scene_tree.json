@@ -164,6 +164,9 @@
         "enabled": true,
         "components": [
           {
+            "type": "audio.AudioListener2D"
+          },
+          {
             "type": "camera.CameraFollow2D"
           },
           {
@@ -183,6 +186,9 @@
         "path": "Root/ArenaZone",
         "enabled": true,
         "components": [
+          {
+            "type": "audio.AudioZone2D"
+          },
           {
             "type": "camera.CameraZone2D"
           },

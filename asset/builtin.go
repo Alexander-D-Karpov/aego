@@ -29,8 +29,10 @@ var builtins = [...]Builtin{
 	{ID: BuiltinWhite, Name: "engine/textures/white", Kind: ArtTexture},
 }
 
+var allBuiltins = append(builtins[:len(builtins):len(builtins)], builtinAudioEntries()...)
+
 func Builtins() []Builtin {
-	return builtins[:]
+	return allBuiltins
 }
 
 func IsBuiltin(id ids.AssetID) bool {
@@ -38,7 +40,7 @@ func IsBuiltin(id ids.AssetID) bool {
 }
 
 func LookupBuiltin(id ids.AssetID) (Builtin, bool) {
-	for _, b := range builtins {
+	for _, b := range allBuiltins {
 		if b.ID == id {
 			return b, true
 		}

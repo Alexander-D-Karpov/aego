@@ -76,6 +76,17 @@ Guides
     Scripting -> camera/scripting.html
     Editor tools -> camera/editor.html
     Go -> camera/go.html
+  Audio -> audio.html
+    Clips -> audio/clips.html
+    Audio events -> audio/events.html
+    Spatial sound -> audio/spatial.html
+    Zones -> audio/zones.html
+    Buses and settings -> audio/buses.html
+    Music, pause and rewind -> audio/music.html
+    Scripting -> audio/scripting.html
+    Editor tools -> audio/editor.html
+    Audio on the web -> audio/web.html
+    Go -> audio/go.html
   Rendering
     Sprites -> render2d/sprites.html
     Cameras -> render2d/cameras.html
@@ -106,8 +117,11 @@ Reference
       Tween -> ref/aego/tween.Tween.html
     aego/scene -> ref/aego/scene.html
     aego/save -> ref/aego/save.html
+    aego/data -> ref/aego/data.html
     aego/debug -> ref/aego/debug.html
     aego/settings -> ref/aego/settings.html
+    aego/audio -> ref/aego/audio.html
+      Sound -> ref/aego/audio.Sound.html
   Components
     Core -> ref/module/engine.html
       PrefabInstance -> ref/engine.PrefabInstance.html
@@ -135,6 +149,10 @@ Reference
       Mesh Renderer -> ref/engine.MeshRenderer.html
     Saving -> ref/module/save.html
       Persist -> ref/save.Persist.html
+    Audio -> ref/module/audio.html
+      Audio Listener 2D -> ref/audio.AudioListener2D.html
+      Audio Source 2D -> ref/audio.AudioSource2D.html
+      Audio Zone 2D -> ref/audio.AudioZone2D.html
   Project settings
     Engine -> section/engine.html
     Render -> section/render2d.html

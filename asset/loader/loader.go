@@ -378,6 +378,13 @@ func (l *Loader) Table(id ids.AssetID) ([]byte, bool) {
 	return l.blob(id, asset.ArtTable)
 }
 
+func (l *Loader) Audio(id ids.AssetID) ([]byte, bool) {
+	if data, ok := asset.BuiltinAudio(id); ok {
+		return data, true
+	}
+	return l.blob(id, asset.ArtAudio)
+}
+
 func (l *Loader) Revision() uint64 {
 	return uint64(l.gen)
 }
@@ -430,6 +437,8 @@ func (l *Loader) Preload(list ...ids.AssetID) error {
 			_, ok = l.Data(id)
 		case asset.ArtTable:
 			_, ok = l.Table(id)
+		case asset.ArtAudio:
+			_, ok = l.Audio(id)
 		}
 		if !ok {
 			return errs.New(errs.AssetLoadFailed, "asset failed to load", log.F("asset", id.String()), log.F("kind", string(e.Kind)))
@@ -476,7 +485,7 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 		return staged{id: e.ID, kind: e.Kind, geo: m}, true, nil
 	case asset.ArtScript:
 		return staged{id: e.ID, kind: e.Kind}, true, nil
-	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable:
+	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable, asset.ArtAudio:
 		art, ok := e.Artifact(e.Kind)
 		if !ok {
 			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
@@ -601,7 +610,8 @@ func (l *Loader) Close() {
 }
 
 var (
-	_ asset.Resolver   = (*Loader)(nil)
-	_ asset.Decoder    = (*Loader)(nil)
-	_ asset.DataSource = (*Loader)(nil)
+	_ asset.Resolver    = (*Loader)(nil)
+	_ asset.Decoder     = (*Loader)(nil)
+	_ asset.DataSource  = (*Loader)(nil)
+	_ asset.AudioSource = (*Loader)(nil)
 )

@@ -24,6 +24,7 @@ type Platform struct {
 	events   []platform.Event
 	clipText string
 	clipData map[string][]byte
+	audio    *Audio
 }
 
 func New(opts Options) *Platform {
@@ -72,6 +73,9 @@ func (p *Platform) Push(ev platform.Event) {
 func (p *Platform) PollEvents(fn func(platform.Event)) {
 	if p.opts.FrameTime > 0 {
 		p.sim += p.opts.FrameTime
+	}
+	if p.audio != nil {
+		p.audio.advance()
 	}
 	if len(p.queue) == 0 {
 		return

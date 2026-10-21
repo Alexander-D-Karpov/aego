@@ -28,6 +28,9 @@ const (
 	EvPadButtonDown
 	EvPadButtonUp
 	EvPadAxis
+	EvAudioDeviceAdded
+	EvAudioDeviceRemoved
+	EvAudioDeviceFormatChanged
 )
 
 var eventKindNames = [...]string{
@@ -35,6 +38,8 @@ var eventKindNames = [...]string{
 	"WindowMinimized", "WindowRestored", "KeyDown", "KeyUp", "TextInput",
 	"MouseMove", "MouseDown", "MouseUp", "MouseWheel",
 	"TextEditing", "DropBegin", "DropFile", "DropText", "DropComplete",
+	"PadAdded", "PadRemoved", "PadButtonDown", "PadButtonUp", "PadAxis",
+	"AudioDeviceAdded", "AudioDeviceRemoved", "AudioDeviceFormatChanged",
 }
 
 func (k EventKind) String() string {
@@ -55,6 +60,7 @@ type Event struct {
 	EditLen   int32
 	Window    WindowMetrics
 	Pad       input.PadEvent
+	Audio     AudioDevice
 }
 
 func (e *Event) TextBytes() []byte {

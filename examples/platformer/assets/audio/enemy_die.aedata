@@ -1,0 +1,15 @@
+data version=1 type="audio.AudioEvent" {
+  variants=[asset("a0d10000000000000000000000000004")]
+  volume=0.9
+  pitch=1
+  pitchRandom=0.08
+  bus=sfx
+  priority=30
+  maxVoices=3
+  steal=oldest
+  spatial=true
+  minDistance=3
+  maxDistance=18
+  rolloff={ ease=outQuad }
+  panWidth=0.8
+}

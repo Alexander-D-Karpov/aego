@@ -27,6 +27,9 @@
 #define AEGO_EV_PAD_DOWN      20
 #define AEGO_EV_PAD_UP        21
 #define AEGO_EV_PAD_AXIS      22
+#define AEGO_EV_AUDIO_ADDED   23
+#define AEGO_EV_AUDIO_REMOVED 24
+#define AEGO_EV_AUDIO_FORMAT  25
 #define AEGO_PAD_BUTTONS      15
 #define AEGO_PAD_AXES         6
 
@@ -62,6 +65,7 @@ typedef struct {
 	const char* data;
 	int start;
 	int length;
+	Uint32 device;
 } aego_event;
 
 typedef struct {
@@ -106,5 +110,12 @@ int aego_displays(SDL_DisplayID* out, int max);
 bool aego_display_current(SDL_DisplayID id, aego_mode* out);
 int aego_display_modes(SDL_DisplayID id, aego_mode* out, int max);
 bool aego_set_window_mode(SDL_Window* w, int mode, SDL_DisplayID id, int width, int height, float hz);
+
+SDL_AudioStream* aego_audio_open(int freq, int ch, int frames, int* got_freq, int* got_frames);
+bool aego_audio_put(SDL_AudioStream* s, const float* data, int bytes);
+int aego_audio_queued(SDL_AudioStream* s);
+void aego_audio_pause(SDL_AudioStream* s, int on);
+void aego_audio_close(SDL_AudioStream* s);
+Uint32 aego_audio_device(SDL_AudioStream* s);
 
 #endif

@@ -1,6 +1,7 @@
 package camera2d
 
 import (
+	"aego/core/mathx"
 	"aego/render/view"
 	"aego/scene"
 )
@@ -12,6 +13,10 @@ const (
 
 type Adjuster interface {
 	Adjust(node scene.NodeHandle, v view.View) view.View
+}
+
+type Viewer interface {
+	ViewCenter() (mathx.Vec2, bool)
 }
 
 type Accessibility struct {

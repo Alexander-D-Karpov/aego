@@ -31,6 +31,7 @@ func (v Violation) String() string {
 type collector struct {
 	module string
 	exc    []*exception
+	ext    []*external
 	byKey  map[string]*Violation
 }
 
@@ -82,6 +83,14 @@ func Check(cfg Config) ([]Violation, error) {
 	c := &collector{module: module, exc: exc, byKey: map[string]*Violation{}}
 	for _, b := range bad {
 		c.add("exceptions", "exception-syntax", b, "")
+	}
+	ext, badExt, err := loadExternal(filepath.Join(root, externalFile))
+	if err != nil {
+		return nil, err
+	}
+	c.ext = ext
+	for _, b := range badExt {
+		c.add("external", "external-syntax", b, "")
 	}
 
 	def, err := loadGraph(root, module, variantSpec{name: "default", patterns: []string{"./..."}})
@@ -182,6 +191,9 @@ func Check(cfg Config) ([]Violation, error) {
 	for _, s := range staleExceptions(exc, variants) {
 		c.add("exceptions", "exception-unused", s, "")
 	}
+	for _, s := range unusedExternal(ext) {
+		c.add("external", "external-unused", s, "")
+	}
 	return c.list(), nil
 }
 
@@ -221,7 +233,7 @@ func (c *collector) checkEdges(variant string, g *graph, tests bool) {
 		}
 		if !tests {
 			for _, ext := range info.external {
-				if rule := externalRule(p, ext); rule != "" && !excepted(c.exc, variant, p, ext) {
+				if rule := c.externalRule(p, ext); rule != "" && !excepted(c.exc, variant, p, ext) {
 					c.add(variant, rule, p, "imports external "+ext)
 				}
 			}

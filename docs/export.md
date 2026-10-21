@@ -104,6 +104,8 @@ The game reads its data from memory: the loader hands the bytes to the runtime, 
 
 Checks: EXP010 warns about an asset kind the web runtime cannot load (none yet), EXP011 warns that a native module must build without cgo. The target budget is 8 MB gzip for `game.wasm`; `make site` exports the platformer to `site/demo/` and fails above it.
 
+Sound plays through an AudioWorklet and starts after the player's first click or key press; nothing else is needed from the host. When `index.html` is served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`, the page is cross-origin isolated and the audio output uses a SharedArrayBuffer ring with one block less latency. With COEP every resource the page loads must be same-origin or carry CORP or CORS headers, so add the two headers only when the game loads nothing from other origins. The export does not set them; the engine's own site sends them for `/play/` (`deploy/nginx.conf`).
+
 ## Editor app on macOS
 
 `make editor-app` builds `.cache/Aego Editor.app` with the native menu bar: File, Edit, Scene, Play, Assets, Window and Help move from the window into the system bar. Create stays in the Scene View "+" and the Hierarchy menu. Shortcuts are shown in the menu and still go to the editor, so text fields keep their own keys.

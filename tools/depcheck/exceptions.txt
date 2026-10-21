@@ -22,11 +22,17 @@ script/... -> modules/input, test|test-editor, toolchain tests run scripts again
 
 # Semantic pass.
 ... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
+asset/... -> "audio", semantic, the artifact kind and importer ID of sound files equal the audio module ID (D310)
+asset/importers/audio -> "AUD*", semantic, the importer reports AUD001 for files it cannot read, the code the audio module documents (D310)
+script/types -> "audio", semantic, AssetRef<Clip> names the audio artifact kind, as AssetRef<Texture> names texture (D310)
+editor/core/workspace/workspace.go -> "audio.mixer", semantic, the panel ID audio.mixer in the Audio workspace preset names the mixer panel of the audio module (D325)
+engine/recorder -> "audio", semantic, the record kind audio is written by the audio module (D326)
 render/... -> "debug*", semantic, render/debug is the line backend that modules/debug drives; the debug pass, shader, depth pipeline and font names predate the module and are not module references (D231)
 schema/... -> "display", semantic, the export attribute and struct tag key for a display name predate the display module (D238)
 asset/importers/preset -> "engine.Script", semantic, a preset file keeps a script attachment under the core script component name, which the importer reads without the scene layer (D282)
 editor/core/workspace/layouts.go -> "audio", semantic, the built-in Audio workspace ID is a layout name, not a reference to the audio module (D278)
-editor/core/state/state.go -> "camera", semantic, the scene view state field of the editor camera predates the camera module and does not name it (D304)
+editor/core/state/state.go -> "camera", semantic, the "camera" key of the field Doc.Camera in editor/core/state/state.go (editor camera of the scene view) predates the camera module and does not name it; remove this line when that key is renamed (D304)
+audio/codec/wav -> "data", semantic, "data" is the RIFF chunk ID of the WAV sample data, not a reference to the data module (D309)
 script/... -> "display", semantic, the @export(display=...) attribute key and its completion predate the display module (D238)
 engine/engine.go -> "display", semantic, the startup log line labels display metrics; it is not a reference to the display module (D238)
 asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)

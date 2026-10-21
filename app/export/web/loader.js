@@ -8,6 +8,14 @@
     const status = document.getElementById("status");
     const errorBox = document.getElementById("error");
     const full = document.getElementById("fullscreen");
+    const mute = document.getElementById("mute");
+
+    function syncMute() {
+        const on = globalThis.aegoAudioMute();
+        mute.textContent = on ? "🔇" : "🔊";
+        mute.title = on ? "Unmute" : "Mute";
+        mute.setAttribute("aria-label", mute.title);
+    }
     const PARALLEL = 6;
     const started = performance.now();
     let total = 0;
@@ -34,12 +42,21 @@
             if (errorBox.hidden) loader.remove();
         }, 300);
         full.hidden = !canvas.requestFullscreen;
+        if (typeof globalThis.aegoAudioMute === "function") {
+            mute.hidden = false;
+            syncMute();
+        }
         canvas.focus();
     };
 
     full.addEventListener("click", () => {
         const done = canvas.requestFullscreen();
         if (done && done.catch) done.catch(() => {});
+        canvas.focus();
+    });
+    mute.addEventListener("click", () => {
+        globalThis.aegoAudioMute(!globalThis.aegoAudioMute());
+        syncMute();
         canvas.focus();
     });
     document.addEventListener("fullscreenchange", () => {

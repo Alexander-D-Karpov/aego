@@ -10,9 +10,7 @@ type Reservation struct {
 	Until  string
 }
 
-var Reserved = []Reservation{
-	{ID: "cat.audio", Reason: "category icon of the audio components", Until: "10"},
-}
+var Reserved = []Reservation{}
 
 func Uses() []module.IconUse {
 	out := append([]module.IconUse(nil), Editor...)
@@ -32,6 +30,7 @@ var Editor = []module.IconUse{
 	use("build.error", 16, "menu bar: native build failed"),
 	use("build.ok", 16, "menu bar: native build ok"),
 	use("cat.3d", 16, "Create → 3D submenu"),
+	use("cat.audio", 16, "Documentation: Audio group and module"),
 	use("cat.game", 16, "Inspector and Add Component: components of a project module without an icon of their own"),
 	use("cat.node", 16, "Search: node results"),
 	use("cat.rendering", 16, "Search: mesh assets"),
@@ -96,6 +95,7 @@ var Editor = []module.IconUse{
 	use("panel.input_focus", 16, "Input Focus tab"),
 	use("panel.inspector", 16, "Inspector tab"),
 	use("panel.keymap", 16, "Keymap tab"),
+	use("panel.mixer", 16, "Audio Mixer tab"),
 	use("panel.problems", 16, "Problems tab"),
 	use("panel.profiler", 16, "Profiler tab"),
 	use("panel.references", 16, "References tab"),

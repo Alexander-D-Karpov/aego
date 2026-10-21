@@ -132,6 +132,14 @@ func (s *Service) find(name string) *output {
 	return nil
 }
 
+func (s *Service) ViewCenter() (mathx.Vec2, bool) {
+	o := s.find("")
+	if o == nil || !o.hasView {
+		return mathx.Vec2{}, false
+	}
+	return o.render.Position, true
+}
+
 func (s *Service) out(name string) *output {
 	if o := s.find(name); o != nil {
 		return o

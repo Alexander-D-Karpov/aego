@@ -1,0 +1,10 @@
+data version=1 type="audio.AudioEvent" {
+  variants=[asset("a0d10000000000000000000000000003")]
+  volume=0.9
+  pitch=1
+  pitchRandom=0.05
+  bus=sfx
+  priority=40
+  maxVoices=2
+  steal=oldest
+}

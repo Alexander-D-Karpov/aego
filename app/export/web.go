@@ -26,6 +26,7 @@ var webFS embed.FS
 const (
 	CodeWebAsset  = "EXP010"
 	CodeWebNative = "EXP011"
+	CodeWebMP3    = "EXP012"
 	WebWasm       = "game.wasm"
 	WebFiles      = "files.json"
 	WebBudget     = 8 << 20
@@ -68,7 +69,11 @@ func CheckWeb(s *Snapshot, native bool) []problems.Diagnostic {
 		out = append(out, diag(CodeWebNative, problems.Warning,
 			"the native Go module is compiled to WebAssembly: it must build without cgo and must not use files, processes or the network", "native/"))
 	}
+	_, ffmpegErr := exec.LookPath("ffmpeg")
 	s.idx.Each(func(e *asset.Entry) {
+		if ffmpegErr != nil && strings.EqualFold(filepath.Ext(e.Source), ".mp3") {
+			out = append(out, diag(CodeWebMP3, problems.Warning, e.Source+" is an mp3; it is converted to ogg on import, which needs ffmpeg in PATH", e.Source))
+		}
 		if e.Missing || exportSkip(e.Kind) || !webUnsupported(e.Kind) {
 			return
 		}

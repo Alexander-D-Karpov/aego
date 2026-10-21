@@ -19,12 +19,13 @@ const (
 	Input
 	Animation
 	Custom
+	Audio
 	KindCount
 )
 
 const All = uint32(1)<<KindCount - 1
 
-var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "action", "animation", "custom"}
+var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "action", "animation", "custom", "audio"}
 
 func (k Kind) String() string {
 	if k < KindCount {

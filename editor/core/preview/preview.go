@@ -14,6 +14,9 @@ import (
 
 	"aego/asset"
 	"aego/asset/pipeline"
+	"aego/audio/codec"
+	_ "aego/audio/codec/vorbis"
+	_ "aego/audio/codec/wav"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/mathx"
@@ -104,7 +107,7 @@ func (s *Service) Begin() {
 }
 
 func Image(k asset.ArtifactKind) bool {
-	return k == asset.ArtTexture || k == asset.ArtSpriteRegion
+	return k == asset.ArtTexture || k == asset.ArtSpriteRegion || k == asset.ArtAudio
 }
 
 func Rendered(k asset.ArtifactKind) bool {
@@ -423,11 +426,48 @@ func (s *Service) buildImage(e asset.Entry) (pixels, error) {
 			return pixels{}, err
 		}
 		buf, w, h = crop(ta.Pixels, ta.Width, ra.X, ra.Y, ra.W, ra.H), ra.W, ra.H
+	case asset.ArtAudio:
+		return waveform(data)
 	default:
 		return pixels{}, errs.New(errs.AssetBadArtifact, "asset has no image")
 	}
 	small, sw, sh := downscale(buf, w, h, Size)
 	return pixels{buf: small, w: sw, h: sh}, nil
+}
+
+func waveform(data []byte) (pixels, error) {
+	a, err := asset.DecodeAudio(data)
+	if err != nil {
+		return pixels{}, err
+	}
+	d, err := codec.Open(bytes.NewReader(a.Data), "")
+	if err != nil {
+		return pixels{}, err
+	}
+	defer d.Close()
+	peaks, err := codec.Peaks(d, Size)
+	if err != nil {
+		return pixels{}, err
+	}
+	w, h := Size, Size/2
+	buf := make([]byte, w*h*4)
+	set := func(x, y int, r, g, b byte) {
+		i := (y*w + x) * 4
+		buf[i], buf[i+1], buf[i+2], buf[i+3] = r, g, b, 255
+	}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			set(x, y, 0x1d, 0x20, 0x26)
+		}
+	}
+	mid := h / 2
+	for x, p := range peaks {
+		amp := int(min(p, 1) * float32(mid-1))
+		for y := mid - amp; y <= mid+amp; y++ {
+			set(x, y, 0x6e, 0x9b, 0xf5)
+		}
+	}
+	return pixels{buf: buf, w: w, h: h}, nil
 }
 
 func crop(src []byte, stride, x, y, w, h int) []byte {

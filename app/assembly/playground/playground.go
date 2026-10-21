@@ -4,6 +4,7 @@ import (
 	"aego/app/assembly"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/modules/audio"
 	"aego/modules/camera"
 	"aego/modules/debug"
 	inputmod "aego/modules/input"
@@ -33,6 +34,7 @@ func Catalog() assembly.Catalog {
 		{ID: render3d.ID, New: func(assembly.Options) module.Module { return render3d.New() }},
 		{ID: spawn.ID, New: func(assembly.Options) module.Module { return spawn.New() }},
 		{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }},
+		{ID: audio.ID, New: func(assembly.Options) module.Module { return audio.New() }},
 	}
 }
 

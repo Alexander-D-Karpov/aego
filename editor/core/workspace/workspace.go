@@ -28,6 +28,7 @@ const (
 	Console   = "console"
 	Problems  = "problems"
 	Profiler  = "profiler"
+	Mixer     = "audio.mixer"
 )
 
 type Slot uint8

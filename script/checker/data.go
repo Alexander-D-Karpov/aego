@@ -22,7 +22,7 @@ func (c *checker) dataArg(arg *ast.NamedType, generic string) (string, bool) {
 		}
 	}
 	if generic == "AssetRef" {
-		c.errorf(diag.BadTypeArg, arg.Sp, "AssetRef argument must be Texture, Scene, Prefab, Mesh or a data type")
+		c.errorf(diag.BadTypeArg, arg.Sp, "AssetRef argument must be Texture, Scene, Prefab, Mesh, Clip or a data type")
 	} else {
 		c.errorf(diag.BadTypeArg, arg.Sp, "TableRef argument must be a data type")
 	}

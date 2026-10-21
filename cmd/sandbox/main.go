@@ -9,6 +9,7 @@ import (
 
 	"aego/demos"
 	_ "aego/demos/asset-hot-reload"
+	_ "aego/demos/audio"
 	_ "aego/demos/basic"
 	_ "aego/demos/camera"
 	_ "aego/demos/headless"

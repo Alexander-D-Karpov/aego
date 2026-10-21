@@ -189,8 +189,9 @@ func (j *job) license(lib bundle.Lib, src, name string) bundle.Lib {
 }
 
 func (j *job) libs() []bundle.Lib {
+	vorbis := j.license(bundle.Lib{Name: "oggvorbis", Link: "static"}, filepath.Join(j.opt.Engine, "audio", "codec", "vorbis", "internal", "oggvorbis", "LICENSE"), "oggvorbis.txt")
 	if j.t.Web() {
-		return []bundle.Lib{j.license(bundle.Lib{Name: "Go wasm_exec.js", Link: "script", File: webExec}, filepath.Join(j.goroot, "LICENSE"), "Go.txt")}
+		return []bundle.Lib{j.license(bundle.Lib{Name: "Go wasm_exec.js", Link: "script", File: webExec}, filepath.Join(j.goroot, "LICENSE"), "Go.txt"), vorbis}
 	}
-	return []bundle.Lib{j.license(bundle.Lib{Name: "SDL3", Link: "static"}, j.sdlLicense(), "SDL3.txt")}
+	return []bundle.Lib{j.license(bundle.Lib{Name: "SDL3", Link: "static"}, j.sdlLicense(), "SDL3.txt"), vorbis}
 }

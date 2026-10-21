@@ -44,7 +44,7 @@ func BuiltinWorkspaces() []workspace.Preset {
 		}},
 		{ID: workspace.Audio, Title: "Audio", Order: 30, Slots: map[string]workspace.Slot{
 			workspace.Hierarchy: off, workspace.Game: off, workspace.Problems: off, workspace.Profiler: off,
-			events.ID: off, watch.ID: off,
+			events.ID: off, watch.ID: off, workspace.Mixer: workspace.SlotBottom,
 		}},
 	}
 }

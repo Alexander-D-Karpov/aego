@@ -1,0 +1,12 @@
+meta version=1 {
+  id="a0d10000000000000000000000000003"
+  importer="audio"
+  importerVersion=1
+  settings {
+    bus=sfx
+    gain=1
+    loopEnd=-1
+    loopStart=-1
+    stream=auto
+  }
+}

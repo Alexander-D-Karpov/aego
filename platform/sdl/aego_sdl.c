@@ -246,6 +246,15 @@ int aego_poll(aego_event* e) {
 		e->button = ev.gaxis.axis;
 		e->wx = ev.gaxis.value < 0 ? ev.gaxis.value / 32768.0f : ev.gaxis.value / 32767.0f;
 		break;
+	case SDL_EVENT_AUDIO_DEVICE_ADDED:
+	case SDL_EVENT_AUDIO_DEVICE_REMOVED:
+	case SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED:
+		if (ev.adevice.recording) break;
+		if (ev.type == SDL_EVENT_AUDIO_DEVICE_ADDED) e->kind = AEGO_EV_AUDIO_ADDED;
+		else if (ev.type == SDL_EVENT_AUDIO_DEVICE_REMOVED) e->kind = AEGO_EV_AUDIO_REMOVED;
+		else e->kind = AEGO_EV_AUDIO_FORMAT;
+		e->device = ev.adevice.which;
+		break;
 	}
 	return 1;
 }
@@ -397,4 +406,51 @@ bool aego_set_window_mode(SDL_Window* w, int mode, SDL_DisplayID id, int width, 
 	}
 	SDL_SyncWindow(w);
 	return true;
+}
+
+SDL_AudioStream* aego_audio_open(int freq, int ch, int frames, int* got_freq, int* got_frames) {
+	if (!SDL_WasInit(SDL_INIT_AUDIO) && !SDL_InitSubSystem(SDL_INIT_AUDIO)) return NULL;
+	SDL_AudioSpec dev;
+	int dev_frames = 0;
+	if (freq <= 0) {
+		freq = SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &dev, &dev_frames) ? dev.freq : 48000;
+	}
+	if (frames > 0) {
+		char buf[16];
+		SDL_snprintf(buf, sizeof(buf), "%d", frames);
+		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, buf);
+	}
+	SDL_AudioSpec spec;
+	spec.format = SDL_AUDIO_F32;
+	spec.channels = ch;
+	spec.freq = freq;
+	SDL_AudioStream* s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+	if (!s) return NULL;
+	*got_freq = freq;
+	*got_frames = frames;
+	if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(s), &dev, &dev_frames) && dev_frames > 0) *got_frames = dev_frames;
+	SDL_ResumeAudioStreamDevice(s);
+	return s;
+}
+
+bool aego_audio_put(SDL_AudioStream* s, const float* data, int bytes) {
+	return SDL_PutAudioStreamData(s, data, bytes);
+}
+
+int aego_audio_queued(SDL_AudioStream* s) {
+	int n = SDL_GetAudioStreamQueued(s);
+	return n < 0 ? 0 : n;
+}
+
+void aego_audio_pause(SDL_AudioStream* s, int on) {
+	if (on) SDL_PauseAudioStreamDevice(s);
+	else SDL_ResumeAudioStreamDevice(s);
+}
+
+void aego_audio_close(SDL_AudioStream* s) {
+	SDL_DestroyAudioStream(s);
+}
+
+Uint32 aego_audio_device(SDL_AudioStream* s) {
+	return SDL_GetAudioStreamDevice(s);
 }

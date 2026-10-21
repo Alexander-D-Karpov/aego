@@ -137,6 +137,9 @@ scene version=1 {
         EnemyA=node("c0000000000000000000000000000004")
         EnemyB=node("c0000000000000000000000000000007")
         LandShake=5.6
+        JumpSound=asset("a0d10000000000000000000000000011")
+        HitSound=asset("a0d10000000000000000000000000012")
+        Theme=asset("a0d10000000000000000000000000005")
       }
     }
     node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
@@ -248,6 +251,9 @@ scene version=1 {
       frequency=25
       exponent=2
     }
+    component "audio.AudioListener2D" version=1 {
+      active=true
+    }
   }
   node "c000000000000000000000000000000c" name="ArenaZone" enabled=true layers=1 {
     transform {
@@ -274,6 +280,13 @@ scene version=1 {
       useBounds=false
       bounds=[0, 0, 0, 0]
       area=[-6, -3, 12, 7]
+    }
+    component "audio.AudioZone2D" version=1 {
+      area=[-6, -3, 12, 7]
+      bus=music
+      gain=0.5
+      priority=0
+      fadeTime=0.6
     }
   }
 }

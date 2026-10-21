@@ -25,6 +25,7 @@ func init() {
 
 type Platform struct {
 	win   *Window
+	audio *Audio
 	cev   C.aego_event
 	info  platform.Info
 	start uint64
@@ -240,6 +241,17 @@ func (p *Platform) translate() (platform.Event, bool) {
 	case C.AEGO_EV_PAD_AXIS:
 		ev.Kind = platform.EvPadAxis
 		ev.Pad = input.PadEvent{ID: uint32(c.pad), Axis: input.PadAxis(c.button), Value: float32(c.wx)}
+	case C.AEGO_EV_AUDIO_ADDED, C.AEGO_EV_AUDIO_REMOVED, C.AEGO_EV_AUDIO_FORMAT:
+		switch c.kind {
+		case C.AEGO_EV_AUDIO_ADDED:
+			ev.Kind = platform.EvAudioDeviceAdded
+		case C.AEGO_EV_AUDIO_REMOVED:
+			ev.Kind = platform.EvAudioDeviceRemoved
+		default:
+			ev.Kind = platform.EvAudioDeviceFormatChanged
+		}
+		id := uint32(c.device)
+		ev.Audio = platform.AudioDevice{ID: id, Default: p.audio != nil && p.audio.dev == id}
 	default:
 		return ev, false
 	}
@@ -261,6 +273,9 @@ func (p *Platform) Info() platform.Info {
 }
 
 func (p *Platform) Shutdown() {
+	if p.audio != nil {
+		p.audio.Close()
+	}
 	if p.win != nil {
 		p.win.Close()
 	}

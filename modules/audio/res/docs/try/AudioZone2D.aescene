@@ -1,0 +1,180 @@
+scene version=1 {
+  node "a0d40000000000000000000000000001" name="Ground" enabled=true layers=1 {
+    transform {
+      position=[0, 2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#4b5563ff
+      origin=[0.5, 0.5]
+      size=[30, 0.6]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=0
+      mask=-1
+    }
+    component "physics.BoxCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.2
+      restitution=0
+      density=1
+      size=[30, 0.6]
+    }
+  }
+  node "a0d40000000000000000000000000002" name="Music" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "audio.AudioSource2D" version=1 {
+      clip=asset("ae900000000000000000000000000a04")
+      event=asset("00000000000000000000000000000000")
+      volume=0.8
+      pitch=1
+      pan=0
+      bus=music
+      loop=true
+      playOnStart=true
+      spatial=false
+      minDistance=1
+      maxDistance=10
+      rolloff={ ease=outQuad }
+      panWidth=0.8
+      pauseWith=never
+    }
+  }
+  node "a0d40000000000000000000000000003" name="Zone" enabled=true layers=1 {
+    transform {
+      position=[0, -1]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#7c3aed55
+      origin=[0.5, 0.5]
+      size=[6, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "audio.AudioZone2D" version=1 {
+      area=[-3, -4, 6, 8]
+      bus=music
+      gain=0.2
+      priority=0
+      fadeTime=0.4
+    }
+  }
+  node "a0d40000000000000000000000000004" name="Ball" enabled=true layers=1 {
+    transform {
+      position=[-8, 1.2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#f59e0bff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=true
+      bullet=false
+      allowSleep=false
+      interpolate=true
+      layer=0
+      mask=-1
+    }
+    component "physics.CircleCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0
+      restitution=0
+      density=1
+      radius=0.5
+    }
+    component "audio.AudioListener2D" version=1 {
+      active=true
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.Walker" enabled=true {
+        Speed=5
+        Every=4
+      }
+    }
+  }
+  node "a0d40000000000000000000000000005" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[-8, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=40
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#111827ff
+      scale=fitVirtual
+      virtual=[960, 540]
+      active=true
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=0
+      output=""
+      zoom=0
+      blendTime=0.6
+      blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      snapToPixels=false
+    }
+    component "camera.CameraFollow2D" version=1 {
+      target=node("a0d40000000000000000000000000004")
+      deadzone=[0.45, 0.4, 0.1, 0.2]
+      damping=[5, 5]
+      lookahead=[0, 0]
+      maxLookahead=[0, 0]
+      lookaheadSmoothing=3
+      snapDistance=20
+    }
+  }
+}

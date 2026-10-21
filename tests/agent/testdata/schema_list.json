@@ -119,6 +119,30 @@
       "doc": "Pins this body to the Target body at Anchor, with an optional limit and motor."
     },
     {
+      "name": "audio.AudioListener2D",
+      "kind": "component",
+      "display": "Audio Listener 2D",
+      "category": "Audio",
+      "owner": "audio",
+      "doc": "Hears spatial sound from its node. Without one the camera of the main output listens."
+    },
+    {
+      "name": "audio.AudioSource2D",
+      "kind": "component",
+      "display": "Audio Source 2D",
+      "category": "Audio",
+      "owner": "audio",
+      "doc": "Plays a clip or an audio event from its node."
+    },
+    {
+      "name": "audio.AudioZone2D",
+      "kind": "component",
+      "display": "Audio Zone 2D",
+      "category": "Audio",
+      "owner": "audio",
+      "doc": "While the listener is inside Area, Bus is turned to Gain."
+    },
+    {
       "name": "camera.VirtualCamera2D",
       "kind": "component",
       "display": "Virtual Camera 2D",
@@ -170,6 +194,14 @@
       "name": "game.Health",
       "kind": "component",
       "owner": "mygame"
+    },
+    {
+      "name": "audio.AudioEvent",
+      "kind": "data",
+      "display": "Audio Event",
+      "category": "Audio",
+      "owner": "audio",
+      "doc": "A sound to play with its variants, randomness, bus, voice limit and space."
     },
     {
       "name": "mygame.EnemyStats",
