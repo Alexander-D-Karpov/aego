@@ -750,7 +750,7 @@ script Follow {
 
 script Probe {
 	func Ready() {
-		if node.Has<Health>() {
+		if node.Has<Mana>() {
 			node.Destroy()
 		}
 	}

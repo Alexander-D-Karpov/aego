@@ -13,4 +13,11 @@ Physics/Static Collider
 Physics/Trigger
 Physics/Platform
 Physics/Ball
+Gameplay/Platformer Character
+Gameplay/Top-down Character
+Gameplay/Enemy
+Gameplay/Moving Platform
+Gameplay/Checkpoint
+Gameplay/Kill Zone
+Gameplay/Pickup
 rotator/Rotator

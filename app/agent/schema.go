@@ -90,6 +90,7 @@ func (s *Session) lookupType(name string) (*schema.TypeDescriptor, error) {
 			found = append(found, td)
 		}
 	}
+	found = schema.PreferProject(found)
 	switch len(found) {
 	case 1:
 		return found[0], nil

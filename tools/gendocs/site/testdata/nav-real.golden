@@ -34,6 +34,21 @@ Guides
       In Go -> tags/go.html
   Gameplay
     Input -> input.html
+    Gameplay kit -> gameplay.html
+      Character motion -> gameplay/motion.html
+      Health and damage -> gameplay/health.html
+      Hurtboxes -> gameplay/hurtbox.html
+      Hitboxes -> gameplay/hitbox.html
+      Lifetime -> gameplay/lifetime.html
+      Kill zones -> gameplay/killzone.html
+      Checkpoints -> gameplay/checkpoint.html
+      Respawn -> gameplay/respawn.html
+      Pickups -> gameplay/pickup.html
+      State machines -> gameplay/statemachine.html
+      Time and replays -> gameplay/time.html
+      Scripting -> gameplay/scripting.html
+      Editor tools -> gameplay/editor.html
+      Go -> gameplay/go.html
     Time -> time.html
     Tweens and timers -> tween.html
       Property paths -> tween/paths.html
@@ -144,6 +159,17 @@ Reference
       Camera Shake 2D -> ref/camera.CameraShake2D.html
       Camera Zone 2D -> ref/camera.CameraZone2D.html
       Virtual Camera 2D -> ref/camera.VirtualCamera2D.html
+    Gameplay -> ref/module/gameplay.html
+      Checkpoint 2D -> ref/gameplay.Checkpoint2D.html
+      Health -> ref/gameplay.Health.html
+      Hitbox 2D -> ref/gameplay.Hitbox2D.html
+      Hurtbox 2D -> ref/gameplay.Hurtbox2D.html
+      Kill Zone 2D -> ref/gameplay.KillZone2D.html
+      Lifetime -> ref/gameplay.Lifetime.html
+      Motion 2D -> ref/gameplay.Motion2D.html
+      Pickup 2D -> ref/gameplay.Pickup2D.html
+      Respawn -> ref/gameplay.Respawn.html
+      State Machine -> ref/gameplay.StateMachine.html
     Rendering 3D -> ref/module/render3d.html
       Camera 3D -> ref/engine.Camera3D.html
       Mesh Renderer -> ref/engine.MeshRenderer.html

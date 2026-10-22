@@ -81,7 +81,7 @@ func (d *Document) resolve(name string) []*schema.TypeDescriptor {
 			found = append(found, td)
 		}
 	}
-	return found
+	return schema.PreferProject(found)
 }
 
 func ambiguous(name string, found []*schema.TypeDescriptor) error {

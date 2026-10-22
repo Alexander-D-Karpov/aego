@@ -1,22 +1,28 @@
 package gameplay
 
 import (
-	"aego/contracts/physics2d"
+	"errors"
+
+	"aego/core/clock"
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/module"
 )
 
 const (
-	ID               = "gameplay"
-	ServiceID        = ID + ".service"
-	SystemMotion     = ID + ".motion"
-	SystemMotionPost = ID + ".motion_post"
-	Category         = "Gameplay"
-	needsPhysics     = "physics"
-	needsScripts     = "script"
-	scriptFixed      = "script.fixed"
-	scriptEvents     = "script.events_fixed"
+	ID              = "gameplay"
+	ServiceID       = ID + ".service"
+	SystemMotion    = ID + ".motion"
+	SystemPost      = ID + ".post"
+	SystemFrame     = ID + ".frame"
+	SystemFSMFixed  = ID + ".fsm_fixed"
+	SystemFSMUpdate = ID + ".fsm_update"
+	scriptUpdate    = "script.update"
+	Category        = "Gameplay"
+	needsPhysics    = "physics"
+	needsScripts    = "script"
+	scriptFixed     = "script.fixed"
+	scriptEvents    = "script.events_fixed"
 
 	channel log.Channel = "gameplay"
 )
@@ -39,11 +45,16 @@ func (*Module) IconDir() string {
 }
 
 func (m *Module) Register(r *module.Registry) error {
-	if err := registerMotion(r, &m.sig); err != nil {
+	if err := errors.Join(registerMotion(r, &m.sig), registerCombat(r, &m.sig), registerZones(r, &m.sig), registerFSM(r, &m.sig)); err != nil {
 		return err
 	}
+	registerTemplates(r)
+	r.SaveSection(ID+".respawn", respawnSection{})
+	r.System(engine.SystemDesc{ID: SystemFSMFixed, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed}, Before: []string{SystemMotion}, System: fsmFixedSystem{}})
 	r.System(engine.SystemDesc{ID: SystemMotion, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed}, System: fixedSystem{}})
-	r.System(engine.SystemDesc{ID: SystemMotionPost, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay, Before: []string{scriptEvents}, System: postSystem{}})
+	r.System(engine.SystemDesc{ID: SystemPost, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay, Before: []string{scriptEvents}, System: postSystem{}})
+	r.System(engine.SystemDesc{ID: SystemFSMUpdate, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, After: []string{scriptUpdate}, System: fsmUpdateSystem{}})
+	r.System(engine.SystemDesc{ID: SystemFrame, Phase: engine.PhasePostUpdate, Scope: engine.ScopePlay, Pause: engine.PauseAlways, System: frameSystem{}})
 	registerDocs(r)
 	return nil
 }
@@ -75,14 +86,6 @@ func Of(w *engine.World) *Service {
 	return s
 }
 
-// queries finds the physics queries lazily: physics may attach to the world after this module.
-func (s *Service) queries() physics2d.Queries {
-	if s.q == nil && s.world != nil {
-		s.q, _ = engine.ServiceOf[physics2d.Queries](s.world, physics2d.ServiceID)
-	}
-	return s.q
-}
-
 type fixedSystem struct{}
 
 func (fixedSystem) Run(ctx *engine.Context) {
@@ -96,5 +99,36 @@ type postSystem struct{}
 func (postSystem) Run(ctx *engine.Context) {
 	if s := Of(ctx.World); s != nil {
 		s.Post()
+	}
+}
+
+type frameSystem struct{}
+
+func (frameSystem) Run(ctx *engine.Context) {
+	s := Of(ctx.World)
+	if s == nil {
+		return
+	}
+	game, real := float32(ctx.Dt), float32(ctx.Unscaled)
+	if t := ctx.Time; t != nil {
+		game = float32(t.Span(clock.Game).Delta)
+		real = float32(t.Span(clock.Real).Delta)
+	}
+	s.Frame(game, real)
+}
+
+type fsmFixedSystem struct{}
+
+func (fsmFixedSystem) Run(ctx *engine.Context) {
+	if s := Of(ctx.World); s != nil {
+		s.FSMFixed(float32(ctx.Dt))
+	}
+}
+
+type fsmUpdateSystem struct{}
+
+func (fsmUpdateSystem) Run(ctx *engine.Context) {
+	if s := Of(ctx.World); s != nil {
+		s.FSMUpdate(float32(ctx.Dt))
 	}
 }

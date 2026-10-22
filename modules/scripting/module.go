@@ -2,6 +2,7 @@ package scripting
 
 import (
 	"aego/contracts/persistence"
+	"aego/contracts/scriptcall"
 	"aego/contracts/scriptevents"
 	"aego/contracts/scriptfields"
 	"aego/contracts/scriptpool"
@@ -60,6 +61,7 @@ func (Module) AttachWorld(ctx *module.AttachContext) error {
 	ctx.World.SetView(signals.ServiceID, scriptsystems.Hub(ctx.World))
 	ctx.World.SetView(scriptpool.ServiceID, scriptsystems.Lifecycle(ctx.World))
 	ctx.World.SetView(persistence.ScriptsID, scriptsystems.Persist(ctx.World))
+	ctx.World.SetView(scriptcall.ServiceID, scriptsystems.Caller(ctx.World))
 	return nil
 }
 
@@ -73,4 +75,5 @@ func (Module) DetachWorld(ctx *module.AttachContext) {
 	ctx.World.RemoveService(signals.ServiceID)
 	ctx.World.RemoveService(scriptpool.ServiceID)
 	ctx.World.RemoveService(persistence.ScriptsID)
+	ctx.World.RemoveService(scriptcall.ServiceID)
 }

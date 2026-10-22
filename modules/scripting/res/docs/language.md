@@ -715,7 +715,7 @@ Transforms are read and written by value: `t := node.Transform2D(); t.Position.X
 
 ## Components
 
-`node.Get<SpriteRenderer>()` returns a `ComponentRef<SpriteRenderer>` or `nil`. Field names are the schema names with an upper-cased first letter (`sr.FlipX`, `hp.Current`); read-only fields cannot be assigned. A short component name works when it is unique among registered components; otherwise write the full name (`render2d.SpriteRenderer`). An enum field of a Go component is exposed as `int`.
+`node.Get<SpriteRenderer>()` returns a `ComponentRef<SpriteRenderer>` or `nil`. Field names are the schema names with an upper-cased first letter (`sr.FlipX`, `hp.Current`); read-only fields cannot be assigned. A short component name looks at the project first: if exactly one component of the project (its native modules) has that name, it is used and engine components with the same name are hidden, so a new engine component never breaks a project that already has one. Without a project match the name must be unique among the engine components. Two project components with one name, or two engine ones, report `AES2021` with the candidates; the full name (`gameplay.Health`, `game.Health`) always works. An enum field of a Go component is exposed as `int`.
 
 Components may also expose methods: `hp.Damage(5)`, `body.ApplyImpulse(Vec2{0, -300})`. Which fields and methods are visible is decided by the component's owner when it registers the component (§11); the generated library stubs (`Ctrl+Click` on a component name in the editor) show exactly what is available.
 

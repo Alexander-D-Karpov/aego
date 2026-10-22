@@ -21,4 +21,13 @@ Audio	audio.AudioListener2D	Audio Listener 2D	audio.listener	-
 Audio	audio.AudioSource2D	Audio Source 2D	audio.source	-
 Audio	audio.AudioZone2D	Audio Zone 2D	audio.zone	-
 Gameplay	gameplay.Motion2D	Motion 2D	gameplay.motion	-
+Gameplay	gameplay.Health	Health	gameplay.health	-
+Gameplay	gameplay.Hurtbox2D	Hurtbox 2D	gameplay.hurtbox	-
+Gameplay	gameplay.Hitbox2D	Hitbox 2D	gameplay.hitbox	-
+Gameplay	gameplay.Lifetime	Lifetime	gameplay.lifetime	-
+Gameplay	gameplay.KillZone2D	Kill Zone 2D	gameplay.killzone	-
+Gameplay	gameplay.Checkpoint2D	Checkpoint 2D	gameplay.checkpoint	-
+Gameplay	gameplay.Respawn	Respawn	gameplay.respawn	-
+Gameplay	gameplay.Pickup2D	Pickup 2D	gameplay.pickup	-
+Gameplay	gameplay.StateMachine	State Machine	gameplay.fsm	-
 game	game.Rotator	Rotator	cat.game	rotator

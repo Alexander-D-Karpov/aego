@@ -144,20 +144,56 @@ func (m *Motion2D) Teleport(p mathx.Vec2) {
 	m.st.teleport, m.st.teleportTo = true, p
 }
 
+const kinematic = 1
+
 type signals struct {
-	landed  module.Signal1[float32]
-	left    module.Signal0
-	jumped  module.Signal0
-	wall    module.Signal1[mathx.Vec2]
-	ceiling module.Signal0
+	landed    module.Signal1[float32]
+	left      module.Signal0
+	jumped    module.Signal0
+	wall      module.Signal1[mathx.Vec2]
+	ceiling   module.Signal0
+	damaged   module.Signal2[int64, scene.NodeHandle]
+	healed    module.Signal1[int64]
+	died      module.Signal1[scene.NodeHandle]
+	revived   module.Signal0
+	hit       module.Signal2[scene.NodeHandle, int64]
+	reached   module.Signal1[scene.NodeHandle]
+	respawned module.Signal0
+	collected module.Signal1[scene.NodeHandle]
+	changed   module.Signal2[int64, int64]
 }
 
-func validateMotion(_ module.ValidateContext, m *Motion2D) []problems.Diagnostic {
-	if m.Mode == Platformer && m.GravityScale == 0 && m.JumpSpeed == 0 && m.JumpHeight > 0 {
-		return []problems.Diagnostic{{Code: CodeNoJump, Severity: problems.Error,
-			Message: "Motion 2D: with Gravity Scale 0 the jump speed cannot come from Jump Height, set Jump Speed"}}
+func bodyType(s *scene.Scene) (*schema.TypeDescriptor, schema.FieldID, bool) {
+	td, ok := s.Registry().ByName(bodyName)
+	if !ok {
+		return nil, 0, false
 	}
-	return nil
+	fd, ok := td.Field("type")
+	if !ok {
+		return nil, 0, false
+	}
+	return td, fd.ID, true
+}
+
+func validateMotion(ctx module.ValidateContext, m *Motion2D) []problems.Diagnostic {
+	var out []problems.Diagnostic
+	if td, f, ok := bodyType(ctx.Scene); ok {
+		if v, err := ctx.Scene.GetProperty(ctx.Node, td.ID, f); err == nil && v.I != kinematic {
+			out = append(out, problems.Diagnostic{Code: CodeNotKinematic, Severity: problems.Error, BlocksPlay: true,
+				Message: "Motion 2D moves its body itself: set Body 2D Type to kinematic"})
+		}
+	}
+	if m.Mode == Platformer && m.GravityScale == 0 && m.JumpSpeed == 0 && m.JumpHeight > 0 {
+		out = append(out, problems.Diagnostic{Code: CodeNoJump, Severity: problems.Error,
+			Message: "Motion 2D: with Gravity Scale 0 the jump speed cannot come from Jump Height, set Jump Speed"})
+	}
+	return out
+}
+
+func kinematicOnAdd(ctx module.AddContext, _ *Motion2D) {
+	if td, f, ok := bodyType(ctx.Scene); ok {
+		_ = ctx.Scene.SetProperty(ctx.Node, td.ID, f, schema.Enum(kinematic))
+	}
 }
 
 func registerMotion(r *module.Registry, sig *signals) error {
@@ -208,7 +244,7 @@ func registerMotion(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("groundBody", "Body the character stands on, during Play."),
 		schema.Runtime("velocity", "grounded", "onWall", "onCeiling", "wallNormal", "floorNormal", "floorAngle", "groundBody"),
 		schema.Bitset("collisionMask", needsPhysics, layersList),
-	).Requires(bodyName).Category(Category).Display("Motion 2D").Icon("gameplay.motion").NodeIcon(75).Default(DefaultMotion).Validate(validateMotion)
+	).Requires(bodyName).Category(Category).Display("Motion 2D").Icon("gameplay.motion").NodeIcon(75).Default(DefaultMotion).Validate(validateMotion).OnAdd(kinematicOnAdd)
 
 	b.Proc1("Move", func(_ *bind.Ctx, m *Motion2D, x float32) { m.Move(x) },
 		bind.Doc("Move sets the horizontal input, -1..1; it stays until the next Move."), bind.Params("x"))

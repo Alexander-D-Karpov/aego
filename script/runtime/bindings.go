@@ -124,7 +124,7 @@ func BindComponents(reg *bind.Registry, sr *schema.Registry) {
 			reg.Fail(err)
 			continue
 		}
-		c := &abi.Component{Name: td.FullName}
+		c := &abi.Component{Name: td.FullName, Builtin: td.Builtin}
 		for _, fd := range fields {
 			t, _ := fieldABI(fd)
 			c.Fields = append(c.Fields, abi.Field{Name: exportName(fd.Name), Type: t, ReadOnly: readOnly(fd)})

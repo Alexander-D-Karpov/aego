@@ -191,6 +191,78 @@
       "doc": "Moves a kinematic Body2D by casting its colliders: walking, jumping, slopes, steps and moving platforms, or free top-down movement. Call Move and Jump from a script; the controller acts on the next fixed step."
     },
     {
+      "name": "gameplay.Health",
+      "kind": "component",
+      "display": "Health",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Hit points of a node. Hitboxes, kill zones and scripts damage it; it dies once at zero until revived."
+    },
+    {
+      "name": "gameplay.Hurtbox2D",
+      "kind": "component",
+      "display": "Hurtbox 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Area where hitboxes damage a Health: on this node or on its nearest parent with Health."
+    },
+    {
+      "name": "gameplay.Hitbox2D",
+      "kind": "component",
+      "display": "Hitbox 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Damages hurtboxes inside its area, once per target per activation, on every entry or periodically."
+    },
+    {
+      "name": "gameplay.Lifetime",
+      "kind": "component",
+      "display": "Lifetime",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Removes the node after some seconds: back to its pool or destroyed."
+    },
+    {
+      "name": "gameplay.KillZone2D",
+      "kind": "component",
+      "display": "Kill Zone 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Kills a Health that enters the area, or respawns a node with Respawn and no Health."
+    },
+    {
+      "name": "gameplay.Checkpoint2D",
+      "kind": "component",
+      "display": "Checkpoint 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Sets the respawn point of a node with Respawn that enters the area."
+    },
+    {
+      "name": "gameplay.Respawn",
+      "kind": "component",
+      "display": "Respawn",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Brings the node back to its respawn point after death or Trigger. The first point is where the node starts."
+    },
+    {
+      "name": "gameplay.Pickup2D",
+      "kind": "component",
+      "display": "Pickup 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Fires Collected when a node enters the area; with Once the pickup then disappears."
+    },
+    {
+      "name": "gameplay.StateMachine",
+      "kind": "component",
+      "display": "State Machine",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Named states with Enter, Exit, Fixed and Update hooks found by name on the node's scripts: EnterRun(), ExitRun(), FixedRun(dt), UpdateRun(dt). Scripts change the state with Go."
+    },
+    {
       "name": "save.Persist",
       "kind": "component",
       "display": "Persist",

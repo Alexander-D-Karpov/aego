@@ -390,12 +390,26 @@ func (t *Table) Components(name string) []*Component {
 		}
 	}
 	var out []*Component
+	project := 0
 	for _, c := range t.comps {
 		if c.Short == name {
 			out = append(out, c)
+			if !c.Builtin {
+				project++
+			}
 		}
 	}
-	return out
+	if project == 0 || project == len(out) {
+		return out
+	}
+	n := 0
+	for _, c := range out {
+		if !c.Builtin {
+			out[n] = c
+			n++
+		}
+	}
+	return out[:n]
 }
 
 func (t *Table) AllComponents() []*Component {
@@ -464,6 +478,9 @@ func (t *Table) Freeze() {
 	for _, c := range t.comps {
 		var b strings.Builder
 		b.WriteString("k|" + c.Name)
+		if c.Builtin {
+			b.WriteString("|@builtin")
+		}
 		for _, f := range c.Fields {
 			b.WriteString("|" + f.Name + ":" + f.Type.String() + ":" + strconv.FormatBool(f.ReadOnly))
 		}

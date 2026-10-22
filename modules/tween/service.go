@@ -1,8 +1,6 @@
 package tween
 
 import (
-	"strings"
-
 	"aego/contracts/scriptfields"
 	"aego/contracts/scriptwait"
 	"aego/contracts/signals"
@@ -59,12 +57,14 @@ type Service struct {
 func NewService(s *scene.Scene, w *engine.World) *Service {
 	svc := &Service{scene: s, world: w, reg: s.Registry(), short: map[string]schema.TypeID{}}
 	for _, td := range svc.reg.Components() {
-		n := td.FullName[strings.LastIndexByte(td.FullName, '.')+1:]
-		if _, dup := svc.short[n]; dup {
-			svc.short[n] = 0
+		n := schema.ShortName(td.FullName)
+		if _, done := svc.short[n]; done {
 			continue
 		}
-		svc.short[n] = td.ID
+		svc.short[n] = 0
+		if c, ok := svc.reg.ComponentNamed(n); ok {
+			svc.short[n] = c.ID
+		}
 	}
 	if w != nil {
 		svc.hub, _ = engine.ServiceOf[signals.Hub](w, signals.ServiceID)

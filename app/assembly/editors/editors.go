@@ -8,6 +8,8 @@ import (
 	cameraeditor "aego/modules/camera/editor"
 	"aego/modules/debug"
 	debugeditor "aego/modules/debug/editor"
+	"aego/modules/gameplay"
+	gameplayeditor "aego/modules/gameplay/editor"
 	inputmod "aego/modules/input"
 	inputeditor "aego/modules/input/editor"
 	"aego/modules/physics"
@@ -25,6 +27,7 @@ func With(c assembly.Catalog) assembly.Catalog {
 		With(render3d.ID, render3deditor.Hook).
 		With(physics.ID, physicseditor.Hook).
 		With(camera.ID, cameraeditor.Hook).
+		With(gameplay.ID, gameplayeditor.Hook).
 		With(audio.ID, audioeditor.Hook).
 		With(debug.ID, debugeditor.Hook)
 }

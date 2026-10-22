@@ -8,6 +8,7 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/core/rewind"
+	"aego/engine/module"
 	"aego/modules/gameplay"
 	"aego/modules/physics/components"
 	"aego/modules/physics/systems"
@@ -20,6 +21,7 @@ const dt = float32(1.0 / 60)
 
 type rig struct {
 	t   testing.TB
+	man *module.Manifest
 	s   *scene.Scene
 	sim *systems.Sim
 	svc *gameplay.Service
@@ -31,7 +33,8 @@ func newRig(t testing.TB) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := builtin.Default().Load(types, bind.New(), assembly.Options{}); err != nil {
+	man, err := builtin.Default().Load(types, bind.New(), assembly.Options{})
+	if err != nil {
 		t.Fatal(err)
 	}
 	s := scene.New(types, nil, scene.Options{})
@@ -44,7 +47,7 @@ func newRig(t testing.TB) *rig {
 		t.Fatal(err)
 	}
 	t.Cleanup(sim.Close)
-	return &rig{t: t, s: s, sim: sim, svc: gameplay.NewService(s, nil, sim)}
+	return &rig{t: t, man: man, s: s, sim: sim, svc: gameplay.NewService(s, nil, sim)}
 }
 
 func (r *rig) solid(p, size mathx.Vec2, rot float32) scene.NodeHandle {

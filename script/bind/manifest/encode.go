@@ -95,6 +95,9 @@ func Encode(m *Manifest) []byte {
 		text(n, "short", c.Short)
 		text(n, "category", c.Category)
 		text(n, "doc", c.Doc)
+		if c.Builtin {
+			n.Fields = append(n.Fields, aetext.Field{Name: "builtin", Value: aetext.Bool(true)})
+		}
 		for _, f := range c.Fields {
 			b := &aetext.Node{Head: "field", Label: f.Name}
 			b.Fields = append(b.Fields,
@@ -410,6 +413,9 @@ func (m *Manifest) readHandleMethod(n *aetext.Node) error {
 
 func (m *Manifest) readComponent(n *aetext.Node) error {
 	c := Component{Name: n.Label, Short: str(n, "short"), Category: str(n, "category"), Doc: str(n, "doc")}
+	if v, ok := n.Field("builtin"); ok {
+		c.Builtin = v.Bool
+	}
 	var ferr error
 	n.EachBlock("field", func(b *aetext.Node) {
 		t, err := typeRef(str(b, "type"))

@@ -36,15 +36,9 @@ func hubOf(ctx *Context) (signals.Hub, bool) {
 func componentSignal(reg *schema.Registry, comp, name string) (*schema.TypeDescriptor, int) {
 	td, ok := reg.ByName(comp)
 	if !ok {
-		for _, c := range reg.Components() {
-			if c.FullName[strings.LastIndexByte(c.FullName, '.')+1:] == comp {
-				td, ok = c, true
-				break
-			}
+		if td, ok = reg.ComponentNamed(comp); !ok {
+			return nil, -1
 		}
-	}
-	if !ok {
-		return nil, -1
 	}
 	for i, s := range td.Signals {
 		if s.Name == name {

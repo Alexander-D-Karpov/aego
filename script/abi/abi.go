@@ -358,6 +358,8 @@ type Component struct {
 	Index   int
 	Fields  []Field
 	Signals []SignalDef
+	// Builtin marks a component of an engine module; a project component with the same short name hides it.
+	Builtin bool
 }
 
 func (c *Component) Field(name string) (*Field, bool) {

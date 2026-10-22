@@ -1,8 +1,6 @@
 package stdlib
 
 import (
-	"strings"
-
 	"aego/contracts/physics2d"
 	"aego/core/ids"
 	"aego/core/mathx"
@@ -24,14 +22,10 @@ func componentNamed(s *scene.Scene, name string) (schema.TypeID, bool) {
 	if td, ok := reg.ByName(name); ok && td.Kind == schema.TypeComponent {
 		return td.ID, true
 	}
-	var found schema.TypeID
-	n := 0
-	for _, td := range reg.Components() {
-		if td.FullName[strings.LastIndexByte(td.FullName, '.')+1:] == name {
-			found, n = td.ID, n+1
-		}
+	if td, ok := reg.ComponentNamed(name); ok {
+		return td.ID, true
 	}
-	return found, n == 1
+	return 0, false
 }
 
 func installQueries(m *bind.Module) {

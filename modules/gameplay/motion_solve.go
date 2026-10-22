@@ -4,11 +4,13 @@ import (
 	"math"
 
 	"aego/contracts/physics2d"
+	"aego/contracts/scriptcall"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/core/rewind"
 	"aego/engine"
 	"aego/scene"
+	"aego/script/vm"
 )
 
 const eps2 = 1e-12
@@ -37,40 +39,119 @@ type pass struct {
 	ground scene.NodeHandle
 }
 
+type Stats struct {
+	Hits     uint64
+	Deaths   uint64
+	Respawns uint64
+	Pickups  uint64
+}
+
 type Service struct {
-	scene  *scene.Scene
-	world  *engine.World
-	q      physics2d.Queries
-	sig    *signals
-	log    *log.ChannelLogger
-	dt     float32
-	g      float32
-	p      pass
-	pen    [4]physics2d.CastHit
-	hh     *rewind.Hasher
-	stepFn func(scene.NodeHandle, *Motion2D)
-	postFn func(scene.NodeHandle, *Motion2D)
-	hashFn func(scene.NodeHandle, *Motion2D)
+	scene      *scene.Scene
+	world      *engine.World
+	q          physics2d.Queries
+	sig        *signals
+	log        *log.ChannelLogger
+	dt         float32
+	g          float32
+	game       float32
+	real       float32
+	p          pass
+	pen        [4]physics2d.CastHit
+	hurts      []hurtRec
+	cand       []scene.NodeHandle
+	entered    []scene.NodeHandle
+	stats      Stats
+	hh         *rewind.Hasher
+	call       scriptcall.Caller
+	fdt        float32
+	args       [1]vm.Value
+	fsmFixFn   func(scene.NodeHandle, *StateMachine)
+	fsmUpdFn   func(scene.NodeHandle, *StateMachine)
+	stepFn     func(scene.NodeHandle, *Motion2D)
+	postFn     func(scene.NodeHandle, *Motion2D)
+	hurtFn     func(scene.NodeHandle, *Hurtbox2D)
+	hitFn      func(scene.NodeHandle, *Hitbox2D)
+	killFn     func(scene.NodeHandle, *KillZone2D)
+	cpFn       func(scene.NodeHandle, *Checkpoint2D)
+	pickFn     func(scene.NodeHandle, *Pickup2D)
+	respFn     func(scene.NodeHandle, *Respawn)
+	hpFixFn    func(scene.NodeHandle, *Health)
+	hpFn       func(scene.NodeHandle, *Health)
+	lifeFn     func(scene.NodeHandle, *Lifetime)
+	candHealth func(scene.NodeHandle, *Health)
+	candResp   func(scene.NodeHandle, *Respawn)
+	candMotion func(scene.NodeHandle, *Motion2D)
+	hashFns    hashFns
 }
 
 func NewService(s *scene.Scene, w *engine.World, q physics2d.Queries) *Service {
 	svc := &Service{scene: s, world: w, q: q}
 	svc.stepFn = svc.stepOne
 	svc.postFn = svc.postOne
-	svc.hashFn = svc.hashOne
+	svc.hurtFn = svc.collectHurt
+	svc.hitFn = svc.hitOne
+	svc.killFn = svc.killOne
+	svc.cpFn = svc.checkpointOne
+	svc.pickFn = svc.pickupOne
+	svc.respFn = svc.respawnOne
+	svc.hpFixFn = svc.healthFixed
+	svc.hpFn = svc.flushHealth
+	svc.lifeFn = svc.lifeOne
+	svc.fsmFixFn = svc.fsmFixed
+	svc.fsmUpdFn = svc.fsmUpdate
+	svc.candHealth = func(h scene.NodeHandle, _ *Health) { svc.cand = append(svc.cand, h) }
+	svc.candResp = func(h scene.NodeHandle, _ *Respawn) {
+		if !scene.Has[Health](svc.scene, h) {
+			svc.cand = append(svc.cand, h)
+		}
+	}
+	svc.candMotion = func(h scene.NodeHandle, _ *Motion2D) { svc.cand = append(svc.cand, h) }
+	svc.hashFns = newHashFns(svc)
 	return svc
 }
 
+// queries finds the physics queries lazily: physics may attach to the world after this module.
+func (s *Service) queries() physics2d.Queries {
+	if s.q == nil && s.world != nil {
+		s.q, _ = engine.ServiceOf[physics2d.Queries](s.world, physics2d.ServiceID)
+	}
+	return s.q
+}
+
+func (s *Service) Stats() Stats {
+	return s.stats
+}
+
 func (s *Service) Fixed(dt float32) {
-	if s.queries() == nil || dt <= 0 {
+	s.dt = dt
+	q := s.queries()
+	if q == nil || dt <= 0 {
 		return
 	}
-	s.dt, s.g = dt, s.q.Gravity().Len()
+	s.g = q.Gravity().Len()
 	scene.Query1[Motion2D](s.scene).Each(s.stepFn)
 }
 
 func (s *Service) Post() {
 	scene.Query1[Motion2D](s.scene).Each(s.postFn)
+	if s.dt <= 0 {
+		return
+	}
+	s.hurts = s.hurts[:0]
+	scene.Query1[Hurtbox2D](s.scene).Each(s.hurtFn)
+	scene.Query1[Hitbox2D](s.scene).Each(s.hitFn)
+	scene.Query1[KillZone2D](s.scene).Each(s.killFn)
+	scene.Query1[Checkpoint2D](s.scene).Each(s.cpFn)
+	scene.Query1[Pickup2D](s.scene).Each(s.pickFn)
+	scene.Query1[Respawn](s.scene).Each(s.respFn)
+	scene.Query1[Health](s.scene).Each(s.hpFixFn)
+}
+
+func (s *Service) Frame(game, real float32) {
+	s.game, s.real = game, real
+	scene.Query1[Health](s.scene).Each(s.hpFn)
+	scene.Query1[Lifetime](s.scene).Each(s.lifeFn)
 }
 
 func normalize(v mathx.Vec2) (mathx.Vec2, float32) {

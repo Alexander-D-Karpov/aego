@@ -159,6 +159,7 @@ type Component struct {
 	Short    string
 	Category string
 	Doc      string
+	Builtin  bool
 	Fields   []Field
 }
 
@@ -276,7 +277,7 @@ func FromRegistry(r *bind.Registry, sr *schema.Registry) (*Manifest, error) {
 }
 
 func component(c *abi.Component, sr *schema.Registry) Component {
-	out := Component{Name: c.Name, Short: c.Short}
+	out := Component{Name: c.Name, Short: c.Short, Builtin: c.Builtin}
 	out.Category, _, _ = ststrings.Cut(c.Name, ".")
 	var fds []*schema.FieldDescriptor
 	if sr != nil {
@@ -357,7 +358,7 @@ func (m *Manifest) Table() (*abi.Table, error) {
 		}
 	}
 	for _, c := range m.Components {
-		ac := &abi.Component{Name: c.Name, Short: c.Short}
+		ac := &abi.Component{Name: c.Name, Short: c.Short, Builtin: c.Builtin}
 		for _, f := range c.Fields {
 			ac.Fields = append(ac.Fields, abi.Field{Name: f.Name, Type: f.Type, ReadOnly: f.ReadOnly})
 		}

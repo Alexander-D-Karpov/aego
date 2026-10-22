@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="d0163b984c97aba7ff7c471de5cac2c8ec673e77395357bd6555f7a8e951f2b0"
+  abi="747a86a4229f7ab309012863a38bfb3338d737959c29524d4cb2a9fbc2028a91"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -2989,6 +2989,51 @@ manifest version=6 {
     result="bool"
     doc="IsActive reports whether this virtual camera drives its output now."
   }
+  cmethod "Damage" comp="gameplay.Health" {
+    params=["int", "NodeRef"]
+    result="bool"
+    names=["amount", "source"]
+    doc="Damage removes hit points and reports whether they were removed: not while invulnerable, dead or for amounts below 1."
+  }
+  cmethod "Heal" comp="gameplay.Health" {
+    params=["int"]
+    result="void"
+    names=["amount"]
+    doc="Heal adds hit points up to Max; it does nothing while dead."
+  }
+  cmethod "Kill" comp="gameplay.Health" {
+    params=["NodeRef"]
+    result="void"
+    names=["source"]
+    doc="Kill sets the hit points to zero."
+  }
+  cmethod "Revive" comp="gameplay.Health" {
+    params=["int"]
+    result="void"
+    names=["hp"]
+    doc="Revive brings the node back with this many hit points; 0 means Max."
+  }
+  cmethod "SetInvulnerable" comp="gameplay.Health" {
+    params=["float"]
+    result="void"
+    names=["seconds"]
+    doc="SetInvulnerable ignores damage for some seconds of game time."
+  }
+  cmethod "Activate" comp="gameplay.Hitbox2D" {
+    params=[]
+    result="void"
+    doc="Activate starts a new attack: targets hit before can be hit again."
+  }
+  cmethod "Deactivate" comp="gameplay.Hitbox2D" {
+    params=[]
+    result="void"
+    doc="Deactivate stops dealing damage."
+  }
+  cmethod "Pulse" comp="gameplay.Hitbox2D" {
+    params=[]
+    result="void"
+    doc="Pulse deals one round of damage in the next step, active or not."
+  }
   cmethod "AddVelocity" comp="gameplay.Motion2D" {
     params=["Vec2"]
     result="void"
@@ -3033,6 +3078,34 @@ manifest version=6 {
     result="void"
     names=["position"]
     doc="Teleport moves to a position on the next step and resets velocity and state."
+  }
+  cmethod "SetPoint" comp="gameplay.Respawn" {
+    params=["Vec2"]
+    result="void"
+    names=["position"]
+    doc="SetPoint sets the respawn point."
+  }
+  cmethod "Trigger" comp="gameplay.Respawn" {
+    params=[]
+    result="void"
+    doc="Trigger respawns the node after Delay."
+  }
+  cmethod "Go" comp="gameplay.StateMachine" {
+    params=["string"]
+    result="bool"
+    names=["state"]
+    doc="Go switches to a state after the current hook returns; Exit of the old state and Enter of the new one run in between. Returns false for an unknown state."
+  }
+  cmethod "Is" comp="gameplay.StateMachine" {
+    params=["string"]
+    result="bool"
+    names=["state"]
+    doc="Is reports whether the machine is in a state."
+  }
+  cmethod "TimeIn" comp="gameplay.StateMachine" {
+    params=[]
+    result="float"
+    doc="TimeIn returns the seconds spent in the current state."
   }
   cmethod "ApplyForce" comp="physics.Body2D" {
     params=["Vec2"]
@@ -3344,6 +3417,49 @@ manifest version=6 {
     params=[]
     doc="HitCeiling fires when the character bumps into a ceiling."
   }
+  csignal "Damaged" comp="gameplay.Health" {
+    params=["int", "NodeRef"]
+    names=["amount", "source"]
+    doc="Damaged fires once per step with the damage taken in it."
+  }
+  csignal "Healed" comp="gameplay.Health" {
+    params=["int"]
+    names=["amount"]
+    doc="Healed fires with the hit points restored."
+  }
+  csignal "Died" comp="gameplay.Health" {
+    params=["NodeRef"]
+    names=["source"]
+    doc="Died fires once when the hit points reach zero."
+  }
+  csignal "Revived" comp="gameplay.Health" {
+    params=[]
+    doc="Revived fires after Revive."
+  }
+  csignal "Hit" comp="gameplay.Hitbox2D" {
+    params=["NodeRef", "int"]
+    names=["target", "damage"]
+    doc="Hit fires for each target damaged."
+  }
+  csignal "Reached" comp="gameplay.Checkpoint2D" {
+    params=["NodeRef"]
+    names=["by"]
+    doc="Reached fires when a node takes this checkpoint."
+  }
+  csignal "Respawned" comp="gameplay.Respawn" {
+    params=[]
+    doc="Respawned fires when the node is back at its point."
+  }
+  csignal "Collected" comp="gameplay.Pickup2D" {
+    params=["NodeRef"]
+    names=["by"]
+    doc="Collected fires with the node that took the pickup."
+  }
+  csignal "Changed" comp="gameplay.StateMachine" {
+    params=["int", "int"]
+    names=["from", "to"]
+    doc="Changed fires after a state change with the indices of the old and the new state."
+  }
   hsignal "Completed" handle="aego/action.Action" {
     params=["bool"]
     names=["finished"]
@@ -3378,11 +3494,13 @@ manifest version=6 {
     short="Tags"
     category="engine"
     doc="Tags names groups this node belongs to; scripts find them with scene.WithTag."
+    builtin=true
   }
   component "engine.SpriteRenderer" {
     short="SpriteRenderer"
     category="engine"
     doc="Draws a texture region at the node transform."
+    builtin=true
     field "Sprite" {
       type="AssetRef<texture>"
       readonly=false
@@ -3438,6 +3556,7 @@ manifest version=6 {
     short="Camera2D"
     category="engine"
     doc="Renders an orthographic view from the node transform."
+    builtin=true
     field "Zoom" {
       type="float"
       readonly=false
@@ -3488,6 +3607,7 @@ manifest version=6 {
     short="Camera3D"
     category="engine"
     doc="Renders a perspective view looking down the node -Z axis."
+    builtin=true
     field "Fov" {
       type="float"
       readonly=false
@@ -3548,6 +3668,7 @@ manifest version=6 {
     short="MeshRenderer"
     category="engine"
     doc="Draws an unlit mesh at the node transform."
+    builtin=true
     field "Mesh" {
       type="AssetRef<mesh>"
       readonly=false
@@ -3588,6 +3709,7 @@ manifest version=6 {
     short="Body2D"
     category="physics"
     doc="Simulates the node as a rigid body. Colliders on the node and its children form its shape."
+    builtin=true
     field "Type" {
       type="int"
       readonly=false
@@ -3668,6 +3790,7 @@ manifest version=6 {
     short="BoxCollider2D"
     category="physics"
     doc="Box shape in node space."
+    builtin=true
     field "Offset" {
       type="Vec2"
       readonly=false
@@ -3703,6 +3826,7 @@ manifest version=6 {
     short="CircleCollider2D"
     category="physics"
     doc="Circle shape. Needs a uniform node scale."
+    builtin=true
     field "Offset" {
       type="Vec2"
       readonly=false
@@ -3738,6 +3862,7 @@ manifest version=6 {
     short="CapsuleCollider2D"
     category="physics"
     doc="Capsule along the local X axis; Length is the full extent including the caps."
+    builtin=true
     field "Offset" {
       type="Vec2"
       readonly=false
@@ -3778,6 +3903,7 @@ manifest version=6 {
     short="PolygonCollider2D"
     category="physics"
     doc="Convex polygon of 3 to 8 points."
+    builtin=true
     field "Offset" {
       type="Vec2"
       readonly=false
@@ -3813,6 +3939,7 @@ manifest version=6 {
     short="EdgeCollider2D"
     category="physics"
     doc="Polyline for level geometry. OneSided lets bodies pass from below."
+    builtin=true
     field "Offset" {
       type="Vec2"
       readonly=false
@@ -3858,6 +3985,7 @@ manifest version=6 {
     short="DistanceJoint2D"
     category="physics"
     doc="Keeps a distance between this body and the Target body. Length 0 uses the distance at start."
+    builtin=true
     field "Target" {
       type="NodeRef"
       readonly=false
@@ -3908,6 +4036,7 @@ manifest version=6 {
     short="RevoluteJoint2D"
     category="physics"
     doc="Pins this body to the Target body at Anchor, with an optional limit and motor."
+    builtin=true
     field "Target" {
       type="NodeRef"
       readonly=false
@@ -3958,6 +4087,7 @@ manifest version=6 {
     short="AudioListener2D"
     category="audio"
     doc="Hears spatial sound from its node. Without one the camera of the main output listens."
+    builtin=true
     field "Active" {
       type="bool"
       readonly=false
@@ -3968,6 +4098,7 @@ manifest version=6 {
     short="AudioSource2D"
     category="audio"
     doc="Plays a clip or an audio event from its node."
+    builtin=true
     field "Clip" {
       type="AssetRef<audio>"
       readonly=false
@@ -4053,6 +4184,7 @@ manifest version=6 {
     short="AudioZone2D"
     category="audio"
     doc="While the listener is inside Area, Bus is turned to Gain."
+    builtin=true
     field "Area" {
       type="Rect"
       readonly=false
@@ -4083,6 +4215,7 @@ manifest version=6 {
     short="VirtualCamera2D"
     category="camera"
     doc="A camera pose the brain can pick. The highest priority wins; switching blends from the current view."
+    builtin=true
     field "Priority" {
       type="int"
       readonly=false
@@ -4133,6 +4266,7 @@ manifest version=6 {
     short="CameraFollow2D"
     category="camera"
     doc="Moves its virtual camera after Target, with a deadzone, damping and lookahead."
+    builtin=true
     field "Target" {
       type="NodeRef"
       readonly=false
@@ -4173,6 +4307,7 @@ manifest version=6 {
     short="CameraShake2D"
     category="camera"
     doc="Tunes the shake of its virtual camera. Shake grows with trauma and fades over time."
+    builtin=true
     field "Decay" {
       type="float"
       readonly=false
@@ -4203,6 +4338,7 @@ manifest version=6 {
     short="CameraZone2D"
     category="camera"
     doc="While Target is inside Area, Camera gets Priority and the zone's zoom and bounds."
+    builtin=true
     field "Target" {
       type="NodeRef"
       readonly=false
@@ -4243,6 +4379,7 @@ manifest version=6 {
     short="CameraBrain2D"
     category="camera"
     doc="Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."
+    builtin=true
     field "Output" {
       type="string"
       readonly=false
@@ -4253,6 +4390,7 @@ manifest version=6 {
     short="Motion2D"
     category="gameplay"
     doc="Moves a kinematic Body2D by casting its colliders: walking, jumping, slopes, steps and moving platforms, or free top-down movement. Call Move and Jump from a script; the controller acts on the next fixed step."
+    builtin=true
     field "Mode" {
       type="int"
       readonly=false
@@ -4414,10 +4552,295 @@ manifest version=6 {
       doc="Body the character stands on, during Play."
     }
   }
+  component "gameplay.Health" {
+    short="Health"
+    category="gameplay"
+    doc="Hit points of a node. Hitboxes, kill zones and scripts damage it; it dies once at zero until revived."
+    builtin=true
+    field "Max" {
+      type="int"
+      readonly=false
+      doc="Hit points at the start and after a full revive."
+    }
+    field "Current" {
+      type="int"
+      readonly=true
+      doc="Hit points now."
+    }
+    field "Team" {
+      type="int"
+      readonly=false
+      doc="Hitboxes of the same team do not hurt this node unless they allow friendly fire."
+    }
+    field "InvulnTime" {
+      type="float"
+      readonly=false
+      doc="Seconds of game time without damage after a hit. Hits in the same step all count."
+    }
+    field "DestroyOnDeath" {
+      type="bool"
+      readonly=false
+      doc="Destroys the node at death, unless it has Respawn."
+    }
+    field "DespawnOnDeath" {
+      type="bool"
+      readonly=false
+      doc="Returns the node to its pool at death; a node that was not spawned is destroyed."
+    }
+    field "Invulnerable" {
+      type="bool"
+      readonly=true
+      doc="True while damage is ignored."
+    }
+    field "Dead" {
+      type="bool"
+      readonly=true
+      doc="True from death until Revive."
+    }
+  }
+  component "gameplay.Hurtbox2D" {
+    short="Hurtbox2D"
+    category="gameplay"
+    doc="Area where hitboxes damage a Health: on this node or on its nearest parent with Health."
+    builtin=true
+    field "Area" {
+      type="Rect"
+      readonly=false
+      doc="Rectangle in this node's space."
+    }
+    field "Shape" {
+      type="int"
+      readonly=false
+      doc="box uses the rectangle; circle uses the circle inside it."
+    }
+    field "Multiplier" {
+      type="float"
+      readonly=false
+      doc="Damage taken here is multiplied by this, for weak spots and armour."
+    }
+    field "Active" {
+      type="bool"
+      readonly=false
+      doc="Off ignores hits."
+    }
+    field "Health" {
+      type="NodeRef"
+      readonly=false
+      doc="Health that takes the damage. Empty uses this node or its nearest parent with Health."
+    }
+  }
+  component "gameplay.Hitbox2D" {
+    short="Hitbox2D"
+    category="gameplay"
+    doc="Damages hurtboxes inside its area, once per target per activation, on every entry or periodically."
+    builtin=true
+    field "Area" {
+      type="Rect"
+      readonly=false
+      doc="Rectangle in this node's space."
+    }
+    field "Shape" {
+      type="int"
+      readonly=false
+      doc="box uses the rectangle; circle uses the circle inside it."
+    }
+    field "Damage" {
+      type="int"
+      readonly=false
+      doc="Damage per hit before the hurtbox multiplier."
+    }
+    field "Knockback" {
+      type="Vec2"
+      readonly=false
+      doc="Push on a hit: velocity for a Motion 2D target, impulse for a dynamic body. Turns with the node."
+    }
+    field "KnockbackFromCenter" {
+      type="bool"
+      readonly=false
+      doc="Pushes away from the hitbox centre instead, with the length of Knockback."
+    }
+    field "Team" {
+      type="int"
+      readonly=false
+      doc="Team of the attack; -1 takes the team of the nearest Health above."
+    }
+    field "FriendlyFire" {
+      type="bool"
+      readonly=false
+      doc="Also hits targets of the same team."
+    }
+    field "Policy" {
+      type="int"
+      readonly=false
+      doc="onEnter hits on every entry, oncePerActivation hits each target once until Activate, periodic hits every Period while overlapping."
+    }
+    field "Period" {
+      type="float"
+      readonly=false
+      doc="Seconds between hits for the periodic policy."
+    }
+    field "Active" {
+      type="bool"
+      readonly=false
+      doc="Off deals no damage."
+    }
+  }
+  component "gameplay.Lifetime" {
+    short="Lifetime"
+    category="gameplay"
+    doc="Removes the node after some seconds: back to its pool or destroyed."
+    builtin=true
+    field "Seconds" {
+      type="float"
+      readonly=false
+      doc="Seconds the node lives."
+    }
+    field "Unscaled" {
+      type="bool"
+      readonly=false
+      doc="Counts real time, also while paused or slowed down."
+    }
+    field "Despawn" {
+      type="bool"
+      readonly=false
+      doc="Returns the node to its pool instead of destroying it."
+    }
+    field "Remaining" {
+      type="float"
+      readonly=true
+      doc="Seconds left."
+    }
+  }
+  component "gameplay.KillZone2D" {
+    short="KillZone2D"
+    category="gameplay"
+    doc="Kills a Health that enters the area, or respawns a node with Respawn and no Health."
+    builtin=true
+    field "Area" {
+      type="Rect"
+      readonly=false
+      doc="Rectangle in this node's space."
+    }
+    field "Tag" {
+      type="string"
+      readonly=false
+      doc="Only nodes with this tag; empty affects every node with Health or Respawn."
+    }
+  }
+  component "gameplay.Checkpoint2D" {
+    short="Checkpoint2D"
+    category="gameplay"
+    doc="Sets the respawn point of a node with Respawn that enters the area."
+    builtin=true
+    field "Area" {
+      type="Rect"
+      readonly=false
+      doc="Rectangle in this node's space."
+    }
+    field "Priority" {
+      type="int"
+      readonly=false
+      doc="A checkpoint does not replace one with a higher priority."
+    }
+    field "Once" {
+      type="bool"
+      readonly=false
+      doc="Works for the first node only."
+    }
+    field "SpawnPoint" {
+      type="NodeRef"
+      readonly=false
+      doc="Node whose position becomes the respawn point. Empty uses this checkpoint's position."
+    }
+  }
+  component "gameplay.Respawn" {
+    short="Respawn"
+    category="gameplay"
+    doc="Brings the node back to its respawn point after death or Trigger. The first point is where the node starts."
+    builtin=true
+    field "Delay" {
+      type="float"
+      readonly=false
+      doc="Seconds of game time before the node comes back."
+    }
+    field "RestoreHealth" {
+      type="bool"
+      readonly=false
+      doc="Revives Health with full hit points."
+    }
+    field "ResetVelocity" {
+      type="bool"
+      readonly=false
+      doc="Stops a Motion 2D on respawn."
+    }
+    field "Persist" {
+      type="bool"
+      readonly=false
+      doc="Saves the respawn point with the game."
+    }
+  }
+  component "gameplay.Pickup2D" {
+    short="Pickup2D"
+    category="gameplay"
+    doc="Fires Collected when a node enters the area; with Once the pickup then disappears."
+    builtin=true
+    field "Area" {
+      type="Rect"
+      readonly=false
+      doc="Rectangle in this node's space."
+    }
+    field "Tag" {
+      type="string"
+      readonly=false
+      doc="Only nodes with this tag; empty accepts every node with Motion 2D."
+    }
+    field "Once" {
+      type="bool"
+      readonly=false
+      doc="Removes the pickup after the first collection."
+    }
+    field "Despawn" {
+      type="bool"
+      readonly=false
+      doc="Returns the pickup to its pool instead of destroying it."
+    }
+  }
+  component "gameplay.StateMachine" {
+    short="StateMachine"
+    category="gameplay"
+    doc="Named states with Enter, Exit, Fixed and Update hooks found by name on the node's scripts: EnterRun(), ExitRun(), FixedRun(dt), UpdateRun(dt). Scripts change the state with Go."
+    builtin=true
+    field "Initial" {
+      type="string"
+      readonly=false
+      doc="State entered when the node starts, after the scripts' Ready. Empty uses the first state."
+    }
+    field "Current" {
+      type="string"
+      readonly=true
+      doc="State now."
+    }
+    field "Previous" {
+      type="string"
+      readonly=true
+      doc="State before the last change."
+    }
+    field "Time" {
+      type="float"
+      readonly=true
+      doc="Seconds of fixed steps spent in the current state."
+    }
+    field "Index" {
+      type="int"
+      readonly=true
+      doc="Index of the current state in States."
+    }
+  }
   component "save.Persist" {
     short="Persist"
     category="save"
     doc="Persist saves the node's transform and enabled flag in save games."
+    builtin=true
     field "NoTransform" {
       type="bool"
       readonly=false
