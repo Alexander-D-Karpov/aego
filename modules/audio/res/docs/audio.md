@@ -31,7 +31,7 @@ In Try it, the ball hums while it rolls from wall to wall and clicks when it hit
 
 ---
 id: audio/clips
-icon: file.unknown
+icon: file.audio
 parent: audio
 order: 1
 title: Clips

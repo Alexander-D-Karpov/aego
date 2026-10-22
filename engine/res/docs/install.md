@@ -1,6 +1,6 @@
 ---
 id: install
-icon: file.reveal
+icon: file.download
 group: start
 title: Install and run
 order: 0

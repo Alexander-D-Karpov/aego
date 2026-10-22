@@ -61,8 +61,10 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `edit.paste` | engine | 16 | Paste (nodes, assets, inspector field) | ok |
 | `edit.rename` | engine | 16 | Rename (nodes, assets, workspace) | ok |
 | `edit.select_all` | engine | 16 | Edit → Select All | ok |
+| `file.audio` | engine | 16 | Documentation: sound clips page | ok |
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
+| `file.download` | engine | 16 | Documentation: Install and run page | ok |
 | `file.folder` | engine | 24 | Assets: folders | ok |
 | `file.mesh` | engine | 24 | Assets: mesh tiles | ok |
 | `file.open` | engine | 16 | Assets menu: Open | ok |
@@ -134,6 +136,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `prefab.variant` | engine | 16 | Assets menu: Create Variant | ok |
 | `shape.cube` | engine | 16 | template render3d.cube | ok |
 | `shape.cylinder` | engine | 16 | template render3d.cylinder | ok |
+| `shape.dice` | engine | 16 | Documentation: random numbers module | ok |
 | `shape.plane` | engine | 16 | template render3d.plane | ok |
 | `shape.sphere` | engine | 16 | template render3d.sphere | ok |
 | `status.busy` | engine | 14 | Task Center: running task | ok |
@@ -151,6 +154,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `ui.chevron_down` | engine | 16 | trees, combos and drop-downs | ok |
 | `ui.chevron_right` | engine | 16 | trees and submenus | ok |
 | `ui.close` | engine | 16 | tabs, chips and dialogs | ok |
+| `ui.curve` | engine | 16 | Documentation: curves module | ok |
 | `ui.lock` | engine | 16 | Inspector: locked | ok |
 | `ui.minus` | engine | 16 | list editors: remove | ok |
 | `ui.more` | engine | 16 | card menus | ok |

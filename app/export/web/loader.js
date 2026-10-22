@@ -71,31 +71,66 @@
         status.textContent = `${mb(got)} of ${mb(total)}`;
     }
 
+    // A request that delivers nothing for STALL ms is aborted and made again past the HTTP cache; a stuck cache entry must not leave the page on "Loading…".
+    const STALL = 8000;
+    const TRIES = 3;
+
+    async function readOnce(url, cache) {
+        const ctl = new AbortController();
+        let timer = setTimeout(() => ctl.abort(), STALL);
+        const kick = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => ctl.abort(), STALL);
+        };
+        let counted = 0;
+        try {
+            const resp = await fetch(url, { signal: ctl.signal, cache });
+            if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
+            kick();
+            if (!resp.body) {
+                const all = new Uint8Array(await resp.arrayBuffer());
+                progress(all.byteLength);
+                return all;
+            }
+            const reader = resp.body.getReader();
+            const parts = [];
+            let size = 0;
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                kick();
+                parts.push(value);
+                size += value.byteLength;
+                counted += value.byteLength;
+                progress(value.byteLength);
+            }
+            const out = new Uint8Array(size);
+            let at = 0;
+            for (const p of parts) {
+                out.set(p, at);
+                at += p.byteLength;
+            }
+            return out;
+        } catch (e) {
+            got -= counted;
+            throw e;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     async function read(url) {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
-        if (!resp.body) {
-            const all = new Uint8Array(await resp.arrayBuffer());
-            progress(all.byteLength);
-            return all;
+        for (let i = 0; ; i++) {
+            try {
+                return await readOnce(url, i === 0 ? "default" : "reload");
+            } catch (e) {
+                if (!(e && e.name === "AbortError") || i + 1 >= TRIES) throw e;
+            }
         }
-        const reader = resp.body.getReader();
-        const parts = [];
-        let size = 0;
-        for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            parts.push(value);
-            size += value.byteLength;
-            progress(value.byteLength);
-        }
-        const out = new Uint8Array(size);
-        let at = 0;
-        for (const p of parts) {
-            out.set(p, at);
-            at += p.byteLength;
-        }
-        return out;
+    }
+
+    async function readJSON(url) {
+        return JSON.parse(new TextDecoder().decode(await read(url)));
     }
 
     async function each(items, fn) {
@@ -107,9 +142,8 @@
     }
 
     async function start() {
-        const resp = await fetch(`data/files.json?v=${build}`);
-        if (!resp.ok) throw new Error(`data/files.json: HTTP ${resp.status}`);
-        const list = await resp.json();
+        const list = await readJSON(`data/files.json?v=${build}`);
+        got = 0;
         total = list.wasm + list.manifest.size + list.files.reduce((s, f) => s + f.size, 0);
         const wasm = read(`game.wasm?v=${build}`);
         const manifest = read(`data/${list.manifest.path}?v=${build}`);

@@ -88,9 +88,9 @@ func (b *builder) icon(root, name, cls string) string {
 // refIcons gives script packages and project settings sections the editor icon of what they cover.
 var refIcons = map[string]string{
 	"aego/builtin": "cat.node", "events": "panel.events", "aego/action": "panel.tasks", "aego/audio": "cat.audio",
-	"aego/camera": "cat.camera", "aego/curve": "panel.profiler", "aego/data": "file.data", "aego/debug": "panel.debug_draw",
+	"aego/camera": "cat.camera", "aego/curve": "ui.curve", "aego/data": "file.data", "aego/debug": "panel.debug_draw",
 	"aego/input": "panel.input_devices", "aego/log": "panel.console", "aego/math": "cat.transform", "aego/physics": "cat.physics",
-	"aego/rand": "shape.cube", "aego/save": "panel.saves", "aego/scene": "file.scene", "aego/settings": "cat.settings",
+	"aego/rand": "shape.dice", "aego/save": "panel.saves", "aego/scene": "file.scene", "aego/settings": "cat.settings",
 	"aego/testing": "status.ok", "aego/time": "play.speed", "aego/timer": "file.autosave", "aego/tween": "vec.velocity",
 	"section/engine": "panel.settings", "section/input": "panel.input_devices", "section/render2d": "cat.rendering",
 	"section/physics": "cat.physics", "section/debug": "panel.debug_draw", "section/player": "play.start", "section/audio": "cat.audio",
@@ -105,6 +105,11 @@ func (b *builder) entryIcon(e *Entry) string {
 	}
 	if e.Kind == KindField && e.Field != nil {
 		return fieldIcon(e.Title, e.Field.Type)
+	}
+	if e.Kind == KindType && e.Parent != "" {
+		if ic, ok := refIcons[e.Parent]; ok {
+			return ic
+		}
 	}
 	if e.Kind == KindModule && strings.HasPrefix(e.ID, "aego/") {
 		return "code.block"
