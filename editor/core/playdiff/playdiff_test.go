@@ -109,13 +109,75 @@ func TestApplyIsOneStep(t *testing.T) {
 	}
 }
 
-func TestTouchedSeesInspectorEdits(t *testing.T) {
-	_, play, id, td := pair(t)
+func TestFromHistoryTakesValuesFromCommands(t *testing.T) {
+	edit, play, id, td := pair(t)
+	fd, _ := td.Field("tint")
+	green := schema.Color(mathx.Color{G: 1, A: 1})
+	if err := play.Props.Set(nil, []ids.NodeID{id}, td.ID, fd.ID, green); err != nil {
+		t.Fatal(err)
+	}
+	if err := play.Props.EditTransform(nil, []ids.NodeID{id}, func(tr *scene.Transform2D) { tr.Position.X = 5 }); err != nil {
+		t.Fatal(err)
+	}
+	ps := play.Scene()
+	h := ps.Handle(id)
+	tr := ps.Local(h)
+	tr.Position.X = 9
+	ps.SetLocal(h, tr)
+	ps.Create(ps.Root(), "Spawned")
+	ps.Flush()
+	r := playdiff.FromHistory(edit, play)
+	if len(r.Changes) != 2 || len(r.Created) != 0 {
+		t.Fatalf("changes=%d created=%v, want the tint and the transform only", len(r.Changes), r.Created)
+	}
+	for _, c := range r.Changes {
+		if !c.Checked || c.Gameplay || c.Name != "A" {
+			t.Fatalf("history row %+v", c)
+		}
+		if c.Kind == playdiff.KindTransform2D && c.T2After.Position.X != 5 {
+			t.Fatalf("transform after = %v, want the edited 5, not the game's 9", c.T2After.Position.X)
+		}
+		if c.Kind == playdiff.KindField && c.After.C != green.C {
+			t.Fatal("tint after is not the value from the command")
+		}
+	}
+	full := playdiff.Full(edit, play, r)
+	if len(full.Changes) != 2 || len(full.Created) != 1 {
+		t.Fatalf("full changes=%d created=%v", len(full.Changes), full.Created)
+	}
+}
+
+func TestFullMarksGameChanges(t *testing.T) {
+	edit, play, id, td := pair(t)
 	fd, _ := td.Field("tint")
 	if err := play.Props.Set(nil, []ids.NodeID{id}, td.ID, fd.ID, schema.Color(mathx.Color{G: 1, A: 1})); err != nil {
 		t.Fatal(err)
 	}
-	if !playdiff.Touched(play.History)[playdiff.Key{Node: id, Type: td.ID, Field: fd.ID}] {
-		t.Fatal("a field set through the Inspector is not touched")
+	ps := play.Scene()
+	h := ps.Handle(id)
+	tr := ps.Local(h)
+	tr.Position.Y = 7
+	ps.SetLocal(h, tr)
+	r := playdiff.FromHistory(edit, play)
+	full := playdiff.Full(edit, play, r)
+	if len(r.Changes) != 1 || len(full.Changes) != 2 {
+		t.Fatalf("history %d, full %d", len(r.Changes), len(full.Changes))
+	}
+	g := full.Changes[1]
+	if g.Kind != playdiff.KindTransform2D || !g.Gameplay || g.Checked {
+		t.Fatalf("game row %+v, want an unchecked transform from gameplay", g)
+	}
+}
+
+func TestFromHistoryEmpty(t *testing.T) {
+	edit, play, id, _ := pair(t)
+	ps := play.Scene()
+	h := ps.Handle(id)
+	tr := ps.Local(h)
+	tr.Position.X = 3
+	ps.SetLocal(h, tr)
+	r := playdiff.FromHistory(edit, play)
+	if !r.Empty() || len(r.Created)+len(r.Removed) != 0 {
+		t.Fatalf("a run with no edits produced %+v", r)
 	}
 }

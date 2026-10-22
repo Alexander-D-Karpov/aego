@@ -269,7 +269,9 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 			ui.TextIn(rr, h.Err.Error(), th.Error, core.AlignRight)
 		}
 	} else {
-		ui.Text(h.Places[rw.place].String(), mathx.Vec2{X: rr.X + 24 + th.Indent, Y: ui.TextY(rr)}, th.TextDim)
+		text, tip := placeLabel(h.Places[rw.place])
+		ui.Text(text, mathx.Vec2{X: rr.X + 24 + th.Indent, Y: ui.TextY(rr)}, th.TextDim)
+		widgets.Tooltip(ui, id, tip)
 	}
 	ui.PopClip()
 }
@@ -330,4 +332,15 @@ func (p *Panel) footer(ui *core.Context) {
 			},
 		})
 	}
+}
+
+// placeLabel names the node by its last path segment and keeps the path for the tooltip.
+func placeLabel(pl refs.Place) (text, tip string) {
+	p := strings.TrimPrefix(pl.Path, "/")
+	short := pl
+	short.Path = path.Base(p)
+	if p == "" {
+		short.Path = ""
+	}
+	return short.String(), p
 }

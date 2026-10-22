@@ -4,6 +4,7 @@ import (
 	"aego/asset"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"aego/core/ids"
@@ -165,7 +166,9 @@ func (m *Missing) nodeRow(ui *core.Context, i int, rr mathx.Rect) {
 	it := m.nodes[i]
 	id := core.IDSeq(ui.ID("node"), i)
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + 2, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "cat.node", th.Warn)
-	text := it.Scene + "  ·  " + it.Path + " · " + it.Owner + "." + it.Field + " → missing node"
+	node := strings.TrimPrefix(it.Path, "/")
+	text := it.Scene + "  ·  " + path.Base(node) + " · " + it.Owner + "." + it.Field + " → missing node"
+	widgets.Tooltip(ui, id, node)
 	labels := []string{"Select", "Clear"}
 	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-130), H: rr.H})
 	ui.Text(text, mathx.Vec2{X: rr.X + 22, Y: ui.TextY(rr)}, th.Text)

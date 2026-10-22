@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"math"
+	"strconv"
 	"syscall/js"
 	"unsafe"
 
@@ -17,6 +18,7 @@ const (
 	audioProcessor = "aego-out"
 	audioReport    = 2048
 	muteKey        = "aego-muted"
+	soundDefault   = "aegoSoundDefault"
 )
 
 var currentAudio *Audio
@@ -37,6 +39,7 @@ type AudioStats struct {
 
 type Audio struct {
 	g         js.Value
+	muteKey   string
 	ctx       js.Value
 	node      js.Value
 	port      js.Value
@@ -120,7 +123,11 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 		a.hook(doc, "visibilitychange", func(js.Value) { a.visibility(doc.Get("hidden").Truthy()) })
 		a.hidden = doc.Get("hidden").Truthy()
 	}
-	if v, ok := storageGet(g, muteKey); ok {
+	a.muteKey = muteKey
+	if d := g.Get(soundDefault); d.Type() == js.TypeBoolean {
+		a.muteKey, a.muted = muteKey+"-"+strconv.FormatBool(d.Bool()), !d.Bool()
+	}
+	if v, ok := storageGet(g, a.muteKey); ok {
 		a.muted = v == "1"
 	}
 	if activated(g) {
@@ -413,7 +420,7 @@ func (a *Audio) SetMuted(on bool) {
 	if on {
 		v = "1"
 	}
-	storageSet(a.g, muteKey, v)
+	storageSet(a.g, a.muteKey, v)
 }
 
 func (a *Audio) publish() {

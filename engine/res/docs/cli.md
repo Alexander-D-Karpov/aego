@@ -141,7 +141,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego refs find <asset>` | files and fields that reference an asset |
 | `aego refs fix <from> [<to>] [--dry-run]` | point every reference to one asset at another (none clears them); originals go to .aego/recovery |
 | `aego refs missing` | references to assets and nodes that do not exist |
-| `aego scene add-comp <file> <node> <comp> [--dry-run]` | add a component with its defaults |
+| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | add a component with its defaults and the components it requires |
 | `aego scene add-node <file> <name> [--parent v] [--space v] [--index v] [--dry-run]` | add an empty node |
 | `aego scene apply <file> [--tx v] [--tx-file v] [--dry-run]` | apply a transaction (tx version=1 { op … }) in one step |
 | `aego scene get <file> <node> [<path>]` | a node with its transform and every saved field, or one field |

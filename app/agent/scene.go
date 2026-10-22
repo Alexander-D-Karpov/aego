@@ -65,9 +65,8 @@ func sceneCommands() []*Command {
 		{Name: "scene.rename", Doc: "rename a node", Write: true, Args: []Arg{argFile, argNode, {Name: "name", Type: "string", Doc: "new name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Rename", mutate.Rename(a.Str("node"), a.Str("name")))
 		}},
-		{Name: "scene.add-comp", Doc: "add a component with its defaults", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name, full or a unique suffix (Body2D)", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
-			return s.sceneTx(a, "Add Component", mutate.AddComp(a.Str("node"), a.Str("comp")))
-		}},
+		{Name: "scene.add-comp", Doc: "add a component with its defaults and the components it requires", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name, full or a unique suffix (Body2D)", Required: true, Pos: true},
+			{Name: "no-required", Type: "boolean", Doc: "add only this component; missing requirements stay as problems"}}, Run: (*Session).sceneAddComp},
 		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Remove Component", mutate.RemoveComp(a.Str("node"), a.Str("comp")))
 		}},
@@ -91,6 +90,49 @@ func (s *Session) scene(a Args) (string, []byte, *mutate.Document, error) {
 	}
 	doc, err := mutate.Load(src, rel, s.env())
 	return rel, src, doc, err
+}
+
+// sceneAddComp adds a component and, unless no-required is set, the components it requires first, in one transaction (D144).
+func (s *Session) sceneAddComp(a Args) (*Output, error) {
+	rel, src, doc, err := s.scene(a)
+	if err != nil {
+		return nil, err
+	}
+	node, comp := a.Str("node"), a.Str("comp")
+	ops := []mutate.Op{mutate.AddComp(node, comp)}
+	var notes []string
+	if !a.Bool("no-required") {
+		td, err := doc.Component(comp)
+		if err != nil {
+			return nil, err
+		}
+		h, err := doc.Node(node)
+		if err != nil {
+			return nil, err
+		}
+		req, err := mutate.Required(doc.Scene, td, h)
+		if err != nil {
+			return nil, err
+		}
+		ops = ops[:0]
+		for _, r := range req {
+			ops = append(ops, mutate.AddComp(node, r.FullName))
+			notes = append(notes, "added "+label(r)+" (required by "+label(td)+")")
+		}
+		ops = append(ops, mutate.AddComp(node, td.FullName))
+	}
+	out, err := s.applyDoc(a, rel, src, doc, mutate.Tx{Label: "Add Component", Ops: ops})
+	if out != nil {
+		out.Notes = append(notes, out.Notes...)
+	}
+	return out, err
+}
+
+func label(td *schema.TypeDescriptor) string {
+	if td.DisplayName != "" {
+		return td.DisplayName
+	}
+	return td.FullName
 }
 
 func (s *Session) sceneTx(a Args, label string, ops ...mutate.Op) (*Output, error) {

@@ -344,7 +344,7 @@ title: Editor tools
 - **Area handles.** Select a node with a hitbox, hurtbox, kill zone, checkpoint or pickup to drag the corners and edges of its area; snapping applies, every drag is one undo step. A hitbox also shows its knockback as an arrow.
 - **Gameplay → Gameplay Areas** shows every area dimmed in the Scene View; during Play the Game View draws active hurtboxes and hitboxes, the zones and a health bar over every node with Health.
 - **Inspector during Play.** The Runtime fields show the controller's velocity, grounded, wall and ceiling contact, the floor and the body under it; Motion 2D adds a contact summary, Health a bar with the hit points, State Machine the current state and how long it has lasted; Lifetime shows the seconds left.
-- **Problems** lists a Motion 2D whose body is not kinematic (GMP001, blocks Play), a platformer with Gravity Scale 0 and no Jump Speed (GMP002) and a state machine with empty, duplicate or unknown states (GMP005).
+- **Problems** lists a Motion 2D whose body is not kinematic (GMP001, blocks Play), a platformer with Gravity Scale 0 and no Jump Speed (GMP002), a state machine with empty, duplicate or unknown states (GMP005) and a Hurtbox 2D with no Health on its node or above it (GMP006, a warning: hits on it are ignored).
 
 ---
 id: gameplay/go

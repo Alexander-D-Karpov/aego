@@ -17,11 +17,11 @@ func (a *App) beforeStop() {
 	if edit == nil {
 		return
 	}
-	res := pd.Compute(edit, play, pd.Touched(play.History))
-	if res.Empty() && a.diffMode == pd.ModeIfChanges {
+	hist := pd.FromHistory(edit, play)
+	if hist.Empty() && len(hist.Created)+len(hist.Removed) == 0 {
 		return
 	}
-	a.diffPending, a.diffDoc, a.diffRes = true, edit.ID, res
+	a.diffPending, a.diffDoc, a.diffRes, a.diffFull = true, edit.ID, hist, pd.Full(edit, play, hist)
 }
 
 func (a *App) showPlayDiff() {
@@ -29,8 +29,8 @@ func (a *App) showPlayDiff() {
 		return
 	}
 	a.diffPending = false
-	a.playDiff.Open(a.ctx.UI, a.diffDoc, a.diffRes)
-	a.diffRes = pd.Result{}
+	a.playDiff.Open(a.ctx.UI, a.diffDoc, a.diffRes, a.diffFull)
+	a.diffRes, a.diffFull = pd.Result{}, pd.Result{}
 }
 
 func (a *App) registerPlayDiff() error {
@@ -46,4 +46,8 @@ func (a *App) registerPlayDiff() error {
 		}
 	}
 	return nil
+}
+
+func (a *App) PlayDiffOpen() bool {
+	return a.playDiff.Active() || a.diffPending
 }

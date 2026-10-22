@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/props"
 	"aego/scene"
 	"aego/scene/mutate"
+	"aego/scene/sceneio"
 	"aego/scene/scriptcomp"
 	"aego/schema"
 )
@@ -70,6 +71,10 @@ type Change struct {
 	T3Before scene.Transform3D
 	T3After  scene.Transform3D
 	Checked  bool
+	Icon     string
+	Name     string
+	Tip      string
+	Gameplay bool
 }
 
 func (c *Change) Key() Key {
@@ -89,30 +94,189 @@ func (r *Result) Empty() bool {
 	return len(r.Changes) == 0
 }
 
-func Touched(h *history.History) map[Key]bool {
-	out := map[Key]bool{}
-	if h == nil {
-		return out
+func (r *Result) labelOf(c *Change, edit, play *document.SceneDocument) {
+	s := play.Scene()
+	h := s.Handle(c.Node)
+	if h.IsZero() || !s.IsAlive(h) {
+		s = edit.Scene()
+		h = s.Handle(c.Node)
 	}
-	h.Walk(func(c history.Command) {
-		switch c := c.(type) {
+	c.Icon, c.Name, c.Tip = props.NodeLabel(s, h, false)
+	if c.Name == "" {
+		c.Name = c.Path
+	}
+}
+
+func nodeName(s *scene.Scene, id ids.NodeID) string {
+	if _, name, _ := props.NodeLabel(s, s.Handle(id), false); name != "" {
+		return name
+	}
+	return id.Short()
+}
+
+// FromHistory lists what the Play history changed (D283): the last edit of each field wins and its value comes from the command, not from the scene.
+func FromHistory(edit, play *document.SceneDocument) Result {
+	var r Result
+	index := map[Key]int{}
+	put := func(c Change) {
+		k := c.Key()
+		if i, ok := index[k]; ok {
+			r.Changes[i] = c
+			return
+		}
+		index[k] = len(r.Changes)
+		r.Changes = append(r.Changes, c)
+	}
+	ps, es := play.Scene(), edit.Scene()
+	reg := ps.Registry()
+	nodes := map[ids.NodeID]bool{}
+	var order []ids.NodeID
+	touch := func(id ids.NodeID) {
+		if !nodes[id] {
+			nodes[id] = true
+			order = append(order, id)
+		}
+	}
+	play.History.Walk(func(cmd history.Command) {
+		switch c := cmd.(type) {
 		case *commands.Mutation:
 			for _, ch := range c.Changes() {
-				switch {
-				case ch.Op != mutate.KindSet && ch.Op != mutate.KindReset:
-				case ch.Type != 0:
-					out[Key{Node: ch.NodeID, Type: ch.Type, Field: ch.Field}] = true
-				case strings.HasPrefix(ch.Path, "transform."):
-					out[Key{Node: ch.NodeID}] = true
+				switch ch.Op {
+				case mutate.KindSet, mutate.KindReset:
+					if ch.Type == 0 {
+						if strings.HasPrefix(ch.Path, "transform.") {
+							put(transformChange(ps, ch.NodeID))
+						}
+						continue
+					}
+					td, ok := reg.ByID(ch.Type)
+					if !ok {
+						continue
+					}
+					fd, ok := td.FieldByID(ch.Field)
+					if !ok || !diffable(fd) {
+						continue
+					}
+					after, err := afterValue(reg, fd, ch.After)
+					if err != nil {
+						if after, err = play.Props.Get(ch.NodeID, ch.Type, ch.Field); err != nil {
+							continue
+						}
+					}
+					owner := td.DisplayName
+					if owner == "" {
+						owner = shortName(td.FullName)
+					}
+					put(Change{Node: ch.NodeID, Owner: owner, Label: props.Label(fd), Kind: KindField, Type: ch.Type, Field: ch.Field, After: after, Checked: true})
+				case mutate.KindAddNode, mutate.KindInsert, mutate.KindRemoveNode:
+					touch(ch.NodeID)
 				}
 			}
 		case *commands.SetTransform:
-			out[Key{Node: c.Node}] = true
+			put(Change{Node: c.Node, Owner: "Transform", Label: "Transform", Kind: KindTransform2D, T2After: c.After, Checked: true})
 		case *commands.SetTransform3D:
-			out[Key{Node: c.Node}] = true
+			put(Change{Node: c.Node, Owner: "Transform", Label: "Transform", Kind: KindTransform3D, T3After: c.After, Checked: true})
 		}
 	})
+	for _, id := range order {
+		if id.IsZero() {
+			continue
+		}
+		inPlay := alive(ps, id)
+		inEdit := alive(es, id)
+		switch {
+		case inPlay && !inEdit:
+			r.Created = append(r.Created, nodeName(ps, id))
+		case inEdit && !inPlay:
+			r.Removed = append(r.Removed, nodeName(es, id))
+		}
+	}
+	out := r.Changes[:0]
+	for _, c := range r.Changes {
+		if !alive(es, c.Node) {
+			continue
+		}
+		one := []ids.NodeID{c.Node}
+		switch c.Kind {
+		case KindField:
+			before, err := edit.Props.Get(c.Node, c.Type, c.Field)
+			if err != nil || props.Equal(before, c.After) {
+				continue
+			}
+			c.Before = before
+		case KindTransform2D:
+			if c.T2Before, _ = edit.Props.CommonTransform(one); c.T2Before == c.T2After {
+				continue
+			}
+		case KindTransform3D:
+			if c.T3Before, _, _ = edit.Props.CommonTransform3D(one); c.T3Before == c.T3After {
+				continue
+			}
+		}
+		c.Path = es.Path(es.Handle(c.Node))
+		r.labelOf(&c, edit, play)
+		out = append(out, c)
+	}
+	r.Changes = out
+	return r
+}
+
+// Full is the whole scene comparison: the history rows first, then the other differences unchecked and marked as made by the game.
+func Full(edit, play *document.SceneDocument, fromHistory Result) Result {
+	full := Compute(edit, play, nil)
+	have := map[Key]bool{}
+	for _, c := range fromHistory.Changes {
+		have[c.Key()] = true
+	}
+	out := append([]Change(nil), fromHistory.Changes...)
+	for _, c := range full.Changes {
+		if have[c.Key()] {
+			continue
+		}
+		c.Checked, c.Gameplay = false, true
+		full.labelOf(&c, edit, play)
+		out = append(out, c)
+	}
+	full.Changes = groupByNode(out)
+	return full
+}
+
+// groupByNode keeps the rows of one node together, nodes in the order they first appear.
+func groupByNode(list []Change) []Change {
+	var order []ids.NodeID
+	by := map[ids.NodeID][]Change{}
+	for _, c := range list {
+		if _, ok := by[c.Node]; !ok {
+			order = append(order, c.Node)
+		}
+		by[c.Node] = append(by[c.Node], c)
+	}
+	out := make([]Change, 0, len(list))
+	for _, n := range order {
+		out = append(out, by[n]...)
+	}
 	return out
+}
+
+func alive(s *scene.Scene, id ids.NodeID) bool {
+	h := s.Handle(id)
+	return !h.IsZero() && s.IsAlive(h)
+}
+
+func afterValue(reg *schema.Registry, fd *schema.FieldDescriptor, text string) (schema.Value, error) {
+	v, err := mutate.ParseValue(text)
+	if err != nil {
+		return schema.Value{}, err
+	}
+	return sceneio.ReadValue(reg, fd, v)
+}
+
+func transformChange(s *scene.Scene, id ids.NodeID) Change {
+	h := s.Handle(id)
+	if s.Space(h) == scene.Space3D {
+		return Change{Node: id, Owner: "Transform", Label: "Transform", Kind: KindTransform3D, T3After: s.Local3D(h), Checked: true}
+	}
+	return Change{Node: id, Owner: "Transform", Label: "Transform", Kind: KindTransform2D, T2After: s.Local(h), Checked: true}
 }
 
 func diffable(fd *schema.FieldDescriptor) bool {

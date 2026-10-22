@@ -72,7 +72,7 @@ func idRef(s *scene.Scene, h scene.NodeHandle) string {
 
 func (d *Document) resolve(name string) []*schema.TypeDescriptor {
 	reg := d.reg
-	if td, ok := reg.ByName(name); ok && td.Kind == schema.TypeComponent {
+	if td, ok := reg.ByName(name); ok && (td.Kind == schema.TypeComponent || td.Kind == schema.TypeScript) {
 		return []*schema.TypeDescriptor{td}
 	}
 	var found []*schema.TypeDescriptor
@@ -95,6 +95,9 @@ func ambiguous(name string, found []*schema.TypeDescriptor) error {
 func (d *Document) component(name string) (*schema.TypeDescriptor, error) {
 	switch found := d.resolve(name); len(found) {
 	case 1:
+		if found[0].Kind != schema.TypeComponent {
+			return nil, errs.New(errs.SchemaUnknownType, "unknown component", log.F("component", name))
+		}
 		return found[0], nil
 	case 0:
 		return nil, errs.New(errs.SchemaUnknownType, "unknown component", log.F("component", name))

@@ -169,6 +169,8 @@ type App struct {
 	taskPanel      *taskcenter.Panel
 	playDiff       *playdiffpanel.Dialog
 	diffMode       pd.Mode
+	diffAll        bool
+	diffFull       pd.Result
 	diffPending    bool
 	diffDoc        document.ID
 	diffRes        pd.Result
@@ -526,6 +528,12 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ws.Notices, a.ws.Tracer = a.ctx, e.Trace()
 	a.consolePanel = console.New(a.consoleSink)
 	a.problemsPanel = eproblems.New(a.ctx, a.ctx)
+	a.problemsPanel.Scene = func(path string) *scene.Scene {
+		if d := a.ctx.Docs.Find(path); d != nil {
+			return d.Scene()
+		}
+		return nil
+	}
 	playWorld := func() *engine.World { return a.play.World() }
 	a.eventsPanel = events.New(events.Deps{World: playWorld, Selection: a.ctx, Notices: a.ctx, Root: p.Root})
 	a.watchPanel = watch.New(watch.Deps{World: playWorld, Scripts: func() context.ScriptHost { return a.ctx.Scripts }, Viewport: a.viewport})
@@ -687,7 +695,8 @@ func (a *App) Init(e *engine.Engine) error {
 	if err := a.registerAssetTools(); err != nil {
 		return err
 	}
-	a.playDiff = playdiffpanel.New(playdiffpanel.Deps{Docs: a.ctx, Notices: a.ctx})
+	a.playDiff = playdiffpanel.New(playdiffpanel.Deps{Docs: a.ctx, Notices: a.ctx,
+		ShowAll: func() bool { return a.diffAll }, SetShowAll: func(on bool) { a.diffAll = on }})
 	if err := a.registerPlayDiff(); err != nil {
 		return err
 	}

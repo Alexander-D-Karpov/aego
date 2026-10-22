@@ -59,15 +59,19 @@ func TestEditorPlayDiff(t *testing.T) {
 	one := []ids.NodeID{id}
 	play.Props.Set(nil, one, td.ID, speed.ID, schema.Float32(7.5))
 	play.Props.Set(nil, one, td.ID, tint.ID, schema.Color(mathx.Color{R: 0.9, G: 0.2, B: 0.2, A: 1}))
-	play.Props.EditTransform(nil, one, func(tr *scene.Transform2D) { tr.Position = mathx.Vec2{X: 3.25, Y: -1} })
 	ps := play.Scene()
+	h := ps.Handle(id)
+	tr := ps.Local(h)
+	tr.Position = mathx.Vec2{X: 3.25, Y: -1}
+	ps.SetLocal(h, tr)
 	ps.CreateWithID(ps.Root(), "Coin", spawned)
 	ps.Flush()
-	res := pd.Compute(edit, play, map[pd.Key]bool{{Node: id, Type: td.ID, Field: speed.ID}: true})
+	hist := pd.FromHistory(edit, play)
+	full := pd.Full(edit, play, hist)
 
 	ctx := &context.Editor{UI: env.ui, Types: types, Docs: m, Selection: selection.New(), Settings: context.DefaultSettings()}
-	dlg := playdiff.New(playdiff.Deps{Docs: ctx, Notices: ctx})
-	dlg.Open(env.ui, edit.ID, res)
+	dlg := playdiff.New(playdiff.Deps{Docs: ctx, Notices: ctx, ShowAll: func() bool { return true }})
+	dlg.Open(env.ui, edit.ID, hist, full)
 	img, err := env.draw(func(full mathx.Rect) { dlg.Draw(env.ui) })
 	checkGolden(t, "editor_playdiff", img, err)
 }

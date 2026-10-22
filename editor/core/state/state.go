@@ -35,6 +35,7 @@ type Editor struct {
 	Active          string
 	Workspace       string
 	PlayDiff        string
+	PlayDiffAll     bool
 	Tool            int
 	Grid            bool
 	Snap            bool
@@ -136,6 +137,7 @@ func Encode(s *Editor) []byte {
 		aetext.Field{Name: "active", Value: aetext.String(s.Active)},
 		aetext.Field{Name: "workspace", Value: aetext.String(s.Workspace)},
 		aetext.Field{Name: "play_diff", Value: aetext.String(s.PlayDiff)},
+		aetext.Field{Name: "play_diff_all", Value: aetext.Bool(s.PlayDiffAll)},
 		aetext.Field{Name: "tool", Value: aetext.Int(int64(s.Tool))},
 		aetext.Field{Name: "grid", Value: aetext.Bool(s.Grid)},
 		aetext.Field{Name: "snap", Value: aetext.Bool(s.Snap)},
@@ -202,6 +204,9 @@ func Decode(data []byte, name string) (*Editor, error) {
 	}
 	if v, ok := doc.Field("play_diff"); ok && v.Str != "" {
 		s.PlayDiff = v.Str
+	}
+	if v, ok := doc.Field("play_diff_all"); ok {
+		s.PlayDiffAll = v.Bool
 	}
 	if v, ok := doc.Field("tool"); ok {
 		s.Tool = int(v.AsInt())

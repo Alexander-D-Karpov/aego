@@ -3,6 +3,7 @@
 (function () {
     const blocks = [...document.querySelectorAll(".try[data-scene]")];
     if (!blocks.length) return;
+    globalThis.aegoSoundDefault = true;
     const starters = new Map();
     const texts = new Map();
     let api = null;

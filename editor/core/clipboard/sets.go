@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/scene"
+	"aego/scene/mutate"
 	"aego/scene/sceneio"
 	"aego/scene/scriptcomp"
 	"aego/schema"
@@ -31,6 +32,18 @@ func (e Env) pasteInto(tx *history.Transaction, d *document.SceneDocument, nodes
 		if _, has := s.GetByType(h, td.ID); !has {
 			if !s.Accepts(h, td.ID) {
 				continue
+			}
+			req, err := mutate.Required(s, td, h)
+			if err != nil {
+				if e.Notify != nil {
+					e.Notify(s.Name(h) + ": " + err.Error())
+				}
+				continue
+			}
+			for _, r := range req {
+				if err := tx.Exec(commands.NewMutation("Add "+r.FullName, env, commands.AddComp(s, n, r, nil))); err != nil {
+					return err
+				}
 			}
 			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, n, td, values))); err != nil {
 				return err

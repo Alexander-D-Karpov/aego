@@ -8,6 +8,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/editor/core/state"
 	"aego/engine"
@@ -237,8 +238,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		if rc.Kind == recorder.Fault {
 			col = th.Error
 		}
+		x := row.X + 24
+		if s != nil && !rc.Owner.IsZero() {
+			if icon, _, tip := props.NodeLabel(s, s.Handle(rc.Owner), false); icon != "" {
+				widgets.IconAt(ui, mathx.Rect{X: row.X + 4, Y: row.Y + (row.H-16)/2, W: 16, H: 16}, icon, th.TextDim)
+				widgets.Tooltip(ui, id, tip)
+			}
+		}
 		ui.PushClip(row)
-		ui.Text(rc.Line(name), mathx.Vec2{X: row.X + 4, Y: ui.TextY(row)}, col)
+		ui.Text(rc.Line(name), mathx.Vec2{X: x, Y: ui.TextY(row)}, col)
 		ui.PopClip()
 	})
 }

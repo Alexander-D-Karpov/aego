@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/fuzzy"
+	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/platform/input"
 	"aego/ui/core"
@@ -153,7 +154,7 @@ func (o *Overlay) collect() {
 			}
 			id := s.ID(h)
 			o.items = append(o.items, Item{
-				Label: s.Name(h), Detail: s.Path(h), Kind: "node", Tab: TabNodes, Icon: "cat.node",
+				Label: s.Name(h), Detail: strings.TrimPrefix(s.Path(h), "/"), Kind: "node", Tab: TabNodes, Icon: props.NodeIcon(s, h),
 				Fav: favs.Item{Kind: favs.Node, Scene: scenePath, Node: id, Label: s.Name(h)}, HasFav: true,
 				Run: func() {
 					o.d.Docs.Documents().SetActive(doc)

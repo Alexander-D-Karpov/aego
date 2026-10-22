@@ -39,14 +39,16 @@ const (
 )
 
 type Env struct {
-	Clip  context.DataClipboard
-	Types *scene.Types
-	Res   asset.Resolver
-	OnAdd func(*schema.TypeDescriptor) func(*scene.Scene, scene.NodeHandle)
+	Clip   context.DataClipboard
+	Types  *scene.Types
+	Res    asset.Resolver
+	OnAdd  func(*schema.TypeDescriptor) func(*scene.Scene, scene.NodeHandle)
+	Notify func(string)
 }
 
 func EnvOf(ctx *context.Editor) Env {
 	e := Env{Clip: ctx.Clipboard, Types: ctx.Types, OnAdd: ctx.OnAdd}
+	e.Notify = func(text string) { ctx.Notify(context.LevelWarn, text) }
 	if ctx.Loader != nil {
 		e.Res = ctx.Loader
 	}

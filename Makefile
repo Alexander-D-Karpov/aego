@@ -22,7 +22,7 @@ WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROM
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
-WEB_DEMO_QUIET = sed -i 's/<html lang="en"/<html lang="en" data-music="off"/' site/demo/index.html
+WEB_DEMO_QUIET = sed -i 's/<html lang="en"/<html lang="en" data-sound="off"/' site/demo/index.html
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760

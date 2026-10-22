@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/module"
+	"aego/engine/problems"
 	"aego/scene"
 	"aego/schema"
 	"aego/script/bind"
@@ -125,6 +126,26 @@ type Hurtbox2D struct {
 	Multiplier float32       `aego:"multiplier,min=0"`
 	Active     bool          `aego:"active"`
 	Health     scene.NodeRef `aego:"health"`
+}
+
+const CodeNoHealth = "GMP006"
+
+func validateHurt(ctx module.ValidateContext, c *Hurtbox2D) []problems.Diagnostic {
+	if !c.Health.IsZero() {
+		return nil
+	}
+	s := ctx.Scene
+	root := s.Root()
+	for n := ctx.Node; !n.IsZero(); n = s.Parent(n) {
+		if scene.Has[Health](s, n) {
+			return nil
+		}
+		if n == root {
+			break
+		}
+	}
+	return []problems.Diagnostic{{Code: CodeNoHealth, Severity: problems.Warning,
+		Message: "Hurtbox 2D has no Health on its node or above it, hits on it are ignored"}}
 }
 
 func DefaultHurtbox() Hurtbox2D {
@@ -455,7 +476,7 @@ func registerCombat(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("multiplier", "Damage taken here is multiplied by this, for weak spots and armour."),
 		schema.FieldDoc("active", "Off ignores hits."),
 		schema.FieldDoc("health", "Health that takes the damage. Empty uses this node or its nearest parent with Health."),
-	).Category(Category).Display("Hurtbox 2D").Icon("gameplay.hurtbox").Default(DefaultHurtbox)
+	).Category(Category).Display("Hurtbox 2D").Icon("gameplay.hurtbox").Default(DefaultHurtbox).Validate(validateHurt)
 
 	hit := module.Component[Hitbox2D](r, schema.Name(NameHitbox), space,
 		schema.Doc("Damages hurtboxes inside its area, once per target per activation, on every entry or periodically."),

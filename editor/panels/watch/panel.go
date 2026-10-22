@@ -7,6 +7,7 @@ import (
 	"aego/core/clock"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/engine"
 	"aego/scene"
@@ -286,6 +287,11 @@ func (p *Panel) eval(r *row, w *engine.World) {
 			return
 		}
 		setValue(r, v, lane)
+		if v.Kind == schema.KindNodeRef {
+			if _, name, _ := props.NodeLabel(s, s.Handle(v.Node), false); name != "" {
+				r.text = name
+			}
+		}
 		return
 	}
 	var host context.ScriptHost

@@ -10,6 +10,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/props"
 	"aego/render/texture"
 	"aego/scene"
 	"aego/schema"
@@ -32,6 +33,7 @@ type refInfo struct {
 	kind    refKind
 	label   string
 	tooltip string
+	icon    string
 }
 
 func (k refKind) color(th *core.Theme) mathx.Color {
@@ -67,11 +69,11 @@ func nodeState(s *scene.Scene, id ids.NodeID, need string) refInfo {
 	if h.IsZero() || !s.IsAlive(h) {
 		return refInfo{kind: refMissing, label: "Missing", tooltip: "Node " + id.String() + " is not in this scene"}
 	}
-	where := s.Path(h)
+	icon, name, where := props.NodeLabel(s, h, false)
 	if need != "" && !hasComponent(s, h, need) {
-		return refInfo{kind: refNoComponent, label: s.Name(h) + " · no " + shortType(need), tooltip: where + " has no " + need}
+		return refInfo{kind: refNoComponent, label: name + " · no " + shortType(need), tooltip: where + " has no " + need, icon: icon}
 	}
-	return refInfo{kind: refAlive, label: s.Name(h), tooltip: where}
+	return refInfo{kind: refAlive, label: name, tooltip: where, icon: icon}
 }
 
 func assetState(pl *pipeline.Pipeline, id ids.AssetID) refInfo {
@@ -153,6 +155,10 @@ func (p *Panel) refBox(id core.ID, r mathx.Rect, info refInfo, mixed bool, thumb
 		}
 	} else if !mixed {
 		widgets.Tooltip(ui, hid, info.tooltip)
+		if info.icon != "" {
+			widgets.IconAt(ui, mathx.Rect{X: tx, Y: box.Y + (box.H-16)/2, W: 16, H: 16}, info.icon, th.TextDim)
+			tx += 20
+		}
 	}
 	text, col := info.label, info.kind.color(th)
 	if mixed {
@@ -339,9 +345,9 @@ func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v
 	}
 	q := strings.ToLower(p.pick)
 	root := s.Root()
-	count := 0
+	var cands []scene.NodeHandle
 	for _, h := range s.PreOrder() {
-		if count >= 200 {
+		if len(cands) >= 200 {
 			break
 		}
 		if h == root || !s.IsAlive(h) {
@@ -353,9 +359,17 @@ func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v
 		if need != "" && !hasComponent(s, h, need) {
 			continue
 		}
-		count++
+		cands = append(cands, h)
+	}
+	ambig := props.Ambiguous(s, cands)
+	for i, h := range cands {
+		count := i + 1
 		nid := s.ID(h)
-		if widgets.Selectable(ui, core.IDSeq(pid, 10+count), s.Path(h), nid == cur) {
+		icon, text, tip := props.NodeLabel(s, h, ambig[s.Name(h)])
+		sid := core.IDSeq(pid, 10+count)
+		picked := widgets.SelectableIcon(ui, sid, icon, text, nid == cur)
+		widgets.Tooltip(ui, sid, tip)
+		if picked {
 			*v = schema.Node(nid)
 			e = all
 			ui.ClosePopup(pid)

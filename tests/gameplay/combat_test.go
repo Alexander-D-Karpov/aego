@@ -321,3 +321,28 @@ func TestCombatZeroAllocs(t *testing.T) {
 		t.Fatalf("%v allocations per tick", a)
 	}
 }
+
+func TestHurtboxWithoutHealthWarns(t *testing.T) {
+	r := newRig(t)
+	parent := r.node(mathx.Vec2{})
+	child := r.s.Create(parent, "Box")
+	*scene.Add[gameplay.Hurtbox2D](r.s, child) = gameplay.DefaultHurtbox()
+	r.s.Flush()
+	count := func() int {
+		n := 0
+		for _, d := range module.ValidateScene(r.s, nil) {
+			if d.Code == gameplay.CodeNoHealth {
+				n++
+			}
+		}
+		return n
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("hurtbox with no Health reported %d GMP006, want 1", n)
+	}
+	*scene.Add[gameplay.Health](r.s, parent) = gameplay.DefaultHealth()
+	r.s.Flush()
+	if n := count(); n != 0 {
+		t.Fatalf("Health on the parent still reported %d GMP006", n)
+	}
+}

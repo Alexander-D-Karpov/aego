@@ -14,8 +14,10 @@ import (
 )
 
 type Deps struct {
-	Docs    services.Documents
-	Notices services.Notices
+	Docs       services.Documents
+	Notices    services.Notices
+	ShowAll    func() bool
+	SetShowAll func(bool)
 }
 
 type Dialog struct {
@@ -24,6 +26,8 @@ type Dialog struct {
 	open   bool
 	doc    document.ID
 	res    pd.Result
+	hist   pd.Result
+	full   pd.Result
 	scroll float32
 }
 
@@ -35,14 +39,33 @@ func (g *Dialog) Active() bool {
 	return g.open
 }
 
-func (g *Dialog) Open(ui *core.Context, doc document.ID, res pd.Result) {
-	g.open, g.doc, g.res, g.scroll = true, doc, res, 0
+func (g *Dialog) Open(ui *core.Context, doc document.ID, hist, full pd.Result) {
+	g.open, g.doc, g.hist, g.full, g.scroll = true, doc, hist, full, 0
+	g.res = hist
+	if g.d.ShowAll != nil && g.d.ShowAll() {
+		g.res = full
+	}
 	ui.OpenModal(g.id)
+}
+
+func (g *Dialog) showAll(ui *core.Context) {
+	on := g.d.ShowAll != nil && g.d.ShowAll()
+	if widgets.Checkbox(ui, "Show all differences, including those made by the game", &on) {
+		if g.d.SetShowAll != nil {
+			g.d.SetShowAll(on)
+		}
+		if on {
+			g.res = g.full
+		} else {
+			g.res = g.hist
+		}
+		g.scroll = 0
+	}
 }
 
 func (g *Dialog) close(ui *core.Context) {
 	g.open = false
-	g.res = pd.Result{}
+	g.res, g.hist, g.full = pd.Result{}, pd.Result{}, pd.Result{}
 	ui.CloseModal()
 }
 
@@ -150,7 +173,8 @@ func (g *Dialog) Draw(ui *core.Context) {
 	if len(g.res.Changes) > 0 && check(ui, ui.ID("all"), ar, all) {
 		g.set(0, len(g.res.Changes), all != 1)
 	}
-	widgets.LabelDim(ui, "Fields you changed in the Inspector during Play are checked. Everything else changed by the game itself.")
+	widgets.LabelDim(ui, "Changes you made during Play. Undo in the scene reverts them after Apply.")
+	g.showAll(ui)
 	rows := g.rows()
 	foot := th.RowHeight*2 + th.Padding*2
 	if len(g.res.Created)+len(g.res.Removed) > 0 {
@@ -202,9 +226,16 @@ func (g *Dialog) drawRow(ui *core.Context, i int, rw row, rr mathx.Rect) {
 		if check(ui, id, cb, st) {
 			g.set(rw.first, rw.last, st != 1)
 		}
+		c := &g.res.Changes[rw.first]
+		x := cb.X + cb.W + 4
+		if c.Icon != "" {
+			widgets.IconAt(ui, mathx.Rect{X: x, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, c.Icon, th.TextDim)
+			x += 20
+		}
 		ui.PushClip(rr)
-		ui.Text(g.res.Changes[rw.first].Path, mathx.Vec2{X: cb.X + cb.W + 4, Y: ui.TextY(rr)}, th.Text)
+		ui.Text(c.Name, mathx.Vec2{X: x, Y: ui.TextY(rr)}, th.Text)
 		ui.PopClip()
+		widgets.Tooltip(ui, id, c.Tip)
 		return
 	}
 	c := &g.res.Changes[rw.first]
@@ -225,6 +256,9 @@ func (g *Dialog) drawRow(ui *core.Context, i int, rw row, rr mathx.Rect) {
 	text := c.Text(false) + "  →  " + c.Text(true)
 	ui.PushClip(mathx.Rect{X: x, Y: rr.Y, W: max(0, rr.X+rr.W-x), H: rr.H})
 	ui.Text(text, mathx.Vec2{X: x, Y: ui.TextY(rr)}, th.Text)
+	if c.Gameplay {
+		ui.Text("  · from gameplay", mathx.Vec2{X: x + ui.TextSize(text).X, Y: ui.TextY(rr)}, th.TextDisabled)
+	}
 	ui.PopClip()
 	widgets.Tooltip(ui, id, c.Text(false)+"\n→ "+c.Text(true))
 }

@@ -957,7 +957,7 @@ func (b *builder) home() string {
 			style = ` style="background-image:url(` + posterAsset + `)"`
 		}
 		c.WriteString(`<div class="hero-demo"><div class="demo" data-src="demo/"` + style + `><button type="button" class="demo-play" aria-label="Play the demo"><span class="disc">` + b.icon("", "play.start", "") + `</span><small>Play the demo · runs in the browser</small></button></div>`)
-		c.WriteString(`<p class="demo-caption">A small platformer made with Aego and exported for the web. A/D or arrows to move, Space to jump, J to attack. <a href="demo/">Open full screen</a></p></div>`)
+		c.WriteString(`<p class="demo-caption">A small platformer made with Aego and exported for the web. A/D or arrows to move, Space to jump. <a href="demo/">Open full screen</a></p></div>`)
 	case b.hero:
 		c.WriteString(`<img class="hero-shot" src="` + heroAsset + `" alt="The Aego editor">`)
 	}

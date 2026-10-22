@@ -532,12 +532,10 @@ func (d *Document) set(op Op, raw aetext.Value, reset bool) (step, error) {
 		return d.setPose(op, t, raw, reset)
 	}
 	s := d.Scene
-	p, ok := s.GetByType(t.h, t.td.ID)
-	if !ok {
+	cur, err := s.GetProperty(t.h, t.td.ID, t.fd.ID)
+	if err != nil {
 		return step{}, errs.New(errs.SceneNoComponent, "node has no "+t.td.FullName, log.F("node", d.nodeName(t.h)))
 	}
-	var cur schema.Value
-	t.fd.Get(p, &cur)
 	var nv schema.Value
 	if reset {
 		nv = defaultOf(t.td, t.fd)

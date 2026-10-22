@@ -301,3 +301,29 @@ func mustImporters(t *testing.T, e *env) *pipeline.ImporterRegistry {
 	t.Helper()
 	return pipeline.NewImporterRegistry()
 }
+
+// add-comp brings the components a component requires unless no-required asks for the old strict behaviour (D144).
+func TestAddCompAddsRequired(t *testing.T) {
+	e := open(t)
+	out := e.must("scene.add-comp", agent.Args{"file": level, "node": "PatrolA1", "comp": "CameraFollow2D"})
+	if len(out.Notes) != 1 || !strings.Contains(out.Notes[0], "added Virtual Camera 2D (required by Camera Follow 2D)") {
+		t.Fatalf("notes %v", out.Notes)
+	}
+	text := string(e.read(level))
+	if !strings.Contains(text, `component "camera.VirtualCamera2D"`) || !strings.Contains(text, `component "camera.CameraFollow2D"`) {
+		t.Fatal("the scene lacks the follow camera or its virtual camera")
+	}
+	strict := e.must("scene.add-comp", agent.Args{"file": level, "node": "PatrolB1", "comp": "CameraFollow2D", "no-required": true})
+	if len(strict.Notes) != 0 {
+		t.Fatalf("no-required added %v", strict.Notes)
+	}
+}
+
+func TestAddCompRefusesScript(t *testing.T) {
+	e := open(t)
+	for _, strict := range []bool{false, true} {
+		if _, err := e.run("scene.add-comp", agent.Args{"file": level, "node": "Player", "comp": "mygame.player.PlayerController", "no-required": strict}); err == nil {
+			t.Fatalf("no-required=%v: add-comp accepted a script type", strict)
+		}
+	}
+}

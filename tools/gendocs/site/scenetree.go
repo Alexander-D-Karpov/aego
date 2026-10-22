@@ -27,18 +27,22 @@ func (b *builder) sceneTree(src, root string) string {
 		label = "1 node"
 	}
 	c.WriteString(`<details class="scene-tree"><summary>` + b.icon(root, "file.scene", "") + `<span>Scene</span><span class="count">` + label + `</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary><div class="st-body">`)
-	b.treeNodes(&c, nodes, root)
+	b.treeNodes(&c, nodes, root, "")
 	c.WriteString("</div></details>\n")
 	return c.String()
 }
 
-func (b *builder) treeNodes(c *strings.Builder, nodes []sceneio.OutlineNode, root string) {
+func (b *builder) treeNodes(c *strings.Builder, nodes []sceneio.OutlineNode, root, parent string) {
 	for _, n := range nodes {
 		name := n.Name
 		if name == "" {
 			name = "Node"
 		}
-		c.WriteString(`<div class="st-node"><div class="st-head">` + b.icon(root, "node.empty", "") + esc(name))
+		p := name
+		if parent != "" {
+			p = parent + "/" + name
+		}
+		c.WriteString(`<div class="st-node"><div class="st-head" title="` + esc(p) + `">` + b.icon(root, "node.empty", "") + esc(name))
 		if !n.Enabled {
 			c.WriteString(` <span class="note">disabled</span>`)
 		}
@@ -48,7 +52,7 @@ func (b *builder) treeNodes(c *strings.Builder, nodes []sceneio.OutlineNode, roo
 		}
 		if len(n.Children) > 0 {
 			c.WriteString(`<div class="st-children">`)
-			b.treeNodes(c, n.Children, root)
+			b.treeNodes(c, n.Children, root, p)
 			c.WriteString(`</div>`)
 		}
 		c.WriteString("</div>")

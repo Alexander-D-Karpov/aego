@@ -8,8 +8,10 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -35,6 +37,7 @@ type Panel struct {
 	scroll    float32
 	selKey    string
 	Opened    int
+	Scene     func(path string) *scene.Scene
 }
 
 func New(src services.Problems, nav services.Navigation) *Panel {
@@ -63,6 +66,16 @@ func where(pr *context.ScriptProblem) string {
 		return "node " + pr.Node.String()[:8]
 	}
 	return strconv.Itoa(pr.Line) + ":" + strconv.Itoa(pr.Col)
+}
+
+func (p *Panel) node(pr *context.ScriptProblem) (icon, text, tip string) {
+	if pr.Node.IsZero() || p.Scene == nil {
+		return "", "", ""
+	}
+	if s := p.Scene(pr.Path); s != nil {
+		return props.NodeLabel(s, s.Handle(pr.Node), false)
+	}
+	return "", "", ""
 }
 
 func (p *Panel) refresh() (int, int) {
@@ -176,9 +189,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if sel.Help != "" {
 		widgets.LabelWrapped(ui, sel.Help, true)
 	}
-	info := sel.Path + "   " + where(sel)
+	loc := where(sel)
+	if _, name, tip := p.node(sel); name != "" {
+		loc = tip
+	}
+	info := sel.Path + "   " + loc
 	if sel.Script() {
-		info = sel.Path + ":" + where(sel) + "   package " + sel.Package
+		info = sel.Path + ":" + loc + "   package " + sel.Package
 	} else {
 		info += "   " + sel.Category
 	}
@@ -247,11 +264,25 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		code = pr.Category + " " + pr.Code
 	}
 	loc := where(pr)
+	nicon, name, tip := p.node(pr)
+	if name != "" {
+		loc = name
+	}
 	lw := ui.TextSize(loc).X + 12
+	if nicon != "" {
+		lw += 20
+	}
 	ui.PushClip(mathx.Rect{X: x, Y: rr.Y, W: max(0, rr.X+rr.W-x-lw), H: rr.H})
 	ui.Text(code, mathx.Vec2{X: x, Y: ui.TextY(rr)}, th.TextDim)
 	ui.Text(pr.Message, mathx.Vec2{X: x + ui.TextSize(code).X + 10, Y: ui.TextY(rr)}, th.Text)
 	ui.PopClip()
 	ui.TextIn(rr, loc, th.TextDim, core.AlignRight)
-	widgets.Tooltip(ui, id, pr.Help)
+	if nicon != "" {
+		widgets.IconAt(ui, mathx.Rect{X: rr.X + rr.W - lw + 6, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, nicon, th.TextDim)
+	}
+	help := pr.Help
+	if tip != "" {
+		help = strings.TrimSpace(tip + "\n" + help)
+	}
+	widgets.Tooltip(ui, id, help)
 }

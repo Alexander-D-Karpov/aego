@@ -64,7 +64,7 @@ Component menus copy and paste values, and the Node card copies all components a
 
 ## Keeping Play Changes
 
-When you stop Play after changing something, the editor lists what differs from the scene. Fields you changed in the Inspector during Play are already checked; everything else (positions, velocities, counters) changed by the game itself and stays unchecked. "Apply to scene" copies the checked values as one Undo step. Window → Play chooses whether the list shows when there are changes, always, or never.
+When you stop Play after changing something in the Inspector or with a gizmo, the editor lists those changes, already checked, with the value you set (even if the game moved the node afterwards). Stopping without edits shows nothing. **Show all differences** adds everything else the game changed (positions, velocities, counters), unchecked and marked "from gameplay"; the editor remembers the choice. "Apply to scene" copies the checked values as one Undo step. Window → Play can turn the list off.
 
 ## Assets and Project Health
 

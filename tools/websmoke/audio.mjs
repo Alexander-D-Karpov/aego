@@ -112,9 +112,19 @@ async function demo(browser) {
     try {
         await page.goto(base);
         await page.waitForFunction(() => globalThis.aegoBoot !== undefined && typeof globalThis.aegoAudioStats === "function", null, { timeout: 120000 });
+        const quiet = await page.evaluate(() => document.documentElement.dataset.sound === "off");
+        if (quiet && !(await stats()).muted) fail(`${label}: the page asks for silence, but the demo starts with sound`);
         await page.evaluate(() => globalThis.aegoAudioMute(false));
+        const enforced = await page.evaluate(async () => {
+            const c = new AudioContext();
+            await new Promise((r) => setTimeout(r, 300));
+            const s = c.state;
+            await c.close();
+            return s !== "running";
+        });
         const before = await stats();
-        if (before.running) fail(`${label}: audio ran before a gesture`);
+        if (!enforced) console.log(`${label}: this browser starts an AudioContext without a gesture, the gesture check is skipped`);
+        else if (before.running) fail(`${label}: audio ran before a gesture`);
         await page.click("#game");
         await sleep(2500);
         const s = await stats();

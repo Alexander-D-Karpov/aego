@@ -1,6 +1,7 @@
 package inspector
 
 import (
+	"strings"
 	"testing"
 
 	"aego/core/ids"
@@ -13,6 +14,7 @@ import (
 	"aego/editor/ext/inspect"
 	"aego/engine/module"
 	"aego/scene"
+	"aego/scene/mutate"
 	"aego/scene/sceneio"
 	"aego/schema"
 )
@@ -29,6 +31,14 @@ type addTop struct {
 	C float32 `aego:"c"`
 }
 
+type addSolo struct {
+	S float32 `aego:"s"`
+}
+
+type addNeedsSolo struct {
+	N float32 `aego:"n"`
+}
+
 type addModule struct{}
 
 func (addModule) Info() module.Info {
@@ -40,6 +50,12 @@ func (addModule) Register(r *module.Registry) error {
 		return err
 	}
 	if err := module.Component[addMid](r, schema.Name("addtest.Mid")).Requires("addtest.Base").Err(); err != nil {
+		return err
+	}
+	if err := module.Component[addSolo](r, schema.Name("addtest.Solo")).SceneUnique().Err(); err != nil {
+		return err
+	}
+	if err := module.Component[addNeedsSolo](r, schema.Name("addtest.NeedsSolo")).Requires("addtest.Solo").Err(); err != nil {
 		return err
 	}
 	return module.Component[addTop](r, schema.Name("addtest.Top")).Requires("addtest.Mid").Err()
@@ -77,11 +93,11 @@ func TestAddBringsRequiredComponents(t *testing.T) {
 	reg.SetEditor(ctx)
 	p := New(reg, Deps{Docs: ctx, Selection: ctx, Commands: ctx.Commands, Notices: ctx, Nav: ctx, Problems: ctx, Clip: clipboard.EnvOf(ctx), Collapsed: ctx.Collapsed})
 	top, _ := types.Schema().ByName("addtest.Top")
-	if why := p.blocked(s, types.Schema(), top); why != "" {
+	if why := p.blocked(s, top); why != "" {
 		t.Fatalf("Top is blocked: %s", why)
 	}
 	p.nodes = []ids.NodeID{s.ID(a), s.ID(b)}
-	if got := p.requiredChain(s, types.Schema(), top, s.ID(a), nil); len(got) != 2 || got[0].FullName != "addtest.Base" || got[1].FullName != "addtest.Mid" {
+	if got, _ := mutate.Required(s, top, a); len(got) != 2 || got[0].FullName != "addtest.Base" || got[1].FullName != "addtest.Mid" {
 		t.Fatalf("chain %v", got)
 	}
 	p.add(d, top)
@@ -105,5 +121,30 @@ func TestAddBringsRequiredComponents(t *testing.T) {
 	}
 	if !has(b, "addtest.Base") {
 		t.Fatal("Undo removed a component the node had before")
+	}
+}
+
+// A requirement that is one per scene and already in the scene blocks the entry with the reason.
+func TestAddBlockedBySceneUniqueRequirement(t *testing.T) {
+	types := scene.NewTypes(schema.NewRegistry())
+	if err := sceneio.RegisterUnknown(types); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := module.Load(types, nil, addModule{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := types.Schema().Freeze(); err != nil {
+		t.Fatal(err)
+	}
+	s := scene.New(types, nil, scene.Options{})
+	scene.Add[addSolo](s, s.Create(s.Root(), "Holder"))
+	n := s.Create(s.Root(), "N")
+	s.Flush()
+	p := New(inspect.NewRegistry(), Deps{})
+	p.nodes = []ids.NodeID{s.ID(n)}
+	td, _ := types.Schema().ByName("addtest.NeedsSolo")
+	why := p.blocked(s, td)
+	if !strings.Contains(why, "already has one") {
+		t.Fatalf("blocked = %q, want the scene-unique reason", why)
 	}
 }

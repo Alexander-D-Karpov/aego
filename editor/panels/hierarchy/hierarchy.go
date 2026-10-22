@@ -15,12 +15,12 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/prefabs"
+	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/editor/core/templates"
 	"aego/editor/core/workspace"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
@@ -53,6 +53,7 @@ type Deps struct {
 }
 
 type Panel struct {
+	ambig         map[string]bool
 	d             Deps
 	rows          []row
 	scroll        float32
@@ -68,8 +69,6 @@ type Panel struct {
 	menuID        core.ID
 	sceneMenuID   core.ID
 	doc           document.ID
-	rank          map[schema.TypeID]int
-	rankReg       *schema.Registry
 }
 
 func New(d Deps) *Panel {
@@ -280,6 +279,11 @@ func (p *Panel) build(d *document.SceneDocument) {
 				p.rows = append(p.rows, row{h: h, id: s.ID(h)})
 			}
 		}
+		hs := make([]scene.NodeHandle, len(p.rows))
+		for i := range p.rows {
+			hs[i] = p.rows[i].h
+		}
+		p.ambig = props.Ambiguous(s, hs)
 		return
 	}
 	p.walk(s, d.View.Expanded, s.Root(), 0, 0)
@@ -323,32 +327,6 @@ func rowID(id ids.NodeID) core.ID {
 	return core.IDSeq(core.ID(id.Hi), int(uint32(id.Lo)))
 }
 
-func (p *Panel) nodeIcon(s *scene.Scene, h scene.NodeHandle) (string, bool) {
-	reg := s.Registry()
-	if p.rankReg != reg {
-		p.rankReg, p.rank = reg, map[schema.TypeID]int{}
-		for i, td := range reg.Components() {
-			p.rank[td.ID] = i
-		}
-	}
-	icon, prio, rank, any := "", 0, 0, false
-	s.ComponentsOf(h, func(t schema.TypeID) {
-		td, ok := reg.ByID(t)
-		if !ok || td.Hidden {
-			return
-		}
-		any = true
-		r := p.rank[t]
-		if td.NodeIcon > 0 && td.Icon != "" && (td.NodeIcon > prio || td.NodeIcon == prio && r < rank) {
-			icon, prio, rank = td.Icon, td.NodeIcon, r
-		}
-	})
-	if icon == "" && any {
-		icon = "cat.node"
-	}
-	return icon, !any
-}
-
 func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr mathx.Rect) {
 	ui := f.UI
 	s := d.Scene()
@@ -358,11 +336,11 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 		p.drawRename(f, d, rw, rr, selected)
 		return
 	}
-	label := s.Name(rw.h)
+	label, tip := s.Name(rw.h), ""
 	if p.filter != "" {
-		label = s.Path(rw.h)
+		_, label, tip = props.NodeLabel(s, rw.h, p.ambig[label])
 	}
-	icon, empty := p.nodeIcon(s, rw.h)
+	icon, empty := props.NodeIconOf(s, rw.h)
 	id := rowID(rw.id)
 	ev := widgets.TreeRowRect(ui, id, rr, widgets.TreeRow{
 		Depth:       rw.depth,
@@ -378,6 +356,9 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 		Last:        rw.last,
 		Lines:       rw.lines,
 	})
+	if tip != "" {
+		widgets.Tooltip(ui, id, tip)
+	}
 	p.decorate(f, d, rw, rr)
 	if ev.Toggled {
 		d.View.Expanded[rw.id] = !d.View.Expanded[rw.id]
