@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -60,8 +61,15 @@ func TestPackWeb(t *testing.T) {
 	if !strings.Contains(string(page), "&lt;Game &amp;") || strings.Contains(string(page), "<Game") {
 		t.Fatal("the title is not escaped")
 	}
-	if !strings.Contains(string(page), `data-build="abababababab"`) {
+	key := regexp.MustCompile(`data-build="([0-9a-f]{12})"`).FindStringSubmatch(string(page))
+	if key == nil {
 		t.Fatal("the build key is missing")
+	}
+	if err := os.WriteFile(j.l.binary(), append(wasm, '!'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if again, err := j.webBuild(); err != nil || again == key[1] {
+		t.Fatalf("a new runtime kept the build key %s (%v)", again, err)
 	}
 	raw, err := os.ReadFile(filepath.Join(j.l.data, WebFiles))
 	if err != nil {

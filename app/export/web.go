@@ -3,7 +3,9 @@ package export
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"html/template"
 	"io/fs"
@@ -141,6 +143,21 @@ func (j *job) webTitle() string {
 	return AppName(j.p)
 }
 
+// webBuild keys the page's ?v= URLs on the data, the runtime and both scripts, so a new engine gets new URLs under immutable caching.
+func (j *job) webBuild(scripts ...[]byte) (string, error) {
+	wasm, err := os.ReadFile(j.l.binary())
+	if err != nil {
+		return "", errs.Wrap(err, errs.VFSIO, "cannot read the web runtime")
+	}
+	h := sha256.New()
+	h.Write([]byte(j.rep.Hash))
+	h.Write(wasm)
+	for _, s := range scripts {
+		h.Write(s)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:buildKeyLen], nil
+}
+
 func (j *job) packWeb() error {
 	src, err := wasmExecPath(j.goroot)
 	if err != nil {
@@ -176,9 +193,9 @@ func (j *job) packWeb() error {
 	if err := writeFile(filepath.Join(j.l.data, WebFiles), list, WebFiles); err != nil {
 		return err
 	}
-	build := j.rep.Hash
-	if len(build) > buildKeyLen {
-		build = build[:buildKeyLen]
+	build, err := j.webBuild(exec, loader)
+	if err != nil {
+		return err
 	}
 	var page bytes.Buffer
 	if err := webIndexTmpl.Execute(&page, webPage{Title: j.webTitle(), Build: build, Icon: j.icon != nil}); err != nil {
