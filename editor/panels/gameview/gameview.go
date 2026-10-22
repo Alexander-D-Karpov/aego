@@ -18,7 +18,7 @@ import (
 	"aego/ui/widgets"
 )
 
-const CommandOverlays = "view.game.overlays"
+const CommandOverlays = context.OverlayGame
 
 type Panel struct {
 	play      *play.Controller

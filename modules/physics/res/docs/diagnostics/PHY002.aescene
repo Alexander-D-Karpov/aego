@@ -1,0 +1,15 @@
+scene version=1 {
+  node "50485930303200000000000000000001" name="Wedge" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+    }
+    component "physics.PolygonCollider2D" version=1 {
+      points=[[0, 0], [1, 0], [2, 0]]
+    }
+  }
+}

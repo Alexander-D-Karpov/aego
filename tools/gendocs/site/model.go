@@ -94,8 +94,9 @@ type DiagInfo struct {
 	EndLine  int
 	EndCol   int
 	Message  string
-	Example     string
-	ExampleFile string
+	Example       string
+	ExampleFile   string
+	ExampleScript string
 }
 
 type FieldInfo struct {

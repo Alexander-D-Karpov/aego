@@ -110,14 +110,15 @@ func TestModuleCodePages(t *testing.T) {
 		"diagnostics/GAM002.md":      page("---\ncode: GAM002\nseverity: error\ntitle: Asset code\nscope: asset\n---\n\nText.\n"),
 		"diagnostics/GAM003.md":      page("---\ncode: GAM003\nseverity: error\ntitle: No example\n---\n\nText.\n"),
 		"diagnostics/GAM004.md":      page("---\ncode: GAM004\nseverity: error\ntitle: Undeclared\nscope: asset\n---\n\nText.\n"),
+		"diagnostics/GAM006.md":      page("---\ncode: GAM006\nseverity: warning\ntitle: Only during Play\nscope: play\n---\n\nText.\n"),
 	}}
-	mods := []module.Info{{ID: "game", Codes: []string{"GAM001", "GAM002", "GAM003", "GAM005"}}}
+	mods := []module.Info{{ID: "game", Codes: []string{"GAM001", "GAM002", "GAM003", "GAM005", "GAM006"}}}
 	r := Assemble(Sources{Modules: mods, Docs: []module.DocSource{src}})
 	got := map[string]bool{}
 	for _, p := range r.Problems() {
 		got[p.ID] = true
 	}
-	if got["GAM001"] || got["GAM002"] || !got["GAM003"] || !got["GAM004"] || !got["GAM005"] {
+	if got["GAM001"] || got["GAM002"] || got["GAM006"] || !got["GAM003"] || !got["GAM004"] || !got["GAM005"] {
 		t.Fatalf("problems %v, want GAM003 (no example), GAM004 (undeclared) and GAM005 (no page)", got)
 	}
 	e, ok := r.Get("GAM001")

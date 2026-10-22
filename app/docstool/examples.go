@@ -29,7 +29,17 @@ func CheckExamples(reg *docs.Registry, w io.Writer) int {
 			continue
 		}
 		found, why := false, ""
-		if res := pg.PlayScene("example-"+e.ID, []byte(e.Diag.Example), "", nil); !res.Started {
+		code := ""
+		if e.Diag.ExampleScript != "" {
+			c, err := pg.TryCode(e.Diag.ExampleScript)
+			if err != nil {
+				fmt.Fprintf(w, "%s: error: example script does not compile: %v\n", e.ID, err)
+				bad++
+				continue
+			}
+			code = c
+		}
+		if res := pg.PlayScene("example-"+e.ID, []byte(e.Diag.Example), code, nil); !res.Started {
 			why = "does not load: " + res.Error
 		} else {
 			for _, d := range module.ValidateScene(pg.Game().Scene(), nil) {

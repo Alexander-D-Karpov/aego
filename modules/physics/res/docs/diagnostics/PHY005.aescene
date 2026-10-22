@@ -1,0 +1,22 @@
+scene version=1 {
+  node "50485930303500000000000000000001" name="Stage3D" enabled=true layers=1 space="3d" {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    node "50485930303500000000000000000002" name="Crate" enabled=true layers=1 {
+      transform {
+        position=[0, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "physics.Body2D" version=1 {
+        type=dynamic
+      }
+      component "physics.BoxCollider2D" version=1 {
+        size=[1, 1]
+      }
+    }
+  }
+}

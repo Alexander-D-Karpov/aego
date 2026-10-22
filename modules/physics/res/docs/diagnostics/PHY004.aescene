@@ -1,0 +1,17 @@
+scene version=1 {
+  node "50485930303400000000000000000001" name="Pendulum" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "physics.Body2D" version=1 {
+      type=dynamic
+    }
+    component "physics.CircleCollider2D" version=1 {
+      radius=0.3
+    }
+    component "physics.DistanceJoint2D" version=1 {
+    }
+  }
+}

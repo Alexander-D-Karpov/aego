@@ -3,6 +3,7 @@ package editor
 import (
 	"aego/contracts/debugdraw"
 	"aego/core/mathx"
+	"aego/editor/core/context"
 	"aego/editor/core/shape"
 	"aego/editor/core/vectors"
 	"aego/engine"
@@ -30,13 +31,21 @@ var channelFlags = [...]struct{ flag, channel string }{
 	{FlagBroad, physics.ChannelBroadphase},
 }
 
+// syncChannels applies the debug layers to the play world every frame, so turning the Game View overlays off hides them even though no overlay draws.
+func (p *plugin) syncChannels() {
+	if w := p.ed.PlayWorld(); w != nil {
+		p.applyChannels(w)
+	}
+}
+
+// applyChannels shows a physics channel only while the Game View overlays, the debug overlay and the channel's layer are all on; the layer flags themselves are kept.
 func (p *plugin) applyChannels(w *engine.World) {
 	d, ok := engine.ServiceOf[debugdraw.Draw](w, debugdraw.ServiceID)
 	if !ok {
 		return
 	}
 	o := &p.ed.Overlay
-	master := o.On(CmdDebug)
+	master := o.On(context.OverlayGame) && o.On(CmdDebug)
 	for _, cf := range channelFlags {
 		d.Hide(cf.channel, !(master && o.On(cf.flag)))
 	}

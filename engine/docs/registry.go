@@ -145,8 +145,9 @@ type DiagInfo struct {
 	EndCol   int
 	Message  string
 	// Example is the scene that produces a module code, read from the example file next to its page.
-	Example     string `json:",omitempty"`
-	ExampleFile string `json:",omitempty"`
+	Example       string `json:",omitempty"`
+	ExampleFile   string `json:",omitempty"`
+	ExampleScript string `json:",omitempty"`
 }
 
 type Problem struct {
@@ -632,10 +633,11 @@ func (r *Registry) page(owner, file, source string, rec record) {
 	}
 }
 
-// Scopes of a module code: a scene code is reported by a component and needs an example scene that produces it; an asset code comes from importing or checking an asset.
+// Scopes of a module code: a scene code is reported by a component and needs an example scene that produces it; an asset code comes from importing or checking an asset; a play code comes from editing the scene during Play, which no scene file can show.
 const (
 	ScopeScene = "scene"
 	ScopeAsset = "asset"
+	ScopePlay  = "play"
 )
 
 // codePage registers diagnostics/<CODE>.md of a module as the code's entry under Diagnostics (D146).
@@ -649,6 +651,11 @@ func (r *Registry) codePage(src module.DocSource, file, source string, rec recor
 		scope = ScopeScene
 	}
 	d := &DiagInfo{Phase: scope, Severity: rec.severity}
+	switch scope {
+	case ScopeScene, ScopeAsset, ScopePlay:
+	default:
+		r.problems = append(r.problems, Problem{ID: rec.code, Error: true, Message: "scope must be scene, asset or play"})
+	}
 	switch rec.severity {
 	case "error", "warning", "info":
 	default:
@@ -661,6 +668,9 @@ func (r *Registry) codePage(src module.DocSource, file, source string, rec recor
 			r.problems = append(r.problems, Problem{ID: rec.code, Error: true, Message: "example " + ex + " cannot be read: " + err.Error()})
 		} else {
 			d.Example, d.ExampleFile = string(data), path.Base(ex)
+		}
+		if sc, err := fs.ReadFile(src.FS, strings.TrimSuffix(ex, TryExt)+TryScriptExt); err == nil {
+			d.ExampleScript = string(sc)
 		}
 	}
 	r.add(Entry{

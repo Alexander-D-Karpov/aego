@@ -69,6 +69,8 @@ func phaseTitle(p string) string {
 		return "Components"
 	case "asset":
 		return "Assets"
+	case "play":
+		return "During Play"
 	}
 	return p
 }
@@ -112,11 +114,14 @@ func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 			c.WriteString(`<div class="` + cls + `">` + esc(diagLine(d, e.ID)) + "</div>\n")
 		}
 	}
-	if d.Phase == "scene" || d.Phase == "asset" {
+	if d.Phase == "scene" || d.Phase == "asset" || d.Phase == "play" {
 		c.WriteString(b.markdown(root, e.ID, e.Body))
 		if d.Example != "" {
 			c.WriteString(`<p class="label">Example: ` + esc(d.ExampleFile) + "</p>\n")
 			c.WriteString(b.sceneTree(d.Example, root))
+			if d.ExampleScript != "" {
+				c.WriteString(b.markdown(root, e.ID, "```aes\n"+strings.TrimRight(d.ExampleScript, "\n")+"\n```\n"))
+			}
 		}
 	}
 	if d.Fix != "" {

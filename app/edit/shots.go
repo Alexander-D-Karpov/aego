@@ -154,14 +154,9 @@ func (s *Session) shots(dir string) error {
 			return ctx.Commands.Run(gameview.CommandOverlays)
 		}},
 		{name: "demo", frames: 60, inset: 2, bottom: 28, setup: func(s *Session) error {
-			for _, f := range []string{"physics.debug.shapes", "physics.debug.contacts", "physics.debug.joints", "gameplay.areas", "camera.frames", vectors.CommandToggle} {
+			for _, f := range []string{gameview.CommandOverlays, vectors.CommandToggle} {
 				ctx.Overlay.Set(f, false)
 			}
-			ctx.Overlay.Set(gameview.CommandOverlays, true)
-			for i := 0; i < 5; i++ {
-				s.Step()
-			}
-			ctx.Overlay.Set(gameview.CommandOverlays, false)
 			return ctx.Commands.Run(shell.CommandFullscreenPlay)
 		}},
 		{name: "prefab-mode", frames: 120, setup: func(s *Session) error {

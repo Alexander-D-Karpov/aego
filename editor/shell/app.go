@@ -865,6 +865,7 @@ func (a *App) Update(dt float64) {
 	}
 	a.profiler.Record(now, e.Stats(), rs, a.play.Stats(), sc, hasSc, a.play.State() != play.Stopped)
 	a.play.Tick(dt)
+	a.ext.RunTicks()
 	a.tickTasks()
 	a.syncNativeMenu(now)
 	a.showPlayDiff()

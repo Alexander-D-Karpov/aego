@@ -125,6 +125,7 @@ func Hook(e *ext.Registry) error {
 	}
 	e.Profiler("Physics", true, p.profile)
 	if p.ed != nil {
+		e.Tick(p.syncChannels)
 		o := &p.ed.Overlay
 		o.Set(CmdDebug, true)
 		o.Set(FlagShapes, true)

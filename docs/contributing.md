@@ -27,7 +27,7 @@ make cli
 - **Every component has a Try it scene.** It lives at `res/docs/try/<Component>.aescene` (with `<Component>.aes` and prefabs next to it when needed), shows the component's own effect and runs without warnings; `aego docs check` fails without it.
 - **Internal state is not a component.** Controller state lives in unexported fields of the component it belongs to or in a world service. A component that exists only to carry state for a service is registered `Hidden`: it is not in Create, Add Component, Try it or the docs.
 - **Requirements add, they do not block.** Declare `Requires`; Add Component, `scene add-comp`, Paste and presets add the missing components in the same undo step.
-- **Every diagnostic code has a page with an example.** Component codes (`CAM`, `AUD`, `GMP`, `PHY`, …) also have an example scene that produces the code; `aego docs check` fails without one.
+- **Every diagnostic code has a page with an example.** Component codes (`CAM`, `AUD`, `GMP`, `PHY`, …) also have an example scene that produces the code; `aego docs check` fails without one. Asset codes say `scope: asset`, codes that only an edit during Play produces say `scope: play`.
 - **Nodes are labelled, not pathed.** UI shows nodes with `props.NodeLabel` (icon and name, the path in the tooltip).
 - **Editor edits go through history.** Every edit is a history command, normally `commands.Mutation`, so Undo, the Play changes diff and agents see it.
 - **Hot paths do not allocate.** Systems, mixers and controllers allocate nothing per frame; add `testing.AllocsPerRun` checks and a benchmark next to new hot code.

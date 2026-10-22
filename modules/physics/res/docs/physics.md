@@ -75,9 +75,9 @@ title: Bodies and hierarchy
 
 A collider belongs to the nearest node at or above it that has a Rigid Body 2D. One body can therefore be built from several child nodes, each with its own collider; mass, centre of mass and inertia come from all of them. A collider with no body above it becomes a static body of its own.
 
-The collider's position, rotation and uniform scale relative to its body are baked into the shape. Boxes and polygons also take non-uniform scale; circles and capsules need a uniform one and report PHY001 otherwise. Nodes under a 3D parent are not simulated (PHY005).
+The collider's position, rotation and uniform scale relative to its body are baked into the shape. Boxes and polygons also take non-uniform scale; circles and capsules need a uniform one and report [PHY001](ref:PHY001) otherwise. Nodes under a 3D parent are not simulated ([PHY005](ref:PHY005)).
 
-The transform of a moving body belongs to physics. Write it from `FixedUpdate` or through `Teleport` and it is applied as a teleport at the next step, keeping the velocity. A write from `Update` is reported once per body (PHY007) and applied at the next step. Static and kinematic bodies follow their node every step. Reparenting a moving body during Play recreates it with the same world pose and velocity (PHY006).
+The transform of a moving body belongs to physics. Write it from `FixedUpdate` or through `Teleport` and it is applied as a teleport at the next step, keeping the velocity. A write from `Update` is reported once per body ([PHY007](ref:PHY007)) and applied at the next step. Static and kinematic bodies follow their node every step. Reparenting a moving body during Play recreates it with the same world pose and velocity ([PHY006](ref:PHY006)).
 
 ---
 id: physics/layers
@@ -220,7 +220,7 @@ What happens to bodies, shapes and contact events when the scene changes during 
 | Change layer or mask | forbidden pairs end in the same step |
 | Change a trigger flag or the geometry | contacts of the shape end, new ones begin at the next step |
 | Add a body or collider | picked up at the next step, starting at rest |
-| Reparent a moving body | recreated with world pose and velocity, PHY006 |
+| Reparent a moving body | recreated with world pose and velocity, [PHY006](ref:PHY006) |
 | Script hot reload | the world keeps running, handlers are rebound by name |
 | Native rebuild | the play world is recreated with the editor |
 | Stop | the world is destroyed without Exit events |

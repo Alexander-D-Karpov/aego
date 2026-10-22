@@ -1,0 +1,8 @@
+package demo
+
+// Teleporter sets its own position in Update, which physics reports as PHY007.
+script Teleporter {
+    func Update(dt float) {
+        node.SetPosition(Vec2{0, -2})
+    }
+}

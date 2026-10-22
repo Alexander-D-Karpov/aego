@@ -30,6 +30,9 @@ type ProfilerSection struct {
 	Draw  func()
 }
 
+// OverlayGame is the flag of Window → Game View Overlays; module overlays and debug channels in the Game View follow it.
+const OverlayGame = "view.game.overlays"
+
 type Overlays struct {
 	on    map[string]bool
 	Scale float32

@@ -50,6 +50,27 @@ type Registry struct {
 	owned    map[string]*owned
 	disabled map[string]string
 	pending  []pending
+	ticks    []tick
+}
+
+type tick struct {
+	ext string
+	fn  func()
+}
+
+// Tick runs fn once per editor frame, before the panels draw, whether or not any view is visible.
+func (r *Registry) Tick(fn func()) {
+	r.ticks = append(r.ticks, tick{ext: r.ext(), fn: fn})
+}
+
+// RunTicks calls the Tick hooks of the extensions that are not disabled.
+func (r *Registry) RunTicks() {
+	for _, t := range r.ticks {
+		if _, off := r.disabled[t.ext]; off {
+			continue
+		}
+		Safe(t.ext, r, t.fn)
+	}
 }
 
 func New(d Deps) *Registry {
