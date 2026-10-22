@@ -4,6 +4,7 @@ import (
 	"aego/contracts/debugdraw"
 	"aego/contracts/persistence"
 	"aego/modules/debug"
+	"aego/modules/gameplay"
 	"aego/modules/physics"
 	"aego/save"
 	"aego/script/runtime"
@@ -249,7 +250,7 @@ func TestKeyframeSeekInsideCoroutineWait(t *testing.T) {
 	for i := 0; i < 240; i++ {
 		pc.Tick(1.0 / 60)
 		hashes[i+1] = pausedHash(pc)
-		if h, ok := scene.Get[Health](pc.Scene(), pc.Scene().Find(pc.Scene().Root(), "Player")); ok && h.Hits > 0 && hit == 0 {
+		if h, ok := scene.Get[gameplay.Health](pc.Scene(), pc.Scene().Find(pc.Scene().Root(), "Player")); ok && h.Current < h.Max && hit == 0 {
 			hit = i + 1
 		}
 	}

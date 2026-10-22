@@ -3,10 +3,7 @@ package enemy
 import (
 	"aego/audio"
 	"aego/curve"
-	"aego/physics"
-	"aego/timer"
 	"aego/tween"
-	"mygame/combat"
 	"mygame/shared"
 )
 
@@ -19,9 +16,6 @@ script EnemyAI {
 	@export
 	var PointB NodeRef
 
-	@export
-	var Target NodeRef
-
 	@export(tip="Speed, cooldown, damage and tint of this kind of enemy")
 	var Stats AssetRef<EnemyStats>
 
@@ -29,16 +23,15 @@ script EnemyAI {
 	var DieSound AssetRef<AudioEvent>
 
 	var toB bool = true
-	var hit timer.Timer
 	var dead bool
 	var fade Connection
 
 	func Ready() {
-		hit = timer.Cooldown(Stats.Cooldown)
-		sprite := node.Get<SpriteRenderer>()
-		if sprite != nil {
-			sprite.Tint = Stats.Tint
-		}
+		node.Get<SpriteRenderer>().Tint = Stats.Tint
+		hit := node.Get<Hitbox2D>()
+		hit.Damage = Stats.Damage
+		hit.Period = Stats.Cooldown
+		node.Get<Health>().Died.Connect(OnDied)
 	}
 
 	func FixedUpdate(dt float) {
@@ -46,9 +39,6 @@ script EnemyAI {
 			return
 		}
 		body := node.Get<Body2D>()
-		if body == nil {
-			return
-		}
 		goal := PointA.Position()
 		if toB {
 			goal = PointB.Position()
@@ -62,15 +52,10 @@ script EnemyAI {
 		body.SetVelocity(v)
 	}
 
-	func OnTriggerEnter(other NodeRef) {
-		if dead || other != Target {
-			return
-		}
-		tb := other.Get<Body2D>()
-		if tb == nil || tb.Velocity.Y <= 0 {
-			return
-		}
+	// OnDied stops the attack, tells the player and fades the enemy out.
+	func OnDied(source NodeRef) {
 		dead = true
+		node.Get<Hitbox2D>().Deactivate()
 		Died.Emit()
 		audio.PlayEventAt(DieSound, node.Position())
 		fade = tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad).Completed.Connect(OnFaded)
@@ -78,12 +63,5 @@ script EnemyAI {
 
 	func OnFaded(finished bool) {
 		node.Destroy()
-	}
-
-	func OnCollisionEnter(other NodeRef, c physics.Contact) {
-		if dead || other != Target || c.Normal.Y > 0.5 || !hit.Use() {
-			return
-		}
-		combat.Damage(Target, Stats.Damage)
 	}
 }

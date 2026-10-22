@@ -54,11 +54,11 @@ func TestScriptVectorDefaultPublished(t *testing.T) {
 	if !ok {
 		t.Fatal("PlayerController is not published")
 	}
-	fd, ok := td.Field("JumpImpulse")
-	if !ok || !fd.HasDefault || fd.Default.V != (mathx.Vec2{Y: -5}) {
-		t.Fatalf("JumpImpulse default %+v", fd)
+	fd, ok := td.Field("Bounce")
+	if !ok || !fd.HasDefault || fd.Default.V != (mathx.Vec2{Y: -9}) {
+		t.Fatalf("Bounce default %+v", fd)
 	}
-	if v := pf.field("JumpImpulse"); v.Lane(1) != -5 {
-		t.Fatalf("instance JumpImpulse lane y = %v", v.Lane(1))
+	if v := pf.field("Bounce"); v.Lane(1) != -9 {
+		t.Fatalf("instance Bounce lane y = %v", v.Lane(1))
 	}
 }

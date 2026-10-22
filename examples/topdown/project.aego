@@ -1,0 +1,67 @@
+project version=1 {
+  name="Top-down"
+  module="topdown"
+  mainScene=asset("70d0000000000000000000000000a001")
+  native=false
+  window {
+    width=1280
+    height=720
+    title="Aego Top-down"
+  }
+  input version=2 {
+    stack=[Gameplay]
+    action {
+      name=MoveX
+      type=axis1
+      bind=["Key.A/Key.D", "Key.Left/Key.Right", "Pad.LeftX"]
+    }
+    action {
+      name=MoveY
+      type=axis1
+      bind=["Key.W/Key.S", "Key.Up/Key.Down", "Pad.LeftY"]
+    }
+    action {
+      name=AimX
+      type=axis1
+      bind=["Pad.RightX"]
+    }
+    action {
+      name=AimY
+      type=axis1
+      bind=["Pad.RightY"]
+    }
+    action {
+      name=Attack
+      type=button
+      bind=["Key.J", "Mouse.Left", "Pad.X"]
+    }
+    action {
+      name=Pause
+      type=button
+      bind=["Key.Escape", "Pad.Start"]
+    }
+    action {
+      name=Back
+      type=button
+      bind=["Key.Escape", "Pad.B"]
+    }
+    context {
+      name=Gameplay
+      actions=[MoveX, MoveY, AimX, AimY, Attack, Pause]
+    }
+    context {
+      name=Menu
+      priority=10
+      consume=true
+      actions=[Back]
+    }
+  }
+  physics {
+    gravity=[0, 0]
+    layers=[Default, Walls, Player, Enemy]
+    collide {
+      Player=[Walls, Enemy]
+      Enemy=[Walls, Player]
+    }
+  }
+}

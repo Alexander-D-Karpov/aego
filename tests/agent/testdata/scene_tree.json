@@ -8,8 +8,25 @@
     "children": [
       {
         "id": "#c0000000000000000000000000000002",
-        "name": "Ground",
-        "path": "Root/Ground",
+        "name": "GroundLeft",
+        "path": "Root/GroundLeft",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "physics.Body2D"
+          },
+          {
+            "type": "physics.EdgeCollider2D"
+          }
+        ]
+      },
+      {
+        "id": "#c000000000000000000000000000000d",
+        "name": "GroundRight",
+        "path": "Root/GroundRight",
         "enabled": true,
         "components": [
           {
@@ -53,7 +70,22 @@
             "type": "engine.Tags"
           },
           {
-            "type": "game.Health"
+            "type": "gameplay.Health"
+          },
+          {
+            "type": "gameplay.Hitbox2D"
+          },
+          {
+            "type": "gameplay.Hurtbox2D"
+          },
+          {
+            "type": "gameplay.Motion2D"
+          },
+          {
+            "type": "gameplay.Respawn"
+          },
+          {
+            "type": "gameplay.StateMachine"
           },
           {
             "type": "physics.Body2D"
@@ -102,13 +134,19 @@
             "type": "engine.SpriteRenderer"
           },
           {
+            "type": "gameplay.Health"
+          },
+          {
+            "type": "gameplay.Hitbox2D"
+          },
+          {
+            "type": "gameplay.Hurtbox2D"
+          },
+          {
             "type": "physics.Body2D"
           },
           {
             "type": "physics.BoxCollider2D"
-          },
-          {
-            "type": "physics.PolygonCollider2D"
           },
           {
             "type": "save.Persist"
@@ -141,13 +179,19 @@
             "type": "engine.SpriteRenderer"
           },
           {
+            "type": "gameplay.Health"
+          },
+          {
+            "type": "gameplay.Hitbox2D"
+          },
+          {
+            "type": "gameplay.Hurtbox2D"
+          },
+          {
             "type": "physics.Body2D"
           },
           {
             "type": "physics.BoxCollider2D"
-          },
-          {
-            "type": "physics.PolygonCollider2D"
           },
           {
             "type": "save.Persist"
@@ -155,6 +199,31 @@
         ],
         "scripts": [
           "mygame.enemy.EnemyAI"
+        ]
+      },
+      {
+        "id": "#c000000000000000000000000000000e",
+        "name": "Pit",
+        "path": "Root/Pit",
+        "enabled": true,
+        "components": [
+          {
+            "type": "gameplay.KillZone2D"
+          }
+        ]
+      },
+      {
+        "id": "#c000000000000000000000000000000f",
+        "name": "Checkpoint",
+        "path": "Root/Checkpoint",
+        "enabled": true,
+        "components": [
+          {
+            "type": "engine.SpriteRenderer"
+          },
+          {
+            "type": "gameplay.Checkpoint2D"
+          }
         ]
       },
       {

@@ -22,9 +22,12 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
 #fullscreen:hover { opacity: 1; }
 #mute { position: fixed; top: 10px; right: 52px; width: 36px; height: 36px; border: 0; border-radius: 6px; background: rgba(0, 0, 0, 0.45); color: #fff; padding: 0; cursor: pointer; opacity: 0.5; }
 #mute:hover { opacity: 1; }
-#fullscreen svg, #mute svg { display: block; width: 18px; height: 18px; margin: auto; }
-#mute .off, #mute.muted .on { display: none; }
-#mute.muted .off { display: inline; }
+#music { position: fixed; top: 10px; right: 94px; width: 36px; height: 36px; border: 0; border-radius: 6px; background: rgba(0, 0, 0, 0.45); color: #fff; padding: 0; cursor: pointer; opacity: 0.5; }
+#music:hover { opacity: 1; }
+#fullscreen svg, #mute svg, #music svg { display: block; width: 18px; height: 18px; margin: auto; }
+#mute .off, #mute.muted .on, #music .off { display: none; }
+#mute.muted .off, #music.muted .off { display: inline; }
+#music.muted .note { opacity: 0.55; }
 </style>
 <link rel="preload" href="game.wasm?v={{.Build}}" as="fetch" type="application/wasm" crossorigin>
 </head>
@@ -37,6 +40,7 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
   <pre id="error" hidden></pre>
 </div>
 <button id="fullscreen" type="button" title="Fullscreen" aria-label="Fullscreen" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9.92 13.44L10.25 13.38L13.38 13.38L13.38 10.25L13.44 9.92L13.76 9.52L14.08 9.39L14.58 9.44L14.98 9.76L15.12 10.25L15.12 14.25L15.06 14.58L14.74 14.98L14.25 15.12L10.25 15.12L9.92 15.06L9.52 14.74L9.38 14.25L9.52 13.76ZM13.44 6.08L13.38 5.75L13.38 2.62L10.25 2.62L9.92 2.56L9.52 2.24L9.39 1.92L9.44 1.42L9.76 1.02L10.25 0.88L14.25 0.88L14.58 0.94L14.98 1.26L15.12 1.75L15.12 5.75L15.06 6.08L14.74 6.48L14.25 6.62L13.76 6.48ZM2.56 9.92L2.62 10.25L2.62 13.38L5.75 13.38L6.08 13.44L6.48 13.76L6.62 14.25L6.56 14.58L6.24 14.98L5.75 15.12L1.75 15.12L1.42 15.06L1.02 14.74L0.88 14.25L0.88 10.25L0.94 9.92L1.26 9.52L1.75 9.38L2.24 9.52ZM6.08 2.56L5.75 2.62L2.62 2.62L2.62 5.75L2.56 6.08L2.24 6.48L1.75 6.62L1.42 6.56L1.02 6.24L0.88 5.75L0.88 1.75L0.94 1.42L1.26 1.02L1.75 0.88L5.75 0.88L6.08 0.94L6.48 1.26L6.62 1.75L6.48 2.24Z"/></svg></button>
+<button id="music" type="button" title="Music off" aria-label="Music off" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><g class="note" fill="currentColor"><path d="M5.6 3.4L13.6 1.4V3.5L5.6 5.5Z"/><path d="M5.6 4H6.9V12.3H5.6ZM12.3 1.8H13.6V10.5H12.3Z"/><ellipse cx="4.3" cy="12.4" rx="2.3" ry="1.7" transform="rotate(-20 4.3 12.4)"/><ellipse cx="11" cy="10.6" rx="2.3" ry="1.7" transform="rotate(-20 11 10.6)"/></g><path class="off" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M2 2L14 14"/></svg></button>
 <button id="mute" type="button" title="Mute" aria-label="Mute" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M1.81 6.04L4 6L6.74 3.47L7.11 3.41L7.36 3.55L7.5 3.9L7.5 12.1L7.36 12.45L7.11 12.59L6.74 12.53L4 10L2 10L1.65 9.85L1.5 9.5L1.5 6.5L1.58 6.22Z"/><path class="on" fill="currentColor" d="M12.53 5.89L11.97 4.96L11.01 3.9L10.95 3.62L10.99 3.33L11.15 3.08L11.39 2.91L11.82 2.86L12.21 3.05L12.72 3.54L13.53 4.59L13.91 5.29L14.17 5.95L14.35 6.63L14.5 7.96L14.46 8.75L14.34 9.45L14.14 10.13L13.58 11.34L13.18 11.92L12.67 12.52L12.09 13.04L11.67 13.15L11.39 13.09L11.15 12.92L10.99 12.67L10.95 12.38L11.09 11.97L11.61 11.46L12.27 10.59L12.73 9.61L12.88 9.08L12.97 8.54L12.97 7.46L12.73 6.39ZM10.05 7.09L9.82 6.68L9.38 6.19L9.26 5.77L9.31 5.48L9.48 5.24L9.72 5.08L10.01 5.02L10.29 5.08L10.54 5.24L11.01 5.76L11.27 6.16L11.66 7.18L11.75 8.04L11.58 9.12L11.23 9.91L10.54 10.76L10.29 10.92L10.01 10.98L9.72 10.92L9.48 10.76L9.31 10.52L9.26 10.23L9.38 9.81L9.95 9.12L10.2 8.47L10.24 7.76Z"/><path class="off" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M10.25 5.75l4.5 4.5M14.75 5.75l-4.5 4.5"/></svg></button>
 <script src="wasm_exec.js?v={{.Build}}"></script>
 <script src="loader.js?v={{.Build}}"></script>

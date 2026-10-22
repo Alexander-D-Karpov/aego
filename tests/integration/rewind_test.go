@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"os"
 	"testing"
 
 	"aego/app/edit"
@@ -9,6 +10,7 @@ import (
 	"aego/core/rewind"
 	"aego/editor/core/play"
 	"aego/modules/camera"
+	inputmod "aego/modules/input"
 	"aego/modules/physics"
 	"aego/platform"
 	"aego/platform/input"
@@ -180,31 +182,33 @@ func cameraHash(t *testing.T, pc *play.Controller) [32]byte {
 }
 
 func TestEditorRewindKeepsTheCamera(t *testing.T) {
-	s, pc := rewindSession(t)
-	in := s.Host.Engine.Input()
-	hold := func(k input.Scancode, down bool) {
-		kind := platform.EvKeyUp
-		if down {
-			kind = platform.EvKeyDown
-		}
-		platform.ApplyInput(in, platform.Event{Kind: kind, Key: input.KeyEvent{Scan: k}})
+	_, pc := rewindSession(t)
+	data, err := os.ReadFile(runFile)
+	if err != nil {
+		t.Fatal(err)
 	}
+	actions := inputmod.Of(pc.World())
+	if actions == nil {
+		t.Fatal("the play world has no input service")
+	}
+	if _, err := actions.Replay(data); err != nil {
+		t.Fatal(err)
+	}
+	const before, inside = 20, 330
 	marks := map[int][32]byte{}
-	for i := 0; i < 240; i++ {
-		hold(input.KeyD, i >= 10 && i < 200)
-		hold(input.KeySpace, i >= 40 && i < 44)
+	for i := 1; i <= 360; i++ {
 		pc.Tick(1.0 / 60)
-		if i+1 == 20 || i+1 == 120 {
-			marks[i+1] = cameraHash(t, pc)
+		if i == before || i == inside {
+			marks[i] = cameraHash(t, pc)
 		}
 	}
 	if camera.Of(pc.World()).Active("").IsZero() {
 		t.Fatal("the platformer camera has no active virtual camera")
 	}
-	if marks[20] == marks[120] {
+	if marks[before] == marks[inside] {
 		t.Fatal("the camera state is the same before and inside the arena zone")
 	}
-	for _, f := range []int{120, 20, 120} {
+	for _, f := range []int{inside, before, inside} {
 		if err := pc.Seek(f); err != nil {
 			t.Fatal(err)
 		}

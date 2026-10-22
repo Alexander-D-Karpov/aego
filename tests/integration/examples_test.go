@@ -24,6 +24,7 @@ func TestExamplesCanonical(t *testing.T) {
 	}{
 		{"platformer", []sdk.Module{combatModule{}}},
 		{"physics-sandbox", nil},
+		{"topdown", nil},
 	} {
 		t.Run(tc.dir, func(t *testing.T) {
 			canonicalExample(t, filepath.Join("..", "..", "examples", tc.dir), tc.mods)

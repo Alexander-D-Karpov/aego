@@ -1,0 +1,58 @@
+package enemy
+
+import "aego/math"
+
+// Grunt patrols between two points and chases the player while it is close; its State Machine runs FixedPatrol or FixedChase.
+script Grunt {
+	@export
+	var Player NodeRef
+
+	@export
+	var PointA NodeRef
+
+	@export
+	var PointB NodeRef
+
+	@export(min=0)
+	var SeeRange float = 4
+
+	@export(min=0)
+	var LoseRange float = 6
+
+	var toB bool = true
+
+	func toPlayer() Vec2 {
+		return Player.WorldPosition() - node.WorldPosition()
+	}
+
+	func FixedPatrol(dt float) {
+		goal := PointA.WorldPosition()
+		if toB {
+			goal = PointB.WorldPosition()
+		}
+		d := goal - node.WorldPosition()
+		if math.Length(d) < 0.2 {
+			toB = !toB
+		}
+		node.Get<Motion2D>().MoveDir(math.Normalize(d) * 0.5)
+		if Player != nil && Player.IsAlive() && math.Length(toPlayer()) < SeeRange {
+			node.Get<StateMachine>().Go("Chase")
+		}
+	}
+
+	func FixedChase(dt float) {
+		if Player == nil || !Player.IsAlive() || math.Length(toPlayer()) > LoseRange {
+			node.Get<StateMachine>().Go("Patrol")
+			return
+		}
+		node.Get<Motion2D>().MoveDir(math.Normalize(toPlayer()))
+	}
+
+	func EnterChase() {
+		node.Get<SpriteRenderer>().Tint = Color{1, 0.35, 0.35, 1}
+	}
+
+	func ExitChase() {
+		node.Get<SpriteRenderer>().Tint = Color{0.75, 0.5, 0.5, 1}
+	}
+}

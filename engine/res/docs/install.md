@@ -80,7 +80,7 @@ aego edit mygame/scenes/main.aescene
 aego edit --launcher new
 ```
 
-`aego new` creates a 2D project with a scene holding a camera and a sprite, and a script to start from; `--template 3d` and the other templates are listed by `aego help`. In the editor, the Getting Started panel walks through the first six steps: a node, a script, Play, a live tweak, hot reload and fixing an error.
+`aego new` creates a 2D project with a scene holding a camera and a sprite, and a script to start from; `--template 3d` and the other templates are listed by `aego help`. `aego new mygame --example platformer` copies the platformer (a character on Motion 2D with stomps, a pit, a checkpoint and save games) and `--example topdown` the top-down game (a sword, enemies that patrol and chase with a State Machine, coins and lava); the launcher lists the same examples under **Examples**. In the editor, the Getting Started panel walks through the first six steps: a node, a script, Play, a live tweak, hot reload and fixing an error.
 
 | Command | Does |
 |---|---|

@@ -13,6 +13,8 @@ The gameplay module adds the parts most 2D games rebuild by hand: a character co
 
 Quick start: Create → Gameplay → Platformer Character gives a node with a kinematic Rigid Body 2D, a collider, Motion 2D, Health, Hurtbox 2D and Respawn. Give it a script that calls `Move` and `Jump`, add a floor and press Play.
 
+Two complete games use the kit: `aego new mygame --example platformer` (stomping enemies with a foot hitbox, a pit with a kill zone, a checkpoint, a persisted respawn point and a state machine for the player's look) and `aego new mygame --example topdown` (a sword swung towards the stick, the mouse or the walking direction, enemies whose State Machine switches between Patrol and Chase, coins and lava). The launcher offers both under **Examples**.
+
 | Component | Purpose |
 |---|---|
 | Motion 2D | walks, jumps and slides a kinematic body: slopes, steps, moving platforms, top-down movement |

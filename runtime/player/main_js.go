@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"syscall/js"
 
+	"aego/engine/settings"
 	"aego/platform"
+	"aego/schema"
 	"aego/sdk"
 )
 
@@ -17,6 +19,8 @@ const (
 	hookGlobal    = "aegoGame"
 	failGlobal    = "aegoFail"
 	startedGlobal = "aegoStarted"
+	musicDefault  = "aegoMusicDefault"
+	musicMuteID   = "audio.bus.music.mute"
 )
 
 func Main(mods ...sdk.Module) {
@@ -41,12 +45,32 @@ func Main(mods ...sdk.Module) {
 		fail(err.Error())
 		return
 	}
+	quietMusic(p, g.Get(musicDefault))
 	expose(p)
 	if f := g.Get(startedGlobal); f.Type() == js.TypeFunction {
 		f.Invoke()
 	}
 	if err := p.Run(); err != nil {
 		fail(err.Error())
+	}
+}
+
+// quietMusic mutes the music bus when the page asks for it and the player has not chosen yet.
+func quietMusic(p *Player, def js.Value) {
+	k := p.Settings.Key(musicMuteID)
+	if k == 0 || def.Type() != js.TypeBoolean || def.Bool() {
+		return
+	}
+	if _, set := p.Settings.UserValue(k); set {
+		return
+	}
+	setMusic(p, k, false, false)
+}
+
+func setMusic(p *Player, k settings.Key, on, save bool) {
+	tx := p.Settings.Begin()
+	if tx.Set(k, schema.Bool(!on)) == nil && tx.Apply() == nil && save {
+		_ = p.Settings.Save()
 	}
 }
 
@@ -120,5 +144,13 @@ func expose(p *Player) {
 		}
 		return js.Null()
 	}))
+	if k := p.Settings.Key(musicMuteID); k != 0 {
+		api.Set("music", js.FuncOf(func(_ js.Value, a []js.Value) any {
+			if len(a) > 0 && a[0].Type() == js.TypeBoolean {
+				setMusic(p, k, a[0].Bool(), true)
+			}
+			return !p.Settings.Bool(k)
+		}))
+	}
 	js.Global().Set(hookGlobal, api)
 }

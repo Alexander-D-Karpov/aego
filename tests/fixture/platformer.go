@@ -11,12 +11,6 @@ import (
 	"aego/sdk"
 )
 
-type health struct {
-	Max     float32 `aego:"max,min=1"`
-	Current float32 `aego:"current,min=0"`
-	Hits    int64   `aego:"hits"`
-}
-
 type enemyStats struct {
 	Speed    float32     `aego:"speed,min=0,max=10"`
 	Cooldown float32     `aego:"cooldown,min=0,max=5"`
@@ -31,24 +25,10 @@ func (Platformer) Info() sdk.ModuleInfo {
 }
 
 func (Platformer) Register(r *sdk.Registry) error {
-	if err := sdk.Component[health](r, sdk.Name("game.Health"), sdk.Persist("current", "hits")).Err(); err != nil {
-		return err
-	}
 	if err := sdk.DataType[enemyStats](r, sdk.Name("mygame.EnemyStats")).Err(); err != nil {
 		return err
 	}
-	m := r.ScriptModule("mygame/combat")
-	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
-		if h, ok := sdk.Get[health](c.Scene, target); ok {
-			h.Current -= float32(amount)
-		}
-	})
-	sdk.Func1(m, "HealthOf", func(c *sdk.ScriptCtx, target sdk.NodeHandle) float32 {
-		if h, ok := sdk.Get[health](c.Scene, target); ok {
-			return h.Current
-		}
-		return 0
-	})
+	sdk.Live[enemyStats](r, "speed")
 	return nil
 }
 

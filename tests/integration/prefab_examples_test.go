@@ -312,8 +312,8 @@ func TestPlatformerEnemyPrefabs(t *testing.T) {
 		if !ok || !pi.Owner || s.Local(h).Position.X != x {
 			t.Fatalf("%s must be an instance at x=%v", name, x)
 		}
-		if !hasComponent(s, h, "physics.Body2D") || !hasComponent(s, h, "physics.PolygonCollider2D") {
-			t.Fatalf("%s lost its body or stomp trigger", name)
+		if !hasComponent(s, h, "physics.Body2D") || !hasComponent(s, h, "gameplay.Hurtbox2D") || !hasComponent(s, h, "gameplay.Hitbox2D") {
+			t.Fatalf("%s lost its body, hurtbox or hitbox", name)
 		}
 	}
 	out := string(sceneio.SaveWith(s, lib))

@@ -22,6 +22,7 @@ WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROM
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
+WEB_DEMO_QUIET = sed -i 's/<html lang="en"/<html lang="en" data-music="off"/' site/demo/index.html
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760
@@ -206,6 +207,7 @@ bench-profile:
 site: cli
 	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
 	.cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release --out site/demo
+	$(WEB_DEMO_QUIET)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
@@ -220,6 +222,7 @@ site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
 	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
 	.cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR) --out site/demo
+	$(WEB_DEMO_QUIET)
 	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
@@ -272,6 +275,7 @@ check-all: cli
 	.cache/bin/aego check examples/native-rotator
 	.cache/bin/aego check examples/platformer
 	.cache/bin/aego test examples/platformer
+	.cache/bin/aego check examples/topdown
 	.cache/bin/aego check examples/native-settings
 	.cache/bin/aego check examples/native-editor
 	.cache/bin/aego check app/playground/examples

@@ -31,23 +31,25 @@ func TestComponentSignalReachesScriptAndGo(t *testing.T) {
 	root := copyExample(t, "platformer")
 	patch(t, filepath.Join(root, "scripts", "player", "player.aes"),
 		"\tvar blink Coroutine\n", "\tvar blink Coroutine\n\tvar hitConn Connection\n\tvar signalHits int\n",
-		"\t\twatch(EnemyB)\n", "\t\twatch(EnemyB)\n\t\thitConn = node.Get<Health>().Hit.Connect(OnHit)\n",
+		"\t\twatch(EnemyB)\n", "\t\twatch(EnemyB)\n\t\thitConn = node.Get<Health>().Healed.Connect(OnHit)\n",
 		"\tfunc OnEnemyDied() {", "\tfunc OnHit(hits int) {\n\t\tsignalHits = hits\n\t}\n\n\tfunc OnEnemyDied() {")
 	pf := platformerAt(t, root)
 	pf.step(1)
 	var goHits int64
 	ctx := &sdk.Context{World: pf.app.Engine.MainWorld(), Engine: pf.app.Engine}
-	if _, err := sdk.Connect1[int64](ctx, pf.player, "Health.Hit", func(n int64) { goHits = n }); err != nil {
+	if _, err := sdk.Connect1[int64](ctx, pf.player, "Health.Healed", func(n int64) { goHits = n }); err != nil {
 		t.Fatal(err)
 	}
 	pf.step(29)
 	pf.hitPlayer(t)
-	hits := pf.health().Hits
+	pf.health().Heal(1)
+	pf.step(1)
+	hits := int64(1)
 	if got := pf.field("signalHits").Int(); got != hits {
-		t.Fatalf("script handler saw %d hits, health has %d", got, hits)
+		t.Fatalf("script handler saw %d healed, want %d", got, hits)
 	}
 	if goHits != hits {
-		t.Fatalf("Go handler saw %d hits, health has %d", goHits, hits)
+		t.Fatalf("Go handler saw %d healed, want %d", goHits, hits)
 	}
 	if !pf.app.Scripts.SignalConnected(pf.field("hitConn")) {
 		t.Fatal("the script connection must stay connected")

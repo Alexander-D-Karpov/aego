@@ -5,29 +5,12 @@ import (
 	"aego/camera"
 	"aego/input"
 	"aego/log"
-	"aego/physics"
 	"aego/save"
 	"aego/settings"
 	"mygame/enemy"
-	"mygame/shared"
 )
 
-enum State {
-	Idle
-	Run
-	Air
-}
-
 script PlayerController {
-	@export(min=0, max=20, unit="u/s")
-	var Speed float = 7
-
-	@export(gizmo="vector")
-	var JumpImpulse Vec2 = Vec2{0, -5}
-
-	@export(display="Hit Tint")
-	var HitTint Color
-
 	@export
 	var EnemyA NodeRef
 
@@ -35,7 +18,10 @@ script PlayerController {
 	var EnemyB NodeRef
 
 	@export(min=0)
-	var LandShake float = 5.6
+	var LandShake float = 9
+
+	@export(gizmo="vector")
+	var Bounce Vec2 = Vec2{0, -9}
 
 	@export
 	var JumpSound AssetRef<AudioEvent>
@@ -46,96 +32,59 @@ script PlayerController {
 	@export
 	var Theme AssetRef<Clip>
 
-	var ground int
-	var jumpWait float
-	var state State
-	var base Color
-	var lastHits int
-	var flash float
 	@persist
 	var kills int
+	var flash float
 	var blink Coroutine
 
 	func Ready() {
-		sr := node.Get<SpriteRenderer>()
-		if sr != nil {
-			base = sr.Tint
-		}
 		watch(EnemyA)
 		watch(EnemyB)
+		m := node.Get<Motion2D>()
+		m.Jumped.Connect(OnJumped)
+		m.Landed.Connect(OnLanded)
+		node.Get<Health>().Damaged.Connect(OnDamaged)
 		audio.Music(Theme, 1.5)
-		log.Info("player ready at x=" + string(node.Position().X))
 	}
 
 	func watch(n NodeRef) {
-		if n == nil || !n.IsAlive() {
-			return
-		}
-		e := n.GetScript<enemy.EnemyAI>()
-		if e != nil {
-			e.Died.Connect(OnEnemyDied)
+		if n != nil && n.IsAlive() {
+			n.GetScript<enemy.EnemyAI>().Died.Connect(OnEnemyDied)
 		}
 	}
 
 	func OnEnemyDied() {
 		kills++
 		save.SetGlobalInt("kills", save.GlobalInt("kills", 0) + 1)
-		log.Info("kills=" + string(kills))
-		body := node.Get<Body2D>()
-		if body == nil {
-			return
-		}
-		v := body.Velocity
-		body.SetVelocity(Vec2{v.X, 0})
-		body.ApplyImpulse(JumpImpulse * 0.6)
+		node.Get<Motion2D>().AddVelocity(Bounce)
 	}
 
-	func OnSave() {
-		save.PutInt("state", int(state))
+	func OnJumped() {
+		audio.PlayEvent(JumpSound)
 	}
 
-	func OnLoad() {
-		state = State(save.GetInt("state", 0))
-		hp := node.Get<Health>()
-		if hp != nil {
-			lastHits = hp.Hits
-		}
-		log.Info("loaded, kills=" + string(kills) + ", total kills=" + string(save.GlobalInt("kills", 0)))
-	}
-
-	func OnCollisionEnter(other NodeRef, c physics.Contact) {
-		if shared.IsFloor(c.Normal) {
-			ground++
-		}
-		if shared.IsFloor(c.Normal) && c.NormalImpulse > LandShake {
+	func OnLanded(speed float) {
+		if speed > LandShake {
 			camera.Shake(0.35)
 		}
 	}
 
-	func OnCollisionExit(other NodeRef, c physics.Contact) {
-		if shared.IsFloor(c.Normal) && ground > 0 {
-			ground--
+	func OnDamaged(amount int, source NodeRef) {
+		audio.PlayEvent(HitSound)
+		flash = 1
+		if !blink.Running() {
+			blink = start Blink()
 		}
 	}
 
+	// Blink flashes the sprite while the player is invulnerable after a hit.
 	func Blink() coroutine {
-		on := true
+		sr := node.Get<SpriteRenderer>()
 		for flash > 0 {
-			sr := node.Get<SpriteRenderer>()
-			if sr != nil {
-				if on {
-					sr.Tint = HitTint
-				} else {
-					sr.Tint = base
-				}
-			}
-			on = !on
+			sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1.2 - sr.Tint.A}
 			yield wait(0.1)
 		}
-		sr := node.Get<SpriteRenderer>()
-		if sr != nil {
-			sr.Tint = base
-		}
+		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1}
 	}
 
 	func Reloaded() {
@@ -144,71 +93,48 @@ script PlayerController {
 		}
 	}
 
-	func FixedUpdate(dt float) {
-		body := node.Get<Body2D>()
-		if body == nil {
-			return
-		}
-		if jumpWait > 0 {
-			jumpWait -= dt
-		}
-		x := input.Axis("Move")
-		v := body.Velocity
-		v.X = x * Speed
-		body.SetVelocity(v)
-		if ground > 0 && jumpWait <= 0 && input.Buffered("Jump", 0) {
-			input.Consume("Jump")
-			body.SetVelocity(Vec2{v.X, 0})
-			body.ApplyImpulse(JumpImpulse)
-			jumpWait = 0.25
-			audio.PlayEvent(JumpSound)
-		}
-		if ground == 0 {
-			state = State.Air
-		} else if x != 0 {
-			state = State.Run
-		} else {
-			state = State.Idle
-		}
+	func EnterAir() {
+		sr := node.Get<SpriteRenderer>()
+		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 0.8}
+	}
+
+	func ExitAir() {
+		sr := node.Get<SpriteRenderer>()
+		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1}
 	}
 
 	func Update(dt float) {
+		m := node.Get<Motion2D>()
+		x := input.Axis("Move")
+		m.Move(x)
+		if input.Pressed("Jump") {
+			m.Jump()
+		}
+		if input.Released("Jump") {
+			m.JumpReleased()
+		}
+		if x != 0 {
+			node.Get<SpriteRenderer>().FlipX = x < 0
+		}
+		node.Get<Hitbox2D>().Active = !m.Grounded && m.Velocity.Y > 0
+		state := "Idle"
+		if !m.Grounded {
+			state = "Air"
+		} else if x != 0 {
+			state = "Run"
+		}
+		node.Get<StateMachine>().Go(state)
+		if flash > 0 {
+			flash -= dt
+		}
 		if input.Pressed("QuickSave") {
 			save.Save("quick")
 		}
 		if input.Pressed("QuickLoad") && save.Exists("quick") {
 			save.Load("quick")
-			return
 		}
 		if input.Pressed("Pause") {
 			settings.OpenView()
-			return
-		}
-		sr := node.Get<SpriteRenderer>()
-		if sr == nil {
-			return
-		}
-		x := input.Axis("Move")
-		if x != 0 {
-			sr.FlipX = x < 0
-		}
-		hp := node.Get<Health>()
-		if hp != nil && hp.Hits != lastHits {
-			lastHits = hp.Hits
-			flash = 1
-			audio.PlayEvent(HitSound)
-			if !blink.Running() {
-				blink = start Blink()
-			}
-		}
-		if flash > 0 {
-			flash -= dt
-			return
-		}
-		if state == State.Air {
-			sr.Tint = Color{base.R, base.G, base.B, 0.8}
-		} else {
-			sr.Tint = base
 		}
 	}
 

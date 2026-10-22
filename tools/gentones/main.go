@@ -151,7 +151,7 @@ func writeMeta(path, id, importer string, version int, s pipeline.Settings) erro
 }
 
 func encodeOgg(bin string, src []byte) ([]byte, error) {
-	cmd := exec.Command(bin, "-hide_banner", "-loglevel", "error", "-f", "wav", "-i", "pipe:0", "-c:a", "libvorbis", "-q:a", "1", "-f", "ogg", "pipe:1")
+	cmd := exec.Command(bin, "-hide_banner", "-loglevel", "error", "-f", "wav", "-i", "pipe:0", "-c:a", "libvorbis", "-q:a", "3", "-f", "ogg", "pipe:1")
 	cmd.Stdin = bytes.NewReader(src)
 	var out, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &stderr
@@ -213,43 +213,4 @@ func hit() []float32 {
 
 func midi(n int) float64 {
 	return 440 * math.Pow(2, float64(n-69)/12)
-}
-
-func music() []float32 {
-	const bar = 2.0
-	chords := [4][4]int{{57, 60, 64, 69}, {53, 57, 60, 65}, {48, 52, 55, 60}, {55, 59, 62, 67}}
-	bass := [4]int{45, 41, 48, 43}
-	n := int(8 * bar * rate)
-	out := make([]float32, n)
-	src := noise(0xbeef)
-	eighth, sixteenth, beat := int(0.25*rate), int(0.125*rate), int(0.5*rate)
-	for i := range out {
-		c := (i / int(bar*rate)) % 4
-		bi, bj := i/eighth, i%eighth
-		bt := float64(bj) / rate
-		bf := midi(bass[c])
-		low := (math.Sin(2*math.Pi*bf*bt) + 0.5*math.Sin(4*math.Pi*bf*bt)) * math.Exp(-bt/0.15) * edge(bj, eighth, rate/200)
-		ai, aj := i/sixteenth, i%sixteenth
-		at := float64(aj) / rate
-		af := midi(chords[c][ai%4] + 12)
-		lead := (math.Sin(2*math.Pi*af*at) + 0.2*math.Sin(6*math.Pi*af*at)) * math.Exp(-at/0.06) * edge(aj, sixteenth, rate/400)
-		kj := i % beat
-		kt := float64(kj) / rate
-		kick := math.Sin(2*math.Pi*(120-70*math.Min(kt/0.12, 1))*kt) * math.Exp(-kt/0.1) * edge(kj, beat, rate/200)
-		hat := 0.0
-		if bi%2 == 1 {
-			hat = src.next() * math.Exp(-bt/0.015) * edge(bj, eighth, rate/400)
-		}
-		out[i] = float32(0.32*low + 0.16*lead + 0.42*kick + 0.07*hat)
-	}
-	peak := float32(0)
-	for _, v := range out {
-		peak = max(peak, float32(math.Abs(float64(v))))
-	}
-	if peak > 0 {
-		for i := range out {
-			out[i] *= 0.85 / peak
-		}
-	}
-	return out
 }

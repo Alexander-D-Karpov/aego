@@ -1,0 +1,64 @@
+aeinput 1
+project platformer
+seed 0
+fixedHz 60
+players 1
+actions Move Jump Attack Pause Back QuickSave QuickLoad ToggleSettings
+frames 900
+s 1 0 3 3f800000 0
+s 31 1 3 3f800000 0
+s 71 0 1 3f5ea880 0
+s 71 1 4 0 0
+s 72 0 1 3f384200 0
+s 73 0 1 3f161fc0 0
+s 74 0 4 3ec5d900 0
+s 75 0 0 3df54200 0
+s 76 0 0 be055f00 0
+s 77 0 0 beba2680 0
+s 78 0 3 bf13b040 0
+s 79 0 1 bf452e80 0
+s 80 0 1 bf718e00 0
+s 81 0 1 bf800000 0
+s 96 0 1 bf7f3440 0
+s 97 0 1 bf58cdc0 0
+s 98 0 1 bf3296c0 0
+s 99 0 1 bf10a400 0
+s 100 0 4 bee5eb00 0
+s 101 0 0 beb31680 0
+s 102 0 0 be88cb00 0
+s 103 0 0 be4e1000 0
+s 104 0 0 be1b9b00 0
+s 105 0 0 bdf46e00 0
+s 106 0 0 bdd3c800 0
+s 107 0 0 bdd54400 0
+s 108 0 3 3f800000 0
+s 149 0 4 0 0
+s 163 0 3 3f800000 0
+s 163 1 3 3f800000 0
+s 203 1 4 0 0
+s 225 0 1 bf800000 0
+s 245 0 1 3f800000 0
+s 269 0 1 bf800000 0
+s 280 0 1 3f800000 0
+s 296 0 1 bf800000 0
+s 307 0 1 3f800000 0
+s 321 0 4 3e862f80 0
+s 322 0 0 3df3e400 0
+s 323 0 0 bbed4000 0
+s 324 0 0 bdef6a00 0
+s 325 0 0 be538500 0
+s 326 0 0 be8d6d00 0
+s 327 0 0 bea6da80 0
+s 328 0 0 beb60a00 0
+s 329 0 0 bebafc80 0
+s 330 0 0 beb5b180 0
+s 331 0 0 bea62900 0
+s 332 0 0 be8c6300 0
+s 333 0 0 be50bf00 0
+s 334 0 0 bde87a00 0
+s 335 0 0 bb500000 0
+s 336 0 0 3dda6800 0
+s 337 0 0 3e4c9800 0
+s 338 0 0 3e8bc080 0
+s 339 0 3 3f800000 0
+s 391 0 4 0 0

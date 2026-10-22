@@ -1,0 +1,43 @@
+package hud
+
+import (
+	"aego/camera"
+	"aego/debug"
+)
+
+// Coins counts the collected coins and writes the count in the corner of the view.
+script Coins {
+	@export
+	var C1 NodeRef
+
+	@export
+	var C2 NodeRef
+
+	@export
+	var C3 NodeRef
+
+	@export
+	var C4 NodeRef
+
+	var coins int
+	var k1 Connection
+	var k2 Connection
+	var k3 Connection
+	var k4 Connection
+
+	func Ready() {
+		k1 = C1.Get<Pickup2D>().Collected.Connect(OnCollected)
+		k2 = C2.Get<Pickup2D>().Collected.Connect(OnCollected)
+		k3 = C3.Get<Pickup2D>().Collected.Connect(OnCollected)
+		k4 = C4.Get<Pickup2D>().Collected.Connect(OnCollected)
+	}
+
+	func OnCollected(by NodeRef) {
+		coins++
+	}
+
+	func Update(dt float) {
+		p := camera.LogicalPose().Position
+		debug.Text(Vec2{p.X - 12, p.Y - 6.5}, "coins " + string(coins) + " / 4", Color{1, 0.85, 0.2, 1})
+	}
+}

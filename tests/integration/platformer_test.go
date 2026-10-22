@@ -13,6 +13,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/modules/gameplay"
 	"aego/modules/physics"
 	"aego/modules/physics/components"
 	"aego/modules/savegame"
@@ -27,12 +28,6 @@ import (
 	"aego/sdk"
 )
 
-type Health struct {
-	Max     float32 `aego:"max,min=1"`
-	Current float32 `aego:"current,min=0"`
-	Hits    int64   `aego:"hits"`
-}
-
 type EnemyStats struct {
 	Speed    float32     `aego:"speed,min=0,max=10"`
 	Cooldown float32     `aego:"cooldown,min=0,max=5"`
@@ -46,41 +41,11 @@ func (combatModule) Info() sdk.ModuleInfo {
 	return sdk.ModuleInfo{ID: "mygame", Version: "0.1.0"}
 }
 
-var healthHit sdk.Signal1[int64]
-
 func (combatModule) Register(r *sdk.Registry) error {
-	b := sdk.Component[Health](r, sdk.Name("game.Health"), sdk.Persist("current", "hits"))
-	healthHit = b.Signal1[int64]("Hit", "Hit fires when Damage lands; hits is the new hit count.", "hits")
-	if err := b.Err(); err != nil {
-		return err
-	}
 	if err := sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats")).Err(); err != nil {
 		return err
 	}
 	sdk.Live[EnemyStats](r, "speed")
-	m := sdk.ScriptModule(r, "mygame/combat")
-	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
-		if c.Scene == nil || !c.Scene.IsAlive(target) {
-			c.Fail("damage target is nil or destroyed")
-			return
-		}
-		h, ok := sdk.Get[Health](c.Scene, target)
-		if !ok {
-			return
-		}
-		h.Current -= float32(amount)
-		h.Hits++
-		if h.Current <= 0 {
-			h.Current = h.Max
-		}
-		healthHit.Emit(c.World, target, h.Hits)
-	})
-	sdk.Func1(m, "HealthOf", func(c *sdk.ScriptCtx, target sdk.NodeHandle) float32 {
-		if h, ok := sdk.Get[Health](c.Scene, target); ok {
-			return h.Current
-		}
-		return 0
-	})
 	return nil
 }
 
@@ -169,17 +134,29 @@ func openPlatformer(t testing.TB) *platformer {
 	return platformerAt(t, copyExample(t, "platformer"))
 }
 
+// hitPlayer deals one point of damage from EnemyLeft, as its hitbox would.
 func (pf *platformer) hitPlayer(t testing.TB) {
 	t.Helper()
+	hp, ok := scene.Get[gameplay.Health](pf.app.Scene, pf.player)
+	if !ok || !hp.Damage(1, pf.enemy) {
+		t.Fatal("the player was not hit")
+	}
+	pf.step(1)
+}
+
+// stomp drops the player onto EnemyLeft from above and waits for the kill.
+func (pf *platformer) stomp(t testing.TB) {
+	t.Helper()
 	sc := pf.app.Scene
-	for i := 0; i < 240 && pf.health().Hits == 0; i++ {
-		e := sc.Local(pf.enemy).Position
-		sc.SetPosition(pf.player, mathx.Vec2{X: e.X - 0.74, Y: e.Y - 0.05})
+	e := sc.Local(pf.enemy).Position
+	sc.SetPosition(pf.player, mathx.Vec2{X: e.X, Y: e.Y - 2.5})
+	for i := 0; i < 90 && pf.field("kills").Int() == 0; i++ {
+		e = sc.Local(pf.enemy).Position
+		p := sc.Local(pf.player).Position
+		sc.SetPosition(pf.player, mathx.Vec2{X: e.X, Y: p.Y})
 		pf.step(1)
 	}
-	if pf.health().Hits == 0 {
-		t.Fatal("the player was never hit")
-	}
+	pf.step(20)
 }
 
 func (pf *platformer) field(name string) vm.Value {
@@ -194,9 +171,14 @@ func (pf *platformer) step(n int) {
 	}
 }
 
-func (pf *platformer) health() Health {
-	h, _ := scene.Get[Health](pf.app.Scene, pf.player)
-	return *h
+func (pf *platformer) health() *gameplay.Health {
+	h, _ := scene.Get[gameplay.Health](pf.app.Scene, pf.player)
+	return h
+}
+
+func (pf *platformer) motion() *gameplay.Motion2D {
+	m, _ := scene.Get[gameplay.Motion2D](pf.app.Scene, pf.player)
+	return m
 }
 
 func (pf *platformer) body(h scene.NodeHandle) components.Body2D {
@@ -234,14 +216,14 @@ func TestPlatformerSceneIsByteStable(t *testing.T) {
 func TestPlatformerStandsOnGround(t *testing.T) {
 	pf := openPlatformer(t)
 	pf.step(120)
-	if vy := pf.body(pf.player).Velocity.Y; math.Abs(float64(vy)) > 0.05 {
+	if vy := pf.motion().Velocity.Y; math.Abs(float64(vy)) > 0.05 {
 		t.Fatalf("player still moves vertically: %v", vy)
 	}
 	if y := pf.y(); y < 2.9 || y > 3.05 {
 		t.Fatalf("player rests at y=%v, want about 3", y)
 	}
-	if pf.field("ground").Int() == 0 {
-		t.Fatal("OnCollisionEnter never reported the floor")
+	if m, _ := scene.Get[gameplay.Motion2D](pf.app.Scene, pf.player); !m.Grounded {
+		t.Fatal("Motion 2D never reported the floor")
 	}
 	pf.noFaults(t)
 }
@@ -250,20 +232,28 @@ func TestPlatformerJump(t *testing.T) {
 	pf := openPlatformer(t)
 	pf.step(60)
 	y0 := pf.y()
-	pf.hold(input.KeySpace, true)
-	pf.step(3)
-	pf.hold(input.KeySpace, false)
-	top := y0
-	for i := 0; i < 60; i++ {
-		pf.step(1)
-		top = min(top, pf.y())
+	rise := func(hold int) float32 {
+		pf.hold(input.KeySpace, true)
+		top := y0
+		for i := 0; i < 120; i++ {
+			if i == hold {
+				pf.hold(input.KeySpace, false)
+			}
+			pf.step(1)
+			top = min(top, pf.y())
+		}
+		pf.step(60)
+		if !pf.motion().Grounded || math.Abs(float64(pf.y()-y0)) > 0.05 {
+			t.Fatalf("player did not land: y=%v", pf.y())
+		}
+		return y0 - top
 	}
-	if y0-top < 1.5 {
-		t.Fatalf("jump rose %v units, want at least 1.5", y0-top)
+	full, short := rise(60), rise(3)
+	if full < 2.4 || full > 2.8 {
+		t.Fatalf("a held jump rose %v units, Jump Height is 2.6", full)
 	}
-	pf.step(120)
-	if pf.field("ground").Int() == 0 || math.Abs(float64(pf.y()-y0)) > 0.05 {
-		t.Fatalf("player did not land: y=%v ground=%d", pf.y(), pf.field("ground").Int())
+	if short > full*0.6 {
+		t.Fatalf("a tapped jump rose %v units, the held one %v: Jump Released must cut it", short, full)
 	}
 	pf.noFaults(t)
 }
@@ -272,12 +262,7 @@ func TestPlatformerStompEmitsDied(t *testing.T) {
 	pf := openPlatformer(t)
 	sc := pf.app.Scene
 	pf.step(30)
-	for i := 0; i < 120 && pf.field("kills").Int() == 0 && sc.IsAlive(pf.enemy); i++ {
-		e := sc.Local(pf.enemy).Position
-		sc.SetPosition(pf.player, mathx.Vec2{X: e.X, Y: e.Y - 1.3})
-		pf.step(1)
-	}
-	pf.step(20)
+	pf.stomp(t)
 	if k := pf.field("kills").Int(); k != 1 {
 		t.Fatalf("kills %d", k)
 	}
@@ -289,24 +274,15 @@ func TestPlatformerStompEmitsDied(t *testing.T) {
 
 func TestPlatformerBlinkSurvivesReload(t *testing.T) {
 	pf := openPlatformer(t)
-	sc := pf.app.Scene
 	pf.step(30)
-	for i := 0; i < 240 && pf.health().Hits == 0; i++ {
-		e := sc.Local(pf.enemy).Position
-		sc.SetPosition(pf.player, mathx.Vec2{X: e.X - 0.74, Y: e.Y - 0.05})
-		pf.step(1)
-	}
-	if pf.health().Hits == 0 {
-		t.Fatal("the player was never hit")
-	}
-	sc.SetPosition(pf.player, mathx.Vec2{X: 13, Y: 3})
+	pf.hitPlayer(t)
 	pf.step(1)
 	m := pf.app.Scripts.Machine()
 	blink := pf.field("blink")
 	if !m.CoRunning(blink) {
 		t.Fatal("Blink is not running after a hit")
 	}
-	before := pf.health()
+	before := pf.health().Current
 	canceled := pf.app.Scripts.CoStats().Canceled
 
 	path := filepath.Join(pf.root, "scripts", "player", "player.aes")
@@ -337,8 +313,8 @@ func TestPlatformerBlinkSurvivesReload(t *testing.T) {
 	if after == blink || !m.CoRunning(after) {
 		t.Fatal("Reloaded did not restart Blink")
 	}
-	if pf.health() != before {
-		t.Fatalf("health changed across reload: %+v → %+v", before, pf.health())
+	if pf.health().Current != before {
+		t.Fatalf("health changed across reload: %d → %d", before, pf.health().Current)
 	}
 }
 
@@ -430,12 +406,7 @@ func TestPlatformerSaveRoundTrip(t *testing.T) {
 	pf.app.Engine.SetService(persistence.StoreID, st)
 	sc := pf.app.Scene
 	pf.step(30)
-	for i := 0; i < 120 && pf.field("kills").Int() == 0 && sc.IsAlive(pf.enemy); i++ {
-		e := sc.Local(pf.enemy).Position
-		sc.SetPosition(pf.player, mathx.Vec2{X: e.X, Y: e.Y - 1.3})
-		pf.step(1)
-	}
-	pf.step(20)
+	pf.stomp(t)
 	if pf.field("kills").Int() != 1 || sc.IsAlive(pf.enemy) {
 		t.Fatal("the stomp did not kill EnemyLeft")
 	}
@@ -452,8 +423,8 @@ func TestPlatformerSaveRoundTrip(t *testing.T) {
 		t.Fatal("the spawned enemy has no persistent id")
 	}
 	pf.step(5)
-	hp, _ := scene.Get[Health](sc, pf.player)
-	hp.Current, hp.Hits = 2, 3
+	hp, _ := scene.Get[gameplay.Health](sc, pf.player)
+	hp.Current = 2
 	sc.SetPosition(pf.player, mathx.Vec2{X: -2, Y: 1})
 	at := sc.Local(spawned).Position
 
@@ -466,8 +437,8 @@ func TestPlatformerSaveRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	pf.step(30)
-	if hp, _ := scene.Get[Health](pf.app.Scene, pf.player); hp != nil {
-		hp.Current, hp.Hits = 5, 0
+	if hp, _ := scene.Get[gameplay.Health](pf.app.Scene, pf.player); hp != nil {
+		hp.Current = 3
 	}
 	before := pf.app.Scene
 	if err := svc.Load("round"); err != nil {
@@ -483,8 +454,8 @@ func TestPlatformerSaveRoundTrip(t *testing.T) {
 	if x := sc.Local(player).Position.X; math.Abs(float64(x+2)) > 1e-3 {
 		t.Fatalf("player x = %v, want -2", x)
 	}
-	if h, _ := scene.Get[Health](sc, player); h == nil || h.Current != 2 || h.Hits != 3 {
-		t.Fatalf("health = %+v, want current 2 and hits 3", h)
+	if h, _ := scene.Get[gameplay.Health](sc, player); h == nil || h.Current != 2 {
+		t.Fatalf("health = %+v, want current 2", h)
 	}
 	if h := sc.Handle(enemyID); !h.IsZero() && sc.IsAlive(h) {
 		t.Fatal("the killed enemy came back")

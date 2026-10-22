@@ -1,0 +1,57 @@
+package player
+
+import (
+	"aego/input"
+	"aego/math"
+	"aego/settings"
+	"aego/timer"
+)
+
+// Hero moves with the left stick or WASD and swings its Sword towards the right stick, the mouse or the way it walks.
+script Hero {
+	@export
+	var Sword NodeRef
+
+	@export(min=0)
+	var Reach float = 0.8
+
+	var facing Vec2 = Vec2{1, 0}
+	var swing timer.Timer
+	var mouse Vec2
+	var useMouse bool
+
+	func Ready() {
+		swing = timer.Cooldown(0.3)
+		mouse = input.MousePos()
+	}
+
+	func Update(dt float) {
+		move := Vec2{input.Axis("MoveX"), input.Axis("MoveY")}
+		node.Get<Motion2D>().MoveDir(move)
+		aim := Vec2{input.Axis("AimX"), input.Axis("AimY")}
+		p := input.MousePos()
+		if math.Dist(p, mouse) > 2 {
+			mouse = p
+			useMouse = true
+		}
+		if math.Length(aim) > 0.3 {
+			facing = math.Normalize(aim)
+			useMouse = false
+		} else if useMouse {
+			to := input.MouseWorld() - node.WorldPosition()
+			if math.Length(to) > 0.2 {
+				facing = math.Normalize(to)
+			}
+		} else if math.Length(move) > 0.1 {
+			facing = math.Normalize(move)
+		}
+		Sword.SetPosition(facing * Reach)
+		Sword.SetRotation(math.Angle(facing))
+		if input.Pressed("Attack") && swing.Use() {
+			Sword.Get<Hitbox2D>().Pulse()
+		}
+		if input.Pressed("Pause") {
+			settings.OpenView()
+		}
+	}
+}

@@ -208,18 +208,18 @@ func TestApplyAndInverse(t *testing.T) {
 
 func TestPrefabFlow(t *testing.T) {
 	e := open(t)
-	out := e.must("prefab.create", agent.Args{"file": level, "node": "Ground", "out": "prefabs/ground"})
+	out := e.must("prefab.create", agent.Args{"file": level, "node": "GroundLeft", "out": "prefabs/ground"})
 	if len(out.Created) != 1 {
 		t.Fatalf("create %+v", out)
 	}
 	ins := e.must("prefab.instantiate", agent.Args{"file": level, "prefab": "prefabs/ground.aeprefab", "name": "Ground2"})
 	second := ins.Created[0]
-	e.must("scene.set", agent.Args{"file": level, "node": "Ground", "path": "SpriteRenderer.tint", "value": "#123456ff"})
-	e.must("prefab.apply", agent.Args{"file": level, "node": "Ground", "level": "property", "owner": "engine.SpriteRenderer", "field": "tint"})
+	e.must("scene.set", agent.Args{"file": level, "node": "GroundLeft", "path": "SpriteRenderer.tint", "value": "#123456ff"})
+	e.must("prefab.apply", agent.Args{"file": level, "node": "GroundLeft", "level": "property", "owner": "engine.SpriteRenderer", "field": "tint"})
 	if got := e.must("scene.get", agent.Args{"file": level, "node": second, "path": "SpriteRenderer.tint"}).Text; got != "#123456ff" {
 		t.Fatalf("second instance tint %q", got)
 	}
-	again := e.must("prefab.apply", agent.Args{"file": level, "node": "Ground", "level": "property", "owner": "engine.SpriteRenderer", "field": "tint"})
+	again := e.must("prefab.apply", agent.Args{"file": level, "node": "GroundLeft", "level": "property", "owner": "engine.SpriteRenderer", "field": "tint"})
 	if len(again.Notes) != 1 || again.Notes[0] != "nothing to apply" {
 		t.Fatalf("second apply %+v", again)
 	}

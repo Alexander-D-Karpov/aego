@@ -271,11 +271,6 @@
       "doc": "Persist saves the node's transform and enabled flag in save games."
     },
     {
-      "name": "game.Health",
-      "kind": "component",
-      "owner": "mygame"
-    },
-    {
       "name": "audio.AudioEvent",
       "kind": "data",
       "display": "Audio Event",

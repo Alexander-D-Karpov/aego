@@ -2,6 +2,7 @@
 
 (function () {
     const build = document.documentElement.dataset.build || "";
+    if (document.documentElement.dataset.music === "off") globalThis.aegoMusicDefault = false;
     const canvas = document.getElementById("game");
     const loader = document.getElementById("loader");
     const bar = document.getElementById("bar");
@@ -9,12 +10,19 @@
     const errorBox = document.getElementById("error");
     const full = document.getElementById("fullscreen");
     const mute = document.getElementById("mute");
+    const music = document.getElementById("music");
 
     function syncMute() {
         const on = globalThis.aegoAudioMute();
         mute.classList.toggle("muted", on);
         mute.title = on ? "Unmute" : "Mute";
         mute.setAttribute("aria-label", mute.title);
+    }
+    function syncMusic() {
+        const on = globalThis.aegoGame.music();
+        music.classList.toggle("muted", !on);
+        music.title = on ? "Music off" : "Music on";
+        music.setAttribute("aria-label", music.title);
     }
     const PARALLEL = 6;
     const started = performance.now();
@@ -46,6 +54,10 @@
             mute.hidden = false;
             syncMute();
         }
+        if (globalThis.aegoGame && typeof globalThis.aegoGame.music === "function") {
+            music.hidden = false;
+            syncMusic();
+        }
         canvas.focus();
     };
 
@@ -57,6 +69,11 @@
     mute.addEventListener("click", () => {
         globalThis.aegoAudioMute(!globalThis.aegoAudioMute());
         syncMute();
+        canvas.focus();
+    });
+    music.addEventListener("click", () => {
+        globalThis.aegoGame.music(!globalThis.aegoGame.music());
+        syncMusic();
         canvas.focus();
     });
     document.addEventListener("fullscreenchange", () => {
