@@ -97,6 +97,7 @@ type Sim struct {
 	layers  [32]string
 	qhits   []world.RayHit
 	qshapes []world.ShapeHandle
+	qcasts  []world.CastHit
 }
 
 // Touch is a shape pair in contact; Fresh marks pairs that began this step.

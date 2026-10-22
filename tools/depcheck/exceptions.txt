@@ -45,3 +45,6 @@ save/... -> "save", semantic, the save module ID equals the document head of .ae
 contracts/persistence -> "save.*", semantic, the persistence contract names the save module's service, host and store IDs (D259)
 contracts/persistence -> "spawn.service", semantic, the persistence contract names the spawn service it reads through persistence.Spawner (D260)
 asset/... -> "data", semantic, the artifact kind and importer ID of .aedata files equal the data module ID (D252)
+
+# The Gameplay guide group is older than the gameplay module; module pages join it.
+engine/docs/groups.go -> "gameplay", semantic, the guide group id equals the gameplay module id and is not a reference to the module (D312)

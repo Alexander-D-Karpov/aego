@@ -1,26 +1,36 @@
 package world
 
 type queryState struct {
-	w       *World
-	filter  QueryFilter
-	origin  Vec2
-	dir     Vec2
-	maxDist float32
-	best    RayHit
-	found   bool
-	hits    []RayHit
-	n       int
-	shapes  []ShapeHandle
-	point   Vec2
-	probe   convex
-	probeXf xform
-	pick    ShapeHandle
-	picked  bool
-	rayFn   func(int32, Vec2, Vec2, float32) float32
-	allFn   func(int32, Vec2, Vec2, float32) float32
-	pointFn func(int32) bool
-	shapeFn func(int32) bool
-	atFn    func(int32) bool
+	w            *World
+	filter       QueryFilter
+	origin       Vec2
+	dir          Vec2
+	maxDist      float32
+	best         RayHit
+	found        bool
+	hits         []RayHit
+	n            int
+	shapes       []ShapeHandle
+	point        Vec2
+	probe        convex
+	probeXf      xform
+	pick         ShapeHandle
+	picked       bool
+	castC        convex
+	castA        proxy
+	castCentroid Vec2
+	castDelta    Vec2
+	castBest     CastHit
+	castFound    bool
+	penOut       []CastHit
+	penN         int
+	rayFn        func(int32, Vec2, Vec2, float32) float32
+	allFn        func(int32, Vec2, Vec2, float32) float32
+	pointFn      func(int32) bool
+	shapeFn      func(int32) bool
+	atFn         func(int32) bool
+	castFn       func(int32) bool
+	penFn        func(int32) bool
 }
 
 func (q *queryState) init(w *World) {
@@ -30,6 +40,8 @@ func (q *queryState) init(w *World) {
 	q.pointFn = q.pointHit
 	q.shapeFn = q.shapeHit
 	q.atFn = q.atHit
+	q.castFn = q.castHit
+	q.penFn = q.penHit
 }
 
 func (q *queryState) accept(s *shape) bool {
@@ -43,7 +55,11 @@ func (q *queryState) accept(s *shape) bool {
 	if !f.ExcludeBody.IsZero() && s.body == f.ExcludeBody {
 		return false
 	}
-	return (f.LayerMask>>q.w.bodies.items[s.body.Index].layer)&1 != 0
+	b := &q.w.bodies.items[s.body.Index]
+	if f.SkipDynamic && b.typ == Dynamic {
+		return false
+	}
+	return (f.LayerMask>>b.layer)&1 != 0
 }
 
 func (q *queryState) cast(s *shape, child int, maxT float32) (float32, Vec2, bool) {

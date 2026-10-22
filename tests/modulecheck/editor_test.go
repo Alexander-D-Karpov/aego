@@ -25,6 +25,7 @@ import (
 	"aego/editor/panels/profiler"
 	"aego/engine/module"
 	"aego/gpu"
+	"aego/modules/gameplay"
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/platform/input"
@@ -46,7 +47,7 @@ type editorFixture struct {
 }
 
 func editorCatalog(m *fakephys.Module, p *fpeditor.Plugin) assembly.Catalog {
-	c := editors.With(builtin.Default()).Without(physics.ID)
+	c := editors.With(builtin.Default()).Without(physics.ID, gameplay.ID)
 	return append(c, assembly.Entry{
 		ID:     fakephys.ID,
 		New:    func(assembly.Options) module.Module { return m },

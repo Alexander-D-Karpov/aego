@@ -17,6 +17,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `cat.audio` | engine | 16 | Documentation: Audio group and module | ok |
 | `cat.camera` | engine | 24 | New Project: template 2.5d | ok |
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own | ok |
+| `cat.gameplay` | engine | 16 | — | unused |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results | ok |
 | `cat.physics` | engine | 16 | template menu Physics | ok |
 | `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets | ok |
@@ -75,6 +76,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `file.table` | engine | 24 | Assets: table tiles | ok |
 | `file.texture` | engine | 24 | Assets: texture tiles | ok |
 | `file.unknown` | engine | 24 | Assets: tiles of other kinds | ok |
+| `gameplay.motion` | engine | 16 | component gameplay.Motion2D | ok |
 | `help.about` | engine | 16 | Help → About Aego | ok |
 | `help.book` | engine | 16 | Documentation tab | ok |
 | `log.error` | engine | 16 | Console: errors | ok |

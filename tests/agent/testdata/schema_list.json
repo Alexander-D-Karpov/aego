@@ -183,6 +183,14 @@
       "doc": "Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."
     },
     {
+      "name": "gameplay.Motion2D",
+      "kind": "component",
+      "display": "Motion 2D",
+      "category": "Gameplay",
+      "owner": "gameplay",
+      "doc": "Moves a kinematic Body2D by casting its colliders: walking, jumping, slopes, steps and moving platforms, or free top-down movement. Call Move and Jump from a script; the controller acts on the next fixed step."
+    },
+    {
       "name": "save.Persist",
       "kind": "component",
       "display": "Persist",

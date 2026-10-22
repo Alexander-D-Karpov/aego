@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="d7e3af161550cffe734341c21f5f7ee274af0862cf522b35dbb7b755977d88d0"
+  abi="d0163b984c97aba7ff7c471de5cac2c8ec673e77395357bd6555f7a8e951f2b0"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -2989,6 +2989,51 @@ manifest version=6 {
     result="bool"
     doc="IsActive reports whether this virtual camera drives its output now."
   }
+  cmethod "AddVelocity" comp="gameplay.Motion2D" {
+    params=["Vec2"]
+    result="void"
+    names=["velocity"]
+    doc="AddVelocity adds a push once, for knockback."
+  }
+  cmethod "Dash" comp="gameplay.Motion2D" {
+    params=["Vec2", "float"]
+    result="void"
+    names=["velocity", "seconds"]
+    doc="Dash moves at a fixed velocity for some seconds."
+  }
+  cmethod "Jump" comp="gameplay.Motion2D" {
+    params=[]
+    result="void"
+    doc="Jump jumps on the next step if grounded, within coyote time or later within the jump buffer."
+  }
+  cmethod "JumpReleased" comp="gameplay.Motion2D" {
+    params=[]
+    result="void"
+    doc="JumpReleased cuts a rising jump by Jump Cut Multiplier."
+  }
+  cmethod "Move" comp="gameplay.Motion2D" {
+    params=["float"]
+    result="void"
+    names=["x"]
+    doc="Move sets the horizontal input, -1..1; it stays until the next Move."
+  }
+  cmethod "MoveDir" comp="gameplay.Motion2D" {
+    params=["Vec2"]
+    result="void"
+    names=["dir"]
+    doc="MoveDir sets the top-down input; a longer vector is cut to length 1."
+  }
+  cmethod "Stop" comp="gameplay.Motion2D" {
+    params=[]
+    result="void"
+    doc="Stop zeroes the velocity and ends a dash."
+  }
+  cmethod "Teleport" comp="gameplay.Motion2D" {
+    params=["Vec2"]
+    result="void"
+    names=["position"]
+    doc="Teleport moves to a position on the next step and resets velocity and state."
+  }
   cmethod "ApplyForce" comp="physics.Body2D" {
     params=["Vec2"]
     result="void"
@@ -3276,6 +3321,28 @@ manifest version=6 {
     params=["bool"]
     names=["finished"]
     doc="Finished runs when the sound of the source ends; finished is false after Stop or when it was cut off."
+  }
+  csignal "Landed" comp="gameplay.Motion2D" {
+    params=["float"]
+    names=["speed"]
+    doc="Landed fires when the character touches a floor, with the falling speed."
+  }
+  csignal "LeftGround" comp="gameplay.Motion2D" {
+    params=[]
+    doc="LeftGround fires when the character walks off a floor without jumping."
+  }
+  csignal "Jumped" comp="gameplay.Motion2D" {
+    params=[]
+    doc="Jumped fires when a jump starts."
+  }
+  csignal "HitWall" comp="gameplay.Motion2D" {
+    params=["Vec2"]
+    names=["normal"]
+    doc="HitWall fires when the character starts touching a wall."
+  }
+  csignal "HitCeiling" comp="gameplay.Motion2D" {
+    params=[]
+    doc="HitCeiling fires when the character bumps into a ceiling."
   }
   hsignal "Completed" handle="aego/action.Action" {
     params=["bool"]
@@ -4180,6 +4247,171 @@ manifest version=6 {
       type="string"
       readonly=false
       doc="Output name; virtual cameras with the same Output drive this camera."
+    }
+  }
+  component "gameplay.Motion2D" {
+    short="Motion2D"
+    category="gameplay"
+    doc="Moves a kinematic Body2D by casting its colliders: walking, jumping, slopes, steps and moving platforms, or free top-down movement. Call Move and Jump from a script; the controller acts on the next fixed step."
+    field "Mode" {
+      type="int"
+      readonly=false
+      doc="platformer walks on floors under gravity; topDown moves freely in the plane."
+    }
+    field "UpDirection" {
+      type="Vec2"
+      readonly=false
+      doc="Up for floors, jumps and gravity. (0, -1) is up on screen."
+    }
+    field "MaxSpeed" {
+      type="float"
+      readonly=false
+      doc="Top speed in units per second."
+    }
+    field "Accel" {
+      type="float"
+      readonly=false
+      doc="How fast the speed grows towards the target, units per second squared."
+    }
+    field "Decel" {
+      type="float"
+      readonly=false
+      doc="How fast the speed falls without input."
+    }
+    field "AirControl" {
+      type="float"
+      readonly=false
+      doc="Share of Accel and Decel available in the air."
+    }
+    field "GravityScale" {
+      type="float"
+      readonly=false
+      doc="Multiplies the physics gravity."
+    }
+    field "MaxFallSpeed" {
+      type="float"
+      readonly=false
+      doc="Fastest fall in units per second. 0 is unlimited."
+    }
+    field "JumpHeight" {
+      type="float"
+      readonly=false
+      doc="Height of a full jump; sets the jump speed unless Jump Speed is set."
+    }
+    field "JumpSpeed" {
+      type="float"
+      readonly=false
+      doc="Upward speed of a jump. 0 derives it from Jump Height and gravity."
+    }
+    field "JumpCutMultiplier" {
+      type="float"
+      readonly=false
+      doc="Upward speed is multiplied by this when the jump button is released early."
+    }
+    field "CoyoteTime" {
+      type="float"
+      readonly=false
+      doc="Seconds after leaving a ledge during which a jump still works."
+    }
+    field "JumpBuffer" {
+      type="float"
+      readonly=false
+      doc="Seconds a jump pressed in the air is remembered until landing."
+    }
+    field "MaxSlope" {
+      type="float"
+      readonly=false
+      doc="Steepest floor in degrees; steeper surfaces are walls."
+    }
+    field "StepHeight" {
+      type="float"
+      readonly=false
+      doc="Steps up to this height are climbed without jumping."
+    }
+    field "SnapToGround" {
+      type="float"
+      readonly=false
+      doc="Keeps the character on slopes and steps down by up to this distance."
+    }
+    field "SafeMargin" {
+      type="float"
+      readonly=false
+      doc="Gap kept to surfaces so casts never start inside them."
+    }
+    field "MaxSlides" {
+      type="int"
+      readonly=false
+      doc="How many surfaces one step may slide along."
+    }
+    field "CollisionMask" {
+      type="int"
+      readonly=false
+      doc="Layers the character collides with."
+    }
+    field "PushBodies" {
+      type="bool"
+      readonly=false
+      doc="Moves through dynamic bodies and pushes them instead of stopping at them."
+    }
+    field "MovingPlatforms" {
+      type="bool"
+      readonly=false
+      doc="Carries the character with the body it stands on."
+    }
+    field "PlatformOnLeave" {
+      type="int"
+      readonly=false
+      doc="keep keeps the platform's velocity after leaving it, drop loses it, add keeps only its horizontal part."
+    }
+    field "FaceMovement" {
+      type="bool"
+      readonly=false
+      doc="topDown: turns the node towards the movement."
+    }
+    field "DashGravity" {
+      type="bool"
+      readonly=false
+      doc="Applies gravity during a dash."
+    }
+    field "Velocity" {
+      type="Vec2"
+      readonly=true
+      doc="Current velocity in units per second, during Play."
+    }
+    field "Grounded" {
+      type="bool"
+      readonly=true
+      doc="Whether the character stands on a floor, during Play."
+    }
+    field "OnWall" {
+      type="bool"
+      readonly=true
+      doc="Whether the character touched a wall in the last step, during Play."
+    }
+    field "OnCeiling" {
+      type="bool"
+      readonly=true
+      doc="Whether the character touched a ceiling in the last step, during Play."
+    }
+    field "WallNormal" {
+      type="Vec2"
+      readonly=true
+      doc="Normal of the last wall touched, during Play."
+    }
+    field "FloorNormal" {
+      type="Vec2"
+      readonly=true
+      doc="Normal of the floor under the character, during Play."
+    }
+    field "FloorAngle" {
+      type="float"
+      readonly=true
+      doc="Slope of the floor in degrees, during Play."
+    }
+    field "GroundBody" {
+      type="NodeRef"
+      readonly=true
+      doc="Body the character stands on, during Play."
     }
   }
   component "save.Persist" {

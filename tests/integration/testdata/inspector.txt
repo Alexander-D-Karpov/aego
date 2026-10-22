@@ -20,4 +20,5 @@ Physics	physics.RevoluteJoint2D	Revolute Joint 2D	comp.joint_revolute	-
 Audio	audio.AudioListener2D	Audio Listener 2D	audio.listener	-
 Audio	audio.AudioSource2D	Audio Source 2D	audio.source	-
 Audio	audio.AudioZone2D	Audio Zone 2D	audio.zone	-
+Gameplay	gameplay.Motion2D	Motion 2D	gameplay.motion	-
 game	game.Rotator	Rotator	cat.game	rotator

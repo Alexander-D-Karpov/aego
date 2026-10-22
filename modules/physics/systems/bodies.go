@@ -1,8 +1,6 @@
 package systems
 
 import (
-	"errors"
-
 	"aego/core/mathx"
 	"aego/modules/physics/components"
 	"aego/modules/physics/world"
@@ -199,7 +197,7 @@ func (m *Sim) Present(alpha float32) {
 func (m *Sim) Teleport(h scene.NodeHandle, p mathx.Vec2, a float32) error {
 	b := m.byBody[h]
 	if b == nil || b.h.IsZero() {
-		return errors.New("node has no simulated physics body")
+		return errNoBody
 	}
 	if err := m.w.SetBodyTransform(b.h, p, a); err != nil {
 		return err

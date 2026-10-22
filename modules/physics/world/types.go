@@ -136,6 +136,7 @@ type Events struct {
 type QueryFilter struct {
 	LayerMask       uint32
 	IncludeTriggers bool
+	SkipDynamic     bool
 	ExcludeBody     BodyHandle
 }
 

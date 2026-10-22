@@ -106,6 +106,7 @@ var rules = []rule{
 	{"audio/codec/vorbis/internal/vorbis", nil, nil},
 	{"audio/pump", []string{"core/...", "audio/mix"}, nil},
 	{"modules/audio", []string{"core/...", "audio/...", "asset", "asset/pipeline", "asset/importers/audio", "contracts/...", "data", "engine", "engine/module", "engine/problems", "engine/recorder", "engine/settings", "platform", "platform/headless", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
+	{"modules/gameplay", []string{"core/...", "contracts/...", "engine", "engine/module", "engine/problems", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/audio/editor", with(editorAllow, "modules/audio", "audio/...", "contracts/..."), nil},
 	{"modules/render2d", []string{"core/...", "asset", "engine", "engine/module", "gpu", "render/...", "scene", "scene/frame", "schema", "contracts/camera2d"}, nil},
 	{"modules/render2d/editor", with(editorAllow, "modules/render2d"), nil},

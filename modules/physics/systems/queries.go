@@ -20,9 +20,13 @@ func (m *Sim) ShapeNode(h world.ShapeHandle) scene.NodeHandle {
 }
 
 func (m *Sim) filter(f physics2d.QueryFilter) world.QueryFilter {
-	wf := world.QueryFilter{LayerMask: f.LayerMask, IncludeTriggers: f.IncludeTriggers}
-	if !f.ExcludeNode.IsZero() {
-		if b := m.bodyAt(f.ExcludeNode); b != nil {
+	wf := world.QueryFilter{LayerMask: f.LayerMask, IncludeTriggers: f.IncludeTriggers, SkipDynamic: f.SkipDynamic}
+	ex := f.ExcludeBody
+	if ex.IsZero() {
+		ex = f.ExcludeNode
+	}
+	if !ex.IsZero() {
+		if b := m.bodyAt(ex); b != nil {
 			wf.ExcludeBody = b.h
 		}
 	}
