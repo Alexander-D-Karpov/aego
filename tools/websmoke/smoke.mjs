@@ -69,7 +69,7 @@ const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+    args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
 page.on("pageerror", (e) => fail("page error: " + e.message));

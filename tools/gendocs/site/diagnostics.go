@@ -29,7 +29,7 @@ func (b *builder) diagnostics(c *strings.Builder, e *Entry, root string) bool {
 		}
 		g := byPhase[ke.Diag.Phase]
 		if g == nil {
-			g = &diagGroup{id: "phase-" + slug(ke.Diag.Phase), title: ke.Diag.Phase}
+			g = &diagGroup{id: "phase-" + slug(ke.Diag.Phase), title: phaseTitle(ke.Diag.Phase)}
 			byPhase[ke.Diag.Phase] = g
 			groups = append(groups, g)
 		}
@@ -62,6 +62,17 @@ func (b *builder) diagnostics(c *strings.Builder, e *Entry, root string) bool {
 	return true
 }
 
+// phaseTitle names the groups of module codes; script phases keep their own names.
+func phaseTitle(p string) string {
+	switch p {
+	case "scene":
+		return "Components"
+	case "asset":
+		return "Assets"
+	}
+	return p
+}
+
 func slug(s string) string {
 	var b strings.Builder
 	dash := false
@@ -80,7 +91,7 @@ func slug(s string) string {
 func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 	d := e.Diag
 	sev := d.Severity
-	if sev != "warning" {
+	if sev != "warning" && sev != "info" {
 		sev = "error"
 	}
 	c.WriteString(`<section class="member diag">` + "\n")
@@ -99,6 +110,13 @@ func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 				cls += " warning"
 			}
 			c.WriteString(`<div class="` + cls + `">` + esc(diagLine(d, e.ID)) + "</div>\n")
+		}
+	}
+	if d.Phase == "scene" || d.Phase == "asset" {
+		c.WriteString(b.markdown(root, e.ID, e.Body))
+		if d.Example != "" {
+			c.WriteString(`<p class="label">Example: ` + esc(d.ExampleFile) + "</p>\n")
+			c.WriteString(b.sceneTree(d.Example, root))
 		}
 	}
 	if d.Fix != "" {

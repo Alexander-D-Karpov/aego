@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"aego/contracts/physics2d"
+	"aego/engine"
 	"io/fs"
 	"math"
 	"os"
@@ -343,6 +345,26 @@ func BenchmarkPlatformerFrame(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pf.app.Engine.Step(d)
+	}
+}
+
+// BenchmarkCastBody sweeps the player's colliders a little down and right on the platformer, as Motion 2D does every step.
+func BenchmarkCastBody(b *testing.B) {
+	pf := openPlatformer(b)
+	pf.step(60)
+	q, ok := engine.ServiceOf[physics2d.Queries](pf.app.Engine.MainWorld(), physics2d.ServiceID)
+	if !ok {
+		b.Fatal("no physics2d queries")
+	}
+	f := physics2d.QueryFilter{LayerMask: ^uint32(0), ExcludeBody: pf.player}
+	delta := mathx.Vec2{X: 0.1, Y: 0.2}
+	if _, ok := q.CastBody(pf.player, mathx.Vec2{}, delta, f); !ok {
+		b.Fatal("the cast hits nothing, the player should stand on the ground")
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.CastBody(pf.player, mathx.Vec2{}, delta, f)
 	}
 }
 

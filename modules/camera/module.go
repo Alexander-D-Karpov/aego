@@ -51,7 +51,8 @@ func New() *Module {
 
 func (*Module) Info() module.Info {
 	return module.Info{ID: ID, Version: engine.Version, Requires: []string{needsScripts}, Builtin: true,
-		DisplayName: "Cameras 2D", DocsOrder: 45, DocsIcon: "comp.vcam"}
+		DisplayName: "Cameras 2D", DocsOrder: 45, DocsIcon: "comp.vcam",
+		Codes: []string{CodeNoVirtual, CodeNoCamera, CodeEmptyRect, CodeNoTarget}}
 }
 
 func (*Module) IconDir() string {

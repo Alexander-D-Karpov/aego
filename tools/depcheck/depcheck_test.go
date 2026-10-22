@@ -172,6 +172,14 @@ func TestRuleCases(t *testing.T) {
 		{"file-exception", nil, []string{"sdk/other.go: [sdk-imports-editor] imports editor/core/c"}},
 		{"wasm", nil, []string{"[wasm-reaches-forbidden] reaches modules/accessibility via cmd/aego-playground -> modules/accessibility"}},
 		{"no-group", nil, []string{"weird/x: [no-group]"}},
+		{"gameplay-modules", nil, []string{
+			"modules/gameplay/g.go: [module-imports-module] imports modules/physics",
+			"modules/gameplay/g.go: [module-imports-module] imports modules/camera",
+			"modules/gameplay/g.go: [module-imports-module] imports modules/audio",
+		}},
+		{"audio-render", nil, []string{"modules/audio/a.go: [layer:modules/audio] imports render/view", "modules/audio/editor/e.go: [layer:modules/audio/editor] imports render/view"}},
+		{"camera-render2d", nil, []string{"modules/camera/c.go: [module-imports-module] imports modules/render2d", "modules/camera/c.go: [layer:modules/camera] imports render/batch"}},
+		{"vorbis-internal", nil, []string{"audio/codec/vorbis/internal/vorbis/v.go: [layer:audio/codec/vorbis/internal/vorbis] imports core/mathx"}},
 	}
 	for _, c := range cases {
 		t.Run(c.dir, func(t *testing.T) {
@@ -191,6 +199,9 @@ func TestRuleCases(t *testing.T) {
 				if !strings.Contains(all, w) {
 					t.Errorf("missing %q in:\n%s", w, all)
 				}
+			}
+			if c.dir == "audio-render" && strings.Contains(all, "imports render/debug") {
+				t.Errorf("render/debug is allowed in the audio editor:\n%s", all)
 			}
 			if c.dir == "file-exception" && strings.Contains(all, "sdk/editor.go") {
 				t.Errorf("the excepted file is reported:\n%s", all)

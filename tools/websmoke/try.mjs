@@ -2,6 +2,10 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import pixelmatch from "pixelmatch";
+import pngjs from "pngjs";
+
+const { PNG } = pngjs;
 
 const opts = Object.fromEntries(
     process.argv.slice(2).map((a) => {
@@ -12,6 +16,8 @@ const opts = Object.fromEntries(
 const site = path.resolve(opts.site ?? "../../site");
 const executablePath = process.env.CHROMIUM || "/usr/bin/chromium";
 const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json" };
+const goldenDir = path.resolve(opts.golden ?? "golden");
+const update = opts.update === "true";
 const failures = [];
 
 function fail(msg) {
@@ -37,12 +43,94 @@ function serve(root) {
     });
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function startTry(url) {
+    await page.goto(base + url);
+    await page.waitForSelector(".try .try-stage");
+    await page.evaluate(() => {
+        const b = document.querySelector(".try .try-start");
+        if (b) b.click();
+    });
+    await page.waitForFunction(
+        () => {
+            const s = document.querySelector(".try .try-status");
+            if (s && s.classList.contains("error")) throw new Error(s.textContent);
+            if (!globalThis.aegoDocs || !globalThis.aegoDocs.call) return false;
+            const r = JSON.parse(globalThis.aegoDocs.call("state", "{}"));
+            return r.state && r.state.frames >= 30;
+        },
+        null,
+        { timeout: 120000, polling: 100 },
+    );
+}
+
+const frameNow = async () => (await call("state")).state.frames;
+
+async function golden(name, shot) {
+    const file = path.join(goldenDir, name + ".png");
+    if (update) {
+        fs.mkdirSync(goldenDir, { recursive: true });
+        fs.writeFileSync(file, PNG.sync.write(shot));
+        console.log("wrote " + file);
+        return;
+    }
+    if (!fs.existsSync(file)) {
+        fail(`${name}: no golden, run make web-smoke-update`);
+        return;
+    }
+    const want = PNG.sync.read(fs.readFileSync(file));
+    if (want.width !== shot.width || want.height !== shot.height) {
+        fail(`${name}: ${shot.width}x${shot.height}, golden ${want.width}x${want.height}`);
+        return;
+    }
+    const n = pixelmatch(want.data, shot.data, null, want.width, want.height, { threshold: 0.1 });
+    const pct = (n * 100) / (want.width * want.height);
+    if (pct > 2) {
+        fs.writeFileSync(path.join(goldenDir, `actual-${name}.png`), PNG.sync.write(shot));
+        fail(`${name}: ${pct.toFixed(2)}% of pixels differ`);
+        return;
+    }
+    console.log(`${name}: ${pct.toFixed(3)}% of pixels differ`);
+}
+
+// sound plays the Audio Source 2D try scene and expects the output to carry sound.
+async function sound() {
+    await startTry("/ref/audio.AudioSource2D.html");
+    const box = await page.locator(".try canvas").boundingBox();
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
+    await sleep(1500);
+    const st = JSON.parse(await page.evaluate(() => globalThis.aegoAudioStats()));
+    if (!st.running || !(st.rms > 0)) fail(`try AudioSource2D is silent: ${JSON.stringify(st)}`);
+    else console.log(`try: AudioSource2D plays, rms ${st.rms.toFixed(3)}`);
+}
+
+// motion holds ArrowRight for 60 frames in the Motion 2D try scene: the hint goes away on the click and the player moves right.
+async function motion() {
+    await startTry("/ref/gameplay.Motion2D.html");
+    if (!(await page.locator(".try[data-input]").count())) fail("the Motion 2D try block does not ask for input");
+    if (!(await page.locator(".try .try-input").count())) fail("the Motion 2D try scene shows no input hint");
+    const from = (await call("pose", { node: "Player" })).pose;
+    const box = await page.locator(".try canvas").boundingBox();
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
+    if (await page.locator(".try .try-input").count()) fail("the input hint stays after a click on the canvas");
+    await page.keyboard.down("ArrowRight");
+    const start = await frameNow();
+    await page.waitForFunction((n) => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n, start + 60, { timeout: 30000, polling: 16 });
+    await page.keyboard.up("ArrowRight");
+    const to = (await call("pose", { node: "Player" })).pose;
+    if (!from || !to || !(to[0] > from[0] + 0.5)) fail(`the player did not move right: ${JSON.stringify(from)} -> ${JSON.stringify(to)}`);
+    else console.log(`try: Motion2D moved from x ${from[0].toFixed(2)} to ${to[0].toFixed(2)}`);
+    await call("play");
+    await golden("try-motion2d", PNG.sync.read(await page.locator(".try canvas").screenshot()));
+}
+
 const srv = await serve(site);
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+    args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
 page.on("pageerror", (e) => fail("page error: " + e.message));
@@ -95,6 +183,8 @@ try {
     if (!again) fail("a second request did not reuse the runtimes");
     if (docsFetches !== 1) fail(`aego-docs.wasm was fetched ${docsFetches} times`);
     else console.log("try: edit, restart, reset and runtime reuse work");
+    await sound();
+    await motion();
 } catch (e) {
     fail(e.message);
 } finally {

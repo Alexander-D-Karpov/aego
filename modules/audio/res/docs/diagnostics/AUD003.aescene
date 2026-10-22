@@ -1,0 +1,11 @@
+scene version=1 {
+  node "41554430303300000000000000000001" name="Speaker" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "audio.AudioSource2D" version=1 {
+    }
+  }
+}

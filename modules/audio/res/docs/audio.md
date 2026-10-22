@@ -38,7 +38,7 @@ title: Clips
 ---
 # Clips
 
-`.wav` (8, 16, 24 and 32-bit PCM, 32-bit float) and `.ogg` Vorbis, mono or stereo, are imported as they are. An `.mp3` is converted to `.ogg` on import with `ffmpeg`; without it in `PATH` the import fails with AUD001 and the command to convert the file by hand.
+`.wav` (8, 16, 24 and 32-bit PCM, 32-bit float) and `.ogg` Vorbis, mono or stereo, are imported as they are. An `.mp3` is converted to `.ogg` on import with `ffmpeg`; without it in `PATH` the import fails with [AUD001](ref:AUD001) and the command to convert the file by hand.
 
 Import settings in the `.meta`:
 
@@ -49,9 +49,11 @@ Import settings in the `.meta`:
 | `gain` | `1` | volume of the clip, before the source and the bus |
 | `bus` | `sfx` | the bus when the player of the clip does not choose one |
 
-A clip that is not streamed is decoded once, at the rate of the output, and shared by every voice that plays it. A streamed clip is decoded while it plays, from the asset in memory; it is the choice for music. Loop points outside the sound give AUD002, and the whole sound loops instead.
+A clip that is not streamed is decoded once, at the rate of the output, and shared by every voice that plays it. A streamed clip is decoded while it plays, from the asset in memory; it is the choice for music. Loop points outside the sound give [AUD002](ref:AUD002), and the whole sound loops instead.
 
 The Assets panel draws a waveform for every clip.
+
+![A clip in the Inspector: waveform, preview, loop and import settings](shots/clip-inspector.png)
 
 ## Built-in clips
 
@@ -81,7 +83,7 @@ An audio event is a [data asset](ref:data) of type Audio Event (Create → Data 
 
 Scripts play an event with `audio.PlayEvent(Jump)` from an `@export var Jump AssetRef<AudioEvent>`; an Audio Source 2D plays one when its Event is set, and the event's settings replace the source's playback fields. Voice limits and cooldowns count per world. The random picks come from the audio service's own seed, so a replay picks the same variants, and sound never touches the game's random numbers.
 
-Like every data asset, an event can have a base and override a few fields. An event without variants, or a spatial one with Max Distance not larger than Min Distance, is an error (AUD006).
+Like every data asset, an event can have a base and override a few fields. An event without variants, or a spatial one with Max Distance not larger than Min Distance, is an error ([AUD006](ref:AUD006)).
 
 ---
 id: audio/spatial
@@ -94,7 +96,7 @@ title: Spatial sound
 ---
 # Spatial sound
 
-A spatial sound fades and pans with its distance to the listener. The listener is the first enabled, active [Audio Listener 2D](ref:audio.AudioListener2D) in the hierarchy; another active one later in the hierarchy is ignored (AUD005). Without a listener the camera of the main output listens, and AUD004 reminds you of it on spatial sources; without a camera, the origin.
+A spatial sound fades and pans with its distance to the listener. The listener is the first enabled, active [Audio Listener 2D](ref:audio.AudioListener2D) in the hierarchy; another active one later in the hierarchy is ignored ([AUD005](ref:AUD005)). Without a listener the camera of the main output listens, and [AUD004](ref:AUD004) reminds you of it on spatial sources; without a camera, the origin.
 
 | Field | Unit | Meaning |
 |---|---|---|
@@ -238,11 +240,14 @@ title: Editor tools
 # Editor tools
 
 - **Audio Mixer** (Window → Audio Mixer, or the Audio workspace) shows a meter, a fader, mute and solo for every bus, the voices and the underruns. Faders change the session; **Reset Session** sets them back, **Save to Profile** writes them into the player's settings.
+
+![The Audio workspace during Play: the Mixer with a meter per bus](shots/mixer.png)
+
 - **Inspector.** In edit mode Audio Source 2D has **Preview** and **Stop** for its clip, with a progress bar. During Play it has **Play** and **Stop**, and shows how far the sound is.
 - **Handles.** Select a spatial source to drag Min Distance and Max Distance, a zone to drag its area. Every drag is one undo step.
 - **Audio → Audio Ranges** turns the circles and zones on and off in the Scene View and in the Game View during Play, where the listener, the playing spatial voices and lines to them are drawn over the game.
 - **Events** lists every play and stop as `audio`; **Profiler** has an Audio section with the output, the voices, the mix time and the underruns.
-- **Problems** lists sources with neither a clip nor an event (AUD003), spatial sources without a listener (AUD004), extra listeners (AUD005), broken events (AUD006), unreadable files (AUD001) and loop points outside the sound (AUD002).
+- **Problems** lists sources with neither a clip nor an event ([AUD003](ref:AUD003)), spatial sources without a listener ([AUD004](ref:AUD004)), extra listeners ([AUD005](ref:AUD005)), broken events ([AUD006](ref:AUD006)), unreadable files ([AUD001](ref:AUD001)) and loop points outside the sound ([AUD002](ref:AUD002)).
 
 ---
 id: audio/web
@@ -253,7 +258,7 @@ title: Audio on the web
 ---
 # Audio on the web
 
-Browsers start sound only after a click, a key or a touch on the page; a page opened by a click, such as Try it on this site, plays at once. A web export shows a mute button in the corner, and the browser remembers the choice. When the page is served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`, the output has one block less latency. Streamed clips are read from the downloaded data, never over the network.
+Browsers start sound only after a click, a key or a touch on the page; a page opened by a click, such as Try it on this site, plays at once. A web export shows a mute button in the corner; it silences every bus at the output, and the browser remembers the choice before the first frame of the next visit. When the page is served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`, the output has one block less latency. Streamed clips are read from the downloaded data, never over the network.
 
 ---
 id: audio/go

@@ -19,6 +19,7 @@ type Info struct {
 	DocsOrder        int
 	DocsIcon         string
 	DocsGroup        string
+	Codes            []string
 }
 
 type Module interface {

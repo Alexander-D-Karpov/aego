@@ -25,6 +25,10 @@ func with(base []string, more ...string) []string {
 	return append(slices.Clone(base), more...)
 }
 
+func without(base []string, drop ...string) []string {
+	return slices.DeleteFunc(slices.Clone(base), func(s string) bool { return slices.Contains(drop, s) })
+}
+
 var scriptDev = []string{
 	"core/...", "schema", "format/...",
 	"script/abi", "script/source", "script/token", "script/diag", "script/lexer", "script/ast",
@@ -108,7 +112,9 @@ var rules = []rule{
 	{"modules/audio", []string{"core/...", "audio/...", "asset", "asset/pipeline", "asset/importers/audio", "contracts/...", "data", "engine", "engine/module", "engine/problems", "engine/recorder", "engine/settings", "platform", "platform/headless", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/gameplay", []string{"core/...", "asset", "contracts/...", "engine", "engine/module", "engine/problems", "engine/recorder", "format/aetext", "save", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/gameplay/editor", with(editorAllow, "modules/gameplay", "contracts/..."), nil},
-	{"modules/audio/editor", with(editorAllow, "modules/audio", "audio/...", "contracts/..."), nil},
+	{"modules/audio/editor", with(without(editorAllow, "render", "render/..."), "render/debug", "modules/audio", "audio/...", "contracts/..."), nil},
+	{"modules/camera", []string{"core/...", "contracts/...", "engine", "engine/module", "engine/problems", "engine/settings", "render/view", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
+	{"modules/camera/editor", with(editorAllow, "modules/camera", "contracts/..."), nil},
 	{"modules/render2d", []string{"core/...", "asset", "engine", "engine/module", "gpu", "render/...", "scene", "scene/frame", "schema", "contracts/camera2d"}, nil},
 	{"modules/render2d/editor", with(editorAllow, "modules/render2d"), nil},
 	{"modules/render3d", []string{"core/...", "asset", "asset/pipeline", "asset/importers/obj", "engine", "engine/module", "gpu", "render", "render/...", "scene", "scene/frame", "schema"}, nil},

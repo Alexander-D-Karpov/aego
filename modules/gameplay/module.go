@@ -37,7 +37,8 @@ func New() *Module {
 
 func (*Module) Info() module.Info {
 	return module.Info{ID: ID, Version: engine.Version, Requires: []string{needsPhysics, needsScripts}, Builtin: true,
-		DisplayName: "Gameplay", DocsOrder: 50, DocsIcon: "cat.gameplay"}
+		DisplayName: "Gameplay", DocsOrder: 50, DocsIcon: "cat.gameplay",
+		Codes: []string{CodeNotKinematic, CodeNoJump, CodeBadStates, CodeNoHealth}}
 }
 
 func (*Module) IconDir() string {

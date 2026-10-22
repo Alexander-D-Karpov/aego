@@ -663,7 +663,11 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 		data, _ := json.Marshal(e.TryPrefabs)
 		prefabs = string(data)
 	}
-	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `">` + "\n")
+	input := ""
+	if e.Input {
+		input = ` data-input=""`
+	}
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `"` + input + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
 	c.WriteString(`<p class="try-caption">A live scene with ` + esc(e.Title) + `: edit its fields in the Inspector on the right and the scene restarts with them.</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + `Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")

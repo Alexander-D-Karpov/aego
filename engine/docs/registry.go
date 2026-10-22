@@ -112,6 +112,8 @@ type Entry struct {
 	// TryScript is the script next to the try scene; TryCode is its compiled bytecode, base64 modules joined by commas.
 	TryScript string `json:",omitempty"`
 	TryCode   string `json:",omitempty"`
+	// Input is set when the try script reads aego/input, so the page asks for a click on the canvas first.
+	Input bool `json:",omitempty"`
 	// TryPrefabs are the prefabs next to the try scene, by asset id.
 	TryPrefabs map[string]string `json:",omitempty"`
 	Icon       string
@@ -142,6 +144,9 @@ type DiagInfo struct {
 	EndLine  int
 	EndCol   int
 	Message  string
+	// Example is the scene that produces a module code, read from the example file next to its page.
+	Example     string `json:",omitempty"`
+	ExampleFile string `json:",omitempty"`
 }
 
 type Problem struct {
@@ -278,6 +283,7 @@ func Assemble(src Sources) *Registry {
 		r.pages(d)
 		r.tries(d)
 	}
+	r.checkCodes()
 	r.compileTries(src.CompileTry)
 	r.index()
 	r.related()
@@ -579,6 +585,10 @@ func (r *Registry) pages(src module.DocSource) {
 			source = path.Join(src.Dir, f)
 		}
 		for _, rec := range recs {
+			if rec.code != "" {
+				r.codePage(src, f, source, rec)
+				continue
+			}
 			r.page(src.Owner, f, source, rec)
 			if rec.try != "" {
 				r.pageTry(src, rec)
@@ -619,6 +629,69 @@ func (r *Registry) page(owner, file, source string, rec record) {
 	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered}
 	if rec.groupTitle != "" {
 		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder, Icon: rec.groupIcon})
+	}
+}
+
+// Scopes of a module code: a scene code is reported by a component and needs an example scene that produces it; an asset code comes from importing or checking an asset.
+const (
+	ScopeScene = "scene"
+	ScopeAsset = "asset"
+)
+
+// codePage registers diagnostics/<CODE>.md of a module as the code's entry under Diagnostics (D146).
+func (r *Registry) codePage(src module.DocSource, file, source string, rec record) {
+	if _, dup := r.byID[rec.code]; dup {
+		r.problems = append(r.problems, Problem{ID: rec.code, Error: true, Message: "code page declared twice, again in " + src.Owner + ":" + file})
+		return
+	}
+	scope := rec.scope
+	if scope == "" {
+		scope = ScopeScene
+	}
+	d := &DiagInfo{Phase: scope, Severity: rec.severity}
+	switch rec.severity {
+	case "error", "warning", "info":
+	default:
+		r.problems = append(r.problems, Problem{ID: rec.code, Error: true, Message: "severity must be error, warning or info"})
+	}
+	if rec.example != "" {
+		ex := path.Join(path.Dir(file), rec.example)
+		data, err := fs.ReadFile(src.FS, ex)
+		if err != nil {
+			r.problems = append(r.problems, Problem{ID: rec.code, Error: true, Message: "example " + ex + " cannot be read: " + err.Error()})
+		} else {
+			d.Example, d.ExampleFile = string(data), path.Base(ex)
+		}
+	}
+	r.add(Entry{
+		ID: rec.code, Parent: DiagnosticsID, Kind: Code, Owner: src.Owner, Title: rec.code, Summary: rec.title,
+		Body: rec.body, Diag: d, Location: Location{Path: src.Owner + ":" + file, Line: rec.line, Source: source},
+	})
+}
+
+// checkCodes matches the codes modules declare in Info.Codes with their pages.
+func (r *Registry) checkCodes() {
+	declared := map[string]string{}
+	for id, mi := range r.mods {
+		for _, c := range mi.Codes {
+			declared[c] = id
+			i, ok := r.byID[c]
+			if !ok || r.entries[i].Kind != Code {
+				r.problems = append(r.problems, Problem{ID: c, Error: true, Message: "module " + id + " declares " + c + " but has no diagnostics/" + c + ".md"})
+			}
+		}
+	}
+	for i := range r.entries {
+		e := &r.entries[i]
+		if e.Kind != Code || e.Owner == scriptOwner {
+			continue
+		}
+		if declared[e.ID] != e.Owner {
+			r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: "page for " + e.ID + " but module " + e.Owner + " does not list it in Info.Codes"})
+		}
+		if e.Diag.Phase == ScopeScene && e.Diag.Example == "" {
+			r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: e.ID + " is reported by a component and needs an example scene (example: " + e.ID + ".aescene)"})
+		}
 	}
 }
 
@@ -906,7 +979,20 @@ func (r *Registry) compileTries(compile func(string) (string, error)) {
 			continue
 		}
 		e.TryCode = code
+		e.Input = readsInput(e.TryScript)
 	}
+}
+
+var importBlock = regexp.MustCompile(`(?s)\bimport\s*(\([^)]*\)|"[^"]*")`)
+
+// readsInput reports whether a script imports aego/input.
+func readsInput(src string) bool {
+	for _, m := range importBlock.FindAllStringSubmatch(src, -1) {
+		if strings.Contains(m[1], `"aego/input"`) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Registry) componentNamed(short, owner string) (int, bool) {

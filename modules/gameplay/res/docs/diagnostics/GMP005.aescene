@@ -1,0 +1,12 @@
+scene version=1 {
+  node "474d5030303500000000000000000001" name="Enemy" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "gameplay.StateMachine" version=1 {
+      states=[]
+    }
+  }
+}

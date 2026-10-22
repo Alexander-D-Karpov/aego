@@ -336,6 +336,14 @@ func TestTryBlock(t *testing.T) {
 	if strings.Contains(string(data), `class="try-sound"`) {
 		t.Error("a silent try scene has a sound button")
 	}
+	if strings.Contains(string(data), `data-input`) {
+		t.Error("a try scene without input asks for a click")
+	}
+	var input strings.Builder
+	(&builder{}).tryBlock(&input, &Entry{ID: "x.Mover", Try: "scene version=1 {\n}\n", Input: true}, "")
+	if !strings.Contains(input.String(), `data-input=""`) {
+		t.Error("a try scene that reads input has no data-input")
+	}
 	if got := (&builder{}).soundButton(&Entry{Try: `component "audio.AudioSource2D" version=1 {}`}, ""); !strings.Contains(got, `class="try-sound"`) {
 		t.Errorf("a try scene with sound has no sound button: %q", got)
 	}

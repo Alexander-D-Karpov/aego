@@ -58,7 +58,7 @@ It checks the archive's SHA-256 sum, unpacks it to `~/.local/share/aego`, links 
 | Option | Does |
 |---|---|
 | `--nightly` | installs the nightly pre-release |
-| `--version v0.9.0-beta.1` | installs one exact release |
+| `--version v0.10.0` | installs one exact release |
 | `--prefix DIR` | installs into `DIR/share/aego` and `DIR/bin` |
 | `--no-deps` | skips system libraries |
 | `--no-desktop` | skips the application menu entry and file types |
@@ -127,3 +127,7 @@ go build -o aego ./cmd/aego
 ```
 
 `make cli` does the same and leaves the binary in `.cache/bin/aego`. A binary built this way remembers the checkout it was built from; a prebuilt one needs `AEGO_ROOT`, or `--engine DIR`, for native projects and exports to other systems.
+
+### Contributing
+
+[docs/contributing.md](https://git.akarpov.ru/sanspie/aego/src/branch/master/docs/contributing.md) describes the check levels (`make quick`, `make affected`, `make ci`) and the rules for engine code: contracts between modules, Try it scenes, diagnostics pages, history for every edit and allocation-free hot paths.

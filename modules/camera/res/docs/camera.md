@@ -92,6 +92,8 @@ title: Follow
 | `LookaheadSmoothing` | per second | how fast the lookahead changes |
 | `SnapDistance` | world units | a longer jump of the target moves the camera at once |
 
+![Camera Follow 2D selected: the yellow deadzone, the line to the target and the bounds](shots/camera-follow.png)
+
 The camera follows the interpolated pose of a physics body, so it is smooth at any frame rate. Damping is exponential: a camera at 30, 60 and 144 frames per second ends up in the same place. When the target teleports, call `Snap()` on the component, or let Snap Distance catch it.
 
 In Try it, the ball rolls down a long ramp. Set Damping to 0 for a rigid camera, or widen the Deadzone to let the ball run ahead.
@@ -115,6 +117,9 @@ title: Zones
 - Overlapping zones: the higher priority wins, then the zone entered later. Leaving one zone does not affect the others.
 
 In Try it, the purple area in the middle of the ramp is the zone: the view blends to a closer, fixed shot while the ball rolls through it, and back to the follow camera after.
+
+
+![A Camera Zone 2D selected: its area with handles over the arena](shots/camera-zone.png)
 
 ---
 id: camera/shake
@@ -254,7 +259,7 @@ title: Editor tools
 - **Camera → Camera Frames** turns the frames on and off in the Scene View and in the Game View during Play, where the deadzone of the active camera, its bounds and the zones are drawn over the game.
 - **Profiler → Camera** lists each output with its active virtual camera, zoom and blend progress.
 - **Inspector during Play.** The virtual camera shows whether it is active, its priority, blend progress and trauma. **Look Through** moves the Scene View to its pose. Camera Follow 2D has **Snap to Target**.
-- **Problems** lists follow and shake components without a virtual camera (CAM001), zones without a camera (CAM002), empty rectangles (CAM003) and follows without a target (CAM004).
+- **Problems** lists follow and shake components without a virtual camera ([CAM001](ref:CAM001)), zones without a camera ([CAM002](ref:CAM002)), empty rectangles ([CAM003](ref:CAM003)) and follows without a target ([CAM004](ref:CAM004)).
 
 ---
 id: camera/go

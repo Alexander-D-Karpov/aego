@@ -101,3 +101,40 @@ func TestSummarySkipsImages(t *testing.T) {
 		t.Fatalf("summary = %q", got)
 	}
 }
+
+// A module code needs a page, a scene code needs an example, and a page needs the code in Info.Codes (D146).
+func TestModuleCodePages(t *testing.T) {
+	src := module.DocSource{Owner: "game", FS: fstest.MapFS{
+		"diagnostics/GAM001.md":      page("---\ncode: GAM001\nseverity: warning\ntitle: Has an example\nexample: GAM001.aescene\n---\n\nText.\n"),
+		"diagnostics/GAM001.aescene": page("scene version=1 {\n}\n"),
+		"diagnostics/GAM002.md":      page("---\ncode: GAM002\nseverity: error\ntitle: Asset code\nscope: asset\n---\n\nText.\n"),
+		"diagnostics/GAM003.md":      page("---\ncode: GAM003\nseverity: error\ntitle: No example\n---\n\nText.\n"),
+		"diagnostics/GAM004.md":      page("---\ncode: GAM004\nseverity: error\ntitle: Undeclared\nscope: asset\n---\n\nText.\n"),
+	}}
+	mods := []module.Info{{ID: "game", Codes: []string{"GAM001", "GAM002", "GAM003", "GAM005"}}}
+	r := Assemble(Sources{Modules: mods, Docs: []module.DocSource{src}})
+	got := map[string]bool{}
+	for _, p := range r.Problems() {
+		got[p.ID] = true
+	}
+	if got["GAM001"] || got["GAM002"] || !got["GAM003"] || !got["GAM004"] || !got["GAM005"] {
+		t.Fatalf("problems %v, want GAM003 (no example), GAM004 (undeclared) and GAM005 (no page)", got)
+	}
+	e, ok := r.Get("GAM001")
+	if !ok || e.Kind != Code || e.Parent != DiagnosticsID || e.Diag.Example == "" || e.Diag.Severity != "warning" {
+		t.Fatalf("GAM001 entry %+v", e)
+	}
+}
+
+func TestReadsInput(t *testing.T) {
+	for src, want := range map[string]bool{
+		"package demo\n\nimport \"aego/input\"\n":                          true,
+		"package demo\n\nimport (\n\t\"aego/math\"\n\t\"aego/input\"\n)\n": true,
+		"package demo\n\nimport \"aego/math\"\n\n// aego/input later\n":    false,
+		"package demo\n": false,
+	} {
+		if got := readsInput(src); got != want {
+			t.Fatalf("readsInput(%q) = %v", src, got)
+		}
+	}
+}

@@ -32,6 +32,7 @@ type AudioStats struct {
 	Muted     bool    `json:"muted"`
 	Underruns int     `json:"underruns"`
 	RMS       float64 `json:"rms"`
+	Out       float64 `json:"out"`
 	Consumed  int64   `json:"consumed"`
 	Rate      int     `json:"rate"`
 	Error     string  `json:"error,omitempty"`
@@ -335,6 +336,7 @@ func (a *Audio) Stats() AudioStats {
 	if a.samples > 0 {
 		s.RMS = math.Sqrt(a.sum / a.samples)
 	}
+	s.Out = s.RMS * a.level()
 	return s
 }
 

@@ -66,6 +66,7 @@ type Entry struct {
 	TrySelect  string
 	TryScript  string
 	TryCode    string
+	Input      bool
 	TryPrefabs map[string]string
 	Icon       string
 	EditorOnly bool
@@ -93,6 +94,8 @@ type DiagInfo struct {
 	EndLine  int
 	EndCol   int
 	Message  string
+	Example     string
+	ExampleFile string
 }
 
 type FieldInfo struct {

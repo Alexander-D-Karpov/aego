@@ -198,6 +198,11 @@ func (g *Game) Engine() *engine.Engine {
 	return g.e
 }
 
+// Scene is the scene Play loaded, nil before the first Play or after Stop.
+func (g *Game) Scene() *scene.Scene {
+	return g.scene
+}
+
 func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 	g.Stop()
 	rt := scriptruntime.New(scriptruntime.Options{Bindings: g.reg, Schema: g.types.Schema(), Log: g.log, VM: playmods.SandboxVM()})

@@ -1,0 +1,12 @@
+scene version=1 {
+  node "43414d30303200000000000000000001" name="Zone" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "camera.CameraZone2D" version=1 {
+      area=[-4, -3, 8, 6]
+    }
+  }
+}

@@ -5,15 +5,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"aego/app/assembly"
+	"aego/app/assembly/builtin"
 	"aego/app/edit"
 	"aego/app/projects"
 	"aego/core/log"
 	"aego/editor/core/preview"
+	"aego/format/aetext"
+	"aego/script/bind"
 )
 
 const allowEnv = "AEGO_PREVIEWS_ALLOW_HARDWARE"
@@ -81,9 +86,18 @@ func render(opt projects.Options, dst string, frames int) error {
 	if err != nil {
 		return err
 	}
-	if p.Native {
-		fmt.Printf("skip %s: native projects are rendered by their own build\n", dst)
+	if p.Native && p.MainScene.IsZero() {
+		fmt.Printf("skip %s: a native project without a startup scene\n", dst)
 		return nil
+	}
+	if p.Native {
+		if comp, err := nativeComponent(p.Root); err != nil {
+			return err
+		} else if comp != "" {
+			fmt.Printf("skip %s: a scene uses the native component %s\n", dst, comp)
+			return nil
+		}
+		p.Native = false
 	}
 	if p.MainScene.IsZero() {
 		return errors.New("the project has no startup scene")
@@ -123,4 +137,60 @@ func render(opt projects.Options, dst string, frames int) error {
 	}
 	fmt.Println("wrote", dst)
 	return nil
+}
+
+// nativeComponent returns the first component of the project's scenes and prefabs that the built-in catalog does not register; native data types and assets do not matter for a preview.
+func nativeComponent(root string) (string, error) {
+	types, err := assembly.NewTypes()
+	if err != nil {
+		return "", err
+	}
+	if _, err := builtin.Default().Load(types, bind.New(), assembly.Options{}); err != nil {
+		return "", err
+	}
+	known := map[string]bool{}
+	for _, td := range types.Schema().Components() {
+		known[td.FullName] = true
+		for _, f := range td.Former {
+			known[f] = true
+		}
+	}
+	found := ""
+	var walk func(ns []*aetext.Node)
+	walk = func(ns []*aetext.Node) {
+		for _, n := range ns {
+			if found != "" {
+				return
+			}
+			if n.Head == "component" {
+				if !known[n.Label] {
+					found = n.Label
+					return
+				}
+			}
+			walk(n.Blocks)
+		}
+	}
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || found != "" {
+			return err
+		}
+		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if ext := filepath.Ext(path); ext != ".aescene" && ext != ".aeprefab" {
+			return nil
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		doc, err := aetext.Parse(src, path)
+		if err != nil {
+			return err
+		}
+		walk(doc.Blocks)
+		return nil
+	})
+	return found, err
 }

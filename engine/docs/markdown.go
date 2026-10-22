@@ -27,6 +27,10 @@ type record struct {
 	requires   []string
 	try        string
 	trySelect  string
+	code       string
+	example    string
+	scope      string
+	severity   string
 	body       string
 	line       int
 }
@@ -152,6 +156,17 @@ func (r *record) set(key, val string) error {
 		r.try, err = scalar(val)
 	case "try_select":
 		r.trySelect, err = scalar(val)
+	case "code":
+		r.code, err = scalar(val)
+		if r.id == "" {
+			r.id = r.code
+		}
+	case "example":
+		r.example, err = scalar(val)
+	case "scope":
+		r.scope, err = scalar(val)
+	case "severity":
+		r.severity, err = scalar(val)
 	case "icon":
 		r.icon, err = scalar(val)
 	case "editor_only":

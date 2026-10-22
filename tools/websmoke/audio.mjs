@@ -132,7 +132,10 @@ async function demo(browser) {
         console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns}`);
         if (await page.isHidden("#mute")) fail(`${label}: the mute button is hidden`);
         await page.click("#mute");
-        if (!(await stats()).muted) fail(`${label}: mute did not apply`);
+        await sleep(300);
+        const m = await stats();
+        if (!m.muted) fail(`${label}: mute did not apply`);
+        if (m.out !== 0) fail(`${label}: muted output is not silent: ${JSON.stringify(m)}`);
         await page.reload();
         await page.waitForFunction(() => typeof globalThis.aegoAudioStats === "function", null, { timeout: 120000 });
         if (!(await stats()).muted) fail(`${label}: mute was not remembered`);
@@ -148,7 +151,7 @@ async function demo(browser) {
 const browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=user-gesture-required"],
+    args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=user-gesture-required"],
 });
 try {
     await run(browser, "messages", {}, false);

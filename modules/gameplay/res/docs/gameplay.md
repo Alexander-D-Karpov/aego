@@ -59,6 +59,8 @@ title: Character motion
 | platformer | walks on floors under gravity, jumps, climbs steps and slopes |
 | topDown | moves freely in the plane with `MoveDir`, slides along walls; Face Movement turns the node |
 
+![Motion 2D during Play: the Runtime fields show velocity, Grounded and the contacts](shots/motion-play.png)
+
 ## Floors, slopes and steps
 
 Floors, walls and ceilings are told apart by the angle of the surface to Up Direction: a surface steeper than Max Slope is a wall. On a floor the character follows its slope without sliding down, and Snap To Ground keeps it on the floor when walking down a slope or a small step. Steps up to Step Height are climbed without jumping. Safe Margin is the gap kept to every surface so the next cast never starts inside one.
@@ -155,6 +157,9 @@ A sword swing is one call:
 `Pulse()` deals one round of damage in the next step, active or not; `Activate()` and `Deactivate()` switch a hitbox for the length of an attack. `Hit(target, damage)` fires for every target damaged.
 
 Walk over the three spikes in the scene to compare the policies.
+
+
+![A hitbox selected in the Scene View: area handles and the knockback arrow](shots/hitbox-gizmo.png)
 
 ---
 id: gameplay/lifetime
@@ -271,7 +276,7 @@ A [State Machine](ref:gameplay.StateMachine) lists state names; the scripts on i
 
 `Go(state)` only queues the change: after the running hook returns, Exit of the old state and Enter of the new one run, then `Changed(from, to)` fires with the state indices. A `Go` inside Enter or Exit runs after that transition, so `EnterRun` may send the machine straight on to `Air`; at most eight changes happen in a row. `Is(state)` and `TimeIn()` read the state; Current, Previous and Time show it in the Inspector.
 
-The machine enters Initial in the first frame, after the scripts' Ready. Hooks are found by name and found again after a hot reload, so renaming a hook takes effect at once. Lifecycle methods, event handlers and coroutines are never hooks. Problems warns about a machine without states, a state listed twice or an Initial that is not one of the states (GMP005).
+The machine enters Initial in the first frame, after the scripts' Ready. Hooks are found by name and found again after a hot reload, so renaming a hook takes effect at once. Lifecycle methods, event handlers and coroutines are never hooks. Problems warns about a machine without states, a state listed twice or an Initial that is not one of the states ([GMP005](ref:GMP005)).
 
 Walk, stop and jump in the scene: the colour and the label follow the state.
 
@@ -340,12 +345,15 @@ title: Editor tools
 # Editor tools
 
 - **Create → Gameplay** builds ready nodes: Platformer Character (kinematic body, collider, Motion 2D, Health, Hurtbox 2D, Respawn), Top-down Character, Enemy (dynamic body, Health on team 1, a periodic Hitbox 2D with knockback), Moving Platform, Checkpoint, Kill Zone and Pickup.
-- **Add Component** adds what a component requires: Motion 2D on an empty node brings a Rigid Body 2D, and one Undo removes both. Adding Motion 2D to a node with a body makes the body kinematic.
+- **Add Component** adds what a component requires: Motion 2D on an empty node brings a Rigid Body 2D, and one Undo removes both. The list shows what comes along, and `aego scene add-comp`, Paste and presets add it the same way. Adding Motion 2D to a node with a body makes the body kinematic.
+
+  ![Add Component on an empty node: the entry lists the Virtual Camera 2D that comes with Camera Follow 2D](shots/add-required.png)
+
 - **Area handles.** Select a node with a hitbox, hurtbox, kill zone, checkpoint or pickup to drag the corners and edges of its area; snapping applies, every drag is one undo step. A hitbox also shows its knockback as an arrow.
 - **Gameplay → Gameplay Areas** shows every area dimmed in the Scene View; during Play the Game View draws active hurtboxes and hitboxes, the zones and a health bar over every node with Health.
 - **Inspector during Play.** The Runtime fields show the controller's velocity, grounded, wall and ceiling contact, the floor and the body under it; Motion 2D adds a contact summary, Health a bar with the hit points, State Machine the current state and how long it has lasted; Lifetime shows the seconds left.
 - **Profiler → Gameplay** shows controllers and casts per fixed step and the hits, deaths, respawns and pickups so far. The **Event Monitor** lists state changes, damage (with the amount up to 9), deaths, respawns and pickups as `gameplay` rows.
-- **Problems** lists a Motion 2D whose body is not kinematic (GMP001, blocks Play), a platformer with Gravity Scale 0 and no Jump Speed (GMP002), a state machine with empty, duplicate or unknown states (GMP005) and a Hurtbox 2D with no Health on its node or above it (GMP006, a warning: hits on it are ignored).
+- **Problems** lists a Motion 2D whose body is not kinematic ([GMP001](ref:GMP001), blocks Play), a platformer with Gravity Scale 0 and no Jump Speed ([GMP002](ref:GMP002)), a state machine with empty, duplicate or unknown states ([GMP005](ref:GMP005)) and a Hurtbox 2D with no Health on its node or above it ([GMP006](ref:GMP006), a warning: hits on it are ignored).
 
 ---
 id: gameplay/go

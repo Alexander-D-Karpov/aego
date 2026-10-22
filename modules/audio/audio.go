@@ -126,7 +126,8 @@ func (*Module) IconDir() string {
 }
 
 func (*Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Audio", DocsOrder: 130, DocsIcon: "cat.audio"}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Audio", DocsOrder: 130, DocsIcon: "cat.audio",
+		Codes: []string{CodeFormat, CodeLoop, CodeNoClip, CodeNoListener, CodeListeners, CodeEvent}}
 }
 
 func choice(name, label string, v int) settings.Choice {

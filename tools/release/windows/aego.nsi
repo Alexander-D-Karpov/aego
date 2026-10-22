@@ -1,5 +1,5 @@
 ; Per-user installer for the Aego editor and CLI; running it again updates the installation.
-; makensis -DVERSION=0.9.0 -DSRC=<dir with aego.exe, aego-editor.exe, VERSION, README.txt> -DOUT=<setup.exe> aego.nsi
+; makensis -DVERSION=0.10.0 -DSRC=<dir with aego.exe, aego-editor.exe, VERSION, README.txt> -DOUT=<setup.exe> aego.nsi
 Unicode true
 SetCompressor /SOLID lzma
 RequestExecutionLevel user

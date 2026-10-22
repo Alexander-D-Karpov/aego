@@ -58,6 +58,9 @@ type Deps struct {
 }
 
 type Panel struct {
+	scrollTo     string
+	top          float32
+	openAdd      *string
 	reg          *inspect.Registry
 	d            Deps
 	f            *services.Frame
@@ -213,6 +216,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.scroll = mathx.Clamp(p.scroll, 0, max(0, p.content-r.H+th.Padding*2))
 	cur := ui.Cursor()
 	top := cur.Y
+	p.top = top
 	cur.Y -= p.scroll
 	ui.PushClip(r)
 	p.header(d)
@@ -603,6 +607,10 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 	if !ok {
 		return
 	}
+	if p.scrollTo == td.FullName {
+		p.scroll += ui.Cursor().Y - p.top
+		p.scrollTo = ""
+	}
 	ui.PushRawID(core.ID(t))
 	defer ui.PopID()
 	meta := p.reg.Meta(td)
@@ -707,6 +715,16 @@ func inScene(s *scene.Scene, t schema.TypeID) bool {
 	return false
 }
 
+// ScrollTo brings the card of a component type to the top on the next draw, for the documentation screenshots.
+func (p *Panel) ScrollTo(fullName string) {
+	p.scrollTo = fullName
+}
+
+// OpenAdd opens Add Component with the search text on the next draw, for the documentation screenshots.
+func (p *Panel) OpenAdd(query string) {
+	p.openAdd = &query
+}
+
 func (p *Panel) addComponent(d *document.SceneDocument) {
 	ui := p.f.UI
 	th := &ui.Theme
@@ -723,6 +741,11 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 			p.search = ""
 			p.focusSearch = true
 		}
+	}
+	if p.openAdd != nil {
+		ui.CloseAllPopups()
+		ui.OpenPopup(id, mathx.Vec2{X: row.X, Y: row.Y + row.H})
+		p.search, p.openAdd = *p.openAdd, nil
 	}
 	ui.Rect(row, ui.WidgetColor(id))
 	ui.Outline(row, th.AccentDim)

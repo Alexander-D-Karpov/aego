@@ -248,6 +248,10 @@ func (a *App) Profiler() *profiler.Panel {
 	return a.profiler
 }
 
+func (a *App) Inspector() *inspector.Panel {
+	return a.inspectorPanel
+}
+
 func (a *App) Prefabs() *prefabs.Service {
 	return a.prefabs
 }

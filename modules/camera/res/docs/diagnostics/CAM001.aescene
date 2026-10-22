@@ -1,0 +1,11 @@
+scene version=1 {
+  node "43414d30303100000000000000000001" name="Follower" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "camera.CameraFollow2D" version=1 {
+    }
+  }
+}

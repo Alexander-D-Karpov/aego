@@ -127,6 +127,22 @@
         status(b, "");
     }
 
+    // inputHint covers the canvas of a scene that reads the keyboard until the first click or focus on it.
+    function inputHint(stage) {
+        if (stage.querySelector(".try-input")) return;
+        const hint = document.createElement("div");
+        hint.className = "try-input";
+        hint.textContent = "Click the canvas, then use WASD / arrows";
+        stage.appendChild(hint);
+        const done = () => {
+            hint.remove();
+            canvas.removeEventListener("pointerdown", done);
+            canvas.removeEventListener("focus", done);
+        };
+        canvas.addEventListener("pointerdown", done);
+        canvas.addEventListener("focus", done);
+    }
+
     async function activate(b) {
         if (active === b) return;
         if (active) release(active);
@@ -152,6 +168,7 @@
             show(b, res.text, res.values);
             b.querySelector(".try-reset").disabled = false;
             watchSound(b);
+            if ("input" in b.dataset) inputHint(stage);
             status(b, "Change a field on the right: the scene restarts with it. Click the view to send input.");
         } catch (e) {
             p.box.remove();

@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"aego/core/ids"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
 	"aego/editor/panels/gameview"
 	"aego/editor/shell"
@@ -56,7 +58,60 @@ func (s *Session) shots(dir string) error {
 			}
 			return selectNamed(ctx, "Player")
 		}},
+		{name: "hitbox-gizmo", frames: 60, setup: func(s *Session) error {
+			sc := ctx.Scene()
+			var span []ids.NodeID
+			for _, n := range []string{"EnemyLeft", "PatrolA1", "PatrolB1"} {
+				span = append(span, sc.ID(sc.Find(sc.Root(), n)))
+			}
+			ctx.Select(span...)
+			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
+				return err
+			}
+			for i := 0; i < 30; i++ {
+				s.Step()
+			}
+			return selectNamed(ctx, "EnemyLeft")
+		}},
+		{name: "camera-follow", frames: 60, setup: func(s *Session) error {
+			sc := ctx.Scene()
+			ctx.Select(sc.ID(sc.Find(sc.Root(), "Camera")), sc.ID(sc.Find(sc.Root(), "Player")))
+			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
+				return err
+			}
+			for i := 0; i < 30; i++ {
+				s.Step()
+			}
+			return selectNamed(ctx, "Camera")
+		}},
+		{name: "camera-zone", frames: 60, setup: func(s *Session) error {
+			sc := ctx.Scene()
+			ctx.Select(sc.ID(sc.Find(sc.Root(), "ArenaZone")), sc.ID(sc.Find(sc.Root(), "PatrolA2")), sc.ID(sc.Find(sc.Root(), "PatrolB2")), sc.ID(sc.Find(sc.Root(), "GroundRight")))
+			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
+				return err
+			}
+			for i := 0; i < 30; i++ {
+				s.Step()
+			}
+			return selectNamed(ctx, "ArenaZone")
+		}},
+		{name: "clip-inspector", frames: 60, setup: func(s *Session) error {
+			id, ok := s.Pipeline.Lookup("assets/audio/music.ogg")
+			if !ok {
+				return fmt.Errorf("no assets/audio/music.ogg")
+			}
+			s.App.Data().Inspect(id)
+			return nil
+		}},
+		{name: "add-required", frames: 30, setup: func(s *Session) error {
+			if err := selectNamed(ctx, "PatrolA1"); err != nil {
+				return err
+			}
+			s.App.Inspector().OpenAdd("follow")
+			return nil
+		}},
 		{name: "tags", frames: 60, setup: func(s *Session) error {
+			ctx.UI.CloseAllPopups()
 			return selectNamed(ctx, "Player")
 		}},
 		{name: "prefab", frames: 60, setup: func(s *Session) error {
@@ -83,14 +138,30 @@ func (s *Session) shots(dir string) error {
 			scene()
 			return ctx.Commands.Run(command.PlayStart)
 		}},
+		{name: "motion-play", frames: 30, setup: func(s *Session) error {
+			s.App.Workspace().Show(workspace.Inspector)
+			s.App.Inspector().ScrollTo("gameplay.Motion2D")
+			return selectNamed(ctx, "Player")
+		}},
+		{name: "mixer", frames: 120, setup: func(s *Session) error {
+			s.App.Workspace().Switch(workspace.Audio)
+			s.App.Workspace().Show(workspace.Mixer)
+			return nil
+		}},
 		{name: "physics-debug", frames: 30, setup: func(s *Session) error {
+			s.App.Workspace().Switch(workspace.Design)
 			ctx.Overlay.Set("physics.debug.contacts", true)
 			return ctx.Commands.Run(gameview.CommandOverlays)
 		}},
 		{name: "demo", frames: 60, inset: 2, bottom: 28, setup: func(s *Session) error {
-			for _, f := range []string{"physics.debug", "physics.debug.shapes", "physics.debug.contacts", "physics.debug.joints"} {
+			for _, f := range []string{"physics.debug.shapes", "physics.debug.contacts", "physics.debug.joints", "gameplay.areas", "camera.frames", vectors.CommandToggle} {
 				ctx.Overlay.Set(f, false)
 			}
+			ctx.Overlay.Set(gameview.CommandOverlays, true)
+			for i := 0; i < 5; i++ {
+				s.Step()
+			}
+			ctx.Overlay.Set(gameview.CommandOverlays, false)
 			return ctx.Commands.Run(shell.CommandFullscreenPlay)
 		}},
 		{name: "prefab-mode", frames: 120, setup: func(s *Session) error {

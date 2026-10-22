@@ -1,0 +1,22 @@
+scene version=1 {
+  node "41554430303500000000000000000001" name="Player" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "audio.AudioListener2D" version=1 {
+      active=true
+    }
+  }
+  node "41554430303500000000000000000002" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "audio.AudioListener2D" version=1 {
+      active=true
+    }
+  }
+}

@@ -19,6 +19,7 @@ type request struct {
 	Component string            `json:"component"`
 	Field     string            `json:"field"`
 	Value     float64           `json:"value"`
+	Node      string            `json:"node"`
 }
 
 type Reply struct {
@@ -27,6 +28,7 @@ type Reply struct {
 	Error  string            `json:"error,omitempty"`
 	State  *docsession.State `json:"state,omitempty"`
 	Log    []Line            `json:"log,omitempty"`
+	Pose   []float64         `json:"pose,omitempty"`
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
@@ -64,6 +66,17 @@ func (a *App) Call(method string, payload []byte) Reply {
 	case "state":
 		st := s.State()
 		return Reply{State: &st}
+	case "pose":
+		sc := s.Controller().Scene()
+		if sc == nil {
+			return Reply{Error: "the scene is not running"}
+		}
+		h := sc.Find(sc.Root(), req.Node)
+		if h.IsZero() || !sc.IsAlive(h) {
+			return Reply{Error: "no node " + strconv.Quote(req.Node)}
+		}
+		p := sc.WorldPosition(h)
+		return Reply{Pose: []float64{float64(p.X), float64(p.Y)}}
 	case "log":
 		out := Reply{Log: a.lines}
 		a.lines = nil

@@ -40,14 +40,14 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check
+.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs pkgsize
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
 ifneq ($(XVFB),)
-GL_ENV = $(XVFB) -a -s "-screen 0 1280x720x24" env SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
+GL_ENV = $(XVFB) -a -s "-screen 0 1280x720x24" env SDL_VIDEODRIVER=x11 SDL_AUDIO_DRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
 else
-GL_ENV = env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
+GL_ENV = env SDL_VIDEODRIVER=offscreen SDL_AUDIO_DRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
 endif
 
 NONATIVE_PKGS = $$(go list ./... | grep -v -e '/platform/sdl$$' -e '/gpu/gl33$$' -e '/gpu/gl33/gl$$')
@@ -247,6 +247,7 @@ try-size:
 	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-try.wasm
 
 web-smoke: site
+	sh tools/webbudget.sh site
 	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
 	$(WEB_DEMO)
 	$(WEB_TRY)
@@ -255,6 +256,7 @@ web-smoke: site
 web-smoke-update: site
 	$(WEB_SMOKE) --update
 	$(WEB_DEMO) --update
+	$(WEB_TRY) --update
 
 cli: bootstrap
 	go build -o .cache/bin/aego ./cmd/aego
@@ -290,13 +292,42 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzWAV$$' -fuzztime $(FUZZTIME) ./audio/codec
 	go test -run '^$$' -fuzz '^FuzzVorbis$$' -fuzztime $(FUZZTIME) ./audio/codec
 
+
+affected:
+	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -z "$$pkgs" ]; then echo "nothing affected"; else go vet $$pkgs && go test $$pkgs; fi
+
+quick:
+	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -n "$$pkgs" ]; then go build $$pkgs && go test -short $$pkgs; fi
+
+check-camera:
+	go test ./modules/camera/... ./tests/camera/...
+
+check-audio:
+	go test ./audio/... ./modules/audio/... ./tests/audio/...
+
+check-gameplay:
+	go test ./modules/gameplay/... ./tests/gameplay/... ./modules/physics/...
+
+check-mutate:
+	go test ./scene/mutate/... ./tests/mutate/... ./app/agent/...
+
+check-editor:
+	go test ./editor/... ./app/edit/...
+
+check-web: test-wasm web-smoke
+
+check-docs: site-check
+
+pkgsize:
+	@sh tools/pkgsize.sh
+
 ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
 
 
 # Documentation screenshots of the real editor on the platformer example, under a clean user profile.
 SHOTS_TMP = $(CURDIR)/.cache/shots
 ifneq ($(XVFB),)
-SHOTS_ENV = $(XVFB) -a -s "-screen 0 1600x900x24" env SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
+SHOTS_ENV = $(XVFB) -a -s "-screen 0 1600x900x24" env SDL_VIDEODRIVER=x11 SDL_AUDIO_DRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe $(GL_OVERRIDE)
 else
 SHOTS_ENV = $(GL_ENV)
 endif
