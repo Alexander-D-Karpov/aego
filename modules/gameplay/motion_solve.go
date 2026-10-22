@@ -1,6 +1,8 @@
 package gameplay
 
 import (
+	"aego/core/ids"
+	"aego/engine/recorder"
 	"math"
 
 	"aego/contracts/physics2d"
@@ -40,10 +42,13 @@ type pass struct {
 }
 
 type Stats struct {
-	Hits     uint64
-	Deaths   uint64
-	Respawns uint64
-	Pickups  uint64
+	Hits        uint64
+	Deaths      uint64
+	Respawns    uint64
+	Pickups     uint64
+	Controllers uint64
+	Casts       uint64
+	Steps       uint64
 }
 
 type Service struct {
@@ -130,6 +135,7 @@ func (s *Service) Fixed(dt float32) {
 		return
 	}
 	s.g = q.Gravity().Len()
+	s.stats.Steps++
 	scene.Query1[Motion2D](s.scene).Each(s.stepFn)
 }
 
@@ -212,6 +218,7 @@ func (s *Service) cast(from, delta mathx.Vec2) (physics2d.CastHit, bool) {
 	if delta.LenSq() < eps2 {
 		return physics2d.CastHit{}, false
 	}
+	s.stats.Casts++
 	return s.q.CastBody(s.p.h, from, delta, s.p.f)
 }
 
@@ -227,6 +234,7 @@ func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 	if !s.scene.EffectiveEnabled(h) {
 		return
 	}
+	s.stats.Controllers++
 	pos, ang, ok := s.q.BodyPose(h)
 	if !ok {
 		return
@@ -523,5 +531,21 @@ func (s *Service) postOne(h scene.NodeHandle, c *Motion2D) {
 	}
 	if ev&evCeiling != 0 {
 		s.sig.ceiling.Emit(s.world, h)
+	}
+}
+
+var amounts = [...]string{"", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+
+func amount(n int32) string {
+	if n > 0 && int(n) < len(amounts) {
+		return amounts[n]
+	}
+	return ""
+}
+
+// record adds a gameplay entry to the Event Monitor; name and detail are static strings, so it does not allocate.
+func (s *Service) record(h scene.NodeHandle, name, detail string) {
+	if s.world != nil && s.world.Recorder != nil {
+		s.world.Recorder.Add(recorder.Gameplay, s.scene.ID(h), ids.NodeID{}, name, detail)
 	}
 }

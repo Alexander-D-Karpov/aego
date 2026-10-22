@@ -371,6 +371,7 @@ func (s *Service) flushHealth(h scene.NodeHandle, c *Health) {
 	c.Invulnerable = st.invuln > 0
 	emit := s.world != nil && s.sig != nil
 	if st.dmg > 0 {
+		s.record(h, "damage", amount(st.dmg))
 		if emit {
 			s.sig.damaged.Emit(s.world, h, int64(st.dmg), st.dmgSrc)
 		}
@@ -385,6 +386,7 @@ func (s *Service) flushHealth(h scene.NodeHandle, c *Health) {
 	if st.died {
 		st.died = false
 		s.stats.Deaths++
+		s.record(h, "died", "")
 		if emit {
 			s.sig.died.Emit(s.world, h, st.diedSrc)
 		}

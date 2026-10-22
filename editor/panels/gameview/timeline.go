@@ -24,16 +24,51 @@ type TimelineBar struct {
 	bar      mathx.Rect
 	dragging bool
 	dragTo   int
-	scrubbed int
+	pending  int
+	sought   int
+	release  bool
 	seekErr  string
 }
 
 func NewTimelineBar(src Scrubber) *TimelineBar {
-	return &TimelineBar{src: src}
+	return &TimelineBar{src: src, pending: -1, sought: -1}
 }
 
 func (b *TimelineBar) Reset() {
-	b.bar, b.dragging = mathx.Rect{}, false
+	b.bar, b.dragging, b.pending, b.sought, b.release = mathx.Rect{}, false, -1, -1, false
+}
+
+// hold records where the drag is; the seek waits for Apply, so any number of mouse moves in a frame cost one seek.
+func (b *TimelineBar) hold(n int, down bool) {
+	b.dragTo, b.pending = n, n
+	if !down {
+		b.dragging, b.release = false, true
+	}
+}
+
+// Apply runs at most one seek per frame: a scrub to the latest drag position, or the final seek after release.
+func (b *TimelineBar) Apply() {
+	if b.pending < 0 {
+		return
+	}
+	n := b.pending
+	if b.release {
+		b.release, b.pending = false, -1
+		if n != b.sought && b.seekErr == "" {
+			if err := b.src.Seek(n); err != nil {
+				b.seekErr = err.Error()
+			}
+		}
+		b.sought = -1
+		return
+	}
+	if n == b.sought || b.seekErr != "" {
+		return
+	}
+	b.sought = n
+	if err := b.src.Scrub(n); err != nil {
+		b.seekErr = err.Error()
+	}
 }
 
 func (b *TimelineBar) Clear() {
@@ -123,27 +158,17 @@ func (b *TimelineBar) Draw(ui *core.Context, r mathx.Rect) {
 	id := ui.ID("timeline")
 	hit := mathx.Rect{X: track.X - 4, Y: bar.Y, W: track.W + 8, H: bar.H}
 	if ui.Pressed(id, hit) {
-		b.dragging, b.seekErr, b.scrubbed = true, "", -1
+		b.dragging, b.seekErr, b.sought, b.release = true, "", -1, false
 	}
 	cur := tl.Cursor
 	if tl.Beyond {
 		cur = tl.Frames
 	}
 	if b.dragging {
-		b.dragTo = min(max(frameAt(ui.Mouse().X), tl.Floor), tl.Usable)
+		b.hold(min(max(frameAt(ui.Mouse().X), tl.Floor), tl.Usable), ui.MouseDown(input.MouseLeft))
+	}
+	if b.dragging || b.pending >= 0 {
 		cur = b.dragTo
-		if b.dragTo != b.scrubbed && b.seekErr == "" {
-			b.scrubbed = b.dragTo
-			if err := b.src.Scrub(b.dragTo); err != nil {
-				b.seekErr = err.Error()
-			}
-		}
-		if !ui.MouseDown(input.MouseLeft) {
-			b.dragging = false
-			if err := b.src.Seek(b.dragTo); err != nil {
-				b.seekErr = err.Error()
-			}
-		}
 	}
 	hx := xAt(cur)
 	ui.Rect(mathx.Rect{X: hx - 2, Y: bar.Y + 3, W: 4, H: bar.H - 6}, th.Accent)

@@ -20,12 +20,13 @@ const (
 	Animation
 	Custom
 	Audio
+	Gameplay
 	KindCount
 )
 
 const All = uint32(1)<<KindCount - 1
 
-var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "action", "animation", "custom", "audio"}
+var kindNames = [KindCount]string{"signal", "event", "fault", "spawn", "despawn", "scene", "action", "animation", "custom", "audio", "gameplay"}
 
 func (k Kind) String() string {
 	if k < KindCount {

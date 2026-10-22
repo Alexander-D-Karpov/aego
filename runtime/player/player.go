@@ -219,6 +219,7 @@ func (p *Player) build(mods []module.Module) error {
 	}
 	p.Settings.SetNames(p.Sections.Names)
 	p.Engine.SetService(settings.ServiceID, p.Settings)
+	p.Engine.OnClose(p.Modules.Shutdown)
 	if err = p.Modules.Init(&module.InitContext{Engine: p.Engine, Assets: p.Loader, Log: p.Log, Sections: p.Sections, Problems: p.Problems, Settings: p.Settings}); err != nil {
 		return err
 	}
@@ -518,9 +519,6 @@ func (p *Player) Close() {
 	}
 	if p.cfg.Trace != "" && p.Engine != nil {
 		p.writeTrace()
-	}
-	if p.Modules != nil {
-		p.Modules.Shutdown()
 	}
 	if p.Engine != nil {
 		p.Engine.Close()

@@ -551,10 +551,19 @@ type OutputInfo struct {
 	Logical Pose
 	View    view.View
 	HasView bool
+	Blend   float32
 }
 
 func (s *Service) Outputs(fn func(OutputInfo)) {
 	for _, o := range s.outputs {
-		fn(OutputInfo{Name: o.name, Active: o.active, Zone: o.zone, Logical: o.logical, View: o.view, HasView: o.hasView})
+		fn(OutputInfo{Name: o.name, Active: o.active, Zone: o.zone, Logical: o.logical, View: o.view, HasView: o.hasView, Blend: o.blend.progress()})
 	}
+}
+
+// progress is how far the blend is, 0 when the output is not blending.
+func (b *blend) progress() float32 {
+	if !b.on {
+		return 0
+	}
+	return max(b.t, 1e-3)
 }

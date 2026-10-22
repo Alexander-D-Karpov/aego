@@ -122,6 +122,68 @@
         "saved": false,
         "doc": "Whether the body is simulated this step or sleeping, during Play."
       }
+    ],
+    "methods": [
+      {
+        "name": "ApplyForce",
+        "sig": "(force Vec2)",
+        "doc": "ApplyForce pushes the body's center of mass during the next physics step. Call it from FixedUpdate."
+      },
+      {
+        "name": "ApplyForceAt",
+        "sig": "(force Vec2, point Vec2)",
+        "doc": "ApplyForceAt pushes the body at a world point, which also spins it."
+      },
+      {
+        "name": "ApplyImpulse",
+        "sig": "(impulse Vec2)",
+        "doc": "ApplyImpulse changes the velocity at once, scaled by mass."
+      },
+      {
+        "name": "ApplyImpulseAt",
+        "sig": "(impulse Vec2, point Vec2)",
+        "doc": "ApplyImpulseAt applies an impulse at a world point."
+      },
+      {
+        "name": "ApplyTorque",
+        "sig": "(torque float)",
+        "doc": "ApplyTorque spins the body during the next physics step."
+      },
+      {
+        "name": "Mass",
+        "sig": "() float",
+        "doc": "Mass returns the mass computed from the colliders or the override."
+      },
+      {
+        "name": "MoveTo",
+        "sig": "(position Vec2, angle float)",
+        "doc": "MoveTo drives a kinematic body to the pose by the end of the next physics step, pushing dynamic bodies on the way. Call it from FixedUpdate."
+      },
+      {
+        "name": "SetAngularVelocity",
+        "sig": "(velocity float)",
+        "doc": "SetAngularVelocity sets the spin in radians per second."
+      },
+      {
+        "name": "SetVelocity",
+        "sig": "(velocity Vec2)",
+        "doc": "SetVelocity sets the linear velocity in units per second."
+      },
+      {
+        "name": "Sleep",
+        "sig": "()",
+        "doc": "Sleep stops the body until something touches it."
+      },
+      {
+        "name": "Teleport",
+        "sig": "(position Vec2, angle float)",
+        "doc": "Teleport moves the body to a world pose without sweeping, keeping its velocity."
+      },
+      {
+        "name": "WakeUp",
+        "sig": "()",
+        "doc": "WakeUp makes a sleeping body simulate again."
+      }
     ]
   }
 }

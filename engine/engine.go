@@ -50,6 +50,7 @@ type Engine struct {
 	appInit    bool
 	quit       bool
 	closed     bool
+	closers    []func()
 	err        error
 
 	probe       bool
@@ -339,6 +340,13 @@ func (e *Engine) Run(app App) error {
 	return e.Close()
 }
 
+// OnClose runs fn in Close after the app shuts down and before the window and platform close, last registered first.
+func (e *Engine) OnClose(fn func()) {
+	if fn != nil {
+		e.closers = append(e.closers, fn)
+	}
+}
+
 func (e *Engine) Close() error {
 	if e.closed {
 		return e.err
@@ -347,6 +355,10 @@ func (e *Engine) Close() error {
 	if e.appInit && e.app != nil {
 		e.app.Shutdown()
 	}
+	for i := len(e.closers) - 1; i >= 0; i-- {
+		e.closers[i]()
+	}
+	e.closers = nil
 	if e.jobs != nil {
 		e.jobs.stop()
 	}

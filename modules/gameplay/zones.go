@@ -214,6 +214,7 @@ func (s *Service) pickupOne(h scene.NodeHandle, c *Pickup2D) {
 	a := areaOf(s.scene.World(h), c.Area, ShapeBox)
 	for _, n := range s.enterZone(&c.st, &a) {
 		s.stats.Pickups++
+		s.record(h, "pickup", "")
 		if s.world != nil && s.sig != nil {
 			s.sig.collected.Emit(s.world, h, n)
 		}
@@ -250,6 +251,7 @@ func (s *Service) respawnOne(h scene.NodeHandle, c *Respawn) {
 		}
 	}
 	s.stats.Respawns++
+	s.record(h, "respawn", "")
 	if s.world != nil && s.sig != nil {
 		s.sig.respawned.Emit(s.world, h)
 	}

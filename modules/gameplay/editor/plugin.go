@@ -30,7 +30,8 @@ var (
 )
 
 type plugin struct {
-	ed *context.Editor
+	ed   *context.Editor
+	prof profileState
 }
 
 func reader[T any](get func(*T) mathx.Rect) func(*scene.Scene, scene.NodeHandle) (mathx.Rect, bool) {
@@ -78,6 +79,7 @@ func Hook(e *ext.Registry) error {
 	}
 	e.Overlay(p.sceneOverlay)
 	e.GameOverlay(p.gameOverlay)
+	e.Profiler("Gameplay", true, p.profile)
 	if p.ed == nil {
 		return nil
 	}

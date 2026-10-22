@@ -252,6 +252,7 @@ title: Editor tools
 
 - **Handles.** Select a virtual camera to drag its bounds, a zone to drag its area. A follow camera shows its frame, its deadzone and a line to its target. Every drag is one undo step.
 - **Camera → Camera Frames** turns the frames on and off in the Scene View and in the Game View during Play, where the deadzone of the active camera, its bounds and the zones are drawn over the game.
+- **Profiler → Camera** lists each output with its active virtual camera, zoom and blend progress.
 - **Inspector during Play.** The virtual camera shows whether it is active, its priority, blend progress and trauma. **Look Through** moves the Scene View to its pose. Camera Follow 2D has **Snap to Target**.
 - **Problems** lists follow and shake components without a virtual camera (CAM001), zones without a camera (CAM002), empty rectangles (CAM003) and follows without a target (CAM004).
 

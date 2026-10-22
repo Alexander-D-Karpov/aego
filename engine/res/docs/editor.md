@@ -106,7 +106,7 @@ Selections, watches and the event monitor follow the rewound game: node ids stay
 
 ## Event Monitor
 
-Window → Event Monitor lists what happened in the running game: script signals, engine events (collisions, triggers), script faults, nodes created and destroyed, scene changes. Every row carries the world frame and the fixed tick, the same numbers as the profiler; clicking a frame in the profiler's strip filters the monitor to it. Click a row to select its node. Engine events are listed for nodes with a handler; with *Selected nodes* on, every event of the selected nodes is listed, handler or not. Export writes the filtered rows to `.aego/user/events.log`.
+Window → Event Monitor lists what happened in the running game: script signals, engine events (collisions, triggers), script faults, nodes created and destroyed, scene changes, audio and gameplay events (state changes, damage, deaths, respawns, pickups). Every row carries the world frame and the fixed tick, the same numbers as the profiler; clicking a frame in the profiler's strip filters the monitor to it. Click a row to select its node. Engine events are listed for nodes with a handler; with *Selected nodes* on, every event of the selected nodes is listed, handler or not. Export writes the filtered rows to `.aego/user/events.log`.
 
 *Break on* pauses Play when a listed kind matches the text after it, for example `OnTriggerEnter`. The pause lands on the tick of the event: the rest of that frame does not run.
 

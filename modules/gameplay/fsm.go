@@ -172,6 +172,7 @@ func (s *Service) applyQueued(h scene.NodeHandle, m *StateMachine) {
 		if k := s.hook(m, to); k != nil {
 			s.run(&k.enter, k.hasEnter)
 		}
+		s.record(h, "state", m.States[to])
 		if s.world != nil && s.sig != nil {
 			s.sig.changed.Emit(s.world, h, int64(from), int64(to))
 		}

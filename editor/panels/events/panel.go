@@ -20,7 +20,7 @@ import (
 
 const ID = "events"
 
-var shown = [...]recorder.Kind{recorder.Signal, recorder.Event, recorder.Fault, recorder.Spawn, recorder.Despawn, recorder.SceneChange, recorder.Input, recorder.Audio}
+var shown = [...]recorder.Kind{recorder.Signal, recorder.Event, recorder.Fault, recorder.Spawn, recorder.Despawn, recorder.SceneChange, recorder.Input, recorder.Audio, recorder.Gameplay}
 
 type Deps struct {
 	World     func() *engine.World
@@ -174,9 +174,11 @@ func (p *Panel) toolbar(ui *core.Context, s *scene.Scene) {
 		widgets.ToggleButton(ui, core.IDSeq(ui.ID("kind"), i), mathx.Rect{X: x, Y: row.Y, W: w, H: row.H}, k.String(), &p.show[k])
 		x += w + 4
 	}
-	if row.X+row.W-x > 80 {
-		widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: x, Y: row.Y, W: row.X + row.W - x, H: row.H}, &p.search)
+	if row.X+row.W-x < 120 {
+		row = ui.Cursor().Next(0)
+		x = row.X
 	}
+	widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: x, Y: row.Y, W: row.X + row.W - x, H: row.H}, &p.search)
 	row = ui.Cursor().Next(0)
 	x = row.X
 	place := func(w float32) mathx.Rect {

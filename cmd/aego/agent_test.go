@@ -102,3 +102,33 @@ func TestAgentSceneTreeJSON(t *testing.T) {
 		t.Fatalf("output %v:\n%s", err, out)
 	}
 }
+
+// The top-down example needs no native module, so the CLI can run it from a copy.
+func TestAgentSceneRunCounters(t *testing.T) {
+	dir := copyProject(t, "topdown")
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	code := dispatch([]string{"scene", "run", "scenes/main.aescene", "--frames", "300", "--json", "--project", dir})
+	os.Stdout = stdout
+	w.Close()
+	out, _ := io.ReadAll(r)
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	var v struct {
+		Value struct {
+			Counters map[string]uint64 `json:"counters"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(out, &v); err != nil {
+		t.Fatalf("output %v:\n%s", err, out)
+	}
+	c := v.Value.Counters
+	if c["gameplay.steps"] == 0 || c["camera.outputs"] != 1 {
+		t.Fatalf("counters %v, want gameplay steps and one camera output", c)
+	}
+}

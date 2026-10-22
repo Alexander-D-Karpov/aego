@@ -327,3 +327,26 @@ func TestAddCompRefusesScript(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaShowMethodsAndSignals(t *testing.T) {
+	e := open(t)
+	out := e.must("schema.show", agent.Args{"type": "gameplay.Health"})
+	v, ok := out.Value.(agent.TypeView)
+	if !ok {
+		t.Fatalf("value %T", out.Value)
+	}
+	has := func(list []agent.CallView, name string) bool {
+		for _, c := range list {
+			if c.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(v.Methods, "Damage") || !has(v.Signals, "Died") {
+		t.Fatalf("Health methods %v, signals %v", v.Methods, v.Signals)
+	}
+	if !strings.Contains(out.Text, "Damage(amount int, source NodeRef) bool") {
+		t.Fatalf("text lacks the Damage signature:\n%s", out.Text)
+	}
+}

@@ -317,7 +317,11 @@ func (m *Mixer) chunk(out []float32, n int) {
 		acc := m.buses[v.bus].acc[:n*2]
 		var done bool
 		if v.mem != nil {
-			done = m.renderMemory(v, acc, n)
+			if v.step == 1 && v.pos == float64(int64(v.pos)) {
+				done = m.renderMemoryDirect(v, acc, n)
+			} else {
+				done = m.renderMemory(v, acc, n)
+			}
 		} else {
 			done = m.renderStream(v, acc, n)
 		}
@@ -356,6 +360,64 @@ func (m *Mixer) renderMemory(v *voice, acc []float32, n int) bool {
 			v.pos -= float64(v.le - v.ls)
 		}
 	}
+	return false
+}
+
+// renderMemoryDirect reads a voice at pitch 1 on a whole frame: Hermite at t = 0 is y1, so the output is bit-identical without interpolation; outside a gain ramp it runs a flat loop to the end of the clip or loop.
+func (m *Mixer) renderMemoryDirect(v *voice, acc []float32, n int) bool {
+	pcm, ch := v.mem.PCM, v.ch
+	i := int64(v.pos)
+	f := 0
+	for f < n {
+		if v.stopping && v.ramp == 0 {
+			v.pos = float64(i)
+			return true
+		}
+		end := v.frames
+		if v.loop {
+			end = v.le
+		}
+		if i >= end {
+			if !v.loop {
+				v.pos = float64(i)
+				return true
+			}
+			i = v.ls
+			continue
+		}
+		if v.ramp > 0 {
+			g := v.next()
+			k := int(i) * ch
+			l := pcm[k]
+			r := l
+			if ch == 2 {
+				r = pcm[k+1]
+			}
+			acc[2*f] += l * g * v.gl
+			acc[2*f+1] += r * g * v.gr
+			f++
+			i++
+			continue
+		}
+		run := int(min(int64(n-f), end-i))
+		g, gl, gr := v.gain, v.gl, v.gr
+		src := pcm[int(i)*ch : (int(i)+run)*ch]
+		dst := acc[2*f : 2*(f+run)]
+		if ch == 2 {
+			for j := 0; j < run; j++ {
+				dst[2*j] += src[2*j] * g * gl
+				dst[2*j+1] += src[2*j+1] * g * gr
+			}
+		} else {
+			for j, s := range src {
+				dst[2*j] += s * g * gl
+				dst[2*j+1] += s * g * gr
+			}
+		}
+		f += run
+		i += int64(run)
+	}
+	v.pos = float64(i)
 	return false
 }
 

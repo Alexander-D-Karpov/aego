@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aego/script/abi"
 	"errors"
 	"strings"
 
@@ -34,6 +35,14 @@ type TypeView struct {
 	Requires []string    `json:"requires,omitempty"`
 	Doc      string      `json:"doc,omitempty"`
 	Fields   []FieldView `json:"fields,omitempty"`
+	Methods  []CallView  `json:"methods,omitempty"`
+	Signals  []CallView  `json:"signals,omitempty"`
+}
+
+type CallView struct {
+	Name string `json:"name"`
+	Sig  string `json:"sig"`
+	Doc  string `json:"doc,omitempty"`
 }
 
 func schemaCommands() []*Command {
@@ -163,5 +172,51 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 		}
 		b.WriteString("\n")
 	}
+	if s.kit != nil {
+		for _, cm := range s.kit.methods(td.FullName) {
+			v.Methods = append(v.Methods, CallView{Name: cm.Name, Sig: methodSig(cm.Sig, cm.Params), Doc: summary(cm.Doc)})
+		}
+	}
+	for _, sg := range td.Signals {
+		params := make([]string, len(sg.Params))
+		for i, p := range sg.Params {
+			params[i] = p
+			if i < len(sg.Names) && sg.Names[i] != "" {
+				params[i] = sg.Names[i] + " " + p
+			}
+		}
+		v.Signals = append(v.Signals, CallView{Name: sg.Name, Sig: "(" + strings.Join(params, ", ") + ")", Doc: summary(sg.Doc)})
+	}
+	for _, sec := range []struct {
+		title string
+		list  []CallView
+	}{{"methods", v.Methods}, {"signals", v.Signals}} {
+		if len(sec.list) == 0 {
+			continue
+		}
+		b.WriteString(sec.title + ":\n")
+		for _, c := range sec.list {
+			b.WriteString("  " + c.Name + c.Sig)
+			if c.Doc != "" {
+				b.WriteString("  — " + c.Doc)
+			}
+			b.WriteString("\n")
+		}
+	}
 	return &Output{Value: v, Text: b.String()}, nil
+}
+
+func methodSig(sig abi.Signature, names []string) string {
+	params := make([]string, len(sig.Params))
+	for i, p := range sig.Params {
+		params[i] = p.String()
+		if i < len(names) && names[i] != "" {
+			params[i] = names[i] + " " + params[i]
+		}
+	}
+	out := "(" + strings.Join(params, ", ") + ")"
+	if sig.Result.Kind != abi.Void {
+		out += " " + sig.Result.String()
+	}
+	return out
 }

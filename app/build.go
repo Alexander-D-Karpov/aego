@@ -41,6 +41,7 @@ type Config struct {
 	Editor             bool
 	FailOnScriptErrors bool
 	Catalog            assembly.Catalog
+	Platform           platform.Platform
 	Profile            string
 	NoProfile          bool
 }
@@ -98,6 +99,9 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 		ecfg.LoopScope = cfg.LoopScope
 	}
 	builder := engine.NewBuilder(ecfg).WithLogger(lg).Use(rmod)
+	if cfg.Platform != nil {
+		builder.WithPlatform(cfg.Platform)
+	}
 	if h.Types, err = assembly.NewTypes(); err != nil {
 		return err
 	}
@@ -187,6 +191,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	}
 	h.Settings.SetNames(h.Sections.Names)
 	h.Engine.SetService(settings.ServiceID, h.Settings)
+	h.Engine.OnClose(h.Modules.Shutdown)
 	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems, Settings: h.Settings}); err != nil {
 		return err
 	}
@@ -227,9 +232,6 @@ func (h *Host) Close() {
 		return
 	}
 	h.closed = true
-	if h.Modules != nil {
-		h.Modules.Shutdown()
-	}
 	if h.Engine != nil {
 		h.Engine.Close()
 	}

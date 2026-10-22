@@ -254,9 +254,9 @@ func (m *Module) Init(ctx *module.InitContext) error {
 		lg = ctx.Engine.Log()
 	}
 	m.log = lg.With(log.Engine)
-	m.manual = ctx.Engine.Config().Headless
 	want := m.wanted()
 	out := m.open(want)
+	m.manual = manual(m.eng, out)
 	spec := out.Spec()
 	mx, err := mix.New(mix.Config{SampleRate: spec.SampleRate, Channels: 2, Voices: Voices, Buses: BusDescs(), Block: Block})
 	if err != nil {
@@ -287,6 +287,12 @@ func (m *Module) open(want platform.AudioSpec) platform.AudioOutput {
 	return headless.NewAudio(want, 0, m.eng.Platform().Now)
 }
 
+// manual fills the mixer from the frame loop when a headless engine drives the frame-clocked output; any other output gets the pump goroutine.
+func manual(e *engine.Engine, out platform.AudioOutput) bool {
+	_, clocked := out.(*headless.Audio)
+	return e.Config().Headless && clocked
+}
+
 func pumpConfig(out platform.AudioOutput, spec platform.AudioSpec) pump.Config {
 	target := 3
 	if t, ok := out.(interface{ TargetBlocks() int }); ok {
@@ -307,6 +313,7 @@ func (m *Module) Reopen(want platform.AudioSpec) error {
 		m.mixer.SetSampleRate(spec.SampleRate)
 	}
 	m.out, m.spec, m.requested = out, spec, want
+	m.manual = manual(m.eng, out)
 	m.pump.SetOutput(out, pumpConfig(out, spec))
 	if !m.manual {
 		m.pump.Start()

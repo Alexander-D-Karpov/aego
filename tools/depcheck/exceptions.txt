@@ -27,6 +27,7 @@ asset/importers/audio -> "AUD*", semantic, the importer reports AUD001 for files
 script/types -> "audio", semantic, AssetRef<Clip> names the audio artifact kind, as AssetRef<Texture> names texture (D310)
 editor/core/workspace/workspace.go -> "audio.mixer", semantic, the panel ID audio.mixer in the Audio workspace preset names the mixer panel of the audio module (D325)
 engine/recorder -> "audio", semantic, the record kind audio is written by the audio module (D326)
+engine/recorder -> "gameplay", semantic, the record kind gameplay is written by the gameplay module (10d2)
 render/... -> "debug*", semantic, render/debug is the line backend that modules/debug drives; the debug pass, shader, depth pipeline and font names predate the module and are not module references (D231)
 schema/... -> "display", semantic, the export attribute and struct tag key for a display name predate the display module (D238)
 asset/importers/preset -> "engine.Script", semantic, a preset file keeps a script attachment under the core script component name, which the importer reads without the scene layer (D282)

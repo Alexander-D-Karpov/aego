@@ -28,6 +28,7 @@ import (
 	"aego/scene/sceneio"
 	"aego/schema"
 	"aego/script/bind"
+	"aego/script/bind/manifest"
 	"aego/script/reload"
 	"aego/script/runtime"
 	"aego/script/workspace"
@@ -46,10 +47,11 @@ type RunRequest struct {
 }
 
 type RunReport struct {
-	Frames int      `json:"frames"`
-	Hash   string   `json:"hash"`
-	Log    []string `json:"log,omitempty"`
-	Error  string   `json:"error,omitempty"`
+	Frames   int               `json:"frames"`
+	Hash     string            `json:"hash"`
+	Counters map[string]uint64 `json:"counters,omitempty"`
+	Log      []string          `json:"log,omitempty"`
+	Error    string            `json:"error,omitempty"`
 }
 
 type Runner func(p *project.Project, r RunRequest) (RunReport, error)
@@ -79,6 +81,25 @@ type Kit struct {
 	ws      *workspace.Workspace
 	binds   *bind.Registry
 	opt     Options
+	man     *manifest.Manifest
+}
+
+// methods lists the script methods the bindings give a component type, built once per kit.
+func (k *Kit) methods(comp string) []manifest.CompMethod {
+	if k.man == nil {
+		m, err := manifest.FromRegistry(k.binds, k.Types.Schema())
+		if err != nil {
+			return nil
+		}
+		k.man = m
+	}
+	var out []manifest.CompMethod
+	for _, cm := range k.man.CompMethods {
+		if cm.Comp == comp {
+			out = append(out, cm)
+		}
+	}
+	return out
 }
 
 func NewKit(p *project.Project, opt Options) (*Kit, error) {

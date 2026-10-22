@@ -3,6 +3,7 @@
 package player
 
 import (
+	"aego/modules/audio"
 	"errors"
 	"path"
 	"strconv"
@@ -119,6 +120,19 @@ func expose(p *Player) {
 			return err.Error()
 		}
 		return js.Null()
+	}))
+	api.Set("mixStats", js.FuncOf(func(js.Value, []js.Value) any {
+		m := audio.ModuleOf(p.Engine)
+		if m == nil {
+			return js.Null()
+		}
+		st := m.Stats()
+		o := js.Global().Get("Object").New()
+		o.Set("mixMaxUs", float64(st.MixMax.Microseconds()))
+		o.Set("mixAvgUs", float64(st.MixAvg.Microseconds()))
+		o.Set("voices", st.Voices)
+		o.Set("blocks", float64(st.Blocks))
+		return o
 	}))
 	js.Global().Set(hookGlobal, api)
 }

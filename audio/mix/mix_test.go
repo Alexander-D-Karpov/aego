@@ -441,3 +441,87 @@ func TestVoicePositionAndKill(t *testing.T) {
 		t.Fatalf("kill: %+v, live %v", ev, m.Live(id))
 	}
 }
+
+func directPair(tb testing.TB, mem *Memory, loop bool) (*Mixer, voice, voice) {
+	m := newMixer(tb)
+	m.Play(PlayParams{Memory: mem, Gain: 0.7, Pan: 0.3, Loop: loop, FadeIn: 0.005})
+	buf := make([]float32, 64*2)
+	m.Mix(buf)
+	for i := range m.voices {
+		if m.voices[i].state == voicePlaying {
+			return m, m.voices[i], m.voices[i]
+		}
+	}
+	tb.Fatal("no playing voice")
+	return nil, voice{}, voice{}
+}
+
+// The direct path for pitch 1 gives the same samples, position, gain and end as Hermite, through fades, loops and the stop ramp.
+func TestDirectPathMatchesHermite(t *testing.T) {
+	for _, ch := range []int{1, 2} {
+		for _, loop := range []bool{false, true} {
+			mem := sine(440, rate/20, ch, 0.5)
+			if loop {
+				mem.LoopStart, mem.LoopEnd = 100, mem.Frames()-50
+			}
+			m, a, b := directPair(t, mem, loop)
+			if b.step != 1 {
+				t.Fatalf("step %v, the direct path needs 1", b.step)
+			}
+			const n = 256
+			accA, accB := make([]float32, n*2), make([]float32, n*2)
+			for block := 0; block < 40; block++ {
+				if block == 20 {
+					a.rampTo(0, 300)
+					b.rampTo(0, 300)
+					a.stopping, b.stopping = true, true
+				}
+				clear(accA)
+				clear(accB)
+				da := m.renderMemory(&a, accA, n)
+				db := m.renderMemoryDirect(&b, accB, n)
+				if da != db || a.pos != b.pos || a.gain != b.gain {
+					t.Fatalf("ch=%d loop=%v block %d: done %v/%v pos %v/%v gain %v/%v", ch, loop, block, da, db, a.pos, b.pos, a.gain, b.gain)
+				}
+				for i := range accA {
+					if accA[i] != accB[i] {
+						t.Fatalf("ch=%d loop=%v block %d sample %d: %v != %v", ch, loop, block, i, accA[i], accB[i])
+					}
+				}
+				if da {
+					break
+				}
+			}
+		}
+	}
+}
+
+func loadedPitch1(tb testing.TB) (*Mixer, []float32) {
+	m := newMixer(tb)
+	mem := sine(440, rate/10, 1, 0.5)
+	for i := 0; i < 64; i++ {
+		m.Play(PlayParams{Memory: mem, Gain: 0.1, Pan: float32(i%3 - 1), Pitch: 1, Loop: true})
+	}
+	buf := make([]float32, 512*2)
+	m.Mix(buf)
+	if m.Active() != 64 {
+		tb.Fatalf("%d active voices", m.Active())
+	}
+	return m, buf
+}
+
+func TestMixPitch1Allocs(t *testing.T) {
+	m, buf := loadedPitch1(t)
+	if n := testing.AllocsPerRun(200, func() { m.Mix(buf) }); n != 0 {
+		t.Fatalf("Mix allocates %v times per call", n)
+	}
+}
+
+func BenchmarkMix64Pitch1(b *testing.B) {
+	m, buf := loadedPitch1(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		m.Mix(buf)
+	}
+}

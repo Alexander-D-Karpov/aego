@@ -2,6 +2,7 @@ package agent
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path"
 	"slices"
@@ -287,6 +288,9 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 	}
 	var b strings.Builder
 	b.WriteString("frames: " + strconv.Itoa(rep.Frames) + "\nhash: " + rep.Hash + "\n")
+	for _, k := range slices.Sorted(maps.Keys(rep.Counters)) {
+		b.WriteString(k + ": " + strconv.FormatUint(rep.Counters[k], 10) + "\n")
+	}
 	for _, l := range rep.Log {
 		b.WriteString(l + "\n")
 	}

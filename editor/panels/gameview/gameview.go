@@ -77,6 +77,7 @@ func (p *Panel) Close() {
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
+	p.tl.Apply()
 	th := &ui.Theme
 	if p.pool == nil {
 		p.hook = p.render
