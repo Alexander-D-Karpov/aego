@@ -86,6 +86,11 @@ elif [ "${REQUIRE_WINDOWS:-0}" = 1 ]; then
 fi
 
 body="Built from $short."
+# tools/release/notes/<tag>.md, when present, is the text of the release page.
+notes="$(dirname "$0")/notes/$tag.md"
+[ -f "$notes" ] && body="$(cat "$notes")
+
+$body"
 [ "$tag" = nightly ] && body="Rolling build of master, currently $short. Install with: curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly"
 
 if [ "$dry" = 1 ]; then
@@ -105,6 +110,9 @@ api() {
 	[ -n "${GITEA_RESOLVE:-}" ] && set -- --resolve "$GITEA_RESOLVE" "$@"
 	curl "$@"
 }
+jstr() {
+	python3 -c 'import json, sys; sys.stdout.write(json.dumps(sys.stdin.read()))'
+}
 release_id() {
 	api GET "$GITEA_API/releases/tags/$1" 2>/dev/null | sed -n 's/^{"id":\([0-9]*\),.*/\1/p'
 }
@@ -116,8 +124,10 @@ if [ "$tag" = nightly ]; then
 	id=""
 fi
 if [ -z "$id" ]; then
-	json=$(printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":"%s","prerelease":%s}' "$tag" "$commit" "$name" "$body" "$pre")
+	json=$(printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":%s,"prerelease":%s}' "$tag" "$commit" "$name" "$(printf '%s' "$body" | jstr)" "$pre")
 	id=$(api POST "$GITEA_API/releases" -H "Content-Type: application/json" -d "$json" | sed -n 's/^{"id":\([0-9]*\),.*/\1/p')
+else
+	api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d "{\"body\":$(printf '%s' "$body" | jstr)}" >/dev/null || true
 fi
 [ -n "$id" ] || { echo "release: could not create release $tag" >&2; exit 1; }
 failed=""
@@ -141,7 +151,7 @@ for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"
 	done
 	if [ "$ok" != 1 ]; then
 		why=$(printf 'Upload of %s failed with HTTP %s: %s' "$n" "$code" "$(head -c 300 "$dist/upload.out" 2>/dev/null | tr -d '"\\\n\r')")
-		api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d "{\"body\":\"$body $why\"}" >/dev/null || true
+		api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d "{\"body\":$(printf '%s %s' "$body" "$why" | jstr)}" >/dev/null || true
 		echo "release: $why" >&2
 		failed="$failed $n"
 		continue

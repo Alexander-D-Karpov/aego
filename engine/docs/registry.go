@@ -114,6 +114,8 @@ type Entry struct {
 	TryCode   string `json:",omitempty"`
 	// Input is set when the try script reads aego/input, so the page asks for a click on the canvas first.
 	Input bool `json:",omitempty"`
+	// TryKeys are the keys the try script reads besides WASD and the arrows, for the hint over the canvas.
+	TryKeys []string `json:",omitempty"`
 	// TryPrefabs are the prefabs next to the try scene, by asset id.
 	TryPrefabs map[string]string `json:",omitempty"`
 	Icon       string
@@ -990,7 +992,26 @@ func (r *Registry) compileTries(compile func(string) (string, error)) {
 		}
 		e.TryCode = code
 		e.Input = readsInput(e.TryScript)
+		if e.Input {
+			e.TryKeys = extraKeys(e.TryScript)
+		}
 	}
+}
+
+var keyUse = regexp.MustCompile(`\binput\.Key([A-Za-z0-9]+)(?:[^A-Za-z0-9(]|$)`)
+
+func extraKeys(src string) []string {
+	var keys []string
+	for _, m := range keyUse.FindAllStringSubmatch(src, -1) {
+		switch k := m[1]; k {
+		case "W", "A", "S", "D", "Up", "Down", "Left", "Right":
+		default:
+			if !slices.Contains(keys, k) {
+				keys = append(keys, k)
+			}
+		}
+	}
+	return keys
 }
 
 var importBlock = regexp.MustCompile(`(?s)\bimport\s*(\([^)]*\)|"[^"]*")`)

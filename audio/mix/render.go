@@ -302,7 +302,10 @@ func (m *Mixer) publish(v *voice) {
 
 func (m *Mixer) chunk(out []float32, n int) {
 	for i := range m.buses {
-		clear(m.buses[i].acc[:n*2])
+		if m.buses[i].live {
+			clear(m.buses[i].acc[:n*2])
+			m.buses[i].live = false
+		}
 	}
 	active := 0
 	for vi := range m.voices {
@@ -315,6 +318,7 @@ func (m *Mixer) chunk(out []float32, n int) {
 			continue
 		}
 		acc := m.buses[v.bus].acc[:n*2]
+		m.buses[v.bus].live = true
 		var done bool
 		if v.mem != nil {
 			if v.step == 1 && v.pos == float64(int64(v.pos)) {
@@ -463,13 +467,32 @@ func abs32(x float32) float32 {
 	return x
 }
 
+// idle advances the gain ramp of a bus that got no samples this chunk.
+func (m *Mixer) idle(b *bus, n int) {
+	for f := 0; f < n && b.ramp > 0; f++ {
+		b.gain += b.delta
+		b.ramp--
+		if b.ramp == 0 {
+			b.gain = b.target
+		}
+	}
+	b.peak.Store(0)
+	b.rms.Store(0)
+	b.level.Store(math.Float32bits(b.gain))
+}
+
 func (m *Mixer) sum(out []float32, n int) {
 	for _, bi := range m.order {
 		b := &m.buses[bi]
 		acc := b.acc[:n*2]
 		var dst []float32
 		if bi != m.master {
+			if !b.live {
+				m.idle(b, n)
+				continue
+			}
 			dst = m.buses[b.parent].acc[:n*2]
+			m.buses[b.parent].live = true
 		}
 		var peak, sq float32
 		for f := 0; f < n; f++ {
@@ -488,7 +511,12 @@ func (m *Mixer) sum(out []float32, n int) {
 				dst[2*f] += l
 				dst[2*f+1] += r
 			}
-			peak = max(peak, abs32(l), abs32(r))
+			if a := abs32(l); a > peak {
+				peak = a
+			}
+			if a := abs32(r); a > peak {
+				peak = a
+			}
 			sq += l*l + r*r
 		}
 		b.peak.Store(math.Float32bits(peak))

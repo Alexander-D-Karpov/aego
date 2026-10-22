@@ -141,7 +141,7 @@ func (p *Pump) Start() {
 
 func (p *Pump) run(stop, done chan struct{}) {
 	defer close(done)
-	period := time.Duration(float64(p.cfg.Block) / float64(p.cfg.SampleRate) / 2 * float64(time.Second))
+	period := time.Duration(float64(p.cfg.Block*p.cfg.Target) / float64(p.cfg.SampleRate) / 6 * float64(time.Second))
 	t := time.NewTicker(max(period, time.Millisecond))
 	defer t.Stop()
 	for {

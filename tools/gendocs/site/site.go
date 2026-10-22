@@ -665,7 +665,7 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	}
 	input := ""
 	if e.Input {
-		input = ` data-input=""`
+		input = ` data-input="` + esc(strings.Join(e.TryKeys, ", ")) + `"`
 	}
 	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `"` + input + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")

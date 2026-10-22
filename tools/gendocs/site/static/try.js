@@ -132,7 +132,8 @@
         if (stage.querySelector(".try-input")) return;
         const hint = document.createElement("div");
         hint.className = "try-input";
-        hint.textContent = "Click the canvas, then use WASD / arrows";
+        const keys = stage.closest(".try").dataset.input;
+        hint.textContent = "Click the canvas, then use WASD / arrows" + (keys ? ", " + keys : "");
         stage.appendChild(hint);
         const done = () => {
             hint.remove();
@@ -143,8 +144,31 @@
         canvas.addEventListener("focus", done);
     }
 
+    // unlockAudio runs inside the click on Try it: a context made here starts running, while one made after the runtime boots would wait for another click.
+    function unlockAudio(b) {
+        if (!b.querySelector(".try-sound")) return;
+        const old = globalThis.aegoAudioContext;
+        if (old && old.state !== "closed") {
+            old.resume().catch(() => {});
+            return;
+        }
+        const C = window.AudioContext || window.webkitAudioContext;
+        if (!C) return;
+        try {
+            globalThis.aegoAudioContext = new C({ latencyHint: "interactive", sampleRate: 48000 });
+        } catch (_) {
+            try {
+                globalThis.aegoAudioContext = new C({ latencyHint: "interactive" });
+            } catch (_) {
+                return;
+            }
+        }
+        globalThis.aegoAudioContext.resume().catch(() => {});
+    }
+
     async function activate(b) {
         if (active === b) return;
+        unlockAudio(b);
         if (active) release(active);
         active = b;
         if (!canvas) {

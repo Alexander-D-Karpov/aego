@@ -80,6 +80,7 @@ type bus struct {
 	target  float32
 	delta   float32
 	ramp    int
+	live    bool
 	acc     []float32
 	peak    atomic.Uint32
 	rms     atomic.Uint32

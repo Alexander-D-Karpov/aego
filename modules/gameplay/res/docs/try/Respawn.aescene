@@ -124,7 +124,7 @@ scene version=1 {
   }
   node "d6700000000000000000000000000003" name="Pit" enabled=true layers=1 {
     transform {
-      position=[3.5, 8]
+      position=[3.5, 5.2]
       rotation=0
       scale=[1, 1]
     }
@@ -182,7 +182,7 @@ scene version=1 {
       max=3
     }
     component "gameplay.Respawn" version=1 {
-      delay=0.5
+      delay=0.25
     }
     component "engine.Script" version=1 {
       script "game.demo.Player" enabled=true {

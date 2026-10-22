@@ -139,3 +139,10 @@ func TestReadsInput(t *testing.T) {
 		}
 	}
 }
+
+func TestTryKeys(t *testing.T) {
+	src := "if input.KeyPressed(input.KeyJ) || input.Down(input.KeyA) || input.KeyReleased(input.KeySpace) {\n}\nx := input.KeyR"
+	if got := strings.Join(extraKeys(src), ","); got != "J,Space,R" {
+		t.Fatalf("extraKeys = %q", got)
+	}
+}

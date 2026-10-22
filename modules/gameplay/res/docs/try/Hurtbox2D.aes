@@ -34,6 +34,7 @@ script Sword {
         }
         p := node.WorldPosition()
         debug.Rect(Rect{p.X - 0.3, p.Y - 0.2, 0.6, 0.4}, Color{1, 1, 1, 0.5})
+        debug.Text(Vec2{p.X - 1.6, p.Y - 1.6}, "J: strike", Color{0.8, 0.8, 0.8, 1})
     }
 }
 

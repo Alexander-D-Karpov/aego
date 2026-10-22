@@ -67,6 +67,7 @@ type Entry struct {
 	TryScript  string
 	TryCode    string
 	Input      bool
+	TryKeys    []string
 	TryPrefabs map[string]string
 	Icon       string
 	EditorOnly bool

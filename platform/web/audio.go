@@ -41,6 +41,10 @@ type AudioStats struct {
 type Audio struct {
 	g         js.Value
 	muteKey   string
+	pageCtx   bool
+	chunk     js.Value
+	chunkU8   js.Value
+	chunkLen  int
 	ctx       js.Value
 	node      js.Value
 	port      js.Value
@@ -75,6 +79,20 @@ func (p *Platform) OpenAudio(want platform.AudioSpec) (platform.AudioOutput, err
 	return OpenAudio(want)
 }
 
+// sharedContextGlobal is an AudioContext the page created inside a click, so it starts running; the docs Try it button makes one before the runtime boots.
+const (
+	sharedContextGlobal = "aegoAudioContext"
+	workletLoaded       = "aegoWorkletLoaded"
+)
+
+func sharedContext(g js.Value) (js.Value, bool) {
+	c := g.Get(sharedContextGlobal)
+	if !c.Truthy() || c.Get("state").String() == "closed" {
+		return js.Value{}, false
+	}
+	return c, true
+}
+
 func newContext(ctor js.Value, rate int) (ctx js.Value, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -98,19 +116,24 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 	if !ctor.Truthy() {
 		return nil, errs.New(errs.PlatformInit, "this browser has no Web Audio")
 	}
-	ctx, err := newContext(ctor, want.SampleRate)
-	if err != nil {
-		ctx, err = newContext(ctor, 0)
-	}
-	if err != nil {
-		return nil, err
+	ctx, pageCtx := sharedContext(g)
+	if !pageCtx {
+		var err error
+		ctx, err = newContext(ctor, want.SampleRate)
+		if err != nil {
+			ctx, err = newContext(ctor, 0)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !ctx.Get("audioWorklet").Truthy() {
 		try(ctx, "close")
 		return nil, errs.New(errs.PlatformInit, "Web Audio has no AudioWorklet here; it needs a secure context")
 	}
 	a := &Audio{
-		g: g, ctx: ctx, f32: g.Get("Float32Array"), u8: g.Get("Uint8Array"), atomics: g.Get("Atomics"),
+		pageCtx: pageCtx,
+		g:       g, ctx: ctx, f32: g.Get("Float32Array"), u8: g.Get("Uint8Array"), atomics: g.Get("Atomics"),
 		state: ctx.Get("state").String(),
 	}
 	a.noop = a.fn(func(js.Value, []js.Value) any { return nil })
@@ -148,7 +171,15 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 		}
 		return nil
 	})
-	ctx.Get("audioWorklet").Call("addModule", a.url).Call("then", ok, bad)
+	if ctx.Get(workletLoaded).Truthy() {
+		a.attach()
+		return a, nil
+	}
+	loaded := a.fn(func(this js.Value, args []js.Value) any {
+		ctx.Set(workletLoaded, true)
+		return ok.Invoke()
+	})
+	ctx.Get("audioWorklet").Call("addModule", a.url).Call("then", loaded, bad)
 	return a, nil
 }
 
@@ -286,10 +317,13 @@ func (a *Audio) Write(s []float32) int {
 	if a.shared {
 		return a.writeShared(s[:frames*ch])
 	}
-	arr := a.f32.New(frames * ch)
-	buf := arr.Get("buffer")
-	js.CopyBytesToJS(a.u8.New(buf), floatBytes(s[:frames*ch]))
-	a.port.Call("postMessage", arr, []any{buf})
+	if a.chunkLen != frames*ch {
+		a.chunkLen = frames * ch
+		a.chunk = a.f32.New(a.chunkLen)
+		a.chunkU8 = a.u8.New(a.chunk.Get("buffer"))
+	}
+	js.CopyBytesToJS(a.chunkU8, floatBytes(s[:frames*ch]))
+	a.port.Call("postMessage", a.chunk)
 	a.count.sent += int64(frames)
 	return frames
 }
@@ -352,7 +386,9 @@ func (a *Audio) Close() {
 	if a.gain.Truthy() {
 		a.gain.Call("disconnect")
 	}
-	a.quiet(try(a.ctx, "close"))
+	if !a.pageCtx {
+		a.quiet(try(a.ctx, "close"))
+	}
 	for _, l := range a.listeners {
 		l.target.Call("removeEventListener", l.name, l.fn, map[string]any{"capture": true})
 		l.fn.Release()
