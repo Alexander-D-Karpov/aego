@@ -37,9 +37,10 @@ sum() {
 }
 
 stage() {
-	mkdir -p "$1/bin"
+	mkdir -p "$1/bin" "$1/share"
 	printf '%s\n%s\n' "$tag" "$commit" > "$1/VERSION"
 	cp tools/release/README.txt "$1/README.txt"
+	cp app/brand/png/aego-256.png "$1/share/aego.png"
 }
 
 # Linux: the host build.
@@ -49,6 +50,11 @@ CGO_ENABLED=1 go build -trimpath -ldflags "-s -w" -o "$dist/$base/bin/aego" ./cm
 tar -C "$dist" -czf "$dist/$base.tar.gz" "$base"
 sum "$base.tar.gz"
 echo "release: built $base.tar.gz"
+if [ "${SKIP_APPIMAGE:-0}" != 1 ]; then
+	app="Aego-$label-x86_64.AppImage"
+	sh tools/release/appimage.sh "$dist/$base" "$dist/$app"
+	sum "$app"
+fi
 
 # Windows: cross-built with mingw-w64 and packed by NSIS.
 wcc=x86_64-w64-mingw32-gcc
@@ -56,15 +62,21 @@ if command -v "$wcc" >/dev/null 2>&1 && command -v makensis >/dev/null 2>&1; the
 	CC=$wcc GOOS=windows GOARCH=amd64 bash tools/bootstrap-native.sh
 	win="aego-$label-windows-amd64"
 	stage "$dist/$win"
+	trap 'rm -f cmd/aego/rsrc_windows_*.syso cmd/aego-editor/rsrc_windows_*.syso' EXIT
+	go run ./tools/brandres -ico "$dist/aego.ico" -syso cmd/aego,cmd/aego-editor -version "$label"
 	export CGO_ENABLED=1 CC=$wcc GOOS=windows GOARCH=amd64
 	go build -trimpath -ldflags "-s -w" -o "$dist/$win/aego.exe" ./cmd/aego
 	go build -trimpath -tags aego_editor -ldflags "-s -w -H=windowsgui" -o "$dist/$win/aego-editor.exe" ./cmd/aego-editor
 	unset CGO_ENABLED CC GOOS GOARCH
+	rm -f cmd/aego/rsrc_windows_*.syso cmd/aego-editor/rsrc_windows_*.syso
 	rmdir "$dist/$win/bin"
+	rm -rf "$dist/$win/share"
 	(cd "$dist" && zip -qr "$win.zip" "$win")
 	sum "$win.zip"
 	mkdir -p "$dist/setup"
-	makensis -V2 -DVERSION="$label" -DSRC="$dist/$win" -DOUT="$dist/setup/$win-setup.exe" tools/release/windows/aego.nsi
+	makensis -V2 -DVERSION="$label" -DSRC="$dist/$win" -DOUT="$dist/setup/$win-setup.exe" -DICON="$dist/aego.ico" tools/release/windows/aego.nsi
+	cp "$dist/setup/$win-setup.exe" "$dist/$win-setup.exe"
+	sum "$win-setup.exe"
 	(cd "$dist/setup" && zip -q "../$win-setup.zip" "$win-setup.exe")
 	sum "$win-setup.zip"
 	echo "release: built $win.zip and $win-setup.zip"
@@ -78,7 +90,7 @@ body="Built from $short."
 
 if [ "$dry" = 1 ]; then
 	echo "release: dry run, would publish $name ($tag, prerelease=$pre) at $commit with:"
-	ls -l "$dist"/aego-*.* "$dist"/SHA256SUMS.txt
+	ls -l "$dist"/aego-*.* "$dist"/Aego-*.* "$dist"/SHA256SUMS.txt 2>/dev/null || true
 	cat "$dist"/SHA256SUMS.txt
 	exit 0
 fi
@@ -109,7 +121,7 @@ if [ -z "$id" ]; then
 fi
 [ -n "$id" ] || { echo "release: could not create release $tag" >&2; exit 1; }
 failed=""
-for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip; do
+for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"/aego-*-setup.exe "$dist"/Aego-*.AppImage; do
 	[ -f "$f" ] || continue
 	n=$(basename "$f")
 	old=$(api GET "$GITEA_API/releases/$id/assets" | tr '{' '\n' | sed -n "s/^\"id\":\([0-9]*\),\"name\":\"$n\".*/\1/p")

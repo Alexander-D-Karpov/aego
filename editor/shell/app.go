@@ -65,6 +65,7 @@ import (
 	"aego/editor/panels/vcsdiff"
 	"aego/editor/panels/watch"
 	"aego/editor/panels/welcome"
+	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/engine/docs"
 	"aego/engine/module"
@@ -113,9 +114,20 @@ type Options struct {
 	NewProject  func(dir, template string) (string, error)
 	Crash       func(where string, rec any, stack []byte)
 	Exporter    services.Exporter
+	Relaunch    func(target, tab string) error
+	OpenPath    string
+	NativeNote  string
+	RunTests    func(done func(out string, failed bool)) error
+	Recent      string
+	LogsDir     string
 }
 
 type App struct {
+	recent         []launcher.Entry
+	recentNext     float64
+	recentLoaded   bool
+	recentLabels   []string
+	testsRunning   bool
 	data           *dataedit.Service
 	tablePanel     *datatable.Panel
 	opt            Options
@@ -443,6 +455,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Compare:        compare,
 		Schema:         a.opt.Types.Schema(),
 		Inspect:        func(id ids.AssetID) { a.data.Inspect(id) },
+		Viewable:       a.viewable,
 		OpenTable:      a.openTable,
 		DataType:       a.data.TypeOf,
 		Files:          a.files,
@@ -570,6 +583,8 @@ func (a *App) Init(e *engine.Engine) error {
 		Sections:  a.opt.Sections,
 		Pipeline:  a.opt.Pipeline,
 		Thumbs:    a.thumbs,
+		AssetView: a.assetView,
+		Audition:  a.audition,
 		Play:      a.play,
 		Code:      func() context.ScriptNav { return a.ctx.Code },
 		Clip:      edclip.EnvOf(a.ctx),
@@ -604,6 +619,9 @@ func (a *App) Init(e *engine.Engine) error {
 	a.welcome.Reference = func() { a.ctx.ShowDocs(edocs.Language, "") }
 	if a.opt.NewProject != nil {
 		a.welcome.NewProject = a.askNewProject
+		if a.opt.Relaunch != nil {
+			a.welcome.NewProject = func() { a.switchTo("", tabNew) }
+		}
 		a.welcome.Empty = a.emptyProject
 	}
 	if err := a.registerPanels(); err != nil {
@@ -649,6 +667,9 @@ func (a *App) Init(e *engine.Engine) error {
 		return err
 	}
 	if err := a.registerHelp(); err != nil {
+		return err
+	}
+	if err := a.registerProject(); err != nil {
 		return err
 	}
 	if err := a.registerWorkspaces(); err != nil {
@@ -743,6 +764,14 @@ func (a *App) Init(e *engine.Engine) error {
 	for _, rec := range a.ctx.Docs.FindRecovery() {
 		a.push(modal{kind: modalRecovery, rec: rec})
 	}
+	if a.opt.OpenPath != "" {
+		if _, err := a.ctx.Docs.Open(a.opt.OpenPath); err != nil {
+			a.ctx.Notify(context.LevelError, err.Error())
+		}
+	}
+	if a.opt.NativeNote != "" {
+		a.ctx.Notify(context.LevelWarn, a.opt.NativeNote)
+	}
 	a.firstRun()
 	now := e.Platform().Now()
 	a.checkAt, a.recoverAt = now+1, now+30
@@ -785,6 +814,10 @@ func (a *App) Event(ev platform.Event) {
 		a.drops = append(a.drops, ev.Str)
 		a.dropPos = ev.Mouse.Pos
 	case platform.EvDropComplete:
+		if a.dropProject() {
+			a.drops = nil
+			break
+		}
 		if len(a.drops) > 0 {
 			label := a.drops[0]
 			if len(a.drops) > 1 {
@@ -1121,6 +1154,9 @@ func (a *App) updateTitle() {
 			t += " — Native API is stale"
 		}
 	}
+	if a.opt.NativeNote != "" {
+		t += " — native code not built"
+	}
 	if t != a.title {
 		a.title = t
 		a.eng.Window().SetTitle(t)
@@ -1152,6 +1188,57 @@ func (a *App) liveSettings() string {
 		return "some settings apply on the next Play"
 	}
 	return "applied to the running game"
+}
+
+func (a *App) viewable(k asset.ArtifactKind) bool {
+	_, ok := a.ctx.AssetViews[string(k)]
+	return ok
+}
+
+func (a *App) audition(id ids.AssetID, toggle bool) (bool, bool) {
+	if a.opt.Pipeline == nil || len(a.ctx.AssetPlayers) == 0 {
+		return false, false
+	}
+	e, ok := a.opt.Pipeline.Entry(id)
+	if !ok {
+		return false, false
+	}
+	key := string(e.Kind)
+	if e.Kind == asset.ArtData && a.data != nil {
+		if key, ok = a.data.TypeOf(id); !ok {
+			return false, false
+		}
+	}
+	pl, ok := a.ctx.AssetPlayers[key]
+	if !ok {
+		return false, false
+	}
+	playing := pl.Playing(a.ctx) == id
+	if toggle {
+		if playing {
+			pl.Stop(a.ctx)
+		} else if err := pl.Play(a.ctx, id); err != nil {
+			a.ctx.Notify(context.LevelError, err.Error())
+		}
+		playing = pl.Playing(a.ctx) == id
+	}
+	return playing, true
+}
+
+func (a *App) assetView(id ids.AssetID) bool {
+	if a.opt.Pipeline == nil {
+		return false
+	}
+	e, ok := a.opt.Pipeline.Entry(id)
+	if !ok {
+		return false
+	}
+	fn, ok := a.ctx.AssetViews[string(e.Kind)]
+	if !ok {
+		return false
+	}
+	fn(a.ctx, id)
+	return true
 }
 
 func (a *App) openTable(id ids.AssetID) {

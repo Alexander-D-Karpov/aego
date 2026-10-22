@@ -234,7 +234,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
     };
     const next = document.querySelector(".pager a.next");
     if (next) prefetch(next.href);
-    const local = (a) => a && a.origin === location.origin && a.pathname !== location.pathname && /\.html$|\/$/.test(a.pathname);
+    const local = (a) => a && a.origin === location.origin && a.pathname !== location.pathname && /(\/|\/[^./]+)$/.test(a.pathname);
     const hover = (e) => {
         const a = e.target.closest && e.target.closest("a[href]");
         if (local(a)) prefetch(a.href.split("#")[0]);
@@ -253,6 +253,8 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         if (pick) {
             main.href = pick.href;
             main.querySelector("span").textContent = `Download for ${OS_NAMES[os]}`;
+            box.querySelector(".dl-file").textContent = pick.dataset.file;
+            pick.classList.add("picked");
             pick.parentElement.classList.add("picked");
         } else {
             main.href = box.dataset.fallback;

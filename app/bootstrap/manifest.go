@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"aego/app/proc"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/project"
@@ -52,6 +53,7 @@ func BuildManifest(p *project.Project, engineVersion string, lg *log.Logger) (st
 	defer os.Remove(bin)
 	build := exec.Command("go", "build", "-tags", strings.Join(t.Tags, ","), "-o", bin, "./.aego/generated/manifest")
 	build.Dir = p.Root
+	proc.Hide(build)
 	if output, err := build.CombinedOutput(); err != nil {
 		return "", errs.New(errs.BuildFailed, "native bindings helper does not compile",
 			log.F("output", strings.TrimSpace(string(output))))
@@ -59,6 +61,7 @@ func BuildManifest(p *project.Project, engineVersion string, lg *log.Logger) (st
 	tmp := out + ".tmp"
 	run := exec.Command(bin, tmp)
 	run.Dir = p.Root
+	proc.Hide(run)
 	if output, err := run.CombinedOutput(); err != nil {
 		os.Remove(tmp)
 		return "", errs.New(errs.BuildFailed, "native module Register failed",

@@ -53,7 +53,7 @@ What the browser build (`GOOS=js GOARCH=wasm`, `platform/web` + `gpu/webgl2`) su
 | Mute | works | web exports show a mute button; the choice is kept in localStorage for the site |
 | Hidden tab | works | the context is suspended and resumed |
 | Transport | works | a SharedArrayBuffer ring when the page is cross-origin isolated (COOP `same-origin` and COEP `require-corp`), otherwise blocks posted to the worklet |
-| Latency | degraded | 3 blocks of 512 frames (~32 ms) with SharedArrayBuffer, 4 (~43 ms) with messages, plus the browser's own output buffer |
+| Latency | degraded | 3 blocks of 512 frames (~32 ms) with SharedArrayBuffer, 6 (~64 ms) with messages, plus the browser's own output buffer |
 | Device events | missing | the browser follows the default output device itself |
 
 ## Exported games

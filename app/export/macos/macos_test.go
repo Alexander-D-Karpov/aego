@@ -23,3 +23,12 @@ func TestPlistEscapesAndBundleID(t *testing.T) {
 		t.Fatal(p)
 	}
 }
+
+func TestPlistDocumentTypes(t *testing.T) {
+	out := string(Plist(Info{Name: "Aego", Executable: "aego", ID: "ru.akarpov.aego", Documents: []DocType{{Name: "Aego Scene", Extensions: []string{"aescene"}}}}, ""))
+	for _, want := range []string{"<key>CFBundleDocumentTypes</key>", "<string>Aego Scene</string>", "<string>Editor</string>", "<string>aescene</string>"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("plist has no %s:\n%s", want, out)
+		}
+	}
+}

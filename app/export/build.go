@@ -12,6 +12,7 @@ import (
 
 	"aego/app/export/icon"
 	"aego/app/export/winres"
+	"aego/app/proc"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/runtime/bundle"
@@ -121,7 +122,7 @@ func (j *job) resources(dir string) error {
 	var icons []winres.Icon
 	if j.icon != nil {
 		for _, n := range winres.IconSizes {
-			data, err := icon.PNG(icon.Resize(j.icon, n, n))
+			data, err := icon.PNG(icon.Sized(j.icon, n))
 			if err != nil {
 				return err
 			}
@@ -175,6 +176,7 @@ func (j *job) build() error {
 	args = append(args, pkg)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = root
+	proc.Hide(cmd)
 	cgo := "CGO_ENABLED=1"
 	if j.t.Web() {
 		cgo = "CGO_ENABLED=0"

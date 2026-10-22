@@ -101,13 +101,16 @@ func crawl(t *testing.T, dir string) map[string]string {
 					file = path.Join(file, "index.html")
 				}
 			}
-			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") {
+			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") || strings.HasSuffix(file, ".png") {
 				if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
 					t.Errorf("%s: missing asset %s", p, href)
 				}
 				continue
 			}
 			got, ok := ids[file]
+			if !ok {
+				got, ok = ids[file+".html"]
+			}
 			if !ok {
 				t.Errorf("%s: dead link %s", p, href)
 				continue
@@ -166,9 +169,9 @@ func TestFixtureSite(t *testing.T) {
 	_, _, pages := build(t, fixture(), Options{})
 	co := pages["language/coroutines.html"]
 	for _, want := range []string{
-		`href="../language/builtins.html#keyword/yield"`,
-		`href="../ref/aego/math.html#aego/math.Clamp"`,
-		`href="../diagnostics.html#AES2050"`,
+		`href="../language/builtins#keyword/yield"`,
+		`href="../ref/aego/math#aego/math.Clamp"`,
+		`href="../diagnostics#AES2050"`,
 		`<span class="t-kw">package</span>`,
 	} {
 		if !strings.Contains(co, want) {
@@ -202,7 +205,7 @@ func TestShell(t *testing.T) {
 		`href="https://git.example/aego/commit/abc1234"`,
 		`Aego 1.2.3`,
 		`<a href="#install">Install</a>`,
-		`class="next" href="language.html"`,
+		`class="next" href="language"`,
 		`class="item head current" aria-current="page"`,
 		`aria-current="page"`,
 	} {
@@ -211,10 +214,10 @@ func TestShell(t *testing.T) {
 		}
 	}
 	co := pages["language/coroutines.html"]
-	if !strings.Contains(co, `<nav class="crumbs"><span>Guides</span><span class="sep">/</span><a href="../language.html">Aego Script</a></nav>`) {
+	if !strings.Contains(co, `<nav class="crumbs"><span>Guides</span><span class="sep">/</span><a href="../language">Aego Script</a></nav>`) {
 		t.Error("breadcrumbs are wrong on the coroutines page")
 	}
-	if !strings.Contains(pages["index.html"], `class="button primary" href="welcome.html"`) {
+	if !strings.Contains(pages["index.html"], `class="button primary" href="welcome"`) {
 		t.Error("landing page has no start button")
 	}
 }
@@ -238,7 +241,7 @@ func TestSearchAndLlms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"## Guides", "### Aego Script", "- [Aego Script](language.html): The language."} {
+	for _, want := range []string{"## Guides", "### Aego Script", "- [Aego Script](language): The language."} {
 		if !strings.Contains(string(llms), want) {
 			t.Errorf("llms.txt has no %q", want)
 		}
@@ -296,8 +299,8 @@ func TestComponentPage(t *testing.T) {
 		`<span class="note">read-only</span>`,
 		`Create → Rendering → Sprite`,
 		`<code>engine.Missing</code>`,
-		`<a class="xref" href="../language.html">Aego Script</a>`,
-		`href="../ref/aego/math.html#aego/math.Clamp"`,
+		`<a class="xref" href="../language">Aego Script</a>`,
+		`href="../ref/aego/math#aego/math.Clamp"`,
 		`href="#engine.SpriteRenderer-fields">Fields</a>`,
 	} {
 		if !strings.Contains(p, want) {
@@ -330,6 +333,12 @@ func TestTryBlock(t *testing.T) {
 			t.Errorf("try block has no %s", want)
 		}
 	}
+	if strings.Contains(string(data), `class="try-sound"`) {
+		t.Error("a silent try scene has a sound button")
+	}
+	if got := (&builder{}).soundButton(&Entry{Try: `component "audio.AudioSource2D" version=1 {}`}, ""); !strings.Contains(got, `class="try-sound"`) {
+		t.Errorf("a try scene with sound has no sound button: %q", got)
+	}
 	_, _, plain := build(t, exp, Options{})
 	if strings.Contains(plain["ref/engine.SpriteRenderer.html"], `class="try"`) {
 		t.Error("a try block without the docs runtime")
@@ -344,7 +353,7 @@ func TestDownloadBlock(t *testing.T) {
 	}}
 	_, _, pages := build(t, fixture(), Options{Release: rel})
 	home := pages["index.html"]
-	for _, want := range []string{`class="button primary dl-main"`, `<li data-os="linux"><a href="https://git.example/l.tar.gz">Linux (.tar.gz)</a><span>12 MB</span></li>`, `data-os="windows"`, `v1.0`} {
+	for _, want := range []string{`class="button primary dl-main"`, `<li data-os="linux"><span class="dl-os">Linux</span><span class="dl-files"><a href="https://git.example/l.tar.gz" data-file="Archive .tar.gz · 12 MB">Archive <span>.tar.gz · 12 MB</span></a></span></li>`, `data-os="windows"`, `v1.0`} {
 		if !strings.Contains(home, want) {
 			t.Errorf("home page download block has no %s", want)
 		}
@@ -352,7 +361,7 @@ func TestDownloadBlock(t *testing.T) {
 	if strings.Contains(home, "SHA256SUMS") || strings.Contains(home, `data-os="macos"`) {
 		t.Error("download block lists a file it should not")
 	}
-	if strings.Contains(home, `class="button primary" href="welcome.html"`) {
+	if strings.Contains(home, `class="button primary" href="welcome"`) {
 		t.Error("two primary buttons on the landing page")
 	}
 }
@@ -367,5 +376,22 @@ func TestMetaTags(t *testing.T) {
 	}
 	if got := metaDescription("![shot](a.png) See [the guide](g.html) and `code`. " + strings.Repeat("word ", 50)); strings.ContainsAny(got, "[]`!") || len(got) > 165 {
 		t.Errorf("metaDescription = %q", got)
+	}
+}
+
+func TestCleanURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"index.html":                    "./",
+		"../index.html":                 "../",
+		"play/":                         "play/",
+		"ref/engine.Camera2D.html#x":    "ref/engine.Camera2D#x",
+		"../language/builtins.html?q=1": "../language/builtins?q=1",
+		"assets/style.css?v=1":          "assets/style.css?v=1",
+		"https://git.example/a.html":    "https://git.example/a.html",
+		"#top":                          "#top",
+	} {
+		if got := cleanURL(in); got != want {
+			t.Errorf("cleanURL(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

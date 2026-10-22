@@ -2,7 +2,6 @@ package edit
 
 import (
 	"errors"
-	"flag"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -18,10 +17,8 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/editor/core/document"
-	"aego/editor/core/session"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/shell"
-	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/engine/base"
 	"aego/engine/module"
@@ -48,6 +45,10 @@ type Config struct {
 	Profile    string
 	Logger     *log.Logger
 	Catalog    assembly.Catalog
+
+	OpenPath    string
+	NativeNote  string
+	LauncherTab string
 }
 
 type docAttach struct {
@@ -77,56 +78,12 @@ type Session struct {
 	unsub   func()
 	docs    []docAttach
 	driver  *driver
+	mods    []sdk.Module
 
 	ring       *crash.Ring
 	crashScene bool
 	spikeMs    float64
 	lastSpike  float64
-}
-
-func Main(mods ...sdk.Module) {
-	fs := flag.NewFlagSet("aego-editor", flag.ExitOnError)
-	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
-	hidden := fs.Bool("hidden", false, "create the window without showing it")
-	headless := fs.Bool("headless", false, "run without a window")
-	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
-	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
-	profile := fs.String("profile", "", "player settings profile, default when empty")
-	fs.Parse(os.Args[1:])
-	dir := "."
-	if fs.NArg() > 0 {
-		dir = fs.Arg(0)
-	}
-	root, err := project.Find(dir)
-	if err != nil {
-		fail(err)
-	}
-	p, err := project.Load(root)
-	if err != nil {
-		fail(err)
-	}
-	cfg := Config{
-		Debug:      *debug,
-		Hidden:     *hidden,
-		Headless:   *headless,
-		Frames:     *frames,
-		CPUProfile: *cpu,
-		Profile:    *profile,
-		Supervised: os.Getenv(session.EnvSupervised) == "1",
-	}
-	cfg.Recent, _ = launcher.RecentPath()
-	err = Run(p, cfg, mods...)
-	if errors.Is(err, ErrRestart) {
-		os.Exit(session.ExitRestart)
-	}
-	if err != nil {
-		fail(err)
-	}
-}
-
-func fail(err error) {
-	os.Stderr.WriteString("aego-editor: " + err.Error() + "\n")
-	os.Exit(1)
 }
 
 func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
@@ -203,6 +160,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		return nil, err
 	}
 	s := &Session{Host: h, cfg: cfg, log: h.Log.With(shell.ChannelEditor)}
+	s.mods = mods
 	s.ring = crash.NewRing(500)
 	h.Log.AddSink(s.ring)
 	if st, ok := module.SectionValue[base.Settings](h.Sections, base.Section); ok {
@@ -258,6 +216,12 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		RunSnippet:  snippets(),
 		DirsErr:     dirsErr,
 		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
+		Relaunch:    Relaunch,
+		OpenPath:    cfg.OpenPath,
+		NativeNote:  cfg.NativeNote,
+		RunTests:    s.runTests,
+		Recent:      cfg.Recent,
+		LogsDir:     LogsDir(),
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 		Exporter:    newExporter(p, h.Pipeline),
 	})

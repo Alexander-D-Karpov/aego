@@ -222,6 +222,9 @@ func (a *App) firstRun() {
 }
 
 func (a *App) contextHint() string {
+	if h := a.nativeHint(); h != "" {
+		return h
+	}
 	f := a.ctx.FocusedPanel
 	switch {
 	case strings.HasPrefix(f, "script:"):

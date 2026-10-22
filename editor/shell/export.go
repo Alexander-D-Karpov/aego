@@ -14,7 +14,7 @@ func (a *App) initExport() error {
 	if x == nil {
 		return nil
 	}
-	a.exportP = exportpanel.New(exportpanel.Deps{Exporter: x, Tasks: a.tasks})
+	a.exportP = exportpanel.New(exportpanel.Deps{Exporter: x, Tasks: a.tasks, PickFolder: a.pickFolder})
 	return a.ctx.Commands.Register(command.Desc{
 		ID: CommandExport, Name: "Export…", Category: "File", Order: 820, Icon: "file.package",
 		Run: func() error {

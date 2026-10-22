@@ -19,7 +19,7 @@ func (a *App) menuCategories() []string {
 	var out []string
 	for _, c := range base {
 		known[c] = true
-		if c == "Create" || len(reg.Category(c)) > 0 {
+		if c == "Create" || reg.HasCategory(c) {
 			out = append(out, c)
 		}
 	}

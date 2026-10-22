@@ -307,3 +307,21 @@ func (j *job) prepareOut() error {
 	}
 	return nil
 }
+
+func Launchable(p *project.Project, target, out string) (string, error) {
+	t, err := ParseTarget(target)
+	if err != nil {
+		return "", err
+	}
+	if !t.Web() && !t.Host() {
+		return "", errs.New(errs.EngineConfig, "the build is for "+t.String()+"; copy it to that system to run it")
+	}
+	l := layoutFor(t, out, p)
+	switch {
+	case t.Web():
+		return l.root, nil
+	case t.OS == "darwin":
+		return l.app, nil
+	}
+	return l.binary(), nil
+}

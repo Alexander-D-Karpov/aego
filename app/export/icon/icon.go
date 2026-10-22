@@ -2,6 +2,7 @@ package icon
 
 import (
 	"bytes"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/png"
@@ -133,4 +134,105 @@ func Resize(src image.Image, w, h int) *image.NRGBA {
 		}
 	}
 	return dst
+}
+
+type Set []image.Image
+
+func (s Set) largest() image.Image {
+	var best image.Image
+	for _, im := range s {
+		if best == nil || im.Bounds().Dx() > best.Bounds().Dx() {
+			best = im
+		}
+	}
+	return best
+}
+
+func (s Set) ColorModel() color.Model {
+	return s.largest().ColorModel()
+}
+
+func (s Set) Bounds() image.Rectangle {
+	return s.largest().Bounds()
+}
+
+func (s Set) At(x, y int) color.Color {
+	return s.largest().At(x, y)
+}
+
+func (s Set) Size(n int) image.Image {
+	var up, down image.Image
+	for _, im := range s {
+		b := im.Bounds()
+		switch {
+		case b.Dx() == n && b.Dy() == n:
+			return im
+		case b.Dx() > n && (up == nil || b.Dx() < up.Bounds().Dx()):
+			up = im
+		case b.Dx() < n && (down == nil || b.Dx() > down.Bounds().Dx()):
+			down = im
+		}
+	}
+	if up != nil {
+		return up
+	}
+	return down
+}
+
+func Sized(src image.Image, n int) *image.NRGBA {
+	if s, ok := src.(Set); ok {
+		src = s.Size(n)
+	}
+	b := src.Bounds()
+	if nr, ok := src.(*image.NRGBA); ok && b.Min == (image.Point{}) && b.Dx() == n && b.Dy() == n {
+		return nr
+	}
+	return Resize(src, n, n)
+}
+
+func LoadSet(paths ...string) (Set, error) {
+	var s Set
+	for _, p := range paths {
+		img, err := Load(p)
+		if err != nil {
+			return nil, err
+		}
+		s = append(s, img)
+	}
+	if len(s) == 0 {
+		return nil, errs.New(errs.AssetImportFailed, "no icon files")
+	}
+	return s, nil
+}
+
+func ICO(src image.Image, sizes []int) ([]byte, error) {
+	le := binary.LittleEndian
+	imgs := make([][]byte, len(sizes))
+	for i, n := range sizes {
+		data, err := PNG(Sized(src, n))
+		if err != nil {
+			return nil, err
+		}
+		imgs[i] = data
+	}
+	head := 6 + 16*len(sizes)
+	out := make([]byte, head)
+	le.PutUint16(out[2:], 1)
+	le.PutUint16(out[4:], uint16(len(sizes)))
+	off := head
+	for i, n := range sizes {
+		e := out[6+16*i:]
+		if n < 256 {
+			e[0], e[1] = byte(n), byte(n)
+		}
+		le.PutUint16(e[4:], 1)
+		le.PutUint16(e[6:], 32)
+		le.PutUint32(e[8:], uint32(len(imgs[i])))
+		le.PutUint32(e[12:], uint32(off))
+		off += len(imgs[i])
+	}
+	for _, d := range imgs {
+		out = append(out, d...)
+	}
+	return out, nil
 }

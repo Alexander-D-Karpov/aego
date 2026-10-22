@@ -8,7 +8,10 @@ import "C"
 
 import (
 	"fmt"
+	"image"
+	"image/draw"
 	"runtime"
+	"slices"
 	"strconv"
 	"unsafe"
 
@@ -21,14 +24,17 @@ import (
 
 func init() {
 	runtime.LockOSThread()
+	platform.SetAlert(alert)
 }
 
 type Platform struct {
-	win   *Window
-	audio *Audio
-	cev   C.aego_event
-	info  platform.Info
-	start uint64
+	win       *Window
+	audio     *Audio
+	cev       C.aego_event
+	info      platform.Info
+	start     uint64
+	dialogs   map[int]func(string, bool)
+	dialogSeq int
 }
 
 func fractional(v float32) bool {
@@ -57,10 +63,21 @@ func setMetadata(m platform.AppMetadata) {
 	C.SDL_SetAppMetadata(name, ver, id)
 }
 
+func glMessage(found string) string {
+	if found == "" {
+		found = "no OpenGL at all"
+	}
+	return "OpenGL 3.3 is required, the graphics driver provides " + found +
+		". Install the driver from the GPU vendor; in a virtual machine or over Remote Desktop turn on 3D acceleration or run Aego on the host"
+}
+
 func New() (*Platform, error) {
 	setMetadata(platform.AppMeta())
+	platform.Boot("sdl", "init")
 	if !C.aego_init() {
-		return nil, errs.New(errs.PlatformInit, "SDL_Init failed", log.F("sdl", lastError()))
+		msg := lastError()
+		platform.Boot("sdl", "init failed: "+msg)
+		return nil, errs.New(errs.PlatformInit, "SDL_Init failed", log.F("sdl", msg))
 	}
 	v := C.aego_version()
 	p := &Platform{
@@ -76,6 +93,7 @@ func New() (*Platform, error) {
 		},
 		start: uint64(C.aego_ticks_ns()),
 	}
+	platform.Boot("sdl", "SDL "+p.info.Version+", video "+p.info.VideoDriver)
 	return p, nil
 }
 
@@ -106,31 +124,40 @@ func (p *Platform) CreateWindow(desc platform.WindowDesc) (platform.Window, erro
 	}
 	title := C.CString(desc.Title)
 	defer C.free(unsafe.Pointer(title))
+	platform.Boot("window", fmt.Sprintf("%dx%d hidden=%v", desc.Width, desc.Height, desc.Hidden))
 	sw := C.aego_create_window(title, C.int(desc.Width), C.int(desc.Height),
 		boolInt(desc.Resizable), boolInt(desc.Fullscreen), boolInt(desc.HighDPI))
 	if sw == nil {
-		return nil, errs.New(errs.PlatformWindow, "SDL_CreateWindow failed", log.F("sdl", lastError()))
+		msg := lastError()
+		platform.Boot("window", "failed: "+msg)
+		return nil, errs.New(errs.PlatformWindow, "cannot open a window: "+msg, log.F("sdl", msg))
 	}
 	ctx := C.SDL_GL_CreateContext(sw)
 	if ctx == nil {
-		err := errs.New(errs.PlatformContext, "SDL_GL_CreateContext failed", log.F("sdl", lastError()))
+		msg := lastError()
+		found := C.GoString(C.aego_gl_probe(sw))
+		platform.Boot("gl", "3.3 core context failed: "+msg+"; driver has "+found)
 		C.SDL_DestroyWindow(sw)
-		return nil, err
+		return nil, errs.New(errs.PlatformContext, glMessage(found), log.F("sdl", msg))
 	}
 	if !C.SDL_GL_MakeCurrent(sw, ctx) {
-		err := errs.New(errs.PlatformContext, "SDL_GL_MakeCurrent failed", log.F("sdl", lastError()))
+		msg := lastError()
+		platform.Boot("gl", "make current failed: "+msg)
 		C.SDL_GL_DestroyContext(ctx)
 		C.SDL_DestroyWindow(sw)
-		return nil, err
+		return nil, errs.New(errs.PlatformContext, "SDL_GL_MakeCurrent failed", log.F("sdl", msg))
 	}
+	platform.Boot("gl", C.GoString(C.aego_gl_string(0x1F02))+" ("+C.GoString(C.aego_gl_string(0x1F01))+")")
 	w := &Window{p: p, win: sw, ctx: ctx, fullscreen: desc.Fullscreen, cursor: 255}
 	w.SetVSync(desc.VSync)
 	C.SDL_StopTextInput(sw)
+	w.SetIcon(platform.AppIcon())
 	if !desc.Hidden {
 		C.SDL_ShowWindow(sw)
 	}
 	w.refresh()
 	p.win = w
+	platform.Boot("window", "shown")
 	return w, nil
 }
 
@@ -252,6 +279,9 @@ func (p *Platform) translate() (platform.Event, bool) {
 		}
 		id := uint32(c.device)
 		ev.Audio = platform.AudioDevice{ID: id, Default: p.audio != nil && p.audio.dev == id}
+	case C.AEGO_EV_DIALOG:
+		p.finishDialog(c)
+		return ev, false
 	default:
 		return ev, false
 	}
@@ -466,7 +496,50 @@ var (
 	_ platform.Cursorer      = (*Window)(nil)
 	_ platform.MouseCapturer = (*Window)(nil)
 	_ platform.Displayer     = (*Window)(nil)
+	_ platform.FileDialogs   = (*Window)(nil)
+	_ platform.Iconer        = (*Window)(nil)
 )
+
+func nrgba(src image.Image) *image.NRGBA {
+	b := src.Bounds()
+	if n, ok := src.(*image.NRGBA); ok && b.Min == (image.Point{}) && n.Stride == 4*b.Dx() {
+		return n
+	}
+	dst := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(dst, dst.Bounds(), src, b.Min, draw.Src)
+	return dst
+}
+
+func surface(src image.Image) *C.SDL_Surface {
+	n := nrgba(src)
+	b := n.Bounds()
+	if b.Dx() == 0 || b.Dy() == 0 {
+		return nil
+	}
+	return C.aego_icon_surface(C.int(b.Dx()), C.int(b.Dy()), unsafe.Pointer(&n.Pix[0]))
+}
+
+func (w *Window) SetIcon(imgs []image.Image) {
+	if w.win == nil || len(imgs) == 0 {
+		return
+	}
+	list := slices.Clone(imgs)
+	slices.SortFunc(list, func(a, b image.Image) int { return a.Bounds().Dx() - b.Bounds().Dx() })
+	at := 0
+	for at < len(list)-1 && list[at].Bounds().Dx() < 32 {
+		at++
+	}
+	base := surface(list[at])
+	if base == nil {
+		return
+	}
+	for _, im := range list[at+1:] {
+		if s := surface(im); s != nil {
+			C.aego_icon_alternate(base, s)
+		}
+	}
+	C.aego_set_icon(w.win, base)
+}
 
 func toMode(m C.aego_mode) platform.DisplayMode {
 	return platform.DisplayMode{W: int(m.w), H: int(m.h), Hz: float32(m.hz)}
@@ -529,4 +602,52 @@ func (w *Window) SetWindowMode(m platform.WindowMode, display int, size platform
 	w.fullscreen = m != platform.Windowed
 	w.refresh()
 	return nil
+}
+
+func alert(title, msg string) bool {
+	t, m := C.CString(title), C.CString(msg)
+	defer C.free(unsafe.Pointer(t))
+	defer C.free(unsafe.Pointer(m))
+	return bool(C.aego_alert(t, m))
+}
+
+func freeAll(list ...*C.char) {
+	for _, s := range list {
+		if s != nil {
+			C.free(unsafe.Pointer(s))
+		}
+	}
+}
+
+func (w *Window) ShowFileDialog(d platform.FileDialog, done func(string, bool)) error {
+	p := w.p
+	if p == nil || w.win == nil {
+		return errs.New(errs.PlatformWindow, "the window is closed")
+	}
+	p.dialogSeq++
+	id := p.dialogSeq
+	if p.dialogs == nil {
+		p.dialogs = map[int]func(string, bool){}
+	}
+	p.dialogs[id] = done
+	start, name, pat := cstr(d.Start), cstr(d.Filter), cstr(d.Pattern)
+	defer freeAll(start, name, pat)
+	if !C.aego_dialog(C.int(id), C.int(d.Kind), w.win, start, name, pat) {
+		delete(p.dialogs, id)
+		return errs.New(errs.PlatformWindow, "file dialogs are not available", log.F("sdl", lastError()))
+	}
+	return nil
+}
+
+func (p *Platform) finishDialog(c *C.aego_event) {
+	id := int(c.start)
+	path := goStr(c.data)
+	if c.data != nil {
+		C.SDL_free(unsafe.Pointer(c.data))
+	}
+	fn := p.dialogs[id]
+	delete(p.dialogs, id)
+	if fn != nil {
+		fn(path, c.length > 0)
+	}
 }

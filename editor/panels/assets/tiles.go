@@ -17,6 +17,8 @@ import (
 
 var tileSizes = [...]float32{48, 64, 96}
 
+const waveCols = 48
+
 var tileLabels = [...]string{"S", "M", "L"}
 
 func (p *Panel) tileSize() float32 {
@@ -62,6 +64,8 @@ func kindIcon(k asset.ArtifactKind) string {
 		return "file.table"
 	case asset.ArtMesh:
 		return "file.mesh"
+	case asset.ArtAudio:
+		return "cat.audio"
 	}
 	return "file.unknown"
 }
@@ -80,6 +84,8 @@ func (p *Panel) kindColor(k asset.ArtifactKind) mathx.Color {
 		c = th.Warn
 	case asset.ArtMesh:
 		c = th.AxisX
+	case asset.ArtAudio:
+		c = th.Ok
 	}
 	return c
 }
@@ -177,31 +183,77 @@ func (p *Panel) stack(dir string) []int {
 	return p.stacks[dir]
 }
 
+// thumb draws an asset's picture into r: an audio waveform, a cached thumbnail, or false when neither is ready.
+func (p *Panel) thumb(a *pipeline.AssetInfo, r mathx.Rect) bool {
+	if a.Kind == asset.ArtAudio {
+		return p.wave(a, r)
+	}
+	reg, ok := p.d.Thumbs.Get(*a)
+	if !ok {
+		return false
+	}
+	p.f.UI.List().Texture(reg, fitRect(r, reg.W, reg.H), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+	return true
+}
+
+func (p *Panel) wave(a *pipeline.AssetInfo, r mathx.Rect) bool {
+	peaks, _ := p.d.Thumbs.Peaks(a.ID, waveCols)
+	if len(peaks) == 0 {
+		return false
+	}
+	ui := p.f.UI
+	col := p.kindColor(a.Kind)
+	w := r.W / float32(len(peaks))
+	mid := r.Y + r.H/2
+	for i, x := range peaks {
+		h := max(min(x, 1)*r.H/2, 0.5)
+		ui.Rect(mathx.Rect{X: r.X + float32(i)*w, Y: mid - h, W: max(w, 1), H: 2 * h}, col)
+	}
+	return true
+}
+
+func (p *Panel) audioCard(a *pipeline.AssetInfo, img mathx.Rect) {
+	ui := p.f.UI
+	th := &ui.Theme
+	tint := p.kindColor(a.Kind)
+	rad := th.Radius.Button
+	ui.RoundRect(img, rad, th.Border)
+	card := mathx.Rect{X: img.X + 1, Y: img.Y + 1, W: img.W - 2, H: img.H - 2}
+	ui.RoundRect(card, rad, th.CardBg)
+	ui.List().RoundRect(mathx.Rect{X: card.X, Y: card.Y, W: card.W, H: 3}, rad, tint, draw.CornersTop)
+	band := mathx.Rect{X: card.X + 4, Y: card.Y + card.H*0.22, W: card.W - 8, H: card.H * 0.46}
+	if !p.wave(a, band) {
+		icon := min(card.W*0.38, 32)
+		widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: card.Y + 3 + (card.H-3-icon)/2, W: icon, H: icon}, kindIcon(a.Kind), tint)
+	}
+	p.badge(a, card, tint)
+}
+
+// folderStack draws up to three previews as sheets sticking out of the folder icon.
 func (p *Panel) folderStack(dir string, img mathx.Rect) {
 	ui := p.f.UI
 	th := &ui.Theme
+	icon := img.W * 0.82
+	at := mathx.Rect{X: img.X + (img.W-icon)/2, Y: img.Y + (img.H-icon)/2 + icon*0.06, W: icon, H: icon}
 	list := p.stack(dir)
-	white := mathx.Color{R: 1, G: 1, B: 1, A: 1}
-	shown := 0
-	card := img.W * 0.62
-	for k := len(list) - 1; k >= 0; k-- {
-		it := &p.items[list[k]]
-		reg, ok := p.d.Thumbs.Get(*it)
-		if !ok {
-			continue
-		}
-		off := float32(k) * img.W * 0.1
-		cr := mathx.Rect{X: img.X + img.W - card - off, Y: img.Y + off, W: card, H: card}
-		ui.Rect(cr, th.PanelAlt)
-		ui.List().Texture(reg, fitRect(cr, reg.W, reg.H), white)
-		ui.Outline(cr, th.Border)
-		shown++
+	n := min(len(list), 3)
+	if img.W < 40 {
+		n = 0
 	}
-	icon := img.W * 0.45
-	at := mathx.Rect{X: img.X, Y: img.Y + img.H - icon, W: icon, H: icon}
-	if shown == 0 {
-		icon = img.W * 0.7
-		at = mathx.Rect{X: img.X + (img.W-icon)/2, Y: img.Y + (img.H-icon)/2, W: icon, H: icon}
+	cs := icon * 0.5
+	step := cs * 0.62
+	x0 := at.X + (at.W-cs-float32(n-1)*step)/2
+	for k := 0; k < n; k++ {
+		it := &p.items[list[k]]
+		lift := float32(k%2) * icon * 0.06
+		cr := mathx.Rect{X: x0 + float32(k)*step, Y: at.Y + icon*0.02 - lift, W: cs, H: cs}
+		ui.Rect(cr, th.CardBg)
+		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: cr.H * 0.42}
+		if !p.thumb(it, in) {
+			ic := cs * 0.4
+			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, kindIcon(it.Kind), p.kindColor(it.Kind))
+		}
+		ui.Outline(cr, th.Border)
 	}
 	widgets.IconAt(ui, at, "file.folder", th.Accent)
 }

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"aego/app/proc"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/project"
@@ -169,6 +170,7 @@ func Build(p *project.Project, t Target, mode Mode, engineVersion string, lg *lo
 	cmd := exec.Command("go", args...)
 	cmd.Dir = p.Root
 	cmd.Env = append(os.Environ(), "GOOS="+t.OS, "GOARCH="+t.Arch)
+	proc.Hide(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		os.RemoveAll(outDir)

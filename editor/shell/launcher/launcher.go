@@ -29,6 +29,7 @@ const (
 	cardW float32 = 200
 	cardH float32 = 176
 	gap   float32 = 10
+	goURL         = "https://go.dev/dl/"
 )
 
 type Template struct {
@@ -45,17 +46,34 @@ type Choice struct {
 	Title string
 }
 
+type CreateRequest struct {
+	Dir      string
+	Template string
+	Module   string
+	Example  string
+	Native   bool
+}
+
 type Options struct {
-	Templates      []Template
-	Examples       []string
-	ExamplePreview func(name string) ([]byte, error)
-	Workspaces     []Choice
-	Create         func(dir, template, module, example string) (string, error)
-	PickFolder     func(start string, done func(string))
-	Docs           func()
-	RecentPath     string
-	Home           string
-	Image          func(key string, load func() ([]byte, error)) (texture.Region, bool)
+	Templates       []Template
+	Examples        []string
+	ExamplePreview  func(name string) ([]byte, error)
+	Workspaces      []Choice
+	Create          func(dir, template, module, example string) (string, error)
+	CreateWith      func(CreateRequest) (string, error)
+	NativeHint      string
+	PickFolder      func(start string, done func(string))
+	PickProject     func(start string, done func(string))
+	Reveal          func(path string) error
+	RevealLabel     string
+	OpenURL         func(url string) error
+	Update          func() (version, url string, ok bool)
+	UpdateChecks    bool
+	SetUpdateChecks func(on bool)
+	Docs            func()
+	RecentPath      string
+	Home            string
+	Image           func(key string, load func() ([]byte, error)) (texture.Region, bool)
 }
 
 type Launcher struct {
@@ -69,6 +87,9 @@ type Launcher struct {
 	tmpl    int
 	example int
 	ws      int
+	native  bool
+	updates bool
+	menu    string
 	err     string
 	result  string
 	scroll  float32
@@ -76,7 +97,7 @@ type Launcher struct {
 }
 
 func New(opt Options) *Launcher {
-	l := &Launcher{opt: opt, name: "new-game", dir: opt.Home, tmpl: 1}
+	l := &Launcher{opt: opt, name: "new-game", dir: opt.Home, tmpl: 1, updates: opt.UpdateChecks}
 	if l.tmpl >= len(opt.Templates) {
 		l.tmpl = 0
 	}
@@ -100,6 +121,10 @@ func (l *Launcher) reload() {
 		l.err = "Recent projects are unreadable: " + err.Error()
 	}
 	l.recent = list
+}
+
+func (l *Launcher) SetPickers(folder, proj func(start string, done func(string))) {
+	l.opt.PickFolder, l.opt.PickProject = folder, proj
 }
 
 func (l *Launcher) Result() (string, bool) {
@@ -141,10 +166,20 @@ func (l *Launcher) workspace() string {
 }
 
 func (l *Launcher) Create(dir, template, module, example string) (string, error) {
-	if l.opt.Create == nil {
-		return "", errors.New("project creation is not available")
+	return l.create(CreateRequest{Dir: dir, Template: template, Module: module, Example: example, Native: l.native && l.opt.NativeHint == "" && example == ""})
+}
+
+func (l *Launcher) create(req CreateRequest) (string, error) {
+	var root string
+	var err error
+	switch {
+	case l.opt.CreateWith != nil:
+		root, err = l.opt.CreateWith(req)
+	case l.opt.Create != nil:
+		root, err = l.opt.Create(req.Dir, req.Template, req.Module, req.Example)
+	default:
+		err = errors.New("project creation is not available")
 	}
-	root, err := l.opt.Create(dir, template, module, example)
 	if err != nil {
 		l.err = err.Error()
 		return "", err
@@ -173,6 +208,26 @@ func (l *Launcher) Open(dir string) error {
 	return nil
 }
 
+func ProjectRoot(path string) (string, bool) {
+	if filepath.Base(path) == project.FileName {
+		return filepath.Dir(path), true
+	}
+	if st, err := os.Stat(path); err == nil && st.IsDir() {
+		if _, err := os.Stat(filepath.Join(path, project.FileName)); err == nil {
+			return path, true
+		}
+	}
+	return "", false
+}
+
+func (l *Launcher) Drop(path string) bool {
+	p := strings.TrimSpace(path)
+	if filepath.Base(p) == project.FileName {
+		p = filepath.Dir(p)
+	}
+	return l.Open(p) == nil
+}
+
 func (l *Launcher) image(key string, load func() ([]byte, error)) (texture.Region, bool) {
 	if l.opt.Image == nil || load == nil {
 		return texture.Region{}, false
@@ -194,8 +249,12 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	cur.X, cur.W = r.X+(r.W-w)/2, w
 	cur.Y = r.Y + 24 - l.scroll
 	top := cur.Y
-	widgets.Label(ui, "Aego")
+	head := cur.Next(0)
+	s := min(head.H, 16)
+	widgets.IconAt(ui, mathx.Rect{X: head.X, Y: head.Y + (head.H-s)/2, W: s, H: s}, "app", th.Text)
+	ui.Text("Aego", mathx.Vec2{X: head.X + s + 6, Y: ui.TextY(head)}, th.Text)
 	widgets.LabelDim(ui, "Open a recent project, start a new one or learn from an example.")
+	l.banner(ui)
 	l.tabs(ui)
 	if l.err != "" {
 		row := cur.Next(0)
@@ -211,13 +270,34 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	case TabExamples:
 		l.examplesTab(ui)
 	}
-	if l.opt.Docs != nil {
-		cur.Y += 10
-		if widgets.Button(ui, "Documentation") {
-			l.opt.Docs()
-		}
+	cur.Y += 10
+	if l.opt.Docs != nil && widgets.Button(ui, "Documentation") {
+		l.opt.Docs()
+	}
+	if l.opt.SetUpdateChecks != nil && widgets.Checkbox(ui, "Check for Aego updates once a day", &l.updates) {
+		l.opt.SetUpdateChecks(l.updates)
 	}
 	l.content = cur.Y - top
+}
+
+func (l *Launcher) banner(ui *core.Context) {
+	if l.opt.Update == nil {
+		return
+	}
+	ver, url, ok := l.opt.Update()
+	if !ok {
+		return
+	}
+	th := &ui.Theme
+	row := ui.Cursor().Next(0)
+	ui.RoundRect(row, th.Radius.Card, th.SelectionDim)
+	ui.Text("Aego "+ver+" is available", mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Text)
+	bw := ui.TextSize("Download").X + 20
+	if l.opt.OpenURL != nil && widgets.ButtonRect(ui, ui.ID("update.get"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Download") {
+		if err := l.opt.OpenURL(url); err != nil {
+			l.err = err.Error()
+		}
+	}
 }
 
 func (l *Launcher) tabs(ui *core.Context) {
@@ -305,11 +385,22 @@ func (l *Launcher) card(ui *core.Context, id core.ID, r mathx.Rect, c cardSpec) 
 	return clicked
 }
 
+func (l *Launcher) forget(path string) {
+	if l.opt.RecentPath == "" {
+		return
+	}
+	if err := Forget(l.opt.RecentPath, path); err != nil {
+		l.err = err.Error()
+	}
+	l.reload()
+}
+
 func (l *Launcher) recentTab(ui *core.Context) {
 	if len(l.recent) == 0 {
 		widgets.LabelDim(ui, "No recent projects yet")
 	}
-	forget := -1
+	mid := ui.ID("recent.menu")
+	forget := ""
 	l.grid(ui, len(l.recent), func(i int, r mathx.Rect) {
 		e := l.recent[i]
 		name := e.Name
@@ -324,30 +415,61 @@ func (l *Launcher) recentTab(ui *core.Context) {
 			sub = "missing, click to remove"
 		}
 		root := e.Path
+		id := ui.ID("recent/" + e.Path)
+		if ui.RightClicked(id, r) {
+			l.menu = e.Path
+			widgets.OpenContextMenu(ui, mid)
+		}
 		spec := cardSpec{title: name, sub: sub, icon: "file.folder", key: "recent:" + root, dim: e.Missing,
 			load: func() ([]byte, error) { return os.ReadFile(PreviewPath(root)) }}
-		if !l.card(ui, ui.ID("recent/"+e.Path), r, spec) {
+		if !l.card(ui, id, r, spec) {
 			return
 		}
 		if e.Missing {
-			forget = i
+			forget = e.Path
 			return
 		}
 		l.Open(e.Path)
 	})
-	if forget >= 0 && l.opt.RecentPath != "" {
-		if err := Forget(l.opt.RecentPath, l.recent[forget].Path); err != nil {
-			l.err = err.Error()
+	if widgets.ContextMenu(ui, mid) {
+		if widgets.MenuItem(ui, "Open", "", true, false) {
+			l.Open(l.menu)
 		}
-		l.reload()
+		if l.opt.Reveal != nil && widgets.MenuItem(ui, l.opt.RevealLabel, "", true, false) {
+			if err := l.opt.Reveal(filepath.Join(l.menu, project.FileName)); err != nil {
+				l.err = err.Error()
+			}
+		}
+		if widgets.MenuItem(ui, "Remove from List", "", true, false) {
+			forget = l.menu
+		}
+		widgets.EndContextMenu(ui)
 	}
-	l.heading(ui, "Open a folder")
+	if forget != "" {
+		l.forget(forget)
+	}
+	l.heading(ui, "Open a project")
 	row := ui.Cursor().Next(0)
 	bw := float32(90)
-	widgets.TextFieldRect(ui, ui.ID("open.dir"), mathx.Rect{X: row.X, Y: row.Y, W: row.W - bw - 4, H: row.H}, &l.open, true)
-	if widgets.ButtonRect(ui, ui.ID("open.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Open") {
-		l.Open(l.open)
+	pw := float32(0)
+	if l.opt.PickProject != nil {
+		pw = ui.TextSize("Browse…").X + 20
 	}
+	widgets.TextFieldRect(ui, ui.ID("open.dir"), mathx.Rect{X: row.X, Y: row.Y, W: max(0, row.W-bw-pw-8), H: row.H}, &l.open, true)
+	if pw > 0 && widgets.ButtonRect(ui, ui.ID("open.pick"), mathx.Rect{X: row.X + row.W - bw - pw - 4, Y: row.Y, W: pw, H: row.H}, "Browse…") {
+		start := l.open
+		if start == "" {
+			start = l.opt.Home
+		}
+		l.opt.PickProject(start, func(p string) {
+			l.open = p
+			l.Drop(p)
+		})
+	}
+	if widgets.ButtonRect(ui, ui.ID("open.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Open") {
+		l.Drop(l.open)
+	}
+	widgets.LabelDim(ui, "Or drop a project folder, or its "+project.FileName+", on this window.")
 }
 
 func (l *Launcher) newTab(ui *core.Context) {
@@ -383,11 +505,32 @@ func (l *Launcher) newTab(ui *core.Context) {
 		}
 		widgets.Combo(ui, ui.ID("new.workspace"), widgets.Field(ui, "Workspace"), &l.ws, names, false)
 	}
+	l.nativeRow(ui)
 	target := filepath.Join(l.dir, strings.TrimSpace(l.name))
 	widgets.LabelDim(ui, target)
 	if widgets.Button(ui, "Create") && strings.TrimSpace(l.name) != "" {
 		l.Create(target, l.templateID(), strings.TrimSpace(l.module), "")
 	}
+}
+
+func (l *Launcher) nativeRow(ui *core.Context) {
+	if l.opt.NativeHint == "" {
+		widgets.Checkbox(ui, "Native Go code", &l.native)
+		return
+	}
+	row := ui.Cursor().Next(0)
+	bw := float32(0)
+	if l.opt.OpenURL != nil {
+		bw = ui.TextSize("Get Go").X + 20
+		if widgets.ButtonRect(ui, ui.ID("new.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Get Go") {
+			if err := l.opt.OpenURL(goURL); err != nil {
+				l.err = err.Error()
+			}
+		}
+	}
+	ui.PushClip(mathx.Rect{X: row.X, Y: row.Y, W: max(0, row.W-bw-8), H: row.H})
+	ui.Text(l.opt.NativeHint, mathx.Vec2{X: row.X, Y: ui.TextY(row)}, ui.Theme.TextDim)
+	ui.PopClip()
 }
 
 func (l *Launcher) location(ui *core.Context) {

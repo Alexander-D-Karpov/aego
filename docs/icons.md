@@ -5,6 +5,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 
 | Icon | Owner | Size | Used by | Status |
 |---|---|---|---|---|
+| `app` | engine | 16 | launcher header; colored PNGs in app/brand are the window, installer and favicon icon | ok |
 | `app.quit` | engine | 16 | File → Quit | ok |
 | `audio.listener` | engine | 16 | component audio.AudioListener2D | ok |
 | `audio.source` | engine | 16 | component audio.AudioSource2D | ok |

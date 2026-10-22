@@ -35,6 +35,8 @@ type owned struct {
 	commands   []string
 	gizmos     []schema.TypeID
 	inspectors []schema.TypeID
+	assets     []string
+	players    []string
 }
 
 type pending struct {
@@ -139,6 +141,14 @@ func (r *Registry) disableNow(id, reason string) {
 		}
 		for _, t := range o.inspectors {
 			r.deps.Inspectors.Disable(t, reason)
+		}
+		if ed := r.deps.Editor; ed != nil {
+			for _, k := range o.assets {
+				delete(ed.AssetViews, k)
+			}
+			for _, k := range o.players {
+				delete(ed.AssetPlayers, k)
+			}
 		}
 	}
 	if r.deps.Workspace != nil {

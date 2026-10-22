@@ -50,7 +50,6 @@ a:hover { text-decoration: underline; }
 ::selection { background: var(--accent-soft); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 [hidden] { display: none !important; }
-code, pre, kbd, .st-fields, .output, .where, .range { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 
 .ic { width: 16px; height: 16px; flex: none; fill: currentColor; vertical-align: -3px; }
 .doc h1 .ic-title { width: 30px; height: 30px; margin-right: 12px; vertical-align: -3px; color: var(--accent); }
@@ -294,14 +293,24 @@ table.fields tr:target td { background: var(--accent-soft); }
 .home .doc h2 { margin-top: 40px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); }
 
 /* download buttons */
-.download { margin: 0 0 20px; }
-.dl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.dl-main .ic { width: 15px; height: 15px; }
-.dl-meta { font-size: 13px; color: var(--fg-faint); }
-.dl-list { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; }
-.dl-list li { display: inline-flex; gap: 6px; align-items: baseline; }
-.dl-list li span { color: var(--fg-faint); }
-.dl-list li.picked a { color: var(--fg); font-weight: 500; }
+.download { margin: 0 0 24px; max-width: 640px; border: 1px solid var(--line); border-radius: calc(var(--radius) + 4px); background: var(--bg-raised); overflow: hidden; }
+.dl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px; }
+.dl-main { height: 42px; padding: 0 18px; font-size: 15px; }
+.dl-main .ic { width: 16px; height: 16px; }
+.dl-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; line-height: 1.35; }
+.dl-file { color: var(--fg); font-weight: 500; }
+.dl-ver { color: var(--fg-faint); }
+.dl-ver a { color: var(--fg-muted); }
+.dl-list { display: grid; margin: 0; padding: 6px 16px 10px; list-style: none; font-size: 13px; border-top: 1px solid var(--line-soft); background: var(--bg); }
+.dl-list li { display: flex; align-items: baseline; gap: 16px; padding: 6px 0; }
+.dl-files { display: flex; flex-wrap: wrap; gap: 2px 18px; min-width: 0; }
+.dl-list li + li { border-top: 1px solid var(--line-soft); }
+.dl-os { flex: 0 0 72px; color: var(--fg-faint); font-weight: 500; }
+.dl-list li.picked .dl-os { color: var(--fg); }
+.dl-list a { color: var(--fg); font-weight: 500; }
+.dl-list a span { color: var(--fg-faint); font-weight: 400; }
+.dl-list a:hover span { color: var(--fg-muted); }
+.dl-list a.picked { color: var(--accent); }
 .hero .download + pre.install { margin-top: 4px; }
 
 /* demo on the home page */
@@ -349,6 +358,12 @@ table.fields tr:target td { background: var(--accent-soft); }
 .try-bar button:hover, .try-bar a.button:hover { background: var(--bg-hover); text-decoration: none; }
 .try-bar button:disabled { opacity: 0.5; cursor: default; }
 .try-status { color: var(--fg-muted); }
+.try-bar .try-sound .ic { position: relative; }
+.try-bar .try-sound[data-state="on"] .ic { color: var(--accent); }
+.try-bar .try-sound[data-state="muted"] { color: var(--fg-muted); }
+.try-bar .try-sound[data-state="muted"] .ic { opacity: 0.55; }
+.try-bar .try-sound[data-state="muted"] span { text-decoration: line-through; text-decoration-thickness: 1px; }
+.try-bar .try-sound[data-state="blocked"] { border-color: var(--accent); }
 .try-status.error { color: var(--error); }
 
 /* scene tree */
@@ -447,3 +462,6 @@ table.api code .t-kw, table.api code .t-ty, table.api code .t-bty { color: inher
 @media (prefers-reduced-motion: reduce) {
     .side, .nav-open .side, .menu span { transition: none; }
 }
+
+/* after every font shorthand, which resets ligatures */
+code, pre, pre code, kbd, .st-fields, .output, .where, .range { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }

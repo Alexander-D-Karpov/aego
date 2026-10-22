@@ -78,7 +78,41 @@
         return { box, update };
     }
 
+    let soundTimer = 0;
+
+    function audio() {
+        if (typeof globalThis.aegoAudioStats !== "function") return null;
+        try {
+            return JSON.parse(globalThis.aegoAudioStats());
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function syncSound(b) {
+        const btn = b.querySelector(".try-sound");
+        const st = audio();
+        if (!btn || !st || active !== b) return;
+        const state = st.muted ? "muted" : st.running ? "on" : "blocked";
+        if (btn.dataset.state === state && !btn.hidden) return;
+        btn.hidden = false;
+        btn.dataset.state = state;
+        btn.setAttribute("aria-pressed", String(state === "on"));
+        btn.querySelector("span").textContent = state === "on" ? "Sound on" : state === "muted" ? "Sound off" : "Turn sound on";
+        btn.title = state === "on" ? "Mute the scene" : state === "muted" ? "Unmute the scene" : "The browser holds sound until you click the page";
+    }
+
+    function watchSound(b) {
+        clearInterval(soundTimer);
+        if (!b.querySelector(".try-sound")) return;
+        syncSound(b);
+        soundTimer = setInterval(() => syncSound(b), 400);
+    }
+
     function release(b) {
+        clearInterval(soundTimer);
+        const sound = b.querySelector(".try-sound");
+        if (sound) sound.hidden = true;
         b.classList.remove("active");
         const stage = b.querySelector(".try-stage");
         stage.textContent = "";
@@ -116,6 +150,7 @@
             if (res.error) throw new Error(res.error);
             show(b, res.text, res.values);
             b.querySelector(".try-reset").disabled = false;
+            watchSound(b);
             status(b, "Change a field on the right: the scene restarts with it. Click the view to send input.");
         } catch (e) {
             p.box.remove();
@@ -146,6 +181,13 @@
             else show(b, res.text, res.values);
         });
         b.querySelector(".try-open").addEventListener("click", () => download(b));
+        const sound = b.querySelector(".try-sound");
+        if (sound) sound.addEventListener("click", () => {
+            const st = audio();
+            if (active !== b || !st) return;
+            if (st.muted || st.running) globalThis.aegoAudioMute(!st.muted);
+            setTimeout(() => syncSound(b), 50);
+        });
         b.querySelector(".try-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(texts.get(b));

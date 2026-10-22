@@ -13,6 +13,12 @@ import (
 	"aego/core/errs"
 )
 
+type DocType struct {
+	Name       string
+	Extensions []string
+	Role       string
+}
+
 type Info struct {
 	Name       string
 	Executable string
@@ -22,6 +28,7 @@ type Info struct {
 	MinOS      string
 	Category   string
 	Copyright  string
+	Documents  []DocType
 }
 
 var icnsTypes = []struct {
@@ -80,6 +87,23 @@ func Plist(i Info, iconFile string) []byte {
 	str("LSMinimumSystemVersion", i.MinOS)
 	str("LSApplicationCategoryType", i.Category)
 	str("NSHumanReadableCopyright", i.Copyright)
+	if len(i.Documents) > 0 {
+		b.WriteString("\t<key>CFBundleDocumentTypes</key>\n\t<array>\n")
+		for _, d := range i.Documents {
+			role := d.Role
+			if role == "" {
+				role = "Editor"
+			}
+			b.WriteString("\t\t<dict>\n\t\t\t<key>CFBundleTypeName</key>\n\t\t\t<string>" + esc(d.Name) + "</string>\n")
+			b.WriteString("\t\t\t<key>CFBundleTypeRole</key>\n\t\t\t<string>" + esc(role) + "</string>\n")
+			b.WriteString("\t\t\t<key>CFBundleTypeExtensions</key>\n\t\t\t<array>\n")
+			for _, e := range d.Extensions {
+				b.WriteString("\t\t\t\t<string>" + esc(e) + "</string>\n")
+			}
+			b.WriteString("\t\t\t</array>\n\t\t</dict>\n")
+		}
+		b.WriteString("\t</array>\n")
+	}
 	b.WriteString("\t<key>NSHighResolutionCapable</key>\n\t<true/>\n")
 	b.WriteString("</dict>\n</plist>\n")
 	return []byte(b.String())
@@ -92,7 +116,7 @@ func ICNS(src image.Image) ([]byte, error) {
 		data, ok := cache[t.size]
 		if !ok {
 			var err error
-			if data, err = icon.PNG(icon.Resize(src, t.size, t.size)); err != nil {
+			if data, err = icon.PNG(icon.Sized(src, t.size)); err != nil {
 				return nil, err
 			}
 			cache[t.size] = data

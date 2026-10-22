@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"aego/asset"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/core/mathx"
@@ -35,8 +36,10 @@ var (
 )
 
 type plugin struct {
-	ed  *context.Editor
-	mod *audio.Module
+	ed   *context.Editor
+	mod  *audio.Module
+	clip clipEdit
+	aud  audition
 }
 
 func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
@@ -48,7 +51,7 @@ func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
 }
 
 func Hook(e *ext.Registry) error {
-	p := &plugin{ed: e.Editor()}
+	p := &plugin{ed: e.Editor(), clip: clipEdit{drag: -1}}
 	sr := e.Schema()
 	src, err := lookup(sr, audio.NameSource)
 	if err != nil {
@@ -65,6 +68,15 @@ func Hook(e *ext.Registry) error {
 		return err
 	}
 	if err := e.Inspector(audio.NameSource, inspect.CustomFunc(p.sourceInspector)); err != nil {
+		return err
+	}
+	if err := e.AssetInspector(string(asset.ArtAudio), p.clipInspector); err != nil {
+		return err
+	}
+	if err := e.AssetPlayer(string(asset.ArtAudio), context.AssetPlayer{Play: p.playClip, Stop: p.stopAudition, Playing: p.clipPlaying}); err != nil {
+		return err
+	}
+	if err := e.AssetPlayer(audio.NameEvent, context.AssetPlayer{Play: p.playEvent, Stop: p.stopAudition, Playing: p.eventPlaying}); err != nil {
 		return err
 	}
 	e.Overlay(p.sceneOverlay)

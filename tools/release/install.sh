@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs the Aego editor and CLI from the latest Gitea release.
-# Usage: curl -fsSL https://aego.akarpov.ru/install.sh | sh [-s -- --nightly] [--prefix DIR] [--version vX.Y.Z] [--no-deps]
+# Usage: curl -fsSL https://aego.akarpov.ru/install.sh | sh [-s -- --nightly] [--prefix DIR] [--version vX.Y.Z] [--no-deps] [--no-desktop]
 set -eu
 
 api="${AEGO_API:-https://git.akarpov.ru/api/v1/repos/sanspie/aego}"
@@ -8,6 +8,7 @@ docs="https://aego.akarpov.ru/install.html"
 prefix="${AEGO_PREFIX:-$HOME/.local}"
 which="latest"
 deps=1
+desktop=1
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -15,8 +16,9 @@ while [ $# -gt 0 ]; do
 	--version) which="tags/${2:?--version needs a tag}"; shift ;;
 	--prefix) prefix="${2:?--prefix needs a directory}"; shift ;;
 	--no-deps) deps=0 ;;
+	--no-desktop) desktop=0 ;;
 	-h | --help)
-		echo "usage: install.sh [--nightly | --version vX.Y.Z] [--prefix DIR] [--no-deps]"
+		echo "usage: install.sh [--nightly | --version vX.Y.Z] [--prefix DIR] [--no-deps] [--no-desktop]"
 		exit 0 ;;
 	*) echo "install.sh: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -199,11 +201,47 @@ check_glibc() {
 	fi
 }
 
+install_desktop() {
+	data="${XDG_DATA_HOME:-$HOME/.local/share}"
+	mkdir -p "$data/applications" "$data/icons/hicolor/256x256/apps" "$data/mime/packages"
+	[ -f "$dest/share/aego.png" ] && cp "$dest/share/aego.png" "$data/icons/hicolor/256x256/apps/aego.png"
+	cat > "$data/applications/aego.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Aego
+Comment=Game engine and editor
+Exec="$dest/bin/aego" edit %f
+Icon=aego
+Categories=Development;IDE;
+MimeType=application/x-aego-project;application/x-aego-scene;
+Terminal=false
+EOF
+	cat > "$data/mime/packages/aego.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-aego-project">
+    <comment>Aego project</comment>
+    <glob pattern="project.aego"/>
+    <glob pattern="*.aego"/>
+  </mime-type>
+  <mime-type type="application/x-aego-scene">
+    <comment>Aego scene</comment>
+    <glob pattern="*.aescene"/>
+    <glob pattern="*.aeprefab"/>
+  </mime-type>
+</mime-info>
+EOF
+	command -v update-mime-database >/dev/null 2>&1 && update-mime-database "$data/mime" >/dev/null 2>&1 || true
+	command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$data/applications" >/dev/null 2>&1 || true
+	command -v xdg-mime >/dev/null 2>&1 && xdg-mime default aego.desktop application/x-aego-project application/x-aego-scene >/dev/null 2>&1 || true
+}
+
 check_glibc
 if [ "$deps" = 1 ]; then
 	install_deps
 	check_gl
 fi
+[ "$desktop" = 1 ] && install_desktop
 
 say "Installed $(head -n 1 "$dest/VERSION") to $dest"
 case ":$PATH:" in

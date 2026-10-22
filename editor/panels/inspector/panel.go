@@ -3,6 +3,7 @@ package inspector
 import (
 	"aego/editor/ext/inspect"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,8 @@ type Deps struct {
 	Data      *dataedit.Service
 	Schema    *schema.Registry
 	Presets   *presets.Service
+	AssetView func(ids.AssetID) bool
+	Audition  func(id ids.AssetID, toggle bool) (playing, ok bool)
 }
 
 type Panel struct {
@@ -161,7 +164,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.info = nil
 	if p.d.Data != nil && !p.locked {
 		if id := p.d.Data.Inspected(); !id.IsZero() {
-			p.drawData(r, id)
+			if p.d.AssetView == nil || !p.d.AssetView(id) {
+				p.drawData(r, id)
+			}
 			return
 		}
 	}
@@ -683,20 +688,30 @@ func (p *Panel) reset(d *document.SceneDocument, td *schema.TypeDescriptor) {
 
 func (p *Panel) blocked(s *scene.Scene, reg *schema.Registry, td *schema.TypeDescriptor) string {
 	for _, name := range td.Requires {
-		req, ok := reg.ByName(name)
-		if !ok {
+		if _, ok := reg.ByName(name); !ok {
 			return "needs " + name
-		}
-		for _, n := range p.nodes {
-			if _, has := s.GetByType(s.Handle(n), req.ID); !has {
-				return "needs " + p.reg.Meta(req).DisplayName
-			}
 		}
 	}
 	if td.SceneUnique && (len(p.nodes) > 1 || inScene(s, td.ID)) {
 		return "one per scene"
 	}
 	return ""
+}
+
+// requiredChain lists the components td needs that node n lacks, dependencies first.
+func (p *Panel) requiredChain(s *scene.Scene, reg *schema.Registry, td *schema.TypeDescriptor, n ids.NodeID, out []*schema.TypeDescriptor) []*schema.TypeDescriptor {
+	for _, name := range td.Requires {
+		req, ok := reg.ByName(name)
+		if !ok || slices.Contains(out, req) {
+			continue
+		}
+		if _, has := s.GetByType(s.Handle(n), req.ID); has {
+			continue
+		}
+		out = p.requiredChain(s, reg, req, n, out)
+		out = append(out, req)
+	}
+	return out
 }
 
 func inScene(s *scene.Scene, t schema.TypeID) bool {
@@ -778,6 +793,9 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 				widgets.HeaderIcon(ui, meta.Icon, label+" — "+why, true)
 				continue
 			}
+			for _, req := range p.requiredChain(s, reg, td, p.nodes[0], nil) {
+				label += " + " + p.reg.Meta(req).DisplayName
+			}
 			if first == nil {
 				first = td
 			}
@@ -800,16 +818,19 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 func (p *Panel) add(d *document.SceneDocument, td *schema.TypeDescriptor) {
 	p.confirm(d, "Add "+p.reg.Meta(td).DisplayName, func() error {
 		s := d.Scene()
+		reg := s.Registry()
 		env := commands.WithOnAdd(commands.EnvFor(s), p.d.Clip.OnAdd)
-		defaults := p.reg.Defaults(td.ID)
 		tx := d.History.Begin("Add " + td.FullName)
 		for _, n := range p.nodes {
-			if _, ok := s.GetByType(s.Handle(n), td.ID); ok {
-				continue
-			}
-			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, n, td, defaults))); err != nil {
-				tx.Abort()
-				return err
+			list := append(p.requiredChain(s, reg, td, n, nil), td)
+			for _, t := range list {
+				if _, ok := s.GetByType(s.Handle(n), t.ID); ok {
+					continue
+				}
+				if err := tx.Exec(commands.NewMutation("Add "+t.FullName, env, commands.AddComp(s, n, t, p.reg.Defaults(t.ID)))); err != nil {
+					tx.Abort()
+					return err
+				}
 			}
 		}
 		tx.Commit()

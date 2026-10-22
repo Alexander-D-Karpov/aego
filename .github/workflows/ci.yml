@@ -37,6 +37,10 @@ jobs:
       - run: go vet ./platform/sdl
       - run: make lint
       - run: make depcheck
+      - name: packaging tools
+        run: sudo apt-get install -y nsis squashfs-tools
+      - name: installer dry run
+        run: make nsis-check
 
   build:
     strategy:

@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"aego/app/brand"
 )
 
 //go:embed templates/layout.html
@@ -196,7 +198,30 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 	if err := b.write(); err != nil {
 		return Report{}, err
 	}
+	if err := b.writeBrand(); err != nil {
+		return Report{}, err
+	}
 	return b.report, nil
+}
+
+func (b *builder) writeBrand() error {
+	for _, f := range []struct {
+		size int
+		name string
+	}{{32, "favicon.png"}, {180, "apple-touch-icon.png"}} {
+		data, ok := brand.PNG(f.size)
+		if !ok {
+			continue
+		}
+		dst := filepath.Join(b.out, "assets", f.name)
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, data, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *builder) index() {
@@ -282,6 +307,37 @@ func (b *builder) route() {
 	for _, g := range b.groups {
 		walk("", g.roots)
 	}
+}
+
+var linkAttr = regexp.MustCompile(`(href|data-fallback)="([^"]*)"`)
+
+// cleanURL drops .html from a site-relative link; the server maps /page to page.html.
+func cleanURL(u string) string {
+	if u == "" || strings.Contains(u, "://") || strings.HasPrefix(u, "#") || strings.HasPrefix(u, "mailto:") || strings.HasPrefix(u, "data:") {
+		return u
+	}
+	path, rest := u, ""
+	if i := strings.IndexAny(u, "?#"); i >= 0 {
+		path, rest = u[:i], u[i:]
+	}
+	switch {
+	case path == "index.html":
+		path = "./"
+	case strings.HasSuffix(path, "/index.html"):
+		path = strings.TrimSuffix(path, "index.html")
+	case strings.HasSuffix(path, ".html"):
+		path = strings.TrimSuffix(path, ".html")
+	default:
+		return u
+	}
+	return path + rest
+}
+
+func cleanLinks(page string) string {
+	return linkAttr.ReplaceAllStringFunc(page, func(m string) string {
+		sub := linkAttr.FindStringSubmatch(m)
+		return sub[1] + `="` + cleanURL(sub[2]) + `"`
+	})
 }
 
 func rootOf(p string) string {
@@ -589,6 +645,14 @@ func (b *builder) crumbs(e *Entry, root string) string {
 	return `<nav class="crumbs">` + strings.Join(trail, `<span class="sep">/</span>`) + "</nav>\n"
 }
 
+// soundButton toggles the sound of a try scene that plays any; try.js shows it once the scene runs.
+func (b *builder) soundButton(e *Entry, root string) string {
+	if !strings.Contains(e.Try, `component "audio.`) && !strings.Contains(e.TryScript, `"aego/audio"`) {
+		return ""
+	}
+	return `<button type="button" class="try-sound" aria-pressed="false" hidden>` + b.icon(root, "cat.audio", "") + `<span>Sound</span></button>`
+}
+
 func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	name := e.ID
 	if i := strings.LastIndexByte(name, '.'); i >= 0 {
@@ -603,7 +667,7 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
 	c.WriteString(`<p class="try-caption">A live scene with ` + esc(e.Title) + `: edit its fields in the Inspector on the right and the scene restarts with them.</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + `Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
-	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + `Open in editor</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + `Copy as .aescene</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + `Reset</button><span class="try-status" role="status"></span></div>` + "\n")
+	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + `Open in editor</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + `Copy as .aescene</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + `Reset</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
 	c.WriteString(b.sceneTree(e.Try, root))
 	if e.TryScript != "" {
 		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>Script</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
@@ -972,7 +1036,7 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		return err
 	}
 	b.report.Pages++
-	return os.WriteFile(dst, []byte(buf.String()), 0o644)
+	return os.WriteFile(dst, []byte(cleanLinks(buf.String())), 0o644)
 }
 
 func (b *builder) walkOwn(ids []string, depth int, fn func(id string, depth int)) {
@@ -1018,7 +1082,7 @@ func (b *builder) llms() string {
 		c.WriteString("\n### " + g.Title + "\n\n")
 		b.walkOwn(g.roots, 0, func(id string, _ int) {
 			e := b.byID[id]
-			line := "- [" + e.Title + "](" + b.urls[id] + ")"
+			line := "- [" + e.Title + "](" + cleanURL(b.urls[id]) + ")"
 			if s := plainMD(e.Summary); s != "" {
 				line += ": " + s
 			}
@@ -1040,7 +1104,7 @@ func (b *builder) write() error {
 			continue
 		}
 		b.report.Entries++
-		item := searchItem{Title: e.Title, URL: u, Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID, Icon: b.entryIcon(e)}
+		item := searchItem{Title: e.Title, URL: cleanURL(u), Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID, Icon: b.entryIcon(e)}
 		if gi, ok := b.groupOf[e.ID]; ok {
 			item.Group, item.Section = b.groups[gi].Title, b.groups[gi].Section
 		}

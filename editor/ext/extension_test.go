@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
@@ -15,6 +16,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/scene"
 	"aego/schema"
+	"aego/ui/core"
 )
 
 type boomPanel struct{}
@@ -109,5 +111,31 @@ func TestFailedRegistrationRollsBack(t *testing.T) {
 	}
 	if _, ok := r.Disabled()["game"]; !ok {
 		t.Fatal("failed extension must be marked disabled")
+	}
+}
+
+func TestPanickingAssetInspectorDisablesExtension(t *testing.T) {
+	r, d := setup(t)
+	d.Editor.UI = core.New(nil)
+	err := r.Run("game", func(r *Registry) error {
+		return r.AssetInspector("audio", func(*context.Editor, ids.AssetID) { panic("boom") })
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AssetInspector("audio", func(*context.Editor, ids.AssetID) {}); err == nil {
+		t.Fatal("a second inspector for the same kind was accepted")
+	}
+	view, ok := d.Editor.AssetViews["audio"]
+	if !ok {
+		t.Fatal("asset inspector not registered")
+	}
+	view(d.Editor, ids.AssetID{})
+	r.Flush()
+	if _, ok := r.Disabled()["game"]; !ok {
+		t.Fatal("extension not disabled")
+	}
+	if _, ok := d.Editor.AssetViews["audio"]; ok {
+		t.Fatal("asset inspector of a disabled extension must be removed")
 	}
 }

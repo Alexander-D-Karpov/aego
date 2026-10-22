@@ -1,5 +1,9 @@
 Aego: game engine and editor.
 
+  aego-editor (Windows) or the Aego app opens the launcher: recent projects,
+  new projects from templates, examples.
+
+  bin/aego edit           the launcher from a terminal
   bin/aego new mygame     create a project
   bin/aego edit mygame    open it in the editor
   bin/aego help           every command

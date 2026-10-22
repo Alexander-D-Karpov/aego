@@ -29,9 +29,40 @@ type seg struct {
 	p    [3]pt
 }
 
-type icon struct {
-	vb   [4]float64
+type layer struct {
+	fill color.NRGBA
 	segs []seg
+}
+
+type icon struct {
+	vb     [4]float64
+	segs   []seg
+	layers []layer
+}
+
+func (ic *icon) add(segs []seg, fill string) {
+	ic.segs = append(ic.segs, segs...)
+	ic.layers = append(ic.layers, layer{fill: parseFill(fill), segs: segs})
+}
+
+func parseFill(s string) color.NRGBA {
+	s = strings.TrimSpace(s)
+	white := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	if s == "none" {
+		return color.NRGBA{}
+	}
+	h, ok := strings.CutPrefix(s, "#")
+	if !ok {
+		return white
+	}
+	if len(h) == 3 {
+		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
+	}
+	v, err := strconv.ParseUint(h, 16, 32)
+	if len(h) != 6 || err != nil {
+		return white
+	}
+	return color.NRGBA{R: uint8(v >> 16), G: uint8(v >> 8), B: uint8(v), A: 255}
 }
 
 type iconJSON struct {
@@ -59,9 +90,17 @@ func main() {
 	initSrc := flag.Bool("init", false, "write placeholder svgs for ids that have no source yet")
 	sizes := flag.String("sizes", "16,24", "icon sizes in logical pixels")
 	scales := flag.String("scales", "1,2", "atlas scales")
+	glyphFont := flag.String("glyph-font", "", "font file or glob; writes the app icon source from its æ glyph")
+	glyphOut := flag.String("glyph-out", "../../engine/res/icons/src/"+brandID+".svg", "where -glyph-font writes the app icon source")
+	brandOut := flag.String("brand-out", "../../app/brand/png", "directory for the colored app icon PNGs, empty to skip")
 	flag.Parse()
 
 	dirs := strings.Split(*src, ",")
+	if *glyphFont != "" {
+		if err := writeGlyphSVG(*glyphFont, *glyphOut); err != nil {
+			fail(err)
+		}
+	}
 	if *initSrc {
 		if err := writePlaceholders(dirs); err != nil {
 			fail(err)
@@ -107,6 +146,12 @@ func main() {
 	}
 	if err := os.WriteFile(filepath.Join(*out, "icons.json"), append(blob, '\n'), 0o644); err != nil {
 		fail(err)
+	}
+	if ic, ok := icons[brandID]; ok && *brandOut != "" {
+		if err := renderBrand(ic, *brandOut); err != nil {
+			fail(err)
+		}
+		fmt.Printf("wrote %d app icons to %s\n", len(brandSizes), *brandOut)
 	}
 }
 
@@ -174,6 +219,7 @@ func parseSVG(data []byte) (icon, error) {
 			v, _ := strconv.ParseFloat(strings.TrimSpace(attr(n)), 64)
 			return v
 		}
+		var d string
 		switch se.Name.Local {
 		case "svg":
 			if vb := strings.Fields(strings.ReplaceAll(attr("viewBox"), ",", " ")); len(vb) == 4 {
@@ -181,18 +227,13 @@ func parseSVG(data []byte) (icon, error) {
 					ic.vb[i], _ = strconv.ParseFloat(vb[i], 64)
 				}
 			}
+			continue
 		case "path":
-			segs, err := parsePath(attr("d"))
-			if err != nil {
-				return ic, err
-			}
-			ic.segs = append(ic.segs, segs...)
+			d = attr("d")
 		case "rect":
-			segs, _ := parsePath(rect(num("x"), num("y"), num("width"), num("height"), false))
-			ic.segs = append(ic.segs, segs...)
+			d = rect(num("x"), num("y"), num("width"), num("height"), false)
 		case "circle":
-			segs, _ := parsePath(circle(num("cx"), num("cy"), num("r"), false))
-			ic.segs = append(ic.segs, segs...)
+			d = circle(num("cx"), num("cy"), num("r"), false)
 		case "polygon":
 			var xy []float64
 			for _, f := range strings.Fields(strings.ReplaceAll(attr("points"), ",", " ")) {
@@ -202,12 +243,15 @@ func parseSVG(data []byte) (icon, error) {
 				}
 				xy = append(xy, v)
 			}
-			segs, err := parsePath(poly(false, xy...))
-			if err != nil {
-				return ic, err
-			}
-			ic.segs = append(ic.segs, segs...)
+			d = poly(false, xy...)
+		default:
+			continue
 		}
+		segs, err := parsePath(d)
+		if err != nil {
+			return ic, err
+		}
+		ic.add(segs, attr("fill"))
 	}
 	return ic, nil
 }
@@ -362,14 +406,18 @@ func parsePath(d string) ([]seg, error) {
 }
 
 func raster(ic icon, px int) *image.Alpha {
+	return rasterSegs(ic.vb, ic.segs, px)
+}
+
+func rasterSegs(vb [4]float64, segs []seg, px int) *image.Alpha {
 	r := vector.NewRasterizer(px, px)
-	sx := float64(px) / ic.vb[2]
-	sy := float64(px) / ic.vb[3]
+	sx := float64(px) / vb[2]
+	sy := float64(px) / vb[3]
 	tr := func(p pt) (float32, float32) {
-		return float32((p.x - ic.vb[0]) * sx), float32((p.y - ic.vb[1]) * sy)
+		return float32((p.x - vb[0]) * sx), float32((p.y - vb[1]) * sy)
 	}
 	open := false
-	for _, s := range ic.segs {
+	for _, s := range segs {
 		switch s.kind {
 		case 'M':
 			if open {

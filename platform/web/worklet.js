@@ -74,7 +74,7 @@ class AegoOut extends AudioWorkletProcessor {
         this.since += n;
         if (this.since >= this.report) {
             this.since = 0;
-            this.port.postMessage({ consumed: this.consumed, underruns: this.underruns, sum: this.sum, count: this.count });
+            this.port.postMessage({ consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count });
         }
         return true;
     }

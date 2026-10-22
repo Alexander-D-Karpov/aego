@@ -38,3 +38,21 @@ func TestSendCount(t *testing.T) {
 		t.Fatal(c.queued())
 	}
 }
+
+func TestSendCountClock(t *testing.T) {
+	c := sendCount{sent: 4096, consumed: 2048}
+	if q := c.queuedAt(5, 48000, 4096); q != 2048 {
+		t.Fatalf("before any report = %d", q)
+	}
+	c.at = 1
+	if q := c.queuedAt(1+1024.0/48000, 48000, 4096); q != 1024 {
+		t.Fatalf("1024 frames after the report = %d", q)
+	}
+	if q := c.queuedAt(2, 48000, 4096); q != 0 {
+		t.Fatalf("a second after the report = %d", q)
+	}
+	c.sent = 100000
+	if q := c.queuedAt(60, 48000, 4096); q != 100000-2048-4096 {
+		t.Fatalf("silent worklet = %d", q)
+	}
+}

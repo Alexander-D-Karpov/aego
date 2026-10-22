@@ -12,7 +12,7 @@
 
     function syncMute() {
         const on = globalThis.aegoAudioMute();
-        mute.textContent = on ? "🔇" : "🔊";
+        mute.classList.toggle("muted", on);
         mute.title = on ? "Unmute" : "Mute";
         mute.setAttribute("aria-label", mute.title);
     }

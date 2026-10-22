@@ -15,7 +15,7 @@ Everything the editor does to a project is also available from the `aego` comman
 | Command | What it does |
 |---|---|
 | `aego new <dir> --template 2d` | creates a project from a template and checks it |
-| `aego edit [dir]` | opens the editor, or the launcher when no project is found |
+| `aego edit [path]` | opens the project at path, or the editor on a scene or prefab file, or the launcher when no project is found; `--launcher new` opens the launcher |
 | `aego run [dir]` | runs the main scene and reloads assets and scripts on save |
 | `aego check [dir]` | compiles every script package and checks the project; script errors exit 1, broken native code exits 2 |
 | `aego test [dir]` | runs `*_test.aes` script tests; `--determinism` runs the main scene twice and compares state hashes |

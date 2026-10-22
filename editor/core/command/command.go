@@ -207,6 +207,15 @@ func (r *Registry) Category(cat string) []Desc {
 	return out
 }
 
+func (r *Registry) HasCategory(cat string) bool {
+	for _, id := range r.order {
+		if r.byID[id].Category == cat {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Registry) Categories() []string {
 	seen := map[string]bool{}
 	var out []string

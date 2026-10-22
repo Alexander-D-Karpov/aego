@@ -7,49 +7,89 @@ order: 0
 ---
 # Install and run
 
-Aego is one program, `aego`: the editor, the command line tools and the game runner. Install a prebuilt build on Linux with one command or on Windows with an installer, or build it from source on Linux, macOS and Windows.
+Aego is one program: the editor with its launcher, the command line tools and the game runner. Download it, open it, make a project; no terminal is needed.
 
 ![The Aego editor with the platformer example open](shots/editor.png)
 
-## Linux
+## Download
 
-On x86-64:
+Every file is on the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest), with its SHA-256 sum in `SHA256SUMS.txt`. The [nightly pre-release](https://git.akarpov.ru/sanspie/aego/releases/tag/nightly) is rebuilt from every green commit.
+
+| System | File | Then |
+|---|---|---|
+| Windows 10 and 11, x86-64 | `aego-<version>-windows-amd64-setup.exe` | run it; Aego appears in the Start menu and on the desktop |
+| macOS 11 and later | `Aego-<version>.dmg` | open it and drag Aego to Applications |
+| Linux, x86-64 | `Aego-<version>-x86_64.AppImage` | make it executable (`chmod +x`, or Properties → Allow executing) and open it |
+
+Opening Aego shows the launcher: recent projects, **New Project** with templates, and **Examples**. New projects go to `Documents/Aego Projects` unless you choose another folder with **Browse…**. Drop a project folder, or its `project.aego`, on the launcher to open it. The launcher checks for a newer release once a day and shows a banner with a download link; it never updates by itself, and the check can be turned off at the bottom of the launcher.
+
+### Windows
+
+The installer works without administrator rights and installs into `%LOCALAPPDATA%\Programs\Aego`. Double-clicking a `project.aego` opens the project, and a `.aescene` or `.aeprefab` opens the editor on that file. The optional "Open with Aego" item in folder menus opens a project folder. Run a newer installer to update; uninstall from Settings → Apps, which also removes the file associations. The editor needs a GPU driver with OpenGL 3.3, which every driver from the last ten years has.
+
+### macOS
+
+The app is signed ad hoc, not notarized, so on first launch macOS says it cannot check it. Open System Settings → Privacy & Security and press **Open Anyway** under the message about Aego, or right-click Aego in Applications and choose Open. A release may come without a `.dmg`, because it is built on a Mac separately, and its sum is not in `SHA256SUMS.txt`; without one, build from source.
+
+### Linux
+
+The AppImage needs glibc 2.39 or newer (Ubuntu 24.04, Debian 13, Fedora 40) and OpenGL 3.3 on X11 or Wayland. Tools such as Gear Lever or AppImageLauncher add it to the application menu; the install script below does that by itself.
+
+## Native code
+
+Projects edited with scripts need nothing else. The **Native Go code** option of New Project, and exports to other operating systems, need [Go 1.27](https://go.dev/dl/) and an engine source checkout set in `AEGO_ROOT`. When a native project is opened without Go, the editor still opens it for scripts and says in the status bar that native code is not built.
+
+## In the editor
+
+File → New Project, Open Project, Open Recent and Close Project switch projects. Play → Run Script Tests runs the `*_test.aes` files with the results in Console. The Export panel builds a game into the folder you choose, then **Open Folder** shows it and **Run** starts it (a web build opens in the browser from a local server). Help → Open Logs Folder, Crash Reports and Report a Bug collect what a bug report needs.
+
+## Command line and CI
+
+The same program works from a terminal, for scripts, agents and CI.
+
+Linux, also for updating:
 
 ```sh
 curl -fsSL https://aego.akarpov.ru/install.sh | sh
 ```
 
-The script downloads the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest), checks its SHA-256 sum, unpacks it to `~/.local/share/aego` and links `~/.local/bin/aego`. Run it again to update. Options go after `sh -s --`:
+It checks the archive's SHA-256 sum, unpacks it to `~/.local/share/aego`, links `~/.local/bin/aego`, adds Aego to the application menu with `project.aego` files opening in it, and installs missing system libraries (Mesa OpenGL, X11, Wayland and xkbcommon) with apt, dnf, pacman or zypper, using `sudo` when it is not run as root. Options go after `sh -s --`:
 
-| Option | Installs |
+| Option | Does |
 |---|---|
-| (none) | the latest release |
-| `--nightly` | the [nightly pre-release](https://git.akarpov.ru/sanspie/aego/releases/tag/nightly), rebuilt from every green commit on master |
-| `--version v0.9.0-beta.1` | one exact release |
-| `--prefix DIR` | into `DIR/share/aego` and `DIR/bin` instead of `~/.local` |
-| `--no-deps` | without installing system libraries |
+| `--nightly` | installs the nightly pre-release |
+| `--version v0.9.0-beta.1` | installs one exact release |
+| `--prefix DIR` | installs into `DIR/share/aego` and `DIR/bin` |
+| `--no-deps` | skips system libraries |
+| `--no-desktop` | skips the application menu entry and file types |
 
-```sh
-curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly
-```
+To install by hand, download `aego-<version>-linux-amd64.tar.gz` and `SHA256SUMS.txt`, check the archive with `sha256sum -c --ignore-missing SHA256SUMS.txt`, unpack it anywhere and put its `bin` directory on `PATH`.
 
-To install by hand, download `aego-<version>-linux-amd64.tar.gz` and `SHA256SUMS.txt` from the [releases page](https://git.akarpov.ru/sanspie/aego/releases), check the archive with `sha256sum -c --ignore-missing SHA256SUMS.txt`, unpack it anywhere and put its `bin` directory on `PATH`.
-
-The prebuilt editor needs glibc 2.39 or newer (Ubuntu 24.04, Debian 13, Fedora 40 and later) and OpenGL 3.3 on X11 or Wayland. The script installs the system libraries it needs when they are missing (Mesa OpenGL, X11, Wayland and xkbcommon) with apt, dnf, pacman or zypper, using `sudo` when it is not run as root; `--no-deps` skips that. When `glxinfo` is present it also warns if the driver offers less than OpenGL 3.3. It edits, runs and exports projects that use scripts only. Projects with native Go modules, and exports to other operating systems, need Go and a source checkout: see below.
-
-## Windows
-
-Download `aego-<version>-windows-amd64-setup.zip` from the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest), open it and run the setup program inside. It installs for your user without administrator rights, into `%LOCALAPPDATA%\Programs\Aego`: the editor with Start menu and desktop shortcuts, and `aego` on `PATH` for terminals. Run a newer installer to update; uninstall from Settings → Apps. The editor needs a GPU driver with OpenGL 3.3, which every driver from the last ten years has.
-
-The same from PowerShell, also for updating:
+Windows, also for updating:
 
 ```powershell
 irm https://aego.akarpov.ru/install.ps1 | iex
 ```
 
-Set `$env:AEGO_CHANNEL = "nightly"` first for the [nightly build](https://git.akarpov.ru/sanspie/aego/releases/tag/nightly). The release also has a `.zip` with the same two programs for unpacking by hand.
+Set `$env:AEGO_CHANNEL = "nightly"` first for the nightly build. The release also has a `.zip` with the two programs for unpacking by hand.
 
-Prebuilt macOS builds are not published yet; build from source there.
+```sh
+aego new mygame
+aego edit mygame
+aego edit mygame/scenes/main.aescene
+aego edit --launcher new
+```
+
+`aego new` creates a 2D project with a scene holding a camera and a sprite, and a script to start from; `--template 3d` and the other templates are listed by `aego help`. In the editor, the Getting Started panel walks through the first six steps: a node, a script, Play, a live tweak, hot reload and fixing an error.
+
+| Command | Does |
+|---|---|
+| `aego run mygame` | runs the game without the editor |
+| `aego check mygame` | type-checks scripts and audits every file |
+| `aego test mygame` | runs the project's script tests |
+| `aego export mygame --target web` | builds a web version, like the demo on the home page |
+
+The [CLI reference](ref:cli) lists every command and flag.
 
 ## Build from source
 
@@ -67,15 +107,15 @@ sudo apt-get install -y build-essential cmake ninja-build pkg-config \
   libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
 ```
 
-Other distributions need the same libraries under their own package names.
+Other distributions need the same libraries under their own package names. `make appimage` packs the result into an AppImage.
 
 ### macOS
 
-Install the Xcode command line tools with `xcode-select --install`, then `brew install go cmake ninja`.
+Install the Xcode command line tools with `xcode-select --install`, then `brew install go cmake ninja`. `make editor-app` builds `.cache/Aego Editor.app` with the native menu bar, and `make dmg` packs it into a disk image.
 
 ### Windows
 
-Only needed to build Aego itself; the installer above is enough to make games. Go needs a C compiler for the engine's native parts, and on Windows that comes from [MSYS2](https://www.msys2.org/). In its UCRT64 shell, install the compiler, CMake and Ninja with MSYS2's package manager: `pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja`. Put `C:\msys64\ucrt64\bin` on `PATH` and build from Git Bash.
+Only needed to build Aego itself; the installer above is enough to make games. In the UCRT64 shell of [MSYS2](https://www.msys2.org/): `pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja`, put `C:\msys64\ucrt64\bin` on `PATH` and build from Git Bash.
 
 ### Build
 
@@ -86,24 +126,4 @@ bash tools/bootstrap-native.sh
 go build -o aego ./cmd/aego
 ```
 
-`make cli` does the same and leaves the binary in `.cache/bin/aego`. A binary built this way remembers the checkout it was built from. A prebuilt one does not: set `AEGO_ROOT` to a checkout, or pass `--engine DIR`, when a native project or an export needs the engine sources.
-
-## First project
-
-```sh
-aego new mygame
-aego edit mygame
-```
-
-`aego new` creates a 2D project with a scene holding a camera and a sprite, and a script to start from; `--template 3d` and the other templates are listed by `aego help`. `aego edit` opens the editor; its Getting Started panel walks through the first six steps: a node, a script, Play, a live tweak, hot reload and fixing an error. Without a project, `aego edit` opens the launcher with recent projects and templates.
-
-Other commands you will use early:
-
-| Command | Does |
-|---|---|
-| `aego run mygame` | runs the game without the editor |
-| `aego check mygame` | type-checks scripts and audits every file |
-| `aego test mygame` | runs the project's script tests |
-| `aego export mygame --target web` | builds a web version, like the demo on the home page |
-
-The [CLI reference](ref:cli) lists every command and flag.
+`make cli` does the same and leaves the binary in `.cache/bin/aego`. A binary built this way remembers the checkout it was built from; a prebuilt one needs `AEGO_ROOT`, or `--engine DIR`, for native projects and exports to other systems.

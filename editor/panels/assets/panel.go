@@ -61,6 +61,7 @@ type Deps struct {
 	Project        *project.Project
 	Schema         *schema.Registry
 	Inspect        func(id ids.AssetID)
+	Viewable       func(kind asset.ArtifactKind) bool
 	OpenTable      func(id ids.AssetID)
 	DataType       func(id ids.AssetID) (string, bool)
 	Favorites      *favs.Store
@@ -298,10 +299,14 @@ func (p *Panel) inspectActive() {
 		return
 	}
 	var target ids.AssetID
-	if a := p.find(p.active); a != nil && len(p.sel) == 1 && a.Kind == asset.ArtData {
+	if a := p.find(p.active); a != nil && len(p.sel) == 1 && (a.Kind == asset.ArtData || p.viewable(a.Kind)) {
 		target = a.ID
 	}
 	p.d.Inspect(target)
+}
+
+func (p *Panel) viewable(k asset.ArtifactKind) bool {
+	return p.d.Viewable != nil && p.d.Viewable(k)
 }
 
 func (p *Panel) settle() {
@@ -556,12 +561,15 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	}
 	ts := p.tileSize()
 	img := mathx.Rect{X: r.X + (r.W-ts)/2, Y: r.Y + 4, W: ts, H: ts}
-	if reg, ok := p.d.Thumbs.Get(*a); ok {
+	switch reg, ok := p.d.Thumbs.Get(*a); {
+	case a.Kind == asset.ArtAudio:
+		p.audioCard(a, img)
+	case ok:
 		if preview.Image(a.Kind) || a.Kind == asset.ArtPrefab {
 			p.checker(img)
 		}
 		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.Color{R: 1, G: 1, B: 1, A: 1})
-	} else {
+	default:
 		p.schematic(a, img)
 	}
 	startup := p.d.Project != nil && a.ID == p.d.Project.MainScene
@@ -778,6 +786,10 @@ func (p *Panel) open(a *pipeline.AssetInfo) {
 	case asset.ArtTable:
 		if p.d.OpenTable != nil {
 			p.d.OpenTable(a.ID)
+		}
+	default:
+		if p.viewable(a.Kind) && p.d.Inspect != nil {
+			p.d.Inspect(a.ID)
 		}
 	}
 }

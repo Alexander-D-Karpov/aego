@@ -1,6 +1,7 @@
 package export
 
 import (
+	"path/filepath"
 	"strconv"
 	"sync/atomic"
 
@@ -22,8 +23,13 @@ const (
 var profiles = []string{Development, Release}
 
 type Deps struct {
-	Exporter services.Exporter
-	Tasks    *tasks.Queue
+	Exporter   services.Exporter
+	Tasks      *tasks.Queue
+	PickFolder func(start string, done func(string))
+}
+
+type runner interface {
+	Run(out, target string) error
 }
 
 type line struct {
@@ -37,6 +43,7 @@ type Panel struct {
 	d       Deps
 	target  string
 	profile string
+	out     string
 	running *tasks.Task
 	stage   atomic.Value
 	rep     *services.ExportReport
@@ -196,19 +203,43 @@ func (p *Panel) lines(ui *uicore.Context) []line {
 	return out
 }
 
+func (p *Panel) output() string {
+	def := p.d.Exporter.Out(p.target, p.profile)
+	if p.out == "" {
+		return def
+	}
+	return filepath.Join(p.out, filepath.Base(def))
+}
+
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	x := p.d.Exporter
 	p.choices(ui, "Target", x.Targets(), &p.target, "target")
 	p.choices(ui, "Profile", profiles, &p.profile, "profile")
-	out := x.Out(p.target, p.profile)
+	out := p.output()
 	row := ui.Cursor().Next(0)
 	ui.Text("Output", mathx.Vec2{X: row.X, Y: ui.TextY(row)}, th.TextDim)
-	path := mathx.Rect{X: row.X + labelW, Y: row.Y, W: max(0, row.W-labelW), H: row.H}
+	bw := float32(0)
+	if p.d.PickFolder != nil {
+		bw = ui.TextSize("Browse…").X + 16
+		if p.out != "" {
+			bw += ui.TextSize("Default").X + 22
+		}
+	}
+	path := mathx.Rect{X: row.X + labelW, Y: row.Y, W: max(0, row.W-labelW-bw), H: row.H}
 	ui.PushClip(path)
 	ui.Text(out, mathx.Vec2{X: path.X, Y: ui.TextY(row)}, th.Text)
 	ui.PopClip()
+	if bw > 0 {
+		bx := path.X + path.W + 6
+		if p.button(ui, "browse", row, &bx, "Browse…", p.running == nil) {
+			p.d.PickFolder(filepath.Dir(out), func(dir string) { p.out = dir })
+		}
+		if p.out != "" && p.button(ui, "default", row, &bx, "Default", p.running == nil) {
+			p.out = ""
+		}
+	}
 	row = ui.Cursor().Next(0)
 	busy := p.running != nil
 	bx := row.X
@@ -219,9 +250,14 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.export(out)
 	}
 	done := p.rep != nil && !p.rep.Blocked && p.rep.Out != ""
-	if p.button(ui, "reveal", row, &bx, "Reveal in File Manager", !busy && done) {
+	if p.button(ui, "reveal", row, &bx, "Open Folder", !busy && done) {
 		if err := x.Reveal(p.rep.Out); err != nil {
 			p.msg = "Cannot open the file manager: " + err.Error()
+		}
+	}
+	if rn, ok := x.(runner); ok && p.button(ui, "run", row, &bx, "Run", !busy && done) {
+		if err := rn.Run(p.rep.Out, p.target); err != nil {
+			p.msg = "Cannot run the export: " + err.Error()
 		}
 	}
 	row = ui.Cursor().Next(0)

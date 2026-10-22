@@ -29,7 +29,7 @@ func (j *job) pack() error {
 
 func (j *job) packLinux() error {
 	if j.icon != nil {
-		data, err := icon.PNG(icon.Resize(j.icon, 256, 256))
+		data, err := icon.PNG(icon.Sized(j.icon, 256))
 		if err != nil {
 			return err
 		}

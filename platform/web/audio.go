@@ -222,6 +222,9 @@ func (a *Audio) report(d js.Value) {
 		return
 	}
 	a.count.consumed = int64(d.Get("consumed").Float())
+	if t := d.Get("time"); t.Type() == js.TypeNumber {
+		a.count.at = t.Float()
+	}
 	a.underruns = d.Get("underruns").Int()
 	a.sum = d.Get("sum").Float()
 	a.samples = d.Get("count").Float()
@@ -252,7 +255,7 @@ func (a *Audio) TargetBlocks() int {
 	if a.shared {
 		return 3
 	}
-	return 4
+	return 6
 }
 
 func (a *Audio) Spec() platform.AudioSpec {
@@ -307,7 +310,7 @@ func (a *Audio) Queued() int {
 	if a.shared {
 		return ringQueued(int32(a.atomics.Call("load", a.index, 0).Int()), a.tail)
 	}
-	return a.count.queued()
+	return a.count.queuedAt(a.ctx.Get("currentTime").Float(), a.spec.SampleRate, 2*audioReport)
 }
 
 func (a *Audio) Pause(on bool) {

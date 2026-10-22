@@ -1,18 +1,23 @@
 package edit
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"image"
 	stddraw "image/draw"
 	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"aego/app/projects"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/editor/core/sysopen"
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
 	"aego/engine"
@@ -52,13 +57,20 @@ type launchImage struct {
 }
 
 func CreateProject(dir, template, module, example string) (string, error) {
-	opt := projects.Options{Dir: dir, Template: template, Module: module, Example: example}
-	if example != "" {
+	return CreateProjectWith(launcher.CreateRequest{Dir: dir, Template: template, Module: module, Example: example})
+}
+
+func CreateProjectWith(req launcher.CreateRequest) (string, error) {
+	opt := projects.Options{Dir: req.Dir, Template: req.Template, Module: req.Module, Example: req.Example, Native: req.Native}
+	if req.Example != "" || req.Native {
 		root, err := projects.EngineRoot("")
 		if err != nil {
 			return "", err
 		}
 		opt.Engine = root
+	}
+	if err := os.MkdirAll(filepath.Dir(req.Dir), 0o755); err != nil {
+		return "", err
 	}
 	p, err := projects.Create(opt)
 	if err != nil {
@@ -69,6 +81,49 @@ func CreateProject(dir, template, module, example string) (string, error) {
 		return p.Root, errors.New(err.Error() + "\n" + out.String())
 	}
 	return p.Root, nil
+}
+
+func documentsDir(home string) string {
+	if runtime.GOOS == "linux" {
+		cfg := os.Getenv("XDG_CONFIG_HOME")
+		if cfg == "" {
+			cfg = filepath.Join(home, ".config")
+		}
+		if f, err := os.Open(filepath.Join(cfg, "user-dirs.dirs")); err == nil {
+			defer f.Close()
+			sc := bufio.NewScanner(f)
+			for sc.Scan() {
+				v, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), "XDG_DOCUMENTS_DIR=")
+				if ok {
+					return strings.ReplaceAll(strings.Trim(v, `"`), "$HOME", home)
+				}
+			}
+		}
+	}
+	return filepath.Join(home, "Documents")
+}
+
+func projectsHome() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ""
+	}
+	if docs := documentsDir(home); docs != "" {
+		if st, err := os.Stat(docs); err == nil && st.IsDir() {
+			return filepath.Join(docs, "Aego Projects")
+		}
+	}
+	return filepath.Join(home, "Aego Projects")
+}
+
+func nativeHint() string {
+	if _, err := exec.LookPath("go"); err != nil {
+		return "Install Go to add native code; scripts need nothing else."
+	}
+	if _, err := projects.EngineRoot(""); err != nil {
+		return "Native code needs the engine sources: set AEGO_ROOT to an Aego checkout."
+	}
+	return ""
 }
 
 func launcherTemplates() []launcher.Template {
@@ -110,14 +165,18 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	home, _ := os.UserHomeDir()
 	var examples []string
 	engineRoot, rootErr := projects.EngineRoot("")
 	if rootErr == nil {
 		examples = projects.Examples(engineRoot)
 	}
+	upd := newUpdater(updatePath(), engine.Version)
+	if !cfg.Headless {
+		upd.start()
+	}
 	ls := &LaunchSession{Engine: e}
 	d := &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor), images: map[string]launchImage{}}
+	platform.Boot("launcher", "open")
 	ls.UI = launcher.New(launcher.Options{
 		Templates:  launcherTemplates(),
 		Examples:   examples,
@@ -125,11 +184,25 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		ExamplePreview: func(name string) ([]byte, error) {
 			return projects.ExamplePreview(engineRoot, name)
 		},
-		Create:     CreateProject,
-		RecentPath: cfg.Recent,
-		Home:       home,
-		Image:      d.image,
+		CreateWith:      CreateProjectWith,
+		NativeHint:      nativeHint(),
+		Reveal:          sysopen.Reveal,
+		RevealLabel:     sysopen.RevealLabel(),
+		OpenURL:         sysopen.Open,
+		Update:          upd.Available,
+		UpdateChecks:    upd.Enabled(),
+		SetUpdateChecks: upd.SetEnabled,
+		Docs:            func() { sysopen.Open("https://aego.akarpov.ru/") },
+		RecentPath:      cfg.Recent,
+		Home:            projectsHome(),
+		Image:           d.image,
 	})
+	switch cfg.LauncherTab {
+	case TabNew:
+		ls.UI.SetTab(launcher.TabNew)
+	case TabRecent:
+		ls.UI.SetTab(launcher.TabRecent)
+	}
 	ls.driver = d
 	return ls, nil
 }
@@ -205,6 +278,8 @@ func (d *launchDriver) Init(e *engine.Engine) error {
 		ui.Icons = set
 	}
 	d.ui = ui
+	win := e.Window()
+	d.s.UI.SetPickers(sysopen.Picker(win, platform.DialogFolder, "", ""), sysopen.Picker(win, platform.DialogFolder, "", ""))
 	return nil
 }
 
@@ -214,6 +289,8 @@ func (d *launchDriver) Event(ev platform.Event) {
 		d.ui.SetComposition(ev.Str, int(ev.EditStart))
 	case platform.EvTextInput:
 		d.ui.SetComposition("", 0)
+	case platform.EvDropFile:
+		d.s.UI.Drop(ev.Str)
 	}
 }
 

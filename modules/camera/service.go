@@ -47,6 +47,10 @@ type blend struct {
 	t    float32
 	dur  float32
 	on   bool
+	// stale: from was not drawn last tick (a rewind replays without drawing); the next Adjust takes it from prev.
+	stale    bool
+	prev     scene.NodeHandle
+	prevZone scene.NodeHandle
 }
 
 type output struct {
@@ -227,7 +231,7 @@ func (s *Service) reselect(o *output) {
 }
 
 func (s *Service) switchTo(o *output, c cand) {
-	prev := o.active
+	prev, prevZone := o.active, o.zone
 	s.endBlend(o, false)
 	o.active, o.zone = c.vc, c.zone
 	if prev.IsZero() || c.vc.IsZero() || o.forcedCut {
@@ -243,7 +247,8 @@ func (s *Service) switchTo(o *output, c cand) {
 		return
 	}
 	s.nextKey++
-	o.blend = blend{key: s.nextKey, from: o.logical, dur: dur, on: true}
+	fresh := o.hasView && o.frame+1 >= s.ticks
+	o.blend = blend{key: s.nextKey, from: o.logical, dur: dur, on: true, stale: !fresh, prev: prev, prevZone: prevZone}
 }
 
 func (s *Service) advance(o *output) {
@@ -309,6 +314,12 @@ func (s *Service) Adjust(node scene.NodeHandle, v view.View) view.View {
 	} else {
 		s.stepFollows(o, base)
 		p := s.vcPose(o.active, o.zone, base)
+		if o.blend.on && o.blend.stale {
+			o.blend.from, o.blend.stale = p, false
+			if s.scene.IsAlive(o.blend.prev) {
+				o.blend.from = s.vcPose(o.blend.prev, o.blend.prevZone, base)
+			}
+		}
 		if o.blend.on {
 			p = lerpPose(o.blend.from, p, s.blendK(o))
 		}

@@ -24,18 +24,20 @@ type Asset struct {
 
 // download is one file offered for an OS, in the order the page prefers them.
 type download struct {
-	os, label string
-	match     func(name string) bool
+	os, kind, ext string
+	match         func(name string) bool
 }
 
 var downloads = []download{
-	{"windows", "Windows installer", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64-setup.exe") }},
-	{"windows", "Windows installer (.zip)", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64-setup.zip") }},
-	{"windows", "Windows portable (.zip)", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64.zip") }},
-	{"macos", "macOS (.dmg)", func(n string) bool { return strings.HasSuffix(n, ".dmg") }},
-	{"linux", "Linux AppImage", func(n string) bool { return strings.HasSuffix(n, ".AppImage") }},
-	{"linux", "Linux (.tar.gz)", func(n string) bool { return strings.HasSuffix(n, "-linux-amd64.tar.gz") }},
+	{"windows", "Installer", ".exe", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64-setup.exe") }},
+	{"windows", "Installer", ".zip", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64-setup.zip") }},
+	{"windows", "Portable", ".zip", func(n string) bool { return strings.HasSuffix(n, "-windows-amd64.zip") }},
+	{"macos", "App", ".dmg", func(n string) bool { return strings.HasSuffix(n, ".dmg") }},
+	{"linux", "AppImage", ".AppImage", func(n string) bool { return strings.HasSuffix(n, ".AppImage") }},
+	{"linux", "Archive", ".tar.gz", func(n string) bool { return strings.HasSuffix(n, "-linux-amd64.tar.gz") }},
 }
+
+var osNames = map[string]string{"windows": "Windows", "macos": "macOS", "linux": "Linux"}
 
 // FetchRelease reads the latest release of a Gitea repository, such as https://git.example/owner/repo.
 func FetchRelease(repo string) (*Release, error) {
@@ -70,13 +72,24 @@ func (b *builder) downloadBlock(root string) string {
 	if r == nil {
 		return ""
 	}
-	var items []string
-	for _, d := range downloads {
-		for _, a := range r.Assets {
-			if d.match(a.Name) {
-				items = append(items, `<li data-os="`+d.os+`"><a href="`+esc(a.URL)+`">`+esc(d.label)+`</a><span>`+sizeMB(a.Size)+"</span></li>")
-				break
+	var items, oses []string
+	for _, os := range []string{"windows", "macos", "linux"} {
+		var links []string
+		for _, d := range downloads {
+			if d.os != os {
+				continue
 			}
+			for _, a := range r.Assets {
+				if d.match(a.Name) {
+					size := sizeMB(a.Size)
+					links = append(links, `<a href="`+esc(a.URL)+`" data-file="`+esc(d.kind+" "+d.ext+" · "+size)+`">`+esc(d.kind)+` <span>`+esc(d.ext)+" · "+size+"</span></a>")
+					break
+				}
+			}
+		}
+		if len(links) > 0 {
+			oses = append(oses, osNames[os])
+			items = append(items, `<li data-os="`+os+`"><span class="dl-os">`+osNames[os]+`</span><span class="dl-files">`+strings.Join(links, "")+"</span></li>")
 		}
 	}
 	if len(items) == 0 {
@@ -86,6 +99,6 @@ func (b *builder) downloadBlock(root string) string {
 	if u, ok := b.urls[installPage]; ok {
 		fallback = root + u
 	}
-	return `<div class="download" data-fallback="` + esc(fallback) + `"><div class="dl-head"><a class="button primary dl-main" href="` + esc(r.URL) + `">` + b.icon(root, "file.save", "") + `<span>Download</span></a>` +
-		`<span class="dl-meta">` + esc(r.Tag) + ` · <a href="` + esc(r.URL) + `">all files</a></span></div><ul class="dl-list">` + strings.Join(items, "") + "</ul></div>\n"
+	return `<div class="download" data-fallback="` + esc(fallback) + `"><div class="dl-head"><a class="button primary dl-main" href="` + esc(r.URL) + `">` + b.icon(root, "ui.move_down", "") + `<span>Download</span></a>` +
+		`<span class="dl-meta"><span class="dl-file">Builds for ` + strings.Join(oses, ", ") + `</span><span class="dl-ver">` + esc(r.Tag) + ` · <a href="` + esc(r.URL) + `">release notes and all files</a></span></span></div><ul class="dl-list">` + strings.Join(items, "") + "</ul></div>\n"
 }

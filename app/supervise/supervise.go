@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"aego/app/proc"
 	"aego/editor/core/session"
 	"aego/project"
 )
@@ -32,6 +33,7 @@ type Options struct {
 	Hidden     bool
 	CPUProfile string
 	Profile    string
+	Open       string
 	Stdout     io.Writer
 	Stderr     io.Writer
 }
@@ -144,12 +146,17 @@ func (s *supervisor) start(exited chan<- int) error {
 	if s.opt.Profile != "" {
 		args = append(args, "-profile", s.opt.Profile)
 	}
+	if s.opt.Open != "" {
+		args = append(args, "-open", s.opt.Open)
+		s.opt.Open = ""
+	}
 	args = append(args, s.p.Root)
 	cmd := exec.Command(s.current, args...)
 	cmd.Env = append(os.Environ(), session.EnvSupervised+"=1")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = s.opt.Stdout
 	cmd.Stderr = s.opt.Stderr
+	proc.Hide(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("cannot start the editor: %w", err)
 	}
@@ -200,15 +207,18 @@ func (s *supervisor) rebuild() {
 func (s *supervisor) build() (string, string, error) {
 	s.gen++
 	name := "aego-editor-" + strconv.Itoa(s.gen)
+	args := []string{"build", "-tags", "aego_editor"}
 	if runtime.GOOS == "windows" {
 		name += ".exe"
+		args = append(args, "-ldflags", "-H=windowsgui")
 	}
 	out := filepath.Join(s.dir, name)
-	cmd := exec.Command("go", "build", "-tags", "aego_editor", "-o", out, filepath.Join(s.dir, "main.go"))
+	cmd := exec.Command("go", append(args, "-o", out, filepath.Join(s.dir, "main.go"))...)
 	cmd.Dir = s.p.Root
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
+	proc.Hide(cmd)
 	if err := cmd.Run(); err != nil {
 		os.Remove(out)
 		return "", buf.String(), err

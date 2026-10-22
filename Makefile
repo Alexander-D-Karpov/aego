@@ -14,7 +14,7 @@ BENCH_COUNT ?= 10
 BENCH_CPU ?= 2
 BENCH_PIN = $(shell command -v taskset >/dev/null && echo taskset -c $(BENCH_CPU))
 EDITOR_VERSION ?= 0.1.0
-EDITOR_ICON ?= third_party/brand/aego-1024.png
+EDITOR_ICON ?= app/brand/png
 EXPORT_SMOKE = $(CURDIR)/.cache/export-smoke
 EXPORT_HOME = $(CURDIR)/.cache/export-home
 CHROMIUM ?= $(shell command -v chromium || command -v chromium-browser || command -v google-chrome)
@@ -39,7 +39,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check
+.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -324,6 +324,16 @@ export-smoke: cli
 editor-app: bootstrap
 	go build -o .cache/bin/aego-editor ./cmd/aego-editor
 	go run ./tools/appbundle -bin .cache/bin/aego-editor -out .cache -version $(EDITOR_VERSION) $(if $(wildcard $(EDITOR_ICON)),-icon $(EDITOR_ICON))
+
+dmg: editor-app
+	tools/release/dmg.sh ".cache/Aego Editor.app" .cache/dist/Aego-$$(sed -n 's/^const Version = "\(.*\)"$$/\1/p' engine/config.go).dmg
+
+nsis-check:
+	sh tools/release/nsis-check.sh
+
+appimage: cli
+	mkdir -p .cache/stage/bin .cache/dist && cp .cache/bin/aego .cache/stage/bin/aego && printf 'dev\n' > .cache/stage/VERSION && cp tools/release/README.txt .cache/stage/
+	sh tools/release/appimage.sh .cache/stage .cache/dist/Aego-dev-x86_64.AppImage
 
 clean:
 	rm -rf .cache/build

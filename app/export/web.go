@@ -161,7 +161,7 @@ func (j *job) packWeb() error {
 		return err
 	}
 	if j.icon != nil {
-		data, err := icon.PNG(icon.Resize(j.icon, webIconSize, webIconSize))
+		data, err := icon.PNG(icon.Sized(j.icon, webIconSize))
 		if err != nil {
 			return err
 		}

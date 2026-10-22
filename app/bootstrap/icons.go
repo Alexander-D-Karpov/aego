@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"aego/app/proc"
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/project"
@@ -32,12 +33,14 @@ func RunIcons(p *project.Project, engineVersion string, out io.Writer) (int, err
 	defer os.Remove(bin)
 	build := exec.Command("go", "build", "-tags", strings.Join(t.Tags, ","), "-o", bin, "./.aego/generated/icons")
 	build.Dir = p.Root
+	proc.Hide(build)
 	if output, err := build.CombinedOutput(); err != nil {
 		return 2, errs.New(errs.BuildFailed, "native icons helper does not compile",
 			log.F("output", strings.TrimSpace(string(output))))
 	}
 	run := exec.Command(bin)
 	run.Dir, run.Stdout, run.Stderr = p.Root, out, out
+	proc.Hide(run)
 	err = run.Run()
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {

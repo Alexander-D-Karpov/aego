@@ -12,7 +12,8 @@
     <meta property="og:site_name" content="{{.Site}}">
     <meta property="og:title" content="{{.PageTitle}}">
     <meta property="og:description" content="{{.Description}}">
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/png" href="{{.Root}}assets/favicon.png?v={{.AssetV}}">
+    <link rel="apple-touch-icon" href="{{.Root}}assets/apple-touch-icon.png?v={{.AssetV}}">
     <meta name="color-scheme" content="dark light">
     <meta name="darkreader-lock">
     <script>try { const t = localStorage.getItem("aego.docs.theme"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}</script>

@@ -5,6 +5,7 @@
 
 static char aego_title_buf[1024];
 static SDL_Cursor* aego_cursors[AEGO_CURSOR_COUNT];
+static Uint32 aego_dialog_type = 0;
 
 typedef struct {
 	char mime[128];
@@ -255,6 +256,14 @@ int aego_poll(aego_event* e) {
 		else e->kind = AEGO_EV_AUDIO_FORMAT;
 		e->device = ev.adevice.which;
 		break;
+	default:
+		if (aego_dialog_type != 0 && ev.type == aego_dialog_type) {
+			e->kind = AEGO_EV_DIALOG;
+			e->start = ev.user.code;
+			e->length = (int)(intptr_t)ev.user.data2;
+			e->data = (const char*)ev.user.data1;
+		}
+		break;
 	}
 	return 1;
 }
@@ -453,4 +462,126 @@ void aego_audio_close(SDL_AudioStream* s) {
 
 Uint32 aego_audio_device(SDL_AudioStream* s) {
 	return SDL_GetAudioStreamDevice(s);
+}
+
+typedef struct {
+	int id;
+	char* start;
+	char* name;
+	char* pattern;
+	SDL_DialogFileFilter filter;
+} aego_dialog_req;
+
+static char* aego_dup(const char* s) {
+	return s && *s ? SDL_strdup(s) : NULL;
+}
+
+static void SDLCALL aego_dialog_done(void* userdata, const char* const* list, int filter) {
+	aego_dialog_req* r = (aego_dialog_req*)userdata;
+	SDL_Event ev;
+	SDL_zero(ev);
+	ev.type = aego_dialog_type;
+	ev.user.code = r->id;
+	if (!list) {
+		ev.user.data2 = (void*)(intptr_t)-1;
+	} else if (!list[0]) {
+		ev.user.data2 = (void*)(intptr_t)0;
+	} else {
+		ev.user.data1 = SDL_strdup(list[0]);
+		ev.user.data2 = (void*)(intptr_t)1;
+	}
+	(void)filter;
+	SDL_free(r->start);
+	SDL_free(r->name);
+	SDL_free(r->pattern);
+	SDL_free(r);
+	SDL_PushEvent(&ev);
+}
+
+bool aego_dialog(int id, int kind, SDL_Window* w, const char* start, const char* name, const char* pattern) {
+	if (aego_dialog_type == 0) {
+		aego_dialog_type = SDL_RegisterEvents(1);
+		if (aego_dialog_type == 0) return false;
+	}
+	aego_dialog_req* r = (aego_dialog_req*)SDL_calloc(1, sizeof(*r));
+	if (!r) return false;
+	r->id = id;
+	r->start = aego_dup(start);
+	r->name = aego_dup(name);
+	r->pattern = aego_dup(pattern);
+	r->filter.name = r->name ? r->name : "Files";
+	r->filter.pattern = r->pattern;
+	int n = r->pattern ? 1 : 0;
+	switch (kind) {
+	case 0:
+		SDL_ShowOpenFolderDialog(aego_dialog_done, r, w, r->start, false);
+		break;
+	case 1:
+		SDL_ShowOpenFileDialog(aego_dialog_done, r, w, n ? &r->filter : NULL, n, r->start, false);
+		break;
+	default:
+		SDL_ShowSaveFileDialog(aego_dialog_done, r, w, n ? &r->filter : NULL, n, r->start);
+		break;
+	}
+	return true;
+}
+
+bool aego_alert(const char* title, const char* msg) {
+	return SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, msg, NULL);
+}
+
+SDL_Surface* aego_icon_surface(int w, int h, const void* rgba) {
+	SDL_Surface* s = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+	if (!s) {
+		return NULL;
+	}
+	for (int y = 0; y < h; y++) {
+		SDL_memcpy((Uint8*)s->pixels + y * s->pitch, (const Uint8*)rgba + (size_t)y * w * 4, (size_t)w * 4);
+	}
+	return s;
+}
+
+bool aego_icon_alternate(SDL_Surface* base, SDL_Surface* alt) {
+	bool ok = SDL_AddSurfaceAlternateImage(base, alt);
+	SDL_DestroySurface(alt);
+	return ok;
+}
+
+bool aego_set_icon(SDL_Window* w, SDL_Surface* s) {
+	bool ok = SDL_SetWindowIcon(w, s);
+	SDL_DestroySurface(s);
+	return ok;
+}
+
+#if defined(_WIN32)
+#define AEGO_GLAPI __stdcall
+#else
+#define AEGO_GLAPI
+#endif
+
+typedef const unsigned char*(AEGO_GLAPI* aego_getstring)(unsigned int);
+
+const char* aego_gl_string(unsigned int name) {
+	aego_getstring fn = (aego_getstring)SDL_GL_GetProcAddress("glGetString");
+	if (!fn) {
+		return "";
+	}
+	const unsigned char* v = fn(name);
+	return v ? (const char*)v : "";
+}
+
+const char* aego_gl_probe(SDL_Window* w) {
+	static char buf[256];
+	buf[0] = 0;
+	SDL_GL_ResetAttributes();
+	SDL_GLContext c = SDL_GL_CreateContext(w);
+	if (!c) {
+		return buf;
+	}
+	if (SDL_GL_MakeCurrent(w, c)) {
+		SDL_snprintf(buf, sizeof buf, "%s (%s)", aego_gl_string(0x1F02), aego_gl_string(0x1F01));
+	}
+	SDL_GL_MakeCurrent(w, NULL);
+	SDL_GL_DestroyContext(c);
+	return buf;
 }

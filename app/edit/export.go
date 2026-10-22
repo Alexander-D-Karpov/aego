@@ -1,14 +1,19 @@
 package edit
 
 import (
+	"net"
+	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"sync"
 
 	"aego/app/bootstrap"
 	"aego/app/export"
 	"aego/app/projects"
 	"aego/asset/pipeline"
 	"aego/editor/core/services"
+	"aego/editor/core/sysopen"
 	"aego/engine/problems"
 	"aego/project"
 )
@@ -85,5 +90,49 @@ func (x *exporter) Reveal(path string) error {
 	default:
 		cmd = exec.Command("xdg-open", path)
 	}
+	return cmd.Start()
+}
+
+var webServers sync.Map
+
+func serveWeb(dir string) (string, error) {
+	if u, ok := webServers.Load(dir); ok {
+		return u.(string), nil
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	files := http.FileServer(http.Dir(dir))
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+		w.Header().Set("Cache-Control", "no-store")
+		files.ServeHTTP(w, r)
+	})
+	go http.Serve(ln, h)
+	u := "http://" + ln.Addr().String() + "/"
+	webServers.Store(dir, u)
+	return u, nil
+}
+
+func (x *exporter) Run(out, target string) error {
+	path, err := export.Launchable(x.p, target, out)
+	if err != nil {
+		return err
+	}
+	t, _ := export.ParseTarget(target)
+	switch {
+	case t.Web():
+		u, err := serveWeb(path)
+		if err != nil {
+			return err
+		}
+		return sysopen.Open(u)
+	case t.OS == "darwin":
+		return exec.Command("open", path).Start()
+	}
+	cmd := exec.Command(path)
+	cmd.Dir = filepath.Dir(path)
 	return cmd.Start()
 }

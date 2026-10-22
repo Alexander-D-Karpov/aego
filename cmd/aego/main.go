@@ -16,10 +16,8 @@ import (
 	"aego/app/edit"
 	"aego/app/projects"
 	"aego/app/run"
-	"aego/app/supervise"
 	"aego/asset/pipeline"
 	"aego/core/log"
-	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/project"
 	"aego/script/diag"
@@ -79,7 +77,8 @@ func usage() {
   new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]
                          create a project from a template or an engine example
   run [dir]              import assets and run the game
-  edit [dir]             open the project in the editor; without a project opens the launcher
+  edit [dir|file] [--launcher recent|new]
+                         open a project, or one of its scenes, in the editor; without a project opens the launcher
   build [dir]            build the native binary
   export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]
                          build a distributable game that runs without Go and project sources
@@ -279,26 +278,10 @@ func cmdEdit(args []string) int {
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
 	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
+	tab := fs.String("launcher", "", "open the launcher on its recent or new tab")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
-	}
-	recent, _ := launcher.RecentPath()
-	if dir == "" {
-		if _, err := project.Find("."); err != nil {
-			root, err := edit.Launch(edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, Recent: recent})
-			if err != nil {
-				return fail(err)
-			}
-			if root == "" {
-				return 0
-			}
-			dir = root
-		}
-	}
-	p, err := openProject(dir)
-	if err != nil {
-		return fail(err)
 	}
 	profile := *cpu
 	if profile != "" {
@@ -306,15 +289,11 @@ func cmdEdit(args []string) int {
 			profile = abs
 		}
 	}
-	if bootstrap.NeedsNative(p) && !*headless && *frames == 0 {
-		opt := supervise.Options{Debug: *debug, Hidden: *hidden, CPUProfile: profile, Profile: *settingsProfile}
-		if err := supervise.Run(p, opt); err != nil {
-			return fail(err)
-		}
-		return 0
-	}
-	cfg := edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Profile: *settingsProfile, Recent: recent}
-	if err := edit.Run(p, cfg); err != nil {
+	err := edit.Start(edit.Entry{
+		Config: edit.Config{Debug: *debug, Hidden: *hidden, Headless: *headless, Frames: *frames, CPUProfile: profile, Profile: *settingsProfile},
+		Arg:    dir, Launcher: *tab, Verb: "edit",
+	})
+	if err != nil {
 		return fail(err)
 	}
 	return 0

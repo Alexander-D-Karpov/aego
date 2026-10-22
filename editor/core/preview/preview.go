@@ -76,6 +76,7 @@ type Service struct {
 	d        Deps
 	dir      string
 	items    map[ids.AssetID]*item
+	peaks    map[peakKey]*peakItem
 	frame    int64
 	gpuOK    bool
 	pool     *rt.Pool
@@ -514,6 +515,15 @@ func downscale(src []byte, w, h, limit int) ([]byte, int, int) {
 }
 
 func (s *Service) Forget(id ids.AssetID) {
+	for k, pk := range s.peaks {
+		if k.id != id {
+			continue
+		}
+		if pk.task != nil {
+			pk.task.Cancel()
+		}
+		delete(s.peaks, k)
+	}
 	it, ok := s.items[id]
 	if !ok {
 		return

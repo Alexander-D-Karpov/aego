@@ -1,7 +1,10 @@
 package ext
 
 import (
+	"fmt"
+
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
@@ -70,4 +73,74 @@ func (r *Registry) Profiler(title string, play bool, fn func(*context.Editor)) {
 	ed.Profiler = append(ed.Profiler, context.ProfilerSection{Title: title, Play: play, Draw: func() {
 		Safe(ext, r, func() { fn(ed) })
 	}})
+}
+
+func (r *Registry) AssetInspector(kind string, fn context.AssetView) error {
+	ed := r.deps.Editor
+	ext := r.ext()
+	if ed == nil {
+		return nil
+	}
+	if kind == "" || fn == nil {
+		return errs.New(errs.EditorPanel, "asset inspector needs an artifact kind and a draw function", log.F("module", ext))
+	}
+	if _, dup := ed.AssetViews[kind]; dup {
+		return errs.New(errs.EditorPanel, "asset inspector for "+kind+" is already registered", log.F("module", ext))
+	}
+	if ed.AssetViews == nil {
+		ed.AssetViews = map[string]context.AssetView{}
+	}
+	ed.AssetViews[kind] = func(ctx *context.Editor, id ids.AssetID) {
+		mark := ctx.UI.Mark()
+		defer func() {
+			if rec := recover(); rec != nil {
+				ctx.UI.Restore(mark)
+				r.Disable(ext, fmt.Sprint(rec))
+			}
+		}()
+		fn(ctx, id)
+	}
+	o := r.own(ext)
+	o.assets = append(o.assets, kind)
+	return nil
+}
+
+// AssetPlayer registers an audition for an artifact kind or a data type's full name.
+func (r *Registry) AssetPlayer(key string, pl context.AssetPlayer) error {
+	ed := r.deps.Editor
+	ext := r.ext()
+	if ed == nil {
+		return nil
+	}
+	if key == "" || pl.Play == nil || pl.Stop == nil || pl.Playing == nil {
+		return errs.New(errs.EditorPanel, "asset player needs a kind and Play, Stop and Playing functions", log.F("module", ext))
+	}
+	if _, dup := ed.AssetPlayers[key]; dup {
+		return errs.New(errs.EditorPanel, "asset player for "+key+" is already registered", log.F("module", ext))
+	}
+	if ed.AssetPlayers == nil {
+		ed.AssetPlayers = map[string]context.AssetPlayer{}
+	}
+	guard := func(fn func()) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				r.Disable(ext, fmt.Sprint(rec))
+			}
+		}()
+		fn()
+	}
+	ed.AssetPlayers[key] = context.AssetPlayer{
+		Play: func(ctx *context.Editor, id ids.AssetID) (err error) {
+			guard(func() { err = pl.Play(ctx, id) })
+			return err
+		},
+		Stop: func(ctx *context.Editor) { guard(func() { pl.Stop(ctx) }) },
+		Playing: func(ctx *context.Editor) (id ids.AssetID) {
+			guard(func() { id = pl.Playing(ctx) })
+			return id
+		},
+	}
+	o := r.own(ext)
+	o.players = append(o.players, key)
+	return nil
 }

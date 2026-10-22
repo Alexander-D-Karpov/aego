@@ -187,8 +187,18 @@ func (p *Panel) thumbRow(id core.ID, label string, asset ids.AssetID, selected b
 	th := &ui.Theme
 	h := th.RowHeight + 8
 	r := ui.Cursor().Next(h)
-	ui.FitPopup(h + ui.TextSize(label).X + 20)
-	clicked := ui.Clicked(id, r)
+	hit := r
+	var play mathx.Rect
+	playing, audible := false, false
+	if p.d.Audition != nil && !asset.IsZero() {
+		playing, audible = p.d.Audition(asset, false)
+	}
+	if audible {
+		play = mathx.Rect{X: r.X + r.W - h, Y: r.Y, W: h, H: h}
+		hit.W -= h
+	}
+	ui.FitPopup(h + ui.TextSize(label).X + 20 + r.W - hit.W)
+	clicked := ui.Clicked(id, hit)
 	switch {
 	case selected:
 		ui.Rect(r, th.WidgetDown)
@@ -203,6 +213,15 @@ func (p *Panel) thumbRow(id core.ID, label string, asset ids.AssetID, selected b
 		}
 	}
 	ui.Text(label, mathx.Vec2{X: ir.X + ir.W + 8, Y: ui.TextY(r)}, th.Text)
+	if audible {
+		icon, tip := "play.start", "Play"
+		if playing {
+			icon, tip = "play.stop", "Stop"
+		}
+		if widgets.IconButton(ui, core.IDSeq(id, 1), play, icon, tip) {
+			p.d.Audition(asset, true)
+		}
+	}
 	return clicked
 }
 

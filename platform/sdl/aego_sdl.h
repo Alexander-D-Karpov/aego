@@ -30,6 +30,7 @@
 #define AEGO_EV_AUDIO_ADDED   23
 #define AEGO_EV_AUDIO_REMOVED 24
 #define AEGO_EV_AUDIO_FORMAT  25
+#define AEGO_EV_DIALOG        26
 #define AEGO_PAD_BUTTONS      15
 #define AEGO_PAD_AXES         6
 
@@ -94,6 +95,8 @@ int aego_get_swap_interval(void);
 void* aego_gl_proc(const char* name);
 
 int aego_poll(aego_event* e);
+bool aego_dialog(int id, int kind, SDL_Window* w, const char* start, const char* name, const char* pattern);
+bool aego_alert(const char* title, const char* msg);
 
 void aego_text_input_area(SDL_Window* w, int x, int y, int ww, int hh, int cursor);
 bool aego_set_clipboard(const char* mime, const void* data, size_t len, const char* text, size_t textlen);
@@ -117,5 +120,12 @@ int aego_audio_queued(SDL_AudioStream* s);
 void aego_audio_pause(SDL_AudioStream* s, int on);
 void aego_audio_close(SDL_AudioStream* s);
 Uint32 aego_audio_device(SDL_AudioStream* s);
+
+SDL_Surface* aego_icon_surface(int w, int h, const void* rgba);
+bool aego_icon_alternate(SDL_Surface* base, SDL_Surface* alt);
+bool aego_set_icon(SDL_Window* w, SDL_Surface* s);
+
+const char* aego_gl_string(unsigned int name);
+const char* aego_gl_probe(SDL_Window* w);
 
 #endif

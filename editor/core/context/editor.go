@@ -199,6 +199,8 @@ type Editor struct {
 	Pages        []SettingsPage
 	Vectors      []VectorLayer
 	Profiler     []ProfilerSection
+	AssetViews   map[string]AssetView
+	AssetPlayers map[string]AssetPlayer
 	Overlay      Overlays
 	ShowSettings func(page string)
 

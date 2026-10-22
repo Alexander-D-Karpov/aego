@@ -25,6 +25,7 @@ func use(id string, size int, by string) module.IconUse {
 }
 
 var Editor = []module.IconUse{
+	use("app", 16, "launcher header; colored PNGs in app/brand are the window, installer and favicon icon"),
 	use("app.quit", 16, "File → Quit"),
 	use("build.busy", 16, "menu bar: native build running"),
 	use("build.error", 16, "menu bar: native build failed"),
