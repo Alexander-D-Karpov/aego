@@ -101,6 +101,7 @@ type DiagInfo struct {
 }
 
 type FieldInfo struct {
+	Label   string
 	Type    string
 	Default string
 	Range   string

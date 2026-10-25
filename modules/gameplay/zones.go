@@ -241,7 +241,11 @@ func (s *Service) respawnOne(h scene.NodeHandle, c *Respawn) {
 	st.waiting = false
 	p := st.point
 	if m, ok := scene.Get[Motion2D](s.scene, h); ok {
-		m.Teleport(p)
+		if c.ResetVelocity {
+			m.Teleport(p)
+		} else {
+			m.teleportKeep(p)
+		}
 	} else if q := s.queries(); q == nil || q.Teleport(h, p, 0) != nil {
 		s.scene.SetPosition(h, p)
 	}

@@ -510,7 +510,7 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 			name := exportName(fd.Name)
 			sig := "field " + name
 			info := fieldInfo(td, fd, base, true)
-			info.Index = i
+			info.Index, info.Label = i, schema.Label(fd)
 			loc := Location{Stub: stub}
 			if mc != nil {
 				if f, ok := mc.Field(name); ok {

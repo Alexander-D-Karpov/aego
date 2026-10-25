@@ -1,9 +1,11 @@
 package welcome
 
 import (
+	"bytes"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,7 +44,7 @@ script Spinner {
 	func Update(dt float) {
 		node.SetRotation(node.Rotation() + math.Deg2Rad(Speed)*dt)
 		p := node.Position()
-		p.X += input.Axis("horizontal") * Move * dt
+		p.X += input.Axis("Move") * Move * dt
 		node.SetPosition(p)
 	}
 }
@@ -81,7 +83,7 @@ func FirstRun(root string) bool {
 func Example(scripts string) (bool, error) {
 	found := false
 	filepath.WalkDir(scripts, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && filepath.Ext(p) == ".aes" {
+		if err == nil && !d.IsDir() && filepath.Ext(p) == ".aes" && !emptyScript(p) {
 			found = true
 			return filepath.SkipAll
 		}
@@ -91,6 +93,14 @@ func Example(scripts string) (bool, error) {
 		return false, nil
 	}
 	return true, document.WriteAtomic(filepath.Join(scripts, "hello", "spinner.aes"), []byte(example))
+}
+
+var emptyScriptRe = regexp.MustCompile(`^package \w+\s+script \w+ \{\s*\}$`)
+
+// emptyScript is a template's starter script, which does not count as the project's own code.
+func emptyScript(path string) bool {
+	data, err := os.ReadFile(path)
+	return err == nil && emptyScriptRe.Match(bytes.TrimSpace(data))
 }
 
 func New(root string, checks []Check) *Panel {

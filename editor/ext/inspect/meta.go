@@ -2,7 +2,6 @@ package inspect
 
 import (
 	"strings"
-	"unicode"
 
 	"aego/schema"
 )
@@ -50,26 +49,5 @@ func (r *Registry) Meta(td *schema.TypeDescriptor) Meta {
 }
 
 func Humanize(s string) string {
-	rs := []rune(s)
-	var b strings.Builder
-	for i, r := range rs {
-		if r == '_' {
-			b.WriteByte(' ')
-			continue
-		}
-		if i == 0 {
-			b.WriteRune(unicode.ToUpper(r))
-			continue
-		}
-		prev := rs[i-1]
-		var next rune
-		if i+1 < len(rs) {
-			next = rs[i+1]
-		}
-		if unicode.IsUpper(r) && (unicode.IsLower(prev) || unicode.IsDigit(prev) || (unicode.IsUpper(prev) && unicode.IsLower(next))) {
-			b.WriteByte(' ')
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
+	return schema.Humanize(s)
 }

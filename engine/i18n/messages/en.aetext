@@ -1266,6 +1266,18 @@ messages version=1 lang=en {
   msg "editor.events.title" {
     text="Event Monitor"
   }
+  msg "editor.export.action.check" {
+    text="Check"
+  }
+  msg "editor.export.action.export" {
+    text="Export"
+  }
+  msg "editor.export.action.reveal" {
+    text="Open Folder"
+  }
+  msg "editor.export.action.run" {
+    text="Run"
+  }
   msg "editor.export.back_to_the_default_folder" {
     text="Back to the default folder"
   }

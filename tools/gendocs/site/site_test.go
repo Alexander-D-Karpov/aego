@@ -101,7 +101,7 @@ func crawl(t *testing.T, dir string) map[string]string {
 					file = path.Join(file, "index.html")
 				}
 			}
-			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") || strings.HasSuffix(file, ".png") {
+			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") || strings.HasSuffix(file, ".png") || strings.HasSuffix(file, ".txt") || strings.HasSuffix(file, ".md") {
 				if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
 					t.Errorf("%s: missing asset %s", p, href)
 				}
@@ -217,8 +217,11 @@ func TestShell(t *testing.T) {
 	if !strings.Contains(co, `<nav class="crumbs"><span>Guides</span><span class="sep">/</span><a href="../language">Aego Script</a></nav>`) {
 		t.Error("breadcrumbs are wrong on the coroutines page")
 	}
-	if !strings.Contains(pages["index.html"], `class="button primary" href="welcome"`) {
-		t.Error("landing page has no start button")
+	if !strings.Contains(pages["index.html"], `<ul class="entries"><li><a href="welcome">`) {
+		t.Error("landing page has no start entry")
+	}
+	if !strings.Contains(pages["ru/index.html"], `<html lang="ru">`) || !strings.Contains(pages["ru/index.html"], `href="../welcome"`) {
+		t.Error("the Russian landing page is missing or links outside the site")
 	}
 }
 
@@ -241,10 +244,22 @@ func TestSearchAndLlms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"## Guides", "### Aego Script", "- [Aego Script](language): The language."} {
+	for _, want := range []string{"## Guides", "### Aego Script", "- [Aego Script](/language.md): The language."} {
 		if !strings.Contains(string(llms), want) {
 			t.Errorf("llms.txt has no %q", want)
 		}
+	}
+	md, err := os.ReadFile(filepath.Join(dir, "language.md"))
+	if err != nil || !strings.HasPrefix(string(md), "# ") {
+		t.Errorf("language.md: %v %q", err, md)
+	}
+	full, err := os.ReadFile(filepath.Join(dir, "llms-full.txt"))
+	if err != nil || !strings.Contains(string(full), "Source: /language.md") {
+		t.Errorf("llms-full.txt does not hold language.md: %v", err)
+	}
+	page, _ := os.ReadFile(filepath.Join(dir, "language.html"))
+	if !strings.Contains(string(page), `<link rel="alternate" type="text/markdown" href="language.md">`) {
+		t.Error("language.html does not point at its Markdown copy")
 	}
 }
 

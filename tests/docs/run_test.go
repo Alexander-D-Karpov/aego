@@ -3,6 +3,8 @@
 package docs_test
 
 import (
+	"maps"
+	"regexp"
 	"strconv"
 	"testing"
 	"testing/fstest"
@@ -19,13 +21,24 @@ func TestRunBlocksCompileWithEveryModule(t *testing.T) {
 	}
 	n := 0
 	for _, e := range r.All() {
+		page := map[string][]byte{}
 		for i, s := range e.Snippets {
 			if !s.Run && !s.Check || s.Lang != "aes" {
 				continue
 			}
 			n++
+			files := map[string][]byte{"scripts/" + packageName(s.Code) + "/main.aes": []byte(s.Code)}
+			if s.Check {
+				// a check block builds with the check blocks above it on its page, a later version of a script replacing the earlier
+				name := "scripts/" + packageName(s.Code) + "/main.aes"
+				if m := scriptDecl.FindStringSubmatch(s.Code); m != nil {
+					name = "scripts/" + packageName(s.Code) + "/" + m[1] + ".aes"
+				}
+				page[name] = []byte(s.Code)
+				files = maps.Clone(page)
+			}
 			t.Run(e.ID+"/"+strconv.Itoa(i), func(t *testing.T) {
-				ws.Sync(map[string][]byte{"scripts/" + packageName(s.Code) + "/main.aes": []byte(s.Code)})
+				ws.Sync(files)
 				_, ds := ws.Build()
 				for _, d := range ds {
 					if d.Severity == diag.Error {
@@ -55,3 +68,5 @@ func packageName(src string) string {
 	}
 	return "main"
 }
+
+var scriptDecl = regexp.MustCompile(`(?m)^script (\w+)`)

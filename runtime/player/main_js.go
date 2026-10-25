@@ -10,6 +10,7 @@ import (
 	"syscall/js"
 
 	"aego/platform"
+	"aego/platform/input"
 	"aego/sdk"
 )
 
@@ -93,6 +94,19 @@ func expose(p *Player) {
 	api := js.Global().Get("Object").New()
 	api.Set("frames", js.FuncOf(func(js.Value, []js.Value) any {
 		return float64(p.Engine.MainWorld().Time.Frame())
+	}))
+	api.Set("pads", js.FuncOf(func(js.Value, []js.Value) any {
+		in := p.Engine.Input()
+		out := js.Global().Get("Array").New()
+		for i := 0; i < input.MaxPads; i++ {
+			if in.PadConnected(i) {
+				o := js.Global().Get("Object").New()
+				o.Set("name", in.PadName(i))
+				o.Set("leftX", float64(in.PadAxisValue(i, input.PadLeftX)))
+				out.Call("push", o)
+			}
+		}
+		return out
 	}))
 	api.Set("userRead", js.FuncOf(func(_ js.Value, a []js.Value) any {
 		if len(a) == 0 {

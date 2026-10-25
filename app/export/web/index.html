@@ -25,6 +25,18 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
 #fullscreen svg, #mute svg { display: block; width: 18px; height: 18px; margin: auto; }
 #mute .off, #mute.muted .on { display: none; }
 #mute.muted .off { display: inline; }
+#vpad { --s: clamp(64px, 30vmin, 120px); --k: clamp(30px, 12vmin, 52px); --g: calc(var(--k) + 4px); --m: clamp(8px, 4vmin, 20px); position: fixed; inset: auto 0 0 0; height: 0; pointer-events: none; }
+#vpad[hidden] { display: none; }
+#vpad .stick, #vpad .btn { position: fixed; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; box-sizing: border-box; border: 1px solid rgba(228, 227, 223, 0.18); background: rgba(45, 48, 54, 0.55); color: #e4e3df; }
+#vpad .stick { left: max(var(--m), env(safe-area-inset-left)); bottom: max(var(--m), env(safe-area-inset-bottom)); width: var(--s); height: var(--s); border-radius: 50%; }
+#vpad .knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; background: #6e9bf5; }
+#vpad .btn { width: var(--k); height: var(--k); border-radius: 6px; font: 600 calc(var(--k) * 0.32) system-ui, sans-serif; display: flex; align-items: center; justify-content: center; }
+#vpad .btn.held { background: #6e9bf5; color: #0d0e10; }
+#vpad .a { right: calc(max(var(--m), env(safe-area-inset-right)) + var(--g)); bottom: max(var(--m), env(safe-area-inset-bottom)); }
+#vpad .b { right: max(var(--m), env(safe-area-inset-right)); bottom: calc(max(var(--m), env(safe-area-inset-bottom)) + var(--g)); }
+#vpad .x { right: calc(max(var(--m), env(safe-area-inset-right)) + 2 * var(--g)); bottom: calc(max(var(--m), env(safe-area-inset-bottom)) + var(--g)); }
+#vpad .y { right: calc(max(var(--m), env(safe-area-inset-right)) + var(--g)); bottom: calc(max(var(--m), env(safe-area-inset-bottom)) + 2 * var(--g)); }
+#vpad .start { top: 10px; left: 10px; width: auto; height: 32px; padding: 0 12px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -37,6 +49,51 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
 </div>
 <button id="fullscreen" type="button" title="Fullscreen" aria-label="Fullscreen" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9.92 13.44L10.25 13.38L13.38 13.38L13.38 10.25L13.44 9.92L13.76 9.52L14.08 9.39L14.58 9.44L14.98 9.76L15.12 10.25L15.12 14.25L15.06 14.58L14.74 14.98L14.25 15.12L10.25 15.12L9.92 15.06L9.52 14.74L9.38 14.25L9.52 13.76ZM13.44 6.08L13.38 5.75L13.38 2.62L10.25 2.62L9.92 2.56L9.52 2.24L9.39 1.92L9.44 1.42L9.76 1.02L10.25 0.88L14.25 0.88L14.58 0.94L14.98 1.26L15.12 1.75L15.12 5.75L15.06 6.08L14.74 6.48L14.25 6.62L13.76 6.48ZM2.56 9.92L2.62 10.25L2.62 13.38L5.75 13.38L6.08 13.44L6.48 13.76L6.62 14.25L6.56 14.58L6.24 14.98L5.75 15.12L1.75 15.12L1.42 15.06L1.02 14.74L0.88 14.25L0.88 10.25L0.94 9.92L1.26 9.52L1.75 9.38L2.24 9.52ZM6.08 2.56L5.75 2.62L2.62 2.62L2.62 5.75L2.56 6.08L2.24 6.48L1.75 6.62L1.42 6.56L1.02 6.24L0.88 5.75L0.88 1.75L0.94 1.42L1.26 1.02L1.75 0.88L5.75 0.88L6.08 0.94L6.48 1.26L6.62 1.75L6.48 2.24Z"/></svg></button>
 <button id="mute" type="button" title="Mute" aria-label="Mute" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M1.81 6.04L4 6L6.74 3.47L7.11 3.41L7.36 3.55L7.5 3.9L7.5 12.1L7.36 12.45L7.11 12.59L6.74 12.53L4 10L2 10L1.65 9.85L1.5 9.5L1.5 6.5L1.58 6.22Z"/><path class="on" fill="currentColor" d="M12.53 5.89L11.97 4.96L11.01 3.9L10.95 3.62L10.99 3.33L11.15 3.08L11.39 2.91L11.82 2.86L12.21 3.05L12.72 3.54L13.53 4.59L13.91 5.29L14.17 5.95L14.35 6.63L14.5 7.96L14.46 8.75L14.34 9.45L14.14 10.13L13.58 11.34L13.18 11.92L12.67 12.52L12.09 13.04L11.67 13.15L11.39 13.09L11.15 12.92L10.99 12.67L10.95 12.38L11.09 11.97L11.61 11.46L12.27 10.59L12.73 9.61L12.88 9.08L12.97 8.54L12.97 7.46L12.73 6.39ZM10.05 7.09L9.82 6.68L9.38 6.19L9.26 5.77L9.31 5.48L9.48 5.24L9.72 5.08L10.01 5.02L10.29 5.08L10.54 5.24L11.01 5.76L11.27 6.16L11.66 7.18L11.75 8.04L11.58 9.12L11.23 9.91L10.54 10.76L10.29 10.92L10.01 10.98L9.72 10.92L9.48 10.76L9.31 10.52L9.26 10.23L9.38 9.81L9.95 9.12L10.2 8.47L10.24 7.76Z"/><path class="off" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M10.25 5.75l4.5 4.5M14.75 5.75l-4.5 4.5"/></svg></button>
+<div id="vpad" hidden aria-hidden="true">
+  <div class="stick"><div class="knob"></div></div>
+  <div class="btn y" data-b="3">Y</div>
+  <div class="btn x" data-b="2">X</div>
+  <div class="btn b" data-b="1">B</div>
+  <div class="btn a" data-b="0">A</div>
+  <div class="btn start" data-b="9">Start</div>
+</div>
+<script>
+(() => {
+  // Touch gamepad in the standard mapping; platform/web reads it as one more pad.
+  const pad = { connected: false, id: "Touch Gamepad", buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0, 0, 0, 0] };
+  globalThis.aegoVirtualPad = pad;
+  const root = document.getElementById("vpad");
+  const show = (on) => { root.hidden = !on; pad.connected = on; };
+  const loader = document.getElementById("loader");
+  const ready = () => loader.classList.contains("done");
+  let touch = matchMedia("(pointer: coarse)").matches;
+  const update = () => show(touch && ready());
+  new MutationObserver(update).observe(loader, { attributes: true, attributeFilter: ["class"] });
+  addEventListener("pointerdown", (e) => { if (e.pointerType === "touch" && !touch) { touch = true; update(); } }, true);
+  addEventListener("keydown", () => { if (touch && !matchMedia("(pointer: coarse)").matches) { touch = false; update(); } }, true);
+  for (const el of root.querySelectorAll(".btn")) {
+    const b = pad.buttons[+el.dataset.b];
+    const set = (on) => { b.pressed = on; b.value = on ? 1 : 0; el.classList.toggle("held", on); };
+    el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); set(true); });
+    for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(t, () => set(false));
+  }
+  const stick = root.querySelector(".stick"), knob = stick.querySelector(".knob");
+  let id = null;
+  const move = (e) => {
+    const r = stick.getBoundingClientRect(), rad = r.width / 2;
+    let x = (e.clientX - r.left - rad) / rad, y = (e.clientY - r.top - rad) / rad;
+    const l = Math.hypot(x, y);
+    if (l > 1) { x /= l; y /= l; }
+    pad.axes[0] = x; pad.axes[1] = y;
+    knob.style.transform = `translate(${x * rad * 0.6}px, ${y * rad * 0.6}px)`;
+  };
+  const release = () => { id = null; pad.axes[0] = pad.axes[1] = 0; knob.style.transform = ""; };
+  stick.addEventListener("pointerdown", (e) => { e.preventDefault(); id = e.pointerId; stick.setPointerCapture(id); move(e); });
+  stick.addEventListener("pointermove", (e) => { if (e.pointerId === id) move(e); });
+  for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) stick.addEventListener(t, (e) => { if (e.pointerId === id) release(); });
+  addEventListener("blur", () => { release(); for (const el of root.querySelectorAll(".btn.held")) el.dispatchEvent(new Event("pointercancel")); });
+})();
+</script>
 <script src="wasm_exec.js?v={{.Build}}"></script>
 <script src="loader.js?v={{.Build}}"></script>
 </body>

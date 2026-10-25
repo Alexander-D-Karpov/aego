@@ -30,6 +30,8 @@ const (
 )
 
 type FieldInfo struct {
+	// Label is the name the Inspector shows.
+	Label   string
 	Type    string
 	Default string
 	Range   string

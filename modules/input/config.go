@@ -122,10 +122,12 @@ func Default() Config {
 		Deadzone: DefaultDeadzone,
 		Stack:    []string{DefaultContext},
 		Actions: []Action{
+			{Name: "Move", Kind: Axis1D, Bindings: mustBindings("Key.A/Key.D", "Key.Left/Key.Right", "Pad.LeftX")},
+			{Name: "Jump", Kind: Button, Bindings: mustBindings("Key.Space", "Pad.A")},
 			{Name: "horizontal", Kind: Axis1D, Bindings: mustBindings("Key.A/Key.D", "Key.Left/Key.Right")},
 			{Name: "vertical", Kind: Axis1D, Bindings: mustBindings("Key.S/Key.W", "Key.Down/Key.Up")},
 		},
-		Contexts: []Context{{Name: DefaultContext, Actions: []string{"horizontal", "vertical"}}},
+		Contexts: []Context{{Name: DefaultContext, Actions: []string{"Move", "Jump", "horizontal", "vertical"}}},
 	}
 }
 

@@ -1267,6 +1267,18 @@ messages version=1 lang=ru {
   msg "editor.events.title" {
     text="Монитор событий"
   }
+  msg "editor.export.action.check" {
+    text="Проверить"
+  }
+  msg "editor.export.action.export" {
+    text="Экспорт"
+  }
+  msg "editor.export.action.reveal" {
+    text="Открыть папку"
+  }
+  msg "editor.export.action.run" {
+    text="Запустить"
+  }
   msg "editor.export.back_to_the_default_folder" {
     text="Вернуть папку по умолчанию"
   }

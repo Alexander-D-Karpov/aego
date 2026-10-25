@@ -233,6 +233,9 @@ func finish(p *project.Project) error {
 	if err := sceneMetas(p); err != nil {
 		return err
 	}
+	if err := scriptMetas(p); err != nil {
+		return err
+	}
 	return p.Save()
 }
 
@@ -250,6 +253,25 @@ func sceneMetas(p *project.Project) error {
 		}
 		if p.MainScene.IsZero() && filepath.Base(file) == "main.aescene" {
 			p.MainScene = meta.ID
+		}
+		return nil
+	})
+}
+
+// scriptMetas gives the template's scripts their sidecars, so a new project checks clean (META001).
+func scriptMetas(p *project.Project) error {
+	return filepath.WalkDir(p.ScriptsDir(), func(file string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(file) != ".aes" {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if _, err := os.Stat(file + pipeline.MetaSuffix); err == nil {
+			return nil
+		}
+		if err := os.WriteFile(file+pipeline.MetaSuffix, pipeline.WriteMeta(pipeline.NewMeta("script", 1, nil)), 0o644); err != nil {
+			return errs.Wrap(err, errs.VFSIO, "cannot write a script sidecar")
 		}
 		return nil
 	})

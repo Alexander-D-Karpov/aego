@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{.Lang}}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,6 +12,7 @@
     <meta property="og:site_name" content="{{.Site}}">
     <meta property="og:title" content="{{.PageTitle}}">
     <meta property="og:description" content="{{.Description}}">
+    {{if .Markdown}}<link rel="alternate" type="text/markdown" href="{{.Root}}{{.Markdown}}">{{end}}
     <link rel="icon" type="image/png" href="{{.Root}}assets/favicon.png?v={{.AssetV}}">
     <link rel="apple-touch-icon" href="{{.Root}}assets/apple-touch-icon.png?v={{.AssetV}}">
     <meta name="color-scheme" content="dark light">

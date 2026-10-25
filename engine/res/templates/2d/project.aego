@@ -1,3 +1,20 @@
 project version=1 {
   module="{{module}}"
+  input version=2 {
+    stack=[Gameplay]
+    action {
+      name=Move
+      type=axis1
+      bind=["Key.A/Key.D", "Key.Left/Key.Right", "Pad.LeftX"]
+    }
+    action {
+      name=Jump
+      type=button
+      bind=["Key.Space", "Pad.A"]
+    }
+    context {
+      name=Gameplay
+      actions=[Move, Jump]
+    }
+  }
 }

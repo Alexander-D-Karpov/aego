@@ -79,6 +79,9 @@ func (e *Env) Check(strict bool) int {
 	if CheckExamples(reg, e.Stdout) > 0 && code == 0 {
 		code = 1
 	}
+	if CheckSteps(reg, e.Stdout) > 0 && code == 0 {
+		code = 1
+	}
 	return code
 }
 

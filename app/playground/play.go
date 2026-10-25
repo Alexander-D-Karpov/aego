@@ -133,7 +133,12 @@ func (p *Playground) PlayScene(name string, src []byte, code string, prefabs map
 
 // TryCode compiles the script of a try scene into the form DecodeTry reads.
 func (p *Playground) TryCode(script string) (string, error) {
-	placed, err := place(map[string]string{"main.aes": script})
+	return p.TryFiles(map[string]string{"main.aes": script})
+}
+
+// TryFiles compiles several script files, by name, into the form DecodeTry reads.
+func (p *Playground) TryFiles(files map[string]string) (string, error) {
+	placed, err := place(files)
 	if err != nil {
 		return "", err
 	}

@@ -29,11 +29,11 @@ type PrefabInstance struct {
 
 func RegisterPrefab(t *scene.Types) error {
 	if err := scene.RegisterComponent[PrefabInstance](t, schema.Name(PrefabName),
-		schema.Doc("links a node to the prefab it was created from"), schema.Clone(clonePrefab)); err != nil {
+		schema.Doc("Links a node to the prefab it was created from."), schema.Clone(clonePrefab)); err != nil {
 		return err
 	}
 	if td, ok := t.Schema().ByName(PrefabName); ok {
-		td.Hidden = true
+		td.Hidden, td.DisplayName = true, "Prefab Instance"
 	}
 	return nil
 }

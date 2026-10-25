@@ -1,5 +1,9 @@
 Getting started
-  Install and run -> install.html
+  Getting started
+    Install Aego -> install.html
+    Your first project -> quickstart.html
+    Platformer from scratch -> platformer.html
+    Recipes -> recipes.html
 Guides
   Editor -> editor.html
     Add Component and Create -> editor/add-component.html
@@ -155,7 +159,7 @@ Reference
       Sound -> ref/aego/audio.Sound.html
   Components
     Core -> ref/module/engine.html
-      PrefabInstance -> ref/engine.PrefabInstance.html
+      Prefab Instance -> ref/engine.PrefabInstance.html
       Tags -> ref/engine.Tags.html
     Physics 2D -> ref/module/physics.html
       Box Collider 2D -> ref/physics.BoxCollider2D.html

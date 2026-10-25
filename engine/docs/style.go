@@ -322,6 +322,9 @@ func (r *Registry) StyleProblems(strict bool) []Problem {
 			roots[id[:j]] = true
 		}
 	}
+	for k := range r.keys {
+		names[k] = true
+	}
 	for i := range r.entries {
 		e := &r.entries[i]
 		switch {

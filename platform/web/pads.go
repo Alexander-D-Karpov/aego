@@ -17,19 +17,29 @@ func (p *Platform) anyPad() bool {
 	return false
 }
 
+// virtualSlot is the pad slot of the page's touch gamepad, globalThis.aegoVirtualPad in the standard mapping.
+const virtualSlot = input.MaxPads - 1
+
 func (p *Platform) pollPads() {
-	if !p.gamepads.Truthy() || (p.padLive == 0 && !p.anyPad()) {
+	vp := p.global.Get("aegoVirtualPad")
+	virt := vp.Truthy() && vp.Get("connected").Truthy()
+	if !virt && (!p.gamepads.Truthy() || (p.padLive == 0 && !p.anyPad())) {
 		return
 	}
-	list := p.gamepads.Invoke()
+	var list js.Value
 	n := 0
-	if list.Truthy() {
-		n = list.Length()
+	if p.gamepads.Truthy() && (p.padLive > 0 || p.anyPad()) {
+		if list = p.gamepads.Invoke(); list.Truthy() {
+			n = list.Length()
+		}
 	}
 	for i := range p.pads {
 		f := &p.pad
 		*f = padFrame{}
-		if i < n {
+		switch {
+		case i == virtualSlot && virt:
+			readPad(vp, f, !p.pads[i].on)
+		case i < n:
 			readPad(list.Index(i), f, !p.pads[i].on)
 		}
 		p.queue = p.pads[i].diff(uint32(i+1), f, p.queue)

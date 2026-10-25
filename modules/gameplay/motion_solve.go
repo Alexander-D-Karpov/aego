@@ -268,9 +268,12 @@ func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 	}
 	st := &c.st
 	if st.teleport {
-		to := st.teleportTo
+		to, v := st.teleportTo, mathx.Vec2{}
+		if st.keepVel {
+			v = c.Velocity
+		}
 		*st = motionState{move: st.move, warned: st.warned}
-		c.Velocity, c.Grounded, c.OnWall, c.OnCeiling, c.Climbing = mathx.Vec2{}, false, false, false, false
+		c.Velocity, c.Grounded, c.OnWall, c.OnCeiling, c.Climbing = v, false, false, false, false
 		c.GroundBody = scene.NodeRef{}
 		if err := s.q.Teleport(h, to, ang); err != nil {
 			s.warn(h, c, err)

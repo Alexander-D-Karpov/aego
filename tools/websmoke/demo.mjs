@@ -89,6 +89,37 @@ async function compare(page, name) {
     console.log(`${name}: ${pct.toFixed(3)}% of pixels differ`);
 }
 
+
+// touchPad drives the demo on a phone through the touch gamepad and checks the game reads its stick.
+async function touchPad() {
+    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    const phone = await ctx.newPage();
+    phone.on("pageerror", (e) => fail("phone page error: " + e.message));
+    await phone.goto(base + "/demo/");
+    await frames(phone, 120, 120000);
+    if (!(await phone.locator("#vpad .stick").isVisible())) {
+        fail("the touch gamepad is hidden on a phone");
+        return;
+    }
+    const box = await phone.locator("#vpad .stick").boundingBox();
+    const cdp = await ctx.newCDPSession(phone);
+    const at = (x) => [{ x: box.x + box.width / 2 + x, y: box.y + box.height / 2, id: 1 }];
+    const leftX = async () => {
+        await phone.waitForTimeout(200);
+        const pads = await phone.evaluate(() => globalThis.aegoGame.pads());
+        const touch = pads.find((p) => p.name === "Touch Gamepad");
+        return touch ? touch.leftX : null;
+    };
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(0) });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(box.width / 2) });
+    const held = await leftX();
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const released = await leftX();
+    if (held === null || held < 0.9 || released !== 0) fail(`the game reads the touch stick as ${held}, then ${released} after release`);
+    else console.log("demo: the game reads the touch gamepad");
+    await ctx.close();
+}
+
 const srv = await serve(site);
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({
@@ -111,6 +142,7 @@ try {
     const kept = await page.evaluate(() => globalThis.aegoGame.userRead("smoke/check.txt"));
     if (kept !== "kept") fail(`the profile did not survive a reload: ${kept}`);
     else console.log("demo: profile survives a reload");
+    await touchPad();
 } catch (e) {
     fail(e.message);
 } finally {

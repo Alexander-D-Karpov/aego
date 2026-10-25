@@ -347,19 +347,19 @@ func (p *Panel) settings(ui *uicore.Context) {
 	done := p.rep != nil && !p.rep.Blocked && p.rep.Out != ""
 	bar := ui.Cursor().Next(th.RowHeight + 6)
 	bx := bar.X + labelW
-	if p.action(ui, "export", &bx, bar.Y, bar.H, "file.package", "Export", !busy, true) {
+	if p.action(ui, "export", &bx, bar.Y, bar.H, "file.package", i18n.Tr("editor.export.action.export", "Export"), !busy, true) {
 		p.export(out)
 	}
-	if p.action(ui, "check", &bx, bar.Y, bar.H, "ui.check", "Check", !busy, false) {
+	if p.action(ui, "check", &bx, bar.Y, bar.H, "ui.check", i18n.Tr("editor.export.action.check", "Check"), !busy, false) {
 		p.check()
 	}
 	if done {
-		if p.action(ui, "reveal", &bx, bar.Y, bar.H, "file.folder", "Open Folder", !busy, false) {
+		if p.action(ui, "reveal", &bx, bar.Y, bar.H, "file.folder", i18n.Tr("editor.export.action.reveal", "Open Folder"), !busy, false) {
 			if err := x.Reveal(p.rep.Out); err != nil {
 				p.msg = "Cannot open the file manager: " + err.Error()
 			}
 		}
-		if rn, ok := x.(runner); ok && p.action(ui, "run", &bx, bar.Y, bar.H, "play.start", "Run", !busy, false) {
+		if rn, ok := x.(runner); ok && p.action(ui, "run", &bx, bar.Y, bar.H, "play.start", i18n.Tr("editor.export.action.run", "Run"), !busy, false) {
 			if err := rn.Run(p.rep.Out, p.target); err != nil {
 				p.msg = "Cannot run the export: " + err.Error()
 			}

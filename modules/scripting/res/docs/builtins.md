@@ -887,3 +887,51 @@ if e != nil {
 	e.Died.Connect(OnEnemyDied)
 }
 ```
+
+---
+id: keyword/copy
+parent: language/builtins
+order: 63
+title: Copy
+keys: ["Copy"]
+---
+
+Returns a copy of a data asset as a struct the script owns. Changing the copy does not change the asset.
+
+```aes
+s := Stats.Copy()
+```
+
+---
+id: keyword/row
+parent: language/builtins
+order: 64
+title: Row
+keys: ["Row"]
+---
+
+Returns the row of a table with the given id. A missing row stops the script with AES6004; check with Has first.
+
+```aes
+entry := Loot.Row("goblin")
+```
+
+---
+id: keyword/has
+parent: language/builtins
+order: 65
+title: Has
+keys: ["Has"]
+---
+
+Reports whether a table has a row with the given id.
+
+---
+id: keyword/table-len
+parent: language/builtins
+order: 66
+title: Len
+keys: ["Len"]
+---
+
+Returns the number of rows in a table.

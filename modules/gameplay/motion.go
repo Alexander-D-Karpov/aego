@@ -55,6 +55,7 @@ type motionState struct {
 	stop       bool
 	teleport   bool
 	teleportTo mathx.Vec2
+	keepVel    bool
 	coyote     float32
 	buffer     float32
 	grounded   bool
@@ -155,7 +156,12 @@ func (m *Motion2D) Stop() {
 }
 
 func (m *Motion2D) Teleport(p mathx.Vec2) {
-	m.st.teleport, m.st.teleportTo = true, p
+	m.st.teleport, m.st.teleportTo, m.st.keepVel = true, p, false
+}
+
+// teleportKeep moves like Teleport but keeps the velocity.
+func (m *Motion2D) teleportKeep(p mathx.Vec2) {
+	m.st.teleport, m.st.teleportTo, m.st.keepVel = true, p, true
 }
 
 const kinematic = 1
@@ -229,19 +235,19 @@ func registerMotion(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("upDirection", "Up for floors, jumps and gravity. (0, -1) is up on screen."),
 		schema.FieldDoc("maxSpeed", "Top speed in units per second."),
 		schema.FieldDoc("accel", "How fast the speed grows towards the target, units per second squared."),
-		schema.FieldDoc("decel", "How fast the speed falls without input."),
-		schema.FieldDoc("airControl", "Share of Accel and Decel available in the air."),
+		schema.FieldDoc("decel", "How fast the speed falls without input, in units per second squared."),
+		schema.FieldDoc("airControl", "Share of Accel and Decel available in the air: 0 cannot steer, 1 steers as on the ground."),
 		schema.FieldDoc("gravityScale", "Multiplies the physics gravity; 0 turns gravity off for the character."),
 		schema.FieldDoc("maxFallSpeed", "Fastest fall in units per second. 0 is unlimited."),
-		schema.FieldDoc("jumpHeight", "Height of a full jump; sets the jump speed unless Jump Speed is set."),
+		schema.FieldDoc("jumpHeight", "Height of a full jump in units; sets the jump speed unless Jump Speed is set."),
 		schema.FieldDoc("jumpSpeed", "Upward speed of a jump. 0 derives it from Jump Height and gravity."),
 		schema.FieldDoc("jumpCutMultiplier", "Upward speed is multiplied by this when the jump button is released early."),
 		schema.FieldDoc("coyoteTime", "Seconds after leaving a ledge during which a jump still works."),
 		schema.FieldDoc("jumpBuffer", "Seconds a jump pressed in the air is remembered until landing."),
 		schema.FieldDoc("maxSlope", "Steepest floor in degrees; steeper surfaces are walls."),
-		schema.FieldDoc("stepHeight", "Steps up to this height are climbed without jumping."),
-		schema.FieldDoc("snapToGround", "Keeps the character on slopes and steps down by up to this distance."),
-		schema.FieldDoc("safeMargin", "Gap kept to surfaces so casts never start inside them."),
+		schema.FieldDoc("stepHeight", "Steps up to this height, in units, are climbed without jumping. 0 never steps up."),
+		schema.FieldDoc("snapToGround", "Keeps the character on slopes and steps down by up to this distance, in units. 0 never snaps."),
+		schema.FieldDoc("safeMargin", "Gap in units kept to surfaces so casts never start inside them."),
 		schema.FieldDoc("maxSlides", "How many surfaces one step may slide along."),
 		schema.FieldDoc("collisionMask", "Layers the character collides with."),
 		schema.FieldDoc("pushBodies", "Moves through dynamic bodies and pushes them instead of stopping at them."),

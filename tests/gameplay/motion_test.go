@@ -370,3 +370,77 @@ func TestHashSeesDisabledControllers(t *testing.T) {
 		t.Fatal("a pending jump of a disabled controller does not change the hash")
 	}
 }
+
+func TestWalksWhenCloserThanTheMargin(t *testing.T) {
+	r := floorRig(t)
+	h := r.hero(mathx.Vec2{Y: 3.999}, gameplay.Platformer)
+	r.ticks(2)
+	r.s.SetPosition(h, mathx.Vec2{Y: 3.999})
+	r.motion(h).Teleport(mathx.Vec2{Y: 3.999})
+	r.ticks(2)
+	x := r.pos(h).X
+	r.motion(h).Move(1)
+	r.ticks(30)
+	if d := r.pos(h).X - x; d < 1 {
+		t.Fatalf("moved %v in half a second resting %v above the floor", d, 4.5-0.5-r.pos(h).Y)
+	}
+}
+
+func TestJumpsAlongATouchedWall(t *testing.T) {
+	r := floorRig(t)
+	r.solid(mathx.Vec2{X: 1, Y: 2}, mathx.Vec2{X: 1, Y: 6}, 0)
+	h := r.hero(mathx.Vec2{X: 0.25 - 0.001, Y: 4}, gameplay.Platformer)
+	r.ticks(10)
+	r.motion(h).Move(1)
+	r.ticks(10)
+	y := r.pos(h).Y
+	t.Logf("before jump %v grounded=%v wall=%v", r.pos(h), r.motion(h).Grounded, r.motion(h).OnWall)
+	r.motion(h).Jump()
+	r.ticks(10)
+	if d := y - r.pos(h).Y; d < 0.5 {
+		t.Fatalf("rose %v pressed against a wall", d)
+	}
+}
+
+func TestRespawnResetVelocity(t *testing.T) {
+	for _, reset := range []bool{true, false} {
+		r := floorRig(t)
+		h := r.hero(mathx.Vec2{Y: 4}, gameplay.Platformer)
+		rs := gameplay.DefaultRespawn()
+		rs.Delay, rs.ResetVelocity = 0, reset
+		*scene.Add[gameplay.Respawn](r.s, h) = rs
+		r.ticks(20)
+		m := r.motion(h)
+		m.AddVelocity(mathx.Vec2{X: 30})
+		r.tick()
+		c, _ := scene.Get[gameplay.Respawn](r.s, h)
+		c.Trigger()
+		r.tick()
+		r.tick()
+		if v := r.motion(h).Velocity.X; reset && v > 1 || !reset && v < 1 {
+			t.Fatalf("resetVelocity=%v: velocity %v after respawn", reset, v)
+		}
+	}
+}
+
+func TestRespawnWaitsForDelay(t *testing.T) {
+	r := floorRig(t)
+	h := r.hero(mathx.Vec2{Y: 4}, gameplay.Platformer)
+	rs := gameplay.DefaultRespawn()
+	rs.Delay = 0.5
+	*scene.Add[gameplay.Respawn](r.s, h) = rs
+	r.ticks(20)
+	start := r.pos(h)
+	c, _ := scene.Get[gameplay.Respawn](r.s, h)
+	c.Trigger()
+	r.s.SetPosition(h, mathx.Vec2{X: 5, Y: 4})
+	r.motion(h).Teleport(mathx.Vec2{X: 5, Y: 4})
+	r.ticks(int(0.4 / dt))
+	if r.pos(h).X < 4 {
+		t.Fatal("respawned before Delay")
+	}
+	r.ticks(int(0.2/dt) + 1)
+	if d := r.pos(h).Sub(start).Len(); d > 0.1 {
+		t.Fatalf("%v from the start after Delay", d)
+	}
+}

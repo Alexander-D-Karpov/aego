@@ -8,6 +8,7 @@ import (
 	"html"
 	"html/template"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -105,11 +106,14 @@ type layoutData struct {
 	Repo        string
 	Demo        bool
 	Home        bool
+	Lang        string
 	Nav         template.HTML
 	Content     template.HTML
 	Toc         template.HTML
 	Pager       template.HTML
 	Footer      template.HTML
+	// Markdown is the page's Markdown copy, for rel="alternate".
+	Markdown string
 }
 
 type searchItem struct {
@@ -594,7 +598,7 @@ func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry,
 		for _, n := range fi.Notes {
 			notes = append(notes, `<span class="note">`+esc(n)+"</span>")
 		}
-		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + `<code>` + esc(f.Title) + "</code></a></td>")
+		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + fieldName(f) + "</a></td>")
 		c.WriteString(`<td class="ftype"><code>` + esc(fi.Type) + `</code></td><td class="fdef">` + def + "</td>")
 		desc := ""
 		if strings.TrimSpace(f.Body) != "" {
@@ -606,6 +610,18 @@ func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry,
 		c.WriteString(`<td class="fdesc">` + desc + "</td></tr>\n")
 	}
 	c.WriteString("</tbody></table>\n")
+}
+
+// fieldName shows a field as the Inspector names it, with the script name under it when that differs.
+func fieldName(f *Entry) string {
+	l := f.Field.Label
+	if l == "" || strings.ReplaceAll(l, " ", "") == f.Title {
+		if l == "" {
+			l = f.Title
+		}
+		return `<span class="fnames"><span class="flabel">` + esc(l) + `</span></span>`
+	}
+	return `<span class="fnames"><span class="flabel">` + esc(l) + `</span><code class="fscript">` + esc(f.Title) + `</code></span>`
 }
 
 func (b *builder) entryList(c *strings.Builder, ids []string, root string) {
@@ -899,8 +915,13 @@ func (b *builder) footer(e *Entry, root string) string {
 		right = append(right, `<a href="`+root+`play/">Playground</a>`)
 	}
 	if o.Repo != "" {
-		right = append(right, `<a href="`+esc(o.Repo)+`">Source</a>`)
+		src := "Source"
+		if u, err := url.Parse(o.Repo); err == nil && u.Host != "" {
+			src = "Source on " + u.Host
+		}
+		right = append(right, `<a href="`+esc(o.Repo)+`">`+esc(src)+`</a>`)
 	}
+	right = append(right, `<a href="`+root+`llms.txt" title="These docs as Markdown, for AI agents">llms.txt</a>`)
 	return `<footer class="foot"><span>` + strings.Join(left, " · ") + `</span><span class="links">` + strings.Join(right, "") + "</span></footer>"
 }
 
@@ -1018,65 +1039,6 @@ func (b *builder) firstOf(section string) string {
 	return ""
 }
 
-func (b *builder) home() string {
-	var c strings.Builder
-	c.WriteString(`<section class="hero"><div class="hero-text"><h1>` + esc(b.exp.Title) + "</h1>")
-	c.WriteString(`<p class="lead">` + esc(homeLead) + "</p>")
-	dl := b.downloadBlock("")
-	c.WriteString(dl)
-	if u, ok := b.urls[installPage]; ok {
-		c.WriteString(`<pre class="code install" data-lang="sh"><code>` + esc(installCmd) + "</code></pre>")
-		c.WriteString(`<p class="install-note">Linux x86-64. <a href="` + esc(u) + `">Windows, macOS and source builds</a></p>`)
-	}
-	c.WriteString(`<div class="actions">`)
-	if u := b.firstOf(SectionStart); u != "" {
-		cls := "button primary"
-		if dl != "" {
-			cls = "button"
-		}
-		c.WriteString(`<a class="` + cls + `" href="` + esc(u) + `">Get started</a>`)
-	}
-	if b.opt.Playground {
-		c.WriteString(`<a class="button" href="play/">Open the playground</a>`)
-	}
-	c.WriteString("</div></div>")
-	switch {
-	case b.opt.Demo:
-		style := ""
-		if b.poster {
-			style = ` style="background-image:url(` + posterAsset + `)"`
-		}
-		c.WriteString(`<div class="hero-demo"><div class="demo" data-src="demo/"` + style + `><button type="button" class="demo-play" aria-label="Play the demo"><span class="disc">` + b.icon("", "play.start", "") + `</span><small>Play the demo · runs in the browser</small></button></div>`)
-		c.WriteString(`<p class="demo-caption">A small platformer made with Aego and exported for the web. A/D or arrows to move, Space to jump. <a href="demo/">Open full screen</a></p></div>`)
-	case b.hero:
-		c.WriteString(`<img class="hero-shot" src="` + heroAsset + `" alt="The Aego editor">`)
-	}
-	c.WriteString("</section>\n")
-	for _, s := range sectionOrder {
-		var items []string
-		for _, g := range b.groups {
-			if g.Section != s || len(g.roots) == 0 {
-				continue
-			}
-			first := b.byID[g.roots[0]]
-			title := g.Title
-			if head, list := b.head(g); head != "" && len(list) == 0 {
-				title = first.Title
-			}
-			item := `<li><a href="` + esc(b.urls[g.roots[0]]) + `">` + b.icon("", g.Icon, "") + esc(title) + "</a>"
-			if sum := strings.TrimSpace(mdImage.ReplaceAllString(first.Summary, "")); sum != "" {
-				item += "<p>" + inlineMD(sum) + "</p>"
-			}
-			items = append(items, item+"</li>")
-		}
-		if len(items) == 0 {
-			continue
-		}
-		c.WriteString(`<h2 id="` + esc(s) + `">` + esc(sectionTitle(s)) + `</h2><ul class="index">` + strings.Join(items, "") + "</ul>\n")
-	}
-	return c.String()
-}
-
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
@@ -1097,12 +1059,20 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		Repo:        b.opt.Repo,
 		Demo:        b.opt.Demo,
 		Home:        current == "",
+		Lang:        langOf(rel),
 		Nav:         template.HTML(b.nav(root, current)),
 		Content:     template.HTML(content),
 		Footer:      template.HTML(b.footer(e, root)),
 	}
+	if current != "" && langOf(rel) == "en" {
+		data.Markdown = mdURL(rel)
+	}
 	if current == "" {
 		data.PageTitle = b.exp.Title + " — 2D game engine in Go"
+		if data.Lang == "ru" {
+			data.PageTitle = b.exp.Title + " — 2D-движок на Go"
+			data.Description = landingRU.tagline
+		}
 	} else if e != nil {
 		if d := metaDescription(e.Summary); d != "" {
 			data.Description = d
@@ -1163,7 +1133,7 @@ func (b *builder) outline() string {
 
 func (b *builder) llms() string {
 	var c strings.Builder
-	c.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n")
+	c.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n\nEvery page below is Markdown; /llms-full.txt has all of them in one file.\n")
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
@@ -1173,7 +1143,7 @@ func (b *builder) llms() string {
 		c.WriteString("\n### " + g.Title + "\n\n")
 		b.walkOwn(g.roots, 0, func(id string, _ int) {
 			e := b.byID[id]
-			line := "- [" + e.Title + "](" + cleanURL(b.urls[id]) + ")"
+			line := "- [" + e.Title + "](/" + mdURL(b.urls[id]) + ")"
 			if s := plainMD(e.Summary); s != "" {
 				line += ": " + s
 			}
@@ -1208,7 +1178,13 @@ func (b *builder) write() error {
 			return err
 		}
 	}
-	if err := b.emit("index.html", b.exp.Title, "", b.home(), nil); err != nil {
+	if err := b.emit("index.html", b.exp.Title, "", b.home(landingEN), nil); err != nil {
+		return err
+	}
+	if err := b.emit("ru/index.html", b.exp.Title, "", b.home(landingRU), nil); err != nil {
+		return err
+	}
+	if err := b.ruPages(); err != nil {
 		return err
 	}
 	data, err := json.Marshal(search)
@@ -1219,6 +1195,9 @@ func (b *builder) write() error {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(b.out, "llms.txt"), []byte(b.llms()), 0o644); err != nil {
+		return err
+	}
+	if err := b.writeMarkdown(); err != nil {
 		return err
 	}
 	return b.assets()

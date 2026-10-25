@@ -157,3 +157,17 @@ func TestPenetrationBoxCoresOverlap(t *testing.T) {
 		t.Fatalf("initial box cast %+v ok=%v", h, ok)
 	}
 }
+
+func TestCastFromTouchingContact(t *testing.T) {
+	w := castWorld(t)
+	floor(t, w)
+	b := addBody(t, w, Kinematic, Vec2{Y: 4}, DefaultShapeDef(Box{Half: Vec2{X: 0.25, Y: 0.5}}))
+	if h, ok := w.CastBody(b, Vec2{}, Vec2{Y: 0.1}, DefaultQueryFilter()); !ok || h.Fraction != 0 || !near(h.Normal.Y, -1, 1e-3) {
+		t.Fatalf("cast into the floor it touches %+v ok=%v", h, ok)
+	}
+	for _, d := range []Vec2{{X: 1}, {X: -1}, {Y: -1}} {
+		if h, ok := w.CastBody(b, Vec2{}, d, DefaultQueryFilter()); ok {
+			t.Fatalf("cast %v along or away from the floor hit %+v", d, h)
+		}
+	}
+}

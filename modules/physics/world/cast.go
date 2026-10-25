@@ -253,6 +253,9 @@ func (q *queryState) overlap(c *convex, delta Vec2) (CastHit, bool) {
 		}
 	}
 	sep := m.Points[deep].Separation
+	if sep >= 0 && delta.Dot(m.Normal) >= 0 {
+		return CastHit{}, false
+	}
 	return CastHit{Point: m.Points[deep].Point.Sub(m.Normal.Scale(0.5 * sep)), Normal: m.Normal, Depth: max(-sep, 0), Initial: true}, true
 }
 
@@ -265,6 +268,15 @@ func (q *queryState) castHit(id int32) bool {
 	if !ok {
 		pb := proxyOf(&c)
 		hit, ok = castPair(&q.castA, q.castDelta, &pb, q.w.cfg.LinearSlop)
+		if ok && hit.Fraction == 0 {
+			// touching at the start: the GJK witness direction is unreliable there, take the face normal
+			var m Manifold
+			collideConvex(&c, identityXf(), &q.castC, identityXf(), q.w.cfg.LinearSlop, &m)
+			if m.Count > 0 {
+				hit.Normal = m.Normal
+			}
+			ok = q.castDelta.Dot(hit.Normal) < 0
+		}
 	}
 	if !ok {
 		return true

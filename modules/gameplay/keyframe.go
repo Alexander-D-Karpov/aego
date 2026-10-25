@@ -99,6 +99,7 @@ func (s *Service) hashMotion(n scene.NodeHandle, c *Motion2D) {
 	h.Bool(st.jumping)
 	h.Bool(st.stop)
 	h.Bool(st.teleport)
+	h.Bool(st.keepVel)
 	h.Bool(st.grounded)
 	h.Bool(c.Climbing)
 }
