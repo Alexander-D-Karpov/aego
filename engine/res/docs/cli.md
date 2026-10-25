@@ -104,7 +104,7 @@ Reimports every asset; `--force` ignores the artifact cache.
 
 ## aego version
 
-`aego version` prints the engine version and the commit the binary was built from, such as `aego 0.10.0 (6151233e0586, 2026-10-25T13:17:32Z)`. A build from a checkout with uncommitted changes adds `-dirty` to the commit.
+`aego version` prints the engine version and the commit the binary was built from, such as `aego 0.11.0-dev (6151233e0586, 2026-10-25T13:17:32Z)`. A build from a checkout with uncommitted changes adds `-dirty` to the commit.
 
 ## aego mcp
 
