@@ -47,7 +47,8 @@ func (c *Controller) Timeline() Timeline {
 		tl.Tick = h.frames[c.cursor-1].tick
 	}
 	tl.Floor, tl.Keys, tl.KeyBytes, tl.KeysOff = c.floor, len(c.keys), c.keyBytes, c.kfOff
-	tl.KeyTime = c.keyTime
+	tl.KeyTime, tl.KeyEvery = c.keyTime, c.every()
+	tl.Cached, tl.CacheBytes, tl.Bytes = len(c.tkeys), c.tbytes, h.bytes
 	if n := len(c.keys); n > 0 {
 		tl.LastKey = c.keys[n-1].size
 	}
@@ -66,6 +67,9 @@ func (c *Controller) watchEdits() {
 
 func (c *Controller) record(dt float64) bool {
 	h := c.hist
+	if len(c.tkeys) > 0 {
+		c.dropTransient(-1)
+	}
 	if c.cursor < len(h.frames) {
 		h.truncate(c.cursor)
 		c.dropKeys(c.cursor)
@@ -188,22 +192,20 @@ func (c *Controller) reboot() error {
 	return nil
 }
 
-// replayBreak fires on the same Break call of the frame as the recorded run did.
-func (c *Controller) replayBreak(f *frameRec) func() bool {
-	calls := int32(0)
-	return func() bool {
-		calls++
-		return calls == f.brk
-	}
+func (c *Controller) replayCall() bool {
+	c.rcalls++
+	return c.rcalls == c.rbrk
 }
 
+// replay runs the recorded frames up to to, keeping transient keys near the target for scrubbing (D359).
 func (c *Controller) replay(to int) {
 	h, w := c.hist, c.world
 	brk := w.Break
 	c.replaying = true
 	c.replayed = max(to-c.cursor, 0)
+	w.Break = c.replayFn
 	for c.cursor < to {
-		f := h.frames[c.cursor]
+		f := &h.frames[c.cursor]
 		t := w.Time
 		t.SetScale(f.scale)
 		t.SetPaused(f.paused)
@@ -214,9 +216,12 @@ func (c *Controller) replay(to int) {
 			t.StepFrame()
 		}
 		c.input = h.inputs[f.input]
-		w.Break = c.replayBreak(&f)
+		c.rcalls, c.rbrk = 0, f.brk
 		c.advance(f.dt)
 		c.cursor++
+		if c.wantTransient(to) {
+			c.keepTransient(to)
+		}
 	}
 	c.replaying = false
 	w.Break = brk

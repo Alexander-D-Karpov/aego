@@ -18,23 +18,28 @@ import (
 	"aego/sdk"
 )
 
-func rewindSession(t *testing.T) (*edit.Session, *play.Controller) {
+func rewindSession(t testing.TB) (*edit.Session, *play.Controller) {
 	t.Helper()
 	return rewindSessionWith(t, 0, combatModule{})
 }
 
-func rewindSessionWith(t *testing.T, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
+func rewindSessionWith(t testing.TB, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
 	t.Helper()
 	return rewindSessionAt(t, copyExample(t, "platformer"), limit, mods...)
 }
 
-func rewindSessionAt(t *testing.T, root string, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
+func rewindSessionAt(t testing.TB, root string, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
+	t.Helper()
+	return rewindSessionCfg(t, root, limit, edit.Config{Headless: true, NoWatch: true, Logger: log.Nop()}, mods...)
+}
+
+func rewindSessionCfg(t testing.TB, root string, limit int, cfg edit.Config, mods ...sdk.Module) (*edit.Session, *play.Controller) {
 	t.Helper()
 	p, err := project.Load(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := edit.Open(p, edit.Config{Headless: true, NoWatch: true, Logger: log.Nop()}, mods...)
+	s, err := edit.Open(p, cfg, mods...)
 	if err != nil {
 		t.Fatal(err)
 	}

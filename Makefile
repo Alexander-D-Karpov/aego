@@ -35,7 +35,8 @@ MODULE_CI :=
 MODULE_BENCH_ALLOCS :=
 MODULE_BENCH_BASELINE :=
 # Extra bench-compare scenarios, "package:pattern".
-MODULE_BENCH_COMPARE :=
+# Scenarios of one package share a .bench file, joined into one -test.bench regexp.
+MODULE_BENCH_COMPARE := ./tests/integration:RewindScrub
 BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
@@ -108,7 +109,7 @@ depcheck:
 	go test -tags aego_nonative -count=1 ./tools/depcheck
 
 smoke: bootstrap
-	go run ./cmd/sandbox --demo headless --frames $(SMOKE_FRAMES) --strict-allocs
+	go run ./cmd/sandbox --demo headless --frames $(SMOKE_FRAMES) --strict-allocs --alloc-profile $(CURDIR)/.cache/traces
 
 run: bootstrap
 	go run ./cmd/sandbox --demo $(DEMO) $(ARGS)
@@ -182,10 +183,10 @@ bench-build:
 	git worktree prune
 	git worktree add -f --detach $(BENCH_DIR)/base $(BENCH_BASE)
 	cd $(BENCH_DIR)/base && for p in $(BENCH_PKGS); do [ -d $$p ] && go test -c -o $(BENCH_DIR)/base-bin/$$(basename $$p).test $$p; done; true
-	cd $(BENCH_DIR)/base && for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; [ -d $$p ] && go test -c -o $(BENCH_DIR)/base-bin/$$(basename $$p).test $$p && echo "$${e#*:} $$p" > $(BENCH_DIR)/base-bin/$$(basename $$p).bench; done; true
+	cd $(BENCH_DIR)/base && for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; [ -d $$p ] && go test -c -o $(BENCH_DIR)/base-bin/$$(basename $$p).test $$p && f=$(BENCH_DIR)/base-bin/$$(basename $$p).bench && b=$${e#*:} && { [ ! -f $$f ] || { read ob od < $$f; b="$$ob|$$b"; }; } && echo "$$b $$p" > $$f; done; true
 	git worktree remove --force $(BENCH_DIR)/base
 	for p in $(BENCH_PKGS); do go test -c -o $(BENCH_DIR)/head-bin/$$(basename $$p).test $$p; done
-	for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; go test -c -o $(BENCH_DIR)/head-bin/$$(basename $$p).test $$p && echo "$${e#*:} $$p" > $(BENCH_DIR)/head-bin/$$(basename $$p).bench; done
+	for e in $(MODULE_BENCH_COMPARE); do p=$${e%%:*}; go test -c -o $(BENCH_DIR)/head-bin/$$(basename $$p).test $$p && f=$(BENCH_DIR)/head-bin/$$(basename $$p).bench && b=$${e#*:} && { [ ! -f $$f ] || { read ob od < $$f; b="$$ob|$$b"; }; } && echo "$$b $$p" > $$f; done
 
 bench-compare: bench-build
 	for i in $$(seq $(BENCH_COUNT)); do \

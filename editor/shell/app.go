@@ -1031,9 +1031,14 @@ func (a *App) Tasks() *tasks.Queue {
 	return a.tasks
 }
 
+// Idle reports a frame with nothing to show: Stopped or a pause the editor holds, with no input for a second (D359).
+func (a *App) Idle() bool {
+	return a.idle()
+}
+
 func (a *App) idle() bool {
 	now := a.eng.Platform().Now()
-	return a.play.State() == play.Stopped &&
+	return (a.play.State() == play.Stopped || a.play.Held()) &&
 		now-a.lastInput > 1 &&
 		!a.ctx.DnD.Active() &&
 		!a.ws.Dragging() &&

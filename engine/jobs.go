@@ -31,9 +31,16 @@ func newJobs(workers int) *Jobs {
 		spare:   make([]func(), 0, 64),
 		workers: workers,
 	}
+	var started sync.WaitGroup
+	started.Add(workers)
 	for i := 0; i < workers; i++ {
-		j.wg.Go(j.loop)
+		j.wg.Go(func() {
+			started.Done()
+			j.loop()
+		})
 	}
+	// A worker allocates once when it first waits for work; waiting here keeps that out of the first frames.
+	started.Wait()
 	return j
 }
 

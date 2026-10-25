@@ -92,6 +92,13 @@ type Controller struct {
 	kfOff       string
 	keys        []*snapshot
 	spare       []*snapshot
+	frameCost   float64
+	tkeys       []*snapshot
+	tspare      []*snapshot
+	tbytes      int
+	rcalls      int32
+	rbrk        int32
+	replayFn    func() bool
 	keyBytes    int
 	keyEvery    uint64
 	lastTick    uint64
@@ -104,7 +111,9 @@ type Controller struct {
 }
 
 func New(ctx *context.Editor) *Controller {
-	return &Controller{ctx: ctx, scale: 1}
+	c := &Controller{ctx: ctx, scale: 1}
+	c.replayFn = c.replayCall
+	return c
 }
 
 func (c *Controller) SetRelease(pressed func(*input.State) bool, hint func() string) {
@@ -239,6 +248,11 @@ func (c *Controller) notify() {
 
 func (c *Controller) PlayDoc() *document.SceneDocument {
 	return c.proxy
+}
+
+// Held reports a pause the editor holds (the button, a break or a seek), not one the game set.
+func (c *Controller) Held() bool {
+	return c.state == Paused && c.held
 }
 
 func (c *Controller) History() *history.History {
@@ -448,7 +462,7 @@ func (c *Controller) Stop() {
 	c.proxy = nil
 	c.state, c.held = Stopped, false
 	c.dropKeys(-1)
-	c.kf, c.kfOff, c.spare, c.floor, c.rebase = c.kf[:0], "", nil, 0, false
+	c.kf, c.kfOff, c.spare, c.tspare, c.floor, c.rebase = c.kf[:0], "", nil, nil, 0, false
 	c.world, c.runner, c.scene = nil, nil, nil
 	c.doc = 0
 	c.captured = false
@@ -608,6 +622,7 @@ func (c *Controller) Tick(dt float64) {
 		return
 	}
 	if recorded {
+		c.noteCost(time.Since(start))
 		f := &h.frames[len(h.frames)-1]
 		f.tick, f.brk = w.Time.Tick(), c.broke
 		if c.keysOn() && w.Time.Tick() >= c.lastTick+c.every() {

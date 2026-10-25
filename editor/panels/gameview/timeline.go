@@ -65,6 +65,9 @@ func (b *TimelineBar) Apply() {
 	if n == b.sought || b.seekErr != "" {
 		return
 	}
+	if tl := b.src.Timeline(); tl.KeysOff != "" && n < tl.Cursor {
+		return
+	}
 	b.sought = n
 	if err := b.src.Scrub(n); err != nil {
 		b.seekErr = err.Error()
@@ -137,7 +140,7 @@ func (b *TimelineBar) Draw(ui *core.Context, r mathx.Rect) {
 	case tl.Why != "":
 		parts = append(parts, part{"  · ended: " + tl.Why, th.Warn})
 	case tl.KeysOff != "":
-		parts = append(parts, part{"  · keyframes off: " + tl.KeysOff, th.TextDisabled})
+		parts = append(parts, part{"  · keyframes off: " + tl.KeysOff + ", rewinding when released", th.TextDisabled})
 	case tl.Keys > 0:
 		parts = append(parts, part{"  · " + strconv.Itoa(tl.Keys) + " keys, " + megabytes(tl.KeyBytes), th.TextDisabled})
 	}
@@ -184,6 +187,10 @@ func (b *TimelineBar) Draw(ui *core.Context, r mathx.Rect) {
 	if tl.Keys > 0 {
 		tip += "\n" + strconv.Itoa(tl.Keys) + " keyframes, " + megabytes(tl.KeyBytes) + "; the last took " + megabytes(tl.LastKey) +
 			" and " + strconv.FormatFloat(float64(tl.KeyTime.Microseconds())/1000, 'f', 2, 64) + " ms"
+		tip += "\na key every " + strconv.FormatUint(tl.KeyEvery, 10) + " ticks"
+		if tl.Cached > 0 {
+			tip += "; " + strconv.Itoa(tl.Cached) + " cached for scrubbing, " + megabytes(tl.CacheBytes)
+		}
 	}
 	if tl.Why != "" {
 		tip += "\nHistory ends: " + tl.Why

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 
 	"aego/demos"
@@ -50,6 +53,7 @@ func run(args []string) int {
 	width := fs.Int("width", 1280, "window width")
 	height := fs.Int("height", 720, "window height")
 	strict := fs.Bool("strict-allocs", false, "exit non-zero if frames allocate after warmup")
+	allocProf := fs.String("alloc-profile", "", "with -strict-allocs, write an allocation profile of the measured frames here when they allocate")
 	list := fs.Bool("list", false, "list demos and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -112,18 +116,27 @@ func run(args []string) int {
 		}
 		return 0
 	}
-	return runFrames(eng, demo, *frames, *warmup, *strict)
+	return runFrames(eng, demo, *frames, *warmup, *strict, *allocProf)
 }
 
-func runFrames(eng *engine.Engine, app engine.App, frames, warmup int, strict bool) int {
+func runFrames(eng *engine.Engine, app engine.App, frames, warmup int, strict bool, profDir string) int {
 	if warmup >= frames {
 		warmup = frames / 10
+	}
+	profile := strict && profDir != ""
+	if profile {
+		runtime.MemProfileRate = 1
 	}
 	n := 0
 	for ; n < warmup; n++ {
 		if !eng.Step(app) {
 			break
 		}
+	}
+	// No GC or per-frame MemStats here: both let late goroutines settle and hide the allocations being looked for.
+	var base bytes.Buffer
+	if profile {
+		pprof.Lookup("allocs").WriteTo(&base, 0)
 	}
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
@@ -158,7 +171,35 @@ func runFrames(eng *engine.Engine, app engine.App, frames, warmup int, strict bo
 	}
 	if strict && allocs > 0 {
 		fmt.Fprintf(os.Stderr, "allocations after warmup: %d\n", allocs)
+		if profile {
+			writeAllocProfile(profDir, &base)
+		}
 		return 3
 	}
 	return 0
+}
+
+// writeAllocProfile saves the allocation profiles from the end of warmup and of the run; pprof -base shows the measured frames.
+func writeAllocProfile(dir string, base *bytes.Buffer) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, "alloc profile:", err)
+		return
+	}
+	basePath, headPath := filepath.Join(dir, "smoke-allocs-base.pb.gz"), filepath.Join(dir, "smoke-allocs.pb.gz")
+	runtime.GC()
+	f, err := os.Create(headPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "alloc profile:", err)
+		return
+	}
+	err = pprof.Lookup("allocs").WriteTo(f, 0)
+	f.Close()
+	if err == nil {
+		err = os.WriteFile(basePath, base.Bytes(), 0o644)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "alloc profile:", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "allocation profile: go tool pprof -traces -sample_index=alloc_objects -base %s %s\n", basePath, headPath)
 }

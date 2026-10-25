@@ -3,6 +3,7 @@ package integration
 import (
 	"testing"
 
+	"aego/editor/core/play"
 	"aego/gpu"
 	"aego/modules/camera"
 	"aego/render/rt"
@@ -36,7 +37,12 @@ func TestCameraRewindKeepsZoom(t *testing.T) {
 			zoom[f] = z
 			lo, hi = min(lo, z), max(hi, z)
 		})
-		for n := 790; n > 0; n -= 13 {
+		// Without keys, seeks jump past the scrub cache (TransientSpan) so each one replays from the start.
+		step := 13
+		if every > 1000 {
+			step = play.TransientSpan + 13
+		}
+		for n := 790; n > 0; n -= step {
 			if err := pc.Seek(n); err != nil {
 				t.Fatal(err)
 			}

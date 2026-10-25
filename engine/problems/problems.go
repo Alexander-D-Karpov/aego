@@ -61,9 +61,14 @@ type Source struct {
 	Append   func(dst []Diagnostic) []Diagnostic
 }
 
+// entry caches what its source appended at a revision, so Collect asks again only the sources that changed (D359).
 type entry struct {
-	id  uint64
-	src Source
+	id     uint64
+	src    Source
+	cur    uint64
+	rev    uint64
+	cached []Diagnostic
+	ok     bool
 }
 
 type Service struct {
@@ -99,12 +104,14 @@ func (s *Service) Add(src Source) func() {
 func (s *Service) revision() (uint64, bool) {
 	h := (s.gen ^ 14695981039346656037) * 1099511628211
 	force := false
-	for _, e := range s.entries {
+	for i := range s.entries {
+		e := &s.entries[i]
 		if e.src.Revision == nil {
 			force = true
 			continue
 		}
-		h = (h ^ e.src.Revision()) * 1099511628211
+		e.cur = e.src.Revision()
+		h = (h ^ e.cur) * 1099511628211
 	}
 	return h, force
 }
@@ -119,12 +126,17 @@ func (s *Service) Collect() ([]Diagnostic, uint64) {
 	}
 	s.list = s.list[:0]
 	clear(s.seen)
-	for _, e := range s.entries {
+	for i := range s.entries {
+		e := &s.entries[i]
 		if e.src.Append == nil {
 			continue
 		}
+		if e.src.Revision == nil || !e.ok || e.rev != e.cur {
+			e.cached = e.src.Append(e.cached[:0])
+			e.rev, e.ok = e.cur, e.src.Revision != nil
+		}
 		start := len(s.list)
-		s.list = e.src.Append(s.list)
+		s.list = append(s.list, e.cached...)
 		n := start
 		for i := start; i < len(s.list); i++ {
 			k := s.list[i].Key()

@@ -105,11 +105,16 @@ type Timeline struct {
 	Floor    int
 	Keys     int
 	KeyBytes int
-	LastKey  int
-	KeyTime  time.Duration
-	Tick     uint64
-	Why      string
-	Blocked  string
-	KeysOff  string
-	Beyond   bool
+	Bytes    int
+	KeyEvery uint64
+	// Cached and CacheBytes are the transient keys kept for scrubbing (D359).
+	Cached     int
+	CacheBytes int
+	LastKey    int
+	KeyTime    time.Duration
+	Tick       uint64
+	Why        string
+	Blocked    string
+	KeysOff    string
+	Beyond     bool
 }

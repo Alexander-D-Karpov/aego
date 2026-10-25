@@ -46,3 +46,41 @@ func TestDragSeeksOncePerFrame(t *testing.T) {
 		t.Fatalf("a release where the last scrub already is seeks again: %v", src.seeks)
 	}
 }
+
+type keysOffScrub struct {
+	cursor        int
+	seeks, scrubs []int
+}
+
+func (c *keysOffScrub) Timeline() play.Timeline {
+	return play.Timeline{Frames: 100, Usable: 100, Cursor: c.cursor, KeysOff: "opaque.state"}
+}
+func (c *keysOffScrub) State() play.State { return play.Paused }
+func (c *keysOffScrub) Ticks() uint64     { return 0 }
+func (c *keysOffScrub) Seek(n int) error  { c.seeks, c.cursor = append(c.seeks, n), n; return nil }
+func (c *keysOffScrub) Scrub(n int) error { c.scrubs, c.cursor = append(c.scrubs, n), n; return nil }
+
+// With keyframes off a drag back only moves the cursor; the rewind runs once on release (D359).
+func TestKeysOffDragSeeksOnRelease(t *testing.T) {
+	src := &keysOffScrub{cursor: 80}
+	b := NewTimelineBar(src)
+	b.dragging = true
+	for _, n := range []int{70, 60, 50} {
+		b.hold(n, true)
+		b.Apply()
+	}
+	if len(src.scrubs) != 0 || len(src.seeks) != 0 {
+		t.Fatalf("dragging back with keyframes off: scrubs %v seeks %v, want none", src.scrubs, src.seeks)
+	}
+	b.hold(40, false)
+	b.Apply()
+	if len(src.seeks) != 1 || src.seeks[0] != 40 {
+		t.Fatalf("release: seeks %v, want one seek to 40", src.seeks)
+	}
+	b.dragging = true
+	b.hold(55, true)
+	b.Apply()
+	if len(src.scrubs) != 1 || src.scrubs[0] != 55 {
+		t.Fatalf("dragging forward: scrubs %v, want one scrub to 55", src.scrubs)
+	}
+}
