@@ -58,6 +58,10 @@ func run(args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+	if *strict && *allocProf != "" {
+		// set before any goroutine starts: a goroutine keeps the sample interval it began with
+		runtime.MemProfileRate = 1
+	}
 	if *list {
 		for _, n := range demos.Names() {
 			fmt.Println(n)
@@ -124,9 +128,6 @@ func runFrames(eng *engine.Engine, app engine.App, frames, warmup int, strict bo
 		warmup = frames / 10
 	}
 	profile := strict && profDir != ""
-	if profile {
-		runtime.MemProfileRate = 1
-	}
 	n := 0
 	for ; n < warmup; n++ {
 		if !eng.Step(app) {
@@ -135,25 +136,35 @@ func runFrames(eng *engine.Engine, app engine.App, frames, warmup int, strict bo
 	}
 	// No GC or per-frame MemStats here: both let late goroutines settle and hide the allocations being looked for.
 	var base bytes.Buffer
-	if profile {
-		pprof.Lookup("allocs").WriteTo(&base, 0)
-	}
 	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
 	measured := 0
 	var draws, tris uint64
 	var elapsed float64
-	for ; n < frames; n++ {
-		if !eng.Step(app) {
-			break
+	window := func(count int) {
+		base.Reset()
+		if profile {
+			pprof.Lookup("allocs").WriteTo(&base, 0)
 		}
-		s := eng.Stats()
-		draws += uint64(s.DrawCalls)
-		tris += uint64(s.Triangles)
-		elapsed += s.FrameTime
-		measured++
+		measured, draws, tris, elapsed = 0, 0, 0, 0
+		runtime.ReadMemStats(&before)
+		for end := n + count; n < end; n++ {
+			if !eng.Step(app) {
+				break
+			}
+			s := eng.Stats()
+			draws += uint64(s.DrawCalls)
+			tris += uint64(s.Triangles)
+			elapsed += s.FrameTime
+			measured++
+		}
+		runtime.ReadMemStats(&after)
 	}
-	runtime.ReadMemStats(&after)
+	window(frames - n)
+	if first := after.Mallocs - before.Mallocs; strict && first > 0 && first < uint64(measured) && n == frames {
+		// a second window tells a one-off runtime allocation (a blocked worker's sudog, GC workers) from frames that allocate
+		fmt.Fprintf(os.Stderr, "first window allocated %d times, measuring again\n", first)
+		window(measured)
+	}
 	err := eng.Close()
 	allocs := after.Mallocs - before.Mallocs
 	bytes := after.TotalAlloc - before.TotalAlloc
