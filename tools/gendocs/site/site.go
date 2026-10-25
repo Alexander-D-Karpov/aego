@@ -36,6 +36,7 @@ const (
 	shotsDir         = "assets/shots/"
 	scriptSection    = "## From a script"
 	homeLead         = "A 2D-first game engine written in Go, with a built-in editor, its own scripting language and native Go extensions."
+	llmsNote         = "Every page below is Markdown; /llms-full.txt has all of them in one file."
 	installCmd       = "curl -fsSL https://aego.akarpov.ru/install.sh | sh"
 	installPage      = "install"
 )
@@ -543,14 +544,14 @@ func (b *builder) componentMeta(e *Entry, root string) string {
 	ci := e.Component
 	var parts []string
 	if ci.Create != "" {
-		parts = append(parts, `Add it with <code>`+esc(ci.Create)+"</code>.")
+		parts = append(parts, strings.Replace(b.tr("Add it with %s."), "%s", `<code>`+esc(ci.Create)+"</code>", 1))
 	}
 	if len(ci.Requires) > 0 {
 		links := make([]string, len(ci.Requires))
 		for i, id := range ci.Requires {
 			links[i] = b.ref(root, id, b.titleOf(id))
 		}
-		parts = append(parts, "Needs "+strings.Join(links, ", ")+" on the same node.")
+		parts = append(parts, strings.Replace(b.tr("Needs %s on the same node."), "%s", strings.Join(links, ", "), 1))
 	}
 	if ci.Unique {
 		parts = append(parts, b.tr("One per scene."))
@@ -606,7 +607,7 @@ func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry,
 			notes = append(notes, `<span class="range">`+esc(fi.Range)+"</span>")
 		}
 		for _, n := range fi.Notes {
-			notes = append(notes, `<span class="note">`+esc(n)+"</span>")
+			notes = append(notes, `<span class="note">`+esc(b.note(n))+"</span>")
 		}
 		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + fieldName(f) + "</a></td>")
 		c.WriteString(`<td class="ftype"><code>` + esc(fi.Type) + `</code></td><td class="fdef">` + def + "</td>")
@@ -834,7 +835,7 @@ func (b *builder) content(e *Entry, root string) string {
 	}
 	if e.Component != nil && len(e.Component.Events) > 0 {
 		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">` + b.tr("Script events") + `</h2>` + "\n")
-		c.WriteString("<p>Scripts on a node with this component receive these events from the " + esc(e.Component.Module) + " module.</p>\n")
+		c.WriteString("<p>" + strings.Replace(b.tr("Scripts on a node with this component receive these events from the %s module."), "%s", esc(b.moduleName(e.Component.Module)), 1) + "</p>\n")
 		b.eventList(&c, e.Component.Events, root)
 	}
 	if len(e.Related) > 0 {
@@ -1063,7 +1064,7 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		Root:        root,
 		Title:       title,
 		PageTitle:   title + " · " + b.exp.Title,
-		Description: homeLead,
+		Description: b.tr(homeLead),
 		Site:        b.exp.Title,
 		Playground:  b.opt.Playground,
 		PlayVersion: b.opt.PlayVersion,
@@ -1160,7 +1161,7 @@ func (b *builder) outline() string {
 
 func (b *builder) llms() string {
 	var c strings.Builder
-	c.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n\nEvery page below is Markdown; /llms-full.txt has all of them in one file.\n")
+	c.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n\n" + b.tr(llmsNote) + "\n")
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
@@ -1361,7 +1362,7 @@ func (b *builder) apiIndex(c *strings.Builder, e *Entry, root string) {
 	}
 	c.WriteString("</table>")
 	if consts > 0 {
-		c.WriteString(`<p class="api-more">` + strconv.Itoa(consts) + ` constants and enum values are listed below.</p>`)
+		c.WriteString(`<p class="api-more">` + strings.Replace(b.tr("%d constants and enum values are listed below."), "%d", strconv.Itoa(consts), 1) + `</p>`)
 	}
 	c.WriteString("</div>\n")
 }

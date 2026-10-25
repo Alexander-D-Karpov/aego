@@ -1,4 +1,7 @@
 messages version=1 lang=en {
+  msg "api.aego/action.Action" {
+    text="Action runs tweens, timers and other actions one after another or together; yield a waits until it ends."
+  }
   msg "api.aego/action.Action.Completed" {
     text="Runs once when the action ends; finished is false after Stop or when the node of its script died."
   }
@@ -79,6 +82,9 @@ messages version=1 lang=en {
   }
   msg "api.aego/audio.SetBusVolume" {
     text="Sets the session volume of a bus, on top of the player's settings; it is not saved."
+  }
+  msg "api.aego/audio.Sound" {
+    text="Sound is a playing sound. yield s waits until it ends; a nil or finished sound is done. It is a presentation event: wait for game logic with a timer, not a sound."
   }
   msg "api.aego/audio.Sound.Completed" {
     text="Runs once when the sound ends: finished is false after Stop, when it was cut off, or when its node died."
@@ -211,6 +217,9 @@ messages version=1 lang=en {
   }
   msg "api.aego/camera.ActiveOn" {
     text="Returns the virtual camera that drives the named output."
+  }
+  msg "api.aego/camera.Blend" {
+    text="Blend is a running blend between virtual cameras. yield b waits until it ends; a nil blend is done."
   }
   msg "api.aego/camera.Blend.Completed" {
     text="Runs once when the blend ends: finished is false after Stop or when another camera became active first."
@@ -1181,6 +1190,9 @@ messages version=1 lang=en {
   msg "api.aego/timer.Start" {
     text="Makes a one-shot timer that frees itself when it fires."
   }
+  msg "api.aego/timer.Timer" {
+    text="Timer counts down and fires. yield t waits for the next fire or the end; a timer dies with the node of the script that made it."
+  }
   msg "api.aego/timer.Timer.Cancel" {
     text="Ends the timer without firing."
   }
@@ -1234,6 +1246,9 @@ messages version=1 lang=en {
   }
   msg "api.aego/tween.ToVec3" {
     text="Animates a Vec3 property, such as the position of a 3D node."
+  }
+  msg "api.aego/tween.Tween" {
+    text="Tween animates one property of a node. A finished, stopped or nil tween reads as done; yield t waits until it ends."
   }
   msg "api.aego/tween.Tween.Completed" {
     text="Runs once when the tween ends. Its finished parameter is true at the natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."
@@ -1826,6 +1841,9 @@ messages version=1 lang=en {
   msg "diag.AES2027.fix" {
     text="Use a script field for other types."
   }
+  msg "diag.AES2027.why" {
+    text="Every other constant type is rejected earlier as AES2010 or AES2003."
+  }
   msg "diag.AES2028" {
     text="The composite literal does not fit its type."
   }
@@ -2024,11 +2042,17 @@ messages version=1 lang=en {
   msg "diag.AES4009.fix" {
     text="Change the project module."
   }
+  msg "diag.AES4009.why" {
+    text="Needs a project whose module path starts with aego/; projects use their own module."
+  }
   msg "diag.AES4010" {
     text="A script package and an engine module share the same path."
   }
   msg "diag.AES4010.fix" {
     text="Rename the script directory."
+  }
+  msg "diag.AES4010.why" {
+    text="Needs a native module in the project with the same path as a script directory."
   }
   msg "diag.AES5001" {
     text="The engine or native module has no such member."
@@ -2047,6 +2071,9 @@ messages version=1 lang=en {
   }
   msg "diag.AES6002.fix" {
     text="Fix the Go function; the Console shows its stack."
+  }
+  msg "diag.AES6002.why" {
+    text="Raised when the Go code behind a native binding panics."
   }
   msg "diag.AES6003" {
     text="Calls nested more than 256 levels, usually endless recursion or re-emitting a signal from its handler."
@@ -2078,17 +2105,26 @@ messages version=1 lang=en {
   msg "diag.AES6007.fix" {
     text="Report this as an engine bug."
   }
+  msg "diag.AES6007.why" {
+    text="Means the engine passed a damaged string or slice handle; report it as a bug."
+  }
   msg "diag.AES6008" {
     text="A function reached its end without returning."
   }
   msg "diag.AES6008.fix" {
     text="Add the missing return."
   }
+  msg "diag.AES6008.why" {
+    text="The compiler reports a missing return as AES2013 before the code can run."
+  }
   msg "diag.AES6009" {
     text="A call or binding could not be linked."
   }
   msg "diag.AES6009.fix" {
     text="Rebuild the scripts and native code."
+  }
+  msg "diag.AES6009.why" {
+    text="Raised when compiled scripts do not match the engine or native code they were built against."
   }
   msg "diag.AES6010" {
     text="An engine or native function reported an error."
@@ -2101,6 +2137,39 @@ messages version=1 lang=en {
   }
   msg "diag.AES6100.fix" {
     text="Reimport the scripts (Assets → Reimport)."
+  }
+  msg "diag.AES6100.why" {
+    text="Reported when a compiled artifact on disk is damaged, not by source code."
+  }
+  msg "docs.default_block" {
+    text="Default block"
+  }
+  msg "docs.field.section/debug.enabled" {
+    text="Turns debug drawing on. When off, every draw call does nothing."
+  }
+  msg "docs.field.section/debug.maxPerChannel" {
+    text="Primitives kept per channel. Zero uses 4096."
+  }
+  msg "docs.field.section/debug.maxPrimitives" {
+    text="Primitives kept per world; extra ones are dropped and counted. Zero uses 16384."
+  }
+  msg "docs.field.section/engine.crashScene" {
+    text="Crash bundles include the play scene."
+  }
+  msg "docs.field.section/engine.fixedHz" {
+    text="Fixed steps per second. Zero uses 60."
+  }
+  msg "docs.field.section/engine.maxFixedSteps" {
+    text="Most fixed steps per frame; extra steps are dropped and counted. Zero uses 4."
+  }
+  msg "docs.field.section/engine.maxFrameDelta" {
+    text="Longest frame the clock accepts, in seconds; longer frames are cut. Zero uses 0.1."
+  }
+  msg "docs.field.section/engine.spikeMs" {
+    text="The editor writes a bundle when a frame takes longer than this, at most once per 10 seconds. Zero turns it off."
+  }
+  msg "docs.field.section/render2d.pixelsPerUnit" {
+    text="Texture pixels per world unit; a texture dropped into the scene gets size = pixels / this value. Zero uses 64."
   }
   msg "docs.fix" {
     text="Fix:"
@@ -2149,6 +2218,84 @@ messages version=1 lang=en {
   }
   msg "docs.group.tools" {
     text="Tools & Agents"
+  }
+  msg "docs.module" {
+    text="Components of the %s module."
+  }
+  msg "docs.module.animation" {
+    text="Animation"
+  }
+  msg "docs.module.audio" {
+    text="Audio"
+  }
+  msg "docs.module.camera" {
+    text="Cameras 2D"
+  }
+  msg "docs.module.engine" {
+    text="Core"
+  }
+  msg "docs.module.gameplay" {
+    text="Gameplay"
+  }
+  msg "docs.module.physics" {
+    text="Physics 2D"
+  }
+  msg "docs.module.render2d" {
+    text="Rendering 2D"
+  }
+  msg "docs.module.render3d" {
+    text="Rendering 3D"
+  }
+  msg "docs.module.save" {
+    text="Saving"
+  }
+  msg "docs.page.diagnostics" {
+    text="Diagnostics"
+  }
+  msg "docs.page.diagnostics.doc" {
+    text="Every code the compiler, the script runtime and the engine report, with what it means and how to fix it."
+  }
+  msg "docs.page.section/animation" {
+    text="Animation"
+  }
+  msg "docs.page.section/animation.doc" {
+    text="The `animation` block of `project.aego`, owned by the Animation module."
+  }
+  msg "docs.page.section/debug" {
+    text="Debug Draw"
+  }
+  msg "docs.page.section/debug.doc" {
+    text="The `debug` block of `project.aego`, owned by the Debug draw module."
+  }
+  msg "docs.page.section/engine" {
+    text="Engine"
+  }
+  msg "docs.page.section/engine.doc" {
+    text="The `engine` block of `project.aego`, owned by the Core module."
+  }
+  msg "docs.page.section/input" {
+    text="Input"
+  }
+  msg "docs.page.section/input.doc" {
+    text="The `input` block of `project.aego`, owned by the Input module. The current version is 2; older blocks are migrated when the project loads and rewritten on save."
+  }
+  msg "docs.page.section/physics" {
+    text="Physics"
+  }
+  msg "docs.page.section/physics.doc" {
+    text="The `physics` block of `project.aego`, owned by the Physics 2D module."
+  }
+  msg "docs.page.section/player" {
+    text="Player settings"
+  }
+  msg "docs.page.section/player.doc" {
+    text="Options a player changes on the game's settings screen and the editor keeps in the player profile. A project gives them its own starting values in the `defaults` block of `project.aego`; a value there is used until the player changes it."
+  }
+  msg "docs.page.section/render2d" {
+    text="Render"
+  }
+  msg "docs.page.section/render2d.doc" {
+    text="The `render2d` block of `project.aego`, owned by the Rendering 2D module. Older names of the block: `render`."
   }
   msg "enum.animation.LoopOverride.clip" {
     text="clip"

@@ -1,4 +1,7 @@
 messages version=1 lang=ru {
+  msg "api.aego/action.Action" {
+    text="Action выполняет твины, таймеры и другие действия по очереди или вместе; yield a ждёт, пока оно не закончится."
+  }
   msg "api.aego/action.Action.Completed" {
     text="Вызывается один раз, когда действие заканчивается; finished равно false после Stop или когда узел его скрипта уничтожен."
   }
@@ -79,6 +82,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/audio.SetBusVolume" {
     text="Задаёт громкость шины на этот сеанс поверх настроек игрока; она не сохраняется."
+  }
+  msg "api.aego/audio.Sound" {
+    text="Sound — играющий звук. yield s ждёт, пока он не закончится; звук, равный nil или закончившийся, считается завершённым. Это событие представления: игровую логику ждите таймером, а не звуком."
   }
   msg "api.aego/audio.Sound.Completed" {
     text="Вызывается один раз, когда звук заканчивается: finished равно false после Stop, когда звук был прерван или когда его узел уничтожен."
@@ -211,6 +217,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/camera.ActiveOn" {
     text="Возвращает виртуальную камеру, которая управляет выводом с этим именем."
+  }
+  msg "api.aego/camera.Blend" {
+    text="Blend — идущий переход между виртуальными камерами. yield b ждёт, пока он не закончится; переход, равный nil, считается завершённым."
   }
   msg "api.aego/camera.Blend.Completed" {
     text="Вызывается один раз, когда переход заканчивается: finished равно false после Stop или когда раньше стала активной другая камера."
@@ -1181,6 +1190,9 @@ messages version=1 lang=ru {
   msg "api.aego/timer.Start" {
     text="Создаёт одноразовый таймер, который освобождается после срабатывания."
   }
+  msg "api.aego/timer.Timer" {
+    text="Timer отсчитывает время и срабатывает. yield t ждёт следующего срабатывания или конца; таймер исчезает вместе с узлом скрипта, который его создал."
+  }
   msg "api.aego/timer.Timer.Cancel" {
     text="Завершает таймер без срабатывания."
   }
@@ -1234,6 +1246,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/tween.ToVec3" {
     text="Анимирует свойство Vec3, например позицию 3D-узла."
+  }
+  msg "api.aego/tween.Tween" {
+    text="Tween анимирует одно свойство узла. Законченный, остановленный или равный nil твин считается завершённым; yield t ждёт, пока он не закончится."
   }
   msg "api.aego/tween.Tween.Completed" {
     text="Вызывается один раз, когда твин заканчивается. Его параметр finished равен true при естественном окончании и false после Stop, когда его заменил новый твин того же свойства или когда его узла или цели больше нет."
@@ -1826,6 +1841,9 @@ messages version=1 lang=ru {
   msg "diag.AES2027.fix" {
     text="Для других типов используйте поле скрипта."
   }
+  msg "diag.AES2027.why" {
+    text="Все остальные типы констант отклоняются раньше, как AES2010 или AES2003."
+  }
   msg "diag.AES2028" {
     text="Составной литерал не подходит к своему типу."
   }
@@ -2024,11 +2042,17 @@ messages version=1 lang=ru {
   msg "diag.AES4009.fix" {
     text="Смените модуль проекта."
   }
+  msg "diag.AES4009.why" {
+    text="Нужен проект, путь модуля которого начинается с aego/; у проектов свой модуль."
+  }
   msg "diag.AES4010" {
     text="У пакета скриптов и модуля движка один и тот же путь."
   }
   msg "diag.AES4010.fix" {
     text="Переименуйте папку скриптов."
+  }
+  msg "diag.AES4010.why" {
+    text="Нужен нативный модуль в проекте с тем же путём, что и у папки скриптов."
   }
   msg "diag.AES5001" {
     text="У движка или нативного модуля нет такого члена."
@@ -2047,6 +2071,9 @@ messages version=1 lang=ru {
   }
   msg "diag.AES6002.fix" {
     text="Исправьте функцию на Go; её стек показан в Консоли."
+  }
+  msg "diag.AES6002.why" {
+    text="Возникает, когда Go-код за нативной привязкой паникует."
   }
   msg "diag.AES6003" {
     text="Вызовы вложены глубже 256 уровней — обычно это бесконечная рекурсия или повторный Emit сигнала из его обработчика."
@@ -2078,17 +2105,26 @@ messages version=1 lang=ru {
   msg "diag.AES6007.fix" {
     text="Сообщите об этом как об ошибке движка."
   }
+  msg "diag.AES6007.why" {
+    text="Значит, что движок передал повреждённый дескриптор строки или среза; сообщите об этом как об ошибке."
+  }
   msg "diag.AES6008" {
     text="Функция дошла до конца, не вернув значения."
   }
   msg "diag.AES6008.fix" {
     text="Добавьте недостающий return."
   }
+  msg "diag.AES6008.why" {
+    text="Компилятор сообщает об отсутствующем return как AES2013 ещё до запуска кода."
+  }
   msg "diag.AES6009" {
     text="Не удалось связать вызов или привязку."
   }
   msg "diag.AES6009.fix" {
     text="Пересоберите скрипты и нативный код."
+  }
+  msg "diag.AES6009.why" {
+    text="Возникает, когда скомпилированные скрипты не совпадают с движком или нативным кодом, для которых их собрали."
   }
   msg "diag.AES6010" {
     text="Функция движка или нативная функция сообщила об ошибке."
@@ -2101,6 +2137,39 @@ messages version=1 lang=ru {
   }
   msg "diag.AES6100.fix" {
     text="Заново импортируйте скрипты (Ассеты → Переимпорт)."
+  }
+  msg "diag.AES6100.why" {
+    text="Сообщается, когда повреждён скомпилированный артефакт на диске, а не исходный код."
+  }
+  msg "docs.default_block" {
+    text="Блок по умолчанию"
+  }
+  msg "docs.field.section/debug.enabled" {
+    text="Включает отладочную отрисовку. Когда выключено, каждый вызов отрисовки ничего не делает."
+  }
+  msg "docs.field.section/debug.maxPerChannel" {
+    text="Сколько примитивов хранится на канал. Ноль — 4096."
+  }
+  msg "docs.field.section/debug.maxPrimitives" {
+    text="Сколько примитивов хранится на мир; лишние отбрасываются и подсчитываются. Ноль — 16384."
+  }
+  msg "docs.field.section/engine.crashScene" {
+    text="Пакеты сбоя включают сцену игры."
+  }
+  msg "docs.field.section/engine.fixedHz" {
+    text="Фиксированных шагов в секунду. Ноль — 60."
+  }
+  msg "docs.field.section/engine.maxFixedSteps" {
+    text="Наибольшее число фиксированных шагов за кадр; лишние шаги отбрасываются и подсчитываются. Ноль — 4."
+  }
+  msg "docs.field.section/engine.maxFrameDelta" {
+    text="Самый длинный кадр, который принимают часы, в секундах; более длинные кадры обрезаются. Ноль — 0.1."
+  }
+  msg "docs.field.section/engine.spikeMs" {
+    text="Редактор пишет пакет, когда кадр длится дольше этого, не чаще раза в 10 секунд. Ноль выключает."
+  }
+  msg "docs.field.section/render2d.pixelsPerUnit" {
+    text="Пикселей текстуры на единицу мира; текстура, брошенная в сцену, получает размер = пиксели / это значение. Ноль — 64."
   }
   msg "docs.fix" {
     text="Как исправить:"
@@ -2149,6 +2218,84 @@ messages version=1 lang=ru {
   }
   msg "docs.group.tools" {
     text="Инструменты и агенты"
+  }
+  msg "docs.module" {
+    text="Компоненты модуля «%s»."
+  }
+  msg "docs.module.animation" {
+    text="Анимация"
+  }
+  msg "docs.module.audio" {
+    text="Звук"
+  }
+  msg "docs.module.camera" {
+    text="Камеры 2D"
+  }
+  msg "docs.module.engine" {
+    text="Ядро"
+  }
+  msg "docs.module.gameplay" {
+    text="Геймплей"
+  }
+  msg "docs.module.physics" {
+    text="Физика 2D"
+  }
+  msg "docs.module.render2d" {
+    text="Отрисовка 2D"
+  }
+  msg "docs.module.render3d" {
+    text="Отрисовка 3D"
+  }
+  msg "docs.module.save" {
+    text="Сохранения"
+  }
+  msg "docs.page.diagnostics" {
+    text="Диагностика"
+  }
+  msg "docs.page.diagnostics.doc" {
+    text="Все коды, которые сообщают компилятор, среда выполнения скриптов и движок, с объяснением, что они значат и как их исправить."
+  }
+  msg "docs.page.section/animation" {
+    text="Анимация"
+  }
+  msg "docs.page.section/animation.doc" {
+    text="Блок `animation` в `project.aego`, которым владеет модуль «Анимация»."
+  }
+  msg "docs.page.section/debug" {
+    text="Отладочная отрисовка"
+  }
+  msg "docs.page.section/debug.doc" {
+    text="Блок `debug` в `project.aego`, которым владеет модуль «Отладочная отрисовка»."
+  }
+  msg "docs.page.section/engine" {
+    text="Движок"
+  }
+  msg "docs.page.section/engine.doc" {
+    text="Блок `engine` в `project.aego`, которым владеет модуль «Ядро»."
+  }
+  msg "docs.page.section/input" {
+    text="Ввод"
+  }
+  msg "docs.page.section/input.doc" {
+    text="Блок `input` в `project.aego`, которым владеет модуль «Ввод». Текущая версия — 2; старые блоки переводятся на неё при загрузке проекта и перезаписываются при сохранении."
+  }
+  msg "docs.page.section/physics" {
+    text="Физика"
+  }
+  msg "docs.page.section/physics.doc" {
+    text="Блок `physics` в `project.aego`, которым владеет модуль «Физика 2D»."
+  }
+  msg "docs.page.section/player" {
+    text="Настройки игрока"
+  }
+  msg "docs.page.section/player.doc" {
+    text="Параметры, которые игрок меняет на экране настроек игры, а редактор хранит в профиле игрока. Проект задаёт им свои начальные значения в блоке `defaults` файла `project.aego`; значение оттуда действует, пока игрок его не изменит."
+  }
+  msg "docs.page.section/render2d" {
+    text="Отрисовка"
+  }
+  msg "docs.page.section/render2d.doc" {
+    text="Блок `render2d` в `project.aego`, которым владеет модуль «Отрисовка 2D». Прежнее имя блока: `render`."
   }
   msg "enum.animation.LoopOverride.clip" {
     text="как в клипе"

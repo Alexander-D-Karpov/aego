@@ -215,6 +215,7 @@ type Translation struct {
 	Summary string
 	Body    string
 	Fix     string
+	Why     string
 	Source  string
 	Line    int
 }

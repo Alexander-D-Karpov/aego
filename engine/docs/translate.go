@@ -20,8 +20,9 @@ type Translation struct {
 	Title   string `json:",omitempty"`
 	Summary string `json:",omitempty"`
 	Body    string `json:",omitempty"`
-	// Fix is a diagnostic's fix sentence.
+	// Fix is a diagnostic's fix sentence; Why says why a code has no example.
 	Fix string `json:",omitempty"`
+	Why string `json:",omitempty"`
 	// Source is the translated file, for the site's edit link; empty when the text comes from a catalog.
 	Source string `json:",omitempty"`
 	Line   int    `json:",omitempty"`
@@ -71,13 +72,17 @@ func (r *Registry) translations(src module.DocSource, files []string) {
 			}
 			t := e.Translations[lang]
 			t.Body = joinBody(t.Body, rec.body)
-			if rec.title != "" {
+			if rec.title != "" && e.Kind == Code {
+				t.Summary = rec.title
+			} else if rec.title != "" {
 				t.Title = rec.title
 			} else if t.Title == "" {
 				t.Title = heading(rec.body)
 			}
 			if rec.summary != "" {
 				t.Summary = rec.summary
+			} else if t.Summary == "" && e.Kind == Page {
+				t.Summary = firstSentence(summary(rec.body))
 			}
 			if t.Source == "" {
 				t.Source, t.Line = source, rec.line
@@ -106,6 +111,9 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 		if t == (Translation{}) {
 			return
 		}
+		if t.Summary == "" && t.Body != "" {
+			t.Summary = summary(t.Body)
+		}
 		if e.Translations == nil {
 			e.Translations = map[string]Translation{}
 		}
@@ -115,6 +123,9 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 			}
 			if e.Kind == Type {
 				f.Body = joinBody(t.Body, f.Body)
+				if f.Summary == "" {
+					f.Summary = t.Summary
+				}
 			}
 			e.Translations[lang] = f
 			return
@@ -138,13 +149,29 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 		case strings.HasPrefix(e.ID, SettingPrefix):
 			id := strings.TrimPrefix(e.ID, SettingPrefix)
 			set(e, Translation{Title: keep("setting."+id, e.Title), Body: keep("setting."+id+".doc", e.Body)})
+		case e.Kind == Field && e.Field != nil && strings.HasPrefix(e.Parent, SectionsPrefix) && !strings.HasPrefix(e.ID, SettingPrefix):
+			set(e, Translation{Body: keep("docs.field."+e.ID, e.Body)})
 		case e.Kind == Field && e.Field != nil:
 			key := "schema." + e.Parent + "." + lowerFirst(e.Title)
 			set(e, Translation{Title: keep(key, e.Field.Label), Body: keep(key+".doc", e.Body)})
 		case e.Kind == Code && e.Diag != nil && e.Diag.Fix != "":
 			what, fix := keep("diag."+e.ID, e.Summary), keep("diag."+e.ID+".fix", e.Diag.Fix)
 			if what != "" {
-				set(e, Translation{Summary: what, Body: what + "\n\n" + tr("docs.fix", "Fix:") + " " + fix, Fix: fix})
+				set(e, Translation{Summary: what, Body: what + "\n\n" + tr("docs.fix", "Fix:") + " " + fix, Fix: fix, Why: keep("diag."+e.ID+".why", e.Diag.Why)})
+			}
+		case e.Kind == Type && e.Component == nil:
+			set(e, Translation{Body: keep("api."+e.ID, e.Body)})
+		case e.Kind == Page && e.Location.Source == "":
+			lead, rest, _ := strings.Cut(e.Body, "\n\n")
+			if t := keep("docs.page."+e.ID+".doc", lead); t != "" {
+				if rest != "" {
+					t += "\n\n" + strings.Replace(rest, "## Default block", "## "+tr("docs.default_block", "Default block"), 1)
+				}
+				set(e, Translation{Title: keep("docs.page."+e.ID, e.Title), Body: t})
+			}
+		case e.Kind == Module && strings.HasPrefix(e.ID, ModulePrefix):
+			if t := keep("docs.module."+e.Owner, e.Title); t != "" {
+				set(e, Translation{Title: t, Body: strings.Replace(tr("docs.module", "Components of the %s module."), "%s", t, 1)})
 			}
 		case e.Kind == Function || e.Kind == Method || e.Kind == Signal || e.Kind == Const || e.Kind == Enum:
 			set(e, Translation{Body: keep("api."+e.ID, e.Body)})

@@ -29,7 +29,7 @@ func (b *builder) diagnostics(c *strings.Builder, e *Entry, root string) bool {
 		}
 		g := byPhase[ke.Diag.Phase]
 		if g == nil {
-			g = &diagGroup{id: "phase-" + slug(ke.Diag.Phase), title: phaseTitle(ke.Diag.Phase)}
+			g = &diagGroup{id: "phase-" + slug(ke.Diag.Phase), title: b.tr(phaseTitle(ke.Diag.Phase))}
 			byPhase[ke.Diag.Phase] = g
 			groups = append(groups, g)
 		}

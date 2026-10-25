@@ -94,7 +94,7 @@ func (b *builder) mdLinks(md string) string {
 // writeMarkdown writes page.md next to every page and llms-full.txt with all of them in navigation order.
 func (b *builder) writeMarkdown() error {
 	var full strings.Builder
-	full.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n")
+	full.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n")
 	for _, id := range b.order {
 		e := b.byID[id]
 		rel := b.langPath(mdURL(b.urls[id]))

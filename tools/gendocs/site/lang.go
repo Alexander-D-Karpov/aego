@@ -72,6 +72,42 @@ var ruChrome = map[string]string{
 	"During Play":                           "Во время игры",
 	"untranslated":                          "Эта страница ещё не переведена, ниже её английский текст.",
 	"partly":                                "Часть этой страницы ещё не переведена и показана по-английски.",
+	"Lexer":                                 "Лексер",
+	"Parser":                                "Парсер",
+	"Types":                                 "Типы",
+	"Coroutines, signals and events":        "Корутины, сигналы и события",
+	"Attributes":                            "Атрибуты",
+	"Packages and imports":                  "Пакеты и импорт",
+	"Engine bindings":                       "Привязки движка",
+	"Runtime faults":                        "Ошибки во время выполнения",
+	"Compiled code":                         "Скомпилированный код",
+	"Needs %s on the same node.":            "Нужен %s на том же узле.",
+	"Add it with %s.":                       "Добавляется через %s.",
+	"Scripts on a node with this component receive these events from the %s module.": "Скрипты на узле с этим компонентом получают эти события от модуля «%s».",
+	"player setting":          "настройка игрока",
+	"project default":         "значение проекта",
+	"applies after a restart": "после перезапуска",
+	"asks to keep the change": "просит подтвердить",
+	"not saved":               "не сохраняется",
+	"accessibility option":    "доступность",
+	"control binding":         "назначение управления",
+	"preset":                  "пресет",
+	"read-only":               "только чтение",
+	"read-only in scripts":    "в скриптах только чтение",
+	"scripts only":            "только в скриптах",
+	"not in scripts":          "нет в скриптах",
+	"hidden in the Inspector": "скрыто в Инспекторе",
+	"saved with the game":     "сохраняется с игрой",
+	"live tuning":             "настройка на лету",
+	"mask over %s":            "маска по %s",
+	"gizmo: %s":               "гизмо: %s",
+	"step %s":                 "шаг %s",
+	"%d constants and enum values are listed below.": "Ниже перечислены константы и значения перечислений: %d.",
+	"one of: %s":  "одно из: %s",
+	"one of %s":   "одно из %s",
+	"category %s": "категория %s",
+	homeLead:      "Игровой движок на Go, прежде всего для 2D, со встроенным редактором, своим языком скриптов и нативными расширениями на Go.",
+	llmsNote:      "Каждая страница ниже — Markdown; /ru/llms-full.txt содержит их все в одном файле.",
 }
 
 // tr is the site's own text in the builder's language.
@@ -110,15 +146,20 @@ func (b *builder) forLang(lang string) *builder {
 			if t.Body != "" {
 				cp.Body = t.Body
 			}
-			if t.Fix != "" && cp.Diag != nil {
+			if (t.Fix != "" || t.Why != "") && cp.Diag != nil {
 				d := *cp.Diag
-				d.Fix = t.Fix
+				if t.Fix != "" {
+					d.Fix = t.Fix
+				}
+				if t.Why != "" {
+					d.Why = t.Why
+				}
 				cp.Diag = &d
 			}
 			if t.Source != "" {
 				cp.Location.Source, cp.Location.Line = t.Source, t.Line
 			} else {
-				rb.has[id] = cp.Kind != "page"
+				rb.has[id] = cp.Kind != "page" || t.Body != ""
 			}
 		}
 		rb.byID[id] = &cp
@@ -241,4 +282,24 @@ func sameIDs(page, en string) string {
 		i++
 		return out
 	})
+}
+
+// note is a field note in the builder's language.
+func (b *builder) note(n string) string {
+	for _, p := range []string{"one of: ", "one of ", "category ", "mask over ", "gizmo: ", "step "} {
+		if rest, ok := strings.CutPrefix(n, p); ok {
+			return strings.Replace(b.tr(p+"%s"), "%s", rest, 1)
+		}
+	}
+	return b.tr(n)
+}
+
+// moduleName is a module's title in the builder's language, from its component page.
+func (b *builder) moduleName(title string) string {
+	for _, e := range b.byID {
+		if e.Kind == "module" && strings.HasPrefix(e.ID, "module/") && b.en != nil && b.en.byID[e.ID].Title == title {
+			return e.Title
+		}
+	}
+	return title
 }

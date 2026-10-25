@@ -84,16 +84,39 @@ func Data() (map[string]*Key, error) {
 		add("docs.group."+g.ID, g.Title, "docs group")
 	}
 	add("docs.fix", "Fix:", "docs")
+	add("docs.module", "Components of the %s module.", "docs module page")
+	add("docs.default_block", "Default block", "project section page heading")
 	for _, e := range reg.All() {
 		switch e.Kind {
 		case docs.Function, docs.Method, docs.Signal, docs.Const, docs.Enum:
 			add("api."+e.ID, e.Body, "api "+e.ID)
+		case docs.Field:
+			if strings.HasPrefix(e.Parent, docs.SectionsPrefix) && !strings.HasPrefix(e.ID, docs.SettingPrefix) {
+				add("docs.field."+e.ID, e.Body, "project section field")
+			}
+		case docs.Type:
+			if e.Component == nil {
+				add("api."+e.ID, e.Body, "api "+e.ID)
+			}
+		case docs.Page:
+			if e.Location.Source == "" {
+				lead, _, _ := strings.Cut(e.Body, "\n\n")
+				add("docs.page."+e.ID, e.Title, "generated page")
+				add("docs.page."+e.ID+".doc", lead, "generated page")
+			}
+		case docs.Module:
+			if strings.HasPrefix(e.ID, docs.ModulePrefix) {
+				add("docs.module."+e.Owner, e.Title, "module name")
+			}
 		}
 	}
 	for _, c := range diag.Codes() {
 		h, _ := diag.Explain(c)
 		add("diag."+c, h.What, "diag "+c)
 		add("diag."+c+".fix", h.Fix, "diag "+c)
+		if ex, ok := diag.Example(c); ok && ex.Why != "" {
+			add("diag."+c+".why", ex.Why, "diag "+c+" without an example")
+		}
 	}
 	return out, nil
 }
