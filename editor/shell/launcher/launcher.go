@@ -4,11 +4,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aego/core/mathx"
 	"aego/editor/core/preview"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/project"
 	"aego/render/texture"
 	"aego/ui/core"
@@ -24,7 +26,7 @@ const (
 	TabExamples
 )
 
-var tabNames = [...]string{"Recent", "New Project", "Examples"}
+var tabNames = [...]i18n.Text{i18n.T("launcher.tab.recent", "Recent"), i18n.T("launcher.tab.new", "New Project"), i18n.T("launcher.tab.examples", "Examples")}
 
 const (
 	cardW float32 = 200
@@ -78,9 +80,20 @@ type Options struct {
 	// Theme and SetTheme read and change the editor theme preference; nil hides the Theme combo (D345).
 	Theme    func() theme.Mode
 	SetTheme func(theme.Mode)
+	// Language and SetLanguage read and change the editor language preference, auto, en or ru; nil hides the combo (D348).
+	Language    func() string
+	SetLanguage func(string)
 }
 
-var themeModes = []string{theme.ModeSystem.String(), theme.ModeDark.String(), theme.ModeLight.String()}
+var languagePrefs = []string{i18n.Auto, i18n.English, i18n.Russian}
+
+func themeModes() []string {
+	return []string{i18n.Tr("launcher.theme.system", "System"), i18n.Tr("launcher.theme.dark", "Dark"), i18n.Tr("launcher.theme.light", "Light")}
+}
+
+func languageNames() []string {
+	return []string{i18n.Tr("launcher.language.auto", "Auto"), "English", "Русский"}
+}
 
 type Launcher struct {
 	opt     Options
@@ -207,7 +220,7 @@ func (l *Launcher) Open(dir string) error {
 		_, err = os.Stat(filepath.Join(abs, project.FileName))
 	}
 	if err != nil {
-		l.err = "No " + project.FileName + " in " + dir
+		l.err = i18n.Tr("launcher.no_project_file", "No {file} in {dir}", i18n.Str("file", project.FileName), i18n.Str("dir", dir))
 		return errors.New(l.err)
 	}
 	l.err, l.result = "", abs
@@ -258,8 +271,8 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	head := cur.Next(0)
 	s := min(head.H, 16)
 	widgets.IconAt(ui, mathx.Rect{X: head.X, Y: head.Y + (head.H-s)/2, W: s, H: s}, "app", th.Text)
-	ui.Text("Aego", mathx.Vec2{X: head.X + s + 6, Y: ui.TextY(head)}, th.Text)
-	widgets.LabelDim(ui, "Open a recent project, start a new one or learn from an example.")
+	ui.Text(i18n.Tr("launcher.aego", "Aego"), mathx.Vec2{X: head.X + s + 6, Y: ui.TextY(head)}, th.Text)
+	widgets.LabelDim(ui, i18n.Tr("launcher.open_a_recent_project_start", "Open a recent project, start a new one or learn from an example."))
 	l.banner(ui)
 	l.tabs(ui)
 	if l.err != "" {
@@ -277,16 +290,22 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 		l.examplesTab(ui)
 	}
 	cur.Y += 10
-	if l.opt.Docs != nil && widgets.Button(ui, "Documentation") {
+	if l.opt.Docs != nil && widgets.Button(ui, i18n.Tr("launcher.documentation", "Documentation")) {
 		l.opt.Docs()
 	}
-	if l.opt.SetUpdateChecks != nil && widgets.Checkbox(ui, "Check for Aego updates once a day", &l.updates) {
+	if l.opt.SetUpdateChecks != nil && widgets.Checkbox(ui, i18n.Tr("launcher.check_for_aego_updates_once", "Check for Aego updates once a day"), &l.updates) {
 		l.opt.SetUpdateChecks(l.updates)
 	}
 	if l.opt.SetTheme != nil && l.opt.Theme != nil {
 		m := int(l.opt.Theme())
-		if widgets.Combo(ui, ui.ID("launcher.theme"), widgets.Field(ui, "Theme"), &m, themeModes, false) {
+		if widgets.Combo(ui, ui.ID("launcher.theme"), widgets.Field(ui, i18n.Tr("launcher.theme", "Theme")), &m, themeModes(), false) {
 			l.opt.SetTheme(theme.Mode(m))
+		}
+	}
+	if l.opt.SetLanguage != nil && l.opt.Language != nil {
+		m := max(0, slices.Index(languagePrefs, l.opt.Language()))
+		if widgets.Combo(ui, ui.ID("launcher.language"), widgets.Field(ui, i18n.Tr("launcher.language", "Language")), &m, languageNames(), false) {
+			l.opt.SetLanguage(languagePrefs[m])
 		}
 	}
 	l.content = cur.Y - top
@@ -303,9 +322,9 @@ func (l *Launcher) banner(ui *core.Context) {
 	th := &ui.Theme
 	row := ui.Cursor().Next(0)
 	ui.RoundRect(row, th.Radius.Card, th.SelectionDim)
-	ui.Text("Aego "+ver+" is available", mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Text)
-	bw := ui.TextSize("Download").X + 20
-	if l.opt.OpenURL != nil && widgets.ButtonRect(ui, ui.ID("update.get"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Download") {
+	ui.Text(i18n.Tr("launcher.update_available", "Aego {version} is available", i18n.Str("version", ver)), mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Text)
+	bw := ui.TextSize(i18n.Tr("launcher.download", "Download")).X + 20
+	if l.opt.OpenURL != nil && widgets.ButtonRect(ui, ui.ID("update.get"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("launcher.download", "Download")) {
 		if err := l.opt.OpenURL(url); err != nil {
 			l.err = err.Error()
 		}
@@ -317,7 +336,7 @@ func (l *Launcher) tabs(ui *core.Context) {
 	w := min(float32(150), row.W/float32(len(tabNames)))
 	for i, name := range tabNames {
 		on := l.tab == Tab(i)
-		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}, name, &on) {
+		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}, name.String(), &on) {
 			l.SetTab(Tab(i))
 		}
 	}
@@ -409,7 +428,7 @@ func (l *Launcher) forget(path string) {
 
 func (l *Launcher) recentTab(ui *core.Context) {
 	if len(l.recent) == 0 {
-		widgets.LabelDim(ui, "No recent projects yet")
+		widgets.LabelDim(ui, i18n.Tr("launcher.no_recent_projects_yet", "No recent projects yet"))
 	}
 	mid := ui.ID("recent.menu")
 	forget := ""
@@ -424,7 +443,7 @@ func (l *Launcher) recentTab(ui *core.Context) {
 			sub = e.Time.Format("2006-01-02 15:04") + " · " + e.Path
 		}
 		if e.Missing {
-			sub = "missing, click to remove"
+			sub = i18n.Tr("launcher.missing", "missing, click to remove")
 		}
 		root := e.Path
 		id := ui.ID("recent/" + e.Path)
@@ -444,7 +463,7 @@ func (l *Launcher) recentTab(ui *core.Context) {
 		l.Open(e.Path)
 	})
 	if widgets.ContextMenu(ui, mid) {
-		if widgets.MenuItem(ui, "Open", "", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("launcher.open", "Open"), "", true, false) {
 			l.Open(l.menu)
 		}
 		if l.opt.Reveal != nil && widgets.MenuItem(ui, l.opt.RevealLabel, "", true, false) {
@@ -452,7 +471,7 @@ func (l *Launcher) recentTab(ui *core.Context) {
 				l.err = err.Error()
 			}
 		}
-		if widgets.MenuItem(ui, "Remove from List", "", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("launcher.remove_from_list", "Remove from List"), "", true, false) {
 			forget = l.menu
 		}
 		widgets.EndContextMenu(ui)
@@ -460,15 +479,15 @@ func (l *Launcher) recentTab(ui *core.Context) {
 	if forget != "" {
 		l.forget(forget)
 	}
-	l.heading(ui, "Open a project")
+	l.heading(ui, i18n.Tr("launcher.open_a_project", "Open a project"))
 	row := ui.Cursor().Next(0)
 	bw := float32(90)
 	pw := float32(0)
 	if l.opt.PickProject != nil {
-		pw = ui.TextSize("Browse…").X + 20
+		pw = ui.TextSize(i18n.Tr("launcher.browse", "Browse…")).X + 20
 	}
 	widgets.TextFieldRect(ui, ui.ID("open.dir"), mathx.Rect{X: row.X, Y: row.Y, W: max(0, row.W-bw-pw-8), H: row.H}, &l.open, true)
-	if pw > 0 && widgets.ButtonRect(ui, ui.ID("open.pick"), mathx.Rect{X: row.X + row.W - bw - pw - 4, Y: row.Y, W: pw, H: row.H}, "Browse…") {
+	if pw > 0 && widgets.ButtonRect(ui, ui.ID("open.pick"), mathx.Rect{X: row.X + row.W - bw - pw - 4, Y: row.Y, W: pw, H: row.H}, i18n.Tr("launcher.browse", "Browse…")) {
 		start := l.open
 		if start == "" {
 			start = l.opt.Home
@@ -478,10 +497,10 @@ func (l *Launcher) recentTab(ui *core.Context) {
 			l.Drop(p)
 		})
 	}
-	if widgets.ButtonRect(ui, ui.ID("open.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Open") {
+	if widgets.ButtonRect(ui, ui.ID("open.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("launcher.open", "Open")) {
 		l.Drop(l.open)
 	}
-	widgets.LabelDim(ui, "Or drop a project folder, or its "+project.FileName+", on this window.")
+	widgets.LabelDim(ui, i18n.Tr("launcher.drop_hint", "Or drop a project folder, or its {file}, on this window.", i18n.Str("file", project.FileName)))
 }
 
 func (l *Launcher) newTab(ui *core.Context) {
@@ -498,14 +517,14 @@ func (l *Launcher) newTab(ui *core.Context) {
 		l.heading(ui, t.Name)
 		widgets.LabelWrapped(ui, t.Description, true)
 		if len(t.Files) > 0 {
-			widgets.LabelWrapped(ui, "Contains: "+strings.Join(t.Files, ", "), true)
+			widgets.LabelWrapped(ui, i18n.Tr("launcher.contains", "Contains: {files}", i18n.Str("files", strings.Join(t.Files, ", "))), true)
 		}
 	}
-	l.heading(ui, "Project")
-	widgets.TextFieldRect(ui, ui.ID("new.name"), widgets.Field(ui, "Name"), &l.name, true)
+	l.heading(ui, i18n.Tr("launcher.project", "Project"))
+	widgets.TextFieldRect(ui, ui.ID("new.name"), widgets.Field(ui, i18n.Tr("launcher.name", "Name")), &l.name, true)
 	l.location(ui)
 	mid := ui.ID("new.module")
-	mr := widgets.Field(ui, "Module")
+	mr := widgets.Field(ui, i18n.Tr("launcher.module", "Module"))
 	widgets.TextFieldRect(ui, mid, mr, &l.module, true)
 	if l.module == "" && ui.Focus() != mid {
 		ui.Text(project.ModuleName(strings.TrimSpace(l.name)), mathx.Vec2{X: mr.X + 4, Y: ui.TextY(mr)}, th.TextDisabled)
@@ -515,26 +534,26 @@ func (l *Launcher) newTab(ui *core.Context) {
 		for i, c := range l.opt.Workspaces {
 			names[i] = c.Title
 		}
-		widgets.Combo(ui, ui.ID("new.workspace"), widgets.Field(ui, "Workspace"), &l.ws, names, false)
+		widgets.Combo(ui, ui.ID("new.workspace"), widgets.Field(ui, i18n.Tr("launcher.workspace", "Workspace")), &l.ws, names, false)
 	}
 	l.nativeRow(ui)
 	target := filepath.Join(l.dir, strings.TrimSpace(l.name))
 	widgets.LabelDim(ui, target)
-	if widgets.Button(ui, "Create") && strings.TrimSpace(l.name) != "" {
+	if widgets.Button(ui, i18n.Tr("launcher.create", "Create")) && strings.TrimSpace(l.name) != "" {
 		l.Create(target, l.templateID(), strings.TrimSpace(l.module), "")
 	}
 }
 
 func (l *Launcher) nativeRow(ui *core.Context) {
 	if l.opt.NativeHint == "" {
-		widgets.Checkbox(ui, "Native Go code", &l.native)
+		widgets.Checkbox(ui, i18n.Tr("launcher.native_go_code", "Native Go code"), &l.native)
 		return
 	}
 	row := ui.Cursor().Next(0)
 	bw := float32(0)
 	if l.opt.OpenURL != nil {
-		bw = ui.TextSize("Get Go").X + 20
-		if widgets.ButtonRect(ui, ui.ID("new.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Get Go") {
+		bw = ui.TextSize(i18n.Tr("launcher.get_go", "Get Go")).X + 20
+		if widgets.ButtonRect(ui, ui.ID("new.go"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("launcher.get_go", "Get Go")) {
 			if err := l.opt.OpenURL(goURL); err != nil {
 				l.err = err.Error()
 			}
@@ -546,21 +565,21 @@ func (l *Launcher) nativeRow(ui *core.Context) {
 }
 
 func (l *Launcher) location(ui *core.Context) {
-	row := widgets.Field(ui, "Location")
+	row := widgets.Field(ui, i18n.Tr("launcher.location", "Location"))
 	if l.opt.PickFolder == nil {
 		widgets.TextFieldRect(ui, ui.ID("new.dir"), row, &l.dir, true)
 		return
 	}
-	bw := ui.TextSize("Browse…").X + 20
+	bw := ui.TextSize(i18n.Tr("launcher.browse", "Browse…")).X + 20
 	widgets.TextFieldRect(ui, ui.ID("new.dir"), mathx.Rect{X: row.X, Y: row.Y, W: row.W - bw - 4, H: row.H}, &l.dir, true)
-	if widgets.ButtonRect(ui, ui.ID("new.pick"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "Browse…") {
+	if widgets.ButtonRect(ui, ui.ID("new.pick"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("launcher.browse", "Browse…")) {
 		l.opt.PickFolder(l.dir, func(p string) { l.dir = p })
 	}
 }
 
 func (l *Launcher) examplesTab(ui *core.Context) {
 	if len(l.opt.Examples) == 0 {
-		widgets.LabelWrapped(ui, "Examples come from the engine source tree; set AEGO_ROOT to its folder.", true)
+		widgets.LabelWrapped(ui, i18n.Tr("launcher.examples_come_from_the_engine", "Examples come from the engine source tree; set AEGO_ROOT to its folder."), true)
 		return
 	}
 	l.grid(ui, len(l.opt.Examples), func(i int, r mathx.Rect) {
@@ -574,12 +593,12 @@ func (l *Launcher) examplesTab(ui *core.Context) {
 			l.example = i
 		}
 	})
-	l.heading(ui, "Copy to")
+	l.heading(ui, i18n.Tr("launcher.copy_to", "Copy to"))
 	l.location(ui)
 	ex := l.opt.Examples[min(l.example, len(l.opt.Examples)-1)]
 	target := filepath.Join(l.dir, ex)
 	widgets.LabelDim(ui, target)
-	if widgets.Button(ui, "Create from "+ex) {
+	if widgets.Button(ui, i18n.Tr("launcher.create_from", "Create from {example}", i18n.Str("example", ex))) {
 		l.Create(target, "", strings.TrimSpace(l.module), ex)
 	}
 }

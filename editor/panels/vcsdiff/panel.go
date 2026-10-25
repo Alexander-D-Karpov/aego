@@ -2,6 +2,7 @@ package vcsdiff
 
 import (
 	"aego/core/ids"
+	"aego/engine/i18n"
 	"path"
 	"strconv"
 
@@ -48,7 +49,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Diff"
+	return i18n.Tr("editor.vcsdiff.title", "Diff")
 }
 
 func (p *Panel) Icon() string {
@@ -85,7 +86,7 @@ func (p *Panel) load() {
 	var log []vcs.Commit
 	var failed string
 	p.err = ""
-	p.loading = p.d.Tasks.Work(tasks.Spec{Title: "Diff " + path.Base(rel) + " with " + shortRev(rev), Kind: "vcs"}, func(*tasks.Task) error {
+	p.loading = p.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.vcsdiff.diff_rel_with_rev", "Diff {rel} with {rev}", i18n.Str("rel", path.Base(rel)), i18n.Str("rev", shortRev(rev))), Kind: "vcs"}, func(*tasks.Task) error {
 		if needLog {
 			log, _ = prov.Log(rel, 50)
 		}
@@ -127,11 +128,11 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	if p.d.VCS == nil {
-		widgets.LabelWrapped(ui, "The project is not inside a git repository", true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.vcsdiff.the_project_is_not_inside", "The project is not inside a git repository"), true)
 		return
 	}
 	if p.rel == "" {
-		widgets.LabelWrapped(ui, "Use Compare with HEAD in the menu of a scene, prefab or data asset", true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.vcsdiff.use_compare_with_head_in", "Use Compare with HEAD in the menu of a scene, prefab or data asset"), true)
 		return
 	}
 	head := ui.Cursor().Next(0)
@@ -141,26 +142,26 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	cw := min(260, head.W*0.45)
 	ui.PushClip(mathx.Rect{X: head.X, Y: head.Y, W: head.W - cw - 6, H: head.H})
-	ui.Text(p.rel+"  ·  working copy vs", mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
+	ui.Text(i18n.Tr("editor.vcsdiff.rel_working_copy_vs", "{rel}  ·  working copy vs", i18n.Str("rel", p.rel)), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
 	ui.PopClip()
 	if widgets.Combo(ui, ui.ID("rev"), mathx.Rect{X: head.X + head.W - cw, Y: head.Y, W: cw, H: head.H}, &p.rev, names, false) {
 		p.load()
 	}
 	if d := p.d.Docs.Documents().Find(p.rel); d != nil && d.Dirty() {
-		widgets.LabelDim(ui, "Unsaved changes in the open document are not included")
+		widgets.LabelDim(ui, i18n.Tr("editor.vcsdiff.unsaved_changes_in_the_open", "Unsaved changes in the open document are not included"))
 	}
 	if p.loading != nil {
-		widgets.LabelDim(ui, "Loading…")
+		widgets.LabelDim(ui, i18n.Tr("editor.vcsdiff.loading", "Loading…"))
 		return
 	}
 	if p.err != "" {
 		widgets.LabelDim(ui, p.err)
 	}
 	if p.res.Empty() {
-		widgets.LabelDim(ui, "No differences")
+		widgets.LabelDim(ui, i18n.Tr("editor.vcsdiff.no_differences", "No differences"))
 		return
 	}
-	widgets.LabelDim(ui, strconv.Itoa(len(p.res.Changes))+" change(s)")
+	widgets.LabelDim(ui, i18n.Tr("editor.vcsdiff.changes_change_s", "{changes} change(s)", i18n.Str("changes", strconv.Itoa(len(p.res.Changes)))))
 	top := ui.Cursor().Y
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	widgets.VirtualList(ui, ui.ID("rows"), list, len(p.res.Changes), th.RowHeight+2, &p.scroll, func(i int, rr mathx.Rect) {
@@ -231,7 +232,7 @@ func (p *Panel) reveal(node string) {
 	}
 	s := d.Scene()
 	if h := s.Handle(id); h.IsZero() || !s.IsAlive(h) {
-		p.d.Notices.Notify(context.LevelInfo, "The node is not in the working copy")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.vcsdiff.the_node_is_not_in", "The node is not in the working copy"))
 		return
 	}
 	p.d.Selection.Select(id)

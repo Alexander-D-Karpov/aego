@@ -1,0 +1,65 @@
+messages version=1 lang=ru {
+  msg "i18n.audio.bus" {
+    text="Шина"
+  }
+  msg "i18n.audio.events_are_heard_in_play" {
+    text="События звучат во время игры; «Прослушать» играет Clip"
+  }
+  msg "i18n.audio.gain" {
+    text="Усиление"
+  }
+  msg "i18n.audio.import" {
+    text="Импорт"
+  }
+  msg "i18n.audio.loop" {
+    text="Повтор"
+  }
+  msg "i18n.audio.mixer.title" {
+    text="Аудиомикшер"
+  }
+  msg "i18n.audio.no_waveform" {
+    text="Нет формы волны"
+  }
+  msg "i18n.audio.of_length_s" {
+    text=" из {length} с"
+  }
+  msg "i18n.audio.ogg_vorbis" {
+    text="Ogg Vorbis"
+  }
+  msg "i18n.audio.play" {
+    text="Воспроизвести"
+  }
+  msg "i18n.audio.position_s_of_seconds_s" {
+    text="{position} с из {seconds} с"
+  }
+  msg "i18n.audio.preview" {
+    text="Прослушать"
+  }
+  msg "i18n.audio.reading_the_waveform" {
+    text="Чтение формы волны"
+  }
+  msg "i18n.audio.redo" {
+    text="Повторить"
+  }
+  msg "i18n.audio.reset_session" {
+    text="Сбросить сеанс"
+  }
+  msg "i18n.audio.save_to_profile" {
+    text="Сохранить в профиль"
+  }
+  msg "i18n.audio.stop" {
+    text="Остановить"
+  }
+  msg "i18n.audio.stream" {
+    text="Поток"
+  }
+  msg "i18n.audio.the_audio_output_is_not" {
+    text="Аудиовыход не открыт"
+  }
+  msg "i18n.audio.the_sound_is_not_imported" {
+    text="Звук ещё не импортирован"
+  }
+  msg "i18n.audio.undo" {
+    text="Отменить"
+  }
+}

@@ -15,6 +15,7 @@ import (
 	"aego/editor/panels/assets"
 	"aego/editor/panels/inspector"
 	"aego/editor/panels/sceneview"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/theme"
 )
@@ -50,9 +51,9 @@ func (a *App) registerCommands() error {
 	playing := func() bool { return a.play.State() != play.Stopped }
 	historyLabel := func(undo bool) func() string {
 		return func() string {
-			base := "Redo"
+			base := i18n.Tr("editor.shell.redo", "Redo")
 			if undo {
-				base = "Undo"
+				base = i18n.Tr("editor.shell.undo", "Undo")
 			}
 			h := ctx.History()
 			if h == nil {
@@ -151,9 +152,9 @@ func (a *App) registerCommands() error {
 		{ID: command.PlayStart, Name: "Play", Category: "Play", Order: 100,
 			Label: func() string {
 				if playing() {
-					return "Stop"
+					return i18n.Tr("editor.shell.stop", "Stop")
 				}
-				return "Play"
+				return i18n.Tr("editor.shell.play", "Play")
 			},
 			Enabled: func() bool { return playing() || (a.scriptErrors() == 0 && (a.ctx.Docs.Edit() == nil || a.canPlay())) },
 			Run:     a.togglePlay},
@@ -267,8 +268,11 @@ func (a *App) registerWindowCommands() error {
 			Category: "Window",
 			Order:    d.Order,
 			Icon:     panelIcon(d),
-			Tip:      "Show or hide the " + d.Panel.Title() + " panel",
-			Checked:  func() bool { return a.ws.Visible(id) },
+			Label:    d.Panel.Title,
+			TipFunc: func() string {
+				return i18n.Tr("editor.window.toggle.tip", "Show or hide the {panel} panel", i18n.Str("panel", d.Panel.Title()))
+			},
+			Checked: func() bool { return a.ws.Visible(id) },
 			Run: func() error {
 				a.ws.Toggle(id)
 				return nil
@@ -286,7 +290,8 @@ func (a *App) registerWindowCommands() error {
 			Name:     "Theme: " + m.String(),
 			Category: themeCategory,
 			Order:    i,
-			Tip:      themeTips[m],
+			Label:    func() string { return menuTitle(themeCategory) + ": " + themeName(m) },
+			TipFunc:  func() string { return themeTip(m) },
 			Checked:  func() bool { return a.ThemeMode() == m },
 			Run: func() error {
 				a.SetThemeMode(m)
@@ -295,6 +300,9 @@ func (a *App) registerWindowCommands() error {
 		}); err != nil {
 			return err
 		}
+	}
+	if err := a.registerLanguageCommands(reg); err != nil {
+		return err
 	}
 	return reg.Register(command.Desc{
 		ID:       CommandResetLayout,
@@ -385,7 +393,7 @@ func (a *App) save() error {
 	if err := a.saveDoc(d); err != nil {
 		return err
 	}
-	a.ctx.Notify(context.LevelInfo, "Saved "+d.Path)
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_path", "Saved {path}", i18n.Str("path", d.Path)))
 	return nil
 }
 
@@ -410,7 +418,7 @@ func (a *App) saveAll() error {
 	if first != nil {
 		return first
 	}
-	a.ctx.Notify(context.LevelInfo, "Saved all scenes")
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_all_scenes", "Saved all scenes"))
 	return nil
 }
 

@@ -2,6 +2,7 @@ package hierarchy
 
 import (
 	"aego/editor/core/favorites"
+	"aego/engine/i18n"
 	"path"
 	"strconv"
 	"strings"
@@ -82,7 +83,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Hierarchy"
+	return i18n.Tr("editor.hierarchy.title", "Hierarchy")
 }
 
 func (p *Panel) Scope() string {
@@ -111,7 +112,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	th := &ui.Theme
 	d := p.d.Docs.Doc()
 	if d == nil {
-		widgets.LabelDim(ui, "No scene open")
+		widgets.LabelDim(ui, i18n.Tr("editor.hierarchy.no_scene_open", "No scene open"))
 		return
 	}
 	if d.ID != p.doc {
@@ -164,24 +165,24 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.emptyArea(f, d, mathx.Rect{X: list.X, Y: end, W: list.W, H: list.Y + list.H - end})
 	}
 	if widgets.ContextMenu(ui, p.menuID) {
-		if widgets.MenuItemIcon(ui, "Create…", p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.create", "Create…"), p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
 			at := ui.Mouse()
 			p.create(d, p.menuNode, &at)
 		}
 		widgets.Separator(ui)
 		p.prefabItems(f, d)
 		command.MenuItem(f.UI, p.d.Commands, favorites.CommandNode, "")
-		command.MenuItem(f.UI, p.d.Commands, command.EditRename, "Rename")
-		command.MenuItem(f.UI, p.d.Commands, "edit.batch_rename", "Batch Rename…")
-		command.MenuItem(f.UI, p.d.Commands, command.EditDuplicate, "Duplicate")
-		command.MenuItem(f.UI, p.d.Commands, command.EditCopy, "Copy")
-		command.MenuItem(f.UI, p.d.Commands, command.EditCut, "Cut")
-		command.MenuItem(f.UI, p.d.Commands, command.EditPaste, "Paste")
-		if p.d.Ask != nil && widgets.MenuItemIcon(ui, "Ask Agent…", "", "panel.agent", true, false) {
+		command.MenuItem(f.UI, p.d.Commands, command.EditRename, "")
+		command.MenuItem(f.UI, p.d.Commands, "edit.batch_rename", i18n.Tr("editor.hierarchy.batch_rename", "Batch Rename…"))
+		command.MenuItem(f.UI, p.d.Commands, command.EditDuplicate, "")
+		command.MenuItem(f.UI, p.d.Commands, command.EditCopy, "")
+		command.MenuItem(f.UI, p.d.Commands, command.EditCut, "")
+		command.MenuItem(f.UI, p.d.Commands, command.EditPaste, "")
+		if p.d.Ask != nil && widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.ask_agent", "Ask Agent…"), "", "panel.agent", true, false) {
 			p.d.Ask(p.askPrompt(d))
 		}
 		widgets.Separator(ui)
-		command.MenuItem(f.UI, p.d.Commands, command.EditDelete, "Delete")
+		command.MenuItem(f.UI, p.d.Commands, command.EditDelete, "")
 		widgets.EndContextMenu(ui)
 	}
 	p.sceneMenu(f, d)
@@ -194,7 +195,7 @@ func (p *Panel) drawHeader(f *services.Frame, d *document.SceneDocument, r mathx
 	ui.Rect(r, th.Header)
 	name := d.Caption()
 	if !d.OnDisk {
-		name += "  (unsaved)"
+		name += "  " + i18n.Tr("editor.hierarchy.unsaved", "(unsaved)")
 	}
 	x := r.X + th.Padding
 	if d.IsPrefab() {
@@ -219,11 +220,11 @@ func (p *Panel) sceneMenu(f *services.Frame, d *document.SceneDocument) {
 	if !widgets.ContextMenu(ui, p.sceneMenuID) {
 		return
 	}
-	command.MenuItem(f.UI, p.d.Commands, command.FileSave, "Save Scene")
-	if widgets.MenuItemIcon(ui, "Save Scene As…", p.d.Commands.Shortcut(command.FileSaveAs), "file.save", true, false) {
+	command.MenuItem(f.UI, p.d.Commands, command.FileSave, i18n.Tr("editor.hierarchy.save_scene", "Save Scene"))
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.save_scene_as", "Save Scene As…"), p.d.Commands.Shortcut(command.FileSaveAs), "file.save", true, false) {
 		p.d.Scenes.SaveSceneAs(d)
 	}
-	if widgets.MenuItemIcon(ui, "Rename Scene…", "", "edit.rename", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.rename_scene", "Rename Scene…"), "", "edit.rename", true, false) {
 		p.d.Scenes.RenameScene(d)
 	}
 	widgets.EndContextMenu(ui)
@@ -423,49 +424,49 @@ func (p *Panel) prefabItems(f *services.Frame, d *document.SceneDocument) {
 	ui := f.UI
 	info, ok := pf.Info(d, p.menuNode)
 	if !ok {
-		if widgets.MenuItemIcon(ui, "Create Prefab", "", "file.prefab", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.create_prefab", "Create Prefab"), "", "file.prefab", true, false) {
 			p.report(pf.CreateFrom(d, p.d.Selection.Selected(), ""))
 		}
 		widgets.Separator(ui)
 		return
 	}
-	if widgets.SubMenuIcon(ui, "Prefab", "file.prefab", 260) {
+	if widgets.SubMenuIcon(ui, i18n.Tr("editor.hierarchy.prefab", "Prefab"), "file.prefab", 260) {
 		live := !info.Missing
-		if widgets.MenuItemIcon(ui, "Open Prefab", "", "file.open", live, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.open_prefab", "Open Prefab"), "", "file.open", live, false) {
 			p.report(pf.Open(info.Prefab))
 		}
-		if widgets.MenuItemIcon(ui, "Select Prefab Asset", "", "panel.assets", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.select_prefab_asset", "Select Prefab Asset"), "", "panel.assets", true, false) {
 			pf.SelectAsset(info.Prefab)
 		}
-		if widgets.MenuItemIcon(ui, "Find Instances", "", "ui.search", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.find_instances", "Find Instances"), "", "ui.search", true, false) {
 			pf.FindInstances(info.Prefab)
 		}
 		widgets.Separator(ui)
 		touched := live && info.Touched(p.menuNode)
 		for i, t := range pf.Targets(d, p.menuNode) {
 			ui.PushIDInt(i)
-			if widgets.MenuItemIcon(ui, "Apply Node to "+t.Name, "", "prefab.apply", touched, false) {
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.apply_node_to", "Apply Node to {name}", i18n.Str("name", t.Name)), "", "prefab.apply", touched, false) {
 				p.report(pf.Apply(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelNode, Nearest: t.Nearest}))
 			}
-			if widgets.MenuItemIcon(ui, "Apply All to "+t.Name, "", "prefab.apply", live, false) {
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.apply_all_to", "Apply All to {name}", i18n.Str("name", t.Name)), "", "prefab.apply", live, false) {
 				p.report(pf.Apply(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelAll, Nearest: t.Nearest}))
 			}
 			ui.PopID()
 		}
-		if widgets.MenuItemIcon(ui, "Revert Node", "", "prefab.revert", touched, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.revert_node", "Revert Node"), "", "prefab.revert", touched, false) {
 			p.report(pf.Revert(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelNode}))
 		}
-		if widgets.MenuItemIcon(ui, "Revert All", "", "prefab.revert", live, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.revert_all", "Revert All"), "", "prefab.revert", live, false) {
 			p.report(pf.Revert(d, prefabs.Change{Node: p.menuNode, Level: prefabs.LevelAll}))
 		}
 		widgets.Separator(ui)
-		if widgets.MenuItemIcon(ui, "Unpack", "", "prefab.unpack", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.unpack", "Unpack"), "", "prefab.unpack", true, false) {
 			p.report(pf.Unpack(d, p.menuNode, false))
 		}
-		if widgets.MenuItemIcon(ui, "Unpack Completely", "", "prefab.unpack", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.unpack_completely", "Unpack Completely"), "", "prefab.unpack", true, false) {
 			p.report(pf.Unpack(d, p.menuNode, true))
 		}
-		if widgets.MenuItemIcon(ui, "Create Variant", "", "prefab.variant", live, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.hierarchy.create_variant", "Create Variant"), "", "prefab.variant", live, false) {
 			p.report(pf.CreateVariant(info.Prefab))
 		}
 		widgets.EndSubMenu(ui)
@@ -511,7 +512,7 @@ func (p *Panel) press(f *services.Frame, i int) {
 
 func (p *Panel) payload(d *document.SceneDocument) dnd.Payload {
 	nodes := append([]ids.NodeID(nil), p.d.Selection.Selected()...)
-	label := strconv.Itoa(len(nodes)) + " nodes"
+	label := i18n.Tr("editor.hierarchy.nodes_nodes", "{nodes} nodes", i18n.Str("nodes", strconv.Itoa(len(nodes))))
 	if len(nodes) == 1 {
 		if h := d.Scene().Handle(nodes[0]); !h.IsZero() {
 			label = d.Scene().Name(h)
@@ -677,7 +678,7 @@ func (p *Panel) move(d *document.SceneDocument, nodes []ids.NodeID, target ids.N
 		}
 		if p.d.Prefabs != nil && parent != s.ID(s.Parent(n)) && p.d.Prefabs.Locked(d, s.ID(n)) {
 			tx.Abort()
-			p.d.Notices.Notify(context.LevelWarn, s.Name(n)+" comes from a prefab and keeps its parent, unpack the instance to move it")
+			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.hierarchy.n_comes_from_a_prefab", "{n} comes from a prefab and keeps its parent, unpack the instance to move it", i18n.Str("n", s.Name(n))))
 			return
 		}
 		cmd := commands.NewMutation("Reparent", commands.EnvFor(s), commands.Move(s.ID(n), parent, index, true))

@@ -7,6 +7,7 @@ import (
 
 	"aego/core/errs"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/ui/theme"
 )
@@ -18,10 +19,12 @@ const (
 
 type Prefs struct {
 	Theme theme.Mode
+	// Language is auto, en or ru; auto follows the OS (D348).
+	Language string
 }
 
 func Default() *Prefs {
-	return &Prefs{Theme: theme.ModeSystem}
+	return &Prefs{Theme: theme.ModeSystem, Language: i18n.Auto}
 }
 
 func Load(dir string) (*Prefs, error) {
@@ -47,6 +50,15 @@ func Load(dir string) (*Prefs, error) {
 		}
 		p.Theme = theme.ParseMode(name)
 	}
+	if v, ok := doc.Field("language"); ok {
+		name := v.Str
+		if name == "" {
+			name = v.Ident
+		}
+		if name != "" {
+			p.Language = name
+		}
+	}
 	return p, nil
 }
 
@@ -56,5 +68,10 @@ func Save(dir string, p *Prefs) error {
 	}
 	root := &aetext.Node{Head: "prefs", Attrs: []aetext.Field{{Name: "version", Value: aetext.Int(version)}}}
 	root.Fields = append(root.Fields, aetext.Field{Name: "theme", Value: aetext.Ident(p.Theme.String())})
+	lang := p.Language
+	if lang == "" {
+		lang = i18n.Auto
+	}
+	root.Fields = append(root.Fields, aetext.Field{Name: "language", Value: aetext.Ident(lang)})
 	return document.WriteAtomic(filepath.Join(dir, File), aetext.Write(root))
 }

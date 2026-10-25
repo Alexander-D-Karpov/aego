@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/services"
 	edws "aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/scene"
 	"aego/scene/scriptcomp"
@@ -146,7 +147,7 @@ func (h *Host) Attach(d Deps, w *edws.Workspace) {
 			continue
 		}
 		h.show(doc)
-		h.d.Notices.Notify(context.LevelInfo, "Restored unsaved changes of "+doc.Path)
+		h.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.scripteditor.restored_unsaved_changes_of_path", "Restored unsaved changes of {path}", i18n.Str("path", doc.Path)))
 	}
 }
 
@@ -432,9 +433,9 @@ func (h *Host) requestClose(p *Panel) {
 			return
 		}
 		h.d.Notices.Ask(context.Question{
-			Title:   "Unsaved script",
-			Message: p.doc.Path + " has unsaved changes.",
-			Buttons: []string{"Save", "Discard", "Cancel"},
+			Title:   i18n.Tr("editor.scripteditor.unsaved_script", "Unsaved script"),
+			Message: i18n.Tr("editor.scripteditor.path_has_unsaved_changes", "{path} has unsaved changes.", i18n.Str("path", p.doc.Path)),
+			Buttons: []string{i18n.Tr("editor.scripteditor.save", "Save"), i18n.Tr("editor.scripteditor.discard", "Discard"), i18n.Tr("editor.scripteditor.cancel", "Cancel")},
 			Then: func(choice int) {
 				switch choice {
 				case 0:
@@ -521,7 +522,7 @@ func (h *Host) Tick(now float64) {
 	reloaded, conflicts := h.docs().CheckExternalScripts()
 	for _, d := range reloaded {
 		h.eachView(d, func(p *Panel) { p.resync() })
-		h.d.Notices.Notify(context.LevelInfo, "Reloaded "+d.Path)
+		h.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.scripteditor.reloaded_path", "Reloaded {path}", i18n.Str("path", d.Path)))
 	}
 	for _, d := range conflicts {
 		h.eachView(d, func(p *Panel) { p.conflict = true })
@@ -557,11 +558,11 @@ func (h *Host) buildStatus() (string, bool) {
 	}
 	switch {
 	case n > 0:
-		return "Scripts: " + strconv.Itoa(n) + " build errors · Problems", true
+		return i18n.Tr("editor.scripteditor.scripts_n_build_errors_problems", "Scripts: {n} build errors · Problems", i18n.Str("n", strconv.Itoa(n))), true
 	case failed:
 		return "Scripts: the latest build failed · Problems", true
 	}
-	return "Scripts: build " + strconv.FormatUint(gen, 10) + " · ok", false
+	return i18n.Tr("editor.scripteditor.scripts_build_formatuint_ok", "Scripts: build {formatuint} · ok", i18n.Str("formatuint", strconv.FormatUint(gen, 10))), false
 }
 
 func (h *Host) ensure() {
@@ -577,7 +578,7 @@ func (h *Host) blocked(d *document.ScriptDocument) bool {
 
 func (h *Host) saveDoc(d *document.ScriptDocument, now float64) bool {
 	if err := h.docs().SaveScript(d); err != nil {
-		h.d.Notices.Notify(context.LevelError, "autosave failed: "+err.Error())
+		h.d.Notices.Notify(context.LevelError, i18n.Note("editor.scripteditor.autosave_failed_error", "autosave failed: {error}", i18n.Str("error", err.Error())))
 		h.edits[d] = autosaveMark{rev: d.Code.Rev(), at: now + saveRetry}
 		return false
 	}
@@ -786,7 +787,7 @@ func (h *Host) selectAttached(full string) {
 		}
 	}
 	if target == nil {
-		h.d.Notices.Notify(context.LevelInfo, "No open scene uses "+full)
+		h.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.scripteditor.no_open_scene_uses_full", "No open scene uses {full}", i18n.Str("full", full)))
 		return
 	}
 	docs.SetActive(target.ID)

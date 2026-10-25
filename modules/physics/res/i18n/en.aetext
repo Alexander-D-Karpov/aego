@@ -1,0 +1,80 @@
+messages version=1 lang=en {
+  msg "i18n.physics.a_checked_cell_means_bodies" {
+    text="A checked cell means bodies on those two layers collide."
+  }
+  msg "i18n.physics.add_layer" {
+    text="Add Layer"
+  }
+  msg "i18n.physics.airtime_fmtf_s_steps_fixed" {
+    text="airtime {fmtf} s · {steps} fixed steps · {substeps} substeps"
+  }
+  msg "i18n.physics.bodies_store_the_layer_index" {
+    text="Bodies store the layer index; clearing a name keeps the index."
+  }
+  msg "i18n.physics.broad_broad_narrow_narrow_solve" {
+    text="broad {broad}   narrow {narrow}   solve {solve}   integrate {integrate}   sync {sync}   events {events} ms"
+  }
+  msg "i18n.physics.broadphase_tree" {
+    text="Broadphase Tree"
+  }
+  msg "i18n.physics.clear_the_name_bodies_keep" {
+    text="Clear the name; bodies keep index {i}"
+  }
+  msg "i18n.physics.collision_matrix" {
+    text="Collision Matrix"
+  }
+  msg "i18n.physics.contact_fmtf_hz_damping_fmtf2" {
+    text="Contact {fmtf} Hz · damping {fmtf2}"
+  }
+  msg "i18n.physics.contacts" {
+    text="Contacts"
+  }
+  msg "i18n.physics.debug_overlay" {
+    text="Debug Overlay"
+  }
+  msg "i18n.physics.formatnumber_from_colliders" {
+    text="{formatnumber} (from colliders)"
+  }
+  msg "i18n.physics.gravity" {
+    text="Gravity"
+  }
+  msg "i18n.physics.gravity_fmtf_m_s" {
+    text="Gravity {fmtf} m/s²"
+  }
+  msg "i18n.physics.islands" {
+    text="Islands"
+  }
+  msg "i18n.physics.joints" {
+    text="Joints"
+  }
+  msg "i18n.physics.layer_name_already_exists" {
+    text="layer {name} already exists"
+  }
+  msg "i18n.physics.layers" {
+    text="Layers"
+  }
+  msg "i18n.physics.mass" {
+    text="Mass"
+  }
+  msg "i18n.physics.name_is_not_a_valid" {
+    text="{name} is not a valid layer name"
+  }
+  msg "i18n.physics.no_sprite_on_the_selected" {
+    text="No sprite on the selected nodes"
+  }
+  msg "i18n.physics.physics_is_not_attached_to" {
+    text="Physics is not attached to the play world"
+  }
+  msg "i18n.physics.shapes" {
+    text="Shapes"
+  }
+  msg "i18n.physics.simulation" {
+    text="Simulation"
+  }
+  msg "i18n.physics.snap_to_sprite" {
+    text="Snap to Sprite"
+  }
+  msg "i18n.physics.tall_stacks_and_fast_motors" {
+    text="Tall stacks and fast motors: Substeps 8 and Contact Hertz 60 (stiff profile) at about twice the solver cost. Zero keeps the engine default."
+  }
+}

@@ -1,0 +1,20 @@
+messages version=1 lang=en {
+  msg "i18n.camera.blending_v" {
+    text=", blending {v}%"
+  }
+  msg "i18n.camera.cameras_run_only_in_play" {
+    text="Cameras run only in Play"
+  }
+  msg "i18n.camera.look_through" {
+    text="Look Through"
+  }
+  msg "i18n.camera.name_vc_zoom_formatfloat" {
+    text="{name}: {vc}, zoom {formatfloat}"
+  }
+  msg "i18n.camera.no_camera_outputs" {
+    text="No camera outputs"
+  }
+  msg "i18n.camera.snap_to_target" {
+    text="Snap to Target"
+  }
+}

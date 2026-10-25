@@ -199,7 +199,7 @@ func Describe(e Env, it Item) (label, detail, icon string, ok bool) {
 	}
 	if e.Commands != nil {
 		if d, found := e.Commands.Get(it.Command); found {
-			return d.Name, d.Category + "  " + d.KeysText(), "tool.select", true
+			return d.Title(), d.Category + "  " + d.KeysText(), "tool.select", true
 		}
 	}
 	return it.Label, "unknown action", "tool.select", false

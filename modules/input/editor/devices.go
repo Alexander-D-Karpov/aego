@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/modules/input"
 	raw "aego/platform/input"
 	"aego/ui/core"
@@ -38,7 +39,7 @@ func (*Devices) ID() string {
 }
 
 func (*Devices) Title() string {
-	return "Input Devices"
+	return i18n.Tr("i18n.input.devices.title", "Input Devices")
 }
 
 func vec(v mathx.Vec2) string {
@@ -69,7 +70,7 @@ func deviceName(d int) string {
 	case d < 0:
 		return "none"
 	case d == 0:
-		return "Keyboard & Mouse"
+		return i18n.Tr("i18n.input.keyboard_mouse", "Keyboard & Mouse")
 	}
 	return "Pad " + strconv.Itoa(d)
 }
@@ -80,12 +81,12 @@ func (d *Devices) Draw(f *services.Frame, r mathx.Rect) {
 	if d.input != nil {
 		in = d.input()
 	}
-	widgets.Label(ui, "Devices")
+	widgets.Label(ui, i18n.Tr("i18n.input.devices", "Devices"))
 	if in != nil {
-		widgets.LabelDim(ui, "Keyboard & Mouse   cursor "+point(in.MousePos())+"   keys down "+strconv.Itoa(in.DownCount()))
+		widgets.LabelDim(ui, i18n.Tr("i18n.input.keyboard_mouse_cursor_mousepos_keys", "Keyboard & Mouse   cursor {mousepos}   keys down {downcount}", i18n.Str("mousepos", point(in.MousePos())), i18n.Str("downcount", strconv.Itoa(in.DownCount()))))
 		for i := 0; i < raw.MaxPads; i++ {
 			if in.PadConnected(i) {
-				widgets.LabelDim(ui, "Pad "+strconv.Itoa(i+1)+": "+in.PadName(i)+"   "+padState(in, i))
+				widgets.LabelDim(ui, i18n.Tr("i18n.input.pad_v_i_padstate", "Pad {v}: {i}   {padstate}", i18n.Str("v", strconv.Itoa(i+1)), i18n.Str("i", in.PadName(i)), i18n.Str("padstate", padState(in, i))))
 			}
 		}
 		d.virtual(ui, in)
@@ -153,7 +154,7 @@ func (d *Devices) SetVirtual(in *raw.State, on bool) {
 func (d *Devices) virtual(ui *core.Context, in *raw.State) {
 	th := &ui.Theme
 	on := d.virt
-	label := "Virtual Gamepad"
+	label := i18n.Tr("i18n.input.virtual_gamepad", "Virtual Gamepad")
 	row := ui.Cursor().Next(0)
 	br := mathx.Rect{X: row.X, Y: row.Y, W: ui.TextSize(label).X + 24, H: row.H}
 	if widgets.ToggleButton(ui, ui.ID("vpad"), br, label, &on) {
@@ -234,7 +235,7 @@ func (d *Devices) actions(ui *core.Context) {
 		s = input.Of(d.world())
 	}
 	if s == nil {
-		widgets.LabelDim(ui, "Live action values appear here while Play runs")
+		widgets.LabelDim(ui, i18n.Tr("i18n.input.live_action_values_appear_here", "Live action values appear here while Play runs"))
 		return
 	}
 	if n := s.Players(); n > 1 {
@@ -242,10 +243,10 @@ func (d *Devices) actions(ui *core.Context) {
 		for i := range names {
 			names[i] = "Player " + strconv.Itoa(i+1)
 		}
-		widgets.Combo(ui, ui.ID("player"), widgets.Field(ui, "Player"), &d.player, names, false)
+		widgets.Combo(ui, ui.ID("player"), widgets.Field(ui, i18n.Tr("i18n.input.player", "Player")), &d.player, names, false)
 	}
 	d.player = min(d.player, s.Players()-1)
-	widgets.LabelDim(ui, "Active device: "+deviceName(s.ActiveDevice(d.player)))
+	widgets.LabelDim(ui, i18n.Tr("i18n.input.active_device_player", "Active device: {player}", i18n.Str("player", deviceName(s.ActiveDevice(d.player)))))
 	s.Each(d.player, func(i input.Info) {
 		r := ui.Cursor().Next(0)
 		col := th.Text

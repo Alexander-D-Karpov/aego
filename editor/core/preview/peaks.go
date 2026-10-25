@@ -13,6 +13,7 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/editor/core/tasks"
+	"aego/engine/i18n"
 )
 
 const peaksExt = ".peaks"
@@ -55,7 +56,7 @@ func (s *Service) Peaks(id ids.AssetID, cols int) ([]float32, bool) {
 	art, _ := e.Artifact(e.Kind)
 	path := filepath.Join(s.dir, key+peaksExt)
 	var out []float32
-	spec := tasks.Spec{Title: "Waveform " + filepath.Base(e.Name), Kind: "preview", Priority: s.frame}
+	spec := tasks.Spec{Title: i18n.Tr("editor.preview.waveform_name", "Waveform {name}", i18n.Str("name", filepath.Base(e.Name))), Kind: "preview", Priority: s.frame}
 	it.task = s.d.Tasks.Work(spec, func(*tasks.Task) error {
 		if v, err := readPeaks(path, cols); err == nil {
 			out = v

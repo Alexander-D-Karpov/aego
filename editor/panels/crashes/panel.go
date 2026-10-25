@@ -7,6 +7,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/services"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -30,7 +31,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Crash Reports"
+	return i18n.Tr("editor.crashes.title", "Crash Reports")
 }
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
@@ -40,10 +41,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.list, p.at = state.CrashReports(p.root), f.Now
 	}
 	if len(p.list) == 0 {
-		widgets.LabelDim(ui, "No crash reports in .aego/crash")
+		widgets.LabelDim(ui, i18n.Tr("editor.crashes.no_crash_reports_in_aego", "No crash reports in .aego/crash"))
 		return
 	}
-	widgets.LabelDim(ui, strconv.Itoa(len(p.list))+" report(s); click opens the script line, or copies the folder path")
+	widgets.LabelDim(ui, i18n.Tr("editor.crashes.list_report_s_click_opens", "{list} report(s); click opens the script line, or copies the folder path", i18n.Str("list", strconv.Itoa(len(p.list)))))
 	top := ui.Cursor().Y
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	widgets.VirtualList(ui, ui.ID("list"), list, len(p.list), th.RowHeight, &p.scroll, func(i int, row mathx.Rect) {

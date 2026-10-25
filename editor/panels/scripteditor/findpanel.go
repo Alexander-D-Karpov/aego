@@ -9,6 +9,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/script/workspace"
 	"aego/ui/core"
@@ -60,9 +61,9 @@ func (f *FindPanel) ID() string {
 
 func (f *FindPanel) Title() string {
 	if f.usages {
-		return "Usages"
+		return i18n.Tr("editor.scripteditor.usages", "Usages")
 	}
-	return "Find"
+	return i18n.Tr("editor.scripteditor.find", "Find")
 }
 
 func (f *FindPanel) start(q string) {
@@ -159,11 +160,11 @@ func (f *FindPanel) status() string {
 	case f.err != "":
 		return f.err
 	case f.running:
-		return "Searching…"
+		return i18n.Tr("editor.scripteditor.searching", "Searching…")
 	case f.usages:
-		return f.title + ": " + strconv.Itoa(len(f.matches)) + " usage(s) in " + strconv.Itoa(f.files) + " file(s)"
+		return i18n.Tr("editor.scripteditor.title_matches_usage_s_in", "{title}: {matches} usage(s) in {files} file(s)", i18n.Str("title", f.title), i18n.Str("matches", strconv.Itoa(len(f.matches))), i18n.Str("files", strconv.Itoa(f.files)))
 	case f.query == "":
-		return "Type to search in all scripts"
+		return i18n.Tr("editor.scripteditor.type_to_search_in_all", "Type to search in all scripts")
 	}
 	s := strconv.Itoa(len(f.matches)) + " match(es) in " + strconv.Itoa(f.files) + " file(s)"
 	if f.truncated {
@@ -213,7 +214,7 @@ func (f *FindPanel) Draw(fr *services.Frame, r mathx.Rect) {
 	rrow := ui.Cursor().Next(0)
 	bw := float32(100)
 	widgets.TextFieldRect(ui, ui.ID("repl"), mathx.Rect{X: rrow.X, Y: rrow.Y, W: max(60, rrow.W-bw-4), H: rrow.H}, &f.repl, true)
-	if widgets.ButtonRect(ui, ui.ID("replall"), mathx.Rect{X: rrow.X + rrow.W - bw, Y: rrow.Y, W: bw, H: rrow.H}, "Replace All") {
+	if widgets.ButtonRect(ui, ui.ID("replall"), mathx.Rect{X: rrow.X + rrow.W - bw, Y: rrow.Y, W: bw, H: rrow.H}, i18n.Tr("editor.scripteditor.replace_all", "Replace All")) {
 		f.replaceAll()
 	}
 	col := th.TextDim
@@ -324,6 +325,6 @@ func (f *FindPanel) replaceAll() {
 		}
 	}
 	f.host.lang.Invalidate()
-	f.host.d.Notices.Notify(context.LevelInfo, "Replaced "+strconv.Itoa(total)+" occurrence(s) in "+strconv.Itoa(files)+" file(s), Save All writes them")
+	f.host.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.scripteditor.replaced_total_occurrence_s_in", "Replaced {total} occurrence(s) in {files} file(s), Save All writes them", i18n.Str("total", strconv.Itoa(total)), i18n.Str("files", strconv.Itoa(files))))
 	f.changed(-1)
 }

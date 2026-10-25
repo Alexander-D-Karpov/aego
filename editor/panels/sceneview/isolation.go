@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/ui/widgets"
 )
@@ -79,7 +80,7 @@ func (p *Panel) ToggleIsolation() error {
 	}
 	sel := p.d.Selection.Selected()
 	if len(sel) == 0 {
-		p.d.Notices.Notify(context.LevelInfo, "Select the nodes to isolate")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.sceneview.select_the_nodes_to_isolate", "Select the nodes to isolate"))
 		return nil
 	}
 	d.View.Isolated = make(map[ids.NodeID]bool, len(sel))
@@ -96,8 +97,8 @@ func (p *Panel) isolationBar(d *document.SceneDocument, r mathx.Rect) {
 	}
 	ui := p.ui()
 	th := &ui.Theme
-	text := "Isolated: " + strconv.Itoa(n) + " node(s)"
-	bw := ui.TextSize("Show All").X + 16
+	text := i18n.Tr("editor.sceneview.isolated_n_node_s", "Isolated: {n} node(s)", i18n.Str("n", strconv.Itoa(n)))
+	bw := ui.TextSize(i18n.Tr("editor.sceneview.show_all", "Show All")).X + 16
 	h := th.BarHeight
 	w := ui.TextSize(text).X + bw + 24
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + r.H - h - 6, W: min(w, r.W-12), H: h}
@@ -107,9 +108,9 @@ func (p *Panel) isolationBar(d *document.SceneDocument, r mathx.Rect) {
 	ui.PushClip(bar)
 	ui.Text(text, mathx.Vec2{X: bar.X + 8, Y: ui.TextY(bar)}, th.Text)
 	id := ui.ID("isolation.exit")
-	if widgets.ButtonRect(ui, id, mathx.Rect{X: bar.X + bar.W - bw - 4, Y: bar.Y + 3, W: bw, H: h - 6}, "Show All") {
+	if widgets.ButtonRect(ui, id, mathx.Rect{X: bar.X + bar.W - bw - 4, Y: bar.Y + 3, W: bw, H: h - 6}, i18n.Tr("editor.sceneview.show_all", "Show All")) {
 		p.ToggleIsolation()
 	}
 	ui.PopClip()
-	widgets.Tooltip(ui, id, "Leave isolation ("+p.d.Commands.Shortcut(CommandIsolate)+")")
+	widgets.Tooltip(ui, id, i18n.Tr("editor.sceneview.leave_isolation_commandisolate", "Leave isolation ({commandisolate})", i18n.Str("commandisolate", p.d.Commands.Shortcut(CommandIsolate))))
 }

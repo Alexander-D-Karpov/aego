@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/props"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -20,9 +21,9 @@ func (p *Panel) transform(d *document.SceneDocument) {
 		if s.Space(s.Handle(id)) != sp {
 			ui := p.f.UI
 			ui.PushID("transform")
-			c := p.beginCard("transform", "Transform", "", "cat.transform", "", false)
+			c := p.beginCard("transform", i18n.Tr("editor.inspector.transform", "Transform"), "", "cat.transform", "", false)
 			if c.open {
-				widgets.LabelDim(ui, "Selected nodes live in different spaces")
+				widgets.LabelDim(ui, i18n.Tr("editor.inspector.selected_nodes_live_in_different", "Selected nodes live in different spaces"))
 			}
 			p.endCard(ui, c)
 			ui.PopID()
@@ -40,7 +41,7 @@ func (p *Panel) transform3D(d *document.SceneDocument) {
 	ui := p.f.UI
 	ui.PushID("transform3d")
 	defer ui.PopID()
-	card := p.beginCard("transform", "Transform", "", "cat.transform", "Reset", false)
+	card := p.beginCard("transform", i18n.Tr("editor.inspector.transform", "Transform"), "", "cat.transform", i18n.Tr("editor.inspector.reset", "Reset"), false)
 	defer p.endCard(ui, card)
 	if card.action {
 		err := d.Props.EditTransform3D(nil, p.nodes, func(t *scene.Transform3D) {
@@ -62,9 +63,9 @@ func (p *Panel) transform3D(d *document.SceneDocument) {
 		base  int
 		o     widgets.NumberOpts
 	}{
-		{"Position", ui.ID("pos"), t.Position, props.T3PosX, widgets.NumberOpts{Speed: 0.05}},
-		{"Rotation", ui.ID("rot"), euler, props.T3RotX, widgets.NumberOpts{Speed: 0.5, Prec: 2, Suffix: "°"}},
-		{"Scale", ui.ID("scale"), t.Scale, props.T3ScaleX, widgets.NumberOpts{Speed: 0.01}},
+		{i18n.Tr("editor.inspector.position", "Position"), ui.ID("pos"), t.Position, props.T3PosX, widgets.NumberOpts{Speed: 0.05}},
+		{i18n.Tr("editor.inspector.rotation", "Rotation"), ui.ID("rot"), euler, props.T3RotX, widgets.NumberOpts{Speed: 0.5, Prec: 2, Suffix: "°"}},
+		{i18n.Tr("editor.inspector.scale", "Scale"), ui.ID("scale"), t.Scale, props.T3ScaleX, widgets.NumberOpts{Speed: 0.01}},
 	}
 	for _, row := range rows {
 		v := row.v
@@ -104,7 +105,7 @@ func (p *Panel) spaceRow(d *document.SceneDocument) {
 			locked, reason = true, why
 		}
 	}
-	r := widgets.Field(ui, "Space")
+	r := widgets.Field(ui, i18n.Tr("editor.inspector.space", "Space"))
 	if locked {
 		label := spaceNames[sp]
 		if mixed {

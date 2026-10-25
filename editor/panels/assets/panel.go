@@ -4,6 +4,7 @@ import (
 	"aego/editor/core/code/highlight"
 	favs "aego/editor/core/favorites"
 	"aego/editor/core/refs"
+	"aego/engine/i18n"
 	"os/exec"
 	"path"
 	"runtime"
@@ -150,7 +151,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Assets"
+	return i18n.Tr("editor.assets.title", "Assets")
 }
 
 func (p *Panel) Scope() string {
@@ -399,7 +400,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	if p.d.Pipeline == nil {
-		widgets.LabelDim(ui, "Asset pipeline is not available")
+		widgets.LabelDim(ui, i18n.Tr("editor.assets.asset_pipeline_is_not_available", "Asset pipeline is not available"))
 		return
 	}
 	p.assetMenuID = ui.ID("amenu")
@@ -407,7 +408,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.refresh()
 	p.settle()
 	bar := ui.Cursor().Next(0)
-	bw, label := float32(100), "New Folder"
+	bw, label := float32(100), i18n.Tr("editor.assets.new_folder", "New Folder")
 	if bar.W < 300 {
 		bw, label = bar.H, "+"
 	}
@@ -423,7 +424,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if widgets.ButtonRect(ui, newID, mathx.Rect{X: bar.X + bar.W - bw, Y: bar.Y, W: bw, H: bar.H}, label) {
 		p.newFolder(p.folder)
 	}
-	widgets.Tooltip(ui, newID, "New Folder")
+	widgets.Tooltip(ui, newID, i18n.Tr("editor.assets.new_folder", "New Folder"))
 	top := bar.Y + bar.H + th.Spacing
 	body := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	if body.W < 260 {
@@ -604,7 +605,7 @@ func (p *Panel) payload(a *pipeline.AssetInfo) dnd.Payload {
 			items = append(items, context.AssetPayload{ID: it.ID, Kind: it.Kind, Name: it.Name})
 		}
 	}
-	return dnd.Payload{Kind: context.KindAssets, Label: strconv.Itoa(len(items)) + " assets", Data: context.AssetsPayload{Items: items}}
+	return dnd.Payload{Kind: context.KindAssets, Label: i18n.Tr("editor.assets.items_assets", "{items} assets", i18n.Str("items", strconv.Itoa(len(items)))), Data: context.AssetsPayload{Items: items}}
 }
 
 func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
@@ -850,7 +851,7 @@ func (p *Panel) importFiles(files []string, dir string) {
 		p.d.Notices.Notify(context.LevelError, err.Error())
 		return
 	}
-	p.d.Notices.Notify(context.LevelInfo, "Imported "+strconv.Itoa(len(created))+" file(s) into "+dir)
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.imported_created_file_s_into", "Imported {created} file(s) into {dir}", i18n.Str("created", strconv.Itoa(len(created))), i18n.Str("dir", dir)))
 	if len(created) > 0 {
 		p.selectOnly(created[0])
 		p.folder = dir

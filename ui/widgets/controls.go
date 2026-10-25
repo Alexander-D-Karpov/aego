@@ -30,7 +30,7 @@ func FieldRects(c *core.Context, label string) (mathx.Rect, mathx.Rect) {
 	lw := LabelWidth(r.W)
 	lr := mathx.Rect{X: r.X, Y: r.Y, W: lw - 4, H: r.H}
 	c.PushClip(lr)
-	c.Text(label, mathx.Vec2{X: lr.X, Y: c.TextY(lr)}, th.TextDim)
+	c.Text(fitLabel(c, label, lr.W), mathx.Vec2{X: lr.X, Y: c.TextY(lr)}, th.TextDim)
 	c.PopClip()
 	return lr, mathx.Rect{X: r.X + lw, Y: r.Y, W: r.W - lw, H: r.H}
 }
@@ -164,7 +164,7 @@ func SearchField(c *core.Context, id core.ID, r mathx.Rect, q *string) bool {
 		changed = true
 	}
 	if *q == "" && c.Focus() != id {
-		c.Text("Search", mathx.Vec2{X: r.X + 6, Y: c.TextY(r)}, th.TextDisabled)
+		c.Text(Tr("editor.widgets.search", "Search"), mathx.Vec2{X: r.X + 6, Y: c.TextY(r)}, th.TextDisabled)
 	}
 	return changed
 }
@@ -236,4 +236,29 @@ func Switch(c *core.Context, id core.ID, r mathx.Rect, on *bool, label string) b
 		c.Text(label, mathx.Vec2{X: pill.X + pill.W + 8, Y: c.TextY(r)}, col)
 	}
 	return clicked
+}
+
+type labelKey struct {
+	s string
+	w float32
+}
+
+// labelCache keeps the elided field labels, so a narrow inspector does not elide every frame.
+var labelCache = map[labelKey]string{}
+
+// fitLabel shortens a field label with an ellipsis when it is wider than its column (D348).
+func fitLabel(c *core.Context, s string, w float32) string {
+	if c.TextSize(s).X <= w {
+		return s
+	}
+	k := labelKey{s, w}
+	if t, ok := labelCache[k]; ok {
+		return t
+	}
+	if len(labelCache) > 1024 {
+		clear(labelCache)
+	}
+	t := Elide(c, s, w)
+	labelCache[k] = t
+	return t
 }

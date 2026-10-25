@@ -2,13 +2,14 @@ package sceneview
 
 import (
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 )
 
 const CommandCapture = "scene.capture"
 
 func (p *Panel) RequestCapture() error {
 	if p.d.Docs.Doc() == nil || p.target == nil {
-		p.d.Notices.Notify(context.LevelInfo, "Open a scene to capture the Scene View")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.sceneview.open_a_scene_to_capture", "Open a scene to capture the Scene View"))
 		return nil
 	}
 	if p.d.Capture == nil {

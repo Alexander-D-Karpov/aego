@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/shape"
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
+	"aego/engine/i18n"
 	"aego/modules/debug"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -70,7 +71,7 @@ func (*plugin) ID() string {
 }
 
 func (*plugin) Title() string {
-	return "Debug Draw"
+	return i18n.Tr("i18n.debug.draw.title", "Debug Draw")
 }
 
 func (p *plugin) set(s *debug.Service, name string, on bool) {
@@ -82,11 +83,11 @@ func (p *plugin) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	s := p.svc()
 	if s == nil {
-		widgets.LabelDim(ui, "Debug channels appear here while Play runs")
+		widgets.LabelDim(ui, i18n.Tr("i18n.debug.debug_channels_appear_here_while", "Debug channels appear here while Play runs"))
 		return
 	}
 	p.apply(s)
-	widgets.LabelDim(ui, strconv.Itoa(s.Live())+" primitives   "+strconv.FormatUint(s.Dropped(), 10)+" dropped")
+	widgets.LabelDim(ui, i18n.Tr("i18n.debug.live_primitives_formatuint_dropped", "{live} primitives   {formatuint} dropped", i18n.Str("live", strconv.Itoa(s.Live())), i18n.Str("formatuint", strconv.FormatUint(s.Dropped(), 10))))
 	row := ui.Cursor().Next(0)
 	bw := row.W / float32(len(presets))
 	for i, pr := range presets {
@@ -102,7 +103,7 @@ func (p *plugin) Draw(f *services.Frame, r mathx.Rect) {
 		was := on
 		label := name + "   " + strconv.Itoa(count)
 		if dropped > 0 {
-			label += "   dropped " + strconv.FormatUint(dropped, 10)
+			label += i18n.Tr("i18n.debug.dropped_formatuint", "   dropped {formatuint}", i18n.Str("formatuint", strconv.FormatUint(dropped, 10)))
 		}
 		widgets.ToggleButton(ui, core.IDSeq(base, i), ui.Cursor().Next(0), label, &on)
 		if on != was {

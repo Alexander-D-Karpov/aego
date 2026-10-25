@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/modules/physics/world"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -108,8 +109,8 @@ func (p *plugin) trajectory(ui *core.Context, r mathx.Rect, cfg world.Config) {
 	if hot {
 		lc = th.Accent
 	}
-	ui.Text("Gravity "+fmtF(gl, 2)+" m/s²", mathx.Vec2{X: r.X, Y: r.Y}, lc)
-	info := "airtime " + fmtF(float32(steps)*fixedStep, 2) + " s · " + strconv.Itoa(steps) + " fixed steps · " + strconv.Itoa(cfg.Substeps) + " substeps"
+	ui.Text(i18n.Tr("i18n.physics.gravity_fmtf_m_s", "Gravity {fmtf} m/s²", i18n.Str("fmtf", fmtF(gl, 2))), mathx.Vec2{X: r.X, Y: r.Y}, lc)
+	info := i18n.Tr("i18n.physics.airtime_fmtf_s_steps_fixed", "airtime {fmtf} s · {steps} fixed steps · {substeps} substeps", i18n.Str("fmtf", fmtF(float32(steps)*fixedStep, 2)), i18n.Str("steps", strconv.Itoa(steps)), i18n.Str("substeps", strconv.Itoa(cfg.Substeps)))
 	sc := th.TextDim
 	if p.focus == "solver" {
 		sc = th.Accent
@@ -126,7 +127,7 @@ func (p *plugin) trajectory(ui *core.Context, r mathx.Rect, cfg world.Config) {
 func (p *plugin) contact(ui *core.Context, r mathx.Rect, cfg world.Config) {
 	th := &ui.Theme
 	hot := p.focus == "contact" || p.focus == "bounce"
-	title := "Contact " + fmtF(cfg.ContactHertz, 0) + " Hz · damping " + fmtF(cfg.ContactDampingRatio, 1)
+	title := i18n.Tr("i18n.physics.contact_fmtf_hz_damping_fmtf2", "Contact {fmtf} Hz · damping {fmtf2}", i18n.Str("fmtf", fmtF(cfg.ContactHertz, 0)), i18n.Str("fmtf2", fmtF(cfg.ContactDampingRatio, 1)))
 	ui.Text(title, mathx.Vec2{X: r.X, Y: r.Y}, th.TextDim)
 	plot := mathx.Rect{X: r.X, Y: r.Y + 22, W: r.W, H: r.H - 44}
 	mid := plot.Y + plot.H*0.5

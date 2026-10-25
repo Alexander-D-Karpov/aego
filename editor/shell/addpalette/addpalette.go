@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/history/commands"
 	"aego/editor/core/templates"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/mutate"
 	"aego/scene/scriptcomp"
@@ -91,6 +92,7 @@ type Service struct {
 func New(d Deps) *Service {
 	s := &Service{d: d, pal: palette.New(core.IDOf("addpalette"))}
 	s.pal.CategoryIcon = CategoryIcon
+	s.pal.CategoryTitle = CategoryTitle
 	s.pal.Describe = s.describe
 	return s
 }
@@ -167,16 +169,18 @@ func (s *Service) collect() {
 	s.entries, s.items = s.entries[:0], s.items[:0]
 	switch s.mode {
 	case Components:
-		s.pal.Title = "Add Component"
+		s.pal.Title = i18n.Tr("editor.addpalette.add_component", "Add Component")
+		s.pal.RecentTitle, s.pal.FavoritesTitle = i18n.Tr("editor.addpalette.recent", "Recent"), i18n.Tr("editor.addpalette.favorites", "Favorites")
 		if n := len(s.nodes); n > 1 {
 			s.pal.Title += " to " + strconv.Itoa(n) + " nodes"
 		}
-		s.pal.Hint = "Enter add · Shift+Enter add more · Ctrl+D favorite · Esc close"
+		s.pal.Hint = i18n.Tr("editor.addpalette.add_hint", "Enter add · Shift+Enter add more · Ctrl+D favorite · Esc close")
 		s.components()
 		s.scripts()
 	case Create:
-		s.pal.Title = "Create"
-		s.pal.Hint = "Enter create · Shift+Enter create more · Ctrl+D favorite · Esc close"
+		s.pal.Title = i18n.Tr("editor.addpalette.create", "Create")
+		s.pal.RecentTitle, s.pal.FavoritesTitle = i18n.Tr("editor.addpalette.recent", "Recent"), i18n.Tr("editor.addpalette.favorites", "Favorites")
+		s.pal.Hint = i18n.Tr("editor.addpalette.create_hint", "Enter create · Shift+Enter create more · Ctrl+D favorite · Esc close")
 		s.templates()
 	}
 }
@@ -405,9 +409,9 @@ func (s *Service) pick(i int, keep bool) {
 		return
 	}
 	ctx.Ask(context.Question{
-		Title:   "Add " + label,
-		Message: "Add " + label + " changes " + strconv.Itoa(len(e.nodes)) + " nodes.",
-		Buttons: []string{"Apply", "Cancel"},
+		Title:   i18n.Tr("editor.addpalette.add_name", "Add {name}", i18n.Str("name", label)),
+		Message: i18n.TrN("editor.addpalette.add_changes", int64(len(e.nodes)), "Add {name} changes {n} node.", "Add {name} changes {n} nodes.", i18n.Str("name", label)),
+		Buttons: []string{i18n.Tr("editor.common.apply", "Apply"), i18n.Tr("editor.common.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice == 0 {
 				done()
@@ -518,6 +522,40 @@ var categoryIcons = map[string]string{
 	"Settings":  "cat.settings",
 	"Data":      "file.data",
 	scriptsCat:  "cat.scripts",
+}
+
+// categoryTitles translate the palette categories the engine modules use (D348).
+var categoryTitles = map[string]i18n.Text{
+	"Engine":    i18n.T("editor.category.engine", "Engine"),
+	"Node":      i18n.T("editor.category.node", "Node"),
+	"Rendering": i18n.T("editor.category.rendering", "Rendering"),
+	"Camera":    i18n.T("editor.category.camera", "Camera"),
+	"Physics":   i18n.T("editor.category.physics", "Physics"),
+	"Audio":     i18n.T("editor.category.audio", "Audio"),
+	"Animation": i18n.T("editor.category.animation", "Animation"),
+	"Gameplay":  i18n.T("editor.category.gameplay", "Gameplay"),
+	"Game":      i18n.T("editor.category.game", "Game"),
+	"Saving":    i18n.T("editor.category.saving", "Saving"),
+	"Spawning":  i18n.T("editor.category.spawning", "Spawning"),
+	"Prefabs":   i18n.T("editor.category.prefabs", "Prefabs"),
+	"Input":     i18n.T("editor.category.input", "Input"),
+	"Debug":     i18n.T("editor.category.debug", "Debug"),
+	"Settings":  i18n.T("editor.category.settings", "Settings"),
+	"Data":      i18n.T("editor.category.data", "Data"),
+	"UI":        i18n.T("editor.category.ui", "UI"),
+	"Lights":    i18n.T("editor.category.lights", "Lights"),
+	"Shapes":    i18n.T("editor.category.shapes", "Shapes"),
+	"Effects":   i18n.T("editor.category.effects", "Effects"),
+	"Empty":     i18n.T("editor.category.empty", "Empty"),
+	scriptsCat:  i18n.T("editor.category.scripts", "Scripts"),
+}
+
+// CategoryTitle is the shown name of a category in the editor language.
+func CategoryTitle(category string) string {
+	if t, ok := categoryTitles[category]; ok {
+		return t.String()
+	}
+	return category
 }
 
 // CategoryIcon is the icon of a palette category, or "" when it has none.

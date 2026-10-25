@@ -59,31 +59,38 @@ type Palette struct {
 	Describe func(ui *core.Context, r mathx.Rect, item int)
 	// CategoryIcon names the icon drawn before a category; "" draws none.
 	CategoryIcon func(category string) string
-	id           core.ID
-	items        []Item
-	reasons      []string
-	reasonW      float32
-	text         []Text
-	cats         []string
-	query        string
-	last         string
-	q            []rune
-	hits         []hit
-	pos          []int
-	rows         []row
-	sel          int
-	scroll       float32
-	follow       bool
-	focus        bool
-	open         bool
-	count        string
-	ui           *core.Context
-	clicked      int
-	toggled      int
-	starred      int
-	rowFn        func(int, mathx.Rect)
-	listH        float32
-	opened       uint64
+	// CategoryTitle is the shown name of a category; nil shows the category as is.
+	CategoryTitle func(category string) string
+	// RecentTitle and FavoritesTitle name the two sections above the categories.
+	RecentTitle, FavoritesTitle string
+
+	hintSrc, hintOut string
+	hintW            float32
+	id               core.ID
+	items            []Item
+	reasons          []string
+	reasonW          float32
+	text             []Text
+	cats             []string
+	query            string
+	last             string
+	q                []rune
+	hits             []hit
+	pos              []int
+	rows             []row
+	sel              int
+	scroll           float32
+	follow           bool
+	focus            bool
+	open             bool
+	count            string
+	ui               *core.Context
+	clicked          int
+	toggled          int
+	starred          int
+	rowFn            func(int, mathx.Rect)
+	listH            float32
+	opened           uint64
 }
 
 const rowPad = 2
@@ -174,12 +181,12 @@ func (p *Palette) rebuild() {
 			n++
 		}
 	}
-	p.count = strconv.Itoa(n) + " available"
+	p.count = strconv.Itoa(n) + " " + widgets.Tr("editor.widgets.available", "available")
 }
 
 func (p *Palette) emptyRows() {
 	if len(p.Recent) > 0 {
-		p.rows = append(p.rows, row{kind: rowSection, label: "Recent"})
+		p.rows = append(p.rows, row{kind: rowSection, label: or(p.RecentTitle, "Recent")})
 		for _, i := range p.Recent {
 			if i >= 0 && i < len(p.items) {
 				p.rows = append(p.rows, row{item: i})
@@ -190,7 +197,7 @@ func (p *Palette) emptyRows() {
 	for i := range p.items {
 		if p.items[i].Starred {
 			if !fav {
-				p.rows = append(p.rows, row{kind: rowSection, label: "Favorites"})
+				p.rows = append(p.rows, row{kind: rowSection, label: or(p.FavoritesTitle, "Favorites")})
 				fav = true
 			}
 			p.rows = append(p.rows, row{item: i})
@@ -379,7 +386,7 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 	p.clicked, p.toggled, p.starred = -1, -1, -1
 	widgets.VirtualList(ui, core.IDSeq(p.id, 2), list, len(p.rows), rowH, &p.scroll, p.rowFn)
 	if len(p.rows) == 0 {
-		ui.TextIn(list, "Nothing matches", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(list, widgets.Tr("editor.widgets.nothing_matches", "Nothing matches"), th.TextDisabled, core.AlignCenter)
 	}
 	ui.Rect(mathx.Rect{X: desc.X - th.Padding/2, Y: desc.Y, W: 1, H: desc.H}, th.Border)
 	if p.Describe != nil {
@@ -389,7 +396,12 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 	}
 	foot := mathx.Rect{X: r.X + th.Padding, Y: r.Y + r.H - th.RowHeight - th.Padding/2, W: r.W - 2*th.Padding, H: th.RowHeight}
 	ui.TextIn(foot, p.count, th.TextDim, core.AlignLeft)
-	ui.TextIn(foot, p.Hint, th.TextDim, core.AlignRight)
+	cw := ui.TextSize(p.count).X + 16
+	hint := mathx.Rect{X: foot.X + cw, Y: foot.Y, W: max(0, foot.W-cw), H: foot.H}
+	if p.hintSrc != p.Hint || p.hintW != hint.W {
+		p.hintSrc, p.hintW, p.hintOut = p.Hint, hint.W, widgets.Elide(ui, p.Hint, hint.W)
+	}
+	ui.TextIn(hint, p.hintOut, th.TextDim, core.AlignRight)
 	ui.EndModal()
 	switch {
 	case p.toggled >= 0:
@@ -430,7 +442,7 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 				x += 22
 			}
 		}
-		ui.Text(rw.label, mathx.Vec2{X: x, Y: ty}, th.Text)
+		ui.Text(p.catTitle(rw.label), mathx.Vec2{X: x, Y: ty}, th.Text)
 		return
 	}
 	it := &p.items[rw.item]
@@ -465,7 +477,7 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 	tx := rr.X + indent + 22
 	right := it.Detail
 	if right == "" && len(p.q) > 0 {
-		right = it.Category
+		right = p.catTitle(it.Category)
 	}
 	if off {
 		right = p.reason(rw.item, rr.W*0.45)
@@ -511,4 +523,18 @@ func (p *Palette) reason(i int, w float32) string {
 		}
 	}
 	return p.reasons[i]
+}
+
+func (p *Palette) catTitle(c string) string {
+	if p.CategoryTitle != nil {
+		return p.CategoryTitle(c)
+	}
+	return c
+}
+
+func or(s, def string) string {
+	if s != "" {
+		return s
+	}
+	return def
 }

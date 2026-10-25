@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -84,7 +85,7 @@ func fileSafe(name string) string {
 	}, strings.TrimSpace(name))
 	name = strings.TrimLeft(name, ".")
 	if name == "" {
-		return "Prefab"
+		return i18n.Tr("editor.prefabs.prefab", "Prefab")
 	}
 	return name
 }
@@ -131,9 +132,9 @@ func (s *Service) FindInstances(id ids.AssetID) {
 	if len(here) > 0 {
 		s.ctx.Select(here...)
 	}
-	msg := strconv.Itoa(len(here)) + " instance(s) of " + s.stem(id) + " in this scene"
+	msg := i18n.Tr("editor.prefabs.here_instance_s_of_id", "{here} instance(s) of {id} in this scene", i18n.Str("here", strconv.Itoa(len(here))), i18n.Str("id", s.stem(id)))
 	if elsewhere > 0 {
-		msg += ", " + strconv.Itoa(elsewhere) + " in other open scenes"
+		msg += i18n.Tr("editor.prefabs.elsewhere_in_other_open_scenes", ", {elsewhere} in other open scenes", i18n.Str("elsewhere", strconv.Itoa(elsewhere)))
 	}
 	var files []string
 	for _, dep := range s.ctx.Pipeline.Dependents(id) {
@@ -142,7 +143,7 @@ func (s *Service) FindInstances(id ids.AssetID) {
 		}
 	}
 	if len(files) > 0 {
-		msg += "; used by " + strings.Join(files, ", ")
+		msg += i18n.Tr("editor.prefabs.used_by_join", "; used by {join}", i18n.Str("join", strings.Join(files, ", ")))
 	}
 	s.ctx.Notify(context.LevelInfo, msg)
 }
@@ -220,7 +221,7 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 			tx.Abort()
 			return err
 		}
-		s.ctx.Notify(context.LevelInfo, "Created "+rel)
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.prefabs.created_rel", "Created {rel}", i18n.Str("rel", rel)))
 	}
 	tx.Commit()
 	return nil

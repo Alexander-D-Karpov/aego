@@ -5,6 +5,7 @@ import (
 
 	"aego/core/errs"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 )
 
 func (c *Controller) SetBlocked(why string) {
@@ -238,6 +239,6 @@ func (c *Controller) pauseHere(notice bool) {
 		c.notify()
 	}
 	if notice {
-		c.ctx.Notify(context.LevelInfo, "Rewound to tick "+strconv.FormatUint(t.Tick(), 10))
+		c.ctx.Notify(context.LevelInfo, i18n.Note("editor.play.rewound_to_tick_formatuint", "Rewound to tick {formatuint}", i18n.Str("formatuint", strconv.FormatUint(t.Tick(), 10))))
 	}
 }

@@ -3,6 +3,7 @@ package shell
 import (
 	"aego/editor/core/assetops"
 	"aego/editor/core/fuzzy"
+	"aego/engine/i18n"
 	"path"
 	"sort"
 	"strings"
@@ -119,7 +120,7 @@ func (a *App) instantiatePrefab(id ids.AssetID, name string) {
 	}
 	t, ok := a.templates.ForAsset(asset.ArtPrefab, nil, id, name)
 	if !ok {
-		a.ctx.Notify(context.LevelWarn, "no template can instantiate "+name)
+		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.shell.no_template_can_instantiate_name", "no template can instantiate {name}", i18n.Str("name", name)))
 		return
 	}
 	parent := ids.NodeID{}

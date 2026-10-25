@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/refs"
 	"aego/editor/core/services"
 	"aego/editor/core/tasks"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -58,7 +59,7 @@ func kindIcon(k asset.ArtifactKind, project bool) string {
 func openPlace(d Deps, r refs.Ref, pl refs.Place) {
 	switch {
 	case r.Project:
-		d.Notices.Notify(context.LevelInfo, "The startup scene is set in Project Settings")
+		d.Notices.Notify(context.LevelInfo, i18n.Note("editor.references.the_startup_scene_is_set", "The startup scene is set in Project Settings"))
 	case r.Kind == asset.ArtScene || r.Kind == asset.ArtPrefab:
 		if _, err := d.Docs.Documents().Open(r.Path); err != nil {
 			d.Notices.Notify(context.LevelError, err.Error())
@@ -102,7 +103,7 @@ func pickAsset(ui *core.Context, pid core.ID, pl *pipeline.Pipeline, kind asset.
 		}
 	}
 	if n == 0 {
-		widgets.LabelDim(ui, "No matching assets")
+		widgets.LabelDim(ui, i18n.Tr("editor.references.no_matching_assets", "No matching assets"))
 	}
 	ui.EndPopup()
 	return got, picked
@@ -120,12 +121,12 @@ func runReplace(d Deps, from, to ids.AssetID, label string, done func()) {
 		}
 		switch {
 		case err != nil:
-			d.Notices.Notify(context.LevelError, err.Error()+" (originals in "+job.Backup+")")
+			d.Notices.Notify(context.LevelError, i18n.Note("editor.references.error_originals_in_backup", "{error} (originals in {backup})", i18n.Str("error", err.Error()), i18n.Str("backup", job.Backup)))
 		default:
 			n := len(job.Changed()) + len(job.Docs)
-			msg := label + ": " + strconv.Itoa(n) + " file(s) updated"
+			msg := i18n.Tr("editor.references.label_n_file_s_updated", "{label}: {n} file(s) updated", i18n.Str("label", label), i18n.Str("n", strconv.Itoa(n)))
 			if len(job.Changed()) > 0 {
-				msg += ", originals in " + job.Backup
+				msg += i18n.Tr("editor.references.originals_in_backup", ", originals in {backup}", i18n.Str("backup", job.Backup))
 			}
 			d.Notices.Notify(context.LevelInfo, msg)
 		}
@@ -171,7 +172,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "References"
+	return i18n.Tr("editor.references.title", "References")
 }
 
 func (p *Panel) Icon() string {
@@ -205,7 +206,7 @@ func (p *Panel) name() string {
 		return rel
 	}
 	if g, ok := p.d.Pipeline.Grave(p.target); ok {
-		return g.Path + " (deleted)"
+		return i18n.Tr("editor.references.path_deleted", "{path} (deleted)", i18n.Str("path", g.Path))
 	}
 	return p.target.String()
 }
@@ -218,19 +219,19 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		return
 	}
 	head := ui.Cursor().Next(0)
-	rw := ui.TextSize("Refresh").X + 16
+	rw := ui.TextSize(i18n.Tr("editor.references.refresh", "Refresh")).X + 16
 	ui.PushClip(mathx.Rect{X: head.X, Y: head.Y, W: head.W - rw - 4, H: head.H})
 	ui.Text(path.Base(p.name()), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
 	ui.Text(path.Dir(p.name()), mathx.Vec2{X: head.X + ui.TextSize(path.Base(p.name())).X + 10, Y: ui.TextY(head)}, th.TextDim)
 	ui.PopClip()
-	if widgets.ButtonRect(ui, ui.ID("refresh"), mathx.Rect{X: head.X + head.W - rw, Y: head.Y, W: rw, H: head.H}, "Refresh") {
+	if widgets.ButtonRect(ui, ui.ID("refresh"), mathx.Rect{X: head.X + head.W - rw, Y: head.Y, W: rw, H: head.H}, i18n.Tr("editor.references.refresh", "Refresh")) {
 		p.refresh()
 	}
 	n := len(p.hits)
 	if n == 0 {
-		widgets.LabelDim(ui, "Nothing references this asset")
+		widgets.LabelDim(ui, i18n.Tr("editor.references.nothing_references_this_asset", "Nothing references this asset"))
 	} else {
-		widgets.LabelDim(ui, strconv.Itoa(n)+" file(s) reference it")
+		widgets.LabelDim(ui, i18n.Tr("editor.references.n_file_s_reference_it", "{n} file(s) reference it", i18n.Str("n", strconv.Itoa(n))))
 	}
 	foot := th.RowHeight + th.Padding
 	top := ui.Cursor().Y
@@ -291,17 +292,17 @@ func (p *Panel) footer(ui *core.Context) {
 	}
 	has := len(p.hits) > 0
 	pid := ui.ID("pick")
-	if ok, r := btn("replace", "Replace with…", has); ok {
+	if ok, r := btn("replace", i18n.Tr("editor.references.replace_with", "Replace with…"), has); ok {
 		p.pick = ""
 		ui.CloseAllPopups()
 		ui.OpenPopup(pid, mathx.Vec2{X: r.X, Y: r.Y - 300})
 	}
-	if ok, _ := btn("clear", "Clear References", has); ok {
+	if ok, _ := btn("clear", i18n.Tr("editor.references.clear_references_button", "Clear References"), has); ok {
 		target := p.target
 		p.d.Notices.Ask(context.Question{
-			Title:   "Clear references",
-			Message: "Every reference to " + p.name() + " becomes None. Files that are not open are rewritten on disk; their originals go to .aego/recovery.",
-			Buttons: []string{"Clear", "Cancel"},
+			Title:   i18n.Tr("editor.references.clear_references", "Clear references"),
+			Message: i18n.Tr("editor.references.every_reference_to_name_becomes", "Every reference to {name} becomes None. Files that are not open are rewritten on disk; their originals go to .aego/recovery.", i18n.Str("name", p.name())),
+			Buttons: []string{i18n.Tr("editor.references.clear", "Clear"), i18n.Tr("editor.references.cancel", "Cancel")},
 			Then: func(c int) {
 				if c == 0 {
 					runReplace(p.d, target, ids.AssetID{}, "Clear references to "+path.Base(p.name()), p.refresh)
@@ -310,7 +311,7 @@ func (p *Panel) footer(ui *core.Context) {
 		})
 	}
 	if len(p.deleting) > 0 && p.d.Delete != nil {
-		label := "Delete " + strconv.Itoa(len(p.deleting)) + " asset(s)"
+		label := i18n.Tr("editor.references.delete_deleting_asset_s", "Delete {deleting} asset(s)", i18n.Str("deleting", strconv.Itoa(len(p.deleting))))
 		if ok, _ := btn("delete", label, true); ok {
 			list := p.deleting
 			p.deleting = nil
@@ -322,9 +323,9 @@ func (p *Panel) footer(ui *core.Context) {
 		target := p.target
 		rel, _ := p.d.Pipeline.PathOf(to)
 		p.d.Notices.Ask(context.Question{
-			Title:   "Replace references",
-			Message: "Replace every reference to " + p.name() + " with " + rel + ". Files that are not open are rewritten on disk; their originals go to .aego/recovery.",
-			Buttons: []string{"Replace", "Cancel"},
+			Title:   i18n.Tr("editor.references.replace_references", "Replace references"),
+			Message: i18n.Tr("editor.references.replace_every_reference_to_name", "Replace every reference to {name} with {rel}. Files that are not open are rewritten on disk; their originals go to .aego/recovery.", i18n.Str("name", p.name()), i18n.Str("rel", rel)),
+			Buttons: []string{i18n.Tr("editor.references.replace", "Replace"), i18n.Tr("editor.references.cancel", "Cancel")},
 			Then: func(c int) {
 				if c == 0 {
 					runReplace(p.d, target, to, "Replace references to "+path.Base(p.name()), p.refresh)

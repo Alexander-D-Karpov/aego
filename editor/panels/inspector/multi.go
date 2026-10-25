@@ -7,6 +7,7 @@ import (
 
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/schema"
 )
 
@@ -30,7 +31,7 @@ func (p *Panel) mixedTip(d *document.SceneDocument, td *schema.TypeDescriptor, f
 		counts[s]++
 	}
 	var b strings.Builder
-	b.WriteString("Values differ:")
+	b.WriteString(i18n.Tr("editor.inspector.values_differ", "Values differ:"))
 	for i, s := range order {
 		if i == 6 {
 			b.WriteString("\n" + strconv.Itoa(len(order)-i) + " more")
@@ -60,15 +61,15 @@ func (p *Panel) confirm(d *document.SceneDocument, label string, run func() erro
 			names = append(names, s.Name(h))
 		}
 	}
-	msg := label + " changes " + strconv.Itoa(len(nodes)) + " nodes: " + strings.Join(names, ", ")
+	msg := i18n.Tr("editor.inspector.label_changes_nodes_nodes_join", "{label} changes {nodes} nodes: {join}", i18n.Str("label", label), i18n.Str("nodes", strconv.Itoa(len(nodes))), i18n.Str("join", strings.Join(names, ", ")))
 	if len(nodes) > len(names) {
-		msg += " and " + strconv.Itoa(len(nodes)-len(names)) + " more"
+		msg += i18n.Tr("editor.inspector.and_v_more", " and {v} more", i18n.Str("v", strconv.Itoa(len(nodes)-len(names))))
 	}
 	doc := d.ID
 	p.d.Notices.Ask(context.Question{
 		Title:   label,
 		Message: msg + ".",
-		Buttons: []string{"Apply", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.common.apply", "Apply"), i18n.Tr("editor.common.cancel", "Cancel")},
 		Then: func(choice int) {
 			if cur := p.cur(); choice != 0 || cur == nil || cur.ID != doc {
 				return

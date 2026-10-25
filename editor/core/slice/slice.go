@@ -9,6 +9,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/editor/core/history"
+	"aego/engine/i18n"
 )
 
 type Rect = [4]int
@@ -123,9 +124,9 @@ type Edit struct {
 
 func (e *Edit) Label() string {
 	if e.AfterSettings != nil {
-		return "Import Settings"
+		return i18n.Tr("editor.slice.import_settings", "Import Settings")
 	}
-	return "Slice Sprite Sheet"
+	return i18n.Tr("editor.slice.slice_sprite_sheet", "Slice Sprite Sheet")
 }
 
 func (e *Edit) Do(history.Target) error   { return e.write(e.After, e.AfterSettings) }

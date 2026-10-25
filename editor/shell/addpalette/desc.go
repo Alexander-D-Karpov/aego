@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/scene/mutate"
 	"aego/schema"
@@ -77,7 +78,7 @@ func (s *Service) prepare(i int) {
 		d.doc = e.act.Doc
 		return
 	case kindTemplate:
-		d.doc = "Creates " + e.tpl.Name
+		d.doc = i18n.Tr("editor.addpalette.creates", "Creates {name}", i18n.Str("name", e.tpl.Name))
 		if t := s.tplComponent(e.tpl.ID); t != nil && t.Doc != "" {
 			d.doc = t.Doc
 		}
@@ -85,13 +86,13 @@ func (s *Service) prepare(i int) {
 	case kindScript:
 		d.doc = e.td.Doc
 		if d.doc == "" {
-			d.doc = "Script " + e.td.FullName
+			d.doc = i18n.Tr("editor.addpalette.script", "Script {name}", i18n.Str("name", e.td.FullName))
 		}
 	default:
 		d.doc = e.td.Doc
 	}
 	if len(e.skip) > 0 && len(e.nodes) > 0 {
-		d.skip = "Not added to " + strings.Join(e.skip, ", ")
+		d.skip = i18n.Tr("editor.addpalette.not_added_to", "Not added to {nodes}", i18n.Str("nodes", strings.Join(e.skip, ", ")))
 	}
 	if e.kind != kindComp || len(e.nodes) == 0 {
 		return
@@ -118,7 +119,7 @@ func (s *Service) prepare(i int) {
 			missing = missing || !has(sc, sc.Handle(n), td.ID)
 		}
 		if missing {
-			d.sugg = append(d.sugg, suggestion{td: td, label: "Also add " + displayName(td, s.d.Meta)})
+			d.sugg = append(d.sugg, suggestion{td: td, label: i18n.Tr("editor.addpalette.also_add", "Also add {name}", i18n.Str("name", displayName(td, s.d.Meta)))})
 		}
 	}
 }
@@ -136,7 +137,7 @@ func (s *Service) alsoAdds() {
 	for i, t := range req {
 		names[i] = displayName(t, s.d.Meta)
 	}
-	d.also = "Also adds: " + strings.Join(names, ", ")
+	d.also = i18n.Tr("editor.addpalette.also_adds", "Also adds: {names}", i18n.Str("names", strings.Join(names, ", ")))
 }
 
 func (s *Service) tplComponent(id string) *schema.TypeDescriptor {
@@ -159,7 +160,7 @@ func (s *Service) describe(ui *core.Context, r mathx.Rect, item int) {
 		s.alsoAdds()
 	}
 	if item < 0 {
-		ui.TextIn(mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: ui.Theme.RowHeight}, "Nothing selected", ui.Theme.TextDisabled, core.AlignLeft)
+		ui.TextIn(mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: ui.Theme.RowHeight}, i18n.Tr("editor.addpalette.nothing_selected", "Nothing selected"), ui.Theme.TextDisabled, core.AlignLeft)
 		return
 	}
 	th := &ui.Theme
@@ -168,7 +169,7 @@ func (s *Service) describe(ui *core.Context, r mathx.Rect, item int) {
 	head := ui.Cursor().Next(0)
 	widgets.IconAt(ui, mathx.Rect{X: head.X, Y: head.Y + (head.H-16)/2, W: 16, H: 16}, d.icon, th.Text)
 	ui.Text(d.title, mathx.Vec2{X: head.X + 22, Y: ui.TextY(head)}, th.Text)
-	ui.TextIn(head, d.cat, th.TextDisabled, core.AlignRight)
+	ui.TextIn(head, CategoryTitle(d.cat), th.TextDisabled, core.AlignRight)
 	if d.why != "" {
 		widgets.LabelWrapped(ui, d.why, false)
 	}
@@ -181,7 +182,7 @@ func (s *Service) describe(ui *core.Context, r mathx.Rect, item int) {
 	}
 	for c := range d.choices {
 		ui.Cursor().Next(4)
-		widgets.LabelDim(ui, "Needs one of (Tab switches):")
+		widgets.LabelDim(ui, i18n.Tr("editor.addpalette.needs_one_of_tab_switches", "Needs one of (Tab switches):"))
 		for j, name := range d.names[c] {
 			if widgets.CheckRow(ui, core.IDSeq(core.IDOf("addpalette.alt"), c*64+j), name, d.picks[c] == j) {
 				d.picks[c], d.focus = j, c

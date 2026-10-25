@@ -7,6 +7,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/prefabs"
 	"aego/editor/core/presets"
+	"aego/engine/i18n"
 	"aego/platform/clip"
 	"aego/scene"
 	"aego/scene/prefab"
@@ -106,18 +107,18 @@ func (p *Panel) endCard(ui *core.Context, c card) {
 
 func (p *Panel) componentMenu(d *document.SceneDocument, td *schema.TypeDescriptor) {
 	ui := p.f.UI
-	if widgets.MenuItemIcon(ui, "Reset", "", "ui.reset", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset", "Reset"), "", "ui.reset", true, false) {
 		p.reset(d, td)
 	}
-	if widgets.MenuItemIcon(ui, "Remove", "", "edit.delete", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.remove", "Remove"), "", "edit.delete", true, false) {
 		p.remove(d, td)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Copy Component", p.d.Commands.Shortcut(CommandCopy), "edit.copy", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.copy_component", "Copy Component"), p.d.Commands.Shortcut(CommandCopy), "edit.copy", true, false) {
 		if err := p.d.Clip.CopyComponent(d.Scene(), p.nodes[0], td.ID); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		} else {
-			p.d.Notices.Notify(context.LevelInfo, "Copied "+p.reg.Meta(td).DisplayName)
+			p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.copied_name", "Copied {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)))
 		}
 	}
 	same := false
@@ -126,8 +127,8 @@ func (p *Panel) componentMenu(d *document.SceneDocument, td *schema.TypeDescript
 			same = true
 		}
 	}
-	if widgets.MenuItemIcon(ui, "Paste Component Values", p.d.Commands.Shortcut(CommandPaste), "edit.paste", same, false) {
-		p.confirm(d, "Paste "+p.reg.Meta(td).DisplayName, func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_component_values", "Paste Component Values"), p.d.Commands.Shortcut(CommandPaste), "edit.paste", same, false) {
+		p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)), func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
 	}
 	p.presetItems(d, td)
 	if p.info != nil {
@@ -137,7 +138,7 @@ func (p *Panel) componentMenu(d *document.SceneDocument, td *schema.TypeDescript
 	}
 	if p.d.Docs.Documents().InPlay() && p.d.Play != nil {
 		widgets.Separator(ui)
-		if widgets.MenuItemIcon(ui, "Copy values to edit scene", "", "play.copy_back", p.d.Play.CanCopyToEdit(p.nodes, td.ID), false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.copy_values_to_edit_scene", "Copy values to edit scene"), "", "play.copy_back", p.d.Play.CanCopyToEdit(p.nodes, td.ID), false) {
 			if err := p.d.Play.CopyToEdit(p.nodes, td.ID); err != nil {
 				p.d.Notices.Notify(context.LevelError, err.Error())
 			}
@@ -172,10 +173,10 @@ func (p *Panel) copyValue(d *document.SceneDocument, td *schema.TypeDescriptor, 
 func (p *Panel) pasteValue(d *document.SceneDocument, td *schema.TypeDescriptor, fd *schema.FieldDescriptor) {
 	v, ok := p.d.Clip.ReadValue(fd)
 	if !ok {
-		p.d.Notices.Notify(context.LevelInfo, "The clipboard does not fit "+p.labelOf(fd))
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.clipboard_does_not_fit", "The clipboard does not fit {field}", i18n.Str("field", p.labelOf(fd))))
 		return
 	}
-	p.confirm(d, "Paste "+p.labelOf(fd), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
+	p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
 }
 
 func (p *Panel) defaultValue(reg *schema.Registry, td *schema.TypeDescriptor, fd *schema.FieldDescriptor) schema.Value {
@@ -197,32 +198,32 @@ func (p *Panel) fieldMenu(d *document.SceneDocument) {
 		return
 	}
 	if td.Kind == schema.TypeScript && p.code() != nil {
-		if widgets.MenuItemIcon(ui, "Go to Declaration", "Ctrl+Click", "code.implementation", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.go_to_declaration", "Go to Declaration"), "Ctrl+Click", "code.implementation", true, false) {
 			p.gotoScript(td.FullName, fd.Name)
 		}
-		if widgets.MenuItemIcon(ui, "Find Usages", "", "ui.search", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.find_usages", "Find Usages"), "", "ui.search", true, false) {
 			p.code().FindUsages(td.FullName, fd.Name)
 		}
 		widgets.Separator(ui)
 	}
 	ro := fd.Flags.Has(schema.FlagReadOnly)
-	if widgets.MenuItemIcon(ui, "Copy Value", p.d.Commands.Shortcut(CommandCopy), "edit.copy", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.copy_value", "Copy Value"), p.d.Commands.Shortcut(CommandCopy), "edit.copy", true, false) {
 		p.copyValue(d, td, fd)
 	}
 	_, canPaste := p.d.Clip.ReadValue(fd)
-	if widgets.MenuItemIcon(ui, "Paste Value", p.d.Commands.Shortcut(CommandPaste), "edit.paste", canPaste && !ro, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_value", "Paste Value"), p.d.Commands.Shortcut(CommandPaste), "edit.paste", canPaste && !ro, false) {
 		p.pasteValue(d, td, fd)
 	}
 	if textureField(fd) {
-		if widgets.MenuItemIcon(ui, "Paste Image", "", "file.texture", !ro && clip.HasImage(p.d.Clip.Clip), false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_image", "Paste Image"), "", "file.texture", !ro && clip.HasImage(p.d.Clip.Clip), false) {
 			if err := p.pasteImage(d, td, fd); err != nil {
 				p.d.Notices.Notify(context.LevelError, err.Error())
 			}
 		}
 	}
-	if widgets.MenuItemIcon(ui, "Reset to Default", "", "ui.reset", !ro, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset_to_default", "Reset to Default"), "", "ui.reset", !ro, false) {
 		def := p.defaultValue(d.Scene().Registry(), td, fd)
-		p.confirm(d, "Reset "+p.labelOf(fd), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, def) })
+		p.confirm(d, i18n.Tr("editor.inspector.reset_name", "Reset {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, def) })
 	}
 	if p.overridden(td, fd) {
 		p.prefabItems(d, prefabs.Change{Node: p.nodes[0], Level: prefabs.LevelProperty, Prop: prefab.PropKey{Owner: ownerOf(td), Field: fd.Name}}, true)
@@ -231,13 +232,13 @@ func (p *Panel) fieldMenu(d *document.SceneDocument) {
 		return
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Copy Component", "", "edit.copy", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.copy_component", "Copy Component"), "", "edit.copy", true, false) {
 		if err := p.d.Clip.CopyComponent(d.Scene(), p.nodes[0], td.ID); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		}
 	}
-	if widgets.MenuItemIcon(ui, "Paste Component Values", "", "edit.paste", p.d.Clip.Peek() == clipboard.KindComponent, false) {
-		p.confirm(d, "Paste "+p.reg.Meta(td).DisplayName, func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_component_values", "Paste Component Values"), "", "edit.paste", p.d.Clip.Peek() == clipboard.KindComponent, false) {
+		p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)), func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
 	}
 }
 
@@ -258,35 +259,35 @@ func (p *Panel) presetItems(d *document.SceneDocument, td *schema.TypeDescriptor
 	}
 	ui := p.f.UI
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Save as Preset…", "", "file.preset", len(p.nodes) == 1, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.save_as_preset", "Save as Preset…"), "", "file.preset", len(p.nodes) == 1, false) {
 		node := p.nodes[0]
 		p.d.Notices.Ask(context.Question{
-			Title:   "Save preset",
-			Message: "Saved to " + presets.Dir,
-			Fields:  []string{"Name"},
+			Title:   i18n.Tr("editor.inspector.save_preset", "Save preset"),
+			Message: i18n.Tr("editor.inspector.saved_to", "Saved to {dir}", i18n.Str("dir", presets.Dir)),
+			Fields:  []string{i18n.Tr("editor.inspector.name", "Name")},
 			Values:  []string{p.reg.Meta(td).DisplayName},
-			Buttons: []string{"Save", "Cancel"},
+			Buttons: []string{i18n.Tr("editor.common.save", "Save"), i18n.Tr("editor.common.cancel", "Cancel")},
 			Submit: func(v []string) {
 				rel, err := p.d.Presets.Save(d, node, td, v[0])
 				if err != nil {
 					p.report(err)
 					return
 				}
-				p.d.Notices.Notify(context.LevelInfo, "Saved "+rel)
+				p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.saved", "Saved {path}", i18n.Str("path", rel)))
 			},
 		})
 	}
 	list := p.d.Presets.For(td.FullName)
 	if len(list) == 0 {
-		widgets.MenuItemIcon(ui, "Apply Preset", "", "file.preset", false, false)
+		widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.apply_preset", "Apply Preset"), "", "file.preset", false, false)
 		return
 	}
-	if widgets.SubMenuIcon(ui, "Apply Preset", "file.preset", 220) {
+	if widgets.SubMenuIcon(ui, i18n.Tr("editor.inspector.apply_preset", "Apply Preset"), "file.preset", 220) {
 		for i, pr := range list {
 			ui.PushIDInt(i)
 			if widgets.MenuItemIcon(ui, pr.Name, "", "file.preset", true, false) {
 				id, name := pr.ID, pr.Name
-				p.confirm(d, "Apply Preset "+name, func() error { return p.d.Presets.Apply(d, p.nodes, id) })
+				p.confirm(d, i18n.Tr("editor.inspector.apply_preset_name", "Apply Preset {name}", i18n.Str("name", name)), func() error { return p.d.Presets.Apply(d, p.nodes, id) })
 			}
 			ui.PopID()
 		}

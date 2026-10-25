@@ -1,0 +1,140 @@
+messages version=1 lang=ru {
+  msg "i18n.input.actions" {
+    text="Действия"
+  }
+  msg "i18n.input.active_device_player" {
+    text="Активное устройство: {player}"
+  }
+  msg "i18n.input.add_action" {
+    text="Добавить действие"
+  }
+  msg "i18n.input.add_binding" {
+    text="+ Добавить назначение"
+  }
+  msg "i18n.input.add_context" {
+    text="Добавить контекст"
+  }
+  msg "i18n.input.bindings" {
+    text="Назначения"
+  }
+  msg "i18n.input.click_then_press_a_key" {
+    text="Щёлкните, затем нажмите клавишу, кнопку мыши или элемент геймпада"
+  }
+  msg "i18n.input.consume_controls" {
+    text="Перехватывать ввод"
+  }
+  msg "i18n.input.context_stack_top_first" {
+    text="Стек контекстов, верхний первым"
+  }
+  msg "i18n.input.contexts" {
+    text="Контексты"
+  }
+  msg "i18n.input.devices" {
+    text="Устройства"
+  }
+  msg "i18n.input.devices.title" {
+    text="Устройства ввода"
+  }
+  msg "i18n.input.focus.title" {
+    text="Фокус ввода"
+  }
+  msg "i18n.input.gamepad" {
+    text="Геймпад"
+  }
+  msg "i18n.input.general" {
+    text="Общие"
+  }
+  msg "i18n.input.interaction" {
+    text="Взаимодействие"
+  }
+  msg "i18n.input.invert" {
+    text="Инвертировать"
+  }
+  msg "i18n.input.keyboard" {
+    text="Клавиатура"
+  }
+  msg "i18n.input.keyboard_mouse" {
+    text="Клавиатура и мышь"
+  }
+  msg "i18n.input.keyboard_mouse_cursor_mousepos_keys" {
+    text="Клавиатура и мышь   курсор {mousepos}   нажато клавиш {downcount}"
+  }
+  msg "i18n.input.kind.axis1d" {
+    text="Ось 1D"
+  }
+  msg "i18n.input.kind.axis2d" {
+    text="Ось 2D"
+  }
+  msg "i18n.input.kind.button" {
+    text="Кнопка"
+  }
+  msg "i18n.input.kind.pointer" {
+    text="Указатель"
+  }
+  msg "i18n.input.kind.pointer_delta" {
+    text="Смещение указателя"
+  }
+  msg "i18n.input.live_action_values_appear_here" {
+    text="Текущие значения действий появляются здесь, пока идёт игра"
+  }
+  msg "i18n.input.mouse" {
+    text="Мышь"
+  }
+  msg "i18n.input.name" {
+    text="Имя"
+  }
+  msg "i18n.input.no_actions_this_context_reads" {
+    text="Нет действий: этот контекст ничего не читает"
+  }
+  msg "i18n.input.no_bindings_yet_the_action" {
+    text="Назначений пока нет: действие никогда не сработает"
+  }
+  msg "i18n.input.pad_v_i_padstate" {
+    text="Геймпад {v}: {i}   {padstate}"
+  }
+  msg "i18n.input.player" {
+    text="Игрок"
+  }
+  msg "i18n.input.players" {
+    text="Игроки"
+  }
+  msg "i18n.input.press" {
+    text="Нажмите…"
+  }
+  msg "i18n.input.release_on_leave" {
+    text="Отпускать при уходе"
+  }
+  msg "i18n.input.remove_action" {
+    text="Удалить действие"
+  }
+  msg "i18n.input.remove_binding" {
+    text="Удалить назначение"
+  }
+  msg "i18n.input.remove_context" {
+    text="Удалить контекст"
+  }
+  msg "i18n.input.remove_the_modifier" {
+    text="Удалить модификатор"
+  }
+  msg "i18n.input.start_stack_contexts_active_when" {
+    text="Начальный стек: контексты, активные при запуске игры"
+  }
+  msg "i18n.input.the_context_stack_of_the" {
+    text="Стек контекстов запущенной игры появляется здесь, пока она идёт"
+  }
+  msg "i18n.input.the_stack_reads_higher_priority" {
+    text="Стек читается от высокого приоритета к низкому; поглощающий контекст скрывает свои элементы управления от нижних."
+  }
+  msg "i18n.input.type" {
+    text="Тип"
+  }
+  msg "i18n.input.v_name_priority_priority" {
+    text="{v}. {name}   приоритет {priority}"
+  }
+  msg "i18n.input.virtual_gamepad" {
+    text="Виртуальный геймпад"
+  }
+  msg "i18n.input.with_label" {
+    text="с {label}"
+  }
+}

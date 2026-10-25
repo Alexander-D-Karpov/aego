@@ -1,0 +1,140 @@
+messages version=1 lang=en {
+  msg "i18n.input.actions" {
+    text="Actions"
+  }
+  msg "i18n.input.active_device_player" {
+    text="Active device: {player}"
+  }
+  msg "i18n.input.add_action" {
+    text="Add Action"
+  }
+  msg "i18n.input.add_binding" {
+    text="+ Add Binding"
+  }
+  msg "i18n.input.add_context" {
+    text="Add Context"
+  }
+  msg "i18n.input.bindings" {
+    text="Bindings"
+  }
+  msg "i18n.input.click_then_press_a_key" {
+    text="Click, then press a key, a mouse button or a pad control"
+  }
+  msg "i18n.input.consume_controls" {
+    text="Consume controls"
+  }
+  msg "i18n.input.context_stack_top_first" {
+    text="Context stack, top first"
+  }
+  msg "i18n.input.contexts" {
+    text="Contexts"
+  }
+  msg "i18n.input.devices" {
+    text="Devices"
+  }
+  msg "i18n.input.devices.title" {
+    text="Input Devices"
+  }
+  msg "i18n.input.focus.title" {
+    text="Input Focus"
+  }
+  msg "i18n.input.gamepad" {
+    text="Gamepad"
+  }
+  msg "i18n.input.general" {
+    text="General"
+  }
+  msg "i18n.input.interaction" {
+    text="Interaction"
+  }
+  msg "i18n.input.invert" {
+    text="Invert"
+  }
+  msg "i18n.input.keyboard" {
+    text="Keyboard"
+  }
+  msg "i18n.input.keyboard_mouse" {
+    text="Keyboard & Mouse"
+  }
+  msg "i18n.input.keyboard_mouse_cursor_mousepos_keys" {
+    text="Keyboard & Mouse   cursor {mousepos}   keys down {downcount}"
+  }
+  msg "i18n.input.kind.axis1d" {
+    text="Axis 1D"
+  }
+  msg "i18n.input.kind.axis2d" {
+    text="Axis 2D"
+  }
+  msg "i18n.input.kind.button" {
+    text="Button"
+  }
+  msg "i18n.input.kind.pointer" {
+    text="Pointer"
+  }
+  msg "i18n.input.kind.pointer_delta" {
+    text="Pointer Delta"
+  }
+  msg "i18n.input.live_action_values_appear_here" {
+    text="Live action values appear here while Play runs"
+  }
+  msg "i18n.input.mouse" {
+    text="Mouse"
+  }
+  msg "i18n.input.name" {
+    text="Name"
+  }
+  msg "i18n.input.no_actions_this_context_reads" {
+    text="No actions: this context reads nothing"
+  }
+  msg "i18n.input.no_bindings_yet_the_action" {
+    text="No bindings yet: the action never fires"
+  }
+  msg "i18n.input.pad_v_i_padstate" {
+    text="Pad {v}: {i}   {padstate}"
+  }
+  msg "i18n.input.player" {
+    text="Player"
+  }
+  msg "i18n.input.players" {
+    text="Players"
+  }
+  msg "i18n.input.press" {
+    text="Press…"
+  }
+  msg "i18n.input.release_on_leave" {
+    text="Release on leave"
+  }
+  msg "i18n.input.remove_action" {
+    text="Remove Action"
+  }
+  msg "i18n.input.remove_binding" {
+    text="Remove binding"
+  }
+  msg "i18n.input.remove_context" {
+    text="Remove context"
+  }
+  msg "i18n.input.remove_the_modifier" {
+    text="Remove the modifier"
+  }
+  msg "i18n.input.start_stack_contexts_active_when" {
+    text="Start stack: contexts active when the game starts"
+  }
+  msg "i18n.input.the_context_stack_of_the" {
+    text="The context stack of the running game appears here while Play runs"
+  }
+  msg "i18n.input.the_stack_reads_higher_priority" {
+    text="The stack reads higher priority first; a consuming context hides its controls from the ones below."
+  }
+  msg "i18n.input.type" {
+    text="Type"
+  }
+  msg "i18n.input.v_name_priority_priority" {
+    text="{v}. {name}   priority {priority}"
+  }
+  msg "i18n.input.virtual_gamepad" {
+    text="Virtual Gamepad"
+  }
+  msg "i18n.input.with_label" {
+    text="with {label}"
+  }
+}

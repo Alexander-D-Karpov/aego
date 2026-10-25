@@ -42,7 +42,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs pkgsize
+.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -69,7 +69,7 @@ WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
 WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
 
 test: bootstrap
-	go test -race ./...
+	go test -race -timeout 30m ./...
 
 test-editor: bootstrap
 	go build -tags aego_editor ./...
@@ -323,10 +323,14 @@ check-web: test-wasm web-smoke
 
 check-docs: site-check
 
+# The en catalog matches the code and every translation has the code's keys and placeholders (D348).
+i18n-check:
+	go run ./tools/i18n check
+
 pkgsize:
 	@sh tools/pkgsize.sh
 
-ci: build vet lint depcheck test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
 
 
 # Documentation screenshots of the real editor on the platformer example, under a clean user profile.
@@ -339,7 +343,7 @@ endif
 SHOTS_RUN = rm -rf $(SHOTS_TMP)/project $(SHOTS_TMP)/home && mkdir -p $(SHOTS_TMP)/home && cp -R examples/platformer $(SHOTS_TMP)/project && \
 	rm -rf $(SHOTS_TMP)/project/.aego $(SHOTS_TMP)/project/exports && \
 	sed -i.bak 's|=> ../..|=> $(CURDIR)|' $(SHOTS_TMP)/project/go.mod && \
-	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_SHOTS=$(1) AEGO_EDITOR_THEME=$(or $(2),dark) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
+	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_LANG=en AEGO_SHOTS=$(1) AEGO_EDITOR_THEME=$(or $(2),dark) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
 
 shots: cli
 	rm -rf docs/shots

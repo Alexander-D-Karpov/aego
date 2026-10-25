@@ -11,6 +11,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/document"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/ui/widgets"
 )
 
@@ -109,7 +110,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Getting Started"
+	return i18n.Tr("editor.welcome.title", "Getting Started")
 }
 
 func (p *Panel) Save() error {
@@ -174,16 +175,16 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	cur.Y -= p.scroll
 	heading := p.Heading
 	if heading == "" {
-		heading = "Getting started with Aego"
+		heading = i18n.Tr("editor.welcome.getting_started_with_aego", "Getting started with Aego")
 	}
 	widgets.Label(ui, heading)
 	if p.NewProject != nil && (p.Empty == nil || p.Empty()) {
-		if widgets.Button(ui, "Create a project…") {
+		if widgets.Button(ui, i18n.Tr("editor.welcome.create_a_project", "Create a project…")) {
 			p.NewProject()
 		}
 	}
 	n := p.count()
-	widgets.LabelDim(ui, strconv.Itoa(n)+" of "+strconv.Itoa(len(p.checks))+" done")
+	widgets.LabelDim(ui, i18n.Tr("editor.welcome.n_of_checks_done", "{n} of {checks} done", i18n.Str("n", strconv.Itoa(n)), i18n.Str("checks", strconv.Itoa(len(p.checks)))))
 	bar := cur.Next(6)
 	ui.Rect(bar, th.Widget)
 	if len(p.checks) > 0 {
@@ -209,7 +210,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		ui.Text(strconv.Itoa(i+1)+". "+c.Title, mathx.Vec2{X: box.X + box.W + 8, Y: ui.TextY(row)}, col)
 		ui.PopClip()
 		if c.Show != nil && !done {
-			if widgets.ButtonRect(ui, ui.ID("show"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y + 2, W: bw, H: row.H - 4}, "Show me") {
+			if widgets.ButtonRect(ui, ui.ID("show"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y + 2, W: bw, H: row.H - 4}, i18n.Tr("editor.welcome.show_me", "Show me")) {
 				c.Show()
 			}
 		}
@@ -226,10 +227,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if p.Complete() && p.Outro != "" {
 		widgets.LabelWrapped(ui, p.Outro, false)
 	}
-	if p.Reference != nil && widgets.Button(ui, "Open Documentation") {
+	if p.Reference != nil && widgets.Button(ui, i18n.Tr("editor.welcome.open_documentation", "Open Documentation")) {
 		p.Reference()
 	}
-	if widgets.Button(ui, "Reset checklist") {
+	if widgets.Button(ui, i18n.Tr("editor.welcome.reset_checklist", "Reset checklist")) {
 		clear(p.done)
 		p.Save()
 	}

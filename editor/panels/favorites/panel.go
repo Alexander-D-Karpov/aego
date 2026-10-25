@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/context"
 	favs "aego/editor/core/favorites"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -32,7 +33,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Favorites"
+	return i18n.Tr("editor.favorites.title", "Favorites")
 }
 
 func (p *Panel) Icon() string {
@@ -72,7 +73,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	items := p.d.Store.Items()
 	if len(items) == 0 {
-		widgets.LabelWrapped(ui, "Nothing here yet. Add assets from their menu, nodes from the Hierarchy menu and actions with Ctrl+D in the command palette.", true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.favorites.nothing_here_yet_add_assets", "Nothing here yet. Add assets from their menu, nodes from the Hierarchy menu and actions with Ctrl+D in the command palette."), true)
 		return
 	}
 	top := ui.Cursor().Y

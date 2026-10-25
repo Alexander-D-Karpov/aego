@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/session"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/platform"
 	"aego/platform/clip"
 	"aego/scene/sceneio"
@@ -124,7 +125,7 @@ func (a *App) restoreState() {
 	if a.opt.Supervised {
 		if h, ok := session.Take(root); ok {
 			a.applyState(h.State, h.Scenes)
-			a.ctx.Notify(context.LevelInfo, "Session restored after the native rebuild")
+			a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.session_restored_after_the_native", "Session restored after the native rebuild"))
 			return
 		}
 	}
@@ -237,7 +238,7 @@ func (a *App) collect(all bool) *state.Editor {
 
 func (a *App) saveState() {
 	if err := state.Save(a.opt.Project.Root, a.collect(false)); err != nil {
-		a.ctx.Notify(context.LevelWarn, "cannot save the editor state: "+err.Error())
+		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.shell.cannot_save_the_editor_state", "cannot save the editor state: {error}", i18n.Str("error", err.Error())))
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/panels/inspector"
 	"aego/editor/panels/sceneview"
+	"aego/engine/i18n"
 	"aego/platform/input"
 )
 
@@ -63,9 +64,9 @@ func (a *App) registerEditExtras() error {
 		{ID: favorites.CommandNode, Name: "Add Node to Favorites", Category: "Edit", Order: 400,
 			Label: func() string {
 				if it, ok := a.nodeFavorite(); ok && a.favs.Has(it) {
-					return "Remove from Favorites"
+					return i18n.Tr("editor.shell.remove_from_favorites", "Remove from Favorites")
 				}
-				return "Add to Favorites"
+				return i18n.Tr("editor.shell.add_to_favorites", "Add to Favorites")
 			},
 			Enabled: func() bool { _, ok := a.nodeFavorite(); return ok },
 			Run: func() error {

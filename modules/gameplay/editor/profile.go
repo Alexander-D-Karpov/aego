@@ -2,6 +2,7 @@ package editor
 
 import (
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/modules/gameplay"
 	"aego/ui/widgets"
 )
@@ -21,7 +22,7 @@ func (p *plugin) profile(ed *context.Editor) {
 	ui := ed.UI
 	s := gameplay.Of(ed.Docs.ActiveWorld())
 	if s == nil {
-		widgets.LabelDim(ui, "Gameplay runs only in Play")
+		widgets.LabelDim(ui, i18n.Tr("i18n.gameplay.gameplay_runs_only_in_play", "Gameplay runs only in Play"))
 		return
 	}
 	st := s.Stats()

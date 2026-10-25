@@ -4,6 +4,7 @@ import (
 	"aego/anim"
 	"aego/core/curve"
 	"aego/core/ids"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene/mutate"
 	"aego/schema"
@@ -85,9 +86,9 @@ func (s *Service) KeySprites(i int, at float32, frames []ids.AssetID) error {
 	if end := at + float32(len(frames)-1)/FlipbookFPS; end > s.clip.Length {
 		ops = append(ops, mutate.AnimClipSet("length", aetext.Float32(end)))
 	}
-	label := "Key Sprite"
+	label := i18n.Tr("editor.animedit.key_sprite", "Key Sprite")
 	if len(frames) > 1 {
-		label = "Key Sprites"
+		label = i18n.Tr("editor.animedit.key_sprites", "Key Sprites")
 	}
 	return s.EditClip(label, ops...)
 }

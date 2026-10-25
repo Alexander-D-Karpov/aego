@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/render"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -160,14 +161,13 @@ func (p *Panel) readMemory() MemStats {
 
 func (p *Panel) memory(ui *core.Context) {
 	m := p.readMemory()
-	widgets.LabelDim(ui, "Go heap "+mib(m.Heap)+"   goal "+mib(m.Goal)+"   process "+mib(m.Process)+
-		"   goroutines "+strconv.FormatUint(m.Goroutines, 10)+"   GC "+strconv.FormatUint(m.GC, 10))
+	widgets.LabelDim(ui, i18n.Tr("editor.profiler.go_heap_heap_goal_goal", "Go heap {heap}   goal {goal}   process {process}   goroutines {formatuint}   GC {formatuint2}", i18n.Str("heap", mib(m.Heap)), i18n.Str("goal", mib(m.Goal)), i18n.Str("process", mib(m.Process)), i18n.Str("formatuint", strconv.FormatUint(m.Goroutines, 10)), i18n.Str("formatuint2", strconv.FormatUint(m.GC, 10))))
 	if p.hasScripts {
-		widgets.LabelDim(ui, "script heap "+strconv.Itoa(p.scripts.HeapObjects)+" objects, "+mib(uint64(p.scripts.HeapBytes)))
+		widgets.LabelDim(ui, i18n.Tr("editor.profiler.script_heap_heapobjects_objects_heapbytes", "script heap {heapobjects} objects, {heapbytes}", i18n.Str("heapobjects", strconv.Itoa(p.scripts.HeapObjects)), i18n.Str("heapbytes", mib(uint64(p.scripts.HeapBytes)))))
 	}
-	label := "Allocations by phase: off"
+	label := i18n.Tr("editor.profiler.allocations_by_phase_off", "Allocations by phase: off")
 	if p.probe {
-		label = "Allocations by phase: on"
+		label = i18n.Tr("editor.profiler.allocations_by_phase_on", "Allocations by phase: on")
 	}
 	if widgets.Button(ui, label) && p.deps.SetProbe != nil {
 		p.probe = !p.probe
@@ -179,10 +179,10 @@ func (p *Panel) memory(ui *core.Context) {
 	p.allocs = p.deps.PhaseAllocs(p.allocs[:0])
 	for i, n := range p.allocs {
 		if n > 0 {
-			widgets.LabelDim(ui, engine.Phase(i).String()+"   "+strconv.FormatUint(n, 10)+" objects")
+			widgets.LabelDim(ui, i18n.Tr("editor.profiler.v_formatuint_objects", "{v}   {formatuint} objects", i18n.Str("v", engine.Phase(i).String()), i18n.Str("formatuint", strconv.FormatUint(n, 10))))
 		}
 	}
-	widgets.LabelDim(ui, "Approximate: counted process-wide from phase start to end; a play world ticked inside a phase counts there too.")
+	widgets.LabelDim(ui, i18n.Tr("editor.profiler.approximate_counted_process_wide_from", "Approximate: counted process-wide from phase start to end; a play world ticked inside a phase counts there too."))
 }
 
 func (p *Panel) slowest() string {
@@ -216,9 +216,9 @@ func (p *Panel) budget(now float64, f *stats.Frame) {
 		return
 	}
 	p.alertAt = now
-	msg := "Frame took " + strconv.FormatFloat(f.FrameTime*1000, 'f', 1, 64) + " ms for 3 frames in a row"
+	msg := i18n.Tr("editor.profiler.frame_took_formatfloat_ms_for", "Frame took {formatfloat} ms for 3 frames in a row", i18n.Str("formatfloat", strconv.FormatFloat(f.FrameTime*1000, 'f', 1, 64)))
 	if z := p.slowest(); z != "" {
-		msg += ", slowest zone " + z
+		msg += i18n.Tr("editor.profiler.slowest_zone_z", ", slowest zone {z}", i18n.Str("z", z))
 	}
 	p.deps.Notices.Notify(context.LevelWarn, msg)
 }
@@ -228,7 +228,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Profiler"
+	return i18n.Tr("editor.profiler.title", "Profiler")
 }
 
 func (p *Panel) seconds() float64 {
@@ -236,11 +236,7 @@ func (p *Panel) seconds() float64 {
 }
 
 func gameLine(g *play.Stats) string {
-	return "frame " + strconv.FormatUint(g.Frame, 10) +
-		"   tick " + strconv.FormatUint(g.Tick, 10) +
-		"   alpha " + strconv.FormatFloat(g.Alpha, 'f', 3, 64) +
-		"   scale ×" + strconv.FormatFloat(g.Scale, 'g', 3, 64) +
-		"   dropped ticks " + strconv.FormatUint(g.DroppedFixed, 10)
+	return i18n.Tr("editor.profiler.frame_formatuint_tick_formatuint2_alpha", "frame {formatuint}   tick {formatuint2}   alpha {formatfloat}   scale ×{formatfloat2}   dropped ticks {formatuint3}", i18n.Str("formatuint", strconv.FormatUint(g.Frame, 10)), i18n.Str("formatuint2", strconv.FormatUint(g.Tick, 10)), i18n.Str("formatfloat", strconv.FormatFloat(g.Alpha, 'f', 3, 64)), i18n.Str("formatfloat2", strconv.FormatFloat(g.Scale, 'g', 3, 64)), i18n.Str("formatuint3", strconv.FormatUint(g.DroppedFixed, 10)))
 }
 
 func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats, sc context.ScriptStats, hasSc, playing bool) {
@@ -312,22 +308,11 @@ func ms(d time.Duration) string {
 func (p *Panel) scriptTable(ui *core.Context) {
 	th := &ui.Theme
 	s := &p.scripts
-	widgets.LabelDim(ui, "instances "+strconv.Itoa(s.Instances)+
-		"   update "+strconv.Itoa(s.Update)+
-		"   fixed "+strconv.Itoa(s.Fixed)+
-		"   faults "+strconv.Itoa(s.Faults)+
-		"   budget aborts "+strconv.FormatUint(s.BudgetAborts, 10)+
-		"   heap objects "+strconv.Itoa(s.HeapObjects)+
-		"   GC "+strconv.FormatUint(s.GCRuns, 10)+" / "+ms(s.GCTime)+" ms")
+	widgets.LabelDim(ui, i18n.Tr("editor.profiler.instances_instances_update_update_fixed", "instances {instances}   update {update}   fixed {fixed}   faults {faults}   budget aborts {formatuint}   heap objects {heapobjects}   GC {formatuint2} / {gctime} ms", i18n.Str("instances", strconv.Itoa(s.Instances)), i18n.Str("update", strconv.Itoa(s.Update)), i18n.Str("fixed", strconv.Itoa(s.Fixed)), i18n.Str("faults", strconv.Itoa(s.Faults)), i18n.Str("formatuint", strconv.FormatUint(s.BudgetAborts, 10)), i18n.Str("heapobjects", strconv.Itoa(s.HeapObjects)), i18n.Str("formatuint2", strconv.FormatUint(s.GCRuns, 10)), i18n.Str("gctime", ms(s.GCTime))))
 	co := &s.Coroutines
-	widgets.LabelDim(ui, "coroutines active "+strconv.Itoa(co.Active)+
-		"   sleeping "+strconv.Itoa(co.Sleeping)+
-		"   resumes/frame "+strconv.FormatUint(co.ResumesPerFrame, 10)+
-		"   canceled "+strconv.FormatUint(co.Canceled, 10))
+	widgets.LabelDim(ui, i18n.Tr("editor.profiler.coroutines_active_active_sleeping_sleeping", "coroutines active {active}   sleeping {sleeping}   resumes/frame {formatuint}   canceled {formatuint2}", i18n.Str("active", strconv.Itoa(co.Active)), i18n.Str("sleeping", strconv.Itoa(co.Sleeping)), i18n.Str("formatuint", strconv.FormatUint(co.ResumesPerFrame, 10)), i18n.Str("formatuint2", strconv.FormatUint(co.Canceled, 10))))
 	sg := &s.Signals
-	widgets.LabelDim(ui, "signal connections "+strconv.Itoa(sg.Connections)+
-		"   emits/frame "+strconv.FormatUint(sg.EmitsPerFrame, 10)+
-		"   handlers/frame "+strconv.FormatUint(sg.HandlersPerFrame, 10))
+	widgets.LabelDim(ui, i18n.Tr("editor.profiler.signal_connections_connections_emits_frame", "signal connections {connections}   emits/frame {formatuint}   handlers/frame {formatuint2}", i18n.Str("connections", strconv.Itoa(sg.Connections)), i18n.Str("formatuint", strconv.FormatUint(sg.EmitsPerFrame, 10)), i18n.Str("formatuint2", strconv.FormatUint(sg.HandlersPerFrame, 10))))
 	cols := [5]float32{0, 0.5, 0.64, 0.78, 0.9}
 	names := [5]string{"script", "instances", "calls", "ms", "faults"}
 	row := func(vals [5]string, col mathx.Color) {
@@ -442,7 +427,7 @@ func (p *Panel) graph(ui *core.Context, title, unit string, prec int, budget flo
 	x := r.X + float32(history-n+i)*bw
 	ui.Rect(mathx.Rect{X: x, Y: r.Y, W: max(1, bw-1), H: r.H}, ui.Theme.Highlight)
 	ago := float64(n-1-i) * p.seconds()
-	label := fmtf(b.avg[m], prec) + " / " + fmtf(b.peak[m], prec) + unit + "   " + strconv.FormatFloat(ago, 'f', 1, 64) + " s ago"
+	label := i18n.Tr("editor.profiler.fmtf_fmtf2_unit_formatfloat_s", "{fmtf} / {fmtf2}{unit}   {formatfloat} s ago", i18n.Str("fmtf", fmtf(b.avg[m], prec)), i18n.Str("fmtf2", fmtf(b.peak[m], prec)), i18n.Str("unit", unit), i18n.Str("formatfloat", strconv.FormatFloat(ago, 'f', 1, 64)))
 	size := ui.TextSize(label)
 	box := mathx.Rect{X: r.X + r.W - size.X - 10, Y: r.Y + 2, W: size.X + 8, H: size.Y + 2}
 	ui.Rect(box, th.Background)
@@ -451,9 +436,9 @@ func (p *Panel) graph(ui *core.Context, title, unit string, prec int, budget flo
 
 func (p *Panel) toolbar(ui *core.Context, bar mathx.Rect) {
 	th := &ui.Theme
-	label := "Pause"
+	label := i18n.Tr("editor.profiler.pause", "Pause")
 	if p.paused {
-		label = "Resume"
+		label = i18n.Tr("editor.profiler.resume", "Resume")
 	}
 	if widgets.ButtonRect(ui, ui.ID("pause"), mathx.Rect{X: bar.X, Y: bar.Y, W: 80, H: bar.H}, label) {
 		p.paused = !p.paused
@@ -470,7 +455,7 @@ func (p *Panel) toolbar(ui *core.Context, bar mathx.Rect) {
 	span := strconv.FormatFloat(p.seconds()*history, 'f', 0, 64)
 	info := mathx.Rect{X: bar.X + 176, Y: bar.Y, W: max(0, bar.W-176), H: bar.H}
 	ui.PushClip(info)
-	ui.Text("fps "+strconv.Itoa(int(fps+0.5))+"   window "+span+" s", mathx.Vec2{X: info.X, Y: ui.TextY(bar)}, th.Text)
+	ui.Text(i18n.Tr("editor.profiler.fps_v_window_span_s", "fps {v}   window {span} s", i18n.Str("v", strconv.Itoa(int(fps+0.5))), i18n.Str("span", span)), mathx.Vec2{X: info.X, Y: ui.TextY(bar)}, th.Text)
 	ui.PopClip()
 }
 
@@ -519,7 +504,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	y = bar.Y + bar.H + th.Spacing
 	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: y, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	p.titles, p.marks = p.titles[:0], p.marks[:0]
-	p.section(ui, "Frame")
+	p.section(ui, i18n.Tr("editor.profiler.frame", "Frame"))
 	p.graph(ui, "frame", " ms", 2, 1000.0/60, th.Accent, mFrame)
 	p.graph(ui, "update", " ms", 2, 0, th.AxisY, mUpdate)
 	p.graph(ui, "render", " ms", 2, 0, th.AxisX, mRender)
@@ -527,11 +512,11 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.graph(ui, "sprites", "", 0, 0, th.Selection, mSprites)
 	p.graph(ui, "garbage", " KB", 1, 64, th.Warn, mGarbage)
 	widgets.Separator(ui)
-	p.section(ui, "Memory")
+	p.section(ui, i18n.Tr("editor.profiler.memory", "Memory"))
 	p.memory(ui)
 	if p.playing {
 		widgets.Separator(ui)
-		p.section(ui, "Game")
+		p.section(ui, i18n.Tr("editor.profiler.game", "Game"))
 		p.graph(ui, "game update", " ms", 2, 0, th.AxisY, mGameUpdate)
 		p.graph(ui, "game render", " ms", 2, 0, th.AxisX, mGameRender)
 		p.graph(ui, "game sprites", "", 0, 0, th.Selection, mGameSprites)
@@ -539,7 +524,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		widgets.LabelDim(ui, gameLine(&p.game))
 		if p.hasScripts {
 			widgets.Separator(ui)
-			p.section(ui, "Scripts")
+			p.section(ui, i18n.Tr("editor.profiler.scripts", "Scripts"))
 			p.graph(ui, "script instructions", "", 0, 0, th.Accent, mScriptInstr)
 			p.graph(ui, "script host calls", "", 0, 0, th.AxisY, mScriptHost)
 			p.graph(ui, "script heap", " KB", 1, 0, th.Warn, mScriptHeap)
@@ -577,7 +562,7 @@ func playHint(list []context.ProfilerSection) string {
 		}
 	}
 	if len(extra) == 0 {
-		return "Press Play to see game and script timings"
+		return i18n.Tr("editor.profiler.press_play_to_see_game", "Press Play to see game and script timings")
 	}
-	return "Press Play to see game, script and " + strings.Join(extra, ", ") + " timings"
+	return i18n.Tr("editor.profiler.press_play_to_see_game_2", "Press Play to see game, script and {join} timings", i18n.Str("join", strings.Join(extra, ", ")))
 }

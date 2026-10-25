@@ -36,7 +36,7 @@
         "kind": "float32",
         "default": "1",
         "saved": true,
-        "doc": "Multiplier of the project gravity for this body."
+        "doc": "Multiplier of the project gravity for this body; 0 makes it float."
       },
       {
         "name": "linearDamping",
@@ -104,7 +104,7 @@
         "default": "[0, 0]",
         "readOnly": true,
         "saved": false,
-        "doc": "Current velocity in units per second, during Play."
+        "doc": "Velocity in units per second."
       },
       {
         "name": "angularVelocity",
@@ -112,7 +112,7 @@
         "default": "0",
         "readOnly": true,
         "saved": false,
-        "doc": "Current rotation speed in radians per second, during Play."
+        "doc": "Rotation speed in radians per second."
       },
       {
         "name": "awake",
@@ -120,7 +120,7 @@
         "default": "false",
         "readOnly": true,
         "saved": false,
-        "doc": "Whether the body is simulated this step or sleeping, during Play."
+        "doc": "Whether the body is simulated this step or sleeping."
       }
     ],
     "methods": [

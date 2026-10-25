@@ -11,6 +11,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	"aego/project/rename"
 )
@@ -157,10 +158,10 @@ func retarget(ctx *context.Editor, from, to string) {
 		return
 	}
 	if err := setPackage(ctx, to, now); err != nil {
-		ctx.Notify(context.LevelError, "cannot update the package of "+to+": "+err.Error())
+		ctx.Notify(context.LevelError, i18n.Note("editor.assetops.cannot_update_the_package_of", "cannot update the package of {to}: {error}", i18n.Str("to", to), i18n.Str("error", err.Error())))
 		return
 	}
-	ctx.Notify(context.LevelWarn, path.Base(to)+" is now in package "+now+" (was "+was+"), fix the imports that used it")
+	ctx.Notify(context.LevelWarn, i18n.Note("editor.assetops.to_is_now_in_package", "{to} is now in package {now} (was {was}), fix the imports that used it", i18n.Str("to", path.Base(to)), i18n.Str("now", now), i18n.Str("was", was)))
 }
 
 func openScript(ctx *context.Editor, rel string) bool {
@@ -359,7 +360,7 @@ func PromptSaveAs(ctx *context.Editor, d *document.SceneDocument) {
 	}
 	id := d.ID
 	ctx.Ask(context.Question{
-		Title:   "Save scene as",
+		Title:   i18n.Tr("editor.assetops.save_scene_as", "Save scene as"),
 		Fields:  []string{"Path"},
 		Values:  []string{d.Path},
 		Buttons: []string{"Save", "Cancel"},
@@ -383,7 +384,7 @@ func PromptRenameScene(ctx *context.Editor, ops *Ops, d *document.SceneDocument)
 	}
 	id, old, onDisk := d.ID, d.Path, d.OnDisk
 	ctx.Ask(context.Question{
-		Title:   "Rename scene",
+		Title:   i18n.Tr("editor.assetops.rename_scene", "Rename scene"),
 		Fields:  []string{"Name"},
 		Values:  []string{Stem(old)},
 		Buttons: []string{"Rename", "Cancel"},

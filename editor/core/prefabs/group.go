@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/prefab"
@@ -265,7 +266,7 @@ func (g *group) run(forward bool) error {
 
 func (s *Service) commit(label string, files []fileChange, src *source) error {
 	if len(files) == 0 {
-		s.ctx.Notify(context.LevelInfo, "The prefab already matches")
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.prefabs.the_prefab_already_matches", "The prefab already matches"))
 		return nil
 	}
 	g := &group{svc: s, label: label, files: files, src: src}
@@ -317,7 +318,7 @@ func (s *Service) External(b *pipeline.Batch) func() {
 		lib := s.lib()
 		for _, t := range plan {
 			if _, err := commands.ReplaceNode(t.doc.Scene(), t.node, t.parent, t.index, t.block, lib); err != nil {
-				s.ctx.Notify(context.LevelError, "cannot refresh the prefab instances in "+t.doc.Path+": "+err.Error())
+				s.ctx.Notify(context.LevelError, i18n.Note("editor.prefabs.cannot_refresh_the_prefab_instances", "cannot refresh the prefab instances in {path}: {error}", i18n.Str("path", t.doc.Path), i18n.Str("error", err.Error())))
 			}
 		}
 		clear(s.infos)

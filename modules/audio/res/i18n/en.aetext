@@ -1,0 +1,65 @@
+messages version=1 lang=en {
+  msg "i18n.audio.bus" {
+    text="Bus"
+  }
+  msg "i18n.audio.events_are_heard_in_play" {
+    text="Events are heard in Play; Preview plays Clip"
+  }
+  msg "i18n.audio.gain" {
+    text="Gain"
+  }
+  msg "i18n.audio.import" {
+    text="Import"
+  }
+  msg "i18n.audio.loop" {
+    text="Loop"
+  }
+  msg "i18n.audio.mixer.title" {
+    text="Audio Mixer"
+  }
+  msg "i18n.audio.no_waveform" {
+    text="No waveform"
+  }
+  msg "i18n.audio.of_length_s" {
+    text=" of {length} s"
+  }
+  msg "i18n.audio.ogg_vorbis" {
+    text="Ogg Vorbis"
+  }
+  msg "i18n.audio.play" {
+    text="Play"
+  }
+  msg "i18n.audio.position_s_of_seconds_s" {
+    text="{position} s of {seconds} s"
+  }
+  msg "i18n.audio.preview" {
+    text="Preview"
+  }
+  msg "i18n.audio.reading_the_waveform" {
+    text="Reading the waveform"
+  }
+  msg "i18n.audio.redo" {
+    text="Redo"
+  }
+  msg "i18n.audio.reset_session" {
+    text="Reset Session"
+  }
+  msg "i18n.audio.save_to_profile" {
+    text="Save to Profile"
+  }
+  msg "i18n.audio.stop" {
+    text="Stop"
+  }
+  msg "i18n.audio.stream" {
+    text="Stream"
+  }
+  msg "i18n.audio.the_audio_output_is_not" {
+    text="The audio output is not open"
+  }
+  msg "i18n.audio.the_sound_is_not_imported" {
+    text="The sound is not imported yet"
+  }
+  msg "i18n.audio.undo" {
+    text="Undo"
+  }
+}

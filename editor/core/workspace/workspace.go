@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/services"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/platform/input"
 	"aego/ui/core"
@@ -354,7 +355,7 @@ func (w *Workspace) Draw(f services.Frame, r mathx.Rect) {
 func (w *Workspace) drawPanel(ui *core.Context, id string, r mathx.Rect) {
 	d, ok := w.descs[id]
 	if !ok {
-		ui.TextIn(r, "unknown panel "+id, ui.Theme.TextDim, core.AlignCenter)
+		ui.TextIn(r, i18n.Tr("editor.workspace.unknown_panel_id", "unknown panel {id}", i18n.Str("id", id)), ui.Theme.TextDim, core.AlignCenter)
 		return
 	}
 	mark := ui.Mark()
@@ -362,9 +363,9 @@ func (w *Workspace) drawPanel(ui *core.Context, id string, r mathx.Rect) {
 	defer ui.PopClip()
 	if msg, bad := w.failed[id]; bad {
 		ui.Region(r)
-		widgets.Label(ui, "This panel crashed and was disabled.")
+		widgets.Label(ui, i18n.Tr("editor.workspace.this_panel_crashed_and_was", "This panel crashed and was disabled."))
 		widgets.LabelWrapped(ui, msg, true)
-		if widgets.Button(ui, "Retry") {
+		if widgets.Button(ui, i18n.Tr("editor.workspace.retry", "Retry")) {
 			delete(w.failed, id)
 		}
 		ui.PopCursor()
@@ -380,7 +381,7 @@ func (w *Workspace) drawPanel(ui *core.Context, id string, r mathx.Rect) {
 			msg := fmt.Sprint(rec)
 			w.failed[id] = msg
 			if w.Notices != nil {
-				w.Notices.Notify(context.LevelError, "panel "+id+" crashed: "+msg)
+				w.Notices.Notify(context.LevelError, i18n.Note("editor.workspace.panel_id_crashed_msg", "panel {id} crashed: {msg}", i18n.Str("id", id), i18n.Str("msg", msg)))
 			}
 		}
 	}()

@@ -2,6 +2,7 @@ package shell
 
 import (
 	"aego/editor/panels/taskcenter"
+	"aego/engine/i18n"
 	"aego/ui/widgets"
 	"strconv"
 	"strings"
@@ -36,12 +37,12 @@ func (a *App) scriptStatus() (string, bool) {
 	}
 	gen, failed := a.ctx.Scripts.Status()
 	_, n, _ := a.ctx.FirstError("")
-	s := "Scripts: build " + strconv.FormatUint(gen, 10)
+	s := i18n.Tr("editor.shell.scripts_build", "Scripts: build {n}", i18n.Int("n", int64(gen)))
 	switch {
 	case n > 0:
-		return s + " · " + strconv.Itoa(n) + " errors", true
+		return s + " · " + i18n.TrN("editor.shell.errors", int64(n), "{n} error", "{n} errors"), true
 	case failed:
-		return s + " · latest failed", true
+		return s + " · " + i18n.Tr("editor.shell.latest_failed", "latest failed"), true
 	}
 	return s + " · ok", false
 }
@@ -124,28 +125,28 @@ func (a *App) drawStatus(r mathx.Rect) {
 		if strings.HasPrefix(a.ctx.FocusedPanel, "script:") {
 			if ln, col, ok := c.Caret(a.ctx.FocusedPanel); ok {
 				item("UTF-8 · LF", th.TextDim, "", false)
-				item("Ln "+strconv.Itoa(ln)+", Col "+strconv.Itoa(col), th.Text, "", false)
+				item(i18n.Tr("editor.shell.ln_ln_col_col", "Ln {ln}, Col {col}", i18n.Str("ln", strconv.Itoa(ln)), i18n.Str("col", strconv.Itoa(col))), th.Text, "", false)
 			}
 		}
-		label := "autosave off"
+		label := i18n.Tr("editor.shell.autosave_off", "autosave off")
 		if c.Autosave {
-			label = "autosave on"
+			label = i18n.Tr("editor.shell.autosave_on", "autosave on")
 		}
 		if item(label, th.TextDim, "autosave", false) {
 			c.Autosave = !c.Autosave
 		}
 	}
 	if n, failed := a.taskCounts(); n > 0 {
-		if item(strconv.Itoa(n)+" task(s)", th.TextDim, "tasks", false, "status.busy") {
+		if item(i18n.Tr("editor.shell.n_task_s", "{n} task(s)", i18n.Str("n", strconv.Itoa(n))), th.TextDim, "tasks", false, "status.busy") {
 			a.ws.Show(taskcenter.ID)
 		}
 	} else if failed > 0 {
-		if item(strconv.Itoa(failed)+" task(s) failed", th.Error, "tasks", false) {
+		if item(i18n.Tr("editor.shell.failed_task_s_failed", "{failed} task(s) failed", i18n.Str("failed", strconv.Itoa(failed))), th.Error, "tasks", false) {
 			a.ws.Show(taskcenter.ID)
 		}
 	}
 	if n := a.ctx.Docs.DirtyCount(); n > 0 {
-		item(strconv.Itoa(n)+" unsaved", th.Warn, "", false)
+		item(i18n.Tr("editor.shell.n_unsaved", "{n} unsaved", i18n.Str("n", strconv.Itoa(n))), th.Warn, "", false)
 	}
 	mid := mathx.Rect{X: left + 8, Y: r.Y, W: max(0, right-left-16), H: r.H}
 	text, col := a.contextHint(), th.TextDisabled

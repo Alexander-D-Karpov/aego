@@ -90,3 +90,8 @@ const (
 type SystemThemer interface {
 	SystemTheme() SystemTheme
 }
+
+// Localer reports the languages the user prefers, most wanted first, as "ru-RU" or "en" (D348).
+type Localer interface {
+	PreferredLocales() []string
+}

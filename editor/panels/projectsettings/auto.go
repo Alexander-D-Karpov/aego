@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/schema"
 	"aego/ui/core"
@@ -52,9 +53,9 @@ func field(ui *core.Context, label string, fd *schema.FieldDescriptor, v schema.
 	case schema.KindBool:
 		b := v.I != 0
 		before := b
-		text := "Off"
+		text := i18n.Tr("editor.projectsettings.off", "Off")
 		if b {
-			text = "On"
+			text = i18n.Tr("editor.projectsettings.on", "On")
 		}
 		widgets.ToggleButton(ui, id, r, text, &b)
 		return schema.Bool(b), b != before

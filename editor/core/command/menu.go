@@ -11,13 +11,13 @@ func MenuItem(ui *core.Context, reg *Registry, id, label string) bool {
 		return false
 	}
 	if label == "" {
-		label = d.Name
+		label = d.Title()
 	}
 	it := widgets.Item{
 		Label:    label,
 		Shortcut: d.Shortcut.String(),
 		Icon:     d.Icon,
-		Tip:      d.Tip,
+		Tip:      d.TipText(),
 		Enabled:  reg.Enabled(id),
 		Checked:  d.Checked != nil && d.Checked(),
 	}

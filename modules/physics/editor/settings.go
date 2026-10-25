@@ -5,6 +5,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/modules/physics/settings"
 	"aego/modules/physics/world"
 	"aego/ui/core"
@@ -55,13 +56,13 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 			focus = part
 		}
 	}
-	widgets.Label(ui, "Simulation")
+	widgets.Label(ui, i18n.Tr("i18n.physics.simulation", "Simulation"))
 	g := ps.Gravity
 	if !ps.HasGravity {
 		g = def.Gravity
 	}
 	gid := ui.ID("gravity")
-	if e := widgets.Vec2Field(ui, gid, widgets.Field(ui, "Gravity"), &g, widgets.NumberOpts{Speed: 0.05}, false, false); e.Changed {
+	if e := widgets.Vec2Field(ui, gid, widgets.Field(ui, i18n.Tr("i18n.physics.gravity", "Gravity")), &g, widgets.NumberOpts{Speed: 0.05}, false, false); e.Changed {
 		ps.Gravity, ps.HasGravity = g, true
 		changed = true
 	}
@@ -102,13 +103,13 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 	if err := ps.Validate(); err != nil {
 		widgets.LabelWrapped(ui, err.Error(), false)
 	}
-	widgets.LabelWrapped(ui, "Tall stacks and fast motors: Substeps 8 and Contact Hertz 60 (stiff profile) at about twice the solver cost. Zero keeps the engine default.", true)
+	widgets.LabelWrapped(ui, i18n.Tr("i18n.physics.tall_stacks_and_fast_motors", "Tall stacks and fast motors: Substeps 8 and Contact Hertz 60 (stiff profile) at about twice the solver cost. Zero keeps the engine default."), true)
 	widgets.Separator(ui)
-	widgets.Label(ui, "Layers")
+	widgets.Label(ui, i18n.Tr("i18n.physics.layers", "Layers"))
 	changed = layers(ctx, ps) || changed
 	widgets.Separator(ui)
-	widgets.Label(ui, "Collision Matrix")
-	widgets.LabelDim(ui, "A checked cell means bodies on those two layers collide.")
+	widgets.Label(ui, i18n.Tr("i18n.physics.collision_matrix", "Collision Matrix"))
+	widgets.LabelDim(ui, i18n.Tr("i18n.physics.a_checked_cell_means_bodies", "A checked cell means bodies on those two layers collide."))
 	changed = matrix(ui, ps) || changed
 	return changed
 }
@@ -168,9 +169,9 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 		if _, ok := widgets.TextFieldRect(ui, ui.ID("name"), fr, &name, false); ok && name != names[i] {
 			switch {
 			case name != "" && !settings.ValidLayerName(name):
-				ctx.Notify(context.LevelWarn, name+" is not a valid layer name")
+				ctx.Notify(context.LevelWarn, i18n.Note("i18n.physics.name_is_not_a_valid", "{name} is not a valid layer name", i18n.Str("name", name)))
 			case name != "" && dup(names, name):
-				ctx.Notify(context.LevelWarn, "layer "+name+" already exists")
+				ctx.Notify(context.LevelWarn, i18n.Note("i18n.physics.layer_name_already_exists", "layer {name} already exists", i18n.Str("name", name)))
 			default:
 				ensureLayers(ps, i+1)
 				ps.LayerNames[i] = name
@@ -178,7 +179,7 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 				changed = true
 			}
 		}
-		if i > 0 && widgets.IconButton(ui, ui.ID("clear"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.minus", "Clear the name; bodies keep index "+strconv.Itoa(i)) {
+		if i > 0 && widgets.IconButton(ui, ui.ID("clear"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.minus", i18n.Tr("i18n.physics.clear_the_name_bodies_keep", "Clear the name; bodies keep index {i}", i18n.Str("i", strconv.Itoa(i)))) {
 			ensureLayers(ps, i+1)
 			ps.LayerNames[i] = ""
 			renameRules(ps, names[i], "")
@@ -186,7 +187,7 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 		}
 		ui.PopID()
 	}
-	if last < settings.MaxLayers-1 && widgets.Button(ui, "Add Layer") {
+	if last < settings.MaxLayers-1 && widgets.Button(ui, i18n.Tr("i18n.physics.add_layer", "Add Layer")) {
 		for i := 1; i < settings.MaxLayers; i++ {
 			if names[i] != "" {
 				continue
@@ -197,7 +198,7 @@ func layers(ctx *context.Editor, ps *settings.Project) bool {
 			break
 		}
 	}
-	widgets.LabelDim(ui, "Bodies store the layer index; clearing a name keeps the index.")
+	widgets.LabelDim(ui, i18n.Tr("i18n.physics.bodies_store_the_layer_index", "Bodies store the layer index; clearing a name keeps the index."))
 	return changed
 }
 

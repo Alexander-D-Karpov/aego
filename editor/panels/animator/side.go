@@ -6,6 +6,7 @@ import (
 	"aego/anim"
 	"aego/core/mathx"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene/mutate"
 	"aego/ui/core"
@@ -13,8 +14,10 @@ import (
 )
 
 var (
-	kindNames = []string{"Bool", "Int", "Float", "Trigger"}
-	opNames   = []string{"set", "==", "!=", ">", ">=", "<", "<="}
+	kindNames = func() []string {
+		return []string{"Bool", "Int", "Float", i18n.Tr("editor.animator.kind.trigger", "Trigger")}
+	}
+	opNames = []string{"set", "==", "!=", ">", ">=", "<", "<="}
 )
 
 // SetEntry makes a state the one the Animator starts in.
@@ -143,8 +146,8 @@ func (p *Panel) sidebar(d *document.SceneDocument, r mathx.Rect) {
 	case selTransition:
 		p.transitionSection(p.sel.index)
 	default:
-		widgets.LabelDim(ui, "Select a state or a transition")
-		widgets.LabelWrapped(ui, "Drag from a state's dot to another state to add a transition", true)
+		widgets.LabelDim(ui, i18n.Tr("editor.animator.select_a_state_or_a", "Select a state or a transition"))
+		widgets.LabelWrapped(ui, i18n.Tr("editor.animator.drag_from_a_state_s", "Drag from a state's dot to another state to add a transition"), true)
 	}
 	ui.Cursor().Next(6)
 	p.paramsSection()
@@ -163,15 +166,15 @@ func (p *Panel) paramsSection() {
 	ui := p.f.UI
 	th := &ui.Theme
 	head := ui.Cursor().Next(0)
-	ui.Text("Parameters", mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
+	ui.Text(i18n.Tr("editor.animator.parameters", "Parameters"), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
 	add := mathx.Rect{X: head.X + head.W - head.H, Y: head.Y, W: head.H, H: head.H}
 	aid := ui.ID("addparam")
-	if widgets.IconButton(ui, aid, add, "ui.plus", "Add a parameter") {
+	if widgets.IconButton(ui, aid, add, "ui.plus", i18n.Tr("editor.animator.add_a_parameter", "Add a parameter")) {
 		ui.CloseAllPopups()
 		ui.OpenPopup(aid, mathx.Vec2{X: add.X, Y: add.Y + add.H})
 	}
 	if ui.BeginPopup(aid, 140) {
-		for k, n := range kindNames {
+		for k, n := range kindNames() {
 			if widgets.MenuItem(ui, n, "", true, false) {
 				p.notify(p.AddParam(anim.ParamKind(k)))
 			}
@@ -191,7 +194,7 @@ func (p *Panel) paramsSection() {
 		vr := mathx.Rect{X: row.X + lw, Y: row.Y, W: row.W - lw, H: row.H}
 		id := core.IDSeq(ui.ID("param"), i)
 		if live == nil {
-			if widgets.IconButton(ui, id, mathx.Rect{X: vr.X + vr.W - vr.H, Y: vr.Y, W: vr.H, H: vr.H}, "ui.minus", "Remove the parameter") {
+			if widgets.IconButton(ui, id, mathx.Rect{X: vr.X + vr.W - vr.H, Y: vr.Y, W: vr.H, H: vr.H}, "ui.minus", i18n.Tr("editor.animator.remove_the_parameter", "Remove the parameter")) {
 				p.notify(p.Edit("Remove Parameter", mutate.CtrlRemove("param", pr.Name)))
 			}
 			continue
@@ -199,7 +202,7 @@ func (p *Panel) paramsSection() {
 		v, _ := live.Param(p.node, pr.Name)
 		switch pr.Kind {
 		case anim.ParamTrigger:
-			if widgets.ButtonRect(ui, id, vr, "Fire") {
+			if widgets.ButtonRect(ui, id, vr, i18n.Tr("editor.animator.fire", "Fire")) {
 				live.SetParam(p.node, pr.Name, 1)
 			}
 		case anim.ParamBool:
@@ -222,7 +225,7 @@ func (p *Panel) paramsSection() {
 		}
 	}
 	if len(p.g.Params) == 0 {
-		widgets.LabelDim(ui, "No parameters")
+		widgets.LabelDim(ui, i18n.Tr("editor.animator.no_parameters", "No parameters"))
 	}
 }
 
@@ -252,19 +255,19 @@ func (p *Panel) stateSection(i int) {
 			}
 		}
 		p.clipID = ui.ID("clip")
-		p.clipRect = widgets.Field(ui, "Clip")
+		p.clipRect = widgets.Field(ui, i18n.Tr("editor.animator.clip", "Clip"))
 		if widgets.Combo(ui, p.clipID, p.clipRect, &cur, p.clipNames, cur < 0) && cur >= 0 {
 			p.notify(p.Edit("Set Clip", mutate.CtrlAttr("state", s.Name, "clip", aetext.AssetRef(p.clips[cur].ID.String()))))
 		}
 	}
 	speed := s.Speed
-	if e := widgets.DragFloat32(ui, ui.ID("speed"), widgets.Field(ui, "Speed"), &speed, widgets.NumberOpts{Speed: 0.01}); e.End && speed != s.Speed {
+	if e := widgets.DragFloat32(ui, ui.ID("speed"), widgets.Field(ui, i18n.Tr("editor.animator.speed", "Speed")), &speed, widgets.NumberOpts{Speed: 0.01}); e.End && speed != s.Speed {
 		p.notify(p.Edit("Set Speed", mutate.CtrlAttr("state", s.Name, "speed", aetext.Float32(speed))))
 	}
-	if int32(i) != p.g.Entry && widgets.Button(ui, "Set as Entry") {
+	if int32(i) != p.g.Entry && widgets.Button(ui, i18n.Tr("editor.animator.set_as_entry", "Set as Entry")) {
 		p.notify(p.SetEntry(i))
 	}
-	if widgets.Button(ui, "Delete State") {
+	if widgets.Button(ui, i18n.Tr("editor.animator.delete_state", "Delete State")) {
 		p.notify(p.RemoveState(i))
 	}
 }
@@ -278,11 +281,11 @@ func (p *Panel) transitionSection(i int) {
 	ui.Text(p.heads[i], mathx.Vec2{X: row.X, Y: ui.TextY(row)}, th.TextDim)
 	up := mathx.Rect{X: row.X + row.W - 2*row.H - 2, Y: row.Y, W: row.H, H: row.H}
 	down := mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}
-	if i > 0 && widgets.IconButton(ui, ui.ID("up"), up, "ui.move_up", "Try earlier") {
+	if i > 0 && widgets.IconButton(ui, ui.ID("up"), up, "ui.move_up", i18n.Tr("editor.animator.try_earlier", "Try earlier")) {
 		p.notify(p.MoveTransition(i, -1))
 		return
 	}
-	if i+1 < len(g.Transitions) && widgets.IconButton(ui, ui.ID("down"), down, "ui.move_down", "Try later") {
+	if i+1 < len(g.Transitions) && widgets.IconButton(ui, ui.ID("down"), down, "ui.move_down", i18n.Tr("editor.animator.try_later", "Try later")) {
 		p.notify(p.MoveTransition(i, 1))
 		return
 	}
@@ -290,11 +293,11 @@ func (p *Panel) transitionSection(i int) {
 		p.notify(p.Edit("Edit Transition", mutate.CtrlAttr("transition", "", name, v).At(i)))
 	}
 	dur := t.Duration
-	if e := widgets.DragFloat32(ui, ui.ID("dur"), widgets.Field(ui, "Duration"), &dur, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true}); e.End && dur != t.Duration {
+	if e := widgets.DragFloat32(ui, ui.ID("dur"), widgets.Field(ui, i18n.Tr("editor.animator.duration", "Duration")), &dur, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true}); e.End && dur != t.Duration {
 		attr("duration", aetext.Float32(dur))
 	}
 	exit := t.HasExit
-	if widgets.Checkbox(ui, "Exit Time", &exit) {
+	if widgets.Checkbox(ui, i18n.Tr("editor.animator.exit_time", "Exit Time"), &exit) {
 		if exit {
 			attr("exitTime", aetext.Float32(1))
 		} else {
@@ -303,22 +306,22 @@ func (p *Panel) transitionSection(i int) {
 	}
 	if t.HasExit {
 		et := t.ExitTime
-		if e := widgets.DragFloat32(ui, ui.ID("exit"), widgets.Field(ui, "At"), &et, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true}); e.End && et != t.ExitTime {
+		if e := widgets.DragFloat32(ui, ui.ID("exit"), widgets.Field(ui, i18n.Tr("editor.animator.at", "At")), &et, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true}); e.End && et != t.ExitTime {
 			attr("exitTime", aetext.Float32(et))
 		}
 	}
 	intr := t.Interrupt
-	if widgets.Checkbox(ui, "Interrupts", &intr) {
+	if widgets.Checkbox(ui, i18n.Tr("editor.animator.interrupts", "Interrupts"), &intr) {
 		attr("interrupt", aetext.Bool(intr))
 	}
-	p.header("Conditions")
+	p.header(i18n.Tr("editor.animator.conditions", "Conditions"))
 	for c, cond := range t.Conds {
 		p.condRow(i, c, cond, p.names)
 	}
-	if len(g.Params) > 0 && widgets.Button(ui, "Add Condition") {
+	if len(g.Params) > 0 && widgets.Button(ui, i18n.Tr("editor.animator.add_condition", "Add Condition")) {
 		p.notify(p.SetCond(i, len(t.Conds), anim.Cond{Param: 0, Op: defaultOp(g.Params[0].Kind)}))
 	}
-	if widgets.Button(ui, "Delete Transition") {
+	if widgets.Button(ui, i18n.Tr("editor.animator.delete_transition", "Delete Transition")) {
 		p.notify(p.RemoveTransition(i))
 	}
 }
@@ -371,7 +374,7 @@ func (p *Panel) condRow(i, c int, cond anim.Cond, names []string) {
 			return
 		}
 	}
-	if widgets.IconButton(ui, ui.ID("rm"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.minus", "Remove the condition") {
+	if widgets.IconButton(ui, ui.ID("rm"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.minus", i18n.Tr("editor.animator.remove_the_condition", "Remove the condition")) {
 		p.notify(p.RemoveCond(i, c))
 	}
 }

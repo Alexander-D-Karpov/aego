@@ -8,6 +8,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -51,9 +52,9 @@ func (s *Service) Revert(d *document.SceneDocument, c Change) error {
 	sc := d.Scene()
 	op := mutate.RevertPrefab(commands.Ref(c.Node), c.Level.String())
 	op.Key, op.Owner, op.Field = string(key), c.Prop.Owner, c.Prop.Field
-	label := "Revert"
+	label := i18n.Tr("editor.prefabs.revert", "Revert")
 	if c.Level == LevelOrphan {
-		label = "Remove Unused Override"
+		label = i18n.Tr("editor.prefabs.remove_unused_override", "Remove Unused Override")
 	}
 	err = d.History.Exec(commands.NewMutation(label, s.env(sc), op))
 	if errors.Is(err, mutate.ErrNothing) {
@@ -73,9 +74,9 @@ func (s *Service) Unpack(d *document.SceneDocument, node ids.NodeID, deep bool) 
 	if _, _, ok := sceneio.OwnerRoot(sc, sc.Handle(node)); !ok {
 		return errs.New(errs.EditorCommand, "the node is not part of a prefab instance")
 	}
-	label := "Unpack Prefab"
+	label := i18n.Tr("editor.prefabs.unpack_prefab", "Unpack Prefab")
 	if deep {
-		label = "Unpack Prefab Completely"
+		label = i18n.Tr("editor.prefabs.unpack_prefab_completely", "Unpack Prefab Completely")
 	}
 	return d.History.Exec(commands.NewMutation(label, s.env(sc), mutate.Unpack(commands.Ref(node), deep)))
 }
@@ -89,7 +90,7 @@ func (s *Service) Apply(d *document.SceneDocument, c Change) error {
 	}
 	plan, err := refactor.PlanApply(d.Scene(), s.lib(), c)
 	if errors.Is(err, mutate.ErrNothing) {
-		s.ctx.Notify(context.LevelInfo, "Nothing to apply")
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.prefabs.nothing_to_apply", "Nothing to apply"))
 		return nil
 	}
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/project"
 	"aego/render/texture"
 	"aego/ui/core"
@@ -60,7 +61,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Scenes"
+	return i18n.Tr("editor.scenes.title", "Scenes")
 }
 
 func (p *Panel) Icon() string {
@@ -109,9 +110,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	top := ui.Cursor().Y
 	body := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	if len(p.view) == 0 {
-		msg := "No scenes yet, File → New Scene creates one"
+		msg := i18n.Tr("editor.scenes.no_scenes_yet_file_new", "No scenes yet, File → New Scene creates one")
 		if p.filter != "" {
-			msg = "No scenes match"
+			msg = i18n.Tr("editor.scenes.no_scenes_match", "No scenes match")
 		}
 		ui.TextIn(body, msg, th.TextDisabled, core.AlignCenter)
 		p.contextMenu()
@@ -202,26 +203,26 @@ func (p *Panel) contextMenu() {
 	}
 	a := p.menuOn
 	files := p.d.Files != nil
-	if widgets.MenuItemIcon(ui, "Open", "", "file.open", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.open", "Open"), "", "file.open", true, false) {
 		p.open(&a)
 	}
-	if widgets.MenuItemIcon(ui, "Set as Startup", "", "play.start", files && !p.startup(a.ID), p.startup(a.ID)) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.set_as_startup", "Set as Startup"), "", "play.start", files && !p.startup(a.ID), p.startup(a.ID)) {
 		p.d.Files.SetStartup(a.ID, a.Path)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Rename…", "", "edit.rename", files, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.rename", "Rename…"), "", "edit.rename", files, false) {
 		p.rename(a)
 	}
-	if widgets.MenuItemIcon(ui, "Duplicate", "", "edit.duplicate", files, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.duplicate", "Duplicate"), "", "edit.duplicate", files, false) {
 		_, err := p.d.Files.Duplicate(a.ID)
 		p.notify(err)
 		p.Refresh()
 	}
-	if widgets.MenuItemIcon(ui, "Delete…", "", "edit.delete", files, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.delete", "Delete…"), "", "edit.delete", files, false) {
 		p.remove(a)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Show in Assets", "", "panel.assets", p.d.Reveal != nil, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.scenes.show_in_assets", "Show in Assets"), "", "panel.assets", p.d.Reveal != nil, false) {
 		p.d.Reveal(a.Path)
 	}
 	widgets.EndContextMenu(ui)
@@ -229,10 +230,10 @@ func (p *Panel) contextMenu() {
 
 func (p *Panel) rename(a pipeline.AssetInfo) {
 	p.d.Notices.Ask(context.Question{
-		Title:   "Rename scene",
-		Fields:  []string{"Name"},
+		Title:   i18n.Tr("editor.scenes.rename_scene", "Rename scene"),
+		Fields:  []string{i18n.Tr("editor.scenes.name", "Name")},
 		Values:  []string{assetops.Stem(a.Path)},
-		Buttons: []string{"Rename", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.scenes.rename_2", "Rename"), i18n.Tr("editor.scenes.cancel", "Cancel")},
 		Submit: func(v []string) {
 			name := strings.TrimSpace(v[0])
 			if !assetops.ValidName(name) {
@@ -250,14 +251,14 @@ func (p *Panel) rename(a pipeline.AssetInfo) {
 }
 
 func (p *Panel) remove(a pipeline.AssetInfo) {
-	msg := "Delete " + a.Path + "?"
+	msg := i18n.Tr("editor.scenes.delete_path", "Delete {path}?", i18n.Str("path", a.Path))
 	if p.startup(a.ID) {
 		msg += " It is the startup scene; the project will have none until you pick another."
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "Delete scene",
+		Title:   i18n.Tr("editor.scenes.delete_scene", "Delete scene"),
 		Message: msg,
-		Buttons: []string{"Delete", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.scenes.delete_2", "Delete"), i18n.Tr("editor.scenes.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice != 0 {
 				return

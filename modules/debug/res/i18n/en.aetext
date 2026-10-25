@@ -1,0 +1,14 @@
+messages version=1 lang=en {
+  msg "i18n.debug.debug_channels_appear_here_while" {
+    text="Debug channels appear here while Play runs"
+  }
+  msg "i18n.debug.draw.title" {
+    text="Debug Draw"
+  }
+  msg "i18n.debug.dropped_formatuint" {
+    text="   dropped {formatuint}"
+  }
+  msg "i18n.debug.live_primitives_formatuint_dropped" {
+    text="{live} primitives   {formatuint} dropped"
+  }
+}

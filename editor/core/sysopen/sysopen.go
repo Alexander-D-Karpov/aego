@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"aego/engine/i18n"
 	"aego/platform"
 )
 
@@ -35,11 +36,11 @@ func Reveal(path string) error {
 func RevealLabel() string {
 	switch runtime.GOOS {
 	case "darwin":
-		return "Show in Finder"
+		return i18n.Tr("editor.sysopen.show_in_finder", "Show in Finder")
 	case "windows":
-		return "Show in Explorer"
+		return i18n.Tr("editor.sysopen.show_in_explorer", "Show in Explorer")
 	}
-	return "Show in Files"
+	return i18n.Tr("editor.sysopen.show_in_files", "Show in Files")
 }
 
 func Picker(win platform.Window, kind platform.DialogKind, filter, pattern string) func(start string, done func(string)) {

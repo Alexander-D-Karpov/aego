@@ -15,6 +15,7 @@ import (
 	"aego/data"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/scene/mutate"
 	"aego/schema"
 )
@@ -182,7 +183,7 @@ func (s *Service) conflict(rel string, raw, disk []byte, seen *[]byte) {
 		return
 	}
 	*seen = raw
-	s.ctx.Notify(context.LevelWarn, rel+" changed on disk while it has unsaved changes: Save keeps yours, Revert loads the disk version")
+	s.ctx.Notify(context.LevelWarn, i18n.Note("editor.dataedit.rel_changed_on_disk_while", "{rel} changed on disk while it has unsaved changes: Save keeps yours, Revert loads the disk version", i18n.Str("rel", rel)))
 }
 
 func (s *Service) RevertDoc(id ids.AssetID) {
@@ -423,9 +424,9 @@ func (s *Service) PlayStopped() {
 		}
 	}
 	s.ctx.Ask(context.Question{
-		Title:   "Live data changes",
+		Title:   i18n.Tr("editor.dataedit.live_data_changes", "Live data changes"),
 		Message: fmt.Sprintf("%d field(s) in %d data asset(s) were tuned during Play. Keep them in the assets?", fields, len(own)),
-		Buttons: []string{"Keep", "Discard"},
+		Buttons: []string{i18n.Tr("editor.dataedit.keep", "Keep"), i18n.Tr("editor.dataedit.discard", "Discard")},
 		Then: func(choice int) {
 			if choice == 0 {
 				s.keep(list)
@@ -478,6 +479,6 @@ func (s *Service) keep(list []change) {
 			s.ctx.Notify(context.LevelError, err.Error())
 			continue
 		}
-		s.ctx.Notify(context.LevelInfo, "Kept the live changes in "+d.Path)
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.dataedit.kept_the_live_changes_in", "Kept the live changes in {path}", i18n.Str("path", d.Path)))
 	}
 }

@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,6 +61,8 @@ type Deps struct {
 }
 
 type Panel struct {
+	catLang      string
+	catNames     map[string]string
 	assetBoxes   []assetBox
 	scrollTo     string
 	top          float32
@@ -142,7 +145,7 @@ func (p *Panel) gotoScript(typeName, field string) {
 		p.d.Nav.Open(l)
 		return
 	}
-	p.d.Notices.Notify(context.LevelInfo, "The declaration of "+shortScript(typeName)+" is not available until the scripts compile")
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.declaration_unavailable", "The declaration of {name} is not available until the scripts compile", i18n.Str("name", shortScript(typeName))))
 }
 
 func (p *Panel) ID() string {
@@ -150,7 +153,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Inspector"
+	return i18n.Tr("editor.inspector.title", "Inspector")
 }
 
 func (p *Panel) Scope() string {
@@ -176,7 +179,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		}
 	}
 	if d == nil {
-		widgets.LabelDim(ui, "No scene open")
+		widgets.LabelDim(ui, i18n.Tr("editor.inspector.no_scene_open", "No scene open"))
 		return
 	}
 	p.doc = d
@@ -201,7 +204,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	r = p.lockBar(d, r)
 	if len(p.nodes) == 0 {
-		widgets.LabelDim(ui, "Nothing selected")
+		widgets.LabelDim(ui, i18n.Tr("editor.inspector.nothing_selected", "Nothing selected"))
 		return
 	}
 	if p.d.Prefabs != nil && len(p.nodes) == 1 {
@@ -241,11 +244,11 @@ func (p *Panel) menus(d *document.SceneDocument, r mathx.Rect) {
 	}
 	if widgets.ContextMenu(ui, p.bgMenuID) {
 		kind := p.d.Clip.Peek()
-		if widgets.MenuItemIcon(ui, "Paste Component", p.d.Commands.Shortcut(CommandPaste), "edit.paste", kind == clipboard.KindComponent, false) {
-			p.confirm(d, "Paste Component", func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_component", "Paste Component"), p.d.Commands.Shortcut(CommandPaste), "edit.paste", kind == clipboard.KindComponent, false) {
+			p.confirm(d, i18n.Tr("editor.inspector.paste_component", "Paste Component"), func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
 		}
-		if widgets.MenuItemIcon(ui, "Paste Components", "", "edit.paste", kind == clipboard.KindComponents, false) {
-			p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_components", "Paste Components"), "", "edit.paste", kind == clipboard.KindComponents, false) {
+			p.confirm(d, i18n.Tr("editor.inspector.paste_components", "Paste Components"), func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
 		}
 		widgets.EndContextMenu(ui)
 	}
@@ -303,7 +306,7 @@ func (p *Panel) PasteHovered() error {
 	if p.hoverField.ok {
 		if td, fd, ok := p.lookup(d, p.hoverField); ok {
 			if v, ok := p.d.Clip.ReadValue(fd); ok {
-				p.confirm(d, "Paste "+p.labelOf(fd), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
+				p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
 				return nil
 			}
 			if done, err := p.pasteAsset(d, td, fd); done {
@@ -313,13 +316,13 @@ func (p *Panel) PasteHovered() error {
 	}
 	switch p.d.Clip.Peek() {
 	case clipboard.KindComponent:
-		p.confirm(d, "Paste Component", func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
+		p.confirm(d, i18n.Tr("editor.inspector.paste_component", "Paste Component"), func() error { return p.d.Clip.PasteComponent(d, p.nodes) })
 		return nil
 	case clipboard.KindComponents:
-		p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
+		p.confirm(d, i18n.Tr("editor.inspector.paste_components", "Paste Components"), func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
 		return nil
 	}
-	p.d.Notices.Notify(context.LevelInfo, "The clipboard does not fit this field")
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.the_clipboard_does_not_fit", "The clipboard does not fit this field"))
 	return nil
 }
 
@@ -410,7 +413,7 @@ func (p *Panel) header(d *document.SceneDocument) {
 	th := &ui.Theme
 	ui.PushID("node")
 	defer ui.PopID()
-	c := p.beginCard("node", "Node", "", "cat.node", "", true)
+	c := p.beginCard("node", i18n.Tr("editor.inspector.node", "Node"), "", "cat.node", "", true)
 	defer p.endCard(ui, c)
 	menuID := ui.ID("menu")
 	if ui.RightClicked(c.hid, c.hdr) {
@@ -441,7 +444,7 @@ func (p *Panel) header(d *document.SceneDocument) {
 	}
 	if triCheck(ui, ui.ID("enabled"), mathx.Rect{X: row.X, Y: row.Y, W: row.H, H: row.H}, state) {
 		after := state != 1
-		p.confirm(d, "Toggle Enabled", func() error { return d.Props.SetEnabled(nil, p.nodes, after) })
+		p.confirm(d, i18n.Tr("editor.inspector.toggle_enabled", "Toggle Enabled"), func() error { return d.Props.SetEnabled(nil, p.nodes, after) })
 	}
 	nr := mathx.Rect{X: row.X + row.H + 4, Y: row.Y, W: row.W - row.H - 4, H: row.H}
 	if len(p.nodes) == 1 {
@@ -452,7 +455,7 @@ func (p *Panel) header(d *document.SceneDocument) {
 			}
 		}
 	} else {
-		ui.TextIn(nr, strconv.Itoa(len(p.nodes))+" nodes", th.TextDim, core.AlignLeft)
+		ui.TextIn(nr, i18n.Tr("editor.inspector.nodes_nodes", "{nodes} nodes", i18n.Str("nodes", strconv.Itoa(len(p.nodes)))), th.TextDim, core.AlignLeft)
 	}
 	mask := s.Layers(first)
 	mixed := false
@@ -462,9 +465,9 @@ func (p *Panel) header(d *document.SceneDocument) {
 			break
 		}
 	}
-	if widgets.MaskField(ui, ui.ID("layers"), widgets.Field(ui, "Layers"), &mask, nil, mixed) {
+	if widgets.MaskField(ui, ui.ID("layers"), widgets.Field(ui, i18n.Tr("editor.inspector.layers", "Layers")), &mask, nil, mixed) {
 		m := mask
-		p.confirm(d, "Set Layers", func() error { return d.Props.SetLayers(nil, p.nodes, m) })
+		p.confirm(d, i18n.Tr("editor.inspector.set_layers", "Set Layers"), func() error { return d.Props.SetLayers(nil, p.nodes, m) })
 	}
 	p.spaceRow(d)
 }
@@ -487,7 +490,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 	ui := p.f.UI
 	ui.PushID("transform")
 	defer ui.PopID()
-	card := p.beginCard("transform", "Transform", "", "cat.transform", "Reset", false)
+	card := p.beginCard("transform", i18n.Tr("editor.inspector.transform", "Transform"), "", "cat.transform", i18n.Tr("editor.inspector.reset", "Reset"), false)
 	defer p.endCard(ui, card)
 	if card.action {
 		p.resetTransform(d)
@@ -512,7 +515,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 	}
 
 	pos := t.Position
-	e := widgets.Vec2Field(ui, posID, widgets.Field(ui, "Position"), &pos, widgets.NumberOpts{Speed: 0.05}, mixed[0], mixed[1])
+	e := widgets.Vec2Field(ui, posID, widgets.Field(ui, i18n.Tr("editor.inspector.position", "Position")), &pos, widgets.NumberOpts{Speed: 0.05}, mixed[0], mixed[1])
 	if e.Any() {
 		x, y := pos.X != t.Position.X, pos.Y != t.Position.Y
 		nt := t
@@ -531,7 +534,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 	}
 
 	deg := float64(mathx.Rad2Deg(t.Rotation))
-	e = widgets.DragNumber(ui, rotID, widgets.Field(ui, "Rotation"), &deg, widgets.NumberOpts{Speed: 0.5, Prec: 2, Suffix: "°", Mixed: mixed[2]})
+	e = widgets.DragNumber(ui, rotID, widgets.Field(ui, i18n.Tr("editor.inspector.rotation", "Rotation")), &deg, widgets.NumberOpts{Speed: 0.5, Prec: 2, Suffix: "°", Mixed: mixed[2]})
 	if e.Any() {
 		rad := mathx.Deg2Rad(float32(deg))
 		nt := t
@@ -545,7 +548,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 	}
 
 	sc := t.Scale
-	e = widgets.Vec2Field(ui, scaleID, widgets.Field(ui, "Scale"), &sc, widgets.NumberOpts{Speed: 0.01}, mixed[3], mixed[4])
+	e = widgets.Vec2Field(ui, scaleID, widgets.Field(ui, i18n.Tr("editor.inspector.scale", "Scale")), &sc, widgets.NumberOpts{Speed: 0.01}, mixed[3], mixed[4])
 	if e.Any() {
 		x, y := sc.X != t.Scale.X, sc.Y != t.Scale.Y
 		nt := t
@@ -589,7 +592,7 @@ func (p *Panel) components(d *document.SceneDocument) {
 	})
 	for _, sec := range groupComponents(p.reg, reg, p.types) {
 		r := ui.Cursor().Next(ui.LineHeight() + 4)
-		ui.Text(sec.Category, mathx.Vec2{X: r.X + 2, Y: r.Y + 3}, th.TextDisabled)
+		ui.Text(p.categoryTitle(sec.Category), mathx.Vec2{X: r.X + 2, Y: r.Y + 3}, th.TextDisabled)
 		for _, t := range sec.Types {
 			p.component(d, t)
 		}
@@ -597,7 +600,7 @@ func (p *Panel) components(d *document.SceneDocument) {
 	if hasUnknown && len(p.nodes) == 1 {
 		if u, ok := scene.Get[sceneio.Unknown](s, first); ok {
 			for _, c := range u.Components {
-				widgets.LabelDim(ui, c.TypeName+" (not loaded, kept as is)")
+				widgets.LabelDim(ui, i18n.Tr("editor.inspector.typename_not_loaded_kept_as", "{typename} (not loaded, kept as is)", i18n.Str("typename", c.TypeName)))
 			}
 		}
 	}
@@ -653,7 +656,7 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 				ui.Restore(mark)
 				msg := fmt.Sprint(rec)
 				p.reg.Disable(t, msg)
-				p.d.Notices.Notify(context.LevelError, "inspector for "+td.FullName+" crashed: "+msg)
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.inspector.inspector_for_fullname_crashed_msg", "inspector for {fullname} crashed: {msg}", i18n.Str("fullname", td.FullName), i18n.Str("msg", msg)))
 			}
 		}()
 		p.reg.DrawCustom(custom, p.nodes, def)
@@ -661,7 +664,7 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 }
 
 func (p *Panel) remove(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	p.confirm(d, "Remove "+p.reg.Meta(td).DisplayName, func() error {
+	p.confirm(d, i18n.Tr("editor.inspector.remove_name", "Remove {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)), func() error {
 		env := commands.EnvFor(d.Scene())
 		tx := d.History.Begin("Remove " + td.FullName)
 		for _, id := range p.nodes {
@@ -676,7 +679,7 @@ func (p *Panel) remove(d *document.SceneDocument, td *schema.TypeDescriptor) {
 }
 
 func (p *Panel) reset(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	p.confirm(d, "Reset "+p.reg.Meta(td).DisplayName, func() error {
+	p.confirm(d, i18n.Tr("editor.inspector.reset_name", "Reset {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)), func() error {
 		s := d.Scene()
 		env := commands.EnvFor(s)
 		defaults := p.reg.Defaults(td.ID)
@@ -721,20 +724,33 @@ func (p *Panel) addComponent(d *document.SceneDocument) {
 	}
 	ui.Rect(row, ui.WidgetColor(id))
 	ui.Outline(row, th.AccentDim)
-	ui.TextIn(row, "Add Component", th.Text, core.AlignCenter)
+	ui.TextIn(row, i18n.Tr("editor.inspector.add_component", "Add Component"), th.Text, core.AlignCenter)
 }
 
 func (p *Panel) nodeMenu(d *document.SceneDocument) {
 	ui := p.f.UI
-	if widgets.MenuItemIcon(ui, "Copy All Components", "", "edit.copy", len(p.types) > 0, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.copy_all_components", "Copy All Components"), "", "edit.copy", len(p.types) > 0, false) {
 		if err := p.d.Clip.CopyComponents(d.Scene(), p.nodes[0], p.types); err != nil {
 			p.report(err)
 		} else {
-			p.d.Notices.Notify(context.LevelInfo, "Copied "+strconv.Itoa(len(p.types))+" component(s)")
+			p.d.Notices.Notify(context.LevelInfo, i18n.TrN("editor.inspector.copied_components", int64(len(p.types)), "Copied {n} component", "Copied {n} components"))
 		}
 	}
 	can := p.d.Clip.Peek() == clipboard.KindComponents
-	if widgets.MenuItemIcon(ui, "Paste Components", "", "edit.paste", can, false) {
-		p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.paste_components", "Paste Components"), "", "edit.paste", can, false) {
+		p.confirm(d, i18n.Tr("editor.inspector.paste_components", "Paste Components"), func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
 	}
+}
+
+// categoryTitle translates a component category once per language, so the frame does not build keys.
+func (p *Panel) categoryTitle(cat string) string {
+	if lang := i18n.Default().Language(); lang != p.catLang || p.catNames == nil {
+		p.catLang, p.catNames = lang, map[string]string{}
+	}
+	t, ok := p.catNames[cat]
+	if !ok {
+		t = i18n.Lookup("editor.category."+strings.ToLower(cat), cat)
+		p.catNames[cat] = t
+	}
+	return t
 }

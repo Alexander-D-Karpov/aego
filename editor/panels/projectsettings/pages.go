@@ -3,6 +3,7 @@ package projectsettings
 import (
 	"aego/asset"
 	"aego/core/ids"
+	"aego/engine/i18n"
 	"aego/project"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -43,8 +44,8 @@ func textField(ui *core.Context, label string, v *string) bool {
 }
 
 func (p *Panel) drawProject(ui *core.Context, pr *project.Project) bool {
-	changed := textField(ui, "Name", &pr.Name)
-	ui.TextIn(widgets.Field(ui, "Module"), pr.Module, ui.Theme.TextDim, core.AlignLeft)
+	changed := textField(ui, i18n.Tr("editor.projectsettings.name", "Name"), &pr.Name)
+	ui.TextIn(widgets.Field(ui, i18n.Tr("editor.projectsettings.module", "Module")), pr.Module, ui.Theme.TextDim, core.AlignLeft)
 	if p.d.Pipeline != nil {
 		var names []string
 		var list []ids.AssetID
@@ -59,7 +60,7 @@ func (p *Panel) drawProject(ui *core.Context, pr *project.Project) bool {
 			names = append(names, a.Path)
 			list = append(list, a.ID)
 		}
-		if widgets.Combo(ui, ui.ID("main"), widgets.Field(ui, "Startup Scene"), &cur, names, false) && cur >= 0 {
+		if widgets.Combo(ui, ui.ID("main"), widgets.Field(ui, i18n.Tr("editor.projectsettings.startup_scene", "Startup Scene")), &cur, names, false) && cur >= 0 {
 			pr.MainScene = list[cur]
 			changed = true
 		}
@@ -68,7 +69,7 @@ func (p *Panel) drawProject(ui *core.Context, pr *project.Project) bool {
 	if pr.DefaultSpace == project.Space3D {
 		space = 1
 	}
-	if widgets.Combo(ui, ui.ID("space"), widgets.Field(ui, "Default Space"), &space, []string{"2D", "3D"}, false) {
+	if widgets.Combo(ui, ui.ID("space"), widgets.Field(ui, i18n.Tr("editor.projectsettings.default_space", "Default Space")), &space, []string{"2D", "3D"}, false) {
 		pr.DefaultSpace = project.Space2D
 		if space == 1 {
 			pr.DefaultSpace = project.Space3D
@@ -76,9 +77,9 @@ func (p *Panel) drawProject(ui *core.Context, pr *project.Project) bool {
 		changed = true
 	}
 	widgets.Separator(ui)
-	widgets.Label(ui, "Window")
-	changed = intField(ui, "Width", &pr.Window.Width, 64) || changed
-	changed = intField(ui, "Height", &pr.Window.Height, 64) || changed
-	changed = textField(ui, "Title", &pr.Window.Title) || changed
+	widgets.Label(ui, i18n.Tr("editor.projectsettings.window", "Window"))
+	changed = intField(ui, i18n.Tr("editor.projectsettings.width", "Width"), &pr.Window.Width, 64) || changed
+	changed = intField(ui, i18n.Tr("editor.projectsettings.height", "Height"), &pr.Window.Height, 64) || changed
+	changed = textField(ui, i18n.Tr("editor.projectsettings.game_title", "Title"), &pr.Window.Title) || changed
 	return changed
 }

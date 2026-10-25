@@ -5,6 +5,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/platform/clip"
 	"aego/scene"
 )
@@ -41,7 +42,7 @@ func (p *Panel) PasteImage() error {
 	}
 	sp := scene.Space2D
 	if !p.d.Templates.Accepts(ap.Kind, &sp) {
-		p.d.Notices.Notify(context.LevelWarn, "Saved "+rel+", no template turns it into a node")
+		p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.sceneview.saved_rel_no_template_turns", "Saved {rel}, no template turns it into a node", i18n.Str("rel", rel)))
 		return nil
 	}
 	p.spawn(ap, p.pasteAt())
@@ -63,7 +64,7 @@ func (p *Panel) paste3(ap context.AssetPayload, rel string) error {
 	sp := scene.Space3D
 	t, ok := p.d.Templates.ForAsset(ap.Kind, &sp, ap.ID, path.Base(ap.Name))
 	if !ok {
-		p.d.Notices.Notify(context.LevelWarn, "Saved "+rel+", no 3D template turns it into a node")
+		p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.sceneview.saved_rel_no_3d_template", "Saved {rel}, no 3D template turns it into a node", i18n.Str("rel", rel)))
 		return nil
 	}
 	px := mathx.Vec2{X: p.rect.W * p.scale / 2, Y: p.rect.H * p.scale / 2}

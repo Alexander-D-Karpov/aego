@@ -439,7 +439,7 @@ manifest version=6 {
       params=["string", "float"]
       result="void"
       names=["channel", "ttl"]
-      doc="Pen sets the channel and the lifetime of the next primitives this script draws: ttl 0 lasts one frame, a positive ttl lasts that many game seconds, a negative ttl lasts until Clear."
+      doc="Pen sets the channel and the lifetime of the next primitives this script draws. A ttl of 0 lasts one frame, a positive ttl that many game seconds, a negative ttl until Clear."
       example="debug.Pen(\"ai.path\", 2)"
     }
     func "PenUnscaled" {
@@ -2085,7 +2085,7 @@ manifest version=6 {
       params=["Rect", "int", "[]NodeRef"]
       result="int"
       names=["rect", "mask", "out"]
-      doc="InArea writes the bodies touching the rectangle on the layers in mask into out when physics runs; without physics, every enabled 2D node whose position lies in the rectangle, ignoring mask."
+      doc="InArea writes the bodies touching the rectangle on the layers in mask into out. Without physics it writes every enabled 2D node whose position lies in the rectangle, ignoring mask."
       example="n := scene.InArea(Rect{x - 2, y - 2, 4, 4}, -1, near)"
     }
     func "Instantiate" {
@@ -3658,7 +3658,7 @@ manifest version=6 {
   hsignal "Completed" handle="aego/tween.Tween" {
     params=["bool"]
     names=["finished"]
-    doc="Completed runs once when the tween ends: finished is true at its natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."
+    doc="Completed runs once when the tween ends. Its finished parameter is true at the natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."
   }
   component "engine.PrefabInstance" {
     short="PrefabInstance"
@@ -3903,7 +3903,7 @@ manifest version=6 {
     field "GravityScale" {
       type="float"
       readonly=false
-      doc="Multiplier of the project gravity for this body."
+      doc="Multiplier of the project gravity for this body; 0 makes it float."
     }
     field "LinearDamping" {
       type="float"
@@ -3948,17 +3948,17 @@ manifest version=6 {
     field "Velocity" {
       type="Vec2"
       readonly=true
-      doc="Current velocity in units per second, during Play."
+      doc="Velocity in units per second."
     }
     field "AngularVelocity" {
       type="float"
       readonly=true
-      doc="Current rotation speed in radians per second, during Play."
+      doc="Rotation speed in radians per second."
     }
     field "Awake" {
       type="bool"
       readonly=true
-      doc="Whether the body is simulated this step or sleeping, during Play."
+      doc="Whether the body is simulated this step or sleeping."
     }
   }
   component "physics.BoxCollider2D" {
@@ -4199,7 +4199,7 @@ manifest version=6 {
     field "Damping" {
       type="float"
       readonly=false
-      doc="Spring damping; higher values stop the oscillation sooner."
+      doc="Spring damping; 0 never damps, higher values stop the oscillation sooner."
     }
     field "CollideConnected" {
       type="bool"
@@ -4322,12 +4322,12 @@ manifest version=6 {
     field "MinDistance" {
       type="float"
       readonly=false
-      doc="Full volume up to this distance."
+      doc="Full volume up to this distance, in world units."
     }
     field "MaxDistance" {
       type="float"
       readonly=false
-      doc="Silent from this distance."
+      doc="Silent from this distance, in world units."
     }
     field "Rolloff" {
       type="Curve"
@@ -4404,7 +4404,7 @@ manifest version=6 {
     field "Speed" {
       type="float"
       readonly=false
-      doc="Playback speed; a negative speed plays backwards."
+      doc="Playback speed: 1 is normal, 2 twice as fast; a negative speed plays backwards."
     }
     field "Loop" {
       type="int"
@@ -4419,17 +4419,17 @@ manifest version=6 {
     field "Time" {
       type="float"
       readonly=true
-      doc="Time inside the clip, during Play."
+      doc="Time inside the clip, in seconds."
     }
     field "Playing" {
       type="bool"
       readonly=true
-      doc="Whether the clip plays, during Play."
+      doc="Whether the clip plays."
     }
     field "Cycle" {
       type="int"
       readonly=true
-      doc="Cycles of a looping clip so far, during Play."
+      doc="Cycles of a looping clip so far."
     }
   }
   component "animation.Animator" {
@@ -4450,7 +4450,7 @@ manifest version=6 {
     field "Speed" {
       type="float"
       readonly=false
-      doc="Multiplies the speed of every state."
+      doc="Multiplies the speed of every state; 1 is normal speed."
     }
     field "TimeDomain" {
       type="int"
@@ -4460,7 +4460,7 @@ manifest version=6 {
     field "RootMotion" {
       type="int"
       readonly=false
-      doc="What the root track of a clip moves: none ignores it, toMotion moves the node through its Motion 2D so walls and slopes stop it, toTransform moves the node's position."
+      doc="What the root track moves: none ignores it, toMotion moves the node through Motion 2D so walls stop it, toTransform sets its position."
     }
     field "RootFallback" {
       type="bool"
@@ -4475,22 +4475,22 @@ manifest version=6 {
     field "State" {
       type="string"
       readonly=true
-      doc="Current state, during Play."
+      doc="Current state."
     }
     field "Time" {
       type="float"
       readonly=true
-      doc="Seconds in the current state, during Play."
+      doc="Seconds in the current state."
     }
     field "Progress" {
       type="float"
       readonly=true
-      doc="Time in the current state divided by the length of its clip, during Play."
+      doc="Time in the current state divided by the length of its clip; 1 is one full clip."
     }
     field "Blending" {
       type="bool"
       readonly=true
-      doc="Whether a transition is blending, during Play."
+      doc="Whether a transition is blending."
     }
   }
   component "camera.VirtualCamera2D" {
@@ -4706,7 +4706,7 @@ manifest version=6 {
     field "GravityScale" {
       type="float"
       readonly=false
-      doc="Multiplies the physics gravity."
+      doc="Multiplies the physics gravity; 0 turns gravity off for the character."
     }
     field "MaxFallSpeed" {
       type="float"
@@ -4806,47 +4806,47 @@ manifest version=6 {
     field "Velocity" {
       type="Vec2"
       readonly=true
-      doc="Current velocity in units per second, during Play."
+      doc="Velocity in units per second."
     }
     field "Grounded" {
       type="bool"
       readonly=true
-      doc="Whether the character stands on a floor, during Play."
+      doc="Whether the character stands on a floor."
     }
     field "OnWall" {
       type="bool"
       readonly=true
-      doc="Whether the character touched a wall in the last step, during Play."
+      doc="Whether the character touched a wall in the last step."
     }
     field "OnCeiling" {
       type="bool"
       readonly=true
-      doc="Whether the character touched a ceiling in the last step, during Play."
+      doc="Whether the character touched a ceiling in the last step."
     }
     field "WallNormal" {
       type="Vec2"
       readonly=true
-      doc="Normal of the last wall touched, during Play."
+      doc="Normal of the last wall touched."
     }
     field "FloorNormal" {
       type="Vec2"
       readonly=true
-      doc="Normal of the floor under the character, during Play."
+      doc="Normal of the floor under the character."
     }
     field "FloorAngle" {
       type="float"
       readonly=true
-      doc="Slope of the floor in degrees, during Play."
+      doc="Slope of the floor in degrees."
     }
     field "GroundBody" {
       type="NodeRef"
       readonly=true
-      doc="Body the character stands on, during Play."
+      doc="Body the character stands on."
     }
     field "Climbing" {
       type="bool"
       readonly=true
-      doc="Whether the character is climbing onto a ledge, during Play."
+      doc="Whether the character is climbing onto a ledge."
     }
   }
   component "gameplay.Health" {
@@ -4949,7 +4949,7 @@ manifest version=6 {
     field "Knockback" {
       type="Vec2"
       readonly=false
-      doc="Push on a hit: velocity for a Motion 2D target, impulse for a dynamic body. Turns with the node."
+      doc="Push on a hit: velocity in units per second for a Motion 2D target, impulse for a dynamic body. Turns with the node."
     }
     field "KnockbackFromCenter" {
       type="bool"

@@ -20,6 +20,7 @@ import (
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/engine/recorder"
 	"aego/platform/input"
 	"aego/render/rt"
@@ -129,7 +130,7 @@ func (c *Controller) ReleaseHint() string {
 		return ""
 	}
 	if k := c.hint(); k != "" {
-		return k + " releases input"
+		return i18n.Tr("editor.play.k_releases_input", "{k} releases input", i18n.Str("k", k))
 	}
 	return ""
 }
@@ -298,7 +299,7 @@ func (c *Controller) Start(d *document.SceneDocument) error {
 		c.capture(0)
 	}
 	c.notify()
-	c.ctx.Notify(context.LevelInfo, "Play mode started")
+	c.ctx.Notify(context.LevelInfo, i18n.Note("editor.play.play_mode_started", "Play mode started"))
 	return nil
 }
 
@@ -363,7 +364,7 @@ func (c *Controller) start(data []byte, name string) error {
 		return errs.Wrap(err, errs.EditorDocument, "cannot clone the scene for play mode")
 	}
 	for _, u := range report.Unknown {
-		ctx.Notify(context.LevelWarn, "component "+u+" is not loaded in this build and does nothing in play mode")
+		ctx.Notify(context.LevelWarn, i18n.Note("editor.play.component_u_is_not_loaded", "component {u} is not loaded in this build and does nothing in play mode", i18n.Str("u", u)))
 	}
 	c.scene = s
 	c.world = engine.NewWorld("play")
@@ -470,7 +471,7 @@ func (c *Controller) Stop() {
 	c.stats = Stats{}
 	c.hist, c.cursor, c.beyond, c.stepReq = nil, 0, false, stepNone
 	c.notify()
-	c.ctx.Notify(context.LevelInfo, "Play mode stopped")
+	c.ctx.Notify(context.LevelInfo, i18n.Note("editor.play.play_mode_stopped", "Play mode stopped"))
 }
 
 func (c *Controller) CanCopyToEdit(nodes []ids.NodeID, t schema.TypeID) bool {
@@ -543,7 +544,7 @@ func (c *Controller) CopyToEdit(nodes []ids.NodeID, t schema.TypeID) error {
 		}
 	}
 	tx.Commit()
-	c.ctx.Notify(context.LevelInfo, "Copied "+td.FullName+" to the edit scene")
+	c.ctx.Notify(context.LevelInfo, i18n.Note("editor.play.copied_fullname_to_the_edit", "Copied {fullname} to the edit scene", i18n.Str("fullname", td.FullName)))
 	return nil
 }
 
@@ -651,7 +652,7 @@ func (c *Controller) Tick(dt float64) {
 		c.notify()
 	}
 	if c.breakWhy != "" {
-		c.ctx.Notify(context.LevelWarn, "Paused on tick "+strconv.FormatUint(t.Tick(), 10)+": "+c.breakWhy)
+		c.ctx.Notify(context.LevelWarn, i18n.Note("editor.play.paused_on_tick_formatuint_breakwhy", "Paused on tick {formatuint}: {breakwhy}", i18n.Str("formatuint", strconv.FormatUint(t.Tick(), 10)), i18n.Str("breakwhy", c.breakWhy)))
 		c.breakWhy = ""
 	}
 }

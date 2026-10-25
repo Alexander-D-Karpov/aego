@@ -9,6 +9,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/platform/clip"
 )
 
@@ -30,7 +31,7 @@ func (p *Panel) selectList(list []ids.AssetID) {
 func (p *Panel) CopySelected() error {
 	p.cut = cutSet{}
 	if paths := p.d.Files.CopyAssets(p.fileSelection()); len(paths) > 0 {
-		p.d.Notices.Notify(context.LevelInfo, "Copied "+strconv.Itoa(len(paths))+" asset(s)")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.copied_paths_asset_s", "Copied {paths} asset(s)", i18n.Str("paths", strconv.Itoa(len(paths)))))
 	}
 	return nil
 }
@@ -43,7 +44,7 @@ func (p *Panel) CutSelected() error {
 		return nil
 	}
 	p.cut = cutSet{list: list, paths: paths}
-	p.d.Notices.Notify(context.LevelInfo, "Cut "+strconv.Itoa(len(paths))+" asset(s), paste into another folder to move them")
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.cut_paths_asset_s_paste", "Cut {paths} asset(s), paste into another folder to move them", i18n.Str("paths", strconv.Itoa(len(paths)))))
 	return nil
 }
 
@@ -64,7 +65,7 @@ func (p *Panel) Paste(dir string) error {
 	if img, ok := clip.Image(p.d.Files.Clipboard()); ok {
 		return p.pasteImage(img, dir)
 	}
-	p.d.Notices.Notify(context.LevelInfo, "The clipboard has no image or files to paste")
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.the_clipboard_has_no_image", "The clipboard has no image or files to paste"))
 	return nil
 }
 
@@ -144,7 +145,7 @@ func (p *Panel) pasteFiles(files []string, dir string) error {
 		p.folder, p.search = dir, ""
 		p.expanded[path.Dir(dir)] = true
 		p.selectList(made)
-		p.d.Notices.Notify(context.LevelInfo, "Pasted "+strconv.Itoa(len(made))+" file(s) into "+dir)
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.pasted_made_file_s_into", "Pasted {made} file(s) into {dir}", i18n.Str("made", strconv.Itoa(len(made))), i18n.Str("dir", dir)))
 	}
 	p.invalidate()
 	return first

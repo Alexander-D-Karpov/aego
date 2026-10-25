@@ -6,6 +6,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/ui/widgets"
 )
 
@@ -17,29 +18,31 @@ type kmRow struct {
 	keys   string
 }
 
-var editorKeys = []kmRow{
-	{name: "Completion", keys: "Ctrl+Space"},
-	{name: "Parameter info", keys: "Ctrl+P"},
-	{name: "Quick documentation", keys: "Ctrl+Q"},
-	{name: "Open documentation", keys: "F1"},
-	{name: "Go to declaration", keys: "F12 · Ctrl+B · Ctrl+Click"},
-	{name: "Peek definition", keys: "Ctrl+Shift+I"},
-	{name: "Find usages", keys: "Shift+F12 · Alt+F7"},
-	{name: "File structure", keys: "Ctrl+F12"},
-	{name: "Back / forward", keys: "Ctrl+Alt+Left / Right"},
-	{name: "Next / previous error", keys: "F2 / Shift+F2"},
-	{name: "Find / replace in file", keys: "Ctrl+F / Ctrl+H"},
-	{name: "Find in scripts", keys: "Ctrl+Shift+F"},
-	{name: "Toggle comment", keys: "Ctrl+/"},
-	{name: "Indent / outdent", keys: "Tab / Shift+Tab"},
-	{name: "Duplicate line", keys: "Ctrl+D"},
-	{name: "Delete line", keys: "Ctrl+Shift+K"},
-	{name: "Move line", keys: "Alt+Up / Down"},
-	{name: "Expand / shrink selection", keys: "Ctrl+W / Ctrl+Shift+W"},
-	{name: "Split right / down", keys: "Ctrl+\\ / Ctrl+Shift+\\"},
-	{name: "Save", keys: "Ctrl+S"},
-	{name: "Close tab", keys: "Ctrl+F4"},
-	{name: "Float a panel", keys: "Shift+drag a tab · right-click a tab"},
+func editorKeys() []kmRow {
+	return []kmRow{
+		{name: i18n.Tr("editor.keymap.completion", "Completion"), keys: "Ctrl+Space"},
+		{name: i18n.Tr("editor.keymap.parameter_info", "Parameter info"), keys: "Ctrl+P"},
+		{name: i18n.Tr("editor.keymap.quick_documentation", "Quick documentation"), keys: "Ctrl+Q"},
+		{name: i18n.Tr("editor.keymap.open_documentation", "Open documentation"), keys: "F1"},
+		{name: i18n.Tr("editor.keymap.go_to_declaration", "Go to declaration"), keys: "F12 · Ctrl+B · Ctrl+Click"},
+		{name: i18n.Tr("editor.keymap.peek_definition", "Peek definition"), keys: "Ctrl+Shift+I"},
+		{name: i18n.Tr("editor.keymap.find_usages", "Find usages"), keys: "Shift+F12 · Alt+F7"},
+		{name: i18n.Tr("editor.keymap.file_structure", "File structure"), keys: "Ctrl+F12"},
+		{name: i18n.Tr("editor.keymap.back_forward", "Back / forward"), keys: "Ctrl+Alt+Left / Right"},
+		{name: i18n.Tr("editor.keymap.next_previous_error", "Next / previous error"), keys: "F2 / Shift+F2"},
+		{name: i18n.Tr("editor.keymap.find_replace_in_file", "Find / replace in file"), keys: "Ctrl+F / Ctrl+H"},
+		{name: i18n.Tr("editor.keymap.find_in_scripts", "Find in scripts"), keys: "Ctrl+Shift+F"},
+		{name: i18n.Tr("editor.keymap.toggle_comment", "Toggle comment"), keys: "Ctrl+/"},
+		{name: i18n.Tr("editor.keymap.indent_outdent", "Indent / outdent"), keys: "Tab / Shift+Tab"},
+		{name: i18n.Tr("editor.keymap.duplicate_line", "Duplicate line"), keys: "Ctrl+D"},
+		{name: i18n.Tr("editor.keymap.delete_line", "Delete line"), keys: "Ctrl+Shift+K"},
+		{name: i18n.Tr("editor.keymap.move_line", "Move line"), keys: "Alt+Up / Down"},
+		{name: i18n.Tr("editor.keymap.expand_shrink_selection", "Expand / shrink selection"), keys: "Ctrl+W / Ctrl+Shift+W"},
+		{name: i18n.Tr("editor.keymap.split_right_down", "Split right / down"), keys: "Ctrl+\\ / Ctrl+Shift+\\"},
+		{name: i18n.Tr("editor.keymap.save", "Save"), keys: "Ctrl+S"},
+		{name: i18n.Tr("editor.keymap.close_tab", "Close tab"), keys: "Ctrl+F4"},
+		{name: i18n.Tr("editor.keymap.float_a_panel", "Float a panel"), keys: "Shift+drag a tab · right-click a tab"},
+	}
 }
 
 type Keymap struct {
@@ -58,7 +61,7 @@ func (k *Keymap) ID() string {
 }
 
 func (k *Keymap) Title() string {
-	return "Keymap"
+	return i18n.Tr("editor.keymap.title", "Keymap")
 }
 
 func (k *Keymap) build() {
@@ -79,7 +82,7 @@ func (k *Keymap) build() {
 			k.rows = k.rows[:start]
 		}
 	}
-	section("Code editor", editorKeys)
+	section(i18n.Tr("editor.help.code_editor", "Code editor"), editorKeys())
 	byCat := map[string][]kmRow{}
 	var cats []string
 	for _, d := range k.cmds.All() {
@@ -89,12 +92,12 @@ func (k *Keymap) build() {
 		}
 		cat := d.Category
 		if cat == "" {
-			cat = "Panels"
+			cat = i18n.Tr("editor.menu.panels", "Panels")
 		}
 		if _, ok := byCat[cat]; !ok {
 			cats = append(cats, cat)
 		}
-		byCat[cat] = append(byCat[cat], kmRow{name: d.Name, keys: keys})
+		byCat[cat] = append(byCat[cat], kmRow{name: d.Title(), keys: keys})
 	}
 	for _, c := range cats {
 		section(c, byCat[c])

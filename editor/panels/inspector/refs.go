@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/props"
+	"aego/engine/i18n"
 	"aego/render/texture"
 	"aego/scene"
 	"aego/schema"
@@ -63,11 +64,11 @@ func hasComponent(s *scene.Scene, h scene.NodeHandle, name string) bool {
 
 func nodeState(s *scene.Scene, id ids.NodeID, need string) refInfo {
 	if id.IsZero() {
-		return refInfo{kind: refNil, label: "None"}
+		return refInfo{kind: refNil, label: i18n.Tr("editor.inspector.none", "None")}
 	}
 	h := s.Handle(id)
 	if h.IsZero() || !s.IsAlive(h) {
-		return refInfo{kind: refMissing, label: "Missing", tooltip: "Node " + id.String() + " is not in this scene"}
+		return refInfo{kind: refMissing, label: i18n.Tr("editor.inspector.missing", "Missing"), tooltip: i18n.Tr("editor.inspector.node_not_in_scene", "Node {id} is not in this scene", i18n.Str("id", id.String()))}
 	}
 	icon, name, where := props.NodeLabel(s, h, false)
 	if need != "" && !hasComponent(s, h, need) {
@@ -78,17 +79,17 @@ func nodeState(s *scene.Scene, id ids.NodeID, need string) refInfo {
 
 func assetState(pl *pipeline.Pipeline, id ids.AssetID) refInfo {
 	if id.IsZero() {
-		return refInfo{kind: refNil, label: "None"}
+		return refInfo{kind: refNil, label: i18n.Tr("editor.inspector.none", "None")}
 	}
 	if b, ok := asset.LookupBuiltin(id); ok {
-		return refInfo{kind: refExternal, label: path.Base(b.Name), tooltip: "Engine builtin " + b.Name}
+		return refInfo{kind: refExternal, label: path.Base(b.Name), tooltip: i18n.Tr("editor.inspector.engine_builtin", "Engine builtin {name}", i18n.Str("name", b.Name))}
 	}
 	if pl != nil {
 		if e, ok := pl.Entry(id); ok && !e.Missing {
 			return refInfo{kind: refAlive, label: path.Base(e.Name), tooltip: e.Name}
 		}
 	}
-	return refInfo{kind: refMissing, label: "Missing asset", tooltip: "Asset " + id.String() + " is not imported"}
+	return refInfo{kind: refMissing, label: i18n.Tr("editor.inspector.missing_asset", "Missing asset"), tooltip: i18n.Tr("editor.inspector.asset_not_imported", "Asset {id} is not imported", i18n.Str("id", id.String()))}
 }
 
 func fitThumb(box mathx.Rect, reg texture.Region) mathx.Rect {
@@ -220,9 +221,9 @@ func (p *Panel) thumbRow(id core.ID, label string, asset ids.AssetID, selected b
 	}
 	ui.Text(label, mathx.Vec2{X: ir.X + ir.W + 8, Y: ui.TextY(r)}, th.Text)
 	if audible {
-		icon, tip := "play.start", "Play"
+		icon, tip := "play.start", i18n.Tr("editor.common.play", "Play")
 		if playing {
-			icon, tip = "play.stop", "Stop"
+			icon, tip = "play.stop", i18n.Tr("editor.common.stop", "Stop")
 		}
 		if widgets.IconButton(ui, core.IDSeq(id, 1), play, icon, tip) {
 			p.d.Audition(asset, true)
@@ -275,7 +276,7 @@ func (p *Panel) assetField(id core.ID, r mathx.Rect, fd *schema.FieldDescriptor,
 			ui.ClosePopup(pid)
 		}
 	}
-	pickRow(core.IDSeq(pid, 2), "None", ids.AssetID{})
+	pickRow(core.IDSeq(pid, 2), i18n.Tr("editor.inspector.none", "None"), ids.AssetID{})
 	for i, b := range asset.Builtins() {
 		if !context.AssetMatches(fd.AssetKind, b.Kind) {
 			continue
@@ -339,7 +340,7 @@ func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v
 		return e
 	}
 	widgets.SearchField(ui, core.IDSeq(pid, 1), ui.Cursor().Next(0), &p.pick)
-	if widgets.Selectable(ui, core.IDSeq(pid, 2), "None", cur.IsZero()) {
+	if widgets.Selectable(ui, core.IDSeq(pid, 2), i18n.Tr("editor.inspector.none", "None"), cur.IsZero()) {
 		*v = schema.Node(ids.NodeID{})
 		e = all
 		ui.ClosePopup(pid)

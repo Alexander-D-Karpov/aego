@@ -2,6 +2,7 @@ package editor
 
 import (
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/modules/input"
 	"aego/ui/core"
 )
@@ -80,11 +81,11 @@ func badge(ui *core.Context, at mathx.Vec2, h float32, label string) float32 {
 func deviceOf(b *input.Binding) string {
 	switch b.Parts[0].Device {
 	case input.DevKey:
-		return "Keyboard"
+		return i18n.Tr("i18n.input.keyboard", "Keyboard")
 	case input.DevMouse, input.DevMouseAxis:
-		return "Mouse"
+		return i18n.Tr("i18n.input.mouse", "Mouse")
 	}
-	return "Gamepad"
+	return i18n.Tr("i18n.input.gamepad", "Gamepad")
 }
 
 type card struct {

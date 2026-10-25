@@ -384,6 +384,25 @@ func (w *Window) SetCursor(s platform.CursorShape) {
 
 func (w *Window) CaptureMouse(bool) {}
 
+func (w *Window) PreferredLocales() []string {
+	nav := w.p.global.Get("navigator")
+	if nav.Type() != js.TypeObject {
+		return nil
+	}
+	var out []string
+	if ls := nav.Get("languages"); ls.Type() == js.TypeObject {
+		for i := 0; i < ls.Length(); i++ {
+			out = append(out, ls.Index(i).String())
+		}
+	}
+	if len(out) == 0 {
+		if l := nav.Get("language"); l.Type() == js.TypeString {
+			out = append(out, l.String())
+		}
+	}
+	return out
+}
+
 func (w *Window) SystemTheme() platform.SystemTheme {
 	if w.dark.Type() != js.TypeObject {
 		return platform.ThemeUnknown

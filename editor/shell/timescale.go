@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/play"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -77,15 +78,15 @@ func (a *App) registerTime() error {
 
 func (a *App) askTimeScale() {
 	a.ctx.Ask(context.Question{
-		Title:   "Time scale",
-		Message: "From 0 to 8, 1 is normal speed",
-		Fields:  []string{"Scale"},
+		Title:   i18n.Tr("editor.shell.time_scale", "Time scale"),
+		Message: i18n.Tr("editor.shell.from_0_to_8_1", "From 0 to 8, 1 is normal speed"),
+		Fields:  []string{i18n.Tr("editor.shell.scale", "Scale")},
 		Values:  []string{strconv.FormatFloat(a.play.TimeScale(), 'g', -1, 64)},
-		Buttons: []string{"Set", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.shell.set", "Set"), i18n.Tr("editor.shell.cancel", "Cancel")},
 		Submit: func(v []string) {
 			s, err := strconv.ParseFloat(strings.TrimSpace(v[0]), 64)
 			if err != nil || s < 0 || s > clock.MaxScale {
-				a.ctx.Notify(context.LevelWarn, "Time scale must be a number from 0 to 8")
+				a.ctx.Notify(context.LevelWarn, i18n.Note("editor.shell.time_scale_must_be_a", "Time scale must be a number from 0 to 8"))
 				return
 			}
 			a.play.SetTimeScale(s)
@@ -105,7 +106,7 @@ func (a *App) scalePopup(id core.ID) {
 		}
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Custom…", "", "play.speed", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.shell.custom", "Custom…"), "", "play.speed", true, false) {
 		a.askTimeScale()
 	}
 	ui.EndPopup()
@@ -117,9 +118,9 @@ func (a *App) playStatus() (string, mathx.Color) {
 	tail := " · Tick " + strconv.FormatUint(st.Tick, 10) + " · Frame " + strconv.FormatUint(st.Updates, 10) + " · " + scaleLabel(a.play.TimeScale())
 	switch a.play.State() {
 	case play.Playing:
-		return "Play " + clockText(a.play.SimTime()) + tail, th.Accent
+		return i18n.Tr("editor.shell.play_simtime_tail", "Play {simtime}{tail}", i18n.Str("simtime", clockText(a.play.SimTime())), i18n.Str("tail", tail)), th.Accent
 	case play.Paused:
-		return "Paused " + clockTextFine(a.play.SimTime()) + tail, th.Warn
+		return i18n.Tr("editor.shell.paused_simtime_tail", "Paused {simtime}{tail}", i18n.Str("simtime", clockTextFine(a.play.SimTime())), i18n.Str("tail", tail)), th.Warn
 	}
-	return "Edit", th.TextDim
+	return i18n.Tr("editor.shell.state_edit", "Edit"), th.TextDim
 }

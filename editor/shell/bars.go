@@ -9,13 +9,14 @@ import (
 	"aego/editor/core/play"
 	"aego/editor/core/templates"
 	"aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/ui/widgets"
 )
 
 func (a *App) menuCategories() []string {
 	reg := a.ctx.Commands
 	base := []string{"File", "Edit", "Create", "Scene", "Play", "Assets", "Window"}
-	known := map[string]bool{themeCategory: true}
+	known := map[string]bool{themeCategory: true, languageCategory: true}
 	var out []string
 	for _, c := range base {
 		known[c] = true
@@ -40,15 +41,11 @@ func (a *App) commandItems(cat string) {
 			widgets.Separator(ui)
 		}
 		last = d.Order
-		label := d.Name
-		if d.Label != nil {
-			label = d.Label()
-		}
 		it := widgets.Item{
-			Label:    label,
+			Label:    d.Title(),
 			Shortcut: d.Shortcut.String(),
 			Icon:     d.Icon,
-			Tip:      d.Tip,
+			Tip:      d.TipText(),
 			Enabled:  reg.Enabled(d.ID),
 			Checked:  d.Checked != nil && d.Checked(),
 		}
@@ -83,7 +80,7 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 	mb := widgets.BeginMenuBar(ui, r)
 	for _, cat := range a.menuCategories() {
 		if cat == "Create" {
-			if hit, at := mb.Button(cat); hit && ctx.Doc() != nil {
+			if hit, at := mb.Button(menuTitle(cat)); hit && ctx.Doc() != nil {
 				parent := ids.NodeID{}
 				if it, ok := ctx.Selection.Active(); ok && it.Doc == ctx.Doc().ID {
 					parent = it.Node
@@ -92,7 +89,7 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 			}
 			continue
 		}
-		if !mb.Menu(cat, 280) {
+		if !mb.Menu(menuTitle(cat), 280) {
 			continue
 		}
 		switch cat {
@@ -101,7 +98,8 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 			a.sceneDocs()
 		case "Window":
 			a.commandItems(cat)
-			a.themeMenu()
+			a.subMenu(themeCategory, true)
+			a.subMenu(languageCategory, false)
 		default:
 			a.commandItems(cat)
 		}
@@ -110,10 +108,10 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 	if !a.opt.Supervised || a.buildState == widgets.DotOK {
 		return
 	}
-	label, tip := "native building", "Native code is being rebuilt"
+	label, tip := "native building", i18n.Tr("editor.shell.native_code_is_being_rebuilt", "Native code is being rebuilt")
 	if a.buildState == widgets.DotError {
-		label = "Native API is stale"
-		tip = "The last native build failed; the editor and scripts use the previous native API. Click to see the build output"
+		label = i18n.Tr("editor.shell.native_api_is_stale", "Native API is stale")
+		tip = i18n.Tr("editor.shell.the_last_native_build_failed", "The last native build failed; the editor and scripts use the previous native API. Click to see the build output")
 	}
 	w := ui.TextSize(label).X + 24
 	dr := mathx.Rect{X: r.X + r.W - 8 - w, Y: r.Y + 2, W: w, H: r.H - 4}
@@ -138,7 +136,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	wsLabel := a.ws.Current().Title + "   "
 	wsX := saveX - ui.TextSize(wsLabel).X - 22
 	bw := tb.ButtonW()
-	scale, tick := scaleLabel(a.play.TimeScale())+"   ", "+1 tick"
+	scale, tick := scaleLabel(a.play.TimeScale())+"   ", i18n.Tr("editor.shell.plus_one_tick", "+1 tick")
 	width := 4*bw + ui.TextSize(scale).X + ui.TextSize(tick).X + 28 + 2*9 + 8
 	x := max(r.X+(r.W-width)/2, r.X+6)
 	sid := ui.ID("tb.scale")
@@ -156,11 +154,11 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		if st == play.Stopped {
 			blocked = a.scriptErrors()
 		}
-		playTip := "Play (" + reg.Shortcut(command.PlayStart) + "), full screen (" + reg.Shortcut(CommandFullscreenPlay) + ")"
+		playTip := i18n.Tr("editor.shell.play_playstart_full_screen_commandfullscreenplay", "Play ({playstart}), full screen ({commandfullscreenplay})", i18n.Str("playstart", reg.Shortcut(command.PlayStart)), i18n.Str("commandfullscreenplay", reg.Shortcut(CommandFullscreenPlay)))
 		noSource := st == play.Stopped && a.ctx.Docs.Edit() != nil && !a.canPlay()
 		switch {
 		case blocked > 0:
-			playTip = strconv.Itoa(blocked) + " script package error(s), see Problems"
+			playTip = i18n.Tr("editor.shell.blocked_script_package_error_s", "{blocked} script package error(s), see Problems", i18n.Str("blocked", strconv.Itoa(blocked)))
 		case noSource:
 			playTip = playPrefabHint
 		}
@@ -176,17 +174,17 @@ func (a *App) drawToolbar(r mathx.Rect) {
 				a.play.Pause()
 			}
 		}
-		if tb.Button(ui.ID("tb.pause"), "play.pause", "Pause ("+reg.Shortcut(command.PlayPause)+")", st == play.Paused, st != play.Stopped) {
+		if tb.Button(ui.ID("tb.pause"), "play.pause", i18n.Tr("editor.shell.pause_playpause", "Pause ({playpause})", i18n.Str("playpause", reg.Shortcut(command.PlayPause))), st == play.Paused, st != play.Stopped) {
 			a.play.Pause()
 		}
-		if tb.Button(ui.ID("tb.step"), "play.step", "Step one frame ("+reg.Shortcut(command.PlayStep)+")", false, st == play.Paused) {
+		if tb.Button(ui.ID("tb.step"), "play.step", i18n.Tr("editor.shell.step_one_frame_playstep", "Step one frame ({playstep})", i18n.Str("playstep", reg.Shortcut(command.PlayStep))), false, st == play.Paused) {
 			a.play.Step()
 		}
-		if clicked, _ := tb.TextButton(ui.ID("tb.tick"), tick, "Step one fixed tick ("+reg.Shortcut(command.PlayStepFixed)+"), while paused"); clicked && reg.Enabled(command.PlayStepFixed) {
+		if clicked, _ := tb.TextButton(ui.ID("tb.tick"), tick, i18n.Tr("editor.shell.step_one_fixed_tick_playstepfixed", "Step one fixed tick ({playstepfixed}), while paused", i18n.Str("playstepfixed", reg.Shortcut(command.PlayStepFixed)))); clicked && reg.Enabled(command.PlayStepFixed) {
 			reg.Run(command.PlayStepFixed)
 		}
 		tb.Separator()
-		clicked, sr := tb.TextButton(sid, scale, "Time scale")
+		clicked, sr := tb.TextButton(sid, scale, i18n.Tr("editor.shell.time_scale", "Time scale"))
 		caret := th.TextDim
 		if tb.Label.A > 0 {
 			caret = tb.Label
@@ -202,7 +200,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		}
 		tb.Separator()
 		tb.Active = th.Error
-		if tb.TintButton(ui.ID("tb.stop"), "play.stop", "Stop", st != play.Stopped, st != play.Stopped, th.Text) {
+		if tb.TintButton(ui.ID("tb.stop"), "play.stop", i18n.Tr("editor.shell.stop", "Stop"), st != play.Stopped, st != play.Stopped, th.Text) {
 			a.stopPlay()
 		}
 		tb.Active, tb.Label = mathx.Color{}, mathx.Color{}
@@ -210,7 +208,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	wid := ui.ID("tb.workspace")
 	if wsX > r.X+6 {
 		tb.SetX(wsX)
-		clicked, wr := tb.TextButton(wid, wsLabel, "Workspace ("+reg.Shortcut(WorkspaceCommand(0))+"…4)")
+		clicked, wr := tb.TextButton(wid, wsLabel, i18n.Tr("editor.shell.workspace_v_4", "Workspace ({v}…4)", i18n.Str("v", reg.Shortcut(WorkspaceCommand(0)))))
 		widgets.Chevron(ui, mathx.Rect{X: wr.X + wr.W - 18, Y: float32(int(wr.Y + (wr.H-19)/2 + 1)), W: 19, H: 19}, true, th.TextDim)
 		if clicked {
 			if ui.PopupOpen(wid) {
@@ -222,25 +220,27 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		}
 	}
 	tb.SetX(saveX)
-	if tb.Button(ui.ID("tb.save"), "file.save", "Save ("+reg.Shortcut(command.FileSave)+")", false, reg.Enabled(command.FileSave)) {
+	if tb.Button(ui.ID("tb.save"), "file.save", i18n.Tr("editor.shell.save_filesave", "Save ({filesave})", i18n.Str("filesave", reg.Shortcut(command.FileSave))), false, reg.Enabled(command.FileSave)) {
 		reg.Run(command.FileSave)
 	}
 	a.scalePopup(sid)
 	a.workspacePopup(wid)
 }
 
-func (a *App) themeMenu() {
+func (a *App) subMenu(cat string, sep bool) {
 	ui := a.ui
 	reg := a.ctx.Commands
-	if !reg.HasCategory(themeCategory) {
+	if !reg.HasCategory(cat) {
 		return
 	}
-	widgets.Separator(ui)
-	if !widgets.SubMenu(ui, themeCategory, 160) {
+	if sep {
+		widgets.Separator(ui)
+	}
+	if !widgets.SubMenu(ui, menuTitle(cat), 160) {
 		return
 	}
-	for _, d := range reg.Category(themeCategory) {
-		if widgets.Entry(ui, widgets.Item{Label: themeLabel(d.Name), Tip: d.Tip, Enabled: true, Checked: d.Checked()}) {
+	for _, d := range reg.Category(cat) {
+		if widgets.Entry(ui, widgets.Item{Label: subLabel(cat, d.Title()), Tip: d.TipText(), Enabled: true, Checked: d.Checked()}) {
 			reg.Run(d.ID)
 		}
 	}

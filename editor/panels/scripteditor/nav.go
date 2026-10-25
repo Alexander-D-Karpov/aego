@@ -2,6 +2,7 @@ package scripteditor
 
 import (
 	"aego/editor/core/fuzzy"
+	"aego/engine/i18n"
 	"path"
 	"sort"
 	"strconv"
@@ -617,7 +618,7 @@ func lensLabel(n int) string {
 	case 1:
 		return "attached to 1 node"
 	}
-	return "attached to " + strconv.Itoa(n) + " nodes"
+	return i18n.Tr("editor.scripteditor.attached_to_n_nodes", "attached to {n} nodes", i18n.Str("n", strconv.Itoa(n)))
 }
 
 func (p *Panel) docsAt() {

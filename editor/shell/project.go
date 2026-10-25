@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/shell/launcher"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/platform"
 	"aego/project"
 )
@@ -135,7 +136,7 @@ func (a *App) recentAt(i int) (launcher.Entry, bool) {
 
 func (a *App) leave(target, tab string) {
 	if err := a.opt.Relaunch(target, tab); err != nil {
-		a.ctx.Notify(context.LevelError, "cannot start the editor again: "+err.Error())
+		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.cannot_start_the_editor_again", "cannot start the editor again: {error}", i18n.Str("error", err.Error())))
 		return
 	}
 	a.quitting = true
@@ -151,9 +152,9 @@ func (a *App) switchTo(target, tab string) error {
 		return nil
 	}
 	a.ctx.Ask(context.Question{
-		Title:   "Unsaved changes",
-		Message: "Save the changed scenes and scripts before leaving this project?",
-		Buttons: []string{"Save and Continue", "Discard", "Cancel"},
+		Title:   i18n.Tr("editor.shell.unsaved_changes", "Unsaved changes"),
+		Message: i18n.Tr("editor.shell.save_the_changed_scenes_and", "Save the changed scenes and scripts before leaving this project?"),
+		Buttons: []string{i18n.Tr("editor.shell.save_and_continue", "Save and Continue"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.cancel", "Cancel")},
 		Then: func(choice int) {
 			switch choice {
 			case 0:
@@ -174,7 +175,7 @@ func (a *App) openProject() error {
 	open := func(path string) {
 		root, ok := launcher.ProjectRoot(strings.TrimSpace(path))
 		if !ok {
-			a.ctx.Notify(context.LevelError, "No "+project.FileName+" in "+path)
+			a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.no_filename_in_path", "No {filename} in {path}", i18n.Str("filename", project.FileName), i18n.Str("path", path)))
 			return
 		}
 		if err := a.switchTo(root, ""); err != nil {
@@ -186,10 +187,10 @@ func (a *App) openProject() error {
 		return nil
 	}
 	a.ctx.Ask(context.Question{
-		Title:   "Open project",
-		Fields:  []string{"Folder"},
+		Title:   i18n.Tr("editor.shell.open_project", "Open project"),
+		Fields:  []string{i18n.Tr("editor.shell.folder", "Folder")},
 		Values:  []string{filepath.Dir(a.opt.Project.Root)},
-		Buttons: []string{"Open", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.shell.open", "Open"), i18n.Tr("editor.shell.cancel", "Cancel")},
 		Submit:  func(v []string) { open(v[0]) },
 	})
 	return nil
@@ -225,7 +226,7 @@ func (a *App) bugURL() string {
 
 func (a *App) runTests() error {
 	a.testsRunning = true
-	a.ctx.Notify(context.LevelInfo, "Running script tests…")
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.running_script_tests", "Running script tests…"))
 	return a.opt.RunTests(a.testsDone)
 }
 
@@ -242,15 +243,15 @@ func (a *App) testsDone(out string, failed bool) {
 	}
 	a.ws.Show(workspace.Console)
 	if failed {
-		a.ctx.Notify(context.LevelError, "Script tests failed, see Console and Problems")
+		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.script_tests_failed_see_console", "Script tests failed, see Console and Problems"))
 		return
 	}
-	a.ctx.Notify(context.LevelInfo, "Script tests passed")
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.script_tests_passed", "Script tests passed"))
 }
 
 func (a *App) nativeHint() string {
 	if a.opt.NativeNote == "" {
 		return ""
 	}
-	return "Go not found — native code is not built (Help → Install Go)"
+	return i18n.Tr("editor.shell.go_not_found_native_code", "Go not found — native code is not built (Help → Install Go)")
 }

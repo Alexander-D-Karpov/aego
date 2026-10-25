@@ -2,6 +2,7 @@ package batchrename
 
 import (
 	"aego/asset/pipeline"
+	"aego/engine/i18n"
 	"path"
 	"strconv"
 	"strings"
@@ -26,7 +27,9 @@ const (
 	targetNodes
 )
 
-var caseNames = []string{"Keep case", "lower", "UPPER", "Title"}
+func caseNames() []string {
+	return []string{i18n.Tr("editor.batchrename.case.keep", "Keep case"), i18n.Tr("editor.batchrename.case.lower", "lower"), i18n.Tr("editor.batchrename.case.upper", "UPPER"), i18n.Tr("editor.batchrename.case.title", "Title")}
+}
 
 type Deps struct {
 	Pipeline *pipeline.Pipeline
@@ -168,9 +171,9 @@ func (g *Dialog) Draw(ui *core.Context) {
 		g.close(ui)
 		return
 	}
-	title := "Batch Rename " + strconv.Itoa(len(g.items())) + " asset(s)"
+	title := i18n.Tr("editor.batchrename.batch_rename_items_asset_s", "Batch Rename {items} asset(s)", i18n.Str("items", strconv.Itoa(len(g.items()))))
 	if g.what == targetNodes {
-		title = "Batch Rename " + strconv.Itoa(len(g.items())) + " node(s)"
+		title = i18n.Tr("editor.batchrename.batch_rename_items_node_s", "Batch Rename {items} node(s)", i18n.Str("items", strconv.Itoa(len(g.items()))))
 	}
 	widgets.Label(ui, title)
 	field := func(label string, s *string) {
@@ -182,18 +185,18 @@ func (g *Dialog) Draw(ui *core.Context) {
 			g.dirty = true
 		}
 	}
-	field("Pattern", &g.rule.Pattern)
+	field(i18n.Tr("editor.batchrename.pattern", "Pattern"), &g.rule.Pattern)
 	widgets.LabelDim(ui, "{name}  {n}  {n:03}  {parent}  {ext}")
-	field("Find", &g.rule.Find)
-	field("Replace", &g.rule.Replace)
+	field(i18n.Tr("editor.batchrename.find", "Find"), &g.rule.Find)
+	field(i18n.Tr("editor.batchrename.replace", "Replace"), &g.rule.Replace)
 	row := ui.Cursor().Next(0)
 	rx := row.X
 	regex := g.rule.Regex
-	if widgets.ToggleButton(ui, ui.ID("regex"), mathx.Rect{X: rx, Y: row.Y, W: 70, H: row.H}, ".* Regex", &regex) {
+	if widgets.ToggleButton(ui, ui.ID("regex"), mathx.Rect{X: rx, Y: row.Y, W: 70, H: row.H}, i18n.Tr("editor.batchrename.regex", ".* Regex"), &regex) {
 		g.rule.Regex, g.dirty = regex, true
 	}
 	rx += 76
-	if widgets.Combo(ui, ui.ID("case"), mathx.Rect{X: rx, Y: row.Y, W: 120, H: row.H}, &g.caseIdx, caseNames, false) {
+	if widgets.Combo(ui, ui.ID("case"), mathx.Rect{X: rx, Y: row.Y, W: 120, H: row.H}, &g.caseIdx, caseNames(), false) {
 		g.dirty = true
 	}
 	rx += 126
@@ -237,7 +240,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 	ui.Cursor().Y = list.Y + list.H + 4
 	btn := ui.Cursor().Next(0)
 	bw := float32(120)
-	if widgets.ButtonRect(ui, ui.ID("cancel"), mathx.Rect{X: btn.X + btn.W - bw, Y: btn.Y, W: bw, H: btn.H}, "Cancel") {
+	if widgets.ButtonRect(ui, ui.ID("cancel"), mathx.Rect{X: btn.X + btn.W - bw, Y: btn.Y, W: bw, H: btn.H}, i18n.Tr("editor.batchrename.cancel", "Cancel")) {
 		ui.EndModal()
 		g.close(ui)
 		return
@@ -251,7 +254,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 	ok := changed > 0 && !rename.Blocked(g.rows) && g.err == ""
 	ar := mathx.Rect{X: btn.X + btn.W - 2*bw - 6, Y: btn.Y, W: bw, H: btn.H}
 	if ok {
-		if widgets.ButtonRect(ui, ui.ID("apply"), ar, "Rename "+strconv.Itoa(changed)) {
+		if widgets.ButtonRect(ui, ui.ID("apply"), ar, i18n.Tr("editor.batchrename.rename_changed", "Rename {changed}", i18n.Str("changed", strconv.Itoa(changed)))) {
 			if err := g.apply(); err != nil {
 				g.d.Notices.Notify(context.LevelError, err.Error())
 			}

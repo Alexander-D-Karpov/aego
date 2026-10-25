@@ -5,6 +5,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/play"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -90,9 +91,9 @@ func (b *TimelineBar) idle(ui *core.Context, bar mathx.Rect, tl play.Timeline) {
 	th := &ui.Theme
 	dot := mathx.Rect{X: bar.X + 10, Y: bar.Y + bar.H/2 - 4, W: 8, H: 8}
 	ui.Box(dot, 4, th.Widget, th.TextDim)
-	msg := "Recording starts with the first frame · press Play or Step"
+	msg := i18n.Tr("editor.gameview.recording_starts_with_the_first", "Recording starts with the first frame · press Play or Step")
 	if tl.Why != "" {
-		msg = "History cleared: " + tl.Why + " · press Play or Step to record again"
+		msg = i18n.Tr("editor.gameview.history_cleared_why_press_play", "History cleared: {why} · press Play or Step to record again", i18n.Str("why", tl.Why))
 	}
 	right := "tick " + strconv.FormatUint(b.src.Ticks(), 10)
 	switch {
@@ -183,17 +184,16 @@ func (b *TimelineBar) Draw(ui *core.Context, r mathx.Rect) {
 		x += ui.TextSize(pt.text).X
 	}
 	ui.PopClip()
-	tip := "Drag to rewind the game; Ctrl+Left and Ctrl+Right step one frame"
+	tip := i18n.Tr("editor.gameview.drag_to_rewind_the_game", "Drag to rewind the game; Ctrl+Left and Ctrl+Right step one frame")
 	if tl.Keys > 0 {
-		tip += "\n" + strconv.Itoa(tl.Keys) + " keyframes, " + megabytes(tl.KeyBytes) + "; the last took " + megabytes(tl.LastKey) +
-			" and " + strconv.FormatFloat(float64(tl.KeyTime.Microseconds())/1000, 'f', 2, 64) + " ms"
-		tip += "\na key every " + strconv.FormatUint(tl.KeyEvery, 10) + " ticks"
+		tip += i18n.Tr("editor.gameview.keys_keyframes_keybytes_the_last", "\n{keys} keyframes, {keybytes}; the last took {lastkey} and {formatfloat} ms", i18n.Str("keys", strconv.Itoa(tl.Keys)), i18n.Str("keybytes", megabytes(tl.KeyBytes)), i18n.Str("lastkey", megabytes(tl.LastKey)), i18n.Str("formatfloat", strconv.FormatFloat(float64(tl.KeyTime.Microseconds())/1000, 'f', 2, 64)))
+		tip += i18n.Tr("editor.gameview.a_key_every_formatuint_ticks", "\na key every {formatuint} ticks", i18n.Str("formatuint", strconv.FormatUint(tl.KeyEvery, 10)))
 		if tl.Cached > 0 {
-			tip += "; " + strconv.Itoa(tl.Cached) + " cached for scrubbing, " + megabytes(tl.CacheBytes)
+			tip += i18n.Tr("editor.gameview.cached_cached_for_scrubbing_cachebytes", "; {cached} cached for scrubbing, {cachebytes}", i18n.Str("cached", strconv.Itoa(tl.Cached)), i18n.Str("cachebytes", megabytes(tl.CacheBytes)))
 		}
 	}
 	if tl.Why != "" {
-		tip += "\nHistory ends: " + tl.Why
+		tip += i18n.Tr("editor.gameview.history_ends_why", "\nHistory ends: {why}", i18n.Str("why", tl.Why))
 	}
 	widgets.Tooltip(ui, id, tip)
 }

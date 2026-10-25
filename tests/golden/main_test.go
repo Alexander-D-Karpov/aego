@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 	default:
 		os.Setenv("XDG_CONFIG_HOME", dir)
 	}
+	os.Setenv("AEGO_LANG", "en")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)

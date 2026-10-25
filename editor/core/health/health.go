@@ -9,6 +9,7 @@ import (
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/ids"
+	"aego/engine/i18n"
 	"aego/engine/problems"
 	"aego/project"
 )
@@ -70,7 +71,7 @@ func Run(env Env) []Item {
 		}
 	}
 	if len(broken) > 0 {
-		out = append(out, Item{Code: "HLT001", Severity: Error, Title: strconv.Itoa(len(broken)) + " asset(s) failed to import", Paths: broken, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT001", Severity: Error, Title: i18n.Tr("editor.health.broken_asset_s_failed_to", "{broken} asset(s) failed to import", i18n.Str("broken", strconv.Itoa(len(broken)))), Paths: broken, Action: ActionReveal})
 	}
 
 	owners := map[string][2]int{}
@@ -96,11 +97,11 @@ func Run(env Env) []Item {
 		if c[1] > 0 {
 			sev = Error
 		}
-		out = append(out, Item{Code: "HLT002", Severity: sev, Title: strconv.Itoa(c[0]) + " problem(s) from " + o, Action: ActionProblems})
+		out = append(out, Item{Code: "HLT002", Severity: sev, Title: i18n.Tr("editor.health.c_problem_s_from_o", "{c} problem(s) from {o}", i18n.Str("c", strconv.Itoa(c[0])), i18n.Str("o", o)), Action: ActionProblems})
 	}
 
 	if env.Missing > 0 {
-		out = append(out, Item{Code: "HLT003", Severity: Error, Title: strconv.Itoa(env.Missing) + " missing reference(s)", Action: ActionMissing})
+		out = append(out, Item{Code: "HLT003", Severity: Error, Title: i18n.Tr("editor.health.missing_missing_reference_s", "{missing} missing reference(s)", i18n.Str("missing", strconv.Itoa(env.Missing))), Action: ActionMissing})
 	}
 
 	reached := map[ids.AssetID]bool{}
@@ -145,10 +146,10 @@ func Run(env Env) []Item {
 		}
 	}
 	if len(unused) > 0 {
-		out = append(out, Item{Code: "HLT004", Severity: Warning, Title: strconv.Itoa(len(unused)) + " unused asset(s)", Paths: unused, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT004", Severity: Warning, Title: i18n.Tr("editor.health.unused_unused_asset_s", "{unused} unused asset(s)", i18n.Str("unused", strconv.Itoa(len(unused)))), Paths: unused, Action: ActionReveal})
 	}
 	if len(idle) > 0 {
-		out = append(out, Item{Code: "HLT005", Severity: Info, Title: strconv.Itoa(len(idle)) + " scene(s) nothing loads", Paths: idle, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT005", Severity: Info, Title: i18n.Tr("editor.health.idle_scene_s_nothing_loads", "{idle} scene(s) nothing loads", i18n.Str("idle", strconv.Itoa(len(idle)))), Paths: idle, Action: ActionReveal})
 	}
 
 	byName := map[string][]string{}
@@ -167,7 +168,7 @@ func Run(env Env) []Item {
 		}
 	}
 	if len(dups) > 0 {
-		out = append(out, Item{Code: "HLT006", Severity: Warning, Title: "names that differ only in case", Paths: dups, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT006", Severity: Warning, Title: i18n.Tr("editor.health.names_that_differ_only_in", "names that differ only in case"), Paths: dups, Action: ActionReveal})
 	}
 	return out
 }
@@ -223,10 +224,10 @@ func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
 	sort.Strings(dark)
 	var out []Item
 	if len(big) > 0 {
-		out = append(out, Item{Code: "HLT007", Severity: Warning, Title: strconv.Itoa(len(big)) + " texture(s) larger than " + strconv.Itoa(limit) + " px", Paths: big, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT007", Severity: Warning, Title: i18n.Tr("editor.health.big_texture_s_larger_than", "{big} texture(s) larger than {limit} px", i18n.Str("big", strconv.Itoa(len(big))), i18n.Str("limit", strconv.Itoa(limit))), Paths: big, Action: ActionReveal})
 	}
 	if len(dark) > 0 {
-		out = append(out, Item{Code: "HLT008", Severity: Info, Title: strconv.Itoa(len(dark)) + " scene(s) without a camera", Paths: dark, Action: ActionReveal})
+		out = append(out, Item{Code: "HLT008", Severity: Info, Title: i18n.Tr("editor.health.dark_scene_s_without_a", "{dark} scene(s) without a camera", i18n.Str("dark", strconv.Itoa(len(dark)))), Paths: dark, Action: ActionReveal})
 	}
 	return out
 }

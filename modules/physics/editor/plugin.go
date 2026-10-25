@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/history"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/modules/physics"
 	"aego/modules/physics/components"
 	"aego/modules/physics/settings"
@@ -147,13 +148,13 @@ func (p *plugin) commands(e *ext.Registry) error {
 		}
 	}
 	list := []command.Desc{
-		toggle(CmdDebug, "Debug Overlay", 100),
-		toggle(FlagShapes, "Shapes", 200),
-		toggle(FlagContacts, "Contacts", 210),
+		toggle(CmdDebug, i18n.Tr("i18n.physics.debug_overlay", "Debug Overlay"), 100),
+		toggle(FlagShapes, i18n.Tr("i18n.physics.shapes", "Shapes"), 200),
+		toggle(FlagContacts, i18n.Tr("i18n.physics.contacts", "Contacts"), 210),
 		toggle(FlagAABBs, "AABBs", 220),
-		toggle(FlagJoints, "Joints", 230),
-		toggle(FlagIslands, "Islands", 240),
-		toggle(FlagBroad, "Broadphase Tree", 250),
+		toggle(FlagJoints, i18n.Tr("i18n.physics.joints", "Joints"), 230),
+		toggle(FlagIslands, i18n.Tr("i18n.physics.islands", "Islands"), 240),
+		toggle(FlagBroad, i18n.Tr("i18n.physics.broadphase_tree", "Broadphase Tree"), 250),
 		{ID: CmdSettings, Name: "Physics Settings…", Category: Category, Order: 900, Run: func() error {
 			if p.ed.ShowSettings != nil {
 				p.ed.ShowSettings(PageID)

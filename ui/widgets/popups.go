@@ -76,15 +76,15 @@ func maskSummary(mask uint64, names []string, n int, mixed bool, th *core.Theme)
 	case mixed:
 		return th.Mixed
 	case mask == 0:
-		return "Nothing"
+		return Tr("editor.widgets.nothing", "Nothing")
 	case mask == ^uint64(0) || mask == allBits(n):
-		return "Everything"
+		return Tr("editor.widgets.everything", "Everything")
 	case bits.OnesCount64(mask) == 1:
 		i := bits.TrailingZeros64(mask)
 		if i < len(names) {
 			return names[i]
 		}
-		return "Layer " + strconv.Itoa(i)
+		return Tr("editor.widgets.layer", "Layer") + " " + strconv.Itoa(i)
 	}
 	if len(names) > 0 {
 		return strconv.Itoa(bits.OnesCount64(mask)) + " selected"
@@ -120,17 +120,17 @@ func MaskField(c *core.Context, id core.ID, r mathx.Rect, mask *uint64, names []
 	changed := false
 	if c.BeginPopup(id, max(r.W, 180)) {
 		c.PushRawID(id)
-		if Selectable(c, c.ID("everything"), "Everything", !mixed && *mask == allBits(n)) {
+		if Selectable(c, c.ID("everything"), Tr("editor.widgets.everything", "Everything"), !mixed && *mask == allBits(n)) {
 			*mask = allBits(n)
 			changed = true
 		}
-		if Selectable(c, c.ID("nothing"), "Nothing", !mixed && *mask == 0) {
+		if Selectable(c, c.ID("nothing"), Tr("editor.widgets.nothing", "Nothing"), !mixed && *mask == 0) {
 			*mask = 0
 			changed = true
 		}
 		Separator(c)
 		for i := 0; i < n; i++ {
-			name := "Layer " + strconv.Itoa(i)
+			name := Tr("editor.widgets.layer", "Layer") + " " + strconv.Itoa(i)
 			if i < len(names) && names[i] != "" {
 				name = names[i]
 			}
@@ -213,9 +213,21 @@ func TooltipAfter(c *core.Context, id core.ID, text string, delay float64) {
 	}
 	th := &c.Theme
 	m := c.Mouse()
-	size := c.TextSize(text)
-	r := mathx.Rect{X: m.X + 14, Y: m.Y + 18, W: size.X + 2*th.Padding, H: size.Y + th.Padding}
 	sz := c.Size()
+	size := c.TextSize(text)
+	var lines []string
+	if maxW := min(tooltipMax, sz.X-2*th.Padding-8); size.X > maxW {
+		if tipWrap.text != text || tipWrap.w != maxW {
+			tipWrap.text, tipWrap.w, tipWrap.lines = text, maxW, WrapLines(c, text, maxW)
+		}
+		lines = tipWrap.lines
+		size.X = 0
+		for _, ln := range lines {
+			size.X = max(size.X, c.TextSize(ln).X)
+		}
+		size.Y = c.LineHeight() * float32(len(lines))
+	}
+	r := mathx.Rect{X: m.X + 14, Y: m.Y + 18, W: size.X + 2*th.Padding, H: size.Y + th.Padding}
 	if r.X+r.W > sz.X {
 		r.X = max(0, sz.X-r.W)
 	}
@@ -226,6 +238,21 @@ func TooltipAfter(c *core.Context, id core.ID, text string, delay float64) {
 	l.PushLayer(draw.LayerTop)
 	c.Shadow(r, th.Radius.Popup)
 	c.Box(r, th.Radius.Popup, th.PanelAlt, th.Border)
-	l.Text(text, mathx.Vec2{X: r.X + th.Padding, Y: r.Y + th.Padding/2}, th.Text)
+	if len(lines) == 0 {
+		l.Text(text, mathx.Vec2{X: r.X + th.Padding, Y: r.Y + th.Padding/2}, th.Text)
+	}
+	for i, ln := range lines {
+		l.Text(ln, mathx.Vec2{X: r.X + th.Padding, Y: r.Y + th.Padding/2 + float32(i)*c.LineHeight()}, th.Text)
+	}
 	l.PopLayer()
+}
+
+// tooltipMax is the widest a tooltip grows before its text wraps (D348).
+const tooltipMax float32 = 360
+
+// tipWrap keeps the last wrapped tooltip, so a tooltip held on screen wraps once.
+var tipWrap struct {
+	text  string
+	w     float32
+	lines []string
 }

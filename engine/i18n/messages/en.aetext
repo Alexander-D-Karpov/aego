@@ -1,0 +1,3391 @@
+messages version=1 lang=en {
+  msg "editor.addpalette.add_changes" {
+    one="Add {name} changes {n} node."
+    other="Add {name} changes {n} nodes."
+  }
+  msg "editor.addpalette.add_component" {
+    text="Add Component"
+  }
+  msg "editor.addpalette.add_hint" {
+    text="Enter add · Shift+Enter add more · Ctrl+D favorite · Esc close"
+  }
+  msg "editor.addpalette.add_name" {
+    text="Add {name}"
+  }
+  msg "editor.addpalette.also_add" {
+    text="Also add {name}"
+  }
+  msg "editor.addpalette.also_adds" {
+    text="Also adds: {names}"
+  }
+  msg "editor.addpalette.cannot_save_the_palette_state" {
+    text="cannot save the palette state: {error}"
+  }
+  msg "editor.addpalette.create" {
+    text="Create"
+  }
+  msg "editor.addpalette.create_hint" {
+    text="Enter create · Shift+Enter create more · Ctrl+D favorite · Esc close"
+  }
+  msg "editor.addpalette.creates" {
+    text="Creates {name}"
+  }
+  msg "editor.addpalette.favorites" {
+    text="Favorites"
+  }
+  msg "editor.addpalette.needs_one_of_tab_switches" {
+    text="Needs one of (Tab switches):"
+  }
+  msg "editor.addpalette.not_added_to" {
+    text="Not added to {nodes}"
+  }
+  msg "editor.addpalette.nothing_selected" {
+    text="Nothing selected"
+  }
+  msg "editor.addpalette.recent" {
+    text="Recent"
+  }
+  msg "editor.addpalette.script" {
+    text="Script {name}"
+  }
+  msg "editor.agent.agent" {
+    text="Agent •"
+  }
+  msg "editor.agent.agent_2" {
+    text="Agent"
+  }
+  msg "editor.agent.apply" {
+    text="Apply"
+  }
+  msg "editor.agent.apply_changes_without_asking_removals" {
+    text="Apply changes without asking; removals, moves and deletes still wait for you"
+  }
+  msg "editor.agent.apply_this_answer_s_changes" {
+    text="Apply this answer's changes, the waiting ones and those still to come; removals, moves and deletes still wait for you"
+  }
+  msg "editor.agent.auto_apply" {
+    text="Auto-apply"
+  }
+  msg "editor.agent.cannot_start_the_agent_session" {
+    text="cannot start the agent session log: {error}"
+  }
+  msg "editor.agent.cannot_write_the_agent_session" {
+    text="cannot write the agent session log: {error}"
+  }
+  msg "editor.agent.check_again" {
+    text="Check Again"
+  }
+  msg "editor.agent.checking" {
+    text="Checking…"
+  }
+  msg "editor.agent.claude_code_is_not_available" {
+    text="Claude Code is not available"
+  }
+  msg "editor.agent.failed_err" {
+    text="failed: {err}"
+  }
+  msg "editor.agent.message_the_agent_to_mention" {
+    text="Message the agent, @ to mention"
+  }
+  msg "editor.agent.path" {
+    text="Path"
+  }
+  msg "editor.agent.reject" {
+    text="Reject"
+  }
+  msg "editor.agent.send" {
+    text="Send"
+  }
+  msg "editor.agent.stop" {
+    text="Stop"
+  }
+  msg "editor.agent.the_agent_is_waiting_for" {
+    text="The agent is waiting for you to apply or reject a change"
+  }
+  msg "editor.agent.undo" {
+    text="Undo"
+  }
+  msg "editor.agent.v_more" {
+    text="+{v} more"
+  }
+  msg "editor.agent.working" {
+    text="Working…"
+  }
+  msg "editor.agent.you" {
+    text="You"
+  }
+  msg "editor.animation.auto_key" {
+    text="Auto Key"
+  }
+  msg "editor.animation.clips_are_edited_outside_play" {
+    text="Clips are edited outside Play"
+  }
+  msg "editor.animation.copied_n_key_s" {
+    text="Copied {n} key(s)"
+  }
+  msg "editor.animation.copy_keys" {
+    text="Copy Keys"
+  }
+  msg "editor.animation.curves" {
+    text="Curves"
+  }
+  msg "editor.animation.declare_events_in_project_settings" {
+    text="Declare events in Project Settings → Animation"
+  }
+  msg "editor.animation.del" {
+    text="Del"
+  }
+  msg "editor.animation.delete_keys" {
+    text="Delete Keys"
+  }
+  msg "editor.animation.events" {
+    text="Events"
+  }
+  msg "editor.animation.interpolation_in" {
+    text="Interpolation: {in}"
+  }
+  msg "editor.animation.not_previewed_sk" {
+    text="Not previewed: {sk}"
+  }
+  msg "editor.animation.nothing_to_key_the_node" {
+    text="Nothing to key: the node matches the clip at this time"
+  }
+  msg "editor.animation.open_a_scene_to_animate" {
+    text="Open a scene to animate its nodes"
+  }
+  msg "editor.animation.paste_keys" {
+    text="Paste Keys"
+  }
+  msg "editor.animation.pause_space" {
+    text="Pause (Space)"
+  }
+  msg "editor.animation.play_space" {
+    text="Play (Space)"
+  }
+  msg "editor.animation.preview" {
+    text="Preview"
+  }
+  msg "editor.animation.rec" {
+    text="Rec"
+  }
+  msg "editor.animation.remove_event" {
+    text="Remove Event"
+  }
+  msg "editor.animation.select_a_node_with_an" {
+    text="Select a node with an Animation Player or an Animator, or Create → Animation → Clip"
+  }
+  msg "editor.animation.set_from_scene" {
+    text="Set from Scene"
+  }
+  msg "editor.animation.the_node_has_no_clip" {
+    text="The node has no clip yet: set the Clip of its Animation Player or the clips of its controller"
+  }
+  msg "editor.animation.title" {
+    text="Animation"
+  }
+  msg "editor.animation.title_rec" {
+    text="Animation (Rec)"
+  }
+  msg "editor.animator.add_a_parameter" {
+    text="Add a parameter"
+  }
+  msg "editor.animator.add_condition" {
+    text="Add Condition"
+  }
+  msg "editor.animator.add_state" {
+    text="Add State"
+  }
+  msg "editor.animator.at" {
+    text="At"
+  }
+  msg "editor.animator.auto_layout" {
+    text="Auto Layout"
+  }
+  msg "editor.animator.clip" {
+    text="Clip"
+  }
+  msg "editor.animator.conditions" {
+    text="Conditions"
+  }
+  msg "editor.animator.del" {
+    text="Del"
+  }
+  msg "editor.animator.delete_state" {
+    text="Delete State"
+  }
+  msg "editor.animator.delete_transition" {
+    text="Delete Transition"
+  }
+  msg "editor.animator.drag_from_a_state_s" {
+    text="Drag from a state's dot to another state to add a transition"
+  }
+  msg "editor.animator.duration" {
+    text="Duration"
+  }
+  msg "editor.animator.exit_time" {
+    text="Exit Time"
+  }
+  msg "editor.animator.fire" {
+    text="Fire"
+  }
+  msg "editor.animator.frame_all" {
+    text="Frame All"
+  }
+  msg "editor.animator.interrupts" {
+    text="Interrupts"
+  }
+  msg "editor.animator.kind.trigger" {
+    text="Trigger"
+  }
+  msg "editor.animator.move_down" {
+    text="Move Down"
+  }
+  msg "editor.animator.move_up" {
+    text="Move Up"
+  }
+  msg "editor.animator.no_parameters" {
+    text="No parameters"
+  }
+  msg "editor.animator.open_a_scene_and_select" {
+    text="Open a scene and select a node with an Animator"
+  }
+  msg "editor.animator.parameters" {
+    text="Parameters"
+  }
+  msg "editor.animator.remove_the_condition" {
+    text="Remove the condition"
+  }
+  msg "editor.animator.remove_the_parameter" {
+    text="Remove the parameter"
+  }
+  msg "editor.animator.select_a_node_with_an" {
+    text="Select a node with an Animator that has a controller, or Create → Animation → Controller"
+  }
+  msg "editor.animator.select_a_state_or_a" {
+    text="Select a state or a transition"
+  }
+  msg "editor.animator.set_as_entry" {
+    text="Set as Entry"
+  }
+  msg "editor.animator.speed" {
+    text="Speed"
+  }
+  msg "editor.animator.title" {
+    text="Animator"
+  }
+  msg "editor.animator.try_earlier" {
+    text="Try earlier"
+  }
+  msg "editor.animator.try_later" {
+    text="Try later"
+  }
+  msg "editor.animedit.key_sprite" {
+    text="Key Sprite"
+  }
+  msg "editor.animedit.key_sprites" {
+    text="Key Sprites"
+  }
+  msg "editor.animedit.this_node" {
+    text="This node"
+  }
+  msg "editor.assetops.attach_script" {
+    text="Attach script"
+  }
+  msg "editor.assetops.cannot_update_the_package_of" {
+    text="cannot update the package of {to}: {error}"
+  }
+  msg "editor.assetops.rename_scene" {
+    text="Rename scene"
+  }
+  msg "editor.assetops.save_scene_as" {
+    text="Save scene as"
+  }
+  msg "editor.assetops.startup_scene_rel" {
+    text="Startup scene: {rel}"
+  }
+  msg "editor.assetops.the_file_has_no_compiled" {
+    text="The file has no compiled script types, fix its errors first"
+  }
+  msg "editor.assetops.this_file_declares_several_scripts" {
+    text="This file declares several scripts. Which one should be attached?"
+  }
+  msg "editor.assetops.to_is_now_in_package" {
+    text="{to} is now in package {now} (was {was}), fix the imports that used it"
+  }
+  msg "editor.assets.add_to_favorites" {
+    text="Add to Favorites"
+  }
+  msg "editor.assets.asset_pipeline_is_not_available" {
+    text="Asset pipeline is not available"
+  }
+  msg "editor.assets.assets_in_use" {
+    text="Assets in use"
+  }
+  msg "editor.assets.attach_to_selected" {
+    text="Attach to Selected"
+  }
+  msg "editor.assets.batch_rename" {
+    text="Batch Rename…"
+  }
+  msg "editor.assets.cancel" {
+    text="Cancel"
+  }
+  msg "editor.assets.compare_with_head" {
+    text="Compare with HEAD"
+  }
+  msg "editor.assets.copied_paths_asset_s" {
+    text="Copied {paths} asset(s)"
+  }
+  msg "editor.assets.copy" {
+    text="Copy"
+  }
+  msg "editor.assets.copy_path" {
+    text="Copy Path"
+  }
+  msg "editor.assets.create" {
+    text="Create"
+  }
+  msg "editor.assets.create_variant" {
+    text="Create Variant"
+  }
+  msg "editor.assets.cut" {
+    text="Cut"
+  }
+  msg "editor.assets.cut_paths_asset_s_paste" {
+    text="Cut {paths} asset(s), paste into another folder to move them"
+  }
+  msg "editor.assets.data_asset" {
+    text="Data Asset"
+  }
+  msg "editor.assets.data_table" {
+    text="Data Table"
+  }
+  msg "editor.assets.delete" {
+    text="Delete"
+  }
+  msg "editor.assets.delete_2" {
+    text="Delete…"
+  }
+  msg "editor.assets.delete_anyway" {
+    text="Delete Anyway"
+  }
+  msg "editor.assets.delete_asset" {
+    text="Delete asset"
+  }
+  msg "editor.assets.delete_assets" {
+    text="Delete assets"
+  }
+  msg "editor.assets.delete_dir_and_the_n" {
+    text="Delete {dir} and the {n} file(s) inside it? Scenes that reference them show them as missing."
+  }
+  msg "editor.assets.delete_folder" {
+    text="Delete folder"
+  }
+  msg "editor.assets.delete_list_assets" {
+    text="Delete {list} assets?"
+  }
+  msg "editor.assets.delete_rel" {
+    text="Delete {rel}?"
+  }
+  msg "editor.assets.delete_the_empty_folder_dir" {
+    text="Delete the empty folder {dir}?"
+  }
+  msg "editor.assets.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.assets.find_instances" {
+    text="Find Instances"
+  }
+  msg "editor.assets.find_references" {
+    text="Find References"
+  }
+  msg "editor.assets.first_script" {
+    text="First script"
+  }
+  msg "editor.assets.folder" {
+    text="Folder"
+  }
+  msg "editor.assets.imported_created_file_s_into" {
+    text="Imported {created} file(s) into {dir}"
+  }
+  msg "editor.assets.instantiate_in_scene" {
+    text="Instantiate in Scene"
+  }
+  msg "editor.assets.items_assets" {
+    text="{items} assets"
+  }
+  msg "editor.assets.msg_nothing_in_the_project" {
+    text="{msg} Nothing in the project references them."
+  }
+  msg "editor.assets.name" {
+    text="Name"
+  }
+  msg "editor.assets.name_is_not_a_valid" {
+    text="{name} is not a valid file name"
+  }
+  msg "editor.assets.new" {
+    text="New"
+  }
+  msg "editor.assets.new_folder" {
+    text="New Folder"
+  }
+  msg "editor.assets.new_fullname_data" {
+    text="New {fullname} data"
+  }
+  msg "editor.assets.new_fullname_table" {
+    text="New {fullname} table"
+  }
+  msg "editor.assets.new_prefab" {
+    text="New prefab"
+  }
+  msg "editor.assets.new_scene" {
+    text="New scene"
+  }
+  msg "editor.assets.new_script" {
+    text="New script"
+  }
+  msg "editor.assets.new_script_in_package_dir" {
+    text="New script in package {dir}"
+  }
+  msg "editor.assets.new_script_package" {
+    text="New script package"
+  }
+  msg "editor.assets.open" {
+    text="Open"
+  }
+  msg "editor.assets.package" {
+    text="Package"
+  }
+  msg "editor.assets.paste" {
+    text="Paste"
+  }
+  msg "editor.assets.pasted_made_file_s_into" {
+    text="Pasted {made} file(s) into {dir}"
+  }
+  msg "editor.assets.pkg_is_not_a_valid" {
+    text="{pkg} is not a valid package name"
+  }
+  msg "editor.assets.pkgdir_already_exists" {
+    text="{pkgdir} already exists"
+  }
+  msg "editor.assets.prefab" {
+    text="Prefab…"
+  }
+  msg "editor.assets.reimport" {
+    text="Reimport"
+  }
+  msg "editor.assets.reimported" {
+    text="Reimported"
+  }
+  msg "editor.assets.rel_already_exists" {
+    text="{rel} already exists"
+  }
+  msg "editor.assets.remove_from_favorites" {
+    text="Remove from Favorites"
+  }
+  msg "editor.assets.rename" {
+    text="Rename"
+  }
+  msg "editor.assets.rename_the_script_types_in" {
+    text="Rename the script types in the copy, a package cannot declare a script twice"
+  }
+  msg "editor.assets.reveal_in_file_manager" {
+    text="Reveal in File Manager"
+  }
+  msg "editor.assets.scene" {
+    text="Scene…"
+  }
+  msg "editor.assets.script" {
+    text="Script…"
+  }
+  msg "editor.assets.script_name" {
+    text="Script name"
+  }
+  msg "editor.assets.script_package" {
+    text="Script Package…"
+  }
+  msg "editor.assets.scripts_live_in_a_package" {
+    text="Scripts live in a package folder under scripts/"
+  }
+  msg "editor.assets.set_as_startup_scene" {
+    text="Set as Startup Scene"
+  }
+  msg "editor.assets.show_references" {
+    text="Show References"
+  }
+  msg "editor.assets.still_referenced_by_join_deleting" {
+    text="Still referenced by:\n{join}\n\nDeleting them leaves these references missing."
+  }
+  msg "editor.assets.the_clipboard_has_no_image" {
+    text="The clipboard has no image or files to paste"
+  }
+  msg "editor.assets.title" {
+    text="Assets"
+  }
+  msg "editor.batchrename.batch_rename_items_asset_s" {
+    text="Batch Rename {items} asset(s)"
+  }
+  msg "editor.batchrename.batch_rename_items_node_s" {
+    text="Batch Rename {items} node(s)"
+  }
+  msg "editor.batchrename.cancel" {
+    text="Cancel"
+  }
+  msg "editor.batchrename.case.keep" {
+    text="Keep case"
+  }
+  msg "editor.batchrename.case.lower" {
+    text="lower"
+  }
+  msg "editor.batchrename.case.title" {
+    text="Title"
+  }
+  msg "editor.batchrename.case.upper" {
+    text="UPPER"
+  }
+  msg "editor.batchrename.find" {
+    text="Find"
+  }
+  msg "editor.batchrename.pattern" {
+    text="Pattern"
+  }
+  msg "editor.batchrename.regex" {
+    text=".* Regex"
+  }
+  msg "editor.batchrename.rename_changed" {
+    text="Rename {changed}"
+  }
+  msg "editor.batchrename.replace" {
+    text="Replace"
+  }
+  msg "editor.category.animation" {
+    text="Animation"
+  }
+  msg "editor.category.audio" {
+    text="Audio"
+  }
+  msg "editor.category.camera" {
+    text="Camera"
+  }
+  msg "editor.category.data" {
+    text="Data"
+  }
+  msg "editor.category.debug" {
+    text="Debug"
+  }
+  msg "editor.category.effects" {
+    text="Effects"
+  }
+  msg "editor.category.empty" {
+    text="Empty"
+  }
+  msg "editor.category.engine" {
+    text="Engine"
+  }
+  msg "editor.category.game" {
+    text="Game"
+  }
+  msg "editor.category.gameplay" {
+    text="Gameplay"
+  }
+  msg "editor.category.input" {
+    text="Input"
+  }
+  msg "editor.category.lights" {
+    text="Lights"
+  }
+  msg "editor.category.node" {
+    text="Node"
+  }
+  msg "editor.category.physics" {
+    text="Physics"
+  }
+  msg "editor.category.prefabs" {
+    text="Prefabs"
+  }
+  msg "editor.category.rendering" {
+    text="Rendering"
+  }
+  msg "editor.category.saving" {
+    text="Saving"
+  }
+  msg "editor.category.scripts" {
+    text="Scripts"
+  }
+  msg "editor.category.settings" {
+    text="Settings"
+  }
+  msg "editor.category.shapes" {
+    text="Shapes"
+  }
+  msg "editor.category.spawning" {
+    text="Spawning"
+  }
+  msg "editor.category.ui" {
+    text="UI"
+  }
+  msg "editor.clipboard.select_the_nodes_to_paste" {
+    text="Select the nodes to paste the component onto"
+  }
+  msg "editor.clipboard.select_the_nodes_to_paste_2" {
+    text="Select the nodes to paste the components onto"
+  }
+  msg "editor.clipboard.the_clipboard_holds_nothing_that" {
+    text="The clipboard holds nothing that can be pasted into the scene"
+  }
+  msg "editor.command.agent.ask" {
+    text="Ask Agent…"
+  }
+  msg "editor.command.animation.copy_keys" {
+    text="Copy Keys"
+  }
+  msg "editor.command.animation.curves" {
+    text="Curves"
+  }
+  msg "editor.command.animation.delete_keys" {
+    text="Delete Keys"
+  }
+  msg "editor.command.animation.key" {
+    text="Key Changed Fields"
+  }
+  msg "editor.command.animation.paste_keys" {
+    text="Paste Keys"
+  }
+  msg "editor.command.animation.play" {
+    text="Play or Pause Clip"
+  }
+  msg "editor.command.animation.preview" {
+    text="Preview"
+  }
+  msg "editor.command.animation.record" {
+    text="Record"
+  }
+  msg "editor.command.app.quit" {
+    text="Quit"
+  }
+  msg "editor.command.app.quit.tip" {
+    text="Quit the editor, asking first about unsaved changes"
+  }
+  msg "editor.command.assets.copy" {
+    text="Copy Asset"
+  }
+  msg "editor.command.assets.copy.tip" {
+    text="Copy the selected assets"
+  }
+  msg "editor.command.assets.cut" {
+    text="Cut Asset"
+  }
+  msg "editor.command.assets.cut.tip" {
+    text="Cut the selected assets to move them on Paste"
+  }
+  msg "editor.command.assets.find_references" {
+    text="Find References"
+  }
+  msg "editor.command.assets.paste" {
+    text="Paste into Folder"
+  }
+  msg "editor.command.assets.paste.tip" {
+    text="Paste copied or cut assets into the open folder"
+  }
+  msg "editor.command.assets.reimport" {
+    text="Reimport Asset"
+  }
+  msg "editor.command.assets.reimport.tip" {
+    text="Import the selected asset again"
+  }
+  msg "editor.command.assets.repair_meta" {
+    text="Repair Meta Files…"
+  }
+  msg "editor.command.assets.repair_meta.tip" {
+    text="Write missing .meta files and remove orphans after confirmation"
+  }
+  msg "editor.command.code.back" {
+    text="Back"
+  }
+  msg "editor.command.code.find_in_scripts" {
+    text="Find in Scripts"
+  }
+  msg "editor.command.code.forward" {
+    text="Forward"
+  }
+  msg "editor.command.code.highlight_block" {
+    text="Highlight Current Block"
+  }
+  msg "editor.command.code.implementation" {
+    text="Go to Implementation"
+  }
+  msg "editor.command.code.inlay_hints" {
+    text="Parameter Name Hints"
+  }
+  msg "editor.command.code.inline_errors" {
+    text="Inline Error Messages"
+  }
+  msg "editor.command.code.minimap" {
+    text="Minimap"
+  }
+  msg "editor.command.code.problems" {
+    text="Problems"
+  }
+  msg "editor.command.code.rainbow_brackets" {
+    text="Rainbow Brackets"
+  }
+  msg "editor.command.code.split_down" {
+    text="Split Down"
+  }
+  msg "editor.command.code.split_right" {
+    text="Split Right"
+  }
+  msg "editor.command.code.zen" {
+    text="Zen Mode"
+  }
+  msg "editor.command.edit.add_component" {
+    text="Add Component…"
+  }
+  msg "editor.command.edit.batch_rename" {
+    text="Batch Rename Nodes…"
+  }
+  msg "editor.command.edit.copy" {
+    text="Copy"
+  }
+  msg "editor.command.edit.copy.tip" {
+    text="Copy the selected nodes to the clipboard"
+  }
+  msg "editor.command.edit.cut" {
+    text="Cut"
+  }
+  msg "editor.command.edit.cut.tip" {
+    text="Copy the selected nodes and delete them"
+  }
+  msg "editor.command.edit.delete" {
+    text="Delete"
+  }
+  msg "editor.command.edit.delete.tip" {
+    text="Delete the selected nodes and their children"
+  }
+  msg "editor.command.edit.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.command.edit.duplicate.tip" {
+    text="Copy the selected nodes next to themselves"
+  }
+  msg "editor.command.edit.paste" {
+    text="Paste"
+  }
+  msg "editor.command.edit.paste.tip" {
+    text="Paste nodes from the clipboard under the selection"
+  }
+  msg "editor.command.edit.redo" {
+    text="Redo"
+  }
+  msg "editor.command.edit.redo.tip" {
+    text="Redo the change you undid last"
+  }
+  msg "editor.command.edit.rename" {
+    text="Rename"
+  }
+  msg "editor.command.edit.rename.tip" {
+    text="Rename the selected node in the Hierarchy"
+  }
+  msg "editor.command.edit.select_all" {
+    text="Select All"
+  }
+  msg "editor.command.edit.select_all.tip" {
+    text="Select every node of the active scene"
+  }
+  msg "editor.command.edit.selection_back" {
+    text="Previous Selection"
+  }
+  msg "editor.command.edit.selection_forward" {
+    text="Next Selection"
+  }
+  msg "editor.command.edit.undo" {
+    text="Undo"
+  }
+  msg "editor.command.edit.undo.tip" {
+    text="Undo the last change of the active scene"
+  }
+  msg "editor.command.favorites.toggle_node" {
+    text="Add Node to Favorites"
+  }
+  msg "editor.command.file.autosave" {
+    text="Autosave Scripts"
+  }
+  msg "editor.command.file.close_project" {
+    text="Close Project"
+  }
+  msg "editor.command.file.close_scene" {
+    text="Close Scene"
+  }
+  msg "editor.command.file.close_scene.tip" {
+    text="Close the active scene, asking first if it has unsaved changes"
+  }
+  msg "editor.command.file.export" {
+    text="Export…"
+  }
+  msg "editor.command.file.new_project" {
+    text="New Project…"
+  }
+  msg "editor.command.file.new_scene" {
+    text="New Scene"
+  }
+  msg "editor.command.file.new_scene.tip" {
+    text="Open a new unsaved 2D scene with a camera"
+  }
+  msg "editor.command.file.new_scene_3d" {
+    text="New 3D Scene"
+  }
+  msg "editor.command.file.new_scene_3d.tip" {
+    text="Open a new unsaved 3D scene with a camera, a plane and a cube"
+  }
+  msg "editor.command.file.open" {
+    text="Open Scene…"
+  }
+  msg "editor.command.file.open.tip" {
+    text="Pick a scene of the project and open it"
+  }
+  msg "editor.command.file.open_project" {
+    text="Open Project…"
+  }
+  msg "editor.command.file.project_settings" {
+    text="Project Settings…"
+  }
+  msg "editor.command.file.save" {
+    text="Save"
+  }
+  msg "editor.command.file.save.tip" {
+    text="Save the active scene or prefab"
+  }
+  msg "editor.command.file.save_all" {
+    text="Save All"
+  }
+  msg "editor.command.file.save_all.tip" {
+    text="Save every scene, prefab and script with unsaved changes"
+  }
+  msg "editor.command.file.save_as" {
+    text="Save As…"
+  }
+  msg "editor.command.file.save_as.tip" {
+    text="Save the active scene under a new path"
+  }
+  msg "editor.command.help.about" {
+    text="About Aego"
+  }
+  msg "editor.command.help.crash_reports" {
+    text="Crash Reports"
+  }
+  msg "editor.command.help.getting_started" {
+    text="Getting Started"
+  }
+  msg "editor.command.help.getting_started.tip" {
+    text="Open the Getting Started checklist"
+  }
+  msg "editor.command.help.install_go" {
+    text="Install Go…"
+  }
+  msg "editor.command.help.keymap" {
+    text="Keymap"
+  }
+  msg "editor.command.help.keymap.tip" {
+    text="List every keyboard shortcut"
+  }
+  msg "editor.command.help.open_logs" {
+    text="Open Logs Folder"
+  }
+  msg "editor.command.help.reference" {
+    text="Documentation"
+  }
+  msg "editor.command.help.reference.tip" {
+    text="Open the documentation of the language and the engine"
+  }
+  msg "editor.command.help.report_bug" {
+    text="Report a Bug…"
+  }
+  msg "editor.command.inspector.copy" {
+    text="Copy Field"
+  }
+  msg "editor.command.inspector.copy.tip" {
+    text="Copy the field or component under the cursor"
+  }
+  msg "editor.command.inspector.lock" {
+    text="Lock Inspector"
+  }
+  msg "editor.command.inspector.paste" {
+    text="Paste Field"
+  }
+  msg "editor.command.inspector.paste.tip" {
+    text="Paste into the field or component under the cursor"
+  }
+  msg "editor.command.inspector.watch" {
+    text="Add Field to Watch"
+  }
+  msg "editor.command.inspector.watch.tip" {
+    text="Add the field under the cursor to the Watch panel"
+  }
+  msg "editor.command.physics.settings" {
+    text="Physics Settings…"
+  }
+  msg "editor.command.play.back" {
+    text="Step Back"
+  }
+  msg "editor.command.play.forward" {
+    text="Step Forward"
+  }
+  msg "editor.command.play.fullscreen" {
+    text="Full Screen Play"
+  }
+  msg "editor.command.play.pause" {
+    text="Pause"
+  }
+  msg "editor.command.play.pause.tip" {
+    text="Pause or resume game time"
+  }
+  msg "editor.command.play.release_input" {
+    text="Release Game Input"
+  }
+  msg "editor.command.play.release_input.tip" {
+    text="Return keyboard and mouse to the editor; the game keeps Escape"
+  }
+  msg "editor.command.play.run_tests" {
+    text="Run Script Tests"
+  }
+  msg "editor.command.play.scale.custom" {
+    text="Time Scale…"
+  }
+  msg "editor.command.play.scale.custom.tip" {
+    text="Type any time scale from 0 to 8"
+  }
+  msg "editor.command.play.start" {
+    text="Play"
+  }
+  msg "editor.command.play.start.tip" {
+    text="Run the active scene in the Game View, or stop it"
+  }
+  msg "editor.command.play.step" {
+    text="Step Frame"
+  }
+  msg "editor.command.play.step.tip" {
+    text="Run one frame while paused"
+  }
+  msg "editor.command.play.step_fixed" {
+    text="Step Fixed Tick"
+  }
+  msg "editor.command.play.step_fixed.tip" {
+    text="Run one fixed tick while paused"
+  }
+  msg "editor.command.play.stop" {
+    text="Stop"
+  }
+  msg "editor.command.play.stop.tip" {
+    text="Stop Play and return to the edit scene"
+  }
+  msg "editor.command.project_settings.redo" {
+    text="Redo Settings Change"
+  }
+  msg "editor.command.project_settings.undo" {
+    text="Undo Settings Change"
+  }
+  msg "editor.command.scene.capture" {
+    text="Capture Scene View"
+  }
+  msg "editor.command.scene.create" {
+    text="Create…"
+  }
+  msg "editor.command.scene.create_node" {
+    text="Create Empty"
+  }
+  msg "editor.command.scene.create_node.tip" {
+    text="Create an empty node under the selection"
+  }
+  msg "editor.command.scene.frame_selection" {
+    text="Frame Selection"
+  }
+  msg "editor.command.scene.frame_selection.tip" {
+    text="Centre the view on the selection"
+  }
+  msg "editor.command.scene.isolate" {
+    text="Isolate Selection"
+  }
+  msg "editor.command.scene.paste_image" {
+    text="Paste Image as Sprite"
+  }
+  msg "editor.command.scene.toggle_grid" {
+    text="Grid"
+  }
+  msg "editor.command.scene.toggle_grid.tip" {
+    text="Show the grid in the Scene View"
+  }
+  msg "editor.command.scene.toggle_ortho" {
+    text="Orthographic 3D View"
+  }
+  msg "editor.command.scene.toggle_ortho.tip" {
+    text="Switch the 3D Scene View between perspective and orthographic"
+  }
+  msg "editor.command.scene.toggle_snap" {
+    text="Snap"
+  }
+  msg "editor.command.scene.toggle_snap.tip" {
+    text="Snap moves, rotations and scales to steps; hold Ctrl to invert"
+  }
+  msg "editor.command.scene.tool.rotate" {
+    text="Rotate Tool"
+  }
+  msg "editor.command.scene.tool.rotate.tip" {
+    text="Rotate the selection around its pivot"
+  }
+  msg "editor.command.scene.tool.scale" {
+    text="Scale Tool"
+  }
+  msg "editor.command.scene.tool.scale.tip" {
+    text="Scale the selection along its axes"
+  }
+  msg "editor.command.scene.tool.select" {
+    text="Select Tool"
+  }
+  msg "editor.command.scene.tool.select.tip" {
+    text="Click to select, drag to select with a box"
+  }
+  msg "editor.command.scene.tool.translate" {
+    text="Move Tool"
+  }
+  msg "editor.command.scene.tool.translate.tip" {
+    text="Drag the selection or one of its axes"
+  }
+  msg "editor.command.search.everywhere" {
+    text="Search Everywhere"
+  }
+  msg "editor.command.search.everywhere.tip" {
+    text="Find files, symbols, nodes and actions"
+  }
+  msg "editor.command.view.vectors" {
+    text="Show Vectors"
+  }
+  msg "editor.command.view.vectors.fixed" {
+    text="Fixed Length"
+  }
+  msg "editor.command.window.maximize" {
+    text="Maximize Panel"
+  }
+  msg "editor.command.window.reset_layout" {
+    text="Reset Layout"
+  }
+  msg "editor.command.window.reset_layout.tip" {
+    text="Put every panel back to its default place"
+  }
+  msg "editor.command.window.toolbar" {
+    text="Toolbar"
+  }
+  msg "editor.command.window.workspace_delete" {
+    text="Delete Workspace"
+  }
+  msg "editor.command.window.workspace_rename" {
+    text="Rename Workspace…"
+  }
+  msg "editor.command.window.workspace_save_as" {
+    text="Save as Workspace…"
+  }
+  msg "editor.common.apply" {
+    text="Apply"
+  }
+  msg "editor.common.cancel" {
+    text="Cancel"
+  }
+  msg "editor.common.edit" {
+    text="Edit"
+  }
+  msg "editor.common.open" {
+    text="Open"
+  }
+  msg "editor.common.play" {
+    text="Play"
+  }
+  msg "editor.common.save" {
+    text="Save"
+  }
+  msg "editor.common.stop" {
+    text="Stop"
+  }
+  msg "editor.console.clear" {
+    text="Clear"
+  }
+  msg "editor.console.double_click_to_show_path" {
+    text="double-click to show {path}"
+  }
+  msg "editor.console.error" {
+    text="Error"
+  }
+  msg "editor.console.follow" {
+    text="Follow"
+  }
+  msg "editor.console.info" {
+    text="Info"
+  }
+  msg "editor.console.tail" {
+    text="Tail"
+  }
+  msg "editor.console.title" {
+    text="Console"
+  }
+  msg "editor.console.warn" {
+    text="Warn"
+  }
+  msg "editor.context.h_has_overrides_whose_target" {
+    text="{h} has overrides whose target is gone from the prefab"
+  }
+  msg "editor.context.h_prefab_short_is_missing" {
+    text="{h}: prefab {short} is missing, the instance is kept as it is in the file"
+  }
+  msg "editor.context.hot_reload_failed_keeping_the" {
+    text="hot reload failed, keeping the previous assets: {error}"
+  }
+  msg "editor.context.import_failed_for_v_error" {
+    text="import failed for {v}: {error}"
+  }
+  msg "editor.crashes.list_report_s_click_opens" {
+    text="{list} report(s); click opens the script line, or copies the folder path"
+  }
+  msg "editor.crashes.no_crash_reports_in_aego" {
+    text="No crash reports in .aego/crash"
+  }
+  msg "editor.crashes.title" {
+    text="Crash Reports"
+  }
+  msg "editor.dataedit.discard" {
+    text="Discard"
+  }
+  msg "editor.dataedit.keep" {
+    text="Keep"
+  }
+  msg "editor.dataedit.kept_the_live_changes_in" {
+    text="Kept the live changes in {path}"
+  }
+  msg "editor.dataedit.live_data_changes" {
+    text="Live data changes"
+  }
+  msg "editor.dataedit.rel_changed_on_disk_while" {
+    text="{rel} changed on disk while it has unsaved changes: Save keeps yours, Revert loads the disk version"
+  }
+  msg "editor.datatable.action.add_row" {
+    text="+ Row"
+  }
+  msg "editor.datatable.action.delete" {
+    text="Delete"
+  }
+  msg "editor.datatable.action.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.datatable.action.export_csv" {
+    text="Export CSV"
+  }
+  msg "editor.datatable.action.import_csv" {
+    text="Import CSV"
+  }
+  msg "editor.datatable.action.redo" {
+    text="Redo"
+  }
+  msg "editor.datatable.action.save" {
+    text="Save"
+  }
+  msg "editor.datatable.action.undo" {
+    text="Undo"
+  }
+  msg "editor.datatable.no_rows_match_the_filter" {
+    text="No rows match the filter"
+  }
+  msg "editor.datatable.none" {
+    text="None"
+  }
+  msg "editor.datatable.open_a_aetable_asset_to" {
+    text="Open a .aetable asset to edit it here"
+  }
+  msg "editor.datatable.tables_are_read_only_during" {
+    text="Tables are read-only during Play"
+  }
+  msg "editor.datatable.the_table_is_empty_add" {
+    text="The table is empty, add a row"
+  }
+  msg "editor.datatable.title" {
+    text="Table"
+  }
+  msg "editor.datatable.v_more_issue_s" {
+    text="{v} more issue(s)"
+  }
+  msg "editor.docs.documentation_is_not_loaded" {
+    text="Documentation is not loaded."
+  }
+  msg "editor.docs.getting_started" {
+    text="Getting started"
+  }
+  msg "editor.docs.guides" {
+    text="Guides"
+  }
+  msg "editor.docs.no_documentation_entry_trimprefix" {
+    text="No documentation entry {trimprefix}"
+  }
+  msg "editor.docs.open_source" {
+    text="Open source"
+  }
+  msg "editor.docs.open_stub" {
+    text="Open stub"
+  }
+  msg "editor.docs.reference" {
+    text="Reference"
+  }
+  msg "editor.docs.title" {
+    text="Documentation"
+  }
+  msg "editor.docsession.component_u_is_not_available" {
+    text="component {u} is not available in the docs runtime"
+  }
+  msg "editor.document.trimsuffix_prefab" {
+    text="{trimsuffix} (Prefab)"
+  }
+  msg "editor.events.break_on" {
+    text="Break on"
+  }
+  msg "editor.events.cannot_write_the_event_log" {
+    text="cannot write the event log: {error}"
+  }
+  msg "editor.events.event_log_written_to_path" {
+    text="Event log written to {path}"
+  }
+  msg "editor.events.events_of_the_running_game" {
+    text="Events of the running game appear here while Play runs"
+  }
+  msg "editor.events.export" {
+    text="Export"
+  }
+  msg "editor.events.frame_formatuint" {
+    text="frame {formatuint}  ×"
+  }
+  msg "editor.events.selected_nodes" {
+    text="Selected nodes"
+  }
+  msg "editor.events.show_replayed" {
+    text="Show replayed"
+  }
+  msg "editor.events.title" {
+    text="Event Monitor"
+  }
+  msg "editor.export.back_to_the_default_folder" {
+    text="Back to the default folder"
+  }
+  msg "editor.export.cancel" {
+    text="Cancel"
+  }
+  msg "editor.export.check_export_prof" {
+    text="Check export ({prof})"
+  }
+  msg "editor.export.choose_the_output_folder" {
+    text="Choose the output folder"
+  }
+  msg "editor.export.errors" {
+    one="{n} error"
+    other="{n} errors"
+  }
+  msg "editor.export.export_target_profile" {
+    text="Export {target} {profile}"
+  }
+  msg "editor.export.output" {
+    text="Output"
+  }
+  msg "editor.export.profile" {
+    text="Profile"
+  }
+  msg "editor.export.profile.development" {
+    text="Development"
+  }
+  msg "editor.export.profile.development.note" {
+    text="Logs and runtime checks on, faster to build."
+  }
+  msg "editor.export.profile.release" {
+    text="Release"
+  }
+  msg "editor.export.profile.release.note" {
+    text="Optimized and stripped, for players."
+  }
+  msg "editor.export.ready_warnings" {
+    text="Ready to export, {warnings}"
+  }
+  msg "editor.export.report" {
+    text="Report"
+  }
+  msg "editor.export.target" {
+    text="Target"
+  }
+  msg "editor.export.target.host" {
+    text="This computer"
+  }
+  msg "editor.export.target.web" {
+    text="Web"
+  }
+  msg "editor.export.title" {
+    text="Export"
+  }
+  msg "editor.export.warnings" {
+    one="{n} warning"
+    other="{n} warnings"
+  }
+  msg "editor.ext.extension_id_was_disabled_reason" {
+    text="extension {id} was disabled: {reason}"
+  }
+  msg "editor.favorites.nothing_here_yet_add_assets" {
+    text="Nothing here yet. Add assets from their menu, nodes from the Hierarchy menu and actions with Ctrl+D in the command palette."
+  }
+  msg "editor.favorites.title" {
+    text="Favorites"
+  }
+  msg "editor.fieldgizmo.fields" {
+    text="Fields"
+  }
+  msg "editor.gameview.a_key_every_formatuint_ticks" {
+    text="\na key every {formatuint} ticks"
+  }
+  msg "editor.gameview.cached_cached_for_scrubbing_cachebytes" {
+    text="; {cached} cached for scrubbing, {cachebytes}"
+  }
+  msg "editor.gameview.click_to_send_input_to" {
+    text="Click to send input to the game"
+  }
+  msg "editor.gameview.drag_to_rewind_the_game" {
+    text="Drag to rewind the game; Ctrl+Left and Ctrl+Right step one frame"
+  }
+  msg "editor.gameview.draw_module_overlays_and_vectors" {
+    text="Draw module overlays and vectors over the game"
+  }
+  msg "editor.gameview.draw_velocity_force_contact_and" {
+    text="Draw velocity, force, contact and field vectors (V in the Scene View)"
+  }
+  msg "editor.gameview.history_cleared_why_press_play" {
+    text="History cleared: {why} · press Play or Step to record again"
+  }
+  msg "editor.gameview.history_ends_why" {
+    text="\nHistory ends: {why}"
+  }
+  msg "editor.gameview.keys_keyframes_keybytes_the_last" {
+    text="\n{keys} keyframes, {keybytes}; the last took {lastkey} and {formatfloat} ms"
+  }
+  msg "editor.gameview.recording_starts_with_the_first" {
+    text="Recording starts with the first frame · press Play or Step"
+  }
+  msg "editor.gameview.title" {
+    text="Game"
+  }
+  msg "editor.gizmo.move" {
+    text="Move"
+  }
+  msg "editor.gizmo.rotate" {
+    text="Rotate"
+  }
+  msg "editor.gizmo.scale" {
+    text="Scale"
+  }
+  msg "editor.health.big_texture_s_larger_than" {
+    text="{big} texture(s) larger than {limit} px"
+  }
+  msg "editor.health.broken_asset_s_failed_to" {
+    text="{broken} asset(s) failed to import"
+  }
+  msg "editor.health.c_problem_s_from_o" {
+    text="{c} problem(s) from {o}"
+  }
+  msg "editor.health.check_textures_scenes_and_export" {
+    text="Check textures, scenes and export"
+  }
+  msg "editor.health.checked_at_v" {
+    text="Checked at {v}"
+  }
+  msg "editor.health.dark_scene_s_without_a" {
+    text="{dark} scene(s) without a camera"
+  }
+  msg "editor.health.idle_scene_s_nothing_loads" {
+    text="{idle} scene(s) nothing loads"
+  }
+  msg "editor.health.missing_missing" {
+    text=", {missing} missing"
+  }
+  msg "editor.health.missing_missing_reference_s" {
+    text="{missing} missing reference(s)"
+  }
+  msg "editor.health.names_that_differ_only_in" {
+    text="names that differ only in case"
+  }
+  msg "editor.health.no_problems_found" {
+    text="No problems found"
+  }
+  msg "editor.health.path_opened_in_formatint_ms" {
+    text="{path}: opened in {formatint} ms, {nodes} node(s), {deps} asset(s)"
+  }
+  msg "editor.health.resolve" {
+    text="Resolve…"
+  }
+  msg "editor.health.run_checks" {
+    text="Run Checks"
+  }
+  msg "editor.health.title" {
+    text="Project Health"
+  }
+  msg "editor.health.unused_unused_asset_s" {
+    text="{unused} unused asset(s)"
+  }
+  msg "editor.help.code_editor" {
+    text="Code editor"
+  }
+  msg "editor.hierarchy.apply_all_to" {
+    text="Apply All to {name}"
+  }
+  msg "editor.hierarchy.apply_node_to" {
+    text="Apply Node to {name}"
+  }
+  msg "editor.hierarchy.ask_agent" {
+    text="Ask Agent…"
+  }
+  msg "editor.hierarchy.batch_rename" {
+    text="Batch Rename…"
+  }
+  msg "editor.hierarchy.create" {
+    text="Create…"
+  }
+  msg "editor.hierarchy.create_prefab" {
+    text="Create Prefab"
+  }
+  msg "editor.hierarchy.create_variant" {
+    text="Create Variant"
+  }
+  msg "editor.hierarchy.find_instances" {
+    text="Find Instances"
+  }
+  msg "editor.hierarchy.n_comes_from_a_prefab" {
+    text="{n} comes from a prefab and keeps its parent, unpack the instance to move it"
+  }
+  msg "editor.hierarchy.no_scene_open" {
+    text="No scene open"
+  }
+  msg "editor.hierarchy.nodes_nodes" {
+    text="{nodes} nodes"
+  }
+  msg "editor.hierarchy.open_prefab" {
+    text="Open Prefab"
+  }
+  msg "editor.hierarchy.prefab" {
+    text="Prefab"
+  }
+  msg "editor.hierarchy.rename_scene" {
+    text="Rename Scene…"
+  }
+  msg "editor.hierarchy.revert_all" {
+    text="Revert All"
+  }
+  msg "editor.hierarchy.revert_node" {
+    text="Revert Node"
+  }
+  msg "editor.hierarchy.save_scene" {
+    text="Save Scene"
+  }
+  msg "editor.hierarchy.save_scene_as" {
+    text="Save Scene As…"
+  }
+  msg "editor.hierarchy.select_prefab_asset" {
+    text="Select Prefab Asset"
+  }
+  msg "editor.hierarchy.title" {
+    text="Hierarchy"
+  }
+  msg "editor.hierarchy.unpack" {
+    text="Unpack"
+  }
+  msg "editor.hierarchy.unpack_completely" {
+    text="Unpack Completely"
+  }
+  msg "editor.hierarchy.unsaved" {
+    text="(unsaved)"
+  }
+  msg "editor.inspector.add_component" {
+    text="Add Component"
+  }
+  msg "editor.inspector.add_script" {
+    text="Add Script"
+  }
+  msg "editor.inspector.added_node" {
+    text="added node {name}"
+  }
+  msg "editor.inspector.added_owner" {
+    text="added {name}"
+  }
+  msg "editor.inspector.and_v_more" {
+    text=" and {v} more"
+  }
+  msg "editor.inspector.apply_all" {
+    text="Apply All"
+  }
+  msg "editor.inspector.apply_preset" {
+    text="Apply Preset"
+  }
+  msg "editor.inspector.apply_preset_name" {
+    text="Apply Preset {name}"
+  }
+  msg "editor.inspector.apply_to" {
+    text="Apply to {name}"
+  }
+  msg "editor.inspector.asset_not_imported" {
+    text="Asset {id} is not imported"
+  }
+  msg "editor.inspector.base" {
+    text="Base"
+  }
+  msg "editor.inspector.base.tip" {
+    text="Fields this asset does not set come from its base"
+  }
+  msg "editor.inspector.clipboard_does_not_fit" {
+    text="The clipboard does not fit {field}"
+  }
+  msg "editor.inspector.copied_components" {
+    one="Copied {n} component"
+    other="Copied {n} components"
+  }
+  msg "editor.inspector.copied_name" {
+    text="Copied {name}"
+  }
+  msg "editor.inspector.copy_all_components" {
+    text="Copy All Components"
+  }
+  msg "editor.inspector.copy_component" {
+    text="Copy Component"
+  }
+  msg "editor.inspector.copy_value" {
+    text="Copy Value"
+  }
+  msg "editor.inspector.copy_values_to_edit_scene" {
+    text="Copy values to edit scene"
+  }
+  msg "editor.inspector.data" {
+    text="Data"
+  }
+  msg "editor.inspector.declaration_unavailable" {
+    text="The declaration of {name} is not available until the scripts compile"
+  }
+  msg "editor.inspector.edit_script" {
+    text="Edit Script"
+  }
+  msg "editor.inspector.enabled" {
+    text="Enabled"
+  }
+  msg "editor.inspector.engine_builtin" {
+    text="Engine builtin {name}"
+  }
+  msg "editor.inspector.find_usages" {
+    text="Find Usages"
+  }
+  msg "editor.inspector.go_to_declaration" {
+    text="Go to Declaration"
+  }
+  msg "editor.inspector.inspector_for_fullname_crashed_msg" {
+    text="inspector for {fullname} crashed: {msg}"
+  }
+  msg "editor.inspector.keys_keys" {
+    text="{keys} keys"
+  }
+  msg "editor.inspector.label_changes_nodes_nodes_join" {
+    text="{label} changes {nodes} nodes: {join}"
+  }
+  msg "editor.inspector.layers" {
+    text="Layers"
+  }
+  msg "editor.inspector.lock.tip" {
+    text="Lock the Inspector to this selection"
+  }
+  msg "editor.inspector.locked_to" {
+    one="Locked to {n} node in {doc}"
+    other="Locked to {n} nodes in {doc}"
+  }
+  msg "editor.inspector.missing" {
+    text="Missing"
+  }
+  msg "editor.inspector.missing_asset" {
+    text="Missing asset"
+  }
+  msg "editor.inspector.move_down" {
+    text="Move Down"
+  }
+  msg "editor.inspector.move_up" {
+    text="Move Up"
+  }
+  msg "editor.inspector.name" {
+    text="Name"
+  }
+  msg "editor.inspector.name_is_not_in_the" {
+    text="{name} is not in the script, kept on save"
+  }
+  msg "editor.inspector.no_scene_open" {
+    text="No scene open"
+  }
+  msg "editor.inspector.no_scripts_match" {
+    text="No scripts match"
+  }
+  msg "editor.inspector.node" {
+    text="Node"
+  }
+  msg "editor.inspector.node_not_in_scene" {
+    text="Node {id} is not in this scene"
+  }
+  msg "editor.inspector.nodes_nodes" {
+    text="{nodes} nodes"
+  }
+  msg "editor.inspector.none" {
+    text="None"
+  }
+  msg "editor.inspector.not_compiled_properties_are_kept" {
+    text="Not compiled, properties are kept as they are"
+  }
+  msg "editor.inspector.nothing_selected" {
+    text="Nothing selected"
+  }
+  msg "editor.inspector.paste_component" {
+    text="Paste Component"
+  }
+  msg "editor.inspector.paste_component_values" {
+    text="Paste Component Values"
+  }
+  msg "editor.inspector.paste_components" {
+    text="Paste Components"
+  }
+  msg "editor.inspector.paste_image" {
+    text="Paste Image"
+  }
+  msg "editor.inspector.paste_name" {
+    text="Paste {name}"
+  }
+  msg "editor.inspector.paste_value" {
+    text="Paste Value"
+  }
+  msg "editor.inspector.pasted" {
+    text="Pasted {path}"
+  }
+  msg "editor.inspector.play_live_fields_apply_now" {
+    text="Play: live fields apply now, Stop asks whether to keep them"
+  }
+  msg "editor.inspector.position" {
+    text="Position"
+  }
+  msg "editor.inspector.prefab" {
+    text="Prefab"
+  }
+  msg "editor.inspector.redo" {
+    text="Redo"
+  }
+  msg "editor.inspector.remove" {
+    text="Remove"
+  }
+  msg "editor.inspector.remove_name" {
+    text="Remove {name}"
+  }
+  msg "editor.inspector.removed_owner" {
+    text="Removed {name}"
+  }
+  msg "editor.inspector.reset" {
+    text="Reset"
+  }
+  msg "editor.inspector.reset_name" {
+    text="Reset {name}"
+  }
+  msg "editor.inspector.reset_to_base_value" {
+    text="Reset to Base Value"
+  }
+  msg "editor.inspector.reset_to_default" {
+    text="Reset to Default"
+  }
+  msg "editor.inspector.reset_to_prefab_value" {
+    text="Reset to Prefab Value"
+  }
+  msg "editor.inspector.revert" {
+    text="Revert"
+  }
+  msg "editor.inspector.revert_all" {
+    text="Revert All"
+  }
+  msg "editor.inspector.revert_to_prefab" {
+    text="Revert to Prefab"
+  }
+  msg "editor.inspector.rotation" {
+    text="Rotation"
+  }
+  msg "editor.inspector.save_as_preset" {
+    text="Save as Preset…"
+  }
+  msg "editor.inspector.save_preset" {
+    text="Save preset"
+  }
+  msg "editor.inspector.saved" {
+    text="Saved {path}"
+  }
+  msg "editor.inspector.saved_to" {
+    text="Saved to {dir}"
+  }
+  msg "editor.inspector.scale" {
+    text="Scale"
+  }
+  msg "editor.inspector.script_errors" {
+    one="{n} error in {pkg}, the last good build runs"
+    other="{n} errors in {pkg}, the last good build runs"
+  }
+  msg "editor.inspector.scripts" {
+    text="Scripts"
+  }
+  msg "editor.inspector.select_the_nodes_to_keep" {
+    text="Select the nodes to keep in the Inspector"
+  }
+  msg "editor.inspector.selected_nodes_live_in_different" {
+    text="Selected nodes live in different spaces"
+  }
+  msg "editor.inspector.set_layers" {
+    text="Set Layers"
+  }
+  msg "editor.inspector.show_script_files" {
+    text="Show Script Files"
+  }
+  msg "editor.inspector.space" {
+    text="Space"
+  }
+  msg "editor.inspector.the_clipboard_does_not_fit" {
+    text="The clipboard does not fit this field"
+  }
+  msg "editor.inspector.the_clipboard_has_no_image" {
+    text="The clipboard has no image"
+  }
+  msg "editor.inspector.the_prefab_is_missing_the" {
+    text="The prefab is missing, the instance is kept as it is in the file"
+  }
+  msg "editor.inspector.tip_click_to_open_the" {
+    text="{tip}\nClick to open the line"
+  }
+  msg "editor.inspector.title" {
+    text="Inspector"
+  }
+  msg "editor.inspector.toggle_enabled" {
+    text="Toggle Enabled"
+  }
+  msg "editor.inspector.transform" {
+    text="Transform"
+  }
+  msg "editor.inspector.typename_not_loaded_kept_as" {
+    text="{typename} (not loaded, kept as is)"
+  }
+  msg "editor.inspector.undo" {
+    text="Undo"
+  }
+  msg "editor.inspector.unlock.tip" {
+    text="Unlock the Inspector"
+  }
+  msg "editor.inspector.unused_overrides" {
+    text="Unused overrides"
+  }
+  msg "editor.inspector.values_differ" {
+    text="Values differ:"
+  }
+  msg "editor.keymap.back_forward" {
+    text="Back / forward"
+  }
+  msg "editor.keymap.close_tab" {
+    text="Close tab"
+  }
+  msg "editor.keymap.completion" {
+    text="Completion"
+  }
+  msg "editor.keymap.delete_line" {
+    text="Delete line"
+  }
+  msg "editor.keymap.duplicate_line" {
+    text="Duplicate line"
+  }
+  msg "editor.keymap.expand_shrink_selection" {
+    text="Expand / shrink selection"
+  }
+  msg "editor.keymap.file_structure" {
+    text="File structure"
+  }
+  msg "editor.keymap.find_in_scripts" {
+    text="Find in scripts"
+  }
+  msg "editor.keymap.find_replace_in_file" {
+    text="Find / replace in file"
+  }
+  msg "editor.keymap.find_usages" {
+    text="Find usages"
+  }
+  msg "editor.keymap.float_a_panel" {
+    text="Float a panel"
+  }
+  msg "editor.keymap.go_to_declaration" {
+    text="Go to declaration"
+  }
+  msg "editor.keymap.indent_outdent" {
+    text="Indent / outdent"
+  }
+  msg "editor.keymap.move_line" {
+    text="Move line"
+  }
+  msg "editor.keymap.next_previous_error" {
+    text="Next / previous error"
+  }
+  msg "editor.keymap.open_documentation" {
+    text="Open documentation"
+  }
+  msg "editor.keymap.parameter_info" {
+    text="Parameter info"
+  }
+  msg "editor.keymap.peek_definition" {
+    text="Peek definition"
+  }
+  msg "editor.keymap.quick_documentation" {
+    text="Quick documentation"
+  }
+  msg "editor.keymap.save" {
+    text="Save"
+  }
+  msg "editor.keymap.split_right_down" {
+    text="Split right / down"
+  }
+  msg "editor.keymap.title" {
+    text="Keymap"
+  }
+  msg "editor.keymap.toggle_comment" {
+    text="Toggle comment"
+  }
+  msg "editor.language.auto" {
+    text="Auto"
+  }
+  msg "editor.menu.animation" {
+    text="Animation"
+  }
+  msg "editor.menu.assets" {
+    text="Assets"
+  }
+  msg "editor.menu.audio" {
+    text="Audio"
+  }
+  msg "editor.menu.camera" {
+    text="Camera"
+  }
+  msg "editor.menu.create" {
+    text="Create"
+  }
+  msg "editor.menu.debug" {
+    text="Debug"
+  }
+  msg "editor.menu.edit" {
+    text="Edit"
+  }
+  msg "editor.menu.file" {
+    text="File"
+  }
+  msg "editor.menu.gameplay" {
+    text="Gameplay"
+  }
+  msg "editor.menu.help" {
+    text="Help"
+  }
+  msg "editor.menu.input" {
+    text="Input"
+  }
+  msg "editor.menu.language" {
+    text="Language"
+  }
+  msg "editor.menu.nodes" {
+    text="Nodes"
+  }
+  msg "editor.menu.panels" {
+    text="Panels"
+  }
+  msg "editor.menu.physics" {
+    text="Physics"
+  }
+  msg "editor.menu.play" {
+    text="Play"
+  }
+  msg "editor.menu.scene" {
+    text="Scene"
+  }
+  msg "editor.menu.scripts" {
+    text="Scripts"
+  }
+  msg "editor.menu.theme" {
+    text="Theme"
+  }
+  msg "editor.menu.vectors" {
+    text="Vectors"
+  }
+  msg "editor.menu.window" {
+    text="Window"
+  }
+  msg "editor.missingrefs.title" {
+    text="Missing References"
+  }
+  msg "editor.play.component_u_is_not_loaded" {
+    text="component {u} is not loaded in this build and does nothing in play mode"
+  }
+  msg "editor.play.copied_fullname_to_the_edit" {
+    text="Copied {fullname} to the edit scene"
+  }
+  msg "editor.play.k_releases_input" {
+    text="{k} releases input"
+  }
+  msg "editor.play.paused_on_tick_formatuint_breakwhy" {
+    text="Paused on tick {formatuint}: {breakwhy}"
+  }
+  msg "editor.play.play_mode_started" {
+    text="Play mode started"
+  }
+  msg "editor.play.play_mode_stopped" {
+    text="Play mode stopped"
+  }
+  msg "editor.play.rewound_to_tick_formatuint" {
+    text="Rewound to tick {formatuint}"
+  }
+  msg "editor.playdiff.applied_n_change_s_from" {
+    text="Applied {n} change(s) from Play, Undo reverts them"
+  }
+  msg "editor.playdiff.apply_n_to_scene" {
+    text="Apply {n} to scene"
+  }
+  msg "editor.playdiff.changes_made_during_play" {
+    text="Changes made during Play"
+  }
+  msg "editor.playdiff.changes_you_made_during_play" {
+    text="Changes you made during Play. Undo in the scene reverts them after Apply."
+  }
+  msg "editor.playdiff.discard" {
+    text="Discard"
+  }
+  msg "editor.playdiff.from_gameplay" {
+    text="  · from gameplay"
+  }
+  msg "editor.playdiff.keys_keys" {
+    text="{keys} keys"
+  }
+  msg "editor.playdiff.mode.always" {
+    text="Always Show Play Changes"
+  }
+  msg "editor.playdiff.mode.if_changes" {
+    text="Show Play Changes When Something Changed"
+  }
+  msg "editor.playdiff.mode.never" {
+    text="Never Show Play Changes"
+  }
+  msg "editor.playdiff.n_node_s_created_and" {
+    text="{n} node(s) created and {m} removed during Play are not transferred"
+  }
+  msg "editor.playdiff.none" {
+    text="None"
+  }
+  msg "editor.playdiff.pos_position_rot_rotation_scale" {
+    text="pos {position}  rot {rotation}°  scale {scale}"
+  }
+  msg "editor.playdiff.pos_position_rot_rotation_scale_2" {
+    text="pos {position}  rot {rotation}  scale {scale}"
+  }
+  msg "editor.playdiff.show_all_differences_including_those" {
+    text="Show all differences, including those made by the game"
+  }
+  msg "editor.playdiff.the_scene_was_closed_the" {
+    text="The scene was closed, the changes are dropped"
+  }
+  msg "editor.playdiff.transform" {
+    text="Transform"
+  }
+  msg "editor.prefabs.cannot_refresh_the_prefab_instances" {
+    text="cannot refresh the prefab instances in {path}: {error}"
+  }
+  msg "editor.prefabs.created_rel" {
+    text="Created {rel}"
+  }
+  msg "editor.prefabs.elsewhere_in_other_open_scenes" {
+    text=", {elsewhere} in other open scenes"
+  }
+  msg "editor.prefabs.here_instance_s_of_id" {
+    text="{here} instance(s) of {id} in this scene"
+  }
+  msg "editor.prefabs.nothing_to_apply" {
+    text="Nothing to apply"
+  }
+  msg "editor.prefabs.prefab" {
+    text="Prefab"
+  }
+  msg "editor.prefabs.remove_unused_override" {
+    text="Remove Unused Override"
+  }
+  msg "editor.prefabs.revert" {
+    text="Revert"
+  }
+  msg "editor.prefabs.the_prefab_already_matches" {
+    text="The prefab already matches"
+  }
+  msg "editor.prefabs.unpack_prefab" {
+    text="Unpack Prefab"
+  }
+  msg "editor.prefabs.unpack_prefab_completely" {
+    text="Unpack Prefab Completely"
+  }
+  msg "editor.prefabs.used_by_join" {
+    text="; used by {join}"
+  }
+  msg "editor.prefs.save_failed" {
+    text="Cannot save the editor preferences: {err}"
+  }
+  msg "editor.presets.apply_preset_name" {
+    text="Apply Preset {name}"
+  }
+  msg "editor.preview.preview_name" {
+    text="Preview {name}"
+  }
+  msg "editor.preview.project_preview" {
+    text="Project preview"
+  }
+  msg "editor.preview.remove_old_thumbnails" {
+    text="Remove old thumbnails"
+  }
+  msg "editor.preview.waveform_name" {
+    text="Waveform {name}"
+  }
+  msg "editor.problems.ask_agent_to_fix" {
+    text="Ask Agent to Fix"
+  }
+  msg "editor.problems.category.scene" {
+    text="scene"
+  }
+  msg "editor.problems.category.script" {
+    text="script"
+  }
+  msg "editor.problems.errors" {
+    one="{n} error"
+    other="{n} errors"
+  }
+  msg "editor.problems.errors_n" {
+    text="Errors {n}"
+  }
+  msg "editor.problems.no_match" {
+    text="No problems match the filter"
+  }
+  msg "editor.problems.no_problems" {
+    text="No problems"
+  }
+  msg "editor.problems.node_v" {
+    text="node {v}"
+  }
+  msg "editor.problems.package" {
+    text="package {name}"
+  }
+  msg "editor.problems.title" {
+    text="Problems"
+  }
+  msg "editor.problems.warnings" {
+    one="{n} warning"
+    other="{n} warnings"
+  }
+  msg "editor.problems.warnings_n" {
+    text="Warnings {n}"
+  }
+  msg "editor.profiler.allocations_by_phase_off" {
+    text="Allocations by phase: off"
+  }
+  msg "editor.profiler.allocations_by_phase_on" {
+    text="Allocations by phase: on"
+  }
+  msg "editor.profiler.approximate_counted_process_wide_from" {
+    text="Approximate: counted process-wide from phase start to end; a play world ticked inside a phase counts there too."
+  }
+  msg "editor.profiler.cannot_save_the_trace_error" {
+    text="cannot save the trace: {error}"
+  }
+  msg "editor.profiler.cannot_write_the_trace_error" {
+    text="cannot write the trace: {error}"
+  }
+  msg "editor.profiler.coroutines_active_active_sleeping_sleeping" {
+    text="coroutines active {active}   sleeping {sleeping}   resumes/frame {formatuint}   canceled {formatuint2}"
+  }
+  msg "editor.profiler.dropped_dropped" {
+    text="   dropped {dropped}"
+  }
+  msg "editor.profiler.export_trace" {
+    text="Export Trace"
+  }
+  msg "editor.profiler.fmtf_fmtf2_unit_formatfloat_s" {
+    text="{fmtf} / {fmtf2}{unit}   {formatfloat} s ago"
+  }
+  msg "editor.profiler.fps_v_window_span_s" {
+    text="fps {v}   window {span} s"
+  }
+  msg "editor.profiler.frame" {
+    text="Frame"
+  }
+  msg "editor.profiler.frame_formatuint_dur" {
+    text="Frame {formatuint}   {dur}"
+  }
+  msg "editor.profiler.frame_formatuint_tick_formatuint2_alpha" {
+    text="frame {formatuint}   tick {formatuint2}   alpha {formatfloat}   scale ×{formatfloat2}   dropped ticks {formatuint3}"
+  }
+  msg "editor.profiler.frame_took_formatfloat_ms_for" {
+    text="Frame took {formatfloat} ms for 3 frames in a row"
+  }
+  msg "editor.profiler.game" {
+    text="Game"
+  }
+  msg "editor.profiler.go_heap_heap_goal_goal" {
+    text="Go heap {heap}   goal {goal}   process {process}   goroutines {formatuint}   GC {formatuint2}"
+  }
+  msg "editor.profiler.instances_instances_update_update_fixed" {
+    text="instances {instances}   update {update}   fixed {fixed}   faults {faults}   budget aborts {formatuint}   heap objects {heapobjects}   GC {formatuint2} / {gctime} ms"
+  }
+  msg "editor.profiler.memory" {
+    text="Memory"
+  }
+  msg "editor.profiler.pause" {
+    text="Pause"
+  }
+  msg "editor.profiler.press_play_to_see_game" {
+    text="Press Play to see game and script timings"
+  }
+  msg "editor.profiler.press_play_to_see_game_2" {
+    text="Press Play to see game, script and {join} timings"
+  }
+  msg "editor.profiler.resume" {
+    text="Resume"
+  }
+  msg "editor.profiler.script_heap_heapobjects_objects_heapbytes" {
+    text="script heap {heapobjects} objects, {heapbytes}"
+  }
+  msg "editor.profiler.scripts" {
+    text="Scripts"
+  }
+  msg "editor.profiler.signal_connections_connections_emits_frame" {
+    text="signal connections {connections}   emits/frame {formatuint}   handlers/frame {formatuint2}"
+  }
+  msg "editor.profiler.slowest_zone_z" {
+    text=", slowest zone {z}"
+  }
+  msg "editor.profiler.ticks_formatuint_formatuint2" {
+    text="   ticks {formatuint}–{formatuint2}"
+  }
+  msg "editor.profiler.title" {
+    text="Profiler"
+  }
+  msg "editor.profiler.trace_saved_to_path_open" {
+    text="Trace saved to {path}, open it in ui.perfetto.dev"
+  }
+  msg "editor.profiler.v_formatuint_objects" {
+    text="{v}   {formatuint} objects"
+  }
+  msg "editor.profiler.world_frame_formatuint" {
+    text="   world frame {formatuint}"
+  }
+  msg "editor.profiler.zone_dur_pct_of_the" {
+    text="{zone}\n{dur}   {pct}% of the frame"
+  }
+  msg "editor.projectsettings.apply" {
+    text="Apply"
+  }
+  msg "editor.projectsettings.default_space" {
+    text="Default Space"
+  }
+  msg "editor.projectsettings.game_title" {
+    text="Title"
+  }
+  msg "editor.projectsettings.height" {
+    text="Height"
+  }
+  msg "editor.projectsettings.module" {
+    text="Module"
+  }
+  msg "editor.projectsettings.name" {
+    text="Name"
+  }
+  msg "editor.projectsettings.no_project" {
+    text="No project"
+  }
+  msg "editor.projectsettings.no_setting_matches" {
+    text="No setting matches"
+  }
+  msg "editor.projectsettings.off" {
+    text="Off"
+  }
+  msg "editor.projectsettings.on" {
+    text="On"
+  }
+  msg "editor.projectsettings.project_aego_changed_while_project" {
+    text="project.aego changed while Project Settings has unapplied changes: Apply overwrites it, Revert loads it"
+  }
+  msg "editor.projectsettings.revert" {
+    text="Revert"
+  }
+  msg "editor.projectsettings.saved_project_aego_note" {
+    text="Saved project.aego, {note}"
+  }
+  msg "editor.projectsettings.saved_project_aego_settings_apply" {
+    text="Saved project.aego, settings apply on the next Play"
+  }
+  msg "editor.projectsettings.starting_values_of_player_settings" {
+    text="Starting values of player settings. Players change them in the game settings; this page sets what a new player gets."
+  }
+  msg "editor.projectsettings.startup_scene" {
+    text="Startup Scene"
+  }
+  msg "editor.projectsettings.title" {
+    text="Project Settings"
+  }
+  msg "editor.projectsettings.width" {
+    text="Width"
+  }
+  msg "editor.projectsettings.window" {
+    text="Window"
+  }
+  msg "editor.references.assets_missing_asset_s_nodes" {
+    text="{assets} missing asset(s), {nodes} missing node reference(s)"
+  }
+  msg "editor.references.cancel" {
+    text="Cancel"
+  }
+  msg "editor.references.clear" {
+    text="Clear"
+  }
+  msg "editor.references.clear_references" {
+    text="Clear references"
+  }
+  msg "editor.references.clear_references_button" {
+    text="Clear References"
+  }
+  msg "editor.references.delete_deleting_asset_s" {
+    text="Delete {deleting} asset(s)"
+  }
+  msg "editor.references.error_originals_in_backup" {
+    text="{error} (originals in {backup})"
+  }
+  msg "editor.references.every_reference_resolves" {
+    text="Every reference resolves"
+  }
+  msg "editor.references.every_reference_to_name_becomes" {
+    text="Every reference to {name} becomes None. Files that are not open are rewritten on disk; their originals go to .aego/recovery."
+  }
+  msg "editor.references.label_n_file_s_updated" {
+    text="{label}: {n} file(s) updated"
+  }
+  msg "editor.references.label_refs_referrer_s" {
+    text="{label}  ·  {refs} referrer(s)"
+  }
+  msg "editor.references.n_file_s_reference_it" {
+    text="{n} file(s) reference it"
+  }
+  msg "editor.references.no_matching_assets" {
+    text="No matching assets"
+  }
+  msg "editor.references.nothing_references_this_asset" {
+    text="Nothing references this asset"
+  }
+  msg "editor.references.originals_in_backup" {
+    text=", originals in {backup}"
+  }
+  msg "editor.references.path_deleted" {
+    text="{path} (deleted)"
+  }
+  msg "editor.references.referenced_by" {
+    text="Referenced by:"
+  }
+  msg "editor.references.refresh" {
+    text="Refresh"
+  }
+  msg "editor.references.replace" {
+    text="Replace"
+  }
+  msg "editor.references.replace_every_reference_to_name" {
+    text="Replace every reference to {name} with {rel}. Files that are not open are rewritten on disk; their originals go to .aego/recovery."
+  }
+  msg "editor.references.replace_references" {
+    text="Replace references"
+  }
+  msg "editor.references.replace_with" {
+    text="Replace with…"
+  }
+  msg "editor.references.rescan" {
+    text="Rescan"
+  }
+  msg "editor.references.scene_node_owner_field_missing" {
+    text="{scene}  ·  {node} · {owner}.{field} → missing node"
+  }
+  msg "editor.references.the_startup_scene_is_set" {
+    text="The startup scene is set in Project Settings"
+  }
+  msg "editor.references.title" {
+    text="References"
+  }
+  msg "editor.saves.cancel" {
+    text="Cancel"
+  }
+  msg "editor.saves.col.engine" {
+    text="Engine"
+  }
+  msg "editor.saves.col.game" {
+    text="Game"
+  }
+  msg "editor.saves.col.global" {
+    text="Global"
+  }
+  msg "editor.saves.col.next_id" {
+    text="Next id"
+  }
+  msg "editor.saves.col.objects" {
+    text="Objects"
+  }
+  msg "editor.saves.col.playtime" {
+    text="Playtime"
+  }
+  msg "editor.saves.col.saved" {
+    text="Saved"
+  }
+  msg "editor.saves.col.scene" {
+    text="Scene"
+  }
+  msg "editor.saves.col.section" {
+    text="Section"
+  }
+  msg "editor.saves.col.size" {
+    text="Size"
+  }
+  msg "editor.saves.col.slot" {
+    text="Slot"
+  }
+  msg "editor.saves.delete" {
+    text="Delete"
+  }
+  msg "editor.saves.delete_save" {
+    text="Delete save"
+  }
+  msg "editor.saves.delete_the_save_in_slot" {
+    text="Delete the save in slot {slot}?"
+  }
+  msg "editor.saves.load" {
+    text="Load"
+  }
+  msg "editor.saves.objects_value" {
+    text="{scene} scene, {spawned} spawned, {destroyed} destroyed"
+  }
+  msg "editor.saves.overwrite" {
+    text="Overwrite"
+  }
+  msg "editor.saves.refresh" {
+    text="Refresh"
+  }
+  msg "editor.saves.save" {
+    text="Save"
+  }
+  msg "editor.saves.saves_are_not_available_this" {
+    text="Saves are not available: this run has no player profile"
+  }
+  msg "editor.saves.saving_to_slot" {
+    text="Saving to {slot}"
+  }
+  msg "editor.saves.saving_works_during_play" {
+    text="Saving works during Play"
+  }
+  msg "editor.saves.slot_already_exists_and_will" {
+    text="{slot} already exists and will be replaced"
+  }
+  msg "editor.saves.start_play_to_load_a" {
+    text="Start Play to load a save"
+  }
+  msg "editor.saves.title" {
+    text="Saves"
+  }
+  msg "editor.scenes.cancel" {
+    text="Cancel"
+  }
+  msg "editor.scenes.delete" {
+    text="Delete…"
+  }
+  msg "editor.scenes.delete_2" {
+    text="Delete"
+  }
+  msg "editor.scenes.delete_path" {
+    text="Delete {path}?"
+  }
+  msg "editor.scenes.delete_scene" {
+    text="Delete scene"
+  }
+  msg "editor.scenes.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.scenes.name" {
+    text="Name"
+  }
+  msg "editor.scenes.no_scenes_match" {
+    text="No scenes match"
+  }
+  msg "editor.scenes.no_scenes_yet_file_new" {
+    text="No scenes yet, File → New Scene creates one"
+  }
+  msg "editor.scenes.open" {
+    text="Open"
+  }
+  msg "editor.scenes.rename" {
+    text="Rename…"
+  }
+  msg "editor.scenes.rename_2" {
+    text="Rename"
+  }
+  msg "editor.scenes.rename_scene" {
+    text="Rename scene"
+  }
+  msg "editor.scenes.set_as_startup" {
+    text="Set as Startup"
+  }
+  msg "editor.scenes.show_in_assets" {
+    text="Show in Assets"
+  }
+  msg "editor.scenes.title" {
+    text="Scenes"
+  }
+  msg "editor.sceneview.copy" {
+    text="Copy"
+  }
+  msg "editor.sceneview.create" {
+    text="Create…"
+  }
+  msg "editor.sceneview.create_button" {
+    text="Create"
+  }
+  msg "editor.sceneview.cut" {
+    text="Cut"
+  }
+  msg "editor.sceneview.delete" {
+    text="Delete"
+  }
+  msg "editor.sceneview.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.sceneview.edit" {
+    text="Edit"
+  }
+  msg "editor.sceneview.fit" {
+    text="Fit"
+  }
+  msg "editor.sceneview.frame_selection" {
+    text="Frame Selection"
+  }
+  msg "editor.sceneview.grid" {
+    text="Grid"
+  }
+  msg "editor.sceneview.isolated_n_node_s" {
+    text="Isolated: {n} node(s)"
+  }
+  msg "editor.sceneview.leave_isolation_commandisolate" {
+    text="Leave isolation ({commandisolate})"
+  }
+  msg "editor.sceneview.move" {
+    text="Move"
+  }
+  msg "editor.sceneview.no_scene_open" {
+    text="No scene open"
+  }
+  msg "editor.sceneview.open_a_scene_to_capture" {
+    text="Open a scene to capture the Scene View"
+  }
+  msg "editor.sceneview.ortho" {
+    text="Ortho"
+  }
+  msg "editor.sceneview.paste" {
+    text="Paste"
+  }
+  msg "editor.sceneview.persp" {
+    text="Persp"
+  }
+  msg "editor.sceneview.rotate" {
+    text="Rotate"
+  }
+  msg "editor.sceneview.saved_rel_no_3d_template" {
+    text="Saved {rel}, no 3D template turns it into a node"
+  }
+  msg "editor.sceneview.saved_rel_no_template_turns" {
+    text="Saved {rel}, no template turns it into a node"
+  }
+  msg "editor.sceneview.scale" {
+    text="Scale"
+  }
+  msg "editor.sceneview.select_the_nodes_to_isolate" {
+    text="Select the nodes to isolate"
+  }
+  msg "editor.sceneview.show_all" {
+    text="Show All"
+  }
+  msg "editor.sceneview.snap_hold_ctrl_to_invert" {
+    text="Snap (hold Ctrl to invert)"
+  }
+  msg "editor.sceneview.switch_between_the_2d_and" {
+    text="Switch between the 2D and 3D view"
+  }
+  msg "editor.sceneview.switch_between_the_perspective_and" {
+    text="Switch between the perspective and orthographic 3D view"
+  }
+  msg "editor.sceneview.title" {
+    text="Scene"
+  }
+  msg "editor.sceneview.tool.move" {
+    text="Move (W)"
+  }
+  msg "editor.sceneview.tool.rotate" {
+    text="Rotate (E)"
+  }
+  msg "editor.sceneview.tool.scale" {
+    text="Scale (R)"
+  }
+  msg "editor.sceneview.tool.select" {
+    text="Select (Q)"
+  }
+  msg "editor.sceneview.vectors_v" {
+    text="Vectors (V)"
+  }
+  msg "editor.sceneview.zoom" {
+    text="Zoom"
+  }
+  msg "editor.scripteditor.aa" {
+    text="Aa"
+  }
+  msg "editor.scripteditor.all" {
+    text="All"
+  }
+  msg "editor.scripteditor.attached_to_n_nodes" {
+    text="attached to {n} nodes"
+  }
+  msg "editor.scripteditor.autosave_failed_error" {
+    text="autosave failed: {error}"
+  }
+  msg "editor.scripteditor.cancel" {
+    text="Cancel"
+  }
+  msg "editor.scripteditor.discard" {
+    text="Discard"
+  }
+  msg "editor.scripteditor.errors" {
+    one="{n} error"
+    other="{n} errors"
+  }
+  msg "editor.scripteditor.find" {
+    text="Find"
+  }
+  msg "editor.scripteditor.keep_mine" {
+    text="Keep mine"
+  }
+  msg "editor.scripteditor.no_open_scene_uses_full" {
+    text="No open scene uses {full}"
+  }
+  msg "editor.scripteditor.path_has_unsaved_changes" {
+    text="{path} has unsaved changes."
+  }
+  msg "editor.scripteditor.reload" {
+    text="Reload"
+  }
+  msg "editor.scripteditor.reloaded_path" {
+    text="Reloaded {path}"
+  }
+  msg "editor.scripteditor.replace" {
+    text="Replace"
+  }
+  msg "editor.scripteditor.replace_all" {
+    text="Replace All"
+  }
+  msg "editor.scripteditor.replaced_total_occurrence_s_in" {
+    text="Replaced {total} occurrence(s) in {files} file(s), Save All writes them"
+  }
+  msg "editor.scripteditor.restored_unsaved_changes_of_path" {
+    text="Restored unsaved changes of {path}"
+  }
+  msg "editor.scripteditor.save" {
+    text="Save"
+  }
+  msg "editor.scripteditor.saved_path" {
+    text="Saved {path}"
+  }
+  msg "editor.scripteditor.scripts_build_formatuint_ok" {
+    text="Scripts: build {formatuint} · ok"
+  }
+  msg "editor.scripteditor.scripts_n_build_errors_problems" {
+    text="Scripts: {n} build errors · Problems"
+  }
+  msg "editor.scripteditor.searching" {
+    text="Searching…"
+  }
+  msg "editor.scripteditor.the_file_changed_on_disk" {
+    text="The file changed on disk while you were editing it"
+  }
+  msg "editor.scripteditor.title_matches_usage_s_in" {
+    text="{title}: {matches} usage(s) in {files} file(s)"
+  }
+  msg "editor.scripteditor.type_to_search_in_all" {
+    text="Type to search in all scripts"
+  }
+  msg "editor.scripteditor.unsaved_script" {
+    text="Unsaved script"
+  }
+  msg "editor.scripteditor.usages" {
+    text="Usages"
+  }
+  msg "editor.scripteditor.warnings" {
+    one="{n} warning"
+    other="{n} warnings"
+  }
+  msg "editor.search.fav_added" {
+    text="Added {name} to Favorites"
+  }
+  msg "editor.search.fav_removed" {
+    text="Removed {name} from Favorites"
+  }
+  msg "editor.search.hint" {
+    text="Enter open · Ctrl+D favorite · Esc close"
+  }
+  msg "editor.search.hint_tabs" {
+    text="Double Shift · Tab switches"
+  }
+  msg "editor.search.hits_result_s" {
+    text="{hits} result(s)"
+  }
+  msg "editor.search.nothing_found" {
+    text="Nothing found"
+  }
+  msg "editor.search.only_files_nodes_and_actions" {
+    text="Only files, nodes and actions can be favorites"
+  }
+  msg "editor.search.tab.actions" {
+    text="Actions"
+  }
+  msg "editor.search.tab.all" {
+    text="All"
+  }
+  msg "editor.search.tab.files" {
+    text="Files"
+  }
+  msg "editor.search.tab.nodes" {
+    text="Nodes"
+  }
+  msg "editor.search.tab.settings" {
+    text="Settings"
+  }
+  msg "editor.search.tab.symbols" {
+    text="Symbols"
+  }
+  msg "editor.search.this_action_is_not_available" {
+    text="This action is not available right now"
+  }
+  msg "editor.shell.about_aego" {
+    text="About Aego"
+  }
+  msg "editor.shell.add_to_favorites" {
+    text="Add to Favorites"
+  }
+  msg "editor.shell.alpha_above" {
+    text="Alpha above"
+  }
+  msg "editor.shell.an_autosave_of_path_from" {
+    text="An autosave of {path} from {v} was found."
+  }
+  msg "editor.shell.apply" {
+    text="Apply"
+  }
+  msg "editor.shell.art" {
+    text="Art"
+  }
+  msg "editor.shell.atlas_group" {
+    text="Atlas group"
+  }
+  msg "editor.shell.atlas_padding" {
+    text="Atlas padding"
+  }
+  msg "editor.shell.audio" {
+    text="Audio"
+  }
+  msg "editor.shell.autosave_off" {
+    text="autosave off"
+  }
+  msg "editor.shell.autosave_on" {
+    text="autosave on"
+  }
+  msg "editor.shell.blocked_script_package_error_s" {
+    text="{blocked} script package error(s), see Problems"
+  }
+  msg "editor.shell.blocks_a_release_export_message" {
+    text="Blocks a release export: {message}"
+  }
+  msg "editor.shell.cancel" {
+    text="Cancel"
+  }
+  msg "editor.shell.cannot_hand_off_the_session" {
+    text="cannot hand off the session: {error}"
+  }
+  msg "editor.shell.cannot_read_the_scene_view" {
+    text="cannot read the Scene View: {error}"
+  }
+  msg "editor.shell.cannot_save_the_editor_state" {
+    text="cannot save the editor state: {error}"
+  }
+  msg "editor.shell.cannot_start_the_editor_again" {
+    text="cannot start the editor again: {error}"
+  }
+  msg "editor.shell.cell_height" {
+    text="Cell height"
+  }
+  msg "editor.shell.cell_width" {
+    text="Cell width"
+  }
+  msg "editor.shell.close" {
+    text="Close"
+  }
+  msg "editor.shell.close_scene" {
+    text="Close scene"
+  }
+  msg "editor.shell.continue" {
+    text="Continue"
+  }
+  msg "editor.shell.count_0_all" {
+    text="Count (0 = all)"
+  }
+  msg "editor.shell.create" {
+    text="Create"
+  }
+  msg "editor.shell.create_a_project" {
+    text="Create a project"
+  }
+  msg "editor.shell.created_examplepath_to_get_you" {
+    text="Created {examplepath} to get you started"
+  }
+  msg "editor.shell.created_root_open_it_with" {
+    text="Created {root}, open it with: aego edit {root2}"
+  }
+  msg "editor.shell.custom" {
+    text="Custom…"
+  }
+  msg "editor.shell.design" {
+    text="Design"
+  }
+  msg "editor.shell.dirtycount_scene_s_have_unsaved" {
+    text="{dirtycount} scene(s) have unsaved changes."
+  }
+  msg "editor.shell.discard" {
+    text="Discard"
+  }
+  msg "editor.shell.double_shift_searches_everywhere_help" {
+    text="Double Shift searches everywhere · Help → Keymap lists every shortcut"
+  }
+  msg "editor.shell.errors" {
+    one="{n} error"
+    other="{n} errors"
+  }
+  msg "editor.shell.export_message" {
+    text="Export: {message}"
+  }
+  msg "editor.shell.extension_owner_failed_to_register" {
+    text="extension {owner} failed to register: {error}"
+  }
+  msg "editor.shell.extrude_edges" {
+    text="Extrude edges"
+  }
+  msg "editor.shell.failed_task_s_failed" {
+    text="{failed} task(s) failed"
+  }
+  msg "editor.shell.filter" {
+    text="Filter"
+  }
+  msg "editor.shell.folder" {
+    text="Folder"
+  }
+  msg "editor.shell.from_0_to_8_1" {
+    text="From 0 to 8, 1 is normal speed"
+  }
+  msg "editor.shell.go_not_found_native_code" {
+    text="Go not found — native code is not built (Help → Install Go)"
+  }
+  msg "editor.shell.hide_appmenutitle" {
+    text="Hide {appmenutitle}"
+  }
+  msg "editor.shell.hide_others" {
+    text="Hide Others"
+  }
+  msg "editor.shell.import" {
+    text="Import"
+  }
+  msg "editor.shell.keep_mine" {
+    text="Keep mine"
+  }
+  msg "editor.shell.later" {
+    text="Later"
+  }
+  msg "editor.shell.latest_failed" {
+    text="latest failed"
+  }
+  msg "editor.shell.ln_ln_col_col" {
+    text="Ln {ln}, Col {col}"
+  }
+  msg "editor.shell.mipmaps" {
+    text="Mipmaps"
+  }
+  msg "editor.shell.n_task_s" {
+    text="{n} task(s)"
+  }
+  msg "editor.shell.n_unsaved" {
+    text="{n} unsaved"
+  }
+  msg "editor.shell.name" {
+    text="Name"
+  }
+  msg "editor.shell.native_api_is_stale" {
+    text="Native API is stale"
+  }
+  msg "editor.shell.native_build_failed_the_editor" {
+    text="Native build failed, the editor keeps the previous build (see Console)"
+  }
+  msg "editor.shell.native_code_is_being_rebuilt" {
+    text="Native code is being rebuilt"
+  }
+  msg "editor.shell.native_code_rebuilt_reloading_the" {
+    text="Native code rebuilt, reloading the editor"
+  }
+  msg "editor.shell.no_filename_in_path" {
+    text="No {filename} in {path}"
+  }
+  msg "editor.shell.no_template_can_instantiate_name" {
+    text="no template can instantiate {name}"
+  }
+  msg "editor.shell.offset_x" {
+    text="Offset X"
+  }
+  msg "editor.shell.offset_y" {
+    text="Offset Y"
+  }
+  msg "editor.shell.open" {
+    text="Open"
+  }
+  msg "editor.shell.open_project" {
+    text="Open project"
+  }
+  msg "editor.shell.padding_x" {
+    text="Padding X"
+  }
+  msg "editor.shell.padding_y" {
+    text="Padding Y"
+  }
+  msg "editor.shell.path_has_unsaved_changes" {
+    text="{path} has unsaved changes."
+  }
+  msg "editor.shell.path_was_changed_on_disk" {
+    text="{path} was changed on disk while it has unsaved edits."
+  }
+  msg "editor.shell.path_was_deleted_on_disk" {
+    text="{path} was deleted on disk."
+  }
+  msg "editor.shell.pause_playpause" {
+    text="Pause ({playpause})"
+  }
+  msg "editor.shell.paused_simtime_tail" {
+    text="Paused {simtime}{tail}"
+  }
+  msg "editor.shell.play" {
+    text="Play"
+  }
+  msg "editor.shell.play_playstart_full_screen_commandfullscreenplay" {
+    text="Play ({playstart}), full screen ({commandfullscreenplay})"
+  }
+  msg "editor.shell.play_simtime_tail" {
+    text="Play {simtime}{tail}"
+  }
+  msg "editor.shell.plus_one_tick" {
+    text="+1 tick"
+  }
+  msg "editor.shell.problems" {
+    text="Problems"
+  }
+  msg "editor.shell.programming" {
+    text="Programming"
+  }
+  msg "editor.shell.project_may_be_open_elsewhere" {
+    text="Project may be open elsewhere"
+  }
+  msg "editor.shell.quit_aego_editor" {
+    text="Quit Aego Editor"
+  }
+  msg "editor.shell.quit_appmenutitle" {
+    text="Quit {appmenutitle}"
+  }
+  msg "editor.shell.recover_unsaved_changes" {
+    text="Recover unsaved changes"
+  }
+  msg "editor.shell.rects_cell_s_subs_in" {
+    text="{rects} cell(s); {subs} in the meta"
+  }
+  msg "editor.shell.redo" {
+    text="Redo"
+  }
+  msg "editor.shell.reload" {
+    text="Reload"
+  }
+  msg "editor.shell.reloaded_path" {
+    text="Reloaded {path}"
+  }
+  msg "editor.shell.remove_cells" {
+    text="Remove Cells"
+  }
+  msg "editor.shell.remove_from_favorites" {
+    text="Remove from Favorites"
+  }
+  msg "editor.shell.rename_workspace" {
+    text="Rename workspace"
+  }
+  msg "editor.shell.repair" {
+    text="Repair"
+  }
+  msg "editor.shell.repair_meta_files" {
+    text="Repair meta files"
+  }
+  msg "editor.shell.repaired_n_meta_issue_s" {
+    text="Repaired {n} meta issue(s)"
+  }
+  msg "editor.shell.restore" {
+    text="Restore"
+  }
+  msg "editor.shell.revert" {
+    text="Revert"
+  }
+  msg "editor.shell.rewind_is_off_module_id" {
+    text="Rewind is off: module {id} {nondeterministic}"
+  }
+  msg "editor.shell.running_script_build_formatuint_the" {
+    text="Running script build {formatuint}, the latest source failed to compile"
+  }
+  msg "editor.shell.running_script_tests" {
+    text="Running script tests…"
+  }
+  msg "editor.shell.save" {
+    text="Save"
+  }
+  msg "editor.shell.save_all" {
+    text="Save All"
+  }
+  msg "editor.shell.save_and_continue" {
+    text="Save and Continue"
+  }
+  msg "editor.shell.save_as" {
+    text="Save As…"
+  }
+  msg "editor.shell.save_as_workspace" {
+    text="Save as workspace"
+  }
+  msg "editor.shell.save_filesave" {
+    text="Save ({filesave})"
+  }
+  msg "editor.shell.save_scene_as" {
+    text="Save scene as"
+  }
+  msg "editor.shell.save_the_changed_scenes_and" {
+    text="Save the changed scenes and scripts before leaving this project?"
+  }
+  msg "editor.shell.saved_all_scenes" {
+    text="Saved all scenes"
+  }
+  msg "editor.shell.saved_path" {
+    text="Saved {path}"
+  }
+  msg "editor.shell.saved_rel" {
+    text="Saved {rel}"
+  }
+  msg "editor.shell.scale" {
+    text="Scale"
+  }
+  msg "editor.shell.scene_changed_outside_the_editor" {
+    text="Scene changed outside the editor"
+  }
+  msg "editor.shell.script_tests_failed_see_console" {
+    text="Script tests failed, see Console and Problems"
+  }
+  msg "editor.shell.script_tests_passed" {
+    text="Script tests passed"
+  }
+  msg "editor.shell.scripts_build" {
+    text="Scripts: build {n}"
+  }
+  msg "editor.shell.session_restored_after_the_native" {
+    text="Session restored after the native rebuild"
+  }
+  msg "editor.shell.set" {
+    text="Set"
+  }
+  msg "editor.shell.show_all" {
+    text="Show All"
+  }
+  msg "editor.shell.slice" {
+    text="Slice"
+  }
+  msg "editor.shell.slice.alpha" {
+    text="Alpha"
+  }
+  msg "editor.shell.slice.grid" {
+    text="Grid"
+  }
+  msg "editor.shell.slice_by" {
+    text="Slice by"
+  }
+  msg "editor.shell.sliced_rel_into_rects_cell" {
+    text="Sliced {rel} into {rects} cell(s)"
+  }
+  msg "editor.shell.slicing" {
+    text="Slicing"
+  }
+  msg "editor.shell.srgb" {
+    text="sRGB"
+  }
+  msg "editor.shell.state_edit" {
+    text="Edit"
+  }
+  msg "editor.shell.step_one_fixed_tick_playstepfixed" {
+    text="Step one fixed tick ({playstepfixed}), while paused"
+  }
+  msg "editor.shell.step_one_frame_playstep" {
+    text="Step one frame ({playstep})"
+  }
+  msg "editor.shell.stop" {
+    text="Stop"
+  }
+  msg "editor.shell.template" {
+    text="Template"
+  }
+  msg "editor.shell.template_empty_2d_2_5d" {
+    text="Template: empty, 2d, 2.5d or 3d"
+  }
+  msg "editor.shell.the_last_native_build_failed" {
+    text="The last native build failed; the editor and scripts use the previous native API. Click to see the build output"
+  }
+  msg "editor.shell.time_scale" {
+    text="Time scale"
+  }
+  msg "editor.shell.time_scale_must_be_a" {
+    text="Time scale must be a number from 0 to 8"
+  }
+  msg "editor.shell.tip_click_a_problem_in" {
+    text="Tip: click a problem in the Problems panel to jump to its line, F2 walks through errors"
+  }
+  msg "editor.shell.undo" {
+    text="Undo"
+  }
+  msg "editor.shell.unsaved_changes" {
+    text="Unsaved changes"
+  }
+  msg "editor.shell.workspace_v" {
+    text="Workspace {v}"
+  }
+  msg "editor.shell.workspace_v_4" {
+    text="Workspace ({v}…4)"
+  }
+  msg "editor.slice.import_settings" {
+    text="Import Settings"
+  }
+  msg "editor.slice.slice_sprite_sheet" {
+    text="Slice Sprite Sheet"
+  }
+  msg "editor.sysopen.show_in_explorer" {
+    text="Show in Explorer"
+  }
+  msg "editor.sysopen.show_in_files" {
+    text="Show in Files"
+  }
+  msg "editor.sysopen.show_in_finder" {
+    text="Show in Finder"
+  }
+  msg "editor.taskcenter.live_running_recent_finished" {
+    text="{live} running, {recent} finished"
+  }
+  msg "editor.taskcenter.title" {
+    text="Tasks"
+  }
+  msg "editor.theme.dark" {
+    text="Dark"
+  }
+  msg "editor.theme.dark.tip" {
+    text="Use the dark editor theme"
+  }
+  msg "editor.theme.light" {
+    text="Light"
+  }
+  msg "editor.theme.light.tip" {
+    text="Use the light editor theme"
+  }
+  msg "editor.theme.system" {
+    text="System"
+  }
+  msg "editor.theme.system.tip" {
+    text="Follow the light or dark look of the OS"
+  }
+  msg "editor.undohistory.an_edit_is_in_progress" {
+    text="An edit is in progress"
+  }
+  msg "editor.undohistory.cur_of_steps_step_s" {
+    text="{cur} of {steps} step(s), click a step to go back to it"
+  }
+  msg "editor.undohistory.finish_the_current_edit_first" {
+    text="Finish the current edit first"
+  }
+  msg "editor.undohistory.initial_state" {
+    text="Initial state"
+  }
+  msg "editor.undohistory.open_a_scene_to_see" {
+    text="Open a scene to see its history"
+  }
+  msg "editor.undohistory.play_history_cleared_on_stop" {
+    text="Play history, cleared on Stop"
+  }
+  msg "editor.undohistory.title" {
+    text="Undo History"
+  }
+  msg "editor.vcsdiff.changes_change_s" {
+    text="{changes} change(s)"
+  }
+  msg "editor.vcsdiff.diff_rel_with_rev" {
+    text="Diff {rel} with {rev}"
+  }
+  msg "editor.vcsdiff.loading" {
+    text="Loading…"
+  }
+  msg "editor.vcsdiff.no_differences" {
+    text="No differences"
+  }
+  msg "editor.vcsdiff.rel_working_copy_vs" {
+    text="{rel}  ·  working copy vs"
+  }
+  msg "editor.vcsdiff.the_node_is_not_in" {
+    text="The node is not in the working copy"
+  }
+  msg "editor.vcsdiff.the_project_is_not_inside" {
+    text="The project is not inside a git repository"
+  }
+  msg "editor.vcsdiff.title" {
+    text="Diff"
+  }
+  msg "editor.vcsdiff.unsaved_changes_in_the_open" {
+    text="Unsaved changes in the open document are not included"
+  }
+  msg "editor.vcsdiff.use_compare_with_head_in" {
+    text="Use Compare with HEAD in the menu of a scene, prefab or data asset"
+  }
+  msg "editor.watch.add" {
+    text="Add"
+  }
+  msg "editor.watch.hud" {
+    text="HUD"
+  }
+  msg "editor.watch.player_playercontroller_speed_player_playercontroller" {
+    text="Player.PlayerController.Speed, Player.PlayerController.Velocity.y, time.Scale; add >= 3 to pause there"
+  }
+  msg "editor.watch.title" {
+    text="Watch"
+  }
+  msg "editor.welcome.create_a_project" {
+    text="Create a project…"
+  }
+  msg "editor.welcome.getting_started_with_aego" {
+    text="Getting started with Aego"
+  }
+  msg "editor.welcome.n_of_checks_done" {
+    text="{n} of {checks} done"
+  }
+  msg "editor.welcome.open_documentation" {
+    text="Open Documentation"
+  }
+  msg "editor.welcome.reset_checklist" {
+    text="Reset checklist"
+  }
+  msg "editor.welcome.show_me" {
+    text="Show me"
+  }
+  msg "editor.welcome.title" {
+    text="Getting Started"
+  }
+  msg "editor.widgets.available" {
+    text="available"
+  }
+  msg "editor.widgets.curve.after" {
+    text="After"
+  }
+  msg "editor.widgets.curve.auto" {
+    text="Auto"
+  }
+  msg "editor.widgets.curve.before" {
+    text="Before"
+  }
+  msg "editor.widgets.curve.bezier" {
+    text="Bezier"
+  }
+  msg "editor.widgets.curve.clamp" {
+    text="Clamp"
+  }
+  msg "editor.widgets.curve.free" {
+    text="Free"
+  }
+  msg "editor.widgets.curve.linear" {
+    text="Linear"
+  }
+  msg "editor.widgets.curve.loop" {
+    text="Loop"
+  }
+  msg "editor.widgets.curve.ping_pong" {
+    text="Ping-pong"
+  }
+  msg "editor.widgets.curve.preset" {
+    text="Preset"
+  }
+  msg "editor.widgets.curve.segment" {
+    text="Segment"
+  }
+  msg "editor.widgets.curve.step" {
+    text="Step"
+  }
+  msg "editor.widgets.curve.tangent" {
+    text="Tangent"
+  }
+  msg "editor.widgets.curve.time" {
+    text="Time"
+  }
+  msg "editor.widgets.curve.value" {
+    text="Value"
+  }
+  msg "editor.widgets.everything" {
+    text="Everything"
+  }
+  msg "editor.widgets.hex" {
+    text="Hex"
+  }
+  msg "editor.widgets.layer" {
+    text="Layer"
+  }
+  msg "editor.widgets.nothing" {
+    text="Nothing"
+  }
+  msg "editor.widgets.nothing_matches" {
+    text="Nothing matches"
+  }
+  msg "editor.widgets.search" {
+    text="Search"
+  }
+  msg "editor.window.toggle.tip" {
+    text="Show or hide the {panel} panel"
+  }
+  msg "editor.workspace.default" {
+    text="Default"
+  }
+  msg "editor.workspace.panel_id_crashed_msg" {
+    text="panel {id} crashed: {msg}"
+  }
+  msg "editor.workspace.retry" {
+    text="Retry"
+  }
+  msg "editor.workspace.this_panel_crashed_and_was" {
+    text="This panel crashed and was disabled."
+  }
+  msg "editor.workspace.unknown_panel_id" {
+    text="unknown panel {id}"
+  }
+  msg "launcher.aego" {
+    text="Aego"
+  }
+  msg "launcher.browse" {
+    text="Browse…"
+  }
+  msg "launcher.check_for_aego_updates_once" {
+    text="Check for Aego updates once a day"
+  }
+  msg "launcher.contains" {
+    text="Contains: {files}"
+  }
+  msg "launcher.copy_to" {
+    text="Copy to"
+  }
+  msg "launcher.create" {
+    text="Create"
+  }
+  msg "launcher.create_from" {
+    text="Create from {example}"
+  }
+  msg "launcher.documentation" {
+    text="Documentation"
+  }
+  msg "launcher.download" {
+    text="Download"
+  }
+  msg "launcher.drop_hint" {
+    text="Or drop a project folder, or its {file}, on this window."
+  }
+  msg "launcher.examples_come_from_the_engine" {
+    text="Examples come from the engine source tree; set AEGO_ROOT to its folder."
+  }
+  msg "launcher.get_go" {
+    text="Get Go"
+  }
+  msg "launcher.language" {
+    text="Language"
+  }
+  msg "launcher.language.auto" {
+    text="Auto"
+  }
+  msg "launcher.location" {
+    text="Location"
+  }
+  msg "launcher.missing" {
+    text="missing, click to remove"
+  }
+  msg "launcher.module" {
+    text="Module"
+  }
+  msg "launcher.name" {
+    text="Name"
+  }
+  msg "launcher.native_go_code" {
+    text="Native Go code"
+  }
+  msg "launcher.no_project_file" {
+    text="No {file} in {dir}"
+  }
+  msg "launcher.no_recent_projects_yet" {
+    text="No recent projects yet"
+  }
+  msg "launcher.open" {
+    text="Open"
+  }
+  msg "launcher.open_a_project" {
+    text="Open a project"
+  }
+  msg "launcher.open_a_recent_project_start" {
+    text="Open a recent project, start a new one or learn from an example."
+  }
+  msg "launcher.project" {
+    text="Project"
+  }
+  msg "launcher.remove_from_list" {
+    text="Remove from List"
+  }
+  msg "launcher.tab.examples" {
+    text="Examples"
+  }
+  msg "launcher.tab.new" {
+    text="New Project"
+  }
+  msg "launcher.tab.recent" {
+    text="Recent"
+  }
+  msg "launcher.theme" {
+    text="Theme"
+  }
+  msg "launcher.theme.dark" {
+    text="Dark"
+  }
+  msg "launcher.theme.light" {
+    text="Light"
+  }
+  msg "launcher.theme.system" {
+    text="System"
+  }
+  msg "launcher.update_available" {
+    text="Aego {version} is available"
+  }
+  msg "launcher.workspace" {
+    text="Workspace"
+  }
+}

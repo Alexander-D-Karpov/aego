@@ -5,6 +5,7 @@ import (
 
 	"aego/editor/core/context"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 )
 
@@ -91,6 +92,6 @@ func (s *Service) save() {
 			{Name: "key", Value: aetext.String(k)}, {Name: "count", Value: aetext.Int(int64(s.store.uses[k]))}}})
 	}
 	if err := state.SavePalette(s.d.Root, aetext.Write(root)); err != nil {
-		s.d.Ctx.Notify(context.LevelWarn, "cannot save the palette state: "+err.Error())
+		s.d.Ctx.Notify(context.LevelWarn, i18n.Note("editor.addpalette.cannot_save_the_palette_state", "cannot save the palette state: {error}", i18n.Str("error", err.Error())))
 	}
 }

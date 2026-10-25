@@ -1,0 +1,14 @@
+messages version=1 lang=ru {
+  msg "i18n.debug.debug_channels_appear_here_while" {
+    text="Отладочные каналы появляются здесь, пока идёт игра"
+  }
+  msg "i18n.debug.draw.title" {
+    text="Отладочная отрисовка"
+  }
+  msg "i18n.debug.dropped_formatuint" {
+    text="   отброшено {formatuint}"
+  }
+  msg "i18n.debug.live_primitives_formatuint_dropped" {
+    text="примитивов {live}   отброшено {formatuint}"
+  }
+}

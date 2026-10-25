@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/dataedit"
 	"aego/editor/core/services"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/schema"
 	"aego/ui/core"
@@ -38,7 +39,7 @@ const (
 	actSave
 )
 
-var actions = [...]string{"+ Row", "Duplicate", "Delete", "Undo", "Redo", "Export CSV", "Import CSV", "Save"}
+var actions = [...]i18n.Text{i18n.T("editor.datatable.action.add_row", "+ Row"), i18n.T("editor.datatable.action.duplicate", "Duplicate"), i18n.T("editor.datatable.action.delete", "Delete"), i18n.T("editor.datatable.action.undo", "Undo"), i18n.T("editor.datatable.action.redo", "Redo"), i18n.T("editor.datatable.action.export_csv", "Export CSV"), i18n.T("editor.datatable.action.import_csv", "Import CSV"), i18n.T("editor.datatable.action.save", "Save")}
 
 type Deps struct {
 	Data    *dataedit.Service
@@ -75,9 +76,9 @@ func (p *Panel) ID() string {
 
 func (p *Panel) Title() string {
 	if p.table == nil {
-		return "Table"
+		return i18n.Tr("editor.datatable.title", "Table")
 	}
-	t := "Table · " + strings.TrimSuffix(path.Base(p.table.Path), path.Ext(p.table.Path))
+	t := i18n.Tr("editor.datatable.title", "Table") + " · " + strings.TrimSuffix(path.Base(p.table.Path), path.Ext(p.table.Path))
 	if p.table.Dirty() {
 		t += " •"
 	}
@@ -154,17 +155,17 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		}
 	}
 	if p.table == nil {
-		widgets.LabelDim(ui, "Open a .aetable asset to edit it here")
+		widgets.LabelDim(ui, i18n.Tr("editor.datatable.open_a_aetable_asset_to", "Open a .aetable asset to edit it here"))
 		return
 	}
 	ro := p.readOnly()
 	p.toolbar(ro)
 	if ro {
-		widgets.LabelDim(ui, "Tables are read-only during Play")
+		widgets.LabelDim(ui, i18n.Tr("editor.datatable.tables_are_read_only_during", "Tables are read-only during Play"))
 	}
 	for i, s := range p.table.Issues {
 		if i == 3 {
-			widgets.LabelDim(ui, strconv.Itoa(len(p.table.Issues)-3)+" more issue(s)")
+			widgets.LabelDim(ui, i18n.Tr("editor.datatable.v_more_issue_s", "{v} more issue(s)", i18n.Str("v", strconv.Itoa(len(p.table.Issues)-3))))
 			break
 		}
 		p.issue(s)
@@ -179,9 +180,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.row(p.view[i], rr, w, ro)
 	})
 	if len(p.view) == 0 {
-		msg := "The table is empty, add a row"
+		msg := i18n.Tr("editor.datatable.the_table_is_empty_add", "The table is empty, add a row")
 		if p.filter != "" {
-			msg = "No rows match the filter"
+			msg = i18n.Tr("editor.datatable.no_rows_match_the_filter", "No rows match the filter")
 		}
 		ui.TextIn(body, msg, th.TextDisabled, core.AlignCenter)
 	}
@@ -203,7 +204,7 @@ func (p *Panel) toolbar(ro bool) {
 	var widths [len(actions)]float32
 	total := float32(0)
 	for i, a := range actions {
-		widths[i] = ui.TextSize(a).X + 14
+		widths[i] = ui.TextSize(a.String()).X + 14
 		total += widths[i] + 4
 	}
 	sw := max(100, bar.W-total)
@@ -211,7 +212,7 @@ func (p *Panel) toolbar(ro bool) {
 	x := bar.X + sw + 4
 	base := ui.ID("tool")
 	for i, a := range actions {
-		if widgets.ButtonRect(ui, core.IDSeq(base, i+1), mathx.Rect{X: x, Y: bar.Y, W: widths[i], H: bar.H}, a) {
+		if widgets.ButtonRect(ui, core.IDSeq(base, i+1), mathx.Rect{X: x, Y: bar.Y, W: widths[i], H: bar.H}, a.String()) {
 			p.act(i, ro)
 		}
 		x += widths[i] + 4
@@ -426,7 +427,7 @@ func (p *Panel) text(v schema.Value, fd *schema.FieldDescriptor) string {
 		return strconv.FormatInt(v.I, 10)
 	case schema.KindAssetRef:
 		if v.Asset.IsZero() {
-			return "None"
+			return i18n.Tr("editor.datatable.none", "None")
 		}
 		if p.d.Data != nil {
 			return p.d.Data.AssetLabel(v.Asset)

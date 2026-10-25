@@ -22,6 +22,7 @@ import (
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/project"
@@ -150,7 +151,7 @@ type titleKey struct {
 
 func (p *Panel) Title() string {
 	if p.title == "" {
-		return "Scene"
+		return i18n.Tr("editor.sceneview.title", "Scene")
 	}
 	return p.title
 }
@@ -316,7 +317,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	d := p.d.Docs.Doc()
 	if d == nil {
 		p.title = ""
-		widgets.LabelDim(ui, "No scene open")
+		widgets.LabelDim(ui, i18n.Tr("editor.sceneview.no_scene_open", "No scene open"))
 		return
 	}
 	p.updateTitle(d)
@@ -500,7 +501,7 @@ func (p *Panel) contextMenu(d *document.SceneDocument) {
 	if !widgets.ContextMenu(ui, p.menuID) {
 		return
 	}
-	if widgets.MenuItemIcon(ui, "Create…", p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.sceneview.create", "Create…"), p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
 		anchor := ui.Mouse()
 		if p.viewMode == Mode3D {
 			p.createAt3(p.menuAt3, &anchor)
@@ -509,14 +510,14 @@ func (p *Panel) contextMenu(d *document.SceneDocument) {
 		}
 	}
 	widgets.Separator(ui)
-	p.item(command.EditDuplicate, "Duplicate")
-	p.item(command.EditCopy, "Copy")
-	p.item(command.EditCut, "Cut")
-	p.item(command.EditPaste, "Paste")
+	p.item(command.EditDuplicate, i18n.Tr("editor.sceneview.duplicate", "Duplicate"))
+	p.item(command.EditCopy, i18n.Tr("editor.sceneview.copy", "Copy"))
+	p.item(command.EditCut, i18n.Tr("editor.sceneview.cut", "Cut"))
+	p.item(command.EditPaste, i18n.Tr("editor.sceneview.paste", "Paste"))
 	widgets.Separator(ui)
-	p.item(command.EditDelete, "Delete")
+	p.item(command.EditDelete, i18n.Tr("editor.sceneview.delete", "Delete"))
 	widgets.Separator(ui)
-	p.item(command.SceneFrame, "Frame Selection")
+	p.item(command.SceneFrame, i18n.Tr("editor.sceneview.frame_selection", "Frame Selection"))
 	widgets.EndContextMenu(ui)
 }
 
@@ -534,9 +535,9 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	h := th.BarHeight
 	bw := h - 6 + 2
 	w := 6 + 8*bw + 18 + ui.TextSize(modeLabel).X + 16 + 6
-	projLabel := "Persp"
+	projLabel := i18n.Tr("editor.sceneview.persp", "Persp")
 	if p.c3.Cam.Ortho {
-		projLabel = "Ortho"
+		projLabel = i18n.Tr("editor.sceneview.ortho", "Ortho")
 	}
 	if three {
 		w += ui.TextSize(projLabel).X + 16
@@ -552,10 +553,10 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		icon string
 		tip  string
 	}{
-		{"tool.select", "Select (Q)"},
-		{"tool.move", "Move (W)"},
-		{"tool.rotate", "Rotate (E)"},
-		{"tool.scale", "Scale (R)"},
+		{"tool.select", i18n.Tr("editor.sceneview.tool.select", "Select (Q)")},
+		{"tool.move", i18n.Tr("editor.sceneview.tool.move", "Move (W)")},
+		{"tool.rotate", i18n.Tr("editor.sceneview.tool.rotate", "Rotate (E)")},
+		{"tool.scale", i18n.Tr("editor.sceneview.tool.scale", "Scale (R)")},
 	}
 	for i, t := range tools {
 		if tb.Button(ui.IDInt(300+i), t.icon, t.tip, p.d.Tools.Tool == uint8(i), true) {
@@ -563,26 +564,26 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		}
 	}
 	tb.Separator()
-	if tb.Button(ui.ID("grid"), "view.grid", "Grid", p.d.Tools.Grid, true) {
+	if tb.Button(ui.ID("grid"), "view.grid", i18n.Tr("editor.sceneview.grid", "Grid"), p.d.Tools.Grid, true) {
 		p.d.Tools.Grid = !p.d.Tools.Grid
 	}
-	if tb.Button(ui.ID("snap"), "view.snap", "Snap (hold Ctrl to invert)", p.d.Tools.Snap, true) {
+	if tb.Button(ui.ID("snap"), "view.snap", i18n.Tr("editor.sceneview.snap_hold_ctrl_to_invert", "Snap (hold Ctrl to invert)"), p.d.Tools.Snap, true) {
 		p.d.Tools.Snap = !p.d.Tools.Snap
 	}
-	if tb.Button(ui.ID("vectors"), "view.vectors", "Vectors (V)", p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
+	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
 		p.d.Viewport.Overlay.Toggle(vectors.CommandToggle)
 	}
-	if clicked, _ := tb.TextButton(ui.ID("mode"), modeLabel, "Switch between the 2D and 3D view"); clicked {
+	if clicked, _ := tb.TextButton(ui.ID("mode"), modeLabel, i18n.Tr("editor.sceneview.switch_between_the_2d_and", "Switch between the 2D and 3D view")); clicked {
 		p.toggleMode(d)
 	}
 	if three {
-		if clicked, _ := tb.TextButton(ui.ID("proj"), projLabel, "Switch between the perspective and orthographic 3D view"); clicked {
+		if clicked, _ := tb.TextButton(ui.ID("proj"), projLabel, i18n.Tr("editor.sceneview.switch_between_the_perspective_and", "Switch between the perspective and orthographic 3D view")); clicked {
 			p.ToggleOrtho()
 		}
 	}
 	zid := ui.ID("zoom")
 	if !three {
-		if clicked, zr := tb.TextButton(zid, zoom, "Zoom"); clicked {
+		if clicked, zr := tb.TextButton(zid, zoom, i18n.Tr("editor.sceneview.zoom", "Zoom")); clicked {
 			if ui.PopupOpen(zid) {
 				ui.ClosePopup(zid)
 			} else {
@@ -594,7 +595,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	tb.Separator()
 	cid := ui.ID("create")
 	createX := tb.X()
-	if tb.Button(cid, "ui.plus", "Create", false, true) {
+	if tb.Button(cid, "ui.plus", i18n.Tr("editor.sceneview.create_button", "Create"), false, true) {
 		anchor := mathx.Vec2{X: createX, Y: bar.Y + bar.H}
 		if three {
 			p.createAt3(p.c3.Cam.Target, &anchor)
@@ -603,7 +604,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		}
 	}
 	if ui.BeginPopup(zid, 120) {
-		if widgets.MenuItemIcon(ui, "Fit", "", "view.zoom", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.sceneview.fit", "Fit"), "", "view.zoom", true, false) {
 			p.FrameAll()
 		}
 		for _, z := range [...]struct {
@@ -661,11 +662,11 @@ const dragSlop = 4
 func gizmoLabel(m gizmo.Mode) string {
 	switch m {
 	case gizmo.ModeRotate:
-		return "Rotate"
+		return i18n.Tr("editor.sceneview.rotate", "Rotate")
 	case gizmo.ModeScale:
-		return "Scale"
+		return i18n.Tr("editor.sceneview.scale", "Scale")
 	}
-	return "Move"
+	return i18n.Tr("editor.sceneview.move", "Move")
 }
 
 func (p *Panel) beginGizmo(d *document.SceneDocument, id core.ID, g gizmo.Gizmo, h gizmo.Hit, mouse mathx.Vec2) {
@@ -682,7 +683,7 @@ func (p *Panel) beginGizmo(d *document.SceneDocument, id core.ID, g gizmo.Gizmo,
 	for i, t := range tops {
 		nodes[i] = s.ID(t)
 	}
-	label := "Edit"
+	label := i18n.Tr("editor.sceneview.edit", "Edit")
 	if g == gizmo.Gizmo(&p.gizmo) {
 		label = gizmoLabel(p.gizmo.Mode)
 	}

@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/schema"
 	"aego/ui/core"
@@ -59,7 +60,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Watch"
+	return i18n.Tr("editor.watch.title", "Watch")
 }
 
 func parse(src string) row {
@@ -336,13 +337,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	bw := float32(60)
 	id := ui.ID("expr")
 	_, submit := widgets.TextFieldRect(ui, id, mathx.Rect{X: row.X, Y: row.Y, W: row.W - 2*bw - 8, H: row.H}, &p.input, true)
-	if widgets.ButtonRect(ui, ui.ID("add"), mathx.Rect{X: row.X + row.W - 2*bw - 4, Y: row.Y, W: bw, H: row.H}, "Add") || submit {
+	if widgets.ButtonRect(ui, ui.ID("add"), mathx.Rect{X: row.X + row.W - 2*bw - 4, Y: row.Y, W: bw, H: row.H}, i18n.Tr("editor.watch.add", "Add")) || submit {
 		p.Add(p.input)
 		p.input = ""
 	}
-	widgets.ToggleButton(ui, ui.ID("hud"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, "HUD", &p.hud)
+	widgets.ToggleButton(ui, ui.ID("hud"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("editor.watch.hud", "HUD"), &p.hud)
 	if len(p.rows) == 0 {
-		widgets.LabelDim(ui, "Player.PlayerController.Speed, Player.PlayerController.Velocity.y, time.Scale; add >= 3 to pause there")
+		widgets.LabelDim(ui, i18n.Tr("editor.watch.player_playercontroller_speed_player_playercontroller", "Player.PlayerController.Speed, Player.PlayerController.Velocity.y, time.Scale; add >= 3 to pause there"))
 		return
 	}
 	top := ui.Cursor().Y

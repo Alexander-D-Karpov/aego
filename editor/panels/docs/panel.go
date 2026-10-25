@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/services"
 	regdocs "aego/engine/docs"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/richtext"
 	"aego/ui/widgets"
@@ -66,11 +67,11 @@ func groupKey(id string) string {
 func sectionTitle(s string) string {
 	switch s {
 	case regdocs.SectionStart:
-		return "Getting started"
+		return i18n.Tr("editor.docs.getting_started", "Getting started")
 	case regdocs.SectionGuides:
-		return "Guides"
+		return i18n.Tr("editor.docs.guides", "Guides")
 	}
-	return "Reference"
+	return i18n.Tr("editor.docs.reference", "Reference")
 }
 
 func (p *Panel) ID() string {
@@ -78,7 +79,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Documentation"
+	return i18n.Tr("editor.docs.title", "Documentation")
 }
 
 func (p *Panel) Scope() string {
@@ -187,13 +188,13 @@ func (p *Panel) page(e regdocs.Entry) []richtext.Block {
 	}
 	var links []richtext.Span
 	if e.Location.Stub != "" {
-		links = append(links, richtext.Span{Text: "Open stub", Target: e.Location.Stub + "#" + e.Location.Symbol})
+		links = append(links, richtext.Span{Text: i18n.Tr("editor.docs.open_stub", "Open stub"), Target: e.Location.Stub + "#" + e.Location.Symbol})
 	}
 	if strings.HasPrefix(e.ID, regdocs.ScriptsPrefix) && e.Location.Path != "" {
 		if len(links) > 0 {
 			links = append(links, richtext.Span{Text: "  ·  "})
 		}
-		links = append(links, richtext.Span{Text: "Open source", Target: "open:" + e.Location.Path + ":" + strconv.Itoa(e.Location.Line)})
+		links = append(links, richtext.Span{Text: i18n.Tr("editor.docs.open_source", "Open source"), Target: "open:" + e.Location.Path + ":" + strconv.Itoa(e.Location.Line)})
 	}
 	if len(links) > 0 {
 		out = append(out, richtext.Block{Kind: richtext.Paragraph, Spans: links})
@@ -309,7 +310,7 @@ func (p *Panel) follow(target string) {
 			p.navigate(e.ID, true)
 			return
 		}
-		p.notes.Notify(context.LevelWarn, "No documentation entry "+strings.TrimPrefix(target, "ref:"))
+		p.notes.Notify(context.LevelWarn, i18n.Note("editor.docs.no_documentation_entry_trimprefix", "No documentation entry {trimprefix}", i18n.Str("trimprefix", strings.TrimPrefix(target, "ref:"))))
 	}
 }
 
@@ -330,7 +331,7 @@ func (p *Panel) run(i int) {
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	if p.reg == nil {
-		widgets.LabelWrapped(ui, "Documentation is not loaded.", true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.docs.documentation_is_not_loaded", "Documentation is not loaded."), true)
 		return
 	}
 	if p.current == "" {

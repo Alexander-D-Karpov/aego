@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/props"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -53,7 +54,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Problems"
+	return i18n.Tr("editor.problems.title", "Problems")
 }
 
 func (p *Panel) Focus(filter string) {
@@ -67,7 +68,7 @@ func key(pr *context.ScriptProblem) string {
 
 func where(pr *context.ScriptProblem) string {
 	if !pr.Node.IsZero() {
-		return "node " + pr.Node.String()[:8]
+		return i18n.Tr("editor.problems.node_v", "node {v}", i18n.Str("v", pr.Node.String()[:8]))
 	}
 	return strconv.Itoa(pr.Line) + ":" + strconv.Itoa(pr.Col)
 }
@@ -161,8 +162,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		x += w + 4
 		return rc
 	}
-	widgets.ToggleButton(ui, ui.ID("err"), place(96), "Errors "+strconv.Itoa(errs), &p.showErr)
-	widgets.ToggleButton(ui, ui.ID("warn"), place(116), "Warnings "+strconv.Itoa(warns), &p.showWarn)
+	errLabel := i18n.Tr("editor.problems.errors_n", "Errors {n}", i18n.Int("n", int64(errs)))
+	warnLabel := i18n.Tr("editor.problems.warnings_n", "Warnings {n}", i18n.Int("n", int64(warns)))
+	widgets.ToggleButton(ui, ui.ID("err"), place(max(96, ui.TextSize(errLabel).X+20)), errLabel, &p.showErr)
+	widgets.ToggleButton(ui, ui.ID("warn"), place(max(116, ui.TextSize(warnLabel).X+20)), warnLabel, &p.showWarn)
 	if right-x >= 80 {
 		widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: x, Y: bar.Y, W: right - x, H: bar.H}, &p.filter)
 	}
@@ -174,9 +177,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top-detailH)}
 	if len(p.rows) == 0 {
-		msg := "No problems"
+		msg := i18n.Tr("editor.problems.no_problems", "No problems")
 		if len(p.list) > 0 {
-			msg = "No problems match the filter"
+			msg = i18n.Tr("editor.problems.no_match", "No problems match the filter")
 		}
 		ui.TextIn(list, msg, th.TextDisabled, core.AlignCenter)
 	}
@@ -201,9 +204,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	info := sel.Path + "   " + loc
 	if sel.Script() {
-		info = sel.Path + ":" + loc + "   package " + sel.Package
+		info = sel.Path + ":" + loc + "   " + i18n.Tr("editor.problems.package", "package {name}", i18n.Str("name", sel.Package))
 	} else {
-		info += "   " + sel.Category
+		info += "   " + categoryTitle(sel.Category)
 	}
 	widgets.LabelDim(ui, info)
 	ui.PopCursor()
@@ -229,13 +232,13 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		ui.Text(path.Dir(rw.path), mathx.Vec2{X: x, Y: ui.TextY(rr)}, th.TextDim)
 		counts := ""
 		if rw.errs > 0 {
-			counts = strconv.Itoa(rw.errs) + " errors"
+			counts = i18n.TrN("editor.problems.errors", int64(rw.errs), "{n} error", "{n} errors")
 		}
 		if rw.warns > 0 {
 			if counts != "" {
 				counts += ", "
 			}
-			counts += strconv.Itoa(rw.warns) + " warnings"
+			counts += i18n.TrN("editor.problems.warnings", int64(rw.warns), "{n} warning", "{n} warnings")
 		}
 		col := th.Warn
 		if rw.errs > 0 {
@@ -271,7 +274,7 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 	x += 20
 	code := pr.Code
 	if !pr.Script() {
-		code = pr.Category + " " + pr.Code
+		code = categoryTitle(pr.Category) + " " + pr.Code
 	}
 	loc := where(pr)
 	nicon, name, tip := p.node(pr)
@@ -309,8 +312,18 @@ func (p *Panel) problemMenu(ui *core.Context) {
 	if !widgets.ContextMenu(ui, p.menuID) {
 		return
 	}
-	if widgets.MenuItemIcon(ui, "Ask Agent to Fix", "", "panel.agent", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.problems.ask_agent_to_fix", "Ask Agent to Fix"), "", "panel.agent", true, false) {
 		p.Ask(askPrompt(&p.menu))
 	}
 	widgets.EndContextMenu(ui)
+}
+
+func categoryTitle(c string) string {
+	switch c {
+	case context.ProblemScene:
+		return i18n.Tr("editor.problems.category.scene", "scene")
+	case context.ProblemScript:
+		return i18n.Tr("editor.problems.category.script", "script")
+	}
+	return c
 }

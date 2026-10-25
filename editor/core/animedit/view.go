@@ -7,6 +7,7 @@ import (
 	"aego/anim"
 	"aego/core/curve"
 	"aego/core/ids"
+	"aego/engine/i18n"
 	"aego/scene/mutate"
 	"aego/schema"
 )
@@ -58,7 +59,7 @@ func BuildView(c *anim.Clip, d *mutate.AnimDocument) View {
 		if t.Target != last {
 			label := t.Target
 			if label == "" {
-				label = "This node"
+				label = i18n.Tr("editor.animedit.this_node", "This node")
 			}
 			v.Rows = append(v.Rows, Row{Label: label, Track: -1})
 			last = t.Target

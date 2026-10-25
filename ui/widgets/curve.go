@@ -32,11 +32,17 @@ func NewCurveState() *CurveState {
 }
 
 var (
-	curveCommit   = Edit{Changed: true, Begin: true, End: true}
-	curveInterps  = []string{"Bezier", "Linear", "Step"}
-	curveTangents = []string{"Auto", "Linear", "Free"}
-	curveWraps    = []string{"Clamp", "Loop", "Ping-pong"}
-	curvePresets  = func() []string {
+	curveCommit  = Edit{Changed: true, Begin: true, End: true}
+	curveInterps = func() []string {
+		return []string{Tr("editor.widgets.curve.bezier", "Bezier"), Tr("editor.widgets.curve.linear", "Linear"), Tr("editor.widgets.curve.step", "Step")}
+	}
+	curveTangents = func() []string {
+		return []string{Tr("editor.widgets.curve.auto", "Auto"), Tr("editor.widgets.curve.linear", "Linear"), Tr("editor.widgets.curve.free", "Free")}
+	}
+	curveWraps = func() []string {
+		return []string{Tr("editor.widgets.curve.clamp", "Clamp"), Tr("editor.widgets.curve.loop", "Loop"), Tr("editor.widgets.curve.ping_pong", "Ping-pong")}
+	}
+	curvePresets = func() []string {
 		out := []string{"Keys"}
 		for e := curve.Linear; e < curve.EasingCount; e++ {
 			out = append(out, e.String())
@@ -339,17 +345,17 @@ func curveKeyRows(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 	k := cv.Keys[st.Key]
 	o := NumberOpts{Speed: 0.01}
 	t, v := k.T, k.V
-	e = e.Or(DragFloat32(c, c.ID("t"), Field(c, "Time"), &t, o))
-	e = e.Or(DragFloat32(c, c.ID("v"), Field(c, "Value"), &v, o))
+	e = e.Or(DragFloat32(c, c.ID("t"), Field(c, Tr("editor.widgets.curve.time", "Time")), &t, o))
+	e = e.Or(DragFloat32(c, c.ID("v"), Field(c, Tr("editor.widgets.curve.value", "Value")), &v, o))
 	if t != k.T || v != k.V {
 		curveMove(cv, st.Key, t, v)
 	}
 	ip, tg := int(k.Interp), int(k.Tangent)
-	if Combo(c, c.ID("interp"), Field(c, "Segment"), &ip, curveInterps, false) {
+	if Combo(c, c.ID("interp"), Field(c, Tr("editor.widgets.curve.segment", "Segment")), &ip, curveInterps(), false) {
 		cv.Keys[st.Key].Interp = curve.Interp(ip)
 		e = e.Or(curveCommit)
 	}
-	if Combo(c, c.ID("tangent"), Field(c, "Tangent"), &tg, curveTangents, false) {
+	if Combo(c, c.ID("tangent"), Field(c, Tr("editor.widgets.curve.tangent", "Tangent")), &tg, curveTangents(), false) {
 		cv.Keys[st.Key].Tangent = curve.Tangent(tg)
 		cv.Smooth()
 		e = e.Or(curveCommit)
@@ -369,7 +375,7 @@ func curveEditor(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 	if cv.Ease != curve.None {
 		cur = int(cv.Ease-curve.Linear) + 1
 	}
-	if Combo(c, c.ID("preset"), Field(c, "Preset"), &cur, curvePresets, false) {
+	if Combo(c, c.ID("preset"), Field(c, Tr("editor.widgets.curve.preset", "Preset")), &cur, curvePresets, false) {
 		if cur == 0 {
 			*cv = cv.Bake(9)
 		} else {
@@ -388,11 +394,11 @@ func curveEditor(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 		LabelDim(c, "Double-click the graph to add a key")
 	}
 	pre, post := int(cv.Pre), int(cv.Post)
-	if Combo(c, c.ID("pre"), Field(c, "Before"), &pre, curveWraps, false) {
+	if Combo(c, c.ID("pre"), Field(c, Tr("editor.widgets.curve.before", "Before")), &pre, curveWraps(), false) {
 		cv.Pre = curve.Wrap(pre)
 		e = e.Or(curveCommit)
 	}
-	if Combo(c, c.ID("post"), Field(c, "After"), &post, curveWraps, false) {
+	if Combo(c, c.ID("post"), Field(c, Tr("editor.widgets.curve.after", "After")), &post, curveWraps(), false) {
 		cv.Post = curve.Wrap(post)
 		e = e.Or(curveCommit)
 	}

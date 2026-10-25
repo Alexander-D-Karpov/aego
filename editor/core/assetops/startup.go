@@ -3,6 +3,7 @@ package assetops
 import (
 	"aego/core/ids"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 )
 
 func SetStartup(ctx *context.Editor, id ids.AssetID, rel string) {
@@ -16,5 +17,5 @@ func SetStartup(ctx *context.Editor, id ids.AssetID, rel string) {
 		ctx.Notify(context.LevelError, err.Error())
 		return
 	}
-	ctx.Notify(context.LevelInfo, "Startup scene: "+rel)
+	ctx.Notify(context.LevelInfo, i18n.Note("editor.assetops.startup_scene_rel", "Startup scene: {rel}", i18n.Str("rel", rel)))
 }

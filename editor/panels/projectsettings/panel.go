@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	es "aego/engine/settings"
 	"aego/engine/settings/settingsui"
@@ -68,9 +69,9 @@ func (p *Panel) ID() string {
 
 func (p *Panel) Title() string {
 	if p.dirty {
-		return "Project Settings *"
+		return i18n.Tr("editor.projectsettings.title", "Project Settings") + " *"
 	}
-	return "Project Settings"
+	return i18n.Tr("editor.projectsettings.title", "Project Settings")
 }
 
 func (p *Panel) Show(page string) {
@@ -183,10 +184,10 @@ func (p *Panel) apply() {
 	}
 	*p.d.Project = *next
 	p.reset()
-	msg := "Saved project.aego, settings apply on the next Play"
+	msg := i18n.Tr("editor.projectsettings.saved_project_aego_settings_apply", "Saved project.aego, settings apply on the next Play")
 	if p.d.OnApply != nil {
 		if note := p.d.OnApply(); note != "" {
-			msg = "Saved project.aego, " + note
+			msg = i18n.Tr("editor.projectsettings.saved_project_aego_note", "Saved project.aego, {note}", i18n.Str("note", note))
 		}
 	}
 	p.d.Notices.Notify(context.LevelInfo, msg)
@@ -196,7 +197,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	if p.d.Project == nil {
-		widgets.LabelDim(ui, "No project")
+		widgets.LabelDim(ui, i18n.Tr("editor.projectsettings.no_project", "No project"))
 		return
 	}
 	if p.work == nil {
@@ -207,10 +208,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.page = pages[0].id
 	}
 	bar := ui.Cursor().Next(0)
-	if widgets.ButtonRect(ui, ui.ID("apply"), mathx.Rect{X: bar.X, Y: bar.Y, W: 90, H: bar.H}, "Apply") && p.dirty {
+	if widgets.ButtonRect(ui, ui.ID("apply"), mathx.Rect{X: bar.X, Y: bar.Y, W: 90, H: bar.H}, i18n.Tr("editor.projectsettings.apply", "Apply")) && p.dirty {
 		p.apply()
 	}
-	if widgets.ButtonRect(ui, ui.ID("revert"), mathx.Rect{X: bar.X + 96, Y: bar.Y, W: 90, H: bar.H}, "Revert") {
+	if widgets.ButtonRect(ui, ui.ID("revert"), mathx.Rect{X: bar.X + 96, Y: bar.Y, W: 90, H: bar.H}, i18n.Tr("editor.projectsettings.revert", "Revert")) {
 		p.reset()
 	}
 	status := mathx.Rect{X: bar.X + 196, Y: bar.Y, W: max(0, bar.W-196), H: bar.H}
@@ -354,7 +355,7 @@ func (p *Panel) Refresh() {
 		return
 	}
 	if p.dirty {
-		p.d.Notices.Notify(context.LevelWarn, "project.aego changed while Project Settings has unapplied changes: Apply overwrites it, Revert loads it")
+		p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.projectsettings.project_aego_changed_while_project", "project.aego changed while Project Settings has unapplied changes: Apply overwrites it, Revert loads it"))
 		return
 	}
 	p.reset()

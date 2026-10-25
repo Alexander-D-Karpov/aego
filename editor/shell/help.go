@@ -16,6 +16,7 @@ import (
 	"aego/editor/panels/welcome"
 	"aego/engine"
 	"aego/engine/docs"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/scriptcomp"
 	"aego/ui/draw"
@@ -56,9 +57,9 @@ func (a *App) registerHelp() error {
 		{ID: CommandAbout, Name: "About Aego", Category: "Help", Order: 900,
 			Run: func() error {
 				a.ctx.Ask(context.Question{
-					Title:   "About Aego",
+					Title:   i18n.Tr("editor.shell.about_aego", "About Aego"),
 					Message: "Aego engine " + engine.Version + " · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH,
-					Buttons: []string{"Close"},
+					Buttons: []string{i18n.Tr("editor.shell.close", "Close")},
 				})
 				return nil
 			}},
@@ -215,7 +216,7 @@ func (a *App) firstRun() {
 	if wrote, err := welcome.Example(p.ScriptsDir()); err != nil {
 		a.log.Warn("cannot write the example script: " + err.Error())
 	} else if wrote {
-		a.ctx.Notify(context.LevelInfo, "Created "+welcome.ExamplePath+" to get you started")
+		a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.created_examplepath_to_get_you", "Created {examplepath} to get you started", i18n.Str("examplepath", welcome.ExamplePath)))
 	}
 	a.welcome.Save()
 	a.ws.Show(welcome.ID)
@@ -241,5 +242,5 @@ func (a *App) contextHint() string {
 	case f == workspace.Assets:
 		return "Double-click to open · F2 rename · drop files to import"
 	}
-	return "Double Shift searches everywhere · Help → Keymap lists every shortcut"
+	return i18n.Tr("editor.shell.double_shift_searches_everywhere_help", "Double Shift searches everywhere · Help → Keymap lists every shortcut")
 }

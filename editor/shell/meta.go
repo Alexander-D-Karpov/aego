@@ -7,6 +7,7 @@ import (
 
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 )
 
 const CommandRepairMeta = "assets.repair_meta"
@@ -39,9 +40,9 @@ func (a *App) repairMeta() error {
 		b.WriteString(is.Action() + "\n")
 	}
 	a.ctx.Ask(context.Question{
-		Title:   "Repair meta files",
+		Title:   i18n.Tr("editor.shell.repair_meta_files", "Repair meta files"),
 		Message: b.String(),
-		Buttons: []string{"Repair", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.shell.repair", "Repair"), i18n.Tr("editor.shell.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice != 0 {
 				return
@@ -52,7 +53,7 @@ func (a *App) repairMeta() error {
 				a.ctx.Notify(context.LevelError, err.Error())
 				return
 			}
-			a.ctx.Notify(context.LevelInfo, "Repaired "+strconv.Itoa(n)+" meta issue(s)")
+			a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.repaired_n_meta_issue_s", "Repaired {n} meta issue(s)", i18n.Str("n", strconv.Itoa(n))))
 		},
 	})
 	return nil

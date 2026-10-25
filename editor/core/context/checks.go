@@ -1,6 +1,7 @@
 package context
 
 import (
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/engine/problems"
 	"aego/scene"
@@ -42,11 +43,11 @@ func prefabChecks(s *scene.Scene, dst []problems.Diagnostic) []problems.Diagnost
 		switch {
 		case pi.Missing:
 			dst = append(dst, problems.Diagnostic{Owner: ProblemScene, Code: "PFB001", Severity: problems.Warning,
-				Message: s.Name(h) + ": prefab " + pi.Prefab.Short() + " is missing, the instance is kept as it is in the file",
+				Message: i18n.Tr("editor.context.h_prefab_short_is_missing", "{h}: prefab {short} is missing, the instance is kept as it is in the file", i18n.Str("h", s.Name(h)), i18n.Str("short", pi.Prefab.Short())),
 				Subject: subject})
 		case pi.Owner && !pi.Orphans.Empty():
 			dst = append(dst, problems.Diagnostic{Owner: ProblemScene, Code: "PFB002", Severity: problems.Info,
-				Message: s.Name(h) + " has overrides whose target is gone from the prefab",
+				Message: i18n.Tr("editor.context.h_has_overrides_whose_target", "{h} has overrides whose target is gone from the prefab", i18n.Str("h", s.Name(h))),
 				Subject: subject})
 		}
 	}

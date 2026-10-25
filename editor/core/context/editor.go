@@ -19,6 +19,7 @@ import (
 	"aego/editor/core/selection"
 	"aego/editor/core/shape"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/engine/problems"
 	"aego/project"
@@ -329,13 +330,14 @@ func (e *Editor) Redo() error {
 
 func (e *Editor) Notify(l Level, text string) {
 	if e.Log != nil {
+		en := i18n.EnglishOf(text)
 		switch l {
 		case LevelError:
-			e.Log.Error(text)
+			e.Log.Error(en)
 		case LevelWarn:
-			e.Log.Warn(text)
+			e.Log.Warn(en)
 		default:
-			e.Log.Info(text)
+			e.Log.Info(en)
 		}
 	}
 	e.notices = append(e.notices, Notice{Level: l, Text: text, Time: e.Now()})
@@ -441,7 +443,7 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 	if e.Loader != nil && e.Pipeline != nil {
 		if len(b.Imported) > 0 {
 			if err := e.Loader.Swap(b.Imported, e.Pipeline.Artifacts()); err != nil {
-				e.Notify(LevelError, "hot reload failed, keeping the previous assets: "+err.Error())
+				e.Notify(LevelError, i18n.Note("editor.context.hot_reload_failed_keeping_the", "hot reload failed, keeping the previous assets: {error}", i18n.Str("error", err.Error())))
 			}
 		}
 		for _, id := range b.Removed {
@@ -452,7 +454,7 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 		after()
 	}
 	for id, err := range b.Failed {
-		e.Notify(LevelWarn, "import failed for "+id.String()[:8]+": "+err.Error())
+		e.Notify(LevelWarn, i18n.Note("editor.context.import_failed_for_v_error", "import failed for {v}: {error}", i18n.Str("v", id.String()[:8]), i18n.Str("error", err.Error())))
 	}
 	e.AssetRev++
 }

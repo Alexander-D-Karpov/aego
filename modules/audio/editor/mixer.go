@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/modules/audio"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -45,7 +46,7 @@ func (m *mixerPanel) ID() string {
 }
 
 func (m *mixerPanel) Title() string {
-	return "Audio Mixer"
+	return i18n.Tr("i18n.audio.mixer.title", "Audio Mixer")
 }
 
 func level(x float32) float32 {
@@ -70,7 +71,7 @@ func (m *mixerPanel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	mod := m.p.module()
 	if mod == nil || mod.Mixer() == nil {
-		widgets.LabelDim(ui, "The audio output is not open")
+		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_audio_output_is_not", "The audio output is not open"))
 		return
 	}
 	mx := mod.Mixer()
@@ -107,10 +108,10 @@ func (m *mixerPanel) header(ui *core.Context, mod *audio.Module) {
 	ui.Text(m.stats, mathx.Vec2{X: row.X, Y: ui.TextY(row)}, ui.Theme.TextDim)
 	save := mathx.Rect{X: row.X + row.W - buttonW, Y: row.Y, W: buttonW, H: row.H}
 	reset := mathx.Rect{X: save.X - buttonW - 4, Y: row.Y, W: buttonW, H: row.H}
-	if widgets.ButtonRect(ui, ui.ID("reset"), reset, "Reset Session") {
+	if widgets.ButtonRect(ui, ui.ID("reset"), reset, i18n.Tr("i18n.audio.reset_session", "Reset Session")) {
 		mod.ResetSession()
 	}
-	if widgets.ButtonRect(ui, ui.ID("save"), save, "Save to Profile") {
+	if widgets.ButtonRect(ui, ui.ID("save"), save, i18n.Tr("i18n.audio.save_to_profile", "Save to Profile")) {
 		if err := mod.SaveSession(); err != nil {
 			m.p.notify(err)
 		} else {

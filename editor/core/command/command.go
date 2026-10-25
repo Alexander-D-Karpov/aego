@@ -1,6 +1,7 @@
 package command
 
 import (
+	"aego/engine/i18n"
 	"runtime"
 	"slices"
 	"sort"
@@ -128,9 +129,41 @@ type Desc struct {
 	Tip      string
 	Order    int
 	Label    func() string
+	TipFunc  func() string
 	Checked  func() bool
 	Enabled  func() bool
 	Run      func() error
+	nameKey  string
+	tipKey   string
+}
+
+// Info adds an icon and a tooltip to a command registered elsewhere.
+type Info struct {
+	ID   string
+	Icon string
+	Tip  string
+}
+
+// Title is the command's name in the editor language.
+func (d *Desc) Title() string {
+	if d.Label != nil {
+		return d.Label()
+	}
+	if d.nameKey == "" {
+		return d.Name
+	}
+	return i18n.Lookup(d.nameKey, d.Name)
+}
+
+// TipText is the tooltip in the editor language.
+func (d *Desc) TipText() string {
+	if d.TipFunc != nil {
+		return d.TipFunc()
+	}
+	if d.Tip == "" || d.tipKey == "" {
+		return d.Tip
+	}
+	return i18n.Lookup(d.tipKey, d.Tip)
 }
 
 type Registry struct {
@@ -158,6 +191,7 @@ func (r *Registry) Register(d Desc) error {
 	if d.Name == "" {
 		d.Name = d.ID
 	}
+	d.nameKey, d.tipKey = "editor.command."+d.ID, "editor.command."+d.ID+".tip"
 	cp := d
 	cp.Alt = slices.Clone(d.Alt)
 	r.byID[d.ID] = &cp
@@ -373,7 +407,7 @@ func (r *Registry) Search(q string) []Desc {
 	}
 	out := all[:0]
 	for _, d := range all {
-		if strings.Contains(strings.ToLower(d.Name), q) || strings.Contains(strings.ToLower(d.ID), q) {
+		if strings.Contains(strings.ToLower(d.Name), q) || strings.Contains(strings.ToLower(d.Title()), q) || strings.Contains(strings.ToLower(d.ID), q) {
 			out = append(out, d)
 		}
 	}
@@ -409,6 +443,12 @@ func (d *Desc) KeysText() string {
 		parts = append(parts, d.Hint)
 	}
 	return strings.Join(parts, " · ")
+}
+
+func (r *Registry) DescribeAll(list []Info) {
+	for _, in := range list {
+		r.Describe(in.ID, in.Icon, in.Tip)
+	}
 }
 
 func (r *Registry) Describe(id, icon, tip string) {

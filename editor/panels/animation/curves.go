@@ -11,6 +11,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/animedit"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/render/texture"
 	"aego/schema"
@@ -191,7 +192,7 @@ func (p *Panel) KeyNode() error {
 	p.svc.SetMode(max(p.svc.Mode(), animedit.Preview))
 	n, err := p.svc.KeyChanged(sel[0])
 	if err == nil && n == 0 && p.d.Notices != nil {
-		p.d.Notices.Notify(context.LevelInfo, "Nothing to key: the node matches the clip at this time")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.animation.nothing_to_key_the_node", "Nothing to key: the node matches the clip at this time"))
 	}
 	return err
 }
@@ -202,7 +203,7 @@ func (p *Panel) CopyKeys() {
 		return
 	}
 	if n := p.svc.CopyKeys(p.selected()); n > 0 && p.d.Notices != nil {
-		p.d.Notices.Notify(context.LevelInfo, "Copied "+strconv.Itoa(n)+" key(s)")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.animation.copied_n_key_s", "Copied {n} key(s)", i18n.Str("n", strconv.Itoa(n))))
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"aego/editor/core/document"
 	pd "aego/editor/core/playdiff"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -50,7 +51,7 @@ func (g *Dialog) Open(ui *core.Context, doc document.ID, hist, full pd.Result) {
 
 func (g *Dialog) showAll(ui *core.Context) {
 	on := g.d.ShowAll != nil && g.d.ShowAll()
-	if widgets.Checkbox(ui, "Show all differences, including those made by the game", &on) {
+	if widgets.Checkbox(ui, i18n.Tr("editor.playdiff.show_all_differences_including_those", "Show all differences, including those made by the game"), &on) {
 		if g.d.SetShowAll != nil {
 			g.d.SetShowAll(on)
 		}
@@ -136,7 +137,7 @@ func (g *Dialog) set(a, b int, v bool) {
 func (g *Dialog) apply() {
 	d := g.d.Docs.Documents().Get(g.doc)
 	if d == nil {
-		g.d.Notices.Notify(context.LevelError, "The scene was closed, the changes are dropped")
+		g.d.Notices.Notify(context.LevelError, i18n.Note("editor.playdiff.the_scene_was_closed_the", "The scene was closed, the changes are dropped"))
 		return
 	}
 	n, err := pd.Apply(d, g.res.Changes)
@@ -144,7 +145,7 @@ func (g *Dialog) apply() {
 	case err != nil:
 		g.d.Notices.Notify(context.LevelError, err.Error())
 	case n > 0:
-		g.d.Notices.Notify(context.LevelInfo, "Applied "+strconv.Itoa(n)+" change(s) from Play, Undo reverts them")
+		g.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.playdiff.applied_n_change_s_from", "Applied {n} change(s) from Play, Undo reverts them", i18n.Str("n", strconv.Itoa(n))))
 	}
 }
 
@@ -167,13 +168,13 @@ func (g *Dialog) Draw(ui *core.Context) {
 		return
 	}
 	title := ui.Cursor().Next(0)
-	ui.Text("Changes made during Play", mathx.Vec2{X: title.X, Y: ui.TextY(title)}, th.Text)
+	ui.Text(i18n.Tr("editor.playdiff.changes_made_during_play", "Changes made during Play"), mathx.Vec2{X: title.X, Y: ui.TextY(title)}, th.Text)
 	all := g.state(0, len(g.res.Changes))
 	ar := mathx.Rect{X: title.X + title.W - title.H, Y: title.Y, W: title.H, H: title.H}
 	if len(g.res.Changes) > 0 && check(ui, ui.ID("all"), ar, all) {
 		g.set(0, len(g.res.Changes), all != 1)
 	}
-	widgets.LabelDim(ui, "Changes you made during Play. Undo in the scene reverts them after Apply.")
+	widgets.LabelDim(ui, i18n.Tr("editor.playdiff.changes_you_made_during_play", "Changes you made during Play. Undo in the scene reverts them after Apply."))
 	g.showAll(ui)
 	rows := g.rows()
 	foot := th.RowHeight*2 + th.Padding*2
@@ -191,11 +192,11 @@ func (g *Dialog) Draw(ui *core.Context) {
 	}
 	ui.Cursor().Y = list.Y + list.H + th.Spacing
 	if n, m := len(g.res.Created), len(g.res.Removed); n+m > 0 {
-		widgets.LabelDim(ui, strconv.Itoa(n)+" node(s) created and "+strconv.Itoa(m)+" removed during Play are not transferred")
+		widgets.LabelDim(ui, i18n.Tr("editor.playdiff.n_node_s_created_and", "{n} node(s) created and {m} removed during Play are not transferred", i18n.Str("n", strconv.Itoa(n)), i18n.Str("m", strconv.Itoa(m))))
 	}
 	btn := ui.Cursor().Next(0)
 	bw := float32(140)
-	if widgets.ButtonRect(ui, ui.ID("discard"), mathx.Rect{X: btn.X + btn.W - bw, Y: btn.Y, W: bw, H: btn.H}, "Discard") {
+	if widgets.ButtonRect(ui, ui.ID("discard"), mathx.Rect{X: btn.X + btn.W - bw, Y: btn.Y, W: bw, H: btn.H}, i18n.Tr("editor.playdiff.discard", "Discard")) {
 		ui.EndModal()
 		g.close(ui)
 		return
@@ -206,7 +207,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 			n++
 		}
 	}
-	label := "Apply " + strconv.Itoa(n) + " to scene"
+	label := i18n.Tr("editor.playdiff.apply_n_to_scene", "Apply {n} to scene", i18n.Str("n", strconv.Itoa(n)))
 	if widgets.ButtonRect(ui, ui.ID("apply"), mathx.Rect{X: btn.X + btn.W - 2*bw - 6, Y: btn.Y, W: bw, H: btn.H}, label) && n > 0 {
 		g.apply()
 		ui.EndModal()
@@ -257,7 +258,7 @@ func (g *Dialog) drawRow(ui *core.Context, i int, rw row, rr mathx.Rect) {
 	ui.PushClip(mathx.Rect{X: x, Y: rr.Y, W: max(0, rr.X+rr.W-x), H: rr.H})
 	ui.Text(text, mathx.Vec2{X: x, Y: ui.TextY(rr)}, th.Text)
 	if c.Gameplay {
-		ui.Text("  · from gameplay", mathx.Vec2{X: x + ui.TextSize(text).X, Y: ui.TextY(rr)}, th.TextDisabled)
+		ui.Text(i18n.Tr("editor.playdiff.from_gameplay", "  · from gameplay"), mathx.Vec2{X: x + ui.TextSize(text).X, Y: ui.TextY(rr)}, th.TextDisabled)
 	}
 	ui.PopClip()
 	widgets.Tooltip(ui, id, c.Text(false)+"\n→ "+c.Text(true))

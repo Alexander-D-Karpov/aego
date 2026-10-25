@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/clipboard"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/schema"
 )
@@ -152,7 +153,7 @@ func (s *Service) Apply(d *document.SceneDocument, nodes []ids.NodeID, id ids.As
 		return errs.New(errs.EditorCommand, "the preset cannot be read")
 	}
 	env := clipboard.EnvOf(s.ctx)
-	label := "Apply Preset " + p.Name
+	label := i18n.Tr("editor.presets.apply_preset_name", "Apply Preset {name}", i18n.Str("name", p.Name))
 	if p.Script {
 		return env.ApplyScriptData(d, nodes, data, label)
 	}

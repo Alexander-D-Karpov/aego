@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/script/diag"
 	"aego/script/langsvc"
 	"aego/script/source"
@@ -364,7 +365,7 @@ func (p *Panel) save() {
 		p.host.d.Notices.Notify(context.LevelError, err.Error())
 		return
 	}
-	p.host.d.Notices.Notify(context.LevelInfo, "Saved "+p.doc.Path)
+	p.host.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.scripteditor.saved_path", "Saved {path}", i18n.Str("path", p.doc.Path)))
 }
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
@@ -450,7 +451,7 @@ func (p *Panel) drawBar(ui *core.Context, bar mathx.Rect) {
 		ui.Text(p.doc.Note, mathx.Vec2{X: bar.X + th.Padding + ui.TextSize(label).X + 16, Y: ty}, th.Warn)
 	}
 	if errors > 0 || warns > 0 {
-		local := strconv.Itoa(errors) + " errors, " + strconv.Itoa(warns) + " warnings"
+		local := i18n.TrN("editor.scripteditor.errors", int64(errors), "{n} error", "{n} errors") + ", " + i18n.TrN("editor.scripteditor.warnings", int64(warns), "{n} warning", "{n} warnings")
 		lc := th.Warn
 		if errors > 0 {
 			lc = th.Error
@@ -466,17 +467,17 @@ func (p *Panel) drawConflict(ui *core.Context, r mathx.Rect) {
 	bg := th.Warn
 	bg.A = 0.18
 	ui.Rect(r, bg)
-	ui.Text("The file changed on disk while you were editing it", mathx.Vec2{X: r.X + th.Padding, Y: ui.TextY(r)}, th.Warn)
+	ui.Text(i18n.Tr("editor.scripteditor.the_file_changed_on_disk", "The file changed on disk while you were editing it"), mathx.Vec2{X: r.X + th.Padding, Y: ui.TextY(r)}, th.Warn)
 	bw := float32(96)
 	keep := mathx.Rect{X: r.X + r.W - bw - 4, Y: r.Y + 2, W: bw, H: r.H - 4}
 	reload := mathx.Rect{X: keep.X - bw - 4, Y: keep.Y, W: bw, H: keep.H}
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 2), reload, "Reload") {
+	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 2), reload, i18n.Tr("editor.scripteditor.reload", "Reload")) {
 		if err := p.host.docs().ReloadScript(p.doc); err != nil {
 			p.host.d.Notices.Notify(context.LevelError, err.Error())
 		}
 		p.resync()
 	}
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 3), keep, "Keep mine") {
+	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 3), keep, i18n.Tr("editor.scripteditor.keep_mine", "Keep mine")) {
 		p.host.docs().KeepScript(p.doc)
 		p.conflict = false
 	}

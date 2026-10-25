@@ -9,6 +9,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/context"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	"aego/scene/scriptcomp"
 	"aego/schema"
@@ -99,7 +100,7 @@ func AttachScriptAsset(ctx *context.Editor, nodes []ids.NodeID, id ids.AssetID) 
 	}
 	switch len(types) {
 	case 0:
-		ctx.Notify(context.LevelWarn, "The file has no compiled script types, fix its errors first")
+		ctx.Notify(context.LevelWarn, i18n.Note("editor.assetops.the_file_has_no_compiled", "The file has no compiled script types, fix its errors first"))
 	case 1:
 		attach(types[0])
 	default:
@@ -108,8 +109,8 @@ func AttachScriptAsset(ctx *context.Editor, nodes []ids.NodeID, id ids.AssetID) 
 			buttons = append(buttons, shortName(t))
 		}
 		ctx.Ask(context.Question{
-			Title:   "Attach script",
-			Message: "This file declares several scripts. Which one should be attached?",
+			Title:   i18n.Tr("editor.assetops.attach_script", "Attach script"),
+			Message: i18n.Tr("editor.assetops.this_file_declares_several_scripts", "This file declares several scripts. Which one should be attached?"),
 			Buttons: append(buttons, "Cancel"),
 			Then: func(choice int) {
 				if choice >= 0 && choice < len(types) {

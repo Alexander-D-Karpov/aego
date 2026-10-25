@@ -15,6 +15,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/history"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/render/texture"
 	"aego/scene"
@@ -144,9 +145,9 @@ func (p *Panel) ID() string {
 
 func (p *Panel) Title() string {
 	if p.svc != nil && p.svc.Mode() == animedit.Record {
-		return "Animation (Rec)"
+		return i18n.Tr("editor.animation.title_rec", "Animation (Rec)")
 	}
-	return "Animation"
+	return i18n.Tr("editor.animation.title", "Animation")
 }
 
 func (p *Panel) notify(err error) {
@@ -175,10 +176,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	d := p.d.Docs.Doc()
 	switch {
 	case d == nil || p.d.Anim == nil:
-		widgets.LabelDim(ui, "Open a scene to animate its nodes")
+		widgets.LabelDim(ui, i18n.Tr("editor.animation.open_a_scene_to_animate", "Open a scene to animate its nodes"))
 		return
 	case d.IsPlay():
-		widgets.LabelDim(ui, "Clips are edited outside Play")
+		widgets.LabelDim(ui, i18n.Tr("editor.animation.clips_are_edited_outside_play", "Clips are edited outside Play"))
 		return
 	}
 	s := d.Scene()
@@ -193,12 +194,12 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	node, td := owner(s, s.Handle(from))
 	if node.IsZero() {
-		widgets.LabelDim(ui, "Select a node with an Animation Player or an Animator, or Create → Animation → Clip")
+		widgets.LabelDim(ui, i18n.Tr("editor.animation.select_a_node_with_an", "Select a node with an Animation Player or an Animator, or Create → Animation → Clip"))
 		return
 	}
 	p.pickClip(s, node, td, d.History.Version())
 	if svc.Clip() == nil {
-		widgets.LabelDim(ui, "The node has no clip yet: set the Clip of its Animation Player or the clips of its controller")
+		widgets.LabelDim(ui, i18n.Tr("editor.animation.the_node_has_no_clip", "The node has no clip yet: set the Clip of its Animation Player or the clips of its controller"))
 		return
 	}
 	if p.d.AssetRev != nil {
@@ -219,7 +220,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.collectMarks()
 	p.toolbar()
 	if sk := svc.Skipped(); len(sk) > 0 && svc.Mode() != animedit.Normal {
-		widgets.LabelDim(ui, "Not previewed: "+sk[0])
+		widgets.LabelDim(ui, i18n.Tr("editor.animation.not_previewed_sk", "Not previewed: {sk}", i18n.Str("sk", sk[0])))
 	}
 	top := ui.Cursor().Y
 	body := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
@@ -405,24 +406,24 @@ func (p *Panel) toolbar() {
 		return hit
 	}
 	mode := svc.Mode()
-	if labeled("anim.preview", "Preview", th.Text, mode != animedit.Normal) {
+	if labeled("anim.preview", i18n.Tr("editor.animation.preview", "Preview"), th.Text, mode != animedit.Normal) {
 		if mode == animedit.Normal {
 			svc.SetMode(animedit.Preview)
 		} else {
 			svc.SetMode(animedit.Normal)
 		}
 	}
-	if labeled("anim.record", "Rec", ui.Theme.Record, mode == animedit.Record) {
+	if labeled("anim.record", i18n.Tr("editor.animation.rec", "Rec"), ui.Theme.Record, mode == animedit.Record) {
 		if mode == animedit.Record {
 			svc.SetMode(animedit.Preview)
 		} else {
 			svc.SetMode(animedit.Record)
 		}
 	}
-	if labeled("anim.key", "Auto Key", th.Text, svc.AutoKey) {
+	if labeled("anim.key", i18n.Tr("editor.animation.auto_key", "Auto Key"), th.Text, svc.AutoKey) {
 		svc.AutoKey = !svc.AutoKey
 	}
-	if labeled("ui.curve", "Curves", th.Text, p.curves) {
+	if labeled("ui.curve", i18n.Tr("editor.animation.curves", "Curves"), th.Text, p.curves) {
 		p.curves = !p.curves
 	}
 	if icon("anim.to_start", "Go to start", false) {
@@ -430,9 +431,9 @@ func (p *Panel) toolbar() {
 		svc.Pause()
 		svc.SetTime(0)
 	}
-	play, tip := "play.start", "Play (Space)"
+	play, tip := "play.start", i18n.Tr("editor.animation.play_space", "Play (Space)")
 	if svc.Playing() {
-		play, tip = "play.pause", "Pause (Space)"
+		play, tip = "play.pause", i18n.Tr("editor.animation.pause_space", "Pause (Space)")
 	}
 	if icon(play, tip, svc.Playing()) {
 		if svc.Playing() {
@@ -468,7 +469,7 @@ func (p *Panel) timeline(r mathx.Rect) {
 	p.ruler(mathx.Rect{X: area.X, Y: r.Y, W: area.W, H: rulerH}, g)
 	lane := mathx.Rect{X: area.X, Y: r.Y + rulerH, W: area.W, H: laneH}
 	widgets.IconAt(ui, mathx.Rect{X: r.X + 6, Y: lane.Y + (lane.H-16)/2, W: 16, H: 16}, "anim.event", th.TextDim)
-	ui.Text("Events", mathx.Vec2{X: r.X + 26, Y: ui.TextY(lane)}, th.TextDim)
+	ui.Text(i18n.Tr("editor.animation.events", "Events"), mathx.Vec2{X: r.X + 26, Y: ui.TextY(lane)}, th.TextDim)
 	p.events(lane, g)
 	body := mathx.Rect{X: r.X, Y: lane.Y + laneH, W: r.W, H: max(0, r.Y+r.H-lane.Y-laneH)}
 	p.pressed = false
@@ -610,12 +611,12 @@ func (p *Panel) events(r mathx.Rect, g frame) {
 			}
 		}
 		if len(names) == 0 {
-			widgets.MenuItem(ui, "Declare events in Project Settings → Animation", "", false, false)
+			widgets.MenuItem(ui, i18n.Tr("editor.animation.declare_events_in_project_settings", "Declare events in Project Settings → Animation"), "", false, false)
 		}
 		widgets.EndContextMenu(ui)
 	}
 	if widgets.ContextMenu(ui, ui.ID("eventmenu")) {
-		if widgets.MenuItem(ui, "Remove Event", "", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animation.remove_event", "Remove Event"), "", true, false) {
 			p.notify(p.svc.EditClip("Remove Event", mutate.AnimEventRemove(p.view.Events[p.menuEv].Index)))
 		}
 		widgets.EndContextMenu(ui)
@@ -772,21 +773,21 @@ func (p *Panel) keyMenu() {
 		return
 	}
 	has := len(p.sel) > 0
-	if widgets.MenuItem(ui, "Copy Keys", "Ctrl+C", has, false) {
+	if widgets.MenuItem(ui, i18n.Tr("editor.animation.copy_keys", "Copy Keys"), "Ctrl+C", has, false) {
 		p.CopyKeys()
 	}
-	if widgets.MenuItem(ui, "Paste Keys", "Ctrl+V", true, false) {
+	if widgets.MenuItem(ui, i18n.Tr("editor.animation.paste_keys", "Paste Keys"), "Ctrl+V", true, false) {
 		p.notify(p.PasteKeys())
 	}
-	if widgets.MenuItem(ui, "Set from Scene", "", has, false) {
+	if widgets.MenuItem(ui, i18n.Tr("editor.animation.set_from_scene", "Set from Scene"), "", has, false) {
 		p.svc.SetMode(max(p.svc.Mode(), animedit.Preview))
 		p.notify(p.svc.SetFromScene(p.selected()))
 	}
-	if widgets.MenuItem(ui, "Delete Keys", "Del", has, false) {
+	if widgets.MenuItem(ui, i18n.Tr("editor.animation.delete_keys", "Delete Keys"), i18n.Tr("editor.animation.del", "Del"), has, false) {
 		p.notify(p.DeleteKeys())
 	}
 	for _, in := range interps {
-		if widgets.MenuItem(ui, "Interpolation: "+in, "", has, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animation.interpolation_in", "Interpolation: {in}", i18n.Str("in", in)), "", has, false) {
 			p.notify(p.svc.SetInterp(p.selected(), in))
 		}
 	}

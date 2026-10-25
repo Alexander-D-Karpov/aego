@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"strconv"
 	"strings"
 
@@ -71,7 +72,7 @@ func (p *Panel) scripts(d *document.SceneDocument) {
 	}
 	ui := p.f.UI
 	r := ui.Cursor().Next(ui.LineHeight() + 4)
-	ui.Text("Scripts", mathx.Vec2{X: r.X + 2, Y: r.Y + 3}, ui.Theme.TextDisabled)
+	ui.Text(i18n.Tr("editor.inspector.scripts", "Scripts"), mathx.Vec2{X: r.X + 2, Y: r.Y + 3}, ui.Theme.TextDisabled)
 	list := append([]string(nil), names...)
 	for i, name := range list {
 		p.scriptCard(d, i, len(list), name)
@@ -98,7 +99,7 @@ func (p *Panel) scriptEnabled(d *document.SceneDocument, name string) {
 			state = 2
 		}
 	}
-	r := widgets.Field(ui, "Enabled")
+	r := widgets.Field(ui, i18n.Tr("editor.inspector.enabled", "Enabled"))
 	if !triCheck(ui, ui.ID("enabled"), mathx.Rect{X: r.X, Y: r.Y, W: r.H, H: r.H}, state) {
 		return
 	}
@@ -134,7 +135,7 @@ func (p *Panel) unknownProps(d *document.SceneDocument, name string, td *schema.
 		r := ui.Cursor().Next(0)
 		widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 		ui.PushClip(r)
-		ui.Text(f.Name+" is not in the script, kept on save", mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
+		ui.Text(i18n.Tr("editor.inspector.name_is_not_in_the", "{name} is not in the script, kept on save", i18n.Str("name", f.Name)), mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, th.TextDim)
 		ui.PopClip()
 	}
 }
@@ -161,7 +162,7 @@ func (p *Panel) addScript(d *document.SceneDocument) {
 	}
 	ui.Rect(row, ui.WidgetColor(id))
 	ui.Outline(row, th.AccentDim)
-	ui.TextIn(row, "Add Script", th.Text, core.AlignCenter)
+	ui.TextIn(row, i18n.Tr("editor.inspector.add_script", "Add Script"), th.Text, core.AlignCenter)
 	if !ui.BeginPopup(id, row.W) {
 		return
 	}
@@ -201,7 +202,7 @@ func (p *Panel) addScript(d *document.SceneDocument) {
 		}
 	}
 	if first == "" {
-		widgets.LabelDim(ui, "No scripts match")
+		widgets.LabelDim(ui, i18n.Tr("editor.inspector.no_scripts_match", "No scripts match"))
 	}
 	if first != "" && q != "" && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter)) {
 		p.attach(first)
@@ -240,7 +241,7 @@ func (p *Panel) scriptCard(d *document.SceneDocument, index, count int, name str
 	defer ui.PopID()
 	action := ""
 	if p.code() != nil {
-		action = "Edit"
+		action = i18n.Tr("editor.common.edit", "Edit")
 	}
 	c := p.beginCard("script:"+name, inspect.Humanize(shortScript(name)), scriptPackage(name), "cat.scripts", action, true)
 	defer func() { p.endCard(ui, c) }()
@@ -266,7 +267,7 @@ func (p *Panel) scriptCard(d *document.SceneDocument, index, count int, name str
 	if known {
 		p.fields(d, td)
 	} else {
-		widgets.LabelDim(ui, "Not compiled, properties are kept as they are")
+		widgets.LabelDim(ui, i18n.Tr("editor.inspector.not_compiled_properties_are_kept", "Not compiled, properties are kept as they are"))
 	}
 	p.unknownProps(d, name, td, known)
 }
@@ -289,28 +290,28 @@ func (p *Panel) scriptProblems(name string) {
 	ui.Rect(r, bg)
 	widgets.IconAt(ui, mathx.Rect{X: r.X + 2, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "log.error", th.Error)
 	ui.PushClip(r)
-	ui.Text(strconv.Itoa(n)+" error(s) in "+pkg+", the last good build runs", mathx.Vec2{X: r.X + 22, Y: ui.TextY(r)}, th.Error)
+	ui.Text(i18n.TrN("editor.inspector.script_errors", int64(n), "{n} error in {pkg}, the last good build runs", "{n} errors in {pkg}, the last good build runs", i18n.Str("pkg", pkg)), mathx.Vec2{X: r.X + 22, Y: ui.TextY(r)}, th.Error)
 	ui.PopClip()
 	tip := first.Path + ":" + strconv.Itoa(first.Line) + ": " + first.Message
 	if first.Help != "" {
 		tip += "\n" + first.Help
 	}
-	widgets.Tooltip(ui, id, tip+"\nClick to open the line")
+	widgets.Tooltip(ui, id, i18n.Tr("editor.inspector.tip_click_to_open_the", "{tip}\nClick to open the line", i18n.Str("tip", tip)))
 }
 
 func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.TypeDescriptor, known bool, index, count int) {
 	ui := p.f.UI
 	short := shortScript(name)
 	if p.code() != nil {
-		if widgets.MenuItemIcon(ui, "Edit Script", "", "file.script", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.edit_script", "Edit Script"), "", "file.script", true, false) {
 			p.gotoScript(name, "")
 		}
-		if widgets.MenuItemIcon(ui, "Find Usages", "", "ui.search", known, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.find_usages", "Find Usages"), "", "ui.search", known, false) {
 			p.code().FindUsages(name, "")
 		}
 		widgets.Separator(ui)
 	}
-	if widgets.MenuItemIcon(ui, "Reset", "", "ui.reset", known, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset", "Reset"), "", "ui.reset", known, false) {
 		reg := d.Scene().Registry()
 		tx := d.History.Begin("Reset " + short)
 		for i := range td.Fields {
@@ -327,7 +328,7 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 		p.presetItems(d, td)
 		widgets.Separator(ui)
 	}
-	if widgets.MenuItemIcon(ui, "Remove", "", "edit.delete", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.remove", "Remove"), "", "edit.delete", true, false) {
 		tx := d.History.Begin("Remove " + short)
 		for _, n := range p.nodes {
 			if err := tx.Exec(&commands.RemoveScript{Node: n, TypeName: name}); err != nil {
@@ -340,18 +341,18 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 	}
 	widgets.Separator(ui)
 	single := len(p.nodes) == 1
-	if widgets.MenuItemIcon(ui, "Move Up", "", "ui.move_up", single && index > 0, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.move_up", "Move Up"), "", "ui.move_up", single && index > 0, false) {
 		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index - 1}); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		}
 	}
-	if widgets.MenuItemIcon(ui, "Move Down", "", "ui.move_down", single && index < count-1, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.move_down", "Move Down"), "", "ui.move_down", single && index < count-1, false) {
 		if err := d.History.Exec(&commands.ReorderScript{Node: p.nodes[0], From: index, To: index + 1}); err != nil {
 			p.d.Notices.Notify(context.LevelError, err.Error())
 		}
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Show Script Files", "", "file.reveal", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.show_script_files", "Show Script Files"), "", "file.reveal", true, false) {
 		p.d.Nav.Open(context.AssetAt(p.d.Assets.ScriptDir(name)))
 	}
 }

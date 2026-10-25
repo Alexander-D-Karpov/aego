@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/modules/camera"
 	"aego/scene"
 	"aego/schema"
@@ -106,7 +107,7 @@ func (p *plugin) vcInspector(ctx *context.Editor, nodes []ids.NodeID, def func()
 	}
 	ui := ctx.UI
 	widgets.LabelDim(ui, st.Text())
-	if widgets.Button(ui, "Look Through") {
+	if widgets.Button(ui, i18n.Tr("i18n.camera.look_through", "Look Through")) {
 		zoom := st.Pose.Zoom
 		if zoom <= 0 {
 			zoom = defaultZoom
@@ -124,7 +125,7 @@ func (p *plugin) followInspector(ctx *context.Editor, nodes []ids.NodeID, def fu
 	if d == nil || s == nil {
 		return
 	}
-	if widgets.Button(ctx.UI, "Snap to Target") {
+	if widgets.Button(ctx.UI, i18n.Tr("i18n.camera.snap_to_target", "Snap to Target")) {
 		sc := d.Scene()
 		for _, n := range nodes {
 			s.Snap(sc.Handle(n))

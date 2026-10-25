@@ -1,0 +1,20 @@
+messages version=1 lang=ru {
+  msg "i18n.camera.blending_v" {
+    text=", смешивание {v}%"
+  }
+  msg "i18n.camera.cameras_run_only_in_play" {
+    text="Камеры работают только во время игры"
+  }
+  msg "i18n.camera.look_through" {
+    text="Смотреть через камеру"
+  }
+  msg "i18n.camera.name_vc_zoom_formatfloat" {
+    text="{name}: {vc}, масштаб {formatfloat}"
+  }
+  msg "i18n.camera.no_camera_outputs" {
+    text="Нет выводов камер"
+  }
+  msg "i18n.camera.snap_to_target" {
+    text="Привязать к цели"
+  }
+}

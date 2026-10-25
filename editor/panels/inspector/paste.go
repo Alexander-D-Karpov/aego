@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"aego/editor/core/assetops"
+	"aego/engine/i18n"
 	"strings"
 
 	"aego/asset"
@@ -46,7 +47,7 @@ func (p *Panel) copyTexture(d *document.SceneDocument, td *schema.TypeDescriptor
 	if !p.d.Assets.CopyAssets([]ids.AssetID{v.Asset}) {
 		return false
 	}
-	p.d.Notices.Notify(context.LevelInfo, "Copied "+assetState(p.d.Pipeline, v.Asset).label)
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.copied_name", "Copied {name}", i18n.Str("name", assetState(p.d.Pipeline, v.Asset).label)))
 	return true
 }
 
@@ -77,7 +78,7 @@ func (p *Panel) pasteImage(d *document.SceneDocument, td *schema.TypeDescriptor,
 	}
 	img, ok := clip.Image(p.d.Clip.Clip)
 	if !ok {
-		p.d.Notices.Notify(context.LevelInfo, "The clipboard has no image")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.the_clipboard_has_no_image", "The clipboard has no image"))
 		return nil
 	}
 	s := d.Scene()
@@ -89,7 +90,7 @@ func (p *Panel) pasteImage(d *document.SceneDocument, td *schema.TypeDescriptor,
 	if err := d.Props.Set(nil, p.nodes, td.ID, fd.ID, schema.Asset(id)); err != nil {
 		return err
 	}
-	p.d.Notices.Notify(context.LevelInfo, "Pasted "+rel)
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.pasted", "Pasted {path}", i18n.Str("path", rel)))
 	return nil
 }
 

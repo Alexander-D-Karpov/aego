@@ -7,6 +7,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/modules/audio"
 	"aego/scene"
 	"aego/ui/core"
@@ -37,7 +38,7 @@ func progress(ui *core.Context, pos, length float32, on bool) {
 	}
 	text := seconds(pos) + " s"
 	if length > 0 {
-		text += " of " + seconds(length) + " s"
+		text += i18n.Tr("i18n.audio.of_length_s", " of {length} s", i18n.Str("length", seconds(length)))
 	}
 	widgets.LabelDim(ui, text)
 }
@@ -61,10 +62,10 @@ func (p *plugin) sourceInspector(ctx *context.Editor, nodes []ids.NodeID, def fu
 
 func (p *plugin) playControls(ui *core.Context, svc *audio.Service, h scene.NodeHandle) {
 	play, stop := twoButtons(ui)
-	if widgets.ButtonRect(ui, ui.ID("audio.play"), play, "Play") {
+	if widgets.ButtonRect(ui, ui.ID("audio.play"), play, i18n.Tr("i18n.audio.play", "Play")) {
 		svc.PlaySource(h)
 	}
-	if widgets.ButtonRect(ui, ui.ID("audio.stop"), stop, "Stop") {
+	if widgets.ButtonRect(ui, ui.ID("audio.stop"), stop, i18n.Tr("i18n.audio.stop", "Stop")) {
 		svc.StopSource(h, 0)
 	}
 	if c, ok := scene.Get[audio.AudioSource2D](svc.Scene(), h); ok {
@@ -79,15 +80,15 @@ func (p *plugin) previewControls(ui *core.Context, s *scene.Scene, c *audio.Audi
 	}
 	if c.Clip.IsZero() {
 		if !c.Event.IsZero() {
-			widgets.LabelDim(ui, "Events are heard in Play; Preview plays Clip")
+			widgets.LabelDim(ui, i18n.Tr("i18n.audio.events_are_heard_in_play", "Events are heard in Play; Preview plays Clip"))
 		}
 		return
 	}
 	play, stop := twoButtons(ui)
-	if widgets.ButtonRect(ui, ui.ID("audio.preview"), play, "Preview") {
+	if widgets.ButtonRect(ui, ui.ID("audio.preview"), play, i18n.Tr("i18n.audio.preview", "Preview")) {
 		p.notify(mod.Preview(s.Resolver(), c.Clip.ID, c.Loop))
 	}
-	if widgets.ButtonRect(ui, ui.ID("audio.unpreview"), stop, "Stop") {
+	if widgets.ButtonRect(ui, ui.ID("audio.unpreview"), stop, i18n.Tr("i18n.audio.stop", "Stop")) {
 		mod.StopPreview()
 	}
 	clip, err := mod.Clip(s.Resolver(), c.Clip.ID)
@@ -110,7 +111,7 @@ func (p *plugin) profile(ed *context.Editor) {
 	ui := ed.UI
 	mod := p.module()
 	if mod == nil || mod.Mixer() == nil {
-		widgets.LabelDim(ui, "The audio output is not open")
+		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_audio_output_is_not", "The audio output is not open"))
 		return
 	}
 	st, c, spec := mod.Stats(), mod.Counts(), mod.Spec()

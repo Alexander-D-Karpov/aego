@@ -9,6 +9,7 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/ui/dock"
 )
@@ -128,7 +129,7 @@ func (w *Workspace) Current() Preset {
 	if p := w.preset(w.cur); p != nil {
 		return *p
 	}
-	return Preset{ID: w.cur, Title: "Default"}
+	return Preset{ID: w.cur, Title: i18n.Tr("editor.workspace.default", "Default")}
 }
 
 func (w *Workspace) layoutOf(id string) *layout {

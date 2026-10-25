@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/editor/core/tasks"
+	"aego/engine/i18n"
 	"aego/engine/problems"
 	uicore "aego/ui/core"
 	"aego/ui/widgets"
@@ -63,7 +64,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Export"
+	return i18n.Tr("editor.export.title", "Export")
 }
 
 func (p *Panel) Icon() string {
@@ -88,7 +89,7 @@ func (p *Panel) check() {
 	prep, prof := x.Prepare(), p.profile
 	var found []problems.Diagnostic
 	p.stage.Store("checking")
-	p.running = p.d.Tasks.Work(tasks.Spec{Title: "Check export (" + prof + ")", Kind: "export"}, func(*tasks.Task) error {
+	p.running = p.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.export.check_export_prof", "Check export ({prof})", i18n.Str("prof", prof)), Kind: "export"}, func(*tasks.Task) error {
 		found = x.Check(prep, prof)
 		return nil
 	}).Then(func(t *tasks.Task) {
@@ -103,7 +104,7 @@ func (p *Panel) check() {
 		case e > 0:
 			p.msg = strconv.Itoa(e) + " problem(s) block the export"
 		case w > 0:
-			p.msg = "Ready to export, " + strconv.Itoa(w) + " warning(s)"
+			p.msg = i18n.Tr("editor.export.ready_warnings", "Ready to export, {warnings}", i18n.Str("warnings", i18n.TrN("editor.export.warnings", int64(w), "{n} warning", "{n} warnings")))
 		default:
 			p.msg = "Ready to export"
 		}
@@ -117,7 +118,7 @@ func (p *Panel) export(out string) {
 	var rep services.ExportReport
 	var err error
 	p.stage.Store("starting")
-	p.running = p.d.Tasks.Work(tasks.Spec{Title: "Export " + req.Target + " " + req.Profile, Kind: "export", Detail: out}, func(t *tasks.Task) error {
+	p.running = p.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.export.export_target_profile", "Export {target} {profile}", i18n.Str("target", req.Target), i18n.Str("profile", req.Profile)), Kind: "export", Detail: out}, func(t *tasks.Task) error {
 		rep, err = x.Export(prep, req, func(f float32, s string) {
 			t.SetProgress(f)
 			p.stage.Store(s)
@@ -196,16 +197,25 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.results(ui, right)
 }
 
-var targetNames = map[string]string{"host": "This computer", "linux": "Linux", "windows": "Windows", "darwin": "macOS", "web": "Web"}
+func targetNames() map[string]string {
+	return map[string]string{"host": i18n.Tr("editor.export.target.host", "This computer"), "linux": "Linux", "windows": "Windows", "darwin": "macOS", "web": i18n.Tr("editor.export.target.web", "Web")}
+}
 
-var profileNotes = map[string]string{
-	Development: "Logs and runtime checks on, faster to build.",
-	Release:     "Optimized and stripped, for players.",
+func profileNote(p string) string {
+	switch p {
+	case Development:
+		return i18n.Tr("editor.export.profile.development.note", "Logs and runtime checks on, faster to build.")
+	case Release:
+		return i18n.Tr("editor.export.profile.release.note", "Optimized and stripped, for players.")
+	}
+	return ""
 }
 
 const labelW = 96
 
-var profileNames = map[string]string{Development: "Development", Release: "Release"}
+func profileNames() map[string]string {
+	return map[string]string{Development: i18n.Tr("editor.export.profile.development", "Development"), Release: i18n.Tr("editor.export.profile.release", "Release")}
+}
 
 // field reserves a row with a label on the left and returns the rest of it.
 func field(ui *uicore.Context, text string) mathx.Rect {
@@ -288,15 +298,15 @@ func (p *Panel) action(ui *uicore.Context, key string, x *float32, y, h float32,
 func (p *Panel) settings(ui *uicore.Context) {
 	th := &ui.Theme
 	x := p.d.Exporter
-	p.segments(ui, field(ui, "Target"), "target", x.Targets(), targetNames, &p.target)
-	prof := field(ui, "Profile")
-	w := p.segments(ui, prof, "profile", profiles, profileNames, &p.profile)
+	p.segments(ui, field(ui, i18n.Tr("editor.export.target", "Target")), "target", x.Targets(), targetNames(), &p.target)
+	prof := field(ui, i18n.Tr("editor.export.profile", "Profile"))
+	w := p.segments(ui, prof, "profile", profiles, profileNames(), &p.profile)
 	note := mathx.Rect{X: prof.X + w + 10, Y: prof.Y, W: max(0, prof.W-w-10), H: prof.H}
-	if n := profileNotes[p.profile]; ui.TextSize(n).X <= note.W {
+	if n := profileNote(p.profile); ui.TextSize(n).X <= note.W {
 		ui.Text(n, mathx.Vec2{X: note.X, Y: ui.TextY(note)}, th.TextDisabled)
 	}
 	out := p.output()
-	row := field(ui, "Output")
+	row := field(ui, i18n.Tr("editor.export.output", "Output"))
 	bw := float32(0)
 	if p.d.PickFolder != nil {
 		bw = row.H + 4
@@ -325,10 +335,10 @@ func (p *Panel) settings(ui *uicore.Context) {
 	ui.MouseOver(ui.ID("outtip"), field)
 	if p.d.PickFolder != nil {
 		bx := field.X + field.W + 4
-		if widgets.IconButton(ui, ui.ID("browse"), mathx.Rect{X: bx, Y: row.Y, W: row.H, H: row.H}, "file.folder", "Choose the output folder") && p.running == nil {
+		if widgets.IconButton(ui, ui.ID("browse"), mathx.Rect{X: bx, Y: row.Y, W: row.H, H: row.H}, "file.folder", i18n.Tr("editor.export.choose_the_output_folder", "Choose the output folder")) && p.running == nil {
 			p.d.PickFolder(filepath.Dir(out), func(dir string) { p.out = dir })
 		}
-		if p.out != "" && widgets.IconButton(ui, ui.ID("default"), mathx.Rect{X: bx + row.H + 4, Y: row.Y, W: row.H, H: row.H}, "ui.close", "Back to the default folder") && p.running == nil {
+		if p.out != "" && widgets.IconButton(ui, ui.ID("default"), mathx.Rect{X: bx + row.H + 4, Y: row.Y, W: row.H, H: row.H}, "ui.close", i18n.Tr("editor.export.back_to_the_default_folder", "Back to the default folder")) && p.running == nil {
 			p.out = ""
 		}
 	}
@@ -369,7 +379,7 @@ func (p *Panel) progress(ui *uicore.Context) {
 		track := mathx.Rect{X: row.X, Y: row.Y + row.H/2 - 3, W: max(0, row.W-row.H-8), H: 6}
 		ui.RoundRect(track, 3, th.Widget)
 		ui.RoundRect(mathx.Rect{X: track.X, Y: track.Y, W: track.W * mathx.Clamp(pct, 0, 1), H: track.H}, 3, th.Accent)
-		if widgets.IconButton(ui, ui.ID("cancel"), cancel, "ui.close", "Cancel") {
+		if widgets.IconButton(ui, ui.ID("cancel"), cancel, "ui.close", i18n.Tr("editor.export.cancel", "Cancel")) {
 			p.running.Cancel()
 		}
 		line := indent(ui.Cursor().Next(ui.LineHeight() + 2))
@@ -409,11 +419,11 @@ func (p *Panel) results(ui *uicore.Context, r mathx.Rect) {
 	th := &ui.Theme
 	lines := p.lines(ui)
 	head := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight}
-	title := "Report"
+	title := i18n.Tr("editor.export.report", "Report")
 	if e, w := errorCount(p.issues); e > 0 {
-		title += " · " + strconv.Itoa(e) + " error(s)"
+		title += " · " + i18n.TrN("editor.export.errors", int64(e), "{n} error", "{n} errors")
 	} else if w > 0 {
-		title += " · " + strconv.Itoa(w) + " warning(s)"
+		title += " · " + i18n.TrN("editor.export.warnings", int64(w), "{n} warning", "{n} warnings")
 	}
 	ui.Text(title, mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
 	list := mathx.Rect{X: r.X, Y: head.Y + head.H + 4, W: r.W, H: max(0, r.H-head.H-4)}

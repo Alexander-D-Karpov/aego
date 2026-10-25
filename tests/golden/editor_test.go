@@ -41,6 +41,8 @@ type editorEnv struct {
 	ui     *core.Context
 	target gpu.TextureHandle
 	w, h   int
+	// scale is the UI scale the panels lay out at, 1 when zero; the overflow test sets 2.
+	scale float32
 }
 
 func newEditorEnv(t *testing.T) *editorEnv {
@@ -102,7 +104,7 @@ func (env *editorEnv) draw(fn func(full mathx.Rect)) (*image.NRGBA, error) {
 	full := mathx.Rect{W: float32(w), H: float32(h)}
 	var list *draw.List
 	for i := 0; i < 2; i++ {
-		ui.Begin(&input.State{}, mathx.Vec2{X: float32(w), Y: float32(h)}, 1)
+		ui.Begin(&input.State{}, mathx.Vec2{X: float32(w), Y: float32(h)}, max(1, env.scale))
 		ui.Rect(full, ui.Theme.Background)
 		ui.Region(full)
 		fn(full)

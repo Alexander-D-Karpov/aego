@@ -8,6 +8,7 @@ import (
 	"aego/ui/draw"
 	"aego/ui/textedit"
 	"aego/ui/theme"
+	"strings"
 )
 
 type Theme = theme.Theme
@@ -91,6 +92,8 @@ const (
 )
 
 type Context struct {
+	// Overflow, when set, hears every text drawn wider than its rectangle or clip; the i18n overflow test uses it (D348).
+	Overflow  func(text string, need, have float32)
 	Theme     Theme
 	Clipboard Clipboard
 	Icons     *icons.Set
@@ -1017,10 +1020,22 @@ func (c *Context) Outline(r mathx.Rect, col mathx.Color) {
 }
 
 func (c *Context) Text(s string, pos mathx.Vec2, col mathx.Color) {
+	if c.Overflow != nil {
+		if clip, ok := c.ClipRect(); ok {
+			if w := c.TextSize(s).X; pos.X+w > clip.X+clip.W+0.5 && pos.X < clip.X+clip.W {
+				c.Overflow(strings.Clone(s), w, clip.X+clip.W-pos.X)
+			}
+		}
+	}
 	c.list.Text(s, pos, col)
 }
 
 func (c *Context) TextIn(r mathx.Rect, s string, col mathx.Color, align Align) {
+	if c.Overflow != nil {
+		if w := c.TextSize(s).X; w > r.W+0.5 {
+			c.Overflow(strings.Clone(s), w, r.W)
+		}
+	}
 	x := r.X + c.Theme.Padding
 	switch align {
 	case AlignCenter:

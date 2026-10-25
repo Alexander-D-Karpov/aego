@@ -9,11 +9,14 @@ import (
 	"aego/engine/module"
 )
 
-//go:embed res/docs
+//go:embed res/docs res/i18n
 var docFiles embed.FS
 
 func registerDocs(r *module.Registry) {
 	if sub, err := fs.Sub(docFiles, "res/docs"); err == nil {
 		r.Docs(sub)
+	}
+	if sub, err := fs.Sub(docFiles, "res/i18n"); err == nil {
+		r.Messages(sub)
 	}
 }

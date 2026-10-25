@@ -8,6 +8,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/modules/audio"
 	"aego/ui/core"
@@ -44,7 +45,7 @@ type peakSource interface {
 
 func formatName(f uint8) string {
 	if f == asset.AudioOgg {
-		return "Ogg Vorbis"
+		return i18n.Tr("i18n.audio.ogg_vorbis", "Ogg Vorbis")
 	}
 	return "WAV"
 }
@@ -110,7 +111,7 @@ func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
 		mod = audio.ModuleOf(ed.Engine)
 	}
 	if mod == nil || pl == nil || ed.Loader == nil {
-		widgets.LabelDim(ui, "The audio output is not open")
+		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_audio_output_is_not", "The audio output is not open"))
 		return
 	}
 	if p.clip.id != id {
@@ -118,7 +119,7 @@ func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
 	}
 	meta, ok := pl.MetaOf(id)
 	if !ok {
-		widgets.LabelDim(ui, "The sound is not imported yet")
+		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_sound_is_not_imported", "The sound is not imported yet"))
 		return
 	}
 	c, err := mod.Clip(ed.Loader, id)
@@ -188,9 +189,9 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 			ui.Rect(mathx.Rect{X: r.X + float32(i)*w, Y: mid - h, W: max(w, 1), H: 2 * h}, th.AccentDim)
 		}
 	} else {
-		label := "Reading the waveform"
+		label := i18n.Tr("i18n.audio.reading_the_waveform", "Reading the waveform")
 		if v.PeaksDone {
-			label = "No waveform"
+			label = i18n.Tr("i18n.audio.no_waveform", "No waveform")
 		}
 		ui.TextIn(r, label, th.TextDim, core.AlignCenter)
 	}
@@ -258,22 +259,22 @@ func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	at := func(i int) mathx.Rect {
 		return mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}
 	}
-	if widgets.ButtonRect(ui, ui.ID("play"), at(0), "Play") && mod != nil {
+	if widgets.ButtonRect(ui, ui.ID("play"), at(0), i18n.Tr("i18n.audio.play", "Play")) && mod != nil {
 		p.aud = audition{}
 		p.notify(mod.Preview(ed.Loader, v.ID, p.clip.loop))
 	}
-	if widgets.ButtonRect(ui, ui.ID("stop"), at(1), "Stop") && mod != nil {
+	if widgets.ButtonRect(ui, ui.ID("stop"), at(1), i18n.Tr("i18n.audio.stop", "Stop")) && mod != nil {
 		mod.StopPreview()
 	}
-	widgets.ToggleButton(ui, ui.ID("looping"), at(2), "Loop", &p.clip.loop)
-	widgets.LabelDim(ui, seconds(v.Position)+" s of "+seconds(v.Seconds)+" s")
+	widgets.ToggleButton(ui, ui.ID("looping"), at(2), i18n.Tr("i18n.audio.loop", "Loop"), &p.clip.loop)
+	widgets.LabelDim(ui, i18n.Tr("i18n.audio.position_s_of_seconds_s", "{position} s of {seconds} s", i18n.Str("position", seconds(v.Position)), i18n.Str("seconds", seconds(v.Seconds))))
 }
 
 func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	ui := ed.UI
-	widgets.LabelDim(ui, "Import")
+	widgets.LabelDim(ui, i18n.Tr("i18n.audio.import", "Import"))
 	cur := streamMode(s)
-	r := widgets.Field(ui, "Stream")
+	r := widgets.Field(ui, i18n.Tr("i18n.audio.stream", "Stream"))
 	w := (r.W - 8) / 3
 	for i, m := range streamModes {
 		on := cur == m[0]
@@ -288,7 +289,7 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	if p.clip.gainOn {
 		g = p.clip.gain
 	}
-	e := widgets.DragNumber(ui, ui.ID("gain"), widgets.Field(ui, "Gain"), &g, widgets.NumberOpts{Speed: 0.01, Prec: 2})
+	e := widgets.DragNumber(ui, ui.ID("gain"), widgets.Field(ui, i18n.Tr("i18n.audio.gain", "Gain")), &g, widgets.NumberOpts{Speed: 0.01, Prec: 2})
 	if e.Changed {
 		p.clip.gain, p.clip.gainOn = min(max(g, 0), maxGain), true
 	}
@@ -303,7 +304,7 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	names := audio.Buses[1:]
 	cur = s.String("bus", "sfx")
 	sel := slices.Index(names, cur)
-	if widgets.Combo(ui, ui.ID("bus"), widgets.Field(ui, "Bus"), &sel, names, false) && sel >= 0 && names[sel] != cur {
+	if widgets.Combo(ui, ui.ID("bus"), widgets.Field(ui, i18n.Tr("i18n.audio.bus", "Bus")), &sel, names, false) && sel >= 0 && names[sel] != cur {
 		n := s.Clone()
 		n["bus"] = aetext.Ident(names[sel])
 		p.write(ed, s, n)
@@ -313,7 +314,7 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 func (p *plugin) history(ed *context.Editor, s pipeline.Settings) {
 	ui := ed.UI
 	undo, redo := twoButtons(ui)
-	if widgets.ButtonRect(ui, ui.ID("undo"), undo, "Undo") && len(p.clip.undo) > 0 {
+	if widgets.ButtonRect(ui, ui.ID("undo"), undo, i18n.Tr("i18n.audio.undo", "Undo")) && len(p.clip.undo) > 0 {
 		prev := p.clip.undo[len(p.clip.undo)-1]
 		if err := ed.Pipeline.SetSettings(p.clip.id, prev); err != nil {
 			p.notify(err)
@@ -322,7 +323,7 @@ func (p *plugin) history(ed *context.Editor, s pipeline.Settings) {
 		p.clip.undo = p.clip.undo[:len(p.clip.undo)-1]
 		p.clip.redo = append(p.clip.redo, s.Clone())
 	}
-	if widgets.ButtonRect(ui, ui.ID("redo"), redo, "Redo") && len(p.clip.redo) > 0 {
+	if widgets.ButtonRect(ui, ui.ID("redo"), redo, i18n.Tr("i18n.audio.redo", "Redo")) && len(p.clip.redo) > 0 {
 		next := p.clip.redo[len(p.clip.redo)-1]
 		if err := ed.Pipeline.SetSettings(p.clip.id, next); err != nil {
 			p.notify(err)

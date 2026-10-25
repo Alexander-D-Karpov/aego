@@ -456,6 +456,27 @@ func (w *Window) SetCursor(shape platform.CursorShape) {
 	C.aego_set_cursor(C.int(shape))
 }
 
+func (w *Window) PreferredLocales() []string {
+	var n C.int
+	ls := C.SDL_GetPreferredLocales(&n)
+	if ls == nil {
+		return nil
+	}
+	defer C.SDL_free(unsafe.Pointer(ls))
+	var out []string
+	for _, l := range unsafe.Slice(ls, int(n)) {
+		if l == nil || l.language == nil {
+			continue
+		}
+		s := C.GoString(l.language)
+		if l.country != nil {
+			s += "-" + C.GoString(l.country)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
 func (w *Window) SystemTheme() platform.SystemTheme {
 	switch C.SDL_GetSystemTheme() {
 	case C.SDL_SYSTEM_THEME_LIGHT:

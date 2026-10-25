@@ -18,6 +18,7 @@ import (
 	"aego/editor/core/selection"
 	"aego/editor/core/shape"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/engine/problems"
 	"aego/render"
@@ -144,7 +145,7 @@ func (s *Session) parse(data []byte) (*scene.Scene, error) {
 		s.ctx.Notify(context.LevelWarn, fmt.Sprintf("%s:%d: %s", ScenePath, w.Pos.Line, w.Msg))
 	}
 	for _, u := range rep.Unknown {
-		s.ctx.Notify(context.LevelWarn, "component "+u+" is not available in the docs runtime")
+		s.ctx.Notify(context.LevelWarn, i18n.Note("editor.docsession.component_u_is_not_available", "component {u} is not available in the docs runtime", i18n.Str("u", u)))
 	}
 	return sc, nil
 }

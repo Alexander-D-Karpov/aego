@@ -10,6 +10,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/save"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -50,7 +51,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Saves"
+	return i18n.Tr("editor.saves.title", "Saves")
 }
 
 func (p *Panel) Refresh() {
@@ -132,7 +133,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		st = p.d.Store()
 	}
 	if st == nil {
-		widgets.LabelDim(ui, "Saves are not available: this run has no player profile")
+		widgets.LabelDim(ui, i18n.Tr("editor.saves.saves_are_not_available_this", "Saves are not available: this run has no player profile"))
 		return
 	}
 	if f.Now-p.at > 1 {
@@ -189,12 +190,12 @@ func (p *Panel) toolbar(st *save.Store) {
 	slot := strings.TrimSpace(p.slot)
 	over := p.exists(slot)
 	live := p.service() != nil
-	saveLabel := "Save"
+	saveLabel := i18n.Tr("editor.saves.save", "Save")
 	if over {
-		saveLabel = "Overwrite"
+		saveLabel = i18n.Tr("editor.saves.overwrite", "Overwrite")
 	}
-	sw := ui.TextSize("Overwrite").X + 14
-	rw := ui.TextSize("Refresh").X + 14
+	sw := ui.TextSize(i18n.Tr("editor.saves.overwrite", "Overwrite")).X + 14
+	rw := ui.TextSize(i18n.Tr("editor.saves.refresh", "Refresh")).X + 14
 	fw := max(80, bar.W-sw-rw-8)
 	field := mathx.Rect{X: bar.X, Y: bar.Y, W: fw, H: bar.H}
 	changed, committed := widgets.TextFieldRect(ui, ui.ID("slot"), field, &p.slot, false)
@@ -205,7 +206,7 @@ func (p *Panel) toolbar(st *save.Store) {
 	if p.button(ui.ID("write"), mathx.Rect{X: x, Y: bar.Y, W: sw, H: bar.H}, saveLabel, live && slot != "") || (live && committed && slot != "") {
 		p.saveNow()
 	}
-	if p.button(ui.ID("refresh"), mathx.Rect{X: x + sw + 4, Y: bar.Y, W: rw, H: bar.H}, "Refresh", true) {
+	if p.button(ui.ID("refresh"), mathx.Rect{X: x + sw + 4, Y: bar.Y, W: rw, H: bar.H}, i18n.Tr("editor.saves.refresh", "Refresh"), true) {
 		p.Refresh()
 	}
 	line := ui.Cursor().Next(0)
@@ -214,7 +215,7 @@ func (p *Panel) toolbar(st *save.Store) {
 	case !live:
 		note += " · saving works during Play"
 	case over:
-		note, col = slot+" already exists and will be replaced", th.Warn
+		note, col = i18n.Tr("editor.saves.slot_already_exists_and_will", "{slot} already exists and will be replaced", i18n.Str("slot", slot)), th.Warn
 	}
 	ui.PushClip(line)
 	ui.Text(note, mathx.Vec2{X: line.X, Y: ui.TextY(line)}, col)
@@ -224,7 +225,7 @@ func (p *Panel) toolbar(st *save.Store) {
 func (p *Panel) saveNow() {
 	svc := p.service()
 	if svc == nil {
-		p.notify(context.LevelInfo, "Saving works during Play")
+		p.notify(context.LevelInfo, i18n.Note("editor.saves.saving_works_during_play", "Saving works during Play"))
 		return
 	}
 	slot := strings.TrimSpace(p.slot)
@@ -239,10 +240,10 @@ func (p *Panel) saveNow() {
 	p.typed = false
 	p.slot = NextSlot(p.prefix, append(p.taken(), slot))
 	p.Refresh()
-	p.notify(context.LevelInfo, "Saving to "+slot)
+	p.notify(context.LevelInfo, i18n.Note("editor.saves.saving_to_slot", "Saving to {slot}", i18n.Str("slot", slot)))
 }
 
-var columns = [...]string{"Slot", "Scene", "Saved", "Playtime", "Objects", "Size"}
+var columns = [...]i18n.Text{i18n.T("editor.saves.col.slot", "Slot"), i18n.T("editor.saves.col.scene", "Scene"), i18n.T("editor.saves.col.saved", "Saved"), i18n.T("editor.saves.col.playtime", "Playtime"), i18n.T("editor.saves.col.objects", "Objects"), i18n.T("editor.saves.col.size", "Size")}
 
 var colAlign = [len(columns)]core.Align{core.AlignLeft, core.AlignLeft, core.AlignLeft, core.AlignRight, core.AlignRight, core.AlignRight}
 
@@ -281,7 +282,7 @@ func (p *Panel) header(r mathx.Rect) {
 	var buf [len(columns)]cell
 	for _, c := range p.cells(r, buf[:0]) {
 		ui.PushClip(c.r)
-		ui.TextIn(c.r, columns[c.col], ui.Theme.Text, colAlign[c.col])
+		ui.TextIn(c.r, columns[c.col].String(), ui.Theme.Text, colAlign[c.col])
 		ui.PopClip()
 	}
 }
@@ -378,7 +379,7 @@ func (p *Panel) details(st *save.Store, r mathx.Rect) {
 	ui.PushClip(r)
 	defer ui.PopClip()
 	row := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight}
-	labels := [...]string{"Load", "Overwrite", "Delete"}
+	labels := [...]string{i18n.Tr("editor.saves.load", "Load"), i18n.Tr("editor.saves.overwrite", "Overwrite"), i18n.Tr("editor.saves.delete", "Delete")}
 	live := p.service() != nil
 	base := ui.ID("detail")
 	x := row.X
@@ -405,24 +406,24 @@ func (p *Panel) details(st *save.Store, r mathx.Rect) {
 	d := p.doc
 	m := &d.Meta
 	kv := [][2]string{
-		{"Slot", info.Slot},
-		{"Scene", p.scene(m.Scene)},
-		{"Saved", m.Date.Local().Format(time.DateTime)},
-		{"Playtime", Playtime(m.Playtime)},
-		{"Game", orDash(m.Game)},
-		{"Engine", orDash(m.Engine)},
-		{"Objects", strconv.Itoa(len(d.Nodes)) + " scene, " + strconv.Itoa(len(d.Spawned)) + " spawned, " + strconv.Itoa(len(d.Destroyed)) + " destroyed"},
-		{"Next id", strconv.FormatUint(m.Counter+1, 10)},
+		{i18n.Tr("editor.saves.col.slot", "Slot"), info.Slot},
+		{i18n.Tr("editor.saves.col.scene", "Scene"), p.scene(m.Scene)},
+		{i18n.Tr("editor.saves.col.saved", "Saved"), m.Date.Local().Format(time.DateTime)},
+		{i18n.Tr("editor.saves.col.playtime", "Playtime"), Playtime(m.Playtime)},
+		{i18n.Tr("editor.saves.col.game", "Game"), orDash(m.Game)},
+		{i18n.Tr("editor.saves.col.engine", "Engine"), orDash(m.Engine)},
+		{i18n.Tr("editor.saves.col.objects", "Objects"), i18n.Tr("editor.saves.objects_value", "{scene} scene, {spawned} spawned, {destroyed} destroyed", i18n.Int("scene", int64(len(d.Nodes))), i18n.Int("spawned", int64(len(d.Spawned))), i18n.Int("destroyed", int64(len(d.Destroyed))))},
+		{i18n.Tr("editor.saves.col.next_id", "Next id"), strconv.FormatUint(m.Counter+1, 10)},
 	}
 	if len(d.Global) > 0 {
 		keys := make([]string, 0, len(d.Global))
 		for _, f := range d.Global {
 			keys = append(keys, f.Name)
 		}
-		kv = append(kv, [2]string{"Global", strings.Join(keys, ", ")})
+		kv = append(kv, [2]string{i18n.Tr("editor.saves.col.global", "Global"), strings.Join(keys, ", ")})
 	}
 	for _, sec := range d.Sections {
-		kv = append(kv, [2]string{"Section", sec.ID + " v" + strconv.Itoa(sec.Version)})
+		kv = append(kv, [2]string{i18n.Tr("editor.saves.col.section", "Section"), sec.ID + " v" + strconv.Itoa(sec.Version)})
 	}
 	lw := widgets.LabelWidth(r.W)
 	body := mathx.Rect{X: r.X, Y: y, W: r.W, H: max(0, r.Y+r.H-y)}
@@ -444,7 +445,7 @@ func orDash(s string) string {
 func (p *Panel) load(slot string) {
 	svc := p.service()
 	if svc == nil {
-		p.notify(context.LevelInfo, "Start Play to load a save")
+		p.notify(context.LevelInfo, i18n.Note("editor.saves.start_play_to_load_a", "Start Play to load a save"))
 		return
 	}
 	if err := svc.Load(slot); err != nil {
@@ -457,9 +458,9 @@ func (p *Panel) remove(st *save.Store, slot string) {
 		return
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "Delete save",
-		Message: "Delete the save in slot " + slot + "?",
-		Buttons: []string{"Delete", "Cancel"},
+		Title:   i18n.Tr("editor.saves.delete_save", "Delete save"),
+		Message: i18n.Tr("editor.saves.delete_the_save_in_slot", "Delete the save in slot {slot}?", i18n.Str("slot", slot)),
+		Buttons: []string{i18n.Tr("editor.saves.delete", "Delete"), i18n.Tr("editor.saves.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice != 0 {
 				return

@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/services"
 	"aego/editor/core/state"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/engine/recorder"
 	"aego/scene"
 	"aego/ui/core"
@@ -60,7 +61,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Event Monitor"
+	return i18n.Tr("editor.events.title", "Event Monitor")
 }
 
 func (p *Panel) Focus(frame uint64) {
@@ -160,10 +161,10 @@ func (p *Panel) export(s *scene.Scene) {
 	}
 	path, err := state.WriteEvents(p.d.Root, []byte(b.String()))
 	if err != nil {
-		p.d.Notices.Notify(context.LevelError, "cannot write the event log: "+err.Error())
+		p.d.Notices.Notify(context.LevelError, i18n.Note("editor.events.cannot_write_the_event_log", "cannot write the event log: {error}", i18n.Str("error", err.Error())))
 		return
 	}
-	p.d.Notices.Notify(context.LevelInfo, "Event log written to "+path)
+	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.events.event_log_written_to_path", "Event log written to {path}", i18n.Str("path", path)))
 }
 
 func (p *Panel) toolbar(ui *core.Context, s *scene.Scene) {
@@ -186,15 +187,15 @@ func (p *Panel) toolbar(ui *core.Context, s *scene.Scene) {
 		x += w + 4
 		return r
 	}
-	widgets.ToggleButton(ui, ui.ID("selected"), place(130), "Selected nodes", &p.selected)
-	widgets.ToggleButton(ui, ui.ID("replayed"), place(130), "Show replayed", &p.replayed)
-	if p.frame != 0 && widgets.ButtonRect(ui, ui.ID("frame"), place(130), "frame "+strconv.FormatUint(p.frame, 10)+"  ×") {
+	widgets.ToggleButton(ui, ui.ID("selected"), place(130), i18n.Tr("editor.events.selected_nodes", "Selected nodes"), &p.selected)
+	widgets.ToggleButton(ui, ui.ID("replayed"), place(130), i18n.Tr("editor.events.show_replayed", "Show replayed"), &p.replayed)
+	if p.frame != 0 && widgets.ButtonRect(ui, ui.ID("frame"), place(130), i18n.Tr("editor.events.frame_formatuint", "frame {formatuint}  ×", i18n.Str("formatuint", strconv.FormatUint(p.frame, 10)))) {
 		p.frame = 0
 	}
-	if widgets.ButtonRect(ui, ui.ID("export"), place(70), "Export") {
+	if widgets.ButtonRect(ui, ui.ID("export"), place(70), i18n.Tr("editor.events.export", "Export")) {
 		p.export(s)
 	}
-	widgets.ToggleButton(ui, ui.ID("break"), place(110), "Break on", &p.brk)
+	widgets.ToggleButton(ui, ui.ID("break"), place(110), i18n.Tr("editor.events.break_on", "Break on"), &p.brk)
 	if row.X+row.W-x > 40 {
 		widgets.TextFieldRect(ui, ui.ID("breaktext"), mathx.Rect{X: x, Y: row.Y, W: row.X + row.W - x, H: row.H}, &p.brkText, true)
 	}
@@ -205,7 +206,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	th := &ui.Theme
 	rec, s := p.source()
 	if rec == nil {
-		widgets.LabelDim(ui, "Events of the running game appear here while Play runs")
+		widgets.LabelDim(ui, i18n.Tr("editor.events.events_of_the_running_game", "Events of the running game appear here while Play runs"))
 		return
 	}
 	p.apply(rec)

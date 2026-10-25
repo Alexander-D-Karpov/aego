@@ -6,6 +6,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/modules/input"
 	"aego/ui/widgets"
 )
@@ -24,7 +25,7 @@ func (*Focus) ID() string {
 }
 
 func (*Focus) Title() string {
-	return "Input Focus"
+	return i18n.Tr("i18n.input.focus.title", "Input Focus")
 }
 
 func (p *Focus) Draw(f *services.Frame, r mathx.Rect) {
@@ -35,12 +36,12 @@ func (p *Focus) Draw(f *services.Frame, r mathx.Rect) {
 		s = input.Of(p.world())
 	}
 	if s == nil {
-		widgets.LabelDim(ui, "The context stack of the running game appears here while Play runs")
+		widgets.LabelDim(ui, i18n.Tr("i18n.input.the_context_stack_of_the", "The context stack of the running game appears here while Play runs"))
 		return
 	}
-	widgets.Label(ui, "Context stack, top first")
+	widgets.Label(ui, i18n.Tr("i18n.input.context_stack_top_first", "Context stack, top first"))
 	for k, x := range s.Stack() {
-		line := strconv.Itoa(k+1) + ". " + x.Name + "   priority " + strconv.Itoa(x.Priority)
+		line := i18n.Tr("i18n.input.v_name_priority_priority", "{v}. {name}   priority {priority}", i18n.Str("v", strconv.Itoa(k+1)), i18n.Str("name", x.Name), i18n.Str("priority", strconv.Itoa(x.Priority)))
 		if x.Consume {
 			line += "   consumes its controls"
 		}

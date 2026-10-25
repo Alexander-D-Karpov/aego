@@ -23,6 +23,7 @@ import (
 	"aego/editor/core/shape"
 	"aego/editor/core/tasks"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/render"
 	"aego/render/rt"
@@ -91,7 +92,7 @@ func New(d Deps) *Service {
 	}
 	if d.Tasks != nil && d.CacheRoot != "" {
 		legacy := filepath.Join(d.CacheRoot, legacyDir)
-		d.Tasks.Work(tasks.Spec{Title: "Remove old thumbnails", Kind: "preview"}, func(*tasks.Task) error {
+		d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.preview.remove_old_thumbnails", "Remove old thumbnails"), Kind: "preview"}, func(*tasks.Task) error {
 			return os.RemoveAll(legacy)
 		})
 	}
@@ -240,7 +241,7 @@ func (s *Service) ensure(info pipeline.AssetInfo) *item {
 		it.task.Cancel()
 	}
 	it.key, it.state, it.rev = key, pending, rev
-	spec := tasks.Spec{Title: "Preview " + filepath.Base(e.Name), Kind: "preview", Priority: s.frame}
+	spec := tasks.Spec{Title: i18n.Tr("editor.preview.preview_name", "Preview {name}", i18n.Str("name", filepath.Base(e.Name))), Kind: "preview", Priority: s.frame}
 	switch {
 	case info.Kind == asset.ArtScript:
 		s.startLines(info, it, spec)
@@ -349,7 +350,7 @@ func (s *Service) cover(it *item, p pixels) {
 	}
 	s.coverKey = it.key
 	dst := filepath.Join(s.d.CacheRoot, CoverFile)
-	s.d.Tasks.Work(tasks.Spec{Title: "Project preview", Kind: "preview"}, func(*tasks.Task) error {
+	s.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.preview.project_preview", "Project preview"), Kind: "preview"}, func(*tasks.Task) error {
 		var buf bytes.Buffer
 		img := &image.NRGBA{Pix: p.buf, Stride: p.w * 4, Rect: image.Rect(0, 0, p.w, p.h)}
 		if err := png.Encode(&buf, img); err != nil {

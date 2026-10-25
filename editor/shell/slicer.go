@@ -11,12 +11,15 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/slice"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
 
-var sliceModes = []string{"Grid", "Alpha"}
+func sliceModes() []string {
+	return []string{i18n.Tr("editor.shell.slice.grid", "Grid"), i18n.Tr("editor.shell.slice.alpha", "Alpha")}
+}
 
 // sliceState is the slicing setup of one sheet while its inspector is open (D339).
 type sliceState struct {
@@ -131,27 +134,27 @@ func (a *App) sliceView(ctx *context.Editor, id ids.AssetID) {
 	}
 	meta, _ := a.opt.Pipeline.MetaOf(id)
 	a.importSection(ui, id, st, meta.Settings)
-	widgets.HeaderIcon(ui, "anim.slice", "Slicing", false)
+	widgets.HeaderIcon(ui, "anim.slice", i18n.Tr("editor.shell.slicing", "Slicing"), false)
 	rects := st.plan()
 	box := ui.Cursor().Next(min(ui.Cursor().W, 260))
 	a.drawSheet(ui, id, box, st, meta.Subs, rects)
-	widgets.Combo(ui, ui.ID("slicemode"), widgets.Field(ui, "Slice by"), &st.mode, sliceModes, false)
+	widgets.Combo(ui, ui.ID("slicemode"), widgets.Field(ui, i18n.Tr("editor.shell.slice_by", "Slice by")), &st.mode, sliceModes(), false)
 	if st.mode == 0 {
-		widgets.DragInt(ui, ui.ID("cw"), "Cell width", &st.cell[0])
-		widgets.DragInt(ui, ui.ID("ch"), "Cell height", &st.cell[1])
-		widgets.DragInt(ui, ui.ID("ox"), "Offset X", &st.offset[0])
-		widgets.DragInt(ui, ui.ID("oy"), "Offset Y", &st.offset[1])
-		widgets.DragInt(ui, ui.ID("px"), "Padding X", &st.padding[0])
-		widgets.DragInt(ui, ui.ID("py"), "Padding Y", &st.padding[1])
-		widgets.DragInt(ui, ui.ID("count"), "Count (0 = all)", &st.count)
+		widgets.DragInt(ui, ui.ID("cw"), i18n.Tr("editor.shell.cell_width", "Cell width"), &st.cell[0])
+		widgets.DragInt(ui, ui.ID("ch"), i18n.Tr("editor.shell.cell_height", "Cell height"), &st.cell[1])
+		widgets.DragInt(ui, ui.ID("ox"), i18n.Tr("editor.shell.offset_x", "Offset X"), &st.offset[0])
+		widgets.DragInt(ui, ui.ID("oy"), i18n.Tr("editor.shell.offset_y", "Offset Y"), &st.offset[1])
+		widgets.DragInt(ui, ui.ID("px"), i18n.Tr("editor.shell.padding_x", "Padding X"), &st.padding[0])
+		widgets.DragInt(ui, ui.ID("py"), i18n.Tr("editor.shell.padding_y", "Padding Y"), &st.padding[1])
+		widgets.DragInt(ui, ui.ID("count"), i18n.Tr("editor.shell.count_0_all", "Count (0 = all)"), &st.count)
 	} else {
-		widgets.DragInt(ui, ui.ID("alpha"), "Alpha above", &st.thresh)
+		widgets.DragInt(ui, ui.ID("alpha"), i18n.Tr("editor.shell.alpha_above", "Alpha above"), &st.thresh)
 	}
-	widgets.LabelDim(ui, strconv.Itoa(len(rects))+" cell(s); "+strconv.Itoa(len(meta.Subs))+" in the meta")
-	if widgets.Button(ui, "Slice") {
+	widgets.LabelDim(ui, i18n.Tr("editor.shell.rects_cell_s_subs_in", "{rects} cell(s); {subs} in the meta", i18n.Str("rects", strconv.Itoa(len(rects))), i18n.Str("subs", strconv.Itoa(len(meta.Subs)))))
+	if widgets.Button(ui, i18n.Tr("editor.shell.slice", "Slice")) {
 		a.applySlice(id, rel, meta.Subs, rects)
 	}
-	if len(meta.Subs) > 0 && widgets.Button(ui, "Remove Cells") {
+	if len(meta.Subs) > 0 && widgets.Button(ui, i18n.Tr("editor.shell.remove_cells", "Remove Cells")) {
 		a.applySlice(id, rel, meta.Subs, nil)
 	}
 }
@@ -195,28 +198,28 @@ func (a *App) applySlice(id ids.AssetID, rel string, old []pipeline.SubAsset, re
 		a.ctx.Notify(context.LevelError, err.Error())
 		return
 	}
-	a.ctx.Notify(context.LevelInfo, "Sliced "+path.Base(rel)+" into "+strconv.Itoa(len(rects))+" cell(s)")
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.sliced_rel_into_rects_cell", "Sliced {rel} into {rects} cell(s)", i18n.Str("rel", path.Base(rel)), i18n.Str("rects", strconv.Itoa(len(rects)))))
 }
 
 // importSection edits the import settings of a texture; Apply rewrites the meta and reimports as one History step.
 func (a *App) importSection(ui *core.Context, id ids.AssetID, st *sliceState, cur pipeline.Settings) {
-	widgets.HeaderIcon(ui, "file.download", "Import", false)
+	widgets.HeaderIcon(ui, "file.download", i18n.Tr("editor.shell.import", "Import"), false)
 	f := &st.imp
-	widgets.Combo(ui, ui.ID("filter"), widgets.Field(ui, "Filter"), &f.filter, filterModes, false)
-	widgets.Checkbox(ui, "sRGB", &f.srgb)
-	widgets.Checkbox(ui, "Mipmaps", &f.mips)
-	widgets.TextFieldRect(ui, ui.ID("atlas"), widgets.Field(ui, "Atlas group"), &f.atlas, true)
-	widgets.DragInt(ui, ui.ID("pad"), "Atlas padding", &f.padding)
-	widgets.Checkbox(ui, "Extrude edges", &f.extrude)
+	widgets.Combo(ui, ui.ID("filter"), widgets.Field(ui, i18n.Tr("editor.shell.filter", "Filter")), &f.filter, filterModes, false)
+	widgets.Checkbox(ui, i18n.Tr("editor.shell.srgb", "sRGB"), &f.srgb)
+	widgets.Checkbox(ui, i18n.Tr("editor.shell.mipmaps", "Mipmaps"), &f.mips)
+	widgets.TextFieldRect(ui, ui.ID("atlas"), widgets.Field(ui, i18n.Tr("editor.shell.atlas_group", "Atlas group")), &f.atlas, true)
+	widgets.DragInt(ui, ui.ID("pad"), i18n.Tr("editor.shell.atlas_padding", "Atlas padding"), &f.padding)
+	widgets.Checkbox(ui, i18n.Tr("editor.shell.extrude_edges", "Extrude edges"), &f.extrude)
 	if *f == formOf(cur) {
 		return
 	}
 	row := ui.Cursor().Next(0)
 	half := (row.W - 4) / 2
-	if widgets.ButtonRect(ui, ui.ID("impapply"), mathx.Rect{X: row.X, Y: row.Y, W: half, H: row.H}, "Apply") {
+	if widgets.ButtonRect(ui, ui.ID("impapply"), mathx.Rect{X: row.X, Y: row.Y, W: half, H: row.H}, i18n.Tr("editor.shell.apply", "Apply")) {
 		a.applyImport(id, cur, f.settings(cur))
 	}
-	if widgets.ButtonRect(ui, ui.ID("imprevert"), mathx.Rect{X: row.X + half + 4, Y: row.Y, W: half, H: row.H}, "Revert") {
+	if widgets.ButtonRect(ui, ui.ID("imprevert"), mathx.Rect{X: row.X + half + 4, Y: row.Y, W: half, H: row.H}, i18n.Tr("editor.shell.revert", "Revert")) {
 		*f = formOf(cur)
 	}
 }

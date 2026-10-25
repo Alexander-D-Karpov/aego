@@ -111,7 +111,7 @@ func ColorField(c *core.Context, id core.ID, r mathx.Rect, col *mathx.Color, mix
 	}
 	e = e.Or(channels)
 	hex := HexColor(*col)
-	if _, committed := TextFieldRect(c, c.ID("hex"), Field(c, "Hex"), &hex, false); committed {
+	if _, committed := TextFieldRect(c, c.ID("hex"), Field(c, Tr("editor.widgets.hex", "Hex")), &hex, false); committed {
 		if parsed, ok := ParseHexColor(hex); ok {
 			*col = parsed
 			e = e.Or(Edit{Changed: true, Begin: true, End: true})

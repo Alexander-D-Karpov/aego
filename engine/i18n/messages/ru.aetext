@@ -1,0 +1,3402 @@
+messages version=1 lang=ru {
+  msg "editor.addpalette.add_changes" {
+    one="Добавление {name} изменит {n} узел."
+    few="Добавление {name} изменит {n} узла."
+    many="Добавление {name} изменит {n} узлов."
+  }
+  msg "editor.addpalette.add_component" {
+    text="Добавить компонент"
+  }
+  msg "editor.addpalette.add_hint" {
+    text="Enter — добавить · Shift+Enter — ещё · Ctrl+D — избранное · Esc — закрыть"
+  }
+  msg "editor.addpalette.add_name" {
+    text="Добавить {name}"
+  }
+  msg "editor.addpalette.also_add" {
+    text="Добавить также {name}"
+  }
+  msg "editor.addpalette.also_adds" {
+    text="Также добавит: {names}"
+  }
+  msg "editor.addpalette.cannot_save_the_palette_state" {
+    text="не удалось сохранить состояние палитры: {error}"
+  }
+  msg "editor.addpalette.create" {
+    text="Создать"
+  }
+  msg "editor.addpalette.create_hint" {
+    text="Enter — создать · Shift+Enter — ещё · Ctrl+D — избранное · Esc — закрыть"
+  }
+  msg "editor.addpalette.creates" {
+    text="Создаёт {name}"
+  }
+  msg "editor.addpalette.favorites" {
+    text="Избранное"
+  }
+  msg "editor.addpalette.needs_one_of_tab_switches" {
+    text="Нужен один из (Tab переключает):"
+  }
+  msg "editor.addpalette.not_added_to" {
+    text="Не добавлено в {nodes}"
+  }
+  msg "editor.addpalette.nothing_selected" {
+    text="Ничего не выбрано"
+  }
+  msg "editor.addpalette.recent" {
+    text="Недавние"
+  }
+  msg "editor.addpalette.script" {
+    text="Скрипт {name}"
+  }
+  msg "editor.agent.agent" {
+    text="Агент •"
+  }
+  msg "editor.agent.agent_2" {
+    text="Агент"
+  }
+  msg "editor.agent.apply" {
+    text="Применить"
+  }
+  msg "editor.agent.apply_changes_without_asking_removals" {
+    text="Применять изменения без вопроса; удаления и перемещения всё равно ждут вас"
+  }
+  msg "editor.agent.apply_this_answer_s_changes" {
+    text="Применить изменения этого ответа, ожидающие и следующие; удаления и перемещения всё равно ждут вас"
+  }
+  msg "editor.agent.auto_apply" {
+    text="Автоприменение"
+  }
+  msg "editor.agent.cannot_start_the_agent_session" {
+    text="не удалось начать журнал сеанса агента: {error}"
+  }
+  msg "editor.agent.cannot_write_the_agent_session" {
+    text="не удалось записать журнал сеанса агента: {error}"
+  }
+  msg "editor.agent.check_again" {
+    text="Проверить снова"
+  }
+  msg "editor.agent.checking" {
+    text="Проверка…"
+  }
+  msg "editor.agent.claude_code_is_not_available" {
+    text="Claude Code недоступен"
+  }
+  msg "editor.agent.failed_err" {
+    text="ошибка: {err}"
+  }
+  msg "editor.agent.message_the_agent_to_mention" {
+    text="Сообщение агенту, @ — упомянуть"
+  }
+  msg "editor.agent.path" {
+    text="Путь"
+  }
+  msg "editor.agent.reject" {
+    text="Отклонить"
+  }
+  msg "editor.agent.send" {
+    text="Отправить"
+  }
+  msg "editor.agent.stop" {
+    text="Остановить"
+  }
+  msg "editor.agent.the_agent_is_waiting_for" {
+    text="Агент ждёт, пока вы примените или отклоните изменение"
+  }
+  msg "editor.agent.undo" {
+    text="Отменить"
+  }
+  msg "editor.agent.v_more" {
+    text="ещё {v}"
+  }
+  msg "editor.agent.working" {
+    text="Работаю…"
+  }
+  msg "editor.agent.you" {
+    text="Вы"
+  }
+  msg "editor.animation.auto_key" {
+    text="Автоключ"
+  }
+  msg "editor.animation.clips_are_edited_outside_play" {
+    text="Клипы редактируются вне игры"
+  }
+  msg "editor.animation.copied_n_key_s" {
+    text="Скопировано ключей: {n}"
+  }
+  msg "editor.animation.copy_keys" {
+    text="Копировать ключи"
+  }
+  msg "editor.animation.curves" {
+    text="Кривые"
+  }
+  msg "editor.animation.declare_events_in_project_settings" {
+    text="Объявите события в «Настройки проекта» → «Анимация»"
+  }
+  msg "editor.animation.del" {
+    text="Удал."
+  }
+  msg "editor.animation.delete_keys" {
+    text="Удалить ключи"
+  }
+  msg "editor.animation.events" {
+    text="События"
+  }
+  msg "editor.animation.interpolation_in" {
+    text="Интерполяция: {in}"
+  }
+  msg "editor.animation.not_previewed_sk" {
+    text="Без предпросмотра: {sk}"
+  }
+  msg "editor.animation.nothing_to_key_the_node" {
+    text="Нечего записывать в ключ: узел совпадает с клипом в этот момент"
+  }
+  msg "editor.animation.open_a_scene_to_animate" {
+    text="Откройте сцену, чтобы анимировать её узлы"
+  }
+  msg "editor.animation.paste_keys" {
+    text="Вставить ключи"
+  }
+  msg "editor.animation.pause_space" {
+    text="Пауза (Space)"
+  }
+  msg "editor.animation.play_space" {
+    text="Воспроизвести (Space)"
+  }
+  msg "editor.animation.preview" {
+    text="Предпросмотр"
+  }
+  msg "editor.animation.rec" {
+    text="Запись"
+  }
+  msg "editor.animation.remove_event" {
+    text="Удалить событие"
+  }
+  msg "editor.animation.select_a_node_with_an" {
+    text="Выберите узел с Animation Player или Animator, или «Создать» → «Анимация» → «Клип»"
+  }
+  msg "editor.animation.set_from_scene" {
+    text="Взять из сцены"
+  }
+  msg "editor.animation.the_node_has_no_clip" {
+    text="У узла ещё нет клипа: задайте Clip его Animation Player или клипы его контроллера"
+  }
+  msg "editor.animation.title" {
+    text="Анимация"
+  }
+  msg "editor.animation.title_rec" {
+    text="Анимация (запись)"
+  }
+  msg "editor.animator.add_a_parameter" {
+    text="Добавить параметр"
+  }
+  msg "editor.animator.add_condition" {
+    text="Добавить условие"
+  }
+  msg "editor.animator.add_state" {
+    text="Добавить состояние"
+  }
+  msg "editor.animator.at" {
+    text="В"
+  }
+  msg "editor.animator.auto_layout" {
+    text="Авторасстановка"
+  }
+  msg "editor.animator.clip" {
+    text="Клип"
+  }
+  msg "editor.animator.conditions" {
+    text="Условия"
+  }
+  msg "editor.animator.del" {
+    text="Удал."
+  }
+  msg "editor.animator.delete_state" {
+    text="Удалить состояние"
+  }
+  msg "editor.animator.delete_transition" {
+    text="Удалить переход"
+  }
+  msg "editor.animator.drag_from_a_state_s" {
+    text="Потяните от точки состояния к другому состоянию, чтобы добавить переход"
+  }
+  msg "editor.animator.duration" {
+    text="Длительность"
+  }
+  msg "editor.animator.exit_time" {
+    text="Время выхода"
+  }
+  msg "editor.animator.fire" {
+    text="Сработать"
+  }
+  msg "editor.animator.frame_all" {
+    text="Показать всё"
+  }
+  msg "editor.animator.interrupts" {
+    text="Прерывания"
+  }
+  msg "editor.animator.kind.trigger" {
+    text="Триггер"
+  }
+  msg "editor.animator.move_down" {
+    text="Переместить вниз"
+  }
+  msg "editor.animator.move_up" {
+    text="Переместить вверх"
+  }
+  msg "editor.animator.no_parameters" {
+    text="Нет параметров"
+  }
+  msg "editor.animator.open_a_scene_and_select" {
+    text="Откройте сцену и выберите узел с Animator"
+  }
+  msg "editor.animator.parameters" {
+    text="Параметры"
+  }
+  msg "editor.animator.remove_the_condition" {
+    text="Удалить условие"
+  }
+  msg "editor.animator.remove_the_parameter" {
+    text="Удалить параметр"
+  }
+  msg "editor.animator.select_a_node_with_an" {
+    text="Выберите узел с Animator, у которого есть контроллер, или «Создать» → «Анимация» → «Контроллер»"
+  }
+  msg "editor.animator.select_a_state_or_a" {
+    text="Выберите состояние или переход"
+  }
+  msg "editor.animator.set_as_entry" {
+    text="Сделать входным"
+  }
+  msg "editor.animator.speed" {
+    text="Скорость"
+  }
+  msg "editor.animator.title" {
+    text="Аниматор"
+  }
+  msg "editor.animator.try_earlier" {
+    text="Попробуйте раньше"
+  }
+  msg "editor.animator.try_later" {
+    text="Попробуйте позже"
+  }
+  msg "editor.animedit.key_sprite" {
+    text="Записать спрайт в ключ"
+  }
+  msg "editor.animedit.key_sprites" {
+    text="Записать спрайты в ключи"
+  }
+  msg "editor.animedit.this_node" {
+    text="Этот узел"
+  }
+  msg "editor.assetops.attach_script" {
+    text="Прикрепить скрипт"
+  }
+  msg "editor.assetops.cannot_update_the_package_of" {
+    text="не удалось обновить пакет {to}: {error}"
+  }
+  msg "editor.assetops.rename_scene" {
+    text="Переименовать сцену"
+  }
+  msg "editor.assetops.save_scene_as" {
+    text="Сохранить сцену как"
+  }
+  msg "editor.assetops.startup_scene_rel" {
+    text="Стартовая сцена: {rel}"
+  }
+  msg "editor.assetops.the_file_has_no_compiled" {
+    text="В файле нет скомпилированных типов скриптов, сначала исправьте ошибки"
+  }
+  msg "editor.assetops.this_file_declares_several_scripts" {
+    text="Файл объявляет несколько скриптов. Какой прикрепить?"
+  }
+  msg "editor.assetops.to_is_now_in_package" {
+    text="{to} теперь в пакете {now} (был {was}), исправьте импорты, которые его использовали"
+  }
+  msg "editor.assets.add_to_favorites" {
+    text="Добавить в избранное"
+  }
+  msg "editor.assets.asset_pipeline_is_not_available" {
+    text="Конвейер ассетов недоступен"
+  }
+  msg "editor.assets.assets_in_use" {
+    text="Используемые ассеты"
+  }
+  msg "editor.assets.attach_to_selected" {
+    text="Прикрепить к выбранным"
+  }
+  msg "editor.assets.batch_rename" {
+    text="Пакетное переименование…"
+  }
+  msg "editor.assets.cancel" {
+    text="Отмена"
+  }
+  msg "editor.assets.compare_with_head" {
+    text="Сравнить с HEAD"
+  }
+  msg "editor.assets.copied_paths_asset_s" {
+    text="Скопировано ассетов: {paths}"
+  }
+  msg "editor.assets.copy" {
+    text="Копировать"
+  }
+  msg "editor.assets.copy_path" {
+    text="Копировать путь"
+  }
+  msg "editor.assets.create" {
+    text="Создать"
+  }
+  msg "editor.assets.create_variant" {
+    text="Создать вариант"
+  }
+  msg "editor.assets.cut" {
+    text="Вырезать"
+  }
+  msg "editor.assets.cut_paths_asset_s_paste" {
+    text="Вырезано ассетов: {paths}; вставьте в другую папку, чтобы переместить"
+  }
+  msg "editor.assets.data_asset" {
+    text="Ассет данных"
+  }
+  msg "editor.assets.data_table" {
+    text="Таблица данных"
+  }
+  msg "editor.assets.delete" {
+    text="Удалить"
+  }
+  msg "editor.assets.delete_2" {
+    text="Удалить…"
+  }
+  msg "editor.assets.delete_anyway" {
+    text="Всё равно удалить"
+  }
+  msg "editor.assets.delete_asset" {
+    text="Удалить ассет"
+  }
+  msg "editor.assets.delete_assets" {
+    text="Удалить ассеты"
+  }
+  msg "editor.assets.delete_dir_and_the_n" {
+    text="Удалить {dir} и файлы внутри ({n})? Сцены, которые на них ссылаются, покажут их как отсутствующие."
+  }
+  msg "editor.assets.delete_folder" {
+    text="Удалить папку"
+  }
+  msg "editor.assets.delete_list_assets" {
+    text="Удалить ассеты ({list})?"
+  }
+  msg "editor.assets.delete_rel" {
+    text="Удалить {rel}?"
+  }
+  msg "editor.assets.delete_the_empty_folder_dir" {
+    text="Удалить пустую папку {dir}?"
+  }
+  msg "editor.assets.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.assets.find_instances" {
+    text="Найти экземпляры"
+  }
+  msg "editor.assets.find_references" {
+    text="Найти ссылки"
+  }
+  msg "editor.assets.first_script" {
+    text="Первый скрипт"
+  }
+  msg "editor.assets.folder" {
+    text="Папка"
+  }
+  msg "editor.assets.imported_created_file_s_into" {
+    text="Импортировано файлов: {created} в {dir}"
+  }
+  msg "editor.assets.instantiate_in_scene" {
+    text="Создать экземпляр в сцене"
+  }
+  msg "editor.assets.items_assets" {
+    text="Ассетов: {items}"
+  }
+  msg "editor.assets.msg_nothing_in_the_project" {
+    text="{msg} В проекте на них ничто не ссылается."
+  }
+  msg "editor.assets.name" {
+    text="Имя"
+  }
+  msg "editor.assets.name_is_not_a_valid" {
+    text="{name} — недопустимое имя файла"
+  }
+  msg "editor.assets.new" {
+    text="Создать"
+  }
+  msg "editor.assets.new_folder" {
+    text="Новая папка"
+  }
+  msg "editor.assets.new_fullname_data" {
+    text="Новые данные {fullname}"
+  }
+  msg "editor.assets.new_fullname_table" {
+    text="Новая таблица {fullname}"
+  }
+  msg "editor.assets.new_prefab" {
+    text="Новый префаб"
+  }
+  msg "editor.assets.new_scene" {
+    text="Новая сцена"
+  }
+  msg "editor.assets.new_script" {
+    text="Новый скрипт"
+  }
+  msg "editor.assets.new_script_in_package_dir" {
+    text="Новый скрипт в пакете {dir}"
+  }
+  msg "editor.assets.new_script_package" {
+    text="Новый пакет скриптов"
+  }
+  msg "editor.assets.open" {
+    text="Открыть"
+  }
+  msg "editor.assets.package" {
+    text="Пакет"
+  }
+  msg "editor.assets.paste" {
+    text="Вставить"
+  }
+  msg "editor.assets.pasted_made_file_s_into" {
+    text="Вставлено файлов: {made} в {dir}"
+  }
+  msg "editor.assets.pkg_is_not_a_valid" {
+    text="{pkg} — недопустимое имя пакета"
+  }
+  msg "editor.assets.pkgdir_already_exists" {
+    text="{pkgdir} уже существует"
+  }
+  msg "editor.assets.prefab" {
+    text="Префаб…"
+  }
+  msg "editor.assets.reimport" {
+    text="Импортировать заново"
+  }
+  msg "editor.assets.reimported" {
+    text="Импортировано заново"
+  }
+  msg "editor.assets.rel_already_exists" {
+    text="{rel} уже существует"
+  }
+  msg "editor.assets.remove_from_favorites" {
+    text="Убрать из избранного"
+  }
+  msg "editor.assets.rename" {
+    text="Переименовать"
+  }
+  msg "editor.assets.rename_the_script_types_in" {
+    text="Переименуйте типы скриптов в копии: пакет не может объявить скрипт дважды"
+  }
+  msg "editor.assets.reveal_in_file_manager" {
+    text="Показать в файловом менеджере"
+  }
+  msg "editor.assets.scene" {
+    text="Сцена…"
+  }
+  msg "editor.assets.script" {
+    text="Скрипт…"
+  }
+  msg "editor.assets.script_name" {
+    text="Имя скрипта"
+  }
+  msg "editor.assets.script_package" {
+    text="Пакет скриптов…"
+  }
+  msg "editor.assets.scripts_live_in_a_package" {
+    text="Скрипты лежат в папке пакета внутри scripts/"
+  }
+  msg "editor.assets.set_as_startup_scene" {
+    text="Сделать стартовой сценой"
+  }
+  msg "editor.assets.show_references" {
+    text="Показать ссылки"
+  }
+  msg "editor.assets.still_referenced_by_join_deleting" {
+    text="На них всё ещё ссылаются:\n{join}\n\nПосле удаления эти ссылки станут отсутствующими."
+  }
+  msg "editor.assets.the_clipboard_has_no_image" {
+    text="В буфере обмена нет изображения или файлов для вставки"
+  }
+  msg "editor.assets.title" {
+    text="Ассеты"
+  }
+  msg "editor.batchrename.batch_rename_items_asset_s" {
+    text="Пакетное переименование ассетов: {items}"
+  }
+  msg "editor.batchrename.batch_rename_items_node_s" {
+    text="Пакетное переименование узлов: {items}"
+  }
+  msg "editor.batchrename.cancel" {
+    text="Отмена"
+  }
+  msg "editor.batchrename.case.keep" {
+    text="Как есть"
+  }
+  msg "editor.batchrename.case.lower" {
+    text="строчные"
+  }
+  msg "editor.batchrename.case.title" {
+    text="Как в заголовке"
+  }
+  msg "editor.batchrename.case.upper" {
+    text="ПРОПИСНЫЕ"
+  }
+  msg "editor.batchrename.find" {
+    text="Найти"
+  }
+  msg "editor.batchrename.pattern" {
+    text="Шаблон"
+  }
+  msg "editor.batchrename.regex" {
+    text=".* Регулярное выражение"
+  }
+  msg "editor.batchrename.rename_changed" {
+    text="Переименовать ({changed})"
+  }
+  msg "editor.batchrename.replace" {
+    text="Заменить"
+  }
+  msg "editor.category.animation" {
+    text="Анимация"
+  }
+  msg "editor.category.audio" {
+    text="Звук"
+  }
+  msg "editor.category.camera" {
+    text="Камера"
+  }
+  msg "editor.category.data" {
+    text="Данные"
+  }
+  msg "editor.category.debug" {
+    text="Отладка"
+  }
+  msg "editor.category.effects" {
+    text="Эффекты"
+  }
+  msg "editor.category.empty" {
+    text="Пустой"
+  }
+  msg "editor.category.engine" {
+    text="Движок"
+  }
+  msg "editor.category.game" {
+    text="Игра"
+  }
+  msg "editor.category.gameplay" {
+    text="Геймплей"
+  }
+  msg "editor.category.input" {
+    text="Ввод"
+  }
+  msg "editor.category.lights" {
+    text="Свет"
+  }
+  msg "editor.category.node" {
+    text="Узел"
+  }
+  msg "editor.category.physics" {
+    text="Физика"
+  }
+  msg "editor.category.prefabs" {
+    text="Префабы"
+  }
+  msg "editor.category.rendering" {
+    text="Отрисовка"
+  }
+  msg "editor.category.saving" {
+    text="Сохранение"
+  }
+  msg "editor.category.scripts" {
+    text="Скрипты"
+  }
+  msg "editor.category.settings" {
+    text="Настройки"
+  }
+  msg "editor.category.shapes" {
+    text="Фигуры"
+  }
+  msg "editor.category.spawning" {
+    text="Создание объектов"
+  }
+  msg "editor.category.ui" {
+    text="Интерфейс"
+  }
+  msg "editor.clipboard.select_the_nodes_to_paste" {
+    text="Выберите узлы, на которые вставить компонент"
+  }
+  msg "editor.clipboard.select_the_nodes_to_paste_2" {
+    text="Выберите узлы, на которые вставить компоненты"
+  }
+  msg "editor.clipboard.the_clipboard_holds_nothing_that" {
+    text="В буфере обмена нет ничего, что можно вставить в сцену"
+  }
+  msg "editor.command.agent.ask" {
+    text="Спросить агента…"
+  }
+  msg "editor.command.animation.copy_keys" {
+    text="Копировать ключи"
+  }
+  msg "editor.command.animation.curves" {
+    text="Кривые"
+  }
+  msg "editor.command.animation.delete_keys" {
+    text="Удалить ключи"
+  }
+  msg "editor.command.animation.key" {
+    text="Записать изменённые поля в ключ"
+  }
+  msg "editor.command.animation.paste_keys" {
+    text="Вставить ключи"
+  }
+  msg "editor.command.animation.play" {
+    text="Воспроизвести или приостановить клип"
+  }
+  msg "editor.command.animation.preview" {
+    text="Предпросмотр"
+  }
+  msg "editor.command.animation.record" {
+    text="Запись"
+  }
+  msg "editor.command.app.quit" {
+    text="Выйти"
+  }
+  msg "editor.command.app.quit.tip" {
+    text="Закрыть редактор, сначала спросив о несохранённых изменениях"
+  }
+  msg "editor.command.assets.copy" {
+    text="Копировать ассет"
+  }
+  msg "editor.command.assets.copy.tip" {
+    text="Копировать выбранные ассеты"
+  }
+  msg "editor.command.assets.cut" {
+    text="Вырезать ассет"
+  }
+  msg "editor.command.assets.cut.tip" {
+    text="Вырезать выбранные ассеты, чтобы переместить их при вставке"
+  }
+  msg "editor.command.assets.find_references" {
+    text="Найти ссылки"
+  }
+  msg "editor.command.assets.paste" {
+    text="Вставить в папку"
+  }
+  msg "editor.command.assets.paste.tip" {
+    text="Вставить скопированные или вырезанные ассеты в открытую папку"
+  }
+  msg "editor.command.assets.reimport" {
+    text="Импортировать ассет заново"
+  }
+  msg "editor.command.assets.reimport.tip" {
+    text="Импортировать выбранный ассет ещё раз"
+  }
+  msg "editor.command.assets.repair_meta" {
+    text="Восстановить .meta-файлы…"
+  }
+  msg "editor.command.assets.repair_meta.tip" {
+    text="Записать недостающие .meta-файлы и удалить лишние после подтверждения"
+  }
+  msg "editor.command.code.back" {
+    text="Назад"
+  }
+  msg "editor.command.code.find_in_scripts" {
+    text="Найти в скриптах"
+  }
+  msg "editor.command.code.forward" {
+    text="Вперёд"
+  }
+  msg "editor.command.code.highlight_block" {
+    text="Подсвечивать текущий блок"
+  }
+  msg "editor.command.code.implementation" {
+    text="Перейти к реализации"
+  }
+  msg "editor.command.code.inlay_hints" {
+    text="Подсказки имён параметров"
+  }
+  msg "editor.command.code.inline_errors" {
+    text="Ошибки в строке"
+  }
+  msg "editor.command.code.minimap" {
+    text="Миникарта"
+  }
+  msg "editor.command.code.problems" {
+    text="Проблемы"
+  }
+  msg "editor.command.code.rainbow_brackets" {
+    text="Цветные скобки"
+  }
+  msg "editor.command.code.split_down" {
+    text="Разделить вниз"
+  }
+  msg "editor.command.code.split_right" {
+    text="Разделить вправо"
+  }
+  msg "editor.command.code.zen" {
+    text="Режим дзен"
+  }
+  msg "editor.command.edit.add_component" {
+    text="Добавить компонент…"
+  }
+  msg "editor.command.edit.batch_rename" {
+    text="Пакетное переименование узлов…"
+  }
+  msg "editor.command.edit.copy" {
+    text="Копировать"
+  }
+  msg "editor.command.edit.copy.tip" {
+    text="Копировать выбранные узлы в буфер обмена"
+  }
+  msg "editor.command.edit.cut" {
+    text="Вырезать"
+  }
+  msg "editor.command.edit.cut.tip" {
+    text="Копировать выбранные узлы и удалить их"
+  }
+  msg "editor.command.edit.delete" {
+    text="Удалить"
+  }
+  msg "editor.command.edit.delete.tip" {
+    text="Удалить выбранные узлы вместе с дочерними"
+  }
+  msg "editor.command.edit.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.command.edit.duplicate.tip" {
+    text="Копировать выбранные узлы рядом с ними же"
+  }
+  msg "editor.command.edit.paste" {
+    text="Вставить"
+  }
+  msg "editor.command.edit.paste.tip" {
+    text="Вставить узлы из буфера обмена под выделение"
+  }
+  msg "editor.command.edit.redo" {
+    text="Повторить"
+  }
+  msg "editor.command.edit.redo.tip" {
+    text="Повторить последнее отменённое изменение"
+  }
+  msg "editor.command.edit.rename" {
+    text="Переименовать"
+  }
+  msg "editor.command.edit.rename.tip" {
+    text="Переименовать выбранный узел в иерархии"
+  }
+  msg "editor.command.edit.select_all" {
+    text="Выделить всё"
+  }
+  msg "editor.command.edit.select_all.tip" {
+    text="Выделить все узлы активной сцены"
+  }
+  msg "editor.command.edit.selection_back" {
+    text="Предыдущее выделение"
+  }
+  msg "editor.command.edit.selection_forward" {
+    text="Следующее выделение"
+  }
+  msg "editor.command.edit.undo" {
+    text="Отменить"
+  }
+  msg "editor.command.edit.undo.tip" {
+    text="Отменить последнее изменение активной сцены"
+  }
+  msg "editor.command.favorites.toggle_node" {
+    text="Добавить узел в избранное"
+  }
+  msg "editor.command.file.autosave" {
+    text="Автосохранение скриптов"
+  }
+  msg "editor.command.file.close_project" {
+    text="Закрыть проект"
+  }
+  msg "editor.command.file.close_scene" {
+    text="Закрыть сцену"
+  }
+  msg "editor.command.file.close_scene.tip" {
+    text="Закрыть активную сцену, сначала спросив о несохранённых изменениях"
+  }
+  msg "editor.command.file.export" {
+    text="Экспорт…"
+  }
+  msg "editor.command.file.new_project" {
+    text="Новый проект…"
+  }
+  msg "editor.command.file.new_scene" {
+    text="Новая сцена"
+  }
+  msg "editor.command.file.new_scene.tip" {
+    text="Открыть новую несохранённую 2D-сцену с камерой"
+  }
+  msg "editor.command.file.new_scene_3d" {
+    text="Новая 3D-сцена"
+  }
+  msg "editor.command.file.new_scene_3d.tip" {
+    text="Открыть новую несохранённую 3D-сцену с камерой, плоскостью и кубом"
+  }
+  msg "editor.command.file.open" {
+    text="Открыть сцену…"
+  }
+  msg "editor.command.file.open.tip" {
+    text="Выбрать сцену проекта и открыть её"
+  }
+  msg "editor.command.file.open_project" {
+    text="Открыть проект…"
+  }
+  msg "editor.command.file.project_settings" {
+    text="Настройки проекта…"
+  }
+  msg "editor.command.file.save" {
+    text="Сохранить"
+  }
+  msg "editor.command.file.save.tip" {
+    text="Сохранить активную сцену или префаб"
+  }
+  msg "editor.command.file.save_all" {
+    text="Сохранить всё"
+  }
+  msg "editor.command.file.save_all.tip" {
+    text="Сохранить все сцены, префабы и скрипты с несохранёнными изменениями"
+  }
+  msg "editor.command.file.save_as" {
+    text="Сохранить как…"
+  }
+  msg "editor.command.file.save_as.tip" {
+    text="Сохранить активную сцену по новому пути"
+  }
+  msg "editor.command.help.about" {
+    text="Об Aego"
+  }
+  msg "editor.command.help.crash_reports" {
+    text="Отчёты о сбоях"
+  }
+  msg "editor.command.help.getting_started" {
+    text="Начало работы"
+  }
+  msg "editor.command.help.getting_started.tip" {
+    text="Открыть список шагов «Начало работы»"
+  }
+  msg "editor.command.help.install_go" {
+    text="Установить Go…"
+  }
+  msg "editor.command.help.keymap" {
+    text="Сочетания клавиш"
+  }
+  msg "editor.command.help.keymap.tip" {
+    text="Показать все сочетания клавиш"
+  }
+  msg "editor.command.help.open_logs" {
+    text="Открыть папку журналов"
+  }
+  msg "editor.command.help.reference" {
+    text="Документация"
+  }
+  msg "editor.command.help.reference.tip" {
+    text="Открыть документацию по языку и движку"
+  }
+  msg "editor.command.help.report_bug" {
+    text="Сообщить об ошибке…"
+  }
+  msg "editor.command.inspector.copy" {
+    text="Копировать поле"
+  }
+  msg "editor.command.inspector.copy.tip" {
+    text="Копировать поле или компонент под курсором"
+  }
+  msg "editor.command.inspector.lock" {
+    text="Закрепить инспектор"
+  }
+  msg "editor.command.inspector.paste" {
+    text="Вставить в поле"
+  }
+  msg "editor.command.inspector.paste.tip" {
+    text="Вставить в поле или компонент под курсором"
+  }
+  msg "editor.command.inspector.watch" {
+    text="Добавить поле в отслеживание"
+  }
+  msg "editor.command.inspector.watch.tip" {
+    text="Добавить поле под курсором в панель «Отслеживание»"
+  }
+  msg "editor.command.physics.settings" {
+    text="Настройки физики…"
+  }
+  msg "editor.command.play.back" {
+    text="Шаг назад"
+  }
+  msg "editor.command.play.forward" {
+    text="Шаг вперёд"
+  }
+  msg "editor.command.play.fullscreen" {
+    text="Игра на весь экран"
+  }
+  msg "editor.command.play.pause" {
+    text="Пауза"
+  }
+  msg "editor.command.play.pause.tip" {
+    text="Приостановить или продолжить игровое время"
+  }
+  msg "editor.command.play.release_input" {
+    text="Отпустить ввод игры"
+  }
+  msg "editor.command.play.release_input.tip" {
+    text="Вернуть клавиатуру и мышь редактору; Escape остаётся у игры"
+  }
+  msg "editor.command.play.run_tests" {
+    text="Запустить тесты скриптов"
+  }
+  msg "editor.command.play.scale.custom" {
+    text="Масштаб времени…"
+  }
+  msg "editor.command.play.scale.custom.tip" {
+    text="Ввести любой масштаб времени от 0 до 8"
+  }
+  msg "editor.command.play.start" {
+    text="Играть"
+  }
+  msg "editor.command.play.start.tip" {
+    text="Запустить активную сцену в панели «Игра» или остановить её"
+  }
+  msg "editor.command.play.step" {
+    text="Шаг на кадр"
+  }
+  msg "editor.command.play.step.tip" {
+    text="Выполнить один кадр во время паузы"
+  }
+  msg "editor.command.play.step_fixed" {
+    text="Шаг на фиксированный тик"
+  }
+  msg "editor.command.play.step_fixed.tip" {
+    text="Выполнить один фиксированный тик во время паузы"
+  }
+  msg "editor.command.play.stop" {
+    text="Остановить"
+  }
+  msg "editor.command.play.stop.tip" {
+    text="Остановить игру и вернуться к редактируемой сцене"
+  }
+  msg "editor.command.project_settings.redo" {
+    text="Повторить изменение настроек"
+  }
+  msg "editor.command.project_settings.undo" {
+    text="Отменить изменение настроек"
+  }
+  msg "editor.command.scene.capture" {
+    text="Снимок панели «Сцена»"
+  }
+  msg "editor.command.scene.create" {
+    text="Создать…"
+  }
+  msg "editor.command.scene.create_node" {
+    text="Создать пустой узел"
+  }
+  msg "editor.command.scene.create_node.tip" {
+    text="Создать пустой узел под выделением"
+  }
+  msg "editor.command.scene.frame_selection" {
+    text="Показать выделенное"
+  }
+  msg "editor.command.scene.frame_selection.tip" {
+    text="Отцентрировать вид на выделении"
+  }
+  msg "editor.command.scene.isolate" {
+    text="Изолировать выделенное"
+  }
+  msg "editor.command.scene.paste_image" {
+    text="Вставить изображение как спрайт"
+  }
+  msg "editor.command.scene.toggle_grid" {
+    text="Сетка"
+  }
+  msg "editor.command.scene.toggle_grid.tip" {
+    text="Показывать сетку в панели «Сцена»"
+  }
+  msg "editor.command.scene.toggle_ortho" {
+    text="Ортографический 3D-вид"
+  }
+  msg "editor.command.scene.toggle_ortho.tip" {
+    text="Переключить 3D-вид в панели «Сцена» между перспективой и ортографией"
+  }
+  msg "editor.command.scene.toggle_snap" {
+    text="Привязка"
+  }
+  msg "editor.command.scene.toggle_snap.tip" {
+    text="Привязывать перемещение, поворот и масштаб к шагу; Ctrl инвертирует"
+  }
+  msg "editor.command.scene.tool.rotate" {
+    text="Поворот"
+  }
+  msg "editor.command.scene.tool.rotate.tip" {
+    text="Поворачивать выделение вокруг его опорной точки"
+  }
+  msg "editor.command.scene.tool.scale" {
+    text="Масштаб"
+  }
+  msg "editor.command.scene.tool.scale.tip" {
+    text="Масштабировать выделение вдоль его осей"
+  }
+  msg "editor.command.scene.tool.select" {
+    text="Выделение"
+  }
+  msg "editor.command.scene.tool.select.tip" {
+    text="Щелчок — выделить, перетаскивание — выделить рамкой"
+  }
+  msg "editor.command.scene.tool.translate" {
+    text="Перемещение"
+  }
+  msg "editor.command.scene.tool.translate.tip" {
+    text="Перетаскивать выделение или одну из его осей"
+  }
+  msg "editor.command.search.everywhere" {
+    text="Искать везде"
+  }
+  msg "editor.command.search.everywhere.tip" {
+    text="Найти файлы, символы, узлы и действия"
+  }
+  msg "editor.command.view.vectors" {
+    text="Показывать векторы"
+  }
+  msg "editor.command.view.vectors.fixed" {
+    text="Фиксированная длина"
+  }
+  msg "editor.command.window.maximize" {
+    text="Развернуть панель"
+  }
+  msg "editor.command.window.reset_layout" {
+    text="Сбросить расположение панелей"
+  }
+  msg "editor.command.window.reset_layout.tip" {
+    text="Вернуть все панели на места по умолчанию"
+  }
+  msg "editor.command.window.toolbar" {
+    text="Панель инструментов"
+  }
+  msg "editor.command.window.workspace_delete" {
+    text="Удалить раскладку"
+  }
+  msg "editor.command.window.workspace_rename" {
+    text="Переименовать раскладку…"
+  }
+  msg "editor.command.window.workspace_save_as" {
+    text="Сохранить как раскладку…"
+  }
+  msg "editor.common.apply" {
+    text="Применить"
+  }
+  msg "editor.common.cancel" {
+    text="Отмена"
+  }
+  msg "editor.common.edit" {
+    text="Изменить"
+  }
+  msg "editor.common.open" {
+    text="Открыть"
+  }
+  msg "editor.common.play" {
+    text="Воспроизвести"
+  }
+  msg "editor.common.save" {
+    text="Сохранить"
+  }
+  msg "editor.common.stop" {
+    text="Остановить"
+  }
+  msg "editor.console.clear" {
+    text="Очистить"
+  }
+  msg "editor.console.double_click_to_show_path" {
+    text="двойной щелчок покажет {path}"
+  }
+  msg "editor.console.error" {
+    text="Ошибки"
+  }
+  msg "editor.console.follow" {
+    text="Следить"
+  }
+  msg "editor.console.info" {
+    text="Инфо"
+  }
+  msg "editor.console.tail" {
+    text="Хвост"
+  }
+  msg "editor.console.title" {
+    text="Консоль"
+  }
+  msg "editor.console.warn" {
+    text="Предупр."
+  }
+  msg "editor.context.h_has_overrides_whose_target" {
+    text="У {h} есть переопределения, цель которых исчезла из префаба"
+  }
+  msg "editor.context.h_prefab_short_is_missing" {
+    text="{h}: префаб {short} отсутствует, экземпляр сохранён таким, как в файле"
+  }
+  msg "editor.context.hot_reload_failed_keeping_the" {
+    text="горячая перезагрузка не удалась, остаются прежние ассеты: {error}"
+  }
+  msg "editor.context.import_failed_for_v_error" {
+    text="импорт {v} не удался: {error}"
+  }
+  msg "editor.crashes.list_report_s_click_opens" {
+    text="Отчётов: {list}; щелчок открывает строку скрипта или копирует путь к папке"
+  }
+  msg "editor.crashes.no_crash_reports_in_aego" {
+    text="В .aego/crash нет отчётов о сбоях"
+  }
+  msg "editor.crashes.title" {
+    text="Отчёты о сбоях"
+  }
+  msg "editor.dataedit.discard" {
+    text="Отбросить"
+  }
+  msg "editor.dataedit.keep" {
+    text="Оставить"
+  }
+  msg "editor.dataedit.kept_the_live_changes_in" {
+    text="Изменения игры сохранены в {path}"
+  }
+  msg "editor.dataedit.live_data_changes" {
+    text="Изменения данных во время игры"
+  }
+  msg "editor.dataedit.rel_changed_on_disk_while" {
+    text="{rel} изменился на диске, пока в нём есть несохранённые изменения: «Сохранить» оставит ваши, «Вернуть» загрузит версию с диска"
+  }
+  msg "editor.datatable.action.add_row" {
+    text="+ Строка"
+  }
+  msg "editor.datatable.action.delete" {
+    text="Удалить"
+  }
+  msg "editor.datatable.action.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.datatable.action.export_csv" {
+    text="Экспорт CSV"
+  }
+  msg "editor.datatable.action.import_csv" {
+    text="Импорт CSV"
+  }
+  msg "editor.datatable.action.redo" {
+    text="Повторить"
+  }
+  msg "editor.datatable.action.save" {
+    text="Сохранить"
+  }
+  msg "editor.datatable.action.undo" {
+    text="Отменить"
+  }
+  msg "editor.datatable.no_rows_match_the_filter" {
+    text="Нет строк, подходящих под фильтр"
+  }
+  msg "editor.datatable.none" {
+    text="Нет"
+  }
+  msg "editor.datatable.open_a_aetable_asset_to" {
+    text="Откройте ассет .aetable, чтобы редактировать его здесь"
+  }
+  msg "editor.datatable.tables_are_read_only_during" {
+    text="Во время игры таблицы только для чтения"
+  }
+  msg "editor.datatable.the_table_is_empty_add" {
+    text="Таблица пуста, добавьте строку"
+  }
+  msg "editor.datatable.title" {
+    text="Таблица"
+  }
+  msg "editor.datatable.v_more_issue_s" {
+    text="Ещё проблем: {v}"
+  }
+  msg "editor.docs.documentation_is_not_loaded" {
+    text="Документация не загружена."
+  }
+  msg "editor.docs.getting_started" {
+    text="Начало работы"
+  }
+  msg "editor.docs.guides" {
+    text="Руководства"
+  }
+  msg "editor.docs.no_documentation_entry_trimprefix" {
+    text="Нет статьи документации {trimprefix}"
+  }
+  msg "editor.docs.open_source" {
+    text="Открыть исходник"
+  }
+  msg "editor.docs.open_stub" {
+    text="Открыть заглушку"
+  }
+  msg "editor.docs.reference" {
+    text="Справочник"
+  }
+  msg "editor.docs.title" {
+    text="Документация"
+  }
+  msg "editor.docsession.component_u_is_not_available" {
+    text="компонент {u} недоступен в среде документации"
+  }
+  msg "editor.document.trimsuffix_prefab" {
+    text="{trimsuffix} (префаб)"
+  }
+  msg "editor.events.break_on" {
+    text="Остановить на"
+  }
+  msg "editor.events.cannot_write_the_event_log" {
+    text="не удалось записать журнал событий: {error}"
+  }
+  msg "editor.events.event_log_written_to_path" {
+    text="Журнал событий записан в {path}"
+  }
+  msg "editor.events.events_of_the_running_game" {
+    text="События запущенной игры появляются здесь, пока она идёт"
+  }
+  msg "editor.events.export" {
+    text="Экспорт"
+  }
+  msg "editor.events.frame_formatuint" {
+    text="кадр {formatuint}  ×"
+  }
+  msg "editor.events.selected_nodes" {
+    text="Выбранные узлы"
+  }
+  msg "editor.events.show_replayed" {
+    text="Показывать повторённые"
+  }
+  msg "editor.events.title" {
+    text="Монитор событий"
+  }
+  msg "editor.export.back_to_the_default_folder" {
+    text="Вернуть папку по умолчанию"
+  }
+  msg "editor.export.cancel" {
+    text="Отмена"
+  }
+  msg "editor.export.check_export_prof" {
+    text="Проверка экспорта ({prof})"
+  }
+  msg "editor.export.choose_the_output_folder" {
+    text="Выберите папку вывода"
+  }
+  msg "editor.export.errors" {
+    one="{n} ошибка"
+    few="{n} ошибки"
+    many="{n} ошибок"
+  }
+  msg "editor.export.export_target_profile" {
+    text="Экспорт {target} {profile}"
+  }
+  msg "editor.export.output" {
+    text="Вывод"
+  }
+  msg "editor.export.profile" {
+    text="Профиль"
+  }
+  msg "editor.export.profile.development" {
+    text="Разработка"
+  }
+  msg "editor.export.profile.development.note" {
+    text="Журналы и проверки во время выполнения включены, сборка быстрее."
+  }
+  msg "editor.export.profile.release" {
+    text="Релиз"
+  }
+  msg "editor.export.profile.release.note" {
+    text="Оптимизировано и урезано, для игроков."
+  }
+  msg "editor.export.ready_warnings" {
+    text="Готово к экспорту, {warnings}"
+  }
+  msg "editor.export.report" {
+    text="Отчёт"
+  }
+  msg "editor.export.target" {
+    text="Платформа"
+  }
+  msg "editor.export.target.host" {
+    text="Этот компьютер"
+  }
+  msg "editor.export.target.web" {
+    text="Веб"
+  }
+  msg "editor.export.title" {
+    text="Экспорт"
+  }
+  msg "editor.export.warnings" {
+    one="{n} предупреждение"
+    few="{n} предупреждения"
+    many="{n} предупреждений"
+  }
+  msg "editor.ext.extension_id_was_disabled_reason" {
+    text="расширение {id} отключено: {reason}"
+  }
+  msg "editor.favorites.nothing_here_yet_add_assets" {
+    text="Пока пусто. Добавляйте ассеты из их меню, узлы из меню иерархии, а действия — по Ctrl+D в палитре команд."
+  }
+  msg "editor.favorites.title" {
+    text="Избранное"
+  }
+  msg "editor.fieldgizmo.fields" {
+    text="Поля"
+  }
+  msg "editor.gameview.a_key_every_formatuint_ticks" {
+    text="\nснимок каждые {formatuint} тиков"
+  }
+  msg "editor.gameview.cached_cached_for_scrubbing_cachebytes" {
+    text="; для перемотки в кэше {cached}, {cachebytes}"
+  }
+  msg "editor.gameview.click_to_send_input_to" {
+    text="Щёлкните, чтобы передать ввод игре"
+  }
+  msg "editor.gameview.drag_to_rewind_the_game" {
+    text="Потяните, чтобы перемотать игру; Ctrl+Влево и Ctrl+Вправо — шаг на кадр"
+  }
+  msg "editor.gameview.draw_module_overlays_and_vectors" {
+    text="Рисовать наложения модулей и векторы поверх игры"
+  }
+  msg "editor.gameview.draw_velocity_force_contact_and" {
+    text="Рисовать векторы скорости, силы, контактов и полей (V в панели «Сцена»)"
+  }
+  msg "editor.gameview.history_cleared_why_press_play" {
+    text="История очищена: {why} · нажмите «Играть» или «Шаг», чтобы записывать снова"
+  }
+  msg "editor.gameview.history_ends_why" {
+    text="\nИстория заканчивается: {why}"
+  }
+  msg "editor.gameview.keys_keyframes_keybytes_the_last" {
+    text="\nснимков {keys}, {keybytes}; последний занял {lastkey} и {formatfloat} мс"
+  }
+  msg "editor.gameview.recording_starts_with_the_first" {
+    text="Запись начинается с первого кадра · нажмите «Играть» или «Шаг»"
+  }
+  msg "editor.gameview.title" {
+    text="Игра"
+  }
+  msg "editor.gizmo.move" {
+    text="Перемещение"
+  }
+  msg "editor.gizmo.rotate" {
+    text="Поворот"
+  }
+  msg "editor.gizmo.scale" {
+    text="Масштаб"
+  }
+  msg "editor.health.big_texture_s_larger_than" {
+    text="Текстур больше {limit} px: {big}"
+  }
+  msg "editor.health.broken_asset_s_failed_to" {
+    text="Ассетов с ошибкой импорта: {broken}"
+  }
+  msg "editor.health.c_problem_s_from_o" {
+    text="Проблем от {o}: {c}"
+  }
+  msg "editor.health.check_textures_scenes_and_export" {
+    text="Проверить текстуры, сцены и экспорт"
+  }
+  msg "editor.health.checked_at_v" {
+    text="Проверено в {v}"
+  }
+  msg "editor.health.dark_scene_s_without_a" {
+    text="Сцен без камеры: {dark}"
+  }
+  msg "editor.health.idle_scene_s_nothing_loads" {
+    text="Сцен, которые ничто не загружает: {idle}"
+  }
+  msg "editor.health.missing_missing" {
+    text=", отсутствует {missing}"
+  }
+  msg "editor.health.missing_missing_reference_s" {
+    text="Отсутствующих ссылок: {missing}"
+  }
+  msg "editor.health.names_that_differ_only_in" {
+    text="имена, отличающиеся только регистром"
+  }
+  msg "editor.health.no_problems_found" {
+    text="Проблем не найдено"
+  }
+  msg "editor.health.path_opened_in_formatint_ms" {
+    text="{path}: открыта за {formatint} мс, узлов {nodes}, ассетов {deps}"
+  }
+  msg "editor.health.resolve" {
+    text="Исправить…"
+  }
+  msg "editor.health.run_checks" {
+    text="Запустить проверки"
+  }
+  msg "editor.health.title" {
+    text="Состояние проекта"
+  }
+  msg "editor.health.unused_unused_asset_s" {
+    text="Неиспользуемых ассетов: {unused}"
+  }
+  msg "editor.help.code_editor" {
+    text="Редактор кода"
+  }
+  msg "editor.hierarchy.apply_all_to" {
+    text="Применить всё к {name}"
+  }
+  msg "editor.hierarchy.apply_node_to" {
+    text="Применить узел к {name}"
+  }
+  msg "editor.hierarchy.ask_agent" {
+    text="Спросить агента…"
+  }
+  msg "editor.hierarchy.batch_rename" {
+    text="Пакетное переименование…"
+  }
+  msg "editor.hierarchy.create" {
+    text="Создать…"
+  }
+  msg "editor.hierarchy.create_prefab" {
+    text="Создать префаб"
+  }
+  msg "editor.hierarchy.create_variant" {
+    text="Создать вариант"
+  }
+  msg "editor.hierarchy.find_instances" {
+    text="Найти экземпляры"
+  }
+  msg "editor.hierarchy.n_comes_from_a_prefab" {
+    text="{n} взят из префаба и сохраняет родителя; распакуйте экземпляр, чтобы переместить его"
+  }
+  msg "editor.hierarchy.no_scene_open" {
+    text="Нет открытой сцены"
+  }
+  msg "editor.hierarchy.nodes_nodes" {
+    text="Узлов: {nodes}"
+  }
+  msg "editor.hierarchy.open_prefab" {
+    text="Открыть префаб"
+  }
+  msg "editor.hierarchy.prefab" {
+    text="Префаб"
+  }
+  msg "editor.hierarchy.rename_scene" {
+    text="Переименовать сцену…"
+  }
+  msg "editor.hierarchy.revert_all" {
+    text="Вернуть всё"
+  }
+  msg "editor.hierarchy.revert_node" {
+    text="Вернуть узел"
+  }
+  msg "editor.hierarchy.save_scene" {
+    text="Сохранить сцену"
+  }
+  msg "editor.hierarchy.save_scene_as" {
+    text="Сохранить сцену как…"
+  }
+  msg "editor.hierarchy.select_prefab_asset" {
+    text="Выбрать ассет префаба"
+  }
+  msg "editor.hierarchy.title" {
+    text="Иерархия"
+  }
+  msg "editor.hierarchy.unpack" {
+    text="Распаковать"
+  }
+  msg "editor.hierarchy.unpack_completely" {
+    text="Распаковать полностью"
+  }
+  msg "editor.hierarchy.unsaved" {
+    text="(не сохранено)"
+  }
+  msg "editor.inspector.add_component" {
+    text="Добавить компонент"
+  }
+  msg "editor.inspector.add_script" {
+    text="Добавить скрипт"
+  }
+  msg "editor.inspector.added_node" {
+    text="добавлен узел {name}"
+  }
+  msg "editor.inspector.added_owner" {
+    text="добавлено {name}"
+  }
+  msg "editor.inspector.and_v_more" {
+    text=" и ещё {v}"
+  }
+  msg "editor.inspector.apply_all" {
+    text="Применить всё"
+  }
+  msg "editor.inspector.apply_preset" {
+    text="Применить пресет"
+  }
+  msg "editor.inspector.apply_preset_name" {
+    text="Применить пресет {name}"
+  }
+  msg "editor.inspector.apply_to" {
+    text="Применить к {name}"
+  }
+  msg "editor.inspector.asset_not_imported" {
+    text="Ассет {id} не импортирован"
+  }
+  msg "editor.inspector.base" {
+    text="Основа"
+  }
+  msg "editor.inspector.base.tip" {
+    text="Поля, которые этот ассет не задаёт, берутся из его основы"
+  }
+  msg "editor.inspector.clipboard_does_not_fit" {
+    text="Содержимое буфера обмена не подходит для {field}"
+  }
+  msg "editor.inspector.copied_components" {
+    one="Скопирован {n} компонент"
+    few="Скопировано {n} компонента"
+    many="Скопировано {n} компонентов"
+  }
+  msg "editor.inspector.copied_name" {
+    text="Скопировано: {name}"
+  }
+  msg "editor.inspector.copy_all_components" {
+    text="Копировать все компоненты"
+  }
+  msg "editor.inspector.copy_component" {
+    text="Копировать компонент"
+  }
+  msg "editor.inspector.copy_value" {
+    text="Копировать значение"
+  }
+  msg "editor.inspector.copy_values_to_edit_scene" {
+    text="Перенести значения в редактируемую сцену"
+  }
+  msg "editor.inspector.data" {
+    text="Данные"
+  }
+  msg "editor.inspector.declaration_unavailable" {
+    text="Объявление {name} недоступно, пока скрипты не скомпилируются"
+  }
+  msg "editor.inspector.edit_script" {
+    text="Редактировать скрипт"
+  }
+  msg "editor.inspector.enabled" {
+    text="Включён"
+  }
+  msg "editor.inspector.engine_builtin" {
+    text="Встроенный ассет движка {name}"
+  }
+  msg "editor.inspector.find_usages" {
+    text="Найти использования"
+  }
+  msg "editor.inspector.go_to_declaration" {
+    text="Перейти к объявлению"
+  }
+  msg "editor.inspector.inspector_for_fullname_crashed_msg" {
+    text="инспектор {fullname} упал: {msg}"
+  }
+  msg "editor.inspector.keys_keys" {
+    text="Ключей: {keys}"
+  }
+  msg "editor.inspector.label_changes_nodes_nodes_join" {
+    text="{label} изменит узлы ({nodes}): {join}"
+  }
+  msg "editor.inspector.layers" {
+    text="Слои"
+  }
+  msg "editor.inspector.lock.tip" {
+    text="Закрепить инспектор на этом выделении"
+  }
+  msg "editor.inspector.locked_to" {
+    one="Закреплён на {n} узле в {doc}"
+    few="Закреплён на {n} узлах в {doc}"
+    many="Закреплён на {n} узлах в {doc}"
+  }
+  msg "editor.inspector.missing" {
+    text="Отсутствует"
+  }
+  msg "editor.inspector.missing_asset" {
+    text="Ассет отсутствует"
+  }
+  msg "editor.inspector.move_down" {
+    text="Переместить вниз"
+  }
+  msg "editor.inspector.move_up" {
+    text="Переместить вверх"
+  }
+  msg "editor.inspector.name" {
+    text="Имя"
+  }
+  msg "editor.inspector.name_is_not_in_the" {
+    text="{name} нет в скрипте, сохраняется при записи"
+  }
+  msg "editor.inspector.no_scene_open" {
+    text="Нет открытой сцены"
+  }
+  msg "editor.inspector.no_scripts_match" {
+    text="Нет подходящих скриптов"
+  }
+  msg "editor.inspector.node" {
+    text="Узел"
+  }
+  msg "editor.inspector.node_not_in_scene" {
+    text="Узла {id} нет в этой сцене"
+  }
+  msg "editor.inspector.nodes_nodes" {
+    text="Узлов: {nodes}"
+  }
+  msg "editor.inspector.none" {
+    text="Нет"
+  }
+  msg "editor.inspector.not_compiled_properties_are_kept" {
+    text="Не скомпилирован, свойства сохраняются как есть"
+  }
+  msg "editor.inspector.nothing_selected" {
+    text="Ничего не выбрано"
+  }
+  msg "editor.inspector.paste_component" {
+    text="Вставить компонент"
+  }
+  msg "editor.inspector.paste_component_values" {
+    text="Вставить значения компонента"
+  }
+  msg "editor.inspector.paste_components" {
+    text="Вставить компоненты"
+  }
+  msg "editor.inspector.paste_image" {
+    text="Вставить изображение"
+  }
+  msg "editor.inspector.paste_name" {
+    text="Вставить {name}"
+  }
+  msg "editor.inspector.paste_value" {
+    text="Вставить значение"
+  }
+  msg "editor.inspector.pasted" {
+    text="Вставлено: {path}"
+  }
+  msg "editor.inspector.play_live_fields_apply_now" {
+    text="Игра: живые поля применяются сразу, при остановке редактор спросит, сохранить ли их"
+  }
+  msg "editor.inspector.position" {
+    text="Позиция"
+  }
+  msg "editor.inspector.prefab" {
+    text="Префаб"
+  }
+  msg "editor.inspector.redo" {
+    text="Повторить"
+  }
+  msg "editor.inspector.remove" {
+    text="Удалить"
+  }
+  msg "editor.inspector.remove_name" {
+    text="Удалить {name}"
+  }
+  msg "editor.inspector.removed_owner" {
+    text="Удалено: {name}"
+  }
+  msg "editor.inspector.reset" {
+    text="Сбросить"
+  }
+  msg "editor.inspector.reset_name" {
+    text="Сбросить {name}"
+  }
+  msg "editor.inspector.reset_to_base_value" {
+    text="Сбросить к значению основы"
+  }
+  msg "editor.inspector.reset_to_default" {
+    text="Сбросить по умолчанию"
+  }
+  msg "editor.inspector.reset_to_prefab_value" {
+    text="Сбросить к значению префаба"
+  }
+  msg "editor.inspector.revert" {
+    text="Вернуть"
+  }
+  msg "editor.inspector.revert_all" {
+    text="Вернуть всё"
+  }
+  msg "editor.inspector.revert_to_prefab" {
+    text="Вернуть к префабу"
+  }
+  msg "editor.inspector.rotation" {
+    text="Поворот"
+  }
+  msg "editor.inspector.save_as_preset" {
+    text="Сохранить как пресет…"
+  }
+  msg "editor.inspector.save_preset" {
+    text="Сохранить пресет"
+  }
+  msg "editor.inspector.saved" {
+    text="Сохранено: {path}"
+  }
+  msg "editor.inspector.saved_to" {
+    text="Сохраняется в {dir}"
+  }
+  msg "editor.inspector.scale" {
+    text="Масштаб"
+  }
+  msg "editor.inspector.script_errors" {
+    one="{n} ошибка в {pkg}, работает последняя удачная сборка"
+    few="{n} ошибки в {pkg}, работает последняя удачная сборка"
+    many="{n} ошибок в {pkg}, работает последняя удачная сборка"
+  }
+  msg "editor.inspector.scripts" {
+    text="Скрипты"
+  }
+  msg "editor.inspector.select_the_nodes_to_keep" {
+    text="Выберите узлы, которые оставить в инспекторе"
+  }
+  msg "editor.inspector.selected_nodes_live_in_different" {
+    text="Выбранные узлы находятся в разных пространствах"
+  }
+  msg "editor.inspector.set_layers" {
+    text="Задать слои"
+  }
+  msg "editor.inspector.show_script_files" {
+    text="Показать файлы скриптов"
+  }
+  msg "editor.inspector.space" {
+    text="Пространство"
+  }
+  msg "editor.inspector.the_clipboard_does_not_fit" {
+    text="Содержимое буфера обмена не подходит для этого поля"
+  }
+  msg "editor.inspector.the_clipboard_has_no_image" {
+    text="В буфере обмена нет изображения"
+  }
+  msg "editor.inspector.the_prefab_is_missing_the" {
+    text="Префаб отсутствует, экземпляр сохранён таким, как в файле"
+  }
+  msg "editor.inspector.tip_click_to_open_the" {
+    text="{tip}\nЩёлкните, чтобы открыть строку"
+  }
+  msg "editor.inspector.title" {
+    text="Инспектор"
+  }
+  msg "editor.inspector.toggle_enabled" {
+    text="Переключить «Включён»"
+  }
+  msg "editor.inspector.transform" {
+    text="Трансформация"
+  }
+  msg "editor.inspector.typename_not_loaded_kept_as" {
+    text="{typename} (не загружен, сохраняется как есть)"
+  }
+  msg "editor.inspector.undo" {
+    text="Отменить"
+  }
+  msg "editor.inspector.unlock.tip" {
+    text="Открепить инспектор"
+  }
+  msg "editor.inspector.unused_overrides" {
+    text="Неиспользуемые переопределения"
+  }
+  msg "editor.inspector.values_differ" {
+    text="Значения различаются:"
+  }
+  msg "editor.keymap.back_forward" {
+    text="Назад / вперёд"
+  }
+  msg "editor.keymap.close_tab" {
+    text="Закрыть вкладку"
+  }
+  msg "editor.keymap.completion" {
+    text="Автодополнение"
+  }
+  msg "editor.keymap.delete_line" {
+    text="Удалить строку"
+  }
+  msg "editor.keymap.duplicate_line" {
+    text="Дублировать строку"
+  }
+  msg "editor.keymap.expand_shrink_selection" {
+    text="Расширить / сузить выделение"
+  }
+  msg "editor.keymap.file_structure" {
+    text="Структура файла"
+  }
+  msg "editor.keymap.find_in_scripts" {
+    text="Найти в скриптах"
+  }
+  msg "editor.keymap.find_replace_in_file" {
+    text="Найти / заменить в файле"
+  }
+  msg "editor.keymap.find_usages" {
+    text="Найти использования"
+  }
+  msg "editor.keymap.float_a_panel" {
+    text="Открепить панель"
+  }
+  msg "editor.keymap.go_to_declaration" {
+    text="Перейти к объявлению"
+  }
+  msg "editor.keymap.indent_outdent" {
+    text="Увеличить / уменьшить отступ"
+  }
+  msg "editor.keymap.move_line" {
+    text="Переместить строку"
+  }
+  msg "editor.keymap.next_previous_error" {
+    text="Следующая / предыдущая ошибка"
+  }
+  msg "editor.keymap.open_documentation" {
+    text="Открыть документацию"
+  }
+  msg "editor.keymap.parameter_info" {
+    text="Сведения о параметрах"
+  }
+  msg "editor.keymap.peek_definition" {
+    text="Просмотр определения"
+  }
+  msg "editor.keymap.quick_documentation" {
+    text="Быстрая документация"
+  }
+  msg "editor.keymap.save" {
+    text="Сохранить"
+  }
+  msg "editor.keymap.split_right_down" {
+    text="Разделить вправо / вниз"
+  }
+  msg "editor.keymap.title" {
+    text="Сочетания клавиш"
+  }
+  msg "editor.keymap.toggle_comment" {
+    text="Закомментировать / раскомментировать"
+  }
+  msg "editor.language.auto" {
+    text="Авто"
+  }
+  msg "editor.menu.animation" {
+    text="Анимация"
+  }
+  msg "editor.menu.assets" {
+    text="Ассеты"
+  }
+  msg "editor.menu.audio" {
+    text="Звук"
+  }
+  msg "editor.menu.camera" {
+    text="Камера"
+  }
+  msg "editor.menu.create" {
+    text="Создать"
+  }
+  msg "editor.menu.debug" {
+    text="Отладка"
+  }
+  msg "editor.menu.edit" {
+    text="Правка"
+  }
+  msg "editor.menu.file" {
+    text="Файл"
+  }
+  msg "editor.menu.gameplay" {
+    text="Геймплей"
+  }
+  msg "editor.menu.help" {
+    text="Справка"
+  }
+  msg "editor.menu.input" {
+    text="Ввод"
+  }
+  msg "editor.menu.language" {
+    text="Язык"
+  }
+  msg "editor.menu.nodes" {
+    text="Узлы"
+  }
+  msg "editor.menu.panels" {
+    text="Панели"
+  }
+  msg "editor.menu.physics" {
+    text="Физика"
+  }
+  msg "editor.menu.play" {
+    text="Играть"
+  }
+  msg "editor.menu.scene" {
+    text="Сцена"
+  }
+  msg "editor.menu.scripts" {
+    text="Скрипты"
+  }
+  msg "editor.menu.theme" {
+    text="Тема"
+  }
+  msg "editor.menu.vectors" {
+    text="Векторы"
+  }
+  msg "editor.menu.window" {
+    text="Окно"
+  }
+  msg "editor.missingrefs.title" {
+    text="Отсутствующие ссылки"
+  }
+  msg "editor.play.component_u_is_not_loaded" {
+    text="компонент {u} не загружен в этой сборке и ничего не делает во время игры"
+  }
+  msg "editor.play.copied_fullname_to_the_edit" {
+    text="{fullname} перенесён в редактируемую сцену"
+  }
+  msg "editor.play.k_releases_input" {
+    text="{k} отпускает ввод"
+  }
+  msg "editor.play.paused_on_tick_formatuint_breakwhy" {
+    text="Пауза на тике {formatuint}: {breakwhy}"
+  }
+  msg "editor.play.play_mode_started" {
+    text="Игра запущена"
+  }
+  msg "editor.play.play_mode_stopped" {
+    text="Игра остановлена"
+  }
+  msg "editor.play.rewound_to_tick_formatuint" {
+    text="Перемотано на тик {formatuint}"
+  }
+  msg "editor.playdiff.applied_n_change_s_from" {
+    text="Применено изменений из игры: {n}, отмена в сцене вернёт их"
+  }
+  msg "editor.playdiff.apply_n_to_scene" {
+    text="Применить к сцене ({n})"
+  }
+  msg "editor.playdiff.changes_made_during_play" {
+    text="Изменения, сделанные во время игры"
+  }
+  msg "editor.playdiff.changes_you_made_during_play" {
+    text="Изменения, которые вы сделали во время игры. После применения их можно отменить в сцене."
+  }
+  msg "editor.playdiff.discard" {
+    text="Отбросить"
+  }
+  msg "editor.playdiff.from_gameplay" {
+    text="  · от геймплея"
+  }
+  msg "editor.playdiff.keys_keys" {
+    text="Ключей: {keys}"
+  }
+  msg "editor.playdiff.mode.always" {
+    text="Всегда показывать изменения игры"
+  }
+  msg "editor.playdiff.mode.if_changes" {
+    text="Показывать изменения игры, если что-то изменилось"
+  }
+  msg "editor.playdiff.mode.never" {
+    text="Никогда не показывать изменения игры"
+  }
+  msg "editor.playdiff.n_node_s_created_and" {
+    text="Узлы, созданные ({n}) и удалённые ({m}) во время игры, не переносятся"
+  }
+  msg "editor.playdiff.none" {
+    text="Нет"
+  }
+  msg "editor.playdiff.pos_position_rot_rotation_scale" {
+    text="поз. {position}  пов. {rotation}°  масш. {scale}"
+  }
+  msg "editor.playdiff.pos_position_rot_rotation_scale_2" {
+    text="поз. {position}  пов. {rotation}  масш. {scale}"
+  }
+  msg "editor.playdiff.show_all_differences_including_those" {
+    text="Показать все различия, включая сделанные игрой"
+  }
+  msg "editor.playdiff.the_scene_was_closed_the" {
+    text="Сцена закрыта, изменения отброшены"
+  }
+  msg "editor.playdiff.transform" {
+    text="Трансформация"
+  }
+  msg "editor.prefabs.cannot_refresh_the_prefab_instances" {
+    text="не удалось обновить экземпляры префаба в {path}: {error}"
+  }
+  msg "editor.prefabs.created_rel" {
+    text="Создан {rel}"
+  }
+  msg "editor.prefabs.elsewhere_in_other_open_scenes" {
+    text=", в других открытых сценах: {elsewhere}"
+  }
+  msg "editor.prefabs.here_instance_s_of_id" {
+    text="Экземпляров {id} в этой сцене: {here}"
+  }
+  msg "editor.prefabs.nothing_to_apply" {
+    text="Нечего применять"
+  }
+  msg "editor.prefabs.prefab" {
+    text="Префаб"
+  }
+  msg "editor.prefabs.remove_unused_override" {
+    text="Удалить неиспользуемое переопределение"
+  }
+  msg "editor.prefabs.revert" {
+    text="Вернуть"
+  }
+  msg "editor.prefabs.the_prefab_already_matches" {
+    text="Префаб уже совпадает"
+  }
+  msg "editor.prefabs.unpack_prefab" {
+    text="Распаковать префаб"
+  }
+  msg "editor.prefabs.unpack_prefab_completely" {
+    text="Распаковать префаб полностью"
+  }
+  msg "editor.prefabs.used_by_join" {
+    text="; используется в {join}"
+  }
+  msg "editor.prefs.save_failed" {
+    text="Не удалось сохранить настройки редактора: {err}"
+  }
+  msg "editor.presets.apply_preset_name" {
+    text="Применить пресет {name}"
+  }
+  msg "editor.preview.preview_name" {
+    text="Превью {name}"
+  }
+  msg "editor.preview.project_preview" {
+    text="Превью проекта"
+  }
+  msg "editor.preview.remove_old_thumbnails" {
+    text="Удалить старые миниатюры"
+  }
+  msg "editor.preview.waveform_name" {
+    text="Форма волны {name}"
+  }
+  msg "editor.problems.ask_agent_to_fix" {
+    text="Попросить агента исправить"
+  }
+  msg "editor.problems.category.scene" {
+    text="сцена"
+  }
+  msg "editor.problems.category.script" {
+    text="скрипт"
+  }
+  msg "editor.problems.errors" {
+    one="{n} ошибка"
+    few="{n} ошибки"
+    many="{n} ошибок"
+  }
+  msg "editor.problems.errors_n" {
+    text="Ошибки {n}"
+  }
+  msg "editor.problems.no_match" {
+    text="Нет проблем, подходящих под фильтр"
+  }
+  msg "editor.problems.no_problems" {
+    text="Проблем нет"
+  }
+  msg "editor.problems.node_v" {
+    text="узел {v}"
+  }
+  msg "editor.problems.package" {
+    text="пакет {name}"
+  }
+  msg "editor.problems.title" {
+    text="Проблемы"
+  }
+  msg "editor.problems.warnings" {
+    one="{n} предупреждение"
+    few="{n} предупреждения"
+    many="{n} предупреждений"
+  }
+  msg "editor.problems.warnings_n" {
+    text="Предупреждения {n}"
+  }
+  msg "editor.profiler.allocations_by_phase_off" {
+    text="Выделения памяти по фазам: выкл."
+  }
+  msg "editor.profiler.allocations_by_phase_on" {
+    text="Выделения памяти по фазам: вкл."
+  }
+  msg "editor.profiler.approximate_counted_process_wide_from" {
+    text="Приблизительно: считается по всему процессу от начала до конца фазы; игровой мир, выполненный внутри фазы, тоже входит в неё."
+  }
+  msg "editor.profiler.cannot_save_the_trace_error" {
+    text="не удалось сохранить трассировку: {error}"
+  }
+  msg "editor.profiler.cannot_write_the_trace_error" {
+    text="не удалось записать трассировку: {error}"
+  }
+  msg "editor.profiler.coroutines_active_active_sleeping_sleeping" {
+    text="корутины: активных {active}   спящих {sleeping}   возобновлений/кадр {formatuint}   отменено {formatuint2}"
+  }
+  msg "editor.profiler.dropped_dropped" {
+    text="   отброшено {dropped}"
+  }
+  msg "editor.profiler.export_trace" {
+    text="Экспорт трассировки"
+  }
+  msg "editor.profiler.fmtf_fmtf2_unit_formatfloat_s" {
+    text="{fmtf} / {fmtf2}{unit}   {formatfloat} с назад"
+  }
+  msg "editor.profiler.fps_v_window_span_s" {
+    text="fps {v}   окно {span} с"
+  }
+  msg "editor.profiler.frame" {
+    text="Кадр"
+  }
+  msg "editor.profiler.frame_formatuint_dur" {
+    text="Кадр {formatuint}   {dur}"
+  }
+  msg "editor.profiler.frame_formatuint_tick_formatuint2_alpha" {
+    text="кадр {formatuint}   тик {formatuint2}   альфа {formatfloat}   масштаб ×{formatfloat2}   отброшено тиков {formatuint3}"
+  }
+  msg "editor.profiler.frame_took_formatfloat_ms_for" {
+    text="Кадр занял {formatfloat} мс три кадра подряд"
+  }
+  msg "editor.profiler.game" {
+    text="Игра"
+  }
+  msg "editor.profiler.go_heap_heap_goal_goal" {
+    text="куча Go {heap}   цель {goal}   процесс {process}   горутин {formatuint}   GC {formatuint2}"
+  }
+  msg "editor.profiler.instances_instances_update_update_fixed" {
+    text="экземпляров {instances}   update {update}   fixed {fixed}   сбоев {faults}   прерываний по бюджету {formatuint}   объектов в куче {heapobjects}   GC {formatuint2} / {gctime} мс"
+  }
+  msg "editor.profiler.memory" {
+    text="Память"
+  }
+  msg "editor.profiler.pause" {
+    text="Пауза"
+  }
+  msg "editor.profiler.press_play_to_see_game" {
+    text="Нажмите «Играть», чтобы увидеть время игры и скриптов"
+  }
+  msg "editor.profiler.press_play_to_see_game_2" {
+    text="Нажмите «Играть», чтобы увидеть время игры, скриптов и {join}"
+  }
+  msg "editor.profiler.resume" {
+    text="Продолжить"
+  }
+  msg "editor.profiler.script_heap_heapobjects_objects_heapbytes" {
+    text="куча скриптов: объектов {heapobjects}, {heapbytes}"
+  }
+  msg "editor.profiler.scripts" {
+    text="Скрипты"
+  }
+  msg "editor.profiler.signal_connections_connections_emits_frame" {
+    text="подключений сигналов {connections}   испусканий/кадр {formatuint}   обработчиков/кадр {formatuint2}"
+  }
+  msg "editor.profiler.slowest_zone_z" {
+    text=", самая медленная зона {z}"
+  }
+  msg "editor.profiler.ticks_formatuint_formatuint2" {
+    text="   тики {formatuint}–{formatuint2}"
+  }
+  msg "editor.profiler.title" {
+    text="Профилировщик"
+  }
+  msg "editor.profiler.trace_saved_to_path_open" {
+    text="Трассировка сохранена в {path}, откройте её в ui.perfetto.dev"
+  }
+  msg "editor.profiler.v_formatuint_objects" {
+    text="{v}   объектов {formatuint}"
+  }
+  msg "editor.profiler.world_frame_formatuint" {
+    text="   кадр мира {formatuint}"
+  }
+  msg "editor.profiler.zone_dur_pct_of_the" {
+    text="{zone}\n{dur}   {pct}% кадра"
+  }
+  msg "editor.projectsettings.apply" {
+    text="Применить"
+  }
+  msg "editor.projectsettings.default_space" {
+    text="Пространство по умолчанию"
+  }
+  msg "editor.projectsettings.game_title" {
+    text="Заголовок"
+  }
+  msg "editor.projectsettings.height" {
+    text="Высота"
+  }
+  msg "editor.projectsettings.module" {
+    text="Модуль"
+  }
+  msg "editor.projectsettings.name" {
+    text="Имя"
+  }
+  msg "editor.projectsettings.no_project" {
+    text="Нет проекта"
+  }
+  msg "editor.projectsettings.no_setting_matches" {
+    text="Нет подходящих настроек"
+  }
+  msg "editor.projectsettings.off" {
+    text="Выкл."
+  }
+  msg "editor.projectsettings.on" {
+    text="Вкл."
+  }
+  msg "editor.projectsettings.project_aego_changed_while_project" {
+    text="project.aego изменился, пока в настройках проекта есть неприменённые изменения: «Применить» перезапишет его, «Вернуть» загрузит"
+  }
+  msg "editor.projectsettings.revert" {
+    text="Вернуть"
+  }
+  msg "editor.projectsettings.saved_project_aego_note" {
+    text="project.aego сохранён, {note}"
+  }
+  msg "editor.projectsettings.saved_project_aego_settings_apply" {
+    text="project.aego сохранён, настройки применятся при следующем запуске игры"
+  }
+  msg "editor.projectsettings.starting_values_of_player_settings" {
+    text="Начальные значения настроек игрока. Игроки меняют их в настройках игры; эта страница задаёт, что получит новый игрок."
+  }
+  msg "editor.projectsettings.startup_scene" {
+    text="Стартовая сцена"
+  }
+  msg "editor.projectsettings.title" {
+    text="Настройки проекта"
+  }
+  msg "editor.projectsettings.width" {
+    text="Ширина"
+  }
+  msg "editor.projectsettings.window" {
+    text="Окно"
+  }
+  msg "editor.references.assets_missing_asset_s_nodes" {
+    text="Отсутствующих ассетов: {assets}, отсутствующих ссылок на узлы: {nodes}"
+  }
+  msg "editor.references.cancel" {
+    text="Отмена"
+  }
+  msg "editor.references.clear" {
+    text="Очистить"
+  }
+  msg "editor.references.clear_references" {
+    text="Очистить ссылки"
+  }
+  msg "editor.references.clear_references_button" {
+    text="Очистить ссылки"
+  }
+  msg "editor.references.delete_deleting_asset_s" {
+    text="Удалить ассеты ({deleting})"
+  }
+  msg "editor.references.error_originals_in_backup" {
+    text="{error} (оригиналы в {backup})"
+  }
+  msg "editor.references.every_reference_resolves" {
+    text="Все ссылки разрешаются"
+  }
+  msg "editor.references.every_reference_to_name_becomes" {
+    text="Все ссылки на {name} станут «Нет». Неоткрытые файлы перезаписываются на диске, их оригиналы попадают в .aego/recovery."
+  }
+  msg "editor.references.label_n_file_s_updated" {
+    text="{label}: обновлено файлов: {n}"
+  }
+  msg "editor.references.label_refs_referrer_s" {
+    text="{label}  ·  ссылающихся: {refs}"
+  }
+  msg "editor.references.n_file_s_reference_it" {
+    text="Ссылающихся файлов: {n}"
+  }
+  msg "editor.references.no_matching_assets" {
+    text="Нет подходящих ассетов"
+  }
+  msg "editor.references.nothing_references_this_asset" {
+    text="На этот ассет ничто не ссылается"
+  }
+  msg "editor.references.originals_in_backup" {
+    text=", оригиналы в {backup}"
+  }
+  msg "editor.references.path_deleted" {
+    text="{path} (удалён)"
+  }
+  msg "editor.references.referenced_by" {
+    text="Ссылаются:"
+  }
+  msg "editor.references.refresh" {
+    text="Обновить"
+  }
+  msg "editor.references.replace" {
+    text="Заменить"
+  }
+  msg "editor.references.replace_every_reference_to_name" {
+    text="Заменить все ссылки на {name} на {rel}. Неоткрытые файлы перезаписываются на диске, их оригиналы попадают в .aego/recovery."
+  }
+  msg "editor.references.replace_references" {
+    text="Заменить ссылки"
+  }
+  msg "editor.references.replace_with" {
+    text="Заменить на…"
+  }
+  msg "editor.references.rescan" {
+    text="Пересканировать"
+  }
+  msg "editor.references.scene_node_owner_field_missing" {
+    text="{scene}  ·  {node} · {owner}.{field} → узел отсутствует"
+  }
+  msg "editor.references.the_startup_scene_is_set" {
+    text="Стартовая сцена задаётся в настройках проекта"
+  }
+  msg "editor.references.title" {
+    text="Ссылки"
+  }
+  msg "editor.saves.cancel" {
+    text="Отмена"
+  }
+  msg "editor.saves.col.engine" {
+    text="Движок"
+  }
+  msg "editor.saves.col.game" {
+    text="Игра"
+  }
+  msg "editor.saves.col.global" {
+    text="Глобальные"
+  }
+  msg "editor.saves.col.next_id" {
+    text="Следующий id"
+  }
+  msg "editor.saves.col.objects" {
+    text="Объекты"
+  }
+  msg "editor.saves.col.playtime" {
+    text="Время игры"
+  }
+  msg "editor.saves.col.saved" {
+    text="Сохранено"
+  }
+  msg "editor.saves.col.scene" {
+    text="Сцена"
+  }
+  msg "editor.saves.col.section" {
+    text="Раздел"
+  }
+  msg "editor.saves.col.size" {
+    text="Размер"
+  }
+  msg "editor.saves.col.slot" {
+    text="Слот"
+  }
+  msg "editor.saves.delete" {
+    text="Удалить"
+  }
+  msg "editor.saves.delete_save" {
+    text="Удалить сохранение"
+  }
+  msg "editor.saves.delete_the_save_in_slot" {
+    text="Удалить сохранение в слоте {slot}?"
+  }
+  msg "editor.saves.load" {
+    text="Загрузить"
+  }
+  msg "editor.saves.objects_value" {
+    text="в сцене {scene}, создано {spawned}, убрано {destroyed}"
+  }
+  msg "editor.saves.overwrite" {
+    text="Перезаписать"
+  }
+  msg "editor.saves.refresh" {
+    text="Обновить"
+  }
+  msg "editor.saves.save" {
+    text="Сохранить"
+  }
+  msg "editor.saves.saves_are_not_available_this" {
+    text="Сохранения недоступны: у этого запуска нет профиля игрока"
+  }
+  msg "editor.saves.saving_to_slot" {
+    text="Сохранение в {slot}"
+  }
+  msg "editor.saves.saving_works_during_play" {
+    text="Сохранение работает во время игры"
+  }
+  msg "editor.saves.slot_already_exists_and_will" {
+    text="{slot} уже существует и будет заменён"
+  }
+  msg "editor.saves.start_play_to_load_a" {
+    text="Нажмите «Играть», чтобы загрузить сохранение"
+  }
+  msg "editor.saves.title" {
+    text="Сохранения"
+  }
+  msg "editor.scenes.cancel" {
+    text="Отмена"
+  }
+  msg "editor.scenes.delete" {
+    text="Удалить…"
+  }
+  msg "editor.scenes.delete_2" {
+    text="Удалить"
+  }
+  msg "editor.scenes.delete_path" {
+    text="Удалить {path}?"
+  }
+  msg "editor.scenes.delete_scene" {
+    text="Удалить сцену"
+  }
+  msg "editor.scenes.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.scenes.name" {
+    text="Имя"
+  }
+  msg "editor.scenes.no_scenes_match" {
+    text="Нет подходящих сцен"
+  }
+  msg "editor.scenes.no_scenes_yet_file_new" {
+    text="Сцен пока нет, «Файл» → «Новая сцена» создаст её"
+  }
+  msg "editor.scenes.open" {
+    text="Открыть"
+  }
+  msg "editor.scenes.rename" {
+    text="Переименовать…"
+  }
+  msg "editor.scenes.rename_2" {
+    text="Переименовать"
+  }
+  msg "editor.scenes.rename_scene" {
+    text="Переименовать сцену"
+  }
+  msg "editor.scenes.set_as_startup" {
+    text="Сделать стартовой"
+  }
+  msg "editor.scenes.show_in_assets" {
+    text="Показать в ассетах"
+  }
+  msg "editor.scenes.title" {
+    text="Сцены"
+  }
+  msg "editor.sceneview.copy" {
+    text="Копировать"
+  }
+  msg "editor.sceneview.create" {
+    text="Создать…"
+  }
+  msg "editor.sceneview.create_button" {
+    text="Создать"
+  }
+  msg "editor.sceneview.cut" {
+    text="Вырезать"
+  }
+  msg "editor.sceneview.delete" {
+    text="Удалить"
+  }
+  msg "editor.sceneview.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.sceneview.edit" {
+    text="Изменить"
+  }
+  msg "editor.sceneview.fit" {
+    text="Вписать"
+  }
+  msg "editor.sceneview.frame_selection" {
+    text="Показать выделенное"
+  }
+  msg "editor.sceneview.grid" {
+    text="Сетка"
+  }
+  msg "editor.sceneview.isolated_n_node_s" {
+    text="Изолировано узлов: {n}"
+  }
+  msg "editor.sceneview.leave_isolation_commandisolate" {
+    text="Выйти из изоляции ({commandisolate})"
+  }
+  msg "editor.sceneview.move" {
+    text="Перемещение"
+  }
+  msg "editor.sceneview.no_scene_open" {
+    text="Нет открытой сцены"
+  }
+  msg "editor.sceneview.open_a_scene_to_capture" {
+    text="Откройте сцену, чтобы сделать снимок панели «Сцена»"
+  }
+  msg "editor.sceneview.ortho" {
+    text="Орто"
+  }
+  msg "editor.sceneview.paste" {
+    text="Вставить"
+  }
+  msg "editor.sceneview.persp" {
+    text="Персп."
+  }
+  msg "editor.sceneview.rotate" {
+    text="Поворот"
+  }
+  msg "editor.sceneview.saved_rel_no_3d_template" {
+    text="{rel} сохранён, но ни один 3D-шаблон не превращает его в узел"
+  }
+  msg "editor.sceneview.saved_rel_no_template_turns" {
+    text="{rel} сохранён, но ни один шаблон не превращает его в узел"
+  }
+  msg "editor.sceneview.scale" {
+    text="Масштаб"
+  }
+  msg "editor.sceneview.select_the_nodes_to_isolate" {
+    text="Выберите узлы для изоляции"
+  }
+  msg "editor.sceneview.show_all" {
+    text="Показать всё"
+  }
+  msg "editor.sceneview.snap_hold_ctrl_to_invert" {
+    text="Привязка (Ctrl инвертирует)"
+  }
+  msg "editor.sceneview.switch_between_the_2d_and" {
+    text="Переключить вид между 2D и 3D"
+  }
+  msg "editor.sceneview.switch_between_the_perspective_and" {
+    text="Переключить 3D-вид между перспективой и ортографией"
+  }
+  msg "editor.sceneview.title" {
+    text="Сцена"
+  }
+  msg "editor.sceneview.tool.move" {
+    text="Перемещение (W)"
+  }
+  msg "editor.sceneview.tool.rotate" {
+    text="Поворот (E)"
+  }
+  msg "editor.sceneview.tool.scale" {
+    text="Масштаб (R)"
+  }
+  msg "editor.sceneview.tool.select" {
+    text="Выделение (Q)"
+  }
+  msg "editor.sceneview.vectors_v" {
+    text="Векторы (V)"
+  }
+  msg "editor.sceneview.zoom" {
+    text="Масштаб"
+  }
+  msg "editor.scripteditor.aa" {
+    text="Aa"
+  }
+  msg "editor.scripteditor.all" {
+    text="Все"
+  }
+  msg "editor.scripteditor.attached_to_n_nodes" {
+    text="прикреплён к узлам: {n}"
+  }
+  msg "editor.scripteditor.autosave_failed_error" {
+    text="автосохранение не удалось: {error}"
+  }
+  msg "editor.scripteditor.cancel" {
+    text="Отмена"
+  }
+  msg "editor.scripteditor.discard" {
+    text="Отбросить"
+  }
+  msg "editor.scripteditor.errors" {
+    one="{n} ошибка"
+    few="{n} ошибки"
+    many="{n} ошибок"
+  }
+  msg "editor.scripteditor.find" {
+    text="Найти"
+  }
+  msg "editor.scripteditor.keep_mine" {
+    text="Оставить мою версию"
+  }
+  msg "editor.scripteditor.no_open_scene_uses_full" {
+    text="Ни одна открытая сцена не использует {full}"
+  }
+  msg "editor.scripteditor.path_has_unsaved_changes" {
+    text="В {path} есть несохранённые изменения."
+  }
+  msg "editor.scripteditor.reload" {
+    text="Перезагрузить"
+  }
+  msg "editor.scripteditor.reloaded_path" {
+    text="{path} перезагружен"
+  }
+  msg "editor.scripteditor.replace" {
+    text="Заменить"
+  }
+  msg "editor.scripteditor.replace_all" {
+    text="Заменить все"
+  }
+  msg "editor.scripteditor.replaced_total_occurrence_s_in" {
+    text="Заменено вхождений: {total} в файлах: {files}; «Сохранить всё» запишет их"
+  }
+  msg "editor.scripteditor.restored_unsaved_changes_of_path" {
+    text="Восстановлены несохранённые изменения {path}"
+  }
+  msg "editor.scripteditor.save" {
+    text="Сохранить"
+  }
+  msg "editor.scripteditor.saved_path" {
+    text="{path} сохранён"
+  }
+  msg "editor.scripteditor.scripts_build_formatuint_ok" {
+    text="Скрипты: сборка {formatuint} · ок"
+  }
+  msg "editor.scripteditor.scripts_n_build_errors_problems" {
+    text="Скрипты: ошибок сборки {n} · Проблемы"
+  }
+  msg "editor.scripteditor.searching" {
+    text="Поиск…"
+  }
+  msg "editor.scripteditor.the_file_changed_on_disk" {
+    text="Файл изменился на диске, пока вы его редактировали"
+  }
+  msg "editor.scripteditor.title_matches_usage_s_in" {
+    text="{title}: использований {matches} в файлах: {files}"
+  }
+  msg "editor.scripteditor.type_to_search_in_all" {
+    text="Введите текст для поиска по всем скриптам"
+  }
+  msg "editor.scripteditor.unsaved_script" {
+    text="Несохранённый скрипт"
+  }
+  msg "editor.scripteditor.usages" {
+    text="Использования"
+  }
+  msg "editor.scripteditor.warnings" {
+    one="{n} предупреждение"
+    few="{n} предупреждения"
+    many="{n} предупреждений"
+  }
+  msg "editor.search.fav_added" {
+    text="{name} добавлено в избранное"
+  }
+  msg "editor.search.fav_removed" {
+    text="{name} убрано из избранного"
+  }
+  msg "editor.search.hint" {
+    text="Enter — открыть · Ctrl+D — в избранное · Esc — закрыть"
+  }
+  msg "editor.search.hint_tabs" {
+    text="Двойной Shift · Tab переключает"
+  }
+  msg "editor.search.hits_result_s" {
+    text="Результатов: {hits}"
+  }
+  msg "editor.search.nothing_found" {
+    text="Ничего не найдено"
+  }
+  msg "editor.search.only_files_nodes_and_actions" {
+    text="В избранное можно добавить только файлы, узлы и действия"
+  }
+  msg "editor.search.tab.actions" {
+    text="Действия"
+  }
+  msg "editor.search.tab.all" {
+    text="Всё"
+  }
+  msg "editor.search.tab.files" {
+    text="Файлы"
+  }
+  msg "editor.search.tab.nodes" {
+    text="Узлы"
+  }
+  msg "editor.search.tab.settings" {
+    text="Настройки"
+  }
+  msg "editor.search.tab.symbols" {
+    text="Символы"
+  }
+  msg "editor.search.this_action_is_not_available" {
+    text="Это действие сейчас недоступно"
+  }
+  msg "editor.shell.about_aego" {
+    text="Об Aego"
+  }
+  msg "editor.shell.add_to_favorites" {
+    text="Добавить в избранное"
+  }
+  msg "editor.shell.alpha_above" {
+    text="Альфа выше"
+  }
+  msg "editor.shell.an_autosave_of_path_from" {
+    text="Найдено автосохранение {path} от {v}."
+  }
+  msg "editor.shell.apply" {
+    text="Применить"
+  }
+  msg "editor.shell.art" {
+    text="Графика"
+  }
+  msg "editor.shell.atlas_group" {
+    text="Группа атласа"
+  }
+  msg "editor.shell.atlas_padding" {
+    text="Отступ в атласе"
+  }
+  msg "editor.shell.audio" {
+    text="Звук"
+  }
+  msg "editor.shell.autosave_off" {
+    text="автосохранение выкл."
+  }
+  msg "editor.shell.autosave_on" {
+    text="автосохранение вкл."
+  }
+  msg "editor.shell.blocked_script_package_error_s" {
+    text="Ошибок в пакетах скриптов: {blocked}, см. «Проблемы»"
+  }
+  msg "editor.shell.blocks_a_release_export_message" {
+    text="Мешает релизному экспорту: {message}"
+  }
+  msg "editor.shell.cancel" {
+    text="Отмена"
+  }
+  msg "editor.shell.cannot_hand_off_the_session" {
+    text="не удалось передать сеанс: {error}"
+  }
+  msg "editor.shell.cannot_read_the_scene_view" {
+    text="не удалось прочитать панель «Сцена»: {error}"
+  }
+  msg "editor.shell.cannot_save_the_editor_state" {
+    text="не удалось сохранить состояние редактора: {error}"
+  }
+  msg "editor.shell.cannot_start_the_editor_again" {
+    text="не удалось перезапустить редактор: {error}"
+  }
+  msg "editor.shell.cell_height" {
+    text="Высота ячейки"
+  }
+  msg "editor.shell.cell_width" {
+    text="Ширина ячейки"
+  }
+  msg "editor.shell.close" {
+    text="Закрыть"
+  }
+  msg "editor.shell.close_scene" {
+    text="Закрыть сцену"
+  }
+  msg "editor.shell.continue" {
+    text="Продолжить"
+  }
+  msg "editor.shell.count_0_all" {
+    text="Количество (0 — все)"
+  }
+  msg "editor.shell.create" {
+    text="Создать"
+  }
+  msg "editor.shell.create_a_project" {
+    text="Создать проект"
+  }
+  msg "editor.shell.created_examplepath_to_get_you" {
+    text="Создан {examplepath} для начала работы"
+  }
+  msg "editor.shell.created_root_open_it_with" {
+    text="Создан {root}, откройте его командой: aego edit {root2}"
+  }
+  msg "editor.shell.custom" {
+    text="Свой…"
+  }
+  msg "editor.shell.design" {
+    text="Дизайн"
+  }
+  msg "editor.shell.dirtycount_scene_s_have_unsaved" {
+    text="Сцен с несохранёнными изменениями: {dirtycount}."
+  }
+  msg "editor.shell.discard" {
+    text="Отбросить"
+  }
+  msg "editor.shell.double_shift_searches_everywhere_help" {
+    text="Двойной Shift ищет везде · «Справка» → «Сочетания клавиш» показывает все сочетания"
+  }
+  msg "editor.shell.errors" {
+    one="{n} ошибка"
+    few="{n} ошибки"
+    many="{n} ошибок"
+  }
+  msg "editor.shell.export_message" {
+    text="Экспорт: {message}"
+  }
+  msg "editor.shell.extension_owner_failed_to_register" {
+    text="расширение {owner} не зарегистрировалось: {error}"
+  }
+  msg "editor.shell.extrude_edges" {
+    text="Выдавить края"
+  }
+  msg "editor.shell.failed_task_s_failed" {
+    text="Задач с ошибкой: {failed}"
+  }
+  msg "editor.shell.filter" {
+    text="Фильтр"
+  }
+  msg "editor.shell.folder" {
+    text="Папка"
+  }
+  msg "editor.shell.from_0_to_8_1" {
+    text="От 0 до 8, 1 — обычная скорость"
+  }
+  msg "editor.shell.go_not_found_native_code" {
+    text="Go не найден — нативный код не собран («Справка» → «Установить Go»)"
+  }
+  msg "editor.shell.hide_appmenutitle" {
+    text="Скрыть {appmenutitle}"
+  }
+  msg "editor.shell.hide_others" {
+    text="Скрыть остальные"
+  }
+  msg "editor.shell.import" {
+    text="Импорт"
+  }
+  msg "editor.shell.keep_mine" {
+    text="Оставить мою версию"
+  }
+  msg "editor.shell.later" {
+    text="Позже"
+  }
+  msg "editor.shell.latest_failed" {
+    text="последняя не удалась"
+  }
+  msg "editor.shell.ln_ln_col_col" {
+    text="Стр. {ln}, стлб. {col}"
+  }
+  msg "editor.shell.mipmaps" {
+    text="MIP-уровни"
+  }
+  msg "editor.shell.n_task_s" {
+    text="Задач: {n}"
+  }
+  msg "editor.shell.n_unsaved" {
+    text="не сохранено: {n}"
+  }
+  msg "editor.shell.name" {
+    text="Имя"
+  }
+  msg "editor.shell.native_api_is_stale" {
+    text="Нативный API устарел"
+  }
+  msg "editor.shell.native_build_failed_the_editor" {
+    text="Нативная сборка не удалась, редактор работает с предыдущей (см. консоль)"
+  }
+  msg "editor.shell.native_code_is_being_rebuilt" {
+    text="Нативный код пересобирается"
+  }
+  msg "editor.shell.native_code_rebuilt_reloading_the" {
+    text="Нативный код пересобран, редактор перезагружается"
+  }
+  msg "editor.shell.no_filename_in_path" {
+    text="В {path} нет {filename}"
+  }
+  msg "editor.shell.no_template_can_instantiate_name" {
+    text="ни один шаблон не может создать {name}"
+  }
+  msg "editor.shell.offset_x" {
+    text="Смещение X"
+  }
+  msg "editor.shell.offset_y" {
+    text="Смещение Y"
+  }
+  msg "editor.shell.open" {
+    text="Открыть"
+  }
+  msg "editor.shell.open_project" {
+    text="Открыть проект"
+  }
+  msg "editor.shell.padding_x" {
+    text="Отступ X"
+  }
+  msg "editor.shell.padding_y" {
+    text="Отступ Y"
+  }
+  msg "editor.shell.path_has_unsaved_changes" {
+    text="В {path} есть несохранённые изменения."
+  }
+  msg "editor.shell.path_was_changed_on_disk" {
+    text="{path} изменён на диске, пока в нём есть несохранённые правки."
+  }
+  msg "editor.shell.path_was_deleted_on_disk" {
+    text="{path} удалён с диска."
+  }
+  msg "editor.shell.pause_playpause" {
+    text="Пауза ({playpause})"
+  }
+  msg "editor.shell.paused_simtime_tail" {
+    text="Пауза {simtime}{tail}"
+  }
+  msg "editor.shell.play" {
+    text="Играть"
+  }
+  msg "editor.shell.play_playstart_full_screen_commandfullscreenplay" {
+    text="Играть ({playstart}), на весь экран ({commandfullscreenplay})"
+  }
+  msg "editor.shell.play_simtime_tail" {
+    text="Игра {simtime}{tail}"
+  }
+  msg "editor.shell.plus_one_tick" {
+    text="+1 тик"
+  }
+  msg "editor.shell.problems" {
+    text="Проблемы"
+  }
+  msg "editor.shell.programming" {
+    text="Программирование"
+  }
+  msg "editor.shell.project_may_be_open_elsewhere" {
+    text="Проект, возможно, открыт в другом месте"
+  }
+  msg "editor.shell.quit_aego_editor" {
+    text="Выйти из редактора Aego"
+  }
+  msg "editor.shell.quit_appmenutitle" {
+    text="Выйти из {appmenutitle}"
+  }
+  msg "editor.shell.recover_unsaved_changes" {
+    text="Восстановить несохранённые изменения"
+  }
+  msg "editor.shell.rects_cell_s_subs_in" {
+    text="Ячеек: {rects}; в meta: {subs}"
+  }
+  msg "editor.shell.redo" {
+    text="Повторить"
+  }
+  msg "editor.shell.reload" {
+    text="Перезагрузить"
+  }
+  msg "editor.shell.reloaded_path" {
+    text="{path} перезагружен"
+  }
+  msg "editor.shell.remove_cells" {
+    text="Удалить ячейки"
+  }
+  msg "editor.shell.remove_from_favorites" {
+    text="Убрать из избранного"
+  }
+  msg "editor.shell.rename_workspace" {
+    text="Переименовать раскладку"
+  }
+  msg "editor.shell.repair" {
+    text="Восстановить"
+  }
+  msg "editor.shell.repair_meta_files" {
+    text="Восстановить .meta-файлы"
+  }
+  msg "editor.shell.repaired_n_meta_issue_s" {
+    text="Исправлено проблем с meta: {n}"
+  }
+  msg "editor.shell.restore" {
+    text="Восстановить"
+  }
+  msg "editor.shell.revert" {
+    text="Вернуть"
+  }
+  msg "editor.shell.rewind_is_off_module_id" {
+    text="Перемотка выключена: модуль {id} {nondeterministic}"
+  }
+  msg "editor.shell.running_script_build_formatuint_the" {
+    text="Работает сборка скриптов {formatuint}, последний исходник не скомпилировался"
+  }
+  msg "editor.shell.running_script_tests" {
+    text="Тесты скриптов выполняются…"
+  }
+  msg "editor.shell.save" {
+    text="Сохранить"
+  }
+  msg "editor.shell.save_all" {
+    text="Сохранить всё"
+  }
+  msg "editor.shell.save_and_continue" {
+    text="Сохранить и продолжить"
+  }
+  msg "editor.shell.save_as" {
+    text="Сохранить как…"
+  }
+  msg "editor.shell.save_as_workspace" {
+    text="Сохранить как раскладку"
+  }
+  msg "editor.shell.save_filesave" {
+    text="Сохранить ({filesave})"
+  }
+  msg "editor.shell.save_scene_as" {
+    text="Сохранить сцену как"
+  }
+  msg "editor.shell.save_the_changed_scenes_and" {
+    text="Сохранить изменённые сцены и скрипты перед выходом из проекта?"
+  }
+  msg "editor.shell.saved_all_scenes" {
+    text="Все сцены сохранены"
+  }
+  msg "editor.shell.saved_path" {
+    text="{path} сохранён"
+  }
+  msg "editor.shell.saved_rel" {
+    text="{rel} сохранён"
+  }
+  msg "editor.shell.scale" {
+    text="Масштаб"
+  }
+  msg "editor.shell.scene_changed_outside_the_editor" {
+    text="Сцена изменена вне редактора"
+  }
+  msg "editor.shell.script_tests_failed_see_console" {
+    text="Тесты скриптов не прошли, см. консоль и проблемы"
+  }
+  msg "editor.shell.script_tests_passed" {
+    text="Тесты скриптов прошли"
+  }
+  msg "editor.shell.scripts_build" {
+    text="Скрипты: сборка {n}"
+  }
+  msg "editor.shell.session_restored_after_the_native" {
+    text="Сеанс восстановлен после нативной пересборки"
+  }
+  msg "editor.shell.set" {
+    text="Задать"
+  }
+  msg "editor.shell.show_all" {
+    text="Показать все"
+  }
+  msg "editor.shell.slice" {
+    text="Нарезать"
+  }
+  msg "editor.shell.slice.alpha" {
+    text="По альфе"
+  }
+  msg "editor.shell.slice.grid" {
+    text="Сетка"
+  }
+  msg "editor.shell.slice_by" {
+    text="Нарезать по"
+  }
+  msg "editor.shell.sliced_rel_into_rects_cell" {
+    text="{rel} нарезан, ячеек: {rects}"
+  }
+  msg "editor.shell.slicing" {
+    text="Нарезка"
+  }
+  msg "editor.shell.srgb" {
+    text="sRGB"
+  }
+  msg "editor.shell.state_edit" {
+    text="Редактирование"
+  }
+  msg "editor.shell.step_one_fixed_tick_playstepfixed" {
+    text="Шаг на фиксированный тик ({playstepfixed}) во время паузы"
+  }
+  msg "editor.shell.step_one_frame_playstep" {
+    text="Шаг на кадр ({playstep})"
+  }
+  msg "editor.shell.stop" {
+    text="Остановить"
+  }
+  msg "editor.shell.template" {
+    text="Шаблон"
+  }
+  msg "editor.shell.template_empty_2d_2_5d" {
+    text="Шаблон: empty, 2d, 2.5d или 3d"
+  }
+  msg "editor.shell.the_last_native_build_failed" {
+    text="Последняя нативная сборка не удалась; редактор и скрипты используют прежний нативный API. Щёлкните, чтобы увидеть вывод сборки"
+  }
+  msg "editor.shell.time_scale" {
+    text="Масштаб времени"
+  }
+  msg "editor.shell.time_scale_must_be_a" {
+    text="Масштаб времени должен быть числом от 0 до 8"
+  }
+  msg "editor.shell.tip_click_a_problem_in" {
+    text="Совет: щёлкните проблему на панели «Проблемы», чтобы перейти к её строке; F2 переходит по ошибкам"
+  }
+  msg "editor.shell.undo" {
+    text="Отменить"
+  }
+  msg "editor.shell.unsaved_changes" {
+    text="Несохранённые изменения"
+  }
+  msg "editor.shell.workspace_v" {
+    text="Раскладка {v}"
+  }
+  msg "editor.shell.workspace_v_4" {
+    text="Раскладка ({v}…4)"
+  }
+  msg "editor.slice.import_settings" {
+    text="Настройки импорта"
+  }
+  msg "editor.slice.slice_sprite_sheet" {
+    text="Нарезать лист спрайтов"
+  }
+  msg "editor.sysopen.show_in_explorer" {
+    text="Показать в проводнике"
+  }
+  msg "editor.sysopen.show_in_files" {
+    text="Показать в файлах"
+  }
+  msg "editor.sysopen.show_in_finder" {
+    text="Показать в Finder"
+  }
+  msg "editor.taskcenter.live_running_recent_finished" {
+    text="выполняется {live}, завершено {recent}"
+  }
+  msg "editor.taskcenter.title" {
+    text="Задачи"
+  }
+  msg "editor.theme.dark" {
+    text="Тёмная"
+  }
+  msg "editor.theme.dark.tip" {
+    text="Тёмная тема редактора"
+  }
+  msg "editor.theme.light" {
+    text="Светлая"
+  }
+  msg "editor.theme.light.tip" {
+    text="Светлая тема редактора"
+  }
+  msg "editor.theme.system" {
+    text="Системная"
+  }
+  msg "editor.theme.system.tip" {
+    text="Как в системе: светлая или тёмная"
+  }
+  msg "editor.undohistory.an_edit_is_in_progress" {
+    text="Идёт изменение"
+  }
+  msg "editor.undohistory.cur_of_steps_step_s" {
+    text="Шаг {cur} из {steps}, щёлкните шаг, чтобы вернуться к нему"
+  }
+  msg "editor.undohistory.finish_the_current_edit_first" {
+    text="Сначала завершите текущее изменение"
+  }
+  msg "editor.undohistory.initial_state" {
+    text="Начальное состояние"
+  }
+  msg "editor.undohistory.open_a_scene_to_see" {
+    text="Откройте сцену, чтобы увидеть её историю"
+  }
+  msg "editor.undohistory.play_history_cleared_on_stop" {
+    text="История игры, очищается при остановке"
+  }
+  msg "editor.undohistory.title" {
+    text="История изменений"
+  }
+  msg "editor.vcsdiff.changes_change_s" {
+    text="Изменений: {changes}"
+  }
+  msg "editor.vcsdiff.diff_rel_with_rev" {
+    text="Сравнение {rel} с {rev}"
+  }
+  msg "editor.vcsdiff.loading" {
+    text="Загрузка…"
+  }
+  msg "editor.vcsdiff.no_differences" {
+    text="Различий нет"
+  }
+  msg "editor.vcsdiff.rel_working_copy_vs" {
+    text="{rel}  ·  рабочая копия против"
+  }
+  msg "editor.vcsdiff.the_node_is_not_in" {
+    text="Этого узла нет в рабочей копии"
+  }
+  msg "editor.vcsdiff.the_project_is_not_inside" {
+    text="Проект не находится в git-репозитории"
+  }
+  msg "editor.vcsdiff.title" {
+    text="Сравнение"
+  }
+  msg "editor.vcsdiff.unsaved_changes_in_the_open" {
+    text="Несохранённые изменения открытого документа не учитываются"
+  }
+  msg "editor.vcsdiff.use_compare_with_head_in" {
+    text="Используйте «Сравнить с HEAD» в меню сцены, префаба или ассета данных"
+  }
+  msg "editor.watch.add" {
+    text="Добавить"
+  }
+  msg "editor.watch.hud" {
+    text="HUD"
+  }
+  msg "editor.watch.player_playercontroller_speed_player_playercontroller" {
+    text="Player.PlayerController.Speed, Player.PlayerController.Velocity.y, time.Scale; добавьте >= 3, чтобы остановиться там"
+  }
+  msg "editor.watch.title" {
+    text="Отслеживание"
+  }
+  msg "editor.welcome.create_a_project" {
+    text="Создать проект…"
+  }
+  msg "editor.welcome.getting_started_with_aego" {
+    text="Начало работы с Aego"
+  }
+  msg "editor.welcome.n_of_checks_done" {
+    text="Выполнено {n} из {checks}"
+  }
+  msg "editor.welcome.open_documentation" {
+    text="Открыть документацию"
+  }
+  msg "editor.welcome.reset_checklist" {
+    text="Сбросить список"
+  }
+  msg "editor.welcome.show_me" {
+    text="Показать"
+  }
+  msg "editor.welcome.title" {
+    text="Начало работы"
+  }
+  msg "editor.widgets.available" {
+    text="доступно"
+  }
+  msg "editor.widgets.curve.after" {
+    text="После"
+  }
+  msg "editor.widgets.curve.auto" {
+    text="Авто"
+  }
+  msg "editor.widgets.curve.before" {
+    text="До"
+  }
+  msg "editor.widgets.curve.bezier" {
+    text="Безье"
+  }
+  msg "editor.widgets.curve.clamp" {
+    text="Удерживать"
+  }
+  msg "editor.widgets.curve.free" {
+    text="Свободная"
+  }
+  msg "editor.widgets.curve.linear" {
+    text="Линейная"
+  }
+  msg "editor.widgets.curve.loop" {
+    text="Повтор"
+  }
+  msg "editor.widgets.curve.ping_pong" {
+    text="Туда-обратно"
+  }
+  msg "editor.widgets.curve.preset" {
+    text="Пресет"
+  }
+  msg "editor.widgets.curve.segment" {
+    text="Сегмент"
+  }
+  msg "editor.widgets.curve.step" {
+    text="Ступенька"
+  }
+  msg "editor.widgets.curve.tangent" {
+    text="Касательная"
+  }
+  msg "editor.widgets.curve.time" {
+    text="Время"
+  }
+  msg "editor.widgets.curve.value" {
+    text="Значение"
+  }
+  msg "editor.widgets.everything" {
+    text="Всё"
+  }
+  msg "editor.widgets.hex" {
+    text="Hex"
+  }
+  msg "editor.widgets.layer" {
+    text="Слой"
+  }
+  msg "editor.widgets.nothing" {
+    text="Ничего"
+  }
+  msg "editor.widgets.nothing_matches" {
+    text="Ничего не подходит"
+  }
+  msg "editor.widgets.search" {
+    text="Поиск"
+  }
+  msg "editor.window.toggle.tip" {
+    text="Показать или скрыть панель «{panel}»"
+  }
+  msg "editor.workspace.default" {
+    text="По умолчанию"
+  }
+  msg "editor.workspace.panel_id_crashed_msg" {
+    text="панель {id} упала: {msg}"
+  }
+  msg "editor.workspace.retry" {
+    text="Повторить"
+  }
+  msg "editor.workspace.this_panel_crashed_and_was" {
+    text="Панель упала и была отключена."
+  }
+  msg "editor.workspace.unknown_panel_id" {
+    text="неизвестная панель {id}"
+  }
+  msg "launcher.aego" {
+    text="Aego"
+  }
+  msg "launcher.browse" {
+    text="Обзор…"
+  }
+  msg "launcher.check_for_aego_updates_once" {
+    text="Проверять обновления Aego раз в день"
+  }
+  msg "launcher.contains" {
+    text="Содержит: {files}"
+  }
+  msg "launcher.copy_to" {
+    text="Куда скопировать"
+  }
+  msg "launcher.create" {
+    text="Создать"
+  }
+  msg "launcher.create_from" {
+    text="Создать из {example}"
+  }
+  msg "launcher.documentation" {
+    text="Документация"
+  }
+  msg "launcher.download" {
+    text="Скачать"
+  }
+  msg "launcher.drop_hint" {
+    text="Или перетащите сюда папку проекта или её {file}."
+  }
+  msg "launcher.examples_come_from_the_engine" {
+    text="Примеры берутся из исходников движка; укажите их папку в AEGO_ROOT."
+  }
+  msg "launcher.get_go" {
+    text="Скачать Go"
+  }
+  msg "launcher.language" {
+    text="Язык"
+  }
+  msg "launcher.language.auto" {
+    text="Авто"
+  }
+  msg "launcher.location" {
+    text="Расположение"
+  }
+  msg "launcher.missing" {
+    text="нет на диске, щёлкните, чтобы убрать"
+  }
+  msg "launcher.module" {
+    text="Модуль"
+  }
+  msg "launcher.name" {
+    text="Имя"
+  }
+  msg "launcher.native_go_code" {
+    text="Нативный код на Go"
+  }
+  msg "launcher.no_project_file" {
+    text="В {dir} нет {file}"
+  }
+  msg "launcher.no_recent_projects_yet" {
+    text="Недавних проектов пока нет"
+  }
+  msg "launcher.open" {
+    text="Открыть"
+  }
+  msg "launcher.open_a_project" {
+    text="Открыть проект"
+  }
+  msg "launcher.open_a_recent_project_start" {
+    text="Откройте недавний проект, начните новый или изучите пример."
+  }
+  msg "launcher.project" {
+    text="Проект"
+  }
+  msg "launcher.remove_from_list" {
+    text="Убрать из списка"
+  }
+  msg "launcher.tab.examples" {
+    text="Примеры"
+  }
+  msg "launcher.tab.new" {
+    text="Новый проект"
+  }
+  msg "launcher.tab.recent" {
+    text="Недавние"
+  }
+  msg "launcher.theme" {
+    text="Тема"
+  }
+  msg "launcher.theme.dark" {
+    text="Тёмная"
+  }
+  msg "launcher.theme.light" {
+    text="Светлая"
+  }
+  msg "launcher.theme.system" {
+    text="Системная"
+  }
+  msg "launcher.update_available" {
+    text="Доступна Aego {version}"
+  }
+  msg "launcher.workspace" {
+    text="Раскладка"
+  }
+}

@@ -8,6 +8,7 @@ import (
 	"aego/core/log"
 	"aego/editor/core/context"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -214,20 +215,20 @@ func Paste(ctx *context.Editor) error {
 	case KindComponent:
 		nodes := append([]ids.NodeID(nil), ctx.Selected()...)
 		if len(nodes) == 0 {
-			ctx.Notify(context.LevelInfo, "Select the nodes to paste the component onto")
+			ctx.Notify(context.LevelInfo, i18n.Note("editor.clipboard.select_the_nodes_to_paste", "Select the nodes to paste the component onto"))
 			return nil
 		}
 		return PasteComponent(ctx, d, nodes)
 	case KindComponents:
 		nodes := append([]ids.NodeID(nil), ctx.Selected()...)
 		if len(nodes) == 0 {
-			ctx.Notify(context.LevelInfo, "Select the nodes to paste the components onto")
+			ctx.Notify(context.LevelInfo, i18n.Note("editor.clipboard.select_the_nodes_to_paste_2", "Select the nodes to paste the components onto"))
 			return nil
 		}
 		return EnvOf(ctx).PasteComponents(d, nodes)
 	case KindNodes:
 	default:
-		ctx.Notify(context.LevelInfo, "The clipboard holds nothing that can be pasted into the scene")
+		ctx.Notify(context.LevelInfo, i18n.Note("editor.clipboard.the_clipboard_holds_nothing_that", "The clipboard holds nothing that can be pasted into the scene"))
 		return nil
 	}
 	data, err := clipboardData(ctx)

@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -120,7 +121,7 @@ func New(d Deps) *Panel {
 }
 
 func (p *Panel) ID() string    { return ID }
-func (p *Panel) Title() string { return "Animator" }
+func (p *Panel) Title() string { return i18n.Tr("editor.animator.title", "Animator") }
 
 func (p *Panel) notify(err error) {
 	if err != nil && p.d.Notices != nil {
@@ -253,7 +254,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	d := p.d.Docs.Doc()
 	if d == nil {
-		widgets.LabelDim(ui, "Open a scene and select a node with an Animator")
+		widgets.LabelDim(ui, i18n.Tr("editor.animator.open_a_scene_and_select", "Open a scene and select a node with an Animator"))
 		return
 	}
 	s := d.Scene()
@@ -268,7 +269,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	rel, ok := p.ctrlRel, p.ctrlOK
 	if !ok {
-		widgets.LabelDim(ui, "Select a node with an Animator that has a controller, or Create → Animation → Controller")
+		widgets.LabelDim(ui, i18n.Tr("editor.animator.select_a_node_with_an", "Select a node with an Animator that has a controller, or Create → Animation → Controller"))
 		return
 	}
 	p.load(d, rel)

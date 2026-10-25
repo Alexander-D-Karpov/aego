@@ -14,6 +14,7 @@ import (
 	"aego/editor/panels/events"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/watch"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -38,16 +39,16 @@ func WorkspaceCommand(i int) string {
 func BuiltinWorkspaces() []workspace.Preset {
 	off := workspace.SlotNone
 	return []workspace.Preset{
-		{ID: workspace.Design, Title: "Design", Order: 0},
-		{ID: workspace.Programming, Title: "Programming", Order: 10, HideToolbar: true, Rev: 1, Slots: map[string]workspace.Slot{
+		{ID: workspace.Design, Title: i18n.Tr("editor.shell.design", "Design"), Order: 0},
+		{ID: workspace.Programming, Title: i18n.Tr("editor.shell.programming", "Programming"), Order: 10, HideToolbar: true, Rev: 1, Slots: map[string]workspace.Slot{
 			workspace.Hierarchy: off, workspace.Scene: off, workspace.Game: off, workspace.Inspector: off, workspace.Profiler: off,
 			events.ID: off, watch.ID: off, animpanel.ID: off, animator.ID: off, scripteditor.FindID: workspace.SlotRight, edocs.ID: workspace.SlotCenter,
 		}},
-		{ID: workspace.Art, Title: "Art", Order: 20, Slots: map[string]workspace.Slot{
+		{ID: workspace.Art, Title: i18n.Tr("editor.shell.art", "Art"), Order: 20, Slots: map[string]workspace.Slot{
 			workspace.Assets: workspace.SlotBottom, workspace.Game: off, workspace.Console: off, workspace.Problems: off,
 			workspace.Profiler: off, events.ID: off, watch.ID: off,
 		}},
-		{ID: workspace.Audio, Title: "Audio", Order: 30, Slots: map[string]workspace.Slot{
+		{ID: workspace.Audio, Title: i18n.Tr("editor.shell.audio", "Audio"), Order: 30, Slots: map[string]workspace.Slot{
 			workspace.Hierarchy: off, workspace.Game: off, workspace.Problems: off, workspace.Profiler: off,
 			events.ID: off, watch.ID: off, workspace.Mixer: workspace.SlotBottom, animpanel.ID: off, animator.ID: off,
 		}},
@@ -78,7 +79,7 @@ func (a *App) registerWorkspaces() error {
 				if p, ok := a.presetAt(i); ok {
 					return p.Title
 				}
-				return "Workspace " + strconv.Itoa(i+1)
+				return i18n.Tr("editor.shell.workspace_v", "Workspace {v}", i18n.Str("v", strconv.Itoa(i+1)))
 			},
 			Enabled: func() bool {
 				_, ok := a.presetAt(i)
@@ -99,7 +100,7 @@ func (a *App) registerWorkspaces() error {
 	list = append(list,
 		command.Desc{ID: CommandWorkspaceSaveAs, Name: "Save as Workspace…", Category: "Window", Order: 890,
 			Run: func() error {
-				a.askWorkspaceName("Save as workspace", "", func(title string) error {
+				a.askWorkspaceName(i18n.Tr("editor.shell.save_as_workspace", "Save as workspace"), "", func(title string) error {
 					_, err := a.ws.SaveAs(title)
 					return err
 				})
@@ -108,7 +109,7 @@ func (a *App) registerWorkspaces() error {
 		command.Desc{ID: CommandWorkspaceRename, Name: "Rename Workspace…", Category: "Window", Order: 891,
 			Run: func() error {
 				cur := a.ws.Current()
-				a.askWorkspaceName("Rename workspace", cur.Title, func(title string) error { return a.ws.Rename(cur.ID, title) })
+				a.askWorkspaceName(i18n.Tr("editor.shell.rename_workspace", "Rename workspace"), cur.Title, func(title string) error { return a.ws.Rename(cur.ID, title) })
 				return nil
 			}},
 		command.Desc{ID: CommandWorkspaceDelete, Name: "Delete Workspace", Category: "Window", Order: 892,
@@ -165,9 +166,9 @@ func (a *App) registerWorkspaces() error {
 func (a *App) askWorkspaceName(title, value string, fn func(string) error) {
 	a.ctx.Ask(context.Question{
 		Title:   title,
-		Fields:  []string{"Name"},
+		Fields:  []string{i18n.Tr("editor.shell.name", "Name")},
 		Values:  []string{value},
-		Buttons: []string{"Save", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.shell.save", "Save"), i18n.Tr("editor.shell.cancel", "Cancel")},
 		Submit: func(v []string) {
 			if err := fn(v[0]); err != nil {
 				a.ctx.Notify(context.LevelError, err.Error())

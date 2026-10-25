@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/render/debug"
 	"aego/render/view"
 	"aego/scene"
@@ -20,11 +21,11 @@ const (
 func (o Op3) Label() string {
 	switch o {
 	case Rotate3:
-		return "Rotate"
+		return i18n.Tr("editor.gizmo.rotate", "Rotate")
 	case Scale3:
-		return "Scale"
+		return i18n.Tr("editor.gizmo.scale", "Scale")
 	}
-	return "Move"
+	return i18n.Tr("editor.gizmo.move", "Move")
 }
 
 type Part3 uint8

@@ -1,0 +1,5 @@
+messages version=1 lang=en {
+  msg "i18n.gameplay.gameplay_runs_only_in_play" {
+    text="Gameplay runs only in Play"
+  }
+}

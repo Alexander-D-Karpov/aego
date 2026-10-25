@@ -2,6 +2,7 @@ package ext
 
 import (
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"fmt"
 	"runtime/debug"
 
@@ -182,7 +183,7 @@ func (r *Registry) disableNow(id, reason string) {
 		r.deps.Templates.RemoveDrops(id)
 	}
 	if r.deps.Editor != nil {
-		r.deps.Editor.Notify(context.LevelError, "extension "+id+" was disabled: "+reason)
+		r.deps.Editor.Notify(context.LevelError, i18n.Note("editor.ext.extension_id_was_disabled_reason", "extension {id} was disabled: {reason}", i18n.Str("id", id), i18n.Str("reason", reason)))
 	}
 }
 

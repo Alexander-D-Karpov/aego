@@ -3,6 +3,7 @@ package shell
 import (
 	"aego/editor/core/command"
 	pd "aego/editor/core/playdiff"
+	"aego/engine/i18n"
 )
 
 const CommandPlayDiffMode = "play.diff_mode"
@@ -36,9 +37,14 @@ func (a *App) showPlayDiff() {
 func (a *App) registerPlayDiff() error {
 	for i, m := range []pd.Mode{pd.ModeIfChanges, pd.ModeAlways, pd.ModeNever} {
 		mode := m
-		names := [...]string{"Show Play Changes When Something Changed", "Always Show Play Changes", "Never Show Play Changes"}
+		names := [...]i18n.Text{
+			i18n.T("editor.playdiff.mode.if_changes", "Show Play Changes When Something Changed"),
+			i18n.T("editor.playdiff.mode.always", "Always Show Play Changes"),
+			i18n.T("editor.playdiff.mode.never", "Never Show Play Changes"),
+		}
+		name := names[i]
 		if err := a.ctx.Commands.Register(command.Desc{
-			ID: CommandPlayDiffMode + "." + mode.String(), Name: names[i], Category: "Play", Order: 520 + i,
+			ID: CommandPlayDiffMode + "." + mode.String(), Name: name.En, Label: name.String, Category: "Play", Order: 520 + i,
 			Checked: func() bool { return a.diffMode == mode },
 			Run:     func() error { a.diffMode = mode; return nil },
 		}); err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/code/search"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -87,7 +88,7 @@ func (p *Panel) drawFind(ui *core.Context, r mathx.Rect) {
 		p.findNext(ui, false)
 	}
 	x += bw + 4
-	widgets.ToggleButton(ui, core.IDSeq(p.fid, 13), mathx.Rect{X: x, Y: row.Y, W: 40, H: row.H}, "Aa", &p.find.matchCase)
+	widgets.ToggleButton(ui, core.IDSeq(p.fid, 13), mathx.Rect{X: x, Y: row.Y, W: 40, H: row.H}, i18n.Tr("editor.scripteditor.aa", "Aa"), &p.find.matchCase)
 	if !p.find.replace {
 		return
 	}
@@ -95,11 +96,11 @@ func (p *Panel) drawFind(ui *core.Context, r mathx.Rect) {
 	rf := mathx.Rect{X: row.X, Y: row.Y, W: field.W, H: row.H}
 	widgets.TextFieldRect(ui, core.IDSeq(p.fid, 14), rf, &p.find.repl, true)
 	x = rf.X + rf.W + 4
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 15), mathx.Rect{X: x, Y: row.Y, W: 70, H: row.H}, "Replace") {
+	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 15), mathx.Rect{X: x, Y: row.Y, W: 70, H: row.H}, i18n.Tr("editor.scripteditor.replace", "Replace")) {
 		p.replaceOne(ui)
 	}
 	x += 74
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 16), mathx.Rect{X: x, Y: row.Y, W: 50, H: row.H}, "All") {
+	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 16), mathx.Rect{X: x, Y: row.Y, W: 50, H: row.H}, i18n.Tr("editor.scripteditor.all", "All")) {
 		n := p.doc.Code.ReplaceAll(p.find.query, p.find.repl, p.options())
 		p.flash(ui.Time, "Replaced "+strconv.Itoa(n)+" occurrence(s)")
 	}

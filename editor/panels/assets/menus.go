@@ -3,6 +3,7 @@ package assets
 import (
 	favs "aego/editor/core/favorites"
 	"aego/editor/core/refs"
+	"aego/engine/i18n"
 	"path"
 	"strconv"
 	"strings"
@@ -43,43 +44,43 @@ func (p *Panel) assetItems() {
 	}
 	single := len(p.sel) == 1
 	reg := p.d.Commands
-	if widgets.MenuItemIcon(ui, "Open", "", "file.open", single && openable(a.Kind), false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.open", "Open"), "", "file.open", single && openable(a.Kind), false) {
 		p.open(a)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Copy", reg.Shortcut(CommandCopy), "edit.copy", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.copy", "Copy"), reg.Shortcut(CommandCopy), "edit.copy", true, false) {
 		p.report(p.CopySelected())
 	}
-	if widgets.MenuItemIcon(ui, "Cut", reg.Shortcut(CommandCut), "edit.cut", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.cut", "Cut"), reg.Shortcut(CommandCut), "edit.cut", true, false) {
 		p.report(p.CutSelected())
 	}
-	if widgets.MenuItemIcon(ui, "Paste", reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.paste", "Paste"), reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
 		p.report(p.Paste(path.Dir(a.Path)))
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Rename", reg.Shortcut(CommandRename), "edit.rename", single, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.rename", "Rename"), reg.Shortcut(CommandRename), "edit.rename", single, false) {
 		p.StartRename()
 	}
-	if widgets.MenuItemIcon(ui, "Batch Rename…", "", "edit.batch_rename", len(p.sel) > 1 && p.d.BatchRename != nil, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.batch_rename", "Batch Rename…"), "", "edit.batch_rename", len(p.sel) > 1 && p.d.BatchRename != nil, false) {
 		p.d.BatchRename(p.fileSelection())
 	}
-	if widgets.MenuItemIcon(ui, "Duplicate", reg.Shortcut(CommandDuplicate), "edit.duplicate", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.duplicate", "Duplicate"), reg.Shortcut(CommandDuplicate), "edit.duplicate", true, false) {
 		p.report(p.DuplicateSelected())
 	}
-	if widgets.MenuItemIcon(ui, "Delete", reg.Shortcut(CommandDelete), "edit.delete", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.delete", "Delete"), reg.Shortcut(CommandDelete), "edit.delete", true, false) {
 		p.DeleteSelected()
 	}
-	if widgets.MenuItemIcon(ui, "Reimport", "", "ui.reset", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.reimport", "Reimport"), "", "ui.reset", true, false) {
 		p.report(p.ReimportSelected())
 	}
-	if widgets.MenuItemIcon(ui, "Find References", reg.Shortcut(CommandFindReferences), "panel.references", single && p.d.ShowReferences != nil, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.find_references", "Find References"), reg.Shortcut(CommandFindReferences), "panel.references", single && p.d.ShowReferences != nil, false) {
 		p.d.ShowReferences(a.ID, nil)
 	}
 	if p.d.Favorites != nil && single {
 		fav := favs.Item{Kind: favs.Asset, Asset: a.ID, Label: path.Base(a.Path)}
-		label := "Add to Favorites"
+		label := i18n.Tr("editor.assets.add_to_favorites", "Add to Favorites")
 		if p.d.Favorites.Has(fav) {
-			label = "Remove from Favorites"
+			label = i18n.Tr("editor.assets.remove_from_favorites", "Remove from Favorites")
 		}
 		if widgets.MenuItemIcon(ui, label, "", "ui.star", true, false) {
 			_, err := p.d.Favorites.Toggle(fav)
@@ -92,41 +93,41 @@ func (p *Panel) assetItems() {
 		case asset.ArtScene:
 			widgets.Separator(ui)
 			startup := p.d.Project != nil && p.d.Project.MainScene == id
-			if widgets.MenuItemIcon(ui, "Set as Startup Scene", "", "play.start", !startup, startup) {
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.set_as_startup_scene", "Set as Startup Scene"), "", "play.start", !startup, startup) {
 				p.d.Files.SetStartup(id, rel)
 			}
 		case asset.ArtPrefab:
 			widgets.Separator(ui)
-			if widgets.MenuItemIcon(ui, "Instantiate in Scene", "", "file.prefab", p.d.Docs.Doc() != nil && p.Instantiate != nil, false) {
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.instantiate_in_scene", "Instantiate in Scene"), "", "file.prefab", p.d.Docs.Doc() != nil && p.Instantiate != nil, false) {
 				p.Instantiate(id, path.Base(name))
 			}
 			if p.d.Prefabs != nil {
-				if widgets.MenuItemIcon(ui, "Create Variant", "", "prefab.variant", true, false) {
+				if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.create_variant", "Create Variant"), "", "prefab.variant", true, false) {
 					p.report(p.d.Prefabs.CreateVariant(id))
 					p.invalidate()
 				}
-				if widgets.MenuItemIcon(ui, "Find Instances", "", "ui.search", true, false) {
+				if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.find_instances", "Find Instances"), "", "ui.search", true, false) {
 					p.d.Prefabs.FindInstances(id)
 				}
 			}
 		case asset.ArtScript:
 			widgets.Separator(ui)
 			nodes := p.d.Selection.Selected()
-			if widgets.MenuItemIcon(ui, "Attach to Selected", "", "comp.script", len(nodes) > 0, false) {
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.attach_to_selected", "Attach to Selected"), "", "comp.script", len(nodes) > 0, false) {
 				p.d.Scenes.AttachScript(nodes, id)
 			}
 		}
 	}
 	widgets.Separator(ui)
 	if p.d.Compare != nil && single && diffable(a.Path) {
-		if widgets.MenuItemIcon(ui, "Compare with HEAD", "", "panel.diff", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.compare_with_head", "Compare with HEAD"), "", "panel.diff", true, false) {
 			p.d.Compare(a.Path)
 		}
 	}
-	if widgets.MenuItemIcon(ui, "Reveal in File Manager", "", "file.reveal", single, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.reveal_in_file_manager", "Reveal in File Manager"), "", "file.reveal", single, false) {
 		p.report(reveal(p.d.Pipeline.Abs(a.Path), false))
 	}
-	if widgets.MenuItemIcon(ui, "Copy Path", "", "edit.copy_path", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.copy_path", "Copy Path"), "", "edit.copy_path", true, false) {
 		var paths []string
 		for _, id := range p.fileSelection() {
 			if rel, ok := p.d.Pipeline.PathOf(id); ok {
@@ -140,43 +141,43 @@ func (p *Panel) assetItems() {
 func (p *Panel) dirItems(dir string) {
 	ui := p.f.UI
 	reg := p.d.Commands
-	if widgets.SubMenuIcon(ui, "New", "ui.plus", 200) {
-		if widgets.MenuItemIcon(ui, "Folder", "", "file.folder", true, false) {
+	if widgets.SubMenuIcon(ui, i18n.Tr("editor.assets.new", "New"), "ui.plus", 200) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.folder", "Folder"), "", "file.folder", true, false) {
 			p.newFolder(dir)
 		}
-		if widgets.MenuItemIcon(ui, "Scene…", "", "file.scene", p.d.Files.CanNewScene(), false) {
-			p.newDoc(dir, "New scene", document.SceneExt, p.d.Files.NewScene)
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.scene", "Scene…"), "", "file.scene", p.d.Files.CanNewScene(), false) {
+			p.newDoc(dir, i18n.Tr("editor.assets.new_scene", "New scene"), document.SceneExt, p.d.Files.NewScene)
 		}
-		if widgets.MenuItemIcon(ui, "Prefab…", "", "file.prefab", p.d.Files.CanNewPrefab(), false) {
-			p.newDoc(dir, "New prefab", assetops.PrefabExt, p.d.Files.NewPrefab)
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.prefab", "Prefab…"), "", "file.prefab", p.d.Files.CanNewPrefab(), false) {
+			p.newDoc(dir, i18n.Tr("editor.assets.new_prefab", "New prefab"), assetops.PrefabExt, p.d.Files.NewPrefab)
 		}
 		widgets.Separator(ui)
-		if widgets.MenuItemIcon(ui, "Script…", "", "file.script", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.script", "Script…"), "", "file.script", true, false) {
 			p.newScript(dir)
 		}
-		if widgets.MenuItemIcon(ui, "Script Package…", "", "file.package", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.script_package", "Script Package…"), "", "file.package", true, false) {
 			p.newPackage(dir)
 		}
 		p.dataItems(dir)
 		widgets.EndSubMenu(ui)
 	}
-	if widgets.MenuItemIcon(ui, "Paste", reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.paste", "Paste"), reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
 		p.report(p.Paste(dir))
 	}
 	widgets.Separator(ui)
 	top := path.Dir(dir) == "."
-	if widgets.MenuItemIcon(ui, "Rename", "", "edit.rename", !top, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.rename", "Rename"), "", "edit.rename", !top, false) {
 		p.expanded[path.Dir(dir)] = true
 		p.renamingDir, p.renameDirStart = dir, true
 	}
-	if widgets.MenuItemIcon(ui, "Delete…", "", "edit.delete", !top, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.delete_2", "Delete…"), "", "edit.delete", !top, false) {
 		p.deleteDir(dir)
 	}
 	widgets.Separator(ui)
-	if widgets.MenuItemIcon(ui, "Reveal in File Manager", "", "file.reveal", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.reveal_in_file_manager", "Reveal in File Manager"), "", "file.reveal", true, false) {
 		p.report(reveal(p.d.Pipeline.Abs(dir), true))
 	}
-	if widgets.MenuItemIcon(ui, "Copy Path", "", "edit.copy_path", true, false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.copy_path", "Copy Path"), "", "edit.copy_path", true, false) {
 		p.copyText(dir)
 	}
 }
@@ -199,9 +200,9 @@ func typeShort(full string) string {
 }
 
 func (p *Panel) newData(dir string, td *schema.TypeDescriptor, table bool) {
-	ext, title := ".aedata", "New "+typeShort(td.FullName)+" data"
+	ext, title := ".aedata", i18n.Tr("editor.assets.new_fullname_data", "New {fullname} data", i18n.Str("fullname", typeShort(td.FullName)))
 	if table {
-		ext, title = ".aetable", "New "+typeShort(td.FullName)+" table"
+		ext, title = ".aetable", i18n.Tr("editor.assets.new_fullname_table", "New {fullname} table", i18n.Str("fullname", typeShort(td.FullName)))
 	}
 	p.newDoc(dir, title, ext, func(rel string) error {
 		var b []byte
@@ -222,7 +223,7 @@ func (p *Panel) dataItems(dir string) {
 	}
 	ui := p.f.UI
 	widgets.Separator(ui)
-	if widgets.SubMenuIcon(ui, "Data Asset", "file.data", 220) {
+	if widgets.SubMenuIcon(ui, i18n.Tr("editor.assets.data_asset", "Data Asset"), "file.data", 220) {
 		for _, td := range types {
 			if widgets.MenuItemIcon(ui, typeShort(td.FullName)+"…", "", "file.data", true, false) {
 				p.newData(dir, td, false)
@@ -230,7 +231,7 @@ func (p *Panel) dataItems(dir string) {
 		}
 		widgets.EndSubMenu(ui)
 	}
-	if widgets.SubMenuIcon(ui, "Data Table", "file.table", 220) {
+	if widgets.SubMenuIcon(ui, i18n.Tr("editor.assets.data_table", "Data Table"), "file.table", 220) {
 		for _, td := range types {
 			if widgets.MenuItemIcon(ui, typeShort(td.FullName)+"…", "", "file.table", true, false) {
 				p.newData(dir, td, true)
@@ -255,18 +256,18 @@ func (p *Panel) created(rel string) {
 func (p *Panel) newDoc(dir, title, ext string, create func(string) error) {
 	p.d.Notices.Ask(context.Question{
 		Title:   title,
-		Fields:  []string{"Name"},
+		Fields:  []string{i18n.Tr("editor.assets.name", "Name")},
 		Values:  []string{assetops.Stem(p.d.Files.UniqueFile(dir, "untitled", ext))},
-		Buttons: []string{"Create", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assets.create", "Create"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Submit: func(v []string) {
 			name := strings.TrimSpace(v[0])
 			if !assetops.ValidName(name) {
-				p.d.Notices.Notify(context.LevelError, name+" is not a valid file name")
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.assets.name_is_not_a_valid", "{name} is not a valid file name", i18n.Str("name", name)))
 				return
 			}
 			rel := path.Join(dir, name+ext)
 			if p.d.Files.Exists(rel) {
-				p.d.Notices.Notify(context.LevelError, rel+" already exists")
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.assets.rel_already_exists", "{rel} already exists", i18n.Str("rel", rel)))
 				return
 			}
 			if err := create(rel); err != nil {
@@ -293,24 +294,24 @@ func (p *Panel) createScript(dir, name string) {
 func (p *Panel) newScript(dir string) {
 	if rel, ok := assetops.ScriptsRel(dir); ok && rel != "" {
 		p.d.Notices.Ask(context.Question{
-			Title:   "New script in package " + p.d.Files.PackageOf(dir),
-			Fields:  []string{"Script name"},
+			Title:   i18n.Tr("editor.assets.new_script_in_package_dir", "New script in package {dir}", i18n.Str("dir", p.d.Files.PackageOf(dir))),
+			Fields:  []string{i18n.Tr("editor.assets.script_name", "Script name")},
 			Values:  []string{"NewScript"},
-			Buttons: []string{"Create", "Cancel"},
+			Buttons: []string{i18n.Tr("editor.assets.create", "Create"), i18n.Tr("editor.assets.cancel", "Cancel")},
 			Submit:  func(v []string) { p.createScript(dir, v[0]) },
 		})
 		return
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "New script",
-		Message: "Scripts live in a package folder under scripts/",
-		Fields:  []string{"Package", "Script name"},
+		Title:   i18n.Tr("editor.assets.new_script", "New script"),
+		Message: i18n.Tr("editor.assets.scripts_live_in_a_package", "Scripts live in a package folder under scripts/"),
+		Fields:  []string{i18n.Tr("editor.assets.package", "Package"), i18n.Tr("editor.assets.script_name", "Script name")},
 		Values:  []string{"", "NewScript"},
-		Buttons: []string{"Create", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assets.create", "Create"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Submit: func(v []string) {
 			pkg := strings.TrimSpace(v[0])
 			if !assetops.ValidIdent(pkg) {
-				p.d.Notices.Notify(context.LevelError, pkg+" is not a valid package name")
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.assets.pkg_is_not_a_valid", "{pkg} is not a valid package name", i18n.Str("pkg", pkg)))
 				return
 			}
 			p.createScript(path.Join("scripts", pkg), v[1])
@@ -324,20 +325,20 @@ func (p *Panel) newPackage(dir string) {
 		base = dir
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "New script package",
+		Title:   i18n.Tr("editor.assets.new_script_package", "New script package"),
 		Message: "Creates " + base + "/<package>/ with its first script",
-		Fields:  []string{"Package", "First script"},
+		Fields:  []string{i18n.Tr("editor.assets.package", "Package"), i18n.Tr("editor.assets.first_script", "First script")},
 		Values:  []string{"", "NewScript"},
-		Buttons: []string{"Create", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assets.create", "Create"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Submit: func(v []string) {
 			pkg := strings.TrimSpace(v[0])
 			if !assetops.ValidIdent(pkg) {
-				p.d.Notices.Notify(context.LevelError, pkg+" is not a valid package name")
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.assets.pkg_is_not_a_valid", "{pkg} is not a valid package name", i18n.Str("pkg", pkg)))
 				return
 			}
 			pkgDir := path.Join(base, pkg)
 			if p.d.Files.Exists(pkgDir) {
-				p.d.Notices.Notify(context.LevelError, pkgDir+" already exists")
+				p.d.Notices.Notify(context.LevelError, i18n.Note("editor.assets.pkgdir_already_exists", "{pkgdir} already exists", i18n.Str("pkgdir", pkgDir)))
 				return
 			}
 			if err := p.d.Pipeline.Mkdir(pkgDir); err != nil {
@@ -357,14 +358,14 @@ func (p *Panel) deleteDir(dir string) {
 			gone = append(gone, p.items[i].ID)
 		}
 	}
-	msg := "Delete the empty folder " + dir + "?"
+	msg := i18n.Tr("editor.assets.delete_the_empty_folder_dir", "Delete the empty folder {dir}?", i18n.Str("dir", dir))
 	if n := len(gone); n > 0 {
-		msg = "Delete " + dir + " and the " + strconv.Itoa(n) + " file(s) inside it? Scenes that reference them show them as missing."
+		msg = i18n.Tr("editor.assets.delete_dir_and_the_n", "Delete {dir} and the {n} file(s) inside it? Scenes that reference them show them as missing.", i18n.Str("dir", dir), i18n.Str("n", strconv.Itoa(n)))
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "Delete folder",
+		Title:   i18n.Tr("editor.assets.delete_folder", "Delete folder"),
 		Message: msg,
-		Buttons: []string{"Delete", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assets.delete", "Delete"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice != 0 {
 				return
@@ -412,17 +413,17 @@ func (p *Panel) DeleteSelected() {
 			return
 		}
 	}
-	title, msg := "Delete asset", ""
+	title, msg := i18n.Tr("editor.assets.delete_asset", "Delete asset"), ""
 	if len(list) == 1 {
 		rel, _ := p.d.Pipeline.PathOf(list[0])
-		msg = "Delete " + rel + "?"
+		msg = i18n.Tr("editor.assets.delete_rel", "Delete {rel}?", i18n.Str("rel", rel))
 	} else {
-		title, msg = "Delete assets", "Delete "+strconv.Itoa(len(list))+" assets?"
+		title, msg = i18n.Tr("editor.assets.delete_assets", "Delete assets"), i18n.Tr("editor.assets.delete_list_assets", "Delete {list} assets?", i18n.Str("list", strconv.Itoa(len(list))))
 	}
 	p.d.Notices.Ask(context.Question{
 		Title:   title,
-		Message: msg + " Nothing in the project references them.",
-		Buttons: []string{"Delete", "Cancel"},
+		Message: i18n.Tr("editor.assets.msg_nothing_in_the_project", "{msg} Nothing in the project references them.", i18n.Str("msg", msg)),
+		Buttons: []string{i18n.Tr("editor.assets.delete", "Delete"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Then: func(choice int) {
 			if choice == 0 {
 				p.DeleteNow(list)
@@ -456,7 +457,7 @@ func (p *Panel) DuplicateSelected() error {
 		p.active, p.anchor = made[len(made)-1], made[0]
 	}
 	if scripts {
-		p.d.Notices.Notify(context.LevelWarn, "Rename the script types in the copy, a package cannot declare a script twice")
+		p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.assets.rename_the_script_types_in", "Rename the script types in the copy, a package cannot declare a script twice"))
 	}
 	p.invalidate()
 	return first
@@ -474,7 +475,7 @@ func (p *Panel) ReimportSelected() error {
 		}
 	}
 	if first == nil && len(p.sel) > 0 {
-		p.d.Notices.Notify(context.LevelInfo, "Reimported")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.reimported", "Reimported"))
 	}
 	return first
 }
@@ -489,9 +490,9 @@ func (p *Panel) askUsed(list []ids.AssetID, users []refs.Ref, first ids.AssetID)
 		names = append(names, r.Path)
 	}
 	p.d.Notices.Ask(context.Question{
-		Title:   "Assets in use",
-		Message: "Still referenced by:\n" + strings.Join(names, "\n") + "\n\nDeleting them leaves these references missing.",
-		Buttons: []string{"Show References", "Delete Anyway", "Cancel"},
+		Title:   i18n.Tr("editor.assets.assets_in_use", "Assets in use"),
+		Message: i18n.Tr("editor.assets.still_referenced_by_join_deleting", "Still referenced by:\n{join}\n\nDeleting them leaves these references missing.", i18n.Str("join", strings.Join(names, "\n"))),
+		Buttons: []string{i18n.Tr("editor.assets.show_references", "Show References"), i18n.Tr("editor.assets.delete_anyway", "Delete Anyway"), i18n.Tr("editor.assets.cancel", "Cancel")},
 		Then: func(choice int) {
 			switch choice {
 			case 0:

@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/props"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/mutate"
 	"aego/scene/sceneio"
@@ -173,9 +174,9 @@ func FromHistory(edit, play *document.SceneDocument) Result {
 				}
 			}
 		case *commands.SetTransform:
-			put(Change{Node: c.Node, Owner: "Transform", Label: "Transform", Kind: KindTransform2D, T2After: c.After, Checked: true})
+			put(Change{Node: c.Node, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform2D, T2After: c.After, Checked: true})
 		case *commands.SetTransform3D:
-			put(Change{Node: c.Node, Owner: "Transform", Label: "Transform", Kind: KindTransform3D, T3After: c.After, Checked: true})
+			put(Change{Node: c.Node, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform3D, T3After: c.After, Checked: true})
 		}
 	})
 	for _, id := range order {
@@ -274,9 +275,9 @@ func afterValue(reg *schema.Registry, fd *schema.FieldDescriptor, text string) (
 func transformChange(s *scene.Scene, id ids.NodeID) Change {
 	h := s.Handle(id)
 	if s.Space(h) == scene.Space3D {
-		return Change{Node: id, Owner: "Transform", Label: "Transform", Kind: KindTransform3D, T3After: s.Local3D(h), Checked: true}
+		return Change{Node: id, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform3D, T3After: s.Local3D(h), Checked: true}
 	}
-	return Change{Node: id, Owner: "Transform", Label: "Transform", Kind: KindTransform2D, T2After: s.Local(h), Checked: true}
+	return Change{Node: id, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform2D, T2After: s.Local(h), Checked: true}
 }
 
 func diffable(fd *schema.FieldDescriptor) bool {
@@ -321,14 +322,14 @@ func (r *Result) node(edit, play *document.SceneDocument, id ids.NodeID, ph, eh 
 			before, _, _ := edit.Props.CommonTransform3D(one)
 			after, _, _ := play.Props.CommonTransform3D(one)
 			if before != after {
-				r.Changes = append(r.Changes, Change{Node: id, Path: path, Owner: "Transform", Label: "Transform", Kind: KindTransform3D,
+				r.Changes = append(r.Changes, Change{Node: id, Path: path, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform3D,
 					T3Before: before, T3After: after, Checked: touched[Key{Node: id}]})
 			}
 		} else {
 			before, _ := edit.Props.CommonTransform(one)
 			after, _ := play.Props.CommonTransform(one)
 			if before != after {
-				r.Changes = append(r.Changes, Change{Node: id, Path: path, Owner: "Transform", Label: "Transform", Kind: KindTransform2D,
+				r.Changes = append(r.Changes, Change{Node: id, Path: path, Owner: "Transform", Label: i18n.Tr("editor.playdiff.transform", "Transform"), Kind: KindTransform2D,
 					T2Before: before, T2After: after, Checked: touched[Key{Node: id}]})
 			}
 		}
@@ -453,13 +454,13 @@ func (c *Change) Text(after bool) string {
 		if after {
 			t = c.T2After
 		}
-		return "pos " + vec2(t.Position) + "  rot " + num(mathx.Rad2Deg(t.Rotation)) + "°  scale " + vec2(t.Scale)
+		return i18n.Tr("editor.playdiff.pos_position_rot_rotation_scale", "pos {position}  rot {rotation}°  scale {scale}", i18n.Str("position", vec2(t.Position)), i18n.Str("rotation", num(mathx.Rad2Deg(t.Rotation))), i18n.Str("scale", vec2(t.Scale)))
 	case KindTransform3D:
 		t := c.T3Before
 		if after {
 			t = c.T3After
 		}
-		return "pos " + vec3(t.Position) + "  rot " + vec3(props.EulerDeg(t.Rotation)) + "  scale " + vec3(t.Scale)
+		return i18n.Tr("editor.playdiff.pos_position_rot_rotation_scale_2", "pos {position}  rot {rotation}  scale {scale}", i18n.Str("position", vec3(t.Position)), i18n.Str("rotation", vec3(props.EulerDeg(t.Rotation))), i18n.Str("scale", vec3(t.Scale)))
 	}
 	v := c.Before
 	if after {
@@ -494,15 +495,15 @@ func Value(v schema.Value) string {
 		if v.Cv.Ease != curve.None {
 			return v.Cv.Ease.String()
 		}
-		return strconv.Itoa(len(v.Cv.Keys)) + " keys"
+		return i18n.Tr("editor.playdiff.keys_keys", "{keys} keys", i18n.Str("keys", strconv.Itoa(len(v.Cv.Keys))))
 	case schema.KindAssetRef:
 		if v.Asset.IsZero() {
-			return "None"
+			return i18n.Tr("editor.playdiff.none", "None")
 		}
 		return v.Asset.String()
 	case schema.KindNodeRef:
 		if v.Node.IsZero() {
-			return "None"
+			return i18n.Tr("editor.playdiff.none", "None")
 		}
 		return v.Node.String()
 	case schema.KindList:

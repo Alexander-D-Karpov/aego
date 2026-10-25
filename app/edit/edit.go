@@ -2,6 +2,7 @@ package edit
 
 import (
 	"aego/app/agentui/backend"
+	"aego/engine/i18n"
 	"errors"
 	"os"
 	"os/signal"
@@ -163,6 +164,8 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		return nil, err
 	}
 	s := &Session{Host: h, cfg: cfg, log: h.Log.With(shell.ChannelEditor)}
+	loadMessages(h.Modules, s.log)
+	i18n.Default().SetDev(cfg.Debug)
 	s.mods = mods
 	s.ring = crash.NewRing(500)
 	h.Log.AddSink(s.ring)
@@ -329,6 +332,9 @@ func (s *Session) Run() error {
 }
 
 func (s *Session) Close() {
+	for _, pr := range i18n.Default().TakeProblems() {
+		s.log.Warn(pr.Message, log.F("code", pr.Code), log.F("key", pr.Key))
+	}
 	if s.stop != nil {
 		s.stop()
 		s.stop = nil

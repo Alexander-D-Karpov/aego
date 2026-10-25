@@ -50,6 +50,12 @@ type DocSource struct {
 	Dir   string
 }
 
+// MessageSource is a module's translation catalogs, <lang>.aetext files in the root of FS, keys under i18n.<owner>. (D348).
+type MessageSource struct {
+	Owner string
+	FS    fs.FS
+}
+
 type Registry struct {
 	types      *scene.Types
 	script     *bind.Registry
@@ -64,6 +70,7 @@ type Registry struct {
 	sections   []*Section
 	icons      []IconSet
 	docs       []DocSource
+	messages   []MessageSource
 	provided   []provision
 	settings   []settings.Desc
 	saves      []OwnedSection
@@ -218,6 +225,15 @@ func (r *Registry) Docs(fsys fs.FS) {
 		return
 	}
 	r.docs = append(r.docs, DocSource{Owner: r.Owner(), FS: fsys, Dir: r.docsDir()})
+}
+
+// Messages registers the translation catalogs of the current module (D348).
+func (r *Registry) Messages(fsys fs.FS) {
+	if fsys == nil {
+		r.fail("messages source is nil")
+		return
+	}
+	r.messages = append(r.messages, MessageSource{Owner: r.Owner(), FS: fsys})
 }
 
 func (r *Registry) docsDir() string {

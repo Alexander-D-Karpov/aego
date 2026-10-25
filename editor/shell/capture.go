@@ -7,6 +7,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/panels/sceneview"
+	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform/input"
 )
@@ -20,7 +21,7 @@ func (a *App) captureTexture(tex gpu.TextureHandle, w, h int, name string) {
 	}
 	buf := make([]byte, w*h*4)
 	if err := dev.ReadPixels(tex, 0, 0, w, h, buf); err != nil {
-		a.ctx.Notify(context.LevelError, "cannot read the Scene View: "+err.Error())
+		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.cannot_read_the_scene_view", "cannot read the Scene View: {error}", i18n.Str("error", err.Error())))
 		return
 	}
 	rel, err := capture.Save(a.opt.Project.Root, name, w, h, buf, captureFlip, time.Now())
@@ -28,7 +29,7 @@ func (a *App) captureTexture(tex gpu.TextureHandle, w, h int, name string) {
 		a.ctx.Notify(context.LevelError, err.Error())
 		return
 	}
-	a.ctx.Notify(context.LevelInfo, "Saved "+rel)
+	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_rel", "Saved {rel}", i18n.Str("rel", rel)))
 }
 
 func (a *App) registerCapture() error {

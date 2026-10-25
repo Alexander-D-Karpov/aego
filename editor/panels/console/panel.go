@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -50,7 +51,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Console"
+	return i18n.Tr("editor.console.title", "Console")
 }
 
 func (p *Panel) visible(e *Entry, q string) bool {
@@ -116,13 +117,14 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		x += w + 4
 		return rc, true
 	}
-	if rc, ok := place(56); ok && widgets.ButtonRect(ui, ui.ID("clear"), rc, "Clear") {
+	clear := i18n.Tr("editor.console.clear", "Clear")
+	if rc, ok := place(max(56, ui.TextSize(clear).X+20)); ok && widgets.ButtonRect(ui, ui.ID("clear"), rc, clear) {
 		p.sink.Clear()
 		p.selected = -1
 	}
-	infoL, warnL, errL, followL, tw := "Info ", "Warn ", "Error ", "Follow", float32(84)
+	infoL, warnL, errL, followL, tw := i18n.Tr("editor.console.info", "Info")+" ", i18n.Tr("editor.console.warn", "Warn")+" ", i18n.Tr("editor.console.error", "Error")+" ", i18n.Tr("editor.console.follow", "Follow"), float32(84)
 	if compact {
-		infoL, warnL, errL, followL, tw = "I ", "W ", "E ", "Tail", 52
+		infoL, warnL, errL, followL, tw = "I ", "W ", "E ", i18n.Tr("editor.console.tail", "Tail"), 52
 	}
 	if rc, ok := place(tw); ok {
 		widgets.ToggleButton(ui, ui.ID("info"), rc, infoL+strconv.Itoa(info), &p.showInfo)
@@ -202,7 +204,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 			widgets.LabelWrapped(ui, line, false)
 		}
 		if e.Path != "" {
-			widgets.LabelDim(ui, "double-click to show "+e.Path)
+			widgets.LabelDim(ui, i18n.Tr("editor.console.double_click_to_show_path", "double-click to show {path}", i18n.Str("path", e.Path)))
 		}
 		ui.PopCursor()
 		ui.PopClip()

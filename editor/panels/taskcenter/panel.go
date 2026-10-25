@@ -6,6 +6,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/services"
 	"aego/editor/core/tasks"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -28,7 +29,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Tasks"
+	return i18n.Tr("editor.taskcenter.title", "Tasks")
 }
 
 func (p *Panel) Icon() string {
@@ -52,7 +53,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	th := &ui.Theme
 	live, recent := p.q.Tasks(), p.q.Recent()
 	head := ui.Cursor().Next(0)
-	ui.Text(strconv.Itoa(len(live))+" running, "+strconv.Itoa(len(recent))+" finished", mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
+	ui.Text(i18n.Tr("editor.taskcenter.live_running_recent_finished", "{live} running, {recent} finished", i18n.Str("live", strconv.Itoa(len(live))), i18n.Str("recent", strconv.Itoa(len(recent)))), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
 	x := head.X + head.W
 	for _, b := range []struct {
 		id, label string

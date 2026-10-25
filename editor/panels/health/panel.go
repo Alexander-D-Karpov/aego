@@ -9,6 +9,7 @@ import (
 	core "aego/editor/core/health"
 	"aego/editor/core/services"
 	"aego/editor/core/tasks"
+	"aego/engine/i18n"
 	"aego/engine/problems"
 	"aego/project"
 	uicore "aego/ui/core"
@@ -52,7 +53,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Project Health"
+	return i18n.Tr("editor.health.title", "Project Health")
 }
 
 func (p *Panel) Icon() string {
@@ -84,7 +85,7 @@ func (p *Panel) Run() {
 	}
 	var found []core.Item
 	pl, limit := p.d.Pipeline, p.d.TextureLimit
-	p.running = p.d.Tasks.Work(tasks.Spec{Title: "Check textures, scenes and export", Kind: "health"}, func(*tasks.Task) error {
+	p.running = p.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.health.check_textures_scenes_and_export", "Check textures, scenes and export"), Kind: "health"}, func(*tasks.Task) error {
 		found = core.Scan(pl, cams, limit)
 		if exp != nil {
 			found = append(found, exp()...)
@@ -109,19 +110,19 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.Run()
 	}
 	head := ui.Cursor().Next(0)
-	status := "Checked at " + p.at.Format("15:04:05")
+	status := i18n.Tr("editor.health.checked_at_v", "Checked at {v}", i18n.Str("v", p.at.Format("15:04:05")))
 	if p.running != nil {
 		status += ", scanning textures…"
 	}
 	ui.Text(status, mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
-	bw := ui.TextSize("Run Checks").X + 16
-	if widgets.ButtonRect(ui, ui.ID("run"), mathx.Rect{X: head.X + head.W - bw, Y: head.Y, W: bw, H: head.H}, "Run Checks") {
+	bw := ui.TextSize(i18n.Tr("editor.health.run_checks", "Run Checks")).X + 16
+	if widgets.ButtonRect(ui, ui.ID("run"), mathx.Rect{X: head.X + head.W - bw, Y: head.Y, W: bw, H: head.H}, i18n.Tr("editor.health.run_checks", "Run Checks")) {
 		p.Run()
 	}
 	p.loadProfile(ui)
 	items := p.all()
 	if len(items) == 0 {
-		widgets.LabelDim(ui, "No problems found")
+		widgets.LabelDim(ui, i18n.Tr("editor.health.no_problems_found", "No problems found"))
 		return
 	}
 	type line struct {
@@ -174,7 +175,7 @@ func (p *Panel) itemRow(ui *uicore.Context, it core.Item, i int, rr mathx.Rect) 
 	btn := ""
 	switch it.Action {
 	case core.ActionMissing:
-		btn = "Resolve…"
+		btn = i18n.Tr("editor.health.resolve", "Resolve…")
 	case core.ActionProblems:
 		btn = "Show"
 	}
@@ -224,10 +225,9 @@ func (p *Panel) loadProfile(ui *uicore.Context) {
 			}
 		}
 	}
-	text := d.Path + ": opened in " + strconv.FormatInt(d.Load.Took.Milliseconds(), 10) + " ms, " +
-		strconv.Itoa(d.Load.Nodes) + " node(s), " + strconv.Itoa(deps) + " asset(s)"
+	text := i18n.Tr("editor.health.path_opened_in_formatint_ms", "{path}: opened in {formatint} ms, {nodes} node(s), {deps} asset(s)", i18n.Str("path", d.Path), i18n.Str("formatint", strconv.FormatInt(d.Load.Took.Milliseconds(), 10)), i18n.Str("nodes", strconv.Itoa(d.Load.Nodes)), i18n.Str("deps", strconv.Itoa(deps)))
 	if missing > 0 {
-		text += ", " + strconv.Itoa(missing) + " missing"
+		text += i18n.Tr("editor.health.missing_missing", ", {missing} missing", i18n.Str("missing", strconv.Itoa(missing)))
 	}
 	widgets.LabelDim(ui, text)
 }

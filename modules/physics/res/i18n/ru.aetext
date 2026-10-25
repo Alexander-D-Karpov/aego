@@ -1,0 +1,80 @@
+messages version=1 lang=ru {
+  msg "i18n.physics.a_checked_cell_means_bodies" {
+    text="Отмеченная клетка означает, что тела на этих двух слоях сталкиваются."
+  }
+  msg "i18n.physics.add_layer" {
+    text="Добавить слой"
+  }
+  msg "i18n.physics.airtime_fmtf_s_steps_fixed" {
+    text="в воздухе {fmtf} с · фиксированных шагов {steps} · подшагов {substeps}"
+  }
+  msg "i18n.physics.bodies_store_the_layer_index" {
+    text="Тела хранят номер слоя; если стереть имя, номер останется."
+  }
+  msg "i18n.physics.broad_broad_narrow_narrow_solve" {
+    text="широкая {broad}   узкая {narrow}   решатель {solve}   интеграция {integrate}   синхр. {sync}   события {events} мс"
+  }
+  msg "i18n.physics.broadphase_tree" {
+    text="Дерево широкой фазы"
+  }
+  msg "i18n.physics.clear_the_name_bodies_keep" {
+    text="Стереть имя; тела сохранят номер {i}"
+  }
+  msg "i18n.physics.collision_matrix" {
+    text="Матрица столкновений"
+  }
+  msg "i18n.physics.contact_fmtf_hz_damping_fmtf2" {
+    text="Контакт {fmtf} Гц · затухание {fmtf2}"
+  }
+  msg "i18n.physics.contacts" {
+    text="Контакты"
+  }
+  msg "i18n.physics.debug_overlay" {
+    text="Отладочное наложение"
+  }
+  msg "i18n.physics.formatnumber_from_colliders" {
+    text="{formatnumber} (по коллайдерам)"
+  }
+  msg "i18n.physics.gravity" {
+    text="Гравитация"
+  }
+  msg "i18n.physics.gravity_fmtf_m_s" {
+    text="Гравитация {fmtf} м/с²"
+  }
+  msg "i18n.physics.islands" {
+    text="Острова"
+  }
+  msg "i18n.physics.joints" {
+    text="Соединения"
+  }
+  msg "i18n.physics.layer_name_already_exists" {
+    text="слой {name} уже существует"
+  }
+  msg "i18n.physics.layers" {
+    text="Слои"
+  }
+  msg "i18n.physics.mass" {
+    text="Масса"
+  }
+  msg "i18n.physics.name_is_not_a_valid" {
+    text="{name} — недопустимое имя слоя"
+  }
+  msg "i18n.physics.no_sprite_on_the_selected" {
+    text="На выбранных узлах нет спрайта"
+  }
+  msg "i18n.physics.physics_is_not_attached_to" {
+    text="Физика не подключена к игровому миру"
+  }
+  msg "i18n.physics.shapes" {
+    text="Формы"
+  }
+  msg "i18n.physics.simulation" {
+    text="Симуляция"
+  }
+  msg "i18n.physics.snap_to_sprite" {
+    text="Подогнать под спрайт"
+  }
+  msg "i18n.physics.tall_stacks_and_fast_motors" {
+    text="Высокие стопки и быстрые моторы: Substeps 8 и Contact Hertz 60 (жёсткий профиль), примерно вдвое дороже для решателя. Ноль оставляет значение движка."
+  }
+}

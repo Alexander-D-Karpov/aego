@@ -5,6 +5,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -502,31 +503,31 @@ func (p *Panel) menus(r mathx.Rect) {
 	switch p.menu.kind {
 	case selState:
 		i := p.menu.index
-		if widgets.MenuItem(ui, "Set as Entry", "", int32(i) != g.Entry, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animator.set_as_entry", "Set as Entry"), "", int32(i) != g.Entry, false) {
 			p.notify(p.SetEntry(i))
 		}
-		if widgets.MenuItem(ui, "Delete State", "Del", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animator.delete_state", "Delete State"), i18n.Tr("editor.animator.del", "Del"), true, false) {
 			p.notify(p.RemoveState(i))
 		}
 	case selTransition:
 		i := p.menu.index
-		if widgets.MenuItemIcon(ui, "Move Up", "", "ui.move_up", i > 0, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.animator.move_up", "Move Up"), "", "ui.move_up", i > 0, false) {
 			p.notify(p.MoveTransition(i, -1))
 		}
-		if widgets.MenuItemIcon(ui, "Move Down", "", "ui.move_down", i+1 < len(g.Transitions), false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.animator.move_down", "Move Down"), "", "ui.move_down", i+1 < len(g.Transitions), false) {
 			p.notify(p.MoveTransition(i, 1))
 		}
-		if widgets.MenuItem(ui, "Delete Transition", "Del", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animator.delete_transition", "Delete Transition"), i18n.Tr("editor.animator.del", "Del"), true, false) {
 			p.notify(p.RemoveTransition(i))
 		}
 	default:
-		if widgets.MenuItemIcon(ui, "Add State", "", "ui.plus", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.animator.add_state", "Add State"), "", "ui.plus", true, false) {
 			p.notify(p.AddState(p.toGraph(r, p.menuAt)))
 		}
-		if widgets.MenuItemIcon(ui, "Auto Layout", "", "anim.graph", true, false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.animator.auto_layout", "Auto Layout"), "", "anim.graph", true, false) {
 			p.notify(p.AutoLayout())
 		}
-		if widgets.MenuItem(ui, "Frame All", "", true, false) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.animator.frame_all", "Frame All"), "", true, false) {
 			p.frameAll()
 		}
 	}

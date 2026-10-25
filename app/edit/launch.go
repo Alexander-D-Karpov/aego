@@ -22,6 +22,7 @@ import (
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform"
 	"aego/render"
@@ -33,6 +34,7 @@ import (
 	"aego/ui/core"
 	"aego/ui/draw"
 	"aego/ui/theme"
+	"aego/ui/widgets"
 )
 
 type LaunchSession struct {
@@ -206,6 +208,8 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		Image:           d.image,
 		Theme:           func() theme.Mode { return d.prefs.Theme },
 		SetTheme:        d.setTheme,
+		Language:        func() string { return d.prefs.Language },
+		SetLanguage:     d.setLanguage,
 	})
 	switch cfg.LauncherTab {
 	case TabNew:
@@ -279,6 +283,7 @@ func (d *launchDriver) Init(e *engine.Engine) error {
 	r := d.renderer
 	ui := core.New(r.UIFont())
 	ui.Theme = theme.For(d.prefs.Theme, d.systemDark())
+	d.applyLanguage()
 	if set, err := text.LoadSet(e.VFS(), r.Textures(), "engine://fonts", "ui", []int{12, 14, 16, 20}, []int{1, 2}); err == nil {
 		ui.SetFonts(set)
 	} else {
@@ -321,6 +326,26 @@ func (d *launchDriver) setTheme(m theme.Mode) {
 	}
 	d.prefs.Theme = m
 	d.retheme = true
+	if err := prefs.Save(d.prefsDir, d.prefs); err != nil {
+		d.log.Warn("cannot save the editor preferences", log.F("err", err.Error()))
+	}
+}
+
+func (d *launchDriver) applyLanguage() {
+	widgets.Tr = i18n.Lookup
+	var locales func() []string
+	if l, ok := d.eng.Window().(platform.Localer); ok && !d.eng.Config().Headless {
+		locales = l.PreferredLocales
+	}
+	i18n.Apply(d.prefs.Language, locales)
+}
+
+func (d *launchDriver) setLanguage(pref string) {
+	if d.prefs.Language == pref {
+		return
+	}
+	d.prefs.Language = pref
+	d.applyLanguage()
 	if err := prefs.Save(d.prefsDir, d.prefs); err != nil {
 		d.log.Warn("cannot save the editor preferences", log.F("err", err.Error()))
 	}

@@ -75,6 +75,7 @@ import (
 	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/engine/docs"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/engine/problems"
 	"aego/engine/settings"
@@ -302,6 +303,7 @@ func (a *App) Init(e *engine.Engine) error {
 	if m := os.Getenv("AEGO_EDITOR_THEME"); m != "" {
 		a.prefs.Theme = theme.ParseMode(m)
 	}
+	a.applyLanguage()
 	ui.Theme = theme.For(a.prefs.Theme, a.systemDark())
 	if sh, err := draw.NewShapes(e.GPU(), r.Textures()); err == nil {
 		ui.SetShapes(sh)
@@ -412,7 +414,7 @@ func (a *App) Init(e *engine.Engine) error {
 	if a.opt.Modules != nil {
 		for _, m := range a.opt.Modules.Modules {
 			if m.NonDeterministic != "" {
-				a.play.SetBlocked("Rewind is off: module " + m.ID + " " + m.NonDeterministic)
+				a.play.SetBlocked(i18n.Tr("editor.shell.rewind_is_off_module_id", "Rewind is off: module {id} {nondeterministic}", i18n.Str("id", m.ID), i18n.Str("nondeterministic", m.NonDeterministic)))
 				break
 			}
 		}
@@ -757,7 +759,7 @@ func (a *App) Init(e *engine.Engine) error {
 	})
 	for _, h := range a.opt.Hooks {
 		if err := a.ext.Run(h.Owner, h.Fn); err != nil {
-			a.ctx.Notify(context.LevelError, "extension "+h.Owner+" failed to register: "+err.Error())
+			a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.extension_owner_failed_to_register", "extension {owner} failed to register: {error}", i18n.Str("owner", h.Owner), i18n.Str("error", err.Error())))
 		}
 	}
 	if err := vectors.Register(a.ctx, a.shapes); err != nil {
@@ -1125,7 +1127,7 @@ func (a *App) reportScripts() {
 	}
 	if !a.welcome.Done(hintErrors) {
 		a.welcome.Mark(hintErrors)
-		a.ctx.Notify(context.LevelInfo, "Tip: click a problem in the Problems panel to jump to its line, F2 walks through errors")
+		a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.tip_click_a_problem_in", "Tip: click a problem in the Problems panel to jump to its line, F2 walks through errors"))
 	}
 }
 
@@ -1145,7 +1147,7 @@ func (a *App) periodic(now float64) {
 		for _, id := range reloaded {
 			a.ctx.PruneSelectionOf(id)
 			if d := a.ctx.Docs.Get(id); d != nil {
-				a.ctx.Notify(context.LevelInfo, "Reloaded "+d.Path)
+				a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.reloaded_path", "Reloaded {path}", i18n.Str("path", d.Path)))
 			}
 		}
 		for _, c := range conflicts {
@@ -1193,17 +1195,17 @@ func (a *App) pollSession(now float64) {
 			a.buildState = widgets.DotBusy
 		case session.StateOK:
 			a.buildState = widgets.DotOK
-			a.ctx.Notify(context.LevelInfo, "Native code rebuilt, reloading the editor")
+			a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.native_code_rebuilt_reloading_the", "Native code rebuilt, reloading the editor"))
 		default:
 			a.buildState = widgets.DotError
 			a.log.Error("native build failed", log.F("output", st.Log))
-			a.ctx.Notify(context.LevelError, "Native build failed, the editor keeps the previous build (see Console)")
+			a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.native_build_failed_the_editor", "Native build failed, the editor keeps the previous build (see Console)"))
 		}
 	}
 	if session.RestartRequested(root) {
 		if err := a.Handoff(); err != nil {
 			session.ClearRestart(root)
-			a.ctx.Notify(context.LevelError, "cannot hand off the session: "+err.Error())
+			a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.cannot_hand_off_the_session", "cannot hand off the session: {error}", i18n.Str("error", err.Error())))
 		}
 	}
 }

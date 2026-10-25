@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -73,8 +74,8 @@ func (a *App) drawModals() {
 	md := a.modals[0]
 	switch md.kind {
 	case modalRecovery:
-		msg := "An autosave of " + md.rec.Path + " from " + md.rec.Time.Format("2006-01-02 15:04") + " was found."
-		switch widgets.Confirm(ui, id, "Recover unsaved changes", msg, "Restore", "Discard", "Later") {
+		msg := i18n.Tr("editor.shell.an_autosave_of_path_from", "An autosave of {path} from {v} was found.", i18n.Str("path", md.rec.Path), i18n.Str("v", md.rec.Time.Format("2006-01-02 15:04")))
+		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.recover_unsaved_changes", "Recover unsaved changes"), msg, i18n.Tr("editor.shell.restore", "Restore"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.later", "Later")) {
 		case 0:
 			if _, err := docs.RestoreRecovery(md.rec); err != nil {
 				a.ctx.Notify(context.LevelError, err.Error())
@@ -87,13 +88,13 @@ func (a *App) drawModals() {
 			a.pop()
 		}
 	case modalConflict:
-		msg := md.path + " was changed on disk while it has unsaved edits."
-		first := "Reload"
+		msg := i18n.Tr("editor.shell.path_was_changed_on_disk", "{path} was changed on disk while it has unsaved edits.", i18n.Str("path", md.path))
+		first := i18n.Tr("editor.shell.reload", "Reload")
 		if md.removed {
-			msg = md.path + " was deleted on disk."
-			first = "Close"
+			msg = i18n.Tr("editor.shell.path_was_deleted_on_disk", "{path} was deleted on disk.", i18n.Str("path", md.path))
+			first = i18n.Tr("editor.shell.close", "Close")
 		}
-		switch widgets.Confirm(ui, id, "Scene changed outside the editor", msg, first, "Keep mine", "Save As…") {
+		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.scene_changed_outside_the_editor", "Scene changed outside the editor"), msg, first, i18n.Tr("editor.shell.keep_mine", "Keep mine"), i18n.Tr("editor.shell.save_as", "Save As…")) {
 		case 0:
 			if md.removed {
 				a.ctx.Selection.DropDoc(md.doc)
@@ -113,8 +114,8 @@ func (a *App) drawModals() {
 	case modalSaveAs:
 		a.drawSaveAs(id)
 	case modalQuit:
-		msg := strconv.Itoa(docs.DirtyCount()) + " scene(s) have unsaved changes."
-		switch widgets.Confirm(ui, id, "Quit Aego Editor", msg, "Save All", "Discard", "Cancel") {
+		msg := i18n.Tr("editor.shell.dirtycount_scene_s_have_unsaved", "{dirtycount} scene(s) have unsaved changes.", i18n.Str("dirtycount", strconv.Itoa(docs.DirtyCount())))
+		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.quit_aego_editor", "Quit Aego Editor"), msg, i18n.Tr("editor.shell.save_all", "Save All"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.cancel", "Cancel")) {
 		case 0:
 			if err := docs.SaveAll(); err != nil {
 				a.ctx.Notify(context.LevelError, err.Error())
@@ -133,7 +134,7 @@ func (a *App) drawModals() {
 			a.pop()
 		}
 	case modalClose:
-		switch widgets.Confirm(ui, id, "Close scene", md.path+" has unsaved changes.", "Save", "Discard", "Cancel") {
+		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.close_scene", "Close scene"), i18n.Tr("editor.shell.path_has_unsaved_changes", "{path} has unsaved changes.", i18n.Str("path", md.path)), i18n.Tr("editor.shell.save", "Save"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.cancel", "Cancel")) {
 		case 0:
 			if err := docs.Save(md.doc); err != nil {
 				a.ctx.Notify(context.LevelError, err.Error())
@@ -152,7 +153,7 @@ func (a *App) drawModals() {
 	case modalLock:
 		msg := fmt.Sprintf("editor.lock belongs to pid %d on %s (%s). Another editor may be running, or the previous one crashed.",
 			md.lock.PID, md.lock.Host, md.lock.Time.Format("2006-01-02 15:04"))
-		if widgets.Confirm(ui, id, "Project may be open elsewhere", msg, "Continue") == 0 {
+		if widgets.Confirm(ui, id, i18n.Tr("editor.shell.project_may_be_open_elsewhere", "Project may be open elsewhere"), msg, i18n.Tr("editor.shell.continue", "Continue")) == 0 {
 			a.pop()
 		}
 	case modalAsk:
@@ -239,13 +240,13 @@ func (a *App) drawSaveAs(id core.ID) {
 	if !ui.BeginModal(id, r) {
 		return
 	}
-	widgets.Label(ui, "Save scene as")
+	widgets.Label(ui, i18n.Tr("editor.shell.save_scene_as", "Save scene as"))
 	in := a.modals[0].input
 	widgets.TextField(ui, ui.ID("saveas.path"), &in)
 	a.modals[0].input = in
 	row := ui.Cursor().Next(0)
-	ok := widgets.ButtonRect(ui, ui.ID("saveas.ok"), mathx.Rect{X: row.X + row.W - 184, Y: row.Y, W: 88, H: row.H}, "Save")
-	cancel := widgets.ButtonRect(ui, ui.ID("saveas.cancel"), mathx.Rect{X: row.X + row.W - 90, Y: row.Y, W: 88, H: row.H}, "Cancel")
+	ok := widgets.ButtonRect(ui, ui.ID("saveas.ok"), mathx.Rect{X: row.X + row.W - 184, Y: row.Y, W: 88, H: row.H}, i18n.Tr("editor.shell.save", "Save"))
+	cancel := widgets.ButtonRect(ui, ui.ID("saveas.cancel"), mathx.Rect{X: row.X + row.W - 90, Y: row.Y, W: 88, H: row.H}, i18n.Tr("editor.shell.cancel", "Cancel"))
 	ui.EndModal()
 	doc := a.modals[0].doc
 	switch {

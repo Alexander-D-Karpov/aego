@@ -8,6 +8,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/schema"
 	"aego/ui/core"
@@ -64,9 +65,9 @@ func (p *Panel) drawData(r mathx.Rect, id ids.AssetID) {
 	ui.PushID("data/" + id.String())
 	action := ""
 	if doc.Dirty() && !play {
-		action = "Save"
+		action = i18n.Tr("editor.common.save", "Save")
 	}
-	c := p.beginCard("data:"+td.FullName, p.reg.Meta(td).DisplayName, "Data", "cat.node", action, false)
+	c := p.beginCard("data:"+td.FullName, p.reg.Meta(td).DisplayName, i18n.Tr("editor.inspector.data", "Data"), "cat.node", action, false)
 	if c.action {
 		p.report(svc.SaveDoc(doc))
 	}
@@ -93,7 +94,7 @@ func (p *Panel) drawData(r mathx.Rect, id ids.AssetID) {
 	ui.PopID()
 	p.content = cur.Y + p.scroll - top
 	if widgets.ContextMenu(ui, p.dataMenuID) {
-		if widgets.MenuItemIcon(ui, "Reset to Base Value", "", "ui.reset", p.dataMenu != "", false) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset_to_base_value", "Reset to Base Value"), "", "ui.reset", p.dataMenu != "", false) {
 			p.report(doc.Revert(p.dataMenu))
 		}
 		widgets.EndContextMenu(ui)
@@ -104,18 +105,18 @@ func (p *Panel) dataHeader(doc *dataedit.Doc, play bool) {
 	ui := p.f.UI
 	widgets.LabelDim(ui, doc.Path)
 	if play {
-		widgets.LabelDim(ui, "Play: live fields apply now, Stop asks whether to keep them")
+		widgets.LabelDim(ui, i18n.Tr("editor.inspector.play_live_fields_apply_now", "Play: live fields apply now, Stop asks whether to keep them"))
 		return
 	}
 	row := ui.Cursor().Next(0)
 	w := (row.W - 8) / 3
-	if widgets.ButtonRect(ui, ui.ID("undo"), mathx.Rect{X: row.X, Y: row.Y, W: w, H: row.H}, "Undo") {
+	if widgets.ButtonRect(ui, ui.ID("undo"), mathx.Rect{X: row.X, Y: row.Y, W: w, H: row.H}, i18n.Tr("editor.inspector.undo", "Undo")) {
 		p.report(doc.Undo())
 	}
-	if widgets.ButtonRect(ui, ui.ID("redo"), mathx.Rect{X: row.X + w + 4, Y: row.Y, W: w, H: row.H}, "Redo") {
+	if widgets.ButtonRect(ui, ui.ID("redo"), mathx.Rect{X: row.X + w + 4, Y: row.Y, W: w, H: row.H}, i18n.Tr("editor.inspector.redo", "Redo")) {
 		p.report(doc.Redo())
 	}
-	if widgets.ButtonRect(ui, ui.ID("revert"), mathx.Rect{X: row.X + 2*(w+4), Y: row.Y, W: w, H: row.H}, "Revert") {
+	if widgets.ButtonRect(ui, ui.ID("revert"), mathx.Rect{X: row.X + 2*(w+4), Y: row.Y, W: w, H: row.H}, i18n.Tr("editor.inspector.revert", "Revert")) {
 		p.d.Data.RevertDoc(doc.ID)
 	}
 }
@@ -126,7 +127,7 @@ func (p *Panel) dataBase(doc *dataedit.Doc, play bool) {
 	v := schema.Asset(doc.Base())
 	ui.PushID("base")
 	defer ui.PopID()
-	e := p.value(nil, fd, &v, false, "Base", "Fields this asset does not set come from its base", play)
+	e := p.value(nil, fd, &v, false, i18n.Tr("editor.inspector.base", "Base"), i18n.Tr("editor.inspector.base.tip", "Fields this asset does not set come from its base"), play)
 	if e.Changed && !play {
 		p.report(doc.SetBase(v.Asset))
 	}

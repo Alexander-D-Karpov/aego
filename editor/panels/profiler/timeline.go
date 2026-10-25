@@ -8,6 +8,7 @@ import (
 	"aego/core/trace"
 	"aego/editor/core/context"
 	"aego/editor/core/state"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
@@ -33,16 +34,16 @@ func nsMS(ns int64) string {
 func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 	th := &ui.Theme
 	tr := d.Tracer
-	label := "Pause"
+	label := i18n.Tr("editor.profiler.pause", "Pause")
 	if tl.paused {
-		label = "Resume"
+		label = i18n.Tr("editor.profiler.resume", "Resume")
 	}
 	if widgets.ButtonRect(ui, ui.ID("tl.pause"), mathx.Rect{X: r.X, Y: r.Y, W: 80, H: th.RowHeight}, label) {
 		tl.paused = !tl.paused
 		tl.back = 0
 		tr.SetEnabled(!tl.paused)
 	}
-	if widgets.ButtonRect(ui, ui.ID("tl.export"), mathx.Rect{X: r.X + 86, Y: r.Y, W: 120, H: th.RowHeight}, "Export Trace") {
+	if widgets.ButtonRect(ui, ui.ID("tl.export"), mathx.Rect{X: r.X + 86, Y: r.Y, W: 120, H: th.RowHeight}, i18n.Tr("editor.profiler.export_trace", "Export Trace")) {
 		tl.export(d, tr)
 	}
 	strip := mathx.Rect{X: r.X, Y: r.Y + th.RowHeight + th.Spacing, W: r.W, H: stripHeight}
@@ -55,18 +56,18 @@ func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 		ui.TextIn(flame, "No frames recorded yet", th.TextDim, core.AlignCenter)
 		return
 	}
-	info := "Frame " + strconv.FormatUint(f.Index, 10) + "   " + nsMS(f.Dur)
+	info := i18n.Tr("editor.profiler.frame_formatuint_dur", "Frame {formatuint}   {dur}", i18n.Str("formatuint", strconv.FormatUint(f.Index, 10)), i18n.Str("dur", nsMS(f.Dur)))
 	if f.GC > 0 {
 		info += "   GC " + strconv.Itoa(int(f.GC))
 	}
 	if f.Dropped > 0 {
-		info += "   dropped " + strconv.Itoa(int(f.Dropped))
+		info += i18n.Tr("editor.profiler.dropped_dropped", "   dropped {dropped}", i18n.Str("dropped", strconv.Itoa(int(f.Dropped))))
 	}
 	if f.LastTick > 0 {
-		info += "   ticks " + strconv.FormatUint(f.FirstTick, 10) + "–" + strconv.FormatUint(f.LastTick, 10)
+		info += i18n.Tr("editor.profiler.ticks_formatuint_formatuint2", "   ticks {formatuint}–{formatuint2}", i18n.Str("formatuint", strconv.FormatUint(f.FirstTick, 10)), i18n.Str("formatuint2", strconv.FormatUint(f.LastTick, 10)))
 	}
 	if f.FrameID > 0 {
-		info += "   world frame " + strconv.FormatUint(f.FrameID, 10)
+		info += i18n.Tr("editor.profiler.world_frame_formatuint", "   world frame {formatuint}", i18n.Str("formatuint", strconv.FormatUint(f.FrameID, 10)))
 	}
 	ui.TextIn(head, info, th.TextDim, core.AlignLeft)
 	tl.flame(ui, tr, f, flame)
@@ -149,7 +150,7 @@ func (tl *Timeline) flame(ui *core.Context, tr *trace.Tracer, f *trace.Frame, r 
 	if hover >= 0 && ui.Hit(r) {
 		e := f.Events[hover]
 		pct := strconv.FormatFloat(float64(e.Dur)/float64(f.Dur)*100, 'f', 1, 64)
-		widgets.Tooltip(ui, id, tr.Name(e.Zone)+"\n"+nsMS(int64(e.Dur))+"   "+pct+"% of the frame")
+		widgets.Tooltip(ui, id, i18n.Tr("editor.profiler.zone_dur_pct_of_the", "{zone}\n{dur}   {pct}% of the frame", i18n.Str("zone", tr.Name(e.Zone)), i18n.Str("dur", nsMS(int64(e.Dur))), i18n.Str("pct", pct)))
 	}
 }
 
@@ -159,13 +160,13 @@ func (tl *Timeline) export(d Deps, tr *trace.Tracer) {
 	}
 	var buf bytes.Buffer
 	if err := trace.WriteChrome(&buf, tr, tr.Snapshot(tr.Frames())); err != nil {
-		d.Notices.Notify(context.LevelError, "cannot write the trace: "+err.Error())
+		d.Notices.Notify(context.LevelError, i18n.Note("editor.profiler.cannot_write_the_trace_error", "cannot write the trace: {error}", i18n.Str("error", err.Error())))
 		return
 	}
 	path, err := state.WriteTrace(d.Root, buf.Bytes())
 	if err != nil {
-		d.Notices.Notify(context.LevelError, "cannot save the trace: "+err.Error())
+		d.Notices.Notify(context.LevelError, i18n.Note("editor.profiler.cannot_save_the_trace_error", "cannot save the trace: {error}", i18n.Str("error", err.Error())))
 		return
 	}
-	d.Notices.Notify(context.LevelInfo, "Trace saved to "+path+", open it in ui.perfetto.dev")
+	d.Notices.Notify(context.LevelInfo, i18n.Note("editor.profiler.trace_saved_to_path_open", "Trace saved to {path}, open it in ui.perfetto.dev", i18n.Str("path", path)))
 }

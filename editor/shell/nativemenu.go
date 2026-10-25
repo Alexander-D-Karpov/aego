@@ -3,6 +3,7 @@ package shell
 import (
 	"hash/fnv"
 
+	"aego/engine/i18n"
 	"aego/platform"
 )
 
@@ -61,42 +62,46 @@ func (a *App) buildNativeMenu() ([]platform.Menu, []func()) {
 		return len(acts) - 1
 	}
 	menus := []platform.Menu{{Title: appMenuTitle, Items: []platform.MenuItem{
-		{Role: platform.RoleHide, Label: "Hide " + appMenuTitle},
-		{Role: platform.RoleHideOthers, Label: "Hide Others"},
-		{Role: platform.RoleShowAll, Label: "Show All"},
+		{Role: platform.RoleHide, Label: i18n.Tr("editor.shell.hide_appmenutitle", "Hide {appmenutitle}", i18n.Str("appmenutitle", appMenuTitle))},
+		{Role: platform.RoleHideOthers, Label: i18n.Tr("editor.shell.hide_others", "Hide Others")},
+		{Role: platform.RoleShowAll, Label: i18n.Tr("editor.shell.show_all", "Show All")},
 		{Separator: true},
-		{ID: act(func() { reg.Run(CommandQuit) }), Label: "Quit " + appMenuTitle, Shortcut: reg.Shortcut(CommandQuit), Enabled: true},
+		{ID: act(func() { reg.Run(CommandQuit) }), Label: i18n.Tr("editor.shell.quit_appmenutitle", "Quit {appmenutitle}", i18n.Str("appmenutitle", appMenuTitle)), Shortcut: reg.Shortcut(CommandQuit), Enabled: true},
 	}}}
 	for _, cat := range a.menuCategories() {
 		if cat == "Create" {
 			continue
 		}
-		m := platform.Menu{Title: cat}
+		m := platform.Menu{Title: menuTitle(cat)}
 		last := -1
 		for _, d := range reg.Category(cat) {
 			if last >= 0 && d.Order/100 != last/100 {
 				m.Items = append(m.Items, platform.MenuItem{Separator: true})
 			}
 			last = d.Order
-			label := d.Name
-			if d.Label != nil {
-				label = d.Label()
-			}
 			id := d.ID
 			m.Items = append(m.Items, platform.MenuItem{
-				ID: act(func() { reg.Run(id) }), Label: label, Shortcut: d.Shortcut.String(),
+				ID: act(func() { reg.Run(id) }), Label: d.Title(), Shortcut: d.Shortcut.String(),
 				Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked(),
 			})
 		}
-		if cat == "Window" && reg.HasCategory(themeCategory) {
-			sub := platform.MenuItem{Label: themeCategory, Enabled: true}
-			for _, d := range reg.Category(themeCategory) {
-				id := d.ID
-				sub.Items = append(sub.Items, platform.MenuItem{
-					ID: act(func() { reg.Run(id) }), Label: themeLabel(d.Name), Enabled: true, Checked: d.Checked(),
-				})
+		if cat == "Window" {
+			for i, sc := range []string{themeCategory, languageCategory} {
+				if !reg.HasCategory(sc) {
+					continue
+				}
+				sub := platform.MenuItem{Label: menuTitle(sc), Enabled: true}
+				for _, d := range reg.Category(sc) {
+					id := d.ID
+					sub.Items = append(sub.Items, platform.MenuItem{
+						ID: act(func() { reg.Run(id) }), Label: subLabel(sc, d.Title()), Enabled: true, Checked: d.Checked(),
+					})
+				}
+				if i == 0 {
+					m.Items = append(m.Items, platform.MenuItem{Separator: true})
+				}
+				m.Items = append(m.Items, sub)
 			}
-			m.Items = append(m.Items, platform.MenuItem{Separator: true}, sub)
 		}
 		if cat == "Scene" {
 			docs := a.ctx.Docs.Docs()

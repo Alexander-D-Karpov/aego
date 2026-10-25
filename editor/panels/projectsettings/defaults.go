@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	es "aego/engine/settings"
 	"aego/engine/settings/settingsui"
 	"aego/schema"
@@ -68,7 +69,7 @@ func (p *Panel) drawDefaults(ui *core.Context, owner string) bool {
 	if st == nil {
 		return false
 	}
-	widgets.LabelWrapped(ui, "Starting values of player settings. Players change them in the game settings; this page sets what a new player gets.", true)
+	widgets.LabelWrapped(ui, i18n.Tr("editor.projectsettings.starting_values_of_player_settings", "Starting values of player settings. Players change them in the game settings; this page sets what a new player gets."), true)
 	widgets.Separator(ui)
 	changed := false
 	value := func(k es.Key) schema.Value {
@@ -202,7 +203,7 @@ func (p *Panel) drawRegistry(ui *core.Context) bool {
 		widgets.Tooltip(ui, id, d.ID)
 	})
 	if shown == 0 {
-		widgets.LabelDim(ui, "No setting matches")
+		widgets.LabelDim(ui, i18n.Tr("editor.projectsettings.no_setting_matches", "No setting matches"))
 	}
 	return false
 }

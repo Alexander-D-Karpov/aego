@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/shape"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
+	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render/debug"
@@ -58,7 +59,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Game"
+	return i18n.Tr("editor.gameview.title", "Game")
 }
 
 func (p *Panel) Release() {
@@ -137,7 +138,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	for _, hud := range p.vp.GameHUD {
 		hud(ui, r)
 	}
-	widgets.Tooltip(ui, id, "Click to send input to the game")
+	widgets.Tooltip(ui, id, i18n.Tr("editor.gameview.click_to_send_input_to", "Click to send input to the game"))
 }
 
 func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {
@@ -156,10 +157,10 @@ func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {
 	ui.PushClip(r)
 	tb := widgets.BeginToolbar(ui, bar)
 	ui.Outline(bar, th.BarBorder)
-	if clicked, _ := tb.TextButton(ui.ID("overlays"), overlays, "Draw module overlays and vectors over the game"); clicked {
+	if clicked, _ := tb.TextButton(ui.ID("overlays"), overlays, i18n.Tr("editor.gameview.draw_module_overlays_and_vectors", "Draw module overlays and vectors over the game")); clicked {
 		o.Toggle(CommandOverlays)
 	}
-	if clicked, _ := tb.TextButton(ui.ID("vectors"), vecs, "Draw velocity, force, contact and field vectors (V in the Scene View)"); clicked {
+	if clicked, _ := tb.TextButton(ui.ID("vectors"), vecs, i18n.Tr("editor.gameview.draw_velocity_force_contact_and", "Draw velocity, force, contact and field vectors (V in the Scene View)")); clicked {
 		if !o.On(vectors.CommandToggle) {
 			o.Set(CommandOverlays, true)
 		}

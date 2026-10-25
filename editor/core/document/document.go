@@ -19,6 +19,7 @@ import (
 	"aego/editor/core/props"
 	"aego/editor/core/selection"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/project"
 	"aego/scene"
@@ -569,7 +570,7 @@ func (d *SceneDocument) IsPrefab() bool {
 func (d *SceneDocument) Label() string {
 	base := path.Base(d.Path)
 	if d.IsPrefab() {
-		return strings.TrimSuffix(base, PrefabExt) + " (Prefab)"
+		return i18n.Tr("editor.document.trimsuffix_prefab", "{trimsuffix} (Prefab)", i18n.Str("trimsuffix", strings.TrimSuffix(base, PrefabExt)))
 	}
 	return base
 }

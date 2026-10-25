@@ -2,6 +2,7 @@ package search
 
 import (
 	favs "aego/editor/core/favorites"
+	"aego/engine/i18n"
 	"path"
 	"sort"
 	"strconv"
@@ -40,7 +41,10 @@ const (
 	tabCount
 )
 
-var tabNames = [tabCount]string{"All", "Files", "Symbols", "Nodes", "Actions", "Settings"}
+var tabNames = [tabCount]i18n.Text{
+	i18n.T("editor.search.tab.all", "All"), i18n.T("editor.search.tab.files", "Files"), i18n.T("editor.search.tab.symbols", "Symbols"),
+	i18n.T("editor.search.tab.nodes", "Nodes"), i18n.T("editor.search.tab.actions", "Actions"), i18n.T("editor.search.tab.settings", "Settings"),
+}
 
 type Item struct {
 	Label  string
@@ -181,17 +185,20 @@ func (o *Overlay) collect() {
 		}
 		id := d.ID
 		detail := d.Category
+		if t := i18n.Lookup("editor.menu."+strings.ToLower(d.Category), ""); t != "" {
+			detail = t
+		}
 		if sc := d.Shortcut.String(); sc != "" {
 			detail += "  " + sc
 		}
 		o.items = append(o.items, Item{
-			Label: d.Name, Detail: detail, Kind: "action", Tab: TabActions, Icon: "tool.select",
+			Label: d.Title(), Detail: detail, Kind: "action", Tab: TabActions, Icon: "tool.select",
 			Fav: favs.Item{Kind: favs.Command, Command: id, Label: d.Name}, HasFav: true,
 			Run: func() {
 				if o.d.Commands.Enabled(id) {
 					o.d.Commands.Run(id)
 				} else {
-					o.d.Notices.Notify(context.LevelInfo, "This action is not available right now")
+					o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.this_action_is_not_available", "This action is not available right now"))
 				}
 			},
 		})
@@ -305,14 +312,14 @@ func (o *Overlay) Draw(ui *core.Context) {
 	tabs := ui.Cursor().Next(0)
 	x := tabs.X
 	for t := Tab(0); t < tabCount; t++ {
-		bw := ui.TextSize(tabNames[t]).X + 18
+		bw := ui.TextSize(tabNames[t].String()).X + 18
 		on := o.tab == t
-		if widgets.ToggleButton(ui, core.IDSeq(o.id, 10+int(t)), mathx.Rect{X: x, Y: tabs.Y, W: bw, H: tabs.H}, tabNames[t], &on) {
+		if widgets.ToggleButton(ui, core.IDSeq(o.id, 10+int(t)), mathx.Rect{X: x, Y: tabs.Y, W: bw, H: tabs.H}, tabNames[t].String(), &on) {
 			o.tab = t
 		}
 		x += bw + 4
 	}
-	ui.TextIn(tabs, "Double Shift · Tab switches", th.TextDisabled, core.AlignRight)
+	ui.TextIn(tabs, i18n.Tr("editor.search.hint_tabs", "Double Shift · Tab switches"), th.TextDisabled, core.AlignRight)
 	widgets.TextFieldRect(ui, qid, ui.Cursor().Next(0), &o.query, true)
 	cur := ui.Cursor()
 	rowH := th.RowHeight + 2
@@ -327,11 +334,11 @@ func (o *Overlay) Draw(ui *core.Context) {
 		}
 	})
 	if len(o.hits) == 0 {
-		ui.TextIn(list, "Nothing found", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(list, i18n.Tr("editor.search.nothing_found", "Nothing found"), th.TextDisabled, core.AlignCenter)
 	}
 	foot := mathx.Rect{X: r.X + th.Padding, Y: r.Y + r.H - th.RowHeight - th.Padding/2, W: r.W - 2*th.Padding, H: th.RowHeight}
-	ui.TextIn(foot, strconv.Itoa(len(o.hits))+" result(s)", th.TextDim, core.AlignLeft)
-	ui.TextIn(foot, "Enter open · Ctrl+D favorite · Esc close", th.TextDim, core.AlignRight)
+	ui.TextIn(foot, i18n.Tr("editor.search.hits_result_s", "{hits} result(s)", i18n.Str("hits", strconv.Itoa(len(o.hits)))), th.TextDim, core.AlignLeft)
+	ui.TextIn(foot, i18n.Tr("editor.search.hint", "Enter open · Ctrl+D favorite · Esc close"), th.TextDim, core.AlignRight)
 	ui.EndModal()
 	if run >= 0 && run < len(o.hits) {
 		it := o.items[o.hits[run]]
@@ -411,7 +418,7 @@ func (o *Overlay) star() {
 	}
 	it := &o.items[o.hits[o.sel]]
 	if !it.HasFav {
-		o.d.Notices.Notify(context.LevelInfo, "Only files, nodes and actions can be favorites")
+		o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.only_files_nodes_and_actions", "Only files, nodes and actions can be favorites"))
 		return
 	}
 	added, err := o.d.Favorites.Toggle(it.Fav)
@@ -419,8 +426,8 @@ func (o *Overlay) star() {
 	case err != nil:
 		o.d.Notices.Notify(context.LevelError, err.Error())
 	case added:
-		o.d.Notices.Notify(context.LevelInfo, "Added "+it.Fav.Label+" to Favorites")
+		o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.fav_added", "Added {name} to Favorites", i18n.Str("name", it.Fav.Label)))
 	default:
-		o.d.Notices.Notify(context.LevelInfo, "Removed "+it.Fav.Label+" from Favorites")
+		o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.fav_removed", "Removed {name} from Favorites", i18n.Str("name", it.Fav.Label)))
 	}
 }

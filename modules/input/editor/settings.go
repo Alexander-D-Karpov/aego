@@ -7,6 +7,7 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/modules/input"
 	raw "aego/platform/input"
 	"aego/ui/core"
@@ -14,7 +15,9 @@ import (
 )
 
 var (
-	kindLabels    = []string{"Button", "Axis 1D", "Axis 2D", "Pointer", "Pointer Delta"}
+	kindLabels = func() []string {
+		return []string{i18n.Tr("i18n.input.kind.button", "Button"), i18n.Tr("i18n.input.kind.axis1d", "Axis 1D"), i18n.Tr("i18n.input.kind.axis2d", "Axis 2D"), i18n.Tr("i18n.input.kind.pointer", "Pointer"), i18n.Tr("i18n.input.kind.pointer_delta", "Pointer Delta")}
+	}
 	triggerLabels = []string{"Press", "Release", "Hold", "Tap", "Double Tap", "Toggle"}
 	pairNames     = []string{"−", "+"}
 	quadNames     = []string{"Up", "Down", "Left", "Right"}
@@ -235,10 +238,10 @@ func num(ui *core.Context, label string, v *float32, lo, hi float64, unit string
 }
 
 func (p *Page) general(ui *core.Context, c *input.Config) bool {
-	widgets.Label(ui, "General")
+	widgets.Label(ui, i18n.Tr("i18n.input.general", "General"))
 	changed := false
 	n := float64(c.Players)
-	if e := widgets.DragNumber(ui, ui.ID("players"), widgets.Field(ui, "Players"), &n, widgets.NumberOpts{Int: true, Speed: 0.05, Min: 1, Max: input.MaxPlayers, HasMin: true, HasMax: true}); e.Changed {
+	if e := widgets.DragNumber(ui, ui.ID("players"), widgets.Field(ui, i18n.Tr("i18n.input.players", "Players")), &n, widgets.NumberOpts{Int: true, Speed: 0.05, Min: 1, Max: input.MaxPlayers, HasMin: true, HasMax: true}); e.Changed {
 		c.Players = int(n)
 		changed = true
 	}
@@ -247,7 +250,7 @@ func (p *Page) general(ui *core.Context, c *input.Config) bool {
 	if len(names) == 0 {
 		return changed
 	}
-	widgets.LabelDim(ui, "Start stack: contexts active when the game starts")
+	widgets.LabelDim(ui, i18n.Tr("i18n.input.start_stack_contexts_active_when", "Start stack: contexts active when the game starts"))
 	changed = chips(ui, ui.ID("stack"), names, func(i int) bool { return slices.Contains(c.Stack, names[i]) }, func(i int) {
 		if k := slices.Index(c.Stack, names[i]); k >= 0 {
 			c.Stack = slices.Delete(c.Stack, k, k+1)
@@ -260,12 +263,12 @@ func (p *Page) general(ui *core.Context, c *input.Config) bool {
 
 func (p *Page) actions(ui *core.Context, c *input.Config, conf map[[2]int]string) bool {
 	th := &ui.Theme
-	widgets.Label(ui, "Actions")
+	widgets.Label(ui, i18n.Tr("i18n.input.actions", "Actions"))
 	changed := false
 	bar := ui.Cursor().Next(0)
 	bw := float32(100)
 	widgets.SearchField(ui, ui.ID("search"), mathx.Rect{X: bar.X, Y: bar.Y, W: max(0, bar.W-bw-4), H: bar.H}, &p.query)
-	if widgets.ButtonRect(ui, ui.ID("add"), mathx.Rect{X: bar.X + bar.W - bw, Y: bar.Y, W: bw, H: bar.H}, "Add Action") {
+	if widgets.ButtonRect(ui, ui.ID("add"), mathx.Rect{X: bar.X + bar.W - bw, Y: bar.Y, W: bw, H: bar.H}, i18n.Tr("i18n.input.add_action", "Add Action")) {
 		c.Actions = append(c.Actions, input.Action{Name: unique("Action", actionNames(c)), Kind: input.Button})
 		p.sel = len(c.Actions) - 1
 		changed = true
@@ -300,7 +303,7 @@ func (p *Page) actions(ui *core.Context, c *input.Config, conf map[[2]int]string
 		}
 		ui.Text(a.Name, mathx.Vec2{X: r.X + 20, Y: ui.TextY(r)}, col)
 		x := r.X + max(r.W*0.28, ui.TextSize(a.Name).X+30)
-		x += badge(ui, mathx.Vec2{X: x, Y: r.Y}, r.H, kindLabels[a.Kind]) + 8
+		x += badge(ui, mathx.Vec2{X: x, Y: r.Y}, r.H, kindLabels()[a.Kind]) + 8
 		for bi := range a.Bindings {
 			g := strings.Trim(a.Bindings[bi].Glyph(), "[]")
 			w := capW(ui, g)
@@ -326,12 +329,12 @@ func (p *Page) detail(ui *core.Context, c *input.Config, i int, conf map[[2]int]
 	cd := beginCard(ui)
 	changed := false
 	name := a.Name
-	if _, ok := widgets.TextFieldRect(ui, ui.ID("name"), widgets.Field(ui, "Name"), &name, false); ok && name != "" && name != a.Name {
+	if _, ok := widgets.TextFieldRect(ui, ui.ID("name"), widgets.Field(ui, i18n.Tr("i18n.input.name", "Name")), &name, false); ok && name != "" && name != a.Name {
 		renameAction(c, a.Name, name)
 		changed = true
 	}
 	kind := int(a.Kind)
-	if widgets.Combo(ui, ui.ID("kind"), widgets.Field(ui, "Type"), &kind, kindLabels, false) {
+	if widgets.Combo(ui, ui.ID("kind"), widgets.Field(ui, i18n.Tr("i18n.input.type", "Type")), &kind, kindLabels(), false) {
 		a.Kind = input.Kind(kind)
 		kept := a.Bindings[:0]
 		for _, b := range a.Bindings {
@@ -345,7 +348,7 @@ func (p *Page) detail(ui *core.Context, c *input.Config, i int, conf map[[2]int]
 	switch a.Kind {
 	case input.Button:
 		tr := int(a.Interaction.Trigger)
-		if widgets.Combo(ui, ui.ID("trigger"), widgets.Field(ui, "Interaction"), &tr, triggerLabels, false) {
+		if widgets.Combo(ui, ui.ID("trigger"), widgets.Field(ui, i18n.Tr("i18n.input.interaction", "Interaction")), &tr, triggerLabels, false) {
 			a.Interaction.Trigger = input.Trigger(tr)
 			changed = true
 		}
@@ -361,9 +364,9 @@ func (p *Page) detail(ui *core.Context, c *input.Config, i int, conf map[[2]int]
 		changed = num(ui, "Sensitivity", &a.Sensitivity, 0, 20, "") || changed
 	}
 	if a.Kind != input.Pointer && a.Kind != input.PointerDelta {
-		widgets.Label(ui, "Bindings")
+		widgets.Label(ui, i18n.Tr("i18n.input.bindings", "Bindings"))
 		if len(a.Bindings) == 0 {
-			widgets.LabelDim(ui, "No bindings yet: the action never fires")
+			widgets.LabelDim(ui, i18n.Tr("i18n.input.no_bindings_yet_the_action", "No bindings yet: the action never fires"))
 		}
 		for j := 0; j < len(a.Bindings); j++ {
 			ch, removed := p.bindingRow(ui, c, i, j, conf)
@@ -378,7 +381,7 @@ func (p *Page) detail(ui *core.Context, c *input.Config, i int, conf map[[2]int]
 		changed = p.addButtons(ui, a, i) || changed
 	}
 	row := ui.Cursor().Next(0)
-	if widgets.ButtonRect(ui, ui.ID("rmact"), mathx.Rect{X: row.X + row.W - 130, Y: row.Y, W: 130, H: row.H}, "Remove Action") {
+	if widgets.ButtonRect(ui, ui.ID("rmact"), mathx.Rect{X: row.X + row.W - 130, Y: row.Y, W: 130, H: row.H}, i18n.Tr("i18n.input.remove_action", "Remove Action")) {
 		removeAction(c, i)
 		p.sel = -1
 		changed = true
@@ -426,7 +429,7 @@ func (p *Page) bindingRow(ui *core.Context, c *input.Config, ai, bi int, conf ma
 		label := b.Parts[k].Label()
 		armed := p.capturing(ai, bi, k)
 		if armed {
-			label = "Press…"
+			label = i18n.Tr("i18n.input.press", "Press…")
 		}
 		id := ui.IDInt(k)
 		w := capW(ui, label)
@@ -434,17 +437,17 @@ func (p *Page) bindingRow(ui *core.Context, c *input.Config, ai, bi int, conf ma
 		if keycap(ui, id, inner, label, armed) {
 			p.arm(ui, id, ai, bi, k)
 		}
-		widgets.Tooltip(ui, id, "Click, then press a key, a mouse button or a pad control")
+		widgets.Tooltip(ui, id, i18n.Tr("i18n.input.click_then_press_a_key", "Click, then press a key, a mouse button or a pad control"))
 		x += w + 8
 	}
 	if a.Kind == input.Button && b.Shape == input.Single {
 		armed := p.capturing(ai, bi, -1)
 		label := "+ Modifier"
 		if !b.Mod.IsZero() {
-			label = "with " + b.Mod.Label()
+			label = i18n.Tr("i18n.input.with_label", "with {label}", i18n.Str("label", b.Mod.Label()))
 		}
 		if armed {
-			label = "Press…"
+			label = i18n.Tr("i18n.input.press", "Press…")
 		}
 		id := ui.ID("mod")
 		w := capW(ui, label)
@@ -453,7 +456,7 @@ func (p *Page) bindingRow(ui *core.Context, c *input.Config, ai, bi int, conf ma
 			p.arm(ui, id, ai, bi, -1)
 		}
 		x += w + 4
-		if !b.Mod.IsZero() && widgets.IconButton(ui, ui.ID("nomod"), mathx.Rect{X: x, Y: r.Y + 2, W: r.H - 4, H: r.H - 4}, "ui.minus", "Remove the modifier") {
+		if !b.Mod.IsZero() && widgets.IconButton(ui, ui.ID("nomod"), mathx.Rect{X: x, Y: r.Y + 2, W: r.H - 4, H: r.H - 4}, "ui.minus", i18n.Tr("i18n.input.remove_the_modifier", "Remove the modifier")) {
 			b.Mod = input.Control{}
 			b.Refresh()
 			changed = true
@@ -462,12 +465,12 @@ func (p *Page) bindingRow(ui *core.Context, c *input.Config, ai, bi int, conf ma
 	end := r.X + r.W - r.H
 	if a.Kind == input.Axis1D || a.Kind == input.Axis2D {
 		sr := mathx.Rect{X: end - 84, Y: r.Y, W: 80, H: r.H}
-		if widgets.Switch(ui, ui.ID("invert"), sr, &b.Invert, "Invert") {
+		if widgets.Switch(ui, ui.ID("invert"), sr, &b.Invert, i18n.Tr("i18n.input.invert", "Invert")) {
 			b.Refresh()
 			changed = true
 		}
 	}
-	removed := widgets.IconButton(ui, ui.ID("rm"), mathx.Rect{X: end + 2, Y: r.Y + 2, W: r.H - 4, H: r.H - 4}, "ui.close", "Remove binding")
+	removed := widgets.IconButton(ui, ui.ID("rm"), mathx.Rect{X: end + 2, Y: r.Y + 2, W: r.H - 4, H: r.H - 4}, "ui.close", i18n.Tr("i18n.input.remove_binding", "Remove binding"))
 	return changed, removed
 }
 
@@ -488,7 +491,7 @@ func (p *Page) addButtons(ui *core.Context, a *input.Action, ai int) bool {
 	row := ui.Cursor().Next(0)
 	id := ui.ID("addbind")
 	br := mathx.Rect{X: row.X, Y: row.Y, W: 130, H: row.H}
-	if widgets.ButtonRect(ui, id, br, "+ Add Binding") {
+	if widgets.ButtonRect(ui, id, br, i18n.Tr("i18n.input.add_binding", "+ Add Binding")) {
 		ui.OpenPopup(id, mathx.Vec2{X: br.X, Y: br.Y + br.H})
 	}
 	changed := false
@@ -510,8 +513,8 @@ func (p *Page) addButtons(ui *core.Context, a *input.Action, ai int) bool {
 }
 
 func (p *Page) contexts(ui *core.Context, c *input.Config) bool {
-	widgets.Label(ui, "Contexts")
-	widgets.LabelWrapped(ui, "The stack reads higher priority first; a consuming context hides its controls from the ones below.", true)
+	widgets.Label(ui, i18n.Tr("i18n.input.contexts", "Contexts"))
+	widgets.LabelWrapped(ui, i18n.Tr("i18n.input.the_stack_reads_higher_priority", "The stack reads higher priority first; a consuming context hides its controls from the ones below."), true)
 	changed := false
 	names := actionNames(c)
 	remove := -1
@@ -533,14 +536,14 @@ func (p *Page) contexts(ui *core.Context, c *input.Config) bool {
 			x.Priority = int(prio)
 			changed = true
 		}
-		if widgets.IconButton(ui, ui.ID("remove"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.close", "Remove context") {
+		if widgets.IconButton(ui, ui.ID("remove"), mathx.Rect{X: row.X + row.W - row.H, Y: row.Y, W: row.H, H: row.H}, "ui.close", i18n.Tr("i18n.input.remove_context", "Remove context")) {
 			remove = i
 		}
 		flags := ui.Cursor().Next(0)
-		if widgets.Switch(ui, ui.ID("consume"), mathx.Rect{X: flags.X, Y: flags.Y, W: flags.W / 2, H: flags.H}, &x.Consume, "Consume controls") {
+		if widgets.Switch(ui, ui.ID("consume"), mathx.Rect{X: flags.X, Y: flags.Y, W: flags.W / 2, H: flags.H}, &x.Consume, i18n.Tr("i18n.input.consume_controls", "Consume controls")) {
 			changed = true
 		}
-		if widgets.Switch(ui, ui.ID("release"), mathx.Rect{X: flags.X + flags.W/2, Y: flags.Y, W: flags.W / 2, H: flags.H}, &x.Release, "Release on leave") {
+		if widgets.Switch(ui, ui.ID("release"), mathx.Rect{X: flags.X + flags.W/2, Y: flags.Y, W: flags.W / 2, H: flags.H}, &x.Release, i18n.Tr("i18n.input.release_on_leave", "Release on leave")) {
 			changed = true
 		}
 		if len(names) > 0 {
@@ -553,7 +556,7 @@ func (p *Page) contexts(ui *core.Context, c *input.Config) bool {
 			}) || changed
 		}
 		if len(x.Actions) == 0 {
-			widgets.LabelDim(ui, "No actions: this context reads nothing")
+			widgets.LabelDim(ui, i18n.Tr("i18n.input.no_actions_this_context_reads", "No actions: this context reads nothing"))
 		}
 		endCard(ui, cd)
 		ui.PopID()
@@ -562,7 +565,7 @@ func (p *Page) contexts(ui *core.Context, c *input.Config) bool {
 		removeContext(c, remove)
 		changed = true
 	}
-	if widgets.Button(ui, "Add Context") {
+	if widgets.Button(ui, i18n.Tr("i18n.input.add_context", "Add Context")) {
 		c.Contexts = append(c.Contexts, input.Context{Name: unique("Context", contextNames(c))})
 		changed = true
 	}

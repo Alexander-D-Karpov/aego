@@ -7,6 +7,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/history"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -35,7 +36,7 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	return "Undo History"
+	return i18n.Tr("editor.undohistory.title", "Undo History")
 }
 
 func (p *Panel) notify(l context.Level, s string) {
@@ -52,7 +53,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		h = p.d.History()
 	}
 	if h == nil {
-		widgets.LabelDim(ui, "Open a scene to see its history")
+		widgets.LabelDim(ui, i18n.Tr("editor.undohistory.open_a_scene_to_see", "Open a scene to see its history"))
 		return
 	}
 	if h != p.src || h.Version() != p.ver {
@@ -69,11 +70,11 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	case locked:
 		widgets.LabelDim(ui, reason)
 	case h.InTransaction():
-		widgets.LabelDim(ui, "An edit is in progress")
+		widgets.LabelDim(ui, i18n.Tr("editor.undohistory.an_edit_is_in_progress", "An edit is in progress"))
 	case h.Mode() == history.ModePlay:
-		widgets.LabelDim(ui, "Play history, cleared on Stop")
+		widgets.LabelDim(ui, i18n.Tr("editor.undohistory.play_history_cleared_on_stop", "Play history, cleared on Stop"))
 	default:
-		widgets.LabelDim(ui, strconv.Itoa(cur)+" of "+strconv.Itoa(len(p.steps))+" step(s), click a step to go back to it")
+		widgets.LabelDim(ui, i18n.Tr("editor.undohistory.cur_of_steps_step_s", "{cur} of {steps} step(s), click a step to go back to it", i18n.Str("cur", strconv.Itoa(cur)), i18n.Str("steps", strconv.Itoa(len(p.steps)))))
 	}
 	top := ui.Cursor().Y
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
@@ -83,7 +84,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		if ui.Pressed(id, row) && i != cur {
 			switch {
 			case busy:
-				p.notify(context.LevelInfo, "Finish the current edit first")
+				p.notify(context.LevelInfo, i18n.Note("editor.undohistory.finish_the_current_edit_first", "Finish the current edit first"))
 			default:
 				if err := h.Seek(i); err != nil {
 					p.notify(context.LevelError, err.Error())
@@ -96,7 +97,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		case ui.Hot() == id:
 			ui.Rect(row, th.WidgetHot)
 		}
-		label := "Initial state"
+		label := i18n.Tr("editor.undohistory.initial_state", "Initial state")
 		if i > 0 {
 			label = p.steps[i-1]
 		}

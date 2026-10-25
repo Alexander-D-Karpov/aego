@@ -22,6 +22,7 @@ type Manifest struct {
 	Templates       []schema.TemplateDesc
 	Icons           []IconSet
 	Docs            []DocSource
+	Messages        []MessageSource
 	Events          []scriptevents.Event
 	Sections        []*Section
 	ScriptOwners    map[string]string
@@ -258,7 +259,7 @@ func (r *Registry) checkSections() {
 func (r *Registry) manifest(order []*entry) *Manifest {
 	m := &Manifest{
 		order: order, services: r.services, engines: r.engines, provided: r.provided,
-		Icons: r.icons, Docs: r.docs, ScriptOwners: r.owners,
+		Icons: r.icons, Docs: r.docs, Messages: r.messages, ScriptOwners: r.owners,
 		Dev: r.dev, Editor: r.editor, Warnings: r.warns,
 		Events: r.Events(), Sections: r.sections, EventOwners: r.eventOwners(),
 		Settings: r.settings, SettingVersions: r.versions,

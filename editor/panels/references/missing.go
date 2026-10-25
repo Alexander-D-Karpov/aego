@@ -2,6 +2,7 @@ package references
 
 import (
 	"aego/asset"
+	"aego/engine/i18n"
 	"path"
 	"strconv"
 	"strings"
@@ -36,7 +37,7 @@ func (m *Missing) ID() string {
 }
 
 func (m *Missing) Title() string {
-	return "Missing References"
+	return i18n.Tr("editor.missingrefs.title", "Missing References")
 }
 
 func (m *Missing) Icon() string {
@@ -61,13 +62,13 @@ func (m *Missing) Draw(f *services.Frame, r mathx.Rect) {
 		m.Refresh()
 	}
 	head := ui.Cursor().Next(0)
-	rw := ui.TextSize("Rescan").X + 16
-	ui.Text(strconv.Itoa(len(m.assets))+" missing asset(s), "+strconv.Itoa(len(m.nodes))+" missing node reference(s)", mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
-	if widgets.ButtonRect(ui, ui.ID("rescan"), mathx.Rect{X: head.X + head.W - rw, Y: head.Y, W: rw, H: head.H}, "Rescan") {
+	rw := ui.TextSize(i18n.Tr("editor.references.rescan", "Rescan")).X + 16
+	ui.Text(i18n.Tr("editor.references.assets_missing_asset_s_nodes", "{assets} missing asset(s), {nodes} missing node reference(s)", i18n.Str("assets", strconv.Itoa(len(m.assets))), i18n.Str("nodes", strconv.Itoa(len(m.nodes)))), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.TextDim)
+	if widgets.ButtonRect(ui, ui.ID("rescan"), mathx.Rect{X: head.X + head.W - rw, Y: head.Y, W: rw, H: head.H}, i18n.Tr("editor.references.rescan", "Rescan")) {
 		m.Refresh()
 	}
 	if m.Count() == 0 {
-		widgets.LabelDim(ui, "Every reference resolves")
+		widgets.LabelDim(ui, i18n.Tr("editor.references.every_reference_resolves", "Every reference resolves"))
 		return
 	}
 	top := ui.Cursor().Y
@@ -101,7 +102,7 @@ func (m *Missing) assetRow(ui *core.Context, i int, rr mathx.Rect) {
 	it := m.assets[i]
 	id := core.IDSeq(ui.ID("asset"), i)
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + 2, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
-	text := it.Label() + "  ·  " + strconv.Itoa(len(it.Refs)) + " referrer(s)"
+	text := i18n.Tr("editor.references.label_refs_referrer_s", "{label}  ·  {refs} referrer(s)", i18n.Str("label", it.Label()), i18n.Str("refs", strconv.Itoa(len(it.Refs))))
 	labels := []string{"Show", "Replace…", "Clear"}
 	if !it.Suggest.IsZero() {
 		labels = append([]string{"Use " + path.Base(it.Path)}, labels...)
@@ -113,7 +114,7 @@ func (m *Missing) assetRow(ui *core.Context, i int, rr mathx.Rect) {
 	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-bw), H: rr.H})
 	ui.Text(text, mathx.Vec2{X: rr.X + 22, Y: ui.TextY(rr)}, th.Text)
 	ui.PopClip()
-	tip := "Referenced by:"
+	tip := i18n.Tr("editor.references.referenced_by", "Referenced by:")
 	for k, ref := range it.Refs {
 		if k == 8 {
 			tip += "\n…"
@@ -167,7 +168,7 @@ func (m *Missing) nodeRow(ui *core.Context, i int, rr mathx.Rect) {
 	id := core.IDSeq(ui.ID("node"), i)
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + 2, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "cat.node", th.Warn)
 	node := strings.TrimPrefix(it.Path, "/")
-	text := it.Scene + "  ·  " + path.Base(node) + " · " + it.Owner + "." + it.Field + " → missing node"
+	text := i18n.Tr("editor.references.scene_node_owner_field_missing", "{scene}  ·  {node} · {owner}.{field} → missing node", i18n.Str("scene", it.Scene), i18n.Str("node", path.Base(node)), i18n.Str("owner", it.Owner), i18n.Str("field", it.Field))
 	widgets.Tooltip(ui, id, node)
 	labels := []string{"Select", "Clear"}
 	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-130), H: rr.H})

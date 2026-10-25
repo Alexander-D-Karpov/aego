@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/shape"
+	"aego/engine/i18n"
 	"aego/modules/physics/components"
 	"aego/schema"
 	"aego/ui/core"
@@ -41,17 +42,17 @@ func (p *plugin) bodyInspector(ctx *context.Editor, nodes []ids.NodeID, def func
 	case !modeMixed && components.MassMode(mode.I) == components.MassOverride:
 		v, mixed, _ := d.Props.Common(nodes, p.body.ID, massFD.ID)
 		f := v.AsFloat()
-		e := widgets.DragNumber(ui, ui.ID("mass"), widgets.Field(ui, "Mass"), &f, widgets.NumberOpts{Speed: 0.05, Min: 0, HasMin: true, Mixed: mixed})
+		e := widgets.DragNumber(ui, ui.ID("mass"), widgets.Field(ui, i18n.Tr("i18n.physics.mass", "Mass")), &f, widgets.NumberOpts{Speed: 0.05, Min: 0, HasMin: true, Mixed: mixed})
 		p.edit(ctx, d, nodes, massFD, e, schema.Float32(float32(f)))
 	case len(nodes) == 1:
 		text := "from colliders"
 		if sim := p.sim(); sim != nil {
 			if bh, ok := sim.BodyOf(d.Scene().Handle(nodes[0])); ok {
 				m, _, _, _ := sim.World().BodyMass(bh)
-				text = widgets.FormatNumber(float64(m), widgets.NumberOpts{}) + " (from colliders)"
+				text = i18n.Tr("i18n.physics.formatnumber_from_colliders", "{formatnumber} (from colliders)", i18n.Str("formatnumber", widgets.FormatNumber(float64(m), widgets.NumberOpts{})))
 			}
 		}
-		ui.TextIn(widgets.Field(ui, "Mass"), text, ui.Theme.TextDim, core.AlignLeft)
+		ui.TextIn(widgets.Field(ui, i18n.Tr("i18n.physics.mass", "Mass")), text, ui.Theme.TextDim, core.AlignLeft)
 	}
 	def()
 }
@@ -76,7 +77,7 @@ func (p *plugin) colliderInspector(k components.Kind) func(*context.Editor, []id
 		if d == nil || k == components.KindPolygon || k == components.KindEdge {
 			return
 		}
-		if widgets.Button(ui, "Snap to Sprite") {
+		if widgets.Button(ui, i18n.Tr("i18n.physics.snap_to_sprite", "Snap to Sprite")) {
 			p.snapToSprite(ctx, d, nodes, k)
 		}
 	}
@@ -125,6 +126,6 @@ func (p *plugin) snapToSprite(ctx *context.Editor, d *document.SceneDocument, no
 	}
 	tx.Commit()
 	if done == 0 {
-		ctx.Notify(context.LevelInfo, "No sprite on the selected nodes")
+		ctx.Notify(context.LevelInfo, i18n.Note("i18n.physics.no_sprite_on_the_selected", "No sprite on the selected nodes"))
 	}
 }

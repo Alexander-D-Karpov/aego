@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/props"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/schema"
 	"aego/ui/core"
@@ -520,7 +521,7 @@ func (p *Panel) summary(d *document.SceneDocument, fd *schema.FieldDescriptor, v
 		if v.Cv.Ease != curve.None {
 			return v.Cv.Ease.String()
 		}
-		return strconv.Itoa(len(v.Cv.Keys)) + " keys"
+		return i18n.Tr("editor.inspector.keys_keys", "{keys} keys", i18n.Str("keys", strconv.Itoa(len(v.Cv.Keys))))
 	case schema.KindEnum:
 		if name, ok := fd.EnumNameOf(v.I); ok {
 			return name

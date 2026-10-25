@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/agentui"
 	"aego/editor/core/context"
 	"aego/editor/core/services"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/richtext"
@@ -116,10 +117,10 @@ func (p *Panel) ID() string {
 func (p *Panel) Title() string {
 	for i := range p.cards {
 		if p.cards[i].State == agentui.Pending {
-			return "Agent •"
+			return i18n.Tr("editor.agent.agent", "Agent •")
 		}
 	}
-	return "Agent"
+	return i18n.Tr("editor.agent.agent_2", "Agent")
 }
 
 // Missing is why Claude Code cannot run, nil when it can or while checking.
@@ -192,7 +193,7 @@ func (p *Panel) record(e agentui.Entry) {
 	}
 	if err := p.log.Append(e); err != nil && !p.logErr {
 		p.logErr = true
-		p.d.Notices.Notify(context.LevelWarn, "cannot write the agent session log: "+err.Error())
+		p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.agent.cannot_write_the_agent_session", "cannot write the agent session log: {error}", i18n.Str("error", err.Error())))
 	}
 }
 
@@ -242,7 +243,7 @@ func (p *Panel) Tick() {
 		if p.d.Show != nil {
 			p.d.Show()
 		}
-		p.d.Notices.Notify(context.LevelInfo, "The agent is waiting for you to apply or reject a change")
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.agent.the_agent_is_waiting_for", "The agent is waiting for you to apply or reject a change"))
 	case !pending:
 		p.notified = false
 	}
@@ -299,7 +300,7 @@ func (p *Panel) send() {
 	if p.log == nil {
 		t, err := agentui.NewTranscript(p.d.Root, time.Now())
 		if err != nil {
-			p.d.Notices.Notify(context.LevelWarn, "cannot start the agent session log: "+err.Error())
+			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.agent.cannot_start_the_agent_session", "cannot start the agent session log: {error}", i18n.Str("error", err.Error())))
 		} else {
 			p.log, p.past = t, nil
 		}
@@ -362,11 +363,11 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	}
 	x := r.X + cw + 6
 	auto := host.AutoApply()
-	aw := ui.TextSize("Auto-apply").X + 20
-	if widgets.ToggleButton(ui, ui.ID("auto"), mathx.Rect{X: x, Y: r.Y, W: aw, H: r.H}, "Auto-apply", &auto) {
+	aw := ui.TextSize(i18n.Tr("editor.agent.auto_apply", "Auto-apply")).X + 20
+	if widgets.ToggleButton(ui, ui.ID("auto"), mathx.Rect{X: x, Y: r.Y, W: aw, H: r.H}, i18n.Tr("editor.agent.auto_apply", "Auto-apply"), &auto) {
 		host.SetAutoApply(auto)
 	}
-	widgets.Tooltip(ui, ui.ID("auto"), "Apply changes without asking; removals, moves and deletes still wait for you")
+	widgets.Tooltip(ui, ui.ID("auto"), i18n.Tr("editor.agent.apply_changes_without_asking_removals", "Apply changes without asking; removals, moves and deletes still wait for you"))
 	x += aw + 6
 	if n := p.applicable(); n >= 1 && host.Busy() {
 		if n != p.allN {
@@ -379,16 +380,16 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 		if widgets.ButtonRect(ui, ui.ID("applyall"), mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}, p.allLabel) {
 			p.ApplyAll()
 		}
-		widgets.Tooltip(ui, ui.ID("applyall"), "Apply this answer's changes, the waiting ones and those still to come; removals, moves and deletes still wait for you")
+		widgets.Tooltip(ui, ui.ID("applyall"), i18n.Tr("editor.agent.apply_this_answer_s_changes", "Apply this answer's changes, the waiting ones and those still to come; removals, moves and deletes still wait for you"))
 		x += bw + 6
 	}
 	status, col := p.ver, th.TextDisabled
 	if host.Busy() {
-		sw := ui.TextSize("Stop").X + 20
-		if widgets.ButtonRect(ui, ui.ID("stop"), mathx.Rect{X: r.X + r.W - sw, Y: r.Y, W: sw, H: r.H}, "Stop") {
+		sw := ui.TextSize(i18n.Tr("editor.agent.stop", "Stop")).X + 20
+		if widgets.ButtonRect(ui, ui.ID("stop"), mathx.Rect{X: r.X + r.W - sw, Y: r.Y, W: sw, H: r.H}, i18n.Tr("editor.agent.stop", "Stop")) {
 			host.Cancel()
 		}
-		status, col = "Working…", th.TextDim
+		status, col = i18n.Tr("editor.agent.working", "Working…"), th.TextDim
 		r.W -= sw + 6
 	}
 	ui.Text(widgets.Elide(ui, status, max(0, r.X+r.W-x)), mathx.Vec2{X: x, Y: ui.TextY(r)}, col)
@@ -490,7 +491,7 @@ func (p *Panel) drawItem(ui *core.Context, it *item, body mathx.Rect) {
 	switch it.kind {
 	case itemUser:
 		ui.Cursor().Next(4)
-		widgets.LabelDim(ui, "You")
+		widgets.LabelDim(ui, i18n.Tr("editor.agent.you", "You"))
 		widgets.LabelWrapped(ui, it.text, false)
 	case itemText:
 		if it.md == nil {
@@ -579,7 +580,7 @@ func stateLabel(ui *core.Context, st agentui.State, err string) (string, mathx.C
 	case agentui.Applied:
 		return "applied", th.Accent
 	case agentui.Failed:
-		return "failed: " + err, th.Error
+		return i18n.Tr("editor.agent.failed_err", "failed: {err}", i18n.Str("err", err)), th.Error
 	}
 	return st.String(), th.TextDisabled
 }
@@ -618,7 +619,7 @@ func (p *Panel) drawCard(ui *core.Context, it *item) {
 	cur.X, cur.W = cur.X+cardInset, cur.W-2*cardInset
 	for i, l := range lines {
 		if i == maxCardLines {
-			widgets.LabelDim(ui, "+"+itoa(len(lines)-maxCardLines)+" more")
+			widgets.LabelDim(ui, i18n.Tr("editor.agent.v_more", "+{v} more", i18n.Str("v", itoa(len(lines)-maxCardLines))))
 			break
 		}
 		widgets.LabelWrapped(ui, l, true)
@@ -633,14 +634,14 @@ func (p *Panel) drawCard(ui *core.Context, it *item) {
 			return hit
 		}
 		if c.State == agentui.Pending {
-			if button("apply", "Apply") {
+			if button("apply", i18n.Tr("editor.agent.apply", "Apply")) {
 				p.d.Host.Decide(c.ID, true)
 			}
-			if button("reject", "Reject") {
+			if button("reject", i18n.Tr("editor.agent.reject", "Reject")) {
 				p.d.Host.Decide(c.ID, false)
 			}
 		}
-		if c.CanUndo && button("undo", "Undo") {
+		if c.CanUndo && button("undo", i18n.Tr("editor.agent.undo", "Undo")) {
 			if err := p.d.Host.Undo(c.ID); err != nil {
 				p.d.Notices.Notify(context.LevelWarn, err.Error())
 			}
@@ -677,7 +678,7 @@ func (p *Panel) inputRow(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	host := p.d.Host
 	locked := host.Busy() || p.viewing != ""
-	bw := ui.TextSize("Send").X + 20
+	bw := ui.TextSize(i18n.Tr("editor.agent.send", "Send")).X + 20
 	id := ui.ID("message")
 	if p.focus {
 		ui.SetFocus(id)
@@ -687,7 +688,7 @@ func (p *Panel) inputRow(ui *core.Context, r mathx.Rect) {
 	enter := ui.Focus() == id && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
 	widgets.TextFieldRect(ui, id, fr, &p.input, true)
 	if p.input == "" && ui.Focus() != id {
-		hint := "Message the agent, @ to mention"
+		hint := i18n.Tr("editor.agent.message_the_agent_to_mention", "Message the agent, @ to mention")
 		if p.viewing != "" {
 			hint = "A past session is read-only, pick Current session to write"
 		}
@@ -698,7 +699,7 @@ func (p *Panel) inputRow(ui *core.Context, r mathx.Rect) {
 		p.openMentions(ui)
 	}
 	p.prevLen = len(p.input)
-	sent := widgets.ButtonRect(ui, ui.ID("send"), mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H}, "Send")
+	sent := widgets.ButtonRect(ui, ui.ID("send"), mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H}, i18n.Tr("editor.agent.send", "Send"))
 	if !locked && (sent || enter) {
 		p.send()
 		p.focus = true
@@ -759,7 +760,7 @@ func (p *Panel) drawMentions(ui *core.Context) {
 }
 
 func (p *Panel) drawMissing(ui *core.Context) {
-	widgets.Label(ui, "Claude Code is not available")
+	widgets.Label(ui, i18n.Tr("editor.agent.claude_code_is_not_available", "Claude Code is not available"))
 	widgets.LabelWrapped(ui, installHelp, true)
 	if p.verErr != nil {
 		widgets.LabelWrapped(ui, p.verErr.Error(), true)
@@ -767,12 +768,12 @@ func (p *Panel) drawMissing(ui *core.Context) {
 	if p.path == "" {
 		p.path = p.d.Host.Command()
 	}
-	widgets.TextFieldRect(ui, ui.ID("path"), widgets.Field(ui, "Path"), &p.path, true)
+	widgets.TextFieldRect(ui, ui.ID("path"), widgets.Field(ui, i18n.Tr("editor.agent.path", "Path")), &p.path, true)
 	if p.checking {
-		widgets.LabelDim(ui, "Checking…")
+		widgets.LabelDim(ui, i18n.Tr("editor.agent.checking", "Checking…"))
 		return
 	}
-	if widgets.Button(ui, "Check Again") {
+	if widgets.Button(ui, i18n.Tr("editor.agent.check_again", "Check Again")) {
 		p.d.Host.SetCommand(strings.TrimSpace(p.path))
 		p.check()
 	}

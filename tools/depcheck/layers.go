@@ -49,7 +49,7 @@ var scriptCompilerOnly = []string{
 
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
-	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "project/...", "engine", "engine/module", "engine/problems", "engine/docs", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
+	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "project/...", "engine", "engine/module", "engine/problems", "engine/docs", "engine/i18n", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
 	"data", "save", "contracts/persistence", "audio/codec/...",
 }
 
@@ -166,6 +166,7 @@ var rules = []rule{
 	{"contracts/debugdraw", []string{"core/...", "scene"}, nil},
 	{"contracts/camera2d", []string{"core/...", "scene", "render/view"}, nil},
 	{"engine/problems", []string{"core/...", "scene"}, nil},
+	{"engine/i18n", []string{"core/...", "format/aetext"}, nil},
 	{"engine/settings", []string{"core/...", "engine/problems", "format/...", "schema"}, nil},
 	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
 	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "contracts/persistence", "vfs"}, nil},
