@@ -28,8 +28,6 @@ Move it to `0, 3`. Create a second node, `Player`, with:
 
 Motion 2D moves a kinematic body: it slides along walls, stands on floors and climbs small steps. Press Play: the player falls and lands on the floor.
 
-The scene file now holds:
-
 ```aescene check
 scene version=1 {
   node "f1000000000000000000000000000001" name="Floor" enabled=true layers=1 {
@@ -96,8 +94,6 @@ script Player {
 ```
 
 `Move` and `Jump` are input actions of the 2D template: the arrows or A and D, and Space, or a gamepad. `Move` takes a value from -1 to 1 and Motion 2D accelerates to that share of its Max Speed. `JumpReleased` cuts the jump short when the button is let go early, so a tap makes a small hop. Jump Height, Max Speed and Coyote Time are fields of [Motion 2D](ref:gameplay.Motion2D).
-
-The script appears on the player:
 
 ```aescene check
 scene version=1 {

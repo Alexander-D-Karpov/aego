@@ -45,6 +45,9 @@ func (k *Kind) UnmarshalText(b []byte) error {
 
 func (r *Registry) Export(title string) Export {
 	exp := Export{Version: ExportVersion, Title: title, Entries: r.All(), Problems: r.Check(false), Aliases: r.Aliases()}
+	for i := range exp.Entries {
+		hideChecks(&exp.Entries[i])
+	}
 	for _, e := range r.Roots() {
 		exp.Nav = append(exp.Nav, r.node(e.ID, 0))
 	}
@@ -69,4 +72,18 @@ func (r *Registry) node(id string, depth int) Node {
 		n.Children = append(n.Children, r.node(c.ID, depth+1))
 	}
 	return n
+}
+
+// hideChecks removes the check scenes from an exported entry and its translations, copying the map it changes.
+func hideChecks(e *Entry) {
+	e.Body = HideChecks(e.Body)
+	if len(e.Translations) == 0 {
+		return
+	}
+	ts := make(map[string]Translation, len(e.Translations))
+	for l, t := range e.Translations {
+		t.Body = HideChecks(t.Body)
+		ts[l] = t
+	}
+	e.Translations = ts
 }

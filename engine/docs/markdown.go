@@ -382,3 +382,39 @@ func Plain(md string) string {
 	}
 	return b.String()
 }
+
+// HideChecks drops the aescene check blocks: docs check plays them after each step, readers do not need them.
+func HideChecks(md string) string {
+	if !strings.Contains(md, "aescene check") {
+		return md
+	}
+	lines := strings.Split(md, "\n")
+	out := lines[:0:0]
+	skip, fence := false, false
+	for _, l := range lines {
+		if isFence(l) {
+			if !fence {
+				info := strings.Fields(strings.TrimPrefix(strings.TrimSpace(l), "```"))
+				skip = len(info) > 1 && info[0] == "aescene" && slices.Contains(info[1:], "check")
+			}
+			fence = !fence
+			if skip {
+				if !fence {
+					skip = false
+				}
+				continue
+			}
+		} else if skip {
+			continue
+		}
+		out = append(out, l)
+	}
+	return collapseBlank(strings.Join(out, "\n"))
+}
+
+func collapseBlank(s string) string {
+	for strings.Contains(s, "\n\n\n") {
+		s = strings.ReplaceAll(s, "\n\n\n", "\n\n")
+	}
+	return strings.TrimRight(s, "\n")
+}

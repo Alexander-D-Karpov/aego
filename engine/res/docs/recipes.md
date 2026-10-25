@@ -128,8 +128,6 @@ script Player {
 }
 ```
 
-The ledge sits over the floor:
-
 ```aescene check
 scene version=1 {
   node "e1000000000000000000000000000001" name="Floor" enabled=true layers=1 {

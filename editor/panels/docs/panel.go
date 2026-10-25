@@ -467,5 +467,6 @@ func (p *Panel) get(id string) (regdocs.Entry, bool) {
 			e.Body = t.Body
 		}
 	}
+	e.Body = regdocs.HideChecks(e.Body)
 	return e, true
 }
