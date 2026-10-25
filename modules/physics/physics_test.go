@@ -229,6 +229,30 @@ func TestInterpolationUsesRenderWorld(t *testing.T) {
 	}
 }
 
+func TestPresentKeepsOtherWriters(t *testing.T) {
+	f := newFixture(t)
+	a, cfg := f.crate(mathx.Vec2{})
+	cfg.Interpolate = true
+	other := f.node(scene.NodeHandle{}, "Other", mathx.Vec2{X: 5})
+	pose := scene.Transform2D{Position: mathx.Vec2{X: 9}, Scale: mathx.Vec2{X: 1, Y: 1}}
+	f.s.SetPresentationLocal(other, pose)
+	f.step(10)
+	f.sim.Present(0.5)
+	if got, ok := f.s.PresentationLocal(other); !ok || got != pose {
+		t.Fatalf("physics dropped another writer's pose: %v %v", got, ok)
+	}
+	f.s.Destroy(other)
+	f.s.Flush()
+	if _, ok := f.s.PresentationLocal(other); ok {
+		t.Fatal("destroyed node kept its presentation pose")
+	}
+	f.sim.Present(0.5)
+	w, r := f.s.World(a), f.s.RenderWorld(a)
+	if !(r[7] < w[7]) || w[7]-r[7] > 0.1 {
+		t.Fatalf("render y %v, world y %v", r[7], w[7])
+	}
+}
+
 func TestDestroyReportsEnd(t *testing.T) {
 	f := newFixture(t)
 	f.ground()

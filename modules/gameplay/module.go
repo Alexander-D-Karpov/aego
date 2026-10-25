@@ -3,10 +3,12 @@ package gameplay
 import (
 	"errors"
 
+	"aego/contracts/motion2d"
 	"aego/core/clock"
 	"aego/core/log"
 	"aego/engine"
 	"aego/engine/module"
+	"aego/scene/propclaim"
 )
 
 const (
@@ -51,8 +53,8 @@ func (m *Module) Register(r *module.Registry) error {
 	}
 	registerTemplates(r)
 	r.SaveSection(ID+".respawn", respawnSection{})
-	r.System(engine.SystemDesc{ID: SystemFSMFixed, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed}, Before: []string{SystemMotion}, System: fsmFixedSystem{}})
-	r.System(engine.SystemDesc{ID: SystemMotion, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed}, System: fixedSystem{}})
+	r.System(engine.SystemDesc{ID: SystemFSMFixed, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed}, Before: []string{SystemMotion, engine.AnchorIntents}, System: fsmFixedSystem{}})
+	r.System(engine.SystemDesc{ID: SystemMotion, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, After: []string{scriptFixed, engine.AnchorMotion}, System: fixedSystem{}})
 	r.System(engine.SystemDesc{ID: SystemPost, Phase: engine.PhasePostPhysics, Scope: engine.ScopePlay, Before: []string{scriptEvents}, System: postSystem{}})
 	r.System(engine.SystemDesc{ID: SystemFSMUpdate, Phase: engine.PhaseUpdate, Scope: engine.ScopePlay, After: []string{scriptUpdate}, System: fsmUpdateSystem{}})
 	r.System(engine.SystemDesc{ID: SystemFrame, Phase: engine.PhasePostUpdate, Scope: engine.ScopePlay, Pause: engine.PauseAlways, System: frameSystem{}})
@@ -69,14 +71,22 @@ func (m *Module) AttachWorld(ctx *module.AttachContext) error {
 	if ctx.Log != nil {
 		s.log = ctx.Log.With(channel)
 	}
+	s.cl = propclaim.Ensure(ctx.World)
+	s.owner = s.cl.Register(ID)
 	ctx.World.SetService(ServiceID, s)
+	ctx.World.SetView(motion2d.ServiceID, motion2d.Receiver(s))
 	return nil
 }
 
 func (m *Module) DetachWorld(ctx *module.AttachContext) {
-	if ctx.Play && ctx.World != nil {
-		ctx.World.RemoveService(ServiceID)
+	if !ctx.Play || ctx.World == nil {
+		return
 	}
+	if s := Of(ctx.World); s != nil {
+		s.cl.Drop(s.owner)
+	}
+	ctx.World.RemoveService(motion2d.ServiceID)
+	ctx.World.RemoveService(ServiceID)
 }
 
 func Of(w *engine.World) *Service {

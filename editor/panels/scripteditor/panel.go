@@ -23,7 +23,7 @@ const (
 	hoverDelay = 0.5
 	noteTime   = 4.0
 	analyzing  = "The code is still being analyzed, try again in a moment"
-	buildTip   = "Number of script builds since the editor started; hot reload applies the latest successful one"
+	buildTip   = "The scripts do not build; click to see the errors in Problems. Hot reload keeps the latest build that worked"
 )
 
 type compState struct {
@@ -426,28 +426,23 @@ func (p *Panel) drawBar(ui *core.Context, bar mathx.Rect) {
 			warns++
 		}
 	}
-	right := bar.X + bar.W - bar.H
-	cr := mathx.Rect{X: right, Y: bar.Y, W: bar.H, H: bar.H}
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 1), cr, widgets.Glyph(ui, '×', "x")) {
-		p.host.requestClose(p)
-	}
+	right := bar.X + bar.W - th.Padding
 	status, failed := p.host.buildStatus()
-	if p.doc.ReadOnly {
-		status, failed = "", false
+	if p.doc.ReadOnly || !failed {
+		status = ""
 	}
 	sw := ui.TextSize(status).X
-	sr := mathx.Rect{X: right - sw - 12, Y: bar.Y, W: sw + 8, H: bar.H}
-	sid := core.IDSeq(p.fid, 4)
-	if status != "" {
+	sr := mathx.Rect{X: right - sw - 8, Y: bar.Y, W: sw + 8, H: bar.H}
+	if status == "" {
+		sr = mathx.Rect{X: right, Y: bar.Y}
+	} else {
+		sid := core.IDSeq(p.fid, 4)
 		if ui.Clicked(sid, sr) {
 			p.host.d.Nav.Open(context.ProblemsAt(""))
 		}
 		widgets.Tooltip(ui, sid, buildTip)
 	}
-	col := th.TextDim
-	if failed {
-		col = th.Error
-	}
+	col := th.Error
 	ui.PushClip(mathx.Rect{X: bar.X, Y: bar.Y, W: max(0, right-bar.X-4), H: bar.H})
 	ty := ui.TextY(bar)
 	ui.Text(label, mathx.Vec2{X: bar.X + th.Padding, Y: ty}, th.Text)

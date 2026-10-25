@@ -18,6 +18,8 @@ const (
 	EditRename       = "edit.rename"
 	EditSelectAll    = "edit.select_all"
 	SceneCreateNode  = "scene.create_node"
+	SceneCreate      = "scene.create"
+	EditAddComponent = "edit.add_component"
 	SceneFrame       = "scene.frame_selection"
 	SceneToolSelect  = "scene.tool.select"
 	SceneToolMove    = "scene.tool.translate"

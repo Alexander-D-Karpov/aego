@@ -48,6 +48,8 @@ Imports assets and runs the main scene. Assets and scripts reload on save; nativ
 
 Parses every document, audits `.meta` sidecars, checks project sections and assets and type-checks every script package. Exit 1 on problems, 2 when native code does not build.
 
+Check opens the asset index read-only unless `--ensure-meta` is given; a script outside `scripts/` is reported as an import error.
+
 | Flag | Meaning |
 |---|---|
 | `--explain` | print the reference entry of every reported diagnostic code |
@@ -117,10 +119,30 @@ These commands read and change scenes, prefabs, data assets and references witho
 <!-- agent:begin -->
 | Command | Meaning |
 |---|---|
+| `aego anim add-event <file> <time> <name> [--payload v] [--mode v] [--dry-run]` | add an event; the name must be declared in Project Settings → Animation |
+| `aego anim expand-frames <file> <target> [--dry-run]` | turn a frames block into sprite tracks with step keys, so its frames can be edited one by one |
+| `aego anim get <file>` | length, loop, tracks with their keys, frames blocks and events of a clip |
+| `aego anim move-event <file> <index> <time> [--dry-run]` | move an event to another time |
+| `aego anim move-key <file> <target> <prop> <time> <to> [--dry-run]` | move a key to another time |
+| `aego anim remove-event <file> <index> [--dry-run]` | remove an event |
+| `aego anim remove-key <file> <target> <prop> <time> [--dry-run]` | remove a key; the last key removes its track |
+| `aego anim remove-track <file> <target> <prop> [--dry-run]` | remove a track with all its keys |
+| `aego anim set <file> <attr> [<value>] [--dry-run]` | set length, loop or fps of a clip; no value clears loop or fps |
+| `aego anim set-key <file> <target> <prop> <time> <value> [--kind v] [--interp v] [--tangent v] [--dry-run]` | set a key; a new track needs --kind |
 | `aego asset delete <asset> [--force] [--dry-run]` | delete an asset; refuses while it is referenced unless --force |
 | `aego asset list [--kind v]` | assets with their ids and kinds |
 | `aego asset move <asset> <to> [--dry-run]` | move an asset with its .meta; the id and every reference stay |
 | `aego asset rename <asset> <name> [--dry-run]` | rename an asset in its folder |
+| `aego ctrl add-param <file> <name> <kind> [--default v] [--dry-run]` | add a parameter |
+| `aego ctrl add-state <file> <name> [--clip v] [--speed v] [--loop v] [--pos v] [--dry-run]` | add a state |
+| `aego ctrl add-transition <file> <from> <to> [--duration v] [--exit v] [--interrupt] [--cond v] [--dry-run]` | add a transition; from may be any |
+| `aego ctrl entry <file> <name> [--dry-run]` | set the state the animator starts in |
+| `aego ctrl get <file>` | parameters, states and transitions of a controller |
+| `aego ctrl remove-param <file> <name> [--dry-run]` | remove a parameter; conditions on it become problems |
+| `aego ctrl remove-state <file> <name> [--dry-run]` | remove a state and the transitions into and out of it |
+| `aego ctrl remove-transition <file> <index> [--dry-run]` | remove a transition |
+| `aego ctrl set-state <file> <name> <attr> [<value>] [--dry-run]` | set clip, speed, loop, events or pos of a state |
+| `aego ctrl set-transition <file> <index> <attr> [<value>] [--dry-run]` | set to, duration, exitTime or interrupt of a transition |
 | `aego data add-row <file> <id> [--dry-run]` | add a row with defaults |
 | `aego data base <file> [<asset>] [--dry-run]` | set or clear the base asset of a data asset |
 | `aego data export <file> <csv> [--dry-run]` | write the rows of a table to a csv file |

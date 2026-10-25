@@ -18,20 +18,24 @@ var (
 )
 
 type Ops struct {
-	ctx   *context.Editor
-	files *assetops.Ops
+	ctx    *context.Editor
+	files  *assetops.Ops
+	create func(parent ids.NodeID, pl templates.Place, at *mathx.Vec2, onCreate func([]ids.NodeID))
 }
 
 func New(ctx *context.Editor, files *assetops.Ops) *Ops {
 	return &Ops{ctx: ctx, files: files}
 }
 
-func (o *Ops) CreateMenu(reg *templates.Registry, parent ids.NodeID, onCreate func([]ids.NodeID)) {
-	templates.Menu(o.ctx, reg, parent, templates.Place{}, onCreate)
+// SetCreate routes Create to the palette (D344).
+func (o *Ops) SetCreate(fn func(parent ids.NodeID, pl templates.Place, at *mathx.Vec2, onCreate func([]ids.NodeID))) {
+	o.create = fn
 }
 
-func (o *Ops) CreateMenuAt(reg *templates.Registry, pl templates.Place) {
-	templates.Menu(o.ctx, reg, ids.NodeID{}, pl, nil)
+func (o *Ops) Create(parent ids.NodeID, pl templates.Place, at *mathx.Vec2, onCreate func([]ids.NodeID)) {
+	if o.create != nil {
+		o.create(parent, pl, at, onCreate)
+	}
 }
 
 func (o *Ops) InstantiateAt(t templates.Template, at *mathx.Vec2) error {

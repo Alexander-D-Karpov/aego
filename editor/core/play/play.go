@@ -53,53 +53,54 @@ type Stats struct {
 }
 
 type Controller struct {
-	beforeStop func()
-	ctx        *context.Editor
-	state      State
-	world      *engine.World
-	runner     *frame.Runner
-	scene      *scene.Scene
-	doc        document.ID
-	scale      float64
-	input      input.State
-	captured   bool
-	origin     mathx.Vec2
-	size       mathx.Vec2
-	stats      Stats
-	proxy      *document.SceneDocument
-	subs       []stateSub
-	nextSub    uint64
-	detach     func()
-	unrec      func()
-	breakFn    func() (string, bool)
-	breakWhy   string
-	release    func(*input.State) bool
-	hint       func() string
-	hist       *recording
-	limit      int
-	cursor     int
-	beyond     bool
-	replaying  bool
-	stepReq    uint8
-	seed       uint64
-	blocked    string
-	assetRev   uint64
-	editUnsub  func()
-	breaks     int32
-	broke      int32
-	kf         []rewind.Keyframer
-	kfOff      string
-	keys       []*snapshot
-	spare      []*snapshot
-	keyBytes   int
-	keyEvery   uint64
-	lastTick   uint64
-	floor      int
-	rebase     bool
-	replayed   int
-	keyTime    time.Duration
-	held       bool
-	hasher     *rewind.Hasher
+	beforeStop  func()
+	beforeStart func()
+	ctx         *context.Editor
+	state       State
+	world       *engine.World
+	runner      *frame.Runner
+	scene       *scene.Scene
+	doc         document.ID
+	scale       float64
+	input       input.State
+	captured    bool
+	origin      mathx.Vec2
+	size        mathx.Vec2
+	stats       Stats
+	proxy       *document.SceneDocument
+	subs        []stateSub
+	nextSub     uint64
+	detach      func()
+	unrec       func()
+	breakFn     func() (string, bool)
+	breakWhy    string
+	release     func(*input.State) bool
+	hint        func() string
+	hist        *recording
+	limit       int
+	cursor      int
+	beyond      bool
+	replaying   bool
+	stepReq     uint8
+	seed        uint64
+	blocked     string
+	assetRev    uint64
+	editUnsub   func()
+	breaks      int32
+	broke       int32
+	kf          []rewind.Keyframer
+	kfOff       string
+	keys        []*snapshot
+	spare       []*snapshot
+	keyBytes    int
+	keyEvery    uint64
+	lastTick    uint64
+	floor       int
+	rebase      bool
+	replayed    int
+	keyTime     time.Duration
+	held        bool
+	hasher      *rewind.Hasher
 }
 
 func New(ctx *context.Editor) *Controller {
@@ -248,6 +249,9 @@ func (c *Controller) History() *history.History {
 }
 
 func (c *Controller) Start(d *document.SceneDocument) error {
+	if c.beforeStart != nil {
+		c.beforeStart()
+	}
 	if c.ctx.Scripts != nil {
 		if n := c.ctx.Scripts.Errors(); n > 0 {
 			return errs.New(errs.EditorCommand, strconv.Itoa(n)+" script package error(s), fix them before Play")
@@ -420,6 +424,11 @@ func (c *Controller) StepFixed() {
 
 func (c *Controller) SetBeforeStop(fn func()) {
 	c.beforeStop = fn
+}
+
+// SetBeforeStart runs fn before the play copy is taken from the edit scene.
+func (c *Controller) SetBeforeStart(fn func()) {
+	c.beforeStart = fn
 }
 
 func (c *Controller) Stop() {

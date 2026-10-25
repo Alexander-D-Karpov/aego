@@ -24,6 +24,8 @@ func (Core) Info() module.Info {
 func (Core) Register(r *module.Registry) error {
 	r.Template(schema.TemplateDesc{ID: CoreID + ".empty", Name: "Empty", Node: "Node", Icon: "node.empty", Setup: empty})
 	r.Template(schema.TemplateDesc{ID: CoreID + ".empty3d", Name: "Empty", Space: schema.Space3D, Icon: "node.empty", Setup: empty})
+	r.System(engine.SystemDesc{ID: engine.AnchorIntents, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, Before: []string{engine.AnchorMotion}, System: anchor{}})
+	r.System(engine.SystemDesc{ID: engine.AnchorMotion, Phase: engine.PhasePrePhysics, Scope: engine.ScopePlay, System: anchor{}})
 	if err := registerSettings(r); err != nil {
 		return err
 	}
@@ -36,6 +38,10 @@ func (Core) Register(r *module.Registry) error {
 		Validate(validateTags).
 		Err()
 }
+
+type anchor struct{}
+
+func (anchor) Run(*engine.Context) {}
 
 func validateTags(_ module.ValidateContext, t *scene.Tags) []problems.Diagnostic {
 	var out []problems.Diagnostic

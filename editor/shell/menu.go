@@ -46,14 +46,51 @@ func (a *App) scriptStatus() (string, bool) {
 	return s + " · ok", false
 }
 
+// buildDot shows the script build as a green dot, or the error icon with the number of errors; the full status is in the tooltip.
+func (a *App) buildDot(r mathx.Rect, left *float32, tip string, bad bool) bool {
+	ui := a.ui
+	th := &ui.Theme
+	n := ""
+	if bad {
+		if _, errs, _ := a.ctx.FirstError(""); errs > 0 {
+			n = strconv.Itoa(errs)
+		}
+	}
+	w := float32(24)
+	if bad {
+		w = 26 + ui.TextSize(n).X
+	}
+	sr := mathx.Rect{X: *left, Y: r.Y, W: w, H: r.H}
+	*left += w + 4
+	id := ui.ID("status/scripts")
+	clicked := ui.Clicked(id, sr)
+	if ui.Hot() == id {
+		ui.Rect(sr, th.ButtonHover)
+	}
+	if bad {
+		widgets.IconAt(ui, mathx.Rect{X: sr.X + 4, Y: float32(int(sr.Y + (sr.H-16)/2)), W: 16, H: 16}, "log.error", th.Error)
+		ui.Text(n, mathx.Vec2{X: sr.X + 22, Y: ui.TextY(r)}, th.Error)
+	} else {
+		d := float32(8)
+		ui.RoundRect(mathx.Rect{X: sr.X + (sr.W-d)/2, Y: sr.Y + (sr.H-d)/2, W: d, H: d}, d/2, th.Ok)
+	}
+	widgets.Tooltip(ui, id, tip)
+	return clicked
+}
+
 func (a *App) drawStatus(r mathx.Rect) {
 	ui := a.ui
 	th := &ui.Theme
 	ui.Rect(r, th.Header)
 	ty := ui.TextY(r)
 	left, right := r.X+th.Padding, r.X+r.W-th.Padding
-	item := func(text string, col mathx.Color, key string, atLeft bool) bool {
+	item := func(text string, col mathx.Color, key string, atLeft bool, icon ...string) bool {
 		w := ui.TextSize(text).X + 12
+		var iw float32
+		if len(icon) > 0 {
+			iw = 20
+			w += iw
+		}
 		sr := mathx.Rect{X: right - w, Y: r.Y, W: w, H: r.H}
 		if atLeft {
 			sr.X = left
@@ -69,15 +106,14 @@ func (a *App) drawStatus(r mathx.Rect) {
 				ui.Rect(sr, th.ButtonHover)
 			}
 		}
-		ui.Text(text, mathx.Vec2{X: sr.X + 6, Y: ty}, col)
+		if iw > 0 {
+			widgets.IconAt(ui, mathx.Rect{X: sr.X + 6, Y: float32(int(sr.Y + (sr.H-16)/2)), W: 16, H: 16}, icon[0], col)
+		}
+		ui.Text(text, mathx.Vec2{X: sr.X + 6 + iw, Y: ty}, col)
 		return clicked
 	}
 	if s, bad := a.scriptStatus(); s != "" {
-		col := th.TextDim
-		if bad {
-			col = th.Error
-		}
-		if item(s, col, "scripts", true) && a.ctx.ShowProblems != nil {
+		if a.buildDot(r, &left, s, bad) && a.ctx.ShowProblems != nil {
 			a.ctx.ShowProblems("")
 		}
 	}
@@ -100,8 +136,7 @@ func (a *App) drawStatus(r mathx.Rect) {
 		}
 	}
 	if n, failed := a.taskCounts(); n > 0 {
-		spin := [...]rune{'◐', '◓', '◑', '◒'}[int(ui.Time*6)%4]
-		if item(widgets.Glyph(ui, spin, "*")+" "+strconv.Itoa(n)+" task(s)", th.TextDim, "tasks", false) {
+		if item(strconv.Itoa(n)+" task(s)", th.TextDim, "tasks", false, "status.busy") {
 			a.ws.Show(taskcenter.ID)
 		}
 	} else if failed > 0 {

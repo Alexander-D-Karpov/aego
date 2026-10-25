@@ -1,0 +1,16 @@
+anim version=1 length=0.3 {
+  track "" prop="transform.position" kind=vec2 root=true {
+    key t=0 v=[0, 0] interp=linear {}
+    key t=0.12 v=[0.6, 0.6] {}
+    key t=0.3 v=[0.6, 0.6] {}
+  }
+  track "" prop="SpriteRenderer.size" kind=vec2 {
+    key t=0 v=[0.95, 0.7] {}
+    key t=0.3 v=[0.8, 0.8] {}
+  }
+  track "" prop="SpriteRenderer.tint" kind=color {
+    key t=0 v=#e0f2feff interp=linear {}
+    key t=0.3 v=#38bdf8ff {}
+  }
+  event t=0.08 name="Hit" payload=1 {}
+}

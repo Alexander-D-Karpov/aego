@@ -63,9 +63,13 @@ type Deps struct {
 	Pipeline  *pipeline.Pipeline
 	Project   *project.Project
 	Templates *templates.Registry
+	// Dragging tells animation preview that the transform gizmo starts or ends a drag (D337).
+	Dragging func(on bool)
 }
 
 type Panel struct {
+	pressAt    mathx.Vec2
+	moved      bool
 	d          Deps
 	iso        isolation
 	isoVer     uint64
@@ -267,6 +271,12 @@ func (p *Panel) refreshView(d *document.SceneDocument) {
 
 func (p *Panel) toPixels(m mathx.Vec2) mathx.Vec2 {
 	return mathx.Vec2{X: (m.X - p.rect.X) * p.scale, Y: (m.Y - p.rect.Y) * p.scale}
+}
+
+// ScreenAt is where a world point was drawn on the last frame, in UI coordinates.
+func (p *Panel) ScreenAt(w mathx.Vec2) mathx.Vec2 {
+	px := p.view.WorldToScreen(w)
+	return mathx.Vec2{X: p.rect.X + px.X/p.scale, Y: p.rect.Y + px.Y/p.scale}
 }
 
 func (p *Panel) worldAt(m mathx.Vec2) mathx.Vec2 {
@@ -475,14 +485,14 @@ func (p *Panel) openMenu(d *document.SceneDocument) {
 	widgets.OpenContextMenu(p.ui(), p.menuID)
 }
 
-func (p *Panel) createAt(at mathx.Vec2) {
+func (p *Panel) createAt(at mathx.Vec2, anchor *mathx.Vec2) {
 	if p.d.Templates == nil {
 		return
 	}
 	if p.d.Tools.Snap {
 		at = snapVec(at, p.d.Tools.SnapMove)
 	}
-	p.d.Scenes.CreateMenuAt(p.d.Templates, templates.Place{At2: &at})
+	p.d.Scenes.Create(ids.NodeID{}, templates.Place{At2: &at}, anchor, nil)
 }
 
 func (p *Panel) contextMenu(d *document.SceneDocument) {
@@ -490,13 +500,13 @@ func (p *Panel) contextMenu(d *document.SceneDocument) {
 	if !widgets.ContextMenu(ui, p.menuID) {
 		return
 	}
-	if widgets.SubMenuIcon(ui, "Create", "ui.plus", 200) {
+	if widgets.MenuItemIcon(ui, "Create…", p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
+		anchor := ui.Mouse()
 		if p.viewMode == Mode3D {
-			p.createAt3(p.menuAt3)
+			p.createAt3(p.menuAt3, &anchor)
 		} else {
-			p.createAt(p.menuAt)
+			p.createAt(p.menuAt, &anchor)
 		}
-		widgets.EndSubMenu(ui)
 	}
 	widgets.Separator(ui)
 	p.item(command.EditDuplicate, "Duplicate")
@@ -584,12 +594,12 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	tb.Separator()
 	cid := ui.ID("create")
 	createX := tb.X()
-	if tb.Button(cid, "ui.plus", "Create", ui.PopupOpen(cid), true) {
-		if ui.PopupOpen(cid) {
-			ui.ClosePopup(cid)
+	if tb.Button(cid, "ui.plus", "Create", false, true) {
+		anchor := mathx.Vec2{X: createX, Y: bar.Y + bar.H}
+		if three {
+			p.createAt3(p.c3.Cam.Target, &anchor)
 		} else {
-			ui.CloseAllPopups()
-			ui.OpenPopup(cid, mathx.Vec2{X: createX, Y: bar.Y + bar.H})
+			p.createAt(d.View.Camera.Position, &anchor)
 		}
 	}
 	if ui.BeginPopup(zid, 120) {
@@ -603,14 +613,6 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 			if widgets.MenuItem(ui, z.label, "", true, false) {
 				p.SetZoom(z.zoom)
 			}
-		}
-		ui.EndPopup()
-	}
-	if ui.BeginPopup(cid, 200) {
-		if three {
-			p.createAt3(p.c3.Cam.Target)
-		} else {
-			p.createAt(d.View.Camera.Position)
 		}
 		ui.EndPopup()
 	}
@@ -653,6 +655,9 @@ func (p *Panel) press(d *document.SceneDocument, id core.ID) {
 	ui.CaptureMouse(id)
 }
 
+// dragSlop is how far the mouse goes before a press on a node or a handle becomes a drag, so a click never nudges it.
+const dragSlop = 4
+
 func gizmoLabel(m gizmo.Mode) string {
 	switch m {
 	case gizmo.ModeRotate:
@@ -684,8 +689,12 @@ func (p *Panel) beginGizmo(d *document.SceneDocument, id core.ID, g gizmo.Gizmo,
 	p.edit = gizmo.NewEdit(s, nodes, p.activeNode, mouse, p.snap())
 	p.edit.Tx = d.History.Begin(label)
 	p.active = g
+	if g == gizmo.Gizmo(&p.gizmo) && p.d.Dragging != nil {
+		p.d.Dragging(true)
+	}
 	g.Begin(p.edit, h)
 	p.mode = modeGizmo
+	p.pressAt, p.moved = p.ui().Mouse(), false
 	p.ui().CaptureMouse(id)
 }
 
@@ -693,6 +702,9 @@ func (p *Panel) dragGizmo(d *document.SceneDocument) {
 	ui := p.ui()
 	e, g := p.edit, p.active
 	finish := func() {
+		if g == gizmo.Gizmo(&p.gizmo) && p.d.Dragging != nil {
+			p.d.Dragging(false)
+		}
 		p.edit, p.active = nil, nil
 		p.mode = modeIdle
 		ui.ReleaseMouse()
@@ -706,6 +718,17 @@ func (p *Panel) dragGizmo(d *document.SceneDocument) {
 		e.Tx.Abort()
 		finish()
 		return
+	}
+	if !p.moved {
+		if ui.Mouse().Sub(p.pressAt).Len() < dragSlop {
+			if !ui.MouseDown(input.MouseLeft) {
+				gizmo.Cancel(e)
+				e.Tx.Abort()
+				finish()
+			}
+			return
+		}
+		p.moved = true
 	}
 	if !ui.MouseDown(input.MouseLeft) {
 		g.End(e)

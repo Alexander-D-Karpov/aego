@@ -562,6 +562,20 @@ func (l *loader) resolves(fd *schema.FieldDescriptor, id ids.AssetID) bool {
 		}
 		_, ok = as.Audio(id)
 		return ok
+	case string(asset.ArtAnim):
+		as, ok := l.res.(asset.AnimSource)
+		if !ok {
+			return true
+		}
+		_, ok = as.Anim(id)
+		return ok
+	case string(asset.ArtCtrl):
+		cs, ok := l.res.(asset.CtrlSource)
+		if !ok {
+			return true
+		}
+		_, ok = cs.Controller(id)
+		return ok
 	default:
 		_, ok := l.res.Texture(id)
 		return ok

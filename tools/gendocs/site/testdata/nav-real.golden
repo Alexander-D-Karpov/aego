@@ -2,6 +2,7 @@ Getting started
   Install and run -> install.html
 Guides
   Editor -> editor.html
+    Add Component and Create -> editor/add-component.html
   Aego Script -> language.html
     Overview -> language/overview.html
     Files and packages -> language/files-and-packages.html
@@ -57,6 +58,19 @@ Guides
       Waiting in coroutines -> tween/waiting.html
       Actions -> tween/actions.html
       Go -> tween/go.html
+    Animation -> animation.html
+      Clips -> animation/clips.html
+      Animation Player -> animation/player.html
+      Time and authority -> animation/time.html
+      Events -> animation/events.html
+      Animator -> animation/animator.html
+      Controllers -> animation/controller.html
+      Root motion -> animation/root.html
+      Go -> animation/go.html
+      Attack with a hit frame -> animation/attack.html
+      The Animation panel -> animation/panel.html
+      Sprite sheets and flipbooks -> animation/sheets.html
+      The Animator panel -> animation/animator-panel.html
     Curves -> curves.html
       Presets and keys -> curves/shape.html
       Editing curves -> curves/editor.html
@@ -124,6 +138,7 @@ Reference
     aego/physics -> ref/aego/physics.html
     aego/camera -> ref/aego/camera.html
       Blend -> ref/aego/camera.Blend.html
+    aego/anim -> ref/aego/anim.html
     aego/action -> ref/aego/action.html
       Action -> ref/aego/action.Action.html
     aego/timer -> ref/aego/timer.html
@@ -173,6 +188,9 @@ Reference
     Rendering 3D -> ref/module/render3d.html
       Camera 3D -> ref/engine.Camera3D.html
       Mesh Renderer -> ref/engine.MeshRenderer.html
+    Animation -> ref/module/animation.html
+      Animation Player -> ref/animation.AnimationPlayer.html
+      Animator -> ref/animation.Animator.html
     Saving -> ref/module/save.html
       Persist -> ref/save.Persist.html
     Audio -> ref/module/audio.html
@@ -185,6 +203,10 @@ Reference
     Input -> section/input.html
     Physics -> section/physics.html
     Debug Draw -> section/debug.html
+    Animation -> section/animation.html
     Player settings -> section/player.html
   Diagnostics -> diagnostics.html
   The aego command -> cli.html
+  File formats
+    .aeanim clips -> formats/aeanim.html
+    .aectrl controllers -> formats/aectrl.html

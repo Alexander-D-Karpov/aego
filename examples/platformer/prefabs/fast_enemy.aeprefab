@@ -2,5 +2,6 @@ prefab version=1 {
   node "e1000000000000000000000000000002" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
     override "e1000000000000000000000000000001" prop="node.name" value="FastEnemy" {}
     override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.Stats" value=asset("da7a0000000000000000000000000002") {}
+    override "e1000000000000000000000000000001" prop="animation.Animator.speed" value=1.6 {}
   }
 }

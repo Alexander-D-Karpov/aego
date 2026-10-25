@@ -51,9 +51,5 @@ func (d *Draw) WorldSize(pixelsPerUnit float32) mathx.Vec2 {
 }
 
 func (d *Draw) tint() mathx.Color {
-	c := d.Tint
-	if c == (mathx.Color{}) {
-		return mathx.Color{R: 1, G: 1, B: 1, A: 1}
-	}
-	return c
+	return d.Tint
 }

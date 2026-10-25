@@ -30,6 +30,7 @@ const (
 	cmdRound
 	cmdBox
 	cmdShadow
+	cmdLine
 )
 
 type command struct {
@@ -194,6 +195,11 @@ func (l *List) Box(r mathx.Rect, radius float32, fill, border mathx.Color) {
 
 func (l *List) Shadow(r mathx.Rect, radius, blur, dy float32, c mathx.Color) {
 	l.add(command{kind: cmdShadow, rect: r, color: c, radius: radius, blur: blur, dy: dy})
+}
+
+// Line draws a segment from a to b, w thick.
+func (l *List) Line(a, b mathx.Vec2, w float32, c mathx.Color) {
+	l.add(command{kind: cmdLine, rect: mathx.Rect{X: a.X, Y: a.Y, W: b.X, H: b.Y}, radius: w, color: c})
 }
 
 func (l *List) RectOutline(r mathx.Rect, c mathx.Color, thickness float32) {
@@ -370,6 +376,22 @@ func (l *List) Flush(f *render.ViewFrame, font *text.Font, white texture.Region,
 				l.box(f, c, white, lay)
 			case cmdShadow:
 				l.shadow(f, c, lay)
+			case cmdLine:
+				d := mathx.Vec2{X: c.rect.W - c.rect.X, Y: c.rect.H - c.rect.Y}
+				n := d.Len()
+				if n <= 0 {
+					continue
+				}
+				f.Sprite(sprite.Draw{
+					Region:   white,
+					Position: mathx.Vec2{X: c.rect.X, Y: c.rect.Y},
+					Size:     mathx.Vec2{X: n, Y: c.radius},
+					Origin:   mathx.Vec2{Y: 0.5},
+					Rotation: mathx.Atan2(d.Y, d.X),
+					Tint:     c.color,
+					Layer:    lay,
+					Order:    c.order,
+				})
 			}
 		}
 		if len(l.clipStack) > 0 {

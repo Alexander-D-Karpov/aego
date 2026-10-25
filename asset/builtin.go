@@ -29,7 +29,7 @@ var builtins = [...]Builtin{
 	{ID: BuiltinWhite, Name: "engine/textures/white", Kind: ArtTexture},
 }
 
-var allBuiltins = append(builtins[:len(builtins):len(builtins)], builtinAudioEntries()...)
+var allBuiltins = append(append(builtins[:len(builtins):len(builtins)], builtinAudioEntries()...), builtinAnimEntries()...)
 
 func Builtins() []Builtin {
 	return allBuiltins

@@ -111,9 +111,7 @@ func (Unavailable) ImportImage(string, string, image.Image) (ids.AssetID, string
 	return ids.AssetID{}, "", errUnavailable
 }
 
-func (Unavailable) CreateMenu(*templates.Registry, ids.NodeID, func([]ids.NodeID)) {}
-
-func (Unavailable) CreateMenuAt(*templates.Registry, templates.Place) {}
+func (Unavailable) Create(ids.NodeID, templates.Place, *mathx.Vec2, func([]ids.NodeID)) {}
 
 func (Unavailable) Instantiate(templates.Template, ids.NodeID, int) error {
 	return errUnavailable

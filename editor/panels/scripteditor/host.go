@@ -362,11 +362,38 @@ func (h *Host) show(d *document.ScriptDocument) *Panel {
 		return p
 	}
 	h.panels[d.Path] = p
-	if target := h.dock.Tree.FindPanel(edws.Scene); target != 0 {
+	if target := h.docTarget(p); target != 0 {
 		h.dock.Tree.DockPanel(p.ID(), target, dock.SideCenter)
 	}
 	h.dock.Show(p.ID())
 	return p
+}
+
+// docTarget is where a new script tab goes: next to open scripts, else the Scene or Game View, else the largest area.
+func (h *Host) docTarget(p *Panel) dock.NodeID {
+	t := h.dock.Tree
+	best, area := dock.NodeID(0), float32(-1)
+	for _, o := range h.panels {
+		if o == p {
+			continue
+		}
+		if id := t.FindPanel(o.ID()); id != 0 {
+			if n, ok := t.Node(id); ok && n.Rect.W*n.Rect.H > area {
+				best, area = id, n.Rect.W*n.Rect.H
+			}
+		}
+	}
+	if large := t.Largest(); best != 0 && large != 0 {
+		if n, ok := t.Node(large); ok && area*2 >= n.Rect.W*n.Rect.H {
+			return best
+		}
+	}
+	for _, id := range []string{edws.Scene, edws.Game} {
+		if n := t.FindPanel(id); n != 0 {
+			return n
+		}
+	}
+	return t.Largest()
 }
 
 func (h *Host) split(p *Panel, down bool) {
@@ -528,14 +555,13 @@ func (h *Host) buildStatus() (string, bool) {
 			n++
 		}
 	}
-	s := "Scripts: build " + strconv.FormatUint(gen, 10)
 	switch {
 	case n > 0:
-		return s + " · " + strconv.Itoa(n) + " errors", true
+		return "Scripts: " + strconv.Itoa(n) + " build errors · Problems", true
 	case failed:
-		return s + " · latest failed", true
+		return "Scripts: the latest build failed · Problems", true
 	}
-	return s + " · ok", false
+	return "Scripts: build " + strconv.FormatUint(gen, 10) + " · ok", false
 }
 
 func (h *Host) ensure() {

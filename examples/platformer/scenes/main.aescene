@@ -135,7 +135,7 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
+      sprite=asset("ae900000000000000000000000000b00")
       layer=0
       order=2
       tint=#4aa3ffff
@@ -170,6 +170,15 @@ scene version=1 {
       destroyOnDeath=false
       despawnOnDeath=false
     }
+    component "animation.Animator" version=1 {
+      controller=asset("a0a10000000000000000000000000010")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
+    }
     component "gameplay.Motion2D" version=1 {
       mode=platformer
       upDirection=[0, -1]
@@ -195,6 +204,8 @@ scene version=1 {
       platformOnLeave=keep
       faceMovement=false
       dashGravity=false
+      ledgeClimb=0.6
+      climbTime=0.3
     }
     component "gameplay.Hurtbox2D" version=1 {
       area=[-0.3, -0.5, 0.6, 0.85]
@@ -221,10 +232,6 @@ scene version=1 {
       resetVelocity=true
       persist=true
     }
-    component "gameplay.StateMachine" version=1 {
-      states=["Idle", "Run", "Air"]
-      initial="Idle"
-    }
     component "save.Persist" version=1 {
       noTransform=false
       noEnabled=false
@@ -238,6 +245,8 @@ scene version=1 {
         JumpSound=asset("a0d10000000000000000000000000011")
         HitSound=asset("a0d10000000000000000000000000012")
         Theme=asset("a0d10000000000000000000000000005")
+        Slash=node("c0000000000000000000000000000010")
+        Reach=0.6
       }
     }
     node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
@@ -254,6 +263,37 @@ scene version=1 {
         density=1
         length=1
         radius=0.3
+      }
+    }
+    node "c0000000000000000000000000000010" name="Slash" enabled=true layers=1 {
+      transform {
+        position=[0.6, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("5a1a5c00000000000000000000000012")
+        layer=0
+        order=3
+        tint=#ffffff00
+        origin=[0.5, 0.5]
+        size=[1.6, 1.6]
+        flipX=false
+        flipY=false
+        blend=additive
+        filter=nearest
+      }
+      component "gameplay.Hitbox2D" version=1 {
+        area=[-0.35, -0.4, 0.7, 0.8]
+        shape=box
+        damage=1
+        knockback=[6, 0]
+        knockbackFromCenter=true
+        team=-1
+        friendlyFire=false
+        policy=oncePerActivation
+        period=0.5
+        active=false
       }
     }
   }

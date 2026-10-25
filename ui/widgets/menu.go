@@ -47,6 +47,25 @@ func (m *MenuBar) Menu(label string, width float32) bool {
 	return c.BeginPopup(id, width)
 }
 
+// Button is a menu bar entry without a popup; at is where a window it opens should go.
+func (m *MenuBar) Button(label string) (clicked bool, at mathx.Vec2) {
+	c := m.c
+	th := &c.Theme
+	id := c.ID("menu/" + label)
+	w := c.TextSize(label).X + 2*th.Padding + 4
+	br := mathx.Rect{X: m.x, Y: m.r.Y, W: w, H: m.r.H}
+	m.x += w
+	clicked = c.Pressed(id, br)
+	if clicked {
+		c.CloseAllPopups()
+	}
+	if c.Hovered(id) {
+		c.RoundRect(mathx.Rect{X: br.X, Y: br.Y + 3, W: br.W, H: br.H - 6}, th.Radius.Menu, th.ButtonHover)
+	}
+	c.TextIn(br, label, th.Text, core.AlignCenter)
+	return clicked, mathx.Vec2{X: br.X, Y: br.Y + br.H}
+}
+
 func (m *MenuBar) EndMenu() {
 	m.c.EndPopup()
 }

@@ -92,7 +92,7 @@ func (p *Panel) row(ui *core.Context, t *tasks.Task, rr mathx.Rect, active bool)
 	right := rr.X + rr.W
 	if active {
 		bw := rr.H
-		if widgets.ButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: right - bw, Y: rr.Y + 2, W: bw, H: rr.H - 4}, widgets.Glyph(ui, '×', "x")) {
+		if widgets.IconButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: right - bw, Y: rr.Y + 2, W: bw, H: rr.H - 4}, "ui.close") {
 			t.Cancel()
 		}
 		right -= bw + 6

@@ -29,10 +29,26 @@ script Brain {
     var log int
     var ticks int
     var changes int
+    var pulses int
     var conn Connection
+    var beat Coroutine
 
     func Ready() {
         conn = node.Get<StateMachine>().Changed.Connect(OnChanged)
+        beat = start Beat()
+    }
+
+    func Beat() coroutine {
+        for pulses >= 0 {
+            pulses++
+            yield wait(0.1)
+        }
+    }
+
+    func Reloaded() {
+        if !beat.Running() {
+            beat = start Beat()
+        }
     }
 
     func OnChanged(from int, to int) {
@@ -127,13 +143,17 @@ func openBrain(t *testing.T) *brain {
 	return &brain{t: t, pf: pf, node: sc.Find(sc.Root(), "Brain")}
 }
 
-func (b *brain) field(name string) int64 {
+func (b *brain) value(name string) vm.Value {
 	id, ok := b.pf.app.Scripts.InstanceOf(b.node, brainType)
 	if !ok {
 		b.t.Fatal("Brain has no script instance")
 	}
 	v, _ := b.pf.app.Scripts.Field(id, name)
-	return v.Int()
+	return v
+}
+
+func (b *brain) field(name string) int64 {
+	return b.value(name).Int()
 }
 
 func (b *brain) fsm() *gameplay.StateMachine {

@@ -6,10 +6,12 @@ import (
 	"aego/contracts/signals"
 	"aego/core/curve"
 	"aego/core/errs"
+	"aego/core/log"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/scene"
-	"aego/schema"
+	"aego/scene/propclaim"
+	"aego/scene/propref"
 	"aego/script/vm"
 )
 
@@ -41,31 +43,25 @@ type tween struct {
 	act      Handle
 	held     bool
 	moved    bool
+	crev     uint64
 }
 
 type Service struct {
 	scene   *scene.Scene
 	world   *engine.World
-	reg     *schema.Registry
-	short   map[string]schema.TypeID
+	props   *propref.Resolver
 	tweens  pool[tween]
 	timers  pool[timer]
 	actions pool[action]
 	hub     signals.Hub
+	cl      *propclaim.Table
+	log     *log.ChannelLogger
+	warned  bool
 }
 
 func NewService(s *scene.Scene, w *engine.World) *Service {
-	svc := &Service{scene: s, world: w, reg: s.Registry(), short: map[string]schema.TypeID{}}
-	for _, td := range svc.reg.Components() {
-		n := schema.ShortName(td.FullName)
-		if _, done := svc.short[n]; done {
-			continue
-		}
-		svc.short[n] = 0
-		if c, ok := svc.reg.ComponentNamed(n); ok {
-			svc.short[n] = c.ID
-		}
-	}
+	svc := &Service{scene: s, world: w}
+	svc.props = propref.New(s, svc.fields)
 	if w != nil {
 		svc.hub, _ = engine.ServiceOf[signals.Hub](w, signals.ServiceID)
 	}
@@ -201,7 +197,7 @@ func (s *Service) start(node scene.NodeHandle, path string, want shape, to [4]fl
 func (s *Service) replace(node scene.NodeHandle, t *target) {
 	for i := range s.tweens.s {
 		e := &s.tweens.s[i]
-		if e.live && e.v.node == node && e.v.tgt.same(t) {
+		if e.live && e.v.node == node && e.v.tgt.Same(t) {
 			s.finish(uint32(i), false)
 		}
 	}
@@ -277,6 +273,9 @@ func (s *Service) Step(dt float32, unscaled bool) {
 	if dt != dt || dt < 0 {
 		dt = 0
 	}
+	if s.world != nil {
+		s.cl = propclaim.Of(s.world)
+	}
 	s.stepActions()
 	for i := range s.tweens.s {
 		e := &s.tweens.s[i]
@@ -287,12 +286,30 @@ func (s *Service) Step(dt float32, unscaled bool) {
 	s.stepTimers(dt, unscaled)
 }
 
+func (s *Service) owned(tw *tween) bool {
+	rev := s.cl.Revision()
+	if tw.crev == rev {
+		return false
+	}
+	tw.crev = rev
+	o, ok := s.cl.Held(tw.node, &tw.tgt, propclaim.NoOwner)
+	if ok && !s.warned && s.log != nil {
+		s.warned = true
+		s.log.Warn("tween stopped: "+s.cl.Name(o)+" owns the property", log.F("node", s.scene.Path(tw.node)))
+	}
+	return ok
+}
+
 func (s *Service) advance(i uint32, tw *tween, dt float32) {
 	if !s.scene.IsAlive(tw.node) {
 		s.finish(i, false)
 		return
 	}
 	if tw.held {
+		return
+	}
+	if s.owned(tw) {
+		s.finish(i, false)
 		return
 	}
 	tw.moved = true
@@ -360,7 +377,7 @@ func (tw *tween) at(u float32) [4]float32 {
 	if tw.rev {
 		a, b = b, a
 	}
-	if tw.tgt.shape == shQuat && tw.tgt.lane < 0 {
+	if tw.tgt.Shape() == shQuat && tw.tgt.Lane() < 0 {
 		return nlerp(a, b, e)
 	}
 	var out [4]float32

@@ -155,11 +155,25 @@ func (r *Registry) cycle(byID map[string]*entry, done map[string]bool) []string 
 func (r *Registry) checkComponents(icons map[string]bool) {
 	sr := r.Schema()
 	for _, d := range r.comps {
-		for _, name := range d.Requires {
+		check := func(verb, name string) {
 			td, ok := sr.ByName(name)
 			if !ok || td.Kind != schema.TypeComponent {
-				r.report(d.Owner, "component "+d.FullName+" requires "+name+", which is not a registered component")
+				r.report(d.Owner, "component "+d.FullName+" "+verb+" "+name+", which is not a registered component")
 			}
+		}
+		for _, name := range d.Requires {
+			check("requires", name)
+		}
+		for _, alts := range d.RequiresAny {
+			for _, name := range alts {
+				check("requires", name)
+			}
+		}
+		for _, name := range d.Suggests {
+			check("suggests", name)
+		}
+		for _, name := range d.Conflicts {
+			check("conflicts with", name)
 		}
 		r.useIcon(icons, d.Owner, d.Icon, "component "+d.FullName)
 		if t := d.Template; t != nil {

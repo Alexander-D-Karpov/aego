@@ -341,15 +341,15 @@ func (p *Panel) headCell(col int, text string, r mathx.Rect) {
 	if ui.Hot() == id {
 		ui.Rect(r, th.WidgetHot)
 	}
-	if p.sortCol == col {
-		mark := widgets.Glyph(ui, '▲', "^")
-		if p.desc {
-			mark = widgets.Glyph(ui, '▼', "v")
-		}
-		text += " " + mark
-	}
 	ui.PushClip(r)
 	ui.Text(text, mathx.Vec2{X: r.X + 4, Y: ui.TextY(r)}, th.Text)
+	if p.sortCol == col {
+		mark := "ui.chevron_up"
+		if p.desc {
+			mark = "ui.chevron_down"
+		}
+		widgets.IconAt(ui, mathx.Rect{X: r.X + 6 + ui.TextSize(text).X, Y: float32(int(r.Y + (r.H-16)/2)), W: 16, H: 16}, mark, th.TextDim)
+	}
 	ui.PopClip()
 }
 

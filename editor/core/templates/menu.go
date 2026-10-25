@@ -1,13 +1,6 @@
 package templates
 
-import (
-	"slices"
-
-	"aego/core/ids"
-	"aego/editor/core/context"
-	"aego/scene"
-	"aego/ui/widgets"
-)
+import "aego/scene"
 
 type Section struct {
 	Title  string
@@ -64,56 +57,4 @@ func Layout(r *Registry, pl Place) []Section {
 		}
 	}
 	return out
-}
-
-func Menu(ctx *context.Editor, r *Registry, parent ids.NodeID, pl Place, onCreate func([]ids.NodeID)) {
-	ui := ctx.UI
-	enabled := ctx.Doc() != nil
-	item := func(t Template) {
-		if !widgets.Entry(ui, widgets.Item{Label: t.Name, Icon: t.Icon, Enabled: enabled}) {
-			return
-		}
-		created, err := InstantiatePlace(ctx, t, parent, -1, pl)
-		if err != nil {
-			ctx.Notify(context.LevelError, err.Error())
-			return
-		}
-		if onCreate != nil {
-			onCreate(created)
-		}
-	}
-	separated := false
-	for _, sec := range Layout(r, pl) {
-		switch {
-		case sec.Title == "":
-			for _, t := range sec.Items {
-				item(t)
-			}
-		case !sec.Module:
-			ui.PushID("menu/" + sec.Title)
-			if widgets.SubMenuIcon(ui, sec.Title, sec.Icon, 200) {
-				for _, t := range sec.Items {
-					item(t)
-				}
-				widgets.EndSubMenu(ui)
-			}
-			ui.PopID()
-		default:
-			if !separated {
-				widgets.Separator(ui)
-				separated = true
-			}
-			ui.PushID("mod/" + sec.Title)
-			if widgets.SubMenuIcon(ui, sec.Title, sec.Icon, 220) {
-				for i, t := range sec.Items {
-					if slices.Contains(sec.Breaks, i) {
-						widgets.Separator(ui)
-					}
-					item(t)
-				}
-				widgets.EndSubMenu(ui)
-			}
-			ui.PopID()
-		}
-	}
 }

@@ -143,6 +143,22 @@
       "doc": "While the listener is inside Area, Bus is turned to Gain."
     },
     {
+      "name": "animation.AnimationPlayer",
+      "kind": "component",
+      "display": "Animation Player",
+      "category": "Animation",
+      "owner": "animation",
+      "doc": "Plays an animation clip on its node and the nodes below it: property tracks, sprite frames and events. Clip time, gameplay events and tracks other than the transform pose advance on fixed steps, so a replay gives the same result at any frame rate."
+    },
+    {
+      "name": "animation.Animator",
+      "kind": "component",
+      "display": "Animator",
+      "category": "Animation",
+      "owner": "animation",
+      "doc": "Plays the states of an animation controller and blends between them when its parameters change. The graph, the blends, root motion and gameplay events run on fixed steps, so replays match at any frame rate."
+    },
+    {
       "name": "camera.VirtualCamera2D",
       "kind": "component",
       "display": "Virtual Camera 2D",

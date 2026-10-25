@@ -29,9 +29,11 @@ type Preset struct {
 	Order       int
 	Slots       map[string]Slot
 	HideToolbar bool
-	Owner       string
-	User        bool
-	Base        string
+	// Rev drops layouts saved for an older revision of a built-in preset.
+	Rev   int
+	Owner string
+	User  bool
+	Base  string
 }
 
 type layout struct {
@@ -304,6 +306,9 @@ func (w *Workspace) encode() []byte {
 	for _, p := range w.presets {
 		n := &aetext.Node{Head: "workspace", Label: p.ID}
 		n.Attrs = append(n.Attrs, aetext.Field{Name: "title", Value: aetext.String(p.Title)})
+		if p.Rev > 0 {
+			n.Attrs = append(n.Attrs, aetext.Field{Name: "rev", Value: aetext.Int(int64(p.Rev))})
+		}
 		if p.User {
 			n.Attrs = append(n.Attrs,
 				aetext.Field{Name: "user", Value: aetext.Bool(true)},
@@ -353,6 +358,9 @@ func (w *Workspace) decode(data []byte) error {
 		}
 		if v, ok := n.Attr("title"); ok && v.Str != "" {
 			p.Title = v.Str
+		}
+		if v, _ := n.Attr("rev"); int(v.AsInt()) < p.Rev {
+			return
 		}
 		l := w.layoutOf(p.ID)
 		if v, ok := n.Attr("toolbar"); ok {

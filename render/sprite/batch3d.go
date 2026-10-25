@@ -51,9 +51,6 @@ func (d *Draw3D) Instance() Instance3D {
 		reg = reg.FlippedY()
 	}
 	tint := d.Tint
-	if tint == (mathx.Color{}) {
-		tint = mathx.Color{R: 1, G: 1, B: 1, A: 1}
-	}
 	w := d.World
 	return Instance3D{
 		Pos:   w.TransformPoint(mathx.Vec3{X: -d.Origin.X * size.X, Y: d.Origin.Y * size.Y}),

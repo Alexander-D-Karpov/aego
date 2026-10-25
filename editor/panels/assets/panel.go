@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -110,16 +111,23 @@ type Panel struct {
 	stacks         map[string][]int
 	stackRev       uint64
 	spans          []highlight.Span
+	sheetOpen      map[ids.AssetID]bool
+	drawn          []drawnTile
+	cellsOf        map[ids.AssetID]int
+	sheetOf        map[ids.AssetID]ids.AssetID
 }
 
 func New(d Deps) *Panel {
 	return &Panel{
-		d:        d,
-		folder:   "assets",
-		expanded: map[string]bool{"assets": true, "scenes": true, "scripts": true, "prefabs": true},
-		sel:      map[ids.AssetID]bool{},
-		split:    0.28,
-		rev:      ^uint64(0),
+		d:         d,
+		folder:    "assets",
+		expanded:  map[string]bool{"assets": true, "scenes": true, "scripts": true, "prefabs": true},
+		sel:       map[ids.AssetID]bool{},
+		sheetOpen: map[ids.AssetID]bool{},
+		cellsOf:   map[ids.AssetID]int{},
+		sheetOf:   map[ids.AssetID]ids.AssetID{},
+		split:     0.28,
+		rev:       ^uint64(0),
 	}
 }
 
@@ -201,6 +209,7 @@ func (p *Panel) refresh() {
 	if rev := pl.Revision(); rev != p.rev {
 		p.rev = rev
 		p.items = pl.Assets()
+		p.addCells()
 		p.dirs = pl.Dirs()
 		p.dirsAt = p.now
 		p.prune()
@@ -218,6 +227,68 @@ func (p *Panel) refresh() {
 	if !found && len(p.dirs) > 0 {
 		p.folder = p.dirs[0]
 	}
+}
+
+// addCells lists the cells of every sliced sheet right after it, as sprites (D339).
+func (p *Panel) addCells() {
+	clear(p.cellsOf)
+	clear(p.sheetOf)
+	n := len(p.items)
+	for i := range n {
+		a := p.items[i]
+		if a.Kind != asset.ArtTexture {
+			continue
+		}
+		m, ok := p.d.Pipeline.MetaOf(a.ID)
+		if !ok || len(m.Subs) == 0 {
+			continue
+		}
+		p.cellsOf[a.ID] = len(m.Subs)
+		for _, s := range m.Subs {
+			p.sheetOf[s.ID] = a.ID
+			p.items = append(p.items, pipeline.AssetInfo{ID: s.ID, Path: a.Path + pipeline.SubSep + s.Name, Name: s.Name, Kind: asset.ArtSpriteRegion})
+		}
+	}
+	if len(p.items) > n {
+		sort.SliceStable(p.items, func(i, j int) bool { return p.items[i].Path < p.items[j].Path })
+	}
+}
+
+// isCell reports whether id is a cell of a sliced sheet, which file operations skip.
+func (p *Panel) isCell(id ids.AssetID) bool {
+	_, ok := p.sheetOf[id]
+	return ok
+}
+
+// fileSelection is the selection without sheet cells, for copy, move, rename and delete.
+func (p *Panel) fileSelection() []ids.AssetID {
+	out := make([]ids.AssetID, 0, len(p.sel))
+	for i := range p.items {
+		if id := p.items[i].ID; p.sel[id] && !p.isCell(id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+type drawnTile struct {
+	id          ids.AssetID
+	tile, arrow mathx.Rect
+}
+
+// TileRect is where an asset's tile and, for a sliced sheet, its expand arrow were drawn on the last frame.
+func (p *Panel) TileRect(id ids.AssetID) (tile, arrow mathx.Rect, ok bool) {
+	for _, d := range p.drawn {
+		if d.id == id {
+			return d.tile, d.arrow, true
+		}
+	}
+	return mathx.Rect{}, mathx.Rect{}, false
+}
+
+// ToggleSheet opens or closes the cells of a sliced sheet in the grid.
+func (p *Panel) ToggleSheet(id ids.AssetID) {
+	p.sheetOpen[id] = !p.sheetOpen[id]
 }
 
 func (p *Panel) prune() {
@@ -450,6 +521,9 @@ func (p *Panel) filter() {
 			}
 			continue
 		}
+		if sheet, ok := p.sheetOf[a.ID]; ok && !p.sheetOpen[sheet] {
+			continue
+		}
 		if path.Dir(a.Path) == p.folder {
 			p.view = append(p.view, i)
 		}
@@ -460,6 +534,7 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 	ui := p.f.UI
 	th := &ui.Theme
 	p.filter()
+	p.drawn = p.drawn[:0]
 	count := len(p.subdirs) + len(p.view)
 	tw := p.tileW()
 	cols := max(1, int(r.W/tw))
@@ -536,7 +611,19 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	ui := p.f.UI
 	th := &ui.Theme
 	id := assetTileID(a.ID)
-	if ui.Pressed(id, r) {
+	cell := p.isCell(a.ID)
+	ts := p.tileSize()
+	img := mathx.Rect{X: r.X + (r.W-ts)/2, Y: r.Y + 4, W: ts, H: ts}
+	var arrow mathx.Rect
+	if p.cellsOf[a.ID] > 0 {
+		arrow = mathx.Rect{X: r.X + r.W - 18, Y: img.Y + img.H/2 - 8, W: 16, H: 16}
+		if arrow.Contains(ui.Mouse()) && ui.MouseOver(id, r) && ui.MousePressed(input.MouseLeft) && !ui.Mods().Primary() {
+			p.ToggleSheet(a.ID)
+			arrow.W = -arrow.W
+		}
+	}
+	p.drawn = append(p.drawn, drawnTile{id: a.ID, tile: r, arrow: mathx.Rect{X: arrow.X, Y: arrow.Y, W: mathx.Abs(arrow.W), H: arrow.H}})
+	if arrow.W >= 0 && ui.Pressed(id, r) {
 		p.press(a.ID)
 		if ui.DoubleClicked(id) {
 			p.selectOnly(a.ID)
@@ -548,7 +635,9 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 			p.selectOnly(a.ID)
 		}
 		p.active = a.ID
-		widgets.OpenContextMenu(ui, p.assetMenuID)
+		if !cell {
+			widgets.OpenContextMenu(ui, p.assetMenuID)
+		}
 	}
 	if ui.Active() == id {
 		p.f.DnD.Source(ui, id, p.payload(a))
@@ -558,9 +647,9 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		ui.Rect(r, th.Selection)
 	case ui.Hot() == id:
 		ui.Rect(r, th.WidgetHot)
+	case cell:
+		ui.RoundRect(r, th.Radius.Field, th.CardBg)
 	}
-	ts := p.tileSize()
-	img := mathx.Rect{X: r.X + (r.W-ts)/2, Y: r.Y + 4, W: ts, H: ts}
 	switch reg, ok := p.d.Thumbs.Get(*a); {
 	case a.Kind == asset.ArtAudio:
 		p.audioCard(a, img)
@@ -572,6 +661,16 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	default:
 		p.schematic(a, img)
 	}
+	if arrow.W != 0 {
+		icon := "ui.chevron_right"
+		if p.sheetOpen[a.ID] {
+			icon = "ui.chevron_down"
+		}
+		ar := arrow
+		ar.W = 16
+		ui.RoundRect(ar, 3, th.Panel)
+		widgets.IconAt(ui, ar, icon, th.Text)
+	}
 	startup := p.d.Project != nil && a.ID == p.d.Project.MainScene
 	if startup {
 		widgets.IconAt(ui, mathx.Rect{X: img.X + img.W - 16, Y: img.Y, W: 16, H: 16}, "play.start", th.Accent)
@@ -581,7 +680,11 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		p.drawAssetRename(a, nameR)
 	} else {
 		ui.PushClip(nameR)
-		ui.TextIn(nameR, widgets.Elide(ui, assetops.Stem(a.Path), nameR.W), th.Text, core.AlignCenter)
+		name := assetops.Stem(a.Path)
+		if cell {
+			name = a.Name
+		}
+		ui.TextIn(nameR, widgets.Elide(ui, name, nameR.W), th.Text, core.AlignCenter)
 		ui.PopClip()
 	}
 	tip := a.Path
@@ -640,14 +743,22 @@ func (p *Panel) dirTile(dir string, r mathx.Rect) {
 
 func (p *Panel) accepts(pl dnd.Payload, dir string) bool {
 	switch pl.Kind {
-	case context.KindFiles, context.KindAsset:
+	case context.KindFiles:
 		return true
+	case context.KindAsset:
+		ap, ok := pl.Data.(context.AssetPayload)
+		return !ok || !p.isCell(ap.ID)
 	case context.KindNodes:
 		return p.d.Prefabs != nil
 	case context.KindAssets:
 		ap, ok := pl.Data.(context.AssetsPayload)
 		if !ok {
 			return false
+		}
+		for _, it := range ap.Items {
+			if p.isCell(it.ID) {
+				return false
+			}
 		}
 		for _, d := range ap.Dirs {
 			if d == dir || assetops.Under(dir, d) || path.Dir(d) == dir {
@@ -821,7 +932,7 @@ func (p *Panel) Reveal(rel string) {
 }
 
 func (p *Panel) StartRename() {
-	if len(p.sel) == 1 && p.sel[p.active] {
+	if len(p.sel) == 1 && p.sel[p.active] && !p.isCell(p.active) {
 		p.renaming, p.renameStart = p.active, true
 	}
 }
@@ -915,4 +1026,20 @@ func reveal(abs string, isDir bool) error {
 		abs = path.Dir(abs)
 	}
 	return exec.Command("xdg-open", abs).Start()
+}
+
+// Folder is the folder the grid shows.
+func (p *Panel) Folder() string {
+	return p.folder
+}
+
+// SetFolder shows a folder and unfolds its parents in the tree.
+func (p *Panel) SetFolder(dir string) {
+	if dir == "" || dir == p.folder {
+		return
+	}
+	for d := path.Dir(dir); d != "." && d != "/"; d = path.Dir(d) {
+		p.expanded[d] = true
+	}
+	p.enter(dir)
 }

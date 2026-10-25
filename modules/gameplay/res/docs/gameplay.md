@@ -13,7 +13,7 @@ The gameplay module adds the parts most 2D games rebuild by hand: a character co
 
 Quick start: Create → Gameplay → Platformer Character gives a node with a kinematic Rigid Body 2D, a collider, Motion 2D, Health, Hurtbox 2D and Respawn. Give it a script that calls `Move` and `Jump`, add a floor and press Play.
 
-Two complete games use the kit: `aego new mygame --example platformer` (stomping enemies with a foot hitbox, a pit with a kill zone, a checkpoint, a persisted respawn point and a state machine for the player's look) and `aego new mygame --example topdown` (a sword swung towards the stick, the mouse or the walking direction, enemies whose State Machine switches between Patrol and Chase, coins and lava). The launcher offers both under **Examples**.
+Two complete games use the kit: `aego new mygame --example platformer` (stomping enemies with a foot hitbox, a pit with a kill zone, a checkpoint, a persisted respawn point and an Animator for the player's look, with a slash on a hit frame) and `aego new mygame --example topdown` (a sword swung towards the stick, the mouse or the walking direction, enemies whose State Machine switches between Patrol and Chase while their Animator shows it, a lunge by root motion, coins and lava). The launcher offers both under **Examples**.
 
 | Component | Purpose |
 |---|---|
@@ -65,6 +65,21 @@ title: Character motion
 
 Floors, walls and ceilings are told apart by the angle of the surface to Up Direction: a surface steeper than Max Slope is a wall. On a floor the character follows its slope without sliding down, and Snap To Ground keeps it on the floor when walking down a slope or a small step. Steps up to Step Height are climbed without jumping. Safe Margin is the gap kept to every surface so the next cast never starts inside one.
 
+In the air a wall stops the movement into it and never lifts the character: a capsule or circle that meets the corner of a ledge slides off it instead of hanging there.
+
+## Ledges
+
+With **Ledge Climb** above 0, a character in the air that moves into a wall whose top is at most Ledge Climb above its feet climbs onto it: it rises to the top, steps onto the ledge and lands there, over **Climb Time** seconds. Higher walls are left alone. The climb runs on fixed steps like the rest of the motion: input, gravity and root motion are ignored during it, and the velocity stays at zero. Knockback (`AddVelocity`), `Stop`, `Dash` and `Teleport` end it at once.
+
+**Climbing** is true during the climb and **Climbed** fires when it starts. To animate it, pass the flag to the Animator in `FixedUpdate`, as the player of the platformer example does:
+
+```aes
+a := node.Get<Animator>()
+a.SetBool("Climbing", m.Climbing)
+```
+
+and give the controller a `Climb` state entered from `any` while `Climbing` is true.
+
 ## Jumps
 
 | Field | Effect |
@@ -80,7 +95,7 @@ Floors, walls and ceilings are told apart by the angle of the surface to Up Dire
 
 With Moving Platforms the character rides on the body it stands on; Platform On Leave decides what happens to the platform's speed after a jump: `keep` adds it, `drop` loses it, `add` keeps only its horizontal part. With Push Bodies dynamic bodies do not stop the character, it pushes them.
 
-`Dash(velocity, seconds)`, `AddVelocity` for knockback, `Stop` and `Teleport` cover the rest. The Runtime fields show the velocity, whether the character is grounded or touching a wall or ceiling, the floor normal and angle and the body it stands on.
+`Dash(velocity, seconds)`, `AddVelocity` for knockback, `AddDisplacement(offset)` for root motion and scripted nudges, `Stop` and `Teleport` cover the rest. A displacement moves the character through walls and slopes like a move, on the next step, and leaves the velocity alone. The Runtime fields show the velocity, whether the character is grounded or touching a wall or ceiling, the floor normal and angle and the body it stands on.
 
 ---
 id: gameplay/health
@@ -308,7 +323,7 @@ The components are reached with `node.Get<T>()`; there is no module to import.
 
 | Component | Methods | Signals |
 |---|---|---|
-| Motion2D | `Move(x)`, `MoveDir(dir)`, `Jump()`, `JumpReleased()`, `Dash(velocity, seconds)`, `AddVelocity(v)`, `Stop()`, `Teleport(position)` | `Landed(speed)`, `LeftGround()`, `Jumped()`, `HitWall(normal)`, `HitCeiling()` |
+| Motion2D | `Move(x)`, `MoveDir(dir)`, `Jump()`, `JumpReleased()`, `Dash(velocity, seconds)`, `AddVelocity(v)`, `AddDisplacement(offset)`, `Stop()`, `Teleport(position)` | `Landed(speed)`, `LeftGround()`, `Jumped()`, `HitWall(normal)`, `HitCeiling()` |
 | Health | `Damage(amount, source) bool`, `Heal(amount)`, `Kill(source)`, `Revive(hp)`, `SetInvulnerable(seconds)` | `Damaged(amount, source)`, `Healed(amount)`, `Died(source)`, `Revived()` |
 | Hitbox2D | `Activate()`, `Deactivate()`, `Pulse()` | `Hit(target, damage)` |
 | Checkpoint2D | | `Reached(by)` |
@@ -376,4 +391,4 @@ The component types and their methods are the same as in scripts. `gameplay.Of(w
 
 State machines call script hooks through the `script.call` contract (`contracts/scriptcall`): `Method(node, name, params)` finds a plain method of a script on a node, `Call` runs it, and a new `Generation` after a hot reload makes old references stale. The save section `gameplay.respawn` holds the respawn points marked Persist.
 
-Motion 2D reads and moves bodies only through the `physics2d.queries` contract: `CastBody` from a moved pose, `Penetration`, `BodyPose`, `BodyVelocity`, `MoveKinematic`, `Teleport` and `Gravity`. A physics module that provides the contract runs the controller unchanged.
+Motion 2D reads and moves bodies only through the `physics2d.queries` contract: `CastBody` from a moved pose, `Penetration`, `BodyPose`, `BodyVelocity`, `MoveKinematic`, `Teleport` and `Gravity`. A physics module that provides the contract runs the controller unchanged. Root motion reaches the controller through the `motion2d.receiver` contract (`contracts/motion2d`): `AddDisplacement(node, offset)` returns false for a node without Motion 2D.

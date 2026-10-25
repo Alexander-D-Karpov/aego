@@ -56,6 +56,35 @@ type History struct {
 	changed   func(*module.ChangeSet)
 	cs        module.ChangeSet
 	ver       uint64
+	guard     Guard
+	filter    Filter
+}
+
+type Guard interface {
+	Before()
+	After()
+}
+
+type Filter func(c Command) (Command, bool)
+
+func (h *History) SetGuard(g Guard) {
+	h.guard = g
+}
+
+func (h *History) SetFilter(f Filter) {
+	h.filter = f
+}
+
+func (h *History) before() {
+	if h.guard != nil {
+		h.guard.Before()
+	}
+}
+
+func (h *History) after() {
+	if h.guard != nil {
+		h.guard.After()
+	}
 }
 
 func New(target Target) *History {
@@ -180,11 +209,13 @@ func (h *History) Undo() error {
 	e := h.undo[n-1]
 	h.undo = h.undo[:n-1]
 	var first error
+	h.before()
 	for i := len(e.cmds) - 1; i >= 0; i-- {
 		if err := e.cmds[i].Undo(h.target); err != nil && first == nil {
 			first = err
 		}
 	}
+	h.after()
 	h.redo = append(h.redo, e)
 	h.publish(e.cmds, true)
 	h.notify()
@@ -205,11 +236,13 @@ func (h *History) Redo() error {
 	e := h.redo[n-1]
 	h.redo = h.redo[:n-1]
 	var first error
+	h.before()
 	for _, c := range e.cmds {
 		if err := c.Do(h.target); err != nil && first == nil {
 			first = err
 		}
 	}
+	h.after()
 	h.undo = append(h.undo, e)
 	h.publish(e.cmds, false)
 	h.notify()
@@ -349,7 +382,18 @@ func (t *Transaction) Exec(c Command) error {
 	if t.h.locked != "" {
 		return errs.New(errs.EditorHistory, t.h.locked)
 	}
-	if err := c.Do(t.h.target); err != nil {
+	if f := t.h.filter; f != nil {
+		if r, ok := f(c); ok {
+			if r == nil {
+				return nil
+			}
+			c = r
+		}
+	}
+	t.h.before()
+	err := c.Do(t.h.target)
+	t.h.after()
+	if err != nil {
 		return err
 	}
 	if n := len(t.cmds); n > 0 && t.cmds[n-1].Merge(c) {
@@ -378,9 +422,11 @@ func (t *Transaction) Abort() {
 	if t.done {
 		return
 	}
+	t.h.before()
 	for i := len(t.cmds) - 1; i >= 0; i-- {
 		t.cmds[i].Undo(t.h.target)
 	}
+	t.h.after()
 	t.cmds = nil
 	t.done = true
 	t.h.tx = nil

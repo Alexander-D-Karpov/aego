@@ -12,6 +12,8 @@ import (
 	"aego/core/rewind"
 	"aego/engine"
 	"aego/scene"
+	"aego/scene/propclaim"
+	"aego/scene/propref"
 	"aego/script/vm"
 )
 
@@ -72,6 +74,8 @@ type Service struct {
 	fdt        float32
 	args       [1]vm.Value
 	fsmFixFn   func(scene.NodeHandle, *StateMachine)
+	cl         *propclaim.Table
+	owner      propclaim.Owner
 	fsmUpdFn   func(scene.NodeHandle, *StateMachine)
 	stepFn     func(scene.NodeHandle, *Motion2D)
 	postFn     func(scene.NodeHandle, *Motion2D)
@@ -136,7 +140,19 @@ func (s *Service) Fixed(dt float32) {
 	}
 	s.g = q.Gravity().Len()
 	s.stats.Steps++
-	scene.Query1[Motion2D](s.scene).Each(s.stepFn)
+	s.cl.Begin(s.owner)
+	scene.Store[Motion2D](s.scene).EachAll(s.stepFn)
+	s.cl.End(s.owner)
+}
+
+func (s *Service) claim(h scene.NodeHandle) {
+	if s.cl == nil {
+		return
+	}
+	pos := propref.TransformRef(s.scene, h, propref.PartPosition)
+	rot := propref.TransformRef(s.scene, h, propref.PartRotation)
+	s.cl.Claim(s.owner, h, &pos)
+	s.cl.Claim(s.owner, h, &rot)
 }
 
 func (s *Service) Post() {
@@ -230,11 +246,22 @@ func (s *Service) warn(h scene.NodeHandle, c *Motion2D, err error) {
 	s.log.Warn(CodeNotKinematic+": Motion 2D needs a kinematic Body2D on its node", log.F("node", s.scene.Path(h)), log.F("error", err.Error()))
 }
 
+func (s *Service) AddDisplacement(node scene.NodeHandle, d mathx.Vec2) bool {
+	m, ok := scene.Get[Motion2D](s.scene, node)
+	if !ok {
+		return false
+	}
+	m.AddDisplacement(d)
+	return true
+}
+
 func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 	if !s.scene.EffectiveEnabled(h) {
+		c.st.disp = mathx.Vec2{}
 		return
 	}
 	s.stats.Controllers++
+	s.claim(h)
 	pos, ang, ok := s.q.BodyPose(h)
 	if !ok {
 		return
@@ -243,7 +270,7 @@ func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 	if st.teleport {
 		to := st.teleportTo
 		*st = motionState{move: st.move, warned: st.warned}
-		c.Velocity, c.Grounded, c.OnWall, c.OnCeiling = mathx.Vec2{}, false, false, false
+		c.Velocity, c.Grounded, c.OnWall, c.OnCeiling, c.Climbing = mathx.Vec2{}, false, false, false, false
 		c.GroundBody = scene.NodeRef{}
 		if err := s.q.Teleport(h, to, ang); err != nil {
 			s.warn(h, c, err)
@@ -266,6 +293,14 @@ func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 			st.platVel, carry = pv, pv.Scale(dt)
 		}
 	}
+	if st.climbLeft > 0 {
+		if !st.stop && st.dashLeft <= 0 && st.addVel == (mathx.Vec2{}) {
+			st.disp, st.jumpReq = mathx.Vec2{}, false
+			s.climb(h, c, pos, ang)
+			return
+		}
+		st.climbLeft, c.Climbing = 0, false
+	}
 	prevUp := c.Velocity.Dot(up)
 	v, jumped := c.Velocity, false
 	if c.Mode == TopDown {
@@ -286,9 +321,74 @@ func (s *Service) stepOne(h scene.NodeHandle, c *Motion2D) {
 		v, st.stop, st.dashLeft = mathx.Vec2{}, false, 0
 	}
 	off := s.depenetrate()
-	off = s.slide(off, v.Scale(dt).Add(carry), &v)
+	move := v.Scale(dt).Add(carry).Add(st.disp)
+	st.disp = mathx.Vec2{}
+	off = s.slide(off, move, &v)
 	off = s.snap(off, jumped)
+	if s.ledge(c, pos, off, v) {
+		c.Velocity = mathx.Vec2{}
+		s.climb(h, c, pos, ang)
+		return
+	}
 	s.finish(h, c, pos, ang, off, v, prevUp, jumped)
+}
+
+// ledge starts a climb when the airborne character moves into a wall whose top is within Ledge Climb above its feet.
+func (s *Service) ledge(c *Motion2D, pos, off, v mathx.Vec2) bool {
+	p, st := &s.p, &c.st
+	if c.Mode != Platformer || c.LedgeClimb <= 0 || p.floor || st.grounded || !p.wall {
+		return false
+	}
+	dir := st.move.X
+	if dir == 0 || p.wallN.Dot(p.right)*dir >= 0 || v.Dot(p.up) > jumpSpeed(c, s.g)*0.5 {
+		return false
+	}
+	lift := p.up.Scale(c.LedgeClimb)
+	if _, hit := s.cast(off, lift); hit {
+		return false
+	}
+	reach := p.right.Scale(mathx.Sign(dir) * c.LedgeClimb)
+	o := off.Add(lift)
+	if h, hit := s.cast(o, reach); hit {
+		if h.Initial || h.Fraction*c.LedgeClimb < c.LedgeClimb*0.5 {
+			return false
+		}
+		reach = reach.Scale(max(h.Fraction-p.margin/c.LedgeClimb, 0))
+	}
+	drop := p.up.Scale(-c.LedgeClimb)
+	h, hit := s.cast(o.Add(reach), drop)
+	if !hit || h.Initial || p.kind(h.Normal) != hitFloor {
+		return false
+	}
+	rise := c.LedgeClimb*(1-h.Fraction) - p.margin
+	if rise <= p.margin {
+		return false
+	}
+	st.climbFrom, st.climbRise, st.climbFwd = pos.Add(off), p.up.Scale(rise), reach
+	st.climbLeft, st.climbFloor = max(c.ClimbTime, s.dt), h.Node
+	st.events |= evClimbed
+	return true
+}
+
+func smooth(t float32) float32 {
+	t = mathx.Clamp(t, 0, 1)
+	return t * t * (3 - 2*t)
+}
+
+// climb moves the character along the ledge path: up first, then onto the ledge, and lands it there.
+func (s *Service) climb(h scene.NodeHandle, c *Motion2D, pos mathx.Vec2, ang float32) {
+	p, st := &s.p, &c.st
+	total := max(c.ClimbTime, s.dt)
+	st.climbLeft -= s.dt
+	t := 1 - max(st.climbLeft, 0)/total
+	at := st.climbFrom.Add(st.climbRise.Scale(smooth(t / 0.6))).Add(st.climbFwd.Scale(smooth((t - 0.4) / 0.6)))
+	done := st.climbLeft <= 0
+	if done {
+		st.climbLeft = 0
+		p.floor, p.floorN, p.ground = true, p.up, st.climbFloor
+	}
+	c.Climbing = !done
+	s.finish(h, c, pos, ang, at.Sub(pos), mathx.Vec2{}, 0, false)
 }
 
 func (s *Service) platformer(c *Motion2D, v mathx.Vec2, dt float32) (mathx.Vec2, bool) {
@@ -396,6 +496,14 @@ func (s *Service) slide(off, move mathx.Vec2, v *mathx.Vec2) mathx.Vec2 {
 			return off
 		}
 		p.note(k, n, hit.Node)
+		if k == hitWall && p.c.Mode == Platformer {
+			if gap := hit.Fraction * l; gap < p.margin && !p.c.st.grounded {
+				off = off.Add(n.Scale(p.margin - gap))
+			}
+			rest, *v = wallSlide(rest, n, p.up, p.right), wallSlide(*v, n, p.up, p.right)
+			move = rest
+			continue
+		}
 		if d := rest.Dot(n); d < 0 {
 			rest = rest.Sub(n.Scale(d))
 		}
@@ -405,6 +513,21 @@ func (s *Service) slide(off, move mathx.Vec2, v *mathx.Vec2) mathx.Vec2 {
 		move = rest
 	}
 	return off
+}
+
+// wallSlide moves along a platformer wall: no push into it, a slide along its surface, and never more rise than before.
+func wallSlide(m, n, up, right mathx.Vec2) mathx.Vec2 {
+	was := max(m.Dot(up), 0)
+	if h := m.Dot(right); h*n.Dot(right) < 0 {
+		m = m.Sub(right.Scale(h))
+	}
+	if d := m.Dot(n); d < 0 {
+		m = m.Sub(n.Scale(d))
+	}
+	if u := m.Dot(up); u > was {
+		m = m.Sub(up.Scale(u - was))
+	}
+	return m
 }
 
 func (s *Service) stepUp(off *mathx.Vec2, rest mathx.Vec2) bool {
@@ -531,6 +654,9 @@ func (s *Service) postOne(h scene.NodeHandle, c *Motion2D) {
 	}
 	if ev&evCeiling != 0 {
 		s.sig.ceiling.Emit(s.world, h)
+	}
+	if ev&evClimbed != 0 {
+		s.sig.climbed.Emit(s.world, h)
 	}
 }
 

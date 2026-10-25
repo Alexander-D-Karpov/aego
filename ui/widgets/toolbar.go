@@ -157,11 +157,15 @@ func IconButton(c *core.Context, id core.ID, r mathx.Rect, icon, tooltip string)
 		c.RoundRect(r, th.Radius.Button, th.ButtonHover)
 		tint = th.Text
 	}
+	IconIn(c, r, icon, tint)
+	Tooltip(c, id, tooltip)
+	return clicked
+}
+
+func IconIn(c *core.Context, r mathx.Rect, icon string, tint mathx.Color) {
 	is := min(float32(16), min(r.W, r.H)-4)
 	ix, iy := float32(int(r.X+(r.W-is)/2)), float32(int(r.Y+(r.H-is)/2))
 	IconAt(c, mathx.Rect{X: ix, Y: iy, W: is, H: is}, icon, tint)
-	Tooltip(c, id, tooltip)
-	return clicked
 }
 
 func snap(r mathx.Rect, scale float32) mathx.Rect {

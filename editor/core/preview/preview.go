@@ -64,6 +64,7 @@ const (
 
 type item struct {
 	id     ids.AssetID
+	rev    uint64
 	key    string
 	state  state
 	tex    gpu.TextureHandle
@@ -162,6 +163,9 @@ func (s *Service) scriptKey(e asset.Entry) (string, bool) {
 }
 
 func (s *Service) ByID(id ids.AssetID) (texture.Region, bool) {
+	if reg, ok := s.builtin(id); ok {
+		return reg, true
+	}
 	e, ok := s.entry(id)
 	if !ok {
 		return texture.Region{}, false
@@ -205,6 +209,13 @@ func (s *Service) Lines(info pipeline.AssetInfo) []string {
 }
 
 func (s *Service) ensure(info pipeline.AssetInfo) *item {
+	rev := s.revision()
+	if it := s.items[info.ID]; it != nil && it.rev == rev && it.key != "" && it.key != builtinKey {
+		if it.state == pending && it.task != nil {
+			it.task.SetPriority(s.frame)
+		}
+		return it
+	}
 	e, ok := s.entry(info.ID)
 	if !ok || s.d.Tasks == nil {
 		return nil
@@ -215,6 +226,7 @@ func (s *Service) ensure(info pipeline.AssetInfo) *item {
 	}
 	it := s.items[info.ID]
 	if it != nil && it.key == key {
+		it.rev = rev
 		if it.state == pending && it.task != nil {
 			it.task.SetPriority(s.frame)
 		}
@@ -227,7 +239,7 @@ func (s *Service) ensure(info pipeline.AssetInfo) *item {
 	if it.task != nil {
 		it.task.Cancel()
 	}
-	it.key, it.state = key, pending
+	it.key, it.state, it.rev = key, pending, rev
 	spec := tasks.Spec{Title: "Preview " + filepath.Base(e.Name), Kind: "preview", Priority: s.frame}
 	switch {
 	case info.Kind == asset.ArtScript:
@@ -554,4 +566,33 @@ func (s *Service) Close() {
 		s.pool.Close()
 		s.pool = nil
 	}
+}
+
+// builtin shows an engine texture, such as a runner frame, which has no entry in the project's index.
+func (s *Service) builtin(id ids.AssetID) (texture.Region, bool) {
+	if it := s.items[id]; it != nil && it.key == builtinKey {
+		return it.region, it.state == ready
+	}
+	data, ok := asset.BuiltinTexture(id)
+	if !ok || !s.gpuOK {
+		return texture.Region{}, false
+	}
+	it := &item{id: id, key: builtinKey, state: failed}
+	s.items[id] = it
+	tex, err := s.d.Renderer.Textures().Upload(data, texture.UploadOptions{Label: "editor.preview"})
+	if err != nil {
+		return texture.Region{}, false
+	}
+	it.tex, it.region, it.state = tex, texture.Whole(tex, data.Width, data.Height), ready
+	return it.region, true
+}
+
+const builtinKey = "builtin"
+
+// revision changes whenever the pipeline imports, so a key is worked out again only then.
+func (s *Service) revision() uint64 {
+	if s.d.Pipeline == nil {
+		return 0
+	}
+	return s.d.Pipeline.Revision()
 }

@@ -19,7 +19,16 @@ type Produced struct {
 	Data []byte
 }
 
+// SubResult is a sub-asset an import produces next to its main entry, such as a cell of a sliced sheet (D339).
+type SubResult struct {
+	ID        ids.AssetID
+	Name      string
+	Kind      asset.ArtifactKind
+	Artifacts []Produced
+}
+
 type Result struct {
+	Subs      []SubResult
 	Kind      asset.ArtifactKind
 	Artifacts []Produced
 	Deps      []ids.AssetID

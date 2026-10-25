@@ -50,15 +50,15 @@ func (s *Service) Hash(h *rewind.Hasher) {
 	h.String(ServiceID)
 	s.hh = h
 	f := &s.hashFns
-	scene.Query1[Motion2D](s.scene).Each(f.motion)
-	scene.Query1[Health](s.scene).Each(f.health)
-	scene.Query1[Hitbox2D](s.scene).Each(f.hit)
-	scene.Query1[KillZone2D](s.scene).Each(f.kill)
-	scene.Query1[Checkpoint2D](s.scene).Each(f.cp)
-	scene.Query1[Pickup2D](s.scene).Each(f.pick)
-	scene.Query1[Respawn](s.scene).Each(f.resp)
-	scene.Query1[Lifetime](s.scene).Each(f.life)
-	scene.Query1[StateMachine](s.scene).Each(f.fsm)
+	scene.Store[Motion2D](s.scene).EachAll(f.motion)
+	scene.Store[Health](s.scene).EachAll(f.health)
+	scene.Store[Hitbox2D](s.scene).EachAll(f.hit)
+	scene.Store[KillZone2D](s.scene).EachAll(f.kill)
+	scene.Store[Checkpoint2D](s.scene).EachAll(f.cp)
+	scene.Store[Pickup2D](s.scene).EachAll(f.pick)
+	scene.Store[Respawn](s.scene).EachAll(f.resp)
+	scene.Store[Lifetime](s.scene).EachAll(f.life)
+	scene.Store[StateMachine](s.scene).EachAll(f.fsm)
 	s.hh = nil
 }
 
@@ -82,6 +82,12 @@ func (s *Service) hashMotion(n scene.NodeHandle, c *Motion2D) {
 	hashVec(h, st.floorN)
 	hashVec(h, st.platVel)
 	hashVec(h, st.wallN)
+	hashVec(h, st.disp)
+	hashVec(h, st.climbFrom)
+	hashVec(h, st.climbRise)
+	hashVec(h, st.climbFwd)
+	h.F32(st.climbLeft)
+	hashNode(h, st.climbFloor)
 	h.F32(st.dashLeft)
 	h.F32(st.coyote)
 	h.F32(st.buffer)
@@ -94,6 +100,7 @@ func (s *Service) hashMotion(n scene.NodeHandle, c *Motion2D) {
 	h.Bool(st.stop)
 	h.Bool(st.teleport)
 	h.Bool(st.grounded)
+	h.Bool(c.Climbing)
 }
 
 func (s *Service) hashHealth(n scene.NodeHandle, c *Health) {

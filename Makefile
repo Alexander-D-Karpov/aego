@@ -138,7 +138,9 @@ golden-update: bootstrap
 	$(GL_ENV) go test -tags aego_golden ./tests/golden/... -update
 
 BENCH_DIR = $(CURDIR)/.cache/bench
-BENCH_BASELINE = $(BENCH_DIR)/baseline.json
+# Committed baselines; bench-allocs compares allocation counts only, so they hold on any machine.
+BENCH_BASE_DIR = $(CURDIR)/tools/bench/baseline
+BENCH_BASELINE = $(BENCH_BASE_DIR)/baseline.json
 BENCH_OUT ?= $(BENCH_DIR)/out.txt
 BENCH_GATE = go run ./tools/benchgate
 BENCH_PKGS = ./script/vm ./script/coroutine ./script/signal ./script/runtime ./script/bind
@@ -151,11 +153,11 @@ bench: bootstrap
 	$(BENCH_PIN) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT)
 
 bench-baseline: bootstrap $(MODULE_BENCH_BASELINE)
-	mkdir -p $(BENCH_DIR)
+	mkdir -p $(BENCH_DIR) $(BENCH_BASE_DIR)
 	go build -o .cache/bin/bench ./tools/bench
 	$(BENCH_PIN) .cache/bin/bench -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT) -update
 	$(BENCH_PIN) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count $(BENCH_COUNT) -update
-	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.base.txt
+	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_BASE_DIR)/scripts.base.txt
 
 bench-scripts-run:
 	mkdir -p $(BENCH_DIR)
@@ -163,7 +165,7 @@ bench-scripts-run:
 
 bench-scripts:
 	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.txt
-	$(BENCH_GATE) -base $(BENCH_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.txt
+	$(BENCH_GATE) -base $(BENCH_BASE_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.txt
 
 # CI gate: allocations only, equal to the saved baseline.
 bench-allocs: bootstrap $(MODULE_BENCH_ALLOCS)
@@ -171,7 +173,7 @@ bench-allocs: bootstrap $(MODULE_BENCH_ALLOCS)
 	$(GL_ENV) .cache/bin/bench -baseline $(BENCH_BASELINE) -count 1 -time=false
 	$(GL_ENV) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count 1 -time=false
 	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.allocs.txt BENCH_COUNT=1
-	$(BENCH_GATE) -time=false -base $(BENCH_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.allocs.txt
+	$(BENCH_GATE) -time=false -base $(BENCH_BASE_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.allocs.txt
 
 
 bench-build:

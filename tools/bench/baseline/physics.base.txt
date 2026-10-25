@@ -1,0 +1,58 @@
+goos: linux
+goarch: amd64
+pkg: aego/modules/physics/world
+cpu: 12th Gen Intel(R) Core(TM) i7-1260P
+BenchmarkStep1kActive 	     730	   1641481 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     727	   1644993 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     726	   1644712 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     730	   1642712 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     732	   1646592 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     730	   1641672 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     730	   1641727 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     730	   1642051 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     732	   1641700 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkStep1kActive 	     729	   1642511 ns/op	      1000 pairs	      2000 points	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  456798	      2624 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  455787	      2630 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  457075	      2646 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  454602	      2623 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  456025	      2628 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  456532	      2621 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  448639	      2616 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  454225	      2623 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  458404	      2621 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRaycast      	  455356	      2621 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	aego/modules/physics/world	36.247s
+goos: linux
+goarch: amd64
+pkg: aego/demos/physics2d
+cpu: 12th Gen Intel(R) Core(TM) i7-1260P
+BenchmarkScene 	   23281	     49724 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23331	     49664 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23296	     49708 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23332	     49687 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23270	     49699 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23311	     49649 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23299	     49773 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23318	     49683 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23277	     49695 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScene 	   23326	     49649 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	aego/demos/physics2d	40.333s
+goos: linux
+goarch: amd64
+pkg: aego/tests/integration
+cpu: 12th Gen Intel(R) Core(TM) i7-1260P
+BenchmarkPlatformerFrame 	   26390	     45159 ns/op	     364 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26385	     45288 ns/op	     364 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26517	     45368 ns/op	     362 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26365	     45415 ns/op	     364 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26394	     45291 ns/op	     364 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26464	     45350 ns/op	     363 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26509	     45791 ns/op	     362 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26503	     45493 ns/op	     362 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26492	     45289 ns/op	     363 B/op	       0 allocs/op
+BenchmarkPlatformerFrame 	   26340	     45364 ns/op	     365 B/op	       0 allocs/op
+PASS
+ok  	aego/tests/integration	21.093s

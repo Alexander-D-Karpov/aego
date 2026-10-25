@@ -44,7 +44,7 @@ func (p *Panel) beginCard(key, title, badge, icon, action string, menu bool) car
 	bh := hdr.H - 6
 	if menu {
 		mr := mathx.Rect{X: right - bh, Y: hdr.Y + 3, W: bh, H: bh}
-		c.more = widgets.ButtonRect(ui, ui.ID("more"), mr, widgets.Glyph(ui, '…', "..."))
+		c.more = widgets.IconButtonRect(ui, ui.ID("more"), mr, "ui.more")
 		right = mr.X - 4
 	}
 	if action != "" {

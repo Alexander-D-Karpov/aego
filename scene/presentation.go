@@ -29,6 +29,23 @@ func (s *Scene) PresentationLocal(h NodeHandle) (Transform2D, bool) {
 	return s.pres[n.pres-1].local, true
 }
 
+func (s *Scene) DropPresentationLocal(h NodeHandle) {
+	n, ok := s.nodes.Get(h)
+	if !ok || n.pres == 0 {
+		return
+	}
+	i, last := int(n.pres-1), len(s.pres)-1
+	if i != last {
+		s.pres[i] = s.pres[last]
+		if m, ok := s.nodes.Get(s.pres[i].owner); ok && m.pres == int32(last+1) {
+			m.pres = int32(i + 1)
+		}
+	}
+	s.pres = s.pres[:last]
+	n.pres = 0
+	s.presDirty = true
+}
+
 func (s *Scene) ClearPresentation() {
 	if len(s.pres) == 0 {
 		return

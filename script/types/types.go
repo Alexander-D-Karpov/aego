@@ -284,7 +284,7 @@ func Assignable(from, to *Type) bool {
 	return false
 }
 
-var assetKinds = map[string]string{"Texture": "texture", "Scene": "scene", "Prefab": "prefab", "Mesh": "mesh", "Clip": "audio"}
+var assetKinds = map[string]string{"Texture": "texture", "Scene": "scene", "Prefab": "prefab", "Mesh": "mesh", "Clip": "audio", "AnimClip": "anim", "AnimController": "animctrl"}
 
 func AssetKind(name string) (string, bool) {
 	k, ok := assetKinds[name]

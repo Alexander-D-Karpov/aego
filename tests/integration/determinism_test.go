@@ -8,6 +8,7 @@ import (
 	"aego/app/run"
 	"aego/core/rewind"
 	"aego/engine"
+	"aego/modules/animation"
 	"aego/project"
 	"aego/sdk"
 )
@@ -29,7 +30,7 @@ func TestDeterminismPlatformer(t *testing.T) {
 	if rep.Diverged != 0 {
 		t.Fatalf("two runs diverge by frame %d", rep.Diverged)
 	}
-	for _, id := range []string{"scene", "script.runtime", "physics.sim"} {
+	for _, id := range []string{"scene", "script.runtime", "physics.sim", animation.ServiceID} {
 		if !slices.Contains(rep.Covered, id) {
 			t.Fatalf("hash does not cover %s: %v", id, rep.Covered)
 		}

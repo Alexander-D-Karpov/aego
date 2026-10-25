@@ -453,7 +453,7 @@ func registerCombat(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("dead", "True from death until Revive."),
 		schema.Runtime("current", "invulnerable", "dead"),
 		schema.Persist("current"),
-	).Category(Category).Display("Health").Icon("gameplay.health").Default(DefaultHealth)
+	).Suggests(NameHurtbox).Category(Category).Display("Health").Icon("gameplay.health").Default(DefaultHealth)
 	hp.Method2("Damage", func(_ *bind.Ctx, h *Health, amount int64, src scene.NodeHandle) bool {
 		return h.Damage(int32(amount), src)
 	},

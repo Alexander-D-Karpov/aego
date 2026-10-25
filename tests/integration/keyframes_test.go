@@ -4,7 +4,6 @@ import (
 	"aego/contracts/debugdraw"
 	"aego/contracts/persistence"
 	"aego/modules/debug"
-	"aego/modules/gameplay"
 	"aego/modules/physics"
 	"aego/save"
 	"aego/script/runtime"
@@ -20,7 +19,6 @@ import (
 	"aego/engine"
 	"aego/platform"
 	"aego/platform/input"
-	"aego/scene"
 	"aego/sdk"
 )
 
@@ -238,49 +236,36 @@ func TestKeyframeReplayWritesNoSaves(t *testing.T) {
 }
 
 func TestKeyframeSeekInsideCoroutineWait(t *testing.T) {
-	s, pc := rewindSession(t)
-	pc.Pause()
-	sc := pc.Scene()
-	enemy := sc.Local(sc.Find(sc.Root(), "EnemyLeft")).Position
-	movePlayer(t, pc, mathx.Vec2{X: enemy.X - 0.74, Y: enemy.Y - 0.05})
-	pc.Pause()
+	_, pc := rewindSessionAt(t, brainProject(t), 0, combatModule{})
 	pc.SetKeyEvery(10)
 	hashes := map[int][32]byte{}
-	hit := 0
-	for i := 0; i < 240; i++ {
+	for i := 0; i < 120; i++ {
 		pc.Tick(1.0 / 60)
 		hashes[i+1] = pausedHash(pc)
-		if h, ok := scene.Get[gameplay.Health](pc.Scene(), pc.Scene().Find(pc.Scene().Root(), "Player")); ok && h.Current < h.Max && hit == 0 {
-			hit = i + 1
-		}
 	}
-	if hit == 0 {
-		t.Skip("the player was never hit, so the blink coroutine never ran")
-	}
-	_ = s
-	for _, n := range []int{hit + 3, hit + 9, hit + 15} {
+	for _, n := range []int{33, 39, 45} {
 		if err := pc.Seek(n); err != nil {
 			t.Fatal(err)
 		}
-		if f := playerField(t, pc, "flash"); f.Float() <= 0 {
-			t.Fatalf("frame %d is not inside the blink wait, flash %v", n, f.Float())
+		if p := brainField(t, pc, "pulses"); p.Int() <= 0 {
+			t.Fatalf("frame %d is not inside the Beat wait, pulses %d", n, p.Int())
 		}
 		if pc.StateHash() != hashes[n] {
-			t.Fatalf("state after seeking into the blink wait at %d differs", n)
+			t.Fatalf("state after seeking into the Beat wait at %d differs", n)
 		}
 	}
 }
 
-func playerField(t *testing.T, pc *play.Controller, name string) vm.Value {
+func brainField(t *testing.T, pc *play.Controller, name string) vm.Value {
 	t.Helper()
 	rt, ok := engine.ServiceOf[*runtime.Runtime](pc.World(), runtime.ServiceID)
 	if !ok {
 		t.Fatal("no script runtime in the play world")
 	}
 	sc := pc.Scene()
-	id, ok := rt.InstanceOf(sc.Find(sc.Root(), "Player"), playerType)
+	id, ok := rt.InstanceOf(sc.Find(sc.Root(), "Brain"), brainType)
 	if !ok {
-		t.Fatal("player has no PlayerController instance")
+		t.Fatal("Brain has no script instance")
 	}
 	v, _ := rt.Field(id, name)
 	return v

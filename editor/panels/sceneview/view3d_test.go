@@ -180,6 +180,25 @@ func TestGizmoDragCommitsOnce(t *testing.T) {
 	}
 }
 
+// A press on a handle that the hand moves a few pixels, scaled for HiDPI, is a click: nothing moves and nothing commits.
+func TestGizmoClickWithinSlopDoesNotMove(t *testing.T) {
+	s, res := spatialScene(t)
+	n := s.Create3D(s.Root(), "N")
+	s.Flush()
+	h := &fakeHost{s: s, res: res, sh: testShapes(t, s, res), sel: []ids.NodeID{s.ID(n)}}
+	c := frontController()
+	l := gizmo.PxToWorld(c.View(), mathx.Vec3{}, gizmo.DefaultSize3)
+	grab := screenOf(t, c, mathx.Vec3{X: l * 0.7})
+	c.Update(h, Input3{Mouse: grab, Hovered: true, Scale: 2})
+	c.Update(h, Input3{Mouse: grab, Hovered: true, Down: [3]bool{true}, Pressed: [3]bool{true}, Scale: 2})
+	off := grab.Add(mathx.Vec2{X: 6})
+	c.Update(h, Input3{Mouse: off, Hovered: true, Down: [3]bool{true}, Scale: 2})
+	c.Update(h, Input3{Mouse: off, Hovered: true, Scale: 2})
+	if got := s.Local3D(n).Position; got != (mathx.Vec3{}) || len(h.commits) != 0 {
+		t.Fatalf("a click moved the node to %v with %d commits", got, len(h.commits))
+	}
+}
+
 func TestClickSelectsAndClears(t *testing.T) {
 	s, res := spatialScene(t)
 	a := cube(s, mathx.Vec3{})

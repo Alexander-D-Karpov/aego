@@ -2,8 +2,6 @@ package enemy
 
 import (
 	"aego/audio"
-	"aego/curve"
-	"aego/tween"
 	"mygame/shared"
 )
 
@@ -24,7 +22,6 @@ script EnemyAI {
 
 	var toB bool = true
 	var dead bool
-	var fade Connection
 
 	func Ready() {
 		node.Get<SpriteRenderer>().Tint = Stats.Tint
@@ -32,6 +29,7 @@ script EnemyAI {
 		hit.Damage = Stats.Damage
 		hit.Period = Stats.Cooldown
 		node.Get<Health>().Died.Connect(OnDied)
+		node.Get<Animator>().StateEntered.Connect(OnState)
 	}
 
 	func FixedUpdate(dt float) {
@@ -46,22 +44,25 @@ script EnemyAI {
 		dir := shared.Toward(node.Position().X, goal.X, 0.05)
 		if dir == 0 {
 			toB = !toB
+		} else {
+			node.Get<SpriteRenderer>().FlipX = dir < 0
 		}
 		v := body.Velocity
 		v.X = dir * Stats.Speed
 		body.SetVelocity(v)
 	}
 
-	// OnDied stops the attack, tells the player and fades the enemy out.
 	func OnDied(source NodeRef) {
 		dead = true
 		node.Get<Hitbox2D>().Deactivate()
+		node.Get<Animator>().SetTrigger("Die")
 		Died.Emit()
 		audio.PlayEventAt(DieSound, node.Position())
-		fade = tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.2, curve.OutQuad).Completed.Connect(OnFaded)
 	}
 
-	func OnFaded(finished bool) {
-		node.Destroy()
+	func OnState(state int) {
+		if node.Get<Animator>().StateName(state) == "Gone" {
+			node.Destroy()
+		}
 	}
 }

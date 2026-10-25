@@ -237,6 +237,17 @@ func (t *Tree) FindPanel(panel string) NodeID {
 	return 0
 }
 
+// Largest is the tab group with the biggest area at the last layout, for documents with no better place.
+func (t *Tree) Largest() NodeID {
+	best, area := NodeID(0), float32(-1)
+	t.walk(t.root, func(n *Node) {
+		if a := n.Rect.W * n.Rect.H; n.Kind == KindTabs && a > area {
+			best, area = n.ID, a
+		}
+	})
+	return best
+}
+
 func (t *Tree) Has(panel string) bool {
 	return t.FindPanel(panel) != 0 || t.floatIndex(panel) >= 0
 }

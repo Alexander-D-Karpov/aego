@@ -57,8 +57,8 @@ func TestWorkspaceSwitchKeepsDocuments(t *testing.T) {
 		}
 	}
 	ws.Switch(workspace.Programming)
-	if ws.Tree.Has(workspace.Hierarchy) || !ws.Tree.Has(workspace.Scene) {
-		t.Fatal("programming hides the hierarchy and keeps the scene")
+	if ws.Tree.Has(workspace.Hierarchy) || ws.Tree.Has(workspace.Scene) || !ws.Tree.Has(workspace.Assets) {
+		t.Fatal("programming hides the hierarchy and the scene and keeps the assets")
 	}
 	ws.Switch(workspace.Art)
 	if ws.Tree.Has(workspace.Console) || !ws.Tree.Has(workspace.Assets) {

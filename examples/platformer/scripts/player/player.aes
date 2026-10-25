@@ -1,10 +1,12 @@
 package player
 
 import (
+	"aego/anim"
 	"aego/audio"
 	"aego/camera"
 	"aego/input"
 	"aego/log"
+	"aego/math"
 	"aego/save"
 	"aego/settings"
 	"mygame/enemy"
@@ -32,10 +34,16 @@ script PlayerController {
 	@export
 	var Theme AssetRef<Clip>
 
+	@export(tip="Hitbox that the Hit frame of the attack clip pulses")
+	var Slash NodeRef
+
+	@export(min=0)
+	var Reach float = 0.6
+
 	@persist
 	var kills int
-	var flash float
-	var blink Coroutine
+	var facing float = 1
+	var hit int
 
 	func Ready() {
 		watch(EnemyA)
@@ -44,6 +52,7 @@ script PlayerController {
 		m.Jumped.Connect(OnJumped)
 		m.Landed.Connect(OnLanded)
 		node.Get<Health>().Damaged.Connect(OnDamaged)
+		hit = anim.EventID("Hit")
 		audio.Music(Theme, 1.5)
 	}
 
@@ -71,39 +80,16 @@ script PlayerController {
 
 	func OnDamaged(amount int, source NodeRef) {
 		audio.PlayEvent(HitSound)
-		flash = 1
-		if !blink.Running() {
-			blink = start Blink()
+		node.Get<Animator>().SetTrigger("Hurt")
+	}
+
+	func OnAnimEvent(id int, payload float) {
+		if id == hit && Slash != nil {
+			Slash.Get<Hitbox2D>().Pulse()
 		}
 	}
 
-	// Blink flashes the sprite while the player is invulnerable after a hit.
-	func Blink() coroutine {
-		sr := node.Get<SpriteRenderer>()
-		for flash > 0 {
-			sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1.2 - sr.Tint.A}
-			yield wait(0.1)
-		}
-		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1}
-	}
-
-	func Reloaded() {
-		if flash > 0 {
-			blink = start Blink()
-		}
-	}
-
-	func EnterAir() {
-		sr := node.Get<SpriteRenderer>()
-		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 0.8}
-	}
-
-	func ExitAir() {
-		sr := node.Get<SpriteRenderer>()
-		sr.Tint = Color{sr.Tint.R, sr.Tint.G, sr.Tint.B, 1}
-	}
-
-	func Update(dt float) {
+	func FixedUpdate(dt float) {
 		m := node.Get<Motion2D>()
 		x := input.Axis("Move")
 		m.Move(x)
@@ -114,19 +100,28 @@ script PlayerController {
 			m.JumpReleased()
 		}
 		if x != 0 {
+			facing = math.Sign(x)
 			node.Get<SpriteRenderer>().FlipX = x < 0
+			if Slash != nil {
+				Slash.SetPosition(Vec2{facing * Reach, 0})
+				Slash.Get<SpriteRenderer>().FlipX = x < 0
+			}
 		}
 		node.Get<Hitbox2D>().Active = !m.Grounded && m.Velocity.Y > 0
-		state := "Idle"
-		if !m.Grounded {
-			state = "Air"
-		} else if x != 0 {
-			state = "Run"
+		a := node.Get<Animator>()
+		a.SetFloat("Speed", math.Abs(m.Velocity.X))
+		a.SetBool("Grounded", m.Grounded)
+		a.SetFloat("VerticalSpeed", m.Velocity.Y)
+		a.SetBool("Climbing", m.Climbing)
+		if input.Pressed("Attack") {
+			a.SetTrigger("Attack")
 		}
-		node.Get<StateMachine>().Go(state)
-		if flash > 0 {
-			flash -= dt
+		if Slash != nil && a.State != "Hit" {
+			Slash.Get<SpriteRenderer>().Tint = Color{1, 1, 1, 0}
 		}
+	}
+
+	func Update(dt float) {
 		if input.Pressed("QuickSave") {
 			save.Save("quick")
 		}

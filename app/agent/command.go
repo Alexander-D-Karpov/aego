@@ -51,6 +51,8 @@ func catalog() []*Command {
 	out = append(out, sceneCommands()...)
 	out = append(out, prefabCommands()...)
 	out = append(out, dataCommands()...)
+	out = append(out, animCommands()...)
+	out = append(out, ctrlCommands()...)
 	out = append(out, refsCommands()...)
 	out = append(out, schemaCommands()...)
 	out = append(out, projectCommands()...)

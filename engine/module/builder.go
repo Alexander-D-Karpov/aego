@@ -251,6 +251,28 @@ func (b *ComponentBuilder[T]) Requires(fullNames ...string) *ComponentBuilder[T]
 	return b
 }
 
+// RequiresOneOf needs any one of the components; adding picks the first when the node has none.
+func (b *ComponentBuilder[T]) RequiresOneOf(fullNames ...string) *ComponentBuilder[T] {
+	if d := b.edit(); d != nil && len(fullNames) > 0 {
+		d.RequiresAny = append(d.RequiresAny, fullNames)
+	}
+	return b
+}
+
+func (b *ComponentBuilder[T]) Suggests(fullNames ...string) *ComponentBuilder[T] {
+	if d := b.edit(); d != nil {
+		d.Suggests = append(d.Suggests, fullNames...)
+	}
+	return b
+}
+
+func (b *ComponentBuilder[T]) Conflicts(fullNames ...string) *ComponentBuilder[T] {
+	if d := b.edit(); d != nil {
+		d.Conflicts = append(d.Conflicts, fullNames...)
+	}
+	return b
+}
+
 func (b *ComponentBuilder[T]) SceneUnique() *ComponentBuilder[T] {
 	if d := b.edit(); d != nil {
 		d.SceneUnique = true
@@ -278,11 +300,29 @@ func componentSetup(d *schema.TypeDescriptor, user func(*scene.Scene, scene.Node
 				Ensure(s, h, td)
 			}
 		}
+		for _, alts := range d.RequiresAny {
+			if !hasAny(s, h, alts) {
+				if td, ok := s.Registry().ByName(alts[0]); ok {
+					Ensure(s, h, td)
+				}
+			}
+		}
 		Ensure(s, h, d)
 		if user != nil {
 			user(s, h)
 		}
 	}
+}
+
+func hasAny(s *scene.Scene, h scene.NodeHandle, names []string) bool {
+	for _, n := range names {
+		if td, ok := s.Registry().ByName(n); ok {
+			if _, has := s.GetByType(h, td.ID); has {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func Ensure(s *scene.Scene, h scene.NodeHandle, td *schema.TypeDescriptor) {

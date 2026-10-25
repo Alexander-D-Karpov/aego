@@ -10,6 +10,12 @@ import (
 	"aego/core/trace"
 )
 
+// Anchors order fixed-step systems of modules that cannot name each other: intents are set before AnchorIntents, motion is produced before AnchorMotion and applied after it.
+const (
+	AnchorIntents = "engine.intents"
+	AnchorMotion  = "engine.motion"
+)
+
 type ModuleInfo struct {
 	ID      string
 	Version string

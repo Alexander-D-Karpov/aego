@@ -9,6 +9,7 @@ import (
 
 	"aego/asset"
 	"aego/asset/pipeline"
+	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/script/bytecode"
@@ -69,6 +70,9 @@ func (*Importer) Extensions() []string        { return []string{".aes"} }
 func (*Importer) Defaults() pipeline.Settings { return pipeline.Settings{} }
 
 func (*Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
+	if !strings.HasPrefix(ctx.Path, Root+"/") {
+		return nil, errs.New(errs.AssetImportFailed, "scripts belong under "+Root+"/, so "+ctx.Path+" is not compiled; move it there", log.F("path", ctx.Path))
+	}
 	return &pipeline.Result{Kind: asset.ArtScript, Group: Group, Source: ctx.Source}, nil
 }
 

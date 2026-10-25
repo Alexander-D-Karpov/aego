@@ -1,6 +1,7 @@
 package sceneview
 
 import (
+	"aego/core/ids"
 	"path"
 
 	"aego/core/mathx"
@@ -55,6 +56,7 @@ func (p *Panel) input3(d *document.SceneDocument, r mathx.Rect) {
 		Alt:     mods.Has(input.ModAlt),
 		Shift:   mods.Has(input.ModShift) || mods.Primary(),
 		Cancel:  ui.KeyPressed(input.KeyEscape),
+		Scale:   p.scale,
 	}
 	if over {
 		in.Wheel = ui.ZoomY()
@@ -102,11 +104,11 @@ func (p *Panel) openMenu3(px mathx.Vec2) {
 	widgets.OpenContextMenu(p.ui(), p.menuID)
 }
 
-func (p *Panel) createAt3(at mathx.Vec3) {
+func (p *Panel) createAt3(at mathx.Vec3, anchor *mathx.Vec2) {
 	if p.d.Templates == nil {
 		return
 	}
-	p.d.Scenes.CreateMenuAt(p.d.Templates, templates.Place{At3: &at})
+	p.d.Scenes.Create(ids.NodeID{}, templates.Place{At3: &at}, anchor, nil)
 }
 
 func (p *Panel) drop3(r mathx.Rect) {

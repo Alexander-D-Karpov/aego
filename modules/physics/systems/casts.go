@@ -91,6 +91,15 @@ func (m *Sim) BodyPose(body scene.NodeHandle) (mathx.Vec2, float32, bool) {
 	return m.w.BodyTransform(bh)
 }
 
+func (m *Sim) BodyType(body scene.NodeHandle) (physics2d.BodyType, bool) {
+	bh, ok := m.simBody(body)
+	if !ok {
+		return 0, false
+	}
+	t, ok := m.w.BodyType(bh)
+	return physics2d.BodyType(t), ok
+}
+
 func (m *Sim) BodyVelocity(body scene.NodeHandle) (mathx.Vec2, float32, bool) {
 	bh, ok := m.simBody(body)
 	if !ok {

@@ -100,7 +100,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		ui.Text(label, mathx.Vec2{X: row.X + 26, Y: ui.TextY(row)}, col)
 		ui.Text(detail, mathx.Vec2{X: row.X + 38 + ui.TextSize(label).X, Y: ui.TextY(row)}, dim)
 		ui.PopClip()
-		if widgets.ButtonRect(ui, core.IDSeq(id, 1), xr, widgets.Glyph(ui, '×', "x")) {
+		if widgets.IconButtonRect(ui, core.IDSeq(id, 1), xr, "ui.close") {
 			remove = i
 		}
 	})

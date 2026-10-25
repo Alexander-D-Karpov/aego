@@ -170,7 +170,7 @@ func (p *Panel) refBox(id core.ID, r mathx.Rect, info refInfo, mixed bool, thumb
 	x := box.X + box.W + 2
 	clear := false
 	if set {
-		clear = widgets.ButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}, widgets.Glyph(ui, '×', "x"))
+		clear = widgets.IconButtonRect(ui, core.IDSeq(id, 1), mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}, "ui.close")
 		x += bw + 2
 	}
 	pr := mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}
@@ -184,7 +184,7 @@ func (p *Panel) refBox(id core.ID, r mathx.Rect, info refInfo, mixed bool, thumb
 		}
 	}
 	ui.Rect(pr, ui.WidgetColor(pid))
-	ui.TextIn(pr, widgets.Glyph(ui, '…', "..."), th.Text, core.AlignCenter)
+	widgets.IconIn(ui, pr, "ui.more", th.Text)
 	return box, picked, clear, pid
 }
 
@@ -242,6 +242,7 @@ func (p *Panel) assetField(id core.ID, r mathx.Rect, fd *schema.FieldDescriptor,
 		thumb, hasThumb = p.d.Thumbs.ByID(cur)
 	}
 	box, picked, clear, pid := p.refBox(id, r, info, mixed, thumb, hasThumb)
+	p.assetBoxes = append(p.assetBoxes, assetBox{field: fd.Name, box: box})
 	if picked && p.d.Pipeline != nil {
 		if rel, ok := p.d.Pipeline.PathOf(cur); ok {
 			p.d.Nav.Open(context.AssetAt(rel))
@@ -377,4 +378,19 @@ func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v
 	}
 	ui.EndPopup()
 	return e
+}
+
+type assetBox struct {
+	field string
+	box   mathx.Rect
+}
+
+// AssetFieldRect is where the asset field of that name was drawn on the last frame, the first one when several components have it.
+func (p *Panel) AssetFieldRect(field string) (mathx.Rect, bool) {
+	for _, b := range p.assetBoxes {
+		if b.field == field {
+			return b.box, true
+		}
+	}
+	return mathx.Rect{}, false
 }

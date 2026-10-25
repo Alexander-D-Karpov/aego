@@ -8,10 +8,13 @@ import (
 	"path/filepath"
 
 	"aego/core/ids"
+	"aego/editor/core/animedit"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
+	animpanel "aego/editor/panels/animation"
+	"aego/editor/panels/animator"
 	"aego/editor/panels/gameview"
 	"aego/editor/shell"
 )
@@ -110,7 +113,17 @@ func (s *Session) shots(dir string) error {
 			s.App.Inspector().OpenAdd("follow")
 			return nil
 		}},
+		{name: "add-palette", frames: 30, setup: func(s *Session) error {
+			s.App.AddPalette().Close()
+			if err := selectNamed(ctx, "PatrolA1"); err != nil {
+				return err
+			}
+			s.App.AddPalette().AddComponent(ctx.Selected(), nil)
+			s.App.AddPalette().Palette().SetQuery("col")
+			return nil
+		}},
 		{name: "tags", frames: 60, setup: func(s *Session) error {
+			s.App.AddPalette().Close()
 			ctx.UI.CloseAllPopups()
 			return selectNamed(ctx, "Player")
 		}},
@@ -123,6 +136,52 @@ func (s *Session) shots(dir string) error {
 		}},
 		{name: "settings-physics", frames: 60, setup: func(s *Session) error {
 			ctx.Open(context.SettingsAt("physics"))
+			return nil
+		}},
+		{name: "animator", frames: 60, setup: func(s *Session) error {
+			scene()
+			s.App.Workspace().Switch(workspace.Design)
+			s.App.Workspace().Show(animator.ID)
+			return selectNamed(ctx, "Player")
+		}},
+		{name: "attack-preview", frames: 30, setup: func(s *Session) error {
+			scene()
+			if err := selectNamed(ctx, "Player"); err != nil {
+				return err
+			}
+			s.App.Workspace().Show(animpanel.ID)
+			for range 5 {
+				s.Step()
+			}
+			if !s.App.AnimationPanel().PickClip("assets/anim/player_hit.aeanim") {
+				return fmt.Errorf("the Player has no player_hit clip")
+			}
+			for range 3 {
+				s.Step()
+			}
+			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
+				return err
+			}
+			svc := ctx.Anim.For(ctx.Doc())
+			svc.SetMode(animedit.Preview)
+			svc.SetTime(0.17)
+			return nil
+		}},
+		{name: "slicer", frames: 60, setup: func(s *Session) error {
+			svc := ctx.Anim.For(ctx.Doc())
+			svc.SetMode(animedit.Normal)
+			for range 3 {
+				s.Step()
+			}
+			if m := svc.Mode(); m != animedit.Normal {
+				return fmt.Errorf("the clip is still in mode %d", m)
+			}
+			s.App.Workspace().Show(workspace.Inspector)
+			id, ok := s.Pipeline.Lookup("assets/sprites/slash.png")
+			if !ok {
+				return fmt.Errorf("no assets/sprites/slash.png")
+			}
+			s.App.Data().Inspect(id)
 			return nil
 		}},
 		{name: "script", frames: 90, setup: func(s *Session) error {

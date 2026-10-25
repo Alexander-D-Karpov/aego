@@ -20,6 +20,8 @@ const (
 	ArtTable        ArtifactKind = "table"
 	ArtPreset       ArtifactKind = "preset"
 	ArtAudio        ArtifactKind = "audio"
+	ArtAnim         ArtifactKind = "anim"
+	ArtCtrl         ArtifactKind = "animctrl"
 )
 
 type Reloaded struct {
@@ -38,6 +40,14 @@ type Resolver interface {
 
 type Decoder interface {
 	Decoded(id ids.AssetID, key string, build func() (any, error)) (any, error)
+}
+
+type AnimSource interface {
+	Anim(id ids.AssetID) ([]byte, bool)
+}
+
+type CtrlSource interface {
+	Controller(id ids.AssetID) ([]byte, bool)
 }
 
 type DataSource interface {

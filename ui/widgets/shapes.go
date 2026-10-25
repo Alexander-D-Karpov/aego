@@ -6,6 +6,15 @@ import (
 )
 
 func Chevron(c *core.Context, r mathx.Rect, open bool, col mathx.Color) {
+	id := "ui.chevron_right"
+	if open {
+		id = "ui.chevron_down"
+	}
+	if c.Icons.Has(id) {
+		is := min(float32(16), max(r.W, r.H))
+		IconAt(c, mathx.Rect{X: float32(int(r.X + (r.W-is)/2)), Y: float32(int(r.Y + (r.H-is)/2)), W: is, H: is}, id, col)
+		return
+	}
 	s := float32(int(min(r.W, r.H) * 0.42))
 	if s < 6 {
 		s = 6

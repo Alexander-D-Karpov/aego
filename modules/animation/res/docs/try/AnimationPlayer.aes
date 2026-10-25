@@ -1,0 +1,56 @@
+package demo
+
+import (
+	"aego/anim"
+	"aego/debug"
+	"aego/input"
+)
+
+// Runner plays the built-in run clip; R plays it again, B reverses it.
+script Runner {
+	var steps int
+	var dust float
+
+	func Update(dt float) {
+		a := node.Get<AnimationPlayer>()
+		if input.KeyPressed(input.KeyR) {
+			a.Play(nil)
+		}
+		if input.KeyPressed(input.KeyB) {
+			a.SetSpeed(-a.Speed)
+		}
+		p := node.WorldPosition()
+		if dust > 0 {
+			dust -= dt
+			debug.Rect(Rect{p.X - 0.5, p.Y + 0.45, dust * 4, 0.06}, Color{0.85, 0.85, 0.85, dust * 4})
+		}
+		debug.Text(Vec2{p.X - 2, p.Y - 1.4}, "R: replay   B: reverse   steps " + string(steps), Color{0.8, 0.8, 0.8, 1})
+	}
+
+	func OnAnimEvent(id int, payload float) {
+		if anim.EventName(id) == "Footstep" {
+			steps++
+			dust = 0.25
+		}
+	}
+}
+
+// Pendulum sways with the built-in bob clip; its gameplay event Hit lights the mark.
+script Pendulum {
+	var flash float
+
+	func OnAnimEvent(id int, payload float) {
+		if anim.EventName(id) == "Hit" {
+			flash = payload
+		}
+	}
+
+	func Update(dt float) {
+		p := node.WorldPosition()
+		if flash > 0 {
+			flash -= dt * 2
+		}
+		debug.Rect(Rect{p.X - 0.25, p.Y - 0.6, 0.5, 0.2}, Color{1, 0.55, 0.3, 0.2 + flash})
+		debug.Text(Vec2{p.X - 1, p.Y - 1}, "Hit at the right turn", Color{0.8, 0.8, 0.8, 1})
+	}
+}

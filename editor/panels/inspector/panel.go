@@ -24,7 +24,6 @@ import (
 	"aego/engine/module"
 	"aego/platform/input"
 	"aego/scene"
-	"aego/scene/mutate"
 	"aego/scene/sceneio"
 	"aego/scene/scriptcomp"
 	"aego/schema"
@@ -55,9 +54,13 @@ type Deps struct {
 	Presets   *presets.Service
 	AssetView func(ids.AssetID) bool
 	Audition  func(id ids.AssetID, toggle bool) (playing, ok bool)
+	Driven    func(d *document.SceneDocument, node ids.NodeID, t schema.TypeID, f schema.FieldID) bool
+	// AddComponent opens the palette for the nodes under at, with a query for the screenshots.
+	AddComponent func(nodes []ids.NodeID, at *mathx.Vec2, query string)
 }
 
 type Panel struct {
+	assetBoxes   []assetBox
 	scrollTo     string
 	top          float32
 	openAdd      *string
@@ -73,7 +76,6 @@ type Panel struct {
 	collapsed    map[core.ID]bool
 	scroll       float32
 	content      float32
-	search       string
 	pick         string
 	nodes        []ids.NodeID
 	types        []schema.TypeID
@@ -84,7 +86,6 @@ type Panel struct {
 	liveT        *scene.Transform2D
 	euler        *props.EulerCache
 	info         *prefabs.Info
-	focusSearch  bool
 	hoverField   fieldRef
 	hoverType    schema.TypeID
 	menuField    fieldRef
@@ -158,6 +159,7 @@ func (p *Panel) Scope() string {
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.f = f
+	p.assetBoxes = p.assetBoxes[:0]
 	ui := f.UI
 	p.doc = nil
 	d := p.target()
@@ -694,27 +696,6 @@ func (p *Panel) reset(d *document.SceneDocument, td *schema.TypeDescriptor) {
 	})
 }
 
-func (p *Panel) blocked(s *scene.Scene, td *schema.TypeDescriptor) string {
-	if td.SceneUnique && (len(p.nodes) > 1 || inScene(s, td.ID)) {
-		return "one per scene"
-	}
-	for _, n := range p.nodes {
-		if _, err := mutate.Required(s, td, s.Handle(n)); err != nil {
-			return err.Error()
-		}
-	}
-	return ""
-}
-
-func inScene(s *scene.Scene, t schema.TypeID) bool {
-	for _, h := range s.PreOrder() {
-		if _, ok := s.GetByType(h, t); ok && s.IsAlive(h) {
-			return true
-		}
-	}
-	return false
-}
-
 // ScrollTo brings the card of a component type to the top on the next draw, for the documentation screenshots.
 func (p *Panel) ScrollTo(fullName string) {
 	p.scrollTo = fullName
@@ -728,125 +709,19 @@ func (p *Panel) OpenAdd(query string) {
 func (p *Panel) addComponent(d *document.SceneDocument) {
 	ui := p.f.UI
 	th := &ui.Theme
-	s := d.Scene()
-	reg := s.Registry()
 	row := ui.Cursor().Next(th.RowHeight + 4)
 	id := ui.ID("add")
-	if ui.Pressed(id, row) {
-		if ui.PopupOpen(id) {
-			ui.ClosePopup(id)
-		} else {
-			ui.CloseAllPopups()
-			ui.OpenPopup(id, mathx.Vec2{X: row.X, Y: row.Y + row.H})
-			p.search = ""
-			p.focusSearch = true
-		}
+	at := mathx.Vec2{X: row.X, Y: row.Y + row.H}
+	if ui.Pressed(id, row) && p.d.AddComponent != nil {
+		p.d.AddComponent(p.nodes, &at, "")
 	}
-	if p.openAdd != nil {
-		ui.CloseAllPopups()
-		ui.OpenPopup(id, mathx.Vec2{X: row.X, Y: row.Y + row.H})
-		p.search, p.openAdd = *p.openAdd, nil
+	if p.openAdd != nil && p.d.AddComponent != nil {
+		p.d.AddComponent(p.nodes, &at, *p.openAdd)
+		p.openAdd = nil
 	}
 	ui.Rect(row, ui.WidgetColor(id))
 	ui.Outline(row, th.AccentDim)
 	ui.TextIn(row, "Add Component", th.Text, core.AlignCenter)
-	if !ui.BeginPopup(id, row.W) {
-		return
-	}
-	sid := ui.ID("addsearch")
-	if p.focusSearch {
-		p.focusSearch = false
-		ui.SetFocus(sid)
-		ui.EditBuffer(sid, p.search).SelectAll()
-	}
-	widgets.SearchField(ui, sid, ui.Cursor().Next(0), &p.search)
-	q := strings.ToLower(strings.TrimSpace(p.search))
-	unknown, hasUnknown := reg.ByName("engine.Unknown")
-	var candidates []schema.TypeID
-	for _, td := range reg.Components() {
-		if (hasUnknown && td.ID == unknown.ID) || td.FullName == scriptcomp.ScriptName || td.Hidden {
-			continue
-		}
-		if !d.Props.Fits(p.nodes, td.ID) {
-			continue
-		}
-		missing := false
-		for _, n := range p.nodes {
-			if _, ok := s.GetByType(s.Handle(n), td.ID); !ok {
-				missing = true
-				break
-			}
-		}
-		if !missing {
-			continue
-		}
-		meta := p.reg.Meta(td)
-		if q != "" && !strings.Contains(strings.ToLower(meta.DisplayName), q) && !strings.Contains(strings.ToLower(td.FullName), q) {
-			continue
-		}
-		candidates = append(candidates, td.ID)
-	}
-	var first *schema.TypeDescriptor
-	for _, sec := range groupComponents(p.reg, reg, candidates) {
-		widgets.HeaderIcon(ui, categoryIcon(ui, sec.Category), sec.Category, false)
-		for _, t := range sec.Types {
-			td, ok := reg.ByID(t)
-			if !ok {
-				continue
-			}
-			meta := p.reg.Meta(td)
-			label := meta.DisplayName
-			if why := p.blocked(s, td); why != "" {
-				widgets.HeaderIcon(ui, meta.Icon, label+" — "+why, true)
-				continue
-			}
-			req, _ := mutate.Required(s, td, s.Handle(p.nodes[0]))
-			for _, req := range req {
-				label += " + " + p.reg.Meta(req).DisplayName
-			}
-			if first == nil {
-				first = td
-			}
-			if widgets.SelectableIcon(ui, core.IDSeq(id, int(t)), meta.Icon, label, td == first && q != "") {
-				p.add(d, td)
-				ui.ClosePopup(id)
-			}
-		}
-	}
-	if len(candidates) == 0 {
-		widgets.LabelDim(ui, "No components match")
-	}
-	if first != nil && q != "" && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter)) {
-		p.add(d, first)
-		ui.ClosePopup(id)
-	}
-	ui.EndPopup()
-}
-
-func (p *Panel) add(d *document.SceneDocument, td *schema.TypeDescriptor) {
-	p.confirm(d, "Add "+p.reg.Meta(td).DisplayName, func() error {
-		s := d.Scene()
-		env := commands.WithOnAdd(commands.EnvFor(s), p.d.Clip.OnAdd)
-		tx := d.History.Begin("Add " + td.FullName)
-		for _, n := range p.nodes {
-			req, err := mutate.Required(s, td, s.Handle(n))
-			if err != nil {
-				tx.Abort()
-				return err
-			}
-			for _, t := range append(req, td) {
-				if _, ok := s.GetByType(s.Handle(n), t.ID); ok {
-					continue
-				}
-				if err := tx.Exec(commands.NewMutation("Add "+t.FullName, env, commands.AddComp(s, n, t, p.reg.Defaults(t.ID)))); err != nil {
-					tx.Abort()
-					return err
-				}
-			}
-		}
-		tx.Commit()
-		return nil
-	})
 }
 
 func (p *Panel) nodeMenu(d *document.SceneDocument) {
@@ -862,11 +737,4 @@ func (p *Panel) nodeMenu(d *document.SceneDocument) {
 	if widgets.MenuItemIcon(ui, "Paste Components", "", "edit.paste", can, false) {
 		p.confirm(d, "Paste Components", func() error { return p.d.Clip.PasteComponents(d, p.nodes) })
 	}
-}
-
-func categoryIcon(ui *core.Context, category string) string {
-	if ic := "cat." + strings.ToLower(category); widgets.HasIcon(ui, ic) {
-		return ic
-	}
-	return "cat.node"
 }

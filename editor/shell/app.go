@@ -39,6 +39,8 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	animpanel "aego/editor/panels/animation"
+	"aego/editor/panels/animator"
 	"aego/editor/panels/assets"
 	"aego/editor/panels/batchrename"
 	"aego/editor/panels/console"
@@ -65,6 +67,7 @@ import (
 	"aego/editor/panels/vcsdiff"
 	"aego/editor/panels/watch"
 	"aego/editor/panels/welcome"
+	"aego/editor/shell/addpalette"
 	"aego/editor/shell/launcher"
 	"aego/engine"
 	"aego/engine/docs"
@@ -199,6 +202,12 @@ type App struct {
 	crashesPanel   *crashes.Panel
 	savesPanel     *saves.Panel
 	search         *search.Overlay
+	addPal         *addpalette.Service
+	animPanel      *animpanel.Panel
+	animatorP      *animator.Panel
+	slicer         *sliceState
+	folderWS       string
+	folders        map[string]string
 	shiftAt        float64
 	shiftArmed     bool
 	welcome        *welcome.Panel
@@ -368,6 +377,7 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 	a.play = play.New(a.ctx)
 	a.play.SetBeforeStop(a.beforeStop)
+	a.wireAnim()
 	a.ctx.Play = a.play
 	a.play.Subscribe(func(st play.State) {
 		if st == play.Stopped {
@@ -420,6 +430,7 @@ func (a *App) Init(e *engine.Engine) error {
 	})
 	a.ctx.Thumbs = a.thumbs
 	sops := sceneops.New(a.ctx, a.files.History())
+	a.wirePalette(sops)
 	a.refs = refs.New(a.ctx)
 	a.refs.Prefabs = a.prefabs
 	rd := references.Deps{
@@ -500,6 +511,7 @@ func (a *App) Init(e *engine.Engine) error {
 		},
 	}
 	a.sceneView = sceneview.New(a.gizmos, sceneview.Deps{
+		Dragging:  a.animDragging,
 		Capture:   a.captureTexture,
 		Viewport:  a.viewport,
 		Resolver:  res,
@@ -583,26 +595,28 @@ func (a *App) Init(e *engine.Engine) error {
 	})
 	a.presets = presets.New(a.ctx)
 	a.inspectorPanel = inspector.New(a.inspectors, inspector.Deps{
-		Presets:   a.presets,
-		Data:      a.data,
-		Schema:    a.opt.Types.Schema(),
-		Docs:      a.ctx,
-		Selection: a.ctx,
-		Commands:  a.ctx.Commands,
-		Notices:   a.ctx,
-		Nav:       a.ctx,
-		Problems:  a.ctx,
-		Sections:  a.opt.Sections,
-		Pipeline:  a.opt.Pipeline,
-		Thumbs:    a.thumbs,
-		AssetView: a.assetView,
-		Audition:  a.audition,
-		Play:      a.play,
-		Code:      func() context.ScriptNav { return a.ctx.Code },
-		Clip:      edclip.EnvOf(a.ctx),
-		Assets:    sops,
-		Scenes:    sops,
-		Collapsed: a.ctx.Collapsed,
+		Presets:      a.presets,
+		Data:         a.data,
+		Schema:       a.opt.Types.Schema(),
+		Docs:         a.ctx,
+		Selection:    a.ctx,
+		Commands:     a.ctx.Commands,
+		Notices:      a.ctx,
+		Nav:          a.ctx,
+		Problems:     a.ctx,
+		Sections:     a.opt.Sections,
+		Pipeline:     a.opt.Pipeline,
+		Thumbs:       a.thumbs,
+		AssetView:    a.assetView,
+		Audition:     a.audition,
+		Driven:       a.animDriven,
+		AddComponent: a.openAdd,
+		Play:         a.play,
+		Code:         func() context.ScriptNav { return a.ctx.Code },
+		Clip:         edclip.EnvOf(a.ctx),
+		Assets:       sops,
+		Scenes:       sops,
+		Collapsed:    a.ctx.Collapsed,
 		Watch: func(expr string) {
 			a.watchPanel.Add(expr)
 			a.ws.Show(watch.ID)
@@ -673,6 +687,12 @@ func (a *App) Init(e *engine.Engine) error {
 		return err
 	}
 	if err := a.registerTime(); err != nil {
+		return err
+	}
+	if err := a.registerPalette(); err != nil {
+		return err
+	}
+	if err := a.registerAnimCommands(); err != nil {
 		return err
 	}
 	if err := a.registerSearch(); err != nil {
@@ -865,6 +885,7 @@ func (a *App) Update(dt float64) {
 	}
 	a.profiler.Record(now, e.Stats(), rs, a.play.Stats(), sc, hasSc, a.play.State() != play.Stopped)
 	a.play.Tick(dt)
+	a.ctx.Anim.Tick(float32(dt))
 	a.ext.RunTicks()
 	a.tickTasks()
 	a.syncNativeMenu(now)
@@ -884,6 +905,7 @@ func (a *App) Update(dt float64) {
 	size := mathx.Vec2{X: float32(m.LogicalW), Y: float32(m.LogicalH)}
 	ui.Begin(in, size, m.Density())
 	a.ctx.FocusedPanel = a.ws.Focused()
+	a.syncAssetsFolder()
 	th := &ui.Theme
 	full := mathx.Rect{W: size.X, H: size.Y}
 	ui.Rect(full, th.Background)
@@ -928,6 +950,7 @@ func (a *App) Update(dt float64) {
 		a.modals = append(a.modals, modal{kind: modalAsk, ask: q, vals: append([]string(nil), q.Values...), focus: true})
 	}
 	a.drawSearch()
+	a.drawPalette()
 	a.playDiff.Draw(ui)
 	a.renameDlg.Draw(ui)
 	a.drawScenePicker()

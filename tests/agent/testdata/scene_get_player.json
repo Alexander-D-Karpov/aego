@@ -13,6 +13,18 @@
     },
     "components": [
       {
+        "type": "animation.Animator",
+        "fields": {
+          "controller": "asset(\"a0a10000000000000000000000000010\")",
+          "playOnStart": "true",
+          "rootFallback": "false",
+          "rootMotion": "none",
+          "rootScale": "[1, 1]",
+          "speed": "1",
+          "timeDomain": "game"
+        }
+      },
+      {
         "type": "engine.SpriteRenderer",
         "fields": {
           "blend": "premultiplied",
@@ -23,7 +35,7 @@
           "order": "2",
           "origin": "[0.5, 0.5]",
           "size": "[1, 1]",
-          "sprite": "asset(\"ae900000000000000000000000000010\")",
+          "sprite": "asset(\"ae900000000000000000000000000b00\")",
           "tint": "#4aa3ffff"
         }
       },
@@ -73,6 +85,7 @@
         "fields": {
           "accel": "60",
           "airControl": "0.6",
+          "climbTime": "0.3",
           "collisionMask": "10",
           "coyoteTime": "0.1",
           "dashGravity": "false",
@@ -83,6 +96,7 @@
           "jumpCutMultiplier": "0.5",
           "jumpHeight": "2.6",
           "jumpSpeed": "0",
+          "ledgeClimb": "0.6",
           "maxFallSpeed": "20",
           "maxSlides": "4",
           "maxSlope": "45",
@@ -104,13 +118,6 @@
           "persist": "true",
           "resetVelocity": "true",
           "restoreHealth": "true"
-        }
-      },
-      {
-        "type": "gameplay.StateMachine",
-        "fields": {
-          "initial": "\"Idle\"",
-          "states": "[\"Idle\", \"Run\", \"Air\"]"
         }
       },
       {

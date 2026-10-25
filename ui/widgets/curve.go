@@ -11,10 +11,20 @@ import (
 )
 
 type CurveState struct {
-	Key  int
-	part int8
-	drag bool
-	view [4]float32
+	Key   int
+	part  int8
+	drag  bool
+	view  [4]float32
+	times [2]float32
+	timed bool
+}
+
+// CurvePad is the margin between a curve graph's box and its plot.
+const CurvePad = 10
+
+// SetTimeRange makes the graph show times t0..t1 across its plot instead of fitting the keys, to line up with an outside ruler.
+func (s *CurveState) SetTimeRange(t0, t1 float32) {
+	s.times, s.timed = [2]float32{t0, t1}, t1 > t0
 }
 
 func NewCurveState() *CurveState {
@@ -255,9 +265,12 @@ func curveGraph(c *core.Context, r mathx.Rect, cv *curve.Curve, st *CurveState) 
 	th := &c.Theme
 	var e Edit
 	c.Box(r, th.Radius.Field, th.Background, th.Border)
-	const pad = 10
+	const pad = CurvePad
 	if !st.drag {
 		st.view = curveView(cv)
+		if st.timed {
+			st.view[0], st.view[1] = st.times[0], st.times[1]
+		}
 	}
 	g := curveFrame{r: mathx.Rect{X: r.X + pad, Y: r.Y + pad, W: r.W - 2*pad, H: r.H - 2*pad}, v: st.view}
 	keyed := cv.Ease == curve.None
@@ -414,4 +427,16 @@ func CurveField(c *core.Context, id core.ID, r mathx.Rect, cv *curve.Curve, mixe
 	c.PopID()
 	c.EndPopup()
 	return e
+}
+
+// CurveGraph draws an editable keyed curve in r without the popup of CurveField.
+func CurveGraph(c *core.Context, id core.ID, r mathx.Rect, cv *curve.Curve, st *CurveState) Edit {
+	c.PushRawID(id)
+	defer c.PopID()
+	return curveGraph(c, r, cv, st)
+}
+
+// Dragging reports whether a key or a handle of the graph is held.
+func (s *CurveState) Dragging() bool {
+	return s.drag
 }

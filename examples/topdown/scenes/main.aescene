@@ -332,6 +332,8 @@ scene version=1 {
       platformOnLeave=keep
       faceMovement=false
       dashGravity=false
+      ledgeClimb=0
+      climbTime=0.3
     }
     component "gameplay.Health" version=1 {
       max=5
@@ -352,6 +354,15 @@ scene version=1 {
       restoreHealth=true
       resetVelocity=true
       persist=false
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("70a10000000000000000000000000010")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=toMotion
+      rootFallback=false
+      rootScale=[1, 1]
     }
     component "engine.Script" version=1 {
       script "topdown.player.Hero" enabled=true {
@@ -470,12 +481,14 @@ scene version=1 {
       platformOnLeave=keep
       faceMovement=false
       dashGravity=false
+      ledgeClimb=0
+      climbTime=0.3
     }
     component "gameplay.Health" version=1 {
       max=2
       team=1
       invulnTime=0.2
-      destroyOnDeath=true
+      destroyOnDeath=false
       despawnOnDeath=false
     }
     component "gameplay.Hurtbox2D" version=1 {
@@ -484,6 +497,15 @@ scene version=1 {
       multiplier=1
       active=true
       health=node("00000000000000000000000000000000")
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("70a10000000000000000000000000011")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
     }
     component "gameplay.Hitbox2D" version=1 {
       area=[-0.45, -0.45, 0.9, 0.9]
@@ -498,7 +520,7 @@ scene version=1 {
       active=true
     }
     component "gameplay.StateMachine" version=1 {
-      states=["Patrol", "Chase"]
+      states=["Patrol", "Chase", "Dead"]
       initial="Patrol"
     }
     component "engine.Script" version=1 {
@@ -588,12 +610,14 @@ scene version=1 {
       platformOnLeave=keep
       faceMovement=false
       dashGravity=false
+      ledgeClimb=0
+      climbTime=0.3
     }
     component "gameplay.Health" version=1 {
       max=2
       team=1
       invulnTime=0.2
-      destroyOnDeath=true
+      destroyOnDeath=false
       despawnOnDeath=false
     }
     component "gameplay.Hurtbox2D" version=1 {
@@ -602,6 +626,15 @@ scene version=1 {
       multiplier=1
       active=true
       health=node("00000000000000000000000000000000")
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("70a10000000000000000000000000011")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
     }
     component "gameplay.Hitbox2D" version=1 {
       area=[-0.45, -0.45, 0.9, 0.9]
@@ -616,7 +649,7 @@ scene version=1 {
       active=true
     }
     component "gameplay.StateMachine" version=1 {
-      states=["Patrol", "Chase"]
+      states=["Patrol", "Chase", "Dead"]
       initial="Patrol"
     }
     component "engine.Script" version=1 {
@@ -706,12 +739,14 @@ scene version=1 {
       platformOnLeave=keep
       faceMovement=false
       dashGravity=false
+      ledgeClimb=0
+      climbTime=0.3
     }
     component "gameplay.Health" version=1 {
       max=2
       team=1
       invulnTime=0.2
-      destroyOnDeath=true
+      destroyOnDeath=false
       despawnOnDeath=false
     }
     component "gameplay.Hurtbox2D" version=1 {
@@ -720,6 +755,15 @@ scene version=1 {
       multiplier=1
       active=true
       health=node("00000000000000000000000000000000")
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("70a10000000000000000000000000011")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
     }
     component "gameplay.Hitbox2D" version=1 {
       area=[-0.45, -0.45, 0.9, 0.9]
@@ -734,7 +778,7 @@ scene version=1 {
       active=true
     }
     component "gameplay.StateMachine" version=1 {
-      states=["Patrol", "Chase"]
+      states=["Patrol", "Chase", "Dead"]
       initial="Patrol"
     }
     component "engine.Script" version=1 {

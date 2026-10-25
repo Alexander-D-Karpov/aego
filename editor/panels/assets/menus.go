@@ -61,7 +61,7 @@ func (p *Panel) assetItems() {
 		p.StartRename()
 	}
 	if widgets.MenuItemIcon(ui, "Batch Rename…", "", "edit.batch_rename", len(p.sel) > 1 && p.d.BatchRename != nil, false) {
-		p.d.BatchRename(p.Selection())
+		p.d.BatchRename(p.fileSelection())
 	}
 	if widgets.MenuItemIcon(ui, "Duplicate", reg.Shortcut(CommandDuplicate), "edit.duplicate", true, false) {
 		p.report(p.DuplicateSelected())
@@ -128,7 +128,7 @@ func (p *Panel) assetItems() {
 	}
 	if widgets.MenuItemIcon(ui, "Copy Path", "", "edit.copy_path", true, false) {
 		var paths []string
-		for _, id := range p.Selection() {
+		for _, id := range p.fileSelection() {
 			if rel, ok := p.d.Pipeline.PathOf(id); ok {
 				paths = append(paths, rel)
 			}
@@ -386,7 +386,7 @@ func (p *Panel) deleteDir(dir string) {
 }
 
 func (p *Panel) DeleteSelected() {
-	list := p.Selection()
+	list := p.fileSelection()
 	if len(list) == 0 {
 		return
 	}
@@ -435,7 +435,7 @@ func (p *Panel) DuplicateSelected() error {
 	var made []ids.AssetID
 	var first error
 	scripts := false
-	for _, id := range p.Selection() {
+	for _, id := range p.fileSelection() {
 		dup, err := p.d.Files.Duplicate(id)
 		if err != nil {
 			if first == nil {
@@ -467,7 +467,7 @@ func (p *Panel) ReimportSelected() error {
 		return nil
 	}
 	var first error
-	for _, id := range p.Selection() {
+	for _, id := range p.fileSelection() {
 		err := p.d.Files.Reimport(id)
 		if err != nil && first == nil {
 			first = err

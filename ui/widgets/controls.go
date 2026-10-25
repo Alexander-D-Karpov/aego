@@ -67,6 +67,13 @@ func ButtonRect(c *core.Context, id core.ID, r mathx.Rect, label string) bool {
 	return clicked
 }
 
+func IconButtonRect(c *core.Context, id core.ID, r mathx.Rect, icon string) bool {
+	clicked := c.Clicked(id, r)
+	c.Box(r, c.Theme.Radius.Button, c.WidgetColor(id), c.Theme.Border)
+	IconIn(c, r, icon, c.Theme.Text)
+	return clicked
+}
+
 func ToggleButton(c *core.Context, id core.ID, r mathx.Rect, label string, on *bool) bool {
 	clicked := c.Clicked(id, r)
 	if clicked {
@@ -151,7 +158,7 @@ func SearchField(c *core.Context, id core.ID, r mathx.Rect, q *string) bool {
 			changed = true
 		}
 		field.W -= r.H
-		defer c.TextIn(cr, glyph(c, '×', "x"), th.TextDim, core.AlignCenter)
+		defer IconIn(c, cr, "ui.close", th.TextDim)
 	}
 	if ch, _ := TextFieldRect(c, id, field, q, true); ch {
 		changed = true

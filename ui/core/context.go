@@ -1007,6 +1007,11 @@ func (c *Context) Rect(r mathx.Rect, col mathx.Color) {
 	c.list.Rect(r, col)
 }
 
+// Line draws a segment from a to b, w pixels thick.
+func (c *Context) Line(a, b mathx.Vec2, w float32, col mathx.Color) {
+	c.list.Line(a, b, w, col)
+}
+
 func (c *Context) Outline(r mathx.Rect, col mathx.Color) {
 	c.list.RectOutline(r, col, 1)
 }

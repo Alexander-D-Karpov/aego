@@ -863,7 +863,7 @@ func (r *Registry) checkPages(out []Problem) []Problem {
 		switch {
 		case m.group == "":
 			out = append(out, Problem{ID: id, Error: true, Message: "root page has no group; add group: one of " + strings.Join(r.guideGroups(), ", ")})
-		case !ok || g.Section == SectionReference && g.ID != GroupCLI:
+		case !ok || g.Section == SectionReference && g.ID != GroupCLI && g.ID != GroupFormats:
 			out = append(out, Problem{ID: id, Error: true, Message: "group " + m.group + " is not a guide group (" + strings.Join(r.guideGroups(), ", ") + ")"})
 		}
 		if !m.ordered {

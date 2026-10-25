@@ -5,6 +5,14 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 
 | Icon | Owner | Size | Used by | Status |
 |---|---|---|---|---|
+| `anim.event` | engine | 16 | Animation panel: event lane | ok |
+| `anim.graph` | engine | 16 | Create palette: Animation → Controller; Animator panel tab and Auto Layout | ok |
+| `anim.key` | engine | 16 | Animation panel tab and Auto Key; Create palette: Animation → Clip | ok |
+| `anim.preview` | engine | 16 | Animation panel: Preview | ok |
+| `anim.record` | engine | 16 | Animation panel: Rec | ok |
+| `anim.slice` | engine | 16 | Create palette: Animation → Flipbook from Selection; PNG inspector: Slicing section | ok |
+| `anim.to_end` | engine | 16 | Animation panel: go to end | ok |
+| `anim.to_start` | engine | 16 | Animation panel: go to start | ok |
 | `app` | engine | 16 | launcher header; colored PNGs in app/brand are the window, installer and favicon icon | ok |
 | `app.quit` | engine | 16 | File → Quit | ok |
 | `audio.listener` | engine | 16 | component audio.AudioListener2D | ok |
@@ -13,16 +21,16 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `build.busy` | engine | 16 | menu bar: native build running | ok |
 | `build.error` | engine | 16 | menu bar: native build failed | ok |
 | `build.ok` | engine | 16 | menu bar: native build ok | ok |
-| `cat.3d` | engine | 16 | Create → 3D submenu | ok |
-| `cat.audio` | engine | 16 | Documentation: Audio group and module | ok |
+| `cat.3d` | engine | 16 | Create → 3D submenu; Add Component and Create: category | ok |
+| `cat.audio` | engine | 16 | Documentation: Audio group and module; Add Component and Create: category | ok |
 | `cat.camera` | engine | 24 | New Project: template 2.5d | ok |
-| `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own | ok |
+| `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own; Add Component and Create: category | ok |
 | `cat.gameplay` | engine | 16 | template menu Gameplay | ok |
-| `cat.node` | engine | 24 | New Project: template empty; Search: node results | ok |
+| `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
 | `cat.physics` | engine | 16 | template menu Physics | ok |
-| `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets | ok |
-| `cat.scripts` | engine | 16 | Search: script symbols | ok |
-| `cat.settings` | engine | 16 | References: the project file | ok |
+| `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets; Add Component and Create: category | ok |
+| `cat.scripts` | engine | 16 | Search: script symbols; Add Component and Create: category | ok |
+| `cat.settings` | engine | 16 | References: the project file; Add Component and Create: category | ok |
 | `cat.transform` | engine | 24 | New Project: template 3d | ok |
 | `code.block` | engine | 16 | Scripts → Highlight Current Block | ok |
 | `code.brackets` | engine | 16 | Scripts → Rainbow Brackets | ok |
@@ -64,7 +72,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `file.audio` | engine | 16 | Documentation: sound clips page | ok |
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
-| `file.download` | engine | 16 | Documentation: Install and run page | ok |
+| `file.download` | engine | 16 | Documentation: Install and run page; PNG inspector: Import section | ok |
 | `file.folder` | engine | 24 | Assets: folders | ok |
 | `file.mesh` | engine | 24 | Assets: mesh tiles | ok |
 | `file.open` | engine | 16 | Assets menu: Open | ok |
@@ -124,9 +132,9 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `panel.watch` | engine | 16 | Watch tab | ok |
 | `panel.welcome` | engine | 16 | Getting Started tab | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
-| `play.pause` | engine | 16 | toolbar: Pause | ok |
+| `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
 | `play.speed` | engine | 16 | Play → Time Scale… | ok |
-| `play.start` | engine | 16 | toolbar: Play; Assets: startup scene mark | ok |
+| `play.start` | engine | 16 | component animation.AnimationPlayer; component animation.Animator; toolbar: Play; Assets: startup scene mark; Animation panel: play the clip | ok |
 | `play.step` | engine | 16 | toolbar: Step | ok |
 | `play.step_back` | engine | 16 | Play → Step Back | ok |
 | `play.stop` | engine | 16 | toolbar: Stop | ok |
@@ -139,7 +147,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `shape.dice` | engine | 16 | Documentation: random numbers module | ok |
 | `shape.plane` | engine | 16 | template render3d.plane | ok |
 | `shape.sphere` | engine | 16 | template render3d.sphere | ok |
-| `status.busy` | engine | 14 | Task Center: running task | ok |
+| `status.busy` | engine | 14 | Task Center: running task; status bar: tasks running | ok |
 | `status.ok` | engine | 14 | Task Center: finished task | ok |
 | `status.warning` | engine | 16 | Table and inspector issue rows | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |
@@ -151,13 +159,14 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `tpl.static` | engine | 16 | template physics.static | ok |
 | `tpl.trigger` | engine | 16 | template physics.trigger | ok |
 | `ui.check` | engine | 16 | check boxes and menu marks | ok |
-| `ui.chevron_down` | engine | 16 | trees, combos and drop-downs | ok |
+| `ui.chevron_down` | engine | 16 | trees, combos and drop-downs; Find: next match; Table: sorted descending | ok |
 | `ui.chevron_right` | engine | 16 | trees and submenus | ok |
-| `ui.close` | engine | 16 | tabs, chips and dialogs | ok |
-| `ui.curve` | engine | 16 | Documentation: curves module | ok |
+| `ui.chevron_up` | engine | 16 | Find: previous match; Table: sorted ascending | ok |
+| `ui.close` | engine | 16 | tabs, chips, dialogs, clear buttons of fields and lists | ok |
+| `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves | ok |
 | `ui.lock` | engine | 16 | Inspector: locked | ok |
 | `ui.minus` | engine | 16 | list editors: remove | ok |
-| `ui.more` | engine | 16 | card menus | ok |
+| `ui.more` | engine | 16 | card menus; reference field picker | ok |
 | `ui.move_down` | engine | 16 | Script menu: Move Down | ok |
 | `ui.move_up` | engine | 16 | Script menu: Move Up | ok |
 | `ui.plus` | engine | 16 | Scene View: Create; list editors: add | ok |

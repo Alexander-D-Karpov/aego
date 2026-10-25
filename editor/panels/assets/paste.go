@@ -29,14 +29,14 @@ func (p *Panel) selectList(list []ids.AssetID) {
 
 func (p *Panel) CopySelected() error {
 	p.cut = cutSet{}
-	if paths := p.d.Files.CopyAssets(p.Selection()); len(paths) > 0 {
+	if paths := p.d.Files.CopyAssets(p.fileSelection()); len(paths) > 0 {
 		p.d.Notices.Notify(context.LevelInfo, "Copied "+strconv.Itoa(len(paths))+" asset(s)")
 	}
 	return nil
 }
 
 func (p *Panel) CutSelected() error {
-	list := p.Selection()
+	list := p.fileSelection()
 	paths := p.d.Files.CopyAssets(list)
 	p.cut = cutSet{}
 	if len(paths) == 0 {

@@ -11,6 +11,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/data"
+	"aego/editor/core/animedit"
 	"aego/editor/core/command"
 	"aego/editor/core/document"
 	"aego/editor/core/history"
@@ -181,6 +182,8 @@ type Editor struct {
 	Shapes     *shape.Registry
 	Problems   *problems.Service
 	Sections   *module.Sections
+	Anim       *animedit.Registry
+	AnimFiles  animedit.Files
 
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)

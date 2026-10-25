@@ -1,0 +1,19 @@
+controller version=1 {
+  entry="Patrol"
+  param "Chasing" kind=bool {}
+  param "Die" kind=trigger {}
+  state "Patrol" clip=asset("70a10000000000000000000000000004") {}
+  state "Chase" clip=asset("70a10000000000000000000000000005") {}
+  state "Die" clip=asset("70a10000000000000000000000000006") {}
+  state "Gone" {}
+  transition "any" to="Die" interrupt=true {
+    cond "Die" {}
+  }
+  transition "Patrol" to="Chase" duration=0.15 {
+    cond "Chasing" {}
+  }
+  transition "Chase" to="Patrol" duration=0.3 {
+    cond "Chasing" op=eq value=false {}
+  }
+  transition "Die" to="Gone" exitTime=1 {}
+}

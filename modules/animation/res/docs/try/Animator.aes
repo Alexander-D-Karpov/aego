@@ -1,0 +1,45 @@
+package demo
+
+import (
+	"aego/debug"
+	"aego/input"
+)
+
+// Runner walks with A/D on the built-in platformer controller; Space toggles Grounded, J triggers Hit.
+script Runner {
+	var air bool
+
+	func Update(dt float) {
+		a := node.Get<Animator>()
+		dir := 0.0
+		if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
+			dir -= 1
+		}
+		if input.Down(input.KeyD) || input.Down(input.KeyRight) {
+			dir += 1
+		}
+		speed := dir
+		if speed < 0 {
+			speed = -speed
+			node.Get<SpriteRenderer>().FlipX = true
+		} else if speed > 0 {
+			node.Get<SpriteRenderer>().FlipX = false
+		}
+		a.SetFloat("Speed", speed * 3)
+		if input.KeyPressed(input.KeySpace) {
+			air = !air
+			a.SetBool("Grounded", !air)
+		}
+		if input.KeyPressed(input.KeyJ) {
+			a.SetTrigger("Attack")
+		}
+		p := node.Position()
+		node.SetPosition(Vec2{p.X + dir * 3 * dt, p.Y})
+		label := a.State
+		if a.Blending {
+			label = label + " (blending)"
+		}
+		debug.Text(Vec2{p.X - 2, p.Y - 1.4}, label + "   " + string(a.Progress), Color{0.85, 0.85, 0.85, 1})
+		debug.Text(Vec2{-4.5, 2}, "A/D walk   Space air   J hit", Color{0.6, 0.6, 0.6, 1})
+	}
+}

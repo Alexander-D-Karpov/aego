@@ -159,3 +159,33 @@ func TestMaximizeYieldsToShowAndSwitch(t *testing.T) {
 		t.Fatal("a workspace switch must not carry the maximized panel")
 	}
 }
+
+// A layout saved for an older revision of a built-in preset is dropped, so the new default shows.
+func TestPresetRevisionDropsOldLayout(t *testing.T) {
+	root := t.TempDir()
+	w := withPresets(t, root)
+	w.LoadLayout()
+	w.Switch(Programming)
+	w.Tree.Undock(Console)
+	if err := w.SaveLayout(); err != nil {
+		t.Fatal(err)
+	}
+	same := withPresets(t, root)
+	same.LoadLayout()
+	same.Switch(Programming)
+	if same.Tree.Has(Console) {
+		t.Fatal("a layout of the same revision must be kept")
+	}
+	newer := New(root, nil)
+	register(t, newer, standard())
+	for _, p := range []Preset{{ID: Design, Title: "Design"}, {ID: Programming, Title: "Programming", Order: 10, Rev: 1}} {
+		if err := newer.RegisterPreset(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	newer.LoadLayout()
+	newer.Switch(Programming)
+	if !newer.Tree.Has(Console) {
+		t.Fatal("a layout saved before the preset's revision must be dropped")
+	}
+}

@@ -79,11 +79,11 @@ func (p *Panel) drawFind(ui *core.Context, r mathx.Rect) {
 		return
 	}
 	x := field.X + field.W + 4
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 11), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, widgets.Glyph(ui, '↑', "^")) {
+	if widgets.IconButtonRect(ui, core.IDSeq(p.fid, 11), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, "ui.chevron_up") {
 		p.findNext(ui, true)
 	}
 	x += bw + 4
-	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 12), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, widgets.Glyph(ui, '↓', "v")) {
+	if widgets.IconButtonRect(ui, core.IDSeq(p.fid, 12), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, "ui.chevron_down") {
 		p.findNext(ui, false)
 	}
 	x += bw + 4

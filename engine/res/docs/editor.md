@@ -121,3 +121,38 @@ Window → Debug Draw lists the debug channels of the running game with their co
 ## Crash Reports
 
 When a panel, an extension, a native script binding or the play world panics, the editor writes a bundle to `.aego/crash/<time>/`: `info.aetext` (versions, OS, GPU, modules, message), `go.stack`, `script.stack` for script faults, `trace.json` (the last 240 frames, open in ui.perfetto.dev), `events.log`, `scene.aescene` (the play scene, unless `engine { crashScene=false }`) and `log.txt`. Paths under your home folder are written as `~`. Unsaved scenes and scripts are saved to recovery at the same moment. `engine { spikeMs=50 }` writes the same bundle, marked *spike*, for frames slower than 50 ms. Window → Crash Reports lists the bundles; click one to open the script line or copy the folder.
+
+---
+id: editor/add-component
+icon: ui.plus
+parent: editor
+order: 1
+title: Add Component and Create
+---
+# Add Component and Create
+
+![The palette: "col" lists the colliders, the right pane describes the highlighted one](shots/add-palette.png)
+
+One palette adds components and creates nodes. Ctrl+Shift+A, or Add Component in the Inspector, adds to the selected nodes; Ctrl+Shift+N, Create… in the Hierarchy or Scene View menus, or the + buttons create a node. Create Empty is Alt+Shift+N.
+
+The search field takes the keys at once, so Ctrl+Shift+A, `mot`, Enter adds Motion 2D without the mouse. The query matches the start of the name (`mot` → Motion 2D), initials (`vc` → Virtual Camera 2D, `cf2` → Camera Follow 2D), the start of any word (`fol`), then any part of the name (`box` → Box Collider 2D, then Hitbox 2D and Hurtbox 2D). Within each kind of match, items you add more often come first.
+
+| Key | Does |
+|---|---|
+| ↑ ↓, PgUp PgDn, Home End | move the highlight |
+| Enter | adds the highlighted item, the first one by default |
+| Shift+Enter | adds it and keeps the palette open |
+| Tab | switches the alternative of a requirement |
+| Ctrl+D | stars or unstars the item |
+| Esc | closes |
+
+With an empty query the palette lists the eight items used last, your starred items, then the categories. Categories are folded, except those you used; the palette remembers which are open. The state is kept in `.aego/user/palette.aetext`.
+
+The right pane shows the component's documentation and what comes with it:
+
+- **Also adds** lists the components it requires; they are added first, in the same step.
+- **Needs one of** appears when any of several components will do. The first is picked; Tab or a click picks another.
+- **Also add…** check boxes offer components that usually go with it, such as a collider for Motion 2D. They start unchecked.
+- Items that cannot be added are grey, with the reason: already on the node, needs a 2D node, one per scene, or two components that drive the same node.
+
+With several nodes selected, the component goes on every node it fits, and the pane names the nodes it skips. Everything one pick adds is one Undo step. Project scripts are listed under Scripts with their package on the right.

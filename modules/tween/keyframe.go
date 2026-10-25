@@ -101,20 +101,6 @@ func hashFree(h *rewind.Hasher, free []uint32, n int) {
 	h.Int(n)
 }
 
-func hashTarget(h *rewind.Hasher, t *target) {
-	h.U64(uint64(t.own))
-	h.U64(uint64(t.typ))
-	h.U64(uint64(t.off))
-	h.U64(uint64(t.kind))
-	h.U64(uint64(t.part))
-	h.Bool(t.three)
-	h.U64(uint64(t.shape))
-	h.I64(int64(t.lane))
-	h.U32(uint32(t.ref.Instance))
-	h.String(t.ref.Field)
-	h.Int(t.ref.Slot)
-}
-
 func (s *Service) Hash(h *rewind.Hasher) {
 	h.String("tween")
 	h.Int(len(s.tweens.s))
@@ -128,7 +114,7 @@ func (s *Service) Hash(h *rewind.Hasher) {
 		t := &e.v
 		h.U32(t.node.Index)
 		h.U32(t.node.Gen)
-		hashTarget(h, &t.tgt)
+		t.tgt.HashTo(h)
 		for j := range 4 {
 			h.F32(t.from[j])
 			h.F32(t.to[j])

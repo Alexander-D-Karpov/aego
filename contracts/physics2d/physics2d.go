@@ -7,6 +7,14 @@ import (
 
 const ServiceID = "physics2d.queries"
 
+type BodyType uint8
+
+const (
+	Static BodyType = iota
+	Kinematic
+	Dynamic
+)
+
 type QueryFilter struct {
 	LayerMask       uint32
 	IncludeTriggers bool
@@ -47,6 +55,7 @@ type Queries interface {
 	Penetration(body scene.NodeHandle, f QueryFilter, out []CastHit) int
 	BodyPose(body scene.NodeHandle) (mathx.Vec2, float32, bool)
 	BodyVelocity(body scene.NodeHandle) (mathx.Vec2, float32, bool)
+	BodyType(body scene.NodeHandle) (BodyType, bool)
 	MoveKinematic(body scene.NodeHandle, p mathx.Vec2, angle, dt float32) error
 	Teleport(body scene.NodeHandle, p mathx.Vec2, angle float32) error
 	ApplyImpulse(body scene.NodeHandle, j mathx.Vec2) error

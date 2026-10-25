@@ -132,19 +132,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	addR := mathx.Rect{X: bar.X + bar.W - bar.H, Y: bar.Y, W: bar.H, H: bar.H}
 	addID := ui.ID("add")
 	if ui.Pressed(addID, addR) {
-		if ui.PopupOpen(addID) {
-			ui.ClosePopup(addID)
-		} else {
-			ui.CloseAllPopups()
-			ui.OpenPopup(addID, mathx.Vec2{X: addR.X, Y: addR.Y + addR.H})
-		}
+		p.create(d, p.activeNode(d), &mathx.Vec2{X: addR.X, Y: addR.Y + addR.H})
 	}
 	ui.Rect(addR, ui.WidgetColor(addID))
 	ui.TextIn(addR, "+", th.Text, core.AlignCenter)
-	if ui.BeginPopup(addID, 200) {
-		p.createItems(d, p.activeNode(d))
-		ui.EndPopup()
-	}
 	hdr := ui.Cursor().Next(0)
 	p.drawHeader(f, d, hdr)
 
@@ -171,9 +162,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.emptyArea(f, d, mathx.Rect{X: list.X, Y: end, W: list.W, H: list.Y + list.H - end})
 	}
 	if widgets.ContextMenu(ui, p.menuID) {
-		if widgets.SubMenuIcon(ui, "Create", "ui.plus", 220) {
-			p.createItems(d, p.menuNode)
-			widgets.EndSubMenu(ui)
+		if widgets.MenuItemIcon(ui, "Create…", p.d.Commands.Shortcut(command.SceneCreate), "ui.plus", true, false) {
+			at := ui.Mouse()
+			p.create(d, p.menuNode, &at)
 		}
 		widgets.Separator(ui)
 		p.prefabItems(f, d)
@@ -725,8 +716,8 @@ func (p *Panel) drawRename(f *services.Frame, d *document.SceneDocument, rw row,
 	}
 }
 
-func (p *Panel) createItems(d *document.SceneDocument, parent ids.NodeID) {
-	p.d.Scenes.CreateMenu(p.d.Templates, parent, func([]ids.NodeID) {
+func (p *Panel) create(d *document.SceneDocument, parent ids.NodeID, at *mathx.Vec2) {
+	p.d.Scenes.Create(parent, templates.Place{}, at, func([]ids.NodeID) {
 		if !parent.IsZero() {
 			d.View.Expanded[parent] = true
 		}

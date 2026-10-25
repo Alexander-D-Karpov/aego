@@ -41,6 +41,7 @@ const (
 	evJumped
 	evWall
 	evCeiling
+	evClimbed
 )
 
 type motionState struct {
@@ -63,6 +64,12 @@ type motionState struct {
 	events     uint8
 	landSpeed  float32
 	wallN      mathx.Vec2
+	disp       mathx.Vec2
+	climbFrom  mathx.Vec2
+	climbRise  mathx.Vec2
+	climbFwd   mathx.Vec2
+	climbLeft  float32
+	climbFloor scene.NodeHandle
 	warned     bool
 }
 
@@ -91,6 +98,8 @@ type Motion2D struct {
 	PlatformOnLeave LeaveMode     `aego:"platformOnLeave"`
 	FaceMovement    bool          `aego:"faceMovement"`
 	DashGravity     bool          `aego:"dashGravity"`
+	LedgeClimb      float32       `aego:"ledgeClimb,min=0"`
+	ClimbTime       float32       `aego:"climbTime,min=0"`
 	Velocity        mathx.Vec2    `aego:"velocity,transient,readonly,category=Runtime"`
 	Grounded        bool          `aego:"grounded,transient,readonly,category=Runtime"`
 	OnWall          bool          `aego:"onWall,transient,readonly,category=Runtime"`
@@ -99,6 +108,7 @@ type Motion2D struct {
 	FloorNormal     mathx.Vec2    `aego:"floorNormal,transient,readonly,category=Runtime"`
 	FloorAngle      float32       `aego:"floorAngle,transient,readonly,category=Runtime"`
 	GroundBody      scene.NodeRef `aego:"groundBody,transient,readonly,category=Runtime"`
+	Climbing        bool          `aego:"climbing,transient,readonly,category=Runtime"`
 
 	st motionState
 }
@@ -107,7 +117,7 @@ func DefaultMotion() Motion2D {
 	return Motion2D{
 		UpDirection: mathx.Vec2{Y: -1}, MaxSpeed: 6, Accel: 60, Decel: 50, AirControl: 0.6,
 		GravityScale: 1, MaxFallSpeed: 20, JumpHeight: 2.2, JumpCut: 0.5, CoyoteTime: 0.1, JumpBuffer: 0.1,
-		MaxSlope: 45, StepHeight: 0.2, SnapToGround: 0.2, SafeMargin: 0.02, MaxSlides: 4, CollisionMask: -1,
+		MaxSlope: 45, StepHeight: 0.2, SnapToGround: 0.2, SafeMargin: 0.02, MaxSlides: 4, CollisionMask: -1, ClimbTime: 0.3,
 		PushBodies: true, MovingPlatforms: true,
 	}
 }
@@ -136,6 +146,10 @@ func (m *Motion2D) AddVelocity(v mathx.Vec2) {
 	m.st.addVel = m.st.addVel.Add(v)
 }
 
+func (m *Motion2D) AddDisplacement(d mathx.Vec2) {
+	m.st.disp = m.st.disp.Add(d)
+}
+
 func (m *Motion2D) Stop() {
 	m.st.stop = true
 }
@@ -152,6 +166,7 @@ type signals struct {
 	jumped    module.Signal0
 	wall      module.Signal1[mathx.Vec2]
 	ceiling   module.Signal0
+	climbed   module.Signal0
 	damaged   module.Signal2[int64, scene.NodeHandle]
 	healed    module.Signal1[int64]
 	died      module.Signal1[scene.NodeHandle]
@@ -234,6 +249,9 @@ func registerMotion(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("platformOnLeave", "keep keeps the platform's velocity after leaving it, drop loses it, add keeps only its horizontal part."),
 		schema.FieldDoc("faceMovement", "topDown: turns the node towards the movement."),
 		schema.FieldDoc("dashGravity", "Applies gravity during a dash."),
+		schema.FieldDoc("ledgeClimb", "platformer: in the air, moving into a wall whose top is at most this far above the feet climbs onto it. 0 never climbs."),
+		schema.FieldDoc("climbTime", "Seconds a ledge climb takes: rising, then stepping onto the ledge."),
+		schema.FieldDoc("climbing", "Whether the character is climbing onto a ledge, during Play."),
 		schema.FieldDoc("velocity", "Current velocity in units per second, during Play."),
 		schema.FieldDoc("grounded", "Whether the character stands on a floor, during Play."),
 		schema.FieldDoc("onWall", "Whether the character touched a wall in the last step, during Play."),
@@ -242,9 +260,9 @@ func registerMotion(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("floorNormal", "Normal of the floor under the character, during Play."),
 		schema.FieldDoc("floorAngle", "Slope of the floor in degrees, during Play."),
 		schema.FieldDoc("groundBody", "Body the character stands on, during Play."),
-		schema.Runtime("velocity", "grounded", "onWall", "onCeiling", "wallNormal", "floorNormal", "floorAngle", "groundBody"),
+		schema.Runtime("velocity", "grounded", "onWall", "onCeiling", "wallNormal", "floorNormal", "floorAngle", "groundBody", "climbing"),
 		schema.Bitset("collisionMask", needsPhysics, layersList),
-	).Requires(bodyName).Category(Category).Display("Motion 2D").Icon("gameplay.motion").NodeIcon(75).Default(DefaultMotion).Validate(validateMotion).OnAdd(kinematicOnAdd)
+	).Requires(bodyName).Suggests(capsuleName, boxName).Category(Category).Display("Motion 2D").Icon("gameplay.motion").NodeIcon(75).Default(DefaultMotion).Validate(validateMotion).OnAdd(kinematicOnAdd)
 
 	b.Proc1("Move", func(_ *bind.Ctx, m *Motion2D, x float32) { m.Move(x) },
 		bind.Doc("Move sets the horizontal input, -1..1; it stays until the next Move."), bind.Params("x"))
@@ -258,6 +276,9 @@ func registerMotion(r *module.Registry, sig *signals) error {
 		bind.Doc("Dash moves at a fixed velocity for some seconds."), bind.Params("velocity", "seconds"))
 	b.Proc1("AddVelocity", func(_ *bind.Ctx, m *Motion2D, v mathx.Vec2) { m.AddVelocity(v) },
 		bind.Doc("AddVelocity adds a push once, for knockback."), bind.Params("velocity"))
+	b.Proc1("AddDisplacement", func(_ *bind.Ctx, m *Motion2D, d mathx.Vec2) { m.AddDisplacement(d) },
+		bind.Doc("AddDisplacement moves by an offset in world units on the next step, through walls and slopes like a move, without changing the velocity; root motion of an Animator uses it."),
+		bind.Params("offset"))
 	b.Proc0("Stop", func(_ *bind.Ctx, m *Motion2D) { m.Stop() },
 		bind.Doc("Stop zeroes the velocity and ends a dash."))
 	b.Proc1("Teleport", func(_ *bind.Ctx, m *Motion2D, p mathx.Vec2) { m.Teleport(p) },
@@ -268,5 +289,6 @@ func registerMotion(r *module.Registry, sig *signals) error {
 	sig.jumped = b.Signal0("Jumped", "Jumped fires when a jump starts.")
 	sig.wall = b.Signal1[mathx.Vec2]("HitWall", "HitWall fires when the character starts touching a wall.", "normal")
 	sig.ceiling = b.Signal0("HitCeiling", "HitCeiling fires when the character bumps into a ceiling.")
+	sig.climbed = b.Signal0("Climbed", "Climbed fires when the character starts climbing onto a ledge.")
 	return b.Err()
 }

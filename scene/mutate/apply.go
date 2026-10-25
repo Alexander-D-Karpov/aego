@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+	"strings"
 
 	"aego/core/errs"
 	"aego/core/ids"
@@ -450,6 +451,14 @@ func (d *Document) addComp(op Op, res *Result) (step, error) {
 			}
 		}
 	}
+	for _, alts := range td.RequiresAny {
+		if !hasAny(d.reg, s, h, alts) {
+			res.Problems = append(res.Problems, Problem{Node: d.nodeName(h), Message: td.FullName + " needs one of " + strings.Join(alts, ", ") + " on the same node"})
+		}
+	}
+	if other, ok := Conflict(s, td, h); ok {
+		res.Problems = append(res.Problems, Problem{Node: d.nodeName(h), Message: td.FullName + " and " + other.FullName + " cannot share a node"})
+	}
 	redo := Op{Kind: KindAddComp, Node: idRef(s, h), Comp: td.FullName, Raw: true, Values: d.snapshot(td, h)}
 	ch := d.change(op.Kind, h)
 	ch.Path, ch.Type = td.FullName, td.ID
@@ -482,10 +491,28 @@ func (d *Document) removeComp(op Op, res *Result) (step, error) {
 		if _, has := s.GetByType(h, other.ID); has && slices.Contains(other.Requires, td.FullName) {
 			res.Problems = append(res.Problems, Problem{Node: d.nodeName(h), Message: other.FullName + " needs " + td.FullName + " on the same node"})
 		}
+		if _, has := s.GetByType(h, other.ID); has {
+			for _, alts := range other.RequiresAny {
+				if slices.Contains(alts, td.FullName) && !hasAny(d.reg, s, h, alts) {
+					res.Problems = append(res.Problems, Problem{Node: d.nodeName(h), Message: other.FullName + " needs one of " + strings.Join(alts, ", ") + " on the same node"})
+				}
+			}
+		}
 	}
 	ch := d.change(op.Kind, h)
 	ch.Path, ch.Type = td.FullName, td.ID
 	return step{inv: inv, redo: RemoveComp(idRef(s, h), td.FullName), change: ch}, nil
+}
+
+func hasAny(reg *schema.Registry, s *scene.Scene, h scene.NodeHandle, names []string) bool {
+	for _, n := range names {
+		if t, ok := reg.ByName(n); ok {
+			if _, has := s.GetByType(h, t.ID); has {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func defaultOf(td *schema.TypeDescriptor, fd *schema.FieldDescriptor) schema.Value {

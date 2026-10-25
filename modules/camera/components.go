@@ -177,7 +177,7 @@ func registerTypes(r *module.Registry) error {
 		schema.FieldDoc("useBounds", "Keeps the visible area inside Bounds."),
 		schema.FieldDoc("bounds", "World rectangle the view stays inside. A smaller area centres the view on it."),
 		schema.FieldDoc("snapToPixels", "Rounds the final position to whole screen pixels. pixelPerfect cameras already do this."),
-	).Category(Category).Display("Virtual Camera 2D").Icon("comp.vcam").NodeIcon(90).Default(DefaultVirtual).Validate(validateVirtual)
+	).Suggests(NameFollow).Category(Category).Display("Virtual Camera 2D").Icon("comp.vcam").NodeIcon(90).Default(DefaultVirtual).Validate(validateVirtual)
 	vc.Method0("IsActive", func(c *bind.Ctx, _ *VirtualCamera2D) bool {
 		s := live(c)
 		return s != nil && s.IsActive(c.Recv)

@@ -30,7 +30,7 @@ func patch(t *testing.T, path string, pairs ...string) {
 func TestComponentSignalReachesScriptAndGo(t *testing.T) {
 	root := copyExample(t, "platformer")
 	patch(t, filepath.Join(root, "scripts", "player", "player.aes"),
-		"\tvar blink Coroutine\n", "\tvar blink Coroutine\n\tvar hitConn Connection\n\tvar signalHits int\n",
+		"\tvar facing float = 1\n", "\tvar facing float = 1\n\tvar hitConn Connection\n\tvar signalHits int\n",
 		"\t\twatch(EnemyB)\n", "\t\twatch(EnemyB)\n\t\thitConn = node.Get<Health>().Healed.Connect(OnHit)\n",
 		"\tfunc OnEnemyDied() {", "\tfunc OnHit(hits int) {\n\t\tsignalHits = hits\n\t}\n\n\tfunc OnEnemyDied() {")
 	pf := platformerAt(t, root)

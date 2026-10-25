@@ -2,7 +2,7 @@ package enemy
 
 import "aego/math"
 
-// Grunt patrols between two points and chases the player while it is close; its State Machine runs FixedPatrol or FixedChase.
+// Grunt patrols between two points and chases the player while it is close; its State Machine runs FixedPatrol or FixedChase and its Animator shows it.
 script Grunt {
 	@export
 	var Player NodeRef
@@ -20,6 +20,11 @@ script Grunt {
 	var LoseRange float = 6
 
 	var toB bool = true
+
+	func Ready() {
+		node.Get<Health>().Died.Connect(OnDied)
+		node.Get<Animator>().StateEntered.Connect(OnState)
+	}
 
 	func toPlayer() Vec2 {
 		return Player.WorldPosition() - node.WorldPosition()
@@ -49,10 +54,25 @@ script Grunt {
 	}
 
 	func EnterChase() {
-		node.Get<SpriteRenderer>().Tint = Color{1, 0.35, 0.35, 1}
+		node.Get<Animator>().SetBool("Chasing", true)
 	}
 
 	func ExitChase() {
-		node.Get<SpriteRenderer>().Tint = Color{0.75, 0.5, 0.5, 1}
+		node.Get<Animator>().SetBool("Chasing", false)
+	}
+
+	func OnDied(source NodeRef) {
+		m := node.Get<Motion2D>()
+		m.MoveDir(Vec2{0, 0})
+		m.Stop()
+		node.Get<Hitbox2D>().Deactivate()
+		node.Get<StateMachine>().Go("Dead")
+		node.Get<Animator>().SetTrigger("Die")
+	}
+
+	func OnState(state int) {
+		if node.Get<Animator>().StateName(state) == "Gone" {
+			node.Destroy()
+		}
 	}
 }

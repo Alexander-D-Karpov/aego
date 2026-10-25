@@ -1,0 +1,68 @@
+PASS
+ok  	aego/script/vm	0.002s
+PASS
+ok  	aego/script/coroutine	0.002s
+PASS
+ok  	aego/script/signal	0.002s
+goos: linux
+goarch: amd64
+pkg: aego/script/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-1260P
+BenchmarkCoroutines2k 	    2510	    475346 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2518	    479661 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2518	    479663 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2497	    479728 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2511	    479714 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2506	    474348 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2503	    478986 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2511	    479081 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2494	    478682 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkCoroutines2k 	    2518	    478630 ns/op	      2000 resumes/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2640	    453249 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2648	    453001 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2635	    453356 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2631	    453134 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2595	    452956 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2658	    453120 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2635	    453681 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2635	    455309 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2642	    452826 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkUpdate2k     	    2664	    454692 ns/op	     42000 instr/frame	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2630	    456008 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2630	    455901 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2637	    455956 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2617	    455852 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2623	    455931 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2601	    457286 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2602	    456581 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2617	    456503 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2612	    457210 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchedule10k  	    2624	    457098 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1227	    969319 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1237	    969844 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1234	    969306 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1234	    969266 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1236	    969607 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1237	    968769 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1242	    967357 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1240	    970038 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1238	    968381 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+BenchmarkEmit1k       	    1240	    968680 ns/op	     10000 handlers/frame	       0 B/op	       0 allocs/op
+PASS
+ok  	aego/script/runtime	54.304s
+goos: linux
+goarch: amd64
+pkg: aego/script/bind
+cpu: 12th Gen Intel(R) Core(TM) i7-1260P
+BenchmarkComponentMethod 	29161483	        40.68 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	28842016	        40.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	28815276	        40.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	28558292	        40.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	29761287	        40.70 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	28826796	        40.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	29152411	        40.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	29211376	        40.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	29623040	        40.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComponentMethod 	29790242	        40.68 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	aego/script/bind	12.284s

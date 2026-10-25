@@ -20,6 +20,7 @@ const (
 	GroupDiagnostics = "diagnostics"
 	GroupCLI         = "ref-cli"
 	GroupProject     = "project"
+	GroupFormats     = "ref-formats"
 )
 
 type Group struct {
@@ -44,6 +45,7 @@ var groups = []Group{
 	{GroupSettings, "Project settings", SectionReference, 120, "panel.settings"},
 	{GroupDiagnostics, "Diagnostics", SectionReference, 130, "panel.problems"},
 	{GroupCLI, "CLI", SectionReference, 140, "panel.console"},
+	{GroupFormats, "File formats", SectionReference, 145, "file.data"},
 	{GroupProject, "Project", SectionReference, 150, "file.folder"},
 }
 

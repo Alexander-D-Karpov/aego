@@ -1,0 +1,29 @@
+anim version=1 length=0.38 {
+  frames "" {
+    sprites=[asset("ae900000000000000000000000000b01"), asset("ae900000000000000000000000000b03"), asset("ae900000000000000000000000000b05")]
+    durations=[0.08, 0.14, 0.16]
+  }
+  track "" prop="SpriteRenderer.size" kind=vec2 {
+    key t=0 v=[1, 1] interp=linear {}
+    key t=0.08 v=[0.82, 1.14] interp=linear {}
+    key t=0.13 v=[1.3, 0.84] interp=linear {}
+    key t=0.26 v=[1.06, 0.96] interp=linear {}
+    key t=0.38 v=[1, 1] {}
+  }
+  track "" prop="SpriteRenderer.tint" kind=color {
+    key t=0 v=#4aa3ffff interp=step {}
+    key t=0.12 v=#d6eeffff interp=linear {}
+    key t=0.22 v=#4aa3ffff {}
+  }
+  frames "Slash" start=0.08 {
+    sprites=[asset("5a1a5c00000000000000000000000010"), asset("5a1a5c00000000000000000000000011"), asset("5a1a5c00000000000000000000000012"), asset("5a1a5c00000000000000000000000013")]
+    durations=[0.04, 0.04, 0.08, 0.1]
+  }
+  track "Slash" prop="SpriteRenderer.tint" kind=color {
+    key t=0 v=#ffffff00 interp=step {}
+    key t=0.08 v=#ffffffff interp=step {}
+    key t=0.2 v=#ffffffff interp=linear {}
+    key t=0.34 v=#ffffff00 {}
+  }
+  event t=0.14 name="Hit" payload=1 {}
+}

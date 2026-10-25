@@ -13,14 +13,15 @@ bench-physics-run:
 
 bench-physics:
 	$(MAKE) bench-physics-run BENCH_OUT=$(BENCH_DIR)/physics.txt
-	$(BENCH_GATE) -base $(BENCH_DIR)/physics.base.txt -head $(BENCH_DIR)/physics.txt
+	$(BENCH_GATE) -base $(BENCH_BASE_DIR)/physics.base.txt -head $(BENCH_DIR)/physics.txt
 
 bench-baseline-physics:
-	$(MAKE) bench-physics-run BENCH_OUT=$(BENCH_DIR)/physics.base.txt
+	mkdir -p $(BENCH_BASE_DIR)
+	$(MAKE) bench-physics-run BENCH_OUT=$(BENCH_BASE_DIR)/physics.base.txt
 
 bench-allocs-physics:
 	$(MAKE) bench-physics-run BENCH_OUT=$(BENCH_DIR)/physics.allocs.txt BENCH_COUNT=1
-	$(BENCH_GATE) -time=false -base $(BENCH_DIR)/physics.base.txt -head $(BENCH_DIR)/physics.allocs.txt
+	$(BENCH_GATE) -time=false -base $(BENCH_BASE_DIR)/physics.base.txt -head $(BENCH_DIR)/physics.allocs.txt
 
 demo-physics: bootstrap
 	go test -run TestSceneRunsHeadless ./demos/physics2d

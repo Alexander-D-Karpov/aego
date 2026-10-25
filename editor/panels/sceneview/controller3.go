@@ -49,6 +49,12 @@ type Input3 struct {
 	Shift   bool
 	Frame   bool
 	Cancel  bool
+	// Scale is pixels per UI unit; the click slop is in UI units, so HiDPI screens get the same feel.
+	Scale float32
+}
+
+func (in Input3) slop() float32 {
+	return clickSlopPx * max(in.Scale, 1)
 }
 
 type Theme3 struct {
@@ -68,6 +74,8 @@ const (
 )
 
 type edit3 struct {
+	pressAt mathx.Vec2
+	moved   bool
 	drag    gizmo.Drag3
 	nodes   []ids.NodeID
 	parents []mathx.Mat4
@@ -220,7 +228,7 @@ func (c *Controller3) beginEdit(h Host3, f gizmo.Frame3, in Input3) bool {
 		return false
 	}
 	s := h.Scene()
-	e := &edit3{drag: d}
+	e := &edit3{drag: d, pressAt: in.Mouse}
 	for _, id := range editable(s, h.Selected()) {
 		n := s.Handle(id)
 		e.nodes = append(e.nodes, id)
@@ -246,6 +254,16 @@ func (c *Controller3) updateEdit(h Host3, in Input3) bool {
 		c.restore(s)
 		c.edit = nil
 		return true
+	}
+	if !e.moved {
+		dx, dy := in.Mouse.X-e.pressAt.X, in.Mouse.Y-e.pressAt.Y
+		if mathx.Sqrt(dx*dx+dy*dy) <= in.slop() {
+			if !in.Down[ButtonLeft] {
+				c.edit = nil
+			}
+			return true
+		}
+		e.moved = true
 	}
 	if delta, ok := e.drag.Update(c.Ray(in.Mouse), h.Snap3()); ok {
 		for i, id := range e.nodes {
@@ -278,7 +296,7 @@ func (c *Controller3) updateEdit(h Host3, in Input3) bool {
 
 func (c *Controller3) updatePress(h Host3, in Input3) bool {
 	dx, dy := in.Mouse.X-c.pressAt.X, in.Mouse.Y-c.pressAt.Y
-	if !c.boxing && mathx.Sqrt(dx*dx+dy*dy) > clickSlopPx {
+	if !c.boxing && mathx.Sqrt(dx*dx+dy*dy) > in.slop() {
 		c.boxing = true
 	}
 	if in.Cancel {

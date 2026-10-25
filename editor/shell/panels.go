@@ -2,8 +2,10 @@ package shell
 
 import (
 	"aego/asset/pipeline"
+	"aego/core/ids"
 	"aego/editor/core/favorites"
 	"aego/editor/core/workspace"
+	animpanel "aego/editor/panels/animation"
 	favpanel "aego/editor/panels/favorites"
 	"aego/editor/panels/scenes"
 	"aego/editor/panels/undohistory"
@@ -40,6 +42,28 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.profiler, Slot: workspace.SlotBottom, Order: 170, Icon: "panel.profiler"},
 		{Panel: a.eventsPanel, Slot: workspace.SlotBottom, Order: 175, Icon: "panel.events"},
 		{Panel: a.watchPanel, Slot: workspace.SlotBottom, Order: 176, Icon: "panel.watch"},
+		{Panel: a.newAnimPanel(animpanel.Deps{
+			Thumbs: a.thumbs,
+			AssetRev: func() uint64 {
+				if a.opt.Pipeline == nil {
+					return 0
+				}
+				return a.opt.Pipeline.Revision()
+			},
+			Anim:      a.ctx.Anim,
+			Docs:      a.ctx,
+			Selection: a.ctx,
+			Notices:   a.ctx,
+			Files:     a.ctx.AnimFiles,
+			PathOf: func(id ids.AssetID) (string, bool) {
+				if a.opt.Pipeline == nil {
+					return "", false
+				}
+				return a.opt.Pipeline.PathOf(id)
+			},
+			Events: a.animEvents,
+		}), Slot: workspace.SlotBottom, Order: 178, Icon: "anim.key"},
+		{Panel: a.newAnimator(), Slot: workspace.SlotBottom, Order: 179, Icon: "anim.graph"},
 		{Panel: a.settings, Near: workspace.Inspector, Order: 200, Icon: "panel.settings"},
 		{Panel: a.docs, Near: workspace.Scene, Order: 210, Icon: "help.book"},
 		{Panel: a.tablePanel, Near: workspace.Scene, Order: 215, Icon: "panel.table"},

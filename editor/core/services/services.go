@@ -61,8 +61,7 @@ type Documents interface {
 }
 
 type SceneOps interface {
-	CreateMenu(reg *templates.Registry, parent ids.NodeID, onCreate func([]ids.NodeID))
-	CreateMenuAt(reg *templates.Registry, pl templates.Place)
+	Create(parent ids.NodeID, pl templates.Place, at *mathx.Vec2, onCreate func([]ids.NodeID))
 	Instantiate(t templates.Template, parent ids.NodeID, index int) error
 	InstantiateAt(t templates.Template, at *mathx.Vec2) error
 	InstantiateAt3(t templates.Template, at mathx.Vec3) error

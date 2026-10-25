@@ -162,6 +162,24 @@ type Manager struct {
 	playWorld *engine.World
 	origin    map[ID]ID
 	back      map[ID]ID
+	guard     func(*SceneDocument) func()
+}
+
+func (m *Manager) SetSaveGuard(fn func(*SceneDocument) func()) {
+	m.guard = fn
+}
+
+func (m *Manager) guarded(d *SceneDocument, enc func(*SceneDocument) []byte) []byte {
+	if m.guard != nil {
+		if after := m.guard(d); after != nil {
+			defer after()
+		}
+	}
+	return enc(d)
+}
+
+func recoveryBytes(d *SceneDocument) []byte {
+	return sceneio.Save(d.scene)
 }
 
 func NewManager(opt Options) *Manager {
@@ -457,7 +475,7 @@ func (m *Manager) Save(id ID) error {
 	if d == nil {
 		return errs.New(errs.EditorDocument, "no such document")
 	}
-	if err := WriteAtomic(m.Abs(d.Path), encode(d)); err != nil {
+	if err := WriteAtomic(m.Abs(d.Path), m.guarded(d, encode)); err != nil {
 		return errs.Wrap(err, errs.EditorDocument, "cannot save the scene").With(log.F("path", d.Path))
 	}
 	m.stat(d)
@@ -761,7 +779,7 @@ func (m *Manager) WriteRecovery() (int, error) {
 			m.ClearRecovery(d.Path)
 			continue
 		}
-		if err := WriteAtomic(m.recoveryFile(d.Path), sceneio.Save(d.scene)); err != nil {
+		if err := WriteAtomic(m.recoveryFile(d.Path), m.guarded(d, recoveryBytes)); err != nil {
 			if first == nil {
 				first = errs.Wrap(err, errs.EditorDocument, "cannot write the recovery file")
 			}

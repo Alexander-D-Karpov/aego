@@ -430,10 +430,10 @@ func (p *Panel) drawPage(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	bar := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight + 4}
 	bw := bar.H
-	if widgets.ButtonRect(ui, ui.ID("back"), mathx.Rect{X: bar.X, Y: bar.Y, W: bw, H: bar.H}, widgets.Glyph(ui, '←', "<")) {
+	if widgets.IconButtonRect(ui, ui.ID("back"), mathx.Rect{X: bar.X, Y: bar.Y, W: bw, H: bar.H}, "nav.back") {
 		p.step(&p.back, &p.fwd)
 	}
-	if widgets.ButtonRect(ui, ui.ID("fwd"), mathx.Rect{X: bar.X + bw + 2, Y: bar.Y, W: bw, H: bar.H}, widgets.Glyph(ui, '→', ">")) {
+	if widgets.IconButtonRect(ui, ui.ID("fwd"), mathx.Rect{X: bar.X + bw + 2, Y: bar.Y, W: bw, H: bar.H}, "nav.forward") {
 		p.step(&p.fwd, &p.back)
 	}
 	cx := bar.X + 2*bw + 10

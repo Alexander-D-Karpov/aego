@@ -82,16 +82,20 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 	ctx := a.ctx
 	mb := widgets.BeginMenuBar(ui, r)
 	for _, cat := range a.menuCategories() {
+		if cat == "Create" {
+			if hit, at := mb.Button(cat); hit && ctx.Doc() != nil {
+				parent := ids.NodeID{}
+				if it, ok := ctx.Selection.Active(); ok && it.Doc == ctx.Doc().ID {
+					parent = it.Node
+				}
+				a.addPal.CreateNode(parent, templates.Place{}, &at, nil)
+			}
+			continue
+		}
 		if !mb.Menu(cat, 280) {
 			continue
 		}
 		switch cat {
-		case "Create":
-			parent := ids.NodeID{}
-			if it, ok := ctx.Selection.Active(); ok && ctx.Doc() != nil && it.Doc == ctx.Doc().ID {
-				parent = it.Node
-			}
-			templates.Menu(ctx, a.templates, parent, templates.Place{}, nil)
 		case "Scene":
 			a.commandItems(cat)
 			a.sceneDocs()
@@ -184,7 +188,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		if tb.Label.A > 0 {
 			caret = tb.Label
 		}
-		widgets.Chevron(ui, mathx.Rect{X: sr.X + sr.W - 21, Y: float32(int(sr.Y + (sr.H-19)/2 + 1)), W: 19, H: 19}, true, caret)
+		widgets.Chevron(ui, mathx.Rect{X: sr.X + sr.W - 18, Y: float32(int(sr.Y + (sr.H-19)/2 + 1)), W: 19, H: 19}, true, caret)
 		if clicked {
 			if ui.PopupOpen(sid) {
 				ui.ClosePopup(sid)
@@ -204,7 +208,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	if wsX > r.X+6 {
 		tb.SetX(wsX)
 		clicked, wr := tb.TextButton(wid, wsLabel, "Workspace ("+reg.Shortcut(WorkspaceCommand(0))+"…4)")
-		widgets.Chevron(ui, mathx.Rect{X: wr.X + wr.W - 21, Y: float32(int(wr.Y + (wr.H-19)/2 + 1)), W: 19, H: 19}, true, th.TextDim)
+		widgets.Chevron(ui, mathx.Rect{X: wr.X + wr.W - 18, Y: float32(int(wr.Y + (wr.H-19)/2 + 1)), W: 19, H: 19}, true, th.TextDim)
 		if clicked {
 			if ui.PopupOpen(wid) {
 				ui.ClosePopup(wid)

@@ -1,6 +1,9 @@
 package pipeline
 
 import (
+	"slices"
+	"strings"
+
 	"aego/asset"
 	"aego/core/errs"
 	"aego/core/ids"
@@ -53,11 +56,19 @@ func (s Settings) Float(key string, def float64) float64 {
 	return def
 }
 
+// SubAsset is one cell of a sliced sheet: its own id and a pixel rectangle of the sheet (D339).
+type SubAsset struct {
+	Name string
+	ID   ids.AssetID
+	Rect [4]int
+}
+
 type Meta struct {
 	ID       ids.AssetID
 	Importer string
 	Version  int
 	Settings Settings
+	Subs     []SubAsset
 }
 
 func NewMeta(importer string, version int, defaults Settings) *Meta {
@@ -102,6 +113,26 @@ func ParseMeta(src []byte, name string) (*Meta, error) {
 			m.Settings[f.Name] = f.Value
 		}
 	}
+	var bad error
+	doc.EachBlock("sub", func(n *aetext.Node) {
+		sa := SubAsset{Name: n.Label}
+		v, _ := n.Attr("id")
+		id, err := ids.ParseAssetID(v.Str)
+		if err != nil || sa.Name == "" {
+			bad = errs.New(errs.AssetBadMeta, "a sub-asset needs a name and an id", log.F("path", name), log.F("sub", sa.Name))
+			return
+		}
+		sa.ID = id
+		if r, ok := n.Attr("rect"); ok && len(r.List) == 4 {
+			for i, x := range r.List {
+				sa.Rect[i] = int(x.AsInt())
+			}
+		}
+		m.Subs = append(m.Subs, sa)
+	})
+	if bad != nil {
+		return nil, bad
+	}
 	return m, nil
 }
 
@@ -118,7 +149,26 @@ func WriteMeta(m *Meta) []byte {
 		settings.Fields = append(settings.Fields, aetext.Field{Name: key, Value: m.Settings[key]})
 	}
 	root.Blocks = append(root.Blocks, settings)
+	root.Blocks = append(root.Blocks, subBlocks(m.Subs)...)
 	return aetext.Write(root)
+}
+
+func subBlocks(subs []SubAsset) []*aetext.Node {
+	sorted := slices.Clone(subs)
+	slices.SortFunc(sorted, func(a, b SubAsset) int { return strings.Compare(a.Name, b.Name) })
+	out := make([]*aetext.Node, 0, len(sorted))
+	for _, sa := range sorted {
+		r := sa.Rect
+		out = append(out, &aetext.Node{Head: "sub", Label: sa.Name, Attrs: []aetext.Field{
+			{Name: "id", Value: aetext.String(sa.ID.String())},
+			{Name: "rect", Value: aetext.List(aetext.Int(int64(r[0])), aetext.Int(int64(r[1])), aetext.Int(int64(r[2])), aetext.Int(int64(r[3])))},
+		}})
+	}
+	return out
+}
+
+func canonicalSubs(subs []SubAsset) []byte {
+	return aetext.Write(&aetext.Node{Head: "subs", Blocks: subBlocks(subs)})
 }
 
 func canonicalSettings(s Settings) []byte {

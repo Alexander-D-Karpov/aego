@@ -290,7 +290,83 @@ func TestHashSeesControllerState(t *testing.T) {
 	if sum() == a {
 		t.Fatal("a pending jump does not change the hash")
 	}
+	b := sum()
+	r.motion(h).AddDisplacement(mathx.Vec2{X: 0.5})
+	if sum() == b {
+		t.Fatal("a pending displacement does not change the hash")
+	}
 	if n := testing.AllocsPerRun(20, func() { r.svc.Capture(nil) }); n != 0 {
 		t.Fatalf("%v allocations per capture", n)
+	}
+}
+
+func TestDisplacementMovesThroughCollisions(t *testing.T) {
+	r := floorRig(t)
+	r.solid(mathx.Vec2{X: 3, Y: 3}, mathx.Vec2{X: 1, Y: 4}, 0)
+	h := r.hero(mathx.Vec2{Y: 4}, gameplay.Platformer)
+	r.ticks(30)
+	x0 := r.pos(h).X
+	for range 20 {
+		if !r.svc.AddDisplacement(h, mathx.Vec2{X: 0.25}) {
+			t.Fatal("the hero has Motion2D")
+		}
+		r.tick()
+	}
+	x := r.pos(h).X
+	if x <= x0+1 || x < 2.1 || x > 2.25 {
+		t.Fatalf("x=%v after pushing into the wall at 2.5 minus half width", x)
+	}
+	m := r.motion(h)
+	if v := m.Velocity.X; v > 1e-3 || v < -1e-3 {
+		t.Fatalf("displacement changed the velocity: %v", v)
+	}
+	if !m.Grounded {
+		t.Fatal("the hero must stay on the floor")
+	}
+	r.ticks(10)
+	if d := r.pos(h).X - x; d > 1e-3 || d < -1e-3 {
+		t.Fatalf("the hero kept moving after the last displacement: %v", d)
+	}
+}
+
+func TestDisplacementNeedsMotion(t *testing.T) {
+	r := newRig(t)
+	plain := r.s.Create(r.s.Root(), "plain")
+	r.s.Flush()
+	if r.svc.AddDisplacement(plain, mathx.Vec2{X: 1}) {
+		t.Fatal("a node without Motion2D has no receiver")
+	}
+}
+
+func TestDisabledDropsDisplacement(t *testing.T) {
+	r := floorRig(t)
+	h := r.hero(mathx.Vec2{Y: 4}, gameplay.Platformer)
+	r.ticks(30)
+	x0 := r.pos(h).X
+	r.s.SetEnabled(h, false)
+	r.svc.AddDisplacement(h, mathx.Vec2{X: 2})
+	r.ticks(2)
+	r.s.SetEnabled(h, true)
+	r.ticks(2)
+	if d := r.pos(h).X - x0; d > 1e-3 || d < -1e-3 {
+		t.Fatalf("a displacement given while disabled moved the hero by %v", d)
+	}
+}
+
+func TestHashSeesDisabledControllers(t *testing.T) {
+	r := floorRig(t)
+	h := r.hero(mathx.Vec2{Y: 3.5}, gameplay.Platformer)
+	r.ticks(30)
+	r.s.SetEnabled(h, false)
+	r.tick()
+	sum := func() [32]byte {
+		hs := rewind.NewHasher()
+		r.svc.Hash(hs)
+		return hs.Sum()
+	}
+	a := sum()
+	r.motion(h).Jump()
+	if sum() == a {
+		t.Fatal("a pending jump of a disabled controller does not change the hash")
 	}
 }

@@ -1,6 +1,7 @@
 package tween
 
 import (
+	"aego/core/log"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/script/abi"
@@ -58,6 +59,9 @@ func (*Module) AttachWorld(ctx *module.AttachContext) error {
 		return nil
 	}
 	svc := NewService(ctx.Scene, ctx.World)
+	if ctx.Log != nil {
+		svc.log = ctx.Log.With(log.Channel(ID))
+	}
 	ctx.World.SetService(ServiceID, svc)
 	if svc.hub != nil {
 		svc.hub.Probe(typeTween, svc.tweenAlive)

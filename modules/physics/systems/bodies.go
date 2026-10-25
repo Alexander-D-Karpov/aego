@@ -69,7 +69,15 @@ func (m *Sim) createBody(b *bodyRec, v mathx.Vec2, av float32) {
 	b.prev, b.cur = f, f
 }
 
+func (m *Sim) unpresent(b *bodyRec) {
+	if b.presented {
+		m.s.DropPresentationLocal(b.node)
+		b.presented = false
+	}
+}
+
 func (m *Sim) dropBody(b *bodyRec) {
+	m.unpresent(b)
 	if !b.h.IsZero() {
 		m.w.DestroyBody(b.h)
 	}
@@ -175,9 +183,9 @@ func (m *Sim) Writeback() {
 
 func (m *Sim) Present(alpha float32) {
 	s := m.s
-	s.ClearPresentation()
 	for _, b := range m.bodies {
 		if !b.moves() || b.h.IsZero() {
+			m.unpresent(b)
 			continue
 		}
 		if s.Local(b.node) != b.local {
@@ -185,12 +193,15 @@ func (m *Sim) Present(alpha float32) {
 				b.warned = true
 				m.report(b.node, keyUpdate, CodeUpdate, "Transform2D of a moving physics body was changed outside FixedUpdate; it is applied as a teleport at the next physics step", false)
 			}
+			m.unpresent(b)
 			continue
 		}
 		if !b.cfg.Interpolate || b.prev == b.cur {
+			m.unpresent(b)
 			continue
 		}
 		s.SetPresentationLocal(b.node, m.toLocal(b.node, lerpPose(b.prev, b.cur, alpha)))
+		b.presented = true
 	}
 }
 

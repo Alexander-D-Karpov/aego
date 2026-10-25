@@ -1,0 +1,76 @@
+controller version=1 {
+  entry="Idle"
+  param "Speed" kind=float {}
+  param "Grounded" kind=bool default=true {}
+  param "VerticalSpeed" kind=float {}
+  param "Attack" kind=trigger {}
+  param "Hurt" kind=trigger {}
+  param "Climbing" kind=bool {}
+  state "Idle" clip=asset("a0a10000000000000000000000000001") {}
+  state "Run" clip=asset("a0a10000000000000000000000000002") {}
+  state "Jump" clip=asset("a0a10000000000000000000000000003") {}
+  state "Fall" clip=asset("a0a10000000000000000000000000004") {}
+  state "Hit" clip=asset("a0a10000000000000000000000000005") {}
+  state "Hurt" clip=asset("a0a10000000000000000000000000006") {}
+  state "Climb" clip=asset("a0a10000000000000000000000000007") {}
+  transition "any" to="Hurt" interrupt=true {
+    cond "Hurt" {}
+  }
+  transition "any" to="Climb" interrupt=true {
+    cond "Climbing" {}
+  }
+  transition "Climb" to="Idle" duration=0.05 {
+    cond "Climbing" op=eq value=false {}
+  }
+  transition "any" to="Hit" interrupt=true {
+    cond "Attack" {}
+  }
+  transition "Idle" to="Run" duration=0.1 {
+    cond "Grounded" {}
+    cond "Speed" op=gt value=0.1 {}
+  }
+  transition "Run" to="Idle" duration=0.1 {
+    cond "Speed" op=le value=0.1 {}
+  }
+  transition "Idle" to="Jump" {
+    cond "Grounded" op=eq value=false {}
+    cond "VerticalSpeed" op=lt value=0 {}
+  }
+  transition "Run" to="Jump" {
+    cond "Grounded" op=eq value=false {}
+    cond "VerticalSpeed" op=lt value=0 {}
+  }
+  transition "Idle" to="Fall" duration=0.1 {
+    cond "Grounded" op=eq value=false {}
+    cond "VerticalSpeed" op=ge value=0 {}
+  }
+  transition "Run" to="Fall" duration=0.1 {
+    cond "Grounded" op=eq value=false {}
+    cond "VerticalSpeed" op=ge value=0 {}
+  }
+  transition "Jump" to="Fall" duration=0.1 {
+    cond "VerticalSpeed" op=ge value=0 {}
+  }
+  transition "Fall" to="Jump" {
+    cond "Grounded" op=eq value=false {}
+    cond "VerticalSpeed" op=lt value=0 {}
+  }
+  transition "Jump" to="Idle" duration=0.05 {
+    cond "Grounded" {}
+    cond "Speed" op=le value=0.1 {}
+  }
+  transition "Jump" to="Run" duration=0.05 {
+    cond "Grounded" {}
+    cond "Speed" op=gt value=0.1 {}
+  }
+  transition "Fall" to="Idle" duration=0.05 {
+    cond "Grounded" {}
+    cond "Speed" op=le value=0.1 {}
+  }
+  transition "Fall" to="Run" duration=0.05 {
+    cond "Grounded" {}
+    cond "Speed" op=gt value=0.1 {}
+  }
+  transition "Hit" to="Idle" exitTime=1 duration=0.05 {}
+  transition "Hurt" to="Idle" exitTime=1 duration=0.05 {}
+}

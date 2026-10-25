@@ -25,7 +25,12 @@ func rewindSession(t *testing.T) (*edit.Session, *play.Controller) {
 
 func rewindSessionWith(t *testing.T, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
 	t.Helper()
-	p, err := project.Load(copyExample(t, "platformer"))
+	return rewindSessionAt(t, copyExample(t, "platformer"), limit, mods...)
+}
+
+func rewindSessionAt(t *testing.T, root string, limit int, mods ...sdk.Module) (*edit.Session, *play.Controller) {
+	t.Helper()
+	p, err := project.Load(root)
 	if err != nil {
 		t.Fatal(err)
 	}

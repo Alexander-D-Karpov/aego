@@ -136,7 +136,7 @@ func (a *App) registerCommands() error {
 				return nil
 			}},
 		{ID: command.SceneCreateNode, Name: "Create Empty", Category: "Scene", Order: 400,
-			Shortcut: command.Key(input.KeyN, command.ModPrimary|command.ModShift), Enabled: hasDoc,
+			Shortcut: command.Key(input.KeyN, command.ModAlt|command.ModShift), Enabled: hasDoc,
 			Run: func() error {
 				t, ok := a.templates.Get("engine.empty")
 				if !ok {

@@ -7,11 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
 	"aego/app/bootstrap"
+	scriptimp "aego/asset/importers/script"
 	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/log"
@@ -166,7 +168,12 @@ func Verify(p *project.Project, w io.Writer) error {
 	return nil
 }
 
-func CheckAssets(p *project.Project, imps *pipeline.ImporterRegistry, w io.Writer) int {
+type failure struct {
+	path string
+	msg  string
+}
+
+func CheckAssets(p *project.Project, imps *pipeline.ImporterRegistry, mode pipeline.MetaMode, w io.Writer) int {
 	types, err := assembly.NewTypes()
 	if err != nil {
 		fmt.Fprintln(w, "aego:", err)
@@ -187,15 +194,33 @@ func CheckAssets(p *project.Project, imps *pipeline.ImporterRegistry, w io.Write
 		return 1
 	}
 	defer pl.Close()
+	pl.SetMetaMode(mode)
 	if _, _, err := pl.Scan(); err != nil {
 		fmt.Fprintln(w, "aego:", err)
 		return 1
 	}
-	if _, err := pl.ImportAll(); err != nil {
+	batch, err := pl.ImportAll()
+	if err != nil {
 		fmt.Fprintln(w, "aego:", err)
 		return 1
 	}
-	n := 0
+	var failed []failure
+	for id, ierr := range batch.Failed {
+		var ce *scriptimp.CompileError
+		if errors.As(ierr, &ce) {
+			continue
+		}
+		path, ok := pl.PathOf(id)
+		if !ok {
+			path = id.String()
+		}
+		failed = append(failed, failure{path: path, msg: ierr.Error()})
+	}
+	slices.SortFunc(failed, func(a, b failure) int { return strings.Compare(a.path, b.path) })
+	for _, f := range failed {
+		fmt.Fprintf(w, "%s: error: %s\n", f.path, f.msg)
+	}
+	n := len(failed)
 	for _, d := range man.ValidateAssets(types.Schema(), pl, bootstrap.NeedsNative(p), nil) {
 		sev := "warning"
 		if d.Severity == problems.Error {

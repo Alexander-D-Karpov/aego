@@ -3,10 +3,12 @@ package loader
 import (
 	"bytes"
 
+	"aego/anim"
 	"aego/asset"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/format/aetext"
 	"aego/gpu"
 	"aego/render/mesh"
 	"aego/render/texture"
@@ -173,16 +175,15 @@ func (l *Loader) Scripts() (map[string][]byte, error) {
 	return out, first
 }
 
-func (l *Loader) builtinWhite() (texture.Region, bool) {
-	d := &texture.Data{Width: 1, Height: 1, Format: gpu.TexSRGBA8, Pixels: []byte{255, 255, 255, 255}, Premultiplied: true}
-	h, err := l.up.Upload(d, texture.UploadOptions{Label: "builtin.white"})
+func (l *Loader) builtinTexture(id ids.AssetID, d *texture.Data) (texture.Region, bool) {
+	h, err := l.up.Upload(d, texture.UploadOptions{Label: "builtin"})
 	if err != nil {
-		l.fail(asset.BuiltinWhite, "cannot upload the builtin white texture", err)
+		l.fail(id, "cannot upload a builtin texture", err)
 		return texture.Region{}, false
 	}
-	l.pages[asset.BuiltinWhite] = pageEntry{handle: h, width: 1, height: 1, filter: gpu.FilterNearest}
-	reg := texture.Whole(h, 1, 1)
-	l.region[asset.BuiltinWhite] = regionEntry{region: reg, page: asset.BuiltinWhite}
+	l.pages[id] = pageEntry{handle: h, width: d.Width, height: d.Height, filter: gpu.FilterNearest}
+	reg := texture.Whole(h, d.Width, d.Height)
+	l.region[id] = regionEntry{region: reg, page: id}
 	return reg, true
 }
 
@@ -193,8 +194,8 @@ func (l *Loader) Texture(id ids.AssetID) (texture.Region, bool) {
 	if l.failed[id] {
 		return texture.Region{}, false
 	}
-	if id == asset.BuiltinWhite {
-		return l.builtinWhite()
+	if d, ok := asset.BuiltinTexture(id); ok {
+		return l.builtinTexture(id, d)
 	}
 	e, ok := l.entry(id)
 	if !ok {
@@ -385,6 +386,68 @@ func (l *Loader) Audio(id ids.AssetID) ([]byte, bool) {
 	return l.blob(id, asset.ArtAudio)
 }
 
+func (l *Loader) Anim(id ids.AssetID) ([]byte, bool) {
+	if src, ok := asset.BuiltinAnimText(id); ok {
+		return l.builtinAnim(id, src)
+	}
+	return l.blob(id, asset.ArtAnim)
+}
+
+func (l *Loader) Controller(id ids.AssetID) ([]byte, bool) {
+	if src, ok := asset.BuiltinCtrlText(id); ok {
+		return l.builtinCtrl(id, src)
+	}
+	return l.blob(id, asset.ArtCtrl)
+}
+
+func (l *Loader) builtinCtrl(id ids.AssetID, src string) ([]byte, bool) {
+	if b, ok := l.blobs[id]; ok {
+		return b, true
+	}
+	if l.failed[id] {
+		return nil, false
+	}
+	doc, err := aetext.Parse([]byte(src), "builtin.aectrl")
+	if err != nil {
+		l.fail(id, "cannot parse a builtin controller", err)
+		return nil, false
+	}
+	g, probs, err := anim.DecodeGraph(doc)
+	if err == nil && (len(probs) > 0 || len(g.Check(nil)) > 0) {
+		err = errs.New(errs.AssetBadArtifact, "builtin controller has problems")
+	}
+	if err != nil {
+		l.fail(id, "cannot decode a builtin controller", err)
+		return nil, false
+	}
+	g.Layout()
+	data := anim.MarshalGraph(g)
+	l.blobs[id] = data
+	return data, true
+}
+
+func (l *Loader) builtinAnim(id ids.AssetID, src string) ([]byte, bool) {
+	if b, ok := l.blobs[id]; ok {
+		return b, true
+	}
+	if l.failed[id] {
+		return nil, false
+	}
+	doc, err := aetext.Parse([]byte(src), "builtin.aeanim")
+	if err != nil {
+		l.fail(id, "cannot parse a builtin clip", err)
+		return nil, false
+	}
+	c, err := anim.Decode(doc)
+	if err != nil {
+		l.fail(id, "cannot decode a builtin clip", err)
+		return nil, false
+	}
+	data := anim.Marshal(c)
+	l.blobs[id] = data
+	return data, true
+}
+
 func (l *Loader) Revision() uint64 {
 	return uint64(l.gen)
 }
@@ -409,9 +472,16 @@ func (l *Loader) Preload(list ...ids.AssetID) error {
 	for _, id := range list {
 		if b, ok := asset.LookupBuiltin(id); ok {
 			loaded := false
-			if b.Kind == asset.ArtTexture {
+			switch b.Kind {
+			case asset.ArtTexture:
 				_, loaded = l.Texture(id)
-			} else {
+			case asset.ArtAudio:
+				_, loaded = l.Audio(id)
+			case asset.ArtAnim:
+				_, loaded = l.Anim(id)
+			case asset.ArtCtrl:
+				_, loaded = l.Controller(id)
+			default:
 				_, loaded = l.Mesh(id)
 			}
 			if !loaded {
@@ -439,6 +509,10 @@ func (l *Loader) Preload(list ...ids.AssetID) error {
 			_, ok = l.Table(id)
 		case asset.ArtAudio:
 			_, ok = l.Audio(id)
+		case asset.ArtAnim:
+			_, ok = l.Anim(id)
+		case asset.ArtCtrl:
+			_, ok = l.Controller(id)
 		}
 		if !ok {
 			return errs.New(errs.AssetLoadFailed, "asset failed to load", log.F("asset", id.String()), log.F("kind", string(e.Kind)))
@@ -485,7 +559,7 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 		return staged{id: e.ID, kind: e.Kind, geo: m}, true, nil
 	case asset.ArtScript:
 		return staged{id: e.ID, kind: e.Kind}, true, nil
-	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable, asset.ArtAudio:
+	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable, asset.ArtAudio, asset.ArtAnim, asset.ArtCtrl:
 		art, ok := e.Artifact(e.Kind)
 		if !ok {
 			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
@@ -614,4 +688,6 @@ var (
 	_ asset.Decoder     = (*Loader)(nil)
 	_ asset.DataSource  = (*Loader)(nil)
 	_ asset.AudioSource = (*Loader)(nil)
+	_ asset.AnimSource  = (*Loader)(nil)
+	_ asset.CtrlSource  = (*Loader)(nil)
 )

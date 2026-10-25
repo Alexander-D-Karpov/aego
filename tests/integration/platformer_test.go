@@ -274,50 +274,24 @@ func TestPlatformerStompEmitsDied(t *testing.T) {
 	pf.noFaults(t)
 }
 
-func TestPlatformerBlinkSurvivesReload(t *testing.T) {
-	pf := openPlatformer(t)
-	pf.step(30)
-	pf.hitPlayer(t)
-	pf.step(1)
-	m := pf.app.Scripts.Machine()
-	blink := pf.field("blink")
-	if !m.CoRunning(blink) {
-		t.Fatal("Blink is not running after a hit")
+func TestCoroutineSurvivesReload(t *testing.T) {
+	b := openBrain(t)
+	b.pf.step(10)
+	m := b.pf.app.Scripts.Machine()
+	beat := b.value("beat")
+	if !m.CoRunning(beat) {
+		t.Fatal("Beat is not running")
 	}
-	before := pf.health().Current
-	canceled := pf.app.Scripts.CoStats().Canceled
-
-	path := filepath.Join(pf.root, "scripts", "player", "player.aes")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(strings.Replace(string(data), "yield wait(0.1)", "yield wait(0.05)", 1)), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	pf.app.Workspace.Changed([]string{path})
-	if _, _, err := pf.app.Pipeline.Scan(); err != nil {
-		t.Fatal(err)
-	}
-	batch, err := pf.app.Pipeline.ImportAll()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := pf.app.Loader.Swap(batch.Imported, pf.app.Pipeline.Artifacts()); err != nil {
-		t.Fatal(err)
-	}
-	pf.step(2)
-
-	if got := pf.app.Scripts.CoStats().Canceled; got != canceled+1 {
+	canceled := b.pf.app.Scripts.CoStats().Canceled
+	b.reload("yield wait(0.1)", "yield wait(0.05)")
+	b.pf.step(2)
+	if got := b.pf.app.Scripts.CoStats().Canceled; got != canceled+1 {
 		t.Fatalf("canceled %d, want %d", got, canceled+1)
 	}
-	after := pf.field("blink")
-	if after == blink || !m.CoRunning(after) {
-		t.Fatal("Reloaded did not restart Blink")
+	if after := b.value("beat"); after == beat || !m.CoRunning(after) {
+		t.Fatal("Reloaded did not restart Beat")
 	}
-	if pf.health().Current != before {
-		t.Fatalf("health changed across reload: %d → %d", before, pf.health().Current)
-	}
+	b.pf.noFaults(t)
 }
 
 func TestPlatformerDrawsSprites(t *testing.T) {

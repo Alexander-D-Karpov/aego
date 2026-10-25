@@ -8,7 +8,11 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/play"
 	"aego/editor/core/workspace"
+	animpanel "aego/editor/panels/animation"
+	"aego/editor/panels/animator"
+	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/events"
+	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/watch"
 	"aego/platform/input"
 	"aego/ui/core"
@@ -35,8 +39,9 @@ func BuiltinWorkspaces() []workspace.Preset {
 	off := workspace.SlotNone
 	return []workspace.Preset{
 		{ID: workspace.Design, Title: "Design", Order: 0},
-		{ID: workspace.Programming, Title: "Programming", Order: 10, Slots: map[string]workspace.Slot{
-			workspace.Hierarchy: off, workspace.Game: off, workspace.Profiler: off, events.ID: off, watch.ID: off,
+		{ID: workspace.Programming, Title: "Programming", Order: 10, HideToolbar: true, Rev: 1, Slots: map[string]workspace.Slot{
+			workspace.Hierarchy: off, workspace.Scene: off, workspace.Game: off, workspace.Inspector: off, workspace.Profiler: off,
+			events.ID: off, watch.ID: off, animpanel.ID: off, animator.ID: off, scripteditor.FindID: workspace.SlotRight, edocs.ID: workspace.SlotCenter,
 		}},
 		{ID: workspace.Art, Title: "Art", Order: 20, Slots: map[string]workspace.Slot{
 			workspace.Assets: workspace.SlotBottom, workspace.Game: off, workspace.Console: off, workspace.Problems: off,
@@ -44,7 +49,7 @@ func BuiltinWorkspaces() []workspace.Preset {
 		}},
 		{ID: workspace.Audio, Title: "Audio", Order: 30, Slots: map[string]workspace.Slot{
 			workspace.Hierarchy: off, workspace.Game: off, workspace.Problems: off, workspace.Profiler: off,
-			events.ID: off, watch.ID: off, workspace.Mixer: workspace.SlotBottom,
+			events.ID: off, watch.ID: off, workspace.Mixer: workspace.SlotBottom, animpanel.ID: off, animator.ID: off,
 		}},
 	}
 }

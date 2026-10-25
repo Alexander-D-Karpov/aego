@@ -6,7 +6,7 @@ prefab version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
+      sprite=asset("ae900000000000000000000000000b00")
       layer=0
       order=1
       tint=#e0563bff
@@ -52,6 +52,15 @@ prefab version=1 {
       policy=periodic
       knockback=[7, 0]
       knockbackFromCenter=true
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("a0a10000000000000000000000000012")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
     }
     component "save.Persist" version=1 {
       noTransform=false

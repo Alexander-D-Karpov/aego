@@ -68,7 +68,8 @@ func plan(td *schema.TypeDescriptor, play bool) []fieldRow {
 	return rows
 }
 
-func pairRects(ui *core.Context, r mathx.Rect, secondLabel string) (*[2]mathx.Rect, *[2]mathx.Rect) {
+// pairRects lays two fields on one row; ok is false when a label would not fit, so they go on rows of their own.
+func pairRects(ui *core.Context, r mathx.Rect, firstLabel, secondLabel string, check bool) (*[2]mathx.Rect, *[2]mathx.Rect, bool) {
 	lw := widgets.LabelWidth(r.W)
 	vx, vw := r.X+lw, r.W-lw
 	const gap = float32(8)
@@ -78,12 +79,20 @@ func pairRects(ui *core.Context, r mathx.Rect, secondLabel string) (*[2]mathx.Re
 		{X: vx, Y: r.Y, W: half, H: r.H},
 	}
 	x2 := vx + half + gap
-	l2 := min(ui.TextSize(secondLabel).X+10, half*0.5)
+	room := half * 0.5
+	if check {
+		room = half - r.H
+	}
+	need := ui.TextSize(secondLabel).X + 10
+	if need > room || ui.TextSize(firstLabel).X > lw-4 {
+		return nil, nil, false
+	}
+	l2 := need
 	second := &[2]mathx.Rect{
 		{X: x2, Y: r.Y, W: l2 - 4, H: r.H},
 		{X: x2 + l2, Y: r.Y, W: half - l2, H: r.H},
 	}
-	return first, second
+	return first, second, true
 }
 
 func (p *Panel) fields(d *document.SceneDocument, td *schema.TypeDescriptor) {
@@ -104,8 +113,14 @@ func (p *Panel) fields(d *document.SceneDocument, td *schema.TypeDescriptor) {
 			continue
 		}
 		second := &td.Fields[row.b]
-		r := ui.Cursor().Next(0)
-		a, b := pairRects(ui, r, p.labelOf(second))
+		cur := *ui.Cursor()
+		a, b, ok := pairRects(ui, mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: cur.RowH}, p.labelOf(fd), p.labelOf(second), fd.Kind == schema.KindBool)
+		if !ok {
+			p.field(d, td, fd)
+			p.field(d, td, second)
+			continue
+		}
+		ui.Cursor().Next(0)
 		p.fieldIn(d, td, fd, a)
 		p.fieldIn(d, td, second, b)
 	}
@@ -143,6 +158,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 	}
 	jump := td.Kind == schema.TypeScript && ui.Primary() && ui.MousePressed(input.MouseLeft) && ui.Hit(pre) && !ui.MouseInOverlay()
 	ro := fd.Flags.Has(schema.FlagReadOnly)
+	driven := p.driven(d, td, fd)
+	if driven {
+		ro, tip = true, "driven by clip"
+	}
 	var e widgets.Edit
 	var row mathx.Rect
 	if at != nil {
@@ -152,7 +171,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 		e = p.value(d, fd, &v, mixed, p.labelOf(fd), tip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
 	}
-	if p.overridden(td, fd) {
+	switch {
+	case driven:
+		ui.Rect(mathx.Rect{X: row.X - 5, Y: row.Y + 1, W: 2, H: max(row.H-2, 2)}, ui.Theme.Warn)
+	case p.overridden(td, fd):
 		ui.Rect(mathx.Rect{X: row.X - 5, Y: row.Y + 1, W: 2, H: max(row.H-2, 2)}, ui.Theme.Accent)
 	}
 	if jump {
@@ -630,4 +652,16 @@ func (p *Panel) structValue(d *document.SceneDocument, fd *schema.FieldDescripto
 	cur.X -= th.Indent
 	cur.W += th.Indent
 	return e
+}
+
+func (p *Panel) driven(d *document.SceneDocument, td *schema.TypeDescriptor, fd *schema.FieldDescriptor) bool {
+	if p.d.Driven == nil {
+		return false
+	}
+	for _, n := range p.nodes {
+		if p.d.Driven(d, n, td.ID, fd.ID) {
+			return true
+		}
+	}
+	return false
 }

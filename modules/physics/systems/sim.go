@@ -14,18 +14,19 @@ const (
 )
 
 type bodyRec struct {
-	node     scene.NodeHandle
-	parent   scene.NodeHandle
-	h        world.BodyHandle
-	implicit bool
-	cfg      components.Body2D
-	local    scene.Transform2D
-	world    mathx.Mat3
-	prev     pose
-	cur      pose
-	excluded bool
-	warned   bool
-	mark     uint32
+	node      scene.NodeHandle
+	parent    scene.NodeHandle
+	h         world.BodyHandle
+	implicit  bool
+	cfg       components.Body2D
+	local     scene.Transform2D
+	world     mathx.Mat3
+	prev      pose
+	cur       pose
+	excluded  bool
+	warned    bool
+	presented bool
+	mark      uint32
 }
 
 func (b *bodyRec) moves() bool {

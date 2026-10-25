@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -33,7 +34,13 @@ func (b *Batch) Empty() bool {
 	return len(b.Imported) == 0 && len(b.Failed) == 0 && len(b.Removed) == 0
 }
 
+type subRef struct {
+	id   ids.AssetID
+	name string
+}
+
 type record struct {
+	subs     []subRef
 	id       ids.AssetID
 	path     string
 	meta     *Meta
@@ -55,6 +62,7 @@ type Pipeline struct {
 	artifacts    vfs.FS
 	byID         map[ids.AssetID]*record
 	byPath       map[string]*record
+	subs         map[ids.AssetID]*record
 	groups       map[string][]ids.AssetID
 	groupKey     map[string]string
 	groupResults map[string]map[ids.AssetID]*Result
@@ -87,6 +95,7 @@ func newPipeline(p *project.Project, imps *ImporterRegistry, lg *log.Logger) *Pi
 		index:        asset.NewIndex(),
 		byID:         map[ids.AssetID]*record{},
 		byPath:       map[string]*record{},
+		subs:         map[ids.AssetID]*record{},
 		groups:       map[string][]ids.AssetID{},
 		groupKey:     map[string]string{},
 		groupResults: map[string]map[ids.AssetID]*Result{},
@@ -171,7 +180,18 @@ func (p *Pipeline) Lookup(path string) (ids.AssetID, bool) {
 }
 
 func (p *Pipeline) lookup(path string) (ids.AssetID, bool) {
-	r, ok := p.byPath[filepath.ToSlash(path)]
+	path = filepath.ToSlash(path)
+	if sheet, name, ok := strings.Cut(path, SubSep); ok {
+		if r, ok := p.byPath[sheet]; ok {
+			for _, s := range r.subs {
+				if s.name == name {
+					return s.id, true
+				}
+			}
+		}
+		return ids.AssetID{}, false
+	}
+	r, ok := p.byPath[path]
 	if !ok {
 		return ids.AssetID{}, false
 	}
@@ -183,9 +203,53 @@ func (p *Pipeline) PathOf(id ids.AssetID) (string, bool) {
 	defer p.mu.RUnlock()
 	r, ok := p.byID[id]
 	if !ok {
+		if r, ok := p.subs[id]; ok {
+			for _, s := range r.subs {
+				if s.id == id {
+					return r.path + SubSep + s.name, true
+				}
+			}
+		}
 		return "", false
 	}
 	return r.path, true
+}
+
+// SubSep joins a sheet path and a cell name: "assets/hero.png#hero_000".
+const SubSep = "#"
+
+func (p *Pipeline) setSubRefs(r *record, subs []subRef) {
+	for _, s := range r.subs {
+		delete(p.subs, s.id)
+	}
+	r.subs = subs
+	for _, s := range subs {
+		p.subs[s.id] = r
+	}
+}
+
+// putSubs writes the sub-assets of an import and buries those that are gone.
+func (p *Pipeline) putSubs(r *record, subs []SubResult, batch *Batch) {
+	keep := make([]subRef, 0, len(subs))
+	for _, sr := range subs {
+		entry, err := p.writeEntry(sr.ID, sr.Kind, assetName(r.path)+"/"+sr.Name, r.path, []ids.AssetID{r.id}, sr.Artifacts)
+		if err != nil {
+			batch.Failed[sr.ID] = err
+			continue
+		}
+		p.index.Put(entry)
+		batch.Imported = append(batch.Imported, entry)
+		keep = append(keep, subRef{id: sr.ID, name: sr.Name})
+	}
+	for _, old := range r.subs {
+		if !slices.ContainsFunc(keep, func(s subRef) bool { return s.id == old.id }) {
+			p.bury(old.id, r.path+SubSep+old.name)
+			p.index.Delete(old.id)
+			batch.Removed = append(batch.Removed, old.id)
+			p.gravesDirty = true
+		}
+	}
+	p.setSubRefs(r, keep)
 }
 
 func (p *Pipeline) Dependents(id ids.AssetID) []ids.AssetID {
@@ -225,6 +289,14 @@ func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
 			continue
 		}
 		p.bury(r.id, path)
+		for _, sr := range r.subs {
+			p.bury(sr.id, path+SubSep+sr.name)
+			if e, ok := p.index.Lookup(sr.id); ok {
+				e.Missing = true
+			}
+			removed = append(removed, sr.id)
+		}
+		p.setSubRefs(r, nil)
 		delete(p.byPath, path)
 		delete(p.byID, r.id)
 		if r.group != "" {
@@ -305,6 +377,11 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 		r.id = meta.ID
 		p.byPath[rel] = r
 		p.byID[r.id] = r
+		refs := make([]subRef, 0, len(meta.Subs))
+		for _, sa := range meta.Subs {
+			refs = append(refs, subRef{id: sa.ID, name: sa.Name})
+		}
+		p.setSubRefs(r, refs)
 		*added = append(*added, r.id)
 		return nil
 	})
@@ -409,6 +486,14 @@ func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 		}
 		p.index.Put(entry)
 		batch.Imported = append(batch.Imported, entry)
+		if len(res.Subs) > 0 || len(r.subs) > 0 {
+			p.putSubs(r, res.Subs, batch)
+		}
+	}
+	if p.gravesDirty {
+		if err := p.saveGraves(); err != nil {
+			p.log.Warn("cannot write the asset graveyard", log.F("err", err.Error()))
+		}
 	}
 
 	for group := range groupsTouched {
@@ -489,6 +574,9 @@ func (p *Pipeline) cacheKey(r *record, source []byte, deps []ids.AssetID) string
 	h := sha256.New()
 	h.Write(source)
 	h.Write(canonicalSettings(r.meta.Settings))
+	if len(r.meta.Subs) > 0 {
+		h.Write(canonicalSubs(r.meta.Subs))
+	}
 	writeUint(h, uint64(r.importer.Version()))
 	writeUint(h, PipelineVersion)
 	h.Write([]byte(r.importer.ID()))
@@ -529,17 +617,21 @@ func (p *Pipeline) addToGroup(group string, id ids.AssetID, res *Result) {
 }
 
 func (p *Pipeline) writeArtifacts(r *record, res *Result) (asset.Entry, error) {
+	return p.writeEntry(r.id, res.Kind, assetName(r.path), r.path, res.Deps, res.Artifacts)
+}
+
+func (p *Pipeline) writeEntry(id ids.AssetID, kind asset.ArtifactKind, aname, source string, deps []ids.AssetID, arts []Produced) (asset.Entry, error) {
 	entry := asset.Entry{
-		ID:     r.id,
-		Kind:   res.Kind,
-		Name:   assetName(r.path),
-		Source: r.path,
-		Deps:   res.Deps,
+		ID:     id,
+		Kind:   kind,
+		Name:   aname,
+		Source: source,
+		Deps:   deps,
 	}
-	for _, a := range res.Artifacts {
+	for _, a := range arts {
 		name := a.Name
 		if name == "" {
-			name = r.id.String() + artifactExt(a.Kind)
+			name = id.String() + artifactExt(a.Kind)
 		}
 		path := "cache://artifacts/" + name
 		if err := p.artifacts.WriteFile(path, a.Data); err != nil {
@@ -576,6 +668,10 @@ func artifactExt(kind asset.ArtifactKind) string {
 		return ".aetable"
 	case asset.ArtAudio:
 		return ".aeau"
+	case asset.ArtAnim:
+		return ".aean"
+	case asset.ArtCtrl:
+		return ".aect"
 	}
 	return ".bin"
 }

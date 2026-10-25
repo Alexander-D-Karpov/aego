@@ -1,0 +1,11 @@
+anim version=1 length=0.3 {
+  frames "" {
+    sprites=[asset("ae900000000000000000000000000b03"), asset("ae900000000000000000000000000b05"), asset("ae900000000000000000000000000b01")]
+  }
+  track "" prop="SpriteRenderer.size" kind=vec2 {
+    key t=0 v=[1, 1] interp=linear {}
+    key t=0.12 v=[0.85, 1.2] interp=linear {}
+    key t=0.24 v=[1.15, 0.85] interp=linear {}
+    key t=0.3 v=[1, 1] {}
+  }
+}

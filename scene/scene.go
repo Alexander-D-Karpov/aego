@@ -472,6 +472,9 @@ func (s *Scene) finalizeDestroy(h NodeHandle) {
 	if !ok {
 		return
 	}
+	if n.pres > 0 {
+		s.DropPresentationLocal(h)
+	}
 	for _, st := range s.storeList {
 		st.dropNode(h)
 	}

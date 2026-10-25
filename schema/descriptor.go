@@ -112,6 +112,9 @@ type TypeDescriptor struct {
 	Builtin       bool
 	SceneUnique   bool
 	Requires      []string
+	RequiresAny   [][]string
+	Suggests      []string
+	Conflicts     []string
 	Default       func() unsafe.Pointer
 	Template      *TemplateDesc
 	ScriptFields  []FieldID

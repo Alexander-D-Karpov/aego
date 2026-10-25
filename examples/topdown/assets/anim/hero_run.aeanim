@@ -1,0 +1,10 @@
+anim version=1 length=0.3 loop=loop {
+  track "" prop="SpriteRenderer.size" kind=vec2 {
+    key t=0 v=[0.86, 0.74] {}
+    key t=0.15 v=[0.74, 0.86] {}
+    key t=0.3 v=[0.86, 0.74] {}
+  }
+  track "" prop="SpriteRenderer.tint" kind=color {
+    key t=0 v=#38bdf8ff {}
+  }
+}

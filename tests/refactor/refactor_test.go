@@ -1,6 +1,7 @@
 package refactor_test
 
 import (
+	"aego/asset"
 	"bytes"
 	"image"
 	"image/color"
@@ -188,7 +189,8 @@ func open(t *testing.T) *fixture {
 	main := string(f.read(mainScene))
 	f.write(otherScene, []byte(strings.ReplaceAll(main, builtin, string(refs.Token(f.b)))))
 	f.write(mainScene, []byte(strings.ReplaceAll(main, builtin, string(refs.Token(f.a)))))
-	f.write(enemyPrefab, []byte(strings.ReplaceAll(string(f.read(enemyPrefab)), builtin, string(refs.Token(f.a)))))
+	runner := string(refs.Token(asset.BuiltinRunner(0)))
+	f.write(enemyPrefab, []byte(strings.ReplaceAll(string(f.read(enemyPrefab)), runner, string(refs.Token(f.a)))))
 	f.sync()
 	f.reimport(mainScene, enemyPrefab)
 	return f

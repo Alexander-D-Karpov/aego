@@ -48,7 +48,7 @@ func (o Op) encode() (*aetext.Node, error) {
 	str("owner", o.Owner)
 	str("field", o.Field)
 	str("asset", o.Asset)
-	if o.Kind == KindSet || o.Kind == KindDataSet {
+	if o.Kind == KindSet || o.Kind == KindDataSet || o.hasValue() {
 		v, err := o.value()
 		if err != nil {
 			return nil, err
@@ -106,7 +106,7 @@ func ParseTx(src []byte, name string) (Tx, error) {
 		if bad != nil {
 			return
 		}
-		if !sceneKinds[n.Label] && !dataKinds[n.Label] {
+		if !knownKind(n.Label) {
 			bad = errs.New(errs.SceneIOParse, "unknown operation "+strconv.Quote(n.Label), log.F("file", name), log.F("op", i))
 			return
 		}

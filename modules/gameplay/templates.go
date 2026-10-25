@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	spriteName = "engine.SpriteRenderer"
-	boxName    = "physics.BoxCollider2D"
-	circleName = "physics.CircleCollider2D"
-	dynamic    = 2
+	spriteName  = "engine.SpriteRenderer"
+	boxName     = "physics.BoxCollider2D"
+	circleName  = "physics.CircleCollider2D"
+	capsuleName = "physics.CapsuleCollider2D"
+	dynamic     = 2
 )
 
 func ensure(s *scene.Scene, h scene.NodeHandle, name string) *schema.TypeDescriptor {
@@ -61,6 +62,23 @@ func platformer(s *scene.Scene, h scene.NodeHandle) {
 	hb.Area = mathx.Rect{X: -0.3, Y: -0.5, W: 0.6, H: 1}
 	*scene.Add[Hurtbox2D](s, h) = hb
 	*scene.Add[Respawn](s, h) = DefaultRespawn()
+	animated(s, h)
+}
+
+const animatorName = "animation.Animator"
+
+// animated gives the character an Animator with the built-in controller when the animation module is present.
+func animated(s *scene.Scene, h scene.NodeHandle) {
+	td, ok := s.Registry().ByName(animatorName)
+	if !ok {
+		return
+	}
+	module.Ensure(s, h, td)
+	set(s, h, td, "controller", schema.Asset(asset.BuiltinPlatformerCtrl))
+	if sr, ok := s.Registry().ByName(spriteName); ok {
+		set(s, h, sr, "sprite", schema.Asset(asset.BuiltinRunner(0)))
+		set(s, h, sr, "size", schema.Vec2(mathx.Vec2{X: 1, Y: 1}))
+	}
 }
 
 func topDown(s *scene.Scene, h scene.NodeHandle) {
