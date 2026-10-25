@@ -10,8 +10,12 @@ import (
 func TestPlatformerSettingChangedEvent(t *testing.T) {
 	pf := openPlatformer(t)
 	pf.step(5)
+	vol := 0.5
+	if st := pf.app.Settings; st.Value(st.Key("audio.bus.music.volume")).F == vol {
+		vol = 0.25
+	}
 	tx := pf.app.Settings.Begin()
-	if err := tx.SetID("audio.bus.music.volume", schema.Float64(0.5)); err != nil {
+	if err := tx.SetID("audio.bus.music.volume", schema.Float64(vol)); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Apply(); err != nil {
