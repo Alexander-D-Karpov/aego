@@ -358,6 +358,10 @@ func (p *Panel) graph(ui *core.Context, title, unit string, prec int, budget flo
 	first := p.n - n
 
 	hr := ui.Cursor().Next(th.RowHeight)
+	if offscreen(ui, hr.Y, th.RowHeight*3.6) {
+		ui.Cursor().Next(th.RowHeight * 2.6)
+		return
+	}
 	nameW, valW := hr.W*0.42, hr.W*0.2
 	cell := func(c mathx.Rect, s string, tc mathx.Color, align core.Align) {
 		ui.PushClip(c)
@@ -565,4 +569,10 @@ func playHint(list []context.ProfilerSection) string {
 		return i18n.Tr("editor.profiler.press_play_to_see_game", "Press Play to see game and script timings")
 	}
 	return i18n.Tr("editor.profiler.press_play_to_see_game_2", "Press Play to see game, script and {join} timings", i18n.Str("join", strings.Join(extra, ", ")))
+}
+
+// offscreen reports whether a graph from y down h is outside the clip, so it is skipped: its columns would be clipped but still sent to the GPU.
+func offscreen(ui *core.Context, y, h float32) bool {
+	clip, ok := ui.ClipRect()
+	return ok && (y > clip.Y+clip.H || y+h < clip.Y)
 }

@@ -23,6 +23,7 @@ import (
 	"aego/project"
 	"aego/render"
 	renderhost "aego/render/host"
+	"aego/render/sprite"
 	"aego/save"
 	"aego/scene"
 	"aego/scene/frame"
@@ -90,7 +91,11 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if h.Workspace, err = workspace.Open(workspace.Config{Root: p.Root, Module: p.Module, Scripts: p.ScriptsDir()}); err != nil {
 		return err
 	}
-	rmod := renderhost.New(render.Options{MaxSprites: 65536})
+	ropt := render.Options{MaxSprites: 65536}
+	if cfg.Editor {
+		ropt.SpriteLimit = sprite.MaxSubmission
+	}
+	rmod := renderhost.New(ropt)
 	ecfg := cfg.Engine
 	if ecfg.ResRoot == "" {
 		ecfg.ResRoot = p.AssetsDir()

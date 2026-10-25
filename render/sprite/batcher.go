@@ -60,6 +60,8 @@ type Batcher struct {
 	ppu        float32
 	dropped    uint32
 	clamped    uint32
+	// limit is how far the batcher grows when a frame needs more than max sprites.
+	limit int
 }
 
 func NewBatcher(dev gpu.Device, maxSprites int) (*Batcher, error) {
@@ -91,7 +93,31 @@ func NewBatcher(dev gpu.Device, maxSprites int) (*Batcher, error) {
 		batches:    make([]Batch, 0, 64),
 		zMax:       1,
 		ppu:        1,
+		limit:      maxSprites,
 	}, nil
+}
+
+// SetLimit lets the batcher grow up to n sprites a frame instead of dropping the ones past its size.
+func (b *Batcher) SetLimit(n int) {
+	b.limit = min(max(n, b.max), MaxSubmission)
+}
+
+// grow doubles the buffers; it allocates only when a frame needs more than any frame before it.
+func (b *Batcher) grow() bool {
+	n := min(b.max*2, b.limit)
+	if n <= b.max {
+		return false
+	}
+	vb, err := b.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferVertex, Size: n * InstanceStride, Dynamic: true, Label: "sprite.instances"})
+	if err != nil {
+		return false
+	}
+	b.dev.DestroyBuffer(b.vb)
+	b.vb, b.max = vb, n
+	b.scratch = make([]uint64, n)
+	b.sorted = make([]Instance, n)
+	b.sortedMeta = make([]state, n)
+	return true
 }
 
 func (b *Batcher) Buffer() gpu.BufferHandle {
@@ -126,7 +152,7 @@ func (b *Batcher) Clamped() uint32 {
 }
 
 func (b *Batcher) Push(d *Draw, defaultSampler gpu.SamplerHandle, clip mathx.Rect, scissor bool) bool {
-	if len(b.inst) >= b.max {
+	if len(b.inst) >= b.max && !b.grow() {
 		b.dropped++
 		return false
 	}

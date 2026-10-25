@@ -28,6 +28,7 @@ import (
 	"aego/render"
 	renderhost "aego/render/host"
 	"aego/render/icons"
+	"aego/render/sprite"
 	"aego/render/text"
 	"aego/render/texture"
 	"aego/render/view"
@@ -175,7 +176,7 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	if lg == nil {
 		lg = log.New(log.NewTextSink(os.Stderr))
 	}
-	mod := renderhost.New(render.Options{MaxSprites: 4096})
+	mod := renderhost.New(render.Options{MaxSprites: 4096, SpriteLimit: sprite.MaxSubmission})
 	e, err := engine.NewBuilder(engine.Config{
 		Title:    "Aego",
 		Width:    1100,

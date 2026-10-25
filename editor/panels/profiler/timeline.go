@@ -18,6 +18,7 @@ const (
 	TimelineHeight float32 = 240
 	stripHeight    float32 = 48
 	flameRow       float32 = 18
+	flameDepth             = 32
 	budgetNS               = 16_666_667
 	stripScaleNS           = 2 * budgetNS
 )
@@ -125,6 +126,11 @@ func (tl *Timeline) flame(ui *core.Context, tr *trace.Tracer, f *trace.Frame, r 
 	m := ui.Mouse()
 	hover := -1
 	ui.PushClip(r)
+	// events narrower than a pixel that fall on a pixel already drawn at their depth are skipped
+	var drawn [flameDepth]float32
+	for i := range drawn {
+		drawn[i] = -1
+	}
 	for i, e := range f.Events {
 		y := r.Y + float32(e.Depth)*flameRow
 		if y > r.Y+r.H {
@@ -135,6 +141,12 @@ func (tl *Timeline) flame(ui *core.Context, tr *trace.Tracer, f *trace.Frame, r 
 			Y: y,
 			W: max(float32(e.Dur)/dur*r.W, 1),
 			H: flameRow - 1,
+		}
+		if d := int(e.Depth); d < flameDepth {
+			if er.W <= 1 && er.X < drawn[d]+1 {
+				continue
+			}
+			drawn[d] = er.X + er.W - 1
 		}
 		ui.Rect(er, th.Series[int(e.Zone)%len(th.Series)])
 		if er.W > 40 {

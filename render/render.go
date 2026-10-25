@@ -33,7 +33,9 @@ const (
 )
 
 type Options struct {
-	MaxSprites    int
+	MaxSprites int
+	// SpriteLimit lets a frame grow past MaxSprites up to this many sprites; the editor sets it, so a busy panel never drops what is drawn after it.
+	SpriteLimit   int
 	MaxSprites3D  int
 	MaxMeshes     int
 	MaxDebugVerts int
@@ -150,6 +152,9 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 		return nil, err
 	}
 	b, err := sprite.NewBatcher(dev, opt.MaxSprites)
+	if err == nil && opt.SpriteLimit > 0 {
+		b.SetLimit(opt.SpriteLimit)
+	}
 	if err != nil {
 		r.Close()
 		return nil, err

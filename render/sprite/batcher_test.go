@@ -106,3 +106,20 @@ func TestZClampCounted(t *testing.T) {
 		t.Fatalf("clamped = %d", b.Clamped())
 	}
 }
+
+// With a limit the batcher grows instead of dropping, so a busy editor panel never hides what is drawn after it.
+func TestBatcherGrowsUpToTheLimit(t *testing.T) {
+	b, dev := newTestBatcher(t, 2)
+	defer b.Close()
+	b.SetLimit(6)
+	reg := fakeRegion(t, dev, "a")
+	s := gpu.SamplerHandle{Index: 1, Gen: 1}
+	for i := 0; i < 8; i++ {
+		d := Draw{Region: reg, Size: mathx.Vec2{X: 1, Y: 1}}
+		b.Push(&d, s, mathx.Rect{}, false)
+	}
+	b.Sort()
+	if b.Len() != 6 || b.Dropped() != 2 || len(b.Instances()) != 6 {
+		t.Fatalf("len=%d dropped=%d", b.Len(), b.Dropped())
+	}
+}
