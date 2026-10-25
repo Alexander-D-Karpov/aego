@@ -15,7 +15,7 @@ import (
 func (a *App) menuCategories() []string {
 	reg := a.ctx.Commands
 	base := []string{"File", "Edit", "Create", "Scene", "Play", "Assets", "Window"}
-	known := map[string]bool{}
+	known := map[string]bool{themeCategory: true}
 	var out []string
 	for _, c := range base {
 		known[c] = true
@@ -99,6 +99,9 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 		case "Scene":
 			a.commandItems(cat)
 			a.sceneDocs()
+		case "Window":
+			a.commandItems(cat)
+			a.themeMenu()
 		default:
 			a.commandItems(cat)
 		}
@@ -224,4 +227,22 @@ func (a *App) drawToolbar(r mathx.Rect) {
 	}
 	a.scalePopup(sid)
 	a.workspacePopup(wid)
+}
+
+func (a *App) themeMenu() {
+	ui := a.ui
+	reg := a.ctx.Commands
+	if !reg.HasCategory(themeCategory) {
+		return
+	}
+	widgets.Separator(ui)
+	if !widgets.SubMenu(ui, themeCategory, 160) {
+		return
+	}
+	for _, d := range reg.Category(themeCategory) {
+		if widgets.Entry(ui, widgets.Item{Label: themeLabel(d.Name), Tip: d.Tip, Enabled: true, Checked: d.Checked()}) {
+			reg.Run(d.ID)
+		}
+	}
+	widgets.EndSubMenu(ui)
 }

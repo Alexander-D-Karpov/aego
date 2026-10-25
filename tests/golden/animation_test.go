@@ -92,30 +92,7 @@ func (animNotices) Ask(context.Question)         {}
 
 func TestEditorAnimationPanel(t *testing.T) {
 	env := newEditorEnvSize(t, 960, 240)
-	types, err := assembly.NewTypes()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := builtin.Default().Load(types, bind.New(), assembly.Options{}); err != nil {
-		t.Fatal(err)
-	}
-	m := document.NewManager(document.Options{Root: t.TempDir(), Types: types})
-	s := scene.New(types, nil, scene.Options{})
-	h := s.Create(s.Root(), "Player")
-	*scene.Add[render2d.SpriteRenderer](s, h) = render2d.DefaultSpriteRenderer()
-	pl := animation.DefaultPlayer()
-	pl.Clip = animation.ClipRef{ID: goldenClipID}
-	*scene.Add[animation.AnimationPlayer](s, h) = pl
-	s.Flush()
-	d := m.New("main.aescene", s)
-	files := goldenFiles{goldenClipRel: []byte(goldenClip)}
-	reg := animedit.NewRegistry(files, nil)
-	p := animpanel.New(animpanel.Deps{
-		Anim: reg, Docs: animDocs{m: m, d: d}, Selection: animSel{id: s.ID(h)}, Notices: animNotices{}, Files: files,
-		PathOf: func(id ids.AssetID) (string, bool) { return goldenClipRel, id == goldenClipID },
-		Events: func() []string { return []string{"Footstep", "Hit"} },
-		Thumbs: whiteThumbs{reg: env.ui.Font().White},
-	})
+	p, reg, d, files := animationPanel(t, env)
 	draw := func(name string) {
 		t.Helper()
 		img, err := env.draw(func(full mathx.Rect) {
@@ -141,6 +118,35 @@ func TestEditorAnimationPanel(t *testing.T) {
 		t.Fatal(err)
 	}
 	draw("editor_animation_thumbs")
+}
+
+func animationPanel(t *testing.T, env *editorEnv) (*animpanel.Panel, *animedit.Registry, *document.SceneDocument, goldenFiles) {
+	t.Helper()
+	types, err := assembly.NewTypes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := builtin.Default().Load(types, bind.New(), assembly.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	m := document.NewManager(document.Options{Root: t.TempDir(), Types: types})
+	s := scene.New(types, nil, scene.Options{})
+	h := s.Create(s.Root(), "Player")
+	*scene.Add[render2d.SpriteRenderer](s, h) = render2d.DefaultSpriteRenderer()
+	pl := animation.DefaultPlayer()
+	pl.Clip = animation.ClipRef{ID: goldenClipID}
+	*scene.Add[animation.AnimationPlayer](s, h) = pl
+	s.Flush()
+	d := m.New("main.aescene", s)
+	files := goldenFiles{goldenClipRel: []byte(goldenClip)}
+	reg := animedit.NewRegistry(files, nil)
+	p := animpanel.New(animpanel.Deps{
+		Anim: reg, Docs: animDocs{m: m, d: d}, Selection: animSel{id: s.ID(h)}, Notices: animNotices{}, Files: files,
+		PathOf: func(id ids.AssetID) (string, bool) { return goldenClipRel, id == goldenClipID },
+		Events: func() []string { return []string{"Footstep", "Hit"} },
+		Thumbs: whiteThumbs{reg: env.ui.Font().White},
+	})
+	return p, reg, d, files
 }
 
 type whiteThumbs struct{ reg texture.Region }

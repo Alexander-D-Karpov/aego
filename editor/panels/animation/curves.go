@@ -27,7 +27,6 @@ const (
 var (
 	laneXYZW = [...]string{"x", "y", "z", "w"}
 	laneRGBA = [...]string{"r", "g", "b", "a"}
-	white    = mathx.Color{R: 1, G: 1, B: 1, A: 1}
 )
 
 type curveKey struct {

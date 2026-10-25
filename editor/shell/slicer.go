@@ -162,7 +162,7 @@ func (a *App) drawSheet(ui *core.Context, id ids.AssetID, box mathx.Rect, st *sl
 	scale := min(box.W/float32(st.w), box.H/float32(st.h))
 	img := mathx.Rect{X: box.X + (box.W-float32(st.w)*scale)/2, Y: box.Y + (box.H-float32(st.h)*scale)/2, W: float32(st.w) * scale, H: float32(st.h) * scale}
 	if reg, ok := a.thumbs.ByID(id); ok {
-		ui.List().Texture(reg, img, mathx.Color{R: 1, G: 1, B: 1, A: 1})
+		ui.List().Texture(reg, img, mathx.White)
 	}
 	ui.PushClip(box)
 	at := func(r slice.Rect) mathx.Rect {

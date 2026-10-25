@@ -3,6 +3,7 @@
 package golden
 
 import (
+	"image"
 	"testing"
 
 	"aego/app/assembly"
@@ -46,7 +47,18 @@ func (goldenModule) Register(r *module.Registry) error {
 }
 
 func TestEditorInspectorRefs(t *testing.T) {
-	env := newEditorEnv(t)
+	img, err := shotInspector(t, newEditorEnv(t))
+	checkGolden(t, "editor_inspector_refs", img, err)
+}
+
+func shotInspector(t *testing.T, env *editorEnv) (*image.NRGBA, error) {
+	t.Helper()
+	return inspectorPanel(t, env)()
+}
+
+// inspectorPanel builds the Inspector over a selected node and returns a function that draws a frame of it.
+func inspectorPanel(t *testing.T, env *editorEnv) func() (*image.NRGBA, error) {
+	t.Helper()
 	types, err := assembly.NewTypes()
 	if err != nil {
 		t.Fatal(err)
@@ -100,6 +112,7 @@ func TestEditorInspectorRefs(t *testing.T) {
 		Clip:      clipboard.EnvOf(ctx),
 		Collapsed: ctx.Collapsed,
 	})
-	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui, DnD: ctx.DnD}, full) })
-	checkGolden(t, "editor_inspector_refs", img, err)
+	return func() (*image.NRGBA, error) {
+		return env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui, DnD: ctx.DnD}, full) })
+	}
 }

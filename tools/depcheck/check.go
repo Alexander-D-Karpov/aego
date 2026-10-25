@@ -180,6 +180,15 @@ func Check(cfg Config) ([]Violation, error) {
 				c.add("semantic", "module-literal", h.pos, h.lit+" names module "+h.module)
 			}
 		}
+		colors, err := scanColors(root, def)
+		if err != nil {
+			return nil, err
+		}
+		for _, h := range colors {
+			if !excepted(exc, "semantic", h.file, `"color"`) {
+				c.add("semantic", "color-literal", h.pos, h.what+"; take the colour from a theme token (D358)")
+			}
+		}
 	}
 	src, err := checkSources(root)
 	if err != nil {

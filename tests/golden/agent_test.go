@@ -4,6 +4,7 @@ package golden
 
 import (
 	"errors"
+	"image"
 	"testing"
 	"time"
 
@@ -49,7 +50,12 @@ func (h *goldenHost) Cards(dst []agentui.Card) []agentui.Card { return append(ds
 
 func agentGolden(t *testing.T, name string, h *goldenHost) {
 	t.Helper()
-	env := newEditorEnvSize(t, 420, 520)
+	img, err := shotAgent(t, newEditorEnvSize(t, 420, 520), h)
+	checkGolden(t, name, img, err)
+}
+
+func shotAgent(t *testing.T, env *editorEnv, h *goldenHost) (*image.NRGBA, error) {
+	t.Helper()
 	ctx := &context.Editor{}
 	p := agent.New(agent.Deps{Host: h, Docs: ctx, Notices: ctx, Root: t.TempDir(), Highlight: edocs.Highlight})
 	deadline := time.Now().Add(5 * time.Second)
@@ -67,10 +73,9 @@ func agentGolden(t *testing.T, name string, h *goldenHost) {
 		}
 		_ = img
 	}
-	img, err := env.draw(func(full mathx.Rect) {
+	return env.draw(func(full mathx.Rect) {
 		p.Draw(&services.Frame{UI: env.ui, DnD: &dnd.State{}, Now: 1}, full)
 	})
-	checkGolden(t, name, img, err)
 }
 
 var platformCard = agentui.Card{ID: 1, Command: "scene.add-node", State: agentui.Pending, Changes: []agentui.Change{
@@ -83,12 +88,16 @@ func TestEditorAgentPanelMissing(t *testing.T) {
 }
 
 func TestEditorAgentPanelCard(t *testing.T) {
-	agentGolden(t, "editor_agent_card", &goldenHost{events: []agentui.Event{
+	agentGolden(t, "editor_agent_card", cardHost())
+}
+
+func cardHost() *goldenHost {
+	return &goldenHost{events: []agentui.Event{
 		{Kind: agentui.EvText, Text: "The player stands on **GroundLeft**. I will add a ledge above it:\n\n- a node `Ledge`\n- at `[-13, 1.5]`"},
 		{Kind: agentui.EvToolStart, Tool: "scene_tree", CallID: "1", Args: `{"file":"scenes/main.aescene"}`},
 		{Kind: agentui.EvToolResult, Tool: "scene_tree", CallID: "1", Result: "ok"},
 		{Kind: agentui.EvToolStart, Tool: "scene_add_node", CallID: "2", Args: `{"file":"scenes/main.aescene","name":"Ledge"}`},
-	}, cards: []agentui.Card{platformCard}})
+	}, cards: []agentui.Card{platformCard}}
 }
 
 func TestEditorAgentPanelAutoApply(t *testing.T) {

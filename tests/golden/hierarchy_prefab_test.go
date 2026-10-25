@@ -4,6 +4,7 @@ package golden
 
 import (
 	"fmt"
+	"image"
 	"testing"
 
 	"aego/app/assembly"
@@ -25,7 +26,12 @@ import (
 )
 
 func TestEditorHierarchyPrefab(t *testing.T) {
-	env := newEditorEnvSize(t, 320, 240)
+	img, err := shotHierarchyPrefab(t, newEditorEnvSize(t, 320, 240))
+	checkGolden(t, "editor_hierarchy_prefab", img, err)
+}
+
+func shotHierarchyPrefab(t *testing.T, env *editorEnv) (*image.NRGBA, error) {
+	t.Helper()
 	types, err := assembly.NewTypes()
 	if err != nil {
 		t.Fatal(err)
@@ -116,5 +122,5 @@ func TestEditorHierarchyPrefab(t *testing.T) {
 		Prefabs:   svc,
 	})
 	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui, DnD: ctx.DnD}, full) })
-	checkGolden(t, "editor_hierarchy_prefab", img, err)
+	return img, err
 }

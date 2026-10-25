@@ -457,7 +457,7 @@ func zeroValue(reg *schema.Registry, fd *schema.FieldDescriptor) schema.Value {
 	case schema.KindQuat:
 		return schema.Quat(mathx.QuatIdentity())
 	case schema.KindColor:
-		return schema.Color(mathx.Color{R: 1, G: 1, B: 1, A: 1})
+		return schema.Color(mathx.White)
 	case schema.KindRect:
 		return schema.Rect(mathx.Rect{})
 	case schema.KindCurve:

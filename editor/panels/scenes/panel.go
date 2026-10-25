@@ -160,7 +160,7 @@ func (p *Panel) tile(a *pipeline.AssetInfo, r mathx.Rect) {
 		reg, ok = p.d.Previews.Get(*a)
 	}
 	if ok {
-		ui.List().Texture(reg, img, mathx.Color{R: 1, G: 1, B: 1, A: 1})
+		ui.List().Texture(reg, img, mathx.White)
 	} else {
 		widgets.IconAt(ui, mathx.Rect{X: img.X + thumb/2 - 16, Y: img.Y + thumb/2 - 16, W: 32, H: 32}, "file.scene", th.TextDim)
 	}

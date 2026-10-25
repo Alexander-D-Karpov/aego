@@ -26,6 +26,7 @@ type mapView struct {
 	ready  bool
 	pal    minimap.Palette
 	palOK  bool
+	dark   bool
 	buf    []byte
 	line   []byte
 	spans  []highlight.Span
@@ -46,11 +47,17 @@ func mapPalette(th *core.Theme) minimap.Palette {
 
 func (m *mapView) update(p *Panel, th *core.Theme) {
 	c := p.doc.Code
-	if m.ready && m.rev == c.Rev() {
+	if m.palOK && m.dark != th.Dark {
+		m.palOK = false
+		for i := range m.hashes {
+			m.hashes[i] = ^uint64(0)
+		}
+	}
+	if m.ready && m.palOK && m.rev == c.Rev() {
 		return
 	}
 	if !m.palOK {
-		m.pal, m.palOK = mapPalette(th), true
+		m.pal, m.palOK, m.dark = mapPalette(th), true, th.Dark
 	}
 	n := c.Lines()
 	need := (n + minimap.TileLines - 1) / minimap.TileLines
@@ -139,7 +146,6 @@ func (m *mapView) draw(p *Panel, ui *core.Context, r mathx.Rect, first int) {
 	}
 	ui.Rect(r, th.Code.GutterBg)
 	ui.PushClip(r)
-	white := mathx.Color{R: 1, G: 1, B: 1, A: 1}
 	x := r.X + 5
 	for t, tex := range m.tiles {
 		h := min(minimap.TileH, n*minimap.LineH-t*minimap.TileH)
@@ -151,7 +157,7 @@ func (m *mapView) draw(p *Panel, ui *core.Context, r mathx.Rect, first int) {
 			continue
 		}
 		reg := texture.Whole(tex, minimap.Cols, minimap.TileH).Sub(0, 0, minimap.Cols, h)
-		ui.List().Texture(reg, mathx.Rect{X: x, Y: y, W: minimap.Cols, H: float32(h)}, white)
+		ui.List().Texture(reg, mathx.Rect{X: x, Y: y, W: minimap.Cols, H: float32(h)}, mathx.White)
 	}
 	for l, sev := range p.marks {
 		col := th.Error
@@ -166,7 +172,7 @@ func (m *mapView) draw(p *Panel, ui *core.Context, r mathx.Rect, first int) {
 	}
 	ui.Rect(mathx.Rect{X: r.X, Y: r.Y + float32(c.Line(c.Cursor()))*lh - off, W: r.W, H: 1}, th.Accent)
 	vr := mathx.Rect{X: r.X, Y: r.Y + float32(first)*lh - off, W: r.W, H: float32(p.viewLines+1) * lh}
-	vc := mathx.Color{R: 1, G: 1, B: 1, A: 0.06}
+	vc := ui.Theme.Code.MinimapView
 	if hot {
 		vc.A = 0.11
 	}

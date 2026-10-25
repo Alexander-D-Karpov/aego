@@ -44,12 +44,6 @@ const (
 )
 
 var (
-	colRecord = mathx.Color{R: 0.9, G: 0.25, B: 0.25, A: 1}
-	colEvents = [...]mathx.Color{
-		anim.EventGameplay:     {R: 0.95, G: 0.6, B: 0.2, A: 1},
-		anim.EventPresentation: {R: 0.4, G: 0.7, B: 1, A: 1},
-		anim.EventPreview:      {R: 0.6, G: 0.9, B: 0.4, A: 1},
-	}
 	interps = [...]string{"bezier", "linear", "step"}
 )
 
@@ -231,7 +225,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	body := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	p.timeline(body)
 	if svc.Mode() == animedit.Record {
-		ui.Outline(r, colRecord)
+		ui.Outline(r, ui.Theme.Record)
 	}
 }
 
@@ -418,7 +412,7 @@ func (p *Panel) toolbar() {
 			svc.SetMode(animedit.Normal)
 		}
 	}
-	if labeled("anim.record", "Rec", colRecord, mode == animedit.Record) {
+	if labeled("anim.record", "Rec", ui.Theme.Record, mode == animedit.Record) {
 		if mode == animedit.Record {
 			svc.SetMode(animedit.Preview)
 		} else {
@@ -588,14 +582,14 @@ func (p *Panel) events(r mathx.Rect, g frame) {
 			p.menuEv = i
 			widgets.OpenContextMenu(ui, ui.ID("eventmenu"))
 		}
-		col := colEvents[min(int(e.Mode), len(colEvents)-1)]
+		col := th.Events[min(int(e.Mode), len(th.Events)-1)]
 		ui.Rect(mathx.Rect{X: x - 1, Y: r.Y + 2, W: 2, H: r.H - 4}, col)
 		ui.Rect(mathx.Rect{X: x - 4, Y: r.Y + 2, W: 8, H: 4}, col)
 		widgets.TooltipAfter(ui, id, e.Name, 0.3)
 	}
 	for _, m := range p.marks {
 		a := float32(1 - (p.f.Now-m.at)/markLife)
-		col := colEvents[anim.EventPreview]
+		col := th.Events[anim.EventPreview]
 		col.A *= a
 		ui.Text(m.name, mathx.Vec2{X: g.x(m.t) + 6, Y: r.Y + 1}, col)
 	}
@@ -695,7 +689,7 @@ func (p *Panel) row(i int, rr mathx.Rect, g frame) {
 			reg := p.thumbOf(row.Assets[k])
 			box := mathx.Rect{X: c.X - 8, Y: c.Y - 8, W: 16, H: 16}
 			if !reg.IsZero() {
-				ui.List().Texture(reg, box, white)
+				ui.List().Texture(reg, box, mathx.White)
 				if sel || ui.Hot() == id {
 					ui.Outline(box, kc)
 				}

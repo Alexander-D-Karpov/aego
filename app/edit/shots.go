@@ -17,6 +17,7 @@ import (
 	"aego/editor/panels/animator"
 	"aego/editor/panels/gameview"
 	"aego/editor/shell"
+	"aego/ui/theme"
 )
 
 // EnvShots makes the editor write the documentation screenshots to this directory and exit.
@@ -228,6 +229,10 @@ func (s *Session) shots(dir string) error {
 			}
 			return s.App.Prefabs().Open(id)
 		}},
+	}
+	if s.App.ThemeMode() == theme.ModeLight {
+		list = list[:1]
+		list[0].name = "editor-light"
 	}
 	for _, sh := range list {
 		if err := sh.setup(s); err != nil {

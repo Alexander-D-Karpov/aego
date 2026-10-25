@@ -1,6 +1,10 @@
 package theme
 
-import "aego/core/mathx"
+import (
+	"strings"
+
+	"aego/core/mathx"
+)
 
 type GutterMetrics struct {
 	MarkerW   float32
@@ -51,7 +55,9 @@ type CodeTheme struct {
 	Operator           mathx.Color
 	Punctuation        mathx.Color
 	Error              mathx.Color
-	GuideColumn        int
+	// MinimapView frames the visible part of the file on the minimap.
+	MinimapView mathx.Color
+	GuideColumn int
 }
 
 type Radius struct {
@@ -107,6 +113,24 @@ type Theme struct {
 	ShadowBlur   float32
 	ShadowY      float32
 	TreeGuide    mathx.Color
+	// Highlight marks the hovered column of a chart.
+	Highlight  mathx.Color
+	FieldGizmo mathx.Color
+	Record     mathx.Color
+	StateEntry mathx.Color
+	StateAny   mathx.Color
+	// Series colours the lines and bars of charts, in order.
+	Series [8]mathx.Color
+	// Events colours animation events by mode: gameplay, presentation, preview.
+	Events [3]mathx.Color
+	// Viewport colours stay the same in every theme, like the scene they frame (D358).
+	ViewportBg   mathx.Color
+	SceneBg      mathx.Color
+	ViewportText mathx.Color
+	ViewportLine mathx.Color
+	GridMinor    mathx.Color
+	GridMajor    mathx.Color
+	Dark         bool
 
 	Padding    float32
 	BarHeight  float32
@@ -214,12 +238,13 @@ func Code() CodeTheme {
 		Operator:           mathx.ColorRGB8(0xAB, 0xB2, 0xBF),
 		Punctuation:        mathx.ColorRGB8(0x8B, 0x92, 0x9E),
 		Error:              mathx.ColorRGB8(0xE5, 0x53, 0x4B),
+		MinimapView:        mathx.Color{R: 1, G: 1, B: 1, A: 0.06},
 		GuideColumn:        100,
 	}
 }
 
 func Editor() Theme {
-	return Theme{
+	t := Theme{
 		Text:         mathx.ColorRGB8(0xE4, 0xE6, 0xEB),
 		TextDim:      mathx.ColorRGB8(0x93, 0x98, 0xA3),
 		TextDisabled: mathx.ColorRGB8(0x5C, 0x61, 0x6B),
@@ -275,4 +300,73 @@ func Editor() Theme {
 		FontSize:     14,
 		Mixed:        "—",
 	}
+	t.Highlight = mathx.Color{R: 1, G: 1, B: 1, A: 0.08}
+	t.FieldGizmo = mathx.Color{R: 0.35, G: 0.55, B: 1, A: 1}
+	t.Record = mathx.Color{R: 0.9, G: 0.25, B: 0.25, A: 1}
+	t.StateEntry = mathx.Color{R: 0.3, G: 0.7, B: 0.4, A: 1}
+	t.StateAny = mathx.Color{R: 0.55, G: 0.5, B: 0.8, A: 1}
+	t.Series = series()
+	t.Events = [3]mathx.Color{{R: 0.95, G: 0.6, B: 0.2, A: 1}, {R: 0.4, G: 0.7, B: 1, A: 1}, {R: 0.6, G: 0.9, B: 0.4, A: 1}}
+	t.Dark = true
+	viewport(&t)
+	return t
+}
+
+func series() [8]mathx.Color {
+	return [8]mathx.Color{
+		mathx.ColorRGB8(0x4B, 0x8B, 0xE5),
+		mathx.ColorRGB8(0x6B, 0xC4, 0x6D),
+		mathx.ColorRGB8(0xE0, 0x7B, 0x39),
+		mathx.ColorRGB8(0xA0, 0x6B, 0xD5),
+		mathx.ColorRGB8(0x3F, 0xB6, 0xB0),
+		mathx.ColorRGB8(0xD5, 0x6B, 0x9A),
+		mathx.ColorRGB8(0xC9, 0xB0, 0x3F),
+		mathx.ColorRGB8(0x7A, 0x8C, 0xA3),
+	}
+}
+
+// viewport sets the colours of what frames the scene; they are the same in every theme.
+func viewport(t *Theme) {
+	t.ViewportBg = mathx.Color{R: 0.02, G: 0.02, B: 0.03, A: 1}
+	t.SceneBg = mathx.ColorRGB8(0x15, 0x17, 0x1B)
+	t.ViewportText = mathx.ColorRGB8(0x93, 0x98, 0xA3)
+	t.ViewportText.A = 0.7
+	t.ViewportLine = mathx.ColorRGB8(0xE4, 0xE6, 0xEB)
+	t.GridMinor = mathx.Color{R: 1, G: 1, B: 1, A: 0.018}
+	t.GridMajor = mathx.Color{R: 1, G: 1, B: 1, A: 0.045}
+}
+
+// Mode is the theme the user picked; System follows the OS (D358).
+type Mode uint8
+
+const (
+	ModeSystem Mode = iota
+	ModeDark
+	ModeLight
+)
+
+var modeNames = [...]string{"System", "Dark", "Light"}
+
+func (m Mode) String() string {
+	if int(m) < len(modeNames) {
+		return modeNames[m]
+	}
+	return modeNames[0]
+}
+
+func ParseMode(s string) Mode {
+	for i, n := range modeNames {
+		if strings.EqualFold(n, s) {
+			return Mode(i)
+		}
+	}
+	return ModeSystem
+}
+
+// For is the theme of a mode, given whether the OS is dark.
+func For(m Mode, systemDark bool) Theme {
+	if m == ModeLight || (m == ModeSystem && !systemDark) {
+		return Light()
+	}
+	return Editor()
 }

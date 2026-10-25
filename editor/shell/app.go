@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"os"
 	"path"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"aego/editor/core/play"
 	pd "aego/editor/core/playdiff"
 	"aego/editor/core/prefabs"
+	"aego/editor/core/prefs"
 	"aego/editor/core/presets"
 	"aego/editor/core/preview"
 	"aego/editor/core/refs"
@@ -125,11 +127,15 @@ type Options struct {
 	RunTests    func(done func(out string, failed bool)) error
 	Recent      string
 	LogsDir     string
+	// PrefsDir holds prefs.aetext, the preferences shared by every project (D358).
+	PrefsDir string
 	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
 	Agent agentui.Host
 }
 
 type App struct {
+	prefs          *prefs.Prefs
+	retheme        bool
 	recent         []launcher.Entry
 	recentNext     float64
 	recentLoaded   bool
@@ -292,7 +298,11 @@ func (a *App) Init(e *engine.Engine) error {
 	a.reportDirs()
 	r := a.opt.Renderer
 	ui := core.New(r.UIFont())
-	ui.Theme = theme.Editor()
+	a.prefs, _ = prefs.Load(a.opt.PrefsDir)
+	if m := os.Getenv("AEGO_EDITOR_THEME"); m != "" {
+		a.prefs.Theme = theme.ParseMode(m)
+	}
+	ui.Theme = theme.For(a.prefs.Theme, a.systemDark())
 	if sh, err := draw.NewShapes(e.GPU(), r.Textures()); err == nil {
 		ui.SetShapes(sh)
 	} else {
@@ -430,7 +440,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Shapes:     a.shapes,
 		Tasks:      a.tasks,
 		CacheRoot:  p.CacheDir(),
-		Background: ui.Theme.Background,
+		Background: ui.Theme.SceneBg,
 		Cover:      func() ids.AssetID { return a.opt.Project.MainScene },
 		Reference: func() mathx.Vec2 {
 			w := a.opt.Project.Window
@@ -870,6 +880,10 @@ func (a *App) Event(ev platform.Event) {
 			a.ctx.DnD.External(dnd.Payload{Kind: context.KindFiles, Label: label, Data: a.drops}, a.dropPos)
 			a.drops = nil
 		}
+	case platform.EvSystemTheme:
+		if a.prefs.Theme == theme.ModeSystem {
+			a.retheme = true
+		}
 	case platform.EvQuit:
 		if !a.quitting && a.ctx.Docs.Dirty() {
 			a.eng.CancelQuit()
@@ -885,6 +899,10 @@ func (a *App) Update(dt float64) {
 	now := e.Platform().Now()
 	ui := a.ui
 	ui.Time = now
+	if a.retheme {
+		a.retheme = false
+		a.applyTheme()
+	}
 	var rs render.Stats
 	if a.opt.RenderStats != nil {
 		rs = a.opt.RenderStats()

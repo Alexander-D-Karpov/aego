@@ -16,6 +16,7 @@ import (
 	"aego/editor/core/services"
 	edocs "aego/editor/panels/docs"
 	"aego/engine"
+	"aego/engine/docs"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render"
@@ -48,6 +49,11 @@ func newEditorEnv(t *testing.T) *editorEnv {
 
 func newEditorEnvSize(t *testing.T, w, h int) *editorEnv {
 	t.Helper()
+	return newEditorEnvTheme(t, w, h, theme.Editor())
+}
+
+func newEditorEnvTheme(t *testing.T, w, h int, th theme.Theme) *editorEnv {
+	t.Helper()
 	runtime.LockOSThread()
 	mod := renderhost.New(render.Options{MaxSprites: 65536})
 	e, err := engine.NewBuilder(engine.Config{
@@ -68,7 +74,7 @@ func newEditorEnvSize(t *testing.T, w, h int) *editorEnv {
 	}
 	r := mod.Renderer()
 	ui := core.New(r.UIFont())
-	ui.Theme = theme.Editor()
+	ui.Theme = th
 	set, err := text.LoadSet(e.VFS(), r.Textures(), "engine://fonts", "ui", []int{12, 14, 16, 20}, []int{1, 2})
 	if err != nil {
 		t.Fatal(err)
@@ -155,9 +161,7 @@ func TestEditorGolden(t *testing.T) {
 		{"editor_docs_statements", "language/declarations-and-statements", "language/declarations-and-statements"},
 		{"editor_docs_types", "language/types", "language/types"},
 	} {
-		p := edocs.New(reg, ctx, ctx)
-		p.Show(tc.ref, "")
-		img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui}, full) })
+		p, img, err := shotDocs(env, reg, ctx, tc.ref)
 		t.Run(tc.name, func(t *testing.T) {
 			if p.Current() != tc.want {
 				t.Fatalf("panel shows %q, want %q", p.Current(), tc.want)
@@ -167,8 +171,20 @@ func TestEditorGolden(t *testing.T) {
 	}
 }
 
+func shotDocs(env *editorEnv, reg *docs.Registry, ctx *context.Editor, ref string) (*edocs.Panel, *image.NRGBA, error) {
+	p := edocs.New(reg, ctx, ctx)
+	p.Show(ref, "")
+	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui}, full) })
+	return p, img, err
+}
+
 func TestEditorMenuGolden(t *testing.T) {
-	env := newEditorEnv(t)
+	img, err := shotMenu(t, newEditorEnv(t))
+	checkGolden(t, "editor_menu_popup", img, err)
+}
+
+func shotMenu(t *testing.T, env *editorEnv) (*image.NRGBA, error) {
+	t.Helper()
 	ui := env.ui
 	id := core.IDOf("golden.menu")
 	img, err := env.draw(func(full mathx.Rect) {
@@ -186,5 +202,5 @@ func TestEditorMenuGolden(t *testing.T) {
 		v := "field"
 		widgets.TextFieldRect(ui, ui.ID("fld"), mathx.Rect{X: 320, Y: 80, W: 160, H: 24}, &v, false)
 	})
-	checkGolden(t, "editor_menu_popup", img, err)
+	return img, err
 }

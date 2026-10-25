@@ -52,6 +52,10 @@ func (p *Platform) listenWindow(w *Window) {
 			p.win.refresh(true)
 		}
 	})
+	if mm := p.global.Get("matchMedia"); mm.Type() == js.TypeFunction {
+		w.dark = p.global.Call("matchMedia", "(prefers-color-scheme: dark)")
+		p.listen(w.dark, "change", true, func(js.Value) { p.push(platform.Event{Kind: platform.EvSystemTheme}) })
+	}
 	if ro := p.global.Get("ResizeObserver"); ro.Type() == js.TypeFunction {
 		w.resize = js.FuncOf(func(js.Value, []js.Value) any {
 			w.refresh(true)

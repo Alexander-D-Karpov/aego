@@ -192,7 +192,7 @@ func (p *Panel) thumb(a *pipeline.AssetInfo, r mathx.Rect) bool {
 	if !ok {
 		return false
 	}
-	p.f.UI.List().Texture(reg, fitRect(r, reg.W, reg.H), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+	p.f.UI.List().Texture(reg, fitRect(r, reg.W, reg.H), mathx.White)
 	return true
 }
 

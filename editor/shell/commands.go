@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"strings"
+
 	"aego/core/ids"
 	"aego/editor/core/assetops"
 	edclip "aego/editor/core/clipboard"
@@ -14,7 +16,7 @@ import (
 	"aego/editor/panels/inspector"
 	"aego/editor/panels/sceneview"
 	"aego/platform/input"
-	"strings"
+	"aego/ui/theme"
 )
 
 const (
@@ -277,6 +279,22 @@ func (a *App) registerWindowCommands() error {
 	}
 	if _, exists := reg.Get(CommandResetLayout); exists {
 		return nil
+	}
+	for i, m := range []theme.Mode{theme.ModeSystem, theme.ModeDark, theme.ModeLight} {
+		if err := reg.Register(command.Desc{
+			ID:       "window.theme." + strings.ToLower(m.String()),
+			Name:     "Theme: " + m.String(),
+			Category: themeCategory,
+			Order:    i,
+			Tip:      themeTips[m],
+			Checked:  func() bool { return a.ThemeMode() == m },
+			Run: func() error {
+				a.SetThemeMode(m)
+				return nil
+			},
+		}); err != nil {
+			return err
+		}
 	}
 	return reg.Register(command.Desc{
 		ID:       CommandResetLayout,

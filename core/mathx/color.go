@@ -31,6 +31,9 @@ func LinearToSRGB(c float32) float32 {
 	return float32(1.055*math.Pow(float64(c), 1/2.4) - 0.055)
 }
 
+// White is the tint that leaves a texture or a glyph as it is.
+var White = Color{R: 1, G: 1, B: 1, A: 1}
+
 func (c Color) Premultiplied() Color {
 	return Color{R: c.R * c.A, G: c.G * c.A, B: c.B * c.A, A: c.A}
 }

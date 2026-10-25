@@ -248,6 +248,7 @@ var fsAllowed = []string{
 	"editor/core/animedit",
 	"editor/core/slice",
 	"editor/core/agentui", // session logs of the Agent panel in .aego/user/agent (D343)
+	"editor/core/prefs",   // prefs.aetext with the editor theme in the config directory (D358)
 	"editor/core/preview",
 	"editor/core/vcs",
 	"editor/core/capture",

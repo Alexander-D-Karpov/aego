@@ -8,9 +8,9 @@ import (
 )
 
 func theme3(th *core.Theme) Theme3 {
-	grid := th.TextDim
+	grid := th.ViewportText
 	grid.A = 0.25
-	cam := th.TextDim
+	cam := th.ViewportText
 	cam.A = 0.7
 	box := th.Accent
 	box.A = 0.8
@@ -19,7 +19,7 @@ func theme3(th *core.Theme) Theme3 {
 		Camera:    cam,
 		Box:       box,
 		Grid:      grid,
-		Gizmo:     gizmo.Colors3{X: th.AxisX, Y: th.AxisY, Z: th.AxisZ, Center: th.Text, Hot: th.AxisHot},
+		Gizmo:     gizmo.Colors3{X: th.AxisX, Y: th.AxisY, Z: th.AxisZ, Center: th.ViewportLine, Hot: th.AxisHot},
 	}
 }
 

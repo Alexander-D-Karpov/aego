@@ -61,8 +61,7 @@ func (p *Panel) render() {
 
 func (p *Panel) drawOverlays(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 	win := p.d.Project.Window
-	col := th.TextDim
-	col.A = 0.7
+	col := th.ViewportText
 	p.shapes().Overlays(&shape.OverlayCtx{
 		Scene:  s,
 		World:  p.worldOf(s),
@@ -95,9 +94,10 @@ func (p *Panel) drawGizmos(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 		Colors: gizmo.Colors{
 			X:      th.AxisX,
 			Y:      th.AxisY,
-			Center: th.Text,
+			Center: th.ViewportLine,
 			Rotate: th.Accent,
 			Hot:    th.AxisHot,
+			Field:  th.FieldGizmo,
 		},
 	}
 	parts := func(g gizmo.Gizmo) (gizmo.Part, gizmo.Part) {

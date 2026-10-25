@@ -336,15 +336,17 @@ endif
 SHOTS_RUN = rm -rf $(SHOTS_TMP)/project $(SHOTS_TMP)/home && mkdir -p $(SHOTS_TMP)/home && cp -R examples/platformer $(SHOTS_TMP)/project && \
 	rm -rf $(SHOTS_TMP)/project/.aego $(SHOTS_TMP)/project/exports && \
 	sed -i.bak 's|=> ../..|=> $(CURDIR)|' $(SHOTS_TMP)/project/go.mod && \
-	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_SHOTS=$(1) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
+	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_SHOTS=$(1) AEGO_EDITOR_THEME=$(or $(2),dark) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
 
 shots: cli
 	rm -rf docs/shots
 	$(call SHOTS_RUN,$(CURDIR)/docs/shots)
+	$(call SHOTS_RUN,$(CURDIR)/docs/shots,light)
 
 shots-check: cli
 	rm -rf $(SHOTS_TMP)/out
 	$(call SHOTS_RUN,$(SHOTS_TMP)/out)
+	$(call SHOTS_RUN,$(SHOTS_TMP)/out,light)
 	go run ./tools/shotdiff -want docs/shots -got $(SHOTS_TMP)/out
 
 runtime: bootstrap

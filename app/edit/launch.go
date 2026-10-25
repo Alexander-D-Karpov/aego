@@ -17,6 +17,7 @@ import (
 	"aego/app/projects"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/editor/core/prefs"
 	"aego/editor/core/sysopen"
 	"aego/editor/shell"
 	"aego/editor/shell/launcher"
@@ -49,6 +50,9 @@ type launchDriver struct {
 	textOn   bool
 	log      *log.ChannelLogger
 	images   map[string]launchImage
+	prefsDir string
+	prefs    *prefs.Prefs
+	retheme  bool
 }
 
 type launchImage struct {
@@ -175,7 +179,11 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		upd.start()
 	}
 	ls := &LaunchSession{Engine: e}
-	d := &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor), images: map[string]launchImage{}}
+	d := &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor), images: map[string]launchImage{}, prefsDir: prefsDir(cfg)}
+	d.prefs, _ = prefs.Load(d.prefsDir)
+	if m := os.Getenv("AEGO_EDITOR_THEME"); m != "" {
+		d.prefs.Theme = theme.ParseMode(m)
+	}
 	platform.Boot("launcher", "open")
 	ls.UI = launcher.New(launcher.Options{
 		Templates:  launcherTemplates(),
@@ -196,6 +204,8 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		RecentPath:      cfg.Recent,
 		Home:            projectsHome(),
 		Image:           d.image,
+		Theme:           func() theme.Mode { return d.prefs.Theme },
+		SetTheme:        d.setTheme,
 	})
 	switch cfg.LauncherTab {
 	case TabNew:
@@ -268,7 +278,7 @@ func (d *launchDriver) Init(e *engine.Engine) error {
 	d.eng = e
 	r := d.renderer
 	ui := core.New(r.UIFont())
-	ui.Theme = theme.Editor()
+	ui.Theme = theme.For(d.prefs.Theme, d.systemDark())
 	if set, err := text.LoadSet(e.VFS(), r.Textures(), "engine://fonts", "ui", []int{12, 14, 16, 20}, []int{1, 2}); err == nil {
 		ui.SetFonts(set)
 	} else {
@@ -291,7 +301,37 @@ func (d *launchDriver) Event(ev platform.Event) {
 		d.ui.SetComposition("", 0)
 	case platform.EvDropFile:
 		d.s.UI.Drop(ev.Str)
+	case platform.EvSystemTheme:
+		if d.prefs.Theme == theme.ModeSystem {
+			d.retheme = true
+		}
 	}
+}
+
+func (d *launchDriver) systemDark() bool {
+	if st, ok := d.eng.Window().(platform.SystemThemer); ok {
+		return st.SystemTheme() != platform.ThemeLight
+	}
+	return true
+}
+
+func (d *launchDriver) setTheme(m theme.Mode) {
+	if d.prefs.Theme == m {
+		return
+	}
+	d.prefs.Theme = m
+	d.retheme = true
+	if err := prefs.Save(d.prefsDir, d.prefs); err != nil {
+		d.log.Warn("cannot save the editor preferences", log.F("err", err.Error()))
+	}
+}
+
+// prefsDir is the config directory that holds the recent projects list and prefs.aetext (D358).
+func prefsDir(cfg Config) string {
+	if cfg.Recent == "" {
+		return ""
+	}
+	return filepath.Dir(cfg.Recent)
 }
 
 func (d *launchDriver) FixedUpdate(float64) {}
@@ -299,6 +339,10 @@ func (d *launchDriver) FixedUpdate(float64) {}
 func (d *launchDriver) Update(float64) {
 	e, ui := d.eng, d.ui
 	ui.Time = e.Platform().Now()
+	if d.retheme {
+		d.retheme = false
+		ui.Theme = theme.For(d.prefs.Theme, d.systemDark())
+	}
 	m := e.Metrics()
 	size := mathx.Vec2{X: float32(m.LogicalW), Y: float32(m.LogicalH)}
 	ui.Begin(e.Input(), size, m.Density())

@@ -15,6 +15,7 @@ import (
 	"aego/render/rt"
 	"aego/render/view"
 	"aego/ui/core"
+	"aego/ui/theme"
 	"aego/ui/widgets"
 )
 
@@ -94,7 +95,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		return
 	}
 	p.target, p.rect, p.scale = target, r, scale
-	ui.List().Texture(target.Region(), r, mathx.Color{R: 1, G: 1, B: 1, A: 1})
+	ui.List().Texture(target.Region(), r, mathx.White)
 	p.pending = true
 	p.vp.OnRender(p.hook)
 
@@ -188,7 +189,7 @@ func (p *Panel) render() {
 		Viewport:   mathx.Rect{W: float32(t.W), H: float32(t.H)},
 		PixelScale: p.scale,
 		Camera:     view.Camera2D{Zoom: 1},
-		Clear:      mathx.Color{R: 0.02, G: 0.02, B: 0.03, A: 1},
+		Clear:      p.viewportBg(),
 		DoClear:    true,
 		Label:      "gameview.clear",
 	}
@@ -200,10 +201,9 @@ func Overlays(vp *services.Viewport, pc *play.Controller) {
 	if s == nil || vp == nil || vp.Shapes == nil || vp.Renderer == nil {
 		return
 	}
-	col := mathx.Color{R: 0.7, G: 0.7, B: 0.7, A: 0.7}
+	col := viewportText
 	if vp.UI != nil {
-		col = vp.UI.Theme.TextDim
-		col.A = 0.7
+		col = vp.UI.Theme.ViewportText
 	}
 	set := shape.Set{Reg: vp.Shapes}
 	oc := shape.OverlayCtx{Scene: s, World: pc.World(), Game: true, Color: col}
@@ -222,4 +222,14 @@ func Overlays(vp *services.Viewport, pc *play.Controller) {
 		set.Overlays(&oc)
 		f.End()
 	}
+}
+
+// viewportText labels overlays when no UI is attached; a theme gives the same colour (D358).
+var viewportText = theme.Editor().ViewportText
+
+func (p *Panel) viewportBg() mathx.Color {
+	if p.vp != nil && p.vp.UI != nil {
+		return p.vp.UI.Theme.ViewportBg
+	}
+	return theme.Editor().ViewportBg
 }

@@ -256,6 +256,9 @@ int aego_poll(aego_event* e) {
 		else e->kind = AEGO_EV_AUDIO_FORMAT;
 		e->device = ev.adevice.which;
 		break;
+	case SDL_EVENT_SYSTEM_THEME_CHANGED:
+		e->kind = AEGO_EV_SYSTEM_THEME;
+		break;
 	default:
 		if (aego_dialog_type != 0 && ev.type == aego_dialog_type) {
 			e->kind = AEGO_EV_DIALOG;

@@ -167,6 +167,11 @@ func TestRuleCases(t *testing.T) {
 			`editor/panels/inspector/inspector.go:3: [module-literal] "fakemod.Thing" names module fakemod`,
 			`scene/s/s.go:3: [module-literal] "FAK001" names module fakemod`,
 		}},
+		{"color-literal", &Catalog{}, []string{
+			"editor/panels/p/p.go:5: [color-literal] writes a mathx.Color literal",
+			"editor/panels/p/p.go:7: [color-literal] calls mathx.ColorRGB8",
+			"editor/panels/p/p.go:9: [color-literal] writes a mathx.Color literal",
+		}},
 		{"empty-reason", nil, []string{"[exception-syntax]", "has no reason", "unknown variant \"tset\""}},
 		{"unused-exception", nil, []string{"[exception-unused] core/a -> modules/x"}},
 		{"file-exception", nil, []string{"sdk/other.go: [sdk-imports-editor] imports editor/core/c"}},
@@ -202,6 +207,9 @@ func TestRuleCases(t *testing.T) {
 			}
 			if c.dir == "audio-render" && strings.Contains(all, "imports render/debug") {
 				t.Errorf("render/debug is allowed in the audio editor:\n%s", all)
+			}
+			if c.dir == "color-literal" && (strings.Contains(all, "ui/theme") || strings.Contains(all, "p.go:11") || strings.Contains(all, "p.go:13")) {
+				t.Errorf("the theme, a zero colour or a list of tokens is reported:\n%s", all)
 			}
 			if c.dir == "file-exception" && strings.Contains(all, "sdk/editor.go") {
 				t.Errorf("the excepted file is reported:\n%s", all)

@@ -27,8 +27,9 @@ func drawGrid(dbg *debug.Draw, v *view.View, sp gizmo.Space, base float32, th *c
 		step /= 2
 	}
 	fade := mathx.Clamp((step*sp.Zoom-14)/40, 0.35, 1)
-	minor := mathx.Color{R: 1, G: 1, B: 1, A: 0.018 * fade}
-	major := mathx.Color{R: 1, G: 1, B: 1, A: 0.045}
+	minor := th.GridMinor
+	minor.A *= fade
+	major := th.GridMajor
 	axisX := th.AxisX
 	axisX.A = 0.28
 	axisY := th.AxisY

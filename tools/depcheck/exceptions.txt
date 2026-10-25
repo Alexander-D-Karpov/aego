@@ -21,6 +21,7 @@ script/... -> modules/scripting/stdlib, test|test-editor, toolchain tests run sc
 script/... -> modules/input, test|test-editor, toolchain tests run scripts against aego/input, which the input module owns (D234)
 
 # Semantic pass.
+ui/widgets/color.go -> "color", semantic, the colour field parses hex and channel input into colours and draws the grey checkerboard behind transparent swatches, which is not a theme colour (D358)
 ... -> "script*", semantic, the scripting module ID equals the language name: asset kind, keyword, highlight class, problem category, service IDs script.runtime and script.events (D160)
 asset/... -> "audio", semantic, the artifact kind and importer ID of sound files equal the audio module ID (D310)
 asset/importers/animclip -> "ANM*", semantic, the importer reports ANM001–ANM003 for clips it cannot read, the codes the animation module documents (11a1)

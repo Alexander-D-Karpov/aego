@@ -36,6 +36,14 @@ Workspaces are stored in `.aego/user/workspaces.aetext`, the current one in `.ae
 
 **Window → Undo History** lists the edits of the active scene, one row per action. Click a row to undo or redo up to it; rows after the current one are the ones Redo would bring back. During Play the list shows the Play history, which is dropped on Stop.
 
+## Theme
+
+The editor has three themes: **System**, **Dark** and **Light**. System, the default, follows the light or dark look of the OS and switches when the OS does; when the OS does not say, the editor is dark. Pick one in **Window → Theme** or in the command palette (**Theme: System**, **Theme: Dark**, **Theme: Light**), or with the **Theme** box at the bottom of the launcher. The change applies on the next frame, without a restart.
+
+![The Design workspace in the light theme](shots/editor-light.png)
+
+The Scene View, the Game View, previews and thumbnails keep the same colors in both themes, so a scene looks the same whatever the editor around it. The choice is yours, not the project's: it is saved in `prefs.aetext` in the editor's config directory, next to the list of recent projects, and applies to every project and to the launcher. `AEGO_EDITOR_THEME=system|dark|light` overrides it for one run.
+
 ## Projects, Scenes and Previews
 
 The start screen has three tabs. **Recent** shows your projects with a picture of their startup scene. **New Project** shows the templates with a preview and the files they contain; pick a name, a folder, a module path and the workspace the editor opens with. **Examples** copies one of the engine examples into a folder of your choice.

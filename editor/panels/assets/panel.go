@@ -657,7 +657,7 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		if preview.Image(a.Kind) || a.Kind == asset.ArtPrefab {
 			p.checker(img)
 		}
-		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.White)
 	default:
 		p.schematic(a, img)
 	}

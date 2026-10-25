@@ -27,11 +27,6 @@ type dragState struct {
 	moved bool
 }
 
-var (
-	colEntry = mathx.Color{R: 0.3, G: 0.7, B: 0.4, A: 1}
-	colAny   = mathx.Color{R: 0.55, G: 0.5, B: 0.8, A: 1}
-)
-
 func (p *Panel) toScreen(r mathx.Rect, g [2]float32) mathx.Vec2 {
 	return mathx.Vec2{X: r.X + (g[0]-p.cam.X)*p.zoom, Y: r.Y + (g[1]-p.cam.Y)*p.zoom}
 }
@@ -112,8 +107,8 @@ func (p *Panel) canvas(d *document.SceneDocument, r mathx.Rect) {
 		a := center(p.box(r, p.drag.node))
 		ui.Line(a, ui.Mouse(), 2, th.Accent)
 	}
-	p.pill(r, -1, "Entry", colEntry)
-	p.pill(r, -2, "Any State", colAny)
+	p.pill(r, -1, "Entry", p.f.UI.Theme.StateEntry)
+	p.pill(r, -2, "Any State", p.f.UI.Theme.StateAny)
 	for i := range p.g.States {
 		p.stateNode(r, i, live && i == state, progress)
 	}
@@ -176,7 +171,7 @@ func (p *Panel) stateNode(r mathx.Rect, i int, active bool, progress float32) {
 	s := &p.g.States[i]
 	bg, border := th.CardBg, th.Border
 	if int32(i) == p.g.Entry {
-		border = colEntry
+		border = p.f.UI.Theme.StateEntry
 	}
 	if p.sel.kind == selState && p.sel.index == i {
 		border = th.Accent
@@ -226,7 +221,7 @@ func (p *Panel) drawEdges(r mathx.Rect) {
 	p.edges = p.edges[:0]
 	if g.Entry >= 0 && int(g.Entry) < len(g.States) {
 		a, b := p.box(r, -1), p.box(r, int(g.Entry))
-		arrow(ui, rim(a, center(b)), rim(b, center(a)), colEntry)
+		arrow(ui, rim(a, center(b)), rim(b, center(a)), p.f.UI.Theme.StateEntry)
 	}
 	for k := range g.Transitions {
 		t := &g.Transitions[k]
@@ -254,7 +249,7 @@ func (p *Panel) drawEdges(r mathx.Rect) {
 		ctl := a.Add(b).Scale(0.5).Add(n.Scale(bend * 1.4))
 		col := th.TextDim
 		if t.From < 0 {
-			col = colAny
+			col = p.f.UI.Theme.StateAny
 		}
 		if p.sel.kind == selTransition && p.sel.index == k {
 			col = th.Accent

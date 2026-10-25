@@ -116,7 +116,7 @@ func preview(ui *core.Context, reg texture.Region) {
 	l.PushLayer(draw.LayerTop)
 	l.Rect(r, th.PanelAlt)
 	l.RectOutline(r, th.Border, 1)
-	l.Texture(reg, fitThumb(mathx.Rect{X: r.X + 4, Y: r.Y + 4, W: size, H: size}, reg), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+	l.Texture(reg, fitThumb(mathx.Rect{X: r.X + 4, Y: r.Y + 4, W: size, H: size}, reg), mathx.White)
 	l.PopLayer()
 }
 
@@ -148,7 +148,7 @@ func (p *Panel) refBox(id core.ID, r mathx.Rect, info refInfo, mixed bool, thumb
 		s := box.H - 4
 		ir := mathx.Rect{X: box.X + 2, Y: box.Y + 2, W: s, H: s}
 		ui.Rect(ir, th.Background)
-		ui.List().Texture(thumb, fitThumb(ir, thumb), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+		ui.List().Texture(thumb, fitThumb(ir, thumb), mathx.White)
 		tx = ir.X + ir.W + 6
 		if ui.HoverDuration(hid) > 0.35 {
 			preview(ui, thumb)
@@ -215,7 +215,7 @@ func (p *Panel) thumbRow(id core.ID, label string, asset ids.AssetID, selected b
 	ui.Rect(ir, th.Background)
 	if p.d.Thumbs != nil && !asset.IsZero() {
 		if reg, ok := p.d.Thumbs.ByID(asset); ok {
-			ui.List().Texture(reg, fitThumb(ir, reg), mathx.Color{R: 1, G: 1, B: 1, A: 1})
+			ui.List().Texture(reg, fitThumb(ir, reg), mathx.White)
 		}
 	}
 	ui.Text(label, mathx.Vec2{X: ir.X + ir.W + 8, Y: ui.TextY(r)}, th.Text)

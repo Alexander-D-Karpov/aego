@@ -279,6 +279,8 @@ func (p *Platform) translate() (platform.Event, bool) {
 		}
 		id := uint32(c.device)
 		ev.Audio = platform.AudioDevice{ID: id, Default: p.audio != nil && p.audio.dev == id}
+	case C.AEGO_EV_SYSTEM_THEME:
+		ev.Kind = platform.EvSystemTheme
 	case C.AEGO_EV_DIALOG:
 		p.finishDialog(c)
 		return ev, false
@@ -452,6 +454,16 @@ func (w *Window) SetCursor(shape platform.CursorShape) {
 	}
 	w.cursor = shape
 	C.aego_set_cursor(C.int(shape))
+}
+
+func (w *Window) SystemTheme() platform.SystemTheme {
+	switch C.SDL_GetSystemTheme() {
+	case C.SDL_SYSTEM_THEME_LIGHT:
+		return platform.ThemeLight
+	case C.SDL_SYSTEM_THEME_DARK:
+		return platform.ThemeDark
+	}
+	return platform.ThemeUnknown
 }
 
 func (w *Window) CaptureMouse(on bool) {

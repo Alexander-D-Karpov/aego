@@ -235,6 +235,7 @@ type Window struct {
 	observer  js.Value
 	resize    js.Func
 	observing bool
+	dark      js.Value
 	metrics   platform.WindowMetrics
 	dpr       float64
 	last      mathx.Vec2
@@ -382,6 +383,16 @@ func (w *Window) SetCursor(s platform.CursorShape) {
 }
 
 func (w *Window) CaptureMouse(bool) {}
+
+func (w *Window) SystemTheme() platform.SystemTheme {
+	if w.dark.Type() != js.TypeObject {
+		return platform.ThemeUnknown
+	}
+	if w.dark.Get("matches").Truthy() {
+		return platform.ThemeDark
+	}
+	return platform.ThemeLight
+}
 
 func (w *Window) Close() {
 	if w.closed {

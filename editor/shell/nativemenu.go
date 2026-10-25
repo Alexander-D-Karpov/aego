@@ -88,6 +88,16 @@ func (a *App) buildNativeMenu() ([]platform.Menu, []func()) {
 				Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked(),
 			})
 		}
+		if cat == "Window" && reg.HasCategory(themeCategory) {
+			sub := platform.MenuItem{Label: themeCategory, Enabled: true}
+			for _, d := range reg.Category(themeCategory) {
+				id := d.ID
+				sub.Items = append(sub.Items, platform.MenuItem{
+					ID: act(func() { reg.Run(id) }), Label: themeLabel(d.Name), Enabled: true, Checked: d.Checked(),
+				})
+			}
+			m.Items = append(m.Items, platform.MenuItem{Separator: true}, sub)
+		}
 		if cat == "Scene" {
 			docs := a.ctx.Docs.Docs()
 			if len(docs) > 0 {

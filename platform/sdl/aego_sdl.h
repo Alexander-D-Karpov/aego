@@ -31,6 +31,7 @@
 #define AEGO_EV_AUDIO_REMOVED 24
 #define AEGO_EV_AUDIO_FORMAT  25
 #define AEGO_EV_DIALOG        26
+#define AEGO_EV_SYSTEM_THEME  27
 #define AEGO_PAD_BUTTONS      15
 #define AEGO_PAD_AXES         6
 

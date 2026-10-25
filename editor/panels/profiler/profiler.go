@@ -440,7 +440,7 @@ func (p *Panel) graph(ui *core.Context, title, unit string, prec int, budget flo
 	}
 	b := p.at(first + i)
 	x := r.X + float32(history-n+i)*bw
-	ui.Rect(mathx.Rect{X: x, Y: r.Y, W: max(1, bw-1), H: r.H}, mathx.Color{R: 1, G: 1, B: 1, A: 0.08})
+	ui.Rect(mathx.Rect{X: x, Y: r.Y, W: max(1, bw-1), H: r.H}, ui.Theme.Highlight)
 	ago := float64(n-1-i) * p.seconds()
 	label := fmtf(b.avg[m], prec) + " / " + fmtf(b.peak[m], prec) + unit + "   " + strconv.FormatFloat(ago, 'f', 1, 64) + " s ago"
 	size := ui.TextSize(label)

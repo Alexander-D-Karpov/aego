@@ -12,8 +12,6 @@ import (
 
 const partBase = 32
 
-var colField = mathx.Color{R: 0.35, G: 0.55, B: 1, A: 1}
-
 type field struct {
 	t  *schema.TypeDescriptor
 	fd *schema.FieldDescriptor
@@ -144,7 +142,7 @@ func (g *Gizmo) Draw(c *gizmo.DrawCtx) {
 		if !ok {
 			continue
 		}
-		col := c.Color(gizmo.Part(partBase+i), colField)
+		col := c.Color(gizmo.Part(partBase+i), c.Colors.Field)
 		switch f.fd.Hints.Gizmo {
 		case schema.GizmoVector:
 			c.Line(gm.base, gm.tip, col)

@@ -3,6 +3,7 @@
 package golden
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,12 @@ import (
 )
 
 func TestEditorLauncher(t *testing.T) {
-	env := newEditorEnv(t)
+	img, err := shotLauncher(t, newEditorEnv(t))
+	checkGolden(t, "editor_launcher", img, err)
+}
+
+func shotLauncher(t *testing.T, env *editorEnv) (*image.NRGBA, error) {
+	t.Helper()
 	local := time.Local
 	time.Local = time.UTC
 	defer func() { time.Local = local }()
@@ -33,7 +39,7 @@ func TestEditorLauncher(t *testing.T) {
 	}
 	l := launcher.New(launcher.Options{Templates: tmpl, RecentPath: recent, Home: "/home/dev/games"})
 	img, err := env.draw(func(full mathx.Rect) { l.Draw(env.ui, full) })
-	checkGolden(t, "editor_launcher", img, err)
+	return img, err
 }
 
 func TestEditorLauncherNewProject(t *testing.T) {

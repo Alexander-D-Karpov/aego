@@ -16,6 +16,7 @@ func (l *layer) draw(v *context.VectorSink) {
 	if s == nil {
 		return
 	}
+	colField := l.ctx.UI.Theme.FieldGizmo
 	root := s.Root()
 	for _, h := range s.PreOrder() {
 		if h == root || !s.IsAlive(h) || !s.EffectiveEnabled(h) {

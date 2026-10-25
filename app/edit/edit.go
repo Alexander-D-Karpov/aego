@@ -224,6 +224,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		NativeNote:  cfg.NativeNote,
 		RunTests:    s.runTests,
 		Recent:      cfg.Recent,
+		PrefsDir:    prefsDir(cfg),
 		LogsDir:     LogsDir(),
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 		Exporter:    newExporter(p, h.Pipeline),

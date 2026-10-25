@@ -31,6 +31,7 @@ const (
 	EvAudioDeviceAdded
 	EvAudioDeviceRemoved
 	EvAudioDeviceFormatChanged
+	EvSystemTheme
 )
 
 var eventKindNames = [...]string{
@@ -40,6 +41,7 @@ var eventKindNames = [...]string{
 	"TextEditing", "DropBegin", "DropFile", "DropText", "DropComplete",
 	"PadAdded", "PadRemoved", "PadButtonDown", "PadButtonUp", "PadAxis",
 	"AudioDeviceAdded", "AudioDeviceRemoved", "AudioDeviceFormatChanged",
+	"SystemTheme",
 }
 
 func (k EventKind) String() string {

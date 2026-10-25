@@ -3,6 +3,7 @@
 package golden
 
 import (
+	"image"
 	"testing"
 
 	"aego/core/mathx"
@@ -57,7 +58,12 @@ func settingsGoldenStore(t *testing.T) *es.Store {
 }
 
 func TestEditorSettingsRegistry(t *testing.T) {
-	env := newEditorEnvSize(t, 720, 320)
+	img, err := shotSettings(t, newEditorEnvSize(t, 720, 320))
+	checkGolden(t, "editor_settings_registry", img, err)
+}
+
+func shotSettings(t *testing.T, env *editorEnv) (*image.NRGBA, error) {
+	t.Helper()
 	p, err := project.Create(t.TempDir(), "SettingsGolden", false)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +71,7 @@ func TestEditorSettingsRegistry(t *testing.T) {
 	panel := projectsettings.New(projectsettings.Deps{Project: p, Settings: settingsGoldenStore(t)})
 	panel.Show("registry")
 	img, err := env.draw(func(full mathx.Rect) { panel.Draw(&services.Frame{UI: env.ui}, full) })
-	checkGolden(t, "editor_settings_registry", img, err)
+	return img, err
 }
 
 func TestGameSettingsView(t *testing.T) {

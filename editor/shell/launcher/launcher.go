@@ -12,6 +12,7 @@ import (
 	"aego/project"
 	"aego/render/texture"
 	"aego/ui/core"
+	"aego/ui/theme"
 	"aego/ui/widgets"
 )
 
@@ -74,7 +75,12 @@ type Options struct {
 	RecentPath      string
 	Home            string
 	Image           func(key string, load func() ([]byte, error)) (texture.Region, bool)
+	// Theme and SetTheme read and change the editor theme preference; nil hides the Theme combo (D358).
+	Theme    func() theme.Mode
+	SetTheme func(theme.Mode)
 }
+
+var themeModes = []string{theme.ModeSystem.String(), theme.ModeDark.String(), theme.ModeLight.String()}
 
 type Launcher struct {
 	opt     Options
@@ -277,6 +283,12 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	if l.opt.SetUpdateChecks != nil && widgets.Checkbox(ui, "Check for Aego updates once a day", &l.updates) {
 		l.opt.SetUpdateChecks(l.updates)
 	}
+	if l.opt.SetTheme != nil && l.opt.Theme != nil {
+		m := int(l.opt.Theme())
+		if widgets.Combo(ui, ui.ID("launcher.theme"), widgets.Field(ui, "Theme"), &m, themeModes, false) {
+			l.opt.SetTheme(theme.Mode(m))
+		}
+	}
 	l.content = cur.Y - top
 }
 
@@ -364,7 +376,7 @@ func (l *Launcher) card(ui *core.Context, id core.ID, r mathx.Rect, c cardSpec) 
 	lh := ui.LineHeight()
 	pr := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: r.W - 12, H: r.H - 16 - 2*lh}
 	ui.Rect(pr, th.PanelAlt)
-	tint := mathx.Color{R: 1, G: 1, B: 1, A: 1}
+	tint := mathx.White
 	if c.dim {
 		tint.A = 0.4
 	}

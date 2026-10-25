@@ -21,17 +21,6 @@ const (
 	stripScaleNS           = 2 * budgetNS
 )
 
-var palette = [...]mathx.Color{
-	mathx.ColorRGB8(0x4B, 0x8B, 0xE5),
-	mathx.ColorRGB8(0x6B, 0xC4, 0x6D),
-	mathx.ColorRGB8(0xE0, 0x7B, 0x39),
-	mathx.ColorRGB8(0xA0, 0x6B, 0xD5),
-	mathx.ColorRGB8(0x3F, 0xB6, 0xB0),
-	mathx.ColorRGB8(0xD5, 0x6B, 0x9A),
-	mathx.ColorRGB8(0xC9, 0xB0, 0x3F),
-	mathx.ColorRGB8(0x7A, 0x8C, 0xA3),
-}
-
 type Timeline struct {
 	back   int
 	paused bool
@@ -146,7 +135,7 @@ func (tl *Timeline) flame(ui *core.Context, tr *trace.Tracer, f *trace.Frame, r 
 			W: max(float32(e.Dur)/dur*r.W, 1),
 			H: flameRow - 1,
 		}
-		ui.Rect(er, palette[int(e.Zone)%len(palette)])
+		ui.Rect(er, th.Series[int(e.Zone)%len(th.Series)])
 		if er.W > 40 {
 			ui.PushClip(er)
 			ui.Text(tr.Name(e.Zone), mathx.Vec2{X: er.X + 3, Y: ui.TextY(er)}, th.Text)

@@ -261,7 +261,7 @@ func (p *Panel) refreshView(d *document.SceneDocument) {
 		PixelScale:    p.scale,
 		PixelsPerUnit: 1,
 		ZMax:          1,
-		Clear:         p.ui().Theme.Background,
+		Clear:         p.ui().Theme.SceneBg,
 		DoClear:       true,
 		Layers:        view.AllLayers,
 		Label:         "sceneview",
@@ -340,7 +340,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.cur = p.worldFor(d)
 	p.gizmo.Mode = p.gizmoMode(p.d.Tools.Tool)
 	p.refreshView(d)
-	ui.List().Texture(target.Region(), r, mathx.Color{R: 1, G: 1, B: 1, A: 1})
+	ui.List().Texture(target.Region(), r, mathx.White)
 	p.toolbar(d, r)
 	p.prefabBar(d, r)
 	p.isolationBar(d, r)

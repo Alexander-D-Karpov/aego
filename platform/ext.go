@@ -77,3 +77,16 @@ type Displayer interface {
 type Driver interface {
 	Drive(step func() bool)
 }
+
+type SystemTheme uint8
+
+const (
+	ThemeUnknown SystemTheme = iota
+	ThemeLight
+	ThemeDark
+)
+
+// SystemThemer reports whether the OS asks for a light or a dark look (D358).
+type SystemThemer interface {
+	SystemTheme() SystemTheme
+}

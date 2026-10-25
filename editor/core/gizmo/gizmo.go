@@ -67,6 +67,7 @@ type Colors struct {
 	Center mathx.Color
 	Rotate mathx.Color
 	Hot    mathx.Color
+	Field  mathx.Color
 }
 
 type DrawCtx struct {
