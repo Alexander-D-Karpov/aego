@@ -4,6 +4,7 @@ package player
 
 import (
 	"aego/modules/audio"
+	"aego/modules/settings"
 	"errors"
 	"path"
 	"strconv"
@@ -92,6 +93,10 @@ func (p *Player) userPath(name string) (string, bool) {
 
 func expose(p *Player) {
 	api := js.Global().Get("Object").New()
+	api.Set("menuOpen", js.FuncOf(func(js.Value, []js.Value) any {
+		v := settings.Of(p.Engine.MainWorld())
+		return v != nil && v.Opened()
+	}))
 	api.Set("frames", js.FuncOf(func(js.Value, []js.Value) any {
 		return float64(p.Engine.MainWorld().Time.Frame())
 	}))

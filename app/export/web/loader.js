@@ -42,7 +42,7 @@
         setTimeout(() => {
             if (errorBox.hidden) loader.remove();
         }, 300);
-        full.hidden = !canvas.requestFullscreen;
+        full.hidden = !fullscreenOf(document.documentElement);
         if (typeof globalThis.aegoAudioMute === "function") {
             mute.hidden = false;
             syncMute();
@@ -50,8 +50,13 @@
         canvas.focus();
     };
 
+    // The whole page goes fullscreen, so the touch gamepad and the buttons stay over the canvas.
+    function fullscreenOf(el) {
+        return el.requestFullscreen || el.webkitRequestFullscreen;
+    }
     full.addEventListener("click", () => {
-        const done = canvas.requestFullscreen();
+        const el = document.documentElement;
+        const done = fullscreenOf(el).call(el);
         if (done && done.catch) done.catch(() => {});
         canvas.focus();
     });
@@ -60,9 +65,11 @@
         syncMute();
         canvas.focus();
     });
-    document.addEventListener("fullscreenchange", () => {
-        full.hidden = !!document.fullscreenElement;
-    });
+    const onFullscreen = () => {
+        full.hidden = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFullscreen);
+    document.addEventListener("webkitfullscreenchange", onFullscreen);
 
     function progress(n) {
         got += n;

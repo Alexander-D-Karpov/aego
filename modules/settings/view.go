@@ -182,7 +182,7 @@ func (v *View) layout(size mathx.Vec2) {
 	head := mathx.Rect{X: r.X + pad, Y: r.Y + pad, W: r.W - 2*pad, H: th.RowHeight}
 	ui.Text(i18n.Tr("settings.title", "Settings"), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
 	tabs := mathx.Rect{X: head.X, Y: head.Y + head.H + th.Spacing*3, W: head.W, H: th.RowHeight}
-	v.tabs(ui, tabs)
+	tabs.H = v.tabs(ui, tabs)
 	foot := mathx.Rect{X: head.X, Y: r.Y + r.H - pad - th.RowHeight, W: head.W, H: th.RowHeight}
 	body := mathx.Rect{X: head.X, Y: tabs.Y + tabs.H + th.Spacing*4, W: head.W}
 	body.H = max(0, foot.Y-th.Spacing*3-body.Y)
@@ -195,19 +195,24 @@ func (v *View) layout(size mathx.Vec2) {
 	v.footer(ui, foot)
 }
 
-func (v *View) tabs(ui *core.Context, r mathx.Rect) {
-	x := r.X
+// tabs draws the category tabs, wrapping them onto more rows on a narrow screen, and returns their height.
+func (v *View) tabs(ui *core.Context, r mathx.Rect) float32 {
+	x, y := r.X, r.Y
 	for i, c := range v.cats() {
 		label := es.CategoryText(c)
-		w := ui.TextSize(label).X + 24
+		w := min(ui.TextSize(label).X+24, r.W)
+		if x > r.X && x+w > r.X+r.W {
+			x, y = r.X, y+r.H+4
+		}
 		on := c == v.cat
-		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: x, Y: r.Y, W: w, H: r.H}, label, &on) && c != v.cat {
+		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: x, Y: y, W: w, H: r.H}, label, &on) && c != v.cat {
 			v.cat = c
 			v.ed.Cancel()
 			v.refresh()
 		}
 		x += w + 4
 	}
+	return y + r.H - r.Y
 }
 
 func (v *View) list(ui *core.Context, r mathx.Rect) {
@@ -269,7 +274,7 @@ func (v *View) confirm(ui *core.Context, r mathx.Rect, left float64) {
 
 func (v *View) footer(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
-	bw := float32(90)
+	bw := min(90, (r.W-12)/4)
 	x := r.X + r.W
 	button := func(name, label string) bool {
 		x -= bw

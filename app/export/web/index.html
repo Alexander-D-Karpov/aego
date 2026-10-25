@@ -26,7 +26,7 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
 #mute .off, #mute.muted .on { display: none; }
 #mute.muted .off { display: inline; }
 #vpad { --s: clamp(64px, 30vmin, 120px); --k: clamp(30px, 12vmin, 52px); --g: calc(var(--k) + 4px); --m: clamp(8px, 4vmin, 20px); position: fixed; inset: auto 0 0 0; height: 0; pointer-events: none; }
-#vpad[hidden] { display: none; }
+#vpad[hidden], #vpad.menu { display: none; }
 #vpad .stick, #vpad .btn { position: fixed; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; box-sizing: border-box; border: 1px solid rgba(228, 227, 223, 0.18); background: rgba(45, 48, 54, 0.55); color: #e4e3df; }
 #vpad .stick { left: max(var(--m), env(safe-area-inset-left)); bottom: max(var(--m), env(safe-area-inset-bottom)); width: var(--s); height: var(--s); border-radius: 50%; }
 #vpad .knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; background: #6e9bf5; }
@@ -68,6 +68,14 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
   const ready = () => loader.classList.contains("done");
   let touch = matchMedia("(pointer: coarse)").matches;
   const update = () => show(touch && ready());
+  // While the game's settings screen is open, taps go to its buttons, not to the gamepad.
+  setInterval(() => {
+    const g = globalThis.aegoGame;
+    if (root.hidden || !g || !g.menuOpen) return;
+    const open = !!g.menuOpen();
+    if (open && !root.classList.contains("menu")) for (const el of root.querySelectorAll(".btn.held")) el.dispatchEvent(new Event("pointercancel"));
+    root.classList.toggle("menu", open);
+  }, 200);
   new MutationObserver(update).observe(loader, { attributes: true, attributeFilter: ["class"] });
   addEventListener("pointerdown", (e) => { if (e.pointerType === "touch" && !touch) { touch = true; update(); } }, true);
   addEventListener("keydown", () => { if (touch && !matchMedia("(pointer: coarse)").matches) { touch = false; update(); } }, true);

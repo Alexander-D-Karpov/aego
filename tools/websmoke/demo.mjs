@@ -117,7 +117,38 @@ async function touchPad() {
     const released = await leftX();
     if (held === null || held < 0.9 || released !== 0) fail(`the game reads the touch stick as ${held}, then ${released} after release`);
     else console.log("demo: the game reads the touch gamepad");
+    await menuAndFullscreen(phone, cdp);
     await ctx.close();
+}
+
+// menuAndFullscreen checks that the gamepad gives way to the settings screen and stays on screen in fullscreen.
+async function menuAndFullscreen(phone, cdp) {
+    const tap = async (sel) => {
+        const b = await phone.locator(sel).boundingBox();
+        const pt = [{ x: b.x + b.width / 2, y: b.y + b.height / 2, id: 2 }];
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: pt });
+        await phone.waitForTimeout(150);
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    const padShown = () => phone.locator("#vpad .stick").isVisible();
+    await tap("#vpad .start");
+    await phone.waitForTimeout(600);
+    const open = await phone.evaluate(() => globalThis.aegoGame.menuOpen());
+    if (!open) fail("Start on the touch gamepad does not open the settings screen");
+    else if (await padShown()) fail("the touch gamepad covers the open settings screen");
+    else console.log("demo: the touch gamepad hides under the settings screen");
+    if (opts.shots) await phone.screenshot({ path: path.join(opts.shots, "phone-settings.png") });
+    await phone.keyboard.press("Escape");
+    await phone.waitForTimeout(600);
+    if (await phone.evaluate(() => globalThis.aegoGame.menuOpen())) fail("Escape does not close the settings screen");
+    else if (!(await padShown())) fail("the touch gamepad does not come back after the settings screen closes");
+    await phone.locator("#fullscreen").click();
+    await phone.waitForTimeout(500);
+    const full = await phone.evaluate(() => document.fullscreenElement === document.documentElement);
+    if (!full) fail("the fullscreen button does not make the page fullscreen");
+    else if (!(await padShown())) fail("the touch gamepad is hidden in fullscreen");
+    else console.log("demo: the touch gamepad stays in fullscreen");
+    if (opts.shots) await phone.screenshot({ path: path.join(opts.shots, "phone-fullscreen.png") });
 }
 
 const srv = await serve(site);
