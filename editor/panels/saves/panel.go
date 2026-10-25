@@ -168,7 +168,7 @@ func (p *Panel) slots(r mathx.Rect) {
 		p.row(&p.list[i], rr)
 	})
 	if len(p.list) == 0 {
-		ui.TextIn(body, "No saves yet", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(body, i18n.Tr("editor.saves.no_saves_yet", "No saves yet"), th.TextDisabled, core.AlignCenter)
 	}
 }
 
@@ -369,7 +369,7 @@ func (p *Panel) details(st *save.Store, r mathx.Rect) {
 	}
 	info := p.selected()
 	if info == nil {
-		ui.TextIn(mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight}, "Select a save to see what it holds", th.TextDim, core.AlignLeft)
+		ui.TextIn(mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight}, i18n.Tr("editor.saves.select_a_save", "Select a save to see what it holds"), th.TextDim, core.AlignLeft)
 		return
 	}
 	if p.docSlot != info.Slot || !p.docMod.Equal(info.Mod) {

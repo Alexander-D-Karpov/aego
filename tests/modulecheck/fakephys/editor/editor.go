@@ -12,6 +12,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/tests/modulecheck/fakephys"
 	"aego/ui/widgets"
@@ -42,10 +43,10 @@ func (p *Plugin) Hook(e *ext.Registry) error {
 	}
 	e.GameOverlay(func(*shape.OverlayCtx) { p.Overlays++ })
 	e.Overlay(func(*shape.OverlayCtx) { p.SceneOverlays++ })
-	if err := e.Vectors(LayerImpulse, "Fake Impulse", func(*context.VectorSink) { p.Vectors++ }); err != nil {
+	if err := e.Vectors(LayerImpulse, i18n.Text{En: "Fake Impulse"}, func(*context.VectorSink) { p.Vectors++ }); err != nil {
 		return err
 	}
-	e.Profiler("Fake", true, func(*context.Editor) { p.Profiled++ })
+	e.Profiler(i18n.Text{En: "Fake"}, true, func(*context.Editor) { p.Profiled++ })
 	if err := e.Panel(workspace.Desc{Panel: &panel{p: p}, Near: workspace.Inspector}); err != nil {
 		return err
 	}

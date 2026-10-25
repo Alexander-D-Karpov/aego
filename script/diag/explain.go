@@ -1,6 +1,10 @@
 package diag
 
-import "sort"
+import (
+	"sort"
+
+	"aego/engine/i18n"
+)
 
 type Help struct {
 	What string
@@ -123,4 +127,13 @@ func Codes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Localized is Explain in the current language, from the keys diag.<CODE> and diag.<CODE>.fix (D348).
+func Localized(code string) (Help, bool) {
+	h, ok := help[code]
+	if !ok {
+		return h, false
+	}
+	return Help{What: i18n.Lookup("diag."+code, h.What), Fix: i18n.Lookup("diag."+code+".fix", h.Fix)}, true
 }

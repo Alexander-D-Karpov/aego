@@ -558,7 +558,12 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 		}
 	})
 	if count == 0 {
-		ui.TextIn(r, "Drop files here to import", th.TextDisabled, core.AlignCenter)
+		lines := widgets.WrapLines(ui, i18n.Tr("editor.assets.drop_files_here", "Drop files here to import"), r.W-2*th.Padding)
+		lh := ui.LineHeight()
+		y := r.Y + (r.H-float32(len(lines))*lh)/2
+		for i, l := range lines {
+			ui.TextIn(mathx.Rect{X: r.X, Y: y + float32(i)*lh, W: r.W, H: lh}, l, th.TextDisabled, core.AlignCenter)
+		}
 	}
 	used := mathx.Clamp(float32(rows)*tileH-p.gridScroll, 0, r.H)
 	empty := mathx.Rect{X: r.X, Y: r.Y + used, W: r.W, H: r.H - used}

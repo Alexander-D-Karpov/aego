@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/prefabs"
+	"aego/engine/i18n"
 	"aego/project/refactor"
 	prefs "aego/project/refs"
 	"aego/scene/prefab"
@@ -269,7 +270,7 @@ func (s *Service) replaceLive(d *document.SceneDocument, from, to ids.AssetID) (
 	if len(edits) == 0 {
 		return 0, nil
 	}
-	return len(edits), apply(d.History, "Replace References", func(tx *history.Transaction) error {
+	return len(edits), apply(d.History, i18n.Tr("editor.history.replace_references", "Replace References"), func(tx *history.Transaction) error {
 		for _, e := range edits {
 			if err := d.Props.Set(tx, []ids.NodeID{e.node}, e.t, e.f, e.v); err != nil {
 				return err
@@ -435,7 +436,7 @@ func (s *Service) ClearNode(m MissingNode) error {
 	if len(edits) == 0 {
 		return nil
 	}
-	return apply(d.History, "Clear Missing Node Reference", func(tx *history.Transaction) error {
+	return apply(d.History, i18n.Tr("editor.history.clear_missing_node_reference", "Clear Missing Node Reference"), func(tx *history.Transaction) error {
 		for _, e := range edits {
 			if err := d.Props.Set(tx, []ids.NodeID{e.node}, e.t, e.f, e.v); err != nil {
 				return err

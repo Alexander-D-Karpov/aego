@@ -88,7 +88,7 @@ func (p *Panel) curveView(r mathx.Rect, g frame) {
 		}
 	}
 	if p.ctrack < 0 {
-		ui.TextIn(r, "The clip has no numeric tracks to draw as curves", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(r, i18n.Tr("editor.animation.no_numeric_tracks", "The clip has no numeric tracks to draw as curves"), th.TextDisabled, core.AlignCenter)
 		return
 	}
 	lanes := svc.Lanes(p.ctrack)
@@ -118,11 +118,11 @@ func (p *Panel) curveView(r mathx.Rect, g frame) {
 	e := widgets.CurveGraph(ui, ui.ID("curve"), gr, &p.ccur, p.cst)
 	d := p.d.Docs.Doc()
 	if e.Begin && p.ctx == nil && d != nil {
-		p.ctx = d.History.Begin("Edit Curve")
+		p.ctx = d.History.Begin(i18n.Tr("editor.history.edit_curve", "Edit Curve"))
 	}
 	if e.Changed {
 		ops := svc.CurveOps(p.ctrack, p.lane, p.cbase, p.ccur)
-		if err := svc.EditClip("Edit Curve", ops...); err != nil {
+		if err := svc.EditClip(i18n.Tr("editor.history.edit_curve", "Edit Curve"), ops...); err != nil {
 			p.notify(err)
 			p.cof = curveKey{}
 		} else {

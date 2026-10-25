@@ -58,3 +58,5 @@ asset/... -> "data", semantic, the artifact kind and importer ID of .aedata file
 
 # The Gameplay guide group is older than the gameplay module; module pages join it.
 engine/docs/groups.go -> "gameplay", semantic, the guide group id equals the gameplay module id and is not a reference to the module (D312)
+engine/i18n -> "data", semantic, engine/i18n/data is the directory of the registry text catalogs, not the data module (D348)
+engine/settings/settingsui -> "settings*", semantic, the settings view texts are translated under the settings.* catalog keys (D348)

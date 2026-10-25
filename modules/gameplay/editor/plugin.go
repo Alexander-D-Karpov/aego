@@ -8,6 +8,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
 	"aego/modules/gameplay"
 	"aego/scene"
 )
@@ -79,7 +80,7 @@ func Hook(e *ext.Registry) error {
 	}
 	e.Overlay(p.sceneOverlay)
 	e.GameOverlay(p.gameOverlay)
-	e.Profiler("Gameplay", true, p.profile)
+	e.Profiler(i18n.T("i18n.gameplay.profiler", "Gameplay"), true, p.profile)
 	if p.ed == nil {
 		return nil
 	}

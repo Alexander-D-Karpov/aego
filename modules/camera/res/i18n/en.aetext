@@ -14,6 +14,9 @@ messages version=1 lang=en {
   msg "i18n.camera.no_camera_outputs" {
     text="No camera outputs"
   }
+  msg "i18n.camera.profiler" {
+    text="Camera"
+  }
   msg "i18n.camera.snap_to_target" {
     text="Snap to Target"
   }

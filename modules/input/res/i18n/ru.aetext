@@ -17,6 +17,9 @@ messages version=1 lang=ru {
   msg "i18n.input.bindings" {
     text="Назначения"
   }
+  msg "i18n.input.buffer" {
+    text="Буфер"
+  }
   msg "i18n.input.click_then_press_a_key" {
     text="Щёлкните, затем нажмите клавишу, кнопку мыши или элемент геймпада"
   }
@@ -29,14 +32,56 @@ messages version=1 lang=ru {
   msg "i18n.input.contexts" {
     text="Контексты"
   }
+  msg "i18n.input.dead_zone" {
+    text="Мёртвая зона"
+  }
   msg "i18n.input.devices" {
     text="Устройства"
   }
   msg "i18n.input.devices.title" {
     text="Устройства ввода"
   }
+  msg "i18n.input.dir.down" {
+    text="Вниз"
+  }
+  msg "i18n.input.dir.left" {
+    text="Влево"
+  }
+  msg "i18n.input.dir.right" {
+    text="Вправо"
+  }
+  msg "i18n.input.dir.up" {
+    text="Вверх"
+  }
   msg "i18n.input.focus.title" {
     text="Фокус ввода"
+  }
+  msg "i18n.input.form.arrow_keys" {
+    text="Стрелки"
+  }
+  msg "i18n.input.form.four_keys" {
+    text="Четыре клавиши (WASD)"
+  }
+  msg "i18n.input.form.key" {
+    text="Клавиша"
+  }
+  msg "i18n.input.form.mouse_button" {
+    text="Кнопка мыши"
+  }
+  msg "i18n.input.form.pad_axis" {
+    text="Ось геймпада"
+  }
+  msg "i18n.input.form.pad_button" {
+    text="Кнопка геймпада"
+  }
+  msg "i18n.input.form.pad_trigger" {
+    text="Курок геймпада"
+  }
+  msg "i18n.input.form.stick" {
+    text="Стик"
+  }
+  msg "i18n.input.form.two_keys" {
+    text="Две клавиши (- / +)"
   }
   msg "i18n.input.gamepad" {
     text="Геймпад"
@@ -89,11 +134,17 @@ messages version=1 lang=ru {
   msg "i18n.input.no_bindings_yet_the_action" {
     text="Назначений пока нет: действие никогда не сработает"
   }
+  msg "i18n.input.pad_n" {
+    text="Геймпад {n}"
+  }
   msg "i18n.input.pad_v_i_padstate" {
     text="Геймпад {v}: {i}   {padstate}"
   }
   msg "i18n.input.player" {
     text="Игрок"
+  }
+  msg "i18n.input.player_n" {
+    text="Игрок {n}"
   }
   msg "i18n.input.players" {
     text="Игроки"
@@ -116,6 +167,15 @@ messages version=1 lang=ru {
   msg "i18n.input.remove_the_modifier" {
     text="Удалить модификатор"
   }
+  msg "i18n.input.sensitivity" {
+    text="Чувствительность"
+  }
+  msg "i18n.input.smoothing" {
+    text="Сглаживание"
+  }
+  msg "i18n.input.start_stack" {
+    text="Стартовый стек"
+  }
   msg "i18n.input.start_stack_contexts_active_when" {
     text="Начальный стек: контексты, активные при запуске игры"
   }
@@ -124,6 +184,27 @@ messages version=1 lang=ru {
   }
   msg "i18n.input.the_stack_reads_higher_priority" {
     text="Стек читается от высокого приоритета к низкому; поглощающий контекст скрывает свои элементы управления от нижних."
+  }
+  msg "i18n.input.time" {
+    text="Время"
+  }
+  msg "i18n.input.trigger.double_tap" {
+    text="Двойное нажатие"
+  }
+  msg "i18n.input.trigger.hold" {
+    text="Удержание"
+  }
+  msg "i18n.input.trigger.press" {
+    text="Нажатие"
+  }
+  msg "i18n.input.trigger.release" {
+    text="Отпускание"
+  }
+  msg "i18n.input.trigger.tap" {
+    text="Касание"
+  }
+  msg "i18n.input.trigger.toggle" {
+    text="Переключение"
   }
   msg "i18n.input.type" {
     text="Тип"

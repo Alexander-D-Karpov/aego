@@ -23,8 +23,17 @@ messages version=1 lang=en {
   msg "i18n.physics.collision_matrix" {
     text="Collision Matrix"
   }
+  msg "i18n.physics.contact_damping_ratio" {
+    text="Contact Damping Ratio"
+  }
   msg "i18n.physics.contact_fmtf_hz_damping_fmtf2" {
     text="Contact {fmtf} Hz · damping {fmtf2}"
+  }
+  msg "i18n.physics.contact_hertz" {
+    text="Contact Hertz"
+  }
+  msg "i18n.physics.contact_push_velocity" {
+    text="Contact Push Velocity"
   }
   msg "i18n.physics.contacts" {
     text="Contacts"
@@ -53,6 +62,9 @@ messages version=1 lang=en {
   msg "i18n.physics.layers" {
     text="Layers"
   }
+  msg "i18n.physics.linear_slop" {
+    text="Linear Slop"
+  }
   msg "i18n.physics.mass" {
     text="Mass"
   }
@@ -65,16 +77,64 @@ messages version=1 lang=en {
   msg "i18n.physics.physics_is_not_attached_to" {
     text="Physics is not attached to the play world"
   }
+  msg "i18n.physics.profiler" {
+    text="Physics"
+  }
+  msg "i18n.physics.relax_iterations" {
+    text="Relax Iterations"
+  }
+  msg "i18n.physics.restitution_threshold" {
+    text="Restitution Threshold"
+  }
   msg "i18n.physics.shapes" {
     text="Shapes"
   }
   msg "i18n.physics.simulation" {
     text="Simulation"
   }
+  msg "i18n.physics.sleep_angular" {
+    text="Sleep Angular"
+  }
+  msg "i18n.physics.sleep_linear" {
+    text="Sleep Linear"
+  }
+  msg "i18n.physics.sleep_time" {
+    text="Sleep Time"
+  }
   msg "i18n.physics.snap_to_sprite" {
     text="Snap to Sprite"
   }
+  msg "i18n.physics.stats_bodies" {
+    text="bodies {bodies}   active {active}   sleeping {sleeping}   shapes {shapes}   joints {joints}"
+  }
+  msg "i18n.physics.stats_contacts" {
+    text="candidates {candidates}   touching {touching}   manifolds {manifolds}   points {points}   islands {islands}   events {events}"
+  }
+  msg "i18n.physics.stats_steps" {
+    text="steps {steps}   touching pairs tracked {pairs}"
+  }
+  msg "i18n.physics.substeps" {
+    text="Substeps"
+  }
   msg "i18n.physics.tall_stacks_and_fast_motors" {
     text="Tall stacks and fast motors: Substeps 8 and Contact Hertz 60 (stiff profile) at about twice the solver cost. Zero keeps the engine default."
+  }
+  msg "i18n.physics.vectors.angular_velocity" {
+    text="Angular Velocity"
+  }
+  msg "i18n.physics.vectors.contact_impulses" {
+    text="Contact Impulses"
+  }
+  msg "i18n.physics.vectors.forces" {
+    text="Forces"
+  }
+  msg "i18n.physics.vectors.gravity" {
+    text="Gravity"
+  }
+  msg "i18n.physics.vectors.velocity" {
+    text="Velocity"
+  }
+  msg "i18n.physics.velocity_iterations" {
+    text="Velocity Iterations"
   }
 }

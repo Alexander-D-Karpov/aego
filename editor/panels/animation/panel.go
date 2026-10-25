@@ -426,7 +426,7 @@ func (p *Panel) toolbar() {
 	if labeled("ui.curve", i18n.Tr("editor.animation.curves", "Curves"), th.Text, p.curves) {
 		p.curves = !p.curves
 	}
-	if icon("anim.to_start", "Go to start", false) {
+	if icon("anim.to_start", i18n.Tr("editor.animation.go_to_start", "Go to start"), false) {
 		svc.SetMode(max(mode, animedit.Preview))
 		svc.Pause()
 		svc.SetTime(0)
@@ -442,7 +442,7 @@ func (p *Panel) toolbar() {
 			svc.Play()
 		}
 	}
-	if icon("anim.to_end", "Go to end", false) {
+	if icon("anim.to_end", i18n.Tr("editor.animation.go_to_end", "Go to end"), false) {
 		svc.SetMode(max(mode, animedit.Preview))
 		svc.Pause()
 		svc.SetTime(p.clip.Length)
@@ -607,7 +607,7 @@ func (p *Panel) events(r mathx.Rect, g frame) {
 		}
 		for _, n := range names {
 			if widgets.MenuItem(ui, n, "", true, false) {
-				p.notify(p.svc.EditClip("Add Event", mutate.AnimEventAdd(strconv.FormatFloat(float64(p.menuT), 'g', -1, 32), n)))
+				p.notify(p.svc.EditClip(i18n.Tr("editor.history.add_event", "Add Event"), mutate.AnimEventAdd(strconv.FormatFloat(float64(p.menuT), 'g', -1, 32), n)))
 			}
 		}
 		if len(names) == 0 {
@@ -617,7 +617,7 @@ func (p *Panel) events(r mathx.Rect, g frame) {
 	}
 	if widgets.ContextMenu(ui, ui.ID("eventmenu")) {
 		if widgets.MenuItem(ui, i18n.Tr("editor.animation.remove_event", "Remove Event"), "", true, false) {
-			p.notify(p.svc.EditClip("Remove Event", mutate.AnimEventRemove(p.view.Events[p.menuEv].Index)))
+			p.notify(p.svc.EditClip(i18n.Tr("editor.history.remove_event", "Remove Event"), mutate.AnimEventRemove(p.view.Events[p.menuEv].Index)))
 		}
 		widgets.EndContextMenu(ui)
 	}
@@ -763,7 +763,7 @@ func (p *Panel) dragging(g frame) {
 	case dragEvent:
 		e := p.view.Events[d.event]
 		to := mathx.Clamp(e.T+d.delta, 0, g.length)
-		p.notify(p.svc.EditClip("Move Event", mutate.AnimEventMove(e.Index, strconv.FormatFloat(float64(to), 'g', -1, 32))))
+		p.notify(p.svc.EditClip(i18n.Tr("editor.history.move_event", "Move Event"), mutate.AnimEventMove(e.Index, strconv.FormatFloat(float64(to), 'g', -1, 32))))
 	}
 }
 

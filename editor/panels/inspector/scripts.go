@@ -104,7 +104,7 @@ func (p *Panel) scriptEnabled(d *document.SceneDocument, name string) {
 		return
 	}
 	after := state != 1
-	tx := d.History.Begin("Toggle " + shortScript(name))
+	tx := d.History.Begin(i18n.Tr("editor.history.toggle", "Toggle {name}", i18n.Str("name", shortScript(name))))
 	for _, id := range p.nodes {
 		a := attachment(s, id, name)
 		if a == nil || a.Enabled == after {
@@ -313,7 +313,7 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 	}
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset", "Reset"), "", "ui.reset", known, false) {
 		reg := d.Scene().Registry()
-		tx := d.History.Begin("Reset " + short)
+		tx := d.History.Begin(i18n.Tr("editor.history.reset", "Reset {name}", i18n.Str("name", short)))
 		for i := range td.Fields {
 			fd := &td.Fields[i]
 			if err := d.Props.Set(tx, p.nodes, td.ID, fd.ID, p.defaultValue(reg, td, fd)); err != nil {
@@ -329,7 +329,7 @@ func (p *Panel) scriptMenu(d *document.SceneDocument, name string, td *schema.Ty
 		widgets.Separator(ui)
 	}
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.remove", "Remove"), "", "edit.delete", true, false) {
-		tx := d.History.Begin("Remove " + short)
+		tx := d.History.Begin(i18n.Tr("editor.history.remove", "Remove {name}", i18n.Str("name", short)))
 		for _, n := range p.nodes {
 			if err := tx.Exec(&commands.RemoveScript{Node: n, TypeName: name}); err != nil {
 				tx.Abort()

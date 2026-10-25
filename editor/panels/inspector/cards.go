@@ -173,10 +173,10 @@ func (p *Panel) copyValue(d *document.SceneDocument, td *schema.TypeDescriptor, 
 func (p *Panel) pasteValue(d *document.SceneDocument, td *schema.TypeDescriptor, fd *schema.FieldDescriptor) {
 	v, ok := p.d.Clip.ReadValue(fd)
 	if !ok {
-		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.clipboard_does_not_fit", "The clipboard does not fit {field}", i18n.Str("field", p.labelOf(fd))))
+		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.inspector.clipboard_does_not_fit", "The clipboard does not fit {field}", i18n.Str("field", p.labelOf(td, fd))))
 		return
 	}
-	p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
+	p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(td, fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
 }
 
 func (p *Panel) defaultValue(reg *schema.Registry, td *schema.TypeDescriptor, fd *schema.FieldDescriptor) schema.Value {
@@ -223,7 +223,7 @@ func (p *Panel) fieldMenu(d *document.SceneDocument) {
 	}
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.inspector.reset_to_default", "Reset to Default"), "", "ui.reset", !ro, false) {
 		def := p.defaultValue(d.Scene().Registry(), td, fd)
-		p.confirm(d, i18n.Tr("editor.inspector.reset_name", "Reset {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, def) })
+		p.confirm(d, i18n.Tr("editor.inspector.reset_name", "Reset {name}", i18n.Str("name", p.labelOf(td, fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, def) })
 	}
 	if p.overridden(td, fd) {
 		p.prefabItems(d, prefabs.Change{Node: p.nodes[0], Level: prefabs.LevelProperty, Prop: prefab.PropKey{Owner: ownerOf(td), Field: fd.Name}}, true)

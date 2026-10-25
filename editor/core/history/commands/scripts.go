@@ -7,6 +7,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/editor/core/history"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/scriptcomp"
 	"aego/schema"
@@ -32,7 +33,7 @@ type AddScript struct {
 }
 
 func (c *AddScript) Label() string {
-	return "Add " + shortName(c.TypeName)
+	return i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", shortName(c.TypeName)))
 }
 
 func (c *AddScript) Do(t history.Target) error {
@@ -83,7 +84,7 @@ type RemoveScript struct {
 }
 
 func (c *RemoveScript) Label() string {
-	return "Remove " + shortName(c.TypeName)
+	return i18n.Tr("editor.history.remove", "Remove {name}", i18n.Str("name", shortName(c.TypeName)))
 }
 
 func (c *RemoveScript) Do(t history.Target) error {
@@ -138,7 +139,7 @@ type SetScriptEnabled struct {
 }
 
 func (c *SetScriptEnabled) Label() string {
-	return "Toggle " + shortName(c.TypeName)
+	return i18n.Tr("editor.history.toggle", "Toggle {name}", i18n.Str("name", shortName(c.TypeName)))
 }
 
 func (c *SetScriptEnabled) set(t history.Target, v bool) error {
@@ -177,7 +178,7 @@ type ReorderScript struct {
 }
 
 func (c *ReorderScript) Label() string {
-	return "Reorder Scripts"
+	return i18n.Tr("editor.history.reorder_scripts", "Reorder Scripts")
 }
 
 func (c *ReorderScript) move(t history.Target, from, to int) error {

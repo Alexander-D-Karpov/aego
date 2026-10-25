@@ -361,16 +361,16 @@ func PromptSaveAs(ctx *context.Editor, d *document.SceneDocument) {
 	id := d.ID
 	ctx.Ask(context.Question{
 		Title:   i18n.Tr("editor.assetops.save_scene_as", "Save scene as"),
-		Fields:  []string{"Path"},
+		Fields:  []string{i18n.Tr("editor.assetops.path", "Path")},
 		Values:  []string{d.Path},
-		Buttons: []string{"Save", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assetops.save", "Save"), i18n.Tr("editor.common.cancel", "Cancel")},
 		Submit: func(v []string) {
 			rel := withExt(document.Clean(strings.TrimSpace(v[0])), document.SceneExt)
 			if err := ctx.Docs.SaveAs(id, rel); err != nil {
 				ctx.Notify(context.LevelError, err.Error())
 				return
 			}
-			ctx.Notify(context.LevelInfo, "Saved "+rel)
+			ctx.Notify(context.LevelInfo, i18n.Note("editor.assetops.saved", "Saved {path}", i18n.Str("path", rel)))
 		},
 	})
 }
@@ -385,9 +385,9 @@ func PromptRenameScene(ctx *context.Editor, ops *Ops, d *document.SceneDocument)
 	id, old, onDisk := d.ID, d.Path, d.OnDisk
 	ctx.Ask(context.Question{
 		Title:   i18n.Tr("editor.assetops.rename_scene", "Rename scene"),
-		Fields:  []string{"Name"},
+		Fields:  []string{i18n.Tr("editor.assetops.name", "Name")},
 		Values:  []string{Stem(old)},
-		Buttons: []string{"Rename", "Cancel"},
+		Buttons: []string{i18n.Tr("editor.assetops.rename", "Rename"), i18n.Tr("editor.common.cancel", "Cancel")},
 		Submit: func(v []string) {
 			name := strings.TrimSpace(v[0])
 			if !ValidName(name) {

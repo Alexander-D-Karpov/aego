@@ -22,16 +22,10 @@ func Module(full string) string {
 
 func (r *Registry) Meta(td *schema.TypeDescriptor) Meta {
 	if m, ok := r.resolved[td.ID]; ok {
+		m.DisplayName = schema.Title(td)
 		return m
 	}
-	m := Meta{DisplayName: td.DisplayName, Category: td.Category, Icon: td.Icon}
-	if m.DisplayName == "" {
-		name := td.FullName
-		if i := strings.LastIndexByte(name, '.'); i >= 0 {
-			name = name[i+1:]
-		}
-		m.DisplayName = Humanize(name)
-	}
+	m := Meta{DisplayName: schema.Title(td), Category: td.Category, Icon: td.Icon}
 	if m.Category == "" {
 		m.Category = Module(td.FullName)
 	}

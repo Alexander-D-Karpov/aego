@@ -22,8 +22,7 @@ type walk struct {
 	out   []Crossing
 }
 
-// Crossings: forward (t0, t1], backward [t1, t0); start also takes t0 itself in its own cycle.
-// Order is time, then cycle, then event index; PingPong turning points fire once, in the even cycle.
+// Crossings lists the events crossed from t0 to t1 (start includes t0) by time, cycle and index; ping-pong turns fire once.
 func Crossings(c *Clip, loop LoopMode, t0, t1 float64, start bool, out []Crossing) []Crossing {
 	out = out[:0]
 	l := float64(c.Length)

@@ -11,4 +11,19 @@ messages version=1 lang=ru {
   msg "i18n.debug.live_primitives_formatuint_dropped" {
     text="примитивов {live}   отброшено {formatuint}"
   }
+  msg "i18n.debug.preset.all" {
+    text="Все"
+  }
+  msg "i18n.debug.preset.camera" {
+    text="Камера"
+  }
+  msg "i18n.debug.preset.collision" {
+    text="Столкновения"
+  }
+  msg "i18n.debug.preset.none" {
+    text="Ничего"
+  }
+  msg "i18n.debug.preset.velocity" {
+    text="Скорость"
+  }
 }

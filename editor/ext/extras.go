@@ -9,9 +9,10 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/vectors"
+	"aego/engine/i18n"
 )
 
-func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) bool, keywords ...string) error {
+func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) bool, keywords ...i18n.Text) error {
 	ed := r.deps.Editor
 	ext := r.ext()
 	if ed == nil || draw == nil {
@@ -34,7 +35,7 @@ func (r *Registry) SettingsPage(section string, draw func(*context.Editor, any) 
 	return nil
 }
 
-func (r *Registry) Vectors(id, title string, fn func(*context.VectorSink)) error {
+func (r *Registry) Vectors(id string, title i18n.Text, fn func(*context.VectorSink)) error {
 	ed := r.deps.Editor
 	ext := r.ext()
 	if ed == nil || id == "" || fn == nil {
@@ -55,7 +56,7 @@ func (r *Registry) Vectors(id, title string, fn func(*context.VectorSink)) error
 	o := &ed.Overlay
 	o.Set(cid, true)
 	return r.Command(command.Desc{
-		ID: cid, Name: title, Category: vectors.Category, Order: 200 + len(ed.Vectors),
+		ID: cid, Name: title.En, Label: title.String, Category: vectors.Category, Order: 200 + len(ed.Vectors),
 		Checked: func() bool { return o.On(cid) },
 		Run: func() error {
 			o.Toggle(cid)
@@ -64,7 +65,7 @@ func (r *Registry) Vectors(id, title string, fn func(*context.VectorSink)) error
 	})
 }
 
-func (r *Registry) Profiler(title string, play bool, fn func(*context.Editor)) {
+func (r *Registry) Profiler(title i18n.Text, play bool, fn func(*context.Editor)) {
 	ed := r.deps.Editor
 	if ed == nil || fn == nil {
 		return

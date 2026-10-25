@@ -5,6 +5,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/mutate"
 )
@@ -17,8 +18,8 @@ func (a *Access) Rename(tx *history.Transaction, node ids.NodeID, name string) e
 	if a.s.Name(h) == name || name == "" {
 		return nil
 	}
-	return a.within(tx, "Rename", func(tx *history.Transaction) error {
-		return tx.Exec(commands.NewMutation("Rename", commands.EnvFor(a.s), mutate.Rename(commands.Ref(node), name)))
+	return a.within(tx, i18n.Tr("editor.history.rename", "Rename"), func(tx *history.Transaction) error {
+		return tx.Exec(commands.NewMutation(i18n.Tr("editor.history.rename", "Rename"), commands.EnvFor(a.s), mutate.Rename(commands.Ref(node), name)))
 	})
 }
 
@@ -27,7 +28,7 @@ func (a *Access) SetEnabled(tx *history.Transaction, nodes []ids.NodeID, v bool)
 	if v {
 		text = "true"
 	}
-	return a.within(tx, "Toggle Enabled", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.toggle_enabled", "Toggle Enabled"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
@@ -36,7 +37,7 @@ func (a *Access) SetEnabled(tx *history.Transaction, nodes []ids.NodeID, v bool)
 			if a.s.Enabled(h) == v {
 				continue
 			}
-			if err := tx.Exec(commands.NewMutation("Toggle Enabled", commands.EnvFor(a.s), mutate.Set(commands.Ref(n), "enabled", text))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.toggle_enabled", "Toggle Enabled"), commands.EnvFor(a.s), mutate.Set(commands.Ref(n), "enabled", text))); err != nil {
 				return err
 			}
 		}
@@ -45,7 +46,7 @@ func (a *Access) SetEnabled(tx *history.Transaction, nodes []ids.NodeID, v bool)
 }
 
 func (a *Access) SetLayers(tx *history.Transaction, nodes []ids.NodeID, mask uint64) error {
-	return a.within(tx, "Set Layers", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.set_layers", "Set Layers"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
@@ -64,7 +65,7 @@ func (a *Access) SetLayers(tx *history.Transaction, nodes []ids.NodeID, mask uin
 }
 
 func (a *Access) SetSpace(tx *history.Transaction, nodes []ids.NodeID, sp scene.Space) error {
-	return a.within(tx, "Change Space", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.change_space", "Change Space"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
@@ -82,7 +83,7 @@ func (a *Access) SetSpace(tx *history.Transaction, nodes []ids.NodeID, sp scene.
 }
 
 func (a *Access) EditTransform(tx *history.Transaction, nodes []ids.NodeID, fn func(*scene.Transform2D)) error {
-	return a.within(tx, "Transform", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.transform", "Transform"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {
@@ -106,7 +107,7 @@ func (a *Access) EditTransform(tx *history.Transaction, nodes []ids.NodeID, fn f
 }
 
 func (a *Access) EditTransform3D(tx *history.Transaction, nodes []ids.NodeID, fn func(*scene.Transform3D)) error {
-	return a.within(tx, "Transform", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.transform", "Transform"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {

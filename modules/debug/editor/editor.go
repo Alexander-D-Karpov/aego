@@ -19,15 +19,15 @@ import (
 const PanelID = debug.ID + ".panel"
 
 var presets = [...]struct {
-	name  string
+	name  i18n.Text
 	match func(string) bool
 }{
-	{"All", func(string) bool { return true }},
-	{"None", func(string) bool { return false }},
-	{"Collision", func(n string) bool { return strings.HasPrefix(n, "physics.") }},
-	{"Velocity", func(n string) bool { return strings.Contains(n, "velocity") }},
-	{"AI", func(n string) bool { return strings.HasPrefix(n, "ai") }},
-	{"Camera", func(n string) bool { return strings.HasPrefix(n, "camera") }},
+	{i18n.T("i18n.debug.preset.all", "All"), func(string) bool { return true }},
+	{i18n.T("i18n.debug.preset.none", "None"), func(string) bool { return false }},
+	{i18n.T("i18n.debug.preset.collision", "Collision"), func(n string) bool { return strings.HasPrefix(n, "physics.") }},
+	{i18n.T("i18n.debug.preset.velocity", "Velocity"), func(n string) bool { return strings.Contains(n, "velocity") }},
+	{i18n.Text{En: "AI"}, func(n string) bool { return strings.HasPrefix(n, "ai") }},
+	{i18n.T("i18n.debug.preset.camera", "Camera"), func(n string) bool { return strings.HasPrefix(n, "camera") }},
 }
 
 type plugin struct {
@@ -92,7 +92,7 @@ func (p *plugin) Draw(f *services.Frame, r mathx.Rect) {
 	bw := row.W / float32(len(presets))
 	for i, pr := range presets {
 		rr := mathx.Rect{X: row.X + float32(i)*bw, Y: row.Y, W: bw - 4, H: row.H}
-		if widgets.ButtonRect(ui, core.IDSeq(ui.ID("preset"), i), rr, pr.name) {
+		if widgets.ButtonRect(ui, core.IDSeq(ui.ID("preset"), i), rr, pr.name.String()) {
 			s.EachChannel(func(name string, _ int, _ uint64) { p.set(s, name, pr.match(name)) })
 		}
 	}

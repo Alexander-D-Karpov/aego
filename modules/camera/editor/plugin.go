@@ -71,7 +71,7 @@ func Hook(e *ext.Registry) error {
 	}
 	e.Overlay(p.sceneOverlay)
 	e.GameOverlay(p.gameOverlay)
-	e.Profiler("Camera", true, p.profile)
+	e.Profiler(i18n.T("i18n.camera.profiler", "Camera"), true, p.profile)
 	if p.ed == nil {
 		return nil
 	}

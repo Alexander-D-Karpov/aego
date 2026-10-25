@@ -108,8 +108,8 @@ func (p *Panel) canvas(d *document.SceneDocument, r mathx.Rect) {
 		a := center(p.box(r, p.drag.node))
 		ui.Line(a, ui.Mouse(), 2, th.Accent)
 	}
-	p.pill(r, -1, "Entry", p.f.UI.Theme.StateEntry)
-	p.pill(r, -2, "Any State", p.f.UI.Theme.StateAny)
+	p.pill(r, -1, i18n.Tr("editor.animator.entry", "Entry"), p.f.UI.Theme.StateEntry)
+	p.pill(r, -2, i18n.Tr("editor.animator.any_state", "Any State"), p.f.UI.Theme.StateAny)
 	for i := range p.g.States {
 		p.stateNode(r, i, live && i == state, progress)
 	}

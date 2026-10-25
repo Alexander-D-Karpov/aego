@@ -4,6 +4,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/modules/gameplay"
 	"aego/scene"
 	"aego/ui/widgets"
@@ -30,8 +31,8 @@ func (p *plugin) motionInspector(ctx *context.Editor, nodes []ids.NodeID, def fu
 	if !ok || (m.Velocity == (mathx.Vec2{}) && !m.Grounded && !m.OnWall && !m.OnCeiling) {
 		return
 	}
-	widgets.Labelf(ctx.UI, "Grounded %s   Wall %s   Ceiling %s", flag(m.Grounded), flag(m.OnWall), flag(m.OnCeiling))
-	widgets.Labelf(ctx.UI, "Speed %.2f   Floor %.0f°", m.Velocity.Len(), m.FloorAngle)
+	widgets.Label(ctx.UI, i18n.Tr("i18n.gameplay.motion_contacts", "Grounded {grounded}   Wall {wall}   Ceiling {ceiling}", i18n.Str("grounded", flag(m.Grounded)), i18n.Str("wall", flag(m.OnWall)), i18n.Str("ceiling", flag(m.OnCeiling))))
+	widgets.Label(ctx.UI, i18n.Tr("i18n.gameplay.motion_speed", "Speed {speed}   Floor {angle}°", i18n.Float("speed", float64(m.Velocity.Len()), 2), i18n.Float("angle", float64(m.FloorAngle), 0)))
 }
 
 func (p *plugin) healthInspector(ctx *context.Editor, nodes []ids.NodeID, def func()) {
@@ -59,5 +60,5 @@ func (p *plugin) fsmInspector(ctx *context.Editor, nodes []ids.NodeID, def func(
 	if !ok || m.Current == "" {
 		return
 	}
-	widgets.Labelf(ctx.UI, "State %s for %.1f s, before %s", m.Current, m.Time, m.Previous)
+	widgets.Label(ctx.UI, i18n.Tr("i18n.gameplay.fsm_state", "State {state} for {time} s, before {previous}", i18n.Str("state", m.Current), i18n.Float("time", float64(m.Time), 1), i18n.Str("previous", m.Previous)))
 }

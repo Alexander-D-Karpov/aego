@@ -8,6 +8,7 @@ import (
 	"aego/core/log"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/schema"
 )
@@ -122,7 +123,7 @@ func (a *Access) Set(tx *history.Transaction, nodes []ids.NodeID, t schema.TypeI
 		return err
 	}
 	name := Label(fd)
-	return a.within(tx, "Set "+name, func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.set", "Set {name}", i18n.Str("name", name)), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			before, err := a.Get(n, t, f)
 			if err != nil {

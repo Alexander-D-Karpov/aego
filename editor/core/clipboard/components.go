@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/props"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/schema"
@@ -194,7 +195,7 @@ func (e Env) PasteComponent(d *document.SceneDocument, nodes []ids.NodeID) error
 	if len(nodes) == 0 {
 		return errs.New(errs.EditorCommand, "select the nodes to paste the component onto")
 	}
-	tx := d.History.Begin("Paste " + td.FullName)
+	tx := d.History.Begin(i18n.Tr("editor.history.paste_component", "Paste {name}", i18n.Str("name", schema.TypeLabel(td))))
 	if err := e.pasteInto(tx, d, nodes, td, values); err != nil {
 		tx.Abort()
 		return err

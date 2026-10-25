@@ -234,7 +234,7 @@ func (p *Panel) labels() {
 	}
 	p.heads = p.heads[:0]
 	for _, t := range g.Transitions {
-		from, to := "Any State", "?"
+		from, to := i18n.Tr("editor.animator.any_state", "Any State"), "?"
 		if t.From >= 0 && int(t.From) < len(g.States) {
 			from = g.States[t.From].Name
 		}
@@ -245,7 +245,7 @@ func (p *Panel) labels() {
 	}
 	p.stateHeads = p.stateHeads[:0]
 	for _, st := range g.States {
-		p.stateHeads = append(p.stateHeads, "State "+st.Name)
+		p.stateHeads = append(p.stateHeads, i18n.Tr("editor.animator.state_head", "State {name}", i18n.Str("name", st.Name)))
 	}
 }
 
@@ -303,11 +303,11 @@ func pos(v [2]float32) aetext.Value {
 func (p *Panel) MoveState(i int, at [2]float32) error {
 	switch {
 	case i == -1:
-		return p.Edit("Move Entry", mutate.CtrlRoot("entryPos", pos(at)))
+		return p.Edit(i18n.Tr("editor.history.move_entry", "Move Entry"), mutate.CtrlRoot("entryPos", pos(at)))
 	case i == -2:
-		return p.Edit("Move Any", mutate.CtrlRoot("anyPos", pos(at)))
+		return p.Edit(i18n.Tr("editor.history.move_any", "Move Any"), mutate.CtrlRoot("anyPos", pos(at)))
 	case i >= 0 && i < len(p.g.States):
-		return p.Edit("Move State", mutate.CtrlAttr("state", p.g.States[i].Name, "pos", pos(at)))
+		return p.Edit(i18n.Tr("editor.history.move_state", "Move State"), mutate.CtrlAttr("state", p.g.States[i].Name, "pos", pos(at)))
 	}
 	return nil
 }
@@ -323,7 +323,7 @@ func (p *Panel) AddTransition(from, to int) error {
 		label = g.States[from].Name
 	}
 	body := &aetext.Node{Attrs: []aetext.Field{{Name: "to", Value: aetext.String(g.States[to].Name)}}}
-	return p.Edit("Add Transition", mutate.CtrlPut("transition", label, body))
+	return p.Edit(i18n.Tr("editor.history.add_transition", "Add Transition"), mutate.CtrlPut("transition", label, body))
 }
 
 // AddState adds a state at a graph point.
@@ -337,7 +337,7 @@ func (p *Panel) AddState(at [2]float32) error {
 	if len(p.g.States) == 0 {
 		ops = append(ops, mutate.CtrlRoot("entry", aetext.String(name)))
 	}
-	return p.Edit("Add State", ops...)
+	return p.Edit(i18n.Tr("editor.history.add_state", "Add State"), ops...)
 }
 
 // RemoveState removes a state with the transitions into and out of it.
@@ -354,7 +354,7 @@ func (p *Panel) RemoveState(i int) error {
 	}
 	ops = append(ops, mutate.CtrlRemove("state", g.States[i].Name))
 	p.sel = selection{}
-	return p.Edit("Delete State", ops...)
+	return p.Edit(i18n.Tr("editor.history.delete_state", "Delete State"), ops...)
 }
 
 // AutoLayout writes a fresh layout of every node.
@@ -371,7 +371,7 @@ func (p *Panel) AutoLayout() error {
 		ops = append(ops, mutate.CtrlAttr("state", s.Name, "pos", pos(s.Pos)))
 	}
 	ops = append(ops, mutate.CtrlRoot("entryPos", pos(g.EntryPos)), mutate.CtrlRoot("anyPos", pos(g.AnyPos)))
-	err := p.Edit("Auto Layout", ops...)
+	err := p.Edit(i18n.Tr("editor.history.auto_layout", "Auto Layout"), ops...)
 	p.viewOf = ""
 	return err
 }

@@ -1,0 +1,4259 @@
+messages version=1 lang=ru {
+  msg "api.aego/action.Action.Completed" {
+    text="Вызывается один раз, когда действие заканчивается; finished равно false после Stop или когда узел его скрипта уничтожен."
+  }
+  msg "api.aego/action.Action.Done" {
+    text="Сообщает, закончилось ли действие, было ли оно остановлено или равно nil."
+  }
+  msg "api.aego/action.Action.Running" {
+    text="Противоположность Done."
+  }
+  msg "api.aego/action.Action.Stop" {
+    text="Останавливает все незаконченные шаги; свойства сохраняют текущие значения."
+  }
+  msg "api.aego/action.Action.Then" {
+    text="Добавляет твин, созданный в этом кадре; он ждёт своей очереди."
+  }
+  msg "api.aego/action.Action.ThenAction" {
+    text="Добавляет другое действие, которое ещё не началось."
+  }
+  msg "api.aego/action.Action.ThenTimer" {
+    text="Добавляет таймер, созданный в этом кадре; шаг заканчивается вместе с таймером."
+  }
+  msg "api.aego/action.Action.Wait" {
+    text="Добавляет паузу в секундах игрового времени."
+  }
+  msg "api.aego/action.Parallel" {
+    text="Создаёт действие, которое выполняет все свои шаги одновременно и заканчивается после последнего."
+  }
+  msg "api.aego/action.Sequence" {
+    text="Создаёт действие, которое выполняет свои шаги один за другим, начиная со следующего обновления твинов."
+  }
+  msg "api.aego/anim.EventID" {
+    text="Возвращает id события, объявленного в «Настройки проекта» → «Анимация», или -1."
+  }
+  msg "api.aego/anim.EventName" {
+    text="Возвращает имя события анимации или пустую строку для неизвестного id."
+  }
+  msg "api.aego/anim.ParamIndex" {
+    text="Возвращает индекс параметра контроллера или -1."
+  }
+  msg "api.aego/anim.StateName" {
+    text="Возвращает имя состояния контроллера или пустую строку."
+  }
+  msg "api.aego/audio.Builtin" {
+    text="Возвращает звук, который поставляется с движком: Beep, Click, Hum (зацикливаемый) или Melody (зацикливаемый)."
+  }
+  msg "api.aego/audio.Bus" {
+    text="Шина микшера: Master, Music, Sfx, UI, Ambience или Voice."
+  }
+  msg "api.aego/audio.BusVolume" {
+    text="Возвращает громкость шины на этот сеанс, заданную SetBusVolume; настройки игрока хранятся отдельно."
+  }
+  msg "api.aego/audio.Music" {
+    text="Зацикливает звук на шине музыки, плавно сменяя прежнюю музыку за seconds секунд."
+  }
+  msg "api.aego/audio.Mute" {
+    text="Заглушает шину на этот сеанс."
+  }
+  msg "api.aego/audio.Pause" {
+    text="Ставит на паузу или продолжает все звуки этого мира."
+  }
+  msg "api.aego/audio.PauseWith" {
+    text="Определяет, встаёт ли звук на паузу вместе с игрой или продолжает играть."
+  }
+  msg "api.aego/audio.Play" {
+    text="Проигрывает звук на его шине. Звук останавливается, когда узел скрипта уничтожается."
+  }
+  msg "api.aego/audio.PlayAt" {
+    text="Проигрывает звук в точке мира; громкость и панорама зависят от расстояния до слушателя."
+  }
+  msg "api.aego/audio.PlayEvent" {
+    text="Проигрывает звуковое событие; пространственное событие следует за узлом скрипта."
+  }
+  msg "api.aego/audio.PlayEventAt" {
+    text="Проигрывает звуковое событие в точке мира."
+  }
+  msg "api.aego/audio.PlayWith" {
+    text="Проигрывает звук с параметрами."
+  }
+  msg "api.aego/audio.SetBusVolume" {
+    text="Задаёт громкость шины на этот сеанс поверх настроек игрока; она не сохраняется."
+  }
+  msg "api.aego/audio.Sound.Completed" {
+    text="Вызывается один раз, когда звук заканчивается: finished равно false после Stop, когда звук был прерван или когда его узел уничтожен."
+  }
+  msg "api.aego/audio.Sound.Done" {
+    text="Сообщает, закончился ли звук, был ли он остановлен или равен nil."
+  }
+  msg "api.aego/audio.Sound.Pause" {
+    text="Останавливает звук на текущем месте."
+  }
+  msg "api.aego/audio.Sound.Playing" {
+    text="Сообщает, слышен ли звук сейчас: не закончен, не останавливается и не на паузе."
+  }
+  msg "api.aego/audio.Sound.Position" {
+    text="Возвращает проигранные секунды; для зацикленного звука — внутри цикла."
+  }
+  msg "api.aego/audio.Sound.Resume" {
+    text="Продолжает звук после паузы."
+  }
+  msg "api.aego/audio.Sound.SetPan" {
+    text="Задаёт панораму непространственного звука, от -1 до 1."
+  }
+  msg "api.aego/audio.Sound.SetPitch" {
+    text="Меняет скорость и высоту, от 0.25 до 4."
+  }
+  msg "api.aego/audio.Sound.SetVolume" {
+    text="Меняет громкость с коротким переходом."
+  }
+  msg "api.aego/audio.Sound.Stop" {
+    text="Заканчивает звук коротким затуханием."
+  }
+  msg "api.aego/audio.Sound.StopFade" {
+    text="Плавно заглушает звук за seconds секунд."
+  }
+  msg "api.aego/audio.Steal" {
+    text="Что делает звуковое событие при достижении Max Voices: останавливает самый старый голос, самый тихий или пропускает новый запуск."
+  }
+  msg "api.aego/audio.StopMusic" {
+    text="Плавно заглушает музыку за seconds секунд."
+  }
+  msg "api.aego/builtin.NodeRef.AddTag" {
+    text="Добавляет тег; возвращает false, если тег записан неверно."
+  }
+  msg "api.aego/builtin.NodeRef.Child" {
+    text="Возвращает прямого потомка с этим именем или nil."
+  }
+  msg "api.aego/builtin.NodeRef.Destroy" {
+    text="Удаляет узел и его потомков в конце фазы."
+  }
+  msg "api.aego/builtin.NodeRef.Enabled" {
+    text="Сообщает собственный флаг включения узла, без учёта родителей."
+  }
+  msg "api.aego/builtin.NodeRef.Find" {
+    text="Находит узел по пути относительно этого узла: Weapon/Gun, ../Sibling или /Root/Player."
+  }
+  msg "api.aego/builtin.NodeRef.HasTag" {
+    text="Сообщает, есть ли у узла этот тег или вложенный в него: Enemy подходит к Enemy.Flying."
+  }
+  msg "api.aego/builtin.NodeRef.IsAlive" {
+    text="Сообщает, существует ли узел. Сразу после Destroy равно false."
+  }
+  msg "api.aego/builtin.NodeRef.IsPrefabInstance" {
+    text="Сообщает, является ли узел экземпляром префаба или находится внутри него."
+  }
+  msg "api.aego/builtin.NodeRef.Name" {
+    text="Возвращает имя узла, уникальное среди соседних узлов."
+  }
+  msg "api.aego/builtin.NodeRef.Parent" {
+    text="Возвращает родительский узел или nil для узлов верхнего уровня."
+  }
+  msg "api.aego/builtin.NodeRef.Position" {
+    text="Возвращает локальную позицию относительно родителя."
+  }
+  msg "api.aego/builtin.NodeRef.Position3" {
+    text="Возвращает локальную 3D-позицию."
+  }
+  msg "api.aego/builtin.NodeRef.PrefabRoot" {
+    text="Возвращает корень ближайшего экземпляра префаба, в котором лежит узел, сам узел, если он корень, или nil."
+  }
+  msg "api.aego/builtin.NodeRef.RemoveTag" {
+    text="Удаляет тег и сообщает, был ли он у узла."
+  }
+  msg "api.aego/builtin.NodeRef.Rotation" {
+    text="Возвращает локальный поворот в радианах, по часовой стрелке."
+  }
+  msg "api.aego/builtin.NodeRef.Rotation3" {
+    text="Возвращает локальный 3D-поворот."
+  }
+  msg "api.aego/builtin.NodeRef.Scale" {
+    text="Возвращает локальный масштаб."
+  }
+  msg "api.aego/builtin.NodeRef.SetEnabled" {
+    text="Включает или выключает узел. Выключенные узлы и их потомки не рисуются."
+  }
+  msg "api.aego/builtin.NodeRef.SetPosition" {
+    text="Задаёт локальную позицию."
+  }
+  msg "api.aego/builtin.NodeRef.SetPosition3" {
+    text="Задаёт локальную 3D-позицию."
+  }
+  msg "api.aego/builtin.NodeRef.SetRotation" {
+    text="Задаёт локальный поворот в радианах."
+  }
+  msg "api.aego/builtin.NodeRef.SetRotation3" {
+    text="Задаёт локальный 3D-поворот."
+  }
+  msg "api.aego/builtin.NodeRef.SetScale" {
+    text="Задаёт локальный масштаб. Отрицательный X отражает узел."
+  }
+  msg "api.aego/builtin.NodeRef.SetTransform2D" {
+    text="Заменяет локальную 2D-трансформацию."
+  }
+  msg "api.aego/builtin.NodeRef.SetTransform3D" {
+    text="Заменяет локальную 3D-трансформацию."
+  }
+  msg "api.aego/builtin.NodeRef.Space" {
+    text="Возвращает 0 для 2D-узлов и 1 для 3D-узлов."
+  }
+  msg "api.aego/builtin.NodeRef.Transform2D" {
+    text="Возвращает копию локальной 2D-трансформации. Измените её и передайте в SetTransform2D."
+  }
+  msg "api.aego/builtin.NodeRef.Transform3D" {
+    text="Возвращает копию локальной 3D-трансформации."
+  }
+  msg "api.aego/builtin.NodeRef.WorldPosition" {
+    text="Возвращает позицию в мировых координатах на момент последнего расчёта трансформаций."
+  }
+  msg "api.aego/camera.Active" {
+    text="Возвращает виртуальную камеру, которая управляет основным выводом, или nil."
+  }
+  msg "api.aego/camera.ActiveOn" {
+    text="Возвращает виртуальную камеру, которая управляет выводом с этим именем."
+  }
+  msg "api.aego/camera.Blend.Completed" {
+    text="Вызывается один раз, когда переход заканчивается: finished равно false после Stop или когда раньше стала активной другая камера."
+  }
+  msg "api.aego/camera.Blend.Done" {
+    text="Сообщает, закончился ли переход, был ли он заменён или равен nil."
+  }
+  msg "api.aego/camera.Blend.Running" {
+    text="Противоположность Done."
+  }
+  msg "api.aego/camera.Blend.Stop" {
+    text="Завершает переход сразу на целевой камере."
+  }
+  msg "api.aego/camera.BlendTo" {
+    text="Делает vc активной в обход приоритетов и переходит к ней; seconds 0 берёт её «Время перехода». Release возвращает управление приоритетам."
+  }
+  msg "api.aego/camera.Cut" {
+    text="Делает vc активной сразу, без перехода."
+  }
+  msg "api.aego/camera.LogicalPose" {
+    text="Возвращает положение основного вывода без тряски и привязки к пикселям."
+  }
+  msg "api.aego/camera.Release" {
+    text="Отменяет BlendTo или Cut на основном выводе; снова решают приоритеты, переход длится seconds секунд или «Время перехода» камеры."
+  }
+  msg "api.aego/camera.RenderPose" {
+    text="Возвращает положение, с которым основной вывод был нарисован в последнем кадре."
+  }
+  msg "api.aego/camera.ScreenToWorld" {
+    text="Переводит пиксели вывода в мировые единицы по последнему нарисованному виду основного вывода."
+  }
+  msg "api.aego/camera.Shake" {
+    text="Добавляет травму основному выводу; тряска растёт с травмой, которая ограничена 1 и со временем спадает."
+  }
+  msg "api.aego/camera.ShakeOn" {
+    text="Добавляет травму выводу с этим именем."
+  }
+  msg "api.aego/camera.Trauma" {
+    text="Возвращает текущую травму основного вывода, от 0 до 1."
+  }
+  msg "api.aego/camera.WorldToScreen" {
+    text="Переводит мировые единицы в пиксели вывода по последнему нарисованному виду основного вывода."
+  }
+  msg "api.aego/curve.Duration" {
+    text="Возвращает время между первым и последним ключом, 1 для пресета."
+  }
+  msg "api.aego/curve.Ease" {
+    text="Возвращает значение пресета плавности в точке t, ограниченной диапазоном 0..1."
+  }
+  msg "api.aego/curve.Easing" {
+    text="Имя пресета кривой от 0 до 1. None и Linear движутся с постоянной скоростью."
+  }
+  msg "api.aego/curve.Eval" {
+    text="Возвращает значение кривой в момент t; за пределами ключей кривая продолжается так, как задают её настройки «До» и «После»."
+  }
+  msg "api.aego/curve.EvalClamped" {
+    text="Возвращает значение в момент t, ограниченный первым и последним ключом."
+  }
+  msg "api.aego/curve.InBack" {
+    text="Пресет плавности inBack."
+  }
+  msg "api.aego/curve.InBounce" {
+    text="Пресет плавности inBounce."
+  }
+  msg "api.aego/curve.InCubic" {
+    text="Пресет плавности inCubic."
+  }
+  msg "api.aego/curve.InElastic" {
+    text="Пресет плавности inElastic."
+  }
+  msg "api.aego/curve.InExpo" {
+    text="Пресет плавности inExpo."
+  }
+  msg "api.aego/curve.InOutBack" {
+    text="Пресет плавности inOutBack."
+  }
+  msg "api.aego/curve.InOutBounce" {
+    text="Пресет плавности inOutBounce."
+  }
+  msg "api.aego/curve.InOutCubic" {
+    text="Пресет плавности inOutCubic."
+  }
+  msg "api.aego/curve.InOutElastic" {
+    text="Пресет плавности inOutElastic."
+  }
+  msg "api.aego/curve.InOutExpo" {
+    text="Пресет плавности inOutExpo."
+  }
+  msg "api.aego/curve.InOutQuad" {
+    text="Пресет плавности inOutQuad."
+  }
+  msg "api.aego/curve.InOutSine" {
+    text="Пресет плавности inOutSine."
+  }
+  msg "api.aego/curve.InQuad" {
+    text="Пресет плавности inQuad."
+  }
+  msg "api.aego/curve.InSine" {
+    text="Пресет плавности inSine."
+  }
+  msg "api.aego/curve.Linear" {
+    text="Пресет плавности linear."
+  }
+  msg "api.aego/curve.OutBack" {
+    text="Пресет плавности outBack."
+  }
+  msg "api.aego/curve.OutBounce" {
+    text="Пресет плавности outBounce."
+  }
+  msg "api.aego/curve.OutCubic" {
+    text="Пресет плавности outCubic."
+  }
+  msg "api.aego/curve.OutElastic" {
+    text="Пресет плавности outElastic."
+  }
+  msg "api.aego/curve.OutExpo" {
+    text="Пресет плавности outExpo."
+  }
+  msg "api.aego/curve.OutQuad" {
+    text="Пресет плавности outQuad."
+  }
+  msg "api.aego/curve.OutSine" {
+    text="Пресет плавности outSine."
+  }
+  msg "api.aego/debug.Arrow" {
+    text="Рисует стрелку от одной точки к другой."
+  }
+  msg "api.aego/debug.Circle" {
+    text="Рисует контур круга радиуса r в мировых единицах."
+  }
+  msg "api.aego/debug.Clear" {
+    text="Удаляет все примитивы, канал которых начинается с prefix."
+  }
+  msg "api.aego/debug.Cross" {
+    text="Рисует крест заданного размера в мировых единицах."
+  }
+  msg "api.aego/debug.Line" {
+    text="Рисует линию в мировых единицах. Она держится один кадр, если Pen не задаёт время жизни."
+  }
+  msg "api.aego/debug.Pen" {
+    text="Задаёт канал и время жизни следующих примитивов, которые рисует этот скрипт. ttl 0 держится один кадр, положительный ttl — столько секунд игрового времени, отрицательный — до Clear."
+  }
+  msg "api.aego/debug.PenUnscaled" {
+    text="То же, что Pen, но время жизни в реальных секундах; такие примитивы исчезают и пока игра на паузе."
+  }
+  msg "api.aego/debug.Point" {
+    text="Отмечает точку маленьким крестом постоянного экранного размера."
+  }
+  msg "api.aego/debug.Ray" {
+    text="Рисует стрелку от origin вдоль dir; длина dir равна длине стрелки."
+  }
+  msg "api.aego/debug.Rect" {
+    text="Рисует контур прямоугольника."
+  }
+  msg "api.aego/debug.Text" {
+    text="Рисует подпись в точке мира; её экранный размер не зависит от масштаба."
+  }
+  msg "api.aego/input.ActiveDevice" {
+    text="Возвращает устройство, которым игрок 0 пользовался последним: -1 — никакое, 0 — клавиатура и мышь, от 1 до 4 — геймпад."
+  }
+  msg "api.aego/input.Axis" {
+    text="Возвращает значение действия-оси от -1 до 1 или силу нажатия действия-кнопки."
+  }
+  msg "api.aego/input.Axis2" {
+    text="Возвращает 2D-действие как вектор длиной не больше 1; Y растёт вниз, как в 2D-мире."
+  }
+  msg "api.aego/input.Axis2P" {
+    text="То же, что Axis2, для одного игрока."
+  }
+  msg "api.aego/input.AxisP" {
+    text="То же, что Axis, для одного игрока."
+  }
+  msg "api.aego/input.BeginRebind" {
+    text="Ждёт следующую клавишу, кнопку или стик и назначает её в слот действия. Escape отменяет."
+  }
+  msg "api.aego/input.Buffered" {
+    text="Сообщает, было ли действие нажато за последние window секунд игрового времени и не перехвачено. Окно 0 берёт настройку буфера действия."
+  }
+  msg "api.aego/input.Button" {
+    text="Кнопка мыши."
+  }
+  msg "api.aego/input.Consume" {
+    text="Сбрасывает нажатие и буфер действия, чтобы дальнейшие проверки в этом кадре его не видели."
+  }
+  msg "api.aego/input.DeviceChanged" {
+    text="Равно true в кадре, когда геймпад подключили или отключили."
+  }
+  msg "api.aego/input.Down" {
+    text="Сообщает, удерживается ли клавиша напрямую. Для прототипов; в релизных сборках используются действия."
+  }
+  msg "api.aego/input.Glyph" {
+    text="Возвращает назначение действия для активного устройства в виде текста, например [Space] или [A]."
+  }
+  msg "api.aego/input.Held" {
+    text="Сообщает, активно ли действие."
+  }
+  msg "api.aego/input.HeldP" {
+    text="То же, что Held, для одного игрока."
+  }
+  msg "api.aego/input.Key" {
+    text="Физическая клавиша, не зависящая от раскладки. Лучше использовать действия; клавиши напрямую — для прототипов."
+  }
+  msg "api.aego/input.KeyA" {
+    text="Клавиша A."
+  }
+  msg "api.aego/input.KeyB" {
+    text="Клавиша B."
+  }
+  msg "api.aego/input.KeyBackspace" {
+    text="Клавиша Backspace."
+  }
+  msg "api.aego/input.KeyC" {
+    text="Клавиша C."
+  }
+  msg "api.aego/input.KeyCapsLock" {
+    text="Клавиша CapsLock."
+  }
+  msg "api.aego/input.KeyD" {
+    text="Клавиша D."
+  }
+  msg "api.aego/input.KeyDelete" {
+    text="Клавиша Delete."
+  }
+  msg "api.aego/input.KeyDigit0" {
+    text="Клавиша Digit0."
+  }
+  msg "api.aego/input.KeyDigit1" {
+    text="Клавиша Digit1."
+  }
+  msg "api.aego/input.KeyDigit2" {
+    text="Клавиша Digit2."
+  }
+  msg "api.aego/input.KeyDigit3" {
+    text="Клавиша Digit3."
+  }
+  msg "api.aego/input.KeyDigit4" {
+    text="Клавиша Digit4."
+  }
+  msg "api.aego/input.KeyDigit5" {
+    text="Клавиша Digit5."
+  }
+  msg "api.aego/input.KeyDigit6" {
+    text="Клавиша Digit6."
+  }
+  msg "api.aego/input.KeyDigit7" {
+    text="Клавиша Digit7."
+  }
+  msg "api.aego/input.KeyDigit8" {
+    text="Клавиша Digit8."
+  }
+  msg "api.aego/input.KeyDigit9" {
+    text="Клавиша Digit9."
+  }
+  msg "api.aego/input.KeyDown" {
+    text="Клавиша Down."
+  }
+  msg "api.aego/input.KeyE" {
+    text="Клавиша E."
+  }
+  msg "api.aego/input.KeyEnd" {
+    text="Клавиша End."
+  }
+  msg "api.aego/input.KeyEnter" {
+    text="Клавиша Enter."
+  }
+  msg "api.aego/input.KeyEscape" {
+    text="Клавиша Escape."
+  }
+  msg "api.aego/input.KeyF" {
+    text="Клавиша F."
+  }
+  msg "api.aego/input.KeyF1" {
+    text="Клавиша F1."
+  }
+  msg "api.aego/input.KeyF10" {
+    text="Клавиша F10."
+  }
+  msg "api.aego/input.KeyF11" {
+    text="Клавиша F11."
+  }
+  msg "api.aego/input.KeyF12" {
+    text="Клавиша F12."
+  }
+  msg "api.aego/input.KeyF2" {
+    text="Клавиша F2."
+  }
+  msg "api.aego/input.KeyF3" {
+    text="Клавиша F3."
+  }
+  msg "api.aego/input.KeyF4" {
+    text="Клавиша F4."
+  }
+  msg "api.aego/input.KeyF5" {
+    text="Клавиша F5."
+  }
+  msg "api.aego/input.KeyF6" {
+    text="Клавиша F6."
+  }
+  msg "api.aego/input.KeyF7" {
+    text="Клавиша F7."
+  }
+  msg "api.aego/input.KeyF8" {
+    text="Клавиша F8."
+  }
+  msg "api.aego/input.KeyF9" {
+    text="Клавиша F9."
+  }
+  msg "api.aego/input.KeyG" {
+    text="Клавиша G."
+  }
+  msg "api.aego/input.KeyH" {
+    text="Клавиша H."
+  }
+  msg "api.aego/input.KeyHome" {
+    text="Клавиша Home."
+  }
+  msg "api.aego/input.KeyI" {
+    text="Клавиша I."
+  }
+  msg "api.aego/input.KeyInsert" {
+    text="Клавиша Insert."
+  }
+  msg "api.aego/input.KeyJ" {
+    text="Клавиша J."
+  }
+  msg "api.aego/input.KeyK" {
+    text="Клавиша K."
+  }
+  msg "api.aego/input.KeyKP0" {
+    text="Клавиша KP0."
+  }
+  msg "api.aego/input.KeyKP1" {
+    text="Клавиша KP1."
+  }
+  msg "api.aego/input.KeyKP2" {
+    text="Клавиша KP2."
+  }
+  msg "api.aego/input.KeyKP3" {
+    text="Клавиша KP3."
+  }
+  msg "api.aego/input.KeyKP4" {
+    text="Клавиша KP4."
+  }
+  msg "api.aego/input.KeyKP5" {
+    text="Клавиша KP5."
+  }
+  msg "api.aego/input.KeyKP6" {
+    text="Клавиша KP6."
+  }
+  msg "api.aego/input.KeyKP7" {
+    text="Клавиша KP7."
+  }
+  msg "api.aego/input.KeyKP8" {
+    text="Клавиша KP8."
+  }
+  msg "api.aego/input.KeyKP9" {
+    text="Клавиша KP9."
+  }
+  msg "api.aego/input.KeyKPEnter" {
+    text="Клавиша KPEnter."
+  }
+  msg "api.aego/input.KeyL" {
+    text="Клавиша L."
+  }
+  msg "api.aego/input.KeyLAlt" {
+    text="Клавиша LAlt."
+  }
+  msg "api.aego/input.KeyLCtrl" {
+    text="Клавиша LCtrl."
+  }
+  msg "api.aego/input.KeyLGUI" {
+    text="Клавиша LGUI."
+  }
+  msg "api.aego/input.KeyLShift" {
+    text="Клавиша LShift."
+  }
+  msg "api.aego/input.KeyLeft" {
+    text="Клавиша Left."
+  }
+  msg "api.aego/input.KeyM" {
+    text="Клавиша M."
+  }
+  msg "api.aego/input.KeyN" {
+    text="Клавиша N."
+  }
+  msg "api.aego/input.KeyNumLock" {
+    text="Клавиша NumLock."
+  }
+  msg "api.aego/input.KeyO" {
+    text="Клавиша O."
+  }
+  msg "api.aego/input.KeyP" {
+    text="Клавиша P."
+  }
+  msg "api.aego/input.KeyPageDown" {
+    text="Клавиша PageDown."
+  }
+  msg "api.aego/input.KeyPageUp" {
+    text="Клавиша PageUp."
+  }
+  msg "api.aego/input.KeyPause" {
+    text="Клавиша Pause."
+  }
+  msg "api.aego/input.KeyPressed" {
+    text="Сообщает, была ли клавиша нажата в этом кадре. Для прототипов."
+  }
+  msg "api.aego/input.KeyPrintScreen" {
+    text="Клавиша PrintScreen."
+  }
+  msg "api.aego/input.KeyQ" {
+    text="Клавиша Q."
+  }
+  msg "api.aego/input.KeyR" {
+    text="Клавиша R."
+  }
+  msg "api.aego/input.KeyRAlt" {
+    text="Клавиша RAlt."
+  }
+  msg "api.aego/input.KeyRCtrl" {
+    text="Клавиша RCtrl."
+  }
+  msg "api.aego/input.KeyRGUI" {
+    text="Клавиша RGUI."
+  }
+  msg "api.aego/input.KeyRShift" {
+    text="Клавиша RShift."
+  }
+  msg "api.aego/input.KeyReleased" {
+    text="Сообщает, была ли клавиша отпущена в этом кадре. Для прототипов."
+  }
+  msg "api.aego/input.KeyRight" {
+    text="Клавиша Right."
+  }
+  msg "api.aego/input.KeyS" {
+    text="Клавиша S."
+  }
+  msg "api.aego/input.KeyScrollLock" {
+    text="Клавиша ScrollLock."
+  }
+  msg "api.aego/input.KeySpace" {
+    text="Клавиша Space."
+  }
+  msg "api.aego/input.KeyT" {
+    text="Клавиша T."
+  }
+  msg "api.aego/input.KeyTab" {
+    text="Клавиша Tab."
+  }
+  msg "api.aego/input.KeyU" {
+    text="Клавиша U."
+  }
+  msg "api.aego/input.KeyUp" {
+    text="Клавиша Up."
+  }
+  msg "api.aego/input.KeyV" {
+    text="Клавиша V."
+  }
+  msg "api.aego/input.KeyW" {
+    text="Клавиша W."
+  }
+  msg "api.aego/input.KeyX" {
+    text="Клавиша X."
+  }
+  msg "api.aego/input.KeyY" {
+    text="Клавиша Y."
+  }
+  msg "api.aego/input.KeyZ" {
+    text="Клавиша Z."
+  }
+  msg "api.aego/input.MouseDown" {
+    text="Сообщает, удерживается ли кнопка мыши."
+  }
+  msg "api.aego/input.MouseLeft" {
+    text="Левая кнопка мыши."
+  }
+  msg "api.aego/input.MouseMiddle" {
+    text="Средняя кнопка мыши."
+  }
+  msg "api.aego/input.MousePos" {
+    text="Возвращает положение курсора в логических пикселях игровой области."
+  }
+  msg "api.aego/input.MousePressed" {
+    text="Сообщает, была ли кнопка мыши нажата в этом кадре."
+  }
+  msg "api.aego/input.MouseRight" {
+    text="Правая кнопка мыши."
+  }
+  msg "api.aego/input.MouseWorld" {
+    text="Возвращает положение курсора в мировых единицах через камеру под ним."
+  }
+  msg "api.aego/input.MouseX1" {
+    text="Кнопка мыши X1."
+  }
+  msg "api.aego/input.MouseX2" {
+    text="Кнопка мыши X2."
+  }
+  msg "api.aego/input.Pointer" {
+    text="Возвращает положение курсора в логических пикселях."
+  }
+  msg "api.aego/input.PointerDelta" {
+    text="Возвращает, насколько курсор сдвинулся за этот кадр."
+  }
+  msg "api.aego/input.PopContext" {
+    text="Убирает верхний контекст ввода."
+  }
+  msg "api.aego/input.Pressed" {
+    text="Сообщает, началось ли действие. В Update равно true один кадр, в FixedUpdate — первый фиксированный шаг после нажатия."
+  }
+  msg "api.aego/input.PressedP" {
+    text="То же, что Pressed, для одного игрока."
+  }
+  msg "api.aego/input.PushContext" {
+    text="Кладёт контекст ввода на вершину стека."
+  }
+  msg "api.aego/input.RebindConflict" {
+    text="Называет действие, которому уже было назначено новое управление, или объясняет, почему назначение отклонено."
+  }
+  msg "api.aego/input.Rebinding" {
+    text="Сообщает, ждёт ли переназначение ввода."
+  }
+  msg "api.aego/input.Released" {
+    text="Сообщает, закончилось ли действие в этом кадре или фиксированном шаге."
+  }
+  msg "api.aego/input.ReleasedP" {
+    text="То же, что Released, для одного игрока."
+  }
+  msg "api.aego/input.ResetBinding" {
+    text="Возвращает назначения действия из проекта."
+  }
+  msg "api.aego/input.ResetBindings" {
+    text="Возвращает все назначения из проекта."
+  }
+  msg "api.aego/input.SaveBindings" {
+    text="Сразу записывает профиль настроек игрока; изменения сохраняются и сами."
+  }
+  msg "api.aego/input.SetContext" {
+    text="Заменяет весь стек одним контекстом."
+  }
+  msg "api.aego/log.Debug" {
+    text="Пишет сообщение в Консоль. Отладочные сообщения скрыты, если редактор запущен без -debug."
+  }
+  msg "api.aego/log.Error" {
+    text="Пишет ошибку в Консоль. Скрипт не останавливается; подходит для проблем, после которых можно продолжить работу."
+  }
+  msg "api.aego/log.Info" {
+    text="Пишет сообщение в Консоль."
+  }
+  msg "api.aego/log.Warn" {
+    text="Пишет предупреждение в Консоль."
+  }
+  msg "api.aego/math.Abs" {
+    text="Возвращает модуль x."
+  }
+  msg "api.aego/math.AbsInt" {
+    text="Возвращает модуль целого числа."
+  }
+  msg "api.aego/math.Acos" {
+    text="Возвращает угол в радианах, косинус которого равен x, в [0, Pi]."
+  }
+  msg "api.aego/math.Angle" {
+    text="Возвращает направление v в радианах."
+  }
+  msg "api.aego/math.Asin" {
+    text="Возвращает угол в радианах, синус которого равен x, в [-Pi/2, Pi/2]."
+  }
+  msg "api.aego/math.Atan2" {
+    text="Возвращает угол вектора (x, y) в радианах, в (-Pi, Pi]."
+  }
+  msg "api.aego/math.Ceil" {
+    text="Возвращает наименьшее целое число, большее или равное x."
+  }
+  msg "api.aego/math.Clamp" {
+    text="Ограничивает v диапазоном [lo, hi]."
+  }
+  msg "api.aego/math.ClampInt" {
+    text="Ограничивает целое число диапазоном [lo, hi]."
+  }
+  msg "api.aego/math.Cos" {
+    text="Возвращает косинус угла в радианах."
+  }
+  msg "api.aego/math.Cross" {
+    text="Возвращает компоненту z трёхмерного векторного произведения; её знак показывает, с какой стороны лежит b."
+  }
+  msg "api.aego/math.Cross3" {
+    text="Возвращает вектор, перпендикулярный a и b."
+  }
+  msg "api.aego/math.Deg2Rad" {
+    text="Переводит градусы в радианы."
+  }
+  msg "api.aego/math.Dist" {
+    text="Возвращает расстояние между двумя точками."
+  }
+  msg "api.aego/math.Dist3" {
+    text="Возвращает расстояние между двумя 3D-точками."
+  }
+  msg "api.aego/math.Dot" {
+    text="Возвращает скалярное произведение двух Vec2."
+  }
+  msg "api.aego/math.Dot3" {
+    text="Возвращает скалярное произведение двух Vec3."
+  }
+  msg "api.aego/math.Exp" {
+    text="Возвращает e в степени x."
+  }
+  msg "api.aego/math.Floor" {
+    text="Возвращает наибольшее целое число, меньшее или равное x."
+  }
+  msg "api.aego/math.Length" {
+    text="Возвращает длину Vec2."
+  }
+  msg "api.aego/math.Length3" {
+    text="Возвращает длину Vec3."
+  }
+  msg "api.aego/math.Lerp" {
+    text="Смешивает a и b. t = 0 даёт a, t = 1 даёт b; t не ограничивается."
+  }
+  msg "api.aego/math.LerpVec2" {
+    text="Смешивает два Vec2 покомпонентно."
+  }
+  msg "api.aego/math.LerpVec3" {
+    text="Смешивает два Vec3 покомпонентно."
+  }
+  msg "api.aego/math.Log" {
+    text="Возвращает натуральный логарифм x."
+  }
+  msg "api.aego/math.Max" {
+    text="Возвращает большее из a и b."
+  }
+  msg "api.aego/math.MaxInt" {
+    text="Возвращает большее из двух целых чисел."
+  }
+  msg "api.aego/math.Min" {
+    text="Возвращает меньшее из a и b."
+  }
+  msg "api.aego/math.MinInt" {
+    text="Возвращает меньшее из двух целых чисел."
+  }
+  msg "api.aego/math.Normalize" {
+    text="Возвращает v, приведённый к длине 1. Нулевой вектор остаётся нулевым."
+  }
+  msg "api.aego/math.Normalize3" {
+    text="Возвращает v, приведённый к длине 1."
+  }
+  msg "api.aego/math.Pi" {
+    text="Отношение длины окружности к её диаметру, около 3.14159."
+  }
+  msg "api.aego/math.Pow" {
+    text="Возвращает x в степени y."
+  }
+  msg "api.aego/math.QuatAxisAngle" {
+    text="Строит поворот на угол в радианах вокруг оси."
+  }
+  msg "api.aego/math.QuatEuler" {
+    text="Строит поворот из углов Эйлера в радианах, применяемых как Z·Y·X."
+  }
+  msg "api.aego/math.QuatLookDir" {
+    text="Возвращает поворот, который направляет -Z вдоль d."
+  }
+  msg "api.aego/math.QuatMul" {
+    text="Объединяет два поворота: сначала применяется b, затем a."
+  }
+  msg "api.aego/math.QuatRotate" {
+    text="Поворачивает вектор на q."
+  }
+  msg "api.aego/math.QuatSlerp" {
+    text="Смешивает два поворота по кратчайшей дуге."
+  }
+  msg "api.aego/math.Rad2Deg" {
+    text="Переводит радианы в градусы."
+  }
+  msg "api.aego/math.Rotate" {
+    text="Поворачивает v по часовой стрелке на угол в радианах."
+  }
+  msg "api.aego/math.Round" {
+    text="Возвращает x, округлённое до ближайшего целого; половины округляются от нуля."
+  }
+  msg "api.aego/math.Sign" {
+    text="Возвращает -1, 0 или 1 в зависимости от знака x."
+  }
+  msg "api.aego/math.Sin" {
+    text="Возвращает синус угла в радианах."
+  }
+  msg "api.aego/math.Sqrt" {
+    text="Возвращает квадратный корень из x. Для отрицательного x даёт NaN."
+  }
+  msg "api.aego/math.Tan" {
+    text="Возвращает тангенс угла в радианах."
+  }
+  msg "api.aego/math.Tau" {
+    text="Полный оборот в радианах, 2·Pi."
+  }
+  msg "api.aego/math.Trunc" {
+    text="Отбрасывает дробную часть x."
+  }
+  msg "api.aego/physics.Gravity" {
+    text="Возвращает гравитацию мира в единицах в секунду за секунду. +Y направлен вниз."
+  }
+  msg "api.aego/physics.Layer" {
+    text="Возвращает индекс физического слоя по имени."
+  }
+  msg "api.aego/physics.LayerMask" {
+    text="Возвращает бит маски слоя по имени. Маски разных слоёв складываются, чтобы объединить их."
+  }
+  msg "api.aego/physics.Linecast" {
+    text="Возвращает первое попадание между from и to на слоях из mask; -1 означает все слои."
+  }
+  msg "api.aego/physics.OverlapBox" {
+    text="Записывает в out тела, касающиеся прямоугольника, выровненного по осям, и возвращает их число."
+  }
+  msg "api.aego/physics.OverlapCircle" {
+    text="Записывает в out тела, касающиеся круга, и возвращает их число."
+  }
+  msg "api.aego/physics.OverlapPoint" {
+    text="Записывает в out тела, коллайдеры которых содержат p, и возвращает их число."
+  }
+  msg "api.aego/physics.Raycast" {
+    text="Возвращает ближайшее попадание вдоль dir в пределах maxDist. Собственное тело вызывающего не учитывается, триггеры пропускаются."
+  }
+  msg "api.aego/physics.RaycastAll" {
+    text="Заполняет out попаданиями между from и to, от ближнего к дальнему, и возвращает, сколько записано. Записывает не больше len(out)."
+  }
+  msg "api.aego/physics.SetGravity" {
+    text="Меняет гравитацию мира до конца текущего запуска игры."
+  }
+  msg "api.aego/rand.Bool" {
+    text="Возвращает true или false с равной вероятностью."
+  }
+  msg "api.aego/rand.Float" {
+    text="Возвращает случайное число в [0, 1)."
+  }
+  msg "api.aego/rand.Int" {
+    text="Возвращает случайное целое в [min, max). Возвращает min, если max <= min."
+  }
+  msg "api.aego/rand.Range" {
+    text="Возвращает случайное дробное число в [min, max)."
+  }
+  msg "api.aego/rand.Seed" {
+    text="Возвращает зерно генератора мира. Повторы с тем же зерном дают те же числа."
+  }
+  msg "api.aego/save.Autosave" {
+    text="Сохраняет игру в слот autosave каждые заданные реальные секунды; 0 выключает автосохранение."
+  }
+  msg "api.aego/save.Checkpoint" {
+    text="Сохраняет игру в слот checkpoint."
+  }
+  msg "api.aego/save.Delete" {
+    text="Удаляет сохранение и его превью."
+  }
+  msg "api.aego/save.Exists" {
+    text="Сообщает, есть ли в слоте сохранение."
+  }
+  msg "api.aego/save.GetBool" {
+    text="Читает значение, сохранённое этим узлом, или def; работает в OnLoad."
+  }
+  msg "api.aego/save.GetFloat" {
+    text="Читает значение, сохранённое этим узлом, или def; работает в OnLoad."
+  }
+  msg "api.aego/save.GetInt" {
+    text="Читает значение, сохранённое этим узлом, или def; работает в OnLoad."
+  }
+  msg "api.aego/save.GetString" {
+    text="Читает значение, сохранённое этим узлом, или def; работает в OnLoad."
+  }
+  msg "api.aego/save.GetVec2" {
+    text="Читает значение, сохранённое этим узлом, или def; работает в OnLoad."
+  }
+  msg "api.aego/save.GlobalBool" {
+    text="Читает прогресс всей игры или def."
+  }
+  msg "api.aego/save.GlobalFloat" {
+    text="Читает прогресс всей игры или def."
+  }
+  msg "api.aego/save.GlobalInt" {
+    text="Читает прогресс всей игры или def."
+  }
+  msg "api.aego/save.GlobalString" {
+    text="Читает прогресс всей игры или def."
+  }
+  msg "api.aego/save.Load" {
+    text="Перезагружает сохранённую сцену и восстанавливает слот в конце кадра."
+  }
+  msg "api.aego/save.PutBool" {
+    text="Сохраняет значение для этого узла; вызывается в OnSave."
+  }
+  msg "api.aego/save.PutFloat" {
+    text="Сохраняет значение для этого узла; вызывается в OnSave."
+  }
+  msg "api.aego/save.PutInt" {
+    text="Сохраняет значение для этого узла; вызывается в OnSave."
+  }
+  msg "api.aego/save.PutString" {
+    text="Сохраняет значение для этого узла; вызывается в OnSave."
+  }
+  msg "api.aego/save.PutVec2" {
+    text="Сохраняет значение для этого узла; вызывается в OnSave."
+  }
+  msg "api.aego/save.Save" {
+    text="Записывает игру в слот в конце кадра."
+  }
+  msg "api.aego/save.SetGlobalBool" {
+    text="Сохраняет прогресс всей игры, который попадает в каждое сохранение."
+  }
+  msg "api.aego/save.SetGlobalFloat" {
+    text="Сохраняет прогресс всей игры, который попадает в каждое сохранение."
+  }
+  msg "api.aego/save.SetGlobalInt" {
+    text="Сохраняет прогресс всей игры, который попадает в каждое сохранение."
+  }
+  msg "api.aego/save.SetGlobalString" {
+    text="Сохраняет прогресс всей игры, который попадает в каждое сохранение."
+  }
+  msg "api.aego/scene.ByID" {
+    text="Возвращает узел с этим id, как он записан в файле сцены, или nil."
+  }
+  msg "api.aego/scene.Despawn" {
+    text="Возвращает созданный экземпляр в его пул; узел не из пула уничтожает."
+  }
+  msg "api.aego/scene.Destroy" {
+    text="Удаляет узел и его потомков в конце фазы."
+  }
+  msg "api.aego/scene.Find" {
+    text="Возвращает узел по пути от корня сцены или nil."
+  }
+  msg "api.aego/scene.InArea" {
+    text="Записывает в out тела, касающиеся прямоугольника, на слоях из mask. Без физики записывает все включённые 2D-узлы, позиция которых лежит в прямоугольнике, без учёта mask."
+  }
+  msg "api.aego/scene.Instantiate" {
+    text="Создаёт экземпляр префаба под parent или под корнем, если parent равен nil.\nНовые узлы появляются в конце фазы; их скрипты получают Ready до следующего Update."
+  }
+  msg "api.aego/scene.Pool" {
+    text="Заранее создаёт n экземпляров префаба; их Ready выполняется сразу, а Spawn берёт их позже."
+  }
+  msg "api.aego/scene.Spawn" {
+    text="Создаёт экземпляр префаба в позиции под корнем сцены, беря его из пула, если там есть свободный."
+  }
+  msg "api.aego/scene.SpawnAt" {
+    text="Создаёт экземпляр префаба под parent с локальной позицией и поворотом."
+  }
+  msg "api.aego/scene.WithComponent" {
+    text="Записывает в out включённые узлы с этим компонентом и возвращает их число."
+  }
+  msg "api.aego/scene.WithTag" {
+    text="Записывает в out включённые узлы с тегом и возвращает их число; Enemy находит и Enemy.Flying. Узлы идут в том порядке, в каком получили тег."
+  }
+  msg "api.aego/settings.Apply" {
+    text="Применяет все подготовленные значения разом; если одно не применяется, не меняется ни одно."
+  }
+  msg "api.aego/settings.ClearOverride" {
+    text="Убирает переопределение на сеанс."
+  }
+  msg "api.aego/settings.ClearOverrides" {
+    text="Убирает все переопределения на сеанс."
+  }
+  msg "api.aego/settings.CloseView" {
+    text="Скрывает экран настроек."
+  }
+  msg "api.aego/settings.GetBool" {
+    text="Возвращает действующее значение настройки-переключателя."
+  }
+  msg "api.aego/settings.GetFloat" {
+    text="Возвращает действующее значение числовой настройки."
+  }
+  msg "api.aego/settings.GetInt" {
+    text="Возвращает действующее значение целочисленной настройки или настройки с выбором."
+  }
+  msg "api.aego/settings.GetString" {
+    text="Возвращает текстовую настройку или имя текущего варианта."
+  }
+  msg "api.aego/settings.NeedsRestart" {
+    text="Сообщает, вступит ли применённая настройка в силу только после перезапуска."
+  }
+  msg "api.aego/settings.OpenView" {
+    text="Показывает экран настроек и ставит игру на паузу, пока он не закроется."
+  }
+  msg "api.aego/settings.OverrideBool" {
+    text="Задаёт значение переключателя только на этот сеанс."
+  }
+  msg "api.aego/settings.OverrideFloat" {
+    text="Задаёт значение только на этот сеанс; оно никогда не сохраняется."
+  }
+  msg "api.aego/settings.OverrideInt" {
+    text="Задаёт целое число только на этот сеанс."
+  }
+  msg "api.aego/settings.OverrideString" {
+    text="Задаёт текстовое значение только на этот сеанс."
+  }
+  msg "api.aego/settings.Reset" {
+    text="Подготавливает возврат к значению проекта по умолчанию."
+  }
+  msg "api.aego/settings.Revert" {
+    text="Отбрасывает подготовленные значения."
+  }
+  msg "api.aego/settings.Save" {
+    text="Сразу записывает профиль игрока; он также сохраняется сам вскоре после изменения."
+  }
+  msg "api.aego/settings.SetBool" {
+    text="Подготавливает значение; Apply вводит его в силу."
+  }
+  msg "api.aego/settings.SetFloat" {
+    text="Подготавливает число."
+  }
+  msg "api.aego/settings.SetInt" {
+    text="Подготавливает целое число или индекс варианта."
+  }
+  msg "api.aego/settings.SetString" {
+    text="Подготавливает текстовое значение."
+  }
+  msg "api.aego/settings.ViewOpen" {
+    text="Сообщает, показан ли экран настроек."
+  }
+  msg "api.aego/testing.Equal" {
+    text="Проваливает тест, если два целых числа различаются."
+  }
+  msg "api.aego/testing.EqualFloat" {
+    text="Проваливает тест, если got отличается от want больше чем на eps или равно NaN."
+  }
+  msg "api.aego/testing.EqualString" {
+    text="Проваливает тест, если две строки различаются."
+  }
+  msg "api.aego/testing.Fail" {
+    text="Останавливает тест и сообщает msg."
+  }
+  msg "api.aego/testing.False" {
+    text="Проваливает тест с msg, если v равно true."
+  }
+  msg "api.aego/testing.True" {
+    text="Проваливает тест с msg, если v равно false."
+  }
+  msg "api.aego/time.Delta" {
+    text="Возвращает секунды игрового времени с прошлого кадра: реальное время × Scale, 0 на паузе. Внутри FixedUpdate равно фиксированному шагу."
+  }
+  msg "api.aego/time.Elapsed" {
+    text="Возвращает секунды игрового времени с начала игры. Останавливается на паузе и учитывает Scale."
+  }
+  msg "api.aego/time.Fixed" {
+    text="Возвращает длину фиксированного шага в секундах, по умолчанию 1/60. Scale её не меняет; он меняет число выполняемых шагов."
+  }
+  msg "api.aego/time.Frame" {
+    text="Возвращает число кадров, которые прошёл этот мир, включая кадры на паузе."
+  }
+  msg "api.aego/time.IsPaused" {
+    text="Сообщает, стоит ли игровое время на паузе."
+  }
+  msg "api.aego/time.Scale" {
+    text="Возвращает масштаб времени: 1 — обычная скорость, 0.5 — половина, 0 замораживает игровое время без паузы."
+  }
+  msg "api.aego/time.SetPaused" {
+    text="Ставит на паузу или продолжает игровое время. На паузе Update, FixedUpdate и корутины игрового времени обычных скриптов не выполняются."
+  }
+  msg "api.aego/time.SetScale" {
+    text="Задаёт масштаб времени от 0 до 8. Фиксированный шаг не меняется, поэтому симуляция остаётся стабильной; меняется только число шагов."
+  }
+  msg "api.aego/time.Tick" {
+    text="Возвращает номер текущего или последнего фиксированного шага. Тот же номер показывают профилировщик и Монитор событий."
+  }
+  msg "api.aego/time.Unscaled" {
+    text="Возвращает реальные секунды с прошлого кадра без учёта Scale и паузы."
+  }
+  msg "api.aego/time.UnscaledElapsed" {
+    text="Возвращает реальные секунды с начала игры, включая паузы."
+  }
+  msg "api.aego/timer.Cooldown" {
+    text="Создаёт таймер, который сразу готов; Use забирает его и начинает ожидание."
+  }
+  msg "api.aego/timer.New" {
+    text="Создаёт таймер, который остаётся после окончания, так что Restart может запустить его снова."
+  }
+  msg "api.aego/timer.Start" {
+    text="Создаёт одноразовый таймер, который освобождается после срабатывания."
+  }
+  msg "api.aego/timer.Timer.Cancel" {
+    text="Завершает таймер без срабатывания."
+  }
+  msg "api.aego/timer.Timer.Count" {
+    text="Возвращает, сколько раз таймер сработал."
+  }
+  msg "api.aego/timer.Timer.Done" {
+    text="Сообщает, закончился ли таймер, был ли он отменён или равен nil."
+  }
+  msg "api.aego/timer.Timer.Fired" {
+    text="Вызывается при каждом срабатывании таймера; count — число срабатываний на этот момент."
+  }
+  msg "api.aego/timer.Timer.Pause" {
+    text="Останавливает отсчёт."
+  }
+  msg "api.aego/timer.Timer.Ready" {
+    text="Сообщает, можно ли использовать перезарядку."
+  }
+  msg "api.aego/timer.Timer.Remaining" {
+    text="Возвращает секунды до следующего срабатывания."
+  }
+  msg "api.aego/timer.Timer.Repeat" {
+    text="Заставляет таймер сработать n раз; -1 повторяет до Cancel."
+  }
+  msg "api.aego/timer.Timer.Restart" {
+    text="Запускает отсчёт заново; ничего не делает с одноразовым таймером, который уже сработал."
+  }
+  msg "api.aego/timer.Timer.Resume" {
+    text="Продолжает отсчёт после паузы."
+  }
+  msg "api.aego/timer.Timer.Unscaled" {
+    text="Считает реальное время, в том числе пока игра на паузе."
+  }
+  msg "api.aego/timer.Timer.Use" {
+    text="Забирает готовую перезарядку и начинает её ожидание; возвращает false, пока перезарядка идёт."
+  }
+  msg "api.aego/tween.Position" {
+    text="Перемещает 2D-узел в локальную позицию."
+  }
+  msg "api.aego/tween.ToColor" {
+    text="Анимирует свойство Color."
+  }
+  msg "api.aego/tween.ToFloat" {
+    text="Анимирует свойство float или int либо одну компоненту вектора или цвета.\nПути: Component.Field, Component.Field.a, transform.rotation, script/Name.Field."
+  }
+  msg "api.aego/tween.ToQuat" {
+    text="Поворачивает вращение по короткой дуге."
+  }
+  msg "api.aego/tween.ToVec2" {
+    text="Анимирует свойство Vec2."
+  }
+  msg "api.aego/tween.ToVec3" {
+    text="Анимирует свойство Vec3, например позицию 3D-узла."
+  }
+  msg "api.aego/tween.Tween.Completed" {
+    text="Вызывается один раз, когда твин заканчивается. Его параметр finished равен true при естественном окончании и false после Stop, когда его заменил новый твин того же свойства или когда его узла или цели больше нет."
+  }
+  msg "api.aego/tween.Tween.Curve" {
+    text="Заменяет плавность полем-кривой; диапазон времени кривой растягивается на длительность."
+  }
+  msg "api.aego/tween.Tween.Delay" {
+    text="Ждёт перед началом твина; начальное значение читается в конце задержки. Вызывается сразу после создания твина."
+  }
+  msg "api.aego/tween.Tween.Done" {
+    text="Сообщает, закончился ли твин, был ли он остановлен или равен nil."
+  }
+  msg "api.aego/tween.Tween.Loop" {
+    text="Проигрывает твин n раз с начала; -1 повторяет до Stop."
+  }
+  msg "api.aego/tween.Tween.PingPong" {
+    text="Проигрывает n проходов, каждый второй — в обратную сторону; 2 — туда и обратно, -1 повторяет до Stop."
+  }
+  msg "api.aego/tween.Tween.Running" {
+    text="Противоположность Done."
+  }
+  msg "api.aego/tween.Tween.Stop" {
+    text="Завершает твин на месте; свойство сохраняет текущее значение."
+  }
+  msg "api.aego/tween.Tween.Unscaled" {
+    text="Выполняет твин в реальном времени, в том числе пока игра на паузе."
+  }
+  msg "api.animation.AnimationPlayer.Event" {
+    text="Вызывается, когда клип доходит до события; anim.EventName(id) даёт его имя."
+  }
+  msg "api.animation.AnimationPlayer.Finished" {
+    text="Вызывается, когда незацикленный клип заканчивается, с cycle 0, или после Stop, с cycle -1."
+  }
+  msg "api.animation.AnimationPlayer.Pause" {
+    text="Останавливает клип на текущем месте."
+  }
+  msg "api.animation.AnimationPlayer.Play" {
+    text="Запускает клип с начала на следующем фиксированном шаге; nil заново проигрывает текущий клип."
+  }
+  msg "api.animation.AnimationPlayer.Resume" {
+    text="Продолжает клип после паузы."
+  }
+  msg "api.animation.AnimationPlayer.Seek" {
+    text="Переходит к моменту внутри клипа на следующем фиксированном шаге, не вызывая события между ними."
+  }
+  msg "api.animation.AnimationPlayer.SetSpeed" {
+    text="Меняет скорость проигрывания; отрицательная скорость проигрывает назад."
+  }
+  msg "api.animation.AnimationPlayer.Stop" {
+    text="Завершает клип на следующем фиксированном шаге: дорожки с onEnd=restore получают значения, которые были до Play, Finished вызывается с cycle -1."
+  }
+  msg "api.animation.Animator.CrossFade" {
+    text="Плавно переходит в состояние за несколько секунд, начиная со следующего фиксированного шага."
+  }
+  msg "api.animation.Animator.Event" {
+    text="Вызывается, когда состояние доходит до события своего клипа; во время смешивания политика событий состояния решает, какая сторона сообщает о нём."
+  }
+  msg "api.animation.Animator.GetBool" {
+    text="Читает параметр bool или trigger."
+  }
+  msg "api.animation.Animator.GetFloat" {
+    text="Читает параметр float."
+  }
+  msg "api.animation.Animator.GetInt" {
+    text="Читает параметр int."
+  }
+  msg "api.animation.Animator.IsState" {
+    text="Сообщает, находится ли аниматор в состоянии; во время смешивания это состояние, в которое идёт переход."
+  }
+  msg "api.animation.Animator.Play" {
+    text="Переключает на состояние на следующем фиксированном шаге, без смешивания."
+  }
+  msg "api.animation.Animator.ResetTrigger" {
+    text="Сбрасывает триггер, который ещё не сработал."
+  }
+  msg "api.animation.Animator.SetBool" {
+    text="Задаёт параметр bool; переходы читают его на следующем фиксированном шаге."
+  }
+  msg "api.animation.Animator.SetFloat" {
+    text="Задаёт параметр float."
+  }
+  msg "api.animation.Animator.SetInt" {
+    text="Задаёт параметр int."
+  }
+  msg "api.animation.Animator.SetTrigger" {
+    text="Взводит триггер на следующий фиксированный шаг; его сбрасывает переход, который его использует, или конец этого шага."
+  }
+  msg "api.animation.Animator.StateEntered" {
+    text="Вызывается, когда аниматор входит в состояние, в начале перехода."
+  }
+  msg "api.animation.Animator.StateExited" {
+    text="Вызывается, когда состояние перестаёт проигрываться, в конце перехода."
+  }
+  msg "api.animation.Animator.StateName" {
+    text="Возвращает имя состояния по индексу, как его сообщают StateEntered и StateExited."
+  }
+  msg "api.audio.AudioSource2D.Finished" {
+    text="Вызывается, когда звук источника заканчивается; finished равно false после Stop или когда звук был прерван."
+  }
+  msg "api.audio.AudioSource2D.IsPlaying" {
+    text="Сообщает, проигрывает ли источник звук."
+  }
+  msg "api.audio.AudioSource2D.Play" {
+    text="Запускает источник с начала, останавливая звук, который уже играет."
+  }
+  msg "api.audio.AudioSource2D.Started" {
+    text="Вызывается, когда источник начинает звук."
+  }
+  msg "api.audio.AudioSource2D.Stop" {
+    text="Заканчивает звук источника коротким затуханием."
+  }
+  msg "api.audio.AudioSource2D.StopFade" {
+    text="Плавно заглушает звук источника за seconds секунд."
+  }
+  msg "api.camera.CameraFollow2D.Snap" {
+    text="Сразу переносит камеру на цель, например после телепорта."
+  }
+  msg "api.camera.CameraShake2D.Add" {
+    text="Добавляет травму выводу этой камеры; травма ограничена 1."
+  }
+  msg "api.camera.VirtualCamera2D.IsActive" {
+    text="Сообщает, управляет ли эта виртуальная камера своим выводом сейчас."
+  }
+  msg "api.events.OnAnimEvent" {
+    text="Вызывается в скриптах узла, Проигрыватель анимации которого доходит до события своего клипа; anim.EventName(id) даёт имя."
+  }
+  msg "api.events.OnCollisionEnter" {
+    text="Вызывается после физического шага, в котором это тело начало касаться other."
+  }
+  msg "api.events.OnCollisionExit" {
+    text="Вызывается, когда тела перестают касаться, в том числе когда одно из них уничтожено или выключено. Contact.Point — последняя известная точка."
+  }
+  msg "api.events.OnCollisionStay" {
+    text="Вызывается после каждого следующего физического шага, пока тела касаются. Ничего не стоит, если ни один скрипт его не объявляет."
+  }
+  msg "api.events.OnDespawned" {
+    text="Вызывается в каждом скрипте экземпляра из пула, когда его убирают, до завершения его корутин и подключений."
+  }
+  msg "api.events.OnLoad" {
+    text="Вызывается после Ready в каждом скрипте, где он есть, при загрузке сохранённой игры; значения читаются через save.Get*."
+  }
+  msg "api.events.OnSave" {
+    text="Вызывается в каждом скрипте, где он есть, во время сохранения игры; значения записываются через save.Put*."
+  }
+  msg "api.events.OnSettingChanged" {
+    text="Вызывается в каждом скрипте с этим методом после изменения действующего значения настройки: Apply, Revert, переопределение или истечение времени подтверждения."
+  }
+  msg "api.events.OnSpawned" {
+    text="Вызывается в каждом скрипте созданного экземпляра префаба: после Ready для нового экземпляра и вместо него для экземпляра из пула."
+  }
+  msg "api.events.OnTriggerEnter" {
+    text="Вызывается, когда коллайдер other вошёл в триггер этого тела или это тело вошло в триггер other."
+  }
+  msg "api.events.OnTriggerExit" {
+    text="Вызывается, когда пересечение с триггером заканчивается."
+  }
+  msg "api.gameplay.Checkpoint2D.Reached" {
+    text="Срабатывает, когда узел берёт эту контрольную точку."
+  }
+  msg "api.gameplay.Health.Damage" {
+    text="Отнимает здоровье и сообщает, удалось ли: не во время неуязвимости, не после смерти и не для урона меньше 1."
+  }
+  msg "api.gameplay.Health.Damaged" {
+    text="Срабатывает один раз за шаг с уроном, полученным в нём."
+  }
+  msg "api.gameplay.Health.Died" {
+    text="Срабатывает один раз, когда здоровье доходит до нуля."
+  }
+  msg "api.gameplay.Health.Heal" {
+    text="Добавляет здоровье до «Максимум»; после смерти ничего не делает."
+  }
+  msg "api.gameplay.Health.Healed" {
+    text="Срабатывает с восстановленным здоровьем."
+  }
+  msg "api.gameplay.Health.Kill" {
+    text="Обнуляет здоровье."
+  }
+  msg "api.gameplay.Health.Revive" {
+    text="Возвращает узел к жизни с этим здоровьем; 0 означает «Максимум»."
+  }
+  msg "api.gameplay.Health.Revived" {
+    text="Срабатывает после Revive."
+  }
+  msg "api.gameplay.Health.SetInvulnerable" {
+    text="Игнорирует урон несколько секунд игрового времени."
+  }
+  msg "api.gameplay.Hitbox2D.Activate" {
+    text="Начинает новую атаку: уже задетые цели можно задеть снова."
+  }
+  msg "api.gameplay.Hitbox2D.Deactivate" {
+    text="Перестаёт наносить урон."
+  }
+  msg "api.gameplay.Hitbox2D.Hit" {
+    text="Срабатывает для каждой цели, получившей урон."
+  }
+  msg "api.gameplay.Hitbox2D.Pulse" {
+    text="Наносит один раунд урона на следующем шаге, активен хитбокс или нет."
+  }
+  msg "api.gameplay.Motion2D.AddDisplacement" {
+    text="Сдвигает на смещение в мировых единицах на следующем шаге, учитывая стены и склоны как при движении, без изменения скорости; им пользуется корневое движение Аниматора."
+  }
+  msg "api.gameplay.Motion2D.AddVelocity" {
+    text="Добавляет разовый толчок, для отбрасывания."
+  }
+  msg "api.gameplay.Motion2D.Climbed" {
+    text="Срабатывает, когда персонаж начинает забираться на уступ."
+  }
+  msg "api.gameplay.Motion2D.Dash" {
+    text="Двигает с постоянной скоростью несколько секунд."
+  }
+  msg "api.gameplay.Motion2D.HitCeiling" {
+    text="Срабатывает, когда персонаж ударяется о потолок."
+  }
+  msg "api.gameplay.Motion2D.HitWall" {
+    text="Срабатывает, когда персонаж начинает касаться стены."
+  }
+  msg "api.gameplay.Motion2D.Jump" {
+    text="Прыгает на следующем шаге, если персонаж на земле, в пределах времени койота или позже в пределах буфера прыжка."
+  }
+  msg "api.gameplay.Motion2D.JumpReleased" {
+    text="Укорачивает прыжок на подъёме на «Множитель короткого прыжка»."
+  }
+  msg "api.gameplay.Motion2D.Jumped" {
+    text="Срабатывает, когда начинается прыжок."
+  }
+  msg "api.gameplay.Motion2D.Landed" {
+    text="Срабатывает, когда персонаж касается пола, со скоростью падения."
+  }
+  msg "api.gameplay.Motion2D.LeftGround" {
+    text="Срабатывает, когда персонаж сходит с пола без прыжка."
+  }
+  msg "api.gameplay.Motion2D.Move" {
+    text="Задаёт горизонтальный ввод, -1..1; он действует до следующего Move."
+  }
+  msg "api.gameplay.Motion2D.MoveDir" {
+    text="Задаёт ввод для вида сверху; более длинный вектор укорачивается до длины 1."
+  }
+  msg "api.gameplay.Motion2D.Stop" {
+    text="Обнуляет скорость и завершает рывок."
+  }
+  msg "api.gameplay.Motion2D.Teleport" {
+    text="Перемещает в позицию на следующем шаге и сбрасывает скорость и состояние."
+  }
+  msg "api.gameplay.Pickup2D.Collected" {
+    text="Срабатывает с узлом, который подобрал предмет."
+  }
+  msg "api.gameplay.Respawn.Respawned" {
+    text="Срабатывает, когда узел вернулся в свою точку."
+  }
+  msg "api.gameplay.Respawn.SetPoint" {
+    text="Задаёт точку возрождения."
+  }
+  msg "api.gameplay.Respawn.Trigger" {
+    text="Возрождает узел после «Задержка»."
+  }
+  msg "api.gameplay.StateMachine.Changed" {
+    text="Срабатывает после смены состояния с индексами старого и нового состояния."
+  }
+  msg "api.gameplay.StateMachine.Go" {
+    text="Переключает на состояние после возврата из текущего обработчика; между ними выполняются Exit старого состояния и Enter нового. Возвращает false для неизвестного состояния."
+  }
+  msg "api.gameplay.StateMachine.Is" {
+    text="Сообщает, находится ли машина в состоянии."
+  }
+  msg "api.gameplay.StateMachine.TimeIn" {
+    text="Возвращает секунды, проведённые в текущем состоянии."
+  }
+  msg "api.physics.Body2D.ApplyForce" {
+    text="Толкает центр масс тела во время следующего физического шага. Вызывается из FixedUpdate."
+  }
+  msg "api.physics.Body2D.ApplyForceAt" {
+    text="Толкает тело в точке мира, что также раскручивает его."
+  }
+  msg "api.physics.Body2D.ApplyImpulse" {
+    text="Сразу меняет скорость с учётом массы."
+  }
+  msg "api.physics.Body2D.ApplyImpulseAt" {
+    text="Прикладывает импульс в точке мира."
+  }
+  msg "api.physics.Body2D.ApplyTorque" {
+    text="Раскручивает тело во время следующего физического шага."
+  }
+  msg "api.physics.Body2D.Mass()" {
+    text="Возвращает массу, рассчитанную по коллайдерам, или заданную вручную."
+  }
+  msg "api.physics.Body2D.MoveTo" {
+    text="Ведёт кинематическое тело к положению к концу следующего физического шага, расталкивая динамические тела на пути. Вызывается из FixedUpdate."
+  }
+  msg "api.physics.Body2D.SetAngularVelocity" {
+    text="Задаёт вращение в радианах в секунду."
+  }
+  msg "api.physics.Body2D.SetVelocity" {
+    text="Задаёт линейную скорость в единицах в секунду."
+  }
+  msg "api.physics.Body2D.Sleep" {
+    text="Останавливает тело, пока его что-нибудь не коснётся."
+  }
+  msg "api.physics.Body2D.Teleport" {
+    text="Переносит тело в положение в мире без проверки пути, сохраняя скорость."
+  }
+  msg "api.physics.Body2D.WakeUp" {
+    text="Снова включает симуляцию спящего тела."
+  }
+  msg "diag.AES1001" {
+    text="Здесь не может стоять такой символ."
+  }
+  msg "diag.AES1001.fix" {
+    text="Используйте в именах латинские буквы ASCII, другой текст помещайте в строку, а вместо & или | пишите && или ||."
+  }
+  msg "diag.AES1002" {
+    text="У строкового литерала нет закрывающей кавычки."
+  }
+  msg "diag.AES1002.fix" {
+    text="Добавьте \" в конце строки."
+  }
+  msg "diag.AES1003" {
+    text="Эта управляющая последовательность после \\ не поддерживается."
+  }
+  msg "diag.AES1003.fix" {
+    text="Используйте \\n, \\t, \\\", \\\\ или \\uXXXX."
+  }
+  msg "diag.AES1004" {
+    text="Это слово зарезервировано для будущей версии языка."
+  }
+  msg "diag.AES1004.fix" {
+    text="Переименуйте идентификатор."
+  }
+  msg "diag.AES1005" {
+    text="Числовой литерал записан неверно."
+  }
+  msg "diag.AES1005.fix" {
+    text="Пишите цифры после точки (1.0, а не 1.) и ставьте _ только между цифрами."
+  }
+  msg "diag.AES1006" {
+    text="У блочного комментария нет закрывающего */."
+  }
+  msg "diag.AES1006.fix" {
+    text="Добавьте */ там, где комментарий должен закончиться."
+  }
+  msg "diag.AES1007" {
+    text="В файле есть байты, которые не являются корректным UTF-8."
+  }
+  msg "diag.AES1007.fix" {
+    text="Сохраните файл в UTF-8."
+  }
+  msg "diag.AES1008" {
+    text="Строковый литерал не может занимать несколько строк."
+  }
+  msg "diag.AES1008.fix" {
+    text="Закройте строку на той же строке или используйте \\n."
+  }
+  msg "diag.AES1101" {
+    text="Здесь парсер ожидал другое."
+  }
+  msg "diag.AES1101.fix" {
+    text="Проверьте, нет ли пропущенной скобки, запятой или оператора прямо перед этим местом."
+  }
+  msg "diag.AES1102" {
+    text="Каждый файл скрипта начинается с объявления пакета."
+  }
+  msg "diag.AES1102.fix" {
+    text="Добавьте `package <имя папки>` первой строкой."
+  }
+  msg "diag.AES1103" {
+    text="Атрибуты допустимы только у скриптов и полей скриптов."
+  }
+  msg "diag.AES1103.fix" {
+    text="Перенесите атрибут над скриптом или над `var` внутри скрипта либо удалите его."
+  }
+  msg "diag.AES1104" {
+    text="Импорты должны идти до любых объявлений."
+  }
+  msg "diag.AES1104.fix" {
+    text="Перенесите импорт в начало файла, после объявления пакета."
+  }
+  msg "diag.AES1105" {
+    text="Пакеты не могут хранить изменяемое состояние."
+  }
+  msg "diag.AES1105.fix" {
+    text="Используйте const для неизменных значений или перенесите переменную в скрипт как поле."
+  }
+  msg "diag.AES1106" {
+    text="Типы, функции и константы объявляются на уровне пакета."
+  }
+  msg "diag.AES1106.fix" {
+    text="Вынесите объявление из тела функции."
+  }
+  msg "diag.AES1107" {
+    text="Слева от := должно стоять одно новое имя."
+  }
+  msg "diag.AES1107.fix" {
+    text="Напишите `name := value` или используйте = для присваивания существующему полю или элементу."
+  }
+  msg "diag.AES1108" {
+    text="Ключ составного литерала должен быть именем поля."
+  }
+  msg "diag.AES1108.fix" {
+    text="Напишите `Type{Field: value}`."
+  }
+  msg "diag.AES1109" {
+    text="Код вложен слишком глубоко."
+  }
+  msg "diag.AES1109.fix" {
+    text="Разбейте выражение или блок на вспомогательные функции."
+  }
+  msg "diag.AES1110" {
+    text="Единственная часть цикла for должна быть условием."
+  }
+  msg "diag.AES1110.fix" {
+    text="Напишите `for cond {}` или `for init; cond; post {}`."
+  }
+  msg "diag.AES1111" {
+    text="Здесь после типа среза должен идти литерал."
+  }
+  msg "diag.AES1111.fix" {
+    text="Напишите `[]T{...}`."
+  }
+  msg "diag.AES1112" {
+    text="В одной инструкции можно присвоить только одно значение."
+  }
+  msg "diag.AES1112.fix" {
+    text="Разбейте присваивание на несколько инструкций."
+  }
+  msg "diag.AES1113" {
+    text="else должен стоять после закрывающей скобки на той же строке."
+  }
+  msg "diag.AES1113.fix" {
+    text="Напишите `} else {`."
+  }
+  msg "diag.AES2001" {
+    text="Это имя не объявлено в данной области видимости."
+  }
+  msg "diag.AES2001.fix" {
+    text="Проверьте написание, объявите имя или добавьте недостающий импорт."
+  }
+  msg "diag.AES2002" {
+    text="Имя обозначает не тип."
+  }
+  msg "diag.AES2002.fix" {
+    text="Используйте имя типа, например int, Vec2 или объявленную структуру."
+  }
+  msg "diag.AES2003" {
+    text="Тип значения отличается от типа места, где оно используется."
+  }
+  msg "diag.AES2003.fix" {
+    text="Преобразуйте явно, например float(x) или int(f)."
+  }
+  msg "diag.AES2004" {
+    text="Оператор не определён для операндов этих типов."
+  }
+  msg "diag.AES2004.fix" {
+    text="Преобразуйте операнды к типу, который поддерживает оператор."
+  }
+  msg "diag.AES2005" {
+    text="Число аргументов в вызове не совпадает с тем, что ждёт функция."
+  }
+  msg "diag.AES2005.fix" {
+    text="Приведите вызов к сигнатуре функции; наведите на функцию, чтобы её увидеть."
+  }
+  msg "diag.AES2006" {
+    text="Выражение не является функцией."
+  }
+  msg "diag.AES2006.fix" {
+    text="Уберите скобки или вызовите функцию."
+  }
+  msg "diag.AES2007" {
+    text="Левой части нельзя присвоить значение."
+  }
+  msg "diag.AES2007.fix" {
+    text="Присваивайте переменной, полю, элементу среза или изменяемому полю компонента."
+  }
+  msg "diag.AES2008" {
+    text="У типа нет поля или члена с таким именем."
+  }
+  msg "diag.AES2008.fix" {
+    text="Проверьте написание; нажмите Ctrl+Space после точки, чтобы увидеть члены."
+  }
+  msg "diag.AES2009" {
+    text="Имя начинается со строчной буквы, поэтому оно закрыто в своём пакете."
+  }
+  msg "diag.AES2009.fix" {
+    text="Переименуйте его с заглавной буквы, если оно нужно другим пакетам."
+  }
+  msg "diag.AES2010" {
+    text="Константе нужно значение, известное при компиляции."
+  }
+  msg "diag.AES2010.fix" {
+    text="Используйте только литералы и другие константы."
+  }
+  msg "diag.AES2011" {
+    text="Целочисленное деление на постоянный ноль."
+  }
+  msg "diag.AES2011.fix" {
+    text="Проверьте делитель."
+  }
+  msg "diag.AES2012" {
+    text="Константа не помещается в свой тип."
+  }
+  msg "diag.AES2012.fix" {
+    text="Возьмите значение меньше или тип шире."
+  }
+  msg "diag.AES2013" {
+    text="Функция может дойти до конца, не вернув значения."
+  }
+  msg "diag.AES2013.fix" {
+    text="Добавьте return на каждом пути."
+  }
+  msg "diag.AES2014" {
+    text="break или continue стоит вне цикла или switch."
+  }
+  msg "diag.AES2014.fix" {
+    text="Перенесите его внутрь цикла for или используйте return."
+  }
+  msg "diag.AES2015" {
+    text="switch по перечислению должен обрабатывать все значения."
+  }
+  msg "diag.AES2015.fix" {
+    text="Добавьте недостающие case или default."
+  }
+  msg "diag.AES2016" {
+    text="Одно и то же значение case встречается дважды."
+  }
+  msg "diag.AES2016.fix" {
+    text="Удалите повторяющийся case."
+  }
+  msg "diag.AES2017" {
+    text="Структура не может содержать саму себя по значению."
+  }
+  msg "diag.AES2017.fix" {
+    text="Храните связь в срезе или удалите поле."
+  }
+  msg "diag.AES2018" {
+    text="Имя уже объявлено в этой области видимости."
+  }
+  msg "diag.AES2018.fix" {
+    text="Переименуйте или удалите одно из объявлений."
+  }
+  msg "diag.AES2019" {
+    text="Возвращаемое значение не соответствует результату функции."
+  }
+  msg "diag.AES2019.fix" {
+    text="Верните значение объявленного типа или ничего, если у функции нет результата."
+  }
+  msg "diag.AES2020" {
+    text="Здесь у nil нет собственного типа."
+  }
+  msg "diag.AES2020.fix" {
+    text="Задайте переменной явный ссылочный тип: `var r NodeRef = nil`."
+  }
+  msg "diag.AES2021" {
+    text="Здесь недопустим этот аргумент типа."
+  }
+  msg "diag.AES2021.fix" {
+    text="Используйте Get<T>/Has<T> с именем компонента, AssetRef<Texture|Scene|Prefab|Mesh>."
+  }
+  msg "diag.AES2022" {
+    text="У метода жизненного цикла неверная сигнатура."
+  }
+  msg "diag.AES2022.fix" {
+    text="Используйте func Ready(), func Update(dt float), func FixedUpdate(dt float), func Reloaded()."
+  }
+  msg "diag.AES2023" {
+    text="Эти типы нельзя преобразовать друг в друга."
+  }
+  msg "diag.AES2023.fix" {
+    text="Преобразуйте через int, float или string, как описано в справочнике."
+  }
+  msg "diag.AES2024" {
+    text="Выражение не даёт значения."
+  }
+  msg "diag.AES2024.fix" {
+    text="Вызовите функцию или используйте значение вместо типа или пакета."
+  }
+  msg "diag.AES2025" {
+    text="Значение вычисляется и выбрасывается."
+  }
+  msg "diag.AES2025.fix" {
+    text="Присвойте результат или удалите выражение."
+  }
+  msg "diag.AES2026" {
+    text="Константы ссылаются друг на друга по кругу."
+  }
+  msg "diag.AES2026.fix" {
+    text="Разорвите цикл литеральным значением."
+  }
+  msg "diag.AES2027" {
+    text="Константы могут быть только bool, int, float, string или перечислением."
+  }
+  msg "diag.AES2027.fix" {
+    text="Для других типов используйте поле скрипта."
+  }
+  msg "diag.AES2028" {
+    text="Составной литерал не подходит к своему типу."
+  }
+  msg "diag.AES2028.fix" {
+    text="Используйте либо только именованные, либо только позиционные значения, в нужном количестве."
+  }
+  msg "diag.AES2029" {
+    text="Функция слишком велика для компиляции."
+  }
+  msg "diag.AES2029.fix" {
+    text="Разбейте её на функции поменьше."
+  }
+  msg "diag.AES2030" {
+    text="Пакет не собран, потому что в его зависимости есть ошибки."
+  }
+  msg "diag.AES2030.fix" {
+    text="Исправьте ошибки в указанном пакете."
+  }
+  msg "diag.AES2031" {
+    text="Переменная объявлена, но не читается."
+  }
+  msg "diag.AES2031.fix" {
+    text="Используйте её или удалите."
+  }
+  msg "diag.AES2032" {
+    text="Элемент среза может занимать не больше 32 ячеек значений."
+  }
+  msg "diag.AES2032.fix" {
+    text="Уменьшите структуру элемента или храните несколько срезов."
+  }
+  msg "diag.AES2050" {
+    text="yield приостанавливает корутину, поэтому он допустим только в функции, объявленной как coroutine."
+  }
+  msg "diag.AES2050.fix" {
+    text="Объявите метод как func Name() coroutine и запускайте его через start Name()."
+  }
+  msg "diag.AES2051" {
+    text="Корутину нельзя вызвать как обычную функцию."
+  }
+  msg "diag.AES2051.fix" {
+    text="Напишите start Name(args); сохраните результат в поле Coroutine, чтобы потом остановить."
+  }
+  msg "diag.AES2052" {
+    text="start запускает метод-корутину текущего скрипта."
+  }
+  msg "diag.AES2052.fix" {
+    text="Пометьте метод словом coroutine после сигнатуры или вызовите обычный метод напрямую."
+  }
+  msg "diag.AES2053" {
+    text="Корутина — метод скрипта и не возвращает значения."
+  }
+  msg "diag.AES2053.fix" {
+    text="Перенесите её в скрипт и уберите тип результата; передавайте результаты через поля или сигналы."
+  }
+  msg "diag.AES2054" {
+    text="Параметры обработчика должны в точности совпадать с параметрами сигнала."
+  }
+  msg "diag.AES2054.fix" {
+    text="Сделайте у обработчика те же типы в том же порядке, что у сигнала."
+  }
+  msg "diag.AES2055" {
+    text="Connect принимает обычный метод этого скрипта или ref.Method; сигналы испускает только их собственный скрипт."
+  }
+  msg "diag.AES2055.fix" {
+    text="Передайте имя метода, например OnDied или other.OnDied; вызывайте Emit только у сигнала этого скрипта."
+  }
+  msg "diag.AES2056" {
+    text="Ready, Update, FixedUpdate и Reloaded вызывает движок, и они не могут быть корутинами."
+  }
+  msg "diag.AES2056.fix" {
+    text="Оставьте метод жизненного цикла обычным и пишите внутри start Name()."
+  }
+  msg "diag.AES2057" {
+    text="wait и waitUnscaled принимают секунды как float, frames и fixed — количество как int, а голый yield — значение Coroutine."
+  }
+  msg "diag.AES2057.fix" {
+    text="Преобразуйте значение, например yield wait(float(n)) или yield frames(int(t))."
+  }
+  msg "diag.AES2058" {
+    text="ScriptRef и GetScript нужно имя типа скрипта."
+  }
+  msg "diag.AES2058.fix" {
+    text="Укажите имя скрипта или pkg.Name, если короткое имя неоднозначно."
+  }
+  msg "diag.AES2059" {
+    text="Методы жизненного цикла и корутины выполняются только на своём экземпляре."
+  }
+  msg "diag.AES2059.fix" {
+    text="Вызовите обычный метод цели, который делает работу, или подключитесь к сигналу."
+  }
+  msg "diag.AES2060" {
+    text="Метод скрипта с именем события движка получает это событие и должен соответствовать его сигнатуре."
+  }
+  msg "diag.AES2060.fix" {
+    text="Используйте типы параметров из подсказки к событию или переименуйте метод, если это не обработчик."
+  }
+  msg "diag.AES2061" {
+    text="Обработчики событий движка вызывает только движок."
+  }
+  msg "diag.AES2061.fix" {
+    text="Вынесите общий код в обычный метод и вызывайте его и из обработчика, и из своего кода."
+  }
+  msg "diag.AES3001" {
+    text="Экспортировать можно только скалярные, векторные поля, перечисления и ссылки."
+  }
+  msg "diag.AES3001.fix" {
+    text="Уберите @export или смените тип поля."
+  }
+  msg "diag.AES3002" {
+    text="Атрибут неизвестен."
+  }
+  msg "diag.AES3002.fix" {
+    text="Используйте @export, @former, @hide или @pause."
+  }
+  msg "diag.AES3003" {
+    text="Недопустимый аргумент атрибута."
+  }
+  msg "diag.AES3003.fix" {
+    text="Посмотрите атрибут в справочнике скриптов; наведите на него, чтобы увидеть допустимые аргументы."
+  }
+  msg "diag.AES3004" {
+    text="Атрибут или аргумент указан дважды."
+  }
+  msg "diag.AES3004.fix" {
+    text="Оставьте один."
+  }
+  msg "diag.AES3005" {
+    text="Атрибут не применим к этому объявлению."
+  }
+  msg "diag.AES3005.fix" {
+    text="Перенесите его к скрипту или полю либо удалите."
+  }
+  msg "diag.AES3006" {
+    text="Значение поля по умолчанию должно быть константой."
+  }
+  msg "diag.AES3006.fix" {
+    text="Используйте литерал или константу либо задайте значение в Ready."
+  }
+  msg "diag.AES3007" {
+    text="Сохранять можно только скалярные, векторные поля, перечисления, узлы и ассеты."
+  }
+  msg "diag.AES3007.fix" {
+    text="Уберите @persist и сохраните значение в OnSave."
+  }
+  msg "diag.AES4001" {
+    text="Объявление пакета должно совпадать с именем папки."
+  }
+  msg "diag.AES4001.fix" {
+    text="Переименуйте пакет или перенесите файл."
+  }
+  msg "diag.AES4002" {
+    text="Нет пакета скриптов или модуля движка с таким путём."
+  }
+  msg "diag.AES4002.fix" {
+    text="Проверьте путь; пакеты скриптов — это папки внутри scripts/."
+  }
+  msg "diag.AES4003" {
+    text="Пакет импортирован дважды."
+  }
+  msg "diag.AES4003.fix" {
+    text="Удалите один импорт."
+  }
+  msg "diag.AES4004" {
+    text="Пакет не может импортировать сам себя."
+  }
+  msg "diag.AES4004.fix" {
+    text="Удалите импорт."
+  }
+  msg "diag.AES4005" {
+    text="Пакеты импортируют друг друга по кругу."
+  }
+  msg "diag.AES4005.fix" {
+    text="Вынесите общий код в третий пакет."
+  }
+  msg "diag.AES4006" {
+    text="Имя объявлено дважды."
+  }
+  msg "diag.AES4006.fix" {
+    text="Переименуйте или удалите одно объявление."
+  }
+  msg "diag.AES4007" {
+    text="Импорт использует то же имя, что и объявление."
+  }
+  msg "diag.AES4007.fix" {
+    text="Переименуйте объявление."
+  }
+  msg "diag.AES4008" {
+    text="Импорт не используется."
+  }
+  msg "diag.AES4008.fix" {
+    text="Удалите его."
+  }
+  msg "diag.AES4009" {
+    text="Пути пакетов внутри aego/ принадлежат движку."
+  }
+  msg "diag.AES4009.fix" {
+    text="Смените модуль проекта."
+  }
+  msg "diag.AES4010" {
+    text="У пакета скриптов и модуля движка один и тот же путь."
+  }
+  msg "diag.AES4010.fix" {
+    text="Переименуйте папку скриптов."
+  }
+  msg "diag.AES5001" {
+    text="У движка или нативного модуля нет такого члена."
+  }
+  msg "diag.AES5001.fix" {
+    text="Проверьте имя; нажмите Ctrl+Space после имени модуля, чтобы увидеть список членов."
+  }
+  msg "diag.AES6001" {
+    text="Обработчик выполнил больше инструкций, чем позволяет бюджет, — обычно это бесконечный цикл."
+  }
+  msg "diag.AES6001.fix" {
+    text="Убедитесь, что каждый цикл заканчивается за один кадр."
+  }
+  msg "diag.AES6002" {
+    text="Нативная привязка на Go вызвала panic."
+  }
+  msg "diag.AES6002.fix" {
+    text="Исправьте функцию на Go; её стек показан в Консоли."
+  }
+  msg "diag.AES6003" {
+    text="Вызовы вложены глубже 256 уровней — обычно это бесконечная рекурсия или повторный Emit сигнала из его обработчика."
+  }
+  msg "diag.AES6003.fix" {
+    text="Добавьте условие остановки."
+  }
+  msg "diag.AES6004" {
+    text="Ссылка равна nil или её узел, компонент или экземпляр скрипта больше не существует."
+  }
+  msg "diag.AES6004.fix" {
+    text="Проверяйте `if ref != nil` и IsAlive перед использованием."
+  }
+  msg "diag.AES6005" {
+    text="Индекс выходит за пределы среза."
+  }
+  msg "diag.AES6005.fix" {
+    text="Сравните индекс с len(slice)."
+  }
+  msg "diag.AES6006" {
+    text="Целочисленное деление на ноль во время выполнения."
+  }
+  msg "diag.AES6006.fix" {
+    text="Проверяйте делитель перед делением."
+  }
+  msg "diag.AES6007" {
+    text="Недействительный дескриптор строки или среза."
+  }
+  msg "diag.AES6007.fix" {
+    text="Сообщите об этом как об ошибке движка."
+  }
+  msg "diag.AES6008" {
+    text="Функция дошла до конца, не вернув значения."
+  }
+  msg "diag.AES6008.fix" {
+    text="Добавьте недостающий return."
+  }
+  msg "diag.AES6009" {
+    text="Не удалось связать вызов или привязку."
+  }
+  msg "diag.AES6009.fix" {
+    text="Пересоберите скрипты и нативный код."
+  }
+  msg "diag.AES6010" {
+    text="Функция движка или нативная функция сообщила об ошибке."
+  }
+  msg "diag.AES6010.fix" {
+    text="Прочитайте сообщение: в нём названа причина."
+  }
+  msg "diag.AES6100" {
+    text="Скомпилированный артефакт повреждён."
+  }
+  msg "diag.AES6100.fix" {
+    text="Заново импортируйте скрипты (Ассеты → Переимпорт)."
+  }
+  msg "docs.fix" {
+    text="Как исправить:"
+  }
+  msg "docs.group.components" {
+    text="Компоненты"
+  }
+  msg "docs.group.diagnostics" {
+    text="Диагностика"
+  }
+  msg "docs.group.editor" {
+    text="Редактор"
+  }
+  msg "docs.group.extending" {
+    text="Расширение Aego"
+  }
+  msg "docs.group.gameplay" {
+    text="Геймплей"
+  }
+  msg "docs.group.project" {
+    text="Проект"
+  }
+  msg "docs.group.ref-cli" {
+    text="CLI"
+  }
+  msg "docs.group.ref-formats" {
+    text="Форматы файлов"
+  }
+  msg "docs.group.ref-script" {
+    text="API скриптов"
+  }
+  msg "docs.group.ref-settings" {
+    text="Настройки проекта"
+  }
+  msg "docs.group.rendering" {
+    text="Отрисовка"
+  }
+  msg "docs.group.scenes" {
+    text="Сцены и префабы"
+  }
+  msg "docs.group.script" {
+    text="Aego Script"
+  }
+  msg "docs.group.start" {
+    text="Начало работы"
+  }
+  msg "docs.group.tools" {
+    text="Инструменты и агенты"
+  }
+  msg "enum.animation.LoopOverride.clip" {
+    text="как в клипе"
+  }
+  msg "enum.animation.LoopOverride.loop" {
+    text="повтор"
+  }
+  msg "enum.animation.LoopOverride.once" {
+    text="один раз"
+  }
+  msg "enum.animation.LoopOverride.pingPong" {
+    text="туда-обратно"
+  }
+  msg "enum.animation.RootMotion.none" {
+    text="нет"
+  }
+  msg "enum.animation.RootMotion.toMotion" {
+    text="в Движение 2D"
+  }
+  msg "enum.animation.RootMotion.toTransform" {
+    text="в трансформацию"
+  }
+  msg "enum.animation.TimeDomain.game" {
+    text="игровое время"
+  }
+  msg "enum.animation.TimeDomain.unscaled" {
+    text="реальное время"
+  }
+  msg "enum.audio.Bus.ambience" {
+    text="окружение"
+  }
+  msg "enum.audio.Bus.master" {
+    text="общая"
+  }
+  msg "enum.audio.Bus.music" {
+    text="музыка"
+  }
+  msg "enum.audio.Bus.sfx" {
+    text="эффекты"
+  }
+  msg "enum.audio.Bus.ui" {
+    text="интерфейс"
+  }
+  msg "enum.audio.Bus.voice" {
+    text="голос"
+  }
+  msg "enum.audio.PauseWith.game" {
+    text="с игрой"
+  }
+  msg "enum.audio.PauseWith.never" {
+    text="никогда"
+  }
+  msg "enum.camera.TimeDomain.game" {
+    text="игровое время"
+  }
+  msg "enum.camera.TimeDomain.unscaled" {
+    text="реальное время"
+  }
+  msg "enum.engine.BlendMode.additive" {
+    text="сложение"
+  }
+  msg "enum.engine.BlendMode.opaque" {
+    text="непрозрачный"
+  }
+  msg "enum.engine.BlendMode.premultiplied" {
+    text="с premultiplied-альфой"
+  }
+  msg "enum.engine.FilterMode.linear" {
+    text="линейная"
+  }
+  msg "enum.engine.FilterMode.nearest" {
+    text="ближайший пиксель"
+  }
+  msg "enum.engine.ScaleMode.fitVirtual" {
+    text="под виртуальное разрешение"
+  }
+  msg "enum.engine.ScaleMode.free" {
+    text="свободно"
+  }
+  msg "enum.engine.ScaleMode.pixelPerfect" {
+    text="пиксель в пиксель"
+  }
+  msg "enum.gameplay.HitPolicy.onEnter" {
+    text="при входе"
+  }
+  msg "enum.gameplay.HitPolicy.oncePerActivation" {
+    text="раз за активацию"
+  }
+  msg "enum.gameplay.HitPolicy.periodic" {
+    text="периодически"
+  }
+  msg "enum.gameplay.MotionMode.platformer" {
+    text="платформер"
+  }
+  msg "enum.gameplay.MotionMode.topDown" {
+    text="вид сверху"
+  }
+  msg "enum.gameplay.PlatformLeave.add" {
+    text="добавить горизонтальную"
+  }
+  msg "enum.gameplay.PlatformLeave.drop" {
+    text="сбросить"
+  }
+  msg "enum.gameplay.PlatformLeave.keep" {
+    text="сохранить"
+  }
+  msg "enum.gameplay.Shape.box" {
+    text="прямоугольник"
+  }
+  msg "enum.gameplay.Shape.circle" {
+    text="круг"
+  }
+  msg "enum.physics.BodyType.dynamic" {
+    text="динамическое"
+  }
+  msg "enum.physics.BodyType.kinematic" {
+    text="кинематическое"
+  }
+  msg "enum.physics.BodyType.static" {
+    text="статическое"
+  }
+  msg "enum.physics.MassMode.auto" {
+    text="автоматически"
+  }
+  msg "enum.physics.MassMode.override" {
+    text="задать вручную"
+  }
+  msg "schema.animation.AnimationPlayer" {
+    text="Проигрыватель анимации"
+  }
+  msg "schema.animation.AnimationPlayer.clip" {
+    text="Клип"
+  }
+  msg "schema.animation.AnimationPlayer.clip.doc" {
+    text="Клип для воспроизведения."
+  }
+  msg "schema.animation.AnimationPlayer.cycle" {
+    text="Цикл"
+  }
+  msg "schema.animation.AnimationPlayer.cycle.doc" {
+    text="Сколько циклов повторяющегося клипа уже прошло."
+  }
+  msg "schema.animation.AnimationPlayer.doc" {
+    text="Воспроизводит анимационный клип на своём узле и узлах под ним: дорожки свойств, кадры спрайта и события. Время клипа, игровые события и дорожки, кроме позы трансформации, идут фиксированными шагами, поэтому повтор даёт тот же результат при любой частоте кадров."
+  }
+  msg "schema.animation.AnimationPlayer.loop" {
+    text="Повтор"
+  }
+  msg "schema.animation.AnimationPlayer.loop.doc" {
+    text="clip сохраняет режим повтора из клипа; once, loop и pingPong заменяют его."
+  }
+  msg "schema.animation.AnimationPlayer.playOnStart" {
+    text="Запуск при старте"
+  }
+  msg "schema.animation.AnimationPlayer.playOnStart.doc" {
+    text="Запускает клип в начале игры."
+  }
+  msg "schema.animation.AnimationPlayer.playing" {
+    text="Играет"
+  }
+  msg "schema.animation.AnimationPlayer.playing.doc" {
+    text="Играет ли клип."
+  }
+  msg "schema.animation.AnimationPlayer.speed" {
+    text="Скорость"
+  }
+  msg "schema.animation.AnimationPlayer.speed.doc" {
+    text="Скорость воспроизведения: 1 — обычная, 2 — вдвое быстрее; отрицательная играет назад."
+  }
+  msg "schema.animation.AnimationPlayer.time" {
+    text="Время"
+  }
+  msg "schema.animation.AnimationPlayer.time.doc" {
+    text="Время внутри клипа, в секундах."
+  }
+  msg "schema.animation.AnimationPlayer.timeDomain" {
+    text="Шкала времени"
+  }
+  msg "schema.animation.AnimationPlayer.timeDomain.doc" {
+    text="game идёт по игровому времени и встаёт на паузу вместе с ним; unscaled идёт по реальному времени и во время паузы, для меню и другого оформления."
+  }
+  msg "schema.animation.Animator" {
+    text="Аниматор"
+  }
+  msg "schema.animation.Animator.blending" {
+    text="Смешивание"
+  }
+  msg "schema.animation.Animator.blending.doc" {
+    text="Идёт ли смешивание перехода."
+  }
+  msg "schema.animation.Animator.controller" {
+    text="Контроллер"
+  }
+  msg "schema.animation.Animator.controller.doc" {
+    text="Контроллер с состояниями, параметрами и переходами."
+  }
+  msg "schema.animation.Animator.doc" {
+    text="Проигрывает состояния анимационного контроллера и смешивает их, когда меняются его параметры. Граф, смешивание, движение корня и игровые события идут фиксированными шагами, поэтому повторы совпадают при любой частоте кадров."
+  }
+  msg "schema.animation.Animator.playOnStart" {
+    text="Запуск при старте"
+  }
+  msg "schema.animation.Animator.playOnStart.doc" {
+    text="В начале игры входит в начальное состояние."
+  }
+  msg "schema.animation.Animator.progress" {
+    text="Прогресс"
+  }
+  msg "schema.animation.Animator.progress.doc" {
+    text="Время в текущем состоянии, делённое на длину его клипа; 1 — один полный клип."
+  }
+  msg "schema.animation.Animator.rootFallback" {
+    text="Корень без Движения 2D"
+  }
+  msg "schema.animation.Animator.rootFallback.doc" {
+    text="Если у узла нет Движения 2D, toMotion двигает трансформацию."
+  }
+  msg "schema.animation.Animator.rootMotion" {
+    text="Движение корня"
+  }
+  msg "schema.animation.Animator.rootMotion.doc" {
+    text="Что двигает дорожка корня: none её не использует, toMotion двигает узел через Движение 2D, чтобы его останавливали стены, toTransform задаёт позицию."
+  }
+  msg "schema.animation.Animator.rootScale" {
+    text="Масштаб корня"
+  }
+  msg "schema.animation.Animator.rootScale.doc" {
+    text="Умножает движение корня в пространстве родителя узла; пока персонаж смотрит влево, задайте X = -1."
+  }
+  msg "schema.animation.Animator.speed" {
+    text="Скорость"
+  }
+  msg "schema.animation.Animator.speed.doc" {
+    text="Умножает скорость всех состояний; 1 — обычная скорость."
+  }
+  msg "schema.animation.Animator.state" {
+    text="Состояние"
+  }
+  msg "schema.animation.Animator.state.doc" {
+    text="Текущее состояние."
+  }
+  msg "schema.animation.Animator.time" {
+    text="Время"
+  }
+  msg "schema.animation.Animator.time.doc" {
+    text="Секунды в текущем состоянии."
+  }
+  msg "schema.animation.Animator.timeDomain" {
+    text="Шкала времени"
+  }
+  msg "schema.animation.Animator.timeDomain.doc" {
+    text="game идёт по игровому времени и встаёт на паузу вместе с ним; unscaled идёт по реальному времени и во время паузы, только для оформления."
+  }
+  msg "schema.audio.AudioListener2D" {
+    text="Слушатель звука 2D"
+  }
+  msg "schema.audio.AudioListener2D.active" {
+    text="Активен"
+  }
+  msg "schema.audio.AudioListener2D.active.doc" {
+    text="Используется первый активный слушатель в иерархии."
+  }
+  msg "schema.audio.AudioListener2D.doc" {
+    text="Слышит пространственный звук со своего узла. Без него слушает камера главного выхода."
+  }
+  msg "schema.audio.AudioSource2D" {
+    text="Источник звука 2D"
+  }
+  msg "schema.audio.AudioSource2D.bus" {
+    text="Шина"
+  }
+  msg "schema.audio.AudioSource2D.bus.doc" {
+    text="Шина микшера."
+  }
+  msg "schema.audio.AudioSource2D.clip" {
+    text="Клип"
+  }
+  msg "schema.audio.AudioSource2D.clip.doc" {
+    text="Звук для воспроизведения; не используется, если задано Событие."
+  }
+  msg "schema.audio.AudioSource2D.doc" {
+    text="Воспроизводит клип или звуковое событие со своего узла."
+  }
+  msg "schema.audio.AudioSource2D.event" {
+    text="Событие"
+  }
+  msg "schema.audio.AudioSource2D.event.doc" {
+    text="Звуковое событие вместо клипа; его настройки заменяют поля ниже."
+  }
+  msg "schema.audio.AudioSource2D.loop" {
+    text="Повтор"
+  }
+  msg "schema.audio.AudioSource2D.loop.doc" {
+    text="Повторяется, пока не остановлен."
+  }
+  msg "schema.audio.AudioSource2D.maxDistance" {
+    text="Макс. расстояние"
+  }
+  msg "schema.audio.AudioSource2D.maxDistance.doc" {
+    text="С этого расстояния не слышен, в мировых единицах."
+  }
+  msg "schema.audio.AudioSource2D.minDistance" {
+    text="Мин. расстояние"
+  }
+  msg "schema.audio.AudioSource2D.minDistance.doc" {
+    text="Полная громкость до этого расстояния, в мировых единицах."
+  }
+  msg "schema.audio.AudioSource2D.pan" {
+    text="Панорама"
+  }
+  msg "schema.audio.AudioSource2D.pan.doc" {
+    text="От −1 (слева) до 1 (справа), для непространственного звука."
+  }
+  msg "schema.audio.AudioSource2D.panWidth" {
+    text="Ширина панорамы"
+  }
+  msg "schema.audio.AudioSource2D.panWidth.doc" {
+    text="Насколько сдвигается пространственный звук на макс. расстоянии сбоку: 0 — остаётся по центру, 1 — полностью влево или вправо."
+  }
+  msg "schema.audio.AudioSource2D.pauseWith" {
+    text="Пауза вместе с"
+  }
+  msg "schema.audio.AudioSource2D.pauseWith.doc" {
+    text="game встаёт на паузу вместе с миром, never продолжает играть."
+  }
+  msg "schema.audio.AudioSource2D.pitch" {
+    text="Высота тона"
+  }
+  msg "schema.audio.AudioSource2D.pitch.doc" {
+    text="Скорость и высота тона вместе: 1 — обычная, 2 — на октаву выше и вдвое быстрее."
+  }
+  msg "schema.audio.AudioSource2D.playOnStart" {
+    text="Запуск при старте"
+  }
+  msg "schema.audio.AudioSource2D.playOnStart.doc" {
+    text="Играет с начала игры."
+  }
+  msg "schema.audio.AudioSource2D.playing" {
+    text="Играет"
+  }
+  msg "schema.audio.AudioSource2D.playing.doc" {
+    text="Истина, пока играет звук этого источника."
+  }
+  msg "schema.audio.AudioSource2D.position" {
+    text="Позиция"
+  }
+  msg "schema.audio.AudioSource2D.position.doc" {
+    text="Секунды от начала звука."
+  }
+  msg "schema.audio.AudioSource2D.rolloff" {
+    text="Затухание"
+  }
+  msg "schema.audio.AudioSource2D.rolloff.doc" {
+    text="Громкость от мин. расстояния (время 0) до макс. расстояния (время 1)."
+  }
+  msg "schema.audio.AudioSource2D.spatial" {
+    text="Пространственный"
+  }
+  msg "schema.audio.AudioSource2D.spatial.doc" {
+    text="Затухает и смещается с расстоянием до слушателя."
+  }
+  msg "schema.audio.AudioSource2D.volume" {
+    text="Громкость"
+  }
+  msg "schema.audio.AudioSource2D.volume.doc" {
+    text="Громкость до шины: 0 — тишина, 1 — клип как записан."
+  }
+  msg "schema.audio.AudioZone2D" {
+    text="Звуковая зона 2D"
+  }
+  msg "schema.audio.AudioZone2D.area" {
+    text="Область"
+  }
+  msg "schema.audio.AudioZone2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.audio.AudioZone2D.bus" {
+    text="Шина"
+  }
+  msg "schema.audio.AudioZone2D.bus.doc" {
+    text="Шина, громкость которой меняет зона."
+  }
+  msg "schema.audio.AudioZone2D.doc" {
+    text="Пока слушатель в Области, громкость Шины равна Уровню."
+  }
+  msg "schema.audio.AudioZone2D.fadeTime" {
+    text="Время перехода"
+  }
+  msg "schema.audio.AudioZone2D.fadeTime.doc" {
+    text="Секунды на плавный вход в зону и выход из неё."
+  }
+  msg "schema.audio.AudioZone2D.gain" {
+    text="Уровень"
+  }
+  msg "schema.audio.AudioZone2D.gain.doc" {
+    text="Громкость шины внутри зоны, от 0 до 1."
+  }
+  msg "schema.audio.AudioZone2D.priority" {
+    text="Приоритет"
+  }
+  msg "schema.audio.AudioZone2D.priority.doc" {
+    text="Из пересекающихся зон одной шины побеждает высший приоритет, затем та, в которую вошли позже."
+  }
+  msg "schema.camera.CameraBrain2D" {
+    text="Мозг камеры 2D"
+  }
+  msg "schema.camera.CameraBrain2D.doc" {
+    text="Выбирает, какой выход виртуальных камер управляет этой Камерой 2D. Без него камера показывает главный выход."
+  }
+  msg "schema.camera.CameraBrain2D.output" {
+    text="Выход"
+  }
+  msg "schema.camera.CameraBrain2D.output.doc" {
+    text="Имя выхода; этой камерой управляют виртуальные камеры с тем же Выходом."
+  }
+  msg "schema.camera.CameraFollow2D" {
+    text="Слежение камеры 2D"
+  }
+  msg "schema.camera.CameraFollow2D.damping" {
+    text="Демпфирование"
+  }
+  msg "schema.camera.CameraFollow2D.damping.doc" {
+    text="Как быстро камера догоняет цель, в секунду по каждой оси. 0 — следует жёстко."
+  }
+  msg "schema.camera.CameraFollow2D.deadzone" {
+    text="Мёртвая зона"
+  }
+  msg "schema.camera.CameraFollow2D.deadzone.doc" {
+    text="Часть вида, в долях 0..1 его ширины и высоты, где цель двигается, не сдвигая камеру."
+  }
+  msg "schema.camera.CameraFollow2D.doc" {
+    text="Двигает свою виртуальную камеру за Целью, с мёртвой зоной, демпфированием и упреждением."
+  }
+  msg "schema.camera.CameraFollow2D.lookahead" {
+    text="Упреждение"
+  }
+  msg "schema.camera.CameraFollow2D.lookahead.doc" {
+    text="На сколько секунд скорости цели камера смотрит вперёд по каждой оси."
+  }
+  msg "schema.camera.CameraFollow2D.lookaheadSmoothing" {
+    text="Сглаживание упреждения"
+  }
+  msg "schema.camera.CameraFollow2D.lookaheadSmoothing.doc" {
+    text="Как быстро меняется упреждение, в секунду. 0 — сразу."
+  }
+  msg "schema.camera.CameraFollow2D.maxLookahead" {
+    text="Макс. упреждение"
+  }
+  msg "schema.camera.CameraFollow2D.maxLookahead.doc" {
+    text="Наибольшее упреждение в мировых единицах по каждой оси. 0 — без ограничения."
+  }
+  msg "schema.camera.CameraFollow2D.snapDistance" {
+    text="Расстояние скачка"
+  }
+  msg "schema.camera.CameraFollow2D.snapDistance.doc" {
+    text="Скачок цели длиннее этого, в мировых единицах, переносит камеру сразу. 0 — никогда."
+  }
+  msg "schema.camera.CameraFollow2D.target" {
+    text="Цель"
+  }
+  msg "schema.camera.CameraFollow2D.target.doc" {
+    text="Узел, за которым следить; берётся его интерполированная позиция."
+  }
+  msg "schema.camera.CameraShake2D" {
+    text="Тряска камеры 2D"
+  }
+  msg "schema.camera.CameraShake2D.decay" {
+    text="Затухание"
+  }
+  msg "schema.camera.CameraShake2D.decay.doc" {
+    text="Сколько травмы теряется в секунду."
+  }
+  msg "schema.camera.CameraShake2D.doc" {
+    text="Настраивает тряску своей виртуальной камеры. Тряска растёт с травмой и затихает со временем."
+  }
+  msg "schema.camera.CameraShake2D.exponent" {
+    text="Степень"
+  }
+  msg "schema.camera.CameraShake2D.exponent.doc" {
+    text="Тряска — травма в этой степени: при 2 слабые удары почти незаметны."
+  }
+  msg "schema.camera.CameraShake2D.frequency" {
+    text="Частота"
+  }
+  msg "schema.camera.CameraShake2D.frequency.doc" {
+    text="Как быстро меняется тряска, в шагах шума в секунду."
+  }
+  msg "schema.camera.CameraShake2D.maxAngle" {
+    text="Макс. угол"
+  }
+  msg "schema.camera.CameraShake2D.maxAngle.doc" {
+    text="Наибольший поворот в радианах при полной травме."
+  }
+  msg "schema.camera.CameraShake2D.maxOffset" {
+    text="Макс. смещение"
+  }
+  msg "schema.camera.CameraShake2D.maxOffset.doc" {
+    text="Наибольшее смещение в мировых единицах при полной травме."
+  }
+  msg "schema.camera.CameraZone2D" {
+    text="Зона камеры 2D"
+  }
+  msg "schema.camera.CameraZone2D.area" {
+    text="Область"
+  }
+  msg "schema.camera.CameraZone2D.area.doc" {
+    text="Прямоугольник срабатывания в пространстве этого узла."
+  }
+  msg "schema.camera.CameraZone2D.bounds" {
+    text="Границы"
+  }
+  msg "schema.camera.CameraZone2D.bounds.doc" {
+    text="Прямоугольник в мире вместо границ камеры."
+  }
+  msg "schema.camera.CameraZone2D.camera" {
+    text="Камера"
+  }
+  msg "schema.camera.CameraZone2D.camera.doc" {
+    text="Виртуальная камера, которую включает зона. Пусто — камера на этом узле."
+  }
+  msg "schema.camera.CameraZone2D.doc" {
+    text="Пока Цель в Области, Камера получает Приоритет, масштаб и границы зоны."
+  }
+  msg "schema.camera.CameraZone2D.priority" {
+    text="Приоритет"
+  }
+  msg "schema.camera.CameraZone2D.priority.doc" {
+    text="Приоритет камеры, пока цель внутри."
+  }
+  msg "schema.camera.CameraZone2D.target" {
+    text="Цель"
+  }
+  msg "schema.camera.CameraZone2D.target.doc" {
+    text="Узел, на который срабатывает зона. Пусто — цель слежения камеры зоны."
+  }
+  msg "schema.camera.CameraZone2D.useBounds" {
+    text="Использовать границы"
+  }
+  msg "schema.camera.CameraZone2D.useBounds.doc" {
+    text="Заменяет границы камеры, пока действует зона."
+  }
+  msg "schema.camera.CameraZone2D.zoom" {
+    text="Масштаб"
+  }
+  msg "schema.camera.CameraZone2D.zoom.doc" {
+    text="Масштаб, пока действует зона. 0 — масштаб камеры."
+  }
+  msg "schema.camera.VirtualCamera2D" {
+    text="Виртуальная камера 2D"
+  }
+  msg "schema.camera.VirtualCamera2D.blendCurve" {
+    text="Кривая перехода"
+  }
+  msg "schema.camera.VirtualCamera2D.blendCurve.doc" {
+    text="Форма перехода; её время растягивается на Время перехода."
+  }
+  msg "schema.camera.VirtualCamera2D.blendTime" {
+    text="Время перехода"
+  }
+  msg "schema.camera.VirtualCamera2D.blendTime.doc" {
+    text="Секунды плавного перехода на эту камеру, когда она становится активной. 0 — резкая смена."
+  }
+  msg "schema.camera.VirtualCamera2D.bounds" {
+    text="Границы"
+  }
+  msg "schema.camera.VirtualCamera2D.bounds.doc" {
+    text="Прямоугольник в мире, внутри которого остаётся вид. Если он меньше вида, вид центрируется на нём."
+  }
+  msg "schema.camera.VirtualCamera2D.doc" {
+    text="Положение камеры, которое может выбрать мозг. Побеждает высший приоритет; переключение плавно уходит от текущего вида."
+  }
+  msg "schema.camera.VirtualCamera2D.output" {
+    text="Выход"
+  }
+  msg "schema.camera.VirtualCamera2D.output.doc" {
+    text="Выход, которым управляет эта камера. Пусто — главный выход; Камера 2D выбирает другой через Мозг камеры 2D."
+  }
+  msg "schema.camera.VirtualCamera2D.priority" {
+    text="Приоритет"
+  }
+  msg "schema.camera.VirtualCamera2D.priority.doc" {
+    text="Выходом управляет включённая виртуальная камера с высшим приоритетом."
+  }
+  msg "schema.camera.VirtualCamera2D.snapToPixels" {
+    text="Привязка к пикселям"
+  }
+  msg "schema.camera.VirtualCamera2D.snapToPixels.doc" {
+    text="Округляет итоговую позицию до целых пикселей экрана. Камеры pixelPerfect делают это и так."
+  }
+  msg "schema.camera.VirtualCamera2D.timeDomain" {
+    text="Шкала времени"
+  }
+  msg "schema.camera.VirtualCamera2D.timeDomain.doc" {
+    text="unscaled переходит и трясёт по реальному времени, в том числе при стоп-кадре от удара и паузе; game следует масштабу времени."
+  }
+  msg "schema.camera.VirtualCamera2D.useBounds" {
+    text="Использовать границы"
+  }
+  msg "schema.camera.VirtualCamera2D.useBounds.doc" {
+    text="Держит видимую область внутри Границ."
+  }
+  msg "schema.camera.VirtualCamera2D.zoom" {
+    text="Масштаб"
+  }
+  msg "schema.camera.VirtualCamera2D.zoom.doc" {
+    text="Пикселей на мировую единицу, пока эта камера активна. 0 — масштаб Камеры 2D."
+  }
+  msg "schema.category.Runtime" {
+    text="Во время игры"
+  }
+  msg "schema.engine.Camera2D" {
+    text="Камера 2D"
+  }
+  msg "schema.engine.Camera2D.active" {
+    text="Активен"
+  }
+  msg "schema.engine.Camera2D.active.doc" {
+    text="Рисуют только активные камеры."
+  }
+  msg "schema.engine.Camera2D.clear" {
+    text="Очистка"
+  }
+  msg "schema.engine.Camera2D.clear.doc" {
+    text="Очищает область вывода перед отрисовкой."
+  }
+  msg "schema.engine.Camera2D.clearColor" {
+    text="Цвет очистки"
+  }
+  msg "schema.engine.Camera2D.clearColor.doc" {
+    text="Цвет фона, когда очистка включена."
+  }
+  msg "schema.engine.Camera2D.doc" {
+    text="Рисует ортогональный вид из трансформации узла."
+  }
+  msg "schema.engine.Camera2D.mask" {
+    text="Маска"
+  }
+  msg "schema.engine.Camera2D.mask.doc" {
+    text="Слои видимости, которые рисует эта камера. −1 — все слои."
+  }
+  msg "schema.engine.Camera2D.order" {
+    text="Порядок"
+  }
+  msg "schema.engine.Camera2D.order.doc" {
+    text="Камеры с меньшим порядком рисуют первыми."
+  }
+  msg "schema.engine.Camera2D.scale" {
+    text="Масштабирование"
+  }
+  msg "schema.engine.Camera2D.scale.doc" {
+    text="Как вид подстраивается под окно: free, pixelPerfect или fitVirtual."
+  }
+  msg "schema.engine.Camera2D.viewport" {
+    text="Область вывода"
+  }
+  msg "schema.engine.Camera2D.viewport.doc" {
+    text="Часть экрана, в которую рисует камера, в нормированных координатах."
+  }
+  msg "schema.engine.Camera2D.virtual" {
+    text="Виртуальное разрешение"
+  }
+  msg "schema.engine.Camera2D.virtual.doc" {
+    text="Виртуальное разрешение для fitVirtual и pixelPerfect."
+  }
+  msg "schema.engine.Camera2D.zoom" {
+    text="Масштаб"
+  }
+  msg "schema.engine.Camera2D.zoom.doc" {
+    text="Пикселей на мировую единицу. Чем больше, тем меньшая часть мира видна."
+  }
+  msg "schema.engine.Camera3D" {
+    text="Камера 3D"
+  }
+  msg "schema.engine.Camera3D.active" {
+    text="Активен"
+  }
+  msg "schema.engine.Camera3D.active.doc" {
+    text="Рисуют только активные камеры."
+  }
+  msg "schema.engine.Camera3D.clear" {
+    text="Очистка"
+  }
+  msg "schema.engine.Camera3D.clear.doc" {
+    text="Очищает область вывода перед отрисовкой."
+  }
+  msg "schema.engine.Camera3D.clearColor" {
+    text="Цвет очистки"
+  }
+  msg "schema.engine.Camera3D.clearColor.doc" {
+    text="Цвет фона, когда очистка включена."
+  }
+  msg "schema.engine.Camera3D.doc" {
+    text="Рисует перспективный вид вдоль оси −Z узла."
+  }
+  msg "schema.engine.Camera3D.far" {
+    text="Дальняя плоскость"
+  }
+  msg "schema.engine.Camera3D.far.doc" {
+    text="Расстояние до дальней плоскости отсечения."
+  }
+  msg "schema.engine.Camera3D.fov" {
+    text="Угол обзора"
+  }
+  msg "schema.engine.Camera3D.fov.doc" {
+    text="Вертикальный угол обзора в градусах."
+  }
+  msg "schema.engine.Camera3D.mask" {
+    text="Маска"
+  }
+  msg "schema.engine.Camera3D.mask.doc" {
+    text="Слои видимости, которые рисует эта камера. −1 — все слои."
+  }
+  msg "schema.engine.Camera3D.near" {
+    text="Ближняя плоскость"
+  }
+  msg "schema.engine.Camera3D.near.doc" {
+    text="Расстояние до ближней плоскости отсечения."
+  }
+  msg "schema.engine.Camera3D.order" {
+    text="Порядок"
+  }
+  msg "schema.engine.Camera3D.order.doc" {
+    text="Камеры с меньшим порядком рисуют первыми."
+  }
+  msg "schema.engine.Camera3D.orthoSize" {
+    text="Ортогональный размер"
+  }
+  msg "schema.engine.Camera3D.orthoSize.doc" {
+    text="Половина высоты вида в мировых единицах, когда включена ортогональная проекция."
+  }
+  msg "schema.engine.Camera3D.orthographic" {
+    text="Ортогональная"
+  }
+  msg "schema.engine.Camera3D.orthographic.doc" {
+    text="Проекция без перспективы; спрайты и меши сохраняют размер на любой глубине."
+  }
+  msg "schema.engine.Camera3D.viewport" {
+    text="Область вывода"
+  }
+  msg "schema.engine.Camera3D.viewport.doc" {
+    text="Часть экрана, в которую рисует камера, в нормированных координатах."
+  }
+  msg "schema.engine.MeshRenderer" {
+    text="Отрисовка меша"
+  }
+  msg "schema.engine.MeshRenderer.blend" {
+    text="Смешивание"
+  }
+  msg "schema.engine.MeshRenderer.blend.doc" {
+    text="Непрозрачный пишет глубину. Premultiplied и additive рисуются после непрозрачных мешей."
+  }
+  msg "schema.engine.MeshRenderer.color" {
+    text="Цвет"
+  }
+  msg "schema.engine.MeshRenderer.color.doc" {
+    text="Цвет, на который умножается текстура."
+  }
+  msg "schema.engine.MeshRenderer.doc" {
+    text="Рисует неосвещённый меш в трансформации узла."
+  }
+  msg "schema.engine.MeshRenderer.doubleSided" {
+    text="Двусторонний"
+  }
+  msg "schema.engine.MeshRenderer.doubleSided.doc" {
+    text="Рисует и обратные грани."
+  }
+  msg "schema.engine.MeshRenderer.filter" {
+    text="Фильтрация"
+  }
+  msg "schema.engine.MeshRenderer.filter.doc" {
+    text="Выборка текстуры: nearest или linear."
+  }
+  msg "schema.engine.MeshRenderer.layer" {
+    text="Слой"
+  }
+  msg "schema.engine.MeshRenderer.layer.doc" {
+    text="Слой сортировки прозрачных мешей."
+  }
+  msg "schema.engine.MeshRenderer.mesh" {
+    text="Меш"
+  }
+  msg "schema.engine.MeshRenderer.mesh.doc" {
+    text="Меш для отрисовки: импортированный .obj или встроенный Cube, Plane, Sphere или Cylinder."
+  }
+  msg "schema.engine.MeshRenderer.texture" {
+    text="Текстура"
+  }
+  msg "schema.engine.MeshRenderer.texture.doc" {
+    text="Текстура на меше. Пусто — белая."
+  }
+  msg "schema.engine.PrefabInstance" {
+    text="Экземпляр префаба"
+  }
+  msg "schema.engine.PrefabInstance.doc" {
+    text="Связывает узел с префабом, из которого он создан."
+  }
+  msg "schema.engine.Script" {
+    text="Скрипты"
+  }
+  msg "schema.engine.Script.doc" {
+    text="Хранит скрипты Aego Script, прикреплённые к узлу."
+  }
+  msg "schema.engine.SpriteRenderer" {
+    text="Отрисовка спрайта"
+  }
+  msg "schema.engine.SpriteRenderer.blend" {
+    text="Смешивание"
+  }
+  msg "schema.engine.SpriteRenderer.blend.doc" {
+    text="Как спрайт смешивается с тем, что за ним: premultiplied-альфа, непрозрачно или сложением."
+  }
+  msg "schema.engine.SpriteRenderer.doc" {
+    text="Рисует область текстуры в трансформации узла."
+  }
+  msg "schema.engine.SpriteRenderer.filter" {
+    text="Фильтрация"
+  }
+  msg "schema.engine.SpriteRenderer.filter.doc" {
+    text="Выборка текстуры: nearest сохраняет пиксель-арт чётким, linear сглаживает."
+  }
+  msg "schema.engine.SpriteRenderer.flipX" {
+    text="Отразить по X"
+  }
+  msg "schema.engine.SpriteRenderer.flipX.doc" {
+    text="Отражает спрайт по горизонтали."
+  }
+  msg "schema.engine.SpriteRenderer.flipY" {
+    text="Отразить по Y"
+  }
+  msg "schema.engine.SpriteRenderer.flipY.doc" {
+    text="Отражает спрайт по вертикали."
+  }
+  msg "schema.engine.SpriteRenderer.layer" {
+    text="Слой"
+  }
+  msg "schema.engine.SpriteRenderer.layer.doc" {
+    text="Слой сортировки. Верхние слои рисуются поверх нижних."
+  }
+  msg "schema.engine.SpriteRenderer.order" {
+    text="Порядок"
+  }
+  msg "schema.engine.SpriteRenderer.order.doc" {
+    text="Порядок внутри слоя. Большие значения рисуются позже, поверх."
+  }
+  msg "schema.engine.SpriteRenderer.origin" {
+    text="Опорная точка"
+  }
+  msg "schema.engine.SpriteRenderer.origin.doc" {
+    text="Опорная точка в нормированном пространстве спрайта. (0.5, 0.5) — центр, (0, 0) — левый верхний угол."
+  }
+  msg "schema.engine.SpriteRenderer.size" {
+    text="Размер"
+  }
+  msg "schema.engine.SpriteRenderer.size.doc" {
+    text="Размер в мировых единицах. Ноль — размер текстуры, делённый на масштаб камеры."
+  }
+  msg "schema.engine.SpriteRenderer.sprite" {
+    text="Спрайт"
+  }
+  msg "schema.engine.SpriteRenderer.sprite.doc" {
+    text="Текстура или область атласа. Пусто — сплошной прямоугольник цвета оттенка."
+  }
+  msg "schema.engine.SpriteRenderer.tint" {
+    text="Оттенок"
+  }
+  msg "schema.engine.SpriteRenderer.tint.doc" {
+    text="Цвет, на который умножается текстура. Альфа задаёт прозрачность."
+  }
+  msg "schema.engine.Tags" {
+    text="Теги"
+  }
+  msg "schema.engine.Tags.doc" {
+    text="Теги называют группы, в которые входит узел; скрипты находят их через scene.WithTag."
+  }
+  msg "schema.engine.Tags.tags" {
+    text="Теги"
+  }
+  msg "schema.engine.Tags.tags.doc" {
+    text="Имена через точку, например Enemy.Flying; узел с тегом Enemy.Flying находится и по Enemy."
+  }
+  msg "schema.engine.Unknown" {
+    text="Неизвестный"
+  }
+  msg "schema.engine.Unknown.doc" {
+    text="Хранит компоненты, тип которых не зарегистрирован в этой сборке."
+  }
+  msg "schema.gameplay.Checkpoint2D" {
+    text="Контрольная точка 2D"
+  }
+  msg "schema.gameplay.Checkpoint2D.area" {
+    text="Область"
+  }
+  msg "schema.gameplay.Checkpoint2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.gameplay.Checkpoint2D.doc" {
+    text="Задаёт точку возрождения узлу с Возрождением, вошедшему в область."
+  }
+  msg "schema.gameplay.Checkpoint2D.once" {
+    text="Один раз"
+  }
+  msg "schema.gameplay.Checkpoint2D.once.doc" {
+    text="Срабатывает только для первого узла."
+  }
+  msg "schema.gameplay.Checkpoint2D.priority" {
+    text="Приоритет"
+  }
+  msg "schema.gameplay.Checkpoint2D.priority.doc" {
+    text="Контрольная точка не заменяет точку с более высоким приоритетом."
+  }
+  msg "schema.gameplay.Checkpoint2D.spawnPoint" {
+    text="Точка появления"
+  }
+  msg "schema.gameplay.Checkpoint2D.spawnPoint.doc" {
+    text="Узел, позиция которого станет точкой возрождения. Пусто — позиция этой контрольной точки."
+  }
+  msg "schema.gameplay.Health" {
+    text="Здоровье"
+  }
+  msg "schema.gameplay.Health.current" {
+    text="Текущее"
+  }
+  msg "schema.gameplay.Health.current.doc" {
+    text="Очки здоровья сейчас."
+  }
+  msg "schema.gameplay.Health.dead" {
+    text="Мёртв"
+  }
+  msg "schema.gameplay.Health.dead.doc" {
+    text="Истина от смерти до Revive."
+  }
+  msg "schema.gameplay.Health.despawnOnDeath" {
+    text="Убрать при смерти"
+  }
+  msg "schema.gameplay.Health.despawnOnDeath.doc" {
+    text="При смерти возвращает узел в его пул; созданный не из пула узел уничтожается."
+  }
+  msg "schema.gameplay.Health.destroyOnDeath" {
+    text="Уничтожить при смерти"
+  }
+  msg "schema.gameplay.Health.destroyOnDeath.doc" {
+    text="Уничтожает узел при смерти, если у него нет Возрождения."
+  }
+  msg "schema.gameplay.Health.doc" {
+    text="Очки здоровья узла. Урон наносят хитбоксы, смертельные зоны и скрипты; при нуле узел умирает один раз, до возрождения."
+  }
+  msg "schema.gameplay.Health.invulnTime" {
+    text="Время неуязвимости"
+  }
+  msg "schema.gameplay.Health.invulnTime.doc" {
+    text="Секунды игрового времени без урона после удара. Удары в одном шаге засчитываются все."
+  }
+  msg "schema.gameplay.Health.invulnerable" {
+    text="Неуязвим"
+  }
+  msg "schema.gameplay.Health.invulnerable.doc" {
+    text="Истина, пока урон не проходит."
+  }
+  msg "schema.gameplay.Health.max" {
+    text="Максимум"
+  }
+  msg "schema.gameplay.Health.max.doc" {
+    text="Очки здоровья в начале и после полного возрождения."
+  }
+  msg "schema.gameplay.Health.team" {
+    text="Команда"
+  }
+  msg "schema.gameplay.Health.team.doc" {
+    text="Хитбоксы той же команды не ранят этот узел, если в них не включён урон по своим."
+  }
+  msg "schema.gameplay.Hitbox2D" {
+    text="Хитбокс 2D"
+  }
+  msg "schema.gameplay.Hitbox2D.active" {
+    text="Активен"
+  }
+  msg "schema.gameplay.Hitbox2D.active.doc" {
+    text="Выключенный не наносит урона."
+  }
+  msg "schema.gameplay.Hitbox2D.area" {
+    text="Область"
+  }
+  msg "schema.gameplay.Hitbox2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.gameplay.Hitbox2D.damage" {
+    text="Урон"
+  }
+  msg "schema.gameplay.Hitbox2D.damage.doc" {
+    text="Урон за удар до множителя хёртбокса."
+  }
+  msg "schema.gameplay.Hitbox2D.doc" {
+    text="Наносит урон хёртбоксам в своей области: раз на цель за активацию, при каждом входе или периодически."
+  }
+  msg "schema.gameplay.Hitbox2D.friendlyFire" {
+    text="Урон по своим"
+  }
+  msg "schema.gameplay.Hitbox2D.friendlyFire.doc" {
+    text="Бьёт и цели своей команды."
+  }
+  msg "schema.gameplay.Hitbox2D.knockback" {
+    text="Отбрасывание"
+  }
+  msg "schema.gameplay.Hitbox2D.knockback.doc" {
+    text="Толчок при ударе: скорость в единицах в секунду для цели с Движением 2D, импульс для динамического тела. Поворачивается вместе с узлом."
+  }
+  msg "schema.gameplay.Hitbox2D.knockbackFromCenter" {
+    text="Отбрасывание от центра"
+  }
+  msg "schema.gameplay.Hitbox2D.knockbackFromCenter.doc" {
+    text="Отталкивает от центра хитбокса, с длиной Отбрасывания."
+  }
+  msg "schema.gameplay.Hitbox2D.period" {
+    text="Период"
+  }
+  msg "schema.gameplay.Hitbox2D.period.doc" {
+    text="Секунды между ударами в режиме periodic."
+  }
+  msg "schema.gameplay.Hitbox2D.policy" {
+    text="Режим ударов"
+  }
+  msg "schema.gameplay.Hitbox2D.policy.doc" {
+    text="onEnter бьёт при каждом входе, oncePerActivation — каждую цель один раз до Activate, periodic — каждый Период, пока области пересекаются."
+  }
+  msg "schema.gameplay.Hitbox2D.shape" {
+    text="Форма"
+  }
+  msg "schema.gameplay.Hitbox2D.shape.doc" {
+    text="box — прямоугольник; circle — вписанный в него круг."
+  }
+  msg "schema.gameplay.Hitbox2D.team" {
+    text="Команда"
+  }
+  msg "schema.gameplay.Hitbox2D.team.doc" {
+    text="Команда атаки; −1 — команда ближайшего Здоровья выше по иерархии."
+  }
+  msg "schema.gameplay.Hurtbox2D" {
+    text="Хёртбокс 2D"
+  }
+  msg "schema.gameplay.Hurtbox2D.active" {
+    text="Активен"
+  }
+  msg "schema.gameplay.Hurtbox2D.active.doc" {
+    text="Выключенный не получает ударов."
+  }
+  msg "schema.gameplay.Hurtbox2D.area" {
+    text="Область"
+  }
+  msg "schema.gameplay.Hurtbox2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.gameplay.Hurtbox2D.doc" {
+    text="Область, где хитбоксы ранят Здоровье: на этом узле или ближайшем родителе со Здоровьем."
+  }
+  msg "schema.gameplay.Hurtbox2D.health" {
+    text="Здоровье"
+  }
+  msg "schema.gameplay.Hurtbox2D.health.doc" {
+    text="Здоровье, которое получает урон. Пусто — этот узел или ближайший родитель со Здоровьем."
+  }
+  msg "schema.gameplay.Hurtbox2D.multiplier" {
+    text="Множитель"
+  }
+  msg "schema.gameplay.Hurtbox2D.multiplier.doc" {
+    text="Урон здесь умножается на это значение — для уязвимых мест и брони."
+  }
+  msg "schema.gameplay.Hurtbox2D.shape" {
+    text="Форма"
+  }
+  msg "schema.gameplay.Hurtbox2D.shape.doc" {
+    text="box — прямоугольник; circle — вписанный в него круг."
+  }
+  msg "schema.gameplay.KillZone2D" {
+    text="Смертельная зона 2D"
+  }
+  msg "schema.gameplay.KillZone2D.area" {
+    text="Область"
+  }
+  msg "schema.gameplay.KillZone2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.gameplay.KillZone2D.doc" {
+    text="Убивает Здоровье, вошедшее в область, или возрождает узел с Возрождением без Здоровья."
+  }
+  msg "schema.gameplay.KillZone2D.tag" {
+    text="Тег"
+  }
+  msg "schema.gameplay.KillZone2D.tag.doc" {
+    text="Только узлы с этим тегом; пусто — все узлы со Здоровьем или Возрождением."
+  }
+  msg "schema.gameplay.Lifetime" {
+    text="Время жизни"
+  }
+  msg "schema.gameplay.Lifetime.despawn" {
+    text="Убрать"
+  }
+  msg "schema.gameplay.Lifetime.despawn.doc" {
+    text="Возвращает узел в его пул вместо уничтожения."
+  }
+  msg "schema.gameplay.Lifetime.doc" {
+    text="Убирает узел через несколько секунд: в пул или уничтожает."
+  }
+  msg "schema.gameplay.Lifetime.remaining" {
+    text="Осталось"
+  }
+  msg "schema.gameplay.Lifetime.remaining.doc" {
+    text="Осталось секунд."
+  }
+  msg "schema.gameplay.Lifetime.seconds" {
+    text="Секунды"
+  }
+  msg "schema.gameplay.Lifetime.seconds.doc" {
+    text="Сколько секунд живёт узел."
+  }
+  msg "schema.gameplay.Lifetime.unscaled" {
+    text="Реальное время"
+  }
+  msg "schema.gameplay.Lifetime.unscaled.doc" {
+    text="Считает реальное время, в том числе на паузе и при замедлении."
+  }
+  msg "schema.gameplay.Motion2D" {
+    text="Движение 2D"
+  }
+  msg "schema.gameplay.Motion2D.accel" {
+    text="Ускорение"
+  }
+  msg "schema.gameplay.Motion2D.accel.doc" {
+    text="Как быстро скорость растёт к целевой, в единицах в секунду за секунду."
+  }
+  msg "schema.gameplay.Motion2D.airControl" {
+    text="Управление в воздухе"
+  }
+  msg "schema.gameplay.Motion2D.airControl.doc" {
+    text="Доля ускорения и торможения в воздухе: 0 — управлять нельзя, 1 — как на земле."
+  }
+  msg "schema.gameplay.Motion2D.climbTime" {
+    text="Время подъёма"
+  }
+  msg "schema.gameplay.Motion2D.climbTime.doc" {
+    text="Сколько секунд длится подъём на уступ: сначала вверх, потом на уступ."
+  }
+  msg "schema.gameplay.Motion2D.climbing" {
+    text="Подъём"
+  }
+  msg "schema.gameplay.Motion2D.climbing.doc" {
+    text="Поднимается ли персонаж на уступ."
+  }
+  msg "schema.gameplay.Motion2D.collisionMask" {
+    text="Маска столкновений"
+  }
+  msg "schema.gameplay.Motion2D.collisionMask.doc" {
+    text="Слои, с которыми сталкивается персонаж."
+  }
+  msg "schema.gameplay.Motion2D.coyoteTime" {
+    text="Время койота"
+  }
+  msg "schema.gameplay.Motion2D.coyoteTime.doc" {
+    text="Сколько секунд после схода с края ещё можно прыгнуть."
+  }
+  msg "schema.gameplay.Motion2D.dashGravity" {
+    text="Гравитация в рывке"
+  }
+  msg "schema.gameplay.Motion2D.dashGravity.doc" {
+    text="Действует ли гравитация во время рывка."
+  }
+  msg "schema.gameplay.Motion2D.decel" {
+    text="Торможение"
+  }
+  msg "schema.gameplay.Motion2D.decel.doc" {
+    text="Как быстро падает скорость без ввода, в единицах в секунду за секунду."
+  }
+  msg "schema.gameplay.Motion2D.doc" {
+    text="Двигает кинематическое тело, проверяя его коллайдеры: ходьба, прыжки, склоны, ступеньки и движущиеся платформы или свободное движение с видом сверху. Вызывайте Move и Jump из скрипта; контроллер выполнит их на следующем фиксированном шаге."
+  }
+  msg "schema.gameplay.Motion2D.faceMovement" {
+    text="Поворот по движению"
+  }
+  msg "schema.gameplay.Motion2D.faceMovement.doc" {
+    text="topDown: поворачивает узел по направлению движения."
+  }
+  msg "schema.gameplay.Motion2D.floorAngle" {
+    text="Угол пола"
+  }
+  msg "schema.gameplay.Motion2D.floorAngle.doc" {
+    text="Наклон пола в градусах."
+  }
+  msg "schema.gameplay.Motion2D.floorNormal" {
+    text="Нормаль пола"
+  }
+  msg "schema.gameplay.Motion2D.floorNormal.doc" {
+    text="Нормаль пола под персонажем."
+  }
+  msg "schema.gameplay.Motion2D.gravityScale" {
+    text="Масштаб гравитации"
+  }
+  msg "schema.gameplay.Motion2D.gravityScale.doc" {
+    text="Умножает гравитацию физики; 0 выключает гравитацию для персонажа."
+  }
+  msg "schema.gameplay.Motion2D.groundBody" {
+    text="Тело под ногами"
+  }
+  msg "schema.gameplay.Motion2D.groundBody.doc" {
+    text="Тело, на котором стоит персонаж."
+  }
+  msg "schema.gameplay.Motion2D.grounded" {
+    text="На земле"
+  }
+  msg "schema.gameplay.Motion2D.grounded.doc" {
+    text="Стоит ли персонаж на полу."
+  }
+  msg "schema.gameplay.Motion2D.jumpBuffer" {
+    text="Буфер прыжка"
+  }
+  msg "schema.gameplay.Motion2D.jumpBuffer.doc" {
+    text="Сколько секунд помнится прыжок, нажатый в воздухе, до приземления."
+  }
+  msg "schema.gameplay.Motion2D.jumpCutMultiplier" {
+    text="Множитель короткого прыжка"
+  }
+  msg "schema.gameplay.Motion2D.jumpCutMultiplier.doc" {
+    text="На это умножается скорость вверх, если кнопку прыжка отпустили рано."
+  }
+  msg "schema.gameplay.Motion2D.jumpHeight" {
+    text="Высота прыжка"
+  }
+  msg "schema.gameplay.Motion2D.jumpHeight.doc" {
+    text="Высота полного прыжка в единицах; задаёт скорость прыжка, если не задана Скорость прыжка."
+  }
+  msg "schema.gameplay.Motion2D.jumpSpeed" {
+    text="Скорость прыжка"
+  }
+  msg "schema.gameplay.Motion2D.jumpSpeed.doc" {
+    text="Скорость прыжка вверх. 0 — вычислить из Высоты прыжка и гравитации."
+  }
+  msg "schema.gameplay.Motion2D.ledgeClimb" {
+    text="Подъём на уступ"
+  }
+  msg "schema.gameplay.Motion2D.ledgeClimb.doc" {
+    text="platformer: в воздухе при движении в стену, верх которой не выше этого расстояния над ногами, персонаж забирается на неё. 0 — никогда."
+  }
+  msg "schema.gameplay.Motion2D.maxFallSpeed" {
+    text="Макс. скорость падения"
+  }
+  msg "schema.gameplay.Motion2D.maxFallSpeed.doc" {
+    text="Наибольшая скорость падения в единицах в секунду. 0 — без ограничения."
+  }
+  msg "schema.gameplay.Motion2D.maxSlides" {
+    text="Макс. скольжений"
+  }
+  msg "schema.gameplay.Motion2D.maxSlides.doc" {
+    text="Вдоль скольких поверхностей можно скользить за один шаг."
+  }
+  msg "schema.gameplay.Motion2D.maxSlope" {
+    text="Макс. уклон"
+  }
+  msg "schema.gameplay.Motion2D.maxSlope.doc" {
+    text="Самый крутой пол в градусах; более крутые поверхности — стены."
+  }
+  msg "schema.gameplay.Motion2D.maxSpeed" {
+    text="Макс. скорость"
+  }
+  msg "schema.gameplay.Motion2D.maxSpeed.doc" {
+    text="Наибольшая скорость в единицах в секунду."
+  }
+  msg "schema.gameplay.Motion2D.mode" {
+    text="Режим"
+  }
+  msg "schema.gameplay.Motion2D.mode.doc" {
+    text="platformer ходит по полу под действием гравитации; topDown свободно движется в плоскости."
+  }
+  msg "schema.gameplay.Motion2D.movingPlatforms" {
+    text="Движущиеся платформы"
+  }
+  msg "schema.gameplay.Motion2D.movingPlatforms.doc" {
+    text="Переносит персонажа вместе с телом, на котором он стоит."
+  }
+  msg "schema.gameplay.Motion2D.onCeiling" {
+    text="У потолка"
+  }
+  msg "schema.gameplay.Motion2D.onCeiling.doc" {
+    text="Касался ли персонаж потолка на последнем шаге."
+  }
+  msg "schema.gameplay.Motion2D.onWall" {
+    text="У стены"
+  }
+  msg "schema.gameplay.Motion2D.onWall.doc" {
+    text="Касался ли персонаж стены на последнем шаге."
+  }
+  msg "schema.gameplay.Motion2D.platformOnLeave" {
+    text="Платформа при уходе"
+  }
+  msg "schema.gameplay.Motion2D.platformOnLeave.doc" {
+    text="keep сохраняет скорость платформы после схода с неё, drop теряет её, add сохраняет только горизонтальную часть."
+  }
+  msg "schema.gameplay.Motion2D.pushBodies" {
+    text="Толкать тела"
+  }
+  msg "schema.gameplay.Motion2D.pushBodies.doc" {
+    text="Проходит сквозь динамические тела и толкает их, а не останавливается."
+  }
+  msg "schema.gameplay.Motion2D.safeMargin" {
+    text="Безопасный зазор"
+  }
+  msg "schema.gameplay.Motion2D.safeMargin.doc" {
+    text="Зазор в единицах до поверхностей, чтобы проверки не начинались внутри них."
+  }
+  msg "schema.gameplay.Motion2D.snapToGround" {
+    text="Прилипание к земле"
+  }
+  msg "schema.gameplay.Motion2D.snapToGround.doc" {
+    text="Держит персонажа на склонах и спускает со ступенек на расстояние до этого, в единицах. 0 — никогда."
+  }
+  msg "schema.gameplay.Motion2D.stepHeight" {
+    text="Высота ступеньки"
+  }
+  msg "schema.gameplay.Motion2D.stepHeight.doc" {
+    text="На ступеньки до этой высоты, в единицах, персонаж поднимается без прыжка. 0 — никогда."
+  }
+  msg "schema.gameplay.Motion2D.upDirection" {
+    text="Направление вверх"
+  }
+  msg "schema.gameplay.Motion2D.upDirection.doc" {
+    text="Направление вверх для пола, прыжков и гравитации. (0, −1) — вверх на экране."
+  }
+  msg "schema.gameplay.Motion2D.velocity" {
+    text="Скорость"
+  }
+  msg "schema.gameplay.Motion2D.velocity.doc" {
+    text="Скорость в единицах в секунду."
+  }
+  msg "schema.gameplay.Motion2D.wallNormal" {
+    text="Нормаль стены"
+  }
+  msg "schema.gameplay.Motion2D.wallNormal.doc" {
+    text="Нормаль последней задетой стены."
+  }
+  msg "schema.gameplay.Pickup2D" {
+    text="Подбираемый предмет 2D"
+  }
+  msg "schema.gameplay.Pickup2D.area" {
+    text="Область"
+  }
+  msg "schema.gameplay.Pickup2D.area.doc" {
+    text="Прямоугольник в пространстве этого узла."
+  }
+  msg "schema.gameplay.Pickup2D.despawn" {
+    text="Убрать"
+  }
+  msg "schema.gameplay.Pickup2D.despawn.doc" {
+    text="Возвращает предмет в его пул вместо уничтожения."
+  }
+  msg "schema.gameplay.Pickup2D.doc" {
+    text="Посылает Collected, когда узел входит в область; с «Один раз» предмет после этого исчезает."
+  }
+  msg "schema.gameplay.Pickup2D.once" {
+    text="Один раз"
+  }
+  msg "schema.gameplay.Pickup2D.once.doc" {
+    text="Убирает предмет после первого подбора."
+  }
+  msg "schema.gameplay.Pickup2D.tag" {
+    text="Тег"
+  }
+  msg "schema.gameplay.Pickup2D.tag.doc" {
+    text="Только узлы с этим тегом; пусто — любой узел с Движением 2D."
+  }
+  msg "schema.gameplay.Respawn" {
+    text="Возрождение"
+  }
+  msg "schema.gameplay.Respawn.delay" {
+    text="Задержка"
+  }
+  msg "schema.gameplay.Respawn.delay.doc" {
+    text="Секунды игрового времени до возвращения узла."
+  }
+  msg "schema.gameplay.Respawn.doc" {
+    text="Возвращает узел в точку возрождения после смерти или Trigger. Первая точка — место, где узел начинает."
+  }
+  msg "schema.gameplay.Respawn.persist" {
+    text="Сохранение"
+  }
+  msg "schema.gameplay.Respawn.persist.doc" {
+    text="Сохраняет точку возрождения вместе с игрой."
+  }
+  msg "schema.gameplay.Respawn.resetVelocity" {
+    text="Сбросить скорость"
+  }
+  msg "schema.gameplay.Respawn.resetVelocity.doc" {
+    text="Останавливает Движение 2D при возрождении."
+  }
+  msg "schema.gameplay.Respawn.restoreHealth" {
+    text="Восстановить здоровье"
+  }
+  msg "schema.gameplay.Respawn.restoreHealth.doc" {
+    text="Возрождает Здоровье с полными очками."
+  }
+  msg "schema.gameplay.StateMachine" {
+    text="Машина состояний"
+  }
+  msg "schema.gameplay.StateMachine.current" {
+    text="Текущее"
+  }
+  msg "schema.gameplay.StateMachine.current.doc" {
+    text="Текущее состояние."
+  }
+  msg "schema.gameplay.StateMachine.doc" {
+    text="Именованные состояния с методами Enter, Exit, Fixed и Update, которые ищутся по имени в скриптах узла: EnterRun(), ExitRun(), FixedRun(dt), UpdateRun(dt). Скрипты меняют состояние через Go."
+  }
+  msg "schema.gameplay.StateMachine.index" {
+    text="Индекс"
+  }
+  msg "schema.gameplay.StateMachine.index.doc" {
+    text="Индекс текущего состояния в Состояниях."
+  }
+  msg "schema.gameplay.StateMachine.initial" {
+    text="Начальное"
+  }
+  msg "schema.gameplay.StateMachine.initial.doc" {
+    text="Состояние при старте узла, после Ready скриптов. Пусто — первое состояние."
+  }
+  msg "schema.gameplay.StateMachine.previous" {
+    text="Предыдущее"
+  }
+  msg "schema.gameplay.StateMachine.previous.doc" {
+    text="Состояние до последней смены."
+  }
+  msg "schema.gameplay.StateMachine.states" {
+    text="Состояния"
+  }
+  msg "schema.gameplay.StateMachine.states.doc" {
+    text="Имена состояний, они же суффиксы методов-обработчиков."
+  }
+  msg "schema.gameplay.StateMachine.time" {
+    text="Время"
+  }
+  msg "schema.gameplay.StateMachine.time.doc" {
+    text="Секунды фиксированных шагов в текущем состоянии."
+  }
+  msg "schema.physics.Body2D" {
+    text="Тело 2D"
+  }
+  msg "schema.physics.Body2D.allowSleep" {
+    text="Разрешить сон"
+  }
+  msg "schema.physics.Body2D.allowSleep.doc" {
+    text="Позволяет телу засыпать в покое, это экономит время; контакты и скрипты его будят."
+  }
+  msg "schema.physics.Body2D.angularDamping" {
+    text="Угловое затухание"
+  }
+  msg "schema.physics.Body2D.angularDamping.doc" {
+    text="Замедляет вращение каждый шаг; 0 — вращение не затухает."
+  }
+  msg "schema.physics.Body2D.angularVelocity" {
+    text="Угловая скорость"
+  }
+  msg "schema.physics.Body2D.angularVelocity.doc" {
+    text="Скорость вращения в радианах в секунду."
+  }
+  msg "schema.physics.Body2D.awake" {
+    text="Активно"
+  }
+  msg "schema.physics.Body2D.awake.doc" {
+    text="Симулируется ли тело на этом шаге или спит."
+  }
+  msg "schema.physics.Body2D.bullet" {
+    text="Пуля"
+  }
+  msg "schema.physics.Body2D.bullet.doc" {
+    text="Непрерывная проверка столкновений с другими динамическими телами, чтобы быстрое тело не пролетало сквозь них. Дороже."
+  }
+  msg "schema.physics.Body2D.doc" {
+    text="Симулирует узел как твёрдое тело. Его форму задают коллайдеры на узле и его детях."
+  }
+  msg "schema.physics.Body2D.fixedRotation" {
+    text="Без вращения"
+  }
+  msg "schema.physics.Body2D.fixedRotation.doc" {
+    text="Держит тело прямо: контакты и момент сил его не вращают."
+  }
+  msg "schema.physics.Body2D.gravityScale" {
+    text="Масштаб гравитации"
+  }
+  msg "schema.physics.Body2D.gravityScale.doc" {
+    text="Множитель гравитации проекта для этого тела; 0 — тело парит."
+  }
+  msg "schema.physics.Body2D.interpolate" {
+    text="Интерполяция"
+  }
+  msg "schema.physics.Body2D.interpolate.doc" {
+    text="Рисует тело между шагами физики для плавности; скрипты видят точную позу."
+  }
+  msg "schema.physics.Body2D.layer" {
+    text="Слой"
+  }
+  msg "schema.physics.Body2D.layer.doc" {
+    text="Слой столкновений, см. Настройки проекта → Физика."
+  }
+  msg "schema.physics.Body2D.linearDamping" {
+    text="Линейное затухание"
+  }
+  msg "schema.physics.Body2D.linearDamping.doc" {
+    text="Замедляет движение каждый шаг, как сопротивление воздуха; 0 — скорость сохраняется."
+  }
+  msg "schema.physics.Body2D.mask" {
+    text="Маска"
+  }
+  msg "schema.physics.Body2D.mask.doc" {
+    text="Слои, с которыми сталкивается это тело."
+  }
+  msg "schema.physics.Body2D.mass" {
+    text="Масса"
+  }
+  msg "schema.physics.Body2D.mass.doc" {
+    text="Масса в килограммах, когда режим массы override."
+  }
+  msg "schema.physics.Body2D.massMode" {
+    text="Режим массы"
+  }
+  msg "schema.physics.Body2D.massMode.doc" {
+    text="auto берёт массу из плотности коллайдеров, override — из поля Масса."
+  }
+  msg "schema.physics.Body2D.type" {
+    text="Тип"
+  }
+  msg "schema.physics.Body2D.type.doc" {
+    text="static не двигается, kinematic движется по заданной скорости, dynamic реагирует на силы и контакты."
+  }
+  msg "schema.physics.Body2D.velocity" {
+    text="Скорость"
+  }
+  msg "schema.physics.Body2D.velocity.doc" {
+    text="Скорость в единицах в секунду."
+  }
+  msg "schema.physics.BoxCollider2D" {
+    text="Коллайдер-прямоугольник 2D"
+  }
+  msg "schema.physics.BoxCollider2D.density" {
+    text="Плотность"
+  }
+  msg "schema.physics.BoxCollider2D.density.doc" {
+    text="Масса на квадратную единицу; задаёт массу тела, когда режим массы auto."
+  }
+  msg "schema.physics.BoxCollider2D.doc" {
+    text="Прямоугольник в пространстве узла."
+  }
+  msg "schema.physics.BoxCollider2D.friction" {
+    text="Трение"
+  }
+  msg "schema.physics.BoxCollider2D.friction.doc" {
+    text="Сопротивление скольжению по другим формам; 0 — лёд. Для двух форм берётся корень из произведения."
+  }
+  msg "schema.physics.BoxCollider2D.isTrigger" {
+    text="Триггер"
+  }
+  msg "schema.physics.BoxCollider2D.isTrigger.doc" {
+    text="Замечает пересечения и посылает события триггера, не расталкивая тела."
+  }
+  msg "schema.physics.BoxCollider2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.physics.BoxCollider2D.offset.doc" {
+    text="Позиция формы в пространстве узла."
+  }
+  msg "schema.physics.BoxCollider2D.restitution" {
+    text="Упругость"
+  }
+  msg "schema.physics.BoxCollider2D.restitution.doc" {
+    text="Упругость: 0 — останавливается при ударе, 1 — отскакивает с той же скоростью. Для двух форм берётся большее."
+  }
+  msg "schema.physics.BoxCollider2D.size" {
+    text="Размер"
+  }
+  msg "schema.physics.BoxCollider2D.size.doc" {
+    text="Ширина и высота в единицах, до масштаба узла."
+  }
+  msg "schema.physics.CapsuleCollider2D" {
+    text="Коллайдер-капсула 2D"
+  }
+  msg "schema.physics.CapsuleCollider2D.density" {
+    text="Плотность"
+  }
+  msg "schema.physics.CapsuleCollider2D.density.doc" {
+    text="Масса на квадратную единицу; задаёт массу тела, когда режим массы auto."
+  }
+  msg "schema.physics.CapsuleCollider2D.doc" {
+    text="Капсула вдоль локальной оси X; Длина — полный размер вместе с закруглениями."
+  }
+  msg "schema.physics.CapsuleCollider2D.friction" {
+    text="Трение"
+  }
+  msg "schema.physics.CapsuleCollider2D.friction.doc" {
+    text="Сопротивление скольжению по другим формам; 0 — лёд. Для двух форм берётся корень из произведения."
+  }
+  msg "schema.physics.CapsuleCollider2D.isTrigger" {
+    text="Триггер"
+  }
+  msg "schema.physics.CapsuleCollider2D.isTrigger.doc" {
+    text="Замечает пересечения и посылает события триггера, не расталкивая тела."
+  }
+  msg "schema.physics.CapsuleCollider2D.length" {
+    text="Длина"
+  }
+  msg "schema.physics.CapsuleCollider2D.length.doc" {
+    text="Полная длина вдоль локальной оси X, вместе с закруглениями."
+  }
+  msg "schema.physics.CapsuleCollider2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.physics.CapsuleCollider2D.offset.doc" {
+    text="Позиция формы в пространстве узла."
+  }
+  msg "schema.physics.CapsuleCollider2D.radius" {
+    text="Радиус"
+  }
+  msg "schema.physics.CapsuleCollider2D.radius.doc" {
+    text="Радиус закруглений, он же половина толщины."
+  }
+  msg "schema.physics.CapsuleCollider2D.restitution" {
+    text="Упругость"
+  }
+  msg "schema.physics.CapsuleCollider2D.restitution.doc" {
+    text="Упругость: 0 — останавливается при ударе, 1 — отскакивает с той же скоростью. Для двух форм берётся большее."
+  }
+  msg "schema.physics.CircleCollider2D" {
+    text="Коллайдер-круг 2D"
+  }
+  msg "schema.physics.CircleCollider2D.density" {
+    text="Плотность"
+  }
+  msg "schema.physics.CircleCollider2D.density.doc" {
+    text="Масса на квадратную единицу; задаёт массу тела, когда режим массы auto."
+  }
+  msg "schema.physics.CircleCollider2D.doc" {
+    text="Круг. Нужен одинаковый масштаб узла по осям."
+  }
+  msg "schema.physics.CircleCollider2D.friction" {
+    text="Трение"
+  }
+  msg "schema.physics.CircleCollider2D.friction.doc" {
+    text="Сопротивление скольжению по другим формам; 0 — лёд. Для двух форм берётся корень из произведения."
+  }
+  msg "schema.physics.CircleCollider2D.isTrigger" {
+    text="Триггер"
+  }
+  msg "schema.physics.CircleCollider2D.isTrigger.doc" {
+    text="Замечает пересечения и посылает события триггера, не расталкивая тела."
+  }
+  msg "schema.physics.CircleCollider2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.physics.CircleCollider2D.offset.doc" {
+    text="Позиция формы в пространстве узла."
+  }
+  msg "schema.physics.CircleCollider2D.radius" {
+    text="Радиус"
+  }
+  msg "schema.physics.CircleCollider2D.radius.doc" {
+    text="Радиус в единицах, до масштаба узла."
+  }
+  msg "schema.physics.CircleCollider2D.restitution" {
+    text="Упругость"
+  }
+  msg "schema.physics.CircleCollider2D.restitution.doc" {
+    text="Упругость: 0 — останавливается при ударе, 1 — отскакивает с той же скоростью. Для двух форм берётся большее."
+  }
+  msg "schema.physics.DistanceJoint2D" {
+    text="Соединение на расстоянии 2D"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorA" {
+    text="Опора A"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorA.doc" {
+    text="Точка крепления на этом узле, в пространстве узла."
+  }
+  msg "schema.physics.DistanceJoint2D.anchorB" {
+    text="Опора B"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorB.doc" {
+    text="Точка крепления на узле Цели, в его пространстве."
+  }
+  msg "schema.physics.DistanceJoint2D.collideConnected" {
+    text="Столкновения между собой"
+  }
+  msg "schema.physics.DistanceJoint2D.collideConnected.doc" {
+    text="Позволяет двум соединённым телам сталкиваться друг с другом."
+  }
+  msg "schema.physics.DistanceJoint2D.damping" {
+    text="Демпфирование"
+  }
+  msg "schema.physics.DistanceJoint2D.damping.doc" {
+    text="Затухание пружины; 0 — без затухания, большие значения быстрее гасят колебания."
+  }
+  msg "schema.physics.DistanceJoint2D.doc" {
+    text="Держит расстояние между этим телом и телом Цели. Длина 0 — расстояние на старте."
+  }
+  msg "schema.physics.DistanceJoint2D.length" {
+    text="Длина"
+  }
+  msg "schema.physics.DistanceJoint2D.length.doc" {
+    text="Длина покоя в единицах; 0 — расстояние между опорами на старте."
+  }
+  msg "schema.physics.DistanceJoint2D.maxLength" {
+    text="Макс. длина"
+  }
+  msg "schema.physics.DistanceJoint2D.maxLength.doc" {
+    text="Наибольшая длина; у верёвки Мин. 0, а Макс. равна её длине."
+  }
+  msg "schema.physics.DistanceJoint2D.minLength" {
+    text="Мин. длина"
+  }
+  msg "schema.physics.DistanceJoint2D.minLength.doc" {
+    text="Наименьшая длина. Если Мин. и Макс. равны 0, соединение — жёсткий стержень или, при заданной Жёсткости, пружина без нижнего предела."
+  }
+  msg "schema.physics.DistanceJoint2D.stiffness" {
+    text="Жёсткость"
+  }
+  msg "schema.physics.DistanceJoint2D.stiffness.doc" {
+    text="Жёсткость пружины в ньютонах на единицу; 0 — длина жёсткая в пределах Мин. и Макс."
+  }
+  msg "schema.physics.DistanceJoint2D.target" {
+    text="Цель"
+  }
+  msg "schema.physics.DistanceJoint2D.target.doc" {
+    text="Другое тело; обоим узлам нужно Тело 2D."
+  }
+  msg "schema.physics.EdgeCollider2D" {
+    text="Коллайдер-линия 2D"
+  }
+  msg "schema.physics.EdgeCollider2D.density" {
+    text="Плотность"
+  }
+  msg "schema.physics.EdgeCollider2D.density.doc" {
+    text="Масса на квадратную единицу; задаёт массу тела, когда режим массы auto."
+  }
+  msg "schema.physics.EdgeCollider2D.doc" {
+    text="Ломаная для геометрии уровня. «Односторонний» пропускает тела снизу."
+  }
+  msg "schema.physics.EdgeCollider2D.friction" {
+    text="Трение"
+  }
+  msg "schema.physics.EdgeCollider2D.friction.doc" {
+    text="Сопротивление скольжению по другим формам; 0 — лёд. Для двух форм берётся корень из произведения."
+  }
+  msg "schema.physics.EdgeCollider2D.isTrigger" {
+    text="Триггер"
+  }
+  msg "schema.physics.EdgeCollider2D.isTrigger.doc" {
+    text="Замечает пересечения и посылает события триггера, не расталкивая тела."
+  }
+  msg "schema.physics.EdgeCollider2D.loop" {
+    text="Повтор"
+  }
+  msg "schema.physics.EdgeCollider2D.loop.doc" {
+    text="Соединяет последнюю точку с первой, для замкнутых контуров; нужно не меньше 3 точек."
+  }
+  msg "schema.physics.EdgeCollider2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.physics.EdgeCollider2D.offset.doc" {
+    text="Позиция формы в пространстве узла."
+  }
+  msg "schema.physics.EdgeCollider2D.oneSided" {
+    text="Односторонний"
+  }
+  msg "schema.physics.EdgeCollider2D.oneSided.doc" {
+    text="Сталкивается только сверху, поэтому снизу сквозь неё можно запрыгнуть, как на платформу."
+  }
+  msg "schema.physics.EdgeCollider2D.points" {
+    text="Точки"
+  }
+  msg "schema.physics.EdgeCollider2D.points.doc" {
+    text="Точки линии в пространстве узла, не меньше 2; правьте их в панели «Сцена»."
+  }
+  msg "schema.physics.EdgeCollider2D.restitution" {
+    text="Упругость"
+  }
+  msg "schema.physics.EdgeCollider2D.restitution.doc" {
+    text="Упругость: 0 — останавливается при ударе, 1 — отскакивает с той же скоростью. Для двух форм берётся большее."
+  }
+  msg "schema.physics.PolygonCollider2D" {
+    text="Коллайдер-многоугольник 2D"
+  }
+  msg "schema.physics.PolygonCollider2D.density" {
+    text="Плотность"
+  }
+  msg "schema.physics.PolygonCollider2D.density.doc" {
+    text="Масса на квадратную единицу; задаёт массу тела, когда режим массы auto."
+  }
+  msg "schema.physics.PolygonCollider2D.doc" {
+    text="Выпуклый многоугольник из 3–8 точек."
+  }
+  msg "schema.physics.PolygonCollider2D.friction" {
+    text="Трение"
+  }
+  msg "schema.physics.PolygonCollider2D.friction.doc" {
+    text="Сопротивление скольжению по другим формам; 0 — лёд. Для двух форм берётся корень из произведения."
+  }
+  msg "schema.physics.PolygonCollider2D.isTrigger" {
+    text="Триггер"
+  }
+  msg "schema.physics.PolygonCollider2D.isTrigger.doc" {
+    text="Замечает пересечения и посылает события триггера, не расталкивая тела."
+  }
+  msg "schema.physics.PolygonCollider2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.physics.PolygonCollider2D.offset.doc" {
+    text="Позиция формы в пространстве узла."
+  }
+  msg "schema.physics.PolygonCollider2D.points" {
+    text="Точки"
+  }
+  msg "schema.physics.PolygonCollider2D.points.doc" {
+    text="Углы в пространстве узла, от 3 до 8, образуют выпуклую форму; правьте их в панели «Сцена»."
+  }
+  msg "schema.physics.PolygonCollider2D.restitution" {
+    text="Упругость"
+  }
+  msg "schema.physics.PolygonCollider2D.restitution.doc" {
+    text="Упругость: 0 — останавливается при ударе, 1 — отскакивает с той же скоростью. Для двух форм берётся большее."
+  }
+  msg "schema.physics.RevoluteJoint2D" {
+    text="Шарнир 2D"
+  }
+  msg "schema.physics.RevoluteJoint2D.anchor" {
+    text="Опора"
+  }
+  msg "schema.physics.RevoluteJoint2D.anchor.doc" {
+    text="Точка поворота в пространстве этого узла; оба тела вращаются вокруг неё."
+  }
+  msg "schema.physics.RevoluteJoint2D.collideConnected" {
+    text="Столкновения между собой"
+  }
+  msg "schema.physics.RevoluteJoint2D.collideConnected.doc" {
+    text="Позволяет двум соединённым телам сталкиваться друг с другом."
+  }
+  msg "schema.physics.RevoluteJoint2D.doc" {
+    text="Крепит это тело к телу Цели в Опоре, с ограничением и мотором по желанию."
+  }
+  msg "schema.physics.RevoluteJoint2D.enableLimit" {
+    text="Ограничение угла"
+  }
+  msg "schema.physics.RevoluteJoint2D.enableLimit.doc" {
+    text="Держит угол между нижним и верхним пределом."
+  }
+  msg "schema.physics.RevoluteJoint2D.enableMotor" {
+    text="Мотор"
+  }
+  msg "schema.physics.RevoluteJoint2D.enableMotor.doc" {
+    text="Крутит шарнир со Скоростью, не больше Макс. момента."
+  }
+  msg "schema.physics.RevoluteJoint2D.lower" {
+    text="Нижний предел"
+  }
+  msg "schema.physics.RevoluteJoint2D.lower.doc" {
+    text="Наименьший угол в радианах относительно угла на старте."
+  }
+  msg "schema.physics.RevoluteJoint2D.maxTorque" {
+    text="Макс. момент"
+  }
+  msg "schema.physics.RevoluteJoint2D.maxTorque.doc" {
+    text="Наибольший момент мотора; при 0 мотор ничего не делает."
+  }
+  msg "schema.physics.RevoluteJoint2D.speed" {
+    text="Скорость"
+  }
+  msg "schema.physics.RevoluteJoint2D.speed.doc" {
+    text="Скорость мотора в радианах в секунду; отрицательная крутит в другую сторону."
+  }
+  msg "schema.physics.RevoluteJoint2D.target" {
+    text="Цель"
+  }
+  msg "schema.physics.RevoluteJoint2D.target.doc" {
+    text="Тело, вокруг которого вращается это; обоим узлам нужно Тело 2D."
+  }
+  msg "schema.physics.RevoluteJoint2D.upper" {
+    text="Верхний предел"
+  }
+  msg "schema.physics.RevoluteJoint2D.upper.doc" {
+    text="Наибольший угол в радианах относительно угла на старте."
+  }
+  msg "schema.save.Persist" {
+    text="Сохранение"
+  }
+  msg "schema.save.Persist.doc" {
+    text="Сохраняет в сохранениях трансформацию узла и флаг включения."
+  }
+  msg "schema.save.Persist.noEnabled" {
+    text="Без флага включения"
+  }
+  msg "schema.save.Persist.noEnabled.doc" {
+    text="Не сохраняет флаг включения."
+  }
+  msg "schema.save.Persist.noTransform" {
+    text="Без трансформации"
+  }
+  msg "schema.save.Persist.noTransform.doc" {
+    text="Не сохраняет трансформацию — для узлов, позиция которых задаётся иначе."
+  }
+  msg "setting.accessibility.colorblindPalette" {
+    text="Палитра для дальтоников"
+  }
+  msg "setting.accessibility.colorblindPalette.deuteranopia" {
+    text="Дейтеранопия"
+  }
+  msg "setting.accessibility.colorblindPalette.none" {
+    text="Нет"
+  }
+  msg "setting.accessibility.colorblindPalette.protanopia" {
+    text="Протанопия"
+  }
+  msg "setting.accessibility.colorblindPalette.tritanopia" {
+    text="Тританопия"
+  }
+  msg "setting.accessibility.highContrast" {
+    text="Высокий контраст"
+  }
+  msg "setting.accessibility.reducedMotion" {
+    text="Меньше движения"
+  }
+  msg "setting.accessibility.reducedMotion.doc" {
+    text="Камеры, частицы и переходы убирают крупное или быстрое движение."
+  }
+  msg "setting.accessibility.screenShake" {
+    text="Тряска экрана"
+  }
+  msg "setting.accessibility.screenShake.doc" {
+    text="Масштаб тряски камеры; 0 выключает её."
+  }
+  msg "setting.accessibility.subtitles" {
+    text="Субтитры"
+  }
+  msg "setting.audio.bufferSize" {
+    text="Аудиобуфер"
+  }
+  msg "setting.audio.bufferSize.doc" {
+    text="Кадров в аудиоблоке. Меньшие блоки снижают задержку, большие переживают медленные кадры."
+  }
+  msg "setting.audio.bufferSize.frames1024" {
+    text="1024"
+  }
+  msg "setting.audio.bufferSize.frames2048" {
+    text="2048"
+  }
+  msg "setting.audio.bufferSize.frames256" {
+    text="256"
+  }
+  msg "setting.audio.bufferSize.frames512" {
+    text="512"
+  }
+  msg "setting.audio.bus.ambience.mute" {
+    text="Без звуков окружения"
+  }
+  msg "setting.audio.bus.ambience.volume" {
+    text="Громкость окружения"
+  }
+  msg "setting.audio.bus.master.mute" {
+    text="Без звука"
+  }
+  msg "setting.audio.bus.master.volume" {
+    text="Общая громкость"
+  }
+  msg "setting.audio.bus.music.mute" {
+    text="Без музыки"
+  }
+  msg "setting.audio.bus.music.volume" {
+    text="Громкость музыки"
+  }
+  msg "setting.audio.bus.sfx.mute" {
+    text="Без эффектов"
+  }
+  msg "setting.audio.bus.sfx.volume" {
+    text="Громкость эффектов"
+  }
+  msg "setting.audio.bus.ui.mute" {
+    text="Без звуков интерфейса"
+  }
+  msg "setting.audio.bus.ui.volume" {
+    text="Громкость интерфейса"
+  }
+  msg "setting.audio.bus.voice.mute" {
+    text="Без голоса"
+  }
+  msg "setting.audio.bus.voice.volume" {
+    text="Громкость голоса"
+  }
+  msg "setting.audio.enabled" {
+    text="Звук"
+  }
+  msg "setting.audio.enabled.doc" {
+    text="Выключает весь звук, не закрывая аудиовыход."
+  }
+  msg "setting.audio.sampleRate" {
+    text="Частота дискретизации"
+  }
+  msg "setting.audio.sampleRate.auto" {
+    text="Авто"
+  }
+  msg "setting.audio.sampleRate.doc" {
+    text="«Авто» берёт частоту устройства вывода."
+  }
+  msg "setting.audio.sampleRate.hz44100" {
+    text="44100"
+  }
+  msg "setting.audio.sampleRate.hz48000" {
+    text="48000"
+  }
+  msg "setting.category.Accessibility" {
+    text="Доступность"
+  }
+  msg "setting.category.Audio" {
+    text="Звук"
+  }
+  msg "setting.category.Display" {
+    text="Экран"
+  }
+  msg "setting.category.Gameplay" {
+    text="Геймплей"
+  }
+  msg "setting.category.Graphics" {
+    text="Графика"
+  }
+  msg "setting.category.Input" {
+    text="Управление"
+  }
+  msg "setting.category.Language" {
+    text="Язык"
+  }
+  msg "setting.display.frameLimit" {
+    text="Ограничение кадров"
+  }
+  msg "setting.display.frameLimit.doc" {
+    text="Ограничивает частоту кадров, пока VSync выключен. Ноль — без ограничения."
+  }
+  msg "setting.display.preset" {
+    text="Качество"
+  }
+  msg "setting.display.preset.Custom" {
+    text="Своё"
+  }
+  msg "setting.display.preset.High" {
+    text="Высокое"
+  }
+  msg "setting.display.preset.Low" {
+    text="Низкое"
+  }
+  msg "setting.display.preset.Medium" {
+    text="Среднее"
+  }
+  msg "setting.display.preset.Ultra" {
+    text="Максимальное"
+  }
+  msg "setting.display.renderScale" {
+    text="Масштаб рендера"
+  }
+  msg "setting.display.uiScale" {
+    text="Масштаб интерфейса"
+  }
+  msg "setting.display.vsync" {
+    text="VSync"
+  }
+  msg "setting.display.vsync.adaptive" {
+    text="Адаптивная"
+  }
+  msg "setting.display.vsync.off" {
+    text="Выкл."
+  }
+  msg "setting.display.vsync.on" {
+    text="Вкл."
+  }
+  msg "setting.display.window.mode" {
+    text="Режим окна"
+  }
+  msg "setting.display.window.mode.borderless" {
+    text="Без рамки"
+  }
+  msg "setting.display.window.mode.fullscreen" {
+    text="Полный экран"
+  }
+  msg "setting.display.window.mode.windowed" {
+    text="В окне"
+  }
+  msg "setting.display.window.monitor" {
+    text="Монитор"
+  }
+  msg "setting.display.window.resolution" {
+    text="Разрешение"
+  }
+  msg "setting.display.window.resolution.doc" {
+    text="Размер окна или режим экрана в полноэкранном режиме. Пусто — размер окна из проекта."
+  }
+  msg "setting.settings.language" {
+    text="Язык"
+  }
+  msg "setting.settings.language.auto" {
+    text="Автоматически"
+  }
+  msg "setting.settings.language.doc" {
+    text="Язык настроек и переведённых текстов игры. «Автоматически» — как в системе."
+  }
+  msg "setting.settings.language.en" {
+    text="English"
+  }
+  msg "setting.settings.language.ru" {
+    text="Русский"
+  }
+}

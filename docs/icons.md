@@ -60,6 +60,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `dbg.contacts` | engine | 16 | Contacts debug overlay; Vectors → Contact Impulses | ok |
 | `dbg.islands` | engine | 16 | Islands debug overlay | ok |
 | `dbg.overlay` | engine | 16 | Debug Overlay toggle of the 2D bodies menu | ok |
+| `doc.recipe` | engine | 16 | Documentation: Recipes page | ok |
+| `doc.tutorial` | engine | 16 | Documentation: Platformer from scratch page | ok |
 | `edit.batch_rename` | engine | 16 | Batch Rename (nodes, assets) | ok |
 | `edit.copy` | engine | 16 | Copy (nodes, assets, inspector field) | ok |
 | `edit.copy_path` | engine | 16 | Assets menu: Copy Path | ok |

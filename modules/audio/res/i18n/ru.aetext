@@ -2,6 +2,9 @@ messages version=1 lang=ru {
   msg "i18n.audio.bus" {
     text="Шина"
   }
+  msg "i18n.audio.bus_volumes_saved" {
+    text="Громкость шин сохранена в пользовательских настройках"
+  }
   msg "i18n.audio.events_are_heard_in_play" {
     text="События звучат во время игры; «Прослушать» играет Clip"
   }
@@ -16,6 +19,9 @@ messages version=1 lang=ru {
   }
   msg "i18n.audio.mixer.title" {
     text="Аудиомикшер"
+  }
+  msg "i18n.audio.mixer_stats" {
+    text="Голоса {voices}   Опустошения {underruns}"
   }
   msg "i18n.audio.no_waveform" {
     text="Нет формы волны"
@@ -35,6 +41,9 @@ messages version=1 lang=ru {
   msg "i18n.audio.preview" {
     text="Прослушать"
   }
+  msg "i18n.audio.profiler" {
+    text="Звук"
+  }
   msg "i18n.audio.reading_the_waveform" {
     text="Чтение формы волны"
   }
@@ -47,11 +56,35 @@ messages version=1 lang=ru {
   msg "i18n.audio.save_to_profile" {
     text="Сохранить в профиль"
   }
+  msg "i18n.audio.stats.mix" {
+    text="Микширование: макс. {max} мс, в среднем {avg} мс"
+  }
+  msg "i18n.audio.stats.output" {
+    text="Вывод {rate} Гц, {frames} кадров на блок"
+  }
+  msg "i18n.audio.stats.underruns" {
+    text="Опустошения {underruns}, отброшено команд {dropped}, блоков {blocks}"
+  }
+  msg "i18n.audio.stats.voices" {
+    text="Голоса {all}, в этом мире {world}"
+  }
+  msg "i18n.audio.stats.voices_end" {
+    text="Завершено {finished}, вытеснено {stolen}, отклонено {rejected}, без данных {starved}"
+  }
   msg "i18n.audio.stop" {
     text="Остановить"
   }
   msg "i18n.audio.stream" {
     text="Поток"
+  }
+  msg "i18n.audio.stream_auto" {
+    text="Авто"
+  }
+  msg "i18n.audio.stream_off" {
+    text="Выкл."
+  }
+  msg "i18n.audio.stream_on" {
+    text="Вкл."
   }
   msg "i18n.audio.the_audio_output_is_not" {
     text="Аудиовыход не открыт"

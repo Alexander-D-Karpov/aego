@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/code"
 	"aego/editor/core/code/highlight"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/render/text"
 	"aego/script/diag"
@@ -474,7 +475,7 @@ func (p *Panel) keys(ui *core.Context) {
 			edit(func() { p.requestCompletion(ui) })
 		case !shift && ui.KeyPressed(input.KeyP):
 			if !p.querySignature() {
-				p.flash(ui.Time, "No call at the cursor")
+				p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_call_at_cursor", "No call at the cursor"))
 			}
 		case ui.KeyPressed(input.KeyQ):
 			p.quickDoc(ui)

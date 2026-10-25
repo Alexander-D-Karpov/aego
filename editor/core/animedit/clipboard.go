@@ -8,6 +8,7 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene/mutate"
 	"aego/scene/propref"
@@ -104,7 +105,7 @@ func (s *Service) PasteKeys() error {
 		}
 		ops = append(ops, op)
 	}
-	return s.EditClip("Paste Keys", ops...)
+	return s.EditClip(i18n.Tr("editor.history.paste_keys", "Paste Keys"), ops...)
 }
 
 // Original is the value of a bound track in the scene, without the clip sampled over it.
@@ -174,7 +175,7 @@ func (s *Service) KeyChanged(node ids.NodeID) (int, error) {
 	if len(ops) == 0 {
 		return 0, nil
 	}
-	return len(ops), s.EditClip("Key Changed", ops...)
+	return len(ops), s.EditClip(i18n.Tr("editor.history.key_changed", "Key Changed"), ops...)
 }
 
 // SetFromScene gives the keys the values their properties have in the scene.
@@ -191,5 +192,5 @@ func (s *Service) SetFromScene(keys []KeyRef) error {
 			}
 		}
 	}
-	return s.EditClip("Set Keys from Scene", ops...)
+	return s.EditClip(i18n.Tr("editor.history.set_keys_from_scene", "Set Keys from Scene"), ops...)
 }

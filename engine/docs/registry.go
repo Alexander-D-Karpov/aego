@@ -122,6 +122,8 @@ type Entry struct {
 	// EditorOnly pages are shown in the editor's docs panel and left out of the site.
 	EditorOnly bool `json:",omitempty"`
 	Diag       *DiagInfo
+	// Translations are the entry in other languages, by language (D348).
+	Translations map[string]Translation `json:",omitempty"`
 }
 
 type DiagFile struct {
@@ -194,6 +196,7 @@ type Registry struct {
 	extra    []Group
 	evOwners map[string]string
 	problems []Problem
+	groupT   map[string]map[string]string
 }
 
 func StubPath(module string) string {
@@ -562,16 +565,21 @@ func diagInfo(code string, h diag.Help, diagnose func(string, *DiagInfo)) *DiagI
 }
 
 func (r *Registry) pages(src module.DocSource) {
-	var files []string
+	var files, translated []string
 	err := fs.WalkDir(src.FS, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(p, ".md") {
-			files = append(files, p)
+			if translationLang(p) != "" {
+				translated = append(translated, p)
+			} else {
+				files = append(files, p)
+			}
 		}
 		return nil
 	})
+	defer r.translations(src, translated)
 	if err != nil {
 		r.problems = append(r.problems, Problem{ID: src.Owner, Error: true, Message: "docs source cannot be read: " + err.Error()})
 		return

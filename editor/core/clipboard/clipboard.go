@@ -252,7 +252,7 @@ func Paste(ctx *context.Editor) error {
 		}
 		ops[i] = commands.Insert(parent, at, f)
 	}
-	cmd := commands.NewMutation("Create Paste", commands.EnvFor(d.Scene()), ops...)
+	cmd := commands.NewMutation(i18n.Tr("editor.history.paste", "Paste"), commands.EnvFor(d.Scene()), ops...)
 	if err := d.History.Exec(cmd); err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func Duplicate(ctx *context.Editor) error {
 	if len(tops) == 0 {
 		return nil
 	}
-	tx := d.History.Begin("Duplicate")
+	tx := d.History.Begin(i18n.Tr("editor.history.duplicate", "Duplicate"))
 	var created []ids.NodeID
 	for _, h := range tops {
 		data, _, err := Fragment(s, []ids.NodeID{s.ID(h)})
@@ -281,7 +281,7 @@ func Duplicate(ctx *context.Editor) error {
 			tx.Abort()
 			return err
 		}
-		c := commands.NewMutation("Create "+s.Name(h), commands.EnvFor(s),
+		c := commands.NewMutation(i18n.Tr("editor.history.create", "Create {name}", i18n.Str("name", s.Name(h))), commands.EnvFor(s),
 			commands.Insert(s.ID(s.Parent(h)), commands.ChildIndex(s, h)+1, string(data)))
 		if err := tx.Exec(c); err != nil {
 			tx.Abort()
@@ -308,7 +308,7 @@ func Delete(ctx *context.Editor) error {
 	for i, h := range tops {
 		ops[i] = mutate.RemoveNode(commands.Ref(s.ID(h)))
 	}
-	if err := d.History.Exec(commands.NewMutation("Delete", commands.EnvFor(s), ops...)); err != nil {
+	if err := d.History.Exec(commands.NewMutation(i18n.Tr("editor.history.delete", "Delete"), commands.EnvFor(s), ops...)); err != nil {
 		return err
 	}
 	ctx.Select()

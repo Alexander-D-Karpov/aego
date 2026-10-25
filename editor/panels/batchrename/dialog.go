@@ -203,7 +203,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 	for _, n := range []struct {
 		label string
 		v     *float64
-	}{{"Start", &g.start}, {"Step", &g.step}} {
+	}{{i18n.Tr("editor.batchrename.start", "Start"), &g.start}, {i18n.Tr("editor.batchrename.step", "Step"), &g.step}} {
 		lw := ui.TextSize(n.label).X + 6
 		ui.Text(n.label, mathx.Vec2{X: rx, Y: ui.TextY(row)}, th.TextDim)
 		if e := widgets.DragNumber(ui, ui.ID("n/"+n.label), mathx.Rect{X: rx + lw, Y: row.Y, W: 60, H: row.H}, n.v, widgets.NumberOpts{Int: true, Speed: 0.1}); e.Changed {
@@ -264,7 +264,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 		}
 	} else {
 		ui.Rect(ar, th.Widget)
-		ui.TextIn(ar, "Rename", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(ar, i18n.Tr("editor.batchrename.rename", "Rename"), th.TextDisabled, core.AlignCenter)
 	}
 	ui.EndModal()
 }
@@ -282,7 +282,7 @@ func (g *Dialog) applyNodes() error {
 		return nil
 	}
 	s := d.Scene()
-	tx := d.History.Begin("Batch Rename")
+	tx := d.History.Begin(i18n.Tr("editor.history.batch_rename", "Batch Rename"))
 	k := 0
 	for _, id := range g.nodes {
 		h := s.Handle(id)

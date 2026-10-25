@@ -1,7 +1,4 @@
-// Command i18n extracts the translatable texts of the code into the en catalogs and checks the other languages (D348).
-//
-//	go run ./tools/i18n extract   rewrites engine/i18n/messages/en.aetext and the module en catalogs
-//	go run ./tools/i18n check     lists missing, unused and mismatched keys; -strict fails on missing ones
+// Command i18n writes the en catalogs from the code (extract) and checks the other languages against them (check, -strict) (D348).
 package main
 
 import (
@@ -20,6 +17,15 @@ func main() {
 		os.Exit(2)
 	}
 	keys, errs := Scan(*root)
+	data, err := Data()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for id, k := range data {
+		if _, dup := keys[id]; !dup {
+			keys[id] = k
+		}
+	}
 	for _, e := range errs {
 		fmt.Fprintln(os.Stderr, e)
 	}

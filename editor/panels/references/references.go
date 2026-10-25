@@ -215,7 +215,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	if p.target.IsZero() {
-		widgets.LabelWrapped(ui, "Select an asset and press "+"Shift+F12"+" or use Find References in its menu.", true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.references.select_asset_hint", "Select an asset and press {key} or use Find References in its menu.", i18n.Str("key", "Shift+F12")), true)
 		return
 	}
 	head := ui.Cursor().Next(0)
@@ -305,7 +305,7 @@ func (p *Panel) footer(ui *core.Context) {
 			Buttons: []string{i18n.Tr("editor.references.clear", "Clear"), i18n.Tr("editor.references.cancel", "Cancel")},
 			Then: func(c int) {
 				if c == 0 {
-					runReplace(p.d, target, ids.AssetID{}, "Clear references to "+path.Base(p.name()), p.refresh)
+					runReplace(p.d, target, ids.AssetID{}, i18n.Tr("editor.history.clear_references_to", "Clear references to {name}", i18n.Str("name", path.Base(p.name()))), p.refresh)
 				}
 			},
 		})
@@ -328,7 +328,7 @@ func (p *Panel) footer(ui *core.Context) {
 			Buttons: []string{i18n.Tr("editor.references.replace", "Replace"), i18n.Tr("editor.references.cancel", "Cancel")},
 			Then: func(c int) {
 				if c == 0 {
-					runReplace(p.d, target, to, "Replace references to "+path.Base(p.name()), p.refresh)
+					runReplace(p.d, target, to, i18n.Tr("editor.history.replace_references_to", "Replace references to {name}", i18n.Str("name", path.Base(p.name()))), p.refresh)
 				}
 			},
 		})

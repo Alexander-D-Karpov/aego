@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aego/engine/i18n"
 	"flag"
 	"fmt"
 	"os"
@@ -40,7 +41,7 @@ func cmdTest(args []string) int {
 
 func cmdDump(args []string) int {
 	if len(args) == 0 || args[0] != "script" {
-		fmt.Fprintln(os.Stderr, "usage: aego dump script <package|Type> [--func name] [--project dir]")
+		fmt.Fprintln(os.Stderr, i18n.Tr("cli.dump.usage", "usage: aego dump script <package|Type> [--func name] [--project dir]"))
 		return 2
 	}
 	fs := flag.NewFlagSet("dump script", flag.ContinueOnError)
@@ -51,7 +52,7 @@ func cmdDump(args []string) int {
 		return 2
 	}
 	if target == "" {
-		fmt.Fprintln(os.Stderr, "usage: aego dump script <package|Type> [--func name] [--project dir]")
+		fmt.Fprintln(os.Stderr, i18n.Tr("cli.dump.usage", "usage: aego dump script <package|Type> [--func name] [--project dir]"))
 		return 2
 	}
 	p, err := openProject(*dir)

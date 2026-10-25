@@ -114,6 +114,11 @@ type layoutData struct {
 	Footer      template.HTML
 	// Markdown is the page's Markdown copy, for rel="alternate".
 	Markdown string
+	// T translates the layout's own text; Search is the search index; HrefEN and HrefRU are the page in both languages, Alt the other one.
+	T                     func(string) string
+	Search                string
+	HrefEN, HrefRU        string
+	Alt, AltName, AltLang string
 }
 
 type searchItem struct {
@@ -155,6 +160,11 @@ type builder struct {
 	layout     *template.Template
 	css        string
 	report     Report
+	// lang is the language the builder writes; "" and en are English, ru pages live under ru/ (D348).
+	lang string
+	// has lists the entries with a translation in lang; en is the English builder it was made from.
+	has map[string]bool
+	en  *builder
 }
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
@@ -478,11 +488,11 @@ func kindName(e *Entry) string {
 	return e.Kind
 }
 
-func kindLabel(e *Entry) string {
+func (b *builder) kindLabel(e *Entry) string {
 	if e.Kind == KindPage {
 		return ""
 	}
-	return ` <span class="kind kind-` + esc(e.Kind) + `">` + esc(kindName(e)) + `</span>`
+	return ` <span class="kind kind-` + esc(e.Kind) + `">` + esc(b.tr(kindName(e))) + `</span>`
 }
 
 func (b *builder) details(c *strings.Builder, e *Entry, root string) {
@@ -497,10 +507,10 @@ func (b *builder) details(c *strings.Builder, e *Entry, root string) {
 		c.WriteString(b.markdown(root, e.ID, body))
 	}
 	if e.Example != "" {
-		c.WriteString(`<p class="label">Example</p>` + "\n")
+		c.WriteString(`<p class="label">` + b.tr("Example") + `</p>` + "\n")
 		c.WriteString(`<pre class="code" data-lang="aes"><code class="lang-aes">` + b.code(root, e.Example) + "</code></pre>\n")
 	} else if u := b.moduleExample(e); u != "" {
-		c.WriteString(`<p class="see-example">See the <a href="` + esc(root+u) + `">module example</a> for this function in use.</p>` + "\n")
+		c.WriteString(`<p class="see-example">` + b.tr("See the") + ` <a href="` + esc(root+u) + `">` + b.tr("module example") + `</a> ` + b.tr("for this function in use.") + `</p>` + "\n")
 	}
 	if strings.HasPrefix(e.ID, ScriptsPrefix) && e.Location.Path != "" {
 		where := e.Location.Path
@@ -543,12 +553,12 @@ func (b *builder) componentMeta(e *Entry, root string) string {
 		parts = append(parts, "Needs "+strings.Join(links, ", ")+" on the same node.")
 	}
 	if ci.Unique {
-		parts = append(parts, "One per scene.")
+		parts = append(parts, b.tr("One per scene."))
 	}
 	if len(parts) == 0 {
 		return ""
 	}
-	return `<h2 id="` + esc(e.ID) + `-usage">Usage</h2>` + "\n<p>" + strings.Join(parts, " ") + "</p>\n"
+	return `<h2 id="` + esc(e.ID) + `-usage">` + b.tr("Usage") + `</h2>` + "\n<p>" + strings.Join(parts, " ") + "</p>\n"
 }
 
 func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading bool) {
@@ -568,8 +578,8 @@ func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading 
 	}
 	byIndex(set)
 	byIndex(live)
-	b.rows(c, e, root, set, heading, "fields", "Fields", "")
-	b.rows(c, e, root, live, heading, "runtime", "Runtime state", "Values the component has while the game runs. They are not saved with the scene.")
+	b.rows(c, e, root, set, heading, "fields", b.tr("Fields"), "")
+	b.rows(c, e, root, live, heading, "runtime", b.tr("Runtime state"), b.tr("Values the component has while the game runs. They are not saved with the scene."))
 }
 
 func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry, heading bool, anchor, title, lead string) {
@@ -584,7 +594,7 @@ func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry,
 	if lead != "" {
 		c.WriteString("<p>" + lead + "</p>\n")
 	}
-	c.WriteString(`<table class="fields"><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>` + "\n")
+	c.WriteString(`<table class="fields"><thead><tr><th>` + b.tr("Name") + `</th><th>` + b.tr("Type") + `</th><th>` + b.tr("Default") + `</th><th>` + b.tr("Description") + `</th></tr></thead><tbody>` + "\n")
 	for _, f := range rows {
 		fi := f.Field
 		def := "—"
@@ -665,7 +675,7 @@ func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 	e := b.byID[id]
 	h := "h" + strconv.Itoa(min(depth, 4))
 	c.WriteString(`<section class="member" data-name="` + esc(strings.ToLower(e.Title)) + `">` + "\n")
-	c.WriteString("<" + h + ` id="` + esc(e.ID) + `" class="m"><a class="anchor" href="#` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "") + esc(e.Title) + "</a>" + kindLabel(e) + "</" + h + ">\n")
+	c.WriteString("<" + h + ` id="` + esc(e.ID) + `" class="m"><a class="anchor" href="#` + esc(e.ID) + `">` + b.icon(root, b.entryIcon(e), "") + esc(e.Title) + "</a>" + b.kindLabel(e) + "</" + h + ">\n")
 	b.details(c, e, root)
 	b.fieldTable(c, e, root, false)
 	b.children(c, e, root, depth+1)
@@ -689,7 +699,7 @@ func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int)
 			b.section(c, k, root, depth)
 		}
 	}
-	for i, title := range []string{"Methods", "Signals"} {
+	for i, title := range []string{b.tr("Methods"), b.tr("Signals")} {
 		if len(members[i]) == 0 {
 			continue
 		}
@@ -704,7 +714,7 @@ func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int)
 	c.WriteString(`<ul class="contents">` + "\n")
 	for _, k := range pages {
 		ke := b.byID[k]
-		c.WriteString(`<li><a href="` + esc(root+b.urls[k]) + `">` + b.icon(root, b.entryIcon(ke), "") + esc(ke.Title) + "</a>" + kindLabel(ke))
+		c.WriteString(`<li><a href="` + esc(root+b.urls[k]) + `">` + b.icon(root, b.entryIcon(ke), "") + esc(ke.Title) + "</a>" + b.kindLabel(ke))
 		if ke.Summary != "" {
 			c.WriteString(` <span class="summary">` + inlineMD(ke.Summary) + "</span>")
 		}
@@ -728,18 +738,18 @@ func (b *builder) crumbs(e *Entry, root string) string {
 	}
 	if gi, ok := b.groupOf[e.ID]; ok {
 		g := b.groups[gi]
-		head := []string{"<span>" + esc(sectionTitle(g.Section)) + "</span>"}
+		head := []string{"<span>" + esc(b.tr(sectionTitle(g.Section))) + "</span>"}
 		next := e.Title
 		if len(titles) > 0 {
 			next = titles[0]
 		}
-		if g.Title != sectionTitle(g.Section) && g.Title != next {
+		if g.Title != b.tr(sectionTitle(g.Section)) && g.Title != next {
 			head = append(head, "<span>"+esc(g.Title)+"</span>")
 		}
 		trail = append(head, trail...)
 	}
 	if e.Kind != KindPage {
-		trail = append([]string{`<b class="page-kind">` + esc(kindName(e)) + "</b>"}, trail...)
+		trail = append([]string{`<b class="page-kind">` + esc(b.tr(kindName(e))) + "</b>"}, trail...)
 	}
 	if len(trail) == 0 {
 		return ""
@@ -752,7 +762,7 @@ func (b *builder) soundButton(e *Entry, root string) string {
 	if !strings.Contains(e.Try, `component "audio.`) && !strings.Contains(e.TryScript, `"aego/audio"`) {
 		return ""
 	}
-	return `<button type="button" class="try-sound" aria-pressed="false" hidden>` + b.icon(root, "cat.audio", "") + `<span>Sound</span></button>`
+	return `<button type="button" class="try-sound" aria-pressed="false" hidden>` + b.icon(root, "cat.audio", "") + `<span>` + b.tr("Sound") + `</span></button>`
 }
 
 func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
@@ -770,13 +780,13 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 		input = ` data-input="` + esc(strings.Join(e.TryKeys, ", ")) + `"`
 	}
 	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `"` + input + `>` + "\n")
-	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">Try it</h2>` + "\n")
-	c.WriteString(`<p class="try-caption">A live scene with ` + esc(e.Title) + `: edit its fields in the Inspector on the right and the scene restarts with them.</p>` + "\n")
-	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + `Try it</button><span class="try-hint">Runs this scene in the browser, with the Inspector next to it</span></div>` + "\n")
+	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">` + b.tr("Try it") + `</h2>` + "\n")
+	c.WriteString(`<p class="try-caption">` + esc(b.tr("A live scene with")) + ` ` + esc(e.Title) + `: ` + esc(b.tr("edit its fields in the Inspector on the right and the scene restarts with them.")) + `</p>` + "\n")
+	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Runs this scene in the browser, with the Inspector next to it") + `</span></div>` + "\n")
 	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + `Open in editor</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + `Copy as .aescene</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + `Reset</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
 	c.WriteString(b.sceneTree(e.Try, root))
 	if e.TryScript != "" {
-		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>Script</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
+		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>` + b.tr("Script") + `</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
 		c.WriteString(b.markdown(root, e.ID, "```aes\n"+strings.TrimRight(e.TryScript, "\n")+"\n```\n"))
 		c.WriteString("</details>\n")
 	}
@@ -823,12 +833,12 @@ func (b *builder) content(e *Entry, root string) string {
 		b.children(&c, e, root, 2)
 	}
 	if e.Component != nil && len(e.Component.Events) > 0 {
-		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">Script events</h2>` + "\n")
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">` + b.tr("Script events") + `</h2>` + "\n")
 		c.WriteString("<p>Scripts on a node with this component receive these events from the " + esc(e.Component.Module) + " module.</p>\n")
 		b.eventList(&c, e.Component.Events, root)
 	}
 	if len(e.Related) > 0 {
-		c.WriteString(`<h2 id="` + esc(e.ID) + `-related">Related guides</h2>` + "\n")
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-related">` + b.tr("Related guides") + `</h2>` + "\n")
 		b.entryList(&c, e.Related, root)
 	}
 	return c.String()
@@ -837,7 +847,7 @@ func (b *builder) content(e *Entry, root string) string {
 // tocMembers is how many member headings a toc lists before it leaves them to the page's index.
 const tocMembers = 8
 
-func toc(content string) string {
+func (b *builder) toc(content string) string {
 	var heads [][]string
 	members := 0
 	for _, x := range headRe.FindAllStringSubmatch(content, -1) {
@@ -862,7 +872,7 @@ func toc(content string) string {
 	if n < 2 {
 		return ""
 	}
-	return `<p class="toc-title">On this page</p><ul>` + c.String() + "</ul>"
+	return `<p class="toc-title">` + b.tr("On this page") + `</p><ul>` + c.String() + "</ul>"
 }
 
 func (b *builder) pager(id, root string) string {
@@ -874,13 +884,13 @@ func (b *builder) pager(id, root string) string {
 	c.WriteString(`<nav class="pager">`)
 	if i > 0 {
 		p := b.order[i-1]
-		c.WriteString(`<a class="prev" href="` + esc(root+b.urls[p]) + `"><span>Previous</span>` + esc(b.byID[p].Title) + "</a>")
+		c.WriteString(`<a class="prev" href="` + esc(root+b.urls[p]) + `"><span>` + b.tr("Previous") + `</span>` + esc(b.byID[p].Title) + "</a>")
 	} else {
 		c.WriteString("<span></span>")
 	}
 	if i+1 < len(b.order) {
 		n := b.order[i+1]
-		c.WriteString(`<a class="next" href="` + esc(root+b.urls[n]) + `"><span>Next</span>` + esc(b.byID[n].Title) + "</a>")
+		c.WriteString(`<a class="next" href="` + esc(root+b.urls[n]) + `"><span>` + b.tr("Next") + `</span>` + esc(b.byID[n].Title) + "</a>")
 	}
 	c.WriteString("</nav>")
 	return c.String()
@@ -901,7 +911,7 @@ func (b *builder) footer(e *Entry, root string) string {
 		left = append(left, c)
 	}
 	if !o.Time.IsZero() {
-		left = append(left, "built "+o.Time.UTC().Format("2006-01-02"))
+		left = append(left, b.tr("built")+" "+o.Time.UTC().Format("2006-01-02"))
 	}
 	var right []string
 	if e != nil && e.Location.Source != "" && o.Edit != "" {
@@ -909,19 +919,23 @@ func (b *builder) footer(e *Entry, root string) string {
 		if e.Location.Line > 0 {
 			u += "#L" + strconv.Itoa(e.Location.Line)
 		}
-		right = append(right, `<a href="`+esc(u)+`">Edit this page</a>`)
+		label := b.tr("Edit this page")
+		if b.lang == "ru" && !b.has[e.ID] {
+			label = b.tr("Edit the English page")
+		}
+		right = append(right, `<a href="`+esc(u)+`">`+label+`</a>`)
 	}
 	if o.Playground {
-		right = append(right, `<a href="`+root+`play/">Playground</a>`)
+		right = append(right, `<a href="`+root+`play/">`+b.tr("Playground")+`</a>`)
 	}
 	if o.Repo != "" {
-		src := "Source"
+		src := b.tr("Source")
 		if u, err := url.Parse(o.Repo); err == nil && u.Host != "" {
-			src = "Source on " + u.Host
+			src = b.tr("Source on") + " " + u.Host
 		}
 		right = append(right, `<a href="`+esc(o.Repo)+`">`+esc(src)+`</a>`)
 	}
-	right = append(right, `<a href="`+root+`llms.txt" title="These docs as Markdown, for AI agents">llms.txt</a>`)
+	right = append(right, `<a href="`+root+b.langPath("llms.txt")+`" title="`+esc(b.tr("These docs as Markdown, for AI agents"))+`">llms.txt</a>`)
 	return `<footer class="foot"><span>` + strings.Join(left, " · ") + `</span><span class="links">` + strings.Join(right, "") + "</span></footer>"
 }
 
@@ -1003,7 +1017,7 @@ func (b *builder) nav(root, current string) string {
 			if last != "" {
 				c.WriteString("</div>")
 			}
-			c.WriteString(`<div class="nav-section"><p class="section">` + esc(sectionTitle(g.Section)) + "</p>")
+			c.WriteString(`<div class="nav-section"><p class="section">` + esc(b.tr(sectionTitle(g.Section))) + "</p>")
 			last = g.Section
 		}
 		ic := b.icon(root, g.Icon, "")
@@ -1059,13 +1073,22 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		Repo:        b.opt.Repo,
 		Demo:        b.opt.Demo,
 		Home:        current == "",
-		Lang:        langOf(rel),
+		Lang:        b.pageLang(),
 		Nav:         template.HTML(b.nav(root, current)),
 		Content:     template.HTML(content),
 		Footer:      template.HTML(b.footer(e, root)),
 	}
-	if current != "" && langOf(rel) == "en" {
+	data.T = b.tr
+	data.Search = b.langPath("search.json")
+	if current != "" {
 		data.Markdown = mdURL(rel)
+	}
+	en := strings.TrimPrefix(rel, "ru/")
+	data.HrefEN, data.HrefRU = en, "ru/"+en
+	if data.Lang == "ru" {
+		data.Alt, data.AltName, data.AltLang = en, "English", "en"
+	} else {
+		data.Alt, data.AltName, data.AltLang = "ru/"+en, "Русский", "ru"
 	}
 	if current == "" {
 		data.PageTitle = b.exp.Title + " — 2D game engine in Go"
@@ -1079,9 +1102,9 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		}
 	}
 	if current != "" {
-		if t := toc(content); t != "" {
+		if t := b.toc(content); t != "" {
 			data.Toc = template.HTML(t)
-			inline := `<details class="toc-inline"><summary>On this page</summary>` + strings.TrimPrefix(t, `<p class="toc-title">On this page</p>`) + "</details>\n"
+			inline := `<details class="toc-inline"><summary>` + b.tr("On this page") + `</summary>` + strings.TrimPrefix(t, `<p class="toc-title">`+b.tr("On this page")+`</p>`) + "</details>\n"
 			if i := strings.Index(content, "<h2"); i >= 0 {
 				data.Content = template.HTML(content[:i] + inline + content[i:])
 			}
@@ -1097,7 +1120,11 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		return err
 	}
 	b.report.Pages++
-	return os.WriteFile(dst, []byte(cleanLinks(buf.String())), 0o644)
+	page := buf.String()
+	if b.lang != "" && b.lang != "en" {
+		page = b.langLinks(page)
+	}
+	return os.WriteFile(dst, []byte(cleanLinks(page)), 0o644)
 }
 
 func (b *builder) walkOwn(ids []string, depth int, fn func(id string, depth int)) {
@@ -1115,7 +1142,7 @@ func (b *builder) outline() string {
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
-			c.WriteString(sectionTitle(g.Section) + "\n")
+			c.WriteString(b.tr(sectionTitle(g.Section)) + "\n")
 			last = g.Section
 		}
 		head, list := b.head(g)
@@ -1137,13 +1164,13 @@ func (b *builder) llms() string {
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
-			c.WriteString("\n## " + sectionTitle(g.Section) + "\n")
+			c.WriteString("\n## " + b.tr(sectionTitle(g.Section)) + "\n")
 			last = g.Section
 		}
 		c.WriteString("\n### " + g.Title + "\n\n")
 		b.walkOwn(g.roots, 0, func(id string, _ int) {
 			e := b.byID[id]
-			line := "- [" + e.Title + "](/" + mdURL(b.urls[id]) + ")"
+			line := "- [" + e.Title + "](/" + b.langPath(mdURL(b.urls[id])) + ")"
 			if s := plainMD(e.Summary); s != "" {
 				line += ": " + s
 			}
@@ -1181,10 +1208,11 @@ func (b *builder) write() error {
 	if err := b.emit("index.html", b.exp.Title, "", b.home(landingEN), nil); err != nil {
 		return err
 	}
-	if err := b.emit("ru/index.html", b.exp.Title, "", b.home(landingRU), nil); err != nil {
+	rb := b.forLang("ru")
+	if err := rb.emit("ru/index.html", b.exp.Title, "", rb.home(landingRU), nil); err != nil {
 		return err
 	}
-	if err := b.ruPages(); err != nil {
+	if err := rb.writeLang(); err != nil {
 		return err
 	}
 	data, err := json.Marshal(search)
@@ -1315,8 +1343,8 @@ func (b *builder) apiIndex(c *strings.Builder, e *Entry, root string) {
 	if len(rows) == 0 {
 		return
 	}
-	c.WriteString(`<h2 id="` + esc(e.ID) + `-index">Functions</h2>` + "\n")
-	c.WriteString(`<div class="api-index"><label class="member-filter">` + b.icon(root, "ui.search", "") + `<input type="search" placeholder="Filter ` + strconv.Itoa(len(rows)+consts) + ` members of ` + esc(e.Title) + `" aria-label="Filter members"></label>` + "\n")
+	c.WriteString(`<h2 id="` + esc(e.ID) + `-index">` + b.tr("Functions") + `</h2>` + "\n")
+	c.WriteString(`<div class="api-index"><label class="member-filter">` + b.icon(root, "ui.search", "") + `<input type="search" placeholder="` + esc(b.tr("Filter")) + ` ` + strconv.Itoa(len(rows)+consts) + ` ` + esc(b.tr("members of")) + ` ` + esc(e.Title) + `" aria-label="` + esc(b.tr("Filter members")) + `"></label>` + "\n")
 	c.WriteString(`<table class="api">` + "\n")
 	for _, r := range rows {
 		sig := r.Signature

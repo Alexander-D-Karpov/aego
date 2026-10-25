@@ -188,7 +188,7 @@ func (g *Dialog) Draw(ui *core.Context) {
 		g.drawRow(ui, i, rows[i], rr)
 	})
 	if len(rows) == 0 {
-		ui.TextIn(list, "No fields differ from the scene", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(list, i18n.Tr("editor.playdiff.no_fields_differ", "No fields differ from the scene"), th.TextDisabled, core.AlignCenter)
 	}
 	ui.Cursor().Y = list.Y + list.H + th.Spacing
 	if n, m := len(g.res.Created), len(g.res.Removed); n+m > 0 {

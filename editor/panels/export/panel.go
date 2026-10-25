@@ -95,7 +95,7 @@ func (p *Panel) check() {
 	}).Then(func(t *tasks.Task) {
 		p.running = nil
 		if t.State() != tasks.Done {
-			p.msg = "Check canceled"
+			p.msg = i18n.Tr("editor.export.check_canceled", "Check canceled")
 			return
 		}
 		p.rep, p.issues = nil, found
@@ -106,7 +106,7 @@ func (p *Panel) check() {
 		case w > 0:
 			p.msg = i18n.Tr("editor.export.ready_warnings", "Ready to export, {warnings}", i18n.Str("warnings", i18n.TrN("editor.export.warnings", int64(w), "{n} warning", "{n} warnings")))
 		default:
-			p.msg = "Ready to export"
+			p.msg = i18n.Tr("editor.export.ready", "Ready to export")
 		}
 	})
 }
@@ -127,18 +127,18 @@ func (p *Panel) export(out string) {
 	}).Then(func(t *tasks.Task) {
 		p.running = nil
 		if t.State() == tasks.Canceled {
-			p.msg = "Export canceled"
+			p.msg = i18n.Tr("editor.export.canceled", "Export canceled")
 			return
 		}
 		p.rep, p.issues = &rep, rep.Issues
 		switch {
 		case rep.Blocked:
 			e, _ := errorCount(rep.Issues)
-			p.msg = "Export is blocked by " + strconv.Itoa(e) + " problem(s)"
+			p.msg = i18n.TrN("editor.export.blocked", int64(e), "Export is blocked by {n} problem", "Export is blocked by {n} problems")
 		case err != nil:
-			p.msg = "Export failed: " + err.Error()
+			p.msg = i18n.Tr("editor.export.failed", "Export failed: {err}", i18n.Str("err", err.Error()))
 		default:
-			p.msg = "Exported to " + filepath.Base(rep.Out)
+			p.msg = i18n.Tr("editor.export.exported_to", "Exported to {dir}", i18n.Str("dir", filepath.Base(rep.Out)))
 		}
 	})
 }
@@ -429,7 +429,7 @@ func (p *Panel) results(ui *uicore.Context, r mathx.Rect) {
 	list := mathx.Rect{X: r.X, Y: head.Y + head.H + 4, W: r.W, H: max(0, r.H-head.H-4)}
 	ui.Box(list, th.Radius.Field, th.PanelAlt, th.Border)
 	if len(lines) == 0 {
-		ui.TextIn(list, "Check or export to see the report here", th.TextDisabled, uicore.AlignCenter)
+		ui.TextIn(list, i18n.Tr("editor.export.report_empty", "Check or export to see the report here"), th.TextDisabled, uicore.AlignCenter)
 		return
 	}
 	inner := mathx.Rect{X: list.X + 4, Y: list.Y + 4, W: list.W - 8, H: list.H - 8}

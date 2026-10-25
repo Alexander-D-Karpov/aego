@@ -198,9 +198,9 @@ func (f *FindPanel) Draw(fr *services.Frame, r mathx.Rect) {
 		tip   string
 		on    *bool
 	}{
-		{"Aa", "Match case", &f.opts.Case},
-		{"W", "Whole word", &f.opts.Word},
-		{".*", "Regular expression", &f.opts.Regexp},
+		{"Aa", i18n.Tr("editor.scripteditor.match_case", "Match case"), &f.opts.Case},
+		{"W", i18n.Tr("editor.scripteditor.whole_word", "Whole word"), &f.opts.Word},
+		{".*", i18n.Tr("editor.scripteditor.regular_expression", "Regular expression"), &f.opts.Regexp},
 	}
 	x := bar.X + fw + 4
 	for i, t := range toggles {

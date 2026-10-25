@@ -12,6 +12,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/schema"
@@ -372,7 +373,7 @@ func InstantiatePlace(ctx *context.Editor, t Template, parent ids.NodeID, index 
 	if err := place(s, scratch, h, parent, pl); err != nil {
 		return nil, err
 	}
-	cmd := commands.NewMutation("Create "+t.Name, commands.EnvFor(s),
+	cmd := commands.NewMutation(i18n.Tr("editor.history.create", "Create {name}", i18n.Str("name", t.Name)), commands.EnvFor(s),
 		commands.Insert(parent, index, string(sceneio.SaveSubtree(scratch, h, true))))
 	if err := d.History.Exec(cmd); err != nil {
 		return nil, err

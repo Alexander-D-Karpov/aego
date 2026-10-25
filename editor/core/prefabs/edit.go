@@ -101,5 +101,5 @@ func (s *Service) Apply(d *document.SceneDocument, c Change) error {
 		return err
 	}
 	src := &source{doc: d.ID, node: plan.Root, before: plan.Before, after: plan.After}
-	return s.commit("Apply to "+s.stem(plan.Target), files, src)
+	return s.commit(i18n.Tr("editor.history.apply_to", "Apply to {name}", i18n.Str("name", s.stem(plan.Target))), files, src)
 }

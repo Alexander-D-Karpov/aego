@@ -3,9 +3,13 @@ package shell
 import (
 	"aego/core/errs"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 )
 
-const playPrefabHint = "Play runs a scene: open this prefab from a scene to play it there"
+// playPrefabHint says why Play does not run a prefab document.
+func playPrefabHint() string {
+	return i18n.Note("editor.shell.play_prefab_hint", "Play runs a scene: open this prefab from a scene to play it there")
+}
 
 func (a *App) playSource() (*document.SceneDocument, error) {
 	d := a.ctx.Docs.Edit()
@@ -14,7 +18,7 @@ func (a *App) playSource() (*document.SceneDocument, error) {
 	}
 	src, ok := a.ctx.Docs.PlaySource(d.ID)
 	if !ok {
-		return nil, errs.New(errs.EditorCommand, playPrefabHint)
+		return nil, errs.New(errs.EditorCommand, playPrefabHint())
 	}
 	if src.ID != d.ID {
 		a.playReturn = d.ID

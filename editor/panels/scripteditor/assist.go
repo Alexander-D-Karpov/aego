@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/script/diag"
 	"aego/script/langsvc"
@@ -261,8 +262,8 @@ func (p *Panel) hoverLines(th *core.Theme) ([]string, mathx.Color) {
 		for _, n := range d.Notes {
 			lines = append(lines, "note: "+n.Message+p.noteWhere(n))
 		}
-		if h, ok := diag.Explain(d.Code); ok {
-			lines = append(lines, h.What, "Fix: "+h.Fix)
+		if h, ok := diag.Localized(d.Code); ok {
+			lines = append(lines, h.What, i18n.Tr("editor.scripteditor.fix_line", "Fix: {fix}", i18n.Str("fix", h.Fix)))
 		}
 		if p.hover.ok {
 			lines = append(lines, "")

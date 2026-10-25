@@ -102,7 +102,7 @@ func (m *mixerPanel) header(ui *core.Context, mod *audio.Module) {
 	st := mod.Stats()
 	if m.stats == "" || st.Voices != m.voices || st.Underruns != m.under {
 		m.voices, m.under = st.Voices, st.Underruns
-		m.stats = "Voices " + strconv.Itoa(st.Voices) + "   Underruns " + strconv.FormatUint(st.Underruns, 10)
+		m.stats = i18n.Tr("i18n.audio.mixer_stats", "Voices {voices}   Underruns {underruns}", i18n.Int("voices", int64(st.Voices)), i18n.Int("underruns", int64(st.Underruns)))
 	}
 	row := ui.Cursor().Next(0)
 	ui.Text(m.stats, mathx.Vec2{X: row.X, Y: ui.TextY(row)}, ui.Theme.TextDim)
@@ -115,7 +115,7 @@ func (m *mixerPanel) header(ui *core.Context, mod *audio.Module) {
 		if err := mod.SaveSession(); err != nil {
 			m.p.notify(err)
 		} else {
-			m.p.info("Bus volumes saved to the user settings")
+			m.p.info(i18n.Tr("i18n.audio.bus_volumes_saved", "Bus volumes saved to the user settings"))
 		}
 	}
 }

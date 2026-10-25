@@ -58,7 +58,7 @@ func (a *App) registerHelp() error {
 			Run: func() error {
 				a.ctx.Ask(context.Question{
 					Title:   i18n.Tr("editor.shell.about_aego", "About Aego"),
-					Message: "Aego engine " + engine.Version + " · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH,
+					Message: i18n.Tr("editor.shell.about_version", "Aego engine {version}", i18n.Str("version", engine.Version)) + " · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH,
 					Buttons: []string{i18n.Tr("editor.shell.close", "Close")},
 				})
 				return nil

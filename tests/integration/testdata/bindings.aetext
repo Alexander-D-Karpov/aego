@@ -3663,7 +3663,7 @@ manifest version=6 {
   component "engine.PrefabInstance" {
     short="PrefabInstance"
     category="engine"
-    doc="links a node to the prefab it was created from"
+    doc="Links a node to the prefab it was created from."
   }
   component "engine.Tags" {
     short="Tags"
@@ -4287,12 +4287,12 @@ manifest version=6 {
     field "Volume" {
       type="float"
       readonly=false
-      doc="Volume before the bus."
+      doc="Volume before the bus: 0 is silent, 1 is the clip as recorded."
     }
     field "Pitch" {
       type="float"
       readonly=false
-      doc="Playback speed and pitch."
+      doc="Playback speed and pitch together: 1 is normal, 2 an octave higher and twice as fast."
     }
     field "Pan" {
       type="float"
@@ -4337,7 +4337,7 @@ manifest version=6 {
     field "PanWidth" {
       type="float"
       readonly=false
-      doc="Pan at Max Distance to the side."
+      doc="How far a spatial sound pans when it is at Max Distance to the side: 0 stays centred, 1 is fully left or right."
     }
     field "PauseWith" {
       type="int"
@@ -4696,12 +4696,12 @@ manifest version=6 {
     field "Decel" {
       type="float"
       readonly=false
-      doc="How fast the speed falls without input."
+      doc="How fast the speed falls without input, in units per second squared."
     }
     field "AirControl" {
       type="float"
       readonly=false
-      doc="Share of Accel and Decel available in the air."
+      doc="Share of Accel and Decel available in the air: 0 cannot steer, 1 steers as on the ground."
     }
     field "GravityScale" {
       type="float"
@@ -4716,7 +4716,7 @@ manifest version=6 {
     field "JumpHeight" {
       type="float"
       readonly=false
-      doc="Height of a full jump; sets the jump speed unless Jump Speed is set."
+      doc="Height of a full jump in units; sets the jump speed unless Jump Speed is set."
     }
     field "JumpSpeed" {
       type="float"
@@ -4746,17 +4746,17 @@ manifest version=6 {
     field "StepHeight" {
       type="float"
       readonly=false
-      doc="Steps up to this height are climbed without jumping."
+      doc="Steps up to this height, in units, are climbed without jumping. 0 never steps up."
     }
     field "SnapToGround" {
       type="float"
       readonly=false
-      doc="Keeps the character on slopes and steps down by up to this distance."
+      doc="Keeps the character on slopes and steps down by up to this distance, in units. 0 never snaps."
     }
     field "SafeMargin" {
       type="float"
       readonly=false
-      doc="Gap kept to surfaces so casts never start inside them."
+      doc="Gap in units kept to surfaces so casts never start inside them."
     }
     field "MaxSlides" {
       type="int"
@@ -5136,7 +5136,7 @@ manifest version=6 {
   component "save.Persist" {
     short="Persist"
     category="save"
-    doc="Persist saves the node's transform and enabled flag in save games."
+    doc="Saves the node's transform and enabled flag in save games."
     builtin=true
     field "NoTransform" {
       type="bool"

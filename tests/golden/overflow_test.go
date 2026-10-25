@@ -102,17 +102,20 @@ func TestRussianOverflow(t *testing.T) {
 	}
 	s := paletteSession(t)
 	ui := s.App.Context().UI
-	sess := &editorEnv{ui: ui, scale: 1}
-	record(sess, "editor")
-	for range 4 {
-		s.Step()
+	for _, scale := range []float32{1, 2} {
+		s.App.SetDensity(scale)
+		sess := &editorEnv{ui: ui, scale: scale}
+		record(sess, "editor")
+		for range 4 {
+			s.Step()
+		}
+		record(sess, "palette")
+		s.App.AddPalette().AddComponent(s.App.Context().Selected(), nil)
+		for range 4 {
+			s.Step()
+		}
+		ui.Overflow = nil
 	}
-	record(sess, "palette")
-	s.App.AddPalette().AddComponent(s.App.Context().Selected(), nil)
-	for range 4 {
-		s.Step()
-	}
-	ui.Overflow = nil
 
 	list := make([]*overflow, 0, len(seen))
 	for _, o := range seen {

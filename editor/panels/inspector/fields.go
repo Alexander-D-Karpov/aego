@@ -104,7 +104,7 @@ func (p *Panel) fields(d *document.SceneDocument, td *schema.TypeDescriptor) {
 		fd := &td.Fields[row.a]
 		if c := fd.Hints.Category; c != "" && c != category {
 			category = c
-			widgets.LabelDim(ui, c)
+			widgets.LabelDim(ui, schema.CategoryLabel(c))
 		}
 		if row.b < 0 || !wide {
 			p.field(d, td, fd)
@@ -115,7 +115,7 @@ func (p *Panel) fields(d *document.SceneDocument, td *schema.TypeDescriptor) {
 		}
 		second := &td.Fields[row.b]
 		cur := *ui.Cursor()
-		a, b, ok := pairRects(ui, mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: cur.RowH}, p.labelOf(fd), p.labelOf(second), fd.Kind == schema.KindBool)
+		a, b, ok := pairRects(ui, mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: cur.RowH}, p.labelOf(td, fd), p.labelOf(td, second), fd.Kind == schema.KindBool)
 		if !ok {
 			p.field(d, td, fd)
 			p.field(d, td, second)
@@ -147,7 +147,7 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 			delete(p.live, key)
 		}
 	}
-	tip := fd.Hints.Tooltip
+	tip := schema.FieldTip(td, fd)
 	if mixed {
 		tip = p.mixedTip(d, td, fd, tip)
 	}
@@ -166,10 +166,10 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 	var e widgets.Edit
 	var row mathx.Rect
 	if at != nil {
-		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(fd), tip, ro, at[0], at[1])
+		e = p.scalarIn(d, fd, &v, mixed, p.labelOf(td, fd), tip, ro, at[0], at[1])
 		row = pre
 	} else {
-		e = p.value(d, fd, &v, mixed, p.labelOf(fd), tip, ro)
+		e = p.value(d, fd, &v, mixed, p.labelOf(td, fd), tip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
 	}
 	switch {
@@ -204,7 +204,7 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 		return
 	}
 	t, f, val := td.ID, fd.ID, v
-	p.apply(e, "Set "+props.Label(fd), func(tx *history.Transaction) error {
+	p.apply(e, i18n.Tr("editor.history.set", "Set {name}", i18n.Str("name", props.Label(fd))), func(tx *history.Transaction) error {
 		return d.Props.Set(tx, p.nodes, t, f, val)
 	})
 }
@@ -408,7 +408,7 @@ func (p *Panel) scalar(d *document.SceneDocument, id core.ID, r mathx.Rect, fd *
 		names := make([]string, len(fd.Enum))
 		cur := -1
 		for i, ev := range fd.Enum {
-			names[i] = ev.Name
+			names[i] = schema.EnumLabel(fd, i)
 			if ev.Value == v.I {
 				cur = i
 			}
@@ -647,7 +647,7 @@ func (p *Panel) structValue(d *document.SceneDocument, fd *schema.FieldDescripto
 			continue
 		}
 		ui.PushIDInt(i)
-		e = e.Or(p.value(d, sub, &v.Obj.Fields[i], false, p.labelOf(sub), sub.Hints.Tooltip, ro || sub.Flags.Has(schema.FlagReadOnly)))
+		e = e.Or(p.value(d, sub, &v.Obj.Fields[i], false, p.labelOf(nil, sub), sub.Hints.Tooltip, ro || sub.Flags.Has(schema.FlagReadOnly)))
 		ui.PopID()
 	}
 	cur.X -= th.Indent

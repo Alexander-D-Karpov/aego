@@ -11,6 +11,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -36,10 +37,10 @@ func (s *Service) record(c history.Command) (history.Command, bool) {
 	case ops == nil:
 		return nil, false
 	case !s.AutoKey:
-		s.say("Auto Key is off: press K or the Key button next to the field")
+		s.say(i18n.Tr("editor.animedit.auto_key_off", "Auto Key is off: press K or the Key button next to the field"))
 		return nil, true
 	}
-	return s.edit("Record Key", ops), true
+	return s.edit(i18n.Tr("editor.history.record_key", "Record Key"), ops), true
 }
 
 func (s *Service) edit(label string, ops []mutate.Op) *KeyEdit {
@@ -58,7 +59,7 @@ func (s *Service) Key(node ids.NodeID, path string, kind schema.Kind, v schema.V
 	if err != nil {
 		return err
 	}
-	return s.doc.History.Exec(s.edit("Key", ops))
+	return s.doc.History.Exec(s.edit(i18n.Tr("editor.history.key", "Key"), ops))
 }
 
 func (s *Service) keyTime() string {

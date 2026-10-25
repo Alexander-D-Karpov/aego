@@ -4,6 +4,7 @@ import (
 	"aego/anim"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/propref"
 	"aego/schema"
@@ -92,7 +93,7 @@ func (s *Service) MovePathKey(node ids.NodeID, track, i int, world mathx.Vec2) e
 	tr := &s.clip.Tracks[track]
 	k := tr.Keys[i]
 	op := s.setOpKind(tr, timeText(k.T), anim.Lanes([4]float32{l.X, l.Y}))
-	return s.EditClip("Move Path Key", op)
+	return s.EditClip(i18n.Tr("editor.history.move_path_key", "Move Path Key"), op)
 }
 
 // HoldPose shows the scene transform instead of the sampled pose while a gizmo drags in Record.

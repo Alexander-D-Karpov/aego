@@ -4,13 +4,14 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/modules/input"
 	raw "aego/platform/input"
 )
 
 func Hook(e *ext.Registry) error {
 	ed := e.Editor()
-	if err := e.SettingsPage(input.ID, NewPage(ed).Draw, "Players", "Dead Zone", "Start Stack", "Actions", "Bindings", "Contexts"); err != nil {
+	if err := e.SettingsPage(input.ID, NewPage(ed).Draw, i18n.T("i18n.input.players", "Players"), i18n.T("i18n.input.dead_zone", "Dead Zone"), i18n.T("i18n.input.start_stack", "Start Stack"), i18n.T("i18n.input.actions", "Actions"), i18n.T("i18n.input.bindings", "Bindings"), i18n.T("i18n.input.contexts", "Contexts")); err != nil {
 		return err
 	}
 	world := func() *engine.World {

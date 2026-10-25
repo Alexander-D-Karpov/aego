@@ -186,7 +186,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego scene tree <file>` | node tree with IDs, components, scripts and prefab links |
 | `aego scene validate <file>` | load problems and references to nodes the scene does not have |
 | `aego schema list [--kind v]` | component and data types |
-| `aego schema show <type>` | fields of a type: kind, range, unit, default, flags and docs |
+| `aego schema show <type> [--lang v]` | fields of a type: kind, range, unit, default, flags and docs |
 <!-- agent:end -->
 
 ## aego docs

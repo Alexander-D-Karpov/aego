@@ -55,7 +55,7 @@ var editorAllow = []string{
 
 var rules = []rule{
 	{"core/...", []string{"core/..."}, nil},
-	{"schema", []string{"core/..."}, nil},
+	{"schema", []string{"core/...", "engine/i18n"}, nil},
 	{"format/...", []string{"core/...", "schema"}, nil},
 	{"platform", []string{"core/...", "platform/input"}, nil},
 	{"platform/clip", []string{"core/...", "platform"}, nil},
@@ -167,8 +167,8 @@ var rules = []rule{
 	{"contracts/camera2d", []string{"core/...", "scene", "render/view"}, nil},
 	{"engine/problems", []string{"core/...", "scene"}, nil},
 	{"engine/i18n", []string{"core/...", "format/aetext"}, nil},
-	{"engine/settings", []string{"core/...", "engine/problems", "format/...", "schema"}, nil},
-	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
+	{"engine/settings", []string{"core/...", "engine/i18n", "engine/problems", "format/...", "schema"}, nil},
+	{"engine/settings/settingsui", []string{"core/...", "engine/i18n", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
 	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "contracts/persistence", "vfs"}, nil},
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
 	{"engine/docs", []string{"engine/settings", "format/...", "core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/types"}, nil},
@@ -186,7 +186,7 @@ var rules = []rule{
 	{"script/abi", []string{"core/...", "schema"}, nil},
 	{"script/source", scriptDev, nil},
 	{"script/token", scriptDev, nil},
-	{"script/diag", scriptDev, nil},
+	{"script/diag", append(slices.Clone(scriptDev), "engine/i18n"), nil},
 	{"script/lexer", scriptDev, nil},
 	{"script/ast", scriptDev, nil},
 	{"script/parser", scriptDev, nil},

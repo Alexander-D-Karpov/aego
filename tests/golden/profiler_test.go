@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/play"
 	"aego/editor/core/services"
 	"aego/editor/panels/profiler"
+	"aego/engine/i18n"
 	"aego/render"
 	"aego/ui/widgets"
 )
@@ -24,7 +25,7 @@ func fixedMemory() profiler.MemStats {
 
 func TestEditorProfilerPlay(t *testing.T) {
 	env := newEditorEnvSize(t, editorW, 1200)
-	secs := []context.ProfilerSection{{Title: "Physics", Play: true, Draw: func() {
+	secs := []context.ProfilerSection{{Title: i18n.Text{En: "Physics"}, Play: true, Draw: func() {
 		widgets.LabelDim(env.ui, "bodies 666   active 120   sleeping 546   shapes 667   joints 30")
 		widgets.LabelDim(env.ui, "broad 0.21   narrow 0.35   solve 0.62   integrate 0.08 ms")
 	}}}

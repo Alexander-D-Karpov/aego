@@ -14,6 +14,9 @@ messages version=1 lang=ru {
   msg "i18n.camera.no_camera_outputs" {
     text="Нет выводов камер"
   }
+  msg "i18n.camera.profiler" {
+    text="Камера"
+  }
   msg "i18n.camera.snap_to_target" {
     text="Привязать к цели"
   }

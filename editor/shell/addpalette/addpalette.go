@@ -427,7 +427,7 @@ func (s *Service) add(d *document.SceneDocument, e entry, picks []int, extra []*
 	}
 	sc := d.Scene()
 	env := commands.WithOnAdd(commands.EnvFor(sc), s.d.Ctx.OnAdd)
-	tx := d.History.Begin("Add " + e.td.FullName)
+	tx := d.History.Begin(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(e.td))))
 	for _, n := range e.nodes {
 		h := sc.Handle(n)
 		req, err := mutate.RequiredPick(sc, e.td, h, picks)
@@ -446,7 +446,7 @@ func (s *Service) add(d *document.SceneDocument, e entry, picks []int, extra []*
 			if has(sc, sc.Handle(n), t.ID) || !sc.Accepts(sc.Handle(n), t.ID) {
 				continue
 			}
-			if err := tx.Exec(commands.NewMutation("Add "+t.FullName, env, commands.AddComp(sc, n, t, s.d.Meta.Defaults(t.ID)))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(t))), env, commands.AddComp(sc, n, t, s.d.Meta.Defaults(t.ID)))); err != nil {
 				tx.Abort()
 				return err
 			}
@@ -460,7 +460,7 @@ func attach(d *document.SceneDocument, e entry) error {
 	if d == nil {
 		return nil
 	}
-	tx := d.History.Begin("Add " + e.td.FullName)
+	tx := d.History.Begin(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(e.td))))
 	for _, n := range e.nodes {
 		if err := tx.Exec(&commands.AddScript{Node: n, TypeName: e.td.FullName}); err != nil {
 			tx.Abort()

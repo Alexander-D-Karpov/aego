@@ -4,6 +4,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
 
 (function () {
     const root = document.querySelector('meta[name="aego-root"]').content;
+    const ru = document.documentElement.lang === "ru";
     const input = document.getElementById("search");
     const results = document.getElementById("results");
     const NAV_KEY = "aego.docs.groups";
@@ -102,15 +103,15 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "copy";
-        btn.textContent = "Copy";
+        btn.textContent = ru ? "Копировать" : "Copy";
         btn.addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(code.textContent);
-                btn.textContent = "Copied";
+                btn.textContent = ru ? "Скопировано" : "Copied";
             } catch (_) {
-                btn.textContent = "Blocked";
+                btn.textContent = ru ? "Нет доступа" : "Blocked";
             }
-            setTimeout(() => (btn.textContent = "Copy"), 1200);
+            setTimeout(() => (btn.textContent = ru ? "Копировать" : "Copy"), 1200);
         });
         pre.appendChild(btn);
     }
@@ -174,7 +175,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
             results.hidden = true;
             return;
         }
-        if (!index) index = await (await fetch(root + "search.json")).json();
+        if (!index) index = await (await fetch((document.querySelector('meta[name="aego-search"]') || {}).content || root + "search.json")).json();
         const top = index
             .map((it) => [score(it, q), it])
             .filter((p) => p[0] > 0)

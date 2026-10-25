@@ -22,9 +22,9 @@ type page struct {
 }
 
 func (p *Panel) builtin() []page {
-	out := []page{{id: "project", title: "Project", order: 0, project: p.drawProject}}
+	out := []page{{id: "project", title: i18n.Tr("editor.projectsettings.page_project", "Project"), order: 0, project: p.drawProject}}
 	if p.d.Settings != nil {
-		out = append(out, page{id: "registry", title: "Settings Registry", order: 1000, settings: p.drawRegistry})
+		out = append(out, page{id: "registry", title: i18n.Tr("editor.projectsettings.page_registry", "Settings Registry"), order: 1000, settings: p.drawRegistry})
 	}
 	return out
 }

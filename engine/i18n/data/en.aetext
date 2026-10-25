@@ -1,0 +1,4259 @@
+messages version=1 lang=en {
+  msg "api.aego/action.Action.Completed" {
+    text="Runs once when the action ends; finished is false after Stop or when the node of its script died."
+  }
+  msg "api.aego/action.Action.Done" {
+    text="Reports whether the action ended, was stopped or is nil."
+  }
+  msg "api.aego/action.Action.Running" {
+    text="Is the opposite of Done."
+  }
+  msg "api.aego/action.Action.Stop" {
+    text="Stops every unfinished step; the properties keep their current values."
+  }
+  msg "api.aego/action.Action.Then" {
+    text="Adds a tween created in this frame; it waits for its turn."
+  }
+  msg "api.aego/action.Action.ThenAction" {
+    text="Adds another action that has not started."
+  }
+  msg "api.aego/action.Action.ThenTimer" {
+    text="Adds a timer created in this frame; the step ends when the timer ends."
+  }
+  msg "api.aego/action.Action.Wait" {
+    text="Adds a pause in game seconds."
+  }
+  msg "api.aego/action.Parallel" {
+    text="Makes an action that runs all its steps at once and ends after the last one."
+  }
+  msg "api.aego/action.Sequence" {
+    text="Makes an action that runs its steps one after another, starting at the next tween update."
+  }
+  msg "api.aego/anim.EventID" {
+    text="Returns the id of an event declared in Project Settings → Animation, or -1."
+  }
+  msg "api.aego/anim.EventName" {
+    text="Returns the name of an animation event, or an empty string for an unknown id."
+  }
+  msg "api.aego/anim.ParamIndex" {
+    text="Returns the index of a parameter of a controller, or -1."
+  }
+  msg "api.aego/anim.StateName" {
+    text="Returns the name of a state of a controller, or an empty string."
+  }
+  msg "api.aego/audio.Builtin" {
+    text="Returns a clip that ships with the engine: Beep, Click, Hum (loopable) or Melody (loopable)."
+  }
+  msg "api.aego/audio.Bus" {
+    text="Bus is a mixer bus: Master, Music, Sfx, UI, Ambience or Voice."
+  }
+  msg "api.aego/audio.BusVolume" {
+    text="Returns the session volume of a bus set by SetBusVolume; the player's settings are separate."
+  }
+  msg "api.aego/audio.Music" {
+    text="Loops a clip on the music bus, crossfading from the music that played over seconds."
+  }
+  msg "api.aego/audio.Mute" {
+    text="Silences a bus for this session."
+  }
+  msg "api.aego/audio.Pause" {
+    text="Pauses or resumes every sound of this world."
+  }
+  msg "api.aego/audio.PauseWith" {
+    text="PauseWith decides whether a sound pauses with the game or keeps playing."
+  }
+  msg "api.aego/audio.Play" {
+    text="Plays a clip on its bus. The sound stops when the node of the script is destroyed."
+  }
+  msg "api.aego/audio.PlayAt" {
+    text="Plays a clip at a world position, fading and panning with the distance to the listener."
+  }
+  msg "api.aego/audio.PlayEvent" {
+    text="Plays an audio event; a spatial event follows the node of the script."
+  }
+  msg "api.aego/audio.PlayEventAt" {
+    text="Plays an audio event at a world position."
+  }
+  msg "api.aego/audio.PlayWith" {
+    text="Plays a clip with options."
+  }
+  msg "api.aego/audio.SetBusVolume" {
+    text="Sets the session volume of a bus, on top of the player's settings; it is not saved."
+  }
+  msg "api.aego/audio.Sound.Completed" {
+    text="Runs once when the sound ends: finished is false after Stop, when it was cut off, or when its node died."
+  }
+  msg "api.aego/audio.Sound.Done" {
+    text="Reports whether the sound ended, was stopped or is nil."
+  }
+  msg "api.aego/audio.Sound.Pause" {
+    text="Holds the sound where it is."
+  }
+  msg "api.aego/audio.Sound.Playing" {
+    text="Reports whether the sound is audible now: not done, not stopping and not paused."
+  }
+  msg "api.aego/audio.Sound.Position" {
+    text="Returns the seconds played, within the loop for a looping sound."
+  }
+  msg "api.aego/audio.Sound.Resume" {
+    text="Continues a paused sound."
+  }
+  msg "api.aego/audio.Sound.SetPan" {
+    text="Pans a sound that is not spatial, -1 to 1."
+  }
+  msg "api.aego/audio.Sound.SetPitch" {
+    text="Changes speed and pitch, 0.25 to 4."
+  }
+  msg "api.aego/audio.Sound.SetVolume" {
+    text="Changes the volume with a short ramp."
+  }
+  msg "api.aego/audio.Sound.Stop" {
+    text="Ends the sound with a short fade."
+  }
+  msg "api.aego/audio.Sound.StopFade" {
+    text="Fades the sound out over seconds."
+  }
+  msg "api.aego/audio.Steal" {
+    text="Steal is what an audio event does at Max Voices: stop the oldest voice, stop the quietest, or skip the new play."
+  }
+  msg "api.aego/audio.StopMusic" {
+    text="Fades the music out over seconds."
+  }
+  msg "api.aego/builtin.NodeRef.AddTag" {
+    text="Adds a tag and returns false when it is malformed."
+  }
+  msg "api.aego/builtin.NodeRef.Child" {
+    text="Returns the direct child with this name, or nil."
+  }
+  msg "api.aego/builtin.NodeRef.Destroy" {
+    text="Removes the node and its children at the end of the phase."
+  }
+  msg "api.aego/builtin.NodeRef.Enabled" {
+    text="Reports the node's own enabled flag, ignoring its parents."
+  }
+  msg "api.aego/builtin.NodeRef.Find" {
+    text="Resolves a path relative to the node: Weapon/Gun, ../Sibling or /Root/Player."
+  }
+  msg "api.aego/builtin.NodeRef.HasTag" {
+    text="Reports whether the node has the tag or a tag under it: Enemy matches Enemy.Flying."
+  }
+  msg "api.aego/builtin.NodeRef.IsAlive" {
+    text="Reports whether the node exists. It is false right after Destroy."
+  }
+  msg "api.aego/builtin.NodeRef.IsPrefabInstance" {
+    text="Reports whether the node is a prefab copy or lies inside one."
+  }
+  msg "api.aego/builtin.NodeRef.Name" {
+    text="Returns the node name, unique among its siblings."
+  }
+  msg "api.aego/builtin.NodeRef.Parent" {
+    text="Returns the parent node, or nil for top-level nodes."
+  }
+  msg "api.aego/builtin.NodeRef.Position" {
+    text="Returns the local position relative to the parent."
+  }
+  msg "api.aego/builtin.NodeRef.Position3" {
+    text="Returns the local 3D position."
+  }
+  msg "api.aego/builtin.NodeRef.PrefabRoot" {
+    text="Returns the root of the nearest prefab copy that holds the node, the node itself for a root, or nil."
+  }
+  msg "api.aego/builtin.NodeRef.RemoveTag" {
+    text="Removes a tag and returns whether the node had it."
+  }
+  msg "api.aego/builtin.NodeRef.Rotation" {
+    text="Returns the local rotation in radians, clockwise."
+  }
+  msg "api.aego/builtin.NodeRef.Rotation3" {
+    text="Returns the local 3D rotation."
+  }
+  msg "api.aego/builtin.NodeRef.Scale" {
+    text="Returns the local scale."
+  }
+  msg "api.aego/builtin.NodeRef.SetEnabled" {
+    text="Turns the node on or off. Disabled nodes and their children are not drawn."
+  }
+  msg "api.aego/builtin.NodeRef.SetPosition" {
+    text="Sets the local position."
+  }
+  msg "api.aego/builtin.NodeRef.SetPosition3" {
+    text="Sets the local 3D position."
+  }
+  msg "api.aego/builtin.NodeRef.SetRotation" {
+    text="Sets the local rotation in radians."
+  }
+  msg "api.aego/builtin.NodeRef.SetRotation3" {
+    text="Sets the local 3D rotation."
+  }
+  msg "api.aego/builtin.NodeRef.SetScale" {
+    text="Sets the local scale. A negative X mirrors the node."
+  }
+  msg "api.aego/builtin.NodeRef.SetTransform2D" {
+    text="Replaces the local 2D transform."
+  }
+  msg "api.aego/builtin.NodeRef.SetTransform3D" {
+    text="Replaces the local 3D transform."
+  }
+  msg "api.aego/builtin.NodeRef.Space" {
+    text="Returns 0 for 2D nodes and 1 for 3D nodes."
+  }
+  msg "api.aego/builtin.NodeRef.Transform2D" {
+    text="Returns a copy of the local 2D transform. Change it and pass it to SetTransform2D."
+  }
+  msg "api.aego/builtin.NodeRef.Transform3D" {
+    text="Returns a copy of the local 3D transform."
+  }
+  msg "api.aego/builtin.NodeRef.WorldPosition" {
+    text="Returns the position in world space, as of the last transform pass."
+  }
+  msg "api.aego/camera.Active" {
+    text="Returns the virtual camera that drives the main output, or nil."
+  }
+  msg "api.aego/camera.ActiveOn" {
+    text="Returns the virtual camera that drives the named output."
+  }
+  msg "api.aego/camera.Blend.Completed" {
+    text="Runs once when the blend ends: finished is false after Stop or when another camera became active first."
+  }
+  msg "api.aego/camera.Blend.Done" {
+    text="Reports whether the blend ended, was replaced or is nil."
+  }
+  msg "api.aego/camera.Blend.Running" {
+    text="Is the opposite of Done."
+  }
+  msg "api.aego/camera.Blend.Stop" {
+    text="Ends the blend at the target camera."
+  }
+  msg "api.aego/camera.BlendTo" {
+    text="Makes vc active over priorities and blends to it; seconds 0 uses its Blend Time. Release hands control back to priorities."
+  }
+  msg "api.aego/camera.Cut" {
+    text="Makes vc active at once, without a blend."
+  }
+  msg "api.aego/camera.LogicalPose" {
+    text="Returns the pose of the main output without shake and pixel snapping."
+  }
+  msg "api.aego/camera.Release" {
+    text="Ends BlendTo or Cut on the main output; priorities decide again, blending over seconds or the camera's Blend Time."
+  }
+  msg "api.aego/camera.RenderPose" {
+    text="Returns the pose the main output was drawn with in the last frame."
+  }
+  msg "api.aego/camera.ScreenToWorld" {
+    text="Converts output pixels to world units with the last drawn view of the main output."
+  }
+  msg "api.aego/camera.Shake" {
+    text="Adds trauma to the main output; shake grows with trauma, which is capped at 1 and fades over time."
+  }
+  msg "api.aego/camera.ShakeOn" {
+    text="Adds trauma to the named output."
+  }
+  msg "api.aego/camera.Trauma" {
+    text="Returns the current trauma of the main output, 0 to 1."
+  }
+  msg "api.aego/camera.WorldToScreen" {
+    text="Converts world units to output pixels with the last drawn view of the main output."
+  }
+  msg "api.aego/curve.Duration" {
+    text="Returns the time between the first and the last key, 1 for a preset."
+  }
+  msg "api.aego/curve.Ease" {
+    text="Returns a preset easing at t, clamped to 0..1."
+  }
+  msg "api.aego/curve.Easing" {
+    text="Easing names a preset curve from 0 to 1. None and Linear move at a constant speed."
+  }
+  msg "api.aego/curve.Eval" {
+    text="Returns the value of a curve at time t; outside its keys the curve repeats as its Before and After settings say."
+  }
+  msg "api.aego/curve.EvalClamped" {
+    text="Returns the value at t clamped to the first and last key."
+  }
+  msg "api.aego/curve.InBack" {
+    text="InBack is the inBack easing preset."
+  }
+  msg "api.aego/curve.InBounce" {
+    text="InBounce is the inBounce easing preset."
+  }
+  msg "api.aego/curve.InCubic" {
+    text="InCubic is the inCubic easing preset."
+  }
+  msg "api.aego/curve.InElastic" {
+    text="InElastic is the inElastic easing preset."
+  }
+  msg "api.aego/curve.InExpo" {
+    text="InExpo is the inExpo easing preset."
+  }
+  msg "api.aego/curve.InOutBack" {
+    text="InOutBack is the inOutBack easing preset."
+  }
+  msg "api.aego/curve.InOutBounce" {
+    text="InOutBounce is the inOutBounce easing preset."
+  }
+  msg "api.aego/curve.InOutCubic" {
+    text="InOutCubic is the inOutCubic easing preset."
+  }
+  msg "api.aego/curve.InOutElastic" {
+    text="InOutElastic is the inOutElastic easing preset."
+  }
+  msg "api.aego/curve.InOutExpo" {
+    text="InOutExpo is the inOutExpo easing preset."
+  }
+  msg "api.aego/curve.InOutQuad" {
+    text="InOutQuad is the inOutQuad easing preset."
+  }
+  msg "api.aego/curve.InOutSine" {
+    text="InOutSine is the inOutSine easing preset."
+  }
+  msg "api.aego/curve.InQuad" {
+    text="InQuad is the inQuad easing preset."
+  }
+  msg "api.aego/curve.InSine" {
+    text="InSine is the inSine easing preset."
+  }
+  msg "api.aego/curve.Linear" {
+    text="Linear is the linear easing preset."
+  }
+  msg "api.aego/curve.OutBack" {
+    text="OutBack is the outBack easing preset."
+  }
+  msg "api.aego/curve.OutBounce" {
+    text="OutBounce is the outBounce easing preset."
+  }
+  msg "api.aego/curve.OutCubic" {
+    text="OutCubic is the outCubic easing preset."
+  }
+  msg "api.aego/curve.OutElastic" {
+    text="OutElastic is the outElastic easing preset."
+  }
+  msg "api.aego/curve.OutExpo" {
+    text="OutExpo is the outExpo easing preset."
+  }
+  msg "api.aego/curve.OutQuad" {
+    text="OutQuad is the outQuad easing preset."
+  }
+  msg "api.aego/curve.OutSine" {
+    text="OutSine is the outSine easing preset."
+  }
+  msg "api.aego/debug.Arrow" {
+    text="Draws an arrow from one point to another."
+  }
+  msg "api.aego/debug.Circle" {
+    text="Draws a circle outline with radius r in world units."
+  }
+  msg "api.aego/debug.Clear" {
+    text="Removes every primitive whose channel starts with prefix."
+  }
+  msg "api.aego/debug.Cross" {
+    text="Draws a cross of the given size in world units."
+  }
+  msg "api.aego/debug.Line" {
+    text="Draws a line in world units. It lasts one frame unless Pen sets a lifetime."
+  }
+  msg "api.aego/debug.Pen" {
+    text="Sets the channel and the lifetime of the next primitives this script draws. A ttl of 0 lasts one frame, a positive ttl that many game seconds, a negative ttl until Clear."
+  }
+  msg "api.aego/debug.PenUnscaled" {
+    text="Is Pen with a lifetime in real seconds; such primitives fade out while the game is paused."
+  }
+  msg "api.aego/debug.Point" {
+    text="Marks a point with a small cross of constant screen size."
+  }
+  msg "api.aego/debug.Ray" {
+    text="Draws an arrow from origin along dir; the length of dir is the length of the arrow."
+  }
+  msg "api.aego/debug.Rect" {
+    text="Draws a rectangle outline."
+  }
+  msg "api.aego/debug.Text" {
+    text="Draws a label at a world position; it keeps its screen size at any zoom."
+  }
+  msg "api.aego/input.ActiveDevice" {
+    text="Returns the device player 0 used last: -1 none, 0 keyboard and mouse, 1 to 4 a gamepad."
+  }
+  msg "api.aego/input.Axis" {
+    text="Returns the value of an axis action from -1 to 1, or the press strength of a button action."
+  }
+  msg "api.aego/input.Axis2" {
+    text="Returns a 2D action as a vector no longer than 1; Y grows downward like the 2D world."
+  }
+  msg "api.aego/input.Axis2P" {
+    text="Is Axis2 for one player."
+  }
+  msg "api.aego/input.AxisP" {
+    text="Is Axis for one player."
+  }
+  msg "api.aego/input.BeginRebind" {
+    text="Waits for the next key, button or stick and binds it to the slot of the action. Escape cancels."
+  }
+  msg "api.aego/input.Buffered" {
+    text="Reports whether the action was pressed in the last window game seconds and not consumed. A window of 0 uses the action's buffer setting."
+  }
+  msg "api.aego/input.Button" {
+    text="Button is a mouse button."
+  }
+  msg "api.aego/input.Consume" {
+    text="Clears the press and the buffer of the action, so later readers this frame do not see it."
+  }
+  msg "api.aego/input.DeviceChanged" {
+    text="Is true for the frame a gamepad was connected or removed."
+  }
+  msg "api.aego/input.Down" {
+    text="Reports whether a raw key is held. For prototypes; release builds use actions."
+  }
+  msg "api.aego/input.Glyph" {
+    text="Returns the binding of the action for the active device as text, like [Space] or [A]."
+  }
+  msg "api.aego/input.Held" {
+    text="Reports whether the action is active."
+  }
+  msg "api.aego/input.HeldP" {
+    text="Is Held for one player."
+  }
+  msg "api.aego/input.Key" {
+    text="Key is a physical key, independent of the keyboard layout. Prefer actions; raw keys are for prototypes."
+  }
+  msg "api.aego/input.KeyA" {
+    text="The A key."
+  }
+  msg "api.aego/input.KeyB" {
+    text="The B key."
+  }
+  msg "api.aego/input.KeyBackspace" {
+    text="The Backspace key."
+  }
+  msg "api.aego/input.KeyC" {
+    text="The C key."
+  }
+  msg "api.aego/input.KeyCapsLock" {
+    text="The CapsLock key."
+  }
+  msg "api.aego/input.KeyD" {
+    text="The D key."
+  }
+  msg "api.aego/input.KeyDelete" {
+    text="The Delete key."
+  }
+  msg "api.aego/input.KeyDigit0" {
+    text="The Digit0 key."
+  }
+  msg "api.aego/input.KeyDigit1" {
+    text="The Digit1 key."
+  }
+  msg "api.aego/input.KeyDigit2" {
+    text="The Digit2 key."
+  }
+  msg "api.aego/input.KeyDigit3" {
+    text="The Digit3 key."
+  }
+  msg "api.aego/input.KeyDigit4" {
+    text="The Digit4 key."
+  }
+  msg "api.aego/input.KeyDigit5" {
+    text="The Digit5 key."
+  }
+  msg "api.aego/input.KeyDigit6" {
+    text="The Digit6 key."
+  }
+  msg "api.aego/input.KeyDigit7" {
+    text="The Digit7 key."
+  }
+  msg "api.aego/input.KeyDigit8" {
+    text="The Digit8 key."
+  }
+  msg "api.aego/input.KeyDigit9" {
+    text="The Digit9 key."
+  }
+  msg "api.aego/input.KeyDown" {
+    text="The Down key."
+  }
+  msg "api.aego/input.KeyE" {
+    text="The E key."
+  }
+  msg "api.aego/input.KeyEnd" {
+    text="The End key."
+  }
+  msg "api.aego/input.KeyEnter" {
+    text="The Enter key."
+  }
+  msg "api.aego/input.KeyEscape" {
+    text="The Escape key."
+  }
+  msg "api.aego/input.KeyF" {
+    text="The F key."
+  }
+  msg "api.aego/input.KeyF1" {
+    text="The F1 key."
+  }
+  msg "api.aego/input.KeyF10" {
+    text="The F10 key."
+  }
+  msg "api.aego/input.KeyF11" {
+    text="The F11 key."
+  }
+  msg "api.aego/input.KeyF12" {
+    text="The F12 key."
+  }
+  msg "api.aego/input.KeyF2" {
+    text="The F2 key."
+  }
+  msg "api.aego/input.KeyF3" {
+    text="The F3 key."
+  }
+  msg "api.aego/input.KeyF4" {
+    text="The F4 key."
+  }
+  msg "api.aego/input.KeyF5" {
+    text="The F5 key."
+  }
+  msg "api.aego/input.KeyF6" {
+    text="The F6 key."
+  }
+  msg "api.aego/input.KeyF7" {
+    text="The F7 key."
+  }
+  msg "api.aego/input.KeyF8" {
+    text="The F8 key."
+  }
+  msg "api.aego/input.KeyF9" {
+    text="The F9 key."
+  }
+  msg "api.aego/input.KeyG" {
+    text="The G key."
+  }
+  msg "api.aego/input.KeyH" {
+    text="The H key."
+  }
+  msg "api.aego/input.KeyHome" {
+    text="The Home key."
+  }
+  msg "api.aego/input.KeyI" {
+    text="The I key."
+  }
+  msg "api.aego/input.KeyInsert" {
+    text="The Insert key."
+  }
+  msg "api.aego/input.KeyJ" {
+    text="The J key."
+  }
+  msg "api.aego/input.KeyK" {
+    text="The K key."
+  }
+  msg "api.aego/input.KeyKP0" {
+    text="The KP0 key."
+  }
+  msg "api.aego/input.KeyKP1" {
+    text="The KP1 key."
+  }
+  msg "api.aego/input.KeyKP2" {
+    text="The KP2 key."
+  }
+  msg "api.aego/input.KeyKP3" {
+    text="The KP3 key."
+  }
+  msg "api.aego/input.KeyKP4" {
+    text="The KP4 key."
+  }
+  msg "api.aego/input.KeyKP5" {
+    text="The KP5 key."
+  }
+  msg "api.aego/input.KeyKP6" {
+    text="The KP6 key."
+  }
+  msg "api.aego/input.KeyKP7" {
+    text="The KP7 key."
+  }
+  msg "api.aego/input.KeyKP8" {
+    text="The KP8 key."
+  }
+  msg "api.aego/input.KeyKP9" {
+    text="The KP9 key."
+  }
+  msg "api.aego/input.KeyKPEnter" {
+    text="The KPEnter key."
+  }
+  msg "api.aego/input.KeyL" {
+    text="The L key."
+  }
+  msg "api.aego/input.KeyLAlt" {
+    text="The LAlt key."
+  }
+  msg "api.aego/input.KeyLCtrl" {
+    text="The LCtrl key."
+  }
+  msg "api.aego/input.KeyLGUI" {
+    text="The LGUI key."
+  }
+  msg "api.aego/input.KeyLShift" {
+    text="The LShift key."
+  }
+  msg "api.aego/input.KeyLeft" {
+    text="The Left key."
+  }
+  msg "api.aego/input.KeyM" {
+    text="The M key."
+  }
+  msg "api.aego/input.KeyN" {
+    text="The N key."
+  }
+  msg "api.aego/input.KeyNumLock" {
+    text="The NumLock key."
+  }
+  msg "api.aego/input.KeyO" {
+    text="The O key."
+  }
+  msg "api.aego/input.KeyP" {
+    text="The P key."
+  }
+  msg "api.aego/input.KeyPageDown" {
+    text="The PageDown key."
+  }
+  msg "api.aego/input.KeyPageUp" {
+    text="The PageUp key."
+  }
+  msg "api.aego/input.KeyPause" {
+    text="The Pause key."
+  }
+  msg "api.aego/input.KeyPressed" {
+    text="Reports whether a raw key went down this frame. For prototypes."
+  }
+  msg "api.aego/input.KeyPrintScreen" {
+    text="The PrintScreen key."
+  }
+  msg "api.aego/input.KeyQ" {
+    text="The Q key."
+  }
+  msg "api.aego/input.KeyR" {
+    text="The R key."
+  }
+  msg "api.aego/input.KeyRAlt" {
+    text="The RAlt key."
+  }
+  msg "api.aego/input.KeyRCtrl" {
+    text="The RCtrl key."
+  }
+  msg "api.aego/input.KeyRGUI" {
+    text="The RGUI key."
+  }
+  msg "api.aego/input.KeyRShift" {
+    text="The RShift key."
+  }
+  msg "api.aego/input.KeyReleased" {
+    text="Reports whether a raw key went up this frame. For prototypes."
+  }
+  msg "api.aego/input.KeyRight" {
+    text="The Right key."
+  }
+  msg "api.aego/input.KeyS" {
+    text="The S key."
+  }
+  msg "api.aego/input.KeyScrollLock" {
+    text="The ScrollLock key."
+  }
+  msg "api.aego/input.KeySpace" {
+    text="The Space key."
+  }
+  msg "api.aego/input.KeyT" {
+    text="The T key."
+  }
+  msg "api.aego/input.KeyTab" {
+    text="The Tab key."
+  }
+  msg "api.aego/input.KeyU" {
+    text="The U key."
+  }
+  msg "api.aego/input.KeyUp" {
+    text="The Up key."
+  }
+  msg "api.aego/input.KeyV" {
+    text="The V key."
+  }
+  msg "api.aego/input.KeyW" {
+    text="The W key."
+  }
+  msg "api.aego/input.KeyX" {
+    text="The X key."
+  }
+  msg "api.aego/input.KeyY" {
+    text="The Y key."
+  }
+  msg "api.aego/input.KeyZ" {
+    text="The Z key."
+  }
+  msg "api.aego/input.MouseDown" {
+    text="Reports whether a mouse button is held."
+  }
+  msg "api.aego/input.MouseLeft" {
+    text="The Left mouse button."
+  }
+  msg "api.aego/input.MouseMiddle" {
+    text="The Middle mouse button."
+  }
+  msg "api.aego/input.MousePos" {
+    text="Returns the cursor in logical pixels of the game area."
+  }
+  msg "api.aego/input.MousePressed" {
+    text="Reports whether a mouse button went down this frame."
+  }
+  msg "api.aego/input.MouseRight" {
+    text="The Right mouse button."
+  }
+  msg "api.aego/input.MouseWorld" {
+    text="Returns the cursor in world units through the camera under it."
+  }
+  msg "api.aego/input.MouseX1" {
+    text="The X1 mouse button."
+  }
+  msg "api.aego/input.MouseX2" {
+    text="The X2 mouse button."
+  }
+  msg "api.aego/input.Pointer" {
+    text="Returns the cursor in logical pixels."
+  }
+  msg "api.aego/input.PointerDelta" {
+    text="Returns how far the cursor moved this frame."
+  }
+  msg "api.aego/input.PopContext" {
+    text="Removes the top input context."
+  }
+  msg "api.aego/input.Pressed" {
+    text="Reports whether the action started. In Update it is true for one frame; in FixedUpdate for the first fixed step after the press."
+  }
+  msg "api.aego/input.PressedP" {
+    text="Is Pressed for one player."
+  }
+  msg "api.aego/input.PushContext" {
+    text="Puts an input context on top of the stack."
+  }
+  msg "api.aego/input.RebindConflict" {
+    text="Names the action that already used the new control, or explains why it was refused."
+  }
+  msg "api.aego/input.Rebinding" {
+    text="Reports whether a rebind waits for input."
+  }
+  msg "api.aego/input.Released" {
+    text="Reports whether the action ended this frame or fixed step."
+  }
+  msg "api.aego/input.ReleasedP" {
+    text="Is Released for one player."
+  }
+  msg "api.aego/input.ResetBinding" {
+    text="Restores the project bindings of the action."
+  }
+  msg "api.aego/input.ResetBindings" {
+    text="Restores every project binding."
+  }
+  msg "api.aego/input.SaveBindings" {
+    text="Writes the player's settings profile now; changes are also saved on their own."
+  }
+  msg "api.aego/input.SetContext" {
+    text="Replaces the whole stack with one context."
+  }
+  msg "api.aego/log.Debug" {
+    text="Writes a message to the Console. Debug messages are hidden unless the editor runs with -debug."
+  }
+  msg "api.aego/log.Error" {
+    text="Writes an error to the Console. It does not stop the script; use it for problems you can recover from."
+  }
+  msg "api.aego/log.Info" {
+    text="Writes a message to the Console."
+  }
+  msg "api.aego/log.Warn" {
+    text="Writes a warning to the Console."
+  }
+  msg "api.aego/math.Abs" {
+    text="Returns the absolute value of x."
+  }
+  msg "api.aego/math.AbsInt" {
+    text="Returns the absolute value of an int."
+  }
+  msg "api.aego/math.Acos" {
+    text="Returns the angle in radians whose cosine is x, in [0, Pi]."
+  }
+  msg "api.aego/math.Angle" {
+    text="Returns the direction of v in radians."
+  }
+  msg "api.aego/math.Asin" {
+    text="Returns the angle in radians whose sine is x, in [-Pi/2, Pi/2]."
+  }
+  msg "api.aego/math.Atan2" {
+    text="Returns the angle in radians of the vector (x, y), in (-Pi, Pi]."
+  }
+  msg "api.aego/math.Ceil" {
+    text="Returns the least whole number greater than or equal to x."
+  }
+  msg "api.aego/math.Clamp" {
+    text="Limits v to the range [lo, hi]."
+  }
+  msg "api.aego/math.ClampInt" {
+    text="Limits an int to the range [lo, hi]."
+  }
+  msg "api.aego/math.Cos" {
+    text="Returns the cosine of an angle in radians."
+  }
+  msg "api.aego/math.Cross" {
+    text="Returns the z component of the 3D cross product; its sign tells on which side b lies."
+  }
+  msg "api.aego/math.Cross3" {
+    text="Returns a vector perpendicular to a and b."
+  }
+  msg "api.aego/math.Deg2Rad" {
+    text="Converts degrees to radians."
+  }
+  msg "api.aego/math.Dist" {
+    text="Returns the distance between two points."
+  }
+  msg "api.aego/math.Dist3" {
+    text="Returns the distance between two 3D points."
+  }
+  msg "api.aego/math.Dot" {
+    text="Returns the dot product of two Vec2."
+  }
+  msg "api.aego/math.Dot3" {
+    text="Returns the dot product of two Vec3."
+  }
+  msg "api.aego/math.Exp" {
+    text="Returns e raised to the power x."
+  }
+  msg "api.aego/math.Floor" {
+    text="Returns the greatest whole number less than or equal to x."
+  }
+  msg "api.aego/math.Length" {
+    text="Returns the length of a Vec2."
+  }
+  msg "api.aego/math.Length3" {
+    text="Returns the length of a Vec3."
+  }
+  msg "api.aego/math.Lerp" {
+    text="Blends from a to b. t = 0 gives a, t = 1 gives b; t is not clamped."
+  }
+  msg "api.aego/math.LerpVec2" {
+    text="Blends two Vec2 component-wise."
+  }
+  msg "api.aego/math.LerpVec3" {
+    text="Blends two Vec3 component-wise."
+  }
+  msg "api.aego/math.Log" {
+    text="Returns the natural logarithm of x."
+  }
+  msg "api.aego/math.Max" {
+    text="Returns the larger of a and b."
+  }
+  msg "api.aego/math.MaxInt" {
+    text="Returns the larger of two ints."
+  }
+  msg "api.aego/math.Min" {
+    text="Returns the smaller of a and b."
+  }
+  msg "api.aego/math.MinInt" {
+    text="Returns the smaller of two ints."
+  }
+  msg "api.aego/math.Normalize" {
+    text="Returns v scaled to length 1. A zero vector stays zero."
+  }
+  msg "api.aego/math.Normalize3" {
+    text="Returns v scaled to length 1."
+  }
+  msg "api.aego/math.Pi" {
+    text="Pi is the ratio of a circle's circumference to its diameter, about 3.14159."
+  }
+  msg "api.aego/math.Pow" {
+    text="Returns x raised to the power y."
+  }
+  msg "api.aego/math.QuatAxisAngle" {
+    text="Builds a rotation of an angle in radians around an axis."
+  }
+  msg "api.aego/math.QuatEuler" {
+    text="Builds a rotation from Euler angles in radians, applied as Z·Y·X."
+  }
+  msg "api.aego/math.QuatLookDir" {
+    text="Returns the rotation that points -Z along d."
+  }
+  msg "api.aego/math.QuatMul" {
+    text="Combines two rotations: b is applied first, then a."
+  }
+  msg "api.aego/math.QuatRotate" {
+    text="Rotates a vector by q."
+  }
+  msg "api.aego/math.QuatSlerp" {
+    text="Blends two rotations along the shortest arc."
+  }
+  msg "api.aego/math.Rad2Deg" {
+    text="Converts radians to degrees."
+  }
+  msg "api.aego/math.Rotate" {
+    text="Turns v clockwise by an angle in radians."
+  }
+  msg "api.aego/math.Round" {
+    text="Returns x rounded to the nearest whole number; halves round away from zero."
+  }
+  msg "api.aego/math.Sign" {
+    text="Returns -1, 0 or 1 depending on the sign of x."
+  }
+  msg "api.aego/math.Sin" {
+    text="Returns the sine of an angle in radians."
+  }
+  msg "api.aego/math.Sqrt" {
+    text="Returns the square root of x. Negative x gives NaN."
+  }
+  msg "api.aego/math.Tan" {
+    text="Returns the tangent of an angle in radians."
+  }
+  msg "api.aego/math.Tau" {
+    text="Tau is a full turn in radians, 2·Pi."
+  }
+  msg "api.aego/math.Trunc" {
+    text="Drops the fractional part of x."
+  }
+  msg "api.aego/physics.Gravity" {
+    text="Returns the world gravity in units per second squared. +Y points down."
+  }
+  msg "api.aego/physics.Layer" {
+    text="Returns the index of a named physics layer."
+  }
+  msg "api.aego/physics.LayerMask" {
+    text="Returns the mask bit of a named layer. Add masks of different layers to combine them."
+  }
+  msg "api.aego/physics.Linecast" {
+    text="Returns the first hit between from and to on the layers in mask; -1 means every layer."
+  }
+  msg "api.aego/physics.OverlapBox" {
+    text="Writes the bodies touching the axis-aligned box into out and returns the count."
+  }
+  msg "api.aego/physics.OverlapCircle" {
+    text="Writes the bodies touching the circle into out and returns the count."
+  }
+  msg "api.aego/physics.OverlapPoint" {
+    text="Writes the bodies whose colliders contain p into out and returns the count."
+  }
+  msg "api.aego/physics.Raycast" {
+    text="Returns the closest hit along dir within maxDist. The caller's own body is ignored, triggers are skipped."
+  }
+  msg "api.aego/physics.RaycastAll" {
+    text="Fills out with hits between from and to, nearest first, and returns how many it wrote. It writes at most len(out)."
+  }
+  msg "api.aego/physics.SetGravity" {
+    text="Changes the world gravity for the rest of the Play session."
+  }
+  msg "api.aego/rand.Bool" {
+    text="Returns true or false with equal chance."
+  }
+  msg "api.aego/rand.Float" {
+    text="Returns a random number in [0, 1)."
+  }
+  msg "api.aego/rand.Int" {
+    text="Returns a random int in [min, max). It returns min when max <= min."
+  }
+  msg "api.aego/rand.Range" {
+    text="Returns a random float in [min, max)."
+  }
+  msg "api.aego/rand.Seed" {
+    text="Returns the seed of the world's generator. Replays with the same seed produce the same numbers."
+  }
+  msg "api.aego/save.Autosave" {
+    text="Saves to the slot named autosave every given number of real seconds; 0 turns it off."
+  }
+  msg "api.aego/save.Checkpoint" {
+    text="Saves the game to the slot named checkpoint."
+  }
+  msg "api.aego/save.Delete" {
+    text="Removes a save and its preview."
+  }
+  msg "api.aego/save.Exists" {
+    text="Reports whether a slot holds a save."
+  }
+  msg "api.aego/save.GetBool" {
+    text="Reads a value this node stored, or def; it works in OnLoad."
+  }
+  msg "api.aego/save.GetFloat" {
+    text="Reads a value this node stored, or def; it works in OnLoad."
+  }
+  msg "api.aego/save.GetInt" {
+    text="Reads a value this node stored, or def; it works in OnLoad."
+  }
+  msg "api.aego/save.GetString" {
+    text="Reads a value this node stored, or def; it works in OnLoad."
+  }
+  msg "api.aego/save.GetVec2" {
+    text="Reads a value this node stored, or def; it works in OnLoad."
+  }
+  msg "api.aego/save.GlobalBool" {
+    text="Reads game-wide progress, or def."
+  }
+  msg "api.aego/save.GlobalFloat" {
+    text="Reads game-wide progress, or def."
+  }
+  msg "api.aego/save.GlobalInt" {
+    text="Reads game-wide progress, or def."
+  }
+  msg "api.aego/save.GlobalString" {
+    text="Reads game-wide progress, or def."
+  }
+  msg "api.aego/save.Load" {
+    text="Reloads the saved scene and restores the slot at the end of the frame."
+  }
+  msg "api.aego/save.PutBool" {
+    text="Stores a value for this node; call it in OnSave."
+  }
+  msg "api.aego/save.PutFloat" {
+    text="Stores a value for this node; call it in OnSave."
+  }
+  msg "api.aego/save.PutInt" {
+    text="Stores a value for this node; call it in OnSave."
+  }
+  msg "api.aego/save.PutString" {
+    text="Stores a value for this node; call it in OnSave."
+  }
+  msg "api.aego/save.PutVec2" {
+    text="Stores a value for this node; call it in OnSave."
+  }
+  msg "api.aego/save.Save" {
+    text="Writes the game to a slot at the end of the frame."
+  }
+  msg "api.aego/save.SetGlobalBool" {
+    text="Stores game-wide progress that every save carries."
+  }
+  msg "api.aego/save.SetGlobalFloat" {
+    text="Stores game-wide progress that every save carries."
+  }
+  msg "api.aego/save.SetGlobalInt" {
+    text="Stores game-wide progress that every save carries."
+  }
+  msg "api.aego/save.SetGlobalString" {
+    text="Stores game-wide progress that every save carries."
+  }
+  msg "api.aego/scene.ByID" {
+    text="Returns the node with this id, as written in the scene file, or nil."
+  }
+  msg "api.aego/scene.Despawn" {
+    text="Returns a spawned copy to its pool; it destroys a node that did not come from a pool."
+  }
+  msg "api.aego/scene.Destroy" {
+    text="Removes a node and its children at the end of the phase."
+  }
+  msg "api.aego/scene.Find" {
+    text="Returns the node at a path from the scene root, or nil."
+  }
+  msg "api.aego/scene.InArea" {
+    text="Writes the bodies touching the rectangle on the layers in mask into out. Without physics it writes every enabled 2D node whose position lies in the rectangle, ignoring mask."
+  }
+  msg "api.aego/scene.Instantiate" {
+    text="Creates a copy of a prefab under parent, or under the root when parent is nil.\nThe new nodes appear at the end of the phase; their scripts get Ready before the next Update."
+  }
+  msg "api.aego/scene.Pool" {
+    text="Makes n copies of a prefab ahead of time; their Ready runs now and Spawn takes them later."
+  }
+  msg "api.aego/scene.Spawn" {
+    text="Places a copy of a prefab at a position under the scene root, taken from its pool when one is free."
+  }
+  msg "api.aego/scene.SpawnAt" {
+    text="Places a copy of a prefab under parent with a local position and rotation."
+  }
+  msg "api.aego/scene.WithComponent" {
+    text="Writes enabled nodes that have the component into out and returns the count."
+  }
+  msg "api.aego/scene.WithTag" {
+    text="Writes enabled nodes with the tag into out and returns the count; Enemy also finds Enemy.Flying. Nodes come in the order they got the tag."
+  }
+  msg "api.aego/settings.Apply" {
+    text="Applies every staged value at once; if one fails, none change."
+  }
+  msg "api.aego/settings.ClearOverride" {
+    text="Removes a session override."
+  }
+  msg "api.aego/settings.ClearOverrides" {
+    text="Removes every session override."
+  }
+  msg "api.aego/settings.CloseView" {
+    text="Hides the settings screen."
+  }
+  msg "api.aego/settings.GetBool" {
+    text="Returns the effective value of an on/off setting."
+  }
+  msg "api.aego/settings.GetFloat" {
+    text="Returns the effective value of a number setting."
+  }
+  msg "api.aego/settings.GetInt" {
+    text="Returns the effective value of an integer or choice setting."
+  }
+  msg "api.aego/settings.GetString" {
+    text="Returns a text setting, or the name of the current choice."
+  }
+  msg "api.aego/settings.NeedsRestart" {
+    text="Reports whether an applied setting takes effect only after a restart."
+  }
+  msg "api.aego/settings.OpenView" {
+    text="Shows the settings screen and pauses the game until it closes."
+  }
+  msg "api.aego/settings.OverrideBool" {
+    text="Sets an on/off value for this session only."
+  }
+  msg "api.aego/settings.OverrideFloat" {
+    text="Sets a value for this session only; it is never saved."
+  }
+  msg "api.aego/settings.OverrideInt" {
+    text="Sets an integer for this session only."
+  }
+  msg "api.aego/settings.OverrideString" {
+    text="Sets a text value for this session only."
+  }
+  msg "api.aego/settings.Reset" {
+    text="Stages a return to the project default."
+  }
+  msg "api.aego/settings.Revert" {
+    text="Drops the staged values."
+  }
+  msg "api.aego/settings.Save" {
+    text="Writes the player profile now; it is also saved on its own shortly after a change."
+  }
+  msg "api.aego/settings.SetBool" {
+    text="Stages a value; Apply makes it take effect."
+  }
+  msg "api.aego/settings.SetFloat" {
+    text="Stages a number."
+  }
+  msg "api.aego/settings.SetInt" {
+    text="Stages an integer or choice index."
+  }
+  msg "api.aego/settings.SetString" {
+    text="Stages a text value."
+  }
+  msg "api.aego/settings.ViewOpen" {
+    text="Reports whether the settings screen is shown."
+  }
+  msg "api.aego/testing.Equal" {
+    text="Fails the test when two ints differ."
+  }
+  msg "api.aego/testing.EqualFloat" {
+    text="Fails the test when got is further than eps from want, or is NaN."
+  }
+  msg "api.aego/testing.EqualString" {
+    text="Fails the test when two strings differ."
+  }
+  msg "api.aego/testing.Fail" {
+    text="Stops the test and reports msg."
+  }
+  msg "api.aego/testing.False" {
+    text="Fails the test with msg when v is true."
+  }
+  msg "api.aego/testing.True" {
+    text="Fails the test with msg when v is false."
+  }
+  msg "api.aego/time.Delta" {
+    text="Returns the game seconds since the previous frame: real time × Scale, 0 while paused. Inside FixedUpdate it is the fixed step."
+  }
+  msg "api.aego/time.Elapsed" {
+    text="Returns the game seconds since Play started. It stops while paused and follows Scale."
+  }
+  msg "api.aego/time.Fixed" {
+    text="Returns the fixed step length in seconds, 1/60 by default. Scale does not change it; it changes how many steps run."
+  }
+  msg "api.aego/time.Frame" {
+    text="Returns the number of frames this world has run, paused frames included."
+  }
+  msg "api.aego/time.IsPaused" {
+    text="Reports whether game time is paused."
+  }
+  msg "api.aego/time.Scale" {
+    text="Returns the time scale: 1 is normal speed, 0.5 is half speed, 0 freezes game time without pausing."
+  }
+  msg "api.aego/time.SetPaused" {
+    text="Pauses or resumes game time. While paused, Update, FixedUpdate and game-time coroutines of ordinary scripts do not run."
+  }
+  msg "api.aego/time.SetScale" {
+    text="Sets the time scale from 0 to 8. The fixed step stays the same, so the simulation stays stable; only the number of steps changes."
+  }
+  msg "api.aego/time.Tick" {
+    text="Returns the number of the current or last fixed step. It is the same number the profiler and the Event Monitor show."
+  }
+  msg "api.aego/time.Unscaled" {
+    text="Returns the real seconds since the previous frame, ignoring Scale and pause."
+  }
+  msg "api.aego/time.UnscaledElapsed" {
+    text="Returns the real seconds since Play started, pauses included."
+  }
+  msg "api.aego/timer.Cooldown" {
+    text="Makes a timer that starts ready; Use takes it and starts the wait."
+  }
+  msg "api.aego/timer.New" {
+    text="Makes a timer that stays after it ends, so Restart can run it again."
+  }
+  msg "api.aego/timer.Start" {
+    text="Makes a one-shot timer that frees itself when it fires."
+  }
+  msg "api.aego/timer.Timer.Cancel" {
+    text="Ends the timer without firing."
+  }
+  msg "api.aego/timer.Timer.Count" {
+    text="Returns how many times the timer has fired."
+  }
+  msg "api.aego/timer.Timer.Done" {
+    text="Reports whether the timer ended, was cancelled or is nil."
+  }
+  msg "api.aego/timer.Timer.Fired" {
+    text="Runs on every fire of the timer; count is the number of fires so far."
+  }
+  msg "api.aego/timer.Timer.Pause" {
+    text="Stops the countdown."
+  }
+  msg "api.aego/timer.Timer.Ready" {
+    text="Reports whether a cooldown can be used."
+  }
+  msg "api.aego/timer.Timer.Remaining" {
+    text="Returns the seconds left until the next fire."
+  }
+  msg "api.aego/timer.Timer.Repeat" {
+    text="Makes the timer fire n times; -1 repeats until Cancel."
+  }
+  msg "api.aego/timer.Timer.Restart" {
+    text="Starts the countdown again; it does nothing on a one-shot timer that already fired."
+  }
+  msg "api.aego/timer.Timer.Resume" {
+    text="Continues a paused countdown."
+  }
+  msg "api.aego/timer.Timer.Unscaled" {
+    text="Counts real time, also while the game is paused."
+  }
+  msg "api.aego/timer.Timer.Use" {
+    text="Takes a ready cooldown and starts its wait; it returns false while the cooldown runs."
+  }
+  msg "api.aego/tween.Position" {
+    text="Moves a 2D node to a local position."
+  }
+  msg "api.aego/tween.ToColor" {
+    text="Animates a Color property."
+  }
+  msg "api.aego/tween.ToFloat" {
+    text="Animates a float or int property, or one lane of a vector or color.\nPaths: Component.Field, Component.Field.a, transform.rotation, script/Name.Field."
+  }
+  msg "api.aego/tween.ToQuat" {
+    text="Turns a rotation along the short arc."
+  }
+  msg "api.aego/tween.ToVec2" {
+    text="Animates a Vec2 property."
+  }
+  msg "api.aego/tween.ToVec3" {
+    text="Animates a Vec3 property, such as the position of a 3D node."
+  }
+  msg "api.aego/tween.Tween.Completed" {
+    text="Runs once when the tween ends. Its finished parameter is true at the natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."
+  }
+  msg "api.aego/tween.Tween.Curve" {
+    text="Replaces the easing with a curve field; its time range is stretched over the duration."
+  }
+  msg "api.aego/tween.Tween.Delay" {
+    text="Waits before the tween starts; the start value is read when the delay ends. Call it right after creating the tween."
+  }
+  msg "api.aego/tween.Tween.Done" {
+    text="Reports whether the tween finished, was stopped or is nil."
+  }
+  msg "api.aego/tween.Tween.Loop" {
+    text="Plays the tween n times from the start; -1 repeats until Stop."
+  }
+  msg "api.aego/tween.Tween.PingPong" {
+    text="Plays n legs, every second one backwards; 2 goes there and back, -1 repeats until Stop."
+  }
+  msg "api.aego/tween.Tween.Running" {
+    text="Is the opposite of Done."
+  }
+  msg "api.aego/tween.Tween.Stop" {
+    text="Ends the tween where it is; the property keeps its current value."
+  }
+  msg "api.aego/tween.Tween.Unscaled" {
+    text="Runs the tween in real time, also while the game is paused."
+  }
+  msg "api.animation.AnimationPlayer.Event" {
+    text="Runs when the clip reaches an event; anim.EventName(id) gives its name."
+  }
+  msg "api.animation.AnimationPlayer.Finished" {
+    text="Runs when a clip that does not loop ends, with cycle 0, or after Stop, with cycle -1."
+  }
+  msg "api.animation.AnimationPlayer.Pause" {
+    text="Holds the clip where it is."
+  }
+  msg "api.animation.AnimationPlayer.Play" {
+    text="Starts a clip from its beginning on the next fixed step; nil plays the current clip again."
+  }
+  msg "api.animation.AnimationPlayer.Resume" {
+    text="Continues a paused clip."
+  }
+  msg "api.animation.AnimationPlayer.Seek" {
+    text="Jumps to a time inside the clip on the next fixed step without firing the events in between."
+  }
+  msg "api.animation.AnimationPlayer.SetSpeed" {
+    text="Changes the playback speed; a negative speed plays backwards."
+  }
+  msg "api.animation.AnimationPlayer.Stop" {
+    text="Ends the clip on the next fixed step: tracks with onEnd=restore get back the values they had before Play, Finished runs with cycle -1."
+  }
+  msg "api.animation.Animator.CrossFade" {
+    text="Blends into a state over some seconds, starting on the next fixed step."
+  }
+  msg "api.animation.Animator.Event" {
+    text="Runs when a state reaches an event of its clip; during a blend the state's event policy decides which side reports."
+  }
+  msg "api.animation.Animator.GetBool" {
+    text="Reads a bool or trigger parameter."
+  }
+  msg "api.animation.Animator.GetFloat" {
+    text="Reads a float parameter."
+  }
+  msg "api.animation.Animator.GetInt" {
+    text="Reads an int parameter."
+  }
+  msg "api.animation.Animator.IsState" {
+    text="Reports whether the animator is in a state; during a blend that is the state it blends into."
+  }
+  msg "api.animation.Animator.Play" {
+    text="Switches to a state on the next fixed step, without a blend."
+  }
+  msg "api.animation.Animator.ResetTrigger" {
+    text="Clears a trigger that has not fired yet."
+  }
+  msg "api.animation.Animator.SetBool" {
+    text="Sets a bool parameter; transitions read it on the next fixed step."
+  }
+  msg "api.animation.Animator.SetFloat" {
+    text="Sets a float parameter."
+  }
+  msg "api.animation.Animator.SetInt" {
+    text="Sets an int parameter."
+  }
+  msg "api.animation.Animator.SetTrigger" {
+    text="Sets a trigger for the next fixed step; a transition that uses it, or the end of that step, clears it."
+  }
+  msg "api.animation.Animator.StateEntered" {
+    text="Runs when the animator enters a state, at the start of the transition."
+  }
+  msg "api.animation.Animator.StateExited" {
+    text="Runs when a state stops playing, at the end of the transition."
+  }
+  msg "api.animation.Animator.StateName" {
+    text="Returns the name of a state index, as StateEntered and StateExited report it."
+  }
+  msg "api.audio.AudioSource2D.Finished" {
+    text="Runs when the sound of the source ends; finished is false after Stop or when it was cut off."
+  }
+  msg "api.audio.AudioSource2D.IsPlaying" {
+    text="Reports whether the source plays a sound."
+  }
+  msg "api.audio.AudioSource2D.Play" {
+    text="Starts the source from the beginning, stopping a sound it already plays."
+  }
+  msg "api.audio.AudioSource2D.Started" {
+    text="Runs when the source starts a sound."
+  }
+  msg "api.audio.AudioSource2D.Stop" {
+    text="Ends the sound of the source with a short fade."
+  }
+  msg "api.audio.AudioSource2D.StopFade" {
+    text="Fades the sound of the source out over seconds."
+  }
+  msg "api.camera.CameraFollow2D.Snap" {
+    text="Moves the camera onto the target at once, for example after a teleport."
+  }
+  msg "api.camera.CameraShake2D.Add" {
+    text="Adds trauma to the output of this camera; trauma is capped at 1."
+  }
+  msg "api.camera.VirtualCamera2D.IsActive" {
+    text="Reports whether this virtual camera drives its output now."
+  }
+  msg "api.events.OnAnimEvent" {
+    text="Runs on the scripts of a node whose Animation Player reaches an event of its clip; anim.EventName(id) gives the name."
+  }
+  msg "api.events.OnCollisionEnter" {
+    text="Runs after the physics step in which this body started touching other."
+  }
+  msg "api.events.OnCollisionExit" {
+    text="Runs when the bodies stop touching, including when one of them is destroyed or disabled. Contact.Point is the last known point."
+  }
+  msg "api.events.OnCollisionStay" {
+    text="Runs after every later physics step while the bodies keep touching. It costs nothing when no script declares it."
+  }
+  msg "api.events.OnDespawned" {
+    text="Runs on every script of a pooled copy when it is despawned, before its coroutines and connections end."
+  }
+  msg "api.events.OnLoad" {
+    text="Runs after Ready on every script that has it when a saved game is loaded; read values with save.Get*."
+  }
+  msg "api.events.OnSave" {
+    text="Runs on every script that has it while a game is saved; write values with save.Put*."
+  }
+  msg "api.events.OnSettingChanged" {
+    text="Runs on every script with this method after a setting's effective value changed: Apply, Revert, an override or a confirmation timeout."
+  }
+  msg "api.events.OnSpawned" {
+    text="Runs on every script of a spawned prefab copy, after Ready for a new copy and instead of it for a copy taken from a pool."
+  }
+  msg "api.events.OnTriggerEnter" {
+    text="Runs when other's collider entered a trigger of this body, or this body entered other's trigger."
+  }
+  msg "api.events.OnTriggerExit" {
+    text="Runs when the overlap with a trigger ends."
+  }
+  msg "api.gameplay.Checkpoint2D.Reached" {
+    text="Fires when a node takes this checkpoint."
+  }
+  msg "api.gameplay.Health.Damage" {
+    text="Removes hit points and reports whether they were removed: not while invulnerable, dead or for amounts below 1."
+  }
+  msg "api.gameplay.Health.Damaged" {
+    text="Fires once per step with the damage taken in it."
+  }
+  msg "api.gameplay.Health.Died" {
+    text="Fires once when the hit points reach zero."
+  }
+  msg "api.gameplay.Health.Heal" {
+    text="Adds hit points up to Max; it does nothing while dead."
+  }
+  msg "api.gameplay.Health.Healed" {
+    text="Fires with the hit points restored."
+  }
+  msg "api.gameplay.Health.Kill" {
+    text="Sets the hit points to zero."
+  }
+  msg "api.gameplay.Health.Revive" {
+    text="Brings the node back with this many hit points; 0 means Max."
+  }
+  msg "api.gameplay.Health.Revived" {
+    text="Fires after Revive."
+  }
+  msg "api.gameplay.Health.SetInvulnerable" {
+    text="Ignores damage for some seconds of game time."
+  }
+  msg "api.gameplay.Hitbox2D.Activate" {
+    text="Starts a new attack: targets hit before can be hit again."
+  }
+  msg "api.gameplay.Hitbox2D.Deactivate" {
+    text="Stops dealing damage."
+  }
+  msg "api.gameplay.Hitbox2D.Hit" {
+    text="Fires for each target damaged."
+  }
+  msg "api.gameplay.Hitbox2D.Pulse" {
+    text="Deals one round of damage in the next step, active or not."
+  }
+  msg "api.gameplay.Motion2D.AddDisplacement" {
+    text="Moves by an offset in world units on the next step, through walls and slopes like a move, without changing the velocity; root motion of an Animator uses it."
+  }
+  msg "api.gameplay.Motion2D.AddVelocity" {
+    text="Adds a push once, for knockback."
+  }
+  msg "api.gameplay.Motion2D.Climbed" {
+    text="Fires when the character starts climbing onto a ledge."
+  }
+  msg "api.gameplay.Motion2D.Dash" {
+    text="Moves at a fixed velocity for some seconds."
+  }
+  msg "api.gameplay.Motion2D.HitCeiling" {
+    text="Fires when the character bumps into a ceiling."
+  }
+  msg "api.gameplay.Motion2D.HitWall" {
+    text="Fires when the character starts touching a wall."
+  }
+  msg "api.gameplay.Motion2D.Jump" {
+    text="Jumps on the next step if grounded, within coyote time or later within the jump buffer."
+  }
+  msg "api.gameplay.Motion2D.JumpReleased" {
+    text="Cuts a rising jump by Jump Cut Multiplier."
+  }
+  msg "api.gameplay.Motion2D.Jumped" {
+    text="Fires when a jump starts."
+  }
+  msg "api.gameplay.Motion2D.Landed" {
+    text="Fires when the character touches a floor, with the falling speed."
+  }
+  msg "api.gameplay.Motion2D.LeftGround" {
+    text="Fires when the character walks off a floor without jumping."
+  }
+  msg "api.gameplay.Motion2D.Move" {
+    text="Sets the horizontal input, -1..1; it stays until the next Move."
+  }
+  msg "api.gameplay.Motion2D.MoveDir" {
+    text="Sets the top-down input; a longer vector is cut to length 1."
+  }
+  msg "api.gameplay.Motion2D.Stop" {
+    text="Zeroes the velocity and ends a dash."
+  }
+  msg "api.gameplay.Motion2D.Teleport" {
+    text="Moves to a position on the next step and resets velocity and state."
+  }
+  msg "api.gameplay.Pickup2D.Collected" {
+    text="Fires with the node that took the pickup."
+  }
+  msg "api.gameplay.Respawn.Respawned" {
+    text="Fires when the node is back at its point."
+  }
+  msg "api.gameplay.Respawn.SetPoint" {
+    text="Sets the respawn point."
+  }
+  msg "api.gameplay.Respawn.Trigger" {
+    text="Respawns the node after Delay."
+  }
+  msg "api.gameplay.StateMachine.Changed" {
+    text="Fires after a state change with the indices of the old and the new state."
+  }
+  msg "api.gameplay.StateMachine.Go" {
+    text="Switches to a state after the current hook returns; Exit of the old state and Enter of the new one run in between. Returns false for an unknown state."
+  }
+  msg "api.gameplay.StateMachine.Is" {
+    text="Reports whether the machine is in a state."
+  }
+  msg "api.gameplay.StateMachine.TimeIn" {
+    text="Returns the seconds spent in the current state."
+  }
+  msg "api.physics.Body2D.ApplyForce" {
+    text="Pushes the body's center of mass during the next physics step. Call it from FixedUpdate."
+  }
+  msg "api.physics.Body2D.ApplyForceAt" {
+    text="Pushes the body at a world point, which also spins it."
+  }
+  msg "api.physics.Body2D.ApplyImpulse" {
+    text="Changes the velocity at once, scaled by mass."
+  }
+  msg "api.physics.Body2D.ApplyImpulseAt" {
+    text="Applies an impulse at a world point."
+  }
+  msg "api.physics.Body2D.ApplyTorque" {
+    text="Spins the body during the next physics step."
+  }
+  msg "api.physics.Body2D.Mass()" {
+    text="Returns the mass computed from the colliders or the override."
+  }
+  msg "api.physics.Body2D.MoveTo" {
+    text="Drives a kinematic body to the pose by the end of the next physics step, pushing dynamic bodies on the way. Call it from FixedUpdate."
+  }
+  msg "api.physics.Body2D.SetAngularVelocity" {
+    text="Sets the spin in radians per second."
+  }
+  msg "api.physics.Body2D.SetVelocity" {
+    text="Sets the linear velocity in units per second."
+  }
+  msg "api.physics.Body2D.Sleep" {
+    text="Stops the body until something touches it."
+  }
+  msg "api.physics.Body2D.Teleport" {
+    text="Moves the body to a world pose without sweeping, keeping its velocity."
+  }
+  msg "api.physics.Body2D.WakeUp" {
+    text="Makes a sleeping body simulate again."
+  }
+  msg "diag.AES1001" {
+    text="This character cannot appear here."
+  }
+  msg "diag.AES1001.fix" {
+    text="Use ASCII letters for names, put other text inside a string, and use && or || instead of & or |."
+  }
+  msg "diag.AES1002" {
+    text="The string literal has no closing quote."
+  }
+  msg "diag.AES1002.fix" {
+    text="Add \" at the end of the string."
+  }
+  msg "diag.AES1003" {
+    text="The escape sequence after \\ is not supported."
+  }
+  msg "diag.AES1003.fix" {
+    text="Use \\n, \\t, \\\", \\\\ or \\uXXXX."
+  }
+  msg "diag.AES1004" {
+    text="The word is reserved for a future version of the language."
+  }
+  msg "diag.AES1004.fix" {
+    text="Rename the identifier."
+  }
+  msg "diag.AES1005" {
+    text="The number literal is malformed."
+  }
+  msg "diag.AES1005.fix" {
+    text="Write digits after the point (1.0, not 1.) and separate digits with _ only between digits."
+  }
+  msg "diag.AES1006" {
+    text="The block comment has no closing */."
+  }
+  msg "diag.AES1006.fix" {
+    text="Add */ where the comment should end."
+  }
+  msg "diag.AES1007" {
+    text="The file contains bytes that are not valid UTF-8."
+  }
+  msg "diag.AES1007.fix" {
+    text="Save the file as UTF-8."
+  }
+  msg "diag.AES1008" {
+    text="A string literal cannot span lines."
+  }
+  msg "diag.AES1008.fix" {
+    text="Close the string on the same line or use \\n."
+  }
+  msg "diag.AES1101" {
+    text="The parser expected something else at this point."
+  }
+  msg "diag.AES1101.fix" {
+    text="Check for a missing bracket, comma or operator right before this position."
+  }
+  msg "diag.AES1102" {
+    text="Every script file starts with a package clause."
+  }
+  msg "diag.AES1102.fix" {
+    text="Add `package <directory name>` as the first line."
+  }
+  msg "diag.AES1103" {
+    text="Attributes are allowed only on scripts and script fields."
+  }
+  msg "diag.AES1103.fix" {
+    text="Move the attribute above a script or a `var` inside a script, or remove it."
+  }
+  msg "diag.AES1104" {
+    text="Imports must come before any declaration."
+  }
+  msg "diag.AES1104.fix" {
+    text="Move the import to the top of the file, after the package clause."
+  }
+  msg "diag.AES1105" {
+    text="Packages cannot hold mutable state."
+  }
+  msg "diag.AES1105.fix" {
+    text="Use const for fixed values, or move the variable into a script as a field."
+  }
+  msg "diag.AES1106" {
+    text="Types, functions and constants are declared at package level."
+  }
+  msg "diag.AES1106.fix" {
+    text="Move the declaration out of the function body."
+  }
+  msg "diag.AES1107" {
+    text="The left side of := must be one new name."
+  }
+  msg "diag.AES1107.fix" {
+    text="Write `name := value`, or use = to assign to an existing field or element."
+  }
+  msg "diag.AES1108" {
+    text="A composite literal key must be a field name."
+  }
+  msg "diag.AES1108.fix" {
+    text="Write `Type{Field: value}`."
+  }
+  msg "diag.AES1109" {
+    text="The code is nested too deeply."
+  }
+  msg "diag.AES1109.fix" {
+    text="Split the expression or block into helper functions."
+  }
+  msg "diag.AES1110" {
+    text="The single part of a for loop must be a condition."
+  }
+  msg "diag.AES1110.fix" {
+    text="Write `for cond {}` or `for init; cond; post {}`."
+  }
+  msg "diag.AES1111" {
+    text="A slice type here must be followed by a literal."
+  }
+  msg "diag.AES1111.fix" {
+    text="Write `[]T{...}`."
+  }
+  msg "diag.AES1112" {
+    text="Only one value can be assigned per statement."
+  }
+  msg "diag.AES1112.fix" {
+    text="Split the assignment into several statements."
+  }
+  msg "diag.AES1113" {
+    text="else must follow the closing brace on the same line."
+  }
+  msg "diag.AES1113.fix" {
+    text="Write `} else {`."
+  }
+  msg "diag.AES2001" {
+    text="The name is not declared in this scope."
+  }
+  msg "diag.AES2001.fix" {
+    text="Check the spelling, declare it, or add the missing import."
+  }
+  msg "diag.AES2002" {
+    text="The name refers to something that is not a type."
+  }
+  msg "diag.AES2002.fix" {
+    text="Use a type name such as int, Vec2 or a declared struct."
+  }
+  msg "diag.AES2003" {
+    text="The value has a different type than the place it is used."
+  }
+  msg "diag.AES2003.fix" {
+    text="Convert explicitly, for example float(x) or int(f)."
+  }
+  msg "diag.AES2004" {
+    text="The operator is not defined for these operand types."
+  }
+  msg "diag.AES2004.fix" {
+    text="Convert the operands to a type the operator supports."
+  }
+  msg "diag.AES2005" {
+    text="The call passes a different number of arguments than the function expects."
+  }
+  msg "diag.AES2005.fix" {
+    text="Match the function signature; hover the function to see it."
+  }
+  msg "diag.AES2006" {
+    text="The expression is not a function."
+  }
+  msg "diag.AES2006.fix" {
+    text="Remove the parentheses or call a function instead."
+  }
+  msg "diag.AES2007" {
+    text="The left side cannot be assigned to."
+  }
+  msg "diag.AES2007.fix" {
+    text="Assign to a variable, field, slice element or writable component field."
+  }
+  msg "diag.AES2008" {
+    text="The type has no field or member with this name."
+  }
+  msg "diag.AES2008.fix" {
+    text="Check the spelling; press Ctrl+Space after . to see the members."
+  }
+  msg "diag.AES2009" {
+    text="The name starts with a lowercase letter, so it is private to its package."
+  }
+  msg "diag.AES2009.fix" {
+    text="Rename it to start with an uppercase letter if other packages need it."
+  }
+  msg "diag.AES2010" {
+    text="A constant needs a value known at compile time."
+  }
+  msg "diag.AES2010.fix" {
+    text="Use literals and other constants only."
+  }
+  msg "diag.AES2011" {
+    text="Integer division by a constant zero."
+  }
+  msg "diag.AES2011.fix" {
+    text="Check the divisor."
+  }
+  msg "diag.AES2012" {
+    text="The constant does not fit its type."
+  }
+  msg "diag.AES2012.fix" {
+    text="Use a smaller value or a wider type."
+  }
+  msg "diag.AES2013" {
+    text="The function can reach its end without returning a value."
+  }
+  msg "diag.AES2013.fix" {
+    text="Add a return statement on every path."
+  }
+  msg "diag.AES2014" {
+    text="break or continue is outside a loop or switch."
+  }
+  msg "diag.AES2014.fix" {
+    text="Move it inside a for loop, or use return."
+  }
+  msg "diag.AES2015" {
+    text="A switch on an enum must handle every member."
+  }
+  msg "diag.AES2015.fix" {
+    text="Add the missing cases or a default."
+  }
+  msg "diag.AES2016" {
+    text="The same case value appears twice."
+  }
+  msg "diag.AES2016.fix" {
+    text="Remove the duplicate case."
+  }
+  msg "diag.AES2017" {
+    text="A struct cannot contain itself by value."
+  }
+  msg "diag.AES2017.fix" {
+    text="Store the relation in a slice or remove the field."
+  }
+  msg "diag.AES2018" {
+    text="The name is already declared in this scope."
+  }
+  msg "diag.AES2018.fix" {
+    text="Rename one of the declarations or remove one of them."
+  }
+  msg "diag.AES2019" {
+    text="The returned value does not match the function result."
+  }
+  msg "diag.AES2019.fix" {
+    text="Return a value of the declared type, or none in a function without a result."
+  }
+  msg "diag.AES2020" {
+    text="nil has no type of its own here."
+  }
+  msg "diag.AES2020.fix" {
+    text="Give the variable an explicit reference type: `var r NodeRef = nil`."
+  }
+  msg "diag.AES2021" {
+    text="The type argument is not valid here."
+  }
+  msg "diag.AES2021.fix" {
+    text="Use Get<T>/Has<T> with a component name, AssetRef<Texture|Scene|Prefab|Mesh>."
+  }
+  msg "diag.AES2022" {
+    text="A lifecycle method has the wrong signature."
+  }
+  msg "diag.AES2022.fix" {
+    text="Use func Ready(), func Update(dt float), func FixedUpdate(dt float), func Reloaded()."
+  }
+  msg "diag.AES2023" {
+    text="These types cannot be converted into each other."
+  }
+  msg "diag.AES2023.fix" {
+    text="Convert through int, float or string as documented."
+  }
+  msg "diag.AES2024" {
+    text="The expression does not produce a value."
+  }
+  msg "diag.AES2024.fix" {
+    text="Call the function, or use a value instead of a type or package."
+  }
+  msg "diag.AES2025" {
+    text="The value is computed and then thrown away."
+  }
+  msg "diag.AES2025.fix" {
+    text="Assign the result or remove the expression."
+  }
+  msg "diag.AES2026" {
+    text="Constants refer to each other in a cycle."
+  }
+  msg "diag.AES2026.fix" {
+    text="Break the cycle with a literal value."
+  }
+  msg "diag.AES2027" {
+    text="Constants can only be bool, int, float, string or enum."
+  }
+  msg "diag.AES2027.fix" {
+    text="Use a script field for other types."
+  }
+  msg "diag.AES2028" {
+    text="The composite literal does not fit its type."
+  }
+  msg "diag.AES2028.fix" {
+    text="Use all keyed or all positional values, with the right count."
+  }
+  msg "diag.AES2029" {
+    text="The function is too large to compile."
+  }
+  msg "diag.AES2029.fix" {
+    text="Split it into smaller functions."
+  }
+  msg "diag.AES2030" {
+    text="The package was not built because a dependency has errors."
+  }
+  msg "diag.AES2030.fix" {
+    text="Fix the errors in the named package."
+  }
+  msg "diag.AES2031" {
+    text="The variable is declared but never read."
+  }
+  msg "diag.AES2031.fix" {
+    text="Use it or remove it."
+  }
+  msg "diag.AES2032" {
+    text="Slice elements may occupy at most 32 value slots."
+  }
+  msg "diag.AES2032.fix" {
+    text="Make the element struct smaller or store several slices."
+  }
+  msg "diag.AES2050" {
+    text="yield suspends a coroutine, so it is allowed only inside a function declared as coroutine."
+  }
+  msg "diag.AES2050.fix" {
+    text="Declare the method as func Name() coroutine and start it with start Name()."
+  }
+  msg "diag.AES2051" {
+    text="A coroutine cannot be called like a plain function."
+  }
+  msg "diag.AES2051.fix" {
+    text="Write start Name(args); keep the result in a Coroutine field to stop it later."
+  }
+  msg "diag.AES2052" {
+    text="start runs a coroutine method of the current script."
+  }
+  msg "diag.AES2052.fix" {
+    text="Mark the method with coroutine after its signature, or call a plain method directly."
+  }
+  msg "diag.AES2053" {
+    text="A coroutine is a script method and returns no value."
+  }
+  msg "diag.AES2053.fix" {
+    text="Move it into a script and remove the result type; pass results through fields or signals."
+  }
+  msg "diag.AES2054" {
+    text="The handler parameters must match the signal parameters exactly."
+  }
+  msg "diag.AES2054.fix" {
+    text="Change the handler to take the same types in the same order as the signal."
+  }
+  msg "diag.AES2055" {
+    text="Connect takes a plain method of this script or ref.Method; signals are emitted only by their own script."
+  }
+  msg "diag.AES2055.fix" {
+    text="Pass a method name like OnDied or other.OnDied; call Emit only on a signal of this script."
+  }
+  msg "diag.AES2056" {
+    text="Ready, Update, FixedUpdate and Reloaded are called by the engine and cannot be coroutines."
+  }
+  msg "diag.AES2056.fix" {
+    text="Keep the lifecycle method plain and write start Name() inside it."
+  }
+  msg "diag.AES2057" {
+    text="wait and waitUnscaled take seconds as float, frames and fixed take a count as int, a bare yield value must be a Coroutine."
+  }
+  msg "diag.AES2057.fix" {
+    text="Convert the value, for example yield wait(float(n)) or yield frames(int(t))."
+  }
+  msg "diag.AES2058" {
+    text="ScriptRef and GetScript need the name of a script type."
+  }
+  msg "diag.AES2058.fix" {
+    text="Use the script name, or pkg.Name when the short name is ambiguous."
+  }
+  msg "diag.AES2059" {
+    text="Lifecycle methods and coroutines run only on their own instance."
+  }
+  msg "diag.AES2059.fix" {
+    text="Call a plain method of the target that does the work, or connect to a signal."
+  }
+  msg "diag.AES2060" {
+    text="A script method named after an engine event receives that event and must match its signature."
+  }
+  msg "diag.AES2060.fix" {
+    text="Use the parameter types shown in the hover for the event, or rename the method if it is not meant to be a handler."
+  }
+  msg "diag.AES2061" {
+    text="Engine event handlers are called only by the engine."
+  }
+  msg "diag.AES2061.fix" {
+    text="Move the shared code into a plain method and call that from the handler and from your code."
+  }
+  msg "diag.AES3001" {
+    text="Only scalar, vector, enum and reference fields can be exported."
+  }
+  msg "diag.AES3001.fix" {
+    text="Remove @export or change the field type."
+  }
+  msg "diag.AES3002" {
+    text="The attribute is not known."
+  }
+  msg "diag.AES3002.fix" {
+    text="Use @export, @former, @hide or @pause."
+  }
+  msg "diag.AES3003" {
+    text="The attribute argument is not valid."
+  }
+  msg "diag.AES3003.fix" {
+    text="See the attribute in the Script Reference; hover it for the accepted arguments."
+  }
+  msg "diag.AES3004" {
+    text="The attribute or argument is given twice."
+  }
+  msg "diag.AES3004.fix" {
+    text="Keep one."
+  }
+  msg "diag.AES3005" {
+    text="The attribute does not apply to this declaration."
+  }
+  msg "diag.AES3005.fix" {
+    text="Move it to a script or field, or remove it."
+  }
+  msg "diag.AES3006" {
+    text="A field default must be a constant."
+  }
+  msg "diag.AES3006.fix" {
+    text="Use a literal or constant, or set the value in Ready."
+  }
+  msg "diag.AES3007" {
+    text="Only scalar, vector, enum, node and asset fields can be saved."
+  }
+  msg "diag.AES3007.fix" {
+    text="Remove @persist and save the value in OnSave instead."
+  }
+  msg "diag.AES4001" {
+    text="The package clause must match the directory name."
+  }
+  msg "diag.AES4001.fix" {
+    text="Rename the package clause or move the file."
+  }
+  msg "diag.AES4002" {
+    text="No script package or engine module has this path."
+  }
+  msg "diag.AES4002.fix" {
+    text="Check the path; script packages are directories under scripts/."
+  }
+  msg "diag.AES4003" {
+    text="The package is imported twice."
+  }
+  msg "diag.AES4003.fix" {
+    text="Remove one import."
+  }
+  msg "diag.AES4004" {
+    text="A package cannot import itself."
+  }
+  msg "diag.AES4004.fix" {
+    text="Remove the import."
+  }
+  msg "diag.AES4005" {
+    text="Packages import each other in a cycle."
+  }
+  msg "diag.AES4005.fix" {
+    text="Move the shared code into a third package."
+  }
+  msg "diag.AES4006" {
+    text="The name is declared twice."
+  }
+  msg "diag.AES4006.fix" {
+    text="Rename or remove one declaration."
+  }
+  msg "diag.AES4007" {
+    text="An import uses the same name as a declaration."
+  }
+  msg "diag.AES4007.fix" {
+    text="Rename the declaration."
+  }
+  msg "diag.AES4008" {
+    text="The import is not used."
+  }
+  msg "diag.AES4008.fix" {
+    text="Remove it."
+  }
+  msg "diag.AES4009" {
+    text="Package paths under aego/ belong to the engine."
+  }
+  msg "diag.AES4009.fix" {
+    text="Change the project module."
+  }
+  msg "diag.AES4010" {
+    text="A script package and an engine module share the same path."
+  }
+  msg "diag.AES4010.fix" {
+    text="Rename the script directory."
+  }
+  msg "diag.AES5001" {
+    text="The engine or native module has no such member."
+  }
+  msg "diag.AES5001.fix" {
+    text="Check the name; press Ctrl+Space after the module name to list members."
+  }
+  msg "diag.AES6001" {
+    text="The callback ran more instructions than its budget, usually an endless loop."
+  }
+  msg "diag.AES6001.fix" {
+    text="Make sure every loop ends within one frame."
+  }
+  msg "diag.AES6002" {
+    text="A native Go binding panicked."
+  }
+  msg "diag.AES6002.fix" {
+    text="Fix the Go function; the Console shows its stack."
+  }
+  msg "diag.AES6003" {
+    text="Calls nested more than 256 levels, usually endless recursion or re-emitting a signal from its handler."
+  }
+  msg "diag.AES6003.fix" {
+    text="Add a stopping condition."
+  }
+  msg "diag.AES6004" {
+    text="A reference is nil or its node, component or script instance no longer exists."
+  }
+  msg "diag.AES6004.fix" {
+    text="Check `if ref != nil` and IsAlive before use."
+  }
+  msg "diag.AES6005" {
+    text="The slice index is outside the slice."
+  }
+  msg "diag.AES6005.fix" {
+    text="Check the index against len(slice)."
+  }
+  msg "diag.AES6006" {
+    text="Integer division by zero at runtime."
+  }
+  msg "diag.AES6006.fix" {
+    text="Check the divisor before dividing."
+  }
+  msg "diag.AES6007" {
+    text="A string or slice handle is invalid."
+  }
+  msg "diag.AES6007.fix" {
+    text="Report this as an engine bug."
+  }
+  msg "diag.AES6008" {
+    text="A function reached its end without returning."
+  }
+  msg "diag.AES6008.fix" {
+    text="Add the missing return."
+  }
+  msg "diag.AES6009" {
+    text="A call or binding could not be linked."
+  }
+  msg "diag.AES6009.fix" {
+    text="Rebuild the scripts and native code."
+  }
+  msg "diag.AES6010" {
+    text="An engine or native function reported an error."
+  }
+  msg "diag.AES6010.fix" {
+    text="Read the message; it names the cause."
+  }
+  msg "diag.AES6100" {
+    text="A compiled artifact is corrupt."
+  }
+  msg "diag.AES6100.fix" {
+    text="Reimport the scripts (Assets → Reimport)."
+  }
+  msg "docs.fix" {
+    text="Fix:"
+  }
+  msg "docs.group.components" {
+    text="Components"
+  }
+  msg "docs.group.diagnostics" {
+    text="Diagnostics"
+  }
+  msg "docs.group.editor" {
+    text="Editor"
+  }
+  msg "docs.group.extending" {
+    text="Extending Aego"
+  }
+  msg "docs.group.gameplay" {
+    text="Gameplay"
+  }
+  msg "docs.group.project" {
+    text="Project"
+  }
+  msg "docs.group.ref-cli" {
+    text="CLI"
+  }
+  msg "docs.group.ref-formats" {
+    text="File formats"
+  }
+  msg "docs.group.ref-script" {
+    text="Script API"
+  }
+  msg "docs.group.ref-settings" {
+    text="Project settings"
+  }
+  msg "docs.group.rendering" {
+    text="Rendering"
+  }
+  msg "docs.group.scenes" {
+    text="Scenes & Prefabs"
+  }
+  msg "docs.group.script" {
+    text="Aego Script"
+  }
+  msg "docs.group.start" {
+    text="Getting started"
+  }
+  msg "docs.group.tools" {
+    text="Tools & Agents"
+  }
+  msg "enum.animation.LoopOverride.clip" {
+    text="clip"
+  }
+  msg "enum.animation.LoopOverride.loop" {
+    text="loop"
+  }
+  msg "enum.animation.LoopOverride.once" {
+    text="once"
+  }
+  msg "enum.animation.LoopOverride.pingPong" {
+    text="pingPong"
+  }
+  msg "enum.animation.RootMotion.none" {
+    text="none"
+  }
+  msg "enum.animation.RootMotion.toMotion" {
+    text="toMotion"
+  }
+  msg "enum.animation.RootMotion.toTransform" {
+    text="toTransform"
+  }
+  msg "enum.animation.TimeDomain.game" {
+    text="game"
+  }
+  msg "enum.animation.TimeDomain.unscaled" {
+    text="unscaled"
+  }
+  msg "enum.audio.Bus.ambience" {
+    text="ambience"
+  }
+  msg "enum.audio.Bus.master" {
+    text="master"
+  }
+  msg "enum.audio.Bus.music" {
+    text="music"
+  }
+  msg "enum.audio.Bus.sfx" {
+    text="sfx"
+  }
+  msg "enum.audio.Bus.ui" {
+    text="ui"
+  }
+  msg "enum.audio.Bus.voice" {
+    text="voice"
+  }
+  msg "enum.audio.PauseWith.game" {
+    text="game"
+  }
+  msg "enum.audio.PauseWith.never" {
+    text="never"
+  }
+  msg "enum.camera.TimeDomain.game" {
+    text="game"
+  }
+  msg "enum.camera.TimeDomain.unscaled" {
+    text="unscaled"
+  }
+  msg "enum.engine.BlendMode.additive" {
+    text="additive"
+  }
+  msg "enum.engine.BlendMode.opaque" {
+    text="opaque"
+  }
+  msg "enum.engine.BlendMode.premultiplied" {
+    text="premultiplied"
+  }
+  msg "enum.engine.FilterMode.linear" {
+    text="linear"
+  }
+  msg "enum.engine.FilterMode.nearest" {
+    text="nearest"
+  }
+  msg "enum.engine.ScaleMode.fitVirtual" {
+    text="fitVirtual"
+  }
+  msg "enum.engine.ScaleMode.free" {
+    text="free"
+  }
+  msg "enum.engine.ScaleMode.pixelPerfect" {
+    text="pixelPerfect"
+  }
+  msg "enum.gameplay.HitPolicy.onEnter" {
+    text="onEnter"
+  }
+  msg "enum.gameplay.HitPolicy.oncePerActivation" {
+    text="oncePerActivation"
+  }
+  msg "enum.gameplay.HitPolicy.periodic" {
+    text="periodic"
+  }
+  msg "enum.gameplay.MotionMode.platformer" {
+    text="platformer"
+  }
+  msg "enum.gameplay.MotionMode.topDown" {
+    text="topDown"
+  }
+  msg "enum.gameplay.PlatformLeave.add" {
+    text="add"
+  }
+  msg "enum.gameplay.PlatformLeave.drop" {
+    text="drop"
+  }
+  msg "enum.gameplay.PlatformLeave.keep" {
+    text="keep"
+  }
+  msg "enum.gameplay.Shape.box" {
+    text="box"
+  }
+  msg "enum.gameplay.Shape.circle" {
+    text="circle"
+  }
+  msg "enum.physics.BodyType.dynamic" {
+    text="dynamic"
+  }
+  msg "enum.physics.BodyType.kinematic" {
+    text="kinematic"
+  }
+  msg "enum.physics.BodyType.static" {
+    text="static"
+  }
+  msg "enum.physics.MassMode.auto" {
+    text="auto"
+  }
+  msg "enum.physics.MassMode.override" {
+    text="override"
+  }
+  msg "schema.animation.AnimationPlayer" {
+    text="Animation Player"
+  }
+  msg "schema.animation.AnimationPlayer.clip" {
+    text="Clip"
+  }
+  msg "schema.animation.AnimationPlayer.clip.doc" {
+    text="Clip to play."
+  }
+  msg "schema.animation.AnimationPlayer.cycle" {
+    text="Cycle"
+  }
+  msg "schema.animation.AnimationPlayer.cycle.doc" {
+    text="Cycles of a looping clip so far."
+  }
+  msg "schema.animation.AnimationPlayer.doc" {
+    text="Plays an animation clip on its node and the nodes below it: property tracks, sprite frames and events. Clip time, gameplay events and tracks other than the transform pose advance on fixed steps, so a replay gives the same result at any frame rate."
+  }
+  msg "schema.animation.AnimationPlayer.loop" {
+    text="Loop"
+  }
+  msg "schema.animation.AnimationPlayer.loop.doc" {
+    text="clip keeps the loop mode of the clip; once, loop and pingPong override it."
+  }
+  msg "schema.animation.AnimationPlayer.playOnStart" {
+    text="Play On Start"
+  }
+  msg "schema.animation.AnimationPlayer.playOnStart.doc" {
+    text="Starts the clip when Play starts."
+  }
+  msg "schema.animation.AnimationPlayer.playing" {
+    text="Playing"
+  }
+  msg "schema.animation.AnimationPlayer.playing.doc" {
+    text="Whether the clip plays."
+  }
+  msg "schema.animation.AnimationPlayer.speed" {
+    text="Speed"
+  }
+  msg "schema.animation.AnimationPlayer.speed.doc" {
+    text="Playback speed: 1 is normal, 2 twice as fast; a negative speed plays backwards."
+  }
+  msg "schema.animation.AnimationPlayer.time" {
+    text="Time"
+  }
+  msg "schema.animation.AnimationPlayer.time.doc" {
+    text="Time inside the clip, in seconds."
+  }
+  msg "schema.animation.AnimationPlayer.timeDomain" {
+    text="Time Domain"
+  }
+  msg "schema.animation.AnimationPlayer.timeDomain.doc" {
+    text="game follows game time and pauses with it; unscaled runs in real time while paused, for menus and other presentation."
+  }
+  msg "schema.animation.Animator" {
+    text="Animator"
+  }
+  msg "schema.animation.Animator.blending" {
+    text="Blending"
+  }
+  msg "schema.animation.Animator.blending.doc" {
+    text="Whether a transition is blending."
+  }
+  msg "schema.animation.Animator.controller" {
+    text="Controller"
+  }
+  msg "schema.animation.Animator.controller.doc" {
+    text="Controller with the states, parameters and transitions."
+  }
+  msg "schema.animation.Animator.doc" {
+    text="Plays the states of an animation controller and blends between them when its parameters change. The graph, the blends, root motion and gameplay events run on fixed steps, so replays match at any frame rate."
+  }
+  msg "schema.animation.Animator.playOnStart" {
+    text="Play On Start"
+  }
+  msg "schema.animation.Animator.playOnStart.doc" {
+    text="Enters the entry state when Play starts."
+  }
+  msg "schema.animation.Animator.progress" {
+    text="Progress"
+  }
+  msg "schema.animation.Animator.progress.doc" {
+    text="Time in the current state divided by the length of its clip; 1 is one full clip."
+  }
+  msg "schema.animation.Animator.rootFallback" {
+    text="Root Fallback"
+  }
+  msg "schema.animation.Animator.rootFallback.doc" {
+    text="toMotion moves the transform instead when the node has no Motion 2D."
+  }
+  msg "schema.animation.Animator.rootMotion" {
+    text="Root Motion"
+  }
+  msg "schema.animation.Animator.rootMotion.doc" {
+    text="What the root track moves: none ignores it, toMotion moves the node through Motion 2D so walls stop it, toTransform sets its position."
+  }
+  msg "schema.animation.Animator.rootScale" {
+    text="Root Scale"
+  }
+  msg "schema.animation.Animator.rootScale.doc" {
+    text="Multiplies root motion in the node's parent space; set X to -1 while the character faces left."
+  }
+  msg "schema.animation.Animator.speed" {
+    text="Speed"
+  }
+  msg "schema.animation.Animator.speed.doc" {
+    text="Multiplies the speed of every state; 1 is normal speed."
+  }
+  msg "schema.animation.Animator.state" {
+    text="State"
+  }
+  msg "schema.animation.Animator.state.doc" {
+    text="Current state."
+  }
+  msg "schema.animation.Animator.time" {
+    text="Time"
+  }
+  msg "schema.animation.Animator.time.doc" {
+    text="Seconds in the current state."
+  }
+  msg "schema.animation.Animator.timeDomain" {
+    text="Time Domain"
+  }
+  msg "schema.animation.Animator.timeDomain.doc" {
+    text="game follows game time and pauses with it; unscaled runs in real time while paused, for presentation only."
+  }
+  msg "schema.audio.AudioListener2D" {
+    text="Audio Listener 2D"
+  }
+  msg "schema.audio.AudioListener2D.active" {
+    text="Active"
+  }
+  msg "schema.audio.AudioListener2D.active.doc" {
+    text="The first active listener in the hierarchy is used."
+  }
+  msg "schema.audio.AudioListener2D.doc" {
+    text="Hears spatial sound from its node. Without one the camera of the main output listens."
+  }
+  msg "schema.audio.AudioSource2D" {
+    text="Audio Source 2D"
+  }
+  msg "schema.audio.AudioSource2D.bus" {
+    text="Bus"
+  }
+  msg "schema.audio.AudioSource2D.bus.doc" {
+    text="Mixer bus."
+  }
+  msg "schema.audio.AudioSource2D.clip" {
+    text="Clip"
+  }
+  msg "schema.audio.AudioSource2D.clip.doc" {
+    text="Sound to play; ignored when Event is set."
+  }
+  msg "schema.audio.AudioSource2D.doc" {
+    text="Plays a clip or an audio event from its node."
+  }
+  msg "schema.audio.AudioSource2D.event" {
+    text="Event"
+  }
+  msg "schema.audio.AudioSource2D.event.doc" {
+    text="Audio event to play instead of Clip; its settings replace the fields below."
+  }
+  msg "schema.audio.AudioSource2D.loop" {
+    text="Loop"
+  }
+  msg "schema.audio.AudioSource2D.loop.doc" {
+    text="Loops until stopped."
+  }
+  msg "schema.audio.AudioSource2D.maxDistance" {
+    text="Max Distance"
+  }
+  msg "schema.audio.AudioSource2D.maxDistance.doc" {
+    text="Silent from this distance, in world units."
+  }
+  msg "schema.audio.AudioSource2D.minDistance" {
+    text="Min Distance"
+  }
+  msg "schema.audio.AudioSource2D.minDistance.doc" {
+    text="Full volume up to this distance, in world units."
+  }
+  msg "schema.audio.AudioSource2D.pan" {
+    text="Pan"
+  }
+  msg "schema.audio.AudioSource2D.pan.doc" {
+    text="Left -1 to right 1, for a sound that is not spatial."
+  }
+  msg "schema.audio.AudioSource2D.panWidth" {
+    text="Pan Width"
+  }
+  msg "schema.audio.AudioSource2D.panWidth.doc" {
+    text="How far a spatial sound pans when it is at Max Distance to the side: 0 stays centred, 1 is fully left or right."
+  }
+  msg "schema.audio.AudioSource2D.pauseWith" {
+    text="Pause With"
+  }
+  msg "schema.audio.AudioSource2D.pauseWith.doc" {
+    text="game pauses with the world, never keeps playing."
+  }
+  msg "schema.audio.AudioSource2D.pitch" {
+    text="Pitch"
+  }
+  msg "schema.audio.AudioSource2D.pitch.doc" {
+    text="Playback speed and pitch together: 1 is normal, 2 an octave higher and twice as fast."
+  }
+  msg "schema.audio.AudioSource2D.playOnStart" {
+    text="Play On Start"
+  }
+  msg "schema.audio.AudioSource2D.playOnStart.doc" {
+    text="Plays when Play starts."
+  }
+  msg "schema.audio.AudioSource2D.playing" {
+    text="Playing"
+  }
+  msg "schema.audio.AudioSource2D.playing.doc" {
+    text="True while a sound of this source plays."
+  }
+  msg "schema.audio.AudioSource2D.position" {
+    text="Position"
+  }
+  msg "schema.audio.AudioSource2D.position.doc" {
+    text="Seconds into the sound."
+  }
+  msg "schema.audio.AudioSource2D.rolloff" {
+    text="Rolloff"
+  }
+  msg "schema.audio.AudioSource2D.rolloff.doc" {
+    text="Volume from Min Distance (time 0) to Max Distance (time 1)."
+  }
+  msg "schema.audio.AudioSource2D.spatial" {
+    text="Spatial"
+  }
+  msg "schema.audio.AudioSource2D.spatial.doc" {
+    text="Fades and pans with the distance to the listener."
+  }
+  msg "schema.audio.AudioSource2D.volume" {
+    text="Volume"
+  }
+  msg "schema.audio.AudioSource2D.volume.doc" {
+    text="Volume before the bus: 0 is silent, 1 is the clip as recorded."
+  }
+  msg "schema.audio.AudioZone2D" {
+    text="Audio Zone 2D"
+  }
+  msg "schema.audio.AudioZone2D.area" {
+    text="Area"
+  }
+  msg "schema.audio.AudioZone2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.audio.AudioZone2D.bus" {
+    text="Bus"
+  }
+  msg "schema.audio.AudioZone2D.bus.doc" {
+    text="Bus the zone turns down or up."
+  }
+  msg "schema.audio.AudioZone2D.doc" {
+    text="While the listener is inside Area, Bus is turned to Gain."
+  }
+  msg "schema.audio.AudioZone2D.fadeTime" {
+    text="Fade Time"
+  }
+  msg "schema.audio.AudioZone2D.fadeTime.doc" {
+    text="Seconds to fade in and out of the zone."
+  }
+  msg "schema.audio.AudioZone2D.gain" {
+    text="Gain"
+  }
+  msg "schema.audio.AudioZone2D.gain.doc" {
+    text="Volume of the bus inside the zone, 0 to 1."
+  }
+  msg "schema.audio.AudioZone2D.priority" {
+    text="Priority"
+  }
+  msg "schema.audio.AudioZone2D.priority.doc" {
+    text="Among overlapping zones on one bus the highest priority wins, then the one entered later."
+  }
+  msg "schema.camera.CameraBrain2D" {
+    text="Camera Brain 2D"
+  }
+  msg "schema.camera.CameraBrain2D.doc" {
+    text="Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."
+  }
+  msg "schema.camera.CameraBrain2D.output" {
+    text="Output"
+  }
+  msg "schema.camera.CameraBrain2D.output.doc" {
+    text="Output name; virtual cameras with the same Output drive this camera."
+  }
+  msg "schema.camera.CameraFollow2D" {
+    text="Camera Follow 2D"
+  }
+  msg "schema.camera.CameraFollow2D.damping" {
+    text="Damping"
+  }
+  msg "schema.camera.CameraFollow2D.damping.doc" {
+    text="How fast the camera catches up, per second on each axis. 0 follows rigidly."
+  }
+  msg "schema.camera.CameraFollow2D.deadzone" {
+    text="Deadzone"
+  }
+  msg "schema.camera.CameraFollow2D.deadzone.doc" {
+    text="Area of the view, in 0..1 of its width and height, where the target moves without moving the camera."
+  }
+  msg "schema.camera.CameraFollow2D.doc" {
+    text="Moves its virtual camera after Target, with a deadzone, damping and lookahead."
+  }
+  msg "schema.camera.CameraFollow2D.lookahead" {
+    text="Lookahead"
+  }
+  msg "schema.camera.CameraFollow2D.lookahead.doc" {
+    text="Seconds of target velocity the camera looks ahead on each axis."
+  }
+  msg "schema.camera.CameraFollow2D.lookaheadSmoothing" {
+    text="Lookahead Smoothing"
+  }
+  msg "schema.camera.CameraFollow2D.lookaheadSmoothing.doc" {
+    text="How fast the lookahead changes, per second. 0 changes at once."
+  }
+  msg "schema.camera.CameraFollow2D.maxLookahead" {
+    text="Max Lookahead"
+  }
+  msg "schema.camera.CameraFollow2D.maxLookahead.doc" {
+    text="Largest lookahead in world units on each axis. 0 is unlimited."
+  }
+  msg "schema.camera.CameraFollow2D.snapDistance" {
+    text="Snap Distance"
+  }
+  msg "schema.camera.CameraFollow2D.snapDistance.doc" {
+    text="A target jump longer than this, in world units, moves the camera at once. 0 never snaps."
+  }
+  msg "schema.camera.CameraFollow2D.target" {
+    text="Target"
+  }
+  msg "schema.camera.CameraFollow2D.target.doc" {
+    text="Node to follow; its interpolated position is used."
+  }
+  msg "schema.camera.CameraShake2D" {
+    text="Camera Shake 2D"
+  }
+  msg "schema.camera.CameraShake2D.decay" {
+    text="Decay"
+  }
+  msg "schema.camera.CameraShake2D.decay.doc" {
+    text="Trauma lost per second."
+  }
+  msg "schema.camera.CameraShake2D.doc" {
+    text="Tunes the shake of its virtual camera. Shake grows with trauma and fades over time."
+  }
+  msg "schema.camera.CameraShake2D.exponent" {
+    text="Exponent"
+  }
+  msg "schema.camera.CameraShake2D.exponent.doc" {
+    text="Shake is trauma to this power: 2 keeps small hits subtle."
+  }
+  msg "schema.camera.CameraShake2D.frequency" {
+    text="Frequency"
+  }
+  msg "schema.camera.CameraShake2D.frequency.doc" {
+    text="How fast the shake changes, in noise steps per second."
+  }
+  msg "schema.camera.CameraShake2D.maxAngle" {
+    text="Max Angle"
+  }
+  msg "schema.camera.CameraShake2D.maxAngle.doc" {
+    text="Largest rotation in radians at full trauma."
+  }
+  msg "schema.camera.CameraShake2D.maxOffset" {
+    text="Max Offset"
+  }
+  msg "schema.camera.CameraShake2D.maxOffset.doc" {
+    text="Largest offset in world units at full trauma."
+  }
+  msg "schema.camera.CameraZone2D" {
+    text="Camera Zone 2D"
+  }
+  msg "schema.camera.CameraZone2D.area" {
+    text="Area"
+  }
+  msg "schema.camera.CameraZone2D.area.doc" {
+    text="Trigger rectangle in this node's space."
+  }
+  msg "schema.camera.CameraZone2D.bounds" {
+    text="Bounds"
+  }
+  msg "schema.camera.CameraZone2D.bounds.doc" {
+    text="World rectangle used instead of the camera's bounds."
+  }
+  msg "schema.camera.CameraZone2D.camera" {
+    text="Camera"
+  }
+  msg "schema.camera.CameraZone2D.camera.doc" {
+    text="Virtual camera the zone activates. Empty uses the one on this node."
+  }
+  msg "schema.camera.CameraZone2D.doc" {
+    text="While Target is inside Area, Camera gets Priority and the zone's zoom and bounds."
+  }
+  msg "schema.camera.CameraZone2D.priority" {
+    text="Priority"
+  }
+  msg "schema.camera.CameraZone2D.priority.doc" {
+    text="Priority of the camera while the target is inside."
+  }
+  msg "schema.camera.CameraZone2D.target" {
+    text="Target"
+  }
+  msg "schema.camera.CameraZone2D.target.doc" {
+    text="Node that triggers the zone. Empty uses the follow target of the zone's camera."
+  }
+  msg "schema.camera.CameraZone2D.useBounds" {
+    text="Use Bounds"
+  }
+  msg "schema.camera.CameraZone2D.useBounds.doc" {
+    text="Replaces the camera's bounds while the zone is in effect."
+  }
+  msg "schema.camera.CameraZone2D.zoom" {
+    text="Zoom"
+  }
+  msg "schema.camera.CameraZone2D.zoom.doc" {
+    text="Zoom while the zone is in effect. 0 keeps the camera's zoom."
+  }
+  msg "schema.camera.VirtualCamera2D" {
+    text="Virtual Camera 2D"
+  }
+  msg "schema.camera.VirtualCamera2D.blendCurve" {
+    text="Blend Curve"
+  }
+  msg "schema.camera.VirtualCamera2D.blendCurve.doc" {
+    text="Shape of the blend; its time range is stretched over Blend Time."
+  }
+  msg "schema.camera.VirtualCamera2D.blendTime" {
+    text="Blend Time"
+  }
+  msg "schema.camera.VirtualCamera2D.blendTime.doc" {
+    text="Seconds to blend into this camera when it becomes active. 0 cuts."
+  }
+  msg "schema.camera.VirtualCamera2D.bounds" {
+    text="Bounds"
+  }
+  msg "schema.camera.VirtualCamera2D.bounds.doc" {
+    text="World rectangle the view stays inside. A smaller area centres the view on it."
+  }
+  msg "schema.camera.VirtualCamera2D.doc" {
+    text="A camera pose the brain can pick. The highest priority wins; switching blends from the current view."
+  }
+  msg "schema.camera.VirtualCamera2D.output" {
+    text="Output"
+  }
+  msg "schema.camera.VirtualCamera2D.output.doc" {
+    text="Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Brain 2D."
+  }
+  msg "schema.camera.VirtualCamera2D.priority" {
+    text="Priority"
+  }
+  msg "schema.camera.VirtualCamera2D.priority.doc" {
+    text="The enabled virtual camera with the highest priority drives its output."
+  }
+  msg "schema.camera.VirtualCamera2D.snapToPixels" {
+    text="Snap To Pixels"
+  }
+  msg "schema.camera.VirtualCamera2D.snapToPixels.doc" {
+    text="Rounds the final position to whole screen pixels. pixelPerfect cameras already do this."
+  }
+  msg "schema.camera.VirtualCamera2D.timeDomain" {
+    text="Time Domain"
+  }
+  msg "schema.camera.VirtualCamera2D.timeDomain.doc" {
+    text="unscaled blends and shakes in real time, also during hit-stop and pause; game follows the time scale."
+  }
+  msg "schema.camera.VirtualCamera2D.useBounds" {
+    text="Use Bounds"
+  }
+  msg "schema.camera.VirtualCamera2D.useBounds.doc" {
+    text="Keeps the visible area inside Bounds."
+  }
+  msg "schema.camera.VirtualCamera2D.zoom" {
+    text="Zoom"
+  }
+  msg "schema.camera.VirtualCamera2D.zoom.doc" {
+    text="Pixels per world unit while this camera is active. 0 keeps the zoom of the Camera 2D."
+  }
+  msg "schema.category.Runtime" {
+    text="Runtime"
+  }
+  msg "schema.engine.Camera2D" {
+    text="Camera 2D"
+  }
+  msg "schema.engine.Camera2D.active" {
+    text="Active"
+  }
+  msg "schema.engine.Camera2D.active.doc" {
+    text="Only active cameras render."
+  }
+  msg "schema.engine.Camera2D.clear" {
+    text="Clear"
+  }
+  msg "schema.engine.Camera2D.clear.doc" {
+    text="Clears the viewport before drawing."
+  }
+  msg "schema.engine.Camera2D.clearColor" {
+    text="Clear Color"
+  }
+  msg "schema.engine.Camera2D.clearColor.doc" {
+    text="Background color used when clear is on."
+  }
+  msg "schema.engine.Camera2D.doc" {
+    text="Renders an orthographic view from the node transform."
+  }
+  msg "schema.engine.Camera2D.mask" {
+    text="Mask"
+  }
+  msg "schema.engine.Camera2D.mask.doc" {
+    text="Visibility layers this camera renders. -1 renders every layer."
+  }
+  msg "schema.engine.Camera2D.order" {
+    text="Order"
+  }
+  msg "schema.engine.Camera2D.order.doc" {
+    text="Cameras with a lower order render first."
+  }
+  msg "schema.engine.Camera2D.scale" {
+    text="Scale"
+  }
+  msg "schema.engine.Camera2D.scale.doc" {
+    text="How the view adapts to the window: free, pixelPerfect or fitVirtual."
+  }
+  msg "schema.engine.Camera2D.viewport" {
+    text="Viewport"
+  }
+  msg "schema.engine.Camera2D.viewport.doc" {
+    text="Part of the screen the camera draws into, in normalized coordinates."
+  }
+  msg "schema.engine.Camera2D.virtual" {
+    text="Virtual"
+  }
+  msg "schema.engine.Camera2D.virtual.doc" {
+    text="Virtual resolution used by fitVirtual and pixelPerfect."
+  }
+  msg "schema.engine.Camera2D.zoom" {
+    text="Zoom"
+  }
+  msg "schema.engine.Camera2D.zoom.doc" {
+    text="Pixels per world unit. Larger values show a smaller part of the world."
+  }
+  msg "schema.engine.Camera3D" {
+    text="Camera 3D"
+  }
+  msg "schema.engine.Camera3D.active" {
+    text="Active"
+  }
+  msg "schema.engine.Camera3D.active.doc" {
+    text="Only active cameras render."
+  }
+  msg "schema.engine.Camera3D.clear" {
+    text="Clear"
+  }
+  msg "schema.engine.Camera3D.clear.doc" {
+    text="Clears the viewport before drawing."
+  }
+  msg "schema.engine.Camera3D.clearColor" {
+    text="Clear Color"
+  }
+  msg "schema.engine.Camera3D.clearColor.doc" {
+    text="Background color used when clear is on."
+  }
+  msg "schema.engine.Camera3D.doc" {
+    text="Renders a perspective view looking down the node -Z axis."
+  }
+  msg "schema.engine.Camera3D.far" {
+    text="Far"
+  }
+  msg "schema.engine.Camera3D.far.doc" {
+    text="Distance to the far clipping plane."
+  }
+  msg "schema.engine.Camera3D.fov" {
+    text="Fov"
+  }
+  msg "schema.engine.Camera3D.fov.doc" {
+    text="Vertical field of view in degrees."
+  }
+  msg "schema.engine.Camera3D.mask" {
+    text="Mask"
+  }
+  msg "schema.engine.Camera3D.mask.doc" {
+    text="Visibility layers this camera renders. -1 renders every layer."
+  }
+  msg "schema.engine.Camera3D.near" {
+    text="Near"
+  }
+  msg "schema.engine.Camera3D.near.doc" {
+    text="Distance to the near clipping plane."
+  }
+  msg "schema.engine.Camera3D.order" {
+    text="Order"
+  }
+  msg "schema.engine.Camera3D.order.doc" {
+    text="Cameras with a lower order render first."
+  }
+  msg "schema.engine.Camera3D.orthoSize" {
+    text="Ortho Size"
+  }
+  msg "schema.engine.Camera3D.orthoSize.doc" {
+    text="Half of the vertical extent in world units when orthographic is on."
+  }
+  msg "schema.engine.Camera3D.orthographic" {
+    text="Orthographic"
+  }
+  msg "schema.engine.Camera3D.orthographic.doc" {
+    text="Projects without perspective; sprites and meshes keep their size at any depth."
+  }
+  msg "schema.engine.Camera3D.viewport" {
+    text="Viewport"
+  }
+  msg "schema.engine.Camera3D.viewport.doc" {
+    text="Part of the screen the camera draws into, in normalized coordinates."
+  }
+  msg "schema.engine.MeshRenderer" {
+    text="Mesh Renderer"
+  }
+  msg "schema.engine.MeshRenderer.blend" {
+    text="Blend"
+  }
+  msg "schema.engine.MeshRenderer.blend.doc" {
+    text="Opaque writes depth. Premultiplied and additive are drawn after opaque meshes."
+  }
+  msg "schema.engine.MeshRenderer.color" {
+    text="Color"
+  }
+  msg "schema.engine.MeshRenderer.color.doc" {
+    text="Color multiplied with the texture."
+  }
+  msg "schema.engine.MeshRenderer.doc" {
+    text="Draws an unlit mesh at the node transform."
+  }
+  msg "schema.engine.MeshRenderer.doubleSided" {
+    text="Double Sided"
+  }
+  msg "schema.engine.MeshRenderer.doubleSided.doc" {
+    text="Draws the back faces too."
+  }
+  msg "schema.engine.MeshRenderer.filter" {
+    text="Filter"
+  }
+  msg "schema.engine.MeshRenderer.filter.doc" {
+    text="Texture sampling: nearest or linear."
+  }
+  msg "schema.engine.MeshRenderer.layer" {
+    text="Layer"
+  }
+  msg "schema.engine.MeshRenderer.layer.doc" {
+    text="Sorting layer for transparent meshes."
+  }
+  msg "schema.engine.MeshRenderer.mesh" {
+    text="Mesh"
+  }
+  msg "schema.engine.MeshRenderer.mesh.doc" {
+    text="Mesh to draw: an imported .obj or a builtin Cube, Plane, Sphere or Cylinder."
+  }
+  msg "schema.engine.MeshRenderer.texture" {
+    text="Texture"
+  }
+  msg "schema.engine.MeshRenderer.texture.doc" {
+    text="Texture mapped onto the mesh. Empty uses white."
+  }
+  msg "schema.engine.PrefabInstance" {
+    text="Prefab Instance"
+  }
+  msg "schema.engine.PrefabInstance.doc" {
+    text="Links a node to the prefab it was created from."
+  }
+  msg "schema.engine.Script" {
+    text="Scripts"
+  }
+  msg "schema.engine.Script.doc" {
+    text="Holds the Aego Script attachments of a node."
+  }
+  msg "schema.engine.SpriteRenderer" {
+    text="Sprite Renderer"
+  }
+  msg "schema.engine.SpriteRenderer.blend" {
+    text="Blend"
+  }
+  msg "schema.engine.SpriteRenderer.blend.doc" {
+    text="How the sprite blends with what is behind it: premultiplied alpha, opaque or additive."
+  }
+  msg "schema.engine.SpriteRenderer.doc" {
+    text="Draws a texture region at the node transform."
+  }
+  msg "schema.engine.SpriteRenderer.filter" {
+    text="Filter"
+  }
+  msg "schema.engine.SpriteRenderer.filter.doc" {
+    text="Texture sampling: nearest keeps pixel art sharp, linear smooths it."
+  }
+  msg "schema.engine.SpriteRenderer.flipX" {
+    text="Flip X"
+  }
+  msg "schema.engine.SpriteRenderer.flipX.doc" {
+    text="Mirrors the sprite horizontally."
+  }
+  msg "schema.engine.SpriteRenderer.flipY" {
+    text="Flip Y"
+  }
+  msg "schema.engine.SpriteRenderer.flipY.doc" {
+    text="Mirrors the sprite vertically."
+  }
+  msg "schema.engine.SpriteRenderer.layer" {
+    text="Layer"
+  }
+  msg "schema.engine.SpriteRenderer.layer.doc" {
+    text="Sorting layer. Higher layers are drawn on top of lower ones."
+  }
+  msg "schema.engine.SpriteRenderer.order" {
+    text="Order"
+  }
+  msg "schema.engine.SpriteRenderer.order.doc" {
+    text="Order inside the layer. Higher values are drawn later, on top."
+  }
+  msg "schema.engine.SpriteRenderer.origin" {
+    text="Origin"
+  }
+  msg "schema.engine.SpriteRenderer.origin.doc" {
+    text="Pivot in normalized sprite space. (0.5, 0.5) is the center, (0, 0) the top-left corner."
+  }
+  msg "schema.engine.SpriteRenderer.size" {
+    text="Size"
+  }
+  msg "schema.engine.SpriteRenderer.size.doc" {
+    text="Size in world units. Zero uses the texture size divided by the camera zoom."
+  }
+  msg "schema.engine.SpriteRenderer.sprite" {
+    text="Sprite"
+  }
+  msg "schema.engine.SpriteRenderer.sprite.doc" {
+    text="Texture or atlas region to draw. Empty draws a solid rectangle in the tint color."
+  }
+  msg "schema.engine.SpriteRenderer.tint" {
+    text="Tint"
+  }
+  msg "schema.engine.SpriteRenderer.tint.doc" {
+    text="Color multiplied with the texture. Alpha controls transparency."
+  }
+  msg "schema.engine.Tags" {
+    text="Tags"
+  }
+  msg "schema.engine.Tags.doc" {
+    text="Tags names groups this node belongs to; scripts find them with scene.WithTag."
+  }
+  msg "schema.engine.Tags.tags" {
+    text="Tags"
+  }
+  msg "schema.engine.Tags.tags.doc" {
+    text="Dot-separated names like Enemy.Flying; a node tagged Enemy.Flying is also found by Enemy."
+  }
+  msg "schema.engine.Unknown" {
+    text="Unknown"
+  }
+  msg "schema.engine.Unknown.doc" {
+    text="Holds components whose type is not registered in this build."
+  }
+  msg "schema.gameplay.Checkpoint2D" {
+    text="Checkpoint 2D"
+  }
+  msg "schema.gameplay.Checkpoint2D.area" {
+    text="Area"
+  }
+  msg "schema.gameplay.Checkpoint2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.gameplay.Checkpoint2D.doc" {
+    text="Sets the respawn point of a node with Respawn that enters the area."
+  }
+  msg "schema.gameplay.Checkpoint2D.once" {
+    text="Once"
+  }
+  msg "schema.gameplay.Checkpoint2D.once.doc" {
+    text="Works for the first node only."
+  }
+  msg "schema.gameplay.Checkpoint2D.priority" {
+    text="Priority"
+  }
+  msg "schema.gameplay.Checkpoint2D.priority.doc" {
+    text="A checkpoint does not replace one with a higher priority."
+  }
+  msg "schema.gameplay.Checkpoint2D.spawnPoint" {
+    text="Spawn Point"
+  }
+  msg "schema.gameplay.Checkpoint2D.spawnPoint.doc" {
+    text="Node whose position becomes the respawn point. Empty uses this checkpoint's position."
+  }
+  msg "schema.gameplay.Health" {
+    text="Health"
+  }
+  msg "schema.gameplay.Health.current" {
+    text="Current"
+  }
+  msg "schema.gameplay.Health.current.doc" {
+    text="Hit points now."
+  }
+  msg "schema.gameplay.Health.dead" {
+    text="Dead"
+  }
+  msg "schema.gameplay.Health.dead.doc" {
+    text="True from death until Revive."
+  }
+  msg "schema.gameplay.Health.despawnOnDeath" {
+    text="Despawn On Death"
+  }
+  msg "schema.gameplay.Health.despawnOnDeath.doc" {
+    text="Returns the node to its pool at death; a node that was not spawned is destroyed."
+  }
+  msg "schema.gameplay.Health.destroyOnDeath" {
+    text="Destroy On Death"
+  }
+  msg "schema.gameplay.Health.destroyOnDeath.doc" {
+    text="Destroys the node at death, unless it has Respawn."
+  }
+  msg "schema.gameplay.Health.doc" {
+    text="Hit points of a node. Hitboxes, kill zones and scripts damage it; it dies once at zero until revived."
+  }
+  msg "schema.gameplay.Health.invulnTime" {
+    text="Invuln Time"
+  }
+  msg "schema.gameplay.Health.invulnTime.doc" {
+    text="Seconds of game time without damage after a hit. Hits in the same step all count."
+  }
+  msg "schema.gameplay.Health.invulnerable" {
+    text="Invulnerable"
+  }
+  msg "schema.gameplay.Health.invulnerable.doc" {
+    text="True while damage is ignored."
+  }
+  msg "schema.gameplay.Health.max" {
+    text="Max"
+  }
+  msg "schema.gameplay.Health.max.doc" {
+    text="Hit points at the start and after a full revive."
+  }
+  msg "schema.gameplay.Health.team" {
+    text="Team"
+  }
+  msg "schema.gameplay.Health.team.doc" {
+    text="Hitboxes of the same team do not hurt this node unless they allow friendly fire."
+  }
+  msg "schema.gameplay.Hitbox2D" {
+    text="Hitbox 2D"
+  }
+  msg "schema.gameplay.Hitbox2D.active" {
+    text="Active"
+  }
+  msg "schema.gameplay.Hitbox2D.active.doc" {
+    text="Off deals no damage."
+  }
+  msg "schema.gameplay.Hitbox2D.area" {
+    text="Area"
+  }
+  msg "schema.gameplay.Hitbox2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.gameplay.Hitbox2D.damage" {
+    text="Damage"
+  }
+  msg "schema.gameplay.Hitbox2D.damage.doc" {
+    text="Damage per hit before the hurtbox multiplier."
+  }
+  msg "schema.gameplay.Hitbox2D.doc" {
+    text="Damages hurtboxes inside its area, once per target per activation, on every entry or periodically."
+  }
+  msg "schema.gameplay.Hitbox2D.friendlyFire" {
+    text="Friendly Fire"
+  }
+  msg "schema.gameplay.Hitbox2D.friendlyFire.doc" {
+    text="Also hits targets of the same team."
+  }
+  msg "schema.gameplay.Hitbox2D.knockback" {
+    text="Knockback"
+  }
+  msg "schema.gameplay.Hitbox2D.knockback.doc" {
+    text="Push on a hit: velocity in units per second for a Motion 2D target, impulse for a dynamic body. Turns with the node."
+  }
+  msg "schema.gameplay.Hitbox2D.knockbackFromCenter" {
+    text="Knockback From Center"
+  }
+  msg "schema.gameplay.Hitbox2D.knockbackFromCenter.doc" {
+    text="Pushes away from the hitbox centre instead, with the length of Knockback."
+  }
+  msg "schema.gameplay.Hitbox2D.period" {
+    text="Period"
+  }
+  msg "schema.gameplay.Hitbox2D.period.doc" {
+    text="Seconds between hits for the periodic policy."
+  }
+  msg "schema.gameplay.Hitbox2D.policy" {
+    text="Policy"
+  }
+  msg "schema.gameplay.Hitbox2D.policy.doc" {
+    text="onEnter hits on every entry, oncePerActivation hits each target once until Activate, periodic hits every Period while overlapping."
+  }
+  msg "schema.gameplay.Hitbox2D.shape" {
+    text="Shape"
+  }
+  msg "schema.gameplay.Hitbox2D.shape.doc" {
+    text="box uses the rectangle; circle uses the circle inside it."
+  }
+  msg "schema.gameplay.Hitbox2D.team" {
+    text="Team"
+  }
+  msg "schema.gameplay.Hitbox2D.team.doc" {
+    text="Team of the attack; -1 takes the team of the nearest Health above."
+  }
+  msg "schema.gameplay.Hurtbox2D" {
+    text="Hurtbox 2D"
+  }
+  msg "schema.gameplay.Hurtbox2D.active" {
+    text="Active"
+  }
+  msg "schema.gameplay.Hurtbox2D.active.doc" {
+    text="Off ignores hits."
+  }
+  msg "schema.gameplay.Hurtbox2D.area" {
+    text="Area"
+  }
+  msg "schema.gameplay.Hurtbox2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.gameplay.Hurtbox2D.doc" {
+    text="Area where hitboxes damage a Health: on this node or on its nearest parent with Health."
+  }
+  msg "schema.gameplay.Hurtbox2D.health" {
+    text="Health"
+  }
+  msg "schema.gameplay.Hurtbox2D.health.doc" {
+    text="Health that takes the damage. Empty uses this node or its nearest parent with Health."
+  }
+  msg "schema.gameplay.Hurtbox2D.multiplier" {
+    text="Multiplier"
+  }
+  msg "schema.gameplay.Hurtbox2D.multiplier.doc" {
+    text="Damage taken here is multiplied by this, for weak spots and armour."
+  }
+  msg "schema.gameplay.Hurtbox2D.shape" {
+    text="Shape"
+  }
+  msg "schema.gameplay.Hurtbox2D.shape.doc" {
+    text="box uses the rectangle; circle uses the circle inside it."
+  }
+  msg "schema.gameplay.KillZone2D" {
+    text="Kill Zone 2D"
+  }
+  msg "schema.gameplay.KillZone2D.area" {
+    text="Area"
+  }
+  msg "schema.gameplay.KillZone2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.gameplay.KillZone2D.doc" {
+    text="Kills a Health that enters the area, or respawns a node with Respawn and no Health."
+  }
+  msg "schema.gameplay.KillZone2D.tag" {
+    text="Tag"
+  }
+  msg "schema.gameplay.KillZone2D.tag.doc" {
+    text="Only nodes with this tag; empty affects every node with Health or Respawn."
+  }
+  msg "schema.gameplay.Lifetime" {
+    text="Lifetime"
+  }
+  msg "schema.gameplay.Lifetime.despawn" {
+    text="Despawn"
+  }
+  msg "schema.gameplay.Lifetime.despawn.doc" {
+    text="Returns the node to its pool instead of destroying it."
+  }
+  msg "schema.gameplay.Lifetime.doc" {
+    text="Removes the node after some seconds: back to its pool or destroyed."
+  }
+  msg "schema.gameplay.Lifetime.remaining" {
+    text="Remaining"
+  }
+  msg "schema.gameplay.Lifetime.remaining.doc" {
+    text="Seconds left."
+  }
+  msg "schema.gameplay.Lifetime.seconds" {
+    text="Seconds"
+  }
+  msg "schema.gameplay.Lifetime.seconds.doc" {
+    text="Seconds the node lives."
+  }
+  msg "schema.gameplay.Lifetime.unscaled" {
+    text="Unscaled"
+  }
+  msg "schema.gameplay.Lifetime.unscaled.doc" {
+    text="Counts real time, also while paused or slowed down."
+  }
+  msg "schema.gameplay.Motion2D" {
+    text="Motion 2D"
+  }
+  msg "schema.gameplay.Motion2D.accel" {
+    text="Accel"
+  }
+  msg "schema.gameplay.Motion2D.accel.doc" {
+    text="How fast the speed grows towards the target, units per second squared."
+  }
+  msg "schema.gameplay.Motion2D.airControl" {
+    text="Air Control"
+  }
+  msg "schema.gameplay.Motion2D.airControl.doc" {
+    text="Share of Accel and Decel available in the air: 0 cannot steer, 1 steers as on the ground."
+  }
+  msg "schema.gameplay.Motion2D.climbTime" {
+    text="Climb Time"
+  }
+  msg "schema.gameplay.Motion2D.climbTime.doc" {
+    text="Seconds a ledge climb takes: rising, then stepping onto the ledge."
+  }
+  msg "schema.gameplay.Motion2D.climbing" {
+    text="Climbing"
+  }
+  msg "schema.gameplay.Motion2D.climbing.doc" {
+    text="Whether the character is climbing onto a ledge."
+  }
+  msg "schema.gameplay.Motion2D.collisionMask" {
+    text="Collision Mask"
+  }
+  msg "schema.gameplay.Motion2D.collisionMask.doc" {
+    text="Layers the character collides with."
+  }
+  msg "schema.gameplay.Motion2D.coyoteTime" {
+    text="Coyote Time"
+  }
+  msg "schema.gameplay.Motion2D.coyoteTime.doc" {
+    text="Seconds after leaving a ledge during which a jump still works."
+  }
+  msg "schema.gameplay.Motion2D.dashGravity" {
+    text="Dash Gravity"
+  }
+  msg "schema.gameplay.Motion2D.dashGravity.doc" {
+    text="Applies gravity during a dash."
+  }
+  msg "schema.gameplay.Motion2D.decel" {
+    text="Decel"
+  }
+  msg "schema.gameplay.Motion2D.decel.doc" {
+    text="How fast the speed falls without input, in units per second squared."
+  }
+  msg "schema.gameplay.Motion2D.doc" {
+    text="Moves a kinematic Body2D by casting its colliders: walking, jumping, slopes, steps and moving platforms, or free top-down movement. Call Move and Jump from a script; the controller acts on the next fixed step."
+  }
+  msg "schema.gameplay.Motion2D.faceMovement" {
+    text="Face Movement"
+  }
+  msg "schema.gameplay.Motion2D.faceMovement.doc" {
+    text="topDown: turns the node towards the movement."
+  }
+  msg "schema.gameplay.Motion2D.floorAngle" {
+    text="Floor Angle"
+  }
+  msg "schema.gameplay.Motion2D.floorAngle.doc" {
+    text="Slope of the floor in degrees."
+  }
+  msg "schema.gameplay.Motion2D.floorNormal" {
+    text="Floor Normal"
+  }
+  msg "schema.gameplay.Motion2D.floorNormal.doc" {
+    text="Normal of the floor under the character."
+  }
+  msg "schema.gameplay.Motion2D.gravityScale" {
+    text="Gravity Scale"
+  }
+  msg "schema.gameplay.Motion2D.gravityScale.doc" {
+    text="Multiplies the physics gravity; 0 turns gravity off for the character."
+  }
+  msg "schema.gameplay.Motion2D.groundBody" {
+    text="Ground Body"
+  }
+  msg "schema.gameplay.Motion2D.groundBody.doc" {
+    text="Body the character stands on."
+  }
+  msg "schema.gameplay.Motion2D.grounded" {
+    text="Grounded"
+  }
+  msg "schema.gameplay.Motion2D.grounded.doc" {
+    text="Whether the character stands on a floor."
+  }
+  msg "schema.gameplay.Motion2D.jumpBuffer" {
+    text="Jump Buffer"
+  }
+  msg "schema.gameplay.Motion2D.jumpBuffer.doc" {
+    text="Seconds a jump pressed in the air is remembered until landing."
+  }
+  msg "schema.gameplay.Motion2D.jumpCutMultiplier" {
+    text="Jump Cut Multiplier"
+  }
+  msg "schema.gameplay.Motion2D.jumpCutMultiplier.doc" {
+    text="Upward speed is multiplied by this when the jump button is released early."
+  }
+  msg "schema.gameplay.Motion2D.jumpHeight" {
+    text="Jump Height"
+  }
+  msg "schema.gameplay.Motion2D.jumpHeight.doc" {
+    text="Height of a full jump in units; sets the jump speed unless Jump Speed is set."
+  }
+  msg "schema.gameplay.Motion2D.jumpSpeed" {
+    text="Jump Speed"
+  }
+  msg "schema.gameplay.Motion2D.jumpSpeed.doc" {
+    text="Upward speed of a jump. 0 derives it from Jump Height and gravity."
+  }
+  msg "schema.gameplay.Motion2D.ledgeClimb" {
+    text="Ledge Climb"
+  }
+  msg "schema.gameplay.Motion2D.ledgeClimb.doc" {
+    text="platformer: in the air, moving into a wall whose top is at most this far above the feet climbs onto it. 0 never climbs."
+  }
+  msg "schema.gameplay.Motion2D.maxFallSpeed" {
+    text="Max Fall Speed"
+  }
+  msg "schema.gameplay.Motion2D.maxFallSpeed.doc" {
+    text="Fastest fall in units per second. 0 is unlimited."
+  }
+  msg "schema.gameplay.Motion2D.maxSlides" {
+    text="Max Slides"
+  }
+  msg "schema.gameplay.Motion2D.maxSlides.doc" {
+    text="How many surfaces one step may slide along."
+  }
+  msg "schema.gameplay.Motion2D.maxSlope" {
+    text="Max Slope"
+  }
+  msg "schema.gameplay.Motion2D.maxSlope.doc" {
+    text="Steepest floor in degrees; steeper surfaces are walls."
+  }
+  msg "schema.gameplay.Motion2D.maxSpeed" {
+    text="Max Speed"
+  }
+  msg "schema.gameplay.Motion2D.maxSpeed.doc" {
+    text="Top speed in units per second."
+  }
+  msg "schema.gameplay.Motion2D.mode" {
+    text="Mode"
+  }
+  msg "schema.gameplay.Motion2D.mode.doc" {
+    text="platformer walks on floors under gravity; topDown moves freely in the plane."
+  }
+  msg "schema.gameplay.Motion2D.movingPlatforms" {
+    text="Moving Platforms"
+  }
+  msg "schema.gameplay.Motion2D.movingPlatforms.doc" {
+    text="Carries the character with the body it stands on."
+  }
+  msg "schema.gameplay.Motion2D.onCeiling" {
+    text="On Ceiling"
+  }
+  msg "schema.gameplay.Motion2D.onCeiling.doc" {
+    text="Whether the character touched a ceiling in the last step."
+  }
+  msg "schema.gameplay.Motion2D.onWall" {
+    text="On Wall"
+  }
+  msg "schema.gameplay.Motion2D.onWall.doc" {
+    text="Whether the character touched a wall in the last step."
+  }
+  msg "schema.gameplay.Motion2D.platformOnLeave" {
+    text="Platform On Leave"
+  }
+  msg "schema.gameplay.Motion2D.platformOnLeave.doc" {
+    text="keep keeps the platform's velocity after leaving it, drop loses it, add keeps only its horizontal part."
+  }
+  msg "schema.gameplay.Motion2D.pushBodies" {
+    text="Push Bodies"
+  }
+  msg "schema.gameplay.Motion2D.pushBodies.doc" {
+    text="Moves through dynamic bodies and pushes them instead of stopping at them."
+  }
+  msg "schema.gameplay.Motion2D.safeMargin" {
+    text="Safe Margin"
+  }
+  msg "schema.gameplay.Motion2D.safeMargin.doc" {
+    text="Gap in units kept to surfaces so casts never start inside them."
+  }
+  msg "schema.gameplay.Motion2D.snapToGround" {
+    text="Snap To Ground"
+  }
+  msg "schema.gameplay.Motion2D.snapToGround.doc" {
+    text="Keeps the character on slopes and steps down by up to this distance, in units. 0 never snaps."
+  }
+  msg "schema.gameplay.Motion2D.stepHeight" {
+    text="Step Height"
+  }
+  msg "schema.gameplay.Motion2D.stepHeight.doc" {
+    text="Steps up to this height, in units, are climbed without jumping. 0 never steps up."
+  }
+  msg "schema.gameplay.Motion2D.upDirection" {
+    text="Up Direction"
+  }
+  msg "schema.gameplay.Motion2D.upDirection.doc" {
+    text="Up for floors, jumps and gravity. (0, -1) is up on screen."
+  }
+  msg "schema.gameplay.Motion2D.velocity" {
+    text="Velocity"
+  }
+  msg "schema.gameplay.Motion2D.velocity.doc" {
+    text="Velocity in units per second."
+  }
+  msg "schema.gameplay.Motion2D.wallNormal" {
+    text="Wall Normal"
+  }
+  msg "schema.gameplay.Motion2D.wallNormal.doc" {
+    text="Normal of the last wall touched."
+  }
+  msg "schema.gameplay.Pickup2D" {
+    text="Pickup 2D"
+  }
+  msg "schema.gameplay.Pickup2D.area" {
+    text="Area"
+  }
+  msg "schema.gameplay.Pickup2D.area.doc" {
+    text="Rectangle in this node's space."
+  }
+  msg "schema.gameplay.Pickup2D.despawn" {
+    text="Despawn"
+  }
+  msg "schema.gameplay.Pickup2D.despawn.doc" {
+    text="Returns the pickup to its pool instead of destroying it."
+  }
+  msg "schema.gameplay.Pickup2D.doc" {
+    text="Fires Collected when a node enters the area; with Once the pickup then disappears."
+  }
+  msg "schema.gameplay.Pickup2D.once" {
+    text="Once"
+  }
+  msg "schema.gameplay.Pickup2D.once.doc" {
+    text="Removes the pickup after the first collection."
+  }
+  msg "schema.gameplay.Pickup2D.tag" {
+    text="Tag"
+  }
+  msg "schema.gameplay.Pickup2D.tag.doc" {
+    text="Only nodes with this tag; empty accepts every node with Motion 2D."
+  }
+  msg "schema.gameplay.Respawn" {
+    text="Respawn"
+  }
+  msg "schema.gameplay.Respawn.delay" {
+    text="Delay"
+  }
+  msg "schema.gameplay.Respawn.delay.doc" {
+    text="Seconds of game time before the node comes back."
+  }
+  msg "schema.gameplay.Respawn.doc" {
+    text="Brings the node back to its respawn point after death or Trigger. The first point is where the node starts."
+  }
+  msg "schema.gameplay.Respawn.persist" {
+    text="Persist"
+  }
+  msg "schema.gameplay.Respawn.persist.doc" {
+    text="Saves the respawn point with the game."
+  }
+  msg "schema.gameplay.Respawn.resetVelocity" {
+    text="Reset Velocity"
+  }
+  msg "schema.gameplay.Respawn.resetVelocity.doc" {
+    text="Stops a Motion 2D on respawn."
+  }
+  msg "schema.gameplay.Respawn.restoreHealth" {
+    text="Restore Health"
+  }
+  msg "schema.gameplay.Respawn.restoreHealth.doc" {
+    text="Revives Health with full hit points."
+  }
+  msg "schema.gameplay.StateMachine" {
+    text="State Machine"
+  }
+  msg "schema.gameplay.StateMachine.current" {
+    text="Current"
+  }
+  msg "schema.gameplay.StateMachine.current.doc" {
+    text="State now."
+  }
+  msg "schema.gameplay.StateMachine.doc" {
+    text="Named states with Enter, Exit, Fixed and Update hooks found by name on the node's scripts: EnterRun(), ExitRun(), FixedRun(dt), UpdateRun(dt). Scripts change the state with Go."
+  }
+  msg "schema.gameplay.StateMachine.index" {
+    text="Index"
+  }
+  msg "schema.gameplay.StateMachine.index.doc" {
+    text="Index of the current state in States."
+  }
+  msg "schema.gameplay.StateMachine.initial" {
+    text="Initial"
+  }
+  msg "schema.gameplay.StateMachine.initial.doc" {
+    text="State entered when the node starts, after the scripts' Ready. Empty uses the first state."
+  }
+  msg "schema.gameplay.StateMachine.previous" {
+    text="Previous"
+  }
+  msg "schema.gameplay.StateMachine.previous.doc" {
+    text="State before the last change."
+  }
+  msg "schema.gameplay.StateMachine.states" {
+    text="States"
+  }
+  msg "schema.gameplay.StateMachine.states.doc" {
+    text="State names, also the suffix of the hook methods."
+  }
+  msg "schema.gameplay.StateMachine.time" {
+    text="Time"
+  }
+  msg "schema.gameplay.StateMachine.time.doc" {
+    text="Seconds of fixed steps spent in the current state."
+  }
+  msg "schema.physics.Body2D" {
+    text="Rigid Body 2D"
+  }
+  msg "schema.physics.Body2D.allowSleep" {
+    text="Allow Sleep"
+  }
+  msg "schema.physics.Body2D.allowSleep.doc" {
+    text="Lets the body sleep after it comes to rest, which saves time; contacts and scripts wake it."
+  }
+  msg "schema.physics.Body2D.angularDamping" {
+    text="Angular Damping"
+  }
+  msg "schema.physics.Body2D.angularDamping.doc" {
+    text="Slows the rotation every step; 0 keeps spinning."
+  }
+  msg "schema.physics.Body2D.angularVelocity" {
+    text="Angular Velocity"
+  }
+  msg "schema.physics.Body2D.angularVelocity.doc" {
+    text="Rotation speed in radians per second."
+  }
+  msg "schema.physics.Body2D.awake" {
+    text="Awake"
+  }
+  msg "schema.physics.Body2D.awake.doc" {
+    text="Whether the body is simulated this step or sleeping."
+  }
+  msg "schema.physics.Body2D.bullet" {
+    text="Bullet"
+  }
+  msg "schema.physics.Body2D.bullet.doc" {
+    text="Continuous collision against other dynamic bodies, so a fast body cannot pass through them. Costs more."
+  }
+  msg "schema.physics.Body2D.doc" {
+    text="Simulates the node as a rigid body. Colliders on the node and its children form its shape."
+  }
+  msg "schema.physics.Body2D.fixedRotation" {
+    text="Fixed Rotation"
+  }
+  msg "schema.physics.Body2D.fixedRotation.doc" {
+    text="Keeps the body upright: contacts and torque never rotate it."
+  }
+  msg "schema.physics.Body2D.gravityScale" {
+    text="Gravity Scale"
+  }
+  msg "schema.physics.Body2D.gravityScale.doc" {
+    text="Multiplier of the project gravity for this body; 0 makes it float."
+  }
+  msg "schema.physics.Body2D.interpolate" {
+    text="Interpolate"
+  }
+  msg "schema.physics.Body2D.interpolate.doc" {
+    text="Draws the body between physics steps for smooth motion; scripts still see the exact pose."
+  }
+  msg "schema.physics.Body2D.layer" {
+    text="Layer"
+  }
+  msg "schema.physics.Body2D.layer.doc" {
+    text="Collision layer, see Project Settings → Physics."
+  }
+  msg "schema.physics.Body2D.linearDamping" {
+    text="Linear Damping"
+  }
+  msg "schema.physics.Body2D.linearDamping.doc" {
+    text="Slows the movement every step, like air resistance; 0 keeps the speed."
+  }
+  msg "schema.physics.Body2D.mask" {
+    text="Mask"
+  }
+  msg "schema.physics.Body2D.mask.doc" {
+    text="Layers this body collides with."
+  }
+  msg "schema.physics.Body2D.mass" {
+    text="Mass"
+  }
+  msg "schema.physics.Body2D.mass.doc" {
+    text="Mass in kilograms when Mass Mode is override."
+  }
+  msg "schema.physics.Body2D.massMode" {
+    text="Mass Mode"
+  }
+  msg "schema.physics.Body2D.massMode.doc" {
+    text="auto takes the mass from collider density, override uses Mass."
+  }
+  msg "schema.physics.Body2D.type" {
+    text="Type"
+  }
+  msg "schema.physics.Body2D.type.doc" {
+    text="static never moves, kinematic moves by velocity, dynamic reacts to forces and contacts."
+  }
+  msg "schema.physics.Body2D.velocity" {
+    text="Velocity"
+  }
+  msg "schema.physics.Body2D.velocity.doc" {
+    text="Velocity in units per second."
+  }
+  msg "schema.physics.BoxCollider2D" {
+    text="Box Collider 2D"
+  }
+  msg "schema.physics.BoxCollider2D.density" {
+    text="Density"
+  }
+  msg "schema.physics.BoxCollider2D.density.doc" {
+    text="Mass per square unit; gives the body its mass when Mass Mode is auto."
+  }
+  msg "schema.physics.BoxCollider2D.doc" {
+    text="Box shape in node space."
+  }
+  msg "schema.physics.BoxCollider2D.friction" {
+    text="Friction"
+  }
+  msg "schema.physics.BoxCollider2D.friction.doc" {
+    text="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
+  }
+  msg "schema.physics.BoxCollider2D.isTrigger" {
+    text="Is Trigger"
+  }
+  msg "schema.physics.BoxCollider2D.isTrigger.doc" {
+    text="Detects overlaps and sends trigger events without pushing bodies apart."
+  }
+  msg "schema.physics.BoxCollider2D.offset" {
+    text="Offset"
+  }
+  msg "schema.physics.BoxCollider2D.offset.doc" {
+    text="Position of the shape in node space."
+  }
+  msg "schema.physics.BoxCollider2D.restitution" {
+    text="Restitution"
+  }
+  msg "schema.physics.BoxCollider2D.restitution.doc" {
+    text="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
+  }
+  msg "schema.physics.BoxCollider2D.size" {
+    text="Size"
+  }
+  msg "schema.physics.BoxCollider2D.size.doc" {
+    text="Width and height in units, before the node scale."
+  }
+  msg "schema.physics.CapsuleCollider2D" {
+    text="Capsule Collider 2D"
+  }
+  msg "schema.physics.CapsuleCollider2D.density" {
+    text="Density"
+  }
+  msg "schema.physics.CapsuleCollider2D.density.doc" {
+    text="Mass per square unit; gives the body its mass when Mass Mode is auto."
+  }
+  msg "schema.physics.CapsuleCollider2D.doc" {
+    text="Capsule along the local X axis; Length is the full extent including the caps."
+  }
+  msg "schema.physics.CapsuleCollider2D.friction" {
+    text="Friction"
+  }
+  msg "schema.physics.CapsuleCollider2D.friction.doc" {
+    text="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
+  }
+  msg "schema.physics.CapsuleCollider2D.isTrigger" {
+    text="Is Trigger"
+  }
+  msg "schema.physics.CapsuleCollider2D.isTrigger.doc" {
+    text="Detects overlaps and sends trigger events without pushing bodies apart."
+  }
+  msg "schema.physics.CapsuleCollider2D.length" {
+    text="Length"
+  }
+  msg "schema.physics.CapsuleCollider2D.length.doc" {
+    text="Full length along the local X axis, caps included."
+  }
+  msg "schema.physics.CapsuleCollider2D.offset" {
+    text="Offset"
+  }
+  msg "schema.physics.CapsuleCollider2D.offset.doc" {
+    text="Position of the shape in node space."
+  }
+  msg "schema.physics.CapsuleCollider2D.radius" {
+    text="Radius"
+  }
+  msg "schema.physics.CapsuleCollider2D.radius.doc" {
+    text="Radius of the caps and half the thickness."
+  }
+  msg "schema.physics.CapsuleCollider2D.restitution" {
+    text="Restitution"
+  }
+  msg "schema.physics.CapsuleCollider2D.restitution.doc" {
+    text="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
+  }
+  msg "schema.physics.CircleCollider2D" {
+    text="Circle Collider 2D"
+  }
+  msg "schema.physics.CircleCollider2D.density" {
+    text="Density"
+  }
+  msg "schema.physics.CircleCollider2D.density.doc" {
+    text="Mass per square unit; gives the body its mass when Mass Mode is auto."
+  }
+  msg "schema.physics.CircleCollider2D.doc" {
+    text="Circle shape. Needs a uniform node scale."
+  }
+  msg "schema.physics.CircleCollider2D.friction" {
+    text="Friction"
+  }
+  msg "schema.physics.CircleCollider2D.friction.doc" {
+    text="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
+  }
+  msg "schema.physics.CircleCollider2D.isTrigger" {
+    text="Is Trigger"
+  }
+  msg "schema.physics.CircleCollider2D.isTrigger.doc" {
+    text="Detects overlaps and sends trigger events without pushing bodies apart."
+  }
+  msg "schema.physics.CircleCollider2D.offset" {
+    text="Offset"
+  }
+  msg "schema.physics.CircleCollider2D.offset.doc" {
+    text="Position of the shape in node space."
+  }
+  msg "schema.physics.CircleCollider2D.radius" {
+    text="Radius"
+  }
+  msg "schema.physics.CircleCollider2D.radius.doc" {
+    text="Radius in units, before the node scale."
+  }
+  msg "schema.physics.CircleCollider2D.restitution" {
+    text="Restitution"
+  }
+  msg "schema.physics.CircleCollider2D.restitution.doc" {
+    text="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
+  }
+  msg "schema.physics.DistanceJoint2D" {
+    text="Distance Joint 2D"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorA" {
+    text="Anchor A"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorA.doc" {
+    text="Attachment point on this node, in node space."
+  }
+  msg "schema.physics.DistanceJoint2D.anchorB" {
+    text="Anchor B"
+  }
+  msg "schema.physics.DistanceJoint2D.anchorB.doc" {
+    text="Attachment point on the Target node, in its node space."
+  }
+  msg "schema.physics.DistanceJoint2D.collideConnected" {
+    text="Collide Connected"
+  }
+  msg "schema.physics.DistanceJoint2D.collideConnected.doc" {
+    text="Lets the two connected bodies collide with each other."
+  }
+  msg "schema.physics.DistanceJoint2D.damping" {
+    text="Damping"
+  }
+  msg "schema.physics.DistanceJoint2D.damping.doc" {
+    text="Spring damping; 0 never damps, higher values stop the oscillation sooner."
+  }
+  msg "schema.physics.DistanceJoint2D.doc" {
+    text="Keeps a distance between this body and the Target body. Length 0 uses the distance at start."
+  }
+  msg "schema.physics.DistanceJoint2D.length" {
+    text="Length"
+  }
+  msg "schema.physics.DistanceJoint2D.length.doc" {
+    text="Rest length in units; 0 takes the distance between the anchors at start."
+  }
+  msg "schema.physics.DistanceJoint2D.maxLength" {
+    text="Max Length"
+  }
+  msg "schema.physics.DistanceJoint2D.maxLength.doc" {
+    text="Longest allowed length; a rope has Min 0 and Max at the rope length."
+  }
+  msg "schema.physics.DistanceJoint2D.minLength" {
+    text="Min Length"
+  }
+  msg "schema.physics.DistanceJoint2D.minLength.doc" {
+    text="Shortest allowed length. With Min and Max both 0 the joint is a rigid rod, or a spring without a lower limit when Stiffness is set."
+  }
+  msg "schema.physics.DistanceJoint2D.stiffness" {
+    text="Stiffness"
+  }
+  msg "schema.physics.DistanceJoint2D.stiffness.doc" {
+    text="Spring stiffness in newtons per unit; 0 makes the length rigid within Min and Max."
+  }
+  msg "schema.physics.DistanceJoint2D.target" {
+    text="Target"
+  }
+  msg "schema.physics.DistanceJoint2D.target.doc" {
+    text="The other body; both nodes need a Rigid Body 2D."
+  }
+  msg "schema.physics.EdgeCollider2D" {
+    text="Edge Collider 2D"
+  }
+  msg "schema.physics.EdgeCollider2D.density" {
+    text="Density"
+  }
+  msg "schema.physics.EdgeCollider2D.density.doc" {
+    text="Mass per square unit; gives the body its mass when Mass Mode is auto."
+  }
+  msg "schema.physics.EdgeCollider2D.doc" {
+    text="Polyline for level geometry. OneSided lets bodies pass from below."
+  }
+  msg "schema.physics.EdgeCollider2D.friction" {
+    text="Friction"
+  }
+  msg "schema.physics.EdgeCollider2D.friction.doc" {
+    text="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
+  }
+  msg "schema.physics.EdgeCollider2D.isTrigger" {
+    text="Is Trigger"
+  }
+  msg "schema.physics.EdgeCollider2D.isTrigger.doc" {
+    text="Detects overlaps and sends trigger events without pushing bodies apart."
+  }
+  msg "schema.physics.EdgeCollider2D.loop" {
+    text="Loop"
+  }
+  msg "schema.physics.EdgeCollider2D.loop.doc" {
+    text="Joins the last point to the first, for closed outlines; needs at least 3 points."
+  }
+  msg "schema.physics.EdgeCollider2D.offset" {
+    text="Offset"
+  }
+  msg "schema.physics.EdgeCollider2D.offset.doc" {
+    text="Position of the shape in node space."
+  }
+  msg "schema.physics.EdgeCollider2D.oneSided" {
+    text="One Sided"
+  }
+  msg "schema.physics.EdgeCollider2D.oneSided.doc" {
+    text="Collides only from above, so bodies can jump through from below, as on a platform."
+  }
+  msg "schema.physics.EdgeCollider2D.points" {
+    text="Points"
+  }
+  msg "schema.physics.EdgeCollider2D.points.doc" {
+    text="Points of the line in node space, at least 2; edit them in the Scene View."
+  }
+  msg "schema.physics.EdgeCollider2D.restitution" {
+    text="Restitution"
+  }
+  msg "schema.physics.EdgeCollider2D.restitution.doc" {
+    text="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
+  }
+  msg "schema.physics.PolygonCollider2D" {
+    text="Polygon Collider 2D"
+  }
+  msg "schema.physics.PolygonCollider2D.density" {
+    text="Density"
+  }
+  msg "schema.physics.PolygonCollider2D.density.doc" {
+    text="Mass per square unit; gives the body its mass when Mass Mode is auto."
+  }
+  msg "schema.physics.PolygonCollider2D.doc" {
+    text="Convex polygon of 3 to 8 points."
+  }
+  msg "schema.physics.PolygonCollider2D.friction" {
+    text="Friction"
+  }
+  msg "schema.physics.PolygonCollider2D.friction.doc" {
+    text="Resistance to sliding along other shapes; 0 is ice. Two shapes use the square root of the product."
+  }
+  msg "schema.physics.PolygonCollider2D.isTrigger" {
+    text="Is Trigger"
+  }
+  msg "schema.physics.PolygonCollider2D.isTrigger.doc" {
+    text="Detects overlaps and sends trigger events without pushing bodies apart."
+  }
+  msg "schema.physics.PolygonCollider2D.offset" {
+    text="Offset"
+  }
+  msg "schema.physics.PolygonCollider2D.offset.doc" {
+    text="Position of the shape in node space."
+  }
+  msg "schema.physics.PolygonCollider2D.points" {
+    text="Points"
+  }
+  msg "schema.physics.PolygonCollider2D.points.doc" {
+    text="Corners in node space, 3 to 8, forming a convex shape; edit them in the Scene View."
+  }
+  msg "schema.physics.PolygonCollider2D.restitution" {
+    text="Restitution"
+  }
+  msg "schema.physics.PolygonCollider2D.restitution.doc" {
+    text="Bounciness: 0 stops on impact, 1 bounces back at the same speed. Two shapes use the larger value."
+  }
+  msg "schema.physics.RevoluteJoint2D" {
+    text="Revolute Joint 2D"
+  }
+  msg "schema.physics.RevoluteJoint2D.anchor" {
+    text="Anchor"
+  }
+  msg "schema.physics.RevoluteJoint2D.anchor.doc" {
+    text="Pivot point in this node's space; both bodies turn around it."
+  }
+  msg "schema.physics.RevoluteJoint2D.collideConnected" {
+    text="Collide Connected"
+  }
+  msg "schema.physics.RevoluteJoint2D.collideConnected.doc" {
+    text="Lets the two connected bodies collide with each other."
+  }
+  msg "schema.physics.RevoluteJoint2D.doc" {
+    text="Pins this body to the Target body at Anchor, with an optional limit and motor."
+  }
+  msg "schema.physics.RevoluteJoint2D.enableLimit" {
+    text="Enable Limit"
+  }
+  msg "schema.physics.RevoluteJoint2D.enableLimit.doc" {
+    text="Keeps the angle between Lower and Upper."
+  }
+  msg "schema.physics.RevoluteJoint2D.enableMotor" {
+    text="Enable Motor"
+  }
+  msg "schema.physics.RevoluteJoint2D.enableMotor.doc" {
+    text="Drives the joint at Speed, up to Max Torque."
+  }
+  msg "schema.physics.RevoluteJoint2D.lower" {
+    text="Lower"
+  }
+  msg "schema.physics.RevoluteJoint2D.lower.doc" {
+    text="Smallest angle in radians, relative to the angle at start."
+  }
+  msg "schema.physics.RevoluteJoint2D.maxTorque" {
+    text="Max Torque"
+  }
+  msg "schema.physics.RevoluteJoint2D.maxTorque.doc" {
+    text="Strongest torque the motor may apply; with 0 the motor does nothing."
+  }
+  msg "schema.physics.RevoluteJoint2D.speed" {
+    text="Speed"
+  }
+  msg "schema.physics.RevoluteJoint2D.speed.doc" {
+    text="Motor speed in radians per second; negative turns the other way."
+  }
+  msg "schema.physics.RevoluteJoint2D.target" {
+    text="Target"
+  }
+  msg "schema.physics.RevoluteJoint2D.target.doc" {
+    text="The body this one turns around; both nodes need a Rigid Body 2D."
+  }
+  msg "schema.physics.RevoluteJoint2D.upper" {
+    text="Upper"
+  }
+  msg "schema.physics.RevoluteJoint2D.upper.doc" {
+    text="Largest angle in radians, relative to the angle at start."
+  }
+  msg "schema.save.Persist" {
+    text="Persist"
+  }
+  msg "schema.save.Persist.doc" {
+    text="Saves the node's transform and enabled flag in save games."
+  }
+  msg "schema.save.Persist.noEnabled" {
+    text="No Enabled"
+  }
+  msg "schema.save.Persist.noEnabled.doc" {
+    text="Leaves the enabled flag out of save games."
+  }
+  msg "schema.save.Persist.noTransform" {
+    text="No Transform"
+  }
+  msg "schema.save.Persist.noTransform.doc" {
+    text="Leaves the transform out of save games, for nodes whose position comes from elsewhere."
+  }
+  msg "setting.accessibility.colorblindPalette" {
+    text="Colorblind Palette"
+  }
+  msg "setting.accessibility.colorblindPalette.deuteranopia" {
+    text="Deuteranopia"
+  }
+  msg "setting.accessibility.colorblindPalette.none" {
+    text="None"
+  }
+  msg "setting.accessibility.colorblindPalette.protanopia" {
+    text="Protanopia"
+  }
+  msg "setting.accessibility.colorblindPalette.tritanopia" {
+    text="Tritanopia"
+  }
+  msg "setting.accessibility.highContrast" {
+    text="High Contrast"
+  }
+  msg "setting.accessibility.reducedMotion" {
+    text="Reduce Motion"
+  }
+  msg "setting.accessibility.reducedMotion.doc" {
+    text="Cameras, particles and transitions cut large or fast motion."
+  }
+  msg "setting.accessibility.screenShake" {
+    text="Screen Shake"
+  }
+  msg "setting.accessibility.screenShake.doc" {
+    text="Scales camera shake; 0 turns it off."
+  }
+  msg "setting.accessibility.subtitles" {
+    text="Subtitles"
+  }
+  msg "setting.audio.bufferSize" {
+    text="Audio Buffer"
+  }
+  msg "setting.audio.bufferSize.doc" {
+    text="Frames per audio block. Smaller blocks lower the latency, larger ones survive slow frames."
+  }
+  msg "setting.audio.bufferSize.frames1024" {
+    text="1024"
+  }
+  msg "setting.audio.bufferSize.frames2048" {
+    text="2048"
+  }
+  msg "setting.audio.bufferSize.frames256" {
+    text="256"
+  }
+  msg "setting.audio.bufferSize.frames512" {
+    text="512"
+  }
+  msg "setting.audio.bus.ambience.mute" {
+    text="Mute Ambience"
+  }
+  msg "setting.audio.bus.ambience.volume" {
+    text="Ambience Volume"
+  }
+  msg "setting.audio.bus.master.mute" {
+    text="Mute Master"
+  }
+  msg "setting.audio.bus.master.volume" {
+    text="Master Volume"
+  }
+  msg "setting.audio.bus.music.mute" {
+    text="Mute Music"
+  }
+  msg "setting.audio.bus.music.volume" {
+    text="Music Volume"
+  }
+  msg "setting.audio.bus.sfx.mute" {
+    text="Mute Effects"
+  }
+  msg "setting.audio.bus.sfx.volume" {
+    text="Effects Volume"
+  }
+  msg "setting.audio.bus.ui.mute" {
+    text="Mute Interface"
+  }
+  msg "setting.audio.bus.ui.volume" {
+    text="Interface Volume"
+  }
+  msg "setting.audio.bus.voice.mute" {
+    text="Mute Voice"
+  }
+  msg "setting.audio.bus.voice.volume" {
+    text="Voice Volume"
+  }
+  msg "setting.audio.enabled" {
+    text="Sound"
+  }
+  msg "setting.audio.enabled.doc" {
+    text="Turns all sound off without closing the audio output."
+  }
+  msg "setting.audio.sampleRate" {
+    text="Sample Rate"
+  }
+  msg "setting.audio.sampleRate.auto" {
+    text="Auto"
+  }
+  msg "setting.audio.sampleRate.doc" {
+    text="Auto uses the rate of the output device."
+  }
+  msg "setting.audio.sampleRate.hz44100" {
+    text="44100"
+  }
+  msg "setting.audio.sampleRate.hz48000" {
+    text="48000"
+  }
+  msg "setting.category.Accessibility" {
+    text="Accessibility"
+  }
+  msg "setting.category.Audio" {
+    text="Audio"
+  }
+  msg "setting.category.Display" {
+    text="Display"
+  }
+  msg "setting.category.Gameplay" {
+    text="Gameplay"
+  }
+  msg "setting.category.Graphics" {
+    text="Graphics"
+  }
+  msg "setting.category.Input" {
+    text="Input"
+  }
+  msg "setting.category.Language" {
+    text="Language"
+  }
+  msg "setting.display.frameLimit" {
+    text="Frame Limit"
+  }
+  msg "setting.display.frameLimit.doc" {
+    text="Caps the frame rate while VSync is off. Zero means no limit."
+  }
+  msg "setting.display.preset" {
+    text="Quality Preset"
+  }
+  msg "setting.display.preset.Custom" {
+    text="Custom"
+  }
+  msg "setting.display.preset.High" {
+    text="High"
+  }
+  msg "setting.display.preset.Low" {
+    text="Low"
+  }
+  msg "setting.display.preset.Medium" {
+    text="Medium"
+  }
+  msg "setting.display.preset.Ultra" {
+    text="Ultra"
+  }
+  msg "setting.display.renderScale" {
+    text="Render Scale"
+  }
+  msg "setting.display.uiScale" {
+    text="UI Scale"
+  }
+  msg "setting.display.vsync" {
+    text="VSync"
+  }
+  msg "setting.display.vsync.adaptive" {
+    text="Adaptive"
+  }
+  msg "setting.display.vsync.off" {
+    text="Off"
+  }
+  msg "setting.display.vsync.on" {
+    text="On"
+  }
+  msg "setting.display.window.mode" {
+    text="Window Mode"
+  }
+  msg "setting.display.window.mode.borderless" {
+    text="Borderless"
+  }
+  msg "setting.display.window.mode.fullscreen" {
+    text="Fullscreen"
+  }
+  msg "setting.display.window.mode.windowed" {
+    text="Windowed"
+  }
+  msg "setting.display.window.monitor" {
+    text="Monitor"
+  }
+  msg "setting.display.window.resolution" {
+    text="Resolution"
+  }
+  msg "setting.display.window.resolution.doc" {
+    text="Window size, or the screen mode in fullscreen. Empty uses the project window size."
+  }
+  msg "setting.settings.language" {
+    text="Language"
+  }
+  msg "setting.settings.language.auto" {
+    text="Automatic"
+  }
+  msg "setting.settings.language.doc" {
+    text="Language of the settings and of the game's translated texts. Automatic follows the system."
+  }
+  msg "setting.settings.language.en" {
+    text="English"
+  }
+  msg "setting.settings.language.ru" {
+    text="Русский"
+  }
+}

@@ -22,12 +22,12 @@ var (
 
 // SetEntry makes a state the one the Animator starts in.
 func (p *Panel) SetEntry(i int) error {
-	return p.Edit("Set Entry State", mutate.CtrlRoot("entry", aetext.String(p.g.States[i].Name)))
+	return p.Edit(i18n.Tr("editor.history.set_entry_state", "Set Entry State"), mutate.CtrlRoot("entry", aetext.String(p.g.States[i].Name)))
 }
 
 // MoveTransition moves a transition up or down; earlier transitions are tried first.
 func (p *Panel) MoveTransition(i, delta int) error {
-	err := p.Edit("Move Transition", mutate.CtrlMove(i, delta))
+	err := p.Edit(i18n.Tr("editor.history.move_transition", "Move Transition"), mutate.CtrlMove(i, delta))
 	if err == nil && p.sel.kind == selTransition && p.sel.index == i {
 		p.sel.index = i + delta
 	}
@@ -36,7 +36,7 @@ func (p *Panel) MoveTransition(i, delta int) error {
 
 func (p *Panel) RemoveTransition(i int) error {
 	p.sel = selection{}
-	return p.Edit("Delete Transition", mutate.CtrlRemove("transition", "").At(i))
+	return p.Edit(i18n.Tr("editor.history.delete_transition", "Delete Transition"), mutate.CtrlRemove("transition", "").At(i))
 }
 
 // AddParam adds a parameter of a kind with a free name.
@@ -46,7 +46,7 @@ func (p *Panel) AddParam(kind anim.ParamKind) error {
 		name = kind.String() + strconv.Itoa(n+1)
 	}
 	body := &aetext.Node{Attrs: []aetext.Field{{Name: "kind", Value: aetext.Ident(kind.String())}}}
-	return p.Edit("Add Parameter", mutate.CtrlPut("param", name, body))
+	return p.Edit(i18n.Tr("editor.history.add_parameter", "Add Parameter"), mutate.CtrlPut("param", name, body))
 }
 
 // transitionBody is the text block of transition i, to edit its conditions.
@@ -102,12 +102,12 @@ func (p *Panel) SetCond(i, c int, cond anim.Cond) error {
 		}
 		if k == c {
 			body.Blocks[j] = n
-			return p.putTransition(i, "Edit Condition", body)
+			return p.putTransition(i, i18n.Tr("editor.history.edit_condition", "Edit Condition"), body)
 		}
 		k++
 	}
 	body.Blocks = append(body.Blocks, n)
-	return p.putTransition(i, "Add Condition", body)
+	return p.putTransition(i, i18n.Tr("editor.history.add_condition", "Add Condition"), body)
 }
 
 func (p *Panel) RemoveCond(i, c int) error {
@@ -122,7 +122,7 @@ func (p *Panel) RemoveCond(i, c int) error {
 		}
 		if k == c {
 			body.Blocks = append(body.Blocks[:j], body.Blocks[j+1:]...)
-			return p.putTransition(i, "Remove Condition", body)
+			return p.putTransition(i, i18n.Tr("editor.history.remove_condition", "Remove Condition"), body)
 		}
 		k++
 	}
@@ -195,7 +195,7 @@ func (p *Panel) paramsSection() {
 		id := core.IDSeq(ui.ID("param"), i)
 		if live == nil {
 			if widgets.IconButton(ui, id, mathx.Rect{X: vr.X + vr.W - vr.H, Y: vr.Y, W: vr.H, H: vr.H}, "ui.minus", i18n.Tr("editor.animator.remove_the_parameter", "Remove the parameter")) {
-				p.notify(p.Edit("Remove Parameter", mutate.CtrlRemove("param", pr.Name)))
+				p.notify(p.Edit(i18n.Tr("editor.history.remove_parameter", "Remove Parameter"), mutate.CtrlRemove("param", pr.Name)))
 			}
 			continue
 		}
@@ -257,12 +257,12 @@ func (p *Panel) stateSection(i int) {
 		p.clipID = ui.ID("clip")
 		p.clipRect = widgets.Field(ui, i18n.Tr("editor.animator.clip", "Clip"))
 		if widgets.Combo(ui, p.clipID, p.clipRect, &cur, p.clipNames, cur < 0) && cur >= 0 {
-			p.notify(p.Edit("Set Clip", mutate.CtrlAttr("state", s.Name, "clip", aetext.AssetRef(p.clips[cur].ID.String()))))
+			p.notify(p.Edit(i18n.Tr("editor.history.set_clip", "Set Clip"), mutate.CtrlAttr("state", s.Name, "clip", aetext.AssetRef(p.clips[cur].ID.String()))))
 		}
 	}
 	speed := s.Speed
 	if e := widgets.DragFloat32(ui, ui.ID("speed"), widgets.Field(ui, i18n.Tr("editor.animator.speed", "Speed")), &speed, widgets.NumberOpts{Speed: 0.01}); e.End && speed != s.Speed {
-		p.notify(p.Edit("Set Speed", mutate.CtrlAttr("state", s.Name, "speed", aetext.Float32(speed))))
+		p.notify(p.Edit(i18n.Tr("editor.history.set_speed", "Set Speed"), mutate.CtrlAttr("state", s.Name, "speed", aetext.Float32(speed))))
 	}
 	if int32(i) != p.g.Entry && widgets.Button(ui, i18n.Tr("editor.animator.set_as_entry", "Set as Entry")) {
 		p.notify(p.SetEntry(i))
@@ -290,7 +290,7 @@ func (p *Panel) transitionSection(i int) {
 		return
 	}
 	attr := func(name string, v aetext.Value) {
-		p.notify(p.Edit("Edit Transition", mutate.CtrlAttr("transition", "", name, v).At(i)))
+		p.notify(p.Edit(i18n.Tr("editor.history.edit_transition", "Edit Transition"), mutate.CtrlAttr("transition", "", name, v).At(i)))
 	}
 	dur := t.Duration
 	if e := widgets.DragFloat32(ui, ui.ID("dur"), widgets.Field(ui, i18n.Tr("editor.animator.duration", "Duration")), &dur, widgets.NumberOpts{Speed: 0.01, Min: 0, HasMin: true}); e.End && dur != t.Duration {
@@ -301,7 +301,7 @@ func (p *Panel) transitionSection(i int) {
 		if exit {
 			attr("exitTime", aetext.Float32(1))
 		} else {
-			p.notify(p.Edit("Edit Transition", mutate.CtrlAttrClear("transition", "", "exitTime").At(i)))
+			p.notify(p.Edit(i18n.Tr("editor.history.edit_transition", "Edit Transition"), mutate.CtrlAttrClear("transition", "", "exitTime").At(i)))
 		}
 	}
 	if t.HasExit {

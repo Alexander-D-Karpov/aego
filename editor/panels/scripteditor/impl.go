@@ -2,6 +2,7 @@ package scripteditor
 
 import (
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 	"aego/script/source"
 	"aego/ui/core"
 )
@@ -10,19 +11,19 @@ const builtinNote = "engine builtin, no implementation in the project"
 
 func (p *Panel) definition(ui *core.Context) {
 	if p.doc.ReadOnly {
-		p.flash(ui.Time, "Library stub, Ctrl+Alt+B opens the Go implementation when it lives in native/")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.library_stub_hint", "Library stub, Ctrl+Alt+B opens the Go implementation when it lives in native/"))
 		return
 	}
 	file, ok := p.file()
 	off, ok2 := p.snapOffset()
 	if !ok || !ok2 {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	loc, ok := p.host.lang.DefinitionIn(p.snap, file, uint32(off))
 	switch {
 	case !ok:
-		p.flash(ui.Time, "No definition found")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_definition", "No definition found"))
 	case loc.Native && loc.Stub != "" && p.host.openStub(loc):
 	case loc.Native:
 		msg := builtinNote
@@ -43,13 +44,13 @@ func (p *Panel) implementation(ui *core.Context) {
 	file, ok := p.file()
 	off, ok2 := p.snapOffset()
 	if !ok || !ok2 {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	loc, ok := p.host.lang.DefinitionIn(p.snap, file, uint32(off))
 	switch {
 	case !ok:
-		p.flash(ui.Time, "No implementation found")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_implementation", "No implementation found"))
 	case !loc.Native:
 		p.jump(loc)
 	default:

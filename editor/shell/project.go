@@ -59,6 +59,7 @@ func (a *App) registerProject() error {
 	}
 	for i := 0; i < recentCommands; i++ {
 		name := "Open Recent " + strconv.Itoa(i+1)
+		n := i + 1
 		list = append(list, command.Desc{
 			ID: CommandRecentPrefix + strconv.Itoa(i+1), Name: name, Category: "File", Order: 70 + i,
 			Label: func() string {
@@ -66,7 +67,7 @@ func (a *App) registerProject() error {
 				if i < len(a.recentLabels) {
 					return a.recentLabels[i]
 				}
-				return name
+				return i18n.Tr("editor.shell.open_recent_n", "Open Recent {n}", i18n.Int("n", int64(n)))
 			},
 			Enabled: func() bool {
 				_, ok := a.recentAt(i)
@@ -121,7 +122,7 @@ func (a *App) recentList() []launcher.Entry {
 	a.recent, a.recentNext, a.recentLoaded = out, now+2, true
 	a.recentLabels = a.recentLabels[:0]
 	for _, e := range out {
-		a.recentLabels = append(a.recentLabels, "Open "+recentName(e))
+		a.recentLabels = append(a.recentLabels, i18n.Tr("editor.shell.open_recent_item", "Open {name}", i18n.Str("name", recentName(e))))
 	}
 	return a.recent
 }

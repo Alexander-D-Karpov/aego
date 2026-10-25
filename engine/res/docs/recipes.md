@@ -1,6 +1,6 @@
 ---
 id: recipes
-icon: help.book
+icon: doc.recipe
 group: start
 title: Recipes
 order: 3

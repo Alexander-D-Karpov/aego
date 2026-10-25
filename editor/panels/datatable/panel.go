@@ -232,7 +232,7 @@ func (p *Panel) selected() []int {
 func (p *Panel) act(a int, ro bool) {
 	t := p.table
 	if ro && a != actExport {
-		p.info("Tables are read-only during Play")
+		p.info(i18n.Tr("editor.datatable.read_only_in_play", "Tables are read-only during Play"))
 		return
 	}
 	switch a {
@@ -273,7 +273,7 @@ func (p *Panel) act(a int, ro bool) {
 			p.notify(err)
 			return
 		}
-		p.info("Exported " + rel)
+		p.info(i18n.Tr("editor.datatable.exported", "Exported {path}", i18n.Str("path", rel)))
 	case actImport:
 		if p.d.Data == nil {
 			return
@@ -283,7 +283,7 @@ func (p *Panel) act(a int, ro bool) {
 			p.notify(err)
 			return
 		}
-		p.info("Imported " + rel)
+		p.info(i18n.Tr("editor.datatable.imported", "Imported {path}", i18n.Str("path", rel)))
 	case actSave:
 		if p.d.Data != nil {
 			p.notify(p.d.Data.SaveTable(t))

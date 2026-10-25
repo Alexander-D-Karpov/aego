@@ -11,6 +11,7 @@ import (
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/modules/audio"
 	"aego/schema"
 )
@@ -84,7 +85,7 @@ func Hook(e *ext.Registry) error {
 	if err := e.Panel(workspace.Desc{Panel: newMixer(p), Near: workspace.Console, Order: mixerOrder, Icon: "panel.mixer"}); err != nil {
 		return err
 	}
-	e.Profiler("Audio", true, p.profile)
+	e.Profiler(i18n.T("i18n.audio.profiler", "Audio"), true, p.profile)
 	if p.ed == nil {
 		return nil
 	}

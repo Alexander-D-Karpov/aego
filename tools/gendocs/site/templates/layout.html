@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="aego-root" content="{{.Root}}">
+    <meta name="aego-search" content="{{.Root}}{{.Search}}">
+    <link rel="alternate" hreflang="en" href="{{.Root}}{{.HrefEN}}">
+    <link rel="alternate" hreflang="ru" href="{{.Root}}{{.HrefRU}}">
     <meta name="aego-assets" content="{{.AssetV}}">
     {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}"><meta name="aego-play-size" content="{{.PlaySize}}"><meta name="aego-try-size" content="{{.TrySize}}">{{end}}
     <title>{{.PageTitle}}</title>
@@ -25,26 +28,27 @@
 <body{{if .Home}} class="home"{{end}}>
 <header class="top">
 <div class="top-inner">
-    <button type="button" class="menu" aria-label="Navigation" aria-expanded="false" aria-controls="side"><span></span><span></span><span></span></button>
+    <button type="button" class="menu" aria-label="{{call .T "Navigation"}}" aria-expanded="false" aria-controls="side"><span></span><span></span><span></span></button>
     <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
     <div class="search">
         {{icon .Root "ui.search"}}
-        <input id="search" type="search" placeholder="Search the docs" autocomplete="off" aria-label="Search">
+        <input id="search" type="search" placeholder="{{call .T "Search the docs"}}" autocomplete="off" aria-label="{{call .T "Search"}}">
         <kbd>/</kbd>
         <ul id="results" hidden></ul>
     </div>
-    <nav class="links" aria-label="Site">
-        <a href="{{.Root}}index.html">Docs</a>
-        {{if .Playground}}<a href="{{.Root}}play/">Playground</a>{{end}}
-        {{if .Demo}}<a href="{{.Root}}demo/">Demo</a>{{end}}
-        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
+    <nav class="links" aria-label="{{call .T "Site"}}">
+        <a href="{{.Root}}index.html">{{call .T "Docs"}}</a>
+        {{if .Playground}}<a href="{{.Root}}play/">{{call .T "Playground"}}</a>{{end}}
+        {{if .Demo}}<a href="{{.Root}}demo/">{{call .T "Demo"}}</a>{{end}}
+        {{if .Repo}}<a class="repo" href="{{.Repo}}" title="{{call .T "Source code"}}" aria-label="{{call .T "Source code"}}"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
     </nav>
+    {{if .Alt}}<a class="lang" href="{{.Root}}{{.Alt}}" hreflang="{{.AltLang}}" lang="{{.AltLang}}">{{.AltName}}</a>{{end}}
     <button type="button" class="theme" data-mode="auto" aria-label="Theme: Auto" title="Theme: Auto"><svg class="sun" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="moon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M20.6 14.6A8.6 8.6 0 0 1 9.4 3.4a8.6 8.6 0 1 0 11.2 11.2Z"/></svg><svg class="auto" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M12 3.8a8.2 8.2 0 0 1 0 16.4Z"/></svg></button>
 </div>
 </header>
 <div class="shell">
-    <nav class="side" id="side" aria-label="Documentation">
-        <div class="side-links"><a href="{{.Root}}index.html">Docs</a>{{if .Playground}}<a href="{{.Root}}play/">Playground</a>{{end}}{{if .Demo}}<a href="{{.Root}}demo/">Demo</a>{{end}}{{if .Repo}}<a href="{{.Repo}}">Source</a>{{end}}</div>
+    <nav class="side" id="side" aria-label="{{call .T "Documentation"}}">
+        <div class="side-links"><a href="{{.Root}}index.html">{{call .T "Docs"}}</a>{{if .Playground}}<a href="{{.Root}}play/">{{call .T "Playground"}}</a>{{end}}{{if .Demo}}<a href="{{.Root}}demo/">{{call .T "Demo"}}</a>{{end}}{{if .Repo}}<a href="{{.Repo}}">{{call .T "Source"}}</a>{{end}}</div>
         {{.Nav}}
     </nav>
     <script>(function () { const side = document.getElementById("side"); try { const st = JSON.parse(localStorage.getItem("aego.docs.groups")) || {}; for (const d of side.querySelectorAll("details.group")) if (!d.dataset.current && d.dataset.group in st) d.open = !!st[d.dataset.group]; } catch (_) {} let y = null; try { y = sessionStorage.getItem("aego.docs.side"); } catch (_) {} if (y !== null) side.scrollTop = +y; const cur = side.querySelector("a.current"); if (cur) { const top = cur.offsetTop - side.offsetTop; if (top < side.scrollTop || top > side.scrollTop + side.clientHeight - 40) side.scrollTop = Math.max(0, top - side.clientHeight / 2); } })();</script>

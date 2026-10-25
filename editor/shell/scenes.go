@@ -254,7 +254,7 @@ func (a *App) drawScenePicker() {
 		ui.Text(path.Dir(it.Path), mathx.Vec2{X: rr.X + 18 + ui.TextSize(name).X, Y: ui.TextY(rr)}, th.TextDim)
 	}
 	if len(pk.view) == 0 {
-		ui.TextIn(mathx.Rect{X: r.X, Y: fr.Y + fr.H + 4, W: r.W, H: rh}, "No scenes match", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(mathx.Rect{X: r.X, Y: fr.Y + fr.H + 4, W: r.W, H: rh}, i18n.Tr("editor.shell.no_scenes_match", "No scenes match"), th.TextDisabled, core.AlignCenter)
 	}
 	ui.EndOverlay()
 	if picked >= 0 {

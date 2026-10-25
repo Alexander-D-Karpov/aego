@@ -17,6 +17,9 @@ messages version=1 lang=en {
   msg "i18n.input.bindings" {
     text="Bindings"
   }
+  msg "i18n.input.buffer" {
+    text="Buffer"
+  }
   msg "i18n.input.click_then_press_a_key" {
     text="Click, then press a key, a mouse button or a pad control"
   }
@@ -29,14 +32,56 @@ messages version=1 lang=en {
   msg "i18n.input.contexts" {
     text="Contexts"
   }
+  msg "i18n.input.dead_zone" {
+    text="Dead Zone"
+  }
   msg "i18n.input.devices" {
     text="Devices"
   }
   msg "i18n.input.devices.title" {
     text="Input Devices"
   }
+  msg "i18n.input.dir.down" {
+    text="Down"
+  }
+  msg "i18n.input.dir.left" {
+    text="Left"
+  }
+  msg "i18n.input.dir.right" {
+    text="Right"
+  }
+  msg "i18n.input.dir.up" {
+    text="Up"
+  }
   msg "i18n.input.focus.title" {
     text="Input Focus"
+  }
+  msg "i18n.input.form.arrow_keys" {
+    text="Arrow Keys"
+  }
+  msg "i18n.input.form.four_keys" {
+    text="Four Keys (WASD)"
+  }
+  msg "i18n.input.form.key" {
+    text="Key"
+  }
+  msg "i18n.input.form.mouse_button" {
+    text="Mouse Button"
+  }
+  msg "i18n.input.form.pad_axis" {
+    text="Pad Axis"
+  }
+  msg "i18n.input.form.pad_button" {
+    text="Pad Button"
+  }
+  msg "i18n.input.form.pad_trigger" {
+    text="Pad Trigger"
+  }
+  msg "i18n.input.form.stick" {
+    text="Stick"
+  }
+  msg "i18n.input.form.two_keys" {
+    text="Two Keys (- / +)"
   }
   msg "i18n.input.gamepad" {
     text="Gamepad"
@@ -89,11 +134,17 @@ messages version=1 lang=en {
   msg "i18n.input.no_bindings_yet_the_action" {
     text="No bindings yet: the action never fires"
   }
+  msg "i18n.input.pad_n" {
+    text="Pad {n}"
+  }
   msg "i18n.input.pad_v_i_padstate" {
     text="Pad {v}: {i}   {padstate}"
   }
   msg "i18n.input.player" {
     text="Player"
+  }
+  msg "i18n.input.player_n" {
+    text="Player {n}"
   }
   msg "i18n.input.players" {
     text="Players"
@@ -116,6 +167,15 @@ messages version=1 lang=en {
   msg "i18n.input.remove_the_modifier" {
     text="Remove the modifier"
   }
+  msg "i18n.input.sensitivity" {
+    text="Sensitivity"
+  }
+  msg "i18n.input.smoothing" {
+    text="Smoothing"
+  }
+  msg "i18n.input.start_stack" {
+    text="Start Stack"
+  }
   msg "i18n.input.start_stack_contexts_active_when" {
     text="Start stack: contexts active when the game starts"
   }
@@ -124,6 +184,27 @@ messages version=1 lang=en {
   }
   msg "i18n.input.the_stack_reads_higher_priority" {
     text="The stack reads higher priority first; a consuming context hides its controls from the ones below."
+  }
+  msg "i18n.input.time" {
+    text="Time"
+  }
+  msg "i18n.input.trigger.double_tap" {
+    text="Double Tap"
+  }
+  msg "i18n.input.trigger.hold" {
+    text="Hold"
+  }
+  msg "i18n.input.trigger.press" {
+    text="Press"
+  }
+  msg "i18n.input.trigger.release" {
+    text="Release"
+  }
+  msg "i18n.input.trigger.tap" {
+    text="Tap"
+  }
+  msg "i18n.input.trigger.toggle" {
+    text="Toggle"
   }
   msg "i18n.input.type" {
     text="Type"

@@ -24,8 +24,6 @@ const (
 	maxCardLines = 8
 	maxResult    = 4000
 	cardInset    = 8
-	installHelp  = "The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."
-	emptyHint    = "Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them."
 )
 
 type itemKind uint8
@@ -348,7 +346,7 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 		if p.past == nil {
 			p.past = []string{}
 		}
-		p.names = append(p.names[:0], "Current session")
+		p.names = append(p.names[:0], i18n.Tr("editor.agent.current_session", "Current session"))
 		for _, id := range p.past {
 			if p.log != nil && id == p.log.ID {
 				continue
@@ -371,9 +369,9 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	x += aw + 6
 	if n := p.applicable(); n >= 1 && host.Busy() {
 		if n != p.allN {
-			p.allN, p.allLabel = n, "Apply All"
+			p.allN, p.allLabel = n, i18n.Tr("editor.agent.apply_all", "Apply All")
 			if n > 1 {
-				p.allLabel = "Apply All (" + itoa(n) + ")"
+				p.allLabel = i18n.Tr("editor.agent.apply_all_n", "Apply All ({n})", i18n.Int("n", int64(n)))
 			}
 		}
 		bw := ui.TextSize(p.allLabel).X + 20
@@ -460,7 +458,7 @@ func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
 	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: body.Y + th.Padding - p.scroll, W: max(0, body.W-2*th.Padding), RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	start := ui.Cursor().Y
 	if len(list) == 0 {
-		widgets.LabelWrapped(ui, emptyHint, true)
+		widgets.LabelWrapped(ui, i18n.Tr("editor.agent.empty_hint", "Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them."), true)
 	}
 	for i := range list {
 		ui.PushIDInt(i)
@@ -709,8 +707,8 @@ func (p *Panel) inputRow(ui *core.Context, r mathx.Rect) {
 func (p *Panel) openMentions(ui *core.Context) {
 	if p.pal == nil {
 		p.pal = palette.New(core.IDOf("agent.mentions"))
-		p.pal.Title = "Mention"
-		p.pal.Hint = "Enter insert · Esc close"
+		p.pal.Title = i18n.Tr("editor.agent.mention", "Mention")
+		p.pal.Hint = i18n.Tr("editor.agent.mention_hint", "Enter insert · Esc close")
 	}
 	var items []palette.Item
 	p.mentions = p.mentions[:0]
@@ -761,7 +759,7 @@ func (p *Panel) drawMentions(ui *core.Context) {
 
 func (p *Panel) drawMissing(ui *core.Context) {
 	widgets.Label(ui, i18n.Tr("editor.agent.claude_code_is_not_available", "Claude Code is not available"))
-	widgets.LabelWrapped(ui, installHelp, true)
+	widgets.LabelWrapped(ui, i18n.Tr("editor.agent.install_help", "The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."), true)
 	if p.verErr != nil {
 		widgets.LabelWrapped(ui, p.verErr.Error(), true)
 	}

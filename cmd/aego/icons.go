@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aego/engine/i18n"
 	"bytes"
 	"flag"
 	"fmt"
@@ -14,11 +15,13 @@ import (
 	"aego/engine/module"
 )
 
-const iconsUsage = `usage: aego icons [check|list] [dir] [flags]
+func iconsUsage() string {
+	return i18n.Tr("cli.icons.usage", `usage: aego icons [check|list] [dir] [flags]
 
   check            fail on icons that are used but missing, or provided but unused
   list [--json]    print the icon manifest as markdown, or as JSON
-       [--out f]   write it to a file instead of stdout`
+       [--out f]   write it to a file instead of stdout`)
+}
 
 func editorIcons() []module.IconUse {
 	out := iconuse.Uses()
@@ -58,7 +61,7 @@ func cmdIcons(args []string) int {
 	out := fs.String("out", "", "write the manifest to this file")
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
-		fmt.Fprintln(os.Stderr, iconsUsage)
+		fmt.Fprintln(os.Stderr, iconsUsage())
 		return 2
 	}
 	if sub == "check" {

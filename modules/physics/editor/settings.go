@@ -74,9 +74,9 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 		v     *int
 		def   int
 	}{
-		{"Substeps", &ps.Substeps, def.Substeps},
-		{"Velocity Iterations", &ps.VelocityIterations, def.VelocityIterations},
-		{"Relax Iterations", &ps.RelaxIterations, def.RelaxIterations},
+		{i18n.Tr("i18n.physics.substeps", "Substeps"), &ps.Substeps, def.Substeps},
+		{i18n.Tr("i18n.physics.velocity_iterations", "Velocity Iterations"), &ps.VelocityIterations, def.VelocityIterations},
+		{i18n.Tr("i18n.physics.relax_iterations", "Relax Iterations"), &ps.RelaxIterations, def.RelaxIterations},
 	} {
 		changed = intRow(ui, x.label, x.v, x.def) || changed
 		hot(x.label, "solver")
@@ -87,14 +87,14 @@ func (p *plugin) settingsPage(ctx *context.Editor, draft any) bool {
 		v     *float32
 		def   float32
 	}{
-		{"Contact Hertz", "contact", &ps.ContactHertz, def.ContactHertz},
-		{"Contact Damping Ratio", "contact", &ps.ContactDampingRatio, def.ContactDampingRatio},
-		{"Contact Push Velocity", "contact", &ps.ContactPushVelocity, def.ContactPushVelocity},
-		{"Restitution Threshold", "bounce", &ps.RestitutionThreshold, def.RestitutionThreshold},
-		{"Linear Slop", "contact", &ps.LinearSlop, def.LinearSlop},
-		{"Sleep Linear", "sleep", &ps.SleepLinear, def.SleepLinear},
-		{"Sleep Angular", "sleep", &ps.SleepAngular, def.SleepAngular},
-		{"Sleep Time", "sleep", &ps.SleepTime, def.SleepTime},
+		{i18n.Tr("i18n.physics.contact_hertz", "Contact Hertz"), "contact", &ps.ContactHertz, def.ContactHertz},
+		{i18n.Tr("i18n.physics.contact_damping_ratio", "Contact Damping Ratio"), "contact", &ps.ContactDampingRatio, def.ContactDampingRatio},
+		{i18n.Tr("i18n.physics.contact_push_velocity", "Contact Push Velocity"), "contact", &ps.ContactPushVelocity, def.ContactPushVelocity},
+		{i18n.Tr("i18n.physics.restitution_threshold", "Restitution Threshold"), "bounce", &ps.RestitutionThreshold, def.RestitutionThreshold},
+		{i18n.Tr("i18n.physics.linear_slop", "Linear Slop"), "contact", &ps.LinearSlop, def.LinearSlop},
+		{i18n.Tr("i18n.physics.sleep_linear", "Sleep Linear"), "sleep", &ps.SleepLinear, def.SleepLinear},
+		{i18n.Tr("i18n.physics.sleep_angular", "Sleep Angular"), "sleep", &ps.SleepAngular, def.SleepAngular},
+		{i18n.Tr("i18n.physics.sleep_time", "Sleep Time"), "sleep", &ps.SleepTime, def.SleepTime},
 	} {
 		changed = floatRow(ui, x.label, x.v, x.def) || changed
 		hot(x.label, x.part)

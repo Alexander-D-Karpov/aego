@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aego/engine/i18n"
 	"aego/script/abi"
 	"errors"
 	"strings"
@@ -24,6 +25,9 @@ type FieldView struct {
 	Saved    bool     `json:"saved"`
 	Live     bool     `json:"live,omitempty"`
 	Doc      string   `json:"doc,omitempty"`
+	// Label is the name the Inspector shows, in the requested language.
+	Label      string   `json:"label,omitempty"`
+	EnumLabels []string `json:"enumLabels,omitempty"`
 }
 
 type TypeView struct {
@@ -48,7 +52,7 @@ type CallView struct {
 func schemaCommands() []*Command {
 	return []*Command{
 		{Name: "schema.list", Doc: "component and data types", Args: []Arg{{Name: "kind", Type: "string", Doc: "component, data or all (default)"}}, Run: (*Session).schemaList},
-		{Name: "schema.show", Doc: "fields of a type: kind, range, unit, default, flags and docs", Args: []Arg{{Name: "type", Type: "string", Doc: "full name or a unique suffix", Required: true, Pos: true}}, Run: (*Session).schemaShow},
+		{Name: "schema.show", Doc: "fields of a type: kind, range, unit, default, flags and docs", Args: []Arg{{Name: "type", Type: "string", Doc: "full name or a unique suffix", Required: true, Pos: true}, {Name: "lang", Type: "string", Doc: "language of the names and docs, such as ru; English when empty"}}, Run: (*Session).schemaShow},
 	}
 }
 
@@ -134,10 +138,16 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 		return nil, err
 	}
 	reg := s.Types.Schema()
-	v := TypeView{Name: td.FullName, Kind: kindName(td), Display: td.DisplayName, Category: td.Category, Owner: td.Owner, Requires: td.Requires, Doc: td.Doc}
+	lang := a.Str("lang")
+	tr := func(key, en string) string { return i18n.Default().In(lang, key, en) }
+	v := TypeView{Name: td.FullName, Kind: kindName(td), Display: tr(schema.TypeKey(td), schema.EnglishTitle(td)), Category: td.Category, Owner: td.Owner, Requires: td.Requires, Doc: tr(schema.TypeKey(td)+".doc", td.Doc)}
 	var b strings.Builder
-	b.WriteString(td.FullName + " (" + kindName(td) + ")\n")
-	if d := summary(td.Doc); d != "" {
+	b.WriteString(td.FullName + " (" + kindName(td) + ")")
+	if lang != "" {
+		b.WriteString("  " + v.Display)
+	}
+	b.WriteString("\n")
+	if d := summary(v.Doc); d != "" {
 		b.WriteString(d + "\n")
 	}
 	for i := range td.Fields {
@@ -145,7 +155,7 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 		if fd.Hints.Hidden {
 			continue
 		}
-		f := FieldView{Name: fd.Name, Kind: fd.Kind.String(), Asset: fd.AssetKind, Unit: fd.Hints.Unit, Doc: summary(fd.Doc),
+		f := FieldView{Name: fd.Name, Kind: fd.Kind.String(), Asset: fd.AssetKind, Unit: fd.Hints.Unit, Doc: summary(tr(schema.FieldKey(td, fd)+".doc", fd.Doc)),
 			ReadOnly: fd.Flags.Has(schema.FlagReadOnly), Saved: fd.Flags.Has(schema.FlagSerialize), Live: fd.Flags.Has(schema.FlagLive),
 			Default: defaultText(reg, td, fd)}
 		if fd.Kind == schema.KindList {
@@ -153,6 +163,12 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 		}
 		for _, e := range fd.Enum {
 			f.Enum = append(f.Enum, e.Name)
+			if lang != "" && fd.EnumName != "" {
+				f.EnumLabels = append(f.EnumLabels, tr(schema.EnumKey(fd.EnumName, e.Name), e.Name))
+			}
+		}
+		if lang != "" {
+			f.Label = tr(schema.FieldKey(td, fd), schema.Label(fd))
 		}
 		if fd.HasMin {
 			m := fd.Min
@@ -163,7 +179,11 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 			f.Max = &m
 		}
 		v.Fields = append(v.Fields, f)
-		b.WriteString("  " + f.Name + "  " + f.Kind)
+		b.WriteString("  " + f.Name)
+		if f.Label != "" {
+			b.WriteString(" (" + f.Label + ")")
+		}
+		b.WriteString("  " + f.Kind)
 		if f.Default != "" {
 			b.WriteString(" = " + f.Default)
 		}

@@ -15,6 +15,7 @@ import (
 	"aego/editor/core/history/commands"
 	animpanel "aego/editor/panels/animation"
 	"aego/editor/shell/addpalette"
+	"aego/engine/i18n"
 	"aego/modules/animation"
 	"aego/platform/input"
 	"aego/scene"
@@ -147,7 +148,7 @@ func (a *App) addWith(d *document.SceneDocument, h scene.NodeHandle, comp, field
 	}
 	env := commands.WithOnAdd(commands.EnvFor(s), a.ctx.OnAdd)
 	vals := append(a.inspectors.Defaults(td.ID), commands.FieldValue{Field: fd.ID, Value: schema.Asset(id)})
-	return d.History.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, s.ID(h), td, vals)))
+	return d.History.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.AddComp(s, s.ID(h), td, vals)))
 }
 
 func (a *App) createClip(parent ids.NodeID) error {

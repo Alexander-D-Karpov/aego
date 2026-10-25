@@ -135,6 +135,8 @@ type Options struct {
 }
 
 type App struct {
+	// density overrides the window pixel density when above zero.
+	density        float32
 	prefs          *prefs.Prefs
 	retheme        bool
 	recent         []launcher.Entry
@@ -937,7 +939,11 @@ func (a *App) Update(dt float64) {
 	}
 	m := e.Metrics()
 	size := mathx.Vec2{X: float32(m.LogicalW), Y: float32(m.LogicalH)}
-	ui.Begin(in, size, m.Density())
+	density := m.Density()
+	if a.density > 0 {
+		density = a.density
+	}
+	ui.Begin(in, size, density)
 	a.ctx.FocusedPanel = a.ws.Focused()
 	a.syncAssetsFolder()
 	th := &ui.Theme
@@ -1326,4 +1332,9 @@ func (a *App) openTable(id ids.AssetID) {
 		return
 	}
 	a.ws.Show(datatable.ID)
+}
+
+// SetDensity lays the editor out as on a screen with this pixel density; 0 follows the window. Tests use it for UI scale 2.
+func (a *App) SetDensity(d float32) {
+	a.density = d
 }

@@ -1,4 +1,155 @@
 messages version=1 lang=ru {
+  msg "cli.bootstrap.not_native" {
+    text="в проекте native=false, собирать нечего"
+  }
+  msg "cli.build.not_native" {
+    text="в проекте native=false, собирать нечего"
+  }
+  msg "cli.check.fix" {
+    text="Как исправить: {fix}"
+  }
+  msg "cli.check.flag.ensure_meta" {
+    text="записать недостающие файлы .meta, а не сообщать о них"
+  }
+  msg "cli.check.flag.explain" {
+    text="вывести статью справочника для каждого найденного кода диагностики"
+  }
+  msg "cli.check.flag.manifest" {
+    text="проверять по этому манифесту привязок, а не собирать новый"
+  }
+  msg "cli.check.problems" {
+    one="check: {n} проблема"
+    few="check: {n} проблемы"
+    many="check: {n} проблем"
+  }
+  msg "cli.check.script_errors" {
+    one="скрипты: {n} ошибка"
+    few="скрипты: {n} ошибки"
+    many="скрипты: {n} ошибок"
+  }
+  msg "cli.docs.flag.lang" {
+    text="проверить и переводы на этот язык, например ru"
+  }
+  msg "cli.docs.tool_status" {
+    text="инструмент проекта завершился с кодом {code}"
+  }
+  msg "cli.docs.usage" {
+    text="использование: aego docs <команда> [флаги]\n\n  export [--out файл]          записать реестр документации в JSON\n  check [--strict]             битые ссылки, правила стиля (DOC010–DOC023), привязки без описаний\n  report [--json]              все страницы: вводный абзац, примеры и найденное\n  build [--out site] [--demo] собрать статический сайт с песочницей\n  serve [--addr host:port]     собрать, раздать на localhost и пересобирать при изменениях\n\nфлаги: --project папка, --engine папка, --playground=false"
+  }
+  msg "cli.dump.usage" {
+    text="использование: aego dump script <пакет|Тип> [--func имя] [--project папка]"
+  }
+  msg "cli.edit.flag.cpuprofile" {
+    text="записать профиль процессора в этот файл"
+  }
+  msg "cli.edit.flag.debug" {
+    text="подробный журнал и отладочный вывод GPU"
+  }
+  msg "cli.edit.flag.frames" {
+    text="отработать заданное число кадров и выйти"
+  }
+  msg "cli.edit.flag.headless" {
+    text="запустить без окна"
+  }
+  msg "cli.edit.flag.hidden" {
+    text="создать окно, не показывая его"
+  }
+  msg "cli.edit.flag.launcher" {
+    text="открыть лаунчер на вкладке recent или new"
+  }
+  msg "cli.edit.flag.profile" {
+    text="профиль настроек игрока; пусто — профиль по умолчанию"
+  }
+  msg "cli.export.flag.cc" {
+    text="компилятор C для целевой платформы"
+  }
+  msg "cli.export.flag.check" {
+    text="только выполнить проверки перед экспортом"
+  }
+  msg "cli.export.flag.development" {
+    text="профиль разработки"
+  }
+  msg "cli.export.flag.engine" {
+    text="путь к исходникам aego"
+  }
+  msg "cli.export.flag.json" {
+    text="вывести отчёт в JSON"
+  }
+  msg "cli.export.flag.out" {
+    text="папка вывода"
+  }
+  msg "cli.export.flag.release" {
+    text="профиль релиза"
+  }
+  msg "cli.export.flag.target" {
+    text="целевая платформа"
+  }
+  msg "cli.export.profiles" {
+    text="--release и --development нельзя указывать вместе"
+  }
+  msg "cli.export.usage" {
+    text="использование: aego export [папка] [флаги]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   по умолчанию host\n  --development | --release                           по умолчанию development\n  --out папка      папка вывода, по умолчанию <проект>/exports/<os>-<arch>-<профиль>\n  --cc компилятор  компилятор C для другой платформы, или CC_<OS>_<ARCH>\n  --check          только выполнить проверки перед экспортом\n  --json           вывести отчёт в JSON\n  --engine папка   путь к исходникам aego"
+  }
+  msg "cli.icons.usage" {
+    text="использование: aego icons [check|list] [папка] [флаги]\n\n  check            ошибка, если иконка используется, но её нет, или есть, но не используется\n  list [--json]    вывести манифест иконок в markdown или JSON\n       [--out f]   записать его в файл, а не в stdout"
+  }
+  msg "cli.import.flag.force" {
+    text="не использовать кэш артефактов"
+  }
+  msg "cli.new.flag.engine" {
+    text="путь к исходникам aego для нативных проектов и примеров"
+  }
+  msg "cli.new.flag.example" {
+    text="скопировать пример из движка вместо шаблона"
+  }
+  msg "cli.new.flag.module" {
+    text="путь модуля; по умолчанию — имя папки"
+  }
+  msg "cli.new.flag.native" {
+    text="создать проект с нативным модулем на Go"
+  }
+  msg "cli.new.flag.template" {
+    text="empty, 2d, 2.5d или 3d"
+  }
+  msg "cli.new.usage" {
+    text="использование: aego new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native] [--engine папка]"
+  }
+  msg "cli.run.build_failed" {
+    text="сборка не удалась, запущенная игра продолжает работать"
+  }
+  msg "cli.run.flag.debug" {
+    text="подробный журнал и отладочный вывод GPU"
+  }
+  msg "cli.run.flag.frames" {
+    text="отработать заданное число кадров"
+  }
+  msg "cli.run.flag.headless" {
+    text="запустить без окна"
+  }
+  msg "cli.run.flag.profile" {
+    text="профиль настроек игрока; пусто — профиль по умолчанию"
+  }
+  msg "cli.run.flag.scene" {
+    text="загрузить этот файл сцены вместо главной сцены"
+  }
+  msg "cli.run.flag.trace" {
+    text="при выходе записать в этот файл трассировку Chrome последних 239 кадров"
+  }
+  msg "cli.run.kill" {
+    text="игра не остановилась вовремя, завершаю её принудительно"
+  }
+  msg "cli.run.rebuilding" {
+    text="нативные исходники изменились, пересобираю"
+  }
+  msg "cli.run.restarted" {
+    text="игра перезапущена с новой сборкой"
+  }
+  msg "cli.unknown_command" {
+    text="неизвестная команда {name}"
+  }
+  msg "cli.usage" {
+    text="aego <команда> [флаги]\n\n  new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native]\n                         создать проект из шаблона или примера движка\n  run [папка]            импортировать ассеты и запустить игру\n  edit [папка|файл] [--launcher recent|new]\n                         открыть проект или одну из его сцен в редакторе; без проекта открывается лаунчер\n  build [папка]          собрать нативный исполняемый файл\n  export [папка] [--target host|linux|windows|darwin] [--release|--development] [--out папка] [--check] [--json]\n                         собрать игру для распространения, которой не нужны Go и исходники проекта\n  bootstrap [папка]      перегенерировать .aego/generated для нативного модуля без сборки\n  import [папка] [--force] заново импортировать все ассеты\n  check [папка] [--manifest файл] [--explain] [--ensure-meta]  разобрать все документы, проверить файлы .meta и типы в скриптах\n  icons [check|list] [папка] [--json] [--out файл]  сверить используемые иконки с исходниками иконок или вывести манифест\n  test [папка] [-run имя] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene файл]]\n                         запустить тесты скриптов *_test.aes без окна или запустить игру дважды и сравнить хеши состояния\n  dump script <пакет|Тип> [--func имя]  дизассемблировать пакет скриптов с номерами строк\n  docs export|check|build|serve  реестр документации, сайт и песочница\n  mcp [--project папка] [--watch]   отдать проект ИИ-агенту по MCP (stdio)\n  scene|prefab|data|refs|asset|schema|project <действие> ...   правка файлов проекта без редактора, см. aego scene help\n"
+  }
   msg "editor.addpalette.add_changes" {
     one="Добавление {name} изменит {n} узел."
     few="Добавление {name} изменит {n} узла."
@@ -58,6 +209,12 @@ messages version=1 lang=ru {
   msg "editor.agent.apply" {
     text="Применить"
   }
+  msg "editor.agent.apply_all" {
+    text="Применить все"
+  }
+  msg "editor.agent.apply_all_n" {
+    text="Применить все ({n})"
+  }
   msg "editor.agent.apply_changes_without_asking_removals" {
     text="Применять изменения без вопроса; удаления и перемещения всё равно ждут вас"
   }
@@ -82,8 +239,23 @@ messages version=1 lang=ru {
   msg "editor.agent.claude_code_is_not_available" {
     text="Claude Code недоступен"
   }
+  msg "editor.agent.current_session" {
+    text="Текущий сеанс"
+  }
+  msg "editor.agent.empty_hint" {
+    text="Спросите о проекте или опишите изменение. Наберите @, чтобы упомянуть узел или ассет. Изменения ждут, пока вы их примените."
+  }
   msg "editor.agent.failed_err" {
     text="ошибка: {err}"
+  }
+  msg "editor.agent.install_help" {
+    text="Агент работает через Claude Code, команду claude. Установите её, один раз войдите в аккаунт, запустив claude в терминале, и проверьте снова. Если она установлена там, где редактор её не ищет, укажите путь ниже."
+  }
+  msg "editor.agent.mention" {
+    text="Упоминание"
+  }
+  msg "editor.agent.mention_hint" {
+    text="Enter — вставить · Esc — закрыть"
   }
   msg "editor.agent.message_the_agent_to_mention" {
     text="Сообщение агенту, @ — упомянуть"
@@ -142,8 +314,17 @@ messages version=1 lang=ru {
   msg "editor.animation.events" {
     text="События"
   }
+  msg "editor.animation.go_to_end" {
+    text="В конец"
+  }
+  msg "editor.animation.go_to_start" {
+    text="В начало"
+  }
   msg "editor.animation.interpolation_in" {
     text="Интерполяция: {in}"
+  }
+  msg "editor.animation.no_numeric_tracks" {
+    text="В клипе нет числовых дорожек, которые можно показать кривыми"
   }
   msg "editor.animation.not_previewed_sk" {
     text="Без предпросмотра: {sk}"
@@ -196,6 +377,9 @@ messages version=1 lang=ru {
   msg "editor.animator.add_state" {
     text="Добавить состояние"
   }
+  msg "editor.animator.any_state" {
+    text="Любое состояние"
+  }
   msg "editor.animator.at" {
     text="В"
   }
@@ -222,6 +406,9 @@ messages version=1 lang=ru {
   }
   msg "editor.animator.duration" {
     text="Длительность"
+  }
+  msg "editor.animator.entry" {
+    text="Вход"
   }
   msg "editor.animator.exit_time" {
     text="Время выхода"
@@ -271,6 +458,9 @@ messages version=1 lang=ru {
   msg "editor.animator.speed" {
     text="Скорость"
   }
+  msg "editor.animator.state_head" {
+    text="Состояние {name}"
+  }
   msg "editor.animator.title" {
     text="Аниматор"
   }
@@ -279,6 +469,9 @@ messages version=1 lang=ru {
   }
   msg "editor.animator.try_later" {
     text="Попробуйте позже"
+  }
+  msg "editor.animedit.auto_key_off" {
+    text="Автоключ выключен: нажмите K или кнопку ключа рядом с полем"
   }
   msg "editor.animedit.key_sprite" {
     text="Записать спрайт в ключ"
@@ -295,11 +488,26 @@ messages version=1 lang=ru {
   msg "editor.assetops.cannot_update_the_package_of" {
     text="не удалось обновить пакет {to}: {error}"
   }
+  msg "editor.assetops.name" {
+    text="Имя"
+  }
+  msg "editor.assetops.path" {
+    text="Путь"
+  }
+  msg "editor.assetops.rename" {
+    text="Переименовать"
+  }
   msg "editor.assetops.rename_scene" {
     text="Переименовать сцену"
   }
+  msg "editor.assetops.save" {
+    text="Сохранить"
+  }
   msg "editor.assetops.save_scene_as" {
     text="Сохранить сцену как"
+  }
+  msg "editor.assetops.saved" {
+    text="Сохранено: {path}"
   }
   msg "editor.assetops.startup_scene_rel" {
     text="Стартовая сцена: {rel}"
@@ -391,6 +599,9 @@ messages version=1 lang=ru {
   msg "editor.assets.delete_the_empty_folder_dir" {
     text="Удалить пустую папку {dir}?"
   }
+  msg "editor.assets.drop_files_here" {
+    text="Перетащите сюда файлы для импорта"
+  }
   msg "editor.assets.duplicate" {
     text="Дублировать"
   }
@@ -435,6 +646,9 @@ messages version=1 lang=ru {
   }
   msg "editor.assets.new_fullname_table" {
     text="Новая таблица {fullname}"
+  }
+  msg "editor.assets.new_package_message" {
+    text="Создаёт {dir}/<пакет>/ с первым скриптом"
   }
   msg "editor.assets.new_prefab" {
     text="Новый префаб"
@@ -553,11 +767,20 @@ messages version=1 lang=ru {
   msg "editor.batchrename.regex" {
     text=".* Регулярное выражение"
   }
+  msg "editor.batchrename.rename" {
+    text="Переименовать"
+  }
   msg "editor.batchrename.rename_changed" {
     text="Переименовать ({changed})"
   }
   msg "editor.batchrename.replace" {
     text="Заменить"
+  }
+  msg "editor.batchrename.start" {
+    text="Начало"
+  }
+  msg "editor.batchrename.step" {
+    text="Шаг"
   }
   msg "editor.category.animation" {
     text="Анимация"
@@ -1093,6 +1316,9 @@ messages version=1 lang=ru {
   msg "editor.common.edit" {
     text="Изменить"
   }
+  msg "editor.common.ok" {
+    text="ОК"
+  }
   msg "editor.common.open" {
     text="Открыть"
   }
@@ -1189,6 +1415,12 @@ messages version=1 lang=ru {
   msg "editor.datatable.action.undo" {
     text="Отменить"
   }
+  msg "editor.datatable.exported" {
+    text="Экспортировано: {path}"
+  }
+  msg "editor.datatable.imported" {
+    text="Импортировано: {path}"
+  }
   msg "editor.datatable.no_rows_match_the_filter" {
     text="Нет строк, подходящих под фильтр"
   }
@@ -1197,6 +1429,9 @@ messages version=1 lang=ru {
   }
   msg "editor.datatable.open_a_aetable_asset_to" {
     text="Откройте ассет .aetable, чтобы редактировать его здесь"
+  }
+  msg "editor.datatable.read_only_in_play" {
+    text="Во время игры таблицы доступны только для чтения"
   }
   msg "editor.datatable.tables_are_read_only_during" {
     text="Во время игры таблицы только для чтения"
@@ -1212,6 +1447,9 @@ messages version=1 lang=ru {
   }
   msg "editor.docs.documentation_is_not_loaded" {
     text="Документация не загружена."
+  }
+  msg "editor.docs.example" {
+    text="Пример"
   }
   msg "editor.docs.getting_started" {
     text="Начало работы"
@@ -1282,8 +1520,19 @@ messages version=1 lang=ru {
   msg "editor.export.back_to_the_default_folder" {
     text="Вернуть папку по умолчанию"
   }
+  msg "editor.export.blocked" {
+    one="Экспорт заблокирован: {n} проблема"
+    few="Экспорт заблокирован: {n} проблемы"
+    many="Экспорт заблокирован: {n} проблем"
+  }
   msg "editor.export.cancel" {
     text="Отмена"
+  }
+  msg "editor.export.canceled" {
+    text="Экспорт отменён"
+  }
+  msg "editor.export.check_canceled" {
+    text="Проверка отменена"
   }
   msg "editor.export.check_export_prof" {
     text="Проверка экспорта ({prof})"
@@ -1298,6 +1547,12 @@ messages version=1 lang=ru {
   }
   msg "editor.export.export_target_profile" {
     text="Экспорт {target} {profile}"
+  }
+  msg "editor.export.exported_to" {
+    text="Экспортировано в {dir}"
+  }
+  msg "editor.export.failed" {
+    text="Экспорт не удался: {err}"
   }
   msg "editor.export.output" {
     text="Вывод"
@@ -1317,11 +1572,17 @@ messages version=1 lang=ru {
   msg "editor.export.profile.release.note" {
     text="Оптимизировано и урезано, для игроков."
   }
+  msg "editor.export.ready" {
+    text="Готово к экспорту"
+  }
   msg "editor.export.ready_warnings" {
     text="Готово к экспорту, {warnings}"
   }
   msg "editor.export.report" {
     text="Отчёт"
+  }
+  msg "editor.export.report_empty" {
+    text="Проверьте или экспортируйте проект, чтобы увидеть здесь отчёт"
   }
   msg "editor.export.target" {
     text="Платформа"
@@ -1379,11 +1640,29 @@ messages version=1 lang=ru {
   msg "editor.gameview.keys_keyframes_keybytes_the_last" {
     text="\nснимков {keys}, {keybytes}; последний занял {lastkey} и {formatfloat} мс"
   }
+  msg "editor.gameview.no_active_camera" {
+    text="В сцене нет активной камеры"
+  }
+  msg "editor.gameview.overlays_off" {
+    text="Оверлеи: выкл."
+  }
+  msg "editor.gameview.overlays_on" {
+    text="Оверлеи: вкл."
+  }
+  msg "editor.gameview.press_play" {
+    text="Нажмите «Играть» (Ctrl+P)"
+  }
   msg "editor.gameview.recording_starts_with_the_first" {
     text="Запись начинается с первого кадра · нажмите «Играть» или «Шаг»"
   }
   msg "editor.gameview.title" {
     text="Игра"
+  }
+  msg "editor.gameview.vectors_off" {
+    text="Векторы: выкл."
+  }
+  msg "editor.gameview.vectors_on" {
+    text="Векторы: вкл."
   }
   msg "editor.gizmo.move" {
     text="Перемещение"
@@ -1435,6 +1714,9 @@ messages version=1 lang=ru {
   }
   msg "editor.health.run_checks" {
     text="Запустить проверки"
+  }
+  msg "editor.health.show" {
+    text="Показать"
   }
   msg "editor.health.title" {
     text="Состояние проекта"
@@ -1513,6 +1795,204 @@ messages version=1 lang=ru {
   }
   msg "editor.hierarchy.unsaved" {
     text="(не сохранено)"
+  }
+  msg "editor.history.add" {
+    text="Добавить {name}"
+  }
+  msg "editor.history.add_condition" {
+    text="Добавить условие"
+  }
+  msg "editor.history.add_event" {
+    text="Добавить событие"
+  }
+  msg "editor.history.add_parameter" {
+    text="Добавить параметр"
+  }
+  msg "editor.history.add_state" {
+    text="Добавить состояние"
+  }
+  msg "editor.history.add_transition" {
+    text="Добавить переход"
+  }
+  msg "editor.history.apply_play_changes" {
+    text="Применить изменения из игры"
+  }
+  msg "editor.history.apply_to" {
+    text="Применить к {name}"
+  }
+  msg "editor.history.auto_layout" {
+    text="Авторасстановка"
+  }
+  msg "editor.history.batch_rename" {
+    text="Пакетное переименование"
+  }
+  msg "editor.history.change_space" {
+    text="Сменить пространство"
+  }
+  msg "editor.history.clear" {
+    text="Очистить {name}"
+  }
+  msg "editor.history.clear_missing_node_reference" {
+    text="Очистить ссылку на отсутствующий узел"
+  }
+  msg "editor.history.clear_references_to" {
+    text="Очистить ссылки на {name}"
+  }
+  msg "editor.history.copy_from_play" {
+    text="Скопировать {name} из игры"
+  }
+  msg "editor.history.create" {
+    text="Создать {name}"
+  }
+  msg "editor.history.create_prefab" {
+    text="Создать префаб"
+  }
+  msg "editor.history.delete" {
+    text="Удалить"
+  }
+  msg "editor.history.delete_keys" {
+    text="Удалить ключи"
+  }
+  msg "editor.history.delete_state" {
+    text="Удалить состояние"
+  }
+  msg "editor.history.delete_transition" {
+    text="Удалить переход"
+  }
+  msg "editor.history.duplicate" {
+    text="Дублировать"
+  }
+  msg "editor.history.edit_condition" {
+    text="Изменить условие"
+  }
+  msg "editor.history.edit_curve" {
+    text="Изменить кривую"
+  }
+  msg "editor.history.edit_transition" {
+    text="Изменить переход"
+  }
+  msg "editor.history.flipbook" {
+    text="Покадровая анимация"
+  }
+  msg "editor.history.key" {
+    text="Ключ"
+  }
+  msg "editor.history.key_changed" {
+    text="Изменение ключа"
+  }
+  msg "editor.history.key_interpolation" {
+    text="Интерполяция ключей"
+  }
+  msg "editor.history.move" {
+    text="Переместить"
+  }
+  msg "editor.history.move_any" {
+    text="Переместить «Любое состояние»"
+  }
+  msg "editor.history.move_entry" {
+    text="Переместить вход"
+  }
+  msg "editor.history.move_event" {
+    text="Переместить событие"
+  }
+  msg "editor.history.move_keys" {
+    text="Переместить ключи"
+  }
+  msg "editor.history.move_path_key" {
+    text="Переместить ключ пути"
+  }
+  msg "editor.history.move_state" {
+    text="Переместить состояние"
+  }
+  msg "editor.history.move_transition" {
+    text="Переместить переход"
+  }
+  msg "editor.history.paste" {
+    text="Вставить"
+  }
+  msg "editor.history.paste_component" {
+    text="Вставить {name}"
+  }
+  msg "editor.history.paste_components" {
+    text="Вставить компоненты"
+  }
+  msg "editor.history.paste_keys" {
+    text="Вставить ключи"
+  }
+  msg "editor.history.record_key" {
+    text="Записать ключ"
+  }
+  msg "editor.history.remove" {
+    text="Удалить {name}"
+  }
+  msg "editor.history.remove_condition" {
+    text="Удалить условие"
+  }
+  msg "editor.history.remove_event" {
+    text="Удалить событие"
+  }
+  msg "editor.history.remove_parameter" {
+    text="Удалить параметр"
+  }
+  msg "editor.history.rename" {
+    text="Переименовать"
+  }
+  msg "editor.history.reorder_scripts" {
+    text="Изменить порядок скриптов"
+  }
+  msg "editor.history.replace_references" {
+    text="Заменить ссылки"
+  }
+  msg "editor.history.replace_references_to" {
+    text="Заменить ссылки на {name}"
+  }
+  msg "editor.history.reset" {
+    text="Сбросить {name}"
+  }
+  msg "editor.history.resolve" {
+    text="Исправить {name}"
+  }
+  msg "editor.history.rotate" {
+    text="Повернуть"
+  }
+  msg "editor.history.save" {
+    text="Сохранить {name}"
+  }
+  msg "editor.history.scale" {
+    text="Масштабировать"
+  }
+  msg "editor.history.set" {
+    text="Изменить {name}"
+  }
+  msg "editor.history.set_clip" {
+    text="Задать клип"
+  }
+  msg "editor.history.set_entry_state" {
+    text="Задать начальное состояние"
+  }
+  msg "editor.history.set_keys_from_scene" {
+    text="Ключи из сцены"
+  }
+  msg "editor.history.set_layers" {
+    text="Изменить слои"
+  }
+  msg "editor.history.set_mass" {
+    text="Изменить массу"
+  }
+  msg "editor.history.set_speed" {
+    text="Изменить скорость"
+  }
+  msg "editor.history.snap_to_sprite" {
+    text="Подогнать под спрайт"
+  }
+  msg "editor.history.toggle" {
+    text="Переключить {name}"
+  }
+  msg "editor.history.toggle_enabled" {
+    text="Включить или выключить"
+  }
+  msg "editor.history.transform" {
+    text="Трансформация"
   }
   msg "editor.inspector.add_component" {
     text="Добавить компонент"
@@ -1643,6 +2123,9 @@ messages version=1 lang=ru {
   }
   msg "editor.inspector.node_not_in_scene" {
     text="Узла {id} нет в этой сцене"
+  }
+  msg "editor.inspector.node_refs_not_in_data" {
+    text="ссылки на узлы не хранятся в данных"
   }
   msg "editor.inspector.nodes_nodes" {
     text="Узлов: {nodes}"
@@ -1991,6 +2474,9 @@ messages version=1 lang=ru {
   msg "editor.playdiff.n_node_s_created_and" {
     text="Узлы, созданные ({n}) и удалённые ({m}) во время игры, не переносятся"
   }
+  msg "editor.playdiff.no_fields_differ" {
+    text="Ни одно поле не отличается от сцены"
+  }
   msg "editor.playdiff.none" {
     text="Нет"
   }
@@ -2151,11 +2637,59 @@ messages version=1 lang=ru {
   msg "editor.profiler.go_heap_heap_goal_goal" {
     text="куча Go {heap}   цель {goal}   процесс {process}   горутин {formatuint}   GC {formatuint2}"
   }
+  msg "editor.profiler.graph.coroutines" {
+    text="корутины"
+  }
+  msg "editor.profiler.graph.draw_calls" {
+    text="вызовы отрисовки"
+  }
+  msg "editor.profiler.graph.frame" {
+    text="кадр"
+  }
+  msg "editor.profiler.graph.game_nodes" {
+    text="узлы игры"
+  }
+  msg "editor.profiler.graph.game_render" {
+    text="отрисовка игры"
+  }
+  msg "editor.profiler.graph.game_sprites" {
+    text="спрайты игры"
+  }
+  msg "editor.profiler.graph.game_update" {
+    text="обновление игры"
+  }
+  msg "editor.profiler.graph.garbage" {
+    text="мусор"
+  }
+  msg "editor.profiler.graph.render" {
+    text="отрисовка"
+  }
+  msg "editor.profiler.graph.script_heap" {
+    text="куча скриптов"
+  }
+  msg "editor.profiler.graph.script_host_calls" {
+    text="вызовы движка из скриптов"
+  }
+  msg "editor.profiler.graph.script_instructions" {
+    text="инструкции скриптов"
+  }
+  msg "editor.profiler.graph.signal_emits" {
+    text="сигналы"
+  }
+  msg "editor.profiler.graph.sprites" {
+    text="спрайты"
+  }
+  msg "editor.profiler.graph.update" {
+    text="обновление"
+  }
   msg "editor.profiler.instances_instances_update_update_fixed" {
     text="экземпляров {instances}   update {update}   fixed {fixed}   сбоев {faults}   прерываний по бюджету {formatuint}   объектов в куче {heapobjects}   GC {formatuint2} / {gctime} мс"
   }
   msg "editor.profiler.memory" {
     text="Память"
+  }
+  msg "editor.profiler.no_frames_yet" {
+    text="Кадры ещё не записаны"
   }
   msg "editor.profiler.pause" {
     text="Пауза"
@@ -2202,6 +2736,18 @@ messages version=1 lang=ru {
   msg "editor.projectsettings.apply" {
     text="Применить"
   }
+  msg "editor.projectsettings.col_setting" {
+    text="Настройка"
+  }
+  msg "editor.projectsettings.col_source" {
+    text="Источник"
+  }
+  msg "editor.projectsettings.col_value" {
+    text="Значение"
+  }
+  msg "editor.projectsettings.default_for_players" {
+    text="по умолчанию для игроков"
+  }
   msg "editor.projectsettings.default_space" {
     text="Пространство по умолчанию"
   }
@@ -2229,6 +2775,15 @@ messages version=1 lang=ru {
   msg "editor.projectsettings.on" {
     text="Вкл."
   }
+  msg "editor.projectsettings.page_project" {
+    text="Проект"
+  }
+  msg "editor.projectsettings.page_registry" {
+    text="Реестр настроек"
+  }
+  msg "editor.projectsettings.player_setting" {
+    text="настройка игрока {id}"
+  }
   msg "editor.projectsettings.project_aego_changed_while_project" {
     text="project.aego изменился, пока в настройках проекта есть неприменённые изменения: «Применить» перезапишет его, «Вернуть» загрузит"
   }
@@ -2247,8 +2802,17 @@ messages version=1 lang=ru {
   msg "editor.projectsettings.startup_scene" {
     text="Стартовая сцена"
   }
+  msg "editor.projectsettings.tab_defaults" {
+    text="По умолчанию"
+  }
+  msg "editor.projectsettings.tab_settings" {
+    text="Настройки"
+  }
   msg "editor.projectsettings.title" {
     text="Настройки проекта"
+  }
+  msg "editor.projectsettings.unsaved_changes" {
+    text="Несохранённые изменения"
   }
   msg "editor.projectsettings.width" {
     text="Ширина"
@@ -2313,6 +2877,9 @@ messages version=1 lang=ru {
   msg "editor.references.replace" {
     text="Заменить"
   }
+  msg "editor.references.replace_ellipsis" {
+    text="Заменить…"
+  }
   msg "editor.references.replace_every_reference_to_name" {
     text="Заменить все ссылки на {name} на {rel}. Неоткрытые файлы перезаписываются на диске, их оригиналы попадают в .aego/recovery."
   }
@@ -2328,11 +2895,23 @@ messages version=1 lang=ru {
   msg "editor.references.scene_node_owner_field_missing" {
     text="{scene}  ·  {node} · {owner}.{field} → узел отсутствует"
   }
+  msg "editor.references.select" {
+    text="Выбрать"
+  }
+  msg "editor.references.select_asset_hint" {
+    text="Выберите ассет и нажмите {key} или выберите «Найти ссылки» в его меню."
+  }
+  msg "editor.references.show" {
+    text="Показать"
+  }
   msg "editor.references.the_startup_scene_is_set" {
     text="Стартовая сцена задаётся в настройках проекта"
   }
   msg "editor.references.title" {
     text="Ссылки"
+  }
+  msg "editor.references.use" {
+    text="Использовать {name}"
   }
   msg "editor.saves.cancel" {
     text="Отмена"
@@ -2382,6 +2961,9 @@ messages version=1 lang=ru {
   msg "editor.saves.load" {
     text="Загрузить"
   }
+  msg "editor.saves.no_saves_yet" {
+    text="Сохранений пока нет"
+  }
   msg "editor.saves.objects_value" {
     text="в сцене {scene}, создано {spawned}, убрано {destroyed}"
   }
@@ -2402,6 +2984,9 @@ messages version=1 lang=ru {
   }
   msg "editor.saves.saving_works_during_play" {
     text="Сохранение работает во время игры"
+  }
+  msg "editor.saves.select_a_save" {
+    text="Выберите сохранение, чтобы увидеть его содержимое"
   }
   msg "editor.saves.slot_already_exists_and_will" {
     text="{slot} уже существует и будет заменён"
@@ -2568,17 +3153,29 @@ messages version=1 lang=ru {
   msg "editor.scripteditor.all" {
     text="Все"
   }
+  msg "editor.scripteditor.analyzing" {
+    text="Код ещё анализируется, попробуйте через мгновение"
+  }
   msg "editor.scripteditor.attached_to_n_nodes" {
     text="прикреплён к узлам: {n}"
   }
   msg "editor.scripteditor.autosave_failed_error" {
     text="автосохранение не удалось: {error}"
   }
+  msg "editor.scripteditor.build_tip" {
+    text="Скрипты не собираются; щёлкните, чтобы увидеть ошибки в «Проблемах». Горячая перезагрузка держит последнюю удачную сборку"
+  }
   msg "editor.scripteditor.cancel" {
     text="Отмена"
   }
+  msg "editor.scripteditor.defined_in_native" {
+    text="Определено в нативном коде, F12 откроет документацию"
+  }
   msg "editor.scripteditor.discard" {
     text="Отбросить"
+  }
+  msg "editor.scripteditor.enter_open_esc_close" {
+    text="Enter — открыть · Esc — закрыть"
   }
   msg "editor.scripteditor.errors" {
     one="{n} ошибка"
@@ -2588,14 +3185,59 @@ messages version=1 lang=ru {
   msg "editor.scripteditor.find" {
     text="Найти"
   }
+  msg "editor.scripteditor.fix_line" {
+    text="Исправление: {fix}"
+  }
+  msg "editor.scripteditor.go_note" {
+    text="Исходный код на Go · только чтение"
+  }
   msg "editor.scripteditor.keep_mine" {
     text="Оставить мою версию"
+  }
+  msg "editor.scripteditor.latest_build_failed" {
+    text="Скрипты: последняя сборка не удалась · Проблемы"
+  }
+  msg "editor.scripteditor.library_stub_hint" {
+    text="Заглушка библиотеки, Ctrl+Alt+B откроет реализацию на Go, если она лежит в native/"
+  }
+  msg "editor.scripteditor.match_case" {
+    text="Учитывать регистр"
+  }
+  msg "editor.scripteditor.no_call_at_cursor" {
+    text="Под курсором нет вызова"
+  }
+  msg "editor.scripteditor.no_definition" {
+    text="Определение не найдено"
+  }
+  msg "editor.scripteditor.no_documentation_at_cursor" {
+    text="Под курсором нет документации"
+  }
+  msg "editor.scripteditor.no_implementation" {
+    text="Реализация не найдена"
+  }
+  msg "editor.scripteditor.no_matches_for" {
+    text="Нет совпадений для {query}"
   }
   msg "editor.scripteditor.no_open_scene_uses_full" {
     text="Ни одна открытая сцена не использует {full}"
   }
+  msg "editor.scripteditor.no_problems_in_file" {
+    text="В этом файле нет проблем"
+  }
+  msg "editor.scripteditor.no_symbols_match" {
+    text="Нет подходящих символов"
+  }
+  msg "editor.scripteditor.no_usages" {
+    text="Использования не найдены"
+  }
   msg "editor.scripteditor.path_has_unsaved_changes" {
     text="В {path} есть несохранённые изменения."
+  }
+  msg "editor.scripteditor.read_only_go" {
+    text="Это исходный код на Go, только для чтения"
+  }
+  msg "editor.scripteditor.regular_expression" {
+    text="Регулярное выражение"
   }
   msg "editor.scripteditor.reload" {
     text="Перезагрузить"
@@ -2608,6 +3250,11 @@ messages version=1 lang=ru {
   }
   msg "editor.scripteditor.replace_all" {
     text="Заменить все"
+  }
+  msg "editor.scripteditor.replaced_n" {
+    one="Заменено {n} вхождение"
+    few="Заменено {n} вхождения"
+    many="Заменено {n} вхождений"
   }
   msg "editor.scripteditor.replaced_total_occurrence_s_in" {
     text="Заменено вхождений: {total} в файлах: {files}; «Сохранить всё» запишет их"
@@ -2630,6 +3277,9 @@ messages version=1 lang=ru {
   msg "editor.scripteditor.searching" {
     text="Поиск…"
   }
+  msg "editor.scripteditor.stub_note" {
+    text="Заглушка библиотеки, созданная из привязок движка · только чтение"
+  }
   msg "editor.scripteditor.the_file_changed_on_disk" {
     text="Файл изменился на диске, пока вы его редактировали"
   }
@@ -2645,10 +3295,16 @@ messages version=1 lang=ru {
   msg "editor.scripteditor.usages" {
     text="Использования"
   }
+  msg "editor.scripteditor.usages_of" {
+    text="Использования {name}"
+  }
   msg "editor.scripteditor.warnings" {
     one="{n} предупреждение"
     few="{n} предупреждения"
     many="{n} предупреждений"
+  }
+  msg "editor.scripteditor.whole_word" {
+    text="Слово целиком"
   }
   msg "editor.search.fav_added" {
     text="{name} добавлено в избранное"
@@ -2694,6 +3350,9 @@ messages version=1 lang=ru {
   }
   msg "editor.shell.about_aego" {
     text="Об Aego"
+  }
+  msg "editor.shell.about_version" {
+    text="Движок Aego {version}"
   }
   msg "editor.shell.add_to_favorites" {
     text="Добавить в избранное"
@@ -2868,6 +3527,9 @@ messages version=1 lang=ru {
   msg "editor.shell.no_filename_in_path" {
     text="В {path} нет {filename}"
   }
+  msg "editor.shell.no_scenes_match" {
+    text="Нет подходящих сцен"
+  }
   msg "editor.shell.no_template_can_instantiate_name" {
     text="ни один шаблон не может создать {name}"
   }
@@ -2882,6 +3544,12 @@ messages version=1 lang=ru {
   }
   msg "editor.shell.open_project" {
     text="Открыть проект"
+  }
+  msg "editor.shell.open_recent_item" {
+    text="Открыть {name}"
+  }
+  msg "editor.shell.open_recent_n" {
+    text="Недавний проект {n}"
   }
   msg "editor.shell.padding_x" {
     text="Отступ X"
@@ -2909,6 +3577,9 @@ messages version=1 lang=ru {
   }
   msg "editor.shell.play_playstart_full_screen_commandfullscreenplay" {
     text="Играть ({playstart}), на весь экран ({commandfullscreenplay})"
+  }
+  msg "editor.shell.play_prefab_hint" {
+    text="«Играть» запускает сцену: откройте этот префаб из сцены, чтобы играть там"
   }
   msg "editor.shell.play_simtime_tail" {
     text="Игра {simtime}{tail}"
@@ -3114,8 +3785,17 @@ messages version=1 lang=ru {
   msg "editor.sysopen.show_in_finder" {
     text="Показать в Finder"
   }
+  msg "editor.taskcenter.cancel_all" {
+    text="Отменить все"
+  }
+  msg "editor.taskcenter.clear_finished" {
+    text="Убрать завершённые"
+  }
   msg "editor.taskcenter.live_running_recent_finished" {
     text="выполняется {live}, завершено {recent}"
+  }
+  msg "editor.taskcenter.no_tasks" {
+    text="Нет фоновых задач"
   }
   msg "editor.taskcenter.title" {
     text="Задачи"
@@ -3188,6 +3868,9 @@ messages version=1 lang=ru {
   }
   msg "editor.vcsdiff.use_compare_with_head_in" {
     text="Используйте «Сравнить с HEAD» в меню сцены, префаба или ассета данных"
+  }
+  msg "editor.vectors.scale" {
+    text="Масштаб {value}"
   }
   msg "editor.watch.add" {
     text="Добавить"
@@ -3360,6 +4043,12 @@ messages version=1 lang=ru {
   msg "launcher.name" {
     text="Имя"
   }
+  msg "launcher.native.no_go" {
+    text="Установите Go, чтобы добавлять нативный код; скриптам больше ничего не нужно."
+  }
+  msg "launcher.native.no_root" {
+    text="Нативному коду нужны исходники движка: укажите в AEGO_ROOT папку с копией Aego."
+  }
   msg "launcher.native_go_code" {
     text="Нативный код на Go"
   }
@@ -3381,6 +4070,9 @@ messages version=1 lang=ru {
   msg "launcher.project" {
     text="Проект"
   }
+  msg "launcher.recent_unreadable" {
+    text="Не удалось прочитать список недавних проектов: {error}"
+  }
   msg "launcher.remove_from_list" {
     text="Убрать из списка"
   }
@@ -3392,6 +4084,21 @@ messages version=1 lang=ru {
   }
   msg "launcher.tab.recent" {
     text="Недавние"
+  }
+  msg "launcher.template.25d_doc" {
+    text="Ортографическая 3D-камера и 2D-спрайты"
+  }
+  msg "launcher.template.2d_doc" {
+    text="2D-камера и спрайт"
+  }
+  msg "launcher.template.3d_doc" {
+    text="Перспективная камера, плоскость и куб"
+  }
+  msg "launcher.template.empty" {
+    text="Пустой"
+  }
+  msg "launcher.template.empty_doc" {
+    text="Одна сцена с 2D-камерой"
   }
   msg "launcher.theme" {
     text="Тема"
@@ -3410,5 +4117,50 @@ messages version=1 lang=ru {
   }
   msg "launcher.workspace" {
     text="Раскладка"
+  }
+  msg "launcher.workspace_not_saved" {
+    text="Проект создан, но его раскладку не удалось сохранить: {error}"
+  }
+  msg "settings.apply" {
+    text="Применить"
+  }
+  msg "settings.close" {
+    text="Закрыть"
+  }
+  msg "settings.defaults" {
+    text="По умолчанию"
+  }
+  msg "settings.keep" {
+    text="Оставить"
+  }
+  msg "settings.keep_display" {
+    text="Оставить эти настройки экрана? Возврат через {n} с"
+  }
+  msg "settings.mute" {
+    text="Без звука"
+  }
+  msg "settings.muted" {
+    text="Звук выключен"
+  }
+  msg "settings.off" {
+    text="Выкл."
+  }
+  msg "settings.on" {
+    text="Вкл."
+  }
+  msg "settings.press_a_key" {
+    text="Нажмите клавишу…"
+  }
+  msg "settings.reset_to" {
+    text="Сбросить на {value}"
+  }
+  msg "settings.restart" {
+    text="Часть изменений вступит в силу после перезапуска"
+  }
+  msg "settings.revert" {
+    text="Отменить"
+  }
+  msg "settings.title" {
+    text="Настройки"
   }
 }

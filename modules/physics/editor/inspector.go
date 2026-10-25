@@ -15,7 +15,7 @@ import (
 
 func (p *plugin) edit(ctx *context.Editor, d *document.SceneDocument, nodes []ids.NodeID, fd *schema.FieldDescriptor, e widgets.Edit, v schema.Value) {
 	if e.Begin && p.tx == nil {
-		p.tx = d.History.Begin("Set Mass")
+		p.tx = d.History.Begin(i18n.Tr("editor.history.set_mass", "Set Mass"))
 	}
 	if e.Changed {
 		if err := d.Props.Set(p.tx, nodes, p.body.ID, fd.ID, v); err != nil {
@@ -94,7 +94,7 @@ func (p *plugin) snapToSprite(ctx *context.Editor, d *document.SceneDocument, no
 		name string
 		v    schema.Value
 	}
-	tx := d.History.Begin("Snap to Sprite")
+	tx := d.History.Begin(i18n.Tr("editor.history.snap_to_sprite", "Snap to Sprite"))
 	done := 0
 	for _, n := range nodes {
 		sh, ok := set.Of(s, s.Handle(n))

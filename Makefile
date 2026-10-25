@@ -234,7 +234,7 @@ site-headless:
 	@$(TRY_SIZE_CHECK)
 
 site-check: cli
-	.cache/bin/aego docs check --strict
+	.cache/bin/aego docs check --strict --lang ru
 	.cache/bin/aego docs export --out $(CURDIR)/.cache/docs.json
 	cd tools/gendocs && AEGO_DOCS_EXPORT=$(CURDIR)/.cache/docs.json go test -count=1 ./...
 

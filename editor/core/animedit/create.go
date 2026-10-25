@@ -64,7 +64,7 @@ func (s *Service) FlipbookInto(frames []ids.AssetID) error {
 	if end := float32(len(frames)) / FlipbookFPS; end > s.clip.Length {
 		ops = append(ops, mutate.AnimClipSet("length", aetext.Float32(end)))
 	}
-	return s.EditClip("Flipbook", ops...)
+	return s.EditClip(i18n.Tr("editor.history.flipbook", "Flipbook"), ops...)
 }
 
 // KeySprites keys sprite track i with the frames from time at on, one per FlipbookFPS step, lengthening the clip when they run past its end.

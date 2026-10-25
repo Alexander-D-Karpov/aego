@@ -15,6 +15,11 @@ const engineDir = "engine/i18n/messages"
 
 // catalogDir is where a key lives: module keys i18n.<m>.* in modules/<m>/res/i18n, the rest in the engine.
 func catalogDir(key string) string {
+	for _, p := range []string{"schema.", "enum.", "setting.", "diag.", "api.", "docs."} {
+		if strings.HasPrefix(key, p) {
+			return dataDir
+		}
+	}
 	if rest, ok := strings.CutPrefix(key, "i18n."); ok {
 		m, _, _ := strings.Cut(rest, ".")
 		return filepath.Join("modules", m, "res", "i18n")
@@ -23,7 +28,7 @@ func catalogDir(key string) string {
 }
 
 func group(keys map[string]*Key) map[string][]*Key {
-	out := map[string][]*Key{engineDir: nil}
+	out := map[string][]*Key{engineDir: nil, dataDir: nil}
 	for _, k := range keys {
 		d := catalogDir(k.ID)
 		out[d] = append(out[d], k)
@@ -111,6 +116,26 @@ func Check(root string, keys map[string]*Key) (*Report, error) {
 				if byID[id] == nil {
 					r.Findings = append(r.Findings, Finding{i18n.UnusedKey, c.Lang, id, "the code has no such key"})
 				}
+			}
+		}
+	}
+	langs := map[string]bool{}
+	for dir := range group(keys) {
+		files, _ := filepath.Glob(filepath.Join(root, dir, "*.aetext"))
+		for _, f := range files {
+			if b := filepath.Base(f); b != "en.aetext" {
+				langs[strings.TrimSuffix(b, ".aetext")] = true
+			}
+		}
+	}
+	for dir, ks := range group(keys) {
+		for lang := range langs {
+			if _, err := os.Stat(filepath.Join(root, dir, lang+".aetext")); err == nil || len(ks) == 0 {
+				continue
+			}
+			for _, k := range ks {
+				r.Missing[lang]++
+				r.Findings = append(r.Findings, Finding{i18n.MissingKey, lang, k.ID, "no " + lang + ".aetext in " + filepath.ToSlash(dir)})
 			}
 		}
 	}

@@ -35,6 +35,26 @@ func (t *Tree) tabWidth(ui *core.Context, p string) float32 {
 	return w
 }
 
+// fitTabs sizes the tabs of a strip to their titles and shrinks them evenly when they do not fit its width.
+func (t *Tree) fitTabs(ui *core.Context, tabs []string, width float32) {
+	th := &ui.Theme
+	t.tabW = t.tabW[:0]
+	total := float32(0)
+	for _, p := range tabs {
+		w := t.tabWidth(ui, p)
+		t.tabW = append(t.tabW, w)
+		total += w + 1
+	}
+	if total <= width || len(tabs) == 0 {
+		return
+	}
+	least := 2*th.Padding + 8 + tabIcon + tabGap + 16
+	k := (width - float32(len(tabs))) / (total - float32(len(tabs)))
+	for i, w := range t.tabW {
+		t.tabW[i] = max(least, w*k)
+	}
+}
+
 func (t *Tree) tabLabel(ui *core.Context, p string, tr mathx.Rect, col mathx.Color) {
 	th := &ui.Theme
 	x := tr.X + th.Padding + 4
@@ -44,6 +64,13 @@ func (t *Tree) tabLabel(ui *core.Context, p string, tr mathx.Rect, col mathx.Col
 		x += tabIcon + tabGap
 	}
 	title := t.title(p)
+	room := tr.X + tr.W - x - th.Padding
+	if t.dirty(p) {
+		room -= tabDot + tabGap
+	}
+	if ui.TextSize(title).X > room {
+		title = widgets.Elide(ui, title, room)
+	}
 	ui.Text(title, mathx.Vec2{X: x, Y: ui.TextY(tr)}, col)
 	if t.dirty(p) {
 		x += ui.TextSize(title).X + tabGap

@@ -124,20 +124,37 @@ func projectsHome() string {
 
 func nativeHint() string {
 	if _, err := exec.LookPath("go"); err != nil {
-		return "Install Go to add native code; scripts need nothing else."
+		return i18n.Tr("launcher.native.no_go", "Install Go to add native code; scripts need nothing else.")
 	}
 	if _, err := projects.EngineRoot(""); err != nil {
-		return "Native code needs the engine sources: set AEGO_ROOT to an Aego checkout."
+		return i18n.Tr("launcher.native.no_root", "Native code needs the engine sources: set AEGO_ROOT to an Aego checkout.")
 	}
 	return ""
+}
+
+// templateTexts are the launcher's names and descriptions of the templates; 2D, 2.5D and 3D are not translated.
+var templateTexts = map[string][2]i18n.Text{
+	projects.TemplateEmpty: {i18n.T("launcher.template.empty", "Empty"), i18n.T("launcher.template.empty_doc", "One scene with a 2D camera")},
+	projects.Template2D:    {{}, i18n.T("launcher.template.2d_doc", "2D camera and a sprite")},
+	projects.Template25D:   {{}, i18n.T("launcher.template.25d_doc", "Orthographic 3D camera with 2D sprites")},
+	projects.Template3D:    {{}, i18n.T("launcher.template.3d_doc", "Perspective camera, a plane and a cube")},
 }
 
 func launcherTemplates() []launcher.Template {
 	out := make([]launcher.Template, len(projects.Templates))
 	for i, t := range projects.Templates {
 		id := t.ID
+		name, desc := t.Name, t.Description
+		if tt, ok := templateTexts[id]; ok {
+			if tt[0].Key != "" {
+				name = tt[0].String()
+			}
+			if tt[1].Key != "" {
+				desc = tt[1].String()
+			}
+		}
 		out[i] = launcher.Template{
-			ID: t.ID, Name: t.Name, Description: t.Description, Icon: t.Icon,
+			ID: t.ID, Name: name, Description: desc, Icon: t.Icon,
 			Files:   projects.TemplateFiles(id),
 			Preview: func() ([]byte, error) { return projects.TemplatePreview(id) },
 		}

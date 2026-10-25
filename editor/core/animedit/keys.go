@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/scene/mutate"
 )
@@ -62,7 +63,7 @@ func (s *Service) MoveKeys(keys []KeyRef, delta float32) ([]KeyRef, error) {
 			ops = append(ops, mutate.AnimKeyMove(target, prop, timeText(k.T), timeText(to)))
 		}
 	}
-	if err := s.EditClip("Move Keys", ops...); err != nil {
+	if err := s.EditClip(i18n.Tr("editor.history.move_keys", "Move Keys"), ops...); err != nil {
 		return keys, err
 	}
 	return out, nil
@@ -75,7 +76,7 @@ func (s *Service) RemoveKeys(keys []KeyRef) error {
 			ops = append(ops, mutate.AnimKeyRemove(target, prop, timeText(k.T)))
 		}
 	}
-	return s.EditClip("Delete Keys", ops...)
+	return s.EditClip(i18n.Tr("editor.history.delete_keys", "Delete Keys"), ops...)
 }
 
 func (s *Service) SetInterp(keys []KeyRef, interp string) error {
@@ -94,7 +95,7 @@ func (s *Service) SetInterp(keys []KeyRef, interp string) error {
 		op.Values = extra
 		ops = append(ops, op)
 	}
-	return s.EditClip("Key Interpolation", ops...)
+	return s.EditClip(i18n.Tr("editor.history.key_interpolation", "Key Interpolation"), ops...)
 }
 
 func wordOf(v aetext.Value) string {

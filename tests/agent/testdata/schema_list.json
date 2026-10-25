@@ -4,7 +4,7 @@
     {
       "name": "engine.Unknown",
       "kind": "component",
-      "doc": "holds components whose type is not registered in this build"
+      "doc": "Holds components whose type is not registered in this build."
     },
     {
       "name": "engine.Tags",
@@ -52,7 +52,7 @@
       "display": "Scripts",
       "category": "Scripts",
       "owner": "script",
-      "doc": "holds the Aego Script attachments of a node"
+      "doc": "Holds the Aego Script attachments of a node."
     },
     {
       "name": "physics.Body2D",
@@ -284,7 +284,7 @@
       "display": "Persist",
       "category": "Engine",
       "owner": "save",
-      "doc": "Persist saves the node's transform and enabled flag in save games."
+      "doc": "Saves the node's transform and enabled flag in save games."
     },
     {
       "name": "audio.AudioEvent",

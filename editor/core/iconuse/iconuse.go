@@ -58,6 +58,8 @@ var Editor = []module.IconUse{
 	use("edit.paste", 16, "Paste (nodes, assets, inspector field)"),
 	use("edit.rename", 16, "Rename (nodes, assets, workspace)"),
 	use("edit.select_all", 16, "Edit → Select All"),
+	use("doc.recipe", 16, "Documentation: Recipes page"),
+	use("doc.tutorial", 16, "Documentation: Platformer from scratch page"),
 	use("file.audio", 16, "Documentation: sound clips page"),
 	use("file.autosave", 16, "File → Autosave Scripts"),
 	use("file.download", 16, "Documentation: Install and run page; PNG inspector: Import section"),

@@ -653,7 +653,7 @@ func (p *Panel) move(d *document.SceneDocument, nodes []ids.NodeID, target ids.N
 	if len(tops) == 0 {
 		return
 	}
-	tx := d.History.Begin("Move")
+	tx := d.History.Begin(i18n.Tr("editor.history.move", "Move"))
 	anchor := th
 	for _, n := range tops {
 		if n == th {
@@ -681,7 +681,7 @@ func (p *Panel) move(d *document.SceneDocument, nodes []ids.NodeID, target ids.N
 			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.hierarchy.n_comes_from_a_prefab", "{n} comes from a prefab and keeps its parent, unpack the instance to move it", i18n.Str("n", s.Name(n))))
 			return
 		}
-		cmd := commands.NewMutation("Reparent", commands.EnvFor(s), commands.Move(s.ID(n), parent, index, true))
+		cmd := commands.NewMutation(i18n.Tr("editor.history.move", "Move"), commands.EnvFor(s), commands.Move(s.ID(n), parent, index, true))
 		if err := tx.Exec(cmd); err != nil {
 			tx.Abort()
 			p.d.Notices.Notify(context.LevelError, err.Error())

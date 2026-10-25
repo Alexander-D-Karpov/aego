@@ -28,7 +28,7 @@ func (p *plugin) profile(ed *context.Editor) {
 	st := s.Stats()
 	prev := p.prof.last
 	steps := st.Steps - prev.Steps
-	widgets.Labelf(ui, "Controllers %.0f per step, casts %.1f per step", perStep(st.Controllers, prev.Controllers, steps), perStep(st.Casts, prev.Casts, steps))
-	widgets.Labelf(ui, "Hits %d, deaths %d, respawns %d, pickups %d", st.Hits, st.Deaths, st.Respawns, st.Pickups)
+	widgets.Label(ui, i18n.Tr("i18n.gameplay.profile_controllers", "Controllers {controllers} per step, casts {casts} per step", i18n.Float("controllers", float64(perStep(st.Controllers, prev.Controllers, steps)), 0), i18n.Float("casts", float64(perStep(st.Casts, prev.Casts, steps)), 1)))
+	widgets.Label(ui, i18n.Tr("i18n.gameplay.profile_events", "Hits {hits}, deaths {deaths}, respawns {respawns}, pickups {pickups}", i18n.Int("hits", int64(st.Hits)), i18n.Int("deaths", int64(st.Deaths)), i18n.Int("respawns", int64(st.Respawns)), i18n.Int("pickups", int64(st.Pickups))))
 	p.prof.last = st
 }

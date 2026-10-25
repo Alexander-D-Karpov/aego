@@ -1,6 +1,6 @@
 ---
 id: platformer
-icon: cat.gameplay
+icon: doc.tutorial
 group: start
 title: Platformer from scratch
 order: 2

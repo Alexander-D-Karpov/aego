@@ -137,7 +137,7 @@ func (l *Launcher) reload() {
 	}
 	list, err := LoadRecent(l.opt.RecentPath)
 	if err != nil {
-		l.err = "Recent projects are unreadable: " + err.Error()
+		l.err = i18n.Tr("launcher.recent_unreadable", "Recent projects are unreadable: {error}", i18n.Str("error", err.Error()))
 	}
 	l.recent = list
 }
@@ -207,7 +207,7 @@ func (l *Launcher) create(req CreateRequest) (string, error) {
 		st := state.Default()
 		st.Workspace = id
 		if err := state.Save(root, st); err != nil {
-			l.err = "The project was created, but its workspace was not saved: " + err.Error()
+			l.err = i18n.Tr("launcher.workspace_not_saved", "The project was created, but its workspace was not saved: {error}", i18n.Str("error", err.Error()))
 		}
 	}
 	l.result = root

@@ -174,7 +174,7 @@ func (p *Panel) nextError(ui *core.Context, back bool) {
 			p.host.d.Nav.Open(first.Location())
 			return
 		}
-		p.flash(ui.Time, "No problems in this file")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_problems_in_file", "No problems in this file"))
 		return
 	}
 	cur := c.Cursor()
@@ -224,7 +224,7 @@ func (p *Panel) expandSel(ui *core.Context) {
 	a, ok1 := c.Unmap(p.snapRev, lo)
 	b, ok2 := c.Unmap(p.snapRev, hi)
 	if !ok || !ok1 || !ok2 || p.snap == nil {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	for _, sp := range p.host.lang.RangesIn(p.snap, file, uint32(a), uint32(b)) {
@@ -256,12 +256,12 @@ func (p *Panel) usages(ui *core.Context) {
 	file, ok := p.file()
 	off, ok2 := p.snapOffset()
 	if !ok || !ok2 {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	locs := p.host.lang.ReferencesIn(p.snap, file, uint32(off))
 	if len(locs) == 0 {
-		p.flash(ui.Time, "No usages found")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_usages", "No usages found"))
 		return
 	}
 	p.host.showUsages(p.wordAt(), locs, p.snap)
@@ -270,7 +270,7 @@ func (p *Panel) usages(ui *core.Context) {
 func (p *Panel) openOutline(ui *core.Context) {
 	file, ok := p.file()
 	if !ok || p.snap == nil {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	o := &p.outline
@@ -391,7 +391,7 @@ func (p *Panel) drawOutline(ui *core.Context) {
 	}
 	if len(o.view) == 0 {
 		er := mathx.Rect{X: r.X, Y: fr.Y + fr.H + 4, W: r.W, H: rh}
-		ui.TextIn(er, "No symbols match", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(er, i18n.Tr("editor.scripteditor.no_symbols_match", "No symbols match"), th.TextDisabled, core.AlignCenter)
 	}
 	ui.EndOverlay()
 	if picked >= 0 {
@@ -403,23 +403,23 @@ func (p *Panel) peekDefinition(ui *core.Context) {
 	file, ok := p.file()
 	off, ok2 := p.snapOffset()
 	if !ok || !ok2 {
-		p.flash(ui.Time, analyzing)
+		p.flash(ui.Time, analyzing())
 		return
 	}
 	loc, ok := p.host.lang.DefinitionIn(p.snap, file, uint32(off))
 	switch {
 	case !ok:
-		p.flash(ui.Time, "No definition found")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_definition", "No definition found"))
 		return
 	case loc.Native:
-		p.flash(ui.Time, "Defined in native code, use F12 to see its documentation")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.defined_in_native", "Defined in native code, use F12 to see its documentation"))
 		return
 	}
 	pk := peekState{open: true, path: loc.Path}
 	if loc.Path == p.doc.Path {
 		s, _, ok := p.doc.Code.MapSpan(p.snapRev, int(loc.Span.Start), int(loc.Span.End))
 		if !ok {
-			p.flash(ui.Time, analyzing)
+			p.flash(ui.Time, analyzing())
 			return
 		}
 		pk.doc, pk.off = p.doc.Code, s
@@ -485,7 +485,7 @@ func (p *Panel) drawPeek(ui *core.Context) {
 	hdr := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight}
 	ui.Rect(hdr, th.Header)
 	ui.Text(pk.path+":"+strconv.Itoa(pk.line+1), mathx.Vec2{X: hdr.X + th.Padding, Y: ui.TextY(hdr)}, th.Text)
-	ui.TextIn(hdr, "Enter open · Esc close", th.TextDim, core.AlignRight)
+	ui.TextIn(hdr, i18n.Tr("editor.scripteditor.enter_open_esc_close", "Enter open · Esc close"), th.TextDim, core.AlignRight)
 	body := mathx.Rect{X: r.X, Y: hdr.Y + hdr.H + 3, W: r.W, H: r.H - hdr.H - 3}
 	id := core.IDSeq(p.fid, peekBase)
 	open := false

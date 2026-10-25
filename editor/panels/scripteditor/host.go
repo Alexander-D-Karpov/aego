@@ -560,7 +560,7 @@ func (h *Host) buildStatus() (string, bool) {
 	case n > 0:
 		return i18n.Tr("editor.scripteditor.scripts_n_build_errors_problems", "Scripts: {n} build errors · Problems", i18n.Str("n", strconv.Itoa(n))), true
 	case failed:
-		return "Scripts: the latest build failed · Problems", true
+		return i18n.Tr("editor.scripteditor.latest_build_failed", "Scripts: the latest build failed · Problems"), true
 	}
 	return i18n.Tr("editor.scripteditor.scripts_build_formatuint_ok", "Scripts: build {formatuint} · ok", i18n.Str("formatuint", strconv.FormatUint(gen, 10))), false
 }
@@ -711,7 +711,7 @@ func (h *Host) showUsages(title string, locs []langsvc.Location, snap *workspace
 			})
 		}
 	}
-	h.find.showUsages("Usages of "+title, ms)
+	h.find.showUsages(i18n.Tr("editor.scripteditor.usages_of", "Usages of {name}", i18n.Str("name", title)), ms)
 	h.dock.Show(FindID)
 }
 

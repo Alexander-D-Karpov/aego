@@ -1,4 +1,153 @@
 messages version=1 lang=en {
+  msg "cli.bootstrap.not_native" {
+    text="project has native=false, nothing to bootstrap"
+  }
+  msg "cli.build.not_native" {
+    text="project has native=false, nothing to build"
+  }
+  msg "cli.check.fix" {
+    text="Fix: {fix}"
+  }
+  msg "cli.check.flag.ensure_meta" {
+    text="write missing .meta files instead of reporting them"
+  }
+  msg "cli.check.flag.explain" {
+    text="print the reference entry of every reported diagnostic code"
+  }
+  msg "cli.check.flag.manifest" {
+    text="check against this bindings manifest instead of building one"
+  }
+  msg "cli.check.problems" {
+    one="check: {n} problem"
+    other="check: {n} problems"
+  }
+  msg "cli.check.script_errors" {
+    one="scripts: {n} error"
+    other="scripts: {n} errors"
+  }
+  msg "cli.docs.flag.lang" {
+    text="also check the translations into this language, such as ru"
+  }
+  msg "cli.docs.tool_status" {
+    text="project tool exited with status {code}"
+  }
+  msg "cli.docs.usage" {
+    text="usage: aego docs <command> [flags]\n\n  export [--out file]          write the documentation registry as JSON\n  check [--strict]             broken links, style rules (DOC010–DOC023), undocumented bindings\n  report [--json]              every page with its opening paragraph, examples and findings\n  build [--out site] [--demo] generate the static site with the playground\n  serve [--addr host:port]     build, serve on localhost and rebuild on changes\n\nflags: --project dir, --engine dir, --playground=false"
+  }
+  msg "cli.dump.usage" {
+    text="usage: aego dump script <package|Type> [--func name] [--project dir]"
+  }
+  msg "cli.edit.flag.cpuprofile" {
+    text="write a cpu profile to this file"
+  }
+  msg "cli.edit.flag.debug" {
+    text="verbose logging and gpu debug output"
+  }
+  msg "cli.edit.flag.frames" {
+    text="run a fixed number of frames and exit"
+  }
+  msg "cli.edit.flag.headless" {
+    text="run without a window"
+  }
+  msg "cli.edit.flag.hidden" {
+    text="create the window without showing it"
+  }
+  msg "cli.edit.flag.launcher" {
+    text="open the launcher on its recent or new tab"
+  }
+  msg "cli.edit.flag.profile" {
+    text="player settings profile, default when empty"
+  }
+  msg "cli.export.flag.cc" {
+    text="C compiler for the target"
+  }
+  msg "cli.export.flag.check" {
+    text="run the pre-export checks only"
+  }
+  msg "cli.export.flag.development" {
+    text="development profile"
+  }
+  msg "cli.export.flag.engine" {
+    text="path to the aego source tree"
+  }
+  msg "cli.export.flag.json" {
+    text="print the report as JSON"
+  }
+  msg "cli.export.flag.out" {
+    text="output directory"
+  }
+  msg "cli.export.flag.release" {
+    text="release profile"
+  }
+  msg "cli.export.flag.target" {
+    text="target platform"
+  }
+  msg "cli.export.profiles" {
+    text="--release and --development cannot be used together"
+  }
+  msg "cli.export.usage" {
+    text="usage: aego export [dir] [flags]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   default host\n  --development | --release                           default development\n  --out dir        output directory, default <project>/exports/<os>-<arch>-<profile>\n  --cc compiler    C compiler for a cross target, or CC_<OS>_<ARCH>\n  --check          run the pre-export checks only\n  --json           print the report as JSON\n  --engine dir     path to the aego source tree"
+  }
+  msg "cli.icons.usage" {
+    text="usage: aego icons [check|list] [dir] [flags]\n\n  check            fail on icons that are used but missing, or provided but unused\n  list [--json]    print the icon manifest as markdown, or as JSON\n       [--out f]   write it to a file instead of stdout"
+  }
+  msg "cli.import.flag.force" {
+    text="ignore the artifact cache"
+  }
+  msg "cli.new.flag.engine" {
+    text="path to the aego source tree for native projects and examples"
+  }
+  msg "cli.new.flag.example" {
+    text="copy an engine example instead of a template"
+  }
+  msg "cli.new.flag.module" {
+    text="module path, defaults to the directory name"
+  }
+  msg "cli.new.flag.native" {
+    text="create a project with a native Go module"
+  }
+  msg "cli.new.flag.template" {
+    text="empty, 2d, 2.5d or 3d"
+  }
+  msg "cli.new.usage" {
+    text="usage: aego new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native] [--engine dir]"
+  }
+  msg "cli.run.build_failed" {
+    text="build failed, the running game is kept"
+  }
+  msg "cli.run.flag.debug" {
+    text="verbose logging and gpu debug output"
+  }
+  msg "cli.run.flag.frames" {
+    text="run a fixed number of frames"
+  }
+  msg "cli.run.flag.headless" {
+    text="run without a window"
+  }
+  msg "cli.run.flag.profile" {
+    text="player settings profile, default when empty"
+  }
+  msg "cli.run.flag.scene" {
+    text="load this scene file instead of the main scene"
+  }
+  msg "cli.run.flag.trace" {
+    text="write a Chrome trace of the last 239 frames to this file on exit"
+  }
+  msg "cli.run.kill" {
+    text="game did not stop in time, killing it"
+  }
+  msg "cli.run.rebuilding" {
+    text="native sources changed, rebuilding"
+  }
+  msg "cli.run.restarted" {
+    text="game restarted with the new build"
+  }
+  msg "cli.unknown_command" {
+    text="unknown command {name}"
+  }
+  msg "cli.usage" {
+    text="aego <command> [flags]\n\n  new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]\n                         create a project from a template or an engine example\n  run [dir]              import assets and run the game\n  edit [dir|file] [--launcher recent|new]\n                         open a project, or one of its scenes, in the editor; without a project opens the launcher\n  build [dir]            build the native binary\n  export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]\n                         build a distributable game that runs without Go and project sources\n  bootstrap [dir]        regenerate .aego/generated for the native module without building\n  import [dir] [--force] reimport all assets\n  check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts\n  icons [check|list] [dir] [--json] [--out file]  check icon use against the icon sources, or print the manifest\n  test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]\n                         run *_test.aes script tests headless, or run the game twice and compare state hashes\n  dump script <pkg|Type> [--func name]  disassemble a script package with source lines\n  docs export|check|build|serve  documentation registry, site and playground\n  mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)\n  scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help\n"
+  }
   msg "editor.addpalette.add_changes" {
     one="Add {name} changes {n} node."
     other="Add {name} changes {n} nodes."
@@ -57,6 +206,12 @@ messages version=1 lang=en {
   msg "editor.agent.apply" {
     text="Apply"
   }
+  msg "editor.agent.apply_all" {
+    text="Apply All"
+  }
+  msg "editor.agent.apply_all_n" {
+    text="Apply All ({n})"
+  }
   msg "editor.agent.apply_changes_without_asking_removals" {
     text="Apply changes without asking; removals, moves and deletes still wait for you"
   }
@@ -81,8 +236,23 @@ messages version=1 lang=en {
   msg "editor.agent.claude_code_is_not_available" {
     text="Claude Code is not available"
   }
+  msg "editor.agent.current_session" {
+    text="Current session"
+  }
+  msg "editor.agent.empty_hint" {
+    text="Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them."
+  }
   msg "editor.agent.failed_err" {
     text="failed: {err}"
+  }
+  msg "editor.agent.install_help" {
+    text="The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."
+  }
+  msg "editor.agent.mention" {
+    text="Mention"
+  }
+  msg "editor.agent.mention_hint" {
+    text="Enter insert · Esc close"
   }
   msg "editor.agent.message_the_agent_to_mention" {
     text="Message the agent, @ to mention"
@@ -141,8 +311,17 @@ messages version=1 lang=en {
   msg "editor.animation.events" {
     text="Events"
   }
+  msg "editor.animation.go_to_end" {
+    text="Go to end"
+  }
+  msg "editor.animation.go_to_start" {
+    text="Go to start"
+  }
   msg "editor.animation.interpolation_in" {
     text="Interpolation: {in}"
+  }
+  msg "editor.animation.no_numeric_tracks" {
+    text="The clip has no numeric tracks to draw as curves"
   }
   msg "editor.animation.not_previewed_sk" {
     text="Not previewed: {sk}"
@@ -195,6 +374,9 @@ messages version=1 lang=en {
   msg "editor.animator.add_state" {
     text="Add State"
   }
+  msg "editor.animator.any_state" {
+    text="Any State"
+  }
   msg "editor.animator.at" {
     text="At"
   }
@@ -221,6 +403,9 @@ messages version=1 lang=en {
   }
   msg "editor.animator.duration" {
     text="Duration"
+  }
+  msg "editor.animator.entry" {
+    text="Entry"
   }
   msg "editor.animator.exit_time" {
     text="Exit Time"
@@ -270,6 +455,9 @@ messages version=1 lang=en {
   msg "editor.animator.speed" {
     text="Speed"
   }
+  msg "editor.animator.state_head" {
+    text="State {name}"
+  }
   msg "editor.animator.title" {
     text="Animator"
   }
@@ -278,6 +466,9 @@ messages version=1 lang=en {
   }
   msg "editor.animator.try_later" {
     text="Try later"
+  }
+  msg "editor.animedit.auto_key_off" {
+    text="Auto Key is off: press K or the Key button next to the field"
   }
   msg "editor.animedit.key_sprite" {
     text="Key Sprite"
@@ -294,11 +485,26 @@ messages version=1 lang=en {
   msg "editor.assetops.cannot_update_the_package_of" {
     text="cannot update the package of {to}: {error}"
   }
+  msg "editor.assetops.name" {
+    text="Name"
+  }
+  msg "editor.assetops.path" {
+    text="Path"
+  }
+  msg "editor.assetops.rename" {
+    text="Rename"
+  }
   msg "editor.assetops.rename_scene" {
     text="Rename scene"
   }
+  msg "editor.assetops.save" {
+    text="Save"
+  }
   msg "editor.assetops.save_scene_as" {
     text="Save scene as"
+  }
+  msg "editor.assetops.saved" {
+    text="Saved {path}"
   }
   msg "editor.assetops.startup_scene_rel" {
     text="Startup scene: {rel}"
@@ -390,6 +596,9 @@ messages version=1 lang=en {
   msg "editor.assets.delete_the_empty_folder_dir" {
     text="Delete the empty folder {dir}?"
   }
+  msg "editor.assets.drop_files_here" {
+    text="Drop files here to import"
+  }
   msg "editor.assets.duplicate" {
     text="Duplicate"
   }
@@ -434,6 +643,9 @@ messages version=1 lang=en {
   }
   msg "editor.assets.new_fullname_table" {
     text="New {fullname} table"
+  }
+  msg "editor.assets.new_package_message" {
+    text="Creates {dir}/<package>/ with its first script"
   }
   msg "editor.assets.new_prefab" {
     text="New prefab"
@@ -552,11 +764,20 @@ messages version=1 lang=en {
   msg "editor.batchrename.regex" {
     text=".* Regex"
   }
+  msg "editor.batchrename.rename" {
+    text="Rename"
+  }
   msg "editor.batchrename.rename_changed" {
     text="Rename {changed}"
   }
   msg "editor.batchrename.replace" {
     text="Replace"
+  }
+  msg "editor.batchrename.start" {
+    text="Start"
+  }
+  msg "editor.batchrename.step" {
+    text="Step"
   }
   msg "editor.category.animation" {
     text="Animation"
@@ -1092,6 +1313,9 @@ messages version=1 lang=en {
   msg "editor.common.edit" {
     text="Edit"
   }
+  msg "editor.common.ok" {
+    text="OK"
+  }
   msg "editor.common.open" {
     text="Open"
   }
@@ -1188,6 +1412,12 @@ messages version=1 lang=en {
   msg "editor.datatable.action.undo" {
     text="Undo"
   }
+  msg "editor.datatable.exported" {
+    text="Exported {path}"
+  }
+  msg "editor.datatable.imported" {
+    text="Imported {path}"
+  }
   msg "editor.datatable.no_rows_match_the_filter" {
     text="No rows match the filter"
   }
@@ -1196,6 +1426,9 @@ messages version=1 lang=en {
   }
   msg "editor.datatable.open_a_aetable_asset_to" {
     text="Open a .aetable asset to edit it here"
+  }
+  msg "editor.datatable.read_only_in_play" {
+    text="Tables are read-only during Play"
   }
   msg "editor.datatable.tables_are_read_only_during" {
     text="Tables are read-only during Play"
@@ -1211,6 +1444,9 @@ messages version=1 lang=en {
   }
   msg "editor.docs.documentation_is_not_loaded" {
     text="Documentation is not loaded."
+  }
+  msg "editor.docs.example" {
+    text="Example"
   }
   msg "editor.docs.getting_started" {
     text="Getting started"
@@ -1281,8 +1517,18 @@ messages version=1 lang=en {
   msg "editor.export.back_to_the_default_folder" {
     text="Back to the default folder"
   }
+  msg "editor.export.blocked" {
+    one="Export is blocked by {n} problem"
+    other="Export is blocked by {n} problems"
+  }
   msg "editor.export.cancel" {
     text="Cancel"
+  }
+  msg "editor.export.canceled" {
+    text="Export canceled"
+  }
+  msg "editor.export.check_canceled" {
+    text="Check canceled"
   }
   msg "editor.export.check_export_prof" {
     text="Check export ({prof})"
@@ -1296,6 +1542,12 @@ messages version=1 lang=en {
   }
   msg "editor.export.export_target_profile" {
     text="Export {target} {profile}"
+  }
+  msg "editor.export.exported_to" {
+    text="Exported to {dir}"
+  }
+  msg "editor.export.failed" {
+    text="Export failed: {err}"
   }
   msg "editor.export.output" {
     text="Output"
@@ -1315,11 +1567,17 @@ messages version=1 lang=en {
   msg "editor.export.profile.release.note" {
     text="Optimized and stripped, for players."
   }
+  msg "editor.export.ready" {
+    text="Ready to export"
+  }
   msg "editor.export.ready_warnings" {
     text="Ready to export, {warnings}"
   }
   msg "editor.export.report" {
     text="Report"
+  }
+  msg "editor.export.report_empty" {
+    text="Check or export to see the report here"
   }
   msg "editor.export.target" {
     text="Target"
@@ -1376,11 +1634,29 @@ messages version=1 lang=en {
   msg "editor.gameview.keys_keyframes_keybytes_the_last" {
     text="\n{keys} keyframes, {keybytes}; the last took {lastkey} and {formatfloat} ms"
   }
+  msg "editor.gameview.no_active_camera" {
+    text="No active camera in the scene"
+  }
+  msg "editor.gameview.overlays_off" {
+    text="Overlays: off"
+  }
+  msg "editor.gameview.overlays_on" {
+    text="Overlays: on"
+  }
+  msg "editor.gameview.press_play" {
+    text="Press Play (Ctrl+P)"
+  }
   msg "editor.gameview.recording_starts_with_the_first" {
     text="Recording starts with the first frame · press Play or Step"
   }
   msg "editor.gameview.title" {
     text="Game"
+  }
+  msg "editor.gameview.vectors_off" {
+    text="Vectors: off"
+  }
+  msg "editor.gameview.vectors_on" {
+    text="Vectors: on"
   }
   msg "editor.gizmo.move" {
     text="Move"
@@ -1432,6 +1708,9 @@ messages version=1 lang=en {
   }
   msg "editor.health.run_checks" {
     text="Run Checks"
+  }
+  msg "editor.health.show" {
+    text="Show"
   }
   msg "editor.health.title" {
     text="Project Health"
@@ -1510,6 +1789,204 @@ messages version=1 lang=en {
   }
   msg "editor.hierarchy.unsaved" {
     text="(unsaved)"
+  }
+  msg "editor.history.add" {
+    text="Add {name}"
+  }
+  msg "editor.history.add_condition" {
+    text="Add Condition"
+  }
+  msg "editor.history.add_event" {
+    text="Add Event"
+  }
+  msg "editor.history.add_parameter" {
+    text="Add Parameter"
+  }
+  msg "editor.history.add_state" {
+    text="Add State"
+  }
+  msg "editor.history.add_transition" {
+    text="Add Transition"
+  }
+  msg "editor.history.apply_play_changes" {
+    text="Apply Play Changes"
+  }
+  msg "editor.history.apply_to" {
+    text="Apply to {name}"
+  }
+  msg "editor.history.auto_layout" {
+    text="Auto Layout"
+  }
+  msg "editor.history.batch_rename" {
+    text="Batch Rename"
+  }
+  msg "editor.history.change_space" {
+    text="Change Space"
+  }
+  msg "editor.history.clear" {
+    text="Clear {name}"
+  }
+  msg "editor.history.clear_missing_node_reference" {
+    text="Clear Missing Node Reference"
+  }
+  msg "editor.history.clear_references_to" {
+    text="Clear references to {name}"
+  }
+  msg "editor.history.copy_from_play" {
+    text="Copy {name} from Play"
+  }
+  msg "editor.history.create" {
+    text="Create {name}"
+  }
+  msg "editor.history.create_prefab" {
+    text="Create Prefab"
+  }
+  msg "editor.history.delete" {
+    text="Delete"
+  }
+  msg "editor.history.delete_keys" {
+    text="Delete Keys"
+  }
+  msg "editor.history.delete_state" {
+    text="Delete State"
+  }
+  msg "editor.history.delete_transition" {
+    text="Delete Transition"
+  }
+  msg "editor.history.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.history.edit_condition" {
+    text="Edit Condition"
+  }
+  msg "editor.history.edit_curve" {
+    text="Edit Curve"
+  }
+  msg "editor.history.edit_transition" {
+    text="Edit Transition"
+  }
+  msg "editor.history.flipbook" {
+    text="Flipbook"
+  }
+  msg "editor.history.key" {
+    text="Key"
+  }
+  msg "editor.history.key_changed" {
+    text="Key Changed"
+  }
+  msg "editor.history.key_interpolation" {
+    text="Key Interpolation"
+  }
+  msg "editor.history.move" {
+    text="Move"
+  }
+  msg "editor.history.move_any" {
+    text="Move Any"
+  }
+  msg "editor.history.move_entry" {
+    text="Move Entry"
+  }
+  msg "editor.history.move_event" {
+    text="Move Event"
+  }
+  msg "editor.history.move_keys" {
+    text="Move Keys"
+  }
+  msg "editor.history.move_path_key" {
+    text="Move Path Key"
+  }
+  msg "editor.history.move_state" {
+    text="Move State"
+  }
+  msg "editor.history.move_transition" {
+    text="Move Transition"
+  }
+  msg "editor.history.paste" {
+    text="Paste"
+  }
+  msg "editor.history.paste_component" {
+    text="Paste {name}"
+  }
+  msg "editor.history.paste_components" {
+    text="Paste Components"
+  }
+  msg "editor.history.paste_keys" {
+    text="Paste Keys"
+  }
+  msg "editor.history.record_key" {
+    text="Record Key"
+  }
+  msg "editor.history.remove" {
+    text="Remove {name}"
+  }
+  msg "editor.history.remove_condition" {
+    text="Remove Condition"
+  }
+  msg "editor.history.remove_event" {
+    text="Remove Event"
+  }
+  msg "editor.history.remove_parameter" {
+    text="Remove Parameter"
+  }
+  msg "editor.history.rename" {
+    text="Rename"
+  }
+  msg "editor.history.reorder_scripts" {
+    text="Reorder Scripts"
+  }
+  msg "editor.history.replace_references" {
+    text="Replace References"
+  }
+  msg "editor.history.replace_references_to" {
+    text="Replace references to {name}"
+  }
+  msg "editor.history.reset" {
+    text="Reset {name}"
+  }
+  msg "editor.history.resolve" {
+    text="Resolve {name}"
+  }
+  msg "editor.history.rotate" {
+    text="Rotate"
+  }
+  msg "editor.history.save" {
+    text="Save {name}"
+  }
+  msg "editor.history.scale" {
+    text="Scale"
+  }
+  msg "editor.history.set" {
+    text="Set {name}"
+  }
+  msg "editor.history.set_clip" {
+    text="Set Clip"
+  }
+  msg "editor.history.set_entry_state" {
+    text="Set Entry State"
+  }
+  msg "editor.history.set_keys_from_scene" {
+    text="Set Keys from Scene"
+  }
+  msg "editor.history.set_layers" {
+    text="Set Layers"
+  }
+  msg "editor.history.set_mass" {
+    text="Set Mass"
+  }
+  msg "editor.history.set_speed" {
+    text="Set Speed"
+  }
+  msg "editor.history.snap_to_sprite" {
+    text="Snap to Sprite"
+  }
+  msg "editor.history.toggle" {
+    text="Toggle {name}"
+  }
+  msg "editor.history.toggle_enabled" {
+    text="Toggle Enabled"
+  }
+  msg "editor.history.transform" {
+    text="Transform"
   }
   msg "editor.inspector.add_component" {
     text="Add Component"
@@ -1638,6 +2115,9 @@ messages version=1 lang=en {
   }
   msg "editor.inspector.node_not_in_scene" {
     text="Node {id} is not in this scene"
+  }
+  msg "editor.inspector.node_refs_not_in_data" {
+    text="node references are not stored in data"
   }
   msg "editor.inspector.nodes_nodes" {
     text="{nodes} nodes"
@@ -1985,6 +2465,9 @@ messages version=1 lang=en {
   msg "editor.playdiff.n_node_s_created_and" {
     text="{n} node(s) created and {m} removed during Play are not transferred"
   }
+  msg "editor.playdiff.no_fields_differ" {
+    text="No fields differ from the scene"
+  }
   msg "editor.playdiff.none" {
     text="None"
   }
@@ -2143,11 +2626,59 @@ messages version=1 lang=en {
   msg "editor.profiler.go_heap_heap_goal_goal" {
     text="Go heap {heap}   goal {goal}   process {process}   goroutines {formatuint}   GC {formatuint2}"
   }
+  msg "editor.profiler.graph.coroutines" {
+    text="coroutines"
+  }
+  msg "editor.profiler.graph.draw_calls" {
+    text="draw calls"
+  }
+  msg "editor.profiler.graph.frame" {
+    text="frame"
+  }
+  msg "editor.profiler.graph.game_nodes" {
+    text="game nodes"
+  }
+  msg "editor.profiler.graph.game_render" {
+    text="game render"
+  }
+  msg "editor.profiler.graph.game_sprites" {
+    text="game sprites"
+  }
+  msg "editor.profiler.graph.game_update" {
+    text="game update"
+  }
+  msg "editor.profiler.graph.garbage" {
+    text="garbage"
+  }
+  msg "editor.profiler.graph.render" {
+    text="render"
+  }
+  msg "editor.profiler.graph.script_heap" {
+    text="script heap"
+  }
+  msg "editor.profiler.graph.script_host_calls" {
+    text="script host calls"
+  }
+  msg "editor.profiler.graph.script_instructions" {
+    text="script instructions"
+  }
+  msg "editor.profiler.graph.signal_emits" {
+    text="signal emits"
+  }
+  msg "editor.profiler.graph.sprites" {
+    text="sprites"
+  }
+  msg "editor.profiler.graph.update" {
+    text="update"
+  }
   msg "editor.profiler.instances_instances_update_update_fixed" {
     text="instances {instances}   update {update}   fixed {fixed}   faults {faults}   budget aborts {formatuint}   heap objects {heapobjects}   GC {formatuint2} / {gctime} ms"
   }
   msg "editor.profiler.memory" {
     text="Memory"
+  }
+  msg "editor.profiler.no_frames_yet" {
+    text="No frames recorded yet"
   }
   msg "editor.profiler.pause" {
     text="Pause"
@@ -2194,6 +2725,18 @@ messages version=1 lang=en {
   msg "editor.projectsettings.apply" {
     text="Apply"
   }
+  msg "editor.projectsettings.col_setting" {
+    text="Setting"
+  }
+  msg "editor.projectsettings.col_source" {
+    text="Source"
+  }
+  msg "editor.projectsettings.col_value" {
+    text="Value"
+  }
+  msg "editor.projectsettings.default_for_players" {
+    text="default for players"
+  }
   msg "editor.projectsettings.default_space" {
     text="Default Space"
   }
@@ -2221,6 +2764,15 @@ messages version=1 lang=en {
   msg "editor.projectsettings.on" {
     text="On"
   }
+  msg "editor.projectsettings.page_project" {
+    text="Project"
+  }
+  msg "editor.projectsettings.page_registry" {
+    text="Settings Registry"
+  }
+  msg "editor.projectsettings.player_setting" {
+    text="player setting {id}"
+  }
   msg "editor.projectsettings.project_aego_changed_while_project" {
     text="project.aego changed while Project Settings has unapplied changes: Apply overwrites it, Revert loads it"
   }
@@ -2239,8 +2791,17 @@ messages version=1 lang=en {
   msg "editor.projectsettings.startup_scene" {
     text="Startup Scene"
   }
+  msg "editor.projectsettings.tab_defaults" {
+    text="Defaults"
+  }
+  msg "editor.projectsettings.tab_settings" {
+    text="Settings"
+  }
   msg "editor.projectsettings.title" {
     text="Project Settings"
+  }
+  msg "editor.projectsettings.unsaved_changes" {
+    text="Unsaved changes"
   }
   msg "editor.projectsettings.width" {
     text="Width"
@@ -2305,6 +2866,9 @@ messages version=1 lang=en {
   msg "editor.references.replace" {
     text="Replace"
   }
+  msg "editor.references.replace_ellipsis" {
+    text="Replace…"
+  }
   msg "editor.references.replace_every_reference_to_name" {
     text="Replace every reference to {name} with {rel}. Files that are not open are rewritten on disk; their originals go to .aego/recovery."
   }
@@ -2320,11 +2884,23 @@ messages version=1 lang=en {
   msg "editor.references.scene_node_owner_field_missing" {
     text="{scene}  ·  {node} · {owner}.{field} → missing node"
   }
+  msg "editor.references.select" {
+    text="Select"
+  }
+  msg "editor.references.select_asset_hint" {
+    text="Select an asset and press {key} or use Find References in its menu."
+  }
+  msg "editor.references.show" {
+    text="Show"
+  }
   msg "editor.references.the_startup_scene_is_set" {
     text="The startup scene is set in Project Settings"
   }
   msg "editor.references.title" {
     text="References"
+  }
+  msg "editor.references.use" {
+    text="Use {name}"
   }
   msg "editor.saves.cancel" {
     text="Cancel"
@@ -2374,6 +2950,9 @@ messages version=1 lang=en {
   msg "editor.saves.load" {
     text="Load"
   }
+  msg "editor.saves.no_saves_yet" {
+    text="No saves yet"
+  }
   msg "editor.saves.objects_value" {
     text="{scene} scene, {spawned} spawned, {destroyed} destroyed"
   }
@@ -2394,6 +2973,9 @@ messages version=1 lang=en {
   }
   msg "editor.saves.saving_works_during_play" {
     text="Saving works during Play"
+  }
+  msg "editor.saves.select_a_save" {
+    text="Select a save to see what it holds"
   }
   msg "editor.saves.slot_already_exists_and_will" {
     text="{slot} already exists and will be replaced"
@@ -2560,17 +3142,29 @@ messages version=1 lang=en {
   msg "editor.scripteditor.all" {
     text="All"
   }
+  msg "editor.scripteditor.analyzing" {
+    text="The code is still being analyzed, try again in a moment"
+  }
   msg "editor.scripteditor.attached_to_n_nodes" {
     text="attached to {n} nodes"
   }
   msg "editor.scripteditor.autosave_failed_error" {
     text="autosave failed: {error}"
   }
+  msg "editor.scripteditor.build_tip" {
+    text="The scripts do not build; click to see the errors in Problems. Hot reload keeps the latest build that worked"
+  }
   msg "editor.scripteditor.cancel" {
     text="Cancel"
   }
+  msg "editor.scripteditor.defined_in_native" {
+    text="Defined in native code, use F12 to see its documentation"
+  }
   msg "editor.scripteditor.discard" {
     text="Discard"
+  }
+  msg "editor.scripteditor.enter_open_esc_close" {
+    text="Enter open · Esc close"
   }
   msg "editor.scripteditor.errors" {
     one="{n} error"
@@ -2579,14 +3173,59 @@ messages version=1 lang=en {
   msg "editor.scripteditor.find" {
     text="Find"
   }
+  msg "editor.scripteditor.fix_line" {
+    text="Fix: {fix}"
+  }
+  msg "editor.scripteditor.go_note" {
+    text="Go source · read-only"
+  }
   msg "editor.scripteditor.keep_mine" {
     text="Keep mine"
+  }
+  msg "editor.scripteditor.latest_build_failed" {
+    text="Scripts: the latest build failed · Problems"
+  }
+  msg "editor.scripteditor.library_stub_hint" {
+    text="Library stub, Ctrl+Alt+B opens the Go implementation when it lives in native/"
+  }
+  msg "editor.scripteditor.match_case" {
+    text="Match case"
+  }
+  msg "editor.scripteditor.no_call_at_cursor" {
+    text="No call at the cursor"
+  }
+  msg "editor.scripteditor.no_definition" {
+    text="No definition found"
+  }
+  msg "editor.scripteditor.no_documentation_at_cursor" {
+    text="No documentation at the cursor"
+  }
+  msg "editor.scripteditor.no_implementation" {
+    text="No implementation found"
+  }
+  msg "editor.scripteditor.no_matches_for" {
+    text="No matches for {query}"
   }
   msg "editor.scripteditor.no_open_scene_uses_full" {
     text="No open scene uses {full}"
   }
+  msg "editor.scripteditor.no_problems_in_file" {
+    text="No problems in this file"
+  }
+  msg "editor.scripteditor.no_symbols_match" {
+    text="No symbols match"
+  }
+  msg "editor.scripteditor.no_usages" {
+    text="No usages found"
+  }
   msg "editor.scripteditor.path_has_unsaved_changes" {
     text="{path} has unsaved changes."
+  }
+  msg "editor.scripteditor.read_only_go" {
+    text="This is read-only Go source"
+  }
+  msg "editor.scripteditor.regular_expression" {
+    text="Regular expression"
   }
   msg "editor.scripteditor.reload" {
     text="Reload"
@@ -2599,6 +3238,10 @@ messages version=1 lang=en {
   }
   msg "editor.scripteditor.replace_all" {
     text="Replace All"
+  }
+  msg "editor.scripteditor.replaced_n" {
+    one="Replaced {n} occurrence"
+    other="Replaced {n} occurrences"
   }
   msg "editor.scripteditor.replaced_total_occurrence_s_in" {
     text="Replaced {total} occurrence(s) in {files} file(s), Save All writes them"
@@ -2621,6 +3264,9 @@ messages version=1 lang=en {
   msg "editor.scripteditor.searching" {
     text="Searching…"
   }
+  msg "editor.scripteditor.stub_note" {
+    text="Library stub generated from the engine bindings · read-only"
+  }
   msg "editor.scripteditor.the_file_changed_on_disk" {
     text="The file changed on disk while you were editing it"
   }
@@ -2636,9 +3282,15 @@ messages version=1 lang=en {
   msg "editor.scripteditor.usages" {
     text="Usages"
   }
+  msg "editor.scripteditor.usages_of" {
+    text="Usages of {name}"
+  }
   msg "editor.scripteditor.warnings" {
     one="{n} warning"
     other="{n} warnings"
+  }
+  msg "editor.scripteditor.whole_word" {
+    text="Whole word"
   }
   msg "editor.search.fav_added" {
     text="Added {name} to Favorites"
@@ -2684,6 +3336,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.about_aego" {
     text="About Aego"
+  }
+  msg "editor.shell.about_version" {
+    text="Aego engine {version}"
   }
   msg "editor.shell.add_to_favorites" {
     text="Add to Favorites"
@@ -2857,6 +3512,9 @@ messages version=1 lang=en {
   msg "editor.shell.no_filename_in_path" {
     text="No {filename} in {path}"
   }
+  msg "editor.shell.no_scenes_match" {
+    text="No scenes match"
+  }
   msg "editor.shell.no_template_can_instantiate_name" {
     text="no template can instantiate {name}"
   }
@@ -2871,6 +3529,12 @@ messages version=1 lang=en {
   }
   msg "editor.shell.open_project" {
     text="Open project"
+  }
+  msg "editor.shell.open_recent_item" {
+    text="Open {name}"
+  }
+  msg "editor.shell.open_recent_n" {
+    text="Open Recent {n}"
   }
   msg "editor.shell.padding_x" {
     text="Padding X"
@@ -2898,6 +3562,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.play_playstart_full_screen_commandfullscreenplay" {
     text="Play ({playstart}), full screen ({commandfullscreenplay})"
+  }
+  msg "editor.shell.play_prefab_hint" {
+    text="Play runs a scene: open this prefab from a scene to play it there"
   }
   msg "editor.shell.play_simtime_tail" {
     text="Play {simtime}{tail}"
@@ -3103,8 +3770,17 @@ messages version=1 lang=en {
   msg "editor.sysopen.show_in_finder" {
     text="Show in Finder"
   }
+  msg "editor.taskcenter.cancel_all" {
+    text="Cancel All"
+  }
+  msg "editor.taskcenter.clear_finished" {
+    text="Clear Finished"
+  }
   msg "editor.taskcenter.live_running_recent_finished" {
     text="{live} running, {recent} finished"
+  }
+  msg "editor.taskcenter.no_tasks" {
+    text="No background tasks"
   }
   msg "editor.taskcenter.title" {
     text="Tasks"
@@ -3177,6 +3853,9 @@ messages version=1 lang=en {
   }
   msg "editor.vcsdiff.use_compare_with_head_in" {
     text="Use Compare with HEAD in the menu of a scene, prefab or data asset"
+  }
+  msg "editor.vectors.scale" {
+    text="Scale {value}"
   }
   msg "editor.watch.add" {
     text="Add"
@@ -3349,6 +4028,12 @@ messages version=1 lang=en {
   msg "launcher.name" {
     text="Name"
   }
+  msg "launcher.native.no_go" {
+    text="Install Go to add native code; scripts need nothing else."
+  }
+  msg "launcher.native.no_root" {
+    text="Native code needs the engine sources: set AEGO_ROOT to an Aego checkout."
+  }
   msg "launcher.native_go_code" {
     text="Native Go code"
   }
@@ -3370,6 +4055,9 @@ messages version=1 lang=en {
   msg "launcher.project" {
     text="Project"
   }
+  msg "launcher.recent_unreadable" {
+    text="Recent projects are unreadable: {error}"
+  }
   msg "launcher.remove_from_list" {
     text="Remove from List"
   }
@@ -3381,6 +4069,21 @@ messages version=1 lang=en {
   }
   msg "launcher.tab.recent" {
     text="Recent"
+  }
+  msg "launcher.template.25d_doc" {
+    text="Orthographic 3D camera with 2D sprites"
+  }
+  msg "launcher.template.2d_doc" {
+    text="2D camera and a sprite"
+  }
+  msg "launcher.template.3d_doc" {
+    text="Perspective camera, a plane and a cube"
+  }
+  msg "launcher.template.empty" {
+    text="Empty"
+  }
+  msg "launcher.template.empty_doc" {
+    text="One scene with a 2D camera"
   }
   msg "launcher.theme" {
     text="Theme"
@@ -3399,5 +4102,50 @@ messages version=1 lang=en {
   }
   msg "launcher.workspace" {
     text="Workspace"
+  }
+  msg "launcher.workspace_not_saved" {
+    text="The project was created, but its workspace was not saved: {error}"
+  }
+  msg "settings.apply" {
+    text="Apply"
+  }
+  msg "settings.close" {
+    text="Close"
+  }
+  msg "settings.defaults" {
+    text="Defaults"
+  }
+  msg "settings.keep" {
+    text="Keep"
+  }
+  msg "settings.keep_display" {
+    text="Keep these display settings? Reverting in {n} s"
+  }
+  msg "settings.mute" {
+    text="Mute"
+  }
+  msg "settings.muted" {
+    text="Muted"
+  }
+  msg "settings.off" {
+    text="Off"
+  }
+  msg "settings.on" {
+    text="On"
+  }
+  msg "settings.press_a_key" {
+    text="Press a key…"
+  }
+  msg "settings.reset_to" {
+    text="Reset to {value}"
+  }
+  msg "settings.restart" {
+    text="Some changes apply after a restart"
+  }
+  msg "settings.revert" {
+    text="Revert"
+  }
+  msg "settings.title" {
+    text="Settings"
   }
 }

@@ -35,8 +35,7 @@ type file struct {
 	ast  *ast.File
 }
 
-// Scan walks the Go sources and collects every i18n.Tr, TrN and T call and every command.Desc and command.Info
-// literal; a Tr key or text that is not a literal is an error.
+// Scan collects every i18n.Tr, TrN, T and Note call and command.Desc/Info literal; a key or text that is not a literal is an error.
 func Scan(root string) (map[string]*Key, []error) {
 	keys := map[string]*Key{}
 	var errs []error

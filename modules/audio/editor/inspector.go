@@ -119,9 +119,9 @@ func (p *plugin) profile(ed *context.Editor) {
 	if svc := audio.Of(p.world()); svc != nil {
 		world = svc.Voices()
 	}
-	widgets.Labelf(ui, "Output %d Hz, %d frames per block", spec.SampleRate, spec.Frames)
-	widgets.Labelf(ui, "Voices %d, in this world %d", st.Voices, world)
-	widgets.Labelf(ui, "Mix %.2f ms max, %.2f ms average", ms(st.MixMax), ms(st.MixAvg))
-	widgets.Labelf(ui, "Underruns %d, dropped commands %d, blocks %d", st.Underruns, st.Dropped, st.Blocks)
-	widgets.Labelf(ui, "Finished %d, stolen %d, rejected %d, starved %d", c.Finished, c.Stolen, c.Rejected, c.Starved)
+	widgets.Label(ui, i18n.Tr("i18n.audio.stats.output", "Output {rate} Hz, {frames} frames per block", i18n.Int("rate", int64(spec.SampleRate)), i18n.Int("frames", int64(spec.Frames))))
+	widgets.Label(ui, i18n.Tr("i18n.audio.stats.voices", "Voices {all}, in this world {world}", i18n.Int("all", int64(st.Voices)), i18n.Int("world", int64(world))))
+	widgets.Label(ui, i18n.Tr("i18n.audio.stats.mix", "Mix {max} ms max, {avg} ms average", i18n.Float("max", float64(ms(st.MixMax)), 2), i18n.Float("avg", float64(ms(st.MixAvg)), 2)))
+	widgets.Label(ui, i18n.Tr("i18n.audio.stats.underruns", "Underruns {underruns}, dropped commands {dropped}, blocks {blocks}", i18n.Int("underruns", int64(st.Underruns)), i18n.Int("dropped", int64(st.Dropped)), i18n.Int("blocks", int64(st.Blocks))))
+	widgets.Label(ui, i18n.Tr("i18n.audio.stats.voices_end", "Finished {finished}, stolen {stolen}, rejected {rejected}, starved {starved}", i18n.Int("finished", int64(c.Finished)), i18n.Int("stolen", int64(c.Stolen)), i18n.Int("rejected", int64(c.Rejected)), i18n.Int("starved", int64(c.Starved))))
 }

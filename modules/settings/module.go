@@ -1,6 +1,9 @@
 package settings
 
 import (
+	"aego/engine/i18n"
+	"aego/platform"
+	"aego/schema"
 	"slices"
 
 	"aego/contracts/inputactions"
@@ -23,7 +26,15 @@ const (
 	ContextView  = "Settings"
 	saveDelay    = 0.5
 	EventChanged = "OnSettingChanged"
+	KeyLanguage  = ID + ".language"
 )
+
+// languages are the choices of the game's language setting; English and Russian name themselves.
+var languages = []es.Choice{
+	{Name: i18n.Auto, Label: "Automatic", Value: schema.Enum(0)},
+	{Name: i18n.English, Label: "English", Value: schema.Enum(1)},
+	{Name: i18n.Russian, Label: "Русский", Value: schema.Enum(2)},
+}
 
 type Module struct {
 	st      *es.Store
@@ -34,6 +45,8 @@ type Module struct {
 	ev      scriptevents.EventID
 	worlds  []*engine.World
 	arg     [1]vm.Value
+	editor  bool
+	locales []string
 }
 
 func New() *Module {
@@ -49,6 +62,11 @@ func (m *Module) Register(r *module.Registry) error {
 	r.Provide(inputactions.Kind, inputactions.Set{
 		Actions:  []inputactions.Action{{Name: ActionToggle, Type: "button", Bindings: []string{"Key.F10"}}},
 		Contexts: []inputactions.Context{{Name: ContextView, Priority: 1000, Consume: true, Actions: []string{ActionToggle}, Default: true}},
+	})
+	r.Setting(es.Desc{
+		ID: KeyLanguage, Kind: schema.KindEnum, Default: schema.Enum(0), Title: "Language",
+		Doc:      "Language of the settings and of the game's translated texts. Automatic follows the system.",
+		Category: es.CategoryLanguage, Order: 10, Flags: es.User | es.Project, Choices: languages, Apply: m.applyLanguage,
 	})
 	m.ev = r.ScriptEvent(scriptevents.Event{
 		Name:   EventChanged,
@@ -69,9 +87,32 @@ func (m *Module) Register(r *module.Registry) error {
 
 func (m *Module) Init(ctx *module.InitContext) error {
 	m.st = ctx.Settings
+	m.editor = ctx.Editor
+	if ctx.Engine != nil {
+		if l, ok := ctx.Engine.Window().(platform.Localer); ok {
+			m.locales = l.PreferredLocales()
+		}
+	}
 	if m.st != nil {
 		m.unsub = m.st.Subscribe(0, m.changed)
+		if k := m.st.Key(KeyLanguage); k != 0 {
+			_ = m.applyLanguage(m.st.Value(k))
+		}
 	}
+	return nil
+}
+
+// applyLanguage switches the game's texts; inside the editor the editor's own language stays.
+func (m *Module) applyLanguage(v schema.Value) error {
+	if m.editor {
+		return nil
+	}
+	pref := i18n.Auto
+	if i := int(v.I); i >= 0 && i < len(languages) {
+		pref = languages[i].Name
+	}
+	b := i18n.Default()
+	b.SetLanguage(i18n.Resolve(pref, m.locales, b.Languages()))
 	return nil
 }
 

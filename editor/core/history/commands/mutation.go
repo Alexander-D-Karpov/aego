@@ -3,6 +3,7 @@ package commands
 import (
 	"aego/core/ids"
 	"aego/editor/core/history"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -43,7 +44,7 @@ func Ref(id ids.NodeID) string {
 
 func SetField(s *scene.Scene, node ids.NodeID, td *schema.TypeDescriptor, fd *schema.FieldDescriptor, v schema.Value, name string) *Mutation {
 	op := mutate.SetValue(Ref(node), td.FullName+"."+fd.Name, sceneio.WriteValue(s.Registry(), fd, v)).Runtime()
-	return NewMutation("Set "+name, EnvFor(s), op)
+	return NewMutation(i18n.Tr("editor.history.set", "Set {name}", i18n.Str("name", name)), EnvFor(s), op)
 }
 
 // Result is what the last Do changed, nil before it ran.

@@ -34,8 +34,8 @@ func (p *Panel) projectOwners() []ownerPage {
 				return
 			}
 		}
-		title := d.Category
-		if title == "" {
+		title := es.CategoryText(d.Category)
+		if d.Category == "" {
 			title = d.Owner
 		}
 		out = append(out, ownerPage{owner: d.Owner, title: title})
@@ -55,7 +55,7 @@ func (p *Panel) hasDefaults(owner string) bool {
 func (p *Panel) tabs(ui *core.Context, id string) int {
 	row := ui.Cursor().Next(0)
 	w := min(140, row.W/2-2)
-	for i, label := range [2]string{"Settings", "Defaults"} {
+	for i, label := range [2]string{i18n.Tr("editor.projectsettings.tab_settings", "Settings"), i18n.Tr("editor.projectsettings.tab_defaults", "Defaults")} {
 		on := p.tab[id] == i
 		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}, label, &on) {
 			p.tab[id] = i
@@ -139,14 +139,14 @@ func (p *Panel) drawRegistry(ui *core.Context) bool {
 	}
 	hr := ui.Cursor().Next(0)
 	a, b, c := split(hr)
-	cell(a, "Setting", th.TextDim)
+	cell(a, i18n.Tr("editor.projectsettings.col_setting", "Setting"), th.TextDim)
 	if hr.W >= narrowRegistry {
-		cell(b, "Value", th.TextDim)
+		cell(b, i18n.Tr("editor.projectsettings.col_value", "Value"), th.TextDim)
 	}
-	cell(c, "Source", th.TextDim)
+	cell(c, i18n.Tr("editor.projectsettings.col_source", "Source"), th.TextDim)
 	owner, shown := "", 0
 	st.Each(func(k es.Key, d *es.Desc) {
-		label := d.Label()
+		label := d.Text()
 		if q != "" && !strings.Contains(strings.ToLower(d.ID), q) && !strings.Contains(strings.ToLower(label), q) && !strings.Contains(strings.ToLower(d.Category), q) {
 			return
 		}

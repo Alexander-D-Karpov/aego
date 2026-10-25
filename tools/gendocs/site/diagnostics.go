@@ -102,7 +102,7 @@ func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 		c.WriteString("<p>" + inlineMD(e.Summary) + "</p>\n")
 	}
 	if d.Why != "" {
-		c.WriteString(`<p class="label">No example</p>` + "\n<p>" + inlineMD(d.Why) + "</p>\n")
+		c.WriteString(`<p class="label">` + b.tr("No example") + `</p>` + "\n<p>" + inlineMD(d.Why) + "</p>\n")
 	}
 	if d.Bad != "" {
 		b.diagFiles(c, d, root, false)
@@ -125,7 +125,7 @@ func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 		}
 	}
 	if d.Fix != "" {
-		c.WriteString("<p><strong>Fix:</strong> " + inlineMD(d.Fix) + "</p>\n")
+		c.WriteString("<p><strong>" + b.tr("Fix:") + "</strong> " + inlineMD(d.Fix) + "</p>\n")
 	}
 	if d.Good != "" {
 		b.diagFiles(c, d, root, true)
@@ -146,9 +146,9 @@ func diagLine(d *DiagInfo, code string) string {
 }
 
 func (b *builder) diagFiles(c *strings.Builder, d *DiagInfo, root string, good bool) {
-	label := "Broken"
+	label := b.tr("Broken")
 	if good {
-		label = "Fixed"
+		label = b.tr("Fixed")
 	}
 	type file struct{ path, src string }
 	var files []file

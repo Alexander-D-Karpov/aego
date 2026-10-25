@@ -93,6 +93,10 @@ func (s *Service) aloadOne(h scene.NodeHandle, a *Animator) {
 		gen = res.Generation()
 	}
 	if r.id == a.Controller.ID && r.gen == gen {
+		// a rewind may restore a state captured before the controller was first applied
+		if r.ce != nil {
+			r.ce.prepare(a)
+		}
 		return
 	}
 	e := s.m.ctrl(res, a.Controller.ID)

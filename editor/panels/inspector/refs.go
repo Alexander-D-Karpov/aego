@@ -310,7 +310,7 @@ func (p *Panel) nodeField(d *document.SceneDocument, id core.ID, r mathx.Rect, v
 	ui := p.f.UI
 	if d == nil {
 		ui.PushClip(r)
-		ui.TextIn(r, "node references are not stored in data", ui.Theme.TextDisabled, core.AlignLeft)
+		ui.TextIn(r, i18n.Tr("editor.inspector.node_refs_not_in_data", "node references are not stored in data"), ui.Theme.TextDisabled, core.AlignLeft)
 		ui.PopClip()
 		return widgets.Edit{}
 	}

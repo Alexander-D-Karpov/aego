@@ -403,7 +403,7 @@ func (r *Result) fields(edit, play *document.SceneDocument, id ids.NodeID, path 
 
 func Apply(edit *document.SceneDocument, changes []Change) (int, error) {
 	n := 0
-	tx := edit.History.Begin("Apply Play Changes")
+	tx := edit.History.Begin(i18n.Tr("editor.history.apply_play_changes", "Apply Play Changes"))
 	for i := range changes {
 		c := &changes[i]
 		if !c.Checked {

@@ -108,23 +108,24 @@ func Hook(e *ext.Registry) error {
 	}
 	e.GameOverlay(p.overlay)
 	for _, l := range []struct {
-		id, title string
-		fn        func(*context.VectorSink)
+		id    string
+		title i18n.Text
+		fn    func(*context.VectorSink)
 	}{
-		{"velocity", "Velocity", p.velocity},
-		{"angular", "Angular Velocity", p.angular},
-		{layerForces, "Forces", p.forces},
-		{"contacts", "Contact Impulses", p.contacts},
-		{"gravity", "Gravity", p.gravity},
+		{"velocity", i18n.T("i18n.physics.vectors.velocity", "Velocity"), p.velocity},
+		{"angular", i18n.T("i18n.physics.vectors.angular_velocity", "Angular Velocity"), p.angular},
+		{layerForces, i18n.T("i18n.physics.vectors.forces", "Forces"), p.forces},
+		{"contacts", i18n.T("i18n.physics.vectors.contact_impulses", "Contact Impulses"), p.contacts},
+		{"gravity", i18n.T("i18n.physics.vectors.gravity", "Gravity"), p.gravity},
 	} {
 		if err := e.Vectors(l.id, l.title, l.fn); err != nil {
 			return err
 		}
 	}
-	if err := e.SettingsPage(settings.ID, p.settingsPage, "Gravity", "Substeps", "Velocity Iterations", "Relax Iterations", "Contact Hertz", "Contact Damping Ratio", "Contact Push Velocity", "Restitution Threshold", "Linear Slop", "Sleep Linear", "Sleep Angular", "Sleep Time", "Layers", "Collision Matrix"); err != nil {
+	if err := e.SettingsPage(settings.ID, p.settingsPage, i18n.T("i18n.physics.gravity", "Gravity"), i18n.T("i18n.physics.substeps", "Substeps"), i18n.T("i18n.physics.velocity_iterations", "Velocity Iterations"), i18n.T("i18n.physics.relax_iterations", "Relax Iterations"), i18n.T("i18n.physics.contact_hertz", "Contact Hertz"), i18n.T("i18n.physics.contact_damping_ratio", "Contact Damping Ratio"), i18n.T("i18n.physics.contact_push_velocity", "Contact Push Velocity"), i18n.T("i18n.physics.restitution_threshold", "Restitution Threshold"), i18n.T("i18n.physics.linear_slop", "Linear Slop"), i18n.T("i18n.physics.sleep_linear", "Sleep Linear"), i18n.T("i18n.physics.sleep_angular", "Sleep Angular"), i18n.T("i18n.physics.sleep_time", "Sleep Time"), i18n.T("i18n.physics.layers", "Layers"), i18n.T("i18n.physics.collision_matrix", "Collision Matrix")); err != nil {
 		return err
 	}
-	e.Profiler("Physics", true, p.profile)
+	e.Profiler(i18n.T("i18n.physics.profiler", "Physics"), true, p.profile)
 	if p.ed != nil {
 		e.Tick(p.syncChannels)
 		o := &p.ed.Overlay

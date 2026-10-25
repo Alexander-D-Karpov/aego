@@ -1,6 +1,7 @@
 package docstool
 
 import (
+	"aego/engine/i18n"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -59,11 +60,22 @@ func build(p *project.Project, mods []module.Module, pg *playground.Playground) 
 		src.Project = p.Name
 	}
 	r := docs.Assemble(src)
+	localize(r)
 	bm.Keywords = r.Keywords()
 	if ws != nil {
 		ws.SetDocs(bm)
 	}
 	return r, ws, nil
+}
+
+// localize gives the reference entries their texts in every language with a catalog (D348).
+func localize(r *docs.Registry) {
+	b := i18n.Default()
+	for _, lang := range b.Languages() {
+		if lang != i18n.English {
+			r.Localize(lang, func(key, en string) string { return b.In(lang, key, en) })
+		}
+	}
 }
 
 func Registry(p *project.Project, mods []module.Module) (*docs.Registry, error) {
@@ -126,6 +138,10 @@ func Explain(w io.Writer, reg *docs.Registry, ds []diag.Diagnostic) {
 			continue
 		}
 		seen[d.Code] = true
+		if h, ok := diag.Localized(d.Code); ok && i18n.Default().Language() != i18n.English {
+			fmt.Fprintf(w, "\n%s\n  %s\n  %s\n", d.Code, h.What, i18n.Tr("cli.check.fix", "Fix: {fix}", i18n.Str("fix", h.Fix)))
+			continue
+		}
 		e, ok := reg.Get(d.Code)
 		if !ok {
 			continue

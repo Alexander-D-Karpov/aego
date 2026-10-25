@@ -68,6 +68,8 @@ type dragState struct {
 }
 
 type Tree struct {
+	// tabW holds the tab widths of the strip being drawn, shrunk to fit the bar.
+	tabW    []float32
 	Title   func(panel string) string
 	Icon    func(panel string) string
 	Dirty   func(panel string) bool
@@ -546,9 +548,10 @@ func (t *Tree) drawTabs(ui *core.Context, n *Node, fn func(string, mathx.Rect)) 
 	bar := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: t.tabH}
 	ui.Rect(bar, th.Header)
 	ui.PushClip(bar)
+	t.fitTabs(ui, n.Tabs, bar.W)
 	x := bar.X
 	for i, p := range n.Tabs {
-		tr := mathx.Rect{X: x, Y: bar.Y, W: t.tabWidth(ui, p), H: bar.H}
+		tr := mathx.Rect{X: x, Y: bar.Y, W: t.tabW[i], H: bar.H}
 		id := tabID(p)
 		if ui.Pressed(id, tr) {
 			if n.Active != i {

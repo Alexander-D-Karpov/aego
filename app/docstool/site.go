@@ -31,6 +31,8 @@ type Env struct {
 	Stderr  io.Writer
 	Repo    string
 	Demo    bool
+	// Lang also checks the translations into this language (D348).
+	Lang string
 }
 
 func (e *Env) export(path string) error {
@@ -62,6 +64,9 @@ func (e *Env) Check(strict bool) int {
 		if strict {
 			args = append(args, "--strict")
 		}
+		if e.Lang != "" {
+			args = append(args, "--lang", e.Lang)
+		}
 		if err := e.Native(args...); err != nil {
 			return 1
 		}
@@ -72,7 +77,11 @@ func (e *Env) Check(strict bool) int {
 		fmt.Fprintln(e.Stderr, "aego:", err)
 		return 1
 	}
-	code := Check(reg, strict, e.Stdout, append(DiagnosticProblems(), GoProblems(reg, e.Engine, strict)...)...)
+	extra := append(DiagnosticProblems(), GoProblems(reg, e.Engine, strict)...)
+	if e.Lang != "" {
+		extra = append(extra, reg.LangProblems(e.Lang, strict)...)
+	}
+	code := Check(reg, strict, e.Stdout, extra...)
 	if CheckTry(reg, e.Stdout) > 0 && code == 0 {
 		code = 1
 	}

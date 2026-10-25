@@ -219,7 +219,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	case p.err != "":
 		ui.Text(widgets.Elide(ui, p.err, status.W), mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Error)
 	case p.dirty:
-		ui.Text(widgets.Elide(ui, "Unsaved changes", status.W), mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Warn)
+		ui.Text(widgets.Elide(ui, i18n.Tr("editor.projectsettings.unsaved_changes", "Unsaved changes"), status.W), mathx.Vec2{X: status.X, Y: ui.TextY(status)}, th.Warn)
 	}
 	top := bar.Y + bar.H + th.Spacing
 	sw := th.ScrollbarW

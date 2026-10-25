@@ -3,6 +3,7 @@ package context
 import (
 	"aego/core/mathx"
 	"aego/engine"
+	"aego/engine/i18n"
 	"aego/render/debug"
 	"aego/render/view"
 	"aego/scene"
@@ -15,17 +16,17 @@ type SettingsPage struct {
 	Title    string
 	Order    int
 	Draw     func(draft any) bool
-	Keywords []string
+	Keywords []i18n.Text
 }
 
 type VectorLayer struct {
 	ID    string
-	Title string
+	Title i18n.Text
 	Draw  func(*VectorSink)
 }
 
 type ProfilerSection struct {
-	Title string
+	Title i18n.Text
 	Play  bool
 	Draw  func()
 }

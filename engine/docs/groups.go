@@ -29,24 +29,26 @@ type Group struct {
 	Section string `json:"section"`
 	Order   int    `json:"order"`
 	Icon    string `json:"icon,omitempty"`
+	// Titles are the group's title in other languages (D348).
+	Titles map[string]string `json:"titles,omitempty"`
 }
 
 var groups = []Group{
-	{GroupStart, "Getting started", SectionStart, 0, "play.start"},
-	{"editor", "Editor", SectionGuides, 10, "panel.inspector"},
-	{GroupScript, "Aego Script", SectionGuides, 20, "file.script"},
-	{"scenes", "Scenes & Prefabs", SectionGuides, 30, "file.prefab"},
-	{"gameplay", "Gameplay", SectionGuides, 40, "cat.game"},
-	{"rendering", "Rendering", SectionGuides, 60, "cat.rendering"},
-	{"extending", "Extending Aego", SectionGuides, 70, "cat.scripts"},
-	{"tools", "Tools & Agents", SectionGuides, 80, "panel.console"},
-	{GroupScriptAPI, "Script API", SectionReference, 100, "code.block"},
-	{GroupComponents, "Components", SectionReference, 110, "node.empty"},
-	{GroupSettings, "Project settings", SectionReference, 120, "panel.settings"},
-	{GroupDiagnostics, "Diagnostics", SectionReference, 130, "panel.problems"},
-	{GroupCLI, "CLI", SectionReference, 140, "panel.console"},
-	{GroupFormats, "File formats", SectionReference, 145, "file.data"},
-	{GroupProject, "Project", SectionReference, 150, "file.folder"},
+	{GroupStart, "Getting started", SectionStart, 0, "play.start", nil},
+	{"editor", "Editor", SectionGuides, 10, "panel.inspector", nil},
+	{GroupScript, "Aego Script", SectionGuides, 20, "file.script", nil},
+	{"scenes", "Scenes & Prefabs", SectionGuides, 30, "file.prefab", nil},
+	{"gameplay", "Gameplay", SectionGuides, 40, "cat.game", nil},
+	{"rendering", "Rendering", SectionGuides, 60, "cat.rendering", nil},
+	{"extending", "Extending Aego", SectionGuides, 70, "cat.scripts", nil},
+	{"tools", "Tools & Agents", SectionGuides, 80, "panel.console", nil},
+	{GroupScriptAPI, "Script API", SectionReference, 100, "code.block", nil},
+	{GroupComponents, "Components", SectionReference, 110, "node.empty", nil},
+	{GroupSettings, "Project settings", SectionReference, 120, "panel.settings", nil},
+	{GroupDiagnostics, "Diagnostics", SectionReference, 130, "panel.problems", nil},
+	{GroupCLI, "CLI", SectionReference, 140, "panel.console", nil},
+	{GroupFormats, "File formats", SectionReference, 145, "file.data", nil},
+	{GroupProject, "Project", SectionReference, 150, "file.folder", nil},
 }
 
 func Groups() []Group {
@@ -74,6 +76,11 @@ func sectionRank(s string) int {
 
 func (r *Registry) Groups() []Group {
 	out := append(Groups(), r.extra...)
+	for i := range out {
+		if t := r.groupT[out[i].ID]; t != nil {
+			out[i].Titles = t
+		}
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if a, b := sectionRank(out[i].Section), sectionRank(out[j].Section); a != b {
 			return a < b
@@ -97,7 +104,7 @@ func (r *Registry) group(id string) (Group, bool) {
 
 func (r *Registry) declareGroup(page string, g Group) {
 	if old, ok := r.group(g.ID); ok {
-		if old != g {
+		if old.Title != g.Title || old.Section != g.Section || old.Order != g.Order || old.Icon != g.Icon {
 			r.problems = append(r.problems, Problem{ID: page, Error: true, Message: "group " + g.ID + " is already declared with another title or order"})
 		}
 		return

@@ -6,6 +6,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/shape"
+	"aego/engine/i18n"
 	"aego/platform/input"
 )
 
@@ -52,8 +53,11 @@ func Register(ctx *context.Editor, shapes *shape.Registry) error {
 	for i, s := range scales {
 		sc := s
 		list = append(list, command.Desc{
-			ID:       Prefix + "scale." + strconv.Itoa(i),
-			Name:     "Scale " + strconv.FormatFloat(float64(sc), 'g', -1, 32),
+			ID:   Prefix + "scale." + strconv.Itoa(i),
+			Name: "Scale " + strconv.FormatFloat(float64(sc), 'g', -1, 32),
+			Label: func() string {
+				return i18n.Tr("editor.vectors.scale", "Scale {value}", i18n.Str("value", strconv.FormatFloat(float64(sc), 'g', -1, 32)))
+			},
 			Category: Category,
 			Order:    400 + i,
 			Checked:  func() bool { return o.VectorScale() == sc },

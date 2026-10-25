@@ -72,6 +72,8 @@ type Entry struct {
 	Icon       string
 	EditorOnly bool
 	Diag       *DiagInfo
+	// Translations are the entry in other languages, by language.
+	Translations map[string]Translation
 }
 
 type DiagFile struct {
@@ -126,11 +128,12 @@ type Node struct {
 }
 
 type Group struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Section string `json:"section"`
-	Order   int    `json:"order"`
-	Icon    string `json:"icon,omitempty"`
+	ID      string            `json:"id"`
+	Title   string            `json:"title"`
+	Section string            `json:"section"`
+	Order   int               `json:"order"`
+	Icon    string            `json:"icon,omitempty"`
+	Titles  map[string]string `json:"titles,omitempty"`
 }
 
 type GroupNav struct {
@@ -204,4 +207,14 @@ func cleanPath(id string) string {
 		}
 	}
 	return strings.Trim(b.String(), "/")
+}
+
+// Translation is an entry in another language (D348).
+type Translation struct {
+	Title   string
+	Summary string
+	Body    string
+	Fix     string
+	Source  string
+	Line    int
 }

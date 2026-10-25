@@ -209,7 +209,7 @@ func (a *App) drawPrompt(id core.ID) {
 		widgets.TextFieldRect(ui, fid, ui.Cursor().Next(0), &md.vals[i], true)
 	}
 	row := ui.Cursor().Next(0)
-	okLabel, cancelLabel := "OK", "Cancel"
+	okLabel, cancelLabel := i18n.Tr("editor.common.ok", "OK"), i18n.Tr("editor.common.cancel", "Cancel")
 	if len(q.Buttons) > 0 {
 		okLabel = q.Buttons[0]
 	}

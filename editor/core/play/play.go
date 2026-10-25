@@ -509,7 +509,7 @@ func (c *Controller) CopyToEdit(nodes []ids.NodeID, t schema.TypeID) error {
 		return errs.New(errs.SchemaUnknownType, "component type is not registered")
 	}
 	env := commands.EnvFor(es)
-	tx := real.History.Begin("Copy " + td.FullName + " from Play")
+	tx := real.History.Begin(i18n.Tr("editor.history.copy_from_play", "Copy {name} from Play", i18n.Str("name", schema.TypeLabel(td))))
 	for _, n := range nodes {
 		if _, has := es.GetByType(es.Handle(n), t); !has {
 			values := make([]commands.FieldValue, 0, len(td.Fields))
@@ -521,7 +521,7 @@ func (c *Controller) CopyToEdit(nodes []ids.NodeID, t schema.TypeID) error {
 				}
 				values = append(values, commands.FieldValue{Field: td.Fields[i].ID, Value: v})
 			}
-			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(es, n, td, values))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.AddComp(es, n, td, values))); err != nil {
 				tx.Abort()
 				return err
 			}

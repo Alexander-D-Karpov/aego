@@ -160,7 +160,7 @@ func (a *App) drawToolbar(r mathx.Rect) {
 		case blocked > 0:
 			playTip = i18n.Tr("editor.shell.blocked_script_package_error_s", "{blocked} script package error(s), see Problems", i18n.Str("blocked", strconv.Itoa(blocked)))
 		case noSource:
-			playTip = playPrefabHint
+			playTip = playPrefabHint()
 		}
 		playTint := th.Accent
 		if st == play.Playing {

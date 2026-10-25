@@ -5,6 +5,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/scene"
 )
 
@@ -65,7 +66,7 @@ func (a *Access) SetTransform3DComponent(tx *history.Transaction, nodes []ids.No
 	if euler == nil {
 		euler = NewEulerCache()
 	}
-	return a.within(tx, "Transform", func(tx *history.Transaction) error {
+	return a.within(tx, i18n.Tr("editor.history.transform", "Transform"), func(tx *history.Transaction) error {
 		for _, n := range nodes {
 			h, err := a.handle(n)
 			if err != nil {

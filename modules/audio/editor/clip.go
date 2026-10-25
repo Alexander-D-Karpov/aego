@@ -25,6 +25,10 @@ const (
 
 var streamModes = [3][2]string{{"auto", "Auto"}, {"on", "On"}, {"off", "Off"}}
 
+func streamLabels() [3]string {
+	return [3]string{i18n.Tr("i18n.audio.stream_auto", "Auto"), i18n.Tr("i18n.audio.stream_on", "On"), i18n.Tr("i18n.audio.stream_off", "Off")}
+}
+
 type clipEdit struct {
 	id     ids.AssetID
 	drag   int
@@ -279,7 +283,7 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	for i, m := range streamModes {
 		on := cur == m[0]
 		br := mathx.Rect{X: r.X + float32(i)*(w+4), Y: r.Y, W: w, H: r.H}
-		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("stream"), i), br, m[1], &on) && cur != m[0] {
+		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("stream"), i), br, streamLabels()[i], &on) && cur != m[0] {
 			n := s.Clone()
 			n["stream"] = aetext.Ident(m[0])
 			p.write(ed, s, n)

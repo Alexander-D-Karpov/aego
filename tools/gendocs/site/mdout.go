@@ -82,12 +82,12 @@ func (b *builder) mdLinks(md string) string {
 		if !ok {
 			if e, ok := b.byID[sub[1]]; ok {
 				if pu, ok := b.urls[e.Parent]; ok {
-					return "](/" + mdURL(pu) + "#" + e.ID + ")"
+					return "](/" + b.langPath(mdURL(pu)) + "#" + e.ID + ")"
 				}
 			}
 			return m
 		}
-		return "](/" + mdURL(u) + sub[2] + ")"
+		return "](/" + b.langPath(mdURL(u)) + sub[2] + ")"
 	})
 }
 
@@ -97,7 +97,7 @@ func (b *builder) writeMarkdown() error {
 	full.WriteString("# " + b.exp.Title + "\n\n> " + homeLead + "\n")
 	for _, id := range b.order {
 		e := b.byID[id]
-		rel := mdURL(b.urls[id])
+		rel := b.langPath(mdURL(b.urls[id]))
 		md := b.pageMD(e)
 		p := filepath.Join(b.out, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -108,5 +108,5 @@ func (b *builder) writeMarkdown() error {
 		}
 		full.WriteString("\n---\n\nSource: /" + rel + "\n\n" + md)
 	}
-	return os.WriteFile(filepath.Join(b.out, "llms-full.txt"), []byte(full.String()), 0o644)
+	return os.WriteFile(filepath.Join(b.out, filepath.FromSlash(b.langPath("llms-full.txt"))), []byte(full.String()), 0o644)
 }

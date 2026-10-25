@@ -6,6 +6,7 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/history"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/mutate"
 )
@@ -62,7 +63,7 @@ type SetTransform struct {
 }
 
 func (c *SetTransform) Label() string {
-	return "Transform"
+	return i18n.Tr("editor.history.transform", "Transform")
 }
 
 func (c *SetTransform) Do(t history.Target) error {
@@ -99,7 +100,7 @@ type SetTransform3D struct {
 }
 
 func (c *SetTransform3D) Label() string {
-	return "Transform"
+	return i18n.Tr("editor.history.transform", "Transform")
 }
 
 func (c *SetTransform3D) Do(t history.Target) error {
@@ -136,7 +137,7 @@ type SetSpace struct {
 }
 
 func (c *SetSpace) Label() string {
-	return "Change Space"
+	return i18n.Tr("editor.history.change_space", "Change Space")
 }
 
 func (c *SetSpace) Do(t history.Target) error {
@@ -171,7 +172,7 @@ type SetLayers struct {
 }
 
 func (c *SetLayers) Label() string {
-	return "Set Layers"
+	return i18n.Tr("editor.history.set_layers", "Set Layers")
 }
 
 func (c *SetLayers) Do(t history.Target) error {

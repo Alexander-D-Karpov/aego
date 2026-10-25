@@ -1,7 +1,6 @@
 package site
 
 import (
-	"embed"
 	"strings"
 )
 
@@ -67,9 +66,6 @@ var landingRU = landingText{
 	switchLabel: "English",
 }
 
-// ruPages are the pages the site also has in Russian, at ru/<their path>.
-var ruPages = []string{"install", "quickstart"}
-
 // home is the landing page: hero, three ways in, what is inside, the live demo (D347).
 func (b *builder) home(t landingText) string {
 	root := ""
@@ -78,7 +74,7 @@ func (b *builder) home(t landingText) string {
 	}
 	var c, e strings.Builder
 	e.WriteString(`<ul class="entries">`)
-	start := b.pageURL(installPage, t.lang)
+	start := b.urls[installPage]
 	if start == "" {
 		start = b.firstOf(SectionStart)
 	}
@@ -119,65 +115,4 @@ func (b *builder) home(t landingText) string {
 	}
 	c.WriteString(`</ul><p class="unrelated">` + inlineMD(t.unrelated) + "</p></section>\n")
 	return c.String()
-}
-
-// pageURL is a page's path from the site root in a language, the English one when the page has no translation.
-func (b *builder) pageURL(id, lang string) string {
-	u, ok := b.urls[id]
-	if !ok {
-		return ""
-	}
-	if lang == "ru" && isRU(id) {
-		return "ru/" + u
-	}
-	return u
-}
-
-func isRU(id string) bool {
-	for _, p := range ruPages {
-		if p == id {
-			return true
-		}
-	}
-	return false
-}
-
-//go:embed ru
-var ruFiles embed.FS
-
-func langOf(rel string) string {
-	if strings.HasPrefix(rel, "ru/") {
-		return "ru"
-	}
-	return "en"
-}
-
-// ruPages renders the translated pages at ru/<path>; links to other translated pages stay in Russian.
-func (b *builder) ruPages() error {
-	for _, id := range ruPages {
-		e, ok := b.byID[id]
-		if !ok {
-			continue
-		}
-		data, err := ruFiles.ReadFile("ru/" + id + ".md")
-		if err != nil {
-			return err
-		}
-		body := string(data)
-		title, _, _ := strings.Cut(strings.TrimPrefix(body, "# "), "\n")
-		cp := *e
-		cp.Title, cp.Body, cp.Summary = title, body, ""
-		rel := "ru/" + b.urls[id]
-		root := rootOf(rel)
-		page := b.content(&cp, root)
-		for _, p := range ruPages {
-			if u, ok := b.urls[p]; ok {
-				page = strings.ReplaceAll(page, `href="`+root+u, `href="`+root+"ru/"+u)
-			}
-		}
-		if err := b.emit(rel, title, id, page, &cp); err != nil {
-			return err
-		}
-	}
-	return nil
 }

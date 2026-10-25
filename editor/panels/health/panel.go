@@ -177,7 +177,7 @@ func (p *Panel) itemRow(ui *uicore.Context, it core.Item, i int, rr mathx.Rect) 
 	case core.ActionMissing:
 		btn = i18n.Tr("editor.health.resolve", "Resolve…")
 	case core.ActionProblems:
-		btn = "Show"
+		btn = i18n.Tr("editor.health.show", "Show")
 	}
 	bw := float32(0)
 	if btn != "" {

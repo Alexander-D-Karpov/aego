@@ -23,8 +23,6 @@ const (
 	debounce   = 0.15
 	hoverDelay = 0.5
 	noteTime   = 4.0
-	analyzing  = "The code is still being analyzed, try again in a moment"
-	buildTip   = "The scripts do not build; click to see the errors in Problems. Hot reload keeps the latest build that worked"
 )
 
 type compState struct {
@@ -441,7 +439,7 @@ func (p *Panel) drawBar(ui *core.Context, bar mathx.Rect) {
 		if ui.Clicked(sid, sr) {
 			p.host.d.Nav.Open(context.ProblemsAt(""))
 		}
-		widgets.Tooltip(ui, sid, buildTip)
+		widgets.Tooltip(ui, sid, buildTip())
 	}
 	col := th.Error
 	ui.PushClip(mathx.Rect{X: bar.X, Y: bar.Y, W: max(0, right-bar.X-4), H: bar.H})
@@ -481,4 +479,12 @@ func (p *Panel) drawConflict(ui *core.Context, r mathx.Rect) {
 		p.host.docs().KeepScript(p.doc)
 		p.conflict = false
 	}
+}
+
+func analyzing() string {
+	return i18n.Tr("editor.scripteditor.analyzing", "The code is still being analyzed, try again in a moment")
+}
+
+func buildTip() string {
+	return i18n.Tr("editor.scripteditor.build_tip", "The scripts do not build; click to see the errors in Problems. Hot reload keeps the latest build that worked")
 }

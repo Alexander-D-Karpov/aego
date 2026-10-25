@@ -1,7 +1,6 @@
 package scripteditor
 
 import (
-	"strconv"
 	"strings"
 
 	"aego/core/mathx"
@@ -36,7 +35,7 @@ func (p *Panel) findNext(ui *core.Context, back bool) {
 	}
 	off, ok := search.Find(c.Bytes(), q, from, back, p.options())
 	if !ok {
-		p.flash(ui.Time, "No matches for "+q)
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_matches_for", "No matches for {query}", i18n.Str("query", q)))
 		return
 	}
 	c.Select(off, off+len(q))
@@ -102,6 +101,6 @@ func (p *Panel) drawFind(ui *core.Context, r mathx.Rect) {
 	x += 74
 	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 16), mathx.Rect{X: x, Y: row.Y, W: 50, H: row.H}, i18n.Tr("editor.scripteditor.all", "All")) {
 		n := p.doc.Code.ReplaceAll(p.find.query, p.find.repl, p.options())
-		p.flash(ui.Time, "Replaced "+strconv.Itoa(n)+" occurrence(s)")
+		p.flash(ui.Time, i18n.TrN("editor.scripteditor.replaced_n", int64(n), "Replaced {n} occurrence", "Replaced {n} occurrences"))
 	}
 }

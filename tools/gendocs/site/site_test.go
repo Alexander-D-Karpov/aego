@@ -220,8 +220,14 @@ func TestShell(t *testing.T) {
 	if !strings.Contains(pages["index.html"], `<ul class="entries"><li><a href="welcome">`) {
 		t.Error("landing page has no start entry")
 	}
-	if !strings.Contains(pages["ru/index.html"], `<html lang="ru">`) || !strings.Contains(pages["ru/index.html"], `href="../welcome"`) {
-		t.Error("the Russian landing page is missing or links outside the site")
+	if !strings.Contains(pages["ru/index.html"], `<html lang="ru">`) || !strings.Contains(pages["ru/index.html"], `href="../ru/welcome"`) {
+		t.Error("the Russian landing page is missing or does not link the Russian pages")
+	}
+	ru := pages["ru/language/coroutines.html"]
+	for _, want := range []string{`<html lang="ru">`, `hreflang="en" href="../../language/coroutines"`, `class="untranslated"`, `href="../../ru/language"`, `<a class="lang" href="../../language/coroutines"`} {
+		if !strings.Contains(ru, want) {
+			t.Errorf("Russian coroutines page has no %s", want)
+		}
 	}
 }
 

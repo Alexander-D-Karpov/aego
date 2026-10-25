@@ -161,7 +161,7 @@ func (p *Panel) dataField(doc *dataedit.Doc, fd *schema.FieldDescriptor, play bo
 	}
 	cur := ui.Cursor()
 	top := cur.Y
-	e := p.value(nil, fd, &v, false, p.labelOf(fd), tip, ro)
+	e := p.value(nil, fd, &v, false, p.labelOf(nil, fd), tip, ro)
 	row := mathx.Rect{X: cur.X, Y: top, W: cur.W, H: max(0, cur.Y-top)}
 	over := !play && doc.Overridden(fd.Name)
 	if over {

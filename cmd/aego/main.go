@@ -3,12 +3,14 @@ package main
 import (
 	"aego/app/agent"
 	"aego/app/agent/mcp"
+	"aego/engine/i18n"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"aego/app/bootstrap"
@@ -24,7 +26,22 @@ import (
 )
 
 func main() {
+	setLanguage()
 	os.Exit(dispatch(os.Args[1:]))
+}
+
+// setLanguage picks the CLI language: AEGO_LANG, else the locale of the environment (D348).
+func setLanguage() {
+	pref := os.Getenv("AEGO_LANG")
+	var locales []string
+	for _, v := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if l := os.Getenv(v); l != "" && l != "C" && l != "POSIX" {
+			locales = append(locales, l)
+			break
+		}
+	}
+	b := i18n.Default()
+	b.SetLanguage(i18n.Resolve(pref, locales, b.Languages()))
 }
 
 func dispatch(args []string) int {
@@ -66,13 +83,13 @@ func dispatch(args []string) int {
 	if slices.Contains(agent.Groups(), args[0]) {
 		return cmdAgent(args)
 	}
-	fmt.Fprintf(os.Stderr, "unknown command %q\n", args[0])
+	fmt.Fprintln(os.Stderr, i18n.Tr("cli.unknown_command", "unknown command {name}", i18n.Str("name", strconv.Quote(args[0]))))
 	usage()
 	return 2
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `aego <command> [flags]
+	fmt.Fprint(os.Stderr, i18n.Tr("cli.usage", `aego <command> [flags]
 
   new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]
                          create a project from a template or an engine example
@@ -92,7 +109,7 @@ func usage() {
   docs export|check|build|serve  documentation registry, site and playground
   mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)
   scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
-`)
+`))
 }
 
 func openProject(dir string) (*project.Project, error) {
@@ -149,17 +166,17 @@ func firstArg(args []string) (string, []string) {
 
 func cmdNew(args []string) int {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
-	tmpl := fs.String("template", projects.Template2D, "empty, 2d, 2.5d or 3d")
-	module := fs.String("module", "", "module path, defaults to the directory name")
-	example := fs.String("example", "", "copy an engine example instead of a template")
-	native := fs.Bool("native", false, "create a project with a native Go module")
-	engineDir := fs.String("engine", "", "path to the aego source tree for native projects and examples")
+	tmpl := fs.String("template", projects.Template2D, i18n.Tr("cli.new.flag.template", "empty, 2d, 2.5d or 3d"))
+	module := fs.String("module", "", i18n.Tr("cli.new.flag.module", "module path, defaults to the directory name"))
+	example := fs.String("example", "", i18n.Tr("cli.new.flag.example", "copy an engine example instead of a template"))
+	native := fs.Bool("native", false, i18n.Tr("cli.new.flag.native", "create a project with a native Go module"))
+	engineDir := fs.String("engine", "", i18n.Tr("cli.new.flag.engine", "path to the aego source tree for native projects and examples"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
 	}
 	if dir == "" {
-		fmt.Fprintln(os.Stderr, "usage: aego new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native] [--engine dir]")
+		fmt.Fprintln(os.Stderr, i18n.Tr("cli.new.usage", "usage: aego new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native] [--engine dir]"))
 		return 2
 	}
 	opt := projects.Options{Dir: dir, Template: *tmpl, Module: *module, Example: *example, Native: *native}
@@ -192,7 +209,7 @@ func cmdBootstrap(args []string) int {
 		return fail(err)
 	}
 	if !p.Native {
-		fmt.Fprintln(os.Stderr, "project has native=false, nothing to bootstrap")
+		fmt.Fprintln(os.Stderr, i18n.Tr("cli.bootstrap.not_native", "project has native=false, nothing to bootstrap"))
 		return 1
 	}
 	for _, m := range []bootstrap.Mode{bootstrap.ModeRun, bootstrap.ModeManifest} {
@@ -207,12 +224,12 @@ func cmdBootstrap(args []string) int {
 
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	headless := fs.Bool("headless", false, "run without a window")
-	frames := fs.Int("frames", 0, "run a fixed number of frames")
-	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
-	scenePath := fs.String("scene", "", "load this scene file instead of the main scene")
-	tracePath := fs.String("trace", "", "write a Chrome trace of the last 239 frames to this file on exit")
-	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
+	headless := fs.Bool("headless", false, i18n.Tr("cli.run.flag.headless", "run without a window"))
+	frames := fs.Int("frames", 0, i18n.Tr("cli.run.flag.frames", "run a fixed number of frames"))
+	debug := fs.Bool("debug", false, i18n.Tr("cli.run.flag.debug", "verbose logging and gpu debug output"))
+	scenePath := fs.String("scene", "", i18n.Tr("cli.run.flag.scene", "load this scene file instead of the main scene"))
+	tracePath := fs.String("trace", "", i18n.Tr("cli.run.flag.trace", "write a Chrome trace of the last 239 frames to this file on exit"))
+	settingsProfile := fs.String("profile", "", i18n.Tr("cli.run.flag.profile", "player settings profile, default when empty"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -272,13 +289,13 @@ func absTraceArg(args []string, path string) []string {
 
 func cmdEdit(args []string) int {
 	fs := flag.NewFlagSet("edit", flag.ContinueOnError)
-	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
-	hidden := fs.Bool("hidden", false, "create the window without showing it")
-	headless := fs.Bool("headless", false, "run without a window")
-	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
-	cpu := fs.String("cpuprofile", "", "write a cpu profile to this file")
-	settingsProfile := fs.String("profile", "", "player settings profile, default when empty")
-	tab := fs.String("launcher", "", "open the launcher on its recent or new tab")
+	debug := fs.Bool("debug", false, i18n.Tr("cli.edit.flag.debug", "verbose logging and gpu debug output"))
+	hidden := fs.Bool("hidden", false, i18n.Tr("cli.edit.flag.hidden", "create the window without showing it"))
+	headless := fs.Bool("headless", false, i18n.Tr("cli.edit.flag.headless", "run without a window"))
+	frames := fs.Int("frames", 0, i18n.Tr("cli.edit.flag.frames", "run a fixed number of frames and exit"))
+	cpu := fs.String("cpuprofile", "", i18n.Tr("cli.edit.flag.cpuprofile", "write a cpu profile to this file"))
+	settingsProfile := fs.String("profile", "", i18n.Tr("cli.edit.flag.profile", "player settings profile, default when empty"))
+	tab := fs.String("launcher", "", i18n.Tr("cli.edit.flag.launcher", "open the launcher on its recent or new tab"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -306,7 +323,7 @@ func cmdBuild(args []string) int {
 		return fail(err)
 	}
 	if !p.Native {
-		fmt.Fprintln(os.Stderr, "project has native=false, nothing to build")
+		fmt.Fprintln(os.Stderr, i18n.Tr("cli.build.not_native", "project has native=false, nothing to build"))
 		return 1
 	}
 	binary, err := bootstrap.Build(p, bootstrap.HostTarget(), bootstrap.ModeRun, engine.Version, nil)
@@ -319,7 +336,7 @@ func cmdBuild(args []string) int {
 
 func cmdImport(args []string) int {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
-	force := fs.Bool("force", false, "ignore the artifact cache")
+	force := fs.Bool("force", false, i18n.Tr("cli.import.flag.force", "ignore the artifact cache"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -370,9 +387,9 @@ func cmdImport(args []string) int {
 
 func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	manifestPath := fs.String("manifest", "", "check against this bindings manifest instead of building one")
-	explain := fs.Bool("explain", false, "print the reference entry of every reported diagnostic code")
-	ensure := fs.Bool("ensure-meta", false, "write missing .meta files instead of reporting them")
+	manifestPath := fs.String("manifest", "", i18n.Tr("cli.check.flag.manifest", "check against this bindings manifest instead of building one"))
+	explain := fs.Bool("explain", false, i18n.Tr("cli.check.flag.explain", "print the reference entry of every reported diagnostic code"))
+	ensure := fs.Bool("ensure-meta", false, i18n.Tr("cli.check.flag.ensure_meta", "write missing .meta files instead of reporting them"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
@@ -415,11 +432,11 @@ func cmdCheck(args []string) int {
 		}
 	}
 	if n := snap.Errors(); n > 0 {
-		fmt.Fprintf(os.Stderr, "scripts: %d error(s)\n", n)
+		fmt.Fprintln(os.Stderr, i18n.TrN("cli.check.script_errors", int64(n), "scripts: {n} error", "scripts: {n} errors"))
 		problems++
 	}
 	if problems > 0 {
-		fmt.Fprintf(os.Stderr, "check: %d problem(s)\n", problems)
+		fmt.Fprintln(os.Stderr, i18n.TrN("cli.check.problems", int64(problems), "check: {n} problem", "check: {n} problems"))
 		return 1
 	}
 	fmt.Println("check: ok")

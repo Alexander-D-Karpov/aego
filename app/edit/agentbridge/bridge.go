@@ -60,10 +60,10 @@ type Bridge struct {
 	last      *undoRef
 }
 
-// Guide is the system prompt the editor adds for the model.
 // GuideExample is the transaction the Guide shows; a test applies it, so it stays valid.
 const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Ledge" } op "add-comp" { node="Ledge" comp="SpriteRenderer" } op "set" { node="Ledge" path="transform.position" value=[-13, 1] } }`
 
+// Guide is the system prompt the editor adds for the model.
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
 	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change."
 

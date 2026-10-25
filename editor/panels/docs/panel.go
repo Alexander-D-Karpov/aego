@@ -115,7 +115,7 @@ func (p *Panel) Show(ref, query string) {
 }
 
 func (p *Panel) navigate(id string, record bool) {
-	e, ok := p.reg.Get(id)
+	e, ok := p.get(id)
 	if !ok {
 		return
 	}
@@ -132,7 +132,7 @@ func (p *Panel) navigate(id string, record bool) {
 	}
 	for a := e.Parent; a != ""; {
 		p.open[a] = true
-		pe, ok := p.reg.Get(a)
+		pe, ok := p.get(a)
 		if !ok {
 			break
 		}
@@ -183,7 +183,7 @@ func (p *Panel) page(e regdocs.Entry) []richtext.Block {
 	out = append(out, richtext.Parse(stripTitle(e.Body))...)
 	if e.Example != "" {
 		out = append(out,
-			richtext.Block{Kind: richtext.Heading, Level: 3, Spans: spans("Example", richtext.Plain)},
+			richtext.Block{Kind: richtext.Heading, Level: 3, Spans: spans(i18n.Tr("editor.docs.example", "Example"), richtext.Plain)},
 			richtext.Block{Kind: richtext.CodeBlock, Lang: "aes", Lines: strings.Split(e.Example, "\n")})
 	}
 	var links []richtext.Span
@@ -219,7 +219,7 @@ func (p *Panel) page(e regdocs.Entry) []richtext.Block {
 	if len(e.Related) > 0 {
 		out = append(out, richtext.Block{Kind: richtext.Heading, Level: 2, Spans: spans("Related guides", richtext.Plain)})
 		for _, id := range e.Related {
-			if re, ok := p.reg.Get(id); ok {
+			if re, ok := p.get(id); ok {
 				out = append(out, richtext.Block{Kind: richtext.ListItem, Spans: []richtext.Span{{Text: re.Title, Target: "ref:" + id}}})
 			}
 		}
@@ -263,7 +263,7 @@ func (p *Panel) rebuild() {
 	var walk func(nodes []regdocs.Node, depth int)
 	walk = func(nodes []regdocs.Node, depth int) {
 		for _, n := range nodes {
-			e, ok := p.reg.Get(n.ID)
+			e, ok := p.get(n.ID)
 			if !ok {
 				continue
 			}
@@ -388,13 +388,13 @@ func (p *Panel) drawTree(ui *core.Context, r mathx.Rect) {
 
 func (p *Panel) crumbs(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
-	e, ok := p.reg.Get(p.current)
+	e, ok := p.get(p.current)
 	if !ok {
 		return
 	}
 	var trail []regdocs.Entry
 	for a := e.Parent; a != ""; {
-		pe, ok := p.reg.Get(a)
+		pe, ok := p.get(a)
 		if !ok {
 			break
 		}
@@ -448,4 +448,24 @@ func (p *Panel) drawPage(ui *core.Context, r mathx.Rect) {
 	if act.Run >= 0 {
 		p.run(act.Run)
 	}
+}
+
+// get is a registry entry in the editor's language, where it has a translation (D348).
+func (p *Panel) get(id string) (regdocs.Entry, bool) {
+	e, ok := p.reg.Get(id)
+	if !ok {
+		return e, false
+	}
+	if t, has := e.Translations[i18n.Default().Language()]; has {
+		if t.Title != "" && e.Field == nil {
+			e.Title = t.Title
+		}
+		if t.Summary != "" {
+			e.Summary = t.Summary
+		}
+		if t.Body != "" {
+			e.Body = t.Body
+		}
+	}
+	return e, true
 }

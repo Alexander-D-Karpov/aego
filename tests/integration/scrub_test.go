@@ -9,8 +9,7 @@ import (
 	"aego/engine/problems"
 )
 
-// Replay allocates nothing in the controller: what is left per frame is the game's own (D346).
-// Steps shorter than TransientEvery replay 56 frames from the key at 300 without taking scrub keys, whose capture is not replay.
+// Replay allocates nothing in the controller beyond the game's own; 56 frames from the key at 300 take no scrub keys (D346).
 func TestReplayAllocsPerFrame(t *testing.T) {
 	skipUnderRace(t)
 	s, pc := rewindSession(t)
@@ -37,8 +36,7 @@ func TestReplayAllocsPerFrame(t *testing.T) {
 	}
 }
 
-// Dragging back through the scrub cache replays at most TransientEvery frames and lands on the recorded state.
-// The cache covers TransientSpan frames before a target, so a long drag replays from a history key once per span.
+// Dragging back through the scrub cache replays at most TransientEvery frames per step and lands on the recorded state.
 func TestScrubCacheMatchesLinearRun(t *testing.T) {
 	s, pc := rewindSession(t)
 	pc.SetKeyEvery(300)

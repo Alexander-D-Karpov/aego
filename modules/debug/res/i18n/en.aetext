@@ -11,4 +11,19 @@ messages version=1 lang=en {
   msg "i18n.debug.live_primitives_formatuint_dropped" {
     text="{live} primitives   {formatuint} dropped"
   }
+  msg "i18n.debug.preset.all" {
+    text="All"
+  }
+  msg "i18n.debug.preset.camera" {
+    text="Camera"
+  }
+  msg "i18n.debug.preset.collision" {
+    text="Collision"
+  }
+  msg "i18n.debug.preset.none" {
+    text="None"
+  }
+  msg "i18n.debug.preset.velocity" {
+    text="Velocity"
+  }
 }

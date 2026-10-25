@@ -233,7 +233,7 @@ func NewBundle() *Bundle {
 	return b
 }
 
-//go:embed messages/*.aetext
+//go:embed messages/*.aetext data/*.aetext
 var messages embed.FS
 
 var def = engineBundle()
@@ -241,6 +241,9 @@ var def = engineBundle()
 func engineBundle() *Bundle {
 	b := NewBundle()
 	if err := b.LoadOnce("engine", messages, "messages", ""); err != nil {
+		panic("i18n: " + err.Error())
+	}
+	if err := b.LoadOnce("engine data", messages, "data", ""); err != nil {
 		panic("i18n: " + err.Error())
 	}
 	return b
@@ -606,4 +609,20 @@ func EnglishOf(text string) string {
 		return e
 	}
 	return text
+}
+
+// In is the text of key in lang, or en, without switching the bundle's language.
+func (b *Bundle) In(lang, key, en string) string {
+	if lang == English || lang == "" {
+		return en
+	}
+	b.mu.Lock()
+	c := b.cats[lang]
+	b.mu.Unlock()
+	if c != nil {
+		if m, ok := c.Msgs[key]; ok && m.Text != "" {
+			return m.Text
+		}
+	}
+	return en
 }

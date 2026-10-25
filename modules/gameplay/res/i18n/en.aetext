@@ -1,5 +1,23 @@
 messages version=1 lang=en {
+  msg "i18n.gameplay.fsm_state" {
+    text="State {state} for {time} s, before {previous}"
+  }
   msg "i18n.gameplay.gameplay_runs_only_in_play" {
     text="Gameplay runs only in Play"
+  }
+  msg "i18n.gameplay.motion_contacts" {
+    text="Grounded {grounded}   Wall {wall}   Ceiling {ceiling}"
+  }
+  msg "i18n.gameplay.motion_speed" {
+    text="Speed {speed}   Floor {angle}°"
+  }
+  msg "i18n.gameplay.profile_controllers" {
+    text="Controllers {controllers} per step, casts {casts} per step"
+  }
+  msg "i18n.gameplay.profile_events" {
+    text="Hits {hits}, deaths {deaths}, respawns {respawns}, pickups {pickups}"
+  }
+  msg "i18n.gameplay.profiler" {
+    text="Gameplay"
   }
 }

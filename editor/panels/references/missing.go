@@ -103,9 +103,9 @@ func (m *Missing) assetRow(ui *core.Context, i int, rr mathx.Rect) {
 	id := core.IDSeq(ui.ID("asset"), i)
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + 2, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
 	text := i18n.Tr("editor.references.label_refs_referrer_s", "{label}  ·  {refs} referrer(s)", i18n.Str("label", it.Label()), i18n.Str("refs", strconv.Itoa(len(it.Refs))))
-	labels := []string{"Show", "Replace…", "Clear"}
+	labels := []string{i18n.Tr("editor.references.show", "Show"), i18n.Tr("editor.references.replace_ellipsis", "Replace…"), i18n.Tr("editor.references.clear", "Clear")}
 	if !it.Suggest.IsZero() {
-		labels = append([]string{"Use " + path.Base(it.Path)}, labels...)
+		labels = append([]string{i18n.Tr("editor.references.use", "Use {name}", i18n.Str("name", path.Base(it.Path)))}, labels...)
 	}
 	bw := float32(0)
 	for _, l := range labels {
@@ -131,7 +131,7 @@ func (m *Missing) assetRow(ui *core.Context, i int, rr mathx.Rect) {
 	}
 	if !it.Suggest.IsZero() {
 		if hit == 0 {
-			runReplace(m.d, it.ID, it.Suggest, "Resolve "+path.Base(it.Label()), m.Refresh)
+			runReplace(m.d, it.ID, it.Suggest, i18n.Tr("editor.history.resolve", "Resolve {name}", i18n.Str("name", path.Base(it.Label()))), m.Refresh)
 			return
 		}
 		hit--
@@ -146,7 +146,7 @@ func (m *Missing) assetRow(ui *core.Context, i int, rr mathx.Rect) {
 		ui.CloseAllPopups()
 		ui.OpenPopup(core.IDSeq(ui.ID("pick"), i), mathx.Vec2{X: rr.X + rr.W/2, Y: rr.Y + rr.H})
 	case 2:
-		runReplace(m.d, it.ID, ids.AssetID{}, "Clear "+path.Base(it.Label()), m.Refresh)
+		runReplace(m.d, it.ID, ids.AssetID{}, i18n.Tr("editor.history.clear", "Clear {name}", i18n.Str("name", path.Base(it.Label()))), m.Refresh)
 	}
 	m.picker(ui, i, rr)
 }
@@ -158,7 +158,7 @@ func (m *Missing) picker(ui *core.Context, i int, rr mathx.Rect) {
 	it := m.assets[i]
 	if to, ok := pickAsset(ui, core.IDSeq(ui.ID("pick"), i), m.d.Pipeline, it.Grave.Kind, &m.pick, ids.AssetID{}); ok {
 		m.picking = -1
-		runReplace(m.d, it.ID, to, "Resolve "+path.Base(it.Label()), m.Refresh)
+		runReplace(m.d, it.ID, to, i18n.Tr("editor.history.resolve", "Resolve {name}", i18n.Str("name", path.Base(it.Label()))), m.Refresh)
 	}
 }
 
@@ -170,7 +170,7 @@ func (m *Missing) nodeRow(ui *core.Context, i int, rr mathx.Rect) {
 	node := strings.TrimPrefix(it.Path, "/")
 	text := i18n.Tr("editor.references.scene_node_owner_field_missing", "{scene}  ·  {node} · {owner}.{field} → missing node", i18n.Str("scene", it.Scene), i18n.Str("node", path.Base(node)), i18n.Str("owner", it.Owner), i18n.Str("field", it.Field))
 	widgets.Tooltip(ui, id, node)
-	labels := []string{"Select", "Clear"}
+	labels := []string{i18n.Tr("editor.references.select", "Select"), i18n.Tr("editor.references.clear", "Clear")}
 	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-130), H: rr.H})
 	ui.Text(text, mathx.Vec2{X: rr.X + 22, Y: ui.TextY(rr)}, th.Text)
 	ui.PopClip()

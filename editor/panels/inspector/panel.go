@@ -306,7 +306,7 @@ func (p *Panel) PasteHovered() error {
 	if p.hoverField.ok {
 		if td, fd, ok := p.lookup(d, p.hoverField); ok {
 			if v, ok := p.d.Clip.ReadValue(fd); ok {
-				p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
+				p.confirm(d, i18n.Tr("editor.inspector.paste_name", "Paste {name}", i18n.Str("name", p.labelOf(td, fd))), func() error { return d.Props.Set(nil, p.nodes, td.ID, fd.ID, v) })
 				return nil
 			}
 			if done, err := p.pasteAsset(d, td, fd); done {
@@ -377,7 +377,10 @@ func (p *Panel) apply(e widgets.Edit, label string, fn func(*history.Transaction
 	}
 }
 
-func (p *Panel) labelOf(fd *schema.FieldDescriptor) string {
+func (p *Panel) labelOf(td *schema.TypeDescriptor, fd *schema.FieldDescriptor) string {
+	if td != nil {
+		return schema.FieldLabel(td, fd)
+	}
 	if fd.Hints.DisplayName != "" {
 		return fd.Hints.DisplayName
 	}
@@ -521,7 +524,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 		nt := t
 		nt.Position = pos
 		keep(e, nt)
-		p.apply(e, "Move", func(tx *history.Transaction) error {
+		p.apply(e, i18n.Tr("editor.history.move", "Move"), func(tx *history.Transaction) error {
 			return d.Props.EditTransform(tx, p.nodes, func(tr *scene.Transform2D) {
 				if x {
 					tr.Position.X = pos.X
@@ -540,7 +543,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 		nt := t
 		nt.Rotation = rad
 		keep(e, nt)
-		p.apply(e, "Rotate", func(tx *history.Transaction) error {
+		p.apply(e, i18n.Tr("editor.history.rotate", "Rotate"), func(tx *history.Transaction) error {
 			return d.Props.EditTransform(tx, p.nodes, func(tr *scene.Transform2D) {
 				tr.Rotation = rad
 			})
@@ -554,7 +557,7 @@ func (p *Panel) transform2D(d *document.SceneDocument) {
 		nt := t
 		nt.Scale = sc
 		keep(e, nt)
-		p.apply(e, "Scale", func(tx *history.Transaction) error {
+		p.apply(e, i18n.Tr("editor.history.scale", "Scale"), func(tx *history.Transaction) error {
 			return d.Props.EditTransform(tx, p.nodes, func(tr *scene.Transform2D) {
 				if x {
 					tr.Scale.X = sc.X
@@ -666,9 +669,9 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 func (p *Panel) remove(d *document.SceneDocument, td *schema.TypeDescriptor) {
 	p.confirm(d, i18n.Tr("editor.inspector.remove_name", "Remove {name}", i18n.Str("name", p.reg.Meta(td).DisplayName)), func() error {
 		env := commands.EnvFor(d.Scene())
-		tx := d.History.Begin("Remove " + td.FullName)
+		tx := d.History.Begin(i18n.Tr("editor.history.remove", "Remove {name}", i18n.Str("name", schema.TypeLabel(td))))
 		for _, id := range p.nodes {
-			if err := tx.Exec(commands.NewMutation("Remove "+td.FullName, env, commands.RemoveComp(id, td))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.remove", "Remove {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.RemoveComp(id, td))); err != nil {
 				tx.Abort()
 				return err
 			}
@@ -683,13 +686,13 @@ func (p *Panel) reset(d *document.SceneDocument, td *schema.TypeDescriptor) {
 		s := d.Scene()
 		env := commands.EnvFor(s)
 		defaults := p.reg.Defaults(td.ID)
-		tx := d.History.Begin("Reset " + td.FullName)
+		tx := d.History.Begin(i18n.Tr("editor.history.reset", "Reset {name}", i18n.Str("name", schema.TypeLabel(td))))
 		for _, id := range p.nodes {
-			if err := tx.Exec(commands.NewMutation("Remove "+td.FullName, env, commands.RemoveComp(id, td))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.remove", "Remove {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.RemoveComp(id, td))); err != nil {
 				tx.Abort()
 				return err
 			}
-			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, id, td, defaults))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.AddComp(s, id, td, defaults))); err != nil {
 				tx.Abort()
 				return err
 			}

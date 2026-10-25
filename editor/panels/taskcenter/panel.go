@@ -60,8 +60,8 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		on        bool
 		fn        func()
 	}{
-		{"cancel", "Cancel All", len(live) > 0, p.q.CancelAll},
-		{"clear", "Clear Finished", len(recent) > 0, p.q.ClearRecent},
+		{"cancel", i18n.Tr("editor.taskcenter.cancel_all", "Cancel All"), len(live) > 0, p.q.CancelAll},
+		{"clear", i18n.Tr("editor.taskcenter.clear_finished", "Clear Finished"), len(recent) > 0, p.q.ClearRecent},
 	} {
 		w := ui.TextSize(b.label).X + 16
 		x -= w + 4
@@ -73,7 +73,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	list := mathx.Rect{X: r.X, Y: top, W: r.W, H: max(0, r.Y+r.H-top)}
 	n := len(live) + len(recent)
 	if n == 0 {
-		ui.TextIn(list, "No background tasks", th.TextDisabled, core.AlignCenter)
+		ui.TextIn(list, i18n.Tr("editor.taskcenter.no_tasks", "No background tasks"), th.TextDisabled, core.AlignCenter)
 		return
 	}
 	widgets.VirtualList(ui, ui.ID("rows"), list, n, th.RowHeight+4, &p.scroll, func(i int, rr mathx.Rect) {

@@ -1,5 +1,23 @@
 messages version=1 lang=ru {
+  msg "i18n.gameplay.fsm_state" {
+    text="Состояние {state} уже {time} с, до этого {previous}"
+  }
   msg "i18n.gameplay.gameplay_runs_only_in_play" {
     text="Геймплей работает только во время игры"
+  }
+  msg "i18n.gameplay.motion_contacts" {
+    text="На земле {grounded}   Стена {wall}   Потолок {ceiling}"
+  }
+  msg "i18n.gameplay.motion_speed" {
+    text="Скорость {speed}   Пол {angle}°"
+  }
+  msg "i18n.gameplay.profile_controllers" {
+    text="Контроллеров {controllers} за шаг, кастов {casts} за шаг"
+  }
+  msg "i18n.gameplay.profile_events" {
+    text="Попаданий {hits}, смертей {deaths}, возрождений {respawns}, подборов {pickups}"
+  }
+  msg "i18n.gameplay.profiler" {
+    text="Геймплей"
   }
 }

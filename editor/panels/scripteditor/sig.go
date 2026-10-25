@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"aego/core/mathx"
+	"aego/engine/i18n"
 	"aego/script/langsvc"
 	"aego/ui/core"
 	"aego/ui/draw"
@@ -101,7 +102,7 @@ func (p *Panel) quickDoc(ui *core.Context) {
 		}
 	}
 	if !h.ok && !h.hasDiag {
-		p.flash(ui.Time, "No documentation at the cursor")
+		p.flash(ui.Time, i18n.Tr("editor.scripteditor.no_documentation_at_cursor", "No documentation at the cursor"))
 		return
 	}
 	saved := p.hover

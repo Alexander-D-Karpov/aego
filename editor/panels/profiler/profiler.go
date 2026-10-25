@@ -505,31 +505,31 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: y, W: body.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
 	p.titles, p.marks = p.titles[:0], p.marks[:0]
 	p.section(ui, i18n.Tr("editor.profiler.frame", "Frame"))
-	p.graph(ui, "frame", " ms", 2, 1000.0/60, th.Accent, mFrame)
-	p.graph(ui, "update", " ms", 2, 0, th.AxisY, mUpdate)
-	p.graph(ui, "render", " ms", 2, 0, th.AxisX, mRender)
-	p.graph(ui, "draw calls", "", 0, 0, th.Selection, mDraws)
-	p.graph(ui, "sprites", "", 0, 0, th.Selection, mSprites)
-	p.graph(ui, "garbage", " KB", 1, 64, th.Warn, mGarbage)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.frame", "frame"), " ms", 2, 1000.0/60, th.Accent, mFrame)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.update", "update"), " ms", 2, 0, th.AxisY, mUpdate)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.render", "render"), " ms", 2, 0, th.AxisX, mRender)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.draw_calls", "draw calls"), "", 0, 0, th.Selection, mDraws)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.sprites", "sprites"), "", 0, 0, th.Selection, mSprites)
+	p.graph(ui, i18n.Tr("editor.profiler.graph.garbage", "garbage"), " KB", 1, 64, th.Warn, mGarbage)
 	widgets.Separator(ui)
 	p.section(ui, i18n.Tr("editor.profiler.memory", "Memory"))
 	p.memory(ui)
 	if p.playing {
 		widgets.Separator(ui)
 		p.section(ui, i18n.Tr("editor.profiler.game", "Game"))
-		p.graph(ui, "game update", " ms", 2, 0, th.AxisY, mGameUpdate)
-		p.graph(ui, "game render", " ms", 2, 0, th.AxisX, mGameRender)
-		p.graph(ui, "game sprites", "", 0, 0, th.Selection, mGameSprites)
-		p.graph(ui, "game nodes", "", 0, 0, th.Selection, mGameNodes)
+		p.graph(ui, i18n.Tr("editor.profiler.graph.game_update", "game update"), " ms", 2, 0, th.AxisY, mGameUpdate)
+		p.graph(ui, i18n.Tr("editor.profiler.graph.game_render", "game render"), " ms", 2, 0, th.AxisX, mGameRender)
+		p.graph(ui, i18n.Tr("editor.profiler.graph.game_sprites", "game sprites"), "", 0, 0, th.Selection, mGameSprites)
+		p.graph(ui, i18n.Tr("editor.profiler.graph.game_nodes", "game nodes"), "", 0, 0, th.Selection, mGameNodes)
 		widgets.LabelDim(ui, gameLine(&p.game))
 		if p.hasScripts {
 			widgets.Separator(ui)
 			p.section(ui, i18n.Tr("editor.profiler.scripts", "Scripts"))
-			p.graph(ui, "script instructions", "", 0, 0, th.Accent, mScriptInstr)
-			p.graph(ui, "script host calls", "", 0, 0, th.AxisY, mScriptHost)
-			p.graph(ui, "script heap", " KB", 1, 0, th.Warn, mScriptHeap)
-			p.graph(ui, "coroutines", "", 0, 0, th.AxisZ, mCoroutines)
-			p.graph(ui, "signal emits", "", 0, 0, th.Selection, mEmits)
+			p.graph(ui, i18n.Tr("editor.profiler.graph.script_instructions", "script instructions"), "", 0, 0, th.Accent, mScriptInstr)
+			p.graph(ui, i18n.Tr("editor.profiler.graph.script_host_calls", "script host calls"), "", 0, 0, th.AxisY, mScriptHost)
+			p.graph(ui, i18n.Tr("editor.profiler.graph.script_heap", "script heap"), " KB", 1, 0, th.Warn, mScriptHeap)
+			p.graph(ui, i18n.Tr("editor.profiler.graph.coroutines", "coroutines"), "", 0, 0, th.AxisZ, mCoroutines)
+			p.graph(ui, i18n.Tr("editor.profiler.graph.signal_emits", "signal emits"), "", 0, 0, th.Selection, mEmits)
 			p.scriptTable(ui)
 		}
 	}
@@ -542,7 +542,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 			continue
 		}
 		widgets.Separator(ui)
-		p.section(ui, sec.Title)
+		p.section(ui, sec.Title.String())
 		sec.Draw()
 	}
 	if !p.playing {
@@ -558,7 +558,7 @@ func playHint(list []context.ProfilerSection) string {
 	var extra []string
 	for _, sec := range list {
 		if sec.Play {
-			extra = append(extra, strings.ToLower(sec.Title))
+			extra = append(extra, strings.ToLower(sec.Title.String()))
 		}
 	}
 	if len(extra) == 0 {

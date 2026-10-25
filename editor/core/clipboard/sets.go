@@ -9,6 +9,7 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
+	"aego/engine/i18n"
 	"aego/scene"
 	"aego/scene/mutate"
 	"aego/scene/sceneio"
@@ -41,11 +42,11 @@ func (e Env) pasteInto(tx *history.Transaction, d *document.SceneDocument, nodes
 				continue
 			}
 			for _, r := range req {
-				if err := tx.Exec(commands.NewMutation("Add "+r.FullName, env, commands.AddComp(s, n, r, nil))); err != nil {
+				if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(r))), env, commands.AddComp(s, n, r, nil))); err != nil {
 					return err
 				}
 			}
-			if err := tx.Exec(commands.NewMutation("Add "+td.FullName, env, commands.AddComp(s, n, td, values))); err != nil {
+			if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", schema.TypeLabel(td))), env, commands.AddComp(s, n, td, values))); err != nil {
 				return err
 			}
 			continue
@@ -165,7 +166,7 @@ func (e Env) PasteComponents(d *document.SceneDocument, nodes []ids.NodeID) erro
 	if len(nodes) == 0 {
 		return errs.New(errs.EditorCommand, "select the nodes to paste the components onto")
 	}
-	tx := d.History.Begin("Paste Components")
+	tx := d.History.Begin(i18n.Tr("editor.history.paste_components", "Paste Components"))
 	for _, c := range list {
 		if err := e.pasteInto(tx, d, nodes, c.td, c.values); err != nil {
 			tx.Abort()

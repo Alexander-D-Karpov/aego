@@ -114,6 +114,9 @@ table.api td.fname a { display: inline-flex; align-items: center; gap: 7px; }
 .theme { display: grid; place-items: center; flex: none; width: 34px; height: 34px; padding: 0; color: var(--fg-muted); background: none; border: 0; border-radius: var(--radius); cursor: pointer; }
 .theme:hover { color: var(--fg); background: var(--bg-hover); }
 .theme svg { display: none; }
+.lang { display: grid; place-items: center; flex: none; height: 34px; padding: 0 8px; font-size: 13px; color: var(--fg-muted); border-radius: var(--radius); text-decoration: none; }
+.lang:hover { color: var(--fg); background: var(--bg-hover); }
+.untranslated { padding: 10px 14px; margin: 0 0 20px; font-size: 14px; color: var(--fg-muted); background: var(--bg-hover); border-left: 3px solid var(--accent); border-radius: var(--radius); }
 .theme[data-mode="auto"] .auto, .theme[data-mode="dark"] .moon, .theme[data-mode="light"] .sun { display: block; }
 
 /* layout */

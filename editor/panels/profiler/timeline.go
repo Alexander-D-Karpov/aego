@@ -53,7 +53,7 @@ func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 	flame := mathx.Rect{X: r.X, Y: top + head.H, W: r.W, H: max(0, r.Y+r.H-top-head.H)}
 	f := tr.Frame(tl.back)
 	if f == nil {
-		ui.TextIn(flame, "No frames recorded yet", th.TextDim, core.AlignCenter)
+		ui.TextIn(flame, i18n.Tr("editor.profiler.no_frames_yet", "No frames recorded yet"), th.TextDim, core.AlignCenter)
 		return
 	}
 	info := i18n.Tr("editor.profiler.frame_formatuint_dur", "Frame {formatuint}   {dur}", i18n.Str("formatuint", strconv.FormatUint(f.Index, 10)), i18n.Str("dur", nsMS(f.Dur)))

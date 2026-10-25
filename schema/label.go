@@ -13,6 +13,14 @@ func Label(fd *FieldDescriptor) string {
 	return Humanize(fd.Name)
 }
 
+// TypeLabel is the name the editor shows for a component type: its display name, else its full name.
+func TypeLabel(td *TypeDescriptor) string {
+	if td.DisplayName != "" {
+		return Title(td)
+	}
+	return td.FullName
+}
+
 // Humanize turns clearColor or clear_color into Clear Color.
 func Humanize(s string) string {
 	rs := []rune(s)

@@ -326,7 +326,7 @@ func (p *Panel) newPackage(dir string) {
 	}
 	p.d.Notices.Ask(context.Question{
 		Title:   i18n.Tr("editor.assets.new_script_package", "New script package"),
-		Message: "Creates " + base + "/<package>/ with its first script",
+		Message: i18n.Tr("editor.assets.new_package_message", "Creates {dir}/<package>/ with its first script", i18n.Str("dir", base)),
 		Fields:  []string{i18n.Tr("editor.assets.package", "Package"), i18n.Tr("editor.assets.first_script", "First script")},
 		Values:  []string{"", "NewScript"},
 		Buttons: []string{i18n.Tr("editor.assets.create", "Create"), i18n.Tr("editor.assets.cancel", "Cancel")},

@@ -99,6 +99,6 @@ func (b *builder) downloadBlock(root string) string {
 	if u, ok := b.urls[installPage]; ok {
 		fallback = root + u
 	}
-	return `<div class="download" data-fallback="` + esc(fallback) + `"><div class="dl-head"><a class="button primary dl-main" href="` + esc(r.URL) + `">` + b.icon(root, "ui.move_down", "") + `<span>Download</span></a>` +
+	return `<div class="download" data-fallback="` + esc(fallback) + `"><div class="dl-head"><a class="button primary dl-main" href="` + esc(r.URL) + `">` + b.icon(root, "ui.move_down", "") + `<span>` + b.tr("Download") + `</span></a>` +
 		`<span class="dl-meta"><span class="dl-file">Builds for ` + strings.Join(oses, ", ") + `</span><span class="dl-ver">` + esc(r.Tag) + ` · <a href="` + esc(r.URL) + `">release notes and all files</a></span></span></div><ul class="dl-list">` + strings.Join(items, "") + "</ul></div>\n"
 }

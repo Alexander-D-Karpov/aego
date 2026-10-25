@@ -112,7 +112,7 @@ func Register(ctx *context.Editor, reg *gizmo.Registry) error {
 		return err
 	}
 	l := &layer{ctx: ctx}
-	ctx.Vectors = append(ctx.Vectors, context.VectorLayer{ID: "fields", Title: i18n.Tr("editor.fieldgizmo.fields", "Fields"), Draw: l.draw})
+	ctx.Vectors = append(ctx.Vectors, context.VectorLayer{ID: "fields", Title: i18n.T("editor.fieldgizmo.fields", "Fields"), Draw: l.draw})
 	return nil
 }
 

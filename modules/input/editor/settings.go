@@ -18,9 +18,13 @@ var (
 	kindLabels = func() []string {
 		return []string{i18n.Tr("i18n.input.kind.button", "Button"), i18n.Tr("i18n.input.kind.axis1d", "Axis 1D"), i18n.Tr("i18n.input.kind.axis2d", "Axis 2D"), i18n.Tr("i18n.input.kind.pointer", "Pointer"), i18n.Tr("i18n.input.kind.pointer_delta", "Pointer Delta")}
 	}
-	triggerLabels = []string{"Press", "Release", "Hold", "Tap", "Double Tap", "Toggle"}
-	pairNames     = []string{"−", "+"}
-	quadNames     = []string{"Up", "Down", "Left", "Right"}
+	triggerLabels = func() []string {
+		return []string{i18n.Tr("i18n.input.trigger.press", "Press"), i18n.Tr("i18n.input.trigger.release", "Release"), i18n.Tr("i18n.input.trigger.hold", "Hold"), i18n.Tr("i18n.input.trigger.tap", "Tap"), i18n.Tr("i18n.input.trigger.double_tap", "Double Tap"), i18n.Tr("i18n.input.trigger.toggle", "Toggle")}
+	}
+	pairNames = []string{"−", "+"}
+	quadNames = func() []string {
+		return []string{i18n.Tr("i18n.input.dir.up", "Up"), i18n.Tr("i18n.input.dir.down", "Down"), i18n.Tr("i18n.input.dir.left", "Left"), i18n.Tr("i18n.input.dir.right", "Right")}
+	}
 )
 
 type capture struct {
@@ -245,7 +249,7 @@ func (p *Page) general(ui *core.Context, c *input.Config) bool {
 		c.Players = int(n)
 		changed = true
 	}
-	changed = num(ui, "Dead Zone", &c.Deadzone, 0, 0.95, "") || changed
+	changed = num(ui, i18n.Tr("i18n.input.dead_zone", "Dead Zone"), &c.Deadzone, 0, 0.95, "") || changed
 	names := contextNames(c)
 	if len(names) == 0 {
 		return changed
@@ -348,20 +352,20 @@ func (p *Page) detail(ui *core.Context, c *input.Config, i int, conf map[[2]int]
 	switch a.Kind {
 	case input.Button:
 		tr := int(a.Interaction.Trigger)
-		if widgets.Combo(ui, ui.ID("trigger"), widgets.Field(ui, i18n.Tr("i18n.input.interaction", "Interaction")), &tr, triggerLabels, false) {
+		if widgets.Combo(ui, ui.ID("trigger"), widgets.Field(ui, i18n.Tr("i18n.input.interaction", "Interaction")), &tr, triggerLabels(), false) {
 			a.Interaction.Trigger = input.Trigger(tr)
 			changed = true
 		}
 		switch a.Interaction.Trigger {
 		case input.Hold, input.Tap, input.DoubleTap:
-			changed = num(ui, "Time", &a.Interaction.Time, 0, 5, "s") || changed
+			changed = num(ui, i18n.Tr("i18n.input.time", "Time"), &a.Interaction.Time, 0, 5, "s") || changed
 		}
-		changed = num(ui, "Buffer", &a.Buffer, 0, 2, "s") || changed
+		changed = num(ui, i18n.Tr("i18n.input.buffer", "Buffer"), &a.Buffer, 0, 2, "s") || changed
 	case input.Axis1D, input.Axis2D:
-		changed = num(ui, "Dead Zone", &a.Deadzone, 0, 0.95, "") || changed
-		changed = num(ui, "Smoothing", &a.Smoothing, 0, 2, "s") || changed
+		changed = num(ui, i18n.Tr("i18n.input.dead_zone", "Dead Zone"), &a.Deadzone, 0, 0.95, "") || changed
+		changed = num(ui, i18n.Tr("i18n.input.smoothing", "Smoothing"), &a.Smoothing, 0, 2, "s") || changed
 	case input.PointerDelta:
-		changed = num(ui, "Sensitivity", &a.Sensitivity, 0, 20, "") || changed
+		changed = num(ui, i18n.Tr("i18n.input.sensitivity", "Sensitivity"), &a.Sensitivity, 0, 20, "") || changed
 	}
 	if a.Kind != input.Pointer && a.Kind != input.PointerDelta {
 		widgets.Label(ui, i18n.Tr("i18n.input.bindings", "Bindings"))
@@ -395,7 +399,7 @@ func partNames(s input.Shape) []string {
 	case input.Pair:
 		return pairNames
 	case input.Quad:
-		return quadNames
+		return quadNames()
 	}
 	return []string{""}
 }
@@ -482,11 +486,11 @@ func (p *Page) addButtons(ui *core.Context, a *input.Action, ai int) bool {
 	var forms []form
 	switch a.Kind {
 	case input.Button:
-		forms = []form{{"Key", "Key.Space", true}, {"Mouse Button", "Mouse.Right", true}, {"Pad Button", "Pad.A", true}}
+		forms = []form{{i18n.Tr("i18n.input.form.key", "Key"), "Key.Space", true}, {i18n.Tr("i18n.input.form.mouse_button", "Mouse Button"), "Mouse.Right", true}, {i18n.Tr("i18n.input.form.pad_button", "Pad Button"), "Pad.A", true}}
 	case input.Axis1D:
-		forms = []form{{"Two Keys (− / +)", "Key.A/Key.D", false}, {"Pad Axis", "Pad.LeftX", true}, {"Pad Trigger", "Pad.RT", true}}
+		forms = []form{{i18n.Tr("i18n.input.form.two_keys", "Two Keys (- / +)"), "Key.A/Key.D", false}, {i18n.Tr("i18n.input.form.pad_axis", "Pad Axis"), "Pad.LeftX", true}, {i18n.Tr("i18n.input.form.pad_trigger", "Pad Trigger"), "Pad.RT", true}}
 	case input.Axis2D:
-		forms = []form{{"Four Keys (WASD)", "Key.W/Key.S/Key.A/Key.D", false}, {"Arrow Keys", "Key.Up/Key.Down/Key.Left/Key.Right", false}, {"Stick", "Pad.LeftStick", false}}
+		forms = []form{{i18n.Tr("i18n.input.form.four_keys", "Four Keys (WASD)"), "Key.W/Key.S/Key.A/Key.D", false}, {i18n.Tr("i18n.input.form.arrow_keys", "Arrow Keys"), "Key.Up/Key.Down/Key.Left/Key.Right", false}, {i18n.Tr("i18n.input.form.stick", "Stick"), "Pad.LeftStick", false}}
 	}
 	row := ui.Cursor().Next(0)
 	id := ui.ID("addbind")

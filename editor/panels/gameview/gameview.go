@@ -103,7 +103,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if p.play.State() == play.Stopped {
 		p.bar = mathx.Rect{}
 		p.tl.Reset()
-		ui.TextIn(r, "Press Play (Ctrl+P)", th.TextDim, core.AlignCenter)
+		ui.TextIn(r, i18n.Tr("editor.gameview.press_play", "Press Play (Ctrl+P)"), th.TextDim, core.AlignCenter)
 		return
 	}
 	id := ui.ID("view")
@@ -133,7 +133,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		}
 	}
 	if !p.hasCamera {
-		ui.TextIn(r, "No active camera in the scene", th.Warn, core.AlignCenter)
+		ui.TextIn(r, i18n.Tr("editor.gameview.no_active_camera", "No active camera in the scene"), th.Warn, core.AlignCenter)
 	}
 	for _, hud := range p.vp.GameHUD {
 		hud(ui, r)
@@ -144,13 +144,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	o := p.vp.Overlay
-	overlays := "Overlays: off"
+	overlays := i18n.Tr("editor.gameview.overlays_off", "Overlays: off")
 	if o.On(CommandOverlays) {
-		overlays = "Overlays: on"
+		overlays = i18n.Tr("editor.gameview.overlays_on", "Overlays: on")
 	}
-	vecs := "Vectors: off"
+	vecs := i18n.Tr("editor.gameview.vectors_off", "Vectors: off")
 	if o.On(vectors.CommandToggle) {
-		vecs = "Vectors: on"
+		vecs = i18n.Tr("editor.gameview.vectors_on", "Vectors: on")
 	}
 	w := ui.TextSize(overlays).X + ui.TextSize(vecs).X + 44
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: min(w, r.W-12), H: th.BarHeight}

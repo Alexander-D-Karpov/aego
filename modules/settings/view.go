@@ -1,8 +1,8 @@
 package settings
 
 import (
+	"aego/engine/i18n"
 	"slices"
-	"strconv"
 
 	"aego/core/mathx"
 	"aego/engine"
@@ -180,7 +180,7 @@ func (v *View) layout(size mathx.Vec2) {
 	ui.Box(r, th.Radius.Popup, th.Panel, th.Border)
 	pad := th.Padding * 2
 	head := mathx.Rect{X: r.X + pad, Y: r.Y + pad, W: r.W - 2*pad, H: th.RowHeight}
-	ui.Text("Settings", mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
+	ui.Text(i18n.Tr("settings.title", "Settings"), mathx.Vec2{X: head.X, Y: ui.TextY(head)}, th.Text)
 	tabs := mathx.Rect{X: head.X, Y: head.Y + head.H + th.Spacing*3, W: head.W, H: th.RowHeight}
 	v.tabs(ui, tabs)
 	foot := mathx.Rect{X: head.X, Y: r.Y + r.H - pad - th.RowHeight, W: head.W, H: th.RowHeight}
@@ -198,9 +198,10 @@ func (v *View) layout(size mathx.Vec2) {
 func (v *View) tabs(ui *core.Context, r mathx.Rect) {
 	x := r.X
 	for i, c := range v.cats() {
-		w := ui.TextSize(c).X + 24
+		label := es.CategoryText(c)
+		w := ui.TextSize(label).X + 24
 		on := c == v.cat
-		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: x, Y: r.Y, W: w, H: r.H}, c, &on) && c != v.cat {
+		if widgets.ToggleButton(ui, core.IDSeq(ui.ID("tab"), i), mathx.Rect{X: x, Y: r.Y, W: w, H: r.H}, label, &on) && c != v.cat {
 			v.cat = c
 			v.ed.Cancel()
 			v.refresh()
@@ -257,11 +258,11 @@ func (v *View) list(ui *core.Context, r mathx.Rect) {
 func (v *View) confirm(ui *core.Context, r mathx.Rect, left float64) {
 	th := &ui.Theme
 	bw := float32(90)
-	ui.Text("Keep these display settings? Reverting in "+strconv.Itoa(int(left)+1)+" s", mathx.Vec2{X: r.X, Y: ui.TextY(r)}, th.Warn)
-	if widgets.ButtonRect(ui, ui.ID("keep"), mathx.Rect{X: r.X + r.W - 2*bw - 4, Y: r.Y, W: bw, H: r.H}, "Keep") {
+	ui.Text(i18n.Tr("settings.keep_display", "Keep these display settings? Reverting in {n} s", i18n.Int("n", int64(left)+1)), mathx.Vec2{X: r.X, Y: ui.TextY(r)}, th.Warn)
+	if widgets.ButtonRect(ui, ui.ID("keep"), mathx.Rect{X: r.X + r.W - 2*bw - 4, Y: r.Y, W: bw, H: r.H}, i18n.Tr("settings.keep", "Keep")) {
 		v.st.Confirm()
 	}
-	if widgets.ButtonRect(ui, ui.ID("undo"), mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H}, "Revert") {
+	if widgets.ButtonRect(ui, ui.ID("undo"), mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H}, i18n.Tr("settings.revert", "Revert")) {
 		_ = v.st.RevertPending()
 	}
 }
@@ -276,20 +277,20 @@ func (v *View) footer(ui *core.Context, r mathx.Rect) {
 		x -= 4
 		return hit
 	}
-	if button("close", "Close") {
+	if button("close", i18n.Tr("settings.close", "Close")) {
 		v.Close()
 		return
 	}
-	if button("defaults", "Defaults") {
+	if button("defaults", i18n.Tr("settings.defaults", "Defaults")) {
 		for _, k := range v.keys {
 			v.draft[k] = v.st.Base(k)
 		}
 	}
-	if button("revert", "Revert") {
+	if button("revert", i18n.Tr("settings.revert", "Revert")) {
 		clear(v.draft)
 		v.note = ""
 	}
-	if button("apply", "Apply") && len(v.draft) > 0 {
+	if button("apply", i18n.Tr("settings.apply", "Apply")) && len(v.draft) > 0 {
 		v.apply()
 	}
 	if v.note != "" {
@@ -322,7 +323,7 @@ func (v *View) apply() {
 	clear(v.draft)
 	v.note = ""
 	if v.st.NeedsRestart() {
-		v.note = "Some changes apply after a restart"
+		v.note = i18n.Tr("settings.restart", "Some changes apply after a restart")
 	}
 }
 

@@ -80,16 +80,16 @@ func (s *Service) prepare(i int) {
 	case kindTemplate:
 		d.doc = i18n.Tr("editor.addpalette.creates", "Creates {name}", i18n.Str("name", e.tpl.Name))
 		if t := s.tplComponent(e.tpl.ID); t != nil && t.Doc != "" {
-			d.doc = t.Doc
+			d.doc = schema.TypeDoc(t)
 		}
 		return
 	case kindScript:
-		d.doc = e.td.Doc
+		d.doc = schema.TypeDoc(e.td)
 		if d.doc == "" {
 			d.doc = i18n.Tr("editor.addpalette.script", "Script {name}", i18n.Str("name", e.td.FullName))
 		}
 	default:
-		d.doc = e.td.Doc
+		d.doc = schema.TypeDoc(e.td)
 	}
 	if len(e.skip) > 0 && len(e.nodes) > 0 {
 		d.skip = i18n.Tr("editor.addpalette.not_added_to", "Not added to {nodes}", i18n.Str("nodes", strings.Join(e.skip, ", ")))

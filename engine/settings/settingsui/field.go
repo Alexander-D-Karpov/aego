@@ -1,6 +1,7 @@
 package settingsui
 
 import (
+	"aego/engine/i18n"
 	"strings"
 
 	"aego/core/mathx"
@@ -49,14 +50,17 @@ func Paired(st *settings.Store, k settings.Key) bool {
 
 func (e *Editor) Pair(ui *core.Context, st *settings.Store, k settings.Key, v *schema.Value, m settings.Key, mv *schema.Value) (bool, bool) {
 	d, md := st.Desc(k), st.Desc(m)
-	label := strings.TrimSuffix(d.Label(), " Volume")
+	label := d.Text()
+	if i18n.Default().Language() == i18n.English {
+		label = strings.TrimSuffix(label, " Volume")
+	}
 	lr, r := widgets.FieldRects(ui, label)
 	id := ui.ID(d.ID)
 	if r.W > 160 {
 		r.W -= resetW
 		if !settings.Equal(*v, d.Default) || !settings.Equal(*mv, md.Default) {
 			rr := mathx.Rect{X: r.X + r.W + 2, Y: r.Y, W: resetW - 2, H: r.H}
-			if widgets.IconButton(ui, core.IDSeq(id, 9000), rr, "ui.reset", "Reset to "+st.FormatValue(k, d.Default)) {
+			if widgets.IconButton(ui, core.IDSeq(id, 9000), rr, "ui.reset", i18n.Tr("settings.reset_to", "Reset to {value}", i18n.Str("value", st.FormatValue(k, d.Default)))) {
 				*v, *mv = d.Default, md.Default
 				return true, true
 			}
@@ -73,14 +77,14 @@ func (e *Editor) Pair(ui *core.Context, st *settings.Store, k settings.Key, v *s
 	o := widgets.NumberOpts{Speed: speed(d), Min: d.Min, Max: d.Max, HasMin: d.HasMin, HasMax: d.HasMax, Percent: true, Mixed: false}
 	vc := false
 	if on {
-		ui.TextIn(slider, "Muted", ui.Theme.TextDisabled, core.AlignCenter)
+		ui.TextIn(slider, i18n.Tr("settings.muted", "Muted"), ui.Theme.TextDisabled, core.AlignCenter)
 		ui.MouseOver(id, slider)
 	} else if ed := widgets.DragNumber(ui, id, slider, &f, o); ed.Changed {
 		*v = schema.Float64(f)
 		vc = true
 	}
 	mc := false
-	if widgets.Switch(ui, ui.ID(md.ID), mute, &on, "Mute") {
+	if widgets.Switch(ui, ui.ID(md.ID), mute, &on, i18n.Tr("settings.mute", "Mute")) {
 		*mv = schema.Bool(on)
 		mc = true
 	}
@@ -104,7 +108,7 @@ func (e *Editor) Field(ui *core.Context, st *settings.Store, k settings.Key, v *
 	if d == nil {
 		return false
 	}
-	lr, r := widgets.FieldRects(ui, d.Label())
+	lr, r := widgets.FieldRects(ui, d.Text())
 	id := ui.ID(d.ID)
 	if r.W > 120 {
 		r.W -= resetW
@@ -112,7 +116,7 @@ func (e *Editor) Field(ui *core.Context, st *settings.Store, k settings.Key, v *
 		if !settings.Equal(*v, d.Default) && st.Enabled(k) {
 			ui.Rect(mathx.Rect{X: lr.X - 4, Y: lr.Y + 4, W: 2, H: lr.H - 8}, ui.Theme.Accent)
 			rid := core.IDSeq(id, 9000)
-			if widgets.IconButton(ui, rid, rr, "ui.reset", "Reset to "+st.FormatValue(k, d.Default)) {
+			if widgets.IconButton(ui, rid, rr, "ui.reset", i18n.Tr("settings.reset_to", "Reset to {value}", i18n.Str("value", st.FormatValue(k, d.Default)))) {
 				*v = d.Default
 				return true
 			}
@@ -129,10 +133,7 @@ func (e *Editor) Field(ui *core.Context, st *settings.Store, k settings.Key, v *
 		labels := make([]string, len(cs))
 		cur := -1
 		for i, c := range cs {
-			labels[i] = c.Label
-			if labels[i] == "" {
-				labels[i] = c.Name
-			}
+			labels[i] = d.ChoiceText(c)
 			if settings.Equal(c.Value, *v) {
 				cur = i
 			}
@@ -146,9 +147,9 @@ func (e *Editor) Field(ui *core.Context, st *settings.Store, k settings.Key, v *
 	switch d.Kind {
 	case schema.KindBool:
 		on := v.I != 0
-		label := "Off"
+		label := i18n.Tr("settings.off", "Off")
 		if on {
-			label = "On"
+			label = i18n.Tr("settings.on", "On")
 		}
 		if widgets.Switch(ui, id, r, &on, label) {
 			*v = schema.Bool(on)
@@ -220,7 +221,7 @@ func (e *Editor) controls(ui *core.Context, id core.ID, r mathx.Rect, k settings
 	for i, item := range v.List {
 		label := item.S
 		if e.on && e.key == k && e.index == i {
-			label = "Press a key…"
+			label = i18n.Tr("settings.press_a_key", "Press a key…")
 		}
 		br, ok := place(label)
 		if !ok {

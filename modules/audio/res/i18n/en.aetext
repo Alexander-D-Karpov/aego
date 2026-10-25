@@ -2,6 +2,9 @@ messages version=1 lang=en {
   msg "i18n.audio.bus" {
     text="Bus"
   }
+  msg "i18n.audio.bus_volumes_saved" {
+    text="Bus volumes saved to the user settings"
+  }
   msg "i18n.audio.events_are_heard_in_play" {
     text="Events are heard in Play; Preview plays Clip"
   }
@@ -16,6 +19,9 @@ messages version=1 lang=en {
   }
   msg "i18n.audio.mixer.title" {
     text="Audio Mixer"
+  }
+  msg "i18n.audio.mixer_stats" {
+    text="Voices {voices}   Underruns {underruns}"
   }
   msg "i18n.audio.no_waveform" {
     text="No waveform"
@@ -35,6 +41,9 @@ messages version=1 lang=en {
   msg "i18n.audio.preview" {
     text="Preview"
   }
+  msg "i18n.audio.profiler" {
+    text="Audio"
+  }
   msg "i18n.audio.reading_the_waveform" {
     text="Reading the waveform"
   }
@@ -47,11 +56,35 @@ messages version=1 lang=en {
   msg "i18n.audio.save_to_profile" {
     text="Save to Profile"
   }
+  msg "i18n.audio.stats.mix" {
+    text="Mix {max} ms max, {avg} ms average"
+  }
+  msg "i18n.audio.stats.output" {
+    text="Output {rate} Hz, {frames} frames per block"
+  }
+  msg "i18n.audio.stats.underruns" {
+    text="Underruns {underruns}, dropped commands {dropped}, blocks {blocks}"
+  }
+  msg "i18n.audio.stats.voices" {
+    text="Voices {all}, in this world {world}"
+  }
+  msg "i18n.audio.stats.voices_end" {
+    text="Finished {finished}, stolen {stolen}, rejected {rejected}, starved {starved}"
+  }
   msg "i18n.audio.stop" {
     text="Stop"
   }
   msg "i18n.audio.stream" {
     text="Stream"
+  }
+  msg "i18n.audio.stream_auto" {
+    text="Auto"
+  }
+  msg "i18n.audio.stream_off" {
+    text="Off"
+  }
+  msg "i18n.audio.stream_on" {
+    text="On"
   }
   msg "i18n.audio.the_audio_output_is_not" {
     text="The audio output is not open"

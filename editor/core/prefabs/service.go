@@ -199,7 +199,7 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 	if err := assetops.EnsureDir(s.ctx, dir); err != nil {
 		return err
 	}
-	tx := d.History.Begin("Create Prefab")
+	tx := d.History.Begin(i18n.Tr("editor.history.create_prefab", "Create Prefab"))
 	for _, h := range tops {
 		if err := refactor.CheckCreate(sc, h); err != nil {
 			tx.Abort()
@@ -217,7 +217,7 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 			tx.Abort()
 			return err
 		}
-		if err := tx.Exec(commands.NewMutation("Create Prefab", s.env(sc), mutate.Replace(commands.Ref(sc.ID(h)), string(after)))); err != nil {
+		if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.create_prefab", "Create Prefab"), s.env(sc), mutate.Replace(commands.Ref(sc.ID(h)), string(after)))); err != nil {
 			tx.Abort()
 			return err
 		}
@@ -255,7 +255,7 @@ func (s *Service) SaveDocument(d *document.SceneDocument) error {
 		return err
 	}
 	f := fileChange{id: id, rel: d.Path, before: before, after: sceneio.SavePrefab(d.Scene())}
-	if err := s.commit("Save "+path.Base(d.Path), []fileChange{f}, nil); err != nil {
+	if err := s.commit(i18n.Tr("editor.history.save", "Save {name}", i18n.Str("name", path.Base(d.Path))), []fileChange{f}, nil); err != nil {
 		return err
 	}
 	return s.ctx.Docs.Save(d.ID)

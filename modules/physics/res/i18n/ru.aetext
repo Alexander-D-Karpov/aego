@@ -23,8 +23,17 @@ messages version=1 lang=ru {
   msg "i18n.physics.collision_matrix" {
     text="Матрица столкновений"
   }
+  msg "i18n.physics.contact_damping_ratio" {
+    text="Демпфирование контакта"
+  }
   msg "i18n.physics.contact_fmtf_hz_damping_fmtf2" {
     text="Контакт {fmtf} Гц · затухание {fmtf2}"
+  }
+  msg "i18n.physics.contact_hertz" {
+    text="Жёсткость контакта, Гц"
+  }
+  msg "i18n.physics.contact_push_velocity" {
+    text="Скорость выталкивания"
   }
   msg "i18n.physics.contacts" {
     text="Контакты"
@@ -53,6 +62,9 @@ messages version=1 lang=ru {
   msg "i18n.physics.layers" {
     text="Слои"
   }
+  msg "i18n.physics.linear_slop" {
+    text="Допуск проникновения"
+  }
   msg "i18n.physics.mass" {
     text="Масса"
   }
@@ -65,16 +77,64 @@ messages version=1 lang=ru {
   msg "i18n.physics.physics_is_not_attached_to" {
     text="Физика не подключена к игровому миру"
   }
+  msg "i18n.physics.profiler" {
+    text="Физика"
+  }
+  msg "i18n.physics.relax_iterations" {
+    text="Итерации релаксации"
+  }
+  msg "i18n.physics.restitution_threshold" {
+    text="Порог отскока"
+  }
   msg "i18n.physics.shapes" {
     text="Формы"
   }
   msg "i18n.physics.simulation" {
     text="Симуляция"
   }
+  msg "i18n.physics.sleep_angular" {
+    text="Сон: угловая скорость"
+  }
+  msg "i18n.physics.sleep_linear" {
+    text="Сон: линейная скорость"
+  }
+  msg "i18n.physics.sleep_time" {
+    text="Сон: время"
+  }
   msg "i18n.physics.snap_to_sprite" {
     text="Подогнать под спрайт"
   }
+  msg "i18n.physics.stats_bodies" {
+    text="тел {bodies}   активных {active}   спящих {sleeping}   форм {shapes}   соединений {joints}"
+  }
+  msg "i18n.physics.stats_contacts" {
+    text="кандидатов {candidates}   касаний {touching}   манифолдов {manifolds}   точек {points}   островов {islands}   событий {events}"
+  }
+  msg "i18n.physics.stats_steps" {
+    text="шагов {steps}   отслеживаемых пар касания {pairs}"
+  }
+  msg "i18n.physics.substeps" {
+    text="Подшаги"
+  }
   msg "i18n.physics.tall_stacks_and_fast_motors" {
     text="Высокие стопки и быстрые моторы: Substeps 8 и Contact Hertz 60 (жёсткий профиль), примерно вдвое дороже для решателя. Ноль оставляет значение движка."
+  }
+  msg "i18n.physics.vectors.angular_velocity" {
+    text="Угловая скорость"
+  }
+  msg "i18n.physics.vectors.contact_impulses" {
+    text="Импульсы контактов"
+  }
+  msg "i18n.physics.vectors.forces" {
+    text="Силы"
+  }
+  msg "i18n.physics.vectors.gravity" {
+    text="Гравитация"
+  }
+  msg "i18n.physics.vectors.velocity" {
+    text="Скорость"
+  }
+  msg "i18n.physics.velocity_iterations" {
+    text="Итерации скоростей"
   }
 }

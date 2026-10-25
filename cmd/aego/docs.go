@@ -1,6 +1,8 @@
 package main
 
 import (
+	"aego/engine/i18n"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,7 +13,8 @@ import (
 	"aego/project"
 )
 
-const docsUsage = `usage: aego docs <command> [flags]
+func docsUsage() string {
+	return i18n.Tr("cli.docs.usage", `usage: aego docs <command> [flags]
 
   export [--out file]          write the documentation registry as JSON
   check [--strict]             broken links, style rules (DOC010–DOC023), undocumented bindings
@@ -19,7 +22,8 @@ const docsUsage = `usage: aego docs <command> [flags]
   build [--out site] [--demo] generate the static site with the playground
   serve [--addr host:port]     build, serve on localhost and rebuild on changes
 
-flags: --project dir, --engine dir, --playground=false`
+flags: --project dir, --engine dir, --playground=false`)
+}
 
 func docsEnv(dir, engineDir string) (*docstool.Env, error) {
 	env := &docstool.Env{Stdout: os.Stdout, Stderr: os.Stderr}
@@ -45,7 +49,7 @@ func docsEnv(dir, engineDir string) (*docstool.Env, error) {
 	if bootstrap.NeedsNative(p) {
 		env.Native = func(args ...string) error {
 			if code := scriptTool(p, args...); code != 0 {
-				return fmt.Errorf("project tool exited with status %d", code)
+				return errors.New(i18n.Tr("cli.docs.tool_status", "project tool exited with status {code}", i18n.Int("code", int64(code))))
 			}
 			return nil
 		}
@@ -55,11 +59,12 @@ func docsEnv(dir, engineDir string) (*docstool.Env, error) {
 
 func cmdDocs(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, docsUsage)
+		fmt.Fprintln(os.Stderr, docsUsage())
 		return 2
 	}
 	fs := flag.NewFlagSet("docs "+args[0], flag.ContinueOnError)
 	out := fs.String("out", "", "output file for export, directory for build and serve")
+	lang := fs.String("lang", "", i18n.Tr("cli.docs.flag.lang", "also check the translations into this language, such as ru"))
 	strict := fs.Bool("strict", false, "undocumented project bindings are errors")
 	addr := fs.String("addr", "127.0.0.1:6060", "listen address for serve")
 	play := fs.Bool("playground", true, "build the playground and Run buttons")
@@ -87,6 +92,7 @@ func cmdDocs(args []string) int {
 	case "export":
 		return env.Export(*out)
 	case "check":
+		env.Lang = *lang
 		return env.Check(*strict)
 	case "report":
 		return env.Report(*asJSON)
@@ -101,6 +107,6 @@ func cmdDocs(args []string) int {
 		}
 		return 0
 	}
-	fmt.Fprintln(os.Stderr, docsUsage)
+	fmt.Fprintln(os.Stderr, docsUsage())
 	return 2
 }

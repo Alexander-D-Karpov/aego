@@ -72,7 +72,7 @@ func deviceName(d int) string {
 	case d == 0:
 		return i18n.Tr("i18n.input.keyboard_mouse", "Keyboard & Mouse")
 	}
-	return "Pad " + strconv.Itoa(d)
+	return i18n.Tr("i18n.input.pad_n", "Pad {n}", i18n.Int("n", int64(d)))
 }
 
 func (d *Devices) Draw(f *services.Frame, r mathx.Rect) {
@@ -143,7 +143,7 @@ func (d *Devices) SetVirtual(in *raw.State, on bool) {
 	}
 	d.virt = on
 	if on {
-		in.ApplyPadAdded(virtualPad, "Virtual Gamepad")
+		in.ApplyPadAdded(virtualPad, i18n.Tr("i18n.input.virtual_gamepad", "Virtual Gamepad"))
 		return
 	}
 	in.ApplyPadRemoved(virtualPad)
@@ -241,7 +241,7 @@ func (d *Devices) actions(ui *core.Context) {
 	if n := s.Players(); n > 1 {
 		names := make([]string, n)
 		for i := range names {
-			names[i] = "Player " + strconv.Itoa(i+1)
+			names[i] = i18n.Tr("i18n.input.player_n", "Player {n}", i18n.Int("n", int64(i+1)))
 		}
 		widgets.Combo(ui, ui.ID("player"), widgets.Field(ui, i18n.Tr("i18n.input.player", "Player")), &d.player, names, false)
 	}

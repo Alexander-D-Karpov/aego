@@ -76,7 +76,7 @@ func AttachScript(ctx *context.Editor, nodes []ids.NodeID, typeName string) erro
 		return nil
 	}
 	s := d.Scene()
-	tx := d.History.Begin("Add " + shortName(typeName))
+	tx := d.History.Begin(i18n.Tr("editor.history.add", "Add {name}", i18n.Str("name", shortName(typeName))))
 	for _, n := range nodes {
 		if sc, ok := scriptcomp.ScriptsOf(s, s.Handle(n)); ok && sc.Index(typeName) >= 0 {
 			continue
@@ -111,7 +111,7 @@ func AttachScriptAsset(ctx *context.Editor, nodes []ids.NodeID, id ids.AssetID) 
 		ctx.Ask(context.Question{
 			Title:   i18n.Tr("editor.assetops.attach_script", "Attach script"),
 			Message: i18n.Tr("editor.assetops.this_file_declares_several_scripts", "This file declares several scripts. Which one should be attached?"),
-			Buttons: append(buttons, "Cancel"),
+			Buttons: append(buttons, i18n.Tr("editor.common.cancel", "Cancel")),
 			Then: func(choice int) {
 				if choice >= 0 && choice < len(types) {
 					attach(types[choice])

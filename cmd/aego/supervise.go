@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aego/engine/i18n"
 	"fmt"
 	"io"
 	"os"
@@ -56,7 +57,7 @@ func (c *child) restart() {
 	select {
 	case <-c.done:
 	case <-time.After(restartTimeout):
-		fmt.Fprintln(os.Stderr, "aego: game did not stop in time, killing it")
+		fmt.Fprintln(os.Stderr, "aego:", i18n.Tr("cli.run.kill", "game did not stop in time, killing it"))
 		c.cmd.Process.Kill()
 		<-c.done
 	}
@@ -126,10 +127,10 @@ func superviseNative(p *project.Project, args []string) int {
 			debounce = time.After(rebuildQuiet)
 		case <-debounce:
 			debounce = nil
-			fmt.Fprintln(os.Stderr, "aego: native sources changed, rebuilding")
+			fmt.Fprintln(os.Stderr, "aego:", i18n.Tr("cli.run.rebuilding", "native sources changed, rebuilding"))
 			next, err := build()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "aego: build failed, the running game is kept")
+				fmt.Fprintln(os.Stderr, "aego:", i18n.Tr("cli.run.build_failed", "build failed, the running game is kept"))
 				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
@@ -142,7 +143,7 @@ func superviseNative(p *project.Project, args []string) int {
 				return fail(err)
 			}
 			c = nc
-			fmt.Fprintln(os.Stderr, "aego: game restarted with the new build")
+			fmt.Fprintln(os.Stderr, "aego:", i18n.Tr("cli.run.restarted", "game restarted with the new build"))
 		}
 	}
 }
