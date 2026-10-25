@@ -107,7 +107,7 @@ type Timeline struct {
 	KeyBytes int
 	Bytes    int
 	KeyEvery uint64
-	// Cached and CacheBytes are the transient keys kept for scrubbing (D359).
+	// Cached and CacheBytes are the transient keys kept for scrubbing (D346).
 	Cached     int
 	CacheBytes int
 	LastKey    int

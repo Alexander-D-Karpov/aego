@@ -178,6 +178,8 @@ type Sources struct {
 type pageMeta struct {
 	group   string
 	ordered bool
+	// allow lists lint patterns the page may match (D347).
+	allow []string
 }
 
 type Registry struct {
@@ -508,18 +510,20 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 			name := exportName(fd.Name)
 			sig := "field " + name
 			info := fieldInfo(td, fd, base, true)
+			info.Index = i
 			loc := Location{Stub: stub}
 			if mc != nil {
 				if f, ok := mc.Field(name); ok {
 					sig += " " + f.Type.String()
 					info.Type = f.Type.String()
-					if f.ReadOnly && !slices.Contains(info.Notes, "read-only") {
+					if f.ReadOnly && !info.Runtime && !slices.Contains(info.Notes, "read-only") {
 						sig += " readonly"
 						info.Notes = append(info.Notes, "read-only in scripts")
 					}
 					loc.Symbol = "field:" + td.FullName + "." + name
 				}
 			}
+			info.Type = displayType(fd, info.Type)
 			r.add(Entry{
 				ID: td.FullName + "." + name, Parent: td.FullName, Kind: Field, Owner: owner, Title: name,
 				Signature: sig, Body: fd.Doc, Location: loc, Field: info,
@@ -629,7 +633,7 @@ func (r *Registry) page(owner, file, source string, rec record) {
 		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order, Icon: rec.icon, EditorOnly: rec.editorOnly,
 		Location: Location{Path: owner + ":" + file, Line: rec.line, Source: source},
 	})
-	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered}
+	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered, allow: rec.styleAllow}
 	if rec.groupTitle != "" {
 		r.declareGroup(rec.id, Group{ID: rec.group, Title: rec.groupTitle, Section: SectionGuides, Order: rec.groupOrder, Icon: rec.groupIcon})
 	}
@@ -720,8 +724,12 @@ func joinBody(a, b string) string {
 func (r *Registry) index() {
 	for i := range r.entries {
 		e := &r.entries[i]
+		trimSelfDoc(e)
 		if e.Summary == "" {
 			e.Summary = summary(e.Body)
+			if e.Kind == Page {
+				e.Summary = firstSentence(e.Summary)
+			}
 		}
 		for _, l := range refs(e.Body) {
 			if !slices.Contains(e.Links, l) {
@@ -880,6 +888,7 @@ func (r *Registry) checkPages(out []Problem) []Problem {
 
 func (r *Registry) Check(strict bool) []Problem {
 	out := r.checkPages(slices.Clone(r.problems))
+	out = append(out, r.StyleProblems(strict)...)
 	for i := range r.entries {
 		e := &r.entries[i]
 		for _, l := range e.Links {

@@ -9,7 +9,7 @@ import (
 	"aego/ui/theme"
 )
 
-// themeCategory holds the theme commands; the menu shows them as Window → Theme (D358).
+// themeCategory holds the theme commands; the menu shows them as Window → Theme (D345).
 const themeCategory = "Theme"
 
 var themeTips = map[theme.Mode]string{
@@ -33,7 +33,7 @@ func (a *App) ThemeMode() theme.Mode {
 	return a.prefs.Theme
 }
 
-// SetThemeMode saves the mode and swaps the theme at the start of the next frame (D358).
+// SetThemeMode saves the mode and swaps the theme at the start of the next frame (D345).
 func (a *App) SetThemeMode(m theme.Mode) {
 	if a.prefs.Theme == m {
 		return

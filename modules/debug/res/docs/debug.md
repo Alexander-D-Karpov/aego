@@ -19,7 +19,7 @@ Lines, arrows, circles, rectangles, crosses and labels drawn over the game in Pl
       debug.Cross(goal, 0.3, Color{1, 0, 1, 1})
     }
 
-A primitive lasts one frame by default. `debug.Pen(channel, ttl)` sets the channel and the lifetime of what the script draws next. A positive ttl counts game seconds and stops while paused. A negative ttl lasts until `debug.Clear`. `PenUnscaled` counts real seconds. A one-frame primitive drawn just before a pause stays visible until the game resumes.
+A primitive lasts one frame by default. `debug.Pen(channel, ttl)` sets the channel and the lifetime of what the script draws next. A positive ttl counts game seconds and stops while paused. A negative ttl lasts until `debug.Clear`. `PenUnscaled` counts real seconds. A one-frame primitive drawn right before a pause stays visible until the game resumes.
 
 ## Channels
 

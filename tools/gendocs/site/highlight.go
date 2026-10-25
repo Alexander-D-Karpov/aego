@@ -38,14 +38,6 @@ var tokenClass = [highlight.KindCount]string{
 	highlight.Bracket:     "br",
 }
 
-// lightTokens is the code palette for the docs' light theme; the dark one is the editor's.
-var lightTokens = map[string]string{
-	"kw": "#a626a4", "num": "#986801", "str": "#3f7f3a", "com": "#80838c", "op": "#4b4f58", "pun": "#6a6f7a",
-	"attr": "#946200", "ns": "#b4510f", "ty": "#0b7285", "bty": "#0b7285", "fn": "#2459c7", "me": "#2459c7",
-	"par": "#a3530a", "var": "#383a42", "fld": "#c0392b", "prop": "#c0392b", "con": "#986801", "en": "#986801",
-	"bi": "#b0257a", "scr": "#0b7285", "err": "#d1242f", "sig": "#b4510f", "co": "#0f766e", "br": "#6a6f7a",
-}
-
 func highlightAES(src string) string {
 	return highlightLinked(src, nil)
 }
@@ -122,6 +114,10 @@ func pageBackground() string {
 	return hex(theme.Editor().Background)
 }
 
+func pageBackgroundLight() string {
+	return hex(theme.Light().Background)
+}
+
 func cssColor(c mathx.Color) string {
 	if c.A >= 1 {
 		return hex(c)
@@ -136,31 +132,43 @@ func hexByte(s string) int {
 	return v
 }
 
-func codeCSS() string {
-	t := theme.Code()
+// themeVars writes the site's color variables from one editor theme: code colors, editor colors and syntax tokens.
+func themeVars(b *strings.Builder, e theme.Theme) {
+	t := e.Code
 	pal := highlight.Palette(&t)
-	var b strings.Builder
-	b.WriteString("/* generated from the editor's themes (ui/theme.Code and ui/theme.Editor) */\n")
-	ld := func(light, dark string) string { return "light-dark(" + light + ", " + dark + ")" }
-	b.WriteString(":root {\n    --code-bg: " + ld("#f5f6f8", hex(t.Background)) + ";\n    --code-gutter: " + ld("#eceef1", hex(t.GutterBg)) + ";\n    --code-text: " + ld("#383a42", hex(t.Plain)) + ";\n    --code-line: " + ld("#9aa0a9", hex(t.LineNo)) + ";\n    --code-error: " + ld("#d1242f", hex(t.Error)) + ";\n")
-	e := theme.Editor()
 	for _, v := range []struct {
 		name string
 		c    mathx.Color
 	}{
-		{"bg", e.Background}, {"header", e.Header}, {"panel", e.Panel}, {"panel-alt", e.PanelAlt}, {"hover", e.TabHot}, {"widget", e.Widget},
-		{"border", e.Border}, {"separator", e.Separator}, {"text", e.Text}, {"text-dim", e.TextDim}, {"unit", e.Unit},
-		{"accent", e.Accent}, {"error", e.Error}, {"warn", e.Warn}, {"ok", e.Ok},
-		{"axis-x", e.AxisX}, {"axis-y", e.AxisY}, {"axis-z", e.AxisZ},
+		{"code-bg", t.Background}, {"code-gutter", t.GutterBg}, {"code-text", t.Plain}, {"code-line", t.LineNo}, {"code-error", t.Error},
+		{"ed-bg", e.Background}, {"ed-header", e.Header}, {"ed-panel", e.Panel}, {"ed-panel-alt", e.PanelAlt}, {"ed-hover", e.TabHot}, {"ed-widget", e.Widget},
+		{"ed-border", e.Border}, {"ed-separator", e.Separator}, {"ed-text", e.Text}, {"ed-text-dim", e.TextDim}, {"ed-unit", e.Unit},
+		{"ed-accent", e.Accent}, {"ed-error", e.Error}, {"ed-warn", e.Warn}, {"ed-ok", e.Ok},
+		{"ed-axis-x", e.AxisX}, {"ed-axis-y", e.AxisY}, {"ed-axis-z", e.AxisZ},
 	} {
-		b.WriteString("    --ed-" + v.name + ": " + cssColor(v.c) + ";\n")
+		b.WriteString("    --" + v.name + ": " + cssColor(v.c) + ";\n")
 	}
-	b.WriteString("}\n")
 	for k, cls := range tokenClass {
-		if cls == "" {
-			continue
+		if cls != "" {
+			b.WriteString("    --tok-" + cls + ": " + hex(pal[k]) + ";\n")
 		}
-		b.WriteString(".t-" + cls + " { color: " + ld(lightTokens[cls], hex(pal[k])) + "; }\n")
+	}
+}
+
+// codeCSS holds both editor themes (D345): dark by default, light when the reader's system asks for it or the theme switch picks it.
+func codeCSS() string {
+	var b strings.Builder
+	b.WriteString("/* generated from the editor's themes (ui/theme.Editor and ui/theme.Light) */\n:root {\n")
+	themeVars(&b, theme.Editor())
+	b.WriteString("}\n@media (prefers-color-scheme: light) {\n:root:not([data-theme=\"dark\"]) {\n")
+	themeVars(&b, theme.Light())
+	b.WriteString("}\n}\n:root[data-theme=\"light\"] {\n")
+	themeVars(&b, theme.Light())
+	b.WriteString("}\n")
+	for _, cls := range tokenClass {
+		if cls != "" {
+			b.WriteString(".t-" + cls + " { color: var(--tok-" + cls + "); }\n")
+		}
 	}
 	b.WriteString(".t-com { font-style: italic; }\n")
 	return b.String()

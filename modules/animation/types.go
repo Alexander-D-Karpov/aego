@@ -120,12 +120,12 @@ func registerTypes(r *module.Registry, m *Module) error {
 		schema.Doc("Plays an animation clip on its node and the nodes below it: property tracks, sprite frames and events. Clip time, gameplay events and tracks other than the transform pose advance on fixed steps, so a replay gives the same result at any frame rate."),
 		schema.FieldDoc("clip", "Clip to play."),
 		schema.FieldDoc("playOnStart", "Starts the clip when Play starts."),
-		schema.FieldDoc("speed", "Playback speed; a negative speed plays backwards."),
+		schema.FieldDoc("speed", "Playback speed: 1 is normal, 2 twice as fast; a negative speed plays backwards."),
 		schema.FieldDoc("loop", "clip keeps the loop mode of the clip; once, loop and pingPong override it."),
 		schema.FieldDoc("timeDomain", "game follows game time and pauses with it; unscaled runs in real time while paused, for menus and other presentation."),
-		schema.FieldDoc("time", "Time inside the clip, during Play."),
-		schema.FieldDoc("playing", "Whether the clip plays, during Play."),
-		schema.FieldDoc("cycle", "Cycles of a looping clip so far, during Play."),
+		schema.FieldDoc("time", "Time inside the clip, in seconds."),
+		schema.FieldDoc("playing", "Whether the clip plays."),
+		schema.FieldDoc("cycle", "Cycles of a looping clip so far."),
 		schema.Runtime("time", "playing", "cycle"),
 	).Category(Category).Display("Animation Player").Icon("play.start").Default(DefaultPlayer)
 

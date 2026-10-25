@@ -26,7 +26,7 @@ const (
 	transientSpare  = 4
 )
 
-// Age thresholds of key thinning (D359); variables so a test can shorten them.
+// Age thresholds of key thinning (D346); variables so a test can shorten them.
 var (
 	RecentFrames = 2 * 60 * 60
 	OldFrames    = 10 * 60 * 60

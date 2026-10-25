@@ -73,7 +73,7 @@ func installQueries(m *bind.Module) {
 			}
 		}
 		return copyOut(out, b[:s.InRect(r, b)])
-	}, bind.Doc("InArea writes the bodies touching the rectangle on the layers in mask into out when physics runs; without physics, every enabled 2D node whose position lies in the rectangle, ignoring mask."),
+	}, bind.Doc("InArea writes the bodies touching the rectangle on the layers in mask into out. Without physics it writes every enabled 2D node whose position lies in the rectangle, ignoring mask."),
 		bind.Params("rect", "mask", "out"), bind.Example("n := scene.InArea(Rect{x - 2, y - 2, 4, 4}, -1, near)"))
 	bind.Func1(m, "ByID", func(c *bind.Ctx, id string) scene.NodeHandle {
 		s, ok := sceneOf(c)

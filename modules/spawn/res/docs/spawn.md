@@ -35,6 +35,8 @@ title: Lifecycle
 ---
 # Lifecycle
 
+A spawned copy is either new or taken from a pool. Both get the same events, but a pooled copy keeps its structure and gets its values reset.
+
 - A new copy runs `Ready`, then `OnSpawned()`.
 - A pooled copy gets the values it had when it was built: component fields, child poses and enabled flags, and every script field back to its default and its prefab value. `Ready` does not run again, `OnSpawned()` does.
 - `Despawn` runs `OnDespawned()`, turns the copy off at once and parks it at the end of the frame: its coroutines and signal connections end, its scripts stop, and it moves under a disabled `Pool` node.

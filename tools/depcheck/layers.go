@@ -170,7 +170,7 @@ var rules = []rule{
 	{"engine/settings/settingsui", []string{"core/...", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
 	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "contracts/persistence", "vfs"}, nil},
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
-	{"engine/docs", []string{"engine/settings", "format/...", "core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag"}, nil},
+	{"engine/docs", []string{"engine/settings", "format/...", "core/...", "schema", "engine/module", "engine/res", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/types"}, nil},
 	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm", "data"}, nil},
 	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},
 	{"app/run", []string{"..."}, nil},
@@ -248,7 +248,7 @@ var fsAllowed = []string{
 	"editor/core/animedit",
 	"editor/core/slice",
 	"editor/core/agentui", // session logs of the Agent panel in .aego/user/agent (D343)
-	"editor/core/prefs",   // prefs.aetext with the editor theme in the config directory (D358)
+	"editor/core/prefs",   // prefs.aetext with the editor theme in the config directory (D345)
 	"editor/core/preview",
 	"editor/core/vcs",
 	"editor/core/capture",

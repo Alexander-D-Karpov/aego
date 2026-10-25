@@ -158,7 +158,7 @@ func installTween(m *bind.Module) {
 		return h
 	}, bind.Doc("Curve replaces the easing with a curve field; its time range is stretched over the duration."), bind.Params("curve"))
 	bind.Signal(hm, "Completed", []abi.TypeRef{abi.T(abi.Bool)}, bind.Params("finished"),
-		bind.Doc("Completed runs once when the tween ends: finished is true at its natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."))
+		bind.Doc("Completed runs once when the tween ends. Its finished parameter is true at the natural end, false after Stop, when a new tween on the same property replaced it, or when its node or target is gone."))
 }
 
 func installTimer(m *bind.Module) {

@@ -72,7 +72,7 @@ func (e *Env) Check(strict bool) int {
 		fmt.Fprintln(e.Stderr, "aego:", err)
 		return 1
 	}
-	code := Check(reg, strict, e.Stdout, DiagnosticProblems()...)
+	code := Check(reg, strict, e.Stdout, append(DiagnosticProblems(), GoProblems(reg, e.Engine, strict)...)...)
 	if CheckTry(reg, e.Stdout) > 0 && code == 0 {
 		code = 1
 	}
@@ -80,6 +80,25 @@ func (e *Env) Check(strict bool) int {
 		code = 1
 	}
 	return code
+}
+
+func (e *Env) Report(asJSON bool) int {
+	if e.Native != nil {
+		args := []string{"docs", "report"}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		if err := e.Native(args...); err != nil {
+			return 1
+		}
+		return 0
+	}
+	reg, err := Registry(e.Project, e.Modules)
+	if err != nil {
+		fmt.Fprintln(e.Stderr, "aego:", err)
+		return 1
+	}
+	return Report(reg, e.Engine, e.Stdout, asJSON)
 }
 
 func (e *Env) goCmd(dir string, env []string, args ...string) error {

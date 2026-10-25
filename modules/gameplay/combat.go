@@ -485,7 +485,7 @@ func registerCombat(r *module.Registry, sig *signals) error {
 		schema.FieldDoc("area", "Rectangle in this node's space."),
 		schema.FieldDoc("shape", "box uses the rectangle; circle uses the circle inside it."),
 		schema.FieldDoc("damage", "Damage per hit before the hurtbox multiplier."),
-		schema.FieldDoc("knockback", "Push on a hit: velocity for a Motion 2D target, impulse for a dynamic body. Turns with the node."),
+		schema.FieldDoc("knockback", "Push on a hit: velocity in units per second for a Motion 2D target, impulse for a dynamic body. Turns with the node."),
 		schema.FieldDoc("knockbackFromCenter", "Pushes away from the hitbox centre instead, with the length of Knockback."),
 		schema.FieldDoc("team", "Team of the attack; -1 takes the team of the nearest Health above."),
 		schema.FieldDoc("friendlyFire", "Also hits targets of the same team."),

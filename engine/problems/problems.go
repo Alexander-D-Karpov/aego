@@ -61,7 +61,7 @@ type Source struct {
 	Append   func(dst []Diagnostic) []Diagnostic
 }
 
-// entry caches what its source appended at a revision, so Collect asks again only the sources that changed (D359).
+// entry caches what its source appended at a revision, so Collect asks again only the sources that changed (D346).
 type entry struct {
 	id     uint64
 	src    Source

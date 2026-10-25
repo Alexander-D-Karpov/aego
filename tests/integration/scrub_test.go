@@ -9,7 +9,7 @@ import (
 	"aego/engine/problems"
 )
 
-// Replay allocates nothing in the controller: what is left per frame is the game's own (D359).
+// Replay allocates nothing in the controller: what is left per frame is the game's own (D346).
 // Steps shorter than TransientEvery replay 56 frames from the key at 300 without taking scrub keys, whose capture is not replay.
 func TestReplayAllocsPerFrame(t *testing.T) {
 	skipUnderRace(t)
@@ -154,7 +154,7 @@ func TestPlayDoesNotRevalidateAssets(t *testing.T) {
 	}
 }
 
-// A pause the editor holds idles like Stopped once input stops for a second; a running game never does (D359).
+// A pause the editor holds idles like Stopped once input stops for a second; a running game never does (D346).
 func TestHeldPauseIdles(t *testing.T) {
 	s, pc := rewindSession(t)
 	drive(s.Host.Engine, pc, 0, 30, nil)

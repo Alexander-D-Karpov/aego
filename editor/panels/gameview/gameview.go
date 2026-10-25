@@ -224,7 +224,7 @@ func Overlays(vp *services.Viewport, pc *play.Controller) {
 	}
 }
 
-// viewportText labels overlays when no UI is attached; a theme gives the same colour (D358).
+// viewportText labels overlays when no UI is attached; a theme gives the same colour (D345).
 var viewportText = theme.Editor().ViewportText
 
 func (p *Panel) viewportBg() mathx.Color {

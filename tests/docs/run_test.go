@@ -20,7 +20,7 @@ func TestRunBlocksCompileWithEveryModule(t *testing.T) {
 	n := 0
 	for _, e := range r.All() {
 		for i, s := range e.Snippets {
-			if !s.Run || s.Lang != "aes" {
+			if !s.Run && !s.Check || s.Lang != "aes" {
 				continue
 			}
 			n++

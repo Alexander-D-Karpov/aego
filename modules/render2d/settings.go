@@ -36,7 +36,7 @@ func validateSettings(s *Settings) error {
 func registerSettings(r *module.Registry) error {
 	if err := module.Struct[Settings](r,
 		schema.Name("render2d.Settings"),
-		schema.FieldDoc("pixelsPerUnit", "Texture pixels per world unit. A texture dropped into the scene gets size = pixels / this value. Zero uses 64."),
+		schema.FieldDoc("pixelsPerUnit", "Texture pixels per world unit; a texture dropped into the scene gets size = pixels / this value. Zero uses 64."),
 	); err != nil {
 		return err
 	}

@@ -75,7 +75,7 @@ type Options struct {
 	RecentPath      string
 	Home            string
 	Image           func(key string, load func() ([]byte, error)) (texture.Region, bool)
-	// Theme and SetTheme read and change the editor theme preference; nil hides the Theme combo (D358).
+	// Theme and SetTheme read and change the editor theme preference; nil hides the Theme combo (D345).
 	Theme    func() theme.Mode
 	SetTheme func(theme.Mode)
 }

@@ -38,7 +38,7 @@ func registerSettings(r *module.Registry) error {
 	if err := module.Struct[Settings](r,
 		schema.Name("debug.Settings"),
 		schema.FieldDoc("enabled", "Turns debug drawing on. When off, every draw call does nothing."),
-		schema.FieldDoc("maxPrimitives", "Primitives kept per world. Extra primitives are dropped and counted. Zero uses 16384."),
+		schema.FieldDoc("maxPrimitives", "Primitives kept per world; extra ones are dropped and counted. Zero uses 16384."),
 		schema.FieldDoc("maxPerChannel", "Primitives kept per channel. Zero uses 4096."),
 	); err != nil {
 		return err

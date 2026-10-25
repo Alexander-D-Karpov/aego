@@ -64,7 +64,7 @@ func LightCode() CodeTheme {
 	}
 }
 
-// Light is the light editor theme: the metrics and viewport colours of Editor with light colours (D358).
+// Light is the light editor theme: the metrics and viewport colours of Editor with light colours (D345).
 func Light() Theme {
 	t := Editor()
 	t.Text = mathx.ColorRGB8(0x1F, 0x23, 0x29)

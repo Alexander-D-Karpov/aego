@@ -11,7 +11,7 @@ import (
 	"aego/ui/theme"
 )
 
-// Theme: Light swaps the theme on the next frame, is saved in prefs.aetext and is what the next session starts with (D358).
+// Theme: Light swaps the theme on the next frame, is saved in prefs.aetext and is what the next session starts with (D345).
 func TestEditorThemeCommand(t *testing.T) {
 	t.Setenv("AEGO_EDITOR_THEME", "")
 	cfgDir := t.TempDir()

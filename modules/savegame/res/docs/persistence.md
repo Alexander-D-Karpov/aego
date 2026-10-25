@@ -53,6 +53,8 @@ title: Loading order
 ---
 # Loading order
 
+Loading a save rebuilds the game in a fixed order. Knowing the order tells you which values a script already has in `Ready` and `OnLoad`.
+
 1. The scene of the save is loaded fresh.
 2. Scene nodes the save lists as destroyed are destroyed.
 3. Spawned objects are spawned again with their persistent ids.

@@ -81,20 +81,20 @@ type DiagFile struct {
 }
 
 type DiagInfo struct {
-	Phase    string
-	Fix      string
-	File     string
-	Bad      string
-	Good     string
-	Files    []DiagFile
-	Why      string
-	Severity string
-	At       string
-	Line     int
-	Col      int
-	EndLine  int
-	EndCol   int
-	Message  string
+	Phase         string
+	Fix           string
+	File          string
+	Bad           string
+	Good          string
+	Files         []DiagFile
+	Why           string
+	Severity      string
+	At            string
+	Line          int
+	Col           int
+	EndLine       int
+	EndCol        int
+	Message       string
 	Example       string
 	ExampleFile   string
 	ExampleScript string
@@ -105,6 +105,8 @@ type FieldInfo struct {
 	Default string
 	Range   string
 	Notes   []string
+	Index   int
+	Runtime bool
 }
 
 type ComponentInfo struct {

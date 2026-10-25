@@ -119,3 +119,17 @@ func TestEditRestartsUndoReset(t *testing.T) {
 		t.Fatalf("after reset %+v", st)
 	}
 }
+
+// The site's theme switch reaches the Try it view (D345).
+func TestThemeCall(t *testing.T) {
+	a := newHeadless(t)
+	if a.ui == nil {
+		t.Skip("no UI in headless mode")
+	}
+	if r := a.Call("theme", []byte(`{"theme":"light"}`)); r.Error != "" || a.ui.Theme.Dark {
+		t.Fatalf("theme light: %q, dark %v", r.Error, a.ui.Theme.Dark)
+	}
+	if a.Call("theme", []byte(`{"theme":"dark"}`)); !a.ui.Theme.Dark {
+		t.Fatal("theme dark left the light theme on")
+	}
+}

@@ -20,6 +20,7 @@ type request struct {
 	Field     string            `json:"field"`
 	Value     float64           `json:"value"`
 	Node      string            `json:"node"`
+	Theme     string            `json:"theme"`
 }
 
 type Reply struct {
@@ -54,6 +55,8 @@ func (a *App) Call(method string, payload []byte) Reply {
 		}
 	case "reset":
 		err = s.Reset()
+	case "theme":
+		a.SetTheme(req.Theme)
 	case "text":
 	case "play":
 		s.TogglePause()

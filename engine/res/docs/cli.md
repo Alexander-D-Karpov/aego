@@ -104,7 +104,7 @@ Reimports every asset; `--force` ignores the artifact cache.
 
 ## aego mcp
 
-Serves the project to an AI agent over MCP on stdio; see [Working with AI agents](ref:agents).
+Serves the project over MCP on stdio, for tools such as Claude Code; see [Working with AI agents](ref:agents).
 
 | Flag | Meaning |
 |---|---|
@@ -114,7 +114,13 @@ Serves the project to an AI agent over MCP on stdio; see [Working with AI agents
 
 ## Editing from the command line
 
-These commands read and change scenes, prefabs, data assets and references without the editor, through the same operations the editor uses, and every change can be undone by applying its inverse. Paths are relative to the project root; a node is a path from the root (`Player/Sprite`) or `#<id>`; a value is written in scene syntax. Every command takes `--json` (a stable machine-readable report), `--quiet`, `--strict` (warnings fail too) and `--project dir`; commands that write take `--dry-run`, which reports the changes and touches nothing. The exit status is 0 on success, 1 on an error and 2 when the result has error-level problems. While the editor has the project open, commands that create assets refuse to run; edits of existing files are picked up by the editor.
+These commands read and change scenes, prefabs, data assets and references without the editor. They use the same operations as the editor, and every change can be undone by applying its inverse.
+
+- Paths are relative to the project root. A node is a path from the root (`Player/Sprite`) or `#<id>`. A value is written in scene syntax.
+- Every command takes `--json` (a stable machine-readable report), `--quiet`, `--strict` (warnings fail too) and `--project dir`.
+- Commands that write take `--dry-run`, which reports the changes and touches nothing.
+- The exit status is 0 on success, 1 on an error and 2 when the result has error-level problems.
+- While the editor has the project open, commands that create assets refuse to run. The editor picks up edits of existing files.
 
 <!-- agent:begin -->
 | Command | Meaning |

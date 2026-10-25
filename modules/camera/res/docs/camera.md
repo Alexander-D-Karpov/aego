@@ -83,14 +83,11 @@ title: Follow
 
 [Camera Follow 2D](ref:camera.CameraFollow2D) moves its virtual camera after [Target](ref:camera.CameraFollow2D.Target).
 
-| Field | Unit | Meaning |
-|---|---|---|
-| `Deadzone` | 0..1 of the view | area where the target moves freely; (0.4, 0.4, 0.2, 0.2) is a centred fifth |
-| `Damping` | per second | how fast the camera catches up on each axis; 0 follows rigidly |
-| `Lookahead` | seconds of velocity | how far ahead of a moving target to look |
-| `MaxLookahead` | world units | largest lookahead; 0 is unlimited |
-| `LookaheadSmoothing` | per second | how fast the lookahead changes |
-| `SnapDistance` | world units | a longer jump of the target moves the camera at once |
+The target moves freely inside the **Deadzone**, a part of the view; (0.4, 0.4, 0.2, 0.2) is a centred fifth. Outside it the camera catches up at the speed set by **Damping**, and 0 follows rigidly.
+
+**Lookahead** moves the camera ahead of a moving target, by that many seconds of its velocity. **Max Lookahead** limits how far, and **Lookahead Smoothing** how fast it changes. When the target jumps further than **Snap Distance**, for example after a teleport, the camera moves at once.
+
+Every field, with its unit, is listed on the [Camera Follow 2D](ref:camera.CameraFollow2D) page.
 
 ![Camera Follow 2D selected: the yellow deadzone, the line to the target and the bounds](shots/camera-follow.png)
 
@@ -255,11 +252,21 @@ title: Editor tools
 ---
 # Editor tools
 
-- **Handles.** Select a virtual camera to drag its bounds, a zone to drag its area. A follow camera shows its frame, its deadzone and a line to its target. Every drag is one undo step.
-- **Camera → Camera Frames** turns the frames on and off in the Scene View and in the Game View during Play, where the deadzone of the active camera, its bounds and the zones are drawn over the game.
+The editor draws camera frames, deadzones and zones, and shows the state of the active camera during Play.
+
+## Handles and frames
+
+- Select a virtual camera to drag its bounds, or a zone to drag its area. A follow camera shows its frame, its deadzone and a line to its target. Every drag is one Undo step.
+- **Camera → Camera Frames** turns the frames on and off in the Scene View. During Play the Game View also draws the deadzone of the active camera, its bounds and the zones.
+
+## Inspector during Play
+
+The virtual camera shows whether it is active, its priority, blend progress and trauma. **Look Through** moves the Scene View to its pose. Camera Follow 2D has **Snap to Target**.
+
+## Profiling and problems
+
 - **Profiler → Camera** lists each output with its active virtual camera, zoom and blend progress.
-- **Inspector during Play.** The virtual camera shows whether it is active, its priority, blend progress and trauma. **Look Through** moves the Scene View to its pose. Camera Follow 2D has **Snap to Target**.
-- **Problems** lists follow and shake components without a virtual camera ([CAM001](ref:CAM001)), zones without a camera ([CAM002](ref:CAM002)), empty rectangles ([CAM003](ref:CAM003)) and follows without a target ([CAM004](ref:CAM004)).
+- Problems lists follow and shake components without a virtual camera ([CAM001](ref:CAM001)), zones without a camera ([CAM002](ref:CAM002)), empty rectangles ([CAM003](ref:CAM003)) and follows without a target ([CAM004](ref:CAM004)).
 
 ---
 id: camera/go

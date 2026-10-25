@@ -9,12 +9,14 @@ order: 2
 
 ![Play mode: pause, step, time scale and the timeline under the Game View](shots/play.png)
 
-Every world has its own clock with several domains:
+Every running game has its own clock. Pausing, stepping and the time scale change how fast it runs, and each kind of code reads the time that fits it.
 
-- **Real**: wall time between frames, cut to `maxFrameDelta` (0.1 s by default) so a stalled frame or a minimized window cannot produce a huge step.
-- **Game**: Real × Scale. It is 0 while paused. `time.Delta()` and `time.Elapsed()` read it.
-- **Fixed**: a constant step (`fixedHz`, 60 by default). Game time fills an accumulator; each full step runs FixedUpdate and physics. At most `maxFixedSteps` (4) steps run per frame; extra steps are dropped and counted in the profiler as *dropped ticks*.
-- **Editor**: the editor's own time. It never pauses with the game.
+| Time | What it is |
+|---|---|
+| Real | wall time between frames, cut to `maxFrameDelta` (0.1 s by default), so a stalled frame or a minimized window cannot make a huge step |
+| Game | Real × time scale; 0 while paused. `time.Delta()` and `time.Elapsed()` read it. |
+| Fixed | a constant step, `fixedHz` (60 by default). Each full step runs FixedUpdate and physics. At most `maxFixedSteps` (4) run per frame; the rest are dropped and counted in the Profiler as dropped ticks. |
+| Editor | the editor's own time; it never pauses with the game |
 
 Each world counts its frames and fixed steps. `time.Frame()` and `time.Tick()` return the same numbers that the profiler and the Event Monitor show.
 

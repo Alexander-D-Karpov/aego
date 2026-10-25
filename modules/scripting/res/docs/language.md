@@ -7,11 +7,9 @@ order: 1
 ---
 # Aego Script
 
-Aego Script is the gameplay language of the Aego engine. It is statically typed, uses Go-like syntax, compiles to a register bytecode and runs inside the engine's VM. Scripts attach to scene nodes, expose fields to the Inspector, read and write engine components, call functions exposed by the engine or by a project's native Go code, and talk to each other through signals and script references.
+Aego Script is the gameplay language of Aego. It is statically typed and reads like Go. Scripts attach to nodes, show fields in the Inspector, read and write components, call engine and native functions and talk to each other through signals.
 
-This document is the normative reference for language version 2 (Stages 5–6). Language version 1 modules are no longer loaded; projects are recompiled on open.
-
-Run it:
+These pages describe the language. [Overview](ref:language/overview) walks through one script, an enemy that patrols, and the other pages explain each part. The functions of the engine are listed in the Script API reference.
 
 ```aes run
 package demo
@@ -45,129 +43,87 @@ title: Overview
 ---
 # Overview
 
-```aes
-package player
-
-import (
-	"aego/input"
-	"aego/log"
-	"aego/math"
-	"mygame/combat"
-)
-
-enum State {
-	Idle
-	Run
-}
-
-type Stats struct {
-	Hp    int
-	Armor float
-}
-
-const MaxSpeed float = 600
-
-script PlayerController {
-	@export(min=0, max=600, unit="px/s")
-	var Speed float = 220
-
-	@export
-	var Target NodeRef
-
-	var state State
-	var stats Stats
-	var hits []int
-
-	func Ready() {
-		stats = Stats{Hp: 10, Armor: 0.5}
-		log.Info("ready")
-	}
-
-	func Update(dt float) {
-		x := input.Axis("Move")
-		if x != 0 {
-			state = State.Run
-		} else {
-			state = State.Idle
-		}
-		t := node.Transform2D()
-		t.Position.X += math.Clamp(x*Speed, -MaxSpeed, MaxSpeed) * dt
-		node.SetTransform2D(t)
-
-		sr := node.Get<SpriteRenderer>()
-		if sr != nil {
-			sr.FlipX = x < 0
-		}
-		if Target != nil && input.KeyPressed(input.KeySpace) {
-			combat.Damage(Target, 5)
-		}
-	}
-}
-```
-
-Attach `PlayerController` to a node in the editor, set `Speed` and `Target` in the Inspector, press Play.
-
-Run it: the same controller without the `mygame/combat` import and the `Target` field, which need a project. The sandbox has no input devices, so the script pushes the axis to 1 on one frame.
+This page reads one complete script: an enemy that walks back and forth, waits at each end and tells other scripts when it turns. Each part links to the page that explains it.
 
 ```aes run
-package player
+package enemy
 
-import (
-    "aego/input"
-    "aego/log"
-    "aego/math"
-)
+import "aego/log"
 
 enum State {
-    Idle
-    Run
+    Walk
+    Wait
 }
 
-type Stats struct {
-    Hp    int
-    Armor float
-}
+script Patrol {
+    @export(min=0, max=20, unit="u/s")
+    var Speed float = 3
 
-const MaxSpeed float = 600
+    @export(min=0, max=50, unit="u")
+    var Distance float = 4
 
-script PlayerController {
-    @export(min=0, max=600, unit="px/s")
-    var Speed float = 220
+    @export(min=0, max=5, unit="s")
+    var Pause float = 0.5
+
+    signal Turned(dir float)
 
     var state State
-    var stats Stats
-    var frames int
+    var dir float = 1
+    var origin float
+    var turns int
 
     func Ready() {
-        stats = Stats{Hp: 10, Armor: 0.5}
-        log.Info("ready with " + string(stats.Hp) + " hp")
+        origin = node.Position().X
+        Turned.Connect(OnTurned)
     }
 
     func Update(dt float) {
-        x := input.Axis("Move")
-        if frames == 30 {
-            x = 1
+        if state == State.Wait {
+            return
         }
-        if x != 0 {
-            state = State.Run
-        } else {
-            state = State.Idle
+        p := node.Position()
+        p.X += dir * Speed * dt
+        node.SetPosition(p)
+        if dir > 0 && p.X >= origin+Distance || dir < 0 && p.X <= origin {
+            start Turn()
         }
-        t := node.Transform2D()
-        t.Position.X += math.Clamp(x*Speed, -MaxSpeed, MaxSpeed) * dt
-        node.SetTransform2D(t)
+    }
 
+    func Turn() coroutine {
+        state = State.Wait
+        yield wait(Pause)
+        dir = -dir
         sr := node.Get<SpriteRenderer>()
         if sr != nil {
-            sr.FlipX = x < 0
+            sr.FlipX = dir < 0
         }
-        frames++
-        if frames % 30 == 1 {
-            log.Info("frame " + string(frames) + ": state " + string(int(state)) + ", x " + string(node.Position().X))
-        }
+        state = State.Walk
+        Turned.Emit(dir)
+    }
+
+    func OnTurned(d float) {
+        turns++
+        log.Info("turn " + string(turns) + ", walking " + string(d))
     }
 }
 ```
+
+## The parts
+
+- `package enemy` and `import` name the script's package and the engine packages it uses. See [Files and packages](ref:language/files-and-packages).
+- `enum State` declares the two states. See [Types](ref:language/types).
+- `@export` shows `Speed`, `Distance` and `Pause` in the Inspector, with their range and unit. See [Attributes](ref:language/attributes).
+- `Ready` runs once when the node enters the game, `Update` once per frame. See [Scripts and lifecycle](ref:language/scripts-and-lifecycle).
+- `node` is the node the script is attached to; `node.Get<SpriteRenderer>()` reads one of its components. See [Nodes, components and references](ref:language/nodes-components-and-references).
+- `Turn` is a coroutine: `yield wait(Pause)` pauses it for `Pause` seconds without stopping the game. See [Coroutines](ref:language/coroutines).
+- `signal Turned` lets other scripts react to the turn. The script connects its own handler to it in `Ready` and emits it at the end of `Turn`. See [Signals](ref:language/signals).
+
+## Using it
+
+1. Save the script as `scripts/enemy/patrol.aes`.
+2. Select a node with a sprite, press **Add Script** in the Inspector and pick **Patrol**.
+3. Press Play. The node walks right, waits, turns and walks back.
+4. While the game runs, change **Speed** or **Distance** in the Inspector. The node follows the new values at once.
 
 ---
 id: language/files-and-packages
@@ -183,7 +139,7 @@ title: Files and packages
 - A module path uses `[a-z0-9_/-]` only, no dots: qualified names (`mygame/player.State`) are split on the last dot.
 - `import` works as in Go; there are no import aliases. Importing a package that is not under `scripts/` and not a host module is `AES4002`; cycles are `AES4005`. Unused imports are warnings.
 - Host modules (`aego/input`, `mygame/combat`) and script packages share one namespace. A script directory whose package path equals a host module path is `AES4010`. The `aego/` prefix is reserved for the standard library; `module = "aego"` is a project error.
-- Visibility follows Go: identifiers starting with an uppercase letter are exported from the package; everything else is package-private. `@export` is unrelated to visibility (see §8).
+- Visibility follows Go: identifiers starting with an uppercase letter are exported from the package; everything else is package-private. `@export` is unrelated to visibility (see [Attributes](ref:language/attributes)).
 - `*_test.aes` files are compiled only by `aego test`.
 
 A package that fails to compile keeps its last good build; its files are marked invalid and Play is blocked until they compile again.
@@ -228,13 +184,13 @@ title: Lexical structure
 # Lexical structure
 
 - **Identifiers** are ASCII only: `[A-Za-z_][A-Za-z0-9_]*`. A non-ASCII letter where an identifier could start is `AES1001`. Non-ASCII text is fully supported inside string literals.
-- **Keywords**: `package import script type struct enum var const func return if else for switch case default break continue true false nil yield signal coroutine`.
-- **Contextual**: `start` is a keyword only when it is followed by a name and `(`; elsewhere it is an ordinary identifier. `wait`, `frames` and `fixed` are special only right after `yield`.
+- Keywords: `package import script type struct enum var const func return if else for switch case default break continue true false nil yield signal coroutine`.
+- Contextual: `start` is a keyword only when it is followed by a name and `(`; elsewhere it is an ordinary identifier. `wait`, `frames` and `fixed` are special only right after `yield`.
 - **Reserved for future versions** (using them is `AES1004`): `await select go chan defer interface map`.
-- **Literals**: integers `10`, `0x1f`, `1_000`; floats `1.5`, `.5`, `1e3`, `1_000.5`; strings `"..."` with escapes `\n \t \" \\ \uXXXX`; `true`, `false`, `nil`. Underscores must separate digits.
-- **Comments**: `// line` and `/* block */`. A `//` comment group directly above a declaration is its documentation and is shown on hover and in completion.
+- Literals: integers `10`, `0x1f`, `1_000`; floats `1.5`, `.5`, `1e3`, `1_000.5`; strings `"..."` with escapes `\n \t \" \\ \uXXXX`; `true`, `false`, `nil`. Underscores must separate digits.
+- Comments: `// line` and `/* block */`. A `//` comment group directly above a declaration is its documentation and is shown on hover and in completion.
 - **Semicolons** are inserted at a line end after an identifier, literal, `)`, `]`, `}`, `return`, `break`, `continue`, `++`, `--`, or after a `>` that closes type arguments. Write code line by line as in Go; `}` followed by `else` must be on the same line.
-- **Operators**: `+ - * / % == != < <= > >= && || ! = := += -= *= /= %= ++ --`. There are no bitwise operators; a lone `&` or `|` is `AES1001`.
+- Operators: `+ - * / % == != < <= > >= && || ! = := += -= *= /= %= ++ --`. There are no bitwise operators; a lone `&` or `|` is `AES1001`.
 
 Deliberately unsupported lexical forms (each has a diagnostic that names the intended form):
 
@@ -313,7 +269,7 @@ Primary     = Operand { "." ident | "[" Expr "]" | [ "<" Type ">" ] "(" [ Expr {
 Operand     = Literal | ident | "(" Expr ")" | Type "{" [ Elems ] "}" .
 ```
 
-Precedence, high to low: unary `-` `!`; `* / %`; `+ -`; `== != < <= > >=`; `&&`; `||`. Type arguments in a call (`Get<T>()`) are accepted by the parser anywhere, but only intrinsics may use them (§9).
+Precedence, high to low: unary `-` `!`; `* / %`; `+ -`; `== != < <= > >=`; `&&`; `||`. Type arguments in a call (`Get<T>()`) are accepted by the parser anywhere, but only intrinsics may use them; see [Nodes, components and references](ref:language/nodes-components-and-references).
 
 Composite literals are not allowed directly in the head of `if`, `for` or `switch`; parenthesize them (`if x == (Stats{}) {`).
 
@@ -564,7 +520,7 @@ Lifecycle methods are recognised by name and must have exactly these signatures:
 | `func Ready()` | once, after every instance in the scene exists and references are resolved, in scene pre-order |
 | `func FixedUpdate(dt float)` | every fixed step, before physics, in instance creation order |
 | `func Update(dt float)` | every frame, in instance creation order |
-| `func Reloaded()` | after a hot reload, for every instance whose script or a dependency's interface changed (§19) |
+| `func Reloaded()` | after a hot reload, for every instance whose script or a dependency's interface changed; see [Hot reload](ref:language/hot-reload) |
 
 Instances that do not declare a method are not visited for it; a scene with ten thousand instances that never declare `Update` costs nothing in the update phase. Lifecycle methods cannot be coroutines (`AES2056`), cannot be signal handlers (`AES2055`) and cannot be called through a `ScriptRef` (`AES2059`).
 
@@ -709,7 +665,7 @@ title: Nodes, components and references
 | `Transform2D() Transform2D`, `SetTransform2D(t)`, `Position() Vec2`, `SetPosition(Vec2)`, `WorldPosition() Vec2`, `Rotation() float`, `SetRotation(float)`, `Scale() Vec2`, `SetScale(Vec2)` | 2D nodes |
 | `Transform3D() Transform3D`, `SetTransform3D(t)`, `Position3() Vec3`, `SetPosition3(Vec3)`, `Rotation3() Quat`, `SetRotation3(Quat)` | 3D nodes |
 | `Get<T>() ComponentRef<T>`, `Has<T>() bool` | components |
-| `GetScript<T>() ScriptRef<T>` (nil when the node has no T) | scripts (§18) |
+| `GetScript<T>() ScriptRef<T>` (nil when the node has no T) | scripts; see [ScriptRef](ref:language/scriptref) |
 
 Transforms are read and written by value: `t := node.Transform2D(); t.Position.X += 1; node.SetTransform2D(t)`. A 2D method on a 3D node (and the reverse) faults. `Destroy` takes effect at the end of the phase; `IsAlive` is false immediately. `Get<T>()` and `GetScript<T>()` on a destroyed node return `nil`; on a `nil` reference they fault with `AES6004`.
 
@@ -717,7 +673,7 @@ Transforms are read and written by value: `t := node.Transform2D(); t.Position.X
 
 `node.Get<SpriteRenderer>()` returns a `ComponentRef<SpriteRenderer>` or `nil`. Field names are the schema names with an upper-cased first letter (`sr.FlipX`, `hp.Current`); read-only fields cannot be assigned. A short component name looks at the project first: if exactly one component of the project (its native modules) has that name, it is used and engine components with the same name are hidden, so a new engine component never breaks a project that already has one. Without a project match the name must be unique among the engine components. Two project components with one name, or two engine ones, report `AES2021` with the candidates; the full name (`gameplay.Health`, `game.Health`) always works. An enum field of a Go component is exposed as `int`.
 
-Components may also expose methods: `hp.Damage(5)`, `body.ApplyImpulse(Vec2{0, -300})`. Which fields and methods are visible is decided by the component's owner when it registers the component (§11); the generated library stubs (`Ctrl+Click` on a component name in the editor) show exactly what is available.
+Components may also expose methods: `hp.Damage(5)`, `body.ApplyImpulse(Vec2{0, -300})`. Which fields and methods are visible is decided by the component's owner when it registers the component (see [Native bindings](ref:language/native-bindings)); the generated library stubs (`Ctrl+Click` on a component name in the editor) show exactly what is available.
 
 A `ComponentRef` is safe to keep in a field: it is re-validated on every access and faults with `AES6004` as soon as the component or its node is destroyed, even before the end of the phase.
 
@@ -788,43 +744,83 @@ Project Go code in `native/` exposes functions, constants and component members 
 ## Functions
 
 ```go
-m := r.ScriptModule("mygame/combat")
-sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
-	if h, ok := sdk.Get[Health](c.Scene, target); ok {
-		h.Current -= float32(amount)
-	}
-}, sdk.ScriptDoc("deals damage to a node with Health"))
+package native
+
+import "aego/sdk"
+
+type Health struct {
+	Current float32 `aego:"current"`
+	Max     float32 `aego:"max"`
+}
+
+func registerCombat(r *sdk.Registry) {
+	m := r.ScriptModule("mygame/combat")
+	sdk.Proc2(m, "Damage", func(c *sdk.ScriptCtx, target sdk.NodeHandle, amount int64) {
+		if h, ok := sdk.Get[Health](c.Scene, target); ok {
+			h.Current -= float32(amount)
+		}
+	}, sdk.ScriptDoc("deals damage to a node with Health"))
+}
 ```
 
-Scripts `import "mygame/combat"` and call `combat.Damage(target, 5)`. Use `Func0..Func5` for functions with a result, `Proc0..Proc3` without, `Const` and `Enum` for constants and host enums. Allowed parameter and result types: `bool`, Go integer types, `float32/float64`, `string`, `mathx.Vec2/Vec3/Color/Quat/Rect`, `scene.Transform2D/Transform3D`, `scene.NodeHandle` (a `NodeRef`), `asset.Ref[…]`, `sdk.ScriptCurve` (a `Curve` parameter, resolved with `Resolve()`), integer types registered with `Enum` and Go types registered as handles. Structs and slices cannot cross the boundary. `c.Fail(msg)` stops the calling instance with `AES6010`; a Go panic becomes `AES6002`.
+Scripts `import "mygame/combat"` and call `combat.Damage(target, 5)`. Use `Func0..Func5` for functions with a result, `Proc0..Proc3` without, `Const` and `Enum` for constants and host enums. Allowed parameter and result types: `bool`, Go integer types, `float32/float64`, `string`, `mathx.Vec2/Vec3/Color/Quat/Rect`, `scene.Transform2D/Transform3D`, `scene.NodeHandle` (a `NodeRef`), `asset.Ref[…]`, `sdk.ScriptCurve` (a `Curve` parameter, resolved with its `Resolve` method), integer types registered with `Enum` and Go types registered as handles. Structs and slices cannot cross the boundary. `c.Fail(msg)` stops the calling instance with `AES6010`; a Go panic becomes `AES6002`.
 
 ## Component fields and methods
 
-A component registered through `sdk.Component[T]` exposes every field marked with the `script` schema flag by default. The builder narrows or extends that:
+A component registered through `sdk.Component[T]` exposes every field marked with the `script` schema flag. The builder narrows or extends that:
 
 ```go
-b := sdk.Component[Health](r, schema.Category("Gameplay"))
-b.Script("Current", "Max")
-sdk.Method1[Health, int64, bool](b, "Damage", func(c *sdk.ScriptCtx, h *Health, amount int64) bool {
-	h.Current -= float32(amount)
-	return h.Current <= 0
-})
-sdk.Proc0[Health](b, "Heal", func(c *sdk.ScriptCtx, h *Health) { h.Current = h.Max })
+package native
+
+import "aego/sdk"
+
+type Health struct {
+	Current float32 `aego:"current"`
+	Max     float32 `aego:"max"`
+}
+
+func registerHealth(r *sdk.Registry) {
+	sdk.Component[Health](r, sdk.Name("mygame.Health")).
+		Category("Gameplay").
+		Script("Current", "Max").
+		Method1("Damage", func(c *sdk.ScriptCtx, h *Health, amount int64) bool {
+			h.Current -= float32(amount)
+			return h.Current <= 0
+		}).
+		Proc0("Heal", func(c *sdk.ScriptCtx, h *Health) { h.Current = h.Max })
+}
 ```
 
-`Script(names...)` lists the visible fields, `ScriptNone()` hides the component from scripts entirely. `Method0..Method3` and `Proc0..Proc3` on a builder take the same parameter types as module functions plus the component pointer; they are compiled to typed adapters and allocate nothing per call. Scripts call them on the component reference: `hp := node.Get<Health>()` then `hp.Damage(5)`. The methods are not a module and cannot be imported. A call through a `nil` reference, a destroyed node or a removed component faults with `AES6004`. `ScriptMethod(name, fn any)` accepts an arbitrary Go function through reflection: it is for prototyping, logs a warning at registration and is rejected in `aego_runtime` builds.
+`Script(names...)` lists the visible fields, and `ScriptNone` hides the component from scripts entirely. `Method0`…`Method2` and `Proc0`…`Proc2` on the builder take the same parameter types as module functions plus the component pointer; they are compiled to typed adapters and allocate nothing per call. Scripts call them on the component reference: `hp := node.Get<Health>()` then `hp.Damage(5)`. The methods are not a module and cannot be imported. A call through a `nil` reference, a destroyed node or a removed component faults with `AES6004`. `ScriptMethod(name, fn any)` accepts an arbitrary Go function through reflection: it is for prototyping, logs a warning at registration and is rejected in `aego_runtime` builds.
 
-The binding registry's hash covers every module, name and signature and is part of the compile cache key, so changing a native signature recompiles the scripts that use it. Changes in `native/` are never swapped in-process (§19).
+The binding registry's hash covers every module, name and signature and is part of the compile cache key, so changing a native signature recompiles the scripts that use it. Changes in `native/` are never swapped in-process; see [Hot reload](ref:language/hot-reload).
 
 ## Handles
 
 A module that owns long-lived objects hands them to scripts as handles:
 
 ```go
-m := r.ScriptModule("mygame/net")
-sdk.ScriptHandle(m, "Request", true, RequestOf, Request.Key, sdk.ScriptDoc("Request is a pending HTTP call."))
-hm := m.Registry().HandleMethods("mygame/net.Request")
-sdk.Func1(hm, "Done", func(c *sdk.ScriptCtx, r Request) bool { return svc.Done(r) })
+package native
+
+import "aego/sdk"
+
+// Request is a pending HTTP call; the key 0 is nil.
+type Request uint64
+
+func (r Request) Key() uint64 { return uint64(r) }
+
+func RequestOf(key uint64) Request { return Request(key) }
+
+type service struct{ done map[Request]bool }
+
+func (s *service) Done(r Request) bool { return s.done[r] }
+
+func registerNet(r *sdk.Registry, svc *service) {
+	m := r.ScriptModule("mygame/net")
+	sdk.ScriptHandle(m, "Request", true, RequestOf, Request.Key, sdk.ScriptDoc("Request is a pending HTTP call."))
+	hm := m.Registry().HandleMethods("mygame/net.Request")
+	sdk.Func1(hm, "Done", func(c *sdk.ScriptCtx, r Request) bool { return svc.Done(r) })
+}
 ```
 
 The Go type must be distinct for every handle type and convert to and from a non-zero `uint64` key; key `0` is `nil`. Scripts see the type as `net.Request` and call its methods. A handle registered as awaitable must have `Done() bool`; `yield req` then parks the coroutine until the module calls `Complete(abi.HandleID("mygame/net.Request"), key)` on the world service `scriptwait.ServiceID`. Call it when the object ends, fires or is cancelled.
@@ -1126,8 +1122,13 @@ script Player {
 }
 ```
 
-- **Declaration.** `coroutine` follows the signature: `func Name(params) coroutine { … }`. Only script methods without a result can be coroutines (`AES2053`). `Ready`, `Update`, `FixedUpdate` and `Reloaded` cannot be coroutines (`AES2056`); start one from them instead.
-- **Starting.** `start Name(args)` runs the coroutine at once, up to its first `yield`, and returns a `Coroutine`. Only coroutines of the same script can be started (`AES2052`). Calling a coroutine like a plain function is `AES2051`. Starting the same coroutine twice gives two independent runs.
+### Declaration
+
+`coroutine` follows the signature: `func Name(params) coroutine { … }`. Only script methods without a result can be coroutines (`AES2053`). `Ready`, `Update`, `FixedUpdate` and `Reloaded` cannot be coroutines (`AES2056`); start one from them instead.
+
+### Starting
+
+`start Name(args)` runs the coroutine at once, up to its first `yield`, and returns a `Coroutine`. Only coroutines of the same script can be started (`AES2052`). Calling a coroutine like a plain function is `AES2051`. Starting the same coroutine twice gives two independent runs.
 - **yield** is allowed only inside a coroutine (`AES2050`):
 
 | Form | Resumes |
@@ -1140,10 +1141,22 @@ script Player {
 | `yield h` | when the tween or timer `h` (any awaitable host handle) ends, fires or is cancelled, on the next frame; a `nil` or finished `h` resumes on the next frame; it waits while the game is paused |
 
 A wrong argument type, or a handle that cannot be awaited, is `AES2057`.
-- **Order.** Coroutines that are due in one frame resume in the order they were started. They run in `script.coroutines`, right after `script.update`; `fixed` waits run after `script.fixed`. Only coroutines that are due are visited; ten thousand sleeping coroutines cost nothing per frame.
-- **Ownership.** A coroutine belongs to the instance that started it. It is cancelled when the instance's node is destroyed, the script is removed or disabled, the instance faults, or its script changes in a hot reload. A fault inside a coroutine stops the owning instance, like a fault in `Update`. A cancelled coroutine releases its wait slot immediately; it does not linger until its timer would have fired.
-- **Handles.** `c.Stop()` cancels; `c.Running()` is false once the coroutine finished, was cancelled or faulted. The zero `Coroutine` is `nil` and never running. A handle from before a hot reload stays valid as a value but is never running again.
-- **Budget.** Each resume has its own instruction budget (§12). A loop without `yield` inside a coroutine still ends with `AES6001`.
+
+### Order
+
+Coroutines that are due in one frame resume in the order they were started. They run in `script.coroutines`, right after `script.update`; `fixed` waits run after `script.fixed`. Only coroutines that are due are visited; ten thousand sleeping coroutines cost nothing per frame.
+
+### Ownership
+
+A coroutine belongs to the instance that started it. It is cancelled when the instance's node is destroyed, the script is removed or disabled, the instance faults, or its script changes in a hot reload. A fault inside a coroutine stops the owning instance, like a fault in `Update`. A cancelled coroutine releases its wait slot immediately; it does not linger until its timer would have fired.
+
+### Handles
+
+`c.Stop()` cancels; `c.Running()` is false once the coroutine finished, was cancelled or faulted. The zero `Coroutine` is `nil` and never running. A handle from before a hot reload stays valid as a value but is never running again.
+
+### Budget
+
+Each resume has its own instruction budget; see [Limits](ref:language/limits). A loop without `yield` inside a coroutine still ends with `AES6001`.
 
 Run it:
 
@@ -1206,13 +1219,33 @@ script PlayerController {
 }
 ```
 
-- **Declaration.** `signal Name(params)` inside a script. Signals have no result. An uppercase name is visible from other packages.
-- **Emit.** `Name.Emit(args)` is allowed only inside the script that declares the signal (`AES2055`). Handlers run synchronously, in connection order, before `Emit` returns. Each handler has its own instruction budget; a fault in a handler stops the handler's owner, not the emitter, and the remaining handlers still run.
-- **Connect.** `Name.Connect(Method)` or `ref.Name.Connect(Method)` registers a plain method of this script, or `ref.Method` of another instance, and returns a `Connection`. The handler must take exactly the signal's parameter types and return nothing (`AES2054`). Coroutines and lifecycle methods cannot be handlers (`AES2055`). Connecting the same method twice calls it twice.
-- **Changes during Emit.** Connections added or removed by a handler take effect after the current `Emit` returns; the running `Emit` uses the list it started with.
-- **Lifetime.** When the source instance stops, all its connections are removed. When a handler's owner stops, its connections are skipped and removed. `Connected()` becomes false in both cases. `c.Disconnect()` removes one connection; on a `nil` handle it does nothing.
-- **Recursion.** A handler that emits again goes one call deeper; endless re-emitting ends with `AES6003` on the emitting instance.
-- **Cost.** `Emit` allocates nothing; a scene with ten thousand connections and a thousand emits per frame produces no garbage.
+### Declaration
+
+`signal Name(params)` inside a script. Signals have no result. An uppercase name is visible from other packages.
+
+### Emit
+
+`Name.Emit(args)` is allowed only inside the script that declares the signal (`AES2055`). Handlers run synchronously, in connection order, before `Emit` returns. Each handler has its own instruction budget; a fault in a handler stops the handler's owner, not the emitter, and the remaining handlers still run.
+
+### Connect
+
+`Name.Connect(Method)` or `ref.Name.Connect(Method)` registers a plain method of this script, or `ref.Method` of another instance, and returns a `Connection`. The handler must take exactly the signal's parameter types and return nothing (`AES2054`). Coroutines and lifecycle methods cannot be handlers (`AES2055`). Connecting the same method twice calls it twice.
+
+### Changes during Emit
+
+Connections added or removed by a handler take effect after the current `Emit` returns; the running `Emit` uses the list it started with.
+
+### Lifetime
+
+When the source instance stops, all its connections are removed. When a handler's owner stops, its connections are skipped and removed. `Connected()` becomes false in both cases. `c.Disconnect()` removes one connection; on a `nil` handle it does nothing.
+
+### Recursion
+
+A handler that emits again goes one call deeper; endless re-emitting ends with `AES6003` on the emitting instance.
+
+### Cost
+
+`Emit` allocates nothing; a scene with ten thousand connections and a thousand emits per frame produces no garbage.
 
 Run it:
 
@@ -1409,7 +1442,7 @@ title: Editor
 ---
 # Editor
 
-The editor's code editor, navigation, completion, hover, library stubs, Problems panel and Profiler sections for scripts are described in `docs/editor.md` (§ Scripts). Unsaved edits are analysed but never run; autosave writes them one second after the last keystroke, on focus loss and before Play.
+The editor's code editor, navigation, completion, hover, library stubs, Problems panel and Profiler sections for scripts are described in [Editor](ref:editor). Unsaved edits are analysed but never run; autosave writes them one second after the last keystroke, on focus loss and before Play.
 
 Run it: in the code editor, hover over `Turret`, `Range` or `Rate` to see the comments above them; the Inspector groups the fields by `category`.
 

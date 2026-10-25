@@ -60,7 +60,7 @@ func (c *keysOffScrub) Ticks() uint64     { return 0 }
 func (c *keysOffScrub) Seek(n int) error  { c.seeks, c.cursor = append(c.seeks, n), n; return nil }
 func (c *keysOffScrub) Scrub(n int) error { c.scrubs, c.cursor = append(c.scrubs, n), n; return nil }
 
-// With keyframes off a drag back only moves the cursor; the rewind runs once on release (D359).
+// With keyframes off a drag back only moves the cursor; the rewind runs once on release (D346).
 func TestKeysOffDragSeeksOnRelease(t *testing.T) {
 	src := &keysOffScrub{cursor: 80}
 	b := NewTimelineBar(src)

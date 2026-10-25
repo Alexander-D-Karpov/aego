@@ -2,7 +2,7 @@ package problems
 
 import "testing"
 
-// Collect asks a source again only when its own revision changed (D359).
+// Collect asks a source again only when its own revision changed (D346).
 func TestCollectReusesUnchangedSources(t *testing.T) {
 	s := New()
 	var still, moving int

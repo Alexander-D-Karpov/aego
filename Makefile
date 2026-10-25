@@ -28,6 +28,7 @@ WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.w
 TRY_BUDGET = 10485760
 WEB_TRY = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node try.mjs --site=$(CURDIR)/site
 WEB_AUDIO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node audio.mjs --site=$(CURDIR)/site
+WEB_THEME = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node theme.mjs --site=$(CURDIR)/site --out=$(CURDIR)/.cache/web-theme
 TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
@@ -255,6 +256,7 @@ web-smoke: site
 	$(WEB_DEMO)
 	$(WEB_TRY)
 	$(WEB_AUDIO)
+	$(WEB_THEME)
 
 web-smoke-update: site
 	$(WEB_SMOKE) --update

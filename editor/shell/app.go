@@ -127,7 +127,7 @@ type Options struct {
 	RunTests    func(done func(out string, failed bool)) error
 	Recent      string
 	LogsDir     string
-	// PrefsDir holds prefs.aetext, the preferences shared by every project (D358).
+	// PrefsDir holds prefs.aetext, the preferences shared by every project (D345).
 	PrefsDir string
 	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
 	Agent agentui.Host
@@ -1031,7 +1031,7 @@ func (a *App) Tasks() *tasks.Queue {
 	return a.tasks
 }
 
-// Idle reports a frame with nothing to show: Stopped or a pause the editor holds, with no input for a second (D359).
+// Idle reports a frame with nothing to show: Stopped or a pause the editor holds, with no input for a second (D346).
 func (a *App) Idle() bool {
 	return a.idle()
 }

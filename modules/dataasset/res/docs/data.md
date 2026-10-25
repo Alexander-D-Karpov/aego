@@ -14,15 +14,24 @@ A data asset holds numbers and references that tune the game without code: enemy
 Register a Go struct as a data type in a native module:
 
 ```go
+package native
+
+import (
+	"aego/core/mathx"
+	"aego/sdk"
+)
+
 type EnemyStats struct {
-    Speed    float32     `aego:"speed,min=0,max=10"`
-    Cooldown float32     `aego:"cooldown,min=0,max=5"`
-    Damage   int64       `aego:"damage,min=0"`
-    Tint     mathx.Color `aego:"tint"`
+	Speed    float32     `aego:"speed,min=0,max=10"`
+	Cooldown float32     `aego:"cooldown,min=0,max=5"`
+	Damage   int64       `aego:"damage,min=0"`
+	Tint     mathx.Color `aego:"tint"`
 }
 
-sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats"))
-sdk.Live[EnemyStats](r, "speed")
+func registerData(r *sdk.Registry) {
+	sdk.DataType[EnemyStats](r, sdk.Name("mygame.EnemyStats"))
+	sdk.Live[EnemyStats](r, "speed")
+}
 ```
 
 Fields use the same tags and hints as component fields. Short type names (`EnemyStats`) must be unique across modules, because scripts name data types by them.
@@ -67,7 +76,25 @@ Fields are read through the reference and cannot be assigned. `Copy()` returns a
 ## Go
 
 ```go
-stats, err := sdk.Data(ctx, ref)
+package native
+
+import "aego/sdk"
+
+type EnemyStats struct {
+	Speed float32 `aego:"speed,min=0,max=10"`
+}
+
+type Enemy struct {
+	Stats sdk.DataRef[EnemyStats] `aego:"stats"`
+}
+
+func speedOf(ctx *sdk.Context, e *Enemy) float32 {
+	stats, err := sdk.Data(ctx, e.Stats)
+	if err != nil {
+		return 0
+	}
+	return stats.Speed
+}
 ```
 
 `sdk.DataRef[T]` and `sdk.TableRef[T]` fields on components appear in the Inspector as asset pickers and can be passed to and from scripts.

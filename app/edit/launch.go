@@ -326,7 +326,7 @@ func (d *launchDriver) setTheme(m theme.Mode) {
 	}
 }
 
-// prefsDir is the config directory that holds the recent projects list and prefs.aetext (D358).
+// prefsDir is the config directory that holds the recent projects list and prefs.aetext (D345).
 func prefsDir(cfg Config) string {
 	if cfg.Recent == "" {
 		return ""

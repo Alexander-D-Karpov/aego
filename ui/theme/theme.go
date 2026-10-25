@@ -123,7 +123,7 @@ type Theme struct {
 	Series [8]mathx.Color
 	// Events colours animation events by mode: gameplay, presentation, preview.
 	Events [3]mathx.Color
-	// Viewport colours stay the same in every theme, like the scene they frame (D358).
+	// Viewport colours stay the same in every theme, like the scene they frame (D345).
 	ViewportBg   mathx.Color
 	SceneBg      mathx.Color
 	ViewportText mathx.Color
@@ -336,7 +336,7 @@ func viewport(t *Theme) {
 	t.GridMajor = mathx.Color{R: 1, G: 1, B: 1, A: 0.045}
 }
 
-// Mode is the theme the user picked; System follows the OS (D358).
+// Mode is the theme the user picked; System follows the OS (D345).
 type Mode uint8
 
 const (

@@ -231,8 +231,9 @@ func (s *Session) shots(dir string) error {
 		}},
 	}
 	if s.App.ThemeMode() == theme.ModeLight {
-		list = list[:1]
-		list[0].name = "editor-light"
+		for i := range list {
+			list[i].name += "-light"
+		}
 	}
 	for _, sh := range list {
 		if err := sh.setup(s); err != nil {

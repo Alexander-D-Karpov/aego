@@ -37,15 +37,38 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         if (!e.matches) setNav(false);
     });
 
+    // The theme switch cycles Auto, Dark and Light; Auto follows the system (D345).
     const THEME_KEY = "aego.docs.theme";
+    const MODES = ["auto", "dark", "light"];
+    const LABELS = { auto: "Auto", dark: "Dark", light: "Light" };
     const prefersLight = matchMedia("(prefers-color-scheme: light)");
-    document.querySelector(".theme").addEventListener("click", () => {
-        const cur = document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
-        const next = cur === "light" ? "dark" : "light";
-        document.documentElement.dataset.theme = next;
+    const themeButton = document.querySelector(".theme");
+    const effective = () => document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
+    function applyMode(mode) {
+        if (mode === "auto") delete document.documentElement.dataset.theme;
+        else document.documentElement.dataset.theme = mode;
+        themeButton.dataset.mode = mode;
+        themeButton.title = themeButton.ariaLabel = "Theme: " + LABELS[mode];
+        globalThis.aegoTheme = effective();
+        const media = mode === "auto" ? "(prefers-color-scheme: light)" : mode === "light" ? "all" : "not all";
+        for (const s of document.querySelectorAll("picture.themed source")) s.media = media;
+        document.dispatchEvent(new CustomEvent("aego-theme", { detail: globalThis.aegoTheme }));
+    }
+    let mode = "auto";
+    try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (MODES.includes(saved)) mode = saved;
+    } catch (_) {}
+    applyMode(mode);
+    themeButton.addEventListener("click", () => {
+        mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+        applyMode(mode);
         try {
-            localStorage.setItem(THEME_KEY, next);
+            localStorage.setItem(THEME_KEY, mode);
         } catch (_) {}
+    });
+    prefersLight.addEventListener("change", () => {
+        if (mode === "auto") applyMode("auto");
     });
 
     function loadState() {

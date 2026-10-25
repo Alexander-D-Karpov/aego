@@ -14,7 +14,7 @@ import (
 	"aego/ui/theme"
 )
 
-// The light theme draws a representative set of the dark goldens with the same functions (D358).
+// The light theme draws a representative set of the dark goldens with the same functions (D345).
 func TestEditorLightGoldens(t *testing.T) {
 	light := func(t *testing.T, w, h int) *editorEnv { return newEditorEnvTheme(t, w, h, theme.Light()) }
 	for _, tc := range []struct {

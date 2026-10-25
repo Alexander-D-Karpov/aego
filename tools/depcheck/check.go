@@ -186,7 +186,7 @@ func Check(cfg Config) ([]Violation, error) {
 		}
 		for _, h := range colors {
 			if !excepted(exc, "semantic", h.file, `"color"`) {
-				c.add("semantic", "color-literal", h.pos, h.what+"; take the colour from a theme token (D358)")
+				c.add("semantic", "color-literal", h.pos, h.what+"; take the colour from a theme token (D345)")
 			}
 		}
 	}

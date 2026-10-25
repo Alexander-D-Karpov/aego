@@ -382,7 +382,13 @@ title: Sprite sheets and flipbooks
 ---
 # Sprite sheets and flipbooks
 
-Select a PNG in Assets to open its inspector: the sheet with its cells. **Slice by Grid** cuts cells of one size, after an offset and with padding between them, row by row; **Count** stops after that many. **Slice by Alpha** finds every separate shape whose alpha is above the threshold and orders them in rows from the top, each row from the left. **Slice** writes the cells into the sheet's `.meta`; each cell becomes a sprite asset named `assets/hero.png#hero_000` with its own id, and Undo puts the previous cells back. Slicing again with the same number of cells keeps every id, so clips and scenes that use the cells stay intact. Deleting the sheet removes its cells. A sliced sheet cannot be packed into an atlas group yet.
+Select a PNG in Assets to open its inspector: the sheet with its cells.
+
+- **Slice by Grid** cuts cells of one size, after an offset and with padding between them, row by row. **Count** stops after that many.
+- **Slice by Alpha** finds every separate shape whose alpha is above the threshold and orders them in rows from the top, each row from the left.
+- **Slice** writes the cells into the sheet's `.meta`. Each cell becomes a sprite asset named `assets/hero.png#hero_000` with its own id. Undo puts the previous cells back.
+
+Slicing again with the same number of cells keeps every id, so clips and scenes that use the cells stay intact. Deleting the sheet removes its cells. A sliced sheet cannot be packed into an atlas group.
 
 ![The inspector of a sheet: Import settings, the cells and the slicing setup](shots/slicer.png)
 
@@ -409,6 +415,6 @@ Drag a state, Entry or Any to move it; the position is saved as `pos` of the sta
 
 The left side edits the selection: a state's clip and speed, or a transition's duration, exit time, interrupt flag and conditions. Transitions are tried in their order, so the arrows ↑ ↓ next to the title move the selected one earlier or later. Under the inspector are the parameters; + adds one of each kind, − removes it.
 
-Every change is one Undo step on the controller file. An agent's or a text editor's change shows up as soon as the file is reimported.
+Every change is one Undo step on the controller file. A change made outside the editor, in a text editor or through `aego mcp`, shows up as soon as the file is reimported.
 
 During Play the state the Animator is in is highlighted, with a ring that fills as its clip plays, and the parameters become live: type a float, toggle a bool or press **Fire** for a trigger to drive the running game.

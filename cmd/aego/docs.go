@@ -14,7 +14,8 @@ import (
 const docsUsage = `usage: aego docs <command> [flags]
 
   export [--out file]          write the documentation registry as JSON
-  check [--strict]             broken links, empty summaries, undocumented bindings
+  check [--strict]             broken links, style rules (DOC010–DOC023), undocumented bindings
+  report [--json]              every page with its opening paragraph, examples and findings
   build [--out site] [--demo] generate the static site with the playground
   serve [--addr host:port]     build, serve on localhost and rebuild on changes
 
@@ -66,6 +67,7 @@ func cmdDocs(args []string) int {
 	repo := fs.String("repo", "", "source repository linked from the site header")
 	demo := fs.Bool("demo", false, "link the web demo at demo/ from the landing page")
 	dir := fs.String("project", "", "project directory")
+	asJSON := fs.Bool("json", false, "report as JSON")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -86,6 +88,8 @@ func cmdDocs(args []string) int {
 		return env.Export(*out)
 	case "check":
 		return env.Check(*strict)
+	case "report":
+		return env.Report(*asJSON)
 	case "build":
 		if err := env.Build(site("site"), *play); err != nil {
 			return fail(err)

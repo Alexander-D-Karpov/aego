@@ -18,10 +18,15 @@ title: Presets and keys
 ---
 # Presets and keys
 
-A curve is either a preset or a list of keys.
+A curve is either a preset or a list of keys. A preset is quick to pick; keys give any shape.
 
-- **Preset.** An easing on time `0..1`: `linear` and the `in`/`out`/`inOut` family of quad, cubic, sine, expo, back, elastic and bounce.
-- **Keys.** Each key has a time, a value, two slopes, a segment mode and a tangent mode.
+## Presets
+
+A preset is an easing on time `0..1`: `linear` and the `in`/`out`/`inOut` family of quad, cubic, sine, expo, back, elastic and bounce.
+
+## Keys
+
+Each key has a time, a value, two slopes, a segment mode and a tangent mode.
 
 | Segment | From this key to the next |
 |---|---|

@@ -15,7 +15,7 @@ type colorHit struct {
 	what string
 }
 
-// colorScope is where colours come only from theme tokens (D358).
+// colorScope is where colours come only from theme tokens (D345).
 func colorScope(p string) bool {
 	if p == "ui/theme" || strings.HasPrefix(p, "ui/theme/") {
 		return false

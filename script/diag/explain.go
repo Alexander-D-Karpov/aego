@@ -16,7 +16,7 @@ var help = map[string]Help{
 	UnterminatedComment: {"The block comment has no closing */.", "Add */ where the comment should end."},
 	InvalidUTF8:         {"The file contains bytes that are not valid UTF-8.", "Save the file as UTF-8."},
 	NewlineInString:     {"A string literal cannot span lines.", "Close the string on the same line or use \\n."},
-	UnexpectedToken:     {"The parser expected something else at this point.", "Check for a missing bracket, comma or operator just before this position."},
+	UnexpectedToken:     {"The parser expected something else at this point.", "Check for a missing bracket, comma or operator right before this position."},
 	MissingPackage:      {"Every script file starts with a package clause.", "Add `package <directory name>` as the first line."},
 	MisplacedAttr:       {"Attributes are allowed only on scripts and script fields.", "Move the attribute above a script or a `var` inside a script, or remove it."},
 	LateImport:          {"Imports must come before any declaration.", "Move the import to the top of the file, after the package clause."},

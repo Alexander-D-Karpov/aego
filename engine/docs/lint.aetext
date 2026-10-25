@@ -1,0 +1,18 @@
+lint version=1 {
+  pattern { regex="\\bin this (stage|commit|release)\\b" why="history of the work belongs in ARCHITECTURE.md" }
+  pattern { regex="\\bwe (added|implemented)\\b" why="history of the work belongs in ARCHITECTURE.md" }
+  pattern { regex="\\bagent\\b" skip_group="tools" why="AI agents are described on the Tools & Agents pages" }
+  pattern { regex="\\bsimply\\b" why="filler" }
+  pattern { regex="\\bjust\\b" why="filler" }
+  pattern { regex="\\beasily\\b" why="filler" }
+  pattern { regex="\\bbasically\\b" why="filler" }
+  pattern { regex="\\bof course\\b" why="filler" }
+  pattern { regex="\\bnote that\\b" why="filler" }
+  pattern { regex="\\bplease\\b" why="filler" }
+  pattern { regex="\\bin order to\\b" why="filler" }
+  pattern { regex="\\bit is important\\b" why="filler" }
+  pattern { regex="\\bit should be noted\\b" why="filler" }
+  pattern { regex="\\bas mentioned\\b" why="filler" }
+  pattern { regex="\\bobviously\\b" why="filler" }
+  pattern { regex="\\bin this guide we\\b" why="start with what the page covers" }
+}

@@ -98,12 +98,9 @@ title: Spatial sound
 
 A spatial sound fades and pans with its distance to the listener. The listener is the first enabled, active [Audio Listener 2D](ref:audio.AudioListener2D) in the hierarchy; another active one later in the hierarchy is ignored ([AUD005](ref:AUD005)). Without a listener the camera of the main output listens, and [AUD004](ref:AUD004) reminds you of it on spatial sources; without a camera, the origin.
 
-| Field | Unit | Meaning |
-|---|---|---|
-| `Min Distance` | world units | full volume up to this distance |
-| `Max Distance` | world units | silent from this distance |
-| `Rolloff` | curve | volume between them: time 0 is Min Distance, time 1 is Max Distance |
-| `Pan Width` | 0..1 | how far a sound at Max Distance to the side is panned |
+A spatial source plays at full volume up to **Min Distance** and is silent from **Max Distance**, both in world units. **Rolloff** is the curve of the volume between them: time 0 is Min Distance, time 1 is Max Distance. **Pan Width**, from 0 to 1, says how far a sound at Max Distance to the side is panned.
+
+Every field is listed on the [Audio Source 2D](ref:audio.AudioSource2D) page.
 
 A keyed Rolloff curve is read as the volume; a preset ease is read as the volume falling away; the default curve drops to a quarter halfway. Pan is the distance to the side divided by Max Distance, times Pan Width.
 
@@ -239,15 +236,27 @@ title: Editor tools
 ---
 # Editor tools
 
-- **Audio Mixer** (Window → Audio Mixer, or the Audio workspace) shows a meter, a fader, mute and solo for every bus, the voices and the underruns. Faders change the session; **Reset Session** sets them back, **Save to Profile** writes them into the player's settings.
+The editor mixes, previews and draws sound: a mixer for the buses, preview buttons on sources and the ranges of spatial sounds in the views.
+
+## Audio Mixer
+
+**Window → Audio Mixer**, or the Audio workspace, shows a meter, a fader, mute and solo for every bus, with the playing voices and the underruns. Faders change the current session. **Reset Session** sets them back; **Save to Profile** writes them into the player's settings.
 
 ![The Audio workspace during Play: the Mixer with a meter per bus](shots/mixer.png)
 
-- **Inspector.** In edit mode Audio Source 2D has **Preview** and **Stop** for its clip, with a progress bar. During Play it has **Play** and **Stop**, and shows how far the sound is.
-- **Handles.** Select a spatial source to drag Min Distance and Max Distance, a zone to drag its area. Every drag is one undo step.
-- **Audio → Audio Ranges** turns the circles and zones on and off in the Scene View and in the Game View during Play, where the listener, the playing spatial voices and lines to them are drawn over the game.
-- **Events** lists every play and stop as `audio`; **Profiler** has an Audio section with the output, the voices, the mix time and the underruns.
-- **Problems** lists sources with neither a clip nor an event ([AUD003](ref:AUD003)), spatial sources without a listener ([AUD004](ref:AUD004)), extra listeners ([AUD005](ref:AUD005)), broken events ([AUD006](ref:AUD006)), unreadable files ([AUD001](ref:AUD001)) and loop points outside the sound ([AUD002](ref:AUD002)).
+## Inspector
+
+In edit mode Audio Source 2D has **Preview** and **Stop** for its clip, with a progress bar. During Play it has **Play** and **Stop** and shows how far the sound is.
+
+## Handles and ranges
+
+- Select a spatial source to drag Min Distance and Max Distance, or a zone to drag its area. Every drag is one Undo step.
+- **Audio → Audio Ranges** turns the circles and zones on and off in the Scene View. During Play the Game View also draws the listener, the playing spatial voices and lines to them.
+
+## Events, profiling and problems
+
+- The Event Monitor lists every play and stop as `audio` rows. The Profiler has an Audio section with the output, the voices, the mix time and the underruns.
+- Problems lists sources with neither a clip nor an event ([AUD003](ref:AUD003)), spatial sources without a listener ([AUD004](ref:AUD004)), extra listeners ([AUD005](ref:AUD005)), broken events ([AUD006](ref:AUD006)), unreadable files ([AUD001](ref:AUD001)) and loop points outside the sound ([AUD002](ref:AUD002)).
 
 ---
 id: audio/web

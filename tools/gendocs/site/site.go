@@ -90,6 +90,7 @@ type Report struct {
 type layoutData struct {
 	AssetV      string
 	Background  template.CSS
+	LightBack   template.CSS
 	CSS         template.CSS
 	Root        string
 	Title       string
@@ -128,26 +129,28 @@ type navGroup struct {
 }
 
 type builder struct {
-	exp     *Export
-	out     string
-	assetV  string
-	missing map[string]bool
-	opt     Options
-	byID    map[string]*Entry
-	kids    map[string][]string
-	groups  []navGroup
-	groupOf map[string]int
-	own     map[string]bool
-	urls    map[string]string
-	order   []string
-	pos     map[string]int
-	hero    bool
-	poster  bool
-	icons   iconSet
-	conv    *converter
-	layout  *template.Template
-	css     string
-	report  Report
+	// lightShots names the screenshots that also come in the light theme, as name-light.png (D345).
+	lightShots map[string]bool
+	exp        *Export
+	out        string
+	assetV     string
+	missing    map[string]bool
+	opt        Options
+	byID       map[string]*Entry
+	kids       map[string][]string
+	groups     []navGroup
+	groupOf    map[string]int
+	own        map[string]bool
+	urls       map[string]string
+	order      []string
+	pos        map[string]int
+	hero       bool
+	poster     bool
+	icons      iconSet
+	conv       *converter
+	layout     *template.Template
+	css        string
+	report     Report
 }
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
@@ -177,6 +180,7 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 		conv:    newConverter(),
 		icons:   loadIcons(opt.Icons),
 	}
+	b.lightShots = lightShots(opt.Shots)
 	layout, err := template.New("layout").Funcs(template.FuncMap{
 		"icon": func(root, name string) template.HTML { return template.HTML(b.icon(root, name, "")) },
 	}).Parse(layoutSrc)
@@ -434,7 +438,33 @@ func (b *builder) markdown(root, id, md string) string {
 	if err != nil {
 		return "<p>" + esc(err.Error()) + "</p>"
 	}
+	return b.themedShots(out)
+}
+
+var shotImg = regexp.MustCompile(`<img src="([^"]*` + regexp.QuoteMeta(shotsDir) + `)([^"/]+)\.png"([^>]*)>`)
+
+// lightShots lists the screenshots that have a light theme variant next to them.
+func lightShots(dir string) map[string]bool {
+	out := map[string]bool{}
+	if dir == "" {
+		return out
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "*-light.png"))
+	for _, f := range files {
+		out[strings.TrimSuffix(filepath.Base(f), "-light.png")] = true
+	}
 	return out
+}
+
+// themedShots shows the light variant of a screenshot in the light theme; site.js keeps the source in step with the theme switch.
+func (b *builder) themedShots(html string) string {
+	return shotImg.ReplaceAllStringFunc(html, func(m string) string {
+		x := shotImg.FindStringSubmatch(m)
+		if !b.lightShots[x[2]] {
+			return m
+		}
+		return `<picture class="themed"><source media="(prefers-color-scheme: light)" srcset="` + x[1] + x[2] + `-light.png">` + m + "</picture>"
+	})
 }
 
 func kindName(e *Entry) string {
@@ -448,7 +478,7 @@ func kindLabel(e *Entry) string {
 	if e.Kind == KindPage {
 		return ""
 	}
-	return `<span class="kind kind-` + esc(e.Kind) + `">` + esc(kindName(e)) + `</span>`
+	return ` <span class="kind kind-` + esc(e.Kind) + `">` + esc(kindName(e)) + `</span>`
 }
 
 func (b *builder) details(c *strings.Builder, e *Entry, root string) {
@@ -518,19 +548,37 @@ func (b *builder) componentMeta(e *Entry, root string) string {
 }
 
 func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading bool) {
-	var rows []*Entry
+	var set, live []*Entry
 	for _, k := range b.kids[e.ID] {
-		if ke := b.byID[k]; ke.Field != nil {
-			rows = append(rows, ke)
+		ke := b.byID[k]
+		switch {
+		case ke.Field == nil:
+		case ke.Field.Runtime:
+			live = append(live, ke)
+		default:
+			set = append(set, ke)
 		}
 	}
+	byIndex := func(rows []*Entry) {
+		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Field.Index < rows[j].Field.Index })
+	}
+	byIndex(set)
+	byIndex(live)
+	b.rows(c, e, root, set, heading, "fields", "Fields", "")
+	b.rows(c, e, root, live, heading, "runtime", "Runtime state", "Values the component has while the game runs. They are not saved with the scene.")
+}
+
+func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry, heading bool, anchor, title, lead string) {
 	if len(rows) == 0 {
 		return
 	}
 	if heading {
-		c.WriteString(`<h2 id="` + esc(e.ID) + `-fields">Fields</h2>` + "\n")
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-` + anchor + `">` + title + `</h2>` + "\n")
 	} else {
-		c.WriteString(`<p class="label">Fields</p>` + "\n")
+		c.WriteString(`<p class="label">` + title + `</p>` + "\n")
+	}
+	if lead != "" {
+		c.WriteString("<p>" + lead + "</p>\n")
 	}
 	c.WriteString(`<table class="fields"><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>` + "\n")
 	for _, f := range rows {
@@ -548,7 +596,10 @@ func (b *builder) fieldTable(c *strings.Builder, e *Entry, root string, heading 
 		}
 		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + `<code>` + esc(f.Title) + "</code></a></td>")
 		c.WriteString(`<td class="ftype"><code>` + esc(fi.Type) + `</code></td><td class="fdef">` + def + "</td>")
-		desc := b.markdown(root, f.ID, f.Body)
+		desc := ""
+		if strings.TrimSpace(f.Body) != "" {
+			desc = b.markdown(root, f.ID, f.Body)
+		}
 		if len(notes) > 0 {
 			desc += `<div class="fnotes">` + strings.Join(notes, " ") + "</div>"
 		}
@@ -566,7 +617,28 @@ func (b *builder) entryList(c *strings.Builder, ids []string, root string) {
 		}
 		c.WriteString("<li>" + b.ref(root, id, ke.Title))
 		if ke.Summary != "" {
-			c.WriteString(`<span class="summary">` + inlineMD(ke.Summary) + "</span>")
+			c.WriteString(` <span class="summary">` + inlineMD(ke.Summary) + "</span>")
+		}
+		c.WriteString("</li>\n")
+	}
+	c.WriteString("</ul>\n")
+}
+
+// eventList shows each script event as its name in code, a dash and its summary.
+func (b *builder) eventList(c *strings.Builder, ids []string, root string) {
+	c.WriteString(`<ul class="events">` + "\n")
+	for _, id := range ids {
+		ke, ok := b.byID[id]
+		if !ok {
+			continue
+		}
+		name := `<code>` + esc(ke.Title) + `</code>`
+		if u, ok := b.urls[id]; ok {
+			name = `<a class="xref" href="` + esc(root+u) + `">` + name + "</a>"
+		}
+		c.WriteString("<li>" + name)
+		if ke.Summary != "" {
+			c.WriteString(" — " + inlineMD(ke.Summary))
 		}
 		c.WriteString("</li>\n")
 	}
@@ -586,14 +658,28 @@ func (b *builder) section(c *strings.Builder, id, root string, depth int) {
 
 func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int) {
 	var pages []string
+	var members [2][]string
 	for _, k := range b.kids[e.ID] {
 		ke := b.byID[k]
 		switch {
 		case ke.Field != nil:
 		case b.own[k]:
 			pages = append(pages, k)
+		case e.Component != nil && ke.Kind == "method":
+			members[0] = append(members[0], k)
+		case e.Component != nil && ke.Kind == "signal":
+			members[1] = append(members[1], k)
 		default:
 			b.section(c, k, root, depth)
+		}
+	}
+	for i, title := range []string{"Methods", "Signals"} {
+		if len(members[i]) == 0 {
+			continue
+		}
+		c.WriteString(`<h2 id="` + esc(e.ID) + `-` + strings.ToLower(title) + `">` + title + "</h2>\n")
+		for _, k := range members[i] {
+			b.section(c, k, root, depth+1)
 		}
 	}
 	if len(pages) == 0 {
@@ -604,7 +690,7 @@ func (b *builder) children(c *strings.Builder, e *Entry, root string, depth int)
 		ke := b.byID[k]
 		c.WriteString(`<li><a href="` + esc(root+b.urls[k]) + `">` + b.icon(root, b.entryIcon(ke), "") + esc(ke.Title) + "</a>" + kindLabel(ke))
 		if ke.Summary != "" {
-			c.WriteString(`<span class="summary">` + inlineMD(ke.Summary) + "</span>")
+			c.WriteString(` <span class="summary">` + inlineMD(ke.Summary) + "</span>")
 		}
 		c.WriteString("</li>\n")
 	}
@@ -723,7 +809,7 @@ func (b *builder) content(e *Entry, root string) string {
 	if e.Component != nil && len(e.Component.Events) > 0 {
 		c.WriteString(`<h2 id="` + esc(e.ID) + `-events">Script events</h2>` + "\n")
 		c.WriteString("<p>Scripts on a node with this component receive these events from the " + esc(e.Component.Module) + " module.</p>\n")
-		b.entryList(&c, e.Component.Events, root)
+		b.eventList(&c, e.Component.Events, root)
 	}
 	if len(e.Related) > 0 {
 		c.WriteString(`<h2 id="` + esc(e.ID) + `-related">Related guides</h2>` + "\n")
@@ -996,6 +1082,7 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	data := layoutData{
 		AssetV:      b.assetV,
 		Background:  template.CSS(pageBackground()),
+		LightBack:   template.CSS(pageBackgroundLight()),
 		CSS:         template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
 		Root:        root,
 		Title:       title,

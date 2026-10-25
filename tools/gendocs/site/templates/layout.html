@@ -16,8 +16,8 @@
     <link rel="apple-touch-icon" href="{{.Root}}assets/apple-touch-icon.png?v={{.AssetV}}">
     <meta name="color-scheme" content="dark light">
     <meta name="darkreader-lock">
-    <script>try { const t = localStorage.getItem("aego.docs.theme"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}</script>
-    <style>html { color-scheme: dark light; background: {{.Background}}; } html[data-theme="light"] { color-scheme: light; background: #fbfaf8; } html[data-theme="dark"] { color-scheme: dark; } @media (prefers-color-scheme: light) { html:not([data-theme="dark"]) { background: #fbfaf8; } }</style>
+    <script>try { const t = localStorage.getItem("aego.docs.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (_) {}</script>
+    <style>html { color-scheme: dark light; background: {{.Background}}; } html[data-theme="light"] { color-scheme: light; background: {{.LightBack}}; } html[data-theme="dark"] { color-scheme: dark; } @media (prefers-color-scheme: light) { html:not([data-theme="dark"]) { background: {{.LightBack}}; } }</style>
     <link rel="preload" href="{{.Root}}assets/fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
     <style>{{.CSS}}</style>
 </head>
@@ -38,7 +38,7 @@
         {{if .Demo}}<a href="{{.Root}}demo/">Demo</a>{{end}}
         {{if .Repo}}<a class="repo" href="{{.Repo}}" title="Source code" aria-label="Source code"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
     </nav>
-    <button type="button" class="theme" aria-label="Switch theme" title="Switch theme"><svg class="sun" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="moon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M20.6 14.6A8.6 8.6 0 0 1 9.4 3.4a8.6 8.6 0 1 0 11.2 11.2Z"/></svg></button>
+    <button type="button" class="theme" data-mode="auto" aria-label="Theme: Auto" title="Theme: Auto"><svg class="sun" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="moon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M20.6 14.6A8.6 8.6 0 0 1 9.4 3.4a8.6 8.6 0 1 0 11.2 11.2Z"/></svg><svg class="auto" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M12 3.8a8.2 8.2 0 0 1 0 16.4Z"/></svg></button>
 </div>
 </header>
 <div class="shell">

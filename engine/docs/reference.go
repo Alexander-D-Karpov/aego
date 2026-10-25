@@ -3,6 +3,7 @@
 package docs
 
 import (
+	"aego/script/types"
 	"reflect"
 	"slices"
 	"sort"
@@ -24,7 +25,7 @@ const (
 	SectionsPrefix = "section/"
 	PlayerID       = SectionsPrefix + "player"
 	SettingPrefix  = "setting/"
-	maxRelated     = 8
+	maxRelated     = 3
 	maxChoices     = 8
 )
 
@@ -33,6 +34,9 @@ type FieldInfo struct {
 	Default string
 	Range   string
 	Notes   []string
+	// Index is the field's place in the schema, the Inspector order; Runtime fields only have values during Play (D347).
+	Index   int
+	Runtime bool
 }
 
 type ComponentInfo struct {
@@ -178,11 +182,8 @@ func fieldNotes(td *schema.TypeDescriptor, fd *schema.FieldDescriptor, component
 			out = append(out, "not in scripts")
 		}
 	}
-	if fd.Flags.Has(schema.FlagReadOnly) {
+	if fd.Flags.Has(schema.FlagReadOnly) && !fd.Hints.Runtime {
 		out = append(out, "read-only")
-	}
-	if fd.Hints.Runtime {
-		out = append(out, "during Play only")
 	}
 	if fd.Hints.Hidden {
 		out = append(out, "hidden in the Inspector")
@@ -217,9 +218,10 @@ func fieldNotes(td *schema.TypeDescriptor, fd *schema.FieldDescriptor, component
 
 func fieldInfo(td *schema.TypeDescriptor, fd *schema.FieldDescriptor, base unsafe.Pointer, component bool) *FieldInfo {
 	fi := &FieldInfo{
-		Type:  kindName(fd),
-		Range: rangeOf(fd.HasMin, fd.Min, fd.HasMax, fd.Max, fd.Hints.Unit),
-		Notes: fieldNotes(td, fd, component),
+		Type:    kindName(fd),
+		Range:   rangeOf(fd.HasMin, fd.Min, fd.HasMax, fd.Max, fd.Hints.Unit),
+		Notes:   fieldNotes(td, fd, component),
+		Runtime: fd.Hints.Runtime,
 	}
 	switch {
 	case base != nil && fd.Get != nil:
@@ -469,4 +471,21 @@ func (r *Registry) related() {
 		}
 		e.Related = rel
 	}
+}
+
+// displayType names a field's type as the reader knows it: enum, layer, layer mask or the script name of an asset kind (D347).
+func displayType(fd *schema.FieldDescriptor, t string) string {
+	switch {
+	case len(fd.Enum) > 0 || fd.Kind == schema.KindEnum:
+		return "enum"
+	case fd.Hints.Bitset.List == "layers":
+		return "layer mask"
+	case fd.Hints.Choices.List == "layers":
+		return "layer"
+	case fd.Kind == schema.KindAssetRef && fd.AssetKind != "":
+		if name, ok := types.AssetTypeName(fd.AssetKind); ok {
+			return name
+		}
+	}
+	return t
 }

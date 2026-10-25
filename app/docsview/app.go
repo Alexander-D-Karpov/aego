@@ -168,6 +168,18 @@ func New(opt Options) (*App, error) {
 	return a, a.initPanels()
 }
 
+// SetTheme switches the Try it view to the site's theme, "light" or "dark" (D345).
+func (a *App) SetTheme(name string) {
+	if a.ui == nil {
+		return
+	}
+	if name == "light" {
+		a.ui.Theme = theme.Light()
+		return
+	}
+	a.ui.Theme = theme.Editor()
+}
+
 func (a *App) initUI() {
 	r := a.renderer
 	ui := core.New(r.UIFont())

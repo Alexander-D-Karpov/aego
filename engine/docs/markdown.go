@@ -33,6 +33,7 @@ type record struct {
 	severity   string
 	body       string
 	line       int
+	styleAllow []string
 }
 
 func isFence(l string) bool {
@@ -169,6 +170,8 @@ func (r *record) set(key, val string) error {
 		r.severity, err = scalar(val)
 	case "icon":
 		r.icon, err = scalar(val)
+	case "style_allow":
+		r.styleAllow, err = list(val)
 	case "editor_only":
 		var v string
 		if v, err = scalar(val); err == nil {

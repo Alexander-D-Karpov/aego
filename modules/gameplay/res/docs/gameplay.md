@@ -52,7 +52,7 @@ title: Character motion
         m.JumpReleased()
     }
 
-`Move` stays until the next call; `Jump` is one request that the controller keeps for Jump Buffer seconds, so a jump pressed just before landing still happens.
+`Move` stays until the next call; `Jump` is one request that the controller keeps for Jump Buffer seconds, so a jump pressed shortly before landing still happens.
 
 | Mode | Behaviour |
 |---|---|
@@ -82,14 +82,11 @@ and give the controller a `Climb` state entered from `any` while `Climbing` is t
 
 ## Jumps
 
-| Field | Effect |
-|---|---|
-| Jump Height | height of a full jump; the jump speed follows from it and gravity |
-| Jump Speed | sets the speed directly instead |
-| Jump Cut Multiplier | `JumpReleased` while rising multiplies the upward speed by this |
-| Coyote Time | a jump still works this long after walking off a ledge |
-| Jump Buffer | a jump pressed in the air is kept this long until landing |
-| Air Control | share of Accel and Decel available in the air |
+Set **Jump Height** and the controller works out the jump speed from it and gravity; **Jump Speed** sets the speed directly instead. Releasing the button while rising cuts the jump short by **Jump Cut Multiplier**, so a tap gives a small hop.
+
+Two windows make jumping forgiving. **Coyote Time** lets a jump work for a moment after walking off a ledge. **Jump Buffer** keeps a jump pressed in the air until the character lands. **Air Control** decides how much of the ground acceleration is available in the air.
+
+Every field is listed on the [Motion 2D](ref:gameplay.Motion2D) page.
 
 ## Platforms and bodies
 
@@ -134,11 +131,7 @@ title: Hurtboxes
 
 A [Hurtbox 2D](ref:gameplay.Hurtbox2D) is an area in its node's space where hitboxes hurt a Health: the one in its Health field, or the nearest Health on the node or above it. Several hurtboxes can share one Health, so a character can have a head, a body and a shield on child nodes.
 
-| Field | Effect |
-|---|---|
-| Area, Shape | rectangle in the node's space; `circle` uses the circle inside it |
-| Multiplier | damage taken here is multiplied by this: 2 for a weak spot, 0.5 for armour |
-| Active | off ignores hits, for dodges and invulnerable frames of an animation |
+Each hurtbox has an area in its node's space, a rectangle or the circle inside it. **Multiplier** scales the damage taken there: 2 for a weak spot, 0.5 for armour. Turn **Active** off to ignore hits, for dodges and invulnerable frames of an animation.
 
 The dummy has a head hurtbox with Multiplier 2: jump and strike to hit it.
 
@@ -359,16 +352,37 @@ title: Editor tools
 ---
 # Editor tools
 
-- **Create → Gameplay** builds ready nodes: Platformer Character (kinematic body, collider, Motion 2D, Health, Hurtbox 2D, Respawn), Top-down Character, Enemy (dynamic body, Health on team 1, a periodic Hitbox 2D with knockback), Moving Platform, Checkpoint, Kill Zone and Pickup.
-- **Add Component** adds what a component requires: Motion 2D on an empty node brings a Rigid Body 2D, and one Undo removes both. The list shows what comes along, and `aego scene add-comp`, Paste and presets add it the same way. Adding Motion 2D to a node with a body makes the body kinematic.
+The editor builds ready gameplay nodes, draws hit areas and shows the state of controllers, health and state machines during Play.
 
-  ![Add Component on an empty node: the entry lists the Virtual Camera 2D that comes with Camera Follow 2D](shots/add-required.png)
+## Ready nodes
 
-- **Area handles.** Select a node with a hitbox, hurtbox, kill zone, checkpoint or pickup to drag the corners and edges of its area; snapping applies, every drag is one undo step. A hitbox also shows its knockback as an arrow.
-- **Gameplay → Gameplay Areas** shows every area dimmed in the Scene View; during Play the Game View draws active hurtboxes and hitboxes, the zones and a health bar over every node with Health.
-- **Inspector during Play.** The Runtime fields show the controller's velocity, grounded, wall and ceiling contact, the floor and the body under it; Motion 2D adds a contact summary, Health a bar with the hit points, State Machine the current state and how long it has lasted; Lifetime shows the seconds left.
-- **Profiler → Gameplay** shows controllers and casts per fixed step and the hits, deaths, respawns and pickups so far. The **Event Monitor** lists state changes, damage (with the amount up to 9), deaths, respawns and pickups as `gameplay` rows.
-- **Problems** lists a Motion 2D whose body is not kinematic ([GMP001](ref:GMP001), blocks Play), a platformer with Gravity Scale 0 and no Jump Speed ([GMP002](ref:GMP002)), a state machine with empty, duplicate or unknown states ([GMP005](ref:GMP005)) and a Hurtbox 2D with no Health on its node or above it ([GMP006](ref:GMP006), a warning: hits on it are ignored).
+**Create → Gameplay** builds ready nodes:
+
+- Platformer Character: kinematic body, collider, Motion 2D, Health, Hurtbox 2D and Respawn;
+- Top-down Character;
+- Enemy: dynamic body, Health on team 1 and a periodic Hitbox 2D with knockback;
+- Moving Platform, Checkpoint, Kill Zone and Pickup.
+
+## Required components
+
+**Add Component** adds what a component requires. Motion 2D on an empty node brings a Rigid Body 2D, and one Undo removes both. The list shows what comes along. `aego scene add-comp`, Paste and presets add it the same way. Adding Motion 2D to a node with a body makes the body kinematic.
+
+![Add Component on an empty node: the entry lists the Virtual Camera 2D that comes with Camera Follow 2D](shots/add-required.png)
+
+## Areas
+
+- Select a node with a hitbox, hurtbox, kill zone, checkpoint or pickup to drag the corners and edges of its area. Snapping applies, and every drag is one Undo step. A hitbox also shows its knockback as an arrow.
+- **Gameplay → Gameplay Areas** shows every area dimmed in the Scene View. During Play the Game View draws active hurtboxes and hitboxes, the zones and a health bar over every node with Health.
+
+## Inspector during Play
+
+The runtime state of the controller shows its velocity, whether it is grounded, wall and ceiling contact, the floor and the body under it. Motion 2D adds a contact summary, Health a bar with the hit points and State Machine the current state and how long it has lasted. Lifetime shows the seconds left.
+
+## Profiling and problems
+
+- **Profiler → Gameplay** shows controllers and casts per fixed step, and the hits, deaths, respawns and pickups so far.
+- The Event Monitor lists state changes, damage (with the amount up to 9), deaths, respawns and pickups as `gameplay` rows.
+- Problems lists a Motion 2D whose body is not kinematic ([GMP001](ref:GMP001), blocks Play), a platformer with Gravity Scale 0 and no Jump Speed ([GMP002](ref:GMP002)), a state machine with empty, duplicate or unknown states ([GMP005](ref:GMP005)) and a Hurtbox 2D with no Health on its node or above it ([GMP006](ref:GMP006); hits on it are ignored).
 
 ---
 id: gameplay/go
@@ -387,7 +401,7 @@ title: Go
     }
     st := gameplay.Of(world).Stats()
 
-The component types and their methods are the same as in scripts. `gameplay.Of(world)` returns the service of a play world; `Stats()` counts hits, deaths, respawns and pickups since Play started.
+The component types and their methods are the same as in scripts. `gameplay.Of(world)` returns the service of a play world; its `Stats` method counts hits, deaths, respawns and pickups since Play started.
 
 State machines call script hooks through the `script.call` contract (`contracts/scriptcall`): `Method(node, name, params)` finds a plain method of a script on a node, `Call` runs it, and a new `Generation` after a hot reload makes old references stale. The save section `gameplay.respawn` holds the respawn points marked Persist.
 

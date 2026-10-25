@@ -197,7 +197,7 @@ func (c *Controller) replayCall() bool {
 	return c.rcalls == c.rbrk
 }
 
-// replay runs the recorded frames up to to, keeping transient keys near the target for scrubbing (D359).
+// replay runs the recorded frames up to to, keeping transient keys near the target for scrubbing (D346).
 func (c *Controller) replay(to int) {
 	h, w := c.hist, c.world
 	brk := w.Break

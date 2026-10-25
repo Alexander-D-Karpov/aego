@@ -286,6 +286,16 @@ func Assignable(from, to *Type) bool {
 
 var assetKinds = map[string]string{"Texture": "texture", "Scene": "scene", "Prefab": "prefab", "Mesh": "mesh", "Clip": "audio", "AnimClip": "anim", "AnimController": "animctrl"}
 
+// AssetTypeName is the script name of an asset kind: "anim" is AnimClip.
+func AssetTypeName(kind string) (string, bool) {
+	for name, k := range assetKinds {
+		if k == kind {
+			return name, true
+		}
+	}
+	return "", false
+}
+
 func AssetKind(name string) (string, bool) {
 	k, ok := assetKinds[name]
 	return k, ok

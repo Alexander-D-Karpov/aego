@@ -132,7 +132,7 @@ const browser = await chromium.launch({
     headless: true,
     args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1, colorScheme: "dark" });
 page.on("pageerror", (e) => fail("page error: " + e.message));
 const call = (m, p = {}) => page.evaluate(([m, p]) => JSON.parse(globalThis.aegoDocs.call(m, JSON.stringify(p))), [m, p]);
 const cell = '.try .st-fields .v[data-k$="component:physics.BoxCollider2D/restitution"]';

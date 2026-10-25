@@ -86,7 +86,7 @@ const (
 	ThemeDark
 )
 
-// SystemThemer reports whether the OS asks for a light or a dark look (D358).
+// SystemThemer reports whether the OS asks for a light or a dark look (D345).
 type SystemThemer interface {
 	SystemTheme() SystemTheme
 }

@@ -55,7 +55,7 @@ func installScript(m *bind.Module) {
 		if s := scriptService(c); s != nil {
 			s.SetPen(c.Self, ch, ttl, false)
 		}
-	}, bind.Doc("Pen sets the channel and the lifetime of the next primitives this script draws: ttl 0 lasts one frame, a positive ttl lasts that many game seconds, a negative ttl lasts until Clear."),
+	}, bind.Doc("Pen sets the channel and the lifetime of the next primitives this script draws. A ttl of 0 lasts one frame, a positive ttl that many game seconds, a negative ttl until Clear."),
 		bind.Params("channel", "ttl"), bind.Example("debug.Pen(\"ai.path\", 2)"))
 	bind.Proc2(m, "PenUnscaled", func(c *bind.Ctx, ch string, ttl float32) {
 		if s := scriptService(c); s != nil {

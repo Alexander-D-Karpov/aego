@@ -1,4 +1,4 @@
-// Package prefs holds the editor preferences of the user, shared by every project and the launcher (D358).
+// Package prefs holds the editor preferences of the user, shared by every project and the launcher (D345).
 package prefs
 
 import (

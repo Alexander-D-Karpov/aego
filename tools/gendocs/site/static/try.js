@@ -18,6 +18,12 @@
         return JSON.parse(api.call(method, JSON.stringify(payload || {})));
     }
 
+    // The Try it view follows the site's theme switch (D345).
+    function syncTheme() {
+        if (api) call("theme", { theme: globalThis.aegoTheme || "dark" });
+    }
+    document.addEventListener("aego-theme", syncTheme);
+
     function status(b, text, error) {
         const s = b.querySelector(".try-status");
         s.textContent = text;
@@ -187,6 +193,7 @@
             api = await boot(p.update);
             p.box.remove();
             if (active !== b) return;
+            syncTheme();
             const res = call("load", { scene: b.dataset.scene, select: b.dataset.select || "", code: b.dataset.code || "", prefabs: b.dataset.prefabs ? JSON.parse(b.dataset.prefabs) : {} });
             if (res.error) throw new Error(res.error);
             show(b, res.text, res.values);

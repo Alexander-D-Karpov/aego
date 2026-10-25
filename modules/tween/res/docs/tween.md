@@ -51,30 +51,20 @@ title: Tweens in scripts
 ---
 # Tweens in scripts
 
-| Function | |
-|---|---|
-| `ToFloat(node, path, to float, duration, ease) Tween` | a float or int property, or one lane |
-| `ToVec2`, `ToVec3`, `ToColor`, `ToQuat(node, path, to, duration, ease) Tween` | vector, color and rotation properties |
-| `Position(node, to Vec2, duration, ease) Tween` | `transform.position` of a 2D node |
+A tween changes one property of a node from its current value to a target over a duration. Scripts start tweens with the functions of `aego/tween` and chain options on the result.
 
-`ease` is a preset from `aego/curve`: `curve.Linear`, `curve.OutQuad`, `curve.InOutSine`, `curve.OutBack`, `curve.OutBounce` and the rest of the `in`/`out`/`inOut` family of quad, cubic, sine, expo, back, elastic and bounce.
+```aes
+tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.5, curve.Linear).Delay(1).PingPong(-1)
+```
 
-Options are chained right after the call:
+- `ToFloat`, `ToVec2`, `ToVec3`, `ToColor` and `ToQuat` animate a property by its path. `Position` moves a 2D node.
+- The easing is a preset from `aego/curve`, such as `curve.OutQuad` or `curve.OutBack`. `Curve` uses a curve field instead.
+- Options such as `Delay`, `Loop`, `PingPong` and `Unscaled` go right after the call.
+- `Completed` is a signal that fires once when the tween ends.
 
-    tween.ToFloat(node, "SpriteRenderer.Tint.a", 0, 0.5, curve.Linear).Delay(1).PingPong(-1)
+Every function and option is listed on the [aego/tween](ref:aego/tween) page.
 
-| Method | |
-|---|---|
-| `Delay(s)` | wait before starting; the start value is read when the delay ends |
-| `Loop(n)` | play `n` times from the start, `-1` forever |
-| `PingPong(n)` | `n` legs, every second one backwards; `2` goes there and back |
-| `Unscaled()` | real time: runs while the game is paused and ignores the time scale |
-| `Curve(c)` | use a curve field instead of the easing, its time range stretched over the duration |
-| `Stop()` | end where it is; the property keeps its current value |
-| `Done() bool`, `Running() bool` | state; a `nil`, stopped or finished tween is done |
-| `Completed(finished bool)` | signal, once when the tween ends; `finished` is false after `Stop`, a replacement or a lost target |
-
-Rules:
+## Rules
 
 - When the last leg ends, the property gets exactly the end value: `to`, or the start after an even number of ping-pong legs.
 - A new tween on the same property of the same node stops the running one.
