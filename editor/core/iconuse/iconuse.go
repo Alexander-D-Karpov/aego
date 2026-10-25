@@ -125,7 +125,7 @@ var Editor = []module.IconUse{
 	use("panel.settings", 16, "Project Settings tab"),
 	use("panel.table", 16, "Table tab"),
 	use("panel.tasks", 16, "Task Center tab"),
-	use("panel.watch", 16, "Watch tab"),
+	use("panel.watch", 16, "Watch tab; Follow in the Agent panel"),
 	use("panel.welcome", 16, "Getting Started tab"),
 	use("anim.event", 16, "Animation panel: event lane"),
 	use("anim.graph", 16, "Create palette: Animation → Controller; Animator panel tab and Auto Layout"),

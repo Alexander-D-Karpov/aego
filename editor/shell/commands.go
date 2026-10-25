@@ -250,7 +250,17 @@ func (a *App) registerCommands() error {
 		}
 	}
 	if a.agentP != nil {
-		return reg.Register(command.Desc{ID: "agent.ask", Name: "Ask Agent…", Category: "Window", Run: func() error { a.agentP.Ask(""); return nil }})
+		if err := reg.Register(command.Desc{ID: "agent.ask", Name: "Ask Agent…", Category: "Window", Run: func() error { a.agentP.Ask(""); return nil }}); err != nil {
+			return err
+		}
+		return reg.Register(command.Desc{ID: "agent.follow", Name: "Follow the Agent", Category: "Window", Shortcut: command.Key(input.KeyF, command.ModPrimary|command.ModAlt),
+			Tip:     "The editor shows where the agent works: the document, the node, the field it changes",
+			Checked: func() bool { return a.follow.On() },
+			Run: func() error {
+				a.follow.SetOn(!a.follow.On())
+				a.followChanged(a.follow.On())
+				return nil
+			}})
 	}
 	return nil
 }

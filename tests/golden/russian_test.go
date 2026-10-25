@@ -57,8 +57,12 @@ func TestEditorRussianGoldens(t *testing.T) {
 		{"editor_hierarchy_prefab", func(t *testing.T) (*image.NRGBA, error) { return shotHierarchyPrefab(t, newEditorEnvSize(t, 320, 240)) }},
 		{"editor_problems", func(t *testing.T) (*image.NRGBA, error) { return shotProblems(t, newEditorEnvSize(t, 640, 200)) }},
 		{"editor_launcher", func(t *testing.T) (*image.NRGBA, error) { return shotLauncher(t, newEditorEnv(t)) }},
-		{"editor_agent_card", func(t *testing.T) (*image.NRGBA, error) { return shotAgent(t, newEditorEnvSize(t, 420, 520), cardHost()) }},
-		{"editor_agent_question", func(t *testing.T) (*image.NRGBA, error) { return shotAgent(t, newEditorEnvSize(t, 420, 520), questionHost()) }},
+		{"editor_agent_card", func(t *testing.T) (*image.NRGBA, error) {
+			return shotAgent(t, newEditorEnvSize(t, 420, 520), cardHost())
+		}},
+		{"editor_agent_question", func(t *testing.T) (*image.NRGBA, error) {
+			return shotAgent(t, newEditorEnvSize(t, 420, 520), questionHost())
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			russian(t)

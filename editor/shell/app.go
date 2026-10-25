@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"aego/editor/core/follow"
+	"aego/editor/core/presence"
 	"os"
 	"path"
 	"time"
@@ -208,6 +210,9 @@ type App struct {
 	lastFrame      time.Time
 	buildState     widgets.DotState
 	consolePanel   *console.Panel
+	presence       *presence.Model
+	agentSel       *selection.Service
+	follow         *follow.Service
 	inspectorPanel *inspector.Panel
 	problemsPanel  *eproblems.Panel
 	eventsPanel    *events.Panel
@@ -302,6 +307,7 @@ func (a *App) Init(e *engine.Engine) error {
 	r := a.opt.Renderer
 	ui := core.New(r.UIFont())
 	a.prefs, _ = prefs.Load(a.opt.PrefsDir)
+	a.setupFollow()
 	if m := os.Getenv("AEGO_EDITOR_THEME"); m != "" {
 		a.prefs.Theme = theme.ParseMode(m)
 	}
@@ -362,7 +368,8 @@ func (a *App) Init(e *engine.Engine) error {
 		Sections:    a.opt.Sections,
 	}
 	if a.opt.Agent != nil {
-		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink})
+		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink,
+			Follow: a.follow, Seconds: e.Platform().Now, FollowChanged: a.followChanged})
 	}
 	a.ctx.Problems = a.opt.Problems
 	if a.ctx.Problems == nil {
@@ -521,6 +528,8 @@ func (a *App) Init(e *engine.Engine) error {
 		Tools:     &a.ctx.Settings,
 		Prefabs:   a.prefabs,
 		Ask:       a.askHook(),
+		Presence:  a.presence,
+		AgentSel:  a.agentSel,
 	})
 	a.viewport = &services.Viewport{
 		UI:       ui,
@@ -549,6 +558,8 @@ func (a *App) Init(e *engine.Engine) error {
 		Pipeline:  a.opt.Pipeline,
 		Project:   p,
 		Templates: a.templates,
+		Presence:  a.presence,
+		AgentSel:  a.agentSel,
 	})
 	a.ctx.NewScene = a.createScene
 	a.ctx.NewPrefab = a.createPrefab
@@ -646,7 +657,11 @@ func (a *App) Init(e *engine.Engine) error {
 			a.watchPanel.Add(expr)
 			a.ws.Show(watch.ID)
 		},
-		Prefabs: a.prefabs,
+		Prefabs:       a.prefabs,
+		Presence:      a.presence,
+		AgentSel:      a.agentSel,
+		Defer:         a.follow.Defer,
+		StopFollowing: func() { a.follow.UserActive(e.Platform().Now()) },
 	})
 	a.docs = edocs.New(a.opt.Help, a.ctx, a.ctx)
 	a.docs.Run = a.opt.RunSnippet
@@ -852,6 +867,7 @@ func (a *App) openMainScene() {
 
 func (a *App) Event(ev platform.Event) {
 	a.lastInput = a.eng.Platform().Now()
+	a.userActive(ev)
 	switch ev.Kind {
 	case platform.EvKeyDown:
 		a.shiftTap(ev)

@@ -14,6 +14,9 @@ import (
 )
 
 type Panel struct {
+	markLen  int
+	markAt   float64
+	marked   bool
 	sink     *Sink
 	entries  []Entry
 	view     []int
@@ -44,6 +47,11 @@ func (p *Panel) Focus(search string) {
 	p.follow = false
 	p.selected = -1
 	p.showErr = true
+}
+
+// Mark lights the entries that come after now for a few seconds, for follow mode.
+func (p *Panel) Mark(now float64) {
+	p.markLen, p.markAt, p.marked, p.follow = len(p.entries), now, true, true
 }
 
 func (p *Panel) ID() string {
@@ -174,6 +182,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 			ui.Rect(row, th.SelectionDim)
 		case ui.Hot() == id:
 			ui.Rect(row, th.WidgetHot)
+		case p.marked && idx >= p.markLen && ui.Time-p.markAt < newTime:
+			col := th.Agent.Presence
+			col.A = 0.18 * float32(1-(ui.Time-p.markAt)/newTime)
+			ui.Rect(row, col)
 		}
 		tx := row.X + 4
 		if timeW > 0 {
@@ -210,3 +222,6 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		ui.PopClip()
 	}
 }
+
+// newTime is how long entries that came while following stay lit.
+const newTime = 3.0

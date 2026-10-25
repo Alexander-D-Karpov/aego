@@ -11,6 +11,7 @@ import (
 	"aego/editor/core/animedit"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/presence"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
 	animpanel "aego/editor/panels/animation"
@@ -62,7 +63,21 @@ func (s *Session) shots(dir string) error {
 			}
 			return selectNamed(ctx, "Player")
 		}},
+		{name: "agent-follow", frames: 60, setup: func(s *Session) error {
+			f := s.App.Follow()
+			f.SetOn(true)
+			now := s.Engine.Platform().Now()
+			f.Step("scene_set", `{"file":"scenes/main.aescene","node":"Player","path":"Motion2D.maxSpeed","value":"9"}`, now)
+			sc := ctx.Scene()
+			player := sc.ID(sc.Find(sc.Root(), "Player"))
+			s.App.Presence().Light(presence.Flash{Spot: presence.Spot{Doc: "scenes/main.aescene", Node: player, Type: "gameplay.Motion2D", Field: "maxSpeed"}, At: now})
+			ctx.Select()
+			return nil
+		}},
 		{name: "hitbox-gizmo", frames: 60, setup: func(s *Session) error {
+			s.App.Follow().SetOn(false)
+			s.App.Presence().Clear()
+			s.App.AgentSelection().Clear()
 			sc := ctx.Scene()
 			var span []ids.NodeID
 			for _, n := range []string{"EnemyLeft", "PatrolA1", "PatrolB1"} {

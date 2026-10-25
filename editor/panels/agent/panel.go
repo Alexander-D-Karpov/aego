@@ -10,6 +10,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/agentui"
 	"aego/editor/core/context"
+	"aego/editor/core/follow"
 	"aego/editor/core/services"
 	"aego/engine/i18n"
 	"aego/platform/input"
@@ -40,6 +41,11 @@ type Deps struct {
 	Open func(link string)
 	// Now is the clock of the turn separators; nil uses the wall clock.
 	Now func() time.Time
+	// Follow leads the editor after the agent; Seconds is its clock, the frame time (11b5b).
+	Follow  *follow.Service
+	Seconds func() float64
+	// FollowChanged saves the Follow button's state in the preferences.
+	FollowChanged func(on bool)
 }
 
 type avail struct {
@@ -86,6 +92,10 @@ type Panel struct {
 	fits     [4]fit
 	menu     core.ID
 	history  core.ID
+	timeline []dot
+	gap      float32
+	undoTo   int
+	undoMenu core.ID
 }
 
 // mention is an @ reference: the input shows Label, the message sends Full.
@@ -95,7 +105,7 @@ type mention struct {
 
 func New(d Deps) *Panel {
 	return &Panel{d: d, seen: map[int]bool{}, asked: map[int]bool{}, answered: map[int]agentui.State{}, logged: map[int]agentui.State{}, checked: make(chan avail, 1), stick: true,
-		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history")}
+		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history"), undoMenu: core.IDOf("agent.undoto")}
 }
 
 func (p *Panel) ID() string {
@@ -225,8 +235,12 @@ func (p *Panel) Tick() {
 	}
 	host := p.d.Host
 	p.events = host.Poll(p.events[:0])
+	now := p.now()
 	for _, e := range p.events {
 		p.event(e)
+		if e.Kind == agentui.EvToolStart && p.d.Follow != nil {
+			p.d.Follow.Step(e.Tool, e.Args, now)
+		}
 	}
 	p.cards = host.Cards(p.cards[:0])
 	for i := range p.cards {
@@ -244,6 +258,10 @@ func (p *Panel) Tick() {
 			p.record(agentui.Entry{Kind: "card", Card: c.ID, Text: summary(c), State: c.State.String()})
 			p.redraw(c.ID)
 		}
+	}
+	if p.d.Follow != nil {
+		p.d.Follow.Cards(p.cards, now)
+		p.d.Follow.Tick(now)
 	}
 	p.questions = host.Questions(p.questions[:0])
 	for i := range p.questions {
@@ -398,7 +416,12 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	bar := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight + th.Padding*2}
 	p.header(ui, bar)
-	inputH := th.RowHeight + 2*th.Padding
+	if p.showWhere() {
+		wr := mathx.Rect{X: r.X, Y: bar.Y + bar.H, W: r.W, H: th.RowHeight + 4}
+		p.where(ui, wr)
+		bar.H += wr.H
+	}
+	inputH := th.RowHeight + 2*th.Padding + 12
 	if len(p.picked) > 0 {
 		inputH += th.RowHeight + th.Spacing
 	}
@@ -407,7 +430,8 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	body := mathx.Rect{X: r.X, Y: top, W: max(0, r.W-th.ScrollbarW-2), H: max(0, r.Y+r.H-top-inputH-metaH)}
 	ui.Rect(mathx.Rect{X: r.X, Y: top - 1, W: r.W, H: 1}, th.Border)
 	p.transcript(ui, body, mathx.Rect{X: body.X + body.W + 2, Y: body.Y, W: th.ScrollbarW, H: body.H})
-	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding, W: max(0, r.W-2*th.Padding), H: inputH - th.Padding + metaH})
+	p.activity(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + 2, W: max(0, r.W-2*th.Padding), H: 10})
+	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding + 12, W: max(0, r.W-2*th.Padding), H: inputH - th.Padding - 12 + metaH})
 	p.drawMentions(ui)
 }
 
@@ -451,6 +475,20 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 		ui.OpenPopup(p.menu, mathx.Vec2{X: max(r.X, right-220), Y: r.Y + r.H})
 	}
 	right -= mw + 6
+	if f := p.d.Follow; f != nil {
+		fr := mathx.Rect{X: right - r.H, Y: r.Y, W: r.H, H: r.H}
+		if f.On() {
+			ui.RoundRect(fr, th.Radius.Button, th.ButtonActive)
+		}
+		tip := i18n.Tr("editor.agent.follow_tip", "Follow the agent: the editor shows where it works")
+		if widgets.IconButton(ui, ui.ID("follow"), fr, "panel.watch", tip) {
+			f.SetOn(!f.On())
+			if p.d.FollowChanged != nil {
+				p.d.FollowChanged(f.On())
+			}
+		}
+		right -= r.H + 6
+	}
 	auto := host.AutoApply()
 	alabel := i18n.Tr("editor.agent.auto_apply", "Auto-apply")
 	aw := ui.TextSize(alabel).X + 20
@@ -883,4 +921,17 @@ func (p *Panel) Expand() {
 		}
 		b.dirty()
 	}
+}
+
+// showWhere reports whether the row under the header shows: while following, or while the agent's marker shows.
+func (p *Panel) showWhere() bool {
+	f := p.d.Follow
+	if f == nil {
+		return false
+	}
+	if f.On() {
+		return true
+	}
+	_, _, ok := f.Model.Where(follow.Agent, p.now())
+	return ok
 }

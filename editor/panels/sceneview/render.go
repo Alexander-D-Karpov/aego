@@ -54,6 +54,7 @@ func (p *Panel) render() {
 	dbg.Space(debug.Overlay)
 	p.drawOverlays(wd.scene, dbg, th)
 	p.drawSelection(wd.scene, dbg, th)
+	p.drawAgent(wd.scene, dbg, th)
 	p.drawGizmos(wd.scene, dbg, th)
 	p.drawBox(dbg, th)
 	f.End()

@@ -1,6 +1,10 @@
 package sceneview
 
 import (
+	"aego/editor/core/follow"
+	"aego/editor/core/presence"
+	"aego/editor/core/selection"
+	wpresence "aego/ui/widgets/presence"
 	"math"
 	"path"
 	"strconv"
@@ -66,9 +70,14 @@ type Deps struct {
 	Templates *templates.Registry
 	// Dragging tells animation preview that the transform gizmo starts or ends a drag (D337).
 	Dragging func(on bool)
+	// Presence and AgentSel draw where the agent works: its marker, its selection and what it removed (11b5b).
+	Presence *presence.Model
+	AgentSel *selection.Service
 }
 
 type Panel struct {
+	glide      glide
+	agentNodes []ids.NodeID
 	pressAt    mathx.Vec2
 	moved      bool
 	d          Deps
@@ -340,8 +349,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	p.cur = p.worldFor(d)
 	p.gizmo.Mode = p.gizmoMode(p.d.Tools.Tool)
+	p.step(d, ui.Time)
 	p.refreshView(d)
 	ui.List().Texture(target.Region(), r, mathx.White)
+	p.agentMarker(d, r)
 	p.toolbar(d, r)
 	p.prefabBar(d, r)
 	p.isolationBar(d, r)
@@ -776,8 +787,18 @@ func (p *Panel) dragBox(d *document.SceneDocument) {
 
 func (p *Panel) frame(nodes []ids.NodeID) {
 	d := p.d.Docs.Doc()
-	if d == nil || p.rect.W <= 0 || p.rect.H <= 0 {
+	if d == nil {
 		return
+	}
+	if pos, zoom, ok := p.frameOf(d, nodes); ok {
+		d.View.Camera.Position, d.View.Camera.Zoom = pos, zoom
+	}
+}
+
+// frameOf is where the camera looks and how far it zooms to show the nodes, or the whole scene for none.
+func (p *Panel) frameOf(d *document.SceneDocument, nodes []ids.NodeID) (mathx.Vec2, float32, bool) {
+	if p.rect.W <= 0 || p.rect.H <= 0 {
+		return mathx.Vec2{}, 0, false
 	}
 	s := d.Scene()
 	s.UpdateTransforms()
@@ -805,13 +826,11 @@ func (p *Panel) frame(nodes []ids.NodeID) {
 		box = box.Union(b)
 	}
 	if !has {
-		return
+		return mathx.Vec2{}, 0, false
 	}
-	cam := &d.View.Camera
-	cam.Position = box.Center()
 	size := box.Size()
 	size.X, size.Y = max(size.X, 1), max(size.Y, 1)
-	cam.Zoom = mathx.Clamp(min(p.rect.W/(size.X*1.4), p.rect.H/(size.Y*1.4)), 1, 4096)
+	return box.Center(), mathx.Clamp(min(p.rect.W/(size.X*1.4), p.rect.H/(size.Y*1.4)), 1, 4096), true
 }
 
 func snapVec(v mathx.Vec2, step float32) mathx.Vec2 {
@@ -899,6 +918,135 @@ func (p *Panel) FrameAll() {
 		return
 	}
 	p.frame(nil)
+}
+
+// glide moves the camera to a target over a few frames, so following the agent does not jump.
+type glide struct {
+	on   bool
+	doc  document.ID
+	pos  mathx.Vec2
+	zoom float32
+	last float64
+}
+
+// FrameNodes frames the nodes smoothly; in 3D it frames them at once.
+func (p *Panel) FrameNodes(nodes []ids.NodeID) {
+	d := p.d.Docs.Doc()
+	if d == nil {
+		return
+	}
+	if p.viewMode == Mode3D {
+		p.frame(nodes)
+		return
+	}
+	pos, zoom, ok := p.frameOf(d, nodes)
+	if !ok {
+		return
+	}
+	zoom = min(zoom, max(d.View.Camera.Zoom, 16))
+	p.glide = glide{on: true, doc: d.ID, pos: pos, zoom: zoom}
+}
+
+// step moves the camera a part of the way to the glide target each frame.
+func (p *Panel) step(d *document.SceneDocument, now float64) {
+	g := &p.glide
+	if !g.on || g.doc != d.ID {
+		g.on = false
+		return
+	}
+	dt := now - g.last
+	if g.last == 0 || dt <= 0 || dt > 0.1 {
+		dt = 1.0 / 60
+	}
+	g.last = now
+	k := float32(1 - math.Exp(-dt*9))
+	cam := &d.View.Camera
+	cam.Position = cam.Position.Lerp(g.pos, k)
+	cam.Zoom += (g.zoom - cam.Zoom) * k
+	if cam.Position.Sub(g.pos).Len()*cam.Zoom < 0.5 && mathx.Abs(cam.Zoom-g.zoom) < 0.01 {
+		cam.Position, cam.Zoom, g.on = g.pos, g.zoom, false
+	}
+}
+
+// agentMarker draws the agent's avatar above the node it works on, in UI space over the view.
+func (p *Panel) agentMarker(d *document.SceneDocument, r mathx.Rect) {
+	m := p.d.Presence
+	if m == nil || p.viewMode == Mode3D || p.cur == nil || p.cur.scene == nil {
+		return
+	}
+	sp, at, ok := m.Where(follow.Agent, p.f.Now)
+	if !ok || sp.Doc != d.Path || sp.Node.IsZero() {
+		return
+	}
+	s := p.cur.scene
+	h := s.Handle(sp.Node)
+	if h.IsZero() || !s.IsAlive(h) {
+		return
+	}
+	b, _ := Bounds(s, p.shapes(), h)
+	top := p.ScreenAt(mathx.Vec2{X: b.Center().X, Y: b.Max.Y})
+	if bot := p.ScreenAt(mathx.Vec2{X: b.Center().X, Y: b.Min.Y}); bot.Y < top.Y {
+		top = bot
+	}
+	ui := p.ui()
+	ui.PushClip(r)
+	wpresence.Marker(ui, mathx.Rect{X: top.X - 9, Y: top.Y - 24, W: 18, H: 18}, p.f.Now-at)
+	ui.PopClip()
+}
+
+// drawAgent outlines the agent's selection and fades the boxes of nodes it removed.
+func (p *Panel) drawAgent(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
+	doc := p.d.Docs.Doc()
+	if doc == nil {
+		return
+	}
+	if p.d.AgentSel != nil {
+		sh := p.shapes()
+		p.agentNodes = p.d.AgentSel.Nodes(doc.ID, p.agentNodes[:0])
+		for _, id := range p.agentNodes {
+			h := s.Handle(id)
+			if h.IsZero() || !s.IsAlive(h) {
+				continue
+			}
+			if q, ok := Quad(s, sh, h); ok {
+				pad := p.space.PxToWorld(3)
+				c := q[0].Add(q[2]).Scale(0.5)
+				for i := 0; i < 4; i++ {
+					a := q[i].Add(q[i].Sub(c).Normalized().Scale(pad))
+					b := q[(i+1)%4].Add(q[(i+1)%4].Sub(c).Normalized().Scale(pad))
+					dbg.Line(a, b, th.Agent.Presence)
+				}
+			}
+		}
+	}
+	if m := p.d.Presence; m != nil {
+		m.Ghosts(doc.Path, p.f.Now, func(f *presence.Flash, a float32) {
+			col := th.Agent.DiffRemove
+			col.A *= a
+			g := f.Ghost
+			c := [4]mathx.Vec2{{X: g.X, Y: g.Y}, {X: g.X + g.W, Y: g.Y}, {X: g.X + g.W, Y: g.Y + g.H}, {X: g.X, Y: g.Y + g.H}}
+			for i := 0; i < 4; i++ {
+				dbg.Line(c[i], c[(i+1)%4], col)
+			}
+			dbg.Line(c[0], c[2], col)
+			dbg.Line(c[1], c[3], col)
+		})
+	}
+}
+
+// NodeBounds is a node's world box in the open scene, for follow mode to fade it where it was.
+func (p *Panel) NodeBounds(node ids.NodeID) (mathx.Rect, bool) {
+	d := p.d.Docs.Doc()
+	if d == nil {
+		return mathx.Rect{}, false
+	}
+	s := d.Scene()
+	h := s.Handle(node)
+	if h.IsZero() || !s.IsAlive(h) {
+		return mathx.Rect{}, false
+	}
+	b, _ := Bounds(s, p.shapes(), h)
+	return mathx.Rect{X: b.Min.X, Y: b.Min.Y, W: b.Max.X - b.Min.X, H: b.Max.Y - b.Min.Y}, true
 }
 
 func (p *Panel) drawSelection(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {

@@ -1,6 +1,8 @@
 package inspector
 
 import (
+	"aego/editor/core/presence"
+	wpresence "aego/ui/widgets/presence"
 	"strconv"
 
 	"aego/core/curve"
@@ -172,7 +174,14 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 		e = p.value(d, fd, &v, mixed, p.labelOf(td, fd), tip, ro)
 		row = mathx.Rect{X: cur.X, Y: rowTop, W: cur.W, H: max(0, cur.Y-rowTop)}
 	}
+	editing := false
+	if m := p.d.Presence; m != nil && len(p.nodes) == 1 {
+		wpresence.Light(ui, row, m.FieldLight(d.Path, p.nodes[0], td.FullName, fd.Name, p.f.Now))
+		editing = m.Editing(d.Path, p.nodes[0], td.FullName, fd.Name)
+	}
 	switch {
+	case editing:
+		ui.Rect(mathx.Rect{X: row.X - 5, Y: row.Y + 1, W: 2, H: max(row.H-2, 2)}, ui.Theme.Agent.Presence)
 	case driven:
 		ui.Rect(mathx.Rect{X: row.X - 5, Y: row.Y + 1, W: 2, H: max(row.H-2, 2)}, ui.Theme.Warn)
 	case p.overridden(td, fd):
@@ -204,9 +213,21 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 		return
 	}
 	t, f, val := td.ID, fd.ID, v
-	p.apply(e, i18n.Tr("editor.history.set", "Set {name}", i18n.Str("name", props.Label(fd))), func(tx *history.Transaction) error {
+	label := i18n.Tr("editor.history.set", "Set {name}", i18n.Str("name", props.Label(fd)))
+	p.apply(e, label, func(tx *history.Transaction) error {
 		return d.Props.Set(tx, p.nodes, t, f, val)
 	})
+	if editing && e.End && p.d.Defer != nil {
+		nodes := append([]ids.NodeID(nil), p.nodes...)
+		p.d.Defer(presence.Spot{Doc: d.Path, Node: nodes[0], Type: td.FullName, Field: fd.Name}, func() {
+			tx := d.History.Begin(label)
+			if err := d.Props.Set(tx, nodes, t, f, val); err != nil {
+				tx.Abort()
+				return
+			}
+			tx.Commit()
+		})
+	}
 }
 
 func (p *Panel) scalarIn(d *document.SceneDocument, fd *schema.FieldDescriptor, v *schema.Value, mixed bool, label, tip string, ro bool, lr, r mathx.Rect) widgets.Edit {

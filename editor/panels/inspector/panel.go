@@ -1,8 +1,11 @@
 package inspector
 
 import (
+	"aego/editor/core/presence"
+	"aego/editor/core/selection"
 	"aego/editor/ext/inspect"
 	"aego/engine/i18n"
+	wpresence "aego/ui/widgets/presence"
 	"fmt"
 	"strconv"
 	"strings"
@@ -56,6 +59,13 @@ type Deps struct {
 	AssetView func(ids.AssetID) bool
 	Audition  func(id ids.AssetID, toggle bool) (playing, ok bool)
 	Driven    func(d *document.SceneDocument, node ids.NodeID, t schema.TypeID, f schema.FieldID) bool
+	// Presence and AgentSel show the agent's node while following, with its changes lit (11b5b).
+	Presence *presence.Model
+	AgentSel *selection.Service
+	// Defer makes the user's edit of a field a waiting card also changes again after the card.
+	Defer func(sp presence.Spot, run func())
+	// StopFollowing pauses follow mode when the user asks for their own selection back.
+	StopFollowing func()
 	// AddComponent opens the palette for the nodes under at, with a query for the screenshots.
 	AddComponent func(nodes []ids.NodeID, at *mathx.Vec2, query string)
 }
@@ -76,6 +86,8 @@ type Panel struct {
 	locked       bool
 	lockDoc      document.ID
 	lockNodes    []ids.NodeID
+	agentView    bool
+	agentNodes   []ids.NodeID
 	collapsed    map[core.ID]bool
 	scroll       float32
 	content      float32
@@ -189,6 +201,12 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if p.locked {
 		src = p.lockNodes
 	}
+	p.agentView = false
+	if m := p.d.Presence; m != nil && m.Following && p.d.AgentSel != nil && !p.locked {
+		if nodes := p.d.AgentSel.Nodes(d.ID, p.agentNodes[:0]); len(nodes) > 0 {
+			src, p.agentView, p.agentNodes = nodes, true, nodes
+		}
+	}
 	for _, id := range src {
 		if h := s.Handle(id); !h.IsZero() && s.IsAlive(h) {
 			p.nodes = append(p.nodes, id)
@@ -203,6 +221,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		}
 	}
 	r = p.lockBar(d, r)
+	if p.agentView {
+		r = p.agentBar(r)
+	}
 	if len(p.nodes) == 0 {
 		widgets.LabelDim(ui, i18n.Tr("editor.inspector.nothing_selected", "Nothing selected"))
 		return
@@ -609,6 +630,38 @@ func (p *Panel) components(d *document.SceneDocument) {
 	}
 }
 
+// agentBar says the Inspector shows the agent's node while following, with a way back to the user's own selection.
+func (p *Panel) agentBar(r mathx.Rect) mathx.Rect {
+	ui := p.f.UI
+	th := &ui.Theme
+	bar := ui.Cursor().Next(0)
+	col := th.Agent.Presence
+	col.A = 0.16
+	ui.RoundRect(bar, th.Radius.Button, col)
+	wpresence.Marker(ui, mathx.Rect{X: bar.X + 4, Y: bar.Y + (bar.H-14)/2, W: 14, H: 14}, 0)
+	label := i18n.Tr("editor.inspector.show_mine", "Show My Selection")
+	bw := ui.TextSize(label).X + 20
+	ui.Text(widgets.Elide(ui, i18n.Tr("editor.inspector.following_agent", "Following the agent"), bar.W-bw-30), mathx.Vec2{X: bar.X + 24, Y: ui.TextY(bar)}, th.Text)
+	if widgets.ButtonRect(ui, ui.ID("mine"), mathx.Rect{X: bar.X + bar.W - bw, Y: bar.Y, W: bw, H: bar.H}, label) && p.d.StopFollowing != nil {
+		p.d.StopFollowing()
+	}
+	return r
+}
+
+// agentEditing reports whether a waiting card of the agent changes a field of this component on the node.
+func (p *Panel) agentEditing(d *document.SceneDocument, td *schema.TypeDescriptor) bool {
+	m := p.d.Presence
+	if m == nil || len(p.nodes) != 1 {
+		return false
+	}
+	for i := range td.Fields {
+		if m.Editing(d.Path, p.nodes[0], td.FullName, td.Fields[i].Name) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 	ui := p.f.UI
 	td, ok := d.Scene().Registry().ByID(t)
@@ -628,6 +681,14 @@ func (p *Panel) component(d *document.SceneDocument, t schema.TypeID) {
 	}
 	c := p.beginCard(td.FullName, meta.DisplayName, badge, meta.Icon, "", true)
 	c.typ = t
+	if m := p.d.Presence; m != nil && len(p.nodes) == 1 {
+		wpresence.Light(ui, c.hdr, m.NodeLight(d.Path, p.nodes[0], td.FullName, p.f.Now))
+	}
+	if p.agentEditing(d, td) {
+		wr := ui.Cursor().Next(0)
+		wpresence.Marker(ui, mathx.Rect{X: wr.X, Y: wr.Y + (wr.H-14)/2, W: 14, H: 14}, 0)
+		ui.Text(widgets.Elide(ui, i18n.Tr("editor.inspector.agent_editing", "Agent is editing this; your change will be applied after"), wr.W-20), mathx.Vec2{X: wr.X + 20, Y: ui.TextY(wr)}, ui.Theme.Warn)
+	}
 	if ui.Hot() == c.hid && ui.KeyPressed(input.KeyF1) {
 		p.d.Nav.Open(context.DocsAt(td.FullName, meta.DisplayName))
 	}

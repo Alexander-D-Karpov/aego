@@ -32,6 +32,7 @@ func (a *App) attachCode() {
 		Now:       e.Platform().Now,
 		Submit:    func(fn func()) { e.Jobs().Submit(fn) },
 		OnMain:    func(fn func()) { e.Jobs().OnMain(fn) },
+		Presence:  a.presence,
 	}, a.ws)
 	a.ctx.OpenScript = a.opt.Code.Open
 }

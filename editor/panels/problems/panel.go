@@ -26,6 +26,8 @@ type row struct {
 }
 
 type Panel struct {
+	known     map[string]bool
+	markAt    float64
 	src       services.Problems
 	nav       services.Navigation
 	showErr   bool
@@ -61,6 +63,18 @@ func (p *Panel) Focus(filter string) {
 	p.filter = filter
 	p.scroll = 0
 }
+
+// Mark lights the problems that appear after now for a few seconds, for follow mode.
+func (p *Panel) Mark(now float64) {
+	p.known = make(map[string]bool, len(p.list))
+	for i := range p.list {
+		p.known[key(&p.list[i])] = true
+	}
+	p.markAt = now
+}
+
+// newTime is how long problems that appeared while following stay lit.
+const newTime = 3.0
 
 func key(pr *context.ScriptProblem) string {
 	return pr.Category + ":" + pr.Path + ":" + strconv.Itoa(pr.Line) + ":" + strconv.Itoa(pr.Col) + ":" + pr.Node.String() + ":" + pr.Code
@@ -264,6 +278,10 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		ui.Rect(rr, th.SelectionDim)
 	case ui.Hot() == id:
 		ui.Rect(rr, th.WidgetHot)
+	case p.known != nil && !p.known[k] && ui.Time-p.markAt < newTime:
+		hl := th.Agent.Presence
+		hl.A = 0.18 * float32(1-(ui.Time-p.markAt)/newTime)
+		ui.Rect(rr, hl)
 	}
 	icon, col := "log.warn", th.Warn
 	if pr.Error {

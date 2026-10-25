@@ -1,6 +1,7 @@
 package scripteditor
 
 import (
+	"aego/editor/core/presence"
 	"strconv"
 	"strings"
 
@@ -68,6 +69,8 @@ type Deps struct {
 	Now       func() float64
 	Submit    func(func())
 	OnMain    func(func())
+	// Presence marks the lines the agent changed or will change (11b5b).
+	Presence *presence.Model
 }
 
 type autosaveMark struct {
@@ -283,6 +286,29 @@ func (h *Host) goTo(l context.Location, record bool) {
 		p.flashLine, p.flashAt = c.Line(c.Cursor()), h.d.Now()
 	}
 	h.active = p
+}
+
+// Follow shows a script at a line for follow mode: it scrolls there without moving the caret or taking the keyboard.
+func (h *Host) Follow(rel string, line int) {
+	if h.dock == nil {
+		return
+	}
+	d, err := h.document(rel)
+	if err != nil {
+		return
+	}
+	p := h.show(d)
+	p.followLine = max(line, 1)
+	h.active = p
+}
+
+// Text is an open script's text, for follow mode to find where an edit goes.
+func (h *Host) Text(rel string) (string, bool) {
+	d := h.docs().Script(rel)
+	if d == nil {
+		return "", false
+	}
+	return string(d.Code.Bytes()), true
 }
 
 func (h *Host) byID(id string) *Panel {

@@ -299,6 +299,25 @@ Every change the agent wants becomes a card, grouped by node: new nodes and comp
 
 The agent is asked to send the edits of one scene together, so a new node with its components and fields is one card.
 
+## Following the agent
+
+The eye button in the header, **Window → Follow the Agent** or `Ctrl+Alt+F` turns following on. While it is on, the editor shows each step where it happens:
+
+![Following the agent: its marker on Player in the Hierarchy and the Scene View, its own selection outline, and the Inspector at Motion 2D](shots/agent-follow.png)
+
+- A scene step opens the scene, selects the node with an outline of its own in the agent's colour, frames it in the Scene View and shows it in the Inspector at the component. Your own selection stays as it was, and **Delete** and **Copy** still act on it.
+- A changed field lights up for two seconds, a new node or component lights whole, and a removed node fades where it was.
+- A script step opens the script at its line. The lines a waiting card would change show their new text as ghost lines; once applied, they stay marked in the gutter for a while.
+- A run or a check brings Problems or the Console forward, with the new entries lit.
+
+The agent's avatar marks where it works: on the node in the Hierarchy, over it in the Scene View, on the component in the Inspector and on the lines in the code editor. The row under the header says where it is; a click goes there.
+
+Any click, key or scroll of yours outside the Agent panel pauses following, so the editor never moves under your hands. **Resume Following** goes on at once; after 30 seconds without input it goes on by itself.
+
+When you edit a field the agent is about to change, the Inspector says so, and your change is made again after the agent's, as its own Undo step.
+
+The dots above the message field are the steps of the session, coloured by what they did. Point at one for what it changed, click it to go there, and right-click a change for **Undo to Here**.
+
 ## Scripts
 
 The agent reads scripts and changes them with cards too. An open script changes in its buffer, as one Undo step of the code editor, and is saved like your own edits; a closed one changes on disk. A new script is a card as well, and **Undo** on it removes the file.
@@ -308,7 +327,7 @@ The agent reads scripts and changes them with cards too. An open script changes 
 Each applied change is one Undo step of the scene you edit, named `Agent: …`. A change to a project setting, such as gravity, is a step too, and Undo puts the old setting back.
 
 - **Undo** on a card works while its step is still the last one. After other edits, use **Edit → Undo** or the Undo History.
-- Changes made during Play go to the edited scene, not to the running game.
+- Changes made during Play go to the running game, like your own edits in Play: the agent's changes show in **Play changes** when you stop, where you keep or drop them.
 
 ## Sessions
 

@@ -16,7 +16,9 @@ import (
 	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/prefabs"
+	"aego/editor/core/presence"
 	"aego/editor/core/props"
+	"aego/editor/core/selection"
 	"aego/editor/core/services"
 	"aego/editor/core/templates"
 	"aego/editor/core/workspace"
@@ -25,6 +27,7 @@ import (
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/widgets"
+	wpresence "aego/ui/widgets/presence"
 )
 
 const (
@@ -53,6 +56,9 @@ type Deps struct {
 	Tools     *context.SceneSettings
 	// Ask prefills the Agent panel; nil hides Ask Agent.
 	Ask func(prompt string)
+	// Presence and AgentSel show where the agent works: its marker and its own selection outline (11b5b).
+	Presence *presence.Model
+	AgentSel *selection.Service
 }
 
 type Panel struct {
@@ -339,6 +345,9 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 	}
 	icon, empty := props.NodeIconOf(s, rw.h)
 	id := rowID(rw.id)
+	if m := p.d.Presence; m != nil {
+		wpresence.Light(ui, rr, m.NodeLight(d.Path, rw.id, "", f.Now))
+	}
 	ev := widgets.TreeRowRect(ui, id, rr, widgets.TreeRow{
 		Depth:       rw.depth,
 		Label:       label,
@@ -357,6 +366,7 @@ func (p *Panel) drawRow(f *services.Frame, d *document.SceneDocument, i int, rr 
 		widgets.Tooltip(ui, id, tip)
 	}
 	p.decorate(f, d, rw, rr)
+	p.agentMark(f, d, rw, rr)
 	if ev.Toggled {
 		d.View.Expanded[rw.id] = !d.View.Expanded[rw.id]
 	}
@@ -414,6 +424,30 @@ func (p *Panel) decorate(f *services.Frame, d *document.SceneDocument, rw row, r
 	}
 	sz := rr.H - 6
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + rr.W - sz - 4, Y: rr.Y + 3, W: sz, H: sz}, icon, col)
+}
+
+// agentMark draws the agent's outline around a node it selected, its marker on the node it works on and the light of a node it added.
+func (p *Panel) agentMark(f *services.Frame, d *document.SceneDocument, rw row, rr mathx.Rect) {
+	ui := f.UI
+	if m := p.d.Presence; m != nil {
+		if age, ok := m.At(d.Path, rw.id, f.Now); ok {
+			sz := rr.H - 6
+			x := rr.X + rr.W - sz - 4
+			if p.d.Prefabs != nil && p.d.Prefabs.Row(d, rw.id).Status != prefabs.StatusNone {
+				x -= sz + 4
+			}
+			wpresence.Marker(ui, mathx.Rect{X: x, Y: rr.Y + 3, W: sz, H: sz}, age)
+		}
+	}
+	if s := p.d.AgentSel; s != nil && s.Contains(selection.Item{Doc: d.ID, Node: rw.id}) {
+		wpresence.Outline(ui, rr)
+	}
+}
+
+// Reveal opens the parents of a node and scrolls to it, for follow mode.
+func (p *Panel) Reveal(d *document.SceneDocument, id ids.NodeID) {
+	p.expandTo(d, id)
+	p.reveal = id
 }
 
 func (p *Panel) prefabItems(f *services.Frame, d *document.SceneDocument) {

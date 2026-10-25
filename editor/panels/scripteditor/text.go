@@ -1,6 +1,7 @@
 package scripteditor
 
 import (
+	"aego/editor/core/presence"
 	"strconv"
 	"unicode/utf8"
 
@@ -604,7 +605,12 @@ func (p *Panel) drawText(ui *core.Context, area mathx.Rect) {
 		p.revealCaret(font, area, txt)
 		p.reveal = false
 	}
+	if p.followLine > 0 {
+		p.scrollY = float32(p.followLine-1)*lh - area.H/3
+		p.followLine = 0
+	}
 	p.scrollY = mathx.Clamp(p.scrollY, 0, max(0, float32(count)*lh-area.H+lh))
+	p.collectAgent(ui.Time)
 	p.scrollX = max(0, p.scrollX)
 	p.occurrences(ui.Time)
 	p.brackets()
@@ -688,6 +694,19 @@ func (p *Panel) drawText(ui *core.Context, area mathx.Rect) {
 			nc = ct.LineNoActive
 		}
 		ui.Text(num, mathx.Vec2{X: numEnd - ui.TextSize(num).X, Y: ty}, nc)
+		for i := range p.agentMarks {
+			if am := &p.agentMarks[i]; l >= am.from-1 && l <= am.to-1 {
+				col := th.Agent.Presence
+				col.A *= am.a
+				if am.pending {
+					col = th.Agent.DiffRemove
+					tint := col
+					tint.A = 0.12
+					ui.Rect(mathx.Rect{X: txt.X, Y: y, W: txt.W, H: lh}, tint)
+				}
+				ui.Rect(mathx.Rect{X: area.X + gw - 4, Y: y, W: 3, H: lh}, col)
+			}
+		}
 		if sev, ok := p.marks[l]; ok {
 			col := th.Error
 			if sev == diag.Warning {
@@ -696,6 +715,7 @@ func (p *Panel) drawText(ui *core.Context, area mathx.Rect) {
 			ui.Rect(mathx.Rect{X: area.X + max(0, (markerW-3)/2), Y: y + 3, W: 3, H: lh - 6}, col)
 		}
 	}
+	p.drawGhosts(ui, font, txt, x0, lh)
 	if mw > 0 {
 		p.mini.update(p, th)
 		p.mini.draw(p, ui, mathx.Rect{X: area.X + area.W - mw, Y: area.Y, W: mw, H: area.H}, first)
@@ -777,4 +797,52 @@ func (p *Panel) deletePair(c *code.Doc) bool {
 		return true
 	}
 	return false
+}
+
+// agentMark is a run of lines the agent changed, fading, or a waiting card's lines with the text it would put there.
+type agentMark struct {
+	from, to int
+	a        float32
+	pending  bool
+	ghost    []string
+}
+
+func (p *Panel) collectAgent(now float64) {
+	p.agentMarks = p.agentMarks[:0]
+	m := p.host.d.Presence
+	if m == nil {
+		return
+	}
+	m.LinesOf(p.doc.Path, now, func(l *presence.Lines, a float32) {
+		p.agentMarks = append(p.agentMarks, agentMark{from: l.From, to: l.To, a: a, pending: l.Pending != nil, ghost: l.Pending})
+	})
+}
+
+// drawGhosts draws the text a waiting card would put in, as ghost lines under the lines it replaces.
+func (p *Panel) drawGhosts(ui *core.Context, font *text.Font, txt mathx.Rect, x0, lh float32) {
+	th := &ui.Theme
+	for i := range p.agentMarks {
+		am := &p.agentMarks[i]
+		if !am.pending || len(am.ghost) == 0 {
+			continue
+		}
+		y := txt.Y + float32(am.to)*lh - p.scrollY
+		box := mathx.Rect{X: txt.X, Y: y, W: txt.W, H: float32(len(am.ghost))*lh + 4}
+		if box.Y > txt.Y+txt.H || box.Y+box.H < txt.Y {
+			continue
+		}
+		ui.PushClip(txt)
+		ui.Rect(box, th.Code.Background)
+		add := th.Agent.DiffAdd
+		add.A = 0.12
+		ui.Rect(box, add)
+		ui.List().RectOutline(box, th.Agent.Presence, 1)
+		gy := y + 2
+		for _, l := range am.ghost {
+			ui.Text("+", mathx.Vec2{X: txt.X + 4, Y: gy + (lh-ui.LineHeight())/2}, th.Agent.DiffAdd)
+			ui.Text(l, mathx.Vec2{X: x0, Y: gy + (lh-ui.LineHeight())/2}, th.TextDim)
+			gy += lh
+		}
+		ui.PopClip()
+	}
 }

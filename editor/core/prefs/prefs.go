@@ -21,10 +21,13 @@ type Prefs struct {
 	Theme theme.Mode
 	// Language is auto, en or ru; auto follows the OS (D348).
 	Language string
+	// AgentFollow is the Follow button of the Agent panel; AgentResume is how many idle seconds resume following, 0 never (11b5b).
+	AgentFollow bool
+	AgentResume float64
 }
 
 func Default() *Prefs {
-	return &Prefs{Theme: theme.ModeSystem, Language: i18n.Auto}
+	return &Prefs{Theme: theme.ModeSystem, Language: i18n.Auto, AgentResume: 30}
 }
 
 func Load(dir string) (*Prefs, error) {
@@ -59,6 +62,17 @@ func Load(dir string) (*Prefs, error) {
 			p.Language = name
 		}
 	}
+	if v, ok := doc.Field("agentFollow"); ok {
+		p.AgentFollow = v.Bool
+	}
+	if v, ok := doc.Field("agentResume"); ok {
+		switch v.Kind {
+		case aetext.VFloat:
+			p.AgentResume = max(0, v.Float)
+		case aetext.VInt:
+			p.AgentResume = max(0, float64(v.Int))
+		}
+	}
 	return p, nil
 }
 
@@ -73,5 +87,7 @@ func Save(dir string, p *Prefs) error {
 		lang = i18n.Auto
 	}
 	root.Fields = append(root.Fields, aetext.Field{Name: "language", Value: aetext.Ident(lang)})
+	root.Fields = append(root.Fields, aetext.Field{Name: "agentFollow", Value: aetext.Bool(p.AgentFollow)})
+	root.Fields = append(root.Fields, aetext.Field{Name: "agentResume", Value: aetext.Float64(p.AgentResume)})
 	return document.WriteAtomic(filepath.Join(dir, File), aetext.Write(root))
 }

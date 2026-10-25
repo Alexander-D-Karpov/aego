@@ -2,6 +2,7 @@
 package agentbridge
 
 import (
+	"aego/editor/core/document"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -174,8 +175,16 @@ func (b *Bridge) env(s *scene.Scene) mutate.Env {
 	return env
 }
 
+// scene is the document the agent works in: during Play the running game's copy of the scene, so its edits show in the game and in the Play changes like the user's own (11b5b).
+func (b *Bridge) scene(rel string) *document.SceneDocument {
+	if p := b.ctx.Docs.PlayDoc(); p != nil && p.Path == rel {
+		return p
+	}
+	return b.ctx.Docs.Find(rel)
+}
+
 func (b *Bridge) OpenScene(rel string) (*mutate.Document, bool) {
-	d := b.ctx.Docs.Find(rel)
+	d := b.scene(rel)
 	if d == nil {
 		return nil, false
 	}
@@ -189,7 +198,7 @@ func (b *Bridge) SceneDirty(rel string) bool {
 
 // ApplyScene runs the transaction as one Undo step of the open document.
 func (b *Bridge) ApplyScene(rel, label string, tx mutate.Tx) (*mutate.Result, error) {
-	d := b.ctx.Docs.Find(rel)
+	d := b.scene(rel)
 	if d == nil {
 		return nil, errors.New(rel + " is not open in the editor")
 	}

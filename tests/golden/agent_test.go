@@ -15,6 +15,9 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/agentui"
 	"aego/editor/core/context"
+	"aego/editor/core/follow"
+	"aego/editor/core/presence"
+	"aego/editor/core/selection"
 	"aego/editor/core/services"
 	agentpanel "aego/editor/panels/agent"
 	edocs "aego/editor/panels/docs"
@@ -32,6 +35,7 @@ type goldenHost struct {
 	busy      bool
 	expand    bool
 	user      string
+	follow    bool
 }
 
 func (h *goldenHost) Available(string) (string, error) {
@@ -101,7 +105,14 @@ func shotAgent(t *testing.T, env *editorEnv, h *goldenHost) (*image.NRGBA, error
 	t.Helper()
 	ctx := &context.Editor{}
 	at := time.Date(2026, 10, 26, 14, 30, 0, 0, time.UTC)
-	p := agentpanel.New(agentpanel.Deps{Host: h, Docs: ctx, Notices: ctx, Root: t.TempDir(), Highlight: edocs.Highlight, Now: func() time.Time { return at }})
+	deps := agentpanel.Deps{Host: h, Docs: ctx, Notices: ctx, Root: t.TempDir(), Highlight: edocs.Highlight, Now: func() time.Time { return at }, Seconds: func() float64 { return 1 }}
+	if h.follow {
+		f := follow.New(presence.New(), selection.New(), nopNav{})
+		f.SetOn(true)
+		f.Model.Move(follow.Agent, presence.Spot{Doc: "scenes/main.aescene", Panel: "problems"}, 1)
+		deps.Follow = f
+	}
+	p := agentpanel.New(deps)
 	if h.user != "" {
 		p.Submit(h.user)
 	}

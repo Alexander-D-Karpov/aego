@@ -272,6 +272,15 @@ messages version=1 lang=en {
   msg "editor.agent.fix_text" {
     text="The step “{title}” failed with: {error}. Find the cause and fix it."
   }
+  msg "editor.agent.follow_tip" {
+    text="Follow the agent: the editor shows where it works"
+  }
+  msg "editor.agent.following" {
+    text="Following the agent"
+  }
+  msg "editor.agent.following_paused" {
+    text="Following paused while you work"
+  }
   msg "editor.agent.history_tip" {
     text="Past sessions"
   }
@@ -332,6 +341,9 @@ messages version=1 lang=en {
   }
   msg "editor.agent.reading" {
     text="Reading the project…"
+  }
+  msg "editor.agent.resume" {
+    text="Resume Following"
   }
   msg "editor.agent.retry" {
     text="Retry"
@@ -654,6 +666,9 @@ messages version=1 lang=en {
   msg "editor.agent.undo" {
     text="Undo"
   }
+  msg "editor.agent.undo_to_here" {
+    text="Undo to Here"
+  }
   msg "editor.agent.v_more" {
     text="+{v} more"
   }
@@ -678,6 +693,15 @@ messages version=1 lang=en {
   msg "editor.agent.waiting_n" {
     one="{n} change waits for you"
     other="{n} changes wait for you"
+  }
+  msg "editor.agent.where_console" {
+    text="Console"
+  }
+  msg "editor.agent.where_problems" {
+    text="Problems"
+  }
+  msg "editor.agent.where_tip" {
+    text="Where the agent works now; click to go there"
   }
   msg "editor.animation.auto_key" {
     text="Auto Key"
@@ -1251,6 +1275,12 @@ messages version=1 lang=en {
   }
   msg "editor.command.agent.ask" {
     text="Ask Agent…"
+  }
+  msg "editor.command.agent.follow" {
+    text="Follow the Agent"
+  }
+  msg "editor.command.agent.follow.tip" {
+    text="The editor shows where the agent works: the document, the node, the field it changes"
   }
   msg "editor.command.animation.copy_keys" {
     text="Copy Keys"
@@ -2425,6 +2455,9 @@ messages version=1 lang=en {
   msg "editor.inspector.added_owner" {
     text="added {name}"
   }
+  msg "editor.inspector.agent_editing" {
+    text="Agent is editing this; your change will be applied after"
+  }
   msg "editor.inspector.and_v_more" {
     text=" and {v} more"
   }
@@ -2488,6 +2521,9 @@ messages version=1 lang=en {
   }
   msg "editor.inspector.find_usages" {
     text="Find Usages"
+  }
+  msg "editor.inspector.following_agent" {
+    text="Following the agent"
   }
   msg "editor.inspector.go_to_declaration" {
     text="Go to Declaration"
@@ -2655,6 +2691,9 @@ messages version=1 lang=en {
   }
   msg "editor.inspector.set_layers" {
     text="Set Layers"
+  }
+  msg "editor.inspector.show_mine" {
+    text="Show My Selection"
   }
   msg "editor.inspector.show_script_files" {
     text="Show Script Files"

@@ -145,7 +145,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `panel.settings` | engine | 16 | Project Settings tab | ok |
 | `panel.table` | engine | 16 | Table tab | ok |
 | `panel.tasks` | engine | 16 | Task Center tab | ok |
-| `panel.watch` | engine | 16 | Watch tab | ok |
+| `panel.watch` | engine | 16 | Watch tab; Follow in the Agent panel | ok |
 | `panel.welcome` | engine | 16 | Getting Started tab | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |

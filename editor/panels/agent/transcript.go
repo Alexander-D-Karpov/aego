@@ -26,6 +26,7 @@ func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
 	list := p.list()
 	width := max(40, body.W-2*th.Padding)
 	gap := th.Spacing * 2
+	p.gap = gap
 	total := th.Padding
 	for i := range list {
 		b := &list[i]

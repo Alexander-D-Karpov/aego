@@ -275,6 +275,15 @@ messages version=1 lang=ru {
   msg "editor.agent.fix_text" {
     text="Шаг «{title}» завершился ошибкой: {error}. Найди причину и исправь."
   }
+  msg "editor.agent.follow_tip" {
+    text="Следить за агентом: редактор показывает, где он работает"
+  }
+  msg "editor.agent.following" {
+    text="Слежка за агентом"
+  }
+  msg "editor.agent.following_paused" {
+    text="Слежка на паузе, пока вы работаете"
+  }
   msg "editor.agent.history_tip" {
     text="Прошлые сеансы"
   }
@@ -336,6 +345,9 @@ messages version=1 lang=ru {
   }
   msg "editor.agent.reading" {
     text="Изучаю проект…"
+  }
+  msg "editor.agent.resume" {
+    text="Продолжить слежку"
   }
   msg "editor.agent.retry" {
     text="Повторить"
@@ -667,6 +679,9 @@ messages version=1 lang=ru {
   msg "editor.agent.undo" {
     text="Отменить"
   }
+  msg "editor.agent.undo_to_here" {
+    text="Отменить до этого места"
+  }
   msg "editor.agent.v_more" {
     text="ещё {v}"
   }
@@ -692,6 +707,15 @@ messages version=1 lang=ru {
     one="{n} изменение ждёт вас"
     few="{n} изменения ждут вас"
     many="{n} изменений ждут вас"
+  }
+  msg "editor.agent.where_console" {
+    text="Консоль"
+  }
+  msg "editor.agent.where_problems" {
+    text="Проблемы"
+  }
+  msg "editor.agent.where_tip" {
+    text="Где сейчас работает агент; щелчок ведёт туда"
   }
   msg "editor.animation.auto_key" {
     text="Автоключ"
@@ -1265,6 +1289,12 @@ messages version=1 lang=ru {
   }
   msg "editor.command.agent.ask" {
     text="Спросить агента…"
+  }
+  msg "editor.command.agent.follow" {
+    text="Следить за агентом"
+  }
+  msg "editor.command.agent.follow.tip" {
+    text="Редактор показывает, где работает агент: документ, узел, поле, которое он меняет"
   }
   msg "editor.command.animation.copy_keys" {
     text="Копировать ключи"
@@ -2442,6 +2472,9 @@ messages version=1 lang=ru {
   msg "editor.inspector.added_owner" {
     text="добавлено {name}"
   }
+  msg "editor.inspector.agent_editing" {
+    text="Агент правит это поле; ваша правка применится после его правки"
+  }
   msg "editor.inspector.and_v_more" {
     text=" и ещё {v}"
   }
@@ -2506,6 +2539,9 @@ messages version=1 lang=ru {
   }
   msg "editor.inspector.find_usages" {
     text="Найти использования"
+  }
+  msg "editor.inspector.following_agent" {
+    text="Слежка за агентом"
   }
   msg "editor.inspector.go_to_declaration" {
     text="Перейти к объявлению"
@@ -2675,6 +2711,9 @@ messages version=1 lang=ru {
   }
   msg "editor.inspector.set_layers" {
     text="Задать слои"
+  }
+  msg "editor.inspector.show_mine" {
+    text="Показать моё выделение"
   }
   msg "editor.inspector.show_script_files" {
     text="Показать файлы скриптов"
