@@ -47,7 +47,7 @@ var ruChrome = map[string]string{
 	"Methods":                               "Методы",
 	"Signals":                               "Сигналы",
 	"No example":                            "Без примера",
-	"Fix:":                                  "Как исправить:",
+	"Fix:":                                  "Исправление:",
 	"Broken":                                "С ошибкой",
 	"Fixed":                                 "Исправлено",
 	"Download":                              "Скачать",

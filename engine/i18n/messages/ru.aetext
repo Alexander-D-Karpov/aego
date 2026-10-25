@@ -6,7 +6,7 @@ messages version=1 lang=ru {
     text="в проекте native=false, собирать нечего"
   }
   msg "cli.check.fix" {
-    text="Как исправить: {fix}"
+    text="Исправление: {fix}"
   }
   msg "cli.check.flag.ensure_meta" {
     text="записать недостающие файлы .meta, а не сообщать о них"
