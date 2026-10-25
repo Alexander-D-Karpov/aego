@@ -20,8 +20,8 @@ var landingEntryIcons = [3]string{"file.download", "help.book", "panel.find"}
 
 var landingEN = landingText{
 	lang:    "en",
-	tagline: "A 2D-first game engine in Go, with an editor that agents can drive.",
-	lead:    "Build a game in the editor, script it in a small Go-like language, extend it with Go, and ship it to desktop and the browser from one project. Everything that edits a scene — the Inspector, the command line and an AI agent over MCP — uses the same undoable operations.",
+	tagline: homeLead,
+	lead:    "Build scenes in the editor, script them in a small Go-like language, extend the engine with Go when you need to, and ship the same project to Linux, Windows, macOS and the browser. Deterministic simulation, rewind, physics, animation, audio and cameras come built in.",
 	entries: [3][2]string{
 		{"Install", "Download for your OS, make a project, play it in two minutes."},
 		{"Learn", "Guides from the first scene to a finished platformer."},
@@ -44,8 +44,8 @@ var landingEN = landingText{
 
 var landingRU = landingText{
 	lang:    "ru",
-	tagline: "Игровой движок на Go, в первую очередь для 2D, с редактором, которым может управлять агент.",
-	lead:    "Соберите игру в редакторе, напишите её логику на небольшом языке в духе Go, расширьте на Go и выпустите для компьютера и браузера из одного проекта. Всё, что меняет сцену, — Инспектор, командная строка и ИИ-агент через MCP — пользуется одними и теми же операциями, которые можно отменить.",
+	tagline: "Делайте 2D-игры на Go. Один редактор, один проект, компьютер и веб.",
+	lead:    "Собирайте сцены в редакторе, пишите для них скрипты на небольшом языке в духе Go, расширяйте движок на Go, когда это нужно, и выпускайте один и тот же проект для Linux, Windows, macOS и браузера. Детерминированная симуляция, перемотка, физика, анимация, звук и камеры уже встроены.",
 	entries: [3][2]string{
 		{"Установить", "Скачайте для своей системы, создайте проект и запустите его за две минуты."},
 		{"Учиться", "Руководства от первой сцены до готового платформера."},

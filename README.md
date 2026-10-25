@@ -1,6 +1,8 @@
 # Aego
 
-A 2D and 3D game engine with an editor, a scripting language and a web export, written in Go.
+Make 2D games in Go. One editor, one project, desktop and web.
+
+Build scenes in the editor, script them in a small Go-like language, extend the engine with Go when you need to, and ship the same project to Linux, Windows, macOS and the browser. Deterministic simulation, rewind, physics, animation, audio and cameras come built in.
 
 - Documentation and the playground: <https://aego.akarpov.ru>
 - Installing and building from source: [engine/res/docs/install.md](engine/res/docs/install.md)
