@@ -102,6 +102,10 @@ Reimports every asset; `--force` ignores the artifact cache.
 
 `aego dump script <package|Type> [--func name]` disassembles a compiled script package with its source lines.
 
+## aego version
+
+`aego version` prints the engine version and the commit the binary was built from, such as `aego 0.10.0 (6151233e0586, 2026-10-25T13:17:32Z)`. A build from a checkout with uncommitted changes adds `-dirty` to the commit.
+
 ## aego mcp
 
 Serves the project over MCP on stdio, for tools such as Claude Code; see [Working with AI agents](ref:agents).

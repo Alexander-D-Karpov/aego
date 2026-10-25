@@ -76,6 +76,8 @@ func dispatch(args []string) int {
 		return cmdTest(args[1:])
 	case "dump":
 		return cmdDump(args[1:])
+	case "version", "--version":
+		return cmdVersion()
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -109,6 +111,7 @@ func usage() {
   docs export|check|build|serve  documentation registry, site and playground
   mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)
   scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
+  version                print the engine version and the commit it was built from
 `))
 }
 
