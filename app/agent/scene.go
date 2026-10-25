@@ -35,6 +35,7 @@ type NodeView struct {
 	Transform  map[string]string `json:"transform,omitempty"`
 	Components []CompView        `json:"components,omitempty"`
 	Scripts    []string          `json:"scripts,omitempty"`
+	ScriptData []CompView        `json:"scriptFields,omitempty"`
 	Children   []NodeView        `json:"children,omitempty"`
 }
 
@@ -66,17 +67,18 @@ func sceneCommands() []*Command {
 		{Name: "scene.rename", Doc: "rename a node", Write: true, Args: []Arg{argFile, argNode, {Name: "name", Type: "string", Doc: "new name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Rename", mutate.Rename(a.Str("node"), a.Str("name")))
 		}},
-		{Name: "scene.add-comp", Doc: "add a component with its defaults and the components it requires", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name, full or a unique suffix (Body2D)", Required: true, Pos: true},
+		{Name: "scene.add-comp", Doc: "add a component with its defaults and the components it requires, or attach a script by its type name", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component or script name, full or a unique suffix (Body2D, EnemyAI)", Required: true, Pos: true},
 			{Name: "no-required", Type: "boolean", Doc: "add only this component; missing requirements stay as problems"}}, Run: (*Session).sceneAddComp},
-		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Destroys: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
+		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Destroys: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component or script name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Remove Component", mutate.RemoveComp(a.Str("node"), a.Str("comp")))
 		}},
 		{Name: "scene.apply", Doc: "apply a transaction (tx version=1 { op … }) in one step", Write: true, Args: []Arg{argFile,
 			{Name: "tx", Type: "string", Doc: "transaction text"}, {Name: "tx-file", Type: "string", Doc: "transaction file"}}, Run: (*Session).sceneApply},
 		{Name: "scene.validate", Doc: "load problems and references to nodes the scene does not have", Args: []Arg{argFile}, Run: (*Session).sceneValidate},
 		{Name: "scene.new", Doc: "create an empty scene", Write: true, Args: []Arg{{Name: "file", Type: "string", Doc: "new scene file, scenes/<name>.aescene", Required: true, Pos: true}}, Run: (*Session).sceneNew},
-		{Name: "scene.run", Doc: "run a scene headless and report the log and the state hash", Args: []Arg{{Name: "file", Type: "string", Doc: "scene file, the main scene by default", Pos: true},
-			{Name: "frames", Type: "integer", Doc: "frames to run, 120 by default"}, {Name: "seed", Type: "integer", Doc: "random seed, 1 by default"}}, Run: (*Session).sceneRun},
+		{Name: "scene.run", Doc: "run a scene headless and report the log, the state hash and where the watched nodes went", Args: []Arg{{Name: "file", Type: "string", Doc: "scene file, the main scene by default", Pos: true},
+			{Name: "frames", Type: "integer", Doc: "frames to run, 120 by default"}, {Name: "seed", Type: "integer", Doc: "random seed, 1 by default"},
+			{Name: "watch", Type: "string", Doc: "comma-separated node paths whose world positions the report samples: Player,MovingPlatform"}}, Run: (*Session).sceneRun},
 	}
 }
 
@@ -298,7 +300,7 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := RunRequest{Frames: frames, Seed: uint64(seed)}
+	req := RunRequest{Frames: frames, Seed: uint64(seed), Watch: WatchList(a.Str("watch"))}
 	if a.Has("file") {
 		rel, err := s.rel(a.Str("file"))
 		if err != nil {
@@ -307,14 +309,24 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 		req.Scene = s.Pipeline.Abs(rel)
 	}
 	var rep RunReport
-	err = s.release(func() error {
+	run := func() error {
 		var rerr error
 		rep, rerr = s.opt.Run(s.Project, req)
 		return rerr
-	})
+	}
+	if s.borrowed {
+		err = run()
+	} else {
+		err = s.release(run)
+	}
 	if err != nil {
 		return nil, err
 	}
+	return RunOutput(rep), nil
+}
+
+// RunOutput is the answer to scene.run: the report, its text and the run's error as a problem.
+func RunOutput(rep RunReport) *Output {
 	out := &Output{Value: rep}
 	if rep.Error != "" {
 		out.Problems = append(out.Problems, mutate.Problem{Error: true, Message: rep.Error})
@@ -324,11 +336,32 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 	for _, k := range slices.Sorted(maps.Keys(rep.Counters)) {
 		b.WriteString(k + ": " + strconv.FormatUint(rep.Counters[k], 10) + "\n")
 	}
+	for _, t := range rep.Tracks {
+		b.WriteString(t.Node + ":")
+		if t.Error != "" {
+			b.WriteString(" " + t.Error)
+		}
+		for i, p := range t.At {
+			b.WriteString(" f" + strconv.Itoa(t.Frames[i]) + " [" + strconv.FormatFloat(float64(p[0]), 'g', 4, 32) + ", " + strconv.FormatFloat(float64(p[1]), 'g', 4, 32) + "]")
+		}
+		b.WriteString("\n")
+	}
 	for _, l := range rep.Log {
 		b.WriteString(l + "\n")
 	}
 	out.Text = b.String()
-	return out, nil
+	return out
+}
+
+// WatchList splits scene.run's watch argument into node paths.
+func WatchList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func (s *Session) sceneTree(a Args) (*Output, error) {
@@ -363,18 +396,21 @@ func (s *Session) sceneGet(a Args) (*Output, error) {
 }
 
 func pick(v NodeView, p string) (string, bool) {
-	comp, field, ok := strings.Cut(p, ".")
-	if !ok {
+	i := strings.LastIndexByte(p, '.')
+	if i < 0 {
 		return "", false
 	}
-	if strings.EqualFold(comp, "transform") {
-		t, ok := v.Transform[strings.ToLower(field)]
+	comp, field := p[:i], p[i+1:]
+	if c, f, _ := strings.Cut(p, "."); strings.EqualFold(c, "transform") {
+		t, ok := v.Transform[strings.ToLower(f)]
 		return t, ok
 	}
-	for _, c := range v.Components {
-		if c.Type == comp || strings.HasSuffix(c.Type, "."+comp) {
-			t, ok := c.Fields[field]
-			return t, ok
+	for _, list := range [][]CompView{v.Components, v.ScriptData} {
+		for _, c := range list {
+			if c.Type == comp || strings.HasSuffix(c.Type, "."+comp) {
+				t, ok := c.Fields[field]
+				return t, ok
+			}
 		}
 	}
 	return "", false
@@ -409,6 +445,9 @@ func (s *Session) view(sc *scene.Scene, h scene.NodeHandle, fields, deep bool) N
 	if scs, ok := scriptcomp.ScriptsOf(sc, h); ok {
 		for _, at := range scs.Attachments {
 			v.Scripts = append(v.Scripts, at.TypeName)
+			if td, ok := reg.ByName(at.TypeName); ok && fields {
+				v.ScriptData = append(v.ScriptData, CompView{Type: td.FullName, Fields: fieldValues(sc, h, td)})
+			}
 		}
 	}
 	if pi, ok := sceneio.InstanceOf(sc, h); ok && pi.Owner {

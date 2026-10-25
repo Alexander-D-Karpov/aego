@@ -7,6 +7,7 @@ import (
 	"aego/app/agentui/backend"
 	"aego/app/edit/agentbridge"
 	"aego/editor/core/command"
+	"aego/editor/core/workspace"
 	"aego/editor/core/follow"
 )
 
@@ -101,5 +102,34 @@ func TestAgentEditsThePlayWorldDuringPlay(t *testing.T) {
 	}
 	if e.alive("Hero") || !e.alive("Player") {
 		t.Fatal("the agent's change during Play went to the edited scene")
+	}
+}
+
+// After a script step opens the code editor over the Scene View, the next scene step brings the Scene View back.
+func TestAgentFollowReturnsToTheScene(t *testing.T) {
+	s, _ := agentSession(t, &backend.Fake{Turns: [][]backend.Step{{
+		{Tool: "script_read", Args: map[string]any{"file": "scripts/player/player.aes"}},
+		{Tool: "scene_apply", Args: map[string]any{"file": bridgeScene, "tx": `tx version=1 { label="Probe" op "set" { node="Player" path="transform.position" value=[-13, 3] } }`}},
+		{Text: "done"},
+	}}})
+	app := s.App
+	f := app.Follow()
+	f.SetOn(true)
+	f.Resume = 0
+	panel := app.Agent()
+	ws := app.Workspace()
+	front := func(id string) bool {
+		n, ok := ws.Tree.Node(ws.Tree.FindPanel(id))
+		return ok && n.Active < len(n.Tabs) && n.Tabs[n.Active] == id
+	}
+	panel.Submit("move the player")
+	stepUntil(t, s, func() bool { return !front(workspace.Scene) || len(panel.Pending()) == 1 })
+	stepUntil(t, s, func() bool { return len(panel.Pending()) == 1 })
+	if !front(workspace.Scene) {
+		t.Fatal("the scene step left the code editor in front of the Scene View")
+	}
+	sc := app.Context().Docs.Find(bridgeScene).Scene()
+	if it, ok := app.AgentSelection().Active(); !ok || it.Node != sc.ID(sc.Find(sc.Root(), "Player")) {
+		t.Fatalf("the agent's selection is %+v, want Player from the transaction", it)
 	}
 }

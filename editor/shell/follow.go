@@ -84,6 +84,9 @@ func (n followNav) OpenScene(rel string) (selection.DocID, bool) {
 	} else if docs.Edit() != d {
 		docs.SetActive(d.ID)
 	}
+	if n.a.ws != nil {
+		n.a.ws.Show(workspace.Scene)
+	}
 	return d.ID, true
 }
 
@@ -125,7 +128,13 @@ func (n followNav) Frame(rel string, node ids.NodeID) {
 }
 
 func (n followNav) Inspect(rel string, node ids.NodeID, comp string) {
-	if n.a.inspectorPanel == nil || comp == "" {
+	if n.a.inspectorPanel == nil {
+		return
+	}
+	if n.a.ws != nil {
+		n.a.ws.Show(workspace.Inspector)
+	}
+	if comp == "" {
 		return
 	}
 	if full := n.compName(rel, node, comp); full != "" {

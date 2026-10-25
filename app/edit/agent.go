@@ -16,6 +16,7 @@ func (s *Session) AgentConfig() agentbridge.Config {
 		Command:        s.App.AgentCommand(),
 		ProjectChanged: s.App.ProjectChanged,
 		Docs:           func() (*docs.Registry, error) { return s.Docs, nil },
+		Run:            agentRun,
 	}
 }
 

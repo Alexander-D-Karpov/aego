@@ -147,6 +147,22 @@
     ],
     "scripts": [
       "mygame.player.PlayerController"
+    ],
+    "scriptFields": [
+      {
+        "type": "mygame.player.PlayerController",
+        "fields": {
+          "Bounce": "[0, -9]",
+          "EnemyA": "node(\"c0000000000000000000000000000004\")",
+          "EnemyB": "node(\"c0000000000000000000000000000007\")",
+          "HitSound": "asset(\"a0d10000000000000000000000000012\")",
+          "JumpSound": "asset(\"a0d10000000000000000000000000011\")",
+          "LandShake": "9",
+          "Reach": "0.6",
+          "Slash": "node(\"c0000000000000000000000000000010\")",
+          "Theme": "asset(\"a0d10000000000000000000000000005\")"
+        }
+      }
     ]
   }
 }

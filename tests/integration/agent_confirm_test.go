@@ -48,6 +48,7 @@ func bridgeSetup(t *testing.T, cfg agentbridge.Config) *bridgeEnv {
 	}
 	base := s.AgentConfig()
 	base.Timeout = cfg.Timeout
+	base.Run = cfg.Run
 	b, err := agentbridge.Start(base)
 	if err != nil {
 		t.Fatal(err)

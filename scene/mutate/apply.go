@@ -410,9 +410,12 @@ func (d *Document) addComp(op Op, res *Result) (step, error) {
 	if err != nil {
 		return step{}, err
 	}
-	td, err := d.component(op.Comp)
+	td, err := d.attachable(op.Comp)
 	if err != nil {
 		return step{}, err
+	}
+	if td.Kind == schema.TypeScript {
+		return d.addScript(op, h, td)
 	}
 	if _, ok := s.GetByType(h, td.ID); ok {
 		return step{}, errs.New(errs.EditorProps, "node already has "+td.FullName)
@@ -471,9 +474,12 @@ func (d *Document) removeComp(op Op, res *Result) (step, error) {
 	if err != nil {
 		return step{}, err
 	}
-	td, err := d.component(op.Comp)
+	td, err := d.attachable(op.Comp)
 	if err != nil {
 		return step{}, err
+	}
+	if td.Kind == schema.TypeScript {
+		return d.removeScript(op, h, td)
 	}
 	if _, ok := s.GetByType(h, td.ID); !ok {
 		return step{}, errs.New(errs.SceneNoComponent, "node has no "+td.FullName)
@@ -682,4 +688,70 @@ func (d *Document) setPose(op Op, t target, raw aetext.Value, reset bool) (step,
 		redo:   SetValue(idRef(s, t.h), t.base, sceneio.WriteValue(d.reg, fd, nv)),
 		change: ch,
 	}, nil
+}
+
+// addScript attaches a script to a node, with its exported fields at their defaults unless op sets them.
+func (d *Document) addScript(op Op, h scene.NodeHandle, td *schema.TypeDescriptor) (step, error) {
+	s := d.Scene
+	if sc, ok := scriptcomp.ScriptsOf(s, h); ok && sc.Find(td) != nil {
+		return step{}, errs.New(errs.EditorProps, "node already has "+td.FullName)
+	}
+	inv := Replace(idRef(s, h), string(d.subtree(h)))
+	sc, ok := scriptcomp.ScriptsOf(s, h)
+	if !ok {
+		sc = scene.Add[scriptcomp.ScriptComponent](s, h)
+	}
+	sc.Attachments = append(sc.Attachments, scriptcomp.Attachment{TypeName: td.FullName, Enabled: true})
+	s.Flush()
+	p, ok := scriptcomp.Overlay{}.Bag(s, h, td)
+	if !ok {
+		return step{}, errs.New(errs.EditorProps, "cannot attach "+td.FullName)
+	}
+	err := d.values(td, op.Values, func(fd *schema.FieldDescriptor, v schema.Value) error {
+		if !op.Raw {
+			if err := d.validate(fd, v, td.FullName+"."+fd.Name, op.Live); err != nil {
+				return err
+			}
+		}
+		return fd.Set(p, v)
+	})
+	if err != nil {
+		if sc, ok := scriptcomp.ScriptsOf(s, h); ok {
+			if i := sc.Index(td.FullName); i >= 0 {
+				sc.Attachments = slices.Delete(sc.Attachments, i, i+1)
+			}
+			if len(sc.Attachments) == 0 {
+				scene.Remove[scriptcomp.ScriptComponent](s, h)
+			}
+		}
+		s.Flush()
+		return step{}, err
+	}
+	s.Flush()
+	redo := Replace(idRef(s, h), string(d.subtree(h)))
+	ch := d.change(op.Kind, h)
+	ch.Path, ch.Type = td.FullName, td.ID
+	return step{inv: inv, redo: redo, change: ch}, nil
+}
+
+// removeScript detaches a script; undo puts the node back as it was, with the script's field values.
+func (d *Document) removeScript(op Op, h scene.NodeHandle, td *schema.TypeDescriptor) (step, error) {
+	s := d.Scene
+	inv := Replace(idRef(s, h), string(d.subtree(h)))
+	sc, ok := scriptcomp.ScriptsOf(s, h)
+	i := -1
+	if ok {
+		i = sc.Index(td.FullName)
+	}
+	if i < 0 {
+		return step{}, errs.New(errs.SceneNoComponent, "node has no "+td.FullName)
+	}
+	sc.Attachments = slices.Delete(sc.Attachments, i, i+1)
+	if len(sc.Attachments) == 0 {
+		scene.Remove[scriptcomp.ScriptComponent](s, h)
+	}
+	s.Flush()
+	ch := d.change(op.Kind, h)
+	ch.Path, ch.Type = td.FullName, td.ID
+	return step{inv: inv, redo: Replace(idRef(s, h), string(d.subtree(h))), change: ch}, nil
 }

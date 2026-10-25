@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/format/aetext"
 	"aego/scene/sceneio"
@@ -15,6 +16,9 @@ import (
 func ParseValue(text string) (aetext.Value, error) {
 	doc, err := aetext.Parse([]byte("v {\n  x="+text+"\n}\n"), "value")
 	if err != nil {
+		if bare(text) {
+			return aetext.String(text), nil
+		}
 		return aetext.Value{}, err
 	}
 	v, ok := doc.Field("x")
@@ -22,6 +26,19 @@ func ParseValue(text string) (aetext.Value, error) {
 		return aetext.Value{}, errs.New(errs.SceneIOParse, "not a value", log.F("text", text))
 	}
 	return v, nil
+}
+
+// bare is a node path or a #id written without quotes: Root/Player, #c000…
+func bare(text string) bool {
+	if text == "" {
+		return false
+	}
+	for _, r := range text {
+		if !(r == '/' || r == '#' || r == '_' || r == '-' || r == '.' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+			return false
+		}
+	}
+	return true
 }
 
 func FormatValue(v aetext.Value) string {
@@ -88,7 +105,7 @@ func shape(fd *schema.FieldDescriptor, v aetext.Value) error {
 	case schema.KindAssetRef:
 		ok, want = v.Kind == aetext.VAsset || v.Kind == aetext.VString, `asset("<id>") or a project path`
 	case schema.KindNodeRef:
-		ok, want = v.Kind == aetext.VNode || v.Kind == aetext.VString, `node("<id>")`
+		ok, want = v.Kind == aetext.VNode || v.Kind == aetext.VString, `node("<id>"), "#<id>" or a node path like "Root/Player"`
 	case schema.KindCurve:
 		ok, want = v.Kind == aetext.VStruct, "{ ease=… keys=[…] }"
 	case schema.KindList:
@@ -110,6 +127,23 @@ func shape(fd *schema.FieldDescriptor, v aetext.Value) error {
 }
 
 func (d *Document) read(fd *schema.FieldDescriptor, v aetext.Value) (schema.Value, error) {
+	if fd.Kind == schema.KindNodeRef && (v.Kind == aetext.VString || v.Kind == aetext.VIdent) {
+		if v.Kind == aetext.VIdent {
+			v = aetext.String(v.Ident)
+		}
+		if v.Str == "" || v.Str == "none" {
+			return sceneio.ReadValue(d.reg, fd, aetext.Value{Kind: aetext.VNode})
+		}
+		if _, err := ids.ParseNodeID(v.Str); err == nil && len(v.Str) == 32 {
+			v = aetext.NodeRef(v.Str)
+		} else {
+			h, err := d.node(v.Str)
+			if err != nil {
+				return schema.Value{}, err
+			}
+			v = aetext.NodeRef(d.Scene.ID(h).String())
+		}
+	}
 	if err := shape(fd, v); err != nil {
 		return schema.Value{}, err
 	}

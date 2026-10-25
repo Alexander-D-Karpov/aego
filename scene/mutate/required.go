@@ -138,7 +138,7 @@ func Conflict(s *scene.Scene, td *schema.TypeDescriptor, h scene.NodeHandle) (*s
 	return nil, false
 }
 
-// Component resolves a component name the way add-comp does: full, or a unique short name.
+// Component resolves a component or script name the way add-comp does: full, or a unique short name.
 func (d *Document) Component(name string) (*schema.TypeDescriptor, error) {
-	return d.component(name)
+	return d.attachable(name)
 }

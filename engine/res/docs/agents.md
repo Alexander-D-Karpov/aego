@@ -41,8 +41,8 @@ With `--watch` the server polls the project and sends `resources/updated` for su
 ## A typical session
 
 1. `scene_tree` and `schema_show` to see what is there and what a component takes.
-2. Changes with `scene_set`, `scene_add_node`, `scene_add_comp`, `prefab_instantiate`, or several at once with `scene_apply`; `dry-run` first when unsure.
-3. `scene_validate`, then `scene_run` with a number of frames: the log has the warnings and errors, and the state hash shows whether two runs behave the same.
+2. Changes with `scene_set`, `scene_add_node`, `scene_add_comp`, `prefab_instantiate`, or several at once with `scene_apply`; `dry-run` first when unsure. `scene_add_comp` also attaches a script by its type name (`EnemyAI`), and the script's exported fields are read and set like component fields (`EnemyAI.PointA`). A node reference field takes a node path such as `Root/PatrolA1`.
+3. `scene_validate`, then `scene_run` with a number of frames: the log has the warnings and errors, and the state hash shows whether two runs behave the same. `watch` names nodes whose positions the report samples through the run, to check that something moves. In the editor `scene_run` plays the scene as the editor has it, unsaved changes included, in a separate process.
 
 ## With the editor open
 

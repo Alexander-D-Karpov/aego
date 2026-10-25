@@ -1,6 +1,8 @@
 package run
 
 import (
+	"encoding/json"
+
 	"aego/app/agent"
 	"aego/app/agent/mcp"
 	"bytes"
@@ -42,6 +44,8 @@ func Tool(p *project.Project, args []string, stdout, stderr io.Writer, mods ...s
 		return toolTest(p, args[1:], stdout, stderr, mods)
 	case "docs":
 		return docstool.Tool(p, args[1:], stdout, stderr, sdk.AdaptAll(mods)...)
+	case "agent-run":
+		return agentRunTool(p, args[1:], stdout, stderr, mods)
 	case "agent":
 		return agent.Main(p, args[1:], stdout, stderr, agent.Options{Mods: mods, Run: AgentRunner(mods...)})
 	case "mcp":
@@ -185,4 +189,33 @@ func filterFuncs(text, script, fn string) string {
 		out = append(out, b)
 	}
 	return strings.Join(out, "\nfunc ")
+}
+
+// agentRunTool runs the game headless for the editor's scene.run and prints the report as JSON.
+func agentRunTool(p *project.Project, args []string, stdout, stderr io.Writer, mods []sdk.Module) int {
+	fs := flag.NewFlagSet("agent-run", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	scenePath := fs.String("scene", "", "scene file")
+	frames := fs.Int("frames", 120, "frames to run")
+	seed := fs.Uint64("seed", 1, "random seed")
+	watchFlag := fs.String("watch", "", "comma-separated node paths to sample")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	rep, err := AgentRunner(mods...)(p, agent.RunRequest{Scene: *scenePath, Frames: *frames, Seed: *seed, Watch: agent.WatchList(*watchFlag)})
+	res := AgentRunResult{Report: rep}
+	if err != nil {
+		res.Err = err.Error()
+	}
+	enc := json.NewEncoder(stdout)
+	if enc.Encode(res) != nil {
+		return 1
+	}
+	return 0
+}
+
+// AgentRunResult is what agent-run prints: the report, or why the game did not start.
+type AgentRunResult struct {
+	Report agent.RunReport `json:"report"`
+	Err    string          `json:"error,omitempty"`
 }

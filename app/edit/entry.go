@@ -11,6 +11,7 @@ import (
 
 	"aego/app/bootstrap"
 	"aego/app/brand"
+	"aego/app/run"
 	"aego/app/supervise"
 	"aego/editor/core/session"
 	"aego/editor/shell/launcher"
@@ -34,6 +35,9 @@ type Entry struct {
 }
 
 func Main(mods ...sdk.Module) {
+	if len(os.Args) > 1 && os.Args[1] == "--tool" {
+		os.Exit(tool(os.Args[2:], mods))
+	}
 	fs := flag.NewFlagSet("aego-editor", flag.ExitOnError)
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	hidden := fs.Bool("hidden", false, "create the window without showing it")
@@ -57,6 +61,21 @@ func Main(mods ...sdk.Module) {
 	if err != nil {
 		fail(err)
 	}
+}
+
+// tool runs a project tool in the project of the working directory, as the game binary's --tool does.
+func tool(args []string, mods []sdk.Module) int {
+	root, err := project.Find(".")
+	if err != nil {
+		os.Stderr.WriteString("aego-editor: " + err.Error() + "\n")
+		return 1
+	}
+	p, err := project.Load(root)
+	if err != nil {
+		os.Stderr.WriteString("aego-editor: " + err.Error() + "\n")
+		return 1
+	}
+	return run.Tool(p, args, os.Stdout, os.Stderr, mods...)
 }
 
 func fail(err error) {

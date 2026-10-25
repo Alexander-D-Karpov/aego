@@ -45,6 +45,16 @@ type RunRequest struct {
 	Scene  string `json:"scene,omitempty"`
 	Frames int    `json:"frames"`
 	Seed   uint64 `json:"seed"`
+	// Watch names nodes whose world positions the report samples through the run.
+	Watch []string `json:"watch,omitempty"`
+}
+
+// Track is where a watched node was: at the start, at each quarter of the run and at the end.
+type Track struct {
+	Node   string       `json:"node"`
+	Frames []int        `json:"frames"`
+	At     [][2]float32 `json:"at"`
+	Error  string       `json:"error,omitempty"`
 }
 
 type RunReport struct {
@@ -53,6 +63,7 @@ type RunReport struct {
 	Counters map[string]uint64 `json:"counters,omitempty"`
 	Log      []string          `json:"log,omitempty"`
 	Error    string            `json:"error,omitempty"`
+	Tracks   []Track           `json:"tracks,omitempty"`
 }
 
 type Runner func(p *project.Project, r RunRequest) (RunReport, error)
@@ -118,6 +129,11 @@ type Host interface {
 }
 
 // Attach makes a session over the editor's project, types and pipeline; Close leaves them open.
+// SetRunner gives scene.run a way to run the game, for a session attached to an editor.
+func (s *Session) SetRunner(r Runner) {
+	s.opt.Run = r
+}
+
 func Attach(p *project.Project, types *scene.Types, mods *module.Manifest, pl *pipeline.Pipeline, binds *bind.Registry, host Host) *Session {
 	s := &Session{Project: p, Types: types, Modules: mods, Pipeline: pl, host: host, borrowed: true}
 	if binds != nil {

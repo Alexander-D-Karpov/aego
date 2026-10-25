@@ -175,7 +175,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego refs find <asset>` | files and fields that reference an asset |
 | `aego refs fix <from> [<to>] [--dry-run]` | point every reference to one asset at another (none clears them); originals go to .aego/recovery |
 | `aego refs missing` | references to assets and nodes that do not exist |
-| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | add a component with its defaults and the components it requires |
+| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | add a component with its defaults and the components it requires, or attach a script by its type name |
 | `aego scene add-node <file> <name> [--parent v] [--space v] [--index v] [--dry-run]` | add an empty node |
 | `aego scene apply <file> [--tx v] [--tx-file v] [--dry-run]` | apply a transaction (tx version=1 { op … }) in one step |
 | `aego scene get <file> <node> [<path>]` | a node with its transform and every saved field, or one field |
@@ -185,7 +185,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego scene remove-node <file> <node> [--dry-run]` | remove a node with its children |
 | `aego scene rename <file> <node> <name> [--dry-run]` | rename a node |
 | `aego scene reset <file> <node> <path> [--dry-run]` | reset a field to its default, a transform part to identity |
-| `aego scene run [<file>] [--frames v] [--seed v]` | run a scene headless and report the log and the state hash |
+| `aego scene run [<file>] [--frames v] [--seed v] [--watch v]` | run a scene headless and report the log, the state hash and where the watched nodes went |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | set a field |
 | `aego scene tree <file>` | node tree with IDs, components, scripts and prefab links |
 | `aego scene validate <file>` | load problems and references to nodes the scene does not have |

@@ -76,6 +76,12 @@ func dispatch(args []string) int {
 		return cmdTest(args[1:])
 	case "dump":
 		return cmdDump(args[1:])
+	case "--tool":
+		p, err := openProject(".")
+		if err != nil {
+			return fail(err)
+		}
+		return scriptTool(p, args[1:]...)
 	case "version", "--version":
 		return cmdVersion()
 	case "help", "-h", "--help":

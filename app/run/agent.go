@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"aego/app/agent"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/rewind"
 	"aego/engine/recorder"
@@ -14,6 +15,7 @@ import (
 	"aego/modules/camera"
 	"aego/modules/gameplay"
 	"aego/project"
+	"aego/scene"
 	"aego/sdk"
 )
 
@@ -37,6 +39,17 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 		}
 		rep := agent.RunReport{}
 		driver := a.Driver()
+		tracks := watch(a, r.Watch)
+		sample := func() {
+			for i := range tracks {
+				if !tracks[i].h.IsZero() && a.Scene.IsAlive(tracks[i].h) {
+					p := a.Scene.WorldPosition(tracks[i].h)
+					tracks[i].Frames = append(tracks[i].Frames, rep.Frames)
+					tracks[i].At = append(tracks[i].At, [2]float32{p.X, p.Y})
+				}
+			}
+		}
+		sample()
 		for rep.Frames < frames {
 			if !a.Engine.Step(driver) {
 				rep.Error = "the game stopped at frame " + strconv.Itoa(rep.Frames+1)
@@ -46,6 +59,12 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 				break
 			}
 			rep.Frames++
+			if rep.Frames%max(1, frames/4) == 0 || rep.Frames == frames {
+				sample()
+			}
+		}
+		for _, t := range tracks {
+			rep.Tracks = append(rep.Tracks, t.Track)
 		}
 		sum, _, _ := WorldHash(a.Engine.MainWorld(), rewind.NewHasher())
 		rep.Hash = hex.EncodeToString(sum[:])
@@ -89,6 +108,32 @@ func counters(a *App) map[string]uint64 {
 	if r := w.Recorder; r != nil {
 		counts := r.Counts()
 		out["events.audio"], out["events.gameplay"] = counts[recorder.Audio], counts[recorder.Gameplay]
+	}
+	return out
+}
+
+type track struct {
+	agent.Track
+	h scene.NodeHandle
+}
+
+// watch finds the watched nodes in the running scene, by path from the root or #id.
+func watch(a *App, paths []string) []track {
+	out := make([]track, 0, len(paths))
+	for _, p := range paths {
+		t := track{Track: agent.Track{Node: p}}
+		s := a.Scene
+		if hex, ok := strings.CutPrefix(p, "#"); ok {
+			if id, err := ids.ParseNodeID(hex); err == nil {
+				t.h = s.Handle(id)
+			}
+		} else {
+			t.h = s.Find(s.Root(), strings.TrimPrefix(strings.TrimPrefix(p, "/"), "Root/"))
+		}
+		if t.h.IsZero() || !s.IsAlive(t.h) {
+			t.Error = "no node " + p + " in the running scene"
+		}
+		out = append(out, t)
 	}
 	return out
 }

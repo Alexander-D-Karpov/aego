@@ -76,9 +76,11 @@ func (d *Document) resolve(name string) []*schema.TypeDescriptor {
 		return []*schema.TypeDescriptor{td}
 	}
 	var found []*schema.TypeDescriptor
-	for _, td := range reg.Components() {
-		if strings.HasSuffix(td.FullName, "."+name) || strings.EqualFold(td.DisplayName, name) {
-			found = append(found, td)
+	for _, list := range [][]*schema.TypeDescriptor{reg.Components(), reg.Scripts()} {
+		for _, td := range list {
+			if strings.HasSuffix(td.FullName, "."+name) || strings.EqualFold(td.DisplayName, name) {
+				found = append(found, td)
+			}
 		}
 	}
 	return schema.PreferProject(found)
@@ -92,15 +94,13 @@ func ambiguous(name string, found []*schema.TypeDescriptor) error {
 	return errs.New(errs.SchemaUnknownType, "ambiguous component, use the full name", log.F("component", name), log.F("candidates", strings.Join(names, ", ")))
 }
 
-func (d *Document) component(name string) (*schema.TypeDescriptor, error) {
+// attachable is a component or a script, the things add-comp and remove-comp take.
+func (d *Document) attachable(name string) (*schema.TypeDescriptor, error) {
 	switch found := d.resolve(name); len(found) {
 	case 1:
-		if found[0].Kind != schema.TypeComponent {
-			return nil, errs.New(errs.SchemaUnknownType, "unknown component", log.F("component", name))
-		}
 		return found[0], nil
 	case 0:
-		return nil, errs.New(errs.SchemaUnknownType, "unknown component", log.F("component", name))
+		return nil, errs.New(errs.SchemaUnknownType, "unknown component or script", log.F("component", name))
 	default:
 		return nil, ambiguous(name, found)
 	}

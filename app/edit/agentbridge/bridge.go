@@ -48,6 +48,8 @@ type Config struct {
 	OnProposal func(*Proposal)
 	// ProjectChanged runs after project.set changed a section, so Project Settings and live settings follow.
 	ProjectChanged func()
+	// Run runs the game headless for scene.run; without it scene.run reports that runs are not available.
+	Run agent.Runner
 }
 
 type Bridge struct {
@@ -71,7 +73,8 @@ const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Led
 // Guide is the system prompt the editor adds for the model.
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
 	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
-	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
+	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
+	"Check behaviour with scene_run: it plays the scene headless as it is in the editor, and watch lists nodes whose positions it reports through the run. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
@@ -117,6 +120,9 @@ func (b *Bridge) main(fn func()) error {
 
 // Run serves a tool call: reads run at once, writes become proposals the user applies or rejects (D342).
 func (b *Bridge) Run(name string, a agent.Args) (*agent.Output, error) {
+	if name == "scene.run" && b.cfg.Run != nil {
+		return b.sceneRun(a)
+	}
 	c, ok := agent.Find(name)
 	if ok && c.Write && !a.Bool("dry-run") {
 		if b.PlanOnly() {

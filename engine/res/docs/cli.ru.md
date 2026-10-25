@@ -173,7 +173,7 @@ title: Команда aego
 | `aego refs find <asset>` | файлы и поля, которые ссылаются на ассет |
 | `aego refs fix <from> [<to>] [--dry-run]` | перенаправить все ссылки с одного ассета на другой (без второго — сбросить их); оригиналы попадают в .aego/recovery |
 | `aego refs missing` | ссылки на несуществующие ассеты и узлы |
-| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | добавить компонент со значениями по умолчанию и компонентами, которые ему нужны |
+| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | добавить компонент со значениями по умолчанию и компонентами, которые ему нужны, или повесить скрипт по имени его типа |
 | `aego scene add-node <file> <name> [--parent v] [--space v] [--index v] [--dry-run]` | добавить пустой узел |
 | `aego scene apply <file> [--tx v] [--tx-file v] [--dry-run]` | применить транзакцию (tx version=1 { op … }) за один шаг |
 | `aego scene get <file> <node> [<path>]` | узел с его трансформацией и всеми сохранёнными полями или одно поле |
@@ -183,7 +183,7 @@ title: Команда aego
 | `aego scene remove-node <file> <node> [--dry-run]` | удалить узел вместе с детьми |
 | `aego scene rename <file> <node> <name> [--dry-run]` | переименовать узел |
 | `aego scene reset <file> <node> <path> [--dry-run]` | сбросить поле на значение по умолчанию, часть трансформации — на единичную |
-| `aego scene run [<file>] [--frames v] [--seed v]` | запустить сцену без окна и вывести журнал и хеш состояния |
+| `aego scene run [<file>] [--frames v] [--seed v] [--watch v]` | запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | задать поле |
 | `aego scene tree <file>` | дерево узлов с ID, компонентами, скриптами и связями с префабами |
 | `aego scene validate <file>` | проблемы загрузки и ссылки на узлы, которых нет в сцене |

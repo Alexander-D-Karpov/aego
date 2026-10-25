@@ -125,6 +125,7 @@ type args struct {
 	Path   string `json:"path"`
 	Parent string `json:"parent"`
 	Old    string `json:"old"`
+	Tx     string `json:"tx"`
 	Row    string `json:"row"`
 	ID     string `json:"id"`
 }
@@ -185,6 +186,9 @@ func (s *Service) resolve(tool, raw string, open bool) (presence.Spot, bool) {
 	addr := a.Node
 	if addr == "" {
 		addr = a.Parent
+	}
+	if addr == "" && a.Tx != "" {
+		addr = txNode(a.Tx)
 	}
 	sp.Type = comp(a)
 	if open {
@@ -393,4 +397,17 @@ func (s *Service) dropGhosts(card int) {
 		}
 	}
 	s.ghosts = s.ghosts[:n]
+}
+
+// txNode is the node the first op of a transaction names, so a scene_apply leads to the node it builds.
+func txNode(tx string) string {
+	for _, key := range []string{`node="`, `name="`, `parent="`} {
+		if i := strings.Index(tx, key); i >= 0 {
+			rest := tx[i+len(key):]
+			if j := strings.IndexByte(rest, '"'); j > 0 {
+				return rest[:j]
+			}
+		}
+	}
+	return ""
 }
