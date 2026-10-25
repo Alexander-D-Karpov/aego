@@ -9,6 +9,7 @@ import (
 
 	"aego/app/playground"
 	"aego/engine/docs"
+	"aego/engine/i18n"
 )
 
 func newHeadless(t *testing.T) *App {
@@ -131,5 +132,17 @@ func TestThemeCall(t *testing.T) {
 	}
 	if a.Call("theme", []byte(`{"theme":"dark"}`)); !a.ui.Theme.Dark {
 		t.Fatal("theme dark left the light theme on")
+	}
+}
+
+// The page language reaches the Try it view (D348).
+func TestLangCall(t *testing.T) {
+	a := newHeadless(t)
+	t.Cleanup(func() { i18n.Default().SetLanguage(i18n.English) })
+	if r := a.Call("lang", []byte(`{"lang":"ru"}`)); r.Error != "" || i18n.Default().Language() != i18n.Russian {
+		t.Fatalf("lang ru: %q, language %q", r.Error, i18n.Default().Language())
+	}
+	if got := i18n.Tr("editor.menu.file", "File"); got == "File" {
+		t.Fatal("the editor texts stay English after lang ru")
 	}
 }

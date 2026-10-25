@@ -82,7 +82,7 @@ func (b *builder) downloadBlock(root string) string {
 			for _, a := range r.Assets {
 				if d.match(a.Name) {
 					size := sizeMB(a.Size)
-					links = append(links, `<a href="`+esc(a.URL)+`" data-file="`+esc(d.kind+" "+d.ext+" · "+size)+`">`+esc(d.kind)+` <span>`+esc(d.ext)+" · "+size+"</span></a>")
+					links = append(links, `<a href="`+esc(a.URL)+`" data-file="`+esc(b.tr(d.kind)+" "+d.ext+" · "+size)+`">`+esc(b.tr(d.kind))+` <span>`+esc(d.ext)+" · "+size+"</span></a>")
 					break
 				}
 			}
@@ -100,5 +100,5 @@ func (b *builder) downloadBlock(root string) string {
 		fallback = root + u
 	}
 	return `<div class="download" data-fallback="` + esc(fallback) + `"><div class="dl-head"><a class="button primary dl-main" href="` + esc(r.URL) + `">` + b.icon(root, "ui.move_down", "") + `<span>` + b.tr("Download") + `</span></a>` +
-		`<span class="dl-meta"><span class="dl-file">Builds for ` + strings.Join(oses, ", ") + `</span><span class="dl-ver">` + esc(r.Tag) + ` · <a href="` + esc(r.URL) + `">release notes and all files</a></span></span></div><ul class="dl-list">` + strings.Join(items, "") + "</ul></div>\n"
+		`<span class="dl-meta"><span class="dl-file">` + strings.Replace(b.tr("Builds for %s"), "%s", strings.Join(oses, ", "), 1) + `</span><span class="dl-ver">` + esc(r.Tag) + ` · <a href="` + esc(r.URL) + `">` + b.tr("release notes and all files") + `</a></span></span></div><ul class="dl-list">` + strings.Join(items, "") + "</ul></div>\n"
 }

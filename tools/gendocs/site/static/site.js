@@ -269,6 +269,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
 
 (function () {
     const OS_NAMES = { windows: "Windows", macos: "macOS", linux: "Linux" };
+    const ru = document.documentElement.lang === "ru";
     const ua = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent).toLowerCase();
     const os = /win/.test(ua) ? "windows" : /mac|iphone|ipad/.test(ua) ? "macos" : /linux|x11/.test(ua) && !/android/.test(ua) ? "linux" : "";
     for (const box of document.querySelectorAll(".download")) {
@@ -276,13 +277,13 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         const pick = os && box.querySelector(`.dl-list li[data-os="${os}"] a`);
         if (pick) {
             main.href = pick.href;
-            main.querySelector("span").textContent = `Download for ${OS_NAMES[os]}`;
+            main.querySelector("span").textContent = ru ? `Скачать для ${OS_NAMES[os]}` : `Download for ${OS_NAMES[os]}`;
             box.querySelector(".dl-file").textContent = pick.dataset.file;
             pick.classList.add("picked");
             pick.parentElement.classList.add("picked");
         } else {
             main.href = box.dataset.fallback;
-            main.querySelector("span").textContent = os ? `Install on ${OS_NAMES[os]}` : "Install";
+            main.querySelector("span").textContent = ru ? (os ? `Установить на ${OS_NAMES[os]}` : "Установить") : os ? `Install on ${OS_NAMES[os]}` : "Install";
         }
     }
 })();

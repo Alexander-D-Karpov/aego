@@ -4,6 +4,8 @@
     const blocks = [...document.querySelectorAll(".try[data-scene]")];
     if (!blocks.length) return;
     globalThis.aegoSoundDefault = true;
+    const ru = document.documentElement.lang === "ru";
+    const t = (en, rus) => (ru ? rus : en);
     const starters = new Map();
     const texts = new Map();
     let api = null;
@@ -21,6 +23,7 @@
     // The Try it view follows the site's theme switch (D345).
     function syncTheme() {
         if (api) call("theme", { theme: globalThis.aegoTheme || "dark" });
+        if (api) call("lang", { lang: document.documentElement.lang || "en" });
     }
     document.addEventListener("aego-theme", syncTheme);
 
@@ -72,14 +75,14 @@
                 bar.style.width = pct + "%";
                 phase.textContent = s.total ? `${globalThis.aegoMB(s.got)} of ${globalThis.aegoMB(s.total)}` : globalThis.aegoMB(s.got);
             } else if (s.phase === "cache") {
-                label.textContent = "Starting the engine";
-                phase.textContent = "From the browser cache";
+                label.textContent = t("Starting the engine", "Запуск движка");
+                phase.textContent = t("From the browser cache", "Из кэша браузера");
             } else if (s.phase === "compile") {
                 bar.style.width = "100%";
-                label.textContent = "Compiling";
+                label.textContent = t("Compiling", "Компиляция");
                 phase.textContent = "";
             } else if (s.phase === "start") {
-                label.textContent = "Starting the scene";
+                label.textContent = t("Starting the scene", "Запуск сцены");
             }
         };
         return { box, update };
@@ -106,7 +109,7 @@
         btn.dataset.state = state;
         btn.setAttribute("aria-pressed", String(state === "on"));
         btn.querySelector("span").textContent = state === "on" ? "Sound on" : state === "muted" ? "Sound off" : "Turn sound on";
-        btn.title = state === "on" ? "Mute the scene" : state === "muted" ? "Unmute the scene" : "The browser holds sound until you click the page";
+        btn.title = state === "on" ? t("Mute the scene", "Выключить звук сцены") : state === "muted" ? t("Unmute the scene", "Включить звук сцены") : t("The browser holds sound until you click the page", "Браузер не даёт звук, пока вы не нажмёте на страницу");
     }
 
     function watchSound(b) {
@@ -139,7 +142,7 @@
         const hint = document.createElement("div");
         hint.className = "try-input";
         const keys = stage.closest(".try").dataset.input;
-        hint.textContent = "Click the canvas, then use WASD / arrows" + (keys ? ", " + keys : "");
+        hint.textContent = t("Click the canvas, then use WASD / arrows", "Нажмите на сцену, затем WASD / стрелки") + (keys ? ", " + keys : "");
         stage.appendChild(hint);
         const done = () => {
             hint.remove();
@@ -181,7 +184,7 @@
             canvas = document.createElement("canvas");
             canvas.setAttribute("data-aego", "");
             canvas.tabIndex = 0;
-            canvas.setAttribute("aria-label", "Interactive scene with the Inspector");
+            canvas.setAttribute("aria-label", t("Interactive scene with the Inspector", "Интерактивная сцена с Инспектором"));
         }
         const stage = b.querySelector(".try-stage");
         stage.textContent = "";
@@ -200,7 +203,7 @@
             b.querySelector(".try-reset").disabled = false;
             watchSound(b);
             if ("input" in b.dataset) inputHint(stage);
-            status(b, "Change a field on the right: the scene restarts with it. Click the view to send input.");
+            status(b, t("Change a field on the right: the scene restarts with it. Click the view to send input.", "Измените поле справа — сцена перезапустится с ним. Нажмите на вид, чтобы передать ввод."));
         } catch (e) {
             p.box.remove();
             status(b, e.message, true);
@@ -216,7 +219,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        status(b, "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open");
+        status(b, (ru ? "Сохранено " + a.download + "; откройте его в панели Сцены редактора или через Файл → Открыть" : "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open"));
     }
 
     for (const b of blocks) {
@@ -240,9 +243,9 @@
         b.querySelector(".try-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(texts.get(b));
-                status(b, "Copied; paste it into a .aescene file in your project");
+                status(b, t("Copied; paste it into a .aescene file in your project", "Скопировано; вставьте в файл .aescene в своём проекте"));
             } catch (_) {
-                status(b, "The browser blocked the clipboard", true);
+                status(b, t("The browser blocked the clipboard", "Браузер заблокировал буфер обмена"), true);
             }
         });
     }

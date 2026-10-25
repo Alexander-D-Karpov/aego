@@ -8,6 +8,7 @@ import (
 
 	playmods "aego/app/assembly/playground"
 	"aego/editor/core/docsession"
+	"aego/engine/i18n"
 	"aego/scene/sceneio"
 )
 
@@ -21,6 +22,7 @@ type request struct {
 	Value     float64           `json:"value"`
 	Node      string            `json:"node"`
 	Theme     string            `json:"theme"`
+	Lang      string            `json:"lang"`
 }
 
 type Reply struct {
@@ -57,6 +59,8 @@ func (a *App) Call(method string, payload []byte) Reply {
 		err = s.Reset()
 	case "theme":
 		a.SetTheme(req.Theme)
+	case "lang":
+		i18n.Default().SetLanguage(req.Lang)
 	case "text":
 	case "play":
 		s.TogglePause()
