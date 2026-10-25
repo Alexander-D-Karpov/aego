@@ -10,6 +10,7 @@ import (
 	"aego/editor/core/docsession"
 	"aego/engine/i18n"
 	"aego/scene/sceneio"
+	"aego/ui/widgets"
 )
 
 type request struct {
@@ -60,6 +61,7 @@ func (a *App) Call(method string, payload []byte) Reply {
 	case "theme":
 		a.SetTheme(req.Theme)
 	case "lang":
+		widgets.Tr = i18n.Lookup
 		i18n.Default().SetLanguage(req.Lang)
 	case "text":
 	case "play":

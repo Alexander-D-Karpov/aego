@@ -1475,6 +1475,36 @@ messages version=1 lang=ru {
   msg "editor.docsession.component_u_is_not_available" {
     text="компонент {u} недоступен в среде документации"
   }
+  msg "editor.docsview.pause" {
+    text="Пауза"
+  }
+  msg "editor.docsview.pause_tip" {
+    text="Приостановить симуляцию"
+  }
+  msg "editor.docsview.play" {
+    text="Играть"
+  }
+  msg "editor.docsview.play_tip" {
+    text="Запустить симуляцию"
+  }
+  msg "editor.docsview.redo" {
+    text="Повторить"
+  }
+  msg "editor.docsview.redo_tip" {
+    text="Повторить изменение"
+  }
+  msg "editor.docsview.reset" {
+    text="Сбросить"
+  }
+  msg "editor.docsview.reset_tip" {
+    text="Загрузить исходную сцену заново"
+  }
+  msg "editor.docsview.undo" {
+    text="Отменить"
+  }
+  msg "editor.docsview.undo_tip" {
+    text="Отменить последнее изменение"
+  }
   msg "editor.document.trimsuffix_prefab" {
     text="{trimsuffix} (префаб)"
   }

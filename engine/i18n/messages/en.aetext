@@ -1472,6 +1472,36 @@ messages version=1 lang=en {
   msg "editor.docsession.component_u_is_not_available" {
     text="component {u} is not available in the docs runtime"
   }
+  msg "editor.docsview.pause" {
+    text="Pause"
+  }
+  msg "editor.docsview.pause_tip" {
+    text="Pause the simulation"
+  }
+  msg "editor.docsview.play" {
+    text="Play"
+  }
+  msg "editor.docsview.play_tip" {
+    text="Run the simulation"
+  }
+  msg "editor.docsview.redo" {
+    text="Redo"
+  }
+  msg "editor.docsview.redo_tip" {
+    text="Redo the change"
+  }
+  msg "editor.docsview.reset" {
+    text="Reset"
+  }
+  msg "editor.docsview.reset_tip" {
+    text="Load the original scene again"
+  }
+  msg "editor.docsview.undo" {
+    text="Undo"
+  }
+  msg "editor.docsview.undo_tip" {
+    text="Undo the last change"
+  }
   msg "editor.document.trimsuffix_prefab" {
     text="{trimsuffix} (Prefab)"
   }

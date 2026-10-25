@@ -19,6 +19,7 @@ import (
 	"aego/editor/panels/inspector"
 	"aego/engine"
 	"aego/engine/base"
+	"aego/engine/i18n"
 	"aego/engine/module"
 	"aego/format/aetext"
 	"aego/modules/physics"
@@ -307,23 +308,23 @@ func (a *App) panel(f *services.Frame, r mathx.Rect, drawFn func(*services.Frame
 func (a *App) toolbar(r mathx.Rect) {
 	ui := a.ui
 	st := a.session.State()
-	label, tip := "Pause", "Pause the simulation"
+	label, tip := i18n.Tr("editor.docsview.pause", "Pause"), i18n.Tr("editor.docsview.pause_tip", "Pause the simulation")
 	if !st.Running || st.Paused {
-		label, tip = "Play", "Run the simulation"
+		label, tip = i18n.Tr("editor.docsview.play", "Play"), i18n.Tr("editor.docsview.play_tip", "Run the simulation")
 	}
 	tb := widgets.BeginToolbar(ui, r)
 	if c, _ := tb.TextButton(ui.ID("play"), label, tip); c {
 		a.session.TogglePause()
 	}
-	if c, _ := tb.TextButton(ui.ID("reset"), "Reset", "Load the original scene again"); c {
+	if c, _ := tb.TextButton(ui.ID("reset"), i18n.Tr("editor.docsview.reset", "Reset"), i18n.Tr("editor.docsview.reset_tip", "Load the original scene again")); c {
 		if err := a.session.Reset(); err != nil {
 			a.session.Editor().Notify(context.LevelError, err.Error())
 		}
 	}
-	if c, _ := tb.TextButton(ui.ID("undo"), "Undo", "Undo the last change"); c && st.CanUndo {
+	if c, _ := tb.TextButton(ui.ID("undo"), i18n.Tr("editor.docsview.undo", "Undo"), i18n.Tr("editor.docsview.undo_tip", "Undo the last change")); c && st.CanUndo {
 		a.session.Undo()
 	}
-	if c, _ := tb.TextButton(ui.ID("redo"), "Redo", "Redo the change"); c && st.CanRedo {
+	if c, _ := tb.TextButton(ui.ID("redo"), i18n.Tr("editor.docsview.redo", "Redo"), i18n.Tr("editor.docsview.redo_tip", "Redo the change")); c && st.CanRedo {
 		a.session.Redo()
 	}
 }
