@@ -238,6 +238,7 @@ var fsAllowed = []string{
 	"app/run",
 	"app/crash",
 	"app/edit",
+	"app/edit/agentbridge", // agent script edits of closed scripts and their Undo (11b5a)
 	"app/projects",
 	"app/supervise",
 	"runtime/player",

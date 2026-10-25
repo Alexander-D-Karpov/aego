@@ -1,8 +1,9 @@
-// Package agent is the editor panel that talks to the coding agent and shows its proposals (D343).
+// Package agent is the editor panel that talks to the coding agent and shows its steps, proposals and questions (D343).
 package agent
 
 import (
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,39 +20,11 @@ import (
 )
 
 const (
-	ID           = "agent"
-	Icon         = "panel.agent"
-	maxCardLines = 8
-	maxResult    = 4000
-	cardInset    = 8
+	ID   = "agent"
+	Icon = "panel.agent"
+	// maxRows caps the rows a laid-out result shows before "+N more".
+	maxRows = 12
 )
-
-type itemKind uint8
-
-const (
-	itemUser itemKind = iota
-	itemText
-	itemTool
-	itemCard
-	itemError
-)
-
-type item struct {
-	kind   itemKind
-	text   string
-	md     *richtext.Text
-	parsed string
-	h      float32
-	tool   string
-	call   string
-	args   string
-	result string
-	failed bool
-	done   bool
-	open   bool
-	card   int
-	state  agentui.State
-}
 
 type Deps struct {
 	Host    agentui.Host
@@ -63,6 +36,10 @@ type Deps struct {
 	Show   func()
 	// Highlight colours code blocks in answers, the same as the documentation panel.
 	Highlight richtext.Highlighter
+	// Open follows a link of a step or an answer: doc:<id>, ref:<id>, node:<file>#<id>, asset:<path>, file:<path>:<line>.
+	Open func(link string)
+	// Now is the clock of the turn separators; nil uses the wall clock.
+	Now func() time.Time
 }
 
 type avail struct {
@@ -71,19 +48,23 @@ type avail struct {
 }
 
 type Panel struct {
-	d        Deps
-	items    []item
-	old      []item
-	events   []agentui.Event
-	cards    []agentui.Card
-	seen     map[int]bool
-	logged   map[int]agentui.State
-	input    string
-	prevLen  int
-	scroll   float32
-	content  float32
-	bar      widgets.ScrollState
-	follow   bool
+	d         Deps
+	blocks    []block
+	old       []block
+	events    []agentui.Event
+	cards     []agentui.Card
+	questions []agentui.Question
+	seen      map[int]bool
+	asked     map[int]bool
+	answered  map[int]agentui.State
+	logged    map[int]agentui.State
+	input     string
+	prevLen   int
+	scroll    float32
+	content   float32
+	bar       widgets.ScrollState
+	// stick keeps the transcript at its end while new output comes; scrolling up turns it off until the end is reached again.
+	stick    bool
 	focus    bool
 	ver      string
 	verErr   error
@@ -94,18 +75,27 @@ type Panel struct {
 	logErr   bool
 	past     []string
 	names    []string
-	pastSel  int
 	viewing  string
 	pal      *palette.Palette
-	mentions []string
+	mentions []mention
+	picked   []mention
 	notified bool
-	allN     int
-	allLabel string
 	turnAll  bool
+	meta     string
+	session  string
+	fits     [4]fit
+	menu     core.ID
+	history  core.ID
+}
+
+// mention is an @ reference: the input shows Label, the message sends Full.
+type mention struct {
+	Label, Full, Icon string
 }
 
 func New(d Deps) *Panel {
-	return &Panel{d: d, seen: map[int]bool{}, logged: map[int]agentui.State{}, checked: make(chan avail, 1), follow: true}
+	return &Panel{d: d, seen: map[int]bool{}, asked: map[int]bool{}, answered: map[int]agentui.State{}, logged: map[int]agentui.State{}, checked: make(chan avail, 1), stick: true,
+		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history")}
 }
 
 func (p *Panel) ID() string {
@@ -113,10 +103,8 @@ func (p *Panel) ID() string {
 }
 
 func (p *Panel) Title() string {
-	for i := range p.cards {
-		if p.cards[i].State == agentui.Pending {
-			return i18n.Tr("editor.agent.agent", "Agent •")
-		}
+	if p.waiting() {
+		return i18n.Tr("editor.agent.agent", "Agent •")
 	}
 	return i18n.Tr("editor.agent.agent_2", "Agent")
 }
@@ -137,7 +125,7 @@ func (p *Panel) Recheck() {
 
 // Ask shows the panel with the prompt in the input, not sent.
 func (p *Panel) Ask(prompt string) {
-	p.viewing, p.pastSel = "", 0
+	p.viewing = ""
 	if prompt != "" {
 		p.input = prompt
 		p.prevLen = len(prompt)
@@ -164,6 +152,22 @@ func (p *Panel) Pending() []int {
 	return out
 }
 
+// Questions are the agent's questions waiting for an answer.
+func (p *Panel) Questions() []int {
+	var out []int
+	for i := range p.questions {
+		if p.questions[i].State == agentui.Pending {
+			out = append(out, p.questions[i].ID)
+		}
+	}
+	return out
+}
+
+// Answer answers a waiting question as its buttons do, for tests.
+func (p *Panel) Answer(id int, picks []int, text string) {
+	p.d.Host.Answer(id, picks, text)
+}
+
 func (p *Panel) Decide(id int, apply bool) {
 	p.d.Host.Decide(id, apply)
 }
@@ -174,6 +178,20 @@ func (p *Panel) Close() {
 		p.log.Close()
 		p.log = nil
 	}
+}
+
+func (p *Panel) waiting() bool {
+	for i := range p.cards {
+		if p.cards[i].State == agentui.Pending {
+			return true
+		}
+	}
+	for i := range p.questions {
+		if p.questions[i].State == agentui.Pending {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Panel) check() {
@@ -195,10 +213,6 @@ func (p *Panel) record(e agentui.Entry) {
 	}
 }
 
-func (p *Panel) add(it item) {
-	p.items = append(p.items, it)
-}
-
 // Tick takes what the model and the bridge produced since the last frame; it runs also while the panel is hidden.
 func (p *Panel) Tick() {
 	select {
@@ -215,26 +229,42 @@ func (p *Panel) Tick() {
 		p.event(e)
 	}
 	p.cards = host.Cards(p.cards[:0])
-	pending := false
 	for i := range p.cards {
 		c := &p.cards[i]
 		if !p.seen[c.ID] {
 			p.seen[c.ID] = true
-			p.add(item{kind: itemCard, card: c.ID})
-			p.follow = true
+			p.attach(c)
 		}
 		if c.State == agentui.Pending && p.turnAll && !c.Destructive {
 			p.d.Host.Decide(c.ID, true)
 			c.State = agentui.Approved
 		}
-		if c.State == agentui.Pending {
-			pending = true
-		}
 		if st, ok := p.logged[c.ID]; !ok || st != c.State {
 			p.logged[c.ID] = c.State
 			p.record(agentui.Entry{Kind: "card", Card: c.ID, Text: summary(c), State: c.State.String()})
+			p.redraw(c.ID)
 		}
 	}
+	p.questions = host.Questions(p.questions[:0])
+	for i := range p.questions {
+		q := &p.questions[i]
+		if !p.asked[q.ID] {
+			p.asked[q.ID] = true
+			p.push(block{kind: blockQuestion, question: q.ID, pick: make([]bool, len(q.Options))})
+		}
+		if st, ok := p.answered[q.ID]; !ok || st != q.State {
+			p.answered[q.ID] = q.State
+			for j := range p.blocks {
+				if b := &p.blocks[j]; b.kind == blockQuestion && b.question == q.ID {
+					b.dirty()
+				}
+			}
+			if q.State != agentui.Pending {
+				p.record(agentui.Entry{Kind: "question", Card: q.ID, Text: q.Text + "\n" + q.Answer, State: q.State.String()})
+			}
+		}
+	}
+	pending := p.waiting()
 	switch {
 	case pending && !p.notified:
 		p.notified = true
@@ -247,47 +277,52 @@ func (p *Panel) Tick() {
 	}
 }
 
+// redraw measures the block of a card again after its state changed; a decided card folds.
+func (p *Panel) redraw(card int) {
+	c := p.card(card)
+	for i := range p.blocks {
+		b := &p.blocks[i]
+		if b.kind == blockCard && b.card == card {
+			b.dirty()
+			if c != nil && c.State != agentui.Pending && c.State != agentui.Approved {
+				b.open = false
+			}
+		}
+	}
+}
+
 func (p *Panel) event(e agentui.Event) {
 	switch e.Kind {
 	case agentui.EvText:
-		p.text(&p.items, e.Text)
+		p.text(e.Text)
 		p.record(agentui.Entry{Kind: "text", Text: e.Text})
 	case agentui.EvToolStart:
-		p.add(item{kind: itemTool, tool: e.Tool, call: e.CallID, args: e.Args})
+		p.toolStart(e)
 		p.record(agentui.Entry{Kind: "tool", Tool: e.Tool, CallID: e.CallID, Args: e.Args})
 	case agentui.EvToolResult:
-		finish(p.items, e.Tool, e.CallID, e.Result, e.Failed)
+		p.toolResult(e)
 		p.record(agentui.Entry{Kind: "result", Tool: e.Tool, CallID: e.CallID, Text: e.Result, Failed: e.Failed})
 	case agentui.EvError:
-		p.add(item{kind: itemError, text: e.Text})
+		p.push(block{kind: blockError, text: e.Text})
 		p.record(agentui.Entry{Kind: "error", Text: e.Text})
+	case agentui.EvTurnEnd:
+		p.meta = turnMeta(e.Cost, e.Millis)
 	}
 	if e.Kind == agentui.EvTurnEnd || e.Kind == agentui.EvError {
 		p.turnAll = false
 	}
-	p.follow = p.follow || e.Kind != agentui.EvTurnEnd
 }
 
-// text joins answer text into one message until the next tool call.
-func (p *Panel) text(list *[]item, s string) {
-	if n := len(*list); n > 0 && (*list)[n-1].kind == itemText {
-		(*list)[n-1].text += "\n\n" + s
-		return
+// turnMeta is the small line under the input: what the last answer cost and how long it took.
+func turnMeta(cost float64, millis int) string {
+	var parts []string
+	if cost > 0 {
+		parts = append(parts, "$"+strconv.FormatFloat(cost, 'f', 2, 64))
 	}
-	*list = append(*list, item{kind: itemText, text: s})
-}
-
-func finish(list []item, tool, call, result string, failed bool) {
-	for i := len(list) - 1; i >= 0; i-- {
-		it := &list[i]
-		if it.kind != itemTool || it.done {
-			continue
-		}
-		if (call != "" && it.call == call) || (call == "" && it.tool == tool) {
-			it.result, it.failed, it.done = result, failed, true
-			return
-		}
+	if millis > 0 {
+		parts = append(parts, i18n.Tr("editor.agent.seconds", "{n} s", i18n.Str("n", strconv.FormatFloat(float64(millis)/1000, 'f', 1, 64))))
 	}
+	return strings.Join(parts, " · ")
 }
 
 func (p *Panel) send() {
@@ -303,12 +338,34 @@ func (p *Panel) send() {
 			p.log, p.past = t, nil
 		}
 	}
-	p.add(item{kind: itemUser, text: text})
-	p.record(agentui.Entry{Kind: "user", Text: text})
-	p.input, p.prevLen, p.follow = "", 0, true
-	if err := p.d.Host.Send(text); err != nil {
-		p.add(item{kind: itemError, text: err.Error()})
+	full := text
+	for _, m := range p.picked {
+		full = strings.Replace(full, m.Label, m.Full, 1)
+	}
+	now := time.Now()
+	if p.d.Now != nil {
+		now = p.d.Now()
+	}
+	if len(p.blocks) > 0 {
+		p.push(block{kind: blockTurn, at: now})
+	}
+	if p.session == "" {
+		p.session = firstLine(text)
+	}
+	p.push(block{kind: blockUser, text: text, at: now})
+	p.record(agentui.Entry{Kind: "user", Text: full})
+	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
+	if err := p.d.Host.Send(full); err != nil {
+		p.push(block{kind: blockError, text: err.Error()})
 		p.record(agentui.Entry{Kind: "error", Text: err.Error()})
+	}
+}
+
+// sendText sends text from a button: an example, Retry or Ask Agent to Fix; while the agent works it waits in the input.
+func (p *Panel) sendText(text string) {
+	p.input = text
+	if !p.d.Host.Busy() {
+		p.send()
 	}
 }
 
@@ -321,6 +378,17 @@ func summary(c *agentui.Card) string {
 	return strings.Join(lines, "\n")
 }
 
+// NewSession ends the conversation and starts an empty transcript; the next message opens a new session log.
+func (p *Panel) NewSession() {
+	p.d.Host.Reset()
+	if p.log != nil {
+		p.log.Close()
+		p.log = nil
+	}
+	p.blocks, p.old, p.viewing, p.session, p.meta = nil, nil, "", "", ""
+	p.past, p.scroll, p.stick = nil, 0, true
+}
+
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
@@ -328,380 +396,323 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.drawMissing(ui)
 		return
 	}
-	bar := ui.Cursor().Next(0)
+	bar := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight + th.Padding*2}
 	p.header(ui, bar)
-	top := bar.Y + bar.H + th.Spacing
 	inputH := th.RowHeight + 2*th.Padding
-	body := mathx.Rect{X: r.X, Y: top, W: max(0, r.W-th.ScrollbarW-2), H: max(0, r.Y+r.H-top-inputH)}
+	if len(p.picked) > 0 {
+		inputH += th.RowHeight + th.Spacing
+	}
+	metaH := th.RowHeight * 0.85
+	top := bar.Y + bar.H
+	body := mathx.Rect{X: r.X, Y: top, W: max(0, r.W-th.ScrollbarW-2), H: max(0, r.Y+r.H-top-inputH-metaH)}
+	ui.Rect(mathx.Rect{X: r.X, Y: top - 1, W: r.W, H: 1}, th.Border)
 	p.transcript(ui, body, mathx.Rect{X: body.X + body.W + 2, Y: body.Y, W: th.ScrollbarW, H: body.H})
-	p.inputRow(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding, W: max(0, r.W-2*th.Padding), H: th.RowHeight})
+	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding, W: max(0, r.W-2*th.Padding), H: inputH - th.Padding + metaH})
 	p.drawMentions(ui)
 }
 
-func (p *Panel) header(ui *core.Context, r mathx.Rect) {
+// status is what the agent does now, as the header says it.
+func (p *Panel) status(ui *core.Context) (string, mathx.Color) {
 	th := &ui.Theme
-	host := p.d.Host
-	if p.past == nil {
-		p.past, _ = agentui.List(p.d.Root)
-		if p.past == nil {
-			p.past = []string{}
-		}
-		p.names = append(p.names[:0], i18n.Tr("editor.agent.current_session", "Current session"))
-		for _, id := range p.past {
-			if p.log != nil && id == p.log.ID {
-				continue
-			}
-			p.names = append(p.names, id)
-		}
-	}
-	cw := min(float32(170), r.W*0.4)
-	sel := p.pastSel
-	if widgets.Combo(ui, ui.ID("sessions"), mathx.Rect{X: r.X, Y: r.Y, W: cw, H: r.H}, &sel, p.names, false) && sel != p.pastSel {
-		p.open(sel, p.names)
-	}
-	x := r.X + cw + 6
-	auto := host.AutoApply()
-	aw := ui.TextSize(i18n.Tr("editor.agent.auto_apply", "Auto-apply")).X + 20
-	if widgets.ToggleButton(ui, ui.ID("auto"), mathx.Rect{X: x, Y: r.Y, W: aw, H: r.H}, i18n.Tr("editor.agent.auto_apply", "Auto-apply"), &auto) {
-		host.SetAutoApply(auto)
-	}
-	widgets.Tooltip(ui, ui.ID("auto"), i18n.Tr("editor.agent.apply_changes_without_asking_removals", "Apply changes without asking; removals, moves and deletes still wait for you"))
-	x += aw + 6
-	if n := p.applicable(); n >= 1 && host.Busy() {
-		if n != p.allN {
-			p.allN, p.allLabel = n, i18n.Tr("editor.agent.apply_all", "Apply All")
-			if n > 1 {
-				p.allLabel = i18n.Tr("editor.agent.apply_all_n", "Apply All ({n})", i18n.Int("n", int64(n)))
-			}
-		}
-		bw := ui.TextSize(p.allLabel).X + 20
-		if widgets.ButtonRect(ui, ui.ID("applyall"), mathx.Rect{X: x, Y: r.Y, W: bw, H: r.H}, p.allLabel) {
-			p.ApplyAll()
-		}
-		widgets.Tooltip(ui, ui.ID("applyall"), i18n.Tr("editor.agent.apply_this_answer_s_changes", "Apply this answer's changes, the waiting ones and those still to come; removals, moves and deletes still wait for you"))
-		x += bw + 6
-	}
-	status, col := p.ver, th.TextDisabled
-	if host.Busy() {
-		sw := ui.TextSize(i18n.Tr("editor.agent.stop", "Stop")).X + 20
-		if widgets.ButtonRect(ui, ui.ID("stop"), mathx.Rect{X: r.X + r.W - sw, Y: r.Y, W: sw, H: r.H}, i18n.Tr("editor.agent.stop", "Stop")) {
-			host.Cancel()
-		}
-		status, col = i18n.Tr("editor.agent.working", "Working…"), th.TextDim
-		r.W -= sw + 6
-	}
-	ui.Text(widgets.Elide(ui, status, max(0, r.X+r.W-x)), mathx.Vec2{X: x, Y: ui.TextY(r)}, col)
-}
-
-func (p *Panel) open(sel int, names []string) {
-	p.pastSel, p.scroll = sel, 0
-	if sel == 0 {
-		p.viewing, p.old, p.follow = "", nil, true
-		return
-	}
-	id := names[sel]
-	entries, err := agentui.Load(p.d.Root, id)
-	if err != nil {
-		p.d.Notices.Notify(context.LevelError, err.Error())
-		p.pastSel = 0
-		return
-	}
-	p.viewing, p.old, p.follow = id, itemsFrom(entries), false
-}
-
-func itemsFrom(entries []agentui.Entry) []item {
-	var out []item
-	cards := map[int]int{}
-	for _, e := range entries {
-		switch e.Kind {
-		case "user":
-			out = append(out, item{kind: itemUser, text: e.Text})
-		case "text":
-			if n := len(out); n > 0 && out[n-1].kind == itemText {
-				out[n-1].text += "\n\n" + e.Text
-			} else {
-				out = append(out, item{kind: itemText, text: e.Text})
-			}
-		case "tool":
-			out = append(out, item{kind: itemTool, tool: e.Tool, call: e.CallID, args: e.Args})
-		case "result":
-			finish(out, e.Tool, e.CallID, e.Text, e.Failed)
-		case "card":
-			if i, ok := cards[e.Card]; ok {
-				out[i].text, out[i].state = e.Text, agentui.ParseState(e.State)
-				continue
-			}
-			cards[e.Card] = len(out)
-			out = append(out, item{kind: itemCard, card: e.Card, text: e.Text, state: agentui.ParseState(e.State)})
-		case "error":
-			out = append(out, item{kind: itemError, text: e.Text})
-		}
-	}
-	return out
-}
-
-func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
-	th := &ui.Theme
-	view := body.H
-	bottom := p.scroll >= p.content-view-2
-	if ui.MouseOver(ui.ID("scroll"), body) {
-		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
-			p.scroll -= w
-			p.follow = false
-		}
-	}
-	list := p.items
-	if p.viewing != "" {
-		list = p.old
-	}
-	ui.PushClip(body)
-	ui.PushCursor(core.Cursor{X: body.X + th.Padding, Y: body.Y + th.Padding - p.scroll, W: max(0, body.W-2*th.Padding), RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
-	start := ui.Cursor().Y
-	if len(list) == 0 {
-		widgets.LabelWrapped(ui, i18n.Tr("editor.agent.empty_hint", "Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them."), true)
-	}
-	for i := range list {
-		ui.PushIDInt(i)
-		p.drawItem(ui, &list[i], body)
-		ui.PopID()
-	}
-	p.content = ui.Cursor().Y - start + 2*th.Padding
-	ui.PopCursor()
-	ui.PopClip()
-	maxOff := max(0, p.content-view)
-	if p.follow || bottom {
-		p.scroll = maxOff
-	}
-	p.scroll = mathx.Clamp(p.scroll, 0, maxOff)
-	widgets.ScrollBar(ui, ui.ID("vbar"), track, &p.scroll, p.content, view, &p.bar)
-}
-
-func visible(r, body mathx.Rect) bool {
-	return r.Y+r.H >= body.Y && r.Y <= body.Y+body.H
-}
-
-func (p *Panel) newText() *richtext.Text {
-	return &richtext.Text{Highlight: p.d.Highlight}
-}
-
-func (p *Panel) drawItem(ui *core.Context, it *item, body mathx.Rect) {
-	th := &ui.Theme
-	switch it.kind {
-	case itemUser:
-		ui.Cursor().Next(4)
-		widgets.LabelDim(ui, i18n.Tr("editor.agent.you", "You"))
-		widgets.LabelWrapped(ui, it.text, false)
-	case itemText:
-		if it.md == nil {
-			it.md = p.newText()
-		}
-		if it.parsed != it.text {
-			it.md.Set(richtext.Parse(it.text))
-			it.parsed = it.text
-		}
-		rr := ui.Cursor().Next(max(it.h, th.RowHeight))
-		if visible(rr, body) {
-			it.md.Draw(ui, ui.ID("md"), rr)
-			if d := it.md.Doc(); d != nil {
-				it.h = d.Height + 4*th.Padding
-			}
-		}
-	case itemTool:
-		p.drawTool(ui, it)
-	case itemCard:
-		p.drawCard(ui, it)
-	case itemError:
-		rr := ui.Cursor().Next(0)
-		widgets.IconAt(ui, mathx.Rect{X: rr.X, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, "log.error", th.Error)
-		id := ui.ID("err")
-		ui.MouseOver(id, rr)
-		ui.Text(widgets.Elide(ui, it.text, rr.W-22), mathx.Vec2{X: rr.X + 22, Y: ui.TextY(rr)}, th.Error)
-		widgets.Tooltip(ui, id, it.text)
-	}
-}
-
-func clip(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
-
-func (p *Panel) drawTool(ui *core.Context, it *item) {
-	th := &ui.Theme
-	rr := ui.Cursor().Next(0)
-	id := ui.ID("tool")
-	if ui.Clicked(id, rr) {
-		it.open = !it.open
-	}
-	if ui.Hot() == id {
-		ui.Rect(rr, th.WidgetHot)
-	}
-	widgets.Chevron(ui, mathx.Rect{X: rr.X, Y: rr.Y, W: th.Indent, H: rr.H}, it.open, th.TextDim)
-	status, col := "…", th.TextDim
 	switch {
-	case it.done && it.failed:
-		status, col = "failed", th.Error
-	case it.done:
-		status = "ok"
+	case p.waiting():
+		return i18n.Tr("editor.agent.status_waiting", "waiting for you"), th.Accent
+	case p.d.Host.Busy() && p.running() != nil:
+		return i18n.Tr("editor.agent.status_tool", "working"), th.TextDim
+	case p.d.Host.Busy():
+		return i18n.Tr("editor.agent.status_thinking", "thinking"), th.TextDim
 	}
-	sw := ui.TextSize(status).X + 8
-	ui.Text(widgets.Elide(ui, it.tool+"  "+it.args, max(0, rr.W-th.Indent-sw-4)), mathx.Vec2{X: rr.X + th.Indent, Y: ui.TextY(rr)}, th.TextDim)
-	ui.TextIn(rr, status, col, core.AlignRight)
-	if !it.open {
-		return
-	}
-	if it.args != "" {
-		widgets.LabelWrapped(ui, it.args, true)
-	}
-	if it.result != "" {
-		widgets.LabelWrapped(ui, clip(it.result, maxResult), true)
-	}
+	return i18n.Tr("editor.agent.status_idle", "idle"), th.TextDisabled
 }
 
-func (p *Panel) card(id int) *agentui.Card {
-	for i := range p.cards {
-		if p.cards[i].ID == id {
-			return &p.cards[i]
+// running is the call the agent waits on, nil when none.
+func (p *Panel) running() *step {
+	for i := len(p.blocks) - 1; i >= 0 && i >= len(p.blocks)-4; i-- {
+		b := &p.blocks[i]
+		for j := len(b.steps) - 1; j >= 0; j-- {
+			if !b.steps[j].done {
+				return &b.steps[j]
+			}
 		}
 	}
 	return nil
 }
 
-func stateLabel(ui *core.Context, st agentui.State, err string) (string, mathx.Color) {
-	th := &ui.Theme
-	switch st {
-	case agentui.Pending:
-		return "waiting for you", th.Warn
-	case agentui.Approved:
-		return "applying…", th.TextDim
-	case agentui.Applied:
-		return "applied", th.Accent
-	case agentui.Failed:
-		return i18n.Tr("editor.agent.failed_err", "failed: {err}", i18n.Str("err", err)), th.Error
-	}
-	return st.String(), th.TextDisabled
-}
-
-func (p *Panel) drawCard(ui *core.Context, it *item) {
-	th := &ui.Theme
-	cur := ui.Cursor()
-	start := cur.Y
-	var c *agentui.Card
-	if p.viewing == "" {
-		c = p.card(it.card)
-	}
-	title, st, errText, lines, destructive := "", it.state, "", []string(nil), false
-	if c != nil {
-		title, st, errText, destructive = c.Command, c.State, c.Err, c.Destructive
-		for _, ch := range c.Changes {
-			lines = append(lines, ch.String())
-		}
-		lines = append(lines, c.Notes...)
-		lines = append(lines, c.Problems...)
-	} else {
-		parts := strings.Split(it.text, "\n")
-		title, lines = parts[0], parts[1:]
-	}
-	cur.Next(2)
-	head := cur.Next(0)
-	x := head.X + 6
-	if destructive {
-		widgets.IconAt(ui, mathx.Rect{X: x, Y: head.Y + (head.H-16)/2, W: 16, H: 16}, "status.warning", th.Warn)
-		x += 20
-	}
-	label, col := stateLabel(ui, st, errText)
-	lw := min(ui.TextSize(label).X+8, head.W/2)
-	ui.Text(widgets.Elide(ui, title, max(0, head.X+head.W-lw-x)), mathx.Vec2{X: x, Y: ui.TextY(head)}, th.Text)
-	ui.TextIn(mathx.Rect{X: head.X + head.W - lw, Y: head.Y, W: lw - 6, H: head.H}, widgets.Elide(ui, label, lw-6), col, core.AlignRight)
-	cur.X, cur.W = cur.X+cardInset, cur.W-2*cardInset
-	for i, l := range lines {
-		if i == maxCardLines {
-			widgets.LabelDim(ui, i18n.Tr("editor.agent.v_more", "+{v} more", i18n.Str("v", itoa(len(lines)-maxCardLines))))
-			break
-		}
-		widgets.LabelWrapped(ui, l, true)
-	}
-	if c != nil && (c.State == agentui.Pending || c.CanUndo) {
-		row := cur.Next(0)
-		bx := row.X
-		button := func(key, text string) bool {
-			w := ui.TextSize(text).X + 20
-			hit := widgets.ButtonRect(ui, ui.ID(key), mathx.Rect{X: bx, Y: row.Y, W: w, H: row.H}, text)
-			bx += w + 6
-			return hit
-		}
-		if c.State == agentui.Pending {
-			if button("apply", i18n.Tr("editor.agent.apply", "Apply")) {
-				p.d.Host.Decide(c.ID, true)
-			}
-			if button("reject", i18n.Tr("editor.agent.reject", "Reject")) {
-				p.d.Host.Decide(c.ID, false)
-			}
-		}
-		if c.CanUndo && button("undo", i18n.Tr("editor.agent.undo", "Undo")) {
-			if err := p.d.Host.Undo(c.ID); err != nil {
-				p.d.Notices.Notify(context.LevelWarn, err.Error())
-			}
-		}
-	}
-	cur.X, cur.W = cur.X-cardInset, cur.W+2*cardInset
-	box := mathx.Rect{X: cur.X, Y: start, W: cur.W, H: cur.Y - start}
-	ui.List().RectOutline(box, th.Border, 1)
-	if st == agentui.Pending || destructive {
-		stripe := th.Warn
-		if st == agentui.Pending {
-			stripe = th.Accent
-		}
-		ui.Rect(mathx.Rect{X: box.X, Y: box.Y, W: 2, H: box.H}, stripe)
-	}
-	cur.Next(2)
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b [20]byte
-	i := len(b)
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(b[i:])
-}
-
-func (p *Panel) inputRow(ui *core.Context, r mathx.Rect) {
+func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	host := p.d.Host
-	locked := host.Busy() || p.viewing != ""
-	bw := ui.TextSize(i18n.Tr("editor.agent.send", "Send")).X + 20
+	ui.Rect(r, th.Header)
+	r = mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
+	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "agent.avatar", th.Agent.Presence)
+	x := r.X + 22
+	right := r.X + r.W
+	mw := r.H
+	if widgets.IconButton(ui, ui.ID("more"), mathx.Rect{X: right - mw, Y: r.Y, W: mw, H: r.H}, "ui.more", i18n.Tr("editor.agent.menu", "Session")) {
+		ui.OpenPopup(p.menu, mathx.Vec2{X: max(r.X, right-220), Y: r.Y + r.H})
+	}
+	right -= mw + 6
+	auto := host.AutoApply()
+	alabel := i18n.Tr("editor.agent.auto_apply", "Auto-apply")
+	aw := ui.TextSize(alabel).X + 20
+	if widgets.ToggleButton(ui, ui.ID("auto"), mathx.Rect{X: right - aw, Y: r.Y, W: aw, H: r.H}, alabel, &auto) {
+		host.SetAutoApply(auto)
+	}
+	widgets.Tooltip(ui, ui.ID("auto"), i18n.Tr("editor.agent.apply_changes_without_asking_removals", "Apply changes without asking; removals, moves and deletes still wait for you"))
+	right -= aw + 8
+	status, col := p.status(ui)
+	sw := ui.TextSize(status).X + 10
+	if host.Busy() {
+		sw += 10
+	}
+	name := p.session
+	if p.viewing != "" {
+		name = sessionName(p.d.Root, p.viewing)
+	}
+	if name == "" {
+		name = i18n.Tr("editor.agent.new_session", "New session")
+	}
+	nw := max(0, right-x-sw-10)
+	shown := p.fits[0].get(ui, name, nw)
+	nr := mathx.Rect{X: x, Y: r.Y, W: ui.TextSize(shown).X + 4, H: r.H}
+	id := ui.ID("session")
+	if ui.Clicked(id, nr) {
+		p.past = nil
+		ui.OpenPopup(p.history, mathx.Vec2{X: nr.X, Y: r.Y + r.H})
+	}
+	tc := th.Text
+	if ui.Hot() == id {
+		tc = th.Accent
+	}
+	ui.Text(shown, mathx.Vec2{X: x, Y: ui.TextY(r)}, tc)
+	widgets.Tooltip(ui, id, i18n.Tr("editor.agent.history_tip", "Past sessions"))
+	sx := x + nr.W + 8
+	if host.Busy() {
+		pulse := 0.55 + 0.45*mathx.Sin(float32(ui.Time)*5)
+		dot := col
+		dot.A *= pulse
+		ui.RoundRect(mathx.Rect{X: sx, Y: r.Y + r.H/2 - 3, W: 6, H: 6}, 3, dot)
+		sx += 10
+	}
+	ui.Text(status, mathx.Vec2{X: sx, Y: ui.TextY(r)}, col)
+	p.sessionMenu(ui)
+	p.historyMenu(ui)
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+func (p *Panel) sessionMenu(ui *core.Context) {
+	if !widgets.ContextMenu(ui, p.menu) {
+		return
+	}
+	host := p.d.Host
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.menu_new", "New Session"), "", "agent.new", true, false) {
+		p.NewSession()
+	}
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.menu_history", "History…"), "", "panel.history", true, false) {
+		p.past = nil
+		at := ui.Mouse()
+		ui.CloseAllPopups()
+		ui.OpenPopup(p.history, at)
+	}
+	widgets.Separator(ui)
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.menu_plan", "Plan Only"), "", "agent.plan", true, host.PlanOnly()) {
+		host.SetPlanOnly(!host.PlanOnly())
+	}
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.stop", "Stop"), "", "play.stop", host.Busy(), false) {
+		host.Cancel()
+	}
+	widgets.EndContextMenu(ui)
+}
+
+func (p *Panel) historyMenu(ui *core.Context) {
+	if !widgets.ContextMenu(ui, p.history) {
+		return
+	}
+	if p.past == nil {
+		p.past, _ = agentui.List(p.d.Root)
+		if p.past == nil {
+			p.past = []string{}
+		}
+		p.names = p.names[:0]
+		for _, id := range p.past {
+			p.names = append(p.names, sessionName(p.d.Root, id))
+		}
+	}
+	if widgets.MenuItem(ui, i18n.Tr("editor.agent.current_session", "Current session"), "", true, p.viewing == "") {
+		p.viewing, p.old, p.stick = "", nil, true
+	}
+	for i, id := range p.past {
+		if p.log != nil && id == p.log.ID {
+			continue
+		}
+		if widgets.MenuItem(ui, p.names[i], "", true, p.viewing == id) {
+			p.open(id)
+		}
+	}
+	widgets.EndContextMenu(ui)
+}
+
+// sessionName is a past session by its first message.
+func sessionName(root, id string) string {
+	entries, err := agentui.Load(root, id)
+	if err == nil {
+		for _, e := range entries {
+			if e.Kind == "user" && e.Text != "" {
+				line := firstLine(e.Text)
+				if r := []rune(line); len(r) > 48 {
+					line = string(r[:47]) + "…"
+				}
+				return line
+			}
+		}
+	}
+	return id
+}
+
+func (p *Panel) open(id string) {
+	entries, err := agentui.Load(p.d.Root, id)
+	if err != nil {
+		p.d.Notices.Notify(context.LevelError, err.Error())
+		return
+	}
+	p.viewing, p.old, p.scroll, p.stick = id, p.blocksFrom(entries), 0, false
+}
+
+// blocksFrom rebuilds a past session: steps get their looks again from the saved arguments and results.
+func (p *Panel) blocksFrom(entries []agentui.Entry) []block {
+	saved := p.blocks
+	p.blocks = nil
+	for _, e := range entries {
+		switch e.Kind {
+		case "user":
+			if len(p.blocks) > 0 {
+				p.push(block{kind: blockTurn, at: e.Time})
+			}
+			p.push(block{kind: blockUser, text: e.Text, at: e.Time})
+		case "text":
+			p.text(e.Text)
+		case "tool":
+			p.toolStart(agentui.Event{Tool: e.Tool, CallID: e.CallID, Args: e.Args})
+		case "result":
+			p.toolResult(agentui.Event{Tool: e.Tool, CallID: e.CallID, Result: e.Text, Failed: e.Failed})
+		case "card":
+			if b := p.pastCard(e.Card); b != nil {
+				b.text = e.Text
+				continue
+			}
+			for i := len(p.blocks) - 1; i >= 0; i-- {
+				if b := &p.blocks[i]; b.kind == blockCard && b.card == 0 {
+					b.card, b.text, b.open = -e.Card, e.Text, false
+					break
+				}
+			}
+		case "error":
+			p.push(block{kind: blockError, text: e.Text})
+		}
+	}
+	out := p.blocks
+	p.blocks = saved
+	return out
+}
+
+func (p *Panel) pastCard(id int) *block {
+	for i := range p.blocks {
+		if p.blocks[i].kind == blockCard && p.blocks[i].card == -id {
+			return &p.blocks[i]
+		}
+	}
+	return nil
+}
+
+func (p *Panel) footer(ui *core.Context, r mathx.Rect) {
+	th := &ui.Theme
+	host := p.d.Host
+	y := r.Y
+	if len(p.picked) > 0 {
+		x := r.X
+		for i := range p.picked {
+			m := &p.picked[i]
+			w := ui.TextSize(m.Label).X + 30
+			if x+w > r.X+r.W {
+				break
+			}
+			chip := mathx.Rect{X: x, Y: y, W: w, H: th.RowHeight}
+			ui.RoundRect(chip, th.Radius.Button, th.Agent.User)
+			widgets.IconAt(ui, mathx.Rect{X: x + 5, Y: y + (chip.H-14)/2, W: 14, H: 14}, m.Icon, th.TextDim)
+			ui.Text(m.Label, mathx.Vec2{X: x + 23, Y: ui.TextY(chip)}, th.Text)
+			x += w + 4
+		}
+		y += th.RowHeight + th.Spacing
+	}
+	row := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight}
+	locked := p.viewing != ""
+	busy := host.Busy()
+	label := i18n.Tr("editor.agent.send", "Send")
+	if busy {
+		label = i18n.Tr("editor.agent.stop", "Stop")
+	}
+	bw := ui.TextSize(label).X + 24
 	id := ui.ID("message")
 	if p.focus {
 		ui.SetFocus(id)
 		p.focus = false
 	}
-	fr := mathx.Rect{X: r.X, Y: r.Y, W: max(0, r.W-bw-4), H: r.H}
+	fr := mathx.Rect{X: row.X, Y: row.Y, W: max(0, row.W-bw-6), H: row.H}
 	enter := ui.Focus() == id && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
 	widgets.TextFieldRect(ui, id, fr, &p.input, true)
 	if p.input == "" && ui.Focus() != id {
 		hint := i18n.Tr("editor.agent.message_the_agent_to_mention", "Message the agent, @ to mention")
-		if p.viewing != "" {
-			hint = "A past session is read-only, pick Current session to write"
+		if locked {
+			hint = i18n.Tr("editor.agent.past_read_only", "A past session is read-only; pick Current session in the history to write")
 		}
-		ui.Text(widgets.Elide(ui, hint, fr.W-8), mathx.Vec2{X: fr.X + 4, Y: ui.TextY(fr)}, th.TextDisabled)
+		ui.Text(p.fits[1].get(ui, hint, fr.W-8), mathx.Vec2{X: fr.X + 4, Y: ui.TextY(fr)}, th.TextDisabled)
 	}
 	if len(p.input) > p.prevLen && strings.HasSuffix(p.input, "@") {
 		p.input = strings.TrimSuffix(p.input, "@")
 		p.openMentions(ui)
 	}
 	p.prevLen = len(p.input)
-	sent := widgets.ButtonRect(ui, ui.ID("send"), mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H}, i18n.Tr("editor.agent.send", "Send"))
-	if !locked && (sent || enter) {
+	p.dropMentions()
+	br := mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}
+	if busy {
+		if widgets.ButtonRect(ui, ui.ID("stop"), br, label) {
+			host.Cancel()
+		}
+	} else if sent := primary(ui, ui.ID("send"), br, label, !locked && strings.TrimSpace(p.input) != ""); sent || (enter && !locked) {
 		p.send()
 		p.focus = true
 	}
+	meta := p.meta
+	if host.PlanOnly() {
+		meta = i18n.Tr("editor.agent.plan_on", "Plan only: the agent describes changes and makes none")
+	}
+	if meta != "" {
+		mr := mathx.Rect{X: r.X, Y: row.Y + row.H + 2, W: r.W, H: th.RowHeight * 0.8}
+		ui.Text(p.fits[2].get(ui, meta, mr.W), mathx.Vec2{X: mr.X, Y: ui.TextY(mr)}, th.TextDisabled)
+	}
+}
+
+// primary is the accent button of a row: Send, Apply.
+func primary(ui *core.Context, id core.ID, r mathx.Rect, label string, enabled bool) bool {
+	th := &ui.Theme
+	if !enabled {
+		ui.RoundRect(r, th.Radius.Button, th.Widget)
+		ui.TextIn(r, label, th.TextDisabled, core.AlignCenter)
+		return false
+	}
+	hit := ui.Clicked(id, r)
+	fill := th.Accent
+	if ui.Hot() == id {
+		fill = fill.Lerp(th.Text, 0.15)
+	}
+	ui.RoundRect(r, th.Radius.Button, fill)
+	ui.TextIn(r, label, th.Background, core.AlignCenter)
+	return hit
 }
 
 func (p *Panel) openMentions(ui *core.Context) {
@@ -721,18 +732,47 @@ func (p *Panel) openMentions(ui *core.Context) {
 			}
 			id := s.ID(h)
 			name := s.Name(h)
-			items = append(items, palette.Item{Key: "node:" + id.String(), Label: name, Category: "Nodes", Detail: path.Base(d.Path), Icon: "cat.node"})
-			p.mentions = append(p.mentions, "@"+name+" (#"+id.String()+" in "+d.Path+")")
+			items = append(items, palette.Item{Key: "node:" + id.String(), Label: name, Category: i18n.Tr("editor.agent.mention_nodes", "Nodes"), Detail: path.Base(d.Path), Icon: "cat.node"})
+			p.mentions = append(p.mentions, mention{Label: "@" + name, Full: "@" + name + " (#" + id.String() + " in " + d.Path + ")", Icon: "cat.node"})
 		}
 	}
 	if p.d.Assets != nil {
 		for _, a := range p.d.Assets() {
-			items = append(items, palette.Item{Key: "asset:" + a, Label: path.Base(a), Category: "Assets", Detail: a})
-			p.mentions = append(p.mentions, "@"+a)
+			icon := assetIcon(a)
+			items = append(items, palette.Item{Key: "asset:" + a, Label: path.Base(a), Category: i18n.Tr("editor.agent.mention_assets", "Assets"), Detail: a, Icon: icon})
+			p.mentions = append(p.mentions, mention{Label: "@" + path.Base(a), Full: "@" + a, Icon: icon})
 		}
 	}
 	p.pal.SetItems(items)
 	p.pal.Show(ui)
+}
+
+func assetIcon(a string) string {
+	switch path.Ext(a) {
+	case ".aes":
+		return "file.script"
+	case ".aescene":
+		return "file.scene"
+	case ".aeprefab":
+		return "file.prefab"
+	case ".png", ".jpg":
+		return "file.texture"
+	case ".wav", ".ogg":
+		return "file.audio"
+	}
+	return "file.unknown"
+}
+
+// dropMentions forgets the chips whose label the user deleted from the input.
+func (p *Panel) dropMentions() {
+	n := 0
+	for _, m := range p.picked {
+		if strings.Contains(p.input, m.Label) {
+			p.picked[n] = m
+			n++
+		}
+	}
+	p.picked = p.picked[:n]
 }
 
 func (p *Panel) drawMentions(ui *core.Context) {
@@ -747,10 +787,12 @@ func (p *Panel) drawMentions(ui *core.Context) {
 		p.pal.Hide(ui)
 		p.focus = true
 	case res.Pick >= 0 && res.Pick < len(p.mentions):
+		m := p.mentions[res.Pick]
 		if p.input != "" && !strings.HasSuffix(p.input, " ") {
 			p.input += " "
 		}
-		p.input += p.mentions[res.Pick] + " "
+		p.input += m.Label + " "
+		p.picked = append(p.picked, m)
 		p.prevLen = len(p.input)
 		p.pal.Hide(ui)
 		p.focus = true
@@ -792,6 +834,24 @@ func (p *Panel) UndoCard(id int) error {
 	return p.d.Host.Undo(id)
 }
 
+func (p *Panel) card(id int) *agentui.Card {
+	for i := range p.cards {
+		if p.cards[i].ID == id {
+			return &p.cards[i]
+		}
+	}
+	return nil
+}
+
+func (p *Panel) question(id int) *agentui.Question {
+	for i := range p.questions {
+		if p.questions[i].ID == id {
+			return &p.questions[i]
+		}
+	}
+	return nil
+}
+
 // applicable counts the waiting cards Apply All takes: every pending one that is not destructive.
 func (p *Panel) applicable() int {
 	n := 0
@@ -810,5 +870,17 @@ func (p *Panel) ApplyAll() {
 		if c := &p.cards[i]; c.State == agentui.Pending && !c.Destructive {
 			p.d.Host.Decide(c.ID, true)
 		}
+	}
+}
+
+// Expand opens every row and step of the transcript, for screenshots and tests.
+func (p *Panel) Expand() {
+	for i := range p.blocks {
+		b := &p.blocks[i]
+		b.open = true
+		for j := range b.steps {
+			b.steps[j].open = b.steps[j].look.Detail.Kind != agentui.DetailNone
+		}
+		b.dirty()
 	}
 }

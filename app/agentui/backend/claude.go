@@ -167,9 +167,11 @@ type block struct {
 }
 
 type streamLine struct {
-	Type    string `json:"type"`
-	IsError bool   `json:"is_error"`
-	Result  string `json:"result"`
+	Type    string  `json:"type"`
+	IsError bool    `json:"is_error"`
+	Result  string  `json:"result"`
+	Cost    float64 `json:"total_cost_usd"`
+	Millis  int     `json:"duration_ms"`
 	Message struct {
 		Content []block `json:"content"`
 	} `json:"message"`
@@ -218,7 +220,7 @@ func Decode(line []byte) []Event {
 		if l.IsError {
 			out = append(out, Event{Kind: EvError, Err: errors.New(l.Result)})
 		}
-		out = append(out, Event{Kind: EvTurnEnd})
+		out = append(out, Event{Kind: EvTurnEnd, Cost: l.Cost, Millis: l.Millis})
 	}
 	return out
 }

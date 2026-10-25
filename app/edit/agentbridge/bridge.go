@@ -4,6 +4,7 @@ package agentbridge
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"aego/app/agent"
@@ -55,8 +56,11 @@ type Bridge struct {
 	http *mcp.HTTP
 
 	proposals []*Proposal
+	questions []*Question
 	next      int
 	auto      bool
+	planOnly  bool
+	planMu    sync.Mutex
 	last      *undoRef
 }
 
@@ -65,14 +69,15 @@ const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Led
 
 // Guide is the system prompt the editor adds for the model.
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
-	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change."
+	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
+	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
 	c := cfg.Ctx
 	b := &Bridge{cfg: cfg, ctx: c}
 	b.sess = agent.Attach(c.Project, c.Types, cfg.Modules, c.Pipeline, cfg.Bindings, b)
-	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Version: engine.Version})
+	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Tools: b.tools(), Version: engine.Version})
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +118,9 @@ func (b *Bridge) main(fn func()) error {
 func (b *Bridge) Run(name string, a agent.Args) (*agent.Output, error) {
 	c, ok := agent.Find(name)
 	if ok && c.Write && !a.Bool("dry-run") {
+		if b.PlanOnly() {
+			return nil, errPlanOnly
+		}
 		return b.propose(c, a)
 	}
 	var out *agent.Output
@@ -145,6 +153,11 @@ func (b *Bridge) Paths() ([]string, error) {
 		}
 	})
 	return out, err
+}
+
+// Editor is the editor the bridge serves, for the host that shows the agent's work.
+func (b *Bridge) Editor() *context.Editor {
+	return b.ctx
 }
 
 func (b *Bridge) Project() *project.Project {

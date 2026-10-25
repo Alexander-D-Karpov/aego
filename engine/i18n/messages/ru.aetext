@@ -206,20 +206,26 @@ messages version=1 lang=ru {
   msg "editor.agent.agent_2" {
     text="Агент"
   }
+  msg "editor.agent.answer" {
+    text="Ответить"
+  }
   msg "editor.agent.apply" {
     text="Применить"
   }
   msg "editor.agent.apply_all" {
     text="Применить все"
   }
-  msg "editor.agent.apply_all_n" {
-    text="Применить все ({n})"
-  }
   msg "editor.agent.apply_changes_without_asking_removals" {
     text="Применять изменения без вопроса; удаления и перемещения всё равно ждут вас"
   }
   msg "editor.agent.apply_this_answer_s_changes" {
     text="Применить изменения этого ответа, ожидающие и следующие; удаления и перемещения всё равно ждут вас"
+  }
+  msg "editor.agent.ask_fix" {
+    text="Попросить агента исправить"
+  }
+  msg "editor.agent.asks" {
+    text="Агент спрашивает"
   }
   msg "editor.agent.auto_apply" {
     text="Автоприменение"
@@ -242,32 +248,412 @@ messages version=1 lang=ru {
   msg "editor.agent.current_session" {
     text="Текущий сеанс"
   }
+  msg "editor.agent.dry_run" {
+    text="Пробный прогон"
+  }
+  msg "editor.agent.dry_run_tip" {
+    text="Показать всё, что сообщил пробный прогон: каждое изменение, заметку и проблему"
+  }
   msg "editor.agent.empty_hint" {
     text="Спросите о проекте или опишите изменение. Наберите @, чтобы упомянуть узел или ассет. Изменения ждут, пока вы их примените."
   }
-  msg "editor.agent.failed_err" {
-    text="ошибка: {err}"
+  msg "editor.agent.empty_title" {
+    text="Спросите агента"
+  }
+  msg "editor.agent.example_enemy" {
+    text="Найди, почему враг не умирает"
+  }
+  msg "editor.agent.example_explain" {
+    text="Объясни, что делает эта сцена"
+  }
+  msg "editor.agent.example_platform" {
+    text="Добавь движущуюся платформу над игроком"
+  }
+  msg "editor.agent.failed" {
+    text="Не удалось: {title}"
+  }
+  msg "editor.agent.fix_text" {
+    text="Шаг «{title}» завершился ошибкой: {error}. Найди причину и исправь."
+  }
+  msg "editor.agent.history_tip" {
+    text="Прошлые сеансы"
   }
   msg "editor.agent.install_help" {
     text="Агент работает через Claude Code, команду claude. Установите её, один раз войдите в аккаунт, запустив claude в терминале, и проверьте снова. Если она установлена там, где редактор её не ищет, укажите путь ниже."
   }
+  msg "editor.agent.looked_around" {
+    one="Осмотрелся · {n} шаг"
+    few="Осмотрелся · {n} шага"
+    many="Осмотрелся · {n} шагов"
+  }
   msg "editor.agent.mention" {
     text="Упоминание"
+  }
+  msg "editor.agent.mention_assets" {
+    text="Ассеты"
   }
   msg "editor.agent.mention_hint" {
     text="Enter — вставить · Esc — закрыть"
   }
+  msg "editor.agent.mention_nodes" {
+    text="Узлы"
+  }
+  msg "editor.agent.menu" {
+    text="Сеанс"
+  }
+  msg "editor.agent.menu_history" {
+    text="История…"
+  }
+  msg "editor.agent.menu_new" {
+    text="Новый сеанс"
+  }
+  msg "editor.agent.menu_plan" {
+    text="Только план"
+  }
   msg "editor.agent.message_the_agent_to_mention" {
     text="Сообщение агенту, @ — упомянуть"
+  }
+  msg "editor.agent.new_session" {
+    text="Новый сеанс"
+  }
+  msg "editor.agent.not_answered" {
+    text="Без ответа"
+  }
+  msg "editor.agent.other_hint" {
+    text="Свой вариант…"
+  }
+  msg "editor.agent.past_read_only" {
+    text="Прошлый сеанс только для чтения; чтобы писать, выберите в истории текущий сеанс"
   }
   msg "editor.agent.path" {
     text="Путь"
   }
-  msg "editor.agent.reject" {
-    text="Отклонить"
+  msg "editor.agent.plan_on" {
+    text="Только план: агент описывает изменения и ничего не меняет"
+  }
+  msg "editor.agent.preparing" {
+    text="Готовлю изменение…"
+  }
+  msg "editor.agent.reading" {
+    text="Изучаю проект…"
+  }
+  msg "editor.agent.retry" {
+    text="Повторить"
+  }
+  msg "editor.agent.retry_text" {
+    text="Повтори шаг, который не удался: {title}"
+  }
+  msg "editor.agent.seconds" {
+    text="{n} с"
+  }
+  msg "editor.agent.select" {
+    text="Выделить"
   }
   msg "editor.agent.send" {
     text="Отправить"
+  }
+  msg "editor.agent.skip" {
+    text="Пропустить"
+  }
+  msg "editor.agent.state_applied" {
+    text="применено"
+  }
+  msg "editor.agent.state_applying" {
+    text="применяю…"
+  }
+  msg "editor.agent.state_expired" {
+    text="время вышло"
+  }
+  msg "editor.agent.state_failed" {
+    text="ошибка"
+  }
+  msg "editor.agent.state_skipped" {
+    text="пропущено"
+  }
+  msg "editor.agent.state_undone" {
+    text="отменено"
+  }
+  msg "editor.agent.state_waiting" {
+    text="ждёт вас"
+  }
+  msg "editor.agent.status_idle" {
+    text="свободен"
+  }
+  msg "editor.agent.status_thinking" {
+    text="думает"
+  }
+  msg "editor.agent.status_tool" {
+    text="работает"
+  }
+  msg "editor.agent.status_waiting" {
+    text="ждёт вас"
+  }
+  msg "editor.agent.step.add_comp" {
+    text="Добавить {comp} на {node}"
+  }
+  msg "editor.agent.step.add_event" {
+    text="Добавить событие {name} на {time} с"
+  }
+  msg "editor.agent.step.add_node" {
+    text="Добавить узел {name}"
+  }
+  msg "editor.agent.step.add_param" {
+    text="Добавить параметр {name}"
+  }
+  msg "editor.agent.step.add_row" {
+    text="Добавить строку {id} в {file}"
+  }
+  msg "editor.agent.step.add_state" {
+    text="Добавить состояние {name}"
+  }
+  msg "editor.agent.step.add_transition" {
+    text="Добавить переход {from} → {to}"
+  }
+  msg "editor.agent.step.apply" {
+    text="Изменить {file}"
+  }
+  msg "editor.agent.step.apply_label" {
+    text="{label} в {file}"
+  }
+  msg "editor.agent.step.apply_overrides" {
+    text="Применить переопределения {node}"
+  }
+  msg "editor.agent.step.ask" {
+    text="Спросил вас: {question}"
+  }
+  msg "editor.agent.step.base" {
+    text="Задать основу {file}"
+  }
+  msg "editor.agent.step.changes" {
+    one="{n} изменение"
+    few="{n} изменения"
+    many="{n} изменений"
+  }
+  msg "editor.agent.step.delete_asset" {
+    text="Удалить {asset}"
+  }
+  msg "editor.agent.step.edit_script" {
+    text="Изменить {file}"
+  }
+  msg "editor.agent.step.entry" {
+    text="Начинать с состояния {name}"
+  }
+  msg "editor.agent.step.expand" {
+    text="Превратить кадры {file} в ключи"
+  }
+  msg "editor.agent.step.export" {
+    text="Выгрузить {file} в {csv}"
+  }
+  msg "editor.agent.step.find_refs" {
+    text="Найти, что использует {asset}"
+  }
+  msg "editor.agent.step.fix_refs" {
+    text="Направить ссылки на {to}"
+  }
+  msg "editor.agent.step.import" {
+    text="Загрузить {csv} в {file}"
+  }
+  msg "editor.agent.step.instantiate" {
+    text="Добавить экземпляр {prefab}"
+  }
+  msg "editor.agent.step.items" {
+    one="{n} элемент"
+    few="{n} элемента"
+    many="{n} элементов"
+  }
+  msg "editor.agent.step.lines" {
+    one="{n} строка"
+    few="{n} строки"
+    many="{n} строк"
+  }
+  msg "editor.agent.step.list_assets" {
+    text="Список ассетов"
+  }
+  msg "editor.agent.step.list_types" {
+    text="Список компонентов и типов данных"
+  }
+  msg "editor.agent.step.make_prefab" {
+    text="Сделать префаб из {node}"
+  }
+  msg "editor.agent.step.missing_refs" {
+    text="Поиск недостающих ссылок"
+  }
+  msg "editor.agent.step.move" {
+    text="Переместить {node} под {parent}"
+  }
+  msg "editor.agent.step.move_asset" {
+    text="Переместить {asset} в {to}"
+  }
+  msg "editor.agent.step.move_event" {
+    text="Переместить событие на {time} с"
+  }
+  msg "editor.agent.step.move_key" {
+    text="Переместить ключ {target} на {to} с"
+  }
+  msg "editor.agent.step.new_scene" {
+    text="Создать сцену {file}"
+  }
+  msg "editor.agent.step.new_script" {
+    text="Создать скрипт {file}"
+  }
+  msg "editor.agent.step.no_changes" {
+    text="менять нечего"
+  }
+  msg "editor.agent.step.no_problems" {
+    text="без проблем"
+  }
+  msg "editor.agent.step.nodes" {
+    one="{n} узел"
+    few="{n} узла"
+    many="{n} узлов"
+  }
+  msg "editor.agent.step.overrides" {
+    text="Переопределения {node}"
+  }
+  msg "editor.agent.step.problems" {
+    one="{n} проблема"
+    few="{n} проблемы"
+    many="{n} проблем"
+  }
+  msg "editor.agent.step.read_clip" {
+    text="Прочитать клип {file}"
+  }
+  msg "editor.agent.step.read_ctrl" {
+    text="Прочитать контроллер {file}"
+  }
+  msg "editor.agent.step.read_data" {
+    text="Прочитать {file}"
+  }
+  msg "editor.agent.step.read_docs" {
+    text="Прочитать страницу документации {id}"
+  }
+  msg "editor.agent.step.read_field" {
+    text="Прочитать {target}"
+  }
+  msg "editor.agent.step.read_node" {
+    text="Прочитать {node}"
+  }
+  msg "editor.agent.step.read_project" {
+    text="Прочитать настройки проекта"
+  }
+  msg "editor.agent.step.read_scene" {
+    text="Прочитать сцену {file}"
+  }
+  msg "editor.agent.step.read_script" {
+    text="Прочитать скрипт {file}"
+  }
+  msg "editor.agent.step.remove_comp" {
+    text="Убрать {comp} с {node}"
+  }
+  msg "editor.agent.step.remove_event" {
+    text="Убрать событие из {file}"
+  }
+  msg "editor.agent.step.remove_key" {
+    text="Убрать ключ {target} на {time} с"
+  }
+  msg "editor.agent.step.remove_node" {
+    text="Убрать {node}"
+  }
+  msg "editor.agent.step.remove_param" {
+    text="Убрать параметр {name}"
+  }
+  msg "editor.agent.step.remove_row" {
+    text="Убрать строку {id} из {file}"
+  }
+  msg "editor.agent.step.remove_state" {
+    text="Убрать состояние {name}"
+  }
+  msg "editor.agent.step.remove_track" {
+    text="Убрать дорожку {target}"
+  }
+  msg "editor.agent.step.remove_transition" {
+    text="Убрать переход"
+  }
+  msg "editor.agent.step.rename" {
+    text="Переименовать {node} в {name}"
+  }
+  msg "editor.agent.step.rename_asset" {
+    text="Переименовать {asset} в {name}"
+  }
+  msg "editor.agent.step.rename_row" {
+    text="Переименовать строку {id} в {name}"
+  }
+  msg "editor.agent.step.reset" {
+    text="Сбросить {target}"
+  }
+  msg "editor.agent.step.reset_data" {
+    text="Сбросить {target}"
+  }
+  msg "editor.agent.step.results" {
+    one="{n} результат"
+    few="{n} результата"
+    many="{n} результатов"
+  }
+  msg "editor.agent.step.revert_overrides" {
+    text="Отменить переопределения {node}"
+  }
+  msg "editor.agent.step.root" {
+    text="корень"
+  }
+  msg "editor.agent.step.rows" {
+    text="Строки {file}"
+  }
+  msg "editor.agent.step.rows_n" {
+    one="{n} строка"
+    few="{n} строки"
+    many="{n} строк"
+  }
+  msg "editor.agent.step.run" {
+    text="Запустить {file} без окна"
+  }
+  msg "editor.agent.step.search_docs" {
+    text="Поиск в документации: «{query}»"
+  }
+  msg "editor.agent.step.set" {
+    text="Задать {target}"
+  }
+  msg "editor.agent.step.set_clip" {
+    text="Задать {attr} у {file}"
+  }
+  msg "editor.agent.step.set_data" {
+    text="Задать {target}"
+  }
+  msg "editor.agent.step.set_key" {
+    text="Задать ключ {target} на {time} с"
+  }
+  msg "editor.agent.step.set_project" {
+    text="Задать {target}"
+  }
+  msg "editor.agent.step.set_state" {
+    text="Задать {attr} у состояния {name}"
+  }
+  msg "editor.agent.step.set_transition" {
+    text="Задать {attr} у перехода"
+  }
+  msg "editor.agent.step.show_type" {
+    text="Прочитать поля {type}"
+  }
+  msg "editor.agent.step.ticks" {
+    one="{n} тик"
+    few="{n} тика"
+    many="{n} тиков"
+  }
+  msg "editor.agent.step.types" {
+    one="{n} тип"
+    few="{n} типа"
+    many="{n} типов"
+  }
+  msg "editor.agent.step.unpack" {
+    text="Распаковать {node}"
+  }
+  msg "editor.agent.step.validate_project" {
+    text="Проверить проект"
+  }
+  msg "editor.agent.step.validate_scene" {
+    text="Проверить {file}"
+  }
+  msg "editor.agent.step.write_script" {
+    text="Переписать {file}"
   }
   msg "editor.agent.stop" {
     text="Остановить"
@@ -275,17 +661,37 @@ messages version=1 lang=ru {
   msg "editor.agent.the_agent_is_waiting_for" {
     text="Агент ждёт, пока вы примените или отклоните изменение"
   }
+  msg "editor.agent.thinking" {
+    text="Думаю…"
+  }
   msg "editor.agent.undo" {
     text="Отменить"
   }
   msg "editor.agent.v_more" {
     text="ещё {v}"
   }
-  msg "editor.agent.working" {
-    text="Работаю…"
+  msg "editor.agent.view.hash" {
+    text="Хеш состояния"
   }
-  msg "editor.agent.you" {
-    text="Вы"
+  msg "editor.agent.view.new_node" {
+    text="новый узел"
+  }
+  msg "editor.agent.view.none" {
+    text="нет"
+  }
+  msg "editor.agent.view.removed_node" {
+    text="убран"
+  }
+  msg "editor.agent.view.transform" {
+    text="Трансформация"
+  }
+  msg "editor.agent.waiting" {
+    text="Жду вас"
+  }
+  msg "editor.agent.waiting_n" {
+    one="{n} изменение ждёт вас"
+    few="{n} изменения ждут вас"
+    many="{n} изменений ждут вас"
   }
   msg "editor.animation.auto_key" {
     text="Автоключ"

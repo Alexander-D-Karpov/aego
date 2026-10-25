@@ -50,6 +50,31 @@ type Text struct {
 	doc        *Doc
 	width      float32
 	key        *text.Font
+	fs         fonts
+}
+
+// fonts are the faces of the current UI font, picked again only when the UI font changes.
+func (t *Text) fonts(ui *core.Context) *fonts {
+	if t.fs.face[Body] != ui.Font() || t.fs.face[Body] == nil {
+		t.fs = *pick(ui)
+	}
+	return &t.fs
+}
+
+// Measure lays the text out for a box of width w and returns the height Draw needs to show all of it; Draw keeps the layout.
+func (t *Text) Measure(ui *core.Context, w float32) float32 {
+	if ui.Font() == nil {
+		return 0
+	}
+	th := &ui.Theme
+	fs := t.fonts(ui)
+	pad := th.Padding * 2
+	width := max(40, w-2*pad-th.ScrollbarW)
+	if t.doc == nil || width != t.width || fs.face[Body] != t.key {
+		t.doc = Layout(t.blocks, width, fs, t.Highlight)
+		t.width, t.key = width, fs.face[Body]
+	}
+	return t.doc.Height + 2*pad
 }
 
 func (t *Text) Set(blocks []Block) {
@@ -153,7 +178,7 @@ func (t *Text) Draw(ui *core.Context, id core.ID, r mathx.Rect) Action {
 		return act
 	}
 	th := &ui.Theme
-	fs := pick(ui)
+	fs := t.fonts(ui)
 	pad := th.Padding * 2
 	width := max(40, r.W-2*pad-th.ScrollbarW)
 	if t.doc == nil || width != t.width || fs.face[Body] != t.key {

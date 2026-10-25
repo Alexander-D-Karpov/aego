@@ -259,9 +259,9 @@ style_allow: [agent]
 ---
 # The Agent panel
 
-The Agent tab, next to the Inspector, talks to Claude Code about the open project. It answers questions, reads the scenes and the documentation, and proposes changes that you apply.
+The Agent tab, next to the Inspector, talks to Claude Code about the open project. It answers questions, reads the scenes, the scripts and the documentation, and proposes changes that you apply.
 
-The model uses the same tools as `aego` and [`aego mcp`](ref:agents), on the editor's open documents. It sees unsaved edits, and what it changes in an open scene becomes an Undo step there instead of a write to disk.
+The model uses the same tools as `aego` and [`aego mcp`](ref:agents), on the editor's open documents. It sees unsaved edits, and what it changes in an open scene or script becomes an Undo step there instead of a write to disk.
 
 ## Setting up
 
@@ -272,20 +272,36 @@ The panel looks for `claude` on your PATH. When it is not there, the panel says 
 
 ## Asking
 
-Type in the field at the bottom and press `Enter`. Answers are formatted text with code blocks. Each tool call is a line you can open for its arguments and result. **Stop** ends the answer and rejects whatever still waits.
+Type in the field at the bottom and press `Enter`. While the agent answers, **Send** turns into **Stop**, which ends the answer and rejects whatever still waits. Under the field the panel shows what the last answer cost and how long it took.
 
-- Type `@` to pick a node of the open scene or an asset. A node goes in as `@Name (#id in scenes/main.aescene)`, an asset as its path.
+- Type `@` to pick a node of the open scene or an asset. It goes in as a chip; the agent gets the node's id and scene, or the asset's path.
 - Right-click a node in the Hierarchy and pick **Ask Agent…**, or a problem in Problems and pick **Ask Agent to Fix**. The text waits in the field until you send it.
+- With an empty transcript, the panel offers three examples; a click sends one.
+
+## Steps
+
+Each tool call is a row: an icon, what the agent did and what it found, such as **Read scene main.aescene · 48 nodes**. Steps that only read fold into one row, **Looked around · 9 steps**; open it to see each step, and open a step to see its result laid out: search results, a node tree, fields with their values, assets, components by category, a log. A click on a result goes to it: a page of the documentation, a node, an asset.
+
+While the agent works, the last row says what it is doing, **Reading the project…** or **Preparing a change…**. A step that failed shows its error with **Retry** and **Ask Agent to Fix**.
+
+## Questions
+
+When there is more than one way to do something, the agent asks with a card of options, the one it recommends first. Click an option or press its number. Type an answer of your own in **Something else…** and press **Answer**; when the agent lets you pick several options, tick them first. The agent waits for the answer and goes on with it.
 
 ## Changes
 
-Every change the model wants becomes a card: added and removed nodes, fields with the value before and after, and the notes and problems of a dry run.
+Every change the agent wants becomes a card, grouped by node: new nodes and components, and each field with its value before and after, by the names the Inspector uses.
 
-- **Apply** makes the change, on the scene as it is now. **Reject** tells the model no. A card nobody answers is rejected after ten minutes.
+- **Apply** makes the change, on the scene as it is now. **Skip** tells the agent no. **Dry-run** shows everything the dry run reported, with its notes and problems. A card nobody answers is skipped after ten minutes.
 - With **Auto-apply** on, cards apply at once, except removals, moves, deletes and reference fixes. Those always wait for you and carry a warning sign.
-- **Apply All**, at the top while the model is answering, applies the waiting card and the rest of that answer's cards the same way. It stops when the answer ends.
+- When several cards wait, **Apply All** above the first one applies them and the rest of that answer's cards the same way. It stops when the answer ends.
+- An applied card folds to one line with a check mark; open it for **Undo** and **Select**, which selects the nodes it changed.
 
-The model is asked to send the edits of one scene together, so a new node with its components and fields is one card.
+The agent is asked to send the edits of one scene together, so a new node with its components and fields is one card.
+
+## Scripts
+
+The agent reads scripts and changes them with cards too. An open script changes in its buffer, as one Undo step of the code editor, and is saved like your own edits; a closed one changes on disk. A new script is a card as well, and **Undo** on it removes the file.
 
 ## Undo
 
@@ -296,4 +312,7 @@ Each applied change is one Undo step of the scene you edit, named `Agent: …`. 
 
 ## Sessions
 
-Each conversation is written to `.aego/user/agent/<date-time>.jsonl`, one line per message, tool call, result and card state. The list at the top opens earlier sessions read-only. A new message always starts from **Current session**.
+The header shows the session by its first message, and what the agent does: idle, thinking, working or waiting for you. The menu next to **Auto-apply** has **New Session**, **History…**, **Plan Only** and **Stop**.
+
+- **Plan Only** keeps the agent from changing anything: it describes the changes and their order, and you turn the plan into changes when you turn it off.
+- Each conversation is written to `.aego/user/agent/<date-time>.jsonl`, one line per message, tool call, result and card state. **History…**, or a click on the session name, opens an earlier session read-only. A new message always goes to the current session.

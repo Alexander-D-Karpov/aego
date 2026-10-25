@@ -22,6 +22,16 @@ type Extra struct {
 	Read        func() (string, error)
 }
 
+// Tool is a tool the host adds next to the agent commands, such as the editor's ask_user.
+type Tool struct {
+	Name        string
+	Description string
+	Schema      map[string]any
+	ReadOnly    bool
+	// Run answers the call; it may block while the user decides.
+	Run func(args map[string]any) (text string, failed bool)
+}
+
 type kitSource struct {
 	kit *agent.Kit
 }

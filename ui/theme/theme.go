@@ -123,6 +123,8 @@ type Theme struct {
 	Series [8]mathx.Color
 	// Events colours animation events by mode: gameplay, presentation, preview.
 	Events [3]mathx.Color
+	// Agent colours the Agent panel: the user's messages, tool steps and the two sides of a change (11b5a).
+	Agent AgentTheme
 	// Viewport colours stay the same in every theme, like the scene they frame (D345).
 	ViewportBg   mathx.Color
 	SceneBg      mathx.Color
@@ -308,8 +310,38 @@ func Editor() Theme {
 	t.Series = series()
 	t.Events = [3]mathx.Color{{R: 0.95, G: 0.6, B: 0.2, A: 1}, {R: 0.4, G: 0.7, B: 1, A: 1}, {R: 0.6, G: 0.9, B: 0.4, A: 1}}
 	t.Dark = true
+	t.Agent = agentDark()
 	viewport(&t)
 	return t
+}
+
+type AgentTheme struct {
+	User       mathx.Color
+	Tool       mathx.Color
+	DiffAdd    mathx.Color
+	DiffRemove mathx.Color
+	// Presence marks where the agent works: its avatar and the second selection outline.
+	Presence mathx.Color
+}
+
+func agentDark() AgentTheme {
+	return AgentTheme{
+		User:       mathx.ColorRGB8(0x2A, 0x33, 0x40),
+		Tool:       mathx.ColorRGB8(0x22, 0x25, 0x2B),
+		DiffAdd:    mathx.ColorRGB8(0x7C, 0xC9, 0x7E),
+		DiffRemove: mathx.ColorRGB8(0xE5, 0x86, 0x7E),
+		Presence:   mathx.ColorRGB8(0xB3, 0x8D, 0xF5),
+	}
+}
+
+func agentLight() AgentTheme {
+	return AgentTheme{
+		User:       mathx.ColorRGB8(0xE2, 0xEA, 0xF5),
+		Tool:       mathx.ColorRGB8(0xEB, 0xED, 0xF0),
+		DiffAdd:    mathx.ColorRGB8(0x23, 0x7A, 0x33),
+		DiffRemove: mathx.ColorRGB8(0xB3, 0x30, 0x26),
+		Presence:   mathx.ColorRGB8(0x6E, 0x47, 0xC2),
+	}
 }
 
 func series() [8]mathx.Color {

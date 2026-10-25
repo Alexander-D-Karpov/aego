@@ -3,10 +3,14 @@ package edit
 import (
 	"encoding/json"
 
+	"strconv"
+	"strings"
+
 	"aego/app/agent"
 	"aego/app/agentui/backend"
 	"aego/app/edit/agentbridge"
 	"aego/editor/core/agentui"
+	"aego/scene/mutate"
 )
 
 // agentHost runs the model and the bridge for the Agent panel; the bridge and the process start on the first message (D343).
@@ -19,6 +23,7 @@ type agentHost struct {
 	conv    backend.Conversation
 	busy    bool
 	auto    bool
+	plan    bool
 	static  map[int]agentui.Card
 }
 
@@ -66,6 +71,7 @@ func (h *agentHost) start() error {
 			return err
 		}
 		b.SetAutoApply(h.auto)
+		b.SetPlanOnly(h.plan)
 		h.bridge = b
 	}
 	if h.conv == nil {
@@ -111,7 +117,7 @@ func (h *agentHost) Close() {
 }
 
 func eventOf(e backend.Event) agentui.Event {
-	out := agentui.Event{Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed}
+	out := agentui.Event{Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed, Cost: e.Cost, Millis: e.Millis}
 	switch e.Kind {
 	case backend.EvText:
 		out.Kind = agentui.EvText
@@ -169,19 +175,34 @@ func stateOf(s agentbridge.State) agentui.State {
 	return agentui.Pending
 }
 
-func cardOf(p *agentbridge.Proposal) agentui.Card {
+func cardOf(p *agentbridge.Proposal, v agentView) agentui.Card {
 	c := agentui.Card{ID: p.ID, Command: p.Command, Destructive: p.Destructive}
 	if b, err := json.Marshal(p.Args); err == nil {
 		c.Args = string(b)
 	}
+	c.File = p.Args.Str("file")
 	if out := p.Preview; out != nil {
-		for _, ch := range out.Changes {
-			c.Changes = append(c.Changes, agentui.Change{Op: ch.Op, Node: ch.Node, Path: ch.Path, Before: ch.Before, After: ch.After})
-		}
+		c.Changes = changesOf(out.Changes)
+		c.Rows = v.rows(c.File, out.Changes)
 		c.Notes = append(c.Notes, out.Notes...)
 		c.Problems = problemTexts(out)
 	}
 	return c
+}
+
+func changesOf(list []mutate.Change) []agentui.Change {
+	var out []agentui.Change
+	for _, ch := range list {
+		c := agentui.Change{Op: ch.Op, Node: ch.Node, Path: ch.Path, Before: ch.Before, After: ch.After, NodeID: ch.NodeID, Type: ch.Type, Field: ch.Field}
+		if ch.Op == "script-edit" || ch.Op == "script-new" {
+			c.Line, _ = strconv.Atoi(strings.TrimPrefix(ch.Path, "line "))
+			if ch.Op == "script-new" {
+				c.Line = 1
+			}
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 func problemTexts(out *agent.Output) []string {
@@ -204,7 +225,14 @@ func (h *agentHost) Cards(dst []agentui.Card) []agentui.Card {
 	for _, p := range h.bridge.Proposals() {
 		c, ok := h.static[p.ID]
 		if !ok {
-			c = cardOf(p)
+			c = cardOf(p, agentView{ctx: h.bridge.Editor()})
+			h.static[p.ID] = c
+		}
+		if p.State == agentbridge.Applied && c.Applied == nil && p.Result != nil {
+			c.Applied = changesOf(p.Result.Changes)
+			if c.Applied == nil {
+				c.Applied = []agentui.Change{}
+			}
 			h.static[p.ID] = c
 		}
 		c.State, c.Err, c.CanUndo = stateOf(p.State), p.Err, h.bridge.CanUndo(p.ID)
@@ -238,3 +266,46 @@ func (h *agentHost) SetAutoApply(on bool) {
 }
 
 var _ agentui.Host = (*agentHost)(nil)
+
+func (h *agentHost) PlanOnly() bool {
+	return h.plan
+}
+
+func (h *agentHost) SetPlanOnly(on bool) {
+	h.plan = on
+	if h.bridge != nil {
+		h.bridge.SetPlanOnly(on)
+	}
+}
+
+// Reset ends the conversation and dismisses what waits for the user; the bridge stays, so the next message starts a new conversation quickly.
+func (h *agentHost) Reset() {
+	if h.bridge != nil {
+		h.bridge.RejectAll()
+	}
+	if h.conv != nil {
+		h.conv.Close()
+		h.conv = nil
+	}
+	h.busy = false
+}
+
+func (h *agentHost) Questions(dst []agentui.Question) []agentui.Question {
+	if h.bridge == nil {
+		return dst
+	}
+	for _, q := range h.bridge.Questions() {
+		out := agentui.Question{ID: q.ID, Text: q.Text, Multiple: q.Multiple, Other: q.Other, State: stateOf(q.State), Answer: q.Answer}
+		for _, o := range q.Options {
+			out.Options = append(out.Options, agentui.Option{Label: o.Label, Detail: o.Detail})
+		}
+		dst = append(dst, out)
+	}
+	return dst
+}
+
+func (h *agentHost) Answer(id int, picks []int, text string) {
+	if h.bridge != nil {
+		_ = h.bridge.Answer(id, picks, text)
+	}
+}

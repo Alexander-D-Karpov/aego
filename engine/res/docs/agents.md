@@ -24,7 +24,7 @@ Other clients take the same command. The server speaks MCP over stdio; logs go t
 
 ## Tools
 
-Each tool has the name of its command with underscores (`scene set` is `scene_set`) and the same arguments; `aego scene help` lists them, and the CLI reference has the full table. `docs_search` and `docs_read` read the documentation. Write tools take `dry-run`, which reports the changes and writes nothing.
+Each tool has the name of its command with underscores (`scene set` is `scene_set`) and the same arguments; `aego scene help` lists them, and the CLI reference has the full table. `docs_search` and `docs_read` read the documentation. Write tools take `dry-run`, which reports the changes and writes nothing. The script tools answer with what the compiler says about the new text, the same `AES` errors as `aego check`. In the editor the agent also has `ask_user`, which puts a question with options in the Agent panel and waits for the answer.
 
 ## Resources
 

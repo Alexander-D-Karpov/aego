@@ -63,8 +63,14 @@ func (r *Registry) Search(q string, limit int) []Entry {
 		score int
 	}
 	var hits []hit
+	words := strings.Fields(q)
 	for i := range r.entries {
-		if s := score(&r.entries[i], q); s > 0 {
+		e := &r.entries[i]
+		s := score(e, q)
+		if s == 0 && len(words) > 1 {
+			s = r.wordsScore(e, words)
+		}
+		if s > 0 {
 			hits = append(hits, hit{i, s})
 		}
 	}
@@ -90,4 +96,29 @@ func (r *Registry) Search(q string, limit int) []Entry {
 		out[k] = r.entries[h.i]
 	}
 	return out
+}
+
+// wordsScore matches a query of several words, such as "Pickup2D Collected": every word has to match the entry or its parent.
+func (r *Registry) wordsScore(e *Entry, words []string) int {
+	var parent *Entry
+	if j, ok := r.byID[e.Parent]; ok {
+		parent = &r.entries[j]
+	}
+	total, own := 0, false
+	for _, w := range words {
+		s := score(e, w)
+		if s > 0 {
+			own = true
+		} else if parent != nil {
+			s = score(parent, w) / 2
+		}
+		if s == 0 {
+			return 0
+		}
+		total += s
+	}
+	if !own {
+		return 0
+	}
+	return total / len(words)
 }

@@ -362,7 +362,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Sections:    a.opt.Sections,
 	}
 	if a.opt.Agent != nil {
-		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight})
+		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink})
 	}
 	a.ctx.Problems = a.opt.Problems
 	if a.ctx.Problems == nil {

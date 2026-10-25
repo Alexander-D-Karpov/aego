@@ -191,6 +191,10 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego scene validate <file>` | load problems and references to nodes the scene does not have |
 | `aego schema list [--kind v]` | component and data types |
 | `aego schema show <type> [--lang v]` | fields of a type: kind, range, unit, default, flags and docs |
+| `aego script create <file> [--text v] [--dry-run]` | create a script file; it fails when the file exists, so change an existing script with script.edit |
+| `aego script edit <file> [--old v] [--new v] [--dry-run]` | replace text in a script; old must match exactly once, so quote enough lines around the change |
+| `aego script read <file>` | text of a script, as the editor has it, with unsaved changes |
+| `aego script write <file> [--text v] [--dry-run]` | replace the whole text of a script; for a small change script.edit is safer |
 <!-- agent:end -->
 
 ## aego docs

@@ -90,6 +90,7 @@ type Options struct {
 	Version  string
 	Source   Source
 	Extra    []Extra
+	Tools    []Tool
 }
 
 type Server struct {
@@ -279,6 +280,10 @@ func (s *Server) tools() []tool {
 		tool{Name: "docs_read", Description: "read a documentation page by id, from docs_search or a ref: link", Annotations: ro,
 			InputSchema: object([]string{"id"}, map[string]any{"id": prop("string", "page id")})},
 	)
+	for _, t := range s.opt.Tools {
+		list = append(list, tool{Name: t.Name, Description: t.Description, InputSchema: t.Schema,
+			Annotations: map[string]any{"readOnlyHint": t.ReadOnly, "openWorldHint": false}})
+	}
 	return list
 }
 
@@ -311,6 +316,12 @@ func (s *Server) call(params json.RawMessage) (any, *rpcError) {
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, &rpcError{Code: codeParams, Message: err.Error()}
+	}
+	for _, t := range s.opt.Tools {
+		if t.Name == p.Name {
+			text, failed := t.Run(p.Arguments)
+			return result(text, failed), nil
+		}
 	}
 	switch p.Name {
 	case "docs_search":
@@ -364,11 +375,16 @@ func (s *Server) docsSearch(a agent.Args) any {
 		ID      string `json:"id"`
 		Title   string `json:"title"`
 		Kind    string `json:"kind"`
+		Parent  string `json:"parent,omitempty"`
 		Summary string `json:"summary,omitempty"`
 	}
 	hits := []hit{}
 	for _, e := range reg.Search(a.Str("query"), limit) {
-		hits = append(hits, hit{ID: e.ID, Title: e.Title, Kind: e.Kind.String(), Summary: e.Summary})
+		kind := e.Kind.String()
+		if e.Parent == docs.EventsID {
+			kind = "event"
+		}
+		hits = append(hits, hit{ID: e.ID, Title: e.Title, Kind: kind, Parent: e.Parent, Summary: e.Summary})
 	}
 	return result(map[string]any{"results": hits}, false)
 }

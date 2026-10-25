@@ -127,5 +127,6 @@ func Light() Theme {
 		mathx.ColorRGB8(0x2E, 0x8B, 0x3E),
 	}
 	t.Dark = false
+	t.Agent = agentLight()
 	return t
 }

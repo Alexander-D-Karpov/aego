@@ -27,7 +27,9 @@ type Command struct {
 	Write bool
 	// Destroys marks commands that remove or move things; the editor never applies them without asking (D342).
 	Destroys bool
-	Run      func(s *Session, a Args) (*Output, error)
+	// Look is how the editor's Agent panel shows a call; every command has one.
+	Look Look
+	Run  func(s *Session, a Args) (*Output, error)
 }
 
 type Args map[string]any
@@ -58,6 +60,11 @@ func catalog() []*Command {
 	out = append(out, refsCommands()...)
 	out = append(out, schemaCommands()...)
 	out = append(out, projectCommands()...)
+	out = append(out, scriptCommands()...)
+	ls := looks()
+	for _, c := range out {
+		c.Look = ls[c.Name]
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }

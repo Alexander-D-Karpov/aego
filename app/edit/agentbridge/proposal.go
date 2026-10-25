@@ -34,9 +34,10 @@ var (
 
 // undoRef is where an applied proposal sits in the history of its document.
 type undoRef struct {
-	doc   document.ID
-	label string
-	depth int
+	doc    document.ID
+	label  string
+	depth  int
+	script *scriptUndo
 }
 
 // Proposal is one write call from the model, previewed as a dry run and waiting for the user (D342).
@@ -233,6 +234,24 @@ func (b *Bridge) RejectAll() {
 	for _, p := range b.Pending() {
 		b.Decide(p.ID, false)
 	}
+	b.dismissQuestions()
+}
+
+var errPlanOnly = errors.New("the user turned on Plan only: describe the changes and their order instead of making them")
+
+func (b *Bridge) PlanOnly() bool {
+	var on bool
+	b.planMu.Lock()
+	on = b.planOnly
+	b.planMu.Unlock()
+	return on
+}
+
+// SetPlanOnly refuses write tools, so the agent plans the work and the user reads the plan first.
+func (b *Bridge) SetPlanOnly(on bool) {
+	b.planMu.Lock()
+	b.planOnly = on
+	b.planMu.Unlock()
 }
 
 func (b *Bridge) AutoApply() bool {
@@ -250,6 +269,9 @@ func (b *Bridge) CanUndo(id int) bool {
 	if p == nil || p.undo == nil || p.State != Applied {
 		return false
 	}
+	if p.undo.script != nil {
+		return b.canUndoScript(p.undo.script)
+	}
 	d := b.ctx.Docs.Get(p.undo.doc)
 	if d == nil {
 		return false
@@ -263,6 +285,13 @@ func (b *Bridge) Undo(id int) error {
 		return errors.New("this change is no longer the last step; undo it with Edit → Undo")
 	}
 	p := b.find(id)
+	if p.undo.script != nil {
+		if err := b.undoScript(p.undo.script); err != nil {
+			return err
+		}
+		p.State = Undone
+		return nil
+	}
 	d := b.ctx.Docs.Get(p.undo.doc)
 	if err := d.History.Undo(); err != nil {
 		return err

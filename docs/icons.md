@@ -5,6 +5,10 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 
 | Icon | Owner | Size | Used by | Status |
 |---|---|---|---|---|
+| `agent.avatar` | engine | 16 | Agent panel: the agent in the header, questions and the empty state | ok |
+| `agent.new` | engine | 16 | Agent panel: New Session and the examples of the empty state | ok |
+| `agent.plan` | engine | 16 | Agent panel: Plan Only | ok |
+| `agent.presence` | engine | 16 | Where the agent works: Hierarchy, Inspector, Scene View and code | ok |
 | `anim.event` | engine | 16 | Animation panel: event lane | ok |
 | `anim.graph` | engine | 16 | Create palette: Animation → Controller; Animator panel tab and Auto Layout | ok |
 | `anim.key` | engine | 16 | Animation panel tab and Auto Key; Create palette: Animation → Clip | ok |
@@ -24,6 +28,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `cat.3d` | engine | 16 | Create → 3D submenu; Add Component and Create: category | ok |
 | `cat.audio` | engine | 16 | Documentation: Audio group and module; Add Component and Create: category | ok |
 | `cat.camera` | engine | 24 | New Project: template 2.5d | ok |
+| `cat.engine` | engine | 14 | Agent panel: steps that read component types | ok |
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own; Add Component and Create: category | ok |
 | `cat.gameplay` | engine | 16 | template menu Gameplay | ok |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
@@ -60,8 +65,13 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `dbg.contacts` | engine | 16 | Contacts debug overlay; Vectors → Contact Impulses | ok |
 | `dbg.islands` | engine | 16 | Islands debug overlay | ok |
 | `dbg.overlay` | engine | 16 | Debug Overlay toggle of the 2D bodies menu | ok |
+| `doc.page` | engine | 14 | Agent panel: a documentation page the agent read | ok |
+| `doc.project` | engine | 14 | Agent panel: steps that read or set project settings | ok |
 | `doc.recipe` | engine | 16 | Documentation: Recipes page | ok |
+| `doc.search` | engine | 14 | Agent panel: a search of the documentation | ok |
 | `doc.tutorial` | engine | 16 | Documentation: Platformer from scratch page | ok |
+| `edit.add` | engine | 14 | Agent panel: steps and changes that add nodes, components and rows | ok |
+| `edit.batch` | engine | 14 | Agent panel: a transaction of several changes | ok |
 | `edit.batch_rename` | engine | 16 | Batch Rename (nodes, assets) | ok |
 | `edit.copy` | engine | 16 | Copy (nodes, assets, inspector field) | ok |
 | `edit.copy_path` | engine | 16 | Assets menu: Copy Path | ok |
@@ -69,8 +79,11 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `edit.delete` | engine | 16 | Delete (nodes, assets, workspace) | ok |
 | `edit.duplicate` | engine | 16 | Duplicate (nodes, assets) | ok |
 | `edit.paste` | engine | 16 | Paste (nodes, assets, inspector field) | ok |
+| `edit.remove` | engine | 14 | Agent panel: steps and changes that remove things | ok |
 | `edit.rename` | engine | 16 | Rename (nodes, assets, workspace) | ok |
 | `edit.select_all` | engine | 16 | Edit → Select All | ok |
+| `edit.set` | engine | 14 | Agent panel: steps and changes that set a field or edit a script | ok |
+| `edit.validate` | engine | 14 | Agent panel: checks of a scene or the project | ok |
 | `file.audio` | engine | 16 | Documentation: sound clips page | ok |
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
@@ -151,6 +164,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `shape.plane` | engine | 16 | template render3d.plane | ok |
 | `shape.sphere` | engine | 16 | template render3d.sphere | ok |
 | `status.busy` | engine | 14 | Task Center: running task; status bar: tasks running | ok |
+| `status.error` | engine | 14 | Agent panel: a step that failed | ok |
 | `status.ok` | engine | 14 | Task Center: finished task | ok |
 | `status.warning` | engine | 16 | Table and inspector issue rows | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |

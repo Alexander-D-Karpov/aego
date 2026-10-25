@@ -25,6 +25,9 @@ type Event struct {
 	Result string
 	Failed bool
 	Err    error
+	// Cost in US dollars and Millis of the answer, on EvTurnEnd.
+	Cost   float64
+	Millis int
 }
 
 type Config struct {

@@ -72,6 +72,7 @@ type Session struct {
 	kit       *Kit
 	libErrs   []error
 	scriptErr error
+	check     *workspace.Workspace
 	host      Host
 	borrowed  bool
 	methods   *methodIndex
@@ -110,6 +111,10 @@ type Host interface {
 	ApplyFile(rel string, ctrl bool, label string, tx mutate.Tx) (*mutate.Result, error)
 	Sections() *module.Sections
 	ApplyProject(id string, n *aetext.Node, label string) error
+	// ScriptText is the editor's buffer of an open script; false when the script is not open.
+	ScriptText(rel string) (string, bool)
+	// ApplyScript changes a script in its open buffer, as one Undo step there, or on disk.
+	ApplyScript(e ScriptEdit, label string) error
 }
 
 // Attach makes a session over the editor's project, types and pipeline; Close leaves them open.

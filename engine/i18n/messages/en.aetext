@@ -203,20 +203,26 @@ messages version=1 lang=en {
   msg "editor.agent.agent_2" {
     text="Agent"
   }
+  msg "editor.agent.answer" {
+    text="Answer"
+  }
   msg "editor.agent.apply" {
     text="Apply"
   }
   msg "editor.agent.apply_all" {
     text="Apply All"
   }
-  msg "editor.agent.apply_all_n" {
-    text="Apply All ({n})"
-  }
   msg "editor.agent.apply_changes_without_asking_removals" {
     text="Apply changes without asking; removals, moves and deletes still wait for you"
   }
   msg "editor.agent.apply_this_answer_s_changes" {
     text="Apply this answer's changes, the waiting ones and those still to come; removals, moves and deletes still wait for you"
+  }
+  msg "editor.agent.ask_fix" {
+    text="Ask Agent to Fix"
+  }
+  msg "editor.agent.asks" {
+    text="The agent asks"
   }
   msg "editor.agent.auto_apply" {
     text="Auto-apply"
@@ -239,32 +245,402 @@ messages version=1 lang=en {
   msg "editor.agent.current_session" {
     text="Current session"
   }
+  msg "editor.agent.dry_run" {
+    text="Dry-run"
+  }
+  msg "editor.agent.dry_run_tip" {
+    text="Show everything the dry run reported: every change, note and problem"
+  }
   msg "editor.agent.empty_hint" {
     text="Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them."
   }
-  msg "editor.agent.failed_err" {
-    text="failed: {err}"
+  msg "editor.agent.empty_title" {
+    text="Ask the agent"
+  }
+  msg "editor.agent.example_enemy" {
+    text="Find why the enemy doesn't die"
+  }
+  msg "editor.agent.example_explain" {
+    text="Explain what this scene does"
+  }
+  msg "editor.agent.example_platform" {
+    text="Add a moving platform above the player"
+  }
+  msg "editor.agent.failed" {
+    text="Failed: {title}"
+  }
+  msg "editor.agent.fix_text" {
+    text="The step “{title}” failed with: {error}. Find the cause and fix it."
+  }
+  msg "editor.agent.history_tip" {
+    text="Past sessions"
   }
   msg "editor.agent.install_help" {
     text="The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."
   }
+  msg "editor.agent.looked_around" {
+    one="Looked around · {n} step"
+    other="Looked around · {n} steps"
+  }
   msg "editor.agent.mention" {
     text="Mention"
+  }
+  msg "editor.agent.mention_assets" {
+    text="Assets"
   }
   msg "editor.agent.mention_hint" {
     text="Enter insert · Esc close"
   }
+  msg "editor.agent.mention_nodes" {
+    text="Nodes"
+  }
+  msg "editor.agent.menu" {
+    text="Session"
+  }
+  msg "editor.agent.menu_history" {
+    text="History…"
+  }
+  msg "editor.agent.menu_new" {
+    text="New Session"
+  }
+  msg "editor.agent.menu_plan" {
+    text="Plan Only"
+  }
   msg "editor.agent.message_the_agent_to_mention" {
     text="Message the agent, @ to mention"
+  }
+  msg "editor.agent.new_session" {
+    text="New session"
+  }
+  msg "editor.agent.not_answered" {
+    text="Not answered"
+  }
+  msg "editor.agent.other_hint" {
+    text="Something else…"
+  }
+  msg "editor.agent.past_read_only" {
+    text="A past session is read-only; pick Current session in the history to write"
   }
   msg "editor.agent.path" {
     text="Path"
   }
-  msg "editor.agent.reject" {
-    text="Reject"
+  msg "editor.agent.plan_on" {
+    text="Plan only: the agent describes changes and makes none"
+  }
+  msg "editor.agent.preparing" {
+    text="Preparing a change…"
+  }
+  msg "editor.agent.reading" {
+    text="Reading the project…"
+  }
+  msg "editor.agent.retry" {
+    text="Retry"
+  }
+  msg "editor.agent.retry_text" {
+    text="Try the step that failed again: {title}"
+  }
+  msg "editor.agent.seconds" {
+    text="{n} s"
+  }
+  msg "editor.agent.select" {
+    text="Select"
   }
   msg "editor.agent.send" {
     text="Send"
+  }
+  msg "editor.agent.skip" {
+    text="Skip"
+  }
+  msg "editor.agent.state_applied" {
+    text="applied"
+  }
+  msg "editor.agent.state_applying" {
+    text="applying…"
+  }
+  msg "editor.agent.state_expired" {
+    text="expired"
+  }
+  msg "editor.agent.state_failed" {
+    text="failed"
+  }
+  msg "editor.agent.state_skipped" {
+    text="skipped"
+  }
+  msg "editor.agent.state_undone" {
+    text="undone"
+  }
+  msg "editor.agent.state_waiting" {
+    text="waiting for you"
+  }
+  msg "editor.agent.status_idle" {
+    text="idle"
+  }
+  msg "editor.agent.status_thinking" {
+    text="thinking"
+  }
+  msg "editor.agent.status_tool" {
+    text="working"
+  }
+  msg "editor.agent.status_waiting" {
+    text="waiting for you"
+  }
+  msg "editor.agent.step.add_comp" {
+    text="Add {comp} to {node}"
+  }
+  msg "editor.agent.step.add_event" {
+    text="Add event {name} at {time} s"
+  }
+  msg "editor.agent.step.add_node" {
+    text="Add node {name}"
+  }
+  msg "editor.agent.step.add_param" {
+    text="Add parameter {name}"
+  }
+  msg "editor.agent.step.add_row" {
+    text="Add row {id} to {file}"
+  }
+  msg "editor.agent.step.add_state" {
+    text="Add state {name}"
+  }
+  msg "editor.agent.step.add_transition" {
+    text="Add a transition {from} → {to}"
+  }
+  msg "editor.agent.step.apply" {
+    text="Change {file}"
+  }
+  msg "editor.agent.step.apply_label" {
+    text="{label} in {file}"
+  }
+  msg "editor.agent.step.apply_overrides" {
+    text="Apply the overrides of {node}"
+  }
+  msg "editor.agent.step.ask" {
+    text="Asked you: {question}"
+  }
+  msg "editor.agent.step.base" {
+    text="Set the base of {file}"
+  }
+  msg "editor.agent.step.changes" {
+    one="{n} change"
+    other="{n} changes"
+  }
+  msg "editor.agent.step.delete_asset" {
+    text="Delete {asset}"
+  }
+  msg "editor.agent.step.edit_script" {
+    text="Edit {file}"
+  }
+  msg "editor.agent.step.entry" {
+    text="Start in state {name}"
+  }
+  msg "editor.agent.step.expand" {
+    text="Turn the frames of {file} into keys"
+  }
+  msg "editor.agent.step.export" {
+    text="Export {file} to {csv}"
+  }
+  msg "editor.agent.step.find_refs" {
+    text="Find what uses {asset}"
+  }
+  msg "editor.agent.step.fix_refs" {
+    text="Point references at {to}"
+  }
+  msg "editor.agent.step.import" {
+    text="Import {csv} into {file}"
+  }
+  msg "editor.agent.step.instantiate" {
+    text="Add an instance of {prefab}"
+  }
+  msg "editor.agent.step.items" {
+    one="{n} item"
+    other="{n} items"
+  }
+  msg "editor.agent.step.lines" {
+    one="{n} line"
+    other="{n} lines"
+  }
+  msg "editor.agent.step.list_assets" {
+    text="List assets"
+  }
+  msg "editor.agent.step.list_types" {
+    text="List components and data types"
+  }
+  msg "editor.agent.step.make_prefab" {
+    text="Make a prefab of {node}"
+  }
+  msg "editor.agent.step.missing_refs" {
+    text="Look for missing references"
+  }
+  msg "editor.agent.step.move" {
+    text="Move {node} under {parent}"
+  }
+  msg "editor.agent.step.move_asset" {
+    text="Move {asset} to {to}"
+  }
+  msg "editor.agent.step.move_event" {
+    text="Move an event to {time} s"
+  }
+  msg "editor.agent.step.move_key" {
+    text="Move a key of {target} to {to} s"
+  }
+  msg "editor.agent.step.new_scene" {
+    text="Create scene {file}"
+  }
+  msg "editor.agent.step.new_script" {
+    text="Create script {file}"
+  }
+  msg "editor.agent.step.no_changes" {
+    text="nothing to change"
+  }
+  msg "editor.agent.step.no_problems" {
+    text="no problems"
+  }
+  msg "editor.agent.step.nodes" {
+    one="{n} node"
+    other="{n} nodes"
+  }
+  msg "editor.agent.step.overrides" {
+    text="List the overrides of {node}"
+  }
+  msg "editor.agent.step.problems" {
+    one="{n} problem"
+    other="{n} problems"
+  }
+  msg "editor.agent.step.read_clip" {
+    text="Read clip {file}"
+  }
+  msg "editor.agent.step.read_ctrl" {
+    text="Read controller {file}"
+  }
+  msg "editor.agent.step.read_data" {
+    text="Read {file}"
+  }
+  msg "editor.agent.step.read_docs" {
+    text="Read docs page {id}"
+  }
+  msg "editor.agent.step.read_field" {
+    text="Read {target}"
+  }
+  msg "editor.agent.step.read_node" {
+    text="Read {node}"
+  }
+  msg "editor.agent.step.read_project" {
+    text="Read project settings"
+  }
+  msg "editor.agent.step.read_scene" {
+    text="Read scene {file}"
+  }
+  msg "editor.agent.step.read_script" {
+    text="Read script {file}"
+  }
+  msg "editor.agent.step.remove_comp" {
+    text="Remove {comp} from {node}"
+  }
+  msg "editor.agent.step.remove_event" {
+    text="Remove an event from {file}"
+  }
+  msg "editor.agent.step.remove_key" {
+    text="Remove the key of {target} at {time} s"
+  }
+  msg "editor.agent.step.remove_node" {
+    text="Remove {node}"
+  }
+  msg "editor.agent.step.remove_param" {
+    text="Remove parameter {name}"
+  }
+  msg "editor.agent.step.remove_row" {
+    text="Remove row {id} from {file}"
+  }
+  msg "editor.agent.step.remove_state" {
+    text="Remove state {name}"
+  }
+  msg "editor.agent.step.remove_track" {
+    text="Remove track {target}"
+  }
+  msg "editor.agent.step.remove_transition" {
+    text="Remove a transition"
+  }
+  msg "editor.agent.step.rename" {
+    text="Rename {node} to {name}"
+  }
+  msg "editor.agent.step.rename_asset" {
+    text="Rename {asset} to {name}"
+  }
+  msg "editor.agent.step.rename_row" {
+    text="Rename row {id} to {name}"
+  }
+  msg "editor.agent.step.reset" {
+    text="Reset {target}"
+  }
+  msg "editor.agent.step.reset_data" {
+    text="Reset {target}"
+  }
+  msg "editor.agent.step.results" {
+    one="{n} result"
+    other="{n} results"
+  }
+  msg "editor.agent.step.revert_overrides" {
+    text="Revert the overrides of {node}"
+  }
+  msg "editor.agent.step.root" {
+    text="the root"
+  }
+  msg "editor.agent.step.rows" {
+    text="List the rows of {file}"
+  }
+  msg "editor.agent.step.rows_n" {
+    one="{n} row"
+    other="{n} rows"
+  }
+  msg "editor.agent.step.run" {
+    text="Run {file} headless"
+  }
+  msg "editor.agent.step.search_docs" {
+    text="Search the docs for “{query}”"
+  }
+  msg "editor.agent.step.set" {
+    text="Set {target}"
+  }
+  msg "editor.agent.step.set_clip" {
+    text="Set {attr} of {file}"
+  }
+  msg "editor.agent.step.set_data" {
+    text="Set {target}"
+  }
+  msg "editor.agent.step.set_key" {
+    text="Set a key of {target} at {time} s"
+  }
+  msg "editor.agent.step.set_project" {
+    text="Set {target}"
+  }
+  msg "editor.agent.step.set_state" {
+    text="Set {attr} of state {name}"
+  }
+  msg "editor.agent.step.set_transition" {
+    text="Set {attr} of a transition"
+  }
+  msg "editor.agent.step.show_type" {
+    text="Read the fields of {type}"
+  }
+  msg "editor.agent.step.ticks" {
+    one="{n} tick"
+    other="{n} ticks"
+  }
+  msg "editor.agent.step.types" {
+    one="{n} type"
+    other="{n} types"
+  }
+  msg "editor.agent.step.unpack" {
+    text="Unpack {node}"
+  }
+  msg "editor.agent.step.validate_project" {
+    text="Check the project"
+  }
+  msg "editor.agent.step.validate_scene" {
+    text="Check {file}"
+  }
+  msg "editor.agent.step.write_script" {
+    text="Rewrite {file}"
   }
   msg "editor.agent.stop" {
     text="Stop"
@@ -272,17 +648,36 @@ messages version=1 lang=en {
   msg "editor.agent.the_agent_is_waiting_for" {
     text="The agent is waiting for you to apply or reject a change"
   }
+  msg "editor.agent.thinking" {
+    text="Thinking…"
+  }
   msg "editor.agent.undo" {
     text="Undo"
   }
   msg "editor.agent.v_more" {
     text="+{v} more"
   }
-  msg "editor.agent.working" {
-    text="Working…"
+  msg "editor.agent.view.hash" {
+    text="State hash"
   }
-  msg "editor.agent.you" {
-    text="You"
+  msg "editor.agent.view.new_node" {
+    text="new node"
+  }
+  msg "editor.agent.view.none" {
+    text="none"
+  }
+  msg "editor.agent.view.removed_node" {
+    text="removed"
+  }
+  msg "editor.agent.view.transform" {
+    text="Transform"
+  }
+  msg "editor.agent.waiting" {
+    text="Waiting for you"
+  }
+  msg "editor.agent.waiting_n" {
+    one="{n} change waits for you"
+    other="{n} changes wait for you"
   }
   msg "editor.animation.auto_key" {
     text="Auto Key"
