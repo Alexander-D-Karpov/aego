@@ -11,6 +11,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/editor/core/agentui"
 	"aego/editor/core/assetfiles"
 	"aego/editor/core/assetops"
 	edclip "aego/editor/core/clipboard"
@@ -39,6 +40,7 @@ import (
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
+	agentpanel "aego/editor/panels/agent"
 	animpanel "aego/editor/panels/animation"
 	"aego/editor/panels/animator"
 	"aego/editor/panels/assets"
@@ -123,6 +125,8 @@ type Options struct {
 	RunTests    func(done func(out string, failed bool)) error
 	Recent      string
 	LogsDir     string
+	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
+	Agent agentui.Host
 }
 
 type App struct {
@@ -205,6 +209,8 @@ type App struct {
 	addPal         *addpalette.Service
 	animPanel      *animpanel.Panel
 	animatorP      *animator.Panel
+	agentP         *agentpanel.Panel
+	agentCommand   string
 	slicer         *sliceState
 	folderWS       string
 	folders        map[string]string
@@ -340,6 +346,9 @@ func (a *App) Init(e *engine.Engine) error {
 		Collapsed:   map[string]bool{},
 		Shapes:      a.shapes,
 		Sections:    a.opt.Sections,
+	}
+	if a.opt.Agent != nil {
+		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight})
 	}
 	a.ctx.Problems = a.opt.Problems
 	if a.ctx.Problems == nil {
@@ -497,6 +506,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Notices:   a.ctx,
 		Tools:     &a.ctx.Settings,
 		Prefabs:   a.prefabs,
+		Ask:       a.askHook(),
 	})
 	a.viewport = &services.Viewport{
 		UI:       ui,
@@ -544,6 +554,7 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ws.Notices, a.ws.Tracer = a.ctx, e.Trace()
 	a.consolePanel = console.New(a.consoleSink)
 	a.problemsPanel = eproblems.New(a.ctx, a.ctx)
+	a.problemsPanel.Ask = a.askHook()
 	a.problemsPanel.Scene = func(path string) *scene.Scene {
 		if d := a.ctx.Docs.Find(path); d != nil {
 			return d.Scene()
@@ -888,6 +899,9 @@ func (a *App) Update(dt float64) {
 	a.ctx.Anim.Tick(float32(dt))
 	a.ext.RunTicks()
 	a.tickTasks()
+	if a.agentP != nil {
+		a.agentP.Tick()
+	}
 	a.syncNativeMenu(now)
 	a.showPlayDiff()
 	if a.full && !a.play.Captured() {
@@ -1037,6 +1051,9 @@ func (a *App) Shutdown() {
 	}
 	a.sceneView.Close()
 	a.gameView.Close()
+	if a.agentP != nil {
+		a.agentP.Close()
+	}
 	a.tasks.CancelAll()
 	a.thumbs.Close()
 	if a.unlock != nil {

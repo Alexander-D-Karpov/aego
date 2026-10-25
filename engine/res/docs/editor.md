@@ -156,3 +156,24 @@ The right pane shows the component's documentation and what comes with it:
 - Items that cannot be added are grey, with the reason: already on the node, needs a 2D node, one per scene, or two components that drive the same node.
 
 With several nodes selected, the component goes on every node it fits, and the pane names the nodes it skips. Everything one pick adds is one Undo step. Project scripts are listed under Scripts with their package on the right.
+
+---
+id: editor/agent
+icon: panel.agent
+parent: editor
+order: 2
+title: The Agent panel
+---
+# The Agent panel
+
+The Agent tab, next to the Inspector, talks to Claude Code about the open project. It answers questions, reads the scenes and the documentation, and proposes changes that you apply. The model works through the same tools as `aego` and [`aego mcp`](ref:agents), on the editor's open documents: it sees unsaved edits, and what it changes in an open scene becomes an Undo step there instead of a write to disk.
+
+**Setting up.** Install Claude Code, the `claude` command, and sign in once by running `claude` in a terminal. The panel looks for `claude` on your PATH; when it is not there, the panel says so and takes the path of the program. Check Again looks once more. The path is kept with the project's editor state. Claude Code only gets the aego tools: no shell, no file access of its own.
+
+**Asking.** Type in the field at the bottom and press Enter. Answers are formatted text with code blocks; each tool call is a line you can open for its arguments and result. Stop ends the answer and rejects whatever still waits. Type `@` to pick a node of the open scene or an asset: a node goes in as `@Name (#id in scenes/main.aescene)`, an asset as its path, both the way the tools address them. Right-click a node in the Hierarchy and pick **Ask Agent…**, or a problem in Problems and pick **Ask Agent to Fix**, to start a message about it; the text waits in the field until you send it.
+
+**Changes.** Every change the model wants becomes a card with what it would do: added and removed nodes, fields with the value before and after, and the notes and problems of a dry run. **Apply** makes the change, on the scene as it is now; **Reject** tells the model no. A card nobody answers is rejected after ten minutes. With **Auto-apply** on, cards apply at once, except removals, moves, deletes and reference fixes: those always wait for you and carry a warning sign. **Apply All**, at the top while the model is answering, applies the waiting card and the rest of that answer's cards the same way, and stops when the answer ends. The model is asked to send the edits of one scene together, so a new node with its components and fields is one card and one Undo step.
+
+Each applied change is one Undo step of the scene you edit, named `Agent: …`; a change to a project setting, such as gravity through `project.set`, is a step there too, and Undo puts the old `project.aego` back. **Undo** on a card works while its step is still the last one; after other edits, use Edit → Undo or the Undo History. Changes made during Play go to the edited scene, not to the running game.
+
+**Sessions.** Each conversation is written to `.aego/user/agent/<date-time>.jsonl`, one line per message, tool call, result and card state. The list at the top opens earlier sessions read-only; a new message always starts from Current session.

@@ -172,8 +172,8 @@ func (s *Session) schemaShow(a Args) (*Output, error) {
 		}
 		b.WriteString("\n")
 	}
-	if s.kit != nil {
-		for _, cm := range s.kit.methods(td.FullName) {
+	if s.methods != nil {
+		for _, cm := range s.methods.of(td.FullName) {
 			v.Methods = append(v.Methods, CallView{Name: cm.Name, Sig: methodSig(cm.Sig, cm.Params), Doc: summary(cm.Doc)})
 		}
 	}

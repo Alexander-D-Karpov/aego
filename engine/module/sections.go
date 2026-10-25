@@ -297,3 +297,24 @@ func (s *Sections) Same(id string, a, b any) bool {
 	}
 	return bytes.Equal(aetext.Write(d.encode(a)), aetext.Write(d.encode(b)))
 }
+
+// Decode reads a block of section id the way the project loads it: migrated, decoded and validated; nil is the default.
+func (s *Sections) Decode(id string, n *aetext.Node) (any, error) {
+	d, ok := s.Desc(id)
+	if !ok {
+		return nil, sectionErr(id, "no such project section")
+	}
+	return d.load(n)
+}
+
+// Encode writes v, or the current value when v is nil, as the block of section id.
+func (s *Sections) Encode(id string, v any) (*aetext.Node, error) {
+	d, ok := s.Desc(id)
+	if !ok {
+		return nil, sectionErr(id, "no such project section")
+	}
+	if v == nil {
+		v = s.vals[id]
+	}
+	return d.encode(v), nil
+}

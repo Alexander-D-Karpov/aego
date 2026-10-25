@@ -32,7 +32,7 @@ func loadCtrl(src []byte, rel string) (textDoc, error) {
 	return d, nil
 }
 
-func (s *Session) textTx(a Args, label string, load func([]byte, string) (textDoc, error), ops ...mutate.Op) (*Output, error) {
+func (s *Session) textTx(a Args, label string, load func([]byte, string) (textDoc, error), ctrl bool, ops ...mutate.Op) (*Output, error) {
 	rel, err := s.rel(a.Str("file"))
 	if err != nil {
 		return nil, err
@@ -46,6 +46,17 @@ func (s *Session) textTx(a Args, label string, load func([]byte, string) (textDo
 		return nil, err
 	}
 	tx := mutate.Tx{Label: label, Ops: ops}
+	if s.host != nil && !a.Bool("dry-run") {
+		res, err := s.host.ApplyFile(rel, ctrl, label, tx)
+		if err != nil {
+			return nil, err
+		}
+		out := &Output{Notes: []string{"applied to " + rel + " in the editor as one Undo step"}}
+		if res != nil {
+			out.Changes, out.Problems = res.Changes, res.Problems
+		}
+		return out, nil
+	}
 	var res *mutate.Result
 	if a.Bool("dry-run") {
 		res, err = d.DryRun(tx)
@@ -137,7 +148,7 @@ func animCommands() []*Command {
 			if err != nil {
 				return nil, err
 			}
-			return s.textTx(a, "Animation", loadAnim, ops...)
+			return s.textTx(a, "Animation", loadAnim, false, ops...)
 		}
 	}
 	return []*Command{
@@ -321,7 +332,7 @@ func ctrlCommands() []*Command {
 			if err != nil {
 				return nil, err
 			}
-			return s.textTx(a, "Controller", loadCtrl, ops...)
+			return s.textTx(a, "Controller", loadCtrl, true, ops...)
 		}
 	}
 	return []*Command{

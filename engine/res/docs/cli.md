@@ -159,6 +159,8 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego prefab overrides <file> <node>` | list the overrides of the instance a node belongs to |
 | `aego prefab revert <file> <node> [--level v] [--owner v] [--field v] [--dry-run]` | drop instance overrides |
 | `aego prefab unpack <file> <node> [--deep] [--dry-run]` | turn an instance into plain nodes |
+| `aego project get [<section>]` | module sections of project.aego (physics, …) with their current values |
+| `aego project set <section> <field> [<value>] [--reset] [--dry-run]` | set a field of a module section in project.aego, for example physics gravity [0, -15] |
 | `aego project validate` | missing assets and nodes, import errors, prefabs and scenes that do not load |
 | `aego refs find <asset>` | files and fields that reference an asset |
 | `aego refs fix <from> [<to>] [--dry-run]` | point every reference to one asset at another (none clears them); originals go to .aego/recovery |

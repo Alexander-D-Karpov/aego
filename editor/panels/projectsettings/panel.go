@@ -347,3 +347,15 @@ func (p *Panel) Focus(page, field string) {
 	p.Show(page)
 	p.flash, p.flashAt, p.flashGo = field, 0, true
 }
+
+// Refresh reloads the panel after project.aego changed outside it, unless the user has unapplied changes.
+func (p *Panel) Refresh() {
+	if p.work == nil {
+		return
+	}
+	if p.dirty {
+		p.d.Notices.Notify(context.LevelWarn, "project.aego changed while Project Settings has unapplied changes: Apply overwrites it, Revert loads it")
+		return
+	}
+	p.reset()
+}

@@ -139,6 +139,8 @@ var rules = []rule{
 	{"app/docsview", []string{"..."}, nil},
 	{"scene/mutate", []string{"core/...", "anim", "schema", "asset", "format/...", "scene", "scene/sceneio", "scene/prefab", "scene/scriptcomp", "data"}, nil},
 	{"app/edit", []string{"..."}, nil},
+	{"app/edit/...", []string{"..."}, nil},
+	{"app/agentui/backend", []string{}, nil},
 	{"app/projects", []string{"..."}, nil},
 	{"app/supervise", []string{"..."}, nil},
 	{"modules/physics", []string{"core/...", "engine", "engine/module", "engine/problems", "schema", "scene", "modules/physics/world", "modules/physics/components", "modules/physics/systems", "modules/physics/stdlib", "modules/physics/settings", "contracts/..."}, nil},
@@ -225,6 +227,7 @@ var fsAllowed = []string{
 	"project",
 	"project/...",
 	"app/agent/...",
+	"app/agentui/...", // the Claude backend writes its MCP config and runs the CLI (D341)
 	"tests/fixture",
 	"save", // slot files next to the player profile (D262)
 	"asset/pipeline",
@@ -244,6 +247,7 @@ var fsAllowed = []string{
 	"editor/core/dataedit",
 	"editor/core/animedit",
 	"editor/core/slice",
+	"editor/core/agentui", // session logs of the Agent panel in .aego/user/agent (D343)
 	"editor/core/preview",
 	"editor/core/vcs",
 	"editor/core/capture",

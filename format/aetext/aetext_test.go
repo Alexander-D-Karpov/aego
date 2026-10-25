@@ -167,3 +167,24 @@ func TestErrorPositions(t *testing.T) {
 		}
 	}
 }
+
+func TestParseValue(t *testing.T) {
+	for src, want := range map[string]Value{
+		"15":       Int(15),
+		"-2.5":     Float64(-2.5),
+		"Default":  Ident("Default"),
+		`"text"`:   String("text"),
+		"[0, -15]": List(Int(0), Int(-15)),
+	} {
+		got, err := ParseValue([]byte(src), "v")
+		if err != nil {
+			t.Fatalf("%s: %v", src, err)
+		}
+		if FormatValue(got) != FormatValue(want) {
+			t.Fatalf("%s: got %s, want %s", src, FormatValue(got), FormatValue(want))
+		}
+	}
+	if _, err := ParseValue([]byte("1 2"), "v"); err == nil {
+		t.Fatal("two values were accepted")
+	}
+}

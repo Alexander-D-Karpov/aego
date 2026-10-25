@@ -431,3 +431,11 @@ func (t *Transaction) Abort() {
 	t.done = true
 	t.h.tx = nil
 }
+
+// Top is the label of the step Undo would take back and how many steps can be undone, depth 0 when there are none.
+func (h *History) Top() (label string, depth int) {
+	if len(h.undo) == 0 {
+		return "", 0
+	}
+	return h.undo[len(h.undo)-1].label, len(h.undo)
+}

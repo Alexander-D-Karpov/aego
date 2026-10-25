@@ -22,8 +22,8 @@ func prefabCommands() []*Command {
 				{Name: "parent", Type: "string", Doc: "parent node, the root by default"}, {Name: "name", Type: "string", Doc: "name of the instance"}, argIndex}, Run: (*Session).prefabInstantiate},
 		{Name: "prefab.apply", Doc: "write instance overrides into the prefab file", Write: true,
 			Args: []Arg{argFile, argNode, level, owner, field, {Name: "nearest", Type: "boolean", Doc: "apply to the nearest nested prefab"}}, Run: (*Session).prefabApply},
-		{Name: "prefab.revert", Doc: "drop instance overrides", Write: true, Args: []Arg{argFile, argNode, level, owner, field}, Run: (*Session).prefabRevert},
-		{Name: "prefab.unpack", Doc: "turn an instance into plain nodes", Write: true,
+		{Name: "prefab.revert", Doc: "drop instance overrides", Write: true, Destroys: true, Args: []Arg{argFile, argNode, level, owner, field}, Run: (*Session).prefabRevert},
+		{Name: "prefab.unpack", Doc: "turn an instance into plain nodes", Write: true, Destroys: true,
 			Args: []Arg{argFile, argNode, {Name: "deep", Type: "boolean", Doc: "unpack nested prefabs too"}}, Run: func(s *Session, a Args) (*Output, error) {
 				return s.sceneTx(a, "Unpack Prefab", mutate.Unpack(a.Str("node"), a.Bool("deep")))
 			}},
@@ -44,7 +44,7 @@ func levelOf(a Args, def string) (prefab.Level, error) {
 }
 
 func (s *Session) prefabCreate(a Args) (*Output, error) {
-	rel, before, doc, err := s.scene(a)
+	rel, before, doc, err := s.sceneFile(a)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *Session) prefabInstantiate(a Args) (*Output, error) {
 }
 
 func (s *Session) prefabApply(a Args) (*Output, error) {
-	rel, before, doc, err := s.scene(a)
+	rel, before, doc, err := s.sceneFile(a)
 	if err != nil {
 		return nil, err
 	}

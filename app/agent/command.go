@@ -25,7 +25,9 @@ type Command struct {
 	Doc   string
 	Args  []Arg
 	Write bool
-	Run   func(s *Session, a Args) (*Output, error)
+	// Destroys marks commands that remove or move things; the editor never applies them without asking (D342).
+	Destroys bool
+	Run      func(s *Session, a Args) (*Output, error)
 }
 
 type Args map[string]any

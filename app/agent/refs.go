@@ -45,15 +45,15 @@ func refsCommands() []*Command {
 	return []*Command{
 		{Name: "refs.find", Doc: "files and fields that reference an asset", Args: []Arg{asset}, Run: (*Session).refsFind},
 		{Name: "refs.missing", Doc: "references to assets and nodes that do not exist", Run: (*Session).refsMissing},
-		{Name: "refs.fix", Doc: "point every reference to one asset at another (none clears them); originals go to .aego/recovery", Write: true,
+		{Name: "refs.fix", Doc: "point every reference to one asset at another (none clears them); originals go to .aego/recovery", Write: true, Destroys: true,
 			Args: []Arg{{Name: "from", Type: "string", Doc: "asset id or path being replaced", Required: true, Pos: true},
 				{Name: "to", Type: "string", Doc: "replacement id or path, empty clears", Pos: true}}, Run: (*Session).refsFix},
 		{Name: "asset.list", Doc: "assets with their ids and kinds", Args: []Arg{{Name: "kind", Type: "string", Doc: "only this kind: scene, prefab, texture, data, table, script…"}}, Run: (*Session).assetList},
-		{Name: "asset.move", Doc: "move an asset with its .meta; the id and every reference stay", Write: true,
+		{Name: "asset.move", Doc: "move an asset with its .meta; the id and every reference stay", Write: true, Destroys: true,
 			Args: []Arg{asset, {Name: "to", Type: "string", Doc: "new path", Required: true, Pos: true}}, Run: (*Session).assetMove},
-		{Name: "asset.rename", Doc: "rename an asset in its folder", Write: true,
+		{Name: "asset.rename", Doc: "rename an asset in its folder", Write: true, Destroys: true,
 			Args: []Arg{asset, {Name: "name", Type: "string", Doc: "new name without the extension", Required: true, Pos: true}}, Run: (*Session).assetRename},
-		{Name: "asset.delete", Doc: "delete an asset; refuses while it is referenced unless --force", Write: true,
+		{Name: "asset.delete", Doc: "delete an asset; refuses while it is referenced unless --force", Write: true, Destroys: true,
 			Args: []Arg{asset, {Name: "force", Type: "boolean", Doc: "delete even when referenced; the references become missing"}}, Run: (*Session).assetDelete},
 	}
 }

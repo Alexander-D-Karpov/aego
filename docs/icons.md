@@ -104,6 +104,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `nav.back` | engine | 16 | Documentation and code: back | ok |
 | `nav.forward` | engine | 16 | Documentation and code: forward | ok |
 | `node.empty` | engine | 16 | template engine.empty; template engine.empty3d | ok |
+| `panel.agent` | engine | 16 | Agent tab; Ask Agent in Hierarchy and Problems | ok |
 | `panel.assets` | engine | 16 | Assets tab | ok |
 | `panel.console` | engine | 16 | Console tab | ok |
 | `panel.crashes` | engine | 16 | Crash Reports tab | ok |

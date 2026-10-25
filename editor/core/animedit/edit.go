@@ -19,6 +19,7 @@ type FileEdit struct {
 	Tx     mutate.Tx
 	Files  Files
 	Loaded func(rel string, data []byte)
+	Result *mutate.Result
 	before []byte
 	after  []byte
 	done   bool
@@ -64,6 +65,7 @@ func (c *FileEdit) Do(history.Target) error {
 			return errs.New(errs.EditorCommand, p.Message)
 		}
 	}
+	c.Result = res
 	c.before, c.after, c.done = src, d.Bytes(), true
 	return c.put(c.after)
 }

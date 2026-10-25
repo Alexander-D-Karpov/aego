@@ -88,6 +88,8 @@ type Options struct {
 	Interval time.Duration
 	Log      io.Writer
 	Version  string
+	Source   Source
+	Extra    []Extra
 }
 
 type Server struct {
@@ -132,8 +134,16 @@ func Main(p *project.Project, args []string, stdin io.Reader, stdout, stderr io.
 	return 0
 }
 
+func newServer(opt Options) *Server {
+	if opt.Source == nil && opt.Kit != nil {
+		opt.Source = kitSource{kit: opt.Kit}
+	}
+	return &Server{opt: opt, subs: map[string]bool{}, known: map[string]bool{}}
+}
+
 func Serve(in io.Reader, out io.Writer, opt Options) error {
-	s := &Server{opt: opt, enc: json.NewEncoder(out), subs: map[string]bool{}, known: map[string]bool{}}
+	s := newServer(opt)
+	s.enc = json.NewEncoder(out)
 	s.enc.SetEscapeHTML(false)
 	if opt.Watch {
 		stop, err := s.watch()
@@ -157,6 +167,9 @@ func Serve(in io.Reader, out io.Writer, opt Options) error {
 }
 
 func (s *Server) send(v any) {
+	if s.enc == nil {
+		return
+	}
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
 	if err := s.enc.Encode(v); err != nil && s.opt.Log != nil {
@@ -164,25 +177,30 @@ func (s *Server) send(v any) {
 	}
 }
 
-func (s *Server) handle(raw json.RawMessage) {
+// respond answers one JSON-RPC message; a notification has no reply.
+func (s *Server) respond(raw json.RawMessage) (reply, bool) {
 	var r request
 	if err := json.Unmarshal(raw, &r); err != nil || r.Method == "" {
 		id := r.ID
 		if len(id) == 0 {
 			id = json.RawMessage("null")
 		}
-		s.send(reply{JSONRPC: "2.0", ID: id, Error: &rpcError{Code: codeInvalid, Message: "invalid request"}})
-		return
+		return reply{JSONRPC: "2.0", ID: id, Error: &rpcError{Code: codeInvalid, Message: "invalid request"}}, true
 	}
 	res, rerr := s.dispatch(r)
 	if len(r.ID) == 0 {
-		return
+		return reply{}, false
 	}
 	if rerr != nil {
-		s.send(reply{JSONRPC: "2.0", ID: r.ID, Error: rerr})
-		return
+		return reply{JSONRPC: "2.0", ID: r.ID, Error: rerr}, true
 	}
-	s.send(reply{JSONRPC: "2.0", ID: r.ID, Result: res})
+	return reply{JSONRPC: "2.0", ID: r.ID, Result: res}, true
+}
+
+func (s *Server) handle(raw json.RawMessage) {
+	if rep, ok := s.respond(raw); ok {
+		s.send(rep)
+	}
 }
 
 func (s *Server) dispatch(r request) (any, *rpcError) {
@@ -251,7 +269,7 @@ func (s *Server) tools() []tool {
 			Name:        c.Tool(),
 			Description: c.Doc + "\nCLI: aego " + c.Usage(),
 			InputSchema: c.Schema(),
-			Annotations: map[string]any{"readOnlyHint": !c.Write, "openWorldHint": false},
+			Annotations: map[string]any{"readOnlyHint": !c.Write, "destructiveHint": c.Destroys, "openWorldHint": false},
 		})
 	}
 	ro := map[string]any{"readOnlyHint": true, "openWorldHint": false}
@@ -315,12 +333,7 @@ func (s *Server) call(params json.RawMessage) (any, *rpcError) {
 	if p.Arguments == nil {
 		p.Arguments = map[string]any{}
 	}
-	sess, err := s.opt.Kit.Open()
-	if err != nil {
-		return result(err.Error(), true), nil
-	}
-	defer sess.Close()
-	out, err := agent.Run(sess, c.Name, agent.Args(p.Arguments))
+	out, err := s.opt.Source.Run(c.Name, agent.Args(p.Arguments))
 	if err != nil {
 		return result(err.Error(), true), nil
 	}
@@ -421,26 +434,23 @@ func (s *Server) resources() (any, *rpcError) {
 		{URI: "aego://docs/index", Name: "documentation", Description: "guide and reference roots", MimeType: "text/markdown"},
 		{URI: "aego://schema/index", Name: "types", Description: "component and data types", MimeType: "application/json"},
 	}
-	sess, err := s.opt.Kit.Open()
+	for _, x := range s.opt.Extra {
+		list = append(list, resource{URI: x.URI, Name: x.Name, Description: x.Description, MimeType: x.MimeType})
+	}
+	paths, err := s.opt.Source.Paths()
 	if err != nil {
 		return nil, &rpcError{Code: codeInternal, Message: err.Error()}
 	}
-	defer sess.Close()
-	for _, a := range sess.Pipeline.Assets() {
-		if document(a.Path) {
-			list = append(list, resource{URI: fileURI(a.Path), Name: a.Path, MimeType: "text/plain"})
+	for _, p := range paths {
+		if document(p) {
+			list = append(list, resource{URI: fileURI(p), Name: p, MimeType: "text/plain"})
 		}
 	}
 	return map[string]any{"resources": list}, nil
 }
 
 func (s *Server) runJSON(name string, a agent.Args) (string, string, error) {
-	sess, err := s.opt.Kit.Open()
-	if err != nil {
-		return "", "", err
-	}
-	defer sess.Close()
-	out, err := agent.Run(sess, name, a)
+	out, err := s.opt.Source.Run(name, a)
 	if err != nil {
 		return "", "", err
 	}
@@ -449,6 +459,12 @@ func (s *Server) runJSON(name string, a agent.Args) (string, string, error) {
 }
 
 func (s *Server) read(uri string) (string, string, error) {
+	for _, x := range s.opt.Extra {
+		if x.URI == uri {
+			text, err := x.Read()
+			return text, x.MimeType, err
+		}
+	}
 	rest, ok := strings.CutPrefix(uri, "aego://")
 	if !ok {
 		return "", "", errors.New("not an aego resource")
@@ -462,7 +478,7 @@ func (s *Server) read(uri string) (string, string, error) {
 	case "project":
 		switch arg {
 		case "manifest":
-			b, err := os.ReadFile(s.opt.Kit.Project.FilePath())
+			b, err := os.ReadFile(s.opt.Source.Project().FilePath())
 			return string(b), "text/plain", err
 		case "problems":
 			return s.runJSON("project.validate", agent.Args{})
@@ -482,11 +498,11 @@ func (s *Server) read(uri string) (string, string, error) {
 		}
 		return s.runJSON("schema.show", agent.Args{"type": arg})
 	case "file":
-		rel, err := s.opt.Kit.Rel(arg)
+		rel, err := s.opt.Source.Rel(arg)
 		if err != nil {
 			return "", "", err
 		}
-		b, err := os.ReadFile(filepath.Join(s.opt.Kit.Project.Root, filepath.FromSlash(rel)))
+		b, err := os.ReadFile(filepath.Join(s.opt.Source.Project().Root, filepath.FromSlash(rel)))
 		return string(b), "text/plain", err
 	}
 	return "", "", errors.New("unknown resource " + uri)
@@ -524,7 +540,7 @@ func (s *Server) subscribe(method string, params json.RawMessage) (any, *rpcErro
 }
 
 func (s *Server) watch() (func(), error) {
-	root := s.opt.Kit.Project.Root
+	root := s.opt.Source.Project().Root
 	filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -548,7 +564,7 @@ func (s *Server) changed(list []pipeline.Change) {
 	if !s.ready.Load() {
 		return
 	}
-	root := s.opt.Kit.Project.Root
+	root := s.opt.Source.Project().Root
 	touched := map[string]bool{"aego://project/problems": true}
 	listChanged := false
 	s.smu.Lock()

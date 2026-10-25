@@ -1,0 +1,278 @@
+package agentbridge
+
+import (
+	"errors"
+	"maps"
+	"strings"
+	"time"
+
+	"aego/app/agent"
+	"aego/editor/core/document"
+)
+
+type State uint8
+
+const (
+	Pending State = iota
+	Approved
+	Applied
+	Rejected
+	Expired
+	Failed
+	Undone
+)
+
+const (
+	DefaultTimeout = 10 * time.Minute
+	keepProposals  = 200
+)
+
+var (
+	errRejected = errors.New("the user rejected this change; ask before trying it again")
+	errExpired  = errors.New("no answer within the time limit, nothing was applied")
+)
+
+// undoRef is where an applied proposal sits in the history of its document.
+type undoRef struct {
+	doc   document.ID
+	label string
+	depth int
+}
+
+// Proposal is one write call from the model, previewed as a dry run and waiting for the user (D342).
+type Proposal struct {
+	ID          int
+	Command     string
+	Args        agent.Args
+	Preview     *agent.Output
+	Destructive bool
+	State       State
+	Result      *agent.Output
+	Err         string
+	undo        *undoRef
+	decide      chan bool
+}
+
+func destructive(c *agent.Command, out *agent.Output) bool {
+	if c.Destroys {
+		return true
+	}
+	for _, ch := range out.Changes {
+		if strings.HasPrefix(ch.Op, "remove") {
+			return true
+		}
+	}
+	return false
+}
+
+func problemsErr(out *agent.Output) error {
+	var msgs []string
+	for _, p := range out.Problems {
+		if p.Error {
+			msgs = append(msgs, p.Message)
+		}
+	}
+	return errors.New("the change has errors, nothing was applied: " + strings.Join(msgs, "; "))
+}
+
+func (b *Bridge) timeout() time.Duration {
+	if b.cfg.Timeout > 0 {
+		return b.cfg.Timeout
+	}
+	return DefaultTimeout
+}
+
+// propose previews a write call on the main thread, waits for the user off it, then applies it on the current state.
+func (b *Bridge) propose(c *agent.Command, a agent.Args) (*agent.Output, error) {
+	var p *Proposal
+	var err error
+	var st State
+	var res *agent.Output
+	var msg string
+	if e := b.main(func() {
+		if p, err = b.preview(c, a); p != nil {
+			st, res, msg = p.State, p.Result, p.Err
+		}
+	}); e != nil {
+		return nil, e
+	}
+	if err != nil {
+		return nil, err
+	}
+	switch st {
+	case Applied:
+		return res, nil
+	case Failed:
+		return nil, errors.New(msg)
+	}
+	ok, err := b.await(p)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errRejected
+	}
+	var out *agent.Output
+	if e := b.main(func() { out, err = b.apply(p) }); e != nil {
+		return nil, e
+	}
+	return out, err
+}
+
+func (b *Bridge) preview(c *agent.Command, a agent.Args) (*Proposal, error) {
+	dry := maps.Clone(a)
+	dry["dry-run"] = true
+	out, err := agent.Run(b.sess, c.Name, dry)
+	if err != nil {
+		return nil, err
+	}
+	if out.Errors() {
+		return nil, problemsErr(out)
+	}
+	b.next++
+	p := &Proposal{ID: b.next, Command: c.Name, Args: maps.Clone(a), Preview: out, Destructive: destructive(c, out), decide: make(chan bool, 1)}
+	b.keep(p)
+	if b.auto && !p.Destructive {
+		b.apply(p)
+		return p, nil
+	}
+	if b.cfg.OnProposal != nil {
+		b.cfg.OnProposal(p)
+	}
+	return p, nil
+}
+
+// keep holds the latest proposals for the panel; pending ones are never dropped.
+func (b *Bridge) keep(p *Proposal) {
+	b.proposals = append(b.proposals, p)
+	for len(b.proposals) > keepProposals {
+		i := 0
+		for i < len(b.proposals) && b.proposals[i].State == Pending {
+			i++
+		}
+		if i == len(b.proposals) {
+			return
+		}
+		b.proposals = append(b.proposals[:i], b.proposals[i+1:]...)
+	}
+}
+
+func (b *Bridge) apply(p *Proposal) (*agent.Output, error) {
+	b.last = nil
+	out, err := b.run(p.Command, p.Args)
+	p.undo = b.last
+	if err != nil {
+		p.State, p.Err = Failed, err.Error()
+		return nil, err
+	}
+	p.State, p.Result = Applied, out
+	return out, nil
+}
+
+func (b *Bridge) await(p *Proposal) (bool, error) {
+	t := time.NewTimer(b.timeout())
+	defer t.Stop()
+	select {
+	case ok := <-p.decide:
+		return ok, nil
+	case <-t.C:
+	}
+	expired := false
+	if e := b.main(func() {
+		if p.State == Pending {
+			p.State, expired = Expired, true
+		}
+	}); e != nil {
+		return false, e
+	}
+	if expired {
+		return false, errExpired
+	}
+	return <-p.decide, nil
+}
+
+func (b *Bridge) find(id int) *Proposal {
+	for _, p := range b.proposals {
+		if p.ID == id {
+			return p
+		}
+	}
+	return nil
+}
+
+// Proposals are the recent proposals, oldest first; read them on the main thread.
+func (b *Bridge) Proposals() []*Proposal {
+	return b.proposals
+}
+
+func (b *Bridge) Pending() []*Proposal {
+	var out []*Proposal
+	for _, p := range b.proposals {
+		if p.State == Pending {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// Decide applies or rejects a pending proposal; it reports false when the proposal is no longer pending.
+func (b *Bridge) Decide(id int, apply bool) bool {
+	p := b.find(id)
+	if p == nil || p.State != Pending {
+		return false
+	}
+	p.State = Rejected
+	if apply {
+		p.State = Approved
+	}
+	p.decide <- apply
+	return true
+}
+
+func (b *Bridge) RejectAll() {
+	for _, p := range b.Pending() {
+		b.Decide(p.ID, false)
+	}
+}
+
+func (b *Bridge) AutoApply() bool {
+	return b.auto
+}
+
+// SetAutoApply applies new proposals at once, except destructive ones.
+func (b *Bridge) SetAutoApply(on bool) {
+	b.auto = on
+}
+
+// CanUndo reports whether an applied proposal is still the last step of its document.
+func (b *Bridge) CanUndo(id int) bool {
+	p := b.find(id)
+	if p == nil || p.undo == nil || p.State != Applied {
+		return false
+	}
+	d := b.ctx.Docs.Get(p.undo.doc)
+	if d == nil {
+		return false
+	}
+	label, depth := d.History.Top()
+	return depth == p.undo.depth && label == p.undo.label
+}
+
+func (b *Bridge) Undo(id int) error {
+	if !b.CanUndo(id) {
+		return errors.New("this change is no longer the last step; undo it with Edit → Undo")
+	}
+	p := b.find(id)
+	d := b.ctx.Docs.Get(p.undo.doc)
+	if err := d.History.Undo(); err != nil {
+		return err
+	}
+	b.ctx.PruneSelectionOf(d.ID)
+	p.State = Undone
+	return nil
+}
+
+func (b *Bridge) note(d *document.SceneDocument, label string) {
+	_, depth := d.History.Top()
+	b.last = &undoRef{doc: d.ID, label: label, depth: depth}
+}

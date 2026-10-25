@@ -85,6 +85,7 @@ var Editor = []module.IconUse{
 	use("nav.back", 16, "Documentation and code: back"),
 	use("nav.forward", 16, "Documentation and code: forward"),
 	use("panel.assets", 16, "Assets tab"),
+	use("panel.agent", 16, "Agent tab; Ask Agent in Hierarchy and Problems"),
 	use("panel.console", 16, "Console tab"),
 	use("panel.crashes", 16, "Crash Reports tab"),
 	use("panel.debug_draw", 16, "Debug Draw tab"),

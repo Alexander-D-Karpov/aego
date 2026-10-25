@@ -282,3 +282,19 @@ func (p *parser) parseStruct() (Value, *Diag) {
 		fields = append(fields, Field{Name: name, Value: v, Pos: pos})
 	}
 }
+
+// ParseValue reads one value written in aetext syntax, such as 15, [0, -15], Default or "text".
+func ParseValue(src []byte, name string) (Value, error) {
+	p := &parser{lex: newLexer(src, name)}
+	if err := p.advance(); err != nil {
+		return Value{}, err
+	}
+	v, err := p.parseValue()
+	if err != nil {
+		return Value{}, err
+	}
+	if p.tok.kind != tokEOF {
+		return Value{}, p.errorf("unexpected %s after the value", describe(p.tok))
+	}
+	return v, nil
+}

@@ -46,6 +46,11 @@ func SetField(s *scene.Scene, node ids.NodeID, td *schema.TypeDescriptor, fd *sc
 	return NewMutation("Set "+name, EnvFor(s), op)
 }
 
+// Result is what the last Do changed, nil before it ran.
+func (c *Mutation) Result() *mutate.Result {
+	return c.res
+}
+
 func (c *Mutation) Label() string {
 	return c.Name
 }

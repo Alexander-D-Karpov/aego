@@ -5,6 +5,7 @@ import (
 	"aego/core/ids"
 	"aego/editor/core/favorites"
 	"aego/editor/core/workspace"
+	agentpanel "aego/editor/panels/agent"
 	animpanel "aego/editor/panels/animation"
 	favpanel "aego/editor/panels/favorites"
 	"aego/editor/panels/scenes"
@@ -80,6 +81,9 @@ func (a *App) panelCatalog() []workspace.Desc {
 	}
 	if a.exportP != nil {
 		descs = append(descs, workspace.Desc{Panel: a.exportP, Near: workspace.Console, Order: 254, Icon: "file.package"})
+	}
+	if a.agentP != nil {
+		descs = append(descs, workspace.Desc{Panel: a.agentP, Near: workspace.Inspector, Order: 205, Icon: agentpanel.Icon})
 	}
 	return descs
 }

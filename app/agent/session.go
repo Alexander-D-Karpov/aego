@@ -17,6 +17,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/engine/module"
+	"aego/format/aetext"
 	scriptsystems "aego/modules/scripting/systems"
 	"aego/project"
 	"aego/project/refactor"
@@ -71,6 +72,79 @@ type Session struct {
 	kit       *Kit
 	libErrs   []error
 	scriptErr error
+	host      Host
+	borrowed  bool
+	methods   *methodIndex
+	secs      *module.Sections
+}
+
+// methodIndex lists the script methods the bindings give each component type, built on first use.
+type methodIndex struct {
+	binds *bind.Registry
+	reg   *schema.Registry
+	man   *manifest.Manifest
+}
+
+func (m *methodIndex) of(comp string) []manifest.CompMethod {
+	if m.man == nil {
+		man, err := manifest.FromRegistry(m.binds, m.reg)
+		if err != nil {
+			return nil
+		}
+		m.man = man
+	}
+	var out []manifest.CompMethod
+	for _, cm := range m.man.CompMethods {
+		if cm.Comp == comp {
+			out = append(out, cm)
+		}
+	}
+	return out
+}
+
+// Host is the editor when a session runs inside it: open scenes are read and changed through their documents (D341).
+type Host interface {
+	OpenScene(rel string) (*mutate.Document, bool)
+	SceneDirty(rel string) bool
+	ApplyScene(rel, label string, tx mutate.Tx) (*mutate.Result, error)
+	ApplyFile(rel string, ctrl bool, label string, tx mutate.Tx) (*mutate.Result, error)
+	Sections() *module.Sections
+	ApplyProject(id string, n *aetext.Node, label string) error
+}
+
+// Attach makes a session over the editor's project, types and pipeline; Close leaves them open.
+func Attach(p *project.Project, types *scene.Types, mods *module.Manifest, pl *pipeline.Pipeline, binds *bind.Registry, host Host) *Session {
+	s := &Session{Project: p, Types: types, Modules: mods, Pipeline: pl, host: host, borrowed: true}
+	if binds != nil {
+		s.methods = &methodIndex{binds: binds, reg: types.Schema()}
+	}
+	s.reload()
+	return s
+}
+
+// sections are the module sections of project.aego: the editor's live ones, or loaded once from the file.
+func (s *Session) sections() (*module.Sections, error) {
+	if s.host != nil {
+		if secs := s.host.Sections(); secs != nil {
+			return secs, nil
+		}
+		return nil, errors.New("project sections are not available in this editor")
+	}
+	if s.secs == nil {
+		if s.Modules == nil {
+			return nil, errors.New("project sections are not available")
+		}
+		secs, err := s.Modules.LoadSections(s.Project.Block, project.CoreBlocks...)
+		if err != nil {
+			return nil, err
+		}
+		s.secs = secs
+	}
+	return s.secs, nil
+}
+
+func (s *Session) Env() mutate.Env {
+	return s.env()
 }
 
 type Kit struct {
@@ -81,25 +155,7 @@ type Kit struct {
 	ws      *workspace.Workspace
 	binds   *bind.Registry
 	opt     Options
-	man     *manifest.Manifest
-}
-
-// methods lists the script methods the bindings give a component type, built once per kit.
-func (k *Kit) methods(comp string) []manifest.CompMethod {
-	if k.man == nil {
-		m, err := manifest.FromRegistry(k.binds, k.Types.Schema())
-		if err != nil {
-			return nil
-		}
-		k.man = m
-	}
-	var out []manifest.CompMethod
-	for _, cm := range k.man.CompMethods {
-		if cm.Comp == comp {
-			out = append(out, cm)
-		}
-	}
-	return out
+	idx     *methodIndex
 }
 
 func NewKit(p *project.Project, opt Options) (*Kit, error) {
@@ -127,7 +183,9 @@ func NewKit(p *project.Project, opt Options) (*Kit, error) {
 		return nil, err
 	}
 	ws.SetBindings(reg.Table())
-	return &Kit{Project: p, Types: types, Modules: man, imps: imps, ws: ws, binds: reg, opt: opt}, nil
+	k := &Kit{Project: p, Types: types, Modules: man, imps: imps, ws: ws, binds: reg, opt: opt}
+	k.idx = &methodIndex{binds: reg, reg: types.Schema()}
+	return k, nil
 }
 
 func (k *Kit) Open() (*Session, error) {
@@ -135,7 +193,7 @@ func (k *Kit) Open() (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Session{Project: k.Project, Types: k.Types, Modules: k.Modules, Pipeline: pl, opt: k.opt, kit: k}
+	s := &Session{Project: k.Project, Types: k.Types, Modules: k.Modules, Pipeline: pl, opt: k.opt, kit: k, methods: k.idx}
 	if _, _, err := pl.Scan(); err != nil {
 		s.Close()
 		return nil, err
@@ -163,11 +221,16 @@ func Open(p *project.Project, opt Options) (*Session, error) {
 }
 
 func (k *Kit) Rel(p string) (string, error) {
+	return RelIn(k.Project.Root, p)
+}
+
+// RelIn is p relative to root, refused when it leaves root.
+func RelIn(root, p string) (string, error) {
 	if p == "" {
 		return "", errors.New("a file path is needed")
 	}
 	if filepath.IsAbs(p) {
-		r, err := filepath.Rel(k.Project.Root, p)
+		r, err := filepath.Rel(root, p)
 		if err != nil {
 			return "", errs.Wrap(err, errs.VFSBadPath, "the path is outside the project")
 		}
@@ -181,6 +244,9 @@ func (k *Kit) Rel(p string) (string, error) {
 }
 
 func (s *Session) Close() {
+	if s.borrowed {
+		return
+	}
 	if s.Pipeline != nil {
 		s.Pipeline.Close()
 		s.Pipeline = nil
@@ -261,7 +327,7 @@ func (s *Session) env() mutate.Env {
 }
 
 func (s *Session) rel(p string) (string, error) {
-	return s.kit.Rel(p)
+	return RelIn(s.Project.Root, p)
 }
 
 func (s *Session) read(rel string) ([]byte, error) {

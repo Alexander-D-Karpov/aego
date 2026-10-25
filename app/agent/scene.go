@@ -58,7 +58,7 @@ func sceneCommands() []*Command {
 		}},
 		{Name: "scene.add-node", Doc: "add an empty node", Write: true, Args: []Arg{argFile, {Name: "name", Type: "string", Doc: "node name", Required: true, Pos: true}, optParent,
 			{Name: "space", Type: "string", Doc: "2d or 3d, the parent's space by default"}, argIndex}, Run: (*Session).sceneAddNode},
-		{Name: "scene.remove-node", Doc: "remove a node with its children", Write: true, Args: []Arg{argFile, argNode}, Run: func(s *Session, a Args) (*Output, error) {
+		{Name: "scene.remove-node", Doc: "remove a node with its children", Write: true, Destroys: true, Args: []Arg{argFile, argNode}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Remove Node", mutate.RemoveNode(a.Str("node")))
 		}},
 		{Name: "scene.move", Doc: "move a node under another parent", Write: true, Args: []Arg{argFile, argNode, {Name: "parent", Type: "string", Doc: "new parent node", Required: true, Pos: true}, argIndex,
@@ -68,7 +68,7 @@ func sceneCommands() []*Command {
 		}},
 		{Name: "scene.add-comp", Doc: "add a component with its defaults and the components it requires", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name, full or a unique suffix (Body2D)", Required: true, Pos: true},
 			{Name: "no-required", Type: "boolean", Doc: "add only this component; missing requirements stay as problems"}}, Run: (*Session).sceneAddComp},
-		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
+		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Destroys: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Remove Component", mutate.RemoveComp(a.Str("node"), a.Str("comp")))
 		}},
 		{Name: "scene.apply", Doc: "apply a transaction (tx version=1 { op … }) in one step", Write: true, Args: []Arg{argFile,
@@ -80,17 +80,39 @@ func sceneCommands() []*Command {
 	}
 }
 
+// scene is the scene of a command; in the editor an open scene is its live document, src nil.
 func (s *Session) scene(a Args) (string, []byte, *mutate.Document, error) {
 	rel, err := s.rel(a.Str("file"))
 	if err != nil {
 		return "", nil, nil, err
 	}
+	if s.host != nil {
+		if doc, ok := s.host.OpenScene(rel); ok {
+			return rel, nil, doc, nil
+		}
+	}
+	return s.sceneDisk(rel)
+}
+
+func (s *Session) sceneDisk(rel string) (string, []byte, *mutate.Document, error) {
 	src, err := s.read(rel)
 	if err != nil {
 		return "", nil, nil, err
 	}
 	doc, err := mutate.Load(src, rel, s.env())
 	return rel, src, doc, err
+}
+
+// sceneFile is the scene on disk, for commands that write other files with it; an open scene with unsaved edits is refused.
+func (s *Session) sceneFile(a Args) (string, []byte, *mutate.Document, error) {
+	rel, err := s.rel(a.Str("file"))
+	if err != nil {
+		return "", nil, nil, err
+	}
+	if s.host != nil && s.host.SceneDirty(rel) {
+		return "", nil, nil, errors.New(rel + " has unsaved changes in the editor; save it first")
+	}
+	return s.sceneDisk(rel)
 }
 
 // sceneAddComp adds a component and, unless no-required is set, the components it requires first, in one transaction (D144).
@@ -145,18 +167,26 @@ func (s *Session) sceneTx(a Args, label string, ops ...mutate.Op) (*Output, erro
 }
 
 func (s *Session) applyDoc(a Args, rel string, src []byte, doc *mutate.Document, tx mutate.Tx) (*Output, error) {
+	live := src == nil && s.host != nil
 	var res *mutate.Result
 	var err error
-	if a.Bool("dry-run") {
+	switch {
+	case a.Bool("dry-run"):
 		res, err = doc.DryRun(tx)
-	} else {
+	case live:
+		res, err = s.host.ApplyScene(rel, tx.Label, tx)
+	default:
 		res, err = doc.Apply(tx)
 	}
 	if err != nil {
 		return nil, err
 	}
 	out := &Output{DryRun: res.DryRun, Changes: res.Changes, Problems: append(slices.Clone(doc.Problems), res.Problems...), Created: res.Created}
-	if res.DryRun {
+	switch {
+	case res.DryRun:
+		return out, nil
+	case live:
+		out.Notes = append(out.Notes, "applied to "+rel+" in the editor as one Undo step; save the scene to write it")
 		return out, nil
 	}
 	out.Files, err = s.save(rel, src, doc.Bytes())
@@ -205,6 +235,9 @@ func (s *Session) sceneApply(a Args) (*Output, error) {
 	tx, err := mutate.ParseTx(text, name)
 	if err != nil {
 		return nil, err
+	}
+	if tx.Label == "" {
+		tx.Label = "Apply Transaction"
 	}
 	rel, src, doc, err := s.scene(a)
 	if err != nil {

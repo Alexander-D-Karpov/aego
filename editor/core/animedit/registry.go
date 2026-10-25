@@ -55,3 +55,10 @@ func (r *Registry) SaveGuard(d *document.SceneDocument) func() {
 	s.restore()
 	return s.apply
 }
+
+// Loaded tells every open clip that a file was written outside its own edits.
+func (r *Registry) Loaded(rel string, data []byte) {
+	for _, s := range r.by {
+		s.loaded(rel, data)
+	}
+}

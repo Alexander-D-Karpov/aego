@@ -38,6 +38,10 @@ type Panel struct {
 	selKey    string
 	Opened    int
 	Scene     func(path string) *scene.Scene
+	// Ask prefills the Agent panel; nil hides Ask Agent to Fix.
+	Ask    func(prompt string)
+	menu   context.ScriptProblem
+	menuID core.ID
 }
 
 func New(src services.Problems, nav services.Navigation) *Panel {
@@ -149,6 +153,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui := f.UI
 	th := &ui.Theme
 	errs, warns := p.refresh()
+	p.menuID = ui.ID("menu")
 	bar := ui.Cursor().Next(0)
 	x, right := bar.X, bar.X+bar.W
 	place := func(w float32) mathx.Rect {
@@ -178,6 +183,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	widgets.VirtualList(ui, ui.ID("list"), list, len(p.rows), th.RowHeight, &p.scroll, func(i int, rr mathx.Rect) {
 		p.drawRow(ui, i, rr)
 	})
+	p.problemMenu(ui)
 	if sel == nil || detailH <= 0 {
 		return
 	}
@@ -246,6 +252,10 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		p.Opened++
 		p.nav.Open(pr.Location())
 	}
+	if p.Ask != nil && ui.RightClicked(id, rr) {
+		p.selKey, p.menu = k, *pr
+		widgets.OpenContextMenu(ui, p.menuID)
+	}
 	switch {
 	case p.selKey == k:
 		ui.Rect(rr, th.SelectionDim)
@@ -285,4 +295,22 @@ func (p *Panel) drawRow(ui *core.Context, i int, rr mathx.Rect) {
 		help = strings.TrimSpace(tip + "\n" + help)
 	}
 	widgets.Tooltip(ui, id, help)
+}
+
+func askPrompt(pr *context.ScriptProblem) string {
+	code := pr.Code
+	if !pr.Script() {
+		code = pr.Category + " " + pr.Code
+	}
+	return "Fix this problem: " + code + " " + pr.Message + " (" + pr.Path + " " + where(pr) + "). "
+}
+
+func (p *Panel) problemMenu(ui *core.Context) {
+	if !widgets.ContextMenu(ui, p.menuID) {
+		return
+	}
+	if widgets.MenuItemIcon(ui, "Ask Agent to Fix", "", "panel.agent", true, false) {
+		p.Ask(askPrompt(&p.menu))
+	}
+	widgets.EndContextMenu(ui)
 }

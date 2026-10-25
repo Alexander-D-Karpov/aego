@@ -246,6 +246,9 @@ func (a *App) registerCommands() error {
 			return err
 		}
 	}
+	if a.agentP != nil {
+		return reg.Register(command.Desc{ID: "agent.ask", Name: "Ask Agent…", Category: "Window", Run: func() error { a.agentP.Ask(""); return nil }})
+	}
 	return nil
 }
 

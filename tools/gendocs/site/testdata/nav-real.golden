@@ -3,6 +3,7 @@ Getting started
 Guides
   Editor -> editor.html
     Add Component and Create -> editor/add-component.html
+    The Agent panel -> editor/agent.html
   Aego Script -> language.html
     Overview -> language/overview.html
     Files and packages -> language/files-and-packages.html

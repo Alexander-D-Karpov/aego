@@ -52,3 +52,26 @@ func TestWorkspaceRoundTrip(t *testing.T) {
 		t.Fatalf("workspace = %q", got.Workspace)
 	}
 }
+
+// The Claude Code binary of the Agent panel survives a save and stays out of the file while it is the default.
+func TestAgentCommandRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	s := Default()
+	if err := Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AgentCommand != "" {
+		t.Fatalf("default command %q", got.AgentCommand)
+	}
+	s.AgentCommand = "/opt/claude/bin/claude"
+	if err := Save(root, s); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = Load(root); got.AgentCommand != s.AgentCommand {
+		t.Fatalf("command %q after a round trip", got.AgentCommand)
+	}
+}

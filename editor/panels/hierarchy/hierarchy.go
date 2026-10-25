@@ -50,6 +50,8 @@ type Deps struct {
 	Notices   services.Notices
 	Prefabs   services.Prefabs
 	Tools     *context.SceneSettings
+	// Ask prefills the Agent panel; nil hides Ask Agent.
+	Ask func(prompt string)
 }
 
 type Panel struct {
@@ -175,6 +177,9 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		command.MenuItem(f.UI, p.d.Commands, command.EditCopy, "Copy")
 		command.MenuItem(f.UI, p.d.Commands, command.EditCut, "Cut")
 		command.MenuItem(f.UI, p.d.Commands, command.EditPaste, "Paste")
+		if p.d.Ask != nil && widgets.MenuItemIcon(ui, "Ask Agent…", "", "panel.agent", true, false) {
+			p.d.Ask(p.askPrompt(d))
+		}
 		widgets.Separator(ui)
 		command.MenuItem(f.UI, p.d.Commands, command.EditDelete, "Delete")
 		widgets.EndContextMenu(ui)
@@ -722,4 +727,19 @@ func (p *Panel) create(d *document.SceneDocument, parent ids.NodeID, at *mathx.V
 			d.View.Expanded[parent] = true
 		}
 	})
+}
+
+// askPrompt names the selected nodes with their ids, the way agent commands address them.
+func (p *Panel) askPrompt(d *document.SceneDocument) string {
+	s := d.Scene()
+	var names []string
+	for _, id := range p.d.Selection.Selected() {
+		if h := s.Handle(id); !h.IsZero() && s.IsAlive(h) {
+			names = append(names, s.Name(h)+" (#"+id.String()+")")
+		}
+	}
+	if len(names) == 0 {
+		return "In " + d.Path + ": "
+	}
+	return "In " + d.Path + ", " + strings.Join(names, ", ") + ": "
 }

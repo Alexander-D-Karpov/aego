@@ -137,6 +137,8 @@ type Registry struct {
 	OnError func(id string, err error)
 	byID    map[string]*Desc
 	order   []string
+	cats    []string
+	catsOK  bool
 }
 
 func New() *Registry {
@@ -160,6 +162,7 @@ func (r *Registry) Register(d Desc) error {
 	cp.Alt = slices.Clone(d.Alt)
 	r.byID[d.ID] = &cp
 	r.order = append(r.order, d.ID)
+	r.catsOK = false
 	return nil
 }
 
@@ -216,17 +219,22 @@ func (r *Registry) HasCategory(cat string) bool {
 	return false
 }
 
+// Categories lists the categories in registration order; the list is built again only after commands change.
 func (r *Registry) Categories() []string {
+	if r.catsOK {
+		return r.cats
+	}
 	seen := map[string]bool{}
-	var out []string
+	r.cats = r.cats[:0]
 	for _, id := range r.order {
 		c := r.byID[id].Category
 		if c != "" && !seen[c] {
 			seen[c] = true
-			out = append(out, c)
+			r.cats = append(r.cats, c)
 		}
 	}
-	return out
+	r.catsOK = true
+	return r.cats
 }
 
 func (r *Registry) Unregister(id string) {
@@ -234,6 +242,7 @@ func (r *Registry) Unregister(id string) {
 		return
 	}
 	delete(r.byID, id)
+	r.catsOK = false
 	for i, o := range r.order {
 		if o == id {
 			r.order = append(r.order[:i], r.order[i+1:]...)

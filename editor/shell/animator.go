@@ -7,6 +7,7 @@ import (
 	"aego/asset"
 	"aego/core/ids"
 	"aego/editor/core/play"
+	agentpanel "aego/editor/panels/agent"
 	"aego/editor/panels/animator"
 	"aego/editor/panels/sceneview"
 	"aego/modules/animation"
@@ -98,4 +99,45 @@ func (a *App) animClips() []animator.Clip {
 // SceneView is the scene view panel, for tests.
 func (a *App) SceneView() *sceneview.Panel {
 	return a.sceneView
+}
+
+// AgentCommand is the Claude Code binary set for this project, empty for claude from PATH (D341).
+func (a *App) AgentCommand() string {
+	return a.agentCommand
+}
+
+func (a *App) SetAgentCommand(cmd string) {
+	a.agentCommand = cmd
+}
+
+// ProjectChanged follows a change of project.aego made outside Project Settings, such as the agent's project.set.
+func (a *App) ProjectChanged() {
+	if a.settings != nil {
+		a.settings.Refresh()
+	}
+	a.liveSettings()
+}
+
+func (a *App) askHook() func(string) {
+	if a.opt.Agent == nil {
+		return nil
+	}
+	return func(prompt string) { a.agentP.Ask(prompt) }
+}
+
+// Agent is the Agent panel, nil without an agent host.
+func (a *App) Agent() *agentpanel.Panel {
+	return a.agentP
+}
+
+// assetPaths are the project's asset paths, for the Agent panel's @ mentions.
+func (a *App) assetPaths() []string {
+	if a.opt.Pipeline == nil {
+		return nil
+	}
+	var out []string
+	for _, info := range a.opt.Pipeline.Assets() {
+		out = append(out, info.Path)
+	}
+	return out
 }

@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"aego/app/agentui/backend"
 	"errors"
 	"os"
 	"os/signal"
@@ -49,6 +50,8 @@ type Config struct {
 	OpenPath    string
 	NativeNote  string
 	LauncherTab string
+	// AgentBackend runs the Agent panel; nil is Claude Code, except headless where nil means no panel (D343).
+	AgentBackend backend.Backend
 }
 
 type docAttach struct {
@@ -224,6 +227,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		LogsDir:     LogsDir(),
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 		Exporter:    newExporter(p, h.Pipeline),
+		Agent:       s.agentHost(cfg),
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil
