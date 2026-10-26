@@ -85,7 +85,8 @@ func TestAdaptiveKeyEvery(t *testing.T) {
 	if tl.KeyEvery < play.MinKeyEvery || tl.KeyEvery > play.DefaultKeyEvery {
 		t.Fatalf("key every %d ticks, want %d..%d", tl.KeyEvery, play.MinKeyEvery, play.DefaultKeyEvery)
 	}
-	if tl.Keys < int(900/tl.KeyEvery) {
+	// the interval adapts during the run, so the keys are counted against the longest one it may have used
+	if tl.Keys < int(900/play.DefaultKeyEvery) {
 		t.Fatalf("%d keys over 900 ticks at one per %d", tl.Keys, tl.KeyEvery)
 	}
 }
