@@ -24,14 +24,14 @@ For servers, CI and anyone who prefers a terminal:
 ```sh
 curl -fsSL https://aego.akarpov.ru/install.sh | sh
 curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly
-curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --version v0.10.0
+curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --version v0.11.0
 ```
 
 ```powershell
 irm https://aego.akarpov.ru/install.ps1 | iex
 ```
 
-On Windows, set `$env:AEGO_CHANNEL = "nightly"`, or a tag such as `"v0.10.0"`, before the command to pick another build. The script verifies the checksum, installs into `~/.local` (or `%LOCALAPPDATA%\Programs\Aego`) and prints what it did.
+On Windows, set `$env:AEGO_CHANNEL = "nightly"`, or a tag such as `"v0.11.0"`, before the command to pick another build. The script verifies the checksum, installs into `~/.local` (or `%LOCALAPPDATA%\Programs\Aego`) and prints what it did.
 
 ## Updates
 

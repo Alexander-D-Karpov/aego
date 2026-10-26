@@ -20,14 +20,14 @@ Aego — одна программа: редактор, командная ст�
 ```sh
 curl -fsSL https://aego.akarpov.ru/install.sh | sh
 curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly
-curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --version v0.10.0
+curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --version v0.11.0
 ```
 
 ```powershell
 irm https://aego.akarpov.ru/install.ps1 | iex
 ```
 
-В Windows, чтобы выбрать другую сборку, перед командой задайте `$env:AEGO_CHANNEL = "nightly"` или тег, например `"v0.10.0"`. Скрипт проверяет контрольную сумму, ставит Aego в `~/.local` (или в `%LOCALAPPDATA%\Programs\Aego`) и пишет, что сделал.
+В Windows, чтобы выбрать другую сборку, перед командой задайте `$env:AEGO_CHANNEL = "nightly"` или тег, например `"v0.11.0"`. Скрипт проверяет контрольную сумму, ставит Aego в `~/.local` (или в `%LOCALAPPDATA%\Programs\Aego`) и пишет, что сделал.
 
 ## Обновления
 
