@@ -22,18 +22,20 @@ type Config struct {
 	VSync             platform.VSyncMode
 	Headless          bool
 	HeadlessFrameTime float64
-	Debug             bool
-	LogLevel          log.Level
-	FixedHz           float64
-	MaxFrameDelta     float64
-	MaxFixedSteps     int
-	Workers           int
-	ResRoot           string
-	UserRoot          string
-	AppID             string
-	Seed              uint64
-	LoopScope         SystemScope
-	Trace             bool
+	// FixedFrameTime makes every windowed frame this long whatever the clock says, so a hidden run with screenshots steps like a headless one.
+	FixedFrameTime float64
+	Debug          bool
+	LogLevel       log.Level
+	FixedHz        float64
+	MaxFrameDelta  float64
+	MaxFixedSteps  int
+	Workers        int
+	ResRoot        string
+	UserRoot       string
+	AppID          string
+	Seed           uint64
+	LoopScope      SystemScope
+	Trace          bool
 }
 
 func (c Config) withDefaults() Config {

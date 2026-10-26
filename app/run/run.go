@@ -132,6 +132,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 			Headless:          cfg.Headless,
 			HeadlessFrameTime: cfg.FrameTime,
 			Hidden:            cfg.Hidden,
+			FixedFrameTime:    hiddenFrame(cfg),
 			Debug:             cfg.Debug,
 			AppID:             p.Module,
 			Trace:             cfg.Trace != "",
@@ -333,4 +334,12 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 		}
 	}()
 	return a.Run()
+}
+
+// hiddenFrame is the fixed frame time of a hidden windowed run, which renders for screenshots but must step like a headless one.
+func hiddenFrame(cfg Config) float64 {
+	if cfg.Hidden && !cfg.Headless {
+		return cfg.FrameTime
+	}
+	return 0
 }

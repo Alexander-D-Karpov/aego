@@ -192,6 +192,9 @@ func (e *Engine) frame() {
 	delta := 0.0
 	if e.frameNo > 0 {
 		delta = now - e.lastTime
+		if e.cfg.FixedFrameTime > 0 {
+			delta = e.cfg.FixedFrameTime
+		}
 	}
 	if delta < 0 {
 		delta = 0

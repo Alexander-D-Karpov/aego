@@ -56,7 +56,7 @@ type InitContext struct {
 	GameName    string
 	GameVersion string
 	provided    []provision
-	owner    string
+	owner       string
 }
 
 func (c *InitContext) Setting(d settings.Desc) (settings.Key, error) {
