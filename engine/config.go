@@ -10,7 +10,7 @@ import (
 	"aego/platform"
 )
 
-var Version = "0.11.0"
+var Version = "0.12.0-dev"
 
 type Config struct {
 	Title             string
