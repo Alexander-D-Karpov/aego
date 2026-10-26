@@ -26,7 +26,7 @@ var presets = [...]struct {
 	{i18n.T("i18n.debug.preset.none", "None"), func(string) bool { return false }},
 	{i18n.T("i18n.debug.preset.collision", "Collision"), func(n string) bool { return strings.HasPrefix(n, "physics.") }},
 	{i18n.T("i18n.debug.preset.velocity", "Velocity"), func(n string) bool { return strings.Contains(n, "velocity") }},
-	{i18n.Text{En: "AI"}, func(n string) bool { return strings.HasPrefix(n, "ai") }},
+	{i18n.T("i18n.debug.preset.ai", "AI"), func(n string) bool { return strings.HasPrefix(n, "ai") }},
 	{i18n.T("i18n.debug.preset.camera", "Camera"), func(n string) bool { return strings.HasPrefix(n, "camera") }},
 }
 

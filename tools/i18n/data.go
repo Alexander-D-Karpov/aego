@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aego/app/agent"
 	"aego/app/docstool"
 	"aego/engine/docs"
 	"strings"
@@ -34,7 +35,8 @@ func Data() (map[string]*Key, error) {
 			}
 		}
 	}
-	for _, td := range types.Schema().Components() {
+	sreg := types.Schema()
+	for _, td := range append(sreg.Components(), sreg.DataTypes()...) {
 		if td.Hidden && td.Doc == "" {
 			continue
 		}
@@ -57,6 +59,9 @@ func Data() (map[string]*Key, error) {
 				}
 			}
 		}
+	}
+	for _, c := range agent.Commands() {
+		add(agent.DocKey(c), c.Doc, "agent command "+c.Name)
 	}
 	for _, c := range settings.Categories {
 		add("setting.category."+c, c, "settings")
@@ -89,14 +94,14 @@ func Data() (map[string]*Key, error) {
 	for _, e := range reg.All() {
 		switch e.Kind {
 		case docs.Function, docs.Method, docs.Signal, docs.Const, docs.Enum:
-			add("api."+e.ID, e.Body, "api "+e.ID)
+			add(docs.APIKey(e.ID), e.Body, "api "+e.ID)
 		case docs.Field:
 			if strings.HasPrefix(e.Parent, docs.SectionsPrefix) && !strings.HasPrefix(e.ID, docs.SettingPrefix) {
 				add("docs.field."+e.ID, e.Body, "project section field")
 			}
 		case docs.Type:
 			if e.Component == nil {
-				add("api."+e.ID, e.Body, "api "+e.ID)
+				add(docs.APIKey(e.ID), e.Body, "api "+e.ID)
 			}
 		case docs.Page:
 			if e.Location.Source == "" {

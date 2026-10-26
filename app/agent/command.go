@@ -273,9 +273,19 @@ func (o *Output) Print(w io.Writer) {
 }
 
 func Markdown(w io.Writer) {
-	fmt.Fprintln(w, "| Command | Meaning |")
+	MarkdownIn(w, "Command", "Meaning", func(c *Command) string { return c.Doc })
+}
+
+// MarkdownIn is the command table of the CLI reference with its headings and descriptions in another language.
+func MarkdownIn(w io.Writer, command, meaning string, doc func(c *Command) string) {
+	fmt.Fprintln(w, "| "+command+" | "+meaning+" |")
 	fmt.Fprintln(w, "|---|---|")
 	for _, c := range all {
-		fmt.Fprintf(w, "| `aego %s` | %s |\n", strings.ReplaceAll(c.Usage(), "|", `\|`), c.Doc)
+		fmt.Fprintf(w, "| `aego %s` | %s |\n", strings.ReplaceAll(c.Usage(), "|", `\|`), doc(c))
 	}
+}
+
+// DocKey is the catalog key of a command's description, for the translated CLI reference.
+func DocKey(c *Command) string {
+	return "cli.agent." + c.Name
 }

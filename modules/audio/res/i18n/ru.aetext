@@ -5,6 +5,9 @@ messages version=1 lang=ru {
   msg "i18n.audio.bus_volumes_saved" {
     text="Громкость шин сохранена в пользовательских настройках"
   }
+  msg "i18n.audio.cmd.ranges" {
+    text="Радиусы звука"
+  }
   msg "i18n.audio.events_are_heard_in_play" {
     text="События звучат во время игры; «Прослушать» играет Clip"
   }

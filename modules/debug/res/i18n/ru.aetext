@@ -11,6 +11,9 @@ messages version=1 lang=ru {
   msg "i18n.debug.live_primitives_formatuint_dropped" {
     text="примитивов {live}   отброшено {formatuint}"
   }
+  msg "i18n.debug.preset.ai" {
+    text="ИИ"
+  }
   msg "i18n.debug.preset.all" {
     text="Все"
   }

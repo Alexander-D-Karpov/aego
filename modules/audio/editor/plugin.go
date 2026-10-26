@@ -92,7 +92,7 @@ func Hook(e *ext.Registry) error {
 	o := &p.ed.Overlay
 	o.Set(CmdRanges, true)
 	return e.Command(command.Desc{
-		ID: CmdRanges, Name: "Audio Ranges", Category: audio.Category, Order: 100,
+		ID: CmdRanges, Name: "Audio Ranges", Label: i18n.T("i18n.audio.cmd.ranges", "Audio Ranges").String, Category: audio.Category, Order: 100,
 		Checked: func() bool { return o.On(CmdRanges) },
 		Run: func() error {
 			o.Toggle(CmdRanges)

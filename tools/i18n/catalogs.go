@@ -15,7 +15,7 @@ const engineDir = "engine/i18n/messages"
 
 // catalogDir is where a key lives: module keys i18n.<m>.* in modules/<m>/res/i18n, the rest in the engine.
 func catalogDir(key string) string {
-	for _, p := range []string{"schema.", "enum.", "setting.", "diag.", "api.", "docs."} {
+	for _, p := range []string{"schema.", "enum.", "setting.", "diag.", "api.", "docs.", "cli.agent."} {
 		if strings.HasPrefix(key, p) {
 			return dataDir
 		}

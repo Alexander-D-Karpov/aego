@@ -11,6 +11,9 @@ messages version=1 lang=en {
   msg "i18n.debug.live_primitives_formatuint_dropped" {
     text="{live} primitives   {formatuint} dropped"
   }
+  msg "i18n.debug.preset.ai" {
+    text="AI"
+  }
   msg "i18n.debug.preset.all" {
     text="All"
   }

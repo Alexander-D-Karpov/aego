@@ -201,7 +201,7 @@ func validateMotion(ctx module.ValidateContext, m *Motion2D) []problems.Diagnost
 	if td, f, ok := bodyType(ctx.Scene); ok {
 		if v, err := ctx.Scene.GetProperty(ctx.Node, td.ID, f); err == nil && v.I != kinematic {
 			out = append(out, problems.Diagnostic{Code: CodeNotKinematic, Severity: problems.Error, BlocksPlay: true,
-				Message: "Motion 2D moves its body itself: set Body 2D Type to kinematic"})
+				Message: "Motion 2D moves its body itself: set the Type of Rigid Body 2D to kinematic"})
 		}
 	}
 	if m.Mode == Platformer && m.GravityScale == 0 && m.JumpSpeed == 0 && m.JumpHeight > 0 {

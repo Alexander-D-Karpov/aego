@@ -857,9 +857,9 @@ title: Runtime behaviour
 # Runtime behaviour
 
 - A fault stops only the instance that caused it (its methods, coroutines and handlers are no longer called); the rest of the scene keeps running. The Console shows the script stack; double-click opens the file.
-- Each callback has an instruction budget (default 1 000 000); an infinite loop ends with `AES6001`. A coroutine resume and a signal handler each have their own budget.
+- Each call into a script (`Update`, an event, a signal handler) has an instruction budget (default 1 000 000); an infinite loop ends with `AES6001`. A coroutine resume and a signal handler each have their own budget.
 - Integer division by zero faults; `MinInt / -1` yields `MinInt`, `MinInt % -1` yields `0`. `float → int` conversion saturates and maps NaN to `0`, identically on every platform.
-- Strings and slices are garbage-collected between callbacks; scripts that do not allocate produce no garbage. A suspended coroutine keeps its strings and slices alive.
+- Strings and slices are garbage-collected between calls into scripts; scripts that do not allocate produce no garbage. A suspended coroutine keeps its strings and slices alive.
 
 | Code | Meaning |
 |---|---|
@@ -918,7 +918,7 @@ title: Limits
 ---
 # Limits
 
-255 registers per function · 32 767 instructions per function · 32 value slots per slice element · 255 script-visible fields per component (checked when the component is registered) · call depth 256 · 1 000 000 instructions per callback (configurable).
+255 registers per function · 32 767 instructions per function · 32 value slots per slice element · 255 script-visible fields per component (checked when the component is registered) · call depth 256 · 1 000 000 instructions per call into a script (configurable).
 
 Run it:
 
@@ -1129,7 +1129,10 @@ script Player {
 ### Starting
 
 `start Name(args)` runs the coroutine at once, up to its first `yield`, and returns a `Coroutine`. Only coroutines of the same script can be started (`AES2052`). Calling a coroutine like a plain function is `AES2051`. Starting the same coroutine twice gives two independent runs.
-- **yield** is allowed only inside a coroutine (`AES2050`):
+
+### Waiting
+
+`yield` is allowed only inside a coroutine (`AES2050`). Its forms say when the coroutine resumes:
 
 | Form | Resumes |
 |---|---|

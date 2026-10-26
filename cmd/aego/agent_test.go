@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aego/app/agent"
+	"aego/engine/i18n"
 )
 
 var update = flag.Bool("update", false, "rewrite the generated command table in cli.md")
@@ -22,7 +23,22 @@ const (
 )
 
 func TestCLIReferenceListsAgentCommands(t *testing.T) {
-	path := filepath.Join("..", "..", "engine", "res", "docs", "cli.md")
+	var en bytes.Buffer
+	agent.Markdown(&en)
+	checkTable(t, "cli.md", en.String())
+	b := i18n.Default()
+	prev := b.Language()
+	b.SetLanguage("ru")
+	defer b.SetLanguage(prev)
+	var ru bytes.Buffer
+	agent.MarkdownIn(&ru, "Команда", "Значение", func(c *agent.Command) string { return i18n.Lookup(agent.DocKey(c), c.Doc) })
+	checkTable(t, "cli.ru.md", ru.String())
+}
+
+// checkTable compares the generated command table of a CLI reference page, or rewrites it with -update.
+func checkTable(t *testing.T, name, want string) {
+	t.Helper()
+	path := filepath.Join("..", "..", "engine", "res", "docs", name)
 	doc, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -30,14 +46,11 @@ func TestCLIReferenceListsAgentCommands(t *testing.T) {
 	s := string(doc)
 	i, j := strings.Index(s, agentBegin), strings.Index(s, agentEnd)
 	if i < 0 || j < i {
-		t.Fatal("cli.md has no agent:begin/agent:end block")
+		t.Fatal(name + " has no agent:begin/agent:end block")
 	}
-	var b bytes.Buffer
-	agent.Markdown(&b)
-	want := b.String()
 	if got := s[i+len(agentBegin) : j]; got != want {
 		if !*update {
-			t.Fatalf("the command table in cli.md is out of date, run go test ./cmd/aego -run TestCLIReferenceListsAgentCommands -update")
+			t.Fatalf("the command table in %s is out of date, run go test ./cmd/aego -run TestCLIReferenceListsAgentCommands -update", name)
 		}
 		s = s[:i+len(agentBegin)] + want + s[j:]
 		if err := os.WriteFile(path, []byte(s), 0o644); err != nil {

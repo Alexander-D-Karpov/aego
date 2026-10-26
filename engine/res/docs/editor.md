@@ -97,7 +97,7 @@ When you stop Play after changing values in the Inspector or with a gizmo, the e
 
 - **Show all differences** adds everything else the game changed, such as positions and counters. These rows start unchecked and are marked "from gameplay". The editor remembers this choice.
 - **Apply to scene** copies the checked values into the scene as one Undo step.
-- **Window → Play** can turn the list off.
+- **Play → Never Show Play Changes** turns the list off; **Always Show Play Changes** shows it after every stop.
 
 ## Assets and project health
 

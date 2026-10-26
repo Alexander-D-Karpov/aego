@@ -160,7 +160,7 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 				set(e, Translation{Summary: what, Body: what + "\n\n" + tr("docs.fix", "Fix:") + " " + fix, Fix: fix, Why: keep("diag."+e.ID+".why", e.Diag.Why)})
 			}
 		case e.Kind == Type && e.Component == nil:
-			set(e, Translation{Body: keep("api."+e.ID, e.Body)})
+			set(e, Translation{Body: keep(APIKey(e.ID), e.Body)})
 		case e.Kind == Page && e.Location.Source == "":
 			lead, rest, _ := strings.Cut(e.Body, "\n\n")
 			if t := keep("docs.page."+e.ID+".doc", lead); t != "" {
@@ -174,7 +174,7 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 				set(e, Translation{Title: t, Body: strings.Replace(tr("docs.module", "Components of the %s module."), "%s", t, 1)})
 			}
 		case e.Kind == Function || e.Kind == Method || e.Kind == Signal || e.Kind == Const || e.Kind == Enum:
-			set(e, Translation{Body: keep("api."+e.ID, e.Body)})
+			set(e, Translation{Body: keep(APIKey(e.ID), e.Body)})
 		}
 	}
 	for _, g := range groups {
@@ -249,4 +249,12 @@ func headingCount(md string) int {
 		}
 	}
 	return n
+}
+
+// APIKey is the catalog key of a reference entry; a method named like a field (Mass()) gets .method instead of the parentheses.
+func APIKey(id string) string {
+	if base, ok := strings.CutSuffix(id, "()"); ok {
+		return "api." + base + ".method"
+	}
+	return "api." + id
 }

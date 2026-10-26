@@ -120,7 +120,7 @@ messages version=1 lang=ru {
     text="Плавно заглушает звук за seconds секунд."
   }
   msg "api.aego/audio.Steal" {
-    text="Что делает звуковое событие при достижении Max Voices: останавливает самый старый голос, самый тихий или пропускает новый запуск."
+    text="Что делает звуковое событие при достижении «Макс. голосов»: останавливает самый старый голос, самый тихий или пропускает новый запуск."
   }
   msg "api.aego/audio.StopMusic" {
     text="Плавно заглушает музыку за seconds секунд."
@@ -279,70 +279,70 @@ messages version=1 lang=ru {
     text="Возвращает значение в момент t, ограниченный первым и последним ключом."
   }
   msg "api.aego/curve.InBack" {
-    text="Пресет плавности inBack."
+    text="InBack сначала отходит назад за начало, как замах, и только потом движется."
   }
   msg "api.aego/curve.InBounce" {
-    text="Пресет плавности inBounce."
+    text="InBounce отскакивает от начала с растущими прыжками, прежде чем уйти."
   }
   msg "api.aego/curve.InCubic" {
-    text="Пресет плавности inCubic."
+    text="InCubic трогается медленно и разгоняется, сильнее, чем InQuad."
   }
   msg "api.aego/curve.InElastic" {
-    text="Пресет плавности inElastic."
+    text="InElastic качается около начала с растущим размахом, а потом пружиной уходит к концу."
   }
   msg "api.aego/curve.InExpo" {
-    text="Пресет плавности inExpo."
+    text="InExpo почти стоит на месте, а потом проходит почти весь путь в конце."
   }
   msg "api.aego/curve.InOutBack" {
-    text="Пресет плавности inOutBack."
+    text="InOutBack отходит назад за начало и проскакивает конец, прежде чем остановиться."
   }
   msg "api.aego/curve.InOutBounce" {
-    text="Пресет плавности inOutBounce."
+    text="InOutBounce отскакивает от начала и подпрыгивает на конце."
   }
   msg "api.aego/curve.InOutCubic" {
-    text="Пресет плавности inOutCubic."
+    text="InOutCubic медленна на обоих концах и быстра в середине, сильнее, чем InOutQuad."
   }
   msg "api.aego/curve.InOutElastic" {
-    text="Пресет плавности inOutElastic."
+    text="InOutElastic качается и около начала, и около конца."
   }
   msg "api.aego/curve.InOutExpo" {
-    text="Пресет плавности inOutExpo."
+    text="InOutExpo ждёт в начале, проносится через середину и медленно доползает до конца."
   }
   msg "api.aego/curve.InOutQuad" {
-    text="Пресет плавности inOutQuad."
+    text="InOutQuad медленна на обоих концах и быстрее всего в середине, мягко: для перемещений между двумя положениями покоя."
   }
   msg "api.aego/curve.InOutSine" {
-    text="Пресет плавности inOutSine."
+    text="InOutSine медленна на обоих концах, мягче всех кривых: для дыхания, покачивания и затуханий."
   }
   msg "api.aego/curve.InQuad" {
-    text="Пресет плавности inQuad."
+    text="InQuad трогается медленно и разгоняется, мягко: для того, что приходит в движение, например открывающейся двери."
   }
   msg "api.aego/curve.InSine" {
-    text="Пресет плавности inSine."
+    text="InSine трогается медленно и разгоняется, мягче всех кривых."
   }
   msg "api.aego/curve.Linear" {
-    text="Пресет плавности linear."
+    text="Linear движется с постоянной скоростью от начала до конца."
   }
   msg "api.aego/curve.OutBack" {
-    text="Пресет плавности outBack."
+    text="OutBack проскакивает конец и возвращается к нему: для выскакивающих элементов."
   }
   msg "api.aego/curve.OutBounce" {
-    text="Пресет плавности outBounce."
+    text="OutBounce доходит до конца и подпрыгивает на нём, как упавший мяч."
   }
   msg "api.aego/curve.OutCubic" {
-    text="Пресет плавности outCubic."
+    text="OutCubic начинает быстро и замедляется к концу, сильнее, чем OutQuad."
   }
   msg "api.aego/curve.OutElastic" {
-    text="Пресет плавности outElastic."
+    text="OutElastic пружиной проскакивает конец и качается около него, пока не успокоится."
   }
   msg "api.aego/curve.OutExpo" {
-    text="Пресет плавности outExpo."
+    text="OutExpo сразу проходит почти весь путь, а потом медленно доползает до конца: для резкого интерфейса."
   }
   msg "api.aego/curve.OutQuad" {
-    text="Пресет плавности outQuad."
+    text="OutQuad начинает быстро и мягко замедляется к концу: обычный выбор для выезжающего интерфейса."
   }
   msg "api.aego/curve.OutSine" {
-    text="Пресет плавности outSine."
+    text="OutSine начинает быстро и замедляется к концу, мягче всех кривых."
   }
   msg "api.aego/debug.Arrow" {
     text="Рисует стрелку от одной точки к другой."
@@ -1532,7 +1532,7 @@ messages version=1 lang=ru {
   msg "api.physics.Body2D.ApplyTorque" {
     text="Раскручивает тело во время следующего физического шага."
   }
-  msg "api.physics.Body2D.Mass()" {
+  msg "api.physics.Body2D.Mass.method" {
     text="Возвращает массу, рассчитанную по коллайдерам, или заданную вручную."
   }
   msg "api.physics.Body2D.MoveTo" {
@@ -1552,6 +1552,204 @@ messages version=1 lang=ru {
   }
   msg "api.physics.Body2D.WakeUp" {
     text="Снова включает симуляцию спящего тела."
+  }
+  msg "cli.agent.anim.add-event" {
+    text="добавить событие; имя должно быть объявлено в **Настройках проекта → Анимация**"
+  }
+  msg "cli.agent.anim.expand-frames" {
+    text="превратить блок frames в дорожки спрайтов со ступенчатыми ключами, чтобы править кадры по одному"
+  }
+  msg "cli.agent.anim.get" {
+    text="длина, повтор, дорожки с ключами, блоки frames и события клипа"
+  }
+  msg "cli.agent.anim.move-event" {
+    text="перенести событие на другое время"
+  }
+  msg "cli.agent.anim.move-key" {
+    text="перенести ключ на другое время"
+  }
+  msg "cli.agent.anim.remove-event" {
+    text="удалить событие"
+  }
+  msg "cli.agent.anim.remove-key" {
+    text="удалить ключ; вместе с последним ключом удаляется его дорожка"
+  }
+  msg "cli.agent.anim.remove-track" {
+    text="удалить дорожку со всеми ключами"
+  }
+  msg "cli.agent.anim.set" {
+    text="задать длину, повтор или fps клипа; без значения повтор или fps сбрасываются"
+  }
+  msg "cli.agent.anim.set-key" {
+    text="задать ключ; для новой дорожки нужен --kind"
+  }
+  msg "cli.agent.asset.delete" {
+    text="удалить ассет; если на него есть ссылки, отказывается без --force"
+  }
+  msg "cli.agent.asset.list" {
+    text="ассеты с их id и видами"
+  }
+  msg "cli.agent.asset.move" {
+    text="перенести ассет вместе с его .meta; id и все ссылки сохраняются"
+  }
+  msg "cli.agent.asset.rename" {
+    text="переименовать ассет в его папке"
+  }
+  msg "cli.agent.ctrl.add-param" {
+    text="добавить параметр"
+  }
+  msg "cli.agent.ctrl.add-state" {
+    text="добавить состояние"
+  }
+  msg "cli.agent.ctrl.add-transition" {
+    text="добавить переход; from может быть any"
+  }
+  msg "cli.agent.ctrl.entry" {
+    text="задать состояние, с которого начинает аниматор"
+  }
+  msg "cli.agent.ctrl.get" {
+    text="параметры, состояния и переходы контроллера"
+  }
+  msg "cli.agent.ctrl.remove-param" {
+    text="удалить параметр; условия с ним становятся проблемами"
+  }
+  msg "cli.agent.ctrl.remove-state" {
+    text="удалить состояние и переходы в него и из него"
+  }
+  msg "cli.agent.ctrl.remove-transition" {
+    text="удалить переход"
+  }
+  msg "cli.agent.ctrl.set-state" {
+    text="задать clip, speed, loop, events или pos состояния"
+  }
+  msg "cli.agent.ctrl.set-transition" {
+    text="задать to, duration, exitTime или interrupt перехода"
+  }
+  msg "cli.agent.data.add-row" {
+    text="добавить строку со значениями по умолчанию"
+  }
+  msg "cli.agent.data.base" {
+    text="задать или сбросить базовый ассет ассета данных"
+  }
+  msg "cli.agent.data.export" {
+    text="записать строки таблицы в файл csv"
+  }
+  msg "cli.agent.data.get" {
+    text="поля, заданные в ассете данных или строке таблицы; пропущенные поля берутся из базы или из значения типа по умолчанию"
+  }
+  msg "cli.agent.data.import" {
+    text="заменить строки таблицы файлом csv"
+  }
+  msg "cli.agent.data.remove-row" {
+    text="удалить строку"
+  }
+  msg "cli.agent.data.rename-row" {
+    text="изменить id строки"
+  }
+  msg "cli.agent.data.reset" {
+    text="удалить поле, чтобы оно бралось из базы или значения по умолчанию"
+  }
+  msg "cli.agent.data.rows" {
+    text="id строк таблицы"
+  }
+  msg "cli.agent.data.set" {
+    text="задать поле"
+  }
+  msg "cli.agent.prefab.apply" {
+    text="записать переопределения экземпляра в файл префаба"
+  }
+  msg "cli.agent.prefab.create" {
+    text="превратить узел в файл префаба и связать узел с ним"
+  }
+  msg "cli.agent.prefab.instantiate" {
+    text="добавить экземпляр префаба"
+  }
+  msg "cli.agent.prefab.overrides" {
+    text="перечислить переопределения экземпляра, к которому относится узел"
+  }
+  msg "cli.agent.prefab.revert" {
+    text="отбросить переопределения экземпляра"
+  }
+  msg "cli.agent.prefab.unpack" {
+    text="превратить экземпляр в обычные узлы"
+  }
+  msg "cli.agent.project.get" {
+    text="разделы модулей в project.aego (physics, …) с их текущими значениями"
+  }
+  msg "cli.agent.project.set" {
+    text="задать поле раздела модуля в project.aego, например physics gravity [0, -15]"
+  }
+  msg "cli.agent.project.validate" {
+    text="отсутствующие ассеты и узлы, ошибки импорта, префабы и сцены, которые не загружаются"
+  }
+  msg "cli.agent.refs.find" {
+    text="файлы и поля, которые ссылаются на ассет"
+  }
+  msg "cli.agent.refs.fix" {
+    text="перенаправить все ссылки с одного ассета на другой (без второго — сбросить их); оригиналы попадают в .aego/recovery"
+  }
+  msg "cli.agent.refs.missing" {
+    text="ссылки на несуществующие ассеты и узлы"
+  }
+  msg "cli.agent.scene.add-comp" {
+    text="добавить компонент со значениями по умолчанию и компонентами, которые ему нужны, или повесить скрипт по имени его типа"
+  }
+  msg "cli.agent.scene.add-node" {
+    text="добавить пустой узел"
+  }
+  msg "cli.agent.scene.apply" {
+    text="применить транзакцию (tx version=1 { op … }) за один шаг"
+  }
+  msg "cli.agent.scene.get" {
+    text="узел с его трансформацией и всеми сохранёнными полями или одно поле"
+  }
+  msg "cli.agent.scene.move" {
+    text="перенести узел под другого родителя"
+  }
+  msg "cli.agent.scene.new" {
+    text="создать пустую сцену"
+  }
+  msg "cli.agent.scene.remove-comp" {
+    text="удалить компонент"
+  }
+  msg "cli.agent.scene.remove-node" {
+    text="удалить узел вместе с детьми"
+  }
+  msg "cli.agent.scene.rename" {
+    text="переименовать узел"
+  }
+  msg "cli.agent.scene.reset" {
+    text="сбросить поле на значение по умолчанию, часть трансформации — на единичную"
+  }
+  msg "cli.agent.scene.run" {
+    text="запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы; `--input` нажимает действия, `--assert` проверяет значения, `--shot` снимает кадры"
+  }
+  msg "cli.agent.scene.set" {
+    text="задать поле"
+  }
+  msg "cli.agent.scene.tree" {
+    text="дерево узлов с ID, компонентами, скриптами и связями с префабами; `--node` — только поддерево узла"
+  }
+  msg "cli.agent.scene.validate" {
+    text="проблемы загрузки и ссылки на узлы, которых нет в сцене"
+  }
+  msg "cli.agent.schema.list" {
+    text="типы компонентов и данных"
+  }
+  msg "cli.agent.schema.show" {
+    text="поля типа: вид, диапазон, единица, значение по умолчанию, флаги и описание"
+  }
+  msg "cli.agent.script.create" {
+    text="создать файл скрипта; если файл уже есть, команда отказывает, и существующий скрипт меняют через script.edit"
+  }
+  msg "cli.agent.script.edit" {
+    text="заменить текст в скрипте; old должен встречаться ровно один раз, поэтому цитируйте достаточно строк вокруг правки"
+  }
+  msg "cli.agent.script.read" {
+    text="текст скрипта в том виде, в каком он в редакторе, с несохранёнными правками; `--from` и `--to` читают часть длинного скрипта"
+  }
+  msg "cli.agent.script.write" {
+    text="заменить весь текст скрипта; для небольшой правки надёжнее script.edit"
   }
   msg "diag.AES1001" {
     text="Здесь не может стоять такой символ."
@@ -2348,6 +2546,15 @@ messages version=1 lang=ru {
   msg "enum.audio.PauseWith.never" {
     text="никогда"
   }
+  msg "enum.audio.Steal.none" {
+    text="никакой"
+  }
+  msg "enum.audio.Steal.oldest" {
+    text="самый старый"
+  }
+  msg "enum.audio.Steal.quietest" {
+    text="самый тихий"
+  }
   msg "enum.camera.TimeDomain.game" {
     text="игровое время"
   }
@@ -2548,6 +2755,114 @@ messages version=1 lang=ru {
   }
   msg "schema.animation.Animator.timeDomain.doc" {
     text="game идёт по игровому времени и встаёт на паузу вместе с ним; unscaled идёт по реальному времени и во время паузы, только для оформления."
+  }
+  msg "schema.audio.AudioEvent" {
+    text="Звуковое событие"
+  }
+  msg "schema.audio.AudioEvent.bus" {
+    text="Шина"
+  }
+  msg "schema.audio.AudioEvent.bus.doc" {
+    text="Шина микшера, на которой играет событие."
+  }
+  msg "schema.audio.AudioEvent.cooldown" {
+    text="Перезарядка"
+  }
+  msg "schema.audio.AudioEvent.cooldown.doc" {
+    text="Сколько секунд игрового времени должно пройти, прежде чем событие сможет прозвучать снова."
+  }
+  msg "schema.audio.AudioEvent.doc" {
+    text="Звук для проигрывания с вариантами, случайностью, шиной, пределом голосов и пространством."
+  }
+  msg "schema.audio.AudioEvent.loop" {
+    text="Повтор"
+  }
+  msg "schema.audio.AudioEvent.loop.doc" {
+    text="Звучит по кругу, пока его не остановят."
+  }
+  msg "schema.audio.AudioEvent.maxDistance" {
+    text="Макс. расстояние"
+  }
+  msg "schema.audio.AudioEvent.maxDistance.doc" {
+    text="Расстояние в единицах мира, на котором звук не слышен и полностью сдвинут в сторону."
+  }
+  msg "schema.audio.AudioEvent.maxVoices" {
+    text="Макс. голосов"
+  }
+  msg "schema.audio.AudioEvent.maxVoices.doc" {
+    text="Сколько голосов этого события может звучать в мире одновременно; 0 — без ограничения."
+  }
+  msg "schema.audio.AudioEvent.minDistance" {
+    text="Мин. расстояние"
+  }
+  msg "schema.audio.AudioEvent.minDistance.doc" {
+    text="Расстояние в единицах мира, до которого звук звучит в полную громкость."
+  }
+  msg "schema.audio.AudioEvent.panWidth" {
+    text="Ширина панорамы"
+  }
+  msg "schema.audio.AudioEvent.panWidth.doc" {
+    text="Насколько сдвигается в сторону звук сбоку на макс. расстоянии, от 0 до 1."
+  }
+  msg "schema.audio.AudioEvent.pauseWith" {
+    text="Пауза вместе с"
+  }
+  msg "schema.audio.AudioEvent.pauseWith.doc" {
+    text="game — встаёт на паузу вместе с миром, never — продолжает играть."
+  }
+  msg "schema.audio.AudioEvent.pitch" {
+    text="Высота тона"
+  }
+  msg "schema.audio.AudioEvent.pitch.doc" {
+    text="Скорость и высота воспроизведения; 2 — на октаву выше."
+  }
+  msg "schema.audio.AudioEvent.pitchRandom" {
+    text="Случайность тона"
+  }
+  msg "schema.audio.AudioEvent.pitchRandom.doc" {
+    text="При каждом запуске высота тона меняется вверх или вниз не больше чем на эту долю."
+  }
+  msg "schema.audio.AudioEvent.priority" {
+    text="Приоритет"
+  }
+  msg "schema.audio.AudioEvent.priority.doc" {
+    text="Когда у микшера кончаются голоса, первыми забираются голоса с меньшим приоритетом."
+  }
+  msg "schema.audio.AudioEvent.rolloff" {
+    text="Затухание"
+  }
+  msg "schema.audio.AudioEvent.rolloff.doc" {
+    text="Громкость от мин. расстояния (время 0) до макс. расстояния (время 1)."
+  }
+  msg "schema.audio.AudioEvent.spatial" {
+    text="Пространственный"
+  }
+  msg "schema.audio.AudioEvent.spatial.doc" {
+    text="Затихает и сдвигается в сторону в зависимости от расстояния до слушателя."
+  }
+  msg "schema.audio.AudioEvent.steal" {
+    text="Вытеснение"
+  }
+  msg "schema.audio.AudioEvent.steal.doc" {
+    text="Что происходит при достижении «Макс. голосов»: останавливается самый старый голос, самый тихий или новый запуск пропускается."
+  }
+  msg "schema.audio.AudioEvent.variants" {
+    text="Варианты"
+  }
+  msg "schema.audio.AudioEvent.variants.doc" {
+    text="Клипы; при каждом запуске один выбирается случайно."
+  }
+  msg "schema.audio.AudioEvent.volume" {
+    text="Громкость"
+  }
+  msg "schema.audio.AudioEvent.volume.doc" {
+    text="Громкость события до шины."
+  }
+  msg "schema.audio.AudioEvent.volumeRandom" {
+    text="Случайность громкости"
+  }
+  msg "schema.audio.AudioEvent.volumeRandom.doc" {
+    text="При каждом запуске звук тише не больше чем на эту долю."
   }
   msg "schema.audio.AudioListener2D" {
     text="Слушатель звука 2D"
