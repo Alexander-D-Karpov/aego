@@ -18,3 +18,10 @@ tools/genicons/genicons
 /tests/golden/testdata/actual-*
 tools/websmoke/node_modules/
 tools/websmoke/golden/actual-*.png
+
+# build output belongs in .cache/bin; these catch stray builds in the root
+/aego-*
+/i18n
+*.prof
+*.pprof
+/data*.txt

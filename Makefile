@@ -303,7 +303,7 @@ affected:
 	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -z "$$pkgs" ]; then echo "nothing affected"; else go vet $$pkgs && go test $$pkgs; fi
 
 quick:
-	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -n "$$pkgs" ]; then go build $$pkgs && go test -short $$pkgs; fi
+	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -n "$$pkgs" ]; then go build -o $(CURDIR)/.cache/bin/affected/ $$pkgs && go test -short $$pkgs; fi
 
 check-camera:
 	go test ./modules/camera/... ./tests/camera/...
@@ -332,6 +332,11 @@ pkgsize:
 	@sh tools/pkgsize.sh
 
 ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+	@sh tools/ci-clean-root.sh
+
+# clean-root fails when a build left a binary or a test binary in the checkout instead of .cache/bin.
+clean-root:
+	@sh tools/ci-clean-root.sh
 
 
 # Documentation screenshots of the real editor on the platformer example, under a clean user profile.
@@ -383,4 +388,4 @@ appimage: cli
 	sh tools/release/appimage.sh .cache/stage .cache/dist/Aego-dev-x86_64.AppImage
 
 clean:
-	rm -rf .cache/build
+	rm -rf .cache/build .cache/bin
