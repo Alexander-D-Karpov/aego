@@ -1277,6 +1277,27 @@ messages version=1 lang=en {
   msg "api.aego/tween.Tween.Unscaled" {
     text="Runs the tween in real time, also while the game is paused."
   }
+  msg "api.aego/update.Apply" {
+    text="Installs the downloaded version and restarts the game on it; save the player's progress first."
+  }
+  msg "api.aego/update.Check" {
+    text="Looks for a newer version on the game's update server in the background; State says what it found."
+  }
+  msg "api.aego/update.Download" {
+    text="Fetches the newer version in the background; Auto mode does it on its own."
+  }
+  msg "api.aego/update.Error" {
+    text="Says why the last check or download failed."
+  }
+  msg "api.aego/update.Notes" {
+    text="Notes are the release notes of the newer version."
+  }
+  msg "api.aego/update.State" {
+    text="Is idle, checking, upToDate, available, downloading, ready or failed."
+  }
+  msg "api.aego/update.Version" {
+    text="Is the newer version the last check found, empty when there is none."
+  }
   msg "api.animation.AnimationPlayer.Event" {
     text="Runs when the clip reaches an event; anim.EventName(id) gives its name."
   }
@@ -2494,6 +2515,12 @@ messages version=1 lang=en {
   }
   msg "docs.page.section/render2d.doc" {
     text="The `render2d` block of `project.aego`, owned by the Rendering 2D module. Older names of the block: `render`."
+  }
+  msg "docs.page.section/update" {
+    text="Updates"
+  }
+  msg "docs.page.section/update.doc" {
+    text="The `update` block of `project.aego`, owned by the Updates module."
   }
   msg "enum.animation.LoopOverride.clip" {
     text="clip"
@@ -4640,6 +4667,9 @@ messages version=1 lang=en {
   msg "setting.category.Language" {
     text="Language"
   }
+  msg "setting.category.Updates" {
+    text="Updates"
+  }
   msg "setting.display.frameLimit" {
     text="Frame Limit"
   }
@@ -4717,5 +4747,32 @@ messages version=1 lang=en {
   }
   msg "setting.settings.language.ru" {
     text="Русский"
+  }
+  msg "setting.update.channel" {
+    text="Update channel"
+  }
+  msg "setting.update.channel.doc" {
+    text="Stable versions, or builds the publisher makes between them."
+  }
+  msg "setting.update.channel.nightly" {
+    text="Nightly"
+  }
+  msg "setting.update.channel.stable" {
+    text="Stable"
+  }
+  msg "setting.update.mode" {
+    text="Updates"
+  }
+  msg "setting.update.mode.ask" {
+    text="Ask before downloading"
+  }
+  msg "setting.update.mode.auto" {
+    text="Download and install on restart"
+  }
+  msg "setting.update.mode.doc" {
+    text="How the game updates itself from its publisher."
+  }
+  msg "setting.update.mode.off" {
+    text="Off"
   }
 }

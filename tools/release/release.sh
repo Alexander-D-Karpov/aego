@@ -20,13 +20,27 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
 commit=$(git rev-parse HEAD)
 short=$(git rev-parse --short HEAD)
-version=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' engine/config.go)
+version=$(sed -n 's/^var Version = "\(.*\)"$/\1/p' engine/config.go)
 if [ "$pre" = false ] && [ "v$version" != "$tag" ]; then
 	echo "release: tag $tag does not match engine.Version $version" >&2
 	exit 1
 fi
 
 label="$version"
+# refuse prints to the log and, in CI, as an ::error:: annotation on the job summary
+refuse() {
+	echo "release: $1" >&2
+	[ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=Release not signed::$1"
+	exit 1
+}
+# a release nobody can verify would leave every installed copy on its version, so publishing one stops here
+[ "$dry" = 0 ] && [ -z "${AEGO_RELEASE_KEY:-}" ] && refuse "AEGO_RELEASE_KEY is not set: release.json is not signed, $tag will not be installable"
+[ "$dry" = 0 ] && [ -z "${AEGO_UPDATE_KEY:-}" ] && refuse "AEGO_UPDATE_KEY is not set: the $tag binaries would trust no key and could never update"
+# AEGO_UPDATE_KEY is the public key the binaries trust for updates; AEGO_RELEASE_KEY the private one that signs release.json (D362).
+ld="-s -w"
+[ -n "${AEGO_UPDATE_KEY:-}" ] && ld="$ld -X aego/update.PublicKey=$AEGO_UPDATE_KEY"
+channel=stable
+[ "$tag" = nightly ] && channel=nightly
 [ "$tag" = nightly ] && label="nightly"
 dist="$root/.cache/dist"
 rm -rf "$dist" && mkdir -p "$dist"
@@ -46,7 +60,7 @@ stage() {
 # Linux: the host build.
 base="aego-$label-linux-amd64"
 stage "$dist/$base"
-CGO_ENABLED=1 go build -trimpath -ldflags "-s -w" -o "$dist/$base/bin/aego" ./cmd/aego
+CGO_ENABLED=1 go build -trimpath -ldflags "$ld" -o "$dist/$base/bin/aego" ./cmd/aego
 tar -C "$dist" -czf "$dist/$base.tar.gz" "$base"
 sum "$base.tar.gz"
 echo "release: built $base.tar.gz"
@@ -65,8 +79,8 @@ if command -v "$wcc" >/dev/null 2>&1 && command -v makensis >/dev/null 2>&1; the
 	trap 'rm -f cmd/aego/rsrc_windows_*.syso cmd/aego-editor/rsrc_windows_*.syso' EXIT
 	go run ./tools/brandres -ico "$dist/aego.ico" -syso cmd/aego,cmd/aego-editor -version "$label"
 	export CGO_ENABLED=1 CC=$wcc GOOS=windows GOARCH=amd64
-	go build -trimpath -ldflags "-s -w" -o "$dist/$win/aego.exe" ./cmd/aego
-	go build -trimpath -tags aego_editor -ldflags "-s -w -H=windowsgui" -o "$dist/$win/aego-editor.exe" ./cmd/aego-editor
+	go build -trimpath -ldflags "$ld" -o "$dist/$win/aego.exe" ./cmd/aego
+	go build -trimpath -tags aego_editor -ldflags "$ld -H=windowsgui" -o "$dist/$win/aego-editor.exe" ./cmd/aego-editor
 	unset CGO_ENABLED CC GOOS GOARCH
 	rm -f cmd/aego/rsrc_windows_*.syso cmd/aego-editor/rsrc_windows_*.syso
 	rmdir "$dist/$win/bin"
@@ -91,6 +105,18 @@ notes="$(dirname "$0")/notes/$tag.md"
 [ -f "$notes" ] && body="$(cat "$notes")
 
 $body"
+# release.json lists what each kind of install updates from, signed; without the key no copy updates to this release.
+if [ -n "${AEGO_RELEASE_KEY:-}" ]; then
+	set --
+	[ -f "$notes" ] && set -- --notes "$notes"
+	for f in "$dist"/aego-*-linux-*.tar.gz "$dist"/Aego-*.AppImage "$dist"/aego-*-setup.exe; do
+		[ -f "$f" ] && set -- "$@" "$f"
+	done
+	"$dist/$base/bin/aego" release manifest --version "$version" --channel "$channel" \
+		--base-url "${AEGO_DOWNLOAD:-https://git.akarpov.ru/sanspie/aego/releases/download}/$tag" --out "$dist" "$@"
+else
+	echo "release: dry run without AEGO_RELEASE_KEY, so no release.json" >&2
+fi
 [ "$tag" = nightly ] && body="Rolling build of master, currently $short. Install with: curl -fsSL https://aego.akarpov.ru/install.sh | sh -s -- --nightly"
 
 if [ "$dry" = 1 ]; then
@@ -131,7 +157,7 @@ else
 fi
 [ -n "$id" ] || { echo "release: could not create release $tag" >&2; exit 1; }
 failed=""
-for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"/aego-*-setup.exe "$dist"/Aego-*.AppImage; do
+for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"/aego-*-setup.exe "$dist"/Aego-*.AppImage "$dist"/release.json "$dist"/release.json.sig; do
 	[ -f "$f" ] || continue
 	n=$(basename "$f")
 	old=$(api GET "$GITEA_API/releases/$id/assets" | tr '{' '\n' | sed -n "s/^\"id\":\([0-9]*\),\"name\":\"$n\".*/\1/p")
@@ -158,6 +184,21 @@ for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"
 	fi
 	echo "release: uploaded $n"
 done
+# stable is a release that only holds the release.json of the newest version; prerelease, so releases/latest stays the version itself.
+if [ "$pre" = false ] && [ -f "$dist/release.json" ]; then
+	sid=$(release_id stable || true)
+	[ -n "$sid" ] && api DELETE "$GITEA_API/releases/$sid" >/dev/null
+	api DELETE "$GITEA_API/tags/stable" >/dev/null 2>&1 || true
+	json=$(printf '{"tag_name":"stable","target_commitish":"%s","name":"Stable channel","body":%s,"prerelease":true}' "$commit" "$(printf 'Where installed copies of Aego look for updates; it points at %s.' "$tag" | jstr)")
+	sid=$(api POST "$GITEA_API/releases" -H "Content-Type: application/json" -d "$json" | sed -n 's/^{"id":\([0-9]*\),.*/\1/p')
+	for n in release.json release.json.sig; do
+		if [ -n "$sid" ] && api POST -F "attachment=@$dist/$n" "$GITEA_API/releases/$sid/assets?name=$n" >/dev/null; then
+			echo "release: stable channel has $n"
+		else
+			failed="$failed stable/$n"
+		fi
+	done
+fi
 if [ -n "$failed" ]; then
 	echo "release: published $tag without$failed" >&2
 	exit 1

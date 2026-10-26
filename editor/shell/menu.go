@@ -136,6 +136,11 @@ func (a *App) drawStatus(r mathx.Rect) {
 			c.Autosave = !c.Autosave
 		}
 	}
+	if text := a.updateStatus(); text != "" {
+		if item(text, th.Accent, "update", false) {
+			a.askUpdate()
+		}
+	}
 	if n, failed := a.taskCounts(); n > 0 {
 		if item(i18n.Tr("editor.shell.n_task_s", "{n} task(s)", i18n.Str("n", strconv.Itoa(n))), th.TextDim, "tasks", false, "status.busy") {
 			a.ws.Show(taskcenter.ID)

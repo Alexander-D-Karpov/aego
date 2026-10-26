@@ -5,6 +5,7 @@ SetCompressor /SOLID lzma
 RequestExecutionLevel user
 
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
 
 Name "Aego ${VERSION}"
 OutFile "${OUT}"
@@ -55,6 +56,9 @@ Section "Aego" SecMain
   File "${SRC}\VERSION"
   File "${SRC}\README.txt"
   WriteUninstaller "$INSTDIR\uninstall.exe"
+  ; the next update keeps this installer in updates\previous, so Restore Previous Version can run it again
+  StrCmp "$EXEPATH" "$INSTDIR\setup.exe" +2
+  CopyFiles /SILENT "$EXEPATH" "$INSTDIR\setup.exe"
 
   CreateDirectory "$SMPROGRAMS\Aego"
   CreateShortcut "$SMPROGRAMS\Aego\Aego.lnk" "$INSTDIR\aego-editor.exe"
@@ -104,6 +108,7 @@ Section "Uninstall"
   Delete "$INSTDIR\VERSION"
   Delete "$INSTDIR\README.txt"
   Delete "$INSTDIR\uninstall.exe"
+  Delete "$INSTDIR\setup.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\Aego\Aego.lnk"
   Delete "$SMPROGRAMS\Aego\Uninstall Aego.lnk"
@@ -112,3 +117,23 @@ Section "Uninstall"
   DeleteRegKey HKCU "${UNINST}"
   DeleteRegKey HKCU "Software\Aego"
 SectionEnd
+
+; /UPDATE: the editor or aego.exe started this installer as it quit; give it a moment to let go of its files.
+Function .onInit
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/UPDATE" $1
+  IfErrors done
+  Sleep 2000
+  done:
+FunctionEnd
+
+; /UPDATE: the editor ran this installer silently as it quit to update itself; start it again on the new version.
+Function .onInstSuccess
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/UPDATE" $1
+  IfErrors done
+  Exec '"$INSTDIR\aego-editor.exe"'
+  done:
+FunctionEnd

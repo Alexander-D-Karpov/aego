@@ -64,6 +64,7 @@ func (a *App) registerHelp() error {
 				return nil
 			}},
 	}
+	list = append(list, a.updateCommands()...)
 	for _, d := range list {
 		if err := a.ctx.Commands.Register(d); err != nil {
 			return err

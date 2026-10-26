@@ -60,8 +60,14 @@ messages version=1 lang=ru {
   msg "cli.edit.flag.profile" {
     text="профиль настроек игрока; пусто — профиль по умолчанию"
   }
+  msg "cli.export.flag.base_url" {
+    text="откуда скачивается архив; по умолчанию update.url/<канал>"
+  }
   msg "cli.export.flag.cc" {
     text="компилятор C для целевой платформы"
+  }
+  msg "cli.export.flag.channel" {
+    text="канал обновлений релиза: stable или nightly"
   }
   msg "cli.export.flag.check" {
     text="только выполнить проверки перед экспортом"
@@ -75,11 +81,17 @@ messages version=1 lang=ru {
   msg "cli.export.flag.json" {
     text="вывести отчёт в JSON"
   }
+  msg "cli.export.flag.key_file" {
+    text="закрытый ключ, которым подписывается release.json"
+  }
   msg "cli.export.flag.out" {
     text="папка вывода"
   }
   msg "cli.export.flag.release" {
     text="профиль релиза"
+  }
+  msg "cli.export.flag.release_json" {
+    text="упаковать экспорт и записать подписанный release.json, по которому обновляются копии"
   }
   msg "cli.export.flag.target" {
     text="целевая платформа"
@@ -88,7 +100,7 @@ messages version=1 lang=ru {
     text="--release и --development нельзя указывать вместе"
   }
   msg "cli.export.usage" {
-    text="использование: aego export [папка] [флаги]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   по умолчанию host\n  --development | --release                           по умолчанию development\n  --out папка      папка вывода, по умолчанию <проект>/exports/<os>-<arch>-<профиль>\n  --cc компилятор  компилятор C для другой платформы, или CC_<OS>_<ARCH>\n  --check          только выполнить проверки перед экспортом\n  --json           вывести отчёт в JSON\n  --engine папка   путь к исходникам aego"
+    text="использование: aego export [папка] [флаги]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   по умолчанию host\n  --development | --release                           по умолчанию development\n  --out папка      папка вывода, по умолчанию <проект>/exports/<os>-<arch>-<профиль>\n  --cc компилятор  компилятор C для другой платформы, или CC_<OS>_<ARCH>\n  --check          только выполнить проверки перед экспортом\n  --json           вывести отчёт в JSON\n  --engine папка   путь к исходникам aego\n  --release-json   ещё упаковать экспорт и записать подписанный release.json, по которому обновляются копии\n  --channel c      канал этого релиза: stable или nightly\n  --base-url url   откуда скачивается архив, по умолчанию update.url/<канал>\n  --key-file file  закрытый ключ из aego release keygen, которым подписывается release.json"
   }
   msg "cli.icons.usage" {
     text="использование: aego icons [check|list] [папка] [флаги]\n\n  check            ошибка, если иконка используется, но её нет, или есть, но не используется\n  list [--json]    вывести манифест иконок в markdown или JSON\n       [--out f]   записать его в файл, а не в stdout"
@@ -148,7 +160,7 @@ messages version=1 lang=ru {
     text="неизвестная команда {name}"
   }
   msg "cli.usage" {
-    text="aego <команда> [флаги]\n\n  new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native]\n                         создать проект из шаблона или примера движка\n  run [папка]            импортировать ассеты и запустить игру\n  edit [папка|файл] [--launcher recent|new]\n                         открыть проект или одну из его сцен в редакторе; без проекта открывается лаунчер\n  build [папка]          собрать нативный исполняемый файл\n  export [папка] [--target host|linux|windows|darwin] [--release|--development] [--out папка] [--check] [--json]\n                         собрать игру для распространения, которой не нужны Go и исходники проекта\n  bootstrap [папка]      перегенерировать .aego/generated для нативного модуля без сборки\n  import [папка] [--force] заново импортировать все ассеты\n  check [папка] [--manifest файл] [--explain] [--ensure-meta]  разобрать все документы, проверить файлы .meta и типы в скриптах\n  icons [check|list] [папка] [--json] [--out файл]  сверить используемые иконки с исходниками иконок или вывести манифест\n  test [папка] [-run имя] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene файл]]\n                         запустить тесты скриптов *_test.aes без окна или запустить игру дважды и сравнить хеши состояния\n  dump script <пакет|Тип> [--func имя]  дизассемблировать пакет скриптов с номерами строк\n  docs export|check|build|serve  реестр документации, сайт и песочница\n  mcp [--project папка] [--watch]   отдать проект ИИ-агенту по MCP (stdio)\n  scene|prefab|data|refs|asset|schema|project <действие> ...   правка файлов проекта без редактора, см. aego scene help\n  version                вывести версию движка и коммит, из которого собрана программа\n"
+    text="aego <команда> [флаги]\n\n  new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native]\n                         создать проект из шаблона или примера движка\n  run [папка]            импортировать ассеты и запустить игру\n  edit [папка|файл] [--launcher recent|new]\n                         открыть проект или одну из его сцен в редакторе; без проекта открывается лаунчер\n  build [папка]          собрать нативный исполняемый файл\n  export [папка] [--target host|linux|windows|darwin] [--release|--development] [--out папка] [--check] [--json]\n                         собрать игру для распространения, которой не нужны Go и исходники проекта\n  bootstrap [папка]      перегенерировать .aego/generated для нативного модуля без сборки\n  import [папка] [--force] заново импортировать все ассеты\n  check [папка] [--manifest файл] [--explain] [--ensure-meta]  разобрать все документы, проверить файлы .meta и типы в скриптах\n  icons [check|list] [папка] [--json] [--out файл]  сверить используемые иконки с исходниками иконок или вывести манифест\n  test [папка] [-run имя] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene файл]]\n                         запустить тесты скриптов *_test.aes без окна или запустить игру дважды и сравнить хеши состояния\n  dump script <пакет|Тип> [--func имя]  дизассемблировать пакет скриптов с номерами строк\n  docs export|check|build|serve  реестр документации, сайт и песочница\n  mcp [--project папка] [--watch]   отдать проект ИИ-агенту по MCP (stdio)\n  update [status|check|apply|restore] [--channel stable|nightly]   проверить и поставить новую версию Aego или вернуться к предыдущей\n  release keygen|manifest ...     создать ключ подписи и подписанный release.json релиза\n  scene|prefab|data|refs|asset|schema|project <действие> ...   правка файлов проекта без редактора, см. aego scene help\n  version                вывести версию движка и коммит, из которого собрана программа\n"
   }
   msg "editor.addpalette.add_changes" {
     one="Добавление {name} изменит {n} узел."
@@ -1687,6 +1699,30 @@ messages version=1 lang=ru {
   }
   msg "editor.command.help.report_bug" {
     text="Сообщить об ошибке…"
+  }
+  msg "editor.command.help.updates.check" {
+    text="Проверить обновления"
+  }
+  msg "editor.command.help.updates.mode.ask" {
+    text="Спрашивать перед загрузкой обновлений"
+  }
+  msg "editor.command.help.updates.mode.auto" {
+    text="Устанавливать обновления при перезапуске"
+  }
+  msg "editor.command.help.updates.mode.off" {
+    text="Проверять обновления только по запросу"
+  }
+  msg "editor.command.help.updates.nightly" {
+    text="Ночные обновления"
+  }
+  msg "editor.command.help.updates.nightly.tip" {
+    text="Обновляться до сборки каждого коммита master вместо стабильных версий"
+  }
+  msg "editor.command.help.updates.restore" {
+    text="Вернуть предыдущую версию"
+  }
+  msg "editor.command.help.updates.restore.tip" {
+    text="Вернуться к версии, с которой обновилась эта"
   }
   msg "editor.command.inspector.copy" {
     text="Копировать поле"
@@ -4442,6 +4478,48 @@ messages version=1 lang=ru {
   msg "editor.undohistory.title" {
     text="История изменений"
   }
+  msg "editor.updates.available" {
+    text="Доступна Aego {version}"
+  }
+  msg "editor.updates.checking" {
+    text="Проверка обновлений"
+  }
+  msg "editor.updates.download" {
+    text="Скачать"
+  }
+  msg "editor.updates.failed" {
+    text="Не удаётся обновить Aego: {error}"
+  }
+  msg "editor.updates.later" {
+    text="Позже"
+  }
+  msg "editor.updates.no_notes" {
+    text="В релизе нет описания изменений."
+  }
+  msg "editor.updates.page" {
+    text="Скачать со страницы"
+  }
+  msg "editor.updates.ready" {
+    text="Aego {version} скачана, перезапустите для обновления"
+  }
+  msg "editor.updates.restart" {
+    text="Перезапустить и обновить"
+  }
+  msg "editor.updates.rolled_back" {
+    text="Aego {version} остановилась сразу после запуска, поэтому возвращена предыдущая версия"
+  }
+  msg "editor.updates.save_first" {
+    text="Сохранить изменённые сцены и скрипты перед перезапуском Aego?"
+  }
+  msg "editor.updates.skip" {
+    text="Пропустить эту версию"
+  }
+  msg "editor.updates.task" {
+    text="Загрузка Aego {version}"
+  }
+  msg "editor.updates.title" {
+    text="Aego {version}"
+  }
   msg "editor.vcsdiff.changes_change_s" {
     text="Изменений: {changes}"
   }
@@ -4598,8 +4676,14 @@ messages version=1 lang=ru {
   msg "launcher.browse" {
     text="Обзор…"
   }
-  msg "launcher.check_for_aego_updates_once" {
-    text="Проверять обновления Aego раз в день"
+  msg "launcher.channel_nightly" {
+    text="Ночной"
+  }
+  msg "launcher.channel_stable" {
+    text="Стабильный"
+  }
+  msg "launcher.check_updates" {
+    text="Проверить обновления"
   }
   msg "launcher.contains" {
     text="Содержит: {files}"
@@ -4615,9 +4699,6 @@ messages version=1 lang=ru {
   }
   msg "launcher.documentation" {
     text="Документация"
-  }
-  msg "launcher.download" {
-    text="Скачать"
   }
   msg "launcher.drop_hint" {
     text="Или перетащите сюда папку проекта или её {file}."
@@ -4679,6 +4760,9 @@ messages version=1 lang=ru {
   msg "launcher.remove_from_list" {
     text="Убрать из списка"
   }
+  msg "launcher.restore_previous" {
+    text="Вернуть предыдущую версию"
+  }
   msg "launcher.tab.examples" {
     text="Примеры"
   }
@@ -4715,8 +4799,56 @@ messages version=1 lang=ru {
   msg "launcher.theme.system" {
     text="Системная"
   }
+  msg "launcher.up_to_date" {
+    text="Установлена последняя версия Aego"
+  }
   msg "launcher.update_available" {
     text="Доступна Aego {version}"
+  }
+  msg "launcher.update_channel" {
+    text="Канал"
+  }
+  msg "launcher.update_download" {
+    text="Скачать"
+  }
+  msg "launcher.update_downloading" {
+    text="Загрузка Aego {version}: {n} %"
+  }
+  msg "launcher.update_failed" {
+    text="Не удалось проверить обновления: {error}"
+  }
+  msg "launcher.update_later" {
+    text="Позже"
+  }
+  msg "launcher.update_notes" {
+    text="Что нового"
+  }
+  msg "launcher.update_page" {
+    text="Скачать со страницы"
+  }
+  msg "launcher.update_ready" {
+    text="Aego {version} скачана"
+  }
+  msg "launcher.update_restart" {
+    text="Перезапустить и обновить"
+  }
+  msg "launcher.update_rolled_back" {
+    text="Aego {version} остановилась сразу после запуска, поэтому возвращена предыдущая версия"
+  }
+  msg "launcher.update_skip" {
+    text="Пропустить эту версию"
+  }
+  msg "launcher.updates" {
+    text="Обновления"
+  }
+  msg "launcher.updates_ask" {
+    text="Спрашивать перед загрузкой"
+  }
+  msg "launcher.updates_auto" {
+    text="Скачивать и устанавливать при перезапуске"
+  }
+  msg "launcher.updates_off" {
+    text="Только по запросу"
   }
   msg "launcher.workspace" {
     text="Раскладка"

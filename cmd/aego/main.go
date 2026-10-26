@@ -18,6 +18,7 @@ import (
 	"aego/app/edit"
 	"aego/app/projects"
 	"aego/app/run"
+	"aego/app/updates"
 	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/engine"
@@ -27,7 +28,13 @@ import (
 
 func main() {
 	setLanguage()
-	os.Exit(dispatch(os.Args[1:]))
+	confirm, code, done := updates.Guard(os.Args)
+	if done {
+		os.Exit(code)
+	}
+	code = dispatch(os.Args[1:])
+	confirm()
+	os.Exit(code)
 }
 
 // setLanguage picks the CLI language: AEGO_LANG, else the locale of the environment (D348).
@@ -82,6 +89,10 @@ func dispatch(args []string) int {
 			return fail(err)
 		}
 		return scriptTool(p, args[1:]...)
+	case "update":
+		return cmdUpdate(args[1:])
+	case "release":
+		return cmdRelease(args[1:])
 	case "version", "--version":
 		return cmdVersion()
 	case "help", "-h", "--help":
@@ -116,6 +127,8 @@ func usage() {
   dump script <pkg|Type> [--func name]  disassemble a script package with source lines
   docs export|check|build|serve  documentation registry, site and playground
   mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)
+  update [status|check|apply|restore] [--channel stable|nightly]   check for and install a new Aego, or go back to the previous one
+  release keygen|manifest ...     make a signing key and the signed release.json of a release
   scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
   version                print the engine version and the commit it was built from
 `))

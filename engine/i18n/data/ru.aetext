@@ -1277,6 +1277,27 @@ messages version=1 lang=ru {
   msg "api.aego/tween.Tween.Unscaled" {
     text="Выполняет твин в реальном времени, в том числе пока игра на паузе."
   }
+  msg "api.aego/update.Apply" {
+    text="Устанавливает скачанную версию и перезапускает на ней игру; сначала сохраните прогресс игрока."
+  }
+  msg "api.aego/update.Check" {
+    text="Ищет в фоне новую версию на сервере обновлений игры; State сообщает, что найдено."
+  }
+  msg "api.aego/update.Download" {
+    text="Скачивает новую версию в фоне; в режиме Auto это происходит само."
+  }
+  msg "api.aego/update.Error" {
+    text="Сообщает, почему не удалась последняя проверка или загрузка."
+  }
+  msg "api.aego/update.Notes" {
+    text="Описание изменений новой версии."
+  }
+  msg "api.aego/update.State" {
+    text="Состояние: idle, checking, upToDate, available, downloading, ready или failed."
+  }
+  msg "api.aego/update.Version" {
+    text="Новая версия, найденная последней проверкой; пусто, если её нет."
+  }
   msg "api.animation.AnimationPlayer.Event" {
     text="Вызывается, когда клип доходит до события; anim.EventName(id) даёт его имя."
   }
@@ -2494,6 +2515,12 @@ messages version=1 lang=ru {
   }
   msg "docs.page.section/render2d.doc" {
     text="Блок `render2d` в `project.aego`, которым владеет модуль «Отрисовка 2D». Прежнее имя блока: `render`."
+  }
+  msg "docs.page.section/update" {
+    text="Обновления"
+  }
+  msg "docs.page.section/update.doc" {
+    text="Блок `update` в `project.aego`, которым владеет модуль обновлений."
   }
   msg "enum.animation.LoopOverride.clip" {
     text="как в клипе"
@@ -4640,6 +4667,9 @@ messages version=1 lang=ru {
   msg "setting.category.Language" {
     text="Язык"
   }
+  msg "setting.category.Updates" {
+    text="Обновления"
+  }
   msg "setting.display.frameLimit" {
     text="Ограничение кадров"
   }
@@ -4717,5 +4747,32 @@ messages version=1 lang=ru {
   }
   msg "setting.settings.language.ru" {
     text="Русский"
+  }
+  msg "setting.update.channel" {
+    text="Канал обновлений"
+  }
+  msg "setting.update.channel.doc" {
+    text="Стабильные версии или сборки, которые издатель выпускает между ними."
+  }
+  msg "setting.update.channel.nightly" {
+    text="Ночной"
+  }
+  msg "setting.update.channel.stable" {
+    text="Стабильный"
+  }
+  msg "setting.update.mode" {
+    text="Обновления"
+  }
+  msg "setting.update.mode.ask" {
+    text="Спрашивать перед загрузкой"
+  }
+  msg "setting.update.mode.auto" {
+    text="Скачивать и устанавливать при перезапуске"
+  }
+  msg "setting.update.mode.doc" {
+    text="Как игра обновляется от своего издателя."
+  }
+  msg "setting.update.mode.off" {
+    text="Выключены"
   }
 }

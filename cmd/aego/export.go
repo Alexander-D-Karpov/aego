@@ -21,7 +21,11 @@ func exportUsage() string {
   --cc compiler    C compiler for a cross target, or CC_<OS>_<ARCH>
   --check          run the pre-export checks only
   --json           print the report as JSON
-  --engine dir     path to the aego source tree`)
+  --engine dir     path to the aego source tree
+  --release-json   pack the export and write the signed release.json its copies update from
+  --channel c      update channel of that release: stable or nightly
+  --base-url url   where the archive is downloaded from, update.url/<channel> by default
+  --key-file file  private key that signs release.json, from aego release keygen`)
 }
 
 func cmdExport(args []string) int {
@@ -34,6 +38,10 @@ func cmdExport(args []string) int {
 	check := fs.Bool("check", false, i18n.Tr("cli.export.flag.check", "run the pre-export checks only"))
 	asJSON := fs.Bool("json", false, i18n.Tr("cli.export.flag.json", "print the report as JSON"))
 	engineDir := fs.String("engine", "", i18n.Tr("cli.export.flag.engine", "path to the aego source tree"))
+	releaseJSON := fs.Bool("release-json", false, i18n.Tr("cli.export.flag.release_json", "pack the export and write the signed release.json its copies update from"))
+	channel := fs.String("channel", "stable", i18n.Tr("cli.export.flag.channel", "update channel of the release: stable or nightly"))
+	baseURL := fs.String("base-url", "", i18n.Tr("cli.export.flag.base_url", "where the archive is downloaded from; update.url/<channel> by default"))
+	keyFile := fs.String("key-file", "", i18n.Tr("cli.export.flag.key_file", "private key that signs release.json"))
 	dir, rest := firstArg(args)
 	if err := fs.Parse(rest); err != nil {
 		fmt.Fprintln(os.Stderr, exportUsage())
@@ -85,6 +93,11 @@ func cmdExport(args []string) int {
 	}
 	if *check && !*asJSON {
 		fmt.Println("export check: ok")
+	}
+	if *releaseJSON && !*check {
+		if err := exportRelease(p, rep, *channel, *baseURL, *keyFile); err != nil {
+			return fail(err)
+		}
 	}
 	return 0
 }

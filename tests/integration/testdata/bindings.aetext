@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="e96bca9fc9efa7ed93611196f563179c249cd3157c96dcc829600df3b7bc27dd"
+  abi="0fb4810f2b2eb53e988796bababa88bb84e6ba0e362189dda994d14d63ffdd0a"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -2458,6 +2458,50 @@ manifest version=6 {
       names=["node", "path", "to", "duration", "ease"]
       doc="ToVec3 animates a Vec3 property, such as the position of a 3D node."
       example="tween.ToVec3(node, \"transform.position\", Vec3{0, 2, 0}, 1, curve.InOutSine)"
+    }
+  }
+  module "aego/update" {
+    func "Apply" {
+      params=[]
+      result="void"
+      doc="Apply installs the downloaded version and restarts the game on it; save the player's progress first."
+      example="if update.State() == \"ready\" { update.Apply() }"
+    }
+    func "Check" {
+      params=[]
+      result="void"
+      doc="Check looks for a newer version on the game's update server in the background; State says what it found."
+      example="update.Check()"
+    }
+    func "Download" {
+      params=[]
+      result="void"
+      doc="Download fetches the newer version in the background; Auto mode does it on its own."
+      example="update.Download()"
+    }
+    func "Error" {
+      params=[]
+      result="string"
+      doc="Error says why the last check or download failed."
+      example="log.Warn(update.Error())"
+    }
+    func "Notes" {
+      params=[]
+      result="string"
+      doc="Notes are the release notes of the newer version."
+      example="notes.Text = update.Notes()"
+    }
+    func "State" {
+      params=[]
+      result="string"
+      doc="State is idle, checking, upToDate, available, downloading, ready or failed."
+      example="if update.State() == \"ready\" {"
+    }
+    func "Version" {
+      params=[]
+      result="string"
+      doc="Version is the newer version the last check found, empty when there is none."
+      example="label.Text = \"Version \" + update.Version() + \" is ready\""
     }
   }
   enum "Bus" module="aego/audio" {

@@ -155,6 +155,7 @@ Reference
     aego/data -> ref/aego/data.html
     aego/debug -> ref/aego/debug.html
     aego/settings -> ref/aego/settings.html
+    aego/update -> ref/aego/update.html
     aego/audio -> ref/aego/audio.html
       Sound -> ref/aego/audio.Sound.html
   Components
@@ -209,6 +210,7 @@ Reference
     Physics -> section/physics.html
     Debug Draw -> section/debug.html
     Animation -> section/animation.html
+    Updates -> section/update.html
     Player settings -> section/player.html
   Diagnostics -> diagnostics.html
   The aego command -> cli.html

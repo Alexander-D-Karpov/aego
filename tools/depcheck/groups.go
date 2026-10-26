@@ -27,7 +27,7 @@ type group struct {
 	name string // module or panel name
 }
 
-var lowRoots = []string{"core", "platform", "gpu", "format", "vfs"}
+var lowRoots = []string{"core", "platform", "gpu", "format", "vfs", "update"}
 var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save", "audio", "anim"}
 
 func groupOf(p string) (group, bool) {

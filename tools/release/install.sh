@@ -74,13 +74,21 @@ fi
 
 tar -C "$tmp" -xzf "$file"
 dir=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -name 'aego-*' | head -n 1)
-dest="$prefix/share/aego"
-mkdir -p "$prefix/bin" "$prefix/share"
-rm -rf "$dest.new"
-mv "$dir" "$dest.new"
-rm -rf "$dest"
-mv "$dest.new" "$dest"
-ln -sf "$dest/bin/aego" "$prefix/bin/aego"
+# share/aego holds one folder per version; current and previous point at them, so the editor can update itself and go back
+root="$prefix/share/aego"
+mkdir -p "$prefix/bin" "$root"
+if [ -d "$root/bin" ]; then
+	rm -rf "$root.legacy" && mv "$root" "$root.legacy" && mkdir -p "$root" && mv "$root.legacy" "$root/legacy"
+	ln -sfn legacy "$root/previous"
+fi
+ver=$(head -n 1 "$dir/VERSION" | sed 's/^v//')
+[ "$ver" = nightly ] && ver="nightly-$(sed -n 2p "$dir/VERSION" | cut -c1-7)"
+rm -rf "$root/$ver"
+mv "$dir" "$root/$ver"
+old=$(readlink "$root/current" 2>/dev/null || true)
+ln -sfn "$ver" "$root/current"
+[ -n "$old" ] && [ "$old" != "$ver" ] && ln -sfn "$old" "$root/previous"
+ln -sf "$root/current/bin/aego" "$prefix/bin/aego"
 
 # Runtime libraries: OpenGL with Mesa drivers, X11 and Wayland for the window, xkbcommon for keyboards.
 libs="libGL.so.1 libEGL.so.1 libX11.so.6 libXext.so.6 libXrandr.so.2 libXcursor.so.1 libXfixes.so.3 libXi.so.6 libXss.so.1 libxkbcommon.so.0 libwayland-client.so.0 libwayland-egl.so.1 libwayland-cursor.so.0"
@@ -204,13 +212,13 @@ check_glibc() {
 install_desktop() {
 	data="${XDG_DATA_HOME:-$HOME/.local/share}"
 	mkdir -p "$data/applications" "$data/icons/hicolor/256x256/apps" "$data/mime/packages"
-	[ -f "$dest/share/aego.png" ] && cp "$dest/share/aego.png" "$data/icons/hicolor/256x256/apps/aego.png"
+	[ -f "$root/current/share/aego.png" ] && cp "$root/current/share/aego.png" "$data/icons/hicolor/256x256/apps/aego.png"
 	cat > "$data/applications/aego.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Aego
 Comment=Game engine and editor
-Exec="$dest/bin/aego" edit %f
+Exec="$prefix/bin/aego" edit %f
 Icon=aego
 Categories=Development;IDE;
 MimeType=application/x-aego-project;application/x-aego-scene;
@@ -243,7 +251,7 @@ if [ "$deps" = 1 ]; then
 fi
 [ "$desktop" = 1 ] && install_desktop
 
-say "Installed $(head -n 1 "$dest/VERSION") to $dest"
+say "Installed $(head -n 1 "$root/current/VERSION") to $root/$ver"
 case ":$PATH:" in
 *":$prefix/bin:"*) ;;
 *) say "Add $prefix/bin to PATH, for example: export PATH=\"$prefix/bin:\$PATH\"" ;;

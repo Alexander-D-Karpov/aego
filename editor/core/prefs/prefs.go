@@ -4,6 +4,7 @@ package prefs
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"aego/core/errs"
 	"aego/editor/core/agentui"
@@ -11,6 +12,7 @@ import (
 	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/ui/theme"
+	"aego/update"
 )
 
 const (
@@ -29,10 +31,13 @@ type Prefs struct {
 	AgentBudgets agentui.Budgets
 	// ProxyConfirm makes changes from the CLI and outside agents wait in the Agent panel (editor.proxy.confirm).
 	ProxyConfirm bool
+	// Updates is how the editor updates itself: mode, channel, skipped versions and the last check (11i4).
+	Updates update.Policy
 }
 
 func Default() *Prefs {
-	return &Prefs{Theme: theme.ModeSystem, Language: i18n.Auto, AgentResume: 30, AgentBudgets: agentui.DefaultBudgets}
+	return &Prefs{Theme: theme.ModeSystem, Language: i18n.Auto, AgentResume: 30, AgentBudgets: agentui.DefaultBudgets,
+		Updates: update.Policy{Mode: update.Auto, Channel: update.Stable}}
 }
 
 func Load(dir string) (*Prefs, error) {
@@ -73,6 +78,9 @@ func Load(dir string) (*Prefs, error) {
 	if v, ok := doc.Field("proxyConfirm"); ok {
 		p.ProxyConfirm = v.Bool
 	}
+	if u := doc.Block("updates", ""); u != nil {
+		p.Updates = readUpdates(u)
+	}
 	for _, f := range []struct {
 		name string
 		dst  *int
@@ -105,6 +113,7 @@ func Save(dir string, p *Prefs) error {
 	root.Fields = append(root.Fields, aetext.Field{Name: "language", Value: aetext.Ident(lang)})
 	root.Fields = append(root.Fields, aetext.Field{Name: "agentFollow", Value: aetext.Bool(p.AgentFollow)})
 	root.Fields = append(root.Fields, aetext.Field{Name: "proxyConfirm", Value: aetext.Bool(p.ProxyConfirm)})
+	root.Blocks = append(root.Blocks, writeUpdates(p.Updates))
 	root.Fields = append(root.Fields, aetext.Field{Name: "agentResume", Value: aetext.Float64(p.AgentResume)})
 	b := p.AgentBudgets
 	root.Fields = append(root.Fields,
@@ -113,4 +122,42 @@ func Save(dir string, p *Prefs) error {
 		aetext.Field{Name: "agentDocResults", Value: aetext.Int(int64(b.DocResults))},
 		aetext.Field{Name: "agentScriptLines", Value: aetext.Int(int64(b.ScriptLines))})
 	return document.WriteAtomic(filepath.Join(dir, File), aetext.Write(root))
+}
+
+func readUpdates(n *aetext.Node) update.Policy {
+	pol := update.Policy{Mode: update.Auto, Channel: update.Stable}
+	if v, ok := n.Field("mode"); ok {
+		pol.Mode = update.ParseMode(v.Ident + v.Str)
+	}
+	if v, ok := n.Field("channel"); ok {
+		pol.Channel = update.ParseChannel(v.Ident + v.Str)
+	}
+	if v, ok := n.Field("skipped"); ok {
+		for _, e := range v.List {
+			if e.Str != "" {
+				pol.Skipped = append(pol.Skipped, e.Str)
+			}
+		}
+	}
+	if v, ok := n.Field("checked"); ok {
+		pol.LastCheck, _ = time.Parse(time.RFC3339, v.Str)
+	}
+	return pol
+}
+
+func writeUpdates(pol update.Policy) *aetext.Node {
+	n := &aetext.Node{Head: "updates"}
+	pol.Mode, pol.Channel = update.ParseMode(string(pol.Mode)), update.ParseChannel(string(pol.Channel))
+	skipped := make([]aetext.Value, 0, len(pol.Skipped))
+	for _, s := range pol.Skipped {
+		skipped = append(skipped, aetext.String(s))
+	}
+	n.Fields = append(n.Fields,
+		aetext.Field{Name: "mode", Value: aetext.Ident(string(pol.Mode))},
+		aetext.Field{Name: "channel", Value: aetext.Ident(string(pol.Channel))},
+		aetext.Field{Name: "skipped", Value: aetext.List(skipped...)})
+	if !pol.LastCheck.IsZero() {
+		n.Fields = append(n.Fields, aetext.Field{Name: "checked", Value: aetext.String(pol.LastCheck.UTC().Format(time.RFC3339))})
+	}
+	return n
 }

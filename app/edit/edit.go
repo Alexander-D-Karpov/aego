@@ -235,6 +235,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Exporter:    newExporter(p, h.Pipeline),
 		Agent:       s.agentHost(cfg),
 		Proxy:       s.startProxy,
+		Updates:     s.updates(cfg),
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil

@@ -197,7 +197,8 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	h.Settings.SetNames(h.Sections.Names)
 	h.Engine.SetService(settings.ServiceID, h.Settings)
 	h.Engine.OnClose(h.Modules.Shutdown)
-	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems, Settings: h.Settings}); err != nil {
+	if err = h.Modules.Init(&module.InitContext{Engine: h.Engine, Assets: h.Loader, Log: lg, Editor: cfg.Editor, Sections: h.Sections, Problems: h.Problems, Settings: h.Settings,
+		GameName: p.Module, GameVersion: p.GameVersion}); err != nil {
 		return err
 	}
 	h.Settings.Freeze()

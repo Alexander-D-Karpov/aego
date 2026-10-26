@@ -52,7 +52,10 @@ type InitContext struct {
 	Sections *Sections
 	Problems *problems.Service
 	Settings *settings.Store
-	provided []provision
+	// GameName and GameVersion are the project's module and version, for a module that talks to the game's publisher.
+	GameName    string
+	GameVersion string
+	provided    []provision
 	owner    string
 }
 

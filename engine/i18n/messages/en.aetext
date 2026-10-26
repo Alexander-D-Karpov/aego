@@ -58,8 +58,14 @@ messages version=1 lang=en {
   msg "cli.edit.flag.profile" {
     text="player settings profile, default when empty"
   }
+  msg "cli.export.flag.base_url" {
+    text="where the archive is downloaded from; update.url/<channel> by default"
+  }
   msg "cli.export.flag.cc" {
     text="C compiler for the target"
+  }
+  msg "cli.export.flag.channel" {
+    text="update channel of the release: stable or nightly"
   }
   msg "cli.export.flag.check" {
     text="run the pre-export checks only"
@@ -73,11 +79,17 @@ messages version=1 lang=en {
   msg "cli.export.flag.json" {
     text="print the report as JSON"
   }
+  msg "cli.export.flag.key_file" {
+    text="private key that signs release.json"
+  }
   msg "cli.export.flag.out" {
     text="output directory"
   }
   msg "cli.export.flag.release" {
     text="release profile"
+  }
+  msg "cli.export.flag.release_json" {
+    text="pack the export and write the signed release.json its copies update from"
   }
   msg "cli.export.flag.target" {
     text="target platform"
@@ -86,7 +98,7 @@ messages version=1 lang=en {
     text="--release and --development cannot be used together"
   }
   msg "cli.export.usage" {
-    text="usage: aego export [dir] [flags]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   default host\n  --development | --release                           default development\n  --out dir        output directory, default <project>/exports/<os>-<arch>-<profile>\n  --cc compiler    C compiler for a cross target, or CC_<OS>_<ARCH>\n  --check          run the pre-export checks only\n  --json           print the report as JSON\n  --engine dir     path to the aego source tree"
+    text="usage: aego export [dir] [flags]\n\n  --target host|linux|windows|darwin[/amd64|/arm64]|web   default host\n  --development | --release                           default development\n  --out dir        output directory, default <project>/exports/<os>-<arch>-<profile>\n  --cc compiler    C compiler for a cross target, or CC_<OS>_<ARCH>\n  --check          run the pre-export checks only\n  --json           print the report as JSON\n  --engine dir     path to the aego source tree\n  --release-json   pack the export and write the signed release.json its copies update from\n  --channel c      update channel of that release: stable or nightly\n  --base-url url   where the archive is downloaded from, update.url/<channel> by default\n  --key-file file  private key that signs release.json, from aego release keygen"
   }
   msg "cli.icons.usage" {
     text="usage: aego icons [check|list] [dir] [flags]\n\n  check            fail on icons that are used but missing, or provided but unused\n  list [--json]    print the icon manifest as markdown, or as JSON\n       [--out f]   write it to a file instead of stdout"
@@ -146,7 +158,7 @@ messages version=1 lang=en {
     text="unknown command {name}"
   }
   msg "cli.usage" {
-    text="aego <command> [flags]\n\n  new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]\n                         create a project from a template or an engine example\n  run [dir]              import assets and run the game\n  edit [dir|file] [--launcher recent|new]\n                         open a project, or one of its scenes, in the editor; without a project opens the launcher\n  build [dir]            build the native binary\n  export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]\n                         build a distributable game that runs without Go and project sources\n  bootstrap [dir]        regenerate .aego/generated for the native module without building\n  import [dir] [--force] reimport all assets\n  check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts\n  icons [check|list] [dir] [--json] [--out file]  check icon use against the icon sources, or print the manifest\n  test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]\n                         run *_test.aes script tests headless, or run the game twice and compare state hashes\n  dump script <pkg|Type> [--func name]  disassemble a script package with source lines\n  docs export|check|build|serve  documentation registry, site and playground\n  mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)\n  scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help\n  version                print the engine version and the commit it was built from\n"
+    text="aego <command> [flags]\n\n  new <dir> [--template empty|2d|2.5d|3d] [--module m] [--example name] [--native]\n                         create a project from a template or an engine example\n  run [dir]              import assets and run the game\n  edit [dir|file] [--launcher recent|new]\n                         open a project, or one of its scenes, in the editor; without a project opens the launcher\n  build [dir]            build the native binary\n  export [dir] [--target host|linux|windows|darwin] [--release|--development] [--out dir] [--check] [--json]\n                         build a distributable game that runs without Go and project sources\n  bootstrap [dir]        regenerate .aego/generated for the native module without building\n  import [dir] [--force] reimport all assets\n  check [dir] [--manifest file] [--explain] [--ensure-meta]  parse every document, audit .meta files and type-check scripts\n  icons [check|list] [dir] [--json] [--out file]  check icon use against the icon sources, or print the manifest\n  test [dir] [-run name] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene file]]\n                         run *_test.aes script tests headless, or run the game twice and compare state hashes\n  dump script <pkg|Type> [--func name]  disassemble a script package with source lines\n  docs export|check|build|serve  documentation registry, site and playground\n  mcp [--project dir] [--watch]   serve the project to an AI agent over MCP (stdio)\n  update [status|check|apply|restore] [--channel stable|nightly]   check for and install a new Aego, or go back to the previous one\n  release keygen|manifest ...     make a signing key and the signed release.json of a release\n  scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help\n  version                print the engine version and the commit it was built from\n"
   }
   msg "editor.addpalette.add_changes" {
     one="Add {name} changes {n} node."
@@ -1672,6 +1684,30 @@ messages version=1 lang=en {
   }
   msg "editor.command.help.report_bug" {
     text="Report a Bug…"
+  }
+  msg "editor.command.help.updates.check" {
+    text="Check for Updates"
+  }
+  msg "editor.command.help.updates.mode.ask" {
+    text="Ask Before Downloading Updates"
+  }
+  msg "editor.command.help.updates.mode.auto" {
+    text="Install Updates on Restart"
+  }
+  msg "editor.command.help.updates.mode.off" {
+    text="Check for Updates Only When Asked"
+  }
+  msg "editor.command.help.updates.nightly" {
+    text="Nightly Updates"
+  }
+  msg "editor.command.help.updates.nightly.tip" {
+    text="Update to a build of every master commit instead of stable versions"
+  }
+  msg "editor.command.help.updates.restore" {
+    text="Restore Previous Version"
+  }
+  msg "editor.command.help.updates.restore.tip" {
+    text="Go back to the version this one updated from"
   }
   msg "editor.command.inspector.copy" {
     text="Copy Field"
@@ -4415,6 +4451,48 @@ messages version=1 lang=en {
   msg "editor.undohistory.title" {
     text="Undo History"
   }
+  msg "editor.updates.available" {
+    text="Aego {version} is available"
+  }
+  msg "editor.updates.checking" {
+    text="Checking for updates"
+  }
+  msg "editor.updates.download" {
+    text="Download"
+  }
+  msg "editor.updates.failed" {
+    text="Cannot update Aego: {error}"
+  }
+  msg "editor.updates.later" {
+    text="Later"
+  }
+  msg "editor.updates.no_notes" {
+    text="The release has no notes."
+  }
+  msg "editor.updates.page" {
+    text="Get It"
+  }
+  msg "editor.updates.ready" {
+    text="Aego {version} downloaded, restart to update"
+  }
+  msg "editor.updates.restart" {
+    text="Restart to Update"
+  }
+  msg "editor.updates.rolled_back" {
+    text="Aego {version} stopped right after it started, so the previous version was restored"
+  }
+  msg "editor.updates.save_first" {
+    text="Save the changed scenes and scripts before Aego restarts?"
+  }
+  msg "editor.updates.skip" {
+    text="Skip This Version"
+  }
+  msg "editor.updates.task" {
+    text="Downloading Aego {version}"
+  }
+  msg "editor.updates.title" {
+    text="Aego {version}"
+  }
   msg "editor.vcsdiff.changes_change_s" {
     text="{changes} change(s)"
   }
@@ -4571,8 +4649,14 @@ messages version=1 lang=en {
   msg "launcher.browse" {
     text="Browse…"
   }
-  msg "launcher.check_for_aego_updates_once" {
-    text="Check for Aego updates once a day"
+  msg "launcher.channel_nightly" {
+    text="Nightly"
+  }
+  msg "launcher.channel_stable" {
+    text="Stable"
+  }
+  msg "launcher.check_updates" {
+    text="Check for Updates"
   }
   msg "launcher.contains" {
     text="Contains: {files}"
@@ -4588,9 +4672,6 @@ messages version=1 lang=en {
   }
   msg "launcher.documentation" {
     text="Documentation"
-  }
-  msg "launcher.download" {
-    text="Download"
   }
   msg "launcher.drop_hint" {
     text="Or drop a project folder, or its {file}, on this window."
@@ -4652,6 +4733,9 @@ messages version=1 lang=en {
   msg "launcher.remove_from_list" {
     text="Remove from List"
   }
+  msg "launcher.restore_previous" {
+    text="Restore Previous Version"
+  }
   msg "launcher.tab.examples" {
     text="Examples"
   }
@@ -4688,8 +4772,56 @@ messages version=1 lang=en {
   msg "launcher.theme.system" {
     text="System"
   }
+  msg "launcher.up_to_date" {
+    text="Aego is up to date"
+  }
   msg "launcher.update_available" {
     text="Aego {version} is available"
+  }
+  msg "launcher.update_channel" {
+    text="Channel"
+  }
+  msg "launcher.update_download" {
+    text="Download"
+  }
+  msg "launcher.update_downloading" {
+    text="Downloading Aego {version}: {n} %"
+  }
+  msg "launcher.update_failed" {
+    text="Could not check for updates: {error}"
+  }
+  msg "launcher.update_later" {
+    text="Later"
+  }
+  msg "launcher.update_notes" {
+    text="Release Notes"
+  }
+  msg "launcher.update_page" {
+    text="Get It"
+  }
+  msg "launcher.update_ready" {
+    text="Aego {version} downloaded"
+  }
+  msg "launcher.update_restart" {
+    text="Restart to Update"
+  }
+  msg "launcher.update_rolled_back" {
+    text="Aego {version} stopped right after it started, so the previous version was restored"
+  }
+  msg "launcher.update_skip" {
+    text="Skip This Version"
+  }
+  msg "launcher.updates" {
+    text="Updates"
+  }
+  msg "launcher.updates_ask" {
+    text="Ask before downloading"
+  }
+  msg "launcher.updates_auto" {
+    text="Download and install on restart"
+  }
+  msg "launcher.updates_off" {
+    text="Only when I check"
   }
   msg "launcher.workspace" {
     text="Workspace"

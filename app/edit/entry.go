@@ -13,6 +13,7 @@ import (
 	"aego/app/brand"
 	"aego/app/run"
 	"aego/app/supervise"
+	"aego/app/updates"
 	"aego/editor/core/session"
 	"aego/editor/shell/launcher"
 	"aego/platform"
@@ -38,6 +39,11 @@ func Main(mods ...sdk.Module) {
 	if len(os.Args) > 1 && os.Args[1] == "--tool" {
 		os.Exit(tool(os.Args[2:], mods))
 	}
+	confirm, code, done := updates.Guard(os.Args)
+	if done {
+		os.Exit(code)
+	}
+	defer confirm()
 	fs := flag.NewFlagSet("aego-editor", flag.ExitOnError)
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	hidden := fs.Bool("hidden", false, "create the window without showing it")
@@ -56,6 +62,7 @@ func Main(mods ...sdk.Module) {
 		Arg: fs.Arg(0), Launcher: *tab, Mods: mods,
 	})
 	if errors.Is(err, ErrRestart) {
+		confirm()
 		os.Exit(session.ExitRestart)
 	}
 	if err != nil {
@@ -133,6 +140,7 @@ func relInside(root, file string) (string, bool) {
 
 func Start(e Entry) error {
 	defer platform.RecoverFatal("Aego")
+	defer runAtExit()
 	startBoot("edit")
 	platform.SetAppIcon(brand.Window()...)
 	markEntry(e.Verb)

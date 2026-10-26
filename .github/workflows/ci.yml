@@ -127,6 +127,9 @@ jobs:
     env:
       CGO_ENABLED: "1"
       GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # the key that signs release.json and the public half the binaries trust; without them no release.json is published (D362)
+      AEGO_RELEASE_KEY: ${{ secrets.AEGO_RELEASE_KEY }}
+      AEGO_UPDATE_KEY: ${{ vars.AEGO_UPDATE_KEY }}
       GITEA_API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
     steps:
       - uses: actions/checkout@v4

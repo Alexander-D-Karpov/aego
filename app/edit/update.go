@@ -1,194 +1,246 @@
 package edit
 
 import (
-	"encoding/json"
-	"errors"
-	"net/http"
+	"context"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
+	"os/exec"
 	"sync"
 	"time"
 
-	"aego/editor/core/document"
-	"aego/format/aetext"
+	"aego/app/updates"
+	"aego/editor/core/prefs"
+	"aego/editor/core/updateui"
+	"aego/update"
 )
 
-const (
-	ReleasesAPI  = "https://git.akarpov.ru/api/v1/repos/sanspie/aego"
-	DownloadPage = "https://aego.akarpov.ru/install.html"
-	updateFile   = "update"
-	updateEvery  = 24 * time.Hour
-	fetchTimeout = 8 * time.Second
-)
+// DownloadPage is where a copy that cannot update itself gets a new version.
+const DownloadPage = "https://aego.akarpov.ru/install.html"
 
-type updateState struct {
-	Enabled bool
-	Checked time.Time
-	Latest  string
-}
-
-type updater struct {
-	file    string
-	current string
+// updateManager checks, downloads and installs Aego's updates for the launcher and the editor of this process (D362).
+type updateManager struct {
 	mu      sync.Mutex
-	st      updateState
+	dir     string
+	pol     update.Policy
+	st      updateui.State
+	rel     *update.Release
+	file    string
+	in      update.Install
+	inErr   error
+	started bool
+	busy    bool
 }
 
-func updatePath() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(dir, "aego", updateFile)
+var (
+	updatesOnce sync.Once
+	theUpdates  *updateManager
+	atExit      *exec.Cmd
+)
+
+// updatesFor is the one update service of the process; dir holds prefs.aetext with the policy.
+func updatesFor(dir string) *updateManager {
+	updatesOnce.Do(func() {
+		m := &updateManager{dir: dir, pol: update.Policy{Mode: update.Auto, Channel: update.Stable}}
+		if p, err := prefs.Load(dir); err == nil {
+			m.pol = p.Updates
+		}
+		m.in, m.inErr = updates.Installed()
+		m.st.Installable = m.inErr == nil
+		m.st.RolledBack = updates.RolledBack()
+		theUpdates = m
+	})
+	return theUpdates
 }
 
-func loadUpdate(file string) updateState {
-	st := updateState{Enabled: true}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return st
+// runAtExit starts what an update left for the editor's exit: the Windows installer, which restarts the editor itself.
+func runAtExit() {
+	if atExit != nil {
+		atExit.Start()
+		atExit = nil
 	}
-	doc, err := aetext.Parse(data, updateFile)
-	if err != nil {
-		return st
-	}
-	if v, ok := doc.Attr("enabled"); ok {
-		st.Enabled = v.Bool
-	}
-	if v, ok := doc.Attr("checked"); ok {
-		st.Checked = time.Unix(v.AsInt(), 0)
-	}
-	if v, ok := doc.Attr("latest"); ok {
-		st.Latest = v.Str
-	}
-	return st
 }
 
-func saveUpdate(file string, st updateState) error {
-	n := &aetext.Node{Head: "update"}
-	n.Attrs = append(n.Attrs,
-		aetext.Field{Name: "enabled", Value: aetext.Bool(st.Enabled)},
-		aetext.Field{Name: "checked", Value: aetext.Int(st.Checked.Unix())},
-		aetext.Field{Name: "latest", Value: aetext.String(st.Latest)},
-	)
-	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
-		return err
-	}
-	return document.WriteAtomic(file, aetext.Write(n))
+func (m *updateManager) State() updateui.State {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.st
 }
 
-func newUpdater(file, current string) *updater {
-	return &updater{file: file, current: current, st: loadUpdate(file)}
+func (m *updateManager) Policy() update.Policy {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.pol
 }
 
-func (u *updater) start() {
-	u.mu.Lock()
-	due := u.file != "" && u.st.Enabled && time.Since(u.st.Checked) >= updateEvery
-	u.mu.Unlock()
-	if !due {
+// save writes the policy into prefs.aetext without touching the rest of it; the caller holds mu.
+func (m *updateManager) save() {
+	if m.dir == "" {
 		return
 	}
+	p, err := prefs.Load(m.dir)
+	if err != nil {
+		return
+	}
+	p.Updates = m.pol
+	_ = prefs.Save(m.dir, p)
+}
+
+// Tick checks at start and every six hours of a long session, unless updates are off.
+func (m *updateManager) Tick(now time.Time) {
+	m.mu.Lock()
+	due := !m.busy && m.pol.Due(now, m.started)
+	m.started = true
+	m.mu.Unlock()
+	if due {
+		m.Check()
+	}
+}
+
+func (m *updateManager) Check() {
+	m.mu.Lock()
+	if m.busy {
+		m.mu.Unlock()
+		return
+	}
+	m.busy = true
+	m.st.Phase, m.st.Err = updateui.Checking, ""
+	ch := m.pol.Channel
+	m.mu.Unlock()
 	go func() {
-		api := os.Getenv("AEGO_API")
-		if api == "" {
-			api = ReleasesAPI
+		r, err := updates.Source(ch).Check(context.Background())
+		m.mu.Lock()
+		m.busy = false
+		m.pol.LastCheck = time.Now()
+		m.save()
+		switch {
+		case err != nil:
+			m.st.Phase, m.st.Err = updateui.Failed, err.Error()
+		case !m.pol.Wants(r, updates.Build()):
+			m.st.Phase = updateui.UpToDate
+		default:
+			m.rel = r
+			m.st.Phase, m.st.Version, m.st.Notes = updateui.Available, r.Version, r.Notes
 		}
-		tag, err := fetchLatest(api)
-		u.mu.Lock()
-		defer u.mu.Unlock()
-		u.st.Checked = time.Now()
-		if err == nil {
-			u.st.Latest = tag
+		auto := m.st.Phase == updateui.Available && m.pol.Mode == update.Auto && m.inErr == nil
+		m.mu.Unlock()
+		if auto {
+			m.Download()
 		}
-		saveUpdate(u.file, u.st)
 	}()
 }
 
-func (u *updater) Available() (string, string, bool) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if !u.st.Enabled || !newer(u.st.Latest, u.current) {
-		return "", "", false
+func (m *updateManager) Download() {
+	m.mu.Lock()
+	r := m.rel
+	if r == nil || m.busy || m.inErr != nil {
+		m.mu.Unlock()
+		return
 	}
-	return strings.TrimPrefix(u.st.Latest, "v"), DownloadPage, true
-}
-
-func (u *updater) Enabled() bool {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	return u.st.Enabled
-}
-
-func (u *updater) SetEnabled(on bool) {
-	u.mu.Lock()
-	u.st.Enabled = on
-	st := u.st
-	u.mu.Unlock()
-	if u.file != "" {
-		saveUpdate(u.file, st)
-	}
-	if on {
-		u.start()
-	}
-}
-
-func fetchLatest(api string) (string, error) {
-	c := http.Client{Timeout: fetchTimeout}
-	resp, err := c.Get(api + "/releases/latest")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("releases API answered " + resp.Status)
-	}
-	var rel struct {
-		Tag        string `json:"tag_name"`
-		Prerelease bool   `json:"prerelease"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
-		return "", err
-	}
-	return rel.Tag, nil
-}
-
-func parseVersion(s string) ([3]int, string, bool) {
-	var out [3]int
-	core, pre, _ := strings.Cut(strings.TrimPrefix(strings.TrimSpace(s), "v"), "-")
-	parts := strings.Split(core, ".")
-	if len(parts) != 3 {
-		return out, "", false
-	}
-	for i, p := range parts {
-		n, err := strconv.Atoi(p)
+	m.busy = true
+	m.st.Phase, m.st.Done, m.st.Total = updateui.Downloading, 0, 0
+	m.mu.Unlock()
+	go func() {
+		file, err := updates.Fetch(context.Background(), r, m.in, func(done, total int64) {
+			m.mu.Lock()
+			m.st.Done, m.st.Total = done, total
+			m.mu.Unlock()
+		})
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.busy = false
 		if err != nil {
-			return out, "", false
+			m.st.Phase, m.st.Err = updateui.Failed, err.Error()
+			return
 		}
-		out[i] = n
-	}
-	return out, pre, true
+		m.file = file
+		m.st.Phase = updateui.Ready
+	}()
 }
 
-func newer(latest, current string) bool {
-	a, ap, ok1 := parseVersion(latest)
-	b, bp, ok2 := parseVersion(current)
-	if !ok1 || !ok2 {
-		return false
+func (m *updateManager) Install() (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.inErr != nil {
+		return false, updates.ErrNotInstalled
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return a[i] > b[i]
-		}
+	if m.rel == nil || m.file == "" {
+		return false, update.ErrNoAsset
 	}
-	switch {
-	case ap == bp:
-		return false
-	case ap == "":
-		return true
-	case bp == "":
-		return false
+	a, err := updates.Apply(m.in, m.file, m.rel)
+	if err != nil {
+		return false, err
 	}
-	return ap > bp
+	if a.Exit != nil {
+		atExit = a.Exit
+		return false, nil
+	}
+	os.Setenv(EnvEditorExe, m.in.Launch)
+	return true, nil
+}
+
+func (m *updateManager) Skip() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.rel != nil {
+		m.pol.Skip(m.rel.Version)
+		m.save()
+	}
+	m.st.Phase, m.rel = updateui.UpToDate, nil
+}
+
+func (m *updateManager) Later() {
+	m.mu.Lock()
+	m.st.Hidden = true
+	m.mu.Unlock()
+}
+
+func (m *updateManager) SetMode(mode update.Mode) {
+	m.mu.Lock()
+	m.pol.Mode = mode
+	m.save()
+	m.mu.Unlock()
+}
+
+func (m *updateManager) SetChannel(c update.Channel) {
+	m.mu.Lock()
+	changed := m.pol.Channel != c
+	m.pol.Channel = c
+	m.save()
+	m.mu.Unlock()
+	if changed {
+		m.Check()
+	}
+}
+
+func (m *updateManager) CanRestore() bool {
+	return m.inErr == nil && m.in.HasPrevious()
+}
+
+func (m *updateManager) Restore() (bool, error) {
+	if m.inErr != nil {
+		return false, updates.ErrNotInstalled
+	}
+	a, err := m.in.Restore()
+	if err != nil {
+		return false, err
+	}
+	if a.Exit != nil {
+		atExit = a.Exit
+		return false, nil
+	}
+	os.Setenv(EnvEditorExe, m.in.Launch)
+	return true, nil
+}
+
+func (m *updateManager) Page() string {
+	return DownloadPage
+}
+
+var _ updateui.Host = (*updateManager)(nil)
+
+// updates is the update service of an editor window; a headless editor checks nothing.
+func (s *Session) updates(cfg Config) updateui.Host {
+	if cfg.Headless {
+		return nil
+	}
+	return updatesFor(prefsDir(cfg))
 }

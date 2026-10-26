@@ -33,6 +33,19 @@ irm https://aego.akarpov.ru/install.ps1 | iex
 
 On Windows, set `$env:AEGO_CHANNEL = "nightly"`, or a tag such as `"v0.10.0"`, before the command to pick another build. The script verifies the checksum, installs into `~/.local` (or `%LOCALAPPDATA%\Programs\Aego`) and prints what it did.
 
+## Updates
+
+A copy installed by the installer, `install.sh` or the AppImage updates itself. At every start, and every six hours of a long session, Aego looks for a newer version of its channel; the check takes at most three seconds and never holds up the window.
+
+- **Download and install on restart**, the default, downloads the new version in the background, with its progress in the Task Center. The launcher and the status bar then offer **Restart to Update**, **Later**, **Skip This Version** and **Release Notes**. Nothing installs while you work: the update takes place when you restart, and Aego opens the same project on the new version. A skipped version is not offered again; the next one is.
+- **Ask before downloading** offers the new version first; **Only when I check** waits for **Help → Check for Updates**.
+- **Help → Nightly Updates**, or the channel in the launcher, follows a build of every master commit instead of stable versions.
+- Every release is signed. A release without a valid signature, or a download whose checksum does not match, is never installed.
+- The version before the update is kept: **Help → Restore Previous Version** or the launcher goes back to it. When a new version stops in its first ten seconds, the next start returns to the previous one by itself and says so.
+- `aego update` does the same from a terminal: `aego update check`, `aego update apply`, `aego update restore` and `aego update status`.
+
+On Windows the installer updates in place when the editor quits and opens it again; shortcuts and file associations stay. The installer of the replaced version is kept, and restoring runs it the same way. Only one previous version is kept; older downloads are removed when the new version starts. On macOS the new `.app` replaces the old one next to it. A copy built from source, or installed by a distribution's package manager, does not update itself: the launcher points to this page.
+
 ## From source
 
 Needs Go 1.27 and a C compiler for SDL3, with CMake and Ninja. The first build downloads and compiles SDL 3 into `.cache/native`.

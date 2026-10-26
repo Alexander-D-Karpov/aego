@@ -56,6 +56,7 @@ type launchDriver struct {
 	prefsDir string
 	prefs    *prefs.Prefs
 	retheme  bool
+	updates  *updateManager
 }
 
 type launchImage struct {
@@ -194,12 +195,12 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	if rootErr == nil {
 		examples = projects.Examples(engineRoot)
 	}
-	upd := newUpdater(updatePath(), engine.Version)
-	if !cfg.Headless {
-		upd.start()
-	}
 	ls := &LaunchSession{Engine: e}
 	d := &launchDriver{s: ls, renderer: mod.Renderer(), log: lg.With(shell.ChannelEditor), images: map[string]launchImage{}, prefsDir: prefsDir(cfg)}
+	upd := updatesFor(d.prefsDir)
+	if !cfg.Headless {
+		d.updates = upd
+	}
 	d.prefs, _ = prefs.Load(d.prefsDir)
 	if m := os.Getenv("AEGO_EDITOR_THEME"); m != "" {
 		d.prefs.Theme = theme.ParseMode(m)
@@ -212,22 +213,39 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		ExamplePreview: func(name string) ([]byte, error) {
 			return projects.ExamplePreview(engineRoot, name)
 		},
-		CreateWith:      CreateProjectWith,
-		NativeHint:      nativeHint(),
-		Reveal:          sysopen.Reveal,
-		RevealLabel:     sysopen.RevealLabel(),
-		OpenURL:         sysopen.Open,
-		Update:          upd.Available,
-		UpdateChecks:    upd.Enabled(),
-		SetUpdateChecks: upd.SetEnabled,
-		Docs:            func() { sysopen.Open("https://aego.akarpov.ru/") },
-		RecentPath:      cfg.Recent,
-		Home:            projectsHome(),
-		Image:           d.image,
-		Theme:           func() theme.Mode { return d.prefs.Theme },
-		SetTheme:        d.setTheme,
-		Language:        func() string { return d.prefs.Language },
-		SetLanguage:     d.setLanguage,
+		CreateWith:  CreateProjectWith,
+		NativeHint:  nativeHint(),
+		Reveal:      sysopen.Reveal,
+		RevealLabel: sysopen.RevealLabel(),
+		OpenURL:     sysopen.Open,
+		Updates:     upd,
+		RestartToUpdate: func(install bool) error {
+			change := upd.Restore
+			if install {
+				change = upd.Install
+			}
+			relaunch, err := change()
+			if err != nil {
+				return err
+			}
+			if !relaunch {
+				e.Quit()
+				return nil
+			}
+			if err := Relaunch("", TabRecent); err != nil {
+				return err
+			}
+			e.Quit()
+			return nil
+		},
+		Docs:        func() { sysopen.Open("https://aego.akarpov.ru/") },
+		RecentPath:  cfg.Recent,
+		Home:        projectsHome(),
+		Image:       d.image,
+		Theme:       func() theme.Mode { return d.prefs.Theme },
+		SetTheme:    d.setTheme,
+		Language:    func() string { return d.prefs.Language },
+		SetLanguage: d.setLanguage,
 	})
 	switch cfg.LauncherTab {
 	case TabNew:
@@ -344,6 +362,7 @@ func (d *launchDriver) setTheme(m theme.Mode) {
 	}
 	d.prefs.Theme = m
 	d.retheme = true
+	d.prefs.Updates = updatesFor(d.prefsDir).Policy()
 	if err := prefs.Save(d.prefsDir, d.prefs); err != nil {
 		d.log.Warn("cannot save the editor preferences", log.F("err", err.Error()))
 	}
@@ -364,6 +383,7 @@ func (d *launchDriver) setLanguage(pref string) {
 	}
 	d.prefs.Language = pref
 	d.applyLanguage()
+	d.prefs.Updates = updatesFor(d.prefsDir).Policy()
 	if err := prefs.Save(d.prefsDir, d.prefs); err != nil {
 		d.log.Warn("cannot save the editor preferences", log.F("err", err.Error()))
 	}
@@ -382,6 +402,9 @@ func (d *launchDriver) FixedUpdate(float64) {}
 func (d *launchDriver) Update(float64) {
 	e, ui := d.eng, d.ui
 	ui.Time = e.Platform().Now()
+	if d.updates != nil {
+		d.updates.Tick(time.Now())
+	}
 	if d.retheme {
 		d.retheme = false
 		ui.Theme = theme.For(d.prefs.Theme, d.systemDark())

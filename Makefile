@@ -42,7 +42,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: dmg nsis-check appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
+.PHONY: dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -331,8 +331,12 @@ i18n-check:
 pkgsize:
 	@sh tools/pkgsize.sh
 
-ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke $(MODULE_CI) bench-allocs
+ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
 	@sh tools/ci-clean-root.sh
+
+# test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
+test-update: bootstrap
+	SDL_AUDIO_DRIVER=dummy go test -tags aego_update -count=1 ./tests/update/
 
 # clean-root fails when a build left a binary or a test binary in the checkout instead of .cache/bin.
 clean-root:
@@ -378,7 +382,7 @@ editor-app: bootstrap
 	go run ./tools/appbundle -bin .cache/bin/aego-editor -out .cache -version $(EDITOR_VERSION) $(if $(wildcard $(EDITOR_ICON)),-icon $(EDITOR_ICON))
 
 dmg: editor-app
-	tools/release/dmg.sh ".cache/Aego Editor.app" .cache/dist/Aego-$$(sed -n 's/^const Version = "\(.*\)"$$/\1/p' engine/config.go).dmg
+	tools/release/dmg.sh ".cache/Aego Editor.app" .cache/dist/Aego-$$(sed -n 's/^var Version = "\(.*\)"$$/\1/p' engine/config.go).dmg
 
 nsis-check:
 	sh tools/release/nsis-check.sh

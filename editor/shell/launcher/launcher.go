@@ -10,12 +10,14 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/preview"
 	"aego/editor/core/state"
+	"aego/editor/core/updateui"
 	"aego/engine/i18n"
 	"aego/project"
 	"aego/render/texture"
 	"aego/ui/core"
 	"aego/ui/theme"
 	"aego/ui/widgets"
+	"aego/update"
 )
 
 type Tab uint8
@@ -58,21 +60,21 @@ type CreateRequest struct {
 }
 
 type Options struct {
-	Templates       []Template
-	Examples        []string
-	ExamplePreview  func(name string) ([]byte, error)
-	Workspaces      []Choice
-	Create          func(dir, template, module, example string) (string, error)
-	CreateWith      func(CreateRequest) (string, error)
-	NativeHint      string
-	PickFolder      func(start string, done func(string))
-	PickProject     func(start string, done func(string))
-	Reveal          func(path string) error
-	RevealLabel     string
-	OpenURL         func(url string) error
-	Update          func() (version, url string, ok bool)
-	UpdateChecks    bool
-	SetUpdateChecks func(on bool)
+	Templates      []Template
+	Examples       []string
+	ExamplePreview func(name string) ([]byte, error)
+	Workspaces     []Choice
+	Create         func(dir, template, module, example string) (string, error)
+	CreateWith     func(CreateRequest) (string, error)
+	NativeHint     string
+	PickFolder     func(start string, done func(string))
+	PickProject    func(start string, done func(string))
+	Reveal         func(path string) error
+	RevealLabel    string
+	OpenURL        func(url string) error
+	// Updates is Aego's update service; RestartToUpdate installs the downloaded version, or goes back to the previous one, and restarts (D362).
+	Updates         updateui.Host
+	RestartToUpdate func(install bool) error
 	Docs            func()
 	RecentPath      string
 	Home            string
@@ -107,8 +109,8 @@ type Launcher struct {
 	example int
 	ws      int
 	native  bool
-	updates bool
 	menu    string
+	notes   bool
 	err     string
 	result  string
 	scroll  float32
@@ -116,7 +118,7 @@ type Launcher struct {
 }
 
 func New(opt Options) *Launcher {
-	l := &Launcher{opt: opt, name: "new-game", dir: opt.Home, tmpl: 1, updates: opt.UpdateChecks}
+	l := &Launcher{opt: opt, name: "new-game", dir: opt.Home, tmpl: 1}
 	if l.tmpl >= len(opt.Templates) {
 		l.tmpl = 0
 	}
@@ -293,9 +295,7 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 	if l.opt.Docs != nil && widgets.Button(ui, i18n.Tr("launcher.documentation", "Documentation")) {
 		l.opt.Docs()
 	}
-	if l.opt.SetUpdateChecks != nil && widgets.Checkbox(ui, i18n.Tr("launcher.check_for_aego_updates_once", "Check for Aego updates once a day"), &l.updates) {
-		l.opt.SetUpdateChecks(l.updates)
-	}
+	l.updateSettings(ui)
 	if l.opt.SetTheme != nil && l.opt.Theme != nil {
 		m := int(l.opt.Theme())
 		if widgets.Combo(ui, ui.ID("launcher.theme"), widgets.Field(ui, i18n.Tr("launcher.theme", "Theme")), &m, themeModes(), false) {
@@ -312,20 +312,118 @@ func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
 }
 
 func (l *Launcher) banner(ui *core.Context) {
-	if l.opt.Update == nil {
+	u := l.opt.Updates
+	if u == nil {
 		return
 	}
-	ver, url, ok := l.opt.Update()
-	if !ok {
-		return
-	}
+	st := u.State()
 	th := &ui.Theme
+	if st.RolledBack != "" {
+		row := ui.Cursor().Next(0)
+		ui.RoundRect(row, th.Radius.Card, th.SelectionDim)
+		ui.Text(i18n.Tr("launcher.update_rolled_back", "Aego {version} stopped right after it started, so the previous version was restored", i18n.Str("version", st.RolledBack)), mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Warn)
+	}
+	if st.Hidden {
+		return
+	}
+	var text string
+	var buttons []string
+	switch st.Phase {
+	case updateui.Available:
+		text = i18n.Tr("launcher.update_available", "Aego {version} is available", i18n.Str("version", st.Version))
+		if st.Installable {
+			buttons = []string{i18n.Tr("launcher.update_download", "Download"), i18n.Tr("launcher.update_later", "Later"), i18n.Tr("launcher.update_skip", "Skip This Version")}
+		} else {
+			buttons = []string{i18n.Tr("launcher.update_page", "Get It"), i18n.Tr("launcher.update_later", "Later")}
+		}
+	case updateui.Downloading:
+		pct := 0
+		if st.Total > 0 {
+			pct = int(st.Done * 100 / st.Total)
+		}
+		text = i18n.Tr("launcher.update_downloading", "Downloading Aego {version}: {n} %", i18n.Str("version", st.Version), i18n.Int("n", int64(pct)))
+	case updateui.Ready:
+		text = i18n.Tr("launcher.update_ready", "Aego {version} downloaded", i18n.Str("version", st.Version))
+		buttons = []string{i18n.Tr("launcher.update_restart", "Restart to Update"), i18n.Tr("launcher.update_later", "Later"), i18n.Tr("launcher.update_skip", "Skip This Version")}
+	default:
+		return
+	}
+	if st.Notes != "" {
+		buttons = append(buttons, i18n.Tr("launcher.update_notes", "Release Notes"))
+	}
 	row := ui.Cursor().Next(0)
 	ui.RoundRect(row, th.Radius.Card, th.SelectionDim)
-	ui.Text(i18n.Tr("launcher.update_available", "Aego {version} is available", i18n.Str("version", ver)), mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Text)
-	bw := ui.TextSize(i18n.Tr("launcher.download", "Download")).X + 20
-	if l.opt.OpenURL != nil && widgets.ButtonRect(ui, ui.ID("update.get"), mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}, i18n.Tr("launcher.download", "Download")) {
-		if err := l.opt.OpenURL(url); err != nil {
+	x := row.X + row.W
+	pick := -1
+	for i := len(buttons) - 1; i >= 0; i-- {
+		bw := ui.TextSize(buttons[i]).X + 20
+		x -= bw
+		if widgets.ButtonRect(ui, core.IDSeq(ui.ID("update.btn"), i), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, buttons[i]) {
+			pick = i
+		}
+		x -= 4
+	}
+	ui.PushClip(mathx.Rect{X: row.X, Y: row.Y, W: max(0, x-row.X), H: row.H})
+	ui.Text(text, mathx.Vec2{X: row.X + 8, Y: ui.TextY(row)}, th.Text)
+	ui.PopClip()
+	if pick < 0 {
+		return
+	}
+	if st.Notes != "" && pick == len(buttons)-1 {
+		l.notes = !l.notes
+		return
+	}
+	switch {
+	case st.Phase == updateui.Available && !st.Installable && pick == 0:
+		if l.opt.OpenURL != nil {
+			l.opt.OpenURL(u.Page())
+		}
+	case st.Phase == updateui.Available && pick == 0:
+		u.Download()
+	case st.Phase == updateui.Ready && pick == 0 && l.opt.RestartToUpdate != nil:
+		if err := l.opt.RestartToUpdate(true); err != nil {
+			l.err = err.Error()
+		}
+	case pick == 1:
+		u.Later()
+	case pick == 2:
+		u.Skip()
+	}
+}
+
+// updateSettings are the update choices under the tabs: the mode, the channel and going back to the previous version.
+func (l *Launcher) updateSettings(ui *core.Context) {
+	u := l.opt.Updates
+	if u == nil {
+		return
+	}
+	if l.notes {
+		widgets.LabelWrapped(ui, u.State().Notes, false)
+	}
+	pol := u.Policy()
+	modes := []update.Mode{update.Auto, update.Ask, update.Off}
+	m := max(0, slices.Index(modes, pol.Mode))
+	names := []string{i18n.Tr("launcher.updates_auto", "Download and install on restart"), i18n.Tr("launcher.updates_ask", "Ask before downloading"), i18n.Tr("launcher.updates_off", "Only when I check")}
+	if widgets.Combo(ui, ui.ID("launcher.updates"), widgets.Field(ui, i18n.Tr("launcher.updates", "Updates")), &m, names, false) {
+		u.SetMode(modes[m])
+	}
+	c := 0
+	if pol.Channel == update.Nightly {
+		c = 1
+	}
+	if widgets.Combo(ui, ui.ID("launcher.channel"), widgets.Field(ui, i18n.Tr("launcher.update_channel", "Channel")), &c, []string{i18n.Tr("launcher.channel_stable", "Stable"), i18n.Tr("launcher.channel_nightly", "Nightly")}, false) {
+		u.SetChannel([]update.Channel{update.Stable, update.Nightly}[c])
+	}
+	if widgets.Button(ui, i18n.Tr("launcher.check_updates", "Check for Updates")) {
+		u.Check()
+	}
+	if st := u.State(); st.Phase == updateui.UpToDate {
+		widgets.LabelDim(ui, i18n.Tr("launcher.up_to_date", "Aego is up to date"))
+	} else if st.Phase == updateui.Failed {
+		widgets.LabelDim(ui, i18n.Tr("launcher.update_failed", "Could not check for updates: {error}", i18n.Str("error", st.Err)))
+	}
+	if u.CanRestore() && l.opt.RestartToUpdate != nil && widgets.Button(ui, i18n.Tr("launcher.restore_previous", "Restore Previous Version")) {
+		if err := l.opt.RestartToUpdate(false); err != nil {
 			l.err = err.Error()
 		}
 	}

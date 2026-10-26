@@ -39,9 +39,10 @@ const (
 	CategoryAccessibility = "Accessibility"
 	CategoryGameplay      = "Gameplay"
 	CategoryLanguage      = "Language"
+	CategoryUpdates       = "Updates"
 )
 
-var Categories = []string{CategoryDisplay, CategoryGraphics, CategoryAudio, CategoryInput, CategoryAccessibility, CategoryGameplay, CategoryLanguage}
+var Categories = []string{CategoryDisplay, CategoryGraphics, CategoryAudio, CategoryInput, CategoryAccessibility, CategoryGameplay, CategoryLanguage, CategoryUpdates}
 
 type Layer uint8
 

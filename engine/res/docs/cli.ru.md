@@ -79,6 +79,12 @@ title: Команда aego
 | `--check` | только выполнить проверки перед экспортом |
 | `--json` | вывести отчёт о сборке в JSON |
 | `--cc compiler` | компилятор C для другой платформы |
+| `--release-json` | ещё упаковать экспорт в один архив и записать подписанный `release.json`, по которому обновляются копии |
+| `--channel stable\|nightly` | канал этого релиза |
+| `--base-url url` | откуда скачивается архив, по умолчанию `update.url/<канал>` |
+| `--key-file file` | закрытый ключ, которым подписывается `release.json`, из `aego release keygen` |
+
+Игра обновляет себя, если в `project.aego` есть `update { url="https://…" publicKey="…" }`; выложите архив, `release.json` и `release.json.sig` в `<url>/<канал>/`. См. [aego/update](ref:aego/update).
 
 ## aego build
 
@@ -103,6 +109,14 @@ title: Команда aego
 ## aego version
 
 `aego version` выводит версию движка и коммит, из которого собрана программа, например `aego 0.11.0-dev (6151233e0586, 2026-10-25T13:17:32Z)`. У сборки из рабочей копии с незакоммиченными изменениями к коммиту добавляется `-dirty`.
+
+## aego update
+
+`aego update [status|check|apply|restore] [--channel stable|nightly]` управляет обновлениями установленной копии: `status` показывает версию, режим и способ установки, `check` ищет новую версию, `apply` скачивает её и ставит для следующего запуска, `restore` возвращает версию до последнего обновления. См. [Обновления](ref:install).
+
+## aego release
+
+`aego release keygen [--out base]` создаёт пару ключей Ed25519 для подписи релизов: `<base>.key` — закрытый ключ, доступный только вам, его не коммитят; `<base>.pub` — открытый ключ для `project.aego` или сборки. Без `--out` пара попадает в `keys/release` в папке настроек пользователя. `aego release manifest --version v --channel c --base-url url [--notes file] [--min v] [--key-file file] [--out dir] <files>…` пишет `release.json` для файлов и подписывает его в `release.json.sig`.
 
 ## aego mcp
 

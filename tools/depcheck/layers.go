@@ -50,7 +50,7 @@ var scriptCompilerOnly = []string{
 var editorAllow = []string{
 	"core/...", "platform", "platform/input", "platform/clip", "gpu", "render", "render/...", "ui/...",
 	"schema", "scene", "scene/...", "asset", "asset/...", "format/...", "project", "project/...", "engine", "engine/module", "engine/problems", "engine/docs", "engine/i18n", "engine/recorder", "engine/settings", "engine/settings/settingsui", "editor/...",
-	"data", "save", "contracts/persistence", "audio/codec/...",
+	"data", "save", "contracts/persistence", "audio/codec/...", "update",
 }
 
 var rules = []rule{
@@ -239,6 +239,7 @@ var fsAllowed = []string{
 	"app/crash",
 	"app/edit",
 	"app/edit/agentbridge", // agent script edits of closed scripts and their Undo (11b5a)
+	"update",               // downloads and installs new versions over the installed files (11i4)
 	"app/projects",
 	"app/supervise",
 	"runtime/player",

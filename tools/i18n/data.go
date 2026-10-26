@@ -4,6 +4,8 @@ import (
 	"aego/app/agent"
 	"aego/app/docstool"
 	"aego/engine/docs"
+	updatemod "aego/modules/update"
+	"slices"
 	"strings"
 
 	"aego/app/assembly"
@@ -66,8 +68,9 @@ func Data() (map[string]*Key, error) {
 	for _, c := range settings.Categories {
 		add("setting.category."+c, c, "settings")
 	}
-	for i := range man.Settings {
-		d := &man.Settings[i]
+	settingDescs := append(slices.Clone(man.Settings), updatemod.Settings()...)
+	for i := range settingDescs {
+		d := &settingDescs[i]
 		pos := "setting " + d.ID
 		add("setting."+d.ID, d.Label(), pos)
 		add("setting."+d.ID+".doc", d.Doc, pos)

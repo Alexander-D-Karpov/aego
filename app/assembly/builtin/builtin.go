@@ -21,6 +21,7 @@ import (
 	settingsmod "aego/modules/settings"
 	"aego/modules/spawn"
 	"aego/modules/tween"
+	updatemod "aego/modules/update"
 	"aego/script/stdlib"
 )
 
@@ -98,7 +99,11 @@ func savegameEntry() assembly.Entry {
 	return assembly.Entry{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }}
 }
 
+func updateEntry() assembly.Entry {
+	return assembly.Entry{ID: updatemod.ID, New: func(assembly.Options) module.Module { return updatemod.New() }}
+}
+
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), dataEntry(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry(), updateEntry()}
 }

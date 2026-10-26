@@ -39,6 +39,7 @@ import (
 	"aego/editor/core/shape"
 	"aego/editor/core/tasks"
 	"aego/editor/core/templates"
+	"aego/editor/core/updateui"
 	"aego/editor/core/vcs"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
@@ -134,6 +135,8 @@ type Options struct {
 	PrefsDir string
 	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
 	Agent agentui.Host
+	// Updates is Aego's update service: the status bar offers a downloaded version, Help holds the choices (D362).
+	Updates updateui.Host
 	// Proxy starts the server the CLI and outside agents send commands to while the editor is open; its address goes in the editor lock.
 	Proxy func() (url, token string, err error)
 }
@@ -245,6 +248,9 @@ type App struct {
 	problemRev     uint64
 	clip           *clipboard
 	picker         scenePicker
+	// updateTask shows a running download in the Task Center; rollbackSaid keeps the rollback notice to one.
+	updateTask   *tasks.Task
+	rollbackSaid bool
 }
 
 func New(opt Options) *App {
@@ -928,6 +934,7 @@ func (a *App) Update(dt float64) {
 	now := e.Platform().Now()
 	ui := a.ui
 	ui.Time = now
+	a.tickUpdates()
 	if a.retheme {
 		a.retheme = false
 		a.applyTheme()

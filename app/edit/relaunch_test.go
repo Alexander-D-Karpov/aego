@@ -47,31 +47,3 @@ func TestResolveArg(t *testing.T) {
 		t.Fatalf("rel %q %v", rel, ok)
 	}
 }
-
-func TestNewer(t *testing.T) {
-	cases := []struct {
-		latest, current string
-		want            bool
-	}{
-		{"v0.9.0", "0.9.0-beta.1", true},
-		{"v0.9.0-beta.1", "0.9.0-beta.1", false},
-		{"v0.9.0-beta.2", "0.9.0-beta.1", true},
-		{"v0.8.5", "0.9.0-beta.1", false},
-		{"v1.0.0", "0.9.0", true},
-		{"nightly", "0.9.0", false},
-		{"", "0.9.0", false},
-	}
-	for _, c := range cases {
-		if got := newer(c.latest, c.current); got != c.want {
-			t.Errorf("newer(%q, %q) = %v", c.latest, c.current, got)
-		}
-	}
-	file := filepath.Join(t.TempDir(), "update")
-	st := updateState{Enabled: false, Latest: "v1.2.3"}
-	if err := saveUpdate(file, st); err != nil {
-		t.Fatal(err)
-	}
-	if back := loadUpdate(file); back.Enabled || back.Latest != "v1.2.3" {
-		t.Fatalf("round trip %+v", back)
-	}
-}

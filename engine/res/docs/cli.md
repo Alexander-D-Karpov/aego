@@ -81,6 +81,12 @@ Builds a distributable game that runs without Go and without the project sources
 | `--check` | run the pre-export checks only |
 | `--json` | print the build report as JSON |
 | `--cc compiler` | C compiler for a cross target |
+| `--release-json` | also pack the export into one archive and write the signed `release.json` its copies update from |
+| `--channel stable\|nightly` | channel of that release |
+| `--base-url url` | where the archive is downloaded from, `update.url/<channel>` by default |
+| `--key-file file` | private key that signs `release.json`, from `aego release keygen` |
+
+A game updates itself when `project.aego` has `update { url="https://…" publicKey="…" }`; upload the archive, `release.json` and `release.json.sig` to `<url>/<channel>/`. See [aego/update](ref:aego/update).
 
 ## aego build
 
@@ -105,6 +111,14 @@ Reimports every asset; `--force` ignores the artifact cache.
 ## aego version
 
 `aego version` prints the engine version and the commit the binary was built from, such as `aego 0.11.0-dev (6151233e0586, 2026-10-25T13:17:32Z)`. A build from a checkout with uncommitted changes adds `-dirty` to the commit.
+
+## aego update
+
+`aego update [status|check|apply|restore] [--channel stable|nightly]` manages updates of an installed copy: `status` shows the version, the mode and how Aego was installed, `check` looks for a newer version, `apply` downloads and installs it for the next start, `restore` goes back to the version before the last update. See [Updates](ref:install).
+
+## aego release
+
+`aego release keygen [--out base]` makes the Ed25519 pair that signs releases: `<base>.key` is the private key, readable only by you and never committed; `<base>.pub` is the public key for `project.aego` or the build. Without `--out` the pair goes to `keys/release` in the user config folder. `aego release manifest --version v --channel c --base-url url [--notes file] [--min v] [--key-file file] [--out dir] <files>…` writes `release.json` for the files and signs it into `release.json.sig`.
 
 ## aego mcp
 
