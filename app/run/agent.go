@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,6 +54,8 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 		cfg := Config{Headless: true, FrameTime: defaultDetStep, Seed: seed, ScenePath: r.Scene, Logger: lg, NoProfile: true}
 		if len(r.Shots) > 0 {
 			cfg.Headless, cfg.Hidden = false, true
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
 		}
 		a, err := Open(p, cfg, mods...)
 		if err != nil {
