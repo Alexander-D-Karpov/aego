@@ -550,6 +550,9 @@ messages version=1 lang=en {
     one="{n} change"
     other="{n} changes"
   }
+  msg "editor.agent.step.checks" {
+    text="{ok} of {n} checks hold"
+  }
   msg "editor.agent.step.delete_asset" {
     text="Delete {asset}"
   }
@@ -744,6 +747,10 @@ messages version=1 lang=en {
   }
   msg "editor.agent.step.set_transition" {
     text="Set {attr} of a transition"
+  }
+  msg "editor.agent.step.shots" {
+    one="{n} screenshot"
+    other="{n} screenshots"
   }
   msg "editor.agent.step.show_type" {
     text="Read the fields of {type}"
@@ -1563,6 +1570,12 @@ messages version=1 lang=en {
   }
   msg "editor.command.edit.undo.tip" {
     text="Undo the last change of the active scene"
+  }
+  msg "editor.command.editor.proxy.confirm" {
+    text="Confirm Changes from Outside Agents"
+  }
+  msg "editor.command.editor.proxy.confirm.tip" {
+    text="Changes from the CLI and outside agents wait in the Agent panel like its own; off, they apply at once as their own Undo steps"
   }
   msg "editor.command.favorites.toggle_node" {
     text="Add Node to Favorites"

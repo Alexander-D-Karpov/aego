@@ -27,6 +27,8 @@ type Prefs struct {
 	AgentResume float64
 	// AgentBudgets cap what the agent's read tools return.
 	AgentBudgets agentui.Budgets
+	// ProxyConfirm makes changes from the CLI and outside agents wait in the Agent panel (editor.proxy.confirm).
+	ProxyConfirm bool
 }
 
 func Default() *Prefs {
@@ -68,6 +70,9 @@ func Load(dir string) (*Prefs, error) {
 	if v, ok := doc.Field("agentFollow"); ok {
 		p.AgentFollow = v.Bool
 	}
+	if v, ok := doc.Field("proxyConfirm"); ok {
+		p.ProxyConfirm = v.Bool
+	}
 	for _, f := range []struct {
 		name string
 		dst  *int
@@ -99,6 +104,7 @@ func Save(dir string, p *Prefs) error {
 	}
 	root.Fields = append(root.Fields, aetext.Field{Name: "language", Value: aetext.Ident(lang)})
 	root.Fields = append(root.Fields, aetext.Field{Name: "agentFollow", Value: aetext.Bool(p.AgentFollow)})
+	root.Fields = append(root.Fields, aetext.Field{Name: "proxyConfirm", Value: aetext.Bool(p.ProxyConfirm)})
 	root.Fields = append(root.Fields, aetext.Field{Name: "agentResume", Value: aetext.Float64(p.AgentResume)})
 	b := p.AgentBudgets
 	root.Fields = append(root.Fields,

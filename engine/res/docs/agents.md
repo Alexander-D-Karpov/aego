@@ -43,7 +43,21 @@ With `--watch` the server polls the project and sends `resources/updated` for su
 1. `scene_tree` and `schema_show` to see what is there and what a component takes.
 2. Changes with `scene_set`, `scene_add_node`, `scene_add_comp`, `prefab_instantiate`, or several at once with `scene_apply`; `dry-run` first when unsure. `scene_add_comp` also attaches a script by its type name (`EnemyAI`), and the script's exported fields are read and set like component fields (`EnemyAI.PointA`). A node reference field takes a node path such as `Root/PatrolA1`.
 3. `scene_validate`, then `scene_run` with a number of frames: the log has the warnings and errors, and the state hash shows whether two runs behave the same. `watch` names nodes whose positions the report samples through the run, to check that something moves. In the editor `scene_run` plays the scene as the editor has it, unsaved changes included, in a separate process.
+4. Play it like a player would and check the outcome in the same run:
+   - `input` presses actions by frame: `30 press Jump; 10-60 hold Right; 90 release Right; 0-40 axis Move 1`. The names are the input actions of `project.aego`.
+   - `assert` checks values, at a frame or at any frame of the run: `@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; Enemy.script/Enemy.hp ~= 2.5; exists Ledge; @60 gone Coin`. Paths are the ones `scene_set` takes; `~=` compares numbers within 0.01. The report says `ok` or `failed` with the value found and the frame; a failed check fails the run, and the CLI exits with 2.
+   - `shot` captures up to three frames: `shot=30,90`. The answer has the images scaled to 640 pixels wide (`scale` changes it) and the paths of the full frames under `.aego/cache/runs/`. Screenshots need a display; on a server, run under `xvfb-run`.
+
+```sh
+aego scene run scenes/main.aescene --frames 120 --input "1-80 axis Move 1; 40 press Jump" --assert "Player.transform.position.x > -10" --shot 60
+```
 
 ## With the editor open
 
-The editor and the agent can work on the same project. A scene, prefab or data asset changed on disk reloads in the editor when it has no unsaved changes; with unsaved changes the editor asks whether to reload or keep its version, and data assets warn and keep yours until you save or revert. Prefab instances in open scenes follow a changed prefab file. While the editor is open, tools that create assets refuse: create them in the editor, or close it.
+The editor and the agent can work on the same project. While the editor is open, `aego` commands and `aego mcp` go through it: the editor writes the address of its proxy in `.aego/editor.lock`, and the CLI sends each command there.
+
+- A change is an Undo step of the open scene, named after where it came from: `via CLI: Rename`, or `via agent: <client>: Add Ledge` for an agent connected with `aego mcp`. The file changes when you save, as with your own edits.
+- **Window → Confirm Changes from Outside Agents** (`editor.proxy.confirm`, off by default) makes these changes wait in the Agent panel like its own agent's.
+- Follow mode shows where an outside agent works, the same as the panel's agent.
+- Commands that create assets work: the editor creates them.
+- When the editor does not answer, the CLI works on the files itself. A scene, prefab or data asset changed on disk reloads in the editor when it has no unsaved changes; with unsaved changes the editor asks whether to reload or keep its version.

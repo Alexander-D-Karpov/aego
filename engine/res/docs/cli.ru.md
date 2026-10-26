@@ -183,7 +183,7 @@ title: Команда aego
 | `aego scene remove-node <file> <node> [--dry-run]` | удалить узел вместе с детьми |
 | `aego scene rename <file> <node> <name> [--dry-run]` | переименовать узел |
 | `aego scene reset <file> <node> <path> [--dry-run]` | сбросить поле на значение по умолчанию, часть трансформации — на единичную |
-| `aego scene run [<file>] [--frames v] [--seed v] [--watch v]` | запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы |
+| `aego scene run [<file>] [--frames v] [--seed v] [--watch v] [--input v] [--assert v] [--shot v] [--scale v]` | запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы; `--input` нажимает действия, `--assert` проверяет значения, `--shot` снимает кадры |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | задать поле |
 | `aego scene tree <file> [--node v]` | дерево узлов с ID, компонентами, скриптами и связями с префабами; `--node` — только поддерево узла |
 | `aego scene validate <file>` | проблемы загрузки и ссылки на узлы, которых нет в сцене |

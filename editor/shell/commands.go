@@ -253,6 +253,16 @@ func (a *App) registerCommands() error {
 		if err := reg.Register(command.Desc{ID: "agent.ask", Name: "Ask Agent…", Category: "Window", Run: func() error { a.agentP.Ask(""); return nil }}); err != nil {
 			return err
 		}
+		if err := reg.Register(command.Desc{ID: CommandProxyConfirm, Name: "Confirm Changes from Outside Agents", Category: "Window",
+			Tip:     "Changes from the CLI and outside agents wait in the Agent panel like its own; off, they apply at once as their own Undo steps",
+			Checked: a.ProxyConfirm,
+			Run: func() error {
+				a.prefs.ProxyConfirm = !a.prefs.ProxyConfirm
+				a.savePrefs()
+				return nil
+			}}); err != nil {
+			return err
+		}
 		return reg.Register(command.Desc{ID: "agent.follow", Name: "Follow the Agent", Category: "Window", Shortcut: command.Key(input.KeyF, command.ModPrimary|command.ModAlt),
 			Tip:     "The editor shows where the agent works: the document, the node, the field it changes",
 			Checked: func() bool { return a.follow.On() },

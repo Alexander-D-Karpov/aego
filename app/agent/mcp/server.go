@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -116,6 +117,13 @@ func Main(p *project.Project, args []string, stdin io.Reader, stdout, stderr io.
 	fs.String("project", "", "project directory")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if addr, token, ok := agent.EditorProxy(p.Root); ok {
+		if err := Relay(stdin, stdout, addr, token); err != nil {
+			fmt.Fprintln(stderr, "aego mcp:", err)
+			return 1
+		}
+		return 0
 	}
 	kit, err := agent.NewKit(p, opt)
 	if err != nil {
@@ -304,7 +312,13 @@ func result(v any, failed bool) map[string]any {
 		b, _ := json.Marshal(v)
 		text = string(b)
 	}
-	out := map[string]any{"content": []any{map[string]any{"type": "text", "text": text}}, "isError": failed}
+	content := []any{map[string]any{"type": "text", "text": text}}
+	if o, ok := v.(*agent.Output); ok {
+		for _, img := range o.Images {
+			content = append(content, map[string]any{"type": "image", "data": base64.StdEncoding.EncodeToString(img.Data), "mimeType": img.Mime})
+		}
+	}
+	out := map[string]any{"content": content, "isError": failed}
 	if !ok && !failed {
 		out["structuredContent"] = v
 	}

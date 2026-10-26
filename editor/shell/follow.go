@@ -40,6 +40,28 @@ func (a *App) followChanged(on bool) {
 	}
 }
 
+// savePrefs writes the preferences, telling the user when it cannot.
+func (a *App) savePrefs() {
+	if err := prefs.Save(a.opt.PrefsDir, a.prefs); err != nil {
+		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.prefs.save_failed", "Cannot save the editor preferences: {err}", i18n.Str("err", err.Error())))
+	}
+}
+
+// CommandProxyConfirm turns on confirming the changes that come through the editor's proxy (11b6).
+const CommandProxyConfirm = "editor.proxy.confirm"
+
+// ProxyConfirm reports whether changes from the CLI and outside agents wait for the user.
+func (a *App) ProxyConfirm() bool {
+	return a.prefs != nil && a.prefs.ProxyConfirm
+}
+
+// ExternalCall shows a call that came through the proxy the way follow mode shows the panel's agent.
+func (a *App) ExternalCall(tool, args string) {
+	if a.follow != nil {
+		a.follow.Step(tool, args, a.eng.Platform().Now())
+	}
+}
+
 // budgetsChanged keeps the agent's read limits in the preferences.
 func (a *App) budgetsChanged(b agentui.Budgets) {
 	a.prefs.AgentBudgets = b

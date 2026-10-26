@@ -202,7 +202,20 @@ func looks() map[string]Look {
 			if raw, isRaw := o.Value.(json.RawMessage); isRaw {
 				_ = json.Unmarshal(raw, &r)
 			}
-			return i18n.TrN("editor.agent.step.ticks", int64(r.Frames), "{n} tick", "{n} ticks") + " · " + problems(o)
+			parts := []string{i18n.TrN("editor.agent.step.ticks", int64(r.Frames), "{n} tick", "{n} ticks")}
+			if len(r.Checks) > 0 {
+				ok := 0
+				for _, c := range r.Checks {
+					if c.OK {
+						ok++
+					}
+				}
+				parts = append(parts, i18n.Tr("editor.agent.step.checks", "{ok} of {n} checks hold", i18n.Int("ok", int64(ok)), i18n.Int("n", int64(len(r.Checks)))))
+			}
+			if len(r.Shots) > 0 {
+				parts = append(parts, i18n.TrN("editor.agent.step.shots", int64(len(r.Shots)), "{n} screenshot", "{n} screenshots"))
+			}
+			return strings.Join(append(parts, problems(o)), " · ")
 		}},
 		"scene.validate": {"edit.validate", func(a Args) string {
 			return i18n.Tr("editor.agent.step.validate_scene", "Check {file}", i18n.Str("file", file(a)))

@@ -52,6 +52,8 @@ type Proposal struct {
 	Err         string
 	undo        *undoRef
 	decide      chan bool
+	// Via names where the change came from when it was not the panel's agent: "via CLI", "via agent: claude-code".
+	Via string
 }
 
 func destructive(c *agent.Command, out *agent.Output) bool {
@@ -85,13 +87,18 @@ func (b *Bridge) timeout() time.Duration {
 
 // propose previews a write call on the main thread, waits for the user off it, then applies it on the current state.
 func (b *Bridge) propose(c *agent.Command, a agent.Args) (*agent.Output, error) {
+	return b.proposeVia(c, a, "", false)
+}
+
+// proposeVia previews a write and applies it at once when direct, else waits for the user like the panel's own agent.
+func (b *Bridge) proposeVia(c *agent.Command, a agent.Args, via string, direct bool) (*agent.Output, error) {
 	var p *Proposal
 	var err error
 	var st State
 	var res *agent.Output
 	var msg string
 	if e := b.main(func() {
-		if p, err = b.preview(c, a); p != nil {
+		if p, err = b.preview(c, a, via, direct); p != nil {
 			st, res, msg = p.State, p.Result, p.Err
 		}
 	}); e != nil {
@@ -120,7 +127,7 @@ func (b *Bridge) propose(c *agent.Command, a agent.Args) (*agent.Output, error) 
 	return out, err
 }
 
-func (b *Bridge) preview(c *agent.Command, a agent.Args) (*Proposal, error) {
+func (b *Bridge) preview(c *agent.Command, a agent.Args, via string, direct bool) (*Proposal, error) {
 	dry := maps.Clone(a)
 	dry["dry-run"] = true
 	out, err := agent.Run(b.sess, c.Name, dry)
@@ -131,9 +138,9 @@ func (b *Bridge) preview(c *agent.Command, a agent.Args) (*Proposal, error) {
 		return nil, problemsErr(out)
 	}
 	b.next++
-	p := &Proposal{ID: b.next, Command: c.Name, Args: maps.Clone(a), Preview: out, Destructive: destructive(c, out), decide: make(chan bool, 1)}
+	p := &Proposal{ID: b.next, Command: c.Name, Args: maps.Clone(a), Preview: out, Destructive: destructive(c, out), decide: make(chan bool, 1), Via: via}
 	b.keep(p)
-	if b.auto && !p.Destructive {
+	if direct || b.auto && !p.Destructive {
 		b.apply(p)
 		return p, nil
 	}
@@ -159,7 +166,8 @@ func (b *Bridge) keep(p *Proposal) {
 }
 
 func (b *Bridge) apply(p *Proposal) (*agent.Output, error) {
-	b.last = nil
+	b.last, b.via = nil, p.Via
+	defer func() { b.via = "" }()
 	out, err := b.run(p.Command, p.Args)
 	p.undo = b.last
 	if err != nil {

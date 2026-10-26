@@ -7,8 +7,8 @@ import (
 	"aego/app/agentui/backend"
 	"aego/app/edit/agentbridge"
 	"aego/editor/core/command"
-	"aego/editor/core/workspace"
 	"aego/editor/core/follow"
+	"aego/editor/core/workspace"
 )
 
 func replayFollow(t *testing.T) *backend.Replay {

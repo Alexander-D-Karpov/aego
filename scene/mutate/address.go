@@ -140,6 +140,7 @@ func splitIndex(seg string) (string, int, error) {
 }
 
 func (d *Document) target(nodeRef, path string) (target, error) {
+	path = strings.TrimPrefix(path, "script/")
 	h, err := d.node(nodeRef)
 	if err != nil {
 		return target{}, err

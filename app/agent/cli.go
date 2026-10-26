@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -46,6 +47,12 @@ func Main(p *project.Project, args []string, stdout, stderr io.Writer, opt Optio
 		fmt.Fprintln(stderr, "aego:", err)
 		fmt.Fprintln(stderr, "usage: aego "+c.Usage())
 		return 2
+	}
+	if addr, token, ok := EditorProxy(p.Root); ok {
+		out, err := proxyRun(addr, token, c, a)
+		if !errors.As(err, new(errProxyDown)) {
+			return report(stdout, stderr, f, out, err)
+		}
 	}
 	s, err := Open(p, opt)
 	if err != nil {

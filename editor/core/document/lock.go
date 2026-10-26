@@ -16,6 +16,9 @@ type LockInfo struct {
 	PID  int
 	Host string
 	Time time.Time
+	// Proxy and Token are where the editor takes agent commands from the CLI and outside agents (11b6).
+	Proxy string
+	Token string
 }
 
 func lockPath(root string) string {
@@ -41,6 +44,10 @@ func ReadLock(root string) (*LockInfo, bool) {
 			info.Host = v
 		case "time":
 			info.Time, _ = time.Parse(time.RFC3339Nano, v)
+		case "proxy":
+			info.Proxy = v
+		case "token":
+			info.Token = v
 		}
 	}
 	return info, info.PID != 0
@@ -63,4 +70,17 @@ func AcquireLock(root string) (func(), *LockInfo, error) {
 		}
 	}
 	return release, other, nil
+}
+
+// SetLockProxy adds the editor's proxy address to its lock, readable by the user only, so the CLI sends commands there.
+func SetLockProxy(root, url, token string) error {
+	info, ok := ReadLock(root)
+	if !ok || info.PID != os.Getpid() {
+		return nil
+	}
+	data := "pid=" + strconv.Itoa(info.PID) + "\nhost=" + info.Host + "\ntime=" + info.Time.Format(time.RFC3339Nano) + "\nproxy=" + url + "\ntoken=" + token + "\n"
+	if err := WriteAtomic(lockPath(root), []byte(data)); err != nil {
+		return err
+	}
+	return os.Chmod(lockPath(root), 0o600)
 }

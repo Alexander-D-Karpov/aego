@@ -95,6 +95,7 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
+	$(GL_ENV) SDL_AUDIO_DRIVER=dummy go test -tags aego_gltest -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
 	go vet -cgocall=false -unsafeptr=false $(LINT_PKGS)

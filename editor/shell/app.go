@@ -134,6 +134,8 @@ type Options struct {
 	PrefsDir string
 	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
 	Agent agentui.Host
+	// Proxy starts the server the CLI and outside agents send commands to while the editor is open; its address goes in the editor lock.
+	Proxy func() (url, token string, err error)
 }
 
 type App struct {
@@ -823,6 +825,12 @@ func (a *App) Init(e *engine.Engine) error {
 	a.unlock = unlock
 	if err != nil {
 		a.log.Warn("cannot write the editor lock", log.F("err", err.Error()))
+	} else if a.opt.Proxy != nil && other == nil {
+		if url, token, err := a.opt.Proxy(); err != nil {
+			a.log.Warn("cannot start the proxy for the CLI and outside agents", log.F("err", err.Error()))
+		} else if err := document.SetLockProxy(p.Root, url, token); err != nil {
+			a.log.Warn("cannot write the proxy address in the editor lock", log.F("err", err.Error()))
+		}
 	}
 	if other != nil {
 		a.push(modal{kind: modalLock, lock: *other})

@@ -15,6 +15,7 @@ import (
 	"aego/app/assembly/builtin"
 	"aego/app/assembly/editors"
 	"aego/app/crash"
+	"aego/app/edit/agentbridge"
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/log"
@@ -83,6 +84,7 @@ type Session struct {
 	docs    []docAttach
 	driver  *driver
 	mods    []sdk.Module
+	bridge  *agentbridge.Bridge
 
 	ring       *crash.Ring
 	crashScene bool
@@ -232,6 +234,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 		Exporter:    newExporter(p, h.Pipeline),
 		Agent:       s.agentHost(cfg),
+		Proxy:       s.startProxy,
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil
@@ -347,5 +350,9 @@ func (s *Session) Close() {
 		s.docs[i].detach()
 	}
 	s.docs = nil
+	if s.bridge != nil {
+		s.bridge.Close()
+		s.bridge = nil
+	}
 	s.Host.Close()
 }

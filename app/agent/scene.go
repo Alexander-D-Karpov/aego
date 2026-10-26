@@ -81,7 +81,11 @@ func sceneCommands() []*Command {
 		{Name: "scene.new", Doc: "create an empty scene", Write: true, Args: []Arg{{Name: "file", Type: "string", Doc: "new scene file, scenes/<name>.aescene", Required: true, Pos: true}}, Run: (*Session).sceneNew},
 		{Name: "scene.run", Doc: "run a scene headless and report the log, the state hash and where the watched nodes went", Args: []Arg{{Name: "file", Type: "string", Doc: "scene file, the main scene by default", Pos: true},
 			{Name: "frames", Type: "integer", Doc: "frames to run, 120 by default"}, {Name: "seed", Type: "integer", Doc: "random seed, 1 by default"},
-			{Name: "watch", Type: "string", Doc: "comma-separated node paths whose world positions the report samples: Player,MovingPlatform"}}, Run: (*Session).sceneRun},
+			{Name: "watch", Type: "string", Doc: "comma-separated node paths whose world positions the report samples: Player,MovingPlatform"},
+			{Name: "input", Type: "string", Doc: "actions to press, by frame: 30 press Jump; 10-60 hold Right; 90 release Right; 0-40 axis Move 1"},
+			{Name: "assert", Type: "string", Doc: "checks separated by ;, at a frame or at any frame: @120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge; gone Coin; ~= compares numbers within 0.01"},
+			{Name: "shot", Type: "string", Doc: "comma-separated frames to capture, at most 3; the answer has the images, the full frames are under .aego/cache/runs"},
+			{Name: "scale", Type: "integer", Doc: "width the screenshots are scaled to in the answer, 640 by default"}}, Run: (*Session).sceneRun},
 	}
 }
 
@@ -303,7 +307,10 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := RunRequest{Frames: frames, Seed: uint64(seed), Watch: WatchList(a.Str("watch"))}
+	req, err := RunRequestOf(a, frames, seed)
+	if err != nil {
+		return nil, err
+	}
 	if a.Has("file") {
 		rel, err := s.rel(a.Str("file"))
 		if err != nil {
@@ -330,7 +337,28 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 
 // RunOutput is the answer to scene.run: the report, its text and the run's error as a problem.
 func RunOutput(rep RunReport) *Output {
-	out := &Output{OK: rep.Error == "", Value: rep}
+	out := &Output{OK: rep.Error == ""}
+	for i := range rep.Shots {
+		s := &rep.Shots[i]
+		if len(s.PNG) > 0 {
+			out.Images = append(out.Images, Image{Mime: "image/png", Data: s.PNG})
+			s.PNG = nil
+		}
+	}
+	for _, c := range rep.Checks {
+		if !c.OK {
+			out.OK = false
+			msg := "assert failed: " + c.Assert
+			if c.Value != "" {
+				msg += " (was " + c.Value + " at frame " + strconv.Itoa(c.Frame) + ")"
+			}
+			if c.Error != "" {
+				msg += ": " + c.Error
+			}
+			out.Problems = append(out.Problems, mutate.Problem{Error: true, Message: msg})
+		}
+	}
+	out.Value = rep
 	if rep.Error != "" {
 		out.Problems = append(out.Problems, mutate.Problem{Error: true, Message: rep.Error})
 	}
@@ -338,6 +366,27 @@ func RunOutput(rep RunReport) *Output {
 	b.WriteString("frames: " + strconv.Itoa(rep.Frames) + "\nhash: " + rep.Hash + "\n")
 	for _, k := range slices.Sorted(maps.Keys(rep.Counters)) {
 		b.WriteString(k + ": " + strconv.FormatUint(rep.Counters[k], 10) + "\n")
+	}
+	for _, c := range rep.Checks {
+		state := "ok"
+		if !c.OK {
+			state = "failed"
+		}
+		b.WriteString(state + ": " + c.Assert)
+		if c.Value != "" {
+			b.WriteString(" (" + c.Value + " at frame " + strconv.Itoa(c.Frame) + ")")
+		}
+		if c.Error != "" {
+			b.WriteString(" " + c.Error)
+		}
+		b.WriteString("\n")
+	}
+	for _, s := range rep.Shots {
+		if s.Error != "" {
+			b.WriteString("shot at frame " + strconv.Itoa(s.Frame) + ": " + s.Error + "\n")
+		} else {
+			b.WriteString("shot at frame " + strconv.Itoa(s.Frame) + ": " + s.Path + "\n")
+		}
 	}
 	for _, t := range rep.Tracks {
 		b.WriteString(t.Node + ":")
@@ -354,6 +403,32 @@ func RunOutput(rep RunReport) *Output {
 	}
 	out.Text = b.String()
 	return out
+}
+
+// RunRequestOf reads the arguments of scene.run that the CLI and the editor share.
+func RunRequestOf(a Args, frames, seed int) (RunRequest, error) {
+	req := RunRequest{Frames: frames, Seed: uint64(seed), Watch: WatchList(a.Str("watch")), Input: a.Str("input")}
+	for _, s := range strings.FieldsFunc(a.Str("assert"), func(r rune) bool { return r == ';' || r == '\n' }) {
+		if s = strings.TrimSpace(s); s != "" {
+			req.Asserts = append(req.Asserts, s)
+		}
+	}
+	for _, s := range WatchList(a.Str("shot")) {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 1 {
+			return req, errors.New("shot " + s + " is not a frame")
+		}
+		req.Shots = append(req.Shots, n)
+	}
+	if len(req.Shots) > 3 {
+		return req, errors.New("at most 3 screenshots a run; each one costs the agent's context")
+	}
+	width, err := a.Int("scale", 640)
+	if err != nil {
+		return req, err
+	}
+	req.ShotWidth = width
+	return req, nil
 }
 
 // WatchList splits scene.run's watch argument into node paths.

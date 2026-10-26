@@ -47,6 +47,32 @@ type RunRequest struct {
 	Seed   uint64 `json:"seed"`
 	// Watch names nodes whose world positions the report samples through the run.
 	Watch []string `json:"watch,omitempty"`
+	// Input is the actions the run presses: "30 press Jump; 10-60 hold Right; 0-40 axis Move 1".
+	Input string `json:"input,omitempty"`
+	// Asserts are checked through the run: "@120 Player.transform.position.y < 3", "EnemyLeft.Health.hp == 0", "exists Ledge".
+	Asserts []string `json:"asserts,omitempty"`
+	// Shots are the frames to capture, at most three; ShotWidth is the width they are scaled to for the answer.
+	Shots     []int `json:"shots,omitempty"`
+	ShotWidth int   `json:"shotWidth,omitempty"`
+}
+
+// Check is the result of one assertion: whether it held, the value found and at which frame.
+type Check struct {
+	Assert string `json:"assert"`
+	OK     bool   `json:"ok"`
+	Value  string `json:"value,omitempty"`
+	Frame  int    `json:"frame"`
+	Error  string `json:"error,omitempty"`
+}
+
+// Shot is a captured frame: the full image under .aego/cache/runs, and a scaled PNG for the answer.
+type Shot struct {
+	Frame  int    `json:"frame"`
+	Path   string `json:"path,omitempty"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
+	PNG    []byte `json:"png,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 // Track is where a watched node was: at the start, at each quarter of the run and at the end.
@@ -64,6 +90,8 @@ type RunReport struct {
 	Log      []string          `json:"log,omitempty"`
 	Error    string            `json:"error,omitempty"`
 	Tracks   []Track           `json:"tracks,omitempty"`
+	Checks   []Check           `json:"checks,omitempty"`
+	Shots    []Shot            `json:"shots,omitempty"`
 }
 
 type Runner func(p *project.Project, r RunRequest) (RunReport, error)

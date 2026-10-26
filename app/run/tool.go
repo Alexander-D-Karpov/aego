@@ -199,10 +199,18 @@ func agentRunTool(p *project.Project, args []string, stdout, stderr io.Writer, m
 	frames := fs.Int("frames", 120, "frames to run")
 	seed := fs.Uint64("seed", 1, "random seed")
 	watchFlag := fs.String("watch", "", "comma-separated node paths to sample")
+	reqFlag := fs.String("request", "", "the whole run request as JSON, as the editor sends it")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	rep, err := AgentRunner(mods...)(p, agent.RunRequest{Scene: *scenePath, Frames: *frames, Seed: *seed, Watch: agent.WatchList(*watchFlag)})
+	req := agent.RunRequest{Scene: *scenePath, Frames: *frames, Seed: *seed, Watch: agent.WatchList(*watchFlag)}
+	if *reqFlag != "" {
+		if err := json.Unmarshal([]byte(*reqFlag), &req); err != nil {
+			fmt.Fprintln(stderr, "agent-run:", err)
+			return 2
+		}
+	}
+	rep, err := AgentRunner(mods...)(p, req)
 	res := AgentRunResult{Report: rep}
 	if err != nil {
 		res.Err = err.Error()

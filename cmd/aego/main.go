@@ -149,7 +149,7 @@ func cmdAgent(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	if bootstrap.NeedsNative(p) {
+	if _, _, ok := agent.EditorProxy(p.Root); !ok && bootstrap.NeedsNative(p) {
 		return scriptTool(p, append([]string{"agent"}, args...)...)
 	}
 	return agent.Main(p, args, os.Stdout, os.Stderr, agent.Options{Run: run.AgentRunner()})
@@ -160,7 +160,7 @@ func cmdMcp(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	if bootstrap.NeedsNative(p) {
+	if _, _, ok := agent.EditorProxy(p.Root); !ok && bootstrap.NeedsNative(p) {
 		return scriptTool(p, append([]string{"mcp"}, args...)...)
 	}
 	return mcp.Main(p, args, os.Stdin, os.Stdout, os.Stderr, agent.Options{Run: run.AgentRunner()})

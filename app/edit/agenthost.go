@@ -15,24 +15,24 @@ import (
 
 // agentHost runs the model and the bridge for the Agent panel; the bridge and the process start on the first message (D343).
 type agentHost struct {
-	backend backend.Backend
-	config  func() agentbridge.Config
-	command func() string
-	setCmd  func(string)
-	bridge  *agentbridge.Bridge
-	conv    backend.Conversation
-	busy    bool
-	auto    bool
-	plan    bool
-	budgets agentui.Budgets
-	static  map[int]agentui.Card
+	backend  backend.Backend
+	bridgeOf func() (*agentbridge.Bridge, error)
+	command  func() string
+	setCmd   func(string)
+	bridge   *agentbridge.Bridge
+	conv     backend.Conversation
+	busy     bool
+	auto     bool
+	plan     bool
+	budgets  agentui.Budgets
+	static   map[int]agentui.Card
 }
 
-func newAgentHost(b backend.Backend, config func() agentbridge.Config, command func() string, set func(string)) *agentHost {
+func newAgentHost(b backend.Backend, bridge func() (*agentbridge.Bridge, error), command func() string, set func(string)) *agentHost {
 	if b == nil {
 		b = backend.Claude{}
 	}
-	return &agentHost{backend: b, config: config, command: command, setCmd: set, static: map[int]agentui.Card{}, budgets: agentui.DefaultBudgets}
+	return &agentHost{backend: b, bridgeOf: bridge, command: command, setCmd: set, static: map[int]agentui.Card{}, budgets: agentui.DefaultBudgets}
 }
 
 func (h *agentHost) Available(cmd string) (string, error) {
@@ -65,9 +65,10 @@ func (h *agentHost) Busy() bool {
 	return h.busy
 }
 
-func (h *agentHost) start() error {
+// attach takes the editor's bridge with the panel's settings; the proxy may have started it before the panel's first message.
+func (h *agentHost) attach() error {
 	if h.bridge == nil {
-		b, err := agentbridge.Start(h.config())
+		b, err := h.bridgeOf()
 		if err != nil {
 			return err
 		}
@@ -75,6 +76,13 @@ func (h *agentHost) start() error {
 		b.SetPlanOnly(h.plan)
 		b.SetBudgets(h.budgets)
 		h.bridge = b
+	}
+	return nil
+}
+
+func (h *agentHost) start() error {
+	if err := h.attach(); err != nil {
+		return err
 	}
 	if h.conv == nil {
 		c, err := h.backend.Start(h.bridge.Backend())
@@ -112,7 +120,7 @@ func (h *agentHost) Close() {
 		h.conv = nil
 	}
 	if h.bridge != nil {
-		h.bridge.Close()
+		h.bridge.RejectAll()
 		h.bridge = nil
 	}
 	h.busy = false
@@ -226,7 +234,7 @@ func problemTexts(out *agent.Output) []string {
 
 // Cards are the bridge's proposals; their fixed parts are built once.
 func (h *agentHost) Cards(dst []agentui.Card) []agentui.Card {
-	if h.bridge == nil {
+	if h.attach() != nil {
 		return dst
 	}
 	for _, p := range h.bridge.Proposals() {
@@ -298,7 +306,7 @@ func (h *agentHost) Reset() {
 }
 
 func (h *agentHost) Questions(dst []agentui.Question) []agentui.Question {
-	if h.bridge == nil {
+	if h.attach() != nil {
 		return dst
 	}
 	for _, q := range h.bridge.Questions() {

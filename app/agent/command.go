@@ -44,6 +44,14 @@ type Output struct {
 	Notes    []string         `json:"notes,omitempty"`
 	Value    any              `json:"value,omitempty"`
 	Text     string           `json:"-"`
+	// Images go to the model as image content, such as the screenshots of a run.
+	Images []Image `json:"-"`
+}
+
+// Image is a picture an answer carries.
+type Image struct {
+	Mime string
+	Data []byte
 }
 
 var dryRun = Arg{Name: "dry-run", Type: "boolean", Doc: "report the changes without writing anything"}

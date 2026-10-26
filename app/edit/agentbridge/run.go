@@ -24,7 +24,10 @@ func (b *Bridge) sceneRun(a agent.Args) (*agent.Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := agent.RunRequest{Frames: frames, Seed: uint64(seed), Watch: agent.WatchList(a.Str("watch"))}
+	req, err := agent.RunRequestOf(a, frames, seed)
+	if err != nil {
+		return nil, err
+	}
 	var notes []string
 	var ferr error
 	if e := b.main(func() { req.Scene, notes, ferr = b.runScene(a.Str("file")) }); e != nil {

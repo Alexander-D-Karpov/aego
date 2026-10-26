@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,13 +24,11 @@ func agentRun(p *project.Project, r agent.RunRequest) (agent.RunReport, error) {
 	if err != nil {
 		return agent.RunReport{}, err
 	}
-	args := []string{"--tool", "agent-run", "--frames", strconv.Itoa(r.Frames), "--seed", strconv.FormatUint(r.Seed, 10)}
-	if r.Scene != "" {
-		args = append(args, "--scene", r.Scene)
+	req, err := json.Marshal(r)
+	if err != nil {
+		return agent.RunReport{}, err
 	}
-	if len(r.Watch) > 0 {
-		args = append(args, "--watch", strings.Join(r.Watch, ","))
-	}
+	args := []string{"--tool", "agent-run", "--request", string(req)}
 	ctx, cancel := context.WithTimeout(context.Background(), agentRunTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, args...)

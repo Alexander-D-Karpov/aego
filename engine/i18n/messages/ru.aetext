@@ -555,6 +555,9 @@ messages version=1 lang=ru {
     few="{n} изменения"
     many="{n} изменений"
   }
+  msg "editor.agent.step.checks" {
+    text="проверок прошло: {ok} из {n}"
+  }
   msg "editor.agent.step.delete_asset" {
     text="Удалить {asset}"
   }
@@ -755,6 +758,11 @@ messages version=1 lang=ru {
   }
   msg "editor.agent.step.set_transition" {
     text="Задать {attr} у перехода"
+  }
+  msg "editor.agent.step.shots" {
+    one="{n} снимок"
+    few="{n} снимка"
+    many="{n} снимков"
   }
   msg "editor.agent.step.show_type" {
     text="Прочитать поля {type}"
@@ -1577,6 +1585,12 @@ messages version=1 lang=ru {
   }
   msg "editor.command.edit.undo.tip" {
     text="Отменить последнее изменение активной сцены"
+  }
+  msg "editor.command.editor.proxy.confirm" {
+    text="Подтверждать изменения внешних агентов"
+  }
+  msg "editor.command.editor.proxy.confirm.tip" {
+    text="Изменения из CLI и от внешних агентов ждут в панели агента, как изменения её агента; если выключено, применяются сразу отдельными шагами отмены"
   }
   msg "editor.command.favorites.toggle_node" {
     text="Добавить узел в избранное"

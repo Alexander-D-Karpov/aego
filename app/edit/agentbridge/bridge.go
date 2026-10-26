@@ -52,6 +52,10 @@ type Config struct {
 	ProjectChanged func()
 	// Run runs the game headless for scene.run; without it scene.run reports that runs are not available.
 	Run agent.Runner
+	// ProxyConfirm makes changes from the CLI and outside agents wait in the Agent panel like the panel's own; off, they apply at once.
+	ProxyConfirm func() bool
+	// OnExternal runs on the main thread when a call comes through the proxy, so follow mode shows it.
+	OnExternal func(tool, args string)
 }
 
 type Bridge struct {
@@ -61,6 +65,9 @@ type Bridge struct {
 	http *mcp.HTTP
 	// docResults caps docs_search; the MCP server reads it off the main thread.
 	docResults atomic.Int64
+	// via names the origin of the change being applied, for its Undo step; proxy serves the CLI and outside agents.
+	via   string
+	proxy *mcp.HTTP
 
 	proposals []*Proposal
 	questions []*Question
@@ -78,7 +85,7 @@ const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Led
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
 	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
 	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
-	"Check behaviour with scene_run: it plays the scene headless as it is in the editor, and watch lists nodes whose positions it reports through the run. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
+	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
@@ -97,7 +104,18 @@ func Start(cfg Config) (*Bridge, error) {
 // Close rejects what still waits for the user and stops the server; call it on the main thread.
 func (b *Bridge) Close() error {
 	b.RejectAll()
+	if b.proxy != nil {
+		b.proxy.Close()
+	}
 	return b.http.Close()
+}
+
+// stepName is the Undo step of an applied change: "Agent: Add Ledge", or "via CLI: Add Ledge" for a change from outside.
+func (b *Bridge) stepName(label string) string {
+	if b.via != "" {
+		return b.via + ": " + label
+	}
+	return "Agent: " + label
 }
 
 // ContextBase is what the model reads before the first message from the editor: the guide and the tool definitions.
@@ -222,7 +240,7 @@ func (b *Bridge) ApplyScene(rel, label string, tx mutate.Tx) (*mutate.Result, er
 	if d == nil {
 		return nil, errors.New(rel + " is not open in the editor")
 	}
-	cmd := commands.NewMutation("Agent: "+label, b.env(d.Scene()), tx.Ops...)
+	cmd := commands.NewMutation(b.stepName(label), b.env(d.Scene()), tx.Ops...)
 	if err := d.History.Exec(cmd); err != nil {
 		return nil, err
 	}
@@ -232,7 +250,7 @@ func (b *Bridge) ApplyScene(rel, label string, tx mutate.Tx) (*mutate.Result, er
 
 // ApplyFile changes a clip or controller as one Undo step of the edited scene, or directly when no scene is open.
 func (b *Bridge) ApplyFile(rel string, ctrl bool, label string, tx mutate.Tx) (*mutate.Result, error) {
-	e := &animedit.FileEdit{Name: "Agent: " + label, Rel: rel, Ctrl: ctrl, Tx: tx, Files: b.ctx.AnimFiles, Loaded: b.loaded}
+	e := &animedit.FileEdit{Name: b.stepName(label), Rel: rel, Ctrl: ctrl, Tx: tx, Files: b.ctx.AnimFiles, Loaded: b.loaded}
 	d := b.ctx.Docs.Edit()
 	if d == nil {
 		if err := e.Do(nil); err != nil {
@@ -253,7 +271,7 @@ func (b *Bridge) Sections() *module.Sections {
 
 // ApplyProject replaces a module section of project.aego as one Undo step of the edited scene.
 func (b *Bridge) ApplyProject(id string, n *aetext.Node, label string) error {
-	e := &projectedit.Edit{Name: "Agent: " + label, Project: b.ctx.Project, Sections: b.ctx.Sections, ID: id, After: n, Changed: b.cfg.ProjectChanged}
+	e := &projectedit.Edit{Name: b.stepName(label), Project: b.ctx.Project, Sections: b.ctx.Sections, ID: id, After: n, Changed: b.cfg.ProjectChanged}
 	d := b.ctx.Docs.Edit()
 	if d == nil {
 		return e.Do(nil)
