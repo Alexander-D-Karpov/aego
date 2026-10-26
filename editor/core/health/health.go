@@ -1,6 +1,8 @@
 package health
 
 import (
+	"image"
+	"image/color"
 	"path"
 	"sort"
 	"strconv"
@@ -11,6 +13,7 @@ import (
 	"aego/core/ids"
 	"aego/engine/i18n"
 	"aego/engine/problems"
+	"aego/format/pixelart"
 	"aego/project"
 )
 
@@ -173,7 +176,8 @@ func Run(env Env) []Item {
 	return out
 }
 
-func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
+// Scan reads every texture and scene: textures over limit, scenes without a camera and, with a palette, pixel-art sprites drawn outside it.
+func Scan(pl *pipeline.Pipeline, cameras []string, limit int, palette []color.NRGBA) []Item {
 	if pl == nil {
 		return nil
 	}
@@ -181,7 +185,7 @@ func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
 		limit = DefaultTexture
 	}
 	files := pl.Artifacts()
-	var big, dark []string
+	var big, dark, off []string
 	for _, a := range pl.Assets() {
 		e, ok := pl.Entry(a.ID)
 		if !ok {
@@ -197,8 +201,15 @@ func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
 			if err != nil {
 				continue
 			}
-			if t, err := asset.DecodeTexture(data); err == nil && (t.Width > limit || t.Height > limit) {
+			t, err := asset.DecodeTexture(data)
+			if err != nil {
+				continue
+			}
+			if t.Width > limit || t.Height > limit {
 				big = append(big, a.Path+"  "+strconv.Itoa(t.Width)+"×"+strconv.Itoa(t.Height))
+			}
+			if n := offPalette(t, palette); n > 0 && pixelArt(pl, a.ID) {
+				off = append(off, a.Path+"  "+i18n.Tr("editor.health.off_palette_pixels", "{n} % of the pixels", i18n.Str("n", strconv.Itoa(n))))
 			}
 		case asset.ArtScene:
 			if len(cameras) == 0 {
@@ -222,6 +233,7 @@ func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
 	}
 	sort.Strings(big)
 	sort.Strings(dark)
+	sort.Strings(off)
 	var out []Item
 	if len(big) > 0 {
 		out = append(out, Item{Code: "HLT007", Severity: Warning, Title: i18n.Tr("editor.health.big_texture_s_larger_than", "{big} texture(s) larger than {limit} px", i18n.Str("big", strconv.Itoa(len(big))), i18n.Str("limit", strconv.Itoa(limit))), Paths: big, Action: ActionReveal})
@@ -229,7 +241,33 @@ func Scan(pl *pipeline.Pipeline, cameras []string, limit int) []Item {
 	if len(dark) > 0 {
 		out = append(out, Item{Code: "HLT008", Severity: Info, Title: i18n.Tr("editor.health.dark_scene_s_without_a", "{dark} scene(s) without a camera", i18n.Str("dark", strconv.Itoa(len(dark)))), Paths: dark, Action: ActionReveal})
 	}
+	if len(off) > 0 {
+		out = append(out, Item{Code: "HLT009", Severity: Info, Title: i18n.Tr("editor.health.off_palette", "{n} sprite(s) drawn outside the art palette", i18n.Str("n", strconv.Itoa(len(off)))), Paths: off, Action: ActionReveal})
+	}
 	return out
+}
+
+// offPalette is the percent of a texture's opaque pixels outside the palette, 0 under 1 %.
+func offPalette(t *asset.TextureArtifact, palette []color.NRGBA) int {
+	if len(palette) == 0 || len(t.Pixels) != t.Width*t.Height*4 {
+		return 0
+	}
+	img := &image.NRGBA{Pix: t.Pixels, Stride: t.Width * 4, Rect: image.Rect(0, 0, t.Width, t.Height)}
+	n, opaque := pixelart.OffPalette(img, palette)
+	if opaque == 0 {
+		return 0
+	}
+	return n * 100 / opaque
+}
+
+// pixelArt is a texture filtered as pixels; smooth ones blend colors at their edges and are not checked.
+func pixelArt(pl *pipeline.Pipeline, id ids.AssetID) bool {
+	m, ok := pl.MetaOf(id)
+	if !ok {
+		return true
+	}
+	v, set := m.Settings["filter"]
+	return !set || v.Ident != "linear" && v.Str != "linear"
 }
 
 func PathOf(line string) string {

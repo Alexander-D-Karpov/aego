@@ -1,6 +1,7 @@
 package health
 
 import (
+	"image/color"
 	"strconv"
 	"time"
 
@@ -19,13 +20,15 @@ import (
 const ID = "project_health"
 
 type Deps struct {
-	Pipeline     *pipeline.Pipeline
-	Project      *project.Project
-	Docs         services.Documents
-	Tasks        *tasks.Queue
-	Problems     func() []problems.Diagnostic
-	Missing      func() int
-	Cameras      func() []string
+	Pipeline *pipeline.Pipeline
+	Project  *project.Project
+	Docs     services.Documents
+	Tasks    *tasks.Queue
+	Problems func() []problems.Diagnostic
+	Missing  func() int
+	Cameras  func() []string
+	// Palette is the art palette of project.aego; sprites outside it are reported.
+	Palette      func() []color.NRGBA
 	Exclude      func() []string
 	TextureLimit int
 	ShowMissing  func()
@@ -83,10 +86,14 @@ func (p *Panel) Run() {
 	if p.d.Export != nil {
 		exp = p.d.Export()
 	}
+	var pal []color.NRGBA
+	if p.d.Palette != nil {
+		pal = p.d.Palette()
+	}
 	var found []core.Item
 	pl, limit := p.d.Pipeline, p.d.TextureLimit
 	p.running = p.d.Tasks.Work(tasks.Spec{Title: i18n.Tr("editor.health.check_textures_scenes_and_export", "Check textures, scenes and export"), Kind: "health"}, func(*tasks.Task) error {
-		found = core.Scan(pl, cams, limit)
+		found = core.Scan(pl, cams, limit, pal)
 		if exp != nil {
 			found = append(found, exp()...)
 		}

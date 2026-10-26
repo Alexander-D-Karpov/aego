@@ -316,3 +316,31 @@ func TestAgentSceneApplyIsOneStep(t *testing.T) {
 		t.Fatal("the node is not in the scene")
 	}
 }
+
+// prefab_create works on a scene with unsaved edits: the prefab file is written and the node linked as an Undo step, the scene stays unsaved (11b8).
+func TestAgentCreatesPrefabFromUnsavedScene(t *testing.T) {
+	e := bridgeSetup(t, agentbridge.Config{})
+	events := e.turn(t, []backend.Step{
+		{Tool: "scene_apply", Args: map[string]any{"file": bridgeScene, "tx": agentbridge.GuideExample}},
+		{Tool: "prefab_create", Args: map[string]any{"file": bridgeScene, "node": "Ledge", "out": "prefabs/ledge"}},
+	}, e.approveAll)
+	for _, r := range results(events) {
+		if r.Failed {
+			t.Fatalf("%s: %s", r.Tool, r.Result)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(e.root, "prefabs", "ledge.aeprefab")); err != nil {
+		t.Fatal("the prefab file was not written")
+	}
+	steps := e.doc.History.Steps(nil)
+	if len(steps) != 2 || steps[1] != "Agent: Create Prefab" {
+		t.Fatalf("Undo steps %v", steps)
+	}
+	if !e.doc.Dirty() {
+		t.Fatal("the scene was saved behind the user's back")
+	}
+	disk, _ := os.ReadFile(filepath.Join(e.root, filepath.FromSlash(bridgeScene)))
+	if strings.Contains(string(disk), "Ledge") {
+		t.Fatal("the scene file on disk changed")
+	}
+}

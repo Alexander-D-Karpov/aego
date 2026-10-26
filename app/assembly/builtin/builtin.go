@@ -6,6 +6,7 @@ import (
 	"aego/engine/module"
 	"aego/modules/accessibility"
 	"aego/modules/animation"
+	artmod "aego/modules/art"
 	"aego/modules/audio"
 	"aego/modules/camera"
 	"aego/modules/dataasset"
@@ -99,11 +100,15 @@ func savegameEntry() assembly.Entry {
 	return assembly.Entry{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }}
 }
 
+func artEntry() assembly.Entry {
+	return assembly.Entry{ID: artmod.ID, New: func(assembly.Options) module.Module { return artmod.New() }}
+}
+
 func updateEntry() assembly.Entry {
 	return assembly.Entry{ID: updatemod.ID, New: func(assembly.Options) module.Module { return updatemod.New() }}
 }
 
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), dataEntry(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry(), updateEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry(), updateEntry(), artEntry()}
 }

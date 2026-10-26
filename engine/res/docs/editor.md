@@ -132,7 +132,7 @@ Imports, previews, reference updates, diffs and checks run in the background. Th
 
 ### Project Health
 
-**Project Health** checks import errors, problems, missing references, unused assets, scenes nothing loads, names that differ only in case, textures larger than 4096 px and scenes without a camera. Every scene, prefab and script, the startup scene and `assets/presets` count as used. The panel also shows how long the current scene took to open, its node count and how many of its assets are missing.
+**Project Health** checks import errors, problems, missing references, unused assets, scenes nothing loads, names that differ only in case, textures larger than 4096 px, scenes without a camera and, when `project.aego` has an `art` palette, pixel-art sprites drawn in other colors. Every scene, prefab and script, the startup scene and `assets/presets` count as used. The panel also shows how long the current scene took to open, its node count and how many of its assets are missing.
 
 ## Scripts during Play
 

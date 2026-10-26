@@ -154,7 +154,9 @@ title: Команда aego
 | `aego asset delete <asset> [--force] [--dry-run]` | удалить ассет; если на него есть ссылки, отказывается без --force |
 | `aego asset list [--kind v]` | ассеты с их id и видами |
 | `aego asset move <asset> <to> [--dry-run]` | перенести ассет вместе с его .meta; id и все ссылки сохраняются |
+| `aego asset pixels <path> [--grid v] [--palette v] [--scale v] [--flipbook] [--replace] [--dry-run]` | нарисовать спрайт текстом: каждый символ grid — пиксель цвета из palette; строки вида idle: начинают кадры одного размера, из которых получается атлас со спрайтом на кадр и зацикленный клип-флипбук. Отвечает картинкой-превью |
 | `aego asset rename <asset> <name> [--dry-run]` | переименовать ассет в его папке |
+| `aego asset svg <path> [--svg v] [--width v] [--height v] [--replace] [--dry-run]` | нарисовать текстуру из SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, прозрачность и transform; без фильтров, градиентов и текста. Для тайлов, интерфейса и иконок предметов. Отвечает картинкой-превью |
 | `aego ctrl add-param <file> <name> <kind> [--default v] [--dry-run]` | добавить параметр |
 | `aego ctrl add-state <file> <name> [--clip v] [--speed v] [--loop v] [--pos v] [--dry-run]` | добавить состояние |
 | `aego ctrl add-transition <file> <from> <to> [--duration v] [--exit v] [--interrupt] [--cond v] [--dry-run]` | добавить переход; from может быть any |

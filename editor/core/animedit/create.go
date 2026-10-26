@@ -30,7 +30,7 @@ func NewControllerText() ([]byte, error) {
 }
 
 // FlipbookFPS is the frame rate of a flipbook made from sprites.
-const FlipbookFPS = 12
+const FlipbookFPS = anim.FlipbookFPS
 
 // FlipbookOps key the sprite of the clip's node with one frame per sprite, as step keys.
 func FlipbookOps(frames []ids.AssetID) []mutate.Op {
@@ -46,13 +46,7 @@ func FlipbookOps(frames []ids.AssetID) []mutate.Op {
 
 // NewFlipbookText is a looping clip that shows the sprites one after another.
 func NewFlipbookText(frames []ids.AssetID) []byte {
-	c := &anim.Clip{Length: float32(len(frames)) / FlipbookFPS, FPS: FlipbookFPS, Loop: anim.LoopRepeat}
-	tr := anim.Track{Property: anim.SpriteProp, Kind: schema.KindAssetRef}
-	for i, id := range frames {
-		tr.Keys = append(tr.Keys, anim.Key{T: float32(i) / FlipbookFPS, V: anim.Asset(id), Interp: curve.InterpStep})
-	}
-	c.Tracks = append(c.Tracks, tr)
-	return aetext.Write(anim.Encode(c))
+	return anim.FlipbookText(frames)
 }
 
 // FlipbookInto adds the flipbook to the open clip, lengthening it when the frames run past its end.

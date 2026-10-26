@@ -505,3 +505,17 @@ func encodeEvent(e *Event) *aetext.Node {
 	}
 	return n
 }
+
+// FlipbookFPS is the frame rate of a flipbook made from sprites.
+const FlipbookFPS = 12
+
+// FlipbookText is a looping clip that shows the sprites one after another at FlipbookFPS.
+func FlipbookText(frames []ids.AssetID) []byte {
+	c := &Clip{Length: float32(len(frames)) / FlipbookFPS, FPS: FlipbookFPS, Loop: LoopRepeat}
+	tr := Track{Property: SpriteProp, Kind: schema.KindAssetRef}
+	for i, id := range frames {
+		tr.Keys = append(tr.Keys, Key{T: float32(i) / FlipbookFPS, V: Asset(id), Interp: curve.InterpStep})
+	}
+	c.Tracks = append(c.Tracks, tr)
+	return aetext.Write(Encode(c))
+}

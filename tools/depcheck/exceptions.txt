@@ -62,3 +62,4 @@ engine/i18n -> "data", semantic, engine/i18n/data is the directory of the regist
 engine/settings/settingsui -> "settings*", semantic, the settings view texts are translated under the settings.* catalog keys (D348)
 editor/core/play/play.go -> "update", semantic, the frame's update phase, not the update module (11i4)
 editor/panels/profiler/profiler.go -> "update", semantic, the profiler's update zone, not the update module (11i4)
+editor/core/workspace/layouts.go -> "art", semantic, the Art workspace, not the art module (11b8)

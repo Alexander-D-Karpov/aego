@@ -13,6 +13,7 @@ import (
 	"aego/editor/core/clipboard"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/history"
 	"aego/editor/core/history/commands"
 	"aego/engine/i18n"
 	"aego/project/refactor"
@@ -199,32 +200,61 @@ func (s *Service) CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir 
 	if err := assetops.EnsureDir(s.ctx, dir); err != nil {
 		return err
 	}
-	tx := d.History.Begin(i18n.Tr("editor.history.create_prefab", "Create Prefab"))
+	label := i18n.Tr("editor.history.create_prefab", "Create Prefab")
+	tx := d.History.Begin(label)
 	for _, h := range tops {
-		if err := refactor.CheckCreate(sc, h); err != nil {
-			tx.Abort()
-			return err
-		}
 		rel := assetops.UniqueFile(s.ctx, dir, fileSafe(sc.Name(h)), document.PrefabExt)
-		before := sceneio.SaveSubtree(sc, h, true)
-		id, err := assetops.CreateFile(s.ctx, rel, before)
-		if err != nil {
+		if _, err := s.create(d, tx, h, rel, label); err != nil {
 			tx.Abort()
 			return err
 		}
-		after, err := refactor.LinkBlock(sc, h, s.lib(), id)
-		if err != nil {
-			tx.Abort()
-			return err
-		}
-		if err := tx.Exec(commands.NewMutation(i18n.Tr("editor.history.create_prefab", "Create Prefab"), s.env(sc), mutate.Replace(commands.Ref(sc.ID(h)), string(after)))); err != nil {
-			tx.Abort()
-			return err
-		}
-		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.prefabs.created_rel", "Created {rel}", i18n.Str("rel", rel)))
 	}
 	tx.Commit()
 	return nil
+}
+
+// CreateAt makes the prefab file rel from one node of an open scene, saved or not, and links the node to it as one Undo step named label.
+func (s *Service) CreateAt(d *document.SceneDocument, node ids.NodeID, rel, label string) (ids.AssetID, error) {
+	if err := s.editable(); err != nil {
+		return ids.AssetID{}, err
+	}
+	sc := d.Scene()
+	h := sc.Handle(node)
+	if h.IsZero() || !sc.IsAlive(h) {
+		return ids.AssetID{}, errs.New(errs.EditorCommand, "the node is not in the scene")
+	}
+	if err := assetops.EnsureDir(s.ctx, path.Dir(rel)); err != nil {
+		return ids.AssetID{}, err
+	}
+	tx := d.History.Begin(label)
+	id, err := s.create(d, tx, h, rel, label)
+	if err != nil {
+		tx.Abort()
+		return ids.AssetID{}, err
+	}
+	tx.Commit()
+	return id, nil
+}
+
+// create writes one node's subtree as a prefab and replaces the node with its instance in tx.
+func (s *Service) create(d *document.SceneDocument, tx *history.Transaction, h scene.NodeHandle, rel, label string) (ids.AssetID, error) {
+	sc := d.Scene()
+	if err := refactor.CheckCreate(sc, h); err != nil {
+		return ids.AssetID{}, err
+	}
+	id, err := assetops.CreateFile(s.ctx, rel, sceneio.SaveSubtree(sc, h, true))
+	if err != nil {
+		return ids.AssetID{}, err
+	}
+	after, err := refactor.LinkBlock(sc, h, s.lib(), id)
+	if err != nil {
+		return ids.AssetID{}, err
+	}
+	if err := tx.Exec(commands.NewMutation(label, s.env(sc), mutate.Replace(commands.Ref(sc.ID(h)), string(after)))); err != nil {
+		return ids.AssetID{}, err
+	}
+	s.ctx.Notify(context.LevelInfo, i18n.Note("editor.prefabs.created_rel", "Created {rel}", i18n.Str("rel", rel)))
+	return id, nil
 }
 
 func (s *Service) CreateVariant(id ids.AssetID) error {

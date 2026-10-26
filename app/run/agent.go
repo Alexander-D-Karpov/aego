@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"image"
 	"path/filepath"
 	"runtime"
@@ -51,7 +52,7 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 		if len(r.Shots) > maxShots {
 			return agent.RunReport{}, errors.New("at most " + strconv.Itoa(maxShots) + " screenshots a run")
 		}
-		cfg := Config{Headless: true, FrameTime: defaultDetStep, Seed: seed, ScenePath: r.Scene, Logger: lg, NoProfile: true}
+		cfg := Config{Headless: true, FrameTime: defaultDetStep, Seed: seed, ScenePath: r.Scene, Logger: lg, NoProfile: true, SharedIndex: true}
 		if len(r.Shots) > 0 {
 			cfg.Headless, cfg.Hidden = false, true
 			runtime.LockOSThread()
@@ -59,6 +60,9 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 		}
 		a, err := Open(p, cfg, mods...)
 		if err != nil {
+			if len(r.Shots) > 0 {
+				err = fmt.Errorf("%w; screenshots need xvfb-run or a display; run without shot or install xvfb", err)
+			}
 			return agent.RunReport{Log: logLines(buf.String())}, err
 		}
 		rep := agent.RunReport{}
@@ -213,7 +217,7 @@ func takeShot(root, name string, frame, width int, img *image.RGBA, err error) a
 	case err != nil:
 		return agent.Shot{Frame: frame, Error: err.Error()}
 	case img == nil:
-		return agent.Shot{Frame: frame, Error: "no frame was drawn; screenshots need a display or xvfb"}
+		return agent.Shot{Frame: frame, Error: "no frame was drawn; screenshots need xvfb-run or a display; run without shot or install xvfb"}
 	}
 	if width <= 0 {
 		width = shotWidth

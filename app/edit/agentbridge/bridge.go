@@ -17,6 +17,7 @@ import (
 	"aego/editor/core/animedit"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/services"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/projectedit"
 	"aego/engine"
@@ -56,6 +57,8 @@ type Config struct {
 	ProxyConfirm func() bool
 	// OnExternal runs on the main thread when a call comes through the proxy, so follow mode shows it.
 	OnExternal func(tool, args string)
+	// Prefabs makes prefabs from open scenes as Create Prefab does, so prefab.create works before the scene is saved.
+	Prefabs services.Prefabs
 }
 
 type Bridge struct {
@@ -85,7 +88,7 @@ const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Led
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
 	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
 	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
-	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
+	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. A sprite with no texture yet is drawn, not built from colored rectangles: asset_pixels takes a character grid and a palette (frames give an atlas and a flipbook), asset_svg smooth shapes for tiles, UI and icons; both answer with a preview to check. Draw in the style of project.aego's art section (project_get art): its palette, and without a palette argument 0-9 and a-z are its colors. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
@@ -219,6 +222,25 @@ func (b *Bridge) scene(rel string) *document.SceneDocument {
 		return p
 	}
 	return b.ctx.Docs.Find(rel)
+}
+
+// CreatePrefab makes out from a node of the open scene rel and links the node, as one Undo step there.
+func (b *Bridge) CreatePrefab(rel, node, out string) (ids.AssetID, error) {
+	d := b.scene(rel)
+	if d == nil || b.cfg.Prefabs == nil {
+		return ids.AssetID{}, errors.New(rel + " is not open in the editor")
+	}
+	h, err := mutate.Wrap(d.Scene(), rel, d.IsPrefab(), b.env(d.Scene())).Node(node)
+	if err != nil {
+		return ids.AssetID{}, err
+	}
+	label := b.stepName("Create Prefab")
+	id, err := b.cfg.Prefabs.CreateAt(d, d.Scene().ID(h), out, label)
+	if err != nil {
+		return ids.AssetID{}, err
+	}
+	b.note(d, label)
+	return id, nil
 }
 
 func (b *Bridge) OpenScene(rel string) (*mutate.Document, bool) {

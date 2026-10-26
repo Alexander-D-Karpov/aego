@@ -79,6 +79,7 @@ type Prefabs interface {
 	Revert(d *document.SceneDocument, c prefabs.Change) error
 	Unpack(d *document.SceneDocument, node ids.NodeID, deep bool) error
 	CreateFrom(d *document.SceneDocument, nodes []ids.NodeID, dir string) error
+	CreateAt(d *document.SceneDocument, node ids.NodeID, rel, label string) (ids.AssetID, error)
 	CreateVariant(id ids.AssetID) error
 	Open(id ids.AssetID) error
 	SelectAsset(id ids.AssetID)

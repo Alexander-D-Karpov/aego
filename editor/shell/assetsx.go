@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"image/color"
 	"strings"
 
 	"aego/core/ids"
@@ -10,7 +11,9 @@ import (
 	"aego/editor/panels/health"
 	"aego/editor/panels/references"
 	"aego/editor/panels/vcsdiff"
+	"aego/engine/module"
 	"aego/engine/problems"
+	"aego/modules/art"
 )
 
 const CommandBatchRenameNodes = "edit.batch_rename"
@@ -51,8 +54,14 @@ func (a *App) healthDeps() health.Deps {
 			list, _ := a.opt.Problems.Collect()
 			return list
 		},
-		Missing:      a.missing.Count,
-		Cameras:      a.cameraTypes,
+		Missing: a.missing.Count,
+		Cameras: a.cameraTypes,
+		Palette: func() []color.NRGBA {
+			if v, ok := module.SectionValue[art.Art](a.ctx.Sections, art.SectionID); ok {
+				return v.Palette
+			}
+			return nil
+		},
 		ShowMissing:  func() { a.ws.Show(references.MissingID) },
 		ShowProblems: func() { a.ws.Show(workspace.Problems) },
 		Reveal:       a.ctx.RevealPath,

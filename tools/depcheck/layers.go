@@ -56,6 +56,7 @@ var editorAllow = []string{
 var rules = []rule{
 	{"core/...", []string{"core/..."}, nil},
 	{"schema", []string{"core/...", "engine/i18n"}, nil},
+	{"format/pixelart", []string{"core/...", "format/svg"}, nil},
 	{"format/...", []string{"core/...", "schema"}, nil},
 	{"platform", []string{"core/...", "platform/input"}, nil},
 	{"platform/clip", []string{"core/...", "platform"}, nil},

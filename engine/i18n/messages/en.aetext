@@ -568,6 +568,12 @@ messages version=1 lang=en {
   msg "editor.agent.step.delete_asset" {
     text="Delete {asset}"
   }
+  msg "editor.agent.step.draw_pixels" {
+    text="Draw {file} in pixels"
+  }
+  msg "editor.agent.step.draw_svg" {
+    text="Draw {file} from SVG"
+  }
   msg "editor.agent.step.edit_script" {
     text="Edit {file}"
   }
@@ -2317,6 +2323,12 @@ messages version=1 lang=en {
   }
   msg "editor.health.no_problems_found" {
     text="No problems found"
+  }
+  msg "editor.health.off_palette" {
+    text="{n} sprite(s) drawn outside the art palette"
+  }
+  msg "editor.health.off_palette_pixels" {
+    text="{n} % of the pixels"
   }
   msg "editor.health.path_opened_in_formatint_ms" {
     text="{path}: opened in {formatint} ms, {nodes} node(s), {deps} asset(s)"

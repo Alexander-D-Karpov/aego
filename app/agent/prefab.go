@@ -44,6 +44,9 @@ func levelOf(a Args, def string) (prefab.Level, error) {
 }
 
 func (s *Session) prefabCreate(a Args) (*Output, error) {
+	if out, ok, err := s.prefabCreateOpen(a); ok {
+		return out, err
+	}
 	rel, before, doc, err := s.sceneFile(a)
 	if err != nil {
 		return nil, err
@@ -79,6 +82,48 @@ func (s *Session) prefabCreate(a Args) (*Output, error) {
 	files, err := s.save(rel, before, doc.Bytes())
 	s.reload()
 	return &Output{Changes: res.Changes, Problems: res.Problems, Created: []string{id.String()}, Files: append([]string{out}, files...)}, err
+}
+
+// prefabCreateOpen makes the prefab through the editor when the scene is open there, so unsaved edits count; false when there is no such editor or scene.
+func (s *Session) prefabCreateOpen(a Args) (*Output, bool, error) {
+	ph, ok := s.host.(PrefabHost)
+	if !ok {
+		return nil, false, nil
+	}
+	rel, err := s.rel(a.Str("file"))
+	if err != nil {
+		return nil, true, err
+	}
+	doc, open := s.host.OpenScene(rel)
+	if !open {
+		return nil, false, nil
+	}
+	out, err := s.rel(a.Str("out"))
+	if err != nil {
+		return nil, true, err
+	}
+	if path.Ext(out) != PrefabExt {
+		out += PrefabExt
+	}
+	if s.exists(out) {
+		return nil, true, errors.New(out + " already exists")
+	}
+	h, err := doc.Node(a.Str("node"))
+	if err != nil {
+		return nil, true, err
+	}
+	if err := refactor.CheckCreate(doc.Scene, h); err != nil {
+		return nil, true, err
+	}
+	if a.Bool("dry-run") {
+		return &Output{DryRun: true, Notes: []string{"would create " + out, "would link the node in " + rel + " as an Undo step"}}, true, nil
+	}
+	id, err := ph.CreatePrefab(rel, a.Str("node"), out)
+	if err != nil {
+		return nil, true, err
+	}
+	s.reload()
+	return &Output{OK: true, Created: []string{id.String()}, Files: []string{out}}, true, nil
 }
 
 func (s *Session) prefabInstantiate(a Args) (*Output, error) {

@@ -157,6 +157,11 @@ type Host interface {
 	ApplyScript(e ScriptEdit, label string) error
 }
 
+// PrefabHost is an editor that makes a prefab from a node of an open scene, saved or not, as an Undo step of that scene.
+type PrefabHost interface {
+	CreatePrefab(rel, node, out string) (ids.AssetID, error)
+}
+
 // Attach makes a session over the editor's project, types and pipeline; Close leaves them open.
 // Budget caps what read commands return; zero fields mean no cap, as the CLI has it.
 type Budget struct {

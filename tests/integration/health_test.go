@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"image/color"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,8 +45,17 @@ func TestHealthFindsPreparedProblems(t *testing.T) {
 			}
 		}
 	}
-	big := health.Scan(ctx.Pipeline, nil, 4)
+	big := health.Scan(ctx.Pipeline, nil, 4, nil)
 	if len(big) == 0 || big[0].Code != "HLT007" {
 		t.Fatal("an 8 px texture is larger than a 4 px limit")
+	}
+	off := false
+	for _, it := range health.Scan(ctx.Pipeline, nil, 0, []color.NRGBA{{1, 2, 3, 255}}) {
+		for _, p := range it.Paths {
+			off = off || it.Code == "HLT009" && health.PathOf(p) == "assets/unused/orphan.png"
+		}
+	}
+	if !off {
+		t.Fatal("a texture drawn in other colors than the art palette is not reported")
 	}
 }

@@ -228,6 +228,12 @@ func looks() map[string]Look {
 		"schema.show": {"cat.engine", func(a Args) string {
 			return i18n.Tr("editor.agent.step.show_type", "Read the fields of {type}", i18n.Str("type", a.Str("type")))
 		}, ok},
+		"asset.pixels": {"file.texture", func(a Args) string {
+			return i18n.Tr("editor.agent.step.draw_pixels", "Draw {file} in pixels", i18n.Str("file", path.Base(a.Str("path"))))
+		}, ok},
+		"asset.svg": {"file.texture", func(a Args) string {
+			return i18n.Tr("editor.agent.step.draw_svg", "Draw {file} from SVG", i18n.Str("file", path.Base(a.Str("path"))))
+		}, ok},
 		"asset.list": {"panel.assets", func(Args) string {
 			return i18n.Tr("editor.agent.step.list_assets", "List assets")
 		}, count},

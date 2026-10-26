@@ -1613,8 +1613,14 @@ messages version=1 lang=ru {
   msg "cli.agent.asset.move" {
     text="перенести ассет вместе с его .meta; id и все ссылки сохраняются"
   }
+  msg "cli.agent.asset.pixels" {
+    text="нарисовать спрайт текстом: каждый символ grid — пиксель цвета из palette; строки вида idle: начинают кадры одного размера, из которых получается атлас со спрайтом на кадр и зацикленный клип-флипбук. Отвечает картинкой-превью"
+  }
   msg "cli.agent.asset.rename" {
     text="переименовать ассет в его папке"
+  }
+  msg "cli.agent.asset.svg" {
+    text="нарисовать текстуру из SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, прозрачность и transform; без фильтров, градиентов и текста. Для тайлов, интерфейса и иконок предметов. Отвечает картинкой-превью"
   }
   msg "cli.agent.ctrl.add-param" {
     text="добавить параметр"
@@ -2479,6 +2485,12 @@ messages version=1 lang=ru {
   }
   msg "docs.page.section/animation.doc" {
     text="Блок `animation` в `project.aego`, которым владеет модуль «Анимация»."
+  }
+  msg "docs.page.section/art" {
+    text="Стиль рисунков"
+  }
+  msg "docs.page.section/art.doc" {
+    text="Блок `art` в `project.aego`, которым владеет модуль Art."
   }
   msg "docs.page.section/debug" {
     text="Отладочная отрисовка"

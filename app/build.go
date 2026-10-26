@@ -45,6 +45,8 @@ type Config struct {
 	Platform           platform.Platform
 	Profile            string
 	NoProfile          bool
+	// SharedIndex opens the asset index read-only without a warning when another process, the editor, holds it.
+	SharedIndex bool
 }
 
 type Host struct {
@@ -152,7 +154,11 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 			}
 		}
 	}
-	if h.Pipeline, err = pipeline.Open(p, h.Importers, lg); err != nil {
+	var popts []pipeline.Option
+	if cfg.SharedIndex {
+		popts = append(popts, pipeline.ExpectShared())
+	}
+	if h.Pipeline, err = pipeline.Open(p, h.Importers, lg, popts...); err != nil {
 		return err
 	}
 	if _, _, err = h.Pipeline.Scan(); err != nil {

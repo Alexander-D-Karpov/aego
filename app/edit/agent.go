@@ -19,6 +19,7 @@ func (s *Session) AgentConfig() agentbridge.Config {
 		Run:            agentRun,
 		ProxyConfirm:   s.App.ProxyConfirm,
 		OnExternal:     s.App.ExternalCall,
+		Prefabs:        s.App.Prefabs(),
 	}
 }
 

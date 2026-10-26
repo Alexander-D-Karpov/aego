@@ -156,7 +156,9 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego asset delete <asset> [--force] [--dry-run]` | delete an asset; refuses while it is referenced unless --force |
 | `aego asset list [--kind v]` | assets with their ids and kinds |
 | `aego asset move <asset> <to> [--dry-run]` | move an asset with its .meta; the id and every reference stay |
+| `aego asset pixels <path> [--grid v] [--palette v] [--scale v] [--flipbook] [--replace] [--dry-run]` | draw a sprite as text: each character of grid is a pixel colored by palette; lines like idle: start frames of one size, which become an atlas with one sprite per frame and a looping flipbook clip. Answers with a preview image |
 | `aego asset rename <asset> <name> [--dry-run]` | rename an asset in its folder |
+| `aego asset svg <path> [--svg v] [--width v] [--height v] [--replace] [--dry-run]` | draw a texture from SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, opacity and transform; no filters, gradients or text. For tiles, UI and item icons. Answers with a preview image |
 | `aego ctrl add-param <file> <name> <kind> [--default v] [--dry-run]` | add a parameter |
 | `aego ctrl add-state <file> <name> [--clip v] [--speed v] [--loop v] [--pos v] [--dry-run]` | add a state |
 | `aego ctrl add-transition <file> <from> <to> [--duration v] [--exit v] [--interrupt] [--cond v] [--dry-run]` | add a transition; from may be any |

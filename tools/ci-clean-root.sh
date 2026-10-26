@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fails when the checkout root holds executables or test binaries, or, in CI, when git sees files the run left behind.
+# Fails when the checkout root holds executables or test binaries, or, in CI, when git sees files the run left behind; locally it warns about untracked files.
 set -eu
 cd "$(dirname "$0")/.."
 bad=""
@@ -18,6 +18,14 @@ if [ -n "$bad" ]; then
 	echo "build output in the root:$bad" >&2
 	echo "binaries go to .cache/bin: go build -o .cache/bin/<name> ./<pkg>, go test -c -o .cache/bin/<name>.test ./<pkg>" >&2
 	exit 1
+fi
+# locally, untracked files the gitignore does not cover are listed as a warning: they are either forgotten in a commit or missing from .gitignore
+if [ -z "${CI:-}" ]; then
+	loose=$(git ls-files --others --exclude-standard)
+	if [ -n "$loose" ]; then
+		echo "warning: untracked files outside .gitignore:" >&2
+		echo "$loose" | sed 's/^/  /' >&2
+	fi
 fi
 if [ -n "${CI:-}" ]; then
 	left=$(git status --porcelain)

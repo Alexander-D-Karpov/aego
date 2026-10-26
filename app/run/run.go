@@ -44,6 +44,8 @@ type Config struct {
 	Logger     *log.Logger
 	Seed       uint64
 	NoProfile  bool
+	// SharedIndex is a run the editor or the CLI starts on a project it already has open.
+	SharedIndex bool
 }
 
 type App struct {
@@ -140,6 +142,7 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*App, error) {
 		FailOnScriptErrors: true,
 		Profile:            cfg.Profile,
 		NoProfile:          cfg.NoProfile,
+		SharedIndex:        cfg.SharedIndex,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err

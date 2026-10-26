@@ -1613,8 +1613,14 @@ messages version=1 lang=en {
   msg "cli.agent.asset.move" {
     text="move an asset with its .meta; the id and every reference stay"
   }
+  msg "cli.agent.asset.pixels" {
+    text="draw a sprite as text: each character of grid is a pixel colored by palette; lines like idle: start frames of one size, which become an atlas with one sprite per frame and a looping flipbook clip. Answers with a preview image"
+  }
   msg "cli.agent.asset.rename" {
     text="rename an asset in its folder"
+  }
+  msg "cli.agent.asset.svg" {
+    text="draw a texture from SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, opacity and transform; no filters, gradients or text. For tiles, UI and item icons. Answers with a preview image"
   }
   msg "cli.agent.ctrl.add-param" {
     text="add a parameter"
@@ -2479,6 +2485,12 @@ messages version=1 lang=en {
   }
   msg "docs.page.section/animation.doc" {
     text="The `animation` block of `project.aego`, owned by the Animation module."
+  }
+  msg "docs.page.section/art" {
+    text="Art"
+  }
+  msg "docs.page.section/art.doc" {
+    text="The `art` block of `project.aego`, owned by the Art module."
   }
   msg "docs.page.section/debug" {
     text="Debug Draw"

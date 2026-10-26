@@ -206,6 +206,7 @@ Reference
   Project settings
     Engine -> section/engine.html
     Render -> section/render2d.html
+    Art -> section/art.html
     Input -> section/input.html
     Physics -> section/physics.html
     Debug Draw -> section/debug.html

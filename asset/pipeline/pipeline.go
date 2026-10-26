@@ -107,7 +107,19 @@ func newPipeline(p *project.Project, imps *ImporterRegistry, lg *log.Logger) *Pi
 	}
 }
 
-func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline, error) {
+// Option changes how Open treats the project.
+type Option func(*options)
+
+type options struct{ expectShared bool }
+
+// ExpectShared is for a process the editor starts on its own project: the editor holding the index is normal there, so it is not a warning.
+func ExpectShared() Option { return func(o *options) { o.expectShared = true } }
+
+func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger, opts ...Option) (*Pipeline, error) {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
 	if p == nil {
 		return nil, errs.New(errs.AssetNoProject, "pipeline needs a project")
 	}
@@ -125,8 +137,11 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger) (*Pipeline
 	pl.unlock = unlock
 	if !owner {
 		pl.shared, pl.mode = true, MetaReadOnly
-		pl.log.Warn("another process holds the asset index, .meta files and the index are read-only here",
-			log.F("lock", filepath.Join(cacheDir, indexLock)))
+		say := pl.log.Warn
+		if o.expectShared {
+			say = pl.log.Debug
+		}
+		say("another process holds the asset index, .meta files and the index are read-only here", log.F("lock", filepath.Join(cacheDir, indexLock)))
 	}
 	if data, err := os.ReadFile(pl.indexPath()); err == nil {
 		if idx, err := asset.ReadIndex(data, "index.aetext"); err == nil {

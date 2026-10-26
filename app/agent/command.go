@@ -66,6 +66,7 @@ func catalog() []*Command {
 	out = append(out, animCommands()...)
 	out = append(out, ctrlCommands()...)
 	out = append(out, refsCommands()...)
+	out = append(out, assetCommands()...)
 	out = append(out, schemaCommands()...)
 	out = append(out, projectCommands()...)
 	out = append(out, scriptCommands()...)
