@@ -118,10 +118,10 @@ func projectsHome() string {
 	}
 	if docs := documentsDir(home); docs != "" {
 		if st, err := os.Stat(docs); err == nil && st.IsDir() {
-			return filepath.Join(docs, "Aego Projects")
+			return filepath.Join(docs, "AegoProjects")
 		}
 	}
-	return filepath.Join(home, "Aego Projects")
+	return filepath.Join(home, "AegoProjects")
 }
 
 func nativeHint() string {

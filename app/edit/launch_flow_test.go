@@ -16,7 +16,7 @@ func TestLauncherCreatesAndOpens(t *testing.T) {
 		t.Fatal(err)
 	}
 	ls.UI.SetTab(launcher.TabNew)
-	dir := filepath.Join(t.TempDir(), "Aego Projects", "game")
+	dir := filepath.Join(t.TempDir(), "AegoProjects", "game")
 	if _, err := ls.UI.Create(dir, projects.Template2D, "", ""); err != nil {
 		ls.Close()
 		t.Fatal(err)
