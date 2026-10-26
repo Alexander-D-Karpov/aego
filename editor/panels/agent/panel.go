@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/agentui"
 	"aego/editor/core/context"
@@ -46,6 +47,10 @@ type Deps struct {
 	Seconds func() float64
 	// FollowChanged saves the Follow button's state in the preferences.
 	FollowChanged func(on bool)
+	// Selection is the user's selection, which a pinned Context sends with each message.
+	Selection interface{ Selected() []ids.NodeID }
+	// BudgetsChanged saves the read limits in the preferences.
+	BudgetsChanged func(b agentui.Budgets)
 }
 
 type avail struct {
@@ -96,6 +101,21 @@ type Panel struct {
 	gap      float32
 	undoTo   int
 	undoMenu core.ID
+	// meter counts the context of the conversation; the Context popup shows its layout (11b5c).
+	meter        *agentui.Meter
+	layout       agentui.Layout
+	layoutRev    uint64
+	ctxPop       core.ID
+	ctxOpen      [agentui.CatCount]bool
+	ctxWant      bool
+	ctxLabel     string
+	ctxLabelRev  uint64
+	itemFits     map[int]*fit
+	pinScene     bool
+	pinSelection bool
+	seed         string
+	summarizing  bool
+	summary      strings.Builder
 }
 
 // mention is an @ reference: the input shows Label, the message sends Full.
@@ -105,7 +125,7 @@ type mention struct {
 
 func New(d Deps) *Panel {
 	return &Panel{d: d, seen: map[int]bool{}, asked: map[int]bool{}, answered: map[int]agentui.State{}, logged: map[int]agentui.State{}, checked: make(chan avail, 1), stick: true,
-		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history"), undoMenu: core.IDOf("agent.undoto")}
+		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history"), undoMenu: core.IDOf("agent.undoto"), ctxPop: core.IDOf("agent.context"), itemFits: map[int]*fit{}}
 }
 
 func (p *Panel) ID() string {
@@ -310,6 +330,7 @@ func (p *Panel) redraw(card int) {
 }
 
 func (p *Panel) event(e agentui.Event) {
+	p.meterEvent(e)
 	switch e.Kind {
 	case agentui.EvText:
 		p.text(e.Text)
@@ -373,7 +394,7 @@ func (p *Panel) send() {
 	p.push(block{kind: blockUser, text: text, at: now})
 	p.record(agentui.Entry{Kind: "user", Text: full})
 	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
-	if err := p.d.Host.Send(full); err != nil {
+	if err := p.d.Host.Send(p.outgoing(full)); err != nil {
 		p.push(block{kind: blockError, text: err.Error()})
 		p.record(agentui.Entry{Kind: "error", Text: err.Error()})
 	}
@@ -399,6 +420,10 @@ func summary(c *agentui.Card) string {
 // NewSession ends the conversation and starts an empty transcript; the next message opens a new session log.
 func (p *Panel) NewSession() {
 	p.d.Host.Reset()
+	if p.meter != nil {
+		p.meter.Reset()
+	}
+	p.seed, p.summarizing = "", false
 	if p.log != nil {
 		p.log.Close()
 		p.log = nil
@@ -489,6 +514,7 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 		}
 		right -= r.H + 6
 	}
+	right = p.contextButton(ui, right, r)
 	auto := host.AutoApply()
 	alabel := i18n.Tr("editor.agent.auto_apply", "Auto-apply")
 	aw := ui.TextSize(alabel).X + 20
@@ -508,6 +534,9 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	}
 	if name == "" {
 		name = i18n.Tr("editor.agent.new_session", "New session")
+	}
+	if right-x-sw-10 < 40 {
+		status, sw = "", 10
 	}
 	nw := max(0, right-x-sw-10)
 	shown := p.fits[0].get(ui, name, nw)
@@ -531,9 +560,12 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 		ui.RoundRect(mathx.Rect{X: sx, Y: r.Y + r.H/2 - 3, W: 6, H: 6}, 3, dot)
 		sx += 10
 	}
-	ui.Text(status, mathx.Vec2{X: sx, Y: ui.TextY(r)}, col)
+	if status != "" {
+		ui.Text(status, mathx.Vec2{X: sx, Y: ui.TextY(r)}, col)
+	}
 	p.sessionMenu(ui)
 	p.historyMenu(ui)
+	p.contextPopup(ui)
 }
 
 func firstLine(s string) string {
@@ -651,6 +683,8 @@ func (p *Panel) blocksFrom(entries []agentui.Entry) []block {
 			}
 		case "error":
 			p.push(block{kind: blockError, text: e.Text})
+		case "notice":
+			p.push(block{kind: blockNotice, text: e.Text})
 		}
 	}
 	out := p.blocks

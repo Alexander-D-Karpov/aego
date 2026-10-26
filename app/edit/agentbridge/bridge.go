@@ -2,10 +2,10 @@
 package agentbridge
 
 import (
-	"aego/editor/core/document"
 	"encoding/json"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"aego/app/agent"
@@ -13,8 +13,10 @@ import (
 	"aego/app/agentui/backend"
 	"aego/asset/pipeline"
 	"aego/core/ids"
+	"aego/editor/core/agentui"
 	"aego/editor/core/animedit"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/projectedit"
 	"aego/engine"
@@ -57,6 +59,8 @@ type Bridge struct {
 	ctx  *context.Editor
 	sess *agent.Session
 	http *mcp.HTTP
+	// docResults caps docs_search; the MCP server reads it off the main thread.
+	docResults atomic.Int64
 
 	proposals []*Proposal
 	questions []*Question
@@ -81,7 +85,8 @@ func Start(cfg Config) (*Bridge, error) {
 	c := cfg.Ctx
 	b := &Bridge{cfg: cfg, ctx: c}
 	b.sess = agent.Attach(c.Project, c.Types, cfg.Modules, c.Pipeline, cfg.Bindings, b)
-	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Tools: b.tools(), Version: engine.Version})
+	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Tools: b.tools(), Version: engine.Version,
+		DocResults: func() int { return int(b.docResults.Load()) }})
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +98,15 @@ func Start(cfg Config) (*Bridge, error) {
 func (b *Bridge) Close() error {
 	b.RejectAll()
 	return b.http.Close()
+}
+
+// ContextBase is what the model reads before the first message from the editor: the guide and the tool definitions.
+func (b *Bridge) ContextBase() (string, string) {
+	sys := b.cfg.System
+	if sys == "" {
+		sys = Guide
+	}
+	return sys, b.http.Definitions()
 }
 
 // Backend is how a backend reaches this editor's MCP server.
@@ -371,4 +385,10 @@ func (b *Bridge) play() map[string]any {
 		m["scene"] = d.Path
 	}
 	return m
+}
+
+// SetBudgets caps what read tools return from now on; call it on the main thread.
+func (b *Bridge) SetBudgets(bu agentui.Budgets) {
+	b.sess.SetBudget(agent.Budget{TreeNodes: bu.TreeNodes, TreeDepth: bu.TreeDepth, ScriptLines: bu.ScriptLines})
+	b.docResults.Store(int64(bu.DocResults))
 }

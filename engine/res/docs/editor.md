@@ -335,3 +335,16 @@ The header shows the session by its first message, and what the agent does: idle
 
 - **Plan Only** keeps the agent from changing anything: it describes the changes and their order, and you turn the plan into changes when you turn it off.
 - Each conversation is written to `.aego/user/agent/<date-time>.jsonl`, one line per message, tool call, result and card state. **History…**, or a click on the session name, opens an earlier session read-only. A new message always goes to the current session.
+
+## Context
+
+The gauge in the header shows how much of the model's context window the session uses; it turns yellow past 80 % and near the point where the agent compacts its history. A click opens the layout:
+
+![The Context popup: the window as one bar, the parts of the session with their tokens, the Scene part open with Drop and Pin](shots/agent-context.png)
+
+- The total is what the model read for its last answer, as the CLI reports it. The parts are the editor's estimate of what it put there, scaled to that total: **Messages** (yours and the agent's), **Scene** (scene trees and nodes), **Code** (scripts the agent read), **Docs**, **Project & schema**, **Tool results** (runs, checks, changes), the editor's **Instructions** and **Tool definitions**, and the CLI's own **System prompt**. **Compaction buffer** is the room the CLI keeps; the history is compacted when the context reaches it, and the transcript says so.
+- A part opens to its contributions, largest first. **Drop** leaves one out: the next message starts the session again with a shortened history, where your messages and the agent's answers stay, results become one-line summaries and dropped ones are gone. **Pin** keeps a result in full in that history.
+- **Send with every message** adds the open scene and the selection to each message, so the agent knows what you look at.
+- **Read limits** keep large reads small: a scene tree up to a number of nodes and levels, with the rest counted, a documentation search up to a number of results, and a script longer than the limit read in parts. They are kept in `prefs.aetext`.
+- **New Session with Summary** asks the agent for a summary of the session, starts a new one and sends the summary, with the names of the nodes the session changed, with your next message.
+

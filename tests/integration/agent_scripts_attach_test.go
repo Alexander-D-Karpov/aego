@@ -64,7 +64,7 @@ func TestAgentRunsTheUnsavedScene(t *testing.T) {
 	if !strings.Contains(text, `"Hero"`) {
 		t.Fatalf("the run played %s without the unsaved rename", ran.Scene)
 	}
-	if !strings.Contains(ev[1].Result, `"node": "Hero"`) || !strings.Contains(ev[1].Result, `"node": "EnemyLeft"`) {
+	if !strings.Contains(ev[1].Result, `"node":"Hero"`) || !strings.Contains(ev[1].Result, `"node":"EnemyLeft"`) {
 		t.Fatalf("the report has no watched nodes:\n%s", ev[1].Result)
 	}
 }

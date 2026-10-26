@@ -24,6 +24,8 @@ const (
 	blockError
 	// blockTurn separates the answers to two messages.
 	blockTurn
+	// blockNotice is a line about the session itself: the context compacted, a new session from a summary.
+	blockNotice
 )
 
 // step is one tool call; its look comes from the host, the raw result is not kept (11b5a).

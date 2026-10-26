@@ -369,7 +369,8 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 	if a.opt.Agent != nil {
 		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink,
-			Follow: a.follow, Seconds: e.Platform().Now, FollowChanged: a.followChanged})
+			Follow: a.follow, Seconds: e.Platform().Now, FollowChanged: a.followChanged, Selection: a.ctx, BudgetsChanged: a.budgetsChanged})
+		a.opt.Agent.SetBudgets(a.prefs.AgentBudgets)
 	}
 	a.ctx.Problems = a.opt.Problems
 	if a.ctx.Problems == nil {

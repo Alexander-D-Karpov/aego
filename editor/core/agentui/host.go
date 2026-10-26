@@ -14,6 +14,10 @@ const (
 	EvToolResult
 	EvTurnEnd
 	EvError
+	// EvUsage is the context the model read for its last answer, in Tokens, and the Model.
+	EvUsage
+	// EvCompact is the CLI compacting the history; Tokens is the context before it.
+	EvCompact
 )
 
 type Event struct {
@@ -27,6 +31,10 @@ type Event struct {
 	// Cost in US dollars and Millis of the answer, on EvTurnEnd when the backend reports them.
 	Cost   float64
 	Millis int
+	// Tokens on EvUsage and EvCompact; Window is the model's context size on EvTurnEnd when known.
+	Tokens int
+	Window int
+	Model  string
 }
 
 type State uint8
@@ -148,4 +156,21 @@ type Host interface {
 	Answer(id int, picks []int, text string)
 	// Describe is how a tool call looks in the panel; result is empty while the call runs.
 	Describe(tool, args, result string, failed bool) Step
+	// ContextBase is what the model reads before the first message: the editor's guide and the tool definitions; empty before the first Send.
+	ContextBase() (instructions, tools string)
+	// Budgets are the limits the read tools trim their results to; SetBudgets changes them for the next calls.
+	Budgets() Budgets
+	SetBudgets(b Budgets)
 }
+
+// Budgets cap what read tools return, so a large scene or a broad search does not fill the context.
+type Budgets struct {
+	// TreeNodes and TreeDepth cap scene_tree; DocResults caps docs_search; ScriptLines is the longest script read whole.
+	TreeNodes   int
+	TreeDepth   int
+	DocResults  int
+	ScriptLines int
+}
+
+// DefaultBudgets are the limits a new editor starts with.
+var DefaultBudgets = Budgets{TreeNodes: 200, TreeDepth: 8, DocResults: 10, ScriptLines: 400}

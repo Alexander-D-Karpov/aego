@@ -35,6 +35,7 @@ func TestEditorLightGoldens(t *testing.T) {
 			return img, err
 		}},
 		{"editor_agent_card", func(t *testing.T) (*image.NRGBA, error) { return shotAgent(t, light(t, 420, 520), cardHost()) }},
+		{"editor_agent_context", func(t *testing.T) (*image.NRGBA, error) { return shotAgent(t, light(t, 420, 680), contextHost()) }},
 		{"editor_animation_normal", func(t *testing.T) (*image.NRGBA, error) {
 			env := light(t, 960, 240)
 			p, _, _, _ := animationPanel(t, env)

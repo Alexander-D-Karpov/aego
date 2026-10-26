@@ -6,14 +6,19 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
+	"aego/app/edit/agentbridge"
 	"aego/core/ids"
+	"aego/editor/core/agentui"
 	"aego/editor/core/animedit"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/presence"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
+	agentpanel "aego/editor/panels/agent"
 	animpanel "aego/editor/panels/animation"
 	"aego/editor/panels/animator"
 	"aego/editor/panels/gameview"
@@ -244,6 +249,16 @@ func (s *Session) shots(dir string) error {
 			}
 			return s.App.Prefabs().Open(id)
 		}},
+		{name: "agent-context", frames: 30, setup: func(s *Session) error {
+			p := s.App.Agent()
+			if p == nil {
+				return fmt.Errorf("no Agent panel")
+			}
+			s.App.Workspace().Show(agentpanel.ID)
+			p.ShowMeter(shotMeter())
+			p.OpenContext(agentui.CatScene)
+			return nil
+		}},
 	}
 	if s.App.ThemeMode() == theme.ModeLight {
 		for i := range list {
@@ -298,4 +313,29 @@ func (s *Session) capture(sh shot, path string) error {
 	}
 	defer f.Close()
 	return png.Encode(f, crop)
+}
+
+// shotMeter is a session three quarters into a 200k window, for the Context popup's screenshot.
+func shotMeter() *agentui.Meter {
+	tree := strings.Repeat(`{"id":"#c0000000000000000000000000000003","name":"Platform","path":"Root/Platform","components":["engine.Body2D"]},`, 900)
+	m := agentui.NewMeter(agentbridge.Guide, strings.Repeat(`{"name":"scene_tree","description":"node tree"},`, 400))
+	m.SetModel("claude-opus-5-5")
+	m.User("Why does the player fall through the moving platform?")
+	m.Usage(21_400)
+	reads := []struct{ tool, label, detail, text string }{
+		{"scene_tree", "Read scene main.aescene", "48 nodes", tree},
+		{"scene_get", "Read Player", "8 components", tree[:6000]},
+		{"script_read", "Read player.aes", "212 lines", strings.Repeat("\tif m.OnGround() && input.Pressed(\"Jump\") {\n\t\tm.Jump()\n\t}\n", 700)},
+		{"docs_search", "Search docs: moving platform", "10 results", strings.Repeat("Moving platforms carry the body that stands on them. ", 200)},
+		{"project_get", "Read project settings", "", tree[:9000]},
+	}
+	for i, r := range reads {
+		id := strconv.Itoa(i)
+		m.Call(r.tool, id, "{}", r.label)
+		m.Result(r.tool, id, r.text, r.detail, false)
+	}
+	m.Text("The platform moves in the render step, so the body lags one frame behind it.")
+	m.Usage(152_300)
+	m.SetWindow(200_000)
+	return m
 }

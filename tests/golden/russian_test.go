@@ -63,6 +63,9 @@ func TestEditorRussianGoldens(t *testing.T) {
 		{"editor_agent_question", func(t *testing.T) (*image.NRGBA, error) {
 			return shotAgent(t, newEditorEnvSize(t, 420, 520), questionHost())
 		}},
+		{"editor_agent_context", func(t *testing.T) (*image.NRGBA, error) {
+			return shotAgent(t, newEditorEnvSize(t, 420, 680), contextHost())
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			russian(t)

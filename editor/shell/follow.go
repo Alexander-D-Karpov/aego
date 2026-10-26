@@ -5,6 +5,7 @@ import (
 
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/editor/core/agentui"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/follow"
@@ -34,6 +35,14 @@ func (a *App) setupFollow() {
 // followChanged keeps the Follow button in the preferences.
 func (a *App) followChanged(on bool) {
 	a.prefs.AgentFollow = on
+	if err := prefs.Save(a.opt.PrefsDir, a.prefs); err != nil {
+		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.prefs.save_failed", "Cannot save the editor preferences: {err}", i18n.Str("err", err.Error())))
+	}
+}
+
+// budgetsChanged keeps the agent's read limits in the preferences.
+func (a *App) budgetsChanged(b agentui.Budgets) {
+	a.prefs.AgentBudgets = b
 	if err := prefs.Save(a.opt.PrefsDir, a.prefs); err != nil {
 		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.prefs.save_failed", "Cannot save the editor preferences: {err}", i18n.Str("err", err.Error())))
 	}

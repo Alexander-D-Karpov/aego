@@ -91,6 +91,8 @@ type Options struct {
 	Source   Source
 	Extra    []Extra
 	Tools    []Tool
+	// DocResults caps docs_search for the agent in the editor; zero leaves the caller's limit.
+	DocResults func() int
 }
 
 type Server struct {
@@ -299,7 +301,7 @@ func command(name string) *agent.Command {
 func result(v any, failed bool) map[string]any {
 	text, ok := v.(string)
 	if !ok {
-		b, _ := json.MarshalIndent(v, "", "  ")
+		b, _ := json.Marshal(v)
 		text = string(b)
 	}
 	out := map[string]any{"content": []any{map[string]any{"type": "text", "text": text}}, "isError": failed}
@@ -370,6 +372,11 @@ func (s *Server) docsSearch(a agent.Args) any {
 	limit, err := a.Int("limit", 20)
 	if err != nil {
 		return result(err.Error(), true)
+	}
+	if s.opt.DocResults != nil {
+		if n := s.opt.DocResults(); n > 0 {
+			limit = min(limit, n)
+		}
 	}
 	type hit struct {
 		ID      string `json:"id"`
@@ -620,4 +627,10 @@ func (s *Server) changed(list []pipeline.Change) {
 	if listChanged {
 		s.send(note{JSONRPC: "2.0", Method: "notifications/resources/list_changed"})
 	}
+}
+
+// Definitions is what the model reads about this server before the first message: its instructions and the tool definitions.
+func (s *Server) Definitions() string {
+	b, _ := json.Marshal(s.tools())
+	return instructions + "\n" + string(b)
 }

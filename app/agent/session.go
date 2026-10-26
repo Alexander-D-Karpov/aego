@@ -80,6 +80,7 @@ type Session struct {
 	Pipeline  *pipeline.Pipeline
 	Library   *sceneio.Library
 	opt       Options
+	budget    Budget
 	kit       *Kit
 	libErrs   []error
 	scriptErr error
@@ -129,6 +130,18 @@ type Host interface {
 }
 
 // Attach makes a session over the editor's project, types and pipeline; Close leaves them open.
+// Budget caps what read commands return; zero fields mean no cap, as the CLI has it.
+type Budget struct {
+	TreeNodes   int
+	TreeDepth   int
+	ScriptLines int
+}
+
+// SetBudget sets the caps of scene.tree and script.read, for the agent in the editor.
+func (s *Session) SetBudget(b Budget) {
+	s.budget = b
+}
+
 // SetRunner gives scene.run a way to run the game, for a session attached to an editor.
 func (s *Session) SetRunner(r Runner) {
 	s.opt.Run = r

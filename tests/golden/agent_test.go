@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"image"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,9 @@ type goldenHost struct {
 	expand    bool
 	user      string
 	follow    bool
+	// instr and tools are what the model reads before the first message; context opens the Context popup.
+	instr, tools string
+	context      bool
 }
 
 func (h *goldenHost) Available(string) (string, error) {
@@ -65,6 +69,9 @@ func (h *goldenHost) PlanOnly() bool                          { return h.plan }
 func (h *goldenHost) SetPlanOnly(v bool)                      { h.plan = v }
 func (h *goldenHost) Reset()                                  {}
 func (h *goldenHost) Answer(int, []int, string)               {}
+func (h *goldenHost) ContextBase() (string, string)           { return h.instr, h.tools }
+func (h *goldenHost) Budgets() agentui.Budgets                { return agentui.DefaultBudgets }
+func (h *goldenHost) SetBudgets(agentui.Budgets)              {}
 func (h *goldenHost) Questions(dst []agentui.Question) []agentui.Question {
 	return append(dst, h.questions...)
 }
@@ -124,6 +131,9 @@ func shotAgent(t *testing.T, env *editorEnv, h *goldenHost) (*image.NRGBA, error
 	p.Tick()
 	if h.expand {
 		p.Expand()
+	}
+	if h.context {
+		p.OpenContext(agentui.CatScene)
 	}
 	for range 3 {
 		img, err := env.draw(func(full mathx.Rect) {
@@ -239,4 +249,34 @@ func questionHost() *goldenHost {
 		{Label: "Separate scenes and a level exit", Detail: "Needs scene loading in the engine first"},
 		{Label: "Three scenes now, exits later", Detail: "Geometry, enemies and cameras without transitions"},
 	}}}}
+}
+
+// contextHost is a session three quarters into a 200k window: a scene tree, a script, a docs search and the project read.
+func contextHost() *goldenHost {
+	tree := strings.Repeat(`{"id":"#c0000000000000000000000000000003","name":"Platform","path":"Root/Platform","components":["engine.Body2D"]},`, 900)
+	script := strings.Repeat("\tif m.OnGround() && input.Pressed(\"Jump\") {\n\t\tm.Jump()\n\t}\n", 700)
+	return &goldenHost{user: "Why does the player fall through the moving platform?", context: true,
+		instr: strings.Repeat("You work inside the Aego editor. ", 120), tools: strings.Repeat(`{"name":"scene_tree","description":"node tree"},`, 400),
+		events: []agentui.Event{
+			{Kind: agentui.EvUsage, Model: "claude-opus-5-5", Tokens: 21_400},
+			{Kind: agentui.EvToolStart, Tool: "scene_tree", CallID: "1", Args: `{"file":"scenes/main.aescene"}`},
+			{Kind: agentui.EvToolResult, Tool: "scene_tree", CallID: "1", Result: tree},
+			{Kind: agentui.EvToolStart, Tool: "scene_get", CallID: "2", Args: `{"file":"scenes/main.aescene","node":"Player"}`},
+			{Kind: agentui.EvToolResult, Tool: "scene_get", CallID: "2", Result: tree[:6000]},
+			{Kind: agentui.EvToolStart, Tool: "script_read", CallID: "3", Args: `{"file":"scripts/player/player.aes"}`},
+			{Kind: agentui.EvToolResult, Tool: "script_read", CallID: "3", Result: script},
+			{Kind: agentui.EvToolStart, Tool: "docs_search", CallID: "4", Args: `{"query":"moving platform"}`},
+			{Kind: agentui.EvToolResult, Tool: "docs_search", CallID: "4", Result: strings.Repeat("Moving platforms carry the body that stands on them. ", 200)},
+			{Kind: agentui.EvToolStart, Tool: "project_get", CallID: "5", Args: `{}`},
+			{Kind: agentui.EvToolResult, Tool: "project_get", CallID: "5", Result: tree[:9000]},
+			{Kind: agentui.EvText, Text: "The platform moves in the render step, so the body lags one frame behind it."},
+			{Kind: agentui.EvUsage, Tokens: 152_300},
+			{Kind: agentui.EvTurnEnd, Window: 200_000},
+		}}
+}
+
+// The Context popup: the bar over the window, the categories with their tokens, the Scene category open with Drop and Pin (11b5c).
+func TestEditorAgentPanelContext(t *testing.T) {
+	img, err := shotAgent(t, newEditorEnvSize(t, 420, 680), contextHost())
+	checkGolden(t, "editor_agent_context", img, err)
 }

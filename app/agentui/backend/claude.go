@@ -69,7 +69,7 @@ func (Claude) Start(cfg Config) (Conversation, error) {
 	cmd := exec.Command(binary(cfg), args(cfg, conf)...)
 	cmd.Dir = cfg.Dir
 	cmd.Env = append(os.Environ(), "MCP_TOOL_TIMEOUT=660000")
-	c := &claudeConv{cmd: cmd, conf: conf, events: make(chan Event, 64)}
+	c := &claudeConv{cmd: cmd, conf: conf, events: make(chan Event, 64), record: cfg.Record}
 	cmd.Stderr = &c.stderr
 	if c.in, err = cmd.StdinPipe(); err != nil {
 		os.Remove(conf)
@@ -96,6 +96,7 @@ type claudeConv struct {
 	events chan Event
 	mu     sync.Mutex
 	closed bool
+	record io.Writer
 }
 
 func (c *claudeConv) Send(text string) error {
@@ -119,6 +120,9 @@ func (c *claudeConv) read(r io.Reader) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 1<<20), 16<<20)
 	for sc.Scan() {
+		if c.record != nil {
+			c.record.Write(append(sc.Bytes(), '\n'))
+		}
 		for _, e := range Decode(sc.Bytes()) {
 			c.events <- e
 		}
@@ -166,15 +170,34 @@ type block struct {
 	Content   json.RawMessage `json:"content"`
 }
 
+type usage struct {
+	Input       int `json:"input_tokens"`
+	CacheCreate int `json:"cache_creation_input_tokens"`
+	CacheRead   int `json:"cache_read_input_tokens"`
+	Output      int `json:"output_tokens"`
+}
+
 type streamLine struct {
 	Type    string  `json:"type"`
+	Subtype string  `json:"subtype"`
+	Model   string  `json:"model"`
 	IsError bool    `json:"is_error"`
 	Result  string  `json:"result"`
 	Cost    float64 `json:"total_cost_usd"`
 	Millis  int     `json:"duration_ms"`
 	Message struct {
 		Content []block `json:"content"`
+		Usage   *usage  `json:"usage"`
+		Model   string  `json:"model"`
 	} `json:"message"`
+	ModelUsage map[string]struct {
+		Window int `json:"contextWindow"`
+	} `json:"modelUsage"`
+	Compact struct {
+		PreTokens int `json:"pre_tokens"`
+	} `json:"compact_metadata"`
+	// ParentToolUseID is set on the lines of a subagent; their usage is not the main context.
+	ParentToolUseID string `json:"parent_tool_use_id"`
 }
 
 func textOf(raw json.RawMessage) string {
@@ -201,7 +224,17 @@ func Decode(line []byte) []Event {
 	}
 	var out []Event
 	switch l.Type {
+	case "system":
+		switch l.Subtype {
+		case "init":
+			out = append(out, Event{Kind: EvUsage, Model: l.Model})
+		case "compact_boundary":
+			out = append(out, Event{Kind: EvCompact, Tokens: l.Compact.PreTokens})
+		}
 	case "assistant":
+		if u := l.Message.Usage; u != nil && l.ParentToolUseID == "" {
+			out = append(out, Event{Kind: EvUsage, Tokens: u.Input + u.CacheCreate + u.CacheRead, Model: l.Message.Model})
+		}
 		for _, b := range l.Message.Content {
 			switch b.Type {
 			case "text":
@@ -220,7 +253,11 @@ func Decode(line []byte) []Event {
 		if l.IsError {
 			out = append(out, Event{Kind: EvError, Err: errors.New(l.Result)})
 		}
-		out = append(out, Event{Kind: EvTurnEnd, Cost: l.Cost, Millis: l.Millis})
+		end := Event{Kind: EvTurnEnd, Cost: l.Cost, Millis: l.Millis}
+		for _, m := range l.ModelUsage {
+			end.Window = max(end.Window, m.Window)
+		}
+		out = append(out, end)
 	}
 	return out
 }

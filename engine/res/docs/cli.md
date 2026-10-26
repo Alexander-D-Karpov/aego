@@ -187,13 +187,13 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego scene reset <file> <node> <path> [--dry-run]` | reset a field to its default, a transform part to identity |
 | `aego scene run [<file>] [--frames v] [--seed v] [--watch v]` | run a scene headless and report the log, the state hash and where the watched nodes went |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | set a field |
-| `aego scene tree <file>` | node tree with IDs, components, scripts and prefab links |
+| `aego scene tree <file> [--node v]` | node tree with IDs, components, scripts and prefab links |
 | `aego scene validate <file>` | load problems and references to nodes the scene does not have |
 | `aego schema list [--kind v]` | component and data types |
 | `aego schema show <type> [--lang v]` | fields of a type: kind, range, unit, default, flags and docs |
 | `aego script create <file> [--text v] [--dry-run]` | create a script file; it fails when the file exists, so change an existing script with script.edit |
 | `aego script edit <file> [--old v] [--new v] [--dry-run]` | replace text in a script; old must match exactly once, so quote enough lines around the change |
-| `aego script read <file>` | text of a script, as the editor has it, with unsaved changes |
+| `aego script read <file> [--from v] [--to v]` | text of a script, as the editor has it, with unsaved changes; from and to read a part of a long one |
 | `aego script write <file> [--text v] [--dry-run]` | replace the whole text of a script; for a small change script.edit is safer |
 <!-- agent:end -->
 

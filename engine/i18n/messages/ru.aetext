@@ -245,6 +245,120 @@ messages version=1 lang=ru {
   msg "editor.agent.claude_code_is_not_available" {
     text="Claude Code недоступен"
   }
+  msg "editor.agent.ctx.attach" {
+    text="Отправлять с каждым сообщением"
+  }
+  msg "editor.agent.ctx.buffer" {
+    text="Запас до сжатия"
+  }
+  msg "editor.agent.ctx.code" {
+    text="Код"
+  }
+  msg "editor.agent.ctx.compacted" {
+    text="Контекст сжат при заполнении {n}"
+  }
+  msg "editor.agent.ctx.doc_results" {
+    text="Доки"
+  }
+  msg "editor.agent.ctx.doc_results_tip" {
+    text="Результаты поиска по документации"
+  }
+  msg "editor.agent.ctx.docs" {
+    text="Документация"
+  }
+  msg "editor.agent.ctx.drop" {
+    text="Убрать: не отправлять это в истории со следующего сообщения"
+  }
+  msg "editor.agent.ctx.earlier" {
+    text="Прошлый сеанс, кратко"
+  }
+  msg "editor.agent.ctx.estimated" {
+    text="Около {n}, до первого ответа"
+  }
+  msg "editor.agent.ctx.free" {
+    text="Свободно"
+  }
+  msg "editor.agent.ctx.full" {
+    text="Начните новый сеанс или уберите результаты"
+  }
+  msg "editor.agent.ctx.instructions" {
+    text="Инструкции"
+  }
+  msg "editor.agent.ctx.limits" {
+    text="Лимиты чтения"
+  }
+  msg "editor.agent.ctx.messages" {
+    text="Сообщения"
+  }
+  msg "editor.agent.ctx.new_from_summary" {
+    text="Новый сеанс из сводки; сводка уйдёт с вашим следующим сообщением"
+  }
+  msg "editor.agent.ctx.new_summary" {
+    text="Новый сеанс со сводкой"
+  }
+  msg "editor.agent.ctx.pin" {
+    text="Закрепить: оставлять целиком, когда история сокращается"
+  }
+  msg "editor.agent.ctx.pin_scene" {
+    text="Открытую сцену"
+  }
+  msg "editor.agent.ctx.pin_selection" {
+    text="Выделение"
+  }
+  msg "editor.agent.ctx.pinned_state" {
+    text="Открытая сцена и выделение"
+  }
+  msg "editor.agent.ctx.project" {
+    text="Проект и схема"
+  }
+  msg "editor.agent.ctx.rebuilt" {
+    text="Сеанс начат заново без {n} убранных результатов (на {t} токенов меньше)"
+  }
+  msg "editor.agent.ctx.results" {
+    text="Результаты тулов"
+  }
+  msg "editor.agent.ctx.scene" {
+    text="Сцена"
+  }
+  msg "editor.agent.ctx.script_lines" {
+    text="Строки"
+  }
+  msg "editor.agent.ctx.script_lines_tip" {
+    text="Скрипт длиннее читается по частям"
+  }
+  msg "editor.agent.ctx.summarizing" {
+    text="Агент пишет сводку для нового сеанса…"
+  }
+  msg "editor.agent.ctx.system" {
+    text="Системный промпт"
+  }
+  msg "editor.agent.ctx.tip" {
+    text="Контекст: {used} из {window} токенов"
+  }
+  msg "editor.agent.ctx.title" {
+    text="Контекст"
+  }
+  msg "editor.agent.ctx.tools" {
+    text="Описания тулов"
+  }
+  msg "editor.agent.ctx.tree_depth" {
+    text="Глубина"
+  }
+  msg "editor.agent.ctx.tree_depth_tip" {
+    text="Сколько уровней дерева сцены агент читает за раз"
+  }
+  msg "editor.agent.ctx.tree_nodes" {
+    text="Узлы"
+  }
+  msg "editor.agent.ctx.tree_nodes_tip" {
+    text="Сколько узлов дерева сцены агент читает за раз"
+  }
+  msg "editor.agent.ctx.used" {
+    text="Занято: {n}"
+  }
+  msg "editor.agent.ctx.will_drop" {
+    text="Следующее сообщение начнёт сеанс заново без {n} результатов ({t})"
+  }
   msg "editor.agent.current_session" {
     text="Текущий сеанс"
   }

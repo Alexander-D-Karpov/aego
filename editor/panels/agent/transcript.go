@@ -95,6 +95,8 @@ func (p *Panel) measure(ui *core.Context, b *block, w float32) float32 {
 		return b.md.Measure(ui, w)
 	case blockTurn:
 		return row * 0.9
+	case blockNotice:
+		return row
 	case blockError:
 		return row
 	case blockSteps:
@@ -168,6 +170,9 @@ func (p *Panel) draw(ui *core.Context, b *block, r mathx.Rect) {
 		ui.Rect(mathx.Rect{X: r.X, Y: mid, W: (r.W - lw) / 2, H: 1}, th.Border)
 		ui.Rect(mathx.Rect{X: r.X + (r.W+lw)/2, Y: mid, W: (r.W - lw) / 2, H: 1}, th.Border)
 		ui.TextIn(r, label, th.TextDisabled, core.AlignCenter)
+	case blockNotice:
+		widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, "agent.context", th.TextDisabled)
+		ui.Text(b.fl.get(ui, b.text, r.W-22), mathx.Vec2{X: r.X + 22, Y: ui.TextY(r)}, th.TextDim)
 	case blockError:
 		widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "status.error", th.Error)
 		id := ui.ID("err")

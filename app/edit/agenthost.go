@@ -24,6 +24,7 @@ type agentHost struct {
 	busy    bool
 	auto    bool
 	plan    bool
+	budgets agentui.Budgets
 	static  map[int]agentui.Card
 }
 
@@ -31,7 +32,7 @@ func newAgentHost(b backend.Backend, config func() agentbridge.Config, command f
 	if b == nil {
 		b = backend.Claude{}
 	}
-	return &agentHost{backend: b, config: config, command: command, setCmd: set, static: map[int]agentui.Card{}}
+	return &agentHost{backend: b, config: config, command: command, setCmd: set, static: map[int]agentui.Card{}, budgets: agentui.DefaultBudgets}
 }
 
 func (h *agentHost) Available(cmd string) (string, error) {
@@ -72,6 +73,7 @@ func (h *agentHost) start() error {
 		}
 		b.SetAutoApply(h.auto)
 		b.SetPlanOnly(h.plan)
+		b.SetBudgets(h.budgets)
 		h.bridge = b
 	}
 	if h.conv == nil {
@@ -117,7 +119,8 @@ func (h *agentHost) Close() {
 }
 
 func eventOf(e backend.Event) agentui.Event {
-	out := agentui.Event{Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed, Cost: e.Cost, Millis: e.Millis}
+	out := agentui.Event{Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed, Cost: e.Cost, Millis: e.Millis,
+		Tokens: e.Tokens, Window: e.Window, Model: e.Model}
 	switch e.Kind {
 	case backend.EvText:
 		out.Kind = agentui.EvText
@@ -127,6 +130,10 @@ func eventOf(e backend.Event) agentui.Event {
 		out.Kind = agentui.EvToolResult
 	case backend.EvTurnEnd:
 		out.Kind = agentui.EvTurnEnd
+	case backend.EvUsage:
+		out.Kind = agentui.EvUsage
+	case backend.EvCompact:
+		out.Kind = agentui.EvCompact
 	default:
 		out.Kind = agentui.EvError
 		if e.Err != nil {
@@ -307,5 +314,23 @@ func (h *agentHost) Questions(dst []agentui.Question) []agentui.Question {
 func (h *agentHost) Answer(id int, picks []int, text string) {
 	if h.bridge != nil {
 		_ = h.bridge.Answer(id, picks, text)
+	}
+}
+
+func (h *agentHost) ContextBase() (string, string) {
+	if h.bridge == nil {
+		return "", ""
+	}
+	return h.bridge.ContextBase()
+}
+
+func (h *agentHost) Budgets() agentui.Budgets {
+	return h.budgets
+}
+
+func (h *agentHost) SetBudgets(b agentui.Budgets) {
+	h.budgets = b
+	if h.bridge != nil {
+		h.bridge.SetBudgets(b)
 	}
 }

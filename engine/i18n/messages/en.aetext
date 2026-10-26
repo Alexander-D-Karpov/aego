@@ -242,6 +242,120 @@ messages version=1 lang=en {
   msg "editor.agent.claude_code_is_not_available" {
     text="Claude Code is not available"
   }
+  msg "editor.agent.ctx.attach" {
+    text="Send with every message"
+  }
+  msg "editor.agent.ctx.buffer" {
+    text="Compaction buffer"
+  }
+  msg "editor.agent.ctx.code" {
+    text="Code"
+  }
+  msg "editor.agent.ctx.compacted" {
+    text="Context compacted at {n}"
+  }
+  msg "editor.agent.ctx.doc_results" {
+    text="Docs"
+  }
+  msg "editor.agent.ctx.doc_results_tip" {
+    text="Results of a documentation search"
+  }
+  msg "editor.agent.ctx.docs" {
+    text="Docs"
+  }
+  msg "editor.agent.ctx.drop" {
+    text="Drop: leave it out of the history from the next message"
+  }
+  msg "editor.agent.ctx.earlier" {
+    text="Earlier session, shortened"
+  }
+  msg "editor.agent.ctx.estimated" {
+    text="About {n}, until the first answer"
+  }
+  msg "editor.agent.ctx.free" {
+    text="Free"
+  }
+  msg "editor.agent.ctx.full" {
+    text="Start a new session or drop old tool results"
+  }
+  msg "editor.agent.ctx.instructions" {
+    text="Instructions"
+  }
+  msg "editor.agent.ctx.limits" {
+    text="Read limits"
+  }
+  msg "editor.agent.ctx.messages" {
+    text="Messages"
+  }
+  msg "editor.agent.ctx.new_from_summary" {
+    text="New session from the summary; it goes with your next message"
+  }
+  msg "editor.agent.ctx.new_summary" {
+    text="New Session with Summary"
+  }
+  msg "editor.agent.ctx.pin" {
+    text="Pin: keep it in full when the history is shortened"
+  }
+  msg "editor.agent.ctx.pin_scene" {
+    text="The open scene"
+  }
+  msg "editor.agent.ctx.pin_selection" {
+    text="The selection"
+  }
+  msg "editor.agent.ctx.pinned_state" {
+    text="Open scene and selection"
+  }
+  msg "editor.agent.ctx.project" {
+    text="Project & schema"
+  }
+  msg "editor.agent.ctx.rebuilt" {
+    text="Started the session again without {n} dropped results ({t} tokens fewer)"
+  }
+  msg "editor.agent.ctx.results" {
+    text="Tool results"
+  }
+  msg "editor.agent.ctx.scene" {
+    text="Scene"
+  }
+  msg "editor.agent.ctx.script_lines" {
+    text="Lines"
+  }
+  msg "editor.agent.ctx.script_lines_tip" {
+    text="A longer script is read in parts"
+  }
+  msg "editor.agent.ctx.summarizing" {
+    text="Writing a summary for a new session…"
+  }
+  msg "editor.agent.ctx.system" {
+    text="System prompt"
+  }
+  msg "editor.agent.ctx.tip" {
+    text="Context: {used} of {window} tokens"
+  }
+  msg "editor.agent.ctx.title" {
+    text="Context"
+  }
+  msg "editor.agent.ctx.tools" {
+    text="Tool definitions"
+  }
+  msg "editor.agent.ctx.tree_depth" {
+    text="Depth"
+  }
+  msg "editor.agent.ctx.tree_depth_tip" {
+    text="Levels of a scene tree the agent reads at once"
+  }
+  msg "editor.agent.ctx.tree_nodes" {
+    text="Nodes"
+  }
+  msg "editor.agent.ctx.tree_nodes_tip" {
+    text="Nodes of a scene tree the agent reads at once"
+  }
+  msg "editor.agent.ctx.used" {
+    text="Used: {n}"
+  }
+  msg "editor.agent.ctx.will_drop" {
+    text="The next message starts the session again without {n} results ({t})"
+  }
   msg "editor.agent.current_session" {
     text="Current session"
   }

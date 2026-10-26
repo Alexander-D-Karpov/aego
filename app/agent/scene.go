@@ -37,6 +37,8 @@ type NodeView struct {
 	Scripts    []string          `json:"scripts,omitempty"`
 	ScriptData []CompView        `json:"scriptFields,omitempty"`
 	Children   []NodeView        `json:"children,omitempty"`
+	// More counts the nodes under this one that a capped tree leaves out.
+	More int `json:"more,omitempty"`
 }
 
 type CompView struct {
@@ -49,7 +51,8 @@ func sceneCommands() []*Command {
 	optPath.Required = false
 	optParent := Arg{Name: "parent", Type: "string", Doc: "parent node, the root by default"}
 	return []*Command{
-		{Name: "scene.tree", Doc: "node tree with IDs, components, scripts and prefab links", Args: []Arg{argFile}, Run: (*Session).sceneTree},
+		{Name: "scene.tree", Doc: "node tree with IDs, components, scripts and prefab links", Args: []Arg{argFile,
+			{Name: "node", Type: "string", Doc: "show only the tree under this node"}}, Run: (*Session).sceneTree},
 		{Name: "scene.get", Doc: "a node with its transform and every saved field, or one field", Args: []Arg{argFile, argNode, optPath}, Run: (*Session).sceneGet},
 		{Name: "scene.set", Doc: "set a field", Write: true, Args: []Arg{argFile, argNode, argPath, argValue}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Set", mutate.Set(a.Str("node"), a.Str("path"), a.Str("value")))
@@ -327,7 +330,7 @@ func (s *Session) sceneRun(a Args) (*Output, error) {
 
 // RunOutput is the answer to scene.run: the report, its text and the run's error as a problem.
 func RunOutput(rep RunReport) *Output {
-	out := &Output{Value: rep}
+	out := &Output{OK: rep.Error == "", Value: rep}
 	if rep.Error != "" {
 		out.Problems = append(out.Problems, mutate.Problem{Error: true, Message: rep.Error})
 	}
@@ -369,10 +372,62 @@ func (s *Session) sceneTree(a Args) (*Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := s.view(doc.Scene, doc.Scene.Root(), false, true)
+	h := doc.Scene.Root()
+	if a.Has("node") {
+		if h, err = doc.Node(a.Str("node")); err != nil {
+			return nil, err
+		}
+	}
+	v := s.view(doc.Scene, h, false, true)
+	out := &Output{Value: v, Problems: doc.Problems}
+	if left := capTree(&v, s.budget.TreeNodes, s.budget.TreeDepth); left > 0 {
+		out.Value = v
+		out.Notes = append(out.Notes, strconv.Itoa(left)+" more nodes are left out (more counts them under each node); call scene_tree with node to see a part")
+	}
 	var b strings.Builder
 	treeText(&b, v, 0)
-	return &Output{Value: v, Text: b.String(), Problems: doc.Problems}, nil
+	out.Text = b.String()
+	return out, nil
+}
+
+// capTree keeps the first nodes of a tree in order, at most nodes of them and depth levels deep; it returns how many it left out.
+func capTree(v *NodeView, nodes, depth int) int {
+	if nodes <= 0 && depth <= 0 {
+		return 0
+	}
+	if nodes <= 0 {
+		nodes = int(^uint(0) >> 1)
+	}
+	if depth <= 0 {
+		depth = nodes
+	}
+	kept, left := 1, 0
+	var walk func(n *NodeView, d int)
+	walk = func(n *NodeView, d int) {
+		for i := range n.Children {
+			if kept >= nodes || d >= depth {
+				for j := i; j < len(n.Children); j++ {
+					c := nodeCount(&n.Children[j])
+					n.More += c
+					left += c
+				}
+				n.Children = n.Children[:i]
+				return
+			}
+			kept++
+			walk(&n.Children[i], d+1)
+		}
+	}
+	walk(v, 0)
+	return left
+}
+
+func nodeCount(v *NodeView) int {
+	n := 1
+	for i := range v.Children {
+		n += nodeCount(&v.Children[i])
+	}
+	return n
 }
 
 func (s *Session) sceneGet(a Args) (*Output, error) {

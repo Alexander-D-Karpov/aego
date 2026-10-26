@@ -14,9 +14,19 @@ type Step struct {
 	Args map[string]any
 }
 
-// Fake plays scripted turns, one per Send, for tests.
+// Fake plays scripted turns, one per Send, for tests; a new conversation goes on with the next turn, and Sent keeps every message.
 type Fake struct {
 	Turns [][]Step
+	mu    sync.Mutex
+	n     int
+	sent  []string
+}
+
+// Sent is the messages the conversations got, in order.
+func (f *Fake) Sent() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.sent...)
 }
 
 func (f *Fake) Name() string {
@@ -28,28 +38,28 @@ func (f *Fake) Available(Config) (string, error) {
 }
 
 func (f *Fake) Start(cfg Config) (Conversation, error) {
-	return &fakeConv{turns: f.Turns, client: NewClient(cfg.MCPURL, cfg.Token), events: make(chan Event, 64), stop: make(chan struct{})}, nil
+	return &fakeConv{f: f, client: NewClient(cfg.MCPURL, cfg.Token), events: make(chan Event, 64), stop: make(chan struct{})}, nil
 }
 
 type fakeConv struct {
-	mu     sync.Mutex
+	f      *Fake
 	once   sync.Once
-	turns  [][]Step
-	n      int
 	client *Client
 	events chan Event
 	stop   chan struct{}
 }
 
-func (c *fakeConv) Send(string) error {
-	c.mu.Lock()
-	if c.n >= len(c.turns) {
-		c.mu.Unlock()
+func (c *fakeConv) Send(text string) error {
+	f := c.f
+	f.mu.Lock()
+	f.sent = append(f.sent, text)
+	if f.n >= len(f.Turns) {
+		f.mu.Unlock()
 		return errors.New("the fake backend has no more turns")
 	}
-	turn := c.turns[c.n]
-	c.n++
-	c.mu.Unlock()
+	turn := f.Turns[f.n]
+	f.n++
+	f.mu.Unlock()
 	go c.play(turn)
 	return nil
 }

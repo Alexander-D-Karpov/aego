@@ -126,6 +126,8 @@ var Editor = []module.IconUse{
 	use("panel.table", 16, "Table tab"),
 	use("panel.tasks", 16, "Task Center tab"),
 	use("panel.watch", 16, "Watch tab; Follow in the Agent panel"),
+	use("agent.context", 16, "Context button and popup of the Agent panel"),
+	use("agent.pin", 16, "Pin in the Agent panel's Context popup"),
 	use("panel.welcome", 16, "Getting Started tab"),
 	use("anim.event", 16, "Animation panel: event lane"),
 	use("anim.graph", 16, "Create palette: Animation → Controller; Animator panel tab and Auto Layout"),

@@ -6,7 +6,9 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | Icon | Owner | Size | Used by | Status |
 |---|---|---|---|---|
 | `agent.avatar` | engine | 16 | Agent panel: the agent in the header, questions and the empty state | ok |
+| `agent.context` | engine | 16 | Context button and popup of the Agent panel | ok |
 | `agent.new` | engine | 16 | Agent panel: New Session and the examples of the empty state | ok |
+| `agent.pin` | engine | 16 | Pin in the Agent panel's Context popup | ok |
 | `agent.plan` | engine | 16 | Agent panel: Plan Only | ok |
 | `agent.presence` | engine | 16 | Where the agent works: Hierarchy, Inspector, Scene View and code | ok |
 | `anim.event` | engine | 16 | Animation panel: event lane | ok |

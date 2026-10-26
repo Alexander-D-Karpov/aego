@@ -17,7 +17,8 @@ var argScript = Arg{Name: "file", Type: "string", Doc: "script file, relative to
 
 func scriptCommands() []*Command {
 	return []*Command{
-		{Name: "script.read", Doc: "text of a script, as the editor has it, with unsaved changes", Args: []Arg{argScript}, Run: (*Session).scriptGet},
+		{Name: "script.read", Doc: "text of a script, as the editor has it, with unsaved changes; from and to read a part of a long one", Args: []Arg{argScript,
+			{Name: "from", Type: "integer", Doc: "first line to read, 1-based"}, {Name: "to", Type: "integer", Doc: "last line to read"}}, Run: (*Session).scriptGet},
 		{Name: "script.edit", Doc: "replace text in a script; old must match exactly once, so quote enough lines around the change", Write: true,
 			Args: []Arg{argScript,
 				{Name: "old", Type: "string", Doc: "exact text to replace, with its indentation", Required: true},
@@ -63,7 +64,44 @@ func (s *Session) scriptGet(a Args) (*Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Output{Value: text, Text: text}, nil
+	from, err := a.Int("from", 0)
+	if err != nil {
+		return nil, err
+	}
+	to, err := a.Int("to", 0)
+	if err != nil {
+		return nil, err
+	}
+	part, note := window(text, from, to, s.budget.ScriptLines)
+	out := &Output{Value: part, Text: part}
+	if note != "" {
+		out.Notes = append(out.Notes, note)
+	}
+	return out, nil
+}
+
+// window is the lines from..to of a script, at most max of them; a script within max lines comes whole when no range is asked.
+func window(text string, from, to, limit int) (string, string) {
+	lines := strings.SplitAfter(text, "\n")
+	total := len(lines)
+	if from <= 0 && to <= 0 && (limit <= 0 || total <= limit) {
+		return text, ""
+	}
+	from = max(from, 1)
+	if to <= 0 || to > total {
+		to = total
+	}
+	if limit > 0 && to-from+1 > limit {
+		to = from + limit - 1
+	}
+	if from > total || from > to {
+		return "", "the script has " + strconv.Itoa(total) + " lines"
+	}
+	note := "lines " + strconv.Itoa(from) + "-" + strconv.Itoa(to) + " of " + strconv.Itoa(total)
+	if to < total || from > 1 {
+		note += "; read others with from and to"
+	}
+	return strings.Join(lines[from-1:to], ""), note
 }
 
 // ScriptEdit is a script change: the text before and after, and the first changed line; New creates the file.

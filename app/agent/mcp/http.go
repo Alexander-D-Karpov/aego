@@ -87,3 +87,8 @@ func (h *HTTP) serve(w http.ResponseWriter, r *http.Request) {
 func (h *HTTP) Close() error {
 	return h.srv.Close()
 }
+
+// Definitions is what the model reads about this server before the first message.
+func (h *HTTP) Definitions() string {
+	return h.s.Definitions()
+}
