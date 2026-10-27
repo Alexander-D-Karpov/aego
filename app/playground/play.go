@@ -87,12 +87,14 @@ func (p *Playground) Play(example string, files map[string]string) PlayResult {
 	return res
 }
 
-func (p *Playground) Bench(count int, animate bool) PlayResult {
+func (p *Playground) Bench(count int, animate, material bool) PlayResult {
 	g, err := p.host()
 	if err != nil {
 		return PlayResult{Error: err.Error()}
 	}
-	g.Bench(count, animate)
+	if err := g.Bench(count, animate, material); err != nil {
+		return PlayResult{Error: err.Error()}
+	}
 	return PlayResult{Started: true}
 }
 

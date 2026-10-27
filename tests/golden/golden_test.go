@@ -41,6 +41,9 @@ type testCase struct {
 	scene     sceneFunc
 }
 
+// caseClocks pins the frame block's time for the cases whose shaders read it.
+var caseClocks = map[string]*render.Clock{}
+
 func TestGolden(t *testing.T) {
 	runtime.LockOSThread()
 	mod := renderhost.New(render.Options{MaxSprites: 4096})
@@ -80,8 +83,10 @@ func TestGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tc := range append(append(cases(t, r), monoCases(t, r)...), codeCases(t, r)...) {
+	for _, tc := range append(append(append(cases(t, r), monoCases(t, r)...), codeCases(t, r)...), materialCases(t, r)...) {
+		r.PinClock(caseClocks[tc.name])
 		img, err := render1(e, r, target, tc.scene)
+		r.PinClock(nil)
 		t.Run(tc.name, func(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)

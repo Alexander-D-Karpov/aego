@@ -223,12 +223,14 @@ func (p *Player) build(mods []module.Module) error {
 	p.Renderer = rmod.Renderer()
 	p.sampler.render = rmod.Stats
 	p.Loader = loader.New(p.Engine.GPU(), p.Renderer.Textures(), p.Log)
+	p.Loader.SetMaterials(p.Renderer.Materials())
 	if err = p.Loader.Mount(data.Index, files); err != nil {
 		return err
 	}
 	p.Engine.SetService(loader.ServiceID, p.Loader)
 	p.Engine.SetService(renderhost.ServiceID, p.Renderer)
 	p.Problems = problems.New()
+	p.Problems.Add(rmod.ShaderProblems())
 	p.Problems.Add(p.Modules.AssetProblems(p.Types.Schema(), p.Loader))
 	p.Engine.SetService(problems.ServiceID, p.Problems)
 	if p.Settings, err = p.Modules.NewSettings(); err != nil {

@@ -1,0 +1,14 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+
+#pragma material
+uniform float Flash; // @instance @default(0)
+uniform vec3 FlashColor; // @instance @color
+uniform vec2 Shift; // @instance
+uniform float Base; // @default(1)
+#pragma end
+
+void fragment() {
+    vec4 c = aego_sample_at(aego_uv + Shift * aego_texel());
+    aego_out = vec4(mix(c.rgb, FlashColor * c.a, Flash) * Base, c.a);
+}

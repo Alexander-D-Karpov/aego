@@ -443,7 +443,9 @@ type request struct {
 	Example string            `json:"example"`
 	Count   int               `json:"count"`
 	Animate bool              `json:"animate"`
-	Lose    bool              `json:"lose"`
+	// Material draws the bench with the test material at a pinned time, so web-smoke compares it with the GL golden.
+	Material bool `json:"material"`
+	Lose     bool `json:"lose"`
 }
 
 func (p *Playground) Call(method string, payload []byte) ([]byte, error) {
@@ -474,7 +476,7 @@ func (p *Playground) Call(method string, payload []byte) ([]byte, error) {
 	case "poll":
 		out = p.Poll()
 	case "bench":
-		out = p.Bench(req.Count, req.Animate)
+		out = p.Bench(req.Count, req.Animate, req.Material)
 	case "loseContext":
 		out = p.LoseContext(req.Lose)
 	default:

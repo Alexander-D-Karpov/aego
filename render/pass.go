@@ -6,6 +6,8 @@ import (
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/gpu"
+	"aego/render/shader"
+	"aego/render/sprite"
 	"aego/render/view"
 )
 
@@ -101,28 +103,39 @@ func (spritePass) Execute(ctx *PassContext) {
 		return
 	}
 	r.batcher.Upload()
-	r.setUniform(ctx.Pass, ctx.View.ViewProjection(r.caps))
+	lanes := r.batcher.UploadLanes()
+	p := ctx.Pass
 	vp := ctx.View.LetterboxViewport()
 	for i := range batches {
 		b := &batches[i]
 		if b.Texture.IsZero() {
 			continue
 		}
-		ctx.Pass.SetPipeline(r.spritePipes[b.Blend])
-		ctx.Pass.SetVertexBufferAt(0, r.batcher.Buffer(), b.First*spriteStride)
-		ctx.Pass.SetUniformBuffer(0, r.ub)
-		ctx.Pass.SetTexture(0, b.Texture, b.Sampler)
+		r.bindSprite(p, b, lanes)
+		p.SetVertexBufferAt(0, r.batcher.Buffer(), b.First*spriteStride)
+		p.SetTexture(shader.TexMain, b.Texture, b.Sampler)
 		if b.Scissor {
-			ctx.Pass.SetScissor(b.Clip, true)
+			p.SetScissor(b.Clip, true)
 		} else {
-			ctx.Pass.SetScissor(vp, false)
+			p.SetScissor(vp, false)
 		}
-		ctx.Pass.DrawInstanced(4, b.Count)
+		p.DrawInstanced(4, b.Count)
 		r.stats.Batches++
 		r.stats.Instances += uint32(b.Count)
 	}
-	ctx.Pass.SetScissor(vp, false)
+	p.SetScissor(vp, false)
 	r.stats.InstanceBytes += uint32(r.batcher.Len() * spriteStride)
+}
+
+// bindSprite binds the batch's material, or the built-in sprite pipeline when there is none or it cannot draw.
+func (r *Renderer) bindSprite(p gpu.Pass, b *sprite.Batch, lanes bool) {
+	if m := b.Material; m != nil && (b.LaneFirst < 0 || lanes) && r.mats.Bind(p, m) {
+		if b.LaneFirst >= 0 {
+			p.SetVertexBufferAt(shader.LaneSlot, r.batcher.LaneBuffer(), b.LaneFirst*shader.LaneStride)
+		}
+		return
+	}
+	p.SetPipeline(r.spritePipes[b.Blend])
 }
 
 type debugPass struct{}
@@ -134,22 +147,22 @@ func (debugPass) Execute(ctx *PassContext) {
 		return
 	}
 	p := ctx.Pass
-	if world.Count > 0 || overlay.Count > 0 {
-		vp := ctx.View.ViewProjection(r.caps)
-		if world.Count > 0 {
-			pipe := r.debugPipe
-			if ctx.View.UsesDepth() {
-				pipe = r.debugDepthPipe
-			}
-			r.drawLines(p, pipe, vp, world)
+	if world.Count > 0 {
+		pipe := r.debugPipe
+		if ctx.View.UsesDepth() {
+			pipe = r.debugDepthPipe
 		}
-		if overlay.Count > 0 {
-			r.drawLines(p, r.debugPipe, vp, overlay)
-		}
+		r.drawLines(p, pipe, world)
+	}
+	if overlay.Count > 0 {
+		r.drawLines(p, r.debugPipe, overlay)
 	}
 	if screen.Count > 0 {
 		sv := view.ScreenView(ctx.View.TargetW, ctx.View.TargetH, ctx.View.PixelScale)
 		sv.Target = ctx.View.Target
-		r.drawLines(p, r.debugPipe, sv.ViewProjection(r.caps), screen)
+		r.putScreen(sv.ViewProjection(r.caps))
+		p.SetUniformBuffer(shader.SlotView, r.ub)
+		r.drawLines(p, r.debugPipe, screen)
+		p.SetUniformBuffer(shader.SlotView, r.ubView)
 	}
 }

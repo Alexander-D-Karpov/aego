@@ -1,0 +1,14 @@
+#pragma aego abi 1
+
+#pragma material
+uniform sampler2D Mask; // @texture
+uniform sampler2D Detail;
+uniform float Strength; // @default(1)
+#pragma end
+
+void fragment() {
+    vec4 base = texture(aego_main, aego_uv) * aego_color;
+    float m = texture(Mask, aego_uv).r;
+    vec3 d = texture(Detail, aego_local).rgb;
+    aego_out = vec4(mix(base.rgb, base.rgb * d, m * Strength), base.a);
+}

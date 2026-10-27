@@ -67,7 +67,7 @@ func TestEditedScriptErrorsStopPlay(t *testing.T) {
 
 func TestBench(t *testing.T) {
 	p := newHeadless(t)
-	if res := p.Bench(1000, true); !res.Started {
+	if res := p.Bench(1000, true, false); !res.Started {
 		t.Fatal(res.Error)
 	}
 	if err := p.Game().Step(30); err != nil {

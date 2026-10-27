@@ -1,0 +1,14 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+
+#pragma material
+uniform float Amplitude; // @default(0.1)
+#pragma end
+
+void vertex() {
+    aego_world.y += sin(aego_time + aego_world.x) * Amplitude * aego_local.y;
+}
+
+void fragment() {
+    aego_out = aego_sample();
+}

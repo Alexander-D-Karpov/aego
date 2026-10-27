@@ -1,0 +1,12 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+#include "engine/noise.glsl"
+#include "engine/color.glsl"
+#include "waves.glsl"
+#include "engine/color.glsl"
+
+void fragment() {
+    vec4 c = aego_sample();
+    float n = aego_noise(aego_local * 8.0 + aego_time);
+    aego_out = aego_premultiply(vec4(aego_linear_to_srgb(c.rgb) * wave(n), c.a));
+}

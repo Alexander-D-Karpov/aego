@@ -1,0 +1,19 @@
+#pragma aego abi 1
+#pragma blend additive
+#include "engine/sprite.glsl"
+
+#pragma material
+uniform int Mode; // @enum(add, screen, soft) @default(1)
+uniform float Power; // @range(0, 4) @default(1) @unit("x")
+#pragma end
+
+/* braces in a comment { } stay out of the entry points */
+void fragment() {
+    vec4 c = aego_sample();
+    if (Mode == 1) {
+        c.rgb = 1.0 - (1.0 - c.rgb) * (1.0 - c.rgb); // screen { }
+    } else if (Mode == 2) {
+        c.rgb = c.rgb * c.rgb;
+    }
+    aego_out = c * Power;
+}

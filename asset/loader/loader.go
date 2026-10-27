@@ -10,6 +10,7 @@ import (
 	"aego/core/log"
 	"aego/format/aetext"
 	"aego/gpu"
+	"aego/render/material"
 	"aego/render/mesh"
 	"aego/render/texture"
 	"aego/vfs"
@@ -51,6 +52,7 @@ type Loader struct {
 	meshes  map[ids.AssetID]*mesh.Mesh
 	failed  map[ids.AssetID]bool
 	decoded map[decodedKey]decodedValue
+	mat     materials
 	subs    []subscriber
 	nextID  uint64
 	gen     uint32
@@ -75,7 +77,12 @@ func New(dev gpu.Device, up *texture.Uploader, lg *log.Logger) *Loader {
 		meshes:  map[ids.AssetID]*mesh.Mesh{},
 		failed:  map[ids.AssetID]bool{},
 		decoded: map[decodedKey]decodedValue{},
-		gen:     1,
+		mat: materials{
+			shaders: map[ids.AssetID]*material.Shader{},
+			mats:    map[ids.AssetID]*material.Material{},
+			uses:    map[ids.AssetID]ids.AssetID{},
+		},
+		gen: 1,
 	}
 }
 
@@ -559,7 +566,8 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 		return staged{id: e.ID, kind: e.Kind, geo: m}, true, nil
 	case asset.ArtScript:
 		return staged{id: e.ID, kind: e.Kind}, true, nil
-	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable, asset.ArtAudio, asset.ArtAnim, asset.ArtCtrl:
+	case asset.ArtSpriteRegion, asset.ArtScene, asset.ArtPrefab, asset.ArtData, asset.ArtTable, asset.ArtAudio, asset.ArtAnim, asset.ArtCtrl,
+		asset.ArtShader, asset.ArtShaderInclude, asset.ArtMaterial:
 		art, ok := e.Artifact(e.Kind)
 		if !ok {
 			return staged{}, false, errs.New(errs.AssetBadArtifact, "entry has no artifact of its own kind", log.F("asset", e.ID.String()))
@@ -618,6 +626,12 @@ func (l *Loader) Swap(entries []asset.Entry, files vfs.FS) error {
 				continue
 			}
 			l.blobs[s.id] = s.blob
+			switch s.kind {
+			case asset.ArtShader:
+				l.swapShader(s.id, s.blob)
+			case asset.ArtMaterial:
+				l.dropMaterial(s.id)
+			}
 		}
 	}
 	clear(l.decoded)
@@ -663,6 +677,8 @@ func (l *Loader) Drop(id ids.AssetID) {
 	delete(l.region, id)
 	delete(l.blobs, id)
 	delete(l.failed, id)
+	l.dropMaterial(id)
+	l.dropShader(id)
 	clear(l.decoded)
 	l.gen++
 }
@@ -679,6 +695,9 @@ func (l *Loader) Close() {
 	l.region = map[ids.AssetID]regionEntry{}
 	l.blobs = map[ids.AssetID][]byte{}
 	l.failed = map[ids.AssetID]bool{}
+	clear(l.mat.shaders)
+	clear(l.mat.mats)
+	clear(l.mat.uses)
 	l.decoded = map[decodedKey]decodedValue{}
 	l.subs = nil
 }

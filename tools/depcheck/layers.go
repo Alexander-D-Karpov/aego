@@ -87,11 +87,16 @@ var rules = []rule{
 	{"engine/res", []string{"core/...", "vfs"}, nil},
 	{"app/bootstrap", []string{"core/...", "project", "app/proc"}, nil},
 	{"render", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
-	{"render/host", []string{"core/...", "gpu", "engine", "render"}, nil},
+	{"render/host", []string{"core/...", "gpu", "engine", "engine/problems", "render", "render/material", "render/shaderx"}, nil},
+	{"render/shader", []string{"core/..."}, nil},
+	{"render/shaderx", []string{"core/...", "render/shader"}, nil},
+	{"render/material", []string{"core/...", "gpu", "render/shader"}, nil}, // never render: the renderer hands it a pipeline template (D368)
 	{"render/...", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
-	{"asset", []string{"core/...", "gpu", "format/...", "render/texture", "render/mesh"}, nil},
-	{"asset/loader", []string{"core/...", "anim", "gpu", "vfs", "asset", "format/aetext", "render/texture", "render/mesh"}, nil},
-	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture"}, nil},
+	{"asset", []string{"core/...", "gpu", "format/...", "render/texture", "render/mesh", "render/shader", "render/material", "render/shaderx"}, nil},
+	{"asset/loader", []string{"core/...", "anim", "gpu", "vfs", "asset", "format/aetext", "render/texture", "render/mesh", "render/shader", "render/material"}, nil},
+	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture", "engine/res"}, nil},
+	{"asset/importers/shader", []string{"core/...", "asset", "asset/pipeline", "render/shader", "render/shaderx", "render/material"}, nil},
+	{"asset/importers/material", []string{"core/...", "asset", "asset/pipeline", "format/...", "render/shader", "render/material"}, nil},
 	{"asset/importers/animctrl", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim"}, nil},
 	{"asset/importers/animclip", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim", "schema"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh", "audio/..."}, nil},
@@ -233,6 +238,7 @@ var fsAllowed = []string{
 	"tests/fixture",
 	"save", // slot files next to the player profile (D262)
 	"asset/pipeline",
+	"asset/importers/shader", // glslangValidator checks every variant from temporary files (D367)
 	"app/bootstrap",
 	"app",
 	"app/docstool",

@@ -5,8 +5,10 @@ import (
 	"sort"
 
 	"aego/asset/importers/atlas"
+	matImporter "aego/asset/importers/material"
 	"aego/asset/importers/scenefile"
 	scriptImporter "aego/asset/importers/script"
+	shaderImporter "aego/asset/importers/shader"
 	texImporter "aego/asset/importers/texture"
 	"aego/asset/pipeline"
 	"aego/core/errs"
@@ -22,6 +24,9 @@ func CoreImporters() (*pipeline.ImporterRegistry, error) {
 		scenefile.NewScene(),
 		scenefile.NewPrefab(),
 		preset.New(),
+		shaderImporter.New(),
+		shaderImporter.NewInclude(),
+		matImporter.New(),
 	} {
 		if err := reg.Register(imp); err != nil {
 			return nil, err

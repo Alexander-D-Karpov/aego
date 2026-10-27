@@ -46,6 +46,7 @@ type ImportContext struct {
 	Meta   *Meta
 	Log    *log.ChannelLogger
 	Lookup func(path string) (ids.AssetID, bool)
+	Read   func(path string) ([]byte, error)
 }
 
 type Importer interface {

@@ -8,6 +8,8 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/gpu"
+	"aego/render/material"
+	"aego/render/shader"
 )
 
 const InstanceStride = 52
@@ -32,16 +34,19 @@ type state struct {
 	blend   BlendMode
 	clip    mathx.Rect
 	scissor bool
+	mat     *material.Material
 }
 
 type Batch struct {
-	First   int
-	Count   int
-	Texture gpu.TextureHandle
-	Sampler gpu.SamplerHandle
-	Blend   BlendMode
-	Clip    mathx.Rect
-	Scissor bool
+	First     int
+	Count     int
+	Texture   gpu.TextureHandle
+	Sampler   gpu.SamplerHandle
+	Blend     BlendMode
+	Clip      mathx.Rect
+	Scissor   bool
+	Material  *material.Material
+	LaneFirst int
 }
 
 type Batcher struct {
@@ -62,6 +67,13 @@ type Batcher struct {
 	clamped    uint32
 	// limit is how far the batcher grows when a frame needs more than max sprites.
 	limit int
+	// lanes hold the @instance values of sprites whose material has them, compacted per batch into laneOut.
+	lanes      [][16]float32
+	laneIdx    []int32
+	sortedLane []int32
+	laneOut    [][16]float32
+	lvb        gpu.BufferHandle
+	laneCap    int
 }
 
 func NewBatcher(dev gpu.Device, maxSprites int) (*Batcher, error) {
@@ -91,6 +103,8 @@ func NewBatcher(dev gpu.Device, maxSprites int) (*Batcher, error) {
 		sorted:     make([]Instance, maxSprites),
 		sortedMeta: make([]state, maxSprites),
 		batches:    make([]Batch, 0, 64),
+		laneIdx:    make([]int32, 0, maxSprites),
+		sortedLane: make([]int32, maxSprites),
 		zMax:       1,
 		ppu:        1,
 		limit:      maxSprites,
@@ -117,6 +131,7 @@ func (b *Batcher) grow() bool {
 	b.scratch = make([]uint64, n)
 	b.sorted = make([]Instance, n)
 	b.sortedMeta = make([]state, n)
+	b.sortedLane = make([]int32, n)
 	return true
 }
 
@@ -129,6 +144,9 @@ func (b *Batcher) Reset() {
 	b.meta = b.meta[:0]
 	b.keys = b.keys[:0]
 	b.batches = b.batches[:0]
+	b.lanes = b.lanes[:0]
+	b.laneIdx = b.laneIdx[:0]
+	b.laneOut = b.laneOut[:0]
 	b.sortedN = 0
 	b.dropped = 0
 	b.clamped = 0
@@ -187,7 +205,18 @@ func (b *Batcher) Push(d *Draw, defaultSampler gpu.SamplerHandle, clip mathx.Rec
 		blend:   d.Blend,
 		clip:    clip,
 		scissor: scissor,
+		mat:     d.Material,
 	})
+	idx := int32(-1)
+	if m := d.Material; m != nil && m.Lanes() > 0 {
+		idx = int32(len(b.lanes))
+		if d.Lanes != nil {
+			b.lanes = append(b.lanes, *d.Lanes)
+		} else {
+			b.lanes = append(b.lanes, *m.DefaultLanes())
+		}
+	}
+	b.laneIdx = append(b.laneIdx, idx)
 	b.keys = append(b.keys, uint64(MakeKey(d.Layer, d.Order, d.Z, b.zMin, b.zMax, uint32(len(b.inst)-1))))
 	return true
 }
@@ -203,6 +232,7 @@ func (b *Batcher) Sort() {
 		src := SortKey(k).Submission()
 		b.sorted[i] = b.inst[src]
 		b.sortedMeta[i] = b.meta[src]
+		b.sortedLane[i] = b.laneIdx[src]
 	}
 	b.sortedN = n
 }
@@ -210,6 +240,7 @@ func (b *Batcher) Sort() {
 func (b *Batcher) Build() []Batch {
 	n := b.sortedN
 	b.batches = b.batches[:0]
+	b.laneOut = b.laneOut[:0]
 	if n == 0 {
 		return b.batches
 	}
@@ -220,13 +251,15 @@ func (b *Batcher) Build() []Batch {
 			continue
 		}
 		b.batches = append(b.batches, Batch{
-			First:   first,
-			Count:   i - first,
-			Texture: cur.texture,
-			Sampler: cur.sampler,
-			Blend:   cur.blend,
-			Clip:    cur.clip,
-			Scissor: cur.scissor,
+			First:     first,
+			Count:     i - first,
+			Texture:   cur.texture,
+			Sampler:   cur.sampler,
+			Blend:     cur.blend,
+			Clip:      cur.clip,
+			Scissor:   cur.scissor,
+			Material:  cur.mat,
+			LaneFirst: b.collectLanes(cur.mat, first, i),
 		})
 		if i < n {
 			cur = b.sortedMeta[i]
@@ -234,6 +267,43 @@ func (b *Batcher) Build() []Batch {
 		}
 	}
 	return b.batches
+}
+
+func (b *Batcher) collectLanes(m *material.Material, from, to int) int {
+	if m == nil || m.Lanes() == 0 {
+		return -1
+	}
+	at := len(b.laneOut)
+	for j := from; j < to; j++ {
+		b.laneOut = append(b.laneOut, b.lanes[b.sortedLane[j]])
+	}
+	return at
+}
+
+// UploadLanes writes the batches' lanes; false means the lane buffer could not grow.
+func (b *Batcher) UploadLanes() bool {
+	n := len(b.laneOut)
+	if n == 0 {
+		return true
+	}
+	if n > b.laneCap {
+		c := max(n, 256, b.laneCap*2)
+		vb, err := b.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferVertex, Size: c * shader.LaneStride, Dynamic: true, Label: "sprite.lanes"})
+		if err != nil {
+			return false
+		}
+		if !b.lvb.IsZero() {
+			b.dev.DestroyBuffer(b.lvb)
+		}
+		b.lvb, b.laneCap = vb, c
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&b.laneOut[0])), n*shader.LaneStride)
+	b.dev.UpdateBuffer(b.lvb, 0, raw)
+	return true
+}
+
+func (b *Batcher) LaneBuffer() gpu.BufferHandle {
+	return b.lvb
 }
 
 func (b *Batcher) Upload() int {
@@ -252,6 +322,9 @@ func (b *Batcher) Instances() []Instance {
 
 func (b *Batcher) Close() {
 	b.dev.DestroyBuffer(b.vb)
+	if !b.lvb.IsZero() {
+		b.dev.DestroyBuffer(b.lvb)
+	}
 }
 
 func Layout() gpu.VertexLayout {
@@ -265,6 +338,20 @@ func Layout() gpu.VertexLayout {
 		Strides:     [gpu.MaxVertexSlots]uint16{InstanceStride},
 		PerInstance: [gpu.MaxVertexSlots]bool{true},
 	}
+}
+
+// LaneLayout is Layout plus a material's @instance lanes in slot LaneSlot; Layout returns a fresh Attrs slice, so the append is safe.
+func LaneLayout(lanes int) gpu.VertexLayout {
+	l := Layout()
+	if lanes == 0 {
+		return l
+	}
+	for i := 0; i < lanes; i++ {
+		l.Attrs = append(l.Attrs, gpu.VertexAttr{Location: uint8(shader.LaneLocation + i), Slot: shader.LaneSlot, Format: gpu.VFFloat4, Offset: uint16(16 * i)})
+	}
+	l.Strides[shader.LaneSlot] = shader.LaneStride
+	l.PerInstance[shader.LaneSlot] = true
+	return l
 }
 
 func BlendState(m BlendMode) gpu.BlendState {

@@ -47,10 +47,7 @@ func TestCommittedESShadersAreCurrent(t *testing.T) {
 }
 
 func TestESShadersValidate(t *testing.T) {
-	bin, err := exec.LookPath("glslangValidator")
-	if err != nil {
-		t.Skip("glslangValidator is not installed")
-	}
+	bin := glslang(t)
 	for _, f := range sources(t) {
 		es := filepath.Join(shaders, ESDir, filepath.Base(f))
 		if out, err := exec.Command(bin, es).CombinedOutput(); err != nil {
@@ -67,3 +64,17 @@ func TestRejectsLegacyAndForeignHeaders(t *testing.T) {
 		t.Fatal("accepted gl_FragColor")
 	}
 }
+
+// glslang finds glslangValidator; with AEGO_REQUIRE_GLSLANG=1 (make ci) a missing one fails the test instead of skipping it.
+func glslang(t *testing.T) string {
+	t.Helper()
+	bin, err := exec.LookPath("glslangValidator")
+	if err != nil {
+		if os.Getenv("AEGO_REQUIRE_GLSLANG") == "1" {
+			t.Fatal("glslangValidator is required: install glslang-tools")
+		}
+		t.Skip("glslangValidator is not installed")
+	}
+	return bin
+}
+

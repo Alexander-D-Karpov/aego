@@ -17,6 +17,7 @@ import (
 	"aego/platform"
 	"aego/render"
 	renderhost "aego/render/host"
+	"aego/render/material"
 	"aego/render/sprite"
 	"aego/render/view"
 	"aego/scene"
@@ -77,6 +78,7 @@ type bench struct {
 	count   int
 	animate bool
 	t       float64
+	mat     *material.Material
 }
 
 type Game struct {
@@ -147,6 +149,7 @@ func newGame(cfg GameConfig, types *scene.Types, reg *bind.Registry, man *module
 	g.renderer = rmod.Renderer()
 	g.rstats = rmod.Stats
 	g.loader = loader.New(e.GPU(), g.renderer.Textures(), g.log)
+	g.loader.SetMaterials(g.renderer.Materials())
 	if err := g.loader.Mount(asset.NewIndex(), e.VFS()); err != nil {
 		e.Close()
 		return nil, err
@@ -240,11 +243,20 @@ func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 	return nil
 }
 
-func (g *Game) Bench(count int, animate bool) {
+func (g *Game) Bench(count int, animate, withMaterial bool) error {
 	g.Stop()
 	g.bench = bench{count: min(max(count, 1), maxSprites), animate: animate}
+	if withMaterial {
+		m, err := BenchMaterial()
+		if err != nil {
+			return err
+		}
+		g.bench.mat = m
+		g.renderer.PinClock(&BenchClock)
+	}
 	g.example, g.running = benchName, true
 	g.start()
+	return nil
 }
 
 func (g *Game) Stop() {
@@ -264,6 +276,7 @@ func (g *Game) Stop() {
 		w.RemoveService(scene.ServiceID)
 	}
 	g.bench = bench{}
+	g.renderer.PinClock(nil)
 	g.running = false
 	g.example = ""
 }
@@ -338,6 +351,7 @@ func (g *Game) render() {
 			Origin:   mathx.Vec2{X: 0.5, Y: 0.5},
 			Rotation: rot,
 			Tint:     hue(i, b.count),
+			Material: b.mat,
 		})
 	}
 	f.End()

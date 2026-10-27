@@ -5,7 +5,7 @@ precision highp sampler2D;
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec4 a_color;
 
-layout(std140) uniform ub0 {
+layout(std140) uniform ub1 {
     mat4 u_view_proj;
 };
 

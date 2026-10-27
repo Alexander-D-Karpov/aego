@@ -182,6 +182,8 @@ bench-allocs: bootstrap $(MODULE_BENCH_ALLOCS)
 	$(GL_ENV) .cache/bin/bench -demo stress-scene -baseline $(BENCH_BASELINE) -count 1 -time=false
 	$(MAKE) bench-scripts-run BENCH_OUT=$(BENCH_DIR)/scripts.allocs.txt BENCH_COUNT=1
 	$(BENCH_GATE) -time=false -base $(BENCH_BASE_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.allocs.txt
+	go test -run '^$$' -bench '^BenchmarkSpritesMaterials$$' -benchmem -count=1 ./render | tee $(BENCH_DIR)/materials.allocs.txt
+	@awk '/^BenchmarkSpritesMaterials/ { seen++; for (i = 2; i <= NF; i++) if ($$i == "allocs/op" && $$(i-1) + 0 != 0) bad = 1 } END { if (seen != 1 || bad) { print "BenchmarkSpritesMaterials allocates or did not run"; exit 1 } }' $(BENCH_DIR)/materials.allocs.txt
 
 
 bench-build:
@@ -343,6 +345,8 @@ i18n-check:
 pkgsize:
 	@sh tools/pkgsize.sh
 
+# ci requires glslangValidator: shader imports and the shader tests fail without it instead of skipping (D367).
+ci: export AEGO_REQUIRE_GLSLANG := 1
 ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
 	@sh tools/ci-clean-root.sh
 

@@ -7,11 +7,11 @@ layout(location = 1) in vec3 a_normal;
 layout(location = 2) in vec2 a_uv;
 layout(location = 3) in vec4 a_color;
 
-layout(std140) uniform ub0 {
+layout(std140) uniform ub1 {
     mat4 u_view_proj;
 };
 
-layout(std140) uniform ub1 {
+layout(std140) uniform ub3 {
     mat4 u_world;
     vec4 u_color;
     vec4 u_uv_rect;

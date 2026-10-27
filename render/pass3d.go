@@ -5,6 +5,7 @@ import (
 	"aego/gpu"
 	"aego/render/debug"
 	"aego/render/mesh"
+	"aego/render/shader"
 )
 
 type meshOpaquePass struct{}
@@ -24,7 +25,6 @@ func (r *Renderer) drawMeshes(ctx *PassContext, items []mesh.Item) {
 		return
 	}
 	p := ctx.Pass
-	r.setUniform(p, ctx.View.ViewProjection(r.caps))
 	for i := range items {
 		it := &items[i]
 		m := it.Blend
@@ -36,11 +36,10 @@ func (r *Renderer) drawMeshes(ctx *PassContext, items []mesh.Item) {
 			ds = 1
 		}
 		p.SetPipeline(r.meshPipes[m][ds])
-		p.SetUniformBuffer(0, r.ub)
 		r.setDrawUniform(p, it)
 		p.SetVertexBuffer(0, it.Mesh.VB)
 		p.SetIndexBuffer(it.Mesh.IB)
-		p.SetTexture(0, it.Texture.Texture, it.Sampler)
+		p.SetTexture(shader.TexMain, it.Texture.Texture, it.Sampler)
 		p.DrawIndexed(it.Mesh.Count, 0)
 		r.stats.MeshDraws++
 	}
@@ -65,7 +64,7 @@ func (r *Renderer) setDrawUniform(p gpu.Pass, it *mesh.Item) {
 	putF32(b[88:], it.Texture.UVMax.X)
 	putF32(b[92:], it.Texture.UVMax.Y)
 	r.dev.UpdateBuffer(r.ubDraw, 0, b)
-	p.SetUniformBuffer(1, r.ubDraw)
+	p.SetUniformBuffer(shader.SlotDraw, r.ubDraw)
 }
 
 type sprite3DPass struct{}
@@ -77,7 +76,6 @@ func (sprite3DPass) Execute(ctx *PassContext) {
 		return
 	}
 	r.sprites3d.Upload()
-	r.setUniform(ctx.Pass, ctx.View.ViewProjection(r.caps))
 	for i := range batches {
 		b := &batches[i]
 		if b.Texture.IsZero() {
@@ -85,17 +83,15 @@ func (sprite3DPass) Execute(ctx *PassContext) {
 		}
 		ctx.Pass.SetPipeline(r.sprite3dPipes[b.Blend])
 		ctx.Pass.SetVertexBufferAt(0, r.sprites3d.Buffer(), b.First*sprite3DStride)
-		ctx.Pass.SetUniformBuffer(0, r.ub)
-		ctx.Pass.SetTexture(0, b.Texture, b.Sampler)
+		ctx.Pass.SetTexture(shader.TexMain, b.Texture, b.Sampler)
 		ctx.Pass.DrawInstanced(4, b.Count)
 		r.stats.Batches++
 		r.stats.Instances += uint32(b.Count)
 	}
 }
 
-func (r *Renderer) drawLines(p gpu.Pass, pipe gpu.PipelineHandle, vp mathx.Mat4, rg debug.Range) {
+func (r *Renderer) drawLines(p gpu.Pass, pipe gpu.PipelineHandle, rg debug.Range) {
 	p.SetPipeline(pipe)
-	r.setUniform(p, vp)
 	p.SetVertexBuffer(0, r.dbg.Buffer())
 	p.Draw(rg.First, rg.Count)
 	r.stats.DebugVerts += uint32(rg.Count)

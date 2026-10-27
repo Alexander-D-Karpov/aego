@@ -1,0 +1,12 @@
+#pragma aego abi 1
+
+#pragma material
+uniform vec4 Tint; // @color @default(1, 0.5, 0.25, 1)
+uniform float Speed; // @default(1)
+#pragma end
+
+void fragment() {
+    vec4 c = texture(aego_main, aego_uv) * aego_color;
+    float w = 0.5 + 0.5 * sin(aego_time * Speed + aego_local.x * 6.2831);
+    aego_out = vec4(c.rgb * Tint.rgb * w, c.a);
+}

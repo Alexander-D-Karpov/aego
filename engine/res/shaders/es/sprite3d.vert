@@ -8,7 +8,7 @@ layout(location = 2) in vec3 i_down;
 layout(location = 3) in vec4 i_uv;
 layout(location = 4) in vec4 i_color;
 
-layout(std140) uniform ub0 {
+layout(std140) uniform ub1 {
     mat4 u_view_proj;
 };
 

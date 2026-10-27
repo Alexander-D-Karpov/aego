@@ -3,6 +3,8 @@ package sprite
 import (
 	"aego/core/mathx"
 	"aego/gpu"
+	"aego/render/material"
+	"aego/render/shader"
 	"aego/render/texture"
 )
 
@@ -30,7 +32,17 @@ type Draw struct {
 	Sampler  gpu.SamplerHandle
 	FlipX    bool
 	FlipY    bool
+	Material *material.Material
+	Lanes    *[16]float32
 }
+
+// The sprite blend modes are the shader ABI's, so a material's blend picks the same pipeline state.
+const (
+	_ = uint(BlendOpaque) - uint(shader.BlendOpaque)
+	_ = uint(shader.BlendOpaque) - uint(BlendOpaque)
+	_ = uint(BlendAdditive) - uint(shader.BlendAdditive)
+	_ = uint(shader.BlendAdditive) - uint(BlendAdditive)
+)
 
 func (d *Draw) scale() mathx.Vec2 {
 	if d.Scale.X == 0 && d.Scale.Y == 0 {

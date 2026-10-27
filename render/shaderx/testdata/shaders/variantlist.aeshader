@@ -1,0 +1,18 @@
+#pragma aego abi 1
+#pragma variant A B C
+#pragma variants A, A+B, C
+#include "engine/sprite.glsl"
+
+void fragment() {
+    vec4 c = aego_sample();
+#if A
+    c.r = 1.0;
+#endif
+#if B
+    c.g = 1.0;
+#endif
+#if C
+    c.b = 1.0;
+#endif
+    aego_out = c;
+}

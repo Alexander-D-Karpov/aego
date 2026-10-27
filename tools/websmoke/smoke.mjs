@@ -139,6 +139,24 @@ try {
         fail("WEBGL_lose_context is not available");
     }
 
+    // The bench material reads aego_time and a parameter at a pinned time; tests/golden draws it on GL 3.3 (12a1).
+    const bm = await call("bench", { count: 64, animate: false, material: true });
+    if (!bm.started) throw new Error("material bench did not start: " + bm.error);
+    const m0 = (await stats()).frames;
+    await waitFor(async () => (await stats()).frames > m0 + 10, "material bench frames");
+    await compare("bench64-material");
+    if (await call("loseContext", { lose: true })) {
+        await waitFor(async () => (await stats()).lost, "the context loss under a material");
+        await call("loseContext", { lose: false });
+        const before = (await stats()).frames;
+        await waitFor(async () => {
+            const s = await stats();
+            return !s.lost && s.frames > before + 10;
+        }, "the context restore under a material");
+        await compare("bench64-material");
+        console.log("context loss: material programs restored");
+    }
+
     await call("bench", { count: 1000, animate: true });
     await sleep(1000);
     const a = await stats();

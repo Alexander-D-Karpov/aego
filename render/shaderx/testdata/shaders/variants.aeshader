@@ -1,0 +1,16 @@
+#pragma aego abi 1
+#pragma variant OUTLINE GRAY
+#include "engine/sprite.glsl"
+#include "engine/color.glsl"
+
+void fragment() {
+    vec4 c = aego_sample();
+#if OUTLINE
+    float a = texture(aego_main, aego_uv + vec2(aego_texel().x, 0.0)).a;
+    c = mix(vec4(0.0, 0.0, 0.0, 1.0), c, step(0.5, c.a + (1.0 - a)));
+#endif
+#if GRAY
+    c.rgb = vec3(aego_luma(c.rgb));
+#endif
+    aego_out = c;
+}

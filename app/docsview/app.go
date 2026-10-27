@@ -140,6 +140,7 @@ func New(opt Options) (*App, error) {
 	}
 	a.renderer = rmod.Renderer()
 	a.loader = loader.New(a.e.GPU(), a.renderer.Textures(), a.log)
+	a.loader.SetMaterials(a.renderer.Materials())
 	if err := a.loader.Mount(asset.NewIndex(), a.e.VFS()); err != nil {
 		a.Close()
 		return nil, err

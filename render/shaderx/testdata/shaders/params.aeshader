@@ -1,0 +1,17 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+
+#pragma material
+uniform float Speed; // @default(2) @range(0, 10) @doc("Waves per second")
+uniform vec2 Offset; // @default(0.5, 0.25)
+uniform vec3 Glow; // @color
+uniform vec4 Tint; // @color @default(1, 0.5, 0.25, 1)
+uniform int Steps; // @default(3)
+uniform bool Pulse; // @default(1)
+#pragma end
+
+void fragment() {
+    float w = Pulse ? 0.5 + 0.5 * sin(aego_time * Speed) : 1.0;
+    vec4 c = aego_sample() * Tint;
+    aego_out = vec4(c.rgb * w + Glow * 0.1 * float(Steps), c.a) + vec4(Offset, 0.0, 0.0) * 0.0;
+}

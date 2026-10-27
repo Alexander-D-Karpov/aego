@@ -9,19 +9,22 @@ import (
 type ArtifactKind string
 
 const (
-	ArtTexture      ArtifactKind = "texture"
-	ArtAtlasPage    ArtifactKind = "atlaspage"
-	ArtSpriteRegion ArtifactKind = "spriteregion"
-	ArtScene        ArtifactKind = "scene"
-	ArtPrefab       ArtifactKind = "prefab"
-	ArtMesh         ArtifactKind = "mesh"
-	ArtScript       ArtifactKind = "script"
-	ArtData         ArtifactKind = "data"
-	ArtTable        ArtifactKind = "table"
-	ArtPreset       ArtifactKind = "preset"
-	ArtAudio        ArtifactKind = "audio"
-	ArtAnim         ArtifactKind = "anim"
-	ArtCtrl         ArtifactKind = "animctrl"
+	ArtTexture       ArtifactKind = "texture"
+	ArtAtlasPage     ArtifactKind = "atlaspage"
+	ArtSpriteRegion  ArtifactKind = "spriteregion"
+	ArtScene         ArtifactKind = "scene"
+	ArtPrefab        ArtifactKind = "prefab"
+	ArtMesh          ArtifactKind = "mesh"
+	ArtScript        ArtifactKind = "script"
+	ArtData          ArtifactKind = "data"
+	ArtTable         ArtifactKind = "table"
+	ArtPreset        ArtifactKind = "preset"
+	ArtAudio         ArtifactKind = "audio"
+	ArtAnim          ArtifactKind = "anim"
+	ArtCtrl          ArtifactKind = "animctrl"
+	ArtShader        ArtifactKind = "shader"
+	ArtShaderInclude ArtifactKind = "shaderinclude"
+	ArtMaterial      ArtifactKind = "material"
 )
 
 type Reloaded struct {

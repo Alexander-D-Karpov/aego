@@ -1,6 +1,7 @@
 package host
 
 import (
+	"aego/core/clock"
 	"aego/core/log"
 	"aego/engine"
 	"aego/render"
@@ -14,11 +15,12 @@ const (
 )
 
 type Module struct {
-	opt   render.Options
-	r     *render.Renderer
-	eng   *engine.Engine
-	stats render.Stats
-	scale float32
+	opt     render.Options
+	r       *render.Renderer
+	eng     *engine.Engine
+	stats   render.Stats
+	scale   float32
+	shaders shaderErrors
 }
 
 func New(opt render.Options) *Module {
@@ -56,6 +58,7 @@ func (m *Module) Init(e *engine.Engine) error {
 	r.SetTracer(e.Trace())
 	m.r = r
 	m.eng = e
+	r.Materials().OnError = m.shaderError
 	return nil
 }
 
@@ -87,6 +90,9 @@ func (s beginSystem) Run(ctx *engine.Context) {
 	scale := metrics.DisplayScale
 	if scale <= 0 {
 		scale = 1
+	}
+	if ctx.Time != nil {
+		m.r.SetClock(render.Clock{Time: float32(ctx.Time.Span(clock.Game).Elapsed), Delta: float32(ctx.Dt), Unscaled: float32(ctx.Unscaled), Frame: ctx.Frame})
 	}
 	if err := m.r.BeginFrame(ctx.Engine.Frame(), metrics.PixelW, metrics.PixelH, scale); err != nil {
 		ctx.Engine.Log().With(log.Render).Error("render begin frame failed", log.F("err", err.Error()))

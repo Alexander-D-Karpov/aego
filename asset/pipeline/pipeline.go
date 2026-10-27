@@ -3,6 +3,7 @@ package pipeline
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/engine/res"
 	"aego/project"
 	"aego/vfs"
 )
@@ -192,6 +194,14 @@ func (p *Pipeline) Lookup(path string) (ids.AssetID, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.lookup(path)
+}
+
+// read gives an importer another source file: engine:// from the engine's embedded files, the rest from the project.
+func (p *Pipeline) read(path string) ([]byte, error) {
+	if rest, ok := strings.CutPrefix(path, "engine://"); ok {
+		return fs.ReadFile(res.FS(), rest)
+	}
+	return os.ReadFile(p.Abs(path))
 }
 
 func (p *Pipeline) lookup(path string) (ids.AssetID, bool) {
@@ -577,6 +587,7 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 		Meta:   r.meta,
 		Log:    p.log,
 		Lookup: p.lookup,
+		Read:   p.read,
 	}
 	res, err := r.importer.Import(ctx)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 	"aego/vfs"
 )
 
-func newTestRenderer(t *testing.T, maxSprites int) (*Renderer, *null.Device) {
+func newTestRenderer(t testing.TB, maxSprites int) (*Renderer, *null.Device) {
 	t.Helper()
 	files, err := vfs.New(vfs.Mount{Scheme: "engine", Source: res.Source(), ReadOnly: true})
 	if err != nil {
@@ -30,7 +30,7 @@ func newTestRenderer(t *testing.T, maxSprites int) (*Renderer, *null.Device) {
 	return r, dev
 }
 
-func testDraws(t *testing.T, r *Renderer, n int, extent float32) []sprite.Draw {
+func testDraws(t testing.TB, r *Renderer, n int, extent float32) []sprite.Draw {
 	t.Helper()
 	tex, err := r.Textures().Upload(texture.Solid(4, 4, mathx.Color{R: 1, G: 1, B: 1, A: 1}), texture.UploadOptions{})
 	if err != nil {

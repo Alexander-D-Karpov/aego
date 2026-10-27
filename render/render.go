@@ -11,7 +11,9 @@ import (
 	"aego/gpu"
 	"aego/render/debug"
 	"aego/render/gpuprof"
+	"aego/render/material"
 	"aego/render/mesh"
+	"aego/render/shader"
 	"aego/render/sprite"
 	"aego/render/text"
 	"aego/render/texture"
@@ -83,6 +85,14 @@ type Stats struct {
 	Views          uint32
 }
 
+// Clock is what the frame block (ub0) gives shaders: game time, delta, unscaled delta and the frame number.
+type Clock struct {
+	Time     float32
+	Delta    float32
+	Unscaled float32
+	Frame    uint64
+}
+
 type Renderer struct {
 	dev            gpu.Device
 	caps           gpu.Capabilities
@@ -110,6 +120,13 @@ type Renderer struct {
 	ubDraw         gpu.BufferHandle
 	ubBuf          []byte
 	drawBuf        []byte
+	ubFrame        gpu.BufferHandle
+	ubView         gpu.BufferHandle
+	frameBuf       []byte
+	viewBuf        []byte
+	clock          Clock
+	pinned         *Clock
+	mats           *material.Cache
 	prof           *gpuprof.Profiler
 	passes         []PassDesc
 	order          []PassDesc
@@ -144,6 +161,9 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 		samplers: make(map[gpu.SamplerDesc]gpu.SamplerHandle, 8),
 		ubBuf:    make([]byte, uniformSize),
 		drawBuf:  make([]byte, drawUniformSize),
+		frameBuf: make([]byte, shader.FrameSize),
+		viewBuf:  make([]byte, shader.ViewSize),
+		mats:     material.NewCache(dev, caps.ESSL, materialPipe),
 		textBuf:  make([]sprite.Draw, 0, 256),
 		meshes:   mesh.NewBatcher(opt.MaxMeshes),
 	}
@@ -179,6 +199,7 @@ func New(dev gpu.Device, caps gpu.Capabilities, files vfs.FS, lg *log.Logger, op
 		return nil, err
 	}
 	r.white = texture.Whole(whiteTex, 2, 2).Sub(0, 0, 1, 1)
+	r.mats.SetWhite(material.Tex{Texture: whiteTex, Sampler: r.defSampler})
 	if f, err := text.LoadBitmap(files, r.up, "engine://fonts/debug.png", "engine://fonts/debug.json"); err != nil {
 		r.log.Warn("debug font is unavailable, text rendering disabled", log.F("err", err.Error()))
 	} else {
@@ -294,7 +315,13 @@ func (r *Renderer) initPipelines() error {
 	}); err != nil {
 		return err
 	}
-	if r.ub, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: uniformSize, Dynamic: true, Label: "render.viewproj"}); err != nil {
+	if r.ub, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: uniformSize, Dynamic: true, Label: "render.screen"}); err != nil {
+		return err
+	}
+	if r.ubFrame, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: shader.FrameSize, Dynamic: true, Label: "render.frame"}); err != nil {
+		return err
+	}
+	if r.ubView, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: shader.ViewSize, Dynamic: true, Label: "render.view"}); err != nil {
 		return err
 	}
 	r.ubDraw, err = r.dev.CreateBuffer(gpu.BufferDesc{Usage: gpu.BufferUniform, Size: drawUniformSize, Dynamic: true, Label: "render.draw"})
@@ -312,12 +339,57 @@ func putF32(b []byte, v float32) {
 	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
 }
 
-func (r *Renderer) setUniform(p gpu.Pass, m mathx.Mat4) {
+// materialPipe is the pipeline state of a material's domain; the material cache adds the program.
+func materialPipe(d shader.Domain, lanes int, b shader.Blend) gpu.PipelineDesc {
+	m := sprite.BlendMode(b)
+	if d == shader.DomainMesh2D {
+		return gpu.PipelineDesc{
+			Layout:    mesh.Layout(),
+			Blend:     sprite.BlendState(m),
+			Depth:     gpu.DepthState{Test: true, Write: m == sprite.BlendOpaque, Compare: gpu.CompareLess},
+			Cull:      gpu.CullNone,
+			Primitive: gpu.PrimTriangles,
+		}
+	}
+	return gpu.PipelineDesc{Layout: sprite.LaneLayout(lanes), Blend: sprite.BlendState(m), Primitive: gpu.PrimTriangleStrip}
+}
+
+func (r *Renderer) SetClock(c Clock) {
+	if r.pinned == nil {
+		r.clock = c
+	}
+}
+
+// PinClock holds the frame block at c until PinClock(nil), so golden frames and benchmarks see the same time.
+func (r *Renderer) PinClock(c *Clock) {
+	r.pinned = c
+	if c != nil {
+		r.clock = *c
+	}
+}
+
+func (r *Renderer) Materials() *material.Cache {
+	return r.mats
+}
+
+// putScreen fills the debug overlay's screen matrix, bound in place of the view block.
+func (r *Renderer) putScreen(m mathx.Mat4) {
 	for i, v := range m {
 		putF32(r.ubBuf[i*4:], v)
 	}
 	r.dev.UpdateBuffer(r.ub, 0, r.ubBuf)
-	p.SetUniformBuffer(0, r.ub)
+}
+
+func (r *Renderer) putView(v *view.View) {
+	vp := v.ViewProjection(r.caps)
+	vr := v.LetterboxViewport()
+	cam := v.CameraPosition()
+	var zoom float32
+	if !v.Is3D() {
+		zoom = v.Camera.Zoom
+	}
+	shader.PutView(r.viewBuf, (*[16]float32)(&vp), [4]float32{vr.X, vr.Y, vr.W, vr.H}, v.PixelScale, v.PixelsPerUnit, zoom, [3]float32{cam.X, cam.Y, cam.Z})
+	r.dev.UpdateBuffer(r.ubView, 0, r.viewBuf)
 }
 
 func (r *Renderer) Textures() *texture.Uploader {
@@ -387,6 +459,9 @@ func (r *Renderer) BeginFrame(f gpu.Frame, pixelW, pixelH int, pixelScale float3
 	r.stats = Stats{}
 	r.depthSeen = r.depthSeen[:0]
 	r.up.Drain(r.opt.UploadBudget)
+	r.mats.Begin()
+	shader.PutFrame(r.frameBuf, r.clock.Time, r.clock.Delta, r.clock.Unscaled, r.clock.Frame)
+	r.dev.UpdateBuffer(r.ubFrame, 0, r.frameBuf)
 	if f != nil {
 		r.prof.Collect(f)
 	}
@@ -436,6 +511,9 @@ func (r *Renderer) View(v view.View) *ViewFrame {
 		Label:       fv.Label,
 	})
 	f.pass.SetViewport(fv.LetterboxViewport())
+	r.putView(fv)
+	f.pass.SetUniformBuffer(shader.SlotFrame, r.ubFrame)
+	f.pass.SetUniformBuffer(shader.SlotView, r.ubView)
 	if r.stats.Views == 1 {
 		r.prof.Begin(f.pass)
 	}
@@ -459,6 +537,7 @@ func (r *Renderer) EndFrame() Stats {
 		r.stats.GPUNS = ns
 		r.stats.GPUValid = true
 	}
+	r.mats.End()
 	r.frame = nil
 	return r.stats
 }
@@ -487,6 +566,15 @@ func (r *Renderer) Close() {
 	}
 	if r.sprites3d != nil {
 		r.sprites3d.Close()
+	}
+	if r.mats != nil {
+		r.mats.Close()
+	}
+	if !r.ubFrame.IsZero() {
+		r.dev.DestroyBuffer(r.ubFrame)
+	}
+	if !r.ubView.IsZero() {
+		r.dev.DestroyBuffer(r.ubView)
 	}
 	if !r.ub.IsZero() {
 		r.dev.DestroyBuffer(r.ub)

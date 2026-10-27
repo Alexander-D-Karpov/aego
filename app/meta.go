@@ -1,6 +1,7 @@
 package app
 
 import (
+	shaderImporter "aego/asset/importers/shader"
 	"aego/asset/pipeline"
 	"aego/engine/problems"
 )
@@ -33,6 +34,34 @@ func MetaProblems(pl *pipeline.Pipeline) problems.Source {
 					Message:  is.Message(),
 					Help:     "Assets → Repair Meta Files… will " + is.Action(),
 					Subject:  problems.Subject{Kind: problems.SubjectFile, File: is.Path},
+				})
+			}
+			return dst
+		},
+	}
+}
+
+// ShaderProblems lists the SHD problems of the last shader imports with the file and line they point at.
+func ShaderProblems(imps *pipeline.ImporterRegistry) problems.Source {
+	imp, _ := imps.ByID("shader")
+	si, _ := imp.(*shaderImporter.Importer)
+	return problems.Source{
+		Revision: func() uint64 {
+			if si == nil {
+				return 0
+			}
+			_, rev := si.Diagnostics()
+			return rev
+		},
+		Append: func(dst []problems.Diagnostic) []problems.Diagnostic {
+			if si == nil {
+				return dst
+			}
+			list, _ := si.Diagnostics()
+			for _, d := range list {
+				dst = append(dst, problems.Diagnostic{
+					Owner: OwnerAssets, Code: d.Code, Severity: problems.Error, Message: d.Msg,
+					Subject: problems.Subject{Kind: problems.SubjectFile, File: d.File, Line: d.Line},
 				})
 			}
 			return dst

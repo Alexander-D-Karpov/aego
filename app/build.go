@@ -188,13 +188,16 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	h.Renderer = rmod.Renderer()
 	h.RenderStats = rmod.Stats
 	h.Loader = loader.New(h.Engine.GPU(), h.Renderer.Textures(), lg)
+	h.Loader.SetMaterials(h.Renderer.Materials())
 	if err = h.Loader.Mount(h.Pipeline.Index(), h.Pipeline.Artifacts()); err != nil {
 		return err
 	}
 	h.Engine.SetService(loader.ServiceID, h.Loader)
 	h.Engine.SetService(renderhost.ServiceID, h.Renderer)
 	h.Problems = problems.New()
+	h.Problems.Add(rmod.ShaderProblems())
 	h.Problems.Add(MetaProblems(h.Pipeline))
+	h.Problems.Add(ShaderProblems(h.Importers))
 	h.Problems.Add(h.Modules.AssetProblems(h.Types.Schema(), h.Loader))
 	h.Engine.SetService(problems.ServiceID, h.Problems)
 	if h.Settings, err = h.Modules.NewSettings(); err != nil {
