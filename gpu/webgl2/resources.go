@@ -40,6 +40,8 @@ func (d *Device) uploadBuffer(b *glBuffer, data []byte) {
 	}
 	d.call(d.f.BufferData, t, b.size, usage)
 	if len(data) > 0 {
+		d.st.BufferUploads++
+		d.st.BufferBytes += uint64(len(data))
 		d.call(d.f.BufferSubData, t, 0, d.bytes(data), 0, len(data))
 	}
 }
@@ -80,6 +82,8 @@ func (d *Device) UpdateBuffer(h gpu.BufferHandle, offset int, data []byte) {
 		}
 		copy(b.shadow[offset:], data)
 	}
+	d.st.BufferUploads++
+	d.st.BufferBytes += uint64(len(data))
 	t := d.bindBuffer(b)
 	d.call(d.f.BufferSubData, t, offset, d.bytes(data), 0, len(data))
 }
@@ -92,6 +96,8 @@ func (d *Device) uploadTexture(t *glTexture) {
 	d.bindScratch(t.id)
 	i := t.info
 	if t.shadow != nil {
+		d.st.TexUploads++
+		d.st.TexBytes += uint64(len(t.shadow))
 		d.call(d.f.TexImage2D, glTexture2D, 0, i.internal, t.w, t.h, 0, i.format, i.xtype, d.view(i, t.shadow), 0)
 	} else {
 		d.call(d.f.TexImage2D, glTexture2D, 0, i.internal, t.w, t.h, 0, i.format, i.xtype, nil)
@@ -152,6 +158,8 @@ func (d *Device) UpdateTexture(th gpu.TextureHandle, x, y, w, h int, data []byte
 	for r := 0; r < h; r++ {
 		copy(t.shadow[((y+r)*t.w+x)*bpp:], data[r*row:(r+1)*row])
 	}
+	d.st.TexUploads++
+	d.st.TexBytes += uint64(w * h * bpp)
 	d.bindScratch(t.id)
 	d.call(d.f.TexSubImage2D, glTexture2D, 0, x, y, w, h, t.info.format, t.info.xtype, d.view(t.info, data[:w*h*bpp]), 0)
 	if t.mips {

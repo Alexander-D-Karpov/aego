@@ -28,7 +28,8 @@ type binding struct {
 	ref     propref.Ref
 	key     propclaim.Key
 	slot    propclaim.Slot
-	label   string
+	state   string
+	tr      *anim.Track
 	node    scene.NodeHandle
 	kind    schema.Kind
 	track   int32
@@ -217,6 +218,17 @@ func (s *Service) warn(owner scene.NodeHandle, code, msg string) {
 	}
 }
 
+func (b *binding) labelText() string {
+	if b.state == "" {
+		return trackName(b.tr)
+	}
+	return b.state + ": " + trackName(b.tr)
+}
+
+func stateTrack(state string, t *anim.Track) string {
+	return state + ": " + trackName(t)
+}
+
 func trackName(t *anim.Track) string {
 	if t.Target == "" {
 		return t.Property
@@ -349,7 +361,13 @@ func (s *Service) loadOne(h scene.NodeHandle, c *AnimationPlayer) {
 func (s *Service) rebind() {
 	s.dirty = false
 	s.mark++
-	clear(s.owned)
+	for k, v := range s.owned {
+		if len(v) == 0 {
+			delete(s.owned, k)
+		} else {
+			s.owned[k] = v[:0]
+		}
+	}
 	scene.Store[AnimationPlayer](s.scene).EachAll(s.bindFn)
 	scene.Store[Animator](s.scene).EachAll(s.abindFn)
 	clear(s.list)
@@ -524,7 +542,7 @@ func (s *Service) bindTrack(h scene.NodeHandle, c *AnimationPlayer, p *player, i
 	}
 	s.owned[k] = append(s.owned[k], ref)
 	p.binds = append(p.binds, binding{
-		ref: ref, key: k, label: trackName(t), node: node, kind: t.Kind, track: i, auth: t.Authority, end: t.OnEnd,
+		ref: ref, key: k, tr: t, node: node, kind: t.Kind, track: i, auth: t.Authority, end: t.OnEnd,
 		pose: ref.Owner() == propref.OwnTransform && !ref.Three(),
 	})
 }

@@ -36,11 +36,11 @@ func (f *frame) QueryResult(h gpu.QueryHandle) (uint64, bool) {
 		return 0, false
 	}
 	o := d.obj.get(q.id)
-	if !d.call(d.f.GetQueryParameter, o, glQueryResultAvailable).Truthy() {
+	if !d.queryCall(d.f.GetQueryParameter, o, glQueryResultAvailable).Truthy() {
 		return 0, false
 	}
-	v := d.call(d.f.GetQueryParameter, o, glQueryResult)
-	if d.param(glGPUDisjoint).Truthy() || v.Type() != js.TypeNumber {
+	v := d.queryCall(d.f.GetQueryParameter, o, glQueryResult)
+	if d.queryCall(d.f.GetParameter, glGPUDisjoint).Truthy() || v.Type() != js.TypeNumber {
 		return 0, true
 	}
 	return uint64(v.Float()), true
@@ -56,7 +56,7 @@ func (p *pass) BeginQuery(h gpu.QueryHandle) {
 	if !ok {
 		return
 	}
-	d.call(d.f.BeginQuery, glTimeElapsed, d.obj.get(q.id))
+	d.queryCall(d.f.BeginQuery, glTimeElapsed, d.obj.get(q.id))
 	q.active = true
 	d.activeQuery = q.id
 	p.query = h
@@ -67,7 +67,7 @@ func (p *pass) EndQuery() {
 	if d.activeQuery == 0 {
 		return
 	}
-	d.call(d.f.EndQuery, glTimeElapsed)
+	d.queryCall(d.f.EndQuery, glTimeElapsed)
 	if q, ok := d.queries.Get(handle.Cast[glQuery](p.query)); ok {
 		q.active = false
 	}

@@ -29,8 +29,12 @@ type Stats struct {
 	Voices    int
 }
 
+const quietPeriod = 250 * time.Millisecond
+
 type Pump struct {
 	m      *mix.Mixer
+	quiet  time.Time
+	frac   float64
 	out    Output
 	cfg    Config
 	buf    []float32
@@ -64,6 +68,12 @@ func New(m *mix.Mixer, out Output, cfg Config) *Pump {
 	return p
 }
 
+func (p *Pump) SetTarget(n int) {
+	if n > 0 {
+		p.cfg.Target = n
+	}
+}
+
 func (p *Pump) SetOutput(out Output, cfg Config) {
 	p.out = out
 	p.cfg = normalize(p.m, cfg)
@@ -82,10 +92,38 @@ func (p *Pump) live() bool {
 	return true
 }
 
+func (p *Pump) silent() bool {
+	if m, ok := p.out.(interface{ Muted() bool }); ok && m.Muted() {
+		return true
+	}
+	return !p.live()
+}
+
+// skip moves the mixer on by the time since the last call while nothing can be heard, so voices end and streams keep their place without mixing.
+func (p *Pump) skip() {
+	now := time.Now()
+	if p.quiet.IsZero() {
+		p.quiet = now
+		p.m.Skip(0)
+		return
+	}
+	f := now.Sub(p.quiet).Seconds()*float64(p.cfg.SampleRate) + p.frac
+	p.quiet = now
+	n := int(f)
+	p.frac = f - float64(n)
+	p.m.Skip(n)
+}
+
 func (p *Pump) Fill() int {
 	if p.out == nil {
 		return 0
 	}
+	if p.silent() {
+		p.skip()
+		p.primed = false
+		return 0
+	}
+	p.quiet, p.frac = time.Time{}, 0
 	live := p.live()
 	q := p.out.Queued()
 	if q == 0 && p.primed && live && p.m.Active() > 0 {
@@ -141,11 +179,32 @@ func (p *Pump) Start() {
 
 func (p *Pump) run(stop, done chan struct{}) {
 	defer close(done)
-	period := time.Duration(float64(p.cfg.Block*p.cfg.Target) / float64(p.cfg.SampleRate) / 6 * float64(time.Second))
-	t := time.NewTicker(max(period, time.Millisecond))
+	period := max(time.Duration(float64(p.cfg.Block*p.cfg.Target)/float64(p.cfg.SampleRate)/6*float64(time.Second)), time.Millisecond)
+	t := time.NewTicker(period)
 	defer t.Stop()
+	wake := p.m.Commands().Wake()
+	quiet := false
 	for {
 		p.Fill()
+		if q := p.silent(); q != quiet {
+			quiet = q
+			if quiet {
+				t.Reset(quietPeriod)
+			} else {
+				t.Reset(period)
+			}
+		}
+		if p.m.Active() == 0 && p.m.Commands().Len() == 0 {
+			t.Stop()
+			select {
+			case <-stop:
+				return
+			case <-wake:
+			}
+			p.quiet = time.Time{}
+			t.Reset(period)
+			continue
+		}
 		select {
 		case <-stop:
 			return

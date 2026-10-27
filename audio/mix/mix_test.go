@@ -525,3 +525,67 @@ func BenchmarkMix64Pitch1(b *testing.B) {
 		m.Mix(buf)
 	}
 }
+
+// Skipping a stretch leaves voices where mixing it would: positions, loops, ramps, stops and ends with their events.
+func TestSkipMatchesMix(t *testing.T) {
+	setup := func() (*Mixer, VoiceID) {
+		m := newMixer(t)
+		m.Play(PlayParams{Memory: dc(0.5, rate/4), Gain: 1})
+		m.Play(PlayParams{Memory: sine(440, rate/3, 2, 0.3), Gain: 0.8, Pitch: 1.3, Loop: true, FadeIn: 0.1})
+		id := m.Play(PlayParams{Memory: dc(0.2, rate), Gain: 1})
+		render(m, 256)
+		events(m)
+		m.Stop(id, 0.05)
+		return m, id
+	}
+	a, _ := setup()
+	b, _ := setup()
+	for i := 0; i < 20; i++ {
+		render(a, 1200)
+		b.Skip(1200)
+		if a.Active() != b.Active() {
+			t.Fatalf("step %d: %d active after mixing, %d after skipping", i, a.Active(), b.Active())
+		}
+		for vi := range a.voices {
+			va, vb := &a.voices[vi], &b.voices[vi]
+			if va.state != vb.state || math.Abs(va.pos-vb.pos) > 1e-3 || math.Abs(float64(va.gain-vb.gain)) > 1e-4 {
+				t.Fatalf("step %d voice %d: mixed %v at %.4f gain %.5f, skipped %v at %.4f gain %.5f", i, vi, va.state, va.pos, va.gain, vb.state, vb.pos, vb.gain)
+			}
+		}
+		ea, eb := events(a), events(b)
+		if len(ea) != len(eb) {
+			t.Fatalf("step %d: events %+v after mixing, %+v after skipping", i, ea, eb)
+		}
+	}
+	if a.Active() != 1 {
+		t.Fatalf("%d voices left, want the loop", a.Active())
+	}
+}
+
+// A skipped stream drops what is decoded and leaves the rest to the feeder, holds it until it plays again and ends at its end.
+func TestSkipStream(t *testing.T) {
+	m := newMixer(t)
+	s := NewStream(rate, 1, 8192)
+	s.Ring.Write(make([]float32, 6000))
+	id := m.Play(PlayParams{Stream: s, Gain: 1})
+	render(m, 1000)
+	m.Skip(3000)
+	if !s.Held() || s.TakeSkip() != 0 {
+		t.Fatal("a skip within the decoded frames went to the feeder or did not hold the stream")
+	}
+	m.Skip(4000)
+	if got := s.TakeSkip(); got != 1999 {
+		t.Fatalf("the feeder skips %d frames, want 1999", got)
+	}
+	render(m, 64)
+	if s.Held() {
+		t.Fatal("mixing did not release the stream")
+	}
+	m.Skip(100)
+	s.SetEOF()
+	m.Skip(100)
+	ev := events(m)
+	if len(ev) == 0 || ev[len(ev)-1].Kind != EvFinished || ev[len(ev)-1].Voice != id {
+		t.Fatalf("events %+v, want the stream finished", ev)
+	}
+}

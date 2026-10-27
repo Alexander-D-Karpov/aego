@@ -29,6 +29,46 @@ func (e *Engine) Step(app App) bool {
 	return !e.quit
 }
 
+const (
+	zoneGPU = phaseCount + iota
+	zonePoll
+	zoneFrame
+	allocZones
+)
+
+func AllocZone(i int) string {
+	switch i {
+	case zoneGPU:
+		return "gpu"
+	case zonePoll:
+		return "poll"
+	case zoneFrame:
+		return "frame"
+	}
+	return Phase(i).String()
+}
+
+func (e *Engine) AllocTotals(dst []uint64) []uint64 {
+	return append(dst, e.allocTotal[:]...)
+}
+
+func (e *Engine) FrameBytes() uint64 {
+	return e.frameBytes
+}
+
+func (e *Engine) allocMark() uint64 {
+	if !e.probe {
+		return 0
+	}
+	return e.objects()
+}
+
+func (e *Engine) allocSince(z int, mark uint64) {
+	if e.probe {
+		e.allocTotal[z] += e.objects() - mark
+	}
+}
+
 func gated(p Phase) bool {
 	return p >= PhaseFixedBegin && p <= PhaseAnimation
 }
@@ -55,21 +95,36 @@ func (e *Engine) exec(ctx *Context, p Phase, mask SystemScope, paused bool) {
 	}
 	ps.End()
 	if e.probe {
-		e.allocs[p] += e.objects() - before
+		n := e.objects() - before
+		e.allocs[p] += n
+		e.allocTotal[p] += n
 	}
 }
 func (e *Engine) SetPhaseAllocs(on bool) {
 	if on && len(e.probeSample) == 0 {
-		e.probeSample = []metrics.Sample{{Name: "/gc/heap/allocs:objects"}}
+		e.probeSample = []metrics.Sample{{Name: "/gc/heap/allocs:objects"}, {Name: "/gc/heap/allocs:bytes"}}
 	}
 	e.probe = on
 }
+
+func (e *Engine) SetLockstep(on bool) {
+	e.lockstep = on
+}
+
 func (e *Engine) objects() uint64 {
+	o, _ := e.heapAllocs()
+	return o
+}
+
+func (e *Engine) heapAllocs() (objects, bytes uint64) {
 	metrics.Read(e.probeSample)
 	if v := e.probeSample[0].Value; v.Kind() == metrics.KindUint64 {
-		return v.Uint64()
+		objects = v.Uint64()
 	}
-	return 0
+	if v := e.probeSample[1].Value; v.Kind() == metrics.KindUint64 {
+		bytes = v.Uint64()
+	}
+	return objects, bytes
 }
 func (e *Engine) PhaseAllocs(dst []uint64) []uint64 {
 	return append(dst, e.lastAllocs[:]...)
@@ -187,6 +242,10 @@ func (e *Engine) RunVariable(w *World, scope SystemScope, dt, alpha float64) {
 
 func (e *Engine) frame() {
 	e.lastAllocs, e.allocs = e.allocs, [phaseCount]uint64{}
+	var o0, b0 uint64
+	if e.probe {
+		o0, b0 = e.heapAllocs()
+	}
 	e.tracer.BeginFrame()
 	now := e.plat.Now()
 	delta := 0.0
@@ -199,6 +258,9 @@ func (e *Engine) frame() {
 	if delta < 0 {
 		delta = 0
 	}
+	if e.lockstep {
+		delta = 1 / e.cfg.FixedHz
+	}
 	e.lastTime = now
 	e.frameNo++
 	mask := ScopeFrame | e.cfg.LoopScope
@@ -210,7 +272,9 @@ func (e *Engine) frame() {
 
 	e.input.BeginFrame()
 	pz := e.tracer.Begin(e.zPoll)
+	am := e.allocMark()
 	e.plat.PollEvents(e.onEvent)
+	e.allocSince(zonePoll, am)
 	pz.End()
 	e.exec(&e.ctx, PhasePollEvents, mask, plan.Paused)
 	e.exec(&e.ctx, PhaseInput, mask, plan.Paused)
@@ -223,10 +287,13 @@ func (e *Engine) frame() {
 	e.stats.ResetGPU()
 	if !e.minimized && e.metrics.PixelW > 0 && e.metrics.PixelH > 0 {
 		e.exec(&e.ctx, PhaseRenderPrepare, mask, plan.Paused)
+		am = e.allocMark()
 		e.curFrame = e.dev.BeginFrame(e.metrics.PixelW, e.metrics.PixelH)
+		e.allocSince(zoneGPU, am)
 		e.exec(&e.ctx, PhaseRender, mask, plan.Paused)
 		e.exec(&e.ctx, PhaseRenderUI, mask, plan.Paused)
 		gs := e.curFrame.Stats()
+		am = e.allocMark()
 		e.dev.EndFrame()
 		e.curFrame = nil
 		if e.capture != nil {
@@ -235,6 +302,7 @@ func (e *Engine) frame() {
 		sz := e.tracer.Begin(e.zSwap)
 		e.win.SwapBuffers()
 		sz.End()
+		e.allocSince(zoneGPU, am)
 		e.stats.DrawCalls = gs.DrawCalls
 		e.stats.Vertices = gs.Vertices
 		e.stats.Triangles = gs.Triangles
@@ -253,4 +321,9 @@ func (e *Engine) frame() {
 	e.stats.FrameTime = delta
 	e.counter.Sample(&e.stats)
 	e.tracer.EndFrame()
+	if e.probe {
+		o, b := e.heapAllocs()
+		e.allocTotal[zoneFrame] += o - o0
+		e.frameBytes += b - b0
+	}
 }

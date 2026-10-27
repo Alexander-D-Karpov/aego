@@ -78,6 +78,16 @@ type Driver interface {
 	Drive(step func() bool)
 }
 
+// PixelRatioLimiter is a window that can render below the screen's pixel density.
+type PixelRatioLimiter interface {
+	SetMaxPixelRatio(r float64)
+}
+
+// FrameLimiter is a Driver that limits how often it steps the engine, for platforms whose swap is always synced.
+type FrameLimiter interface {
+	SetFrameLimit(fps float64)
+}
+
 type SystemTheme uint8
 
 const (

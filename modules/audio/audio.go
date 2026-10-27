@@ -98,6 +98,11 @@ type Module struct {
 	spec          platform.AudioSpec
 	requested     platform.AudioSpec
 	manual        bool
+	paced         bool
+	minBlocks     int
+	frameDt       float64
+	keyRate       int
+	key           string
 	listeners     []func(mix.Event)
 	counts        EventCounts
 	started       module.Signal0
@@ -257,7 +262,6 @@ func (m *Module) Init(ctx *module.InitContext) error {
 	m.log = lg.With(log.Engine)
 	want := m.wanted()
 	out := m.open(want)
-	m.manual = manual(m.eng, out)
 	spec := out.Spec()
 	mx, err := mix.New(mix.Config{SampleRate: spec.SampleRate, Channels: 2, Voices: Voices, Buses: BusDescs(), Block: Block})
 	if err != nil {
@@ -265,6 +269,7 @@ func (m *Module) Init(ctx *module.InitContext) error {
 		return err
 	}
 	m.mixer, m.out, m.spec, m.requested = mx, out, spec, want
+	m.drive(out, spec)
 	m.pump = pump.New(mx, out, pumpConfig(out, spec))
 	for i := range Buses {
 		m.syncBus(i)
@@ -288,10 +293,20 @@ func (m *Module) open(want platform.AudioSpec) platform.AudioOutput {
 	return headless.NewAudio(want, 0, m.eng.Platform().Now)
 }
 
-// manual fills the mixer from the frame loop when a headless engine drives the frame-clocked output; any other output gets the pump goroutine.
-func manual(e *engine.Engine, out platform.AudioOutput) bool {
+const maxBlocks = 12
+
+type frameDriven interface {
+	FrameDriven() bool
+}
+
+// drive fills the mixer from the frame loop for a frame-driven output or a headless engine on the frame-clocked output; any other output gets the pump goroutine.
+func (m *Module) drive(out platform.AudioOutput, spec platform.AudioSpec) {
+	f, ok := out.(frameDriven)
+	m.paced = ok && f.FrameDriven()
 	_, clocked := out.(*headless.Audio)
-	return e.Config().Headless && clocked
+	m.manual = m.paced || (m.eng.Config().Headless && clocked)
+	m.minBlocks = pumpConfig(out, spec).Target
+	m.frameDt = 0
 }
 
 func pumpConfig(out platform.AudioOutput, spec platform.AudioSpec) pump.Config {
@@ -314,7 +329,7 @@ func (m *Module) Reopen(want platform.AudioSpec) error {
 		m.mixer.SetSampleRate(spec.SampleRate)
 	}
 	m.out, m.spec, m.requested = out, spec, want
-	m.manual = manual(m.eng, out)
+	m.drive(out, spec)
 	m.pump.SetOutput(out, pumpConfig(out, spec))
 	if !m.manual {
 		m.pump.Start()
@@ -340,15 +355,32 @@ type updateSystem struct {
 	m *Module
 }
 
-func (s updateSystem) Run(*engine.Context) {
-	s.m.update()
+func (s updateSystem) Run(ctx *engine.Context) {
+	s.m.update(ctx.Unscaled)
 }
 
-func (m *Module) update() {
+func (m *Module) pace(dt float64) {
+	if dt <= 0 || m.spec.SampleRate <= 0 || m.spec.Frames <= 0 {
+		return
+	}
+	if m.frameDt == 0 {
+		m.frameDt = dt
+	} else {
+		m.frameDt += (dt - m.frameDt) * 0.1
+	}
+	block := float64(m.spec.Frames) / float64(m.spec.SampleRate)
+	n := int(1.5*m.frameDt/block+0.999) + 1
+	m.pump.SetTarget(min(max(n, m.minBlocks), maxBlocks))
+}
+
+func (m *Module) update(dt float64) {
 	if m.mixer == nil {
 		return
 	}
 	if m.manual {
+		if m.paced {
+			m.pace(dt)
+		}
 		m.pump.Fill()
 	}
 	q := m.mixer.Events()

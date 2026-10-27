@@ -152,6 +152,33 @@ async function menuAndFullscreen(phone, cdp) {
 }
 
 const srv = await serve(site);
+async function frameLimit() {
+    await page.evaluate(() => globalThis.aegoGame.frameLimit(30));
+    await page.waitForTimeout(500);
+    const f0 = await page.evaluate(() => globalThis.aegoGame.frames());
+    await page.waitForTimeout(3000);
+    const f1 = await page.evaluate(() => globalThis.aegoGame.frames());
+    await page.evaluate(() => globalThis.aegoGame.frameLimit(0));
+    const fps = (f1 - f0) / 3;
+    if (fps < 26 || fps > 32) fail(`a 30 fps limit gives ${fps.toFixed(1)} fps`);
+    else console.log(`demo: frame limit 30 gives ${fps.toFixed(1)} fps`);
+}
+
+async function pixelRatio() {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+    const hi = await ctx.newPage();
+    hi.on("pageerror", (e) => fail("high-density page error: " + e.message));
+    await hi.goto(base + "/demo/");
+    await frames(hi, 30, 120000);
+    const r = await hi.evaluate(() => {
+        const c = document.getElementById("game");
+        return c.width / c.getBoundingClientRect().width;
+    });
+    if (Math.abs(r - 1.5) > 0.01) fail(`at device pixel ratio 2 the canvas renders at ${r.toFixed(3)}, want the 1.5 limit`);
+    else console.log("demo: the pixel ratio is capped at 1.5");
+    await ctx.close();
+}
+
 const base = `http://127.0.0.1:${srv.address().port}`;
 const browser = await chromium.launch({
     executablePath,
@@ -174,6 +201,8 @@ try {
     if (kept !== "kept") fail(`the profile did not survive a reload: ${kept}`);
     else console.log("demo: profile survives a reload");
     await touchPad();
+    await frameLimit();
+    await pixelRatio();
 } catch (e) {
     fail(e.message);
 } finally {

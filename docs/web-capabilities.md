@@ -17,9 +17,9 @@ What the browser build (`GOOS=js GOARCH=wasm`, `platform/web` + `gpu/webgl2`) su
 | Gamepads | works | standard mapping; Chrome reports a pad only after a button press |
 | Focus loss | works | held keys and buttons are released |
 | Hidden tab | works | the real clock stops, `requestAnimationFrame` stops |
-| Frame pacing | degraded | always VSync; no frame limiter |
+| Frame pacing | works | VSync; the frame limit skips animation frames |
 | Fullscreen | degraded | entered on the next click or key press |
-| Display modes, monitors | missing | the display module has nothing to apply |
+| Display modes, monitors | missing | the display module has no modes to apply; the pixel ratio is capped at 1.5 by default (`display.maxPixelRatio`) |
 | Clipboard write | works | `navigator.clipboard.writeText` (secure contexts) |
 | Clipboard read | degraded | only what was pasted into the page or copied by the game |
 | Cursors | works | CSS cursor names |
@@ -59,3 +59,27 @@ What the browser build (`GOOS=js GOARCH=wasm`, `platform/web` + `gpu/webgl2`) su
 ## Exported games
 
 `aego export --target web` (D295) runs the same runtime as the desktop export on this platform and GPU backend. Differences from desktop: data is loaded into memory before the game starts, there are no log files or crash bundles, saves and settings share the site's `localStorage` quota.
+
+## Performance
+
+`make web-bench` (D365) runs the exported platformer with its input recording in Chromium and Firefox: 1280×720, device pixel ratio 1, render scale 1, seed 1, 120 warmup frames, 600 measured, 5 runs. While it measures, every frame advances the game by exactly one fixed step, so each run plays the same frames. It writes `.cache/web-bench.json` and a table in `.cache/web-bench.md`.
+
+| Level | Metrics |
+|---|---|
+| Go | allocations and bytes per frame, bytes allocated inside the engine frame, allocations per engine zone (phases, `gpu`, `poll`), GC cycles, heap |
+| Bridge | WebGL calls, timer query calls counted apart, draw calls, buffer and texture uploads and their size, program and render-target switches, time spent in WebGL calls |
+| Browser | frame time p50/p95/p99 from `requestAnimationFrame` gaps, main-thread work per frame, frames over 33 ms, long tasks, JS heap, GPU time |
+
+Options: `WEB_BENCH_BROWSERS=chromium`, `WEB_BENCH_ARGS="--gpu=hard --headed"` for the real GPU, `--gogc=100,150,200` for GC experiments, `--trace` for a Chrome trace of the first run. `make web-bench-baseline` saves the machine's baseline, one per GPU mode. Later runs fail when a count (draw calls, WebGL calls, uploads, switches per frame) differs from the baseline or between runs, when Go allocates more than 24 bytes per frame over the baseline inside the engine frame, or when frame or work time is more than 10% slower; time is compared only with at least 5 runs. `make web-smoke` runs Chromium once and checks the counts, not the time. On the reference machine with `--gpu=hard` frame p95 must stay at or under 20 ms with at most 1% of frames over 33 ms.
+
+Reference machine, hardware GPU, 1280×720, device pixel ratio 1, 600 measured frames:
+
+| | Chromium before 12w | Chromium after | Firefox before 12w | Firefox after |
+|---|---:|---:|---:|---:|
+| frame p95, ms | 16.7 | 16.8 | 17.2 | 17.2 |
+| frames over 33 ms | 0 | 0 | 0 | 0 |
+| Go allocations per frame (`runtime/metrics`) | 7.2 | 3.8 | 6.1 | 2.5 |
+| allocations in the engine frame, not exempt | — | 0 | — | 0 |
+| GC cycles in 3600 frames | 0 | 0 | — | — |
+| WebGL calls per frame | 50.5 | 50.5 | 50.5 | 50.5 |
+| draw calls per frame | 3.3 | 3.3 | 3.3 | 3.3 |

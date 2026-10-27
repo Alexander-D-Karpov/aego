@@ -22,6 +22,7 @@ const (
 	KeyRenderScale = ID + ".renderScale"
 	KeyUIScale     = ID + ".uiScale"
 	KeyPreset      = ID + ".preset"
+	KeyPixelRatio  = ID + ".maxPixelRatio"
 )
 
 var Presets = []string{"Low", "Medium", "High", "Ultra"}
@@ -37,6 +38,8 @@ type Module struct {
 	vsync    settings.Key
 	live     bool
 	scaleKey settings.Key
+	ratio    platform.PixelRatioLimiter
+	limiter  bool
 }
 
 func New() *Module {
@@ -84,9 +87,9 @@ func (m *Module) Register(r *module.Registry) error {
 	})
 	r.Setting(settings.Desc{
 		ID: KeyFrameLimit, Kind: schema.KindInt64, Title: "Frame Limit", Unit: "fps", Category: settings.CategoryDisplay, Order: 50,
-		Doc:   "Caps the frame rate while VSync is off. Zero means no limit.",
+		Doc:   "Caps the frame rate while VSync is off, or always on platforms that pace frames themselves. Zero means no limit.",
 		Flags: both, Min: 0, Max: 1000, HasMin: true, HasMax: true, Step: 1,
-		EnabledWhen: func(s *settings.Store) bool { return s.Int(m.vsync) == int64(platform.VSyncOff) },
+		EnabledWhen: func(s *settings.Store) bool { return m.limiter || s.Int(m.vsync) == int64(platform.VSyncOff) },
 		Apply: func(v schema.Value) error {
 			if m.eng != nil {
 				m.eng.SetFrameLimit(float64(v.I))
@@ -97,6 +100,18 @@ func (m *Module) Register(r *module.Registry) error {
 	r.Setting(settings.Desc{
 		ID: KeyRenderScale, Kind: schema.KindFloat64, Default: schema.Float64(1), Title: "Render Scale",
 		Category: settings.CategoryGraphics, Order: 20, Flags: both, Min: 0.5, Max: 2, HasMin: true, HasMax: true, Step: 0.05,
+	})
+	r.Setting(settings.Desc{
+		ID: KeyPixelRatio, Kind: schema.KindFloat64, Default: schema.Float64(1.5), Title: "Pixel Ratio Limit",
+		Doc:      "Highest screen pixel density the game renders at. Lower values draw fewer pixels on high-density screens.",
+		Category: settings.CategoryGraphics, Order: 30, Flags: both, Min: 1, Max: 4, HasMin: true, HasMax: true, Step: 0.25,
+		EnabledWhen: func(*settings.Store) bool { return m.ratio != nil },
+		Apply: func(v schema.Value) error {
+			if m.ratio != nil {
+				m.ratio.SetMaxPixelRatio(v.AsFloat())
+			}
+			return nil
+		},
 	})
 	r.Setting(settings.Desc{
 		ID: KeyUIScale, Kind: schema.KindFloat64, Default: schema.Float64(1), Title: "UI Scale",
@@ -144,6 +159,8 @@ func (m *Module) Init(ctx *module.InitContext) error {
 	m.eng = ctx.Engine
 	m.live = true
 	m.disp, _ = ctx.Engine.Window().(platform.Displayer)
+	m.ratio, _ = ctx.Engine.Window().(platform.PixelRatioLimiter)
+	_, m.limiter = ctx.Engine.Platform().(platform.FrameLimiter)
 	cfg := ctx.Engine.Config()
 	m.project = platform.DisplayMode{W: cfg.Width, H: cfg.Height}
 	return nil

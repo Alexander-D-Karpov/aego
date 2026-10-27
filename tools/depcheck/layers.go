@@ -76,7 +76,7 @@ var rules = []rule{
 	{"vfs/memfs", []string{"core/...", "vfs"}, nil},
 	{"runtime/bundle", []string{"core/...", "asset", "format/..."}, nil},
 	{"runtime/player", []string{"core/...", "app/assembly", "app/assembly/builtin", "app/crash", "asset", "asset/loader",
-		"contracts/...", "engine", "engine/...", "format/...", "modules/input", "modules/scripting/systems", "platform",
+		"contracts/...", "engine", "engine/...", "format/...", "gpu", "modules/input", "modules/scripting/systems", "platform",
 		"render", "render/host", "runtime/bundle", "save", "scene", "scene/frame", "scene/sceneio", "schema",
 		"script/bind", "script/bytecode", "script/runtime", "script/vm", "sdk", "vfs", "vfs/..."}, nil},
 	{"app/brand", nil, nil},

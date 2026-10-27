@@ -29,6 +29,11 @@ TRY_BUDGET = 10485760
 WEB_TRY = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node try.mjs --site=$(CURDIR)/site
 WEB_AUDIO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node audio.mjs --site=$(CURDIR)/site
 WEB_THEME = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node theme.mjs --site=$(CURDIR)/site --out=$(CURDIR)/.cache/web-theme
+WEB_BENCH_BROWSERS ?= chromium,firefox
+WEB_BENCH_ARGS ?=
+WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
+	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
+	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(CURDIR)/.cache/web-bench.base.json
 TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
@@ -42,7 +47,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
+.PHONY: dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -253,11 +258,20 @@ try-size:
 
 web-smoke: site
 	sh tools/webbudget.sh site
-	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-bench.json
+	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-sprites.json
 	$(WEB_DEMO)
 	$(WEB_TRY)
 	$(WEB_AUDIO)
 	$(WEB_THEME)
+	$(WEB_BENCH) --browsers=chromium --runs=1 --gate
+
+web-bench: site
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	$(WEB_BENCH) --browsers=$(WEB_BENCH_BROWSERS) --gate $(WEB_BENCH_ARGS)
+
+web-bench-baseline: site
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	$(WEB_BENCH) --browsers=$(WEB_BENCH_BROWSERS) --update-baseline $(WEB_BENCH_ARGS)
 
 web-smoke-update: site
 	$(WEB_SMOKE) --update

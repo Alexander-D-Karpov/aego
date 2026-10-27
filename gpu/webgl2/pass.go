@@ -213,6 +213,7 @@ func (p *pass) count(pl *glPipeline, n, instances int) {
 	s.DrawCalls++
 	s.Vertices += uint32(n * instances)
 	s.Triangles += uint32(gpu.TriangleCount(pl.prim, n) * instances)
+	p.d.st.Draws++
 }
 
 func (p *pass) Draw(first, count int) {

@@ -1,0 +1,21 @@
+{
+  "reference": {
+    "host": "nodea",
+    "machine": "12th Gen Intel Core i7-1260P"
+  },
+  "p95Ms": 20,
+  "slowPct": 1,
+  "regressPct": 10,
+  "frameBytesSlack": 24,
+  "hiddenClampedS": 0.05,
+  "maxFrameAllocs": 0,
+  "allowFrame": [
+    { "match": "aego/modules/audio.decodeClip", "reason": "the first play of a clip decodes it once and caches it per sample rate" },
+    { "match": "aego/modules/audio.(*Module).decode", "reason": "a cache miss on the first play of a clip builds the loader callback; a hit allocates nothing" },
+    { "match": "aego/anim.(*Machine).fire", "reason": "the change list grows to its largest size once and keeps its capacity" },
+    { "match": "aego/script/runtime.(*Runtime).compact", "reason": "free lists grow to the most instances that died at once and keep their capacity" },
+    { "match": "aego/script/vm.(*Heap).alloc", "reason": "the script object table grows to its high-water mark and keeps its capacity" },
+    { "match": "aego/modules/physics/world.(*World).destroyContact", "reason": "the free contact list grows to the most contacts removed at once and keeps its capacity" },
+    { "match": "aego/modules/gameplay.(*Service).enterZone", "reason": "a zone sizes its list of nodes inside on the first entry and keeps it" }
+  ]
+}

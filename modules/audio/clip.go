@@ -84,6 +84,33 @@ func (c *Clip) stream(loop bool) (*mix.Stream, chan struct{}, error) {
 	return st, cancel, nil
 }
 
+type cachedDecoder interface {
+	Cached(id ids.AssetID, key string) (any, bool, error)
+}
+
+func (m *Module) cacheKey(rate int) string {
+	if rate != m.keyRate || m.key == "" {
+		m.keyRate, m.key = rate, clipKey+strconv.Itoa(rate)
+	}
+	return m.key
+}
+
+func buildClip(src asset.AudioSource, id ids.AssetID, rate int) (any, error) {
+	raw, ok := src.Audio(id)
+	if !ok {
+		return nil, errs.New(errs.AssetNotFound, "audio: "+id.Short()+" is not an imported sound", log.F("asset", id.String()))
+	}
+	return decodeClip(id, raw, rate)
+}
+
+func (m *Module) decode(dec asset.Decoder, src asset.AudioSource, id ids.AssetID, rate int, key string) (*Clip, error) {
+	v, err := dec.Decoded(id, key, func() (any, error) { return buildClip(src, id, rate) })
+	if err != nil {
+		return nil, err
+	}
+	return v.(*Clip), nil
+}
+
 func (m *Module) clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {
 	switch {
 	case id.IsZero():
@@ -99,21 +126,20 @@ func (m *Module) clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {
 	if !ok {
 		return nil, errNoSource
 	}
-	build := func() (any, error) {
-		raw, ok := src.Audio(id)
-		if !ok {
-			return nil, errs.New(errs.AssetNotFound, "audio: "+id.Short()+" is not an imported sound", log.F("asset", id.String()))
-		}
-		return decodeClip(id, raw, rate)
+	dec, ok := res.(asset.Decoder)
+	if !ok {
+		return m.cached(id, rate, func() (any, error) { return buildClip(src, id, rate) })
 	}
-	if dec, ok := res.(asset.Decoder); ok {
-		v, err := dec.Decoded(id, clipKey+strconv.Itoa(rate), build)
-		if err != nil {
-			return nil, err
+	key := m.cacheKey(rate)
+	if c, ok := dec.(cachedDecoder); ok {
+		if v, hit, err := c.Cached(id, key); hit {
+			if err != nil {
+				return nil, err
+			}
+			return v.(*Clip), nil
 		}
-		return v.(*Clip), nil
 	}
-	return m.cached(id, rate, build)
+	return m.decode(dec, src, id, rate, key)
 }
 
 func (m *Module) cached(id ids.AssetID, rate int, build func() (any, error)) (*Clip, error) {

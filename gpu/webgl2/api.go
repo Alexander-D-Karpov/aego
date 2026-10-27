@@ -10,6 +10,7 @@ type api struct {
 
 func (a api) UseProgram(id uint32) {
 	d := a.d
+	d.st.Programs++
 	d.call(d.f.UseProgram, d.obj.get(id))
 }
 
@@ -36,6 +37,7 @@ func (a api) BindSampler(unit int, id uint32) {
 
 func (a api) BindFramebuffer(id uint32) {
 	d := a.d
+	d.st.Targets++
 	d.call(d.f.BindFramebuffer, glFramebuffer, d.obj.get(id))
 }
 

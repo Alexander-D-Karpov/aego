@@ -196,7 +196,7 @@ func (s *Service) gate(h scene.NodeHandle, binds []binding) {
 		if b.held != propclaim.NoOwner {
 			b.blocked = true
 			if s.once(h, CodeConflict, b.track) {
-				s.warn(h, CodeConflict, "track "+b.label+": "+s.cl.Name(b.held)+" drives this property; the track is off")
+				s.warn(h, CodeConflict, "track "+b.labelText()+": "+s.cl.Name(b.held)+" drives this property; the track is off")
 			}
 			continue
 		}
@@ -211,16 +211,16 @@ func (s *Service) gate(h scene.NodeHandle, binds []binding) {
 		case bt == physics2d.Dynamic:
 			b.blocked = true
 			if s.once(h, CodeBody, b.track) {
-				s.warn(h, CodeBody, "track "+b.label+": a dynamic body moves this node; its transform tracks are off")
+				s.warn(h, CodeBody, "track "+b.labelText()+": a dynamic body moves this node; its transform tracks are off")
 			}
 		case bt == physics2d.Kinematic && b.auth == anim.AuthPresentation:
 			b.blocked = true
 			if s.once(h, CodeBody, b.track) {
-				s.warn(h, CodeBody, "track "+b.label+": a kinematic body moves this node; animate it with authority=simulation")
+				s.warn(h, CodeBody, "track "+b.labelText()+": a kinematic body moves this node; animate it with authority=simulation")
 			}
 		case bt == physics2d.Static && b.auth == anim.AuthSimulation:
 			if s.once(h, CodeBody, b.track) {
-				s.warn(h, CodeBody, "track "+b.label+": a static body is teleported on every step; make it kinematic")
+				s.warn(h, CodeBody, "track "+b.labelText()+": a static body is teleported on every step; make it kinematic")
 			}
 		}
 	}

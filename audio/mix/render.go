@@ -427,6 +427,7 @@ func (m *Mixer) renderMemoryDirect(v *voice, acc []float32, n int) bool {
 
 func (m *Mixer) renderStream(v *voice, acc []float32, n int) bool {
 	s := v.st
+	s.release()
 	eof := s.eof.Load()
 	s.fill(v.pos, v.step, n)
 	drained := eof && s.Ring.Len() == 0
@@ -457,6 +458,68 @@ func (m *Mixer) renderStream(v *voice, acc []float32, n int) bool {
 		acc[2*f+1] += r * g * v.gr
 		v.pos += v.step
 	}
+	return false
+}
+
+// Skip advances every voice by frames output frames without rendering, as if the output were mixed and thrown away: commands apply, ramps and positions move, loops wrap and finished voices end with their events.
+func (m *Mixer) Skip(frames int) {
+	m.drain()
+	frames = max(frames, 0)
+	active := 0
+	for vi := range m.voices {
+		v := &m.voices[vi]
+		if v.state == voiceFree {
+			continue
+		}
+		active++
+		if v.state != voicePlaying || m.paused || frames == 0 {
+			continue
+		}
+		if m.skipVoice(v, frames) {
+			m.end(vi, EvFinished)
+			active--
+			continue
+		}
+		m.publish(v)
+	}
+	m.active.Store(int32(active))
+	for i := range m.buses {
+		m.idle(&m.buses[i], frames)
+	}
+	m.clock += uint64(frames)
+}
+
+// skipVoice ends a voice when the mixer would within n frames, which checks the end before each frame, so a voice reaching it on the last frame ends on the next call.
+func (m *Mixer) skipVoice(v *voice, n int) bool {
+	if v.stopping && v.ramp < n {
+		return true
+	}
+	if v.ramp > 0 {
+		k := min(v.ramp, n)
+		v.gain += v.delta * float32(k)
+		if v.ramp -= k; v.ramp == 0 {
+			v.gain = v.target
+		}
+	}
+	to := v.pos + v.step*float64(n)
+	if v.mem == nil {
+		if v.st.skip(to) {
+			return true
+		}
+		v.pos = to
+		return false
+	}
+	if v.loop {
+		if span := float64(v.le - v.ls); to >= float64(v.le) && span > 0 {
+			to = float64(v.ls) + math.Mod(to-float64(v.ls), span)
+		}
+		v.pos = to
+		return false
+	}
+	if int64(v.pos+v.step*float64(n-1)) >= v.frames {
+		return true
+	}
+	v.pos = to
 	return false
 }
 

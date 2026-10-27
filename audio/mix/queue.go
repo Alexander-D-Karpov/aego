@@ -95,10 +95,15 @@ func (q *spsc[T]) len() int {
 type CommandQueue struct {
 	q       *spsc[Command]
 	dropped atomic.Uint64
+	wake    chan struct{}
 }
 
 func (c *CommandQueue) Push(cmd Command) bool {
 	if c.q.push(cmd) {
+		select {
+		case c.wake <- struct{}{}:
+		default:
+		}
 		return true
 	}
 	c.dropped.Add(1)
@@ -107,6 +112,11 @@ func (c *CommandQueue) Push(cmd Command) bool {
 
 func (c *CommandQueue) Dropped() uint64 {
 	return c.dropped.Load()
+}
+
+// Wake receives after a push, for a consumer that sleeps while the queue is empty.
+func (c *CommandQueue) Wake() <-chan struct{} {
+	return c.wake
 }
 
 func (c *CommandQueue) Len() int {
@@ -179,6 +189,18 @@ func (r *Ring) Write(p []float32) int {
 	copy(r.buf, p[k:n])
 	r.tail.Store(t + uint64(n))
 	return n / r.ch
+}
+
+// Discard drops up to frames frames from the read side and returns how many it dropped.
+func (r *Ring) Discard(frames int64) int64 {
+	h := r.head.Load()
+	n := min(frames*int64(r.ch), int64(r.tail.Load()-h))
+	n -= n % int64(r.ch)
+	if n <= 0 {
+		return 0
+	}
+	r.head.Store(h + uint64(n))
+	return n / int64(r.ch)
 }
 
 func (r *Ring) Read(p []float32) int {

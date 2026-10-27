@@ -5,7 +5,6 @@ import (
 	"io"
 	"path"
 	"strings"
-	"time"
 
 	"aego/audio/dsp"
 	"aego/audio/mix"
@@ -143,6 +142,21 @@ func Stream(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) 
 	return done
 }
 
+// skipTo wraps a skipped position into the loop; it reports false past the end of a stream that does not loop.
+func skipTo(d Decoder, o StreamOptions, to int64) (int64, bool) {
+	end := d.Info().Frames
+	if o.Loop && o.LoopEnd > 0 {
+		end = o.LoopEnd
+	}
+	if end <= 0 || to < end {
+		return to, true
+	}
+	if !o.Loop || end <= o.LoopStart {
+		return 0, false
+	}
+	return o.LoopStart + (to-o.LoopStart)%(end-o.LoopStart), true
+}
+
 func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) error {
 	defer st.SetEOF()
 	ch := st.Channels
@@ -164,13 +178,33 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 	var pending []float32
 	pos := int64(0)
 	empty := 0
-	wait := time.NewTicker(5 * time.Millisecond)
-	defer wait.Stop()
 	for {
 		select {
 		case <-cancel:
 			return nil
 		default:
+		}
+		if sk := st.TakeSkip(); sk > 0 {
+			k := min(sk, int64(len(pending)/ch))
+			pending = pending[int(k)*ch:]
+			if sk -= k; sk > 0 {
+				to, ok := skipTo(d, o, pos+sk)
+				if !ok {
+					return nil
+				}
+				if err := d.SeekFrame(to); err != nil {
+					return err
+				}
+				pos = to
+			}
+		}
+		if st.Held() {
+			select {
+			case <-cancel:
+				return nil
+			case <-st.Wake():
+			}
+			continue
 		}
 		if len(pending) == 0 {
 			want := chunk
@@ -204,12 +238,8 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 		}
 		w := st.Ring.Write(pending)
 		pending = pending[w*ch:]
-		if len(pending) > 0 {
-			select {
-			case <-cancel:
-				return nil
-			case <-wait.C:
-			}
+		if len(pending) > 0 && !st.WaitSpace(cancel) {
+			return nil
 		}
 	}
 }

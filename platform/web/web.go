@@ -40,6 +40,7 @@ type Platform struct {
 	raf       js.Value
 	now       js.Value
 	gamepads  js.Value
+	vpad      js.Value
 	info      platform.Info
 	win       *Window
 	queue     []platform.Event
@@ -53,6 +54,8 @@ type Platform struct {
 	padLive   int
 	pads      [input.MaxPads]padSlot
 	pad       padFrame
+	interval  float64
+	next      float64
 }
 
 func try(v js.Value, name string, args ...any) js.Value {
@@ -176,7 +179,7 @@ func (p *Platform) CreateWindow(desc platform.WindowDesc) (platform.Window, erro
 }
 
 func (p *Platform) PollEvents(fn func(platform.Event)) {
-	if w := p.win; w != nil && p.global.Get("devicePixelRatio").Float() != w.dpr {
+	if w := p.win; w != nil && p.global.Get("devicePixelRatio").Float() != w.rawDPR {
 		w.refresh(true)
 	}
 	p.pollPads()
@@ -190,10 +193,38 @@ func (p *Platform) PollEvents(fn func(platform.Event)) {
 	p.spare = p.spare[:0]
 }
 
+const frameSlack = 2
+
+func (p *Platform) SetFrameLimit(fps float64) {
+	p.interval, p.next = 0, 0
+	if fps > 0 {
+		p.interval = 1000 / fps
+	}
+}
+
+func (p *Platform) due(args []js.Value) bool {
+	if p.interval <= 0 || len(args) == 0 {
+		return true
+	}
+	t := args[0].Float()
+	if t < p.next-frameSlack {
+		return false
+	}
+	p.next += p.interval
+	if p.next <= t {
+		p.next = t + p.interval
+	}
+	return true
+}
+
 func (p *Platform) Drive(step func() bool) {
 	done := make(chan struct{})
 	var frame js.Func
-	frame = js.FuncOf(func(js.Value, []js.Value) any {
+	frame = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if !p.due(args) {
+			p.raf.Invoke(frame)
+			return nil
+		}
 		if !step() {
 			frame.Release()
 			close(done)
@@ -238,6 +269,8 @@ type Window struct {
 	dark      js.Value
 	metrics   platform.WindowMetrics
 	dpr       float64
+	rawDPR    float64
+	maxDPR    float64
 	last      mathx.Vec2
 	textInput bool
 	cursor    platform.CursorShape
@@ -256,12 +289,25 @@ func (w *Window) Canvas() js.Value {
 	return w.canvas
 }
 
+func (w *Window) SetMaxPixelRatio(r float64) {
+	if r == w.maxDPR {
+		return
+	}
+	w.maxDPR = r
+	w.refresh(true)
+}
+
 func (w *Window) refresh(push bool) {
 	r := w.canvas.Call("getBoundingClientRect")
 	cw, ch := r.Get("width").Float(), r.Get("height").Float()
-	dpr := w.p.global.Get("devicePixelRatio").Float()
-	if dpr <= 0 {
-		dpr = 1
+	raw := w.p.global.Get("devicePixelRatio").Float()
+	if raw <= 0 {
+		raw = 1
+	}
+	w.rawDPR = raw
+	dpr := raw
+	if w.maxDPR > 0 {
+		dpr = min(dpr, w.maxDPR)
 	}
 	w.dpr = dpr
 	m := platform.WindowMetrics{
@@ -429,9 +475,11 @@ func (w *Window) Close() {
 }
 
 var (
-	_ platform.Driver        = (*Platform)(nil)
-	_ platform.TextInputer   = (*Window)(nil)
-	_ platform.Clipboard     = (*Window)(nil)
-	_ platform.Cursorer      = (*Window)(nil)
-	_ platform.MouseCapturer = (*Window)(nil)
+	_ platform.Driver            = (*Platform)(nil)
+	_ platform.TextInputer       = (*Window)(nil)
+	_ platform.Clipboard         = (*Window)(nil)
+	_ platform.Cursorer          = (*Window)(nil)
+	_ platform.MouseCapturer     = (*Window)(nil)
+	_ platform.FrameLimiter      = (*Platform)(nil)
+	_ platform.PixelRatioLimiter = (*Window)(nil)
 )

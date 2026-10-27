@@ -52,6 +52,7 @@ type Audio struct {
 	u8        js.Value
 	atomics   js.Value
 	data      js.Value
+	views     map[[2]int]js.Value
 	index     js.Value
 	url       js.Value
 	noop      js.Func
@@ -232,6 +233,7 @@ func (a *Audio) attach() {
 		data := sab.New(ringFrames * a.spec.Channels * 4)
 		index := sab.New(16)
 		a.data = a.u8.New(data)
+		a.views = nil
 		a.index = a.g.Get("Int32Array").New(index)
 		po["data"] = data
 		po["index"] = index
@@ -294,7 +296,10 @@ func (a *Audio) TargetBlocks() int {
 	if a.shared {
 		return 3
 	}
-	return 6
+	if n := a.g.Get("aegoAudioBlocks"); n.Type() == js.TypeNumber && n.Int() > 0 {
+		return n.Int()
+	}
+	return 4
 }
 
 func (a *Audio) Spec() platform.AudioSpec {
@@ -328,6 +333,25 @@ func (a *Audio) Write(s []float32) int {
 	return frames
 }
 
+const maxViews = 64
+
+func (a *Audio) FrameDriven() bool {
+	return true
+}
+
+func (a *Audio) view(from, to int) js.Value {
+	k := [2]int{from, to}
+	if v, ok := a.views[k]; ok {
+		return v
+	}
+	if a.views == nil || len(a.views) >= maxViews {
+		a.views = make(map[[2]int]js.Value, maxViews)
+	}
+	v := a.data.Call("subarray", from, to)
+	a.views[k] = v
+	return v
+}
+
 func (a *Audio) writeShared(s []float32) int {
 	ch := a.spec.Channels
 	head := int32(a.atomics.Call("load", a.index, 0).Int())
@@ -336,9 +360,9 @@ func (a *Audio) writeShared(s []float32) int {
 		return 0
 	}
 	pos, first := ringSpan(a.tail, ringFrames, n)
-	js.CopyBytesToJS(a.data.Call("subarray", pos*ch*4, (pos+first)*ch*4), floatBytes(s[:first*ch]))
+	js.CopyBytesToJS(a.view(pos*ch*4, (pos+first)*ch*4), floatBytes(s[:first*ch]))
 	if n > first {
-		js.CopyBytesToJS(a.data.Call("subarray", 0, (n-first)*ch*4), floatBytes(s[first*ch:n*ch]))
+		js.CopyBytesToJS(a.view(0, (n-first)*ch*4), floatBytes(s[first*ch:n*ch]))
 	}
 	a.tail += int32(n)
 	a.atomics.Call("store", a.index, 1, a.tail)

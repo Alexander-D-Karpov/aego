@@ -217,31 +217,31 @@ func (s *Service) abindOne(h scene.NodeHandle, a *Animator) {
 
 func (s *Service) abindTrack(h scene.NodeHandle, a *Animator, r *animator, st, ti int32) {
 	t := &r.ce.clips[st].Tracks[ti]
-	label := r.ce.g.States[st].Name + ": " + trackName(t)
+	state := r.ce.g.States[st].Name
 	key := st*1024 + ti
 	node := s.scene.Find(h, t.Target)
 	if node.IsZero() || !s.scene.IsAlive(node) {
 		if s.once(h, CodeLost, key) {
-			s.warn(h, CodeLost, "track "+label+": the target node is missing")
+			s.warn(h, CodeLost, "track "+stateTrack(state, t)+": the target node is missing")
 		}
 		return
 	}
 	ref, err := s.props.ResolveAny(node, t.Property)
 	if err != nil {
 		if s.once(h, CodeTrack, key) {
-			s.warn(h, CodeTrack, "track "+label+": "+err.Error())
+			s.warn(h, CodeTrack, "track "+stateTrack(state, t)+": "+err.Error())
 		}
 		return
 	}
 	if !fits(t.Kind, &ref) {
 		if s.once(h, CodeTrack, key) {
-			s.warn(h, CodeTrack, "track "+label+" has kind "+t.Kind.String()+", which does not match the property")
+			s.warn(h, CodeTrack, "track "+stateTrack(state, t)+" has kind "+t.Kind.String()+", which does not match the property")
 		}
 		return
 	}
 	if a.TimeDomain == DomainUnscaled && t.Authority == anim.AuthSimulation {
 		if s.once(h, CodeUnscaled, key) {
-			s.warn(h, CodeUnscaled, "track "+label+" has authority=simulation in an unscaled animator; it is off")
+			s.warn(h, CodeUnscaled, "track "+stateTrack(state, t)+" has authority=simulation in an unscaled animator; it is off")
 		}
 		return
 	}
@@ -249,7 +249,7 @@ func (s *Service) abindTrack(h scene.NodeHandle, a *Animator, r *animator, st, t
 		if b := &r.binds[j]; b.node == node && b.ref.Same(&ref) {
 			if b.kind != t.Kind {
 				if s.once(h, CodeTrack, key) {
-					s.warn(h, CodeTrack, "track "+label+" has kind "+t.Kind.String()+" here and "+b.kind.String()+" in another state; it is off here")
+					s.warn(h, CodeTrack, "track "+stateTrack(state, t)+" has kind "+t.Kind.String()+" here and "+b.kind.String()+" in another state; it is off here")
 				}
 				return
 			}
@@ -261,7 +261,7 @@ func (s *Service) abindTrack(h scene.NodeHandle, a *Animator, r *animator, st, t
 	for _, o := range s.owned[k] {
 		if o.Overlaps(&ref) {
 			if s.once(h, CodeConflict, key) {
-				s.warn(h, CodeConflict, "track "+label+": another animation track drives this property; this one is off")
+				s.warn(h, CodeConflict, "track "+stateTrack(state, t)+": another animation track drives this property; this one is off")
 			}
 			return
 		}
@@ -269,7 +269,7 @@ func (s *Service) abindTrack(h scene.NodeHandle, a *Animator, r *animator, st, t
 	s.owned[k] = append(s.owned[k], ref)
 	r.refs = append(r.refs, tmpRef{ref: ref, node: node, state: st, track: ti})
 	r.binds = append(r.binds, binding{
-		ref: ref, key: k, label: label, node: node, kind: t.Kind, auth: t.Authority,
+		ref: ref, key: k, state: state, tr: t, node: node, kind: t.Kind, auth: t.Authority,
 		pose: ref.Owner() == propref.OwnTransform && !ref.Three(),
 	})
 }

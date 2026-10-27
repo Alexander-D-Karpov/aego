@@ -57,6 +57,9 @@ type Engine struct {
 	probeSample []metrics.Sample
 	allocs      [phaseCount]uint64
 	lastAllocs  [phaseCount]uint64
+	allocTotal  [allocZones]uint64
+	lockstep    bool
+	frameBytes  uint64
 
 	tracer     *trace.Tracer
 	phaseZones [phaseCount]trace.ZoneID
@@ -394,6 +397,9 @@ func (e *Engine) handleEvent(ev platform.Event) {
 
 func (e *Engine) SetFrameLimit(fps float64) {
 	e.frameLimit = max(fps, 0)
+	if l, ok := e.plat.(platform.FrameLimiter); ok {
+		l.SetFrameLimit(e.frameLimit)
+	}
 }
 
 func (e *Engine) FrameLimit() float64 {

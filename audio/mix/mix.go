@@ -151,6 +151,7 @@ func New(cfg Config) (*Mixer, error) {
 	}
 	m.spare = make([]uint32, 0, n)
 	m.cmds.q = newSPSC[Command](queueSize)
+	m.cmds.wake = make(chan struct{}, 1)
 	m.events.q = newSPSC[Event](queueSize)
 	return m, nil
 }

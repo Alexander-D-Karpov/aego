@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"syscall/js"
+	"time"
 
 	"aego/core/errs"
 	"aego/core/handle"
@@ -16,12 +17,13 @@ import (
 )
 
 const (
-	scratchUnit = glstate.MaxTextureUnits - 1
-	minScratch  = 64 << 10
-	timerExt    = "EXT_disjoint_timer_query_webgl2"
-	floatExt    = "EXT_color_buffer_float"
-	infoExt     = "WEBGL_debug_renderer_info"
-	loseExt     = "WEBGL_lose_context"
+	scratchUnit  = glstate.MaxTextureUnits - 1
+	minScratch   = 64 << 10
+	timerExt     = "EXT_disjoint_timer_query_webgl2"
+	floatExt     = "EXT_color_buffer_float"
+	infoExt      = "WEBGL_debug_renderer_info"
+	loseExt      = "WEBGL_lose_context"
+	bridgeSample = 15
 )
 
 type Surface interface {
@@ -203,6 +205,7 @@ type Device struct {
 	calls       uint64
 	mark        uint64
 	lastCalls   uint64
+	st          gpu.BridgeStats
 	onLost      js.Func
 	onRestored  js.Func
 	watching    bool
@@ -271,7 +274,24 @@ func num(v js.Value) int {
 
 func (d *Device) call(f js.Value, args ...any) js.Value {
 	d.calls++
-	return f.Invoke(args...)
+	if d.calls&bridgeSample != 0 {
+		return f.Invoke(args...)
+	}
+	t := time.Now()
+	v := f.Invoke(args...)
+	d.st.BridgeNs += uint64(time.Since(t)) * (bridgeSample + 1)
+	return v
+}
+
+func (d *Device) queryCall(f js.Value, args ...any) js.Value {
+	d.st.Queries++
+	return d.call(f, args...)
+}
+
+func (d *Device) BridgeStats() gpu.BridgeStats {
+	s := d.st
+	s.Calls = d.calls - d.st.Queries
+	return s
 }
 
 func (d *Device) param(p int) js.Value {

@@ -142,6 +142,7 @@ type Service struct {
 	ready   bool
 	paused  bool
 	all     bool
+	lib     *data.Library
 }
 
 func NewService(m *Module, s *scene.Scene, w *engine.World) *Service {
@@ -348,12 +349,23 @@ func (s *Service) PlayEventAt(ev ids.AssetID, pos mathx.Vec2, owner scene.NodeHa
 	return s.playEvent(ev, owner, pos, true, false)
 }
 
-func (s *Service) event(id ids.AssetID) (*Event, error) {
-	src, ok := s.scene.Resolver().(asset.DataSource)
-	if !ok {
-		return nil, data.ErrNoSource
+func (s *Service) library() (*data.Library, error) {
+	if s.lib == nil {
+		src, ok := s.scene.Resolver().(asset.DataSource)
+		if !ok {
+			return nil, data.ErrNoSource
+		}
+		s.lib = data.NewLibrary(s.scene.Registry(), src)
 	}
-	return data.Get[Event](data.NewLibrary(s.scene.Registry(), src), id)
+	return s.lib, nil
+}
+
+func (s *Service) event(id ids.AssetID) (*Event, error) {
+	l, err := s.library()
+	if err != nil {
+		return nil, err
+	}
+	return data.Get[Event](l, id)
 }
 
 func (s *Service) playEvent(id ids.AssetID, owner scene.NodeHandle, at mathx.Vec2, positioned, source bool) Sound {

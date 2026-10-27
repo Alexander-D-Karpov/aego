@@ -48,22 +48,26 @@ const (
 )
 
 type Config struct {
-	Data      string
-	Profile   string
-	Window    string
-	Scene     string
-	LogFile   string
-	Trace     string
-	Replay    string
-	Headless  bool
-	Hidden    bool
-	Frames    int
-	FrameTime float64
-	Debug     bool
-	Seed      uint64
-	NoProfile bool
-	Logger    *log.Logger
-	Bundle    *Bundle
+	Data       string
+	Profile    string
+	Window     string
+	Scene      string
+	LogFile    string
+	Trace      string
+	Tracing    bool
+	Replay     string
+	ReplayData []byte
+	Probe      bool
+	MemProfile bool
+	Headless   bool
+	Hidden     bool
+	Frames     int
+	FrameTime  float64
+	Debug      bool
+	Seed       uint64
+	NoProfile  bool
+	Logger     *log.Logger
+	Bundle     *Bundle
 }
 
 type Player struct {
@@ -94,16 +98,24 @@ type Player struct {
 	crashScene bool
 	closers    []func()
 	closed     bool
+	sampler    sampler
+	memStart   map[[32]uintptr]memCount
+	allocs     *AllocReport
 }
 
-type driver struct{}
+type driver struct {
+	p *Player
+}
 
 func (driver) Init(*engine.Engine) error { return nil }
-func (driver) Event(platform.Event)      {}
+func (d driver) Event(ev platform.Event) { d.p.sampler.event(ev) }
 func (driver) FixedUpdate(float64)       {}
-func (driver) Update(float64)            {}
-func (driver) Render(float64)            {}
-func (driver) Shutdown()                 {}
+func (d driver) Update(float64) {
+	d.p.sampler.frame(d.p.Engine.MainWorld())
+	d.p.markWindow()
+}
+func (driver) Render(float64) {}
+func (driver) Shutdown()      {}
 
 func Mount(dir string) (*bundle.Data, *vfs.VFS, error) {
 	f, err := osfs.Dir{Root: dir}.Open(bundle.ManifestFile)
@@ -170,7 +182,7 @@ func (p *Player) build(mods []module.Module) error {
 		Hidden:            p.cfg.Hidden,
 		Debug:             p.cfg.Debug,
 		AppID:             g.Module,
-		Trace:             p.cfg.Trace != "",
+		Trace:             p.cfg.Trace != "" || p.cfg.Tracing,
 		Seed:              p.cfg.Seed,
 		ResRoot:           p.cfg.Data,
 	}
@@ -203,8 +215,13 @@ func (p *Player) build(mods []module.Module) error {
 	if p.Engine, err = builder.Build(); err != nil {
 		return err
 	}
+	if p.cfg.Probe {
+		p.Engine.SetPhaseAllocs(true)
+		p.Engine.SetLockstep(true)
+	}
 	p.Engine.Jobs().SetPanicHandler(func(rec any, stack []byte) { p.crash("panic", "worker", rec, stack, "") })
 	p.Renderer = rmod.Renderer()
+	p.sampler.render = rmod.Stats
 	p.Loader = loader.New(p.Engine.GPU(), p.Renderer.Textures(), p.Log)
 	if err = p.Loader.Mount(data.Index, files); err != nil {
 		return err
@@ -419,12 +436,16 @@ func (p *Player) loadScene() (*scene.Scene, error) {
 }
 
 func (p *Player) replay() error {
-	if p.cfg.Replay == "" {
-		return nil
-	}
-	data, err := os.ReadFile(p.cfg.Replay)
-	if err != nil {
-		return errs.Wrap(err, errs.VFSIO, "cannot read the input recording").With(log.F("path", p.cfg.Replay))
+	data, from := p.cfg.ReplayData, "page"
+	if data == nil {
+		if p.cfg.Replay == "" {
+			return nil
+		}
+		var err error
+		if data, err = os.ReadFile(p.cfg.Replay); err != nil {
+			return errs.Wrap(err, errs.VFSIO, "cannot read the input recording").With(log.F("path", p.cfg.Replay))
+		}
+		from = p.cfg.Replay
 	}
 	svc, ok := engine.ServiceOf[*inputmod.Service](p.Engine.MainWorld(), inputService)
 	if !ok {
@@ -434,7 +455,7 @@ func (p *Player) replay() error {
 	if err != nil {
 		return err
 	}
-	p.log.Info("replaying input", log.F("path", p.cfg.Replay), log.F("project", meta.Project), log.F("seed", meta.Seed))
+	p.log.Info("replaying input", log.F("from", from), log.F("project", meta.Project), log.F("seed", meta.Seed))
 	return nil
 }
 
@@ -473,7 +494,7 @@ func (p *Player) Run() error {
 		}
 	}()
 	defer p.watchInterrupt()()
-	d := driver{}
+	d := driver{p: p}
 	if p.cfg.Frames > 0 {
 		for i := 0; i < p.cfg.Frames; i++ {
 			if !p.Engine.Step(d) {

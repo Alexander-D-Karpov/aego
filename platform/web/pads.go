@@ -20,9 +20,16 @@ func (p *Platform) anyPad() bool {
 // virtualSlot is the pad slot of the page's touch gamepad, globalThis.aegoVirtualPad in the standard mapping.
 const virtualSlot = input.MaxPads - 1
 
+func (p *Platform) virtualPad() js.Value {
+	if p.vpad.Type() != js.TypeObject {
+		p.vpad = p.global.Get("aegoVirtualPad")
+	}
+	return p.vpad
+}
+
 func (p *Platform) pollPads() {
-	vp := p.global.Get("aegoVirtualPad")
-	virt := vp.Truthy() && vp.Get("connected").Truthy()
+	vp := p.virtualPad()
+	virt := vp.Type() == js.TypeObject && vp.Get("connected").Truthy()
 	if !virt && (!p.gamepads.Truthy() || (p.padLive == 0 && !p.anyPad())) {
 		return
 	}

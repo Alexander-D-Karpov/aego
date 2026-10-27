@@ -166,14 +166,20 @@ func (s *Scene) Find(from NodeHandle, path string) NodeHandle {
 		return from
 	}
 	cur := from
-	if strings.HasPrefix(path, "/") {
+	if path[0] == '/' {
 		cur = s.root
-		path = strings.TrimPrefix(path, "/")
+		path = path[1:]
 		if path == "" {
 			return cur
 		}
 	}
-	for _, part := range strings.Split(path, "/") {
+	for path != "" {
+		part := path
+		if i := strings.IndexByte(path, '/'); i >= 0 {
+			part, path = path[:i], path[i+1:]
+		} else {
+			path = ""
+		}
 		switch part {
 		case "", ".":
 			continue

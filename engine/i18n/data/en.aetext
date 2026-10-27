@@ -4686,7 +4686,13 @@ messages version=1 lang=en {
     text="Frame Limit"
   }
   msg "setting.display.frameLimit.doc" {
-    text="Caps the frame rate while VSync is off. Zero means no limit."
+    text="Caps the frame rate while VSync is off, or always on platforms that pace frames themselves. Zero means no limit."
+  }
+  msg "setting.display.maxPixelRatio" {
+    text="Pixel Ratio Limit"
+  }
+  msg "setting.display.maxPixelRatio.doc" {
+    text="Highest screen pixel density the game renders at. Lower values draw fewer pixels on high-density screens."
   }
   msg "setting.display.preset" {
     text="Quality Preset"

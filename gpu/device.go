@@ -51,3 +51,20 @@ type Pass interface {
 type BackbufferReader interface {
 	ReadBackbuffer(w, h int, out []byte) error
 }
+
+type BridgeStats struct {
+	Calls         uint64 `json:"calls"`
+	Queries       uint64 `json:"queries"`
+	Draws         uint64 `json:"draws"`
+	BufferUploads uint64 `json:"bufferUploads"`
+	BufferBytes   uint64 `json:"bufferBytes"`
+	TexUploads    uint64 `json:"texUploads"`
+	TexBytes      uint64 `json:"texBytes"`
+	Programs      uint64 `json:"programs"`
+	Targets       uint64 `json:"targets"`
+	BridgeNs      uint64 `json:"bridgeNs"`
+}
+
+type BridgeReporter interface {
+	BridgeStats() BridgeStats
+}

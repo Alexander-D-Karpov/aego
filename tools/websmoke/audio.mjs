@@ -11,6 +11,8 @@ const opts = Object.fromEntries(
 );
 const site = path.resolve(opts.site ?? "../../site");
 const executablePath = process.env.CHROMIUM || "/usr/bin/chromium";
+const seconds = +(opts.seconds ?? 10);
+const blocks = (opts.blocks ?? "").split(",").filter(Boolean).map(Number);
 const mime = {
     ".html": "text/html",
     ".js": "text/javascript",
@@ -51,7 +53,7 @@ function serve(root, headers) {
     });
 }
 
-async function run(browser, label, headers, wantShared) {
+async function run(browser, label, headers, wantShared, depth = 0) {
     const srv = await serve(site, headers);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
     page.on("pageerror", (e) => fail(`${label}: page error: ${e.message}`));
@@ -75,6 +77,7 @@ async function run(browser, label, headers, wantShared) {
         const isolated = await js("globalThis.crossOriginIsolated === true");
         if (isolated !== wantShared) fail(`${label}: crossOriginIsolated is ${isolated}`);
         const enforced = await js("(async () => { const c = new AudioContext(); await new Promise((r) => setTimeout(r, 300)); const s = c.state; await c.close(); return s !== 'running'; })()");
+        if (depth) await js(`globalThis.aegoAudioBlocks = ${depth}`);
         const err = await js("globalThis.aegoAudio.start()");
         if (err) throw new Error("start: " + err);
         await sleep(500);
@@ -83,12 +86,14 @@ async function run(browser, label, headers, wantShared) {
         else if (before.running || before.queued !== 0) fail(`${label}: audio ran before a gesture: ${JSON.stringify(before)}`);
         await page.mouse.click(5, 5);
         await until("JSON.parse(globalThis.aegoAudio.stats()).running", 10000);
-        await sleep(1500);
+        await sleep(seconds * 1000);
         const s = await stats();
         if (s.error) fail(`${label}: ${s.error}`);
         if (s.shared !== wantShared) fail(`${label}: shared transport is ${s.shared}`);
         if (Math.abs(s.rms - 0.354) > 0.05) fail(`${label}: rms ${s.rms}`);
-        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns}, mix max ${s.mixMaxUs} us`);
+        const used = depth || (wantShared ? 3 : 4);
+        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, ${used} blocks (${((used * 512 * 1000) / s.rate).toFixed(0)} ms), underruns ${s.underruns} (pump ${s.pumpUnderruns}) in ${seconds} s, rms ${s.rms.toFixed(3)}, mix max ${s.mixMaxUs} us`);
+        if (!depth && s.underruns > 0) fail(`${label}: ${s.underruns} underruns in ${seconds} s at the default ${used} blocks`);
         await js("globalThis.aegoAudio.stop()");
     } catch (e) {
         fail(`${label}: ${e.message}`);
@@ -128,6 +133,7 @@ async function demo(browser) {
         await page.click("#game");
         await sleep(2500);
         const s = await stats();
+        if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in the game, which fills audio from the frame loop`);
         if (!s.running || s.rms < 0.01) fail(`${label}: music is silent: ${JSON.stringify(s)}`);
         console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns}`);
         if (await page.isHidden("#mute")) fail(`${label}: the mute button is hidden`);
@@ -150,11 +156,12 @@ async function demo(browser) {
 
 const browser = await chromium.launch({
     executablePath,
-    headless: true,
-    args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=user-gesture-required"],
+    headless: opts.headed !== "true",
+    args: ["--mute-audio", ...(opts.gpu === "hard" ? [] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]), "--ignore-gpu-blocklist", "--autoplay-policy=user-gesture-required"],
 });
 try {
     await run(browser, "messages", {}, false);
+    for (const b of blocks) await run(browser, `messages at ${b} blocks`, {}, false, b);
     await run(browser, "shared", isolate, true);
     await demo(browser);
 } finally {
