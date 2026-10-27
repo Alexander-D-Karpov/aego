@@ -397,7 +397,7 @@ func TestDownloadBlock(t *testing.T) {
 
 func TestMetaTags(t *testing.T) {
 	_, _, pages := build(t, fixture(), Options{})
-	if !strings.Contains(pages["index.html"], `<meta name="description" content="Make 2D games in Go.`) {
+	if !strings.Contains(pages["index.html"], `<meta name="description" content="A 2D game engine built in Go.`) {
 		t.Error("landing page has no description")
 	}
 	if !strings.Contains(pages["language.html"], `<meta property="og:description" content="The language.">`) {

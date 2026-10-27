@@ -35,7 +35,7 @@ const (
 	posterAsset      = "assets/demo-poster.png"
 	shotsDir         = "assets/shots/"
 	scriptSection    = "## From a script"
-	homeLead         = "Make 2D games in Go. One editor, one project, desktop and web."
+	homeLead         = "A 2D game engine built in Go."
 	llmsNote         = "Every page below is Markdown; /llms-full.txt has all of them in one file."
 	installCmd       = "curl -fsSL https://aego.akarpov.ru/install.sh | sh"
 	installPage      = "install"

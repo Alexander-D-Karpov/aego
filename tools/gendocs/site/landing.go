@@ -21,7 +21,7 @@ var landingEntryIcons = [3]string{"file.download", "help.book", "panel.find"}
 var landingEN = landingText{
 	lang:    "en",
 	tagline: homeLead,
-	lead:    "Build scenes in the editor, script them in a small Go-like language, extend the engine with Go when you need to, and ship the same project to Linux, Windows, macOS and the browser. Deterministic simulation, rewind, physics, animation, audio and cameras come built in.",
+	lead:    "Build games visually, write gameplay logic in Aego Script, and extend the engine with native Go.\n\nA complete development environment with a visual editor, hot reload, deterministic simulation, frame-by-frame rewind, and cross-platform export. From your first scene to a playable game on Windows, Linux, macOS, and the web.",
 	entries: [3][2]string{
 		{"Install", "Download for your OS, make a project, play it in two minutes."},
 		{"Learn", "Guides from the first scene to a finished platformer."},
@@ -44,8 +44,8 @@ var landingEN = landingText{
 
 var landingRU = landingText{
 	lang:    "ru",
-	tagline: "Делайте 2D-игры на Go. Один редактор, один проект, компьютер и веб.",
-	lead:    "Собирайте сцены в редакторе, пишите для них скрипты на небольшом языке в духе Go, расширяйте движок на Go, когда это нужно, и выпускайте один и тот же проект для Linux, Windows, macOS и браузера. Детерминированная симуляция, перемотка, физика, анимация, звук и камеры уже встроены.",
+	tagline: "Игровой 2D-движок на Go.",
+	lead:    "Собирайте игры визуально, пишите игровую логику на Aego Script и расширяйте движок нативным кодом на Go.\n\nПолноценная среда разработки: визуальный редактор, горячая перезагрузка, детерминированная симуляция, покадровая перемотка и экспорт на разные платформы. От первой сцены до готовой игры для Windows, Linux, macOS и веба.",
 	entries: [3][2]string{
 		{"Установить", "Скачайте для своей системы, создайте проект и запустите его за две минуты."},
 		{"Учиться", "Руководства от первой сцены до готового платформера."},
@@ -88,7 +88,9 @@ func (b *builder) home(t landingText) string {
 	e.WriteString("</ul>")
 	c.WriteString(`<section class="hero"><div class="hero-text"><h1>` + esc(b.exp.Title) + "</h1>")
 	c.WriteString(`<p class="tagline">` + inlineMD(t.tagline) + "</p>")
-	c.WriteString(`<p class="lead">` + inlineMD(t.lead) + "</p>")
+	for _, para := range strings.Split(t.lead, "\n\n") {
+		c.WriteString(`<p class="lead">` + inlineMD(para) + "</p>")
+	}
 	c.WriteString(b.downloadBlock(root))
 	other := "ru/"
 	if t.lang != "en" {

@@ -127,7 +127,7 @@ var ruChrome = map[string]string{
 	"Portable":                    "Портативная",
 	"App":                         "Приложение",
 	"Archive":                     "Архив",
-	homeLead:                      "Делайте 2D-игры на Go. Один редактор, один проект, компьютер и веб.",
+	homeLead:                      "Игровой 2D-движок на Go.",
 	llmsNote:                      "Каждая страница ниже — Markdown; /ru/llms-full.txt содержит их все в одном файле.",
 }
 
