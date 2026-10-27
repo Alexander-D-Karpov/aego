@@ -51,6 +51,7 @@ type webFile struct {
 
 type webList struct {
 	Wasm     int64     `json:"wasm"`
+	WasmGzip int64     `json:"wasmGzip"`
 	Manifest webFile   `json:"manifest"`
 	Files    []webFile `json:"files"`
 }
@@ -159,6 +160,7 @@ func (j *job) webBuild(scripts ...[]byte) (string, error) {
 }
 
 func (j *job) packWeb() error {
+	brotli, _ := exec.LookPath("brotli")
 	src, err := wasmExecPath(j.goroot)
 	if err != nil {
 		return err
@@ -186,7 +188,10 @@ func (j *job) packWeb() error {
 			return err
 		}
 	}
-	list, err := json.Marshal(webList{Wasm: j.rep.BinarySize, Manifest: webFile{Path: bundle.ManifestFile, Size: j.manifestSize}, Files: j.files})
+	if j.rep.BinaryGzip, err = precompress(j.l.binary(), brotli); err != nil {
+		return err
+	}
+	list, err := json.Marshal(webList{Wasm: j.rep.BinarySize, WasmGzip: j.rep.BinaryGzip, Manifest: webFile{Path: bundle.ManifestFile, Size: j.manifestSize}, Files: j.files})
 	if err != nil {
 		return err
 	}
@@ -204,27 +209,20 @@ func (j *job) packWeb() error {
 	if err := writeFile(filepath.Join(j.out, webIndex), page.Bytes(), webIndex); err != nil {
 		return err
 	}
-	return j.compressWeb()
+	return j.compressWeb(brotli)
 }
 
-func (j *job) compressWeb() error {
-	brotli, _ := exec.LookPath("brotli")
+func (j *job) compressWeb(brotli string) error {
 	art := filepath.Join(j.l.data, bundle.ArtifactsDir)
 	wasm := j.l.binary()
 	return filepath.WalkDir(j.out, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if !webCompressed[filepath.Ext(p)] && filepath.Dir(p) != art {
+		if p == wasm || (!webCompressed[filepath.Ext(p)] && filepath.Dir(p) != art) {
 			return nil
 		}
-		n, err := precompress(p, brotli)
-		if err != nil {
-			return err
-		}
-		if p == wasm {
-			j.rep.BinaryGzip = n
-		}
-		return nil
+		_, err = precompress(p, brotli)
+		return err
 	})
 }

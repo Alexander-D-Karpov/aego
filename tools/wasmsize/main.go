@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -192,12 +193,77 @@ func mb(n int) string {
 	return fmt.Sprintf("%6.2f MB", float64(n)/(1<<20))
 }
 
+// sizes is what -prev keeps between runs.
+type sizes struct {
+	Total, Gzip, Code, Data int
+	ByPkg                   map[string]int
+}
+
+func signed(n int) string {
+	return fmt.Sprintf("%+.2f MB", float64(n)/(1<<20))
+}
+
+// compare prints the change since the sizes saved in file, then saves the current ones there.
+func compare(file string, rep *report) error {
+	cur := sizes{Total: rep.total, Gzip: rep.gzip, Code: rep.code, Data: rep.data, ByPkg: rep.byPkg}
+	if b, err := os.ReadFile(file); err == nil {
+		var old sizes
+		if err := json.Unmarshal(b, &old); err != nil {
+			return err
+		}
+		fmt.Printf("since the last run: total %s, gzip %s, code %s, data %s\n",
+			signed(cur.Total-old.Total), signed(cur.Gzip-old.Gzip), signed(cur.Code-old.Code), signed(cur.Data-old.Data))
+		type row struct {
+			pkg string
+			d   int
+		}
+		var rows []row
+		for p, n := range cur.ByPkg {
+			if d := n - old.ByPkg[p]; d != 0 {
+				rows = append(rows, row{p, d})
+			}
+		}
+		for p, n := range old.ByPkg {
+			if _, ok := cur.ByPkg[p]; !ok {
+				rows = append(rows, row{p, -n})
+			}
+		}
+		sort.Slice(rows, func(i, j int) bool {
+			if a, b := abs(rows[i].d), abs(rows[j].d); a != b {
+				return a > b
+			}
+			return rows[i].pkg < rows[j].pkg
+		})
+		for i, r := range rows {
+			if i == 10 || abs(r.d) < 16<<10 {
+				break
+			}
+			fmt.Printf("  %s  %s\n", signed(r.d), r.pkg)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	b, err := json.Marshal(cur)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(file, b, 0o644)
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
 func main() {
 	top := flag.Int("top", 40, "packages to list")
 	depth := flag.Int("depth", 0, "group packages by this many path segments, 0 keeps full paths")
+	prev := flag.String("prev", "", "print the change since the sizes saved in this file, then save the current ones there")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: wasmsize [-top n] [-depth n] file.wasm")
+		fmt.Fprintln(os.Stderr, "usage: wasmsize [-top n] [-depth n] [-prev sizes.json] file.wasm")
 		os.Exit(2)
 	}
 	data, err := os.ReadFile(flag.Arg(0))
@@ -214,6 +280,12 @@ func main() {
 		mb(rep.total), mb(rep.gzip), mb(rep.code), rep.funcs, mb(rep.data), mb(rep.other))
 	if rep.unname > rep.code/2 {
 		fmt.Println("most functions have no names: build without -ldflags=-s")
+	}
+	if *prev != "" {
+		if err := compare(*prev, rep); err != nil {
+			fmt.Fprintln(os.Stderr, "wasmsize:", err)
+			os.Exit(1)
+		}
 	}
 	type row struct {
 		pkg  string

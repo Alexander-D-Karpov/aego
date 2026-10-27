@@ -104,6 +104,8 @@ type layoutData struct {
 	TryVersion  string
 	PlaySize    int64
 	TrySize     int64
+	PlayGzip    int64
+	TryGzip     int64
 	Repo        string
 	Demo        bool
 	Home        bool
@@ -1071,6 +1073,8 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		TryVersion:  b.opt.TryVersion,
 		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
 		TrySize:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
+		PlayGzip:    fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
+		TryGzip:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
 		Repo:        b.opt.Repo,
 		Demo:        b.opt.Demo,
 		Home:        current == "",

@@ -178,10 +178,24 @@ var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importe
 	"demos/...", "tests/...", "tools/...", "examples/...",
 	"modules/*/editor/...", "modules/*/dev/...", "scene/prefab/author")
 
-// wasmDenied lists what the playground (js/wasm) must not reach.
+// wasmDenied lists what the web builds (js/wasm) must not reach.
 var wasmDenied = []string{
 	"gpu/gl33/...", "platform/sdl", "asset/pipeline", "asset/importers/...",
 	"modules/*/editor/...", "modules/*/dev/...",
+	"update", // the self-update core: net/http, TLS and archives the browser never runs
+}
+
+// wasmDeniedStd lists the standard library the web builds must not reach: each costs megabytes of wasm.
+var wasmDeniedStd = []string{"net/http/...", "crypto/tls/...", "crypto/x509/...", "archive/..."}
+
+// wasmRoots are the web builds; allow lifts wasmDenied entries the build needs (the docs Try it runs the asset pipeline).
+var wasmRoots = []struct {
+	variant, root, tags string
+	allow               []string
+}{
+	{variant: "wasm", root: "cmd/aego-playground"},
+	{variant: "wasm-runtime", root: "cmd/aego-runtime", tags: "aego_runtime"},
+	{variant: "wasm-try", root: "cmd/aego-try", tags: "aego_editor", allow: []string{"asset/pipeline", "asset/importers/...", "modules/*/editor/...", "modules/*/dev/..."}},
 }
 
 var wasmExtra = []string{

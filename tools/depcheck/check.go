@@ -102,8 +102,10 @@ func Check(cfg Config) ([]Violation, error) {
 		{name: "nonative", tags: "aego_nonative", patterns: []string{"./..."}},
 		{name: "runtime", tags: "aego_runtime", patterns: modulePaths(module, runtimeRoots(def))},
 	}
-	if _, err := os.Stat(filepath.Join(root, "cmd", "aego-playground")); err == nil {
-		specs = append(specs, variantSpec{name: "wasm", env: []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, patterns: []string{"./cmd/aego-playground"}})
+	for _, w := range wasmRoots {
+		if _, err := os.Stat(filepath.Join(root, w.root)); err == nil {
+			specs = append(specs, variantSpec{name: w.variant, tags: w.tags, env: []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, patterns: []string{"./" + w.root}})
+		}
 	}
 	graphs := map[string]*graph{"default": def}
 	var mu sync.Mutex
@@ -152,12 +154,18 @@ func Check(cfg Config) ([]Violation, error) {
 			}
 		}
 	}
-	if g := graphs["wasm"]; g != nil {
+	for _, w := range wasmRoots {
+		g := graphs[w.variant]
+		if g == nil {
+			continue
+		}
+		roots := []string{w.root}
 		for _, p := range g.order {
-			if !wasmOK(p) {
-				c.reach("wasm", "wasm-reaches-forbidden", g, []string{"cmd/aego-playground"}, p)
+			if (w.variant == "wasm" && !wasmOK(p)) || (w.variant != "wasm" && allowed(wasmDenied, p) && !allowed(w.allow, p)) {
+				c.reach(w.variant, "wasm-reaches-forbidden", g, roots, p)
 			}
 		}
+		c.reachStd(w.variant, g, roots)
 	}
 	variants := map[string]bool{"test": true, "test-editor": true}
 	for name := range graphs {
@@ -260,6 +268,24 @@ func (c *collector) reach(variant, rule string, g *graph, roots []string, target
 		return
 	}
 	c.add(variant, rule, chain[0], "reaches "+target+" via "+strings.Join(chain, " -> "))
+}
+
+// reachStd reports each wasmDeniedStd package the graph reaches, through the first package that leads to it.
+func (c *collector) reachStd(variant string, g *graph, roots []string) {
+	seen := map[string]bool{}
+	for _, p := range g.order {
+		chain := g.stdPath(p, wasmDeniedStd)
+		if chain == nil || seen[chain[len(chain)-1]] {
+			continue
+		}
+		target := chain[len(chain)-1]
+		seen[target] = true
+		if excepted(c.exc, variant, p, target) {
+			continue
+		}
+		mods := g.path(roots, p)
+		c.add(variant, "wasm-reaches-std", mods[0], "reaches "+target+" via "+strings.Join(append(mods, chain...), " -> "))
+	}
 }
 
 // importingFiles returns the files of a package that import path.

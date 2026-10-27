@@ -376,6 +376,8 @@ async function fetchWasm(url) {
         starting();
         return resp;
     }
+    // the status counts the compressed size the server sends
+    const wire = (!plain && parseInt(loaderEl.dataset.wasmGzip, 10)) || total;
     if (total) loaderBar.classList.remove("indeterminate");
     let got = 0;
     const reader = resp.body.getReader();
@@ -390,7 +392,7 @@ async function fetchWasm(url) {
             got += value.byteLength;
             if (total) {
                 loaderBar.style.width = `${Math.min(100, (got / total) * 100)}%`;
-                loaderDetail.textContent = `${mb(got)} of ${mb(total)}`;
+                loaderDetail.textContent = `${mb((got * wire) / total)} of ${mb(wire)}`;
             } else {
                 loaderDetail.textContent = mb(got);
             }

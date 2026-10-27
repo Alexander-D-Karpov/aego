@@ -20,6 +20,7 @@
     const PARALLEL = 6;
     const started = performance.now();
     let total = 0;
+    let wire = 0;
     let got = 0;
 
     function mb(n) {
@@ -75,7 +76,7 @@
         got += n;
         if (!total) return;
         bar.style.width = Math.min(100, (got * 100) / total) + "%";
-        status.textContent = `${mb(got)} of ${mb(total)}`;
+        status.textContent = `${mb((got * wire) / total)} of ${mb(wire)}`;
     }
 
     // A request that delivers nothing for STALL ms is aborted and made again past the HTTP cache; a stuck cache entry must not leave the page on "Loading…".
@@ -151,7 +152,10 @@
     async function start() {
         const list = await readJSON(`data/files.json?v=${build}`);
         got = 0;
-        total = list.wasm + list.manifest.size + list.files.reduce((s, f) => s + f.size, 0);
+        const data = list.manifest.size + list.files.reduce((s, f) => s + f.size, 0);
+        total = list.wasm + data;
+        // the server sends the compressed runtime, so the status counts its compressed size
+        wire = (list.wasmGzip || list.wasm) + data;
         const wasm = read(`game.wasm?v=${build}`);
         const manifest = read(`data/${list.manifest.path}?v=${build}`);
         const files = {};

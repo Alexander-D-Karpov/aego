@@ -2,6 +2,7 @@ package docstool
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -213,6 +214,9 @@ func (e *Env) tryApp(dir string) (string, error) {
 	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-tags", "aego_editor", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./cmd/aego-try"); err != nil {
 		return "", fmt.Errorf("docs runtime build failed: %w", err)
 	}
+	if _, err := gzipCopy(wasm); err != nil {
+		return "", err
+	}
 	root, err := goRoot()
 	if err != nil {
 		return "", err
@@ -229,6 +233,21 @@ func (e *Env) tryApp(dir string) (string, error) {
 		return "", err
 	}
 	return versionOf(blob, support), nil
+}
+
+// gzipCopy writes path.gz next to path, the copy the site serves, and returns its size.
+func gzipCopy(path string) (int64, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	zw.Write(raw)
+	if err := zw.Close(); err != nil {
+		return 0, err
+	}
+	return int64(buf.Len()), os.WriteFile(path+".gz", buf.Bytes(), 0o644)
 }
 
 func fileExists(p string) bool {
@@ -267,6 +286,10 @@ func (e *Env) playground(dir string) (string, error) {
 	wasm := filepath.Join(dir, "aego.wasm")
 	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./cmd/aego-playground"); err != nil {
 		return "", fmt.Errorf("playground build failed: %w", err)
+	}
+	gz, err := gzipCopy(wasm)
+	if err != nil {
+		return "", err
 	}
 	root, err := goRoot()
 	if err != nil {
@@ -316,6 +339,7 @@ func (e *Env) playground(dir string) (string, error) {
 			return "", err
 		}
 		data = bytes.ReplaceAll(data, []byte(`data-wasm-size="0"`), []byte(`data-wasm-size="`+strconv.FormatInt(info.Size(), 10)+`"`))
+		data = bytes.ReplaceAll(data, []byte(`data-wasm-gzip="0"`), []byte(`data-wasm-gzip="`+strconv.FormatInt(gz, 10)+`"`))
 		data = bytes.ReplaceAll(data, []byte(`data-version="dev"`), []byte(`data-version="`+version+`"`))
 		data = bytes.ReplaceAll(data, []byte(`?v=dev"`), []byte(`?v=`+version+`"`))
 		if err := os.WriteFile(dst, data, 0o644); err != nil {

@@ -28,6 +28,7 @@ The kernel (`schema`, `scene`, `render`, `asset`, `engine`, `script`, `ui`, `pro
 | makes `modules/X` import `modules/X/editor` | `module-imports-own-editor` | the editor side imports the module, never the reverse |
 | lets a runtime package reach dev-only code | `runtime-reaches-dev` | put the dev part behind `!aego_runtime` or in a dev package |
 | lets the playground reach native or pipeline code | `wasm-reaches-forbidden` | keep it out of the playground profile |
+| lets a web build reach `net/http`, `crypto/tls`, `crypto/x509` or `archive/*` | `wasm-reaches-std` | move the code behind `//go:build !js` |
 | holds or receives `*context.Editor` in `editor/panels/*` | `tests/modulecheck/panels_test.go` | take the services the panel needs in its `Deps` (D216) |
 
 A module can tune another module's behaviour without importing it by providing a value under a contract kind: `r.Provide(camera2d.AccessibilityKind, camera2d.Accessibility{ScreenShake: "...", ReducedMotion: "..."})` hands the camera module the IDs of settings it reads every frame. The consumer reads `ctx.Provided(kind)` in `Init`.

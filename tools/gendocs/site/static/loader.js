@@ -42,13 +42,13 @@
     }
 
     // count reads one branch of the download for progress, reporting at most once per frame.
-    async function count(stream, total, report) {
+    async function count(stream, total, wire, report) {
         const reader = stream.getReader();
         let got = 0;
         let queued = false;
         const flush = () => {
             queued = false;
-            report({ phase: "download", got, total });
+            report({ phase: "download", got, total, wire });
         };
         for (;;) {
             const { done, value } = await reader.read();
@@ -80,7 +80,9 @@
         if (!resp.ok) throw new Error(`${file}: HTTP ${resp.status}`);
         if (report && !warm && resp.body) {
             const [compile, progress] = resp.body.tee();
-            count(progress, total, report).catch(() => {});
+            // the status counts the compressed size the server sends
+            const wire = (resp.headers.get("Content-Encoding") && Number(meta("aego-" + dir + "-gzip"))) || total;
+            count(progress, total, wire, report).catch(() => {});
             resp = new Response(compile, { headers: resp.headers });
         }
         const go = new Go();

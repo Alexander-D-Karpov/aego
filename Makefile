@@ -34,7 +34,7 @@ WEB_BENCH_ARGS ?=
 WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
 	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
 	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(CURDIR)/.cache/web-bench.base.json
-TRY_SIZE_CHECK = gzip -9 -k -f site/try/aego-docs.wasm; size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
+TRY_SIZE_CHECK = size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
 MODULE_CI :=
@@ -218,7 +218,6 @@ site: cli
 	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
 	.cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release --out site/demo
 	$(WEB_DEMO_QUIET)
-	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
@@ -233,7 +232,6 @@ site-headless:
 	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
 	.cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR) --out site/demo
 	$(WEB_DEMO_QUIET)
-	gzip -9 -k -f site/play/aego.wasm
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
@@ -248,13 +246,13 @@ playground-size:
 	mkdir -p .cache
 	GOOS=js GOARCH=wasm go build -trimpath -o .cache/aego-playground.wasm ./cmd/aego-playground
 	go run ./tools/wasmsize -top 40 .cache/aego-playground.wasm
-	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-playground.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 -prev .cache/aego-playground.size.json .cache/aego-playground.wasm
 
 try-size:
 	mkdir -p .cache
 	GOOS=js GOARCH=wasm go build -tags aego_editor -trimpath -o .cache/aego-try.wasm ./cmd/aego-try
 	go run ./tools/wasmsize -top 40 .cache/aego-try.wasm
-	go run ./tools/wasmsize -top 15 -depth 2 .cache/aego-try.wasm
+	go run ./tools/wasmsize -top 15 -depth 2 -prev .cache/aego-try.size.json .cache/aego-try.wasm
 
 web-smoke: site
 	sh tools/webbudget.sh site

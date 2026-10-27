@@ -1,3 +1,5 @@
+//go:build !js
+
 package update
 
 import (
@@ -53,7 +55,7 @@ func TestGameUpdatesItsFolder(t *testing.T) {
 	os.MkdirAll(dir, 0o755)
 	os.WriteFile(filepath.Join(dir, "game"), []byte("#!/bin/sh\n"), 0o755)
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	m := &Module{sec: Section{URL: srv.URL, PublicKey: pub}, ver: "1.0.0", game: "game", in: upd.DetectGame(filepath.Join(dir, "game"))}
+	m := &Module{sec: Section{URL: srv.URL, PublicKey: pub}, ver: "1.0.0", game: "game", b: &native{in: upd.DetectGame(filepath.Join(dir, "game"))}}
 	m.Check()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -98,7 +100,7 @@ func TestGameRefusesAnotherKey(t *testing.T) {
 		w.Write(sig)
 	}))
 	defer srv.Close()
-	m := &Module{sec: Section{URL: srv.URL, PublicKey: other}, ver: "1.0.0"}
+	m := &Module{sec: Section{URL: srv.URL, PublicKey: other}, ver: "1.0.0", b: &native{}}
 	m.Check()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -115,4 +117,19 @@ func TestGameRefusesAnotherKey(t *testing.T) {
 
 func previousOf(path string) string {
 	return filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".previous")
+}
+
+// The settings name their choices the way the update core parses them.
+func TestSettingChoicesMatchCore(t *testing.T) {
+	d := Settings()
+	for i, want := range []string{string(upd.Auto), string(upd.Ask), string(upd.Off)} {
+		if d[0].Choices[i].Name != want {
+			t.Fatalf("mode choice %d is %q", i, d[0].Choices[i].Name)
+		}
+	}
+	for i, want := range []string{string(upd.Stable), string(upd.Nightly)} {
+		if d[1].Choices[i].Name != want {
+			t.Fatalf("channel choice %d is %q", i, d[1].Choices[i].Name)
+		}
+	}
 }

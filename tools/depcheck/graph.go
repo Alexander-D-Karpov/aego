@@ -19,12 +19,14 @@ type pkgInfo struct {
 	imports   []string // module-relative, own module only
 	testImps  []string
 	external  []string // non-module, non-std imports
+	std       []string // standard library imports
 }
 
 type graph struct {
 	variant string
 	pkgs    map[string]*pkgInfo
 	order   []string
+	std     map[string][]string // standard library package -> its imports
 }
 
 type variantSpec struct {
@@ -51,7 +53,7 @@ func loadGraph(root, module string, v variantSpec) (*graph, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: go list: %w: %s", v.name, err, stderr.String())
 	}
-	g := &graph{variant: v.name, pkgs: map[string]*pkgInfo{}}
+	g := &graph{variant: v.name, pkgs: map[string]*pkgInfo{}, std: map[string][]string{}}
 	var errs []string
 	dec := json.NewDecoder(bytes.NewReader(out))
 	for dec.More() {
@@ -68,6 +70,7 @@ func loadGraph(root, module string, v variantSpec) (*graph, error) {
 			return nil, err
 		}
 		if p.Standard {
+			g.std[p.ImportPath] = p.Imports
 			continue
 		}
 		local, ok := relPkg(module, p.ImportPath)
@@ -91,6 +94,8 @@ func loadGraph(root, module string, v variantSpec) (*graph, error) {
 				info.imports = append(info.imports, l)
 			} else if imp != "C" && !isStdlib(imp) {
 				info.external = append(info.external, imp)
+			} else if imp != "C" {
+				info.std = append(info.std, imp)
 			}
 		}
 		for _, imp := range append(p.TestImports, p.XTestImports...) {
@@ -135,6 +140,36 @@ func (g *graph) path(roots []string, target string) []string {
 					parent[imp] = p
 					queue = append(queue, imp)
 				}
+			}
+		}
+	}
+	return nil
+}
+
+// stdPath returns a chain of standard library imports from one of p's imports to a package matching denied, or nil.
+func (g *graph) stdPath(p string, denied []string) []string {
+	parent := map[string]string{}
+	queue := []string{}
+	for _, s := range g.pkgs[p].std {
+		if _, seen := parent[s]; !seen {
+			parent[s] = ""
+			queue = append(queue, s)
+		}
+	}
+	for len(queue) > 0 {
+		s := queue[0]
+		queue = queue[1:]
+		if allowed(denied, s) {
+			var chain []string
+			for q := s; q != ""; q = parent[q] {
+				chain = append([]string{q}, chain...)
+			}
+			return chain
+		}
+		for _, imp := range g.std[s] {
+			if _, seen := parent[imp]; !seen {
+				parent[imp] = s
+				queue = append(queue, imp)
 			}
 		}
 	}

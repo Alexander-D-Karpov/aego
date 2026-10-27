@@ -4,7 +4,9 @@ import "aego/script/bind"
 
 func installScript(m *bind.Module, mod *Module) {
 	bind.Proc0(m, "Check", func(c *bind.Ctx) {
-		mod.Check()
+		if err := mod.Check(); err != nil {
+			c.Fail(err.Error())
+		}
 	}, bind.Doc("Check looks for a newer version on the game's update server in the background; State says what it found."),
 		bind.Example("update.Check()"))
 	bind.Func0(m, "State", func(c *bind.Ctx) string {

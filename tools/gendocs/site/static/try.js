@@ -73,7 +73,8 @@
             const pct = s.total ? Math.min(100, (s.got * 100) / s.total) : 0;
             if (s.phase === "download") {
                 bar.style.width = pct + "%";
-                phase.textContent = s.total ? `${globalThis.aegoMB(s.got)} of ${globalThis.aegoMB(s.total)}` : globalThis.aegoMB(s.got);
+                const wire = s.wire || s.total;
+                phase.textContent = s.total ? `${globalThis.aegoMB((s.got * wire) / s.total)} of ${globalThis.aegoMB(wire)}` : globalThis.aegoMB(s.got);
             } else if (s.phase === "cache") {
                 label.textContent = t("Starting the engine", "Запуск движка");
                 phase.textContent = t("From the browser cache", "Из кэша браузера");

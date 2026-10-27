@@ -21,7 +21,7 @@ type exception struct {
 const exceptionsFile = "tools/depcheck/exceptions.txt"
 
 var knownVariants = map[string]bool{
-	"*": true, "default": true, "editor": true, "nonative": true, "runtime": true, "wasm": true,
+	"*": true, "default": true, "editor": true, "nonative": true, "runtime": true, "wasm": true, "wasm-runtime": true, "wasm-try": true,
 	"test": true, "test-editor": true, "semantic": true,
 }
 

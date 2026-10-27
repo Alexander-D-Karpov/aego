@@ -176,6 +176,10 @@ func TestRuleCases(t *testing.T) {
 		{"unused-exception", nil, []string{"[exception-unused] core/a -> modules/x"}},
 		{"file-exception", nil, []string{"sdk/other.go: [sdk-imports-editor] imports editor/core/c"}},
 		{"wasm", nil, []string{"[wasm-reaches-forbidden] reaches modules/accessibility via cmd/aego-playground -> modules/accessibility"}},
+		{"wasm-std", nil, []string{
+			"cmd/aego-runtime: [wasm-reaches-std] reaches net/http via cmd/aego-runtime -> modules/net -> net/http",
+			"[wasm-reaches-forbidden] reaches update via cmd/aego-runtime -> update",
+		}},
 		{"no-group", nil, []string{"weird/x: [no-group]"}},
 		{"gameplay-modules", nil, []string{
 			"modules/gameplay/g.go: [module-imports-module] imports modules/physics",
