@@ -57,7 +57,7 @@ A clip is an `.aeanim` file in the assets folder. It has a length in seconds, a 
 
 Numbers, vectors and colors interpolate; rotations as quaternions take the short arc; `int` steps unless the track has `numeric=true`; `bool`, `enum` and asset references step. Sprites are sprite assets, usually members of an atlas group.
 
-The engine ships two clips for tests and sketches: `engine/anim/run`, eight frames of a running figure (`engine/sprites/runner_0` to `_7`) with two `Footstep` presentation events, and `engine/anim/bob`, a simulation sway of `transform.rotation` with a `Hit` gameplay event at the right turn.
+The engine ships four clips for tests and sketches: `engine/anim/run`, eight frames of a running figure (`engine/sprites/runner_0` to `_7`) with two `Footstep` presentation events; `engine/anim/bob`, a simulation sway of `transform.rotation` with a `Hit` gameplay event at the right turn; `engine/anim/jump`, the runner's stride pose; and `engine/anim/hit`, one 0.3 s swing of `transform.rotation`. The built-in controller plays jump in its Jump state and hit in its Hit state.
 
 A clip that does not import keeps its last good version, and the error is in Problems: [ANM001](ref:ANM001) for a track or file the importer cannot read, [ANM002](ref:ANM002) for a key or event outside the length, [ANM003](ref:ANM003) for an event that is not declared.
 

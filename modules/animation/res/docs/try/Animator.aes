@@ -5,8 +5,10 @@ import (
 	"aego/input"
 )
 
-// Runner walks with A/D on the built-in platformer controller; Space toggles Grounded, J triggers Hit.
+// Runner walks with A/D on the built-in platformer controller; Space jumps (Grounded is false in the air), J triggers Hit.
 script Runner {
+	var vy float
+	var floor float
 	var air bool
 
 	func Update(dt float) {
@@ -26,20 +28,33 @@ script Runner {
 			node.Get<SpriteRenderer>().FlipX = false
 		}
 		a.SetFloat("Speed", speed * 3)
-		if input.KeyPressed(input.KeySpace) {
-			air = !air
-			a.SetBool("Grounded", !air)
+		p := node.Position()
+		if !air {
+			floor = p.Y
+			if input.KeyPressed(input.KeySpace) {
+				air = true
+				vy = -7
+				a.SetBool("Grounded", false)
+			}
+		}
+		if air {
+			vy += 20 * dt
+			p.Y += vy * dt
+			if p.Y >= floor {
+				p.Y = floor
+				air = false
+				a.SetBool("Grounded", true)
+			}
 		}
 		if input.KeyPressed(input.KeyJ) {
 			a.SetTrigger("Attack")
 		}
-		p := node.Position()
 		node.SetPosition(Vec2{p.X + dir * 3 * dt, p.Y})
 		label := a.State
 		if a.Blending {
 			label = label + " (blending)"
 		}
 		debug.Text(Vec2{p.X - 2, p.Y - 1.4}, label + "   " + string(a.Progress), Color{0.85, 0.85, 0.85, 1})
-		debug.Text(Vec2{-4.5, 2}, "A/D walk   Space air   J hit", Color{0.6, 0.6, 0.6, 1})
+		debug.Text(Vec2{-4.5, 2}, "A/D walk   Space jump   J hit", Color{0.6, 0.6, 0.6, 1})
 	}
 }

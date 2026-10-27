@@ -20,6 +20,10 @@ const (
 var (
 	BuiltinRunClip = ids.AssetID{Hi: builtinHi, Lo: 0xb10}
 	BuiltinBobClip = ids.AssetID{Hi: builtinHi, Lo: 0xb11}
+	// BuiltinJumpClip holds the runner's stride pose while it is in the air.
+	BuiltinJumpClip = ids.AssetID{Hi: builtinHi, Lo: 0xb12}
+	// BuiltinHitClip swings the node once, 0.3 s, for the platformer controller's Hit state.
+	BuiltinHitClip = ids.AssetID{Hi: builtinHi, Lo: 0xb13}
 )
 
 var BuiltinPlatformerCtrl = ids.AssetID{Hi: builtinHi, Lo: 0xb20}
@@ -106,12 +110,30 @@ const bobClipText = `anim version=1 length=1 loop=loop {
 }
 `
 
+func jumpClipText() string {
+	return "anim version=1 length=0.1 loop=once {\n  frames \"\" fps=10 {\n    sprites=[" + assetLit(BuiltinRunner(2)) + "]\n  }\n}\n"
+}
+
+const hitClipText = `anim version=1 length=0.3 loop=once {
+  track "" prop="transform.rotation" kind=float32 authority=simulation {
+    key t=0 v=0 {}
+    key t=0.08 v=-0.5 {}
+    key t=0.18 v=0.25 {}
+    key t=0.3 v=0 {}
+  }
+}
+`
+
 func BuiltinAnimText(id ids.AssetID) (string, bool) {
 	switch id {
 	case BuiltinRunClip:
 		return runClipText(), true
 	case BuiltinBobClip:
 		return bobClipText, true
+	case BuiltinJumpClip:
+		return jumpClipText(), true
+	case BuiltinHitClip:
+		return hitClipText, true
 	}
 	return "", false
 }
@@ -124,8 +146,8 @@ func platformerCtrlText() string {
   param "Attack" kind=trigger {}
   state "Idle" {}
   state "Run" clip=` + assetLit(BuiltinRunClip) + ` {}
-  state "Jump" {}
-  state "Hit" {}
+  state "Jump" clip=` + assetLit(BuiltinJumpClip) + ` {}
+  state "Hit" clip=` + assetLit(BuiltinHitClip) + ` {}
   transition "Idle" to="Run" duration=0.1 {
     cond "Speed" op=gt value=0.1 {}
   }
@@ -154,12 +176,14 @@ func BuiltinCtrlText(id ids.AssetID) (string, bool) {
 }
 
 func builtinAnimEntries() []Builtin {
-	out := make([]Builtin, 0, runnerCount+3)
+	out := make([]Builtin, 0, runnerCount+5)
 	for i := range runnerCount {
 		out = append(out, Builtin{ID: BuiltinRunner(i), Name: "engine/sprites/runner_" + strconv.Itoa(i), Kind: ArtTexture})
 	}
 	return append(out,
 		Builtin{ID: BuiltinRunClip, Name: "engine/anim/run", Kind: ArtAnim},
 		Builtin{ID: BuiltinBobClip, Name: "engine/anim/bob", Kind: ArtAnim},
+		Builtin{ID: BuiltinJumpClip, Name: "engine/anim/jump", Kind: ArtAnim},
+		Builtin{ID: BuiltinHitClip, Name: "engine/anim/hit", Kind: ArtAnim},
 		Builtin{ID: BuiltinPlatformerCtrl, Name: "engine/anim/platformer", Kind: ArtCtrl})
 }

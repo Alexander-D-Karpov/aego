@@ -209,3 +209,41 @@ func TestPlatformerPresetHasAnimator(t *testing.T) {
 		t.Fatalf("preset animator %v %+v", ok, a)
 	}
 }
+
+// The built-in platformer controller shows its air and hit states: the Animator try scene jumps with Space and hits with J.
+func TestBuiltinControllerJumpAndHitAreVisible(t *testing.T) {
+	r := newRig(t)
+	for _, id := range []ids.AssetID{asset.BuiltinRunClip, asset.BuiltinJumpClip, asset.BuiltinHitClip} {
+		src, ok := asset.BuiltinAnimText(id)
+		if !ok {
+			t.Fatalf("no built-in clip %v", id)
+		}
+		r.res.put(t, id, src)
+	}
+	src, _ := asset.BuiltinCtrlText(asset.BuiltinPlatformerCtrl)
+	r.res.putCtrl(t, asset.BuiltinPlatformerCtrl, src)
+	h := r.animator(asset.BuiltinPlatformerCtrl)
+	r.steps(1)
+	if r.anim(h).State != "Idle" {
+		t.Fatalf("start %q", r.anim(h).State)
+	}
+	r.svc.SetParam(h, "Grounded", 0)
+	r.steps(2)
+	if r.anim(h).State != "Jump" || r.sprite(h) != asset.BuiltinRunner(2) {
+		t.Fatalf("in the air: %q, sprite %v", r.anim(h).State, r.sprite(h))
+	}
+	r.svc.SetParam(h, "Grounded", 1)
+	r.steps(10)
+	if r.anim(h).State != "Idle" {
+		t.Fatalf("after landing %q", r.anim(h).State)
+	}
+	r.svc.SetParam(h, "Attack", 1)
+	r.steps(6)
+	if r.anim(h).State != "Hit" || r.s.Local(h).Rotation > -0.2 {
+		t.Fatalf("hit: %q, rotation %v", r.anim(h).State, r.s.Local(h).Rotation)
+	}
+	r.steps(40)
+	if r.anim(h).State != "Idle" || mathx.Abs(r.s.Local(h).Rotation) > 0.01 {
+		t.Fatalf("after the hit: %q, rotation %v", r.anim(h).State, r.s.Local(h).Rotation)
+	}
+}
