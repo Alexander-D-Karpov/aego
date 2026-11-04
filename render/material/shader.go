@@ -22,9 +22,15 @@ func SourceIndex(frag, es bool) int {
 }
 
 type Shader struct {
+	lightParent            *Shader
+	OpaqueWithOpaqueAlbedo bool
+	// StockLit identifies the exact built-in forward Lit shader, including its energy contract.
+	StockLit bool
+	Features shader.Features
 	ID       ids.AssetID
 	Name     string
 	Domain   shader.Domain
+	Vertex   bool
 	Blend    shader.Blend
 	Keywords []string
 	Variants []Variant

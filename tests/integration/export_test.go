@@ -3,6 +3,7 @@ package integration
 import (
 	"bytes"
 	"debug/pe"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
@@ -135,6 +136,38 @@ func resolvesIn(idx *asset.Index, id ids.AssetID) bool {
 	return ok && !e.Missing
 }
 
+func unresolvedAuthoredAssets(idx *asset.Index, raw []byte) []string {
+	var missing []string
+	for _, m := range assetRef.FindAllSubmatch(raw, -1) {
+		id, err := ids.ParseAssetID(string(m[1]))
+		// A zero asset ID is an empty optional reference, not a dependency.
+		if err == nil && id.IsZero() {
+			continue
+		}
+		if err != nil || !resolvesIn(idx, id) {
+			missing = append(missing, string(m[1]))
+		}
+	}
+	return missing
+}
+
+func TestExportReferenceScanKeepsMissingAssets(t *testing.T) {
+	idx := asset.NewIndex()
+	present, err := ids.ParseAssetID("123456789abcdef0123456789abcdef0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx.Put(asset.Entry{ID: present})
+	const missing = "23456789abcdef0123456789abcdef01"
+	raw := []byte(`asset("00000000000000000000000000000000") asset("123456789abcdef0123456789abcdef0") asset("` + missing + `")`)
+	if got := unresolvedAuthoredAssets(idx, raw); !slices.Equal(got, []string{missing}) {
+		t.Fatalf("expected only the real missing asset, got %v", got)
+	}
+	if resolvesIn(idx, ids.AssetID{}) {
+		t.Fatal("an empty main-scene or manifest dependency must not resolve")
+	}
+}
+
 func assertRefsResolve(t *testing.T, data string) {
 	t.Helper()
 	d, _, err := player.Mount(data)
@@ -163,11 +196,8 @@ func assertRefsResolve(t *testing.T, data string) {
 			t.Error(err)
 			return
 		}
-		for _, m := range assetRef.FindAllSubmatch(raw, -1) {
-			id, err := ids.ParseAssetID(string(m[1]))
-			if err != nil || !resolvesIn(d.Index, id) {
-				t.Errorf("%s references %s, which does not resolve", e.Source, m[1])
-			}
+		for _, id := range unresolvedAuthoredAssets(d.Index, raw) {
+			t.Errorf("%s references %s, which does not resolve", e.Source, id)
 		}
 	})
 }
@@ -266,6 +296,78 @@ func TestExportPlatformerRunsWithoutSources(t *testing.T) {
 			t.Error("the linux export has no icon.png")
 		}
 	}
+}
+
+// Test the canonical module name. Creating a differently named project from
+// the example rewrites script/component identities and changes its replay.
+func TestCanonicalPlatformerReleaseFinish(t *testing.T) {
+	root := exportEngine(t)
+	exportReady(t, root)
+	p, err := projects.Create(projects.Options{
+		Dir: filepath.Join(t.TempDir(), "Platformer"), Module: "mygame", Example: "platformer", Engine: root,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "release")
+	rep, err := export.Export(export.Options{Project: p, Engine: root, Profile: bundle.Release, Out: out})
+	if err != nil {
+		t.Fatalf("%v\n%+v", err, rep.Issues)
+	}
+	assertNoSources(t, out)
+	if err := os.RemoveAll(p.Root); err != nil {
+		t.Fatal(err)
+	}
+	releaseBin := filepath.Join(out, filepath.FromSlash(rep.Binary))
+	replay, err := filepath.Abs(lightingRouteFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const finish = "fb3a738501b6010f2a581840c6194e41"
+	const by = "c0000000000000000000000000000003"
+	for _, frames := range []string{"1775", "2400"} {
+		cmd := exec.Command(releaseBin, "--headless", "--frames", frames, "--seed", "42",
+			"--replay", replay, "--observe-checkpoint", finish)
+		cmd.Dir = t.TempDir()
+		cmd.Env = cleanEnv(t.TempDir())
+		out, err := cmd.Output()
+		if err != nil {
+			if e, ok := err.(*exec.ExitError); ok {
+				t.Fatalf("frame %s: %v: %s", frames, err, e.Stderr)
+			}
+			t.Fatal(err)
+		}
+		var observed player.CheckpointObservation
+		if err := json.Unmarshal(out, &observed); err != nil {
+			t.Fatalf("frame %s: %v, output %q", frames, err, out)
+		}
+		want := player.CheckpointObservation{Node: finish}
+		if frames == "2400" {
+			want.By, want.Tick, want.Count = by, 1776, 1
+		}
+		if observed != want {
+			t.Fatalf("frame %s: observed %+v, want %+v", frames, observed, want)
+		}
+	}
+}
+
+func TestTopdownReleaseRunsWithoutSources(t *testing.T) {
+	root := exportEngine(t)
+	exportReady(t, root)
+	p, err := project.Load(copyExample(t, "topdown"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "release")
+	rep, err := export.Export(export.Options{Project: p, Engine: root, Profile: bundle.Release, Out: out})
+	if err != nil {
+		t.Fatalf("%v\n%+v", err, rep.Issues)
+	}
+	assertNoSources(t, out)
+	if err := os.RemoveAll(p.Root); err != nil {
+		t.Fatal(err)
+	}
+	runExported(t, filepath.Join(out, filepath.FromSlash(rep.Binary)), "600")
 }
 
 func mustRead(t *testing.T, path string) []byte {

@@ -2,6 +2,7 @@
 package agent
 
 import (
+	stdcontext "context"
 	"path"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"aego/editor/core/follow"
 	"aego/editor/core/services"
 	"aego/engine/i18n"
+	"aego/gpu"
 	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/richtext"
@@ -29,6 +31,7 @@ const (
 )
 
 type Deps struct {
+	Device  gpu.Device
 	Host    agentui.Host
 	Docs    services.Documents
 	Notices services.Notices
@@ -59,48 +62,67 @@ type avail struct {
 }
 
 type Panel struct {
-	d         Deps
-	blocks    []block
-	old       []block
-	events    []agentui.Event
-	cards     []agentui.Card
-	questions []agentui.Question
-	seen      map[int]bool
-	asked     map[int]bool
-	answered  map[int]agentui.State
-	logged    map[int]agentui.State
-	input     string
-	prevLen   int
-	scroll    float32
-	content   float32
-	bar       widgets.ScrollState
+	quickRows    []context.ScriptProblem
+	textPick     transcriptPick
+	settingsRect mathx.Rect
+	explainRect  mathx.Rect
+	imageCache   []displayImage
+	composer     widgets.Multiline
+	draftImages  []draftImage
+	d            Deps
+	blocks       []block
+	old          []block
+	events       []agentui.Event
+	cards        []agentui.Card
+	questions    []agentui.Question
+	seen         map[int]bool
+	asked        map[int]bool
+	answered     map[int]agentui.State
+	logged       map[int]agentui.State
+	input        string
+	prevLen      int
+	scroll       float32
+	content      float32
+	bar          widgets.ScrollState
 	// stick keeps the transcript at its end while new output comes; scrolling up turns it off until the end is reached again.
-	stick    bool
-	focus    bool
-	ver      string
-	verErr   error
-	checking bool
-	checked  chan avail
-	path     string
-	log      *agentui.Transcript
-	logErr   bool
-	past     []string
-	names    []string
-	viewing  string
-	pal      *palette.Palette
-	mentions []mention
-	picked   []mention
-	notified bool
-	turnAll  bool
-	meta     string
-	session  string
-	fits     [4]fit
-	menu     core.ID
-	history  core.ID
-	timeline []dot
-	gap      float32
-	undoTo   int
-	undoMenu core.ID
+	stick            bool
+	focus            bool
+	ver              string
+	verErr           error
+	checking         bool
+	checked          chan avail
+	path             string
+	model            string
+	effort           string
+	models           []agentui.ModelOption
+	modelResults     chan modelCatalogResult
+	modelCancel      stdcontext.CancelFunc
+	modelError       error
+	modelQuery       string
+	modelPick        int
+	customEffort     bool
+	providerSettings core.ID
+	log              *agentui.Transcript
+	logErr           bool
+	past             []string
+	names            []string
+	viewing          string
+	pal              *palette.Palette
+	mentions         []mention
+	picked           []mention
+	notified         bool
+	turnAll          bool
+	toolCalls        int
+	toolFailures     int
+	meta             string
+	session          string
+	fits             [5]fit
+	menu             core.ID
+	history          core.ID
+	timeline         []dot
+	gap              float32
+	undoTo           int
+	undoMenu         core.ID
 	// meter counts the context of the conversation; the Context popup shows its layout (11b5c).
 	meter        *agentui.Meter
 	layout       agentui.Layout
@@ -125,7 +147,7 @@ type mention struct {
 
 func New(d Deps) *Panel {
 	return &Panel{d: d, seen: map[int]bool{}, asked: map[int]bool{}, answered: map[int]agentui.State{}, logged: map[int]agentui.State{}, checked: make(chan avail, 1), stick: true,
-		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history"), undoMenu: core.IDOf("agent.undoto"), ctxPop: core.IDOf("agent.context"), itemFits: map[int]*fit{}}
+		menu: core.IDOf("agent.menu"), history: core.IDOf("agent.history"), undoMenu: core.IDOf("agent.undoto"), ctxPop: core.IDOf("agent.context"), providerSettings: core.IDOf("agent.provider-settings"), itemFits: map[int]*fit{}}
 }
 
 func (p *Panel) ID() string {
@@ -139,7 +161,7 @@ func (p *Panel) Title() string {
 	return i18n.Tr("editor.agent.agent_2", "Agent")
 }
 
-// Missing is why Claude Code cannot run, nil when it can or while checking.
+// Missing is why the selected agent cannot run, nil when it can or while checking.
 func (p *Panel) Missing() error {
 	return p.verErr
 }
@@ -148,9 +170,12 @@ func (p *Panel) Input() string {
 	return p.input
 }
 
-// Recheck looks for Claude Code again on the next Tick.
+// Recheck starts a fresh availability generation. An older probe may finish, but
+// its private buffered channel can no longer change the selected provider's state.
 func (p *Panel) Recheck() {
 	p.ver, p.verErr = "", nil
+	p.checking = false
+	p.checked = make(chan avail, 1)
 }
 
 // Ask shows the panel with the prompt in the input, not sent.
@@ -203,6 +228,9 @@ func (p *Panel) Decide(id int, apply bool) {
 }
 
 func (p *Panel) Close() {
+	p.cancelModelLoad()
+	p.clearDraftImages()
+	p.dropImages()
 	p.d.Host.Close()
 	if p.log != nil {
 		p.log.Close()
@@ -254,6 +282,7 @@ func (p *Panel) Tick() {
 		p.check()
 	}
 	host := p.d.Host
+	clear(p.events) // Drop previous result/image references before shortening the reusable slice.
 	p.events = host.Poll(p.events[:0])
 	now := p.now()
 	for _, e := range p.events {
@@ -333,19 +362,27 @@ func (p *Panel) event(e agentui.Event) {
 	p.meterEvent(e)
 	switch e.Kind {
 	case agentui.EvText:
-		p.text(e.Text)
-		p.record(agentui.Entry{Kind: "text", Text: e.Text})
+		p.textEvent(e)
+		p.record(agentui.Entry{Kind: "text", Text: e.Text, Delta: e.Delta, MessageID: e.MessageID})
 	case agentui.EvToolStart:
+		p.toolCalls++
 		p.toolStart(e)
 		p.record(agentui.Entry{Kind: "tool", Tool: e.Tool, CallID: e.CallID, Args: e.Args})
 	case agentui.EvToolResult:
+		if e.Failed {
+			p.toolFailures++
+		}
+		e.ImageKeys = p.storeImages(e.Images)
 		p.toolResult(e)
-		p.record(agentui.Entry{Kind: "result", Tool: e.Tool, CallID: e.CallID, Text: e.Result, Failed: e.Failed})
+		p.record(agentui.Entry{Kind: "result", Images: e.ImageKeys, Tool: e.Tool, CallID: e.CallID, Text: e.Result, Failed: e.Failed})
 	case agentui.EvError:
 		p.push(block{kind: blockError, text: e.Text})
 		p.record(agentui.Entry{Kind: "error", Text: e.Text})
 	case agentui.EvTurnEnd:
-		p.meta = turnMeta(e.Cost, e.Millis)
+		p.meta = i18n.Tr("editor.agent.turn_tools", "Tool calls: {n}; errors: {f}", i18n.Int("n", int64(p.toolCalls)), i18n.Int("f", int64(p.toolFailures)))
+		if info := turnMeta(e.Cost, e.Millis); info != "" {
+			p.meta += " · " + info
+		}
 	}
 	if e.Kind == agentui.EvTurnEnd || e.Kind == agentui.EvError {
 		p.turnAll = false
@@ -364,9 +401,11 @@ func turnMeta(cost float64, millis int) string {
 	return strings.Join(parts, " · ")
 }
 
-func (p *Panel) send() {
+func (p *Panel) send() { p.sendMessage(false) }
+
+func (p *Panel) sendMessage(explain bool) {
 	text := strings.TrimSpace(p.input)
-	if text == "" || p.d.Host.Busy() || p.viewing != "" {
+	if text == "" && len(p.draftImages) == 0 || p.d.Host.Busy() || p.viewing != "" {
 		return
 	}
 	if p.log == nil {
@@ -375,12 +414,47 @@ func (p *Panel) send() {
 			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.agent.cannot_start_the_agent_session", "cannot start the agent session log: {error}", i18n.Str("error", err.Error())))
 		} else {
 			p.log, p.past = t, nil
+			if h, ok := p.d.Host.(agentui.ProviderHost); ok {
+				p.record(agentui.Entry{Kind: "session", Provider: h.Provider()})
+			}
 		}
 	}
 	full := text
 	for _, m := range p.picked {
 		full = strings.Replace(full, m.Label, m.Full, 1)
 	}
+	if explain {
+		if _, ok := p.d.Host.(agentui.SceneHost); !ok {
+			full = p.scenePrompt(full)
+		}
+	}
+	var imgs [][]byte
+	for _, im := range p.draftImages {
+		imgs = append(imgs, im.png)
+	}
+	var sendErr error
+	if len(imgs) > 0 {
+		sender, ok := p.d.Host.(interface{ SendImages(string, [][]byte) error })
+		if !ok {
+			p.notice(i18n.Tr("editor.agent.image_unsupported", "This agent does not support image input."))
+			return
+		}
+		sendErr = sender.SendImages(p.outgoing(full), imgs)
+	} else {
+		send := p.d.Host.Send
+		if explain {
+			if h, ok := p.d.Host.(agentui.SceneHost); ok {
+				send = h.ExplainScene
+			}
+		}
+		sendErr = send(p.outgoing(full))
+	}
+	if sendErr != nil {
+		p.notice(sendErr.Error())
+		return
+	}
+	keys := p.storeImages(imgs)
+	p.clearDraftImages()
 	now := time.Now()
 	if p.d.Now != nil {
 		now = p.d.Now()
@@ -391,13 +465,11 @@ func (p *Panel) send() {
 	if p.session == "" {
 		p.session = firstLine(text)
 	}
-	p.push(block{kind: blockUser, text: text, at: now})
-	p.record(agentui.Entry{Kind: "user", Text: full})
+	p.push(block{kind: blockUser, text: text, at: now, images: keys})
+	p.record(agentui.Entry{Kind: "user", Text: full, Images: keys})
 	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
-	if err := p.d.Host.Send(p.outgoing(full)); err != nil {
-		p.push(block{kind: blockError, text: err.Error()})
-		p.record(agentui.Entry{Kind: "error", Text: err.Error()})
-	}
+	p.toolCalls, p.toolFailures = 0, 0
+
 }
 
 // sendText sends text from a button: an example, Retry or Ask Agent to Fix; while the agent works it waits in the input.
@@ -419,7 +491,31 @@ func summary(c *agentui.Card) string {
 
 // NewSession ends the conversation and starts an empty transcript; the next message opens a new session log.
 func (p *Panel) NewSession() {
+	p.clearDraftImages()
 	p.d.Host.Reset()
+	// Reset dismisses pending bridge work synchronously. Record its final state
+	// in the old log before closing it, so an immediate Send cannot put the old
+	// decisions or previously unseen cards/questions into the new session.
+	p.cards = p.d.Host.Cards(p.cards[:0])
+	for i := range p.cards {
+		c := &p.cards[i]
+		p.seen[c.ID] = true
+		if st, ok := p.logged[c.ID]; !ok || st != c.State {
+			p.record(agentui.Entry{Kind: "card", Card: c.ID, Text: summary(c), State: c.State.String()})
+			p.logged[c.ID] = c.State
+		}
+	}
+	p.questions = p.d.Host.Questions(p.questions[:0])
+	for i := range p.questions {
+		q := &p.questions[i]
+		p.asked[q.ID] = true
+		if st, ok := p.answered[q.ID]; !ok || st != q.State {
+			if q.State != agentui.Pending {
+				p.record(agentui.Entry{Kind: "question", Card: q.ID, Text: q.Text + "\n" + q.Answer, State: q.State.String()})
+			}
+			p.answered[q.ID] = q.State
+		}
+	}
 	if p.meter != nil {
 		p.meter.Reset()
 	}
@@ -428,13 +524,25 @@ func (p *Panel) NewSession() {
 		p.log.Close()
 		p.log = nil
 	}
+	p.textPick = transcriptPick{}
 	p.blocks, p.old, p.viewing, p.session, p.meta = nil, nil, "", "", ""
+	p.dropImages()
+	p.toolCalls, p.toolFailures = 0, 0
 	p.past, p.scroll, p.stick = nil, 0, true
 }
 
 func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
+	p.explainRect = mathx.Rect{}
 	ui := f.UI
 	th := &ui.Theme
+	if height := p.providerRow(ui, r); height > 0 {
+		r.Y += height
+		r.H = max(0, r.H-height)
+		if p.verErr != nil && !p.d.Host.Running() {
+			ui.PushCursor(core.Cursor{X: r.X + th.Padding, Y: r.Y + th.Padding, W: max(0, r.W-2*th.Padding), RowH: th.RowHeight, Pad: th.Padding, Space: th.Spacing})
+			defer ui.PopCursor()
+		}
+	}
 	if p.verErr != nil && !p.d.Host.Running() {
 		p.drawMissing(ui)
 		return
@@ -446,7 +554,16 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		p.where(ui, wr)
 		bar.H += wr.H
 	}
-	inputH := th.RowHeight + 2*th.Padding + 12
+	sendLabel := i18n.Tr("editor.agent.send", "Send")
+	if p.d.Host.Busy() {
+		sendLabel = i18n.Tr("editor.agent.stop", "Stop")
+	}
+	footerW := max(0, r.W-2*th.Padding)
+	field, button := p.composerBoxes(ui, footerW, r.H-bar.H, sendLabel)
+	inputH := max(field.H, button.Y+button.H) + 2*th.Padding + 12
+	if len(p.draftImages) > 0 {
+		inputH += 54
+	}
 	if len(p.picked) > 0 {
 		inputH += th.RowHeight + th.Spacing
 	}
@@ -456,7 +573,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui.Rect(mathx.Rect{X: r.X, Y: top - 1, W: r.W, H: 1}, th.Border)
 	p.transcript(ui, body, mathx.Rect{X: body.X + body.W + 2, Y: body.Y, W: th.ScrollbarW, H: body.H})
 	p.activity(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + 2, W: max(0, r.W-2*th.Padding), H: 10})
-	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding + 12, W: max(0, r.W-2*th.Padding), H: inputH - th.Padding - 12 + metaH})
+	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding + 12, W: footerW, H: inputH - th.Padding - 12 + metaH}, field, button, sendLabel)
 	p.drawMentions(ui)
 }
 
@@ -590,6 +707,12 @@ func (p *Panel) sessionMenu(ui *core.Context) {
 		ui.OpenPopup(p.history, at)
 	}
 	widgets.Separator(ui)
+	for _, blockers := range []bool{false, true} {
+		if widgets.MenuItemIcon(ui, problemLabel(blockers), "", "panel.problems", !host.Busy(), false) {
+			p.draftProblems(blockers)
+		}
+	}
+	widgets.Separator(ui)
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.menu_plan", "Plan Only"), "", "agent.plan", true, host.PlanOnly()) {
 		host.SetPlanOnly(!host.PlanOnly())
 	}
@@ -631,11 +754,18 @@ func (p *Panel) historyMenu(ui *core.Context) {
 func sessionName(root, id string) string {
 	entries, err := agentui.Load(root, id)
 	if err == nil {
+		provider := ""
 		for _, e := range entries {
+			if e.Kind == "session" {
+				provider = providerLabel(e.Provider)
+			}
 			if e.Kind == "user" && e.Text != "" {
 				line := firstLine(e.Text)
 				if r := []rune(line); len(r) > 48 {
 					line = string(r[:47]) + "…"
+				}
+				if provider != "" {
+					return provider + " · " + line
 				}
 				return line
 			}
@@ -663,13 +793,13 @@ func (p *Panel) blocksFrom(entries []agentui.Entry) []block {
 			if len(p.blocks) > 0 {
 				p.push(block{kind: blockTurn, at: e.Time})
 			}
-			p.push(block{kind: blockUser, text: e.Text, at: e.Time})
+			p.push(block{kind: blockUser, text: e.Text, at: e.Time, images: e.Images})
 		case "text":
-			p.text(e.Text)
+			p.textEvent(agentui.Event{Text: e.Text, Delta: e.Delta, MessageID: e.MessageID})
 		case "tool":
 			p.toolStart(agentui.Event{Tool: e.Tool, CallID: e.CallID, Args: e.Args})
 		case "result":
-			p.toolResult(agentui.Event{Tool: e.Tool, CallID: e.CallID, Result: e.Text, Failed: e.Failed})
+			p.toolResult(agentui.Event{ImageKeys: e.Images, Tool: e.Tool, CallID: e.CallID, Result: e.Text, Failed: e.Failed})
 		case "card":
 			if b := p.pastCard(e.Card); b != nil {
 				b.text = e.Text
@@ -701,7 +831,27 @@ func (p *Panel) pastCard(id int) *block {
 	return nil
 }
 
-func (p *Panel) footer(ui *core.Context, r mathx.Rect) {
+// Position the action below a narrow composer so the draft uses the whole
+// dock width. Wide composers keep a single-height button beside the last row.
+func (p *Panel) composerBoxes(ui *core.Context, width, height float32, label string) (field, button mathx.Rect) {
+	button.W = min(width, ui.TextSize(label).X+24)
+	button.H = ui.Theme.RowHeight
+	button.X = width - button.W
+	field.W = max(0, width-button.W-6)
+	stacked := width < 300 && (len(p.draftImages) > 0 || strings.Contains(p.input, "\n") || ui.TextSize(p.input).X > field.W-10)
+	if stacked {
+		field.W = width
+	}
+	rows := max(1, min(7, int(height*0.4/max(1, ui.LineHeight()))))
+	field.H = p.composer.Height(ui, p.input, field.W, rows)
+	button.Y = field.H - button.H
+	if stacked {
+		button.Y = field.H + ui.Theme.Spacing
+	}
+	return
+}
+
+func (p *Panel) footer(ui *core.Context, r, fr, br mathx.Rect, label string) {
 	th := &ui.Theme
 	host := p.d.Host
 	y := r.Y
@@ -721,22 +871,25 @@ func (p *Panel) footer(ui *core.Context, r mathx.Rect) {
 		}
 		y += th.RowHeight + th.Spacing
 	}
-	row := mathx.Rect{X: r.X, Y: y, W: r.W, H: th.RowHeight}
+	if len(p.draftImages) > 0 {
+		p.draftAttachments(ui, mathx.Rect{X: r.X, Y: y, W: r.W, H: 54})
+		y += 54
+	}
+	fr.X, fr.Y = fr.X+r.X, fr.Y+y
+	br.X, br.Y = br.X+r.X, br.Y+y
 	locked := p.viewing != ""
 	busy := host.Busy()
-	label := i18n.Tr("editor.agent.send", "Send")
-	if busy {
-		label = i18n.Tr("editor.agent.stop", "Stop")
-	}
-	bw := ui.TextSize(label).X + 24
 	id := ui.ID("message")
 	if p.focus {
 		ui.SetFocus(id)
 		p.focus = false
 	}
-	fr := mathx.Rect{X: row.X, Y: row.Y, W: max(0, row.W-bw-6), H: row.H}
-	enter := ui.Focus() == id && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
-	widgets.TextFieldRect(ui, id, fr, &p.input, true)
+	enter := !ui.Mods().Has(input.ModShift) && ui.Focus() == id && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
+	if !locked {
+		p.composer.Draw(ui, id, fr, &p.input, func() bool { return p.pasteImage(ui) })
+	} else {
+		ui.Box(fr, th.Radius.Field, th.Widget, th.Border)
+	}
 	if p.input == "" && ui.Focus() != id {
 		hint := i18n.Tr("editor.agent.message_the_agent_to_mention", "Message the agent, @ to mention")
 		if locked {
@@ -750,12 +903,11 @@ func (p *Panel) footer(ui *core.Context, r mathx.Rect) {
 	}
 	p.prevLen = len(p.input)
 	p.dropMentions()
-	br := mathx.Rect{X: row.X + row.W - bw, Y: row.Y, W: bw, H: row.H}
 	if busy {
 		if widgets.ButtonRect(ui, ui.ID("stop"), br, label) {
 			host.Cancel()
 		}
-	} else if sent := primary(ui, ui.ID("send"), br, label, !locked && strings.TrimSpace(p.input) != ""); sent || (enter && !locked) {
+	} else if sent := primary(ui, ui.ID("send"), br, label, !locked && (strings.TrimSpace(p.input) != "" || len(p.draftImages) > 0)); sent || (enter && !locked) {
 		p.send()
 		p.focus = true
 	}
@@ -764,7 +916,7 @@ func (p *Panel) footer(ui *core.Context, r mathx.Rect) {
 		meta = i18n.Tr("editor.agent.plan_on", "Plan only: the agent describes changes and makes none")
 	}
 	if meta != "" {
-		mr := mathx.Rect{X: r.X, Y: row.Y + row.H + 2, W: r.W, H: th.RowHeight * 0.8}
+		mr := mathx.Rect{X: r.X, Y: max(fr.Y+fr.H, br.Y+br.H) + 2, W: r.W, H: th.RowHeight * 0.8}
 		ui.Text(p.fits[2].get(ui, meta, mr.W), mathx.Vec2{X: mr.X, Y: ui.TextY(mr)}, th.TextDisabled)
 	}
 }
@@ -872,8 +1024,13 @@ func (p *Panel) drawMentions(ui *core.Context) {
 }
 
 func (p *Panel) drawMissing(ui *core.Context) {
-	widgets.Label(ui, i18n.Tr("editor.agent.claude_code_is_not_available", "Claude Code is not available"))
-	widgets.LabelWrapped(ui, i18n.Tr("editor.agent.install_help", "The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."), true)
+	if p.Provider() == "codex" {
+		widgets.Label(ui, i18n.Tr("editor.agent.codex_not_available", "Codex is not available"))
+		widgets.LabelWrapped(ui, i18n.Tr("editor.agent.codex_install_help", "Install Codex CLI with npm install -g @openai/codex, then run codex login in a terminal. Set its executable path below if needed and check again. Codex uses your existing CLI sign-in and model settings."), true)
+	} else {
+		widgets.Label(ui, i18n.Tr("editor.agent.claude_code_is_not_available", "Claude Code is not available"))
+		widgets.LabelWrapped(ui, i18n.Tr("editor.agent.install_help", "The agent runs Claude Code, the claude command. Install it, sign in once by running claude in a terminal, then check again. If it is installed where the editor does not look, set its path below."), true)
+	}
 	if p.verErr != nil {
 		widgets.LabelWrapped(ui, p.verErr.Error(), true)
 	}
@@ -886,12 +1043,12 @@ func (p *Panel) drawMissing(ui *core.Context) {
 		return
 	}
 	if widgets.Button(ui, i18n.Tr("editor.agent.check_again", "Check Again")) {
-		p.d.Host.SetCommand(strings.TrimSpace(p.path))
+		p.setCommand(p.path)
 		p.check()
 	}
 }
 
-// Checked reports whether the last look for Claude Code has finished.
+// Checked reports whether the selected agent's last availability probe finished.
 func (p *Panel) Checked() bool {
 	return !p.checking && (p.ver != "" || p.verErr != nil)
 }
@@ -969,3 +1126,16 @@ func (p *Panel) showWhere() bool {
 	_, _, ok := f.Model.Where(follow.Agent, p.now())
 	return ok
 }
+
+// ExplainScene runs the read-only quick action against the active document.
+func (p *Panel) ExplainScene() {
+	if p.d.Host.Busy() || p.viewing != "" {
+		return
+	}
+	p.input = i18n.Tr("editor.agent.example_explain", "Explain what this scene does")
+	p.sendMessage(true)
+}
+
+func (p *Panel) ExplainRect() mathx.Rect { return p.explainRect }
+
+func (p *Panel) SettingsRect() mathx.Rect { return p.settingsRect }

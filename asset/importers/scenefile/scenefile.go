@@ -32,7 +32,7 @@ func (i *Importer) ID() string {
 }
 
 func (i *Importer) Version() int {
-	return 2
+	return 3
 }
 
 func (i *Importer) Extensions() []string {
@@ -81,7 +81,7 @@ func collectDeps(n *aetext.Node, out map[ids.AssetID]bool) {
 func collectValue(v aetext.Value, out map[ids.AssetID]bool) {
 	switch v.Kind {
 	case aetext.VAsset:
-		if id, err := ids.ParseAssetID(v.Str); err == nil {
+		if id, err := ids.ParseAssetID(v.Str); err == nil && !id.IsZero() {
 			out[id] = true
 		}
 	case aetext.VList:

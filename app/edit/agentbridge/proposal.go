@@ -28,16 +28,18 @@ const (
 )
 
 var (
-	errRejected = errors.New("the user rejected this change; ask before trying it again")
-	errExpired  = errors.New("no answer within the time limit, nothing was applied")
+	errRejected  = errors.New("the user rejected this change; ask before trying it again")
+	errExpired   = errors.New("no answer within the time limit, nothing was applied")
+	errCancelled = errors.New("the agent conversation was cancelled; nothing was applied")
 )
 
 // undoRef is where an applied proposal sits in the history of its document.
 type undoRef struct {
-	doc    document.ID
-	label  string
-	depth  int
-	script *scriptUndo
+	doc     document.ID
+	label   string
+	depth   int
+	script  *scriptUndo
+	drawing *drawingCommand
 }
 
 // Proposal is one write call from the model, previewed as a dry run and waiting for the user (D342).
@@ -54,6 +56,8 @@ type Proposal struct {
 	decide      chan bool
 	// Via names where the change came from when it was not the panel's agent: "via CLI", "via agent: claude-code".
 	Via string
+	// generation is zero for external calls, which outlive the panel conversation.
+	generation uint64
 }
 
 func destructive(c *agent.Command, out *agent.Output) bool {
@@ -86,19 +90,24 @@ func (b *Bridge) timeout() time.Duration {
 }
 
 // propose previews a write call on the main thread, waits for the user off it, then applies it on the current state.
-func (b *Bridge) propose(c *agent.Command, a agent.Args) (*agent.Output, error) {
-	return b.proposeVia(c, a, "", false)
+func (b *Bridge) propose(c *agent.Command, a agent.Args, generation uint64) (*agent.Output, error) {
+	return b.proposeVia(c, a, "", false, generation)
 }
 
 // proposeVia previews a write and applies it at once when direct, else waits for the user like the panel's own agent.
-func (b *Bridge) proposeVia(c *agent.Command, a agent.Args, via string, direct bool) (*agent.Output, error) {
+func (b *Bridge) proposeVia(c *agent.Command, a agent.Args, via string, direct bool, generation uint64) (*agent.Output, error) {
 	var p *Proposal
 	var err error
 	var st State
 	var res *agent.Output
 	var msg string
 	if e := b.main(func() {
+		if b.cancelled(generation) {
+			err = errCancelled
+			return
+		}
 		if p, err = b.preview(c, a, via, direct); p != nil {
+			p.generation = generation
 			st, res, msg = p.State, p.Result, p.Err
 		}
 	}); e != nil {
@@ -121,7 +130,13 @@ func (b *Bridge) proposeVia(c *agent.Command, a agent.Args, via string, direct b
 		return nil, errRejected
 	}
 	var out *agent.Output
-	if e := b.main(func() { out, err = b.apply(p) }); e != nil {
+	if e := b.main(func() {
+		if b.cancelled(generation) {
+			p.State, p.Err, err = Rejected, errCancelled.Error(), errCancelled
+			return
+		}
+		out, err = b.apply(p)
+	}); e != nil {
 		return nil, e
 	}
 	return out, err
@@ -168,7 +183,13 @@ func (b *Bridge) keep(p *Proposal) {
 func (b *Bridge) apply(p *Proposal) (*agent.Output, error) {
 	b.last, b.via = nil, p.Via
 	defer func() { b.via = "" }()
-	out, err := b.run(p.Command, p.Args)
+	var out *agent.Output
+	var err error
+	if p.Preview.Drawing != nil {
+		out, err = b.applyDrawing(p)
+	} else {
+		out, err = b.run(p.Command, p.Args)
+	}
 	p.undo = b.last
 	if err != nil {
 		p.State, p.Err = Failed, err.Error()
@@ -239,10 +260,23 @@ func (b *Bridge) Decide(id int, apply bool) bool {
 }
 
 func (b *Bridge) RejectAll() {
+	b.panelGeneration.Add(1)
+	if closer, ok := b.cfg.Exporter.(interface{ CloseAgentPreview() }); ok {
+		closer.CloseAgentPreview()
+	}
 	for _, p := range b.Pending() {
 		b.Decide(p.ID, false)
 	}
+	for _, p := range b.proposals {
+		if p.generation != 0 && p.State == Approved {
+			p.State, p.Err = Rejected, errCancelled.Error()
+		}
+	}
 	b.dismissQuestions()
+}
+
+func (b *Bridge) cancelled(generation uint64) bool {
+	return generation != 0 && generation != b.panelGeneration.Load()
 }
 
 var errPlanOnly = errors.New("the user turned on Plan only: describe the changes and their order instead of making them")
@@ -277,6 +311,14 @@ func (b *Bridge) CanUndo(id int) bool {
 	if p == nil || p.undo == nil || p.State != Applied {
 		return false
 	}
+	if p.undo.drawing != nil {
+		if p.undo.drawing.check(true) != nil {
+			return false
+		}
+		if p.undo.doc == 0 {
+			return true
+		}
+	}
 	if p.undo.script != nil {
 		return b.canUndoScript(p.undo.script)
 	}
@@ -293,6 +335,13 @@ func (b *Bridge) Undo(id int) error {
 		return errors.New("this change is no longer the last step; undo it with Edit → Undo")
 	}
 	p := b.find(id)
+	if p.undo.drawing != nil && p.undo.doc == 0 {
+		if err := p.undo.drawing.Undo(nil); err != nil {
+			return err
+		}
+		p.State = Undone
+		return nil
+	}
 	if p.undo.script != nil {
 		if err := b.undoScript(p.undo.script); err != nil {
 			return err

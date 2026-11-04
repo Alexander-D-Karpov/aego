@@ -1,0 +1,4 @@
+project version=1 {
+ name="Normal mapping" module="game" mainScene=asset("d5aa0000000000000000000000000010") native=false
+ window { width=960 height=540 title="Normal mapping — moving light" }
+}

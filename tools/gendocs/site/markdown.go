@@ -19,12 +19,13 @@ import (
 )
 
 type pageCtx struct {
-	root    string
-	id      string
-	runs    int
-	play    bool
-	resolve func(id string) (string, bool)
-	broken  func(target string)
+	root     string
+	id       string
+	runs     int
+	examples int
+	play     bool
+	resolve  func(id string) (string, bool)
+	broken   func(target string)
 }
 
 type converter struct {
@@ -141,7 +142,7 @@ func (r codeRenderer) indented(w util.BufWriter, src []byte, n ast.Node, enterin
 		seg := lines.At(i)
 		code.Write(seg.Value(src))
 	}
-	w.WriteString(snippet(r.c.cur, "", code.String(), false))
+	w.WriteString(snippet(r.c.cur, "", code.String(), false, ""))
 	return ast.WalkSkipChildren, nil
 }
 
@@ -164,11 +165,22 @@ func (r codeRenderer) fenced(w util.BufWriter, src []byte, n ast.Node, entering 
 		seg := lines.At(i)
 		code.Write(seg.Value(src))
 	}
-	w.WriteString(snippet(r.c.cur, lang, code.String(), lang == "aes" && slices.Contains(fields[min(1, len(fields)):], "run")))
+	flags := fields[min(1, len(fields)):]
+	run := lang == "aes" && slices.Contains(flags, "run")
+	anchor := ""
+	if run || lang == "aes" && slices.Contains(flags, "check") {
+		r.c.cur.examples++
+		anchor = exampleAnchor(r.c.cur.id, r.c.cur.examples)
+	}
+	w.WriteString(snippet(r.c.cur, lang, code.String(), run, anchor))
 	return ast.WalkSkipChildren, nil
 }
 
-func snippet(p *pageCtx, lang, code string, run bool) string {
+func exampleAnchor(id string, number int) string {
+	return id + "-example-" + strconv.Itoa(number)
+}
+
+func snippet(p *pageCtx, lang, code string, run bool, anchor string) string {
 	body := html.EscapeString(code)
 	kind := lang
 	if kind == "" {
@@ -194,8 +206,11 @@ func snippet(p *pageCtx, lang, code string, run bool) string {
 		})
 	}
 	attr := ""
+	if anchor != "" {
+		attr = ` id="` + html.EscapeString(anchor) + `"`
+	}
 	if lang != "" {
-		attr = ` data-lang="` + html.EscapeString(lang) + `"`
+		attr += ` data-lang="` + html.EscapeString(lang) + `"`
 	}
 	pre := `<pre class="code"` + attr + `><code class="lang-` + html.EscapeString(lang) + `">` + body + `</code></pre>`
 	if !run {

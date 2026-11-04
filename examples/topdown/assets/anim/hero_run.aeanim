@@ -7,4 +7,6 @@ anim version=1 length=0.3 loop=loop {
   track "" prop="SpriteRenderer.tint" kind=color {
     key t=0 v=#38bdf8ff {}
   }
+  event t=0.04 name="Footstep" mode=presentation {}
+  event t=0.19 name="Footstep" mode=presentation {}
 }

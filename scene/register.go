@@ -11,11 +11,12 @@ import (
 type storeFactory func(*Scene) anyStore
 
 type Types struct {
-	byID    map[schema.TypeID]storeFactory
-	byGo    map[reflect.Type]storeFactory
-	schema  *schema.Registry
-	ordered []schema.TypeID
-	overlay Overlay
+	byID       map[schema.TypeID]storeFactory
+	byGo       map[reflect.Type]storeFactory
+	schema     *schema.Registry
+	ordered    []schema.TypeID
+	overlay    Overlay
+	properties map[schema.TypeID]BoundPropertyResolver
 }
 
 func NewTypes(reg *schema.Registry) *Types {

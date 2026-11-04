@@ -8,9 +8,34 @@ order: 3
 
 # Working with AI agents
 
-`aego mcp` serves a project to an AI agent over the Model Context Protocol. The agent edits scenes, prefabs and data assets through the same operations the editor uses, reads the documentation and the type schema, and runs scenes headless to check its work. Every tool is also a command of `aego`, so anything an agent does can be repeated by hand or in CI.
+`aego mcp` serves a project to an AI agent over the Model Context Protocol. The agent edits scenes, prefabs and data assets through the same operations the editor uses, reads the documentation and the type schema, and runs scenes headless to check its work. Project editing commands can also be used from the CLI; operations that need a live view or an open document are supplied by the editor.
 
 ## Connecting
+
+### Inside the editor
+
+Open the **Agent** panel and choose **Claude Code** or **Codex** in its provider row. The selected provider, CLI path and model override are saved in the editor's project preferences. Existing projects keep Claude Code as their default.
+
+For Codex, install the official CLI (version 0.166.0 or newer) and sign in once in a terminal:
+
+```sh
+npm install -g @openai/codex
+codex login
+```
+
+The editor uses that CLI's existing authentication. In **Agent settings**, choose a model from the list or type to filter it; Codex models and their supported reasoning levels come from the installed CLI. The list does not guarantee that your account has access. You can also type a custom model ID, choose a custom reasoning level, or select **CLI default** to use the CLI configuration. Claude Code offers its usual model aliases. A missing executable or sign-in error is shown in the panel; after installing or signing in, use **Check again** to refresh. The path field accepts an executable name or a full path; press Enter to apply it.
+
+Both providers use the same project tools, change proposals, questions and Undo history. Changes to open documents remain unsaved until you save them. **Stop** cancels the current turn and rejects pending proposals. Switch provider or change its settings while idle: this starts a fresh conversation, while the previous transcript remains available in session history under its provider name.
+
+### Verify the open scene
+
+In Agent Settings → Diagnostics, check the provider, active project, document and last tool call. Reconnect starts a new conversation binding. Explain what this scene does sends a bounded snapshot of the current editor document, including its selection, revision and script references; it does not require Auto-apply. On Codex the panel checks the selected thread's MCP catalog and probes the bridge through that thread. A listed tool and a completed read are reported separately.
+
+Use `asset_view` for the Assets preview, source pixels or the imported region, and `asset_contact_sheet` for a folder, frame sequence or explicit list of assets. `editor_view_capture` reads the current Game or Scene View; for reproducible frames, use `scene_run` with the same scene, camera, input, seed and shot, then pass both capture IDs to `scene_compare_frames`. PNGs appear in the tool card. A model without image input can still use text tools.
+
+`asset_paint` edits source pixels in one reversible operation. External image generation, when an adapter is installed, requires separate consent with the references and a total spend limit. Use `project_export_game` and `project_run_export` to check a saved release in its own output folder. Auto-apply does not grant permission to run native code or publish anything.
+
+### From an external CLI
 
 Claude Code, from the project directory:
 
@@ -19,6 +44,12 @@ Claude Code, from the project directory:
 or a `.mcp.json` next to `project.aego`:
 
     {"mcpServers": {"aego": {"command": "aego", "args": ["mcp", "--watch"]}}}
+
+For an external Codex session started in the project directory:
+
+```sh
+codex mcp add aego -- aego mcp --project . --watch
+```
 
 Other clients take the same command. The server speaks MCP over stdio; logs go to stderr. A project with native code is served by its own binary, so its components are known.
 

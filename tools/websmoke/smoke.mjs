@@ -4,6 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright-core";
 import pixelmatch from "pixelmatch";
 import pngjs from "pngjs";
+import { installTrafficProbe, summarizeTraffic, measureTrafficFrames } from "./traffic.mjs";
 
 const { PNG } = pngjs;
 const opts = Object.fromEntries(
@@ -12,6 +13,7 @@ const opts = Object.fromEntries(
         return [k, v ?? "true"];
     }),
 );
+const measureOnly = opts["measure-only"] === "true";
 const site = path.resolve(opts.site ?? "../../site");
 const goldenDir = path.resolve(opts.golden ?? "golden");
 const update = opts.update === "true";
@@ -72,6 +74,7 @@ const browser = await chromium.launch({
     args: ["--mute-audio", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+if (opts.traffic === "true" || measureOnly) await installTrafficProbe(page);
 page.on("pageerror", (e) => fail("page error: " + e.message));
 page.on("console", (m) => {
     if (m.type() === "error") fail("console: " + m.text());
@@ -83,7 +86,22 @@ const stats = async () => (await call("poll")).stats;
 
 async function compare(name) {
     await page.evaluate(() => ($("game-hint").hidden = true));
-    const shot = PNG.sync.read(await page.locator("#game").screenshot());
+    // Fractional document Y (for example 54.59375px after a font/layout change)
+    // makes locator screenshots round a 351px canvas outwards to 352px. Snap only
+    // its document origin for capture; do not resize pixels or alter the golden.
+    const canvas = page.locator("#game");
+    const translate = await canvas.evaluate(c => {
+        const old = c.style.translate;
+        const r = c.getBoundingClientRect(), d = devicePixelRatio;
+        c.style.translate = `${Math.round(r.x * d) / d - r.x}px ${Math.round(r.y * d) / d - r.y}px`;
+        return old;
+    });
+    let shot;
+    try {
+        shot = PNG.sync.read(await canvas.screenshot());
+    } finally {
+        await canvas.evaluate((c, old) => { c.style.translate = old; }, translate);
+    }
     const file = path.join(goldenDir, name + ".png");
     if (update) {
         fs.mkdirSync(goldenDir, { recursive: true });
@@ -116,6 +134,7 @@ try {
     const boot = await waitFor(() => page.evaluate(() => window.aegoBoot), "the playground", 120000);
     console.log(`cold start ${boot} ms`);
 
+    if (!measureOnly) {
     const b64 = await call("bench", { count: 64, animate: false });
     if (!b64.started) throw new Error("bench did not start: " + b64.error);
     const s0 = await waitFor(async () => {
@@ -157,11 +176,21 @@ try {
         console.log("context loss: material programs restored");
     }
 
+    }
+
     await call("bench", { count: 1000, animate: true });
+    if (measureOnly) {
+        const traffic = await measureTrafficFrames(page, "playground", "#game", +(opts.warmup ?? 120), +(opts.frames ?? 120));
+        const report = { mode: "measurement-only; functional gates not run", profile: "playground", sprites: 1000, viewport: [1280, 800], DPR: 1, browserVersion: browser.version(), traffic };
+        console.log("measurement " + JSON.stringify(report));
+        if (opts.report) fs.writeFileSync(opts.report, JSON.stringify(report, null, 2) + "\n");
+    } else {
     await sleep(1000);
     const a = await stats();
+    const trafficBefore = opts.traffic === "true" ? await page.evaluate(() => ({ frames: JSON.parse(globalThis.aego.call("poll", "{}")).stats.frames, traffic: globalThis.__aegoTraffic.begin("#game") })) : null;
     await sleep(3000);
     const b = await stats();
+    const trafficAfter = opts.traffic === "true" ? await page.evaluate(() => ({ frames: JSON.parse(globalThis.aego.call("poll", "{}")).stats.frames, traffic: globalThis.__aegoTraffic.end() })) : null;
     const report = {
         sprites: 1000,
         fps: Math.round(((b.frames - a.frames) / 3) * 10) / 10,
@@ -171,6 +200,7 @@ try {
         renderer: b.renderer,
         coldStartMs: boot,
     };
+    if (trafficBefore) report.traffic = summarizeTraffic(trafficBefore.traffic, trafficAfter.traffic, trafficAfter.frames - trafficBefore.frames);
     console.log("bench " + JSON.stringify(report));
     if (opts.report) fs.writeFileSync(opts.report, JSON.stringify(report, null, 2) + "\n");
 
@@ -192,6 +222,7 @@ try {
         else if (p.stats.frames < start + 30) fail(`${ex.id}: ${p.stats.frames - start} frames in 2 s`);
         else console.log(`${ex.id}: ok`);
     }
+    }
     await call("stop");
 } catch (e) {
     fail(e.message);
@@ -203,4 +234,4 @@ if (failures.length) {
     console.error(`${failures.length} failure(s)`);
     process.exit(1);
 }
-console.log("web smoke: ok");
+console.log(measureOnly ? "web playground measurement complete; functional gates not run" : "web smoke: ok");

@@ -59,7 +59,7 @@ func TestTryScenesRun(t *testing.T) {
 				t.Fatalf("%s: %v", e.ID, err)
 			}
 		}
-		req, _ := json.Marshal(map[string]any{"scene": e.Try, "select": e.TrySelect, "code": code, "prefabs": e.TryPrefabs})
+		req, _ := json.Marshal(map[string]any{"scene": e.Try, "select": e.TrySelect, "code": code, "prefabs": e.TryPrefabs, "artifacts": e.TryArtifacts})
 		if r := a.Call("load", req); r.Error != "" {
 			t.Fatalf("%s: %s", e.ID, r.Error)
 		}

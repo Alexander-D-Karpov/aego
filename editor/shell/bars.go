@@ -2,6 +2,7 @@ package shell
 
 import (
 	"strconv"
+	"strings"
 
 	"aego/core/ids"
 	"aego/core/mathx"
@@ -13,44 +14,103 @@ import (
 	"aego/ui/widgets"
 )
 
+const toolsMenu = "@aego-tools"
+
+func moduleCategory(c string) bool {
+	switch c {
+	case "File", "Edit", "Create", "Scene", "Play", "Assets", "Window", "Help", themeCategory, languageCategory:
+		return false
+	}
+	return true
+}
 func (a *App) menuCategories() []string {
 	reg := a.ctx.Commands
-	base := []string{"File", "Edit", "Create", "Scene", "Play", "Assets", "Window"}
-	known := map[string]bool{themeCategory: true, languageCategory: true}
 	var out []string
-	for _, c := range base {
-		known[c] = true
+	for _, c := range []string{"File", "Edit", "Create", "Scene", "Play", "Assets"} {
 		if c == "Create" || reg.HasCategory(c) {
 			out = append(out, c)
 		}
 	}
 	for _, c := range reg.Categories() {
-		if !known[c] {
+		if moduleCategory(c) {
+			out = append(out, toolsMenu)
+			break
+		}
+	}
+	for _, c := range []string{"Window", "Help"} {
+		if reg.HasCategory(c) {
 			out = append(out, c)
 		}
 	}
 	return out
 }
 
-func (a *App) commandItems(cat string) {
-	ui := a.ui
+type menuGroup struct {
+	title string
+	items []command.Desc
+}
+
+func (a *App) groups(cat string) []menuGroup {
 	reg := a.ctx.Commands
-	last := -1
+	if cat == toolsMenu {
+		var gs []menuGroup
+		for _, c := range reg.Categories() {
+			if moduleCategory(c) {
+				gs = append(gs, menuGroup{menuTitle(c), reg.Category(c)})
+			}
+		}
+		return gs
+	}
+	if cat != "Window" {
+		return []menuGroup{{items: reg.Category(cat)}}
+	}
+	gs := []menuGroup{{title: i18n.Tr("editor.menu.workspace_group", "Workspaces")}, {title: i18n.Tr("editor.menu.author_group", "Scene and assets")}, {title: i18n.Tr("editor.menu.debug_group", "Run and diagnose")}, {title: i18n.Tr("editor.menu.utility_group", "Other panels")}, {title: i18n.Tr("editor.menu.agent_group", "Agent")}, {title: i18n.Tr("editor.menu.layout_group", "Layout")}}
 	for _, d := range reg.Category(cat) {
-		if last >= 0 && d.Order/100 != last/100 {
-			widgets.Separator(ui)
+		group := 5
+		id, win := strings.CutPrefix(d.ID, command.WindowPrefix)
+		_, panel := a.ws.Panel(id)
+		switch {
+		case strings.HasPrefix(d.ID, "agent.") || d.ID == CommandProxyConfirm:
+			group = 4
+		case win && panel:
+			switch id {
+			case workspace.Hierarchy, workspace.Scene, workspace.Game, workspace.Assets, workspace.Inspector, "animation", "animator", workspace.Mixer, "scenes", "favorites":
+				group = 1
+			case workspace.Console, workspace.Problems, workspace.Profiler, "watch", "events", "crashes", "tasks", "health":
+				group = 2
+			case "agent":
+				group = 4
+			default:
+				group = 3
+			}
+		case strings.HasPrefix(d.ID, CommandWorkspacePrefix) || d.ID == CommandWorkspaceSaveAs || d.ID == CommandWorkspaceRename || d.ID == CommandWorkspaceDelete:
+			group = 0
 		}
-		last = d.Order
-		it := widgets.Item{
-			Label:    d.Title(),
-			Shortcut: d.Shortcut.String(),
-			Icon:     d.Icon,
-			Tip:      d.TipText(),
-			Enabled:  reg.Enabled(d.ID),
-			Checked:  d.Checked != nil && d.Checked(),
+		gs[group].items = append(gs[group].items, d)
+	}
+	return gs
+}
+func (a *App) commandItems(cat string) {
+	ui, reg := a.ui, a.ctx.Commands
+	for _, g := range a.groups(cat) {
+		if len(g.items) == 0 {
+			continue
 		}
-		if widgets.Entry(ui, it) {
-			reg.Run(d.ID)
+		if g.title != "" && !widgets.SubMenu(ui, g.title, 280) {
+			continue
+		}
+		last := -1
+		for _, d := range g.items {
+			if g.title == "" && last >= 0 && d.Order/100 != last/100 {
+				widgets.Separator(ui)
+			}
+			last = d.Order
+			if widgets.Entry(ui, widgets.Item{Label: d.Title(), Shortcut: reg.Shortcut(d.ID), Icon: d.Icon, Tip: d.TipText(), Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked()}) {
+				reg.Run(d.ID)
+			}
+		}
+		if g.title != "" {
+			widgets.EndSubMenu(ui)
 		}
 	}
 }

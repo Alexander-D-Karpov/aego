@@ -110,7 +110,11 @@ func (p *Panel) meterEvent(e agentui.Event) {
 	}
 	switch e.Kind {
 	case agentui.EvText:
-		m.Text(e.Text)
+		if e.Delta {
+			m.TextDelta(e.MessageID, e.Text)
+		} else {
+			m.Text(e.Text)
+		}
 		if p.summarizing {
 			p.summary.WriteString(e.Text)
 		}

@@ -16,6 +16,13 @@ type Custom interface {
 	Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields func())
 }
 
+// FieldVisibility lets a module hide inapplicable fields while retaining the
+// generic typed controls, multiselection, animation bindings and History path.
+// It changes presentation only; hidden properties remain in the document.
+type FieldVisibility interface {
+	FieldVisible(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) bool
+}
+
 type CustomFunc func(ctx *context.Editor, nodes []ids.NodeID, defaultFields func())
 
 func (f CustomFunc) Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields func()) {
@@ -47,6 +54,15 @@ func (r *Registry) SetEditor(ed *context.Editor) {
 
 func (r *Registry) DrawCustom(c Custom, nodes []ids.NodeID, def func()) {
 	c.Draw(r.editor, nodes, def)
+}
+
+func (r *Registry) FieldVisible(t schema.TypeID, nodes []ids.NodeID, field *schema.FieldDescriptor) bool {
+	c, ok := r.Custom(t)
+	if !ok {
+		return true
+	}
+	filter, ok := c.(FieldVisibility)
+	return !ok || filter.FieldVisible(r.editor, nodes, field)
 }
 
 func NewRegistry() *Registry {

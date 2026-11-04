@@ -1,7 +1,10 @@
 package playground
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"fmt"
 	"strings"
 
 	"aego/asset"
@@ -40,14 +43,42 @@ func DecodeTry(code string) ([]*bytecode.Module, error) {
 	return mods, nil
 }
 
-// MountTry gives the loader the prefabs of a try scene, keyed by asset id; none unmounts them.
-func MountTry(l *loader.Loader, prefabs map[string]string) error {
+// MountTry installs a documentation session's prefabs and optional prepared
+// artifacts. Validation completes before the previous mount/resources change.
+// Source textures/materials/shaders are never imported by this runtime path.
+func MountTry(l *loader.Loader, prefabs map[string]string, prepared ...[]byte) error {
+	if l == nil || len(prepared) > 1 || len(prefabs) > asset.MaxTryAssets {
+		return fmt.Errorf("invalid try resource mount")
+	}
 	idx := asset.NewIndex()
 	files := map[string][]byte{}
+	total := 0
+	if len(prepared) != 0 && len(prepared[0]) != 0 {
+		bundle, err := asset.DecodeTryArtifacts(prepared[0])
+		if err != nil {
+			return err
+		}
+		total += len(prepared[0])
+		for _, entry := range bundle.Assets {
+			e := asset.Entry{ID: entry.ID, Kind: entry.Kind, Name: entry.Name, Source: entry.Name, Deps: entry.Deps}
+			for i, artifact := range entry.Artifacts {
+				p := fmt.Sprintf("%s/%d", entry.ID, i)
+				hash := sha256.Sum256(artifact.Data)
+				files[p] = artifact.Data
+				e.Artifacts = append(e.Artifacts, asset.Artifact{Kind: artifact.Kind, Name: artifact.Name, Path: "try://" + p, Hash: hex.EncodeToString(hash[:]), Size: int64(len(artifact.Data))})
+			}
+			idx.Put(e)
+		}
+	}
 	for key, text := range prefabs {
 		id, err := ids.ParseAssetID(key)
 		if err != nil {
 			return err
+		}
+		_, duplicate := idx.Lookup(id)
+		total += len(text)
+		if id.IsZero() || asset.IsBuiltin(id) || duplicate || len(text) > asset.MaxTryArtifactBytes || total > asset.MaxTryArtifactsBytes || idx.Len() >= asset.MaxTryAssets {
+			return fmt.Errorf("try prefab ID, duplicate or byte budget is invalid")
 		}
 		p := id.String() + ".aeprefab"
 		files[p] = []byte(text)
@@ -57,6 +88,20 @@ func MountTry(l *loader.Loader, prefabs map[string]string) error {
 	fs, err := vfs.New(vfs.Mount{Scheme: "try", ReadOnly: true, Source: memfs.New(files)})
 	if err != nil {
 		return err
+	}
+	// Mount itself only checks non-nil inputs; the new FS/index above are ready.
+	// Retire the old session before publishing the new index so Drop cannot
+	// remove a reused ID from the new manifest or leave its old GPU cache alive.
+	var previous []ids.AssetID
+	if old := l.Index(); old != nil {
+		old.Each(func(entry *asset.Entry) {
+			if !asset.IsBuiltin(entry.ID) {
+				previous = append(previous, entry.ID)
+			}
+		})
+	}
+	for _, id := range previous {
+		l.Drop(id)
 	}
 	return l.Mount(idx, fs)
 }

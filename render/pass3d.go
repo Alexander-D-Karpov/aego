@@ -35,7 +35,24 @@ func (r *Renderer) drawMeshes(ctx *PassContext, items []mesh.Item) {
 		if it.DoubleSided {
 			ds = 1
 		}
-		p.SetPipeline(r.meshPipes[m][ds])
+		if it.Material != nil {
+			if !r.mats.BindDomain(p, it.Material, shader.DomainMesh2D) || !r.mats.BindLanes(p, it.Material, it.Lanes) {
+				continue
+			}
+			if it.Material.Shader().Features&shader.FeatureLighting != 0 {
+				channels := it.Material.Shader().Features&shader.FeatureSurfaceChannels != 0
+				if !r.bindLighting(p, it.LightSet, it.Normal.Texture, it.Emission.Region.Texture, channels) {
+					continue
+				}
+				mode := it.Emission.Mode
+				if !it.Emission.Valid() {
+					mode = 0
+				}
+				r.bindSurface(p, it.Normal, it.Emission, mode)
+			}
+		} else {
+			p.SetPipeline(r.meshPipes[m][ds])
+		}
 		r.setDrawUniform(p, it)
 		p.SetVertexBuffer(0, it.Mesh.VB)
 		p.SetIndexBuffer(it.Mesh.IB)

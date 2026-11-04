@@ -55,6 +55,9 @@ func (a *App) registerCommands() error {
 			if undo {
 				base = i18n.Tr("editor.shell.undo", "Undo")
 			}
+			if d := a.focusedAsset(); d != nil {
+				return base + " " + d.Caption()
+			}
 			h := ctx.History()
 			if h == nil {
 				return base
@@ -75,15 +78,15 @@ func (a *App) registerCommands() error {
 		{ID: command.FileNewScene, Name: "New Scene", Category: "File", Order: 100, Run: a.newScene},
 		{ID: CommandNewScene3D, Name: "New 3D Scene", Category: "File", Order: 110, Run: a.newScene3D},
 		{ID: command.FileOpen, Name: "Open Scene…", Category: "File", Order: 120, Run: a.openScene},
-		{ID: command.FileSave, Name: "Save", Category: "File", Order: 200, Enabled: hasDoc, Run: a.save},
+		{ID: command.FileSave, Name: "Save", Category: "File", Order: 200, Enabled: func() bool { return hasDoc() || a.focusedAsset() != nil }, Run: a.save},
 		{ID: command.FileSaveAs, Name: "Save As…", Category: "File", Order: 205, Enabled: hasDoc,
 			Run: func() error {
 				assetops.PromptSaveAs(ctx, ctx.Doc())
 				return nil
 			}},
 		{ID: command.FileSaveAll, Name: "Save All", Category: "File", Order: 210, Enabled: ctx.Docs.Dirty, Run: a.saveAll},
-		{ID: CommandCloseScene, Name: "Close Scene", Category: "File", Order: 300,
-			Shortcut: command.Key(input.KeyW, command.ModPrimary), Enabled: hasDoc, Run: a.closeActive},
+		{ID: CommandCloseScene, Name: "Close Document", Category: "File", Order: 300,
+			Shortcut: command.Key(input.KeyW, command.ModPrimary), Enabled: func() bool { return hasDoc() || a.focusedAsset() != nil }, Run: a.closeActive},
 		{ID: CommandQuit, Name: "Quit", Category: "File", Order: 900,
 			Shortcut: command.Key(input.KeyQ, command.ModPrimary), Run: func() error {
 				a.requestQuit()
@@ -92,14 +95,20 @@ func (a *App) registerCommands() error {
 
 		{ID: command.EditUndo, Name: "Undo", Category: "Edit", Order: 100, Label: historyLabel(true),
 			Enabled: func() bool {
+				if d := a.focusedAsset(); d != nil {
+					return d.CanUndo()
+				}
 				h := ctx.History()
 				return h != nil && h.CanUndo()
-			}, Run: ctx.Undo},
+			}, Run: a.undoDocument},
 		{ID: command.EditRedo, Name: "Redo", Category: "Edit", Order: 110, Label: historyLabel(false),
 			Enabled: func() bool {
+				if d := a.focusedAsset(); d != nil {
+					return d.CanRedo()
+				}
 				h := ctx.History()
 				return h != nil && h.CanRedo()
-			}, Run: ctx.Redo},
+			}, Run: a.redoDocument},
 		{ID: command.EditCut, Name: "Cut", Category: "Edit", Order: 200, Enabled: hasSel, Run: func() error { return edclip.Cut(ctx) }},
 		{ID: command.EditCopy, Name: "Copy", Category: "Edit", Order: 210, Enabled: hasSel, Run: func() error { return edclip.Copy(ctx) }},
 		{ID: command.EditPaste, Name: "Paste", Category: "Edit", Order: 220, Enabled: hasDoc, Run: func() error { return edclip.Paste(ctx) }},
@@ -403,6 +412,13 @@ func (a *App) saveDoc(d *document.SceneDocument) error {
 }
 
 func (a *App) save() error {
+	if d := a.focusedAsset(); d != nil {
+		if err := a.ctx.SaveAsset(d); err != nil {
+			return err
+		}
+		a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_path", "Saved {path}", i18n.Str("path", d.Path)))
+		return nil
+	}
 	d := a.ctx.Doc()
 	if d == nil {
 		return nil
@@ -435,6 +451,13 @@ func (a *App) saveAll() error {
 			first = err
 		}
 	}
+	for _, d := range a.ctx.Docs.AssetDocuments() {
+		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
+			if err := d.Binding.Save(); err != nil && first == nil {
+				first = err
+			}
+		}
+	}
 	if first != nil {
 		return first
 	}
@@ -443,6 +466,21 @@ func (a *App) saveAll() error {
 }
 
 func (a *App) closeActive() error {
+	if d := a.focusedAsset(); d != nil {
+		if panel, ok := a.ws.Panel(a.ws.Focused()); ok {
+			if close, ok := panel.(workspace.Closer); ok {
+				close.RequestClose()
+			} else {
+				// Persistent views such as the table editor can be hidden without
+				// discarding their shared document. Never close the active scene
+				// in response to Ctrl+W in another asset's editor.
+				if a.ws.Visible(a.ws.Focused()) {
+					a.ws.Toggle(a.ws.Focused())
+				}
+			}
+		}
+		return nil
+	}
 	d := a.ctx.Doc()
 	if d == nil {
 		return nil

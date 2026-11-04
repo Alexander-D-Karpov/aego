@@ -12,6 +12,8 @@ const opts = Object.fromEntries(
 const site = path.resolve(opts.site ?? "../../site");
 const executablePath = process.env.CHROMIUM || "/usr/bin/chromium";
 const seconds = +(opts.seconds ?? 10);
+const demoSeconds = +(opts["demo-seconds"] ?? 2.5);
+if (!Number.isFinite(demoSeconds) || demoSeconds < 2.5) throw new Error("demo-seconds must be at least 2.5");
 const blocks = (opts.blocks ?? "").split(",").filter(Boolean).map(Number);
 const mime = {
     ".html": "text/html",
@@ -33,6 +35,26 @@ function fail(msg) {
 
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
+}
+
+// Playwright's evaluate/waitForFunction can supply a synthetic user gesture.
+// Audio state and autoplay probes must not activate the page before the real
+// pointer input below, including while the exported game's first frame starts.
+async function scriptWithoutGesture(page) {
+    const cdp = await page.context().newCDPSession(page);
+    const js = async (expression) => {
+        const r = await cdp.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true, userGesture: false });
+        if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+        return r.result.value;
+    };
+    const until = async (expression, timeout) => {
+        const end = Date.now() + timeout;
+        while (!(await js(expression))) {
+            if (Date.now() > end) throw new Error("timed out waiting for " + expression);
+            await sleep(100);
+        }
+    };
+    return { js, until };
 }
 
 function serve(root, headers) {
@@ -57,19 +79,7 @@ async function run(browser, label, headers, wantShared, depth = 0) {
     const srv = await serve(site, headers);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
     page.on("pageerror", (e) => fail(`${label}: page error: ${e.message}`));
-    const cdp = await page.context().newCDPSession(page);
-    const js = async (expression) => {
-        const r = await cdp.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true, userGesture: false });
-        if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
-        return r.result.value;
-    };
-    const until = async (expression, timeout) => {
-        const end = Date.now() + timeout;
-        while (!(await js(expression))) {
-            if (Date.now() > end) throw new Error("timed out waiting for " + expression);
-            await sleep(100);
-        }
-    };
+    const { js, until } = await scriptWithoutGesture(page);
     const stats = async () => JSON.parse(await js("globalThis.aegoAudio.stats()"));
     try {
         await page.goto(`http://127.0.0.1:${srv.address().port}/play/`);
@@ -91,9 +101,16 @@ async function run(browser, label, headers, wantShared, depth = 0) {
         if (s.error) fail(`${label}: ${s.error}`);
         if (s.shared !== wantShared) fail(`${label}: shared transport is ${s.shared}`);
         if (Math.abs(s.rms - 0.354) > 0.05) fail(`${label}: rms ${s.rms}`);
-        const used = depth || (wantShared ? 3 : 4);
-        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, ${used} blocks (${((used * 512 * 1000) / s.rate).toFixed(0)} ms), underruns ${s.underruns} (pump ${s.pumpUnderruns}) in ${seconds} s, rms ${s.rms.toFixed(3)}, mix max ${s.mixMaxUs} us`);
-        if (!depth && s.underruns > 0) fail(`${label}: ${s.underruns} underruns in ${seconds} s at the default ${used} blocks`);
+        if (!Number.isInteger(s.targetBlocks) || s.targetBlocks <= 0 || !Number.isInteger(s.blockFrames) || s.blockFrames <= 0) {
+            throw new Error(`invalid actual audio target: ${JSON.stringify(s)}`);
+        }
+        const used = s.targetBlocks;
+        if (depth && used !== depth) fail(`${label}: requested ${depth} blocks but the pump uses ${used}`);
+        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, ${used} blocks (${((used * s.blockFrames * 1000) / s.rate).toFixed(0)} ms), underruns ${s.underruns} (pump ${s.pumpUnderruns}) in ${seconds} s, rms ${s.rms.toFixed(3)}, mix max ${s.mixMaxUs} us`);
+        if (!Number.isInteger(s.pumpUnderruns) || s.pumpUnderruns < 0) fail(`${label}: invalid pump underrun count`);
+        if (!Number.isInteger(s.underruns) || s.underruns < 0) fail(`${label}: invalid worklet underrun count`);
+        if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in ${seconds} s at ${used} blocks`);
+        if (s.pumpUnderruns > 0) fail(`${label}: ${s.pumpUnderruns} predicted pump underruns in ${seconds} s at ${used} blocks`);
         await js("globalThis.aegoAudio.stop()");
     } catch (e) {
         fail(`${label}: ${e.message}`);
@@ -103,39 +120,48 @@ async function run(browser, label, headers, wantShared, depth = 0) {
     }
 }
 
-async function demo(browser) {
-    const label = "demo";
+async function demo(browser, label, headers, wantShared) {
     if (!fs.existsSync(path.join(site, "demo", "index.html"))) {
         fail(`${label}: site/demo is missing`);
         return;
     }
-    const srv = await serve(site, {});
+    const srv = await serve(site, headers);
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     page.on("pageerror", (e) => fail(`${label}: page error: ${e.message}`));
-    const stats = async () => JSON.parse(await page.evaluate(() => globalThis.aegoAudioStats()));
+    const { js, until } = await scriptWithoutGesture(page);
+    const stats = async () => JSON.parse(await js("globalThis.aegoAudioStats()"));
     const base = `http://127.0.0.1:${srv.address().port}/demo/`;
     try {
         await page.goto(base);
-        await page.waitForFunction(() => globalThis.aegoBoot !== undefined && typeof globalThis.aegoAudioStats === "function", null, { timeout: 120000 });
-        const quiet = await page.evaluate(() => document.documentElement.dataset.sound === "off");
+        await until("globalThis.aegoBoot !== undefined && typeof globalThis.aegoAudioStats === 'function'", 120000);
+        const quiet = await js("document.documentElement.dataset.sound === 'off'");
         if (quiet && !(await stats()).muted) fail(`${label}: the page asks for silence, but the demo starts with sound`);
-        await page.evaluate(() => globalThis.aegoAudioMute(false));
-        const enforced = await page.evaluate(async () => {
+        await js("globalThis.aegoAudioMute(false)");
+        const enforced = await js(`(async () => {
             const c = new AudioContext();
             await new Promise((r) => setTimeout(r, 300));
             const s = c.state;
             await c.close();
             return s !== "running";
-        });
+        })()`);
         const before = await stats();
+        const activated = await js("navigator.userActivation && navigator.userActivation.hasBeenActive");
+        if (activated) fail(`${label}: the harness activated the page before the real click`);
+        console.log(`${label}: before click running ${before.running}, underruns ${before.underruns}, consumed ${before.consumed}, page activated ${!!activated}`);
         if (!enforced) console.log(`${label}: this browser starts an AudioContext without a gesture, the gesture check is skipped`);
         else if (before.running) fail(`${label}: audio ran before a gesture`);
         await page.click("#game");
-        await sleep(2500);
+        await sleep(demoSeconds * 1000);
         const s = await stats();
+        if (s.error) fail(`${label}: ${s.error}`);
+        if (s.shared !== wantShared) fail(`${label}: shared transport is ${s.shared}`);
+        if (!Number.isInteger(s.underruns) || s.underruns < 0) fail(`${label}: invalid worklet underrun count`);
+        const pump = await js("globalThis.aegoGame?.mixStats?.() ?? null");
+        if (!pump || !Number.isInteger(pump.underruns) || pump.underruns < 0) fail(`${label}: invalid game pump underrun count`);
+        else if (pump.underruns > 0) fail(`${label}: ${pump.underruns} predicted pump underruns in the game`);
         if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in the game, which fills audio from the frame loop`);
         if (!s.running || s.rms < 0.01) fail(`${label}: music is silent: ${JSON.stringify(s)}`);
-        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns}`);
+        console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns} (pump ${pump?.underruns})`);
         if (await page.isHidden("#mute")) fail(`${label}: the mute button is hidden`);
         await page.click("#mute");
         await sleep(300);
@@ -143,9 +169,9 @@ async function demo(browser) {
         if (!m.muted) fail(`${label}: mute did not apply`);
         if (m.out !== 0) fail(`${label}: muted output is not silent: ${JSON.stringify(m)}`);
         await page.reload();
-        await page.waitForFunction(() => typeof globalThis.aegoAudioStats === "function", null, { timeout: 120000 });
+        await until("typeof globalThis.aegoAudioStats === 'function'", 120000);
         if (!(await stats()).muted) fail(`${label}: mute was not remembered`);
-        await page.evaluate(() => globalThis.aegoAudioMute(false));
+        await js("globalThis.aegoAudioMute(false)");
     } catch (e) {
         fail(`${label}: ${e.message}`);
     } finally {
@@ -163,7 +189,8 @@ try {
     await run(browser, "messages", {}, false);
     for (const b of blocks) await run(browser, `messages at ${b} blocks`, {}, false, b);
     await run(browser, "shared", isolate, true);
-    await demo(browser);
+    await demo(browser, "demo", {}, false);
+    await demo(browser, "demo shared", isolate, true);
 } finally {
     await browser.close();
 }

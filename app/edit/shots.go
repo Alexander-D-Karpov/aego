@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aego/app/agentui/backend"
 	"aego/app/edit/agentbridge"
 	"aego/core/ids"
 	"aego/editor/core/agentui"
@@ -28,6 +29,26 @@ import (
 
 // EnvShots makes the editor write the documentation screenshots to this directory and exit.
 const EnvShots = "AEGO_SHOTS"
+
+// Documentation screenshots already use a synthetic context meter. Their
+// presentation must not depend on an installed/signed-in external agent. This
+// backend is confined to explicit screenshot mode and cannot start a session.
+type screenshotAgent struct{}
+
+func (screenshotAgent) Name() string { return "documentation" }
+func (screenshotAgent) Available(backend.Config) (string, error) {
+	return "read-only documentation fixture", nil
+}
+func (screenshotAgent) Start(backend.Config) (backend.Conversation, error) {
+	return nil, fmt.Errorf("documentation screenshots cannot start an agent session")
+}
+
+func screenshotConfig(cfg Config, dir string) Config {
+	if dir != "" && cfg.AgentBackend == nil {
+		cfg.AgentBackend = screenshotAgent{}
+	}
+	return cfg
+}
 
 type shot struct {
 	name   string

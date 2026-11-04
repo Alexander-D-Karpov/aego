@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"aego/asset"
@@ -25,18 +24,24 @@ type SubResult struct {
 	Name      string
 	Kind      asset.ArtifactKind
 	Artifacts []Produced
+	Deps      []ids.AssetID
 }
 
 type Result struct {
-	Subs      []SubResult
-	Kind      asset.ArtifactKind
-	Artifacts []Produced
-	Deps      []ids.AssetID
-	Group     string
-	Raw       *texture.Data
-	RawFilter int
-	Source    []byte
-	Error     error
+	Subs        []SubResult
+	Kind        asset.ArtifactKind
+	Artifacts   []Produced
+	Deps        []ids.AssetID
+	Group       string
+	Raw         *texture.Data
+	RawFilter   int
+	RawSemantic asset.TextureSemantic
+	RawPivot    [2]float32
+	RawHasPivot bool
+	RawNormal   ids.AssetID
+	RawEmission ids.AssetID
+	Source      []byte
+	Error       error
 }
 
 type ImportContext struct {
@@ -47,6 +52,9 @@ type ImportContext struct {
 	Log    *log.ChannelLogger
 	Lookup func(path string) (ids.AssetID, bool)
 	Read   func(path string) ([]byte, error)
+	// Source returns a source path for a stable ID, including sub-assets as
+	// sheet.png#frame. It never searches by a derived file name at runtime.
+	SourcePath func(id ids.AssetID) (string, bool)
 }
 
 type Importer interface {
@@ -55,6 +63,29 @@ type Importer interface {
 	Extensions() []string
 	Defaults() Settings
 	Import(ctx *ImportContext) (*Result, error)
+}
+
+// CacheSalter includes inputs that do not have an asset artifact of their own,
+// such as embedded includes and the reference validator version. It runs before
+// the cache lookup; an error must not reuse an older, successful artifact.
+type CacheSalter interface {
+	CacheSalt(ctx *ImportContext) ([]byte, error)
+}
+
+// SourceDependencySalter declares that CacheSalt covers the complete current
+// source inputs of dependencies. Such importers store references, not data from
+// compiled dependency artifacts, and must not depend on artifact import order.
+type SourceDependencySalter interface {
+	CacheSalter
+	SourceDependencies() bool
+}
+
+// MetadataResolver resolves authoring conveniences to stable references before
+// computing the import key. It returns cloned settings only when an update is
+// needed. The pipeline owns atomic persistence and checks concurrent edits.
+// Preview calls this hook on a private metadata copy without writing files.
+type MetadataResolver interface {
+	ResolveMetadata(ctx *ImportContext) (Settings, error)
 }
 
 type GroupMember struct {
@@ -126,15 +157,6 @@ func (r *ImporterRegistry) Each(fn func(Importer)) {
 	for _, imp := range r.order {
 		fn(imp)
 	}
-}
-
-func sortedKeys(s Settings) []string {
-	out := make([]string, 0, len(s))
-	for k := range s {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
 
 var _ = vfs.Mount{}

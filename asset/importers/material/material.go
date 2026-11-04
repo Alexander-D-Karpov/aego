@@ -1,14 +1,13 @@
-// Package material imports .aemat files: the artifact is the normalized text, checked for syntax only; the resolver applies it to the shader.
+// Package material imports .aemat source documents into versioned binary AEMT artifacts.
 package material
 
 import (
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/errs"
-	"aego/format/aetext"
 )
 
-const Version = 1
+const Version = 2
 
 type Importer struct{}
 
@@ -24,10 +23,13 @@ func (*Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
 	if err != nil {
 		return nil, errs.Wrap(err, errs.AssetImportFailed, "cannot read the material")
 	}
-	n, _ := aetext.Parse(ctx.Source, ctx.Path)
+	data := asset.EncodeMaterial(d)
+	if _, err := asset.DecodeMaterial(data, ctx.Path); err != nil {
+		return nil, errs.Wrap(err, errs.AssetImportFailed, "cannot prepare binary material")
+	}
 	return &pipeline.Result{
 		Kind:      asset.ArtMaterial,
 		Deps:      d.Deps(),
-		Artifacts: []pipeline.Produced{{Kind: asset.ArtMaterial, Data: aetext.Write(n)}},
+		Artifacts: []pipeline.Produced{{Kind: asset.ArtMaterial, Data: data}},
 	}, nil
 }

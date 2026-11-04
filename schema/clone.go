@@ -13,6 +13,17 @@ type fixer func(dst, src unsafe.Pointer)
 func Clone[T any](fn func(dst, src *T)) Option {
 	return func(o *regOptions) {
 		o.clone = func(dst, src unsafe.Pointer) { fn((*T)(dst), (*T)(src)) }
+		o.fullClone = false
+	}
+}
+
+// FullClone registers a complete typed copy. The callback must copy every field
+// and detach mutable data from src. Unlike Clone it receives the previous dst,
+// which may be reused, without an automatic copy of slices before the callback.
+func FullClone[T any](fn func(dst, src *T)) Option {
+	return func(o *regOptions) {
+		o.clone = func(dst, src unsafe.Pointer) { fn((*T)(dst), (*T)(src)) }
+		o.fullClone = true
 	}
 }
 
@@ -148,6 +159,10 @@ func skippedRef(rt reflect.Type) (string, bool) {
 }
 
 func finishClone(td *TypeDescriptor, rt reflect.Type, o *regOptions) error {
+	if o.fullClone {
+		td.CloneInto = o.clone
+		return nil
+	}
 	if o.clone == nil {
 		if name, ok := skippedRef(rt); ok {
 			return errs.New(errs.SchemaBadField,

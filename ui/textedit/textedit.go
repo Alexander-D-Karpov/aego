@@ -2,6 +2,7 @@ package textedit
 
 import (
 	"slices"
+	"strings"
 	"unicode"
 )
 
@@ -30,6 +31,7 @@ type snapshot struct {
 }
 
 type Buffer struct {
+	Multiline    bool
 	MaxLen       int
 	HistoryLimit int
 	runes        []rune
@@ -54,6 +56,7 @@ func (b *Buffer) Set(s string) {
 	b.anchor = b.cursor
 	b.comp = b.comp[:0]
 	b.compCursor = 0
+	clear(b.history)
 	b.history = b.history[:0]
 	b.last = opNone
 	b.rev++
@@ -148,9 +151,16 @@ func (b *Buffer) deleteSelection() bool {
 	return true
 }
 
-func sanitize(s string) []rune {
+func sanitize(s string, multiline bool) []rune {
+	if multiline {
+		s = strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
+	}
 	out := make([]rune, 0, len(s))
 	for _, r := range s {
+		if multiline && (r == '\n' || r == '\t') {
+			out = append(out, r)
+			continue
+		}
 		if r == '\n' || r == '\r' {
 			r = ' '
 		}
@@ -163,7 +173,7 @@ func sanitize(s string) []rune {
 }
 
 func (b *Buffer) Insert(s string) {
-	ins := sanitize(s)
+	ins := sanitize(s, b.Multiline)
 	if len(ins) == 0 {
 		return
 	}

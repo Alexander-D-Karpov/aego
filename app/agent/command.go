@@ -18,6 +18,7 @@ type Arg struct {
 	Doc      string
 	Required bool
 	Pos      bool
+	Items    map[string]any
 }
 
 type Command struct {
@@ -45,7 +46,8 @@ type Output struct {
 	Value    any              `json:"value,omitempty"`
 	Text     string           `json:"-"`
 	// Images go to the model as image content, such as the screenshots of a run.
-	Images []Image `json:"-"`
+	Images  []Image      `json:"-"`
+	Drawing *DrawingEdit `json:"-"`
 }
 
 // Image is a picture an answer carries.
@@ -67,12 +69,23 @@ func catalog() []*Command {
 	out = append(out, ctrlCommands()...)
 	out = append(out, refsCommands()...)
 	out = append(out, assetCommands()...)
+	out = append(out, variantCommand())
+	out = append(out, materialCommands()...)
+	out = append(out, postEffectCommands()...)
+	out = append(out, textureCommands()...)
 	out = append(out, schemaCommands()...)
 	out = append(out, projectCommands()...)
 	out = append(out, scriptCommands()...)
 	ls := looks()
 	for _, c := range out {
 		c.Look = ls[c.Name]
+		if c.Name == "asset.import-variant" {
+			c.Look = ls["asset.pixels"]
+		}
+		if c.Look.Title == nil && (strings.HasPrefix(c.Name, "postfx.") || strings.HasPrefix(c.Name, "material.") || strings.HasPrefix(c.Name, "shader.") || strings.HasPrefix(c.Name, "texture.")) {
+			name := strings.ReplaceAll(c.Name, ".", " ")
+			c.Look = Look{Icon: "comp.sprite", Title: func(a Args) string { return name + " " + file(a) }, Summary: changes}
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
@@ -137,7 +150,11 @@ func (c *Command) Schema() map[string]any {
 	props := map[string]any{}
 	var req []string
 	for _, x := range c.AllArgs() {
-		props[x.Name] = map[string]any{"type": x.Type, "description": x.Doc}
+		prop := map[string]any{"type": x.Type, "description": x.Doc}
+		if x.Items != nil {
+			prop["items"] = x.Items
+		}
+		props[x.Name] = prop
 		if x.Required {
 			req = append(req, x.Name)
 		}

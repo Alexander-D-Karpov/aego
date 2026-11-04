@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -287,4 +288,17 @@ func (d *Document) check(fd *schema.FieldDescriptor, v schema.Value, what string
 		}
 	}
 	return nil
+}
+
+// TypedLiteral applies the same input checks as a public scene.set command to
+// a field declared by a plugin rather than stored directly in the schema.
+func (d *Document) TypedLiteral(kind schema.Kind, text string) (schema.Value, error) {
+	v, err := ParseValue(text)
+	if err != nil {
+		return schema.Value{}, err
+	}
+	if kind == schema.KindInt32 && (v.AsFloat() < math.MinInt32 || v.AsFloat() > math.MaxInt32) {
+		return schema.Value{}, fmt.Errorf("integer outside int32 range")
+	}
+	return d.read(plain(kind), v)
 }

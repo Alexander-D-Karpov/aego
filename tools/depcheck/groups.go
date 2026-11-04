@@ -171,7 +171,7 @@ func groupRule(from, to group) string {
 }
 
 // runtimeForbidden lists what the aego_runtime build must never reach.
-var runtimeForbidden = with(scriptCompilerOnly, "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
+var runtimeForbidden = with(scriptCompilerOnly, "render/shaderx", "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
 	"app", "app/agent/...", "app/agentui/...", "app/bootstrap", "app/docstool", "app/edit", "app/edit/...", "app/export", "app/export/...", "app/playground",
 	"app/projects", "app/run", "app/supervise", "app/assembly/editors", "app/assembly/playground",
 	"engine/docs", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",
@@ -200,7 +200,7 @@ var wasmRoots = []struct {
 
 var wasmExtra = []string{
 	"modules/render2d", "modules/scripting/...", "modules/input", "modules/physics/...", "modules/debug", "modules/tween", "modules/animation", "modules/camera", "modules/gameplay", "modules/render3d",
-	"modules/spawn", "modules/savegame", "modules/audio", "app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
+	"modules/spawn", "modules/savegame", "modules/audio", "modules/particles", "app/assembly", "app/assembly/playground", "app/playground", "cmd/aego-playground",
 }
 
 // match reports whether p matches pattern: "a/b", "a/...", "..." or "*" per segment.

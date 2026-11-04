@@ -2,6 +2,8 @@
 package agentui
 
 import (
+	"context"
+
 	"aego/core/ids"
 	"aego/schema"
 )
@@ -21,13 +23,18 @@ const (
 )
 
 type Event struct {
-	Kind   EventKind
-	Text   string
-	Tool   string
-	CallID string
-	Args   string
-	Result string
-	Failed bool
+	Images    [][]byte
+	ImageKeys []string
+	Kind      EventKind
+	Text      string
+	Tool      string
+	CallID    string
+	Args      string
+	Result    string
+	Failed    bool
+	// Delta appends Text verbatim to MessageID; ordinary EvText contains a complete block.
+	Delta     bool
+	MessageID string
 	// Cost in US dollars and Millis of the answer, on EvTurnEnd when the backend reports them.
 	Cost   float64
 	Millis int
@@ -94,9 +101,10 @@ func (c Change) String() string {
 
 // Card is a write proposal as the panel shows it.
 type Card struct {
-	ID      int
-	Command string
-	Args    string
+	PreviewImages [][]byte
+	ID            int
+	Command       string
+	Args          string
 	// File is the document the card changes, relative to the project.
 	File    string
 	Changes []Change
@@ -130,7 +138,8 @@ type Question struct {
 	Answer string
 }
 
-// Host runs the model and its tools for the panel; every method is called on the main thread.
+// Host runs the model and its tools for the panel. Available may run off the main thread;
+// all other methods are called on the main thread.
 type Host interface {
 	Available(command string) (string, error)
 	Command() string
@@ -163,6 +172,41 @@ type Host interface {
 	SetBudgets(b Budgets)
 }
 
+// ProviderSettings are local editor preferences, never project assets or credentials.
+// Empty command, model and effort inherit the selected CLI's defaults.
+type ProviderSettings struct {
+	Provider string
+	Command  string
+	Model    string
+	Effort   string
+}
+
+// ProviderHost is optional so injected test and replay hosts keep the same contract.
+type ProviderHost interface {
+	Provider() string
+	SetProvider(string) error
+}
+
+// ModelHost controls overrides for the selected provider. Changes start a new conversation.
+type ModelHost interface {
+	Model() string
+	SetModel(string) error
+	Effort() string
+	SetEffort(string) error
+}
+
+// ModelOption is an advertised model and its supported reasoning levels.
+type ModelOption struct {
+	ID, Label, Description string
+	Efforts                []string
+}
+
+// ModelCatalogHost is optional. ListModels may run off the main thread; its
+// arguments are a snapshot, so changing providers cannot affect an old probe.
+type ModelCatalogHost interface {
+	ListModels(ctx context.Context, provider, command string) ([]ModelOption, error)
+}
+
 // Budgets cap what read tools return, so a large scene or a broad search does not fill the context.
 type Budgets struct {
 	// TreeNodes and TreeDepth cap scene_tree; DocResults caps docs_search; ScriptLines is the longest script read whole.
@@ -174,3 +218,14 @@ type Budgets struct {
 
 // DefaultBudgets are the limits a new editor starts with.
 var DefaultBudgets = Budgets{TreeNodes: 200, TreeDepth: 8, DocResults: 10, ScriptLines: 400}
+
+type Connection struct {
+	Provider, Model, Project, Document, Thread, State, Last, Vision, Probe string
+	Tools                                                                  int
+}
+
+type SceneHost interface {
+	ExplainScene(text string) error
+	CheckConnection() error
+	Diagnostics() Connection
+}

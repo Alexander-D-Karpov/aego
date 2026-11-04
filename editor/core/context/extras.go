@@ -1,15 +1,28 @@
 package context
 
 import (
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/i18n"
 	"aego/render/debug"
+	"aego/render/lighting"
 	"aego/render/view"
 	"aego/scene"
 )
 
 const DefaultVectorScale = 0.1
+
+// LightingViewBridge changes the active Scene View's presentation session.
+// It must not modify scene components, PlayWorld or asset documents.
+type LightingViewBridge interface {
+	SetLightingView(enabled bool, mode lighting.DebugMode)
+	LightingView() (enabled bool, mode lighting.DebugMode)
+	LightingOutput() view.ID
+	LightingWorld() *engine.World
+	SetLightingEnvironmentPreview(ids.NodeID)
+	LightingEnvironmentPreview() ids.NodeID
+}
 
 type SettingsPage struct {
 	Section  string

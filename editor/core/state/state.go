@@ -53,6 +53,12 @@ type Editor struct {
 	HighlightBlock  bool
 	// AgentCommand is the Claude Code binary of the Agent panel; empty means claude from PATH (D341).
 	AgentCommand string
+	// Provider preferences stay in .aego/user; the legacy command remains Claude's path.
+	AgentProvider     string
+	AgentCodexCommand string
+	AgentClaudeModel  string
+	AgentCodexModel   string
+	AgentCodexEffort  string
 }
 
 func Default() *Editor {
@@ -153,8 +159,10 @@ func Encode(s *Editor) []byte {
 		aetext.Field{Name: "codeRainbow", Value: aetext.Bool(s.RainbowBrackets)},
 		aetext.Field{Name: "highlightBlock", Value: aetext.Bool(s.HighlightBlock)},
 	)
-	if s.AgentCommand != "" {
-		root.Fields = append(root.Fields, aetext.Field{Name: "agentCommand", Value: aetext.String(s.AgentCommand)})
+	for _, field := range agentFields(s) {
+		if *field.value != "" {
+			root.Fields = append(root.Fields, aetext.Field{Name: field.name, Value: aetext.String(*field.value)})
+		}
 	}
 	collapsed := make([]aetext.Value, len(s.Collapsed))
 	for i, k := range s.Collapsed {
@@ -249,8 +257,10 @@ func Decode(data []byte, name string) (*Editor, error) {
 	if v, ok := doc.Field("highlightBlock"); ok {
 		s.HighlightBlock = v.Bool
 	}
-	if v, ok := doc.Field("agentCommand"); ok {
-		s.AgentCommand = v.Str
+	for _, field := range agentFields(s) {
+		if v, ok := doc.Field(field.name); ok {
+			*field.value = v.Str
+		}
 	}
 	if v, ok := doc.Field("collapsed"); ok {
 		for _, item := range v.List {

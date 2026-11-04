@@ -1,0 +1,20 @@
+package demo
+
+import (
+    "aego/tween"
+    "aego/curve"
+)
+
+// This uses the same propref as Animation, and changes only this world's node.
+script FlashTween {
+    var flash tween.Tween
+
+    func Ready() {
+        node.Get<MaterialOverride>().SetFloat("Flash", 0)
+        flash = tween.ToFloat(node, "MaterialOverride.Flash", 1, 0.9, curve.InOutSine).PingPong(-1)
+    }
+
+    func Reloaded() {
+        flash = tween.ToFloat(node, "MaterialOverride.Flash", 1, 0.9, curve.InOutSine).PingPong(-1)
+    }
+}

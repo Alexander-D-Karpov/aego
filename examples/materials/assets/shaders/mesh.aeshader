@@ -1,0 +1,13 @@
+#pragma aego abi 1
+#pragma domain mesh2d
+#include "engine/sprite.glsl"
+#pragma material
+uniform vec4 Accent; // @color @default(0.05, 0.7, 0.5, 1)
+uniform float Pulse; // @instance @default(0.5) @range(0, 1)
+#pragma end
+void fragment() {
+    vec4 color = aego_sample();
+    float bands = 0.75 + 0.25 * sin(aego_local.x * 20.0 + aego_time * 2.0);
+    color.rgb *= mix(vec3(1.0), Accent.rgb * bands, clamp(Pulse, 0.0, 1.0));
+    aego_out = color;
+}

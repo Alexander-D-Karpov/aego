@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"aego/core/errs"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/core/trace"
@@ -64,28 +65,46 @@ func (o Options) withDefaults() Options {
 }
 
 type Stats struct {
-	Submitted      uint32
-	Visible        uint32
-	Culled         uint32
-	Dropped        uint32
-	ZClamped       uint32
-	Batches        uint32
-	DrawCalls      uint32
-	Instances      uint32
-	TexSwitches    uint32
-	DebugVerts     uint32
-	InstanceBytes  uint32
-	MeshDraws      uint32
-	MeshCulled     uint32
-	Sprites3D      uint32
-	Sprite3DCulled uint32
-	CPURenderNS    uint64
-	GPUNS          uint64
-	GPUValid       bool
-	Views          uint32
+	MaterialCount, MaterialPrograms, MaterialVariants, MaterialPending                      int
+	MaterialUBOBytes, MaterialLaneBytes, FrameUBOBytes, ViewUBOBytes                        uint64
+	PipelineSwitches, MaterialBreaks, TextureBreaks, PipelineBreaks, ClipBreaks, MeshBreaks uint32
+	// Material failures and committed generations are cumulative since cache creation.
+	MaterialCompileFailures, MaterialReloadGenerations           uint64
+	Submitted                                                    uint32
+	Visible                                                      uint32
+	Culled                                                       uint32
+	Dropped                                                      uint32
+	ZClamped                                                     uint32
+	Batches                                                      uint32
+	DrawCalls                                                    uint32
+	Instances                                                    uint32
+	TexSwitches                                                  uint32
+	DebugVerts                                                   uint32
+	InstanceBytes                                                uint32
+	MeshDraws                                                    uint32
+	MeshCulled                                                   uint32
+	Sprites3D                                                    uint32
+	Sprite3DCulled                                               uint32
+	CPURenderNS                                                  uint64
+	GPUNS                                                        uint64
+	GPUValid                                                     bool
+	Views                                                        uint32
+	LightingBreaks, LightSets, SelectedLights, DroppedLights     uint32
+	LightingUBOBytes, ShadowBytes, LightingTargetBytes           uint64
+	DirtyShadowMasks, ShadowCacheHits, ShadowDraws, CookieCopies uint32
+	LightingResources                                            int
+	DroppedShadowLights, DroppedCookieLights, LightingFailures   uint32
+	ShadowUploadBytes                                            uint64
+	ResolvePasses                                                uint32
+	PostFXPasses, PostFXTargets, PostFXFailures                  uint32
+	PostFXAuxPixels, PostFXReplacedClears                        uint64
+	CookieBytes                                                  uint64
+	DroppedLightAssignments                                      uint32
+	LightingSelectNS, ShadowGeometryNS, LightingAuxNS            uint64
+	LightingSceneNS, LightingResolveNS                           uint64
 }
 
-// Clock is what the frame block (ub0) gives shaders: game time, delta, unscaled delta and the frame number.
+// Clock is the world frame block: game elapsed time, game delta, unscaled elapsed time and frame number.
 type Clock struct {
 	Time     float32
 	Delta    float32
@@ -94,6 +113,11 @@ type Clock struct {
 }
 
 type Renderer struct {
+	inspection     passInspection
+	fx             postProcessState
+	lightState     lightingState
+	shadowPreview  *shadowPreviewState
+	materialStart  material.Stats
 	dev            gpu.Device
 	caps           gpu.Capabilities
 	log            *log.ChannelLogger
@@ -112,6 +136,7 @@ type Renderer struct {
 	meshShader     gpu.ShaderHandle
 	debugShader    gpu.ShaderHandle
 	spritePipes    [blendModes]gpu.PipelineHandle
+	spriteAuxPipes [blendModes]gpu.PipelineHandle
 	sprite3dPipes  [blendModes]gpu.PipelineHandle
 	meshPipes      [blendModes][2]gpu.PipelineHandle
 	debugPipe      gpu.PipelineHandle
@@ -137,6 +162,7 @@ type Renderer struct {
 	vf             ViewFrame
 	stats          Stats
 	textBuf        []sprite.Draw
+	customPasses   bool
 	passCtx        PassContext
 	defSampler     gpu.SamplerHandle
 	warned         bool
@@ -342,11 +368,14 @@ func putF32(b []byte, v float32) {
 // materialPipe is the pipeline state of a material's domain; the material cache adds the program.
 func materialPipe(d shader.Domain, lanes int, b shader.Blend) gpu.PipelineDesc {
 	m := sprite.BlendMode(b)
+	if d == shader.DomainPostFX {
+		return gpu.PipelineDesc{Blend: sprite.BlendState(m), Primitive: gpu.PrimTriangleStrip}
+	}
 	if d == shader.DomainMesh2D {
 		return gpu.PipelineDesc{
-			Layout:    mesh.Layout(),
+			Layout:    mesh.LaneLayout(lanes),
 			Blend:     sprite.BlendState(m),
-			Depth:     gpu.DepthState{Test: true, Write: m == sprite.BlendOpaque, Compare: gpu.CompareLess},
+			Depth:     gpu.DepthState{},
 			Cull:      gpu.CullNone,
 			Primitive: gpu.PrimTriangles,
 		}
@@ -355,8 +384,16 @@ func materialPipe(d shader.Domain, lanes int, b shader.Blend) gpu.PipelineDesc {
 }
 
 func (r *Renderer) SetClock(c Clock) {
-	if r.pinned == nil {
-		r.clock = c
+	if r.pinned != nil || r.clock == c {
+		return
+	}
+	r.clock = c
+	// A renderer can submit several worlds in one device frame. Each world's
+	// frame data must be visible before its views, without touching simulation.
+	if r.frame != nil {
+		shader.PutFrame(r.frameBuf, c.Time, c.Delta, c.Unscaled, c.Frame)
+		r.dev.UpdateBuffer(r.ubFrame, 0, r.frameBuf)
+		r.stats.FrameUBOBytes += uint64(len(r.frameBuf))
 	}
 }
 
@@ -389,7 +426,13 @@ func (r *Renderer) putView(v *view.View) {
 		zoom = v.Camera.Zoom
 	}
 	shader.PutView(r.viewBuf, (*[16]float32)(&vp), [4]float32{vr.X, vr.Y, vr.W, vr.H}, v.PixelScale, v.PixelsPerUnit, zoom, [3]float32{cam.X, cam.Y, cam.Z})
+	sign := float32(-1)
+	if v.Flipped(r.caps) {
+		sign = 1
+	}
+	putF32(r.viewBuf[92:], sign)
 	r.dev.UpdateBuffer(r.ubView, 0, r.viewBuf)
+	r.stats.ViewUBOBytes += uint64(len(r.viewBuf))
 }
 
 func (r *Renderer) Textures() *texture.Uploader {
@@ -436,6 +479,7 @@ func (r *Renderer) AddPass(d PassDesc) error {
 	if r.frozen {
 		return errs.New(errs.EngineFrozen, "render passes are frozen after the first frame", log.F("pass", d.ID))
 	}
+	r.customPasses = true
 	r.passes = append(r.passes, d)
 	return nil
 }
@@ -453,15 +497,18 @@ func (r *Renderer) BeginFrame(f gpu.Frame, pixelW, pixelH int, pixelScale float3
 		}
 		r.frozen = true
 	}
-	r.frame = f
+	r.frame = r.inspection.begin(r, f)
 	r.fbW, r.fbH = pixelW, pixelH
 	r.fbScale = pixelScale
 	r.stats = Stats{}
+	r.beginLightingFrame()
+	r.materialStart = r.mats.Stats()
 	r.depthSeen = r.depthSeen[:0]
 	r.up.Drain(r.opt.UploadBudget)
 	r.mats.Begin()
 	shader.PutFrame(r.frameBuf, r.clock.Time, r.clock.Delta, r.clock.Unscaled, r.clock.Frame)
 	r.dev.UpdateBuffer(r.ubFrame, 0, r.frameBuf)
+	r.stats.FrameUBOBytes += uint64(len(r.frameBuf))
 	if f != nil {
 		r.prof.Collect(f)
 	}
@@ -485,9 +532,21 @@ func (r *Renderer) framebuffer() (int, int) {
 func (r *Renderer) View(v view.View) *ViewFrame {
 	f := &r.vf
 	f.reset(v)
+	if r.inspection.active {
+		r.inspection.output = v.OutputID
+		if v.OutputID == (view.ID{}) {
+			r.inspection.output = view.ID{Scope: ^uint64(0), Node: ids.NodeID{Lo: uint64(r.stats.Views) + 1}}
+		}
+	}
 	r.stats.Views++
+	return f
+}
+
+// Submission finishes before the main GPU pass opens. Auxiliary targets (shadow
+// masks/cookies) can therefore be prepared without nesting framebuffer passes.
+func (r *Renderer) beginView(f *ViewFrame) {
 	if r.frame == nil {
-		return f
+		return
 	}
 	fv := &f.view
 	depth := gpu.LoadKeep
@@ -501,23 +560,25 @@ func (r *Renderer) View(v view.View) *ViewFrame {
 		}
 	}
 	f.pass = r.frame.BeginPass(gpu.PassDesc{
-		Target:      fv.Target,
-		DepthTarget: fv.DepthTarget,
-		ClearColor:  fv.Clear,
-		ClearDepth:  1,
-		Color:       clearAction(fv.DoClear),
-		Depth:       depth,
-		FlipWinding: fv.Flipped(r.caps),
-		Label:       fv.Label,
+		ClearRect:         fv.ClearRegion(),
+		Target:            fv.Target,
+		DepthTarget:       fv.DepthTarget,
+		TargetSubresource: fv.TargetSubresource,
+		DepthSubresource:  fv.DepthSubresource,
+		ClearColor:        fv.Clear,
+		ClearDepth:        1,
+		Color:             clearAction(fv.DoClear),
+		Depth:             depth,
+		FlipWinding:       fv.Flipped(r.caps),
+		Label:             fv.Label,
 	})
 	f.pass.SetViewport(fv.LetterboxViewport())
 	r.putView(fv)
 	f.pass.SetUniformBuffer(shader.SlotFrame, r.ubFrame)
 	f.pass.SetUniformBuffer(shader.SlotView, r.ubView)
-	if r.stats.Views == 1 {
+	if r.stats.Views == 1 && !r.inspection.active {
 		r.prof.Begin(f.pass)
 	}
-	return f
 }
 
 func clearAction(do bool) gpu.LoadAction {
@@ -528,16 +589,24 @@ func clearAction(do bool) gpu.LoadAction {
 }
 
 func (r *Renderer) EndFrame() Stats {
+	r.lightingResourceStats()
 	if r.frame != nil {
 		fs := r.frame.Stats()
 		r.stats.DrawCalls = fs.DrawCalls
 		r.stats.TexSwitches = fs.TexSwitches
+		r.stats.PipelineSwitches = fs.PipelineSwitches
 	}
-	if ns, ok := r.prof.LastNS(); ok {
+	if ns, ok := r.prof.LastNS(); ok && !r.inspection.active {
 		r.stats.GPUNS = ns
 		r.stats.GPUValid = true
 	}
 	r.mats.End()
+	ms := r.mats.Stats()
+	r.stats.MaterialCount, r.stats.MaterialPrograms, r.stats.MaterialVariants, r.stats.MaterialPending = ms.Materials, ms.Programs, ms.Programs, ms.Pending
+	r.stats.MaterialUBOBytes = ms.UploadBytes - r.materialStart.UploadBytes
+	r.stats.MaterialLaneBytes += ms.LaneBytes - r.materialStart.LaneBytes
+	r.stats.MaterialCompileFailures, r.stats.MaterialReloadGenerations = ms.CompileFailures, ms.ReloadGenerations
+	r.inspection.end()
 	r.frame = nil
 	return r.stats
 }
@@ -555,6 +624,10 @@ func (r *Renderer) destroyShader(s gpu.ShaderHandle) {
 }
 
 func (r *Renderer) Close() {
+	r.inspection.closeTimers()
+	r.closeShadowPreview()
+	r.closePostProcess()
+	r.closeLighting()
 	if r.prof != nil {
 		r.prof.Close()
 	}
@@ -584,6 +657,7 @@ func (r *Renderer) Close() {
 	}
 	for m := range r.spritePipes {
 		r.destroyPipe(r.spritePipes[m])
+		r.destroyPipe(r.spriteAuxPipes[m])
 		r.destroyPipe(r.sprite3dPipes[m])
 		r.destroyPipe(r.meshPipes[m][0])
 		r.destroyPipe(r.meshPipes[m][1])
@@ -594,4 +668,23 @@ func (r *Renderer) Close() {
 	r.destroyShader(r.sprite3dShader)
 	r.destroyShader(r.meshShader)
 	r.destroyShader(r.debugShader)
+	// These textures and the sampler cache are renderer-owned, unlike textures
+	// uploaded through Textures() for an external asset owner. Repeated preview
+	// or Play sessions must release them before the shared device is closed.
+	if r.font != nil && !r.font.Texture.IsZero() {
+		r.dev.DestroyTexture(r.font.Texture)
+	}
+	r.font, r.uiFont = nil, nil
+	if !r.white.Texture.IsZero() {
+		r.dev.DestroyTexture(r.white.Texture)
+	}
+	r.white = texture.Region{}
+	for _, sampler := range r.samplers {
+		r.dev.DestroySampler(sampler)
+	}
+	clear(r.samplers)
+	r.defSampler = gpu.SamplerHandle{}
 }
+
+// Stats returns the current (or most recently completed) render frame counters.
+func (r *Renderer) Stats() Stats { return r.stats }

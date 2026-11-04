@@ -42,11 +42,15 @@ func pairGroup(fd *schema.FieldDescriptor) int {
 }
 
 func plan(td *schema.TypeDescriptor, play bool) []fieldRow {
+	return planFiltered(td, play, nil)
+}
+
+func planFiltered(td *schema.TypeDescriptor, play bool, visible func(*schema.FieldDescriptor) bool) []fieldRow {
 	var rows []fieldRow
 	pending := -1
 	for i := range td.Fields {
 		fd := &td.Fields[i]
-		if !visibleField(fd, play) {
+		if !visibleField(fd, play) || visible != nil && !visible(fd) {
 			continue
 		}
 		if pending >= 0 {
@@ -102,7 +106,7 @@ func (p *Panel) fields(d *document.SceneDocument, td *schema.TypeDescriptor) {
 	ui := p.f.UI
 	wide := ui.Cursor().W >= 300
 	category := ""
-	for _, row := range plan(td, p.d.Docs.Documents().InPlay()) {
+	for _, row := range planFiltered(td, p.d.Docs.Documents().InPlay(), func(fd *schema.FieldDescriptor) bool { return p.reg.FieldVisible(td.ID, p.nodes, fd) }) {
 		fd := &td.Fields[row.a]
 		if c := fd.Hints.Category; c != "" && c != category {
 			category = c
@@ -354,7 +358,11 @@ func (p *Panel) scalar(d *document.SceneDocument, id core.ID, r mathx.Rect, fd *
 		return e
 	case schema.KindVec2:
 		vec := v.V
-		e := widgets.Vec2Field(ui, id, r, &vec, numOpts(fd, false, false), mixed, mixed)
+		opts := numOpts(fd, false, false)
+		if fd.Hints.MinMaxPair {
+			opts.PairLabels = [2]string{i18n.Tr("editor.inspector.range_min", "Min"), i18n.Tr("editor.inspector.range_max", "Max")}
+		}
+		e := widgets.Vec2Field(ui, id, r, &vec, opts, mixed, mixed)
 		if e.Changed {
 			*v = schema.Vec2(vec)
 		}

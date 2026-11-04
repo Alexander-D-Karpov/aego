@@ -1,0 +1,7 @@
+anim version=1 length=4 loop=loop {
+  track "" prop="Light2D.intensity" kind=float32 {
+    key t=0 v=2.7 interp=linear {}
+    key t=2 v=3.1 interp=linear {}
+    key t=4 v=2.7 {}
+  }
+}

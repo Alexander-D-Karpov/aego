@@ -64,6 +64,10 @@ func dynFor(r *Registry, rt reflect.Type) (dyn, error) {
 		return dynOf[asset.Ref[asset.Prefab]](r)
 	case tMesh:
 		return dynOf[asset.Ref[asset.Mesh]](r)
+	case tMaterial:
+		return dynOf[asset.Ref[asset.Material]](r)
+	case tShader:
+		return dynOf[asset.Ref[asset.Shader]](r)
 	}
 	return scalarDyn(r, rt)
 }

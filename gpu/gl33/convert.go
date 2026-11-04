@@ -166,6 +166,8 @@ func vertexFormat(f gpu.VertexFormat) (size int32, xtype uint32, normalized, int
 		return 4, gl.FLOAT, false, false
 	case gpu.VFUByte4Norm:
 		return 4, gl.UNSIGNED_BYTE, true, false
+	case gpu.VFUInt4:
+		return 4, gl.UNSIGNED_INT, false, true
 	case gpu.VFUInt:
 		return 1, gl.UNSIGNED_INT, false, true
 	}

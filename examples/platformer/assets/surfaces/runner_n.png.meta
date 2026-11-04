@@ -1,0 +1,30 @@
+meta version=1 {
+  id="73af71861c4eaea895230dad07c1eefa"
+  importer="texture"
+  importerVersion=4
+  settings {
+    atlas=""
+    auto_normal=false
+    data=false
+    extrude=true
+    filter=nearest
+    generate_normal=false
+    height_channel=r
+    height_strength=3
+    mips=false
+    normal_y=up
+    padding=2
+    rotate=false
+    semantic=normal
+    srgb=false
+    trim=false
+  }
+  sub "runner_000" id="555cf62eb81fde0dd47d1035e2a69883" rect=[0, 0, 16, 16] {}
+  sub "runner_001" id="a0810d442c3a79555d170bfff8a79bfc" rect=[16, 0, 16, 16] {}
+  sub "runner_002" id="0cb8657f26161ff20d83cdec2c2eed55" rect=[32, 0, 16, 16] {}
+  sub "runner_003" id="f11bd76dfccbdf5b549e702d61988821" rect=[48, 0, 16, 16] {}
+  sub "runner_004" id="10b7d03c8455c0a6a071afe44bffb32e" rect=[64, 0, 16, 16] {}
+  sub "runner_005" id="3cd57583bde5e35cec65cfc3c3759544" rect=[80, 0, 16, 16] {}
+  sub "runner_006" id="a64f5a997a03c5378d6426f4d4a936be" rect=[96, 0, 16, 16] {}
+  sub "runner_007" id="195faa8c21f3de86376f9882c94a6239" rect=[112, 0, 16, 16] {}
+}

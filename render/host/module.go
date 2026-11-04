@@ -59,6 +59,7 @@ func (m *Module) Init(e *engine.Engine) error {
 	m.r = r
 	m.eng = e
 	r.Materials().OnError = m.shaderError
+	r.Materials().OnReload = m.shaderReady
 	return nil
 }
 
@@ -92,7 +93,7 @@ func (s beginSystem) Run(ctx *engine.Context) {
 		scale = 1
 	}
 	if ctx.Time != nil {
-		m.r.SetClock(render.Clock{Time: float32(ctx.Time.Span(clock.Game).Elapsed), Delta: float32(ctx.Dt), Unscaled: float32(ctx.Unscaled), Frame: ctx.Frame})
+		m.r.SetClock(render.Clock{Time: float32(ctx.Time.Span(clock.Game).Elapsed), Delta: float32(ctx.Dt), Unscaled: float32(ctx.Time.Span(clock.Real).Elapsed), Frame: ctx.Frame})
 	}
 	if err := m.r.BeginFrame(ctx.Engine.Frame(), metrics.PixelW, metrics.PixelH, scale); err != nil {
 		ctx.Engine.Log().With(log.Render).Error("render begin frame failed", log.F("err", err.Error()))

@@ -12,7 +12,7 @@ const textureSlots = 16
 
 type buffer struct{ size int }
 
-type texture struct{ w, h int }
+type texture struct{ desc gpu.TextureDesc }
 
 type sampler struct{}
 
@@ -63,17 +63,23 @@ func New() *Device {
 
 func (d *Device) Caps() gpu.Capabilities {
 	return gpu.Capabilities{
-		MaxTextureSize:   16384,
-		MaxTextureUnits:  textureSlots - 1,
-		Instancing:       true,
-		SRGB:             true,
-		TextureArrays:    true,
-		ClipZeroToOne:    false,
-		OriginBottomLeft: true,
-		Vendor:           "aego",
-		Renderer:         "null",
-		Version:          "null",
-		GLSL:             "none",
+		MaxTextureSize:          16384,
+		MaxVertexAttributes:     16,
+		MaxUniformBlockSize:     65536,
+		MaxTextureUnits:         textureSlots - 1,
+		MaxFragmentTextureUnits: textureSlots,
+		MaxArrayTextureLayers:   2048,
+		// Simulated support allows deterministic resource tests, not GPU verification.
+		RGBA16FRenderable: true,
+		Instancing:        true,
+		SRGB:              true,
+		TextureArrays:     true,
+		ClipZeroToOne:     false,
+		OriginBottomLeft:  true,
+		Vendor:            "aego",
+		Renderer:          "null",
+		Version:           "null",
+		GLSL:              "none",
 	}
 }
 
@@ -94,33 +100,99 @@ func (d *Device) DestroyBuffer(h gpu.BufferHandle) {
 }
 
 func (d *Device) CreateTexture(desc gpu.TextureDesc) (gpu.TextureHandle, error) {
-	if desc.Width <= 0 || desc.Height <= 0 {
-		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "texture size must be positive", log.F("label", desc.Label))
+	if err := gpu.ValidateTextureDesc(desc, d.Caps()); err != nil {
+		return gpu.TextureHandle{}, errs.Wrap(err, errs.GPUResource, "create texture")
 	}
 	h, t := d.textures.Alloc()
-	t.w, t.h = desc.Width, desc.Height
+	desc.Data = nil
+	t.desc = desc
 	return gpu.TextureHandle(h), nil
 }
 
-func (d *Device) UpdateTexture(t gpu.TextureHandle, x, y, w, h int, data []byte) {}
+func (d *Device) UpdateTexture(t gpu.TextureHandle, x, y, w, h int, data []byte) {
+	if len(data) > 0 {
+		_ = d.UpdateTextureRegion(t, gpu.TextureUpdate{X: x, Y: y, Width: w, Height: h, Data: data})
+	}
+}
 
-func (d *Device) DestroyTexture(h gpu.TextureHandle) {
-	d.destroy(kindTexture, h.Index, h.Gen)
+func (d *Device) UpdateTextureRegion(th gpu.TextureHandle, u gpu.TextureUpdate) error {
+	t, ok := d.textures.Get(handle.Cast[texture](th))
+	if !ok {
+		return errs.New(errs.GPUInvalidHandle, "texture update: invalid texture handle")
+	}
+	if err := gpu.ValidateTextureUpdate(t.desc, u); err != nil {
+		return errs.Wrap(err, errs.GPUResource, "texture update")
+	}
+	return nil
+}
+
+func (d *Device) DestroyTexture(h gpu.TextureHandle) { d.destroy(kindTexture, h.Index, h.Gen) }
+
+func (d *Device) ValidateRenderTarget(desc gpu.PassDesc) error {
+	if desc.Target.IsZero() {
+		return nil
+	}
+	t, ok := d.textures.Get(handle.Cast[texture](desc.Target))
+	if !ok {
+		return errs.New(errs.GPUInvalidHandle, "render target: invalid texture handle")
+	}
+	w, h, ok := t.desc.SubresourceSize(desc.TargetSubresource)
+	if !ok {
+		return errs.New(errs.GPUResource, "render target: invalid layer or mip")
+	}
+	if !desc.DepthTarget.IsZero() {
+		dt, valid := d.textures.Get(handle.Cast[texture](desc.DepthTarget))
+		if !valid || dt.desc.Format != gpu.TexDepth24Stencil8 || t.desc.Format == gpu.TexDepth24Stencil8 {
+			return errs.New(errs.GPUResource, "render target: invalid depth attachment")
+		}
+		dw, dh, valid := dt.desc.SubresourceSize(desc.DepthSubresource)
+		if !valid || dw != w || dh != h {
+			return errs.New(errs.GPUResource, "render target: depth dimensions mismatch")
+		}
+	}
+	return nil
 }
 
 // ReadPixels validates like a real backend and returns transparent black.
 func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) error {
+	return d.ReadTexturePixels(th, gpu.TextureSubresource{}, x, y, w, h, out)
+}
+
+func (d *Device) validateRead(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h, n int, floating bool) error {
 	t, ok := d.textures.Get(handle.Cast[texture](th))
 	if !ok {
-		return errs.New(errs.GPUInvalidHandle, "read pixels: texture handle is invalid")
+		return errs.New(errs.GPUInvalidHandle, "read pixels: invalid texture handle")
 	}
-	if x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > t.w || y+h > t.h {
-		return errs.New(errs.GPUResource, "read pixels: region out of range",
-			log.F("x", x), log.F("y", y), log.F("w", w), log.F("h", h))
+	if t.desc.Format == gpu.TexDepth24Stencil8 {
+		return errs.New(errs.GPUResource, "read pixels: depth textures are not readable")
 	}
-	if need := w * h * 4; len(out) < need {
-		return errs.New(errs.GPUResource, "read pixels: destination too small",
-			log.F("need", need), log.F("got", len(out)))
+	if (t.desc.Format == gpu.TexRGBA16F) != floating {
+		return errs.New(errs.GPUResource, "read pixels: RGBA16F requires float readback; normalized targets require byte readback")
+	}
+	tw, thh, valid := t.desc.SubresourceSize(sub)
+	if !valid || x < 0 || y < 0 || w <= 0 || h <= 0 || w > tw || h > thh || x > tw-w || y > thh-h {
+		return errs.New(errs.GPUResource, "read pixels: invalid region or subresource")
+	}
+	if uint64(n) < uint64(w)*uint64(h)*4 {
+		return errs.New(errs.GPUResource, "read pixels: destination too small")
+	}
+	if d.inFrame {
+		return errs.New(errs.GPUResource, "read pixels: must be called after EndFrame")
+	}
+	return nil
+}
+
+func (d *Device) ReadTexturePixels(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h int, out []byte) error {
+	if err := d.validateRead(th, sub, x, y, w, h, len(out), false); err != nil {
+		return err
+	}
+	clear(out[:w*h*4])
+	return nil
+}
+
+func (d *Device) ReadTexturePixelsFloat(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h int, out []float32) error {
+	if err := d.validateRead(th, sub, x, y, w, h, len(out), true); err != nil {
+		return err
 	}
 	clear(out[:w*h*4])
 	return nil
@@ -148,6 +220,9 @@ func (d *Device) DestroyShader(h gpu.ShaderHandle) {
 }
 
 func (d *Device) CreatePipeline(desc gpu.PipelineDesc) (gpu.PipelineHandle, error) {
+	if err := gpu.ValidateVertexLayout(desc.Layout, d.Caps()); err != nil {
+		return gpu.PipelineHandle{}, err
+	}
 	if !d.shaders.Valid(handle.Cast[shader](desc.Shader)) {
 		return gpu.PipelineHandle{}, errs.New(errs.GPUInvalidHandle, "pipeline shader handle is invalid", log.F("label", desc.Label))
 	}
@@ -220,7 +295,11 @@ type frame struct {
 
 func (f *frame) BeginPass(desc gpu.PassDesc) gpu.Pass {
 	p := &f.d.pass
-	p.active = true
+	err := f.d.ValidateRenderTarget(desc)
+	if err != nil && desc.OmitMismatchedDepth(f.d) {
+		err = f.d.ValidateRenderTarget(desc)
+	}
+	p.active = err == nil
 	p.pipe = handle.Handle[pipeline]{}
 	p.textures = [textureSlots]gpu.TextureHandle{}
 	return p
@@ -288,6 +367,9 @@ func (p *pass) DrawIndexedInstanced(count, first, instances int) {
 }
 
 func (p *pass) count(n, instances int) {
+	if !p.active {
+		return
+	}
 	prim := gpu.PrimTriangles
 	if pl, ok := p.d.pipelines.Get(p.pipe); ok {
 		prim = pl.prim
@@ -304,4 +386,18 @@ func (p *pass) EndQuery() {}
 
 func (p *pass) End() {
 	p.active = false
+}
+
+func (d *Device) ResourceStats() gpu.ResourceStats {
+	st := gpu.ResourceStats{Buffers: d.buffers.Len(), Textures: d.textures.Len(), Samplers: d.samplers.Len(), Shaders: d.shaders.Len(), Pipelines: d.pipelines.Len()}
+	d.textures.Each(func(_ handle.Handle[texture], t *texture) { st.TextureStorageBytes += t.desc.StorageBytes() })
+	return st
+}
+
+func (d *Device) TextureInfo(h gpu.TextureHandle) (gpu.TextureDesc, bool) {
+	t, ok := d.textures.Get(handle.Cast[texture](h))
+	if !ok {
+		return gpu.TextureDesc{}, false
+	}
+	return t.desc, true
 }

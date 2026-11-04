@@ -275,9 +275,7 @@ func (m *Module) Init(ctx *module.InitContext) error {
 		m.syncBus(i)
 	}
 	m.syncEnabled()
-	if !m.manual {
-		m.pump.Start()
-	}
+	m.startPump()
 	m.log.Info("audio output", log.F("rate", spec.SampleRate), log.F("frames", spec.Frames), log.F("channels", spec.Channels))
 	return nil
 }
@@ -309,6 +307,16 @@ func (m *Module) drive(out platform.AudioOutput, spec platform.AudioSpec) {
 	m.frameDt = 0
 }
 
+func (m *Module) startPump() {
+	if !m.manual {
+		m.pump.Start()
+		return
+	}
+	if out, ok := m.out.(interface{ SetRefill(func() int) }); ok {
+		out.SetRefill(m.pump.Fill)
+	}
+}
+
 func pumpConfig(out platform.AudioOutput, spec platform.AudioSpec) pump.Config {
 	target := 3
 	if t, ok := out.(interface{ TargetBlocks() int }); ok {
@@ -331,9 +339,7 @@ func (m *Module) Reopen(want platform.AudioSpec) error {
 	m.out, m.spec, m.requested = out, spec, want
 	m.drive(out, spec)
 	m.pump.SetOutput(out, pumpConfig(out, spec))
-	if !m.manual {
-		m.pump.Start()
-	}
+	m.startPump()
 	m.log.Info("audio output reopened", log.F("rate", spec.SampleRate), log.F("frames", spec.Frames))
 	return nil
 }
@@ -363,12 +369,15 @@ func (m *Module) pace(dt float64) {
 	if dt <= 0 || m.spec.SampleRate <= 0 || m.spec.Frames <= 0 {
 		return
 	}
-	if m.frameDt == 0 {
+	block := float64(m.spec.Frames) / float64(m.spec.SampleRate)
+	// A late frame needs additional audio before its next render begins.
+	// Raise the reserve immediately and release it on subsequent healthy frames.
+	dt = min(dt, float64(maxBlocks)*block)
+	if dt > m.frameDt {
 		m.frameDt = dt
 	} else {
-		m.frameDt += (dt - m.frameDt) * 0.1
+		m.frameDt += (dt - m.frameDt) * .1
 	}
-	block := float64(m.spec.Frames) / float64(m.spec.SampleRate)
 	n := int(1.5*m.frameDt/block+0.999) + 1
 	m.pump.SetTarget(min(max(n, m.minBlocks), maxBlocks))
 }

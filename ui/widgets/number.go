@@ -26,18 +26,19 @@ func (e Edit) Any() bool {
 }
 
 type NumberOpts struct {
-	Speed   float64
-	Min     float64
-	Max     float64
-	HasMin  bool
-	HasMax  bool
-	Prec    int
-	Suffix  string
-	Unit    string
-	Mixed   bool
-	Int     bool
-	Lead    float32
-	Percent bool
+	Speed      float64
+	Min        float64
+	Max        float64
+	HasMin     bool
+	HasMax     bool
+	Prec       int
+	Suffix     string
+	Unit       string
+	Mixed      bool
+	Int        bool
+	Lead       float32
+	PairLabels [2]string
+	Percent    bool
 }
 
 func (o NumberOpts) clamp(v float64) float64 {
@@ -210,6 +211,11 @@ func vecField(c *core.Context, id core.ID, r mathx.Rect, ptrs []*float32, mixed 
 	w := (r.W - gap*float32(n-1)) / float32(n)
 	cols := [3]mathx.Color{th.AxisX, th.AxisY, th.AxisZ}
 	names := [3]string{"X", "Y", "Z"}
+	rangePair := n == 2 && o.PairLabels[0] != "" && o.PairLabels[1] != ""
+	if rangePair {
+		names[0], names[1] = o.PairLabels[0], o.PairLabels[1]
+		cols[0], cols[1] = th.TextDim, th.TextDim
+	}
 	var e Edit
 	for i, ptr := range ptrs {
 		cell := mathx.Rect{X: r.X + float32(i)*(w+gap), Y: r.Y, W: w, H: r.H}
@@ -217,6 +223,9 @@ func vecField(c *core.Context, id core.ID, r mathx.Rect, ptrs []*float32, mixed 
 		oo := o
 		oo.Mixed = mixed[i]
 		oo.Lead = 14
+		if rangePair {
+			oo.Lead = c.TextSize(names[i]).X + 9
+		}
 		e = e.Or(DragFloat32(c, sub, cell, ptr, oo))
 		if c.Focus() != sub {
 			c.Rect(mathx.Rect{X: cell.X + 2, Y: cell.Y + 4, W: 2, H: cell.H - 8}, cols[i])

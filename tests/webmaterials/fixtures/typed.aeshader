@@ -1,0 +1,15 @@
+#pragma aego abi 1
+#pragma material
+uniform float Head; // @default(0.25)
+uniform vec3 Three; // @default(0.1,0.2,0.3)
+uniform float Tail; // @default(0.125)
+uniform int Counter; // @default(16777217)
+uniform int Code; // @instance @default(1)
+uniform bool Enabled; // @instance @default(0)
+uniform float Amount; // @instance @default(0.25)
+#pragma end
+void fragment() {
+    bool good = Code==16777217 && Counter==16777217 && Enabled && abs(Amount-0.5)<0.001
+      && abs(Head-0.25)<0.001 && distance(Three,vec3(0.1,0.2,0.3))<0.001 && abs(Tail-0.125)<0.001;
+    aego_out=good?vec4(0.0,0.5,0.0,0.5):vec4(1.0,0.0,0.0,1.0);
+}

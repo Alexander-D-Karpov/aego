@@ -145,3 +145,24 @@ func (r *Registry) AssetPlayer(key string, pl context.AssetPlayer) error {
 	o.players = append(o.players, key)
 	return nil
 }
+
+// CreateAction registers a module-owned entry in the searchable Create palette.
+func (r *Registry) CreateAction(a context.CreateAction) error {
+	ed := r.deps.Editor
+	if ed == nil {
+		return nil
+	}
+	if a.Key == "" || a.Name == "" || a.Run == nil {
+		return errs.New(errs.EditorPanel, "create action needs key, name and handler")
+	}
+	for _, current := range ed.CreateActions {
+		if current.Key == a.Key {
+			return errs.New(errs.EditorPanel, "duplicate create action "+a.Key)
+		}
+	}
+	ext := r.ext()
+	run := a.Run
+	a.Run = func(parent ids.NodeID) (err error) { Safe(ext, r, func() { err = run(parent) }); return }
+	ed.CreateActions = append(ed.CreateActions, a)
+	return nil
+}

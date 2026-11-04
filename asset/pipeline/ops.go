@@ -56,6 +56,18 @@ func (p *Pipeline) Entry(id ids.AssetID) (asset.Entry, bool) {
 	return *e, true
 }
 
+// PrimaryArtifact returns a value snapshot while the pipeline index is locked.
+// A thumbnail worker needs no access to the editor's mutable source-file map.
+func (p *Pipeline) PrimaryArtifact(id ids.AssetID) (asset.Artifact, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	e, ok := p.index.Lookup(id)
+	if !ok {
+		return asset.Artifact{}, false
+	}
+	return e.Artifact(e.Kind)
+}
+
 func (p *Pipeline) RootDirs() []string {
 	out := make([]string, len(p.roots))
 	for i, r := range p.roots {

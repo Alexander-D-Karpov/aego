@@ -15,14 +15,14 @@ The editor is where you build scenes, write scripts and run the game. This page 
 
 A workspace is a named layout: which panels are docked where and whether the toolbar is shown. The editor ships with four.
 
-![The Programming workspace: scripts open next to the Scene View](shots/workspace-programming.png)
+![The Programming workspace with the central editor and its tools](shots/workspace-programming.png)
 
-| Workspace | For | Differs from Design |
+| Workspace | For | Default panels |
 |---|---|---|
-| Design | building scenes | the default layout |
-| Programming | writing scripts | no Hierarchy, Game View or debug panels; scripts open next to the Scene View |
-| Art | sprites and levels | Assets along the bottom, no Console or debug panels |
-| Audio | sound work | no Hierarchy, Game View or debug panels |
+| Design | building scenes | Scene and Game in the center, Hierarchy and Assets on the left, Inspector on the right |
+| Programming | writing scripts | Scripts open in the center beside Docs and Game. Problems, Console and Find are below. Agent and Watch are on the right. Play controls are visible by default |
+| Art | sprites and levels | Scene and Game in the center, Inspector on the right, Animation and Animator below |
+| Audio | sound work | Game and Scene in the center, Assets on the left, Inspector on the right, Mixer and Console below |
 
 - Switch with the selector at the right of the toolbar, or with `Ctrl+1` … `Ctrl+4` from any panel, the code editor included.
 - Rearrange panels freely. Every workspace remembers its own layout. Documents, the selection and Play are shared between workspaces.

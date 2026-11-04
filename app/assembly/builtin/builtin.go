@@ -14,6 +14,7 @@ import (
 	"aego/modules/display"
 	"aego/modules/gameplay"
 	inputmod "aego/modules/input"
+	"aego/modules/particles"
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/render3d"
@@ -36,6 +37,10 @@ func inputEntry() assembly.Entry {
 
 func render2dEntry() assembly.Entry {
 	return assembly.Entry{ID: render2d.ID, New: func(assembly.Options) module.Module { return render2d.New() }}
+}
+
+func particlesEntry() assembly.Entry {
+	return assembly.Entry{ID: particles.ID, Requires: []string{render2d.ID}, New: func(assembly.Options) module.Module { return particles.New() }}
 }
 
 func render3dEntry() assembly.Entry {
@@ -110,5 +115,5 @@ func updateEntry() assembly.Entry {
 
 func Default() assembly.Catalog {
 	return assembly.Catalog{core(), dataEntry(), inputEntry(), render2dEntry(), render3dEntry(), scriptEntry(), physicsEntry(), debugEntry(),
-		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry(), updateEntry(), artEntry()}
+		displayEntry(), audioEntry(), accessibilityEntry(), settingsEntry(), tweenEntry(), animationEntry(), cameraEntry(), gameplayEntry(), spawnEntry(), savegameEntry(), updateEntry(), artEntry(), particlesEntry()}
 }

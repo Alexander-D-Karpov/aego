@@ -122,6 +122,8 @@ type Desc struct {
 	Name     string
 	Category string
 	Scope    string
+	// Toolbar exposes this registered command as a toolbar action in its scope.
+	Toolbar  bool
 	Shortcut Shortcut
 	Alt      []Shortcut
 	Hint     string
@@ -237,6 +239,17 @@ func (r *Registry) Category(cat string) []Desc {
 	var out []Desc
 	for _, id := range r.order {
 		if d := r.byID[id]; d.Category == cat {
+			out = append(out, *d)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Order < out[j].Order })
+	return out
+}
+
+func (r *Registry) Toolbar(scope string) []Desc {
+	var out []Desc
+	for _, id := range r.order {
+		if d := r.byID[id]; d.Toolbar && d.Scope == scope {
 			out = append(out, *d)
 		}
 	}

@@ -335,6 +335,13 @@ func (s *Server) call(params json.RawMessage) (any, *rpcError) {
 	}
 	for _, t := range s.opt.Tools {
 		if t.Name == p.Name {
+			if t.Output != nil {
+				out, err := t.Output(p.Arguments)
+				if err != nil {
+					return result(err.Error(), true), nil
+				}
+				return result(out, false), nil
+			}
 			text, failed := t.Run(p.Arguments)
 			return result(text, failed), nil
 		}

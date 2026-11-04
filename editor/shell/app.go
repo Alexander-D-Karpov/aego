@@ -91,6 +91,7 @@ import (
 	"aego/render/view"
 	"aego/save"
 	"aego/scene"
+	"aego/scene/frame"
 	"aego/ui/core"
 	"aego/ui/dnd"
 	"aego/ui/draw"
@@ -229,7 +230,7 @@ type App struct {
 	animPanel      *animpanel.Panel
 	animatorP      *animator.Panel
 	agentP         *agentpanel.Panel
-	agentCommand   string
+	agentPrefs     agentPreferences
 	slicer         *sliceState
 	folderWS       string
 	folders        map[string]string
@@ -376,7 +377,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Sections:    a.opt.Sections,
 	}
 	if a.opt.Agent != nil {
-		a.agentP = agentpanel.New(agentpanel.Deps{Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink,
+		a.agentP = agentpanel.New(agentpanel.Deps{Device: e.GPU(), Host: a.opt.Agent, Docs: a.ctx, Notices: a.ctx, Assets: a.assetPaths, Root: p.Root, Show: func() { a.ws.Show(agentpanel.ID) }, Highlight: edocs.Highlight, Open: a.openAgentLink,
 			Follow: a.follow, Seconds: e.Platform().Now, FollowChanged: a.followChanged, Selection: a.ctx, BudgetsChanged: a.budgetsChanged})
 		a.opt.Agent.SetBudgets(a.prefs.AgentBudgets)
 	}
@@ -438,9 +439,22 @@ func (a *App) Init(e *engine.Engine) error {
 		}
 	}
 	a.files = assetfiles.New(a.ctx)
+	a.ctx.CreateAsset = a.files.CreateFile
+	a.ctx.AssetTransaction = a.files.Transaction
 	a.prefabs = prefabs.New(a.ctx)
 	a.ctx.BeforeSwap = a.prefabs.External
 	a.data = dataedit.New(a.ctx)
+	a.ctx.InspectAsset = func(id ids.AssetID) {
+		if !id.IsZero() {
+			// Selection and double-click share one model; selecting never changes
+			// the active document presentation or writes metadata.
+			_, _ = a.ctx.DocumentForAsset(id)
+		}
+		a.data.Inspect(id)
+		if !id.IsZero() {
+			a.ws.Show(workspace.Inspector)
+		}
+	}
 	a.data.OnLive = func() { a.play.Invalidate("a data asset was tuned during Play") }
 	a.ctx.Selection.Subscribe(a.data.Clear)
 	a.tablePanel = datatable.New(datatable.Deps{Data: a.data, Notices: a.ctx})
@@ -451,6 +465,8 @@ func (a *App) Init(e *engine.Engine) error {
 		Budget: 4 * time.Millisecond,
 	})
 	a.thumbs = preview.New(preview.Deps{
+		Problems:   a.ctx.Problems,
+		Docs:       a.ctx.Docs,
 		Engine:     e,
 		Pipeline:   a.opt.Pipeline,
 		Renderer:   r,
@@ -510,7 +526,7 @@ func (a *App) Init(e *engine.Engine) error {
 		BatchRename:    a.batchRenameAssets,
 		Compare:        compare,
 		Schema:         a.opt.Types.Schema(),
-		Inspect:        func(id ids.AssetID) { a.data.Inspect(id) },
+		Inspect:        a.ctx.InspectAsset,
 		Viewable:       a.viewable,
 		OpenTable:      a.openTable,
 		DataType:       a.data.TypeOf,
@@ -547,12 +563,29 @@ func (a *App) Init(e *engine.Engine) error {
 		Shapes:   a.shapes,
 		Overlay:  &a.ctx.Overlay,
 		OnRender: a.ctx.OnRender,
+		EffectPreview: func() (ids.NodeID, string) {
+			if a.ctx.EffectPreview != nil {
+				return a.ctx.EffectPreview()
+			}
+			return ids.NodeID{}, ""
+		},
+		CameraPreview: func() *scene.Scene {
+			if a.ctx.CameraPreview != nil {
+				return a.ctx.CameraPreview()
+			}
+			return nil
+		},
 		RenderWorld: func(w *engine.World) {
 			e.RunPhase(w, engine.PhaseRenderPrepare, engine.ScopeEditor, 0, 0)
 			e.RunPhase(w, engine.PhaseRender, engine.ScopeEditor, 0, 0)
 		},
 	}
 	a.sceneView = sceneview.New(a.gizmos, sceneview.Deps{
+		Preview: func(r *frame.Runner) {
+			for _, draw := range a.ctx.ScenePreviews {
+				draw(r)
+			}
+		},
 		Dragging:  a.animDragging,
 		Capture:   a.captureTexture,
 		Viewport:  a.viewport,
@@ -570,9 +603,11 @@ func (a *App) Init(e *engine.Engine) error {
 		Presence:  a.presence,
 		AgentSel:  a.agentSel,
 	})
+	a.ctx.SceneLighting = a.sceneView
 	a.ctx.NewScene = a.createScene
 	a.ctx.NewPrefab = a.createPrefab
 	a.gameView = gameview.New(a.play, a.viewport)
+	a.ctx.GamePostOutput = a.gameView.PostOutput
 	a.profiler = profiler.New(profiler.Deps{
 		Tracer:      e.Trace(),
 		Root:        p.Root,
@@ -587,6 +622,14 @@ func (a *App) Init(e *engine.Engine) error {
 	a.ws = workspace.New(p.Root, a.log)
 	a.ws.Notices, a.ws.Tracer = a.ctx, e.Trace()
 	a.consolePanel = console.New(a.consoleSink)
+	if a.agentP != nil {
+		a.consolePanel.Ask = func(snapshot string) {
+			if draft := a.agentP.Input(); draft != "" {
+				snapshot = draft + "\n\n" + snapshot
+			}
+			a.agentP.Ask(snapshot)
+		}
+	}
 	a.problemsPanel = eproblems.New(a.ctx, a.ctx)
 	a.problemsPanel.Ask = a.askHook()
 	a.problemsPanel.Scene = func(path string) *scene.Scene {
@@ -712,6 +755,7 @@ func (a *App) Init(e *engine.Engine) error {
 		a.assetsPanel.Reveal(rel)
 	}
 	a.search = search.New(search.Deps{
+		Thumbs:    a.thumbs,
 		Favorites: a.favs,
 		Pipeline:  a.opt.Pipeline,
 		Symbols: func() []context.SearchItem {
@@ -783,11 +827,15 @@ func (a *App) Init(e *engine.Engine) error {
 		Commands:   a.ctx.Commands,
 		Schema:     a.opt.Types.Schema(),
 	})
+	if err := a.registerDocumentHandlers(); err != nil {
+		return err
+	}
 	for _, h := range a.opt.Hooks {
 		if err := a.ext.Run(h.Owner, h.Fn); err != nil {
 			a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.extension_owner_failed_to_register", "extension {owner} failed to register: {error}", i18n.Str("owner", h.Owner), i18n.Str("error", err.Error())))
 		}
 	}
+	a.registerSlicer()
 	if err := vectors.Register(a.ctx, a.shapes); err != nil {
 		return err
 	}
@@ -931,6 +979,7 @@ func (a *App) FixedUpdate(float64) {}
 
 func (a *App) Update(dt float64) {
 	e := a.eng
+	a.ctx.PollAssetPreviews()
 	now := e.Platform().Now()
 	ui := a.ui
 	ui.Time = now
@@ -1102,6 +1151,7 @@ func (a *App) pace() {
 }
 
 func (a *App) Shutdown() {
+	a.ctx.CloseAssetPreviews()
 	a.play.Stop()
 	a.saveState()
 	if err := a.ws.SaveLayout(); err != nil {
@@ -1348,11 +1398,24 @@ func (a *App) assetView(id ids.AssetID) bool {
 	}
 	e, ok := a.opt.Pipeline.Entry(id)
 	if !ok {
-		return false
+		if builtin, exists := asset.LookupBuiltin(id); exists {
+			e.ID, e.Name, e.Kind = id, builtin.Name, builtin.Kind
+		} else {
+			return false
+		}
 	}
 	fn, ok := a.ctx.AssetViews[string(e.Kind)]
 	if !ok {
-		return false
+		if e.Kind == asset.ArtData {
+			return false
+		}
+		d, err := a.ctx.DocumentForAsset(id)
+		if err != nil {
+			widgets.LabelWrapped(a.ctx.UI, err.Error(), true)
+			return true
+		}
+		a.readOnlyAssetView(d)
+		return true
 	}
 	fn(a.ctx, id)
 	return true
@@ -1363,10 +1426,22 @@ func (a *App) openTable(id ids.AssetID) {
 		a.ctx.Notify(context.LevelError, err.Error())
 		return
 	}
-	a.ws.Show(datatable.ID)
+	a.ws.Focus(datatable.ID)
 }
 
 // SetDensity lays the editor out as on a screen with this pixel density; 0 follows the window. Tests use it for UI scale 2.
 func (a *App) SetDensity(d float32) {
 	a.density = d
+}
+
+func (a *App) ConsoleMessages() []services.ConsoleMessage {
+	entries := a.consoleSink.Snapshot(nil)
+	if len(entries) > 200 {
+		entries = entries[len(entries)-200:]
+	}
+	out := make([]services.ConsoleMessage, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Message())
+	}
+	return out
 }

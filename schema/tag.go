@@ -41,6 +41,8 @@ func parseTag(typeName, goName, tag string) (tagInfo, error) {
 		key, value, hasValue := strings.Cut(p, "=")
 		switch key {
 		case "":
+		case "omitempty":
+			info.flags |= FlagOmitEmpty
 		case "transient":
 			info.flags &^= FlagSerialize
 			info.flags |= FlagTransient
@@ -68,6 +70,8 @@ func parseTag(typeName, goName, tag string) (tagInfo, error) {
 			info.hints.Unit = value
 		case "hidden":
 			info.hints.Hidden = true
+		case "minmax":
+			info.hints.MinMaxPair = true
 		case "flags":
 			info.hints.Flags = strings.Split(value, "|")
 		case "gizmo":

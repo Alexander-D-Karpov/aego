@@ -1,6 +1,6 @@
 anim version=1 length=1.2 loop=loop {
   frames "" {
-    sprites=[asset("ae900000000000000000000000000b00"), asset("ae900000000000000000000000000b02")]
+    sprites=[asset("33a034118185e91d90cddef773628c90"), asset("a002ded43bdba526647adbe049ff05f6")]
     durations=[0.8, 0.4]
   }
 }

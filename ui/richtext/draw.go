@@ -89,6 +89,11 @@ func (t *Text) Blocks() []Block {
 	return t.blocks
 }
 
+// RunFont returns the face the current layout uses for a visible run.
+func (t *Text) RunFont(ui *core.Context, face Face) *text.Font {
+	return t.fonts(ui).face[face]
+}
+
 func (t *Text) Doc() *Doc {
 	return t.doc
 }

@@ -1,0 +1,95 @@
+package game
+
+import "aego/input"
+
+script Runner {
+	@export
+	var First NodeRef
+	@export
+	var Second NodeRef
+	@export
+	var Third NodeRef
+	@export
+	var Beacon NodeRef
+	@export
+	var Shelf NodeRef
+
+	var speedY float
+	var grounded bool = true
+	var score int
+	var finished bool
+	var start Vec2
+	var firstAt Vec2
+	var secondAt Vec2
+	var thirdAt Vec2
+	var beaconAt Vec2
+
+	func Ready() {
+		start = node.Position()
+		firstAt = First.Position()
+		secondAt = Second.Position()
+		thirdAt = Third.Position()
+		beaconAt = Beacon.Position()
+	}
+
+	func resetRun() {
+		node.SetPosition(start)
+		First.SetPosition(firstAt)
+		Second.SetPosition(secondAt)
+		Third.SetPosition(thirdAt)
+		Beacon.SetPosition(beaconAt)
+		speedY = 0
+		grounded = true
+		score = 0
+		finished = false
+	}
+
+	func collect(coin NodeRef, p Vec2) {
+		c := coin.Position()
+		if p.X > c.X - 0.43 && p.X < c.X + 0.43 && p.Y > c.Y - 0.66 && p.Y < c.Y + 0.66 {
+			coin.SetPosition(Vec2{c.X, -30})
+			score++
+		}
+	}
+
+	func FixedUpdate(dt float) {
+		if input.Pressed("NewRun") {
+			resetRun()
+			return
+		}
+		if finished {
+			return
+		}
+		p := node.Position()
+		x := input.Axis("Stride")
+		if grounded && input.Pressed("Hop") {
+			speedY = -7.1
+		}
+		speedY += 16 * dt
+		p.X += x * 3.75 * dt
+		if p.X < -6.15 { p.X = -6.15 }
+		if p.X > 6.15 { p.X = 6.15 }
+		previous := p.Y
+		p.Y += speedY * dt
+		grounded = false
+		top := start.Y
+		shelf := Shelf.Position()
+		ledge := shelf.Y - 0.6
+		if p.X >= shelf.X - 1.6 && p.X <= shelf.X + 1.6 && previous <= ledge + 0.001 && speedY >= 0 {
+			top = ledge
+		}
+		if p.Y >= top && speedY >= 0 {
+			p.Y = top
+			speedY = 0
+			grounded = true
+		}
+		node.SetPosition(p)
+		collect(First, p)
+		collect(Second, p)
+		collect(Third, p)
+		if p.X >= 4.85 && score == 3 {
+			Beacon.SetPosition(Vec2{beaconAt.X, -1.3})
+			finished = true
+		}
+	}
+}

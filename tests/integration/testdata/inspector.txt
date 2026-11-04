@@ -1,6 +1,9 @@
 Engine	engine.Tags	Tags	comp.tags	-
 Engine	save.Persist	Persist	comp.persist	-
 Rendering	engine.SpriteRenderer	Sprite Renderer	comp.sprite	-
+Rendering	engine.Mesh2D	Mesh 2D	comp.mesh	-
+Rendering	engine.MaterialOverride	Material Override	comp.sprite	-
+Rendering	render2d.PostProcess	Post Process	comp.camera2d	-
 Rendering	engine.MeshRenderer	Mesh Renderer	comp.mesh	-
 Camera	engine.Camera2D	Camera 2D	comp.camera2d	-
 Camera	engine.Camera3D	Camera 3D	comp.camera3d	-
@@ -9,6 +12,9 @@ Camera	camera.CameraFollow2D	Camera Follow 2D	comp.follow	-
 Camera	camera.CameraShake2D	Camera Shake 2D	comp.shake	-
 Camera	camera.CameraZone2D	Camera Zone 2D	comp.zone	-
 Camera	camera.CameraBrain2D	Camera Brain 2D	comp.camera2d	-
+Lighting	engine.Light2D	Light 2D	comp.sprite	-
+Lighting	engine.LightOccluder2D	Light Occluder 2D	comp.mesh	-
+Lighting	engine.LightingEnvironment2D	Lighting Environment 2D	comp.camera2d	-
 Physics	physics.Body2D	Rigid Body 2D	comp.rigidbody	-
 Physics	physics.BoxCollider2D	Box Collider 2D	comp.box	-
 Physics	physics.CircleCollider2D	Circle Collider 2D	comp.circle	-
@@ -32,4 +38,5 @@ Gameplay	gameplay.Checkpoint2D	Checkpoint 2D	gameplay.checkpoint	-
 Gameplay	gameplay.Respawn	Respawn	gameplay.respawn	-
 Gameplay	gameplay.Pickup2D	Pickup 2D	gameplay.pickup	-
 Gameplay	gameplay.StateMachine	State Machine	gameplay.fsm	-
+Effects	particles.ParticleSystem2D	Particle System 2D	comp.sprite	-
 game	game.Rotator	Rotator	cat.game	rotator

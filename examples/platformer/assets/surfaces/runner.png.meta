@@ -1,0 +1,32 @@
+meta version=1 {
+  id="ba0a9ba2fe328a5da26a1d0e0fc9ff02"
+  importer="texture"
+  importerVersion=4
+  settings {
+    atlas=""
+    auto_normal=false
+    data=false
+    extrude=true
+    filter=nearest
+    generate_normal=false
+    height_channel=r
+    height_strength=3
+    mips=false
+    normal=asset("73af71861c4eaea895230dad07c1eefa")
+    normal_frames=[{ albedo=asset("33a034118185e91d90cddef773628c90") normal=asset("555cf62eb81fde0dd47d1035e2a69883") }, { albedo=asset("1d79a0b136fd6437eff8daa213dce138") normal=asset("a0810d442c3a79555d170bfff8a79bfc") }, { albedo=asset("a002ded43bdba526647adbe049ff05f6") normal=asset("0cb8657f26161ff20d83cdec2c2eed55") }, { albedo=asset("a236b680c0ba8413c061919ae44f5961") normal=asset("f11bd76dfccbdf5b549e702d61988821") }, { albedo=asset("a179da89c1f02dda5044dd602cf0a863") normal=asset("10b7d03c8455c0a6a071afe44bffb32e") }, { albedo=asset("d5b69cc3fef91685825a896b4bda9a14") normal=asset("3cd57583bde5e35cec65cfc3c3759544") }, { albedo=asset("4edc2b9b0a7f0955b5bdda1880d0fa70") normal=asset("a64f5a997a03c5378d6426f4d4a936be") }, { albedo=asset("4c911b278f437155864411d5d7fd5bc3") normal=asset("195faa8c21f3de86376f9882c94a6239") }]
+    normal_y=up
+    padding=2
+    rotate=false
+    semantic=color
+    srgb=true
+    trim=false
+  }
+  sub "runner_000" id="33a034118185e91d90cddef773628c90" rect=[0, 0, 16, 16] {}
+  sub "runner_001" id="1d79a0b136fd6437eff8daa213dce138" rect=[16, 0, 16, 16] {}
+  sub "runner_002" id="a002ded43bdba526647adbe049ff05f6" rect=[32, 0, 16, 16] {}
+  sub "runner_003" id="a236b680c0ba8413c061919ae44f5961" rect=[48, 0, 16, 16] {}
+  sub "runner_004" id="a179da89c1f02dda5044dd602cf0a863" rect=[64, 0, 16, 16] {}
+  sub "runner_005" id="d5b69cc3fef91685825a896b4bda9a14" rect=[80, 0, 16, 16] {}
+  sub "runner_006" id="4edc2b9b0a7f0955b5bdda1880d0fa70" rect=[96, 0, 16, 16] {}
+  sub "runner_007" id="4c911b278f437155864411d5d7fd5bc3" rect=[112, 0, 16, 16] {}
+}

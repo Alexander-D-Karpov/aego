@@ -10,9 +10,11 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/slice"
 	"aego/engine/i18n"
 	"aego/format/aetext"
+	"aego/scene/mutate"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -23,19 +25,21 @@ func sliceModes() []string {
 
 // sliceState is the slicing setup of one sheet while its inspector is open (D339).
 type sliceState struct {
-	sheet   ids.AssetID
-	mode    int
-	cell    [2]int32
-	offset  [2]int32
-	padding [2]int32
-	count   int32
-	thresh  int32
-	w, h    int
-	px      []byte
-	rects   []slice.Rect
-	of      [9]int32
-	info    string
-	imp     importForm
+	sheet         ids.AssetID
+	assetRevision uint64
+	mode          int
+	cell          [2]int32
+	offset        [2]int32
+	padding       [2]int32
+	count         int32
+	thresh        int32
+	w, h          int
+	px            []byte
+	rects         []slice.Rect
+	of            [9]int32
+	info          string
+	imp           importForm
+	base          importForm
 }
 
 var filterModes = []string{"nearest", "linear"}
@@ -76,30 +80,36 @@ func (a *App) registerSlicer() {
 	if a.ctx.AssetViews == nil {
 		a.ctx.AssetViews = map[string]context.AssetView{}
 	}
+	// The image document provides Channels and the real pixel/lighting viewer.
+	// Its source Inspector can also delegate to this original slicing body.
+	a.ctx.DrawSpriteSlicer = a.drawSliceBody
 	if _, dup := a.ctx.AssetViews[string(asset.ArtTexture)]; !dup {
 		a.ctx.AssetViews[string(asset.ArtTexture)] = a.sliceView
 	}
 }
 
-func (a *App) sliceSetup(id ids.AssetID, rel string) *sliceState {
+func (a *App) sliceSetup(id ids.AssetID, rel string, m *asset.SourceMeta) *sliceState {
 	st := a.slicer
-	if st != nil && st.sheet == id {
+	if st != nil && st.sheet == id && st.assetRevision == a.ctx.AssetRev {
+		// Undo/Redo or another view may change the shared import settings.
+		if next := formOf(m.Settings); next != st.base {
+			st.base, st.imp = next, next
+		}
 		return st
 	}
 	px, w, h, err := slice.Pixels(a.opt.Pipeline.Abs(rel))
-	st = &sliceState{sheet: id, px: px, w: w, h: h, thresh: 8, of: [9]int32{-1}}
+	st = &sliceState{sheet: id, assetRevision: a.ctx.AssetRev, px: px, w: w, h: h, thresh: 8, of: [9]int32{-1}}
 	if err != nil {
 		st.info = err.Error()
 	}
 	side := int32(min(w, h))
 	st.cell = [2]int32{side, side}
-	if m, ok := a.opt.Pipeline.MetaOf(id); ok {
-		st.imp = formOf(m.Settings)
-		if len(m.Subs) > 0 {
-			r := m.Subs[0].Rect
-			st.cell = [2]int32{int32(r[2]), int32(r[3])}
-			st.offset = [2]int32{int32(r[0]), int32(r[1])}
-		}
+	st.imp = formOf(m.Settings)
+	st.base = st.imp
+	if len(m.Subs) > 0 {
+		r := m.Subs[0].Rect
+		st.cell = [2]int32{int32(r[2]), int32(r[3])}
+		st.offset = [2]int32{int32(r[0]), int32(r[1])}
 	}
 	a.slicer = st
 	return st
@@ -121,18 +131,32 @@ func (st *sliceState) plan() []slice.Rect {
 
 // sliceView is the inspector of a texture: the sheet with its cells, and the slicing setup.
 func (a *App) sliceView(ctx *context.Editor, id ids.AssetID) {
-	ui := ctx.UI
+	d, err := a.sliceDocument(id)
+	if err != nil {
+		widgets.LabelWrapped(ctx.UI, err.Error(), true)
+		return
+	}
+	meta, err := asset.ParseSourceMeta(d.Metadata.Code.Bytes(), d.Metadata.Path)
+	if err != nil {
+		widgets.LabelWrapped(ctx.UI, err.Error(), true)
+		return
+	}
+	st := a.sliceSetup(id, d.Path, meta)
+	widgets.Label(ctx.UI, path.Base(d.Path)+"  "+strconv.Itoa(st.w)+"×"+strconv.Itoa(st.h))
+	a.drawSliceBody(id, meta)
+}
+
+func (a *App) drawSliceBody(id ids.AssetID, meta *asset.SourceMeta) {
+	ui := a.ctx.UI
 	rel, ok := a.opt.Pipeline.PathOf(id)
 	if !ok {
 		return
 	}
-	st := a.sliceSetup(id, rel)
-	widgets.Label(ui, path.Base(rel)+"  "+strconv.Itoa(st.w)+"×"+strconv.Itoa(st.h))
+	st := a.sliceSetup(id, rel, meta)
 	if st.info != "" {
 		widgets.LabelWrapped(ui, st.info, true)
 		return
 	}
-	meta, _ := a.opt.Pipeline.MetaOf(id)
 	a.importSection(ui, id, st, meta.Settings)
 	widgets.HeaderIcon(ui, "anim.slice", i18n.Tr("editor.shell.slicing", "Slicing"), false)
 	rects := st.plan()
@@ -187,13 +211,7 @@ func (a *App) drawSheet(ui *core.Context, id ids.AssetID, box mathx.Rect, st *sl
 
 func (a *App) applySlice(id ids.AssetID, rel string, old []pipeline.SubAsset, rects []slice.Rect) {
 	base := strings.TrimSuffix(path.Base(rel), path.Ext(rel))
-	e := &slice.Edit{Pipeline: a.opt.Pipeline, Sheet: id, Before: old, After: slice.Plan(base, old, rects), Apply: a.ctx.ApplyBatch}
-	var err error
-	if d := a.ctx.Doc(); d != nil {
-		err = d.History.Exec(e)
-	} else {
-		err = e.Do(nil)
-	}
+	err := a.textureMutation(id, mutate.Tx{Label: "Slice image", Ops: []mutate.Op{mutate.TextureFramesReplace(slice.Plan(base, old, rects))}})
 	if err != nil {
 		a.ctx.Notify(context.LevelError, err.Error())
 		return
@@ -201,7 +219,7 @@ func (a *App) applySlice(id ids.AssetID, rel string, old []pipeline.SubAsset, re
 	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.sliced_rel_into_rects_cell", "Sliced {rel} into {rects} cell(s)", i18n.Str("rel", path.Base(rel)), i18n.Str("rects", strconv.Itoa(len(rects)))))
 }
 
-// importSection edits the import settings of a texture; Apply rewrites the meta and reimports as one History step.
+// importSection stages the legacy form in the same source metadata journal.
 func (a *App) importSection(ui *core.Context, id ids.AssetID, st *sliceState, cur pipeline.Settings) {
 	widgets.HeaderIcon(ui, "file.download", i18n.Tr("editor.shell.import", "Import"), false)
 	f := &st.imp
@@ -225,16 +243,16 @@ func (a *App) importSection(ui *core.Context, id ids.AssetID, st *sliceState, cu
 }
 
 func (a *App) applyImport(id ids.AssetID, before, after pipeline.Settings) {
-	if before == nil {
-		before = pipeline.Settings{}
+	var ops []mutate.Op
+	// Only the known fields of this legacy form change; hidden channel and
+	// future metadata remain in the shared document. The typed mutation model
+	// applies the same validation as the Channels Inspector and CLI.
+	for _, name := range []string{"filter", "srgb", "mips", "atlas", "padding", "extrude"} {
+		if v, ok := after[name]; ok {
+			ops = append(ops, mutate.TextureSetting(name, v))
+		}
 	}
-	e := &slice.Edit{Pipeline: a.opt.Pipeline, Sheet: id, BeforeSettings: before.Clone(), AfterSettings: after, Apply: a.ctx.ApplyBatch}
-	var err error
-	if d := a.ctx.Doc(); d != nil {
-		err = d.History.Exec(e)
-	} else {
-		err = e.Do(nil)
-	}
+	err := a.textureMutation(id, mutate.Tx{Label: "Texture import settings", Ops: ops})
 	if err != nil {
 		a.ctx.Notify(context.LevelError, err.Error())
 		return
@@ -242,4 +260,41 @@ func (a *App) applyImport(id ids.AssetID, before, after pipeline.Settings) {
 	if a.slicer != nil && a.slicer.sheet == id {
 		a.slicer.imp = formOf(after)
 	}
+}
+
+func (a *App) sliceDocument(id ids.AssetID) (*document.AssetDocument, error) {
+	d, err := a.ctx.DocumentForAsset(id)
+	if err != nil {
+		return nil, err
+	}
+	// The standalone slicer uses the same source journal when the image module
+	// is absent; both entry points share the document if it is installed.
+	if d.Metadata == nil {
+		d.Metadata, err = a.ctx.Docs.OpenScript(d.Path + ".meta")
+		if err != nil {
+			return nil, err
+		}
+		d.Metadata.ExplicitSave = true
+	}
+	return d, nil
+}
+
+func (a *App) textureMutation(id ids.AssetID, tx mutate.Tx) error {
+	d, err := a.sliceDocument(id)
+	if err != nil {
+		return err
+	}
+	env, err := a.ctx.TextureAuthoringEnv(d.Asset)
+	if err != nil {
+		return err
+	}
+	if _, err := document.ApplyTextureMutation(d.Metadata, env, tx, false); err != nil {
+		return err
+	}
+	if d.Handler == "asset.readonly" {
+		// Without an image document handler the original standalone Slice/Apply
+		// command includes import; there is no image tab with a Save command.
+		return a.ctx.SaveAsset(d)
+	}
+	return nil
 }

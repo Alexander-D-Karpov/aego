@@ -109,7 +109,7 @@ func (m *mapView) update(p *Panel, th *core.Theme) {
 				continue
 			}
 			m.line = c.LineBytes(l, m.line[:0])
-			m.spans, _ = highlight.Line(m.line, c.LineState(l), m.spans[:0])
+			m.spans, _ = c.Highlight(m.line, c.LineState(l), m.spans[:0])
 			minimap.Paint(dst, m.line, m.spans, &m.pal)
 		}
 		dev.UpdateTexture(m.tiles[t], 0, lo*minimap.LineH, minimap.Cols, (hi-lo+1)*minimap.LineH, m.buf)
@@ -182,10 +182,16 @@ func (m *mapView) draw(p *Panel, ui *core.Context, r mathx.Rect, first int) {
 }
 
 func (p *Panel) dispose() {
-	dev := p.host.d.Viewport.GPU
-	for _, t := range p.mini.tiles {
-		if !t.IsZero() {
-			dev.DestroyTexture(t)
+	if p.releaseDoc != nil {
+		p.releaseDoc()
+		p.releaseDoc = nil
+	}
+	if p.host.d.Viewport != nil {
+		dev := p.host.d.Viewport.GPU
+		for _, t := range p.mini.tiles {
+			if !t.IsZero() {
+				dev.DestroyTexture(t)
+			}
 		}
 	}
 	p.mini = mapView{}

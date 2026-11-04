@@ -2,6 +2,7 @@
 package agentbridge
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -17,9 +18,9 @@ import (
 	"aego/editor/core/animedit"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
-	"aego/editor/core/services"
 	"aego/editor/core/history/commands"
 	"aego/editor/core/projectedit"
+	"aego/editor/core/services"
 	"aego/engine"
 	"aego/engine/docs"
 	"aego/engine/module"
@@ -38,12 +39,18 @@ const (
 var errBusy = errors.New("the editor did not answer in time")
 
 type Config struct {
-	Ctx     *context.Editor
-	Modules *module.Manifest
-	OnMain  func(func())
-	Command string
-	System  string
-	Docs    func() (*docs.Registry, error)
+	Console         func() []services.ConsoleMessage
+	ConfirmPlay     bool
+	Capture         func(string) ([]byte, uint64, string, error)
+	Exporter        services.Exporter
+	NewEmptyProject func(string) (string, error)
+	SwitchProject   func(string)
+	Ctx             *context.Editor
+	Modules         *module.Manifest
+	OnMain          func(func())
+	Command         string
+	System          string
+	Docs            func() (*docs.Registry, error)
 	// Bindings give schema_show the script methods of components.
 	Bindings *bind.Registry
 	// Timeout is how long a proposal waits for the user, DefaultTimeout when zero.
@@ -62,12 +69,23 @@ type Config struct {
 }
 
 type Bridge struct {
-	cfg  Config
-	ctx  *context.Editor
-	sess *agent.Session
-	http *mcp.HTTP
+	grants                   sync.Map
+	playGrant                atomic.Uint64
+	captures                 []visualReceipt
+	variants                 variantSet
+	exportPath, exportTarget string
+	exportSeal               [32]byte
+	exportGeneration         uint64
+	binding                  string
+	cfg                      Config
+	ctx                      *context.Editor
+	sess                     *agent.Session
+	http                     *mcp.HTTP
 	// docResults caps docs_search; the MCP server reads it off the main thread.
 	docResults atomic.Int64
+	// panelGeneration revokes queued work from a cancelled panel conversation.
+	// External CLI/proxy calls keep their own lifetime and do not use this token.
+	panelGeneration atomic.Uint64
 	// via names the origin of the change being applied, for its Undo step; proxy serves the CLI and outside agents.
 	via   string
 	proxy *mcp.HTTP
@@ -87,15 +105,16 @@ const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Led
 // Guide is the system prompt the editor adds for the model.
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
 	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
-	"Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
+	"Read the selected Console entry as evidence. Read .aeshader and .aemat buffers with editor_material_source by AssetID or project path. Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
 	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. A sprite with no texture yet is drawn, not built from colored rectangles: asset_pixels takes a character grid and a palette (frames give an atlas and a flipbook), asset_svg smooth shapes for tiles, UI and icons; both answer with a preview to check. Draw in the style of project.aego's art section (project_get art): its palette, and without a palette argument 0-9 and a-z are its colors. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
 	c := cfg.Ctx
-	b := &Bridge{cfg: cfg, ctx: c}
+	b := &Bridge{cfg: cfg, ctx: c, binding: rand.Text()}
+	b.panelGeneration.Store(1)
 	b.sess = agent.Attach(c.Project, c.Types, cfg.Modules, c.Pipeline, cfg.Bindings, b)
-	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Tools: b.tools(), Version: engine.Version,
+	h, err := mcp.ListenHTTP(mcp.Options{Source: b, Docs: cfg.Docs, Extra: b.resources(), Tools: append(b.tools(), b.visualTools()...), Version: engine.Version,
 		DocResults: func() int { return int(b.docResults.Load()) }})
 	if err != nil {
 		return nil, err
@@ -136,7 +155,7 @@ func (b *Bridge) Backend() backend.Config {
 	if sys == "" {
 		sys = Guide
 	}
-	return backend.Config{Dir: b.ctx.Project.Root, Command: b.cfg.Command, MCPURL: b.http.URL, Token: b.http.Token, System: sys}
+	return backend.Config{Binding: b.binding, Dir: b.ctx.Project.Root, Command: b.cfg.Command, MCPURL: b.http.URL, Token: b.http.Token(), System: sys}
 }
 
 func (b *Bridge) main(fn func()) error {
@@ -155,6 +174,7 @@ func (b *Bridge) main(fn func()) error {
 
 // Run serves a tool call: reads run at once, writes become proposals the user applies or rejects (D342).
 func (b *Bridge) Run(name string, a agent.Args) (*agent.Output, error) {
+	generation := b.panelGeneration.Load()
 	if name == "scene.run" && b.cfg.Run != nil {
 		return b.sceneRun(a)
 	}
@@ -163,11 +183,17 @@ func (b *Bridge) Run(name string, a agent.Args) (*agent.Output, error) {
 		if b.PlanOnly() {
 			return nil, errPlanOnly
 		}
-		return b.propose(c, a)
+		return b.propose(c, a, generation)
 	}
 	var out *agent.Output
 	var err error
-	if e := b.main(func() { out, err = b.run(name, a) }); e != nil {
+	if e := b.main(func() {
+		if b.cancelled(generation) {
+			err = errCancelled
+			return
+		}
+		out, err = b.run(name, a)
+	}); e != nil {
 		return nil, e
 	}
 	return out, err
@@ -405,18 +431,12 @@ func (b *Bridge) activeTree() (any, error) {
 	return out.Value, nil
 }
 
-// console is the last 200 editor messages.
-func (b *Bridge) console() []map[string]any {
-	out := []map[string]any{}
-	levels := [...]string{"info", "warning", "error"}
-	ns := b.ctx.Notices()
-	if len(ns) > 200 {
-		ns = ns[len(ns)-200:]
+// console reads the same bounded log that backs the Console panel.
+func (b *Bridge) console() []services.ConsoleMessage {
+	if b.cfg.Console == nil {
+		return []services.ConsoleMessage{}
 	}
-	for _, n := range ns {
-		out = append(out, map[string]any{"level": levels[min(int(n.Level), len(levels)-1)], "text": n.Text})
-	}
-	return out
+	return b.cfg.Console()
 }
 
 func (b *Bridge) play() map[string]any {
@@ -431,4 +451,11 @@ func (b *Bridge) play() map[string]any {
 func (b *Bridge) SetBudgets(bu agentui.Budgets) {
 	b.sess.SetBudget(agent.Budget{TreeNodes: bu.TreeNodes, TreeDepth: bu.TreeDepth, ScriptLines: bu.ScriptLines})
 	b.docResults.Store(int64(bu.DocResults))
+}
+
+// Rebind invalidates the previous panel conversation without rotating the independent CLI proxy credential.
+func (b *Bridge) Rebind() {
+	b.http.RotateToken()
+	b.binding = rand.Text()
+	b.RejectAll()
 }

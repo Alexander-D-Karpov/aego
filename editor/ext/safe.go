@@ -7,15 +7,23 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/gizmo"
 	"aego/editor/core/services"
 	"aego/editor/core/workspace"
+	"aego/schema"
 )
 
 type safePanel struct {
 	p   workspace.Panel
 	ext string
 	reg *Registry
+}
+
+type safeClosingPanel struct{ *safePanel }
+
+func (s *safeClosingPanel) RequestClose() {
+	Safe(s.ext, s.reg, func() { s.p.(workspace.Closer).RequestClose() })
 }
 
 func (s *safePanel) ID() string {
@@ -31,6 +39,15 @@ func (s *safePanel) Scope() string {
 		return sc.Scope()
 	}
 	return s.p.ID()
+}
+
+func (s *safePanel) Document() *document.AssetDocument {
+	if p, ok := s.p.(interface {
+		Document() *document.AssetDocument
+	}); ok {
+		return p.Document()
+	}
+	return nil
 }
 
 func (s *safePanel) Draw(f *services.Frame, r mathx.Rect) {
@@ -57,6 +74,20 @@ func (s *safeCustom) Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields
 		}
 	}()
 	s.inner.Draw(ctx, nodes, defaultFields)
+}
+
+func (s *safeCustom) FieldVisible(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) (visible bool) {
+	visible = true
+	defer func() {
+		if rec := recover(); rec != nil {
+			s.reg.Disable(s.ext, fmt.Sprint(rec))
+			visible = true
+		}
+	}()
+	if filter, ok := s.inner.(inspect.FieldVisibility); ok {
+		return filter.FieldVisible(ctx, nodes, field)
+	}
+	return true
 }
 
 type safeGizmo struct {

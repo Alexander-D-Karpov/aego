@@ -45,6 +45,7 @@ func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
 	total += th.Padding
 	view := body.H
 	maxOff := max(0, total-view)
+	p.beginTextPick(ui, body, maxOff)
 	if ui.MouseOver(ui.ID("scroll"), body) {
 		if w := ui.ScrollY(th.RowHeight * 3); w != 0 {
 			p.scroll -= w
@@ -64,7 +65,7 @@ func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
 		b := &list[i]
 		if y+b.h >= body.Y && y <= body.Y+body.H {
 			ui.PushIDInt(i)
-			p.draw(ui, b, mathx.Rect{X: body.X + th.Padding, Y: y, W: width, H: b.h})
+			p.draw(ui, i, b, mathx.Rect{X: body.X + th.Padding, Y: y, W: width, H: b.h})
 			ui.PopID()
 		}
 		y += b.h + gap
@@ -73,6 +74,7 @@ func (p *Panel) transcript(ui *core.Context, body, track mathx.Rect) {
 		p.working(ui, mathx.Rect{X: body.X + th.Padding, Y: y, W: width, H: th.RowHeight})
 	}
 	ui.PopClip()
+	p.finishTextPick(ui)
 	p.content = total
 	before := p.scroll
 	widgets.ScrollBar(ui, ui.ID("vbar"), track, &p.scroll, total, view, &p.bar)
@@ -88,8 +90,15 @@ func (p *Panel) measure(ui *core.Context, b *block, w float32) float32 {
 	switch b.kind {
 	case blockUser:
 		bw := bubbleWidth(ui, b.text, w)
-		b.lines = widgets.WrapLines(ui, b.text, bw-2*th.Padding-4)
-		return float32(len(b.lines))*ui.LineHeight() + 2*th.Padding + 2
+		if len(b.images) > 0 {
+			bw = max(bw, min(w*0.85, float32(len(b.images))*90+2*th.Padding))
+		}
+		b.lines, b.lineBytes = wrapMessage(ui, b.text, bw-2*th.Padding-4)
+		h := float32(len(b.lines))*ui.LineHeight() + 2*th.Padding + 2
+		if len(b.images) > 0 {
+			h += 60
+		}
+		return h
 	case blockText:
 		p.parse(b)
 		return b.md.Measure(ui, w)
@@ -123,6 +132,9 @@ func (p *Panel) measure(ui *core.Context, b *block, w float32) float32 {
 		}
 		if b.open {
 			h += p.cardBody(ui, b, w, nil)
+			if len(b.steps) > 0 {
+				h += float32(len(b.steps[0].look.Detail.Images)) * min(w, 160)
+			}
 		}
 		return h
 	case blockQuestion:
@@ -146,21 +158,38 @@ func bubbleWidth(ui *core.Context, text string, w float32) float32 {
 	return min(w*0.85, ui.TextSize(text).X+2*th.Padding+8)
 }
 
-func (p *Panel) draw(ui *core.Context, b *block, r mathx.Rect) {
+func (p *Panel) draw(ui *core.Context, idx int, b *block, r mathx.Rect) {
 	th := &ui.Theme
 	switch b.kind {
 	case blockUser:
 		bw := bubbleWidth(ui, b.text, r.W)
+		if len(b.images) > 0 {
+			bw = max(bw, min(r.W*0.85, float32(len(b.images))*90+2*th.Padding))
+		}
 		box := mathx.Rect{X: r.X + r.W - bw, Y: r.Y, W: bw, H: r.H - 2}
 		ui.RoundRect(box, 8, th.Agent.User)
 		y := box.Y + th.Padding
+		if len(b.images) > 0 {
+			w := min(float32(90), (box.W-2*th.Padding)/float32(len(b.images)))
+			for i, key := range b.images {
+				p.drawImage(ui, key, mathx.Rect{X: box.X + th.Padding + float32(i)*w, Y: y, W: w - 2, H: 54})
+			}
+			y += 60
+		}
+		top := y
 		for _, line := range b.lines {
 			mentions(ui, line, mathx.Vec2{X: box.X + th.Padding + 2, Y: y})
 			y += ui.LineHeight()
 		}
+		p.pickText(ui, idx, b, mathx.Rect{X: box.X + th.Padding + 2, Y: top, W: max(1, box.W-2*th.Padding-4), H: y - top})
 	case blockText:
 		p.parse(b)
-		if act := b.md.Draw(ui, ui.ID("md"), r); act.Target != "" {
+		act := b.md.Draw(ui, ui.ID("md"), r)
+		if d := b.md.Doc(); d != nil {
+			pad := 2 * th.Padding
+			p.pickText(ui, idx, b, mathx.Rect{X: r.X + pad, Y: r.Y + pad - b.md.Scroll, W: max(1, r.W-2*pad-th.ScrollbarW), H: d.Height})
+		}
+		if act.Target != "" && !p.textPick.moved {
 			p.openLink(act.Target)
 		}
 	case blockTurn:
@@ -413,16 +442,30 @@ func (p *Panel) empty(ui *core.Context, body mathx.Rect) {
 		y += ui.LineHeight()
 	}
 	y += th.Spacing * 3
-	examples := [3]string{
+	examples := []string{
+		problemLabel(false), problemLabel(true),
 		i18n.Tr("editor.agent.example_platform", "Add a moving platform above the player"),
 		i18n.Tr("editor.agent.example_explain", "Explain what this scene does"),
 		i18n.Tr("editor.agent.example_enemy", "Find why the enemy doesn't die"),
 	}
+	hasErrors, blocked := p.inlineProblems()
 	for i, ex := range examples {
+		if i == 0 && !hasErrors || i == 1 && !blocked {
+			continue
+		}
 		er := mathx.Rect{X: x, Y: y, W: w, H: th.RowHeight + 6}
+		if i == 3 {
+			p.explainRect = er
+		}
 		id := ui.IDInt(500 + i)
 		if ui.Clicked(id, er) {
-			p.sendText(ex)
+			if i < 2 {
+				p.draftProblems(i == 1)
+			} else if i == 3 {
+				p.ExplainScene()
+			} else {
+				p.sendText(ex)
+			}
 		}
 		fill := th.Agent.Tool
 		if ui.Hot() == id {

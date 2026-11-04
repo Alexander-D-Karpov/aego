@@ -14,6 +14,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/core/mathx"
 	"aego/gpu"
 	"aego/gpu/null"
 	"aego/project"
@@ -128,7 +129,7 @@ func TestShaderAndMaterialThroughTheLoader(t *testing.T) {
 	if v, _ := m.Get("Speed"); v[0] != 3 {
 		t.Fatalf("Speed = %v", v)
 	}
-	if v, _ := m.Get("Tint"); v[0] != 1 || v[3] != 1 || v[1] < 0.5 || v[1] > 0.51 {
+	if v, _ := m.Get("Tint"); v[0] != 1 || v[3] != 1 || v[1] != mathx.SRGBToLinear(128.0/255) {
 		t.Fatalf("Tint = %v", v)
 	}
 	if _, ok := l.Schemas().Get(shID); !ok {
@@ -150,6 +151,7 @@ func TestShaderAndMaterialThroughTheLoader(t *testing.T) {
 		t.Fatal("the material stopped drawing")
 	}
 	dev.EndFrame()
+	c.End() // Candidate programs, schema and all dependent materials commit together at the frame boundary.
 	if m.Shader() == old || m.Failed() {
 		t.Fatal("the reimported shader did not reach the material")
 	}

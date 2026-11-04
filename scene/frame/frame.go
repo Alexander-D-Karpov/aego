@@ -1,14 +1,21 @@
 package frame
 
 import (
+	"sync/atomic"
+
 	"aego/asset"
+	"aego/core/clock"
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/gpu"
 	"aego/render"
 	renderhost "aego/render/host"
+	"aego/render/lighting"
 	"aego/render/mesh"
+	"aego/render/postfx"
 	"aego/render/rt"
+	"aego/render/shader"
 	"aego/render/sprite"
 	"aego/render/view"
 	"aego/scene"
@@ -31,64 +38,120 @@ type Stats struct {
 }
 
 type Bucket struct {
-	Sprites   []sprite.Draw
-	Sprites3D []sprite.Draw3D
-	Meshes    []mesh.Draw
+	PostProcess      *postfx.Plan
+	PostProcessOwner bool
+	Lighting         lighting.Input
+	Sprites          []sprite.Draw
+	Sprites3D        []sprite.Draw3D
+	Meshes           []mesh.Draw
 }
 
 func (b *Bucket) reset() {
+	b.PostProcess, b.PostProcessOwner = nil, false
+	b.Lighting.Reset()
 	b.Sprites = b.Sprites[:0]
 	b.Sprites3D = b.Sprites3D[:0]
 	b.Meshes = b.Meshes[:0]
 }
 
 type Runner struct {
-	hidden   func(scene.NodeHandle) bool
-	scene    *scene.Scene
-	render   *render.Renderer
-	res      asset.Resolver
-	views    []view.View
-	order    []int32
-	perm     []int
-	buckets  []Bucket
-	stats    Stats
-	pixelW   int
-	pixelH   int
-	scale    float32
-	target   gpu.TextureHandle
-	depth    gpu.TextureHandle
-	targetW  int
-	targetH  int
-	vpW      int
-	vpH      int
-	fixed    view.View
-	hasFixed bool
-	factor   float32
-	rscale   float32
-	external bool
-	scaling  bool
-	pool     *rt.Pool
-	scaled   *rt.Target
-	outW     int
-	outH     int
-	outScale float32
+	beforeSubmit        func(*Runner)
+	postPreview         PostPreview
+	previewPlan         postfx.Plan
+	lightingOff         bool
+	lightingDebug       lighting.DebugMode
+	lightingEnvironment ids.NodeID
+	identity            uint64
+	hidden              func(scene.NodeHandle) bool
+	scene               *scene.Scene
+	render              *render.Renderer
+	res                 asset.Resolver
+	views               []view.View
+	order               []int32
+	perm                []int
+	buckets             []Bucket
+	stats               Stats
+	pixelW              int
+	pixelH              int
+	scale               float32
+	target              gpu.TextureHandle
+	depth               gpu.TextureHandle
+	targetW             int
+	targetH             int
+	vpW                 int
+	vpH                 int
+	fixedBackdrop       func(*render.ViewFrame)
+	fixed               view.View
+	hasFixed            bool
+	captureView         view.ID
+	factor              float32
+	rscale              float32
+	pooledTarget        bool
+	external            bool
+	scaling             bool
+	pool                *rt.Pool
+	scaled              *rt.Target
+	outW                int
+	outH                int
+	outScale            float32
 }
+
+var nextIdentity atomic.Uint64
 
 func New() *Runner {
 	return &Runner{
-		views:  make([]view.View, 0, 4),
-		order:  make([]int32, 0, 4),
-		perm:   make([]int, 0, 4),
-		scale:  1,
-		factor: 1,
-		rscale: 1,
+		identity: nextIdentity.Add(1),
+		views:    make([]view.View, 0, 4),
+		order:    make([]int32, 0, 4),
+		perm:     make([]int, 0, 4),
+		scale:    1,
+		factor:   1,
+		rscale:   1,
 	}
 }
+
+// ViewID is stable across transform changes, resize and target replacement.
+// A runner owns a separate output even when another world reuses its camera IDs.
+func (r *Runner) ViewID(node ids.NodeID) view.ID {
+	return view.ID{Scope: r.identity, Node: node}
+}
+
+func (r *Runner) OutputID() view.ID { return view.ID{Scope: r.identity} }
+
+// SetLightingView changes only presentation/inspection state owned by this
+// runner; it does not write to the edit scene, a prefab or a simulation keyframe.
+func (r *Runner) SetLightingView(enabled bool, debug lighting.DebugMode) {
+	r.lightingOff = !enabled
+	if debug > lighting.DebugShadows {
+		debug = lighting.DebugLighting
+	}
+	r.lightingDebug = debug
+}
+
+func (r *Runner) LightingView() (bool, lighting.DebugMode) { return !r.lightingOff, r.lightingDebug }
+
+// SetLightingEnvironmentPreview selects an environment for this presentation
+// session without changing any camera, scene component or simulation state.
+// Zero restores the scene's normal camera/output environment selection.
+func (r *Runner) SetLightingEnvironmentPreview(id ids.NodeID) { r.lightingEnvironment = id }
+func (r *Runner) LightingEnvironmentPreview() ids.NodeID      { return r.lightingEnvironment }
 
 func (r *Runner) SetTarget(t gpu.TextureHandle, w, h int) {
 	r.unscale()
 	r.target, r.targetW, r.targetH = t, w, h
-	r.external = true
+	r.external, r.pooledTarget = true, false
+}
+
+// SetPooledTarget gives this output a dedicated attachment, including its
+// unused bucket padding. A clear of the full logical camera may initialize that
+// padding; arbitrary external targets never grant such ownership implicitly.
+func (r *Runner) SetPooledTarget(t *rt.Target) {
+	if t == nil {
+		r.ClearTarget()
+		return
+	}
+	r.SetTarget(t.Texture, t.BucketW, t.BucketH)
+	r.depth, r.vpW, r.vpH, r.pooledTarget = t.Depth, t.W, t.H, true
 }
 
 func (r *Runner) SetDepthTarget(d gpu.TextureHandle) {
@@ -99,12 +162,17 @@ func (r *Runner) ClearTarget() {
 	r.target, r.targetW, r.targetH = gpu.TextureHandle{}, 0, 0
 	r.depth = gpu.TextureHandle{}
 	r.vpW, r.vpH = 0, 0
-	r.external, r.scaling, r.factor = false, false, 1
+	r.external, r.pooledTarget, r.scaling, r.factor = false, false, false, 1
 }
 
 func (r *Runner) SetViewportSize(w, h int) {
-	r.vpW, r.vpH = w, h
+	r.vpW, r.vpH, r.pooledTarget = w, h, false
 }
+
+// SetFixedBackdrop draws a fixed presentation surface's opaque backdrop before
+// its world. Ordinary cameras never acquire this backdrop. When coverage-free
+// additive energy needs it, the backdrop and world share one linear composite.
+func (r *Runner) SetFixedBackdrop(draw func(*render.ViewFrame)) { r.fixedBackdrop = draw }
 
 func (r *Runner) SetFixedView(v view.View) {
 	r.fixed = v
@@ -172,6 +240,9 @@ func (r *Runner) ScreenToWorld(px mathx.Vec2) (mathx.Vec2, bool) {
 	return r.views[best].ScreenToWorld(px), inside
 }
 
+// ViewOrder returns the camera priority used at submission. Equal priorities retain extraction order.
+func (r *Runner) ViewOrder(i int) int32 { return r.order[i] }
+
 func (r *Runner) Bucket(i int) *Bucket {
 	return &r.buckets[i]
 }
@@ -203,14 +274,29 @@ func (r *Runner) Viewport(vp mathx.Rect) mathx.Rect {
 	}
 }
 
+func (r *Runner) SelectCaptureView(id view.ID) { r.captureView = id }
+
 func (r *Runner) AddView(v view.View, order int32) {
-	if r.hasFixed {
+	if r.hasFixed || (r.captureView != (view.ID{}) && v.ID != r.captureView) {
 		return
 	}
 	r.push(v, order)
 }
 
 func (r *Runner) push(v view.View, order int32) {
+	// A camera clearing the entire logical image on its OWNED pool target
+	// also clears unused padding. Keep sub-viewports and external/shared
+	// attachments isolated, including multiple cameras on one output.
+	if (r.pooledTarget || r.scaling) && v.Target == r.target && v.TargetSubresource == (gpu.TextureSubresource{}) &&
+		v.DoClear && v.Clear.A >= 1 && v.Viewport == (mathx.Rect{W: float32(r.vpW), H: float32(r.vpH)}) {
+		v.ClearWholeTarget = true
+	}
+	if v.ID == (view.ID{}) {
+		v.ID = r.OutputID()
+	}
+	if v.OutputID == (view.ID{}) {
+		v.OutputID = r.OutputID()
+	}
 	r.views = append(r.views, v)
 	r.order = append(r.order, order)
 	i := len(r.views) - 1
@@ -255,10 +341,46 @@ func (r *Runner) Prepare(pixelW, pixelH int, scale float32) {
 	r.push(v, 0)
 }
 
+// PostPreview affects one presentation runner's primary output only. It is
+// never written to a component, asset, replay or the game settings.
+type PostPreview struct {
+	Bypass   bool
+	Camera   ids.NodeID
+	Instance string
+}
+
+func (r *Runner) SetPostPreview(v PostPreview) { r.postPreview = v }
+
+func (r *Runner) previewPostPlan(output view.ID, owner ids.NodeID, p *postfx.Plan) *postfx.Plan {
+	if output != r.OutputID() || p == nil {
+		return p
+	}
+	v := r.postPreview
+	if v.Bypass {
+		return nil
+	}
+	if v.Instance == "" || v.Camera != owner {
+		return p
+	}
+	for i, pass := range p.Passes {
+		if pass.InstanceID == v.Instance {
+			r.previewPlan.Passes = append(r.previewPlan.Passes[:0], p.Passes[:i]...)
+			r.previewPlan.Passes = append(r.previewPlan.Passes, p.Passes[i+1:]...)
+			return &r.previewPlan
+		}
+	}
+	return p
+}
+
+func (r *Runner) SetPreviewExtract(f func(*Runner)) { r.beforeSubmit = f }
+
 func (r *Runner) Submit(dst *render.Renderer) {
 	r.stats.Views = len(r.views)
 	if dst == nil || len(r.views) == 0 {
 		return
+	}
+	if r.beforeSubmit != nil {
+		r.beforeSubmit(r)
 	}
 	r.perm = r.perm[:0]
 	for i := range r.views {
@@ -272,15 +394,114 @@ func (r *Runner) Submit(dst *render.Renderer) {
 	for _, i := range r.perm {
 		v := r.views[i]
 		b := &r.buckets[i]
+		var plan *postfx.Plan
+		owners := 0
+		var owner ids.NodeID
+		// All cameras of one output compose in linear space before its single
+		// resolve. An earlier Unlit camera also enters that output when a later
+		// camera has Lit receivers; no material or painter order is changed.
+		for _, other := range r.perm {
+			if r.views[other].OutputID != v.OutputID {
+				continue
+			}
+			ob := &r.buckets[other]
+			if ob.PostProcessOwner {
+				owners++
+				owner = r.views[other].ID.Node
+				plan = ob.PostProcess
+			}
+			for _, d := range ob.Sprites {
+				if d.Material != nil && d.Material.Shader().Features&shader.FeatureLighting != 0 {
+					b.Lighting.OutputLit = true
+					break
+				}
+			}
+			if !b.Lighting.OutputLit {
+				for _, d := range ob.Meshes {
+					if d.Material != nil && d.Material.Shader().Features&shader.FeatureLighting != 0 {
+						b.Lighting.OutputLit = true
+						break
+					}
+				}
+			}
+			if other != i && ob.Lighting.HasEnvironment && !b.Lighting.HasEnvironment {
+				b.Lighting.Environment = ob.Lighting.Environment
+				b.Lighting.HasEnvironment = true
+			}
+		}
+		seen := false
+		for _, other := range r.perm {
+			if other == i {
+				seen = true
+				continue
+			}
+			if seen && r.views[other].OutputID == v.OutputID {
+				v.DeferResolve = true
+				break
+			}
+		}
+		if owners > 1 {
+			plan = nil
+			if !v.DeferResolve {
+				dst.PostProcessOwnerConflict(v.OutputID)
+			}
+		}
+		plan = r.previewPostPlan(v.OutputID, owner, plan)
+		if r.hasFixed && r.fixedBackdrop != nil {
+			r.drawFixedBackdrop(dst, v, b, plan)
+			v.DoClear = false
+		}
 		f := dst.View(v)
+		f.PostProcess(plan)
+		f.Lighting(&b.Lighting)
 		if v.Is3D() {
 			f.Meshes(b.Meshes)
 			f.Sprites3D(b.Sprites3D)
 		} else {
+			f.Meshes(b.Meshes)
 			f.Sprites(b.Sprites)
 		}
 		f.End()
 	}
+	if len(r.previewPlan.Passes) > 0 {
+		clear(r.previewPlan.Passes[:cap(r.previewPlan.Passes)])
+		r.previewPlan.Passes = r.previewPlan.Passes[:0]
+	}
+}
+
+func (r *Runner) drawFixedBackdrop(dst *render.Renderer, v view.View, b *Bucket, plan *postfx.Plan) {
+	v.Label = "presentation.backdrop"
+	v.Clear.A, v.DoClear, v.DeferResolve = 1, true, false
+	// With ordinary source-over the display backdrop stays below the resolved
+	// world, as before. Additive preserves coverage, so its final backdrop must
+	// already be present in linear space BEFORE exposure/tone mapping.
+	linear := (plan != nil && len(plan.Passes) != 0 || b.Lighting.OutputLit || b.Lighting.HasEnvironment && b.Lighting.Environment.ColorMode == lighting.HDR) && b.additive()
+	if linear {
+		v.DeferResolve, v.ClearWholeTarget = true, true
+	}
+	f := dst.View(v)
+	if linear {
+		f.PostProcess(plan)
+		f.Lighting(&b.Lighting)
+	}
+	r.fixedBackdrop(f)
+	f.End()
+}
+
+func (b *Bucket) additive() bool {
+	for i := range b.Sprites {
+		d := &b.Sprites[i]
+		if d.Blend == sprite.BlendAdditive || d.Material != nil && d.Material.Blend() == shader.BlendAdditive {
+			return true
+		}
+	}
+	for i := range b.Meshes {
+		d := &b.Meshes[i]
+		if d.Blend == sprite.BlendAdditive || d.Material != nil && d.Material.Blend() == shader.BlendAdditive {
+			return true
+		}
+	}
+	return false
 }
 
 func Of(ctx *engine.Context) *Runner {
@@ -356,6 +577,12 @@ type submit struct{}
 
 func (submit) Run(ctx *engine.Context) {
 	if r := Of(ctx); r != nil {
+		if r.render != nil && ctx.Time != nil {
+			r.render.SetClock(render.Clock{
+				Time: float32(ctx.Time.Span(clock.Game).Elapsed), Delta: float32(ctx.Dt),
+				Unscaled: float32(ctx.Time.Span(clock.Real).Elapsed), Frame: ctx.Frame,
+			})
+		}
 		r.Submit(r.render)
 	}
 }
@@ -442,6 +669,7 @@ func (r *Runner) Present() {
 }
 
 func (r *Runner) Close() {
+	r.fixedBackdrop = nil
 	r.unscale()
 	if r.pool == nil {
 		return

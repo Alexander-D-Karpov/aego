@@ -1,0 +1,7 @@
+project version=1 {
+  name="Read command fixture"
+  module="mygame"
+  mainScene=asset("12a90000000000000000000000000001")
+  native=false
+  window { width=640 height=360 title="Read command fixture" }
+}

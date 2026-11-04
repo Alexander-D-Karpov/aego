@@ -657,15 +657,18 @@ func (c *Controller) Tick(dt float64) {
 	}
 }
 
-func (c *Controller) Render(t *rt.Target) (cameras bool) {
+func (c *Controller) Render(t *rt.Target) bool { return c.RenderPreview(t, frame.PostPreview{}) }
+
+// RenderPreview can temporarily bypass the stack for this editor draw only.
+func (c *Controller) RenderPreview(t *rt.Target, preview frame.PostPreview) (cameras bool) {
 	if c.state == Stopped || c.runner == nil || t == nil {
 		return false
 	}
 	defer c.guard("render")
+	c.runner.SetPostPreview(preview)
+	defer c.runner.SetPostPreview(frame.PostPreview{})
 	start := time.Now()
-	c.runner.SetTarget(t.Texture, t.BucketW, t.BucketH)
-	c.runner.SetDepthTarget(t.Depth)
-	c.runner.SetViewportSize(t.W, t.H)
+	c.runner.SetPooledTarget(t)
 	c.runner.ClearFixedView()
 	e := c.ctx.Engine
 	alpha := c.world.Time.Alpha()

@@ -1,6 +1,28 @@
 package web
 
+import "math"
+
 const ringFrames = 8192
+
+// sharedTargetBlocks reserves at least one mixer block beyond the context's
+// reported base latency. It is a conservative estimate, not a guarantee about
+// browser scheduling. The reserve must fit both the ring and the runtime's
+// twelve-block pacing limit.
+func sharedTargetBlocks(latency float64, rate, frames int) int {
+	if frames <= 0 {
+		return 3
+	}
+	limit := min(12, max(1, ringFrames/frames))
+	minimum := min(3, limit)
+	if rate <= 0 || latency <= 0 || math.IsNaN(latency) || math.IsInf(latency, 0) {
+		return minimum
+	}
+	blocks := latency * float64(rate) / float64(frames)
+	if blocks >= float64(limit-1) {
+		return limit
+	}
+	return max(minimum, int(math.Ceil(blocks))+1)
+}
 
 func ringQueued(head, tail int32) int {
 	return int(tail - head)

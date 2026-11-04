@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"syscall/js"
 
 	"aego/core/trace"
@@ -18,6 +19,7 @@ import (
 	"aego/modules/settings"
 	"aego/platform"
 	"aego/platform/input"
+	"aego/schema"
 	"aego/sdk"
 )
 
@@ -63,11 +65,24 @@ func Main(mods ...sdk.Module) {
 	cfg := Config{
 		Bundle: b, Profile: param("profile"), Scene: param("scene"), Debug: param("debug") != "", Seed: seed,
 		Tracing: param("trace") != "", Probe: param("bench") != "", ReplayData: replay, MemProfile: memprof,
+		ObserveCheckpoint: param("observeCheckpoint"),
 	}
 	p, err := Open(cfg, sdk.AdaptAll(mods)...)
 	if err != nil {
 		fail(err.Error())
 		return
+	}
+	if name, v, ok := strings.Cut(param("benchBool"), ":"); cfg.Probe && ok {
+		key := p.Settings.Key(name)
+		d := p.Settings.Desc(key)
+		if d == nil || d.Kind != schema.KindBool || (v != "0" && v != "1") {
+			fail("invalid boolean setting for this benchmark: " + name)
+			return
+		}
+		if err := p.Settings.Override(key, schema.Bool(v == "1")); err != nil {
+			fail(err.Error())
+			return
+		}
 	}
 	expose(p)
 	if f := g.Get(startedGlobal); f.Type() == js.TypeFunction {
@@ -143,12 +158,26 @@ func expose(p *Player) {
 		return float64(p.Engine.MainWorld().Time.Frame())
 	}))
 	api.Set("stats", js.FuncOf(func(js.Value, []js.Value) any {
-		data, err := json.Marshal(p.Stats())
+		data, err := json.Marshal(struct {
+			Stats
+			ActiveSeconds float64 `json:"activeSeconds"`
+		}{p.Stats(), p.Engine.Platform().Now()})
 		if err != nil {
 			return js.Null()
 		}
 		return string(data)
 	}))
+	if p.cfg.Probe {
+		api.Set("boolSetting", js.FuncOf(func(_ js.Value, a []js.Value) any {
+			if len(a) == 1 {
+				k := p.Settings.Key(a[0].String())
+				if d := p.Settings.Desc(k); d != nil && d.Kind == schema.KindBool {
+					return p.Settings.Bool(k)
+				}
+			}
+			return nil
+		}))
+	}
 	api.Set("frameLimit", js.FuncOf(func(_ js.Value, a []js.Value) any {
 		if len(a) > 0 {
 			p.Engine.SetFrameLimit(a[0].Float())
@@ -257,6 +286,7 @@ func expose(p *Player) {
 		o.Set("mixMaxUs", float64(st.MixMax.Microseconds()))
 		o.Set("mixAvgUs", float64(st.MixAvg.Microseconds()))
 		o.Set("voices", st.Voices)
+		o.Set("underruns", float64(st.Underruns))
 		o.Set("blocks", float64(st.Blocks))
 		return o
 	}))

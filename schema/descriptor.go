@@ -13,6 +13,8 @@ const (
 	FlagReplicated
 	FlagLive
 	FlagPersist
+	// FlagOmitEmpty keeps optional zero-valued fields absent from source files.
+	FlagOmitEmpty
 )
 
 func (f FieldFlags) Has(o FieldFlags) bool {
@@ -132,6 +134,8 @@ type TypeDescriptor struct {
 	Copy          func(dst, src unsafe.Pointer)
 	Flat          bool
 	CloneInto     func(dst, src unsafe.Pointer)
+
+	CheckedLiterals bool
 }
 
 func (t *TypeDescriptor) Scripted(fd *FieldDescriptor) bool {

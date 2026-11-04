@@ -1,0 +1,8 @@
+#pragma aego abi 1
+#pragma material
+uniform vec3 Padding; // @default(0,0,0)
+uniform sampler2D Auxiliary;
+uniform sampler2D DataTex;
+uniform float Weight; // @default(0.9)
+#pragma end
+void fragment(){aego_out=texture(DataTex,vec2(0.5))*Weight+vec4(Padding,0.0);}

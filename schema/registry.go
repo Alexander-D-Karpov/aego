@@ -203,6 +203,8 @@ func (r *Registry) register(rt reflect.Type, kind TypeKind, opts []Option) (*Typ
 		Copy: func(dst, src unsafe.Pointer) {
 			reflect.NewAt(rt, dst).Elem().Set(reflect.NewAt(rt, src).Elem())
 		},
+
+		CheckedLiterals: o.checkedLiterals,
 	}
 	if td.Version == 0 {
 		td.Version = 1

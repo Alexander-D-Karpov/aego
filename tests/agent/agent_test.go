@@ -104,7 +104,18 @@ func golden(t *testing.T, name string, v any) {
 }
 
 func TestReadCommandsGolden(t *testing.T) {
-	e := open(t)
+	// Read protocol goldens use a pinned, small project. Editable examples are
+	// exercised by the mutation/run tests below, but adding a platform in a game
+	// must not silently change the expected CLI protocol snapshot.
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS(filepath.Join("testdata", "read_project"))); err != nil {
+		t.Fatal(err)
+	}
+	p, err := project.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &env{t: t, dir: dir, p: p, opt: agent.Options{Mods: []sdk.Module{fixture.Platformer{}}}}
 	cases := []struct {
 		name string
 		cmd  string
@@ -119,7 +130,10 @@ func TestReadCommandsGolden(t *testing.T) {
 		{"asset_list_prefab", "asset.list", agent.Args{"kind": "prefab"}},
 	}
 	for _, c := range cases {
-		golden(t, c.name, e.must(c.cmd, c.args))
+		t.Run(c.name, func(t *testing.T) {
+			e.t = t
+			golden(t, c.name, e.must(c.cmd, c.args))
+		})
 	}
 }
 

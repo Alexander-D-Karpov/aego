@@ -1,0 +1,8 @@
+anim version=1 length=4 loop=loop {
+  track "" prop="MaterialOverride.Threshold" kind=float32 {
+    key t=0 v=0 interp=linear {}
+    key t=1.6 v=1 interp=linear {}
+    key t=2.4 v=1 interp=linear {}
+    key t=4 v=0 interp=linear {}
+  }
+}

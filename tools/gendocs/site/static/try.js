@@ -198,7 +198,7 @@
             p.box.remove();
             if (active !== b) return;
             syncTheme();
-            const res = call("load", { scene: b.dataset.scene, select: b.dataset.select || "", code: b.dataset.code || "", prefabs: b.dataset.prefabs ? JSON.parse(b.dataset.prefabs) : {} });
+            const res = call("load", { scene: b.dataset.scene, select: b.dataset.select || "", code: b.dataset.code || "", prefabs: b.dataset.prefabs ? JSON.parse(b.dataset.prefabs) : {}, artifacts: b.dataset.artifacts || "" });
             if (res.error) throw new Error(res.error);
             show(b, res.text, res.values);
             b.querySelector(".try-reset").disabled = false;
@@ -220,7 +220,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        status(b, (ru ? "Сохранено " + a.download + "; откройте его в панели Сцены редактора или через Файл → Открыть" : "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open"));
+        status(b, b.dataset.artifacts ? t("Scene saved. It needs the source assets from the complete example project linked in this guide.", "Сцена сохранена. Ей нужны исходные ресурсы полного проекта примера, указанного в руководстве.") : (ru ? "Сохранено " + a.download + "; откройте его в панели Сцены редактора или через Файл → Открыть" : "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open"));
     }
 
     for (const b of blocks) {
@@ -244,7 +244,7 @@
         b.querySelector(".try-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(texts.get(b));
-                status(b, t("Copied; paste it into a .aescene file in your project", "Скопировано; вставьте в файл .aescene в своём проекте"));
+                status(b, b.dataset.artifacts ? t("Scene copied. Its source assets belong to the complete example project described in this guide.", "Сцена скопирована. Её исходные ресурсы находятся в полном проекте примера, описанном в руководстве.") : t("Copied; paste it into a .aescene file in your project", "Скопировано; вставьте в файл .aescene в своём проекте"));
             } catch (_) {
                 status(b, t("The browser blocked the clipboard", "Браузер заблокировал буфер обмена"), true);
             }

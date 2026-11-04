@@ -13,7 +13,9 @@ import (
 	"aego/core/handle"
 	"aego/core/log"
 	"aego/gpu"
+	"aego/gpu/internal/bufferdiff"
 	"aego/gpu/internal/glstate"
+	"aego/gpu/internal/texshadow"
 )
 
 const (
@@ -36,6 +38,7 @@ type Options struct {
 }
 
 type fns struct {
+	GetUniformBlockIndex, GetActiveUniformBlockParameter, GetActiveUniforms                                js.Value
 	ActiveTexture, AttachShader, BeginQuery, BindBuffer, BindBufferBase, BindFramebuffer, BindRenderbuffer js.Value
 	BindSampler, BindTexture, BindVertexArray, BlendFuncSeparate, BufferData, BufferSubData                js.Value
 	CheckFramebufferStatus, Clear, ClearColor, ClearDepth, CompileShader                                   js.Value
@@ -51,6 +54,7 @@ type fns struct {
 	RenderbufferStorage, SamplerParameteri, Scissor, ShaderSource, TexImage2D, TexParameteri               js.Value
 	TexSubImage2D, Uniform1i, UniformBlockBinding, UseProgram, VertexAttribDivisor                         js.Value
 	VertexAttribIPointer, VertexAttribPointer, Viewport                                                    js.Value
+	TexImage3D, TexSubImage3D, FramebufferTextureLayer, BlendEquationSeparate, ColorMask, IsEnabled        js.Value
 }
 
 func bindAll(ctx js.Value) (fns, error) {
@@ -113,6 +117,7 @@ func (o *objects) drop(id uint32) js.Value {
 }
 
 type glBuffer struct {
+	last    bufferdiff.LastWrite
 	id      uint32
 	usage   gpu.BufferUsage
 	size    int
@@ -122,11 +127,15 @@ type glBuffer struct {
 }
 
 type glTexture struct {
-	id     uint32
-	w, h   int
-	info   texInfo
-	mips   bool
-	shadow []byte
+	opaqueRegions map[[4]int]bool
+	rendered      bool
+	id            uint32
+	w, h          int
+	info          texInfo
+	mips          bool
+	desc          gpu.TextureDesc
+	target        uint32
+	shadow        texshadow.Shadow
 }
 
 type glSampler struct {
@@ -170,45 +179,51 @@ type pendingDestroy struct {
 }
 
 type Device struct {
-	log         *log.ChannelLogger
-	debug       bool
-	caps        gpu.Capabilities
-	ctx         js.Value
-	canvas      js.Value
-	f           fns
-	obj         objects
-	cache       *glstate.Cache
-	buffers     *handle.Arena[glBuffer]
-	textures    *handle.Arena[glTexture]
-	samplers    *handle.Arena[glSampler]
-	shaders     *handle.Arena[glShader]
-	pipelines   *handle.Arena[glPipeline]
-	queries     *handle.Arena[glQuery]
-	fbos        map[fboKey]uint32
-	frame       frame
-	pass        pass
-	inFrame     bool
-	window      bool
-	activeQuery uint32
-	pending     []pendingDestroy
-	fbW, fbH    int
-	bb          backbuffer
-	out         output
-	u8, f32     js.Value
-	buf         js.Value
-	bufN        int
-	drawColor   js.Value
-	drawNone    js.Value
-	loseCtx     js.Value
-	lost        bool
-	restores    int
-	calls       uint64
-	mark        uint64
-	lastCalls   uint64
-	st          gpu.BridgeStats
-	onLost      js.Func
-	onRestored  js.Func
-	watching    bool
+	warnedDepthSize  bool
+	log              *log.ChannelLogger
+	debug            bool
+	caps             gpu.Capabilities
+	ctx              js.Value
+	canvas           js.Value
+	f                fns
+	obj              objects
+	cache            *glstate.Cache
+	buffers          *handle.Arena[glBuffer]
+	textures         *handle.Arena[glTexture]
+	samplers         *handle.Arena[glSampler]
+	shaders          *handle.Arena[glShader]
+	pipelines        *handle.Arena[glPipeline]
+	queries          *handle.Arena[glQuery]
+	fbos             map[fboKey]uint32
+	frame            frame
+	pass             pass
+	inFrame          bool
+	window           bool
+	activeQuery      uint32
+	pending          []pendingDestroy
+	fbW, fbH         int
+	bb               backbuffer
+	out              output
+	u8, f32          js.Value
+	buf              js.Value
+	bufN             int
+	drawColor        js.Value
+	drawNone         js.Value
+	loseCtx          js.Value
+	parallel         js.Value
+	contextGen       uint64
+	compiles         map[*compilation]struct{}
+	lost             bool
+	restores         int
+	calls            uint64
+	mark             uint64
+	lastCalls        uint64
+	st               gpu.BridgeStats
+	onLost           js.Func
+	onRestored       js.Func
+	watching         bool
+	targetErrors     [16]string
+	targetErrorCount int
 }
 
 func newArena[T any](l *log.Logger, kind string, capacity int) *handle.Arena[T] {
@@ -256,6 +271,7 @@ func New(s Surface, opts Options) (*Device, error) {
 	d.frame.d = d
 	d.pass.d = d
 	d.cache = glstate.New(api{d: d})
+	d.compiles = make(map[*compilation]struct{})
 	d.queryCaps()
 	d.initState()
 	if err := d.initOutput(); err != nil {
@@ -336,7 +352,11 @@ func (d *Device) queryCaps() {
 	c.Version = d.param(glVersion).String()
 	c.GLSL = d.param(glShadingLanguageVersion).String()
 	c.MaxTextureSize = num(d.param(glMaxTextureSize))
+	c.MaxVertexAttributes = num(d.param(glMaxVertexAttribs))
+	c.MaxUniformBlockSize = num(d.param(glMaxUniformBlockSize))
 	c.MaxTextureUnits = min(num(d.param(glMaxCombinedTextureImageUnits)), scratchUnit)
+	c.MaxFragmentTextureUnits = num(d.param(glMaxTextureImageUnits))
+	c.MaxArrayTextureLayers = num(d.param(glMaxArrayTextureLayers))
 	c.MaxSamples = num(d.param(glMaxSamples))
 	c.Instancing = true
 	c.TextureArrays = true
@@ -344,8 +364,12 @@ func (d *Device) queryCaps() {
 	c.ESSL = true
 	c.OriginBottomLeft = true
 	c.TimerQueries = d.call(d.f.GetExtension, timerExt).Truthy()
-	d.call(d.f.GetExtension, floatExt)
+	c.RGBA16FRenderable = false
+	if d.call(d.f.GetExtension, floatExt).Truthy() {
+		c.RGBA16FRenderable = d.probeRGBA16F()
+	}
 	d.loseCtx = d.call(d.f.GetExtension, loseExt)
+	d.parallel = d.call(d.f.GetExtension, "KHR_parallel_shader_compile")
 }
 
 func (d *Device) initState() {
@@ -399,6 +423,18 @@ func (d *Device) SimulateLoss(lose bool) bool {
 	return true
 }
 
+func (d *Device) markLost() {
+	if d.lost {
+		return
+	}
+	d.lost = true
+	d.contextGen++
+	for job := range d.compiles {
+		job.Cancel()
+	}
+	d.log.Warn("WebGL context lost, rendering stops until the browser restores it")
+}
+
 func (d *Device) watchLoss() {
 	if !d.canvas.Truthy() {
 		return
@@ -407,8 +443,7 @@ func (d *Device) watchLoss() {
 		if len(a) > 0 {
 			a[0].Call("preventDefault")
 		}
-		d.lost = true
-		d.log.Warn("WebGL context lost, rendering stops until the browser restores it")
+		d.markLost()
 		return nil
 	})
 	d.onRestored = js.FuncOf(func(js.Value, []js.Value) any {
@@ -451,6 +486,9 @@ func (d *Device) EndFrame() {
 }
 
 func (d *Device) Close() {
+	for job := range d.compiles {
+		job.Cancel()
+	}
 	d.pending = d.pending[:0]
 	d.inFrame = false
 	d.cache.BindVertexArray(0)
@@ -492,4 +530,14 @@ func (d *Device) Close() {
 		d.onRestored.Release()
 		d.watching = false
 	}
+}
+
+func (d *Device) ContextGeneration() uint64 { return d.contextGen }
+func (d *Device) ContextLost() bool         { return d.lost }
+
+func (d *Device) ResourceStats() gpu.ResourceStats {
+	st := gpu.ResourceStats{Buffers: d.buffers.Len(), Textures: d.textures.Len(), Samplers: d.samplers.Len(), Shaders: d.shaders.Len(), Pipelines: d.pipelines.Len(), PendingCompiles: len(d.compiles)}
+	d.textures.Each(func(_ handle.Handle[glTexture], t *glTexture) { st.TextureStorageBytes += t.desc.StorageBytes() })
+	st.Framebuffers = len(d.fbos)
+	return st
 }

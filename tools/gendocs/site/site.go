@@ -3,6 +3,7 @@ package site
 import (
 	"crypto/sha256"
 	"embed"
+	"encoding/base64"
 	hexenc "encoding/hex"
 	"encoding/json"
 	"html"
@@ -778,15 +779,21 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 		data, _ := json.Marshal(e.TryPrefabs)
 		prefabs = string(data)
 	}
+	artifacts := ""
+	openLabel := "Open in editor"
+	if len(e.TryArtifacts) > 0 {
+		artifacts = base64.StdEncoding.EncodeToString(e.TryArtifacts)
+		openLabel = "Download scene only"
+	}
 	input := ""
 	if e.Input {
 		input = ` data-input="` + esc(strings.Join(e.TryKeys, ", ")) + `"`
 	}
-	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `"` + input + `>` + "\n")
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `" data-artifacts="` + esc(artifacts) + `"` + input + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">` + b.tr("Try it") + `</h2>` + "\n")
 	c.WriteString(`<p class="try-caption">` + esc(b.tr("A live scene with")) + ` ` + esc(e.Title) + `: ` + esc(b.tr("edit its fields in the Inspector on the right and the scene restarts with them.")) + `</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Runs this scene in the browser, with the Inspector next to it") + `</span></div>` + "\n")
-	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + b.tr("Open in editor") + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
+	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + b.tr(openLabel) + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
 	c.WriteString(b.sceneTree(e.Try, root))
 	if e.TryScript != "" {
 		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>` + b.tr("Script") + `</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
@@ -1323,7 +1330,7 @@ func (b *builder) moduleExample(e *Entry) string {
 	for _, s := range m.Snippets {
 		if (s.Run || s.Check) && s.Lang == "aes" {
 			if u, ok := b.urls[m.ID]; ok {
-				return u + "#example"
+				return u + "#" + exampleAnchor(m.ID, 1)
 			}
 		}
 	}

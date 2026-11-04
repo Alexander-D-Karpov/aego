@@ -39,22 +39,25 @@ type step struct {
 }
 
 type block struct {
-	kind     blockKind
-	text     string
-	md       *richtext.Text
-	parsed   string
-	steps    []step
-	card     int
-	question int
-	at       time.Time
-	open     bool
-	all      bool
-	h, hw    float32
+	images    []string
+	kind      blockKind
+	text      string
+	messageID string
+	md        *richtext.Text
+	parsed    string
+	steps     []step
+	card      int
+	question  int
+	at        time.Time
+	open      bool
+	all       bool
+	h, hw     float32
 	// pick and other are a waiting question's chosen options and typed answer.
-	pick  []bool
-	other string
-	lines []string
-	fl    fit
+	pick      []bool
+	other     string
+	lines     []string
+	lineBytes []int
+	fl        fit
 }
 
 // dirty makes the block measured again before the next draw.
@@ -124,6 +127,14 @@ func (p *Panel) toolResult(e agentui.Event) {
 			}
 			s.done, s.failed = true, e.Failed
 			s.look = p.d.Host.Describe(s.tool, s.args, e.Result, e.Failed)
+			s.look.Detail.Images = e.ImageKeys
+			if len(e.ImageKeys) > 0 {
+				s.open = true
+				b.open = true
+				if s.look.Detail.Kind == agentui.DetailNone {
+					s.look.Detail.Kind = agentui.DetailList
+				}
+			}
 			s.label = stepLabel(s)
 			b.dirty()
 			if e.Failed && b.kind == blockSteps {
@@ -149,15 +160,18 @@ func (p *Panel) insert(at int, b block) {
 
 // attach gives a new card to the write call that proposed it, or a block of its own.
 func (p *Panel) attach(c *agentui.Card) {
+	keys := p.storeImages(c.PreviewImages)
 	for i := len(p.blocks) - 1; i >= 0; i-- {
 		b := &p.blocks[i]
 		if b.kind == blockCard && b.card == 0 && len(b.steps) == 1 && b.steps[0].tool == toolName(c.Command) {
 			b.card = c.ID
+			b.steps[0].look.Detail.Images = keys
 			b.dirty()
 			return
 		}
 	}
 	look := p.d.Host.Describe(toolName(c.Command), c.Args, "", false)
+	look.Detail.Images = keys
 	s := step{tool: toolName(c.Command), args: c.Args, look: look, done: true}
 	s.label = stepLabel(&s)
 	p.push(block{kind: blockCard, card: c.ID, steps: []step{s}, open: c.State == agentui.Pending})
@@ -185,4 +199,30 @@ func (p *Panel) text(s string) {
 		return
 	}
 	p.push(block{kind: blockText, text: s})
+}
+
+// textEvent preserves streamed text exactly. Item IDs keep interleaved messages
+// separate; a complete item received after its deltas replaces that same block.
+func (p *Panel) textEvent(e agentui.Event) {
+	if !e.Delta && e.MessageID == "" {
+		p.text(e.Text)
+		return
+	}
+	for i := len(p.blocks) - 1; i >= 0; i-- {
+		b := &p.blocks[i]
+		if b.kind != blockText || b.messageID != e.MessageID {
+			continue
+		}
+		if e.MessageID == "" && i != len(p.blocks)-1 {
+			break
+		}
+		if e.Delta {
+			b.text += e.Text
+		} else {
+			b.text = e.Text
+		}
+		b.dirty()
+		return
+	}
+	p.push(block{kind: blockText, text: e.Text, messageID: e.MessageID})
 }

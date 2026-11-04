@@ -1,0 +1,6 @@
+meta version=1 {
+  id="d5aa0000000000000000000000000002"
+  importer="texture"
+  importerVersion=4
+  settings { semantic=height srgb=false filter=linear auto_normal=false generate_normal=true height_strength=12.0 height_channel=r normal_y=up }
+}

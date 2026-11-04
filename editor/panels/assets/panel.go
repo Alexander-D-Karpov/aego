@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,6 +92,7 @@ type Panel struct {
 	active         ids.AssetID
 	anchor         ids.AssetID
 	pending        ids.AssetID
+	inspectPending bool
 	selDir         string
 	search         string
 	split          float32
@@ -207,17 +209,35 @@ func (p *Panel) invalidate() {
 
 func (p *Panel) refresh() {
 	pl := p.d.Pipeline
-	if rev := pl.Revision(); rev != p.rev {
+	rev := pl.Revision()
+	if rev != p.rev || p.now-p.dirsAt > 2 {
+		changed := rev != p.rev
 		p.rev = rev
-		p.items = pl.Assets()
-		p.addCells()
-		p.dirs = pl.Dirs()
 		p.dirsAt = p.now
-		p.prune()
-	} else if p.now-p.dirsAt > 2 {
 		p.dirs = pl.Dirs()
-		p.dirsAt = p.now
+		var extras []pipeline.AssetInfo
+		if p.d.Thumbs != nil {
+			changed = p.d.Thumbs.RefreshSources() || changed
+			extras = p.d.Thumbs.SourceFiles()
+			for _, s := range extras {
+				for d := path.Dir(s.Path); ; d = path.Dir(d) {
+					if !slices.Contains(p.dirs, d) {
+						p.dirs = append(p.dirs, d)
+					}
+					if d == "." {
+						break
+					}
+				}
+			}
+			slices.Sort(p.dirs)
+		}
+		if changed {
+			p.items = append(pl.Assets(), extras...)
+			p.addCells()
+			p.prune()
+		}
 	}
+
 	found := false
 	for _, d := range p.dirs {
 		if d == p.folder {
@@ -227,6 +247,9 @@ func (p *Panel) refresh() {
 	}
 	if !found && len(p.dirs) > 0 {
 		p.folder = p.dirs[0]
+		if slices.Contains(p.dirs, "assets") {
+			p.folder = "assets"
+		}
 	}
 }
 
@@ -265,7 +288,7 @@ func (p *Panel) isCell(id ids.AssetID) bool {
 func (p *Panel) fileSelection() []ids.AssetID {
 	out := make([]ids.AssetID, 0, len(p.sel))
 	for i := range p.items {
-		if id := p.items[i].ID; p.sel[id] && !p.isCell(id) {
+		if id := p.items[i].ID; p.sel[id] && p.items[i].Kind != preview.SourceKind && !p.isCell(id) {
 			out = append(out, id)
 		}
 	}
@@ -363,7 +386,9 @@ func (p *Panel) press(id ids.AssetID) {
 	default:
 		p.selectOnly(id)
 	}
-	p.inspectActive()
+	// Keep the current Inspector available as a drop target until this press
+	// is known to be a click. A texture drag must not replace its material.
+	p.inspectPending = true
 }
 
 func (p *Panel) inspectActive() {
@@ -382,16 +407,20 @@ func (p *Panel) viewable(k asset.ArtifactKind) bool {
 }
 
 func (p *Panel) settle() {
-	if p.pending.IsZero() {
+	if p.f.DnD.Active() {
+		p.pending = ids.AssetID{}
+		p.inspectPending = false
 		return
 	}
-	switch {
-	case p.f.DnD.Active():
-		p.pending = ids.AssetID{}
-	case !p.f.UI.MouseDown(input.MouseLeft):
-		p.selectOnly(p.pending)
-		p.pending = ids.AssetID{}
-		p.inspectActive()
+	if !p.f.UI.MouseDown(input.MouseLeft) {
+		if !p.pending.IsZero() {
+			p.selectOnly(p.pending)
+			p.pending = ids.AssetID{}
+		}
+		if p.inspectPending {
+			p.inspectPending = false
+			p.inspectActive()
+		}
 	}
 }
 
@@ -461,6 +490,16 @@ func (p *Panel) buildRows() {
 	}
 }
 
+func sourceFolder(dir string) bool {
+	return dir == "." || dir == "native" || strings.HasPrefix(dir, "native/")
+}
+func dirLabel(dir string) string {
+	if dir == "." {
+		return i18n.Tr("editor.assets.project_files", "Project files")
+	}
+	return path.Base(dir)
+}
+
 func dirPayload(dir string) dnd.Payload {
 	return dnd.Payload{Kind: context.KindAssets, Label: path.Base(dir), Data: context.AssetsPayload{Dirs: []string{dir}}}
 }
@@ -478,7 +517,7 @@ func (p *Panel) drawTree(r mathx.Rect) {
 		id := core.IDOf("assets.dir/" + row.path)
 		ev := widgets.TreeRowRect(ui, id, rr, widgets.TreeRow{
 			Depth:       row.depth,
-			Label:       path.Base(row.path),
+			Label:       dirLabel(row.path),
 			HasChildren: row.has,
 			Open:        p.expanded[row.path],
 			Selected:    p.folder == row.path && p.search == "",
@@ -492,11 +531,11 @@ func (p *Panel) drawTree(r mathx.Rect) {
 			p.gridScroll = 0
 			p.search = ""
 		}
-		if ev.RightClicked {
+		if ev.RightClicked && !sourceFolder(row.path) {
 			p.menuDir = row.path
 			widgets.OpenContextMenu(ui, p.dirMenuID)
 		}
-		if ui.Active() == id && path.Dir(row.path) != "." {
+		if ui.Active() == id && !sourceFolder(row.path) && path.Dir(row.path) != "." {
 			p.f.DnD.Source(ui, id, dirPayload(row.path))
 		}
 		p.dropOnDir(row.path, rr)
@@ -509,7 +548,7 @@ func (p *Panel) filter() {
 	q := strings.ToLower(strings.TrimSpace(p.search))
 	if q == "" {
 		for _, d := range p.dirs {
-			if path.Dir(d) == p.folder {
+			if d != p.folder && path.Dir(d) == p.folder {
 				p.subdirs = append(p.subdirs, d)
 			}
 		}
@@ -557,6 +596,16 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 			p.assetTile(&p.items[p.view[i-len(p.subdirs)]], tr)
 		}
 	})
+	first := max(0, int(p.gridScroll/tileH)-1)
+	last := min(rows, int((p.gridScroll+r.H)/tileH)+2)
+	for _, row := range []int{first, last - 1} {
+		for c := 0; c < cols; c++ {
+			idx := row*cols + c - len(p.subdirs)
+			if idx >= 0 && idx < len(p.view) {
+				p.d.Thumbs.Prefetch(p.items[p.view[idx]])
+			}
+		}
+	}
 	if count == 0 {
 		lines := widgets.WrapLines(ui, i18n.Tr("editor.assets.drop_files_here", "Drop files here to import"), r.W-2*th.Padding)
 		lh := ui.LineHeight()
@@ -645,8 +694,11 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 			widgets.OpenContextMenu(ui, p.assetMenuID)
 		}
 	}
-	if ui.Active() == id {
+	if ui.Active() == id && a.Kind != preview.SourceKind {
 		p.f.DnD.Source(ui, id, p.payload(a))
+		if p.f.DnD.Active() {
+			p.inspectPending = false
+		}
 	}
 	switch {
 	case p.sel[a.ID]:
@@ -656,11 +708,17 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	case cell:
 		ui.RoundRect(r, th.Radius.Field, th.CardBg)
 	}
-	switch reg, ok := p.d.Thumbs.Get(*a); {
-	case a.Kind == asset.ArtAudio:
-		p.audioCard(a, img)
+	reg, ok := p.d.Thumbs.Get(*a)
+	if ok && ui.Hot() == id {
+		if frame, found := p.d.Thumbs.HoverFrame(a.ID, p.now); found {
+			if pic, ready := p.d.Thumbs.ByID(frame); ready {
+				reg = pic
+			}
+		}
+	}
+	switch {
 	case ok:
-		if preview.Image(a.Kind) || a.Kind == asset.ArtPrefab {
+		if preview.Image(a.Kind) || a.Kind == asset.ArtPrefab || a.Kind == asset.ArtMaterial || a.Kind == asset.ArtShader || a.Kind == asset.ArtAnim {
 			p.checker(img)
 		}
 		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.White)
@@ -694,6 +752,19 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		ui.PopClip()
 	}
 	tip := a.Path
+	if role := p.d.Thumbs.Role(a.ID); role != "" && role != asset.RoleColor {
+		tip += "\n" + string(role)
+		ui.PushFont(ui.MonoFontAt(10))
+		tag := widgets.Elide(ui, string(role), img.W-3)
+		br := mathx.Rect{X: img.X, Y: img.Y + img.H - ui.LineHeight(), W: min(ui.TextSize(tag).X+3, img.W), H: ui.LineHeight()}
+		ui.Rect(br, th.Panel)
+		ui.TextIn(br, tag, th.Text, core.AlignCenter)
+		ui.PopFont()
+	}
+	if reason := p.d.Thumbs.Reason(a.ID); reason != "" {
+		tip += "\n" + reason
+		widgets.IconAt(ui, mathx.Rect{X: img.X + 1, Y: img.Y + 1, W: 16, H: 16}, "status.warning", th.Warn)
+	}
 	if startup {
 		tip += " · startup scene"
 	}
@@ -777,6 +848,9 @@ func (p *Panel) accepts(pl dnd.Payload, dir string) bool {
 }
 
 func (p *Panel) dropOnDir(dir string, r mathx.Rect) {
+	if sourceFolder(dir) {
+		return
+	}
 	ui := p.f.UI
 	dn := p.f.DnD
 	if !dn.Hovering(ui, r) {
@@ -864,50 +938,9 @@ func (p *Panel) importFiles(files []string, dir string) {
 	p.invalidate()
 }
 
-func openExternal(abs string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		return exec.Command("open", abs).Start()
-	case "windows":
-		return exec.Command("cmd", "/c", "start", "", abs).Start()
-	}
-	return exec.Command("xdg-open", abs).Start()
-}
-
-func openable(k asset.ArtifactKind) bool {
-	switch k {
-	case asset.ArtScene, asset.ArtScript, asset.ArtPrefab, asset.ArtData, asset.ArtTable:
-		return true
-	}
-	return false
-}
-
 func (p *Panel) open(a *pipeline.AssetInfo) {
-	switch a.Kind {
-	case asset.ArtScene, asset.ArtPrefab:
-		if _, err := p.d.Docs.Documents().Open(a.Path); err != nil {
-			p.d.Notices.Notify(context.LevelError, err.Error())
-		}
-	case asset.ArtScript:
-		if p.d.Files.ScriptEditor() {
-			p.d.Nav.Open(context.At(a.Path, 0, 1))
-			return
-		}
-		if err := openExternal(p.d.Pipeline.Abs(a.Path)); err != nil {
-			p.d.Notices.Notify(context.LevelError, err.Error())
-		}
-	case asset.ArtData:
-		if p.d.Inspect != nil {
-			p.d.Inspect(a.ID)
-		}
-	case asset.ArtTable:
-		if p.d.OpenTable != nil {
-			p.d.OpenTable(a.ID)
-		}
-	default:
-		if p.viewable(a.Kind) && p.d.Inspect != nil {
-			p.d.Inspect(a.ID)
-		}
+	if p.d.Nav != nil {
+		p.d.Nav.Open(context.AssetDocumentAt(a.Path))
 	}
 }
 
@@ -938,6 +971,12 @@ func (p *Panel) Reveal(rel string) {
 }
 
 func (p *Panel) StartRename() {
+	if sourceFolder(p.selDir) {
+		return
+	}
+	if a := p.find(p.active); a != nil && a.Kind == preview.SourceKind {
+		return
+	}
 	if len(p.sel) == 1 && p.sel[p.active] && !p.isCell(p.active) {
 		p.renaming, p.renameStart = p.active, true
 	}

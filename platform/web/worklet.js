@@ -14,12 +14,22 @@ class AegoOut extends AudioWorkletProcessor {
         this.block = null;
         this.at = 0;
         this.primed = false;
+        this.queued = 0;
+        this.refillAt = o.refillAt || 0;
+        this.refillArmed = false;
         this.consumed = 0;
         this.underruns = 0;
         this.sum = 0;
         this.count = 0;
         this.since = 0;
-        this.port.onmessage = (e) => this.blocks.push(e.data);
+        this.port.onmessage = ({data}) => {
+            if (typeof data.refillAt === "number") {
+                this.refillAt = data.refillAt;
+            } else {
+                this.queued += data.length / this.ch;
+                this.blocks.push(data);
+            }
+        };
     }
 
     next() {
@@ -36,6 +46,7 @@ class AegoOut extends AudioWorkletProcessor {
         const n = left.length;
         const ch = this.ch;
         let got = 0;
+        let remaining = 0;
         if (this.shared) {
             const head = Atomics.load(this.index, 0);
             const avail = (Atomics.load(this.index, 1) - head) | 0;
@@ -49,6 +60,7 @@ class AegoOut extends AudioWorkletProcessor {
                 this.sum += l * l + r * r;
             }
             Atomics.store(this.index, 0, (head + got) | 0);
+            remaining = avail - got;
         } else {
             while (got < n && this.next()) {
                 const b = this.block;
@@ -63,6 +75,7 @@ class AegoOut extends AudioWorkletProcessor {
                 }
             }
         }
+        if (!this.shared) remaining = this.queued -= got;
         for (let f = got; f < n; f++) {
             left[f] = 0;
             if (right) right[f] = 0;
@@ -72,7 +85,12 @@ class AegoOut extends AudioWorkletProcessor {
         this.consumed += got;
         this.count += got * 2;
         this.since += n;
-        if (this.since >= this.report) {
+        // Keep the regular reports. If the producer misses its usual frame,
+        // request the next fill before silence, only once per threshold crossing.
+        if (remaining > this.refillAt) this.refillArmed = true;
+        const need = this.refillAt > 0 && this.refillArmed && remaining <= this.refillAt;
+        if (need) this.refillArmed = false;
+        if (this.since >= this.report || need) {
             this.since = 0;
             this.port.postMessage({ consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count });
         }

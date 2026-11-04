@@ -1,6 +1,6 @@
 anim version=1 length=0.38 {
   frames "" {
-    sprites=[asset("ae900000000000000000000000000b01"), asset("ae900000000000000000000000000b03"), asset("ae900000000000000000000000000b05")]
+    sprites=[asset("1d79a0b136fd6437eff8daa213dce138"), asset("a236b680c0ba8413c061919ae44f5961"), asset("d5b69cc3fef91685825a896b4bda9a14")]
     durations=[0.08, 0.14, 0.16]
   }
   track "" prop="SpriteRenderer.size" kind=vec2 {

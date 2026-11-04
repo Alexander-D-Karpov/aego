@@ -309,4 +309,64 @@ func TestSwapSkipsUnchangedBlobs(t *testing.T) {
 	}
 }
 
+func TestSwapUncachedSceneUsesPreviousArtifactIdentity(t *testing.T) {
+	const body = "scene version=1 {}\n"
+	const size = int64(len(body))
+	for _, tc := range []struct {
+		name             string
+		oldKind          asset.ArtifactKind
+		oldHash, newHash string
+		oldSize          int64
+		wantNotified     bool
+	}{
+		{"identical", asset.ArtScene, "same", "same", size, false},
+		{"changed hash", asset.ArtScene, "old", "new", size, true},
+		{"changed size", asset.ArtScene, "same", "same", size - 1, true},
+		{"changed kind", asset.ArtPrefab, "same", "same", size, true},
+		{"missing hashes", asset.ArtScene, "", "", size, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			id, dep := ids.NewAssetID(), ids.NewAssetID()
+			fs := newFS(t, map[string][]byte{"main.aescene": []byte(body)})
+			const path = "cache://main.aescene"
+			idx := asset.NewIndex()
+			idx.Put(asset.Entry{ID: id, Kind: tc.oldKind, Name: "previous", Artifacts: []asset.Artifact{{Kind: tc.oldKind, Path: path, Hash: tc.oldHash, Size: tc.oldSize}}})
+			l, _ := newLoader(t)
+			if err := l.Mount(idx, fs); err != nil {
+				t.Fatal(err)
+			}
+			if _, loaded := l.blobs[id]; loaded {
+				t.Fatal("scene unexpectedly loaded before Swap")
+			}
+			gen := l.Generation()
+			notifications := 0
+			stop := l.Subscribe(func(ev asset.Reloaded) {
+				if ev.ID != id || ev.Kind != asset.ArtScene {
+					t.Fatalf("unexpected reload: %+v", ev)
+				}
+				notifications++
+			})
+			defer stop()
+			next := asset.Entry{ID: id, Kind: asset.ArtScene, Name: "current", Deps: []ids.AssetID{dep}, Artifacts: []asset.Artifact{{Kind: asset.ArtScene, Path: path, Hash: tc.newHash, Size: size}}}
+			if err := l.Swap([]asset.Entry{next}, nil); err != nil {
+				t.Fatal(err)
+			}
+			want := 0
+			if tc.wantNotified {
+				want = 1
+			}
+			if notifications != want || l.Generation() != gen+uint32(want) {
+				t.Fatalf("reloads=%d generation=%d; want %d reloads from %d", notifications, l.Generation(), want, gen)
+			}
+			e, found := l.Index().Lookup(id)
+			if !found || e.Name != "current" || len(e.Deps) != 1 || e.Deps[0] != dep {
+				t.Fatal("no-op content comparison discarded the new index entry")
+			}
+			if got, ok := l.Scene(id); !ok || string(got) != body {
+				t.Fatal("swapped scene bytes do not resolve")
+			}
+		})
+	}
+}
+
 var _ = gpu.TexSRGBA8

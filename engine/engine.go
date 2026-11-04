@@ -26,6 +26,7 @@ type Engine struct {
 	log        *log.Logger
 	elog       *log.ChannelLogger
 	plat       platform.Platform
+	clockReset platform.FrameClockResetter
 	win        platform.Window
 	dev        gpu.Device
 	capture    func(*image.RGBA, error)
@@ -236,6 +237,9 @@ func (e *Engine) initBackends(p platform.Platform) error {
 		}
 	}
 	e.plat = p
+	// Resolve the optional capability once per backend. A failed type assertion
+	// on every frame can lazily allocate a Go runtime cache after warmup.
+	e.clockReset, _ = p.(platform.FrameClockResetter)
 
 	win, err := p.CreateWindow(platform.WindowDesc{
 		Title:      cfg.Title,

@@ -63,6 +63,8 @@ canvas { display: block; width: 100%; height: 100%; outline: none; touch-action:
   const pad = { connected: false, id: "Touch Gamepad", buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0, 0, 0, 0] };
   globalThis.aegoVirtualPad = pad;
   const root = document.getElementById("vpad");
+  // Pad gestures belong to the game even when a toolbar button had keyboard focus.
+  root.addEventListener("pointerdown", () => document.getElementById("game").focus({preventScroll: true}), true);
   const show = (on) => { root.hidden = !on; pad.connected = on; };
   const loader = document.getElementById("loader");
   const ready = () => loader.classList.contains("done");

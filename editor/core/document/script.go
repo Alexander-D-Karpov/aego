@@ -1,13 +1,17 @@
 package document
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aego/core/errs"
 	"aego/core/log"
@@ -17,15 +21,39 @@ import (
 const ScriptExt = ".aes"
 
 type ScriptDocument struct {
-	ID         ID
-	Path       string
-	Code       *code.Doc
-	ReadOnly   bool
-	Note       string
-	DiskAt     time.Time
-	DiskSize   int64
-	OnDisk     bool
-	removedAck bool
+	ID       ID
+	Path     string
+	Code     *code.Doc
+	ReadOnly bool
+	// Metadata has explicit Save/Save All. Undo and preview never become an
+	// implicit source write through the code editor's autosave policy.
+	ExplicitSave bool
+	ValidateSave func([]byte) error
+	SavedEdits   uint64
+	Note         string
+	DiskAt       time.Time
+	DiskSize     int64
+	OnDisk       bool
+	// Conflict remains set until the user reloads or explicitly keeps this
+	// buffer. Save and autosave cannot overwrite an unacknowledged disk change.
+	Conflict    bool
+	removedAck  bool
+	diskHash    [32]byte
+	diskTracked bool
+	views       int
+}
+
+// RetainView keeps the shared text journal alive while a Code view is open,
+// even if a material/asset view of the same source closes first.
+func (d *ScriptDocument) RetainView() func() {
+	d.views++
+	live := true
+	return func() {
+		if live {
+			d.views--
+			live = false
+		}
+	}
 }
 
 func (d *ScriptDocument) Dirty() bool {
@@ -60,6 +88,8 @@ func (m *Manager) statScript(d *ScriptDocument) {
 func (m *Manager) addScript(rel string, data []byte) *ScriptDocument {
 	m.next++
 	d := &ScriptDocument{ID: m.next, Path: rel, Code: code.New(data)}
+	d.diskHash, d.diskTracked = sha256.Sum256(data), true
+	d.Code.GLSL = shaderText(rel)
 	m.statScript(d)
 	m.scripts = append(m.scripts, d)
 	return d
@@ -67,28 +97,52 @@ func (m *Manager) addScript(rel string, data []byte) *ScriptDocument {
 
 func (m *Manager) OpenScript(rel string) (*ScriptDocument, error) {
 	rel = Clean(rel)
+	if !validProjectPath(rel) {
+		return nil, errs.New(errs.EditorDocument, "source path must stay inside the project")
+	}
 	if d := m.Script(rel); d != nil {
 		return d, nil
 	}
-	data, err := os.ReadFile(m.Abs(rel))
+	data, err := m.ReadSource(rel)
 	if err != nil {
 		return nil, errs.Wrap(err, errs.EditorDocument, "cannot read the script").With(log.F("path", rel))
+	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return nil, errs.New(errs.EditorDocument, "binary source cannot be opened in the text editor").With(log.F("path", rel))
 	}
 	return m.addScript(rel, data), nil
 }
 
 func (m *Manager) SaveScript(d *ScriptDocument) error {
+	if d == nil || d.ReadOnly {
+		return errs.New(errs.EditorDocument, "source document is read-only")
+	}
+	if d.ValidateSave != nil {
+		if err := d.ValidateSave(d.Code.Bytes()); err != nil {
+			return err
+		}
+	}
+	if d.Conflict || !m.scriptMatchesDisk(d) {
+		d.Conflict = true
+		return errs.New(errs.EditorDocument, "source changed on disk; reload or explicitly keep your changes before saving").With(log.F("path", d.Path))
+	}
 	if err := WriteAtomic(m.Abs(d.Path), d.Code.Bytes()); err != nil {
 		return errs.Wrap(err, errs.EditorDocument, "cannot save the script").With(log.F("path", d.Path))
 	}
 	d.Code.MarkSaved()
+	d.SavedEdits++
+	d.diskHash, d.diskTracked = sha256.Sum256(d.Code.Bytes()), true
 	m.statScript(d)
 	d.removedAck = false
 	os.Remove(m.scriptRecoveryFile(d.Path))
+	m.emit(Event{Kind: EvSourceSaved, Doc: d.ID, Path: d.Path})
 	return nil
 }
 
 func (m *Manager) CloseScript(d *ScriptDocument) {
+	if m.scriptOwned(d) || d.views > 0 {
+		return
+	}
 	for i, s := range m.scripts {
 		if s == d {
 			m.scripts = append(m.scripts[:i], m.scripts[i+1:]...)
@@ -98,12 +152,34 @@ func (m *Manager) CloseScript(d *ScriptDocument) {
 	os.Remove(m.scriptRecoveryFile(d.Path))
 }
 
+// DiscardScript is explicit and shared by all views. Hiding a Code tab alone
+// cannot discard its journal now that an asset view can retain the same model.
+func (m *Manager) DiscardScript(d *ScriptDocument) error {
+	if err := m.ReloadScript(d); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		// Discarding a removed file does not recreate it or keep hidden edits.
+		d.Code = code.New(nil)
+		d.Code.GLSL = shaderText(d.Path)
+		d.Conflict, d.OnDisk, d.removedAck = false, false, true
+		d.diskHash, d.diskTracked = sha256.Sum256(nil), true
+		os.Remove(m.scriptRecoveryFile(d.Path))
+	}
+	return nil
+}
+
 func (m *Manager) ReloadScript(d *ScriptDocument) error {
 	data, err := os.ReadFile(m.Abs(d.Path))
 	if err != nil {
 		return errs.Wrap(err, errs.EditorDocument, "cannot read the script").With(log.F("path", d.Path))
 	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return errs.New(errs.EditorDocument, "binary source cannot replace a text document")
+	}
 	d.Code = code.New(data)
+	d.diskHash, d.diskTracked, d.Conflict = sha256.Sum256(data), true, false
+	d.Code.GLSL = shaderText(d.Path)
 	m.statScript(d)
 	d.removedAck = false
 	os.Remove(m.scriptRecoveryFile(d.Path))
@@ -111,7 +187,30 @@ func (m *Manager) ReloadScript(d *ScriptDocument) error {
 }
 
 func (m *Manager) KeepScript(d *ScriptDocument) {
-	m.statScript(d)
+	data, err := os.ReadFile(m.Abs(d.Path))
+	if err != nil && !os.IsNotExist(err) {
+		return
+	}
+	d.diskHash, d.diskTracked = sha256.Sum256(data), true
+	d.Conflict = false
+	d.OnDisk = err == nil
+	if d.OnDisk {
+		m.statScript(d)
+	}
+}
+
+func (m *Manager) scriptMatchesDisk(d *ScriptDocument) bool {
+	if !d.diskTracked {
+		return true
+	}
+	data, err := os.ReadFile(m.Abs(d.Path))
+	if os.IsNotExist(err) {
+		return !d.OnDisk
+	}
+	if err != nil || !d.OnDisk {
+		return false
+	}
+	return sha256.Sum256(data) == d.diskHash
 }
 
 func (m *Manager) CheckExternalScripts() ([]*ScriptDocument, []*ScriptDocument) {
@@ -124,6 +223,7 @@ func (m *Manager) CheckExternalScripts() ([]*ScriptDocument, []*ScriptDocument) 
 		if err != nil {
 			if os.IsNotExist(err) && !d.removedAck {
 				d.removedAck = true
+				d.Conflict = true
 				conflicts = append(conflicts, d)
 			}
 			continue
@@ -138,6 +238,7 @@ func (m *Manager) CheckExternalScripts() ([]*ScriptDocument, []*ScriptDocument) 
 			continue
 		}
 		d.DiskAt, d.DiskSize = st.ModTime(), st.Size()
+		d.Conflict = true
 		conflicts = append(conflicts, d)
 	}
 	return reloaded, conflicts
@@ -211,5 +312,14 @@ func (m *Manager) RestoreScriptRecovery(r Recovery) (*ScriptDocument, error) {
 	d := m.addScript(r.Path, data)
 	disk, _ := os.ReadFile(m.Abs(r.Path))
 	d.Code.SetSaved(disk)
+	d.diskHash, d.diskTracked = sha256.Sum256(disk), true
 	return d, nil
+}
+
+func shaderText(name string) bool {
+	switch strings.ToLower(path.Ext(name)) {
+	case ".aeshader", ".glsl", ".vert", ".frag":
+		return true
+	}
+	return false
 }

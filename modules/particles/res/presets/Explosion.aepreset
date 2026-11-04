@@ -1,0 +1,27 @@
+prefab version=1 {
+  node "60bf6d90a8bc46e7b693aa2abdc9ce75" name="Explosion" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      rate=0
+      maxParticles=72
+      duration=0.3
+      loop=false
+      bursts=[[0, 18], [0.07, 12], [0.15, 8]]
+      shape=circle
+      radius=0.1
+      lifetime=[0.52, 1.25]
+      speed=[0.9, 3.6]
+      size=[0.23, 0.68]
+      direction=0
+      spread=6.283185
+      drag=0.65
+      colorOverLife=[{ time=0 color=#fff3b5ff }, { time=0.35 color=#ffab49ff }, { time=0.75 color=#ed582fff }, { time=1 color=#802526ff }]
+      sizeOverLife={ keys=[[0, 1.15, 0, 0, bezier, linear], [1, 0.38, 0, 0, bezier, linear]] }
+      space=world
+      sprite=asset("ae900000000000000000000000000d00")
+      material=asset("ae900000000000000000000000000c01")
+      reducedMotion=reduce
+      reducedRate=0.4
+    }
+  }
+}

@@ -226,7 +226,13 @@ func (p *Panel) drawCard(ui *core.Context, b *block, r mathx.Rect) {
 	}
 	ui.Text(slabel, mathx.Vec2{X: sx, Y: ui.TextY(hr)}, scol)
 	if b.open {
-		p.cardBody(ui, b, box.W, &mathx.Rect{X: box.X, Y: box.Y + row})
+		body := p.cardBody(ui, b, box.W, &mathx.Rect{X: box.X, Y: box.Y + row})
+		y := box.Y + row + body
+		for _, key := range s.look.Detail.Images {
+			h := min(box.W, 160)
+			p.drawImage(ui, key, mathx.Rect{X: box.X, Y: y, W: box.W, H: h})
+			y += h
+		}
 	}
 	border := th.Border
 	switch {

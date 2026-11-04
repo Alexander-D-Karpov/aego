@@ -47,11 +47,20 @@ func buildGo(root, code string) string {
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(code), 0o644); err != nil {
 		return err.Error()
 	}
-	cmd := exec.Command("go", "vet", "-mod=mod", ".")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off")
-	if b, err := cmd.CombinedOutput(); err != nil {
-		return strings.TrimSpace(string(b))
+	// Build the actual native SDK example first. Vet the same source against the
+	// portable SDK as well, so diagnostics belong to the example instead of a
+	// generated cgo GL binding in its transitive platform dependencies. The
+	// repository's native vet/lint gates validate the platform separately.
+	for _, args := range [][]string{
+		{"build", "-mod=mod", "-o", filepath.Join(dir, "compiled"), "."},
+		{"vet", "-tags=aego_nonative", "-mod=mod", "."},
+	} {
+		cmd := exec.Command("go", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off")
+		if b, err := cmd.CombinedOutput(); err != nil {
+			return strings.TrimSpace(string(b))
+		}
 	}
 	return ""
 }

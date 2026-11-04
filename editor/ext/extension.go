@@ -31,13 +31,21 @@ type Deps struct {
 	Schema     *schema.Registry
 }
 
+type thumbnailRegistration struct {
+	kind      asset.ArtifactKind
+	component string
+}
+
 type owned struct {
-	panels     []string
-	commands   []string
-	gizmos     []schema.TypeID
-	inspectors []schema.TypeID
-	assets     []string
-	players    []string
+	imageGenerator bool
+	panels         []string
+	commands       []string
+	gizmos         []schema.TypeID
+	inspectors     []schema.TypeID
+	assets         []string
+	players        []string
+	documents      []string
+	thumbs         []thumbnailRegistration
 }
 
 type pending struct {
@@ -152,6 +160,9 @@ func (r *Registry) disableNow(id, reason string) {
 	}
 	r.disabled[id] = reason
 	if o := r.owned[id]; o != nil {
+		if o.imageGenerator && r.deps.Editor != nil {
+			r.deps.Editor.ImageGenerator = nil
+		}
 		for _, p := range o.panels {
 			r.deps.Workspace.Unregister(p)
 		}
@@ -165,6 +176,18 @@ func (r *Registry) disableNow(id, reason string) {
 			r.deps.Inspectors.Disable(t, reason)
 		}
 		if ed := r.deps.Editor; ed != nil {
+			if thumbs, ok := ed.Thumbs.(interface {
+				UnregisterComponent(asset.ArtifactKind, string)
+			}); ok {
+				for _, t := range o.thumbs {
+					thumbs.UnregisterComponent(t.kind, t.component)
+				}
+			}
+			if ed.Docs != nil {
+				for _, id := range o.documents {
+					ed.Docs.Handlers().Unregister(id)
+				}
+			}
 			for _, k := range o.assets {
 				delete(ed.AssetViews, k)
 			}
@@ -216,7 +239,7 @@ func (r *Registry) Panel(d workspace.Desc) error {
 	}
 	ext := r.ext()
 	id := d.Panel.ID()
-	d.Panel = &safePanel{p: d.Panel, ext: ext, reg: r}
+	d.Panel = r.wrapPanel(d.Panel, ext)
 	if d.Order == 0 {
 		d.Order = extOrder
 	}

@@ -1,6 +1,9 @@
 package sceneio
 
 import (
+	"fmt"
+	"unsafe"
+
 	"aego/asset"
 	"aego/core/errs"
 	"aego/core/ids"
@@ -15,9 +18,10 @@ import (
 const FormatVersion = 1
 
 type LoadOptions struct {
-	Strict  bool
-	KeepIDs bool
-	Prefabs *Library
+	Strict        bool
+	KeepIDs       bool
+	CheckLiterals bool
+	Prefabs       *Library
 }
 
 type Diag struct {
@@ -311,6 +315,12 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 		l.report.Unknown = append(l.report.Unknown, typeName)
 		return nil
 	}
+	checkFields := td.CheckedLiterals && (l.opt.CheckLiterals || l.opt.Strict)
+	if checkFields {
+		if err := ValidatePresetFields(l.reg, td, n); err != nil {
+			return fmt.Errorf("%s (%s): %w", l.scene.Name(h), l.scene.ID(h), err)
+		}
+	}
 	if td.FullName == scriptcomp.ScriptName {
 		return l.loadScripts(h, n)
 	}
@@ -332,7 +342,7 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 		}
 		value, err := l.convert(fd, f.Value)
 		if err != nil {
-			if l.opt.Strict {
+			if checkFields || l.opt.Strict {
 				return err
 			}
 			l.report.warn(l.name, f.Pos, err.Error())
@@ -345,7 +355,7 @@ func (l *loader) loadComponent(h scene.NodeHandle, n *aetext.Node) error {
 			continue
 		}
 		if err := fd.Set(p, value); err != nil {
-			if l.opt.Strict {
+			if checkFields || l.opt.Strict {
 				return err
 			}
 			l.report.warn(l.name, f.Pos, err.Error())
@@ -453,6 +463,7 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Val
 			return schema.Value{}, errs.New(errs.SceneIOParse, "unregistered nested struct")
 		}
 		obj := &schema.Object{Type: td.ID, Fields: make([]schema.Value, len(td.Fields))}
+		var defaults unsafe.Pointer
 		for i := range td.Fields {
 			for _, f := range v.Obj {
 				if f.Name != td.Fields[i].Name {
@@ -463,6 +474,16 @@ func (l *loader) convert(fd *schema.FieldDescriptor, v aetext.Value) (schema.Val
 					return schema.Value{}, err
 				}
 				obj.Fields[i] = ev
+			}
+			if obj.Fields[i].Kind == schema.KindInvalid {
+				if defaults == nil {
+					if td.Default != nil {
+						defaults = td.Default()
+					} else {
+						defaults = td.New()
+					}
+				}
+				td.Fields[i].Get(defaults, &obj.Fields[i])
 			}
 		}
 		return schema.Value{Kind: schema.KindStruct, Obj: obj}, nil

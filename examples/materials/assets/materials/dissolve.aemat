@@ -1,0 +1,3 @@
+material version=1 shader=asset("12a00000000000000000000000000102") {
+  params { Noise=asset("12a00000000000000000000000000304") Threshold=0 NoiseScale=[2, 2] EdgeWidth=0.06 EdgeColor=[1, 0.4, 0.04, 1] Opacity=0.82 }
+}

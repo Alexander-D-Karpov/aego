@@ -6,7 +6,8 @@ prefab version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000b00")
+      sprite=asset("33a034118185e91d90cddef773628c90")
+      material=asset("1676ce18eb70eba0ca636295653ca4c2")
       layer=0
       order=1
       tint=#e0563bff
@@ -73,6 +74,13 @@ prefab version=1 {
         Stats=asset("da7a0000000000000000000000000001")
         DieSound=asset("a0d10000000000000000000000000013")
       }
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=spriteAlpha
+      polygon=[[-0.16875, -0.28125], [0.16875, -0.28125], [0.225, -0.225], [0.225, 0.05625], [0.16875, 0.1125], [0.1125, 0.1125], [0.1125, 0.39375], [0.05625, 0.39375], [0.05625, 0.1125], [-0.05625, 0.1125], [-0.05625, 0.39375], [-0.1125, 0.39375], [-0.1125, 0.1125], [-0.16875, 0.1125], [-0.225, 0.05625], [-0.225, -0.225]]
+      closed=true
+      cullMode=none
+      layers=2
     }
   }
 }

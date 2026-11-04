@@ -6,6 +6,8 @@ import (
 	"aego/core/mathx"
 	"aego/gpu"
 	"aego/gpu/null"
+	"aego/render/material"
+	"aego/render/shader"
 	"aego/render/texture"
 )
 
@@ -121,5 +123,55 @@ func TestBatcherGrowsUpToTheLimit(t *testing.T) {
 	b.Sort()
 	if b.Len() != 6 || b.Dropped() != 2 || len(b.Instances()) != 6 {
 		t.Fatalf("len=%d dropped=%d", b.Len(), b.Dropped())
+	}
+}
+
+func TestCoverageFlagIsLocalToTheParticleAndQualifiedProgram(t *testing.T) {
+	b, dev := newTestBatcher(t, 8)
+	defer b.Close()
+	mk := func(flags shader.Features) *material.Material {
+		m, ok := material.New("test", &material.Shader{Variants: []material.Variant{{}}, Schema: &material.Schema{}, Features: flags}, 0, shader.BlendPremultiplied)
+		if !ok {
+			t.Fatal("material rejected")
+		}
+		return m
+	}
+	region := fakeRegion(t, dev, "atlas")
+	region.SourceW, region.SourceH, region.TrimX, region.TrimY = 8, 16, 1, 2
+	stock := mk(shader.FeaturePixelCoverage)
+	shared := Draw{Material: stock, Region: region, Size: mathx.V2(8, 16), FlipX: true, Rotation: .5, Origin: mathx.V2(.5, .5)}
+	normal, _, _ := shared.Geometry(1)
+	want := normal.LocalRect()
+	for i, test := range []struct {
+		mat              *material.Material
+		particle, tagged bool
+	}{
+		{stock, true, true}, {stock, false, false}, {mk(shader.FeatureAffine), true, false}, {nil, true, false},
+	} {
+		d := shared
+		d.Material, d.PixelCoverage = test.mat, test.particle
+		b.Reset()
+		b.Push(&d, gpu.SamplerHandle{}, mathx.Rect{}, false)
+		if d.Material == nil {
+			if len(b.trims) != 0 {
+				t.Fatal("default path gained a stream")
+			}
+			continue
+		}
+		if len(b.trims) != 1 {
+			t.Fatalf("case %d missing trim", i)
+		}
+		rect := b.trims[0]
+		tag := rect[0] >= 2
+		if tag {
+			rect[0] -= 2
+		}
+		if tag != test.tagged || rect != want {
+			t.Fatalf("case %d: tag %t rect %v, want %t %v", i, tag, rect, test.tagged, want)
+		}
+		b.Sort()
+		if b.Instances()[0].SinCos.X == 0 {
+			t.Fatal("rotation lost")
+		}
 	}
 }

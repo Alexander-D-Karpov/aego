@@ -65,6 +65,7 @@ type Panel struct {
 	agentMarks []agentMark
 	host       *Host
 	doc        *document.ScriptDocument
+	releaseDoc func()
 	fid        core.ID
 	clone      bool
 	idx        int
@@ -138,18 +139,19 @@ type Panel struct {
 
 func newPanel(h *Host, d *document.ScriptDocument) *Panel {
 	return &Panel{
-		host:      h,
-		doc:       d,
-		fid:       core.IDOf("code/" + d.Path),
-		lastRev:   ^uint64(0),
-		sentRev:   ^uint64(0),
-		marksAt:   ^uint64(0),
-		marks:     map[int]diag.Severity{},
-		views:     map[int]*lineView{},
-		inlays:    map[int][]inlay{},
-		hover:     hoverState{off: -1},
-		flashLine: -1,
-		occCur:    -1,
+		host:       h,
+		doc:        d,
+		releaseDoc: d.RetainView(),
+		fid:        core.IDOf("code/" + d.Path),
+		lastRev:    ^uint64(0),
+		sentRev:    ^uint64(0),
+		marksAt:    ^uint64(0),
+		marks:      map[int]diag.Severity{},
+		views:      map[int]*lineView{},
+		inlays:     map[int][]inlay{},
+		hover:      hoverState{off: -1},
+		flashLine:  -1,
+		occCur:     -1,
 	}
 }
 
@@ -172,7 +174,14 @@ func (p *Panel) Scope() string {
 }
 
 func (p *Panel) file() (source.FileID, bool) {
+	if p.foreignSource() {
+		return source.NoFile, false
+	}
 	return p.host.ws.FileID(p.doc.Path)
+}
+
+func (p *Panel) foreignSource() bool {
+	return p.doc.Code.GLSL || path.Ext(p.doc.Path) == ".aemat"
 }
 
 func (p *Panel) synced() bool {
@@ -203,6 +212,9 @@ func (p *Panel) push() uint64 {
 		return p.host.lang.Current()
 	}
 	p.sentRev = c.Rev()
+	if p.foreignSource() {
+		return p.host.lang.Current()
+	}
 	p.host.ws.SetOverlay(p.doc.Path, c.Bytes())
 	return p.host.lang.Invalidate()
 }

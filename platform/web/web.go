@@ -33,29 +33,30 @@ type listener struct {
 }
 
 type Platform struct {
-	opt       Options
-	global    js.Value
-	doc       js.Value
-	nav       js.Value
-	raf       js.Value
-	now       js.Value
-	gamepads  js.Value
-	vpad      js.Value
-	info      platform.Info
-	win       *Window
-	queue     []platform.Event
-	spare     []platform.Event
-	listeners []listener
-	noop      js.Func
-	start     float64
-	hiddenAt  float64
-	hiddenFor float64
-	hidden    bool
-	padLive   int
-	pads      [input.MaxPads]padSlot
-	pad       padFrame
-	interval  float64
-	next      float64
+	opt             Options
+	global          js.Value
+	doc             js.Value
+	nav             js.Value
+	raf             js.Value
+	now             js.Value
+	gamepads        js.Value
+	vpad            js.Value
+	info            platform.Info
+	win             *Window
+	queue           []platform.Event
+	spare           []platform.Event
+	listeners       []listener
+	noop            js.Func
+	start           float64
+	hiddenAt        float64
+	hiddenFor       float64
+	hidden          bool
+	resetFrameClock bool
+	padLive         int
+	pads            [input.MaxPads]padSlot
+	pad             padFrame
+	interval        float64
+	next            float64
 }
 
 func try(v js.Value, name string, args ...any) js.Value {
@@ -121,8 +122,16 @@ func (p *Platform) visibility(js.Value) {
 		p.push(platform.Event{Kind: platform.EvWindowFocusLost})
 	} else {
 		p.hiddenFor += t - p.hiddenAt
+		// Do not charge an incomplete foreground frame to the next simulation tick.
+		p.resetFrameClock = true
 	}
 	p.hidden = hidden
+}
+
+func (p *Platform) ConsumeFrameClockReset() bool {
+	pending := p.resetFrameClock
+	p.resetFrameClock = false
+	return pending
 }
 
 func (p *Platform) quiet(v js.Value) {
@@ -221,7 +230,9 @@ func (p *Platform) Drive(step func() bool) {
 	done := make(chan struct{})
 	var frame js.Func
 	frame = js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if !p.due(args) {
+		// Browsers may still deliver RAF callbacks to a hidden document.
+		// Keep the callback registered and leave queued input for the visible frame.
+		if p.hidden || !p.due(args) {
 			p.raf.Invoke(frame)
 			return nil
 		}

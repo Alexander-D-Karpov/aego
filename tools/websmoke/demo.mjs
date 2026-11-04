@@ -4,6 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright-core";
 import pixelmatch from "pixelmatch";
 import pngjs from "pngjs";
+import { frameLimitOutcome } from "./ci-warning-policy.mjs";
 
 const { PNG } = pngjs;
 const opts = Object.fromEntries(
@@ -25,10 +26,17 @@ const mime = {
     ".aetext": "text/plain",
 };
 const failures = [];
+const warnings = [];
 
 function fail(msg) {
     failures.push(msg);
     console.error("FAIL " + msg);
+}
+
+function warn(msg) {
+    warnings.push(msg);
+    console.warn("WARN " + msg);
+    if (process.env.GITHUB_ACTIONS) console.warn("::warning title=SwiftShader frame limit::" + msg);
 }
 
 function serve(root) {
@@ -105,15 +113,18 @@ async function touchPad() {
     const cdp = await ctx.newCDPSession(phone);
     const at = (x) => [{ x: box.x + box.width / 2 + x, y: box.y + box.height / 2, id: 1 }];
     const leftX = async () => {
-        await phone.waitForTimeout(200);
         const pads = await phone.evaluate(() => globalThis.aegoGame.pads());
         const touch = pads.find((p) => p.name === "Touch Gamepad");
         return touch ? touch.leftX : null;
     };
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(0) });
     await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(box.width / 2) });
+    await phone.waitForTimeout(200);
     const held = await leftX();
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    // The virtual pad resets on pointerup, but the game reads it on its next frame.
+    const releaseFrame = await phone.evaluate(() => globalThis.aegoGame.frames());
+    await frames(phone, releaseFrame + 1, 120000);
     const released = await leftX();
     if (held === null || held < 0.9 || released !== 0) fail(`the game reads the touch stick as ${held}, then ${released} after release`);
     else console.log("demo: the game reads the touch gamepad");
@@ -160,7 +171,14 @@ async function frameLimit() {
     const f1 = await page.evaluate(() => globalThis.aegoGame.frames());
     await page.evaluate(() => globalThis.aegoGame.frameLimit(0));
     const fps = (f1 - f0) / 3;
-    if (fps < 26 || fps > 32) fail(`a 30 fps limit gives ${fps.toFixed(1)} fps`);
+    let renderer = "";
+    if (fps < 26) {
+        try { renderer = await page.evaluate(() => JSON.parse(globalThis.aegoGame.stats()).renderer || ""); }
+        catch { /* An unverified renderer must not qualify for a warning. */ }
+    }
+    const outcome = frameLimitOutcome(fps, renderer, process.env.AEGO_CI_WEB_WARN === "1");
+    if (outcome === "warning") warn(`a 30 fps limit gives ${fps.toFixed(1)} fps on SwiftShader (required 26–32; Stage 13.5)`);
+    else if (outcome === "fail") fail(`a 30 fps limit gives ${fps.toFixed(1)} fps`);
     else console.log(`demo: frame limit 30 gives ${fps.toFixed(1)} fps`);
 }
 
@@ -213,4 +231,5 @@ if (failures.length) {
     console.error(`${failures.length} failure(s)`);
     process.exit(1);
 }
-console.log("web demo: ok");
+if (warnings.length) console.log(`web demo: completed with ${warnings.length} warning(s); FPS check did not pass`);
+else console.log("web demo: ok");

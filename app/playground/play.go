@@ -115,7 +115,7 @@ func (p *Playground) LoseContext(lose bool) bool {
 	return p.game != nil && p.game.LoseContext(lose)
 }
 
-func (p *Playground) PlayScene(name string, src []byte, code string, prefabs map[string]string) PlayResult {
+func (p *Playground) PlayScene(name string, src []byte, code string, prefabs map[string]string, artifacts ...[]byte) PlayResult {
 	mods, err := playmods.DecodeTry(code)
 	if err != nil {
 		return PlayResult{Error: err.Error()}
@@ -124,7 +124,7 @@ func (p *Playground) PlayScene(name string, src []byte, code string, prefabs map
 	if err != nil {
 		return PlayResult{Error: err.Error()}
 	}
-	if err := playmods.MountTry(g.loader, prefabs); err != nil {
+	if err := playmods.MountTry(g.loader, prefabs, artifacts...); err != nil {
 		return PlayResult{Error: err.Error()}
 	}
 	if err := g.Play(name, src, mods); err != nil {

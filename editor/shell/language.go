@@ -27,6 +27,8 @@ func languageTitle(pref string) string {
 // menuTitle is the label of a menu category; categories stay English inside the registry.
 func menuTitle(cat string) string {
 	switch cat {
+	case toolsMenu:
+		return i18n.Tr("editor.menu.tools", "Tools")
 	case "File":
 		return i18n.Tr("editor.menu.file", "File")
 	case "Edit":

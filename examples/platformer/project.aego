@@ -51,9 +51,19 @@ project version=1 {
       type=button
       bind=["Key.F9"]
     }
+    action {
+      name=LightingToggle
+      type=button
+      bind=["Key.F6"]
+    }
+    action {
+      name=LightingDebug
+      type=button
+      bind=["Key.F7"]
+    }
     context {
       name=Gameplay
-      actions=[Move, Jump, Attack, Pause, QuickSave, QuickLoad]
+      actions=[Move, Jump, Attack, Pause, QuickSave, QuickLoad, LightingToggle, LightingDebug]
     }
     context {
       name=Menu

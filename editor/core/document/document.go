@@ -118,11 +118,15 @@ const (
 	EvSaved
 	EvReloaded
 	EvActivated
+	EvSourceSaved
+	EvRenamed
 )
 
 type Event struct {
-	Kind EventKind
-	Doc  ID
+	Kind    EventKind
+	Doc     ID
+	Path    string
+	OldPath string
 }
 
 type Conflict struct {
@@ -155,6 +159,8 @@ type Manager struct {
 	log       *log.ChannelLogger
 	docs      []*SceneDocument
 	scripts   []*ScriptDocument
+	assets    []*AssetDocument
+	handlers  HandlerRegistry
 	active    ID
 	next      ID
 	subs      []subscriber
@@ -211,6 +217,9 @@ func movedPath(p, oldRel, newRel string) (string, bool) {
 
 func (m *Manager) Renamed(oldRel, newRel string) {
 	oldRel, newRel = Clean(oldRel), Clean(newRel)
+	if oldRel == newRel {
+		return
+	}
 	for _, d := range m.docs {
 		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
 			m.ClearRecovery(d.Path)
@@ -218,12 +227,26 @@ func (m *Manager) Renamed(oldRel, newRel string) {
 		}
 	}
 	for _, d := range m.scripts {
+		if d.Path == oldRel+".meta" {
+			os.Remove(m.scriptRecoveryFile(d.Path))
+			d.Path = newRel + ".meta"
+			m.statScript(d)
+			continue
+		}
 		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
 			os.Remove(m.scriptRecoveryFile(d.Path))
 			d.Path = np
 			m.statScript(d)
 		}
 	}
+	for _, d := range m.assets {
+		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
+			d.Path = np
+		}
+	}
+	// The stable document identity moves first; all presentations then update
+	// their path indexes, including renames discovered through AssetID lookup.
+	m.emit(Event{Kind: EvRenamed, Path: newRel, OldPath: oldRel})
 }
 
 func (m *Manager) Subscribe(fn func(Event)) func() {
@@ -337,6 +360,11 @@ func (m *Manager) Dirty() bool {
 			return true
 		}
 	}
+	for _, d := range m.assets {
+		if d.Binding.Dirty != nil && d.Binding.Dirty() {
+			return true
+		}
+	}
 	return false
 }
 
@@ -349,6 +377,11 @@ func (m *Manager) DirtyCount() int {
 	}
 	for _, d := range m.scripts {
 		if d.Dirty() {
+			n++
+		}
+	}
+	for _, d := range m.assets {
+		if d.Binding.Dirty != nil && d.Binding.Dirty() {
 			n++
 		}
 	}
@@ -471,6 +504,8 @@ func encode(d *SceneDocument) []byte {
 	return sceneio.Save(d.scene)
 }
 
+func (m *Manager) Snapshot(d *SceneDocument) []byte { return m.guarded(d, encode) }
+
 func (m *Manager) Save(id ID) error {
 	d := m.Get(id)
 	if d == nil {
@@ -531,6 +566,13 @@ func (m *Manager) SaveAll() error {
 			first = err
 		}
 	}
+	for _, d := range m.assets {
+		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
+			if err := d.Binding.Save(); err != nil && first == nil {
+				first = err
+			}
+		}
+	}
 	return first
 }
 
@@ -548,6 +590,11 @@ func (m *Manager) Close(id ID, force bool) error {
 		target, hasTarget := m.BackTarget(id)
 		m.forget(id)
 		m.docs = append(m.docs[:i], m.docs[i+1:]...)
+		for _, asset := range m.assets {
+			if asset.Scene == d {
+				asset.Scene = nil
+			}
+		}
 		if m.active == id {
 			m.active = 0
 			switch {
@@ -848,3 +895,5 @@ func (m *Manager) ClearRecovery(rel string) {
 func (m *Manager) ClearAllRecovery() {
 	os.RemoveAll(m.recoveryDir())
 }
+
+func (d *SceneDocument) PreviewBytes() []byte { return encode(d) }

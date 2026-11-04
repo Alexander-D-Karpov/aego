@@ -1,0 +1,22 @@
+package demo
+
+import "aego/input"
+
+// Space advances through the seven effects and the original image.
+script EffectSwitch {
+    var mode int
+
+    func Update(dt float) {
+        if input.KeyPressed(input.KeySpace) {
+            mode = (mode + 1) % 8
+            fx := node.Get<PostProcess>()
+            fx.SetEffectEnabled("bloom", mode == 0)
+            fx.SetEffectEnabled("grade", mode == 1)
+            fx.SetEffectEnabled("vignette", mode == 2)
+            fx.SetEffectEnabled("chromatic", mode == 3)
+            fx.SetEffectEnabled("pixelate", mode == 4)
+            fx.SetEffectEnabled("crt", mode == 5)
+            fx.SetEffectEnabled("custom", mode == 6)
+        }
+    }
+}

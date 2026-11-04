@@ -1,0 +1,26 @@
+prefab version=1 {
+  node "44c1510849a1833a4900885b92c9a676" name="Rain" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      rate=48
+      maxParticles=160
+      prewarm=1.4
+      shape=rect
+      rectSize=[4.4, 1.2]
+      offset=[0, -2.1]
+      lifetime=[0.7, 1.3]
+      speed=[4.4, 5.8]
+      size=[0.25, 0.5]
+      direction=1.69
+      spread=0.04
+      rotation=[0.08, 0.16]
+      color=#96bce1c0
+      space=local
+      sprite=asset("ae900000000000000000000000000d01")
+      killYEnabled=true
+      killY=2.0
+      reducedMotion=reduce
+      reducedRate=0.3
+    }
+  }
+}

@@ -2,6 +2,7 @@ package sceneio
 
 import (
 	"testing"
+	"unsafe"
 
 	"aego/core/mathx"
 	"aego/scene"
@@ -122,5 +123,44 @@ func TestNestedStructPartialInput(t *testing.T) {
 	}
 	if len(c.Axles) != 0 {
 		t.Fatalf("absent list must stay empty: %+v", c.Axles)
+	}
+}
+
+func TestPartialNestedDefaultsAndReferenceRemap(t *testing.T) {
+	type slot struct {
+		Target scene.NodeRef `aego:"target"`
+		Gain   float32       `aego:"gain"`
+	}
+	type links struct {
+		Slots []slot `aego:"slots"`
+	}
+	types := scene.NewTypes(schema.NewRegistry())
+	desc, err := schema.RegisterStruct[slot](types.Schema(), schema.Name("test.Slot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc.Default = func() unsafe.Pointer { return unsafe.Pointer(&slot{Gain: .75}) }
+	if err := scene.RegisterComponent[links](types, schema.Name("test.Links"), schema.CheckedLiterals()); err != nil {
+		t.Fatal(err)
+	}
+	if err := types.Schema().Freeze(); err != nil {
+		t.Fatal(err)
+	}
+	src := []byte(`scene version=1 {
+ node "10000000000000000000000000000000" name="Owner" {
+  component "test.Links" version=1 {slots=[{target=node("20000000000000000000000000000000")},{gain=0.25}]}
+ }
+ node "20000000000000000000000000000000" name="Target" {}
+}`)
+	s, rep, err := Load(src, "links.aescene", types, nil, LoadOptions{Strict: true})
+	if err != nil || len(rep.Warnings) != 0 || len(rep.Unresolved) != 0 {
+		t.Fatalf("load: %v %+v", err, rep)
+	}
+	v, ok := scene.Get[links](s, s.Find(s.Root(), "Owner"))
+	if !ok || len(v.Slots) != 2 || v.Slots[0].Gain != .75 || v.Slots[1].Gain != .25 || !v.Slots[1].Target.IsZero() {
+		t.Fatalf("omitted vs explicit fields: %+v", v)
+	}
+	if h, ok := v.Slots[0].Target.Resolve(s); !ok || h != s.Find(s.Root(), "Target") {
+		t.Fatal("reference inside partial record did not resolve to the remapped node")
 	}
 }

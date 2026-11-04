@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"aego/tools/gendocs/site"
+	"aego/tools/gendocs/tryassets"
 )
 
 func splitList(s string) []string {
@@ -36,7 +37,18 @@ func main() {
 	playVersion := flag.String("play-version", "", "cache key of play/aego.wasm")
 	tryVersion := flag.String("try-version", "", "cache key of try/aego-docs.wasm")
 	icons := flag.String("icons", "", "comma-separated directories with <id>.svg icons")
+	prepareTry := flag.String("prepare-try", "", "source .assets project to prepare as adjacent .aetry runtime resources")
+	checkTry := flag.Bool("check-try", false, "verify prepared Try artifacts against a fresh source import")
 	flag.Parse()
+	if *prepareTry != "" {
+		target, err := tryassets.Generate(*prepareTry, *checkTry)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "gendocs:", err)
+			os.Exit(1)
+		}
+		fmt.Println("gendocs: Try artifacts", target)
+		return
+	}
 	if *in == "" {
 		fmt.Fprintln(os.Stderr, "usage: gendocs -in export.json [-out dir] [-title name] [-playground] [-repo url] [-version v] [-commit sha] [-hero png]")
 		os.Exit(2)

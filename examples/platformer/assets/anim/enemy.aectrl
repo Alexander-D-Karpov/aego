@@ -1,7 +1,7 @@
 controller version=1 {
   entry="Walk"
   param "Die" kind=trigger {}
-  state "Walk" clip=asset("ae900000000000000000000000000b10") {}
+  state "Walk" clip=asset("0e7dc10f3bcd093444755e987ba15036") {}
   state "Die" clip=asset("a0a10000000000000000000000000011") {}
   state "Gone" {}
   transition "any" to="Die" interrupt=true {

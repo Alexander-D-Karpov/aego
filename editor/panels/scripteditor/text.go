@@ -164,7 +164,7 @@ func (p *Panel) view(l int, font *text.Font) *lineView {
 	}
 	if !v.valid || v.hash != h || v.in != in {
 		v.disp, v.idx = expand(p.line, v.disp[:0], v.idx[:0])
-		v.base, _ = highlight.Line(p.line, in, v.base[:0])
+		v.base, _ = p.doc.Code.Highlight(p.line, in, v.base[:0])
 		v.levels = highlight.BracketLevels(v.base, p.line, in.Depth(), v.levels[:0])
 		v.indent = indentOf(v.disp)
 		v.hash, v.in, v.valid, v.font = h, in, true, nil

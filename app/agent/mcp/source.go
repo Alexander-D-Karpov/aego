@@ -29,7 +29,8 @@ type Tool struct {
 	Schema      map[string]any
 	ReadOnly    bool
 	// Run answers the call; it may block while the user decides.
-	Run func(args map[string]any) (text string, failed bool)
+	Run    func(args map[string]any) (text string, failed bool)
+	Output func(map[string]any) (*agent.Output, error)
 }
 
 type kitSource struct {

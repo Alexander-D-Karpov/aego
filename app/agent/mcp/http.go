@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -16,7 +17,7 @@ const maxBody = 8 << 20
 // HTTP serves MCP as JSON-RPC over POST on loopback, for an agent the editor runs (D341).
 type HTTP struct {
 	URL   string
-	Token string
+	token atomic.Pointer[string]
 	srv   *http.Server
 	s     *Server
 }
@@ -27,12 +28,8 @@ func ListenHTTP(opt Options) (*HTTP, error) {
 	if err != nil {
 		return nil, err
 	}
-	var key [32]byte
-	if _, err := rand.Read(key[:]); err != nil {
-		ln.Close()
-		return nil, err
-	}
-	h := &HTTP{URL: "http://" + ln.Addr().String() + "/mcp", Token: hex.EncodeToString(key[:]), s: newServer(opt)}
+	h := &HTTP{URL: "http://" + ln.Addr().String() + "/mcp", s: newServer(opt)}
+	h.RotateToken()
 	h.s.ready.Store(true)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", h.serve)
@@ -41,9 +38,18 @@ func ListenHTTP(opt Options) (*HTTP, error) {
 	return h, nil
 }
 
+func (h *HTTP) Token() string { return *h.token.Load() }
+
+func (h *HTTP) RotateToken() {
+	var key [32]byte
+	rand.Read(key[:])
+	token := hex.EncodeToString(key[:])
+	h.token.Store(&token)
+}
+
 func (h *HTTP) authorized(r *http.Request) bool {
 	got := r.Header.Get("Authorization")
-	return subtle.ConstantTimeCompare([]byte(got), []byte("Bearer "+h.Token)) == 1
+	return subtle.ConstantTimeCompare([]byte(got), []byte("Bearer "+h.Token())) == 1
 }
 
 // local refuses a request whose Host is not loopback, so a web page cannot reach the server by DNS rebinding.

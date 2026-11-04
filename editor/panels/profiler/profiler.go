@@ -1,6 +1,7 @@
 package profiler
 
 import (
+	"fmt"
 	"runtime/metrics"
 	"strconv"
 	"strings"
@@ -68,6 +69,7 @@ type Panel struct {
 	scripts    context.ScriptStats
 	hasScripts bool
 	game       play.Stats
+	materials  render.Stats
 	mem        []metrics.Sample
 	probe      bool
 	allocs     []uint64
@@ -122,6 +124,7 @@ var memNames = [...]string{
 	"/memory/classes/total:bytes",
 	"/sched/goroutines:goroutines",
 	"/gc/cycles/total:gc-cycles",
+	"/gc/heap/live:bytes",
 }
 
 func New(d Deps) *Panel {
@@ -138,6 +141,10 @@ func mib(b uint64) string {
 }
 
 type MemStats struct {
+	// Mapped is Go-managed address space. Process is reserved for callers
+	// supplying their own process measurement (for example, process RSS).
+	Mapped     uint64
+	Live       uint64
 	Heap       uint64
 	Goal       uint64
 	Process    uint64
@@ -156,12 +163,22 @@ func (p *Panel) readMemory() MemStats {
 		}
 		return 0
 	}
-	return MemStats{Heap: v(0), Goal: v(1), Process: v(2), Goroutines: v(3), GC: v(4)}
+	return MemStats{Heap: v(0), Goal: v(1), Mapped: v(2), Goroutines: v(3), GC: v(4), Live: v(5)}
 }
 
 func (p *Panel) memory(ui *core.Context) {
 	m := p.readMemory()
-	widgets.LabelDim(ui, i18n.Tr("editor.profiler.go_heap_heap_goal_goal", "Go heap {heap}   goal {goal}   process {process}   goroutines {formatuint}   GC {formatuint2}", i18n.Str("heap", mib(m.Heap)), i18n.Str("goal", mib(m.Goal)), i18n.Str("process", mib(m.Process)), i18n.Str("formatuint", strconv.FormatUint(m.Goroutines, 10)), i18n.Str("formatuint2", strconv.FormatUint(m.GC, 10))))
+	if m.Mapped == 0 && m.Process > 0 && m.Live == 0 {
+		// An external sample may provide process memory, but no Go live/mapped measurement.
+		widgets.LabelDim(ui, i18n.Tr("editor.profiler.go_heap_heap_goal_goal", "Go heap {heap}   goal {goal}   process {process}   goroutines {formatuint}   GC {formatuint2}", i18n.Str("heap", mib(m.Heap)), i18n.Str("goal", mib(m.Goal)), i18n.Str("process", mib(m.Process)), i18n.Str("formatuint", strconv.FormatUint(m.Goroutines, 10)), i18n.Str("formatuint2", strconv.FormatUint(m.GC, 10))))
+	} else {
+		live := i18n.Tr("editor.profiler.no_live_sample", "awaiting GC sample")
+		if m.Live > 0 || m.GC > 0 {
+			live = mib(m.Live)
+		}
+		widgets.LabelDim(ui, i18n.Tr("editor.profiler.live_heap", "Live at last GC {live}   Allocated now {heap}   Next GC goal {goal}", i18n.Str("live", live), i18n.Str("heap", mib(m.Heap)), i18n.Str("goal", mib(m.Goal))))
+		widgets.LabelDim(ui, i18n.Tr("editor.profiler.runtime_mapped", "Go mapped {mapped}   Goroutines {count}   GC cycles {cycles}", i18n.Str("mapped", mib(m.Mapped)), i18n.Str("count", strconv.FormatUint(m.Goroutines, 10)), i18n.Str("cycles", strconv.FormatUint(m.GC, 10))))
+	}
 	if p.hasScripts {
 		widgets.LabelDim(ui, i18n.Tr("editor.profiler.script_heap_heapobjects_objects_heapbytes", "script heap {heapobjects} objects, {heapbytes}", i18n.Str("heapobjects", strconv.Itoa(p.scripts.HeapObjects)), i18n.Str("heapbytes", mib(uint64(p.scripts.HeapBytes)))))
 	}
@@ -252,6 +269,7 @@ func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats
 	if p.paused || f == nil {
 		return
 	}
+	p.materials = r
 	if hasSc && playing && !p.hasScripts {
 		p.forget(mScriptInstr)
 	}
@@ -516,6 +534,8 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.graph(ui, i18n.Tr("editor.profiler.graph.sprites", "sprites"), "", 0, 0, th.Selection, mSprites)
 	p.graph(ui, i18n.Tr("editor.profiler.graph.garbage", "garbage"), " KB", 1, 64, th.Warn, mGarbage)
 	widgets.Separator(ui)
+	p.section(ui, i18n.Tr("editor.profiler.materials", "Materials and shaders"))
+	p.materialTable(ui)
 	p.section(ui, i18n.Tr("editor.profiler.memory", "Memory"))
 	p.memory(ui)
 	if p.playing {
@@ -575,4 +595,14 @@ func playHint(list []context.ProfilerSection) string {
 func offscreen(ui *core.Context, y, h float32) bool {
 	clip, ok := ui.ClipRect()
 	return ok && (y > clip.Y+clip.H || y+h < clip.Y)
+}
+
+func (p *Panel) materialTable(ui *core.Context) {
+	r := &p.materials
+	widgets.LabelDim(ui, fmt.Sprintf("Materials %d   programs %d   variants %d   pending %d", r.MaterialCount, r.MaterialPrograms, r.MaterialVariants, r.MaterialPending))
+	widgets.LabelDim(ui, fmt.Sprintf("Uploads/frame: frame %d B   view %d B   material %d B", r.FrameUBOBytes, r.ViewUBOBytes, r.MaterialUBOBytes))
+	widgets.LabelDim(ui, fmt.Sprintf("Instance bytes: sprites %d B   material lanes %d B", r.InstanceBytes, r.MaterialLaneBytes))
+	widgets.LabelDim(ui, fmt.Sprintf("Pipeline switches/frame %d", r.PipelineSwitches))
+	widgets.LabelDim(ui, fmt.Sprintf("Batch splits/frame: material %d   texture/sampler %d   pipeline %d   clip %d   mesh %d", r.MaterialBreaks, r.TextureBreaks, r.PipelineBreaks, r.ClipBreaks, r.MeshBreaks))
+	widgets.LabelDim(ui, fmt.Sprintf("Since renderer start: compile failures %d   committed reloads %d", r.MaterialCompileFailures, r.MaterialReloadGenerations))
 }

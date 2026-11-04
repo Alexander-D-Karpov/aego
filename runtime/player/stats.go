@@ -19,26 +19,37 @@ var statNames = [...]string{
 }
 
 type Stats struct {
-	Frames       uint64            `json:"frames"`
-	Ticks        uint64            `json:"ticks"`
-	GC           uint64            `json:"gc"`
-	AllocObjects uint64            `json:"allocObjects"`
-	AllocBytes   uint64            `json:"allocBytes"`
-	HeapBytes    uint64            `json:"heapBytes"`
-	HeapGoal     uint64            `json:"heapGoal"`
-	Zones        map[string]uint64 `json:"zones,omitempty"`
-	FrameBytes   uint64            `json:"frameBytes,omitempty"`
-	Bridge       *gpu.BridgeStats  `json:"bridge,omitempty"`
-	GPUNs        uint64            `json:"gpuNs"`
-	GPUFrames    uint64            `json:"gpuFrames"`
-	Draws        uint64            `json:"draws"`
-	Sprites      uint64            `json:"sprites"`
-	Keys         uint64            `json:"keys"`
-	Clamped      float64           `json:"clamped"`
-	MaxReal      float64           `json:"maxReal"`
-	Lost         bool              `json:"lost"`
-	Restores     int               `json:"restores"`
-	Renderer     string            `json:"renderer"`
+	Checkpoint           *CheckpointObservation `json:"checkpoint,omitempty"`
+	ModuleCounters       map[string]uint64      `json:"moduleCounters,omitempty"`
+	Frames               uint64                 `json:"frames"`
+	Ticks                uint64                 `json:"ticks"`
+	GC                   uint64                 `json:"gc"`
+	AllocObjects         uint64                 `json:"allocObjects"`
+	AllocBytes           uint64                 `json:"allocBytes"`
+	HeapBytes            uint64                 `json:"heapBytes"`
+	HeapGoal             uint64                 `json:"heapGoal"`
+	Zones                map[string]uint64      `json:"zones,omitempty"`
+	FrameBytes           uint64                 `json:"frameBytes,omitempty"`
+	Bridge               *gpu.BridgeStats       `json:"bridge,omitempty"`
+	GPUNs                uint64                 `json:"gpuNs"`
+	DirtyShadowMasks     uint64                 `json:"dirtyShadowMasks"`
+	ShadowCacheHits      uint64                 `json:"shadowCacheHits"`
+	ShadowGeometryNS     uint64                 `json:"shadowGeometryNs"`
+	ResolvePasses        uint64                 `json:"resolvePasses"`
+	PostFXPasses         uint64                 `json:"postFXPasses"`
+	PostFXAuxPixels      uint64                 `json:"postFXAuxPixels"`
+	PostFXReplacedClears uint64                 `json:"postFXReplacedClears"`
+	PostFXTargets        uint64                 `json:"postFXTargets"`
+	PostFXFailures       uint64                 `json:"postFXFailures"`
+	GPUFrames            uint64                 `json:"gpuFrames"`
+	Draws                uint64                 `json:"draws"`
+	Sprites              uint64                 `json:"sprites"`
+	Keys                 uint64                 `json:"keys"`
+	Clamped              float64                `json:"clamped"`
+	MaxReal              float64                `json:"maxReal"`
+	Lost                 bool                   `json:"lost"`
+	Restores             int                    `json:"restores"`
+	Renderer             string                 `json:"renderer"`
 }
 
 type gpuLoss interface {
@@ -47,16 +58,18 @@ type gpuLoss interface {
 }
 
 type sampler struct {
-	render    func() render.Stats
-	gpuNs     uint64
-	gpuFrames uint64
-	draws     uint64
-	sprites   uint64
-	keys      uint64
-	maxReal   float64
-	metrics   []metrics.Sample
-	zones     []uint64
-	win       *window
+	render                                                             func() render.Stats
+	gpuNs                                                              uint64
+	gpuFrames                                                          uint64
+	fxPasses, fxTargets, fxFailures, fxPixels, fxClears                uint64
+	dirtyShadowMasks, shadowCacheHits, shadowGeometryNS, resolvePasses uint64
+	draws                                                              uint64
+	sprites                                                            uint64
+	keys                                                               uint64
+	maxReal                                                            float64
+	metrics                                                            []metrics.Sample
+	zones                                                              []uint64
+	win                                                                *window
 }
 
 type window struct {
@@ -73,6 +86,15 @@ func (s *sampler) frame(w *engine.World) {
 			s.gpuNs += r.GPUNS
 			s.gpuFrames++
 		}
+		s.dirtyShadowMasks += uint64(r.DirtyShadowMasks)
+		s.shadowCacheHits += uint64(r.ShadowCacheHits)
+		s.shadowGeometryNS += r.ShadowGeometryNS
+		s.resolvePasses += uint64(r.ResolvePasses)
+		s.fxPasses += uint64(r.PostFXPasses)
+		s.fxTargets += uint64(r.PostFXTargets)
+		s.fxPixels += r.PostFXAuxPixels
+		s.fxClears += r.PostFXReplacedClears
+		s.fxFailures += uint64(r.PostFXFailures)
 		s.draws += uint64(r.DrawCalls)
 		s.sprites += uint64(r.Visible)
 	}
@@ -108,10 +130,26 @@ func (p *Player) Stats() Stats {
 	out := Stats{
 		Frames: w.Time.Frame(), Ticks: w.Time.Tick(), GC: s.value(0), AllocObjects: s.value(1), AllocBytes: s.value(2),
 		HeapBytes: s.value(3), HeapGoal: s.value(4),
+		DirtyShadowMasks: s.dirtyShadowMasks, ShadowCacheHits: s.shadowCacheHits,
+		ShadowGeometryNS: s.shadowGeometryNS, ResolvePasses: s.resolvePasses,
+		PostFXAuxPixels: s.fxPixels, PostFXReplacedClears: s.fxClears,
+		PostFXPasses: s.fxPasses, PostFXTargets: s.fxTargets, PostFXFailures: s.fxFailures,
 		GPUNs: s.gpuNs, GPUFrames: s.gpuFrames, Draws: s.draws, Sprites: s.sprites, Keys: s.keys,
 		Clamped: w.Time.ClampedTime(), MaxReal: s.maxReal, Renderer: e.Caps().Renderer,
 	}
+	if p.checkpoint != nil {
+		v := *p.checkpoint
+		out.Checkpoint = &v
+	}
 	if p.cfg.Probe {
+		w.EachOwner(func(_ string, owner any) {
+			if recorder, ok := owner.(interface{ ProbeCounters(map[string]uint64) }); ok {
+				if out.ModuleCounters == nil {
+					out.ModuleCounters = make(map[string]uint64)
+				}
+				recorder.ProbeCounters(out.ModuleCounters)
+			}
+		})
 		s.zones = e.AllocTotals(s.zones[:0])
 		out.Zones = make(map[string]uint64, len(s.zones))
 		for i, n := range s.zones {

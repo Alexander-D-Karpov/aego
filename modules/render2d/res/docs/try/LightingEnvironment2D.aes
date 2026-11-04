@@ -1,0 +1,22 @@
+package demo
+
+import "aego/math"
+
+// A deterministic presentation-only motion makes the shadow response visible.
+script MovingLight {
+    @export var Speed float = 0.8
+    @export var Distance float = 1.3
+    var elapsed float
+    var origin Vec2
+
+    func Ready() {
+        origin = node.Transform2D().Position
+    }
+
+    func Update(dt float) {
+        elapsed += dt
+        transform := node.Transform2D()
+        transform.Position = origin + Vec2{math.Cos(elapsed * Speed) * Distance, math.Sin(elapsed * Speed) * 0.8}
+        node.SetTransform2D(transform)
+    }
+}

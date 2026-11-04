@@ -46,7 +46,7 @@ func CheckTry(reg *docs.Registry, w io.Writer) int {
 		if e.TryScript != "" {
 			code, err = pg.TryCode(e.TryScript)
 		}
-		switch res := pg.PlayScene(e.ID, []byte(e.Try), code, e.TryPrefabs); {
+		switch res := pg.PlayScene(e.ID, []byte(e.Try), code, e.TryPrefabs, e.TryArtifacts); {
 		case !sandbox[e.ID]:
 			add("belongs to a module the docs runtime does not include")
 		case err != nil:

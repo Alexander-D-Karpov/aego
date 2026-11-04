@@ -770,6 +770,15 @@ messages version=1 lang=ru {
   msg "api.aego/log.Warn" {
     text="Пишет предупреждение в Консоль."
   }
+  msg "api.aego/material.Assign" {
+    text="Назначает ссылку на материал SpriteRenderer или Mesh2D в текущем мире."
+  }
+  msg "api.aego/material.Builtin" {
+    text="Возвращает Unlit (Default), Additive, Flash, Dissolve, Outline или PixelSnap. Lit появится в модуле освещения."
+  }
+  msg "api.aego/material.Shader" {
+    text="Возвращает ссылку на подготовленный шейдер встроенного материала по имени."
+  }
   msg "api.aego/math.Abs" {
     text="Возвращает модуль x."
   }
@@ -913,6 +922,12 @@ messages version=1 lang=ru {
   }
   msg "api.aego/math.Trunc" {
     text="Отбрасывает дробную часть x."
+  }
+  msg "api.aego/particles.Enabled" {
+    text="Сообщает, включены ли эффекты частиц в этом мире."
+  }
+  msg "api.aego/particles.SetEnabled" {
+    text="Включает или выключает эффекты частиц в этом игровом мире. При выключении живые частицы удаляются."
   }
   msg "api.aego/physics.Gravity" {
     text="Возвращает гравитацию мира в единицах в секунду за секунду. +Y направлен вниз."
@@ -1394,6 +1409,54 @@ messages version=1 lang=ru {
   msg "api.camera.VirtualCamera2D.IsActive" {
     text="Сообщает, управляет ли эта виртуальная камера своим выводом сейчас."
   }
+  msg "api.engine.MaterialOverride.GetBool" {
+    text="Читает итоговое значение параметра bool."
+  }
+  msg "api.engine.MaterialOverride.GetColor" {
+    text="Читает итоговый линейный Color параметра с подсказкой color."
+  }
+  msg "api.engine.MaterialOverride.GetFloat" {
+    text="Читает итоговый float с учётом default шейдера, значения материала и override узла."
+  }
+  msg "api.engine.MaterialOverride.GetInt" {
+    text="Читает точное итоговое значение параметра со знаком int32."
+  }
+  msg "api.engine.MaterialOverride.GetVec2" {
+    text="Читает итоговое значение параметра vec2."
+  }
+  msg "api.engine.MaterialOverride.GetVec3" {
+    text="Читает итоговое значение параметра vec3."
+  }
+  msg "api.engine.MaterialOverride.GetVec4" {
+    text="Читает четыре числовые компоненты итогового значения как material.Vec4 без преобразования цвета."
+  }
+  msg "api.engine.MaterialOverride.GetVec4Lane" {
+    text="Читает одну компоненту обычного vec4. Допустимый индекс: от 0 до 3."
+  }
+  msg "api.engine.MaterialOverride.Reset" {
+    text="Удаляет явное значение экземпляра и наследует общий материал. Возвращает true, если явное значение существовало."
+  }
+  msg "api.engine.MaterialOverride.SetBool" {
+    text="Устанавливает параметр bool только для этого узла."
+  }
+  msg "api.engine.MaterialOverride.SetColor" {
+    text="Устанавливает линейный Color для параметра экземпляра с подсказкой color."
+  }
+  msg "api.engine.MaterialOverride.SetFloat" {
+    text="Устанавливает параметр float только для этого узла. Ошибка типа сохраняет прежнее значение."
+  }
+  msg "api.engine.MaterialOverride.SetInt" {
+    text="Устанавливает точный параметр int32 со знаком. Значения за пределами int32 отклоняются."
+  }
+  msg "api.engine.MaterialOverride.SetVec2" {
+    text="Устанавливает параметр vec2 только для этого узла."
+  }
+  msg "api.engine.MaterialOverride.SetVec3" {
+    text="Устанавливает параметр vec3 только для этого узла."
+  }
+  msg "api.engine.MaterialOverride.SetVec4" {
+    text="Устанавливает четыре числовые компоненты экземпляра через material.Vec4 без преобразования цвета."
+  }
   msg "api.events.OnAnimEvent" {
     text="Вызывается в скриптах узла, Проигрыватель анимации которого доходит до события своего клипа; anim.EventName(id) даёт имя."
   }
@@ -1538,6 +1601,36 @@ messages version=1 lang=ru {
   msg "api.gameplay.StateMachine.TimeIn" {
     text="Возвращает секунды, проведённые в текущем состоянии."
   }
+  msg "api.particles.ParticleSystem2D.Burst" {
+    text="Запрашивает однократное рождение count частиц. Автоматическая эмиссия при этом не запускается."
+  }
+  msg "api.particles.ParticleSystem2D.Clear" {
+    text="Удаляет живые частицы, не меняя расписания эмиссии."
+  }
+  msg "api.particles.ParticleSystem2D.Completed" {
+    text="Вызывается, когда завершилось конечное расписание эмиссии и истекло время жизни последней частицы. Для игровой логики используйте таймер, а не этот сигнал эффекта."
+  }
+  msg "api.particles.ParticleSystem2D.Count" {
+    text="Возвращает число живых частиц эмиттера."
+  }
+  msg "api.particles.ParticleSystem2D.Emitting" {
+    text="Сообщает, включена ли автоматическая эмиссия."
+  }
+  msg "api.particles.ParticleSystem2D.Play" {
+    text="Запускает автоматическую эмиссию. Повторный вызов во время эмиссии ничего не меняет."
+  }
+  msg "api.particles.ParticleSystem2D.Playing" {
+    text="Сообщает, выполняется ли расписание эмиссии или остались ли живые частицы."
+  }
+  msg "api.particles.ParticleSystem2D.Restart" {
+    text="Удаляет живые частицы и запускает расписание эмиссии с начала."
+  }
+  msg "api.particles.ParticleSystem2D.Stop" {
+    text="Прекращает рождение новых частиц. Уже появившиеся исчезают по окончании срока жизни."
+  }
+  msg "api.particles.ParticleSystem2D.StopAndClear" {
+    text="Прекращает автоматическую эмиссию и сразу удаляет живые частицы."
+  }
   msg "api.physics.Body2D.ApplyForce" {
     text="Толкает центр масс тела во время следующего физического шага. Вызывается из FixedUpdate."
   }
@@ -1574,6 +1667,27 @@ messages version=1 lang=ru {
   msg "api.physics.Body2D.WakeUp" {
     text="Снова включает симуляцию спящего тела."
   }
+  msg "api.render2d.PostProcess.SetBool" {
+    text="Задаёт логический параметр по адресу instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetEffectEnabled" {
+    text="Включает или отключает эффект по его постоянному идентификатору."
+  }
+  msg "api.render2d.PostProcess.SetFloat" {
+    text="Устанавливает числовой параметр по пути instanceID:Поле. Общий материал не изменяется."
+  }
+  msg "api.render2d.PostProcess.SetInt" {
+    text="Задаёт целочисленный параметр int32 по адресу instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetVec2" {
+    text="Устанавливает векторный параметр по пути instanceID:Поле."
+  }
+  msg "api.render2d.PostProcess.SetVec3" {
+    text="Задаёт трёхкомпонентный вектор по адресу instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetVec4" {
+    text="Задаёт четырёхкомпонентный вектор по адресу instanceID:Field."
+  }
   msg "cli.agent.anim.add-event" {
     text="добавить событие; имя должно быть объявлено в **Настройках проекта → Анимация**"
   }
@@ -1607,11 +1721,17 @@ messages version=1 lang=ru {
   msg "cli.agent.asset.delete" {
     text="удалить ассет; если на него есть ссылки, отказывается без --force"
   }
+  msg "cli.agent.asset.import-variant" {
+    text="импортировать просмотренный вариант изображения как исходный PNG проекта"
+  }
   msg "cli.agent.asset.list" {
     text="ассеты с их id и видами"
   }
   msg "cli.agent.asset.move" {
     text="перенести ассет вместе с его .meta; id и все ссылки сохраняются"
+  }
+  msg "cli.agent.asset.paint" {
+    text="нарисовать или изменить исходный PNG за одну операцию с предпросмотром"
   }
   msg "cli.agent.asset.pixels" {
     text="нарисовать спрайт текстом: каждый символ grid — пиксель цвета из palette; строки вида idle: начинают кадры одного размера, из которых получается атлас со спрайтом на кадр и зацикленный клип-флипбук. Отвечает картинкой-превью"
@@ -1682,6 +1802,36 @@ messages version=1 lang=ru {
   msg "cli.agent.data.set" {
     text="задать поле"
   }
+  msg "cli.agent.material.apply" {
+    text="атомарно применяет транзакцию материала через общие с Inspector mutations и сериализацию"
+  }
+  msg "cli.agent.material.assign" {
+    text="назначает совместимый материал SpriteRenderer или Mesh2D через Mutation Service сцены"
+  }
+  msg "cli.agent.material.create" {
+    text="создаёт материал, наследующий значения по умолчанию из шейдера"
+  }
+  msg "cli.agent.material.get" {
+    text="читает явные и унаследованные параметры, неизвестные данные, варианты и ревизию текущего документа"
+  }
+  msg "cli.agent.material.reset" {
+    text="удаляет явное значение параметра и наследует default шейдера"
+  }
+  msg "cli.agent.material.set" {
+    text="устанавливает типизированный явный параметр одной семантической операцией"
+  }
+  msg "cli.agent.material.validate" {
+    text="проверяет значения материала и ссылки на шейдер и текстуры без изменения исходника"
+  }
+  msg "cli.agent.material.variants" {
+    text="выбирает разрешённую комбинацию keywords через запятую; пустая строка отключает все keywords"
+  }
+  msg "cli.agent.postfx.get" {
+    text="Прочитать стек эффектов текущей камеры и постоянные ID экземпляров в открытой сцене."
+  }
+  msg "cli.agent.postfx.set" {
+    text="Изменить параметр эффекта или переключить его по постоянному ID одной операцией редактирования сцены."
+  }
   msg "cli.agent.prefab.apply" {
     text="записать переопределения экземпляра в файл префаба"
   }
@@ -1702,6 +1852,12 @@ messages version=1 lang=ru {
   }
   msg "cli.agent.project.get" {
     text="разделы модулей в project.aego (physics, …) с их текущими значениями"
+  }
+  msg "cli.agent.project.input-action" {
+    text="добавить или изменить действие ввода в карте действий проекта"
+  }
+  msg "cli.agent.project.main-scene" {
+    text="назначить главную сцену проекта по стабильной ссылке"
   }
   msg "cli.agent.project.set" {
     text="задать поле раздела модуля в project.aego, например physics gravity [0, -15]"
@@ -1777,6 +1933,15 @@ messages version=1 lang=ru {
   }
   msg "cli.agent.script.write" {
     text="заменить весь текст скрипта; для небольшой правки надёжнее script.edit"
+  }
+  msg "cli.agent.shader.create" {
+    text="создаёт переносимый шейдер спрайта через зарегистрированный asset importer"
+  }
+  msg "cli.agent.shader.schema" {
+    text="читает объявленные параметры, типизированные defaults, domain и варианты; проверяет текущий исходник и несохранённые includes"
+  }
+  msg "cli.agent.shader.validate" {
+    text="проверяет текущий исходник общим importer; разделяет schema/reference validation и линковку на GPU"
   }
   msg "diag.AES1001" {
     text="Здесь не может стоять такой символ."
@@ -2462,6 +2627,9 @@ messages version=1 lang=ru {
   msg "docs.module.gameplay" {
     text="Геймплей"
   }
+  msg "docs.module.particles" {
+    text="Частицы"
+  }
   msg "docs.module.physics" {
     text="Физика 2D"
   }
@@ -2653,6 +2821,51 @@ messages version=1 lang=ru {
   }
   msg "enum.gameplay.Shape.circle" {
     text="круг"
+  }
+  msg "enum.particles.ReducedMotionMode.hide" {
+    text="Скрыть"
+  }
+  msg "enum.particles.ReducedMotionMode.keep" {
+    text="Оставить"
+  }
+  msg "enum.particles.ReducedMotionMode.reduce" {
+    text="Уменьшить эмиссию"
+  }
+  msg "enum.particles.Shape.circle" {
+    text="Круг"
+  }
+  msg "enum.particles.Shape.edge" {
+    text="Отрезок"
+  }
+  msg "enum.particles.Shape.point" {
+    text="Точка"
+  }
+  msg "enum.particles.Shape.rect" {
+    text="Прямоугольник"
+  }
+  msg "enum.particles.Shape.spriteMask" {
+    text="Маска спрайта"
+  }
+  msg "enum.particles.SortMode.age" {
+    text="Сначала старшие"
+  }
+  msg "enum.particles.SortMode.distance" {
+    text="Сначала дальние"
+  }
+  msg "enum.particles.SortMode.youngestFirst" {
+    text="Сначала младшие"
+  }
+  msg "enum.particles.Space.local" {
+    text="Локальные"
+  }
+  msg "enum.particles.Space.world" {
+    text="Мировые"
+  }
+  msg "enum.particles.TimeDomain.game" {
+    text="Игровое время"
+  }
+  msg "enum.particles.TimeDomain.unscaled" {
+    text="Без масштаба времени"
   }
   msg "enum.physics.BodyType.dynamic" {
     text="динамическое"
@@ -3392,6 +3605,60 @@ messages version=1 lang=ru {
   msg "schema.engine.Camera3D.viewport.doc" {
     text="Часть экрана, в которую рисует камера, в нормированных координатах."
   }
+  msg "schema.engine.MaterialOverride" {
+    text="Параметры экземпляра материала"
+  }
+  msg "schema.engine.MaterialOverride.doc" {
+    text="Переопределяет до восьми числовых параметров шейдера только для этого узла. Удалённые параметры сохраняются в списке значений."
+  }
+  msg "schema.engine.MaterialOverride.values" {
+    text="Значения"
+  }
+  msg "schema.engine.MaterialOverride.values.doc" {
+    text="Явные типизированные значения. Отсутствующие наследуются из общего материала; удалённые из шейдера поля сохраняются."
+  }
+  msg "schema.engine.Mesh2D" {
+    text="2D-меш"
+  }
+  msg "schema.engine.Mesh2D.doc" {
+    text="Рисует меш со стандартной раскладкой вершин через 2D-камеру и совместимый материал Mesh2D."
+  }
+  msg "schema.engine.Mesh2D.layer" {
+    text="Слой"
+  }
+  msg "schema.engine.Mesh2D.layer.doc" {
+    text="Визуальный слой этого 2D-меша."
+  }
+  msg "schema.engine.Mesh2D.material" {
+    text="Материал"
+  }
+  msg "schema.engine.Mesh2D.material.doc" {
+    text="Общий material asset. Domain шейдера должен быть mesh2d."
+  }
+  msg "schema.engine.Mesh2D.mesh" {
+    text="Меш"
+  }
+  msg "schema.engine.Mesh2D.mesh.doc" {
+    text="Меш со стандартными атрибутами позиции, нормали, UV и цвета вершины."
+  }
+  msg "schema.engine.Mesh2D.order" {
+    text="Порядок"
+  }
+  msg "schema.engine.Mesh2D.order.doc" {
+    text="Порядок рисования в одном слое; большие значения рисуются позже."
+  }
+  msg "schema.engine.Mesh2D.texture" {
+    text="Текстура"
+  }
+  msg "schema.engine.Mesh2D.texture.doc" {
+    text="Основная текстура с UV меша. Пустая ссылка использует белую текстуру."
+  }
+  msg "schema.engine.Mesh2D.tint" {
+    text="Оттенок"
+  }
+  msg "schema.engine.Mesh2D.tint.doc" {
+    text="Линейный цвет умножается на текстуру; alpha управляет прозрачностью."
+  }
   msg "schema.engine.MeshRenderer" {
     text="Отрисовка меша"
   }
@@ -3487,6 +3754,12 @@ messages version=1 lang=ru {
   }
   msg "schema.engine.SpriteRenderer.layer.doc" {
     text="Слой сортировки. Верхние слои рисуются поверх нижних."
+  }
+  msg "schema.engine.SpriteRenderer.material" {
+    text="Материал"
+  }
+  msg "schema.engine.SpriteRenderer.material.doc" {
+    text="Общий материал с domain sprite. Изменения отдельного узла задаются в MaterialOverride."
   }
   msg "schema.engine.SpriteRenderer.order" {
     text="Порядок"
@@ -4088,6 +4361,306 @@ messages version=1 lang=ru {
   msg "schema.gameplay.StateMachine.time.doc" {
     text="Секунды фиксированных шагов в текущем состоянии."
   }
+  msg "schema.particles.ParticleSystem2D" {
+    text="Система частиц 2D"
+  }
+  msg "schema.particles.ParticleSystem2D.alphaOverLife" {
+    text="Непрозрачность по возрасту"
+  }
+  msg "schema.particles.ParticleSystem2D.alphaOverLife.doc" {
+    text="Множитель непрозрачности в зависимости от доли прожитого времени."
+  }
+  msg "schema.particles.ParticleSystem2D.bursts" {
+    text="Импульсы"
+  }
+  msg "schema.particles.ParticleSystem2D.bursts.doc" {
+    text="Для каждого импульса задаются время от начала цикла в секундах и число частиц. Время должно принадлежать интервалу [0, duration)."
+  }
+  msg "schema.particles.ParticleSystem2D.color" {
+    text="Цвет"
+  }
+  msg "schema.particles.ParticleSystem2D.color.doc" {
+    text="Линейный оттенок и непрозрачность при рождении. Каналы цвета не умножены на альфу."
+  }
+  msg "schema.particles.ParticleSystem2D.colorOverLife" {
+    text="Цвет по возрасту"
+  }
+  msg "schema.particles.ParticleSystem2D.colorOverLife.doc" {
+    text="Ключи задают множитель цвета по доле прожитого времени; цвет и непрозрачность интерполируются отдельно."
+  }
+  msg "schema.particles.ParticleSystem2D.direction" {
+    text="Направление"
+  }
+  msg "schema.particles.ParticleSystem2D.direction.doc" {
+    text="Центральный угол разлёта в радианах."
+  }
+  msg "schema.particles.ParticleSystem2D.doc" {
+    text="Создаёт спрайты частиц в заранее выделенном пуле на CPU. При движении эмиттера частицы в мировых координатах продолжают движение от точки рождения."
+  }
+  msg "schema.particles.ParticleSystem2D.drag" {
+    text="Сопротивление"
+  }
+  msg "schema.particles.ParticleSystem2D.drag.doc" {
+    text="Неотрицательный коэффициент затухания скорости в секунду."
+  }
+  msg "schema.particles.ParticleSystem2D.duration" {
+    text="Длительность"
+  }
+  msg "schema.particles.ParticleSystem2D.duration.doc" {
+    text="Длительность одного цикла эмиссии в секундах."
+  }
+  msg "schema.particles.ParticleSystem2D.edgeA" {
+    text="Начало отрезка"
+  }
+  msg "schema.particles.ParticleSystem2D.edgeA.doc" {
+    text="Первая конечная точка в координатах эмиттера."
+  }
+  msg "schema.particles.ParticleSystem2D.edgeB" {
+    text="Конец отрезка"
+  }
+  msg "schema.particles.ParticleSystem2D.edgeB.doc" {
+    text="Вторая конечная точка в координатах эмиттера."
+  }
+  msg "schema.particles.ParticleSystem2D.frameFPS" {
+    text="Кадров в секунду"
+  }
+  msg "schema.particles.ParticleSystem2D.frameFPS.doc" {
+    text="Скорость покадровой анимации в кадрах за секунду."
+  }
+  msg "schema.particles.ParticleSystem2D.frameLoop" {
+    text="Повтор кадров"
+  }
+  msg "schema.particles.ParticleSystem2D.frameLoop.doc" {
+    text="Повторять анимацию. Если выключено, на частице остаётся последний кадр."
+  }
+  msg "schema.particles.ParticleSystem2D.frames" {
+    text="Кадры"
+  }
+  msg "schema.particles.ParticleSystem2D.frames.doc" {
+    text="Кадры спрайта в порядке воспроизведения. При отсутствии кадра выводится диагностика."
+  }
+  msg "schema.particles.ParticleSystem2D.gravity" {
+    text="Ускорение тяжести"
+  }
+  msg "schema.particles.ParticleSystem2D.gravity.doc" {
+    text="Ускорение в единицах мира на секунду в квадрате."
+  }
+  msg "schema.particles.ParticleSystem2D.killY" {
+    text="Порог Y"
+  }
+  msg "schema.particles.ParticleSystem2D.killY.doc" {
+    text="Порог в координатах симуляции, выраженный в единицах мира."
+  }
+  msg "schema.particles.ParticleSystem2D.killYEnabled" {
+    text="Отсечение по Y"
+  }
+  msg "schema.particles.ParticleSystem2D.killYEnabled.doc" {
+    text="Удалять частицы, чья координата Y превышает порог."
+  }
+  msg "schema.particles.ParticleSystem2D.layer" {
+    text="Слой"
+  }
+  msg "schema.particles.ParticleSystem2D.layer.doc" {
+    text="Слой отрисовки в общем порядке со SpriteRenderer и Mesh2D."
+  }
+  msg "schema.particles.ParticleSystem2D.lifetime" {
+    text="Время жизни"
+  }
+  msg "schema.particles.ParticleSystem2D.lifetime.doc" {
+    text="Минимальное и максимальное время жизни частицы в секундах."
+  }
+  msg "schema.particles.ParticleSystem2D.loop" {
+    text="Зациклить"
+  }
+  msg "schema.particles.ParticleSystem2D.loop.doc" {
+    text="Повторяет расписание при завершении каждого цикла."
+  }
+  msg "schema.particles.ParticleSystem2D.mask" {
+    text="Маска"
+  }
+  msg "schema.particles.ParticleSystem2D.mask.doc" {
+    text="Исходный кадр спрайта. Его подготовленная альфа-маска не зависит от размещения в атласе."
+  }
+  msg "schema.particles.ParticleSystem2D.maskThreshold" {
+    text="Порог маски"
+  }
+  msg "schema.particles.ParticleSystem2D.maskThreshold.doc" {
+    text="Минимальное значение альфы исходного пикселя для включения в маску: от нуля до единицы."
+  }
+  msg "schema.particles.ParticleSystem2D.material" {
+    text="Материал"
+  }
+  msg "schema.particles.ParticleSystem2D.material.doc" {
+    text="Необязательный материал спрайта без освещения. Режим смешивания задаёт шейдер материала."
+  }
+  msg "schema.particles.ParticleSystem2D.maxParticles" {
+    text="Лимит частиц"
+  }
+  msg "schema.particles.ParticleSystem2D.maxParticles.doc" {
+    text="Предел числа живых частиц. Если пул заполнен, существующие частицы остаются, а лишние новые не появляются."
+  }
+  msg "schema.particles.ParticleSystem2D.noiseFrequency" {
+    text="Частота шума"
+  }
+  msg "schema.particles.ParticleSystem2D.noiseFrequency.doc" {
+    text="Скорость изменения поля шума."
+  }
+  msg "schema.particles.ParticleSystem2D.noiseStrength" {
+    text="Сила шума"
+  }
+  msg "schema.particles.ParticleSystem2D.noiseStrength.doc" {
+    text="Амплитуда воспроизводимого шума, влияющего на движение частиц."
+  }
+  msg "schema.particles.ParticleSystem2D.offset" {
+    text="Смещение"
+  }
+  msg "schema.particles.ParticleSystem2D.offset.doc" {
+    text="Смещение формы в локальных координатах эмиттера."
+  }
+  msg "schema.particles.ParticleSystem2D.order" {
+    text="Порядок"
+  }
+  msg "schema.particles.ParticleSystem2D.order.doc" {
+    text="Порядок отрисовки внутри слоя."
+  }
+  msg "schema.particles.ParticleSystem2D.planeDistance" {
+    text="Смещение плоскости"
+  }
+  msg "schema.particles.ParticleSystem2D.planeDistance.doc" {
+    text="Смещение плоскости вдоль единичной нормали."
+  }
+  msg "schema.particles.ParticleSystem2D.planeEnabled" {
+    text="Отсечение плоскостью"
+  }
+  msg "schema.particles.ParticleSystem2D.planeEnabled.doc" {
+    text="Удалять частицы за плоскостью отсечения."
+  }
+  msg "schema.particles.ParticleSystem2D.planeNormal" {
+    text="Нормаль плоскости"
+  }
+  msg "schema.particles.ParticleSystem2D.planeNormal.doc" {
+    text="Нормаль плоскости в координатах симуляции направлена в сторону отсечения."
+  }
+  msg "schema.particles.ParticleSystem2D.playOnStart" {
+    text="Запуск при активации"
+  }
+  msg "schema.particles.ParticleSystem2D.playOnStart.doc" {
+    text="Запускает расписание эмиссии при активации эмиттера."
+  }
+  msg "schema.particles.ParticleSystem2D.prewarm" {
+    text="Предварительный прогрев"
+  }
+  msg "schema.particles.ParticleSystem2D.prewarm.doc" {
+    text="Длительность предварительного проигрывания циклического эффекта в секундах, не более двух."
+  }
+  msg "schema.particles.ParticleSystem2D.radius" {
+    text="Радиус"
+  }
+  msg "schema.particles.ParticleSystem2D.radius.doc" {
+    text="Радиус круга в единицах мира."
+  }
+  msg "schema.particles.ParticleSystem2D.rate" {
+    text="Частиц в секунду"
+  }
+  msg "schema.particles.ParticleSystem2D.rate.doc" {
+    text="Число рождений в секунду при непрерывной эмиссии. При нуле можно выпускать частицы одиночными импульсами."
+  }
+  msg "schema.particles.ParticleSystem2D.rectSize" {
+    text="Размер прямоугольника"
+  }
+  msg "schema.particles.ParticleSystem2D.rectSize.doc" {
+    text="Полные размеры прямоугольника в единицах мира."
+  }
+  msg "schema.particles.ParticleSystem2D.reducedMotion" {
+    text="При уменьшении движения"
+  }
+  msg "schema.particles.ParticleSystem2D.reducedMotion.doc" {
+    text="Определяет, что делать с эффектом при включённой настройке уменьшения движения: оставить, уменьшить эмиссию или скрыть."
+  }
+  msg "schema.particles.ParticleSystem2D.reducedRate" {
+    text="Доля рождений"
+  }
+  msg "schema.particles.ParticleSystem2D.reducedRate.doc" {
+    text="Доля рождающихся частиц при уменьшении эмиссии."
+  }
+  msg "schema.particles.ParticleSystem2D.rotation" {
+    text="Угол поворота"
+  }
+  msg "schema.particles.ParticleSystem2D.rotation.doc" {
+    text="Минимальный и максимальный начальный угол поворота в радианах."
+  }
+  msg "schema.particles.ParticleSystem2D.rotationSpeed" {
+    text="Скорость вращения"
+  }
+  msg "schema.particles.ParticleSystem2D.rotationSpeed.doc" {
+    text="Угловая скорость в радианах в секунду."
+  }
+  msg "schema.particles.ParticleSystem2D.seed" {
+    text="Начальное зерно"
+  }
+  msg "schema.particles.ParticleSystem2D.seed.doc" {
+    text="Ненулевое значение фиксирует зерно. При нуле оно вычисляется по сеансу, постоянному идентификатору узла и номеру активации."
+  }
+  msg "schema.particles.ParticleSystem2D.shape" {
+    text="Форма"
+  }
+  msg "schema.particles.ParticleSystem2D.shape.doc" {
+    text="Рождает частицы в точке, диске, прямоугольнике, на отрезке или по альфа-маске спрайта."
+  }
+  msg "schema.particles.ParticleSystem2D.size" {
+    text="Размер"
+  }
+  msg "schema.particles.ParticleSystem2D.size.doc" {
+    text="Минимальная и максимальная начальная длина стороны частицы в единицах мира."
+  }
+  msg "schema.particles.ParticleSystem2D.sizeOverLife" {
+    text="Размер по возрасту"
+  }
+  msg "schema.particles.ParticleSystem2D.sizeOverLife.doc" {
+    text="Множитель размера в зависимости от доли прожитого времени."
+  }
+  msg "schema.particles.ParticleSystem2D.sortMode" {
+    text="Порядок частиц"
+  }
+  msg "schema.particles.ParticleSystem2D.sortMode.doc" {
+    text="Рисовать сначала старшие, младшие или самые дальние от конкретной камеры частицы."
+  }
+  msg "schema.particles.ParticleSystem2D.space" {
+    text="Координаты"
+  }
+  msg "schema.particles.ParticleSystem2D.space.doc" {
+    text="В локальных координатах частицы следуют за эмиттером, в мировых — сохраняют преобразование, полученное при рождении."
+  }
+  msg "schema.particles.ParticleSystem2D.speed" {
+    text="Скорость"
+  }
+  msg "schema.particles.ParticleSystem2D.speed.doc" {
+    text="Минимальная и максимальная начальная скорость в единицах мира в секунду."
+  }
+  msg "schema.particles.ParticleSystem2D.spread" {
+    text="Угол разлёта"
+  }
+  msg "schema.particles.ParticleSystem2D.spread.doc" {
+    text="Полная ширина угла разлёта вокруг заданного направления, в радианах."
+  }
+  msg "schema.particles.ParticleSystem2D.sprite" {
+    text="Спрайт"
+  }
+  msg "schema.particles.ParticleSystem2D.sprite.doc" {
+    text="Область текстуры для отрисовки. Если не задана, используется встроенная белая текстура."
+  }
+  msg "schema.particles.ParticleSystem2D.timeDomain" {
+    text="Ход времени"
+  }
+  msg "schema.particles.ParticleSystem2D.timeDomain.doc" {
+    text="Игровое время останавливается на паузе; немасштабируемое время позволяет эффекту продолжаться."
+  }
+  msg "schema.particles.ParticleSystem2D.velocityOverLife" {
+    text="Скорость по возрасту"
+  }
+  msg "schema.particles.ParticleSystem2D.velocityOverLife.doc" {
+    text="Множитель скорости по доле прожитого времени. Не накапливается от кадра к кадру."
+  }
   msg "schema.physics.Body2D" {
     text="Тело 2D"
   }
@@ -4532,6 +5105,24 @@ messages version=1 lang=ru {
   msg "schema.physics.RevoluteJoint2D.upper.doc" {
     text="Наибольший угол в радианах относительно угла на старте."
   }
+  msg "schema.render2d.PostProcess" {
+    text="Постобработка"
+  }
+  msg "schema.render2d.PostProcess.doc" {
+    text="Применяет стек эффектов после всех камер общего выхода, до отрисовки интерфейса."
+  }
+  msg "schema.render2d.PostProcess.effects" {
+    text="Эффекты"
+  }
+  msg "schema.render2d.PostProcess.effects.doc" {
+    text="Упорядоченные экземпляры эффектов. У каждого собственный идентификатор и типизированные параметры."
+  }
+  msg "schema.render2d.PostProcess.enabled" {
+    text="Включено"
+  }
+  msg "schema.render2d.PostProcess.enabled.doc" {
+    text="Включает стек для выхода камеры. Отключённый стек не занимает выход."
+  }
   msg "schema.save.Persist" {
     text="Сохранение"
   }
@@ -4751,6 +5342,18 @@ messages version=1 lang=ru {
   msg "setting.display.window.resolution.doc" {
     text="Размер окна или режим экрана в полноэкранном режиме. Пусто — размер окна из проекта."
   }
+  msg "setting.particles.enabled" {
+    text="Эффекты частиц"
+  }
+  msg "setting.particles.enabled.doc" {
+    text="Показывать эффекты частиц. При выключении живые частицы удаляются, а игровой процесс остаётся прежним."
+  }
+  msg "setting.render2d.postProcessing" {
+    text="Постобработка камер"
+  }
+  msg "setting.render2d.postProcessing.doc" {
+    text="Применять эффекты постобработки камер."
+  }
   msg "setting.settings.language" {
     text="Язык"
   }
@@ -4792,5 +5395,272 @@ messages version=1 lang=ru {
   }
   msg "setting.update.mode.off" {
     text="Выключены"
+  }
+  msg "api.aego/lighting.Debug" {
+    text="Возвращает режим отображения текущего вида мира: lighting, normals или shadows."
+  }
+  msg "api.aego/lighting.Enabled" {
+    text="Сообщает, применяется ли освещение в текущем виде этого мира."
+  }
+  msg "api.aego/lighting.SetDebug" {
+    text="Выбирает режим отображения вида: lighting, normals или shadows. Сцена не изменяется."
+  }
+  msg "api.aego/lighting.SetEnabled" {
+    text="Включает или отключает освещение текущего вида мира без изменения материалов сцены и симуляции."
+  }
+  msg "enum.engine.Light2DType.directional" {
+    text="направленный"
+  }
+  msg "enum.engine.Light2DType.point" {
+    text="точечный"
+  }
+  msg "enum.engine.Light2DType.spot" {
+    text="прожектор"
+  }
+  msg "enum.engine.Light2DType.sprite" {
+    text="маска"
+  }
+  msg "enum.engine.LightOccluderSource.polygon" {
+    text="полигон"
+  }
+  msg "enum.engine.LightOccluderSource.shapeProvider" {
+    text="поставщик формы"
+  }
+  msg "enum.engine.LightOccluderSource.spriteAlpha" {
+    text="альфа спрайта"
+  }
+  msg "enum.engine.LightingColorMode.auto" {
+    text="авто"
+  }
+  msg "enum.engine.LightingColorMode.hdr" {
+    text="HDR"
+  }
+  msg "enum.engine.LightingColorMode.ldr" {
+    text="LDR"
+  }
+  msg "enum.engine.ShadowCullMode.clockwise" {
+    text="по часовой стрелке"
+  }
+  msg "enum.engine.ShadowCullMode.counterClockwise" {
+    text="против часовой стрелки"
+  }
+  msg "enum.engine.ShadowCullMode.none" {
+    text="нет"
+  }
+  msg "schema.engine.Light2D" {
+    text="Свет 2D"
+  }
+  msg "schema.engine.Light2D.color" {
+    text="Цвет"
+  }
+  msg "schema.engine.Light2D.color.doc" {
+    text="Линейный цвет света; выбор цвета выполняет преобразование для отображения."
+  }
+  msg "schema.engine.Light2D.cookie" {
+    text="Маска источника"
+  }
+  msg "schema.engine.Light2D.cookie.doc" {
+    text="Текстура маски Sprite light. Её собственные область и обрезка отображаются на квадрат источника."
+  }
+  msg "schema.engine.Light2D.doc" {
+    text="Диффузный свет Forward 2D. Локальная +X задаёт азимут Spot и Directional; преобразование отображения также определяет тени."
+  }
+  msg "schema.engine.Light2D.elevation" {
+    text="Угол возвышения"
+  }
+  msg "schema.engine.Light2D.elevation.doc" {
+    text="Угол возвышения Directional над поверхностью в радианах, больше нуля."
+  }
+  msg "schema.engine.Light2D.falloff" {
+    text="Затухание"
+  }
+  msg "schema.engine.Light2D.falloff.doc" {
+    text="Неотрицательный показатель затухания по нормализованному расстоянию до локального света."
+  }
+  msg "schema.engine.Light2D.height" {
+    text="Высота"
+  }
+  msg "schema.engine.Light2D.height.doc" {
+    text="Условная высота над поверхностью спрайта для диффузного освещения с нормалями; тени остаются плоскими."
+  }
+  msg "schema.engine.Light2D.innerAngle" {
+    text="Внутренний угол"
+  }
+  msg "schema.engine.Light2D.innerAngle.doc" {
+    text="Полный внутренний угол конуса Spot в радианах с центром на локальной +X."
+  }
+  msg "schema.engine.Light2D.intensity" {
+    text="Интенсивность"
+  }
+  msg "schema.engine.Light2D.intensity.doc" {
+    text="Неотрицательный множитель энергии; ноль отключает вклад источника."
+  }
+  msg "schema.engine.Light2D.layers" {
+    text="Слои"
+  }
+  msg "schema.engine.Light2D.layers.doc" {
+    text="64-битная маска видимости получателей. -1 включает все биты; ноль исключает все объекты."
+  }
+  msg "schema.engine.Light2D.outerAngle" {
+    text="Внешний угол"
+  }
+  msg "schema.engine.Light2D.outerAngle.doc" {
+    text="Полный внешний угол конуса Spot в радианах, не меньше innerAngle."
+  }
+  msg "schema.engine.Light2D.priority" {
+    text="Приоритет"
+  }
+  msg "schema.engine.Light2D.priority.doc" {
+    text="При превышении лимита света на отрисовку сначала выбирается больший приоритет."
+  }
+  msg "schema.engine.Light2D.range" {
+    text="Радиус"
+  }
+  msg "schema.engine.Light2D.range.doc" {
+    text="Радиус локального света в мировых единицах, независимо от масштаба узла."
+  }
+  msg "schema.engine.Light2D.shadowCasterMask" {
+    text="Маска окклюдеров"
+  }
+  msg "schema.engine.Light2D.shadowCasterMask.doc" {
+    text="64-битная маска окклюдеров, независимая от масок видимости и столкновений."
+  }
+  msg "schema.engine.Light2D.shadowSoftness" {
+    text="Мягкость тени"
+  }
+  msg "schema.engine.Light2D.shadowSoftness.doc" {
+    text="Ограниченный радиус фильтрации маски; это не физическая полутень площадного источника."
+  }
+  msg "schema.engine.Light2D.shadows" {
+    text="Тени"
+  }
+  msg "schema.engine.Light2D.shadows.doc" {
+    text="Включает кэшируемые маски теней локальных источников Point, Spot и Sprite."
+  }
+  msg "schema.engine.Light2D.type" {
+    text="Тип"
+  }
+  msg "schema.engine.Light2D.type.doc" {
+    text="Point, Spot, Directional или Sprite с маской. Тени Directional не поддерживаются."
+  }
+  msg "schema.engine.LightOccluder2D" {
+    text="Окклюдер света 2D"
+  }
+  msg "schema.engine.LightOccluder2D.closed" {
+    text="Замкнутый"
+  }
+  msg "schema.engine.LightOccluder2D.closed.doc" {
+    text="Замыкает ручной полигон. Для ShapeProvider замкнутость задаёт поставщик каждого контура."
+  }
+  msg "schema.engine.LightOccluder2D.cullMode" {
+    text="Отсечение рёбер"
+  }
+  msg "schema.engine.LightOccluder2D.cullMode.doc" {
+    text="Правило обхода рёбер тени, независимое от физической односторонности."
+  }
+  msg "schema.engine.LightOccluder2D.doc" {
+    text="Плоский контур тени. Ручные полигоны не требуют Physics; ShapeProvider читает локальную геометрию через контракт shapes2d."
+  }
+  msg "schema.engine.LightOccluder2D.layers" {
+    text="Слои"
+  }
+  msg "schema.engine.LightOccluder2D.layers.doc" {
+    text="64-битная маска участия в тенях. -1 включает все биты; ноль отключает отбрасывание теней."
+  }
+  msg "schema.engine.LightOccluder2D.polygon" {
+    text="Полигон"
+  }
+  msg "schema.engine.LightOccluder2D.polygon.doc" {
+    text="Простой локальный контур без отверстий; к точкам один раз применяется преобразование отображения владельца."
+  }
+  msg "schema.engine.LightOccluder2D.shape" {
+    text="Форма"
+  }
+  msg "schema.engine.LightOccluder2D.shape.doc" {
+    text="Постоянный ключ формы поставщика, например physics.BoxCollider2D. Пустое значение выбирает все формы исходного узла."
+  }
+  msg "schema.engine.LightOccluder2D.shapeNode" {
+    text="Узел формы"
+  }
+  msg "schema.engine.LightOccluder2D.shapeNode.doc" {
+    text="Исходный узел ShapeProvider. Пустое значение использует текущий узел; неразрешённые ID сохраняются."
+  }
+  msg "schema.engine.LightOccluder2D.source" {
+    text="Источник"
+  }
+  msg "schema.engine.LightOccluder2D.source.doc" {
+    text="Использует ручной полигон/цепочку либо зарегистрированного поставщика локальной формы."
+  }
+  msg "schema.engine.LightingEnvironment2D" {
+    text="Окружение освещения 2D"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientColor" {
+    text="Цвет фонового света"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientColor.doc" {
+    text="Линейное фоновое освещение поверхности. Белый по умолчанию сохраняет вид Lit-сцен без источников света."
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientIntensity" {
+    text="Интенсивность фонового света"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientIntensity.doc" {
+    text="Неотрицательный множитель энергии фонового света."
+  }
+  msg "schema.engine.LightingEnvironment2D.camera" {
+    text="Камера"
+  }
+  msg "schema.engine.LightingEnvironment2D.camera.doc" {
+    text="Необязательный узел Camera2D. Пустое значение применяется ко всем 2D-видам этого мира."
+  }
+  msg "schema.engine.LightingEnvironment2D.colorMode" {
+    text="Цветовой режим"
+  }
+  msg "schema.engine.LightingEnvironment2D.colorMode.doc" {
+    text="Auto выбирает доступный HDR для выхода Lit; LDR использует RGBA8, HDR запрашивает RGBA16F."
+  }
+  msg "schema.engine.LightingEnvironment2D.doc" {
+    text="Освещение и правила вывода камеры. Пустая камера применяет настройки к текущему выходу; пересечение окружений считается ошибкой."
+  }
+  msg "schema.engine.LightingEnvironment2D.exposure" {
+    text="Экспозиция"
+  }
+  msg "schema.engine.LightingEnvironment2D.exposure.doc" {
+    text="Положительная экспозиция преобразования вывода без изменения интерфейса и симуляции."
+  }
+  msg "schema.engine.LightingEnvironment2D.maxShadowedLights" {
+    text="Лимит источников с тенями"
+  }
+  msg "schema.engine.LightingEnvironment2D.maxShadowedLights.doc" {
+    text="Лимит локальных теней на камеру от 0 до 16; производительность зависит от GPU."
+  }
+  msg "schema.engine.LightingEnvironment2D.shadowResolution" {
+    text="Разрешение теней"
+  }
+  msg "schema.engine.LightingEnvironment2D.shadowResolution.doc" {
+    text="Размер маски степенью двойки от 64 до 2048. Начальный профиль использует 256."
+  }
+  msg "cli.agent.texture.apply" {
+    text="атомарная типизированная транзакция метаданных текстуры; те же проверки и правила Undo, что в Inspector"
+  }
+  msg "cli.agent.texture.channel" {
+    text="назначить исходник или кадр normal/height/emission по стабильному AssetID; неразрешённые ID сохраняются с диагностикой"
+  }
+  msg "cli.agent.texture.channel-reset" {
+    text="снять явную привязку канала, не удаляя исходные ассеты"
+  }
+  msg "cli.agent.texture.get" {
+    text="прочитать текущие метаданные с несохранёнными правками, стабильные кадры, размеры, роли и ссылки каналов"
+  }
+  msg "cli.agent.texture.reset" {
+    text="удалить явную настройку импорта и наследовать значение по умолчанию импортёра"
+  }
+  msg "cli.agent.texture.schema" {
+    text="зарегистрированные роли/параметры импорта и контракт каналов кадров исходника"
+  }
+  msg "cli.agent.texture.set" {
+    text="установить настройку импорта через общий сервис семантических мутаций"
+  }
+  msg "cli.agent.texture.validate" {
+    text="проверить метаданные и подготовить приватный кандидат импорта, не меняя кэш или GPU-ресурсы"
   }
 }

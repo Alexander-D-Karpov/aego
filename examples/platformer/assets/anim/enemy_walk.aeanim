@@ -1,0 +1,7 @@
+anim version=1 length=0.8 loop=loop {
+  frames "" fps=10 {
+    sprites=[asset("33a034118185e91d90cddef773628c90"), asset("1d79a0b136fd6437eff8daa213dce138"), asset("a002ded43bdba526647adbe049ff05f6"), asset("a236b680c0ba8413c061919ae44f5961"), asset("a179da89c1f02dda5044dd602cf0a863"), asset("d5b69cc3fef91685825a896b4bda9a14"), asset("4edc2b9b0a7f0955b5bdda1880d0fa70"), asset("4c911b278f437155864411d5d7fd5bc3")]
+  }
+  event t=0.2 name="Footstep" mode=presentation {}
+  event t=0.6 name="Footstep" mode=presentation {}
+}

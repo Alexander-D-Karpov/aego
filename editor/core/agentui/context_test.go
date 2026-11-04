@@ -86,3 +86,28 @@ func TestProjectionDropsAndPins(t *testing.T) {
 		t.Fatalf("after the rebuild the meter has %d items, %d dropped", len(m.Items()), n)
 	}
 }
+
+func TestContextMeterReleasesDiscardedPayloads(t *testing.T) {
+	m := NewMeter("", "")
+	m.User("first")
+	m.Call("docs_read", "1", "{}", "Read documentation")
+	m.Result("", "1", "keep this result", "pinned", false)
+	for range 5 {
+		m.User("discard this message")
+		m.Text("discard this answer")
+	}
+	m.Pin(m.Items()[1].ID, true)
+	m.Rebuilt("new summary")
+	if len(m.items) != 2 || m.items[0].Text != "keep this result" || m.items[1].Text != "new summary" {
+		t.Fatalf("rebuilding lost active context: %+v", m.items)
+	}
+	for _, unused := range m.items[len(m.items):cap(m.items)] {
+		if unused != (Item{}) {
+			t.Fatal("shortened context retains a discarded item")
+		}
+	}
+	m.Reset()
+	if cap(m.items) != 0 {
+		t.Fatal("new session still references its predecessor's item array")
+	}
+}

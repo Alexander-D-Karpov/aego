@@ -23,21 +23,22 @@ import (
 const uiScaleKey = "display.uiScale"
 
 type View struct {
-	st      *es.Store
-	world   *engine.World
-	ui      *core.Context
-	in      raw.State
-	ed      settingsui.Editor
-	bar     widgets.ScrollState
-	open    bool
-	paused  bool
-	cat     string
-	keys    []es.Key
-	draft   map[es.Key]schema.Value
-	scroll  float32
-	content float32
-	note    string
-	uiKey   es.Key
+	st          *es.Store
+	world       *engine.World
+	ui          *core.Context
+	in          raw.State
+	ed          settingsui.Editor
+	bar         widgets.ScrollState
+	open        bool
+	openedFrame uint64
+	paused      bool
+	cat         string
+	keys        []es.Key
+	draft       map[es.Key]schema.Value
+	scroll      float32
+	content     float32
+	note        string
+	uiKey       es.Key
 }
 
 func NewView(st *es.Store, w *engine.World) *View {
@@ -54,6 +55,7 @@ func (v *View) Open() {
 	}
 	v.open = true
 	if t := v.world.Time; t != nil {
+		v.openedFrame = t.Frame()
 		v.paused = t.Paused()
 		t.SetPaused(true)
 	}
@@ -166,7 +168,10 @@ func (v *View) draw(ctx *engine.Context, fr *frame.Runner) {
 func (v *View) layout(size mathx.Vec2) {
 	ui := v.ui
 	th := &ui.Theme
-	if ui.KeyPressed(raw.KeyEscape) && !v.ed.Capturing() {
+	// A script can open the view from the very same Escape edge during Update.
+	// Keep that edge from also dismissing it when RenderUI runs later in this frame.
+	t := v.world.Time
+	if ui.KeyPressed(raw.KeyEscape) && !v.ed.Capturing() && (t == nil || t.Frame() != v.openedFrame) {
 		v.Close()
 		return
 	}

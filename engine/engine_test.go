@@ -61,6 +61,106 @@ func newTestEngine(t *testing.T) (*Engine, *headless.Platform) {
 	return e, hp
 }
 
+type resumableClock struct {
+	*headless.Platform
+	now      float64
+	reset    bool
+	consumes int
+}
+
+func (c *resumableClock) Now() float64 { return c.now }
+func (c *resumableClock) ConsumeFrameClockReset() bool {
+	c.consumes++
+	reset := c.reset
+	c.reset = false
+	return reset
+}
+
+func TestResumeFrameRebasesOnlyOrdinaryClock(t *testing.T) {
+	for _, mode := range []string{"wall", "lockstep", "fixed frame"} {
+		t.Run(mode, func(t *testing.T) {
+			p := &resumableClock{Platform: headless.New(headless.Options{})}
+			cfg := Config{Headless: true, ResRoot: t.TempDir(), UserRoot: t.TempDir()}
+			const dt = 1.0 / 60
+			if mode == "fixed frame" {
+				cfg.FixedFrameTime = dt
+			}
+			e, err := NewBuilder(cfg).WithLogger(log.Nop()).WithPlatform(p).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer e.Close()
+			if e.clockReset != p || p.consumes != 0 {
+				t.Fatal("backend reset capability was not cached without consuming a reset")
+			}
+			e.SetLockstep(mode == "lockstep")
+			app := &testApp{}
+			e.Step(app)
+			p.now += dt
+			e.Step(app)
+			before := app.fixed
+			p.reset = true
+			p.now += 2.5
+			p.Push(platform.Event{Kind: platform.EvKeyDown, Key: input.KeyEvent{Scan: input.KeyA}})
+			e.Step(app)
+			want := before
+			if mode != "wall" {
+				want++
+			}
+			if app.fixed != want || !app.aDown || e.MainWorld().Time.ClampedTime() != 0 || p.reset || p.consumes != 3 {
+				t.Fatalf("after resume: fixed=%d, want=%d, key=%v, clamped=%v", app.fixed, want, app.aDown, e.MainWorld().Time.ClampedTime())
+			}
+			p.now += dt
+			e.Step(app)
+			if app.fixed != want+1 || p.consumes != 4 {
+				t.Fatalf("steady frame after resume: fixed=%d, want=%d, reset calls=%d", app.fixed, want+1, p.consumes)
+			}
+			p.reset = true
+			p.now += 2.5
+			e.Step(app)
+			wantAgain := want + 1
+			if mode != "wall" {
+				wantAgain++
+			}
+			if app.fixed != wantAgain || p.reset || p.consumes != 5 || e.MainWorld().Time.ClampedTime() != 0 {
+				t.Fatalf("second resume: fixed=%d, want=%d, reset calls=%d", app.fixed, wantAgain, p.consumes)
+			}
+		})
+	}
+}
+
+func TestFrameClockResetCapabilityIsPerBackend(t *testing.T) {
+	plain, _ := newTestEngine(t)
+	defer plain.Close()
+	if plain.clockReset != nil {
+		t.Fatal("headless platform unexpectedly has a reset capability")
+	}
+	app := &testApp{}
+	if !plain.Step(app) {
+		t.Fatal("platform without a reset capability stopped on the first frame")
+	}
+	if !plain.Step(app) {
+		t.Fatal("platform without a reset capability stopped on the second frame")
+	}
+	p := &resumableClock{Platform: headless.New(headless.Options{})}
+	cfg := Config{Headless: true, ResRoot: t.TempDir(), UserRoot: t.TempDir()}
+	withReset, err := NewBuilder(cfg).WithLogger(log.Nop()).WithPlatform(p).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer withReset.Close()
+	if withReset.clockReset != p || plain.clockReset != nil {
+		t.Fatal("different engines did not retain their own reset capability")
+	}
+	p.reset = true
+	if !withReset.Step(&testApp{}) || p.reset || p.consumes != 1 {
+		t.Fatalf("reset was not consumed once by the correct platform: pending=%v calls=%d", p.reset, p.consumes)
+	}
+	if !plain.Step(app) || plain.clockReset != nil || p.consumes != 1 {
+		t.Fatal("an engine used another backend's reset capability")
+	}
+}
+
 func TestFixedStepCount(t *testing.T) {
 	e, _ := newTestEngine(t)
 	defer e.Close()

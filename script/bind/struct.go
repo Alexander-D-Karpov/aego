@@ -51,7 +51,7 @@ type leaf struct {
 	slot int
 }
 
-var assetKinds = map[reflect.Type]string{tTex: "texture", tScene: "scene", tPrefab: "prefab", tMesh: "mesh"}
+var assetKinds = map[reflect.Type]string{tTex: "texture", tScene: "scene", tPrefab: "prefab", tMesh: "mesh", tMaterial: "material", tShader: "shader"}
 
 func fieldOff(t reflect.Type, name string) uintptr {
 	f, _ := t.FieldByName(name)

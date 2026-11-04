@@ -5,13 +5,15 @@ import "aego/gpu"
 const ringSize = 3
 
 type Profiler struct {
-	dev     gpu.Device
-	queries [ringSize]gpu.QueryHandle
-	pending [ringSize]bool
-	head    int
-	last    uint64
-	valid   bool
-	enabled bool
+	dev        gpu.Device
+	queries    [ringSize]gpu.QueryHandle
+	pending    [ringSize]bool
+	head       int
+	last       uint64
+	valid      bool
+	enabled    bool
+	active     bool
+	generation uint64
 }
 
 func New(dev gpu.Device, caps gpu.Capabilities) *Profiler {
@@ -41,18 +43,31 @@ func (p *Profiler) Begin(pass gpu.Pass) {
 	}
 	pass.BeginQuery(p.queries[p.head])
 	p.pending[p.head] = true
+	p.active = true
 }
 
 func (p *Profiler) End(pass gpu.Pass) {
-	if !p.enabled || !p.pending[p.head] {
+	if !p.enabled || !p.active {
 		return
 	}
 	pass.EndQuery()
+	p.active = false
 }
 
 func (p *Profiler) Collect(f gpu.Frame) {
 	if !p.enabled {
 		return
+	}
+	if state, ok := p.dev.(gpu.ContextState); ok {
+		if state.ContextLost() {
+			p.valid, p.active = false, false
+			return
+		}
+		if generation := state.ContextGeneration(); generation != p.generation {
+			p.generation = generation
+			p.valid, p.active = false, false
+			clear(p.pending[:])
+		}
 	}
 	for i := range p.queries {
 		if !p.pending[i] {
@@ -60,7 +75,9 @@ func (p *Profiler) Collect(f gpu.Frame) {
 		}
 		if ns, ok := f.QueryResult(p.queries[i]); ok {
 			p.last = ns
-			p.valid = true
+			// WebGL returns a completed zero sample for a disjoint interval or
+			// a query canceled by context loss. It is recyclable, not GPU time.
+			p.valid = ns != 0
 			p.pending[i] = false
 		}
 	}

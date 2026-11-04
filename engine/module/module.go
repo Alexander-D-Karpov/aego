@@ -68,13 +68,7 @@ func (c *InitContext) Setting(d settings.Desc) (settings.Key, error) {
 }
 
 func (c *InitContext) Provided(kind string) []Provision {
-	var out []Provision
-	for _, p := range c.provided {
-		if p.kind == kind {
-			out = append(out, p.Provision)
-		}
-	}
-	return out
+	return provisions(c.provided, kind)
 }
 
 func (c *InitContext) Section(id string) any {

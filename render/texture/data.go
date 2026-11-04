@@ -16,6 +16,8 @@ type Data struct {
 	Format        gpu.TextureFormat
 	Pixels        []byte
 	Premultiplied bool
+	// NonColor keeps noise, masks and other data channels unchanged.
+	NonColor bool
 }
 
 func New(w, h int, format gpu.TextureFormat) *Data {
@@ -59,7 +61,7 @@ func DecodePNG(r io.Reader, srgb bool) (*Data, error) {
 }
 
 func (d *Data) Premultiply() {
-	if d.Premultiplied {
+	if d.Premultiplied || d.NonColor {
 		return
 	}
 	for i := 0; i+3 < len(d.Pixels); i += 4 {
@@ -67,9 +69,17 @@ func (d *Data) Premultiply() {
 		if a == 255 {
 			continue
 		}
-		d.Pixels[i] = byte(uint32(d.Pixels[i]) * a / 255)
-		d.Pixels[i+1] = byte(uint32(d.Pixels[i+1]) * a / 255)
-		d.Pixels[i+2] = byte(uint32(d.Pixels[i+2]) * a / 255)
+		for c := 0; c < 3; c++ {
+			v := float32(d.Pixels[i+c]) / 255
+			if d.Format == gpu.TexSRGBA8 {
+				v = mathx.SRGBToLinear(v)
+			}
+			v *= float32(a) / 255
+			if d.Format == gpu.TexSRGBA8 {
+				v = mathx.LinearToSRGB(v)
+			}
+			d.Pixels[i+c] = byte(mathx.Clamp(v, 0, 1)*255 + 0.5)
+		}
 	}
 	d.Premultiplied = true
 }
@@ -79,6 +89,11 @@ func (d *Data) SetPixel(x, y int, c mathx.Color) {
 		return
 	}
 	i := (y*d.Width + x) * 4
+	if d.Format == gpu.TexSRGBA8 {
+		c.R = mathx.LinearToSRGB(c.R)
+		c.G = mathx.LinearToSRGB(c.G)
+		c.B = mathx.LinearToSRGB(c.B)
+	}
 	packed := c.PackRGBA8()
 	d.Pixels[i] = byte(packed)
 	d.Pixels[i+1] = byte(packed >> 8)

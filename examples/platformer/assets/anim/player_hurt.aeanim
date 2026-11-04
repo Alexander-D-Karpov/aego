@@ -1,8 +1,8 @@
 anim version=1 length=0.4 {
-  track "" prop="SpriteRenderer.tint" kind=color {
-    key t=0 v=#ff6b6bff interp=step {}
-    key t=0.1 v=#4aa3ffff interp=step {}
-    key t=0.2 v=#ff6b6bff interp=step {}
-    key t=0.3 v=#4aa3ffff interp=step {}
+  track "" prop="MaterialOverride.Flash" kind=float32 onEnd=restore {
+    key t=0 v=1 interp=step {}
+    key t=0.1 v=0 interp=step {}
+    key t=0.2 v=1 interp=step {}
+    key t=0.3 v=0 interp=step {}
   }
 }

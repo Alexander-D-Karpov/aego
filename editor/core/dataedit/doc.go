@@ -84,6 +84,7 @@ func cloneFields(fs []aetext.Field) []aetext.Field {
 }
 
 type Doc struct {
+	edits    uint64
 	ID       ids.AssetID
 	Path     string
 	Type     *schema.TypeDescriptor
@@ -127,6 +128,7 @@ func (d *Doc) compose(base ids.AssetID) (*data.Record, error) {
 }
 
 func (d *Doc) load() error {
+	d.edits++
 	base := d.Base()
 	rec, err := d.compose(base)
 	if err == nil {

@@ -1,7 +1,6 @@
 package refactor_test
 
 import (
-	"aego/asset"
 	"bytes"
 	"image"
 	"image/color"
@@ -19,6 +18,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/format/aetext"
 	"aego/project"
 	"aego/project/refactor"
 	"aego/project/refs"
@@ -189,8 +189,18 @@ func open(t *testing.T) *fixture {
 	main := string(f.read(mainScene))
 	f.write(otherScene, []byte(strings.ReplaceAll(main, builtin, string(refs.Token(f.b)))))
 	f.write(mainScene, []byte(strings.ReplaceAll(main, builtin, string(refs.Token(f.a)))))
-	runner := string(refs.Token(asset.BuiltinRunner(0)))
-	f.write(enemyPrefab, []byte(strings.ReplaceAll(string(f.read(enemyPrefab)), runner, string(refs.Token(f.a)))))
+	// This fixture needs a prefab sprite reference, regardless of which art
+	// the canonical platformer currently assigns to the enemy.
+	prefab, err := aetext.Parse(f.read(enemyPrefab), enemyPrefab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := prefab.Block("node", "")
+	if node == nil || node.Block("component", "engine.SpriteRenderer") == nil {
+		t.Fatal("enemy prefab root must have a SpriteRenderer")
+	}
+	node.Block("component", "engine.SpriteRenderer").SetField("sprite", aetext.AssetRef(f.a.String()))
+	f.write(enemyPrefab, aetext.Write(prefab))
 	f.sync()
 	f.reimport(mainScene, enemyPrefab)
 	return f
@@ -222,15 +232,24 @@ func TestReferrers(t *testing.T) {
 		t.Fatalf("referrers %v, pipeline dependents %v", got, deps)
 	}
 	hits := refs.Find(f.p, f.pl, f.a)
+	foundEmbers := false
 	for _, h := range hits {
 		if h.Err != nil || len(h.Places) == 0 {
 			t.Fatalf("%s: %v, %d places", h.Ref.Path, h.Err, len(h.Places))
 		}
 		for _, pl := range h.Places {
-			if pl.Owner != "engine.SpriteRenderer" || pl.Field != "sprite" {
-				t.Fatalf("%s: place %s", h.Ref.Path, pl)
+			if pl.Field == "sprite" && pl.Owner == "engine.SpriteRenderer" {
+				continue
 			}
+			if h.Ref.Path == mainScene && pl.Path == "StartLantern/Embers" && pl.Owner == "particles.ParticleSystem2D" && pl.Field == "sprite" {
+				foundEmbers = true
+				continue
+			}
+			t.Fatalf("%s: place %s", h.Ref.Path, pl)
 		}
+	}
+	if !foundEmbers {
+		t.Fatal("missing particle sprite reference at StartLantern/Embers")
 	}
 }
 

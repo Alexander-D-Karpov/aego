@@ -46,7 +46,8 @@ type Row struct {
 }
 
 type Detail struct {
-	Kind DetailKind
-	Rows []Row
-	Text string
+	Images []string
+	Kind   DetailKind
+	Rows   []Row
+	Text   string
 }

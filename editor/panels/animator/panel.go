@@ -123,6 +123,21 @@ func New(d Deps) *Panel {
 func (p *Panel) ID() string    { return ID }
 func (p *Panel) Title() string { return i18n.Tr("editor.animator.title", "Animator") }
 
+// ShowsAsset reports whether the existing scene-bound graph can present this
+// controller without changing a scene component or creating another document.
+func (p *Panel) ShowsAsset(rel string) bool {
+	d := p.d.Docs.Doc()
+	if d == nil || p.d.Selection == nil {
+		return false
+	}
+	for _, id := range p.d.Selection.Selected() {
+		if current, ok := p.controller(d.Scene(), id); ok && current == rel {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Panel) notify(err error) {
 	if err != nil && p.d.Notices != nil {
 		p.d.Notices.Notify(context.LevelError, err.Error())

@@ -1,0 +1,5 @@
+scene version=1 {
+  node "aace0000000000000000000000000001" name="Effect" enabled=true layers=1 {
+    component "particles.ParticleSystem2D" version=1 { sprite=asset("aace00000000000000000000deadbeef") }
+  }
+}

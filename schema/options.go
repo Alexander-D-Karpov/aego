@@ -17,6 +17,9 @@ type regOptions struct {
 	persist      map[string]bool
 	persistAll   bool
 	clone        func(dst, src unsafe.Pointer)
+	fullClone    bool
+
+	checkedLiterals bool
 }
 
 type HintSource struct {
@@ -31,6 +34,7 @@ type EditorHints struct {
 	Step        float64
 	Unit        string
 	Hidden      bool
+	MinMaxPair  bool
 	Flags       []string
 	Gizmo       string
 	GizmoSpace  string
@@ -48,6 +52,11 @@ const (
 )
 
 type Option func(*regOptions)
+
+// CheckedLiterals opts a component into structural validation at strict import/export boundaries.
+func CheckedLiterals() Option {
+	return func(o *regOptions) { o.checkedLiterals = true }
+}
 
 func Name(full string) Option {
 	return func(o *regOptions) { o.name = full }

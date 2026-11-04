@@ -7,6 +7,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
@@ -52,6 +53,9 @@ func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
 }
 
 func Hook(e *ext.Registry) error {
+	if err := registerEventThumbnails(e); err != nil {
+		return err
+	}
 	p := &plugin{ed: e.Editor(), clip: clipEdit{drag: -1}}
 	sr := e.Schema()
 	src, err := lookup(sr, audio.NameSource)
@@ -73,6 +77,11 @@ func Hook(e *ext.Registry) error {
 	}
 	if err := e.AssetInspector(string(asset.ArtAudio), p.clipInspector); err != nil {
 		return err
+	}
+	if p.ed != nil && p.ed.Docs != nil {
+		if err := e.DocumentHandler(document.Handler{ID: "audio.clip", Name: i18n.T("editor.document.audio", "Audio Clip"), Icon: "file.audio", Kinds: []asset.ArtifactKind{asset.ArtAudio}, Extensions: []string{".wav", ".ogg", ".mp3"}, Capabilities: document.View | document.EditMetadata | document.Preview | document.RevealSource, Open: e.DocumentInspector()}); err != nil {
+			return err
+		}
 	}
 	if err := e.AssetPlayer(string(asset.ArtAudio), context.AssetPlayer{Play: p.playClip, Stop: p.stopAudition, Playing: p.clipPlaying}); err != nil {
 		return err

@@ -30,13 +30,15 @@ type Token struct {
 type Highlighter func(lang, line string) []Token
 
 type Run struct {
-	Text   string
-	X      float32
-	W      float32
-	Face   Face
-	Style  Style
-	Target string
-	Token  string
+	Text  string
+	X     float32
+	W     float32
+	Face  Face
+	Style Style
+	// BreakSpace records an omitted word separator before a wrapped line.
+	BreakSpace bool
+	Target     string
+	Token      string
 }
 
 type LineKind uint8
@@ -117,35 +119,81 @@ func pieces(spans []Span, face Face) []piece {
 	return out
 }
 
+// splitWord is used only when the complete word is wider than an empty line.
+// Probe exponentially from each line start, then refine within that short span.
+// A glyph wider than the viewport still consumes one complete UTF-8 character.
+func splitWord(p piece, width float32, m Measurer) []string {
+	var bounds []int
+	for i := range p.text {
+		bounds = append(bounds, i)
+	}
+	bounds = append(bounds, len(p.text))
+	var chunks []string
+	for first := 0; first+1 < len(bounds); {
+		remaining := len(bounds) - first - 1
+		fits := func(count int) bool {
+			return m.Width(p.face, p.text[bounds[first]:bounds[first+count]]) <= width
+		}
+		count := 1
+		for count*2 <= remaining && fits(count*2) {
+			count *= 2
+		}
+		upper := min(remaining, 2*count-1)
+		count += sort.Search(upper-count, func(i int) bool { return !fits(count + i + 1) })
+		chunks = append(chunks, p.text[bounds[first]:bounds[first+count]])
+		first += count
+	}
+	return chunks
+}
+
 func wrap(spans []Span, face Face, x0, width float32, m Measurer) [][]Run {
 	var lines [][]Run
 	var cur []Run
 	x := x0
 	limit := x0 + width
+	breakSpace := false
+	finish := func(space bool) {
+		lines = append(lines, cur)
+		cur, x, breakSpace = nil, x0, space
+	}
+	appendRun := func(p piece, value string, w float32) {
+		if n := len(cur); n > 0 {
+			last := &cur[n-1]
+			if last.Style == p.style && last.Target == p.target && last.Face == p.face {
+				last.Text += value
+				last.W = m.Width(last.Face, last.Text)
+				x = last.X + last.W
+				return
+			}
+		}
+		cur = append(cur, Run{Text: value, X: x, W: w, Face: p.face, Style: p.style, Target: p.target, BreakSpace: breakSpace})
+		x += w
+		breakSpace = false
+	}
 	for _, p := range pieces(spans, face) {
 		if p.space && len(cur) == 0 {
 			continue
 		}
 		w := m.Width(p.face, p.text)
 		if !p.space && len(cur) > 0 && x+w > limit {
-			if last := &cur[len(cur)-1]; strings.HasSuffix(last.Text, " ") {
+			last := &cur[len(cur)-1]
+			space := strings.HasSuffix(last.Text, " ")
+			if space {
 				last.Text = strings.TrimRight(last.Text, " ")
 				last.W = m.Width(last.Face, last.Text)
 			}
-			lines = append(lines, cur)
-			cur, x = nil, x0
+			finish(space)
 		}
-		if n := len(cur); n > 0 {
-			last := &cur[n-1]
-			if last.Style == p.style && last.Target == p.target && last.Face == p.face {
-				last.Text += p.text
-				last.W = m.Width(last.Face, last.Text)
-				x = last.X + last.W
-				continue
+		if !p.space && w > width {
+			for i, chunk := range splitWord(p, width, m) {
+				if i > 0 {
+					finish(false)
+				}
+				appendRun(p, chunk, m.Width(p.face, chunk))
 			}
+			continue
 		}
-		cur = append(cur, Run{Text: p.text, X: x, W: w, Face: p.face, Style: p.style, Target: p.target})
-		x += w
+		appendRun(p, p.text, w)
 	}
 	if len(cur) > 0 {
 		lines = append(lines, cur)

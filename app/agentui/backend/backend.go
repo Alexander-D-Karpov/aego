@@ -1,4 +1,4 @@
-// Package backend runs a model for the Agent panel behind one interface: the Claude Code CLI, or a scripted fake for tests (D341).
+// Package backend runs Claude Code or Codex for the Agent panel behind one interface.
 package backend
 
 import (
@@ -24,6 +24,7 @@ const (
 const ToolPrefix = "mcp__aego__"
 
 type Event struct {
+	Images [][]byte
 	Kind   EventKind
 	Text   string
 	Tool   string
@@ -32,6 +33,9 @@ type Event struct {
 	Result string
 	Failed bool
 	Err    error
+	// Delta appends Text verbatim to MessageID instead of starting a complete text block.
+	Delta     bool
+	MessageID string
 	// Cost in US dollars and Millis of the answer, on EvTurnEnd.
 	Cost   float64
 	Millis int
@@ -42,11 +46,15 @@ type Event struct {
 }
 
 type Config struct {
+	Binding string
 	Dir     string
 	Command string
 	MCPURL  string
 	Token   string
 	System  string
+	// Empty Model and Effort inherit the selected CLI's configuration.
+	Model  string
+	Effort string
 	// Record gets every line the CLI writes, for recording sessions the tests replay.
 	Record io.Writer
 }

@@ -1,5 +1,7 @@
 package schema
 
+import "slices"
+
 type Property struct {
 	Name  string
 	Value Value
@@ -39,5 +41,31 @@ func (b *PropertyBag) Delete(name string) bool {
 }
 
 func (b PropertyBag) Clone() PropertyBag {
-	return PropertyBag{Props: append([]Property(nil), b.Props...)}
+	out := PropertyBag{Props: slices.Clone(b.Props)}
+	for i := range out.Props {
+		out.Props[i].Value.cloneReferences()
+	}
+	return out
+}
+
+// The outer values have already been copied. Only nested mutable payloads
+// need new storage. Scalars, strings and asset/node IDs are values.
+func (v *Value) cloneReferences() {
+	if v.List != nil {
+		v.List = cloneValues(v.List)
+	}
+	if v.Obj != nil {
+		v.Obj = &Object{Type: v.Obj.Type, Fields: cloneValues(v.Obj.Fields)}
+	}
+	if v.Cv.Keys != nil {
+		v.Cv = v.Cv.Clone()
+	}
+}
+
+func cloneValues(values []Value) []Value {
+	out := slices.Clone(values)
+	for i := range out {
+		out[i].cloneReferences()
+	}
+	return out
 }

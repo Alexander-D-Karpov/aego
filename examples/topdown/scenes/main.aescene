@@ -7,6 +7,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=-1
       tint=#1f2937ff
@@ -26,6 +27,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -67,6 +69,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -108,6 +111,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -149,6 +153,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -190,6 +195,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -231,6 +237,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c06")
       layer=0
       order=0
       tint=#4b5563ff
@@ -366,8 +373,33 @@ scene version=1 {
     }
     component "engine.Script" version=1 {
       script "topdown.player.Hero" enabled=true {
+        Torch=node("70d00000000000000000000000000017")
         Sword=node("70d00000000000000000000000000011")
+        StepDust=node("2072be9c1f8f52471b8f231aad8332cc")
         Reach=0.8
+      }
+    }
+    node "70d00000000000000000000000000017" name="Torch" enabled=true layers=1 {
+      transform {
+        position=[0, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.Light2D" version=1 {
+        type=spot
+        color=#ffe9beff
+        intensity=5
+        range=8
+        height=1.8
+        innerAngle=0.27
+        outerAngle=0.62
+        elevation=0.8
+        falloff=1.1
+        layers=1
+        shadowCasterMask=1
+        shadows=false
+        shadowSoftness=0
+        priority=1
       }
     }
     node "70d00000000000000000000000000011" name="Sword" enabled=true layers=1 {
@@ -399,6 +431,61 @@ scene version=1 {
         policy=oncePerActivation
         period=0.5
         active=false
+      }
+    }
+    node "2072be9c1f8f52471b8f231aad8332cc" name="StepDust" enabled=true layers=1 {
+      transform {
+        position=[0, 0.3]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "particles.ParticleSystem2D" version=1 {
+        prewarm=0
+        edgeA=[0, 0]
+        edgeB=[1, 0]
+        maskThreshold=0.5
+        frameFPS=12
+        frameLoop=true
+        sortMode=age
+        reducedMotion=reduce
+        reducedRate=0.5
+        drag=0
+        noiseStrength=0
+        noiseFrequency=1
+        killYEnabled=false
+        killY=0
+        planeEnabled=false
+        planeNormal=[0, 1]
+        planeDistance=0
+        colorOverLife=[]
+        velocityOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+        playOnStart=false
+        loop=false
+        duration=1
+        timeDomain=game
+        seed=0
+        maxParticles=64
+        rate=0
+        bursts=[]
+        shape=rect
+        offset=[0, 0]
+        rectSize=[0.48, 0.04]
+        radius=0.5
+        lifetime=[0.22, 0.36]
+        speed=[0.15, 0.5]
+        size=[0.12, 0.22]
+        rotation=[0, 0]
+        direction=-1.5707964
+        spread=2.7
+        color=#bca696ae
+        gravity=[0, 0]
+        sizeOverLife={ keys=[[0, 0.8, 0.49999994, 0.49999994, bezier, linear], [1, 1.3, 0.49999994, 0.49999994, bezier, linear]] }
+        alphaOverLife={ keys=[[0, 1, -1, -1, bezier, linear], [1, 0, -1, -1, bezier, linear]] }
+        rotationSpeed=0
+        space=world
+        sprite=asset("ae900000000000000000000000000d00")
+        layer=0
+        order=-1
       }
     }
   }
@@ -528,6 +615,8 @@ scene version=1 {
         Player=node("70d00000000000000000000000000010")
         PointA=node("70d00000000000000000000000000021")
         PointB=node("70d00000000000000000000000000022")
+        SeeRange=4
+        LoseRange=6
       }
     }
   }
@@ -657,6 +746,8 @@ scene version=1 {
         Player=node("70d00000000000000000000000000010")
         PointA=node("70d00000000000000000000000000024")
         PointB=node("70d00000000000000000000000000025")
+        SeeRange=4
+        LoseRange=6
       }
     }
   }
@@ -786,6 +877,8 @@ scene version=1 {
         Player=node("70d00000000000000000000000000010")
         PointA=node("70d00000000000000000000000000027")
         PointB=node("70d00000000000000000000000000028")
+        SeeRange=4
+        LoseRange=6
       }
     }
   }
@@ -991,6 +1084,21 @@ scene version=1 {
     }
     component "audio.AudioListener2D" version=1 {
       active=true
+    }
+  }
+  node "70d0000000000000000000000000fa00" name="Torch ambience" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.LightingEnvironment2D" version=1 {
+      ambientColor=#f6f8ffff
+      ambientIntensity=0.72
+      colorMode=auto
+      exposure=1
+      shadowResolution=256
+      maxShadowedLights=0
     }
   }
 }

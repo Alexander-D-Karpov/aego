@@ -22,7 +22,7 @@ WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROM
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
-WEB_DEMO_QUIET = sed -i 's/<html lang="en"/<html lang="en" data-sound="off"/' site/demo/index.html
+WEB_DEMO_EXPORT = sh tools/site-demo.sh site/demo
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760
@@ -31,9 +31,10 @@ WEB_AUDIO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node audio.mjs --site=$(CU
 WEB_THEME = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node theme.mjs --site=$(CURDIR)/site --out=$(CURDIR)/.cache/web-theme
 WEB_BENCH_BROWSERS ?= chromium,firefox
 WEB_BENCH_ARGS ?=
+WEB_BENCH_BASELINE ?= $(CURDIR)/.cache/web-bench.base.json
 WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
 	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
-	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(CURDIR)/.cache/web-bench.base.json
+	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(WEB_BENCH_BASELINE)
 TRY_SIZE_CHECK = size=$$(stat -c %s site/try/aego-docs.wasm.gz); echo "aego-docs.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(TRY_BUDGET) ]; then echo "the docs runtime is over the 10 MB gzip budget, see make try-size"; exit 1; fi
 # Module targets, appended by modules/*/module.mk.
@@ -47,7 +48,7 @@ BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
 
-.PHONY: dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
+.PHONY: materials materials-check dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -93,6 +94,7 @@ test-wasm:
 	@if GOOS=js GOARCH=wasm go list -tags aego_editor -deps ./cmd/aego-try | grep -E '^aego/(platform/sdl|gpu/gl33|editor/shell|editor/panels/|asset/importers/script)' | grep -vE '^aego/editor/panels/(inspector|gameview)$$'; then echo "the docs runtime pulls a native, shell or extra panel package"; exit 1; fi
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -run "^TestWebAudio" ./platform/web
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
@@ -100,7 +102,8 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
-	$(GL_ENV) SDL_AUDIO_DRIVER=dummy go test -tags aego_gltest -run GL\|Screenshots ./tests/integration/
+	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset)AuthoringWorkflowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
+	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
 	go vet -cgocall=false -unsafeptr=false $(LINT_PKGS)
@@ -126,11 +129,22 @@ genfont:
 	cd tools/genfont && go mod tidy && go run . -ttf $(UI_FONT)
 
 # Regenerate the committed resources: the icon atlas and the template and example previews (D280).
-res: genicons genpreviews shaders
+res: genicons genpreviews shaders materials
 
 # GLSL ES 3.00 copies of engine/res/shaders for WebGL2 (D290).
 shaders:
 	go run ./tools/genshaders
+
+# Builtin materials use the same source importers and reference validator as project assets.
+materials:
+	go run -tags aego_nonative ./tools/genmaterials
+
+materials-check:
+	go run -tags aego_nonative ./tools/genmaterials -check
+
+.PHONY: shader-validator
+shader-validator:
+	bash tools/check-glslang.sh
 
 genpreviews: bootstrap
 	$(GL_ENV) go run ./tools/genpreviews -root $(CURDIR)
@@ -184,6 +198,8 @@ bench-allocs: bootstrap $(MODULE_BENCH_ALLOCS)
 	$(BENCH_GATE) -time=false -base $(BENCH_BASE_DIR)/scripts.base.txt -head $(BENCH_DIR)/scripts.allocs.txt
 	go test -run '^$$' -bench '^BenchmarkSpritesMaterials$$' -benchmem -count=1 ./render | tee $(BENCH_DIR)/materials.allocs.txt
 	@awk '/^BenchmarkSpritesMaterials/ { seen++; for (i = 2; i <= NF; i++) if ($$i == "allocs/op" && $$(i-1) + 0 != 0) bad = 1 } END { if (seen != 1 || bad) { print "BenchmarkSpritesMaterials allocates or did not run"; exit 1 } }' $(BENCH_DIR)/materials.allocs.txt
+	go test -run '^$$' -bench '^BenchmarkLightingRender$$' -benchmem -count=1 ./render | tee $(BENCH_DIR)/lighting.allocs.txt
+	@awk '/^BenchmarkLightingRender\// { seen++; for (i = 2; i <= NF; i++) if ($$i == "allocs/op" && $$(i-1) + 0 != 0) bad = 1 } END { if (seen != 3 || bad) { print "BenchmarkLightingRender allocates or did not run all three scenarios"; exit 1 } }' $(BENCH_DIR)/lighting.allocs.txt
 
 
 bench-build:
@@ -218,8 +234,7 @@ bench-profile:
 
 site: cli
 	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
-	.cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release --out site/demo
-	$(WEB_DEMO_QUIET)
+	$(WEB_DEMO_EXPORT) .cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
@@ -232,8 +247,7 @@ playground:
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
 	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
-	.cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR) --out site/demo
-	$(WEB_DEMO_QUIET)
+	$(WEB_DEMO_EXPORT) .cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR)
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
 	$(WEB_DEMO_BUDGET)
@@ -347,7 +361,28 @@ pkgsize:
 
 # ci requires glslangValidator: shader imports and the shader tests fail without it instead of skipping (D367).
 ci: export AEGO_REQUIRE_GLSLANG := 1
-ci: build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+# Two known environment-sensitive web checks remain visible as warnings in CI;
+# direct web-smoke and stage12-release-check runs stay strict by default.
+ci: export AEGO_CI_WEB_WARN := 1
+ci: export AEGO_CI_REQUIRE_WEB_BASELINE := 1
+ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-stage12-baseline.json
+.PHONY: web-warning-policy-test
+web-warning-policy-test:
+	node --test tools/websmoke/ci-warning-policy.test.mjs
+
+.PHONY: web-bench-baseline-test
+web-bench-baseline-test:
+	node --test tools/websmoke/bench-baseline.test.mjs
+
+.PHONY: web-audio-policy-test
+web-audio-policy-test:
+	node --test tools/websmoke/audio-gate.test.mjs tools/websmoke/audio-silence.test.cjs
+
+.PHONY: web-visibility-lifecycle-test
+web-visibility-lifecycle-test:
+	node --test tools/websmoke/visibility-browser.test.mjs
+
+ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
 	@sh tools/ci-clean-root.sh
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
@@ -366,10 +401,18 @@ SHOTS_ENV = $(XVFB) -a -s "-screen 0 1600x900x24" env SDL_VIDEODRIVER=x11 SDL_AU
 else
 SHOTS_ENV = $(GL_ENV)
 endif
-SHOTS_RUN = rm -rf $(SHOTS_TMP)/project $(SHOTS_TMP)/home && mkdir -p $(SHOTS_TMP)/home && cp -R examples/platformer $(SHOTS_TMP)/project && \
-	rm -rf $(SHOTS_TMP)/project/.aego $(SHOTS_TMP)/project/exports && \
-	sed -i.bak 's|=> ../..|=> $(CURDIR)|' $(SHOTS_TMP)/project/go.mod && \
-	XDG_CONFIG_HOME=$(SHOTS_TMP)/home XDG_DATA_HOME=$(SHOTS_TMP)/home $(SHOTS_ENV) env AEGO_LANG=en AEGO_SHOTS=$(1) AEGO_EDITOR_THEME=$(or $(2),dark) .cache/bin/aego edit $(SHOTS_TMP)/project --hidden
+# A new private path per invocation isolates editor locks, native builds and saved
+# state even when repeated captures or other workspace processes overlap.
+SHOTS_RUN = set -eu; mkdir -p "$(SHOTS_TMP)"; \
+	shots_work="$$(mktemp -d '$(SHOTS_TMP)/$(or $(2),dark).XXXXXX')"; \
+	trap 'rm -rf "$$shots_work"' 0; \
+	mkdir -p "$$shots_work/home"; cp -R examples/platformer "$$shots_work/project"; \
+	rm -rf "$$shots_work/project/.aego" "$$shots_work/project/exports" "$$shots_work/project/scripts/platform"; \
+	cp tools/shots/testdata/main.aescene "$$shots_work/project/scenes/main.aescene"; \
+	cp tools/shots/testdata/player_hurt.aeanim "$$shots_work/project/assets/anim/player_hurt.aeanim"; \
+	sed -i.bak 's|=> ../..|=> $(CURDIR)|' "$$shots_work/project/go.mod"; \
+	test ! -e "$$shots_work/project/.aego/editor.lock"; \
+	XDG_CONFIG_HOME="$$shots_work/home" XDG_DATA_HOME="$$shots_work/home" $(SHOTS_ENV) env AEGO_LANG=en AEGO_SHOTS=$(1) AEGO_EDITOR_THEME=$(or $(2),dark) .cache/bin/aego edit "$$shots_work/project" --hidden
 
 shots: cli
 	rm -rf docs/shots
@@ -409,3 +452,100 @@ appimage: cli
 
 clean:
 	rm -rf .cache/build .cache/bin
+
+# Real WebGL2 material images, typed lanes, hot reload and context-loss integration.
+# Missing WebGL2 or WEBGL_lose_context is a failed/unavailable check, never a skip.
+WEB_MATERIAL_BROWSERS ?= chromium,firefox
+.PHONY: web-materials
+web-materials:
+	go run ./tools/genwebmaterials/main.go
+	mkdir -p .cache/web-materials
+	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-materials/materials.wasm ./tests/webmaterials
+	cp tests/webmaterials/index.html .cache/web-materials/index.html
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-materials/wasm_exec.js
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
+
+ci: web-materials
+
+# GPU resource contract checks run independently of the material renderer.
+WEB_GPU_BROWSERS ?= chromium,firefox
+.PHONY: gpu-smoke web-gpu-smoke image-gpu-smoke
+gpu-smoke: bootstrap
+	$(GL_ENV) go test -tags aego_gltest ./gpu/gl33 -count=1
+
+image-gpu-smoke: bootstrap
+	$(GL_ENV) go test -tags aego_gltest ./modules/render2d/editor -run '^TestImagePreviewLitPixelsAndLifetime$$' -count=1 -v
+
+web-gpu-smoke:
+	mkdir -p .cache/web-gpu
+	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-gpu/gpu.wasm ./tests/webgpu
+	cp tests/webgpu/index.html .cache/web-gpu/index.html
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-gpu/wasm_exec.js
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
+
+ci: gpu-smoke web-gpu-smoke image-gpu-smoke
+
+# The same independent CPU reference images run on desktop GL and real WebGL2.
+# Browser reports distinguish forced fallback from a missing physical capability.
+WEB_LIGHTING_BROWSERS ?= chromium,firefox
+.PHONY: lighting-smoke web-lighting
+lighting-smoke: bootstrap
+	go run ./tools/genweblighting/main.go
+	$(GL_ENV) AEGO_LIGHTING_REPORT_DIR=$(CURDIR)/.cache/lighting/native go test -tags aego_gltest ./tests/gl -run '^TestLightingGPUContractImages$$' -count=1 -v
+
+web-lighting:
+	go run ./tools/genweblighting/main.go
+	mkdir -p .cache/web-lighting
+	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-lighting/lighting.wasm ./tests/weblighting
+	cp tests/weblighting/index.html .cache/web-lighting/index.html
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-lighting/wasm_exec.js
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
+
+ci: lighting-smoke web-lighting
+
+.PHONY: try-artifacts-check
+try-artifacts-check:
+	cd tools/gendocs && go run . -prepare-try ../../modules/render2d/res/docs/try/lighting/NormalMapping.assets -check-try
+	cd tools/gendocs && go run . -prepare-try ../../modules/render2d/res/docs/try/postfx/CameraOutput.assets -check-try
+
+ci site-check: try-artifacts-check
+
+WEB_PARTICLE_BROWSERS ?= chromium,firefox
+.PHONY: web-particle-goldens
+web-particle-goldens: cli
+	go run ./tools/genparticlefixtures -out .cache/particle-goldens/project
+	.cache/bin/aego export .cache/particle-goldens/project --target web --release --out .cache/particle-goldens/web
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
+
+ci: web-particle-goldens
+
+
+# GPU timings must be collected on a quiet machine outside the concurrent CI workload.
+.PHONY: particle-smoke-profile
+particle-smoke-profile: bootstrap
+	$(GL_ENV) go test -tags aego_gltest ./tests/integration -run '^TestParticleSmokeOverdrawGPUProfile$$' -count=1 -v
+
+# Functional acceptance uses release folders served without the source checkout.
+# Visibility starts its own X server and requires full desktop browser executables.
+STAGE12_RELEASE_DIR = $(CURDIR)/.cache/stage12/releases
+STAGE12_WEB_BROWSERS ?= chromium,firefox
+.PHONY: stage12-release-check
+stage12-release-check: cli
+	.cache/bin/aego export examples/platformer --target web --release --out "$(STAGE12_RELEASE_DIR)/platformer"
+	.cache/bin/aego export examples/topdown --target web --release --out "$(STAGE12_RELEASE_DIR)/topdown"
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	@cd tools/websmoke; failed=0; checks="$(STAGE12_RELEASE_DIR)/checks"; mkdir -p "$$checks"; \
+	for scenario in lighting finish restore topdown bloom; do \
+		project=platformer; if [ "$$scenario" = topdown ]; then project=topdown; fi; \
+		xvfb-run -a -s "-screen 0 1600x1000x24 -nolisten tcp" env CHROMIUM="$(CHROMIUM)" node platformer-lighting.mjs \
+			--scenario=$$scenario --root="$(STAGE12_RELEASE_DIR)/$$project" --out="$$checks/$$scenario" --browsers="$(STAGE12_WEB_BROWSERS)" >"$$checks/$$scenario.log" 2>&1 || failed=1; \
+		cat "$$checks/$$scenario.log"; \
+	done; \
+	CHROMIUM="$(CHROMIUM)" sh release-visibility.sh --root="$(STAGE12_RELEASE_DIR)/platformer" --out="$$checks/visibility" --browsers="$(STAGE12_WEB_BROWSERS)" >"$$checks/visibility.log" 2>&1 || failed=1; \
+	cat "$$checks/visibility.log"; exit $$failed
+
+ci: stage12-release-check

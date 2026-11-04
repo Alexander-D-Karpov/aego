@@ -6,7 +6,8 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
+      sprite=asset("73c1748e90eb685f18795ee215ee4718")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
       layer=0
       order=0
       tint=#55606eff
@@ -41,6 +42,13 @@ scene version=1 {
       loop=false
       oneSided=false
     }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-7, -0.5], [7, -0.5], [7, 0.5], [-7, 0.5]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
   }
   node "c000000000000000000000000000000d" name="GroundRight" enabled=true layers=1 {
     transform {
@@ -49,7 +57,8 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
+      sprite=asset("73c1748e90eb685f18795ee215ee4718")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
       layer=0
       order=0
       tint=#55606eff
@@ -80,9 +89,16 @@ scene version=1 {
       friction=0.6
       restitution=0
       density=1
-      points=[[-6.5, 1.5], [-6.5, -0.5], [6.5, -0.5], [6.5, -14]]
+      points=[[-6.5, 1.5], [-6.5, -0.5], [6.5, -0.5], [6.5, 1.5]]
       loop=false
       oneSided=false
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-6.5, -0.5], [6.5, -0.5], [6.5, 0.5], [-6.5, 0.5]]
+      closed=true
+      cullMode=none
+      layers=1
     }
   }
   node "c000000000000000000000000000000a" name="Platform" enabled=true layers=1 {
@@ -92,7 +108,8 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
       layer=0
       order=0
       tint=#7a8696ff
@@ -127,6 +144,13 @@ scene version=1 {
       loop=false
       oneSided=true
     }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-2, -0.15], [2, -0.15], [2, 0.15], [-2, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
   }
   node "c0000000000000000000000000000003" name="Player" enabled=true layers=1 {
     transform {
@@ -135,7 +159,8 @@ scene version=1 {
       scale=[1, 1]
     }
     component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000b00")
+      sprite=asset("33a034118185e91d90cddef773628c90")
+      material=asset("1676ce18eb70eba0ca636295653ca4c2")
       layer=0
       order=2
       tint=#4aa3ffff
@@ -159,6 +184,16 @@ scene version=1 {
       interpolate=true
       layer=2
       mask=-1
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=spriteAlpha
+      polygon=[[-0.1875, -0.3125], [0.1875, -0.3125], [0.25, -0.25], [0.25, 0.0625], [0.1875, 0.125], [0.125, 0.125], [0.125, 0.4375], [0.0625, 0.4375], [0.0625, 0.125], [-0.0625, 0.125], [-0.0625, 0.4375], [-0.125, 0.4375], [-0.125, 0.125], [-0.1875, 0.125], [-0.25, 0.0625], [-0.25, -0.25]]
+      closed=true
+      cullMode=none
+      layers=2
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[]
     }
     component "engine.Tags" version=1 {
       tags=["Player", "Saved"]
@@ -246,6 +281,7 @@ scene version=1 {
         HitSound=asset("a0d10000000000000000000000000012")
         Theme=asset("a0d10000000000000000000000000005")
         Slash=node("c0000000000000000000000000000010")
+        Dust=node("7fa413367cfee5d132ef9a89fa50083d")
         Reach=0.6
       }
     }
@@ -294,6 +330,89 @@ scene version=1 {
         policy=oncePerActivation
         period=0.5
         active=false
+      }
+    }
+    node "6c182118f2a1f2b56615424febdf5020" name="PlayerSpot" enabled=true layers=1 {
+      transform {
+        position=[0.35, -0.15]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.Light2D" version=1 {
+        type=spot
+        color=#fff2d5ff
+        intensity=3.3
+        range=7
+        height=2.2
+        innerAngle=0.32
+        outerAngle=0.65
+        elevation=0.9
+        falloff=1.6
+        layers=1
+        shadowCasterMask=1
+        shadows=true
+        shadowSoftness=1
+        priority=10
+      }
+      component "engine.Script" version=1 {
+        script "mygame.lightingdemo.Flashlight" enabled=true {
+          Player=node("c0000000000000000000000000000003")
+        }
+      }
+    }
+    node "7fa413367cfee5d132ef9a89fa50083d" name="Dust" enabled=true layers=1 {
+      transform {
+        position=[0, 0.44]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "particles.ParticleSystem2D" version=1 {
+        prewarm=0
+        edgeA=[0, 0]
+        edgeB=[1, 0]
+        maskThreshold=0.5
+        frameFPS=12
+        frameLoop=true
+        sortMode=age
+        reducedMotion=keep
+        reducedRate=0.3
+        drag=0
+        noiseStrength=0
+        noiseFrequency=1
+        killYEnabled=false
+        killY=0
+        planeEnabled=false
+        planeNormal=[0, 1]
+        planeDistance=0
+        colorOverLife=[]
+        velocityOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+        playOnStart=false
+        loop=false
+        duration=1
+        timeDomain=game
+        seed=0
+        maxParticles=64
+        rate=0
+        bursts=[]
+        shape=rect
+        offset=[0, 0]
+        rectSize=[0.48, 0.04]
+        radius=0.5
+        lifetime=[0.32, 0.5]
+        speed=[1.1, 2.3]
+        size=[0.19, 0.33]
+        rotation=[-0.4, 0.4]
+        direction=-1.5707964
+        spread=2.7
+        color=#d9c0a6dd
+        gravity=[0, 4]
+        sizeOverLife={ keys=[[0, 0.8, 0.49999994, 0.49999994, bezier, linear], [1, 1.3, 0.49999994, 0.49999994, bezier, linear]] }
+        alphaOverLife={ keys=[[0, 1, -1, -1, bezier, linear], [1, 0, -1, -1, bezier, linear]] }
+        rotationSpeed=0
+        space=world
+        sprite=asset("6005b16a9f3c8649611e19df3fc59b07")
+        layer=0
+        order=3
       }
     }
   }
@@ -350,7 +469,7 @@ scene version=1 {
       scale=[1, 1]
     }
     component "gameplay.KillZone2D" version=1 {
-      area=[-20, -1, 40, 2]
+      area=[-20, -1, 92, 2]
       tag=""
     }
   }
@@ -396,6 +515,10 @@ scene version=1 {
       virtual=[960, 540]
       active=true
     }
+    component "render2d.PostProcess" version=1 {
+      enabled=true
+      effects=[{ lut=asset("00000000000000000000000000000000") material=asset("00000000000000000000000000000000") typeID="postfx.bloom" instanceID="ef120d00000000000000000000000002" enabled=true version=1 parameters=[{ name="Threshold" kind=float value=[0.75, 0, 0, 0] integer=0 boolean=false asset=asset("00000000000000000000000000000000") }, { name="Intensity" kind=float value=[0.22, 0, 0, 0] integer=0 boolean=false asset=asset("00000000000000000000000000000000") }, { name="Radius" kind=float value=[6, 0, 0, 0] integer=0 boolean=false asset=asset("00000000000000000000000000000000") }] }, { lut=asset("00000000000000000000000000000000") material=asset("00000000000000000000000000000000") typeID="postfx.vignette" instanceID="ef120d00000000000000000000000001" enabled=false version=1 parameters=[{ name="Intensity" kind=float value=[0.6, 0, 0, 0] integer=0 boolean=false asset=asset("00000000000000000000000000000000") }] }, { lut=asset("45e397813812442d994a810000000003") material=asset("00000000000000000000000000000000") typeID="postfx.color-grading" instanceID="ef120d00000000000000000000000003" enabled=false version=1 parameters=[] }, { lut=asset("00000000000000000000000000000000") material=asset("45e397813812442d994a810000000002") typeID="postfx.custom" instanceID="ef120d00000000000000000000000004" enabled=false version=1 parameters=[] }]
+    }
     component "camera.VirtualCamera2D" version=1 {
       priority=0
       output=""
@@ -404,7 +527,7 @@ scene version=1 {
       blendCurve={ ease=inOutQuad }
       timeDomain=unscaled
       useBounds=true
-      bounds=[-20, -14, 40, 19.5]
+      bounds=[-20, -14, 92, 19.5]
       snapToPixels=true
     }
     component "camera.CameraFollow2D" version=1 {
@@ -451,14 +574,991 @@ scene version=1 {
       zoom=47
       useBounds=false
       bounds=[0, 0, 0, 0]
-      area=[-6, -3, 12, 7]
+      area=[-6, -3, 10.2787895, 7]
     }
     component "audio.AudioZone2D" version=1 {
-      area=[-6, -3, 12, 7]
+      area=[-6, -3, 10.238657, 7]
       bus=music
       gain=0.5
       priority=0
       fadeTime=0.6
+    }
+  }
+  node "0e82ddf02905a5ee0aab0dfb48bc8039" name="Ground3" enabled=true layers=1 {
+    transform {
+      position=[23, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("73c1748e90eb685f18795ee215ee4718")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[10, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-5, 1.5], [-5, -0.5], [5, -0.5], [5, 1.5]]
+      loop=false
+      oneSided=false
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-5, -0.5], [5, -0.5], [5, 0.5], [-5, 0.5]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "a35e9ec75de9b2fdb249cf5abe6459e6" name="Platform2" enabled=true layers=1 {
+    transform {
+      position=[21, 1.2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[3, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-1.5, -0.15], [1.5, -0.15]]
+      loop=false
+      oneSided=true
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-1.5, -0.15], [1.5, -0.15], [1.5, 0.15], [-1.5, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "36f11821387f55b168f089997952f8a9" name="Platform3" enabled=true layers=1 {
+    transform {
+      position=[25.5, -0.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[3, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-1.5, -0.15], [1.5, -0.15]]
+      loop=false
+      oneSided=true
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-1.5, -0.15], [1.5, -0.15], [1.5, 0.15], [-1.5, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "2f93ffc38d3c8e91d0aa0866960712cc" name="Ground4" enabled=true layers=1 {
+    transform {
+      position=[36, 2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("73c1748e90eb685f18795ee215ee4718")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[8, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-4, 3.5], [-4, -0.5], [4, -0.5], [4, 3.5]]
+      loop=false
+      oneSided=false
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-4, -0.5], [4, -0.5], [4, 0.5], [-4, 0.5]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "5ef3ae7584458e1dcd66fc5587a00896" name="Platform4" enabled=true layers=1 {
+    transform {
+      position=[43.5, 0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[3, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-1.5, -0.15], [1.5, -0.15]]
+      loop=false
+      oneSided=true
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-1.5, -0.15], [1.5, -0.15], [1.5, 0.15], [-1.5, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "0babe3212ced3f1ec33c96d9095902ff" name="Platform5" enabled=true layers=1 {
+    transform {
+      position=[47.5, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[3, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-1.5, -0.15], [1.5, -0.15]]
+      loop=false
+      oneSided=true
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-1.5, -0.15], [1.5, -0.15], [1.5, 0.15], [-1.5, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "af17372f0a0c1e54be55d77fb4b25bd7" name="Platform6" enabled=true layers=1 {
+    transform {
+      position=[51.5, 0.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("3c5df1c1c057df6a9d23819a6421012a")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[3, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-1.5, -0.15], [1.5, -0.15]]
+      loop=false
+      oneSided=true
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-1.5, -0.15], [1.5, -0.15], [1.5, 0.15], [-1.5, 0.15]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "3d3ab9e6394753f8e61788bb61fa7f41" name="Ground5" enabled=true layers=1 {
+    transform {
+      position=[61, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("73c1748e90eb685f18795ee215ee4718")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[14, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-7, 1.5], [-7, -0.5], [7, -0.5], [7, -14]]
+      loop=false
+      oneSided=false
+    }
+    component "engine.LightOccluder2D" version=1 {
+      source=polygon
+      polygon=[[-7, -0.5], [7, -0.5], [7, 0.5], [-7, 0.5]]
+      closed=true
+      cullMode=none
+      layers=1
+    }
+  }
+  node "d387d1f7313e1be84bdfa832192729d8" name="Checkpoint2" enabled=true layers=1 {
+    transform {
+      position=[34, 0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.15, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "gameplay.Checkpoint2D" version=1 {
+      area=[-1, -2, 2, 4]
+      priority=0
+      once=false
+      spawnPoint=node("00000000000000000000000000000000")
+    }
+  }
+  node "fb3a738501b6010f2a581840c6194e41" name="Finish" enabled=true layers=1 {
+    transform {
+      position=[66.5, 2.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#facc15ff
+      origin=[0.5, 0.5]
+      size=[0.15, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "gameplay.Checkpoint2D" version=1 {
+      area=[-1, -2, 2, 4]
+      priority=0
+      once=false
+      spawnPoint=node("00000000000000000000000000000000")
+    }
+  }
+  node "a14a5c6f3127fb175238103381ec2ccd" name="PatrolA3" enabled=true layers=1 {
+    transform {
+      position=[19, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "e8de8da8b1fc5536e790a9c07a6e1f24" name="PatrolB3" enabled=true layers=1 {
+    transform {
+      position=[27, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "9d2bd8b9cc39cfc55f230c4ce481f79d" name="PatrolA4" enabled=true layers=1 {
+    transform {
+      position=[33, 1]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "70daad12699b7a3ab29b0ac305beda42" name="PatrolB4" enabled=true layers=1 {
+    transform {
+      position=[39, 1]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "1cd0a1d08df5b4f420d13057d65ded74" name="PatrolA5" enabled=true layers=1 {
+    transform {
+      position=[56, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "af399d64921e5e261a89d6b21730cf8d" name="PatrolB5" enabled=true layers=1 {
+    transform {
+      position=[66, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "4720057df0fc23fd6d40fa576517dbf4" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("4720057df0fc23fd6d40fa576517dbf4") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="Enemy3" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("a14a5c6f3127fb175238103381ec2ccd") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("e8de8da8b1fc5536e790a9c07a6e1f24") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[23, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "f0c73b3de9a4bdf82092d4d8b2da6929" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c03") {
+    id "e1000000000000000000000000000002" node=node("f0c73b3de9a4bdf82092d4d8b2da6929") {}
+    override "e1000000000000000000000000000002" prop="node.name" value="FastEnemy4" {}
+    override "e1000000000000000000000000000002" prop="script/mygame.enemy.EnemyAI.PointA" value=node("9d2bd8b9cc39cfc55f230c4ce481f79d") {}
+    override "e1000000000000000000000000000002" prop="script/mygame.enemy.EnemyAI.PointB" value=node("70daad12699b7a3ab29b0ac305beda42") {}
+    override "e1000000000000000000000000000002" prop="transform.position" value=[36, 1.04] {}
+    override "e1000000000000000000000000000002" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000002" prop="transform.scale" value=[1, 1] {}
+  }
+  node "84cff6f51b094bcda3dbea9b125a35b8" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("84cff6f51b094bcda3dbea9b125a35b8") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="Enemy5" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("1cd0a1d08df5b4f420d13057d65ded74") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("af399d64921e5e261a89d6b21730cf8d") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[58, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "ac6647b148bdc288bd17e9489d968421" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c03") {
+    id "e1000000000000000000000000000002" node=node("ac6647b148bdc288bd17e9489d968421") {}
+    override "e1000000000000000000000000000002" prop="node.name" value="FastEnemy5" {}
+    override "e1000000000000000000000000000002" prop="script/mygame.enemy.EnemyAI.PointA" value=node("1cd0a1d08df5b4f420d13057d65ded74") {}
+    override "e1000000000000000000000000000002" prop="script/mygame.enemy.EnemyAI.PointB" value=node("af399d64921e5e261a89d6b21730cf8d") {}
+    override "e1000000000000000000000000000002" prop="transform.position" value=[64, 3.04] {}
+    override "e1000000000000000000000000000002" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000002" prop="transform.scale" value=[1, 1] {}
+  }
+  node "b7c8aec23a751d59788664e72224660f" name="Checkpoint3" enabled=true layers=1 {
+    transform {
+      position=[19, 2.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.15, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "gameplay.Checkpoint2D" version=1 {
+      area=[-1, -2, 2, 4]
+      priority=0
+      once=false
+      spawnPoint=node("00000000000000000000000000000000")
+    }
+  }
+  node "b6b48e78083b4afd4634be051f2ca766" name="Checkpoint4" enabled=true layers=1 {
+    transform {
+      position=[55, 2.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.15, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "gameplay.Checkpoint2D" version=1 {
+      area=[-1, -2, 2, 4]
+      priority=0
+      once=false
+      spawnPoint=node("00000000000000000000000000000000")
+    }
+  }
+  node "eedfee895e93e0f4e39dce2901121edf" name="LightingEnvironment" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.LightingEnvironment2D" version=1 {
+      ambientColor=#a2bddfff
+      ambientIntensity=0.25
+      colorMode=auto
+      exposure=1.2
+      shadowResolution=256
+      maxShadowedLights=3
+    }
+  }
+  node "19add20cdccbaeee623958a79caa4d15" name="Sun" enabled=true layers=1 {
+    transform {
+      position=[0, -8]
+      rotation=0.5
+      scale=[1, 1]
+    }
+    component "engine.Light2D" version=1 {
+      type=directional
+      color=#d6e7ffff
+      intensity=0.55
+      range=5
+      height=1
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      layers=1
+      shadowCasterMask=3
+      shadows=false
+      shadowSoftness=1
+      priority=0
+    }
+  }
+  node "0c3ef889659a934bf105f8aaaae79212" name="StartLantern" enabled=true layers=1 {
+    transform {
+      position=[-6, 0.1]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("f7d47c655feae599f3ad19ceb891518a")
+      material=asset("635be72195e8c440ea16bb490f7969c4")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[0.5, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Light2D" version=1 {
+      type=point
+      color=#ffc581ff
+      intensity=2.7
+      range=8
+      height=3
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      layers=1
+      shadowCasterMask=3
+      shadows=true
+      shadowSoftness=1
+      priority=0
+    }
+    component "animation.AnimationPlayer" version=1 {
+      clip=asset("83300b493f6f11bd35c1f1dbb0a33688")
+      playOnStart=true
+      speed=1
+      loop=clip
+      timeDomain=game
+    }
+    node "a2405377eb0980fe68fb7b239ab312c6" name="Embers" enabled=true layers=1 {
+      transform {
+        position=[0, -0.34]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "particles.ParticleSystem2D" version=1 {
+        prewarm=0
+        edgeA=[-0.14, 0]
+        edgeB=[0.14, 0]
+        maskThreshold=0.5
+        frameFPS=12
+        frameLoop=true
+        sortMode=age
+        reducedMotion=reduce
+        reducedRate=0.4
+        drag=0.25
+        noiseStrength=0
+        noiseFrequency=1
+        killYEnabled=false
+        killY=0
+        planeEnabled=false
+        planeNormal=[0, 1]
+        planeDistance=0
+        colorOverLife=[{ time=0 color=#ffe9a3ff }, { time=0.6 color=#ff9639ff }, { time=1 color=#da4b2aff }]
+        velocityOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+        playOnStart=true
+        loop=true
+        duration=1
+        timeDomain=game
+        seed=0
+        maxParticles=24
+        rate=5
+        bursts=[]
+        shape=edge
+        offset=[0, 0]
+        rectSize=[1, 1]
+        radius=0.5
+        lifetime=[0.45, 1.05]
+        speed=[0.9, 2.4]
+        size=[0.08, 0.18]
+        rotation=[0, 0]
+        direction=-1.5707964
+        spread=1.2
+        color=#ffffffff
+        gravity=[0, 1.4]
+        sizeOverLife={ keys=[[0, 1.15, -0.7, -0.7, bezier, linear], [1, 0.45, -0.7, -0.7, bezier, linear]] }
+        alphaOverLife={ keys=[[0, 1, -1, -1, bezier, linear], [1, 0, -1, -1, bezier, linear]] }
+        rotationSpeed=0
+        space=world
+        sprite=asset("ae900000000000000000000000000010")
+        material=asset("ae900000000000000000000000000c01")
+        layer=0
+        order=2
+      }
+    }
+    node "9037b74ea9a879771d85c1493a411980" name="Smoke" enabled=true layers=1 {
+      transform {
+        position=[0, -0.34]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "particles.ParticleSystem2D" version=1 {
+        prewarm=0
+        edgeA=[0, 0]
+        edgeB=[1, 0]
+        maskThreshold=0.5
+        frameFPS=12
+        frameLoop=true
+        sortMode=age
+        reducedMotion=hide
+        reducedRate=0.3
+        drag=0.4
+        noiseStrength=0.28
+        noiseFrequency=1.8
+        killYEnabled=false
+        killY=0
+        planeEnabled=false
+        planeNormal=[0, 1]
+        planeDistance=0
+        colorOverLife=[]
+        velocityOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+        playOnStart=true
+        loop=true
+        duration=1
+        timeDomain=game
+        seed=0
+        maxParticles=20
+        rate=3
+        bursts=[]
+        shape=circle
+        offset=[0, 0]
+        rectSize=[1, 1]
+        radius=0.12
+        lifetime=[1.3, 1.9]
+        speed=[0.42, 0.85]
+        size=[0.34, 0.52]
+        rotation=[0, 0]
+        direction=-1.5707964
+        spread=0.6
+        color=#96877d75
+        gravity=[0, -0.22]
+        sizeOverLife={ keys=[[0, 0.65, 1.15, 1.15, bezier, linear], [1, 1.8, 1.15, 1.15, bezier, linear]] }
+        alphaOverLife={ keys=[[0, 1, -1, -1, bezier, linear], [1, 0, -1, -1, bezier, linear]] }
+        rotationSpeed=0
+        space=world
+        sprite=asset("ae900000000000000000000000000d00")
+        layer=0
+        order=1
+      }
+    }
+  }
+  node "ac1ec416c9a12405cc3280a839df7854" name="FoundryLantern" enabled=true layers=1 {
+    transform {
+      position=[23, -0.3]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("f7d47c655feae599f3ad19ceb891518a")
+      material=asset("635be72195e8c440ea16bb490f7969c4")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[0.5, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Light2D" version=1 {
+      type=point
+      color=#ffc581ff
+      intensity=3.2
+      range=8
+      height=3
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      layers=1
+      shadowCasterMask=3
+      shadows=true
+      shadowSoftness=1
+      priority=0
+    }
+  }
+  node "b97299839f86e16d2be2068e5d9e69c1" name="FinishLamp" enabled=true layers=1 {
+    transform {
+      position=[62, 0.1]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("f7d47c655feae599f3ad19ceb891518a")
+      material=asset("635be72195e8c440ea16bb490f7969c4")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[0.5, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.Light2D" version=1 {
+      type=point
+      color=#ffc581ff
+      intensity=2.7
+      range=8
+      height=3
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      layers=1
+      shadowCasterMask=3
+      shadows=false
+      shadowSoftness=1
+      priority=0
+    }
+  }
+  node "6d72b9b64e6ceaeba0e5847394def3d2" name="CyanFill" enabled=true layers=1 {
+    transform {
+      position=[-2.5, -1.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Light2D" version=1 {
+      type=point
+      color=#6fc9ffff
+      intensity=1.6
+      range=6
+      height=3
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      layers=1
+      shadowCasterMask=3
+      shadows=false
+      shadowSoftness=1
+      priority=0
+    }
+  }
+  node "ef6c6d08e89cd6d78210b17fdf13329a" name="WindowLight" enabled=true layers=1 {
+    transform {
+      position=[35, -1.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Light2D" version=1 {
+      type=sprite
+      color=#9bc7ffff
+      intensity=2.3
+      range=7
+      height=3
+      innerAngle=0.32
+      outerAngle=0.65
+      elevation=0.9
+      falloff=1.6
+      cookie=asset("fad03d98f3d608c1c86c6fd1321e1f67")
+      layers=1
+      shadowCasterMask=3
+      shadows=false
+      shadowSoftness=1
+      priority=0
+    }
+  }
+  node "e7b7dd40a2377a5906e07afd81419002" name="BackdropStartLeft" enabled=true layers=1 {
+    transform {
+      position=[-10, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("9c37b31a336d248a200e85b4bdac87c9")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=-1
+      order=0
+      tint=#566173ff
+      origin=[0.5, 0.5]
+      size=[8, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "3ab722f7e2203b0940df9bfede7bcdb7" name="BackdropStartRight" enabled=true layers=1 {
+    transform {
+      position=[-2, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("9c37b31a336d248a200e85b4bdac87c9")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=-1
+      order=0
+      tint=#566173ff
+      origin=[0.5, 0.5]
+      size=[8, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "a9dfbcd1f844c97ee4beef371274e97c" name="BackdropFoundryLeft" enabled=true layers=1 {
+    transform {
+      position=[21, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("9c37b31a336d248a200e85b4bdac87c9")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=-1
+      order=0
+      tint=#566173ff
+      origin=[0.5, 0.5]
+      size=[8, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "6d0ee7a43bb683b3e07141d7479ce88f" name="BackdropFoundryRight" enabled=true layers=1 {
+    transform {
+      position=[29, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("9c37b31a336d248a200e85b4bdac87c9")
+      material=asset("f09e10a40a18ae1211592c9a0bd7dfa1")
+      layer=-1
+      order=0
+      tint=#566173ff
+      origin=[0.5, 0.5]
+      size=[8, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
     }
   }
 }

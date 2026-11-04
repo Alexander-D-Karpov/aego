@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Aego Lighting integration</title>
+<link rel="icon" href="data:,">
+<style>body{font:14px system-ui;background:#222;color:#eee}canvas{width:256px;height:256px;image-rendering:pixelated}</style>
+<h1>Aego WebGL2 Lighting integration</h1>
+<canvas id="surface" width="32" height="32"></canvas>
+<script src="wasm_exec.js"></script>
+<script>
+const go = new Go();
+WebAssembly.instantiateStreaming(fetch("lighting.wasm"), go.importObject)
+  .then(({instance}) => go.run(instance))
+  .catch(error => globalThis.aegoLightingResults = JSON.stringify({failures:[String(error)],passed:[]}));
+</script>

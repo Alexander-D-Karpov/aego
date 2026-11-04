@@ -1,0 +1,18 @@
+#pragma aego abi 1
+#pragma domain sprite
+#pragma lighting forward2d
+#pragma blend premultiplied
+#pragma material
+uniform sampler2D NormalMap; // @normal @doc("Explicit normal source with its own mapping. Otherwise the current sprite-frame pair is used.")
+uniform sampler2D EmissionMap; // @emission @doc("Emission RGB or scalar mask with its own mapping. Otherwise the current frame pair is used.")
+uniform float NormalStrength; // @instance @default(1) @range(0,4)
+uniform vec4 EmissionColor; // @instance @color @default(0,0,0,1)
+uniform float EmissionIntensity; // @instance @default(0) @range(0,16)
+uniform bool ReceiveShadows; // @instance @default(true)
+#pragma end
+#include "engine/sprite.glsl"
+#include "engine/lighting.glsl"
+void fragment() {
+    aego_out = aego_lit(aego_sample(), NormalStrength,
+        aego_emission(EmissionColor.rgb, EmissionIntensity), ReceiveShadows);
+}

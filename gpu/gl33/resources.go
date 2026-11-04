@@ -76,34 +76,41 @@ func (d *Device) bindScratch(id uint32) {
 	d.cache.BindTexture(scratchUnit, id)
 }
 
+func (d *Device) bindTextureScratch(target, id uint32) {
+	gl.ActiveTexture(gl.TEXTURE0 + scratchUnit)
+	d.cache.BindTextureTarget(scratchUnit, target, id)
+}
+
 func (d *Device) CreateTexture(desc gpu.TextureDesc) (gpu.TextureHandle, error) {
+	if err := gpu.ValidateTextureDesc(desc, d.caps); err != nil {
+		return gpu.TextureHandle{}, errs.Wrap(err, errs.GPUResource, "create texture")
+	}
 	info, ok := d.formatInfo(desc.Format)
 	if !ok {
-		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "unsupported texture format", log.F("label", desc.Label))
+		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "unsupported texture format")
 	}
-	if desc.Width <= 0 || desc.Height <= 0 || desc.Width > d.caps.MaxTextureSize || desc.Height > d.caps.MaxTextureSize {
-		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "invalid texture size",
-			log.F("label", desc.Label), log.F("w", desc.Width), log.F("h", desc.Height))
-	}
-	if need := desc.Width * desc.Height * info.bpp; desc.Data != nil && len(desc.Data) < need {
-		return gpu.TextureHandle{}, errs.New(errs.GPUResource, "texture data too small",
-			log.F("label", desc.Label), log.F("need", need), log.F("got", len(desc.Data)))
+	target := uint32(gl.TEXTURE_2D)
+	if desc.Dimension == gpu.Texture2DArray {
+		target = gl.TEXTURE_2D_ARRAY
 	}
 	var id uint32
 	gl.GenTextures(1, &id)
-	d.bindScratch(id)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, info.internal, int32(desc.Width), int32(desc.Height), 0,
-		info.format, info.xtype, bytesPtr(desc.Data))
+	d.bindTextureScratch(target, id)
+	if desc.Dimension == gpu.Texture2DArray {
+		gl.TexImage3D(target, 0, info.internal, int32(desc.Width), int32(desc.Height), int32(desc.Layers), 0, info.format, info.xtype, bytesPtr(desc.Data))
+	} else {
+		gl.TexImage2D(target, 0, info.internal, int32(desc.Width), int32(desc.Height), 0, info.format, info.xtype, bytesPtr(desc.Data))
+	}
 	mips := desc.Mips && !info.depth
 	minFilter := int32(gl.LINEAR)
 	if mips {
 		minFilter = gl.LINEAR_MIPMAP_LINEAR
-		gl.GenerateMipmap(gl.TEXTURE_2D)
+		gl.GenerateMipmap(target)
 	}
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(target, gl.TEXTURE_MIN_FILTER, minFilter)
+	gl.TexParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	d.label(gl.TEXTURE, id, desc.Label)
 	if err := d.checkError("create texture", desc.Label); err != nil {
 		d.cache.ForgetTexture(id)
@@ -111,25 +118,41 @@ func (d *Device) CreateTexture(desc gpu.TextureDesc) (gpu.TextureHandle, error) 
 		return gpu.TextureHandle{}, err
 	}
 	h, t := d.textures.Alloc()
-	*t = glTexture{id: id, w: desc.Width, h: desc.Height, info: info, mips: mips}
+	desc.Data = nil
+	desc.Mips = mips
+	*t = glTexture{id: id, w: desc.Width, h: desc.Height, info: info, mips: mips, target: target, desc: desc}
 	return gpu.TextureHandle(h), nil
 }
 
 func (d *Device) UpdateTexture(th gpu.TextureHandle, x, y, w, h int, data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	if err := d.UpdateTextureRegion(th, gpu.TextureUpdate{X: x, Y: y, Width: w, Height: h, Data: data}); err != nil {
+		d.log.Error("texture update failed", log.F("err", err.Error()))
+	}
+}
+
+func (d *Device) UpdateTextureRegion(th gpu.TextureHandle, u gpu.TextureUpdate) error {
 	t, ok := d.textures.Get(handle.Cast[glTexture](th))
-	if !ok || len(data) == 0 || t.info.depth {
-		return
+	if !ok {
+		return errs.New(errs.GPUInvalidHandle, "texture update: invalid handle")
 	}
-	if x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > t.w || y+h > t.h || len(data) < w*h*t.info.bpp {
-		d.log.Error("texture update out of range", log.F("x", x), log.F("y", y), log.F("w", w), log.F("h", h))
-		return
+	if err := gpu.ValidateTextureUpdate(t.desc, u); err != nil {
+		return errs.Wrap(err, errs.GPUResource, "texture update")
 	}
-	d.bindScratch(t.id)
-	gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(x), int32(y), int32(w), int32(h),
-		t.info.format, t.info.xtype, unsafe.Pointer(&data[0]))
-	if t.mips {
-		gl.GenerateMipmap(gl.TEXTURE_2D)
+	d.bindTextureScratch(t.target, t.id)
+	if t.desc.Dimension == gpu.Texture2DArray {
+		gl.TexSubImage3D(t.target, int32(u.Subresource.Mip), int32(u.X), int32(u.Y), int32(u.Subresource.Layer), int32(u.Width), int32(u.Height), 1, t.info.format, t.info.xtype, bytesPtr(u.Data))
+	} else {
+		gl.TexSubImage2D(t.target, int32(u.Subresource.Mip), int32(u.X), int32(u.Y), int32(u.Width), int32(u.Height), t.info.format, t.info.xtype, bytesPtr(u.Data))
 	}
+	// Base-level changes rebuild the generated chain. Explicit writes to later
+	// levels remain intact until the next base-level update.
+	if t.mips && u.Subresource.Mip == 0 {
+		gl.GenerateMipmap(t.target)
+	}
+	return d.checkError("update texture", t.desc.Label)
 }
 
 func (d *Device) DestroyTexture(h gpu.TextureHandle) {
@@ -137,6 +160,10 @@ func (d *Device) DestroyTexture(h gpu.TextureHandle) {
 }
 
 func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) error {
+	return d.ReadTexturePixels(th, gpu.TextureSubresource{}, x, y, w, h, out)
+}
+
+func (d *Device) readTarget(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h, count int, floating bool) error {
 	t, ok := d.textures.Get(handle.Cast[glTexture](th))
 	if !ok {
 		return errs.New(errs.GPUInvalidHandle, "read pixels: texture handle is invalid")
@@ -144,19 +171,20 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	if t.info.depth {
 		return errs.New(errs.GPUResource, "read pixels: depth textures are not readable")
 	}
-	texH := t.h
-	if x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > t.w || y+h > texH {
-		return errs.New(errs.GPUResource, "read pixels: region out of range",
-			log.F("x", x), log.F("y", y), log.F("w", w), log.F("h", h))
+	if (t.desc.Format == gpu.TexRGBA16F) != floating {
+		return errs.New(errs.GPUResource, "read pixels: use float readback for RGBA16F, RGBA8 readback for normalized targets")
 	}
-	if need := w * h * 4; len(out) < need {
-		return errs.New(errs.GPUResource, "read pixels: destination too small",
-			log.F("need", need), log.F("got", len(out)))
+	tw, thh, valid := t.desc.SubresourceSize(sub)
+	if !valid || x < 0 || y < 0 || w <= 0 || h <= 0 || w > tw || h > thh || x > tw-w || y > thh-h {
+		return errs.New(errs.GPUResource, "read pixels: region or subresource out of range")
+	}
+	if uint64(w)*uint64(h)*4 > uint64(count) {
+		return errs.New(errs.GPUResource, "read pixels: destination too small")
 	}
 	if d.inFrame {
 		return errs.New(errs.GPUResource, "read pixels: must be called after EndFrame")
 	}
-	fbo, _, _, _, err := d.framebuffer(handle.Cast[glTexture](th), handle.Handle[glTexture]{})
+	fbo, _, _, _, err := d.framebufferSub(handle.Cast[glTexture](th), sub, handle.Handle[glTexture]{}, gpu.TextureSubresource{})
 	if err != nil {
 		return errs.Wrap(err, errs.GPUResource, "read pixels")
 	}
@@ -166,9 +194,27 @@ func (d *Device) ReadPixels(th gpu.TextureHandle, x, y, w, h int, out []byte) er
 	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
 	for gl.GetError() != gl.NO_ERROR {
 	}
+	return nil
+}
+
+func (d *Device) ReadTexturePixels(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h int, out []byte) error {
+	if err := d.readTarget(th, sub, x, y, w, h, len(out), false); err != nil {
+		return err
+	}
 	gl.ReadPixels(int32(x), int32(y), int32(w), int32(h), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&out[0]))
 	if e := gl.GetError(); e != gl.NO_ERROR {
 		return errs.New(errs.GPUResource, "glReadPixels failed", log.F("gl", glErrorName(e)))
+	}
+	return nil
+}
+
+func (d *Device) ReadTexturePixelsFloat(th gpu.TextureHandle, sub gpu.TextureSubresource, x, y, w, h int, out []float32) error {
+	if err := d.readTarget(th, sub, x, y, w, h, len(out), true); err != nil {
+		return err
+	}
+	gl.ReadPixels(int32(x), int32(y), int32(w), int32(h), gl.RGBA, gl.FLOAT, unsafe.Pointer(&out[0]))
+	if e := gl.GetError(); e != gl.NO_ERROR {
+		return errs.New(errs.GPUResource, "float glReadPixels failed", log.F("gl", glErrorName(e)))
 	}
 	return nil
 }
@@ -218,6 +264,9 @@ func (d *Device) DestroySampler(h gpu.SamplerHandle) {
 }
 
 func (d *Device) CreatePipeline(desc gpu.PipelineDesc) (gpu.PipelineHandle, error) {
+	if err := gpu.ValidateVertexLayout(desc.Layout, d.Caps()); err != nil {
+		return gpu.PipelineHandle{}, err
+	}
 	sh, ok := d.shaders.Get(handle.Cast[glShader](desc.Shader))
 	if !ok {
 		return gpu.PipelineHandle{}, errs.New(errs.GPUInvalidHandle, "pipeline shader handle is invalid", log.F("label", desc.Label))
@@ -362,4 +411,12 @@ func (d *Device) destroyNow(kind resourceKind, index, gen uint32) {
 
 func (d *Device) forgetBuffer(id uint32) {
 	d.cache.ForgetUniformBuffer(id)
+}
+
+func (d *Device) TextureInfo(h gpu.TextureHandle) (gpu.TextureDesc, bool) {
+	t, ok := d.textures.Get(handle.Cast[glTexture](h))
+	if !ok {
+		return gpu.TextureDesc{}, false
+	}
+	return t.desc, true
 }

@@ -110,6 +110,7 @@ type Host struct {
 	Block      bool
 	Autosave   bool
 	Virtual    func(path string) (*document.ScriptDocument, error)
+	offDocs    func()
 }
 
 func NewHost(lang *langsvc.Service) *Host {
@@ -137,7 +138,15 @@ func (h *Host) docs() *document.Manager {
 }
 
 func (h *Host) Attach(d Deps, w *edws.Workspace) {
+	if h.offDocs != nil {
+		h.offDocs()
+	}
 	h.d, h.dock = d, w
+	h.offDocs = h.docs().Subscribe(func(ev document.Event) {
+		if ev.Kind == document.EvRenamed {
+			h.Renamed(ev.OldPath, ev.Path)
+		}
+	})
 	if err := w.Register(edws.Desc{Panel: h.find, Near: edws.Console, Order: 240}); err != nil {
 		h.d.Notices.Notify(context.LevelError, err.Error())
 	}
@@ -386,6 +395,7 @@ func (h *Host) show(d *document.ScriptDocument) *Panel {
 	p := newPanel(h, d)
 	if err := h.dock.Register(edws.Desc{Panel: p, Hidden: true}); err != nil {
 		h.d.Notices.Notify(context.LevelError, err.Error())
+		p.dispose()
 		return p
 	}
 	h.panels[d.Path] = p
@@ -439,6 +449,7 @@ func (h *Host) split(p *Panel, down bool) {
 		c.scrollY = p.scrollY
 		if err := h.dock.Register(edws.Desc{Panel: c, Hidden: true}); err != nil {
 			h.d.Notices.Notify(context.LevelError, err.Error())
+			c.dispose()
 			return
 		}
 		h.clones[c.ID()] = c
@@ -471,6 +482,10 @@ func (h *Host) requestClose(p *Panel) {
 					}
 					h.queue = append(h.queue, func() { h.close(p) })
 				case 1:
+					if err := h.docs().DiscardScript(p.doc); err != nil {
+						h.d.Notices.Notify(context.LevelError, err.Error())
+						return
+					}
 					h.queue = append(h.queue, func() { h.close(p) })
 				}
 			},
@@ -599,7 +614,7 @@ func (h *Host) ensure() {
 
 func (h *Host) blocked(d *document.ScriptDocument) bool {
 	p := h.panels[d.Path]
-	return d.ReadOnly || (p != nil && p.conflict)
+	return d.ReadOnly || d.ExplicitSave || d.Conflict || (p != nil && p.conflict)
 }
 
 func (h *Host) saveDoc(d *document.ScriptDocument, now float64) bool {
@@ -826,6 +841,8 @@ func (h *Host) Renamed(oldRel, newRel string) {
 		switch {
 		case p == oldRel:
 			return newRel, true
+		case p == oldRel+".meta":
+			return newRel + ".meta", true
 		case strings.HasPrefix(p, oldRel+"/"):
 			return newRel + strings.TrimPrefix(p, oldRel), true
 		}

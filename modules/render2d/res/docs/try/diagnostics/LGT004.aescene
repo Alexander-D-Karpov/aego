@@ -1,0 +1,10 @@
+scene version=1 {
+  node "d5ee0000000000000000000000000001" name="Camera" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.Camera2D" version=1 { zoom=50 viewport=[0, 0, 1, 1] mask=-1 active=true }
+  }
+  node "d5ee0000000000000000000000000002" name="Diagnostic example" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.LightOccluder2D" version=1 { source=polygon closed=true polygon=[[0, 0], [2, 2], [0, 2], [2, 0]] }
+  }
+}

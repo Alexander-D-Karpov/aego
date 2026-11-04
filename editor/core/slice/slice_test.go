@@ -19,6 +19,9 @@ func TestGrid(t *testing.T) {
 	if Grid(40, 20, [2]int{0, 8}, [2]int{}, [2]int{}, 0) != nil {
 		t.Fatal("a zero cell gives no cells")
 	}
+	if Grid(40, 20, [2]int{8, 8}, [2]int{}, [2]int{-8, 0}, 0) != nil {
+		t.Fatal("a non-advancing grid must not hang the Inspector")
+	}
 }
 
 func TestAlpha(t *testing.T) {
@@ -40,6 +43,18 @@ func TestAlpha(t *testing.T) {
 	want := []Rect{{0, 1, 4, 3}, {7, 0, 3, 3}, {1, 6, 4, 2}}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("alpha %v, want %v (diagonal pixels join, rows top to bottom, then left to right, faint pixels ignored)", got, want)
+	}
+}
+
+func TestReslicePreservesRenamedWorkingFrameAndPivot(t *testing.T) {
+	cells := []Rect{{0, 0, 16, 16}, {16, 0, 16, 16}}
+	working := Plan("hero", nil, cells)
+	working[1].Name = "jump"
+	working[1].HasPivot = true
+	working[1].Pivot = [2]float32{.25, .75}
+	again := Plan("hero", working, []Rect{cells[1], {32, 0, 16, 16}, cells[0]})
+	if again[0] != working[1] || again[2] != working[0] || again[1].ID.IsZero() || again[1].ID == working[1].ID || again[1].Name == again[0].Name || again[1].Name == again[2].Name {
+		t.Fatalf("reordered/expanded grid lost an authored frame: %+v", again)
 	}
 }
 

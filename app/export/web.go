@@ -77,7 +77,7 @@ func CheckWeb(s *Snapshot, native bool) []problems.Diagnostic {
 		if ffmpegErr != nil && strings.EqualFold(filepath.Ext(e.Source), ".mp3") {
 			out = append(out, diag(CodeWebMP3, problems.Warning, e.Source+" is an mp3; it is converted to ogg on import, which needs ffmpeg in PATH", e.Source))
 		}
-		if e.Missing || exportSkip(e.Kind) || !webUnsupported(e.Kind) {
+		if e.Missing || s.exportSkip(e) || !webUnsupported(e.Kind) {
 			return
 		}
 		out = append(out, diag(CodeWebAsset, problems.Warning, e.Source+" is a "+string(e.Kind)+" asset, which the web runtime cannot load", e.Source))
@@ -219,7 +219,10 @@ func (j *job) compressWeb(brotli string) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if p == wasm || (!webCompressed[filepath.Ext(p)] && filepath.Dir(p) != art) {
+		// The artifact directory accepts arbitrary prepared formats, but
+		// an encoding sidecar is never itself a source for another one.
+		ext := filepath.Ext(p)
+		if p == wasm || ext == ".gz" || ext == ".br" || (!webCompressed[ext] && filepath.Dir(p) != art) {
 			return nil
 		}
 		_, err = precompress(p, brotli)

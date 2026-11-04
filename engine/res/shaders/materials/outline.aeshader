@@ -1,0 +1,26 @@
+#pragma aego abi 1
+#pragma domain sprite
+#include "engine/sprite.glsl"
+#pragma material
+uniform float Thickness; // @instance @default(1) @range(0, 8) @unit("region texels")
+uniform vec4 OutlineColor; // @instance @color @default(0, 0, 0, 1)
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+#pragma end
+// Interior alpha outline. Geometry and culling bounds stay unchanged; samples
+// outside this region are transparent and never read a neighbouring atlas tile.
+void fragment() {
+    vec4 color = aego_sample();
+    vec2 offsetUV = aego_texel() * max(Thickness, 0.0);
+    float neighbour = color.a;
+    neighbour = min(neighbour, aego_sample_at(aego_uv + vec2(offsetUV.x, 0.0)).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv - vec2(offsetUV.x, 0.0)).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv + vec2(0.0, offsetUV.y)).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv - vec2(0.0, offsetUV.y)).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv + offsetUV).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv - offsetUV).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv + vec2(offsetUV.x, -offsetUV.y)).a);
+    neighbour = min(neighbour, aego_sample_at(aego_uv + vec2(-offsetUV.x, offsetUV.y)).a);
+    float innerEdge = clamp((color.a - neighbour) / max(color.a, 0.000001), 0.0, 1.0);
+    color.rgb = mix(color.rgb, OutlineColor.rgb * color.a, innerEdge * clamp(OutlineColor.a, 0.0, 1.0));
+    aego_out = color * clamp(Opacity, 0.0, 1.0);
+}

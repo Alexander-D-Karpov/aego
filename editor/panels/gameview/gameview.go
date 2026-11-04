@@ -4,17 +4,21 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/play"
 	"aego/editor/core/services"
 	"aego/editor/core/shape"
 	"aego/editor/core/vectors"
 	"aego/editor/core/workspace"
+	"aego/engine"
 	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render/debug"
 	"aego/render/rt"
 	"aego/render/view"
+	"aego/scene"
+	"aego/scene/frame"
 	"aego/ui/core"
 	"aego/ui/theme"
 	"aego/ui/widgets"
@@ -23,17 +27,25 @@ import (
 const CommandOverlays = context.OverlayGame
 
 type Panel struct {
-	play      *play.Controller
-	vp        *services.Viewport
-	pool      *rt.Pool
-	target    *rt.Target
-	hook      func()
-	rect      mathx.Rect
-	bar       mathx.Rect
-	tl        *TimelineBar
-	scale     float32
-	hasCamera bool
-	pending   bool
+	play          *play.Controller
+	vp            *services.Viewport
+	pool          *rt.Pool
+	target        *rt.Target
+	hook          func()
+	rect          mathx.Rect
+	bar           mathx.Rect
+	tl            *TimelineBar
+	scale         float32
+	lastTick      uint64
+	lastScene     *scene.Scene
+	lastPreview   frame.PostPreview
+	renderFrame   uint64
+	hasCamera     bool
+	previewWorld  *engine.World
+	previewRunner *frame.Runner
+	previewScene  *scene.Scene
+	bypassFX      bool
+	pending       bool
 }
 
 func New(c *play.Controller, vp *services.Viewport) *Panel {
@@ -67,6 +79,7 @@ func (p *Panel) Release() {
 }
 
 func (p *Panel) Close() {
+	p.releasePreview()
 	if p.pool == nil {
 		return
 	}
@@ -100,9 +113,19 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	p.pending = true
 	p.vp.OnRender(p.hook)
 
+	p.previewScene = nil
 	if p.play.State() == play.Stopped {
 		p.bar = mathx.Rect{}
 		p.tl.Reset()
+		if p.vp.CameraPreview != nil {
+			p.previewScene = p.vp.CameraPreview()
+		}
+		if p.previewScene != nil {
+			if !p.vp.Bare {
+				p.toolbar(ui, r)
+			}
+			return
+		}
 		ui.TextIn(r, i18n.Tr("editor.gameview.press_play", "Press Play (Ctrl+P)"), th.TextDim, core.AlignCenter)
 		return
 	}
@@ -152,7 +175,11 @@ func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {
 	if o.On(vectors.CommandToggle) {
 		vecs = i18n.Tr("editor.gameview.vectors_on", "Vectors: on")
 	}
-	w := ui.TextSize(overlays).X + ui.TextSize(vecs).X + 44
+	fx := i18n.Tr("editor.gameview.postfx_on", "PostFX: on")
+	if p.bypassFX {
+		fx = i18n.Tr("editor.gameview.postfx_off", "PostFX: bypass")
+	}
+	w := ui.TextSize(overlays).X + ui.TextSize(vecs).X + ui.TextSize(fx).X + 66
 	bar := mathx.Rect{X: r.X + 6, Y: r.Y + 6, W: min(w, r.W-12), H: th.BarHeight}
 	ui.PushClip(r)
 	tb := widgets.BeginToolbar(ui, bar)
@@ -166,6 +193,9 @@ func (p *Panel) toolbar(ui *core.Context, r mathx.Rect) {
 		}
 		o.Toggle(vectors.CommandToggle)
 	}
+	if clicked, _ := tb.TextButton(ui.ID("postfx-preview"), fx, i18n.Tr("editor.gameview.postfx_bypass", "Compare the authored camera output with effects bypassed in this Game View")); clicked {
+		p.bypassFX = !p.bypassFX
+	}
 	ui.PopClip()
 	p.bar = bar
 }
@@ -176,7 +206,35 @@ func (p *Panel) render() {
 	}
 	p.pending = false
 	t := p.target
-	p.hasCamera = p.play.Render(t)
+	preview := frame.PostPreview{Bypass: p.bypassFX}
+	if p.vp.EffectPreview != nil {
+		preview.Camera, preview.Instance = p.vp.EffectPreview()
+	}
+	p.lastPreview = preview
+	p.renderFrame = p.vp.UI.Frame()
+	if p.previewScene != nil && p.play.State() == play.Stopped {
+		if p.previewRunner == nil || p.previewRunner.Scene() != p.previewScene {
+			p.releasePreview()
+			p.previewWorld = engine.NewWorld("camera preview")
+			p.previewRunner = frame.New()
+			p.previewRunner.Bind(p.previewScene, p.vp.Renderer, p.previewScene.Resolver())
+			p.previewWorld.SetService(frame.ServiceID, p.previewRunner)
+			p.previewWorld.SetService(scene.ServiceID, p.previewScene)
+		}
+		p.previewRunner.SetPostPreview(preview)
+		p.previewRunner.SetPooledTarget(t)
+		p.vp.RenderWorld(p.previewWorld)
+		p.hasCamera = len(p.previewRunner.Views()) > 0
+		p.lastScene, p.lastTick = p.previewScene, 0
+		if p.hasCamera {
+			return
+		}
+	} else {
+		p.releasePreview()
+	}
+	p.hasCamera = p.play.RenderPreview(t, preview)
+	p.lastScene = p.play.Scene()
+	p.lastTick = p.play.Ticks()
 	if p.play.State() != play.Stopped && p.hasCamera {
 		if p.vp.Overlay.On(CommandOverlays) {
 			Overlays(p.vp, p.play)
@@ -195,6 +253,16 @@ func (p *Panel) render() {
 		Label:      "gameview.clear",
 	}
 	p.vp.Renderer.View(v).End()
+}
+
+func (p *Panel) releasePreview() {
+	if p.previewRunner != nil {
+		for _, v := range p.previewRunner.Views() {
+			_ = p.vp.Renderer.ReleaseLightingView(v.ID, v.OutputID)
+		}
+		p.previewRunner.Close()
+		p.previewRunner, p.previewWorld = nil, nil
+	}
 }
 
 func Overlays(vp *services.Viewport, pc *play.Controller) {
@@ -233,4 +301,31 @@ func (p *Panel) viewportBg() mathx.Color {
 		return p.vp.UI.Theme.ViewportBg
 	}
 	return theme.Editor().ViewportBg
+}
+
+// PostOutput identifies the Game View presentation used by this document's
+// latest visible frame. A dock switch or Play/Stop invalidates a stale world.
+func (p *Panel) PostOutput(d *document.SceneDocument) (*engine.World, view.ID, frame.PostPreview) {
+	if d != nil && p.target != nil && p.hasCamera && p.vp.UI.Frame()-p.renderFrame <= 1 {
+		if p.play.State() == play.Stopped {
+			if p.previewRunner != nil && p.previewScene == d.Scene() && p.lastScene == p.previewScene {
+				return p.previewWorld, p.previewRunner.OutputID(), p.lastPreview
+			}
+		} else if p.lastScene == p.play.Scene() && (d.ID == p.play.Doc() || d.Scene() == p.lastScene) {
+			if r, ok := engine.ServiceOf[*frame.Runner](p.play.World(), frame.ServiceID); ok {
+				return p.play.World(), r.OutputID(), p.lastPreview
+			}
+		}
+	}
+	return nil, view.ID{}, frame.PostPreview{}
+}
+
+func (p *Panel) LastRender() (*rt.Target, uint64) {
+	if p.target != nil && !p.pending && p.hasCamera && p.play.State() == play.Stopped && p.previewScene != nil && p.lastScene == p.previewScene && p.vp.CameraPreview != nil && p.vp.CameraPreview() == p.previewScene {
+		return p.target, p.lastTick
+	}
+	if p.target == nil || p.pending || !p.hasCamera || p.play.State() == play.Stopped || p.lastScene != p.play.Scene() {
+		return nil, 0
+	}
+	return p.target, p.lastTick
 }

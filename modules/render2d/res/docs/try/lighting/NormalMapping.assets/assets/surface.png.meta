@@ -1,0 +1,6 @@
+meta version=1 {
+  id="d5aa0000000000000000000000000001"
+  importer="texture"
+  importerVersion=4
+  settings { semantic=color srgb=true filter=linear auto_normal=false }
+}

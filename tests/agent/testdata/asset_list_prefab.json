@@ -2,13 +2,8 @@
   "ok": true,
   "value": [
     {
-      "id": "7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02",
-      "path": "prefabs/enemy.aeprefab",
-      "kind": "prefab"
-    },
-    {
-      "id": "7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c03",
-      "path": "prefabs/fast_enemy.aeprefab",
+      "id": "12a90000000000000000000000000003",
+      "path": "prefabs/flash_sprite.aeprefab",
       "kind": "prefab"
     }
   ]

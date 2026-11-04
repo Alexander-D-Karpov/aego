@@ -199,7 +199,7 @@ func (s *Service) components() {
 		e := entry{kind: kindComp, td: td}
 		why := s.fit(sc, td, &e)
 		s.entries = append(s.entries, e)
-		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Category: meta.Category, Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
+		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Category: paletteCategory(meta.Category), Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
 	}
 }
 
@@ -281,13 +281,20 @@ func (s *Service) templates() {
 		}
 		for _, t := range sec.Items {
 			s.entries = append(s.entries, entry{kind: kindTemplate, tpl: t})
-			s.items = append(s.items, palette.Item{Key: "tpl:" + t.ID, Label: t.Name, Category: cat, Icon: t.Icon})
+			s.items = append(s.items, palette.Item{Key: "tpl:" + t.ID, Label: t.Name, Category: paletteCategory(cat), Icon: t.Icon})
 		}
 	}
-	if s.d.Actions == nil || s.place.At2 != nil || s.place.At3 != nil {
+	if s.place.At2 != nil || s.place.At3 != nil {
 		return
 	}
-	for _, a := range s.d.Actions() {
+	var actions []Action
+	if s.d.Actions != nil {
+		actions = s.d.Actions()
+	}
+	for _, a := range s.d.Ctx.CreateActions {
+		actions = append(actions, Action{Key: a.Key, Name: a.Name, Category: a.Category, Icon: a.Icon, Doc: a.Doc, Run: a.Run})
+	}
+	for _, a := range actions {
 		s.entries = append(s.entries, entry{kind: kindAction, act: a})
 		s.items = append(s.items, palette.Item{Key: "act:" + a.Key, Label: a.Name, Category: a.Category, Icon: a.Icon})
 	}
@@ -501,6 +508,14 @@ func (s *Service) Rect() mathx.Rect {
 	return s.rect(s.d.Ctx.UI)
 }
 
+// Lighting extensions share the existing Lights category and its localization.
+func paletteCategory(category string) string {
+	if category == "Lighting" {
+		return "Lights"
+	}
+	return category
+}
+
 // categoryIcons are the icons of the palette categories, the same set the documentation sidebar uses for module groups.
 var categoryIcons = map[string]string{
 	"Engine":    "cat.transform",
@@ -509,6 +524,7 @@ var categoryIcons = map[string]string{
 	"2D":        "cat.rendering",
 	"3D":        "cat.3d",
 	"Camera":    "cat.camera",
+	"Lights":    "view.overlays",
 	"Physics":   "comp.rigidbody",
 	"Audio":     "cat.audio",
 	"Animation": "anim.graph",

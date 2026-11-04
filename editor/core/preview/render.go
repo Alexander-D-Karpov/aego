@@ -30,31 +30,42 @@ func (s *Service) startScene(e asset.Entry, it *item, spec tasks.Spec) {
 	j := &sceneJob{kind: e.Kind, name: e.Name}
 	art, _ := e.Artifact(e.Kind)
 	files := s.d.Pipeline.Artifacts()
+	var draft []byte
+	if s.d.Docs != nil {
+		if d := s.d.Docs.Find(e.Source); d != nil && d.Dirty() {
+			draft = d.PreviewBytes()
+		}
+	}
 	cached := false
 	it.task = s.d.Tasks.Work(spec, func(*tasks.Task) error {
 		if p, err := s.load(key); err == nil {
 			j.out, cached = p, true
 			return nil
 		}
+		if draft != nil {
+			j.data = draft
+			return nil
+		}
 		data, err := files.ReadFile(art.Path)
 		j.data = data
 		return err
 	}).Then(func(t *tasks.Task) {
-		if it.key != key {
+		if s.items[it.id] != it || it.key != key {
 			return
 		}
 		if cached || t.State() != tasks.Done {
 			s.finish(it, key, j.out, t)
 			return
 		}
+		it.dispose = func() { s.release(j) }
 		it.task = s.d.Tasks.Step(spec, tasks.LaneRender, s.renderStep(j)).Then(func(dt *tasks.Task) {
-			if it.key != key || dt.State() != tasks.Done {
-				s.release(j)
+			if s.items[it.id] != it || it.key != key || dt.State() != tasks.Done {
+				it.release()
 				s.finish(it, key, j.out, dt)
 				return
 			}
 			it.task = s.d.Tasks.Step(spec, tasks.LaneMain, s.readStep(j)).Then(func(rt *tasks.Task) {
-				s.release(j)
+				it.release()
 				s.finish(it, key, j.out, rt)
 				if rt.State() == tasks.Done {
 					out := j.out
@@ -77,6 +88,7 @@ func (s *Service) readStep(j *sceneJob) tasks.Step {
 		if err := s.d.GPU.ReadPixels(j.target.Texture, 0, 0, Size, Size, buf); err != nil {
 			return true, err
 		}
+		straight(buf, true)
 		j.out = pixels{buf: buf, w: Size, h: Size}
 		return true, nil
 	}
@@ -101,9 +113,7 @@ func (s *Service) draw(j *sceneJob) error {
 	w.SetService(frame.ServiceID, r)
 	w.SetService(scene.ServiceID, sc)
 	j.runner = r
-	r.SetTarget(tgt.Texture, tgt.BucketW, tgt.BucketH)
-	r.SetDepthTarget(tgt.Depth)
-	r.SetViewportSize(Size, Size)
+	r.SetPooledTarget(tgt)
 	clear := s.d.Background
 	if j.kind == asset.ArtPrefab {
 		clear = mathx.Color{}

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"aego/app/agent"
+	"aego/editor/core/assetops"
 	"aego/project"
 )
 
@@ -17,6 +19,7 @@ type scriptUndo struct {
 	open          bool
 	created       bool
 	before, after string
+	assets        *assetops.Ops
 }
 
 func (b *Bridge) ScriptText(rel string) (string, bool) {
@@ -29,7 +32,29 @@ func (b *Bridge) ScriptText(rel string) (string, bool) {
 
 // ApplyScript edits an open script in its buffer, one Undo step of the code editor that the user saves; a closed one on disk.
 func (b *Bridge) ApplyScript(e agent.ScriptEdit, label string) error {
+	if strings.HasSuffix(e.Rel, ".meta") && b.ctx.Pipeline != nil {
+		if id, ok := b.ctx.Pipeline.Lookup(strings.TrimSuffix(e.Rel, ".meta")); ok {
+			owner, err := b.ctx.DocumentForAsset(id)
+			if err != nil {
+				return err
+			}
+			if owner.Metadata == nil || owner.Metadata.Path != e.Rel {
+				return errors.New(e.Rel + " has no editable metadata document")
+			}
+			if e.New {
+				return errors.New(e.Rel + " already belongs to an imported asset")
+			}
+		}
+	}
 	if e.New {
+		if ext := filepath.Ext(e.Rel); ext == ".aemat" || ext == ".aeshader" {
+			ops := &assetops.Ops{}
+			if _, err := ops.CreateFile(b.ctx, e.Rel, []byte(e.After)); err != nil {
+				return err
+			}
+			b.last = &undoRef{label: label, script: &scriptUndo{rel: e.Rel, created: true, after: e.After, assets: ops}}
+			return nil
+		}
 		abs := filepath.Join(b.ctx.Project.Root, filepath.FromSlash(e.Rel))
 		if _, err := os.Stat(abs); err == nil {
 			return errors.New(e.Rel + " exists; change it with script.edit")
@@ -45,6 +70,9 @@ func (b *Bridge) ApplyScript(e agent.ScriptEdit, label string) error {
 		return nil
 	}
 	if d := b.ctx.Docs.Script(e.Rel); d != nil {
+		if d.ReadOnly || d.Conflict {
+			return errors.New(e.Rel + " is read-only or has an unresolved external change")
+		}
 		if string(d.Code.Bytes()) != e.Before {
 			return errors.New(e.Rel + " changed since the preview; read it again with script.read")
 		}
@@ -84,6 +112,9 @@ func changed(a, b string) (lo, aHi, bHi int) {
 
 func (b *Bridge) canUndoScript(u *scriptUndo) bool {
 	if d := b.ctx.Docs.Script(u.rel); d != nil {
+		if d.ReadOnly || d.Conflict {
+			return false
+		}
 		if u.open {
 			return d.Code.Rev() == u.rev && d.Code.CanUndo()
 		}
@@ -98,6 +129,9 @@ func (b *Bridge) undoScript(u *scriptUndo) error {
 		if d := b.ctx.Docs.Script(u.rel); d != nil && d.Dirty() {
 			return errors.New(u.rel + " has unsaved changes; close it first")
 		}
+		if u.assets != nil {
+			return u.assets.Undo(b.ctx)
+		}
 		if err := os.Remove(filepath.Join(b.ctx.Project.Root, filepath.FromSlash(u.rel))); err != nil {
 			return err
 		}
@@ -105,7 +139,17 @@ func (b *Bridge) undoScript(u *scriptUndo) error {
 		return nil
 	}
 	if d := b.ctx.Docs.Script(u.rel); d != nil {
+		if d.ReadOnly || d.Conflict {
+			return errors.New(u.rel + " is read-only or has an unresolved external change")
+		}
 		if u.open {
+			if d.ExplicitSave && b.ctx.Pipeline != nil && strings.HasSuffix(u.rel, ".meta") {
+				if id, ok := b.ctx.Pipeline.Lookup(strings.TrimSuffix(u.rel, ".meta")); ok {
+					if owner := b.ctx.Docs.AssetDocument(id); owner != nil && owner.Metadata == d {
+						return b.ctx.UndoAsset(owner)
+					}
+				}
+			}
 			d.Code.Undo()
 			return nil
 		}

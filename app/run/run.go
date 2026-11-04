@@ -254,14 +254,21 @@ func (a *App) StartWatch() error {
 }
 
 func (a *App) applyBatch(b *pipeline.Batch) {
-	if len(b.Imported) == 0 {
-		return
+	for id := range b.Failed {
+		a.Loader.RejectSource(id)
 	}
-	if err := a.Loader.Swap(b.Imported, a.Pipeline.Artifacts()); err != nil {
-		a.log.Error("hot reload failed, keeping the previous assets", log.F("err", err.Error()))
-		return
+	if len(b.Imported) > 0 {
+		if err := a.Loader.Swap(b.Imported, a.Pipeline.Artifacts()); err != nil {
+			a.log.Error("hot reload failed, keeping the previous assets", log.F("err", err.Error()))
+			return
+		}
 	}
-	a.log.Info("assets reloaded", log.F("count", len(b.Imported)))
+	for _, id := range b.Removed {
+		a.Loader.Drop(id)
+	}
+	if len(b.Imported) > 0 {
+		a.log.Info("assets reloaded", log.F("count", len(b.Imported)))
+	}
 }
 
 func (a *App) Run() error {

@@ -64,12 +64,33 @@ const (
 	TexDepth24Stencil8
 )
 
+type TextureDimension uint8
+
+const (
+	Texture2D TextureDimension = iota
+	Texture2DArray
+)
+
 type TextureDesc struct {
 	Width, Height int
-	Format        TextureFormat
-	Mips          bool
-	Data          []byte
-	Label         string
+	Dimension     TextureDimension
+	// Layers is one (or zero, for compatibility) for Texture2D. Array textures
+	// require a positive layer count, including one-layer sampler2DArray resources.
+	Layers int
+	Format TextureFormat
+	Mips   bool
+	Data   []byte
+	Label  string
+}
+
+// TextureSubresource selects one array layer and mip level. Its zero value is
+// the original 2D, base-level attachment/update contract.
+type TextureSubresource struct{ Layer, Mip int }
+
+type TextureUpdate struct {
+	Subresource         TextureSubresource
+	X, Y, Width, Height int
+	Data                []byte
 }
 
 type FilterMode uint8
@@ -125,6 +146,7 @@ const (
 	VFFloat4
 	VFUByte4Norm
 	VFUInt
+	VFUInt4
 )
 
 func (f VertexFormat) Components() int {
@@ -133,7 +155,7 @@ func (f VertexFormat) Components() int {
 		return 2
 	case VFFloat3:
 		return 3
-	case VFFloat4, VFUByte4Norm:
+	case VFFloat4, VFUByte4Norm, VFUInt4:
 		return 4
 	}
 	return 1
@@ -199,10 +221,23 @@ func BlendPremultiplied() BlendState {
 	}
 }
 
+// BlendAdditive adds premultiplied RGB while preserving destination coverage.
+// Emissive light does not make a transparent target more opaque. Normalized
+// targets clamp RGB; floating targets retain brightness above one.
 func BlendAdditive() BlendState {
 	return BlendState{
 		Enabled: true,
-		SrcRGB:  BlendSrcAlpha, DstRGB: BlendOne,
+		SrcRGB:  BlendOne, DstRGB: BlendOne,
+		SrcA: BlendZero, DstA: BlendOne,
+	}
+}
+
+// BlendAdditiveLegacy retains the pre-lighting alpha-summing contract for
+// callers that explicitly require it. Builtin Additive uses BlendAdditive.
+func BlendAdditiveLegacy() BlendState {
+	return BlendState{
+		Enabled: true,
+		SrcRGB:  BlendOne, DstRGB: BlendOne,
 		SrcA: BlendOne, DstA: BlendOne,
 	}
 }
@@ -274,32 +309,44 @@ const (
 )
 
 type PassDesc struct {
-	Target      TextureHandle
-	DepthTarget TextureHandle
-	ClearColor  mathx.Color
-	ClearDepth  float32
-	Color       LoadAction
-	Depth       LoadAction
-	FlipWinding bool
-	Label       string
+	// ClearRect limits attachment clears in target pixel coordinates.
+	// An empty rectangle keeps the low-level full-target clear default.
+	ClearRect         mathx.Rect
+	Target            TextureHandle
+	DepthTarget       TextureHandle
+	TargetSubresource TextureSubresource
+	DepthSubresource  TextureSubresource
+	ClearColor        mathx.Color
+	ClearDepth        float32
+	Color             LoadAction
+	Depth             LoadAction
+	FlipWinding       bool
+	Label             string
 }
 
 type Capabilities struct {
-	MaxTextureSize   int
-	MaxTextureUnits  int
-	MaxSamples       int
-	Instancing       bool
-	SRGB             bool
-	TimerQueries     bool
-	TextureArrays    bool
-	DebugOutput      bool
-	ClipZeroToOne    bool
-	OriginBottomLeft bool
-	ESSL             bool
-	Vendor           string
-	Renderer         string
-	Version          string
-	GLSL             string
+	MaxTextureSize          int
+	MaxVertexAttributes     int
+	MaxUniformBlockSize     int
+	MaxTextureUnits         int
+	MaxFragmentTextureUnits int
+	MaxArrayTextureLayers   int
+	MaxSamples              int
+	Instancing              bool
+	SRGB                    bool
+	TimerQueries            bool
+	TextureArrays           bool
+	// RGBA16FRenderable is verified by an actual framebuffer/draw/readback probe
+	// for this context generation; extension presence alone does not set it.
+	RGBA16FRenderable bool
+	DebugOutput       bool
+	ClipZeroToOne     bool
+	OriginBottomLeft  bool
+	ESSL              bool
+	Vendor            string
+	Renderer          string
+	Version           string
+	GLSL              string
 }
 
 type FrameStats struct {

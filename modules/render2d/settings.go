@@ -3,12 +3,14 @@ package render2d
 import (
 	"aego/core/errs"
 	"aego/engine/module"
+	"aego/engine/settings"
 	"aego/schema"
 )
 
 const (
 	SectionID            = ID
 	DefaultPixelsPerUnit = 64
+	PostProcessingKey    = ID + ".postProcessing"
 )
 
 type Settings struct {
@@ -40,6 +42,11 @@ func registerSettings(r *module.Registry) error {
 	); err != nil {
 		return err
 	}
+	r.Setting(settings.Desc{
+		ID: PostProcessingKey, Kind: schema.KindBool, Default: schema.Bool(true),
+		Title: "Camera Post-processing", Doc: "Apply the camera's post-processing effects.",
+		Category: settings.CategoryAccessibility, Order: 16, Flags: settings.User | settings.Project | settings.Accessibility,
+	})
 	r.ProjectSection(module.SectionDesc[Settings]{
 		ID:       SectionID,
 		Former:   []string{"render"},

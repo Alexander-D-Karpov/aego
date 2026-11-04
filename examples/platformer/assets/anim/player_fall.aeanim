@@ -1,5 +1,5 @@
 anim version=1 length=0.2 {
   frames "" {
-    sprites=[asset("ae900000000000000000000000000b06")]
+    sprites=[asset("4edc2b9b0a7f0955b5bdda1880d0fa70")]
   }
 }

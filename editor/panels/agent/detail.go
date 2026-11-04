@@ -104,6 +104,9 @@ func chipLayout(ui *core.Context, rows []agentui.Row, w float32, draw func(r *ag
 
 // detailHeight is the height of a laid-out result for a width.
 func detailHeight(ui *core.Context, d *agentui.Detail, w float32, all bool) float32 {
+	return float32(len(d.Images))*min(w, 160) + textDetailHeight(ui, d, w, all)
+}
+func textDetailHeight(ui *core.Context, d *agentui.Detail, w float32, all bool) float32 {
 	th := &ui.Theme
 	row := th.RowHeight
 	more := func(hidden int) float32 {
@@ -143,6 +146,11 @@ func (p *Panel) drawDetail(ui *core.Context, s *step, r mathx.Rect) bool {
 	th := &ui.Theme
 	row := th.RowHeight
 	d := &s.look.Detail
+	for _, key := range d.Images {
+		h := min(r.W, 160)
+		p.drawImage(ui, key, mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: h})
+		r.Y += h
+	}
 	y := r.Y
 	moreRow := func(hidden int) bool {
 		if hidden == 0 {

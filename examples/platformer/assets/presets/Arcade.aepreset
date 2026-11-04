@@ -1,0 +1,13 @@
+prefab version=1 {
+  node "24a9e12170184602b3bffd49112a4951" name="Arcade" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "render2d.PostProcess" version=1 {
+      enabled=true
+      effects=[
+        {typeID="postfx.bloom" instanceID="arcade-glow" enabled=true version=1 parameters=[{name="Threshold" kind=float value=[0.7,0,0,0]},{name="Intensity" kind=float value=[0.32,0,0,0]}]},
+        {typeID="postfx.pixelate" instanceID="arcade-pixel" enabled=true version=1 parameters=[{name="Size" kind=int integer=3}]},
+        {typeID="postfx.crt" instanceID="arcade-screen" enabled=true version=1 parameters=[{name="Curvature" kind=float value=[0.05,0,0,0]},{name="Scanlines" kind=float value=[0.12,0,0,0]}]}
+      ]
+    }
+  }
+}

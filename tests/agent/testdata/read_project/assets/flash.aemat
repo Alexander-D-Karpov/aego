@@ -1,0 +1,3 @@
+material version=1 shader=asset("ae900000000000000000000000000c82") {
+  params { Flash=0.25 }
+}

@@ -34,7 +34,7 @@ func (b *Bridge) tools() []mcp.Tool {
 		"label":  map[string]any{"type": "string", "description": "a few words"},
 		"detail": map[string]any{"type": "string", "description": "one line on what this option means"},
 	}, "required": []string{"label"}}
-	return []mcp.Tool{{
+	return []mcp.Tool{b.contextTool(), b.materialSourceTool(), {
 		Name: "ask_user", Description: askDoc, ReadOnly: true,
 		Schema: map[string]any{"type": "object", "required": []string{"question", "options"}, "properties": map[string]any{
 			"question": map[string]any{"type": "string", "description": "the question, one sentence"},
@@ -47,6 +47,7 @@ func (b *Bridge) tools() []mcp.Tool {
 }
 
 func (b *Bridge) ask(args map[string]any) (string, bool) {
+	generation := b.panelGeneration.Load()
 	q := &Question{Other: true, answer: make(chan string, 1)}
 	q.Text, _ = args["question"].(string)
 	q.Multiple, _ = args["multiple"].(bool)
@@ -65,12 +66,20 @@ func (b *Bridge) ask(args map[string]any) (string, bool) {
 	if strings.TrimSpace(q.Text) == "" || len(q.Options) == 0 {
 		return "ask_user needs a question and at least one option", true
 	}
+	cancelled := false
 	if err := b.main(func() {
+		if b.cancelled(generation) {
+			cancelled = true
+			return
+		}
 		b.next++
 		q.ID = b.next
 		b.questions = append(b.questions, q)
 	}); err != nil {
 		return err.Error(), true
+	}
+	if cancelled {
+		return errCancelled.Error(), true
 	}
 	t := time.NewTimer(b.timeout())
 	defer t.Stop()

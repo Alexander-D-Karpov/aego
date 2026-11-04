@@ -97,13 +97,7 @@ func (r *Replacement) ApplyProject(p *project.Project) error {
 	if !r.Project || r.To.IsZero() || p == nil {
 		return nil
 	}
-	prev := p.MainScene
-	p.MainScene = r.To
-	if err := p.Save(); err != nil {
-		p.MainScene = prev
-		return err
-	}
-	return nil
+	return project.ChangeMainScene(p, p.MainScene, r.To)
 }
 
 func WriteEdits(root string, abs func(string) string, backup string, edits []Edit) ([]string, error) {

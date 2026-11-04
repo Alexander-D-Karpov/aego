@@ -1,0 +1,288 @@
+scene version=1 {
+  node "12a10000000000000000000000000001" name="Main camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=64
+      viewport=[0, 0, 1, 1]
+      mask=3
+      order=0
+      clear=true
+      clearColor=#383f4bff
+      scale=free
+      virtual=[0, 0]
+      active=true
+    }
+  }
+  node "12a10000000000000000000000000002" name="Checkerboard" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000305")
+      layer=0
+      order=-100
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 11.25]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "12a10000000000000000000000000003" name="Workflow labels" enabled=true layers=2 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000306")
+      layer=0
+      order=100
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 11.25]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "12a10000000000000000000000000004" name="A — tween Flash" enabled=true layers=1 {
+    transform {
+      position=[-6.2, -0.4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[4.5, 4.5]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[]
+    }
+    component "engine.Script" version=1 {
+      script "materials.demo.FlashTween" enabled=true {}
+    }
+  }
+  node "12a10000000000000000000000000005" name="B — animation Dissolve" enabled=true layers=1 {
+    transform {
+      position=[-3.6, -0.4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000302")
+      material=asset("12a00000000000000000000000000202")
+      layer=0
+      order=1
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[4.5, 4.5]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[]
+    }
+    component "animation.AnimationPlayer" version=1 {
+      clip=asset("12a00000000000000000000000000501")
+      playOnStart=true
+      speed=1
+      loop=clip
+      timeDomain=game
+    }
+  }
+  node "12a10000000000000000000000000006" name="A — explicit Flash" enabled=true layers=1 {
+    transform {
+      position=[-1, -0.4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=2
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[4.5, 4.5]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[0.6, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a10000000000000000000000000007" name="Shared A / override 0" enabled=true layers=1 {
+    transform {
+      position=[-7, 2.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=10
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1.4, 1.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[0, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a10000000000000000000000000008" name="Shared A / override 1" enabled=true layers=1 {
+    transform {
+      position=[-5, 2.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=11
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1.4, 1.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[0.25, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a10000000000000000000000000009" name="Shared A / override 2" enabled=true layers=1 {
+    transform {
+      position=[-3, 2.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=12
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1.4, 1.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[0.5, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a1000000000000000000000000000a" name="Shared A / override 3" enabled=true layers=1 {
+    transform {
+      position=[-1, 2.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=13
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1.4, 1.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[0.75, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a1000000000000000000000000000b" name="Shared A / override 4" enabled=true layers=1 {
+    transform {
+      position=[1, 2.8]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("12a00000000000000000000000000301")
+      material=asset("12a00000000000000000000000000201")
+      layer=0
+      order=14
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[1.4, 1.4]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Flash" kind=float value=[1, 0, 0, 0] integer=0 boolean=false }]
+    }
+  }
+  node "12a1000000000000000000000000000c" name="Mesh2D — compatible domain" enabled=true layers=1 {
+    transform {
+      position=[6, -0.7]
+      rotation=0.2
+      scale=[1.5, 1.5]
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[{ name="Pulse" kind=float value=[0.65, 0, 0, 0] integer=0 boolean=false }]
+    }
+    component "engine.Mesh2D" version=1 {
+      mesh=asset("12a00000000000000000000000000401")
+      texture=asset("00000000000000000000000000000000")
+      material=asset("12a00000000000000000000000000203")
+      tint=#ffffffff
+      layer=0
+      order=1
+    }
+  }
+  node "12a1000000000000000000000000000d" name="Second camera / inset" enabled=true layers=1 {
+    transform {
+      position=[-3.6, -0.4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=30
+      viewport=[0.75, 0.7, 0.24, 0.24]
+      mask=1
+      order=10
+      clear=true
+      clearColor=#19212c00
+      scale=free
+      virtual=[0, 0]
+      active=true
+    }
+  }
+}

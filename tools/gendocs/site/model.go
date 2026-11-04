@@ -42,36 +42,37 @@ type Snippet struct {
 }
 
 type Entry struct {
-	ID         string
-	Parent     string
-	Kind       string
-	Owner      string
-	Group      string
-	Title      string
-	Summary    string
-	Body       string
-	Signature  string
-	Params     []Param
-	Example    string
-	Location   Location
-	Links      []string
-	Keys       []string
-	Requires   []string
-	Snippets   []Snippet
-	Order      int
-	Field      *FieldInfo
-	Component  *ComponentInfo
-	Related    []string
-	Try        string
-	TrySelect  string
-	TryScript  string
-	TryCode    string
-	Input      bool
-	TryKeys    []string
-	TryPrefabs map[string]string
-	Icon       string
-	EditorOnly bool
-	Diag       *DiagInfo
+	ID           string
+	Parent       string
+	Kind         string
+	Owner        string
+	Group        string
+	Title        string
+	Summary      string
+	Body         string
+	Signature    string
+	Params       []Param
+	Example      string
+	Location     Location
+	Links        []string
+	Keys         []string
+	Requires     []string
+	Snippets     []Snippet
+	Order        int
+	Field        *FieldInfo
+	Component    *ComponentInfo
+	Related      []string
+	Try          string
+	TrySelect    string
+	TryScript    string
+	TryCode      string
+	Input        bool
+	TryKeys      []string
+	TryPrefabs   map[string]string
+	TryArtifacts []byte
+	Icon         string
+	EditorOnly   bool
+	Diag         *DiagInfo
 	// Translations are the entry in other languages, by language.
 	Translations map[string]Translation
 }

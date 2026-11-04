@@ -48,7 +48,7 @@ func (o Op) encode() (*aetext.Node, error) {
 	str("owner", o.Owner)
 	str("field", o.Field)
 	str("asset", o.Asset)
-	if o.Kind == KindSet || o.Kind == KindDataSet || o.hasValue() {
+	if o.Kind == KindSet || o.Kind == KindDataSet || o.Kind == KindMaterialSet || o.hasValue() {
 		v, err := o.value()
 		if err != nil {
 			return nil, err
@@ -133,7 +133,7 @@ func ParseTx(src []byte, name string) (Tx, error) {
 		}
 		o.Raw, o.Live, o.KeepWorld, o.Deep = on("raw"), on("live"), on("keepWorld"), on("deep")
 		o.Values = n.Block("values", "")
-		if (o.Kind == KindSet || o.Kind == KindDataSet) && !o.HasValue {
+		if (o.Kind == KindSet || o.Kind == KindDataSet || o.Kind == KindMaterialSet || o.Kind == KindMaterialVariants) && !o.HasValue {
 			bad = errs.New(errs.SceneIOParse, o.Kind+" needs a value", log.F("file", name), log.F("op", i))
 			return
 		}

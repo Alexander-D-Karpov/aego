@@ -6,33 +6,38 @@ import (
 )
 
 func Bounds(d *sprite.Draw, pixelsPerUnit float32) mathx.AABB2 {
-	size := d.WorldSize(pixelsPerUnit)
-	origin := d.Origin
-	minX := -origin.X * size.X
-	minY := -origin.Y * size.Y
-	maxX := minX + size.X
-	maxY := minY + size.Y
-	if d.Rotation == 0 {
-		return mathx.AABB2{
-			Min: mathx.Vec2{X: d.Position.X + minX, Y: d.Position.Y + minY},
-			Max: mathx.Vec2{X: d.Position.X + maxX, Y: d.Position.Y + maxY},
+	size, origin := d.WorldSize(pixelsPerUnit), d.Origin
+	if d.Region.Trimmed() {
+		_, size, origin = d.Geometry(pixelsPerUnit)
+	}
+	if !d.HasLinear && d.Rotation == 0 {
+		// Preserve the common axis-aligned Unlit path. Explicit signed sizes
+		// still need ordered endpoints, unlike the former positive-only test.
+		x0, y0 := d.Position.X-origin.X*size.X, d.Position.Y-origin.Y*size.Y
+		x1, y1 := x0+size.X, y0+size.Y
+		if size.X < 0 {
+			x0, x1 = x1, x0
 		}
+		if size.Y < 0 {
+			y0, y1 = y1, y0
+		}
+		return mathx.AABB2{Min: mathx.Vec2{X: x0, Y: y0}, Max: mathx.Vec2{X: x1, Y: y1}}
 	}
-	s, c := mathx.Sin(d.Rotation), mathx.Cos(d.Rotation)
-	corners := [4]mathx.Vec2{
-		{X: minX, Y: minY},
-		{X: maxX, Y: minY},
-		{X: maxX, Y: maxY},
-		{X: minX, Y: maxY},
+	basis := d.Linear
+	if !d.HasLinear {
+		s, c := float32(0), float32(1)
+		if d.Rotation != 0 {
+			s, c = mathx.Sin(d.Rotation), mathx.Cos(d.Rotation)
+		}
+		basis = [4]float32{c, s, -s, c}
 	}
-	lo := mathx.Vec2{X: mathx.Pi * 1e9, Y: mathx.Pi * 1e9}
-	hi := lo.Neg()
-	for _, p := range corners {
-		r := mathx.Vec2{X: p.X*c - p.Y*s + d.Position.X, Y: p.X*s + p.Y*c + d.Position.Y}
-		lo.X, lo.Y = min(lo.X, r.X), min(lo.Y, r.Y)
-		hi.X, hi.Y = max(hi.X, r.X), max(hi.Y, r.Y)
-	}
-	return mathx.AABB2{Min: lo, Max: hi}
+	// Transform center/extents rather than assuming positive scales. This is
+	// exact for affine rectangles, including shear, reflection and zero axes.
+	cx, cy := (0.5-origin.X)*size.X, (0.5-origin.Y)*size.Y
+	ex, ey := mathx.Abs(size.X)*0.5, mathx.Abs(size.Y)*0.5
+	center := mathx.Vec2{X: d.Position.X + basis[0]*cx + basis[2]*cy, Y: d.Position.Y + basis[1]*cx + basis[3]*cy}
+	extent := mathx.Vec2{X: mathx.Abs(basis[0])*ex + mathx.Abs(basis[2])*ey, Y: mathx.Abs(basis[1])*ex + mathx.Abs(basis[3])*ey}
+	return mathx.AABB2{Min: center.Sub(extent), Max: center.Add(extent)}
 }
 
 func Visible(bounds mathx.AABB2, d *sprite.Draw, pixelsPerUnit float32) bool {

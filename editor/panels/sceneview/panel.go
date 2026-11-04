@@ -55,6 +55,7 @@ type world struct {
 }
 
 type Deps struct {
+	Preview   func(*frame.Runner)
 	Capture   func(tex gpu.TextureHandle, w, h int, name string)
 	Viewport  *services.Viewport
 	Resolver  asset.Resolver
@@ -76,53 +77,56 @@ type Deps struct {
 }
 
 type Panel struct {
-	glide      glide
-	agentNodes []ids.NodeID
-	pressAt    mathx.Vec2
-	moved      bool
-	d          Deps
-	iso        isolation
-	isoVer     uint64
-	captureReq bool
-	f          *services.Frame
-	hook       func()
-	pool       *rt.Pool
-	target     *rt.Target
-	worlds     map[document.ID]*world
-	cur        *world
-	rect       mathx.Rect
-	scale      float32
-	view       view.View
-	space      gizmo.Space
-	mode       mode
-	viewMode   Mode
-	c3         *Controller3
-	c3Doc      document.ID
-	gizmo      gizmo.Transform
-	gizmos     *gizmo.Registry
-	active     gizmo.Gizmo
-	edit       *gizmo.EditCtx
-	hot        gizmo.Part
-	hotGizmo   gizmo.Gizmo
-	boxStart   mathx.Vec2
-	boxEnd     mathx.Vec2
-	boxAdd     bool
-	pivot      mathx.Vec2
-	rotation   float32
-	activeNode ids.NodeID
-	hasPivot   bool
-	title      string
-	titleKey   titleKey
-	icon       string
-	barRect    mathx.Rect
-	menuID     core.ID
-	menuAt     mathx.Vec2
-	menuAt3    mathx.Vec3
-	panRight   bool
-	panMoved   bool
-	panStart   mathx.Vec2
-	rightAt    mathx.Vec2
-	rightArmed bool
+	capturedScene  *scene.Scene
+	capturedTarget *rt.Target
+	capturedTick   uint64
+	glide          glide
+	agentNodes     []ids.NodeID
+	pressAt        mathx.Vec2
+	moved          bool
+	d              Deps
+	iso            isolation
+	isoVer         uint64
+	captureReq     bool
+	f              *services.Frame
+	hook           func()
+	pool           *rt.Pool
+	target         *rt.Target
+	worlds         map[document.ID]*world
+	cur            *world
+	rect           mathx.Rect
+	scale          float32
+	view           view.View
+	space          gizmo.Space
+	mode           mode
+	viewMode       Mode
+	c3             *Controller3
+	c3Doc          document.ID
+	gizmo          gizmo.Transform
+	gizmos         *gizmo.Registry
+	active         gizmo.Gizmo
+	edit           *gizmo.EditCtx
+	hot            gizmo.Part
+	hotGizmo       gizmo.Gizmo
+	boxStart       mathx.Vec2
+	boxEnd         mathx.Vec2
+	boxAdd         bool
+	pivot          mathx.Vec2
+	rotation       float32
+	activeNode     ids.NodeID
+	hasPivot       bool
+	title          string
+	titleKey       titleKey
+	icon           string
+	barRect        mathx.Rect
+	menuID         core.ID
+	menuAt         mathx.Vec2
+	menuAt3        mathx.Vec3
+	panRight       bool
+	panMoved       bool
+	panStart       mathx.Vec2
+	rightAt        mathx.Vec2
+	rightArmed     bool
 }
 
 func New(g *gizmo.Registry, d Deps) *Panel {
@@ -249,6 +253,8 @@ func (p *Panel) worldFor(d *document.SceneDocument) *world {
 	wd := p.worlds[d.ID]
 	if wd == nil {
 		wd = &world{w: engine.NewWorld("edit"), runner: frame.New()}
+		wd.runner.SetFixedBackdrop(p.drawFixedBackdrop)
+		wd.runner.SetPreviewExtract(p.d.Preview)
 		wd.w.SetService(frame.ServiceID, wd.runner)
 		p.worlds[d.ID] = wd
 	}
@@ -545,7 +551,12 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	zoom := p.ZoomLabel()
 	h := th.BarHeight
 	bw := h - 6 + 2
+	var extra []command.Desc
+	if !three && p.d.Commands != nil {
+		extra = p.d.Commands.Toolbar(command.ScopeScene)
+	}
 	w := 6 + 8*bw + 18 + ui.TextSize(modeLabel).X + 16 + 6
+	w += float32(len(extra)) * bw
 	projLabel := i18n.Tr("editor.sceneview.persp", "Persp")
 	if p.c3.Cam.Ortho {
 		projLabel = i18n.Tr("editor.sceneview.ortho", "Ortho")
@@ -583,6 +594,16 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	}
 	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
 		p.d.Viewport.Overlay.Toggle(vectors.CommandToggle)
+	}
+	for _, cmd := range extra {
+		checked := cmd.Checked != nil && cmd.Checked()
+		tip := cmd.TipText()
+		if tip == "" {
+			tip = cmd.Title()
+		}
+		if tb.Button(ui.ID(cmd.ID), cmd.Icon, tip, checked, p.d.Commands.Enabled(cmd.ID)) {
+			p.d.Commands.Run(cmd.ID)
+		}
 	}
 	if clicked, _ := tb.TextButton(ui.ID("mode"), modeLabel, i18n.Tr("editor.sceneview.switch_between_the_2d_and", "Switch between the 2D and 3D view")); clicked {
 		p.toggleMode(d)
@@ -1064,4 +1085,12 @@ func (p *Panel) drawSelection(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 		}
 		dbg.Cross(s.WorldPosition(h), p.space.PxToWorld(14), th.Accent)
 	}
+}
+
+func (p *Panel) LastRender() (*rt.Target, uint64) {
+	d := p.d.Docs.Doc()
+	if d == nil || d.Scene() != p.capturedScene || p.target == nil || p.capturedTarget != p.target {
+		return nil, 0
+	}
+	return p.target, p.capturedTick
 }

@@ -2,7 +2,9 @@ package export
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -89,5 +91,54 @@ func TestPackWeb(t *testing.T) {
 	}
 	if j.rep.BinaryGzip <= 0 || j.rep.BinaryGzip >= j.rep.BinarySize {
 		t.Fatalf("wasm gzip size %d of %d", j.rep.BinaryGzip, j.rep.BinarySize)
+	}
+}
+
+func TestCompressWebRepeatDoesNotCompressEncodingSidecars(t *testing.T) {
+	out := t.TempDir()
+	j := &job{p: &project.Project{Name: "Repeat", Module: "game"}, out: out, t: webTarget}
+	j.l = layoutFor(webTarget, out, j.p)
+	art := filepath.Join(j.l.data, bundle.ArtifactsDir)
+	if err := os.MkdirAll(art, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// A uniform atlas produces a gzip stream that can itself be compressed:
+	// this detects the actual nested .gz.gz bug, not just an extra walk.
+	base := filepath.Join(art, "page.atlaspage")
+	if err := os.WriteFile(base, make([]byte, 1<<20), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// An exporter with Brotli available may have left its own sidecar.
+	// Its opaque bytes must never be passed back to a compressor.
+	if err := os.WriteFile(base+".br", bytes.Repeat([]byte("opaque"), 4096), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var prior map[string][32]byte
+	for n := 0; n < 2; n++ {
+		if err := j.compressWeb(""); err != nil {
+			t.Fatal(err)
+		}
+		set := map[string][32]byte{}
+		entries, err := os.ReadDir(art)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range entries {
+			b, err := os.ReadFile(filepath.Join(art, entry.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			set[entry.Name()] = sha256.Sum256(b)
+		}
+		if len(set) != 3 {
+			t.Fatalf("nested or missing encoding after run %d: %v", n+1, entries)
+		}
+		if _, ok := set["page.atlaspage.gz"]; !ok {
+			t.Fatal("source artifact was not compressed")
+		}
+		if n > 0 && !maps.Equal(prior, set) {
+			t.Fatal("second compression changed the export payload")
+		}
+		prior = set
 	}
 }

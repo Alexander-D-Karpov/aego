@@ -228,6 +228,9 @@ func looks() map[string]Look {
 		"schema.show": {"cat.engine", func(a Args) string {
 			return i18n.Tr("editor.agent.step.show_type", "Read the fields of {type}", i18n.Str("type", a.Str("type")))
 		}, ok},
+		"asset.paint": {"file.texture", func(a Args) string {
+			return i18n.Tr("editor.agent.step.draw_pixels", "Draw {file} in pixels", i18n.Str("file", path.Base(a.Str("path"))))
+		}, ok},
 		"asset.pixels": {"file.texture", func(a Args) string {
 			return i18n.Tr("editor.agent.step.draw_pixels", "Draw {file} in pixels", i18n.Str("file", path.Base(a.Str("path"))))
 		}, ok},
@@ -254,6 +257,12 @@ func looks() map[string]Look {
 		}, count},
 		"refs.fix": {"panel.references", func(a Args) string {
 			return i18n.Tr("editor.agent.step.fix_refs", "Point references at {to}", i18n.Str("to", path.Base(a.Str("to"))))
+		}, changes},
+		"project.main-scene": {"file.scene", func(a Args) string {
+			return i18n.Tr("editor.agent.step.set_project", "Set {target}", i18n.Str("target", "mainScene › "+a.Str("file")))
+		}, changes},
+		"project.input-action": {"doc.project", func(a Args) string {
+			return i18n.Tr("editor.agent.step.set_project", "Set {target}", i18n.Str("target", "input › "+a.Str("name")))
 		}, changes},
 		"project.get": {"doc.project", func(Args) string {
 			return i18n.Tr("editor.agent.step.read_project", "Read project settings")

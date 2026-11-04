@@ -27,10 +27,12 @@ type glBuffer struct {
 }
 
 type glTexture struct {
-	id   uint32
-	w, h int
-	info texInfo
-	mips bool
+	id     uint32
+	w, h   int
+	info   texInfo
+	mips   bool
+	desc   gpu.TextureDesc
+	target uint32
 }
 
 type glSampler struct {
@@ -74,26 +76,29 @@ type pendingDestroy struct {
 }
 
 type Device struct {
-	log         *log.ChannelLogger
-	debug       bool
-	caps        gpu.Capabilities
-	api         realAPI
-	cache       *glstate.Cache
-	buffers     *handle.Arena[glBuffer]
-	textures    *handle.Arena[glTexture]
-	samplers    *handle.Arena[glSampler]
-	shaders     *handle.Arena[glShader]
-	pipelines   *handle.Arena[glPipeline]
-	queries     *handle.Arena[glQuery]
-	fbos        map[fboKey]uint32
-	frame       frame
-	pass        pass
-	inFrame     bool
-	activeQuery uint32
-	pending     []pendingDestroy
-	fbW, fbH    int
-	debugProc   gl.DebugProc
-	depth       texInfo
+	warnedDepthSize  bool
+	log              *log.ChannelLogger
+	debug            bool
+	caps             gpu.Capabilities
+	api              realAPI
+	cache            *glstate.Cache
+	buffers          *handle.Arena[glBuffer]
+	textures         *handle.Arena[glTexture]
+	samplers         *handle.Arena[glSampler]
+	shaders          *handle.Arena[glShader]
+	pipelines        *handle.Arena[glPipeline]
+	queries          *handle.Arena[glQuery]
+	fbos             map[fboKey]uint32
+	frame            frame
+	pass             pass
+	inFrame          bool
+	activeQuery      uint32
+	pending          []pendingDestroy
+	fbW, fbH         int
+	debugProc        gl.DebugProc
+	depth            texInfo
+	targetErrors     [16]string
+	targetErrorCount int
 }
 
 func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
@@ -122,6 +127,7 @@ func New(getProc func(string) unsafe.Pointer, opts Options) (*Device, error) {
 	d.pass.d = d
 	d.queryCaps()
 	d.depth = d.probeDepth()
+	d.caps.RGBA16FRenderable = d.probeRGBA16F()
 	if d.debug && d.caps.DebugOutput {
 		d.installDebugOutput()
 	}
@@ -150,7 +156,11 @@ func (d *Device) queryCaps() {
 	c.Version = gl.GoStr(gl.GetString(gl.VERSION))
 	c.GLSL = gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION))
 	c.MaxTextureSize = getInt(gl.MAX_TEXTURE_SIZE)
+	c.MaxVertexAttributes = getInt(gl.MAX_VERTEX_ATTRIBS)
+	c.MaxUniformBlockSize = getInt(gl.MAX_UNIFORM_BLOCK_SIZE)
 	c.MaxTextureUnits = min(getInt(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS), scratchUnit)
+	c.MaxFragmentTextureUnits = getInt(gl.MAX_TEXTURE_IMAGE_UNITS)
+	c.MaxArrayTextureLayers = getInt(gl.MAX_ARRAY_TEXTURE_LAYERS)
 	c.MaxSamples = getInt(gl.MAX_SAMPLES)
 	c.Instancing = true
 	c.TimerQueries = true
@@ -349,4 +359,11 @@ func (d *Device) depthWorks(info texInfo) bool {
 	gl.DeleteTextures(2, &tex[0])
 	d.cache.Invalidate()
 	return ok
+}
+
+func (d *Device) ResourceStats() gpu.ResourceStats {
+	st := gpu.ResourceStats{Buffers: d.buffers.Len(), Textures: d.textures.Len(), Samplers: d.samplers.Len(), Shaders: d.shaders.Len(), Pipelines: d.pipelines.Len()}
+	d.textures.Each(func(_ handle.Handle[glTexture], t *glTexture) { st.TextureStorageBytes += t.desc.StorageBytes() })
+	st.Framebuffers = len(d.fbos)
+	return st
 }

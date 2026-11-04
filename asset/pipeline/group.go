@@ -48,6 +48,7 @@ func (p *Pipeline) finalizeGroup(group string) ([]asset.Entry, map[ids.AssetID]e
 	if len(members) == 0 {
 		p.index.Delete(pageID)
 		delete(p.groupKey, group)
+		delete(p.pages, group)
 		return nil, nil, nil
 	}
 	sort.Slice(members, func(i, j int) bool {

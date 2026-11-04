@@ -1,6 +1,9 @@
 package shader
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"maps"
@@ -11,17 +14,19 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	rshader "aego/render/shader"
 	"aego/render/shaderx"
 )
 
 const (
-	Version        = 1
+	Version        = 3
 	IncludeVersion = 1
 	RequireEnv     = "AEGO_REQUIRE_GLSLANG"
 	engineInclude  = "engine://shaders/include/"
@@ -54,6 +59,9 @@ func (i *Importer) Diagnostics() ([]shaderx.Diag, uint64) {
 func (i *Importer) record(path string, diags []shaderx.Diag) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+	if i.diags == nil {
+		i.diags = make(map[string][]shaderx.Diag)
+	}
 	if len(diags) == 0 && len(i.diags[path]) == 0 {
 		return
 	}
@@ -70,9 +78,29 @@ func (*Importer) Version() int                { return Version }
 func (*Importer) Extensions() []string        { return []string{".aeshader"} }
 func (*Importer) Defaults() pipeline.Settings { return pipeline.Settings{} }
 
-func includePath(p string) (string, error) {
+func includePath(owner, p string) (string, error) {
+	if strings.ContainsAny(p, "\\\x00:") || path.IsAbs(p) || path.Ext(p) != ".glsl" {
+		return "", errors.New("an include is a .glsl resource path, not an OS path or URL")
+	}
+	if strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") {
+		root := "assets/"
+		if strings.HasPrefix(owner, "engine://shaders/") {
+			root = "engine://shaders/"
+		}
+		localOwner, ok := strings.CutPrefix(owner, root)
+		if !ok || localOwner == "" || path.IsAbs(localOwner) || path.Clean(localOwner) != localOwner || strings.ContainsAny(localOwner, "\\\x00:") {
+			return "", fmt.Errorf("relative include owner %q is outside the assets or engine shader namespace", owner)
+		}
+		local := path.Clean(path.Join(path.Dir(localOwner), p))
+		if local == "." || local == ".." || strings.HasPrefix(local, "../") || path.IsAbs(local) {
+			return "", fmt.Errorf("relative include %q leaves the %s namespace", p, root)
+		}
+		return root + local, nil
+	}
+	// Bare paths retain the original shared include-root contract. Explicit
+	// relative paths never fall back to this namespace when their file is absent.
 	clean := path.Clean(p)
-	if clean != p || strings.HasPrefix(clean, "../") || path.IsAbs(clean) || path.Ext(clean) != ".glsl" {
+	if clean != p || strings.HasPrefix(clean, "../") {
 		return "", errors.New("an include is a relative .glsl path that does not leave its root")
 	}
 	if rest, ok := strings.CutPrefix(clean, "engine/"); ok {
@@ -81,10 +109,10 @@ func includePath(p string) (string, error) {
 	return projectInclude + clean, nil
 }
 
-func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
+func parse(ctx *pipeline.ImportContext) (*shaderx.Unit, []ids.AssetID, []shaderx.Diag) {
 	var deps []ids.AssetID
-	inc := func(p string) (string, []byte, error) {
-		rel, err := includePath(p)
+	inc := func(owner, p string) (string, []byte, error) {
+		rel, err := includePath(owner, p)
 		if err != nil {
 			return "", nil, err
 		}
@@ -102,81 +130,152 @@ func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error)
 		}
 		return rel, src, nil
 	}
-	u, diags := shaderx.Parse(ctx.Source, ctx.Path, inc)
+	u, diags := shaderx.ParseWithIncludes(ctx.Source, ctx.Path, inc)
+	return u, deps, diags
+}
+
+// CacheSalt participates before the pipeline reuses any prior artifact. The
+// transitive raw hashes include engine:// files without project AssetIDs, and
+// changing the validator availability/version invalidates an unchecked cache.
+func (i *Importer) CacheSalt(ctx *pipeline.ImportContext) ([]byte, error) {
+	u, _, diags := parse(ctx)
+	if len(diags) > 0 {
+		for n := range diags {
+			diags[n].AssetID = ctx.ID.String()
+		}
+		i.record(ctx.Path, diags)
+		return nil, report(ctx.Path, diags)
+	}
+	h := sha256.New()
+	h.Write([]byte("aego-shader;glsl330;essl300;"))
+	var version [12]byte
+	binary.LittleEndian.PutUint32(version[:4], Version)
+	binary.LittleEndian.PutUint32(version[4:8], rshader.ABI)
+	binary.LittleEndian.PutUint32(version[8:], shaderx.GeneratorVersion)
+	h.Write(version[:])
+	for _, d := range u.Dependencies {
+		h.Write([]byte(d.Path))
+		h.Write([]byte{0})
+		h.Write(d.Hash[:])
+	}
+	if i.Require {
+		h.Write([]byte("required"))
+	}
+	bin, err := exec.LookPath(i.Validator)
+	if err != nil {
+		h.Write([]byte("unavailable"))
+		if i.Require {
+			ds := []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, AssetID: ctx.ID.String(), Msg: "glslangValidator is required here: install the pinned reference validator"}}
+			i.record(ctx.Path, ds)
+			return nil, report(ctx.Path, ds)
+		}
+	} else {
+		c, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		out, err := exec.CommandContext(c, bin, "--version").CombinedOutput()
+		cancel()
+		if err != nil {
+			return nil, fmt.Errorf("shader validator version: %w: %s", err, out)
+		}
+		h.Write(out)
+	}
+	return h.Sum(nil), nil
+}
+
+func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
+	u, deps, diags := parse(ctx)
+	checked := false
 	if len(diags) == 0 {
-		diags = i.validate(ctx, u)
+		diags, checked = i.validate(ctx, u)
+	}
+	for n := range diags {
+		diags[n].AssetID = ctx.ID.String()
 	}
 	i.record(ctx.Path, diags)
 	if len(diags) > 0 {
 		return nil, report(ctx.Path, diags)
 	}
-	return &pipeline.Result{
-		Kind:      asset.ArtShader,
-		Deps:      deps,
-		Artifacts: []pipeline.Produced{{Kind: asset.ArtShader, Data: asset.EncodeShader(asset.BuildShader(u))}},
-	}, nil
+	a := asset.BuildShader(u)
+	if checked {
+		a.Validation |= rshader.ReferenceChecked
+	}
+	return &pipeline.Result{Kind: asset.ArtShader, Deps: deps, Artifacts: []pipeline.Produced{{Kind: asset.ArtShader, Data: asset.EncodeShader(a)}}}, nil
 }
 
 type job struct {
-	path string
-	locs []shaderx.Loc
+	path  string
+	locs  []shaderx.Loc
+	stage string
 }
 
-func (i *Importer) validate(ctx *pipeline.ImportContext, u *shaderx.Unit) []shaderx.Diag {
+func (i *Importer) validate(ctx *pipeline.ImportContext, u *shaderx.Unit) ([]shaderx.Diag, bool) {
 	bin, err := exec.LookPath(i.Validator)
 	if err != nil {
 		if i.Require {
-			return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: "glslangValidator is required here: install glslang-tools"}}
+			return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: "glslangValidator is required here: install the pinned reference validator"}}, false
 		}
 		if ctx.Log != nil {
-			ctx.Log.Warn("glslangValidator is not installed, only the driver checks this shader; install glslang-tools", log.F("path", ctx.Path))
+			ctx.Log.Warn("glslangValidator is not installed; shader schema checked, reference and GPU linking are unverified", log.F("path", ctx.Path))
 		}
-		return nil
+		return nil, false
 	}
 	dir, err := os.MkdirTemp("", "aego-shader-")
 	if err != nil {
-		return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: err.Error()}}
+		return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: err.Error()}}, false
 	}
 	defer os.RemoveAll(dir)
-	var jobs []job
-	var args []string
-	for vi, mask := range u.Combos {
-		for si := 0; si < 4; si++ {
-			frag := si%2 == 1
-			src, locs := u.Source(frag, si >= 2, mask)
-			ext := ".vert"
-			if frag {
-				ext = ".frag"
-			}
-			p := filepath.Join(dir, fmt.Sprintf("v%d_%d%s", vi, si, ext))
-			if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
-				return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: err.Error()}}
-			}
-			jobs = append(jobs, job{path: p, locs: locs})
-			args = append(args, p)
-		}
-	}
-	out, runErr := exec.Command(bin, args...).CombinedOutput()
-	lines := strings.Split(string(out), "\n")
 	var diags []shaderx.Diag
-	for _, j := range jobs {
-		var sb strings.Builder
-		for _, l := range lines {
-			if strings.Contains(l, j.path+":") {
-				sb.WriteString(l)
-				sb.WriteByte('\n')
+	for vi, mask := range u.Combos {
+		for backend := 0; backend < 2; backend++ {
+			jobs := make([]job, 0, 2)
+			args := []string{"-l"}
+			for stage := 0; stage < 2; stage++ {
+				src, locs := u.Source(stage == 1, backend == 1, mask)
+				ext, stageName := ".vert", "vertex"
+				if stage == 1 {
+					ext, stageName = ".frag", "fragment"
+				}
+				name := filepath.Join(dir, fmt.Sprintf("v%d_%d%s", vi, backend, ext))
+				if err := os.WriteFile(name, []byte(src), 0o644); err != nil {
+					return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: err.Error()}}, false
+				}
+				jobs = append(jobs, job{path: name, locs: locs, stage: stageName})
+				args = append(args, name)
 			}
-		}
-		for _, d := range shaderx.MapLog(sb.String(), j.locs, u.Files, shaderx.SHD001) {
-			if !slices.Contains(diags, d) {
-				diags = append(diags, d)
+			c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			out, runErr := exec.CommandContext(c, bin, args...).CombinedOutput()
+			cancel()
+			if runErr == nil {
+				continue
+			}
+			backendName := "GLSL330"
+			if backend == 1 {
+				backendName = "ESSL300"
+			}
+			mapped := false
+			for _, j := range jobs {
+				var sb strings.Builder
+				for _, line := range strings.Split(string(out), "\n") {
+					if strings.Contains(line, j.path+":") {
+						sb.WriteString(line)
+						sb.WriteByte('\n')
+					}
+				}
+				for _, d := range shaderx.MapLog(sb.String(), j.locs, u.Files, shaderx.SHD001) {
+					d.Backend, d.Stage, d.Variant, d.RawLog = backendName, j.stage, mask, string(out)
+					diags = append(diags, d)
+					mapped = true
+				}
+			}
+			if !mapped {
+				msg := strings.TrimSpace(string(out))
+				if msg == "" {
+					msg = runErr.Error()
+				}
+				diags = append(diags, shaderx.Diag{Code: shaderx.SHD001, File: ctx.Path, Msg: msg, Backend: backendName, Stage: "link", Variant: mask, RawLog: string(out)})
 			}
 		}
 	}
-	if runErr != nil && len(diags) == 0 {
-		diags = append(diags, shaderx.Diag{Code: shaderx.SHD001, File: ctx.Path, Msg: strings.TrimSpace(string(out))})
-	}
-	return diags
+	return diags, len(diags) == 0
 }
 
 func report(p string, diags []shaderx.Diag) error {

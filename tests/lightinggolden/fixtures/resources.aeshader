@@ -1,0 +1,26 @@
+#pragma aego abi 1
+#pragma domain sprite
+#pragma lighting forward2d
+#pragma blend premultiplied
+#pragma material
+uniform sampler2D NormalMap; // @normal
+uniform sampler2D EmissionMap; // @emission
+uniform sampler2D One;
+uniform sampler2D Two;
+uniform sampler2D Three;
+uniform sampler2D Four;
+uniform sampler2D Five;
+uniform sampler2D Six;
+#pragma end
+#include "engine/sprite.glsl"
+#include "engine/lighting.glsl"
+void fragment() {
+    bool bindings = abs(texture(One,aego_local).r - 47.0/255.0)<0.001
+      && abs(texture(Two,aego_local).r - 71.0/255.0)<0.001
+      && abs(texture(Three,aego_local).r - 97.0/255.0)<0.001
+      && abs(texture(Four,aego_local).r - 131.0/255.0)<0.001
+      && abs(texture(Five,aego_local).r - 173.0/255.0)<0.001
+      && abs(texture(Six,aego_local).r - 223.0/255.0)<0.001;
+    aego_out = bindings ? aego_lit(aego_sample(),1.0,aego_emission(vec3(0.2,0.3,0.4),0.5),true)
+                        : vec4(1.0,0.0,1.0,1.0);
+}

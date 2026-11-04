@@ -17,7 +17,7 @@ type Rect = [4]int
 // Grid cuts w×h into cells of size cell, after offset, with padding between them, row by row; count 0 keeps every cell.
 func Grid(w, h int, cell, offset, padding [2]int, count int) []Rect {
 	var out []Rect
-	if cell[0] <= 0 || cell[1] <= 0 {
+	if cell[0] <= 0 || cell[1] <= 0 || cell[0]+padding[0] <= 0 || cell[1]+padding[1] <= 0 {
 		return out
 	}
 	for y := offset[1]; y+cell[1] <= h; y += cell[1] + padding[1] {
@@ -93,20 +93,47 @@ func Name(base string, i int) string {
 	return fmt.Sprintf("%s_%03d", base, i)
 }
 
-// Plan names the cells and keeps the id of every cell whose name existed before, so references survive a new slice.
+// Plan retains exact source regions and their authored metadata first, then
+// matches resized cells by name. Only genuinely new cells receive new IDs.
 func Plan(base string, old []pipeline.SubAsset, rects []Rect) []pipeline.SubAsset {
-	byName := map[string]ids.AssetID{}
-	for _, s := range old {
-		byName[s.Name] = s.ID
+	// Reserve exact geometry first: user-renamed frames retain their IDs,
+	// pivots and associated surface channels even when the slice order changes.
+	byRect := make(map[Rect][]pipeline.SubAsset, len(old))
+	byName := make(map[string]pipeline.SubAsset, len(old))
+	for _, f := range old {
+		byRect[f.Rect] = append(byRect[f.Rect], f)
+		byName[f.Name] = f
 	}
 	out := make([]pipeline.SubAsset, len(rects))
+	used := make(map[string]bool, len(rects))
 	for i, r := range rects {
-		name := Name(base, i)
-		id, ok := byName[name]
-		if !ok {
-			id = ids.NewAssetID()
+		if candidates := byRect[r]; len(candidates) != 0 {
+			out[i] = candidates[0]
+			byRect[r] = candidates[1:]
+			used[out[i].Name] = true
 		}
-		out[i] = pipeline.SubAsset{Name: name, ID: id, Rect: r}
+	}
+	for i, r := range rects {
+		if !out[i].ID.IsZero() {
+			continue
+		}
+		name := Name(base, i)
+		if f, ok := byName[name]; ok && !used[name] {
+			// An edited cell size keeps the familiar named cell's identity.
+			out[i], used[name] = f, true
+			out[i].Rect = r
+		}
+	}
+	for i, r := range rects {
+		if !out[i].ID.IsZero() {
+			continue
+		}
+		name := Name(base, i)
+		for n := i + 1; used[name]; n++ {
+			name = Name(base, n)
+		}
+		out[i] = pipeline.SubAsset{Name: name, ID: ids.NewAssetID(), Rect: r}
+		used[name] = true
 	}
 	return out
 }

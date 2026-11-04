@@ -9,16 +9,17 @@ import (
 )
 
 type SpriteRenderer struct {
-	Sprite asset.Ref[asset.Texture] `aego:"sprite,asset=texture"`
-	Layer  int32                    `aego:"layer"`
-	Order  int32                    `aego:"order"`
-	Tint   mathx.Color              `aego:"tint"`
-	Origin mathx.Vec2               `aego:"origin"`
-	Size   mathx.Vec2               `aego:"size"`
-	FlipX  bool                     `aego:"flipX"`
-	FlipY  bool                     `aego:"flipY"`
-	Blend  sprite.BlendMode         `aego:"blend"`
-	Filter gpu.FilterMode           `aego:"filter"`
+	Sprite   asset.Ref[asset.Texture]  `aego:"sprite,asset=texture"`
+	Material asset.Ref[asset.Material] `aego:"material,asset=material,omitempty"`
+	Layer    int32                     `aego:"layer"`
+	Order    int32                     `aego:"order"`
+	Tint     mathx.Color               `aego:"tint"`
+	Origin   mathx.Vec2                `aego:"origin"`
+	Size     mathx.Vec2                `aego:"size"`
+	FlipX    bool                      `aego:"flipX"`
+	FlipY    bool                      `aego:"flipY"`
+	Blend    sprite.BlendMode          `aego:"blend"`
+	Filter   gpu.FilterMode            `aego:"filter"`
 }
 
 type Camera2D struct {

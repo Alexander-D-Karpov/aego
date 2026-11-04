@@ -67,6 +67,9 @@ func TestAlternatingMaterialsKeepSubmissionOrder(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("%d batches, want %d", len(got), len(want))
 	}
+	if b.Breaks().Pipeline != 4 {
+		t.Fatalf("wrong shader batch break count: %+v", b.Breaks())
+	}
 	for i := range want {
 		if got[i].Material != want[i] {
 			t.Errorf("batch %d is %s, want %s", i, got[i].Material.Name, want[i].Name)
@@ -90,6 +93,9 @@ func TestLaneValuesDoNotBreakBatches(t *testing.T) {
 	batches := b.Build()
 	if len(batches) != 1 || batches[0].Count != 9 {
 		t.Fatalf("%d batches", len(batches))
+	}
+	if b.Breaks() != (BatchBreaks{}) || b.LaneBytes() != 9*shader.LaneStride {
+		t.Fatalf("override batch accounting %+v, %d lane bytes", b.Breaks(), b.LaneBytes())
 	}
 	for i := 0; i < 8; i++ {
 		if b.laneOut[i][0] != float32(i) {
@@ -138,5 +144,36 @@ func TestNoLaneMaterialsLeaveTheDeviceAlone(t *testing.T) {
 	creates, updates := dev.creates, dev.updates
 	if !b.UploadLanes() || dev.creates != creates || dev.updates != updates || !b.LaneBuffer().IsZero() {
 		t.Fatalf("UploadLanes touched the device: %d creates, %d updates", dev.creates-creates, dev.updates-updates)
+	}
+}
+
+func TestTrimAndUntrimShareMaterialBatchAndKeepFastPath(t *testing.T) {
+	b, dev := newTestBatcher(t, 16)
+	defer b.Close()
+	reg := fakeRegion(t, dev, "trim")
+	reg.W, reg.H = 3, 2
+	reg.SourceW, reg.SourceH, reg.TrimX, reg.TrimY = 8, 6, 2, 1
+	m := testMaterial(t, "trim-material", true)
+	d := Draw{Region: reg, Size: mathx.Vec2{X: 16, Y: 12}, Origin: mathx.Vec2{X: .5, Y: .5}, Material: m}
+	b.Push(&d, gpu.SamplerHandle{}, mathx.Rect{}, false)
+	d.Region.SourceW, d.Region.SourceH, d.Region.TrimX, d.Region.TrimY = 0, 0, 0, 0
+	b.Push(&d, gpu.SamplerHandle{}, mathx.Rect{}, false)
+	b.Sort()
+	bs := b.Build()
+	if len(bs) != 1 || bs[0].TrimFirst != 0 || b.TrimBytes() != 2*shader.TrimStride {
+		t.Fatalf("trim split material or lost stream %+v", bs)
+	}
+	if b.sorted[0].Size != (mathx.Vec2{X: 6, Y: 4}) || b.sorted[0].Origin != (mathx.Vec2{X: 2.0 / 3, Y: 1}) {
+		t.Fatalf("trim geometry %+v", b.sorted[0])
+	}
+	if b.trimOut[1] != ([4]float32{}) {
+		t.Fatal("untrimmed sprite lacks default ABI sentinel")
+	}
+	b.Reset()
+	b.Push(&d, gpu.SamplerHandle{}, mathx.Rect{}, false)
+	b.Sort()
+	b.Build()
+	if b.TrimBytes() != 0 || b.batches[0].TrimFirst != -1 {
+		t.Fatal("untrimmed path uploads trim data")
 	}
 }

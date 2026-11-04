@@ -33,7 +33,7 @@ func TestEditorProfilerPlay(t *testing.T) {
 	for i := 0; i < 120; i++ {
 		w := float64(i%30) / 30
 		f := &stats.Frame{FrameTime: 1.0 / 60, UpdateTime: 0.003 + 0.002*w, RenderTime: 0.005 + 0.001*w, AllocBytes: uint64(4096 * (i % 4))}
-		rs := render.Stats{DrawCalls: 14, Visible: 320}
+		rs := render.Stats{DrawCalls: 14, Visible: 320, MaterialCount: 3, MaterialPrograms: 4, MaterialVariants: 4, FrameUBOBytes: 16, ViewUBOBytes: 224, MaterialUBOBytes: 64, MaterialLaneBytes: 2048, PipelineSwitches: 5, MaterialBreaks: 2, TextureBreaks: 1, PipelineBreaks: 3, MaterialReloadGenerations: 7}
 		g := play.Stats{Update: 0.002 + 0.001*w, Render: 0.004, Sprites: 48, Nodes: 61, Scale: 1}
 		sc := context.ScriptStats{
 			Instances: 5, Update: 3, Fixed: 2,
@@ -45,7 +45,7 @@ func TestEditorProfilerPlay(t *testing.T) {
 		p.Record(float64(i)/60, f, rs, g, sc, true, true)
 	}
 	img, err := env.draw(func(full mathx.Rect) { p.Draw(&services.Frame{UI: env.ui}, full) })
-	if got := strings.Join(p.Sections(), ","); got != "Frame,Memory,Game,Scripts,Physics" {
+	if got := strings.Join(p.Sections(), ","); got != "Frame,Materials and shaders,Memory,Game,Scripts,Physics" {
 		t.Fatalf("sections %s", got)
 	}
 	checkGolden(t, "editor_profiler_play", img, err)

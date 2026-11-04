@@ -1,0 +1,23 @@
+meta version=1 {
+  id="fad03d98f3d608c1c86c6fd1321e1f67"
+  importer="texture"
+  importerVersion=4
+  settings {
+    atlas=""
+    auto_normal=false
+    data=false
+    extrude=true
+    filter=nearest
+    generate_normal=false
+    height_channel=r
+    height_strength=3
+    mips=false
+    normal_y=up
+    padding=2
+    role="cookie-mask"
+    rotate=false
+    semantic=mask
+    srgb=false
+    trim=false
+  }
+}

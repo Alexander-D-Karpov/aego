@@ -47,7 +47,7 @@ func TextFieldRect(c *core.Context, id core.ID, r mathx.Rect, value *string, liv
 		if c.Active() == id && c.MouseDown(input.MouseLeft) && c.MouseDelta() != (mathx.Vec2{}) {
 			b.SetCursor(indexAt(c, b, inner), true)
 		}
-		changed = editKeys(c, b)
+		changed = editKeys(c, b, true)
 		switch {
 		case c.KeyPressed(input.KeyEnter) || c.KeyPressed(input.KeyKPEnter):
 			if s := b.String(); s != *value {
@@ -98,7 +98,7 @@ func indexAt(c *core.Context, b *textedit.Buffer, inner mathx.Rect) int {
 	return font.IndexAtRunes(b.Runes(), c.Mouse().X-(inner.X-*c.EditScroll()))
 }
 
-func editKeys(c *core.Context, b *textedit.Buffer) bool {
+func editKeys(c *core.Context, b *textedit.Buffer, pasteText bool) bool {
 	before := b.Revision()
 	mods := c.Mods()
 	extend := mods.Has(input.ModShift)
@@ -136,7 +136,7 @@ func editKeys(c *core.Context, b *textedit.Buffer) bool {
 			if c.Clipboard != nil && b.HasSelection() {
 				c.Clipboard.SetText(b.Cut())
 			}
-		case c.KeyPressed(input.KeyV):
+		case pasteText && c.KeyPressed(input.KeyV):
 			if c.Clipboard != nil {
 				b.Insert(c.Clipboard.Text())
 			}

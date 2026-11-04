@@ -11,6 +11,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/dataedit"
+	"aego/editor/core/document"
 	"aego/editor/core/services"
 	"aego/editor/ext/inspect"
 	"aego/engine/i18n"
@@ -72,6 +73,13 @@ func New(d Deps) *Panel {
 
 func (p *Panel) ID() string {
 	return ID
+}
+
+func (p *Panel) Document() *document.AssetDocument {
+	if p.table == nil || p.d.Data == nil {
+		return nil
+	}
+	return p.d.Data.AssetDocument(p.table.ID)
 }
 
 func (p *Panel) Title() string {

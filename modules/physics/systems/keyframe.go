@@ -47,18 +47,20 @@ func (m *Sim) Capture(reuse rewind.Key) rewind.Key {
 		k = &simKey{}
 	}
 	m.w.SnapshotInto(&k.snap)
-	k.bodies = k.bodies[:0]
+	k.bodies = slices.Grow(k.bodies[:0], len(m.bodies))
 	for _, b := range m.bodies {
 		k.bodies = append(k.bodies, *b)
 	}
-	k.shapes, k.pts, k.npts = k.shapes[:0], k.pts[:0], k.npts[:0]
+	k.shapes = slices.Grow(k.shapes[:0], len(m.shapes))
+	k.npts = slices.Grow(k.npts[:0], len(m.shapes))
+	k.pts = k.pts[:0]
 	for _, sh := range m.shapes {
 		k.npts = append(k.npts, int32(len(sh.sig.pts)))
 		k.pts = append(k.pts, sh.sig.pts...)
 		k.shapes = append(k.shapes, *sh)
 		k.shapes[len(k.shapes)-1].sig.pts = nil
 	}
-	k.joints = k.joints[:0]
+	k.joints = slices.Grow(k.joints[:0], len(m.joints))
 	for _, j := range m.joints {
 		k.joints = append(k.joints, *j)
 	}

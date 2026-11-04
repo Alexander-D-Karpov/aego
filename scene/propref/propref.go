@@ -52,16 +52,17 @@ const (
 )
 
 type Ref struct {
-	own   Owner
-	typ   schema.TypeID
-	off   uintptr
-	kind  schema.Kind
-	part  uint8
-	three bool
-	field scriptfields.Ref
-	fd    *schema.FieldDescriptor
-	shape Shape
-	lane  int8
+	own     Owner
+	typ     schema.TypeID
+	off     uintptr
+	kind    schema.Kind
+	part    uint8
+	three   bool
+	field   scriptfields.Ref
+	fd      *schema.FieldDescriptor
+	shape   Shape
+	lane    int8
+	dynamic scene.BoundProperty
 }
 
 func (r *Ref) Owner() Owner        { return r.own }
@@ -123,7 +124,14 @@ func TransformRef(s *scene.Scene, h scene.NodeHandle, p Part) Ref {
 
 func (r *Ref) sameProperty(o *Ref) bool {
 	return r.own == o.own && r.typ == o.typ && r.off == o.off && r.part == o.part &&
-		r.field.Instance == o.field.Instance && r.field.Field == o.field.Field
+		r.field.Instance == o.field.Instance && r.field.Field == o.field.Field && r.dynamicKey() == o.dynamicKey()
+}
+
+func (r *Ref) dynamicKey() string {
+	if r.dynamic.Access != nil {
+		return r.dynamic.Key
+	}
+	return ""
 }
 
 func (r *Ref) Same(o *Ref) bool {
@@ -159,6 +167,10 @@ func (r *Ref) Hash() uint64 {
 		h ^= uint64(r.field.Field[i])
 		h *= fnvPrime
 	}
+	for _, c := range r.dynamicKey() {
+		h ^= uint64(c)
+		h *= fnvPrime
+	}
 	return h
 }
 
@@ -174,6 +186,7 @@ func (r *Ref) HashTo(h *rewind.Hasher) {
 	h.U32(uint32(r.field.Instance))
 	h.String(r.field.Field)
 	h.Int(r.field.Slot)
+	h.String(r.dynamicKey())
 }
 
 type PathError struct {
@@ -233,9 +246,22 @@ func laneOf(s string) int8 {
 	return -1
 }
 
-func lowerFirst(s string) string {
-	c, n := utf8.DecodeRuneInString(s)
-	return string(unicode.ToLower(c)) + s[n:]
+// Resolve the Go-style spelling without allocating a temporary string for
+// ordinary field and shader parameter names. Field also honours registered aliases.
+func fieldWithLowerInitial(td *schema.TypeDescriptor, name string) (*schema.FieldDescriptor, bool) {
+	c, n := utf8.DecodeRuneInString(name)
+	lower := unicode.ToLower(c)
+	if lower == c {
+		return nil, false
+	}
+	tail := name[n:]
+	var small [64]byte
+	key := utf8.AppendRune(small[:0], lower)
+	if len(key)+len(tail) <= len(small) {
+		key = append(key, tail...)
+		return td.Field(string(key))
+	}
+	return td.Field(string(lower) + tail)
 }
 
 func (r *Resolver) Resolve(h scene.NodeHandle, path string) (Ref, error) {
@@ -247,6 +273,22 @@ func (r *Resolver) ResolveAny(h scene.NodeHandle, path string) (Ref, error) {
 }
 
 func (r *Resolver) resolve(h scene.NodeHandle, path string, discrete bool) (Ref, error) {
+	// A vector lane adds one segment to the component field path. Avoid
+	// constructing an unknown-component diagnostic for e.g. SpriteRenderer.tint
+	// before successfully resolving SpriteRenderer.tint.a. A real fully qualified
+	// component still takes precedence over the lane interpretation.
+	if i := strings.LastIndexByte(path, '.'); i > 0 {
+		if l := laneOf(path[i+1:]); l >= 0 {
+			own := path[:i]
+			if own != OwnerTransform && !strings.HasPrefix(own, ScriptPrefix) {
+				if _, ok := r.componentType(own); !ok {
+					if t, reason := r.at(h, own, l, discrete); reason == "" {
+						return t, nil
+					}
+				}
+			}
+		}
+	}
 	t, reason := r.at(h, path, -1, discrete)
 	if reason == "" {
 		return t, nil
@@ -330,22 +372,42 @@ func abiShape(k abi.Kind) (Shape, bool) {
 	return 0, false
 }
 
-func (r *Resolver) component(t *Ref, h scene.NodeHandle, own, field string, discrete bool) error {
+func (r *Resolver) componentType(own string) (*schema.TypeDescriptor, bool) {
 	td, ok := r.reg.ByName(own)
 	if !ok {
 		if id := r.short[own]; id != 0 {
 			td, ok = r.reg.ByID(id)
 		}
 	}
-	if !ok || td.Kind != schema.TypeComponent {
+	return td, ok && td.Kind == schema.TypeComponent
+}
+
+func (r *Resolver) component(t *Ref, h scene.NodeHandle, own, field string, discrete bool) error {
+	td, ok := r.componentType(own)
+	if !ok {
 		return errs.New(errs.SchemaUnknownType, "unknown or ambiguous component "+own)
 	}
 	fd, ok := td.Field(field)
 	if !ok {
-		fd, ok = td.Field(lowerFirst(field))
+		fd, ok = fieldWithLowerInitial(td, field)
 	}
 	if !ok {
-		return errs.New(errs.SchemaBadField, td.FullName+" has no field "+field)
+		binding, err := r.scene.Types().BindProperty(r.scene, h, td.ID, field)
+		if err != nil {
+			return err
+		}
+		if binding.Access == nil {
+			return errs.New(errs.SchemaBadField, td.FullName+" has no field "+field)
+		}
+		shape, good := schemaShape(binding.Kind)
+		if !good && discrete && discreteKind(binding.Kind) {
+			shape, good = Discrete, true
+		}
+		if !good {
+			return errs.New(errs.SchemaBadField, "property "+field+" cannot be animated")
+		}
+		t.own, t.typ, t.kind, t.shape, t.dynamic = OwnComponent, td.ID, binding.Kind, shape, binding
+		return nil
 	}
 	if fd.Flags.Has(schema.FlagReadOnly) {
 		return errs.New(errs.SchemaBadField, td.FullName+"."+fd.Name+" is read-only")
@@ -473,6 +535,12 @@ func lanesVM(l [4]float32, sh Shape) vm.Value {
 func (r *Resolver) readFull(t *Ref, h scene.NodeHandle) ([4]float32, bool) {
 	var l [4]float32
 	s := r.scene
+	if t.dynamic.Access != nil {
+		if !t.dynamic.Get(s, h, &r.tmp) {
+			return l, false
+		}
+		return valueLanes(r.tmp), true
+	}
 	switch t.own {
 	case OwnComponent:
 		p, ok := s.GetByType(h, t.typ)
@@ -521,6 +589,9 @@ func (r *Resolver) readFull(t *Ref, h scene.NodeHandle) ([4]float32, bool) {
 
 func (r *Resolver) writeFull(t *Ref, h scene.NodeHandle, l [4]float32) bool {
 	s := r.scene
+	if t.dynamic.Access != nil {
+		return t.dynamic.Set(s, h, lanesValue(l, t.kind))
+	}
 	switch t.own {
 	case OwnComponent:
 		p, ok := s.GetByType(h, t.typ)
@@ -586,8 +657,69 @@ func (r *Resolver) Write(t *Ref, h scene.NodeHandle, l [4]float32) bool {
 	return r.writeFull(t, h, l)
 }
 
+// ReadInt and WriteInt preserve integer bits for discrete animation keyframes.
+// Interpolating tweens still use the numeric Read/Write lane API.
+func (r *Resolver) ReadInt(t *Ref, h scene.NodeHandle) (int64, bool) {
+	if t.shape != Int || t.lane >= 0 {
+		return 0, false
+	}
+	if t.dynamic.Access != nil {
+		ok := t.dynamic.Get(r.scene, h, &r.tmp)
+		return r.tmp.I, ok
+	}
+	if t.own == OwnScript {
+		f := r.access()
+		if f == nil {
+			return 0, false
+		}
+		v, ok := f.LoadField(&t.field)
+		return v.Int(), ok
+	}
+	if t.fd == nil {
+		return 0, false
+	}
+	p, ok := r.scene.GetByType(h, t.typ)
+	if !ok {
+		return 0, false
+	}
+	t.fd.Get(p, &r.tmp)
+	return r.tmp.I, true
+}
+
+func (r *Resolver) WriteInt(t *Ref, h scene.NodeHandle, i int64) bool {
+	if t.shape != Int || t.lane >= 0 {
+		return false
+	}
+	if t.own == OwnScript {
+		f := r.access()
+		return f != nil && f.StoreField(&t.field, vm.Int(i))
+	}
+	v := schema.Int64(i)
+	if t.kind == schema.KindInt32 {
+		if i < math.MinInt32 || i > math.MaxInt32 {
+			return false
+		}
+		v = schema.Int32(int32(i))
+	}
+	if t.dynamic.Access != nil {
+		return t.dynamic.Set(r.scene, h, v)
+	}
+	if t.fd == nil {
+		return false
+	}
+	p, ok := r.scene.GetByType(h, t.typ)
+	return ok && t.fd.Set(p, v) == nil
+}
+
 func (r *Resolver) ReadDiscrete(t *Ref, h scene.NodeHandle) (int64, ids.AssetID, bool) {
-	if t.shape != Discrete || t.fd == nil {
+	if t.shape != Discrete {
+		return 0, ids.AssetID{}, false
+	}
+	if t.dynamic.Access != nil {
+		ok := t.dynamic.Get(r.scene, h, &r.tmp)
+		return r.tmp.I, r.tmp.Asset, ok
+	}
+	if t.fd == nil {
 		return 0, ids.AssetID{}, false
 	}
 	p, ok := r.scene.GetByType(h, t.typ)
@@ -599,7 +731,13 @@ func (r *Resolver) ReadDiscrete(t *Ref, h scene.NodeHandle) (int64, ids.AssetID,
 }
 
 func (r *Resolver) WriteDiscrete(t *Ref, h scene.NodeHandle, i int64, a ids.AssetID) bool {
-	if t.shape != Discrete || t.fd == nil {
+	if t.shape != Discrete {
+		return false
+	}
+	if t.dynamic.Access != nil {
+		return t.dynamic.Set(r.scene, h, schema.Bool(i != 0))
+	}
+	if t.fd == nil {
 		return false
 	}
 	p, ok := r.scene.GetByType(h, t.typ)
@@ -616,4 +754,58 @@ func (r *Resolver) WriteDiscrete(t *Ref, h scene.NodeHandle, i int64, a ids.Asse
 		v = schema.Asset(a)
 	}
 	return t.fd.Set(p, v) == nil
+}
+
+func valueLanes(v schema.Value) [4]float32 {
+	switch v.Kind {
+	case schema.KindFloat32, schema.KindFloat64:
+		return [4]float32{float32(v.F)}
+	case schema.KindInt32, schema.KindInt64:
+		return [4]float32{float32(v.I)}
+	case schema.KindVec2:
+		return [4]float32{v.V.X, v.V.Y}
+	case schema.KindVec3:
+		return [4]float32{v.V3.X, v.V3.Y, v.V3.Z}
+	case schema.KindColor:
+		return [4]float32{v.C.R, v.C.G, v.C.B, v.C.A}
+	default:
+		return [4]float32{v.V4.X, v.V4.Y, v.V4.Z, v.V4.W}
+	}
+}
+func lanesValue(l [4]float32, k schema.Kind) schema.Value {
+	switch k {
+	case schema.KindFloat32:
+		return schema.Float32(l[0])
+	case schema.KindFloat64:
+		return schema.Float64(float64(l[0]))
+	case schema.KindInt32:
+		return schema.Int32(int32(round(l[0])))
+	case schema.KindInt64:
+		return schema.Int64(int64(round(l[0])))
+	case schema.KindVec2:
+		return schema.Vec2(mathx.Vec2{X: l[0], Y: l[1]})
+	case schema.KindVec3:
+		return schema.Vec3(mathx.Vec3{X: l[0], Y: l[1], Z: l[2]})
+	case schema.KindColor:
+		return schema.Color(mathx.Color{R: l[0], G: l[1], B: l[2], A: l[3]})
+	default:
+		return schema.Vec4(mathx.Vec4{X: l[0], Y: l[1], Z: l[2], W: l[3]})
+	}
+}
+
+// Refresh checks an asset-driven property before a tween/animation sampling
+// pass. Name resolution only runs when its resource generation changed.
+func (r *Resolver) Refresh(t *Ref, h scene.NodeHandle) bool {
+	if t.dynamic.Access == nil {
+		return true
+	}
+	if t.dynamic.Valid(r.scene, h) {
+		return true
+	}
+	binding, err := r.scene.Types().BindProperty(r.scene, h, t.typ, t.dynamic.Key)
+	if err != nil || binding.Access == nil || binding.Kind != t.kind {
+		return false
+	}
+	t.dynamic = binding
+	return true
 }

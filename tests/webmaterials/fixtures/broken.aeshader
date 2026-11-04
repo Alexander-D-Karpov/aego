@@ -1,0 +1,2 @@
+#pragma aego abi 1
+void fragment(){aego_out=undefined_name;}

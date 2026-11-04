@@ -44,6 +44,12 @@ func (p *Platform) listenWindow(w *Window) {
 	p.listen(c, "wheel", false, p.wheel)
 	p.listen(c, "contextmenu", false, prevent)
 	p.listen(c, "focus", true, func(js.Value) { p.push(platform.Event{Kind: platform.EvWindowFocusGained}) })
+	// Device invalidation and resource reconstruction can block the browser's
+	// event loop. Rebase the first ordinary frame on each edge; simulation may
+	// continue to advance normally between the two events.
+	for _, event := range []string{"webglcontextlost", "webglcontextrestored"} {
+		p.listen(c, event, true, func(js.Value) { p.resetFrameClock = true })
+	}
 	p.listen(c, "blur", true, func(js.Value) { p.push(platform.Event{Kind: platform.EvWindowFocusLost}) })
 	p.listen(p.doc, "paste", true, p.paste)
 	p.listen(p.doc, "pointerlockchange", true, p.lockChanged)

@@ -450,7 +450,7 @@ func (p *Panel) peekLine(ui *core.Context, d *code.Doc, l int, x0, ty float32, p
 	font := ui.Font()
 	p.line = d.LineBytes(l, p.line[:0])
 	disp, idx := expand(p.line, nil, nil)
-	spans, _ := highlight.Line(p.line, d.LineState(l), nil)
+	spans, _ := d.Highlight(p.line, d.LineState(l), nil)
 	for _, s := range spans {
 		da, db := idx[s.Start], idx[s.End]
 		if da < db {

@@ -6,22 +6,16 @@
     "path": "Root/Player",
     "enabled": true,
     "transform": {
-      "position": "[-13, 2.9]",
+      "position": "[1, 2]",
       "rotation": "0",
       "scale": "[1, 1]",
       "space": "2d"
     },
     "components": [
       {
-        "type": "animation.Animator",
+        "type": "engine.MaterialOverride",
         "fields": {
-          "controller": "asset(\"a0a10000000000000000000000000010\")",
-          "playOnStart": "true",
-          "rootFallback": "false",
-          "rootMotion": "none",
-          "rootScale": "[1, 1]",
-          "speed": "1",
-          "timeDomain": "game"
+          "values": "[]"
         }
       },
       {
@@ -32,135 +26,40 @@
           "flipX": "false",
           "flipY": "false",
           "layer": "0",
-          "order": "2",
+          "material": "asset(\"12a90000000000000000000000000002\")",
+          "order": "0",
           "origin": "[0.5, 0.5]",
           "size": "[1, 1]",
           "sprite": "asset(\"ae900000000000000000000000000b00\")",
-          "tint": "#4aa3ffff"
-        }
-      },
-      {
-        "type": "engine.Tags",
-        "fields": {
-          "tags": "[\"Player\", \"Saved\"]"
-        }
-      },
-      {
-        "type": "gameplay.Health",
-        "fields": {
-          "despawnOnDeath": "false",
-          "destroyOnDeath": "false",
-          "invulnTime": "1",
-          "max": "3",
-          "team": "0"
-        }
-      },
-      {
-        "type": "gameplay.Hitbox2D",
-        "fields": {
-          "active": "false",
-          "area": "[-0.25, 0.35, 0.5, 0.25]",
-          "damage": "1",
-          "friendlyFire": "false",
-          "knockback": "[0, 0]",
-          "knockbackFromCenter": "false",
-          "period": "0.5",
-          "policy": "onEnter",
-          "shape": "box",
-          "team": "-1"
-        }
-      },
-      {
-        "type": "gameplay.Hurtbox2D",
-        "fields": {
-          "active": "true",
-          "area": "[-0.3, -0.5, 0.6, 0.85]",
-          "health": "node(\"00000000000000000000000000000000\")",
-          "multiplier": "1",
-          "shape": "box"
-        }
-      },
-      {
-        "type": "gameplay.Motion2D",
-        "fields": {
-          "accel": "60",
-          "airControl": "0.6",
-          "climbTime": "0.3",
-          "collisionMask": "10",
-          "coyoteTime": "0.1",
-          "dashGravity": "false",
-          "decel": "50",
-          "faceMovement": "false",
-          "gravityScale": "1",
-          "jumpBuffer": "0.1",
-          "jumpCutMultiplier": "0.5",
-          "jumpHeight": "2.6",
-          "jumpSpeed": "0",
-          "ledgeClimb": "0.6",
-          "maxFallSpeed": "20",
-          "maxSlides": "4",
-          "maxSlope": "45",
-          "maxSpeed": "7",
-          "mode": "platformer",
-          "movingPlatforms": "true",
-          "platformOnLeave": "keep",
-          "pushBodies": "false",
-          "safeMargin": "0.02",
-          "snapToGround": "0.2",
-          "stepHeight": "0.2",
-          "upDirection": "[0, -1]"
-        }
-      },
-      {
-        "type": "gameplay.Respawn",
-        "fields": {
-          "delay": "0.6",
-          "persist": "true",
-          "resetVelocity": "true",
-          "restoreHealth": "true"
+          "tint": "#ffffffff"
         }
       },
       {
         "type": "physics.Body2D",
         "fields": {
-          "allowSleep": "false",
+          "allowSleep": "true",
           "angularDamping": "0",
           "bullet": "false",
-          "fixedRotation": "true",
+          "fixedRotation": "false",
           "gravityScale": "1",
-          "interpolate": "true",
-          "layer": "2",
+          "interpolate": "false",
+          "layer": "0",
           "linearDamping": "0",
           "mask": "-1",
           "mass": "0",
           "massMode": "auto",
-          "type": "kinematic"
+          "type": "dynamic"
         }
       },
       {
-        "type": "save.Persist",
+        "type": "physics.BoxCollider2D",
         "fields": {
-          "noEnabled": "false",
-          "noTransform": "false"
-        }
-      }
-    ],
-    "scripts": [
-      "mygame.player.PlayerController"
-    ],
-    "scriptFields": [
-      {
-        "type": "mygame.player.PlayerController",
-        "fields": {
-          "Bounce": "[0, -9]",
-          "EnemyA": "node(\"c0000000000000000000000000000004\")",
-          "EnemyB": "node(\"c0000000000000000000000000000007\")",
-          "HitSound": "asset(\"a0d10000000000000000000000000012\")",
-          "JumpSound": "asset(\"a0d10000000000000000000000000011\")",
-          "LandShake": "9",
-          "Reach": "0.6",
-          "Slash": "node(\"c0000000000000000000000000000010\")",
-          "Theme": "asset(\"a0d10000000000000000000000000005\")"
+          "density": "1",
+          "friction": "0.6",
+          "isTrigger": "false",
+          "offset": "[0, 0]",
+          "restitution": "0",
+          "size": "[1, 1]"
         }
       }
     ]

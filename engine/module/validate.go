@@ -49,27 +49,43 @@ func ValidateScene(s *scene.Scene, dst []problems.Diagnostic) []problems.Diagnos
 			continue
 		}
 		for _, td := range list {
-			p, ok := s.GetByType(h, td.ID)
-			if !ok {
-				continue
-			}
-			for _, d := range td.Validate.(validateHook)(ValidateContext{Scene: s, Node: h, Type: td}, p) {
-				if d.Owner == "" {
-					d.Owner = td.Owner
-				}
-				if d.Subject.Kind == problems.SubjectNone {
-					d.Subject.Kind = problems.SubjectField
-				}
-				if d.Subject.Node.IsZero() {
-					d.Subject.Node = s.ID(h)
-				}
-				if d.Subject.Field == "" {
-					d.Subject.Field = td.FullName
-				}
-				d.Subject.Scene = s
-				dst = append(dst, d)
-			}
+			dst = appendComponentDiagnostics(s, h, td, dst)
 		}
+	}
+	return dst
+}
+
+// ValidateComponent runs the registered validator against a specific node in
+// its actual scene context, e.g. after applying a component preset in a dry copy.
+func ValidateComponent(s *scene.Scene, h scene.NodeHandle, td *schema.TypeDescriptor) []problems.Diagnostic {
+	s.UpdateTransforms()
+	return appendComponentDiagnostics(s, h, td, nil)
+}
+
+func appendComponentDiagnostics(s *scene.Scene, h scene.NodeHandle, td *schema.TypeDescriptor, dst []problems.Diagnostic) []problems.Diagnostic {
+	check, ok := td.Validate.(validateHook)
+	if !ok {
+		return dst
+	}
+	p, ok := s.GetByType(h, td.ID)
+	if !ok {
+		return dst
+	}
+	for _, d := range check(ValidateContext{Scene: s, Node: h, Type: td}, p) {
+		if d.Owner == "" {
+			d.Owner = td.Owner
+		}
+		if d.Subject.Kind == problems.SubjectNone {
+			d.Subject.Kind = problems.SubjectField
+		}
+		if d.Subject.Node.IsZero() {
+			d.Subject.Node = s.ID(h)
+		}
+		if d.Subject.Field == "" {
+			d.Subject.Field = td.FullName
+		}
+		d.Subject.Scene = s
+		dst = append(dst, d)
 	}
 	return dst
 }

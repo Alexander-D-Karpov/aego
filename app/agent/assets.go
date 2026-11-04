@@ -6,21 +6,17 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"os"
 	"path"
 	"strings"
 
-	"aego/anim"
 	"aego/asset/pipeline"
 	"aego/core/errs"
-	"aego/core/ids"
 	"aego/engine/module"
 	"aego/format/aetext"
 	"aego/format/pixelart"
 	"aego/format/svg"
 	"aego/modules/art"
 	"aego/modules/render2d"
-	"aego/project/refactor"
 )
 
 // paletteKeys name the art palette's colors in a grid when the call gives no palette: 0-9, then a-z.
@@ -30,6 +26,7 @@ func assetCommands() []*Command {
 	out := Arg{Name: "path", Type: "string", Doc: "PNG to write under assets/, such as assets/sprites/hero.png", Required: true, Pos: true}
 	replace := Arg{Name: "replace", Type: "boolean", Doc: "draw over an existing PNG; its id and the ids of same-named frames stay"}
 	return []*Command{
+		paintCommand(out, replace),
 		{Name: "asset.pixels", Write: true, Run: (*Session).assetPixels,
 			Doc: "draw a sprite as text: each character of grid is a pixel colored by palette; lines like idle: start frames of one size, which become an atlas with one sprite per frame and a looping flipbook clip. Answers with a preview image",
 			Args: []Arg{out,
@@ -163,103 +160,48 @@ func pngPath(rel string) (string, error) {
 
 // drawn writes the PNG, its frames and settings, and the flipbook clip; a dry run only answers with the preview.
 func (s *Session) drawn(a Args, rel string, img, preview image.Image, cells []pipeline.SubAsset, flip bool, settings pipeline.Settings, notes []string) (*Output, error) {
+	return s.drawnFrom(a, rel, img, preview, cells, flip, settings, notes, nil, false, nil)
+}
+
+func (s *Session) drawnFrom(a Args, rel string, img, preview image.Image, cells []pipeline.SubAsset, flip bool, settings pipeline.Settings, notes []string, guards []pipeline.SourceEdit, checkInput bool, input []byte) (*Output, error) {
+	if preview == nil {
+		preview = img
+		if n := max(img.Bounds().Dx(), img.Bounds().Dy()); n < 128 {
+			preview = pixelart.Upscale(img, 256/n)
+		}
+	}
 	var buf, pv bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
 	}
+	b := preview.Bounds()
+	if side := max(b.Dx(), b.Dy()); side > 256 {
+		thumb := image.NewNRGBA(image.Rect(0, 0, max(1, b.Dx()*256/side), max(1, b.Dy()*256/side)))
+		for y := 0; y < thumb.Bounds().Dy(); y++ {
+			for x := 0; x < thumb.Bounds().Dx(); x++ {
+				thumb.Set(x, y, preview.At(b.Min.X+x*b.Dx()/thumb.Bounds().Dx(), b.Min.Y+y*b.Dy()/thumb.Bounds().Dy()))
+			}
+		}
+		preview = thumb
+	}
 	if err := png.Encode(&pv, preview); err != nil {
 		return nil, err
 	}
-	b := img.Bounds()
-	view := DrawnView{Path: rel, Size: [2]int{b.Dx(), b.Dy()}}
-	out := &Output{OK: true, Notes: notes, Images: []Image{{Mime: "image/png", Data: pv.Bytes()}}, Value: &view}
-	animRel := strings.TrimSuffix(rel, ".png") + ".aeanim"
-	if flip {
-		view.Flipbook = animRel
+	view := &DrawnView{Path: rel, Size: [2]int{img.Bounds().Dx(), img.Bounds().Dy()}}
+	edit, err := s.prepareDrawing(rel, buf.Bytes(), cells, flip, settings, a.Bool("replace"), view, guards, checkInput, input)
+	if err != nil {
+		return nil, err
 	}
-	for _, c := range cells {
-		view.Frames = append(view.Frames, FrameView{Name: c.Name, Rect: c.Rect})
-	}
-	if a.Bool("dry-run") {
-		out.DryRun = true
+	out := &Output{OK: true, DryRun: a.Bool("dry-run"), Notes: notes, Images: []Image{{Mime: "image/png", Data: pv.Bytes()}}, Value: view, Drawing: edit}
+	if out.DryRun {
 		return out, nil
 	}
-	if err := s.writable(); err != nil {
+	if s.host != nil {
+		return nil, errors.New("drawings in the editor must be applied through a preview")
+	}
+	if _, err := s.Pipeline.ApplySources(edit.Sources, false); err != nil {
 		return nil, err
 	}
-	var id ids.AssetID
-	if s.exists(rel) {
-		if !a.Bool("replace") {
-			return nil, errs.New(errs.VFSBadPath, rel+" already exists; pass replace to draw over it")
-		}
-		before, err := os.ReadFile(s.Pipeline.Abs(rel))
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.save(rel, before, buf.Bytes()); err != nil {
-			return nil, err
-		}
-		id, _ = s.Pipeline.Lookup(rel)
-	} else {
-		var err error
-		if id, err = s.create(rel, buf.Bytes()); err != nil {
-			return nil, err
-		}
-		out.Created = append(out.Created, id.String())
-	}
-	view.ID = id.String()
-	meta, _ := s.Pipeline.MetaOf(id)
-	if settings != nil {
-		merged := meta.Settings.Clone()
-		for k, v := range settings {
-			merged[k] = v
-		}
-		if err := s.Pipeline.SetSettings(id, merged); err != nil {
-			return nil, err
-		}
-	}
-	if len(cells) > 0 || len(meta.Subs) > 0 {
-		old := map[string]ids.AssetID{}
-		for _, sub := range meta.Subs {
-			old[sub.Name] = sub.ID
-		}
-		for i := range cells {
-			if cells[i].ID = old[cells[i].Name]; cells[i].ID.IsZero() {
-				cells[i].ID = ids.NewAssetID()
-			}
-			view.Frames[i].ID = cells[i].ID.String()
-			out.Created = append(out.Created, cells[i].ID.String())
-		}
-		if err := s.Pipeline.SetSubs(id, cells); err != nil {
-			return nil, err
-		}
-	}
-	if _, err := refactor.Reimport(s.Pipeline, []string{rel}); err != nil {
-		return nil, err
-	}
-	out.Files = append(out.Files, rel)
-	if flip {
-		frames := make([]ids.AssetID, len(cells))
-		for i, c := range cells {
-			frames[i] = c.ID
-		}
-		text := anim.FlipbookText(frames)
-		if s.exists(animRel) {
-			before, err := os.ReadFile(s.Pipeline.Abs(animRel))
-			if err != nil {
-				return nil, err
-			}
-			if _, err := s.save(animRel, before, text); err != nil {
-				return nil, err
-			}
-		} else {
-			cid, err := s.create(animRel, text)
-			if err != nil {
-				return nil, err
-			}
-			out.Created = append(out.Created, cid.String())
-		}
-		out.Files = append(out.Files, animRel)
-	}
+	out.Created, out.Files, out.Drawing = edit.Created, edit.Files, nil
 	return out, nil
 }

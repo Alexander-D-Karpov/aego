@@ -201,11 +201,36 @@ func TestExternalDataEdit(t *testing.T) {
 	if _, err := data.Doc(id); err != nil || warnings() != 1 {
 		t.Fatalf("the warning repeated: %d, %v", warnings(), err)
 	}
+	readDisk := func() []byte {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(e.p.Root, "assets", "data", "enemy_stats.aedata"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	external := readDisk()
+	if bytes.Equal(external, mine) {
+		t.Fatal("fixture did not produce conflicting local and external edits")
+	}
+	if err := data.SaveDoc(doc); err == nil {
+		t.Fatal("Save silently overwrote the external data edit")
+	}
+	if !bytes.Equal(readDisk(), external) || !doc.Dirty() || !bytes.Equal(doc.Bytes(), mine) {
+		t.Fatal("rejected Save changed disk or discarded the local data journal")
+	}
+	questions := e.ctx.TakeQuestions()
+	if len(questions) != 1 || questions[0].Then == nil {
+		t.Fatal("missing explicit data conflict resolution")
+	}
+	questions[0].Then(1) // Keep mine acknowledges this external version; it does not save.
+	if !bytes.Equal(readDisk(), external) || !doc.Dirty() || !bytes.Equal(doc.Bytes(), mine) {
+		t.Fatal("Keep mine wrote the file or discarded the local edits")
+	}
 	if err := data.SaveDoc(doc); err != nil {
 		t.Fatal(err)
 	}
-	disk, _ := os.ReadFile(filepath.Join(e.p.Root, "assets", "data", "enemy_stats.aedata"))
-	if !bytes.Equal(disk, mine) {
-		t.Fatalf("Save did not write the editor's version:\n%s", disk)
+	if disk := readDisk(); !bytes.Equal(disk, mine) || doc.Dirty() {
+		t.Fatalf("explicit Save did not persist the editor's version:\n%s", disk)
 	}
 }

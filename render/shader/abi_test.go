@@ -19,6 +19,23 @@ func TestStd140Offsets(t *testing.T) {
 	}
 }
 
+func TestStd140RequiredMixedSequences(t *testing.T) {
+	for _, tc := range []struct {
+		kinds   []Kind
+		offsets []int
+		size    int
+	}{
+		{[]Kind{KindFloat, KindVec3, KindFloat}, []int{0, 16, 28}, 32},
+		{[]Kind{KindVec2, KindBool, KindVec4}, []int{0, 8, 16}, 32},
+		{[]Kind{KindBool, KindInt, KindFloat}, []int{0, 4, 8}, 16},
+	} {
+		offsets := make([]int, len(tc.kinds))
+		if size := Std140(tc.kinds, offsets); size != tc.size || !slices.Equal(offsets, tc.offsets) {
+			t.Fatalf("kinds %v: offsets=%v size=%d, expected %v size=%d", tc.kinds, offsets, size, tc.offsets, tc.size)
+		}
+	}
+}
+
 func f32(b []byte, at int) float32 {
 	return math.Float32frombits(binary.LittleEndian.Uint32(b[at:]))
 }
@@ -40,7 +57,7 @@ func TestPutFrameAndView(t *testing.T) {
 			t.Fatalf("view_proj[%d] = %v", i, f32(view, 4*i))
 		}
 	}
-	checks := map[int]float32{64: 10, 68: 20, 72: 640, 76: 360, 80: 2, 84: 16, 88: 4, 92: 0, 96: 3, 100: 4, 104: 5, 108: 0}
+	checks := map[int]float32{64: 10, 68: 20, 72: 640, 76: 360, 80: 2, 84: 16, 88: 4, 92: 1, 96: 3, 100: 4, 104: 5, 108: 0}
 	for at, want := range checks {
 		if got := f32(view, at); got != want {
 			t.Errorf("view block at %d = %v, want %v", at, got, want)

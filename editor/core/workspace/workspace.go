@@ -96,6 +96,8 @@ type Workspace struct {
 	layouts   map[string]*layout
 	foreign   []*aetext.Node
 	applied   bool
+
+	focusRequested bool // explicit panel focus during Draw overrides the originating pointer press
 }
 
 func New(root string, lg *log.ChannelLogger) *Workspace {
@@ -311,6 +313,17 @@ func (w *Workspace) Show(id string) {
 	w.Tree.Activate(id)
 }
 
+// Focus is used by explicit document opening. Showing a background notice or
+// auxiliary panel still uses Show and does not steal Save/Undo routing.
+func (w *Workspace) Focus(id string) {
+	if !w.Has(id) {
+		return
+	}
+	w.Show(id)
+	w.focused = id
+	w.focusRequested = true
+}
+
 func (w *Workspace) Toggle(id string) {
 	if w.Tree.Has(id) {
 		w.Tree.Undock(id)
@@ -343,11 +356,12 @@ func (w *Workspace) Scope(id string) string {
 func (w *Workspace) Draw(f services.Frame, r mathx.Rect) {
 	ui := f.UI
 	w.frame = f
+	w.focusRequested = false
 	w.Tree.Draw(ui, r, func(id string, pr mathx.Rect) {
 		w.drawPanel(ui, id, pr)
 	})
 	w.hovered, _ = w.Tree.PanelAt(ui.Mouse())
-	if ui.MousePressed(input.MouseLeft) || ui.MousePressed(input.MouseRight) {
+	if !w.focusRequested && (ui.MousePressed(input.MouseLeft) || ui.MousePressed(input.MouseRight)) {
 		w.focused = w.hovered
 	}
 }

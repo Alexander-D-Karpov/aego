@@ -3,6 +3,7 @@ package agentui
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,15 +20,19 @@ const (
 
 // Entry is one line of a session log.
 type Entry struct {
-	Time   time.Time `json:"time"`
-	Kind   string    `json:"kind"`
-	Text   string    `json:"text,omitempty"`
-	Tool   string    `json:"tool,omitempty"`
-	CallID string    `json:"call,omitempty"`
-	Args   string    `json:"args,omitempty"`
-	Failed bool      `json:"failed,omitempty"`
-	Card   int       `json:"card,omitempty"`
-	State  string    `json:"state,omitempty"`
+	Images    []string  `json:"images,omitempty"`
+	Time      time.Time `json:"time"`
+	Kind      string    `json:"kind"`
+	Text      string    `json:"text,omitempty"`
+	Tool      string    `json:"tool,omitempty"`
+	CallID    string    `json:"call,omitempty"`
+	Args      string    `json:"args,omitempty"`
+	Failed    bool      `json:"failed,omitempty"`
+	Card      int       `json:"card,omitempty"`
+	State     string    `json:"state,omitempty"`
+	Provider  string    `json:"provider,omitempty"`
+	Delta     bool      `json:"delta,omitempty"`
+	MessageID string    `json:"message_id,omitempty"`
 }
 
 // Transcript appends the entries of one session to .aego/user/agent/<id>.jsonl.
@@ -44,12 +49,21 @@ func NewTranscript(root string, now time.Time) (*Transcript, error) {
 	if err := os.MkdirAll(dir(root), 0o755); err != nil {
 		return nil, err
 	}
-	id := now.Format(idLayout)
-	f, err := os.OpenFile(filepath.Join(dir(root), id+ext), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return nil, err
+	base := now.Format(idLayout)
+	for n := 0; ; n++ {
+		id := base
+		if n > 0 {
+			id = fmt.Sprintf("%s-%06d", base, n)
+		}
+		f, err := os.OpenFile(filepath.Join(dir(root), id+ext), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if os.IsExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &Transcript{ID: id, f: f}, nil
 	}
-	return &Transcript{ID: id, f: f}, nil
 }
 
 func (t *Transcript) Append(e Entry) error {

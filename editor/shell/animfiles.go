@@ -24,7 +24,7 @@ import (
 
 func (a *App) wireAnim() {
 	ctx := a.ctx
-	files := animedit.PipelineFiles(ctx.Pipeline, ctx.ApplyBatch)
+	files := animedit.WithDocuments(animedit.PipelineFiles(ctx.Pipeline, ctx.ApplyBatch), ctx.Docs)
 	ctx.AnimFiles = files
 	ctx.Anim = animedit.NewRegistry(files, func(msg string) { ctx.Notify(context.LevelInfo, msg) })
 	ctx.Docs.SetSaveGuard(ctx.Anim.SaveGuard)
@@ -35,7 +35,6 @@ func (a *App) wireAnim() {
 	})
 	a.play.SetBeforeStart(ctx.Anim.StopAll)
 	a.registerPathGizmo()
-	a.registerSlicer()
 }
 
 func (a *App) animDriven(d *document.SceneDocument, node ids.NodeID, t schema.TypeID, f schema.FieldID) bool {

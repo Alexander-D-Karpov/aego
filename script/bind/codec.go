@@ -25,19 +25,21 @@ type integer interface {
 }
 
 var (
-	tVec2   = reflect.TypeFor[mathx.Vec2]()
-	tVec3   = reflect.TypeFor[mathx.Vec3]()
-	tColor  = reflect.TypeFor[mathx.Color]()
-	tQuat   = reflect.TypeFor[mathx.Quat]()
-	tRect   = reflect.TypeFor[mathx.Rect]()
-	tT2     = reflect.TypeFor[scene.Transform2D]()
-	tT3     = reflect.TypeFor[scene.Transform3D]()
-	tNode   = reflect.TypeFor[scene.NodeHandle]()
-	tTex    = reflect.TypeFor[asset.Ref[asset.Texture]]()
-	tScene  = reflect.TypeFor[asset.Ref[asset.Scene]]()
-	tPrefab = reflect.TypeFor[asset.Ref[asset.Prefab]]()
-	tMesh   = reflect.TypeFor[asset.Ref[asset.Mesh]]()
-	tCurve  = reflect.TypeFor[Curve]()
+	tVec2     = reflect.TypeFor[mathx.Vec2]()
+	tVec3     = reflect.TypeFor[mathx.Vec3]()
+	tColor    = reflect.TypeFor[mathx.Color]()
+	tQuat     = reflect.TypeFor[mathx.Quat]()
+	tRect     = reflect.TypeFor[mathx.Rect]()
+	tT2       = reflect.TypeFor[scene.Transform2D]()
+	tT3       = reflect.TypeFor[scene.Transform3D]()
+	tNode     = reflect.TypeFor[scene.NodeHandle]()
+	tTex      = reflect.TypeFor[asset.Ref[asset.Texture]]()
+	tScene    = reflect.TypeFor[asset.Ref[asset.Scene]]()
+	tPrefab   = reflect.TypeFor[asset.Ref[asset.Prefab]]()
+	tMesh     = reflect.TypeFor[asset.Ref[asset.Mesh]]()
+	tMaterial = reflect.TypeFor[asset.Ref[asset.Material]]()
+	tShader   = reflect.TypeFor[asset.Ref[asset.Shader]]()
+	tCurve    = reflect.TypeFor[Curve]()
 )
 
 func cast[T, U any](u U) T {
@@ -184,6 +186,10 @@ func codecOf[T any](r *Registry) (codec[T], error) {
 		assetCodec[T, asset.Prefab](&c, "prefab")
 	case tMesh:
 		assetCodec[T, asset.Mesh](&c, "mesh")
+	case tMaterial:
+		assetCodec[T, asset.Material](&c, "material")
+	case tShader:
+		assetCodec[T, asset.Shader](&c, "shader")
 	default:
 		if d, ok := r.structs[rt]; ok {
 			structCodec(&c, d)

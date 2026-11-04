@@ -1,12 +1,16 @@
 package assetops
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
+	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/editor/core/context"
@@ -22,15 +26,19 @@ const (
 )
 
 type FileOp struct {
-	Dir  bool
-	ID   ids.AssetID
-	From string
-	To   string
+	Dir     bool
+	ID      ids.AssetID
+	From    string
+	To      string
+	Created bool
+	Source  []byte
+	Meta    []byte
 }
 
 type Ops struct {
-	undo [][]FileOp
-	redo [][]FileOp
+	undo  [][]FileOp
+	redo  [][]FileOp
+	group []FileOp
 }
 
 func (o *Ops) CanUndo() bool {
@@ -44,13 +52,42 @@ func (o *Ops) CanRedo() bool {
 func (o *Ops) Apply(ctx *context.Editor, ops []FileOp) error {
 	done, err := runOps(ctx, ops, false)
 	if len(done) > 0 {
-		o.undo = append(o.undo, done)
-		if over := len(o.undo) - opsLimit; over > 0 {
-			o.undo = append(o.undo[:0], o.undo[over:]...)
-		}
-		o.redo = o.redo[:0]
+		o.record(done)
 	}
 	return err
+}
+
+func (o *Ops) record(step []FileOp) {
+	if len(step) == 0 {
+		return
+	}
+	if o.group != nil {
+		o.group = append(o.group, step...)
+		return
+	}
+	o.undo = append(o.undo, step)
+	if over := len(o.undo) - opsLimit; over > 0 {
+		o.undo = append(o.undo[:0], o.undo[over:]...)
+	}
+	o.redo = o.redo[:0]
+}
+
+// Transaction groups existing file operations into one asset undo entry.
+// Failed multi-file creation restores the files created earlier in the group.
+func (o *Ops) Transaction(ctx *context.Editor, fn func() error) error {
+	if o.group != nil {
+		return fn()
+	}
+	o.group = make([]FileOp, 0, 2)
+	err := fn()
+	step := o.group
+	o.group = nil
+	if err != nil {
+		_, rollback := runOps(ctx, step, true)
+		return errors.Join(err, rollback)
+	}
+	o.record(step)
+	return nil
 }
 
 func (o *Ops) Undo(ctx *context.Editor) error {
@@ -60,8 +97,12 @@ func (o *Ops) Undo(ctx *context.Editor) error {
 	}
 	step := o.undo[n-1]
 	o.undo = o.undo[:n-1]
-	if _, err := runOps(ctx, step, true); err != nil {
-		o.undo, o.redo = o.undo[:0], o.redo[:0]
+	if done, err := runOps(ctx, step, true); err != nil {
+		if len(done) == 0 {
+			o.undo = append(o.undo, step)
+		} else {
+			o.undo, o.redo = o.undo[:0], o.redo[:0]
+		}
 		return err
 	}
 	o.redo = append(o.redo, step)
@@ -75,8 +116,12 @@ func (o *Ops) Redo(ctx *context.Editor) error {
 	}
 	step := o.redo[n-1]
 	o.redo = o.redo[:n-1]
-	if _, err := runOps(ctx, step, false); err != nil {
-		o.undo, o.redo = o.undo[:0], o.redo[:0]
+	if done, err := runOps(ctx, step, false); err != nil {
+		if len(done) == 0 {
+			o.redo = append(o.redo, step)
+		} else {
+			o.undo, o.redo = o.undo[:0], o.redo[:0]
+		}
 		return err
 	}
 	o.undo = append(o.undo, step)
@@ -85,6 +130,13 @@ func (o *Ops) Redo(ctx *context.Editor) error {
 
 func runOps(ctx *context.Editor, ops []FileOp, back bool) ([]FileOp, error) {
 	done := make([]FileOp, 0, len(ops))
+	for _, op := range ops {
+		if op.Created {
+			if err := op.checkCreated(ctx, back); err != nil {
+				return nil, err
+			}
+		}
+	}
 	for i := range ops {
 		op := ops[i]
 		if back {
@@ -99,6 +151,9 @@ func runOps(ctx *context.Editor, ops []FileOp, back bool) ([]FileOp, error) {
 }
 
 func (f FileOp) apply(ctx *context.Editor, back bool) error {
+	if f.Created {
+		return f.created(ctx, back)
+	}
 	from, to := f.From, f.To
 	if back {
 		from, to = to, from
@@ -107,6 +162,89 @@ func (f FileOp) apply(ctx *context.Editor, back bool) error {
 		return moveDir(ctx, from, to)
 	}
 	return MoveFile(ctx, f.ID, from, to)
+}
+
+// CreateFile records source and metadata in the same asset history as moves.
+// Undo refuses to remove a file that acquired saved or unsaved edits meanwhile.
+func (o *Ops) CreateFile(ctx *context.Editor, rel string, data []byte) (ids.AssetID, error) {
+	id, err := CreateFile(ctx, rel, data)
+	if id.IsZero() {
+		return id, err
+	}
+	meta, readErr := os.ReadFile(ctx.Pipeline.Abs(rel) + pipeline.MetaSuffix)
+	if readErr != nil {
+		return id, readErr
+	}
+	o.record([]FileOp{{ID: id, To: rel, Created: true, Source: bytes.Clone(data), Meta: meta}})
+	return id, err
+}
+
+func (f FileOp) checkCreated(ctx *context.Editor, back bool) error {
+	abs := ctx.Pipeline.Abs(f.To)
+	if back {
+		if ctx.Docs != nil {
+			if d := ctx.Docs.Script(f.To); d != nil && d.Dirty() {
+				return errs.New(errs.EditorDocument, "cannot undo creation while the source has unsaved edits: "+f.To)
+			}
+		}
+		source, err := os.ReadFile(abs)
+		if err != nil {
+			return err
+		}
+		meta, err := os.ReadFile(abs + pipeline.MetaSuffix)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(source, f.Source) || !bytes.Equal(meta, f.Meta) {
+			return errs.New(errs.EditorDocument, "cannot undo creation because the source or metadata changed: "+f.To)
+		}
+		if id, ok := ctx.Pipeline.Lookup(f.To); !ok || id != f.ID {
+			return errs.New(errs.EditorDocument, "cannot undo creation: the asset identity changed")
+		}
+		return nil
+	}
+	if Exists(ctx, f.To) || Exists(ctx, f.To+pipeline.MetaSuffix) {
+		return errs.New(errs.EditorDocument, "cannot redo creation: "+f.To+" already exists")
+	}
+	return nil
+}
+
+func (f FileOp) created(ctx *context.Editor, back bool) error {
+	abs := ctx.Pipeline.Abs(f.To)
+	if err := f.checkCreated(ctx, back); err != nil {
+		return err
+	}
+	if back {
+		batch, err := ctx.Pipeline.Delete(f.ID)
+		ctx.ApplyBatch(batch)
+		if err == nil && ctx.Docs != nil {
+			if d := ctx.Docs.Script(f.To); d != nil {
+				d.OnDisk = false
+			}
+		}
+		return err
+	}
+	if Exists(ctx, f.To) || Exists(ctx, f.To+pipeline.MetaSuffix) {
+		return errs.New(errs.EditorDocument, "cannot redo creation: "+f.To+" already exists")
+	}
+	if err := document.WriteAtomic(abs+pipeline.MetaSuffix, f.Meta); err != nil {
+		return err
+	}
+	if err := document.WriteAtomic(abs, f.Source); err != nil {
+		os.Remove(abs + pipeline.MetaSuffix)
+		return err
+	}
+	if _, _, err := ctx.Pipeline.Scan(); err != nil {
+		return err
+	}
+	batch, err := ctx.Pipeline.Import(f.ID)
+	ctx.ApplyBatch(batch)
+	if err == nil && ctx.Docs != nil {
+		if d := ctx.Docs.Script(f.To); d != nil {
+			ctx.Docs.KeepScript(d)
+		}
+	}
+	return err
 }
 
 func MoveFile(ctx *context.Editor, id ids.AssetID, from, to string) error {
@@ -239,6 +377,10 @@ func UniqueFile(ctx *context.Editor, dir, stem, ext string) string {
 }
 
 func CreateFile(ctx *context.Editor, rel string, data []byte) (ids.AssetID, error) {
+	clean := path.Clean(rel)
+	if clean != rel || path.IsAbs(rel) || filepath.IsAbs(rel) || strings.ContainsAny(rel, "\\\x00") || !(Under(rel, "assets") || Under(rel, "scenes") || Under(rel, "scripts") || Under(rel, "prefabs")) {
+		return ids.AssetID{}, errs.New(errs.EditorDocument, "asset path must be a clean path under assets, scenes, scripts or prefabs")
+	}
 	if Exists(ctx, rel) {
 		return ids.AssetID{}, errs.New(errs.EditorDocument, rel+" already exists")
 	}

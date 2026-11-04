@@ -1,0 +1,15 @@
+#pragma aego abi 1
+#pragma domain sprite
+#include "engine/sprite.glsl"
+#include "flash_color.glsl"
+#pragma material
+uniform float Flash; // @instance @default(0) @range(0, 1)
+uniform vec4 FlashColor; // @instance @color @default(1, 1, 1, 1)
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+#pragma end
+void fragment() {
+    vec4 color = aego_sample();
+    float amount = clamp(Flash, 0.0, 1.0) * clamp(FlashColor.a, 0.0, 1.0);
+    color.rgb = demo_flash(color.rgb, FlashColor.rgb * color.a, amount);
+    aego_out = color * clamp(Opacity, 0.0, 1.0);
+}

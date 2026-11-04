@@ -48,26 +48,27 @@ const (
 )
 
 type Config struct {
-	Data       string
-	Profile    string
-	Window     string
-	Scene      string
-	LogFile    string
-	Trace      string
-	Tracing    bool
-	Replay     string
-	ReplayData []byte
-	Probe      bool
-	MemProfile bool
-	Headless   bool
-	Hidden     bool
-	Frames     int
-	FrameTime  float64
-	Debug      bool
-	Seed       uint64
-	NoProfile  bool
-	Logger     *log.Logger
-	Bundle     *Bundle
+	Data              string
+	Profile           string
+	Window            string
+	Scene             string
+	LogFile           string
+	Trace             string
+	Tracing           bool
+	Replay            string
+	ReplayData        []byte
+	Probe             bool
+	ObserveCheckpoint string
+	MemProfile        bool
+	Headless          bool
+	Hidden            bool
+	Frames            int
+	FrameTime         float64
+	Debug             bool
+	Seed              uint64
+	NoProfile         bool
+	Logger            *log.Logger
+	Bundle            *Bundle
 }
 
 type Player struct {
@@ -99,6 +100,7 @@ type Player struct {
 	closers    []func()
 	closed     bool
 	sampler    sampler
+	checkpoint *CheckpointObservation
 	memStart   map[[32]uintptr]memCount
 	allocs     *AllocReport
 }
@@ -385,6 +387,9 @@ func (p *Player) attach() error {
 		return err
 	}
 	p.detach = d
+	if p.cfg.ObserveCheckpoint != "" {
+		return p.watchCheckpoint(d)
+	}
 	return nil
 }
 

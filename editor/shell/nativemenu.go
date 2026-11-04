@@ -73,17 +73,25 @@ func (a *App) buildNativeMenu() ([]platform.Menu, []func()) {
 			continue
 		}
 		m := platform.Menu{Title: menuTitle(cat)}
-		last := -1
-		for _, d := range reg.Category(cat) {
-			if last >= 0 && d.Order/100 != last/100 {
-				m.Items = append(m.Items, platform.MenuItem{Separator: true})
+		for _, g := range a.groups(cat) {
+			var items []platform.MenuItem
+			last := -1
+			for _, d := range g.items {
+				if g.title == "" && last >= 0 && d.Order/100 != last/100 {
+					items = append(items, platform.MenuItem{Separator: true})
+				}
+				last = d.Order
+				id := d.ID
+				items = append(items, platform.MenuItem{ID: act(func() { reg.Run(id) }), Label: d.Title(), Shortcut: reg.Shortcut(id), Enabled: reg.Enabled(id), Checked: d.Checked != nil && d.Checked()})
 			}
-			last = d.Order
-			id := d.ID
-			m.Items = append(m.Items, platform.MenuItem{
-				ID: act(func() { reg.Run(id) }), Label: d.Title(), Shortcut: d.Shortcut.String(),
-				Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked(),
-			})
+			if len(items) == 0 {
+				continue
+			}
+			if g.title != "" {
+				m.Items = append(m.Items, platform.MenuItem{Label: g.title, Enabled: true, Items: items})
+			} else {
+				m.Items = append(m.Items, items...)
+			}
 		}
 		if cat == "Window" {
 			for i, sc := range []string{themeCategory, languageCategory} {

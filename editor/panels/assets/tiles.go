@@ -212,23 +212,6 @@ func (p *Panel) wave(a *pipeline.AssetInfo, r mathx.Rect) bool {
 	return true
 }
 
-func (p *Panel) audioCard(a *pipeline.AssetInfo, img mathx.Rect) {
-	ui := p.f.UI
-	th := &ui.Theme
-	tint := p.kindColor(a.Kind)
-	rad := th.Radius.Button
-	ui.RoundRect(img, rad, th.Border)
-	card := mathx.Rect{X: img.X + 1, Y: img.Y + 1, W: img.W - 2, H: img.H - 2}
-	ui.RoundRect(card, rad, th.CardBg)
-	ui.List().RoundRect(mathx.Rect{X: card.X, Y: card.Y, W: card.W, H: 3}, rad, tint, draw.CornersTop)
-	band := mathx.Rect{X: card.X + 4, Y: card.Y + card.H*0.22, W: card.W - 8, H: card.H * 0.46}
-	if !p.wave(a, band) {
-		icon := min(card.W*0.38, 32)
-		widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: card.Y + 3 + (card.H-3-icon)/2, W: icon, H: icon}, kindIcon(a.Kind), tint)
-	}
-	p.badge(a, card, tint)
-}
-
 // folderStack draws up to three previews as sheets sticking out of the folder icon.
 func (p *Panel) folderStack(dir string, img mathx.Rect) {
 	ui := p.f.UI

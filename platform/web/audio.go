@@ -55,17 +55,19 @@ type Audio struct {
 	views     map[[2]int]js.Value
 	index     js.Value
 	url       js.Value
-	noop      js.Func
 	spec      platform.AudioSpec
 	shared    bool
+	target    int
 	ready     bool
 	state     string
 	unlocked  bool
 	hidden    bool
 	paused    bool
 	closed    bool
+	loading   bool
 	tail      int32
 	count     sendCount
+	refill    func() int
 	underruns int
 	sum       float64
 	samples   float64
@@ -74,6 +76,10 @@ type Audio struct {
 	funcs     []js.Func
 	gain      js.Value
 	muted     bool
+	prime     []float32
+	primeMax  int
+	priming   bool
+	sentAudio bool
 }
 
 func (p *Platform) OpenAudio(want platform.AudioSpec) (platform.AudioOutput, error) {
@@ -137,10 +143,21 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 		g:       g, ctx: ctx, f32: g.Get("Float32Array"), u8: g.Get("Uint8Array"), atomics: g.Get("Atomics"),
 		state: ctx.Get("state").String(),
 	}
-	a.noop = a.fn(func(js.Value, []js.Value) any { return nil })
 	a.spec = platform.AudioSpec{SampleRate: ctx.Get("sampleRate").Int(), Channels: 2, Frames: want.Frames}
 	a.shared = g.Get("crossOriginIsolated").Truthy() && g.Get("SharedArrayBuffer").Truthy() && a.atomics.Truthy()
-	a.hook(ctx, "statechange", func(js.Value) { a.state = ctx.Get("state").String() })
+	latency := 0.0
+	if v := ctx.Get("baseLatency"); v.Type() == js.TypeNumber {
+		latency = v.Float()
+	}
+	if a.shared {
+		a.target = sharedTargetBlocks(latency, a.spec.SampleRate, a.spec.Frames)
+	} else {
+		a.target = messageTargetBlocks(latency, a.spec.SampleRate, a.spec.Frames)
+	}
+	a.hook(ctx, "statechange", func(js.Value) {
+		a.state = ctx.Get("state").String()
+		a.fillRunning()
+	})
 	if doc := g.Get("document"); doc.Truthy() {
 		for _, name := range []string{"pointerdown", "keydown", "touchend"} {
 			a.hook(doc, name, a.gesture)
@@ -161,24 +178,26 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 	a.publish()
 	blob := g.Get("Blob").New([]any{workletSource}, map[string]any{"type": "text/javascript"})
 	a.url = g.Get("URL").Call("createObjectURL", blob)
-	ok := a.fn(func(js.Value, []js.Value) any {
-		a.attach()
-		return nil
-	})
-	bad := a.fn(func(_ js.Value, args []js.Value) any {
-		a.failed = "the audio worklet did not load"
-		if len(args) > 0 {
-			a.failed += ": " + args[0].Call("toString").String()
-		}
-		return nil
-	})
 	if ctx.Get(workletLoaded).Truthy() {
 		a.attach()
 		return a, nil
 	}
-	loaded := a.fn(func(this js.Value, args []js.Value) any {
+	a.loading = true
+	loaded := a.fn(func(js.Value, []js.Value) any {
+		defer a.loadSettled()
 		ctx.Set(workletLoaded, true)
-		return ok.Invoke()
+		a.attach()
+		return nil
+	})
+	bad := a.fn(func(_ js.Value, args []js.Value) any {
+		defer a.loadSettled()
+		if !a.closed {
+			a.failed = "the audio worklet did not load"
+			if len(args) > 0 {
+				a.failed += ": " + args[0].Call("toString").String()
+			}
+		}
+		return nil
 	})
 	ctx.Get("audioWorklet").Call("addModule", a.url).Call("then", loaded, bad)
 	return a, nil
@@ -205,7 +224,8 @@ func (a *Audio) hook(target js.Value, name string, fn func(js.Value)) {
 
 func (a *Audio) quiet(v js.Value) {
 	if v.Truthy() && v.Get("catch").Type() == js.TypeFunction {
-		v.Call("catch", a.noop)
+		// Native JS callback can outlive this Go output (notably Close).
+		v.Call("catch", a.g.Get("Boolean"))
 	}
 }
 
@@ -227,7 +247,7 @@ func (a *Audio) attach() {
 	if a.closed {
 		return
 	}
-	po := map[string]any{"channels": a.spec.Channels, "report": audioReport}
+	po := map[string]any{"channels": a.spec.Channels, "report": audioReport, "refillAt": a.refillThreshold()}
 	if a.shared {
 		sab := a.g.Get("SharedArrayBuffer")
 		data := sab.New(ringFrames * a.spec.Channels * 4)
@@ -269,6 +289,15 @@ func (a *Audio) report(d js.Value) {
 	a.underruns = d.Get("underruns").Int()
 	a.sum = d.Get("sum").Float()
 	a.samples = d.Get("count").Float()
+	a.fillRunning()
+}
+
+// suspend() is asynchronous. Continue to feed actual running quanta until
+// statechange confirms suspension; service the restored device immediately.
+func (a *Audio) fillRunning() {
+	if a.refill != nil && a.Running() && !a.muted {
+		a.refill()
+	}
 }
 
 func (a *Audio) gesture(js.Value) {
@@ -282,6 +311,7 @@ func (a *Audio) visibility(hidden bool) {
 	a.hidden = hidden
 	switch {
 	case hidden:
+		a.fillRunning()
 		a.quiet(try(a.ctx, "suspend"))
 	case a.unlocked && !a.paused:
 		a.quiet(try(a.ctx, "resume"))
@@ -294,12 +324,12 @@ func (a *Audio) Running() bool {
 
 func (a *Audio) TargetBlocks() int {
 	if a.shared {
-		return 3
+		return a.target
 	}
 	if n := a.g.Get("aegoAudioBlocks"); n.Type() == js.TypeNumber && n.Int() > 0 {
 		return n.Int()
 	}
-	return 4
+	return max(messageMinimumBlocks, a.target)
 }
 
 func (a *Audio) Spec() platform.AudioSpec {
@@ -308,6 +338,32 @@ func (a *Audio) Spec() platform.AudioSpec {
 
 func floatBytes(s []float32) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(s))), len(s)*4)
+}
+
+// BeginAudioPrime buffers only the first pump fill. The worklet still counts
+// every shortage after playback begins; no silence is reclassified as audio.
+func (a *Audio) BeginAudioPrime(frames int) {
+	if a.sentAudio || a.priming || !a.Running() || frames <= 0 || a.spec.Channels <= 0 {
+		return
+	}
+	a.primeMax = min(frames, ringFrames)
+	a.prime = make([]float32, 0, a.primeMax*a.spec.Channels)
+	a.priming = true
+}
+
+// EndAudioPrime publishes the initial PCM in one message or one shared-ring
+// tail update. A later stall is not re-primed or ignored by the worklet.
+func (a *Audio) EndAudioPrime() {
+	if !a.priming {
+		return
+	}
+	a.priming = false
+	frames := len(a.prime) / a.spec.Channels
+	if frames > 0 && (!a.Running() || a.writePCM(a.prime) != frames) {
+		a.failed = "the initial audio buffer could not be committed"
+	}
+	a.prime = nil
+	a.primeMax = 0
 }
 
 func (a *Audio) Write(s []float32) int {
@@ -319,8 +375,21 @@ func (a *Audio) Write(s []float32) int {
 	if !a.Running() {
 		return frames
 	}
+	if a.priming {
+		frames = min(frames, a.primeMax-len(a.prime)/ch)
+		a.prime = append(a.prime, s[:frames*ch]...)
+		return frames
+	}
+	return a.writePCM(s[:frames*ch])
+}
+
+func (a *Audio) writePCM(s []float32) int {
+	ch := a.spec.Channels
+	frames := len(s) / ch
 	if a.shared {
-		return a.writeShared(s[:frames*ch])
+		written := a.writeShared(s[:frames*ch])
+		a.sentAudio = a.sentAudio || written > 0
+		return written
 	}
 	if a.chunkLen != frames*ch {
 		a.chunkLen = frames * ch
@@ -330,10 +399,27 @@ func (a *Audio) Write(s []float32) int {
 	js.CopyBytesToJS(a.chunkU8, floatBytes(s[:frames*ch]))
 	a.port.Call("postMessage", a.chunk)
 	a.count.sent += int64(frames)
+	a.sentAudio = true
 	return frames
 }
 
 const maxViews = 64
+
+// SetRefill permits the worklet's existing consumption reports to service the
+// same mixer between visual frames. No additional browser timer is installed.
+func (a *Audio) SetRefill(fill func() int) {
+	a.refill = fill
+	if a.port.Truthy() {
+		a.port.Call("postMessage", map[string]any{"refillAt": a.refillThreshold()})
+	}
+}
+
+func (a *Audio) refillThreshold() int {
+	if a.refill == nil {
+		return 0
+	}
+	return min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
+}
 
 func (a *Audio) FrameDriven() bool {
 	return true
@@ -383,6 +469,7 @@ func (a *Audio) Pause(on bool) {
 	a.paused = on
 	switch {
 	case on:
+		a.fillRunning()
 		a.quiet(try(a.ctx, "suspend"))
 	case a.unlocked && !a.hidden:
 		a.quiet(try(a.ctx, "resume"))
@@ -403,6 +490,7 @@ func (a *Audio) Close() {
 		return
 	}
 	a.closed = true
+	a.refill = nil
 	if a.node.Truthy() {
 		a.port.Set("onmessage", js.Null())
 		a.node.Call("disconnect")
@@ -426,6 +514,25 @@ func (a *Audio) Close() {
 		a.g.Delete("aegoAudioMute")
 		currentAudio = nil
 	}
+	if !a.loading {
+		a.releaseFunctions()
+	}
+}
+
+func (a *Audio) loadSettled() {
+	a.loading = false
+	// Promise handlers cannot be detached. Release them only after success
+	// or failure, including if Close happened during addModule.
+	if a.closed {
+		a.releaseFunctions()
+	}
+}
+
+func (a *Audio) releaseFunctions() {
+	for _, fn := range a.funcs {
+		fn.Release()
+	}
+	a.funcs = nil
 }
 
 func storageGet(g js.Value, key string) (v string, ok bool) {
@@ -475,6 +582,7 @@ func (a *Audio) Muted() bool {
 
 func (a *Audio) SetMuted(on bool) {
 	a.muted = on
+	a.fillRunning()
 	if a.gain.Truthy() {
 		a.gain.Get("gain").Call("setTargetAtTime", a.level(), a.ctx.Get("currentTime"), 0.01)
 	}

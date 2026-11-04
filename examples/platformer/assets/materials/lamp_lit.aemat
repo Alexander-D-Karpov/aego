@@ -1,0 +1,8 @@
+material version=1 shader=asset("ae900000000000000000000000000c86") {
+  params {
+    NormalStrength=0
+    EmissionColor=#ffbe78ff
+    EmissionIntensity=1.4
+    ReceiveShadows=false
+  }
+}

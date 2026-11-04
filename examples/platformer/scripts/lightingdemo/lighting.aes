@@ -1,0 +1,37 @@
+package lightingdemo
+
+import (
+	"aego/input"
+	"aego/lighting"
+)
+
+// This script only moves the player's child light and changes the development
+// view. It never changes the player, collision state, material or gameplay RNG.
+script Flashlight {
+	@export
+	var Player NodeRef
+
+	func Update(dt float) {
+		if Player != nil && Player.IsAlive() {
+			if Player.Get<SpriteRenderer>().FlipX {
+				node.SetPosition(Vec2{-0.35, -0.15})
+				node.SetRotation(3.1415927)
+			} else {
+				node.SetPosition(Vec2{0.35, -0.15})
+				node.SetRotation(0)
+			}
+		}
+		if input.Pressed("LightingToggle") {
+			lighting.SetEnabled(!lighting.Enabled())
+		}
+		if input.Pressed("LightingDebug") {
+			if lighting.Debug() == "lighting" {
+				lighting.SetDebug("normals")
+			} else if lighting.Debug() == "normals" {
+				lighting.SetDebug("shadows")
+			} else {
+				lighting.SetDebug("lighting")
+			}
+		}
+	}
+}

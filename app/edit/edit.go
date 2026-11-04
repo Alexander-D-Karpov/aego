@@ -52,7 +52,7 @@ type Config struct {
 	OpenPath    string
 	NativeNote  string
 	LauncherTab string
-	// AgentBackend runs the Agent panel; nil is Claude Code, except headless where nil means no panel (D343).
+	// AgentBackend overrides the saved provider for tests/replay; headless nil means no panel.
 	AgentBackend backend.Backend
 }
 
@@ -93,6 +93,8 @@ type Session struct {
 }
 
 func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
+	shotsDir := os.Getenv(EnvShots)
+	cfg = screenshotConfig(cfg, shotsDir)
 	if cfg.CPUProfile != "" {
 		f, err := os.Create(cfg.CPUProfile)
 		if err != nil {
@@ -117,8 +119,8 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 			panic(rec)
 		}
 	}()
-	if dir := os.Getenv(EnvShots); dir != "" {
-		return s.shots(dir)
+	if shotsDir != "" {
+		return s.shots(shotsDir)
 	}
 	if err := s.Run(); err != nil {
 		return err
@@ -232,10 +234,20 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		PrefsDir:    prefsDir(cfg),
 		LogsDir:     LogsDir(),
 		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
-		Exporter:    newExporter(p, h.Pipeline),
-		Agent:       s.agentHost(cfg),
-		Proxy:       s.startProxy,
-		Updates:     s.updates(cfg),
+		Exporter: newExporter(p, h.Pipeline, func() []string {
+			var dirty []string
+			if s.App != nil {
+				for _, doc := range s.App.Context().Docs.Scripts() {
+					if doc.Dirty() {
+						dirty = append(dirty, doc.Path)
+					}
+				}
+			}
+			return dirty
+		}),
+		Agent:   s.agentHost(cfg),
+		Proxy:   s.startProxy,
+		Updates: s.updates(cfg),
 	})
 	s.driver = &driver{App: s.App, s: s}
 	return s, nil
@@ -293,11 +305,17 @@ func (s *Session) applyBatch(b *pipeline.Batch) {
 		ctx.ApplyBatch(b)
 		return
 	}
-	if len(b.Imported) == 0 {
-		return
+	for id := range b.Failed {
+		s.Loader.RejectSource(id)
 	}
-	if err := s.Loader.Swap(b.Imported, s.Pipeline.Artifacts()); err != nil {
-		s.log.Error("hot reload failed, keeping the previous assets", log.F("err", err.Error()))
+	if len(b.Imported) > 0 {
+		if err := s.Loader.Swap(b.Imported, s.Pipeline.Artifacts()); err != nil {
+			s.log.Error("hot reload failed, keeping the previous assets", log.F("err", err.Error()))
+			return
+		}
+	}
+	for _, id := range b.Removed {
+		s.Loader.Drop(id)
 	}
 }
 
@@ -354,6 +372,11 @@ func (s *Session) Close() {
 	if s.bridge != nil {
 		s.bridge.Close()
 		s.bridge = nil
+	}
+	if s.App != nil {
+		if closer, ok := s.App.AgentExporter().(interface{ Close() }); ok {
+			closer.Close()
+		}
 	}
 	s.Host.Close()
 }

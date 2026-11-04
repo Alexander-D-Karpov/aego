@@ -37,6 +37,9 @@ script PlayerController {
 	@export(tip="Hitbox that the Hit frame of the attack clip pulses")
 	var Slash NodeRef
 
+	@export(tip="Landing dust emitter")
+	var Dust NodeRef
+
 	@export(min=0)
 	var Reach float = 0.6
 
@@ -73,6 +76,9 @@ script PlayerController {
 	}
 
 	func OnLanded(speed float) {
+		if Dust != nil && Dust.IsAlive() {
+			Dust.Get<ParticleSystem2D>().Burst(8)
+		}
 		if speed > LandShake {
 			camera.Shake(0.35)
 		}

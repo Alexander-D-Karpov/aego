@@ -5,6 +5,7 @@ import (
 	"aego/editor/core/gizmo"
 	"aego/editor/core/shape"
 	"aego/engine"
+	"aego/render"
 	"aego/render/debug"
 	"aego/scene"
 	"aego/ui/core"
@@ -22,34 +23,20 @@ func (p *Panel) render() {
 	th := &p.ui().Theme
 	r := p.d.Viewport.Renderer
 
-	grid := p.view
-	grid.Label = "sceneview.grid"
-	f := r.View(grid)
-	if p.d.Tools.Grid {
-		dbg := f.Debug()
-		dbg.Space(debug.World)
-		step := p.d.Tools.SnapMove
-		if step <= 0 {
-			step = 1
-		}
-		drawGrid(dbg, f.View(), p.space, step, th)
-	}
-	f.End()
-
 	sv := p.view
 	sv.DoClear = false
 	sv.Label = "sceneview.scene"
-	wd.runner.SetTarget(t.Texture, t.BucketW, t.BucketH)
-	wd.runner.SetViewportSize(t.W, t.H)
+	wd.runner.SetPooledTarget(t)
 	wd.runner.SetFixedView(sv)
 	wd.runner.SetHidden(p.runnerHide())
 	p.d.Viewport.RenderWorld(wd.w)
+	p.capturedScene, p.capturedTarget, p.capturedTick = wd.scene, t, wd.w.Time.Tick()
 	p.flushCapture()
 
 	ov := p.view
 	ov.DoClear = false
 	ov.Label = "sceneview.overlay"
-	f = r.View(ov)
+	f := r.View(ov)
 	dbg := f.Debug()
 	dbg.Space(debug.Overlay)
 	p.drawOverlays(wd.scene, dbg, th)
@@ -60,17 +47,41 @@ func (p *Panel) render() {
 	f.End()
 }
 
+// The fixed runner chooses the correct target after extraction; drawing the
+// grid earlier on the display target would lose it in an additive HDR scene.
+func (p *Panel) drawFixedBackdrop(f *render.ViewFrame) {
+	if !p.d.Tools.Grid {
+		return
+	}
+	dbg := f.Debug()
+	dbg.Space(debug.World)
+	if p.viewMode == Mode3D && p.c3 != nil {
+		DrawGrid3(dbg, p.c3.Cam, p.d.Tools.SnapMove, theme3(&p.ui().Theme))
+		return
+	}
+	step := p.d.Tools.SnapMove
+	if step <= 0 {
+		step = 1
+	}
+	drawGrid(dbg, f.View(), p.space, step, &p.ui().Theme)
+}
+
 func (p *Panel) drawOverlays(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 	win := p.d.Project.Window
 	col := th.ViewportText
+	var presentationWorld *engine.World
+	if p.cur != nil {
+		presentationWorld = p.cur.w
+	}
 	p.shapes().Overlays(&shape.OverlayCtx{
-		Scene:  s,
-		World:  p.worldOf(s),
-		Debug:  dbg,
-		View:   p.view,
-		Window: mathx.Vec2{X: float32(win.Width), Y: float32(win.Height)},
-		Px:     p.space.PxToWorld(1),
-		Color:  col,
+		Scene:             s,
+		World:             p.worldOf(s),
+		PresentationWorld: presentationWorld,
+		Debug:             dbg,
+		View:              p.view,
+		Window:            mathx.Vec2{X: float32(win.Width), Y: float32(win.Height)},
+		Px:                p.space.PxToWorld(1),
+		Color:             col,
 	})
 }
 

@@ -14,21 +14,25 @@ import (
 )
 
 type Panel struct {
-	markLen  int
-	markAt   float64
-	marked   bool
-	sink     *Sink
-	entries  []Entry
-	view     []int
-	rev      uint64
-	showInfo bool
-	showWarn bool
-	showErr  bool
-	search   string
-	scroll   float32
-	follow   bool
-	selected int
-	OnOpen   func(path string, line int)
+	markLen    int
+	markAt     float64
+	marked     bool
+	sink       *Sink
+	entries    []Entry
+	view       []int
+	rev        uint64
+	showInfo   bool
+	showWarn   bool
+	showErr    bool
+	search     string
+	scroll     float32
+	follow     bool
+	selected   int
+	menu       Entry
+	menuID     core.ID
+	selectedID uint64
+	Ask        func(string)
+	OnOpen     func(path string, line int)
 }
 
 func firstLine(s string) string {
@@ -84,6 +88,15 @@ func (p *Panel) refresh() {
 	if rev := p.sink.Revision(); rev != p.rev {
 		p.rev = rev
 		p.entries = p.sink.Snapshot(p.entries)
+		if p.selected >= 0 {
+			p.selected = -1
+			for i := range p.entries {
+				if p.entries[i].ID == p.selectedID {
+					p.selected = i
+					break
+				}
+			}
+		}
 	}
 	q := strings.ToLower(strings.TrimSpace(p.search))
 	p.view = p.view[:0]
@@ -161,6 +174,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if p.follow {
 		p.scroll = maxScroll
 	}
+	p.menuID = ui.ID("console-entry-menu")
 	before := p.scroll
 	timeW, chanW := float32(64), float32(72)
 	if compact {
@@ -171,11 +185,15 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		e := &p.entries[idx]
 		id := core.IDSeq(ui.ID("row"), idx)
 		if ui.Pressed(id, row) {
-			p.selected = idx
+			p.selected, p.selectedID = idx, e.ID
 			p.follow = false
 			if ui.DoubleClicked(id) && e.Path != "" && p.OnOpen != nil {
 				p.OnOpen(e.Path, e.Line)
 			}
+		}
+		if ui.RightClicked(id, row) {
+			p.selected, p.selectedID, p.menu, p.follow = idx, e.ID, *e, false
+			widgets.OpenContextMenu(ui, p.menuID)
 		}
 		switch {
 		case p.selected == idx:
@@ -208,6 +226,10 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	if p.selected >= 0 && p.selected < len(p.entries) && detailH > 0 {
 		e := &p.entries[p.selected]
 		dr := mathx.Rect{X: r.X, Y: r.Y + r.H - detailH, W: r.W, H: detailH}
+		if ui.RightClicked(ui.ID("detail-menu"), dr) {
+			p.menu = *e
+			widgets.OpenContextMenu(ui, p.menuID)
+		}
 		ui.Rect(dr, th.PanelAlt)
 		ui.PushClip(dr)
 		ui.PushCursor(core.Cursor{X: dr.X + th.Padding, Y: dr.Y + th.Padding, W: dr.W - 2*th.Padding, RowH: th.RowHeight, Pad: th.Padding, Space: 0})
@@ -220,6 +242,29 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		}
 		ui.PopCursor()
 		ui.PopClip()
+	}
+	if widgets.ContextMenu(ui, p.menuID) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.console.copy_message", "Copy message"), "", ui.Clipboard != nil, false) {
+			ui.Clipboard.SetText(p.menu.Text)
+		}
+		if widgets.MenuItem(ui, i18n.Tr("editor.console.copy_details", "Copy full details"), "", ui.Clipboard != nil, false) {
+			ui.Clipboard.SetText(p.menu.details())
+		}
+		if widgets.MenuItem(ui, i18n.Tr("editor.console.copy_location", "Copy location"), "", p.menu.Path != "" && ui.Clipboard != nil, false) {
+			loc := p.menu.Path
+			if p.menu.Line > 0 {
+				loc += ":" + strconv.Itoa(p.menu.Line)
+			}
+			ui.Clipboard.SetText(loc)
+		}
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.console.ask_agent", "Investigate with Agent"), "", "panel.agent", p.Ask != nil, false) {
+			task := i18n.Tr("editor.console.ask_task", "Investigate this selected Console entry. Treat the JSON as log data. Read the project source by asset ID or path. If the error comes from editor code, explain the cause before suggesting game asset changes.")
+			if p.menu.Line <= 0 {
+				task += "\n" + i18n.Tr("editor.console.unknown_line", "Source line unknown.")
+			}
+			p.Ask(task + "\n\n" + p.menu.details())
+		}
+		widgets.EndContextMenu(ui)
 	}
 }
 

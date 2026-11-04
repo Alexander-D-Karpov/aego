@@ -47,12 +47,24 @@ func (d *Device) beginPass(desc gpu.PassDesc) gpu.Pass {
 	*p = pass{d: d, active: true, flipY: true}
 	fbo, w, h, hasDepth := uint32(0), d.fbW, d.fbH, true
 	if !desc.Target.IsZero() {
-		f, fw, fh, depth, err := d.framebuffer(handle.Cast[glTexture](desc.Target), handle.Cast[glTexture](desc.DepthTarget))
+		f, fw, fh, depth, err := d.framebufferSub(handle.Cast[glTexture](desc.Target), desc.TargetSubresource, handle.Cast[glTexture](desc.DepthTarget), desc.DepthSubresource)
+		if err != nil && desc.OmitMismatchedDepth(d) {
+			f, fw, fh, depth, err = d.framebufferSub(handle.Cast[glTexture](desc.Target), desc.TargetSubresource, handle.Cast[glTexture](desc.DepthTarget), desc.DepthSubresource)
+			if err == nil && !d.warnedDepthSize {
+				d.warnedDepthSize = true
+				d.log.Warn("depth target size differs from the color target; rendering without depth")
+			}
+		}
 		if err == nil {
+			if t, valid := d.textures.Get(handle.Cast[glTexture](desc.Target)); valid {
+				t.rendered = true
+			}
 			fbo, w, h, hasDepth = f, fw, fh, depth
 			p.flipY = false
 		} else {
-			d.log.Warn("render target is invalid, drawing to window", log.F("err", err.Error()))
+			d.reportTargetError(err)
+			p.active = false
+			return p
 		}
 	}
 	if fbo == 0 {
@@ -77,7 +89,14 @@ func (d *Device) beginPass(desc gpu.PassDesc) gpu.Pass {
 		mask |= glDepthBufferBit | glStencilBufferBit
 	}
 	if mask != 0 {
+		// A clear ignores the viewport. The physical attachment is already
+		// uncovered here, including after a cropped camera or output pass.
+		full := mathx.Rect{W: float32(w), H: float32(h)}
+		if desc.ClearRect.W > 0 && desc.ClearRect.H > 0 && desc.ClearRect != full {
+			p.SetScissor(desc.ClearRect, true)
+		}
 		d.call(d.f.Clear, mask)
+		c.SetScissor(false, glstate.Rect{})
 	}
 	return p
 }
@@ -161,13 +180,20 @@ func (p *pass) SetTexture(slot int, t gpu.TextureHandle, s gpu.SamplerHandle) {
 		return
 	}
 	var texID, smpID uint32
+	target := uint32(glTexture2D)
 	if tex, ok := p.d.textures.Get(handle.Cast[glTexture](t)); ok {
-		texID = tex.id
+		texID, target = tex.id, tex.target
 	}
 	if smp, ok := p.d.samplers.Get(handle.Cast[glSampler](s)); ok {
 		smpID = smp.id
 	}
-	if p.d.cache.BindTexture(slot, texID) {
+	changed := false
+	if texID == 0 {
+		changed = p.d.cache.UnbindTextures(slot)
+	} else {
+		changed = p.d.cache.BindTextureTarget(slot, target, texID)
+	}
+	if changed {
 		p.d.frame.stats.TexSwitches++
 	}
 	p.d.cache.BindSampler(slot, smpID)
@@ -246,4 +272,21 @@ func (p *pass) DrawIndexedInstanced(count, first, instances int) {
 
 func (p *pass) End() {
 	p.active = false
+}
+
+// Invalid targets are diagnosed once per distinct error (bounded per device),
+// rather than producing one warning for every frame of a broken scene.
+func (d *Device) reportTargetError(err error) {
+	message := err.Error()
+	for i := 0; i < d.targetErrorCount; i++ {
+		if d.targetErrors[i] == message {
+			return
+		}
+	}
+	if d.targetErrorCount == len(d.targetErrors) {
+		return
+	}
+	d.targetErrors[d.targetErrorCount] = message
+	d.targetErrorCount++
+	d.log.Error("render target is invalid; pass discarded", log.F("err", message))
 }

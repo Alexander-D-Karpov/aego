@@ -13,6 +13,7 @@ import (
 	"aego/engine"
 	"aego/engine/base"
 	"aego/engine/module"
+	"aego/engine/problems"
 	"aego/engine/recorder"
 	"aego/platform"
 	"aego/render"
@@ -90,6 +91,7 @@ type Game struct {
 	renderer *render.Renderer
 	rstats   func() render.Stats
 	loader   *loader.Loader
+	problems *problems.Service
 	runner   *frame.Runner
 	rt       *scriptruntime.Runtime
 	scene    *scene.Scene
@@ -159,11 +161,22 @@ func newGame(cfg GameConfig, types *scene.Types, reg *bind.Registry, man *module
 	e.SetService(renderhost.ServiceID, g.renderer)
 	e.SetView(frame.ServiceID, g.runner)
 	e.MainWorld().Recorder = recorder.New(recordDepth)
-	if err := man.Init(&module.InitContext{Engine: e, Assets: g.loader, Log: g.log, Sections: sections}); err != nil {
+	g.problems = problems.New()
+	if err := man.Init(&module.InitContext{Engine: e, Assets: g.loader, Log: g.log, Sections: sections, Problems: g.problems}); err != nil {
 		e.Close()
 		return nil, err
 	}
 	return g, nil
+}
+
+// Problems returns the modules' current aggregate, including diagnostics from
+// presentation/extraction that are intentionally not logged every frame.
+func (g *Game) Problems() []problems.Diagnostic {
+	if g.problems == nil {
+		return nil
+	}
+	list, _ := g.problems.Collect()
+	return list
 }
 
 func (g *Game) record(r log.Record) {

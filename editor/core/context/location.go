@@ -1,10 +1,12 @@
 package context
 
 import (
+	"path"
 	"strings"
 
 	"aego/core/ids"
 	"aego/editor/core/document"
+	"aego/engine/problems"
 )
 
 const (
@@ -23,6 +25,7 @@ const (
 	TargetSettings
 	TargetAsset
 	TargetEvents
+	TargetAssetDocument
 )
 
 type Location struct {
@@ -66,14 +69,29 @@ func AssetAt(path string) Location {
 	return Location{Target: TargetAsset, Path: path, Offset: -1}
 }
 
+// AssetDocumentAt opens the asset's registered document; AssetAt remains an
+// explicit reveal-in-Assets location used by references and diagnostic links.
+func AssetDocumentAt(path string) Location {
+	return Location{Target: TargetAssetDocument, Path: path, Offset: -1}
+}
+
 func EventsAt(frame uint64) Location {
 	return Location{Target: TargetEvents, Frame: frame, Offset: -1}
 }
 
 func (l Location) IsScript() bool {
-	return strings.HasSuffix(l.Path, document.ScriptExt) ||
+	if strings.HasSuffix(l.Path, document.ScriptExt) ||
 		strings.HasPrefix(l.Path, StubPrefix) ||
-		strings.HasPrefix(l.Path, GoPrefix)
+		strings.HasPrefix(l.Path, GoPrefix) {
+		return true
+	}
+	// These source assets share the code editor, while their own importers
+	// provide diagnostics instead of the Aego script language service.
+	switch strings.ToLower(path.Ext(l.Path)) {
+	case ".aeshader", ".aemat", ".glsl", ".vert", ".frag":
+		return true
+	}
+	return false
 }
 
 type SearchItem struct {
@@ -126,6 +144,24 @@ func (e *Editor) Open(l Location) {
 			e.ShowEvents(l.Frame)
 		}
 		return
+	case TargetAssetDocument:
+		if _, err := e.OpenAssetPath(l.Path); err != nil {
+			e.Notify(LevelError, err.Error())
+		}
+		return
+	}
+	if l.Path != "" && e.Pipeline != nil && e.Docs != nil {
+		if id, ok := e.Pipeline.Lookup(document.Clean(l.Path)); ok {
+			if l.Node.IsZero() && l.Line <= 0 && l.Offset < 0 && l.Symbol == "" {
+				if _, err := e.OpenAsset(id); err != nil {
+					e.Notify(LevelError, err.Error())
+				}
+				return
+			}
+			// A diagnostic/source location shares the model, while retaining its
+			// exact line or node destination instead of opening the default view.
+			_, _ = e.DocumentForAsset(id)
+		}
 	}
 	switch {
 	case l.IsScript():
@@ -143,7 +179,7 @@ func (e *Editor) Open(l Location) {
 			e.OpenScript(l.Path, l.Line)
 			return
 		}
-	case strings.HasSuffix(l.Path, document.SceneExt):
+	case strings.HasSuffix(l.Path, document.SceneExt), strings.HasSuffix(l.Path, document.PrefabExt):
 		if _, err := e.Docs.Open(l.Path); err != nil {
 			e.Notify(LevelError, err.Error())
 			return
@@ -184,9 +220,27 @@ func (e *Editor) ScriptProblems(dst []ScriptProblem) ([]ScriptProblem, uint64) {
 	list, prev := e.Problems.Collect()
 	rev = rev*1099511628211 ^ prev
 	for i := range list {
-		dst = append(dst, e.row(&list[i]))
+		if !sourceAlreadyExplainsPreview(&list[i], list) {
+			dst = append(dst, e.row(&list[i]))
+		}
 	}
 	return dst, rev
+}
+
+// A thumbnail can explain its failure by forwarding its asset's import error.
+// Keep that reason on the thumbnail, but show the source location once in the
+// consolidated Problems list when the source provider reports that exact error.
+func sourceAlreadyExplainsPreview(v *problems.Diagnostic, all []problems.Diagnostic) bool {
+	if v.Owner != "editor.preview" || v.Code != "THUMB001" || v.Severity != problems.Warning || v.Subject.Asset.IsZero() {
+		return false
+	}
+	for i := range all {
+		d := &all[i]
+		if d.Severity == problems.Error && d.Owner != v.Owner && d.Subject.Asset == v.Subject.Asset && d.Message == v.Message {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Editor) FirstError(pkg string) (ScriptProblem, int, bool) {

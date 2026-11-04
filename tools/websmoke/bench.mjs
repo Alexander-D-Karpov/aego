@@ -1,8 +1,10 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { chromium, firefox } from "playwright-core";
+import { exactBenchmarkMetrics, requiredCIBaselineErrors, requiredCIGateOptionErrors, requiredCIMeasurementErrors } from "./bench-baseline.mjs";
 
 const opts = Object.fromEntries(
     process.argv.slice(2).map((a) => {
@@ -10,7 +12,13 @@ const opts = Object.fromEntries(
         return [k, v ?? "true"];
     }),
 );
-const site = path.resolve(opts.site ?? "../../site");
+const measureOnly = opts["measure-only"] === "true";
+if (measureOnly && opts.gate === "true") throw new Error("measurement-only mode cannot claim a gate result");
+if (process.env.AEGO_CI_REQUIRE_WEB_BASELINE === "1" && opts.gate === "true") {
+    const errors = requiredCIGateOptionErrors(opts);
+    if (errors.length) throw new Error(`required CI benchmark: ${errors.join("; ")}`);
+}
+const site = path.resolve(opts.root ?? opts.site ?? "../../site");
 const out = path.resolve(opts.out ?? "../../.cache/web-bench.json");
 const md = path.resolve(opts.md ?? out.replace(/\.json$/, ".md"));
 const basePath = path.resolve(opts.baseline ?? "../../.cache/web-bench.base.json");
@@ -45,6 +53,9 @@ function fail(msg) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const sentHashes = new Map();
+let requestSeq = 0;
+
 function serve(root) {
     return new Promise((resolve) => {
         const srv = http.createServer((req, res) => {
@@ -56,20 +67,30 @@ function serve(root) {
                 res.end();
                 return;
             }
-            res.writeHead(200, { "Content-Type": mime[path.extname(file)] || "application/octet-stream" });
-            fs.createReadStream(file).pipe(res);
+            const headers = { "Content-Type": mime[path.extname(file)] || "application/octet-stream" };
+            const body = fs.createReadStream(file);
+            if (opts.receipts === "true" && ["game.wasm", "manifest.aetext"].includes(path.basename(file))) {
+                const token = String(++requestSeq);
+                const hash = createHash("sha256");
+                headers["x-aego-receipt"] = token;
+                body.on("data", chunk => hash.update(chunk));
+                res.on("finish", () => sentHashes.set(token, hash.digest("hex")));
+            }
+            res.writeHead(200, headers);
+            body.pipe(res);
         });
         srv.listen(0, "127.0.0.1", () => resolve(srv));
     });
 }
 
-function probe() {
+function probe(exact) {
     const m = (globalThis.__bench = { on: false, hold: false, held: [], last: 0, work: [], gaps: [], long: 0, longMs: 0 });
     const raf = window.requestAnimationFrame.bind(window);
     const wrap = (cb) => (t) => {
         const s = performance.now();
+        const wasOn = m.on;
         cb(t);
-        if (m.on) {
+        if (exact ? wasOn : m.on) {
             m.work.push(performance.now() - s);
             if (m.last) m.gaps.push(t - m.last);
         }
@@ -80,6 +101,15 @@ function probe() {
         m.hold = false;
         m.last = 0;
         for (const cb of m.held.splice(0)) raf(wrap(cb));
+    };
+    // The first recovered frame owns the clock check. Keep the subsequent
+    // frames for input delivery and liveness, including on slow renderers.
+    m.watchSteps = (count, save) => {
+        const g = globalThis.aegoGame;
+        const first = g.frames() + 1;
+        if (!g.window(first, first + count - 1, () => {}, (a, z) => save({ first: JSON.parse(a), after: JSON.parse(z) }))) {
+            throw new Error("unable to arm lifecycle frame window");
+        }
     };
     m.hide = (on) => {
         Object.defineProperty(document, "hidden", { configurable: true, get: () => on });
@@ -198,7 +228,11 @@ function summarize(s0, s1, raw) {
     const gf = s1.gpuFrames - s0.gpuFrames;
     return {
         frames: n,
+        intervals: raw.gaps.length,
+        fps: raw.gaps.length ? raw.gaps.length * 1000 / raw.gaps.reduce((a, b) => a + b, 0) : null,
+        counters: Object.fromEntries(["postFXPasses", "postFXTargets", "postFXFailures", "postFXAuxPixels", "postFXReplacedClears", "dirtyShadowMasks", "shadowCacheHits", "shadowGeometryNs", "resolvePasses"].filter(k => typeof s1[k] === "number" && typeof s0[k] === "number").map(k => [k, s1[k] - s0[k]])),
         renderer: s1.renderer,
+        moduleSamples: s1.moduleCounters ? [s0.moduleCounters, s1.moduleCounters] : undefined,
         frameMs: quant(raw.gaps),
         workMs: quant(raw.work),
         slowPct: raw.gaps.length ? (raw.gaps.filter((g) => g > 33.4).length * 100) / raw.gaps.length : null,
@@ -222,31 +256,58 @@ function summarize(s0, s1, raw) {
 async function scenarios(page) {
     const res = {};
     await page.focus("#game");
-    const before = await stats(page);
-    await page.evaluate(() => {
+    const before = await page.evaluate(() => {
         const m = globalThis.__bench;
+        const s = JSON.parse(globalThis.aegoGame.stats());
         m.hold = true;
         m.hide(true);
+        return s;
     });
     for (const k of ["KeyA", "KeyS", "KeyD"]) await page.keyboard.press(k);
     await sleep(2000);
     await page.evaluate(() => {
         const m = globalThis.__bench;
+        const parked = JSON.parse(globalThis.aegoGame.stats());
+        m.resumeSamples = null;
+        m.watchSteps(60, samples => { m.resumeSamples = { parked, ...samples }; });
         m.hide(false);
         m.release();
     });
-    await waitFrames(page, before.frames + 60, 30000);
-    const after = await stats(page);
-    res.hidden = { clampedS: after.clamped - before.clamped, keys: after.keys - before.keys };
-    if (await page.evaluate(() => globalThis.aegoGame.loseContext(true))) {
-        await waitFor(async () => (await stats(page)).lost, "the context loss", 10000);
-        const lost = await stats(page);
-        await page.evaluate(() => globalThis.aegoGame.loseContext(false));
-        const back = await waitFor(async () => {
-            const s = await stats(page);
-            return !s.lost && s.restores >= 1 && s.frames > lost.frames + 30 && s;
-        }, "the context restore", 30000);
-        res.contextLoss = { restores: back.restores, clampedS: back.clamped - lost.clamped };
+    const resumed = await waitFor(() => page.evaluate(() => globalThis.__bench.resumeSamples), "60 frames after visibility resume", 30000);
+    if (resumed.parked.frames !== before.frames || resumed.parked.ticks !== before.ticks || resumed.first.frames !== before.frames + 1 || resumed.after.frames !== before.frames + 60) {
+        throw new Error("hidden simulation advanced or first resumed frame missed");
+    }
+    res.hidden = { clampedS: resumed.first.clamped - before.clamped, keys: resumed.after.keys - before.keys,
+        visibleClampedS: resumed.after.clamped - resumed.first.clamped,
+        frames: { hidden: before.frames, resumed: resumed.first.frames, settled: resumed.after.frames } };
+    const available = await page.evaluate(() => {
+        const g = globalThis.aegoGame, m = globalThis.__bench, c = document.querySelector("#game");
+        m.lossStart = null;
+        const onLost = () => { m.lossStart = JSON.parse(g.stats()); };
+        c.addEventListener("webglcontextlost", onLost, { once: true });
+        if (g.loseContext(true)) return true;
+        c.removeEventListener("webglcontextlost", onLost);
+        return false;
+    });
+    if (available) {
+        const lost = await waitFor(() => page.evaluate(() => globalThis.__bench.lossStart), "the context loss event", 10000);
+        if (!lost.lost) throw new Error("device failed to acknowledge context loss");
+        await page.evaluate(() => {
+            const g = globalThis.aegoGame, m = globalThis.__bench;
+            m.restoreSamples = null;
+            document.querySelector("#game").addEventListener("webglcontextrestored", () => {
+                const restored = JSON.parse(g.stats());
+                m.watchSteps(31, samples => { m.restoreSamples = { restored, ...samples }; });
+            }, { once: true });
+            if (!g.loseContext(false)) throw new Error("cannot request context restoration");
+        });
+        const back = await waitFor(() => page.evaluate(() => globalThis.__bench.restoreSamples), "the first restored frame and 30 following frames", 30000);
+        if (back.first.lost || back.first.restores <= lost.restores || back.first.frames !== back.restored.frames + 1 || back.after.lost || back.after.frames !== back.first.frames + 30) {
+            throw new Error("restore event or first restored frame missed");
+        }
+        res.contextLoss = { restores: back.first.restores, clampedS: back.first.clamped - lost.clamped,
+            visibleClampedS: back.after.clamped - back.first.clamped,
+            frames: { lost: lost.frames, restored: back.restored.frames, resumed: back.first.frames, settled: back.after.frames } };
     } else {
         res.contextLoss = { skipped: "WEBGL_lose_context is not available" };
     }
@@ -258,18 +319,34 @@ async function runOnce(browser, gc, i, profile = false) {
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.addInitScript(probe);
+    // Fingerprint the bytes the loader actually received, before the warm window.
+    const received = {};
+    if (opts.receipts === "true") page.on("response", response => {
+        const name = new URL(response.url()).pathname.split("/").pop();
+        if (name === "game.wasm" || name === "manifest.aetext") {
+            received[name] = response.headers()["x-aego-receipt"];
+        }
+    });
+    await page.addInitScript(probe, opts["exact-intervals"] === "true");
     await page.addInitScript((b64) => {
         if (b64) globalThis.aegoReplay = b64;
     }, replay);
-    const q = new URLSearchParams({ seed: "1", bench: "1" });
+    const q = new URLSearchParams({ seed: opts.seed ?? "1", bench: "1" });
+    if (opts.bool) q.set("benchBool", opts.bool);
     if (gc) q.set("gogc", gc);
     if (profile) q.set("memprofile", "1");
     const tracing = opts.trace === "true" && i === 0 && !gc && !profile;
     if (tracing) q.set("trace", "1");
     try {
-        await page.goto(`${base}/demo/?${q}`);
+        await page.goto(`${base}/${opts.root ? "" : "demo/"}?${q}`);
         await page.waitForFunction(() => globalThis.aegoGame, null, { timeout: 180000, polling: 20 });
+        if (opts["exact-intervals"] === "true") await page.evaluate(() => globalThis.aegoGame.frameLimit(0));
+        if (opts.bool) {
+            const [key, value] = opts.bool.split(":");
+            if (await page.evaluate(k => globalThis.aegoGame.boolSetting?.(k), key) !== (value === "1")) {
+                throw new Error("runtime did not apply " + opts.bool);
+            }
+        }
         if (maxdpr && !(await page.evaluate((r) => globalThis.aegoGame.pixelRatio(r), maxdpr))) errors.push("the window cannot limit its pixel ratio");
         const set = await page.evaluate(
             ([from, to]) => {
@@ -303,6 +380,18 @@ async function runOnce(browser, gc, i, profile = false) {
         await page.evaluate(() => globalThis.aegoGame.lockstep(false));
         const [s0, s1] = raw.window.map((w) => JSON.parse(w));
         const r = summarize(s0, s1, raw);
+        if (opts.receipts === "true") {
+            r.receipts = {};
+            for (const name of ["game.wasm", "manifest.aetext"]) {
+                const hash = sentHashes.get(received[name]);
+                if (!hash) errors.push("missing HTTP receipt for " + name);
+                else r.receipts[name] = hash;
+            }
+            r.browserState = await page.evaluate(() => {
+                const c = document.querySelector("#game");
+                return {hidden: document.hidden, focus: document.hasFocus(), dpr: devicePixelRatio, buffer: [c.width, c.height]};
+            });
+        }
         if (s1.ticks - s0.ticks !== r.frames) errors.push(`${s1.ticks - s0.ticks} ticks in ${r.frames} frames, the window is not in lockstep`);
         if (profile) {
             const a = await page.evaluate(() => globalThis.aegoGame.allocs());
@@ -313,7 +402,7 @@ async function runOnce(browser, gc, i, profile = false) {
             const t = await page.evaluate(() => globalThis.aegoGame.trace());
             if (t) fs.writeFileSync(out.replace(/\.json$/, `-${browser.browserType().name()}.trace.json`), t);
         }
-        if (i === 0 && !gc && !profile) r.scenarios = await scenarios(page);
+        if (i === 0 && !gc && !profile && !measureOnly) r.scenarios = await scenarios(page);
         r.errors = errors;
         return r;
     } finally {
@@ -346,7 +435,7 @@ function aggregate(list) {
 
 const at = (o, p) => p.split(".").reduce((v, k) => (v == null ? v : v[k]), o);
 
-const exact = ["drawsPerFrame", "bridge.calls", "bridge.draws", "bridge.bufferUploads", "bridge.bufferKB", "bridge.texUploads", "bridge.texKB", "bridge.programs", "bridge.targets"];
+const exact = exactBenchmarkMetrics;
 const timed = [["frameMs", "gaps"], ["workMs", "work"]];
 
 function unstable(key, r, bad) {
@@ -506,6 +595,7 @@ const meta = {
     warmup,
     frames,
     runs,
+    measurementOnly: measureOnly,
     browsers: {},
 };
 const results = {};
@@ -556,9 +646,9 @@ const report = { meta, results };
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, JSON.stringify(report) + "\n");
 const text = table(results) + sites(results);
-fs.writeFileSync(md, text);
+if (opts.md !== "false") fs.writeFileSync(md, text);
 console.log("\n" + text);
-console.log(`wrote ${out} and ${md}`);
+console.log(`wrote ${out}`);
 
 const saved = fs.existsSync(basePath) ? JSON.parse(fs.readFileSync(basePath, "utf8")) : {};
 const modes = saved.meta ? { [saved.meta.gpu]: saved } : saved;
@@ -571,10 +661,18 @@ if (opts["update-baseline"] === "true") {
 if (opts.gate === "true") {
     const baseline = modes[mode] ?? null;
     if (!baseline) console.log(`no ${mode} baseline in ${basePath}, run make web-bench-baseline; only absolute gates apply`);
+    if (process.env.AEGO_CI_REQUIRE_WEB_BASELINE === "1") {
+        for (const error of requiredCIBaselineErrors(baseline, browsers, {gpu: meta.gpu, warmup, frames, dpr, maxdpr})) {
+            fail(`required CI benchmark baseline: ${error}`);
+        }
+        for (const error of requiredCIMeasurementErrors(results, browsers, {gpu: meta.gpu, frames, runs})) {
+            fail(`required CI benchmark: ${error}`);
+        }
+    }
     for (const b of gate(results, baseline)) fail(b);
 }
 if (failures.length) {
     console.error(`${failures.length} failure(s)`);
     process.exit(1);
 }
-console.log("web bench: ok");
+console.log(measureOnly ? "web runtime measurement complete; functional gates not run" : "web bench: ok");

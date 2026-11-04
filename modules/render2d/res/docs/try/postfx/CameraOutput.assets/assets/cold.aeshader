@@ -1,0 +1,9 @@
+#pragma aego abi 1
+#pragma postfx
+#pragma material
+uniform float Strength; // @default(0.4) @range(0, 1)
+#pragma end
+void fragment() {
+    vec4 c = aego_sample(aego_uv);
+    aego_out = vec4(mix(c.rgb, c.rgb * vec3(0.76, 0.91, 1.0), Strength), c.a);
+}

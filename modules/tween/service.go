@@ -280,6 +280,10 @@ func (s *Service) Step(dt float32, unscaled bool) {
 	for i := range s.tweens.s {
 		e := &s.tweens.s[i]
 		if e.live && e.v.unscaled == unscaled {
+			if !s.props.Refresh(&e.v.tgt, e.v.node) {
+				s.finish(uint32(i), false)
+				continue
+			}
 			s.advance(uint32(i), &e.v, dt)
 		}
 	}

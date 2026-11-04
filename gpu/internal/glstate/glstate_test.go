@@ -10,18 +10,19 @@ func newMock() *mockAPI {
 	return &mockAPI{calls: map[string]int{}}
 }
 
-func (m *mockAPI) UseProgram(uint32)             { m.calls["program"]++ }
-func (m *mockAPI) BindVertexArray(uint32)        { m.calls["vao"]++ }
-func (m *mockAPI) BindUniformBuffer(int, uint32) { m.calls["ubo"]++ }
-func (m *mockAPI) BindTexture(int, uint32)       { m.calls["tex"]++ }
-func (m *mockAPI) BindSampler(int, uint32)       { m.calls["smp"]++ }
-func (m *mockAPI) BindFramebuffer(uint32)        { m.calls["fbo"]++ }
-func (m *mockAPI) SetBlend(Blend)                { m.calls["blend"]++ }
-func (m *mockAPI) SetDepth(Depth)                { m.calls["depth"]++ }
-func (m *mockAPI) SetCull(Cull)                  { m.calls["cull"]++ }
-func (m *mockAPI) FrontFace(bool)                { m.calls["front"]++ }
-func (m *mockAPI) Viewport(Rect)                 { m.calls["viewport"]++ }
-func (m *mockAPI) Scissor(bool, Rect)            { m.calls["scissor"]++ }
+func (m *mockAPI) UseProgram(uint32)                     { m.calls["program"]++ }
+func (m *mockAPI) BindVertexArray(uint32)                { m.calls["vao"]++ }
+func (m *mockAPI) BindUniformBuffer(int, uint32)         { m.calls["ubo"]++ }
+func (m *mockAPI) BindTextureTarget(int, uint32, uint32) { m.calls["tex-target"]++ }
+func (m *mockAPI) BindTexture(int, uint32)               { m.calls["tex"]++ }
+func (m *mockAPI) BindSampler(int, uint32)               { m.calls["smp"]++ }
+func (m *mockAPI) BindFramebuffer(uint32)                { m.calls["fbo"]++ }
+func (m *mockAPI) SetBlend(Blend)                        { m.calls["blend"]++ }
+func (m *mockAPI) SetDepth(Depth)                        { m.calls["depth"]++ }
+func (m *mockAPI) SetCull(Cull)                          { m.calls["cull"]++ }
+func (m *mockAPI) FrontFace(bool)                        { m.calls["front"]++ }
+func (m *mockAPI) Viewport(Rect)                         { m.calls["viewport"]++ }
+func (m *mockAPI) Scissor(bool, Rect)                    { m.calls["scissor"]++ }
 
 func TestRedundantCallsSkipped(t *testing.T) {
 	m := newMock()
@@ -110,5 +111,37 @@ func TestForget(t *testing.T) {
 	}
 	if c.BindUniformBuffer(MaxUniformBuffers, 1) || c.BindTexture(-1, 1) {
 		t.Fatal("out of range slots accepted")
+	}
+}
+
+func TestTextureTargetParticipatesInBindingCache(t *testing.T) {
+	m := newMock()
+	c := New(m)
+	if !c.BindTexture(2, 7) || c.BindTexture(2, 7) {
+		t.Fatal("2D binding cache")
+	}
+	if !c.BindTextureTarget(2, 0x8c1a, 7) || c.BindTextureTarget(2, 0x8c1a, 7) {
+		t.Fatal("array target omitted from binding key")
+	}
+	if !c.BindTexture(2, 7) {
+		t.Fatal("switch back to 2D was skipped")
+	}
+	c.ForgetTexture(7)
+	if !c.BindTextureTarget(2, 0x8c1a, 7) {
+		t.Fatal("deleted/reused texture binding was retained")
+	}
+}
+
+func TestUnbindClearsLatentArrayBinding(t *testing.T) {
+	m := newMock()
+	c := New(m)
+	c.BindTextureTarget(2, 0x8c1a, 7)
+	c.BindTexture(2, 9)
+	before2D, beforeArray := m.calls["tex"], m.calls["tex-target"]
+	if !c.UnbindTextures(2) || c.UnbindTextures(2) {
+		t.Fatal("unbind cache contract")
+	}
+	if m.calls["tex"] != before2D+1 || m.calls["tex-target"] != beforeArray+1 {
+		t.Fatal("not all supported targets were cleared")
 	}
 }

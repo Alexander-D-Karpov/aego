@@ -1,0 +1,24 @@
+meta version=1 {
+  id="9c37b31a336d248a200e85b4bdac87c9"
+  importer="texture"
+  importerVersion=4
+  settings {
+    atlas="platformer"
+    auto_normal=false
+    data=false
+    extrude=true
+    filter=nearest
+    generate_normal=false
+    height=asset("590235344b9373fbb20c8ee9802ecf13")
+    height_channel=r
+    height_strength=3
+    mips=false
+    normal=asset("f9b4fbd1cf35053617daff4a41012cd0")
+    normal_y=up
+    padding=2
+    rotate=false
+    semantic=color
+    srgb=true
+    trim=false
+  }
+}

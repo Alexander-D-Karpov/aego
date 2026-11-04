@@ -2,8 +2,11 @@ package preview
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
-	"hash/fnv"
+	"errors"
+	"fmt"
+
 	"image"
 	stddraw "image/draw"
 	"image/png"
@@ -11,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"aego/asset"
 	"aego/asset/pipeline"
@@ -20,10 +24,12 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/editor/core/document"
 	"aego/editor/core/shape"
 	"aego/editor/core/tasks"
 	"aego/engine"
 	"aego/engine/i18n"
+	"aego/engine/problems"
 	"aego/gpu"
 	"aego/render"
 	"aego/render/rt"
@@ -35,12 +41,14 @@ const (
 	Size      = 128
 	CacheDir  = "thumbs"
 	legacyDir = "thumbnails"
-	salt      = "preview.v1"
+	salt      = "gallery.v2"
 	lineCount = 30
 	CoverFile = "preview.png"
 )
 
 type Deps struct {
+	Problems   *problems.Service
+	Docs       *document.Manager
 	Engine     *engine.Engine
 	Pipeline   *pipeline.Pipeline
 	Renderer   *render.Renderer
@@ -64,25 +72,42 @@ const (
 )
 
 type item struct {
-	id     ids.AssetID
-	rev    uint64
-	key    string
-	state  state
-	tex    gpu.TextureHandle
-	region texture.Region
-	lines  []string
-	task   *tasks.Task
+	dispose        func()
+	motion         Motion
+	hoverRequested bool
+	motionLoaded   bool
+	role           asset.TextureRole
+	id             ids.AssetID
+	rev            uint64
+	key            string
+	state          state
+	tex            gpu.TextureHandle
+	region         texture.Region
+	lines          []string
+	task           *tasks.Task
+	content        pixels
+	reason         string
+	draft          uint64
 }
 
 type Service struct {
-	d        Deps
-	dir      string
-	items    map[ids.AssetID]*item
-	peaks    map[peakKey]*peakItem
-	frame    int64
-	gpuOK    bool
-	pool     *rt.Pool
-	coverKey string
+	sources        map[ids.AssetID]sourceFile
+	fontOnce       sync.Once
+	font           image.Image
+	chars          map[rune]glyph
+	issueRev       uint64
+	disconnect     func()
+	d              Deps
+	dir            string
+	items          map[ids.AssetID]*item
+	peaks          map[peakKey]*peakItem
+	frame          int64
+	gpuOK          bool
+	pool           *rt.Pool
+	coverKey       string
+	handlers       map[asset.ArtifactKind]Handler
+	presetHandlers []Handler
+	draft          uint64
 }
 
 func New(d Deps) *Service {
@@ -96,11 +121,23 @@ func New(d Deps) *Service {
 			return os.RemoveAll(legacy)
 		})
 	}
+	if d.Problems != nil {
+		s.disconnect = d.Problems.Add(problems.Source{Revision: func() uint64 { return s.issueRev }, Append: func(dst []problems.Diagnostic) []problems.Diagnostic {
+			for _, it := range s.items {
+				if it.reason != "" {
+					e, _ := s.entry(it.id)
+					dst = append(dst, problems.Diagnostic{Owner: "editor.preview", Code: "THUMB001", Severity: problems.Warning, Message: it.reason, Subject: problems.Subject{Kind: problems.SubjectAsset, Asset: it.id, File: e.Source}})
+				}
+			}
+			return dst
+		}})
+	}
 	return s
 }
 
 func (s *Service) Begin() {
 	s.frame++
+	s.draft = s.documentEpoch()
 	if s.d.Cover == nil || !s.gpuOK {
 		return
 	}
@@ -110,7 +147,7 @@ func (s *Service) Begin() {
 }
 
 func Image(k asset.ArtifactKind) bool {
-	return k == asset.ArtTexture || k == asset.ArtSpriteRegion || k == asset.ArtAudio
+	return k == asset.ArtAtlasPage || k == asset.ArtTexture || k == asset.ArtSpriteRegion || k == asset.ArtAudio
 }
 
 func Rendered(k asset.ArtifactKind) bool {
@@ -118,6 +155,12 @@ func Rendered(k asset.ArtifactKind) bool {
 }
 
 func (s *Service) entry(id ids.AssetID) (asset.Entry, bool) {
+	if f, ok := s.sources[id]; ok {
+		return asset.Entry{ID: id, Kind: SourceKind, Source: f.info.Path, Name: f.info.Name}, true
+	}
+	if b, ok := asset.LookupBuiltin(id); ok {
+		return asset.Entry{ID: id, Kind: b.Kind, Name: b.Name, Source: b.Name}, true
+	}
 	if s.d.Pipeline == nil || id.IsZero() {
 		return asset.Entry{}, false
 	}
@@ -126,41 +169,96 @@ func (s *Service) entry(id ids.AssetID) (asset.Entry, bool) {
 
 func (s *Service) Key(e asset.Entry) (string, bool) {
 	art, ok := e.Artifact(e.Kind)
-	if (!ok || art.Hash == "") && e.Kind == asset.ArtScript {
-		return s.scriptKey(e)
-	}
-	if !ok || art.Hash == "" {
+	if (!ok || art.Hash == "") && e.Kind != asset.ArtScript && e.Source == "" && !asset.IsBuiltin(e.ID) {
 		return "", false
 	}
-	h := fnv.New64a()
-	h.Write([]byte(salt))
-	h.Write([]byte(art.Hash))
-	if Rendered(e.Kind) {
-		deps := slices.Clone(e.Deps)
-		slices.SortFunc(deps, func(a, b ids.AssetID) int { return strings.Compare(a.String(), b.String()) })
-		for _, d := range deps {
-			if de, ok := s.entry(d); ok {
-				if da, ok := de.Artifact(de.Kind); ok {
-					h.Write([]byte(da.Hash))
+	h := sha256.New()
+	fmt.Fprintf(h, "%s:%d:%s:%s", salt, Size, s.handlers[e.Kind].Version, e.Kind)
+	if s.handlers[e.Kind].Render != nil && !s.gpuOK {
+		fmt.Fprint(h, "|no-gpu")
+	}
+	seen := map[ids.AssetID]bool{}
+	var visit func(asset.Entry)
+	visit = func(x asset.Entry) {
+		if seen[x.ID] {
+			return
+		}
+		seen[x.ID] = true
+		fmt.Fprintf(h, "|%s:%s:%s:%s", x.ID.String(), x.Source, x.Kind, x.Error)
+		if asset.IsBuiltin(x.ID) {
+			var data []byte
+			switch x.Kind {
+			case asset.ArtShader:
+				data, _ = asset.BuiltinShader(x.ID)
+			case asset.ArtMaterial:
+				data, _ = asset.BuiltinMaterial(x.ID)
+			}
+			fmt.Fprintf(h, "|%x", sha256.Sum256(data))
+		}
+		if len(x.Artifacts) == 0 && !asset.IsBuiltin(x.ID) && s.d.Pipeline != nil {
+			if st, err := os.Stat(s.d.Pipeline.Abs(x.Source)); err == nil {
+				fmt.Fprintf(h, "|%d:%d", st.ModTime().UnixNano(), st.Size())
+			}
+		}
+		for _, a := range x.Artifacts {
+			fmt.Fprintf(h, "|%s:%s", a.Kind, a.Hash)
+		}
+		if doc := s.d.Docs; doc != nil {
+			if a := doc.AssetDocument(x.ID); a != nil && a.Binding.PreviewSource != nil {
+				fmt.Fprintf(h, "|%x", sha256.Sum256(a.Binding.PreviewSource()))
+			}
+			for _, name := range []string{x.Source, x.Source + ".meta"} {
+				if d := doc.Script(name); d != nil && d.Dirty() {
+					fmt.Fprintf(h, "|%x", sha256.Sum256(d.Code.Bytes()))
 				}
+			}
+			if d := doc.Find(x.Source); d != nil && d.Dirty() {
+				fmt.Fprintf(h, "|%x", sha256.Sum256(d.PreviewBytes()))
+			}
+		}
+		deps := slices.Clone(x.Deps)
+		slices.SortFunc(deps, func(a, b ids.AssetID) int { return strings.Compare(a.String(), b.String()) })
+		for _, dep := range deps {
+			if child, ok := s.entry(dep); ok {
+				visit(child)
+			} else {
+				fmt.Fprintf(h, "|%s", dep.String())
+			}
+		}
+	}
+	visit(e)
+	if s.handlers[e.Kind].Render != nil && s.d.Docs != nil {
+		for _, d := range s.d.Docs.Scripts() {
+			if d.Dirty() && d.Code.GLSL {
+				fmt.Fprintf(h, "|%s:%x", d.Path, sha256.Sum256(d.Code.Bytes()))
 			}
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil)), true
 }
 
-func (s *Service) scriptKey(e asset.Entry) (string, bool) {
-	h := fnv.New64a()
-	h.Write([]byte(salt))
-	h.Write([]byte(e.Source))
-	for _, d := range e.Deps {
-		if de, ok := s.entry(d); ok {
-			for _, a := range de.Artifacts {
-				h.Write([]byte(a.Hash))
-			}
+func (s *Service) documentEpoch() uint64 {
+	if s.d.Docs == nil {
+		return 0
+	}
+	var n uint64
+	mix := func(id, rev uint64) { n = (n ^ id) * 1099511628211; n = (n ^ rev) * 1099511628211 }
+	for _, d := range s.d.Docs.Scripts() {
+		if d.Dirty() {
+			mix(uint64(d.ID), d.Code.Rev())
 		}
 	}
-	return hex.EncodeToString(h.Sum(nil)), true
+	for _, a := range s.d.Docs.AssetDocuments() {
+		if a.Binding.PreviewRevision != nil {
+			mix(uint64(a.ID), a.Binding.PreviewRevision())
+		}
+	}
+	for _, d := range s.d.Docs.Docs() {
+		if d.Dirty() {
+			mix(uint64(d.ID), d.Scene().Revision())
+		}
+	}
+	return n
 }
 
 func (s *Service) ByID(id ids.AssetID) (texture.Region, bool) {
@@ -175,14 +273,12 @@ func (s *Service) ByID(id ids.AssetID) (texture.Region, bool) {
 }
 
 func (s *Service) Get(info pipeline.AssetInfo) (texture.Region, bool) {
-	if !Image(info.Kind) && !(Rendered(info.Kind) && s.gpuOK) {
-		return texture.Region{}, false
-	}
+
 	it := s.ensure(info)
 	if it == nil {
 		return texture.Region{}, false
 	}
-	return it.region, !it.region.IsZero()
+	return it.region, it.state == ready && !it.region.IsZero()
 }
 
 func (s *Service) Missing(info pipeline.AssetInfo) bool {
@@ -209,17 +305,26 @@ func (s *Service) Lines(info pipeline.AssetInfo) []string {
 	return nil
 }
 
-func (s *Service) ensure(info pipeline.AssetInfo) *item {
+func (s *Service) ensure(info pipeline.AssetInfo) *item { return s.request(info, s.frame*2+1) }
+func (s *Service) Prefetch(info pipeline.AssetInfo)     { s.request(info, s.frame*2) }
+func (s *Service) request(info pipeline.AssetInfo, priority int64) *item {
 	rev := s.revision()
-	if it := s.items[info.ID]; it != nil && it.rev == rev && it.key != "" && it.key != builtinKey {
+	if it := s.items[info.ID]; it != nil && it.rev == rev && it.draft == s.draft && it.key != "" && it.key != builtinKey {
 		if it.state == pending && it.task != nil {
-			it.task.SetPriority(s.frame)
+			it.task.SetPriority(max(it.task.Priority, priority))
 		}
 		return it
 	}
 	e, ok := s.entry(info.ID)
+	if !ok && info.Path != "" {
+		e = asset.Entry{ID: info.ID, Source: info.Path, Name: info.Name, Kind: info.Kind, Error: info.Error}
+		ok = true
+	}
 	if !ok || s.d.Tasks == nil {
 		return nil
+	}
+	if info.Error != "" {
+		e.Error = info.Error
 	}
 	key, ok := s.Key(e)
 	if !ok {
@@ -227,53 +332,42 @@ func (s *Service) ensure(info pipeline.AssetInfo) *item {
 	}
 	it := s.items[info.ID]
 	if it != nil && it.key == key {
-		it.rev = rev
+		it.rev, it.draft = rev, s.draft
 		if it.state == pending && it.task != nil {
-			it.task.SetPriority(s.frame)
+			it.task.SetPriority(max(it.task.Priority, priority))
 		}
 		return it
 	}
-	if it == nil {
-		it = &item{id: info.ID}
-		s.items[info.ID] = it
+	if it != nil {
+		it.release()
+		if it.task != nil {
+			it.task.Cancel()
+		}
+		if !it.tex.IsZero() {
+			s.d.GPU.DestroyTexture(it.tex)
+		}
 	}
-	if it.task != nil {
-		it.task.Cancel()
+	s.issueRev++
+	it = &item{id: info.ID}
+	s.items[info.ID] = it
+	it.key, it.state, it.rev, it.draft, it.reason = key, pending, rev, s.draft, ""
+	spec := tasks.Spec{Title: i18n.Tr("editor.preview.preview_name", "Preview {name}", i18n.Str("name", filepath.Base(e.Name))), Kind: "preview", Priority: priority}
+	if info.Error != "" {
+		e.Error = info.Error
 	}
-	it.key, it.state, it.rev = key, pending, rev
-	spec := tasks.Spec{Title: i18n.Tr("editor.preview.preview_name", "Preview {name}", i18n.Str("name", filepath.Base(e.Name))), Kind: "preview", Priority: s.frame}
 	switch {
-	case info.Kind == asset.ArtScript:
-		s.startLines(info, it, spec)
+	case e.Error != "" || e.Missing:
+		s.startCard(e, it, spec, true)
+	case s.handlers[e.Kind].Render != nil && s.gpuOK:
+		s.startCustom(e, it, spec, s.handlers[e.Kind])
+	case Rendered(e.Kind) && s.gpuOK:
+		s.startScene(e, it, spec)
 	case Image(e.Kind):
 		s.startImage(e, it, spec)
 	default:
-		s.startScene(e, it, spec)
+		s.startCard(e, it, spec, false)
 	}
 	return it
-}
-
-func (s *Service) startLines(info pipeline.AssetInfo, it *item, spec tasks.Spec) {
-	key, abs := it.key, s.d.Pipeline.Abs(info.Path)
-	var lines []string
-	it.task = s.d.Tasks.Work(spec, func(*tasks.Task) error {
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			return err
-		}
-		lines = firstLines(string(data), lineCount)
-		return nil
-	}).Then(func(t *tasks.Task) {
-		if it.key != key {
-			return
-		}
-		it.task = nil
-		if t.State() != tasks.Done {
-			it.state = failed
-			return
-		}
-		it.lines, it.state = lines, ready
-	})
 }
 
 func firstLines(src string, n int) []string {
@@ -308,7 +402,13 @@ type pixels struct {
 func (s *Service) startImage(e asset.Entry, it *item, spec tasks.Spec) {
 	key := it.key
 	var out pixels
+	var role asset.TextureRole
 	it.task = s.d.Tasks.Work(spec, func(t *tasks.Task) error {
+		if s.d.Pipeline != nil && (e.Kind == asset.ArtTexture || e.Kind == asset.ArtSpriteRegion) {
+			if info, ok := s.d.Pipeline.TextureSourceInfo(e.ID, nil); ok {
+				role = info.Role
+			}
+		}
 		if p, err := s.load(key); err == nil {
 			out = p
 			return nil
@@ -319,21 +419,42 @@ func (s *Service) startImage(e asset.Entry, it *item, spec tasks.Spec) {
 		}
 		out = p
 		return s.save(key, p)
-	}).Then(func(t *tasks.Task) { s.finish(it, key, out, t) })
+	}).Then(func(t *tasks.Task) {
+		if s.items[it.id] != it || it.key != key {
+			return
+		}
+		it.role = role
+		if t.Err() != nil {
+			e.Error = t.Err().Error()
+			s.startCard(e, it, spec, true)
+			return
+		}
+		s.finish(it, key, out, t)
+	})
 }
 
 func (s *Service) finish(it *item, key string, p pixels, t *tasks.Task) {
-	if it.key != key {
+	if s.items[it.id] != it || it.key != key {
 		return
 	}
 	it.task = nil
+	s.issueRev++
 	if t.State() != tasks.Done || len(p.buf) == 0 {
 		it.state = failed
+		if t.Err() != nil {
+			it.reason = t.Err().Error()
+		}
 		return
 	}
-	data := &texture.Data{Width: p.w, Height: p.h, Format: gpu.TexSRGBA8, Pixels: p.buf, Premultiplied: true}
+	it.content = p
+	it.state = ready
+	if !s.gpuOK {
+		return
+	}
+	data := &texture.Data{Width: p.w, Height: p.h, Format: gpu.TexSRGBA8, Pixels: slices.Clone(p.buf)}
 	tex, err := s.d.Renderer.Textures().Upload(data, texture.UploadOptions{Label: "editor.preview"})
 	if err != nil {
+		it.reason = err.Error()
 		it.state = failed
 		return
 	}
@@ -395,14 +516,31 @@ func (s *Service) save(key string, p pixels) error {
 	if err := os.MkdirAll(s.dir, 0o755); err != nil {
 		return err
 	}
-	tmp := s.cachePath(key) + ".tmp"
-	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+	tmp, err := os.CreateTemp(s.dir, "thumb-*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.cachePath(key))
+	defer os.Remove(tmp.Name())
+	_, err = tmp.Write(buf.Bytes())
+	closeErr := tmp.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(tmp.Name(), s.cachePath(key))
 }
 
 func (s *Service) buildImage(e asset.Entry) (pixels, error) {
+	if buf, ok := asset.BuiltinAudio(e.ID); ok {
+		return s.waveform(buf)
+	}
+	if tt, ok := asset.BuiltinTexture(e.ID); ok {
+		small, w, h := downscale(tt.Pixels, tt.Width, tt.Height, Size)
+		return pixels{buf: small, w: w, h: h}, nil
+	}
+
 	files := s.d.Pipeline.Artifacts()
 	art, _ := e.Artifact(e.Kind)
 	data, err := files.ReadFile(art.Path)
@@ -411,24 +549,24 @@ func (s *Service) buildImage(e asset.Entry) (pixels, error) {
 	}
 	var buf []byte
 	var w, h int
+	var img *asset.TextureArtifact
 	switch e.Kind {
-	case asset.ArtTexture:
+	case asset.ArtTexture, asset.ArtAtlasPage:
 		ta, err := asset.DecodeTexture(data)
 		if err != nil {
 			return pixels{}, err
 		}
+		img = ta
 		buf, w, h = ta.Pixels, ta.Width, ta.Height
 	case asset.ArtSpriteRegion:
 		ra, err := asset.DecodeRegion(data)
 		if err != nil {
 			return pixels{}, err
 		}
-		pe, ok := s.entry(ra.Page)
-		if !ok {
-			return pixels{}, errs.New(errs.AssetNotFound, "atlas page is missing")
-		}
-		pa, ok := pe.Artifact(pe.Kind)
-		if !ok {
+		// This runs on the thumbnail worker. Editor-owned s.sources may be
+		// rebuilt by RefreshSources on the main thread while we decode.
+		pa, ok := s.d.Pipeline.PrimaryArtifact(ra.Page)
+		if !ok || (pa.Kind != asset.ArtAtlasPage && pa.Kind != asset.ArtTexture) {
 			return pixels{}, errs.New(errs.AssetNotFound, "atlas page artifact is missing")
 		}
 		pdata, err := files.ReadFile(pa.Path)
@@ -439,17 +577,33 @@ func (s *Service) buildImage(e asset.Entry) (pixels, error) {
 		if err != nil {
 			return pixels{}, err
 		}
+		if ra.PageW != ta.Width || ra.PageH != ta.Height {
+			return pixels{}, errors.New("atlas region no longer matches its page")
+		}
+		img = ta
 		buf, w, h = crop(ta.Pixels, ta.Width, ra.X, ra.Y, ra.W, ra.H), ra.W, ra.H
 	case asset.ArtAudio:
-		return waveform(data)
+		return s.waveform(data)
 	default:
 		return pixels{}, errs.New(errs.AssetBadArtifact, "asset has no image")
 	}
 	small, sw, sh := downscale(buf, w, h, Size)
+	switch img.Semantic {
+	case asset.TextureColor:
+		straight(small, img.Format == gpu.TexSRGBA8)
+	case asset.TextureEmissionRGB:
+		if img.Format == gpu.TexRGBA8 {
+			encodeRGB(small)
+		}
+	default:
+		for i := 3; i < len(small); i += 4 {
+			small[i] = 255
+		}
+	}
 	return pixels{buf: small, w: sw, h: sh}, nil
 }
 
-func waveform(data []byte) (pixels, error) {
+func (s *Service) waveform(data []byte) (pixels, error) {
 	a, err := asset.DecodeAudio(data)
 	if err != nil {
 		return pixels{}, err
@@ -480,6 +634,10 @@ func waveform(data []byte) (pixels, error) {
 		for y := mid - amp; y <= mid+amp; y++ {
 			set(x, y, 0x6e, 0x9b, 0xf5)
 		}
+	}
+	im := &image.NRGBA{Pix: buf, Stride: w * 4, Rect: image.Rect(0, 0, w, h)}
+	if a.Rate > 0 {
+		s.label(im, 3, h-14, fmt.Sprintf("%.2f s", float64(a.Frames)/float64(a.Rate)), ink)
 	}
 	return pixels{buf: buf, w: w, h: h}, nil
 }
@@ -541,6 +699,7 @@ func (s *Service) Forget(id ids.AssetID) {
 	if !ok {
 		return
 	}
+	it.release()
 	if it.task != nil {
 		it.task.Cancel()
 	}
@@ -548,6 +707,7 @@ func (s *Service) Forget(id ids.AssetID) {
 		s.d.GPU.DestroyTexture(it.tex)
 	}
 	delete(s.items, id)
+	s.issueRev++
 }
 
 func (s *Service) Busy() bool {
@@ -560,6 +720,10 @@ func (s *Service) Busy() bool {
 }
 
 func (s *Service) Close() {
+	if s.disconnect != nil {
+		s.disconnect()
+		s.disconnect = nil
+	}
 	for id := range s.items {
 		s.Forget(id)
 	}
@@ -596,4 +760,11 @@ func (s *Service) revision() uint64 {
 		return 0
 	}
 	return s.d.Pipeline.Revision()
+}
+
+func (it *item) release() {
+	if it.dispose != nil {
+		it.dispose()
+		it.dispose = nil
+	}
 }

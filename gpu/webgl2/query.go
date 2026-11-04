@@ -11,8 +11,10 @@ import (
 )
 
 type glQuery struct {
-	id     uint32
-	active bool
+	id       uint32
+	active   bool
+	issued   bool
+	canceled bool
 }
 
 func (d *Device) CreateQuery() (gpu.QueryHandle, error) {
@@ -33,6 +35,14 @@ func (f *frame) QueryResult(h gpu.QueryHandle) (uint64, bool) {
 	d := f.d
 	q, ok := d.queries.Get(handle.Cast[glQuery](h))
 	if !ok || q.active || d.lost {
+		return 0, false
+	}
+	// A query pending at context loss has no result on the replacement device.
+	// Complete it with an empty sample so the renderer can recycle its slot.
+	if q.canceled {
+		return 0, true
+	}
+	if !q.issued {
 		return 0, false
 	}
 	o := d.obj.get(q.id)
@@ -57,7 +67,7 @@ func (p *pass) BeginQuery(h gpu.QueryHandle) {
 		return
 	}
 	d.queryCall(d.f.BeginQuery, glTimeElapsed, d.obj.get(q.id))
-	q.active = true
+	q.active, q.issued, q.canceled = true, true, false
 	d.activeQuery = q.id
 	p.query = h
 }

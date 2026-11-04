@@ -1,7 +1,9 @@
 package pipeline
 
 import (
+	"bytes"
 	"slices"
+	"strings"
 
 	"aego/core/errs"
 	"aego/core/ids"
@@ -62,6 +64,83 @@ func (p *Pipeline) SetSettings(id ids.AssetID, s Settings) error {
 	}
 	r.meta, r.derived, r.dup, r.key = &m, false, "", ""
 	p.metas[r.path+MetaSuffix] = true
+	p.rev++
+	return nil
+}
+
+// ReloadMetadata reconciles a sidecar already atomically saved by the common
+// document/file transaction. It never writes the sidecar or invents frame IDs.
+func (p *Pipeline) ReloadMetadata(id ids.AssetID) (*Batch, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.shared {
+		return nil, errs.New(errs.AssetBadMeta, "another process holds the asset index")
+	}
+	r := p.byID[id]
+	if r == nil || r.meta == nil {
+		return nil, errs.New(errs.AssetNotFound, "metadata source is not in this project")
+	}
+	if err := p.reloadMetadata(r); err != nil {
+		return nil, err
+	}
+	list := []ids.AssetID{id}
+	list = append(list, p.dependents(id)...)
+	// CacheSalters include indirect frame dependencies and private channel metadata.
+	for source, record := range p.byID {
+		if source != id {
+			if _, ok := record.importer.(CacheSalter); ok && !slices.Contains(list, source) {
+				list = append(list, source)
+			}
+		}
+	}
+	slices.SortFunc(list, func(a, b ids.AssetID) int { return strings.Compare(p.byID[a].path, p.byID[b].path) })
+	return p.importIDs(list...)
+}
+
+func (p *Pipeline) reloadMetadata(r *record) error {
+	data, err := p.read(r.path + MetaSuffix)
+	if err != nil {
+		return err
+	}
+	m, err := ParseMeta(data, r.path+MetaSuffix)
+	if err != nil {
+		return err
+	}
+	if m.ID != r.id {
+		return errs.New(errs.AssetBadMeta, "saving metadata cannot replace the source AssetID")
+	}
+	if m.Importer != "" && m.Importer != r.importer.ID() {
+		return errs.New(errs.AssetBadMeta, "metadata importer does not match the source")
+	}
+	m.Importer = r.importer.ID()
+	for key, value := range r.importer.Defaults() {
+		if _, ok := m.Settings[key]; !ok {
+			m.Settings[key] = value
+		}
+	}
+	seen := map[ids.AssetID]bool{m.ID: true}
+	for _, sub := range m.Subs {
+		if sub.ID.IsZero() || seen[sub.ID] {
+			return errs.New(errs.AssetBadMeta, "frame AssetIDs must be distinct and nonzero")
+		}
+		if other, ok := p.pathOf(sub.ID); ok && other != r.path+SubSep+sub.Name {
+			own := false
+			for _, old := range r.meta.Subs {
+				own = own || old.ID == sub.ID
+			}
+			if !own {
+				return errs.New(errs.AssetBadMeta, "frame AssetID belongs to another source")
+			}
+		}
+		seen[sub.ID] = true
+	}
+	if bytes.Equal(WriteMeta(r.meta), WriteMeta(m)) {
+		return nil
+	}
+	r.meta, r.key, r.derived = m, "", false
+	if r.group != "" {
+		p.groupKey[r.group] = ""
+	}
 	p.rev++
 	return nil
 }

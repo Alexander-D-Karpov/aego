@@ -1,6 +1,27 @@
 package webgl2
 
 const (
+	glTexture2DArray                         = 0x8C1A
+	glMaxArrayTextureLayers                  = 0x88FF
+	glMaxTextureImageUnits                   = 0x8872
+	glTextureBinding2D                       = 0x8069
+	glDrawFramebuffer                        = 0x8CA9
+	glDrawFramebufferBinding                 = 0x8CA6
+	glReadFramebufferBinding                 = 0x8CAA
+	glCurrentProgram                         = 0x8B8D
+	glVertexArrayBinding                     = 0x85B5
+	glViewport                               = 0x0BA2
+	glColorClearValue                        = 0x0C22
+	glColorWritemask                         = 0x0C23
+	glBlendSrcRGB                            = 0x80C9
+	glBlendDstRGB                            = 0x80C8
+	glBlendSrcAlpha                          = 0x80CB
+	glBlendDstAlpha                          = 0x80CA
+	glBlendEquationRGB                       = 0x8009
+	glBlendEquationAlpha                     = 0x883D
+	glFuncAdd                                = 0x8006
+	glMaxVertexAttribs                       = 0x8869
+	glMaxUniformBlockSize                    = 0x8A30
 	glNone                                   = 0
 	glNoError                                = 0
 	glZero                                   = 0

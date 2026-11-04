@@ -30,6 +30,9 @@ type Preset struct {
 	Order       int
 	Slots       map[string]Slot
 	HideToolbar bool
+	// Explicit prescribes a default layout, without affecting existing saved layouts.
+	Explicit bool
+	Front    []string
 	// Rev drops layouts saved for an older revision of a built-in preset.
 	Rev   int
 	Owner string
@@ -54,6 +57,9 @@ func slotIn(p *Preset, d Desc) Slot {
 		if s, ok := p.Slots[d.Panel.ID()]; ok {
 			return s
 		}
+		if p.Explicit {
+			return SlotNone
+		}
 	}
 	return d.Slot
 }
@@ -69,6 +75,7 @@ func (w *Workspace) RegisterPreset(p Preset) error {
 		p.Title = p.ID
 	}
 	p.Slots = maps.Clone(p.Slots)
+	p.Front = slices.Clone(p.Front)
 	w.presets = append(w.presets, p)
 	slices.SortStableFunc(w.presets, func(a, b Preset) int { return a.Order - b.Order })
 	if w.cur == "" {
@@ -148,7 +155,13 @@ func (w *Workspace) layoutFor(p *Preset) *dock.Tree {
 			cols[s] = append(cols[s], d.Panel.ID())
 		}
 	}
-	return dock.Columns(cols[SlotLeft], cols[SlotBrowser], cols[SlotCenter], cols[SlotBottom], cols[SlotRight])
+	t := dock.Columns(cols[SlotLeft], cols[SlotBrowser], cols[SlotCenter], cols[SlotBottom], cols[SlotRight])
+	if p != nil {
+		for _, id := range p.Front {
+			t.Activate(id)
+		}
+	}
+	return t
 }
 
 func (w *Workspace) Toolbar() bool {
@@ -263,7 +276,7 @@ func (w *Workspace) SaveAs(title string) (string, error) {
 		id = UserPrefix + slug(title) + "_" + strconv.Itoa(n)
 	}
 	toolbar := w.Toolbar()
-	p := Preset{ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, HideToolbar: !toolbar, User: true, Base: base}
+	p := Preset{ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, Explicit: cur.Explicit, Front: cur.Front, HideToolbar: !toolbar, User: true, Base: base}
 	if err := w.RegisterPreset(p); err != nil {
 		return "", err
 	}
@@ -385,6 +398,7 @@ func (w *Workspace) restoreUser(n *aetext.Node) *Preset {
 	}
 	if base := w.preset(p.Base); base != nil {
 		p.Slots = base.Slots
+		p.Explicit, p.Front = base.Explicit, slices.Clone(base.Front)
 	}
 	if w.RegisterPreset(p) != nil {
 		return nil

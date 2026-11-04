@@ -32,6 +32,7 @@ type API interface {
 	BindVertexArray(id uint32)
 	BindUniformBuffer(slot int, id uint32)
 	BindTexture(unit int, id uint32)
+	BindTextureTarget(unit int, target, id uint32)
 	BindSampler(unit int, id uint32)
 	BindFramebuffer(id uint32)
 	SetBlend(b Blend)
@@ -43,26 +44,27 @@ type API interface {
 }
 
 type Cache struct {
-	api      API
-	program  uint32
-	vao      uint32
-	fbo      uint32
-	ubo      [MaxUniformBuffers]uint32
-	tex      [MaxTextureUnits]uint32
-	smp      [MaxTextureUnits]uint32
-	blend    Blend
-	blendOK  bool
-	depth    Depth
-	depthOK  bool
-	cull     Cull
-	cullOK   bool
-	frontCW  bool
-	frontOK  bool
-	viewport Rect
-	viewOK   bool
-	scissor  Rect
-	scissOn  bool
-	scissOK  bool
+	api       API
+	program   uint32
+	vao       uint32
+	fbo       uint32
+	ubo       [MaxUniformBuffers]uint32
+	tex       [MaxTextureUnits]uint32
+	texTarget [MaxTextureUnits]uint32
+	smp       [MaxTextureUnits]uint32
+	blend     Blend
+	blendOK   bool
+	depth     Depth
+	depthOK   bool
+	cull      Cull
+	cullOK    bool
+	frontCW   bool
+	frontOK   bool
+	viewport  Rect
+	viewOK    bool
+	scissor   Rect
+	scissOn   bool
+	scissOK   bool
 }
 
 func New(api API) *Cache {
@@ -80,6 +82,7 @@ func (c *Cache) Invalidate() {
 	}
 	for i := range c.tex {
 		c.tex[i] = unknown
+		c.texTarget[i] = unknown
 		c.smp[i] = unknown
 	}
 	c.blendOK = false
@@ -144,11 +147,32 @@ func (c *Cache) BindUniformBuffer(slot int, id uint32) bool {
 }
 
 func (c *Cache) BindTexture(unit int, id uint32) bool {
-	if unit < 0 || unit >= MaxTextureUnits || c.tex[unit] == id {
+	return c.BindTextureTarget(unit, 0x0de1, id) // TEXTURE_2D
+}
+
+func (c *Cache) BindTextureTarget(unit int, target, id uint32) bool {
+	if unit < 0 || unit >= MaxTextureUnits || c.tex[unit] == id && c.texTarget[unit] == target {
 		return false
 	}
 	c.tex[unit] = id
-	c.api.BindTexture(unit, id)
+	c.texTarget[unit] = target
+	if target == 0x0de1 {
+		c.api.BindTexture(unit, id)
+	} else {
+		c.api.BindTextureTarget(unit, target, id)
+	}
+	return true
+}
+
+// UnbindTextures clears both supported targets. Binding texture zero only to
+// TEXTURE_2D leaves an earlier array binding alive on the same sampler unit.
+func (c *Cache) UnbindTextures(unit int) bool {
+	if unit < 0 || unit >= MaxTextureUnits || c.tex[unit] == 0 && c.texTarget[unit] == 0 {
+		return false
+	}
+	c.api.BindTexture(unit, 0)
+	c.api.BindTextureTarget(unit, 0x8c1a, 0) // TEXTURE_2D_ARRAY
+	c.tex[unit], c.texTarget[unit] = 0, 0    // both targets are known to be unbound
 	return true
 }
 

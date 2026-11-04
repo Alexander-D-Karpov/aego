@@ -92,6 +92,9 @@ func Parse(text string, pal Palette, scale int) (*Sheet, error) {
 	if scale < 1 || scale > 16 {
 		return nil, fmt.Errorf("scale %d is outside 1..16", scale)
 	}
+	if len(text) > 1<<20 {
+		return nil, fmt.Errorf("grid exceeds 1 MiB")
+	}
 	var frames []*frame
 	cur := &frame{}
 	for i, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
@@ -154,6 +157,9 @@ func Parse(text string, pal Palette, scale int) (*Sheet, error) {
 	cols := min(len(frames), 8)
 	rows := (len(frames) + cols - 1) / cols
 	fw, fh := w*scale, h*scale
+	if rows*fh > 4096 || cols*fw > 4096 || rows*fh > MaxPixels/(cols*fw) {
+		return nil, fmt.Errorf("sheet exceeds the canvas budget")
+	}
 	s := &Sheet{Image: image.NewNRGBA(image.Rect(0, 0, cols*fw, rows*fh))}
 	for n, f := range frames {
 		ox, oy := n%cols*fw, n/cols*fh

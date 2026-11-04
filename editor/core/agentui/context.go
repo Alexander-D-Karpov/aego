@@ -94,6 +94,10 @@ type Meter struct {
 	nextID int
 	// open is the Messages item of the turn being answered.
 	open int
+	// message identifies the assistant message currently arriving as text deltas.
+	// streaming is separate because an empty message ID is valid.
+	message   string
+	streaming bool
 	// starts holds each running call by id until its result comes.
 	starts map[string]call
 	rev    uint64
@@ -188,7 +192,8 @@ func CategoryOf(tool string) Category {
 // Reset starts a new session: its first answer measures the CLI's own prompt again.
 func (m *Meter) Reset() {
 	m.rev++
-	m.items, m.Used, m.first, m.turn, m.open = m.items[:0], 0, true, 0, -1
+	m.items, m.Used, m.first, m.turn, m.open = nil, 0, true, 0, -1
+	m.message, m.streaming = "", false
 	clear(m.starts)
 }
 
@@ -205,6 +210,7 @@ func (m *Meter) add(it Item) *Item {
 
 // User adds a message of the user and opens its turn.
 func (m *Meter) User(text string) {
+	m.message, m.streaming = "", false
 	m.turn++
 	label := firstLine(text)
 	m.add(Item{Cat: CatMessages, Label: label, Text: "User: " + text})
@@ -220,6 +226,7 @@ func (m *Meter) Attach(label, text string) {
 
 // Text adds the agent's answer to the messages of the turn.
 func (m *Meter) Text(text string) {
+	m.message, m.streaming = "", false
 	m.rev++
 	if m.open < 0 || m.open >= len(m.items) {
 		m.add(Item{Cat: CatMessages, Label: firstLine(text), Text: "Agent: " + text})
@@ -231,8 +238,25 @@ func (m *Meter) Text(text string) {
 	it.Est = Estimate(it.Text)
 }
 
+// TextDelta keeps streamed text identical to the model's message, including whitespace.
+func (m *Meter) TextDelta(messageID, text string) {
+	if text == "" {
+		return
+	}
+	if !m.streaming || m.message != messageID || m.open < 0 || m.open >= len(m.items) {
+		m.Text(text)
+		m.message, m.streaming = messageID, true
+		return
+	}
+	m.rev++
+	it := &m.items[m.open]
+	it.Text += text
+	it.Est = Estimate(it.Text)
+}
+
 // Call adds a tool call the agent made: its arguments are the agent's output, its label waits for the result.
 func (m *Meter) Call(tool, callID, args, label string) {
+	m.message, m.streaming = "", false
 	m.rev++
 	m.starts[callID] = call{tool: tool, label: label}
 	if m.open >= 0 && m.open < len(m.items) {
@@ -410,13 +434,9 @@ func (m *Meter) Projection() string {
 // Rebuilt keeps the pinned results and the projection the new session starts from, as one Messages item.
 func (m *Meter) Rebuilt(projection string) {
 	m.rev++
-	kept := m.items[:0]
-	for _, it := range m.items {
-		if it.Pinned && it.Tool != "" {
-			kept = append(kept, it)
-		}
-	}
-	m.items = kept
+	m.items = slices.DeleteFunc(m.items, func(it Item) bool {
+		return !it.Pinned || it.Tool == ""
+	})
 	m.first, m.Used, m.open = true, 0, -1
 	m.turn++
 	it := m.add(Item{Cat: CatMessages, Label: i18n.Tr("editor.agent.ctx.earlier", "Earlier session, shortened"), Text: projection})

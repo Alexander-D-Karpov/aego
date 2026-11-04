@@ -15,6 +15,8 @@ import (
 
 func projectCommands() []*Command {
 	return []*Command{
+		{Name: "project.main-scene", Doc: "Set an imported scene as the startup scene by project-relative path.", Args: []Arg{argFile}, Write: true, Run: (*Session).mainScene},
+		{Name: "project.input-action", Doc: "Create/update one action and add it to a context. Binding strings use the project input syntax. Only an empty initial stack is initialized.", Write: true, Args: []Arg{{Name: "name", Type: "string", Required: true, Pos: true}, {Name: "type", Type: "string", Required: true}, {Name: "bind", Type: "array", Items: map[string]any{"type": "string"}, Required: true}, {Name: "context", Type: "string", Doc: "Gameplay by default"}, {Name: "active", Type: "boolean", Doc: "Add the context to the initial stack if absent"}}, Run: (*Session).inputAction},
 		{Name: "project.validate", Doc: "missing assets and nodes, import errors, prefabs and scenes that do not load", Run: (*Session).projectValidate},
 		{Name: "project.get", Doc: "module sections of project.aego (physics, …) with their current values",
 			Args: []Arg{{Name: "section", Type: "string", Doc: "only this section", Pos: true}}, Run: (*Session).projectGet},

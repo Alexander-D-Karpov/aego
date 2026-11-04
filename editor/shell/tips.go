@@ -14,7 +14,7 @@ var commandInfos = []command.Info{
 	{ID: command.FileSave, Icon: "file.save", Tip: "Save the active scene or prefab"},
 	{ID: command.FileSaveAs, Icon: "file.save", Tip: "Save the active scene under a new path"},
 	{ID: command.FileSaveAll, Icon: "file.save", Tip: "Save every scene, prefab and script with unsaved changes"},
-	{ID: CommandCloseScene, Icon: "ui.close", Tip: "Close the active scene, asking first if it has unsaved changes"},
+	{ID: CommandCloseScene, Icon: "ui.close", Tip: "Close the active document, asking first if it has unsaved changes"},
 	{ID: CommandQuit, Icon: "", Tip: "Quit the editor, asking first about unsaved changes"},
 	{ID: command.EditUndo, Icon: "nav.back", Tip: "Undo the last change of the active scene"},
 	{ID: command.EditRedo, Icon: "nav.forward", Tip: "Redo the change you undid last"},

@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"aego/asset"
 	"aego/engine/module"
 	"aego/engine/res"
 	"aego/engine/settings"
@@ -118,7 +119,10 @@ type Entry struct {
 	TryKeys []string `json:",omitempty"`
 	// TryPrefabs are the prefabs next to the try scene, by asset id.
 	TryPrefabs map[string]string `json:",omitempty"`
-	Icon       string
+	// TryArtifacts contains a bounded AETB payload prepared by the docs build.
+	// JSON encodes it as base64; browser runtimes only decode runtime artifacts.
+	TryArtifacts []byte `json:",omitempty"`
+	Icon         string
 	// EditorOnly pages are shown in the editor's docs panel and left out of the site.
 	EditorOnly bool `json:",omitempty"`
 	Diag       *DiagInfo
@@ -974,6 +978,15 @@ var metaID = regexp.MustCompile(`\bid="([0-9a-f]{32})"`)
 // tryExtras reads the script X.aes and the prefabs X.<name>.aeprefab, ids from their .meta, next to the try scene X.aescene.
 func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
 	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
+	if data, err := fs.ReadFile(src.FS, base+".aetry"); err == nil {
+		if _, err := asset.DecodeTryArtifacts(data); err != nil {
+			r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: "try artifacts " + base + ".aetry: " + err.Error()})
+		} else {
+			e.TryArtifacts = data
+		}
+	} else if _, err := fs.Stat(src.FS, base+".assets"); err == nil {
+		r.problems = append(r.problems, Problem{ID: e.ID, Error: true, Message: "try source assets need a prepared " + base + ".aetry payload; run gendocs -prepare-try"})
+	}
 	if data, err := fs.ReadFile(src.FS, base+TryScriptExt); err == nil {
 		e.TryScript = string(data)
 	}

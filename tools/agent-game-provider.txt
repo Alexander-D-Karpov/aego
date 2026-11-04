@@ -1,0 +1,17 @@
+Manual opt-in test, once with Codex and once with Claude:
+Use a clean project parent directory and a brand-new editor conversation.
+Allow project-scoped authoring and test play. Allow local export/run only when ready.
+No native shell, paid image generation, or deployment is required.
+
+Prompt:
+Create a new empty project and make a platformer of your own. Draw a hero with
+four run frames, coins and platforms; implement jumping, collection of exactly
+three coins, a finish condition and restart. Play a recorded input sequence,
+show the game at the jump and finish, and export and run its web version.
+Do not copy examples/platformer, a test fixture, or previously made assets.
+
+Record: provider/CLI and model, authenticated session, actual thread-bound scene
+and script calls, source files and AssetIDs, PNG tool responses, replay assertions,
+served export path and a screenshot from that export. Run the exported game with
+the editor closed. A test model, protocol replay, or packaged Bell Run fixture
+is not proof that an authenticated provider completed the task.

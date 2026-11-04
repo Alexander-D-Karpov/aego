@@ -48,6 +48,9 @@ func CheckExamples(reg *docs.Registry, w io.Writer) int {
 			if err := pg.Game().Step(tryFrames); err != nil {
 				why = "stops the engine: " + err.Error()
 			}
+			for _, d := range pg.Game().Problems() {
+				found = found || d.Code == e.ID
+			}
 		}
 		poll := pg.Poll()
 		for _, f := range poll.Faults {

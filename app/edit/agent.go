@@ -9,17 +9,21 @@ import (
 // AgentConfig is how the Agent panel starts its bridge in this editor (D341, D342).
 func (s *Session) AgentConfig() agentbridge.Config {
 	return agentbridge.Config{
-		Ctx:            s.App.Context(),
-		Modules:        s.Modules,
-		OnMain:         s.Engine.Jobs().OnMain,
-		Bindings:       s.Bindings,
-		Command:        s.App.AgentCommand(),
-		ProjectChanged: s.App.ProjectChanged,
-		Docs:           func() (*docs.Registry, error) { return s.Docs, nil },
-		Run:            agentRun,
-		ProxyConfirm:   s.App.ProxyConfirm,
-		OnExternal:     s.App.ExternalCall,
-		Prefabs:        s.App.Prefabs(),
+		ConfirmPlay:   !s.cfg.Headless && s.cfg.AgentBackend == nil,
+		Ctx:           s.App.Context(),
+		Console:       s.App.ConsoleMessages,
+		SwitchProject: s.App.OpenAgentProject, Capture: s.App.CaptureAgentView, Exporter: s.App.AgentExporter(),
+		NewEmptyProject: func(dir string) (string, error) { return CreateProject(dir, "empty", "", "") },
+		Modules:         s.Modules,
+		OnMain:          s.Engine.Jobs().OnMain,
+		Bindings:        s.Bindings,
+		Command:         s.App.AgentCommand(),
+		ProjectChanged:  s.App.ProjectChanged,
+		Docs:            func() (*docs.Registry, error) { return s.Docs, nil },
+		Run:             agentRun,
+		ProxyConfirm:    s.App.ProxyConfirm,
+		OnExternal:      s.App.ExternalCall,
+		Prefabs:         s.App.Prefabs(),
 	}
 }
 
@@ -49,5 +53,10 @@ func (s *Session) agentHost(cfg Config) agentui.Host {
 	if cfg.Headless && cfg.AgentBackend == nil {
 		return nil
 	}
-	return newAgentHost(cfg.AgentBackend, s.agentBridge, func() string { return s.App.AgentCommand() }, func(c string) { s.App.SetAgentCommand(c) })
+	host := newAgentHost(cfg.AgentBackend, s.agentBridge,
+		func(provider string) agentui.ProviderSettings { return s.App.AgentSettings(provider) },
+		func(settings agentui.ProviderSettings) { s.App.SetAgentSettings(settings) })
+	host.bridgeOpen = func() bool { return s.bridge != nil }
+	host.dir = s.Project.Root
+	return host
 }

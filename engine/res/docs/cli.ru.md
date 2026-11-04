@@ -152,8 +152,10 @@ title: Команда aego
 | `aego anim set <file> <attr> [<value>] [--dry-run]` | задать длину, повтор или fps клипа; без значения повтор или fps сбрасываются |
 | `aego anim set-key <file> <target> <prop> <time> <value> [--kind v] [--interp v] [--tangent v] [--dry-run]` | задать ключ; для новой дорожки нужен --kind |
 | `aego asset delete <asset> [--force] [--dry-run]` | удалить ассет; если на него есть ссылки, отказывается без --force |
+| `aego asset import-variant [--variant v] [--path v] [--replace] [--dry-run]` | импортировать просмотренный вариант изображения как исходный PNG проекта |
 | `aego asset list [--kind v]` | ассеты с их id и видами |
 | `aego asset move <asset> <to> [--dry-run]` | перенести ассет вместе с его .meta; id и все ссылки сохраняются |
+| `aego asset paint <path> [--ops v] [--width v] [--height v] [--source v] [--palette v] [--replace] [--dry-run]` | нарисовать или изменить исходный PNG за одну операцию с предпросмотром |
 | `aego asset pixels <path> [--grid v] [--palette v] [--scale v] [--flipbook] [--replace] [--dry-run]` | нарисовать спрайт текстом: каждый символ grid — пиксель цвета из palette; строки вида idle: начинают кадры одного размера, из которых получается атлас со спрайтом на кадр и зацикленный клип-флипбук. Отвечает картинкой-превью |
 | `aego asset rename <asset> <name> [--dry-run]` | переименовать ассет в его папке |
 | `aego asset svg <path> [--svg v] [--width v] [--height v] [--replace] [--dry-run]` | нарисовать текстуру из SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, прозрачность и transform; без фильтров, градиентов и текста. Для тайлов, интерфейса и иконок предметов. Отвечает картинкой-превью |
@@ -177,6 +179,16 @@ title: Команда aego
 | `aego data reset <file> <path> [--row v] [--dry-run]` | удалить поле, чтобы оно бралось из базы или значения по умолчанию |
 | `aego data rows <file>` | id строк таблицы |
 | `aego data set <file> <path> <value> [--row v] [--dry-run]` | задать поле |
+| `aego material apply <file> [--tx v] [--expected v] [--dry-run]` | атомарно применяет транзакцию материала через общие с Inspector mutations и сериализацию |
+| `aego material assign <file> <node> <material> [--dry-run]` | назначает совместимый материал SpriteRenderer или Mesh2D через Mutation Service сцены |
+| `aego material create <file> <shader> [--dry-run]` | создаёт материал, наследующий значения по умолчанию из шейдера |
+| `aego material get <file>` | читает явные и унаследованные параметры, неизвестные данные, варианты и ревизию текущего документа |
+| `aego material reset <file> <param> [--expected v] [--dry-run]` | удаляет явное значение параметра и наследует default шейдера |
+| `aego material set <file> <param> <value> [--expected v] [--dry-run]` | устанавливает типизированный явный параметр одной семантической операцией |
+| `aego material validate <file>` | проверяет значения материала и ссылки на шейдер и текстуры без изменения исходника |
+| `aego material variants <file> [--keywords v] [--expected v] [--dry-run]` | выбирает разрешённую комбинацию keywords через запятую; пустая строка отключает все keywords |
+| `aego postfx get <file> <node>` | Прочитать стек эффектов текущей камеры и постоянные ID экземпляров в открытой сцене. |
+| `aego postfx set <file> <node> <instance> <field> <value> [--dry-run]` | Изменить параметр эффекта или переключить его по постоянному ID одной операцией редактирования сцены. |
 | `aego prefab apply <file> <node> [--level v] [--owner v] [--field v] [--nearest] [--dry-run]` | записать переопределения экземпляра в файл префаба |
 | `aego prefab create <file> <node> <out> [--dry-run]` | превратить узел в файл префаба и связать узел с ним |
 | `aego prefab instantiate <file> <prefab> [--parent v] [--name v] [--index v] [--dry-run]` | добавить экземпляр префаба |
@@ -184,12 +196,14 @@ title: Команда aego
 | `aego prefab revert <file> <node> [--level v] [--owner v] [--field v] [--dry-run]` | отбросить переопределения экземпляра |
 | `aego prefab unpack <file> <node> [--deep] [--dry-run]` | превратить экземпляр в обычные узлы |
 | `aego project get [<section>]` | разделы модулей в project.aego (physics, …) с их текущими значениями |
+| `aego project input-action <name> [--type v] [--bind v] [--context v] [--active] [--dry-run]` | добавить или изменить действие ввода в карте действий проекта |
+| `aego project main-scene <file> [--dry-run]` | назначить главную сцену проекта по стабильной ссылке |
 | `aego project set <section> <field> [<value>] [--reset] [--dry-run]` | задать поле раздела модуля в project.aego, например physics gravity [0, -15] |
 | `aego project validate` | отсутствующие ассеты и узлы, ошибки импорта, префабы и сцены, которые не загружаются |
 | `aego refs find <asset>` | файлы и поля, которые ссылаются на ассет |
 | `aego refs fix <from> [<to>] [--dry-run]` | перенаправить все ссылки с одного ассета на другой (без второго — сбросить их); оригиналы попадают в .aego/recovery |
 | `aego refs missing` | ссылки на несуществующие ассеты и узлы |
-| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | добавить компонент со значениями по умолчанию и компонентами, которые ему нужны, или повесить скрипт по имени его типа |
+| `aego scene add-comp <file> <node> <comp> [--preset v] [--no-required] [--dry-run]` | добавить компонент со значениями по умолчанию и компонентами, которые ему нужны, или повесить скрипт по имени его типа |
 | `aego scene add-node <file> <name> [--parent v] [--space v] [--index v] [--dry-run]` | добавить пустой узел |
 | `aego scene apply <file> [--tx v] [--tx-file v] [--dry-run]` | применить транзакцию (tx version=1 { op … }) за один шаг |
 | `aego scene get <file> <node> [<path>]` | узел с его трансформацией и всеми сохранёнными полями или одно поле |
@@ -199,7 +213,7 @@ title: Команда aego
 | `aego scene remove-node <file> <node> [--dry-run]` | удалить узел вместе с детьми |
 | `aego scene rename <file> <node> <name> [--dry-run]` | переименовать узел |
 | `aego scene reset <file> <node> <path> [--dry-run]` | сбросить поле на значение по умолчанию, часть трансформации — на единичную |
-| `aego scene run [<file>] [--frames v] [--seed v] [--watch v] [--input v] [--assert v] [--shot v] [--scale v]` | запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы; `--input` нажимает действия, `--assert` проверяет значения, `--shot` снимает кадры |
+| `aego scene run [<file>] [--frames v] [--seed v] [--watch v] [--input v] [--assert v] [--camera v] [--shot v] [--scale v]` | запустить сцену без окна и вывести журнал, хеш состояния и где побывали отслеживаемые узлы; `--input` нажимает действия, `--assert` проверяет значения, `--shot` снимает кадры |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | задать поле |
 | `aego scene tree <file> [--node v]` | дерево узлов с ID, компонентами, скриптами и связями с префабами; `--node` — только поддерево узла |
 | `aego scene validate <file>` | проблемы загрузки и ссылки на узлы, которых нет в сцене |
@@ -209,6 +223,17 @@ title: Команда aego
 | `aego script edit <file> [--old v] [--new v] [--dry-run]` | заменить текст в скрипте; old должен встречаться ровно один раз, поэтому цитируйте достаточно строк вокруг правки |
 | `aego script read <file> [--from v] [--to v]` | текст скрипта в том виде, в каком он в редакторе, с несохранёнными правками; `--from` и `--to` читают часть длинного скрипта |
 | `aego script write <file> [--text v] [--dry-run]` | заменить весь текст скрипта; для небольшой правки надёжнее script.edit |
+| `aego shader create <file> [--dry-run]` | создаёт переносимый шейдер спрайта через зарегистрированный asset importer |
+| `aego shader schema <shader>` | читает объявленные параметры, типизированные defaults, domain и варианты; проверяет текущий исходник и несохранённые includes |
+| `aego shader validate <shader>` | проверяет текущий исходник общим importer; разделяет schema/reference validation и линковку на GPU |
+| `aego texture apply <file> [--tx v] [--expected v] [--dry-run]` | атомарная типизированная транзакция метаданных текстуры; те же проверки и правила Undo, что в Inspector |
+| `aego texture channel <file> <channel> <asset> [--frame v] [--expected v] [--dry-run]` | назначить исходник или кадр normal/height/emission по стабильному AssetID; неразрешённые ID сохраняются с диагностикой |
+| `aego texture channel-reset <file> <channel> [--frame v] [--expected v] [--dry-run]` | снять явную привязку канала, не удаляя исходные ассеты |
+| `aego texture get <file>` | прочитать текущие метаданные с несохранёнными правками, стабильные кадры, размеры, роли и ссылки каналов |
+| `aego texture reset <file> <setting> [--expected v] [--dry-run]` | удалить явную настройку импорта и наследовать значение по умолчанию импортёра |
+| `aego texture schema` | зарегистрированные роли/параметры импорта и контракт каналов кадров исходника |
+| `aego texture set <file> <setting> <value> [--expected v] [--dry-run]` | установить настройку импорта через общий сервис семантических мутаций |
+| `aego texture validate <file>` | проверить метаданные и подготовить приватный кандидат импорта, не меняя кэш или GPU-ресурсы |
 <!-- agent:end -->
 
 ## aego docs

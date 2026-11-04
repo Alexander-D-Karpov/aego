@@ -1,0 +1,4 @@
+project version=1 {
+ name="Camera effects" module="game" mainScene=asset("e76a0000000000000000000000000010") native=false
+ window { width=960 height=540 title="Camera effects" }
+}

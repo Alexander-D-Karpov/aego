@@ -62,15 +62,17 @@ type record struct {
 }
 
 type group struct {
-	kind   Kind
-	at     time.Time
-	recs   []record
-	before Selection
-	after  Selection
-	sealed bool
+	kind     Kind
+	at       time.Time
+	recs     []record
+	before   Selection
+	after    Selection
+	sealed   bool
+	snapshot bool
 }
 
 type Doc struct {
+	GLSL     bool
 	Sel      Selection
 	Now      func() time.Time
 	buf      *buffer.Table
@@ -673,4 +675,32 @@ func (d *Doc) ReplaceAll(q, repl string, o search.Options) int {
 	}
 	d.commit()
 	return len(hits)
+}
+
+// ReplaceSnapshot applies an asset-document mutation through the same undo log
+// as source editing. Repeated updates in a slider gesture keep one undo entry.
+func (d *Doc) ReplaceSnapshot(src []byte, continuing bool) {
+	src = normalize(src)
+	if bytes.Equal(d.Bytes(), src) {
+		return
+	}
+	if n := len(d.undo); continuing && n > 0 && d.undo[n-1].snapshot && !d.undo[n-1].sealed {
+		d.apply(0, d.Len(), src)
+		g := &d.undo[n-1]
+		g.recs[0].inserted = append(g.recs[0].inserted[:0], src...)
+		d.Sel = Selection{Anchor: len(src), Head: len(src)}
+		g.after = d.Sel
+		g.at = d.Now()
+		d.redo = d.redo[:0]
+		return
+	}
+	d.Replace(0, d.Len(), string(src))
+	d.undo[len(d.undo)-1].snapshot = true
+}
+
+func (d *Doc) Highlight(text []byte, in highlight.State, dst []highlight.Span) ([]highlight.Span, highlight.State) {
+	if d.GLSL {
+		return highlight.GLSLLine(text, in, dst)
+	}
+	return highlight.Line(text, in, dst)
 }

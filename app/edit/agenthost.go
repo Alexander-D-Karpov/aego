@@ -1,10 +1,13 @@
 package edit
 
 import (
+	"context"
 	"encoding/json"
-
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"aego/app/agent"
 	"aego/app/agentui/backend"
@@ -15,46 +18,174 @@ import (
 
 // agentHost runs the model and the bridge for the Agent panel; the bridge and the process start on the first message (D343).
 type agentHost struct {
-	backend  backend.Backend
-	bridgeOf func() (*agentbridge.Bridge, error)
-	command  func() string
-	setCmd   func(string)
-	bridge   *agentbridge.Bridge
-	conv     backend.Conversation
-	busy     bool
-	auto     bool
-	plan     bool
-	budgets  agentui.Budgets
-	static   map[int]agentui.Card
+	lastConn             agentui.Connection
+	lastTools            map[string]string
+	sceneTurn, sceneRead bool
+	// An explicit backend is fixed (test/replay); nil follows the saved provider.
+	backend    backend.Backend
+	dir        string
+	bridgeOf   func() (*agentbridge.Bridge, error)
+	bridgeOpen func() bool
+	settings   func(string) agentui.ProviderSettings
+	save       func(agentui.ProviderSettings)
+	bridge     *agentbridge.Bridge
+	conv       backend.Conversation
+	busy       bool
+	auto       bool
+	plan       bool
+	budgets    agentui.Budgets
+	static     map[int]agentui.Card
 }
 
-func newAgentHost(b backend.Backend, bridge func() (*agentbridge.Bridge, error), command func() string, set func(string)) *agentHost {
-	if b == nil {
-		b = backend.Claude{}
+func newAgentHost(b backend.Backend, bridge func() (*agentbridge.Bridge, error), settings func(string) agentui.ProviderSettings, save func(agentui.ProviderSettings)) *agentHost {
+	return &agentHost{backend: b, bridgeOf: bridge, settings: settings, save: save, static: map[int]agentui.Card{}, budgets: agentui.DefaultBudgets}
+}
+
+func (h *agentHost) options() agentui.ProviderSettings {
+	provider := ""
+	if h.backend != nil && (h.backend.Name() == "claude" || h.backend.Name() == "codex") {
+		provider = h.backend.Name()
 	}
-	return &agentHost{backend: b, bridgeOf: bridge, command: command, setCmd: set, static: map[int]agentui.Card{}, budgets: agentui.DefaultBudgets}
+	return h.settings(provider)
+}
+
+func (h *agentHost) currentBackend() (backend.Backend, error) {
+	if h.backend != nil {
+		return h.backend, nil
+	}
+	return backend.ForProvider(h.options().Provider)
 }
 
 func (h *agentHost) Available(cmd string) (string, error) {
-	return h.backend.Available(backend.Config{Command: cmd})
+	b, err := h.currentBackend()
+	if err != nil {
+		return "", err
+	}
+	return b.Available(backend.Config{Command: cmd})
+}
+
+func (h *agentHost) Provider() string {
+	if h.backend != nil {
+		return h.backend.Name()
+	}
+	provider := h.options().Provider
+	if provider == "" {
+		provider = "claude"
+	}
+	return provider
+}
+
+func (h *agentHost) SetProvider(provider string) error {
+	if _, err := backend.ForProvider(provider); err != nil {
+		return err
+	}
+	if provider == "" {
+		provider = "claude"
+	}
+	if provider == h.Provider() {
+		return nil
+	}
+	if h.backend != nil {
+		return errors.New("the injected agent backend cannot be changed")
+	}
+	if h.busy {
+		return errors.New("stop the current agent turn before changing provider")
+	}
+	h.Reset()
+	h.save(h.settings(provider))
+	return nil
 }
 
 func (h *agentHost) Command() string {
-	if c := h.command(); c != "" {
+	if c := h.options().Command; c != "" {
 		return c
+	}
+	if h.Provider() == "codex" {
+		return "codex"
 	}
 	return "claude"
 }
 
 func (h *agentHost) SetCommand(path string) {
-	if path == "claude" {
+	if h.busy {
+		return
+	}
+	s := h.options()
+	if path == h.Provider() {
 		path = ""
 	}
-	h.setCmd(path)
-	if h.conv != nil {
-		h.conv.Close()
-		h.conv, h.busy = nil, false
+	if path == s.Command {
+		return
 	}
+	h.Reset()
+	s.Command = path
+	h.save(s)
+}
+
+func (h *agentHost) Model() string { return h.options().Model }
+
+func (h *agentHost) Effort() string { return h.options().Effort }
+
+func (h *agentHost) ListModels(ctx context.Context, provider, command string) ([]agentui.ModelOption, error) {
+	if provider != "codex" {
+		return nil, nil
+	}
+	models, err := backend.CodexModels(ctx, command, h.dir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]agentui.ModelOption, 0, len(models))
+	for _, m := range models {
+		out = append(out, agentui.ModelOption{ID: m.ID, Label: m.Label, Description: m.Description, Efforts: m.Efforts})
+	}
+	return out, nil
+}
+
+func agentSetting(value, name string) (string, error) {
+	value = strings.TrimSpace(value)
+	if len(value) > 256 || strings.IndexFunc(value, unicode.IsSpace) >= 0 || strings.IndexFunc(value, unicode.IsControl) >= 0 {
+		return "", fmt.Errorf("invalid agent %s", name)
+	}
+	return value, nil
+}
+
+func (h *agentHost) SetModel(model string) error {
+	model, err := agentSetting(model, "model")
+	if err != nil {
+		return err
+	}
+	s := h.options()
+	if model == s.Model {
+		return nil
+	}
+	if h.busy {
+		return errors.New("stop the current agent turn before changing model")
+	}
+	h.Reset()
+	s.Model = model
+	h.save(s)
+	return nil
+}
+
+func (h *agentHost) SetEffort(effort string) error {
+	effort, err := agentSetting(effort, "reasoning effort")
+	if err != nil {
+		return err
+	}
+	if h.Provider() != "codex" && effort != "" {
+		return errors.New("reasoning effort is configured here only for Codex")
+	}
+	s := h.options()
+	if effort == s.Effort {
+		return nil
+	}
+	if h.busy {
+		return errors.New("stop the current agent turn before changing reasoning effort")
+	}
+	h.Reset()
+	s.Effort = effort
+	h.save(s)
+	return nil
 }
 
 func (h *agentHost) Running() bool {
@@ -85,19 +216,47 @@ func (h *agentHost) start() error {
 		return err
 	}
 	if h.conv == nil {
-		c, err := h.backend.Start(h.bridge.Backend())
+		b, err := h.currentBackend()
 		if err != nil {
 			return err
 		}
+		cfg := h.bridge.Backend()
+		options := h.options()
+		// The bridge may predate a provider/path change (for example when the CLI proxy started it).
+		cfg.Command, cfg.Model, cfg.Effort = options.Command, options.Model, options.Effort
+		c, err := b.Start(cfg)
+		if err != nil {
+			return err
+		}
+		h.lastConn = agentui.Connection{}
 		h.conv = c
 	}
 	return nil
 }
 
+func (h *agentHost) SendImages(text string, pngs [][]byte) error {
+	if err := h.start(); err != nil {
+		return err
+	}
+	sender, ok := h.conv.(interface{ SendImages(string, [][]byte) error })
+	if !ok {
+		return errors.New("this agent does not support image input")
+	}
+	if d, ok := h.conv.(backend.Diagnostics); ok && d.Connection().Vision == "unsupported" {
+		return errors.New("the selected model does not support image input")
+	}
+	if err := sender.SendImages(text, pngs); err != nil {
+		return err
+	}
+	h.sceneTurn = false
+	h.busy = true
+	return nil
+}
 func (h *agentHost) Send(text string) error {
 	if err := h.start(); err != nil {
 		return err
 	}
+	h.sceneTurn = false
 	if err := h.conv.Send(text); err != nil {
 		return err
 	}
@@ -120,15 +279,15 @@ func (h *agentHost) Close() {
 		h.conv = nil
 	}
 	if h.bridge != nil {
-		h.bridge.RejectAll()
+		h.bridge.Rebind()
 		h.bridge = nil
 	}
 	h.busy = false
 }
 
 func eventOf(e backend.Event) agentui.Event {
-	out := agentui.Event{Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed, Cost: e.Cost, Millis: e.Millis,
-		Tokens: e.Tokens, Window: e.Window, Model: e.Model}
+	out := agentui.Event{Images: e.Images, Text: e.Text, Tool: e.Tool, CallID: e.CallID, Args: string(e.Args), Result: e.Result, Failed: e.Failed, Cost: e.Cost, Millis: e.Millis,
+		Tokens: e.Tokens, Window: e.Window, Model: e.Model, Delta: e.Delta, MessageID: e.MessageID}
 	switch e.Kind {
 	case backend.EvText:
 		out.Kind = agentui.EvText
@@ -157,12 +316,49 @@ func (h *agentHost) Poll(dst []agentui.Event) []agentui.Event {
 		select {
 		case e, ok := <-h.conv.Events():
 			if !ok {
+				h.lastConn = h.Diagnostics()
+				if h.lastConn.State == "verified" || h.lastConn.State == "tools listed" {
+					h.lastConn.State = "disconnected"
+				}
 				h.conv.Close()
 				h.conv, h.busy = nil, false
 				return append(dst, agentui.Event{Kind: agentui.EvError, Text: "the agent process ended; the next message starts a new one"})
 			}
 			if e.Kind == backend.EvTurnEnd || e.Kind == backend.EvError {
 				h.busy = false
+			}
+			switch e.Kind {
+			case backend.EvError:
+				if e.Err != nil {
+					msg := strings.ToLower(e.Err.Error())
+					if strings.Contains(msg, "does not support image") || strings.Contains(msg, "image input is not supported") || strings.Contains(msg, "image inputs are not supported") {
+						h.lastConn.Vision = "unsupported"
+					}
+				}
+			case backend.EvToolStart:
+				if h.lastTools == nil {
+					h.lastTools = map[string]string{}
+				}
+				h.lastTools[e.CallID] = e.Tool
+			case backend.EvToolResult:
+				tool := e.Tool
+				if tool == "" {
+					tool = h.lastTools[e.CallID]
+				}
+				delete(h.lastTools, e.CallID)
+				if e.Failed {
+					h.lastConn.Last = tool + ": failed"
+				} else {
+					h.lastConn.Last = tool + ": OK"
+					if tool == "scene_tree" || tool == "script_read" || tool == "editor_scene_context" {
+						h.sceneRead = true
+					}
+				}
+			case backend.EvTurnEnd:
+				if h.sceneTurn && !h.sceneRead {
+					h.lastConn.Last = "Explain: snapshot attached; model did not read a scene tool"
+				}
+				h.sceneTurn = false
 			}
 			dst = append(dst, eventOf(e))
 		default:
@@ -197,6 +393,11 @@ func cardOf(p *agentbridge.Proposal, v agentView) agentui.Card {
 	}
 	c.File = p.Args.Str("file")
 	if out := p.Preview; out != nil {
+		for _, img := range out.Images {
+			if img.Mime == "image/png" && len(c.PreviewImages) < 3 && len(img.Data) <= 5<<20 {
+				c.PreviewImages = append(c.PreviewImages, img.Data)
+			}
+		}
 		c.Changes = changesOf(out.Changes)
 		c.Rows = v.rows(c.File, out.Changes)
 		c.Notes = append(c.Notes, out.Notes...)
@@ -232,9 +433,18 @@ func problemTexts(out *agent.Output) []string {
 	return list
 }
 
+// Poll the shared editor bridge for outside proposals, including before the
+// panel's first conversation. An idle frame must never start a listener.
+func (h *agentHost) canPollBridge() bool {
+	if h.bridge != nil {
+		return true
+	}
+	return h.bridgeOpen != nil && h.bridgeOpen() && h.attach() == nil
+}
+
 // Cards are the bridge's proposals; their fixed parts are built once.
 func (h *agentHost) Cards(dst []agentui.Card) []agentui.Card {
-	if h.attach() != nil {
+	if !h.canPollBridge() {
 		return dst
 	}
 	for _, p := range h.bridge.Proposals() {
@@ -295,8 +505,12 @@ func (h *agentHost) SetPlanOnly(on bool) {
 
 // Reset ends the conversation and dismisses what waits for the user; the bridge stays, so the next message starts a new conversation quickly.
 func (h *agentHost) Reset() {
+	h.lastConn = agentui.Connection{}
+	clear(h.lastTools)
+	h.sceneRead = false
+	h.sceneTurn = false
 	if h.bridge != nil {
-		h.bridge.RejectAll()
+		h.bridge.Rebind()
 	}
 	if h.conv != nil {
 		h.conv.Close()
@@ -306,7 +520,7 @@ func (h *agentHost) Reset() {
 }
 
 func (h *agentHost) Questions(dst []agentui.Question) []agentui.Question {
-	if h.attach() != nil {
+	if !h.canPollBridge() {
 		return dst
 	}
 	for _, q := range h.bridge.Questions() {

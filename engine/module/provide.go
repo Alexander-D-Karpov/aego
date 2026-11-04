@@ -18,9 +18,17 @@ func (r *Registry) Provide(kind string, v any) {
 	r.provided = append(r.provided, provision{kind: kind, Provision: Provision{Owner: r.Owner(), Value: v}})
 }
 
+func (r *Registry) Provided(kind string) []Provision {
+	return provisions(r.provided, kind)
+}
+
 func (m *Manifest) Provided(kind string) []Provision {
+	return provisions(m.provided, kind)
+}
+
+func provisions(source []provision, kind string) []Provision {
 	var out []Provision
-	for _, p := range m.provided {
+	for _, p := range source {
 		if p.kind == kind {
 			out = append(out, p.Provision)
 		}

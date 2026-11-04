@@ -18,6 +18,7 @@ layout(std140) uniform ub1 {
 #define aego_pixel_scale aego_view_params.x
 #define aego_pixels_per_unit aego_view_params.y
 #define aego_zoom aego_view_params.z
+#define aego_clip_to_pixel_y aego_view_params.w
 #define aego_camera_pos aego_camera.xyz
 layout(std140) uniform ub2 {
     float Strength;
@@ -31,6 +32,8 @@ uniform sampler2D tex3;
 in vec2 aego_uv;
 in vec4 aego_color;
 in vec2 aego_local;
+flat in vec4 aego_region;
+flat in vec4 aego_local_rect;
 out vec4 aego_out;
 
 

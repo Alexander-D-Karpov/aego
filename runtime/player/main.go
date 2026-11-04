@@ -3,6 +3,7 @@
 package player
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
@@ -44,13 +45,14 @@ func Main(mods ...sdk.Module) {
 	frames := fs.Int("frames", 0, "run a fixed number of frames and exit")
 	debugFlag := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	seed := fs.Uint64("seed", 0, "world random seed")
+	checkpoint := fs.String("observe-checkpoint", "", "observe Checkpoint2D.Reached on the given node ID and print its result as JSON on exit")
 	fs.Parse(os.Args[1:])
 	if *windowed && *fullscreen {
 		fail("--windowed and --fullscreen cannot be used together")
 	}
 	cfg := Config{
 		Data: *data, Profile: *profile, Scene: *scenePath, LogFile: *logFile, Trace: *tracePath, Replay: *replayPath,
-		Headless: *headless, Frames: *frames, Debug: *debugFlag, Seed: *seed,
+		Headless: *headless, Frames: *frames, Debug: *debugFlag, Seed: *seed, ObserveCheckpoint: *checkpoint,
 	}
 	switch {
 	case *windowed:
@@ -72,6 +74,11 @@ func Main(mods ...sdk.Module) {
 	}
 	if err := p.Run(); err != nil {
 		fail(err.Error())
+	}
+	if p.checkpoint != nil {
+		if err := json.NewEncoder(os.Stdout).Encode(p.checkpoint); err != nil {
+			fail(err.Error())
+		}
 	}
 }
 

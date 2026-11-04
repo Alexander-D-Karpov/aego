@@ -12,6 +12,8 @@ import (
 	gameplayeditor "aego/modules/gameplay/editor"
 	inputmod "aego/modules/input"
 	inputeditor "aego/modules/input/editor"
+	"aego/modules/particles"
+	particleseditor "aego/modules/particles/editor"
 	"aego/modules/physics"
 	physicseditor "aego/modules/physics/editor"
 	"aego/modules/render2d"
@@ -23,6 +25,7 @@ import (
 func With(c assembly.Catalog) assembly.Catalog {
 	return c.
 		With(inputmod.ID, inputeditor.Hook).
+		With(particles.ID, particleseditor.Hook).
 		With(render2d.ID, render2deditor.Hook).
 		With(render3d.ID, render3deditor.Hook).
 		With(physics.ID, physicseditor.Hook).

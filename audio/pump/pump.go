@@ -132,6 +132,18 @@ func (p *Pump) Fill() int {
 		p.mu.Unlock()
 	}
 	target := p.cfg.Target * p.cfg.Block
+	if !p.primed && q < target {
+		// An asynchronous output may need to publish its initial blocks as
+		// one batch: otherwise its consumer can drain the first block while
+		// the producer is still mixing the rest of the startup reserve.
+		if out, ok := p.out.(interface {
+			BeginAudioPrime(int)
+			EndAudioPrime()
+		}); ok {
+			out.BeginAudioPrime(target - q + p.cfg.Block - 1)
+			defer out.EndAudioPrime()
+		}
+	}
 	n := 0
 	for q < target {
 		t := time.Now()

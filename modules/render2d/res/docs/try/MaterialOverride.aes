@@ -1,0 +1,15 @@
+package demo
+
+import (
+    "aego/tween"
+    "aego/curve"
+)
+
+script MaterialPulse {
+    var pulse tween.Tween
+
+    func Ready() {
+        node.Get<MaterialOverride>().SetFloat("Flash", 0)
+        pulse = tween.ToFloat(node, "MaterialOverride.Flash", 1, 0.8, curve.InOutSine).PingPong(-1)
+    }
+}

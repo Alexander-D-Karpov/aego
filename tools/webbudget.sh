@@ -19,6 +19,13 @@ check() {
         echo "web budget: $1 $mb MB of $2 MB"
     fi
 }
+# The demo shell is patched after export. A stale static gzip can otherwise
+# serve different launch settings depending on the browser's Accept-Encoding.
+page="$site/demo/index.html"
+if ! gzip -t "$page.gz" || ! gzip -dc "$page.gz" | cmp -s "$page" -; then
+    echo "web budget: demo/index.html.gz does not match the published launch HTML"
+    bad=1
+fi
 check demo/game.wasm.gz 8
 check play/aego.wasm.gz 8
 check try/aego-docs.wasm.gz 10

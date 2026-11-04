@@ -138,5 +138,7 @@ func (f *Files) SetStartup(id ids.AssetID, rel string) {
 }
 
 func (f *Files) CreateFile(rel string, data []byte) (ids.AssetID, error) {
-	return assetops.CreateFile(f.ctx, rel, data)
+	return f.ops.CreateFile(f.ctx, rel, data)
 }
+
+func (f *Files) Transaction(fn func() error) error { return f.ops.Transaction(f.ctx, fn) }

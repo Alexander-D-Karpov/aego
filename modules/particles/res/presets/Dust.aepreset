@@ -1,0 +1,25 @@
+prefab version=1 {
+  node "31ffb6de64f40fbf81a42bc771c80fb5" name="Dust" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      playOnStart=false
+      loop=false
+      rate=0
+      shape=rect
+      rectSize=[0.48, 0.04]
+      lifetime=[0.32, 0.5]
+      speed=[1.1, 2.3]
+      size=[0.19, 0.33]
+      direction=-1.5707964
+      spread=2.7
+      color=#d9c0a6dd
+      gravity=[0, 4]
+      space=world
+      sizeOverLife={ keys=[[0, 0.8, 0, 0, bezier, linear], [1, 1.3, 0, 0, bezier, linear]] }
+      sprite=asset("ae900000000000000000000000000d00")
+      order=3
+      reducedMotion=reduce
+      reducedRate=0.5
+    }
+  }
+}

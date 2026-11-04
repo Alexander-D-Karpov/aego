@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"runtime"
 	"runtime/metrics"
 	"time"
 
@@ -109,6 +110,16 @@ func (e *Engine) SetPhaseAllocs(on bool) {
 
 func (e *Engine) SetLockstep(on bool) {
 	e.lockstep = on
+}
+
+// exactFrameAllocs flushes allocator caches before reading the totals. The
+// cheaper runtime/metrics counters can publish a cached span's allocations in
+// a later frame, making a per-frame byte comparison depend on cache timing.
+// ReadMemStats stops the world, so use it only while the probe is enabled.
+func exactFrameAllocs() (uint64, uint64) {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.Mallocs, stats.TotalAlloc
 }
 
 func (e *Engine) objects() uint64 {
@@ -244,16 +255,19 @@ func (e *Engine) frame() {
 	e.lastAllocs, e.allocs = e.allocs, [phaseCount]uint64{}
 	var o0, b0 uint64
 	if e.probe {
-		o0, b0 = e.heapAllocs()
+		o0, b0 = exactFrameAllocs()
 	}
 	e.tracer.BeginFrame()
 	now := e.plat.Now()
 	delta := 0.0
 	if e.frameNo > 0 {
 		delta = now - e.lastTime
-		if e.cfg.FixedFrameTime > 0 {
-			delta = e.cfg.FixedFrameTime
-		}
+	}
+	if e.clockReset != nil && e.clockReset.ConsumeFrameClockReset() {
+		delta = 0
+	}
+	if e.frameNo > 0 && e.cfg.FixedFrameTime > 0 {
+		delta = e.cfg.FixedFrameTime
 	}
 	if delta < 0 {
 		delta = 0
@@ -322,7 +336,7 @@ func (e *Engine) frame() {
 	e.counter.Sample(&e.stats)
 	e.tracer.EndFrame()
 	if e.probe {
-		o, b := e.heapAllocs()
+		o, b := exactFrameAllocs()
 		e.allocTotal[zoneFrame] += o - o0
 		e.frameBytes += b - b0
 	}

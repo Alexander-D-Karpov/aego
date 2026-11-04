@@ -7,53 +7,13 @@
     "enabled": true,
     "children": [
       {
-        "id": "#c0000000000000000000000000000002",
-        "name": "GroundLeft",
-        "path": "Root/GroundLeft",
+        "id": "#c0000000000000000000000000000001",
+        "name": "Camera",
+        "path": "Root/Camera",
         "enabled": true,
         "components": [
           {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "physics.Body2D"
-          },
-          {
-            "type": "physics.EdgeCollider2D"
-          }
-        ]
-      },
-      {
-        "id": "#c000000000000000000000000000000d",
-        "name": "GroundRight",
-        "path": "Root/GroundRight",
-        "enabled": true,
-        "components": [
-          {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "physics.Body2D"
-          },
-          {
-            "type": "physics.EdgeCollider2D"
-          }
-        ]
-      },
-      {
-        "id": "#c000000000000000000000000000000a",
-        "name": "Platform",
-        "path": "Root/Platform",
-        "enabled": true,
-        "components": [
-          {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "physics.Body2D"
-          },
-          {
-            "type": "physics.EdgeCollider2D"
+            "type": "engine.Camera2D"
           }
         ]
       },
@@ -64,225 +24,16 @@
         "enabled": true,
         "components": [
           {
-            "type": "animation.Animator"
+            "type": "engine.MaterialOverride"
           },
           {
             "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "engine.Tags"
-          },
-          {
-            "type": "gameplay.Health"
-          },
-          {
-            "type": "gameplay.Hitbox2D"
-          },
-          {
-            "type": "gameplay.Hurtbox2D"
-          },
-          {
-            "type": "gameplay.Motion2D"
-          },
-          {
-            "type": "gameplay.Respawn"
-          },
-          {
-            "type": "physics.Body2D"
-          },
-          {
-            "type": "save.Persist"
-          }
-        ],
-        "scripts": [
-          "mygame.player.PlayerController"
-        ],
-        "children": [
-          {
-            "id": "#c000000000000000000000000000000b",
-            "name": "Shape",
-            "path": "Root/Player/Shape",
-            "enabled": true,
-            "components": [
-              {
-                "type": "physics.CapsuleCollider2D"
-              }
-            ]
-          },
-          {
-            "id": "#c0000000000000000000000000000010",
-            "name": "Slash",
-            "path": "Root/Player/Slash",
-            "enabled": true,
-            "components": [
-              {
-                "type": "engine.SpriteRenderer"
-              },
-              {
-                "type": "gameplay.Hitbox2D"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "#c0000000000000000000000000000005",
-        "name": "PatrolA1",
-        "path": "Root/PatrolA1",
-        "enabled": true
-      },
-      {
-        "id": "#c0000000000000000000000000000006",
-        "name": "PatrolB1",
-        "path": "Root/PatrolB1",
-        "enabled": true
-      },
-      {
-        "id": "#c0000000000000000000000000000004",
-        "name": "EnemyLeft",
-        "path": "Root/EnemyLeft",
-        "enabled": true,
-        "prefab": "prefabs/enemy.aeprefab",
-        "components": [
-          {
-            "type": "animation.Animator"
-          },
-          {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "gameplay.Health"
-          },
-          {
-            "type": "gameplay.Hitbox2D"
-          },
-          {
-            "type": "gameplay.Hurtbox2D"
           },
           {
             "type": "physics.Body2D"
           },
           {
             "type": "physics.BoxCollider2D"
-          },
-          {
-            "type": "save.Persist"
-          }
-        ],
-        "scripts": [
-          "mygame.enemy.EnemyAI"
-        ]
-      },
-      {
-        "id": "#c0000000000000000000000000000008",
-        "name": "PatrolA2",
-        "path": "Root/PatrolA2",
-        "enabled": true
-      },
-      {
-        "id": "#c0000000000000000000000000000009",
-        "name": "PatrolB2",
-        "path": "Root/PatrolB2",
-        "enabled": true
-      },
-      {
-        "id": "#c0000000000000000000000000000007",
-        "name": "EnemyRight",
-        "path": "Root/EnemyRight",
-        "enabled": true,
-        "prefab": "prefabs/enemy.aeprefab",
-        "components": [
-          {
-            "type": "animation.Animator"
-          },
-          {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "gameplay.Health"
-          },
-          {
-            "type": "gameplay.Hitbox2D"
-          },
-          {
-            "type": "gameplay.Hurtbox2D"
-          },
-          {
-            "type": "physics.Body2D"
-          },
-          {
-            "type": "physics.BoxCollider2D"
-          },
-          {
-            "type": "save.Persist"
-          }
-        ],
-        "scripts": [
-          "mygame.enemy.EnemyAI"
-        ]
-      },
-      {
-        "id": "#c000000000000000000000000000000e",
-        "name": "Pit",
-        "path": "Root/Pit",
-        "enabled": true,
-        "components": [
-          {
-            "type": "gameplay.KillZone2D"
-          }
-        ]
-      },
-      {
-        "id": "#c000000000000000000000000000000f",
-        "name": "Checkpoint",
-        "path": "Root/Checkpoint",
-        "enabled": true,
-        "components": [
-          {
-            "type": "engine.SpriteRenderer"
-          },
-          {
-            "type": "gameplay.Checkpoint2D"
-          }
-        ]
-      },
-      {
-        "id": "#c0000000000000000000000000000001",
-        "name": "Camera",
-        "path": "Root/Camera",
-        "enabled": true,
-        "components": [
-          {
-            "type": "audio.AudioListener2D"
-          },
-          {
-            "type": "camera.CameraFollow2D"
-          },
-          {
-            "type": "camera.CameraShake2D"
-          },
-          {
-            "type": "camera.VirtualCamera2D"
-          },
-          {
-            "type": "engine.Camera2D"
-          }
-        ]
-      },
-      {
-        "id": "#c000000000000000000000000000000c",
-        "name": "ArenaZone",
-        "path": "Root/ArenaZone",
-        "enabled": true,
-        "components": [
-          {
-            "type": "audio.AudioZone2D"
-          },
-          {
-            "type": "camera.CameraZone2D"
-          },
-          {
-            "type": "camera.VirtualCamera2D"
           }
         ]
       }

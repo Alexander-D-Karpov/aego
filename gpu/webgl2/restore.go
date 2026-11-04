@@ -11,6 +11,11 @@ import (
 
 func (d *Device) restore() {
 	d.lost = false
+	d.contextGen++
+	d.targetErrors = [16]string{}
+	d.targetErrorCount = 0
+	// Extension objects and optional capabilities belong to the context generation.
+	d.queryCaps()
 	d.cache.Invalidate()
 	d.initState()
 	for k, fbo := range d.fbos {
@@ -23,6 +28,7 @@ func (d *Device) restore() {
 	d.bb = backbuffer{}
 	d.buffers.Each(func(_ handle.Handle[glBuffer], b *glBuffer) {
 		d.obj.reuse(b.id, d.call(d.f.CreateBuffer))
+		b.last.Reset()
 		d.uploadBuffer(b, b.shadow)
 	})
 	d.textures.Each(func(_ handle.Handle[glTexture], t *glTexture) {
@@ -52,7 +58,7 @@ func (d *Device) restore() {
 	})
 	d.queries.Each(func(_ handle.Handle[glQuery], q *glQuery) {
 		d.obj.reuse(q.id, d.call(d.f.CreateQuery))
-		q.active = false
+		q.active, q.issued, q.canceled = false, false, true
 	})
 	d.activeQuery = 0
 	if err := d.initOutput(); err != nil {

@@ -18,7 +18,7 @@ func (b *Bridge) StartProxy() (url, token string, err error) {
 		}
 		b.proxy = h
 	}
-	return b.proxy.URL, b.proxy.Token, nil
+	return b.proxy.URL, b.proxy.Token(), nil
 }
 
 type proxySource struct {
@@ -49,7 +49,7 @@ func (b *Bridge) RunVia(via string, direct bool, name string, a agent.Args) (*ag
 		return b.sceneRun(a)
 	}
 	if ok && c.Write && !a.Bool("dry-run") {
-		return b.proposeVia(c, a, via, direct)
+		return b.proposeVia(c, a, via, direct, 0)
 	}
 	var out *agent.Output
 	var err error

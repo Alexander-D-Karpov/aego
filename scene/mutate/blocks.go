@@ -119,5 +119,5 @@ func runChecked(d doer, tx Tx, dry bool, problems func() []Problem) (*Result, er
 }
 
 func knownKind(k string) bool {
-	return sceneKinds[k] || dataKinds[k] || animKinds[k] || ctrlKinds[k]
+	return sceneKinds[k] || dataKinds[k] || animKinds[k] || ctrlKinds[k] || materialKinds[k] || textureKinds[k]
 }

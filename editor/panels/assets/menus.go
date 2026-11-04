@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/preview"
 	"aego/schema"
 	"aego/ui/widgets"
 )
@@ -44,8 +45,11 @@ func (p *Panel) assetItems() {
 	}
 	single := len(p.sel) == 1
 	reg := p.d.Commands
-	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.open", "Open"), "", "file.open", single && openable(a.Kind), false) {
+	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.open", "Open"), "", "file.open", single && p.d.Nav != nil, false) {
 		p.open(a)
+	}
+	if a.Kind == preview.SourceKind {
+		return
 	}
 	widgets.Separator(ui)
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.copy", "Copy"), reg.Shortcut(CommandCopy), "edit.copy", true, false) {
@@ -76,6 +80,9 @@ func (p *Panel) assetItems() {
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.find_references", "Find References"), reg.Shortcut(CommandFindReferences), "panel.references", single && p.d.ShowReferences != nil, false) {
 		p.d.ShowReferences(a.ID, nil)
 	}
+	if single && p.d.Thumbs != nil && p.d.Thumbs.Reason(a.ID) != "" && widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.preview_problems", "Preview problems"), "", "panel.problems", true, false) {
+		p.d.Nav.Open(context.ProblemsAt(""))
+	}
 	if p.d.Favorites != nil && single {
 		fav := favs.Item{Kind: favs.Asset, Asset: a.ID, Label: path.Base(a.Path)}
 		label := i18n.Tr("editor.assets.add_to_favorites", "Add to Favorites")
@@ -90,6 +97,21 @@ func (p *Panel) assetItems() {
 	if single {
 		id, rel, name := a.ID, a.Path, a.Name
 		switch a.Kind {
+		case asset.ArtMaterial:
+			if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.show_material_on_object", "Show on scene object"), "", "comp.sprite", p.d.Refs != nil && p.d.Nav != nil, false) {
+				found := false
+				hits := p.d.Refs.Find(id)
+				for _, h := range hits {
+					if h.Open && len(h.Places) > 0 {
+						p.d.Nav.Open(context.AtNode(h.Ref.Path, h.Places[0].Node))
+						found = true
+						break
+					}
+				}
+				if !found && p.d.ShowReferences != nil {
+					p.d.ShowReferences(id, nil)
+				}
+			}
 		case asset.ArtScene:
 			widgets.Separator(ui)
 			startup := p.d.Project != nil && p.d.Project.MainScene == id
@@ -139,6 +161,9 @@ func (p *Panel) assetItems() {
 }
 
 func (p *Panel) dirItems(dir string) {
+	if sourceFolder(dir) {
+		return
+	}
 	ui := p.f.UI
 	reg := p.d.Commands
 	if widgets.SubMenuIcon(ui, i18n.Tr("editor.assets.new", "New"), "ui.plus", 200) {

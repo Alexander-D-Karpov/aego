@@ -12,6 +12,12 @@ script Hero {
 	@export
 	var Sword NodeRef
 
+	@export
+	var Torch NodeRef
+
+	@export
+	var StepDust NodeRef
+
 	@export(min=0)
 	var Reach float = 0.8
 
@@ -19,10 +25,12 @@ script Hero {
 	var mouse Vec2
 	var useMouse bool
 	var hit int
+	var footstep int
 
 	func Ready() {
 		mouse = input.MousePos()
 		hit = anim.EventID("Hit")
+		footstep = anim.EventID("Footstep")
 	}
 
 	func FixedUpdate(dt float) {
@@ -37,6 +45,9 @@ script Hero {
 	}
 
 	func OnAnimEvent(id int, payload float) {
+		if id == footstep && StepDust != nil && StepDust.IsAlive() {
+			StepDust.Get<ParticleSystem2D>().Burst(2)
+		}
 		if id == hit {
 			Sword.Get<Hitbox2D>().Pulse()
 		}
@@ -62,7 +73,11 @@ script Hero {
 			facing = math.Normalize(move)
 		}
 		Sword.SetPosition(facing * Reach)
-		Sword.SetRotation(math.Angle(facing))
+		angle := math.Angle(facing)
+		Sword.SetRotation(angle)
+		if Torch != nil {
+			Torch.SetRotation(angle)
+		}
 		if input.Pressed("Pause") {
 			settings.OpenView()
 		}

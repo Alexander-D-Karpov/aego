@@ -88,13 +88,14 @@ func TestSetGetEveryKind(t *testing.T) {
 			t.Errorf("%s = %v, want %v", n, got, want)
 		}
 	}
-	if m.Set("I", [4]float32{2.6}); true {
-		if got, _ := m.Get("I"); got[0] != 3 {
-			t.Errorf("int rounds %v", got)
-		}
+	if m.Set("I", [4]float32{2.6}) {
+		t.Fatal("fractional int was accepted")
 	}
-	if m.Set("T", [4]float32{1}) || m.Set("L", [4]float32{1}) || m.Set("Nope", [4]float32{}) {
-		t.Fatal("Set took a texture, an instance lane or an unknown name")
+	if got, _ := m.GetInt("I"); got != -7 {
+		t.Fatal("invalid Set changed the old integer")
+	}
+	if m.Set("T", [4]float32{1}) || m.Set("Nope", [4]float32{}) {
+		t.Fatal("Set took a texture or unknown name")
 	}
 	if !m.SetTexture("T", Tex{}) || m.SetTexture("F", Tex{}) {
 		t.Fatal("SetTexture took the wrong parameter")
@@ -120,7 +121,16 @@ func TestPromoteKeepsValuesByName(t *testing.T) {
 	m.Set("Speed", [4]float32{4})
 	m.Set("Tint", [4]float32{0.1, 0.2, 0.3, 0.4})
 	m.Set("Kind", [4]float32{9})
-	m.promote(next, 0)
+	if err := m.promote(next, 0); err == nil {
+		t.Fatal("incompatible explicit type was silently reset")
+	}
+	if m.Shader() != old {
+		t.Fatal("failed migration changed shader")
+	}
+	m.Reset("Kind")
+	if err := m.promote(next, 0); err != nil {
+		t.Fatal(err)
+	}
 	if v, _ := m.Get("Speed"); v[0] != 4 {
 		t.Errorf("Speed lost: %v", v)
 	}
@@ -222,6 +232,7 @@ func TestFailedReloadKeepsTheShader(t *testing.T) {
 	}
 	p.End()
 	dev.EndFrame()
+	c.End()
 	if m.Shader() != old || !m.Failed() {
 		t.Fatalf("shader %s, failed %v", m.Shader().Name, m.Failed())
 	}
@@ -233,6 +244,7 @@ func TestFailedReloadKeepsTheShader(t *testing.T) {
 	f = dev.BeginFrame(8, 8)
 	c.Bind(f.BeginPass(gpu.PassDesc{}), m)
 	dev.EndFrame()
+	c.End()
 	if m.Shader() != fixed || m.Failed() || !slices.Equal(m.Shader().Keywords, []string{"A"}) {
 		t.Fatalf("the fixed shader was not taken: %s %v", m.Shader().Name, m.Failed())
 	}

@@ -7,6 +7,7 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/gpu"
+	"aego/render/shader"
 )
 
 const VertexStride = 36
@@ -107,4 +108,16 @@ func Layout() gpu.VertexLayout {
 		},
 		Strides: [gpu.MaxVertexSlots]uint16{VertexStride},
 	}
+}
+
+func LaneLayout(lanes int) gpu.VertexLayout {
+	l := Layout()
+	for i := 0; i < lanes; i++ {
+		l.Attrs = append(l.Attrs, gpu.VertexAttr{Location: uint8(shader.LaneLocation + i), Slot: shader.LaneSlot, Format: gpu.VFUInt4, Offset: uint16(16 * i)})
+	}
+	if lanes > 0 {
+		l.Strides[shader.LaneSlot] = shader.LaneStride
+		l.PerInstance[shader.LaneSlot] = true
+	}
+	return l
 }

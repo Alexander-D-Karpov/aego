@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"fmt"
 	"slices"
 
 	"aego/asset"
@@ -16,11 +17,10 @@ import (
 )
 
 const (
-	peakCols  = 256
-	waveH     = 72
-	handleW   = 10
-	undoDepth = 64
-	maxGain   = 4.0
+	peakCols = 256
+	waveH    = 72
+	handleW  = 10
+	maxGain  = 4.0
 )
 
 var streamModes = [3][2]string{{"auto", "Auto"}, {"on", "On"}, {"off", "Off"}}
@@ -39,8 +39,6 @@ type clipEdit struct {
 	gain   float64
 	gainOn bool
 	loop   bool
-	undo   []pipeline.Settings
-	redo   []pipeline.Settings
 }
 
 type peakSource interface {
@@ -121,9 +119,14 @@ func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
 	if p.clip.id != id {
 		p.clip = clipEdit{id: id, drag: -1}
 	}
-	meta, ok := pl.MetaOf(id)
-	if !ok {
+	doc, err := ed.DocumentForAsset(id)
+	if err != nil || doc.Metadata == nil {
 		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_sound_is_not_imported", "The sound is not imported yet"))
+		return
+	}
+	meta, err := asset.ParseSourceMeta(doc.Metadata.Code.Bytes(), doc.Metadata.Path)
+	if err != nil {
+		widgets.LabelWrapped(ui, err.Error(), true)
 		return
 	}
 	c, err := mod.Clip(ed.Loader, id)
@@ -245,15 +248,28 @@ func (p *plugin) commitLoop(ed *context.Editor, v ClipView) {
 }
 
 func (p *plugin) write(ed *context.Editor, old, n pipeline.Settings) {
-	if err := ed.Pipeline.SetSettings(p.clip.id, n); err != nil {
+	d, err := ed.DocumentForAsset(p.clip.id)
+	if err != nil {
 		p.notify(err)
 		return
 	}
-	p.clip.undo = append(p.clip.undo, old.Clone())
-	if len(p.clip.undo) > undoDepth {
-		p.clip.undo = p.clip.undo[1:]
+	if d.Metadata == nil || d.Metadata.ReadOnly || d.Metadata.Conflict {
+		p.notify(fmt.Errorf("resolve the audio metadata conflict before editing"))
+		return
 	}
-	p.clip.redo = p.clip.redo[:0]
+	m, err := asset.ParseSourceMeta(d.Metadata.Code.Bytes(), d.Metadata.Path)
+	if err != nil {
+		p.notify(err)
+		return
+	}
+	// Keep source identity, frames and unknown metadata. Only existing audio
+	// fields are changed by this adapter; no second undo stack or serializer.
+	for _, key := range []string{"loopStart", "loopEnd", "stream", "gain", "bus"} {
+		if v, ok := n[key]; ok {
+			m.Settings[key] = v.Clone()
+		}
+	}
+	d.Metadata.Code.ReplaceSnapshot(asset.MarshalSourceMeta(m), false)
 }
 
 func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
@@ -317,23 +333,27 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 
 func (p *plugin) history(ed *context.Editor, s pipeline.Settings) {
 	ui := ed.UI
-	undo, redo := twoButtons(ui)
-	if widgets.ButtonRect(ui, ui.ID("undo"), undo, i18n.Tr("i18n.audio.undo", "Undo")) && len(p.clip.undo) > 0 {
-		prev := p.clip.undo[len(p.clip.undo)-1]
-		if err := ed.Pipeline.SetSettings(p.clip.id, prev); err != nil {
-			p.notify(err)
-			return
-		}
-		p.clip.undo = p.clip.undo[:len(p.clip.undo)-1]
-		p.clip.redo = append(p.clip.redo, s.Clone())
+	d, err := ed.DocumentForAsset(p.clip.id)
+	if err != nil || d.Metadata == nil {
+		return
 	}
-	if widgets.ButtonRect(ui, ui.ID("redo"), redo, i18n.Tr("i18n.audio.redo", "Redo")) && len(p.clip.redo) > 0 {
-		next := p.clip.redo[len(p.clip.redo)-1]
-		if err := ed.Pipeline.SetSettings(p.clip.id, next); err != nil {
-			p.notify(err)
-			return
+	undo, redo := twoButtons(ui)
+	if widgets.ButtonRect(ui, ui.ID("undo"), undo, i18n.Tr("i18n.audio.undo", "Undo")) {
+		p.notify(ed.UndoAsset(d))
+	}
+	if widgets.ButtonRect(ui, ui.ID("redo"), redo, i18n.Tr("i18n.audio.redo", "Redo")) {
+		p.notify(ed.RedoAsset(d))
+	}
+	if d.Metadata.Conflict {
+		widgets.LabelWrapped(ui, i18n.Tr("editor.document.metadata_conflict", "Metadata changed on disk. Reload it or explicitly keep your changes before saving."), true)
+		if widgets.Button(ui, i18n.Tr("editor.scripteditor.reload", "Reload")) {
+			p.notify(ed.Docs.ReloadScript(d.Metadata))
 		}
-		p.clip.redo = p.clip.redo[:len(p.clip.redo)-1]
-		p.clip.undo = append(p.clip.undo, s.Clone())
+		if widgets.Button(ui, i18n.Tr("editor.scripteditor.keep_mine", "Keep mine")) {
+			ed.Docs.KeepScript(d.Metadata)
+		}
+	}
+	if d.Dirty() && widgets.Button(ui, i18n.Tr("editor.document.save_metadata", "Save Metadata")) {
+		p.notify(ed.SaveAsset(d))
 	}
 }

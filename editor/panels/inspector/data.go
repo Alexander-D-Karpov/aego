@@ -8,12 +8,30 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/dataedit"
 	"aego/editor/core/document"
+	"aego/editor/core/services"
 	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
+
+// NewAssetView shares the existing schema services and document journals while
+// giving a document tab independent scroll/gesture state from the Inspector.
+func (p *Panel) NewAssetView() *Panel { return New(p.reg, p.d) }
+
+// DrawAsset renders one explicit data/registered asset without changing global
+// selection or inspecting the active Scene document.
+func (p *Panel) DrawAsset(f *services.Frame, r mathx.Rect, id ids.AssetID) {
+	p.f, p.doc = f, nil
+	p.assetBoxes = p.assetBoxes[:0]
+	if p.d.AssetView != nil && p.d.AssetView(id) {
+		return
+	}
+	if p.d.Data != nil {
+		p.drawData(r, id)
+	}
+}
 
 func (p *Panel) schemaOf(d *document.SceneDocument) *schema.Registry {
 	if d != nil {

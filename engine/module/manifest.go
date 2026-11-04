@@ -432,3 +432,14 @@ func (m *Manifest) Reconfigure(ctx *AttachContext) error {
 	}
 	return errors.Join(all...)
 }
+
+// RegisteredService returns a module's registered service for project tooling
+// which loads a manifest without starting a game engine.
+func (m *Manifest) RegisteredService(id string) (any, bool) {
+	for _, service := range m.services {
+		if service.id == id {
+			return service.value, true
+		}
+	}
+	return nil, false
+}

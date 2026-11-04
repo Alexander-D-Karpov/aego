@@ -31,6 +31,54 @@
       "doc": "Renders an orthographic view from the node transform."
     },
     {
+      "name": "engine.Mesh2D",
+      "kind": "component",
+      "display": "Mesh 2D",
+      "category": "Rendering",
+      "owner": "render2d",
+      "doc": "Draws the standard mesh vertex layout in a 2D camera with a compatible Mesh2D material."
+    },
+    {
+      "name": "engine.MaterialOverride",
+      "kind": "component",
+      "display": "Material Override",
+      "category": "Rendering",
+      "owner": "render2d",
+      "doc": "Overrides up to eight numeric shader parameters on this node. Removed parameters remain in the values list."
+    },
+    {
+      "name": "render2d.PostProcess",
+      "kind": "component",
+      "display": "Post Process",
+      "category": "Rendering",
+      "owner": "render2d",
+      "doc": "Applies an ordered effect stack after all cameras sharing this camera's logical output, before UI."
+    },
+    {
+      "name": "engine.Light2D",
+      "kind": "component",
+      "display": "Light 2D",
+      "category": "Lighting",
+      "owner": "render2d",
+      "doc": "Forward 2D diffuse light. Local +X defines Spot and Directional azimuth; presentation transforms also drive shadows."
+    },
+    {
+      "name": "engine.LightOccluder2D",
+      "kind": "component",
+      "display": "Light Occluder 2D",
+      "category": "Lighting",
+      "owner": "render2d",
+      "doc": "A planar shadow contour. Manual polygons require no Physics module; ShapeProvider reads local geometry through the shapes2d contract."
+    },
+    {
+      "name": "engine.LightingEnvironment2D",
+      "kind": "component",
+      "display": "Lighting Environment 2D",
+      "category": "Lighting",
+      "owner": "render2d",
+      "doc": "Lighting and output policy for a camera. An empty camera applies to the current output; overlapping environments are an error."
+    },
+    {
       "name": "engine.Camera3D",
       "kind": "component",
       "display": "Camera 3D",
@@ -285,6 +333,14 @@
       "category": "Engine",
       "owner": "save",
       "doc": "Saves the node's transform and enabled flag in save games."
+    },
+    {
+      "name": "particles.ParticleSystem2D",
+      "kind": "component",
+      "display": "Particle System 2D",
+      "category": "Effects",
+      "owner": "particles",
+      "doc": "Emits visual sprites from a bounded CPU pool. World-space particles stay at their birth location when the emitter moves."
     },
     {
       "name": "audio.AudioEvent",

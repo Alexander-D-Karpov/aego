@@ -72,12 +72,16 @@ func (m *Module) Project() *settings.Project {
 }
 
 func (m *Module) AttachWorld(ctx *module.AttachContext) error {
+	if err := attachShapes(ctx); err != nil {
+		return err
+	}
 	if !ctx.Play || ctx.World == nil || ctx.Scene == nil {
 		return nil
 	}
 	p := m.Project()
 	sim, err := systems.New(ctx.Scene, p.Config(), p.Matrix(), ctx.Log)
 	if err != nil {
+		detachShapes(ctx)
 		return err
 	}
 	sim.SetLayers(p.Layers())
@@ -116,6 +120,7 @@ func (m *Module) Reconfigure(ctx *module.AttachContext) error {
 }
 
 func (m *Module) DetachWorld(ctx *module.AttachContext) {
+	detachShapes(ctx)
 	if !ctx.Play || ctx.World == nil {
 		return
 	}

@@ -1,0 +1,30 @@
+#pragma aego abi 1
+#pragma domain sprite
+#include "engine/sprite.glsl"
+#pragma material
+uniform sampler2D Noise; // @texture @doc("Linear data texture sampled in local sprite UV, independent of the atlas.")
+uniform float Threshold; // @instance @default(0) @range(0, 1)
+uniform vec2 NoiseScale; // @default(4, 4)
+uniform float EdgeWidth; // @default(0.05) @range(0, 0.25)
+uniform vec4 EdgeColor; // @color @default(1, 0.4, 0, 1)
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+#pragma end
+void fragment() {
+    vec4 color = aego_sample();
+    if (Threshold <= 0.0) {
+        aego_out = color * clamp(Opacity, 0.0, 1.0);
+        return;
+    }
+    if (Threshold >= 1.0) {
+        aego_out = vec4(0.0);
+        return;
+    }
+    float noiseValue = texture(Noise, fract(aego_local * NoiseScale)).r;
+    float visible = step(Threshold, noiseValue);
+    float edge = 0.0;
+    if (EdgeWidth > 0.0) {
+        edge = 1.0 - smoothstep(0.0, EdgeWidth, max(noiseValue - Threshold, 0.0));
+    }
+    color.rgb = mix(color.rgb, EdgeColor.rgb * color.a, edge * clamp(EdgeColor.a, 0.0, 1.0));
+    aego_out = color * visible * clamp(Opacity, 0.0, 1.0);
+}

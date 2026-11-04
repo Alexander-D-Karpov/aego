@@ -11,7 +11,6 @@ import (
 	animpanel "aego/editor/panels/animation"
 	"aego/editor/panels/animator"
 	edocs "aego/editor/panels/docs"
-	"aego/editor/panels/events"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/watch"
 	"aego/engine/i18n"
@@ -37,21 +36,13 @@ func WorkspaceCommand(i int) string {
 }
 
 func BuiltinWorkspaces() []workspace.Preset {
-	off := workspace.SlotNone
+	left, browser, center, bottom, right := workspace.SlotLeft, workspace.SlotBrowser, workspace.SlotCenter, workspace.SlotBottom, workspace.SlotRight
+	// These are initial/reset layouts, not migrations. Preserve user tab and splitter state.
 	return []workspace.Preset{
-		{ID: workspace.Design, Title: i18n.Tr("editor.shell.design", "Design"), Order: 0},
-		{ID: workspace.Programming, Title: i18n.Tr("editor.shell.programming", "Programming"), Order: 10, HideToolbar: true, Rev: 1, Slots: map[string]workspace.Slot{
-			workspace.Hierarchy: off, workspace.Scene: off, workspace.Game: off, workspace.Inspector: off, workspace.Profiler: off,
-			events.ID: off, watch.ID: off, animpanel.ID: off, animator.ID: off, scripteditor.FindID: workspace.SlotRight, edocs.ID: workspace.SlotCenter,
-		}},
-		{ID: workspace.Art, Title: i18n.Tr("editor.shell.art", "Art"), Order: 20, Slots: map[string]workspace.Slot{
-			workspace.Assets: workspace.SlotBottom, workspace.Game: off, workspace.Console: off, workspace.Problems: off,
-			workspace.Profiler: off, events.ID: off, watch.ID: off,
-		}},
-		{ID: workspace.Audio, Title: i18n.Tr("editor.shell.audio", "Audio"), Order: 30, Slots: map[string]workspace.Slot{
-			workspace.Hierarchy: off, workspace.Game: off, workspace.Problems: off, workspace.Profiler: off,
-			events.ID: off, watch.ID: off, workspace.Mixer: workspace.SlotBottom, animpanel.ID: off, animator.ID: off,
-		}},
+		{ID: workspace.Design, Title: i18n.Tr("editor.shell.design", "Design"), Order: 0, Explicit: true, Slots: map[string]workspace.Slot{workspace.Hierarchy: left, workspace.Assets: browser, workspace.Scene: center, workspace.Game: center, workspace.Inspector: right, workspace.Problems: bottom, workspace.Console: bottom}, Front: []string{workspace.Scene, workspace.Problems}},
+		{ID: workspace.Programming, Title: i18n.Tr("editor.shell.programming", "Programming"), Order: 10, Rev: 1, Explicit: true, Slots: map[string]workspace.Slot{workspace.Assets: left, edocs.ID: center, workspace.Game: center, workspace.Problems: bottom, workspace.Console: bottom, scripteditor.FindID: bottom, "agent": right, watch.ID: right}, Front: []string{edocs.ID, workspace.Problems, "agent"}},
+		{ID: workspace.Art, Title: i18n.Tr("editor.shell.art", "Art"), Order: 20, Explicit: true, Slots: map[string]workspace.Slot{workspace.Hierarchy: left, workspace.Assets: browser, workspace.Scene: center, workspace.Game: center, workspace.Inspector: right, animpanel.ID: bottom, animator.ID: bottom}, Front: []string{workspace.Scene, animpanel.ID}},
+		{ID: workspace.Audio, Title: i18n.Tr("editor.shell.audio", "Audio"), Order: 30, Explicit: true, Slots: map[string]workspace.Slot{workspace.Assets: left, workspace.Game: center, workspace.Scene: center, workspace.Inspector: right, workspace.Mixer: bottom, workspace.Console: bottom}, Front: []string{workspace.Game, workspace.Mixer}},
 	}
 }
 
@@ -179,6 +170,14 @@ func (a *App) askWorkspaceName(title, value string, fn func(string) error) {
 
 func (a *App) globalKeys(in *input.State) {
 	reg := a.ctx.Commands
+	// Creation remains reachable after an asset opens its source editor or a
+	// property field takes focus. The palette transfers focus to its search.
+	for _, id := range []string{command.SceneCreate, command.EditAddComponent} {
+		if reg.Pressed(id, in) {
+			reg.Run(id)
+			return
+		}
+	}
 	for i := range workspaceKeys {
 		if id := WorkspaceCommand(i); reg.Pressed(id, in) {
 			reg.Run(id)
@@ -208,6 +207,9 @@ func (a *App) workspacePopup(id core.ID) {
 	}
 	widgets.Separator(ui)
 	for _, cid := range []string{CommandWorkspaceSaveAs, CommandWorkspaceRename, CommandWorkspaceDelete, CommandResetLayout, CommandWorkspaceToolbar} {
+		if !a.ws.Current().User && (cid == CommandWorkspaceRename || cid == CommandWorkspaceDelete) {
+			continue
+		}
 		if a.ctx.CommandItem(cid, "") {
 			ui.ClosePopup(id)
 		}

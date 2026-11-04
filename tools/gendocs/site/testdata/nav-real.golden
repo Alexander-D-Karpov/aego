@@ -87,6 +87,7 @@ Guides
       Loading order -> save/load.html
       Modules -> save/go.html
     Data assets -> data.html
+    CPU particle effects -> particles.html
     Settings -> settings.html
   Physics 2D -> physics.html
     Units and axes -> physics/units.html
@@ -124,6 +125,9 @@ Guides
   Rendering
     Sprites -> render2d/sprites.html
     Cameras -> render2d/cameras.html
+    Materials and shaders -> render2d/materials.html
+    Normal mapping with a moving light -> render2d/normal-mapping.html
+    Image and Sprite authoring -> render2d/image-viewer.html
   Native extensions -> extensions.html
   Tools & Agents
     Debug Draw -> debug.html
@@ -141,9 +145,12 @@ Reference
     aego/time -> ref/aego/time.html
     aego/input -> ref/aego/input.html
     aego/physics -> ref/aego/physics.html
+    aego/lighting -> ref/aego/lighting.html
+    aego/material -> ref/aego/material.html
     aego/camera -> ref/aego/camera.html
       Blend -> ref/aego/camera.Blend.html
     aego/anim -> ref/aego/anim.html
+    aego/particles -> ref/aego/particles.html
     aego/action -> ref/aego/action.html
       Action -> ref/aego/action.Action.html
     aego/timer -> ref/aego/timer.html
@@ -173,6 +180,12 @@ Reference
       Rigid Body 2D -> ref/physics.Body2D.html
     Rendering 2D -> ref/module/render2d.html
       Camera 2D -> ref/engine.Camera2D.html
+      Light 2D -> ref/engine.Light2D.html
+      Light Occluder 2D -> ref/engine.LightOccluder2D.html
+      Lighting Environment 2D -> ref/engine.LightingEnvironment2D.html
+      Material Override -> ref/engine.MaterialOverride.html
+      Mesh 2D -> ref/engine.Mesh2D.html
+      Post Process -> ref/render2d.PostProcess.html
       Sprite Renderer -> ref/engine.SpriteRenderer.html
     Cameras 2D -> ref/module/camera.html
       Camera Brain 2D -> ref/camera.CameraBrain2D.html
@@ -197,6 +210,8 @@ Reference
     Animation -> ref/module/animation.html
       Animation Player -> ref/animation.AnimationPlayer.html
       Animator -> ref/animation.Animator.html
+    Particles -> ref/module/particles.html
+      Particle System 2D -> ref/particles.ParticleSystem2D.html
     Saving -> ref/module/save.html
       Persist -> ref/save.Persist.html
     Audio -> ref/module/audio.html

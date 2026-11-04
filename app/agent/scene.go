@@ -2,6 +2,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path"
@@ -10,6 +11,12 @@ import (
 	"strconv"
 	"strings"
 
+	"aego/asset"
+	"aego/asset/importers/preset"
+	"aego/core/ids"
+	"aego/engine/module"
+	diagnostics "aego/engine/problems"
+	"aego/format/aetext"
 	"aego/project/refs"
 	"aego/scene"
 	"aego/scene/mutate"
@@ -71,6 +78,7 @@ func sceneCommands() []*Command {
 			return s.sceneTx(a, "Rename", mutate.Rename(a.Str("node"), a.Str("name")))
 		}},
 		{Name: "scene.add-comp", Doc: "add a component with its defaults and the components it requires, or attach a script by its type name", Write: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component or script name, full or a unique suffix (Body2D, EnemyAI)", Required: true, Pos: true},
+			{Name: "preset", Type: "string", Doc: "optional component preset asset ID or project-relative .aepreset path"},
 			{Name: "no-required", Type: "boolean", Doc: "add only this component; missing requirements stay as problems"}}, Run: (*Session).sceneAddComp},
 		{Name: "scene.remove-comp", Doc: "remove a component", Write: true, Destroys: true, Args: []Arg{argFile, argNode, {Name: "comp", Type: "string", Doc: "component or script name", Required: true, Pos: true}}, Run: func(s *Session, a Args) (*Output, error) {
 			return s.sceneTx(a, "Remove Component", mutate.RemoveComp(a.Str("node"), a.Str("comp")))
@@ -84,6 +92,7 @@ func sceneCommands() []*Command {
 			{Name: "watch", Type: "string", Doc: "comma-separated node paths whose world positions the report samples: Player,MovingPlatform"},
 			{Name: "input", Type: "string", Doc: "actions to press, by frame: 30 press Jump; 10-60 hold Right; 90 release Right; 0-40 axis Move 1"},
 			{Name: "assert", Type: "string", Doc: "checks separated by ;, at a frame or at any frame: @120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge; gone Coin; ~= compares numbers within 0.01"},
+			{Name: "camera", Type: "string", Doc: "optional active Camera2D node path or ID for screenshots; only filters render output"},
 			{Name: "shot", Type: "string", Doc: "comma-separated frames to capture, at most 3; the answer has the images, the full frames are under .aego/cache/runs"},
 			{Name: "scale", Type: "integer", Doc: "width the screenshots are scaled to in the answer, 640 by default"}}, Run: (*Session).sceneRun},
 	}
@@ -152,6 +161,62 @@ func (s *Session) sceneAddComp(a Args) (*Output, error) {
 			notes = append(notes, "added "+label(r)+" (required by "+label(td)+")")
 		}
 		ops = append(ops, mutate.AddComp(node, td.FullName))
+	}
+	if ref := a.Str("preset"); ref != "" {
+		id, err := s.asset(ref)
+		if err != nil {
+			return nil, err
+		}
+		file, ok := s.Pipeline.PathOf(id)
+		if !ok || path.Ext(file) != preset.Ext {
+			return nil, errors.New("preset is not a project component preset")
+		}
+		data, ok := s.sourceOverlay(file)
+		if !ok {
+			data, err = s.read(file)
+			if err != nil {
+				return nil, err
+			}
+		}
+		n, err := aetext.Parse(data, file)
+		if err != nil {
+			return nil, err
+		}
+		td, err := doc.Component(comp)
+		if err != nil {
+			return nil, err
+		}
+		component, err := asset.PresetComponent(n, td.FullName)
+		if err != nil {
+			return nil, err
+		}
+		if err := sceneio.ValidatePresetFields(s.Types.Schema(), td, component); err != nil {
+			return nil, err
+		}
+		ops[len(ops)-1].Values = &aetext.Node{Head: "values", Fields: component.Fields}
+		// A preset stores a single component. Validate it on the destination
+		// (and its authored/required components) without touching the live document.
+		env := s.env()
+		env.Types = doc.Scene.Types()
+		if r := doc.Scene.Resolver(); r != nil {
+			env.Resolver = r
+		}
+		candidate, err := mutate.Load(doc.Bytes(), rel, env)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = candidate.Apply(mutate.Tx{Label: "Validate preset", Ops: ops}); err != nil {
+			return nil, err
+		}
+		h, err := candidate.Node(node)
+		if err != nil {
+			return nil, err
+		}
+		for _, issue := range module.ValidateComponent(candidate.Scene, h, td) {
+			if issue.Severity == diagnostics.Error {
+				return nil, fmt.Errorf("%s: %s", issue.Code, issue.Message)
+			}
+		}
 	}
 	out, err := s.applyDoc(a, rel, src, doc, mutate.Tx{Label: "Add Component", Ops: ops})
 	if out != nil {
@@ -288,7 +353,14 @@ func (s *Session) sceneNew(a Args) (*Output, error) {
 		return &Output{DryRun: true, Notes: []string{"would create " + rel}}, nil
 	}
 	sc := scene.New(s.Types, sources{s.Pipeline}, scene.Options{})
-	id, err := s.create(rel, sceneio.Save(sc))
+	var id ids.AssetID
+	if h, ok := s.host.(interface {
+		CreateSceneAsset(string, []byte) (ids.AssetID, error)
+	}); ok {
+		id, err = h.CreateSceneAsset(rel, sceneio.Save(sc))
+	} else {
+		id, err = s.create(rel, sceneio.Save(sc))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +479,7 @@ func RunOutput(rep RunReport) *Output {
 
 // RunRequestOf reads the arguments of scene.run that the CLI and the editor share.
 func RunRequestOf(a Args, frames, seed int) (RunRequest, error) {
-	req := RunRequest{Frames: frames, Seed: uint64(seed), Watch: WatchList(a.Str("watch")), Input: a.Str("input")}
+	req := RunRequest{Camera: a.Str("camera"), Frames: frames, Seed: uint64(seed), Watch: WatchList(a.Str("watch")), Input: a.Str("input")}
 	for _, s := range strings.FieldsFunc(a.Str("assert"), func(r rune) bool { return r == ';' || r == '\n' }) {
 		if s = strings.TrimSpace(s); s != "" {
 			req.Asserts = append(req.Asserts, s)

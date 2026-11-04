@@ -3,48 +3,62 @@ package integration
 import (
 	"testing"
 
+	"aego/app/agentui/backend"
 	"aego/editor/core/workspace"
+	"aego/editor/panels/agent"
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/scripteditor"
+	"aego/editor/panels/watch"
 	"aego/ui/dock"
 )
 
-// Programming is code first: Assets on the left, scripts and documentation in the middle, Find on the right, Problems and Console below, no play toolbar.
 func TestProgrammingLayout(t *testing.T) {
-	s := workspaceSession(t)
+	s, _ := agentSession(t, &backend.Fake{})
 	ws := s.App.Workspace()
 	ws.Switch(workspace.Programming)
 	s.Step()
-	s.App.Context().OpenScript("scripts/player/player.aes", 1)
+	const script = "scripts/player/player.aes"
+	s.App.Context().OpenScript(script, 1)
 	for range 3 {
 		s.Step()
 	}
-	if ws.Toolbar() {
-		t.Fatal("Programming must hide the play toolbar")
+	if !ws.Toolbar() {
+		t.Fatal("Programming must show play controls by default")
 	}
-	for _, id := range []string{workspace.Scene, workspace.Inspector, workspace.Hierarchy, workspace.Game} {
+	for _, id := range []string{workspace.Scene, workspace.Inspector, workspace.Hierarchy} {
 		if ws.Tree.Has(id) {
 			t.Fatalf("Programming shows %s", id)
 		}
 	}
-	at := func(id string) dock.NodeID {
-		n := ws.Tree.FindPanel(id)
-		if n == 0 {
+	at := func(id string) *dock.Node {
+		n, ok := ws.Tree.Node(ws.Tree.FindPanel(id))
+		if !ok {
 			t.Fatalf("Programming has no %s", id)
 		}
 		return n
 	}
-	code := at(scripteditor.PanelID("scripts/player/player.aes"))
-	if code != at(edocs.ID) {
-		t.Fatal("the script must open next to the documentation in the middle")
+	code := at(scripteditor.PanelID(script))
+	if active, ok := code.ActivePanel(); !ok || active != scripteditor.PanelID(script) || code != at(edocs.ID) || code != at(workspace.Game) {
+		t.Fatal("the open script must be active in the central Docs and Game tab group")
 	}
-	rect := func(id string) float32 {
-		r, _ := ws.Tree.PanelRect(id)
-		return r.X
+	tools := at(workspace.Problems)
+	if tools != at(workspace.Console) || tools != at(scripteditor.FindID) {
+		t.Fatal("Problems, Console and Find must share the bottom group")
 	}
-	if !(rect(workspace.Assets) < rect(scripteditor.PanelID("scripts/player/player.aes")) && rect(scripteditor.PanelID("scripts/player/player.aes")) < rect(scripteditor.FindID)) {
-		t.Fatal("Assets, code and Find must go from left to right")
+	right := at(agent.ID)
+	if right != at(watch.ID) || !(at(workspace.Assets).Rect.X < code.Rect.X && code.Rect.X < right.Rect.X && code.Rect.Y < tools.Rect.Y) {
+		t.Fatal("expected Assets left, code in the center, tools below, Agent and Watch on the right")
 	}
-	at(workspace.Problems)
-	at(workspace.Console)
+
+	ws.SetToolbar(false)
+	ws.Toggle(watch.ID)
+	if err := ws.SaveLayout(); err != nil {
+		t.Fatal(err)
+	}
+	ws.Switch(workspace.Design)
+	ws.LoadLayout()
+	ws.Switch(workspace.Programming)
+	if ws.Toolbar() || ws.Tree.Has(watch.ID) || !ws.Tree.Has(scripteditor.PanelID(script)) {
+		t.Fatal("saved Programming toolbar, panel choice or open script was lost")
+	}
 }

@@ -334,6 +334,9 @@ func (s *Service) loadOne(h scene.NodeHandle, c *AnimationPlayer) {
 	}
 	clip := s.m.clip(res, c.Clip.ID)
 	old, same := p.clip, p.id == c.Clip.ID
+	if p.gen != gen {
+		s.dirty = true
+	}
 	p.id, p.gen = c.Clip.ID, gen
 	switch {
 	case clip == old:

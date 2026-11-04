@@ -1,0 +1,14 @@
+meta version=1 {
+  id="12a00000000000000000000000000304"
+  importer="texture"
+  importerVersion=1
+  settings {
+    filter=linear
+    srgb=false
+    data=true
+    atlas=""
+    mips=false
+    padding=2
+    extrude=true
+  }
+}

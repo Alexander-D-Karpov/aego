@@ -119,6 +119,7 @@ var ruChrome = map[string]string{
 	"A live scene with": "Живая сцена с компонентом",
 	"edit its fields in the Inspector on the right and the scene restarts with them.": "меняйте его поля в Инспекторе справа, и сцена перезапустится с ними.",
 	"Open in editor":              "Открыть в редакторе",
+	"Download scene only":         "Скачать только сцену",
 	"Copy as .aescene":            "Копировать как .aescene",
 	"Reset":                       "Сбросить",
 	"Builds for %s":               "Сборки для %s",

@@ -1,0 +1,5 @@
+#pragma aego abi 1
+#pragma material
+uniform float Amount; // @instance @default(0.5)
+#pragma end
+void fragment(){aego_out=vec4(aego_time,aego_unscaled,Amount,1.0);}

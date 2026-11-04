@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"aego/core/mathx"
 	"aego/ui/core"
@@ -69,10 +70,17 @@ func fitLine(c *core.Context, s string, width float32) string {
 	if cut > 0 {
 		return s[:cut]
 	}
-	for i := 1; i <= len(s); i++ {
-		if c.TextSize(s[:i]).X > width {
-			return s[:max(1, i-1)]
+	// A narrow cell must still fit one complete character.
+	for start := 0; start < len(s); {
+		_, size := utf8.DecodeRuneInString(s[start:])
+		end := start + size
+		if c.TextSize(s[:end]).X > width {
+			if start == 0 {
+				return s[:end]
+			}
+			return s[:start]
 		}
+		start = end
 	}
 	return s
 }

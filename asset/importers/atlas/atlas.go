@@ -8,22 +8,30 @@ import (
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
+	"aego/core/mathx"
+	"aego/format/aetext"
 	"aego/gpu"
 	rtex "aego/render/texture"
 )
 
 const (
-	GroupVersion = 1
+	GroupVersion = 4
 	MaxPage      = 2048
 	MinPage      = 64
 )
 
 type placement struct {
-	id     ids.AssetID
-	data   *rtex.Data
-	x, y   int
-	w, h   int
-	filter gpu.FilterMode
+	pivot                          [2]float32
+	hasPivot                       bool
+	sourceW, sourceH, trimX, trimY int
+	id                             ids.AssetID
+	normal                         ids.AssetID
+	emission                       ids.AssetID
+	deps                           []ids.AssetID
+	data                           *rtex.Data
+	x, y                           int
+	w, h                           int
+	filter                         gpu.FilterMode
 }
 
 type shelf struct {
@@ -44,8 +52,47 @@ func (*Importer) GroupVersion() int {
 	return GroupVersion
 }
 
+func (a *Importer) CacheSalt(ctx *pipeline.ImportContext) ([]byte, error) {
+	if imp, ok := a.Importer.(pipeline.CacheSalter); ok {
+		return imp.CacheSalt(ctx)
+	}
+	return nil, nil
+}
+
+func (a *Importer) SourceDependencies() bool {
+	imp, ok := a.Importer.(pipeline.SourceDependencySalter)
+	return ok && imp.SourceDependencies()
+}
+
+func (a *Importer) ResolveMetadata(ctx *pipeline.ImportContext) (pipeline.Settings, error) {
+	if imp, ok := a.Importer.(pipeline.MetadataResolver); ok {
+		return imp.ResolveMetadata(ctx)
+	}
+	return nil, nil
+}
+
 func (a *Importer) Finalize(ctx *pipeline.GroupContext, members []pipeline.GroupMember) (map[ids.AssetID]*pipeline.Result, []pipeline.Produced, error) {
 	padding, extrude := settingsOf(members)
+	semantic := asset.TextureColor
+	var filter gpu.FilterMode
+	first := true
+	for _, m := range members {
+		if m.Result == nil || m.Result.Raw == nil {
+			continue
+		}
+		if first {
+			semantic, filter, first = m.Result.RawSemantic, gpu.FilterMode(m.Result.RawFilter), false
+		}
+		if semantic != m.Result.RawSemantic {
+			return nil, nil, errs.New(errs.AssetImportFailed, "atlas group mixes incompatible texture semantics")
+		}
+		if gpu.FilterMode(m.Result.RawFilter) != filter || m.Settings.Int("padding", 2) != padding || m.Settings.Bool("extrude", true) != extrude {
+			return nil, nil, errs.New(errs.AssetImportFailed, "atlas group requires matching filter, padding and extrusion settings")
+		}
+		if m.Settings.Bool("mips", false) {
+			return nil, nil, errs.New(errs.AssetImportFailed, "atlas mipmaps require per-region mip isolation; use mips=false")
+		}
+	}
 	placements, width, height, err := pack(members, padding)
 	if err != nil {
 		return nil, nil, err
@@ -54,9 +101,23 @@ func (a *Importer) Finalize(ctx *pipeline.GroupContext, members []pipeline.Group
 		return nil, nil, nil
 	}
 
-	page := rtex.New(width, height, gpu.TexSRGBA8)
-	page.Premultiplied = true
-	filter := gpu.FilterNearest
+	format := placements[0].data.Format
+	if semantic == asset.TextureColor {
+		format = gpu.TexSRGBA8
+	}
+	for _, p := range placements {
+		if semantic != asset.TextureColor && p.data.Format != format {
+			return nil, nil, errs.New(errs.AssetImportFailed, "atlas group mixes linear and sRGB pixel formats")
+		}
+	}
+	page := rtex.New(width, height, format)
+	page.NonColor = semantic != asset.TextureColor
+	page.Premultiplied = !page.NonColor
+	if semantic == asset.TextureNormal {
+		for i := 0; i < len(page.Pixels); i += 4 {
+			page.Pixels[i], page.Pixels[i+1], page.Pixels[i+2] = 128, 128, 255
+		}
+	}
 	for i := range placements {
 		p := &placements[i]
 		blit(page, p.data, p.x, p.y)
@@ -67,36 +128,43 @@ func (a *Importer) Finalize(ctx *pipeline.GroupContext, members []pipeline.Group
 	}
 
 	pageData := asset.EncodeTexture(&asset.TextureArtifact{
-		Width:  width,
-		Height: height,
-		Format: gpu.TexSRGBA8,
-		Filter: filter,
-		Pixels: page.Pixels,
+		Width:    width,
+		Height:   height,
+		Format:   page.Format,
+		Semantic: semantic,
+		Filter:   filter,
+		Pixels:   page.Pixels,
 	})
 
 	perMember := make(map[ids.AssetID]*pipeline.Result, len(placements))
 	for i := range placements {
 		p := &placements[i]
 		region := asset.EncodeRegion(&asset.RegionArtifact{
-			Page:   ctx.PageID,
-			X:      p.x,
-			Y:      p.y,
-			W:      p.w,
-			H:      p.h,
-			PageW:  width,
-			PageH:  height,
-			Filter: p.filter,
+			SourceW: p.sourceW, SourceH: p.sourceH, TrimX: p.trimX, TrimY: p.trimY,
+			Page: ctx.PageID, Pivot: p.pivot, HasPivot: p.hasPivot,
+			Normal:   p.normal,
+			Emission: p.emission,
+			X:        p.x,
+			Y:        p.y,
+			W:        p.w,
+			H:        p.h,
+			PageW:    width,
+			PageH:    height,
+			Filter:   p.filter,
 		})
 		perMember[p.id] = &pipeline.Result{
 			Kind:      asset.ArtSpriteRegion,
+			Deps:      p.deps,
 			Artifacts: []pipeline.Produced{{Kind: asset.ArtSpriteRegion, Data: region}},
 		}
 	}
 
-	ctx.Log.Debug("atlas packed",
-		log.F("group", ctx.Group),
-		log.F("members", len(placements)),
-		log.F("w", width), log.F("h", height))
+	if ctx.Log != nil {
+		ctx.Log.Debug("atlas packed",
+			log.F("group", ctx.Group),
+			log.F("members", len(placements)),
+			log.F("w", width), log.F("h", height))
+	}
 
 	return perMember, []pipeline.Produced{{Kind: asset.ArtAtlasPage, Data: pageData}}, nil
 }
@@ -124,12 +192,32 @@ func pack(members []pipeline.GroupMember, padding int) ([]placement, int, int, e
 			continue
 		}
 		d := m.Result.Raw
+		if (d.Format != gpu.TexRGBA8 && d.Format != gpu.TexSRGBA8) || d.NonColor != (m.Result.RawSemantic != asset.TextureColor) || (d.NonColor && m.Result.RawSemantic != asset.TextureEmissionRGB && d.Format != gpu.TexRGBA8) {
+			return nil, 0, 0, errs.New(errs.AssetImportFailed, "atlas requires RGBA8 pixels with consistent color/data semantics")
+		}
+		for _, key := range []string{"rotate", "rotation", "allow_rotation"} {
+			if v, ok := m.Settings[key]; ok && !((v.Kind == aetext.VBool && !v.Bool) || (v.Kind == aetext.VInt && v.Int == 0)) {
+				return nil, 0, 0, errs.New(errs.AssetImportFailed, "atlas rotation is not supported", log.F("setting", key))
+			}
+		}
+		sw, sh, tx, ty := 0, 0, 0, 0
+		if m.Settings.Bool("trim", false) {
+			if d.Width > 65535 || d.Height > 65535 {
+				return nil, 0, 0, errs.New(errs.AssetImportFailed, "trim source dimensions exceed sprite ABI")
+			}
+			sw, sh = d.Width, d.Height
+			d, tx, ty = trim(d)
+		}
 		items = append(items, placement{
+			sourceW: sw, sourceH: sh, trimX: tx, trimY: ty,
 			id:     m.ID,
-			data:   d,
-			w:      d.Width,
-			h:      d.Height,
-			filter: gpu.FilterMode(m.Result.RawFilter),
+			normal: m.Result.RawNormal, pivot: m.Result.RawPivot, hasPivot: m.Result.RawHasPivot,
+			emission: m.Result.RawEmission,
+			deps:     m.Result.Deps,
+			data:     d,
+			w:        d.Width,
+			h:        d.Height,
+			filter:   gpu.FilterMode(m.Result.RawFilter),
 		})
 	}
 	if len(items) == 0 {
@@ -211,24 +299,33 @@ func blit(dst, src *rtex.Data, ox, oy int) {
 	for y := 0; y < src.Height; y++ {
 		di := ((oy+y)*dst.Width + ox) * 4
 		si := y * src.Width * 4
-		copy(dst.Pixels[di:di+src.Width*4], src.Pixels[si:si+src.Width*4])
+		if src.Format == dst.Format {
+			copy(dst.Pixels[di:di+src.Width*4], src.Pixels[si:si+src.Width*4])
+			continue
+		}
+		for x := 0; x < src.Width; x++ {
+			for c := 0; c < 3; c++ {
+				v := float32(src.Pixels[si+x*4+c]) / 255
+				if src.Format == gpu.TexSRGBA8 {
+					v = mathx.SRGBToLinear(v)
+				}
+				if dst.Format == gpu.TexSRGBA8 {
+					v = mathx.LinearToSRGB(v)
+				}
+				dst.Pixels[di+x*4+c] = byte(mathx.Clamp(v, 0, 1)*255 + .5)
+			}
+			dst.Pixels[di+x*4+3] = src.Pixels[si+x*4+3]
+		}
 	}
 }
 
 func extrudeEdges(d *rtex.Data, x, y, w, h, padding int) {
-	for p := 1; p <= padding; p++ {
-		for i := 0; i < w; i++ {
-			copyPixel(d, x+i, y-p, x+i, y)
-			copyPixel(d, x+i, y+h-1+p, x+i, y+h-1)
+	for dy := y - padding; dy < y+h+padding; dy++ {
+		for dx := x - padding; dx < x+w+padding; dx++ {
+			if dx < x || dx >= x+w || dy < y || dy >= y+h {
+				copyPixel(d, dx, dy, min(max(dx, x), x+w-1), min(max(dy, y), y+h-1))
+			}
 		}
-		for i := 0; i < h; i++ {
-			copyPixel(d, x-p, y+i, x, y+i)
-			copyPixel(d, x+w-1+p, y+i, x+w-1, y+i)
-		}
-		copyPixel(d, x-p, y-p, x, y)
-		copyPixel(d, x+w-1+p, y-p, x+w-1, y)
-		copyPixel(d, x-p, y+h-1+p, x, y+h-1)
-		copyPixel(d, x+w-1+p, y+h-1+p, x+w-1, y+h-1)
 	}
 }
 
@@ -239,4 +336,34 @@ func copyPixel(d *rtex.Data, dx, dy, sx, sy int) {
 	di := (dy*d.Width + dx) * 4
 	si := (sy*d.Width + sx) * 4
 	copy(d.Pixels[di:di+4], d.Pixels[si:si+4])
+}
+
+// trim crops only storage/geometry. Original canvas dimensions and offset live
+// in the region artifact, so anchors, explicit Size and local UV stay stable.
+func trim(src *rtex.Data) (*rtex.Data, int, int) {
+	x0, y0, x1, y1 := src.Width, src.Height, 0, 0
+	for y := 0; y < src.Height; y++ {
+		for x := 0; x < src.Width; x++ {
+			if src.Pixels[(y*src.Width+x)*4+3] != 0 {
+				x0 = min(x0, x)
+				y0 = min(y0, y)
+				x1 = max(x1, x+1)
+				y1 = max(y1, y+1)
+			}
+		}
+	}
+	if x1 == 0 || y1 == 0 {
+		x0, y0, x1, y1 = 0, 0, 1, 1
+	}
+	if x0 == 0 && y0 == 0 && x1 == src.Width && y1 == src.Height {
+		return src, 0, 0
+	}
+	dst := rtex.New(x1-x0, y1-y0, src.Format)
+	dst.Premultiplied = src.Premultiplied
+	dst.NonColor = src.NonColor
+	for y := 0; y < dst.Height; y++ {
+		a, b := y*dst.Width*4, ((y+y0)*src.Width+x0)*4
+		copy(dst.Pixels[a:a+dst.Width*4], src.Pixels[b:b+dst.Width*4])
+	}
+	return dst, x0, y0
 }

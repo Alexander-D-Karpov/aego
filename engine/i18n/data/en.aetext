@@ -758,6 +758,18 @@ messages version=1 lang=en {
   msg "api.aego/input.SetContext" {
     text="Replaces the whole stack with one context."
   }
+  msg "api.aego/lighting.Debug" {
+    text="Returns this world's view debug display: lighting, normals or shadows."
+  }
+  msg "api.aego/lighting.Enabled" {
+    text="Returns whether this world's current view applies lighting."
+  }
+  msg "api.aego/lighting.SetDebug" {
+    text="Selects the view debug display: lighting, normals or shadows. This does not mutate the scene."
+  }
+  msg "api.aego/lighting.SetEnabled" {
+    text="Enables or bypasses lighting in this world's current view without changing scene materials or simulation."
+  }
   msg "api.aego/log.Debug" {
     text="Writes a message to the Console. Debug messages are hidden unless the editor runs with -debug."
   }
@@ -769,6 +781,15 @@ messages version=1 lang=en {
   }
   msg "api.aego/log.Warn" {
     text="Writes a warning to the Console."
+  }
+  msg "api.aego/material.Assign" {
+    text="Changes the SpriteRenderer or Mesh2D material reference in this world."
+  }
+  msg "api.aego/material.Builtin" {
+    text="Returns Unlit (Default), Additive, Flash, Dissolve, Outline or PixelSnap. Lit belongs to the lighting module."
+  }
+  msg "api.aego/material.Shader" {
+    text="Returns the prepared shader reference for a named built-in material."
   }
   msg "api.aego/math.Abs" {
     text="Returns the absolute value of x."
@@ -913,6 +934,12 @@ messages version=1 lang=en {
   }
   msg "api.aego/math.Trunc" {
     text="Drops the fractional part of x."
+  }
+  msg "api.aego/particles.Enabled" {
+    text="Reports whether this world presents particle effects."
+  }
+  msg "api.aego/particles.SetEnabled" {
+    text="Turns particles on or off in this Play world. Turning them off clears current effects."
   }
   msg "api.aego/physics.Gravity" {
     text="Returns the world gravity in units per second squared. +Y points down."
@@ -1394,6 +1421,54 @@ messages version=1 lang=en {
   msg "api.camera.VirtualCamera2D.IsActive" {
     text="Reports whether this virtual camera drives its output now."
   }
+  msg "api.engine.MaterialOverride.GetBool" {
+    text="Reads the effective bool parameter."
+  }
+  msg "api.engine.MaterialOverride.GetColor" {
+    text="Reads the effective linear Color of a parameter declared with the color hint."
+  }
+  msg "api.engine.MaterialOverride.GetFloat" {
+    text="Reads the effective float after shader default, material value and node override."
+  }
+  msg "api.engine.MaterialOverride.GetInt" {
+    text="Reads the exact signed int32 effective parameter."
+  }
+  msg "api.engine.MaterialOverride.GetVec2" {
+    text="Reads the effective vec2 parameter."
+  }
+  msg "api.engine.MaterialOverride.GetVec3" {
+    text="Reads the effective vec3 parameter."
+  }
+  msg "api.engine.MaterialOverride.GetVec4" {
+    text="Reads four numerical effective lanes as material.Vec4, without color conversion."
+  }
+  msg "api.engine.MaterialOverride.GetVec4Lane" {
+    text="Reads one lane from an ordinary vec4 parameter. The lane index must be from 0 through 3."
+  }
+  msg "api.engine.MaterialOverride.Reset" {
+    text="Removes the explicit instance value and inherits the shared material value. Returns whether an explicit value existed."
+  }
+  msg "api.engine.MaterialOverride.SetBool" {
+    text="Sets an instance bool parameter on this node."
+  }
+  msg "api.engine.MaterialOverride.SetColor" {
+    text="Sets a linear Color instance parameter declared with the color hint."
+  }
+  msg "api.engine.MaterialOverride.SetFloat" {
+    text="Sets an instance float parameter on this node. Type mismatch leaves its previous value unchanged."
+  }
+  msg "api.engine.MaterialOverride.SetInt" {
+    text="Sets an exact signed int32 instance parameter. Values outside the int32 range are rejected."
+  }
+  msg "api.engine.MaterialOverride.SetVec2" {
+    text="Sets an instance vec2 parameter on this node."
+  }
+  msg "api.engine.MaterialOverride.SetVec3" {
+    text="Sets an instance vec3 parameter on this node."
+  }
+  msg "api.engine.MaterialOverride.SetVec4" {
+    text="Sets four numerical instance lanes using material.Vec4 without color conversion."
+  }
   msg "api.events.OnAnimEvent" {
     text="Runs on the scripts of a node whose Animation Player reaches an event of its clip; anim.EventName(id) gives the name."
   }
@@ -1538,6 +1613,36 @@ messages version=1 lang=en {
   msg "api.gameplay.StateMachine.TimeIn" {
     text="Returns the seconds spent in the current state."
   }
+  msg "api.particles.ParticleSystem2D.Burst" {
+    text="Requests count births at the emitter. Does not start automatic emission."
+  }
+  msg "api.particles.ParticleSystem2D.Clear" {
+    text="Removes live particles without changing the emission schedule."
+  }
+  msg "api.particles.ParticleSystem2D.Completed" {
+    text="A finite emission schedule has ended and its last particle expired. A presentation signal, not a gameplay timer."
+  }
+  msg "api.particles.ParticleSystem2D.Count" {
+    text="Returns the current number of living particles on the emitter."
+  }
+  msg "api.particles.ParticleSystem2D.Emitting" {
+    text="Reports whether automatic emission is running."
+  }
+  msg "api.particles.ParticleSystem2D.Play" {
+    text="Starts automatic emission. Repeating Play while emitting does nothing."
+  }
+  msg "api.particles.ParticleSystem2D.Playing" {
+    text="Reports whether the schedule is running or particles remain."
+  }
+  msg "api.particles.ParticleSystem2D.Restart" {
+    text="Clears live particles and starts a new emission schedule."
+  }
+  msg "api.particles.ParticleSystem2D.Stop" {
+    text="Stops new emissions and lets live particles drain."
+  }
+  msg "api.particles.ParticleSystem2D.StopAndClear" {
+    text="Stops automatic emission and immediately removes living particles."
+  }
   msg "api.physics.Body2D.ApplyForce" {
     text="Pushes the body's center of mass during the next physics step. Call it from FixedUpdate."
   }
@@ -1574,6 +1679,27 @@ messages version=1 lang=en {
   msg "api.physics.Body2D.WakeUp" {
     text="Makes a sleeping body simulate again."
   }
+  msg "api.render2d.PostProcess.SetBool" {
+    text="Sets a boolean parameter by instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetEffectEnabled" {
+    text="Enables or disables an effect by its stable instance ID."
+  }
+  msg "api.render2d.PostProcess.SetFloat" {
+    text="Sets a float parameter using instanceID:Field, without changing any shared material."
+  }
+  msg "api.render2d.PostProcess.SetInt" {
+    text="Sets a signed int32 parameter by instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetVec2" {
+    text="Sets a vec2 parameter using instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetVec3" {
+    text="Sets a vec3 parameter by instanceID:Field."
+  }
+  msg "api.render2d.PostProcess.SetVec4" {
+    text="Sets a vec4 parameter by instanceID:Field."
+  }
   msg "cli.agent.anim.add-event" {
     text="add an event; the name must be declared in Project Settings → Animation"
   }
@@ -1607,11 +1733,17 @@ messages version=1 lang=en {
   msg "cli.agent.asset.delete" {
     text="delete an asset; refuses while it is referenced unless --force"
   }
+  msg "cli.agent.asset.import-variant" {
+    text="Import an inspected generated PNG variant from this editor conversation as a stable project source asset"
+  }
   msg "cli.agent.asset.list" {
     text="assets with their ids and kinds"
   }
   msg "cli.agent.asset.move" {
     text="move an asset with its .meta; the id and every reference stay"
+  }
+  msg "cli.agent.asset.paint" {
+    text="Edit a source PNG, create a transparent canvas, or paint on a copy of another source PNG. A single reversible batch; returns image pixels. Coordinates are top-left source pixels."
   }
   msg "cli.agent.asset.pixels" {
     text="draw a sprite as text: each character of grid is a pixel colored by palette; lines like idle: start frames of one size, which become an atlas with one sprite per frame and a looping flipbook clip. Answers with a preview image"
@@ -1682,6 +1814,36 @@ messages version=1 lang=en {
   msg "cli.agent.data.set" {
     text="set a field"
   }
+  msg "cli.agent.material.apply" {
+    text="apply a material transaction atomically, using the same mutations and serialization as Inspector"
+  }
+  msg "cli.agent.material.assign" {
+    text="assign a compatible material to SpriteRenderer or Mesh2D through the scene mutation service"
+  }
+  msg "cli.agent.material.create" {
+    text="create a material inheriting defaults from a shader"
+  }
+  msg "cli.agent.material.get" {
+    text="read explicit/inherited parameters, unknown data, variants and source revision from the current document"
+  }
+  msg "cli.agent.material.reset" {
+    text="remove an explicit parameter and inherit the shader default"
+  }
+  msg "cli.agent.material.set" {
+    text="set a typed explicit parameter as one semantic mutation"
+  }
+  msg "cli.agent.material.validate" {
+    text="validate material values, shader and texture references without changing the source"
+  }
+  msg "cli.agent.material.variants" {
+    text="select an allowed combination of comma-separated keywords; an empty string selects no keywords"
+  }
+  msg "cli.agent.postfx.get" {
+    text="read the authored camera stack including stable instance IDs from the live scene"
+  }
+  msg "cli.agent.postfx.set" {
+    text="set an effect switch or typed numeric parameter by persistent instance ID in one scene edit"
+  }
   msg "cli.agent.prefab.apply" {
     text="write instance overrides into the prefab file"
   }
@@ -1702,6 +1864,12 @@ messages version=1 lang=en {
   }
   msg "cli.agent.project.get" {
     text="module sections of project.aego (physics, …) with their current values"
+  }
+  msg "cli.agent.project.input-action" {
+    text="Create/update one action and add it to a context. Binding strings use the project input syntax. Only an empty initial stack is initialized."
+  }
+  msg "cli.agent.project.main-scene" {
+    text="Set an imported scene as the startup scene by project-relative path."
   }
   msg "cli.agent.project.set" {
     text="set a field of a module section in project.aego, for example physics gravity [0, -15]"
@@ -1777,6 +1945,39 @@ messages version=1 lang=en {
   }
   msg "cli.agent.script.write" {
     text="replace the whole text of a script; for a small change script.edit is safer"
+  }
+  msg "cli.agent.shader.create" {
+    text="create a portable sprite shader through the registered asset importer"
+  }
+  msg "cli.agent.shader.schema" {
+    text="declared parameters, typed defaults, domain and allowed variants; checks current source and unsaved includes"
+  }
+  msg "cli.agent.shader.validate" {
+    text="validate current source with the registered importer; reports schema/reference validation independently from GPU linking"
+  }
+  msg "cli.agent.texture.apply" {
+    text="atomic typed texture metadata transaction; same validation and Undo rules as Inspector"
+  }
+  msg "cli.agent.texture.channel" {
+    text="assign a normal/height/emission source or frame by stable AssetID; unresolved IDs are retained with diagnostics"
+  }
+  msg "cli.agent.texture.channel-reset" {
+    text="remove the explicit channel mapping without deleting source assets"
+  }
+  msg "cli.agent.texture.get" {
+    text="read current dirty metadata, stable frames, source size, roles and channel references"
+  }
+  msg "cli.agent.texture.reset" {
+    text="remove an explicit import setting and inherit the importer default"
+  }
+  msg "cli.agent.texture.schema" {
+    text="registered import roles/settings and source-frame channel contract"
+  }
+  msg "cli.agent.texture.set" {
+    text="set an import setting using the shared semantic mutation service"
+  }
+  msg "cli.agent.texture.validate" {
+    text="check source metadata and prepare a private import candidate without changing cache or GPU resources"
   }
   msg "diag.AES1001" {
     text="This character cannot appear here."
@@ -2462,6 +2663,9 @@ messages version=1 lang=en {
   msg "docs.module.gameplay" {
     text="Gameplay"
   }
+  msg "docs.module.particles" {
+    text="Particles"
+  }
   msg "docs.module.physics" {
     text="Physics 2D"
   }
@@ -2615,6 +2819,36 @@ messages version=1 lang=en {
   msg "enum.engine.FilterMode.nearest" {
     text="nearest"
   }
+  msg "enum.engine.Light2DType.directional" {
+    text="directional"
+  }
+  msg "enum.engine.Light2DType.point" {
+    text="point"
+  }
+  msg "enum.engine.Light2DType.spot" {
+    text="spot"
+  }
+  msg "enum.engine.Light2DType.sprite" {
+    text="sprite"
+  }
+  msg "enum.engine.LightOccluderSource.polygon" {
+    text="polygon"
+  }
+  msg "enum.engine.LightOccluderSource.shapeProvider" {
+    text="shapeProvider"
+  }
+  msg "enum.engine.LightOccluderSource.spriteAlpha" {
+    text="spriteAlpha"
+  }
+  msg "enum.engine.LightingColorMode.auto" {
+    text="auto"
+  }
+  msg "enum.engine.LightingColorMode.hdr" {
+    text="hdr"
+  }
+  msg "enum.engine.LightingColorMode.ldr" {
+    text="ldr"
+  }
   msg "enum.engine.ScaleMode.fitVirtual" {
     text="fitVirtual"
   }
@@ -2623,6 +2857,15 @@ messages version=1 lang=en {
   }
   msg "enum.engine.ScaleMode.pixelPerfect" {
     text="pixelPerfect"
+  }
+  msg "enum.engine.ShadowCullMode.clockwise" {
+    text="clockwise"
+  }
+  msg "enum.engine.ShadowCullMode.counterClockwise" {
+    text="counterClockwise"
+  }
+  msg "enum.engine.ShadowCullMode.none" {
+    text="none"
   }
   msg "enum.gameplay.HitPolicy.onEnter" {
     text="onEnter"
@@ -2653,6 +2896,51 @@ messages version=1 lang=en {
   }
   msg "enum.gameplay.Shape.circle" {
     text="circle"
+  }
+  msg "enum.particles.ReducedMotionMode.hide" {
+    text="hide"
+  }
+  msg "enum.particles.ReducedMotionMode.keep" {
+    text="keep"
+  }
+  msg "enum.particles.ReducedMotionMode.reduce" {
+    text="reduce"
+  }
+  msg "enum.particles.Shape.circle" {
+    text="circle"
+  }
+  msg "enum.particles.Shape.edge" {
+    text="edge"
+  }
+  msg "enum.particles.Shape.point" {
+    text="point"
+  }
+  msg "enum.particles.Shape.rect" {
+    text="rect"
+  }
+  msg "enum.particles.Shape.spriteMask" {
+    text="spriteMask"
+  }
+  msg "enum.particles.SortMode.age" {
+    text="age"
+  }
+  msg "enum.particles.SortMode.distance" {
+    text="distance"
+  }
+  msg "enum.particles.SortMode.youngestFirst" {
+    text="youngestFirst"
+  }
+  msg "enum.particles.Space.local" {
+    text="local"
+  }
+  msg "enum.particles.Space.world" {
+    text="world"
+  }
+  msg "enum.particles.TimeDomain.game" {
+    text="game"
+  }
+  msg "enum.particles.TimeDomain.unscaled" {
+    text="unscaled"
   }
   msg "enum.physics.BodyType.dynamic" {
     text="dynamic"
@@ -3392,6 +3680,252 @@ messages version=1 lang=en {
   msg "schema.engine.Camera3D.viewport.doc" {
     text="Part of the screen the camera draws into, in normalized coordinates."
   }
+  msg "schema.engine.Light2D" {
+    text="Light 2D"
+  }
+  msg "schema.engine.Light2D.color" {
+    text="Color"
+  }
+  msg "schema.engine.Light2D.color.doc" {
+    text="Linear light color; the color picker handles display conversion."
+  }
+  msg "schema.engine.Light2D.cookie" {
+    text="Cookie"
+  }
+  msg "schema.engine.Light2D.cookie.doc" {
+    text="Sprite light mask texture. Its own region and trim map to the light square."
+  }
+  msg "schema.engine.Light2D.doc" {
+    text="Forward 2D diffuse light. Local +X defines Spot and Directional azimuth; presentation transforms also drive shadows."
+  }
+  msg "schema.engine.Light2D.elevation" {
+    text="Elevation"
+  }
+  msg "schema.engine.Light2D.elevation.doc" {
+    text="Directional elevation above the surface in radians, greater than zero."
+  }
+  msg "schema.engine.Light2D.falloff" {
+    text="Falloff"
+  }
+  msg "schema.engine.Light2D.falloff.doc" {
+    text="Nonnegative falloff exponent over normalized local-light distance."
+  }
+  msg "schema.engine.Light2D.height" {
+    text="Height"
+  }
+  msg "schema.engine.Light2D.height.doc" {
+    text="Virtual distance above the sprite surface for diffuse normal mapping; shadows remain planar."
+  }
+  msg "schema.engine.Light2D.innerAngle" {
+    text="Inner Angle"
+  }
+  msg "schema.engine.Light2D.innerAngle.doc" {
+    text="Full Spot inner cone angle in radians, centered on local +X."
+  }
+  msg "schema.engine.Light2D.intensity" {
+    text="Intensity"
+  }
+  msg "schema.engine.Light2D.intensity.doc" {
+    text="Nonnegative energy multiplier; zero disables this light's contribution."
+  }
+  msg "schema.engine.Light2D.layers" {
+    text="Layers"
+  }
+  msg "schema.engine.Light2D.layers.doc" {
+    text="64-bit receiver visibility mask. -1 means all bits; zero receives no objects."
+  }
+  msg "schema.engine.Light2D.outerAngle" {
+    text="Outer Angle"
+  }
+  msg "schema.engine.Light2D.outerAngle.doc" {
+    text="Full Spot outer cone angle in radians, no smaller than innerAngle."
+  }
+  msg "schema.engine.Light2D.priority" {
+    text="Priority"
+  }
+  msg "schema.engine.Light2D.priority.doc" {
+    text="Higher priority is selected first when the per-draw light budget is exceeded."
+  }
+  msg "schema.engine.Light2D.range" {
+    text="Range"
+  }
+  msg "schema.engine.Light2D.range.doc" {
+    text="Local light radius in world units, independent of node scale."
+  }
+  msg "schema.engine.Light2D.shadowCasterMask" {
+    text="Shadow Caster Mask"
+  }
+  msg "schema.engine.Light2D.shadowCasterMask.doc" {
+    text="64-bit shadow-occluder mask, independent of visibility and collision masks."
+  }
+  msg "schema.engine.Light2D.shadowSoftness" {
+    text="Shadow Softness"
+  }
+  msg "schema.engine.Light2D.shadowSoftness.doc" {
+    text="Bounded mask filtering radius; this is not a physical area-light penumbra."
+  }
+  msg "schema.engine.Light2D.shadows" {
+    text="Shadows"
+  }
+  msg "schema.engine.Light2D.shadows.doc" {
+    text="Enable cached local-light shadow masks for Point, Spot and Sprite lights."
+  }
+  msg "schema.engine.Light2D.type" {
+    text="Type"
+  }
+  msg "schema.engine.Light2D.type.doc" {
+    text="Point, Spot, Directional or Sprite/cookie. Directional shadows are not supported."
+  }
+  msg "schema.engine.LightOccluder2D" {
+    text="Light Occluder 2D"
+  }
+  msg "schema.engine.LightOccluder2D.closed" {
+    text="Closed"
+  }
+  msg "schema.engine.LightOccluder2D.closed.doc" {
+    text="Close the manual polygon. A ShapeProvider supplies each contour's closed state."
+  }
+  msg "schema.engine.LightOccluder2D.cullMode" {
+    text="Cull Mode"
+  }
+  msg "schema.engine.LightOccluder2D.cullMode.doc" {
+    text="Shadow edge winding policy; independent of any physics one-sided setting."
+  }
+  msg "schema.engine.LightOccluder2D.doc" {
+    text="A planar shadow contour. Manual polygons require no Physics module; ShapeProvider reads local geometry through the shapes2d contract."
+  }
+  msg "schema.engine.LightOccluder2D.layers" {
+    text="Layers"
+  }
+  msg "schema.engine.LightOccluder2D.layers.doc" {
+    text="64-bit shadow participation mask. -1 is all bits; zero casts no shadows."
+  }
+  msg "schema.engine.LightOccluder2D.polygon" {
+    text="Polygon"
+  }
+  msg "schema.engine.LightOccluder2D.polygon.doc" {
+    text="Simple local-space contour without holes; points follow the owner's presentation transform once."
+  }
+  msg "schema.engine.LightOccluder2D.shape" {
+    text="Shape"
+  }
+  msg "schema.engine.LightOccluder2D.shape.doc" {
+    text="Stable provider shape key, such as physics.BoxCollider2D. Empty selects all of the source node's shapes."
+  }
+  msg "schema.engine.LightOccluder2D.shapeNode" {
+    text="Shape Node"
+  }
+  msg "schema.engine.LightOccluder2D.shapeNode.doc" {
+    text="Source node for ShapeProvider. Empty uses this node; unresolved IDs are preserved."
+  }
+  msg "schema.engine.LightOccluder2D.source" {
+    text="Source"
+  }
+  msg "schema.engine.LightOccluder2D.source.doc" {
+    text="Use a manual polygon/chain or a registered local-shape provider."
+  }
+  msg "schema.engine.LightingEnvironment2D" {
+    text="Lighting Environment 2D"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientColor" {
+    text="Ambient Color"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientColor.doc" {
+    text="Linear ambient surface illumination. Default white preserves unlit-looking Lit scenes with no lights."
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientIntensity" {
+    text="Ambient Intensity"
+  }
+  msg "schema.engine.LightingEnvironment2D.ambientIntensity.doc" {
+    text="Nonnegative ambient energy multiplier."
+  }
+  msg "schema.engine.LightingEnvironment2D.camera" {
+    text="Camera"
+  }
+  msg "schema.engine.LightingEnvironment2D.camera.doc" {
+    text="Optional Camera2D node. Empty applies to all 2D views of this world."
+  }
+  msg "schema.engine.LightingEnvironment2D.colorMode" {
+    text="Color Mode"
+  }
+  msg "schema.engine.LightingEnvironment2D.colorMode.doc" {
+    text="Auto chooses supported HDR for Lit output; LDR uses RGBA8 and HDR requests RGBA16F."
+  }
+  msg "schema.engine.LightingEnvironment2D.doc" {
+    text="Lighting and output policy for a camera. An empty camera applies to the current output; overlapping environments are an error."
+  }
+  msg "schema.engine.LightingEnvironment2D.exposure" {
+    text="Exposure"
+  }
+  msg "schema.engine.LightingEnvironment2D.exposure.doc" {
+    text="Positive display-resolve exposure, without changing UI or simulation."
+  }
+  msg "schema.engine.LightingEnvironment2D.maxShadowedLights" {
+    text="Max Shadowed Lights"
+  }
+  msg "schema.engine.LightingEnvironment2D.maxShadowedLights.doc" {
+    text="Per-camera local-shadow budget from 0 through 16; actual performance depends on the GPU."
+  }
+  msg "schema.engine.LightingEnvironment2D.shadowResolution" {
+    text="Shadow Resolution"
+  }
+  msg "schema.engine.LightingEnvironment2D.shadowResolution.doc" {
+    text="Power-of-two mask dimension between 64 and 2048. Initial profile uses 256."
+  }
+  msg "schema.engine.MaterialOverride" {
+    text="Material Override"
+  }
+  msg "schema.engine.MaterialOverride.doc" {
+    text="Overrides up to eight numeric shader parameters on this node. Removed parameters remain in the values list."
+  }
+  msg "schema.engine.MaterialOverride.values" {
+    text="Values"
+  }
+  msg "schema.engine.MaterialOverride.values.doc" {
+    text="Explicit typed values. Absent values inherit the shared material; removed shader fields remain serialized."
+  }
+  msg "schema.engine.Mesh2D" {
+    text="Mesh 2D"
+  }
+  msg "schema.engine.Mesh2D.doc" {
+    text="Draws the standard mesh vertex layout in a 2D camera with a compatible Mesh2D material."
+  }
+  msg "schema.engine.Mesh2D.layer" {
+    text="Layer"
+  }
+  msg "schema.engine.Mesh2D.layer.doc" {
+    text="Visual layer for this 2D mesh."
+  }
+  msg "schema.engine.Mesh2D.material" {
+    text="Material"
+  }
+  msg "schema.engine.Mesh2D.material.doc" {
+    text="Shared material asset. The shader domain must be mesh2d."
+  }
+  msg "schema.engine.Mesh2D.mesh" {
+    text="Mesh"
+  }
+  msg "schema.engine.Mesh2D.mesh.doc" {
+    text="Mesh asset with the standard position, normal, UV and vertex color layout."
+  }
+  msg "schema.engine.Mesh2D.order" {
+    text="Order"
+  }
+  msg "schema.engine.Mesh2D.order.doc" {
+    text="Painter order among sprites and meshes in the same layer; higher values draw later."
+  }
+  msg "schema.engine.Mesh2D.texture" {
+    text="Texture"
+  }
+  msg "schema.engine.Mesh2D.texture.doc" {
+    text="Main texture sampled in mesh UV coordinates. Empty uses white."
+  }
+  msg "schema.engine.Mesh2D.tint" {
+    text="Tint"
+  }
+  msg "schema.engine.Mesh2D.tint.doc" {
+    text="Linear color multiplied with the texture; alpha controls transparency."
+  }
   msg "schema.engine.MeshRenderer" {
     text="Mesh Renderer"
   }
@@ -3487,6 +4021,12 @@ messages version=1 lang=en {
   }
   msg "schema.engine.SpriteRenderer.layer.doc" {
     text="Sorting layer. Higher layers are drawn on top of lower ones."
+  }
+  msg "schema.engine.SpriteRenderer.material" {
+    text="Material"
+  }
+  msg "schema.engine.SpriteRenderer.material.doc" {
+    text="Shared sprite-domain material. Per-node changes belong to MaterialOverride."
   }
   msg "schema.engine.SpriteRenderer.order" {
     text="Order"
@@ -4088,6 +4628,306 @@ messages version=1 lang=en {
   msg "schema.gameplay.StateMachine.time.doc" {
     text="Seconds of fixed steps spent in the current state."
   }
+  msg "schema.particles.ParticleSystem2D" {
+    text="Particle System 2D"
+  }
+  msg "schema.particles.ParticleSystem2D.alphaOverLife" {
+    text="Alpha Over Life"
+  }
+  msg "schema.particles.ParticleSystem2D.alphaOverLife.doc" {
+    text="Opacity multiplier sampled at normalized particle age."
+  }
+  msg "schema.particles.ParticleSystem2D.bursts" {
+    text="Bursts"
+  }
+  msg "schema.particles.ParticleSystem2D.bursts.doc" {
+    text="Cycle keys as (time in seconds, birth count). Times must be in [0, duration)."
+  }
+  msg "schema.particles.ParticleSystem2D.color" {
+    text="Color"
+  }
+  msg "schema.particles.ParticleSystem2D.color.doc" {
+    text="Straight linear tint and opacity at birth."
+  }
+  msg "schema.particles.ParticleSystem2D.colorOverLife" {
+    text="Color Over Life"
+  }
+  msg "schema.particles.ParticleSystem2D.colorOverLife.doc" {
+    text="Ordered keys for the straight color multiplier at normalized ages."
+  }
+  msg "schema.particles.ParticleSystem2D.direction" {
+    text="Direction"
+  }
+  msg "schema.particles.ParticleSystem2D.direction.doc" {
+    text="Central angle of launch in radians."
+  }
+  msg "schema.particles.ParticleSystem2D.doc" {
+    text="Emits visual sprites from a bounded CPU pool. World-space particles stay at their birth location when the emitter moves."
+  }
+  msg "schema.particles.ParticleSystem2D.drag" {
+    text="Drag"
+  }
+  msg "schema.particles.ParticleSystem2D.drag.doc" {
+    text="Nonnegative damping coefficient per second."
+  }
+  msg "schema.particles.ParticleSystem2D.duration" {
+    text="Duration"
+  }
+  msg "schema.particles.ParticleSystem2D.duration.doc" {
+    text="Length of one emission cycle in seconds."
+  }
+  msg "schema.particles.ParticleSystem2D.edgeA" {
+    text="Edge A"
+  }
+  msg "schema.particles.ParticleSystem2D.edgeA.doc" {
+    text="First endpoint in emitter coordinates."
+  }
+  msg "schema.particles.ParticleSystem2D.edgeB" {
+    text="Edge B"
+  }
+  msg "schema.particles.ParticleSystem2D.edgeB.doc" {
+    text="Second endpoint in emitter coordinates."
+  }
+  msg "schema.particles.ParticleSystem2D.frameFPS" {
+    text="Frame FPS"
+  }
+  msg "schema.particles.ParticleSystem2D.frameFPS.doc" {
+    text="Flipbook playback speed in frames per second."
+  }
+  msg "schema.particles.ParticleSystem2D.frameLoop" {
+    text="Frame Loop"
+  }
+  msg "schema.particles.ParticleSystem2D.frameLoop.doc" {
+    text="Repeat the flipbook; otherwise hold its last frame."
+  }
+  msg "schema.particles.ParticleSystem2D.frames" {
+    text="Frames"
+  }
+  msg "schema.particles.ParticleSystem2D.frames.doc" {
+    text="Ordered sprite frame references for a flipbook. Missing frames are diagnosed."
+  }
+  msg "schema.particles.ParticleSystem2D.gravity" {
+    text="Gravity"
+  }
+  msg "schema.particles.ParticleSystem2D.gravity.doc" {
+    text="Acceleration in units per second squared."
+  }
+  msg "schema.particles.ParticleSystem2D.killY" {
+    text="Kill Y"
+  }
+  msg "schema.particles.ParticleSystem2D.killY.doc" {
+    text="Threshold in simulation space, in world units."
+  }
+  msg "schema.particles.ParticleSystem2D.killYEnabled" {
+    text="Kill Y Enabled"
+  }
+  msg "schema.particles.ParticleSystem2D.killYEnabled.doc" {
+    text="Remove particles on the side of increasing Y past Kill Y."
+  }
+  msg "schema.particles.ParticleSystem2D.layer" {
+    text="Layer"
+  }
+  msg "schema.particles.ParticleSystem2D.layer.doc" {
+    text="Painter layer shared with SpriteRenderer and Mesh2D."
+  }
+  msg "schema.particles.ParticleSystem2D.lifetime" {
+    text="Lifetime"
+  }
+  msg "schema.particles.ParticleSystem2D.lifetime.doc" {
+    text="Minimum and maximum particle lifetime in seconds."
+  }
+  msg "schema.particles.ParticleSystem2D.loop" {
+    text="Loop"
+  }
+  msg "schema.particles.ParticleSystem2D.loop.doc" {
+    text="Repeats the schedule at the end of each cycle."
+  }
+  msg "schema.particles.ParticleSystem2D.mask" {
+    text="Mask"
+  }
+  msg "schema.particles.ParticleSystem2D.mask.doc" {
+    text="Source sprite frame. Its prepared alpha mask is independent of atlas packing."
+  }
+  msg "schema.particles.ParticleSystem2D.maskThreshold" {
+    text="Mask Threshold"
+  }
+  msg "schema.particles.ParticleSystem2D.maskThreshold.doc" {
+    text="Minimum source alpha used by the sprite mask, from zero to one."
+  }
+  msg "schema.particles.ParticleSystem2D.material" {
+    text="Material"
+  }
+  msg "schema.particles.ParticleSystem2D.material.doc" {
+    text="Optional unlit sprite-domain material. Its shader controls the blend mode."
+  }
+  msg "schema.particles.ParticleSystem2D.maxParticles" {
+    text="Max Particles"
+  }
+  msg "schema.particles.ParticleSystem2D.maxParticles.doc" {
+    text="Maximum live particles. When full, keep living particles and drop excess births."
+  }
+  msg "schema.particles.ParticleSystem2D.noiseFrequency" {
+    text="Noise Frequency"
+  }
+  msg "schema.particles.ParticleSystem2D.noiseFrequency.doc" {
+    text="How fast the noise field changes."
+  }
+  msg "schema.particles.ParticleSystem2D.noiseStrength" {
+    text="Noise Strength"
+  }
+  msg "schema.particles.ParticleSystem2D.noiseStrength.doc" {
+    text="Magnitude of deterministic presentation noise."
+  }
+  msg "schema.particles.ParticleSystem2D.offset" {
+    text="Offset"
+  }
+  msg "schema.particles.ParticleSystem2D.offset.doc" {
+    text="Local offset of the emitter shape."
+  }
+  msg "schema.particles.ParticleSystem2D.order" {
+    text="Order"
+  }
+  msg "schema.particles.ParticleSystem2D.order.doc" {
+    text="Painter order within the layer."
+  }
+  msg "schema.particles.ParticleSystem2D.planeDistance" {
+    text="Plane Distance"
+  }
+  msg "schema.particles.ParticleSystem2D.planeDistance.doc" {
+    text="Plane offset along its normalized normal."
+  }
+  msg "schema.particles.ParticleSystem2D.planeEnabled" {
+    text="Plane Enabled"
+  }
+  msg "schema.particles.ParticleSystem2D.planeEnabled.doc" {
+    text="Remove particles past the configured clipping plane."
+  }
+  msg "schema.particles.ParticleSystem2D.planeNormal" {
+    text="Plane Normal"
+  }
+  msg "schema.particles.ParticleSystem2D.planeNormal.doc" {
+    text="Outward normal of the clipping plane in simulation space."
+  }
+  msg "schema.particles.ParticleSystem2D.playOnStart" {
+    text="Play On Start"
+  }
+  msg "schema.particles.ParticleSystem2D.playOnStart.doc" {
+    text="Starts the emission schedule when this emitter becomes active."
+  }
+  msg "schema.particles.ParticleSystem2D.prewarm" {
+    text="Prewarm"
+  }
+  msg "schema.particles.ParticleSystem2D.prewarm.doc" {
+    text="Seconds of bounded preparation for a looping effect, up to two."
+  }
+  msg "schema.particles.ParticleSystem2D.radius" {
+    text="Radius"
+  }
+  msg "schema.particles.ParticleSystem2D.radius.doc" {
+    text="Circle radius in world units."
+  }
+  msg "schema.particles.ParticleSystem2D.rate" {
+    text="Rate"
+  }
+  msg "schema.particles.ParticleSystem2D.rate.doc" {
+    text="Continuous births per second. Zero allows manual bursts without a continuous stream."
+  }
+  msg "schema.particles.ParticleSystem2D.rectSize" {
+    text="Rect Size"
+  }
+  msg "schema.particles.ParticleSystem2D.rectSize.doc" {
+    text="Full rectangle dimensions in world units."
+  }
+  msg "schema.particles.ParticleSystem2D.reducedMotion" {
+    text="Reduced Motion"
+  }
+  msg "schema.particles.ParticleSystem2D.reducedMotion.doc" {
+    text="Keep, reduce or hide this effect when Reduce Motion is enabled."
+  }
+  msg "schema.particles.ParticleSystem2D.reducedRate" {
+    text="Reduced Rate"
+  }
+  msg "schema.particles.ParticleSystem2D.reducedRate.doc" {
+    text="Fraction of births kept under the Reduce policy."
+  }
+  msg "schema.particles.ParticleSystem2D.rotation" {
+    text="Rotation"
+  }
+  msg "schema.particles.ParticleSystem2D.rotation.doc" {
+    text="Minimum and maximum initial rotation in radians."
+  }
+  msg "schema.particles.ParticleSystem2D.rotationSpeed" {
+    text="Rotation Speed"
+  }
+  msg "schema.particles.ParticleSystem2D.rotationSpeed.doc" {
+    text="Angular speed in radians per second."
+  }
+  msg "schema.particles.ParticleSystem2D.seed" {
+    text="Seed"
+  }
+  msg "schema.particles.ParticleSystem2D.seed.doc" {
+    text="Nonzero locks the seed. Zero derives it from the session, stable node ID and activation."
+  }
+  msg "schema.particles.ParticleSystem2D.shape" {
+    text="Shape"
+  }
+  msg "schema.particles.ParticleSystem2D.shape.doc" {
+    text="Birth positions come from a point, disk, rectangle, line segment or sprite alpha mask."
+  }
+  msg "schema.particles.ParticleSystem2D.size" {
+    text="Size"
+  }
+  msg "schema.particles.ParticleSystem2D.size.doc" {
+    text="Minimum and maximum starting side length in world units."
+  }
+  msg "schema.particles.ParticleSystem2D.sizeOverLife" {
+    text="Size Over Life"
+  }
+  msg "schema.particles.ParticleSystem2D.sizeOverLife.doc" {
+    text="Size multiplier sampled at normalized particle age."
+  }
+  msg "schema.particles.ParticleSystem2D.sortMode" {
+    text="Sort Mode"
+  }
+  msg "schema.particles.ParticleSystem2D.sortMode.doc" {
+    text="Oldest first, youngest first or farthest first for each camera."
+  }
+  msg "schema.particles.ParticleSystem2D.space" {
+    text="Space"
+  }
+  msg "schema.particles.ParticleSystem2D.space.doc" {
+    text="Local particles follow the emitter; world particles keep their birth transform."
+  }
+  msg "schema.particles.ParticleSystem2D.speed" {
+    text="Speed"
+  }
+  msg "schema.particles.ParticleSystem2D.speed.doc" {
+    text="Minimum and maximum initial speed in units per second."
+  }
+  msg "schema.particles.ParticleSystem2D.spread" {
+    text="Spread"
+  }
+  msg "schema.particles.ParticleSystem2D.spread.doc" {
+    text="Full angular width around direction, in radians."
+  }
+  msg "schema.particles.ParticleSystem2D.sprite" {
+    text="Sprite"
+  }
+  msg "schema.particles.ParticleSystem2D.sprite.doc" {
+    text="Texture region to draw. Empty uses the built-in white texture."
+  }
+  msg "schema.particles.ParticleSystem2D.timeDomain" {
+    text="Time Domain"
+  }
+  msg "schema.particles.ParticleSystem2D.timeDomain.doc" {
+    text="Game pauses with the world; unscaled uses real presentation time."
+  }
+  msg "schema.particles.ParticleSystem2D.velocityOverLife" {
+    text="Velocity Over Life"
+  }
+  msg "schema.particles.ParticleSystem2D.velocityOverLife.doc" {
+    text="Speed multiplier by normalized age, applied without compounding."
+  }
   msg "schema.physics.Body2D" {
     text="Rigid Body 2D"
   }
@@ -4532,6 +5372,24 @@ messages version=1 lang=en {
   msg "schema.physics.RevoluteJoint2D.upper.doc" {
     text="Largest angle in radians, relative to the angle at start."
   }
+  msg "schema.render2d.PostProcess" {
+    text="Post Process"
+  }
+  msg "schema.render2d.PostProcess.doc" {
+    text="Applies an ordered effect stack after all cameras sharing this camera's logical output, before UI."
+  }
+  msg "schema.render2d.PostProcess.effects" {
+    text="Effects"
+  }
+  msg "schema.render2d.PostProcess.effects.doc" {
+    text="Ordered effect instances. Each instance keeps its own identity and typed parameters."
+  }
+  msg "schema.render2d.PostProcess.enabled" {
+    text="Enabled"
+  }
+  msg "schema.render2d.PostProcess.enabled.doc" {
+    text="Enable this camera's output stack. Disabled stacks do not claim the output."
+  }
   msg "schema.save.Persist" {
     text="Persist"
   }
@@ -4750,6 +5608,18 @@ messages version=1 lang=en {
   }
   msg "setting.display.window.resolution.doc" {
     text="Window size, or the screen mode in fullscreen. Empty uses the project window size."
+  }
+  msg "setting.particles.enabled" {
+    text="Particle Effects"
+  }
+  msg "setting.particles.enabled.doc" {
+    text="Show particle effects. Turning this off clears live particles without changing gameplay."
+  }
+  msg "setting.render2d.postProcessing" {
+    text="Camera Post-processing"
+  }
+  msg "setting.render2d.postProcessing.doc" {
+    text="Apply the camera's post-processing effects."
   }
   msg "setting.settings.language" {
     text="Language"

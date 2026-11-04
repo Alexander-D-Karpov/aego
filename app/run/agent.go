@@ -1,8 +1,12 @@
 package run
 
 import (
+	"aego/gpu"
+	"aego/render/view"
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -84,6 +88,18 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 			feed = &injector{steps: steps, svc: svc}
 		}
 		doc := mutate.Wrap(a.Scene, "run", false, mutate.Env{})
+		if r.Camera != "" {
+			if len(r.Shots) == 0 {
+				a.Close()
+				return rep, errors.New("camera requires at least one requested shot")
+			}
+			h, err := doc.Node(r.Camera)
+			if err != nil {
+				a.Close()
+				return rep, err
+			}
+			a.Runner.SelectCaptureView(a.Runner.ViewID(a.Scene.ID(h)))
+		}
 		sample := func() {
 			for i := range tracks {
 				if !tracks[i].h.IsZero() && a.Scene.IsAlive(tracks[i].h) {
@@ -124,7 +140,13 @@ func AgentRunner(mods ...sdk.Module) agent.Runner {
 			}
 			rep.Frames++
 			if shoot {
-				rep.Shots = append(rep.Shots, takeShot(p.Root, name, rep.Frames, r.ShotWidth, img, capErr))
+				if r.Camera != "" && len(a.Runner.Views()) == 0 {
+					a.Close()
+					return rep, fmt.Errorf("%s did not render a view at frame %d", r.Camera, rep.Frames)
+				}
+				shot := takeShot(p.Root, name, rep.Frames, r.ShotWidth, img, capErr)
+				shot.ViewSignature = captureViewSignature(a.Runner.Views())
+				rep.Shots = append(rep.Shots, shot)
 			}
 			for _, c := range checks {
 				c.run(doc, rep.Frames)
@@ -227,4 +249,17 @@ func takeShot(root, name string, frame, width int, img *image.RGBA, err error) a
 		s.Error = err.Error()
 	}
 	return s
+}
+
+func captureViewSignature(views []view.View) string {
+	h := sha256.New()
+	enc := json.NewEncoder(h)
+	for _, v := range views {
+		v.ID.Scope = 0
+		v.OutputID.Scope = 0
+		v.Target = gpu.TextureHandle{}
+		v.DepthTarget = gpu.TextureHandle{}
+		_ = enc.Encode(v)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

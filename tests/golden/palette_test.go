@@ -14,6 +14,7 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/templates"
+	"aego/editor/core/workspace"
 	"aego/gpu"
 	"aego/project"
 	"aego/render/view"
@@ -64,6 +65,9 @@ func paletteSession(t *testing.T) *edit.Session {
 	}
 	sc := d.Scene()
 	s.App.Context().Select(sc.ID(sc.Find(sc.Root(), "Player")))
+	// The popover crop includes its shadow over the underlying Scene and
+	// Console. Select the captured workspace state independently of its defaults.
+	s.App.Workspace().Show(workspace.Console)
 	s.Step()
 	return s
 }

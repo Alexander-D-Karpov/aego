@@ -42,6 +42,7 @@ const (
 )
 
 type RunRequest struct {
+	Camera string `json:"camera,omitempty"`
 	Scene  string `json:"scene,omitempty"`
 	Frames int    `json:"frames"`
 	Seed   uint64 `json:"seed"`
@@ -67,12 +68,14 @@ type Check struct {
 
 // Shot is a captured frame: the full image under .aego/cache/runs, and a scaled PNG for the answer.
 type Shot struct {
-	Frame  int    `json:"frame"`
-	Path   string `json:"path,omitempty"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
-	PNG    []byte `json:"png,omitempty"`
-	Error  string `json:"error,omitempty"`
+	ViewSignature string `json:"viewSignature,omitempty"`
+	CaptureID     string `json:"captureID,omitempty"`
+	Frame         int    `json:"frame"`
+	Path          string `json:"path,omitempty"`
+	Width         int    `json:"width,omitempty"`
+	Height        int    `json:"height,omitempty"`
+	PNG           []byte `json:"png,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // Track is where a watched node was: at the start, at each quarter of the run and at the end.
@@ -356,6 +359,14 @@ func (r sources) Texture(ids.AssetID) (texture.Region, bool) {
 	return texture.Region{}, false
 }
 
+// Disk scene validation reads the same prepared data/colour and atlas metadata as Play.
+func (r sources) TextureMetadata(id ids.AssetID) (asset.TextureMetadata, bool) {
+	return asset.ReadTextureMetadata(id, func(id ids.AssetID) (*asset.Entry, bool) {
+		e, ok := r.pl.Entry(id)
+		return &e, ok && !e.Missing && e.Error == ""
+	}, func(a asset.Artifact) ([]byte, error) { return r.pl.Artifacts().ReadFile(a.Path) })
+}
+
 func (r sources) Mesh(ids.AssetID) (*mesh.Mesh, bool) {
 	return nil, false
 }
@@ -414,6 +425,11 @@ func (s *Session) asset(text string) (ids.AssetID, error) {
 	if id, err := ids.ParseAssetID(text); err == nil {
 		return id, nil
 	}
+	for _, builtin := range asset.Builtins() {
+		if strings.EqualFold(text, builtin.Name) {
+			return builtin.ID, nil
+		}
+	}
 	rel, err := s.rel(text)
 	if err != nil {
 		return ids.AssetID{}, err
@@ -425,6 +441,9 @@ func (s *Session) asset(text string) (ids.AssetID, error) {
 }
 
 func (s *Session) label(id ids.AssetID) string {
+	if builtin, ok := asset.LookupBuiltin(id); ok {
+		return builtin.Name
+	}
 	if rel, ok := s.Pipeline.PathOf(id); ok {
 		return rel
 	}

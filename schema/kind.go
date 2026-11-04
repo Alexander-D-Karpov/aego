@@ -175,3 +175,39 @@ func (v Value) AsFloat() float64 {
 	}
 	return float64(v.I)
 }
+
+// Empty reports the zero semantic value for opt-in source serialization. It is
+// independent of native memory layout and never inspects cached reference data.
+func (v Value) Empty() bool {
+	switch v.Kind {
+	case KindInvalid:
+		return true
+	case KindBool, KindInt32, KindInt64, KindEnum:
+		return v.I == 0
+	case KindFloat32, KindFloat64:
+		return v.F == 0
+	case KindString:
+		return v.S == ""
+	case KindAssetRef:
+		return v.Asset.IsZero()
+	case KindNodeRef:
+		return v.Node.IsZero()
+	case KindList:
+		return len(v.List) == 0
+	case KindStruct:
+		return v.Obj == nil
+	case KindVec2:
+		return v.V == (mathx.Vec2{})
+	case KindVec3:
+		return v.V3 == (mathx.Vec3{})
+	case KindVec4:
+		return v.V4 == (mathx.Vec4{})
+	case KindColor:
+		return v.C == (mathx.Color{})
+	case KindQuat:
+		return v.Q == (mathx.Quat{})
+	case KindRect:
+		return v.R == (mathx.Rect{})
+	}
+	return false
+}

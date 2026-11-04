@@ -34,7 +34,9 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own; Add Component and Create: category | ok |
 | `cat.gameplay` | engine | 16 | template menu Gameplay | ok |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
+| `cat.particles` | particles | 16 | template menu Effects | missing |
 | `cat.physics` | engine | 16 | template menu Physics | ok |
+| `cat.render2d` | render2d | 16 | template menu Lighting | missing |
 | `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets; Add Component and Create: category | ok |
 | `cat.scripts` | engine | 16 | Search: script symbols; Add Component and Create: category | ok |
 | `cat.settings` | engine | 16 | References: the project file; Add Component and Create: category | ok |
@@ -44,7 +46,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `code.hints` | engine | 16 | Scripts → Parameter Name Hints | ok |
 | `code.implementation` | engine | 16 | Scripts → Go to Implementation | ok |
 | `comp.box` | engine | 16 | component physics.BoxCollider2D | ok |
-| `comp.camera2d` | engine | 16 | component camera.CameraBrain2D; component engine.Camera2D; template render2d.camera | ok |
+| `comp.camera2d` | engine | 16 | component camera.CameraBrain2D; component engine.Camera2D; component engine.LightingEnvironment2D; component render2d.PostProcess; template render2d.camera; template render2d.lighting environment | ok |
 | `comp.camera3d` | engine | 16 | component engine.Camera3D; template render3d.camera | ok |
 | `comp.capsule` | engine | 16 | component physics.CapsuleCollider2D | ok |
 | `comp.circle` | engine | 16 | component physics.CircleCollider2D | ok |
@@ -52,13 +54,13 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.follow` | engine | 16 | component camera.CameraFollow2D; template camera.follow | ok |
 | `comp.joint_distance` | engine | 16 | component physics.DistanceJoint2D | ok |
 | `comp.joint_revolute` | engine | 16 | Revolute Joint 2D component; Joints debug overlay; component physics.RevoluteJoint2D | ok |
-| `comp.mesh` | engine | 16 | component engine.MeshRenderer | ok |
+| `comp.mesh` | engine | 16 | component engine.LightOccluder2D; component engine.Mesh2D; component engine.MeshRenderer; template render2d.light occluder; template render2d.mesh 2d | ok |
 | `comp.persist` | engine | 16 | component save.Persist | ok |
 | `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; component physics.PolygonCollider2D | ok |
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
 | `comp.script` | engine | 16 | Scripts component; Assets menu: Attach to Selected; component engine.Script | ok |
 | `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
-| `comp.sprite` | engine | 16 | component engine.SpriteRenderer; template render2d.sprite | ok |
+| `comp.sprite` | engine | 16 | Create: Material and Material from Shader; material asset inspector; component engine.Light2D; component engine.MaterialOverride; component engine.SpriteRenderer; component particles.ParticleSystem2D; template particles.dust; template particles.explosion; template particles.particle system; template particles.rain; template particles.smoke; template particles.spark; template render2d.directional-light; template render2d.point-light; template render2d.spot-light; template render2d.sprite; template render2d.sprite-light | ok |
 | `comp.tags` | engine | 16 | component engine.Tags | ok |
 | `comp.vcam` | engine | 16 | component camera.VirtualCamera2D | ok |
 | `comp.zone` | engine | 16 | component camera.CameraZone2D | ok |
@@ -168,7 +170,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `status.busy` | engine | 14 | Task Center: running task; status bar: tasks running | ok |
 | `status.error` | engine | 14 | Agent panel: a step that failed | ok |
 | `status.ok` | engine | 14 | Task Center: finished task | ok |
-| `status.warning` | engine | 16 | Table and inspector issue rows | ok |
+| `status.warning` | engine | 16 | Table and inspector issue rows; Assets: preview warnings | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |
 | `tool.rotate` | engine | 16 | Scene View toolbar | ok |
 | `tool.scale` | engine | 16 | Scene View toolbar | ok |

@@ -1,0 +1,6 @@
+material version=1 shader=asset("af120e00000000000000000000000001") {
+  params {
+    NormalStrength=0.65
+    ReceiveShadows=false
+  }
+}

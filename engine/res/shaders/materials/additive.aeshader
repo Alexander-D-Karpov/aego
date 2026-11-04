@@ -1,0 +1,16 @@
+#pragma aego abi 1
+#pragma domain sprite
+#pragma pixel_coverage
+#pragma blend additive
+#include "engine/sprite.glsl"
+#pragma material
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+uniform float Intensity; // @instance @default(1) @range(0, 8)
+#pragma end
+// Additive RGB and alpha both use ONE + ONE. Alpha is accumulated coverage;
+// normalized targets clamp both sums, floating targets retain their values.
+void fragment() {
+    vec4 color = aego_sample() * clamp(Opacity, 0.0, 1.0);
+    color.rgb *= max(Intensity, 0.0);
+    aego_out = color;
+}

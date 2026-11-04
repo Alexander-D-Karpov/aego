@@ -8,20 +8,31 @@ import (
 	"aego/asset"
 	"aego/asset/pipeline"
 	"aego/core/log"
+	"aego/engine/problems"
 	"aego/project"
 	"aego/vfs"
 )
 
 type Snapshot struct {
-	idx    *asset.Index
-	files  vfs.FS
-	assets []pipeline.AssetInfo
-	issues []pipeline.MetaIssue
+	idx     *asset.Index
+	files   vfs.FS
+	assets  []pipeline.AssetInfo
+	issues  []pipeline.MetaIssue
+	current *pipeline.Pipeline
+	capture []problems.Diagnostic
+	// DirtySources are authoring source/metadata buffers not represented by this imported
+	// snapshot. Export waits for them to be saved and validated.
+	DirtySources []string
 }
 
 func Take(pl *pipeline.Pipeline) *Snapshot {
 	issues, _ := pl.MetaIssues()
-	return &Snapshot{idx: pl.Index().Clone(), files: pl.Artifacts(), assets: pl.Assets(), issues: slices.Clone(issues)}
+	s := &Snapshot{assets: pl.Assets(), issues: slices.Clone(issues), current: pl}
+	pl.ReadSnapshot(func(idx *asset.Index, files vfs.FS) {
+		s.idx = idx
+		s.files, s.capture = freezeArtifacts(idx, files)
+	})
+	return s
 }
 
 func Fresh(p *project.Project) (*Snapshot, func(), error) {

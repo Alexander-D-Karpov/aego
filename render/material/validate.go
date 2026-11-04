@@ -2,9 +2,11 @@ package material
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 
+	"aego/core/ids"
 	"aego/render/shader"
 )
 
@@ -16,11 +18,17 @@ const (
 )
 
 type Value struct {
-	Name  string
-	Lanes [4]float32
-	N     int
-	Asset bool
-	Line  int
+	Name      string
+	Lanes     [4]float32
+	Int       int32
+	Kind      shader.Kind
+	Typed     bool
+	Color     bool
+	Symbol    string
+	Reference ids.AssetID
+	N         int
+	Asset     bool
+	Line      int
 }
 
 type Problem struct {
@@ -57,8 +65,12 @@ func Validate(sh *Shader, keywords []string, vals []Value) []Problem {
 				want = "a texture"
 			}
 			out = append(out, Problem{Code: MAT002, Line: v.Line, Msg: fmt.Sprintf("%s takes %s", v.Name, want)})
+		case !v.Asset && v.Typed && v.Kind != p.Kind:
+			out = append(out, Problem{Code: MAT002, Line: v.Line, Msg: fmt.Sprintf("%s takes %s, got %s", v.Name, p.Kind.GLSL(), v.Kind.GLSL())})
 		case !v.Asset && v.N != p.Kind.Lanes():
 			out = append(out, Problem{Code: MAT002, Line: v.Line, Msg: fmt.Sprintf("%s takes %d number(s), the file has %d", v.Name, p.Kind.Lanes(), v.N)})
+		case !v.Asset && !validNumber(v, p):
+			out = append(out, Problem{Code: MAT002, Line: v.Line, Msg: fmt.Sprintf("%s has an invalid %s value", v.Name, p.Kind.GLSL())})
 		case !v.Asset && p.HasRange && outside(v, p):
 			out = append(out, Problem{Code: MAT002, Line: v.Line, Warn: true, Msg: fmt.Sprintf("%s is outside %g…%g", v.Name, p.Min, p.Max)})
 		}
@@ -80,4 +92,23 @@ func CheckDomain(sh *Shader, want shader.Domain) (Problem, bool) {
 		return Problem{}, true
 	}
 	return Problem{Code: MAT004, Msg: fmt.Sprintf("%s is a %s shader, this place needs %s", sh.Name, sh.Domain, want)}, false
+}
+
+func validNumber(v Value, p *shader.Param) bool {
+	if p.Kind == shader.KindInt && v.Typed {
+		return true
+	}
+	for i := 0; i < v.N; i++ {
+		if math.IsNaN(float64(v.Lanes[i])) || math.IsInf(float64(v.Lanes[i]), 0) {
+			return false
+		}
+	}
+	if p.Kind == shader.KindInt {
+		n := float64(v.Lanes[0])
+		return n >= math.MinInt32 && n <= math.MaxInt32 && n == math.Trunc(n)
+	}
+	if p.Kind == shader.KindBool {
+		return v.Lanes[0] == 0 || v.Lanes[0] == 1
+	}
+	return true
 }

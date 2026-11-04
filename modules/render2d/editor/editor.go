@@ -14,6 +14,18 @@ import (
 const PixelsPerUnit = render2d.DefaultPixelsPerUnit
 
 func Hook(e *ext.Registry) error {
+	if err := postHooks(e); err != nil {
+		return err
+	}
+	if err := materialHooks(e); err != nil {
+		return err
+	}
+	if err := lightingHooks(e); err != nil {
+		return err
+	}
+	if err := imageHooks(e); err != nil {
+		return err
+	}
 	if err := e.Bounds("engine.SpriteRenderer", SpriteShape); err != nil {
 		return err
 	}

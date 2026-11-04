@@ -53,6 +53,14 @@ func (s *Service) Inspect(id ids.AssetID) {
 	s.inspected = id
 }
 
+// AssetDocument exposes the shared owner for workspace keyboard commands.
+func (s *Service) AssetDocument(id ids.AssetID) *document.AssetDocument {
+	if s.ctx.Docs == nil {
+		return nil
+	}
+	return s.ctx.Docs.AssetDocument(id)
+}
+
 func (s *Service) Clear() {
 	s.inspected = ids.AssetID{}
 }
@@ -61,7 +69,7 @@ func (s *Service) Inspected() ids.AssetID {
 	if s.inspected.IsZero() || s.ctx.Pipeline == nil {
 		return ids.AssetID{}
 	}
-	if _, ok := s.ctx.Pipeline.PathOf(s.inspected); !ok {
+	if _, ok := s.ctx.Pipeline.PathOf(s.inspected); !ok && !asset.IsBuiltin(s.inspected) {
 		s.inspected = ids.AssetID{}
 	}
 	return s.inspected
@@ -123,6 +131,11 @@ func (s *Service) env() mutate.Env {
 }
 
 func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
+	defer func() {
+		if d := s.docs[id]; d != nil {
+			s.bindDoc(d)
+		}
+	}()
 	d := s.docs[id]
 	if d != nil && d.rev == s.ctx.AssetRev {
 		return d, nil
@@ -154,6 +167,11 @@ func (s *Service) Doc(id ids.AssetID) (*Doc, error) {
 }
 
 func (s *Service) Table(id ids.AssetID) (*Table, error) {
+	defer func() {
+		if t := s.tables[id]; t != nil {
+			s.bindTable(t)
+		}
+	}()
 	t := s.tables[id]
 	if t != nil && t.rev == s.ctx.AssetRev {
 		return t, nil
@@ -178,20 +196,48 @@ func (s *Service) Table(id ids.AssetID) (*Table, error) {
 	return nt, nil
 }
 
+func (s *Service) bindDoc(d *Doc) {
+	if s.ctx.Docs == nil {
+		return
+	}
+	if owner, err := s.ctx.DocumentForAsset(d.ID); err == nil {
+		owner.Binding = document.AssetBinding{PreviewRevision: func() uint64 { return d.edits }, PreviewSource: d.Bytes, Dirty: d.Dirty, Undo: d.Undo, Redo: d.Redo, Save: func() error { return s.SaveDoc(d) }, Discard: func() { s.RevertDoc(d.ID) }}
+	}
+}
+
+func (s *Service) bindTable(t *Table) {
+	if s.ctx.Docs == nil {
+		return
+	}
+	if owner, err := s.ctx.DocumentForAsset(t.ID); err == nil {
+		owner.Binding = document.AssetBinding{PreviewRevision: func() uint64 { return t.edits }, PreviewSource: t.Bytes, Dirty: t.Dirty, Undo: t.Undo, Redo: t.Redo, Save: func() error { return s.SaveTable(t) }, Discard: func() { s.RevertTable(t.ID) }}
+	}
+}
+
 func (s *Service) conflict(rel string, raw, disk []byte, seen *[]byte) {
 	if bytes.Equal(raw, disk) || bytes.Equal(raw, *seen) {
 		return
 	}
 	*seen = raw
-	s.ctx.Notify(context.LevelWarn, i18n.Note("editor.dataedit.rel_changed_on_disk_while", "{rel} changed on disk while it has unsaved changes: Save keeps yours, Revert loads the disk version", i18n.Str("rel", rel)))
+	s.ctx.Notify(context.LevelWarn, i18n.Note("editor.dataedit.external_conflict", "{rel} changed on disk while it has unsaved changes. Resolve the conflict before saving, or Revert to load the disk version.", i18n.Str("rel", rel)))
 }
 
 func (s *Service) RevertDoc(id ids.AssetID) {
 	delete(s.docs, id)
+	s.clearBinding(id)
 }
 
 func (s *Service) RevertTable(id ids.AssetID) {
 	delete(s.tables, id)
+	s.clearBinding(id)
+}
+
+func (s *Service) clearBinding(id ids.AssetID) {
+	if s.ctx.Docs != nil {
+		if owner := s.ctx.Docs.AssetDocument(id); owner != nil {
+			owner.Binding = document.AssetBinding{}
+		}
+	}
 }
 
 func (s *Service) save(id ids.AssetID, rel string, b []byte, done func([]byte)) error {
@@ -225,6 +271,13 @@ func (s *Service) SaveDoc(d *Doc) error {
 	if err := s.playLocked(); err != nil {
 		return err
 	}
+	if err := s.guardSave(d.Path, d.disk, func(raw []byte) {
+		d.disk = raw
+		d.conflict = nil
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.document.keep_metadata", "Your edits are kept in the document. Save to apply them."))
+	}, func() { s.RevertDoc(d.ID) }); err != nil {
+		return err
+	}
 	return s.save(d.ID, d.Path, d.Bytes(), func(b []byte) {
 		d.MarkSaved()
 		d.disk = b
@@ -235,10 +288,49 @@ func (s *Service) SaveTable(t *Table) error {
 	if err := s.playLocked(); err != nil {
 		return err
 	}
+	if err := s.guardSave(t.Path, t.disk, func(raw []byte) {
+		t.disk = raw
+		t.conflict = nil
+		s.ctx.Notify(context.LevelInfo, i18n.Note("editor.document.keep_metadata", "Your edits are kept in the document. Save to apply them."))
+	}, func() { s.RevertTable(t.ID) }); err != nil {
+		return err
+	}
 	return s.save(t.ID, t.Path, t.Bytes(), func(b []byte) {
 		t.MarkSaved()
 		t.disk = b
 	})
+}
+
+func (s *Service) guardSave(rel string, expected []byte, keep func([]byte), reload func()) error {
+	if expected == nil || s.ctx.Pipeline == nil {
+		return nil
+	}
+	raw, err := os.ReadFile(s.ctx.Pipeline.Abs(rel))
+	if err == nil && bytes.Equal(raw, expected) {
+		return nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	s.ctx.Ask(context.Question{
+		Title:   i18n.Tr("editor.document.external_change", "File changed on disk"),
+		Message: i18n.Tr("editor.document.data_conflict", "{path} changed outside this document. Reload the disk version or explicitly keep your local edits before saving.", i18n.Str("path", rel)),
+		Buttons: []string{i18n.Tr("editor.scripteditor.reload", "Reload"), i18n.Tr("editor.scripteditor.keep_mine", "Keep mine"), i18n.Tr("editor.common.cancel", "Cancel")},
+		Then: func(choice int) {
+			switch choice {
+			case 0:
+				reload()
+			case 1:
+				current, err := os.ReadFile(s.ctx.Pipeline.Abs(rel))
+				if err != nil && !os.IsNotExist(err) {
+					s.ctx.Notify(context.LevelError, err.Error())
+					return
+				}
+				keep(current)
+			}
+		},
+	})
+	return errs.New(errs.EditorDocument, "source changed on disk; resolve the conflict before saving")
 }
 
 func csvPath(rel string) string {

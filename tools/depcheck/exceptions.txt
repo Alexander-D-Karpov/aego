@@ -45,7 +45,7 @@ editor/core/state/state.go -> "camera", semantic, the "camera" key of the field 
 audio/codec/wav -> "data", semantic, "data" is the RIFF chunk ID of the WAV sample data, not a reference to the data module (D309)
 script/... -> "display", semantic, the @export(display=...) attribute key and its completion predate the display module (D238)
 engine/engine.go -> "display", semantic, the startup log line labels display metrics; it is not a reference to the display module (D238)
-asset/pipeline/meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module (D237)
+asset/source_meta.go -> "settings", semantic, the importer settings block of .meta files predates the settings module and now belongs to the shared SourceMeta codec (D237/D396)
 platform/profile.go -> "settings*", semantic, settings.aetext is the player profile file name, not a module reference (D237)
 scene/scriptcomp -> "engine.Script", semantic, the script component is a core type (D145); the scripting module only registers it
 engine/recorder/recorder.go -> "spawn", semantic, the recorder event kind names spawn and despawn records (9.1) and predates the spawn module (D250)

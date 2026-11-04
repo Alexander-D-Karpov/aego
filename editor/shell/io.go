@@ -148,7 +148,7 @@ func (a *App) applyState(st *state.Editor, scenes map[string][]byte) {
 	if c := a.opt.Code; c != nil {
 		c.Autosave, c.Hints, c.Minimap, c.Rainbow, c.Block = st.Autosave, st.InlayHints, st.Minimap, st.RainbowBrackets, st.HighlightBlock
 	}
-	a.agentCommand = st.AgentCommand
+	a.loadAgentSettings(st)
 	for _, k := range st.Collapsed {
 		a.ctx.Collapsed[k] = true
 	}
@@ -205,7 +205,7 @@ func (a *App) collect(all bool) *state.Editor {
 	if c := a.opt.Code; c != nil {
 		st.Autosave, st.InlayHints, st.Minimap, st.RainbowBrackets, st.HighlightBlock = c.Autosave, c.Hints, c.Minimap, c.Rainbow, c.Block
 	}
-	st.AgentCommand = a.agentCommand
+	a.saveAgentSettings(st)
 	for k, closed := range a.ctx.Collapsed {
 		if closed {
 			st.Collapsed = append(st.Collapsed, k)

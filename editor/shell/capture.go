@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"aego/editor/core/services"
+	"errors"
 	"time"
 
 	"aego/editor/core/capture"
@@ -39,4 +41,38 @@ func (a *App) registerCapture() error {
 		Enabled:  func() bool { return a.ctx.Doc() != nil },
 		Run:      a.sceneView.RequestCapture,
 	})
+}
+
+func (a *App) AgentExporter() services.Exporter { return a.opt.Exporter }
+
+func (a *App) CaptureAgentView(view string) ([]byte, uint64, string, error) {
+	d := a.ctx.Doc()
+	if d == nil {
+		return nil, 0, "", errors.New("no open scene")
+	}
+	t, tick := a.sceneView.LastRender()
+	if view == "game" {
+		t, tick = a.gameView.LastRender()
+		if playDoc := a.play.PlayDoc(); playDoc != nil {
+			d = playDoc
+		}
+	} else if view != "scene" {
+		return nil, 0, "", errors.New("unknown view")
+	}
+	if t == nil || d == nil {
+		return nil, 0, "", errors.New("view has no frame for this scene; show the view and start Play for a game capture, or use scene_run with shot")
+	}
+	if t.W <= 0 || t.H <= 0 || int64(t.W)*int64(t.H) > 16<<20 {
+		return nil, 0, "", errors.New("invalid capture size")
+	}
+	dev := a.ctx.Engine.GPU()
+	if dev == nil {
+		return nil, 0, "", errors.New("view has no graphics device")
+	}
+	buf := make([]byte, t.W*t.H*4)
+	if err := dev.ReadPixels(t.Texture, 0, 0, t.W, t.H, buf); err != nil {
+		return nil, 0, "", err
+	}
+	png, err := capture.Encode(t.W, t.H, buf, captureFlip)
+	return png, tick, d.Path, err
 }

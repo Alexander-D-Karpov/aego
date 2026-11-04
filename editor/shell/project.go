@@ -256,3 +256,9 @@ func (a *App) nativeHint() string {
 	}
 	return i18n.Tr("editor.shell.go_not_found_native_code", "Go not found — native code is not built (Help → Install Go)")
 }
+
+func (a *App) OpenAgentProject(root string) {
+	if err := a.switchTo(root, ""); err != nil {
+		a.ctx.Notify(context.LevelWarn, err.Error())
+	}
+}

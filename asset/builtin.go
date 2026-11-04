@@ -8,11 +8,13 @@ import (
 const builtinHi uint64 = 0xae90000000000000
 
 var (
-	BuiltinCube     = ids.AssetID{Hi: builtinHi, Lo: 1}
-	BuiltinPlane    = ids.AssetID{Hi: builtinHi, Lo: 2}
-	BuiltinSphere   = ids.AssetID{Hi: builtinHi, Lo: 3}
-	BuiltinCylinder = ids.AssetID{Hi: builtinHi, Lo: 4}
-	BuiltinWhite    = ids.AssetID{Hi: builtinHi, Lo: 16}
+	BuiltinParticlePuff   = ids.AssetID{Hi: builtinHi, Lo: 0xd00}
+	BuiltinParticleStreak = ids.AssetID{Hi: builtinHi, Lo: 0xd01}
+	BuiltinCube           = ids.AssetID{Hi: builtinHi, Lo: 1}
+	BuiltinPlane          = ids.AssetID{Hi: builtinHi, Lo: 2}
+	BuiltinSphere         = ids.AssetID{Hi: builtinHi, Lo: 3}
+	BuiltinCylinder       = ids.AssetID{Hi: builtinHi, Lo: 4}
+	BuiltinWhite          = ids.AssetID{Hi: builtinHi, Lo: 16}
 )
 
 type Builtin struct {
@@ -26,10 +28,12 @@ var builtins = [...]Builtin{
 	{ID: BuiltinPlane, Name: "engine/meshes/plane", Kind: ArtMesh},
 	{ID: BuiltinSphere, Name: "engine/meshes/sphere", Kind: ArtMesh},
 	{ID: BuiltinCylinder, Name: "engine/meshes/cylinder", Kind: ArtMesh},
+	{ID: BuiltinParticlePuff, Name: "engine/textures/particle-puff", Kind: ArtTexture},
+	{ID: BuiltinParticleStreak, Name: "engine/textures/particle-streak", Kind: ArtTexture},
 	{ID: BuiltinWhite, Name: "engine/textures/white", Kind: ArtTexture},
 }
 
-var allBuiltins = append(append(builtins[:len(builtins):len(builtins)], builtinAudioEntries()...), builtinAnimEntries()...)
+var allBuiltins = append(append(append(builtins[:len(builtins):len(builtins)], builtinAudioEntries()...), builtinAnimEntries()...), builtinMaterialEntries()...)
 
 func Builtins() []Builtin {
 	return allBuiltins

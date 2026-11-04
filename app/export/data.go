@@ -19,10 +19,6 @@ import (
 
 const debugSection = "debug"
 
-func exportSkip(k asset.ArtifactKind) bool {
-	return k == asset.ArtPreset
-}
-
 func setField(blocks []*aetext.Node, head, name string, v aetext.Value) []*aetext.Node {
 	for _, b := range blocks {
 		if b.Head != head {
@@ -72,7 +68,7 @@ func (j *job) data() error {
 	var failed error
 	j.files = j.files[:0]
 	j.snap.idx.Each(func(e *asset.Entry) {
-		if failed != nil || e.Missing || e.Error != "" || exportSkip(e.Kind) {
+		if failed != nil || e.Missing || e.Error != "" || j.snap.exportSkip(e) {
 			return
 		}
 		cp := *e
@@ -173,6 +169,22 @@ func (j *job) sdlLicense() string {
 	return ""
 }
 
+// goLicense also handles distributions that install Go under <prefix>/lib/go
+// but place its license in <prefix>/share/licenses/go instead of GOROOT.
+func goLicense(root string) string {
+	candidates := []string{filepath.Join(root, "LICENSE")}
+	if filepath.Base(filepath.Dir(root)) == "lib" {
+		prefix := filepath.Dir(filepath.Dir(root))
+		candidates = append(candidates, filepath.Join(prefix, "share", "licenses", "go", "LICENSE"))
+	}
+	for _, path := range candidates {
+		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+			return path
+		}
+	}
+	return ""
+}
+
 func (j *job) license(lib bundle.Lib, src, name string) bundle.Lib {
 	if src == "" {
 		return lib
@@ -191,7 +203,7 @@ func (j *job) license(lib bundle.Lib, src, name string) bundle.Lib {
 func (j *job) libs() []bundle.Lib {
 	vorbis := j.license(bundle.Lib{Name: "oggvorbis", Link: "static"}, filepath.Join(j.opt.Engine, "audio", "codec", "vorbis", "internal", "oggvorbis", "LICENSE"), "oggvorbis.txt")
 	if j.t.Web() {
-		return []bundle.Lib{j.license(bundle.Lib{Name: "Go wasm_exec.js", Link: "script", File: webExec}, filepath.Join(j.goroot, "LICENSE"), "Go.txt"), vorbis}
+		return []bundle.Lib{j.license(bundle.Lib{Name: "Go wasm_exec.js", Link: "script", File: webExec}, goLicense(j.goroot), "Go.txt"), vorbis}
 	}
 	return []bundle.Lib{j.license(bundle.Lib{Name: "SDL3", Link: "static"}, j.sdlLicense(), "SDL3.txt"), vorbis}
 }

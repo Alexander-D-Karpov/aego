@@ -14,6 +14,7 @@ import (
 	"aego/engine"
 	"aego/gpu"
 	"aego/render"
+	"aego/scene"
 	"aego/ui/core"
 	"aego/ui/dnd"
 )
@@ -87,15 +88,17 @@ type Prefabs interface {
 }
 
 type Viewport struct {
-	UI          *core.Context
-	GPU         gpu.Device
-	Renderer    *render.Renderer
-	Shapes      *shape.Registry
-	Overlay     *context.Overlays
-	OnRender    func(func())
-	RenderWorld func(w *engine.World)
-	GameHUD     []func(ui *core.Context, r mathx.Rect)
-	Bare        bool
+	UI            *core.Context
+	GPU           gpu.Device
+	Renderer      *render.Renderer
+	Shapes        *shape.Registry
+	Overlay       *context.Overlays
+	OnRender      func(func())
+	RenderWorld   func(w *engine.World)
+	CameraPreview func() *scene.Scene
+	EffectPreview func() (ids.NodeID, string)
+	GameHUD       []func(ui *core.Context, r mathx.Rect)
+	Bare          bool
 }
 
 var (

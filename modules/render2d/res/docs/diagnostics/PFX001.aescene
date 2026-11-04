@@ -1,0 +1,9 @@
+scene version=1 {
+  node "50465830303100000000000000000001" name="Camera" enabled=true layers=1 {
+    component "engine.Camera2D" version=1 {}
+    component "render2d.PostProcess" version=1 {
+      enabled=true
+      effects=[{ typeID="postfx.vignette" instanceID="invalid" enabled=true version=1 parameters=[{ name="Intensity" kind=float value=[1.5, 0, 0, 0] integer=0 boolean=false asset=asset("00000000000000000000000000000000") }] }]
+    }
+  }
+}

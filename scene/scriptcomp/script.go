@@ -1,6 +1,7 @@
 package scriptcomp
 
 import (
+	"slices"
 	"unsafe"
 
 	"aego/format/aetext"
@@ -30,7 +31,10 @@ type Attachment struct {
 func (a *Attachment) Clone() Attachment {
 	out := *a
 	out.Props = a.Props.Clone()
-	out.Unknown = append([]aetext.Field(nil), a.Unknown...)
+	out.Unknown = slices.Clone(a.Unknown)
+	for i := range out.Unknown {
+		out.Unknown[i].Value = a.Unknown[i].Value.Clone()
+	}
 	return out
 }
 
@@ -83,7 +87,7 @@ func (Overlay) Bag(s *scene.Scene, h scene.NodeHandle, td *schema.TypeDescriptor
 }
 
 func Options() []schema.Option {
-	return []schema.Option{schema.Name(ScriptName), schema.Doc("Holds the Aego Script attachments of a node."), schema.Clone(cloneScripts)}
+	return []schema.Option{schema.Name(ScriptName), schema.Doc("Holds the Aego Script attachments of a node."), schema.FullClone(cloneScripts)}
 }
 
 func cloneScripts(dst, src *ScriptComponent) {
@@ -91,10 +95,11 @@ func cloneScripts(dst, src *ScriptComponent) {
 		dst.Attachments = nil
 		return
 	}
-	dst.Attachments = make([]Attachment, len(src.Attachments))
+	attachments := make([]Attachment, len(src.Attachments))
 	for i := range src.Attachments {
-		dst.Attachments[i] = src.Attachments[i].Clone()
+		attachments[i] = src.Attachments[i].Clone()
 	}
+	dst.Attachments = attachments
 }
 
 func Register(t *scene.Types) error {

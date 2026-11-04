@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="0fb4810f2b2eb53e988796bababa88bb84e6ba0e362189dda994d14d63ffdd0a"
+  abi="5a92183858aa1a9364dd32952195e01356d16a6480c58ff6fb53252869e2abea"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -1436,6 +1436,30 @@ manifest version=6 {
       doc="The X2 mouse button."
     }
   }
+  module "aego/lighting" {
+    func "Debug" {
+      params=[]
+      result="string"
+      doc="Returns this world's view debug display: lighting, normals or shadows."
+    }
+    func "Enabled" {
+      params=[]
+      result="bool"
+      doc="Returns whether this world's current view applies lighting."
+    }
+    func "SetDebug" {
+      params=["string"]
+      result="void"
+      names=["mode"]
+      doc="Selects the view debug display: lighting, normals or shadows. This does not mutate the scene."
+    }
+    func "SetEnabled" {
+      params=["bool"]
+      result="void"
+      names=["enabled"]
+      doc="Enables or bypasses lighting in this world's current view without changing scene materials or simulation."
+    }
+  }
   module "aego/log" {
     func "Debug" {
       params=["string"]
@@ -1464,6 +1488,27 @@ manifest version=6 {
       names=["msg"]
       doc="Warn writes a warning to the Console."
       example="log.Warn(\"Target is not set\")"
+    }
+  }
+  module "aego/material" {
+    func "Assign" {
+      params=["NodeRef", "AssetRef<material>"]
+      result="void"
+      names=["node", "material"]
+      doc="Assign changes the SpriteRenderer or Mesh2D material reference in this world."
+      example="material.Assign(node, material.Builtin(\"Flash\"))"
+    }
+    func "Builtin" {
+      params=["string"]
+      result="AssetRef<material>"
+      names=["name"]
+      doc="Builtin returns Unlit (Default), Additive, Flash, Dissolve, Outline or PixelSnap. Lit belongs to the lighting module."
+    }
+    func "Shader" {
+      params=["string"]
+      result="AssetRef<shader>"
+      names=["name"]
+      doc="Shader returns the prepared shader reference for a named built-in material."
     }
   }
   module "aego/math" {
@@ -1804,6 +1849,21 @@ manifest version=6 {
       bool=false
       str=""
       doc="Tau is a full turn in radians, 2·Pi."
+    }
+  }
+  module "aego/particles" {
+    func "Enabled" {
+      params=[]
+      result="bool"
+      doc="Reports whether this world presents particle effects."
+      example="visible := particles.Enabled()"
+    }
+    func "SetEnabled" {
+      params=["bool"]
+      result="void"
+      names=["enabled"]
+      doc="Turns particles on or off in this Play world. Turning them off clears current effects."
+      example="particles.SetEnabled(false)"
     }
   }
   module "aego/physics" {
@@ -2735,6 +2795,21 @@ manifest version=6 {
       type="enum:aego/audio.PauseWith"
     }
   }
+  struct "Vec4" module="aego/material" slots=4 {
+    doc="Four numeric lanes, with no color-space conversion."
+    field "X" {
+      type="float"
+    }
+    field "Y" {
+      type="float"
+    }
+    field "Z" {
+      type="float"
+    }
+    field "W" {
+      type="float"
+    }
+  }
   struct "Contact" module="aego/physics" slots=6 {
     doc="Contact describes a touch between two colliders from the receiver's side.\nNormal points from the other body into this one, RelativeVelocity is this body's velocity relative to the other at Point."
     field "Point" {
@@ -3173,6 +3248,86 @@ manifest version=6 {
     result="bool"
     doc="IsActive reports whether this virtual camera drives its output now."
   }
+  cmethod "GetBool" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="bool"
+    doc="Reads the effective bool parameter."
+  }
+  cmethod "GetColor" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="Color"
+    doc="Reads the effective linear Color of a parameter declared with the color hint."
+  }
+  cmethod "GetFloat" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="float"
+    doc="Reads the effective float after shader default, material value and node override."
+  }
+  cmethod "GetInt" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="int"
+    doc="Reads the exact signed int32 effective parameter."
+  }
+  cmethod "GetVec2" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="Vec2"
+    doc="Reads the effective vec2 parameter."
+  }
+  cmethod "GetVec3" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="Vec3"
+    doc="Reads the effective vec3 parameter."
+  }
+  cmethod "GetVec4" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="struct:aego/material.Vec4"
+    doc="Reads four numerical effective lanes as material.Vec4, without color conversion."
+  }
+  cmethod "GetVec4Lane" comp="engine.MaterialOverride" {
+    params=["string", "int"]
+    result="float"
+    doc="Reads one lane from an ordinary vec4 parameter. The lane index must be from 0 through 3."
+  }
+  cmethod "Reset" comp="engine.MaterialOverride" {
+    params=["string"]
+    result="bool"
+    doc="Removes the explicit instance value and inherits the shared material value. Returns whether an explicit value existed."
+  }
+  cmethod "SetBool" comp="engine.MaterialOverride" {
+    params=["string", "bool"]
+    result="void"
+    doc="Sets an instance bool parameter on this node."
+  }
+  cmethod "SetColor" comp="engine.MaterialOverride" {
+    params=["string", "Color"]
+    result="void"
+    doc="Sets a linear Color instance parameter declared with the color hint."
+  }
+  cmethod "SetFloat" comp="engine.MaterialOverride" {
+    params=["string", "float"]
+    result="void"
+    doc="Sets an instance float parameter on this node. Type mismatch leaves its previous value unchanged."
+  }
+  cmethod "SetInt" comp="engine.MaterialOverride" {
+    params=["string", "int"]
+    result="void"
+    doc="Sets an exact signed int32 instance parameter. Values outside the int32 range are rejected."
+  }
+  cmethod "SetVec2" comp="engine.MaterialOverride" {
+    params=["string", "Vec2"]
+    result="void"
+    doc="Sets an instance vec2 parameter on this node."
+  }
+  cmethod "SetVec3" comp="engine.MaterialOverride" {
+    params=["string", "Vec3"]
+    result="void"
+    doc="Sets an instance vec3 parameter on this node."
+  }
+  cmethod "SetVec4" comp="engine.MaterialOverride" {
+    params=["string", "struct:aego/material.Vec4"]
+    result="void"
+    doc="Sets four numerical instance lanes using material.Vec4 without color conversion."
+  }
   cmethod "Damage" comp="gameplay.Health" {
     params=["int", "NodeRef"]
     result="bool"
@@ -3297,6 +3452,53 @@ manifest version=6 {
     result="float"
     doc="TimeIn returns the seconds spent in the current state."
   }
+  cmethod "Burst" comp="particles.ParticleSystem2D" {
+    params=["int"]
+    result="void"
+    names=["count"]
+    doc="Requests count births at the emitter. Does not start automatic emission."
+    example="Dust.Get<ParticleSystem2D>().Burst(8)"
+  }
+  cmethod "Clear" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="void"
+    doc="Removes live particles without changing the emission schedule."
+  }
+  cmethod "Count" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="int"
+    doc="Returns the current number of living particles on the emitter."
+  }
+  cmethod "Emitting" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="bool"
+    doc="Reports whether automatic emission is running."
+  }
+  cmethod "Play" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="void"
+    doc="Starts automatic emission. Repeating Play while emitting does nothing."
+  }
+  cmethod "Playing" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="bool"
+    doc="Reports whether the schedule is running or particles remain."
+  }
+  cmethod "Restart" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="void"
+    doc="Clears live particles and starts a new emission schedule."
+  }
+  cmethod "Stop" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="void"
+    doc="Stops new emissions and lets live particles drain."
+  }
+  cmethod "StopAndClear" comp="particles.ParticleSystem2D" {
+    params=[]
+    result="void"
+    doc="Stops automatic emission and immediately removes living particles."
+  }
   cmethod "ApplyForce" comp="physics.Body2D" {
     params=["Vec2"]
     result="void"
@@ -3366,6 +3568,41 @@ manifest version=6 {
     params=[]
     result="void"
     doc="WakeUp makes a sleeping body simulate again."
+  }
+  cmethod "SetBool" comp="render2d.PostProcess" {
+    params=["string", "bool"]
+    result="void"
+    doc="Sets a boolean parameter by instanceID:Field."
+  }
+  cmethod "SetEffectEnabled" comp="render2d.PostProcess" {
+    params=["string", "bool"]
+    result="void"
+    doc="Enables or disables an effect by its stable instance ID."
+  }
+  cmethod "SetFloat" comp="render2d.PostProcess" {
+    params=["string", "float"]
+    result="void"
+    doc="Sets a float parameter using instanceID:Field, without changing any shared material."
+  }
+  cmethod "SetInt" comp="render2d.PostProcess" {
+    params=["string", "int"]
+    result="void"
+    doc="Sets a signed int32 parameter by instanceID:Field."
+  }
+  cmethod "SetVec2" comp="render2d.PostProcess" {
+    params=["string", "Vec2"]
+    result="void"
+    doc="Sets a vec2 parameter using instanceID:Field."
+  }
+  cmethod "SetVec3" comp="render2d.PostProcess" {
+    params=["string", "Vec3"]
+    result="void"
+    doc="Sets a vec3 parameter by instanceID:Field."
+  }
+  cmethod "SetVec4" comp="render2d.PostProcess" {
+    params=["string", "struct:aego/material.Vec4"]
+    result="void"
+    doc="Sets a vec4 parameter by instanceID:Field."
   }
   hmethod "Done" handle="aego/action.Action" {
     params=[]
@@ -3679,6 +3916,10 @@ manifest version=6 {
     names=["from", "to"]
     doc="Changed fires after a state change with the indices of the old and the new state."
   }
+  csignal "Completed" comp="particles.ParticleSystem2D" {
+    params=[]
+    doc="A finite emission schedule has ended and its last particle expired. A presentation signal, not a gameplay timer."
+  }
   hsignal "Completed" handle="aego/action.Action" {
     params=["bool"]
     names=["finished"]
@@ -3724,6 +3965,11 @@ manifest version=6 {
       type="AssetRef<texture>"
       readonly=false
       doc="Texture or atlas region to draw. Empty draws a solid rectangle in the tint color."
+    }
+    field "Material" {
+      type="AssetRef<material>"
+      readonly=false
+      doc="Shared sprite-domain material. Per-node changes belong to MaterialOverride."
     }
     field "Layer" {
       type="int"
@@ -3820,6 +4066,222 @@ manifest version=6 {
       type="bool"
       readonly=false
       doc="Only active cameras render."
+    }
+  }
+  component "engine.Mesh2D" {
+    short="Mesh2D"
+    category="engine"
+    doc="Draws the standard mesh vertex layout in a 2D camera with a compatible Mesh2D material."
+    builtin=true
+    field "Mesh" {
+      type="AssetRef<mesh>"
+      readonly=false
+      doc="Mesh asset with the standard position, normal, UV and vertex color layout."
+    }
+    field "Texture" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Main texture sampled in mesh UV coordinates. Empty uses white."
+    }
+    field "Material" {
+      type="AssetRef<material>"
+      readonly=false
+      doc="Shared material asset. The shader domain must be mesh2d."
+    }
+    field "Tint" {
+      type="Color"
+      readonly=false
+      doc="Linear color multiplied with the texture; alpha controls transparency."
+    }
+    field "Layer" {
+      type="int"
+      readonly=false
+      doc="Visual layer for this 2D mesh."
+    }
+    field "Order" {
+      type="int"
+      readonly=false
+      doc="Painter order among sprites and meshes in the same layer; higher values draw later."
+    }
+  }
+  component "engine.MaterialOverride" {
+    short="MaterialOverride"
+    category="engine"
+    doc="Overrides up to eight numeric shader parameters on this node. Removed parameters remain in the values list."
+    builtin=true
+  }
+  component "render2d.PostProcess" {
+    short="PostProcess"
+    category="render2d"
+    doc="Applies an ordered effect stack after all cameras sharing this camera's logical output, before UI."
+    builtin=true
+    field "Enabled" {
+      type="bool"
+      readonly=false
+      doc="Enable this camera's output stack. Disabled stacks do not claim the output."
+    }
+  }
+  component "engine.Light2D" {
+    short="Light2D"
+    category="engine"
+    doc="Forward 2D diffuse light. Local +X defines Spot and Directional azimuth; presentation transforms also drive shadows."
+    builtin=true
+    field "Type" {
+      type="int"
+      readonly=false
+      doc="Point, Spot, Directional or Sprite/cookie. Directional shadows are not supported."
+    }
+    field "Color" {
+      type="Color"
+      readonly=false
+      doc="Linear light color; the color picker handles display conversion."
+    }
+    field "Intensity" {
+      type="float"
+      readonly=false
+      doc="Nonnegative energy multiplier; zero disables this light's contribution."
+    }
+    field "Range" {
+      type="float"
+      readonly=false
+      doc="Local light radius in world units, independent of node scale."
+    }
+    field "Height" {
+      type="float"
+      readonly=false
+      doc="Virtual distance above the sprite surface for diffuse normal mapping; shadows remain planar."
+    }
+    field "InnerAngle" {
+      type="float"
+      readonly=false
+      doc="Full Spot inner cone angle in radians, centered on local +X."
+    }
+    field "OuterAngle" {
+      type="float"
+      readonly=false
+      doc="Full Spot outer cone angle in radians, no smaller than innerAngle."
+    }
+    field "Elevation" {
+      type="float"
+      readonly=false
+      doc="Directional elevation above the surface in radians, greater than zero."
+    }
+    field "Falloff" {
+      type="float"
+      readonly=false
+      doc="Nonnegative falloff exponent over normalized local-light distance."
+    }
+    field "Cookie" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Sprite light mask texture. Its own region and trim map to the light square."
+    }
+    field "Layers" {
+      type="int"
+      readonly=false
+      doc="64-bit receiver visibility mask. -1 means all bits; zero receives no objects."
+    }
+    field "ShadowCasterMask" {
+      type="int"
+      readonly=false
+      doc="64-bit shadow-occluder mask, independent of visibility and collision masks."
+    }
+    field "Shadows" {
+      type="bool"
+      readonly=false
+      doc="Enable cached local-light shadow masks for Point, Spot and Sprite lights."
+    }
+    field "ShadowSoftness" {
+      type="float"
+      readonly=false
+      doc="Bounded mask filtering radius; this is not a physical area-light penumbra."
+    }
+    field "Priority" {
+      type="int"
+      readonly=false
+      doc="Higher priority is selected first when the per-draw light budget is exceeded."
+    }
+  }
+  component "engine.LightOccluder2D" {
+    short="LightOccluder2D"
+    category="engine"
+    doc="A planar shadow contour. Manual polygons require no Physics module; ShapeProvider reads local geometry through the shapes2d contract."
+    builtin=true
+    field "Source" {
+      type="int"
+      readonly=false
+      doc="Use a manual polygon/chain or a registered local-shape provider."
+    }
+    field "Polygon" {
+      type="[]Vec2"
+      readonly=true
+      doc="Simple local-space contour without holes; points follow the owner's presentation transform once."
+    }
+    field "Closed" {
+      type="bool"
+      readonly=false
+      doc="Close the manual polygon. A ShapeProvider supplies each contour's closed state."
+    }
+    field "CullMode" {
+      type="int"
+      readonly=false
+      doc="Shadow edge winding policy; independent of any physics one-sided setting."
+    }
+    field "Layers" {
+      type="int"
+      readonly=false
+      doc="64-bit shadow participation mask. -1 is all bits; zero casts no shadows."
+    }
+    field "ShapeNode" {
+      type="NodeRef"
+      readonly=false
+      doc="Source node for ShapeProvider. Empty uses this node; unresolved IDs are preserved."
+    }
+    field "Shape" {
+      type="string"
+      readonly=false
+      doc="Stable provider shape key, such as physics.BoxCollider2D. Empty selects all of the source node's shapes."
+    }
+  }
+  component "engine.LightingEnvironment2D" {
+    short="LightingEnvironment2D"
+    category="engine"
+    doc="Lighting and output policy for a camera. An empty camera applies to the current output; overlapping environments are an error."
+    builtin=true
+    field "Camera" {
+      type="NodeRef"
+      readonly=false
+      doc="Optional Camera2D node. Empty applies to all 2D views of this world."
+    }
+    field "AmbientColor" {
+      type="Color"
+      readonly=false
+      doc="Linear ambient surface illumination. Default white preserves unlit-looking Lit scenes with no lights."
+    }
+    field "AmbientIntensity" {
+      type="float"
+      readonly=false
+      doc="Nonnegative ambient energy multiplier."
+    }
+    field "ColorMode" {
+      type="int"
+      readonly=false
+      doc="Auto chooses supported HDR for Lit output; LDR uses RGBA8 and HDR requests RGBA16F."
+    }
+    field "Exposure" {
+      type="float"
+      readonly=false
+      doc="Positive display-resolve exposure, without changing UI or simulation."
+    }
+    field "ShadowResolution" {
+      type="int"
+      readonly=false
+      doc="Power-of-two mask dimension between 64 and 2048. Initial profile uses 256."
+    }
+    field "MaxShadowedLights" {
+      type="int"
+      readonly=false
+      doc="Per-camera local-shadow budget from 0 through 16; actual performance depends on the GPU."
     }
   }
   component "engine.Camera3D" {
@@ -5191,6 +5653,247 @@ manifest version=6 {
       type="bool"
       readonly=false
       doc="Leaves the enabled flag out of save games."
+    }
+  }
+  component "particles.ParticleSystem2D" {
+    short="ParticleSystem2D"
+    category="particles"
+    doc="Emits visual sprites from a bounded CPU pool. World-space particles stay at their birth location when the emitter moves."
+    builtin=true
+    field "Prewarm" {
+      type="float"
+      readonly=false
+      doc="Seconds of bounded preparation for a looping effect, up to two."
+    }
+    field "EdgeA" {
+      type="Vec2"
+      readonly=false
+      doc="First endpoint in emitter coordinates."
+    }
+    field "EdgeB" {
+      type="Vec2"
+      readonly=false
+      doc="Second endpoint in emitter coordinates."
+    }
+    field "Mask" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Source sprite frame. Its prepared alpha mask is independent of atlas packing."
+    }
+    field "MaskThreshold" {
+      type="float"
+      readonly=false
+      doc="Minimum source alpha used by the sprite mask, from zero to one."
+    }
+    field "FrameFPS" {
+      type="float"
+      readonly=false
+      doc="Flipbook playback speed in frames per second."
+    }
+    field "FrameLoop" {
+      type="bool"
+      readonly=false
+      doc="Repeat the flipbook; otherwise hold its last frame."
+    }
+    field "SortMode" {
+      type="int"
+      readonly=false
+      doc="Oldest first, youngest first or farthest first for each camera."
+    }
+    field "ReducedMotion" {
+      type="int"
+      readonly=false
+      doc="Keep, reduce or hide this effect when Reduce Motion is enabled."
+    }
+    field "ReducedRate" {
+      type="float"
+      readonly=false
+      doc="Fraction of births kept under the Reduce policy."
+    }
+    field "Drag" {
+      type="float"
+      readonly=false
+      doc="Nonnegative damping coefficient per second."
+    }
+    field "NoiseStrength" {
+      type="float"
+      readonly=false
+      doc="Magnitude of deterministic presentation noise."
+    }
+    field "NoiseFrequency" {
+      type="float"
+      readonly=false
+      doc="How fast the noise field changes."
+    }
+    field "KillYEnabled" {
+      type="bool"
+      readonly=false
+      doc="Remove particles on the side of increasing Y past Kill Y."
+    }
+    field "KillY" {
+      type="float"
+      readonly=false
+      doc="Threshold in simulation space, in world units."
+    }
+    field "PlaneEnabled" {
+      type="bool"
+      readonly=false
+      doc="Remove particles past the configured clipping plane."
+    }
+    field "PlaneNormal" {
+      type="Vec2"
+      readonly=false
+      doc="Outward normal of the clipping plane in simulation space."
+    }
+    field "PlaneDistance" {
+      type="float"
+      readonly=false
+      doc="Plane offset along its normalized normal."
+    }
+    field "VelocityOverLife" {
+      type="Curve"
+      readonly=true
+      doc="Speed multiplier by normalized age, applied without compounding."
+    }
+    field "PlayOnStart" {
+      type="bool"
+      readonly=false
+      doc="Starts the emission schedule when this emitter becomes active."
+    }
+    field "Loop" {
+      type="bool"
+      readonly=false
+      doc="Repeats the schedule at the end of each cycle."
+    }
+    field "Duration" {
+      type="float"
+      readonly=false
+      doc="Length of one emission cycle in seconds."
+    }
+    field "TimeDomain" {
+      type="int"
+      readonly=false
+      doc="Game pauses with the world; unscaled uses real presentation time."
+    }
+    field "Seed" {
+      type="int"
+      readonly=false
+      doc="Nonzero locks the seed. Zero derives it from the session, stable node ID and activation."
+    }
+    field "MaxParticles" {
+      type="int"
+      readonly=false
+      doc="Maximum live particles. When full, keep living particles and drop excess births."
+    }
+    field "Rate" {
+      type="float"
+      readonly=false
+      doc="Continuous births per second. Zero allows manual bursts without a continuous stream."
+    }
+    field "Bursts" {
+      type="[]Vec2"
+      readonly=true
+      doc="Cycle keys as (time in seconds, birth count). Times must be in [0, duration)."
+    }
+    field "Shape" {
+      type="int"
+      readonly=false
+      doc="Birth positions come from a point, disk, rectangle, line segment or sprite alpha mask."
+    }
+    field "Offset" {
+      type="Vec2"
+      readonly=false
+      doc="Local offset of the emitter shape."
+    }
+    field "RectSize" {
+      type="Vec2"
+      readonly=false
+      doc="Full rectangle dimensions in world units."
+    }
+    field "Radius" {
+      type="float"
+      readonly=false
+      doc="Circle radius in world units."
+    }
+    field "Lifetime" {
+      type="Vec2"
+      readonly=false
+      doc="Minimum and maximum particle lifetime in seconds."
+    }
+    field "Speed" {
+      type="Vec2"
+      readonly=false
+      doc="Minimum and maximum initial speed in units per second."
+    }
+    field "Size" {
+      type="Vec2"
+      readonly=false
+      doc="Minimum and maximum starting side length in world units."
+    }
+    field "Rotation" {
+      type="Vec2"
+      readonly=false
+      doc="Minimum and maximum initial rotation in radians."
+    }
+    field "Direction" {
+      type="float"
+      readonly=false
+      doc="Central angle of launch in radians."
+    }
+    field "Spread" {
+      type="float"
+      readonly=false
+      doc="Full angular width around direction, in radians."
+    }
+    field "Color" {
+      type="Color"
+      readonly=false
+      doc="Straight linear tint and opacity at birth."
+    }
+    field "Gravity" {
+      type="Vec2"
+      readonly=false
+      doc="Acceleration in units per second squared."
+    }
+    field "SizeOverLife" {
+      type="Curve"
+      readonly=true
+      doc="Size multiplier sampled at normalized particle age."
+    }
+    field "AlphaOverLife" {
+      type="Curve"
+      readonly=true
+      doc="Opacity multiplier sampled at normalized particle age."
+    }
+    field "RotationSpeed" {
+      type="float"
+      readonly=false
+      doc="Angular speed in radians per second."
+    }
+    field "Space" {
+      type="int"
+      readonly=false
+      doc="Local particles follow the emitter; world particles keep their birth transform."
+    }
+    field "Sprite" {
+      type="AssetRef<texture>"
+      readonly=false
+      doc="Texture region to draw. Empty uses the built-in white texture."
+    }
+    field "Material" {
+      type="AssetRef<material>"
+      readonly=false
+      doc="Optional unlit sprite-domain material. Its shader controls the blend mode."
+    }
+    field "Layer" {
+      type="int"
+      readonly=false
+      doc="Painter layer shared with SpriteRenderer and Mesh2D."
+    }
+    field "Order" {
+      type="int"
+      readonly=false
+      doc="Painter order within the layer."
     }
   }
 }

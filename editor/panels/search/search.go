@@ -78,6 +78,7 @@ type Overlay struct {
 }
 
 type Deps struct {
+	Thumbs    context.ThumbSource
 	Pipeline  *pipeline.Pipeline
 	Symbols   func() []context.SearchItem
 	Docs      services.Documents
@@ -131,12 +132,16 @@ func (o *Overlay) collect() {
 	o.items = o.items[:0]
 	o.favorites()
 	if o.d.Pipeline != nil {
-		for _, a := range o.d.Pipeline.Assets() {
+		files := o.d.Pipeline.Assets()
+		if src, ok := o.d.Thumbs.(interface{ SourceFiles() []pipeline.AssetInfo }); ok {
+			files = append(files, src.SourceFiles()...)
+		}
+		for _, a := range files {
 			rel := a.Path
 			o.items = append(o.items, Item{
 				Label: path.Base(rel), Detail: path.Dir(rel), Kind: "file", Tab: TabFiles, Icon: fileIcon(a.Kind),
 				Fav: favs.Item{Kind: favs.Asset, Asset: a.ID, Label: path.Base(rel)}, HasFav: true,
-				Run: func() { o.d.Nav.Open(context.Location{Path: rel, Offset: -1}) },
+				Run: func() { o.d.Nav.Open(context.AssetDocumentAt(rel)) },
 			})
 		}
 	}
@@ -360,7 +365,17 @@ func (o *Overlay) drawItem(ui *core.Context, i int, rr mathx.Rect) bool {
 	case ui.Hot() == id:
 		ui.Rect(rr, th.WidgetHot)
 	}
-	widgets.IconAt(ui, mathx.Rect{X: rr.X + 4, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, it.Icon, th.TextDim)
+	box := mathx.Rect{X: rr.X + 4, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}
+	pictured := false
+	if o.d.Thumbs != nil && !it.Fav.Asset.IsZero() {
+		if reg, ok := o.d.Thumbs.ByID(it.Fav.Asset); ok {
+			ui.List().Texture(reg, box, mathx.White)
+			pictured = true
+		}
+	}
+	if !pictured {
+		widgets.IconAt(ui, box, it.Icon, th.TextDim)
+	}
 	tx := rr.X + 26
 	ty := ui.TextY(rr)
 	kw := ui.TextSize(it.Kind).X + 12

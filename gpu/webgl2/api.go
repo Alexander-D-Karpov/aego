@@ -30,6 +30,12 @@ func (a api) BindTexture(unit int, id uint32) {
 	d.call(d.f.BindTexture, glTexture2D, d.obj.get(id))
 }
 
+func (a api) BindTextureTarget(unit int, target, id uint32) {
+	d := a.d
+	d.call(d.f.ActiveTexture, glTexture0+unit)
+	d.call(d.f.BindTexture, target, d.obj.get(id))
+}
+
 func (a api) BindSampler(unit int, id uint32) {
 	d := a.d
 	d.call(d.f.BindSampler, unit, d.obj.get(id))

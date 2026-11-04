@@ -67,3 +67,40 @@ func TestCull(t *testing.T) {
 		t.Fatalf("cull = %v", out)
 	}
 }
+
+func TestAffineBoundsMatchAllPresentationCornersWithTrimAndFlips(t *testing.T) {
+	m := mathx.Mat3TRS(mathx.Vec2{X: 19, Y: -7}, .4, mathx.Vec2{X: -3, Y: 2}).Mul(mathx.Mat3TRS(mathx.Vec2{}, .7, mathx.Vec2{X: 1, Y: 1}))
+	d := draw(0, 0, 8, 6, 0)
+	d.Region.SourceW, d.Region.SourceH, d.Region.W, d.Region.H, d.Region.TrimX, d.Region.TrimY = 8, 6, 3, 2, 1, 1
+	d.SetTransform(m)
+	for _, flip := range []bool{false, true} {
+		d.FlipX, d.FlipY = flip, flip
+		got := Bounds(&d, 1)
+		x0, y0 := float32(-3), float32(-2)
+		if flip {
+			x0, y0 = 0, 0
+		}
+		lo, hi := m.Apply(mathx.Vec2{X: x0, Y: y0}), m.Apply(mathx.Vec2{X: x0, Y: y0})
+		for _, p := range []mathx.Vec2{{X: x0 + 3, Y: y0}, {X: x0 + 3, Y: y0 + 2}, {X: x0, Y: y0 + 2}} {
+			v := m.Apply(p)
+			lo.X, lo.Y, hi.X, hi.Y = min(lo.X, v.X), min(lo.Y, v.Y), max(hi.X, v.X), max(hi.Y, v.Y)
+		}
+		if mathx.Abs(got.Min.X-lo.X) > 1e-5 || mathx.Abs(got.Min.Y-lo.Y) > 1e-5 || mathx.Abs(got.Max.X-hi.X) > 1e-5 || mathx.Abs(got.Max.Y-hi.Y) > 1e-5 {
+			t.Fatalf("flip=%v affine bounds %v, want %v..%v", flip, got, lo, hi)
+		}
+	}
+}
+
+func TestBoundsNegativeLegacyScaleAndZeroAffineRemainOrdered(t *testing.T) {
+	d := draw(10, 20, 4, 2, 0)
+	d.Scale = mathx.Vec2{X: -2, Y: -3}
+	b := Bounds(&d, 1)
+	if b.Min != (mathx.Vec2{X: 6, Y: 17}) || b.Max != (mathx.Vec2{X: 14, Y: 23}) {
+		t.Fatalf("negative scale reversed AABB endpoints: %v", b)
+	}
+	d.HasLinear, d.Linear = true, [4]float32{}
+	b = Bounds(&d, 1)
+	if b.Min != d.Position || b.Max != d.Position {
+		t.Fatal("degenerate full transform must produce a point, not identity")
+	}
+}

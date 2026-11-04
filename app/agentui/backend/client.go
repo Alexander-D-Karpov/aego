@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +58,11 @@ func (e rpcErr) Error() string {
 
 // CallRaw is the result of a tool call as the server sent it, images included.
 func (c *Client) CallRaw(tool string, args map[string]any) (json.RawMessage, error) {
+	return c.CallRawContext(context.Background(), tool, args)
+}
+
+// CallRawContext cancels an outstanding question/tool when its turn is stopped.
+func (c *Client) CallRawContext(ctx context.Context, tool string, args map[string]any) (json.RawMessage, error) {
 	body, err := json.Marshal(map[string]any{
 		"jsonrpc": "2.0", "id": c.next.Add(1), "method": "tools/call",
 		"params": map[string]any{"name": tool, "arguments": args},
@@ -64,7 +70,7 @@ func (c *Client) CallRaw(tool string, args map[string]any) (json.RawMessage, err
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.URL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

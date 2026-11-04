@@ -170,6 +170,15 @@ func (p *Pipeline) Artifacts() vfs.FS {
 	return p.artifacts
 }
 
+// ReadSnapshot keeps import commits out while a consumer copies the current
+// index and artifact bytes. The callback must not call back into the pipeline.
+// Its index is already a private copy; the VFS is valid only for this read.
+func (p *Pipeline) ReadSnapshot(read func(*asset.Index, vfs.FS)) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	read(p.index.Clone(), p.artifacts)
+}
+
 func (p *Pipeline) Revision() uint64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -226,6 +235,10 @@ func (p *Pipeline) lookup(path string) (ids.AssetID, bool) {
 func (p *Pipeline) PathOf(id ids.AssetID) (string, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	return p.pathOf(id)
+}
+
+func (p *Pipeline) pathOf(id ids.AssetID) (string, bool) {
 	r, ok := p.byID[id]
 	if !ok {
 		if r, ok := p.subs[id]; ok {
@@ -257,7 +270,8 @@ func (p *Pipeline) setSubRefs(r *record, subs []subRef) {
 func (p *Pipeline) putSubs(r *record, subs []SubResult, batch *Batch) {
 	keep := make([]subRef, 0, len(subs))
 	for _, sr := range subs {
-		entry, err := p.writeEntry(sr.ID, sr.Kind, assetName(r.path)+"/"+sr.Name, r.path, []ids.AssetID{r.id}, sr.Artifacts)
+		deps := append([]ids.AssetID{r.id}, sr.Deps...)
+		entry, err := p.writeEntry(sr.ID, sr.Kind, assetName(r.path)+"/"+sr.Name, r.path, deps, sr.Artifacts)
 		if err != nil {
 			batch.Failed[sr.ID] = err
 			continue
@@ -495,6 +509,11 @@ func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 		if res == nil {
 			continue
 		}
+		if r.group != "" && r.group != res.Group {
+			oldGroup := r.group
+			p.dropFromGroup(oldGroup, id)
+			groupsTouched[oldGroup] = true
+		}
 		r.key = key
 		r.group = res.Group
 		r.deps = res.Deps
@@ -522,6 +541,7 @@ func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 	}
 
 	for group := range groupsTouched {
+		oldPage, hadPage := p.pages[group]
 		entries, failed, err := p.finalizeGroup(group)
 		if err != nil {
 			p.log.Error("import group failed", log.F("group", group), log.F("err", err.Error()))
@@ -532,6 +552,9 @@ func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 				}
 			}
 			continue
+		}
+		if hadPage && len(p.groups[group]) == 0 {
+			batch.Removed = append(batch.Removed, oldPage)
 		}
 		for id, ferr := range failed {
 			batch.Failed[id] = ferr
@@ -574,29 +597,43 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 		return nil, "", errs.New(errs.AssetSourceUnstable, "asset source is still being written",
 			log.F("path", r.path))
 	}
-	key := p.cacheKey(r, source, r.deps)
-	if key == r.key && r.group == "" {
-		if _, ok := p.index.Lookup(r.id); ok {
-			return nil, key, nil
+	ctx := &ImportContext{
+		ID:         r.id,
+		Path:       r.path,
+		Source:     source,
+		Meta:       r.meta,
+		Log:        p.log,
+		Lookup:     p.lookup,
+		Read:       p.read,
+		SourcePath: p.pathOf,
+	}
+	if err := p.resolveMetadata(r, ctx); err != nil {
+		return nil, "", err
+	}
+	var salt []byte
+	if imp, ok := r.importer.(CacheSalter); ok {
+		salt, err = imp.CacheSalt(ctx)
+		if err != nil {
+			return nil, "", err
 		}
 	}
-	ctx := &ImportContext{
-		ID:     r.id,
-		Path:   r.path,
-		Source: source,
-		Meta:   r.meta,
-		Log:    p.log,
-		Lookup: p.lookup,
-		Read:   p.read,
+	key := p.cacheKey(r, source, r.deps, salt)
+	if key == r.key && r.group == "" {
+		if e, ok := p.index.Lookup(r.id); ok && !e.Missing {
+			return nil, key, nil
+		}
 	}
 	res, err := r.importer.Import(ctx)
 	if err != nil {
 		return nil, "", err
 	}
-	return res, p.cacheKey(r, source, res.Deps), nil
+	if res == nil {
+		return nil, "", errs.New(errs.AssetImportFailed, "importer returned no result", log.F("path", r.path))
+	}
+	return res, p.cacheKey(r, source, res.Deps, salt), nil
 }
 
-func (p *Pipeline) cacheKey(r *record, source []byte, deps []ids.AssetID) string {
+func (p *Pipeline) cacheKey(r *record, source []byte, deps []ids.AssetID, salts ...[]byte) string {
 	h := sha256.New()
 	h.Write(source)
 	h.Write(canonicalSettings(r.meta.Settings))
@@ -606,7 +643,19 @@ func (p *Pipeline) cacheKey(r *record, source []byte, deps []ids.AssetID) string
 	writeUint(h, uint64(r.importer.Version()))
 	writeUint(h, PipelineVersion)
 	h.Write([]byte(r.importer.ID()))
+	for _, salt := range salts {
+		writeUint(h, uint64(len(salt)))
+		h.Write(salt)
+	}
+	sourceDeps := false
+	if salter, ok := r.importer.(SourceDependencySalter); ok {
+		sourceDeps = salter.SourceDependencies()
+	}
 	for _, dep := range deps {
+		if sourceDeps {
+			h.Write([]byte(dep.String()))
+			continue
+		}
 		if e, ok := p.index.Lookup(dep); ok {
 			for _, a := range e.Artifacts {
 				h.Write([]byte(a.Hash))
@@ -797,12 +846,33 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, _, err := p.scan(); err != nil {
+	return p.applyChangesLocked(paths)
+}
+
+func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
+	// Remember dependencies before scan removes a source from byPath. Removing
+	// an include must invalidate consumers just as writing an include does.
+	dirty := map[ids.AssetID]bool{}
+	for path := range paths {
+		if r, ok := p.byPath[path]; ok {
+			for _, dep := range p.dependents(r.id) {
+				dirty[dep] = true
+			}
+		}
+	}
+	_, removed, err := p.scan()
+	if err != nil {
 		p.log.Error("rescan failed", log.F("err", err.Error()))
 		return nil
 	}
-	dirty := map[ids.AssetID]bool{}
-	var removed []ids.AssetID
+	// A missing supplemental input has no previous AssetID dependency. Recheck
+	// these cache keys on a file event so creating it can repair a failed import.
+	// Unchanged keys still avoid compilation and artifact writes.
+	for id, r := range p.byID {
+		if _, ok := r.importer.(CacheSalter); ok && len(paths) > 0 {
+			dirty[id] = true
+		}
+	}
 	for path, kind := range paths {
 		r, ok := p.byPath[path]
 		if !ok {
@@ -825,9 +895,24 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 	if len(dirty) == 0 && len(removed) == 0 && len(p.stale) == 0 {
 		return nil
 	}
+	metadataFailed := map[ids.AssetID]error{}
+	for name := range paths {
+		if r := p.byPath[name]; r != nil {
+			if err := p.reloadMetadata(r); err != nil {
+				metadataFailed[r.id] = err
+				r.err = err.Error()
+			}
+		}
+	}
 	list := make([]ids.AssetID, 0, len(dirty))
 	for id := range dirty {
-		list = append(list, id)
+		if metadataFailed[id] != nil {
+			continue
+		}
+
+		if _, exists := p.byID[id]; exists {
+			list = append(list, id)
+		}
 	}
 	sort.Slice(list, func(i, j int) bool {
 		return p.byID[list[i]].path < p.byID[list[j]].path
@@ -837,7 +922,10 @@ func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
 		p.log.Error("import batch failed", log.F("err", err.Error()))
 	}
 	if batch != nil {
-		batch.Removed = removed
+		for id, err := range metadataFailed {
+			batch.Failed[id] = err
+		}
+		batch.Removed = append(batch.Removed, removed...)
 	}
 	return batch
 }

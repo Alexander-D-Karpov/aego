@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"image"
 	"strings"
 	"time"
 
@@ -25,10 +26,13 @@ import (
 	"aego/project"
 	"aego/render"
 	"aego/render/texture"
+	"aego/render/view"
 	"aego/scene"
+	"aego/scene/frame"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
+	"aego/vfs"
 )
 
 // Scene view tools stored in Settings.Tool.
@@ -162,29 +166,35 @@ type ScriptHost interface {
 }
 
 type Editor struct {
-	BeforeSwap func(*pipeline.Batch) func()
-	Engine     *engine.Engine
-	Renderer   *render.Renderer
-	Project    *project.Project
-	Pipeline   *pipeline.Pipeline
-	Loader     *loader.Loader
-	Types      *scene.Types
-	Docs       *document.Manager
-	Selection  *selection.Service
-	Commands   *command.Registry
-	UI         *core.Context
-	DnD        *dnd.State
-	Clipboard  DataClipboard
-	Log        *log.ChannelLogger
-	Settings   SceneSettings
-	Thumbs     ThumbSource
-	Scripts    ScriptHost
-	Code       ScriptNav
-	Shapes     *shape.Registry
-	Problems   *problems.Service
-	Sections   *module.Sections
-	Anim       *animedit.Registry
-	AnimFiles  animedit.Files
+	ScenePreviews  []func(*frame.Runner)
+	CameraPreview  func() *scene.Scene
+	EffectPreview  func() (ids.NodeID, string)
+	GamePostOutput func(*document.SceneDocument) (*engine.World, view.ID, frame.PostPreview)
+	ImageGenerator ImageGenerator
+	BeforeSwap     func(*pipeline.Batch) func()
+	Engine         *engine.Engine
+	Renderer       *render.Renderer
+	Project        *project.Project
+	Pipeline       *pipeline.Pipeline
+	Loader         *loader.Loader
+	Types          *scene.Types
+	Docs           *document.Manager
+	Selection      *selection.Service
+	Commands       *command.Registry
+	UI             *core.Context
+	DnD            *dnd.State
+	Clipboard      DataClipboard
+	Log            *log.ChannelLogger
+	Settings       SceneSettings
+	ImageContent   func(ids.AssetID, string) (image.Image, string, error)
+	Thumbs         ThumbSource
+	Scripts        ScriptHost
+	Code           ScriptNav
+	Shapes         *shape.Registry
+	Problems       *problems.Service
+	Sections       *module.Sections
+	Anim           *animedit.Registry
+	AnimFiles      animedit.Files
 
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)
@@ -194,24 +204,36 @@ type Editor struct {
 	Crash        func(where string, rec any, stack []byte)
 	NewScene     func(rel string) error
 	NewPrefab    func(rel string) error
+	// CreateAsset uses the shared Assets history for source creation.
+	CreateAsset      func(rel string, source []byte) (ids.AssetID, error)
+	AssetTransaction func(fn func() error) error
+	InspectAsset     func(ids.AssetID)
+	FallbackAsset    func(*document.AssetDocument) error
 
-	FocusedPanel string
-	AssetRev     uint64
-	RenderStats  func() render.Stats
-	Play         PlayBridge
-	Collapsed    map[string]bool
-	Pages        []SettingsPage
-	Vectors      []VectorLayer
-	Profiler     []ProfilerSection
-	AssetViews   map[string]AssetView
-	AssetPlayers map[string]AssetPlayer
-	Overlay      Overlays
-	ShowSettings func(page string)
+	FocusedPanel  string
+	SceneLighting LightingViewBridge
+	AssetRev      uint64
+	RenderStats   func() render.Stats
+	Play          PlayBridge
+	Collapsed     map[string]bool
+	Pages         []SettingsPage
+	Vectors       []VectorLayer
+	Profiler      []ProfilerSection
+	CreateActions []CreateAction
+	AssetViews    map[string]AssetView
+	// DrawSpriteSlicer draws the existing grid/alpha tools using the image
+	// document's current source metadata, including uncommitted frame edits.
+	DrawSpriteSlicer func(ids.AssetID, *asset.SourceMeta)
+	AssetPlayers     map[string]AssetPlayer
+	Overlay          Overlays
+	ShowSettings     func(page string)
 
-	hooks     []func()
-	questions []Question
-	notices   []Notice
-	scratch   []ids.NodeID
+	hooks          []func()
+	afterViewHooks []func()
+	questions      []Question
+	notices        []Notice
+	scratch        []ids.NodeID
+	metadata       *metadataCoordinator
 }
 
 func (e *Editor) Now() float64 {
@@ -381,6 +403,10 @@ func AssetMatches(fieldKind string, kind asset.ArtifactKind) bool {
 		return kind == asset.ArtPrefab
 	case fieldKind == "mesh":
 		return kind == asset.ArtMesh
+	case fieldKind == "material":
+		return kind == asset.ArtMaterial
+	case fieldKind == "shader":
+		return kind == asset.ArtShader
 	case fieldKind == data.KindData || strings.HasPrefix(fieldKind, data.KindData+":"):
 		return kind == asset.ArtData
 	case fieldKind == data.KindTable || strings.HasPrefix(fieldKind, data.KindTable+":"):
@@ -417,8 +443,22 @@ func (e *Editor) OnRender(fn func()) {
 	e.hooks = append(e.hooks, fn)
 }
 
+// OnRenderAfterViews schedules a GPU resource consumer after the ordinary view
+// render hooks, but before the editor UI is submitted. This avoids depending on
+// the order in which workspace panels built their UI that frame.
+func (e *Editor) OnRenderAfterViews(fn func()) {
+	e.afterViewHooks = append(e.afterViewHooks, fn)
+}
+
 func (e *Editor) RunRenderHooks() {
-	for i, fn := range e.hooks {
+	e.runRenderHooks(&e.hooks)
+	e.runRenderHooks(&e.afterViewHooks)
+}
+
+func (e *Editor) runRenderHooks(queue *[]func()) {
+	current := *queue
+	*queue = nil
+	for i, fn := range current {
 		func() {
 			defer func() {
 				if rec := recover(); rec != nil {
@@ -427,27 +467,55 @@ func (e *Editor) RunRenderHooks() {
 			}()
 			fn()
 		}()
-		e.hooks[i] = nil
+		current[i] = nil
 	}
-	e.hooks = e.hooks[:0]
+	// A callback may enqueue work for the next drain. Keep it, while releasing
+	// this frame's captured documents/textures and reusing the queue storage.
+	*queue = append(current[:0], (*queue)...)
 }
 
 func (e *Editor) ApplyBatch(b *pipeline.Batch) {
-	if b == nil {
-		return
+	var files vfs.FS
+	if e.Pipeline != nil {
+		files = e.Pipeline.Artifacts()
 	}
+	// Working artifact paths use content hashes and retain a disk fallback.
+	// A saved import must not discard another open document's working bytes,
+	// especially if the device is restored before the next candidate finishes.
+	if e.metadata != nil && e.metadata.files != nil {
+		files = e.metadata.files
+	}
+	_ = e.applyBatch(b, files)
+}
+
+// applyBatch is shared by saved imports and validated working metadata. The
+// latter supplies a private artifact VFS but uses the same loader transaction,
+// prefab callbacks, notifications and consumer invalidation.
+func (e *Editor) applyBatch(b *pipeline.Batch, files vfs.FS) error {
+	if b == nil {
+		return nil
+	}
+	var failure error
 	var after func()
 	if e.BeforeSwap != nil {
 		after = e.BeforeSwap(b)
 	}
 	if e.Loader != nil && e.Pipeline != nil {
+		for id := range b.Failed {
+			e.Loader.RejectSource(id)
+		}
+		swapped := true
 		if len(b.Imported) > 0 {
-			if err := e.Loader.Swap(b.Imported, e.Pipeline.Artifacts()); err != nil {
+			if err := e.Loader.Swap(b.Imported, files); err != nil {
+				swapped = false
+				failure = err
 				e.Notify(LevelError, i18n.Note("editor.context.hot_reload_failed_keeping_the", "hot reload failed, keeping the previous assets: {error}", i18n.Str("error", err.Error())))
 			}
 		}
-		for _, id := range b.Removed {
-			e.Loader.Drop(id)
+		if swapped {
+			for _, id := range b.Removed {
+				e.Loader.Drop(id)
+			}
 		}
 	}
 	if after != nil {
@@ -457,6 +525,7 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 		e.Notify(LevelWarn, i18n.Note("editor.context.import_failed_for_v_error", "import failed for {v}: {error}", i18n.Str("v", id.String()[:8]), i18n.Str("error", err.Error())))
 	}
 	e.AssetRev++
+	return failure
 }
 
 func (e *Editor) PlayWorld() *engine.World {

@@ -4,12 +4,14 @@ import (
 	"aego/core/errs"
 	"aego/core/handle"
 	"aego/core/log"
+	"aego/gpu"
 	"aego/gpu/gl33/gl"
 )
 
 type fboKey struct {
-	color handle.Handle[glTexture]
-	depth handle.Handle[glTexture]
+	color              handle.Handle[glTexture]
+	depth              handle.Handle[glTexture]
+	colorSub, depthSub gpu.TextureSubresource
 }
 
 func fbStatusName(s uint32) string {
@@ -32,83 +34,76 @@ func fbStatusName(s uint32) string {
 	return "UNKNOWN"
 }
 
-func (d *Device) validDepth(colorDepth bool, cw, ch int, depth handle.Handle[glTexture]) handle.Handle[glTexture] {
-	if depth.IsZero() {
-		return depth
+func (d *Device) attachTexture(attachment uint32, t *glTexture, sub gpu.TextureSubresource) {
+	if t.desc.Dimension == gpu.Texture2DArray {
+		gl.FramebufferTextureLayer(gl.FRAMEBUFFER, attachment, t.id, int32(sub.Mip), int32(sub.Layer))
+	} else {
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t.id, int32(sub.Mip))
 	}
-	dt, ok := d.textures.Get(depth)
-	switch {
-	case !ok:
-		d.log.Warn("depth target handle is invalid, rendering without depth")
-	case colorDepth || !dt.info.depth:
-		d.log.Warn("depth target must be a depth texture paired with a color texture")
-	case dt.w != cw || dt.h != ch:
-		d.log.Warn("depth target size differs from the color target, rendering without depth",
-			log.F("color_w", cw), log.F("color_h", ch), log.F("depth_w", dt.w), log.F("depth_h", dt.h))
-	default:
-		return depth
-	}
-	return handle.Handle[glTexture]{}
 }
 
-func fbStatus() (uint32, uint32) {
-	glErr := gl.GetError()
-	return gl.CheckFramebufferStatus(gl.FRAMEBUFFER), glErr
-}
-
-func (d *Device) framebuffer(color, depth handle.Handle[glTexture]) (uint32, int, int, bool, error) {
+func (d *Device) framebufferSub(color handle.Handle[glTexture], colorSub gpu.TextureSubresource, depth handle.Handle[glTexture], depthSub gpu.TextureSubresource) (uint32, int, int, bool, error) {
 	ct, ok := d.textures.Get(color)
 	if !ok {
 		return 0, 0, 0, false, errs.New(errs.GPUInvalidHandle, "framebuffer: color texture handle is invalid")
 	}
-	colorID, cw, ch, colorInfo := ct.id, ct.w, ct.h, ct.info
-	colorDepth := colorInfo.depth
-	depth = d.validDepth(colorDepth, cw, ch, depth)
-	hasDepth := colorDepth || !depth.IsZero()
-	key := fboKey{color: color, depth: depth}
+	cw, ch, ok := ct.desc.SubresourceSize(colorSub)
+	if !ok {
+		return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer: color layer or mip is invalid")
+	}
+	if ct.desc.Format == gpu.TexRGBA16F && !d.caps.RGBA16FRenderable {
+		return 0, 0, 0, false, errs.New(errs.GPUResource, "RGBA16F color target is unavailable on this device")
+	}
+	var dt *glTexture
+	if !depth.IsZero() {
+		dt, ok = d.textures.Get(depth)
+		if !ok || !dt.info.depth || ct.info.depth {
+			return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer: invalid depth target")
+		}
+		dw, dh, valid := dt.desc.SubresourceSize(depthSub)
+		if !valid || dw != cw || dh != ch {
+			return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer: depth subresource dimensions mismatch")
+		}
+	}
+	hasDepth := ct.info.depth || dt != nil
+	key := fboKey{color: color, depth: depth, colorSub: colorSub, depthSub: depthSub}
 	if fbo, ok := d.fbos[key]; ok {
 		return fbo, cw, ch, hasDepth, nil
-	}
-	depthInfo := texInfo{name: "none"}
-	var depthID uint32
-	if !depth.IsZero() {
-		dt, _ := d.textures.Get(depth)
-		depthID, depthInfo = dt.id, dt.info
 	}
 	for gl.GetError() != gl.NO_ERROR {
 	}
 	var fbo uint32
 	gl.GenFramebuffers(1, &fbo)
-	gl.BindFramebuffer(gl.FRAMEBUFFER, fbo)
-	d.cache.Invalidate()
-	stage := "color"
-	if colorDepth {
-		stage = "depth-only"
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, colorInfo.attach, gl.TEXTURE_2D, colorID, 0)
+	d.cache.BindFramebuffer(fbo)
+	if ct.info.depth {
+		d.attachTexture(ct.info.attach, ct, colorSub)
 		gl.DrawBuffer(gl.NONE)
 		gl.ReadBuffer(gl.NONE)
 	} else {
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorID, 0)
+		d.attachTexture(gl.COLOR_ATTACHMENT0, ct, colorSub)
 		gl.DrawBuffer(gl.COLOR_ATTACHMENT0)
 		gl.ReadBuffer(gl.COLOR_ATTACHMENT0)
 	}
-	status, glErr := fbStatus()
-	if status == gl.FRAMEBUFFER_COMPLETE && glErr == gl.NO_ERROR && depthID != 0 {
-		stage = "depth"
-		gl.FramebufferTexture2D(gl.FRAMEBUFFER, depthInfo.attach, gl.TEXTURE_2D, depthID, 0)
-		status, glErr = fbStatus()
+	if dt != nil {
+		d.attachTexture(dt.info.attach, dt, depthSub)
 	}
+	status, glErr := gl.CheckFramebufferStatus(gl.FRAMEBUFFER), gl.GetError()
 	if status != gl.FRAMEBUFFER_COMPLETE || glErr != gl.NO_ERROR {
-		gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+		d.cache.BindFramebuffer(0)
+		d.cache.ForgetFramebuffer(fbo)
 		gl.DeleteFramebuffers(1, &fbo)
-		d.cache.Invalidate()
-		return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer is incomplete",
-			log.F("stage", stage), log.F("status", fbStatusName(status)), log.F("status_code", status),
-			log.F("gl", glErrorName(glErr)), log.F("color_format", colorInfo.name), log.F("depth_format", depthInfo.name),
-			log.F("w", cw), log.F("h", ch), log.F("renderer", d.caps.Renderer))
+		return 0, 0, 0, false, errs.New(errs.GPUResource, "framebuffer is incomplete", log.F("status", fbStatusName(status)), log.F("gl", glErrorName(glErr)), log.F("format", ct.info.name), log.F("layer", colorSub.Layer), log.F("mip", colorSub.Mip))
 	}
 	d.fbos[key] = fbo
 	return fbo, cw, ch, hasDepth, nil
+}
+
+func (d *Device) ValidateRenderTarget(desc gpu.PassDesc) error {
+	if desc.Target.IsZero() {
+		return nil
+	}
+	_, _, _, _, err := d.framebufferSub(handle.Cast[glTexture](desc.Target), desc.TargetSubresource, handle.Cast[glTexture](desc.DepthTarget), desc.DepthSubresource)
+	return err
 }
 
 func (d *Device) forgetFramebuffers(h handle.Handle[glTexture]) {

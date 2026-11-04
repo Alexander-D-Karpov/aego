@@ -154,8 +154,10 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego anim set <file> <attr> [<value>] [--dry-run]` | set length, loop or fps of a clip; no value clears loop or fps |
 | `aego anim set-key <file> <target> <prop> <time> <value> [--kind v] [--interp v] [--tangent v] [--dry-run]` | set a key; a new track needs --kind |
 | `aego asset delete <asset> [--force] [--dry-run]` | delete an asset; refuses while it is referenced unless --force |
+| `aego asset import-variant [--variant v] [--path v] [--replace] [--dry-run]` | Import an inspected generated PNG variant from this editor conversation as a stable project source asset |
 | `aego asset list [--kind v]` | assets with their ids and kinds |
 | `aego asset move <asset> <to> [--dry-run]` | move an asset with its .meta; the id and every reference stay |
+| `aego asset paint <path> [--ops v] [--width v] [--height v] [--source v] [--palette v] [--replace] [--dry-run]` | Edit a source PNG, create a transparent canvas, or paint on a copy of another source PNG. A single reversible batch; returns image pixels. Coordinates are top-left source pixels. |
 | `aego asset pixels <path> [--grid v] [--palette v] [--scale v] [--flipbook] [--replace] [--dry-run]` | draw a sprite as text: each character of grid is a pixel colored by palette; lines like idle: start frames of one size, which become an atlas with one sprite per frame and a looping flipbook clip. Answers with a preview image |
 | `aego asset rename <asset> <name> [--dry-run]` | rename an asset in its folder |
 | `aego asset svg <path> [--svg v] [--width v] [--height v] [--replace] [--dry-run]` | draw a texture from SVG: path, rect, circle, ellipse, line, polyline, polygon, fill, stroke, opacity and transform; no filters, gradients or text. For tiles, UI and item icons. Answers with a preview image |
@@ -179,6 +181,16 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego data reset <file> <path> [--row v] [--dry-run]` | remove a field so it falls back to the base or the default |
 | `aego data rows <file>` | row ids of a table |
 | `aego data set <file> <path> <value> [--row v] [--dry-run]` | set a field |
+| `aego material apply <file> [--tx v] [--expected v] [--dry-run]` | apply a material transaction atomically, using the same mutations and serialization as Inspector |
+| `aego material assign <file> <node> <material> [--dry-run]` | assign a compatible material to SpriteRenderer or Mesh2D through the scene mutation service |
+| `aego material create <file> <shader> [--dry-run]` | create a material inheriting defaults from a shader |
+| `aego material get <file>` | read explicit/inherited parameters, unknown data, variants and source revision from the current document |
+| `aego material reset <file> <param> [--expected v] [--dry-run]` | remove an explicit parameter and inherit the shader default |
+| `aego material set <file> <param> <value> [--expected v] [--dry-run]` | set a typed explicit parameter as one semantic mutation |
+| `aego material validate <file>` | validate material values, shader and texture references without changing the source |
+| `aego material variants <file> [--keywords v] [--expected v] [--dry-run]` | select an allowed combination of comma-separated keywords; an empty string selects no keywords |
+| `aego postfx get <file> <node>` | read the authored camera stack including stable instance IDs from the live scene |
+| `aego postfx set <file> <node> <instance> <field> <value> [--dry-run]` | set an effect switch or typed numeric parameter by persistent instance ID in one scene edit |
 | `aego prefab apply <file> <node> [--level v] [--owner v] [--field v] [--nearest] [--dry-run]` | write instance overrides into the prefab file |
 | `aego prefab create <file> <node> <out> [--dry-run]` | turn a node into a prefab file and link the node to it |
 | `aego prefab instantiate <file> <prefab> [--parent v] [--name v] [--index v] [--dry-run]` | add an instance of a prefab |
@@ -186,12 +198,14 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego prefab revert <file> <node> [--level v] [--owner v] [--field v] [--dry-run]` | drop instance overrides |
 | `aego prefab unpack <file> <node> [--deep] [--dry-run]` | turn an instance into plain nodes |
 | `aego project get [<section>]` | module sections of project.aego (physics, …) with their current values |
+| `aego project input-action <name> [--type v] [--bind v] [--context v] [--active] [--dry-run]` | Create/update one action and add it to a context. Binding strings use the project input syntax. Only an empty initial stack is initialized. |
+| `aego project main-scene <file> [--dry-run]` | Set an imported scene as the startup scene by project-relative path. |
 | `aego project set <section> <field> [<value>] [--reset] [--dry-run]` | set a field of a module section in project.aego, for example physics gravity [0, -15] |
 | `aego project validate` | missing assets and nodes, import errors, prefabs and scenes that do not load |
 | `aego refs find <asset>` | files and fields that reference an asset |
 | `aego refs fix <from> [<to>] [--dry-run]` | point every reference to one asset at another (none clears them); originals go to .aego/recovery |
 | `aego refs missing` | references to assets and nodes that do not exist |
-| `aego scene add-comp <file> <node> <comp> [--no-required] [--dry-run]` | add a component with its defaults and the components it requires, or attach a script by its type name |
+| `aego scene add-comp <file> <node> <comp> [--preset v] [--no-required] [--dry-run]` | add a component with its defaults and the components it requires, or attach a script by its type name |
 | `aego scene add-node <file> <name> [--parent v] [--space v] [--index v] [--dry-run]` | add an empty node |
 | `aego scene apply <file> [--tx v] [--tx-file v] [--dry-run]` | apply a transaction (tx version=1 { op … }) in one step |
 | `aego scene get <file> <node> [<path>]` | a node with its transform and every saved field, or one field |
@@ -201,7 +215,7 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego scene remove-node <file> <node> [--dry-run]` | remove a node with its children |
 | `aego scene rename <file> <node> <name> [--dry-run]` | rename a node |
 | `aego scene reset <file> <node> <path> [--dry-run]` | reset a field to its default, a transform part to identity |
-| `aego scene run [<file>] [--frames v] [--seed v] [--watch v] [--input v] [--assert v] [--shot v] [--scale v]` | run a scene headless and report the log, the state hash and where the watched nodes went |
+| `aego scene run [<file>] [--frames v] [--seed v] [--watch v] [--input v] [--assert v] [--camera v] [--shot v] [--scale v]` | run a scene headless and report the log, the state hash and where the watched nodes went |
 | `aego scene set <file> <node> <path> <value> [--dry-run]` | set a field |
 | `aego scene tree <file> [--node v]` | node tree with IDs, components, scripts and prefab links |
 | `aego scene validate <file>` | load problems and references to nodes the scene does not have |
@@ -211,6 +225,17 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego script edit <file> [--old v] [--new v] [--dry-run]` | replace text in a script; old must match exactly once, so quote enough lines around the change |
 | `aego script read <file> [--from v] [--to v]` | text of a script, as the editor has it, with unsaved changes; from and to read a part of a long one |
 | `aego script write <file> [--text v] [--dry-run]` | replace the whole text of a script; for a small change script.edit is safer |
+| `aego shader create <file> [--dry-run]` | create a portable sprite shader through the registered asset importer |
+| `aego shader schema <shader>` | declared parameters, typed defaults, domain and allowed variants; checks current source and unsaved includes |
+| `aego shader validate <shader>` | validate current source with the registered importer; reports schema/reference validation independently from GPU linking |
+| `aego texture apply <file> [--tx v] [--expected v] [--dry-run]` | atomic typed texture metadata transaction; same validation and Undo rules as Inspector |
+| `aego texture channel <file> <channel> <asset> [--frame v] [--expected v] [--dry-run]` | assign a normal/height/emission source or frame by stable AssetID; unresolved IDs are retained with diagnostics |
+| `aego texture channel-reset <file> <channel> [--frame v] [--expected v] [--dry-run]` | remove the explicit channel mapping without deleting source assets |
+| `aego texture get <file>` | read current dirty metadata, stable frames, source size, roles and channel references |
+| `aego texture reset <file> <setting> [--expected v] [--dry-run]` | remove an explicit import setting and inherit the importer default |
+| `aego texture schema` | registered import roles/settings and source-frame channel contract |
+| `aego texture set <file> <setting> <value> [--expected v] [--dry-run]` | set an import setting using the shared semantic mutation service |
+| `aego texture validate <file>` | check source metadata and prepare a private import candidate without changing cache or GPU resources |
 <!-- agent:end -->
 
 ## aego docs

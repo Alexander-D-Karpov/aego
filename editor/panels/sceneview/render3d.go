@@ -41,31 +41,20 @@ func (p *Panel) render3D() {
 	base.Clear = p.view.Clear
 	base.DoClear = true
 
-	grid := base
-	grid.Label = "sceneview3d.grid"
-	f := r.View(grid)
-	if p.d.Tools.Grid {
-		dbg := f.Debug()
-		dbg.Space(debug.World)
-		DrawGrid3(dbg, c.Cam, p.d.Tools.SnapMove, th)
-	}
-	f.End()
-
 	sv := base
 	sv.DoClear = false
 	sv.Label = "sceneview3d.scene"
-	wd.runner.SetTarget(t.Texture, t.BucketW, t.BucketH)
-	wd.runner.SetDepthTarget(t.Depth)
-	wd.runner.SetViewportSize(t.W, t.H)
+	wd.runner.SetPooledTarget(t)
 	wd.runner.SetFixedView(sv)
 	wd.runner.SetHidden(p.runnerHide())
 	p.d.Viewport.RenderWorld(wd.w)
+	p.capturedScene, p.capturedTarget, p.capturedTick = wd.scene, t, wd.w.Time.Tick()
 	p.flushCapture()
 
 	ov := base
 	ov.DoClear = false
 	ov.Label = "sceneview3d.overlay"
-	f = r.View(ov)
+	f := r.View(ov)
 	c.DrawOverlay(host, f.Debug(), th)
 	f.End()
 

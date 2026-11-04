@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	playmods "aego/app/assembly/playground"
+	"aego/asset"
 	"aego/editor/core/docsession"
 	"aego/engine/i18n"
 	"aego/scene/sceneio"
@@ -18,6 +19,7 @@ type request struct {
 	Select    string            `json:"select"`
 	Code      string            `json:"code"`
 	Prefabs   map[string]string `json:"prefabs"`
+	Artifacts []byte            `json:"artifacts"`
 	Component string            `json:"component"`
 	Field     string            `json:"field"`
 	Value     float64           `json:"value"`
@@ -36,6 +38,10 @@ type Reply struct {
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
+	// Bound JSON/base64 expansion before the decoder allocates resource arrays.
+	if len(payload) > asset.MaxTryArtifactsBytes*2 {
+		return Reply{Error: "documentation request exceeds its byte budget"}
+	}
 	var req request
 	if len(payload) > 0 {
 		if err := json.Unmarshal(payload, &req); err != nil {
@@ -51,7 +57,7 @@ func (a *App) Call(method string, payload []byte) Reply {
 			err = a.scripts.use(mods)
 		}
 		if err == nil {
-			err = playmods.MountTry(a.loader, req.Prefabs)
+			err = playmods.MountTry(a.loader, req.Prefabs, req.Artifacts)
 		}
 		if err == nil {
 			err = s.Load([]byte(req.Scene), req.Select)

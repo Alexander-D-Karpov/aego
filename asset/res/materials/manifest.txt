@@ -1,0 +1,2 @@
+Generated with tools/genmaterials from engine/res/shaders/materials.
+AESH and AEMT are portable prepared source/definition artifacts, not GPU binaries.

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/gpu"
 )
@@ -27,9 +28,27 @@ const (
 	Ortho3D
 )
 
-type LayerMask uint32
+type LayerMask uint64
 
-const AllLayers LayerMask = 0xffffffff
+const AllLayers LayerMask = ^LayerMask(0)
+
+// ID is a logical view/output identity. It survives resize and pooled target
+// replacement; neither a display label nor a GPU handle is an identity.
+// Scope separates Edit, Preview and Play instances of the same scene nodes.
+type ID struct {
+	Scope uint64
+	Node  ids.NodeID
+}
+
+type OutputPolicy uint8
+
+const (
+	// OutputDisplay resolves once after all cameras of the logical output.
+	OutputDisplay OutputPolicy = iota
+	// OutputLinear preserves linear RGB (including emission with zero coverage)
+	// in an explicitly supplied RGBA16F target for composition before tone mapping.
+	OutputLinear
+)
 
 const (
 	DefaultFOV       float32 = mathx.Pi / 3
@@ -39,26 +58,44 @@ const (
 )
 
 type View struct {
-	Projection    Projection
-	Camera        Camera2D
-	Eye           mathx.Mat4
-	FOV           float32
-	OrthoSize     float32
-	Near, Far     float32
-	Viewport      mathx.Rect
-	Target        gpu.TextureHandle
-	DepthTarget   gpu.TextureHandle
-	TargetW       int
-	TargetH       int
-	PixelScale    float32
-	PixelsPerUnit float32
-	ZMin, ZMax    float32
-	Clear         mathx.Color
-	DoClear       bool
-	Layers        LayerMask
-	Scale         ScaleMode
-	Virtual       mathx.Vec2
-	Label         string
+	ID                ID
+	OutputID          ID
+	OutputPolicy      OutputPolicy
+	DeferResolve      bool
+	Projection        Projection
+	Camera            Camera2D
+	Eye               mathx.Mat4
+	FOV               float32
+	OrthoSize         float32
+	Near, Far         float32
+	Viewport          mathx.Rect
+	Target            gpu.TextureHandle
+	DepthTarget       gpu.TextureHandle
+	TargetSubresource gpu.TextureSubresource
+	DepthSubresource  gpu.TextureSubresource
+	TargetW           int
+	TargetH           int
+	PixelScale        float32
+	PixelsPerUnit     float32
+	ZMin, ZMax        float32
+	Clear             mathx.Color
+	DoClear           bool
+	// ClearWholeTarget includes unused storage outside the drawing viewport.
+	// Use it only for a presentation surface that owns its entire attachment.
+	ClearWholeTarget bool
+	Layers           LayerMask
+	Scale            ScaleMode
+	Virtual          mathx.Vec2
+	Label            string
+}
+
+// ClearRegion is independent of projection: a pooled surface may clear its
+// padded attachment without stretching the visible world to fill that storage.
+func (v *View) ClearRegion() mathx.Rect {
+	if v.ClearWholeTarget {
+		return mathx.Rect{W: float32(v.TargetW), H: float32(v.TargetH)}
+	}
+	return v.Viewport
 }
 
 func ScreenView(pixelW, pixelH int, pixelScale float32) View {

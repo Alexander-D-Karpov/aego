@@ -1,10 +1,13 @@
 package shell
 
 import (
+	"path"
 	"strconv"
+	"strings"
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/editor/core/play"
 	"aego/editor/panels/scripteditor"
 	"aego/engine/i18n"
@@ -12,6 +15,38 @@ import (
 )
 
 func (a *App) attachCode() {
+	// Source Save, Autosave and Save All use the same import transaction even
+	// when file watching is unavailable. Script compilation keeps its existing
+	// host path; shader/material import diagnostics come from the asset pipeline.
+	a.ctx.Docs.Subscribe(func(ev document.Event) {
+		if ev.Kind != document.EvSourceSaved || a.ctx.Pipeline == nil {
+			return
+		}
+		if source, metadata := strings.CutSuffix(ev.Path, ".meta"); metadata {
+			if id, ok := a.ctx.Pipeline.Lookup(source); ok {
+				batch, err := a.ctx.Pipeline.ReloadMetadata(id)
+				a.ctx.ApplyBatch(batch)
+				if err != nil {
+					a.ctx.Notify(context.LevelError, err.Error())
+				}
+			}
+			return
+		}
+		id, ok := a.ctx.Pipeline.Lookup(ev.Path)
+		if !ok {
+			return
+		}
+		switch strings.ToLower(path.Ext(ev.Path)) {
+		case ".aeshader", ".glsl", ".aemat":
+		default:
+			return
+		}
+		batch, err := a.ctx.Pipeline.Reimport(id)
+		a.ctx.ApplyBatch(batch)
+		if err != nil {
+			a.ctx.Notify(context.LevelError, err.Error())
+		}
+	})
 	a.consolePanel.OnOpen = func(rel string, line int) {
 		a.ctx.Open(context.At(rel, line, 1))
 	}

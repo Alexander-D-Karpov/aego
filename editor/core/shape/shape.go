@@ -30,16 +30,19 @@ type Shape struct {
 type Func func(s *scene.Scene, res asset.Resolver, h scene.NodeHandle) (Shape, bool)
 
 type OverlayCtx struct {
-	Scene  *scene.Scene
-	World  *engine.World
-	Debug  *debug.Draw
-	View   view.View
-	Mode3D bool
-	Game   bool
-	Window mathx.Vec2
-	Px     float32
-	Aspect float32
-	Color  mathx.Color
+	Scene *scene.Scene
+	World *engine.World
+	// PresentationWorld owns the runner that produced this view. World keeps
+	// its existing simulation/editor-document meaning for earlier overlays.
+	PresentationWorld *engine.World
+	Debug             *debug.Draw
+	View              view.View
+	Mode3D            bool
+	Game              bool
+	Window            mathx.Vec2
+	Px                float32
+	Aspect            float32
+	Color             mathx.Color
 }
 
 type Overlay func(*OverlayCtx)

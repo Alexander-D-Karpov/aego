@@ -24,6 +24,11 @@ func (realAPI) BindTexture(unit int, id uint32) {
 	gl.BindTexture(gl.TEXTURE_2D, id)
 }
 
+func (realAPI) BindTextureTarget(unit int, target, id uint32) {
+	gl.ActiveTexture(gl.TEXTURE0 + uint32(unit))
+	gl.BindTexture(target, id)
+}
+
 func (realAPI) BindSampler(unit int, id uint32) {
 	gl.BindSampler(uint32(unit), id)
 }

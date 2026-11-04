@@ -11,7 +11,9 @@ import (
 	scriptImporter "aego/asset/importers/script"
 	"aego/asset/pipeline"
 	"aego/core/ids"
+	"aego/engine/module"
 	"aego/engine/problems"
+	"aego/modules/particles"
 	"aego/project"
 	"aego/render/mesh"
 	"aego/render/texture"
@@ -67,6 +69,11 @@ func resolves(idx *asset.Index, id ids.AssetID) bool {
 
 func Check(p *project.Project, s *Snapshot, profile string, partial bool) []problems.Diagnostic {
 	var out []problems.Diagnostic
+	out = append(out, s.capture...)
+	out = append(out, checkMaterialSources(s)...)
+	out = append(out, checkMaterialArtifacts(s)...)
+	out = append(out, checkNormalAssociations(s)...)
+	out = append(out, checkPresetSources(s)...)
 	seen := map[string]bool{}
 	for _, a := range s.assets {
 		switch {
@@ -96,7 +103,7 @@ func Check(p *project.Project, s *Snapshot, profile string, partial bool) []prob
 		sev = problems.Error
 	}
 	s.idx.Each(func(e *asset.Entry) {
-		if e.Missing || exportSkip(e.Kind) {
+		if e.Missing || s.exportSkip(e) {
 			return
 		}
 		for _, d := range e.Deps {
@@ -121,28 +128,48 @@ func validate(s *Snapshot, partial bool) []problems.Diagnostic {
 	if err != nil {
 		return internal(err)
 	}
-	man, err := builtin.Runtime().Load(types, bind.New(), assembly.Options{})
+	bindings := bind.New()
+	man, err := builtin.Runtime().Load(types, bindings, assembly.Options{})
 	if err != nil {
 		return internal(err)
 	}
 	if err := types.Schema().Freeze(); err != nil {
 		return internal(err)
 	}
+	if err := publishScriptSchemas(s, types.Schema(), bindings.Surface()); err != nil {
+		return []problems.Diagnostic{diag(CodeScripts, problems.Error, "cannot load the compiled script schemas: "+firstLine(err.Error()), "")}
+	}
 	out := man.ValidateAssets(types.Schema(), s, partial, nil)
 	res := &resolver{s: s}
+	checkedParticles := make(map[ids.AssetID]bool)
 	s.idx.Each(func(e *asset.Entry) {
-		if e.Missing || e.Error != "" || e.Kind != asset.ArtScene {
+		if e.Missing || e.Error != "" || (e.Kind != asset.ArtScene && e.Kind != asset.ArtPrefab && (e.Kind != asset.ArtPreset || s.exportSkip(e))) {
 			return
 		}
-		src, ok := res.blob(e.ID, asset.ArtScene)
+		src, ok := res.blob(e.ID, e.Kind)
 		if !ok {
-			out = append(out, diag(CodeScene, problems.Error, e.Source+" has no scene artifact", e.Source))
+			out = append(out, diag(CodeScene, problems.Error, e.Source+" has no "+string(e.Kind)+" artifact", e.Source))
 			return
 		}
-		_, rep, err := sceneio.Load(src, e.Source, types, res, sceneio.LoadOptions{KeepIDs: true})
+		if e.Kind == asset.ArtPreset {
+			if _, err := particles.ReadPreset(types, res, src); err != nil {
+				out = append(out, diag(CodeScene, problems.Error, e.Source+": "+firstLine(err.Error()), e.Source))
+				return
+			}
+		}
+		sc, rep, err := sceneio.Load(src, e.Source, types, res, sceneio.LoadOptions{KeepIDs: true, CheckLiterals: true})
 		if err != nil {
 			out = append(out, diag(CodeScene, problems.Error, e.Source+" cannot be loaded: "+firstLine(err.Error()), e.Source))
 			return
+		}
+		if s.current != nil {
+			out = append(out, res.checkParticleInputs(sc, e.Source, checkedParticles)...)
+		}
+		for _, d := range module.ValidateScene(sc, nil) {
+			if d.Subject.File == "" {
+				d.Subject.File = e.Source
+			}
+			out = append(out, d)
 		}
 		if partial {
 			return

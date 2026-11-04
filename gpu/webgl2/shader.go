@@ -14,7 +14,13 @@ import (
 )
 
 func (d *Device) link(desc gpu.ShaderDesc) (js.Value, *errs.Error) {
+	if d.lost {
+		return js.Null(), errs.New(errs.GPUShaderLink, "cannot link a shader while the WebGL context is lost")
+	}
 	prog := d.call(d.f.CreateProgram)
+	if !prog.Truthy() {
+		return js.Null(), d.shaderCreationError(errs.GPUShaderLink, "createProgram", desc.Label)
+	}
 	stages := make([]js.Value, 0, len(desc.Sources))
 	cleanup := func() {
 		for _, sh := range stages {
@@ -24,6 +30,11 @@ func (d *Device) link(desc gpu.ShaderDesc) (js.Value, *errs.Error) {
 	}
 	for _, src := range desc.Sources {
 		sh := d.call(d.f.CreateShader, stageType(src.Stage))
+		if !sh.Truthy() {
+			cleanup()
+			d.call(d.f.DeleteProgram, prog)
+			return js.Null(), d.shaderCreationError(errs.GPUShaderCompile, "createShader", desc.Label)
+		}
 		d.call(d.f.ShaderSource, sh, src.Source)
 		d.call(d.f.CompileShader, sh)
 		if !d.call(d.f.GetShaderParameter, sh, glCompileStatus).Truthy() {
@@ -46,6 +57,16 @@ func (d *Device) link(desc gpu.ShaderDesc) (js.Value, *errs.Error) {
 		return js.Null(), errs.New(errs.GPUShaderLink, "shader link failed", log.F("label", desc.Label), log.F("log", info))
 	}
 	return prog, nil
+}
+
+// A driver can return null before the browser delivers webglcontextlost.
+// Query only on creation failure so steady-state rendering adds no GL calls.
+func (d *Device) shaderCreationError(code errs.Code, op, label string) *errs.Error {
+	if d.call(d.f.IsContextLost).Truthy() {
+		d.markLost()
+		return errs.New(code, "WebGL context lost during shader creation", log.F("label", label))
+	}
+	return errs.New(code, op+" returned null", log.F("label", label))
 }
 
 func (d *Device) CreateShader(desc gpu.ShaderDesc) (gpu.ShaderHandle, error) {

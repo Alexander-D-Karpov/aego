@@ -1,0 +1,6 @@
+#pragma aego abi 1
+#pragma domain mesh2d
+#pragma material
+uniform int Code; // @instance @default(1)
+#pragma end
+void fragment() { aego_out=Code==16777217?vec4(0.0,0.5,0.0,0.5):vec4(1.0,0.0,0.0,1.0); }

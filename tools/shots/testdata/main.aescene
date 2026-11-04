@@ -1,0 +1,464 @@
+scene version=1 {
+  node "c0000000000000000000000000000002" name="GroundLeft" enabled=true layers=1 {
+    transform {
+      position=[-8, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[14, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-7, -14], [-7, -0.5], [7, -0.5], [7, 1.5]]
+      loop=false
+      oneSided=false
+    }
+  }
+  node "c000000000000000000000000000000d" name="GroundRight" enabled=true layers=1 {
+    transform {
+      position=[8.5, 4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#55606eff
+      origin=[0.5, 0.5]
+      size=[13, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-6.5, 1.5], [-6.5, -0.5], [6.5, -0.5], [6.5, -14]]
+      loop=false
+      oneSided=false
+    }
+  }
+  node "c000000000000000000000000000000a" name="Platform" enabled=true layers=1 {
+    transform {
+      position=[5, 1.2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=0
+      tint=#7a8696ff
+      origin=[0.5, 0.5]
+      size=[4, 0.3]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=static
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=false
+      bullet=false
+      allowSleep=true
+      interpolate=false
+      layer=1
+      mask=-1
+    }
+    component "physics.EdgeCollider2D" version=1 {
+      offset=[0, 0]
+      isTrigger=false
+      friction=0.6
+      restitution=0
+      density=1
+      points=[[-2, -0.15], [2, -0.15]]
+      loop=false
+      oneSided=true
+    }
+  }
+  node "c0000000000000000000000000000003" name="Player" enabled=true layers=1 {
+    transform {
+      position=[-13, 2.9]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000b00")
+      layer=0
+      order=2
+      tint=#4aa3ffff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "physics.Body2D" version=1 {
+      type=kinematic
+      massMode=auto
+      mass=0
+      gravityScale=1
+      linearDamping=0
+      angularDamping=0
+      fixedRotation=true
+      bullet=false
+      allowSleep=false
+      interpolate=true
+      layer=2
+      mask=-1
+    }
+    component "engine.Tags" version=1 {
+      tags=["Player", "Saved"]
+    }
+    component "gameplay.Health" version=1 {
+      max=3
+      team=0
+      invulnTime=1
+      destroyOnDeath=false
+      despawnOnDeath=false
+    }
+    component "animation.Animator" version=1 {
+      controller=asset("a0a10000000000000000000000000010")
+      playOnStart=true
+      speed=1
+      timeDomain=game
+      rootMotion=none
+      rootFallback=false
+      rootScale=[1, 1]
+    }
+    component "gameplay.Motion2D" version=1 {
+      mode=platformer
+      upDirection=[0, -1]
+      maxSpeed=7
+      accel=60
+      decel=50
+      airControl=0.6
+      gravityScale=1
+      maxFallSpeed=20
+      jumpHeight=2.6
+      jumpSpeed=0
+      jumpCutMultiplier=0.5
+      coyoteTime=0.1
+      jumpBuffer=0.1
+      maxSlope=45
+      stepHeight=0.2
+      snapToGround=0.2
+      safeMargin=0.02
+      maxSlides=4
+      collisionMask=10
+      pushBodies=false
+      movingPlatforms=true
+      platformOnLeave=keep
+      faceMovement=false
+      dashGravity=false
+      ledgeClimb=0.6
+      climbTime=0.3
+    }
+    component "gameplay.Hurtbox2D" version=1 {
+      area=[-0.3, -0.5, 0.6, 0.85]
+      shape=box
+      multiplier=1
+      active=true
+      health=node("00000000000000000000000000000000")
+    }
+    component "gameplay.Hitbox2D" version=1 {
+      area=[-0.25, 0.35, 0.5, 0.25]
+      shape=box
+      damage=1
+      knockback=[0, 0]
+      knockbackFromCenter=false
+      team=-1
+      friendlyFire=false
+      policy=onEnter
+      period=0.5
+      active=false
+    }
+    component "gameplay.Respawn" version=1 {
+      delay=0.6
+      restoreHealth=true
+      resetVelocity=true
+      persist=true
+    }
+    component "save.Persist" version=1 {
+      noTransform=false
+      noEnabled=false
+    }
+    component "engine.Script" version=1 {
+      script "mygame.player.PlayerController" enabled=true {
+        EnemyA=node("c0000000000000000000000000000004")
+        EnemyB=node("c0000000000000000000000000000007")
+        LandShake=9
+        Bounce=[0, -9]
+        JumpSound=asset("a0d10000000000000000000000000011")
+        HitSound=asset("a0d10000000000000000000000000012")
+        Theme=asset("a0d10000000000000000000000000005")
+        Slash=node("c0000000000000000000000000000010")
+        Reach=0.6
+      }
+    }
+    node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
+      transform {
+        position=[0, 0]
+        rotation=1.5707964
+        scale=[1, 1]
+      }
+      component "physics.CapsuleCollider2D" version=1 {
+        offset=[0, 0]
+        isTrigger=false
+        friction=0
+        restitution=0
+        density=1
+        length=1
+        radius=0.3
+      }
+    }
+    node "c0000000000000000000000000000010" name="Slash" enabled=true layers=1 {
+      transform {
+        position=[0.6, 0]
+        rotation=0
+        scale=[1, 1]
+      }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("5a1a5c00000000000000000000000012")
+        layer=0
+        order=3
+        tint=#ffffff00
+        origin=[0.5, 0.5]
+        size=[1.6, 1.6]
+        flipX=false
+        flipY=false
+        blend=additive
+        filter=nearest
+      }
+      component "gameplay.Hitbox2D" version=1 {
+        area=[-0.35, -0.4, 0.7, 0.8]
+        shape=box
+        damage=1
+        knockback=[6, 0]
+        knockbackFromCenter=true
+        team=-1
+        friendlyFire=false
+        policy=oncePerActivation
+        period=0.5
+        active=false
+      }
+    }
+  }
+  node "c0000000000000000000000000000005" name="PatrolA1" enabled=true layers=1 {
+    transform {
+      position=[-11, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000006" name="PatrolB1" enabled=true layers=1 {
+    transform {
+      position=[-5, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000004" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("c0000000000000000000000000000004") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="EnemyLeft" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000005") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("c0000000000000000000000000000006") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[-8, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "c0000000000000000000000000000008" name="PatrolA2" enabled=true layers=1 {
+    transform {
+      position=[4, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000009" name="PatrolB2" enabled=true layers=1 {
+    transform {
+      position=[11, 3]
+      rotation=0
+      scale=[1, 1]
+    }
+  }
+  node "c0000000000000000000000000000007" prefab=asset("7a1e0c5b3d9f4a2e8c6b1d0f9e8a7c02") {
+    id "e1000000000000000000000000000001" node=node("c0000000000000000000000000000007") {}
+    override "e1000000000000000000000000000001" prop="node.name" value="EnemyRight" {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointA" value=node("c0000000000000000000000000000008") {}
+    override "e1000000000000000000000000000001" prop="script/mygame.enemy.EnemyAI.PointB" value=node("c0000000000000000000000000000009") {}
+    override "e1000000000000000000000000000001" prop="transform.position" value=[8, 3.04] {}
+    override "e1000000000000000000000000000001" prop="transform.rotation" value=0 {}
+    override "e1000000000000000000000000000001" prop="transform.scale" value=[1, 1] {}
+  }
+  node "c000000000000000000000000000000e" name="Pit" enabled=true layers=1 {
+    transform {
+      position=[0, 10]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "gameplay.KillZone2D" version=1 {
+      area=[-20, -1, 40, 2]
+      tag=""
+    }
+  }
+  node "c000000000000000000000000000000f" name="Checkpoint" enabled=true layers=1 {
+    transform {
+      position=[-3, 2.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      layer=0
+      order=1
+      tint=#22c55eff
+      origin=[0.5, 0.5]
+      size=[0.15, 2]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+    component "gameplay.Checkpoint2D" version=1 {
+      area=[-1, -2, 2, 4]
+      priority=0
+      once=false
+      spawnPoint=node("00000000000000000000000000000000")
+    }
+  }
+  node "c0000000000000000000000000000001" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, -2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=36
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      order=0
+      clear=true
+      clearColor=#1b2330ff
+      scale=fitVirtual
+      virtual=[960, 540]
+      active=true
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=0
+      output=""
+      zoom=0
+      blendTime=0.6
+      blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=true
+      bounds=[-20, -14, 40, 19.5]
+      snapToPixels=true
+    }
+    component "camera.CameraFollow2D" version=1 {
+      target=node("c0000000000000000000000000000003")
+      deadzone=[0.35, 0.4, 0.3, 0.2]
+      damping=[6, 4]
+      lookahead=[0.4, 0]
+      maxLookahead=[3, 1]
+      lookaheadSmoothing=3
+      snapDistance=20
+    }
+    component "camera.CameraShake2D" version=1 {
+      decay=1.6
+      maxOffset=[0.35, 0.25]
+      maxAngle=0.03
+      frequency=25
+      exponent=2
+    }
+    component "audio.AudioListener2D" version=1 {
+      active=true
+    }
+  }
+  node "c000000000000000000000000000000c" name="ArenaZone" enabled=true layers=1 {
+    transform {
+      position=[7.5, -0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "camera.VirtualCamera2D" version=1 {
+      priority=-1
+      output=""
+      zoom=0
+      blendTime=0.8
+      blendCurve={ ease=inOutQuad }
+      timeDomain=unscaled
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      snapToPixels=false
+    }
+    component "camera.CameraZone2D" version=1 {
+      target=node("c0000000000000000000000000000003")
+      camera=node("00000000000000000000000000000000")
+      priority=10
+      zoom=47
+      useBounds=false
+      bounds=[0, 0, 0, 0]
+      area=[-6, -3, 12, 7]
+    }
+    component "audio.AudioZone2D" version=1 {
+      area=[-6, -3, 12, 7]
+      bus=music
+      gain=0.5
+      priority=0
+      fadeTime=0.6
+    }
+  }
+}

@@ -1,0 +1,25 @@
+#pragma aego abi 1
+#pragma domain sprite
+#include "engine/sprite.glsl"
+#pragma material
+uniform float GridPixels; // @default(1) @range(1, 32) @unit("physical pixels")
+uniform float Strength; // @instance @default(1) @range(0, 1)
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+#pragma end
+void vertex() {
+    vec4 clip = aego_view_proj * vec4(aego_world, 1.0);
+    vec2 size = max(aego_viewport.zw, vec2(1.0));
+    // Viewport is already measured in physical target pixels, including DPR and
+    // offscreen render scale. Applying aego_pixel_scale again would double it.
+    vec2 direction = vec2(1.0, aego_clip_to_pixel_y < 0.0 ? -1.0 : 1.0);
+    vec2 pixel = (clip.xy / clip.w * direction * 0.5 + 0.5) * size + aego_viewport.xy;
+    float grid = max(GridPixels, 1.0);
+    vec2 snapped = floor(pixel / grid + 0.5) * grid;
+    pixel = mix(pixel, snapped, clamp(Strength, 0.0, 1.0));
+    clip.xy = ((pixel - aego_viewport.xy) / size * 2.0 - 1.0) * direction * clip.w;
+    vec4 world = inverse(aego_view_proj) * clip;
+    aego_world = world.xyz / world.w;
+}
+void fragment() {
+    aego_out = aego_sample() * clamp(Opacity, 0.0, 1.0);
+}

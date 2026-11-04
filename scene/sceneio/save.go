@@ -152,6 +152,9 @@ func (w *writer) component(td *schema.TypeDescriptor, p unsafe.Pointer) *aetext.
 	td.Serializable(func(fd *schema.FieldDescriptor) {
 		var v schema.Value
 		fd.Get(p, &v)
+		if fd.Flags.Has(schema.FlagOmitEmpty) && v.Empty() {
+			return
+		}
 		n.Fields = append(n.Fields, aetext.Field{Name: fd.Name, Value: w.value(fd, v)})
 	})
 	return n

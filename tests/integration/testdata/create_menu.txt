@@ -1,13 +1,21 @@
 Empty
 Sprite
 Camera
+Mesh 2D
+Light Occluder
+Lighting Environment
 Follow Camera
+Particle System
 3D/Empty
 3D/Camera
 3D/Cube
 3D/Plane
 3D/Sphere
 3D/Cylinder
+Lighting/Point Light
+Lighting/Spot Light
+Lighting/Directional Light
+Lighting/Sprite Light
 Physics/Rigid Body
 Physics/Static Collider
 Physics/Trigger
@@ -20,4 +28,9 @@ Gameplay/Moving Platform
 Gameplay/Checkpoint
 Gameplay/Kill Zone
 Gameplay/Pickup
+Effects/Dust
+Effects/Spark
+Effects/Smoke
+Effects/Rain
+Effects/Explosion
 rotator/Rotator

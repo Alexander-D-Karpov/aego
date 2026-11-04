@@ -1,0 +1,17 @@
+#pragma aego abi 1
+#pragma domain mesh2d
+#pragma lighting forward2d
+#pragma blend premultiplied
+#pragma material
+uniform sampler2D NormalMap; // @normal
+uniform sampler2D EmissionMap; // @emission
+uniform float NormalStrength; // @instance @default(1) @range(0,4)
+uniform vec4 EmissionColor; // @instance @color @default(0,0,0,1)
+uniform float EmissionIntensity; // @instance @default(0) @range(0,16)
+uniform bool ReceiveShadows; // @instance @default(true)
+#pragma end
+#include "engine/lighting.glsl"
+void fragment() {
+    aego_out = aego_lit(texture(aego_main,aego_uv) * aego_color,
+        NormalStrength, aego_emission(EmissionColor.rgb, EmissionIntensity), ReceiveShadows);
+}

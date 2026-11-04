@@ -1,0 +1,3 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+void fragment(){aego_out=aego_sample();}

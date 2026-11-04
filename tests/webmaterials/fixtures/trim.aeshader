@@ -1,0 +1,11 @@
+#pragma aego abi 1
+#include "engine/sprite.glsl"
+#pragma material
+uniform int Code; // @instance @default(1)
+#pragma end
+void fragment(){
+    vec4 sampleColor=aego_sample_local(aego_local);
+    bool good=Code==16777217 && sampleColor.a>0.99 && sampleColor.r>0.99
+      && aego_sample_local(vec2(0.05,0.05)).a==0.0;
+    aego_out=good?vec4(aego_local,0.0,1.0):vec4(1.0,0.0,0.0,1.0);
+}

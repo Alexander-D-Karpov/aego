@@ -1,12 +1,13 @@
 package edit
 
 import (
-	"net"
-	"net/http"
+	"errors"
+	"os"
+
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sync"
+	"strings"
 
 	"aego/app/bootstrap"
 	"aego/app/export"
@@ -19,12 +20,15 @@ import (
 )
 
 type exporter struct {
-	p      *project.Project
-	pl     *pipeline.Pipeline
-	engine string
+	preview      webPreview
+	agentPreview webPreview
+	p            *project.Project
+	pl           *pipeline.Pipeline
+	engine       string
+	dirtySources func() []string
 }
 
-func newExporter(p *project.Project, pl *pipeline.Pipeline) services.Exporter {
+func newExporter(p *project.Project, pl *pipeline.Pipeline, dirtySources func() []string) services.Exporter {
 	if pl == nil {
 		return nil
 	}
@@ -32,7 +36,7 @@ func newExporter(p *project.Project, pl *pipeline.Pipeline) services.Exporter {
 	if err != nil {
 		return nil
 	}
-	return &exporter{p: p, pl: pl, engine: root}
+	return &exporter{p: p, pl: pl, engine: root, dirtySources: dirtySources}
 }
 
 func (x *exporter) Targets() []string {
@@ -52,7 +56,16 @@ func (x *exporter) Out(target, profile string) string {
 }
 
 func (x *exporter) Prepare() any {
-	return export.Take(x.pl)
+	snapshot := export.Take(x.pl)
+	if x.dirtySources != nil {
+		for _, rel := range x.dirtySources() {
+			switch strings.ToLower(filepath.Ext(rel)) {
+			case ".aemat", ".aeshader", ".glsl", ".vert", ".frag", ".meta", ".aepreset":
+				snapshot.DirtySources = append(snapshot.DirtySources, rel)
+			}
+		}
+	}
+	return snapshot
 }
 
 func (x *exporter) Check(prep any, profile string) []problems.Diagnostic {
@@ -93,29 +106,53 @@ func (x *exporter) Reveal(path string) error {
 	return cmd.Start()
 }
 
-var webServers sync.Map
+func (x *exporter) CloseAgentPreview() { x.agentPreview.close() }
+func (x *exporter) Close()             { x.preview.close(); x.CloseAgentPreview() }
 
-func serveWeb(dir string) (string, error) {
-	if u, ok := webServers.Load(dir); ok {
-		return u.(string), nil
+func (x *exporter) RunVerified(out, target string, want [32]byte, valid func() bool) error {
+	if _, err := export.Launchable(x.p, target, out); err != nil {
+		return err
 	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	dir, err := export.VerifiedCopy(out, want)
 	if err != nil {
-		return "", err
+		return err
 	}
-	files := http.FileServer(http.Dir(dir))
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
-		w.Header().Set("Cache-Control", "no-store")
-		files.ServeHTTP(w, r)
-	})
-	go http.Serve(ln, h)
-	u := "http://" + ln.Addr().String() + "/"
-	webServers.Store(dir, u)
-	return u, nil
+	cleanup := func() { _ = os.RemoveAll(dir) }
+	if !valid() {
+		cleanup()
+		return errors.New("export request expired")
+	}
+	path, err := export.Launchable(x.p, target, dir)
+	if err != nil {
+		cleanup()
+		return err
+	}
+	t, _ := export.ParseTarget(target)
+	if t.Web() {
+		u, err := x.agentPreview.serve(path, cleanup, valid)
+		if err != nil {
+			cleanup()
+			return err
+		}
+		if err = sysopen.Open(u); err != nil {
+			x.agentPreview.close()
+		}
+		return err
+	}
+	var cmd *exec.Cmd
+	if t.OS == "darwin" {
+		cmd = exec.Command("open", "-W", path)
+	} else {
+		cmd = exec.Command(path)
+		cmd.Dir = filepath.Dir(path)
+	}
+	if err = cmd.Start(); err != nil {
+		cleanup()
+		return err
+	}
+	go func() { _ = cmd.Wait(); cleanup() }()
+	return nil
 }
-
 func (x *exporter) Run(out, target string) error {
 	path, err := export.Launchable(x.p, target, out)
 	if err != nil {
@@ -124,7 +161,7 @@ func (x *exporter) Run(out, target string) error {
 	t, _ := export.ParseTarget(target)
 	switch {
 	case t.Web():
-		u, err := serveWeb(path)
+		u, err := x.preview.serve(path, nil, nil)
 		if err != nil {
 			return err
 		}

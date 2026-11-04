@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 env:
+  GLSLANG_APT_VERSION: 15.1.0-2~ubuntu0.24.04.2
   LINUX_PKGS: >-
-    build-essential cmake ninja-build pkg-config
+    build-essential cmake ninja-build pkg-config openssl
     libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev
     libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev
     libwayland-dev wayland-protocols libdecor-0-dev
     libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
-    glslang-tools
 
 jobs:
   # Native runs on Windows and macOS machines; the Windows build itself is cross-compiled on Linux in ci.yml (D301).
@@ -42,7 +42,7 @@ jobs:
           go-version-file: go.mod
       - name: linux packages
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
       - name: msys2
         if: runner.os == 'Windows'
         id: msys2

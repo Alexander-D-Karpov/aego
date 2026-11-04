@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -172,8 +172,7 @@ func TestDiagnostics(t *testing.T) {
 		{"include cycle", head + "#include \"a.glsl\"" + frag, SHD005},
 		{"bad keyword", head + "#pragma variant aego_x" + frag, SHD006},
 		{"unknown listed variant", head + "#pragma variant A\n#pragma variants B" + frag, SHD006},
-		{"postfx", head + "#pragma domain postfx" + frag, SHD007},
-		{"instance on mesh", head + "#pragma domain mesh2d\n#pragma material\nuniform float X; // @instance\n#pragma end" + frag, SHD007},
+		{"postfx with custom vertex", head + "#pragma domain postfx\nvoid vertex() {}" + frag, SHD007},
 		{"legacy", head + "void fragment() { gl_FragColor = vec4(1.0); }", SHD008},
 	}
 	inc := testIncluder(map[string]string{

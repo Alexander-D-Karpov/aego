@@ -1,0 +1,10 @@
+#pragma aego abi 1
+#pragma domain sprite
+#pragma pixel_coverage
+#include "engine/sprite.glsl"
+#pragma material
+uniform float Opacity; // @instance @default(1) @range(0, 1)
+#pragma end
+void fragment() {
+    aego_out = aego_sample() * clamp(Opacity, 0.0, 1.0);
+}

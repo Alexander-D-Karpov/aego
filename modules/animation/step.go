@@ -39,6 +39,7 @@ func ended(loop anim.LoopMode, speed float32, t, l float64) bool {
 }
 
 func (s *Service) Fixed(dt float32) {
+	s.refreshProperties()
 	s.dt = dt
 	s.q = s.queries()
 	s.rcv = s.receiver()
@@ -346,8 +347,8 @@ func (s *Service) read(b *binding) (anim.Value, bool) {
 		i, a, ok := s.props.ReadDiscrete(&b.ref, b.node)
 		return anim.Value{I: i, A: a}, ok
 	case propref.Int:
-		l, ok := s.props.Read(&b.ref, b.node)
-		return anim.Int(int64(math.Round(float64(l[0])))), ok
+		i, ok := s.props.ReadInt(&b.ref, b.node)
+		return anim.Int(i), ok
 	}
 	l, ok := s.props.Read(&b.ref, b.node)
 	return anim.Lanes(l), ok
@@ -370,7 +371,7 @@ func (s *Service) write(b *binding, v anim.Value) {
 	case propref.Discrete:
 		s.props.WriteDiscrete(&b.ref, b.node, v.I, v.A)
 	case propref.Int:
-		s.props.Write(&b.ref, b.node, [4]float32{float32(v.I)})
+		s.props.WriteInt(&b.ref, b.node, v.I)
 	default:
 		s.props.Write(&b.ref, b.node, v.L)
 	}
@@ -429,6 +430,7 @@ func (s *Service) emit(sk scriptevents.Sink, e *pending) {
 }
 
 func (s *Service) Present(alpha, fixed, unscaled float32) {
+	s.refreshProperties()
 	s.alpha, s.fixed, s.unscaled = alpha, fixed, unscaled
 	scene.Query1[AnimationPlayer](s.scene).Each(s.presentFn)
 	scene.Query1[Animator](s.scene).Each(s.apresentFn)
@@ -501,5 +503,26 @@ func (s *Service) presentEvents(h scene.NodeHandle, c *AnimationPlayer, p *playe
 		}
 		ev := pending{node: h, name: e.Name, id: id, payload: e.Payload, cycle: x.Cycle, pres: true}
 		s.emit(sk, &ev)
+	}
+}
+
+// Resource generation changes are resolved before sampling. A removed field
+// invalidates its binding; retained fields continue at the current play time.
+func (s *Service) refreshProperties() {
+	for _, p := range s.list {
+		for i := range p.binds {
+			b := &p.binds[i]
+			if b.track >= 0 && !s.props.Refresh(&b.ref, b.node) {
+				s.dirty = true
+			}
+		}
+	}
+	for _, p := range s.alist {
+		for i := range p.binds {
+			b := &p.binds[i]
+			if b.track >= 0 && !s.props.Refresh(&b.ref, b.node) {
+				s.dirty = true
+			}
+		}
 	}
 }

@@ -39,6 +39,12 @@ var runnerData [runnerCount]struct {
 
 func BuiltinTexture(id ids.AssetID) (*texture.Data, bool) {
 	switch {
+	case id == BuiltinParticlePuff:
+		return particlePuff(), true
+	case id == BuiltinParticleStreak:
+		return particleStreak(), true
+	case id == BuiltinMaterialNoise:
+		return builtinNoiseTexture(), true
 	case id == BuiltinWhite:
 		return &texture.Data{Width: 1, Height: 1, Format: gpu.TexSRGBA8, Pixels: []byte{255, 255, 255, 255}, Premultiplied: true}, true
 	case id.Hi == builtinHi && id.Lo >= runnerFirst && id.Lo < runnerFirst+runnerCount:

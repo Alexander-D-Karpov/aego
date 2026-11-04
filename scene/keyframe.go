@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"slices"
 	"unsafe"
 
 	"aego/core/handle"
@@ -50,11 +51,11 @@ func (s *Scene) Capture(reuse rewind.Key) rewind.Key {
 		k = &sceneKey{}
 	}
 	s.nodes.CopyTo(&k.nodes)
-	k.byID = k.byID[:0]
+	k.byID = slices.Grow(k.byID[:0], len(s.byID))
 	for id, h := range s.byID {
 		k.byID = append(k.byID, idEntry{id: id, h: h})
 	}
-	k.byName = k.byName[:0]
+	k.byName = slices.Grow(k.byName[:0], len(s.byName))
 	for key, h := range s.byName {
 		k.byName = append(k.byName, nameEntry{key: key, h: h})
 	}

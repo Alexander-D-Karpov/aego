@@ -3,6 +3,7 @@ package asset
 import (
 	"aego/core/handle"
 	"aego/core/ids"
+	"aego/render/material"
 	"aego/render/mesh"
 	"aego/render/texture"
 )
@@ -19,8 +20,12 @@ type Prefab struct{}
 
 type Mesh struct{}
 
+// Material and Shader are source-independent asset reference markers.
+type Material struct{}
+type Shader struct{}
+
 type Kind interface {
-	Texture | Scene | Prefab | Mesh
+	Texture | Scene | Prefab | Mesh | Material | Shader
 }
 
 func kindName[T Kind]() string {
@@ -34,6 +39,10 @@ func kindName[T Kind]() string {
 		return "prefab"
 	case Mesh:
 		return "mesh"
+	case Material:
+		return "material"
+	case Shader:
+		return "shader"
 	}
 	return "unknown"
 }
@@ -94,4 +103,17 @@ func (r *Ref[T]) Mesh(res Resolver) (*mesh.Mesh, bool) {
 		return nil, false
 	}
 	return res.Mesh(r.ID)
+}
+
+// Material resolves a prepared runtime material. The reference retains its ID
+// when the asset is missing or its current import is invalid.
+func (r *Ref[T]) Material(res Resolver) (*material.Material, bool) {
+	if res == nil || r.ID.IsZero() {
+		return nil, false
+	}
+	source, ok := res.(MaterialSource)
+	if !ok {
+		return nil, false
+	}
+	return source.Material(r.ID)
 }

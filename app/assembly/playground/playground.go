@@ -10,6 +10,7 @@ import (
 	"aego/modules/debug"
 	"aego/modules/gameplay"
 	inputmod "aego/modules/input"
+	"aego/modules/particles"
 	"aego/modules/physics"
 	"aego/modules/render2d"
 	"aego/modules/render3d"
@@ -38,6 +39,7 @@ func Catalog() assembly.Catalog {
 		{ID: render3d.ID, New: func(assembly.Options) module.Module { return render3d.New() }},
 		{ID: spawn.ID, New: func(assembly.Options) module.Module { return spawn.New() }},
 		{ID: savegame.ID, Requires: []string{scripting.ID, spawn.ID}, New: func(assembly.Options) module.Module { return savegame.New() }},
+		{ID: particles.ID, Requires: []string{render2d.ID}, New: func(assembly.Options) module.Module { return particles.New() }},
 		{ID: audio.ID, New: func(assembly.Options) module.Module { return audio.New() }},
 	}
 }

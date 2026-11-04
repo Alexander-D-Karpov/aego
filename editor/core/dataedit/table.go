@@ -22,6 +22,7 @@ type Row struct {
 }
 
 type Table struct {
+	edits    uint64
 	ID       ids.AssetID
 	Path     string
 	Type     *schema.TypeDescriptor
@@ -51,6 +52,7 @@ func NewTable(env mutate.Env, id ids.AssetID, path string, raw []byte) (*Table, 
 }
 
 func (t *Table) load() {
+	t.edits++
 	t.Rows, t.Issues = nil, nil
 	seen := map[string]bool{}
 	for _, r := range t.dd.TableDoc().Rows {

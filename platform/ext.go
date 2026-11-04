@@ -74,6 +74,12 @@ type Displayer interface {
 	SetWindowMode(mode WindowMode, display int, size DisplayMode) error
 }
 
+// FrameClockResetter requests a new wall-clock origin for the first frame
+// after a platform suspension. Explicit fixed clocks keep their own cadence.
+type FrameClockResetter interface {
+	ConsumeFrameClockReset() bool
+}
+
 type Driver interface {
 	Drive(step func() bool)
 }

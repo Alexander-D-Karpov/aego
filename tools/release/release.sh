@@ -112,8 +112,17 @@ if [ -n "${AEGO_RELEASE_KEY:-}" ]; then
 	for f in "$dist"/aego-*-linux-*.tar.gz "$dist"/Aego-*.AppImage "$dist"/aego-*-setup.exe; do
 		[ -f "$f" ] && set -- "$@" "$f"
 	done
+	manifest_base="${AEGO_DOWNLOAD:-https://git.akarpov.ru/sanspie/aego/releases/download}/$tag"
 	"$dist/$base/bin/aego" release manifest --version "$version" --channel "$channel" \
-		--base-url "${AEGO_DOWNLOAD:-https://git.akarpov.ru/sanspie/aego/releases/download}/$tag" --out "$dist" "$@"
+		--base-url "$manifest_base" --out "$dist" "$@"
+	if [ -n "${AEGO_UPDATE_KEY:-}" ]; then
+		set --
+		[ "${REQUIRE_WINDOWS:-0}" = 1 ] && set -- --require-windows
+		if ! python3 tools/release/stable-channel.py --verify-only --tag "$tag" --version "$version" \
+			--channel "$channel" --base-url "$manifest_base" --dist "$dist" "$@"; then
+			refuse "the release manifest, signature or asset checksums did not verify"
+		fi
+	fi
 else
 	echo "release: dry run without AEGO_RELEASE_KEY, so no release.json" >&2
 fi
@@ -144,15 +153,22 @@ release_id() {
 }
 
 id=$(release_id "$tag" || true)
+draft=false
 if [ "$tag" = nightly ]; then
 	[ -n "$id" ] && api DELETE "$GITEA_API/releases/$id" >/dev/null
 	api DELETE "$GITEA_API/tags/nightly" >/dev/null 2>&1 || true
 	id=""
 fi
 if [ -z "$id" ]; then
-	json=$(printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":%s,"prerelease":%s}' "$tag" "$commit" "$name" "$(printf '%s' "$body" | jstr)" "$pre")
+	# A stable release must not become releases/latest before all its assets
+	# are uploaded. Failed uploads leave a resumable draft instead.
+	[ "$pre" = false ] && draft=true
+	json=$(printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":%s,"prerelease":%s,"draft":%s}' "$tag" "$commit" "$name" "$(printf '%s' "$body" | jstr)" "$pre" "$draft")
 	id=$(api POST "$GITEA_API/releases" -H "Content-Type: application/json" -d "$json" | sed -n 's/^{"id":\([0-9]*\),.*/\1/p')
 else
+	if [ "$pre" = false ]; then
+		draft=$(api GET "$GITEA_API/releases/tags/$tag" | python3 -c 'import json,sys; print("true" if json.load(sys.stdin).get("draft") else "false")')
+	fi
 	api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d "{\"body\":$(printf '%s' "$body" | jstr)}" >/dev/null || true
 fi
 [ -n "$id" ] || { echo "release: could not create release $tag" >&2; exit 1; }
@@ -184,23 +200,23 @@ for f in "$dist"/aego-*.tar.gz "$dist"/SHA256SUMS.txt "$dist"/aego-*.zip "$dist"
 	fi
 	echo "release: uploaded $n"
 done
-# stable is a release that only holds the release.json of the newest version; prerelease, so releases/latest stays the version itself.
-if [ "$pre" = false ] && [ -f "$dist/release.json" ]; then
-	sid=$(release_id stable || true)
-	[ -n "$sid" ] && api DELETE "$GITEA_API/releases/$sid" >/dev/null
-	api DELETE "$GITEA_API/tags/stable" >/dev/null 2>&1 || true
-	json=$(printf '{"tag_name":"stable","target_commitish":"%s","name":"Stable channel","body":%s,"prerelease":true}' "$commit" "$(printf 'Where installed copies of Aego look for updates; it points at %s.' "$tag" | jstr)")
-	sid=$(api POST "$GITEA_API/releases" -H "Content-Type: application/json" -d "$json" | sed -n 's/^{"id":\([0-9]*\),.*/\1/p')
-	for n in release.json release.json.sig; do
-		if [ -n "$sid" ] && api POST -F "attachment=@$dist/$n" "$GITEA_API/releases/$sid/assets?name=$n" >/dev/null; then
-			echo "release: stable channel has $n"
-		else
-			failed="$failed stable/$n"
-		fi
-	done
+# Publishing the version is also required before the stable update manifest can
+# refer to it. Do not publish a draft after any asset upload has failed.
+if [ "$draft" = true ] && [ -z "$failed" ]; then
+	if ! api PATCH "$GITEA_API/releases/$id" -H "Content-Type: application/json" -d '{"draft":false}' >/dev/null; then
+		failed="$failed release-publication"
+	fi
+fi
+# Stage and verify both channel files and a recoverable copy of the previous
+# channel before switching the tag. A failed rollback is reported explicitly.
+if [ "$pre" = false ] && [ -f "$dist/release.json" ] && [ -z "$failed" ]; then
+	if ! python3 tools/release/stable-channel.py --tag "$tag" --commit "$commit" --dist "$dist" \
+		--receipt-dir "$root/.cache/release-channel"; then
+		failed="$failed stable/channel"
+	fi
 fi
 if [ -n "$failed" ]; then
-	echo "release: published $tag without$failed" >&2
+	echo "release: $tag is incomplete or not fully published:$failed" >&2
 	exit 1
 fi
 echo "release: published $tag"

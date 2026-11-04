@@ -101,13 +101,15 @@ func (a *App) SceneView() *sceneview.Panel {
 	return a.sceneView
 }
 
-// AgentCommand is the Claude Code binary set for this project, empty for claude from PATH (D341).
+// AgentCommand is the selected provider's binary, empty for its command from PATH.
 func (a *App) AgentCommand() string {
-	return a.agentCommand
+	return a.AgentSettings("").Command
 }
 
 func (a *App) SetAgentCommand(cmd string) {
-	a.agentCommand = cmd
+	s := a.AgentSettings("")
+	s.Command = cmd
+	a.SetAgentSettings(s)
 }
 
 // ProjectChanged follows a change of project.aego made outside Project Settings, such as the agent's project.set.

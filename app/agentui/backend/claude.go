@@ -3,6 +3,8 @@ package backend
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Claude runs the Claude Code CLI with stream-json in and out; only the aego MCP tools are available to it.
@@ -27,7 +30,9 @@ func binary(cfg Config) string {
 }
 
 func (Claude) Available(cfg Config) (string, error) {
-	out, err := exec.Command(binary(cfg), "--version").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, binary(cfg), "--version").Output()
 	if err != nil {
 		return "", err
 	}
@@ -58,6 +63,9 @@ func args(cfg Config, conf string) []string {
 	if cfg.System != "" {
 		out = append(out, "--append-system-prompt", cfg.System)
 	}
+	if cfg.Model != "" {
+		out = append(out, "--model", cfg.Model)
+	}
 	return out
 }
 
@@ -69,7 +77,7 @@ func (Claude) Start(cfg Config) (Conversation, error) {
 	cmd := exec.Command(binary(cfg), args(cfg, conf)...)
 	cmd.Dir = cfg.Dir
 	cmd.Env = append(os.Environ(), "MCP_TOOL_TIMEOUT=660000")
-	c := &claudeConv{cmd: cmd, conf: conf, events: make(chan Event, 64), record: cfg.Record}
+	c := &claudeConv{cmd: cmd, conf: conf, events: make(chan Event, 64), done: make(chan struct{}), record: cfg.Record}
 	cmd.Stderr = &c.stderr
 	if c.in, err = cmd.StdinPipe(); err != nil {
 		os.Remove(conf)
@@ -89,24 +97,31 @@ func (Claude) Start(cfg Config) (Conversation, error) {
 }
 
 type claudeConv struct {
+	conn   Connection
 	cmd    *exec.Cmd
 	in     io.WriteCloser
 	conf   string
 	stderr bytes.Buffer
 	events chan Event
+	done   chan struct{}
 	mu     sync.Mutex
 	closed bool
 	record io.Writer
 }
 
-func (c *claudeConv) Send(text string) error {
+func (c *claudeConv) Send(text string) error { return c.SendImages(text, nil) }
+func (c *claudeConv) SendImages(text string, pngs [][]byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
 		return errors.New("the conversation is closed")
 	}
+	items := []any{map[string]string{"type": "text", "text": text}}
+	for _, img := range pngs {
+		items = append(items, map[string]any{"type": "image", "source": map[string]string{"type": "base64", "media_type": "image/png", "data": base64.StdEncoding.EncodeToString(img)}})
+	}
 	msg := map[string]any{"type": "user", "message": map[string]any{"role": "user",
-		"content": []any{map[string]any{"type": "text", "text": text}}}}
+		"content": items}}
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return err
@@ -117,22 +132,40 @@ func (c *claudeConv) Send(text string) error {
 
 func (c *claudeConv) read(r io.Reader) {
 	defer close(c.events)
+	defer os.Remove(c.conf)
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 1<<20), 16<<20)
+read:
 	for sc.Scan() {
 		if c.record != nil {
 			c.record.Write(append(sc.Bytes(), '\n'))
 		}
+		c.status(sc.Bytes())
 		for _, e := range Decode(sc.Bytes()) {
-			c.events <- e
+			if !c.emit(e) {
+				break read
+			}
 		}
+	}
+	if err := sc.Err(); err != nil {
+		_ = c.cmd.Process.Kill()
+		c.emit(Event{Kind: EvError, Err: err})
 	}
 	if err := c.cmd.Wait(); err != nil {
 		msg := strings.TrimSpace(c.stderr.String())
 		if msg == "" {
 			msg = err.Error()
 		}
-		c.events <- Event{Kind: EvError, Err: errors.New(msg)}
+		c.emit(Event{Kind: EvError, Err: errors.New(msg)})
+	}
+}
+
+func (c *claudeConv) emit(e Event) bool {
+	select {
+	case c.events <- e:
+		return true
+	case <-c.done:
+		return false
 	}
 }
 
@@ -153,8 +186,13 @@ func (c *claudeConv) Close() error {
 		return nil
 	}
 	c.closed = true
+	close(c.done)
 	c.mu.Unlock()
 	c.in.Close()
+	// A replaced provider must not keep executing in the background. read owns Wait.
+	if c.cmd.Process != nil {
+		_ = c.cmd.Process.Kill()
+	}
 	os.Remove(c.conf)
 	return nil
 }
@@ -246,7 +284,7 @@ func Decode(line []byte) []Event {
 	case "user":
 		for _, b := range l.Message.Content {
 			if b.Type == "tool_result" {
-				out = append(out, Event{Kind: EvToolResult, CallID: b.ToolUseID, Result: textOf(b.Content), Failed: b.IsError})
+				out = append(out, Event{Kind: EvToolResult, CallID: b.ToolUseID, Result: textOf(b.Content), Images: toolImages(b.Content), Failed: b.IsError})
 			}
 		}
 	case "result":

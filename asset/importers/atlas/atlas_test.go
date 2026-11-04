@@ -8,6 +8,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/format/aetext"
 	"aego/gpu"
 	rtex "aego/render/texture"
 )
@@ -131,4 +132,85 @@ func TestEmptyGroup(t *testing.T) {
 
 func assetDecodeRegion(data []byte) (*asset.RegionArtifact, error) {
 	return asset.DecodeRegion(data)
+}
+
+func TestTrimArtifactPreservesOriginalCanvasAndConvertsLinearPage(t *testing.T) {
+	d := rtex.New(8, 6, gpu.TexRGBA8)
+	for y := 1; y < 3; y++ {
+		for x := 2; x < 5; x++ {
+			d.SetPixel(x, y, mathx.Color{R: .5, A: .5})
+		}
+	}
+	d.Premultiply()
+	m := pipeline.GroupMember{ID: ids.NewAssetID(), Settings: pipeline.Settings{"trim": aetext.Bool(true)}, Result: &pipeline.Result{Raw: d}}
+	ctx := &pipeline.GroupContext{Group: "trim", PageID: ids.NewAssetID(), Log: log.Nop().With(log.Asset)}
+	regions, pages, err := Wrap(nil).Finalize(ctx, []pipeline.GroupMember{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := asset.DecodeRegion(regions[m.ID].Artifacts[0].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.SourceW != 8 || r.SourceH != 6 || r.TrimX != 2 || r.TrimY != 1 || r.W != 3 || r.H != 2 {
+		t.Fatalf("trim metadata %+v", r)
+	}
+	page, err := asset.DecodeTexture(pages[0].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := (r.Y*page.Width + r.X) * 4
+	// The source is already premultiplied linear .25. Atlas storage encodes it
+	// to sRGB (~137), preserving alpha128 and avoiding another multiplication.
+	if page.Format != gpu.TexSRGBA8 || page.Pixels[p] < 136 || page.Pixels[p] > 138 || page.Pixels[p+3] != 128 {
+		t.Fatalf("linear atlas conversion %v", page.Pixels[p:p+4])
+	}
+}
+
+func TestAtlasRotationIsExplicitlyRejected(t *testing.T) {
+	m := member(t, 2, 2, mathx.White)
+	m.Settings = pipeline.Settings{"rotate": aetext.Bool(true)}
+	if _, _, _, err := pack([]pipeline.GroupMember{m}, 2); err == nil {
+		t.Fatal("unsupported rotation was ignored")
+	}
+}
+
+func TestNormalAtlasPreservesUnpremultipliedDataAndFullPadding(t *testing.T) {
+	d := rtex.New(2, 2, gpu.TexRGBA8)
+	d.NonColor = true
+	for i := 0; i < len(d.Pixels); i += 4 {
+		copy(d.Pixels[i:i+4], []byte{210, 40, 250, 32})
+	}
+	normalID, albedoID := ids.NewAssetID(), ids.NewAssetID()
+	m := pipeline.GroupMember{ID: normalID, Result: &pipeline.Result{Raw: d, RawSemantic: asset.TextureNormal, Deps: []ids.AssetID{albedoID}}}
+	ctx := &pipeline.GroupContext{PageID: ids.NewAssetID()}
+	regions, pages, err := Wrap(nil).Finalize(ctx, []pipeline.GroupMember{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := asset.DecodeRegion(regions[normalID].Artifacts[0].Data)
+	page, err := asset.DecodeTexture(pages[0].Data)
+	if err != nil || page.Semantic != asset.TextureNormal || page.Format != gpu.TexRGBA8 || page.Mips {
+		t.Fatalf("normal page is not linear data: %+v %v", page, err)
+	}
+	for y := r.Y - 2; y < r.Y+r.H+2; y++ {
+		for x := r.X - 2; x < r.X+r.W+2; x++ {
+			i := (y*page.Width + x) * 4
+			if string(page.Pixels[i:i+4]) != string([]byte{210, 40, 250, 32}) {
+				t.Fatalf("padding at %d,%d was omitted or data changed: %v", x, y, page.Pixels[i:i+4])
+			}
+		}
+	}
+	if len(regions[normalID].Deps) != 1 || regions[normalID].Deps[0] != albedoID {
+		t.Fatal("atlas discarded source dependencies")
+	}
+	m.Settings = pipeline.Settings{"mips": aetext.Bool(true)}
+	if _, _, err := Wrap(nil).Finalize(ctx, []pipeline.GroupMember{m}); err == nil {
+		t.Fatal("unsafe cross-region mip chain accepted")
+	}
+	m.Settings = nil
+	color := member(t, 2, 2, mathx.White)
+	if _, _, err := Wrap(nil).Finalize(ctx, []pipeline.GroupMember{m, color}); err == nil {
+		t.Fatal("normal data shared a color atlas page")
+	}
 }

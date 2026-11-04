@@ -1,0 +1,10 @@
+prefab version=1 {
+  node "e1000000000000000000000000000001" name="Flash sprite" enabled=true layers=1 {
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000b00")
+      material=asset("12a90000000000000000000000000002")
+      tint=#ffffffff
+      size=[1, 1]
+    }
+  }
+}

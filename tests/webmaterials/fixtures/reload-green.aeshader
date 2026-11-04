@@ -1,0 +1,6 @@
+#pragma aego abi 1
+#pragma material
+uniform vec3 Padding; // @default(0,0,0)
+uniform float Amount; // @default(0.9)
+#pragma end
+void fragment(){aego_out=vec4(Padding.x,Amount,Padding.z,Amount);}

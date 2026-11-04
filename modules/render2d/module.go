@@ -4,6 +4,9 @@ import (
 	"aego/core/mathx"
 	"aego/engine"
 	"aego/engine/module"
+	"aego/engine/problems"
+	"aego/engine/settings"
+	"aego/render/postfx"
 	"aego/render/view"
 	"aego/scene"
 	"aego/scene/frame"
@@ -16,14 +19,19 @@ const (
 	SystemExtract = ID + ".extract"
 )
 
-type Module struct{}
+type lightingModule struct {
+	problems *problems.Service
+	settings *settings.Store
+}
+
+type Module struct{ lighting *lightingModule }
 
 func New() Module {
-	return Module{}
+	return Module{lighting: &lightingModule{}}
 }
 
 func (Module) Info() module.Info {
-	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40, DocsIcon: "cat.rendering"}
+	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40, DocsIcon: "cat.rendering", Codes: []string{"LGT001", "LGT002", "LGT003", "LGT004", "LGT005", "LGT006", "LGT007", "LGT008", "PFX001", "PFX002"}}
 }
 
 func (Module) Register(r *module.Registry) error {
@@ -41,6 +49,7 @@ func (Module) Register(r *module.Registry) error {
 		schema.Name("engine.SpriteRenderer"),
 		schema.Space(schema.Space2D),
 		schema.Doc("Draws a texture region at the node transform."),
+		schema.FieldDoc("material", "Shared sprite-domain material. Per-node changes belong to MaterialOverride."),
 		schema.FieldDoc("sprite", "Texture or atlas region to draw. Empty draws a solid rectangle in the tint color."),
 		schema.FieldDoc("layer", "Sorting layer. Higher layers are drawn on top of lower ones."),
 		schema.FieldDoc("order", "Order inside the layer. Higher values are drawn later, on top."),
@@ -57,6 +66,7 @@ func (Module) Register(r *module.Registry) error {
 		Icon("comp.sprite").
 		NodeIcon(60).
 		Default(DefaultSpriteRenderer).
+		Validate(validateSpriteMaterial).
 		Template("Sprite", unitSprite).
 		Err(); err != nil {
 		return err
@@ -85,6 +95,16 @@ func (Module) Register(r *module.Registry) error {
 		Err(); err != nil {
 		return err
 	}
+	if err := registerMaterials(r); err != nil {
+		return err
+	}
+	effects := postfx.NewRegistry()
+	if err := registerPostProcess(r, effects); err != nil {
+		return err
+	}
+	if err := registerLighting(r); err != nil {
+		return err
+	}
 	r.System(engine.SystemDesc{
 		ID:     SystemCameras,
 		Phase:  engine.PhaseRenderPrepare,
@@ -97,7 +117,7 @@ func (Module) Register(r *module.Registry) error {
 		Phase:  engine.PhaseRender,
 		Scope:  engine.ScopeWorld,
 		Before: []string{frame.SystemSubmit},
-		System: extract{},
+		System: extract{effects: effects},
 	})
 	registerDocs(r)
 	return nil
