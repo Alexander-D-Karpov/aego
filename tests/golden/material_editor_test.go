@@ -17,6 +17,7 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	edws "aego/editor/core/workspace"
+	agentpanel "aego/editor/panels/agent"
 	"aego/editor/panels/scripteditor"
 	"aego/engine/i18n"
 	"aego/project"
@@ -153,6 +154,12 @@ func editorMaterialSession(t *testing.T) (*edit.Session, ids.AssetID, string) {
 	t.Cleanup(s.Close)
 	if name := s.Engine.Caps().Renderer; !softwareRenderer(name) && os.Getenv("AEGO_GOLDEN_ALLOW_HARDWARE") == "" {
 		t.Fatalf("material editor references require a software rasterizer, got %q", name)
+	}
+	s.Step()
+	// These goldens exercise the full-height material inspector, not the
+	// default workspace split. Keep the panel tall enough to cover its fields.
+	if s.App.Workspace().Visible(agentpanel.ID) {
+		s.App.Workspace().Toggle(agentpanel.ID)
 	}
 	s.Step()
 	ed := s.App.Context()
