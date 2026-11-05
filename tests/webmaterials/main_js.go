@@ -70,9 +70,7 @@ type surface struct{ ctx js.Value }
 
 func (s surface) WebGL2() js.Value { return s.ctx }
 
-// The completion gate deterministically places context loss between submission
-// of a REAL WebGL compile/link and the cache consuming its result, even on a fast
-// driver. The driver, context events and recreation are not mocked.
+// The completion gate places context loss between real WebGL compile/link submission and cache consumption, even on a fast driver; driver, context events and recreation are not mocked.
 type device struct {
 	*webgl2.Device
 	hold      bool
@@ -257,10 +255,8 @@ func wait(test func() bool, what string) {
 	}
 }
 
-// The Go scheduler may resume the waiting test while the js.FuncOf lost-event
-// callback is still on the JavaScript stack. restoreContext is permitted only
-// after the browser finishes dispatching that event and observes preventDefault.
-// A new JS task proves this boundary; a longer polling timeout would not.
+// Go may resume with the js.FuncOf lost-event callback on the JS stack; a new JS task, not a longer poll, ensures dispatch finishes
+// and preventDefault is observed before restoreContext.
 func afterBrowserEvent() {
 	done := make(chan struct{})
 	callback := js.FuncOf(func(js.Value, []js.Value) any {

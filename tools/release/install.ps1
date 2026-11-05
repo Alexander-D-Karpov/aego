@@ -1,6 +1,4 @@
-# Installs or updates Aego on Windows: downloads the installer of the latest release, checks it and runs it silently.
-# Usage: irm https://aego.akarpov.ru/install.ps1 | iex
-# Nightly: $env:AEGO_CHANNEL = "nightly"; irm https://aego.akarpov.ru/install.ps1 | iex
+# Installs or updates Aego on Windows with a checksum-verified silent installer; defaults to latest, while AEGO_CHANNEL selects nightly or a v-prefixed version.
 $ErrorActionPreference = "Stop"
 $api = if ($env:AEGO_API) { $env:AEGO_API } else { "https://git.akarpov.ru/api/v1/repos/sanspie/aego" }
 $which = switch ($env:AEGO_CHANNEL) {

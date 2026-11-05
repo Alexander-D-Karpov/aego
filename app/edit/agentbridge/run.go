@@ -17,12 +17,18 @@ const runDir = ".aego/tmp/agent"
 // sceneRun serves scene.run: an unsaved scene runs as the editor has it, the game itself in Config.Run off the main thread.
 func (b *Bridge) sceneRun(a agent.Args) (*agent.Output, error) {
 	generation := b.panelGeneration.Load()
+	if b.cancelled(generation) {
+		return nil, errCancelled
+	}
+	if b.PlanOnly() {
+		return nil, errPlanOnly
+	}
 	if b.cfg.ConfirmPlay && b.playGrant.Load() != generation {
-		action := i18n.Tr("editor.agent.allow_playtests", "Allow isolated playtests of this project's scripts for this conversation?")
+		action := i18n.Tr("editor.agent.allow_playtests", "Allow isolated playtests of this project's scripts?")
 		if b.Project().Native {
-			action = i18n.Tr("editor.agent.allow_native_playtests", "Allow isolated playtests with this project's native Go modules for this conversation?")
+			action = i18n.Tr("editor.agent.allow_native_playtests", "Allow playtests with this project's native Go modules? Native code can change between runs.")
 		}
-		if err := b.permit(action, generation); err != nil {
+		if err := b.permitPlaytest(action, generation); err != nil {
 			return nil, err
 		}
 		b.playGrant.Store(generation)

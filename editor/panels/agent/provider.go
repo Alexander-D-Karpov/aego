@@ -94,6 +94,9 @@ func (p *Panel) SelectProvider(provider string) error {
 	if p.d.Host.Busy() {
 		return errors.New(i18n.Tr("editor.agent.provider_busy", "Stop the current turn before changing the agent"))
 	}
+	if len(p.queue) > 0 {
+		return errors.New(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
+	}
 	if err := h.SetProvider(provider); err != nil {
 		return err
 	}
@@ -125,6 +128,10 @@ func (p *Panel) readProviderSettings() {
 }
 
 func (p *Panel) setCommand(value string) {
+	if len(p.queue) > 0 {
+		p.notice(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
+		return
+	}
 	if p.d.Host.Busy() {
 		return
 	}
@@ -270,6 +277,11 @@ func (p *Panel) providerPopup(ui *core.Context) {
 		p.Recheck()
 		p.loadModels()
 	}
+	if h, ok := p.d.Host.(agentui.PlaytestTrustHost); ok && h.PlaytestTrusted() {
+		if widgets.Button(ui, i18n.Tr("editor.agent.revoke_playtest", "Revoke always-allowed playtests")) {
+			p.settingError(h.RevokePlaytestTrust())
+		}
+	}
 	p.diagnostics(ui, busy)
 	ui.PopID()
 	ui.EndPopup()
@@ -288,6 +300,10 @@ func (p *Panel) modelLabel() string {
 }
 
 func (p *Panel) selectModel(h agentui.ModelHost, value string) {
+	if len(p.queue) > 0 {
+		p.notice(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
+		return
+	}
 	value = strings.TrimSpace(value)
 	if value != h.Model() {
 		if err := h.SetModel(value); err != nil {
@@ -440,6 +456,10 @@ func (p *Panel) effortPicker(ui *core.Context, field mathx.Rect, h agentui.Model
 }
 
 func (p *Panel) selectEffort(h agentui.ModelHost, value string) {
+	if len(p.queue) > 0 {
+		p.notice(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
+		return
+	}
 	value = strings.TrimSpace(value)
 	if value != h.Effort() {
 		if err := h.SetEffort(value); err != nil {

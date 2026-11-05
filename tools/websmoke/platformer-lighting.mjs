@@ -181,7 +181,7 @@ try {
                         document.getElementById("fullscreen").style.display = "none";
                         document.getElementById("mute").style.display = "none";
                     });
-                    for (const frame of [400, 1039, 1216, 1788]) {
+                    for (const frame of [400, 1039, 1216, 1840]) {
                         console.log(`${name} ${mode}: replay to ${frame}`);
                         await advance(page, frame);
                         const c = await capture(page, `${name}-${mode}-${String(frame).padStart(4, "0")}.png`);
@@ -201,21 +201,21 @@ try {
                         await page.waitForFunction(() => globalThis.__contextEvents.lost === 1, null, { timeout: 10000 });
                         await page.evaluate(() => globalThis.aegoGame.loseContext(false));
                         await page.waitForFunction(() => globalThis.__contextEvents.restored === 1, null, { timeout: 30000 });
-                        await advance(page, 1848);
-                        result.restored = await capture(page, `${name}-restored-1848.png`);
+                        await advance(page, 1900);
+                        result.restored = await capture(page, `${name}-restored-1900.png`);
                         if (result.restored.stats.lost || result.restored.stats.restores < 1) throw new Error("context resources did not restore");
                         result.passed.push("real context loss/restored event and continued canonical replay");
                     }
                     result.modes.push({ mode, end: await stats(page) });
                 } finally { await context.close(); }
             }
-            for (const frame of [400, 1039, 1216, 1788]) {
+            for (const frame of [400, 1039, 1216, 1840]) {
                 const a = result.captures.find(c => c.frame === frame && c.lighting);
                 const b = result.captures.find(c => c.frame === frame && !c.lighting);
                 if (!a || !b || a.pixelSHA256 === b.pixelSHA256) throw new Error(`lighting did not change pixels at frame ${frame}`);
             }
             result.passed.push("same exported assets and gameplay input with registered LightingToggle presentation action");
-            result.passed.push("exact 400/1039/1216/1788 native-compatible replay clocks and nonempty rendered images");
+            result.passed.push("exact 400/1039/1216/1840 native-compatible replay clocks and nonempty rendered images");
         } catch (error) {
             result.failures.push(error.stack ?? String(error));
             console.error(`${name}: ${error.stack ?? error}`);

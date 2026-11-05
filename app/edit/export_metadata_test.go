@@ -16,9 +16,7 @@ func TestExportRejectsUnsavedMetadataWorkingOverlay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pl.Close()
-	// The loader may legitimately display a private prepared Undo generation,
-	// while the persistent pipeline still has the last saved artifact. Export
-	// must reject that discrepancy even though .meta is not shader source.
+	// The loader may display a private Undo generation while the pipeline retains the saved artifact; export must reject this even for .meta changes.
 	for _, path := range []string{"assets/platform_height.png.meta", "assets/effects/Dust.aepreset"} {
 		t.Run(path, func(t *testing.T) {
 			x := &exporter{p: p, pl: pl, dirtySources: func() []string { return []string{path} }}

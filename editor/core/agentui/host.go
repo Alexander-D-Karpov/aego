@@ -187,6 +187,12 @@ type ProviderHost interface {
 	SetProvider(string) error
 }
 
+// PlaytestTrustHost lets users revoke a project's saved playtest permission.
+type PlaytestTrustHost interface {
+	PlaytestTrusted() bool
+	RevokePlaytestTrust() error
+}
+
 // ModelHost controls overrides for the selected provider. Changes start a new conversation.
 type ModelHost interface {
 	Model() string

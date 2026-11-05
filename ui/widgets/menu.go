@@ -23,12 +23,22 @@ func (m *MenuBar) X() float32 {
 }
 
 func (m *MenuBar) Menu(label string, width float32) bool {
+	return m.MenuEnabled(label, width, true)
+}
+
+// MenuEnabled draws a menu bar entry that cannot open while disabled.
+func (m *MenuBar) MenuEnabled(label string, width float32, enabled bool) bool {
 	c := m.c
 	th := &c.Theme
 	id := c.ID("menu/" + label)
 	w := c.TextSize(label).X + 2*th.Padding + 4
 	br := mathx.Rect{X: m.x, Y: m.r.Y, W: w, H: m.r.H}
 	m.x += w
+	if !enabled {
+		c.ClosePopup(id)
+		c.TextIn(br, label, th.TextDisabled, core.AlignCenter)
+		return false
+	}
 	open := c.PopupOpen(id)
 	at := mathx.Vec2{X: br.X, Y: br.Y + br.H}
 	if c.Pressed(id, br) {

@@ -26,9 +26,7 @@ type surface struct{ ctx js.Value }
 
 func (s surface) WebGL2() js.Value { return s.ctx }
 
-// This gate holds consumption of a genuine driver compile/link result. It
-// deterministically exercises loss while a reload is pending even when this
-// particular browser has no parallel compilation extension or links very fast.
+// Gate consumption of a genuine driver compile/link result to exercise context loss during a pending reload, even without parallel compilation or on a fast browser.
 type device struct {
 	*webgl2.Device
 	hold      bool

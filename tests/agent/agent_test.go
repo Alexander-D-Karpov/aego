@@ -104,9 +104,7 @@ func golden(t *testing.T, name string, v any) {
 }
 
 func TestReadCommandsGolden(t *testing.T) {
-	// Read protocol goldens use a pinned, small project. Editable examples are
-	// exercised by the mutation/run tests below, but adding a platform in a game
-	// must not silently change the expected CLI protocol snapshot.
+	// Pin read-protocol goldens to a small project so edits to game examples cannot silently change CLI snapshots; mutation/run tests cover those examples.
 	dir := t.TempDir()
 	if err := os.CopyFS(dir, os.DirFS(filepath.Join("testdata", "read_project"))); err != nil {
 		t.Fatal(err)

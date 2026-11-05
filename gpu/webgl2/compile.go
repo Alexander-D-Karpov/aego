@@ -25,10 +25,8 @@ type compilation struct {
 	err        error
 }
 
-// BeginShaderCompile submits all stages and links without querying compile/link
-// status. With KHR_parallel_shader_compile, Poll waits through completion queries.
-// Without it Poll performs the documented synchronous fallback at the load/reload
-// boundary; no background thread or universal asynchrony is implied.
+// BeginShaderCompile submits and links stages without status queries; Poll uses KHR_parallel_shader_compile completion queries when available.
+// Otherwise Poll synchronously falls back at load/reload; no background thread or universal asynchrony is implied.
 func (d *Device) BeginShaderCompile(desc gpu.ShaderDesc) (gpu.ShaderCompilation, error) {
 	if d.lost || len(desc.Sources) == 0 {
 		return nil, errs.New(errs.GPUShaderLink, "cannot start shader compilation without a live context and stages", log.F("label", desc.Label))

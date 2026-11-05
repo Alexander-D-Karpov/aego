@@ -216,16 +216,49 @@ messages version=1 lang=en {
     text="Agent"
   }
   msg "editor.agent.allow_native_playtests" {
-    text="Allow isolated playtests with this project's native Go modules for this conversation?"
+    text="Allow playtests with this project's native Go modules? Native code can change between runs."
+  }
+  msg "editor.agent.allow_always" {
+    text="Allow always"
+  }
+  msg "editor.agent.allow_conversation" {
+    text="Allow session"
   }
   msg "editor.agent.allow_once" {
     text="Allow once"
   }
   msg "editor.agent.allow_playtests" {
-    text="Allow isolated playtests of this project's scripts for this conversation?"
+    text="Allow isolated playtests of this project's scripts?"
   }
   msg "editor.agent.allow_session_scope" {
-    text="Allow this action for this project conversation"
+    text="Allow session"
+  }
+  msg "editor.agent.revoke_playtest" {
+    text="Revoke always-allowed playtests"
+  }
+  msg "editor.agent.queue_send" {
+    text="Queue"
+  }
+  msg "editor.agent.queue_full" {
+    text="The message queue is full."
+  }
+  msg "editor.agent.queue_clear_first" {
+    text="Send or clear queued messages before starting a new session."
+  }
+  msg "editor.agent.queue_clear" {
+    text="Clear"
+  }
+  msg "editor.agent.queue_resume" {
+    text="Resume"
+  }
+  msg "editor.agent.queue_count" {
+    text="Queued: {n}"
+  }
+  msg "editor.agent.queue_image" {
+    text="Image"
+  }
+  msg "editor.agent.queue_more" {
+    text="+{n} more queued"
   }
   msg "editor.agent.answer" {
     text="Answer"
@@ -343,6 +376,9 @@ messages version=1 lang=en {
   }
   msg "editor.agent.ctx.compacted" {
     text="Context compacted at {n}"
+  }
+  msg "editor.agent.ctx.compacted_unknown" {
+    text="Context compacted"
   }
   msg "editor.agent.ctx.doc_results" {
     text="Docs"
@@ -686,6 +722,15 @@ messages version=1 lang=en {
   }
   msg "editor.agent.save_documents" {
     text="Save all open project documents?"
+  }
+  msg "editor.agent.document_save" {
+    text="Save the open document {file}?"
+  }
+  msg "editor.agent.document_undo" {
+    text="Undo one step in {file}?"
+  }
+  msg "editor.agent.document_redo" {
+    text="Redo one step in {file}?"
   }
   msg "editor.agent.seconds" {
     text="{n} s"

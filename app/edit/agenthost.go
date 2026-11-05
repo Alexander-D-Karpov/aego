@@ -22,19 +22,32 @@ type agentHost struct {
 	lastTools            map[string]string
 	sceneTurn, sceneRead bool
 	// An explicit backend is fixed (test/replay); nil follows the saved provider.
-	backend    backend.Backend
-	dir        string
-	bridgeOf   func() (*agentbridge.Bridge, error)
-	bridgeOpen func() bool
-	settings   func(string) agentui.ProviderSettings
-	save       func(agentui.ProviderSettings)
-	bridge     *agentbridge.Bridge
-	conv       backend.Conversation
-	busy       bool
-	auto       bool
-	plan       bool
-	budgets    agentui.Budgets
-	static     map[int]agentui.Card
+	backend       backend.Backend
+	dir           string
+	bridgeOf      func() (*agentbridge.Bridge, error)
+	bridgeOpen    func() bool
+	settings      func(string) agentui.ProviderSettings
+	save          func(agentui.ProviderSettings)
+	bridge        *agentbridge.Bridge
+	playtestTrust *agentui.PlaytestTrust
+	conv          backend.Conversation
+	busy          bool
+	auto          bool
+	plan          bool
+	budgets       agentui.Budgets
+	static        map[int]agentui.Card
+}
+
+func (h *agentHost) PlaytestTrusted() bool { return h.playtestTrust.Allowed() }
+
+func (h *agentHost) RevokePlaytestTrust() error {
+	if err := h.playtestTrust.Revoke(); err != nil {
+		return err
+	}
+	if h.bridge != nil {
+		h.bridge.RevokePlaytest()
+	}
+	return nil
 }
 
 func newAgentHost(b backend.Backend, bridge func() (*agentbridge.Bridge, error), settings func(string) agentui.ProviderSettings, save func(agentui.ProviderSettings)) *agentHost {

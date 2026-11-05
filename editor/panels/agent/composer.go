@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"slices"
 	"strconv"
+	"strings"
 
 	"aego/core/mathx"
 	"aego/engine/i18n"
@@ -19,11 +20,27 @@ type draftImage struct {
 	region texture.Region
 }
 
+func imageMarker(i int) string { return "[Image " + strconv.Itoa(i+1) + "]" }
+
 func (p *Panel) removeDraftImage(i int) {
+	p.composer.ReplaceFirst(&p.input, imageMarker(i), "")
 	if p.d.Device != nil && !p.draftImages[i].region.Texture.IsZero() {
 		p.d.Device.DestroyTexture(p.draftImages[i].region.Texture)
 	}
 	p.draftImages = slices.Delete(p.draftImages, i, i+1)
+	for j := i; j < len(p.draftImages); j++ {
+		p.composer.ReplaceFirst(&p.input, imageMarker(j+1), imageMarker(j))
+	}
+}
+
+func (p *Panel) dropMissingDraftImages() {
+	for i := 0; i < len(p.draftImages); {
+		if !strings.Contains(p.input, imageMarker(i)) {
+			p.removeDraftImage(i)
+		} else {
+			i++
+		}
+	}
 }
 func (p *Panel) clearDraftImages() {
 	for len(p.draftImages) > 0 {
@@ -74,6 +91,7 @@ func (p *Panel) pasteImage(ui *core.Context) bool {
 			return true
 		}
 		p.draftImages = append(p.draftImages, draftImage{bytes.Clone(data), reg})
+		p.composer.Insert(&p.input, imageMarker(len(p.draftImages)-1))
 		return true
 	}
 	return false
@@ -96,5 +114,8 @@ func (p *Panel) draftAttachments(ui *core.Context, r mathx.Rect) {
 			break
 		}
 		widgets.Tooltip(ui, id, i18n.Tr("editor.agent.remove_image", "Remove screenshot")+" "+strconv.Itoa(i+1))
+		if ui.Clicked(core.IDSeq(ui.ID("open-draft-image"), i), tile) {
+			p.openImage(ui, img.png)
+		}
 	}
 }

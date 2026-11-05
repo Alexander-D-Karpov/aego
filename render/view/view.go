@@ -32,9 +32,7 @@ type LayerMask uint64
 
 const AllLayers LayerMask = ^LayerMask(0)
 
-// ID is a logical view/output identity. It survives resize and pooled target
-// replacement; neither a display label nor a GPU handle is an identity.
-// Scope separates Edit, Preview and Play instances of the same scene nodes.
+// ID identifies a logical view/output across resize and pooled target replacement, not by label or GPU handle; Scope separates Edit, Preview and Play instances of the same scene nodes.
 type ID struct {
 	Scope uint64
 	Node  ids.NodeID

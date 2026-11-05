@@ -18,14 +18,9 @@ type shadowPreviewState struct {
 	data    [16]byte
 }
 
-// PreviewShadowLayer draws an existing light-space visibility mask into a 2D
-// preview target. Call it between views during BeginFrame/EndFrame. It borrows
-// the current source at execution time; it never retains an array handle across
-// a later lighting frame, resize or context generation.
-//
-// This diagnostic pass does not change a material, light, or camera setting.
-// The target must be an existing RGBA8/SRGBA8 texture whose base level exactly
-// matches width/height. Invalid requests do not draw to the window.
+// PreviewShadowLayer draws a light-space visibility mask between views during BeginFrame/EndFrame. The existing RGBA8/SRGBA8 2D target
+// must match width/height at its base level; invalid requests never draw to the window.
+// It borrows the current source at execution time, never retains array handles across lighting frames, resizes or context generations, and changes no material, light or camera settings.
 func (r *Renderer) PreviewShadowLayer(id view.ID, layer int, target gpu.TextureHandle, width, height int) error {
 	if r == nil || r.frame == nil {
 		return fmt.Errorf("shadow preview requires an active render frame")

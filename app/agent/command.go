@@ -192,7 +192,7 @@ func Run(s *Session, name string, a Args) (*Output, error) {
 	}
 	out, err := c.Run(s, a)
 	if out != nil {
-		out.OK = err == nil
+		out.OK = err == nil && !out.Errors()
 	}
 	return out, err
 }

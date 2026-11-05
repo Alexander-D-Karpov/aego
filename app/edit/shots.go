@@ -30,9 +30,7 @@ import (
 // EnvShots makes the editor write the documentation screenshots to this directory and exit.
 const EnvShots = "AEGO_SHOTS"
 
-// Documentation screenshots already use a synthetic context meter. Their
-// presentation must not depend on an installed/signed-in external agent. This
-// backend is confined to explicit screenshot mode and cannot start a session.
+// Screenshot mode uses a synthetic context meter and this sessionless backend, avoiding dependence on an installed or signed-in agent.
 type screenshotAgent struct{}
 
 func (screenshotAgent) Name() string { return "documentation" }

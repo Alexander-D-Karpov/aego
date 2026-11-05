@@ -77,7 +77,7 @@ func TestPlatformerPostFXRoute(t *testing.T) {
 		stop()
 		pf.noFaults(t)
 		finish := sc.ID(sc.Find(sc.Root(), "Finish"))
-		if len(hits) == 0 || hits[len(hits)-1].point != finish || hits[len(hits)-1].tick != 1776 {
+		if len(hits) == 0 || hits[len(hits)-1].point != finish || hits[len(hits)-1].tick != lightingFinishTick {
 			t.Fatalf("effects=%v unexpected Finish: %v", enabled, hits)
 		}
 		t.Logf("PostFX=%v: %d authoritative states; Finish tick %d", enabled, lightingRouteFrames, hits[len(hits)-1].tick)

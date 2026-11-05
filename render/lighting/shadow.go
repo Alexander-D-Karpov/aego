@@ -21,11 +21,8 @@ var (
 func shadowHash(h, v uint64) uint64          { return (h ^ v) * 1099511628211 }
 func shadowFloat(h uint64, v float32) uint64 { return shadowHash(h, uint64(math.Float32bits(v))) }
 
-// ShadowKey describes a light-space mask. Camera pose, color, intensity and
-// shading height do not change planar shadow geometry. The set of relevant
-// casters is combined independently of extraction order; their geometry and
-// presentation revisions are distinct inputs. Device generation invalidates
-// all cached GPU layers after context restoration.
+// ShadowKey identifies a light-space mask independent of camera pose, color, intensity, shading height and caster extraction order.
+// Geometry and presentation revisions are distinct inputs; device generation invalidates cached GPU layers after restore.
 func ShadowKey(light *Light, input *Input, resolution int, deviceGeneration uint64) uint64 {
 	h := uint64(14695981039346656037)
 	if light == nil || input == nil {
@@ -145,15 +142,9 @@ func fullShadow(dst []mathx.Vec2) []mathx.Vec2 {
 	return append(dst[:0], mathx.Vec2{}, mathx.Vec2{X: 1}, mathx.Vec2{X: 1, Y: 1}, mathx.Vec2{}, mathx.Vec2{X: 1, Y: 1}, mathx.Vec2{Y: 1})
 }
 
-// BuildShadow writes an opaque union mask as triangles in normalized [0,1]
-// light-space (Y down). Closed contours containing/touching the light produce
-// the full mask. An open segment containing the light uses the same conservative
-// policy, avoiding a direction-dependent singularity. Zero-length edges and
-// fully collapsed closed contours contribute nothing.
-//
-// Each segment is extruded to infinity analytically: its two radial planes and
-// the far side of its edge plane clip the light square. This remains correct
-// arbitrarily close to an edge, where a fixed-length extrusion leaves holes.
+// BuildShadow writes an opaque triangle union in normalized [0,1] light-space (Y down). Closed contours containing/touching the light
+// or open segments containing it yield a full mask to avoid direction-dependent singularities; zero-length edges and fully collapsed closed contours add nothing.
+// Analytic infinite extrusion clips the light square against each segment's two radial planes and the far side of its edge plane, avoiding fixed-length extrusion holes arbitrarily close to an edge.
 func BuildShadow(light *Light, input *Input, dst []mathx.Vec2) ([]mathx.Vec2, error) {
 	dst = dst[:0]
 	if light == nil || input == nil || light.Type == Directional || light.Type > Sprite || !finite(light.Range) || light.Range <= 0 || !finite(light.Position.X) || !finite(light.Position.Y) {
@@ -291,9 +282,7 @@ func shadowOutcode(p shadowPoint) uint8 {
 	return c
 }
 
-// Cohen-Sutherland clips the finite caster edge before the radial planes are
-// formed. The crossing coordinate is assigned exactly to its square boundary,
-// avoiding a huge finite extrusion or an infinity in large-coordinate scenes.
+// Cohen-Sutherland clips the finite caster edge before forming radial planes, assigning the crossing exactly to its square boundary to avoid huge extrusions or infinity in large-coordinate scenes.
 func clipShadowEdge(a, b shadowPoint) (shadowPoint, shadowPoint, bool) {
 	for i := 0; i < 12; i++ {
 		ca, cb := shadowOutcode(a), shadowOutcode(b)

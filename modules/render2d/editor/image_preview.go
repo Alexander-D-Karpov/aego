@@ -90,9 +90,7 @@ func (p *imagePreview) ensure(ed *context.Editor, w, h int) error {
 		return fmt.Errorf("%s", i18n.Tr("editor.image.no_gpu", "Lit preview is unavailable: this session has no graphics device. Source pixels and metadata remain available."))
 	}
 	if p.mat == nil {
-		// Decode the same prepared builtin artifact that exported games use.
-		// The private definition prevents preview settings from changing any
-		// shared material, while its program still uses the normal material cache.
+		// Use the exported game's prepared builtin artifact with a private definition to protect shared materials; its program still uses the normal material cache.
 		data, ok := asset.BuiltinShader(asset.BuiltinShaderLit)
 		if !ok {
 			return fmt.Errorf("prepared Lit shader is unavailable")

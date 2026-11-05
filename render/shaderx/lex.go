@@ -2,9 +2,7 @@ package shaderx
 
 import "strings"
 
-// token is deliberately smaller than a GLSL compiler token. It is sufficient
-// for declarations, directives, balanced scopes and locating entry definitions.
-// Semantic validation is still performed by the pinned reference compiler.
+// token is smaller than a GLSL compiler token but covers declarations, directives, balanced scopes and entry definitions; the pinned reference compiler still performs semantic validation.
 type token struct {
 	text       string
 	start, end int

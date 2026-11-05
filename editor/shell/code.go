@@ -15,9 +15,7 @@ import (
 )
 
 func (a *App) attachCode() {
-	// Source Save, Autosave and Save All use the same import transaction even
-	// when file watching is unavailable. Script compilation keeps its existing
-	// host path; shader/material import diagnostics come from the asset pipeline.
+	// Source Save, Autosave and Save All share the import transaction even without watching; scripts compile through the host, shader/material diagnostics through the asset pipeline.
 	a.ctx.Docs.Subscribe(func(ev document.Event) {
 		if ev.Kind != document.EvSourceSaved || a.ctx.Pipeline == nil {
 			return

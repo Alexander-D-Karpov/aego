@@ -23,9 +23,8 @@ import (
 	"aego/schema"
 )
 
-// This exercises the actual editor's registered commands, dirty documents,
-// History, importer and Play world. It is deliberately headless: native/browser
-// integration tests separately establish driver compilation and pixel output.
+// The headless workflow exercises the editor's commands, dirty documents, History, importer and Play world;
+// native/browser integration tests separately establish driver compilation and pixel output.
 func TestMaterialAuthoringWorkflowHeadless(t *testing.T) {
 	materialAuthoringWorkflow(t, headless())
 }

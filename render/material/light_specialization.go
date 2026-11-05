@@ -20,9 +20,8 @@ type specKey struct {
 	lights LightSignature
 }
 
-// BindSpriteLightSet specializes only shaders opting in to the engine's typed
-// light-call ABI. The bounded cache falls back to the general forward program
-// for older prepared assets, unsupported layouts or a failed optional compile.
+// BindSpriteLightSet specializes only opt-in typed light-call shaders; its bounded cache falls back to the general forward program
+// for older assets, unsupported layouts or failed optional compilation.
 func (c *Cache) BindSpriteLightSet(p gpu.Pass, m *Material, trim, aux, opaque bool, sig LightSignature) bool {
 	if m == nil || m.shader == nil || c.lost() {
 		return false

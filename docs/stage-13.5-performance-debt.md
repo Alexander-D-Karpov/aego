@@ -1,5 +1,7 @@
 # Stage 13.5 — открытый performance debt
 
+Исторические отчёты Stage 12a, включая неуспешные прогоны и измерения, сохранены в [истории проекта](https://git.akarpov.ru/sanspie/aego/src/commit/5eb1832907d1409ddd9b74e13b20fb6f5b99a7f2/docs).
+
 ## Web demo на Chromium / SwiftShader
 
 Штатный `make web-smoke` включает `tools/websmoke/demo.mjs` с принудительным

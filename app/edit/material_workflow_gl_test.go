@@ -9,9 +9,7 @@ import (
 	"aego/core/log"
 )
 
-// The same authoring workflow also runs through the real GL-backed editor.
-// An unavailable graphics device is a failure for this explicit integration
-// target, rather than a skipped test reported as a successful GPU validation.
+// This GL-backed authoring workflow must fail, not falsely validate by skipping, when no graphics device is available.
 func TestMaterialAuthoringWorkflowNative(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

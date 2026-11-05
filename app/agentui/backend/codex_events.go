@@ -72,6 +72,12 @@ func (c *codexConv) notification(m codexEnvelope) bool {
 	if p.Turn.ID != "" {
 		p.TurnID = p.Turn.ID
 	}
+	if m.Method == "thread/tokenUsage/updated" && (p.TurnID == "" || p.TurnID == turn || !active && p.TurnID == last) {
+		// The cached part is already included in inputTokens. Usage can arrive
+		// just after turn/completed, so retain the window for the finished turn.
+		c.emit(Event{Kind: EvUsage, Tokens: p.TokenUsage.Last.Input, Window: p.TokenUsage.Window, Model: model})
+		return true
+	}
 	if !active || p.TurnID != "" && (p.TurnID == last || turn != "" && p.TurnID != turn) {
 		return false
 	}
@@ -118,9 +124,6 @@ func (c *codexConv) notification(m codexEnvelope) bool {
 		default:
 			return false
 		}
-	case "thread/tokenUsage/updated":
-		// inputTokens already includes the cached part; do not count it twice.
-		c.emit(Event{Kind: EvUsage, Tokens: p.TokenUsage.Last.Input, Window: p.TokenUsage.Window, Model: model})
 	case "turn/completed":
 		message := ""
 		if p.Turn.Error != nil {

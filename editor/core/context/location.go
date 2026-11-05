@@ -227,9 +227,7 @@ func (e *Editor) ScriptProblems(dst []ScriptProblem) ([]ScriptProblem, uint64) {
 	return dst, rev
 }
 
-// A thumbnail can explain its failure by forwarding its asset's import error.
-// Keep that reason on the thumbnail, but show the source location once in the
-// consolidated Problems list when the source provider reports that exact error.
+// Keep a forwarded import error on its thumbnail, but show the source location only once in Problems when the source provider reports the same error.
 func sourceAlreadyExplainsPreview(v *problems.Diagnostic, all []problems.Diagnostic) bool {
 	if v.Owner != "editor.preview" || v.Code != "THUMB001" || v.Severity != problems.Warning || v.Subject.Asset.IsZero() {
 		return false

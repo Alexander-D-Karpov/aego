@@ -28,9 +28,7 @@ var (
 	ErrBuffer       = errors.New("shape geometry needs an output buffer")
 )
 
-// ID is stable when other shapes are inserted or removed. Part identifies a
-// provider-defined shape slot, never its index in the current result. Node IDs
-// and IDs are scoped to the world containing the provider.
+// ID remains stable when other shapes are inserted or removed; Part is a provider-defined slot, not a result index. IDs and Node IDs are scoped to the provider's world.
 type ID struct {
 	Node ids.NodeID
 	Part uint32
@@ -51,9 +49,8 @@ type Limits struct {
 	Points   int
 }
 
-// Buffer owns its points. Providers copy geometry here, so no slice aliases a
-// component, provider cache or physics world. Contour offsets survive Points
-// reallocation. Results remain valid until the caller resets or mutates Buffer.
+// Buffer owns its points; copied geometry never aliases a component, provider cache or physics world, and contour offsets survive Points reallocation.
+// Results remain valid until the caller resets or mutates Buffer.
 type Buffer struct {
 	Contours []Contour
 	Points   []mathx.Vec2
@@ -98,9 +95,7 @@ func (b *Buffer) Append(c Contour, points []mathx.Vec2) error {
 }
 
 type Provider interface {
-	// Append copies the selected node's local geometry, including local collider
-	// offsets but no world/body transform. An empty key selects every shape in
-	// stable provider order. Disabled nodes append nothing without an error.
-	// Errors leave dst unchanged; missing nodes/explicit keys remain diagnosable.
+	// Append copies node-local geometry with collider offsets but no world/body transform; an empty key selects all shapes in stable provider order.
+	// Disabled nodes append nothing without error; errors leave dst unchanged, and missing nodes/explicit keys remain diagnosable.
 	Append(node ids.NodeID, key string, dst *Buffer) error
 }

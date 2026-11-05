@@ -139,9 +139,7 @@ func (s *lightingState) finish() {
 	for key, entry := range s.cache {
 		if entry.seen != s.epoch {
 			delete(s.cache, key)
-			// Animated alpha silhouettes have a different number of rectangular
-			// parts on each frame. Keep only their small backing arrays; detached
-			// node identities, errors, revisions and large polygons are never pooled.
+			// Animated alpha silhouettes vary in rectangle count per frame; pool only small backing arrays, never detached identities, errors, revisions or large polygons.
 			if len(s.spareQuads) < lighting.MaxOccluders && len(entry.local) == 4 && cap(entry.local) == 4 && cap(entry.world) <= 4 {
 				*entry = contourCache{local: entry.local[:0], world: entry.world[:0]}
 				s.spareQuads = append(s.spareQuads, entry)
@@ -394,9 +392,7 @@ func (s *lightingState) prepareView(r *frame.Runner, v view.View, dst *lighting.
 		}
 		dst.Lights = append(dst.Lights, *l)
 	}
-	// An offscreen caster can shadow a visible receiver. These independent
-	// per-camera buffers include all prepared casters; the shadow pass clips
-	// each light's geometry to its influence, not to sprite visibility.
+	// Offscreen casters can shadow visible receivers: independent per-camera buffers include all prepared casters, and the shadow pass clips to each light's influence, not sprite visibility.
 	dst.Occluders = append(dst.Occluders, s.input.Occluders...)
 	dst.Points = append(dst.Points, s.input.Points...)
 	if selected := r.LightingEnvironmentPreview(); !selected.IsZero() {

@@ -1,6 +1,4 @@
-// Optional measurement for the existing smoke runners. It does not change the
-// wasm applications or claim a paired performance result. Install before boot
-// because the WebGL backend retains bound method references.
+// Optional smoke-runner measurement does not change the wasm apps or claim a paired performance result; install before boot because the WebGL backend retains bound method references.
 export async function installTrafficProbe(page) {
     await page.addInitScript(() => {
         const records = new WeakMap();

@@ -10,6 +10,7 @@ import (
 func (s *Session) AgentConfig() agentbridge.Config {
 	return agentbridge.Config{
 		ConfirmPlay:   !s.cfg.Headless && s.cfg.AgentBackend == nil,
+		PlaytestTrust: agentui.NewPlaytestTrust(prefsDir(s.cfg), s.Project.Root, s.Project.Native),
 		Ctx:           s.App.Context(),
 		Console:       s.App.ConsoleMessages,
 		SwitchProject: s.App.OpenAgentProject, Capture: s.App.CaptureAgentView, Exporter: s.App.AgentExporter(),
@@ -56,6 +57,7 @@ func (s *Session) agentHost(cfg Config) agentui.Host {
 	host := newAgentHost(cfg.AgentBackend, s.agentBridge,
 		func(provider string) agentui.ProviderSettings { return s.App.AgentSettings(provider) },
 		func(settings agentui.ProviderSettings) { s.App.SetAgentSettings(settings) })
+	host.playtestTrust = agentui.NewPlaytestTrust(prefsDir(cfg), s.Project.Root, s.Project.Native)
 	host.bridgeOpen = func() bool { return s.bridge != nil }
 	host.dir = s.Project.Root
 	return host

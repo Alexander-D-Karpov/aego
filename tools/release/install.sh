@@ -1,6 +1,5 @@
 #!/bin/sh
 # Installs the Aego editor and CLI from the latest Gitea release.
-# Usage: curl -fsSL https://aego.akarpov.ru/install.sh | sh [-s -- --nightly] [--prefix DIR] [--version vX.Y.Z] [--no-deps] [--no-desktop]
 set -eu
 
 api="${AEGO_API:-https://git.akarpov.ru/api/v1/repos/sanspie/aego}"

@@ -6,9 +6,8 @@ import (
 	"aego/render/texture"
 )
 
-// NormalFor reads only prepared AERG associations, never source names or .meta.
-// Its warmed path uses the same region/page caches as Texture and allocates no
-// memory. Missing references keep their ID for editor diagnostics and repair.
+// NormalFor reads prepared AERG associations, not source names or .meta; its warmed path uses Texture's region/page caches without allocations.
+// Missing references retain their ID for editor diagnostics and repair.
 func (l *Loader) NormalFor(albedo ids.AssetID) (ids.AssetID, texture.Region, bool) {
 	if l.failed[albedo] {
 		return l.normals[albedo], texture.Region{}, false

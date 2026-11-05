@@ -75,23 +75,16 @@ type Descriptor struct {
 	WritesAllPixels bool
 	// Outside the auxiliary support this effect returns the original scene color.
 	PreservesOutsideAux bool
-	// AuxiliarySupport bounds all auxiliary RGB output to the non-background
-	// input expanded by the returned number of full-resolution pixels. Outside
-	// that support the reference filter must produce opaque black.
-	// CenterAuxSample promises that tex1 is read only by aego_aux(uv) at
-	// the pixel's own local UV. Its final pass reserves phases.zw and
-	// auxInfo.zw for the renderer's half-resolution sampling window.
+	// AuxiliarySupport bounds auxiliary RGB to non-background input expanded by the returned number of full-resolution pixels; outside it the reference filter must produce opaque black.
+	// CenterAuxSample promises tex1 is read only by aego_aux(uv) at the pixel's local UV; its final pass reserves phases.zw and auxInfo.zw for the half-resolution sampling window.
 	CenterAuxSample bool
 	// LumaThreshold opts in to the same support bound with only producers
 	// capable of exceeding this linear Rec.709 luminance.
 	LumaThreshold                   func([4][4]float32) float32
 	AuxiliarySupport                func(mathx.Color, [4][4]float32) (float32, bool)
 	LUT, UsesMaterial, MotionBypass bool
-	// HalfPasses describe a bounded separable filter chain. The original input
-	// survives until the final composite and may be sampled there along with tex1.
-	// HalfReadOffset opts in only when every auxiliary shader fully replaces its
-	// destination. It bounds a step's sample displacement from the current
-	// pixel in full-resolution units, before linear filtering.
+	// HalfPasses describe a bounded separable filter chain; the original input survives to the final composite, where it may be sampled with tex1.
+	// HalfReadOffset opts in only if every auxiliary shader fully replaces its destination; it bounds each step's sample displacement in full-resolution units before linear filtering.
 	HalfReadOffset func(step int, params [4][4]float32) (x, y float32)
 	HalfPasses     []string
 	half           []*Descriptor

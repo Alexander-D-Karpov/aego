@@ -1,7 +1,5 @@
 #!/bin/sh
-# Builds the Linux release archive and publishes it as a Gitea release.
-# Usage: tools/release/release.sh [--dry-run] <vX.Y.Z|nightly>
-# Needs GITEA_TOKEN, and GITEA_API (https://host/api/v1/repos/owner/name) unless --dry-run.
+# Builds and publishes the Linux release; non-dry runs require GITEA_TOKEN and GITEA_API (https://host/api/v1/repos/owner/name).
 set -eu
 
 dry=0

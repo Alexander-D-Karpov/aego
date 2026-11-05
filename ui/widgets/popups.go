@@ -170,29 +170,77 @@ func Tooltip(c *core.Context, id core.ID, text string) {
 	TooltipAfter(c, id, text, 0.5)
 }
 
-func Confirm(c *core.Context, id core.ID, title, message string, buttons ...string) int {
+type confirmLayout struct {
+	window, message mathx.Rect
+	buttons         []mathx.Rect
+}
+
+func layoutConfirm(c *core.Context, message string, buttons []string) confirmLayout {
 	th := &c.Theme
 	sz := c.Size()
-	w := min(float32(480), sz.X-40)
-	lines := int(c.TextSize(message).X/(w-4*th.Padding)) + 1
-	h := th.RowHeight*float32(3+lines) + th.Padding*4
-	r := mathx.Rect{X: (sz.X - w) / 2, Y: (sz.Y - h) / 3, W: w, H: h}
-	if !c.BeginModal(id, r) {
+	w := max(float32(1), min(float32(480), sz.X-40))
+	inner := max(float32(1), w-2*th.Padding)
+	lines := len(WrapLines(c, message, inner))
+	messageH := float32(lines) * (th.RowHeight + th.Spacing)
+	widths := make([]float32, len(buttons))
+	rows, x := 1, inner
+	indices := make([]int, len(buttons))
+	for i := len(buttons) - 1; i >= 0; i-- {
+		widths[i] = min(inner, c.TextSize(buttons[i]).X+28)
+		if x < widths[i] && x < inner {
+			rows++
+			x = inner
+		}
+		x -= widths[i]
+		indices[i] = rows - 1
+		x -= 6
+	}
+	buttonsH := float32(rows)*th.RowHeight + float32(rows-1)*th.Spacing
+	base := 2*th.Padding + th.RowHeight + th.Spacing + buttonsH
+	visible := min(messageH, max(float32(0), sz.Y-40-base))
+	h := base + visible
+	r := mathx.Rect{X: (sz.X - w) / 2, Y: max(float32(0), (sz.Y-h)/3), W: w, H: h}
+	out := confirmLayout{window: r, message: mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding + th.RowHeight + th.Spacing, W: inner, H: visible}, buttons: make([]mathx.Rect, len(buttons))}
+	x = r.X + th.Padding + inner
+	currentRow := 0
+	for i := len(buttons) - 1; i >= 0; i-- {
+		if indices[i] != currentRow {
+			currentRow = indices[i]
+			x = r.X + th.Padding + inner
+		}
+		x -= widths[i]
+		out.buttons[i] = mathx.Rect{X: x, Y: r.Y + h - th.Padding - th.RowHeight - float32(currentRow)*(th.RowHeight+th.Spacing), W: widths[i], H: th.RowHeight}
+		x -= 6
+	}
+	return out
+}
+
+func Confirm(c *core.Context, id core.ID, title, message string, buttons ...string) int {
+	if !c.ModalOpen(id) {
+		return -1
+	}
+	th := &c.Theme
+	l := layoutConfirm(c, message, buttons)
+	if !c.BeginModal(id, l.window) {
 		return -1
 	}
 	c.PushRawID(id)
 	result := -1
 	Label(c, title)
+	scroll := c.ModalScroll()
+	content := float32(len(WrapLines(c, message, l.message.W))) * (th.RowHeight + th.Spacing)
+	*scroll = mathx.Clamp(*scroll, 0, max(float32(0), content-l.message.H))
+	c.PushClip(l.message)
+	c.Cursor().Y -= *scroll
 	LabelWrapped(c, message, true)
-	row := mathx.Rect{X: r.X + th.Padding, Y: r.Y + r.H - th.RowHeight - th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
-	x := row.X + row.W
-	for i := len(buttons) - 1; i >= 0; i-- {
-		bw := c.TextSize(buttons[i]).X + 28
-		x -= bw
-		if ButtonRect(c, c.IDInt(i), mathx.Rect{X: x, Y: row.Y, W: bw, H: row.H}, buttons[i]) {
+	c.PopClip()
+	if c.MouseOver(c.ID("message-scroll"), l.message) {
+		*scroll = mathx.Clamp(*scroll-c.ScrollY(th.RowHeight*3), 0, max(float32(0), content-l.message.H))
+	}
+	for i, r := range l.buttons {
+		if ButtonRect(c, c.IDInt(i), r, Elide(c, buttons[i], max(float32(0), r.W-12))) {
 			result = i
 		}
-		x -= 6
 	}
 	if result < 0 && len(buttons) > 0 && c.Focus() == 0 {
 		if c.KeyPressed(input.KeyEnter) || c.KeyPressed(input.KeyKPEnter) {

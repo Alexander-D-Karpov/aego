@@ -40,6 +40,9 @@ script PlayerController {
 	@export(tip="Landing dust emitter")
 	var Dust NodeRef
 
+	@export(tip="Sparks for the sword swing")
+	var Sparks NodeRef
+
 	@export(min=0)
 	var Reach float = 0.6
 
@@ -47,6 +50,8 @@ script PlayerController {
 	var kills int
 	var facing float = 1
 	var hit int
+	var motionPhase float
+	var stompBouncing bool
 
 	func Ready() {
 		watch(EnemyA)
@@ -54,8 +59,13 @@ script PlayerController {
 		m := node.Get<Motion2D>()
 		m.Jumped.Connect(OnJumped)
 		m.Landed.Connect(OnLanded)
+		m.Climbed.Connect(OnClimbed)
+		node.Get<Hitbox2D>().Hit.Connect(OnStomp)
 		node.Get<Health>().Damaged.Connect(OnDamaged)
 		hit = anim.EventID("Hit")
+		if Slash != nil && Slash.IsAlive() {
+			Slash.SetPosition(Vec2{facing * Reach, 0})
+		}
 		audio.Music(Theme, 1.5)
 	}
 
@@ -68,11 +78,27 @@ script PlayerController {
 	func OnEnemyDied() {
 		kills++
 		save.SetGlobalInt("kills", save.GlobalInt("kills", 0) + 1)
-		node.Get<Motion2D>().AddVelocity(Bounce)
+	}
+
+	func OnStomp(target NodeRef, damage int) {
+		m := node.Get<Motion2D>()
+		if !stompBouncing && m.Velocity.Y >= 0 {
+			stompBouncing = true
+			m.AddVelocity(Vec2{0, Bounce.Y - m.Velocity.Y})
+		}
 	}
 
 	func OnJumped() {
 		audio.PlayEvent(JumpSound)
+		if Dust != nil && Dust.IsAlive() {
+			Dust.Get<ParticleSystem2D>().Burst(5)
+		}
+	}
+
+	func OnClimbed() {
+		if Dust != nil && Dust.IsAlive() {
+			Dust.Get<ParticleSystem2D>().Burst(6)
+		}
 	}
 
 	func OnLanded(speed float) {
@@ -91,12 +117,20 @@ script PlayerController {
 
 	func OnAnimEvent(id int, payload float) {
 		if id == hit && Slash != nil {
+			Slash.SetPosition(Vec2{facing * Reach, 0})
 			Slash.Get<Hitbox2D>().Pulse()
+			camera.Shake(0.08)
+			if Sparks != nil && Sparks.IsAlive() {
+				Sparks.Get<ParticleSystem2D>().Burst(8)
+			}
 		}
 	}
 
 	func FixedUpdate(dt float) {
 		m := node.Get<Motion2D>()
+		if m.Velocity.Y < 0 {
+			stompBouncing = false
+		}
 		x := input.Axis("Move")
 		m.Move(x)
 		if input.Pressed("Jump") {
@@ -128,6 +162,23 @@ script PlayerController {
 	}
 
 	func Update(dt float) {
+		motionPhase += dt
+		m := node.Get<Motion2D>()
+		if node.Get<Animator>().State != "Hit" && node.Get<Animator>().State != "Climb" && !m.Climbing {
+			if !m.Grounded {
+				if m.Velocity.Y < 0 {
+					node.Get<SpriteRenderer>().Size = Vec2{0.92, 1.1}
+				} else {
+					node.Get<SpriteRenderer>().Size = Vec2{1.08, 0.94}
+				}
+			} else {
+				pulse := math.Sin(motionPhase * 4) * 0.025
+				if math.Abs(m.Velocity.X) > 0.2 {
+					pulse = math.Sin(motionPhase * 20) * 0.045
+				}
+				node.Get<SpriteRenderer>().Size = Vec2{1 - pulse, 1 + pulse}
+			}
+		}
 		if input.Pressed("QuickSave") {
 			save.Save("quick")
 		}

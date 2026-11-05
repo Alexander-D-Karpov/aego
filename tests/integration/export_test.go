@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -325,7 +326,7 @@ func TestCanonicalPlatformerReleaseFinish(t *testing.T) {
 	}
 	const finish = "fb3a738501b6010f2a581840c6194e41"
 	const by = "c0000000000000000000000000000003"
-	for _, frames := range []string{"1775", "2400"} {
+	for _, frames := range []string{strconv.Itoa(lightingFinishTick - 1), "2400"} {
 		cmd := exec.Command(releaseBin, "--headless", "--frames", frames, "--seed", "42",
 			"--replay", replay, "--observe-checkpoint", finish)
 		cmd.Dir = t.TempDir()
@@ -343,7 +344,7 @@ func TestCanonicalPlatformerReleaseFinish(t *testing.T) {
 		}
 		want := player.CheckpointObservation{Node: finish}
 		if frames == "2400" {
-			want.By, want.Tick, want.Count = by, 1776, 1
+			want.By, want.Tick, want.Count = by, lightingFinishTick, 1
 		}
 		if observed != want {
 			t.Fatalf("frame %s: observed %+v, want %+v", frames, observed, want)

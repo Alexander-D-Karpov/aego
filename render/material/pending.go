@@ -13,10 +13,7 @@ func (c *Cache) Pending(m *Material) bool {
 	return tracked && c.reloads[m.shader] != nil
 }
 
-// ClonePendingDefinition returns the latest queued material source, if any.
-// A texture refresh must preserve a not-yet-committed material edit instead of
-// rebuilding from the older live definition. The returned copy is CPU-only.
-// A shader-only reload has no explicit material definition and returns nil.
+// ClonePendingDefinition copies the latest queued material source on CPU so texture refresh preserves uncommitted edits; shader-only reloads return nil.
 func (c *Cache) ClonePendingDefinition(m *Material) (*Material, error) {
 	if c == nil || m == nil {
 		return nil, nil

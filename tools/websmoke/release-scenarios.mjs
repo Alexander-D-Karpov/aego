@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const finish = "fb3a738501b6010f2a581840c6194e41";
 const player = "c0000000000000000000000000000003";
+const finishTick = 1810;
 const stats = page => page.evaluate(() => JSON.parse(globalThis.aegoGame.stats()));
 const wait = (page, fn, arg) => page.waitForFunction(fn, arg, { polling: 100, timeout: 60000 });
 
@@ -52,7 +53,7 @@ export async function releaseScenario(name, page, base, result, advance, capture
         const first = await page.evaluate(() => globalThis.__lightingReplay.firstFrame);
         assert(first && first.frames === 1 && first.ticks === 0, "canonical startup must be zero-delta");
         result.samples = [{ frame: first.frames, tick: first.ticks, checkpoint: first.checkpoint }];
-        for (const frame of [75, 213, 224, 260, 1775, 1777, 2400]) {
+        for (const frame of [75, 213, 224, 260, finishTick, finishTick + 2, 2400]) {
             await advance(page, frame, 1200000);
             const s = await stats(page);
             result.samples.push({ frame: s.frames, tick: s.ticks, checkpoint: s.checkpoint, postFXFailures: s.postFXFailures });
@@ -60,8 +61,8 @@ export async function releaseScenario(name, page, base, result, advance, capture
             assert.equal(s.frames, frame);
             assert.equal(s.ticks, frame - 1);
             assert.equal(s.postFXFailures, 0);
-            if (s.ticks < 1776) assert.deepEqual(s.checkpoint, { node: finish, tick: 0, count: 0 });
-            else assert.deepEqual(s.checkpoint, { node: finish, by: player, tick: 1776, count: 1 });
+            if (s.ticks < finishTick) assert.deepEqual(s.checkpoint, { node: finish, tick: 0, count: 0 });
+            else assert.deepEqual(s.checkpoint, { node: finish, by: player, tick: finishTick, count: 1 });
         }
     } else if (name === "topdown") {
         const before = await stats(page);

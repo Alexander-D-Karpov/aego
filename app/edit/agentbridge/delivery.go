@@ -21,6 +21,9 @@ import (
 func (b *Bridge) deliveryTools() []mcp.Tool {
 	return []mcp.Tool{
 		{Name: "project_create_empty", Description: "Create a new empty, script-only project beside this project with explicit user approval. The new project has its own editor session.", Schema: visualSchema([]string{"name"}, map[string]any{"name": map[string]any{"type": "string"}}), Output: b.newProject},
+		{Name: "editor_save_document", Description: "With user approval, save one named open scene, script or asset through its editor save handler. Does not save other open documents.", Schema: documentToolSchema(), Output: b.saveDocument},
+		{Name: "editor_undo", Description: "With user approval, undo one step in the named open document's editor history.", Schema: documentToolSchema(), Output: b.undoDocument},
+		{Name: "editor_redo", Description: "With user approval, redo one step in the named open document's editor history.", Schema: documentToolSchema(), Output: b.redoDocument},
 		{Name: "project_save_documents", Description: "Ask the editor to save the open documents through their normal save handlers before strict export.", Schema: visualSchema(nil, map[string]any{}), Output: b.saveDocuments},
 		{Name: "project_export_game", Description: "Build a release export of this saved, script-only project into a fresh project-local folder. Requires approval independently of Auto-apply.", Schema: visualSchema([]string{"target"}, map[string]any{"target": map[string]any{"type": "string", "enum": []string{"web", "host", "linux", "windows", "darwin"}}}), Output: b.exportGame},
 		{Name: "project_run_export", Description: "Launch the last successful export from this conversation on this machine with explicit approval. Web is served on loopback.", Schema: visualSchema(nil, map[string]any{}), Output: b.runExport},
@@ -33,6 +36,23 @@ func (b *Bridge) permit(action string, gen uint64) error {
 }
 
 func (b *Bridge) permitScoped(action string, gen uint64, scope string) error {
+	return b.askPermit(action, gen, scope, false)
+}
+
+func (b *Bridge) permitPlaytest(action string, gen uint64) error {
+	if b.cancelled(gen) {
+		return errCancelled
+	}
+	if b.PlanOnly() {
+		return errPlanOnly
+	}
+	if b.cfg.PlaytestTrust.Allowed() {
+		return nil
+	}
+	return b.askPermit(action, gen, "", true)
+}
+
+func (b *Bridge) askPermit(action string, gen uint64, scope string, playtest bool) error {
 	if b.cancelled(gen) {
 		return errCancelled
 	}
@@ -47,13 +67,20 @@ func (b *Bridge) permitScoped(action string, gen uint64, scope string) error {
 	ch := make(chan int, 1)
 	if err := b.main(func() {
 		if b.cancelled(gen) || b.PlanOnly() {
-			ch <- 1
+			ch <- -1
 			return
 		}
-		buttons := []string{i18n.Tr("editor.agent.allow_once", "Allow once"), i18n.Tr("editor.agent.deny", "Deny")}
-		if scope != "" {
-			buttons = append(buttons, i18n.Tr("editor.agent.allow_session_scope", "Allow this action for this project conversation"))
+		first := i18n.Tr("editor.agent.allow_once", "Allow once")
+		if playtest {
+			first = i18n.Tr("editor.agent.allow_conversation", "Allow session")
 		}
+		buttons := []string{first}
+		if scope != "" {
+			buttons = append(buttons, i18n.Tr("editor.agent.allow_session_scope", "Allow session"))
+		} else if playtest && b.cfg.PlaytestTrust != nil {
+			buttons = append(buttons, i18n.Tr("editor.agent.allow_always", "Allow always"))
+		}
+		buttons = append(buttons, i18n.Tr("editor.agent.deny", "Deny"))
 		b.ctx.Ask(context.Question{Title: i18n.Tr("editor.agent.project_operation", "Agent project operation"), Message: action + "\n" + b.ctx.Project.Root, Buttons: buttons, Then: func(n int) {
 			select {
 			case ch <- n:
@@ -70,14 +97,19 @@ func (b *Bridge) permitScoped(action string, gen uint64, scope string) error {
 	for {
 		select {
 		case choice := <-ch:
-			if choice != 0 && (choice != 2 || scope == "") {
+			extra := choice == 1 && (scope != "" || playtest && b.cfg.PlaytestTrust != nil)
+			if choice != 0 && !extra {
 				return errors.New("user declined project operation")
 			}
 			if b.cancelled(gen) || b.PlanOnly() {
 				return errCancelled
 			}
-			if choice == 2 {
+			if extra && scope != "" {
 				b.grants.Store(scope, gen)
+			} else if extra {
+				if err := b.cfg.PlaytestTrust.Allow(); err != nil {
+					return fmt.Errorf("cannot save playtest permission: %w", err)
+				}
 			}
 			return nil
 		case <-tick.C:

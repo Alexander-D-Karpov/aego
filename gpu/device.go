@@ -53,18 +53,14 @@ type BackbufferReader interface {
 	ReadBackbuffer(w, h int, out []byte) error
 }
 
-// TextureReader exposes subresource readback for diagnostics and integration
-// tests. Bytes are RGBA8; float data is RGBA float32 for a RGBA16F target. Row
-// orientation matches ReadPixels; callers producing images retain their usual
-// top-down conversion. Public screenshots use the display-resolved RGBA8 target.
+// TextureReader reads diagnostic/test subresources: bytes are RGBA8; floats are RGBA float32 from RGBA16F.
+// Rows follow ReadPixels (convert images top-down); public screenshots use display-resolved RGBA8.
 type TextureReader interface {
 	ReadTexturePixels(t TextureHandle, sub TextureSubresource, x, y, w, h int, out []byte) error
 	ReadTexturePixelsFloat(t TextureHandle, sub TextureSubresource, x, y, w, h int, out []float32) error
 }
 
-// RenderTargetValidator checks the exact attachment subresources (including
-// framebuffer completeness on real devices) before a caller commits an output
-// mode. A failed HDR target can then fall back before any draw is submitted.
+// RenderTargetValidator checks exact attachment subresources, including real-device framebuffer completeness, before committing an output mode so failed HDR targets can fall back before drawing.
 type RenderTargetValidator interface{ ValidateRenderTarget(PassDesc) error }
 
 // TextureDescriber exposes an owned texture's immutable allocation description
@@ -73,10 +69,8 @@ type TextureDescriber interface {
 	TextureInfo(TextureHandle) (TextureDesc, bool)
 }
 
-// OmitMismatchedDepth preserves the original BeginPass behavior for a pair of
-// ordinary 2D base-level textures of different sizes. It may only drop depth;
-// callers must still validate the original color target and never redirect a
-// failed draw to the window. ValidateRenderTarget always validates both inputs.
+// OmitMismatchedDepth drops only depth for differently sized ordinary 2D base levels, preserving BeginPass behavior.
+// Validate the original color target; never redirect failure to the window. ValidateRenderTarget checks both inputs.
 func (p *PassDesc) OmitMismatchedDepth(d TextureDescriber) bool {
 	if p.Target.IsZero() || p.DepthTarget.IsZero() || p.TargetSubresource != (TextureSubresource{}) || p.DepthSubresource != (TextureSubresource{}) {
 		return false

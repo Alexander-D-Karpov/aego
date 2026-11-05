@@ -64,6 +64,9 @@ func (a *App) registerPalette() error {
 }
 
 func (a *App) drawPalette() {
+	if a.full {
+		a.addPal.CloseCreateMenu()
+	}
 	if len(a.modals) > 0 && a.addPal.Active() {
 		a.addPal.Close()
 	}

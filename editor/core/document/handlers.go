@@ -37,10 +37,8 @@ func (c Capabilities) Names() []string {
 	return out
 }
 
-// Handler registers an existing document presentation. TextSource is an
-// explicit promise that source bytes are UTF-8 text; the manager never guesses
-// this from bytes or opens an unregistered binary in the code editor.
-// Roles optionally specialize a handler for semantic roles of the same kind.
+// Handler registers a presentation; TextSource promises UTF-8 source, and Roles specialize same-kind handlers by semantic role.
+// The manager neither guesses text from bytes nor opens unregistered binaries in the code editor.
 type Handler struct {
 	ID           string
 	Name         i18n.Text
@@ -101,9 +99,7 @@ func (r *HandlerRegistry) Unregister(id string) {
 
 func (r *HandlerRegistry) All() []Handler { return slices.Clone(r.entries) }
 
-// Resolve prefers an explicit semantic role, then a kind, then an extension
-// when an import has not produced a kind yet. Registration order is not a
-// priority mechanism. Unhandled formats receive an honest read-only view.
+// Resolve prefers semantic role, then kind, then extension if no kind exists; registration order gives no priority, and unhandled formats get a read-only view.
 func (r *HandlerRegistry) Resolve(kind asset.ArtifactKind, name, role string) Handler {
 	ext := strings.ToLower(path.Ext(name))
 	best, score := Handler{}, 0

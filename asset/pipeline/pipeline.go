@@ -170,9 +170,8 @@ func (p *Pipeline) Artifacts() vfs.FS {
 	return p.artifacts
 }
 
-// ReadSnapshot keeps import commits out while a consumer copies the current
-// index and artifact bytes. The callback must not call back into the pipeline.
-// Its index is already a private copy; the VFS is valid only for this read.
+// ReadSnapshot prevents import commits while copying index/artifacts; its index is private and its VFS expires after the callback.
+// The callback must not reenter the pipeline.
 func (p *Pipeline) ReadSnapshot(read func(*asset.Index, vfs.FS)) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -865,8 +864,7 @@ func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
 		p.log.Error("rescan failed", log.F("err", err.Error()))
 		return nil
 	}
-	// A missing supplemental input has no previous AssetID dependency. Recheck
-	// these cache keys on a file event so creating it can repair a failed import.
+	// Missing supplemental inputs have no prior AssetID dependency, so recheck keys on file events to repair failures.
 	// Unchanged keys still avoid compilation and artifact writes.
 	for id, r := range p.byID {
 		if _, ok := r.importer.(CacheSalter); ok && len(paths) > 0 {

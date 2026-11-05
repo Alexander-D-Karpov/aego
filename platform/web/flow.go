@@ -4,10 +4,7 @@ import "math"
 
 const ringFrames = 8192
 
-// sharedTargetBlocks reserves at least one mixer block beyond the context's
-// reported base latency. It is a conservative estimate, not a guarantee about
-// browser scheduling. The reserve must fit both the ring and the runtime's
-// twelve-block pacing limit.
+// sharedTargetBlocks estimates one block beyond reported base latency, bounded by the ring and twelve-block pacing limit; browser scheduling is not guaranteed.
 func sharedTargetBlocks(latency float64, rate, frames int) int {
 	if frames <= 0 {
 		return 3

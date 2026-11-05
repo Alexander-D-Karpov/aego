@@ -415,9 +415,7 @@ func (s *Session) materialAssign(a Args) (*Output, error) {
 	return s.sceneTx(a, "Assign Material", mutate.SetValue(a.Str("node"), component+".material", aetext.Value{Kind: aetext.VAsset, Str: id.String()}))
 }
 
-// Source-only command sessions expose the same material definitions as runtime
-// resolvers. They never create GPU handles or claim that reference validation
-// is a real device link.
+// Source-only sessions resolve runtime material definitions without GPU handles or device-link validation.
 func (r sources) Shader(id ids.AssetID) (*material.Shader, bool) {
 	data, builtin := asset.BuiltinShader(id)
 	if !builtin {

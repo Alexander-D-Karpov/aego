@@ -51,7 +51,7 @@ Changes to reference images require review of the actual differences. The measur
 
 ## Stage 12 standalone release checks
 
-Run these commands from `tools/websmoke` against a fresh web release of `examples/platformer`. Supply absolute output paths. Each run records the browser version, renderer, WASM and data manifest hashes and exits nonzero on failure. The finish check replays the canonical seed-42 input, observes the Player's actual checkpoint signal on tick 1776 and verifies its count at frame 2400. The restore case measures independent real WebGL loss, restoration, subsequent frames and PostFX execution.
+Run these commands from `tools/websmoke` against a fresh web release of `examples/platformer`. Supply absolute output paths. Each run records the browser version, renderer, WASM and data manifest hashes and exits nonzero on failure. The finish check replays the canonical seed-42 input, observes the Player's actual checkpoint signal on tick 1810 and verifies its count at frame 2400. The restore case measures independent real WebGL loss, restoration, subsequent frames and PostFX execution.
 
 ```sh
 node platformer-lighting.mjs --scenario=finish --root=/tmp/aego-release/web --out=/tmp/aego-release/check-finish

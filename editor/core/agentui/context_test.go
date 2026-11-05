@@ -62,6 +62,32 @@ func TestLayoutAddsUpToUsage(t *testing.T) {
 	}
 }
 
+func TestMeasuredLayoutAfterCompactionDoesNotInventTokens(t *testing.T) {
+	m := session()
+	m.SetWindow(400_000)
+	m.Usage(250_000)
+	var l Layout
+	m.Layout(&l)
+	if l.Window != 400_000 || l.Used != 250_000 || l.Fraction() != 0.625 {
+		t.Fatalf("provider window or usage was not preserved: %+v", l)
+	}
+	m.Compacted()
+	m.Usage(100)
+	m.Layout(&l)
+	total := 0
+	for _, r := range l.Rows {
+		total += r.Tokens
+	}
+	if total != 100 || l.Used != 100 {
+		t.Fatalf("categories add to %d for measured usage %d", total, l.Used)
+	}
+	m.SetWindow(16_000)
+	m.Layout(&l)
+	if l.Buffer > l.Window/4 || l.NearCompaction() {
+		t.Fatalf("small model starts near compaction: %+v", l)
+	}
+}
+
 // A dropped result is left out of the rebuilt history, a pinned one goes in full, the rest as summaries.
 func TestProjectionDropsAndPins(t *testing.T) {
 	m := session()

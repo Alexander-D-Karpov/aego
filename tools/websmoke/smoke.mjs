@@ -86,9 +86,7 @@ const stats = async () => (await call("poll")).stats;
 
 async function compare(name) {
     await page.evaluate(() => ($("game-hint").hidden = true));
-    // Fractional document Y (for example 54.59375px after a font/layout change)
-    // makes locator screenshots round a 351px canvas outwards to 352px. Snap only
-    // its document origin for capture; do not resize pixels or alter the golden.
+    // Fractional document Y (e.g. 54.59375px) can round a 351px canvas screenshot out to 352px; snap only the capture origin without resizing pixels or altering the golden.
     const canvas = page.locator("#game");
     const translate = await canvas.evaluate(c => {
         const old = c.style.translate;

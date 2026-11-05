@@ -7,11 +7,8 @@ import (
 	"fmt"
 )
 
-// A LUT's horizontal strip is data, never an atlas cell or sRGB colour image.
-// Resolve through the scene loader, so reimport/context restore cannot leave
-// stale texture and material handles cached inside a stable numeric stack.
-// PreparePostProcess resolves the authored stack's phase and texture/material inputs
-// for a private editor preview using exactly the same validation as a game frame.
+// PreparePostProcess validates a private editor preview's authored phases/inputs as in a game frame; the scene loader prevents stale
+// texture/material handles across reimport/restore, even for stable numeric stacks. LUTs are horizontal data strips, never atlas cells or sRGB images.
 func PreparePostProcess(reg *postfx.Registry, dst *postfx.Plan, c *PostProcess, res asset.Resolver, gpuRequired bool) error {
 	src, _ := res.(postfx.MaterialSource)
 	if err := reg.BuildWithMaterials(dst, c.Enabled, c.Effects, postfx.Profile{}, src); err != nil {

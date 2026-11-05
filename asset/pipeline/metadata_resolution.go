@@ -9,9 +9,8 @@ import (
 	"aego/project"
 )
 
-// resolveMetadata runs while the pipeline owns its normal import lock. Importers
-// cannot write metadata or mutate the record; a stable reference is persisted
-// before an artifact using it can be published.
+// resolveMetadata runs under the import lock; importers cannot write metadata or mutate the record.
+// Stable references are persisted before publishing artifacts that use them.
 func (p *Pipeline) resolveMetadata(r *record, ctx *ImportContext) error {
 	resolver, ok := r.importer.(MetadataResolver)
 	if !ok {

@@ -295,9 +295,8 @@ func TestPostFXAndParticlePresetThumbnails(t *testing.T) {
 	}
 }
 
-// Exercise first thumbnail generation, shader/material selection and the document
-// tab on a real GPU. An ordinary sprite fallback would be colourful too, so
-// compare Cold against the same shader at Strength=0 in linear colour.
+// Exercise first thumbnail generation, shader/material selection and the document tab on a real GPU.
+// A sprite fallback is also colourful, so compare Cold with the same shader at Strength=0 in linear colour.
 func TestColdPostMaterialPreviewAndThumbnail(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

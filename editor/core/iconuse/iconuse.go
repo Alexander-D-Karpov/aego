@@ -39,6 +39,7 @@ var Editor = []module.IconUse{
 	use("agent.presence", 16, "Where the agent works: Hierarchy, Inspector, Scene View and code"),
 	use("cat.engine", 14, "Agent panel: steps that read component types"),
 	use("cat.node", 16, "Search: node results; Add Component and Create: category"),
+	use("cat.particles", 16, "Add Component and Create: Effects category"),
 	use("cat.rendering", 16, "Search: mesh assets; Add Component and Create: category"),
 	use("cat.scripts", 16, "Search: script symbols; Add Component and Create: category"),
 	use("cat.settings", 16, "References: the project file; Add Component and Create: category"),

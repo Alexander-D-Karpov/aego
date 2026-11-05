@@ -11,11 +11,8 @@ import (
 	"aego/vfs"
 )
 
-// PreviewMetadata builds a working surface generation for Undo/Redo of a saved
-// metadata document. Existing importers and group finalizers create the batch;
-// all produced artifacts live in a private VFS. Neither source, persistent
-// import keys, index, sidecars, nor disk cache are changed. Callers publish only
-// after checking their document revision and device/context generation.
+// PreviewMetadata builds an Undo/Redo surface generation for saved metadata using existing importers and group finalizers; artifacts live in a private VFS.
+// Source, persistent import keys, index, sidecars and disk cache stay unchanged; callers must check document revision and device/context generation before publishing.
 func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func(string) ([]byte, bool)) (*Batch, vfs.FS, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

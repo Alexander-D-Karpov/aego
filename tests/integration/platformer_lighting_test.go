@@ -29,6 +29,7 @@ var updateLightingRoute = flag.Bool("update-lighting-route", false, "record the 
 
 const lightingRouteFile = "testdata/platformer_lighting_route.aeinput"
 const lightingRouteFrames = 2400
+const lightingFinishTick = 1810
 
 // gameplayDigest excludes presentation-only lighting nodes and rendering
 // caches. It compares actual actors, physics, health and player gameplay state.
@@ -89,9 +90,7 @@ func gameplayDigest(pf *platformer) uint64 {
 	return h.Sum64()
 }
 
-// The first area retains the original regression route. The continuation uses
-// normal Input Actions to traverse the existing platforms, with no teleports,
-// collider edits, speed changes, health changes or gameplay RNG consumption.
+// First area keeps the regression route; continuation crosses existing platforms via Input Actions: no teleports, collider edits, speed/health changes or gameplay RNG use.
 func recordLightingRoute(t *testing.T) []byte {
 	t.Helper()
 	pf := openPlatformer(t)

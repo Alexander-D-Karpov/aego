@@ -215,9 +215,7 @@ received:
 	t.Fatal("provider transport returned no PNG image block")
 }
 
-// Re-open every authored particle preset repeatedly through its normal document
-// route. After warmup each cycle must retire its preview world, panel and GPU
-// resources. The scene, asset source and undo cursor stay unchanged.
+// Reopen each authored preset through its document route; after warmup each cycle must retire the preview world, panel and GPU resources without changing the scene, asset source or undo cursor.
 func TestParticlePresetThirtyEditorCyclesGL(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

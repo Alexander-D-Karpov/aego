@@ -38,9 +38,7 @@ type Draw struct {
 	FlipY            bool
 	Material         *material.Material
 	Lanes            *[16]float32
-	// Linear replaces Scale and Rotation when HasLinear is true. It is the
-	// complete local-to-world 2x2 basis in column-major order, including shear
-	// and reflection. Position is still the translation.
+	// Linear replaces Scale and Rotation when HasLinear: it is the complete column-major local-to-world 2x2 basis, including shear and reflection; Position remains the translation.
 	Linear    [4]float32
 	HasLinear bool
 	// Normal uses its own atlas region in source-canvas coordinates. Its UVs
@@ -79,9 +77,7 @@ func (d *Draw) WorldSize(pixelsPerUnit float32) mathx.Vec2 {
 	return base.Mul(d.scale())
 }
 
-// SetTransform preserves the exact presentation basis when it cannot be
-// represented by the legacy positive-scale rotation path. Ordinary sprites
-// keep the original 52-byte stream without an auxiliary upload.
+// SetTransform preserves the exact presentation basis when the legacy positive-scale rotation path cannot represent it; ordinary sprites retain the 52-byte stream without an auxiliary upload.
 func (d *Draw) SetTransform(m mathx.Mat3) {
 	d.Position = mathx.Vec2{X: m[6], Y: m[7]}
 	d.Linear = [4]float32{m[0], m[1], m[3], m[4]}

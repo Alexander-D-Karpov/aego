@@ -20,6 +20,10 @@ import (
 )
 
 func observeLandings(t *testing.T, pf *platformer, fn func()) func() {
+	return observeMotionEvent(t, pf, "Landed", fn)
+}
+
+func observeMotionEvent(t *testing.T, pf *platformer, name string, fn func()) func() {
 	t.Helper()
 	hub, ok := engine.ServiceOf[signals.Hub](pf.app.Engine.MainWorld(), signals.ServiceID)
 	if !ok {
@@ -28,7 +32,7 @@ func observeLandings(t *testing.T, pf *platformer, fn func()) func() {
 	td, ok := pf.app.Scene.Registry().ByName(gameplay.NameMotion)
 	if ok {
 		for i, signal := range td.Signals {
-			if signal.Name != "Landed" {
+			if signal.Name != name {
 				continue
 			}
 			src := signals.Source{Kind: signals.KindComponent, A: bind.NodeValue(pf.player).A, B: uint64(td.ID)}
@@ -38,7 +42,7 @@ func observeLandings(t *testing.T, pf *platformer, fn func()) func() {
 			}
 		}
 	}
-	t.Fatal("could not observe Player.Motion2D.Landed")
+	t.Fatalf("could not observe Player.Motion2D.%s", name)
 	return nil
 }
 
@@ -63,8 +67,10 @@ func TestPlatformerLandingDustRoute(t *testing.T) {
 		}
 		var hits []checkpointReached
 		stopCheckpoints := observePlayerCheckpoints(t, pf, &hits)
-		landings := uint64(0)
+		landings, jumps, climbs := uint64(0), uint64(0), uint64(0)
 		stopLandings := observeLandings(t, pf, func() { landings++ })
+		stopJumps := observeMotionEvent(t, pf, "Jumped", func() { jumps++ })
+		stopClimbs := observeMotionEvent(t, pf, "Climbed", func() { climbs++ })
 		dust := pf.app.Scene.Find(pf.player, "Dust")
 		lantern := pf.app.Scene.Find(pf.app.Scene.Root(), "StartLantern")
 		embers := pf.app.Scene.Find(lantern, "Embers")
@@ -81,8 +87,8 @@ func TestPlatformerLandingDustRoute(t *testing.T) {
 			if !enabled && (stats.Spawned != 0 || stats.Alive != 0 || stats.Submitted != 0) {
 				t.Fatalf("disabled dust at frame %d: %+v", frame, stats)
 			}
-			if enabled && (fx.Emitted(dust) != 8*landings || stats.Dropped != 0) {
-				t.Fatalf("frame %d: %d landings, %+v", frame, landings, stats)
+			if enabled && (fx.Emitted(dust) != 8*landings+5*jumps+6*climbs || stats.Dropped != 0) {
+				t.Fatalf("frame %d: landings=%d jumps=%d climbs=%d emitted=%d, %+v", frame, landings, jumps, climbs, fx.Emitted(dust), stats)
 			}
 			peak = max(peak, stats.Alive)
 			digest := gameplayDigest(pf)
@@ -104,10 +110,12 @@ func TestPlatformerLandingDustRoute(t *testing.T) {
 			}
 		}
 		stopLandings()
+		stopJumps()
+		stopClimbs()
 		stopCheckpoints()
 		pf.noFaults(t)
 		finish := pf.app.Scene.Find(pf.app.Scene.Root(), "Finish")
-		if len(hits) < 2 || hits[len(hits)-1].point != pf.app.Scene.ID(finish) || hits[len(hits)-1].tick != 1776 {
+		if len(hits) < 2 || hits[len(hits)-1].point != pf.app.Scene.ID(finish) || hits[len(hits)-1].tick != lightingFinishTick {
 			t.Fatalf("particles=%v: missing expected Finish: %+v", enabled, hits)
 		}
 		if !enabled {
@@ -115,8 +123,8 @@ func TestPlatformerLandingDustRoute(t *testing.T) {
 		} else if !slices.Equal(referenceHits, hits) || landings < 2 || peak == 0 || fx.Emitted(smoke) == 0 || fx.Emitted(embers) == 0 {
 			t.Fatalf("checkpoint or dust event mismatch: %+v; landings=%d peak=%d", hits, landings, peak)
 		}
-		t.Logf("particles=%v frames=%d finish=%d landings=%d dust=%d sparks=%d smoke=%d spawned=%d peak=%d gameplayRouteSHA=%x world=%x",
-			enabled, lightingRouteFrames, hits[len(hits)-1].tick, landings, fx.Emitted(dust), fx.Emitted(embers), fx.Emitted(smoke), fx.Stats().Spawned, peak, routeHash.Sum(nil), hashes[len(hashes)-1])
+		t.Logf("particles=%v frames=%d finish=%d landings=%d jumps=%d climbs=%d dust=%d sparks=%d smoke=%d spawned=%d peak=%d gameplayRouteSHA=%x world=%x",
+			enabled, lightingRouteFrames, hits[len(hits)-1].tick, landings, jumps, climbs, fx.Emitted(dust), fx.Emitted(embers), fx.Emitted(smoke), fx.Stats().Spawned, peak, routeHash.Sum(nil), hashes[len(hashes)-1])
 	}
 }
 

@@ -21,9 +21,8 @@ const (
 	regionSize        = 88
 )
 
-// TextureSemantic describes imported pixel meaning. Only color pixels are
-// premultiplied. Emission RGB is straight and may use an sRGB format. Normal RGB uses tangent +Y up in
-// source-image coordinates; mask and height channels remain linear data.
+// TextureSemantic describes imported pixels: only color is premultiplied; emission RGB is straight and may be sRGB.
+// Normal RGB is tangent +Y up in source-image coordinates; mask and height channels are linear data.
 type TextureSemantic uint8
 
 const (

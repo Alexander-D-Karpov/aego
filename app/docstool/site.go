@@ -195,7 +195,10 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	args = append(args, "-icons", strings.Join(icons, ","))
 	if shots := filepath.Join(e.Engine, "docs", "shots"); fileExists(filepath.Join(shots, "demo.png")) {
-		args = append(args, "-poster", filepath.Join(shots, "demo.png"), "-shots", shots)
+		args = append(args, "-shots", shots)
+	}
+	if poster := demoPoster(e.Engine); poster != "" {
+		args = append(args, "-poster", poster)
 	}
 	if hero := filepath.Join(e.Engine, "docs", "hero.png"); fileExists(hero) {
 		args = append(args, "-hero", hero)
@@ -204,6 +207,17 @@ func (e *Env) Build(out string, play bool) error {
 		return fmt.Errorf("gendocs failed: %w", err)
 	}
 	return nil
+}
+
+// The landing page poster represents the current game; editor screenshot
+// fixtures intentionally use a historical scene for reproducible docs shots.
+func demoPoster(root string) string {
+	for _, name := range []string{"docs/demo-poster.png", "docs/shots/demo.png"} {
+		if p := filepath.Join(root, filepath.FromSlash(name)); fileExists(p) {
+			return p
+		}
+	}
+	return ""
 }
 
 func (e *Env) tryApp(dir string) (string, error) {

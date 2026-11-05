@@ -120,9 +120,7 @@ async function check(name, result) {
         result.renderer = ready.stats.renderer;
         const xdo = (...args) => execFileSync("xdotool", args, { encoding: "utf8", timeout: 10000 }).trim();
         const win = xdo("search", "--sync", "--onlyvisible", "--name", token).split("\n").at(-1);
-        // A fresh Firefox profile may open a Privacy Notice between the game
-        // and the new tab. Clicking the launched game's first tab is an actual
-        // browser action and does not assume that only two tabs exist.
+        // A fresh Firefox profile may insert a Privacy Notice tab; click the game's first tab rather than assuming only two tabs exist.
         const showGameTab = () => {
             xdo("mousemove", "--window", win, "80", "20");
             xdo("click", "1");

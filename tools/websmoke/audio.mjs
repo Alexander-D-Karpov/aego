@@ -37,9 +37,7 @@ function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
 
-// Playwright's evaluate/waitForFunction can supply a synthetic user gesture.
-// Audio state and autoplay probes must not activate the page before the real
-// pointer input below, including while the exported game's first frame starts.
+// Playwright evaluate/waitForFunction can synthesize gestures; audio/autoplay probes must not activate the page before real pointer input, even during startup.
 async function scriptWithoutGesture(page) {
     const cdp = await page.context().newCDPSession(page);
     const js = async (expression) => {

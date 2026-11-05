@@ -9,9 +9,7 @@ import (
 	"aego/core/log"
 )
 
-// OpenSource opens the saved project source without creating a document or
-// reading its working journal. Callers own the file and may impose a format's
-// streaming/size limits before decoding it.
+// OpenSource opens saved source without creating a document or reading its working journal; callers own the file and may impose format-specific streaming/size limits before decoding.
 func (m *Manager) OpenSource(rel string) (fs.File, error) {
 	rel = Clean(rel)
 	if !validProjectPath(rel) {

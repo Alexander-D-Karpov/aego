@@ -34,7 +34,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own; Add Component and Create: category | ok |
 | `cat.gameplay` | engine | 16 | template menu Gameplay | ok |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
-| `cat.particles` | particles | 16 | template menu Effects | missing |
+| `cat.particles` | engine | 16 | Add Component and Create: Effects category; template menu Effects | ok |
 | `cat.physics` | engine | 16 | template menu Physics | ok |
 | `cat.render2d` | render2d | 16 | template menu Lighting | missing |
 | `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets; Add Component and Create: category | ok |
@@ -60,7 +60,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
 | `comp.script` | engine | 16 | Scripts component; Assets menu: Attach to Selected; component engine.Script | ok |
 | `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
-| `comp.sprite` | engine | 16 | Create: Material and Material from Shader; material asset inspector; component engine.Light2D; component engine.MaterialOverride; component engine.SpriteRenderer; component particles.ParticleSystem2D; template particles.dust; template particles.explosion; template particles.particle system; template particles.rain; template particles.smoke; template particles.spark; template render2d.directional-light; template render2d.point-light; template render2d.spot-light; template render2d.sprite; template render2d.sprite-light | ok |
+| `comp.sprite` | engine | 16 | Create: Material and Material from Shader; material asset inspector; component engine.Light2D; component engine.MaterialOverride; component engine.SpriteRenderer; template render2d.directional-light; template render2d.point-light; template render2d.spot-light; template render2d.sprite; template render2d.sprite-light | ok |
 | `comp.tags` | engine | 16 | component engine.Tags | ok |
 | `comp.vcam` | engine | 16 | component camera.VirtualCamera2D | ok |
 | `comp.zone` | engine | 16 | component camera.CameraZone2D | ok |
@@ -151,6 +151,12 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `panel.tasks` | engine | 16 | Task Center tab | ok |
 | `panel.watch` | engine | 16 | Watch tab; Follow in the Agent panel | ok |
 | `panel.welcome` | engine | 16 | Getting Started tab | ok |
+| `particles.dust` | engine | 16 | template particles.dust | ok |
+| `particles.explosion` | engine | 16 | template particles.explosion | ok |
+| `particles.rain` | engine | 16 | template particles.rain | ok |
+| `particles.smoke` | engine | 16 | template particles.smoke | ok |
+| `particles.spark` | engine | 16 | template particles.spark | ok |
+| `particles.system` | engine | 16 | component particles.ParticleSystem2D; template particles.particle system | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
 | `play.speed` | engine | 16 | Play → Time Scale… | ok |

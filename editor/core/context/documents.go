@@ -63,9 +63,7 @@ func (e *Editor) assetRequest(id ids.AssetID) (document.AssetRequest, error) {
 	return r, nil
 }
 
-// TextureAuthoringEnv resolves source dimensions, roles and frame rectangles
-// before packing. Dirty metadata buffers are authoritative for all views and
-// mutations; runtime atlas coordinates never become source authoring data.
+// TextureAuthoringEnv resolves source dimensions, roles and frame rectangles before packing; dirty metadata governs views and mutations, and runtime atlas coordinates never become source data.
 func (e *Editor) TextureAuthoringEnv(id ids.AssetID) (mutate.TextureEnv, error) {
 	if e.Pipeline == nil {
 		return mutate.TextureEnv{}, fmt.Errorf("asset index is unavailable")

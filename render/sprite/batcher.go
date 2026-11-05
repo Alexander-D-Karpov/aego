@@ -40,10 +40,8 @@ type state struct {
 	scissor bool
 }
 
-// Lighting bindings are interned only for Lit draws. Keeping their handles out
-// of every sortable state preserves the memory traffic of ordinary Unlit draws.
-// UV mappings stay in the instance stream and do not split otherwise compatible
-// neighbours. IDs are local to one frame and survive slice growth during Push.
+// Lighting bindings are interned only for Lit draws, keeping handles out of sortable state to preserve Unlit memory traffic.
+// UV mappings stay per-instance without splitting compatible neighbours; IDs are frame-local and survive slice growth during Push.
 type lightingState struct {
 	normal, emission gpu.TextureHandle
 	set              uint32

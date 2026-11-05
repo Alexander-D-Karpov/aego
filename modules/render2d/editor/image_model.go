@@ -102,10 +102,7 @@ func (p *imagePixels) pixel(x, y int) ([4]byte, bool) {
 	return [4]byte{p.data.Pixels[i], p.data.Pixels[i+1], p.data.Pixels[i+2], p.data.Pixels[i+3]}, true
 }
 
-// projection presents channel bytes as encoded display values. RGBA for a
-// color artifact preserves its original PMA/color-space contract; scalar and
-// RGB views deliberately ignore coverage so hidden/transparent pixels remain
-// inspectable. Pixel readout always reports p.data, not this projected image.
+// projection displays encoded channels: color RGBA keeps its PMA/color-space contract, scalar/RGB ignore coverage to expose hidden pixels, and readout uses p.data, not the projection.
 func (p *imagePixels) projection(channel imageChannel) (*texture.Data, error) {
 	if p == nil || channel > imageA {
 		return nil, fmt.Errorf("image channel is unavailable")

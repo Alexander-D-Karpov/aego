@@ -1075,6 +1075,9 @@ func (a *App) Update(dt float64) {
 	a.playDiff.Draw(ui)
 	a.renameDlg.Draw(ui)
 	a.drawScenePicker()
+	if a.agentP != nil {
+		a.agentP.DrawImageViewer(ui)
+	}
 	a.drawModals()
 	a.ctx.DnD.Frame(ui)
 	a.ext.Flush()

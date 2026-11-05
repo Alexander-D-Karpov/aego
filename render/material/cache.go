@@ -316,9 +316,7 @@ func (c *Cache) bindBlend(p gpu.Pass, m *Material, trim, aux bool, blend shader.
 	return true
 }
 
-// QueueReload replaces an older pending request for the same last-good shader.
-// Callbacks run only after all dependent resources are ready, at End (after every
-// view), so extraction in the next frame sees one coherent schema generation.
+// QueueReload replaces a last-good shader's pending request; callbacks run at End after all views, when dependencies are ready, for a coherent next-frame schema.
 func (c *Cache) QueueReload(old, next *Shader, mats []*Material, commit func()) uint64 {
 	c.CancelReload(old)
 	c.serial++
@@ -457,9 +455,7 @@ func (c *Cache) finishReload(r *reload) bool {
 			cleanup()
 			return false
 		}
-		// Prepare the layouts actually used by this material before publishing
-		// the candidate. Affine/normal and trim streams are pipeline state, not
-		// merely program state; a late layout failure must retain last-good too.
+		// Prepare the material's used layouts before publishing: affine/normal and trim streams are pipeline state, not just program state, and layout failure must retain last-good too.
 		usedLayout := false
 		for key := range c.pipes {
 			if key.sh != r.old || key.variant != m.variant || key.blend != m.blend {
@@ -579,10 +575,8 @@ func (c *Cache) End() {
 		}
 	}
 	for m, r := range c.isolated {
-		// A material switching to a shader candidate joins that candidate's
-		// outcome. It cannot make a failed group visible through another asset.
-		// The pointer preserves the terminal outcome after the group is removed
-		// from reloads, including cancellation by a newer source revision.
+		// A material switching to a shader candidate shares its outcome, so a failed group cannot become visible through another asset.
+		// The pointer retains the terminal state after removal from reloads, including cancellation by a newer source revision.
 		if dep := r.dependency; dep != nil && dep.state != reloadCommitted {
 			if dep.state == reloadPending {
 				continue

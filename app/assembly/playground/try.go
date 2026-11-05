@@ -43,9 +43,7 @@ func DecodeTry(code string) ([]*bytecode.Module, error) {
 	return mods, nil
 }
 
-// MountTry installs a documentation session's prefabs and optional prepared
-// artifacts. Validation completes before the previous mount/resources change.
-// Source textures/materials/shaders are never imported by this runtime path.
+// MountTry validates before replacing a documentation session's prefabs and optional prepared artifacts; it never imports source textures/materials/shaders.
 func MountTry(l *loader.Loader, prefabs map[string]string, prepared ...[]byte) error {
 	if l == nil || len(prepared) > 1 || len(prefabs) > asset.MaxTryAssets {
 		return fmt.Errorf("invalid try resource mount")
@@ -89,9 +87,7 @@ func MountTry(l *loader.Loader, prefabs map[string]string, prepared ...[]byte) e
 	if err != nil {
 		return err
 	}
-	// Mount itself only checks non-nil inputs; the new FS/index above are ready.
-	// Retire the old session before publishing the new index so Drop cannot
-	// remove a reused ID from the new manifest or leave its old GPU cache alive.
+	// Mount only checks non-nil inputs; retire the old session before publishing the ready FS/index so Drop cannot remove reused IDs or leave stale GPU caches.
 	var previous []ids.AssetID
 	if old := l.Index(); old != nil {
 		old.Each(func(entry *asset.Entry) {

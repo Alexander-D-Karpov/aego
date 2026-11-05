@@ -67,8 +67,11 @@ type Panel struct {
 	settingsRect mathx.Rect
 	explainRect  mathx.Rect
 	imageCache   []displayImage
+	imageViewer  imageViewer
 	composer     widgets.Multiline
 	draftImages  []draftImage
+	queue        []queuedMessage
+	queuePaused  bool
 	d            Deps
 	blocks       []block
 	old          []block
@@ -229,6 +232,7 @@ func (p *Panel) Decide(id int, apply bool) {
 
 func (p *Panel) Close() {
 	p.cancelModelLoad()
+	p.closeImageViewer(nil)
 	p.clearDraftImages()
 	p.dropImages()
 	p.d.Host.Close()
@@ -342,6 +346,13 @@ func (p *Panel) Tick() {
 	case !pending:
 		p.notified = false
 	}
+	if !host.Busy() && !pending && !p.queuePaused && len(p.queue) > 0 {
+		if p.sendPrepared(p.queue[0], false) {
+			p.removeQueued(0)
+		} else {
+			p.queuePaused = true
+		}
+	}
 }
 
 // redraw measures the block of a card again after its state changed; a decided card folds.
@@ -378,6 +389,9 @@ func (p *Panel) event(e agentui.Event) {
 	case agentui.EvError:
 		p.push(block{kind: blockError, text: e.Text})
 		p.record(agentui.Entry{Kind: "error", Text: e.Text})
+		if len(p.queue) > 0 {
+			p.queuePaused = true
+		}
 	case agentui.EvTurnEnd:
 		p.meta = i18n.Tr("editor.agent.turn_tools", "Tool calls: {n}; errors: {f}", i18n.Int("n", int64(p.toolCalls)), i18n.Int("f", int64(p.toolFailures)))
 		if info := turnMeta(e.Cost, e.Millis); info != "" {
@@ -405,19 +419,8 @@ func (p *Panel) send() { p.sendMessage(false) }
 
 func (p *Panel) sendMessage(explain bool) {
 	text := strings.TrimSpace(p.input)
-	if text == "" && len(p.draftImages) == 0 || p.d.Host.Busy() || p.viewing != "" {
+	if text == "" && len(p.draftImages) == 0 || p.viewing != "" {
 		return
-	}
-	if p.log == nil {
-		t, err := agentui.NewTranscript(p.d.Root, time.Now())
-		if err != nil {
-			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.agent.cannot_start_the_agent_session", "cannot start the agent session log: {error}", i18n.Str("error", err.Error())))
-		} else {
-			p.log, p.past = t, nil
-			if h, ok := p.d.Host.(agentui.ProviderHost); ok {
-				p.record(agentui.Entry{Kind: "session", Provider: h.Provider()})
-			}
-		}
 	}
 	full := text
 	for _, m := range p.picked {
@@ -430,14 +433,39 @@ func (p *Panel) sendMessage(explain bool) {
 	}
 	var imgs [][]byte
 	for _, im := range p.draftImages {
-		imgs = append(imgs, im.png)
+		imgs = append(imgs, append([]byte(nil), im.png...))
 	}
+	msg := queuedMessage{text: text, full: full, images: imgs}
+	if p.d.Host.Busy() || len(p.queue) > 0 {
+		if explain || !p.enqueue(msg) {
+			return
+		}
+	} else if !p.sendPrepared(msg, explain) {
+		return
+	}
+	p.clearDraftImages()
+	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
+}
+
+func (p *Panel) sendPrepared(msg queuedMessage, explain bool) bool {
+	if p.log == nil {
+		t, err := agentui.NewTranscript(p.d.Root, time.Now())
+		if err != nil {
+			p.d.Notices.Notify(context.LevelWarn, i18n.Note("editor.agent.cannot_start_the_agent_session", "cannot start the agent session log: {error}", i18n.Str("error", err.Error())))
+		} else {
+			p.log, p.past = t, nil
+			if h, ok := p.d.Host.(agentui.ProviderHost); ok {
+				p.record(agentui.Entry{Kind: "session", Provider: h.Provider()})
+			}
+		}
+	}
+	full, imgs := msg.full, msg.images
 	var sendErr error
 	if len(imgs) > 0 {
 		sender, ok := p.d.Host.(interface{ SendImages(string, [][]byte) error })
 		if !ok {
 			p.notice(i18n.Tr("editor.agent.image_unsupported", "This agent does not support image input."))
-			return
+			return false
 		}
 		sendErr = sender.SendImages(p.outgoing(full), imgs)
 	} else {
@@ -451,10 +479,9 @@ func (p *Panel) sendMessage(explain bool) {
 	}
 	if sendErr != nil {
 		p.notice(sendErr.Error())
-		return
+		return false
 	}
 	keys := p.storeImages(imgs)
-	p.clearDraftImages()
 	now := time.Now()
 	if p.d.Now != nil {
 		now = p.d.Now()
@@ -463,13 +490,13 @@ func (p *Panel) sendMessage(explain bool) {
 		p.push(block{kind: blockTurn, at: now})
 	}
 	if p.session == "" {
-		p.session = firstLine(text)
+		p.session = firstLine(msg.text)
 	}
-	p.push(block{kind: blockUser, text: text, at: now, images: keys})
+	p.push(block{kind: blockUser, text: msg.text, at: now, images: keys})
 	p.record(agentui.Entry{Kind: "user", Text: full, Images: keys})
-	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
+	p.stick = true
 	p.toolCalls, p.toolFailures = 0, 0
-
+	return true
 }
 
 // sendText sends text from a button: an example, Retry or Ask Agent to Fix; while the agent works it waits in the input.
@@ -491,11 +518,13 @@ func summary(c *agentui.Card) string {
 
 // NewSession ends the conversation and starts an empty transcript; the next message opens a new session log.
 func (p *Panel) NewSession() {
+	if len(p.queue) > 0 {
+		p.notice(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
+		return
+	}
 	p.clearDraftImages()
 	p.d.Host.Reset()
-	// Reset dismisses pending bridge work synchronously. Record its final state
-	// in the old log before closing it, so an immediate Send cannot put the old
-	// decisions or previously unseen cards/questions into the new session.
+	// Reset synchronously dismisses bridge work; log its final decisions and unseen cards/questions before closing the old log so an immediate Send cannot leak them into the new session.
 	p.cards = p.d.Host.Cards(p.cards[:0])
 	for i := range p.cards {
 		c := &p.cards[i]
@@ -555,12 +584,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		bar.H += wr.H
 	}
 	sendLabel := i18n.Tr("editor.agent.send", "Send")
-	if p.d.Host.Busy() {
-		sendLabel = i18n.Tr("editor.agent.stop", "Stop")
+	if p.d.Host.Busy() || len(p.queue) > 0 {
+		sendLabel = i18n.Tr("editor.agent.queue_send", "Queue")
 	}
 	footerW := max(0, r.W-2*th.Padding)
-	field, button := p.composerBoxes(ui, footerW, r.H-bar.H, sendLabel)
+	field, button, stop := p.composerBoxes(ui, footerW, r.H-bar.H, sendLabel, p.d.Host.Busy())
 	inputH := max(field.H, button.Y+button.H) + 2*th.Padding + 12
+	inputH += p.queueHeight(ui)
 	if len(p.draftImages) > 0 {
 		inputH += 54
 	}
@@ -573,7 +603,7 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	ui.Rect(mathx.Rect{X: r.X, Y: top - 1, W: r.W, H: 1}, th.Border)
 	p.transcript(ui, body, mathx.Rect{X: body.X + body.W + 2, Y: body.Y, W: th.ScrollbarW, H: body.H})
 	p.activity(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + 2, W: max(0, r.W-2*th.Padding), H: 10})
-	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding + 12, W: footerW, H: inputH - th.Padding - 12 + metaH}, field, button, sendLabel)
+	p.footer(ui, mathx.Rect{X: r.X + th.Padding, Y: body.Y + body.H + th.Padding + 12, W: footerW, H: inputH - th.Padding - 12 + metaH}, field, button, stop, sendLabel)
 	p.drawMentions(ui)
 }
 
@@ -717,6 +747,7 @@ func (p *Panel) sessionMenu(ui *core.Context) {
 		host.SetPlanOnly(!host.PlanOnly())
 	}
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.stop", "Stop"), "", "play.stop", host.Busy(), false) {
+		p.queuePaused = len(p.queue) > 0
 		host.Cancel()
 	}
 	widgets.EndContextMenu(ui)
@@ -833,12 +864,19 @@ func (p *Panel) pastCard(id int) *block {
 
 // Position the action below a narrow composer so the draft uses the whole
 // dock width. Wide composers keep a single-height button beside the last row.
-func (p *Panel) composerBoxes(ui *core.Context, width, height float32, label string) (field, button mathx.Rect) {
+func (p *Panel) composerBoxes(ui *core.Context, width, height float32, label string, busy bool) (field, button, stop mathx.Rect) {
 	button.W = min(width, ui.TextSize(label).X+24)
 	button.H = ui.Theme.RowHeight
 	button.X = width - button.W
-	field.W = max(0, width-button.W-6)
-	stacked := width < 300 && (len(p.draftImages) > 0 || strings.Contains(p.input, "\n") || ui.TextSize(p.input).X > field.W-10)
+	reserved := button.W + 6
+	if busy {
+		stop.W = min(max(0, width-button.W-6), ui.TextSize(i18n.Tr("editor.agent.stop", "Stop")).X+20)
+		stop.H = button.H
+		stop.X = max(0, button.X-stop.W-6)
+		reserved += stop.W + 6
+	}
+	field.W = max(0, width-reserved)
+	stacked := field.W < 100 || width < 300 && (len(p.draftImages) > 0 || strings.Contains(p.input, "\n") || ui.TextSize(p.input).X > field.W-10)
 	if stacked {
 		field.W = width
 	}
@@ -848,13 +886,19 @@ func (p *Panel) composerBoxes(ui *core.Context, width, height float32, label str
 	if stacked {
 		button.Y = field.H + ui.Theme.Spacing
 	}
+	stop.Y = button.Y
 	return
 }
 
-func (p *Panel) footer(ui *core.Context, r, fr, br mathx.Rect, label string) {
+func (p *Panel) footer(ui *core.Context, r, fr, br, stop mathx.Rect, label string) {
 	th := &ui.Theme
 	host := p.d.Host
 	y := r.Y
+	if len(p.queue) > 0 {
+		h := p.queueHeight(ui)
+		p.drawQueue(ui, mathx.Rect{X: r.X, Y: y, W: r.W, H: h})
+		y += h
+	}
 	if len(p.picked) > 0 {
 		x := r.X
 		for i := range p.picked {
@@ -877,6 +921,7 @@ func (p *Panel) footer(ui *core.Context, r, fr, br mathx.Rect, label string) {
 	}
 	fr.X, fr.Y = fr.X+r.X, fr.Y+y
 	br.X, br.Y = br.X+r.X, br.Y+y
+	stop.X, stop.Y = stop.X+r.X, stop.Y+y
 	locked := p.viewing != ""
 	busy := host.Busy()
 	id := ui.ID("message")
@@ -887,6 +932,7 @@ func (p *Panel) footer(ui *core.Context, r, fr, br mathx.Rect, label string) {
 	enter := !ui.Mods().Has(input.ModShift) && ui.Focus() == id && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
 	if !locked {
 		p.composer.Draw(ui, id, fr, &p.input, func() bool { return p.pasteImage(ui) })
+		p.dropMissingDraftImages()
 	} else {
 		ui.Box(fr, th.Radius.Field, th.Widget, th.Border)
 	}
@@ -903,11 +949,13 @@ func (p *Panel) footer(ui *core.Context, r, fr, br mathx.Rect, label string) {
 	}
 	p.prevLen = len(p.input)
 	p.dropMentions()
-	if busy {
-		if widgets.ButtonRect(ui, ui.ID("stop"), br, label) {
+	if busy && stop.W > 0 {
+		if widgets.ButtonRect(ui, ui.ID("stop"), stop, widgets.Elide(ui, i18n.Tr("editor.agent.stop", "Stop"), max(0, stop.W-8))) {
+			p.queuePaused = len(p.queue) > 0
 			host.Cancel()
 		}
-	} else if sent := primary(ui, ui.ID("send"), br, label, !locked && (strings.TrimSpace(p.input) != "" || len(p.draftImages) > 0)); sent || (enter && !locked) {
+	}
+	if sent := primary(ui, ui.ID("send"), br, label, !locked && (strings.TrimSpace(p.input) != "" || len(p.draftImages) > 0)); sent || (enter && !locked) {
 		p.send()
 		p.focus = true
 	}

@@ -1,8 +1,6 @@
 package shader
 
-// Lighting is an optional extension of ABI 1. Every array element is a vec4:
-// the std140 stride is 16, with no dependency on the layout of Go structs.
-// Main/normal/user[6]/shadow-array/cookie-array/emission use 0/1/2..7/8/9/10.
+// Lighting optionally extends ABI 1: array elements are vec4 with std140 stride 16 independent of Go struct layout; main/normal/user[6]/shadow-array/cookie-array/emission use 0/1/2..7/8/9/10.
 const (
 	LightingMaxLights = 8
 	LightingSize      = 16 + 5*LightingMaxLights*16

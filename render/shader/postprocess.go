@@ -46,9 +46,7 @@ vec4 aego_sample(vec2 localUV) {
 }
 `
 
-// PostProcessFragment is also used to build author materials. Keep their
-// sampler unchanged. The bounded variant is selected only for builtin passes
-// whose auxiliary kernel supplies the black RGB guard.
+// PostProcessFragment also builds author materials and must keep their sampler unchanged; only builtin passes whose auxiliary kernel supplies the black RGB guard use the bounded variant.
 const PostProcessFragment = postProcessSampling + `vec4 aego_aux(vec2 u){return texture(tex1,clamp(u*auxInfo.xy,vec2(.5),auxInfo.xy-.5)/vec2(textureSize(tex1,0)));}
 
 `

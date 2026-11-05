@@ -2,6 +2,7 @@ package enemy
 
 import (
 	"aego/audio"
+	"aego/math"
 	"mygame/shared"
 )
 
@@ -22,14 +23,31 @@ script EnemyAI {
 
 	var toB bool = true
 	var dead bool
+	var phase float
+	var deathTime float
+	var baseSize Vec2
 
 	func Ready() {
+		baseSize = node.Get<SpriteRenderer>().Size
 		node.Get<SpriteRenderer>().Tint = Stats.Tint
 		hit := node.Get<Hitbox2D>()
 		hit.Damage = Stats.Damage
 		hit.Period = Stats.Cooldown
 		node.Get<Health>().Died.Connect(OnDied)
 		node.Get<Animator>().StateEntered.Connect(OnState)
+	}
+
+	func Update(dt float) {
+		sprite := node.Get<SpriteRenderer>()
+		if dead {
+			deathTime += dt
+			t := math.Clamp(deathTime / 0.2, 0, 1)
+			sprite.Size = Vec2{baseSize.X * (1 + 0.35 * t), baseSize.Y * (1 - 0.55 * t)}
+		} else {
+			phase += dt * (8 + Stats.Speed * 2)
+			bounce := math.Sin(phase) * 0.06
+			sprite.Size = Vec2{baseSize.X * (1 - bounce), baseSize.Y * (1 + bounce)}
+		}
 	}
 
 	func FixedUpdate(dt float) {

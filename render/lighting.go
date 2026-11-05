@@ -12,10 +12,8 @@ import (
 	"fmt"
 )
 
-// ReleaseLightingView releases camera/output-owned auxiliary textures when an
-// isolated preview closes. Call between completed views or outside a frame;
-// outputID must be owned exclusively by the closing session. Renderer-wide
-// shaders, samplers and reusable UBO capacity remain owned by the renderer.
+// ReleaseLightingView releases camera/output-owned auxiliary textures for a closing preview, between completed views or outside a frame.
+// outputID must be exclusive to that session; renderer-wide shaders, samplers and reusable UBO capacity remain renderer-owned.
 func (r *Renderer) ReleaseLightingView(viewID, outputID view.ID) error {
 	if r == nil {
 		return nil
@@ -325,9 +323,8 @@ func (r *Renderer) lightingFailure(err error) {
 
 func (r *Renderer) LightingError() error { return r.lightState.error }
 
-// LightingResources is a borrowed preview handle. The caller must not destroy
-// it or retain it across a subsequent frame/resize/context generation. The
-// layer count is allocated capacity; LightingShadowLayers lists active layers.
+// LightingResources returns a borrowed preview handle; do not destroy it or retain it across a subsequent frame, resize or context generation.
+// The layer count is capacity; LightingShadowLayers lists active layers.
 func (r *Renderer) LightingResources(id view.ID) (gpu.TextureHandle, int, int, bool) {
 	v := r.lightState.views[id]
 	if v == nil || v.shadows.IsZero() || v.lastFrame != r.lightState.frame {

@@ -41,6 +41,7 @@ var errBusy = errors.New("the editor did not answer in time")
 type Config struct {
 	Console         func() []services.ConsoleMessage
 	ConfirmPlay     bool
+	PlaytestTrust   *agentui.PlaytestTrust
 	Capture         func(string) ([]byte, uint64, string, error)
 	Exporter        services.Exporter
 	NewEmptyProject func(string) (string, error)
@@ -99,14 +100,17 @@ type Bridge struct {
 	last      *undoRef
 }
 
+// RevokePlaytest clears the current conversation's playtest approval too.
+func (b *Bridge) RevokePlaytest() { b.playGrant.Store(0) }
+
 // GuideExample is the transaction the Guide shows; a test applies it, so it stays valid.
 const GuideExample = `tx version=1 { label="Add Ledge" op "add-node" { name="Ledge" } op "add-comp" { node="Ledge" comp="SpriteRenderer" } op "set" { node="Ledge" path="transform.position" value=[-13, 1] } }`
 
 // Guide is the system prompt the editor adds for the model.
 const Guide = "You work inside the Aego editor. Write tools wait until the user applies or rejects the change; a rejected call means the user said no, so ask before trying it again. Edits to open scenes become Undo steps in the editor and are saved by the user. " +
-	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. " +
+	"Each write call is one card the user has to apply, so send related edits of one scene as one scene_apply transaction: a new node with its components and fields is one call, not a chain of add-node, add-comp and set. Give the transaction a short label; it names the Undo step. Example tx: " + GuideExample + ". Use the single-step tools for one small change. For an open document use editor_save_document, editor_undo or editor_redo with its project path; these ask the user and never act on a different document. " +
 	"Read the selected Console entry as evidence. Read .aeshader and .aemat buffers with editor_material_source by AssetID or project path. Read scripts with script_read; change one with script_edit for a few lines or script_write for the whole text, and add one with script_create. A script attaches to a node like a component: add-comp with its type name (EnemyAI or the full mygame.enemy.EnemyAI), and its exported fields are read and set like component fields (EnemyAI.PointA). Node reference fields take a node path such as Root/PatrolA1. " +
-	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. A sprite with no texture yet is drawn, not built from colored rectangles: asset_pixels takes a character grid and a palette (frames give an atlas and a flipbook), asset_svg smooth shapes for tiles, UI and icons; both answer with a preview to check. Draw in the style of project.aego's art section (project_get art): its palette, and without a palette argument 0-9 and a-z are its colors. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
+	"Check behaviour with scene_run: it plays the scene as it is in the editor; input presses actions by frame (30 press Jump; 10-60 hold Right; 0-40 axis Move 1), assert checks values at a frame or at any frame (@120 Player.transform.position.y < 3; EnemyLeft.Health.hp == 0; exists Ledge) and fails the run when one does not hold, watch reports node positions, shot captures up to 3 frames as images. If a check fails, inspect its result and change the test or fix the cause; do not repeatedly run an unchanged failing test. A sprite with no texture yet is drawn, not built from colored rectangles: asset_pixels takes a character grid and a palette (frames give an atlas and a flipbook), asset_svg smooth shapes for tiles, UI and icons; both answer with a preview to check. Draw in the style of project.aego's art section (project_get art): its palette, and without a palette argument 0-9 and a-z are its colors. When the user has to choose between ways to do something, call ask_user with the options instead of listing them in your answer."
 
 // Start opens the MCP server on loopback; tools run on the editor's main thread through OnMain.
 func Start(cfg Config) (*Bridge, error) {
@@ -242,11 +246,9 @@ func (b *Bridge) env(s *scene.Scene) mutate.Env {
 	return env
 }
 
-// scene is the document the agent works in: during Play the running game's copy of the scene, so its edits show in the game and in the Play changes like the user's own (11b5b).
+// scene always resolves the editable document. The running Play copy is
+// temporary and can disappear while a proposal is waiting for approval.
 func (b *Bridge) scene(rel string) *document.SceneDocument {
-	if p := b.ctx.Docs.PlayDoc(); p != nil && p.Path == rel {
-		return p
-	}
 	return b.ctx.Docs.Find(rel)
 }
 

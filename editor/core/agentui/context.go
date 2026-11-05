@@ -36,8 +36,7 @@ const (
 	// proseChars and codeChars are characters per token of prose and of code and JSON; tool results come as JSON with escapes and hex ids.
 	proseChars = 3.5
 	codeChars  = 1.7
-	// minScale and maxScale bound how far the usage can stretch the estimates; past them the rest goes to Messages.
-	minScale = 0.6
+	// maxScale bounds how far usage can stretch estimates; the rest goes to Messages.
 	maxScale = 2.5
 )
 
@@ -354,7 +353,8 @@ func (m *Meter) Dropped() (int, int) {
 
 // Layout spreads the CLI's usage over the categories: fixed parts as measured, the editor's items scaled to fit, the rest to Messages.
 func (m *Meter) Layout(dst *Layout) {
-	*dst = Layout{Model: m.Model, Window: max(m.Window, 1), Buffer: CompactBuffer, Measured: !m.first}
+	*dst = Layout{Model: m.Model, Window: max(m.Window, 1), Measured: !m.first}
+	dst.Buffer = min(CompactBuffer, dst.Window/4)
 	ours := 0
 	for i := range m.items {
 		ours += m.items[i].Est
@@ -364,25 +364,31 @@ func (m *Meter) Layout(dst *Layout) {
 	if m.first {
 		used = fixed + ours
 	}
-	factor, rest := 1.0, 0
-	if room := used - fixed; ours > 0 && room > 0 {
-		factor = min(max(float64(room)/float64(ours), minScale), maxScale)
-		rest = max(0, room-int(float64(ours)*factor))
-	} else if room > 0 {
-		rest = room
+	// The provider's total is authoritative; all category values are estimates.
+	// After compaction even the previously measured fixed estimate can exceed it.
+	fixedScale := 1.0
+	if fixed > used && fixed > 0 {
+		fixedScale = float64(used) / float64(fixed)
 	}
 	dst.Used = used
-	dst.Rows[CatSystem].Tokens = m.base
-	dst.Rows[CatTools].Tokens = m.tools
-	dst.Rows[CatInstructions].Tokens = m.instr
+	dst.Rows[CatSystem].Tokens = int(float64(m.base) * fixedScale)
+	dst.Rows[CatTools].Tokens = int(float64(m.tools) * fixedScale)
+	dst.Rows[CatInstructions].Tokens = int(float64(m.instr) * fixedScale)
+	fixedUsed := dst.Rows[CatSystem].Tokens + dst.Rows[CatTools].Tokens + dst.Rows[CatInstructions].Tokens
+	factor := 0.0
+	if ours > 0 {
+		factor = min(float64(used-fixedUsed)/float64(ours), maxScale)
+	}
+	allocated := fixedUsed
 	for i := range m.items {
 		it := &m.items[i]
 		it.Tokens = int(float64(it.Est) * factor)
+		allocated += it.Tokens
 		row := &dst.Rows[it.Cat]
 		row.Tokens += it.Tokens
 		row.Items = append(row.Items, i)
 	}
-	dst.Rows[CatMessages].Tokens += rest
+	dst.Rows[CatMessages].Tokens += used - allocated
 	for c := range dst.Rows {
 		dst.Rows[c].Cat = Category(c)
 		items := dst.Rows[c].Items

@@ -655,12 +655,8 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 	return staged{}, false, nil
 }
 
-// A dependency reimport may produce identical scene or data bytes. The
-// mounted artifact identity still describes the previous generation when no
-// consumer has read the blob yet (for example, run --scene reads its path).
-// Compare it before committing the new index. Cached bytes keep their stronger
-// direct comparison in Swap; shaders, materials and sprite regions retain their
-// own resource publication rules.
+// A dependency reimport can reproduce scene/data bytes even when no consumer reads the blob (e.g. run --scene reads its path).
+// Compare the previous mounted identity before index commit; cached blobs use Swap's direct comparison, while shaders, materials and sprite regions have separate publication rules.
 func (l *Loader) sameUncachedBlob(next *asset.Entry, art asset.Artifact, size int) bool {
 	switch next.Kind {
 	case asset.ArtScene, asset.ArtPrefab, asset.ArtPreset, asset.ArtData, asset.ArtTable, asset.ArtAudio, asset.ArtAnim, asset.ArtCtrl:

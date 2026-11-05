@@ -65,7 +65,7 @@ func TestRejectsLegacyAndForeignHeaders(t *testing.T) {
 	}
 }
 
-// glslang finds glslangValidator; with AEGO_REQUIRE_GLSLANG=1 (make ci) a missing one fails the test instead of skipping it.
+// glslang finds glslangValidator; AEGO_REQUIRE_GLSLANG=1 makes a missing validator fail rather than skip the test.
 func glslang(t *testing.T) string {
 	t.Helper()
 	bin, err := exec.LookPath("glslangValidator")

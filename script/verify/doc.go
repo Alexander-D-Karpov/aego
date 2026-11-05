@@ -1,29 +1,10 @@
-// Package verify statically validates a compiled bytecode.Module before it is
-// allowed to run (requirement D99): it checks operand ranges against OpInfo,
-// call windows against each function's register count, jumps within their
-// function, that every function ends on a terminal instruction, that the line
-// table is monotonic, script field layout and GC-root (HeapSlots) consistency,
-// name uniqueness, and the encoding-derived limits. It never indexes a module
-// slice without a bounds check, so it is safe on fuzzed input.
+// Package verify statically checks bytecode (D99): OpInfo operand ranges, call windows against register counts, in-function jumps and terminal instructions at function ends.
+// It checks monotonic line tables, script field layout/GC-root (HeapSlots) consistency, unique names and encoding limits; all module slice accesses are bounds-checked.
 //
-// # Checks it deliberately leaves to the VM at run time
+// # Checks left to execution or linking
 //
-// Some invariants depend on values that are only known while executing, so the
-// verifier cannot prove them from the artifact alone. The VM must enforce each:
-//
-//   - INDEX / SETINDEX / APPEND: the element width lives in the heap object's
-//     header, not the instruction, so the VM checks the index against the
-//     slice's length and that the value window a..a+width stays within
-//     Registers.
-//   - GETCF / SETCF: the field index is validated against the component table
-//     of the component reference held in register b, which is a runtime value.
-//   - CALLX: the extern's declared Params/Results are matched against the real
-//     target function at link time, when the other package's module is present.
-//   - CALLR / GETXF / SETXF / CONNECT: the target script lives in another
-//     module, so the method kind (not lifecycle, not coroutine), the field
-//     layout and the signal/handler pairing are resolved by name in vm.Link and
-//     rejected there.
-//
-// Each is a single comparison, listed here so it stays visible that the static
-// verifier has not already covered them.
+//   - INDEX / SETINDEX / APPEND: the VM checks the index against slice length and the value window a..a+width against Registers, using the heap header's element width.
+//   - GETCF / SETCF: the VM checks the field index against the component table of the runtime reference in register b.
+//   - CALLX: linking matches the extern's Params/Results against the target function in the other module.
+//   - CALLR / GETXF / SETXF / CONNECT: vm.Link resolves the other module's method kind (not lifecycle or coroutine), field layout and signal/handler pairing by name, rejecting mismatches.
 package verify

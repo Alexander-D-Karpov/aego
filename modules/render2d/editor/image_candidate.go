@@ -2,9 +2,8 @@ package editor
 
 import "fmt"
 
-// imageCandidate owns an editor-only CPU preparation request. Workers never
-// touch document buffers or GPU handles. Poll publishes only the current
-// generation/revision; replacing or closing a document makes old results inert.
+// imageCandidate owns editor-only CPU preparation; workers never touch document buffers or GPU handles.
+// The poll method publishes only current generations/revisions; replacement or closure invalidates old results.
 type imageCandidate struct {
 	generation   uint64
 	revision     uint64

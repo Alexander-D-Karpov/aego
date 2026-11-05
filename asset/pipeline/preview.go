@@ -8,9 +8,7 @@ import (
 	"aego/core/log"
 )
 
-// Preview imports an in-memory source with the project's registered importer,
-// without changing source files, the index, .meta files or cached artifacts.
-// overlay supplies unsaved editor include buffers; false falls back to the VFS.
+// Preview imports in-memory source with the registered importer without changing files, index or cached artifacts; overlay supplies unsaved includes, falling back to the VFS on false.
 func (p *Pipeline) Preview(rel string, source []byte, overlay func(string) ([]byte, bool)) (*Result, error) {
 	return p.preview(rel, source, nil, overlay)
 }

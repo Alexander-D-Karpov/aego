@@ -53,9 +53,7 @@ func (p *Pipeline) TextureSourceInfo(id ids.AssetID, overlay func(string) ([]byt
 		}
 		return p.read(name)
 	}
-	// Schema and channel pickers need dimensions, not an entire source image.
-	// Keep the disk read streaming and bounded; dirty image bytes already live
-	// in the caller's overlay and likewise never need a second full copy.
+	// Schema and channel pickers need dimensions, not the full image: stream bounded disk reads and avoid a second full copy of dirty bytes in the overlay.
 	var sourceReader io.Reader
 	if overlay != nil {
 		if data, present := overlay(source); present {

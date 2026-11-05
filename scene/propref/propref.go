@@ -273,10 +273,7 @@ func (r *Resolver) ResolveAny(h scene.NodeHandle, path string) (Ref, error) {
 }
 
 func (r *Resolver) resolve(h scene.NodeHandle, path string, discrete bool) (Ref, error) {
-	// A vector lane adds one segment to the component field path. Avoid
-	// constructing an unknown-component diagnostic for e.g. SpriteRenderer.tint
-	// before successfully resolving SpriteRenderer.tint.a. A real fully qualified
-	// component still takes precedence over the lane interpretation.
+	// Try vector lanes (e.g. SpriteRenderer.tint.a) before diagnosing an unknown component (SpriteRenderer.tint), but prioritize real fully qualified components.
 	if i := strings.LastIndexByte(path, '.'); i > 0 {
 		if l := laneOf(path[i+1:]); l >= 0 {
 			own := path[:i]

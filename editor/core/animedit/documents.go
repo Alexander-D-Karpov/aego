@@ -6,9 +6,7 @@ import (
 	"aego/editor/core/document"
 )
 
-// WithDocuments protects the existing scene-bound Timeline/Animator file
-// transactions from overwriting a dirty standalone source view. Clean views
-// adopt successful timeline writes through the same DocumentManager buffer.
+// WithDocuments blocks scene-bound Timeline/Animator writes over dirty or conflicting standalone sources and reloads clean DocumentManager views after successful writes.
 func WithDocuments(files Files, docs *document.Manager) Files {
 	return documentFiles{Files: files, docs: docs}
 }

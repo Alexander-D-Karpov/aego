@@ -2,6 +2,7 @@ package agent
 
 import (
 	"path"
+	"strconv"
 
 	"aego/core/mathx"
 	"aego/editor/core/agentui"
@@ -38,7 +39,11 @@ func (p *Panel) dots(ui *core.Context) []dot {
 				if s.failed {
 					col = th.Error
 				}
-				p.timeline = append(p.timeline, dot{block: i, step: j, col: col, label: s.label})
+				label := s.label
+				if b.repeats > 1 {
+					label += " ×" + strconv.Itoa(b.repeats)
+				}
+				p.timeline = append(p.timeline, dot{block: i, step: j, col: col, label: label})
 			}
 		case blockCard:
 			col := th.Accent

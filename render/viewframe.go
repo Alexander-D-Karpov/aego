@@ -164,10 +164,7 @@ func (f *ViewFrame) lightSet(bounds mathx.AABB2, layers uint64) uint32 {
 	dropped := 0
 	if f.lighting != nil && !f.lighting.Disabled && !f.lightingInvalid {
 		set, dropped = lighting.Select(f.lighting.Lights, bounds, layers)
-		// Influence chooses membership, but must not create a new GPU binding
-		// for every receiver whose distances rank the same lights differently.
-		// Publish the selected members in stable identity order; draw order is
-		// unaffected. The fixed-size insertion sort allocates no scratch data.
+		// Sort influence-selected members by stable identity without scratch allocation, avoiding distinct GPU bindings for different receiver rankings without changing draw order.
 		for i := 1; i < set.Count; i++ {
 			index := set.Indices[i]
 			id := f.lighting.Lights[index].ID

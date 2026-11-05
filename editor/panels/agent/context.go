@@ -130,6 +130,7 @@ func (p *Panel) meterEvent(e agentui.Event) {
 			}
 		}
 		m.SetModel(e.Model)
+		m.SetWindow(e.Window)
 		m.Usage(e.Tokens)
 	case agentui.EvTurnEnd:
 		m.SetWindow(e.Window)
@@ -139,7 +140,11 @@ func (p *Panel) meterEvent(e agentui.Event) {
 	case agentui.EvCompact:
 		window := max(m.Window, 1)
 		m.Compacted()
-		p.notice(i18n.Tr("editor.agent.ctx.compacted", "Context compacted at {n}", i18n.Str("n", percent(e.Tokens, window))))
+		if e.Tokens > 0 {
+			p.notice(i18n.Tr("editor.agent.ctx.compacted", "Context compacted at {n}", i18n.Str("n", percent(e.Tokens, window))))
+		} else {
+			p.notice(i18n.Tr("editor.agent.ctx.compacted_unknown", "Context compacted"))
+		}
 	case agentui.EvError:
 		p.summarizing = false
 	}
@@ -217,7 +222,7 @@ func (p *Panel) editorState() string {
 
 // SummarizeSession asks the agent for a summary and starts a new session from it once the answer is in.
 func (p *Panel) SummarizeSession() {
-	if p.d.Host.Busy() || p.meter == nil {
+	if p.d.Host.Busy() || p.meter == nil || len(p.queue) > 0 {
 		return
 	}
 	p.summarizing = true
@@ -235,6 +240,10 @@ func (p *Panel) finishSummary() {
 	p.summarizing = false
 	text := strings.TrimSpace(p.summary.String())
 	if text == "" {
+		return
+	}
+	if len(p.queue) > 0 {
+		p.notice(i18n.Tr("editor.agent.queue_clear_first", "Send or clear queued messages before starting a new session."))
 		return
 	}
 	var nodes []string

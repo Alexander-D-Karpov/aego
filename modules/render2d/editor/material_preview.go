@@ -229,9 +229,7 @@ func (p *materialPreview) renderSurface(ed *context.Editor, size int) {
 	f.End()
 }
 
-// Render the sample into the view's private linear camera colour target. The
-// renderer then binds that previous colour as MainTex and resolves the fullscreen
-// material into the requested preview texture. No sprite draw owns this material.
+// Render into a private linear camera target, then bind its colour as MainTex to resolve the fullscreen material into the preview; no sprite draw owns that material.
 func drawPostScene(r *render.Renderer, id view.ID, target *rt.Target, size int, plan *postfx.Plan, label string) error {
 	prev := r.Stats()
 	f := r.View(view.View{ID: id, OutputID: id, Target: target.Texture, TargetW: target.BucketW, TargetH: target.BucketH, Viewport: mathx.Rect{W: float32(size), H: float32(size)}, Camera: view.Camera2D{Zoom: float32(size) / 3}, Layers: view.AllLayers, PixelsPerUnit: 1, PixelScale: 1, DoClear: true, Clear: mathx.Color{A: 1}, Label: label})

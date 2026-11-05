@@ -90,9 +90,7 @@ func writeMaterialValue(w *aeshW, v aetext.Value) {
 	}
 }
 
-// DecodeMaterial does not run the aetext parser or import pipeline. Limits apply
-// before allocating nested data, and the complete artifact is checked against
-// its content checksum (integrity, not a trust/signature boundary).
+// DecodeMaterial bypasses the aetext parser/import pipeline, bounds nested allocations and checks artifact integrity (checksum, not trust/signature).
 func DecodeMaterial(b []byte, name string) (*MaterialDoc, error) {
 	if len(b) < 40 || len(b) > maxMaterialBytes || string(b[:4]) != materialMagic {
 		return nil, badMaterial(name, "invalid binary artifact header")

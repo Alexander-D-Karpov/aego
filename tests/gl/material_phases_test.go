@@ -21,10 +21,8 @@ import (
 	"aego/render/sprite"
 )
 
-// TestMaterialPhaseMeasurements separates development import/reference work
-// from player decoding, driver linking, first draw and frame-end publication.
-// Durations are observations, not machine-independent CI thresholds. The gate
-// checks real publication, preserved explicit values and bounded GPU resources.
+// TestMaterialPhaseMeasurements separates import/reference, player decode, driver link, first draw and frame-end publication.
+// Timings are observations, not machine-independent CI thresholds; publication, explicit values and GPU resource bounds are gated.
 func TestMaterialPhaseMeasurements(t *testing.T) {
 	r, dev, target := materialRig(t)
 	const count = 5

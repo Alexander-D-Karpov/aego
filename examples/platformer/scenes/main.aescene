@@ -233,7 +233,7 @@ scene version=1 {
       snapToGround=0.2
       safeMargin=0.02
       maxSlides=4
-      collisionMask=10
+      collisionMask=2
       pushBodies=false
       movingPlatforms=true
       platformOnLeave=keep
@@ -282,7 +282,8 @@ scene version=1 {
         Theme=asset("a0d10000000000000000000000000005")
         Slash=node("c0000000000000000000000000000010")
         Dust=node("7fa413367cfee5d132ef9a89fa50083d")
-        Reach=0.6
+        Sparks=node("dddfe80ace7b4904d1ba81b4ac9a0c42")
+        Reach=0.7
       }
     }
     node "c000000000000000000000000000000b" name="Shape" enabled=true layers=1 {
@@ -303,7 +304,7 @@ scene version=1 {
     }
     node "c0000000000000000000000000000010" name="Slash" enabled=true layers=1 {
       transform {
-        position=[0.6, 0]
+        position=[0.7, 0]
         rotation=0
         scale=[1, 1]
       }
@@ -320,7 +321,7 @@ scene version=1 {
         filter=nearest
       }
       component "gameplay.Hitbox2D" version=1 {
-        area=[-0.35, -0.4, 0.7, 0.8]
+        area=[-0.32, -0.5, 0.64, 1]
         shape=box
         damage=1
         knockback=[6, 0]
@@ -331,28 +332,67 @@ scene version=1 {
         period=0.5
         active=false
       }
+      node "dddfe80ace7b4904d1ba81b4ac9a0c42" name="Sparks" enabled=true layers=1 {
+        transform {
+          position=[0, 0]
+          rotation=0
+          scale=[1, 1]
+        }
+        component "particles.ParticleSystem2D" version=1 {
+          prewarm=0
+          edgeA=[0, 0]
+          edgeB=[1, 0]
+          maskThreshold=0.5
+          frameFPS=12
+          frameLoop=true
+          sortMode=age
+          reducedMotion=keep
+          reducedRate=0.3
+          drag=2
+          noiseStrength=0
+          noiseFrequency=1
+          killYEnabled=false
+          killY=0
+          planeEnabled=false
+          planeNormal=[0, 1]
+          planeDistance=0
+          colorOverLife=[]
+          velocityOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+          playOnStart=false
+          loop=true
+          duration=1
+          timeDomain=game
+          seed=0
+          maxParticles=64
+          rate=0
+          bursts=[]
+          shape=circle
+          offset=[0, 0]
+          rectSize=[1, 1]
+          radius=0.14
+          lifetime=[0.22, 0.42]
+          speed=[1, 2.4]
+          size=[0.03, 0.07]
+          rotation=[-3.14, 3.14]
+          direction=-1.5707964
+          spread=6.28
+          color=#9de6ffff
+          gravity=[0, 2]
+          sizeOverLife={ keys=[[0, 1, 0, 0, bezier, auto]] }
+          alphaOverLife={ keys=[[0, 1, -1, -1, bezier, linear], [1, 0, -1, -1, bezier, linear]] }
+          rotationSpeed=4
+          space=world
+          sprite=asset("6005b16a9f3c8649611e19df3fc59b07")
+          layer=0
+          order=4
+        }
+      }
     }
     node "6c182118f2a1f2b56615424febdf5020" name="PlayerSpot" enabled=true layers=1 {
       transform {
-        position=[0.35, -0.15]
+        position=[0.18, -0.15]
         rotation=0
         scale=[1, 1]
-      }
-      component "engine.Light2D" version=1 {
-        type=spot
-        color=#fff2d5ff
-        intensity=3.3
-        range=7
-        height=2.2
-        innerAngle=0.32
-        outerAngle=0.65
-        elevation=0.9
-        falloff=1.6
-        layers=1
-        shadowCasterMask=1
-        shadows=true
-        shadowSoftness=1
-        priority=10
       }
       component "engine.Script" version=1 {
         script "mygame.lightingdemo.Flashlight" enabled=true {
@@ -1555,6 +1595,158 @@ scene version=1 {
       tint=#566173ff
       origin=[0.5, 0.5]
       size=[8, 8]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "66d3baf2b916855c867fd902322e6f5f" name="FoundrySky1" enabled=true layers=1 {
+    transform {
+      position=[-40, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "10f0a192a415b5c6e1a0b8b186e64b59" name="FoundrySky2" enabled=true layers=1 {
+    transform {
+      position=[-20, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "a2840072eb8a4b112bf4a8ef1e727598" name="FoundrySky3" enabled=true layers=1 {
+    transform {
+      position=[0, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "b7ff13e752205f481f0eb6940a17d797" name="FoundrySky4" enabled=true layers=1 {
+    transform {
+      position=[20, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "0be3c10251d76ee39820d391203a4b4a" name="FoundrySky5" enabled=true layers=1 {
+    transform {
+      position=[40, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "d970439f047234de3f49be91bab49406" name="FoundrySky6" enabled=true layers=1 {
+    transform {
+      position=[60, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "c05a12dde715600e1c3d96030531bdba" name="FoundrySky7" enabled=true layers=1 {
+    transform {
+      position=[80, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
+      flipX=false
+      flipY=false
+      blend=premultiplied
+      filter=nearest
+    }
+  }
+  node "8f93ab505655b96b4e7ce9fbcd357ae8" name="FoundrySky8" enabled=true layers=1 {
+    transform {
+      position=[100, -4]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("1dbe27fd4ca9cbcea172e5690ec2278c")
+      layer=-2
+      order=0
+      tint=#ffffffff
+      origin=[0.5, 0.5]
+      size=[20, 40]
       flipX=false
       flipY=false
       blend=premultiplied

@@ -16,9 +16,7 @@ import (
 
 const MaxMaterialOverrides = 8
 
-// MaterialParameter is an explicit node value. Kind is serialized so removing a
-// parameter or changing its type cannot silently reinterpret the old value.
-// Integer and Boolean are separate from vector storage to preserve int32 bits.
+// MaterialParameter is an explicit node value; serialized Kind prevents silent reinterpretation after removal or type changes, and separate Integer/Boolean storage preserves int32 bits.
 type MaterialParameter struct {
 	Name    string      `aego:"name"`
 	Kind    shader.Kind `aego:"kind"`

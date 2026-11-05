@@ -1,6 +1,4 @@
-// Linux/Xvfb only. A private session leader stays alive while its browser and
-// descendants shut down. It anchors the process-group ID, so signals can never
-// be sent to a subsequently reused ID or to the user's browsers.
+// Linux/Xvfb only: a private session leader anchors the process-group ID through browser shutdown, preventing signals to a reused ID or the user's browsers.
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -34,9 +32,7 @@ function sessionMembers(session) {
 function ownedMembers(session, token) {
     const found = new Map(sessionMembers(session).map(p => [p.pid, p]));
     const marker = `AEGO_VISIBILITY_OWNER=${token}`;
-    // Chromium can start a helper in another session. Such a helper must not
-    // be killed by name; detect the inherited random marker and fail closed if
-    // it outlives the browser, retaining the profile until it is safe.
+    // Chromium helpers may escape the session: detect the inherited random marker, never kill by name, and fail closed with the profile retained if a helper outlives the browser.
     for (const entry of fs.readdirSync("/proc")) {
         if (!/^\d+$/.test(entry) || found.has(Number(entry))) continue;
         try {

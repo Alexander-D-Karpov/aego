@@ -8,9 +8,7 @@ import (
 	"aego/editor/core/workspace"
 )
 
-// DocumentHandler registers an asset opening route owned by this extension.
-// Disabling the extension removes its route; assets still have the read-only
-// fallback. No Asset Browser knowledge of the module's kind is necessary.
+// DocumentHandler registers an extension-owned asset route without Asset Browser type knowledge; disabling the extension removes it and leaves the read-only fallback.
 func (r *Registry) DocumentHandler(h document.Handler) error {
 	ed := r.deps.Editor
 	if ed == nil || ed.Docs == nil {
@@ -44,10 +42,7 @@ func (r *Registry) ShowPanel(id string) {
 	}
 }
 
-// DocumentPanelFactory captures the extension owner at registration time. It
-// creates an ordinary workspace tab on first open and activates the same tab
-// thereafter. The factory must derive its panel ID from the asset identity;
-// the mutable model and presentation state remain in AssetDocument.
+// DocumentPanelFactory captures the owner at registration and reuses tabs; the factory must use asset-derived IDs and keep model/view state in AssetDocument.
 func (r *Registry) DocumentPanelFactory(factory func(*document.AssetDocument) workspace.Panel) func(*document.AssetDocument) error {
 	owner := r.ext()
 	return func(d *document.AssetDocument) error {

@@ -6,7 +6,9 @@ import (
 	"aego/render/text"
 	"aego/ui/core"
 	"aego/ui/textedit"
+	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 type editLine struct {
@@ -24,11 +26,59 @@ type Multiline struct {
 	first  int
 }
 
-func (m *Multiline) layout(c *core.Context, s string, width float32) {
+func (m *Multiline) buffer(value string) *textedit.Buffer {
 	if m.b == nil {
-		m.b = textedit.New(s)
+		m.b = textedit.New(value)
 		m.b.Multiline = true
+	} else if m.b.String() != value {
+		m.b.Set(value)
 	}
+	return m.b
+}
+
+// Insert replaces the current selection without moving the caret to the end.
+func (m *Multiline) Insert(value *string, text string) {
+	b := m.buffer(*value)
+	b.Insert(text)
+	*value = b.String()
+}
+
+// ReplaceFirst changes a marker while retaining the user's caret and selection.
+func (m *Multiline) ReplaceFirst(value *string, old, replacement string) bool {
+	pos := strings.Index(*value, old)
+	if pos < 0 || old == "" {
+		return false
+	}
+	b := m.buffer(*value)
+	start := utf8.RuneCountInString((*value)[:pos])
+	end := start + utf8.RuneCountInString(old)
+	inserted := utf8.RuneCountInString(replacement)
+	adjust := func(n int) int {
+		switch {
+		case n <= start:
+			return n
+		case n >= end:
+			return n + inserted - (end - start)
+		default:
+			return start + inserted
+		}
+	}
+	cursor, anchor := adjust(b.Cursor()), adjust(b.Anchor())
+	b.SetCursor(start, false)
+	b.SetCursor(end, true)
+	if replacement == "" {
+		b.Delete(textedit.Right, false)
+	} else {
+		b.Insert(replacement)
+	}
+	b.SetCursor(anchor, false)
+	b.SetCursor(cursor, true)
+	*value = b.String()
+	return true
+}
+
+func (m *Multiline) layout(c *core.Context, s string, width float32) {
+	m.buffer(s)
 	if m.source == s && m.width == width && m.font == c.Font() && len(m.lines) > 0 {
 		return
 	}

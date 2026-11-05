@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"crypto/sha256"
 	"time"
 
 	"aego/editor/core/agentui"
@@ -32,6 +33,7 @@ const (
 type step struct {
 	tool, call, args string
 	look             agentui.Step
+	resultHash       [32]byte
 	done, failed     bool
 	open, all        bool
 	label            string
@@ -48,6 +50,7 @@ type block struct {
 	steps     []step
 	card      int
 	question  int
+	repeats   int
 	at        time.Time
 	open      bool
 	all       bool
@@ -126,6 +129,7 @@ func (p *Panel) toolResult(e agentui.Event) {
 				continue
 			}
 			s.done, s.failed = true, e.Failed
+			s.resultHash = sha256.Sum256([]byte(e.Result))
 			s.look = p.d.Host.Describe(s.tool, s.args, e.Result, e.Failed)
 			s.look.Detail.Images = e.ImageKeys
 			if len(e.ImageKeys) > 0 {
@@ -138,6 +142,21 @@ func (p *Panel) toolResult(e agentui.Event) {
 			s.label = stepLabel(s)
 			b.dirty()
 			if e.Failed && b.kind == blockSteps {
+				// Collapse only consecutive, identical failed playtests. Distinct
+				// arguments, results, images or intervening activity remain visible;
+				// each call is still recorded separately in the session transcript.
+				if i == len(p.blocks)-1 && i > 0 && len(b.steps) == 1 && s.tool == "scene_run" && len(e.ImageKeys) == 0 {
+					prev := &p.blocks[i-1]
+					if prev.kind == blockFailed && len(prev.steps) == 1 {
+						first := &prev.steps[0]
+						if first.tool == s.tool && first.args == s.args && first.resultHash == s.resultHash && len(first.look.Detail.Images) == 0 {
+							prev.repeats = max(1, prev.repeats) + 1
+							prev.dirty()
+							p.blocks = p.blocks[:i]
+							return
+						}
+					}
+				}
 				failed := *s
 				b.steps = append(b.steps[:j], b.steps[j+1:]...)
 				if len(b.steps) == 0 {

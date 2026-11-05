@@ -134,9 +134,8 @@ func parse(ctx *pipeline.ImportContext) (*shaderx.Unit, []ids.AssetID, []shaderx
 	return u, deps, diags
 }
 
-// CacheSalt participates before the pipeline reuses any prior artifact. The
-// transitive raw hashes include engine:// files without project AssetIDs, and
-// changing the validator availability/version invalidates an unchecked cache.
+// CacheSalt hashes transitive sources, including engine:// files without AssetIDs, before artifact reuse.
+// Changes in validator availability/version invalidate an unchecked cache.
 func (i *Importer) CacheSalt(ctx *pipeline.ImportContext) ([]byte, error) {
 	u, _, diags := parse(ctx)
 	if len(diags) > 0 {

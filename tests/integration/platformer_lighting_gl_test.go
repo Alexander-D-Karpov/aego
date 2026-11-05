@@ -23,10 +23,7 @@ import (
 	"aego/render/lighting"
 )
 
-// The long demonstration route is explicit because it draws thousands of real
-// frames. The regular suite still verifies the complete gameplay replay.
-// AEGO_PLATFORMER_SHOTS=<dir> SDL_VIDEODRIVER=offscreen go test -tags aego_gltest
-// ./tests/integration -run TestPlatformerLightingGLRoute -count=1
+// The demonstration route is opt-in because it draws thousands of real frames; the regular suite still verifies the complete gameplay replay.
 func TestPlatformerLightingGLRoute(t *testing.T) {
 	dir := os.Getenv("AEGO_PLATFORMER_SHOTS")
 	if dir == "" {
@@ -56,10 +53,10 @@ func TestPlatformerLightingGLRoute(t *testing.T) {
 		InputFrames  int       `json:"inputFrames"`
 		NativeWidth  int       `json:"width"`
 		NativeHeight int       `json:"height"`
-	}{Project: "examples/platformer", Seed: 42, InputFrames: 1788}
+	}{Project: "examples/platformer", Seed: 42, InputFrames: 1840}
 	hash := sha256.Sum256(data)
 	report.RouteSHA256 = hex.EncodeToString(hash[:])
-	frames := []int{400, 1039, 1216, 1788}
+	frames := []int{400, 1039, 1216, 1840}
 	before := map[int]capture{}
 	beforePixels := map[int][]byte{}
 	for _, enabled := range []bool{true, false} {

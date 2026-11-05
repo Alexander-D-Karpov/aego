@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"strconv"
 	"strings"
 
 	"aego/core/mathx"
@@ -379,6 +380,9 @@ func (p *Panel) drawFailed(ui *core.Context, b *block, r mathx.Rect) {
 	hr := mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: row}
 	widgets.IconAt(ui, mathx.Rect{X: hr.X, Y: hr.Y + (row-14)/2, W: 14, H: 14}, "status.error", th.Error)
 	title := i18n.Tr("editor.agent.failed", "Failed: {title}", i18n.Str("title", s.look.Title))
+	if b.repeats > 1 {
+		title += " ×" + strconv.Itoa(b.repeats)
+	}
 	ui.Text(widgets.Elide(ui, title, hr.W-20), mathx.Vec2{X: hr.X + 20, Y: ui.TextY(hr)}, th.Text)
 	er := mathx.Rect{X: hr.X + 20, Y: hr.Y + row, W: hr.W - 20, H: row}
 	eid := ui.ID("why")

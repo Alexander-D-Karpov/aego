@@ -1,8 +1,6 @@
 package texture
 
-// EmissionMode describes prepared surface data, independently of the image's
-// file extension or atlas placement. RGB is straight linear color after texture
-// decoding; Mask is a scalar in R. Neither uses the texture's alpha as coverage.
+// EmissionMode describes prepared data independent of file extension and atlas placement: RGB is straight linear after decoding, Mask is R; neither uses alpha as coverage.
 type EmissionMode uint8
 
 const (

@@ -65,25 +65,20 @@ type Importer interface {
 	Import(ctx *ImportContext) (*Result, error)
 }
 
-// CacheSalter includes inputs that do not have an asset artifact of their own,
-// such as embedded includes and the reference validator version. It runs before
-// the cache lookup; an error must not reuse an older, successful artifact.
+// CacheSalter adds artifact-less inputs (e.g. embedded includes and validator version) before cache lookup; errors must not reuse older successful artifacts.
 type CacheSalter interface {
 	CacheSalt(ctx *ImportContext) ([]byte, error)
 }
 
-// SourceDependencySalter declares that CacheSalt covers the complete current
-// source inputs of dependencies. Such importers store references, not data from
-// compiled dependency artifacts, and must not depend on artifact import order.
+// SourceDependencySalter says CacheSalt covers all current dependency sources.
+// Such importers store references, not compiled dependency data, and cannot depend on artifact import order.
 type SourceDependencySalter interface {
 	CacheSalter
 	SourceDependencies() bool
 }
 
-// MetadataResolver resolves authoring conveniences to stable references before
-// computing the import key. It returns cloned settings only when an update is
-// needed. The pipeline owns atomic persistence and checks concurrent edits.
-// Preview calls this hook on a private metadata copy without writing files.
+// MetadataResolver resolves authoring conveniences to stable references before computing the import key, returning cloned settings only when an update is needed.
+// The pipeline owns atomic persistence and checks concurrent edits; Preview calls the hook on a private copy without writing files.
 type MetadataResolver interface {
 	ResolveMetadata(ctx *ImportContext) (Settings, error)
 }

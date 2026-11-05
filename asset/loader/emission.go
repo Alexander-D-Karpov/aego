@@ -6,9 +6,8 @@ import (
 	"aego/render/texture"
 )
 
-// EmissionFor reads only prepared AERG associations, never source names or .meta.
-// Its warmed path uses the same region/page caches as Texture and allocates no
-// memory. Missing references keep their ID for editor diagnostics and repair.
+// EmissionFor reads prepared AERG associations, not source names or .meta; its warmed path uses Texture's region/page caches without allocations.
+// Missing references retain their ID for editor diagnostics and repair.
 func (l *Loader) EmissionFor(albedo ids.AssetID) (ids.AssetID, texture.Emission, bool) {
 	if l.failed[albedo] {
 		return l.emissions[albedo], texture.Emission{}, false

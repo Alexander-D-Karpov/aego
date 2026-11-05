@@ -119,9 +119,7 @@ func pieces(spans []Span, face Face) []piece {
 	return out
 }
 
-// splitWord is used only when the complete word is wider than an empty line.
-// Probe exponentially from each line start, then refine within that short span.
-// A glyph wider than the viewport still consumes one complete UTF-8 character.
+// splitWord handles words wider than an empty line by exponential probing and refinement from each line start, consuming at least one complete UTF-8 character even if its glyph exceeds the viewport.
 func splitWord(p piece, width float32, m Measurer) []string {
 	var bounds []int
 	for i := range p.text {

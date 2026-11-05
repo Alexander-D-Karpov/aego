@@ -47,10 +47,7 @@ func buildGo(root, code string) string {
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(code), 0o644); err != nil {
 		return err.Error()
 	}
-	// Build the actual native SDK example first. Vet the same source against the
-	// portable SDK as well, so diagnostics belong to the example instead of a
-	// generated cgo GL binding in its transitive platform dependencies. The
-	// repository's native vet/lint gates validate the platform separately.
+	// Build the native example, but vet against the portable SDK to avoid transitive generated cgo GL diagnostics; native vet/lint covers the platform separately.
 	for _, args := range [][]string{
 		{"build", "-mod=mod", "-o", filepath.Join(dir, "compiled"), "."},
 		{"vet", "-tags=aego_nonative", "-mod=mod", "."},

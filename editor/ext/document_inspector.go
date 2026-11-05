@@ -13,9 +13,7 @@ import (
 	"aego/ui/widgets"
 )
 
-// DocumentView adapts an existing asset editor to a centre workspace tab. The
-// factory owns only view state; its data and history stay in AssetDocument or
-// the structured editor bound to it. A nil factory uses registered asset views.
+// DocumentView adapts an asset editor to a centre tab; the factory owns only view state, data/history stay in AssetDocument or its bound editor, and nil uses registered asset views.
 func (r *Registry) DocumentView(factory func(*document.AssetDocument) func(*services.Frame, mathx.Rect)) func(*document.AssetDocument) error {
 	return r.DocumentPanelFactory(func(d *document.AssetDocument) workspace.Panel {
 		p := &assetDocumentPanel{reg: r, doc: d}

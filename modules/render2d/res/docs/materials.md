@@ -162,7 +162,7 @@ Light components use the regular typed API and animation property paths. For exa
 
 ### A lamp in the platformer
 
-Open `examples/platformer`, whose main level contains the canonical lighting demonstration. Its lamp sprites use emission for their own appearance and separate Light2D components to illuminate nearby surfaces. The player's spotlight changes direction with the player; existing platforms and walls supply manual shadow contours. HUD and menus remain Unlit. The project includes actual albedo, normal and height source assets with `.meta` identities.
+Open `examples/platformer`, whose main level contains the canonical lighting demonstration. Its lamp sprites use emission for their own appearance and separate Light2D components to illuminate nearby surfaces. Platforms and walls supply manual shadow contours. HUD and menus remain Unlit. The project includes actual albedo, normal and height source assets with `.meta` identities.
 
 Change a lamp's colour, height or range, then use Undo/Redo, Play and the registered lighting debug actions. Bloom on the main camera spreads bright lamp and spark pixels into a halo. The lamp’s Light2D illuminates neighbouring surfaces. Export this project for native or web using the normal strict export workflow. The website demo is built from the same platformer export, with no independently edited copy of its level.
 

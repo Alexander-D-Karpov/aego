@@ -6,10 +6,8 @@ import (
 	"aego/core/ids"
 )
 
-// VerifyCurrent checks current source and import settings against the last
-// successful import key without changing pipeline state. Strict export uses it
-// for dependencies whose last-good artifact may outlive an invalid source.
-// A generated atlas page is current only when all of its source members are.
+// VerifyCurrent checks source and settings against the last successful import key without changing state.
+// Strict export uses it when last-good artifacts may outlive invalid source; generated atlas pages require all source members to be current.
 func (p *Pipeline) VerifyCurrent(id ids.AssetID) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

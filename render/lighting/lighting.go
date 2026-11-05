@@ -82,9 +82,7 @@ type Light struct {
 	Priority                                   int32
 }
 
-// Occluder points are already in presentation-world coordinates. First/Count
-// address Input.Points and are valid only until that input is next filled.
-// Geometry and transform revisions remain separate for cache invalidation.
+// Occluder points are in presentation-world coordinates; First/Count address Input.Points until the next fill, and geometry/transform revisions remain separate for cache invalidation.
 type Occluder struct {
 	Bounds                              mathx.AABB2
 	ID                                  ids.NodeID
@@ -213,9 +211,7 @@ func better(a, b candidate) bool {
 	return a.index < b.index
 }
 
-// Select uses a fixed-size insertion selection, not map iteration. A light is
-// selected for the receiver bounds, so edge receivers do not lose illumination
-// merely because their pivot lies outside a light's range.
+// Select uses fixed-size insertion rather than map iteration and tests receiver bounds, so edge receivers can receive light even when their pivot is outside its range.
 func Select(lights []Light, bounds mathx.AABB2, layers uint64) (Set, int) {
 	var best [MaxLights]candidate
 	n, eligible := 0, 0

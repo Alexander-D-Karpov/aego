@@ -143,8 +143,9 @@ type Context struct {
 	compCursor int
 	shape      CursorShape
 
-	modal   ID
-	inModal bool
+	modal       ID
+	modalScroll float32
+	inModal     bool
 
 	overlays     [maxOverlays]mathx.Rect
 	overlayN     int
@@ -681,12 +682,19 @@ func (c *Context) EditScroll() *float32 {
 }
 
 func (c *Context) OpenModal(id ID) {
+	if c.modal != id {
+		c.modalScroll = 0
+	}
 	c.modal = id
 }
 
 func (c *Context) CloseModal() {
 	c.modal = 0
+	c.modalScroll = 0
 }
+
+// ModalScroll is the scroll position of the current modal.
+func (c *Context) ModalScroll() *float32 { return &c.modalScroll }
 
 func (c *Context) ModalOpen(id ID) bool {
 	return id != 0 && c.modal == id

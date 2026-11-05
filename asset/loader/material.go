@@ -124,9 +124,7 @@ func (l *Loader) materialTexture(id ids.AssetID) (material.Tex, bool) {
 	return material.Tex{Texture: r.Texture, Region: r, RegionOnly: e.Kind == asset.ArtSpriteRegion, NormalMap: page.semantic == asset.TextureNormal, EmissionMode: emissionMode(page.semantic)}, true
 }
 
-// MaterialTexture resolves a complete texture for a material sampler. The
-// editor preview uses this same contract as runtime loading: a sprite's atlas
-// region cannot be substituted for a secondary noise or data texture.
+// MaterialTexture resolves a complete sampler texture for runtime and editor; sprite atlas regions cannot replace secondary noise or data textures.
 func (l *Loader) MaterialTexture(id ids.AssetID) (material.Tex, bool) {
 	t, ok := l.materialTexture(id)
 	if !ok || t.RegionOnly {
@@ -135,9 +133,7 @@ func (l *Loader) MaterialTexture(id ids.AssetID) (material.Tex, bool) {
 	return t, true
 }
 
-// MaterialParameterTexture shares the runtime parameter resolver with the
-// editor. Material schema validation admits independently packed regions only
-// for @normal, and requires their prepared normal/data import semantic.
+// MaterialParameterTexture shares the runtime resolver with the editor; schema permits independently packed regions only for @normal with prepared normal/data import semantics.
 func (l *Loader) MaterialParameterTexture(id ids.AssetID) (material.Tex, bool) {
 	return l.materialTexture(id)
 }
@@ -174,9 +170,7 @@ func (l *Loader) queueMaterialChanges(prepared []staged) {
 		changed[s.id] = true
 		if s.kind == asset.ArtMaterial && l.mat.cache != nil {
 			if live := l.mat.mats[s.id]; live != nil {
-				// Even a newer invalid source supersedes an older queued success.
-				// Keep the pending CPU shader revision: this batch rebuilds its
-				// transaction against the latest material definition below.
+				// A newer invalid source also supersedes queued success; retain the pending CPU shader revision to rebuild against the latest material.
 				l.mat.cache.CancelMaterial(live)
 				l.mat.cache.CancelReload(live.Shader())
 			}
@@ -397,9 +391,7 @@ func (l *Loader) dropMaterial(id ids.AssetID) {
 }
 
 func (l *Loader) dropShader(id ids.AssetID) {
-	// A deleted/temporarily missing source cancels candidates but keeps the
-	// last-good definition of its active materials. Reappearance with the same
-	// AssetID must still migrate those stable material pointers.
+	// A missing shader cancels candidates but retains active materials' last-good definition and stable pointers for migration if the same AssetID returns.
 	l.RejectSource(id)
 	for _, sid := range l.mat.uses {
 		if sid == id {

@@ -8,9 +8,8 @@ import (
 
 func finiteContour(v float32) bool { return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0) }
 
-// ValidateContour checks a simple closed polygon or open chain at a geometry
-// revision boundary. It rejects holes, crossings, nonfinite points and zero
-// length edges, but accepts concave polygons and either winding.
+// ValidateContour checks a simple closed polygon or open chain at a geometry revision boundary.
+// It rejects holes, crossings, nonfinite points and zero-length edges, but accepts concave polygons and either winding.
 func ValidateContour(points []mathx.Vec2, closed bool) error {
 	if len(points) > MaxContourPoints {
 		return ErrBudget

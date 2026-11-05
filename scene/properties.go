@@ -5,9 +5,8 @@ import (
 	"fmt"
 )
 
-// PropertyBinding is an asset-driven component property resolved outside the
-// animation hot path. Get/Set must reject an obsolete resource generation and
-// reacquire the component through the node handle instead of retaining pointers.
+// PropertyBinding is an asset-driven component property resolved outside the animation hot path.
+// Get/Set must reject obsolete resource generations and reacquire components via node handles, not retain pointers.
 type PropertyBinding struct {
 	Key   string
 	Kind  schema.Kind
@@ -18,9 +17,7 @@ type PropertyBinding struct {
 
 type PropertyResolver func(*Scene, NodeHandle, string) (*PropertyBinding, error)
 
-// BoundProperty carries the resource identity alongside its shared access
-// methods. A dynamic property can therefore be resolved for the first time
-// during playback without allocating a closure per operation.
+// BoundProperty pairs resource identity with shared access methods so playback can first resolve a dynamic property without per-operation closure allocation.
 type BoundProperty struct {
 	Key        string
 	Kind       schema.Kind

@@ -75,9 +75,7 @@ const meshMain = `    aego_world = (aego_model * vec4(aego_i_pos, 1.0)).xyz;
     aego_local_rect = vec4(0.0, 0.0, 1.0, 1.0);
     aego_region = aego_uv_rect;`
 
-// Stage outputs cannot have GLSL initializers. Keep initialized private working
-// values for custom vertex/helper code, then publish to the unchanged varyings.
-// These macros name only the reserved engine ABI, never user material fields.
+// GLSL outputs cannot be initialized; vertex/helpers use initialized private values published to unchanged varyings; macros name engine ABI, not material fields.
 const vertexVaryings = `out vec2 aego_uv;
 out vec4 aego_color;
 out vec2 aego_local;
@@ -185,9 +183,7 @@ func (u *Unit) uniforms(b *builder) {
 	}
 }
 
-// Instance parameters are real typed GLSL variables. Their values are resolved
-// from the prepared effective per-instance lanes before either entry point runs;
-// local variables and structure fields with the same spelling keep GLSL scope.
+// Instance parameters are typed GLSL variables resolved from prepared effective lanes before either entry point; same-named locals and structure fields retain GLSL scope.
 func (u *Unit) laneDefines(b *builder) {
 	for _, q := range u.Params {
 		if q.Instance {
@@ -202,9 +198,7 @@ func (u *Unit) laneDefines(b *builder) {
 					zero = q.Kind.GLSL() + "(0.0)"
 				}
 			}
-			// A constant initializer also makes helper-function reads definite
-			// to drivers whose warnings do not follow the main() call graph.
-			// assignLanes still installs the effective value before either entry.
+			// Constant initialization makes helper reads definite to drivers whose warnings ignore the main() call graph; assignLanes installs the effective value before either entry.
 			b.gen(fmt.Sprintf("%s %s = %s;", q.Kind.GLSL(), q.Name, zero))
 		}
 	}
@@ -361,9 +355,7 @@ func strip(body []srcLine, entry *regexp.Regexp) []srcLine {
 	return out
 }
 
-// Rasterizing on integer pixel edges gives coverage and texture interpolation
-// the same pixel centres across drivers with different subpixel precision.
-// Leave very large or highly stretched bounds to the regular rasterizer.
+// Integer pixel edges align coverage and interpolation centers across subpixel precisions; huge or highly stretched bounds use the regular rasterizer.
 const pixelCoverage = `    aego_coverage = vec2(.5);
     if (aego_i_local_rect.x >= 2.0 && gl_Position.w == 1.0) {
         vec2 halfView = .5 * aego_viewport.zw;

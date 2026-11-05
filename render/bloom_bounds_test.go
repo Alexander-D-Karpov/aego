@@ -147,9 +147,7 @@ func TestSceneGroupsCoverAllSpritesAfterCoalescing(t *testing.T) {
 	}
 }
 
-// The pool may contain arbitrary previous pixels. Every linear-filter tap
-// after clamping must land in the actual write footprint, and clamping may
-// only move centers whose corresponding channel was already black.
+// Pool pixels may be stale: clamped linear-filter taps must land in the write footprint, and clamping may move only centers whose corresponding channel was already black.
 func TestBloomSampleWindowNeverReadsStalePoolPixels(t *testing.T) {
 	for _, width := range []int{63, 64, 129} {
 		half := (width + 1) / 2

@@ -60,9 +60,7 @@ func (s *Shadow) Update(u gpu.TextureUpdate) {
 	}
 }
 
-// ManualMipRuns replays only explicitly written texels after the backend has
-// generated mipmaps from Base. Replaying whole zero-filled partial mip buffers
-// would corrupt the unmodified, generated texels after context restoration.
+// ManualMipRuns replays only explicitly written texels after the backend generates mipmaps from Base; whole zero-filled partial mip buffers would corrupt generated texels on context restore.
 func (s *Shadow) ManualMipRuns(fn func(gpu.TextureUpdate)) {
 	bpp := s.desc.Format.UploadBytesPerPixel()
 	for mip := 1; mip < len(s.levels); mip++ {

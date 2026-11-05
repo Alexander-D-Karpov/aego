@@ -17,9 +17,7 @@ import (
 	"aego/ui/widgets"
 )
 
-// Core routes adapt the editors that already own these documents. Modules add
-// their own handlers through the extension registry; the Asset Browser does
-// not enumerate types or choose editors.
+// Core routes adapt existing editors; modules add handlers through the extension registry, so the Asset Browser need not enumerate types or choose editors.
 func (a *App) registerDocumentHandlers() error {
 	if err := animation.RegisterThumbnails(a.ext); err != nil {
 		return err
@@ -105,9 +103,7 @@ func (a *App) openTableDocument(d *document.AssetDocument) error {
 	return nil
 }
 
-// readOnlyAssetView is a useful fallback for a known kind without a specialized
-// viewer. It presents identity and capabilities; it never feeds binary bytes
-// into the text editor and never pretends to preview an unsupported resource.
+// readOnlyAssetView presents identity and capabilities for a known kind without a specialized viewer, never feeding binary bytes to the text editor or pretending to preview them.
 func (a *App) readOnlyAssetView(d *document.AssetDocument) {
 	ui := a.ctx.UI
 	widgets.Label(ui, path.Base(d.Path))

@@ -1,16 +1,16 @@
 anim version=1 length=0.38 {
-  frames "" {
+  frames {
     sprites=[asset("1d79a0b136fd6437eff8daa213dce138"), asset("a236b680c0ba8413c061919ae44f5961"), asset("d5b69cc3fef91685825a896b4bda9a14")]
     durations=[0.08, 0.14, 0.16]
   }
-  track "" prop="SpriteRenderer.size" kind=vec2 {
+  track prop="SpriteRenderer.size" kind=vec2 {
     key t=0 v=[1, 1] interp=linear {}
     key t=0.08 v=[0.82, 1.14] interp=linear {}
     key t=0.13 v=[1.3, 0.84] interp=linear {}
     key t=0.26 v=[1.06, 0.96] interp=linear {}
     key t=0.38 v=[1, 1] {}
   }
-  track "" prop="SpriteRenderer.tint" kind=color {
+  track prop="SpriteRenderer.tint" kind=color {
     key t=0 v=#4aa3ffff interp=step {}
     key t=0.12 v=#d6eeffff interp=linear {}
     key t=0.22 v=#4aa3ffff {}
@@ -24,6 +24,12 @@ anim version=1 length=0.38 {
     key t=0.08 v=#ffffffff interp=step {}
     key t=0.2 v=#ffffffff interp=linear {}
     key t=0.34 v=#ffffff00 {}
+  }
+  track "Slash" prop="SpriteRenderer.size" kind=vec2 {
+    key t=0 v=[0.85, 1.35] interp=linear {}
+    key t=0.14 v=[1.2, 1.8] interp=linear {}
+    key t=0.34 v=[1.3, 1.9] interp=linear {}
+    key t=0.38 v=[1, 1.6] interp=linear {}
   }
   event t=0.14 name="Hit" payload=1 {}
 }

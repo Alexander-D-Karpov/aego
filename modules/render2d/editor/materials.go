@@ -445,9 +445,7 @@ func (s *materialsEditor) drawMaterial(ed *context.Editor, id ids.AssetID) {
 	v.preview.draw(ed)
 }
 
-// A valid draft schema is deliberately separate from the committed scene
-// generation. Even a saved, schema-valid edit may fail the GPU or live-node
-// migration checks; the Inspector must not present it as already active.
+// A saved, schema-valid draft may still fail GPU or live-node migration checks; the Inspector must distinguish it from the committed scene generation.
 func (s *materialsEditor) drawRuntimeState(id ids.AssetID) {
 	ed := s.ctx
 	if ed.Loader == nil {

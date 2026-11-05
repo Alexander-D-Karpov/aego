@@ -112,9 +112,7 @@ func (e *Engine) SetLockstep(on bool) {
 	e.lockstep = on
 }
 
-// exactFrameAllocs flushes allocator caches before reading the totals. The
-// cheaper runtime/metrics counters can publish a cached span's allocations in
-// a later frame, making a per-frame byte comparison depend on cache timing.
+// exactFrameAllocs flushes allocator caches: runtime/metrics can publish cached-span allocations in a later frame, skewing per-frame byte comparisons.
 // ReadMemStats stops the world, so use it only while the probe is enabled.
 func exactFrameAllocs() (uint64, uint64) {
 	var stats runtime.MemStats

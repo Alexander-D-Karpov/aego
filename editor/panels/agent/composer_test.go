@@ -9,6 +9,7 @@ import (
 	"errors"
 	"image"
 	"image/png"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +29,32 @@ func TestPlainTextPasteUsesAdvertisedFormats(t *testing.T) {
 	p := &Panel{}
 	if p.pasteImage(ui) || len(p.draftImages) != 0 {
 		t.Fatal("text-only clipboard was consumed as an image")
+	}
+}
+
+func TestDraftImageMarkersFollowRemoval(t *testing.T) {
+	var img bytes.Buffer
+	if err := png.Encode(&img, image.NewNRGBA(image.Rect(0, 0, 7, 3))); err != nil {
+		t.Fatal(err)
+	}
+	ui := core.New(nil)
+	ui.Clipboard = screenshotClipboard{img.Bytes()}
+	p := &Panel{d: Deps{Device: null.New()}, input: "before "}
+	if !p.pasteImage(ui) || p.input != "before [Image 1]" {
+		t.Fatalf("first marker: %q", p.input)
+	}
+	p.input += " between "
+	if !p.pasteImage(ui) || p.input != "before [Image 1] between [Image 2]" {
+		t.Fatalf("second marker: %q", p.input)
+	}
+	p.removeDraftImage(0)
+	if p.input != "before  between [Image 1]" || len(p.draftImages) != 1 {
+		t.Fatalf("remove/renumber: %q (%d attachments)", p.input, len(p.draftImages))
+	}
+	p.input = strings.Replace(p.input, "[Image 1]", "", 1)
+	p.dropMissingDraftImages()
+	if len(p.draftImages) != 0 {
+		t.Fatal("deleting a marker must remove its attachment")
 	}
 }
 

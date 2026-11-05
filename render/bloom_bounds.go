@@ -10,10 +10,8 @@ import (
 	"aego/render/sprite"
 )
 
-// Only the byte-verified stock Lit shader is eligible. With opaque, normalized
-// albedo and no emission its RGB cannot exceed tint times incident energy.
-// A shadow, normal, cookie, cone or distance attenuation can only reduce that
-// energy. An unknown or additive draw contributes its entire geometry instead.
+// Only byte-verified stock Lit is eligible: opaque normalized albedo without emission bounds RGB by tint times incident energy.
+// Shadow, normal, cookie, cone and distance attenuation only reduce it; unknown or additive draws contribute their full geometry.
 func (f *ViewFrame) belowBloomThreshold(d *sprite.Draw) bool {
 	m, in := d.Material, f.lighting
 	if m == nil || !m.Shader().StockLit || m.Blend() != shader.BlendPremultiplied || !d.Lighting || d.Tint.A != 1 ||

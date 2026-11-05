@@ -133,9 +133,7 @@ func (p *Pump) Fill() int {
 	}
 	target := p.cfg.Target * p.cfg.Block
 	if !p.primed && q < target {
-		// An asynchronous output may need to publish its initial blocks as
-		// one batch: otherwise its consumer can drain the first block while
-		// the producer is still mixing the rest of the startup reserve.
+		// Async outputs may need to batch-publish startup blocks so the first new block cannot drain while the rest of the reserve is mixing.
 		if out, ok := p.out.(interface {
 			BeginAudioPrime(int)
 			EndAudioPrime()

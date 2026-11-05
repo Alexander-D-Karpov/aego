@@ -271,9 +271,7 @@ func (r *Renderer) prepareShadowArray(v *lightingView, resolution, layers int) b
 		}
 	}
 	if validator, ok := r.dev.(gpu.RenderTargetValidator); ok {
-		// Context restore preserves the logical texture handle, but invalidates
-		// every per-layer FBO. Prewarm idle capacity once per generation, just
-		// as on first allocation, before publishing any layer for this draw.
+		// Restore preserves the logical texture handle but invalidates per-layer FBOs; prewarm all capacity once per generation, as on first allocation, before publishing any layer.
 		for layer := 0; layer < layers; layer++ {
 			if err := validator.ValidateRenderTarget(gpu.PassDesc{Target: h, TargetSubresource: gpu.TextureSubresource{Layer: layer}}); err != nil {
 				if !sameStorage {

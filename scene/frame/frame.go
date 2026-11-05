@@ -130,9 +130,7 @@ func (r *Runner) SetLightingView(enabled bool, debug lighting.DebugMode) {
 
 func (r *Runner) LightingView() (bool, lighting.DebugMode) { return !r.lightingOff, r.lightingDebug }
 
-// SetLightingEnvironmentPreview selects an environment for this presentation
-// session without changing any camera, scene component or simulation state.
-// Zero restores the scene's normal camera/output environment selection.
+// SetLightingEnvironmentPreview selects a session-only environment without changing cameras, scene components or simulation state; zero restores the scene's normal camera/output selection.
 func (r *Runner) SetLightingEnvironmentPreview(id ids.NodeID) { r.lightingEnvironment = id }
 func (r *Runner) LightingEnvironmentPreview() ids.NodeID      { return r.lightingEnvironment }
 
@@ -142,9 +140,8 @@ func (r *Runner) SetTarget(t gpu.TextureHandle, w, h int) {
 	r.external, r.pooledTarget = true, false
 }
 
-// SetPooledTarget gives this output a dedicated attachment, including its
-// unused bucket padding. A clear of the full logical camera may initialize that
-// padding; arbitrary external targets never grant such ownership implicitly.
+// SetPooledTarget grants this output a dedicated attachment including bucket padding, which a full logical camera clear may initialize.
+// Arbitrary external targets do not grant such ownership implicitly.
 func (r *Runner) SetPooledTarget(t *rt.Target) {
 	if t == nil {
 		r.ClearTarget()
@@ -169,9 +166,8 @@ func (r *Runner) SetViewportSize(w, h int) {
 	r.vpW, r.vpH, r.pooledTarget = w, h, false
 }
 
-// SetFixedBackdrop draws a fixed presentation surface's opaque backdrop before
-// its world. Ordinary cameras never acquire this backdrop. When coverage-free
-// additive energy needs it, the backdrop and world share one linear composite.
+// SetFixedBackdrop draws a fixed presentation surface's opaque backdrop before the world; ordinary cameras do not get one.
+// When coverage-free additive needs it, backdrop and world share a linear composite.
 func (r *Runner) SetFixedBackdrop(draw func(*render.ViewFrame)) { r.fixedBackdrop = draw }
 
 func (r *Runner) SetFixedView(v view.View) {
@@ -284,9 +280,8 @@ func (r *Runner) AddView(v view.View, order int32) {
 }
 
 func (r *Runner) push(v view.View, order int32) {
-	// A camera clearing the entire logical image on its OWNED pool target
-	// also clears unused padding. Keep sub-viewports and external/shared
-	// attachments isolated, including multiple cameras on one output.
+	// A full logical clear on the owned pool target also clears padding.
+	// Keep sub-viewports and external/shared attachments isolated, including multiple cameras on one output.
 	if (r.pooledTarget || r.scaling) && v.Target == r.target && v.TargetSubresource == (gpu.TextureSubresource{}) &&
 		v.DoClear && v.Clear.A >= 1 && v.Viewport == (mathx.Rect{W: float32(r.vpW), H: float32(r.vpH)}) {
 		v.ClearWholeTarget = true
@@ -397,9 +392,8 @@ func (r *Runner) Submit(dst *render.Renderer) {
 		var plan *postfx.Plan
 		owners := 0
 		var owner ids.NodeID
-		// All cameras of one output compose in linear space before its single
-		// resolve. An earlier Unlit camera also enters that output when a later
-		// camera has Lit receivers; no material or painter order is changed.
+		// All cameras of one output compose in linear space before one resolve, including earlier Unlit cameras when later cameras have Lit receivers.
+		// Material and painter order stay unchanged.
 		for _, other := range r.perm {
 			if r.views[other].OutputID != v.OutputID {
 				continue
@@ -472,9 +466,7 @@ func (r *Runner) Submit(dst *render.Renderer) {
 func (r *Runner) drawFixedBackdrop(dst *render.Renderer, v view.View, b *Bucket, plan *postfx.Plan) {
 	v.Label = "presentation.backdrop"
 	v.Clear.A, v.DoClear, v.DeferResolve = 1, true, false
-	// With ordinary source-over the display backdrop stays below the resolved
-	// world, as before. Additive preserves coverage, so its final backdrop must
-	// already be present in linear space BEFORE exposure/tone mapping.
+	// Source-over leaves the display backdrop below the resolved world; additive preserves coverage and needs the backdrop in linear space before exposure/tone mapping.
 	linear := (plan != nil && len(plan.Passes) != 0 || b.Lighting.OutputLit || b.Lighting.HasEnvironment && b.Lighting.Environment.ColorMode == lighting.HDR) && b.additive()
 	if linear {
 		v.DeferResolve, v.ClearWholeTarget = true, true

@@ -39,10 +39,11 @@ const (
 )
 
 type row struct {
-	kind  rowKind
-	item  int
-	label string
-	pos   [2]int
+	kind   rowKind
+	item   int
+	label  string
+	pos    [2]int
+	nested bool
 }
 
 type hit struct {
@@ -83,6 +84,7 @@ type Palette struct {
 	follow           bool
 	focus            bool
 	open             bool
+	popup            bool
 	count            string
 	ui               *core.Context
 	clicked          int
@@ -91,6 +93,17 @@ type Palette struct {
 	rowFn            func(int, mathx.Rect)
 	listH            float32
 	opened           uint64
+	subCategory      string
+	subItems         []int
+	subSelected      int
+	subScroll        float32
+	subKeyboard      bool
+	subFollow        bool
+	subPending       bool
+	subAnchor        mathx.Rect
+	subList          mathx.Rect
+	pointer          mathx.Vec2
+	pointerMoved     bool
 }
 
 const rowPad = 2
@@ -149,10 +162,17 @@ func (p *Palette) Refresh() {
 
 // Show opens the palette with an empty query; the search field takes the keyboard at once.
 func (p *Palette) Show(ui *core.Context) {
+	p.show(ui, false)
+	ui.OpenModal(p.id)
+}
+
+func (p *Palette) show(ui *core.Context, popup bool) {
 	p.open, p.focus, p.scroll, p.opened = true, true, 0, ui.Frame()
+	p.popup = popup
+	p.subCategory, p.subKeyboard, p.subPending = "", false, false
+	p.pointer = ui.Mouse()
 	p.query = ""
 	p.rebuild()
-	ui.OpenModal(p.id)
 }
 
 func (p *Palette) Hide(ui *core.Context) {
@@ -160,8 +180,14 @@ func (p *Palette) Hide(ui *core.Context) {
 		return
 	}
 	p.open = false
-	ui.CloseModal()
-	ui.CancelFocus()
+	if !p.popup {
+		if ui.ModalOpen(p.id) {
+			ui.CloseModal()
+		}
+		ui.CancelFocus()
+	} else if ui.Focus() == core.IDSeq(p.id, 1) {
+		ui.CancelFocus()
+	}
 }
 
 func (p *Palette) rebuild() {
@@ -205,12 +231,12 @@ func (p *Palette) emptyRows() {
 	}
 	for _, c := range p.cats {
 		p.rows = append(p.rows, row{kind: rowCategory, label: c})
-		if !p.Open[c] {
+		if p.popup || !p.Open[c] {
 			continue
 		}
 		for i := range p.items {
 			if p.items[i].Category == c {
-				p.rows = append(p.rows, row{item: i})
+				p.rows = append(p.rows, row{item: i, nested: true})
 			}
 		}
 	}
@@ -375,7 +401,10 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 		ui.EditBuffer(qid, p.query)
 	}
 	cur := ui.Cursor()
-	lw := float32(int(cur.W * 0.56))
+	lw := cur.W
+	if p.Describe != nil {
+		lw = float32(int(cur.W * 0.56))
+	}
 	p.listH = max(0, r.Y+r.H-cur.Y-th.RowHeight-th.Padding)
 	list := mathx.Rect{X: cur.X, Y: cur.Y, W: lw, H: p.listH}
 	desc := mathx.Rect{X: cur.X + lw + th.Padding, Y: cur.Y, W: cur.W - lw - th.Padding, H: list.H}
@@ -388,8 +417,8 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 	if len(p.rows) == 0 {
 		ui.TextIn(list, widgets.Tr("editor.widgets.nothing_matches", "Nothing matches"), th.TextDisabled, core.AlignCenter)
 	}
-	ui.Rect(mathx.Rect{X: desc.X - th.Padding/2, Y: desc.Y, W: 1, H: desc.H}, th.Border)
 	if p.Describe != nil {
+		ui.Rect(mathx.Rect{X: desc.X - th.Padding/2, Y: desc.Y, W: 1, H: desc.H}, th.Border)
 		ui.PushClip(desc)
 		p.Describe(ui, desc, p.Selected())
 		ui.PopClip()
@@ -425,6 +454,10 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 		ui.Text(rw.label, mathx.Vec2{X: rr.X + 6, Y: ty}, th.TextDim)
 		return
 	case rowCategory:
+		if p.popup {
+			p.drawPopupCategory(i, rr)
+			return
+		}
 		if ui.Pressed(id, rr) {
 			p.sel, p.toggled = i, i
 		}
@@ -446,6 +479,9 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 		return
 	}
 	it := &p.items[rw.item]
+	if p.popup && p.pointerMoved && ui.Hit(rr) && p.subCategory != "" {
+		p.closeSub(ui)
+	}
 	off := it.Disabled != ""
 	star := mathx.Rect{X: rr.X + rr.W - rr.H, Y: rr.Y, W: rr.H, H: rr.H}
 	sid := core.IDSeq(p.id, 100000+i)
@@ -472,6 +508,9 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 	indent := float32(4)
 	if len(p.q) == 0 && i > 0 {
 		indent = 14
+	}
+	if rw.nested {
+		indent = 40
 	}
 	widgets.IconAt(ui, mathx.Rect{X: rr.X + indent, Y: rr.Y + (rr.H-16)/2, W: 16, H: 16}, it.Icon, tint)
 	tx := rr.X + indent + 22

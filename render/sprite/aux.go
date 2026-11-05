@@ -17,10 +17,8 @@ const (
 	EmissionLocalLocation = shader.EmissionLocalLocation
 )
 
-// Aux is an optional per-instance stream, independent of material overrides.
-// Affine stores (m00-1,m10,m01,m11); the disabled float attribute's (0,0,0,1)
-// therefore decodes as identity. NormalUV and NormalLocal map the normal's
-// independently packed rectangle to its original source canvas.
+// Aux is an optional per-instance stream independent of material overrides; Affine stores (m00-1,m10,m01,m11) so disabled (0,0,0,1) decodes to identity.
+// NormalUV/NormalLocal map the independently packed normal rectangle to its source canvas.
 type Aux struct {
 	Affine        [4]float32
 	NormalUV      [4]float32
@@ -104,9 +102,7 @@ func (b *Batcher) UploadAux() bool {
 func (b *Batcher) AuxBuffer() gpu.BufferHandle { return b.auxVB }
 func (b *Batcher) AuxBytes() int               { return len(b.auxOut) * AuxStride }
 
-// AuxLayout adds the affine input used by the engine's plain sprite shader.
-// Material shaders add their feature-specific channel inputs in material.Cache.
-// A disabled stream uses the backend's generic float attribute defaults.
+// AuxLayout adds the plain sprite shader's affine input; material.Cache adds feature-specific channel inputs, and a disabled stream uses the backend's generic float defaults.
 func AuxLayout(l gpu.VertexLayout) gpu.VertexLayout {
 	l.Attrs = append(l.Attrs, gpu.VertexAttr{Location: AffineLocation, Slot: AuxSlot, Format: gpu.VFFloat4, Offset: 0})
 	l.Strides[AuxSlot] = AuxStride

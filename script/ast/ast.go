@@ -1,17 +1,12 @@
 // Package ast defines the Aego Script syntax tree.
 //
-// Some invariants the tree cannot express in its types but that the parser
-// guarantees and the checker may rely on:
+// Parser invariants not expressed by the types (for input without parse errors):
 //
-//   - The literals true, false and nil are *BasicLit with Kind token.True,
-//     token.False or token.Nil — never *Ident.
-//   - AttrArg.Value is only a *BasicLit or a *UnaryExpr{Op: token.Sub, X:
-//     *BasicLit}; the parser rejects anything else (so @export(min=-1) parses
-//     and @export(min=f()) never reaches the checker), which folds the minus.
-//   - CompositeLit.Elems are either all keyed or all unkeyed; mixing the two is
-//     a parser error.
-//   - ForStmt.Init and ForStmt.Post are only *ShortVarStmt, *AssignStmt,
-//     *IncDecStmt or *ExprStmt.
+//   - true, false and nil are *BasicLit with Kind token.True, token.False or token.Nil, never *Ident.
+//   - AttrArg.Value is a *BasicLit or *UnaryExpr with Op token.Sub and X *BasicLit; the checker folds the minus. The parser accepts @export(min=-1) but rejects @export(min=f()).
+//   - ForStmt.Init and ForStmt.Post, when present, are *ShortVarStmt, *AssignStmt, *IncDecStmt or *ExprStmt.
+//
+// The checker rejects CompositeLit.Elems that mix keyed and unkeyed fields; the parser permits them.
 package ast
 
 import (

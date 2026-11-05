@@ -38,5 +38,5 @@ Gameplay	gameplay.Checkpoint2D	Checkpoint 2D	gameplay.checkpoint	-
 Gameplay	gameplay.Respawn	Respawn	gameplay.respawn	-
 Gameplay	gameplay.Pickup2D	Pickup 2D	gameplay.pickup	-
 Gameplay	gameplay.StateMachine	State Machine	gameplay.fsm	-
-Effects	particles.ParticleSystem2D	Particle System 2D	comp.sprite	-
+Effects	particles.ParticleSystem2D	Particle System 2D	particles.system	-
 game	game.Rotator	Rotator	cat.game	rotator

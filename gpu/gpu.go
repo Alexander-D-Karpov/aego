@@ -221,9 +221,7 @@ func BlendPremultiplied() BlendState {
 	}
 }
 
-// BlendAdditive adds premultiplied RGB while preserving destination coverage.
-// Emissive light does not make a transparent target more opaque. Normalized
-// targets clamp RGB; floating targets retain brightness above one.
+// BlendAdditive adds premultiplied RGB without changing destination coverage; normalized targets clamp RGB, while floating targets retain brightness above one.
 func BlendAdditive() BlendState {
 	return BlendState{
 		Enabled: true,

@@ -1,6 +1,5 @@
 #!/bin/sh
 # Builds a drag-to-Applications disk image from the editor app on macOS; the app is ad-hoc signed.
-# Usage: tools/release/dmg.sh <Aego.app> <out.dmg>
 set -eu
 app=${1:?usage: dmg.sh <Aego.app> <out.dmg>}
 out=${2:?usage: dmg.sh <Aego.app> <out.dmg>}

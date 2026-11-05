@@ -20,6 +20,9 @@ func TestAgentRunPressesAndChecks(t *testing.T) {
 	if len(ev) != 2 {
 		t.Fatalf("got %d results", len(ev))
 	}
+	if !ev[0].Failed {
+		t.Fatal("a failed playtest assertion must be reported as a failed tool result")
+	}
 	r := ev[0].Result
 	if strings.Contains(r, "holds the asset index") {
 		t.Fatalf("a run next to the editor warns about the shared index:\n%s", r)

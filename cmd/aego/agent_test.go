@@ -93,18 +93,59 @@ func copyProject(t *testing.T, name string) string {
 	return dst
 }
 
-func TestAgentSceneTreeJSON(t *testing.T) {
-	dir := copyProject(t, "platformer")
+func captureStdout(t *testing.T, run func() int) (int, []byte) {
+	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r.Close()
 	stdout := os.Stdout
 	os.Stdout = w
-	code := dispatch([]string{"scene", "tree", "scenes/main.aescene", "--json", "--project", dir})
+	defer func() {
+		os.Stdout = stdout
+		w.Close()
+	}()
+	type result struct {
+		out []byte
+		err error
+	}
+	read := make(chan result, 1)
+	go func() {
+		out, err := io.ReadAll(r)
+		read <- result{out, err}
+	}()
+	code := run()
 	os.Stdout = stdout
-	w.Close()
-	out, _ := io.ReadAll(r)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got := <-read
+	if got.err != nil {
+		t.Fatal(got.err)
+	}
+	return code, got.out
+}
+
+func TestCaptureStdoutLargerThanPipe(t *testing.T) {
+	want := bytes.Repeat([]byte("large output\n"), 1<<17)
+	code, got := captureStdout(t, func() int {
+		if _, err := os.Stdout.Write(want); err != nil {
+			t.Error(err)
+			return 1
+		}
+		return 0
+	})
+	if code != 0 || !bytes.Equal(got, want) {
+		t.Fatalf("captured %d of %d bytes (exit %d)", len(got), len(want), code)
+	}
+}
+
+func TestAgentSceneTreeJSON(t *testing.T) {
+	dir := copyProject(t, "platformer")
+	code, out := captureStdout(t, func() int {
+		return dispatch([]string{"scene", "tree", "scenes/main.aescene", "--json", "--project", dir})
+	})
 	if code != 0 {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
@@ -119,16 +160,9 @@ func TestAgentSceneTreeJSON(t *testing.T) {
 // The top-down example needs no native module, so the CLI can run it from a copy.
 func TestAgentSceneRunCounters(t *testing.T) {
 	dir := copyProject(t, "topdown")
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	stdout := os.Stdout
-	os.Stdout = w
-	code := dispatch([]string{"scene", "run", "scenes/main.aescene", "--frames", "300", "--json", "--project", dir})
-	os.Stdout = stdout
-	w.Close()
-	out, _ := io.ReadAll(r)
+	code, out := captureStdout(t, func() int {
+		return dispatch([]string{"scene", "run", "scenes/main.aescene", "--frames", "300", "--json", "--project", dir})
+	})
 	if code != 0 {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}

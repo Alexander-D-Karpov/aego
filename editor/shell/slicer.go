@@ -244,9 +244,7 @@ func (a *App) importSection(ui *core.Context, id ids.AssetID, st *sliceState, cu
 
 func (a *App) applyImport(id ids.AssetID, before, after pipeline.Settings) {
 	var ops []mutate.Op
-	// Only the known fields of this legacy form change; hidden channel and
-	// future metadata remain in the shared document. The typed mutation model
-	// applies the same validation as the Channels Inspector and CLI.
+	// Change only known legacy form fields, preserving hidden channel/future metadata; typed mutations share validation with the Channels Inspector and CLI.
 	for _, name := range []string{"filter", "srgb", "mips", "atlas", "padding", "extrude"} {
 		if v, ok := after[name]; ok {
 			ops = append(ops, mutate.TextureSetting(name, v))

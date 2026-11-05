@@ -87,6 +87,7 @@ type Service struct {
 	store   store
 	desc    desc
 	loaded  bool
+	menuID  core.ID
 }
 
 func New(d Deps) *Service {
@@ -107,6 +108,7 @@ func (s *Service) AddComponent(nodes []ids.NodeID, at *mathx.Vec2) {
 	if d == nil || len(nodes) == 0 {
 		return
 	}
+	s.CloseCreateMenu()
 	s.mode, s.doc, s.nodes, s.at = Components, d, slices.Clone(nodes), at
 	s.open()
 }
@@ -117,6 +119,7 @@ func (s *Service) CreateNode(parent ids.NodeID, pl templates.Place, at *mathx.Ve
 	if d == nil || s.d.Templates == nil {
 		return
 	}
+	s.CloseCreateMenu()
 	s.mode, s.doc, s.nodes, s.at = Create, d, nil, at
 	s.parent, s.place, s.created = parent, pl, created
 	s.open()
@@ -125,6 +128,10 @@ func (s *Service) CreateNode(parent ids.NodeID, pl templates.Place, at *mathx.Ve
 func (s *Service) open() {
 	ui := s.d.Ctx.UI
 	ui.CloseAllPopups()
+	s.pal.Describe = nil
+	if s.mode == Components {
+		s.pal.Describe = s.describe
+	}
 	s.load()
 	s.collect()
 	s.pal.Show(ui)
@@ -132,8 +139,58 @@ func (s *Service) open() {
 }
 
 func (s *Service) Close() {
-	s.pal.Hide(s.d.Ctx.UI)
+	ui := s.d.Ctx.UI
+	if s.menuID != 0 {
+		ui.ClosePopup(s.menuID)
+		s.menuID = 0
+	}
+	s.pal.Hide(ui)
 	s.doc = nil
+}
+
+// CanCreateMenu reports whether there is a document and template registry.
+func (s *Service) CanCreateMenu() bool {
+	return s.d.Ctx.Doc() != nil && s.d.Templates != nil
+}
+
+func (s *Service) createMenuCurrent() bool {
+	return s.menuID != 0 && s.d.Ctx.Doc() == s.doc && s.CanCreateMenu()
+}
+
+// CloseCreateMenu does not affect a separately opened modal palette.
+func (s *Service) CloseCreateMenu() {
+	if s.menuID != 0 {
+		s.Close()
+	}
+}
+
+// DrawCreateMenu runs inside the menu bar's popup. It uses the same entries
+// and pick path as the separate Create palette.
+func (s *Service) DrawCreateMenu(id core.ID, parent ids.NodeID, maxListHeight float32) {
+	ui := s.d.Ctx.UI
+	if s.menuID == 0 {
+		if !s.CanCreateMenu() || s.pal.Active() {
+			return
+		}
+		s.mode, s.doc, s.nodes, s.at = Create, s.d.Ctx.Doc(), nil, nil
+		s.parent, s.place, s.created, s.menuID = parent, templates.Place{}, nil, id
+		s.load()
+		s.collect()
+		s.pal.ShowPopup(ui)
+		s.apply()
+	}
+	if !s.createMenuCurrent() {
+		s.Close()
+		return
+	}
+	s.result(s.pal.DrawPopup(ui, maxListHeight))
+}
+
+// SyncCreateMenu dismisses stale popups and releases their search focus.
+func (s *Service) SyncCreateMenu() {
+	if s.menuID != 0 && (!s.d.Ctx.UI.PopupOpen(s.menuID) || !s.createMenuCurrent()) {
+		s.Close()
+	}
 }
 
 func (s *Service) apply() {
@@ -302,7 +359,7 @@ func (s *Service) templates() {
 
 // Draw shows the open palette and applies a pick.
 func (s *Service) Draw() {
-	if !s.pal.Active() {
+	if !s.pal.Active() || s.menuID != 0 {
 		return
 	}
 	ui := s.d.Ctx.UI
@@ -314,6 +371,10 @@ func (s *Service) Draw() {
 	if s.mode == Components {
 		s.desc.keys(ui)
 	}
+	s.result(res)
+}
+
+func (s *Service) result(res palette.Result) {
 	switch {
 	case res.Close:
 		s.Close()
@@ -328,7 +389,11 @@ func (s *Service) rect(ui *core.Context) mathx.Rect {
 	sz := ui.Size()
 	w := min(700, sz.X-40)
 	h := min(440, sz.Y-60)
-	r := mathx.Rect{X: (sz.X - w) / 2, Y: max(20, sz.Y*0.12), W: w, H: h}
+	if s.mode == Create {
+		w = min(800, sz.X-40)
+		h = min(560, sz.Y-60)
+	}
+	r := mathx.Rect{X: (sz.X - w) / 2, Y: mathx.Clamp(sz.Y*0.12, 8, max(8, sz.Y-h-8)), W: w, H: h}
 	if s.at != nil {
 		r.X = mathx.Clamp(s.at.X, 8, max(8, sz.X-w-8))
 		r.Y = mathx.Clamp(s.at.Y, 8, max(8, sz.Y-h-8))
@@ -528,6 +593,7 @@ var categoryIcons = map[string]string{
 	"Physics":   "comp.rigidbody",
 	"Audio":     "cat.audio",
 	"Animation": "anim.graph",
+	"Effects":   "cat.particles",
 	"Gameplay":  "cat.game",
 	"Game":      "cat.game",
 	"Saving":    "comp.persist",

@@ -73,17 +73,13 @@ type ShaderSource interface {
 	Shader(id ids.AssetID) (*material.Shader, bool)
 }
 
-// NormalSource is an optional prepared-asset association. The returned ID stays
-// nonzero when a saved normal reference cannot currently be resolved. Regions
-// have their own atlas UV and original-canvas trim mapping; callers must not
-// sample the normal texture using the albedo region's atlas coordinates.
+// NormalSource optionally associates a prepared asset; an unresolved saved normal reference retains its nonzero ID.
+// Normal regions have their own atlas UV and original-canvas trim mapping; do not sample them with albedo atlas coordinates.
 type NormalSource interface {
 	NormalFor(albedo ids.AssetID) (normalID ids.AssetID, region texture.Region, ok bool)
 }
 
-// TextureMetadata describes prepared source semantics without requiring a GPU
-// texture. Validators and export can distinguish a valid data mask from an
-// unresolved reference even when no rendering device is present.
+// TextureMetadata describes prepared source semantics without a GPU, letting validators and export distinguish valid data masks from unresolved references.
 type TextureMetadata struct {
 	Width, Height int
 	Semantic      TextureSemantic

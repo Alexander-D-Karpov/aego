@@ -100,9 +100,7 @@ func arrayLayers(r *report, d *webgl2.Device) {
 	checkClearRect(r, d, h)
 }
 
-// The logical viewport is smaller than a physical 4x2 array mip. Prime a
-// nonempty scissor before each measured clear and compare with the same pass
-// using the existing unrestricted clear. Both must use identical commands.
+// With a viewport smaller than the physical 4x2 array mip, prime a nonempty scissor before each clear; the full-mip and unrestricted clears must use identical commands.
 func checkClearRect(r *report, d *webgl2.Device, h gpu.TextureHandle) {
 	sub := gpu.TextureSubresource{Layer: 1, Mip: 1}
 	full, partial := mathx.Rect{W: 4, H: 2}, mathx.Rect{W: 2, H: 1}

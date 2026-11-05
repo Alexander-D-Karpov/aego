@@ -35,22 +35,38 @@ func LabelWrapped(c *core.Context, s string, dim bool) {
 	if dim {
 		color = c.Theme.TextDim
 	}
-	for len(s) > 0 {
-		line := fitLine(c, s, width)
+	walkWrapped(c, s, width, func(line string) {
 		r := c.Cursor().Next(0)
 		c.List().Text(line, mathx.Vec2{X: r.X, Y: textY(c, r)}, color)
-		s = strings.TrimLeft(s[len(line):], " ")
-	}
+	})
 }
 
 func WrapLines(c *core.Context, s string, width float32) []string {
 	var out []string
-	for len(s) > 0 {
-		line := fitLine(c, s, width)
-		out = append(out, line)
-		s = strings.TrimLeft(s[len(line):], " ")
-	}
+	walkWrapped(c, s, width, func(line string) { out = append(out, line) })
 	return out
+}
+
+func walkWrapped(c *core.Context, s string, width float32, visit func(string)) {
+	if s == "" {
+		return
+	}
+	for {
+		paragraph, rest, more := strings.Cut(s, "\n")
+		paragraph = strings.TrimSuffix(paragraph, "\r")
+		if paragraph == "" {
+			visit("")
+		}
+		for len(paragraph) > 0 {
+			line := fitLine(c, paragraph, width)
+			visit(line)
+			paragraph = strings.TrimLeft(paragraph[len(line):], " ")
+		}
+		if !more {
+			return
+		}
+		s = rest
+	}
 }
 
 func fitLine(c *core.Context, s string, width float32) string {

@@ -17,9 +17,7 @@ import (
 
 const MaterialVersion = 1
 
-// MaterialDoc preserves authoring semantics, including unknown properties and
-// explicit values equal to a shader default. Values is a runtime projection;
-// authoring edits use SetValue/Unset, not writes into that projection.
+// MaterialDoc preserves unknown properties and explicit shader-default values; Values is a runtime projection, so authoring edits use SetValue/Unset, not direct writes.
 type MaterialDoc struct {
 	Shader   ids.AssetID
 	Blend    shader.Blend

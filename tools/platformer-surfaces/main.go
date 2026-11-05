@@ -1,6 +1,4 @@
-// Command platformer-surfaces regenerates the small, deterministic surface
-// assets of the canonical platformer. It preserves existing .meta settings.
-// Run from the repository root: go run ./tools/platformer-surfaces
+// Command platformer-surfaces regenerates deterministic platformer surface assets from the repository root, preserving existing .meta settings.
 package main
 
 import (

@@ -13,10 +13,8 @@ import (
 	"aego/gpu"
 )
 
-// TryArtifacts is a bounded, prepared resource payload for documentation
-// sessions. It is not a game archive: normal exports still use their directory
-// manifest. Every item contains the same runtime artifacts as the asset loader.
-// SourceHash covers the source/meta manifest and importer versions at build time.
+// TryArtifacts is a bounded prepared payload for documentation sessions, not a game archive; exports still use their directory manifest.
+// Items contain the asset loader's runtime artifacts; SourceHash covers the source/meta manifest and importer versions at build time.
 type TryArtifacts struct {
 	SourceHash [32]byte
 	Assets     []TryAsset

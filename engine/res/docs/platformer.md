@@ -669,9 +669,9 @@ The player and enemy use separate `LightOccluder2D` polygons for their shadows. 
 
 See [Image and Sprite authoring](ref:render2d/image-viewer) and [Materials and shaders](ref:render2d/materials) for role/color-space rules, missing-reference diagnostics and the lighting model. Native and web exports use this same project and include its normal, height-derived, emission and cookie artifacts. The site's demo is prepared from this export; preparation alone does not publish a new site version.
 
-## Landing dust in the example
+## Dust and sparks in the example
 
-Open `examples/platformer`, jump and keep moving after landing. The dust starts at the player's feet and stays over the patch of floor where the player landed. Select `Player/Dust` to change the effect: `rectSize` sets the width and depth of the emitting strip, and `lifetime` sets how long each puff lasts. In `scripts/player/player.aes`, `OnLanded` calls `Dust.Get<ParticleSystem2D>().Burst(8)`. Change this count to release more or fewer puffs per landing. `playOnStart` is off and `rate` is zero, so the emitter produces nothing between landings.
+Open `examples/platformer`, jump and keep moving after landing. The dust starts at the player's feet and stays over the patch of floor where it was emitted. Select `Player/Dust` to change the effect: `rectSize` sets the width and depth of the emitting strip, and `lifetime` sets how long each puff lasts. In `scripts/player/player.aes`, `OnLanded` emits eight particles, `OnJumped` five and `OnClimbed` six. `playOnStart` is off and `rate` is zero, so the emitter produces particles only on these events. `Player/Slash/Sparks` emits a burst on the attack animation's Hit event.
 
 `space=world` fixes each particle's birth transform. Use `space=local` for an effect that should travel with its parent. To compare the same level with and without particles, change **Particle Effects** in the game's accessibility settings. Leave F6 and F7 unchanged: they control lighting.
 

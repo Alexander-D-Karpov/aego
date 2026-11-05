@@ -7,9 +7,7 @@ import (
 	"testing"
 )
 
-// Delivers move/down/up for each click via the actual platform event queue and
-// Session.Step (clickTile/push), hitting the tile returned by the drawn grid.
-// Never invokes navigation, the PNG handler, or an open command directly.
+// Each click hits a drawn tile via move/down/up on the real platform event queue and Session.Step (clickTile/push), without directly invoking navigation, the PNG handler or an open command.
 func TestAV01DoubleClickPNGInRealAssetBrowser(t *testing.T) {
 	s, ed := openEditor(t)
 	if _, ok := s.Host.Engine.Platform().(*headless.Platform); !ok {

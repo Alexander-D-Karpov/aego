@@ -8,7 +8,6 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/command"
 	"aego/editor/core/play"
-	"aego/editor/core/templates"
 	"aego/editor/core/workspace"
 	"aego/engine/i18n"
 	"aego/ui/widgets"
@@ -138,14 +137,19 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 	ui := a.ui
 	ctx := a.ctx
 	mb := widgets.BeginMenuBar(ui, r)
+	a.addPal.SyncCreateMenu()
 	for _, cat := range a.menuCategories() {
 		if cat == "Create" {
-			if hit, at := mb.Button(menuTitle(cat)); hit && ctx.Doc() != nil {
+			label := menuTitle(cat)
+			if mb.MenuEnabled(label, min(280, ui.Size().X), a.addPal.CanCreateMenu()) {
 				parent := ids.NodeID{}
 				if it, ok := ctx.Selection.Active(); ok && it.Doc == ctx.Doc().ID {
 					parent = it.Node
 				}
-				a.addPal.CreateNode(parent, templates.Place{}, &at, nil)
+				rowH := ui.Theme.RowHeight + 2
+				available := ui.Size().Y - r.Y - r.H - 2*(ui.Theme.Padding+ui.Theme.RowHeight+ui.Theme.Spacing)
+				a.addPal.DrawCreateMenu(ui.ID("menu/"+label), parent, min(8*rowH, available))
+				mb.EndMenu()
 			}
 			continue
 		}
@@ -165,6 +169,7 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 		}
 		mb.EndMenu()
 	}
+	a.addPal.SyncCreateMenu()
 	if !a.opt.Supervised || a.buildState == widgets.DotOK {
 		return
 	}

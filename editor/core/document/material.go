@@ -6,9 +6,7 @@ import (
 	"aego/scene/mutate"
 )
 
-// ApplyMaterialMutation edits the existing source document. Inspector and the
-// code panel share this buffer and its undo history; callers supply the current
-// checked shader schema, never mutate the loader's shared runtime material.
+// ApplyMaterialMutation edits the Inspector/code panel's shared buffer and history using the caller's current checked shader schema, never the loader's shared runtime material.
 func ApplyMaterialMutation(d *ScriptDocument, resolve func(ids.AssetID) (*material.Shader, bool), tx mutate.Tx, continuing bool) (*mutate.Result, error) {
 	m, err := mutate.LoadMaterial(d.Code.Bytes(), d.Path, resolve)
 	if err != nil {

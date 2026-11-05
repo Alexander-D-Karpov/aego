@@ -18,9 +18,7 @@ const (
 	CodeDirtySource = "EXP015"
 )
 
-// Last-good is an editor rendering policy. Export always checks current source
-// against the exact prepared artifact it is about to ship, even before a file
-// watcher has noticed the edit or after a previous import failed.
+// Export checks current source against the exact artifact being shipped, even before file watching or after a failed import; last-good is an editor rendering policy.
 func checkMaterialSources(s *Snapshot) []problems.Diagnostic {
 	var out []problems.Diagnostic
 	for _, rel := range s.DirtySources {

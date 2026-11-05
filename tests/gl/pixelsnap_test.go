@@ -17,9 +17,7 @@ import (
 	"aego/render/view"
 )
 
-// Pixel positions are checked against a CPU rectangle in top-left physical
-// coordinates. An odd viewport origin/height and a four-pixel grid distinguish
-// window Y orientation from the offscreen projection; grid=1 masks that bug.
+// Compare pixels to a CPU rectangle in top-left physical coordinates; an odd viewport origin/height and four-pixel grid expose the window/offscreen Y-orientation bug that grid=1 masks.
 func TestPixelSnapPhysicalGridAcrossDPRViewportAndTargets(t *testing.T) {
 	e := newGLEngine(t)
 	defer e.Close()

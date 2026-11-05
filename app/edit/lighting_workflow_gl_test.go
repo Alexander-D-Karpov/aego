@@ -22,9 +22,8 @@ func TestLightingAuthoringWorkflowNative(t *testing.T) {
 	checkSceneViewLitAdditiveBackdrop(t)
 }
 
-// A Lit receiver opts the fixed Scene View into a linear intermediate. The
-// additive sprite needs the real opaque editor grid underneath that world.
-// Reading this panel's attachment avoids a passing test from chrome/overlays.
+// A Lit receiver opts Scene View into a linear intermediate; the additive sprite needs the real opaque editor grid.
+// Read the panel attachment so chrome or overlays cannot produce a false pass.
 func checkSceneViewLitAdditiveBackdrop(t *testing.T) {
 	t.Helper()
 	p := newProject(t)
@@ -157,9 +156,8 @@ func checkSceneViewLitAdditiveBackdrop(t *testing.T) {
 		t.Fatalf("Unlit primary was not preserved on display: %d pixels", red)
 	}
 
-	// Game View uses the real scene camera, not the editor's fixed backdrop.
-	// Its full opaque logical clear owns the padding of its dedicated pool
-	// allocation; no implicit backdrop is introduced for transparent exports.
+	// Game View uses the scene camera, not the editor backdrop; its full opaque clear owns the dedicated pool's padding.
+	// Transparent exports receive no implicit backdrop.
 	sr.Material = asset.NewRef[asset.Material](asset.BuiltinMaterialLit)
 	if err := s.App.Play().Start(doc); err != nil {
 		t.Fatal(err)

@@ -11,9 +11,7 @@ type LastWrite struct {
 	data []byte
 }
 
-// ReserveSmall reserves only the backing for a small buffer of known size.
-// The first write is still sent in full. Larger, partially used GPU buffers
-// continue to acquire bounded comparison storage from their actual writes.
+// ReserveSmall reserves backing for a known small buffer without suppressing its first full write; larger, partially used buffers acquire bounded comparison storage from actual writes.
 func (w *LastWrite) ReserveSmall(size int) {
 	const limit = 1024
 	if size > 0 && size <= limit && cap(w.data) < size {

@@ -541,19 +541,15 @@ func (r *Renderer) postProcessResolveParameters(f *ViewFrame) (exposure, tone, f
 
 func (r *Renderer) clearPostProcessDestination(f *ViewFrame) {
 	o := f.output
-	// Camera clears replace the destination only in their requested rectangles.
-	// Resolve then composites once over any retained editor/display backdrop.
-	// The scene's actual clear color is already part of the linear intermediate.
+	// Camera clears replace only their requested rectangles; resolve composites once over the retained editor/display backdrop, with the scene clear color already in the linear intermediate.
 	for _, rect := range o.clears {
 		p := r.frame.BeginPass(gpu.PassDesc{Target: f.view.Target, TargetSubresource: f.view.TargetSubresource, Color: gpu.LoadClear, ClearRect: rect, Label: "lighting.output-clear"})
 		p.End()
 	}
 }
 
-// The final auxiliary texture can be sampled by the full-frame composite. Its
-// pixels outside clip must be black. Earlier textures are read solely by their
-// immediate successor. Draw its entire input footprint, including a texel on
-// each side for bilinear filtering, so stale pool contents cannot contribute.
+// The full-frame composite can sample the final auxiliary texture, so pixels outside clip must be black. Earlier textures feed only
+// their successor; draw its full input footprint plus a texel per side for bilinear filtering, excluding stale pool contents.
 func auxiliaryRegions(d *postfx.Descriptor, params [4][4]float32, clip, dst, output mathx.Rect) ([4]mathx.Rect, bool) {
 	defaults := [4]mathx.Rect{clip, clip, clip, clip}
 	if clip.W <= 0 || d.HalfReadOffset == nil {

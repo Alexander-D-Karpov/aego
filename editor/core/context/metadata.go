@@ -119,9 +119,7 @@ func (e *Editor) metadataService() *metadataCoordinator {
 	return q
 }
 
-// ApplyMetadataPreview imports a working buffer without saving it. One CPU job
-// runs at a time; repeated requests replace that asset's queued snapshot.
-// Publication is on the engine thread through the ordinary asset reload route.
+// ApplyMetadataPreview imports a working buffer without saving: one CPU job runs at a time, newer requests replace the queued snapshot, and publication uses the engine-thread asset reload route.
 func (e *Editor) ApplyMetadataPreview(id ids.AssetID) error {
 	if e.Docs == nil {
 		return fmt.Errorf("document manager is unavailable")
@@ -146,9 +144,7 @@ func (e *Editor) queueMetadata(d *document.AssetDocument, restore bool) error {
 	}
 	device, _ := e.metadataDevice()
 	r := &metadataRequest{doc: d, metadata: d.Metadata, asset: d.Asset, path: d.Path, revision: d.Metadata.Code.Rev(), saved: d.Metadata.SavedEdits, device: device, pipeline: e.Pipeline.Revision(), restore: restore, overlay: make(map[string][]byte), versions: make(map[string]metadataVersion), working: make(map[ids.AssetID]string)}
-	// Include every owner from the last published working generation. Closed
-	// owners contribute their saved metadata; a later close may supersede an
-	// earlier job, but its restore cannot disappear from the complete snapshot.
+	// Snapshot every owner from the last published working generation, using saved metadata for closed ones, so a later superseding close cannot erase an earlier restore.
 	for id, path := range q.working {
 		if current := e.Docs.AssetDocument(id); current != nil && current.Metadata != nil {
 			path = current.Path
@@ -318,9 +314,7 @@ func (e *Editor) pumpMetadata(q *metadataCoordinator) {
 				if !r.restore {
 					r.doc.WorkingPreview.Pending = false
 				}
-				// Context generation or another saved import may change while a
-				// CPU job runs. Retry from fresh source/doc snapshots on a later
-				// frame; never publish objects prepared for the old device.
+				// If the device generation or a saved import changed during CPU work, retry with fresh source/document snapshots on a later frame; never publish for the old device.
 				q.retry = r
 			}
 			e.pumpMetadata(q)
@@ -336,9 +330,7 @@ func (e *Editor) pruneWorkingMetadata(q *metadataCoordinator, batch *pipeline.Ba
 	for _, id := range batch.Removed {
 		retained[id] = true
 	}
-	// The persistent index never saw new private frames/atlas pages. A later
-	// Undo cannot ask the importer to remove an ID it never owned, so compare
-	// the previous published generation before replacing the private VFS.
+	// Compare the prior published generation before replacing the private VFS: Undo's importer cannot remove private frame/atlas IDs the persistent index never saw.
 	for _, id := range q.published {
 		if !retained[id] {
 			if _, saved := e.Pipeline.Entry(id); !saved {
@@ -348,9 +340,7 @@ func (e *Editor) pruneWorkingMetadata(q *metadataCoordinator, batch *pipeline.Ba
 	}
 }
 
-// PollAssetPreviews resumes a superseded device/import generation after the
-// context is usable again. Failed imports are kept as diagnostics and are not
-// retried every frame; a subsequent edit/Undo/Save can explicitly try again.
+// PollAssetPreviews resumes superseded device/import work when the context recovers; failed imports remain diagnostic rather than retrying every frame, but edit/Undo/Save can retry.
 func (e *Editor) PollAssetPreviews() {
 	q := e.metadata
 	if q == nil || q.closed || q.running || len(q.queue) != 0 {
@@ -361,9 +351,7 @@ func (e *Editor) PollAssetPreviews() {
 		return
 	}
 	if q.rollback != nil {
-		// Keep one pending rollback after a failed GPU upload. Retry promptly
-		// on a fresh context and at most once per second on the same device;
-		// neither a lost device nor a persistent failure gets work each frame.
+		// Keep one rollback after a failed GPU upload; retry promptly on a fresh context, at most once per second on the same device, and never while the device is lost.
 		if device == q.rollbackDevice && e.Now() < q.rollbackAfter {
 			return
 		}
@@ -390,10 +378,8 @@ func (e *Editor) PollAssetPreviews() {
 	}
 }
 
-// If a discarded document cannot be reimported (for example, an external edit
-// broke its metadata), release the complete private texture generation by
-// returning to the pipeline's last validated artifacts. No source or dirty
-// journal is changed. Partial rollback would lose private VFS dependencies.
+// If reimporting a discarded document fails, release the entire private texture generation and restore the pipeline's last validated artifacts.
+// Never change source or dirty journals; partial rollback loses private VFS dependencies.
 func (e *Editor) restoreSavedMetadata(q *metadataCoordinator, cause error) error {
 	device, lost := e.metadataDevice()
 	deferRetry := func() {
@@ -468,9 +454,7 @@ func (e *Editor) SaveAsset(d *document.AssetDocument) error {
 	return e.Docs.SaveAsset(d)
 }
 
-// ReloadMetadata discards the shared source journal and restores the saved
-// runtime generation if Undo/Redo had published a working texture. Replacing
-// a Code document also invalidates every candidate captured before Reload.
+// ReloadMetadata discards the shared source journal, restores saved runtime textures after Undo/Redo previews, and invalidates candidates captured before Reload.
 func (e *Editor) ReloadMetadata(d *document.AssetDocument) error {
 	if e.Docs == nil || d == nil || e.Docs.AssetDocument(d.Asset) != d || d.Metadata == nil {
 		return fmt.Errorf("metadata document is no longer open")

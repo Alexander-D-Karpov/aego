@@ -24,7 +24,7 @@ func benchMaterials(tb testing.TB) []*material.Material {
 	return out
 }
 
-// BenchmarkSpritesMaterials draws 3000 sprites over three materials, one with @instance lanes; make bench-allocs holds it at 0 allocations.
+// BenchmarkSpritesMaterials draws 3000 sprites over three materials, one with @instance lanes; its allocation budget is zero.
 func BenchmarkSpritesMaterials(b *testing.B) {
 	r, dev := newTestRenderer(b, 4096)
 	draws := testDraws(b, r, 3000, 30)

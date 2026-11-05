@@ -668,9 +668,7 @@ func (r *Renderer) Close() {
 	r.destroyShader(r.sprite3dShader)
 	r.destroyShader(r.meshShader)
 	r.destroyShader(r.debugShader)
-	// These textures and the sampler cache are renderer-owned, unlike textures
-	// uploaded through Textures() for an external asset owner. Repeated preview
-	// or Play sessions must release them before the shared device is closed.
+	// These textures and the sampler cache are renderer-owned, unlike external asset uploads through Textures(); preview or Play sessions must release them before the shared device closes.
 	if r.font != nil && !r.font.Texture.IsZero() {
 		r.dev.DestroyTexture(r.font.Texture)
 	}

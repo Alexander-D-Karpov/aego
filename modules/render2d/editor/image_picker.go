@@ -17,9 +17,7 @@ type imageChannelPicker struct {
 	frame   ids.AssetID
 }
 
-// Reuse the searchable keyboard palette used by Create/Add Component. A sheet
-// can have hundreds of compatible map frames; a growing unscrollable menu is
-// not an asset picker. This is presentation state, not a second document model.
+// Reuse the Create/Add Component searchable keyboard palette for sheets with hundreds of map frames; this is view state, not a second document model.
 func (v *imageState) chooseChannel(ui *core.Context, field mathx.Rect, label string, labels []string, refs []ids.AssetID, current int, frame ids.AssetID) (ids.AssetID, bool, bool) {
 	if v.pickers == nil {
 		v.pickers = map[core.ID]*imageChannelPicker{}

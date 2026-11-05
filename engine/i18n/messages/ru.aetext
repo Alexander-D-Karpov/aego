@@ -219,16 +219,49 @@ messages version=1 lang=ru {
     text="Агент"
   }
   msg "editor.agent.allow_native_playtests" {
-    text="Разрешить тестовые запуски с нативными Go-модулями проекта для этого диалога?"
+    text="Разрешить тестовые запуски с нативными Go-модулями проекта? Нативный код может меняться между запусками."
+  }
+  msg "editor.agent.allow_always" {
+    text="Разрешать всегда"
+  }
+  msg "editor.agent.allow_conversation" {
+    text="На этот диалог"
   }
   msg "editor.agent.allow_session_scope" {
-    text="Разрешить это действие для текущего диалога в проекте"
+    text="На этот диалог"
   }
   msg "editor.agent.allow_once" {
     text="Разрешить один раз"
   }
   msg "editor.agent.allow_playtests" {
-    text="Разрешить изолированные тестовые запуски скриптов проекта для этого диалога?"
+    text="Разрешить изолированные тестовые запуски скриптов проекта?"
+  }
+  msg "editor.agent.revoke_playtest" {
+    text="Отозвать постоянное разрешение запусков"
+  }
+  msg "editor.agent.queue_send" {
+    text="В очередь"
+  }
+  msg "editor.agent.queue_full" {
+    text="Очередь сообщений заполнена."
+  }
+  msg "editor.agent.queue_clear_first" {
+    text="Отправьте или очистите очередь перед началом нового диалога."
+  }
+  msg "editor.agent.queue_clear" {
+    text="Очистить"
+  }
+  msg "editor.agent.queue_resume" {
+    text="Продолжить"
+  }
+  msg "editor.agent.queue_count" {
+    text="В очереди: {n}"
+  }
+  msg "editor.agent.queue_image" {
+    text="Изображение"
+  }
+  msg "editor.agent.queue_more" {
+    text="Ещё в очереди: {n}"
   }
   msg "editor.agent.answer" {
     text="Ответить"
@@ -331,6 +364,9 @@ messages version=1 lang=ru {
   }
   msg "editor.agent.ctx.compacted" {
     text="Контекст сжат при заполнении {n}"
+  }
+  msg "editor.agent.ctx.compacted_unknown" {
+    text="Контекст сжат"
   }
   msg "editor.agent.ctx.doc_results" {
     text="Доки"
@@ -607,6 +643,15 @@ messages version=1 lang=ru {
   }
   msg "editor.agent.save_documents" {
     text="Сохранить все открытые документы проекта?"
+  }
+  msg "editor.agent.document_save" {
+    text="Сохранить открытый документ {file}?"
+  }
+  msg "editor.agent.document_undo" {
+    text="Отменить последнее действие в {file}?"
+  }
+  msg "editor.agent.document_redo" {
+    text="Повторить действие в {file}?"
   }
   msg "editor.agent.seconds" {
     text="{n} с"

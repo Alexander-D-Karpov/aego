@@ -1,7 +1,5 @@
 #!/bin/sh
-# Attaches files to an existing Gitea release, for builds made on another machine (the macOS .dmg).
-# Usage: tools/release/upload.sh <vX.Y.Z|nightly> <file>...
-# Needs GITEA_TOKEN and GITEA_API (https://host/api/v1/repos/owner/name).
+# Attaches builds made elsewhere (e.g. the macOS .dmg) to a Gitea release; requires GITEA_TOKEN and GITEA_API (https://host/api/v1/repos/owner/name).
 set -eu
 tag=${1:?usage: upload.sh <tag> <file>...}
 shift

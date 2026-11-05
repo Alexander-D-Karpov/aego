@@ -17,9 +17,8 @@ func Clone[T any](fn func(dst, src *T)) Option {
 	}
 }
 
-// FullClone registers a complete typed copy. The callback must copy every field
-// and detach mutable data from src. Unlike Clone it receives the previous dst,
-// which may be reused, without an automatic copy of slices before the callback.
+// FullClone registers a complete typed copy: the callback must copy every field and detach mutable data from src.
+// Unlike Clone, it receives the previous dst, which may be reused, without an automatic slice copy before the callback.
 func FullClone[T any](fn func(dst, src *T)) Option {
 	return func(o *regOptions) {
 		o.clone = func(dst, src unsafe.Pointer) { fn((*T)(dst), (*T)(src)) }

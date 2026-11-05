@@ -9,9 +9,7 @@ import (
 	"aego/render/shader"
 )
 
-// RetainUnknown keeps explicit authoring data whose parameter is absent from
-// the current shader. It is never uploaded to the GPU. A later schema addition
-// resolves the original typed value or rejects the entire reload transaction.
+// RetainUnknown keeps explicit authoring data absent from the current shader without uploading it; a later schema addition resolves the original typed value or rejects the entire reload transaction.
 func (m *Material) RetainUnknown(v Value, t Tex, resolved bool) bool {
 	if _, ok := m.shader.Schema.Param(v.Name); ok {
 		return false

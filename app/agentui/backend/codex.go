@@ -52,16 +52,16 @@ func (Codex) Available(cfg Config) (string, error) {
 
 const codexTokenEnv = "AEGO_CODEX_MCP_TOKEN"
 
-// These are session overrides, never writes to the user's Codex configuration.
-// environments:[] below also removes shell/apply_patch environment access. MCP
-// maps deep-merge, so inherited servers must be disabled individually at start.
+// Session overrides keep project access in the editor bridge without changing the user's Codex configuration.
 func codexArgs() []string {
 	args := []string{"app-server", "--listen", "stdio://"}
 	for _, s := range []string{
 		"features.shell_tool=false", "features.apps=false", "features.plugins=false",
-		"features.hooks=false", "features.multi_agent=false", "features.multi_agent_v2=false",
+		"features.hooks=false", "features.multi_agent=false", "features.multi_agent_v2=false", "agents.enabled=false",
 		"features.browser_use=false", "features.computer_use=false", "features.view_image=false",
-		"features.image_generation=false", "features.code_mode=false", "features.code_mode_host=false",
+		// Exclude nested built-ins while retaining the editor's separate MCP namespace.
+		`features.code_mode={enabled=false,excluded_tool_namespaces=["functions"],direct_only_tool_namespaces=[]}`,
+		"features.image_generation=false", "features.code_mode_host=true",
 		"features.skill_mcp_dependency_install=false", "features.remote_control=false",
 		"web_search=\"disabled\"", "notify=[]",
 	} {
@@ -78,22 +78,7 @@ func (Codex) Start(cfg Config) (Conversation, error) {
 	c := &codexConv{cfg: cfg, ctx: ctx, cancel: cancel, events: make(chan Event, 128),
 		ready: make(chan struct{}), exited: make(chan struct{}), done: make(chan struct{}),
 		pending: map[string]chan codexReply{}, streamed: map[string]bool{}}
-	args := codexArgs()
-	catalog, prepErr := editorToolCatalog(ctx, cfg)
-	if prepErr != nil {
-		cancel()
-		return nil, prepErr
-	}
-	started := false
-	if catalog != "" {
-		defer func() {
-			if !started {
-				_ = os.Remove(catalog)
-			}
-		}()
-		args = append(args, "-c", "model_catalog_json="+strconv.Quote(catalog))
-	}
-	c.cmd = exec.Command(codexBinary(cfg), args...)
+	c.cmd = exec.Command(codexBinary(cfg), codexArgs()...)
 	c.cmd.Dir = cfg.Dir
 	for _, v := range os.Environ() {
 		if !strings.HasPrefix(v, codexTokenEnv+"=") {
@@ -118,7 +103,6 @@ func (Codex) Start(cfg Config) (Conversation, error) {
 		cancel()
 		return nil, err
 	}
-	started = true
 	c.work.Add(2)
 	go c.read(out)
 	go func() {
@@ -140,9 +124,6 @@ func (Codex) Start(cfg Config) (Conversation, error) {
 	}()
 	go func() {
 		c.work.Wait()
-		if catalog != "" {
-			_ = os.Remove(catalog)
-		}
 		close(c.events)
 		close(c.done)
 	}()
@@ -303,6 +284,7 @@ func (c *codexConv) initialize() error {
 		return errors.New("Codex returned an invalid configuration response")
 	}
 	servers := map[string]any{}
+	// MCP server maps deep-merge, so inherited servers must be disabled individually.
 	for name := range config.Config.Servers {
 		servers[name] = map[string]bool{"enabled": false}
 	}

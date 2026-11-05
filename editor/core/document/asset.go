@@ -12,9 +12,7 @@ import (
 	"aego/engine/i18n"
 )
 
-// AssetRequest is resolved by the editor's asset index. Selected identifies a
-// sheet frame; Asset identifies its source sheet, so all frame views share the
-// same metadata and undo history. A generated artifact may have no SourcePath.
+// AssetRequest is resolved by the asset index: Selected identifies a frame, Asset its source sheet with shared metadata/history; generated artifacts may lack SourcePath.
 type AssetRequest struct {
 	Asset, Selected      ids.AssetID
 	Path, Subasset, Role string
@@ -22,9 +20,7 @@ type AssetRequest struct {
 	ReadOnly             bool
 }
 
-// AssetDocument is the identity shared by Inspector, search and asset views.
-// The manager owns its lifetime; View is presentation-only state, never saved
-// into the source, metadata, material, scene or prefab.
+// AssetDocument is the identity shared by Inspector, search and asset views; the manager owns its lifetime, and View is presentation-only, never saved to source, metadata, material, scene or prefab.
 type AssetDocument struct {
 	ID                   ID
 	Asset, Selected      ids.AssetID
@@ -111,9 +107,7 @@ func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
 	if fresh {
 		d = &AssetDocument{Asset: req.Asset}
 	} else if d.Path != req.Path && !req.ReadOnly {
-		// AssetID is authoritative after an external move or index refresh.
-		// Preserve dirty buffers and their disk baselines at the new paths;
-		// another open file cannot silently steal their history.
+		// AssetID is authoritative after external moves/index refreshes: preserve dirty buffers and disk baselines at new paths without letting another open file steal their history.
 		for _, move := range []struct {
 			doc  *ScriptDocument
 			path string

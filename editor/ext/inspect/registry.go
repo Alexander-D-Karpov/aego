@@ -16,9 +16,7 @@ type Custom interface {
 	Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields func())
 }
 
-// FieldVisibility lets a module hide inapplicable fields while retaining the
-// generic typed controls, multiselection, animation bindings and History path.
-// It changes presentation only; hidden properties remain in the document.
+// FieldVisibility hides inapplicable fields only in presentation, preserving document properties, typed controls, multiselection, animation bindings and History.
 type FieldVisibility interface {
 	FieldVisible(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) bool
 }

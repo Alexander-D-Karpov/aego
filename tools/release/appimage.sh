@@ -1,6 +1,5 @@
 #!/bin/sh
 # Packs the Linux build into an AppImage whose launch opens the Aego launcher.
-# Usage: tools/release/appimage.sh <stage dir with bin/aego> <out.AppImage>
 set -eu
 src=${1:?usage: appimage.sh <stage dir> <out.AppImage>}
 out=${2:?usage: appimage.sh <stage dir> <out.AppImage>}

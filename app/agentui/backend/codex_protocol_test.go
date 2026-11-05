@@ -18,11 +18,9 @@ import (
 	"time"
 )
 
-// Opt in with AEGO_CODEX_PROTOCOL_CLI=/path/to/codex. The actual installed CLI
-// talks only to these local model/MCP fixtures, using an isolated config home.
-// This tests the published protocol and tool inventory, not a paid model.
+// The real CLI tests its published protocol and tool inventory against local model/MCP fixtures with isolated config, not a paid model.
 func TestCodexRealCLIWithLocalModelAndMCP(t *testing.T) {
-	for _, model := range []string{"gpt-5.3-codex", "gpt-6.1-terra"} {
+	for _, model := range []string{"gpt-5.3-codex", "gpt-5.5", "gpt-6.1-terra", "gpt-5.6-sol"} {
 		t.Run(model, func(t *testing.T) { codexLocalTransport(t, model) })
 	}
 }
@@ -31,7 +29,14 @@ func codexLocalTransport(t *testing.T, model string) {
 	if command == "" {
 		t.Skip("set AEGO_CODEX_PROTOCOL_CLI for the real CLI/local model protocol test")
 	}
-	var requests, calls, probes, foreign atomic.Int32
+	var requests, calls, probes, foreign, patchRejected atomic.Int32
+	codeMode := model == "gpt-6.1-terra" || model == "gpt-5.6-sol"
+	deferred := model == "gpt-5.5"
+	home := t.TempDir()
+	sentinel := filepath.Join(home, "sentinel.txt")
+	if err := os.WriteFile(sentinel, []byte("untouched\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	var pngBytes bytes.Buffer
 	if err := png.Encode(&pngBytes, image.NewNRGBA(image.Rect(0, 0, 2, 2))); err != nil {
 		t.Fatal(err)
@@ -68,28 +73,43 @@ func codexLocalTransport(t *testing.T, model string) {
 			var req struct {
 				Tools []toolSpec
 				Input []struct {
-					Type  string
-					Tools []toolSpec
+					Type   string
+					CallID string `json:"call_id"`
+					Tools  []toolSpec
+					Output json.RawMessage
 				}
 			}
 			if err := json.Unmarshal(raw, &req); err != nil {
 				t.Error(err)
 				return
 			}
+			n := requests.Add(1)
+			if deferred && n == 6 {
+				for _, input := range req.Input {
+					output := strings.ToLower(string(input.Output))
+					if input.Type == "custom_tool_call_output" && input.CallID == "patch-local" &&
+						(strings.Contains(output, "error") || strings.Contains(output, "denied") || strings.Contains(output, "no usable execution environment")) {
+						patchRejected.Store(1)
+					}
+				}
+			}
 			for _, i := range req.Input {
-				if i.Type == "additional_tools" {
+				if i.Type == "additional_tools" || i.Type == "tool_search_output" {
 					req.Tools = append(req.Tools, i.Tools...)
 				}
 			}
 			namespace := ""
 			for _, tool := range req.Tools {
+				if deferred && tool.Type == "tool_search" {
+					continue
+				}
 				if tool.Type == "namespace" && strings.HasPrefix(tool.Name, "mcp__aego_editor_") {
 					namespace = tool.Name
 					seen := map[string]bool{}
 					for _, entry := range tool.Tools {
 						seen[entry.Name] = true
 					}
-					if len(seen) != 5 || !seen["editor_scene_context"] || !seen["scene_read"] || !seen["scene_tree"] || !seen["script_read"] || !seen["project_validate"] {
+					if !seen["scene_tree"] || !deferred && (len(seen) != 5 || !seen["editor_scene_context"] || !seen["scene_read"] || !seen["script_read"] || !seen["project_validate"]) {
 						t.Errorf("wrong editor tools: %+v", tool.Tools)
 					}
 					continue
@@ -98,6 +118,10 @@ func codexLocalTransport(t *testing.T, model string) {
 					for _, item := range tool.Tools {
 						switch item.Name {
 						case "get_goal", "update_goal", "create_goal", "request_user_input", "list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource":
+						case "exec", "wait", "request_user_input_async":
+							if !codeMode {
+								t.Errorf("unexpected code-mode tool %s", item.Name)
+							}
 						default:
 							t.Errorf("unexpected executable tool %s", item.Name)
 						}
@@ -106,29 +130,66 @@ func codexLocalTransport(t *testing.T, model string) {
 				}
 				switch tool.Name {
 				case "list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource", "request_user_input", "get_goal", "create_goal", "update_goal":
+				case "clock":
+					if !codeMode || tool.Type != "namespace" {
+						t.Errorf("unexpected namespace: %s (%s)", tool.Name, tool.Type)
+					}
+				case "apply_patch":
+					if !deferred || tool.Type != "custom" {
+						t.Errorf("unexpected patch tool: %s (%s)", tool.Name, tool.Type)
+					}
 				default:
 					t.Errorf("unexpected tool outside editor bridge: %s (%s)", tool.Name, tool.Type)
 				}
 			}
-			if namespace == "" {
+			if namespace == "" && !codeMode && (!deferred || n > 1 && n < 5) {
 				t.Error("editor MCP namespace missing from model request")
 			}
-			n := requests.Add(1)
 			var item map[string]any
 			var deltas []string
 			if n == 1 && !strings.Contains(string(raw), "UnsavedCup") {
 				t.Error("model did not receive the thread-bound scene snapshot")
 			}
-			if n == 1 {
-				item = map[string]any{"type": "function_call", "id": "fc-local", "call_id": "call-local", "name": "scene_tree", "namespace": namespace, "arguments": "{}"}
+			if deferred && n == 5 {
+				item = map[string]any{"type": "custom_tool_call", "id": "patch-local", "call_id": "patch-local", "name": "apply_patch", "input": "*** Begin Patch\n*** Update File: sentinel.txt\n@@\n-untouched\n+modified\n*** End Patch"}
+			} else if n == 1 && deferred {
+				item = map[string]any{"type": "tool_search_call", "id": "search-local", "call_id": "search-local", "execution": "client", "arguments": map[string]any{"query": "scene_tree"}}
+			} else if n == 1 || n == 2 && deferred {
+				if codeMode {
+					code := `if (typeof process !== "undefined" || typeof require !== "undefined" || typeof fetch !== "undefined") throw Error("unexpected host access");
+let imported = false;
+try { await import("node:fs"); imported = true; } catch (_) {}
+if (imported) throw Error("unexpected filesystem import");
+const forbidden = ALL_TOOLS.filter(t => /(^|__)(exec_command|shell|apply_patch|file_change)($|__)/.test(t.name) || t.name.includes("foreign"));
+if (forbidden.length) throw Error("unexpected external tool: " + JSON.stringify(forbidden.map(t => t.name)));
+const tool = ALL_TOOLS.find(t => t.name.endsWith("__scene_tree"));
+if (!tool) throw Error("editor scene_tree missing");
+const result = await tools[tool.name]({});
+for (const part of result.content || []) {
+  if (part.type === "text") text(part.text);
+  if (part.type === "image") image(part);
+}`
+					item = map[string]any{"type": "custom_tool_call", "id": "fc-local", "call_id": "call-local", "name": "exec", "namespace": "functions", "input": code}
+				} else {
+					item = map[string]any{"type": "function_call", "id": "fc-local", "call_id": "call-local", "name": "scene_tree", "namespace": namespace, "arguments": "{}"}
+				}
 			} else {
-				if n == 2 && (!bytes.Contains(raw, []byte("fixture scene content")) || !bytes.Contains(raw, []byte("data:image/png;base64,"))) {
+				firstResult, secondTurn := int32(2), int32(3)
+				if deferred {
+					firstResult, secondTurn = 3, 4
+				}
+				if n == firstResult && (!bytes.Contains(raw, []byte("fixture scene content")) || !bytes.Contains(raw, []byte("data:image/png;base64,"))) {
+					for _, input := range req.Input {
+						if len(input.Output) != 0 {
+							t.Logf("tool output: %s", input.Output)
+						}
+					}
 					t.Error("MCP text/image did not return to the model")
 				}
-				if n == 3 && !bytes.Contains(raw, []byte(screen64)) {
+				if n == secondTurn && !bytes.Contains(raw, []byte(screen64)) {
 					t.Error("user screenshot did not reach the model")
 				}
-				if n == 3 && !bytes.Contains(raw, []byte("Real Codex ✓")) {
+				if n == secondTurn && !bytes.Contains(raw, []byte("Real Codex ✓")) {
 					t.Error("second turn lost prior thread context")
 				}
 				deltas = []string{"Real ", "Codex ✓", "\n"}
@@ -197,9 +258,16 @@ func codexLocalTransport(t *testing.T, model string) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 	}))
 	defer server.Close()
-	home := t.TempDir()
 	config := fmt.Sprintf(`model_provider = "fixture"
+model = %q
 cli_auth_credentials_store = "file"
+[features]
+code_mode = { enabled = true, excluded_tool_namespaces = [], direct_only_tool_namespaces = ["functions"] }
+code_mode_host = false
+shell_tool = true
+multi_agent_v2 = true
+[agents]
+enabled = true
 [model_providers.fixture]
 name = "local fixture"
 base_url = %q
@@ -208,7 +276,7 @@ requires_openai_auth = false
 supports_websockets = false
 [mcp_servers.foreign]
 url = %q
-`, server.URL+"/v1", server.URL+"/foreign")
+`, model, server.URL+"/v1", server.URL+"/foreign")
 	if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte(config), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -216,6 +284,9 @@ url = %q
 	t.Setenv("OPENAI_API_KEY", "")
 	t.Setenv("CODEX_API_KEY", "")
 	cfg := Config{Binding: "binding-fixture", Command: command, Dir: home, MCPURL: server.URL + "/mcp", Token: "local-test-token", Model: model, Effort: "medium"}
+	if model == "gpt-5.6-sol" {
+		cfg.Model = "" // Exercise the CLI's configured default model.
+	}
 	version, err := (Codex{}).Available(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +328,42 @@ url = %q
 			}
 		}
 	}
-	if probes.Load() != 2 || requests.Load() != 3 || calls.Load() != 1 || foreign.Load() != 0 || tools != 1 || text != "Real Codex ✓\nReal Codex ✓\n" {
+	wantRequests := int32(3)
+	if deferred {
+		wantRequests++
+	}
+	if probes.Load() != 2 || requests.Load() != wantRequests || calls.Load() != 1 || foreign.Load() != 0 || tools != 1 || text != "Real Codex ✓\nReal Codex ✓\n" {
 		t.Fatalf("real CLI transport: requests=%d calls=%d foreign=%d tool events=%d text=%q", requests.Load(), calls.Load(), foreign.Load(), tools, text)
+	}
+	if deferred {
+		if err := c.Send("Attempt a direct patch."); err != nil {
+			t.Fatal(err)
+		}
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		finished, blockedEvent := false, false
+		for !finished {
+			select {
+			case event, ok := <-c.events:
+				if ok && event.Kind == EvError && event.Err != nil && strings.Contains(event.Err.Error(), "project access outside the editor bridge") {
+					blockedEvent = true
+				}
+				if !ok || event.Kind == EvError || event.Kind == EvTurnEnd {
+					finished = true
+				}
+			case <-timer.C:
+				t.Fatal("direct patch test timed out")
+			}
+		}
+		c.Close()
+		select {
+		case <-c.done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("Codex did not terminate after the patch attempt")
+		}
+		contents, err := os.ReadFile(sentinel)
+		if err != nil || string(contents) != "untouched\n" || requests.Load() < 5 || !blockedEvent && patchRejected.Load() != 1 {
+			t.Fatalf("direct patch was not confirmed blocked: contents=%q error=%v requests=%d event=%v rejected=%d", contents, err, requests.Load(), blockedEvent, patchRejected.Load())
+		}
 	}
 }

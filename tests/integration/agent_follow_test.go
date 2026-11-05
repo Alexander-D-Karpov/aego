@@ -2,6 +2,7 @@ package integration
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"aego/app/agentui/backend"
@@ -82,8 +83,8 @@ func TestAgentFollowPausesForTheUser(t *testing.T) {
 	}
 }
 
-// During Play the agent edits the running game's copy of the scene, so its change shows there and in Play changes, not in the edited scene.
-func TestAgentEditsThePlayWorldDuringPlay(t *testing.T) {
+// Agent edits persist in the editable scene even while the game is running.
+func TestAgentEditsTheDocumentDuringPlay(t *testing.T) {
 	e := bridgeSetup(t, agentbridge.Config{})
 	if err := e.ctx.Commands.Run(command.PlayStart); err != nil {
 		t.Fatal(err)
@@ -95,13 +96,52 @@ func TestAgentEditsThePlayWorldDuringPlay(t *testing.T) {
 	if play == nil || play.Path != bridgeScene {
 		t.Fatal("Play did not start on the scene")
 	}
-	e.turn(t, []backend.Step{{Tool: "scene_rename", Args: map[string]any{"file": bridgeScene, "node": "Player", "name": "Hero"}}}, e.approveAll)
-	ps := play.Scene()
-	if h := ps.Find(ps.Root(), "Hero"); h.IsZero() {
-		t.Fatal("the agent's change did not reach the running game")
+	ev := results(e.turn(t, []backend.Step{{Tool: "scene_rename", Args: map[string]any{"file": bridgeScene, "node": "Player", "name": "Hero"}}}, e.approveAll))
+	if len(ev) != 1 || ev[0].Failed || !strings.Contains(ev[0].Result, "not to the running game") {
+		t.Fatalf("expected an explicit Play note, got %+v", ev)
 	}
-	if e.alive("Hero") || !e.alive("Player") {
-		t.Fatal("the agent's change during Play went to the edited scene")
+	ps := play.Scene()
+	if h := ps.Find(ps.Root(), "Hero"); !h.IsZero() {
+		t.Fatal("the agent must not silently edit the temporary running game")
+	}
+	if !e.alive("Hero") || e.alive("Player") {
+		t.Fatal("the agent's change did not reach the editable scene")
+	}
+	if err := e.ctx.Commands.Run(command.PlayStop); err != nil {
+		t.Fatal(err)
+	}
+	if !e.alive("Hero") {
+		t.Fatal("stopping Play lost the agent's change")
+	}
+	if err := e.doc.History.Undo(); err != nil || !e.alive("Player") || e.alive("Hero") {
+		t.Fatalf("the change was not undoable after Stop: %v", err)
+	}
+}
+
+func TestAgentProposalSurvivesStop(t *testing.T) {
+	e := bridgeSetup(t, agentbridge.Config{})
+	if err := e.ctx.Commands.Run(command.PlayStart); err != nil {
+		t.Fatal(err)
+	}
+	for range 5 {
+		e.s.Step()
+	}
+	stopped := false
+	ev := results(e.turn(t, []backend.Step{{Tool: "scene_add_node", Args: map[string]any{"file": bridgeScene, "name": "AfterStop"}}}, func() {
+		if len(e.b.Pending()) == 0 || stopped {
+			return
+		}
+		if err := e.ctx.Commands.Run(command.PlayStop); err != nil {
+			t.Fatal(err)
+		}
+		stopped = true
+		e.approveAll()
+	}))
+	if !stopped || len(ev) != 1 || ev[0].Failed || !e.alive("AfterStop") {
+		t.Fatalf("pending proposal did not survive Stop: stopped=%v results=%+v", stopped, ev)
+	}
+	if err := e.doc.History.Undo(); err != nil || e.alive("AfterStop") {
+		t.Fatalf("proposal was not undoable after Stop: %v", err)
 	}
 }
 

@@ -443,9 +443,7 @@ func (e *Editor) OnRender(fn func()) {
 	e.hooks = append(e.hooks, fn)
 }
 
-// OnRenderAfterViews schedules a GPU resource consumer after the ordinary view
-// render hooks, but before the editor UI is submitted. This avoids depending on
-// the order in which workspace panels built their UI that frame.
+// OnRenderAfterViews schedules a GPU consumer after view render hooks but before UI submission, independent of panel UI build order.
 func (e *Editor) OnRenderAfterViews(fn func()) {
 	e.afterViewHooks = append(e.afterViewHooks, fn)
 }
@@ -479,18 +477,14 @@ func (e *Editor) ApplyBatch(b *pipeline.Batch) {
 	if e.Pipeline != nil {
 		files = e.Pipeline.Artifacts()
 	}
-	// Working artifact paths use content hashes and retain a disk fallback.
-	// A saved import must not discard another open document's working bytes,
-	// especially if the device is restored before the next candidate finishes.
+	// Keep other documents' working bytes across saved imports, including device restores before the next candidate finishes; working paths are content-hashed with a disk fallback.
 	if e.metadata != nil && e.metadata.files != nil {
 		files = e.metadata.files
 	}
 	_ = e.applyBatch(b, files)
 }
 
-// applyBatch is shared by saved imports and validated working metadata. The
-// latter supplies a private artifact VFS but uses the same loader transaction,
-// prefab callbacks, notifications and consumer invalidation.
+// applyBatch shares loader transactions, prefab callbacks, notifications and consumer invalidation between saved imports and validated working metadata's private artifact VFS.
 func (e *Editor) applyBatch(b *pipeline.Batch, files vfs.FS) error {
 	if b == nil {
 		return nil

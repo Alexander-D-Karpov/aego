@@ -121,9 +121,7 @@ func prepareSurfaceData(d *rtex.Data, semantic asset.TextureSemantic, s pipeline
 	return nil
 }
 
-// Height is a linear scalar sampled in texels. Clamped central differences
-// make source edges deterministic without wrapping into another frame. Green
-// +Y points up the original image; alpha remains unpremultiplied coverage/data.
+// Height is linear and sampled in texels; clamped central differences prevent frame-edge wrap. Green +Y is image-up; alpha is unpremultiplied coverage/data.
 func generateNormals(d *rtex.Data, strength float64, channel string, yDown bool, subs []pipeline.SubAsset) error {
 	rects := make([][4]int, 0, max(1, len(subs)))
 	for _, sub := range subs {

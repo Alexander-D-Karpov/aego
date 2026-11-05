@@ -18,9 +18,7 @@ import (
 	"aego/editor/panels/scripteditor"
 )
 
-// The test executable supplies the app-server protocol, but tools still cross
-// the real authenticated HTTP bridge and execute on the editor's main thread.
-// No provider credentials or model service are used by these tests.
+// The test executable supplies the app-server protocol without provider credentials or a model service; tools still cross the real authenticated HTTP bridge onto the editor's main thread.
 func init() {
 	if os.Getenv("AEGO_TEST_CODEX_EDITOR_PROCESS") != "1" {
 		return

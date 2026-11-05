@@ -32,8 +32,10 @@ func New() *Module { return &Module{} }
 
 func (*Module) Info() module.Info {
 	return module.Info{ID: ID, Version: engine.Version, Requires: []string{"render2d"}, Builtin: true,
-		DisplayName: "Particles", DocsOrder: 58, DocsIcon: "comp.sprite", Codes: []string{"PRT001", "PRT002"}}
+		DisplayName: "Particles", DocsOrder: 58, DocsIcon: "cat.particles", Codes: []string{"PRT001", "PRT002"}}
 }
+
+func (*Module) IconDir() string { return "modules/particles/res/icons/src" }
 
 func (m *Module) Register(r *module.Registry) error {
 	if err := module.Enum[Shape](r, ID+".Shape", schema.EnumValue{Name: "point", Value: int64(Point)}, schema.EnumValue{Name: "circle", Value: int64(Circle)}, schema.EnumValue{Name: "rect", Value: int64(Rect)}, schema.EnumValue{Name: "edge", Value: int64(Edge)}, schema.EnumValue{Name: "spriteMask", Value: int64(SpriteMask)}); err != nil {
@@ -105,7 +107,7 @@ func (m *Module) Register(r *module.Registry) error {
 		schema.FieldDoc("timeDomain", "Game pauses with the world; unscaled uses real presentation time."),
 		schema.FieldDoc("duration", "Length of one emission cycle in seconds."),
 		schema.FieldDoc("loop", "Repeats the schedule at the end of each cycle."),
-	).Category("Effects").Display("Particle System 2D").Icon("comp.sprite").Default(DefaultParticleSystem2D).Validate(validate).Template("Particle System", nil)
+	).Category("Effects").Display("Particle System 2D").Icon("particles.system").Default(DefaultParticleSystem2D).Validate(validate).Template("Particle System", nil)
 	m.completed = b.Signal0("Completed", "A finite emission schedule has ended and its last particle expired. A presentation signal, not a gameplay timer.")
 	registerMethods(b)
 	registerPresets(r)

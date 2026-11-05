@@ -14,9 +14,8 @@ type normalShape struct {
 	semantic asset.TextureSemantic
 }
 
-// Albedo, normal and emission share one generation. Incompatible partial
-// batches and failed source candidates leave all live channel GPU resources
-// intact, including a same-sized pixel update beside a rejected channel.
+// Albedo, normal and emission share a generation: incompatible partial batches or failed candidates leave all live channel GPU resources intact,
+// even when a same-sized pixel update accompanies a rejected channel.
 func (l *Loader) validateNormalSwap(entries []asset.Entry, prepared []staged) error {
 	if len(l.normals) == 0 && len(l.emissions) == 0 {
 		return nil

@@ -1,6 +1,5 @@
 #!/bin/sh
-# Copies the wasm binaries of the deployed aego site from mainserv to this edge, so the edge serves
-# them itself (see aego-edge.conf). Runs from a timer; slow downloads happen here, not for visitors.
+# The timer copies deployed site wasm binaries from mainserv to this edge (aego-edge.conf), keeping slow downloads off the visitor path.
 set -eu
 host=aego.akarpov.ru
 origin=79.142.92.250

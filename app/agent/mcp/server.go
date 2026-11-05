@@ -340,7 +340,7 @@ func (s *Server) call(params json.RawMessage) (any, *rpcError) {
 				if err != nil {
 					return result(err.Error(), true), nil
 				}
-				return result(out, false), nil
+				return result(out, out != nil && out.Errors()), nil
 			}
 			text, failed := t.Run(p.Arguments)
 			return result(text, failed), nil
@@ -371,7 +371,7 @@ func (s *Server) call(params json.RawMessage) (any, *rpcError) {
 	if err != nil {
 		return result(err.Error(), true), nil
 	}
-	return result(out, false), nil
+	return result(out, out != nil && out.Errors()), nil
 }
 
 func (s *Server) registry() (*docs.Registry, error) {

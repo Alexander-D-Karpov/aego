@@ -123,9 +123,7 @@ async function motion() {
     const to = (await call("pose", { node: "Player" })).pose;
     if (!from || !to || !(to[0] > from[0] + 0.5)) fail(`the player did not move right: ${JSON.stringify(from)} -> ${JSON.stringify(to)}`);
     else console.log(`try: Motion2D moved from x ${from[0].toFixed(2)} to ${to[0].toFixed(2)}`);
-    // Keep the input assertion above on the real running world. The UI image
-    // uses a reset, paused scene so wall-clock physics and camera follow do not
-    // choose a different screenshot pose on a slower browser or CI machine.
+    // Assert input on the live world, then reset and pause for the UI image so timing-dependent physics and camera follow cannot change its pose.
     const reset = await page.evaluate(() => {
         const invoke = (m, p = {}) => JSON.parse(globalThis.aegoDocs.call(m, JSON.stringify(p)));
         const loaded = invoke("reset");
@@ -162,9 +160,7 @@ async function motion() {
     await golden("try-motion2d", PNG.sync.read(shot));
 }
 
-// Exercise the published guide, including its prepared albedo/normal/material
-// bundle and the script that moves the light. Static HTML alone cannot prove
-// that the docs WASM runtime can mount and play this example.
+// Exercise the published guide's albedo/normal/material bundle and moving-light script; static HTML cannot prove the docs WASM runtime can mount and play it.
 async function normalMapping(url = "/render2d/normal-mapping.html") {
     await startTry(url);
     const bundle = await page.locator(".try").getAttribute("data-artifacts");
@@ -186,9 +182,7 @@ async function normalMapping(url = "/render2d/normal-mapping.html") {
     console.log("try: prepared normal-mapping example mounted, light moved, height edit applied");
 }
 
-// The lighting and material component examples are generated in both
-// languages. Exercise real edits, restarts and the scripted material pulse,
-// rather than merely checking that their HTML contains a Try it block.
+// Exercise edits, restarts and the scripted material pulse in both language versions, not just the presence of a Try it block.
 async function lightingAndMaterials() {
     const cases = [
         { name: "Light2D", node: "Warm point light", field: "height", value: 3.25, text: "3.25" },
@@ -234,9 +228,7 @@ async function lightingAndMaterials() {
                 const before = await sample(12), after = await sample(50);
                 if (before.width !== after.width || before.height !== after.height)
                     throw new Error("try MaterialOverride: scene dimensions changed between samples");
-                // Only compare the left-hand scene view, excluding changing
-                // Inspector/toolbar UI. Subtle linear-to-display colour changes
-                // can be smaller than the golden screenshot's 0.1 threshold.
+                // Compare the left-hand scene, excluding the changing Inspector/toolbar UI; subtle linear-to-display changes can fall below the golden's 0.1 threshold.
                 const width = Math.floor(before.width * 0.4), height = before.height;
                 const crop = (image) => {
                     const data = Buffer.alloc(width * height * 4);
