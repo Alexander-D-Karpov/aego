@@ -53,12 +53,12 @@ title: Editing curves
 
 The Inspector draws the curve inside the field; a click opens the curve editor.
 
-- **Preset** switches between presets and **Keys**. Choosing Keys on a preset turns it into editable keys of the same shape.
+- **Preset** switches between presets and **Keys**. Choosing Keys on a preset approximates its shape with editable keys. You can also drag the preset curve directly: moving it converts the preset to keys and moves the selected point.
 - **Double-click** the graph to add a key on the curve, **right-click** a key to remove it, drag a key or a slope handle to change it.
 - Hold **Ctrl** (Cmd on macOS) to snap to a 1/20 grid of the view, hold **Shift** while dragging a slope handle to move one side only.
 - **Time**, **Value**, **Segment** and **Tangent** edit the selected key; dragging a handle makes its tangent Free.
 
-Every drag is one undo step. Prefab instances show an overridden curve like any other field.
+Every drag is one undo step. Undoing a preset drag restores the original preset; Redo restores the edited keys. Prefab instances show an overridden curve like any other field.
 
 ---
 id: curves/scripts

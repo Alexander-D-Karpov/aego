@@ -9,7 +9,7 @@ order: 1
 
 The editor is where you build scenes, write scripts and run the game. This page tours its parts: workspaces, the theme, editing many nodes, Play and the tools that watch a running game.
 
-![The Design workspace: Hierarchy, Scene View, Inspector, Assets and Console](shots/editor.png)
+![An example Design layout with Hierarchy, Scene View, Inspector, Assets and Console](shots/editor.png)
 
 ## Workspaces and layout
 
@@ -19,13 +19,14 @@ A workspace is a named layout: which panels are docked where and whether the too
 
 | Workspace | For | Default panels |
 |---|---|---|
-| Design | building scenes | Scene and Game in the center, Hierarchy and Assets on the left, Inspector on the right |
+| Design | building scenes | Scene and Game in the center, Hierarchy and Assets on the left, Inspector and Agent below it on the right |
 | Programming | writing scripts | Scripts open in the center beside Docs and Game. Problems, Console and Find are below. Agent and Watch are on the right. Play controls are visible by default |
 | Art | sprites and levels | Scene and Game in the center, Inspector on the right, Animation and Animator below |
 | Audio | sound work | Game and Scene in the center, Assets on the left, Inspector on the right, Mixer and Console below |
 
 - Switch with the selector at the right of the toolbar, or with `Ctrl+1` … `Ctrl+4` from any panel, the code editor included.
 - Rearrange panels freely. Every workspace remembers its own layout. Documents, the selection and Play are shared between workspaces.
+- Existing saved layouts are left as they are when defaults change. Reset the built-in Design layout if you want its current default panel arrangement.
 - **Window → Save as Workspace…** keeps the current layout under a new name. You can rename and delete your own workspaces. The built-in ones can only be reset, with **Window → Reset Layout**.
 - Modules can add workspaces of their own.
 
@@ -259,22 +260,22 @@ style_allow: [agent]
 ---
 # The Agent panel
 
-The Agent tab, next to the Inspector, talks to Claude Code about the open project. It answers questions, reads the scenes, the scripts and the documentation, and proposes changes that you apply.
+The Agent panel talks to Claude Code or Codex about the open project. In a new or reset Design workspace it sits below the Inspector. It answers questions, reads the scenes, scripts and documentation, and proposes changes that you apply.
 
 The model uses the same tools as `aego` and [`aego mcp`](ref:agents), on the editor's open documents. It sees unsaved edits, and what it changes in an open scene or script becomes an Undo step there instead of a write to disk.
 
 ## Setting up
 
-1. Install Claude Code, the `claude` command.
-2. Sign in once by running `claude` in a terminal.
+1. Choose Claude Code or Codex in the provider row.
+2. Install the selected CLI and sign in once in a terminal. See [Working with AI agents](ref:agents) for the commands and provider settings.
 
-The panel looks for `claude` on your PATH. When it is not there, the panel says so and takes the path of the program; **Check Again** looks once more. Claude Code only gets the aego tools: no shell and no file access of its own.
+The panel looks for the selected CLI on your PATH. If it is missing, enter its executable path and use **Check Again**. Claude Code only gets the aego tools: no shell and no file access of its own.
 
 ## Asking
 
-Type in the field at the bottom and press `Enter`. While the agent answers, **Send** turns into **Stop**, which ends the answer and rejects whatever still waits. Under the field the panel shows what the last answer cost and how long it took.
+Type in the field at the bottom and press `Enter`. While the agent answers, **Queue** adds another message to send after the current turn; **Stop** ends that answer and pauses queued messages. Under the field the panel shows what the last answer cost and how long it took when available.
 
-- Type `@` to pick a node of the open scene or an asset. It goes in as a chip; the agent gets the node's id and scene, or the asset's path.
+- Type `@` in the message to open the picker, search nodes of the open scene or assets, then choose a result or press `Enter`. Its label is inserted at the cursor and a chip appears above the field; the agent gets the node's ID and scene, or the asset's path. `Esc` closes the picker.
 - Right-click a node in the Hierarchy and pick **Ask Agent…**, or a problem in Problems and pick **Ask Agent to Fix**. The text waits in the field until you send it.
 - With an empty transcript, the panel offers three examples; a click sends one.
 
@@ -310,9 +311,9 @@ The eye button in the header, **Window → Follow the Agent** or `Ctrl+Alt+F` tu
 - A script step opens the script at its line. The lines a waiting card would change show their new text as ghost lines; once applied, they stay marked in the gutter for a while.
 - A run or a check brings Problems or the Console forward, with the new entries lit.
 
-The agent's avatar marks where it works: on the node in the Hierarchy, over it in the Scene View, on the component in the Inspector and on the lines in the code editor. The row under the header says where it is; a click goes there.
+The agent's avatar marks where it works: on the node in the Hierarchy, over it in the Scene View, on the component in the Inspector and on the lines in the code editor. Hover over the Follow button to see its status and current location. Choose **Show agent location** in the session menu to go there.
 
-Any click, key or scroll of yours outside the Agent panel pauses following, so the editor never moves under your hands. **Resume Following** goes on at once; after 30 seconds without input it goes on by itself.
+Any click, key or scroll of yours outside the Agent panel pauses following, so the editor never moves under your hands. Click the Follow button while paused to resume at once; after 30 seconds without input it resumes by itself.
 
 When you edit a field the agent is about to change, the Inspector says so, and your change is made again after the agent's, as its own Undo step.
 
@@ -331,7 +332,7 @@ Each applied change is one Undo step of the scene you edit, named `Agent: …`. 
 
 ## Sessions
 
-The header shows the session by its first message, and what the agent does: idle, thinking, working or waiting for you. The menu next to **Auto-apply** has **New Session**, **History…**, **Plan Only** and **Stop**.
+The header identifies the session by its first message and shows active states such as thinking, working or waiting for you; hover over the session for its status. Hover over an icon to identify its action, including **Auto-apply** and Follow. The session menu has **New Session**, **History…**, **Plan Only** and **Stop**.
 
 - **Plan Only** keeps the agent from changing anything: it describes the changes and their order, and you turn the plan into changes when you turn it off.
 - Each conversation is written to `.aego/user/agent/<date-time>.jsonl`, one line per message, tool call, result and card state. **History…**, or a click on the session name, opens an earlier session read-only. A new message always goes to the current session.
@@ -347,4 +348,3 @@ The gauge in the header shows how much of the model's context window the session
 - **Send with every message** adds the open scene and the selection to each message, so the agent knows what you look at.
 - **Read limits** keep large reads small: a scene tree up to a number of nodes and levels, with the rest counted, a documentation search up to a number of results, and a script longer than the limit read in parts. They are kept in `prefs.aetext`.
 - **New Session with Summary** asks the agent for a summary of the session, starts a new one and sends the summary, with the names of the nodes the session changed, with your next message.
-

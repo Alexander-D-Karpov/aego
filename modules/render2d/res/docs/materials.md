@@ -138,7 +138,7 @@ LDR uses a linear RGBA8 scene target. HDR uses a verified renderable RGBA16F tar
 
 Scene View has its own output, not the identity of a game camera. Select **Preview in Scene View** in an environment's Inspector to preview that environment explicitly. Changes to its fields become visible immediately. **Use scene environment defaults** clears the preview selection. The selection is per document and does not alter camera references, prefabs, Play state or Undo history. Deleting or disabling the selected environment preserves its preview ID and reports a diagnostic until it is restored or the selection is reset.
 
-The Scene View toolbar can bypass lighting or display transformed normals and shadow visibility. These controls affect that view only. For a transparent HDR output, resolve preserves the premultiplied colour contract. Additive emission must first be composed into an opaque backdrop, or retained in a linear RGBA16F intermediate, before a display image is produced. Additive RGB preserves destination alpha.
+The Scene View toolbar can bypass lighting or display transformed normals and shadow visibility. Turning scene lighting off also exits either debug display; selecting a debug display turns lighting preview on, and selecting it again returns to the ordinary lit view. These controls affect that view only, not the scene or Play. For a transparent HDR output, resolve preserves the premultiplied colour contract. Additive emission must first be composed into an opaque backdrop, or retained in a linear RGBA16F intermediate, before a display image is produced. Additive RGB preserves destination alpha.
 
 ---
 id: aego/lighting
