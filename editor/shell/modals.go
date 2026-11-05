@@ -2,12 +2,14 @@ package shell
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine"
 	"aego/engine/i18n"
 	"aego/platform/input"
 	"aego/ui/core"
@@ -24,6 +26,7 @@ const (
 	modalClose
 	modalLock
 	modalAsk
+	modalAbout
 )
 
 type modal struct {
@@ -167,6 +170,53 @@ func (a *App) drawModals() {
 				md.ask.Then(c)
 			}
 		}
+	case modalAbout:
+		a.drawAbout(id)
+	}
+}
+
+func (a *App) drawAbout(id core.ID) {
+	ui, th := a.ui, &a.ui.Theme
+	size := ui.Size()
+	w := max(float32(1), min(float32(480), size.X-40))
+	h := min(size.Y, 2*th.Padding+7*(th.RowHeight+th.Spacing))
+	r := mathx.Rect{X: (size.X - w) / 2, Y: max(0, (size.Y-h)/3), W: w, H: h}
+	if !ui.BeginModal(id, r) {
+		return
+	}
+	widgets.Label(ui, i18n.Tr("editor.shell.about_aego", "About Aego"))
+	widgets.LabelDim(ui, i18n.Tr("editor.shell.about_version", "Aego engine {version}", i18n.Str("version", engine.Version))+" · "+runtime.Version()+" · "+runtime.GOOS+"/"+runtime.GOARCH)
+	ui.Cursor().Next(0)
+	widgets.LabelDim(ui, i18n.Tr("editor.shell.created_by", "Created by: sanspie"))
+	link := ui.Cursor().Next(0)
+	link.W = min(link.W, ui.TextSize("about.akarpov.ru").X)
+	linkID := ui.ID("about.developer")
+	openDeveloper := ui.Clicked(linkID, link)
+	color := th.Accent
+	if ui.Hot() == linkID {
+		ui.SetCursorShape(core.CursorPointer)
+		ui.Rect(mathx.Rect{X: link.X, Y: link.Y + link.H - 2, W: link.W, H: 1}, color)
+	}
+	ui.Text("about.akarpov.ru", mathx.Vec2{X: link.X, Y: ui.TextY(link)}, color)
+	widgets.LabelDim(ui, ":3")
+	row := ui.Cursor().Next(0)
+	closeLabel := i18n.Tr("editor.shell.close", "Close")
+	websiteLabel := i18n.Tr("editor.shell.open_website", "Open website")
+	closeW := ui.TextSize(closeLabel).X + 28
+	websiteW := ui.TextSize(websiteLabel).X + 28
+	closeRect := mathx.Rect{X: row.X + row.W - closeW, Y: row.Y, W: closeW, H: row.H}
+	websiteRect := mathx.Rect{X: closeRect.X - websiteW - 6, Y: row.Y, W: websiteW, H: row.H}
+	openRepo := widgets.ButtonRect(ui, ui.ID("about.repository"), websiteRect, websiteLabel)
+	close := widgets.ButtonRect(ui, ui.ID("about.close"), closeRect, closeLabel) || ui.KeyPressed(input.KeyEscape)
+	ui.EndModal()
+	if openDeveloper {
+		a.openSupportURL(developerURL)
+	}
+	if openRepo {
+		a.openSupportURL(repositoryURL)
+	}
+	if close {
+		a.pop()
 	}
 }
 

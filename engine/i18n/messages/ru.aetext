@@ -1,4 +1,40 @@
 messages version=1 lang=ru {
+  msg "editor.shell.contact_telegram" {
+    text="Телеграм: @sanspie"
+  }
+  msg "editor.shell.created_by" {
+    text="Создатель: sanspie"
+  }
+  msg "editor.shell.open_website" {
+    text="Открыть сайт"
+  }
+  msg "editor.shell.report_issue" {
+    text="Создать issue…"
+  }
+  msg "editor.particles.invalid_field" {
+    text="Недопустимое значение: проверьте диапазон и связанные поля."
+  }
+  msg "editor.particles.invalid_life_curve" {
+    text="Ключи должны быть конечными, упорядоченными и находиться в диапазоне жизни 0–1."
+  }
+  msg "editor.widgets.curve.delete_key" {
+    text="Удалить ключ"
+  }
+  msg "editor.widgets.curve.drag_preset" {
+    text="Перетащите точку или линию, чтобы изменить пресет"
+  }
+  msg "editor.widgets.curve.key_help" {
+    text="Перетащить точку · Двойной щелчок — добавить · ПКМ — удалить"
+  }
+  msg "editor.widgets.curve.keys" {
+    text="Ключи"
+  }
+  msg "launcher.invalid_project_name" {
+    text="Введите имя проекта без разделителей пути."
+  }
+  msg "launcher.project_folder_exists" {
+    text="Файл или папка с таким именем уже существует."
+  }
   msg "cli.bootstrap.not_native" {
     text="в проекте native=false, собирать нечего"
   }
@@ -519,14 +555,14 @@ messages version=1 lang=ru {
   msg "editor.agent.follow_tip" {
     text="Следить за агентом: редактор показывает, где он работает"
   }
-  msg "editor.agent.following" {
-    text="Слежка за агентом"
-  }
   msg "editor.agent.following_paused" {
     text="Слежка на паузе, пока вы работаете"
   }
   msg "editor.agent.generate_images" {
     text="Создать изображения ({n}) через {provider}? Максимальная общая стоимость: {cost} центов США. Референсы: {refs}\n{prompt}"
+  }
+  msg "editor.agent.go_to_location" {
+    text="Показать место работы агента"
   }
   msg "editor.agent.history_tip" {
     text="Прошлые сеансы"
@@ -1028,9 +1064,6 @@ messages version=1 lang=ru {
   }
   msg "editor.agent.where_problems" {
     text="Проблемы"
-  }
-  msg "editor.agent.where_tip" {
-    text="Где сейчас работает агент; щелчок ведёт туда"
   }
   msg "editor.animation.auto_key" {
     text="Автоключ"
@@ -4436,7 +4469,7 @@ messages version=1 lang=ru {
     text="Создать…"
   }
   msg "editor.sceneview.create_button" {
-    text="Создать"
+    text="Создать узел в сцене"
   }
   msg "editor.sceneview.cut" {
     text="Вырезать"
@@ -4457,7 +4490,7 @@ messages version=1 lang=ru {
     text="Показать выделенное"
   }
   msg "editor.sceneview.grid" {
-    text="Сетка"
+    text="Показать или скрыть сетку сцены"
   }
   msg "editor.sceneview.isolated_n_node_s" {
     text="Изолировано узлов: {n}"
@@ -4502,7 +4535,7 @@ messages version=1 lang=ru {
     text="Показать всё"
   }
   msg "editor.sceneview.snap_hold_ctrl_to_invert" {
-    text="Привязка (Ctrl инвертирует)"
+    text="Привязать преобразования к шагам (Ctrl временно переключает)"
   }
   msg "editor.sceneview.switch_between_the_2d_and" {
     text="Переключить вид между 2D и 3D"
@@ -4514,22 +4547,22 @@ messages version=1 lang=ru {
     text="Сцена"
   }
   msg "editor.sceneview.tool.move" {
-    text="Перемещение (W)"
+    text="Перемещать выбранные узлы (W)"
   }
   msg "editor.sceneview.tool.rotate" {
-    text="Поворот (E)"
+    text="Поворачивать выбранные узлы (E)"
   }
   msg "editor.sceneview.tool.scale" {
-    text="Масштаб (R)"
+    text="Масштабировать выбранные узлы (R)"
   }
   msg "editor.sceneview.tool.select" {
-    text="Выделение (Q)"
+    text="Выбирать узлы в сцене (Q)"
   }
   msg "editor.sceneview.vectors_v" {
-    text="Векторы (V)"
+    text="Показать или скрыть физические векторы (V)"
   }
   msg "editor.sceneview.zoom" {
-    text="Масштаб"
+    text="Изменить масштаб просмотра сцены"
   }
   msg "editor.scripteditor.aa" {
     text="Aa"

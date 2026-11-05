@@ -21,6 +21,16 @@ type FieldVisibility interface {
 	FieldVisible(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) bool
 }
 
+// FieldValidation supplies a localized explanation for an invalid field.
+type FieldValidation interface {
+	FieldError(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) string
+}
+
+// NormalizedCurve marks curves whose key times must stay within 0..1.
+type NormalizedCurve interface {
+	NormalizedCurve(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) bool
+}
+
 type CustomFunc func(ctx *context.Editor, nodes []ids.NodeID, defaultFields func())
 
 func (f CustomFunc) Draw(ctx *context.Editor, nodes []ids.NodeID, defaultFields func()) {
@@ -61,6 +71,28 @@ func (r *Registry) FieldVisible(t schema.TypeID, nodes []ids.NodeID, field *sche
 	}
 	filter, ok := c.(FieldVisibility)
 	return !ok || filter.FieldVisible(r.editor, nodes, field)
+}
+
+func (r *Registry) FieldError(t schema.TypeID, nodes []ids.NodeID, field *schema.FieldDescriptor) string {
+	c, ok := r.Custom(t)
+	if !ok {
+		return ""
+	}
+	if validation, ok := c.(FieldValidation); ok {
+		return validation.FieldError(r.editor, nodes, field)
+	}
+	return ""
+}
+
+func (r *Registry) NormalizedCurve(t schema.TypeID, nodes []ids.NodeID, field *schema.FieldDescriptor) bool {
+	c, ok := r.Custom(t)
+	if !ok {
+		return false
+	}
+	if limits, ok := c.(NormalizedCurve); ok {
+		return limits.NormalizedCurve(r.editor, nodes, field)
+	}
+	return false
 }
 
 func NewRegistry() *Registry {

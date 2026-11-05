@@ -441,7 +441,11 @@ func (p *Panel) empty(ui *core.Context, body mathx.Rect) {
 	ui.TextIn(mathx.Rect{X: x, Y: y, W: w, H: th.RowHeight}, i18n.Tr("editor.agent.empty_title", "Ask the agent"), th.Text, core.AlignCenter)
 	y += th.RowHeight
 	hint := i18n.Tr("editor.agent.empty_hint", "Ask about the project or describe a change. Type @ to mention a node or an asset. Changes wait for you to apply them.")
-	for _, line := range widgets.WrapLines(ui, hint, w) {
+	if p.emptyHint != hint || p.emptyHintWidth != w || p.emptyHintFont != ui.Font() {
+		p.emptyHint, p.emptyHintWidth, p.emptyHintFont = hint, w, ui.Font()
+		p.emptyHintLines = widgets.WrapLines(ui, hint, w)
+	}
+	for _, line := range p.emptyHintLines {
 		ui.TextIn(mathx.Rect{X: x, Y: y, W: w, H: ui.LineHeight()}, line, th.TextDim, core.AlignCenter)
 		y += ui.LineHeight()
 	}
@@ -477,7 +481,7 @@ func (p *Panel) empty(ui *core.Context, body mathx.Rect) {
 		}
 		ui.RoundRect(er, th.Radius.Button, fill)
 		widgets.IconAt(ui, mathx.Rect{X: er.X + 8, Y: er.Y + (er.H-14)/2, W: 14, H: 14}, "agent.new", th.TextDim)
-		ui.Text(widgets.Elide(ui, ex, er.W-36), mathx.Vec2{X: er.X + 30, Y: ui.TextY(er)}, th.Text)
+		ui.Text(p.emptyFits[i].get(ui, ex, er.W-36), mathx.Vec2{X: er.X + 30, Y: ui.TextY(er)}, th.Text)
 		y += er.H + th.Spacing
 	}
 }

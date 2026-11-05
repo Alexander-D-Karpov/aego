@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"aego/core/curve"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
@@ -16,6 +17,7 @@ import (
 	"aego/scene"
 	"aego/schema"
 	"aego/ui/core"
+	"aego/ui/widgets"
 )
 
 type renderSchemaFixture struct{}
@@ -55,6 +57,70 @@ func TestParticleInspectorFieldsInOneGroup(t *testing.T) {
 		if n != 1 {
 			t.Errorf("field %s occurs in %d sections", f.Name, n)
 		}
+	}
+}
+
+func TestParticleNonnegativeFieldsClampMouseDrags(t *testing.T) {
+	_, _, td := inspectorFixture(t)
+	for _, name := range []string{"prewarm", "maskThreshold", "frameFPS", "reducedRate", "drag", "noiseStrength", "noiseFrequency", "rate", "duration", "radius", "rectSize", "lifetime", "speed", "size", "spread", "bursts"} {
+		fd, ok := td.Field(name)
+		if !ok || !fd.HasMin || fd.Min != 0 {
+			t.Errorf("%s does not declare a zero minimum", name)
+		}
+	}
+	for _, name := range []string{"gravity", "offset", "direction", "rotation", "rotationSpeed", "killY", "planeDistance"} {
+		fd, ok := td.Field(name)
+		if !ok || fd.HasMin {
+			t.Errorf("%s must remain signed", name)
+		}
+	}
+	fd, _ := td.Field("drag")
+	ui, in := core.New(nil), &input.State{}
+	v := float32(1)
+	r := mathx.Rect{X: 10, Y: 10, W: 180, H: 20}
+	last := mathx.Vec2{}
+	step := func(at mathx.Vec2, press, release bool) {
+		in.BeginFrame()
+		in.ApplyMouseMove(at, at.Sub(last))
+		last = at
+		if press {
+			in.ApplyMouseDown(at, input.MouseLeft)
+		}
+		if release {
+			in.ApplyMouseUp(at, input.MouseLeft)
+		}
+		ui.Begin(in, mathx.V2(800, 600), 1)
+		widgets.DragFloat32(ui, core.IDOf("particle.drag"), r, &v, widgets.NumberOpts{Min: fd.Min, HasMin: fd.HasMin, Speed: 0.05})
+		ui.End()
+	}
+	step(mathx.V2(100, 20), false, false)
+	step(mathx.V2(100, 20), true, false)
+	step(mathx.V2(20, 20), false, false)
+	step(mathx.V2(20, 20), false, true)
+	if v != 0 {
+		t.Fatalf("drag crossed the minimum: %v", v)
+	}
+}
+
+func TestInvalidParticleFieldsAreIdentifiedIndividually(t *testing.T) {
+	_, _, td := inspectorFixture(t)
+	c := particles.DefaultParticleSystem2D()
+	c.VelocityOverLife = curve.Keyed(curve.Key{T: 0, V: 1}, curve.Key{T: 1.2, V: 0})
+	c.Drag = -1
+	bad := c.InvalidFields()
+	if !bad["velocityOverLife"] || !bad["drag"] || bad["sizeOverLife"] || bad["gravity"] {
+		t.Fatalf("wrong fields marked: %v", bad)
+	}
+	p := particleInspector{invalid: bad}
+	velocity, _ := td.Field("velocityOverLife")
+	size, _ := td.Field("sizeOverLife")
+	if p.FieldError(nil, nil, velocity) == "" || p.FieldError(nil, nil, size) != "" || !p.NormalizedCurve(nil, nil, velocity) {
+		t.Fatal("the wrong curve is marked or bounded")
+	}
+	c.VelocityOverLife = curve.Constant(1)
+	c.Drag = 0
+	if len(c.InvalidFields()) != 0 || c.Validate() != nil {
+		t.Fatalf("corrected emitter remains invalid: %v", c.InvalidFields())
 	}
 }
 func TestShapeHandlesUndoInReflectedSpace(t *testing.T) {

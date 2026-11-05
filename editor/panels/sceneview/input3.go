@@ -47,7 +47,7 @@ func (p *Panel) input3(d *document.SceneDocument, r mathx.Rect) {
 	}
 	ui := p.ui()
 	id := ui.ID("view3")
-	over := ui.MouseOver(id, r) && !p.barRect.Contains(ui.Mouse())
+	over := !p.barRect.Contains(ui.Mouse()) && ui.MouseOver(id, r)
 	mods := ui.Mods()
 	in := Input3{
 		Mouse:   p.toPixels(ui.Mouse()),

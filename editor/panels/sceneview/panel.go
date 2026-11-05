@@ -440,8 +440,8 @@ func (p *Panel) input(d *document.SceneDocument, r mathx.Rect) {
 	ui := p.ui()
 	id := ui.ID("view")
 	cam := &d.View.Camera
-	over := ui.MouseOver(id, r)
 	onBar := p.barRect.Contains(ui.Mouse())
+	over := !onBar && ui.MouseOver(id, r)
 	if over && !onBar && p.mode == modeIdle && (ui.MousePressed(input.MouseMiddle) || ui.MousePressed(input.MouseRight)) {
 		p.mode = modePan
 		p.panRight = ui.MousePressed(input.MouseRight) && !ui.MousePressed(input.MouseMiddle)
@@ -575,10 +575,10 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		icon string
 		tip  string
 	}{
-		{"tool.select", i18n.Tr("editor.sceneview.tool.select", "Select (Q)")},
-		{"tool.move", i18n.Tr("editor.sceneview.tool.move", "Move (W)")},
-		{"tool.rotate", i18n.Tr("editor.sceneview.tool.rotate", "Rotate (E)")},
-		{"tool.scale", i18n.Tr("editor.sceneview.tool.scale", "Scale (R)")},
+		{"tool.select", i18n.Tr("editor.sceneview.tool.select", "Select nodes in the scene (Q)")},
+		{"tool.move", i18n.Tr("editor.sceneview.tool.move", "Move selected nodes (W)")},
+		{"tool.rotate", i18n.Tr("editor.sceneview.tool.rotate", "Rotate selected nodes (E)")},
+		{"tool.scale", i18n.Tr("editor.sceneview.tool.scale", "Scale selected nodes (R)")},
 	}
 	for i, t := range tools {
 		if tb.Button(ui.IDInt(300+i), t.icon, t.tip, p.d.Tools.Tool == uint8(i), true) {
@@ -586,13 +586,13 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 		}
 	}
 	tb.Separator()
-	if tb.Button(ui.ID("grid"), "view.grid", i18n.Tr("editor.sceneview.grid", "Grid"), p.d.Tools.Grid, true) {
+	if tb.Button(ui.ID("grid"), "view.grid", i18n.Tr("editor.sceneview.grid", "Show or hide the scene grid"), p.d.Tools.Grid, true) {
 		p.d.Tools.Grid = !p.d.Tools.Grid
 	}
-	if tb.Button(ui.ID("snap"), "view.snap", i18n.Tr("editor.sceneview.snap_hold_ctrl_to_invert", "Snap (hold Ctrl to invert)"), p.d.Tools.Snap, true) {
+	if tb.Button(ui.ID("snap"), "view.snap", i18n.Tr("editor.sceneview.snap_hold_ctrl_to_invert", "Snap transforms to steps (hold Ctrl to invert)"), p.d.Tools.Snap, true) {
 		p.d.Tools.Snap = !p.d.Tools.Snap
 	}
-	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
+	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Show or hide physics vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
 		p.d.Viewport.Overlay.Toggle(vectors.CommandToggle)
 	}
 	for _, cmd := range extra {
@@ -615,7 +615,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	}
 	zid := ui.ID("zoom")
 	if !three {
-		if clicked, zr := tb.TextButton(zid, zoom, i18n.Tr("editor.sceneview.zoom", "Zoom")); clicked {
+		if clicked, zr := tb.TextButton(zid, zoom, i18n.Tr("editor.sceneview.zoom", "Choose the scene view zoom")); clicked {
 			if ui.PopupOpen(zid) {
 				ui.ClosePopup(zid)
 			} else {
@@ -627,7 +627,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	tb.Separator()
 	cid := ui.ID("create")
 	createX := tb.X()
-	if tb.Button(cid, "ui.plus", i18n.Tr("editor.sceneview.create_button", "Create"), false, true) {
+	if tb.Button(cid, "ui.plus", i18n.Tr("editor.sceneview.create_button", "Create a node in the scene"), false, true) {
 		anchor := mathx.Vec2{X: createX, Y: bar.Y + bar.H}
 		if three {
 			p.createAt3(p.c3.Cam.Target, &anchor)

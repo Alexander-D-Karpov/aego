@@ -90,6 +90,32 @@ func (s *safeCustom) FieldVisible(ctx *context.Editor, nodes []ids.NodeID, field
 	return true
 }
 
+func (s *safeCustom) FieldError(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) (message string) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			s.reg.Disable(s.ext, fmt.Sprint(rec))
+			message = ""
+		}
+	}()
+	if v, ok := s.inner.(inspect.FieldValidation); ok {
+		return v.FieldError(ctx, nodes, field)
+	}
+	return ""
+}
+
+func (s *safeCustom) NormalizedCurve(ctx *context.Editor, nodes []ids.NodeID, field *schema.FieldDescriptor) (normalized bool) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			s.reg.Disable(s.ext, fmt.Sprint(rec))
+			normalized = false
+		}
+	}()
+	if v, ok := s.inner.(inspect.NormalizedCurve); ok {
+		return v.NormalizedCurve(ctx, nodes, field)
+	}
+	return false
+}
+
 type safeGizmo struct {
 	inner gizmo.Gizmo
 	ext   string

@@ -171,7 +171,7 @@ func (p *Panel) stack(dir string) []int {
 	var out []int
 	for i := range p.items {
 		it := &p.items[i]
-		if path.Dir(it.Path) != dir || it.Kind == asset.ArtScript || it.Kind == asset.ArtData || it.Kind == asset.ArtTable {
+		if path.Dir(it.Path) != dir || p.isCell(it.ID) {
 			continue
 		}
 		out = append(out, i)
@@ -212,12 +212,16 @@ func (p *Panel) wave(a *pipeline.AssetInfo, r mathx.Rect) bool {
 	return true
 }
 
-// folderStack draws up to three previews as sheets sticking out of the folder icon.
+// folderStack draws scalable folder shapes and up to three sheets of contents.
 func (p *Panel) folderStack(dir string, img mathx.Rect) {
 	ui := p.f.UI
 	th := &ui.Theme
 	icon := img.W * 0.82
 	at := mathx.Rect{X: img.X + (img.W-icon)/2, Y: img.Y + (img.H-icon)/2 + icon*0.06, W: icon, H: icon}
+	back := th.Accent
+	back.R, back.G, back.B = back.R*0.7, back.G*0.7, back.B*0.7
+	ui.RoundRect(mathx.Rect{X: at.X + icon*0.07, Y: at.Y + icon*0.12, W: icon * 0.36, H: icon * 0.22}, icon*0.035, back)
+	ui.RoundRect(mathx.Rect{X: at.X + icon*0.07, Y: at.Y + icon*0.22, W: icon * 0.86, H: icon * 0.64}, icon*0.035, back)
 	list := p.stack(dir)
 	n := min(len(list), 3)
 	if img.W < 40 {
@@ -238,7 +242,9 @@ func (p *Panel) folderStack(dir string, img mathx.Rect) {
 		}
 		ui.Outline(cr, th.Border)
 	}
-	widgets.IconAt(ui, at, "file.folder", th.Accent)
+	front := mathx.Rect{X: at.X + icon*0.07, Y: at.Y + icon*0.43, W: icon * 0.86, H: icon * 0.43}
+	ui.RoundRect(front, icon*0.035, th.Accent)
+	ui.Rect(mathx.Rect{X: front.X, Y: front.Y, W: front.W, H: max(1, icon*0.025)}, back)
 }
 
 func (p *Panel) code(lines []string, r mathx.Rect) {

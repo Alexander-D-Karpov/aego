@@ -47,6 +47,7 @@ type particleInspector struct {
 	doc     document.ID
 	node    ids.NodeID
 	td      *schema.TypeDescriptor
+	invalid map[string]bool
 }
 
 // Emission and shape are the starting controls for an authored effect.
@@ -70,6 +71,9 @@ func (s *particleInspector) FieldVisible(ctx *context.Editor, nodes []ids.NodeID
 	}
 	if !slices.Contains(groups[s.section].fields, f.Name) {
 		return false
+	}
+	if s.invalid[f.Name] && f.Name != "colorOverLife" {
+		return true
 	}
 	if ctx == nil || ctx.Doc() == nil || len(nodes) != 1 {
 		return true
@@ -99,12 +103,40 @@ func (s *particleInspector) FieldVisible(ctx *context.Editor, nodes []ids.NodeID
 	}
 	return true
 }
+
+func (s *particleInspector) FieldError(_ *context.Editor, _ []ids.NodeID, field *schema.FieldDescriptor) string {
+	if !s.invalid[field.Name] {
+		return ""
+	}
+	switch field.Name {
+	case "velocityOverLife", "sizeOverLife", "alphaOverLife", "colorOverLife":
+		return i18n.Tr("editor.particles.invalid_life_curve", "Keys must be finite, ordered and within the 0–1 lifetime.")
+	default:
+		return i18n.Tr("editor.particles.invalid_field", "Invalid value; check the allowed range and related fields.")
+	}
+}
+
+func (*particleInspector) NormalizedCurve(_ *context.Editor, _ []ids.NodeID, field *schema.FieldDescriptor) bool {
+	return field.Name == "velocityOverLife" || field.Name == "sizeOverLife" || field.Name == "alphaOverLife"
+}
+
 func (s *particleInspector) Draw(ctx *context.Editor, nodes []ids.NodeID, fields func()) {
 	if ctx == nil || ctx.UI == nil || ctx.Doc() == nil || len(nodes) == 0 {
 		fields()
 		return
 	}
 	ui, d := ctx.UI, ctx.Doc()
+	clear(s.invalid)
+	for _, node := range nodes {
+		if component, ok := scene.Get[particles.ParticleSystem2D](d.Scene(), d.Scene().Handle(node)); ok {
+			for name := range component.InvalidFields() {
+				if s.invalid == nil {
+					s.invalid = make(map[string]bool)
+				}
+				s.invalid[name] = true
+			}
+		}
+	}
 	var c *particles.ParticleSystem2D
 	if len(nodes) == 1 {
 		c, _ = scene.Get[particles.ParticleSystem2D](d.Scene(), d.Scene().Handle(nodes[0]))
@@ -121,18 +153,29 @@ func (s *particleInspector) Draw(ctx *context.Editor, nodes []ids.NodeID, fields
 		s.section = i
 		open := !s.closed[i]
 		ui.PushIDInt(i)
+		header := mathx.Rect{X: ui.Cursor().X, Y: ui.Cursor().Y, W: ui.Cursor().W, H: ui.Cursor().RowH}
 		if widgets.TreeNode(ui, ui.ID("section"), g.title.String(), &open, false) {
 			open = !open
 		}
 		s.closed[i] = !open
+		for _, name := range g.fields {
+			if s.invalid[name] {
+				ui.Rect(mathx.Rect{X: header.X, Y: header.Y + 2, W: 2, H: max(header.H-4, 1)}, ui.Theme.Error)
+				break
+			}
+		}
 		if open {
 			fields()
 			if i == 4 && c != nil {
+				start := *ui.Cursor()
 				s.grad.Draw(ui, c.ColorOverLife, func(keys []particles.ColorKey) {
 					if err := setGradient(d, s.td, nodes, keys); err != nil {
 						ctx.Notify(context.LevelError, err.Error())
 					}
 				})
+				if s.invalid["colorOverLife"] {
+					ui.List().RectOutline(mathx.Rect{X: start.X, Y: start.Y, W: start.W, H: ui.Cursor().Y - start.Y}, ui.Theme.Error, 1)
+				}
 			}
 		}
 		ui.PopID()

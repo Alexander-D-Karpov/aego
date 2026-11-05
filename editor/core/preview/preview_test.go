@@ -5,6 +5,7 @@ import (
 	"aego/render/rt"
 	"aego/render/view"
 	"bytes"
+	"strings"
 	"testing"
 
 	"aego/asset"
@@ -83,5 +84,25 @@ func TestFirstLinesSkipImports(t *testing.T) {
 	got := firstLines("import (\n\t\"aego/math\"\n)\nimport \"aego/time\"\n\nscript Laser {\n", 2)
 	if len(got) != 1 || got[0] != "script Laser {" {
 		t.Fatalf("lines = %q", got)
+	}
+}
+
+func TestScriptPreviewUsesSourceAndColoredStrokes(t *testing.T) {
+	src := []byte("package game\n\nscript Player {\n  var Speed float = 10\n  func Update() {\n    Speed = 20\n  }\n}\n")
+	e := asset.Entry{Kind: asset.ArtScript, Source: "scripts/player.aes"}
+	lines := cardLines(e, src)
+	if len(lines) < 3 || lines[0] != "script Player {" || !strings.Contains(strings.Join(lines, "\n"), "Speed = 20") {
+		t.Fatalf("preview lost the script contents: %q", lines)
+	}
+	p := codeCard(lines)
+	if p.w != Size || p.h != Size {
+		t.Fatalf("bad card dimensions: %d×%d", p.w, p.h)
+	}
+	colors := map[[4]byte]bool{}
+	for i := 0; i < len(p.buf); i += 4 {
+		colors[[4]byte(p.buf[i:i+4])] = true
+	}
+	if len(colors) < 4 {
+		t.Fatalf("code preview has no syntax strokes: %d colors", len(colors))
 	}
 }

@@ -3,6 +3,7 @@
 package edit
 
 import (
+	"bytes"
 	"runtime"
 	"testing"
 
@@ -11,9 +12,80 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/workspace"
 	"aego/modules/render2d"
+	render2deditor "aego/modules/render2d/editor"
 	"aego/scene"
 	"aego/scene/frame"
 )
+
+// The toolbar must leave the debug image, not just clear its checked state.
+func TestSceneViewLightingToggleClearsDebugPixels(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	p := newProject(t)
+	const path = "scenes/debug-toggle.aescene"
+	writeScene(t, p, path, func(s *scene.Scene) {
+		h := s.Create(s.Root(), "Red")
+		sr := scene.Add[render2d.SpriteRenderer](s, h)
+		*sr = render2d.DefaultSpriteRenderer()
+		sr.Sprite = asset.NewRef[asset.Texture](asset.BuiltinWhite)
+		sr.Material = asset.NewRef[asset.Material](asset.BuiltinMaterialLit)
+		sr.Tint = mathx.Color{R: 1, A: 1}
+		sr.Size = mathx.V2(4, 4)
+	})
+	s, err := Open(p, Config{Width: 800, Height: 600, Hidden: true, NoWatch: true, Logger: log.Nop()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.Step()
+	ed := s.App.Context()
+	doc, err := ed.Docs.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.View.Camera.Position = mathx.Vec2{}
+	s.App.SceneView().SetZoom(40)
+	ed.Settings.Grid = false
+	for range 3 {
+		s.Step()
+	}
+	panel := s.App.SceneView()
+	raw, ok := panel.LightingWorld().ServiceAny(frame.ServiceID)
+	if !ok {
+		t.Fatal("missing Scene View runner")
+	}
+	runner := raw.(*frame.Runner)
+	read := func() []byte {
+		t.Helper()
+		for range 2 {
+			s.Step()
+		}
+		target, w, h := runner.Target()
+		pixels := make([]byte, w*h*4)
+		if target.IsZero() || ed.Renderer.Device().ReadPixels(target, 0, 0, w, h, pixels) != nil {
+			t.Fatal("cannot read the Scene View")
+		}
+		return pixels
+	}
+	press := func(id string) {
+		t.Helper()
+		if err := ed.Commands.Run(id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	press(render2deditor.CmdLighting)
+	unlit := read()
+	for _, debug := range []string{render2deditor.CmdLightingNormals, render2deditor.CmdLightingShadows} {
+		press(debug)
+		if bytes.Equal(unlit, read()) {
+			t.Fatalf("%s did not change the rendered image", debug)
+		}
+		press(render2deditor.CmdLighting)
+		if off := read(); !bytes.Equal(unlit, off) {
+			t.Fatalf("turning off lighting left %s in the rendered image", debug)
+		}
+	}
+}
 
 func TestLightingAuthoringWorkflowNative(t *testing.T) {
 	runtime.LockOSThread()

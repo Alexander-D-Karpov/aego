@@ -31,6 +31,9 @@ const (
 	CommandInstallGo    = "help.install_go"
 	recentCommands      = 5
 	issuesURL           = "https://git.akarpov.ru/sanspie/aego/issues/new"
+	repositoryURL       = "https://git.akarpov.ru/sanspie/aego"
+	developerURL        = "https://about.akarpov.ru"
+	telegramURL         = "https://t.me/sanspie"
 	goDownloadURL       = "https://go.dev/dl/"
 	tabRecent           = "recent"
 	tabNew              = "new"
@@ -223,6 +226,12 @@ func (a *App) bugURL() string {
 	body := "Aego " + engine.Version + ", " + runtime.GOOS + "/" + runtime.GOARCH + ", GPU: " + a.eng.Caps().Renderer +
 		"\n\nWhat happened:\n\nWhat you expected:\n\nSteps to reproduce:\n\nThe editor log is in Help → Open Logs Folder.\n"
 	return issuesURL + "?body=" + url.QueryEscape(body)
+}
+
+func (a *App) openSupportURL(target string) {
+	if err := sysopen.Open(target); err != nil {
+		a.ctx.Notify(context.LevelError, err.Error())
+	}
 }
 
 func (a *App) runTests() error {

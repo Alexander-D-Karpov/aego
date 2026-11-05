@@ -294,6 +294,23 @@ func TestLightingCommandsAndConditionalFieldsUseSharedRegistry(t *testing.T) {
 	if !enabled || mode != lighting.DebugLighting {
 		t.Fatal("debug toggles failed")
 	}
+	for _, debug := range []struct {
+		id   string
+		mode lighting.DebugMode
+	}{{CmdLightingNormals, lighting.DebugNormals}, {CmdLightingShadows, lighting.DebugShadows}} {
+		if err := ed.Commands.Run(debug.id); err != nil {
+			t.Fatal(err)
+		}
+		if enabled, mode := runner.LightingView(); !enabled || mode != debug.mode {
+			t.Fatalf("%s did not enable its debug view", debug.id)
+		}
+		if err := ed.Commands.Run(CmdLighting); err != nil {
+			t.Fatal(err)
+		}
+		if enabled, mode := runner.LightingView(); enabled || mode != lighting.DebugLighting {
+			t.Fatalf("turning lighting off left %s visible: enabled=%v mode=%v", debug.id, enabled, mode)
+		}
+	}
 	if !bytes.Equal(before, sceneio.Save(s)) || ed.Doc().History.Cursor() != 0 {
 		t.Fatal("Scene View toggle mutated the scene/history")
 	}

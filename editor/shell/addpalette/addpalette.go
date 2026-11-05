@@ -326,7 +326,7 @@ func (s *Service) scripts() {
 			short, pkg = full[i+1:], strings.ReplaceAll(full[:i], ".", "/")
 		}
 		s.entries = append(s.entries, e)
-		s.items = append(s.items, palette.Item{Key: "script:" + full, Label: inspect.Humanize(short), Category: scriptsCat, Detail: pkg, Icon: "file.script", Disabled: why})
+		s.items = append(s.items, palette.Item{Key: "script:" + full, Label: inspect.Humanize(short), Category: scriptsCat, Detail: pkg, Icon: "comp.script", Disabled: why})
 	}
 }
 
@@ -589,7 +589,7 @@ var categoryIcons = map[string]string{
 	"2D":        "cat.rendering",
 	"3D":        "cat.3d",
 	"Camera":    "cat.camera",
-	"Lights":    "view.overlays",
+	"Lights":    "cat.render2d",
 	"Physics":   "comp.rigidbody",
 	"Audio":     "cat.audio",
 	"Animation": "anim.graph",

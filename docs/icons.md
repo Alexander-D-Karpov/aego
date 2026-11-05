@@ -19,6 +19,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `anim.slice` | engine | 16 | Create palette: Animation → Flipbook from Selection; PNG inspector: Slicing section | ok |
 | `anim.to_end` | engine | 16 | Animation panel: go to end | ok |
 | `anim.to_start` | engine | 16 | Animation panel: go to start | ok |
+| `animation.animator` | engine | 16 | component animation.Animator | ok |
+| `animation.player` | engine | 16 | component animation.AnimationPlayer | ok |
 | `app` | engine | 16 | launcher header; colored PNGs in app/brand are the window, installer and favicon icon | ok |
 | `app.quit` | engine | 16 | File → Quit | ok |
 | `audio.listener` | engine | 16 | component audio.AudioListener2D | ok |
@@ -36,7 +38,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
 | `cat.particles` | engine | 16 | Add Component and Create: Effects category; template menu Effects | ok |
 | `cat.physics` | engine | 16 | template menu Physics | ok |
-| `cat.render2d` | render2d | 16 | template menu Lighting | missing |
+| `cat.render2d` | engine | 16 | Add Component and Create: Lights category; template menu Lighting | ok |
 | `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets; Add Component and Create: category | ok |
 | `cat.scripts` | engine | 16 | Search: script symbols; Add Component and Create: category | ok |
 | `cat.settings` | engine | 16 | References: the project file; Add Component and Create: category | ok |
@@ -58,9 +60,9 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.persist` | engine | 16 | component save.Persist | ok |
 | `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; component physics.PolygonCollider2D | ok |
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
-| `comp.script` | engine | 16 | Scripts component; Assets menu: Attach to Selected; component engine.Script | ok |
+| `comp.script` | engine | 16 | Scripts component and Add Component entries; Assets menu: Attach to Selected; component engine.Script | ok |
 | `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
-| `comp.sprite` | engine | 16 | Create: Material and Material from Shader; material asset inspector; component engine.Light2D; component engine.MaterialOverride; component engine.SpriteRenderer; template render2d.directional-light; template render2d.point-light; template render2d.spot-light; template render2d.sprite; template render2d.sprite-light | ok |
+| `comp.sprite` | engine | 16 | Create: Material and Material from Shader; material asset inspector; component engine.MaterialOverride; component engine.SpriteRenderer; template render2d.sprite | ok |
 | `comp.tags` | engine | 16 | component engine.Tags | ok |
 | `comp.vcam` | engine | 16 | component camera.VirtualCamera2D | ok |
 | `comp.zone` | engine | 16 | component camera.CameraZone2D | ok |
@@ -92,6 +94,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
 | `file.download` | engine | 16 | Documentation: Install and run page; PNG inspector: Import section | ok |
+| `file.export` | engine | 16 | File → Export and the Export panel | ok |
 | `file.folder` | engine | 24 | Assets: folders | ok |
 | `file.mesh` | engine | 24 | Assets: mesh tiles | ok |
 | `file.open` | engine | 16 | Assets menu: Open | ok |
@@ -160,7 +163,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
 | `play.speed` | engine | 16 | Play → Time Scale… | ok |
-| `play.start` | engine | 16 | component animation.AnimationPlayer; component animation.Animator; toolbar: Play; Assets: startup scene mark; Animation panel: play the clip | ok |
+| `play.start` | engine | 16 | toolbar: Play; Assets: startup scene mark; Animation panel: play the clip | ok |
 | `play.step` | engine | 16 | toolbar: Step | ok |
 | `play.step_back` | engine | 16 | Play → Step Back | ok |
 | `play.stop` | engine | 16 | toolbar: Stop | ok |
@@ -168,6 +171,12 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `prefab.revert` | engine | 16 | Prefab menus: Revert and Reset to Prefab Value | ok |
 | `prefab.unpack` | engine | 16 | Hierarchy prefab menu: Unpack | ok |
 | `prefab.variant` | engine | 16 | Assets menu: Create Variant | ok |
+| `render2d.directional_light` | engine | 16 | template render2d.directional-light | ok |
+| `render2d.normals` | engine | 16 | Scene View: surface normals | ok |
+| `render2d.point_light` | engine | 16 | Scene View: lighting preview; component engine.Light2D; template render2d.point-light | ok |
+| `render2d.shadow_view` | engine | 16 | Scene View: shadow visibility | ok |
+| `render2d.spot_light` | engine | 16 | template render2d.spot-light | ok |
+| `render2d.sprite_light` | engine | 16 | template render2d.sprite-light | ok |
 | `shape.cube` | engine | 16 | template render3d.cube | ok |
 | `shape.cylinder` | engine | 16 | template render3d.cylinder | ok |
 | `shape.dice` | engine | 16 | Documentation: random numbers module | ok |

@@ -82,6 +82,13 @@ func (a *App) buildNativeMenu() ([]platform.Menu, []func()) {
 				}
 				last = d.Order
 				id := d.ID
+				if cat == "Help" && id == CommandReportBug {
+					items = append(items, platform.MenuItem{Label: d.Title(), Enabled: true, Items: []platform.MenuItem{
+						{ID: act(func() { reg.Run(CommandReportBug) }), Label: i18n.Tr("editor.shell.report_issue", "Create an issue…"), Enabled: true},
+						{ID: act(func() { a.openSupportURL(telegramURL) }), Label: i18n.Tr("editor.shell.contact_telegram", "Telegram: @sanspie"), Enabled: true},
+					}})
+					continue
+				}
 				items = append(items, platform.MenuItem{ID: act(func() { reg.Run(id) }), Label: d.Title(), Shortcut: reg.Shortcut(id), Enabled: reg.Enabled(id), Checked: d.Checked != nil && d.Checked()})
 			}
 			if len(items) == 0 {

@@ -58,20 +58,20 @@ type ColorKey struct {
 	Color mathx.Color `aego:"color"`
 }
 type ParticleSystem2D struct {
-	Prewarm          float32                    `aego:"prewarm"`
+	Prewarm          float32                    `aego:"prewarm,min=0,max=2"`
 	EdgeA            mathx.Vec2                 `aego:"edgeA"`
 	EdgeB            mathx.Vec2                 `aego:"edgeB"`
 	Mask             asset.Ref[asset.Texture]   `aego:"mask,asset=texture,omitempty"`
-	MaskThreshold    float32                    `aego:"maskThreshold"`
+	MaskThreshold    float32                    `aego:"maskThreshold,min=0,max=1"`
 	Frames           []asset.Ref[asset.Texture] `aego:"frames,asset=texture,omitempty"`
-	FrameFPS         float32                    `aego:"frameFPS"`
+	FrameFPS         float32                    `aego:"frameFPS,min=0"`
 	FrameLoop        bool                       `aego:"frameLoop"`
 	SortMode         SortMode                   `aego:"sortMode"`
 	ReducedMotion    ReducedMotionMode          `aego:"reducedMotion"`
-	ReducedRate      float32                    `aego:"reducedRate"`
-	Drag             float32                    `aego:"drag"`
-	NoiseStrength    float32                    `aego:"noiseStrength"`
-	NoiseFrequency   float32                    `aego:"noiseFrequency"`
+	ReducedRate      float32                    `aego:"reducedRate,min=0,max=1"`
+	Drag             float32                    `aego:"drag,min=0"`
+	NoiseStrength    float32                    `aego:"noiseStrength,min=0"`
+	NoiseFrequency   float32                    `aego:"noiseFrequency,min=0"`
 	KillYEnabled     bool                       `aego:"killYEnabled"`
 	KillY            float32                    `aego:"killY"`
 	PlaneEnabled     bool                       `aego:"planeEnabled"`
@@ -81,23 +81,23 @@ type ParticleSystem2D struct {
 	VelocityOverLife curve.Curve                `aego:"velocityOverLife"`
 	PlayOnStart      bool                       `aego:"playOnStart"`
 	Loop             bool                       `aego:"loop"`
-	Duration         float32                    `aego:"duration"`
+	Duration         float32                    `aego:"duration,min=0"`
 	TimeDomain       TimeDomain                 `aego:"timeDomain"`
 	Seed             int64                      `aego:"seed"`
-	MaxParticles     int32                      `aego:"maxParticles"`
-	Rate             float32                    `aego:"rate"`
+	MaxParticles     int32                      `aego:"maxParticles,min=1,max=65536"`
+	Rate             float32                    `aego:"rate,min=0"`
 	// Each key is (seconds within the cycle, birth count); equal times retain source order.
-	Bursts        []mathx.Vec2              `aego:"bursts"`
+	Bursts        []mathx.Vec2              `aego:"bursts,min=0"`
 	Shape         Shape                     `aego:"shape"`
 	Offset        mathx.Vec2                `aego:"offset"`
-	RectSize      mathx.Vec2                `aego:"rectSize"`
-	Radius        float32                   `aego:"radius"`
-	Lifetime      mathx.Vec2                `aego:"lifetime,minmax"`
-	Speed         mathx.Vec2                `aego:"speed,minmax"`
-	Size          mathx.Vec2                `aego:"size,minmax"`
+	RectSize      mathx.Vec2                `aego:"rectSize,min=0"`
+	Radius        float32                   `aego:"radius,min=0"`
+	Lifetime      mathx.Vec2                `aego:"lifetime,minmax,min=0"`
+	Speed         mathx.Vec2                `aego:"speed,minmax,min=0"`
+	Size          mathx.Vec2                `aego:"size,minmax,min=0"`
 	Rotation      mathx.Vec2                `aego:"rotation,minmax"`
 	Direction     float32                   `aego:"direction"`
-	Spread        float32                   `aego:"spread"`
+	Spread        float32                   `aego:"spread,min=0,max=6.2831855"`
 	Color         mathx.Color               `aego:"color"`
 	Gravity       mathx.Vec2                `aego:"gravity"`
 	SizeOverLife  curve.Curve               `aego:"sizeOverLife"`
@@ -192,6 +192,66 @@ func (c *ParticleSystem2D) Validate() error {
 		}
 	}
 	return nil
+}
+
+// InvalidFields identifies individual authoring fields that violate the same
+// constraints as Validate. It does not change the emitter or discard data.
+func (c *ParticleSystem2D) InvalidFields() map[string]bool {
+	bad := make(map[string]bool)
+	mark := func(condition bool, names ...string) {
+		if condition {
+			for _, name := range names {
+				bad[name] = true
+			}
+		}
+	}
+	mark(c.MaxParticles < 1 || c.MaxParticles > MaxCapacity, "maxParticles")
+	mark(!interval(c.Lifetime) || c.Lifetime.X <= 0, "lifetime")
+	mark(!interval(c.Speed) || c.Speed.X < 0, "speed")
+	mark(!interval(c.Size) || c.Size.X < 0, "size")
+	mark(!interval(c.Rotation), "rotation")
+	mark(!finite(c.RotationSpeed), "rotationSpeed")
+	mark(!finite(c.Rate) || c.Rate < 0, "rate")
+	mark(!finite(c.Duration) || c.Duration <= 0, "duration")
+	mark(!finite(c.Direction), "direction")
+	mark(!finite(c.Spread) || c.Spread < 0 || c.Spread > 2*mathx.Pi, "spread")
+	mark(!finiteVec(c.Gravity), "gravity")
+	mark(!finiteVec(c.Offset), "offset")
+	mark(!finite(c.Radius) || c.Radius < 0, "radius")
+	mark(!finiteVec(c.RectSize) || c.RectSize.X < 0 || c.RectSize.Y < 0, "rectSize")
+	mark(!finite(c.Prewarm) || c.Prewarm < 0 || c.Prewarm > 2, "prewarm")
+	mark(!finiteVec(c.EdgeA), "edgeA")
+	mark(!finiteVec(c.EdgeB), "edgeB")
+	mark(!unitNumber(c.MaskThreshold), "maskThreshold")
+	mark(!finite(c.FrameFPS) || c.FrameFPS < 0 || len(c.Frames) > 1 && c.FrameFPS == 0, "frameFPS")
+	mark(len(c.Frames) > 1024, "frames")
+	mark(c.SortMode > Distance, "sortMode")
+	mark(c.ReducedMotion > Hide, "reducedMotion")
+	mark(!unitNumber(c.ReducedRate), "reducedRate")
+	mark(!finite(c.Drag) || c.Drag < 0, "drag")
+	mark(!finite(c.NoiseStrength) || c.NoiseStrength < 0, "noiseStrength")
+	mark(!finite(c.NoiseFrequency) || c.NoiseFrequency < 0, "noiseFrequency")
+	mark(!finite(c.KillY), "killY")
+	mark(!finite(c.PlaneDistance), "planeDistance")
+	mark(!finiteVec(c.PlaneNormal) || c.PlaneEnabled && c.PlaneNormal.X == 0 && c.PlaneNormal.Y == 0, "planeNormal")
+	mark(len(c.ColorOverLife) > 256, "colorOverLife")
+	for i, k := range c.ColorOverLife {
+		mark(!unitNumber(k.Time) || i > 0 && c.ColorOverLife[i-1].Time >= k.Time || !finiteColor(k.Color), "colorOverLife")
+	}
+	mark(!finiteCurve(&c.VelocityOverLife), "velocityOverLife")
+	mark(!finiteCurve(&c.SizeOverLife), "sizeOverLife")
+	mark(!finiteCurve(&c.AlphaOverLife), "alphaOverLife")
+	mark(c.Shape > SpriteMask, "shape")
+	mark(c.Space > World, "space")
+	mark(c.TimeDomain > Unscaled, "timeDomain")
+	mark(c.Layer < int32(sprite.LayerMin) || c.Layer > int32(sprite.LayerMax), "layer")
+	mark(c.Order < int32(sprite.OrderMin) || c.Order > int32(sprite.OrderMax), "order")
+	mark(!finiteColor(c.Color), "color")
+	mark(len(c.Bursts) > maxBursts, "bursts")
+	for i, k := range c.Bursts {
+		mark(!finite(k.X) || k.X < 0 || k.X >= c.Duration || !finite(k.Y) || k.Y < 0 || k.Y > MaxCapacity || math.Trunc(float64(k.Y)) != float64(k.Y) || i > 0 && c.Bursts[i-1].X > k.X, "bursts")
+	}
+	return bad
 }
 
 func finiteVec(v mathx.Vec2) bool { return finite(v.X) && finite(v.Y) }

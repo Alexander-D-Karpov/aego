@@ -33,11 +33,19 @@ type Preset struct {
 	// Explicit prescribes a default layout, without affecting existing saved layouts.
 	Explicit bool
 	Front    []string
+	// Splits place default panels beside their anchors; saved layouts are unchanged.
+	Splits []PanelSplit
 	// Rev drops layouts saved for an older revision of a built-in preset.
 	Rev   int
 	Owner string
 	User  bool
 	Base  string
+}
+
+type PanelSplit struct {
+	Panel, Anchor string
+	Side          dock.Side
+	Ratio         float32
 }
 
 type layout struct {
@@ -76,6 +84,7 @@ func (w *Workspace) RegisterPreset(p Preset) error {
 	}
 	p.Slots = maps.Clone(p.Slots)
 	p.Front = slices.Clone(p.Front)
+	p.Splits = slices.Clone(p.Splits)
 	w.presets = append(w.presets, p)
 	slices.SortStableFunc(w.presets, func(a, b Preset) int { return a.Order - b.Order })
 	if w.cur == "" {
@@ -157,6 +166,17 @@ func (w *Workspace) layoutFor(p *Preset) *dock.Tree {
 	}
 	t := dock.Columns(cols[SlotLeft], cols[SlotBrowser], cols[SlotCenter], cols[SlotBottom], cols[SlotRight])
 	if p != nil {
+		for _, split := range p.Splits {
+			if !t.Has(split.Panel) || !t.Has(split.Anchor) || split.Panel == split.Anchor {
+				continue
+			}
+			t.DockPanel(split.Panel, t.FindPanel(split.Anchor), split.Side)
+			if node, ok := t.Node(t.FindPanel(split.Panel)); ok && split.Side != dock.SideCenter && node.Parent != 0 && split.Ratio > 0 && split.Ratio < 1 {
+				if parent, ok := t.Node(node.Parent); ok && parent.Kind == dock.KindSplit {
+					parent.Ratio = split.Ratio
+				}
+			}
+		}
 		for _, id := range p.Front {
 			t.Activate(id)
 		}

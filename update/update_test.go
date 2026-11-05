@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -140,6 +142,82 @@ func TestCheckUsesTheETag(t *testing.T) {
 	}
 	if _, err := (&Source{BaseURL: srv.URL, Channel: Nightly, Key: pub}).Check(context.Background()); err == nil {
 		t.Fatal("a missing channel checked fine")
+	}
+}
+
+func TestCheckRetriesTransientFailures(t *testing.T) {
+	data, sig, pub := signed(t, &Release{Version: "0.12.0", Channel: Stable})
+	var manifests, signatures atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/stable/release.json":
+			if manifests.Add(1) < 3 {
+				http.Error(w, "temporary", http.StatusServiceUnavailable)
+				return
+			}
+			w.Write(data)
+		case "/stable/release.json.sig":
+			if signatures.Add(1) == 1 {
+				http.Error(w, "temporary", http.StatusTooManyRequests)
+				return
+			}
+			w.Write(sig)
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	defer srv.Close()
+	r, err := (&Source{BaseURL: srv.URL, Key: pub}).Check(context.Background())
+	if err != nil || r.Version != "0.12.0" || manifests.Load() != 3 || signatures.Load() != 2 {
+		t.Fatalf("retry result: release=%+v err=%v manifest requests=%d signature requests=%d", r, err, manifests.Load(), signatures.Load())
+	}
+}
+
+type retryTransport struct{ calls atomic.Int32 }
+
+func (t *retryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if t.calls.Add(1) == 1 {
+		return nil, context.DeadlineExceeded
+	}
+	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("ok")), Request: r}, nil
+}
+
+func TestCheckRetriesRequestDeadlineButRespectsCallerCancellation(t *testing.T) {
+	transport := &retryTransport{}
+	s := &Source{Client: &http.Client{Transport: transport}}
+	if data, _, err := s.get(context.Background(), "https://example.invalid/release.json", ""); err != nil || string(data) != "ok" || transport.calls.Load() != 2 {
+		t.Fatalf("deadline retry: %q, %v, calls=%d", data, err, transport.calls.Load())
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	before := transport.calls.Load()
+	if _, _, err := s.get(ctx, "https://example.invalid/release.json", ""); !errors.Is(err, context.Canceled) || transport.calls.Load() != before {
+		t.Fatalf("cancelled request: %v, calls=%d", err, transport.calls.Load()-before)
+	}
+}
+
+func TestCheckDoesNotRetryMissingOrUnsignedRelease(t *testing.T) {
+	data, _, pub := signed(t, &Release{Version: "0.12.0", Channel: Stable})
+	var count atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		count.Add(1)
+		if req.URL.Path == "/stable/release.json" {
+			w.Write(data)
+			return
+		}
+		if req.URL.Path == "/stable/release.json.sig" {
+			w.Write([]byte("not a signature"))
+			return
+		}
+		http.NotFound(w, req)
+	}))
+	defer srv.Close()
+	if _, err := (&Source{BaseURL: srv.URL, Key: pub}).Check(context.Background()); err == nil || count.Load() != 2 {
+		t.Fatalf("unsigned release: err=%v requests=%d", err, count.Load())
+	}
+	count.Store(0)
+	if _, err := (&Source{BaseURL: srv.URL, Channel: Nightly, Key: pub}).Check(context.Background()); err == nil || count.Load() != 1 {
+		t.Fatalf("missing release: err=%v requests=%d", err, count.Load())
 	}
 }
 

@@ -50,8 +50,7 @@ func ShaderProblems(imps *pipeline.ImporterRegistry) problems.Source {
 			if si == nil {
 				return 0
 			}
-			_, rev := si.Diagnostics()
-			return rev
+			return si.Revision()
 		},
 		Append: func(dst []problems.Diagnostic) []problems.Diagnostic {
 			if si == nil {

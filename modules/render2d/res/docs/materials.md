@@ -96,6 +96,8 @@ The component belongs to a SpriteRenderer or Mesh2D node. Its Inspector shows th
 ---
 id: engine.Light2D
 summary: Illuminates Lit sprites and 2D meshes with a point, spot, directional or textured light.
+try: try/Light2D.aescene
+try_select: engine.Light2D
 ---
 
 [Light2D](ref:engine.Light2D) affects [SpriteRenderer](ref:engine.SpriteRenderer) with `Lit` and [Mesh2D](ref:engine.Mesh2D) with `LitMesh2D`. Unlit materials keep their original colour. Add a light from the Create palette, set its intensity and range in the Inspector, then drag its range and direction handles in Scene View. A handle gesture creates one Undo command.
@@ -111,6 +113,8 @@ The Try scene moves a warm light beside a cool spotlight. Select the light's `he
 ---
 id: engine.LightOccluder2D
 summary: Defines a polygon or open chain that casts local-light shadows without requiring Physics.
+try: try/LightOccluder2D.aescene
+try_select: engine.LightOccluder2D
 ---
 
 [LightOccluder2D](ref:engine.LightOccluder2D) describes shadow geometry independently of the visible sprite. `Polygon` uses local points; enable `closed` for a simple polygon without holes, or leave it off for a chain. The validator rejects non-finite points, zero-length edges and self-intersections. A sprite does not become an occluder automatically.
@@ -124,6 +128,8 @@ Offscreen casters remain eligible when their shadows reach a visible receiver. L
 ---
 id: engine.LightingEnvironment2D
 summary: Controls ambient illumination, output colour mode and shadow budgets for a camera output.
+try: try/LightingEnvironment2D.aescene
+try_select: engine.LightingEnvironment2D
 ---
 
 [LightingEnvironment2D](ref:engine.LightingEnvironment2D) supplies ambient colour and intensity, exposure, `Auto`/`LDR`/`HDR`, mask resolution and the local-shadow budget. Set `camera` to target one Camera2D, or leave it empty to apply to the world's 2D outputs. Several matching environments produce a diagnostic; their order never chooses a winner. Without an environment, white ambient with intensity one preserves compatible Lit defaults.

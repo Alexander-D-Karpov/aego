@@ -17,6 +17,7 @@ import (
 	"aego/engine/i18n"
 	"aego/gpu"
 	"aego/platform/input"
+	"aego/render/text"
 	"aego/ui/core"
 	"aego/ui/richtext"
 	"aego/ui/widgets"
@@ -83,7 +84,6 @@ type Panel struct {
 	answered     map[int]agentui.State
 	logged       map[int]agentui.State
 	input        string
-	prevLen      int
 	scroll       float32
 	content      float32
 	bar          widgets.ScrollState
@@ -111,6 +111,7 @@ type Panel struct {
 	names            []string
 	viewing          string
 	pal              *palette.Palette
+	mentionOpened    uint64
 	mentions         []mention
 	picked           []mention
 	notified         bool
@@ -120,6 +121,11 @@ type Panel struct {
 	meta             string
 	session          string
 	fits             [5]fit
+	emptyFits        [5]fit
+	emptyHint        string
+	emptyHintWidth   float32
+	emptyHintFont    *text.Font
+	emptyHintLines   []string
 	menu             core.ID
 	history          core.ID
 	timeline         []dot
@@ -186,7 +192,6 @@ func (p *Panel) Ask(prompt string) {
 	p.viewing = ""
 	if prompt != "" {
 		p.input = prompt
-		p.prevLen = len(prompt)
 	}
 	p.focus = true
 	if p.d.Show != nil {
@@ -444,7 +449,7 @@ func (p *Panel) sendMessage(explain bool) {
 		return
 	}
 	p.clearDraftImages()
-	p.input, p.prevLen, p.stick, p.picked = "", 0, true, p.picked[:0]
+	p.input, p.stick, p.picked = "", true, p.picked[:0]
 }
 
 func (p *Panel) sendPrepared(msg queuedMessage, explain bool) bool {
@@ -578,11 +583,6 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 	}
 	bar := mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: th.RowHeight + th.Padding*2}
 	p.header(ui, bar)
-	if p.showWhere() {
-		wr := mathx.Rect{X: r.X, Y: bar.Y + bar.H, W: r.W, H: th.RowHeight + 4}
-		p.where(ui, wr)
-		bar.H += wr.H
-	}
 	sendLabel := i18n.Tr("editor.agent.send", "Send")
 	if p.d.Host.Busy() || len(p.queue) > 0 {
 		sendLabel = i18n.Tr("editor.agent.queue_send", "Queue")
@@ -638,39 +638,58 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	th := &ui.Theme
 	host := p.d.Host
 	ui.Rect(r, th.Header)
-	r = mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: r.W - 2*th.Padding, H: th.RowHeight}
-	widgets.IconAt(ui, mathx.Rect{X: r.X, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, "agent.avatar", th.Agent.Presence)
-	x := r.X + 22
+	r = mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding, W: max(0, r.W-2*th.Padding), H: th.RowHeight}
+	x := r.X
 	right := r.X + r.W
 	mw := r.H
-	if widgets.IconButton(ui, ui.ID("more"), mathx.Rect{X: right - mw, Y: r.Y, W: mw, H: r.H}, "ui.more", i18n.Tr("editor.agent.menu", "Session")) {
+	if agentButton(ui, ui.ID("more"), mathx.Rect{X: right - mw, Y: r.Y, W: mw, H: r.H}, "ui.more", "", i18n.Tr("editor.agent.menu", "Session"), false) {
 		ui.OpenPopup(p.menu, mathx.Vec2{X: max(r.X, right-220), Y: r.Y + r.H})
 	}
-	right -= mw + 6
+	right -= mw + 4
 	if f := p.d.Follow; f != nil {
 		fr := mathx.Rect{X: right - r.H, Y: r.Y, W: r.H, H: r.H}
-		if f.On() {
-			ui.RoundRect(fr, th.Radius.Button, th.ButtonActive)
-		}
-		tip := i18n.Tr("editor.agent.follow_tip", "Follow the agent: the editor shows where it works")
-		if widgets.IconButton(ui, ui.ID("follow"), fr, "panel.watch", tip) {
-			f.SetOn(!f.On())
-			if p.d.FollowChanged != nil {
-				p.d.FollowChanged(f.On())
+		tip := ""
+		if ui.Hit(fr) {
+			tip = i18n.Tr("editor.agent.follow_tip", "Follow the agent: the editor shows where it works")
+			if f.Paused() {
+				tip = i18n.Tr("editor.agent.following_paused", "Following paused while you work") + " · " + i18n.Tr("editor.agent.resume", "Resume Following")
+			}
+			if sp, _, ok := f.Model.Where(follow.Agent, p.now()); ok {
+				tip += "\n" + p.spotLabel(sp)
 			}
 		}
-		right -= r.H + 6
+		if agentButton(ui, ui.ID("follow"), fr, "panel.watch", "", tip, f.Active()) {
+			if f.Paused() {
+				f.ResumeNow()
+			} else {
+				f.SetOn(!f.On())
+				if p.d.FollowChanged != nil {
+					p.d.FollowChanged(f.On())
+				}
+			}
+		}
+		if f.Paused() {
+			ui.RoundRect(mathx.Rect{X: fr.X + fr.W - 6, Y: fr.Y + 2, W: 5, H: 5}, 2.5, th.Warn)
+		}
+		right -= r.H + 4
 	}
 	right = p.contextButton(ui, right, r)
 	auto := host.AutoApply()
-	alabel := i18n.Tr("editor.agent.auto_apply", "Auto-apply")
-	aw := ui.TextSize(alabel).X + 20
-	if widgets.ToggleButton(ui, ui.ID("auto"), mathx.Rect{X: right - aw, Y: r.Y, W: aw, H: r.H}, alabel, &auto) {
-		host.SetAutoApply(auto)
+	aw := r.H
+	ar := mathx.Rect{X: right - aw, Y: r.Y, W: aw, H: r.H}
+	atip := ""
+	if ui.Hit(ar) {
+		atip = i18n.Tr("editor.agent.auto_apply", "Auto-apply") + ": " + i18n.Tr("editor.agent.apply_changes_without_asking_removals", "Apply changes without asking; removals, moves and deletes still wait for you")
 	}
-	widgets.Tooltip(ui, ui.ID("auto"), i18n.Tr("editor.agent.apply_changes_without_asking_removals", "Apply changes without asking; removals, moves and deletes still wait for you"))
-	right -= aw + 8
+	if agentButton(ui, ui.ID("auto"), ar, "ui.check", "", atip, auto) {
+		host.SetAutoApply(!auto)
+	}
+	right -= aw + 6
 	status, col := p.status(ui)
+	statusTip := status
+	if !host.Busy() && !p.waiting() {
+		status = ""
+	}
 	sw := ui.TextSize(status).X + 10
 	if host.Busy() {
 		sw += 10
@@ -682,24 +701,31 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	if name == "" {
 		name = i18n.Tr("editor.agent.new_session", "New session")
 	}
-	if right-x-sw-10 < 40 {
+	if right-x-sw-10 < 90 {
 		status, sw = "", 10
 	}
-	nw := max(0, right-x-sw-10)
-	shown := p.fits[0].get(ui, name, nw)
-	nr := mathx.Rect{X: x, Y: r.Y, W: ui.TextSize(shown).X + 4, H: r.H}
+	nw := max(0, right-x-sw-6)
+	shown := p.fits[0].get(ui, name, max(0, nw-42))
+	nr := mathx.Rect{X: x, Y: r.Y, W: min(nw, ui.TextSize(shown).X+42), H: r.H}
 	id := ui.ID("session")
 	if ui.Clicked(id, nr) {
 		p.past = nil
 		ui.OpenPopup(p.history, mathx.Vec2{X: nr.X, Y: r.Y + r.H})
 	}
-	tc := th.Text
 	if ui.Hot() == id {
-		tc = th.Accent
+		ui.RoundRect(nr, th.Radius.Button, th.ButtonHover)
 	}
-	ui.Text(shown, mathx.Vec2{X: x, Y: ui.TextY(r)}, tc)
-	widgets.Tooltip(ui, id, i18n.Tr("editor.agent.history_tip", "Past sessions"))
-	sx := x + nr.W + 8
+	ui.PushClip(nr)
+	widgets.IconAt(ui, mathx.Rect{X: nr.X + 4, Y: nr.Y + (nr.H-16)/2, W: 16, H: 16}, "agent.avatar", th.Agent.Presence)
+	ui.Text(shown, mathx.Vec2{X: nr.X + 24, Y: ui.TextY(r)}, th.Text)
+	if nr.W >= 40 {
+		widgets.IconAt(ui, mathx.Rect{X: nr.X + nr.W - 15, Y: nr.Y + (nr.H-12)/2, W: 12, H: 12}, "ui.chevron_down", th.TextDim)
+	}
+	ui.PopClip()
+	if ui.Hot() == id {
+		widgets.Tooltip(ui, id, i18n.Tr("editor.agent.history_tip", "Past sessions")+" · "+name+" · "+statusTip)
+	}
+	sx := x + nr.W + 6
 	if host.Busy() {
 		pulse := 0.55 + 0.45*mathx.Sin(float32(ui.Time)*5)
 		dot := col
@@ -713,6 +739,28 @@ func (p *Panel) header(ui *core.Context, r mathx.Rect) {
 	p.sessionMenu(ui)
 	p.historyMenu(ui)
 	p.contextPopup(ui)
+}
+
+// agentButton keeps the header actions compact, legible and usable at narrow widths.
+func agentButton(ui *core.Context, id core.ID, r mathx.Rect, icon, label, tip string, active bool) bool {
+	if r.W <= 0 || r.H <= 0 {
+		return false
+	}
+	clicked := ui.Clicked(id, r)
+	bg := ui.WidgetColor(id)
+	if active {
+		bg = ui.Theme.ButtonActive
+	}
+	ui.Box(r, ui.Theme.Radius.Button, bg, ui.Theme.Border)
+	if label == "" || r.W < ui.TextSize(label).X+32 {
+		widgets.IconIn(ui, r, icon, ui.Theme.Text)
+	} else {
+		widgets.IconAt(ui, mathx.Rect{X: r.X + 7, Y: r.Y + (r.H-16)/2, W: 16, H: 16}, icon, ui.Theme.TextDim)
+		text := mathx.Rect{X: r.X + 27, Y: r.Y, W: max(0, r.W-32), H: r.H}
+		ui.TextIn(text, widgets.Elide(ui, label, text.W), ui.Theme.Text, core.AlignLeft)
+	}
+	widgets.Tooltip(ui, id, tip)
+	return clicked
 }
 
 func firstLine(s string) string {
@@ -735,6 +783,12 @@ func (p *Panel) sessionMenu(ui *core.Context) {
 		at := ui.Mouse()
 		ui.CloseAllPopups()
 		ui.OpenPopup(p.history, at)
+	}
+	if f := p.d.Follow; f != nil {
+		sp, _, ok := f.Model.Where(follow.Agent, p.now())
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.agent.go_to_location", "Show agent location"), "", "agent.presence", ok, false) && ok {
+			f.GoTo(sp)
+		}
 	}
 	widgets.Separator(ui)
 	for _, blockers := range []bool{false, true} {
@@ -943,11 +997,9 @@ func (p *Panel) footer(ui *core.Context, r, fr, br, stop mathx.Rect, label strin
 		}
 		ui.Text(p.fits[1].get(ui, hint, fr.W-8), mathx.Vec2{X: fr.X + 4, Y: ui.TextY(fr)}, th.TextDisabled)
 	}
-	if len(p.input) > p.prevLen && strings.HasSuffix(p.input, "@") {
-		p.input = strings.TrimSuffix(p.input, "@")
+	if !locked && ui.Focus() == id && !ui.Primary() && string(ui.TextInput()) == "@" && p.composer.RemoveBeforeCursor(&p.input, '@') {
 		p.openMentions(ui)
 	}
-	p.prevLen = len(p.input)
 	p.dropMentions()
 	if busy && stop.W > 0 {
 		if widgets.ButtonRect(ui, ui.ID("stop"), stop, widgets.Elide(ui, i18n.Tr("editor.agent.stop", "Stop"), max(0, stop.W-8))) {
@@ -992,10 +1044,21 @@ func (p *Panel) openMentions(ui *core.Context) {
 		p.pal = palette.New(core.IDOf("agent.mentions"))
 		p.pal.Title = i18n.Tr("editor.agent.mention", "Mention")
 		p.pal.Hint = i18n.Tr("editor.agent.mention_hint", "Enter insert · Esc close")
+		p.pal.NoFavorites = true
+		p.pal.CategoryIcon = func(category string) string {
+			switch category {
+			case i18n.Tr("editor.agent.mention_nodes", "Nodes"):
+				return "cat.node"
+			case i18n.Tr("editor.agent.mention_assets", "Assets"):
+				return "panel.assets"
+			}
+			return ""
+		}
 	}
 	var items []palette.Item
 	p.mentions = p.mentions[:0]
-	if d := p.d.Docs.Doc(); d != nil {
+	if p.d.Docs != nil && p.d.Docs.Doc() != nil {
+		d := p.d.Docs.Doc()
 		s := d.Scene()
 		root := s.Root()
 		for _, h := range s.PreOrder() {
@@ -1011,23 +1074,47 @@ func (p *Panel) openMentions(ui *core.Context) {
 	if p.d.Assets != nil {
 		for _, a := range p.d.Assets() {
 			icon := assetIcon(a)
-			items = append(items, palette.Item{Key: "asset:" + a, Label: path.Base(a), Category: i18n.Tr("editor.agent.mention_assets", "Assets"), Detail: a, Icon: icon})
+			dir := path.Dir(a)
+			if dir == "." {
+				dir = ""
+			}
+			items = append(items, palette.Item{Key: "asset:" + a, Label: path.Base(a), Category: i18n.Tr("editor.agent.mention_assets", "Assets"), Detail: dir, Icon: icon})
 			p.mentions = append(p.mentions, mention{Label: "@" + path.Base(a), Full: "@" + a, Icon: icon})
 		}
 	}
 	p.pal.SetItems(items)
+	if len(p.pal.Open) == 0 {
+		p.pal.Open[i18n.Tr("editor.agent.mention_nodes", "Nodes")] = true
+		p.pal.Open[i18n.Tr("editor.agent.mention_assets", "Assets")] = true
+	}
 	p.pal.Show(ui)
+	// The composer's text event belongs to the trigger, not to the search.
+	// Transfer focus now and draw the picker on the next frame.
+	ui.SetFocus(p.pal.SearchID())
+	p.mentionOpened = ui.Frame()
 }
 
 func assetIcon(a string) string {
-	switch path.Ext(a) {
+	switch strings.ToLower(path.Ext(a)) {
 	case ".aes":
 		return "file.script"
+	case ".aeanim":
+		return "anim.key"
+	case ".aectrl":
+		return "anim.graph"
+	case ".aemat", ".aeshader":
+		return "cat.rendering"
+	case ".aepreset":
+		return "file.preset"
+	case ".aedata":
+		return "file.data"
+	case ".aetable", ".csv":
+		return "file.table"
 	case ".aescene":
 		return "file.scene"
 	case ".aeprefab":
 		return "file.prefab"
-	case ".png", ".jpg":
+	case ".png", ".jpg", ".jpeg":
 		return "file.texture"
 	case ".wav", ".ogg":
 		return "file.audio"
@@ -1048,7 +1135,7 @@ func (p *Panel) dropMentions() {
 }
 
 func (p *Panel) drawMentions(ui *core.Context) {
-	if p.pal == nil || !p.pal.Active() {
+	if p.pal == nil || !p.pal.Active() || p.mentionOpened == ui.Frame() {
 		return
 	}
 	sz := ui.Size()
@@ -1060,12 +1147,8 @@ func (p *Panel) drawMentions(ui *core.Context) {
 		p.focus = true
 	case res.Pick >= 0 && res.Pick < len(p.mentions):
 		m := p.mentions[res.Pick]
-		if p.input != "" && !strings.HasSuffix(p.input, " ") {
-			p.input += " "
-		}
-		p.input += m.Label + " "
+		p.composer.Insert(&p.input, m.Label+" ")
 		p.picked = append(p.picked, m)
-		p.prevLen = len(p.input)
 		p.pal.Hide(ui)
 		p.focus = true
 	}
@@ -1160,19 +1243,6 @@ func (p *Panel) Expand() {
 		}
 		b.dirty()
 	}
-}
-
-// showWhere reports whether the row under the header shows: while following, or while the agent's marker shows.
-func (p *Panel) showWhere() bool {
-	f := p.d.Follow
-	if f == nil {
-		return false
-	}
-	if f.On() {
-		return true
-	}
-	_, _, ok := f.Model.Where(follow.Agent, p.now())
-	return ok
 }
 
 // ExplainScene runs the read-only quick action against the active document.

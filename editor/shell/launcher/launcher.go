@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"aego/core/mathx"
@@ -98,27 +99,28 @@ func languageNames() []string {
 }
 
 type Launcher struct {
-	opt     Options
-	recent  []Entry
-	tab     Tab
-	name    string
-	dir     string
-	module  string
-	open    string
-	tmpl    int
-	example int
-	ws      int
-	native  bool
-	menu    string
-	notes   bool
-	err     string
-	result  string
-	scroll  float32
-	content float32
+	opt      Options
+	recent   []Entry
+	tab      Tab
+	name     string
+	dir      string
+	module   string
+	open     string
+	tmpl     int
+	example  int
+	ws       int
+	native   bool
+	autoName bool
+	menu     string
+	notes    bool
+	err      string
+	result   string
+	scroll   float32
+	content  float32
 }
 
 func New(opt Options) *Launcher {
-	l := &Launcher{opt: opt, name: "new-game", dir: opt.Home, tmpl: 1}
+	l := &Launcher{opt: opt, name: nextProjectName(opt.Home), autoName: true, dir: opt.Home, tmpl: 1}
 	if l.tmpl >= len(opt.Templates) {
 		l.tmpl = 0
 	}
@@ -127,6 +129,38 @@ func New(opt Options) *Launcher {
 		l.tab = TabNew
 	}
 	return l
+}
+
+// nextProjectName never overwrites an existing directory, file or symlink.
+func nextProjectName(dir string) string {
+	const base = "new-game"
+	for n := 1; ; n++ {
+		name := base
+		if n > 1 {
+			name += "-" + strconv.Itoa(n)
+		}
+		if _, err := os.Lstat(filepath.Join(dir, name)); err != nil {
+			// Other filesystem errors should be reported, not treated as a free name.
+			if errors.Is(err, os.ErrNotExist) {
+				return name
+			}
+			return base
+		}
+	}
+}
+
+func projectTarget(dir, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) {
+		return "", errors.New(i18n.Tr("launcher.invalid_project_name", "Enter a project name without path separators."))
+	}
+	target := filepath.Join(dir, name)
+	if _, err := os.Lstat(target); err == nil {
+		return target, errors.New(i18n.Tr("launcher.project_folder_exists", "A file or folder with this name already exists."))
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return target, err
+	}
+	return target, nil
 }
 
 func PreviewPath(root string) string {
@@ -619,8 +653,18 @@ func (l *Launcher) newTab(ui *core.Context) {
 		}
 	}
 	l.heading(ui, i18n.Tr("launcher.project", "Project"))
-	widgets.TextFieldRect(ui, ui.ID("new.name"), widgets.Field(ui, i18n.Tr("launcher.name", "Name")), &l.name, true)
+	nameID := ui.ID("new.name")
+	if l.autoName && ui.Focus() != nameID {
+		l.name = nextProjectName(l.dir)
+	}
+	if changed, _ := widgets.TextFieldRect(ui, nameID, widgets.Field(ui, i18n.Tr("launcher.name", "Name")), &l.name, true); changed {
+		l.autoName = false
+	}
+	previousDir := l.dir
 	l.location(ui)
+	if l.autoName && previousDir != l.dir {
+		l.name = nextProjectName(l.dir)
+	}
 	mid := ui.ID("new.module")
 	mr := widgets.Field(ui, i18n.Tr("launcher.module", "Module"))
 	widgets.TextFieldRect(ui, mid, mr, &l.module, true)
@@ -635,10 +679,24 @@ func (l *Launcher) newTab(ui *core.Context) {
 		widgets.Combo(ui, ui.ID("new.workspace"), widgets.Field(ui, i18n.Tr("launcher.workspace", "Workspace")), &l.ws, names, false)
 	}
 	l.nativeRow(ui)
-	target := filepath.Join(l.dir, strings.TrimSpace(l.name))
+	target, targetErr := projectTarget(l.dir, l.name)
 	widgets.LabelDim(ui, target)
-	if widgets.Button(ui, i18n.Tr("launcher.create", "Create")) && strings.TrimSpace(l.name) != "" {
-		l.Create(target, l.templateID(), strings.TrimSpace(l.module), "")
+	if targetErr != nil {
+		row := ui.Cursor().Next(0)
+		ui.Text(targetErr.Error(), mathx.Vec2{X: row.X, Y: ui.TextY(row)}, th.Error)
+	}
+	label := i18n.Tr("launcher.create", "Create")
+	if targetErr != nil {
+		row := ui.Cursor().Next(0)
+		ui.Box(row, th.Radius.Button, th.Widget, th.Border)
+		ui.TextIn(row, label, th.TextDisabled, core.AlignCenter)
+	} else if widgets.Button(ui, label) {
+		// Recheck on the click, since a folder may have appeared since the last frame.
+		if target, err := projectTarget(l.dir, l.name); err == nil {
+			l.Create(target, l.templateID(), strings.TrimSpace(l.module), "")
+		} else {
+			l.err = err.Error()
+		}
 	}
 }
 

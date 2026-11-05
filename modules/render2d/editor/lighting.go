@@ -83,9 +83,9 @@ func lightingHooks(r *ext.Registry) error {
 		label, tip i18n.Text
 		mode       lighting.DebugMode
 	}{
-		{CmdLighting, "view.overlays", i18n.T("editor.lighting.toggle", "Scene lighting"), i18n.T("editor.lighting.toggle_tip", "Toggle lighting in this Scene View without changing materials or Play."), lighting.DebugLighting},
-		{CmdLightingNormals, "view.vectors", i18n.T("editor.lighting.normals", "Surface normals"), i18n.T("editor.lighting.normals_tip", "Show transformed normals of Lit surfaces in this Scene View."), lighting.DebugNormals},
-		{CmdLightingShadows, "view.isolate", i18n.T("editor.lighting.shadows", "Shadow visibility"), i18n.T("editor.lighting.shadows_tip", "Show shadow visibility on Lit surfaces in this Scene View."), lighting.DebugShadows},
+		{CmdLighting, "render2d.point_light", i18n.T("editor.lighting.toggle", "Scene lighting"), i18n.T("editor.lighting.toggle_tip", "Toggle lighting in this Scene View without changing materials or Play."), lighting.DebugLighting},
+		{CmdLightingNormals, "render2d.normals", i18n.T("editor.lighting.normals", "Surface normals"), i18n.T("editor.lighting.normals_tip", "Show transformed normals of Lit surfaces in this Scene View."), lighting.DebugNormals},
+		{CmdLightingShadows, "render2d.shadow_view", i18n.T("editor.lighting.shadows", "Shadow visibility"), i18n.T("editor.lighting.shadows_tip", "Show shadow visibility on Lit surfaces in this Scene View."), lighting.DebugShadows},
 	} {
 		c := cmd
 		if err := r.Command(command.Desc{ID: c.id, Name: c.label.String(), Label: c.label.String, TipFunc: c.tip.String, Category: "Scene", Scope: command.ScopeScene, Toolbar: true, Icon: c.icon, Order: 200 + index,
@@ -104,13 +104,18 @@ func lightingHooks(r *ext.Registry) error {
 				enabled, mode := p.ed.SceneLighting.LightingView()
 				if c.id == CmdLighting {
 					enabled = !enabled
+					if !enabled {
+						// Debug views also work without lights at renderer level;
+						// the toolbar's off state must actually leave them.
+						mode = lighting.DebugLighting
+					}
 				} else {
-					enabled = true
-					if mode == c.mode {
+					if enabled && mode == c.mode {
 						mode = lighting.DebugLighting
 					} else {
 						mode = c.mode
 					}
+					enabled = true
 				}
 				p.ed.SceneLighting.SetLightingView(enabled, mode)
 				return nil

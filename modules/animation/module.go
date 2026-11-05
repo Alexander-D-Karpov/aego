@@ -79,6 +79,8 @@ func (*Module) Info() module.Info {
 		Codes: []string{CodeTrack, CodeRange, CodeEvent, CodeConflict, CodeLost, CodeBody, CodeUnscaled, CodeReload, CodeRoot, CodeCtrlParam, CodeCtrlState, CodeCtrlSelf, CodeCtrlClip, CodeCtrlLoop, CodeCtrlText}}
 }
 
+func (*Module) IconDir() string { return "modules/animation/res/icons/src" }
+
 func (m *Module) Register(r *module.Registry) error {
 	registerDocs(r)
 	r.ProjectSection(eventSection())

@@ -82,7 +82,7 @@ func (p *Palette) DrawPopup(ui *core.Context, maxListHeight float32) Result {
 	}
 	switch {
 	case p.toggled >= 0:
-		p.toggle(p.toggled)
+		p.toggle(p.toggled, rowH)
 	case p.starred >= 0:
 		res.Star = p.starred
 	case p.clicked >= 0:

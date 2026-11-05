@@ -257,10 +257,13 @@ func (s *Service) startCard(e asset.Entry, it *item, spec tasks.Spec, bad bool) 
 		reason = "GPU preview unavailable in this session"
 	}
 	it.task = s.d.Tasks.Work(spec, func(*tasks.Task) error {
+		cached := false
 		if !bad && reason == "" {
-			if cached, err := s.load(key); err == nil {
-				out = cached
-				return nil
+			if old, err := s.load(key); err == nil {
+				out, cached = old, true
+				if !codeEntry(e) {
+					return nil
+				}
 			}
 		}
 
@@ -286,6 +289,9 @@ func (s *Service) startCard(e asset.Entry, it *item, spec tasks.Spec, bad bool) 
 		}
 
 		lines = cardLines(e, src)
+		if cached {
+			return nil
+		}
 		if len(src) == 0 && len(e.Artifacts) > 0 && s.d.Pipeline != nil {
 			a := e.Artifacts[0]
 			if f, err := s.d.Pipeline.Artifacts().Open(a.Path); err == nil {
@@ -315,7 +321,11 @@ func (s *Service) startCard(e asset.Entry, it *item, spec tasks.Spec, bad bool) 
 		if reason != "" {
 			lines = append([]string{"! " + reason}, lines...)
 		}
-		out = s.card(string(e.Kind), lines)
+		if codeEntry(e) && reason == "" && len(src) > 0 {
+			out = codeCard(lines)
+		} else {
+			out = s.card(string(e.Kind), lines)
+		}
 		if reason == "" {
 			return s.save(key, out)
 		}
@@ -332,6 +342,10 @@ func (s *Service) startCard(e asset.Entry, it *item, spec tasks.Spec, bad bool) 
 	})
 }
 
+func codeEntry(e asset.Entry) bool {
+	return e.Kind == asset.ArtScript || e.Kind == SourceKind && strings.EqualFold(filepath.Ext(e.Source), ".go")
+}
+
 func textKind(e asset.Entry) bool {
 	switch strings.ToLower(filepath.Ext(e.Source)) {
 	case ".go", ".aes", ".aeshader", ".glsl", ".vert", ".frag", ".aedata", ".aetable", ".aepreset", ".aectrl", ".aeanim", ".aemat", ".aescene", ".aeprefab", ".aego", ".aetext", ".json", ".csv", ".toml":
@@ -343,21 +357,6 @@ func textKind(e asset.Entry) bool {
 func cardLines(e asset.Entry, src []byte) []string {
 	if len(src) > 0 && !bytes.ContainsRune(src, 0) && textKind(e) {
 		ls := firstLines(string(src), lineCount)
-		if e.Kind == asset.ArtScript || filepath.Ext(e.Source) == ".go" {
-			var decl []string
-			for _, line := range strings.Split(string(src), "\n") {
-				l := strings.TrimSpace(line)
-				for _, k := range []string{"script ", "func ", "type "} {
-					if strings.HasPrefix(l, k) {
-						decl = append(decl, strings.TrimSuffix(l, " {"))
-						break
-					}
-				}
-			}
-			if len(decl) > 0 {
-				ls = decl
-			}
-		}
 		if len(ls) > 0 {
 			return ls
 		}

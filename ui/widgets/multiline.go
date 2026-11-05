@@ -43,6 +43,17 @@ func (m *Multiline) Insert(value *string, text string) {
 	*value = b.String()
 }
 
+// RemoveBeforeCursor removes a typed trigger without losing the caret position.
+func (m *Multiline) RemoveBeforeCursor(value *string, trigger rune) bool {
+	b := m.buffer(*value)
+	if b.HasSelection() || b.Cursor() == 0 || b.Runes()[b.Cursor()-1] != trigger {
+		return false
+	}
+	b.Delete(textedit.Left, false)
+	*value = b.String()
+	return true
+}
+
 // ReplaceFirst changes a marker while retaining the user's caret and selection.
 func (m *Multiline) ReplaceFirst(value *string, old, replacement string) bool {
 	pos := strings.Index(*value, old)

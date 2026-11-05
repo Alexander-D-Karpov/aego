@@ -104,7 +104,11 @@ func (a *App) commandItems(cat string) {
 				widgets.Separator(ui)
 			}
 			last = d.Order
-			if widgets.Entry(ui, widgets.Item{Label: d.Title(), Shortcut: reg.Shortcut(d.ID), Icon: d.Icon, Tip: d.TipText(), Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked()}) {
+			if cat == "Help" && d.ID == CommandReportBug {
+				a.reportBugMenu(d.Title())
+				continue
+			}
+			if widgets.Entry(ui, widgets.Item{Label: d.Title(), Shortcut: reg.Shortcut(d.ID), Icon: d.Icon, Tip: d.TipText(), Enabled: reg.Enabled(d.ID), Checked: d.Checked != nil && d.Checked(), KeepOpen: d.Checked != nil}) {
 				reg.Run(d.ID)
 			}
 		}
@@ -112,6 +116,20 @@ func (a *App) commandItems(cat string) {
 			widgets.EndSubMenu(ui)
 		}
 	}
+}
+
+func (a *App) reportBugMenu(title string) {
+	ui := a.ui
+	if !widgets.SubMenu(ui, title, 300) {
+		return
+	}
+	if widgets.MenuItem(ui, i18n.Tr("editor.shell.report_issue", "Create an issue…"), "", true, false) {
+		a.ctx.Commands.Run(CommandReportBug)
+	}
+	if widgets.MenuItem(ui, i18n.Tr("editor.shell.contact_telegram", "Telegram: @sanspie"), "", true, false) {
+		a.openSupportURL(telegramURL)
+	}
+	widgets.EndSubMenu(ui)
 }
 
 func (a *App) sceneDocs() {
@@ -305,7 +323,7 @@ func (a *App) subMenu(cat string, sep bool) {
 		return
 	}
 	for _, d := range reg.Category(cat) {
-		if widgets.Entry(ui, widgets.Item{Label: subLabel(cat, d.Title()), Tip: d.TipText(), Enabled: true, Checked: d.Checked()}) {
+		if widgets.Entry(ui, widgets.Item{Label: subLabel(cat, d.Title()), Tip: d.TipText(), Enabled: true, Checked: d.Checked(), KeepOpen: true}) {
 			reg.Run(d.ID)
 		}
 	}

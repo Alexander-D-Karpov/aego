@@ -127,7 +127,7 @@ func registerTypes(r *module.Registry, m *Module) error {
 		schema.FieldDoc("playing", "Whether the clip plays."),
 		schema.FieldDoc("cycle", "Cycles of a looping clip so far."),
 		schema.Runtime("time", "playing", "cycle"),
-	).Category(Category).Display("Animation Player").Icon("play.start").Default(DefaultPlayer)
+	).Category(Category).Display("Animation Player").Icon("animation.player").Default(DefaultPlayer)
 
 	b.Proc1("Play", func(_ *bind.Ctx, p *AnimationPlayer, clip ClipRef) { p.Play(clip) },
 		bind.Doc("Play starts a clip from its beginning on the next fixed step; nil plays the current clip again."), bind.Params("clip"),

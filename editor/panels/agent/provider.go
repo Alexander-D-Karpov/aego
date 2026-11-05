@@ -170,7 +170,7 @@ func (p *Panel) providerRow(ui *core.Context, r mathx.Rect) float32 {
 	row := mathx.Rect{X: r.X + th.Padding, Y: r.Y + th.Padding/2, W: max(0, r.W-2*th.Padding), H: th.RowHeight}
 	ui.Rect(mathx.Rect{X: r.X, Y: r.Y, W: r.W, H: height}, th.Header)
 	label := i18n.Tr("editor.agent.provider_settings", "Agent settings")
-	settingsW := min(row.W/2, ui.TextSize(label).X+20)
+	settingsW := min(row.W, row.H)
 	choice := mathx.Rect{X: row.X, Y: row.Y, W: min(140, max(0, row.W-settingsW-6)), H: row.H}
 	index := 0
 	if provider == "codex" {
@@ -187,7 +187,7 @@ func (p *Panel) providerRow(ui *core.Context, r mathx.Rect) float32 {
 	}
 	settings := mathx.Rect{X: row.X + row.W - settingsW, Y: row.Y, W: settingsW, H: row.H}
 	p.settingsRect = settings
-	if widgets.ButtonRect(ui, ui.ID("provider-settings"), settings, label) {
+	if agentButton(ui, ui.ID("provider-settings"), settings, "panel.settings", "", label, ui.PopupOpen(p.providerSettings)) {
 		p.readProviderSettings()
 		p.loadModels()
 		ui.OpenPopup(p.providerSettings, mathx.Vec2{X: max(0, settings.X+settings.W-360), Y: row.Y + row.H + 4})
@@ -202,6 +202,8 @@ func (p *Panel) providerRow(ui *core.Context, r mathx.Rect) float32 {
 		}
 		mr := mathx.Rect{X: choice.X + choice.W + 8, Y: row.Y, W: max(0, settings.X-choice.X-choice.W-16), H: row.H}
 		ui.TextIn(mr, p.fits[4].get(ui, model, mr.W), th.TextDim, core.AlignLeft)
+		ui.MouseOver(ui.ID("model-status"), mr)
+		widgets.Tooltip(ui, ui.ID("model-status"), model)
 	}
 	p.providerPopup(ui)
 	return height

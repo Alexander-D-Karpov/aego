@@ -34,6 +34,8 @@ func (Module) Info() module.Info {
 	return module.Info{ID: ID, Version: engine.Version, Builtin: true, DisplayName: "Rendering 2D", DocsOrder: 40, DocsIcon: "cat.rendering", Codes: []string{"LGT001", "LGT002", "LGT003", "LGT004", "LGT005", "LGT006", "LGT007", "LGT008", "PFX001", "PFX002"}}
 }
 
+func (Module) IconDir() string { return "modules/render2d/res/icons/src" }
+
 func (Module) Register(r *module.Registry) error {
 	if err := module.Enum[view.ScaleMode](r, "engine.ScaleMode",
 		schema.EnumValue{Name: "free", Value: int64(view.ScaleFree)},

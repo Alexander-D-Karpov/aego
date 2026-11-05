@@ -80,7 +80,7 @@ func (a *App) panelCatalog() []workspace.Desc {
 		{Panel: a.diffPanel, Near: workspace.Scene, Order: 216, Icon: "panel.diff"},
 	}
 	if a.exportP != nil {
-		descs = append(descs, workspace.Desc{Panel: a.exportP, Near: workspace.Console, Order: 254, Icon: "file.package"})
+		descs = append(descs, workspace.Desc{Panel: a.exportP, Near: workspace.Console, Order: 254, Icon: "file.export"})
 	}
 	if a.agentP != nil {
 		descs = append(descs, workspace.Desc{Panel: a.agentP, Near: workspace.Inspector, Order: 205, Icon: agentpanel.Icon})

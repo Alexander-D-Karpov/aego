@@ -11,6 +11,10 @@ This guide builds a small platformer in an empty 2D project: a character that ru
 
 Start with [Your first project](ref:quickstart) if you have not opened the editor yet.
 
+The finished example is a separate, more detailed project at `examples/platformer`. Open it with `aego edit examples/platformer` and load its main scene to inspect the game used by the website demo. Move with A/D or the arrow keys, jump with Space, attack with J and open settings with Esc. F6 toggles lighting and F7 cycles its debug views.
+
+In the Hierarchy, inspect the player's Dust and Sparks emitters and the StartLantern's Smoke and Embers. The landing and attack events trigger bursts. The camera's Bloom adds a screen-space halo, while the lantern's Light2D illuminates nearby Lit surfaces and Light Occluder 2D contours cast shadows. See [particle effects](ref:particles), [materials and lighting](ref:render2d/materials) and [post-processing](ref:render2d.PostProcess) for editable examples and Try It scenes. This guide below starts from simpler shapes rather than reproducing every asset in the finished project.
+
 ## 1. Floor and player
 
 Create a project from the **2D** template. In the Hierarchy, create an empty node and name it `Floor`. Give it these components in the Inspector:

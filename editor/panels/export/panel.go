@@ -347,7 +347,7 @@ func (p *Panel) settings(ui *uicore.Context) {
 	done := p.rep != nil && !p.rep.Blocked && p.rep.Out != ""
 	bar := ui.Cursor().Next(th.RowHeight + 6)
 	bx := bar.X + labelW
-	if p.action(ui, "export", &bx, bar.Y, bar.H, "file.package", i18n.Tr("editor.export.action.export", "Export"), !busy, true) {
+	if p.action(ui, "export", &bx, bar.Y, bar.H, "file.export", i18n.Tr("editor.export.action.export", "Export"), !busy, true) {
 		p.export(out)
 	}
 	if p.action(ui, "check", &bx, bar.Y, bar.H, "ui.check", i18n.Tr("editor.export.action.check", "Check"), !busy, false) {

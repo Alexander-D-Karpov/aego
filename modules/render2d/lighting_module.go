@@ -47,7 +47,7 @@ func registerLighting(r *module.Registry) error {
 		schema.FieldDoc("shadows", "Enable cached local-light shadow masks for Point, Spot and Sprite lights."),
 		schema.FieldDoc("shadowSoftness", "Bounded mask filtering radius; this is not a physical area-light penumbra."),
 		schema.FieldDoc("priority", "Higher priority is selected first when the per-draw light budget is exceeded."),
-	).Category("Lighting").Display("Light 2D").Icon("comp.sprite").NodeIcon(55).Default(DefaultLight2D).Validate(validateLight2D).Err(); err != nil {
+	).Category("Lighting").Display("Light 2D").Icon("render2d.point_light").NodeIcon(55).Default(DefaultLight2D).Validate(validateLight2D).Err(); err != nil {
 		return err
 	}
 	if err := module.Component[LightOccluder2D](r, schema.Name("engine.LightOccluder2D"), schema.Space(schema.Space2D),
@@ -77,14 +77,16 @@ func registerLighting(r *module.Registry) error {
 		return err
 	}
 	for _, t := range []struct {
-		id, name string
-		kind     lighting.Type
+		id, name, icon string
+		kind           lighting.Type
 	}{
-		{"point-light", "Point Light", lighting.Point}, {"spot-light", "Spot Light", lighting.Spot},
-		{"directional-light", "Directional Light", lighting.Directional}, {"sprite-light", "Sprite Light", lighting.Sprite},
+		{"point-light", "Point Light", "render2d.point_light", lighting.Point},
+		{"spot-light", "Spot Light", "render2d.spot_light", lighting.Spot},
+		{"directional-light", "Directional Light", "render2d.directional_light", lighting.Directional},
+		{"sprite-light", "Sprite Light", "render2d.sprite_light", lighting.Sprite},
 	} {
 		kind := t.kind
-		r.Template(schema.TemplateDesc{ID: ID + "." + t.id, Name: t.name, Menu: "Lighting", Icon: "comp.sprite", Space: schema.Space2D,
+		r.Template(schema.TemplateDesc{ID: ID + "." + t.id, Name: t.name, Menu: "Lighting", Icon: t.icon, Space: schema.Space2D,
 			Setup: func(s *scene.Scene, h scene.NodeHandle) {
 				l := DefaultLight2D()
 				l.Type = kind

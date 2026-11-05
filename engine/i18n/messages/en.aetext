@@ -1,4 +1,40 @@
 messages version=1 lang=en {
+  msg "editor.shell.contact_telegram" {
+    text="Telegram: @sanspie"
+  }
+  msg "editor.shell.created_by" {
+    text="Created by: sanspie"
+  }
+  msg "editor.shell.open_website" {
+    text="Open website"
+  }
+  msg "editor.shell.report_issue" {
+    text="Create an issue…"
+  }
+  msg "editor.particles.invalid_field" {
+    text="Invalid value; check the allowed range and related fields."
+  }
+  msg "editor.particles.invalid_life_curve" {
+    text="Keys must be finite, ordered and within the 0–1 lifetime."
+  }
+  msg "editor.widgets.curve.delete_key" {
+    text="Delete Key"
+  }
+  msg "editor.widgets.curve.drag_preset" {
+    text="Drag a point or the line to edit this preset"
+  }
+  msg "editor.widgets.curve.key_help" {
+    text="Drag points · Double-click to add · Right-click to delete"
+  }
+  msg "editor.widgets.curve.keys" {
+    text="Keys"
+  }
+  msg "launcher.invalid_project_name" {
+    text="Enter a project name without path separators."
+  }
+  msg "launcher.project_folder_exists" {
+    text="A file or folder with this name already exists."
+  }
   msg "cli.bootstrap.not_native" {
     text="project has native=false, nothing to bootstrap"
   }
@@ -557,14 +593,14 @@ messages version=1 lang=en {
   msg "editor.agent.follow_tip" {
     text="Follow the agent: the editor shows where it works"
   }
-  msg "editor.agent.following" {
-    text="Following the agent"
-  }
   msg "editor.agent.following_paused" {
     text="Following paused while you work"
   }
   msg "editor.agent.generate_images" {
     text="Generate {n} image(s) with {provider}? Maximum total: {cost} USD cents. References: {refs}\n{prompt}"
+  }
+  msg "editor.agent.go_to_location" {
+    text="Show agent location"
   }
   msg "editor.agent.history_tip" {
     text="Past sessions"
@@ -1099,9 +1135,6 @@ messages version=1 lang=en {
   }
   msg "editor.agent.where_problems" {
     text="Problems"
-  }
-  msg "editor.agent.where_tip" {
-    text="Where the agent works now; click to go there"
   }
   msg "editor.animation.auto_key" {
     text="Auto Key"
@@ -4955,7 +4988,7 @@ messages version=1 lang=en {
     text="Create…"
   }
   msg "editor.sceneview.create_button" {
-    text="Create"
+    text="Create a node in the scene"
   }
   msg "editor.sceneview.cut" {
     text="Cut"
@@ -4976,7 +5009,7 @@ messages version=1 lang=en {
     text="Frame Selection"
   }
   msg "editor.sceneview.grid" {
-    text="Grid"
+    text="Show or hide the scene grid"
   }
   msg "editor.sceneview.isolated_n_node_s" {
     text="Isolated: {n} node(s)"
@@ -5021,7 +5054,7 @@ messages version=1 lang=en {
     text="Show All"
   }
   msg "editor.sceneview.snap_hold_ctrl_to_invert" {
-    text="Snap (hold Ctrl to invert)"
+    text="Snap transforms to steps (hold Ctrl to invert)"
   }
   msg "editor.sceneview.switch_between_the_2d_and" {
     text="Switch between the 2D and 3D view"
@@ -5033,22 +5066,22 @@ messages version=1 lang=en {
     text="Scene"
   }
   msg "editor.sceneview.tool.move" {
-    text="Move (W)"
+    text="Move selected nodes (W)"
   }
   msg "editor.sceneview.tool.rotate" {
-    text="Rotate (E)"
+    text="Rotate selected nodes (E)"
   }
   msg "editor.sceneview.tool.scale" {
-    text="Scale (R)"
+    text="Scale selected nodes (R)"
   }
   msg "editor.sceneview.tool.select" {
-    text="Select (Q)"
+    text="Select nodes in the scene (Q)"
   }
   msg "editor.sceneview.vectors_v" {
-    text="Vectors (V)"
+    text="Show or hide physics vectors (V)"
   }
   msg "editor.sceneview.zoom" {
-    text="Zoom"
+    text="Choose the scene view zoom"
   }
   msg "editor.scripteditor.aa" {
     text="Aa"

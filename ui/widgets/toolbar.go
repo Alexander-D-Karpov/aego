@@ -32,7 +32,12 @@ func IconAt(c *core.Context, r mathx.Rect, id string, tint mathx.Color) {
 		name = id[i+1:]
 	}
 	if name != "" {
-		c.TextIn(r, strings.ToUpper(name[:1]), th.TextDim, core.AlignCenter)
+		letter := name[:1]
+		if b := name[0]; b >= 'a' && b <= 'z' {
+			const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			letter = upper[b-'a' : b-'a'+1]
+		}
+		c.TextIn(r, letter, th.TextDim, core.AlignCenter)
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"image/png"
 	"math"
 	"strings"
+
+	"aego/editor/core/code/highlight"
 )
 
 type glyph struct {
@@ -86,6 +88,51 @@ func (s *Service) card(header string, lines []string) pixels {
 		y += 14
 		if y+13 > Size {
 			break
+		}
+	}
+	return raster(im)
+}
+
+// codeCard draws code as colored strokes rather than shrinking bitmap glyphs
+// into illegible noise at the 48–96px sizes of the asset browser.
+func codeCard(lines []string) pixels {
+	im := canvas()
+	draw.Draw(im, image.Rect(0, 0, Size, 5), image.NewUniform(accent), image.Point{}, draw.Src)
+	palette := [highlight.KindCount]color.NRGBA{}
+	for i := range palette {
+		palette[i] = color.NRGBA{175, 186, 197, 255}
+	}
+	palette[highlight.Keyword] = color.NRGBA{180, 145, 220, 255}
+	palette[highlight.Script] = color.NRGBA{180, 145, 220, 255}
+	palette[highlight.String] = color.NRGBA{165, 200, 140, 255}
+	palette[highlight.Number] = color.NRGBA{220, 165, 115, 255}
+	palette[highlight.Comment] = color.NRGBA{105, 130, 130, 255}
+	palette[highlight.Type] = color.NRGBA{115, 190, 210, 255}
+	var state highlight.State
+	var spans []highlight.Span
+	for lineNo, line := range lines {
+		y := 13 + lineNo*9
+		if y+3 >= Size-3 {
+			break
+		}
+		spans, state = highlight.Line([]byte(line), state, spans)
+		for _, sp := range spans {
+			start := -1
+			for i := sp.Start; i <= sp.End; i++ {
+				if i < sp.End && line[i] != ' ' && line[i] != '\t' {
+					if start < 0 {
+						start = i
+					}
+					continue
+				}
+				if start >= 0 {
+					x0, x1 := 7+start*3, min(7+i*3, Size-7)
+					if x0 < x1 {
+						draw.Draw(im, image.Rect(x0, y, x1, y+3), image.NewUniform(palette[sp.Kind]), image.Point{}, draw.Src)
+					}
+					start = -1
+				}
+			}
 		}
 	}
 	return raster(im)

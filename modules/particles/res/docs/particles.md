@@ -2,7 +2,7 @@
 id: particles
 try: try/ParticleSystem2D.aescene
 try_select: particles.ParticleSystem2D
-icon: comp.sprite
+icon: cat.particles
 group: gameplay
 title: CPU particle effects
 order: 8
@@ -12,6 +12,8 @@ order: 8
 In the Create palette, choose **Effects → Dust** for a manual burst, or **Smoke** for continuous emission. A burst works with Rate zero. World space keeps existing dust at the landing point; Local carries live particles with the emitter. Stop ends emission and lets the live particles fade. Clear removes them.
 
 In the platformer, the player’s Landed signal calls Burst(8) on Dust. StartLantern has independent Smoke and Embers children. In the top-down example, footsteps come from presentation events in the existing Run clip.
+
+For Size, Velocity and Alpha Over Life, open the curve field in the Inspector. Drag a point or the line to adjust the selected preset; it becomes editable keys only when you move it. Double-click a keyed graph to add a key, right-click a key to remove it, and use Undo to reverse the gesture. Select a key for exact time, value, interpolation and tangent controls.
 
 The emitter uses its own seed. Changing the particle setting does not alter physics or gameplay RNG. Reduced Motion applies the policy selected by the author.
 

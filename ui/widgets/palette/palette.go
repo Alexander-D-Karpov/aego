@@ -58,6 +58,8 @@ type Palette struct {
 	Title    string
 	Hint     string
 	Describe func(ui *core.Context, r mathx.Rect, item int)
+	// NoFavorites hides the star action in pickers that do not support favorites.
+	NoFavorites bool
 	// CategoryIcon names the icon drawn before a category; "" draws none.
 	CategoryIcon func(category string) string
 	// CategoryTitle is the shown name of a category; nil shows the category as is.
@@ -114,10 +116,11 @@ func New(id core.ID) *Palette {
 	return p
 }
 
-func (p *Palette) Active() bool     { return p.open }
-func (p *Palette) Query() string    { return p.query }
-func (p *Palette) Items() []Item    { return p.items }
-func (p *Palette) Item(i int) *Item { return &p.items[i] }
+func (p *Palette) Active() bool      { return p.open }
+func (p *Palette) Query() string     { return p.query }
+func (p *Palette) Items() []Item     { return p.items }
+func (p *Palette) Item(i int) *Item  { return &p.items[i] }
+func (p *Palette) SearchID() core.ID { return core.IDSeq(p.id, 1) }
 
 // Selected is the highlighted item, or -1.
 func (p *Palette) Selected() int {
@@ -317,16 +320,23 @@ func (p *Palette) move(n int) {
 	p.follow = true
 }
 
-func (p *Palette) toggle(i int) {
+func (p *Palette) toggle(i int, rowH float32) {
 	c := p.rows[i].label
 	p.Open[c] = !p.Open[c]
-	q := p.rows[i].label
+	scroll := p.scroll
 	p.rebuild()
 	for j, r := range p.rows {
-		if r.kind == rowCategory && r.label == q {
+		if r.kind == rowCategory && r.label == c {
 			p.sel = j
+			if p.Open[c] {
+				// Put the opened category at the top when possible. VirtualList
+				// clamps this at the end of the list on the next draw.
+				scroll = float32(j) * rowH
+			}
+			break
 		}
 	}
+	p.scroll, p.follow = scroll, false
 }
 
 func (p *Palette) keys(ui *core.Context, page int) Result {
@@ -336,7 +346,7 @@ func (p *Palette) keys(ui *core.Context, page int) Result {
 	case ui.KeyPressed(input.KeyEscape):
 		res.Close = true
 	case enter && p.sel >= 0 && p.rows[p.sel].kind == rowCategory:
-		p.toggle(p.sel)
+		p.toggle(p.sel, ui.Theme.RowHeight+rowPad)
 	case enter:
 		res.Pick = p.Selected()
 		res.Keep = ui.Mods().Has(input.ModShift)
@@ -374,8 +384,10 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 		return res
 	}
 	p.ui = ui
+	p.pointerMoved = ui.Mouse() != p.pointer
+	p.pointer = ui.Mouse()
 	rowH := th.RowHeight + rowPad
-	qid := core.IDSeq(p.id, 1)
+	qid := p.SearchID()
 	if p.focus || ui.Focus() == 0 {
 		ui.SetFocus(qid)
 		b := ui.EditBuffer(qid, p.query)
@@ -434,7 +446,7 @@ func (p *Palette) Draw(ui *core.Context, r mathx.Rect) Result {
 	ui.EndModal()
 	switch {
 	case p.toggled >= 0:
-		p.toggle(p.toggled)
+		p.toggle(p.toggled, rowH)
 	case p.starred >= 0:
 		res.Star = p.starred
 	case p.clicked >= 0:
@@ -485,8 +497,11 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 	off := it.Disabled != ""
 	star := mathx.Rect{X: rr.X + rr.W - rr.H, Y: rr.Y, W: rr.H, H: rr.H}
 	sid := core.IDSeq(p.id, 100000+i)
+	if p.Describe != nil && p.pointerMoved && ui.Hit(rr) {
+		p.sel, p.follow = i, false
+	}
 	switch {
-	case ui.Pressed(sid, star):
+	case !p.NoFavorites && ui.Pressed(sid, star):
 		p.starred = rw.item
 	case ui.Pressed(id, rr) && off:
 		p.sel = i
@@ -521,8 +536,13 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 	if off {
 		right = p.reason(rw.item, rr.W*0.45)
 	}
+	right = widgets.Elide(ui, right, rr.W*0.45)
 	rwid := ui.TextSize(right).X
-	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-rr.H-rwid-12), H: rr.H})
+	endSpace := rr.H
+	if p.NoFavorites {
+		endSpace = 4
+	}
+	ui.PushClip(mathx.Rect{X: rr.X, Y: rr.Y, W: max(0, rr.W-endSpace-rwid-12), H: rr.H})
 	ui.Text(it.Label, mathx.Vec2{X: tx, Y: ty}, col)
 	for _, b := range p.pos[rw.pos[0]:rw.pos[1]] {
 		if b >= len(it.Label) {
@@ -538,13 +558,15 @@ func (p *Palette) drawRow(i int, rr mathx.Rect) {
 		if i == p.sel && !off {
 			rc = th.TextDim
 		}
-		ui.TextIn(mathx.Rect{X: rr.X, Y: rr.Y, W: rr.W - rr.H - 4, H: rr.H}, right, rc, core.AlignRight)
+		ui.TextIn(mathx.Rect{X: rr.X, Y: rr.Y, W: rr.W - endSpace - 4, H: rr.H}, right, rc, core.AlignRight)
 	}
-	switch {
-	case it.Starred:
-		widgets.IconAt(ui, mathx.Rect{X: star.X + (star.W-16)/2, Y: star.Y + (star.H-16)/2, W: 16, H: 16}, "ui.star", th.Accent)
-	case ui.Hot() == id || ui.Hot() == sid:
-		widgets.IconAt(ui, mathx.Rect{X: star.X + (star.W-16)/2, Y: star.Y + (star.H-16)/2, W: 16, H: 16}, "ui.star", th.TextDisabled)
+	if !p.NoFavorites {
+		switch {
+		case it.Starred:
+			widgets.IconAt(ui, mathx.Rect{X: star.X + (star.W-16)/2, Y: star.Y + (star.H-16)/2, W: 16, H: 16}, "ui.star", th.Accent)
+		case ui.Hot() == id || ui.Hot() == sid:
+			widgets.IconAt(ui, mathx.Rect{X: star.X + (star.W-16)/2, Y: star.Y + (star.H-16)/2, W: 16, H: 16}, "ui.star", th.TextDisabled)
+		}
 	}
 }
 

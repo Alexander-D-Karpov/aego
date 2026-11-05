@@ -174,6 +174,9 @@ func (s *Service) Key(e asset.Entry) (string, bool) {
 	}
 	h := sha256.New()
 	fmt.Fprintf(h, "%s:%d:%s:%s", salt, Size, s.handlers[e.Kind].Version, e.Kind)
+	if codeEntry(e) {
+		fmt.Fprint(h, "|code-preview-v2")
+	}
 	if s.handlers[e.Kind].Render != nil && !s.gpuOK {
 		fmt.Fprint(h, "|no-gpu")
 	}
@@ -296,7 +299,7 @@ func (s *Service) Missing(info pipeline.AssetInfo) bool {
 }
 
 func (s *Service) Lines(info pipeline.AssetInfo) []string {
-	if info.Kind != asset.ArtScript {
+	if !codeEntry(asset.Entry{Kind: info.Kind, Source: info.Path}) {
 		return nil
 	}
 	if it := s.ensure(info); it != nil {

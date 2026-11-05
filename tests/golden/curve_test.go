@@ -40,3 +40,22 @@ func TestEditorCurveEditor(t *testing.T) {
 	}
 	checkGolden(t, "editor_curve_editor", img, err)
 }
+
+func TestEditorCurvePreset(t *testing.T) {
+	env := newEditorEnv(t)
+	ui := env.ui
+	preset := curve.FromEasing(curve.OutQuad)
+	st := widgets.NewCurveState()
+	open := core.IDOf("golden.curve.preset.open")
+	field := mathx.Rect{X: 40, Y: 40, W: 200, H: 24}
+	img, err := env.draw(func(full mathx.Rect) {
+		if !ui.PopupOpen(open) {
+			ui.OpenPopup(open, mathx.Vec2{X: field.X, Y: field.Y + field.H})
+		}
+		widgets.CurveField(ui, open, field, &preset, false, st)
+	})
+	if preset.Ease != curve.OutQuad || len(preset.Keys) != 0 {
+		t.Fatal("opening a preset must not convert it to keys")
+	}
+	checkGolden(t, "editor_curve_preset", img, err)
+}

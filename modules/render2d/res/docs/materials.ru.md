@@ -91,6 +91,8 @@ summary: Явные типизированные значения материа
 ---
 id: engine.Light2D
 summary: Освещает спрайты и двумерные меши Lit точечным, коническим, направленным или текстурным источником.
+try: try/Light2D.aescene
+try_select: engine.Light2D
 ---
 
 [Light2D](ref:engine.Light2D) влияет на [SpriteRenderer](ref:engine.SpriteRenderer) с материалом `Lit` и [Mesh2D](ref:engine.Mesh2D) с `LitMesh2D`. Материалы Unlit сохраняют исходный цвет. Добавьте источник через палитру создания, настройте интенсивность и радиус в Инспекторе, затем перетащите ручки радиуса и направления в Scene View. Один жест создаёт одну команду отмены.
@@ -106,6 +108,8 @@ Point освещает круг. Spot направлен вдоль локаль
 ---
 id: engine.LightOccluder2D
 summary: Задаёт полигон или открытую цепочку, отбрасывающую тени от локальных источников без обязательного Physics.
+try: try/LightOccluder2D.aescene
+try_select: engine.LightOccluder2D
 ---
 
 [LightOccluder2D](ref:engine.LightOccluder2D) задаёт геометрию тени отдельно от видимого спрайта. `Polygon` использует локальные точки; `closed` замыкает простой полигон без отверстий. Отключите его для цепочки. Валидатор отклоняет нечисловые координаты, рёбра нулевой длины и самопересечения. Спрайт не становится окклюдером автоматически.
@@ -119,6 +123,8 @@ Point, Spot и Sprite используют общий алгоритм плос�
 ---
 id: engine.LightingEnvironment2D
 summary: Настраивает фоновое освещение, цветовой режим вывода и бюджет теней для выхода камеры.
+try: try/LightingEnvironment2D.aescene
+try_select: engine.LightingEnvironment2D
 ---
 
 [LightingEnvironment2D](ref:engine.LightingEnvironment2D) задаёт ambient, экспозицию, `Auto`/`LDR`/`HDR`, разрешение масок и бюджет локальных теней. Поле `camera` выбирает Camera2D; пустая ссылка применяет окружение ко всем двумерным выходам мира. Несколько подходящих окружений дают ошибку: порядок регистрации не выбирает победителя. Без окружения белый ambient с интенсивностью один сохраняет совместимые значения Lit.

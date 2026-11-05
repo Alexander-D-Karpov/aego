@@ -234,6 +234,7 @@ func (p *Panel) refresh() {
 		if changed {
 			p.items = append(pl.Assets(), extras...)
 			p.addCells()
+			p.stacks = nil
 			p.prune()
 		}
 	}

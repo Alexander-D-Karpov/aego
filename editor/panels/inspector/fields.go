@@ -154,6 +154,18 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 		}
 	}
 	tip := schema.FieldTip(td, fd)
+	fieldError := p.reg.FieldError(td.ID, p.nodes, fd)
+	if fieldError != "" {
+		tip += "\n" + fieldError
+	}
+	if fd.Kind == schema.KindCurve {
+		st := p.curves[key]
+		if st == nil {
+			st = widgets.NewCurveState()
+			p.curves[key] = st
+		}
+		st.SetNormalizedTime(p.reg.NormalizedCurve(td.ID, p.nodes, fd))
+	}
 	if mixed {
 		tip = p.mixedTip(d, td, fd, tip)
 	}
@@ -182,6 +194,9 @@ func (p *Panel) fieldIn(d *document.SceneDocument, td *schema.TypeDescriptor, fd
 	if m := p.d.Presence; m != nil && len(p.nodes) == 1 {
 		wpresence.Light(ui, row, m.FieldLight(d.Path, p.nodes[0], td.FullName, fd.Name, p.f.Now))
 		editing = m.Editing(d.Path, p.nodes[0], td.FullName, fd.Name)
+	}
+	if fieldError != "" {
+		ui.List().RectOutline(row, ui.Theme.Error, 1)
 	}
 	switch {
 	case editing:
@@ -452,7 +467,7 @@ func (p *Panel) scalar(d *document.SceneDocument, id core.ID, r mathx.Rect, fd *
 			st = widgets.NewCurveState()
 			p.curves[id] = st
 		}
-		cv := v.Cv
+		cv := v.Cv.Clone()
 		e := widgets.CurveField(ui, id, r, &cv, mixed, st)
 		if e.Changed {
 			*v = schema.Curve(cv)

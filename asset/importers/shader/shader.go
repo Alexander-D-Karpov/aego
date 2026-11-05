@@ -56,6 +56,13 @@ func (i *Importer) Diagnostics() ([]shaderx.Diag, uint64) {
 	return out, i.rev
 }
 
+// Revision allows consumers to check for changes without rebuilding the sorted diagnostics.
+func (i *Importer) Revision() uint64 {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.rev
+}
+
 func (i *Importer) record(path string, diags []shaderx.Diag) {
 	i.mu.Lock()
 	defer i.mu.Unlock()

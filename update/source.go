@@ -7,16 +7,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
 const (
-	// CheckTimeout bounds a check, so a slow server never holds the editor or the game.
-	CheckTimeout = 3 * time.Second
+	// CheckTimeout bounds the whole check, including the manifest, signature and retries.
+	CheckTimeout   = 20 * time.Second
+	requestTimeout = 4 * time.Second
+	checkAttempts  = 3
 	// ReleaseFile and SigFile are what a channel publishes.
 	ReleaseFile = "release.json"
 	SigFile     = "release.json.sig"
@@ -37,7 +41,7 @@ func (s *Source) client() *http.Client {
 	if s.Client != nil {
 		return s.Client
 	}
-	return &http.Client{Timeout: CheckTimeout}
+	return &http.Client{Timeout: requestTimeout}
 }
 
 func (s *Source) url(file string) string {
@@ -88,29 +92,75 @@ func (s *Source) fetchRelease(ctx context.Context) ([]byte, error) {
 var errNotModified = errors.New("not modified")
 
 func (s *Source) get(ctx context.Context, url, etag string) ([]byte, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	var err error
+	for attempt := 0; attempt < checkAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, "", err
+		}
+		if attempt > 0 {
+			timer := time.NewTimer(time.Duration(attempt) * 200 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, "", ctx.Err()
+			case <-timer.C:
+			}
+		}
+		var data []byte
+		var tag string
+		var retry bool
+		data, tag, retry, err = s.getOnce(ctx, url, etag)
+		if err == nil || !retry || ctx.Err() != nil {
+			if ctx.Err() != nil {
+				return nil, "", ctx.Err()
+			}
+			return data, tag, err
+		}
+	}
+	return nil, "", err
+}
+
+func transientCheckError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+	var network net.Error
+	return errors.As(err, &network) && (network.Timeout() || network.Temporary())
+}
+
+func (s *Source) getOnce(ctx context.Context, url, etag string) ([]byte, string, bool, error) {
+	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}
 	resp, err := s.client().Do(req)
 	if err != nil {
-		return nil, "", err
+		return nil, "", transientCheckError(err), err
 	}
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotModified:
-		return nil, "", errNotModified
+		return nil, "", false, errNotModified
 	case http.StatusNotFound:
-		return nil, "", fmt.Errorf("no %s release at %s", s.Channel, url)
+		return nil, "", false, fmt.Errorf("no %s release at %s", s.Channel, url)
 	default:
-		return nil, "", fmt.Errorf("%s: %s", url, resp.Status)
+		retry := resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 && resp.StatusCode <= 599
+		return nil, "", retry, fmt.Errorf("%s: %s", url, resp.Status)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	return data, resp.Header.Get("ETag"), err
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
+	if err != nil {
+		return nil, "", transientCheckError(err), err
+	}
+	if len(data) > 1<<20 {
+		return nil, "", false, errors.New("release response exceeds 1 MiB")
+	}
+	return data, resp.Header.Get("ETag"), false, nil
 }
 
 func (s *Source) cacheFiles() (string, string) {

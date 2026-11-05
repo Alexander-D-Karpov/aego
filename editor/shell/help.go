@@ -2,7 +2,6 @@ package shell
 
 import (
 	"math"
-	"runtime"
 	"strings"
 
 	"aego/core/mathx"
@@ -14,7 +13,6 @@ import (
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/help"
 	"aego/editor/panels/welcome"
-	"aego/engine"
 	"aego/engine/docs"
 	"aego/engine/i18n"
 	"aego/scene"
@@ -56,11 +54,7 @@ func (a *App) registerHelp() error {
 			}},
 		{ID: CommandAbout, Name: "About Aego", Category: "Help", Order: 900,
 			Run: func() error {
-				a.ctx.Ask(context.Question{
-					Title:   i18n.Tr("editor.shell.about_aego", "About Aego"),
-					Message: i18n.Tr("editor.shell.about_version", "Aego engine {version}", i18n.Str("version", engine.Version)) + " · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH,
-					Buttons: []string{i18n.Tr("editor.shell.close", "Close")},
-				})
+				a.push(modal{kind: modalAbout})
 				return nil
 			}},
 	}

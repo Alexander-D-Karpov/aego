@@ -6,12 +6,10 @@ import (
 
 	"aego/core/mathx"
 	"aego/editor/core/agentui"
-	"aego/editor/core/follow"
 	"aego/editor/core/presence"
 	"aego/engine/i18n"
 	"aego/ui/core"
 	"aego/ui/widgets"
-	wpresence "aego/ui/widgets/presence"
 )
 
 // dot is one tool call on the activity timeline: where its block is and how it went.
@@ -163,49 +161,6 @@ func (p *Panel) undoBack(card int) {
 		}
 		p.cards = p.d.Host.Cards(p.cards[:0])
 	}
-}
-
-// where is the row under the header: where the agent is now, and Resume while following is paused.
-func (p *Panel) where(ui *core.Context, r mathx.Rect) {
-	th := &ui.Theme
-	f := p.d.Follow
-	if f == nil {
-		return
-	}
-	ui.Rect(r, th.PanelAlt)
-	x := r.X + th.Padding
-	right := r.X + r.W - th.Padding
-	if f.Paused() {
-		label := i18n.Tr("editor.agent.resume", "Resume Following")
-		bw := ui.TextSize(label).X + 20
-		if widgets.ButtonRect(ui, ui.ID("resume"), mathx.Rect{X: right - bw, Y: r.Y + 2, W: bw, H: r.H - 4}, label) {
-			f.ResumeNow()
-		}
-		right -= bw + 6
-	}
-	sp, at, ok := f.Model.Where(follow.Agent, p.now())
-	if !ok {
-		text := i18n.Tr("editor.agent.following", "Following the agent")
-		if f.Paused() {
-			text = i18n.Tr("editor.agent.following_paused", "Following paused while you work")
-		}
-		ui.Text(p.fits[3].get(ui, text, right-x), mathx.Vec2{X: x, Y: ui.TextY(r)}, th.TextDim)
-		return
-	}
-	wpresence.Marker(ui, mathx.Rect{X: x, Y: r.Y + (r.H-14)/2, W: 14, H: 14}, p.now()-at)
-	x += 20
-	label := p.spotLabel(sp)
-	lr := mathx.Rect{X: x, Y: r.Y, W: min(ui.TextSize(label).X+4, right-x), H: r.H}
-	id := ui.ID("where")
-	if ui.Clicked(id, lr) {
-		f.GoTo(sp)
-	}
-	col := th.Text
-	if ui.Hot() == id {
-		col = th.Accent
-	}
-	ui.Text(p.fits[3].get(ui, label, right-x), mathx.Vec2{X: x, Y: ui.TextY(r)}, col)
-	widgets.Tooltip(ui, id, i18n.Tr("editor.agent.where_tip", "Where the agent works now; click to go there"))
 }
 
 // spotLabel is a place as the user names it: the file, then the node and the component, or the line.

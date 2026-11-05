@@ -128,6 +128,7 @@ type Item struct {
 	Tip      string
 	Enabled  bool
 	Checked  bool
+	KeepOpen bool
 }
 
 func HasIcon(c *core.Context, id string) bool {
@@ -169,7 +170,7 @@ func Entry(c *core.Context, it Item) bool {
 		c.TextIn(r, it.Shortcut, th.TextDim, core.AlignRight)
 	}
 	TooltipAfter(c, id, it.Tip, tipDelay)
-	if clicked {
+	if clicked && !it.KeepOpen {
 		c.CloseAllPopups()
 	}
 	return clicked

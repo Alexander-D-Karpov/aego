@@ -20,6 +20,7 @@ func MenuItem(ui *core.Context, reg *Registry, id, label string) bool {
 		Tip:      d.TipText(),
 		Enabled:  reg.Enabled(id),
 		Checked:  d.Checked != nil && d.Checked(),
+		KeepOpen: d.Checked != nil,
 	}
 	if widgets.Entry(ui, it) {
 		reg.Run(id)

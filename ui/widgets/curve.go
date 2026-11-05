@@ -11,12 +11,16 @@ import (
 )
 
 type CurveState struct {
-	Key   int
-	part  int8
-	drag  bool
-	view  [4]float32
-	times [2]float32
-	timed bool
+	Key        int
+	part       int8
+	drag       bool
+	preset     bool
+	start      mathx.Vec2
+	point      mathx.Vec2
+	view       [4]float32
+	times      [2]float32
+	timed      bool
+	normalized bool
 }
 
 // CurvePad is the margin between a curve graph's box and its plot.
@@ -25,6 +29,16 @@ const CurvePad = 10
 // SetTimeRange makes the graph show times t0..t1 across its plot instead of fitting the keys, to line up with an outside ruler.
 func (s *CurveState) SetTimeRange(t0, t1 float32) {
 	s.times, s.timed = [2]float32{t0, t1}, t1 > t0
+}
+
+// SetNormalizedTime restricts key times to the particle-life interval 0..1.
+func (s *CurveState) SetNormalizedTime(on bool) { s.normalized = on }
+
+func (s *CurveState) keyTime(t float32) float32 {
+	if s.normalized {
+		return mathx.Clamp(t, 0, 1)
+	}
+	return t
 }
 
 func NewCurveState() *CurveState {
@@ -43,12 +57,12 @@ var (
 		return []string{Tr("editor.widgets.curve.clamp", "Clamp"), Tr("editor.widgets.curve.loop", "Loop"), Tr("editor.widgets.curve.ping_pong", "Ping-pong")}
 	}
 	curvePresets = func() []string {
-		out := []string{"Keys"}
+		out := []string{Tr("editor.widgets.curve.keys", "Keys")}
 		for e := curve.Linear; e < curve.EasingCount; e++ {
 			out = append(out, e.String())
 		}
 		return out
-	}()
+	}
 )
 
 type curveFrame struct {
@@ -178,13 +192,83 @@ func curvePick(g curveFrame, cv *curve.Curve, st *CurveState, m mathx.Vec2) (int
 			}
 		}
 	}
+	best, dist := -1, float32(r2)
 	for i := range cv.Keys {
 		k := &cv.Keys[i]
-		if g.at(k.T, k.V).Sub(m).LenSq() <= r2 {
-			return i, 0
+		if d := g.at(k.T, k.V).Sub(m).LenSq(); d <= dist {
+			best, dist = i, d
 		}
 	}
-	return -1, 0
+	return best, 0
+}
+
+// curveBakePreset retains the shape, including the sharp bounce corners, when
+// the user turns an easing into editable Hermite keys.
+func curveBakePreset(cv *curve.Curve, extra float32) curve.Curve {
+	count := 9
+	if cv.Ease == curve.InElastic || cv.Ease == curve.OutElastic || cv.Ease == curve.InOutElastic {
+		count = 25
+	} else if cv.Ease == curve.InExpo || cv.Ease == curve.OutExpo || cv.Ease == curve.InOutExpo {
+		count = 17
+	}
+	times := make([]float32, 0, count+8)
+	for i := range count {
+		times = append(times, float32(i)/float32(count-1))
+	}
+	var corners []float32
+	for _, t := range []float32{1 / 2.75, 2 / 2.75, 2.5 / 2.75} {
+		switch cv.Ease {
+		case curve.OutBounce:
+			corners = append(corners, t)
+		case curve.InBounce:
+			corners = append(corners, 1-t)
+		case curve.InOutBounce:
+			corners = append(corners, (1-t)/2, (1+t)/2)
+		}
+	}
+	times = append(times, corners...)
+	switch cv.Ease {
+	case curve.InExpo, curve.InOutExpo, curve.InElastic, curve.InOutElastic:
+		times = append(times, 0.001)
+	}
+	switch cv.Ease {
+	case curve.OutExpo, curve.InOutExpo, curve.OutElastic, curve.InOutElastic:
+		times = append(times, 0.999)
+	}
+	if extra > 0 && extra < 1 {
+		times = append(times, extra)
+	}
+	slices.Sort(times)
+	out := curve.Curve{Pre: cv.Pre, Post: cv.Post}
+	const h = float32(0.0001)
+	for _, t := range times {
+		if len(out.Keys) > 0 && t-out.Keys[len(out.Keys)-1].T < 0.00001 {
+			continue
+		}
+		v := cv.Eval(t)
+		a, b := max(t-h, 0), min(t+h, 1)
+		in, outSlope := (cv.Eval(b)-cv.Eval(a))/(b-a), float32(0)
+		outSlope = in
+		for _, corner := range corners {
+			if mathx.Abs(t-corner) < 0.00001 {
+				in, outSlope = (v-cv.Eval(a))/(t-a), (cv.Eval(b)-v)/(b-t)
+				break
+			}
+		}
+		out.Keys = append(out.Keys, curve.Key{T: t, V: v, In: in, Out: outSlope, Tangent: curve.TangentFree})
+	}
+	return out
+}
+
+func curvePresetKey(cv *curve.Curve, t float32) (curve.Curve, int) {
+	out := curveBakePreset(cv, t)
+	best, distance := 0, float32(2)
+	for i, k := range out.Keys {
+		if d := mathx.Abs(k.T - t); d < distance {
+			best, distance = i, d
+		}
+	}
+	return out, best
 }
 
 func curveSnap(x, lo, hi float32) float32 {
@@ -195,14 +279,25 @@ func curveSnap(x, lo, hi float32) float32 {
 	return lo + float32(math.Round(float64((x-lo)/step)))*step
 }
 
-func curveMove(cv *curve.Curve, i int, t, v float32) {
+func curveMove(cv *curve.Curve, st *CurveState, i int, t, v float32) {
 	ks := cv.Keys
 	const gap = 1e-4
+	lo, hi := float32(math.Inf(-1)), float32(math.Inf(1))
+	if st.normalized {
+		lo, hi = 0, 1
+	}
 	if i > 0 {
-		t = max(t, ks[i-1].T+gap)
+		lo = max(lo, ks[i-1].T+gap)
 	}
 	if i < len(ks)-1 {
-		t = min(t, ks[i+1].T-gap)
+		hi = min(hi, ks[i+1].T-gap)
+	}
+	if lo <= hi {
+		t = mathx.Clamp(t, lo, hi)
+	} else {
+		// A pre-existing very narrow or invalid interval cannot be made
+		// wider by moving this key; leave its time intact.
+		t = ks[i].T
 	}
 	ks[i].T, ks[i].V = t, v
 	cv.Smooth()
@@ -228,10 +323,11 @@ func curveDrag(cv *curve.Curve, st *CurveState, t, v float32, broken bool) bool 
 	k := &cv.Keys[i]
 	switch {
 	case st.part == 0:
+		t = st.keyTime(t)
 		if t == k.T && v == k.V {
 			return false
 		}
-		curveMove(cv, i, t, v)
+		curveMove(cv, st, i, t, v)
 		return true
 	case st.part > 0:
 		if t <= k.T+1e-6 {
@@ -248,8 +344,9 @@ func curveDrag(cv *curve.Curve, st *CurveState, t, v float32, broken bool) bool 
 	return true
 }
 
-func curveAdd(cv *curve.Curve, g curveFrame, m mathx.Vec2) int {
+func curveAdd(cv *curve.Curve, g curveFrame, m mathx.Vec2, st *CurveState) int {
 	t, v := g.inv(m)
+	t = st.keyTime(t)
 	if t0, t1 := cv.Span(); len(cv.Keys) > 0 && t > t0 && t < t1 {
 		v = cv.Eval(t)
 	}
@@ -288,28 +385,45 @@ func curveGraph(c *core.Context, r mathx.Rect, cv *curve.Curve, st *CurveState) 
 	curvePlot(c, g, cv, th.Accent)
 	if keyed {
 		curveKeys(c, g, cv, st)
+	} else {
+		preview := curveBakePreset(cv, -1)
+		curveKeys(c, g, &preview, st)
 	}
 	c.PopClip()
-	if !keyed {
-		return e
-	}
 	id := c.ID("graph")
 	m := c.Mouse()
 	if c.Pressed(id, r) {
-		k, part := curvePick(g, cv, st, m)
-		switch {
-		case k >= 0:
-			st.Key, st.part, st.drag = k, part, true
-			c.CaptureMouse(id)
-			e.Begin = true
-		case c.DoubleClicked(id):
-			st.Key = curveAdd(cv, g, m)
-			e = e.Or(curveCommit)
-		default:
-			st.Key = -1
+		if !keyed {
+			preview := curveBakePreset(cv, -1)
+			k, _ := curvePick(g, &preview, st, m)
+			t, _ := g.inv(m)
+			if k >= 0 {
+				t = preview.Keys[k].T
+			} else if t < 0 || t > 1 || mathx.Abs(g.at(t, cv.Eval(t)).Y-m.Y) > 8 {
+				t = -1
+			}
+			if t >= 0 {
+				st.preset, st.drag, st.start = true, true, m
+				st.point = mathx.Vec2{X: t, Y: cv.Eval(t)}
+				c.CaptureMouse(id)
+				e.Begin = true
+			}
+		} else {
+			k, part := curvePick(g, cv, st, m)
+			switch {
+			case k >= 0:
+				st.Key, st.part, st.drag, st.preset = k, part, true, false
+				c.CaptureMouse(id)
+				e.Begin = true
+			case c.DoubleClicked(id):
+				st.Key = curveAdd(cv, g, m, st)
+				e = e.Or(curveCommit)
+			default:
+				st.Key = -1
+			}
 		}
 	}
-	if c.RightClicked(id, r) {
+	if keyed && c.RightClicked(id, r) {
 		if k, part := curvePick(g, cv, st, m); k >= 0 && part == 0 && len(cv.Keys) > 1 {
 			cv.Keys = slices.Delete(cv.Keys, k, k+1)
 			cv.Smooth()
@@ -321,6 +435,18 @@ func curveGraph(c *core.Context, r mathx.Rect, cv *curve.Curve, st *CurveState) 
 	case st.drag && c.Active() == id:
 		if c.MouseDown(input.MouseLeft) {
 			t, v := g.inv(m)
+			if st.preset {
+				if cv.Ease != curve.None && m.Sub(st.start).LenSq() >= 9 {
+					baked, key := curvePresetKey(cv, st.point.X)
+					*cv, st.Key, st.part = baked, key, 0
+					e.Changed = true
+				}
+				if cv.Ease != curve.None {
+					break
+				}
+				startT, startV := g.inv(st.start)
+				t, v = st.point.X+t-startT, st.point.Y+v-startV
+			}
 			if c.Primary() {
 				t, v = curveSnap(t, g.v[0], g.v[1]), curveSnap(v, g.v[2], g.v[3])
 			}
@@ -329,12 +455,12 @@ func curveGraph(c *core.Context, r mathx.Rect, cv *curve.Curve, st *CurveState) 
 			}
 		}
 		if c.MouseReleased(input.MouseLeft) && !c.MouseDown(input.MouseLeft) {
-			st.drag = false
+			st.drag, st.preset = false, false
 			c.ReleaseMouse()
 			e.End = true
 		}
 	case st.drag:
-		st.drag = false
+		st.drag, st.preset = false, false
 		e.End = true
 	}
 	return e
@@ -348,7 +474,7 @@ func curveKeyRows(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 	e = e.Or(DragFloat32(c, c.ID("t"), Field(c, Tr("editor.widgets.curve.time", "Time")), &t, o))
 	e = e.Or(DragFloat32(c, c.ID("v"), Field(c, Tr("editor.widgets.curve.value", "Value")), &v, o))
 	if t != k.T || v != k.V {
-		curveMove(cv, st.Key, t, v)
+		curveMove(cv, st, st.Key, st.keyTime(t), v)
 	}
 	ip, tg := int(k.Interp), int(k.Tangent)
 	if Combo(c, c.ID("interp"), Field(c, Tr("editor.widgets.curve.segment", "Segment")), &ip, curveInterps(), false) {
@@ -360,7 +486,7 @@ func curveKeyRows(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 		cv.Smooth()
 		e = e.Or(curveCommit)
 	}
-	if len(cv.Keys) > 1 && Button(c, "Delete Key") {
+	if len(cv.Keys) > 1 && Button(c, Tr("editor.widgets.curve.delete_key", "Delete Key")) {
 		cv.Keys = slices.Delete(cv.Keys, st.Key, st.Key+1)
 		cv.Smooth()
 		st.Key = -1
@@ -375,9 +501,9 @@ func curveEditor(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 	if cv.Ease != curve.None {
 		cur = int(cv.Ease-curve.Linear) + 1
 	}
-	if Combo(c, c.ID("preset"), Field(c, Tr("editor.widgets.curve.preset", "Preset")), &cur, curvePresets, false) {
+	if Combo(c, c.ID("preset"), Field(c, Tr("editor.widgets.curve.preset", "Preset")), &cur, curvePresets(), false) {
 		if cur == 0 {
-			*cv = cv.Bake(9)
+			*cv = curveBakePreset(cv, -1)
 		} else {
 			*cv = curve.Curve{Ease: curve.Linear + curve.Easing(cur-1), Pre: cv.Pre, Post: cv.Post}
 		}
@@ -387,11 +513,11 @@ func curveEditor(c *core.Context, cv *curve.Curve, st *CurveState) Edit {
 	e = e.Or(curveGraph(c, c.Cursor().Next(180), cv, st))
 	switch {
 	case cv.Ease != curve.None:
-		LabelDim(c, "Choose Keys to edit the preset point by point")
+		LabelWrapped(c, Tr("editor.widgets.curve.drag_preset", "Drag a point or the line to edit this preset"), true)
 	case st.Key >= 0 && st.Key < len(cv.Keys):
 		e = e.Or(curveKeyRows(c, cv, st))
 	default:
-		LabelDim(c, "Double-click the graph to add a key")
+		LabelWrapped(c, Tr("editor.widgets.curve.key_help", "Drag points · Double-click to add · Right-click to delete"), true)
 	}
 	pre, post := int(cv.Pre), int(cv.Post)
 	if Combo(c, c.ID("pre"), Field(c, Tr("editor.widgets.curve.before", "Before")), &pre, curveWraps(), false) {
@@ -435,7 +561,7 @@ func CurveField(c *core.Context, id core.ID, r mathx.Rect, cv *curve.Curve, mixe
 	return e
 }
 
-// CurveGraph draws an editable keyed curve in r without the popup of CurveField.
+// CurveGraph draws an editable curve in r without the popup of CurveField.
 func CurveGraph(c *core.Context, id core.ID, r mathx.Rect, cv *curve.Curve, st *CurveState) Edit {
 	c.PushRawID(id)
 	defer c.PopID()

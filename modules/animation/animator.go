@@ -266,7 +266,7 @@ func registerAnimator(r *module.Registry, m *Module) error {
 		schema.FieldDoc("progress", "Time in the current state divided by the length of its clip; 1 is one full clip."),
 		schema.FieldDoc("blending", "Whether a transition is blending."),
 		schema.Runtime("state", "time", "progress", "blending"),
-	).Category(Category).Display("Animator").Icon("play.start").Default(DefaultAnimator).Conflicts(NamePlayer)
+	).Category(Category).Display("Animator").Icon("animation.animator").Default(DefaultAnimator).Conflicts(NamePlayer)
 
 	b.Proc2("SetBool", func(c *bind.Ctx, a *Animator, name string, v bool) {
 		if i := m.param(c, a, name); i >= 0 {
