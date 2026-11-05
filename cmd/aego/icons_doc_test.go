@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,5 +30,25 @@ func TestIconsCheckReportsMissingEditorIcon(t *testing.T) {
 	var b bytes.Buffer
 	if rep.Write(&b) == 0 || !strings.Contains(b.String(), "ui.not_drawn") {
 		t.Fatalf("a missing editor icon must fail the check:\n%s", b.String())
+	}
+}
+
+func TestIconsIncludeModuleToolbarUses(t *testing.T) {
+	report, err := iconReport()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"render2d.normals":     "Scene View: surface normals",
+		"render2d.point_light": "Scene View: lighting preview",
+		"render2d.shadow_view": "Scene View: shadow visibility",
+	}
+	for _, row := range report.Rows() {
+		if by, ok := want[row.ID]; ok && slices.Contains(row.UsedBy, by) {
+			delete(want, row.ID)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("module toolbar icons missing from the audit: %v", want)
 	}
 }

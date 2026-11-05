@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -142,6 +144,31 @@ func TestCheckUsesTheETag(t *testing.T) {
 	}
 	if _, err := (&Source{BaseURL: srv.URL, Channel: Nightly, Key: pub}).Check(context.Background()); err == nil {
 		t.Fatal("a missing channel checked fine")
+	}
+}
+
+func TestTransientCheckError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"deadline", context.DeadlineExceeded, true},
+		{"incomplete response", io.ErrUnexpectedEOF, true},
+		{"wrapped connection reset", &net.OpError{Op: "read", Err: syscall.ECONNRESET}, true},
+		{"connection refused", syscall.ECONNREFUSED, true},
+		{"DNS timeout", &net.DNSError{IsTimeout: true}, true},
+		{"temporary DNS", &net.DNSError{IsTemporary: true}, true},
+		{"DNS not found", &net.DNSError{IsNotFound: true}, false},
+		{"cancelled", context.Canceled, false},
+		{"ordinary error", errors.New("bad response"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := transientCheckError(tc.err); got != tc.want {
+				t.Fatalf("transientCheckError(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
 	}
 }
 

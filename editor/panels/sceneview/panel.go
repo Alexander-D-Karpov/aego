@@ -592,7 +592,7 @@ func (p *Panel) toolbar(d *document.SceneDocument, r mathx.Rect) {
 	if tb.Button(ui.ID("snap"), "view.snap", i18n.Tr("editor.sceneview.snap_hold_ctrl_to_invert", "Snap transforms to steps (hold Ctrl to invert)"), p.d.Tools.Snap, true) {
 		p.d.Tools.Snap = !p.d.Tools.Snap
 	}
-	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Show or hide physics vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
+	if tb.Button(ui.ID("vectors"), "view.vectors", i18n.Tr("editor.sceneview.vectors_v", "Show or hide debug vectors (V)"), p.d.Viewport.Overlay.On(vectors.CommandToggle), true) {
 		p.d.Viewport.Overlay.Toggle(vectors.CommandToggle)
 	}
 	for _, cmd := range extra {

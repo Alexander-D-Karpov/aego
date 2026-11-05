@@ -4559,7 +4559,7 @@ messages version=1 lang=ru {
     text="Выбирать узлы в сцене (Q)"
   }
   msg "editor.sceneview.vectors_v" {
-    text="Показать или скрыть физические векторы (V)"
+    text="Показать или скрыть отладочные векторы (V)"
   }
   msg "editor.sceneview.zoom" {
     text="Изменить масштаб просмотра сцены"

@@ -12,7 +12,7 @@ Camera	camera.CameraFollow2D	Camera Follow 2D	comp.follow	-
 Camera	camera.CameraShake2D	Camera Shake 2D	comp.shake	-
 Camera	camera.CameraZone2D	Camera Zone 2D	comp.zone	-
 Camera	camera.CameraBrain2D	Camera Brain 2D	comp.camera2d	-
-Lighting	engine.Light2D	Light 2D	comp.sprite	-
+Lighting	engine.Light2D	Light 2D	render2d.point_light	-
 Lighting	engine.LightOccluder2D	Light Occluder 2D	comp.mesh	-
 Lighting	engine.LightingEnvironment2D	Lighting Environment 2D	comp.camera2d	-
 Physics	physics.Body2D	Rigid Body 2D	comp.rigidbody	-
@@ -26,8 +26,8 @@ Physics	physics.RevoluteJoint2D	Revolute Joint 2D	comp.joint_revolute	-
 Audio	audio.AudioListener2D	Audio Listener 2D	audio.listener	-
 Audio	audio.AudioSource2D	Audio Source 2D	audio.source	-
 Audio	audio.AudioZone2D	Audio Zone 2D	audio.zone	-
-Animation	animation.AnimationPlayer	Animation Player	play.start	-
-Animation	animation.Animator	Animator	play.start	-
+Animation	animation.AnimationPlayer	Animation Player	animation.player	-
+Animation	animation.Animator	Animator	animation.animator	-
 Gameplay	gameplay.Motion2D	Motion 2D	gameplay.motion	-
 Gameplay	gameplay.Health	Health	gameplay.health	-
 Gameplay	gameplay.Hurtbox2D	Hurtbox 2D	gameplay.hurtbox	-

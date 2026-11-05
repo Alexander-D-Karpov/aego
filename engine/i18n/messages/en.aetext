@@ -5078,7 +5078,7 @@ messages version=1 lang=en {
     text="Select nodes in the scene (Q)"
   }
   msg "editor.sceneview.vectors_v" {
-    text="Show or hide physics vectors (V)"
+    text="Show or hide debug vectors (V)"
   }
   msg "editor.sceneview.zoom" {
     text="Choose the scene view zoom"

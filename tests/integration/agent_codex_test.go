@@ -411,6 +411,9 @@ func TestExplainQuickActionReadsDirtySceneAndScriptWithoutWriting(t *testing.T) 
 	p.Recheck()
 	s.App.Workspace().Focus("agent")
 	s.App.Workspace().ToggleMaximize("agent")
+	// Agent is visible in the default layout, so ExplainRect may still describe
+	// the previous, non-maximized frame until the new layout is drawn.
+	s.Step()
 	stepUntil(t, s, func() bool { return p.ExplainRect().W > 0 })
 	clickTile(t, s, center(p.ExplainRect()), 0)
 	stepUntil(t, s, func() bool { return !p.Busy() })

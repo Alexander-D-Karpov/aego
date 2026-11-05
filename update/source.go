@@ -124,8 +124,12 @@ func transientCheckError(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
 		return true
 	}
+	var dns *net.DNSError
+	if errors.As(err, &dns) && dns.IsTemporary {
+		return true
+	}
 	var network net.Error
-	return errors.As(err, &network) && (network.Timeout() || network.Temporary())
+	return errors.As(err, &network) && network.Timeout()
 }
 
 func (s *Source) getOnce(ctx context.Context, url, etag string) ([]byte, string, bool, error) {
