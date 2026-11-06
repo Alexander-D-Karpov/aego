@@ -43,6 +43,7 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 	for range 30 {
 		s.Step()
 	}
+	waitAgentEditorIdle(t, s)
 	if !activePanel() {
 		t.Fatal("the empty Agent panel is not the active tab")
 	}
@@ -53,6 +54,7 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 	for range 30 {
 		s.Step()
 	}
+	waitAgentEditorIdle(t, s)
 	if !activePanel() {
 		t.Fatal("the Agent transcript is not the active tab")
 	}

@@ -44,6 +44,25 @@ func stepUntil(t *testing.T, s *edit.Session, done func() bool) {
 	}
 }
 
+// Allocation budgets measure a settled editor, not background preview work.
+func waitAgentEditorIdle(t *testing.T, s *edit.Session) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	stable := 0
+	for stable < 10 {
+		s.Step()
+		if s.App.Idle() && !s.App.Previews().Busy() {
+			stable++
+		} else {
+			stable = 0
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("editor previews did not settle before measuring allocations")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // The panel shows the proposal as a card, Apply makes one Undo step, and the session log holds every kind of entry.
 func TestAgentPanelAppliesACardAndLogsTheSession(t *testing.T) {
 	fake := &backend.Fake{Turns: [][]backend.Step{{
@@ -131,6 +150,7 @@ func TestAgentPanelIdleAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
+		waitAgentEditorIdle(t, s)
 		return testing.AllocsPerRun(30, func() { s.Step() })
 	}
 	without := measure(nil)
