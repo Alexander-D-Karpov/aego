@@ -28,5 +28,14 @@ Keep GitHub Actions disabled through the first mirror sync: historical tags
 can contain older workflows. Before enabling Actions, verify mirrored refs and
 restrict the allowed workflows so historical release jobs cannot run. Use a
 separate repository-scoped credential for the mirror; do not put it in a URL.
-Automatic nightly and stable publication is paused until a separately reviewed
-release pipeline enforces the necessary gates and preserves existing releases.
+Gitea's build-and-publish job remains paused. `github-release-mirror.yml`
+copies already-published Gitea releases and assets to GitHub after the current
+master passes Gitea Linux CI and all four real GitHub native jobs. It also
+checks periodically and can be dispatched manually from master. Versioned
+stable releases are published normally, with the highest stable version marked
+Latest; nightly, beta versions, and the stable-channel pointer are prereleases.
+The mirror verifies matching git refs and asset sizes/checksums, stages new
+releases as drafts, and never moves tags or replaces existing assets. If a
+mutable nightly or another mirrored snapshot changes, the mirror stops rather
+than overwriting it; a separate reviewed update is needed in that case. Signed
+update manifests are copied unchanged and retain their original download URLs.
