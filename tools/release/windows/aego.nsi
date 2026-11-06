@@ -6,6 +6,7 @@ RequestExecutionLevel user
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "WinMessages.nsh"
 
 Name "Aego ${VERSION}"
 OutFile "${OUT}"
@@ -55,6 +56,7 @@ Section "Aego" SecMain
   File "${SRC}\aego-editor.exe"
   File "${SRC}\VERSION"
   File "${SRC}\README.txt"
+  File /oname=user-path.ps1 "${__FILEDIR__}\user-path.ps1"
   WriteUninstaller "$INSTDIR\uninstall.exe"
   ; the next update keeps this installer in updates\previous, so Restore Previous Version can run it again
   StrCmp "$EXEPATH" "$INSTDIR\setup.exe" +2
@@ -65,8 +67,14 @@ Section "Aego" SecMain
   CreateShortcut "$SMPROGRAMS\Aego\Uninstall Aego.lnk" "$INSTDIR\uninstall.exe"
   CreateShortcut "$DESKTOP\Aego.lnk" "$INSTDIR\aego-editor.exe"
 
-  ; put aego.exe on the user PATH once
-  nsExec::Exec `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$d='$INSTDIR'; $$p=[Environment]::GetEnvironmentVariable('Path','User'); if (-not $$p) { $$p='' }; if (($$p -split ';') -notcontains $$d) { [Environment]::SetEnvironmentVariable('Path', ($$p.TrimEnd(';') + ';' + $$d).TrimStart(';'), 'User') }"`
+  ; The helper preserves empty segments and records whether we own the entry.
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\user-path.ps1" -Action Install -InstallDir "$INSTDIR"'
+  Pop $0
+  StrCmp $0 0 path_install_done
+  SetErrorLevel 1
+  Abort
+  path_install_done:
+  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
 
   !insertmacro Assoc ".aego" "Aego.Project" "Aego Project"
   !insertmacro Assoc ".aescene" "Aego.Scene" "Aego Scene"
@@ -96,7 +104,13 @@ SectionEnd
 
 Section "Uninstall"
   nsExec::Exec 'taskkill /IM aego-editor.exe /F'
-  nsExec::Exec `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$d='$INSTDIR'; $$p=[Environment]::GetEnvironmentVariable('Path','User'); if ($$p) { [Environment]::SetEnvironmentVariable('Path', (($$p -split ';') | Where-Object { $$_ -and $$_ -ne $$d }) -join ';', 'User') }"`
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\user-path.ps1" -Action Uninstall -InstallDir "$INSTDIR"'
+  Pop $0
+  StrCmp $0 0 path_uninstall_done
+  SetErrorLevel 1
+  Abort
+  path_uninstall_done:
+  SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
   !insertmacro Unassoc ".aego" "Aego.Project"
   !insertmacro Unassoc ".aescene" "Aego.Scene"
   !insertmacro Unassoc ".aeprefab" "Aego.Prefab"
@@ -107,6 +121,7 @@ Section "Uninstall"
   Delete "$INSTDIR\aego-editor.exe"
   Delete "$INSTDIR\VERSION"
   Delete "$INSTDIR\README.txt"
+  Delete "$INSTDIR\user-path.ps1"
   Delete "$INSTDIR\uninstall.exe"
   Delete "$INSTDIR\setup.exe"
   RMDir "$INSTDIR"

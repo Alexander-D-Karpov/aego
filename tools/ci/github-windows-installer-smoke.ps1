@@ -27,6 +27,24 @@ $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Aego.lnk'
 if ((Test-Path $install) -or (Test-Path $startMenu) -or (Test-Path $desktop)) {
     throw 'Install directory or shortcuts already exist.'
 }
+. (Join-Path $PSScriptRoot '../release/windows/user-path.ps1')
+function Get-UserPathState {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+    if ($null -eq $key) {
+        return [pscustomobject]@{ Present = $false; Value = ''; Kind = [Microsoft.Win32.RegistryValueKind]::ExpandString }
+    }
+    try { return Read-AegoUserPath $key } finally { $key.Dispose() }
+}
+function Describe-UserPathState($State) {
+    # Log structural metadata only: never disclose the user's PATH entries.
+    return "present=$($State.Present), kind=$($State.Kind), length=$($State.Value.Length), segments=$(@($State.Value.Split([char]';')).Count)"
+}
+function Assert-SameUserPath($Before, $After, [string]$Message) {
+    if ($Before.Present -ne $After.Present -or ($Before.Present -and ($Before.Kind -ne $After.Kind -or $Before.Value -cne $After.Value))) {
+        throw "${Message}: before ($(Describe-UserPathState $Before)), after ($(Describe-UserPathState $After))"
+    }
+}
+$beforeRawPath = Get-UserPathState
 $beforePath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $workspace = $env:GITHUB_WORKSPACE
 $portableZip = Join-Path $workspace '.cache\github-ci\dist\portable\aego-windows-amd64-portable.zip'
@@ -45,7 +63,7 @@ try {
 $setup = Join-Path $workspace '.cache\github-ci\dist\installer\aego-windows-amd64-setup.exe'
 $proc = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$install") -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "Installer returned $($proc.ExitCode)" }
-foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'setup.exe', 'uninstall.exe')) {
+foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'user-path.ps1', 'setup.exe', 'uninstall.exe')) {
     if (-not (Test-Path (Join-Path $install $file) -PathType Leaf)) { throw "Missing installed $file" }
 }
 foreach ($shortcut in @((Join-Path $startMenu 'Aego.lnk'), (Join-Path $startMenu 'Uninstall Aego.lnk'), $desktop)) {
@@ -64,6 +82,15 @@ foreach ($association in @(@('.aego', 'Aego.Project'), @('.aescene', 'Aego.Scene
 if (([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -notcontains $install) {
     throw 'Installer did not add install directory to user PATH.'
 }
+$installedRawPath = Get-UserPathState
+$expectedPath = Add-AegoPath $beforeRawPath.Value $install
+if (-not $installedRawPath.Present -or $installedRawPath.Value -cne $expectedPath.Value -or $installedRawPath.Kind -ne $beforeRawPath.Kind) {
+    throw "Installer changed unexpected PATH data: before ($(Describe-UserPathState $beforeRawPath)), after ($(Describe-UserPathState $installedRawPath))"
+}
+# Updating the same installation must not duplicate its entry or lose ownership.
+$proc = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$install") -Wait -PassThru
+if ($proc.ExitCode -ne 0) { throw "Installer update returned $($proc.ExitCode)" }
+Assert-SameUserPath $installedRawPath (Get-UserPathState) 'Update changed user PATH'
 $previousProcessPath = $env:Path
 try {
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
@@ -78,11 +105,12 @@ Set-Content -Path (Join-Path $userData 'keep.txt') -Value 'keep user data'
 $proc = Start-Process -FilePath (Join-Path $install 'uninstall.exe') -ArgumentList '/S' -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "Uninstaller returned $($proc.ExitCode)" }
 for ($i = 0; $i -lt 30 -and (Test-Path (Join-Path $install 'uninstall.exe')); $i++) { Start-Sleep -Seconds 1 }
-foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'setup.exe', 'uninstall.exe')) {
+foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'user-path.ps1', 'setup.exe', 'uninstall.exe')) {
     if (Test-Path (Join-Path $install $file)) { throw "Uninstaller left $file" }
 }
 if (-not (Test-Path (Join-Path $userData 'keep.txt'))) { throw 'Uninstaller removed user data.' }
 foreach ($shortcut in @($startMenu, $desktop)) { if (Test-Path $shortcut) { throw "Uninstaller left $shortcut" } }
 foreach ($key in $registry) { if (Test-Path $key) { throw "Uninstaller left $key" } }
-if ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $beforePath) { throw 'User PATH was not restored.' }
+Assert-SameUserPath $beforeRawPath (Get-UserPathState) 'User PATH registry state was not restored'
+if ([Environment]::GetEnvironmentVariable('Path', 'User') -cne $beforePath) { throw 'User PATH environment value was not restored.' }
 Write-Host 'Silent install/uninstall smoke passed. No GUI interaction or signature validation was performed.'
