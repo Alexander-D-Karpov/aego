@@ -15,8 +15,8 @@ import (
 
 func TestFPSUsesMeasuredFrameIntervals(t *testing.T) {
 	for _, fps := range []float64{7.3, 15, 60} {
-		for interval := range intervals() {
-			t.Run(fmt.Sprintf("%.1f_interval_%d", fps, interval), func(t *testing.T) {
+		for interval, seconds := range intervals() {
+			t.Run(fmt.Sprintf("%.1f_interval_%d_%gs", fps, interval, seconds), func(t *testing.T) {
 				p := New(Deps{})
 				p.interval = interval
 				// Simulated frame time deliberately differs from wall-clock sampling.

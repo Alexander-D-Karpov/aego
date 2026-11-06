@@ -121,7 +121,9 @@ jobs:
 
   release:
     needs: [checks, build]
-    if: github.event_name == 'push'
+    # Pause all automatic releases until the reviewed nightly/stable pipeline
+    # enforces native gates and preserves existing tags and release assets.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
