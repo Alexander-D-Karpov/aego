@@ -13,6 +13,7 @@ var _ rewind.Keyframer = (*Service)(nil)
 const (
 	keyBase uint8 = 1 << iota
 	keyLive
+	keyWrote
 )
 
 type animKey struct {
@@ -21,12 +22,13 @@ type animKey struct {
 	anodes []scene.NodeHandle
 	acount []int32
 	vals   []anim.Value
+	lasts  []anim.Value
 	flags  []uint8
 }
 
 func (k *animKey) Size() int {
 	return (len(k.nodes)+len(k.anodes))*int(unsafe.Sizeof(scene.NodeHandle{})) + 4*(len(k.count)+len(k.acount)) +
-		len(k.vals)*int(unsafe.Sizeof(anim.Value{})) + len(k.flags)
+		(len(k.vals)+len(k.lasts))*int(unsafe.Sizeof(anim.Value{})) + len(k.flags)
 }
 
 func (k *animKey) put(binds []binding) {
@@ -39,7 +41,11 @@ func (k *animKey) put(binds []binding) {
 		if b.live {
 			f |= keyLive
 		}
+		if b.wrote {
+			f |= keyWrote
+		}
 		k.vals = append(k.vals, b.base)
+		k.lasts = append(k.lasts, b.last)
 		k.flags = append(k.flags, f)
 	}
 }
@@ -50,7 +56,7 @@ func (s *Service) Capture(reuse rewind.Key) rewind.Key {
 		k = &animKey{}
 	}
 	k.nodes, k.count, k.anodes, k.acount = k.nodes[:0], k.count[:0], k.anodes[:0], k.acount[:0]
-	k.vals, k.flags = k.vals[:0], k.flags[:0]
+	k.vals, k.lasts, k.flags = k.vals[:0], k.lasts[:0], k.flags[:0]
 	s.key = k
 	scene.Store[AnimationPlayer](s.scene).EachAll(s.captureFn)
 	scene.Store[Animator](s.scene).EachAll(s.acaptureFn)
@@ -90,7 +96,10 @@ func (s *Service) restoreBinds(binds []binding, ok bool, n int, k *animKey, off 
 	for j := range binds {
 		b := &binds[j]
 		f := k.flags[off+j]
-		b.base, b.hasBase, b.live, b.wrote = k.vals[off+j], f&keyBase != 0, f&keyLive != 0, false
+		// The last-written cache influences future writes and blend bases. Resetting
+		// it on restore changes replay if a script modified an animated property.
+		b.base, b.last = k.vals[off+j], k.lasts[off+j]
+		b.hasBase, b.live, b.wrote = f&keyBase != 0, f&keyLive != 0, f&keyWrote != 0
 	}
 	return off + n
 }

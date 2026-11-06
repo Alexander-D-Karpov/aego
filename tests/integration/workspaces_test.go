@@ -74,10 +74,10 @@ func TestWorkspaceKeysWorkInTextFields(t *testing.T) {
 		t.Skip("needs the headless platform")
 	}
 	s.App.Context().UI.SetFocus(core.IDOf("test.field"))
-	plat.Push(platform.Event{Kind: platform.EvKeyDown, Key: input.KeyEvent{Scan: input.Key2, Mods: input.ModCtrl}})
+	plat.Push(platform.Event{Kind: platform.EvKeyDown, Key: input.KeyEvent{Scan: input.Key2, Mods: input.PrimaryMod()}})
 	s.Step()
 	if ws.Current().ID != workspace.Programming {
-		t.Fatalf("Ctrl+2 with a focused field switched to %s", ws.Current().ID)
+		t.Fatalf("primary modifier + 2 with a focused field switched to %s", ws.Current().ID)
 	}
 }
 

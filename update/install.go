@@ -51,6 +51,12 @@ func DetectGame(exe string) Install {
 
 // Detect finds how the executable was installed: an AppImage, the versioned tarball layout of install.sh, the NSIS folder or a .app.
 func Detect(exe string) (Install, error) {
+	return detectPlatform(exe, runtime.GOOS)
+}
+
+// detectPlatform also lets the Linux tarball layout be exercised on other
+// Unix hosts without treating that layout as an install for the host OS.
+func detectPlatform(exe, goos string) (Install, error) {
 	if img := os.Getenv("APPIMAGE"); img != "" {
 		return Install{Kind: KindAppImage, Exe: exe, Root: img, Launch: img}, nil
 	}
@@ -58,7 +64,7 @@ func Detect(exe string) (Install, error) {
 	if err != nil {
 		real = exe
 	}
-	switch runtime.GOOS {
+	switch goos {
 	case "windows":
 		dir := filepath.Dir(real)
 		if _, err := os.Stat(filepath.Join(dir, "uninstall.exe")); err == nil {

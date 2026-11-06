@@ -324,11 +324,21 @@ func tarball(t *testing.T, path, top, content string) {
 }
 
 func TestTarballUpdateAndRestore(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "share", "aego")
+	if runtime.GOOS == "windows" {
+		t.Skip("the versioned tarball install requires Unix symlink replacement; Windows uses an installer")
+	}
+	t.Setenv("APPIMAGE", "")
+	// TempDir may have a symlinked ancestor such as /var on macOS. Detect
+	// returns canonical paths, so construct the expected root the same way.
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(base, "share", "aego")
 	os.MkdirAll(filepath.Join(root, "0.11.0", "bin"), 0o755)
 	os.WriteFile(filepath.Join(root, "0.11.0", "bin", "aego"), []byte("v1"), 0o755)
 	os.Symlink("0.11.0", filepath.Join(root, "current"))
-	in, err := Detect(filepath.Join(root, "current", "bin", "aego"))
+	in, err := detectPlatform(filepath.Join(root, "current", "bin", "aego"), "linux")
 	if err != nil || in.Kind != KindTarball || in.Root != root {
 		t.Fatalf("detected %+v: %v", in, err)
 	}
@@ -374,7 +384,11 @@ func TestAppImageUpdateAndRestore(t *testing.T) {
 	if b, _ := os.ReadFile(img); string(b) != "v2" {
 		t.Fatal("the AppImage was not replaced")
 	}
-	if fi, _ := os.Stat(img); fi.Mode()&0o111 == 0 {
+	fi, err := os.Stat(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && fi.Mode()&0o111 == 0 {
 		t.Fatal("the new AppImage is not executable")
 	}
 	if _, err := in.Restore(); err != nil {
@@ -387,6 +401,10 @@ func TestAppImageUpdateAndRestore(t *testing.T) {
 
 // A new version that crashes before it has run TrialTime is rolled back on its next start.
 func TestTrialRollsBackACrashedVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this trial uses the Unix tarball install; the Windows installer trial is tested separately")
+	}
+	t.Setenv("APPIMAGE", "")
 	root := filepath.Join(t.TempDir(), "share", "aego")
 	for _, v := range []string{"0.11.0", "0.12.0"} {
 		os.MkdirAll(filepath.Join(root, v, "bin"), 0o755)
@@ -394,7 +412,10 @@ func TestTrialRollsBackACrashedVersion(t *testing.T) {
 	}
 	os.Symlink("0.12.0", filepath.Join(root, "current"))
 	os.Symlink("0.11.0", filepath.Join(root, "previous"))
-	in, _ := Detect(filepath.Join(root, "current", "bin", "aego"))
+	in, err := detectPlatform(filepath.Join(root, "current", "bin", "aego"), "linux")
+	if err != nil {
+		t.Fatal(err)
+	}
 	state := t.TempDir()
 	BeginTrial(state, Applied{Version: "0.12.0", Previous: "0.11.0"})
 	now := time.Now()

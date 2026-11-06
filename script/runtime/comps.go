@@ -152,7 +152,7 @@ func (r *Runtime) GetField(ref vm.Value, field int, dst *vm.Value) error {
 	case schema.KindEnum:
 		*dst = vm.Int(readInt(q, fd.Size, fd.Unsigned))
 	case schema.KindString:
-		*dst = r.m.NewString(*(*string)(q))
+		*dst = r.m.HostString(*(*string)(q))
 	case schema.KindList:
 		*dst = r.listValue(q, fd.Elem)
 	case schema.KindAssetRef:
@@ -242,7 +242,7 @@ func (r *Runtime) fromSchema(v schema.Value) vm.Value {
 	case schema.KindEnum, schema.KindInt32, schema.KindInt64:
 		return vm.Int(v.I)
 	case schema.KindString:
-		return r.m.NewString(v.S)
+		return r.m.HostString(v.S)
 	case schema.KindAssetRef:
 		return bind.AssetValue(v.Asset)
 	case schema.KindNodeRef:

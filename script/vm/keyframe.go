@@ -20,16 +20,21 @@ type State struct {
 	rlens  []int32
 	cofree []uint32
 	colive int
+
+	hostStrings [hostStringCacheSize]Value
+	hostNext    uint8
 }
 
 func (s *State) Size() int {
 	v := int(unsafe.Sizeof(Value{}))
 	return len(s.objs)*int(unsafe.Sizeof(object{})) + len(s.elems)*v + 8*len(s.lens) + 4*len(s.free) +
-		len(s.cos)*int(unsafe.Sizeof(coroutine{})) + len(s.regs)*v + 4*len(s.rlens) + 4*len(s.cofree)
+		len(s.cos)*int(unsafe.Sizeof(coroutine{})) + len(s.regs)*v + 4*len(s.rlens) + 4*len(s.cofree) +
+		int(unsafe.Sizeof(s.hostStrings)) + int(unsafe.Sizeof(s.hostNext))
 }
 
 func (m *Machine) Capture(dst *State) {
 	h := &m.heap
+	dst.hostStrings, dst.hostNext = m.hostStrings, m.hostNext
 	dst.objs = append(dst.objs[:0], h.objs...)
 	dst.elems, dst.lens, dst.caps = dst.elems[:0], dst.lens[:0], dst.caps[:0]
 	for i := range dst.objs {
@@ -55,6 +60,7 @@ func (m *Machine) Capture(dst *State) {
 
 func (m *Machine) Restore(src *State) {
 	h := &m.heap
+	m.hostStrings, m.hostNext = src.hostStrings, src.hostNext
 	n := len(src.objs)
 	objs := h.objs
 	if cap(objs) < n {
@@ -123,6 +129,8 @@ func HashValues(h *rewind.Hasher, vs []Value) {
 func (m *Machine) Hash(h *rewind.Hasher) {
 	hp := &m.heap
 	h.String("vm")
+	HashValues(h, m.hostStrings[:])
+	h.U32(uint32(m.hostNext))
 	h.Int(len(hp.objs))
 	for i := range hp.objs {
 		o := &hp.objs[i]
