@@ -4537,6 +4537,9 @@ messages version=1 lang=en {
   msg "editor.profiler.frame_took_formatfloat_ms_for" {
     text="Frame took {formatfloat} ms for 3 frames in a row"
   }
+  msg "editor.profiler.frame_wait_duration" {
+    text="   frame limit wait {duration}"
+  }
   msg "editor.profiler.game" {
     text="Game"
   }
@@ -4587,6 +4590,9 @@ messages version=1 lang=en {
   }
   msg "editor.profiler.graph.update" {
     text="update"
+  }
+  msg "editor.profiler.idle_wait_duration" {
+    text="   idle wait {duration}"
   }
   msg "editor.profiler.instances_instances_update_update_fixed" {
     text="instances {instances}   update {update}   fixed {fixed}   faults {faults}   budget aborts {formatuint}   heap objects {heapobjects}   GC {formatuint2} / {gctime} ms"

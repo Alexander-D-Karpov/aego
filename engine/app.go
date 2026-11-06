@@ -6,6 +6,8 @@ const (
 	SystemAppFixed  = "app.fixed"
 	SystemAppUpdate = "app.update"
 	SystemAppRender = "app.render"
+	ZoneFrameWait   = "app.frame_wait"
+	ZoneIdleWait    = "app.idle_wait"
 )
 
 type App interface {
@@ -15,6 +17,12 @@ type App interface {
 	Update(dt float64)
 	Render(alpha float64)
 	Shutdown()
+}
+
+// FramePacer is an optional app capability invoked once after the render phase.
+// Deliberate waits belong here, outside the render system's trace and render time.
+type FramePacer interface {
+	PaceFrame()
 }
 
 type appSystemKind uint8

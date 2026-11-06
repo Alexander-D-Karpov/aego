@@ -4027,6 +4027,9 @@ messages version=1 lang=ru {
   msg "editor.profiler.frame_took_formatfloat_ms_for" {
     text="Кадр занял {formatfloat} мс три кадра подряд"
   }
+  msg "editor.profiler.frame_wait_duration" {
+    text="   ожидание ограничителя {duration}"
+  }
   msg "editor.profiler.game" {
     text="Игра"
   }
@@ -4077,6 +4080,9 @@ messages version=1 lang=ru {
   }
   msg "editor.profiler.graph.update" {
     text="обновление"
+  }
+  msg "editor.profiler.idle_wait_duration" {
+    text="   ожидание простоя {duration}"
   }
   msg "editor.profiler.instances_instances_update_update_fixed" {
     text="экземпляров {instances}   update {update}   fixed {fixed}   сбоев {faults}   прерываний по бюджету {formatuint}   объектов в куче {heapobjects}   GC {formatuint2} / {gctime} мс"

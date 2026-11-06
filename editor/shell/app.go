@@ -1087,7 +1087,6 @@ func (a *App) Update(dt float64) {
 }
 
 func (a *App) Render(float64) {
-	defer a.pace()
 	a.ctx.RunRenderHooks()
 	if a.list == nil || a.list.Empty() {
 		return
@@ -1139,16 +1138,28 @@ func (a *App) idle() bool {
 		len(a.modals) == 0
 }
 
-func (a *App) pace() {
+// PaceFrame waits outside the render system so pacing is not measured as rendering.
+func (a *App) PaceFrame() {
 	if !a.opt.Paced {
 		return
 	}
 	target := time.Second / 60
-	if a.idle() {
+	idle := a.idle()
+	if idle {
 		target = time.Second / 15
 	}
 	if el := time.Since(a.lastFrame); el < target {
+		name := engine.ZoneFrameWait
+		if idle {
+			name = engine.ZoneIdleWait
+		}
+		tr := a.eng.Trace()
+		wait := tr.Begin(tr.Zone(name))
+		start := time.Now()
 		time.Sleep(target - el)
+		d := time.Since(start)
+		wait.End()
+		tr.AddPaceWait(d, idle)
 	}
 	a.lastFrame = time.Now()
 }

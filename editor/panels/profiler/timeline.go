@@ -32,6 +32,34 @@ func nsMS(ns int64) string {
 	return strconv.FormatFloat(float64(ns)/1e6, 'f', 2, 64) + " ms"
 }
 
+type frameRating uint8
+
+const (
+	frameOK frameRating = iota
+	frameIdle
+	frameWarn
+	frameError
+)
+
+// Rate the work against the active target: idle deliberately targets 15 FPS.
+func rateFrame(f *trace.Frame) frameRating {
+	work := max(0, f.Dur-max(0, f.PaceWaitNS))
+	budget := int64(budgetNS)
+	if f.IdleWaitNS > 0 {
+		budget *= 4
+	}
+	switch {
+	case work > 2*budget:
+		return frameError
+	case work > budget:
+		return frameWarn
+	case f.IdleWaitNS > 0:
+		return frameIdle
+	default:
+		return frameOK
+	}
+}
+
 func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 	th := &ui.Theme
 	tr := d.Tracer
@@ -58,6 +86,11 @@ func (tl *Timeline) Draw(ui *core.Context, d Deps, r mathx.Rect) {
 		return
 	}
 	info := i18n.Tr("editor.profiler.frame_formatuint_dur", "Frame {formatuint}   {dur}", i18n.Str("formatuint", strconv.FormatUint(f.Index, 10)), i18n.Str("dur", nsMS(f.Dur)))
+	if f.IdleWaitNS > 0 {
+		info += i18n.Tr("editor.profiler.idle_wait_duration", "   idle wait {duration}", i18n.Str("duration", nsMS(f.IdleWaitNS)))
+	} else if f.PaceWaitNS > 0 {
+		info += i18n.Tr("editor.profiler.frame_wait_duration", "   frame limit wait {duration}", i18n.Str("duration", nsMS(f.PaceWaitNS)))
+	}
 	if f.GC > 0 {
 		info += "   GC " + strconv.Itoa(int(f.GC))
 	}
@@ -88,11 +121,13 @@ func (tl *Timeline) strip(ui *core.Context, d Deps, tr *trace.Tracer, r mathx.Re
 		f := tr.Frame(back)
 		h := min(float32(f.Dur)/stripScaleNS, 1) * r.H
 		col := th.Ok
-		switch {
-		case f.Dur > 2*budgetNS:
+		switch rateFrame(f) {
+		case frameError:
 			col = th.Error
-		case f.Dur > budgetNS:
+		case frameWarn:
 			col = th.Warn
+		case frameIdle:
+			col = th.TextDim
 		}
 		if back == tl.back && tl.paused {
 			col = th.Accent

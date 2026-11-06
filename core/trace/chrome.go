@@ -29,7 +29,8 @@ func WriteChrome(w io.Writer, t *Tracer, frames []Frame) error {
 		bw.WriteString(`,{"name":"frame ` + u(f.Index) + `","ph":"X","pid":1,"tid":1,"ts":` + us(f.Start) +
 			`,"dur":` + us(f.Dur) + `,"args":{"gc":` + u(uint64(f.GC)) +
 			`,"dropped":` + u(uint64(f.Dropped)) + `,"world":` + u(f.World) + `,"frameId":` + u(f.FrameID) +
-			`,"firstTick":` + u(f.FirstTick) + `,"lastTick":` + u(f.LastTick) + `}}`)
+			`,"firstTick":` + u(f.FirstTick) + `,"lastTick":` + u(f.LastTick) +
+			`,"paceWaitNs":` + strconv.FormatInt(f.PaceWaitNS, 10) + `,"idleWaitNs":` + strconv.FormatInt(f.IdleWaitNS, 10) + `}}`)
 		for _, e := range f.Events {
 			name := `""`
 			if int(e.Zone) < len(names) {
