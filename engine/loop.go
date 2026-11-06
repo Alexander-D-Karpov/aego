@@ -23,6 +23,9 @@ func (e *Engine) Step(app App) bool {
 			e.err = errs.Wrap(err, errs.EngineInit, "app initialization failed")
 			return false
 		}
+		// Type-assertion cache updates can allocate; resolve this once before
+		// the per-frame hot path, even for apps without a pacer.
+		e.framePacer, _ = app.(FramePacer)
 		e.appInit = true
 		e.lastTime = e.plat.Now()
 	}
@@ -305,9 +308,9 @@ func (e *Engine) frame() {
 		e.curFrame = e.dev.BeginFrame(e.metrics.PixelW, e.metrics.PixelH)
 		e.allocSince(zoneGPU, am)
 		e.exec(&e.ctx, PhaseRender, mask, plan.Paused)
-		if pacer, ok := e.app.(FramePacer); ok {
+		if e.framePacer != nil {
 			start := e.plat.Now()
-			pacer.PaceFrame()
+			e.framePacer.PaceFrame()
 			paceTime = max(0, e.plat.Now()-start)
 		}
 		e.exec(&e.ctx, PhaseRenderUI, mask, plan.Paused)

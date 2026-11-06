@@ -36,6 +36,9 @@ func TestPacerIsOutsideRenderAndNotCalledWhenMinimized(t *testing.T) {
 	if !e.Step(a) {
 		t.Fatal("first step failed")
 	}
+	if e.framePacer != a {
+		t.Fatal("frame pacer was not resolved during application initialization")
+	}
 	f := e.Trace().Frame(0)
 	var renderEnd, swapStart, waitStart, waitEnd uint32
 	for _, ev := range f.Events {
@@ -62,5 +65,16 @@ func TestPacerIsOutsideRenderAndNotCalledWhenMinimized(t *testing.T) {
 	e.Step(a)
 	if a.calls != 1 || a.renders != 1 {
 		t.Fatalf("pacing or rendering ran while minimized: calls=%d renders=%d", a.calls, a.renders)
+	}
+}
+
+func TestFramePacerAbsentWithoutCapability(t *testing.T) {
+	e, _ := newTestEngine(t)
+	defer e.Close()
+	if !e.Step(&testApp{}) {
+		t.Fatal("first step failed")
+	}
+	if e.framePacer != nil {
+		t.Fatal("application without a pacer unexpectedly acquired one")
 	}
 }
