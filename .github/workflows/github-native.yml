@@ -1,0 +1,162 @@
+name: github-native
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    if: github.server_url == 'https://github.com'
+    name: ${{ matrix.goos }} ${{ matrix.goarch }} native
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-2025, goos: windows, goarch: amd64 }
+          - { runner: macos-15, goos: darwin, goarch: arm64 }
+          - { runner: macos-15-intel, goos: darwin, goarch: amd64 }
+          - { runner: ubuntu-24.04, goos: linux, goarch: amd64 }
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: '1'
+      AEGO_LANG: en
+      EXPECT_GOOS: ${{ matrix.goos }}
+      EXPECT_GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Windows native toolchain
+        if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-nsis
+      - name: Windows toolchain path
+        if: runner.os == 'Windows'
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+      - name: macOS tools
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config openssl \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev \
+            glslang-tools=15.1.0-2~ubuntu0.24.04.2
+          bash tools/check-glslang.sh
+      - name: Record environment and check architecture
+        run: |
+          mkdir -p .cache/github-ci/logs
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "event_sha=$GITHUB_SHA"
+            echo "runner=$RUNNER_OS/$RUNNER_ARCH"
+            uname -a
+            go version
+            go env GOOS GOARCH CGO_ENABLED CC
+            cmake --version
+            gcc --version
+          } > .cache/github-ci/logs/environment.txt 2>&1
+          cat .cache/github-ci/logs/environment.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(go env GOOS)" = "$EXPECT_GOOS"
+          test "$(go env GOARCH)" = "$EXPECT_GOARCH"
+          test "$(go env CGO_ENABLED)" = 1
+      - name: Build pinned SDL
+        run: bash tools/bootstrap-native.sh 2>&1 | tee .cache/github-ci/logs/bootstrap.txt
+      - name: Build all packages
+        run: go build ./... 2>&1 | tee .cache/github-ci/logs/build.txt
+      - name: Native platform tests
+        if: runner.os != 'Linux'
+        run: go test -count=1 ./... 2>&1 | tee .cache/github-ci/logs/tests.txt
+      - name: Linux compatibility tests
+        if: runner.os == 'Linux'
+        run: go test -count=1 ./asset/... ./engine/... ./runtime/... ./update/... 2>&1 | tee .cache/github-ci/logs/tests.txt
+      - name: Strict headless smoke
+        run: go run ./cmd/sandbox --demo headless --frames 600 --strict-allocs
+      - name: CLI and headless runtime smoke
+        run: bash tools/ci/github-cli-smoke.sh 2>&1 | tee .cache/github-ci/logs/cli-smoke.txt
+      - name: Build Windows portable and installer
+        if: runner.os == 'Windows'
+        run: bash tools/ci/github-windows-package.sh 2>&1 | tee .cache/github-ci/logs/windows-package.txt
+      - name: Native silent installer and uninstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/ci/github-windows-installer-smoke.ps1
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        run: bash tools/ci/github-macos-package.sh 2>&1 | tee .cache/github-ci/logs/macos-package.txt
+      - name: Package Linux CLI
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p .cache/github-ci/dist/linux
+          cp .cache/github-ci/bin/aego .cache/github-ci/dist/linux/aego-linux-amd64
+          cd .cache/github-ci/dist/linux
+          sha256sum aego-linux-amd64 > SHA256SUMS.txt
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-logs-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: .cache/github-ci/logs/
+          include-hidden-files: true
+          if-no-files-found: ignore
+      - name: Upload Windows portable
+        if: runner.os == 'Windows' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-amd64-portable-unsigned
+          path: .cache/github-ci/dist/portable/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload Windows installer
+        if: runner.os == 'Windows' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-amd64-installer-unsigned
+          path: .cache/github-ci/dist/installer/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload macOS app
+        if: runner.os == 'macOS' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-${{ matrix.goarch }}-app-not-notarized
+          path: .cache/github-ci/dist/macos/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload Linux CLI
+        if: runner.os == 'Linux' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-amd64-cli
+          path: .cache/github-ci/dist/linux/
+          include-hidden-files: true
+          if-no-files-found: error

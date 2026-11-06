@@ -199,14 +199,16 @@ func (o *Overlay) collect() {
 		o.items = append(o.items, Item{
 			Label: d.Title(), Detail: detail, Kind: "action", Tab: TabActions, Icon: "tool.select",
 			Fav: favs.Item{Kind: favs.Command, Command: id, Label: d.Name}, HasFav: true,
-			Run: func() {
-				if o.d.Commands.Enabled(id) {
-					o.d.Commands.Run(id)
-				} else {
-					o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.this_action_is_not_available", "This action is not available right now"))
-				}
-			},
+			Run: func() { o.runCommand(id) },
 		})
+	}
+}
+
+func (o *Overlay) runCommand(id string) {
+	if o.d.Commands.Enabled(id) {
+		o.d.Commands.RunFromSearch(id)
+	} else {
+		o.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.search.this_action_is_not_available", "This action is not available right now"))
 	}
 }
 
@@ -419,6 +421,10 @@ func (o *Overlay) favorites() {
 		o.items = append(o.items, Item{
 			Label: label, Detail: detail, Kind: "favorite", Tab: TabAll, Icon: "ui.star", Fav: it, HasFav: true,
 			Run: func() {
+				if it.Kind == favs.Command {
+					o.runCommand(it.Command)
+					return
+				}
 				if err := favs.Open(env, it); err != nil {
 					o.d.Notices.Notify(context.LevelInfo, err.Error())
 				}

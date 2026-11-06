@@ -7,6 +7,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/editor/core/code/highlight"
+	"aego/ui/theme"
 )
 
 func TestDeclName(t *testing.T) {
@@ -27,6 +28,18 @@ func TestDeclName(t *testing.T) {
 		if name != c.name || kind != c.kind || ok != c.ok {
 			t.Errorf("%q: got %q %d %v", c.line, name, kind, ok)
 		}
+	}
+}
+
+func TestLightFolderSheetsContrastWithPanel(t *testing.T) {
+	light, dark := theme.Light(), theme.Editor()
+	fill, border := folderSheetColors(&light)
+	if theme.Contrast(fill, light.Panel) < 1.2 || theme.Contrast(border, fill) < 1.5 {
+		t.Fatal("light folder sheets must be distinguishable from the panel and each other")
+	}
+	fill, border = folderSheetColors(&dark)
+	if fill != dark.CardBg || border != dark.Border {
+		t.Fatal("dark folder sheet colors changed")
 	}
 }
 

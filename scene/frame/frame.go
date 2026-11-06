@@ -83,6 +83,7 @@ type Runner struct {
 	fixedBackdrop       func(*render.ViewFrame)
 	fixed               view.View
 	hasFixed            bool
+	preview2DIn3D       bool
 	captureView         view.ID
 	factor              float32
 	rscale              float32
@@ -169,6 +170,12 @@ func (r *Runner) SetViewportSize(w, h int) {
 // SetFixedBackdrop draws a fixed presentation surface's opaque backdrop before the world; ordinary cameras do not get one.
 // When coverage-free additive needs it, backdrop and world share a linear composite.
 func (r *Runner) SetFixedBackdrop(draw func(*render.ViewFrame)) { r.fixedBackdrop = draw }
+
+// SetPreview2DIn3D includes ordinary 2D sprites in a 3D editor preview. It
+// does not change the scene or the behaviour of runtime cameras.
+func (r *Runner) SetPreview2DIn3D(enabled bool) { r.preview2DIn3D = enabled }
+
+func (r *Runner) Preview2DIn3D() bool { return r.preview2DIn3D }
 
 func (r *Runner) SetFixedView(v view.View) {
 	r.fixed = v

@@ -154,7 +154,9 @@ func (a *App) drawStatus(r mathx.Rect) {
 		item(i18n.Tr("editor.shell.n_unsaved", "{n} unsaved", i18n.Str("n", strconv.Itoa(n))), th.Warn, "", false)
 	}
 	mid := mathx.Rect{X: left + 8, Y: r.Y, W: max(0, right-left-16), H: r.H}
-	text, col := a.contextHint(), th.TextDisabled
+	// Context hints are useful text, not disabled controls; keep them readable
+	// on the status bar in both themes.
+	text, col := a.contextHint(), th.TextDim
 	if n, ok := a.ctx.LastNotice(); ok && ui.Time-n.Time < 8 {
 		text, col = n.Text, th.TextDim
 		switch n.Level {

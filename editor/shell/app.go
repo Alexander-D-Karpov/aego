@@ -249,6 +249,7 @@ type App struct {
 	problemRev     uint64
 	clip           *clipboard
 	picker         scenePicker
+	captures       []sceneCapture
 	// updateTask shows a running download in the Task Center; rollbackSaid keeps the rollback notice to one.
 	updateTask   *tasks.Task
 	rollbackSaid bool

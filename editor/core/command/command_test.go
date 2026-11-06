@@ -1,10 +1,46 @@
 package command
 
 import (
+	"errors"
 	"testing"
 
 	"aego/platform/input"
 )
+
+func TestRunFromSearchUsesOptionalAction(t *testing.T) {
+	r := New()
+	var normal, search int
+	failure := errors.New("search failed")
+	var reported error
+	r.OnError = func(id string, err error) { reported = err }
+	if err := r.Register(Desc{ID: "window.example", Run: func() error {
+		normal++
+		return nil
+	}, SearchRun: func() error {
+		search++
+		return failure
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Run("window.example"); err != nil || normal != 1 || search != 0 {
+		t.Fatalf("normal action: %v, normal %d, search %d", err, normal, search)
+	}
+	if err := r.RunFromSearch("window.example"); !errors.Is(err, failure) || !errors.Is(reported, failure) || search != 1 {
+		t.Fatalf("search action: %v, reported %v, ran %d", err, reported, search)
+	}
+	if err := r.Register(Desc{ID: "ordinary", Run: func() error { normal++; return nil }}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.RunFromSearch("ordinary"); err != nil || normal != 2 {
+		t.Fatalf("ordinary action from search: %v, ran %d", err, normal)
+	}
+	if err := r.Register(Desc{ID: "disabled", Enabled: func() bool { return false }, Run: func() error { return nil }, SearchRun: func() error { search++; return nil }}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.RunFromSearch("disabled"); err == nil || search != 1 {
+		t.Fatal("search must not run a disabled command")
+	}
+}
 
 func TestAltShortcutDispatches(t *testing.T) {
 	r := New()

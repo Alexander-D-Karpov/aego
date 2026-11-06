@@ -234,17 +234,29 @@ func (p *Panel) folderStack(dir string, img mathx.Rect) {
 		it := &p.items[list[k]]
 		lift := float32(k%2) * icon * 0.06
 		cr := mathx.Rect{X: x0 + float32(k)*step, Y: at.Y + icon*0.02 - lift, W: cs, H: cs}
-		ui.Rect(cr, th.CardBg)
-		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: cr.H * 0.42}
+		fill, border := folderSheetColors(th)
+		ui.Rect(cr, fill)
+		// The front of the folder covers the lower part of each sheet. Use
+		// the visible portion for the preview instead of a thin strip.
+		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: max(1, cr.H*0.72-2)}
 		if !p.thumb(it, in) {
 			ic := cs * 0.4
 			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, kindIcon(it.Kind), p.kindColor(it.Kind))
 		}
-		ui.Outline(cr, th.Border)
+		ui.Outline(cr, border)
 	}
 	front := mathx.Rect{X: at.X + icon*0.07, Y: at.Y + icon*0.43, W: icon * 0.86, H: icon * 0.43}
 	ui.RoundRect(front, icon*0.035, th.Accent)
 	ui.Rect(mathx.Rect{X: front.X, Y: front.Y, W: front.W, H: max(1, icon*0.025)}, back)
+}
+
+func folderSheetColors(th *core.Theme) (mathx.Color, mathx.Color) {
+	if th.Dark {
+		return th.CardBg, th.Border
+	}
+	border := th.TextDim
+	border.A = 0.55
+	return th.WidgetDown, border
 }
 
 func (p *Panel) code(lines []string, r mathx.Rect) {

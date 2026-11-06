@@ -306,6 +306,10 @@ func (a *App) registerWindowCommands() error {
 				a.ws.Toggle(id)
 				return nil
 			},
+			SearchRun: func() error {
+				a.ws.Focus(id)
+				return nil
+			},
 		}); err != nil {
 			return err
 		}

@@ -68,7 +68,7 @@ func (p *Panel) drawFixedBackdrop(f *render.ViewFrame) {
 
 func (p *Panel) drawOverlays(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 	win := p.d.Project.Window
-	col := th.ViewportText
+	col := th.SceneText
 	var presentationWorld *engine.World
 	if p.cur != nil {
 		presentationWorld = p.cur.w
@@ -106,7 +106,7 @@ func (p *Panel) drawGizmos(s *scene.Scene, dbg *debug.Draw, th *core.Theme) {
 		Colors: gizmo.Colors{
 			X:      th.AxisX,
 			Y:      th.AxisY,
-			Center: th.ViewportLine,
+			Center: th.SceneLine,
 			Rotate: th.Accent,
 			Hot:    th.AxisHot,
 			Field:  th.FieldGizmo,

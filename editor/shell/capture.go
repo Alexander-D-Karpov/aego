@@ -16,17 +16,37 @@ import (
 
 const captureFlip = true
 
+type sceneCapture struct {
+	tex  gpu.TextureHandle
+	w, h int
+	name string
+}
+
+// Capture is requested during rendering; readback is only valid after EndFrame.
 func (a *App) captureTexture(tex gpu.TextureHandle, w, h int, name string) {
+	a.captures = append(a.captures, sceneCapture{tex: tex, w: w, h: h, name: name})
+}
+
+// FrameFinished reads the target before the next UI update can resize it.
+func (a *App) FrameFinished() {
+	for _, c := range a.captures {
+		a.saveCapture(c)
+	}
+	clear(a.captures)
+	a.captures = a.captures[:0]
+}
+
+func (a *App) saveCapture(c sceneCapture) {
 	dev := a.ctx.Engine.GPU()
 	if dev == nil {
 		return
 	}
-	buf := make([]byte, w*h*4)
-	if err := dev.ReadPixels(tex, 0, 0, w, h, buf); err != nil {
+	buf := make([]byte, c.w*c.h*4)
+	if err := dev.ReadPixels(c.tex, 0, 0, c.w, c.h, buf); err != nil {
 		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.cannot_read_the_scene_view", "cannot read the Scene View: {error}", i18n.Str("error", err.Error())))
 		return
 	}
-	rel, err := capture.Save(a.opt.Project.Root, name, w, h, buf, captureFlip, time.Now())
+	rel, err := capture.Save(a.opt.Project.Root, c.name, c.w, c.h, buf, captureFlip, time.Now())
 	if err != nil {
 		a.ctx.Notify(context.LevelError, err.Error())
 		return

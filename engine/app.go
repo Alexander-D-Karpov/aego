@@ -25,6 +25,12 @@ type FramePacer interface {
 	PaceFrame()
 }
 
+// FrameFinisher runs on the main thread after GPU EndFrame and before swap.
+// It is not called on frames that do not render.
+type FrameFinisher interface {
+	FrameFinished()
+}
+
 type appSystemKind uint8
 
 const (

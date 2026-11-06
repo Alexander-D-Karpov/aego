@@ -26,6 +26,7 @@ func (e *Engine) Step(app App) bool {
 		// Type-assertion cache updates can allocate; resolve this once before
 		// the per-frame hot path, even for apps without a pacer.
 		e.framePacer, _ = app.(FramePacer)
+		e.finisher, _ = app.(FrameFinisher)
 		e.appInit = true
 		e.lastTime = e.plat.Now()
 	}
@@ -318,6 +319,9 @@ func (e *Engine) frame() {
 		am = e.allocMark()
 		e.dev.EndFrame()
 		e.curFrame = nil
+		if e.finisher != nil {
+			e.finisher.FrameFinished()
+		}
 		if e.capture != nil {
 			e.grab()
 		}

@@ -64,7 +64,7 @@ func LightCode() CodeTheme {
 	}
 }
 
-// Light is the light editor theme: the metrics and viewport colours of Editor with light colours (D345).
+// Light is the light editor theme; the game viewport keeps its own dark frame.
 func Light() Theme {
 	t := Editor()
 	t.Text = mathx.ColorRGB8(0x1F, 0x23, 0x29)
@@ -128,5 +128,11 @@ func Light() Theme {
 	}
 	t.Dark = false
 	t.Agent = agentLight()
+	t.SceneBg = mathx.ColorRGB8(0xDC, 0xE1, 0xE7)
+	t.SceneText = mathx.ColorRGB8(0x45, 0x50, 0x5E)
+	t.SceneText.A = 0.8
+	t.SceneLine = mathx.ColorRGB8(0x38, 0x43, 0x50)
+	t.GridMinor = mathx.Color{A: 0.09}
+	t.GridMajor = mathx.Color{A: 0.17}
 	return t
 }

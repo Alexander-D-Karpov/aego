@@ -21,7 +21,7 @@ jobs:
   # Native runs on Windows and macOS machines; the Windows build itself is cross-compiled on Linux in ci.yml (D301).
   smoke:
     name: ${{ matrix.goos }} ${{ matrix.goarch }} smoke
-    if: vars.PLATFORM_RUNNERS == 'true'
+    if: github.server_url != 'https://github.com' && vars.PLATFORM_RUNNERS == 'true'
     strategy:
       fail-fast: false
       matrix:

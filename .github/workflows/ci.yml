@@ -20,6 +20,7 @@ env:
 
 jobs:
   checks:
+    if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +45,7 @@ jobs:
         run: make nsis-check
 
   build:
+    if: github.server_url != 'https://github.com'
     strategy:
       fail-fast: false
       matrix:

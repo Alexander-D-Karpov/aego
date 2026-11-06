@@ -8,9 +8,9 @@ import (
 )
 
 func theme3(th *core.Theme) Theme3 {
-	grid := th.ViewportText
+	grid := th.SceneText
 	grid.A = 0.25
-	cam := th.ViewportText
+	cam := th.SceneText
 	cam.A = 0.7
 	box := th.Accent
 	box.A = 0.8
@@ -19,7 +19,7 @@ func theme3(th *core.Theme) Theme3 {
 		Camera:    cam,
 		Box:       box,
 		Grid:      grid,
-		Gizmo:     gizmo.Colors3{X: th.AxisX, Y: th.AxisY, Z: th.AxisZ, Center: th.ViewportLine, Hot: th.AxisHot},
+		Gizmo:     gizmo.Colors3{X: th.AxisX, Y: th.AxisY, Z: th.AxisZ, Center: th.SceneLine, Hot: th.AxisHot},
 	}
 }
 
@@ -45,6 +45,7 @@ func (p *Panel) render3D() {
 	sv.DoClear = false
 	sv.Label = "sceneview3d.scene"
 	wd.runner.SetPooledTarget(t)
+	wd.runner.SetPreview2DIn3D(true)
 	wd.runner.SetFixedView(sv)
 	wd.runner.SetHidden(p.runnerHide())
 	p.d.Viewport.RenderWorld(wd.w)

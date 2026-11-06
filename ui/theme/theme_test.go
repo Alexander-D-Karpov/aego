@@ -50,6 +50,7 @@ func pairs(t Theme) []pair {
 		{"Text/ButtonActive", t.Text, t.ButtonActive, 4.5},
 		{"Text/Widget", t.Text, t.Widget, 4.5},
 		{"TextDim/Panel", t.TextDim, t.Panel, 4.5},
+		{"TextDim/Header", t.TextDim, t.Header, 4.5},
 		{"TextDim/CardBg", t.TextDim, t.CardBg, 4.5},
 		{"TextDisabled/Panel", t.TextDisabled, t.Panel, 2},
 		{"Unit/CardBg", t.Unit, t.CardBg, 3},
@@ -102,5 +103,32 @@ func TestModeRoundTrip(t *testing.T) {
 	}
 	if !For(ModeSystem, true).Dark || For(ModeSystem, false).Dark || !For(ModeDark, false).Dark || For(ModeLight, true).Dark {
 		t.Fatal("For picks the wrong theme")
+	}
+}
+
+func TestSceneColorsFollowEditorTheme(t *testing.T) {
+	dark, light := Editor(), Light()
+	if dark.SceneBg != mathx.ColorRGB8(0x15, 0x17, 0x1B) {
+		t.Fatal("dark scene background changed")
+	}
+	if Luminance(light.SceneBg) < 0.5 || Luminance(light.SceneBg) <= Luminance(dark.SceneBg) {
+		t.Fatal("light scene background must be light")
+	}
+	if light.ViewportBg != dark.ViewportBg || light.ViewportText != dark.ViewportText {
+		t.Fatal("changing the scene must not change the game viewport frame")
+	}
+	for _, tc := range []struct {
+		name string
+		th   Theme
+	}{{"dark", dark}, {"light", light}} {
+		if Contrast(tc.th.SceneText, tc.th.SceneBg) < 2 || Contrast(tc.th.SceneLine, tc.th.SceneBg) < 3 {
+			t.Errorf("%s scene overlays are not readable", tc.name)
+		}
+		if Contrast(tc.th.GridMajor, tc.th.SceneBg) <= Contrast(tc.th.GridMinor, tc.th.SceneBg) {
+			t.Errorf("%s major grid must be more visible than minor grid", tc.name)
+		}
+	}
+	if For(ModeSystem, false).SceneBg != light.SceneBg || For(ModeSystem, true).SceneBg != dark.SceneBg {
+		t.Fatal("system scene theme must follow the system appearance")
 	}
 }

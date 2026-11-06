@@ -135,8 +135,10 @@ type Desc struct {
 	Checked  func() bool
 	Enabled  func() bool
 	Run      func() error
-	nameKey  string
-	tipKey   string
+	// SearchRun optionally opens an item rather than toggling it from Search Everywhere.
+	SearchRun func() error
+	nameKey   string
+	tipKey    string
 }
 
 // Info adds an icon and a tooltip to a command registered elsewhere.
@@ -312,6 +314,15 @@ func (r *Registry) Enabled(id string) bool {
 }
 
 func (r *Registry) Run(id string) error {
+	return r.run(id, false)
+}
+
+// RunFromSearch uses the search-specific action when one is registered.
+func (r *Registry) RunFromSearch(id string) error {
+	return r.run(id, true)
+}
+
+func (r *Registry) run(id string, search bool) error {
 	d, ok := r.byID[id]
 	if !ok {
 		return errs.New(errs.EditorCommand, "unknown command", log.F("command", id))
@@ -319,7 +330,11 @@ func (r *Registry) Run(id string) error {
 	if d.Enabled != nil && !d.Enabled() {
 		return errs.New(errs.EditorCommand, "command is disabled", log.F("command", id))
 	}
-	err := d.Run()
+	run := d.Run
+	if search && d.SearchRun != nil {
+		run = d.SearchRun
+	}
+	err := run()
 	if err != nil && r.OnError != nil {
 		r.OnError(id, err)
 	}
