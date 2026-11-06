@@ -10,6 +10,12 @@ ephemeral GitHub-hosted runner. macOS bundles are ad-hoc signed, not notarized.
 These jobs are not evidence of platform support until they actually pass on
 their respective runners.
 
+On Gitea, the GitHub-only matrix routes to the Linux runner before being
+skipped. This prevents Windows and macOS entries from waiting indefinitely for
+runners that Gitea does not have. On GitHub, the actual native labels are used.
+macOS and Windows build the pinned GLSL reference validator from verified
+source, rather than depending on a changing package-manager version.
+
 Keep GitHub Actions disabled through the first mirror sync: historical tags
 can contain older workflows. Before enabling Actions, verify mirrored refs and
 restrict the allowed workflows so historical release jobs cannot run. Use a

@@ -14,7 +14,10 @@ jobs:
   native:
     if: github.server_url == 'https://github.com'
     name: ${{ matrix.goos }} ${{ matrix.goarch }} native
-    runs-on: ${{ matrix.runner }}
+    # Gitea may assign a runner before evaluating job-level `if`. Route its
+    # skipped matrix entries to the available Linux runner instead of leaving
+    # Windows/macOS entries queued forever.
+    runs-on: ${{ github.server_url == 'https://github.com' && matrix.runner || 'ubuntu-24.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -71,6 +74,9 @@ jobs:
             libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev \
             glslang-tools=15.1.0-2~ubuntu0.24.04.2
           bash tools/check-glslang.sh
+      - name: Build pinned shader validator
+        if: runner.os != 'Linux'
+        run: bash tools/ci/github-glslang.sh
       - name: Record environment and check architecture
         run: |
           mkdir -p .cache/github-ci/logs
