@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,7 +99,8 @@ func TestKeyTracksNativeSources(t *testing.T) {
 
 func TestLocalReplaces(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), `module game
+	absolute := filepath.VolumeName(root) + "/abs/c"
+	writeFile(t, filepath.Join(root, "go.mod"), fmt.Sprintf(`module game
 
 go 1.27
 
@@ -107,9 +109,9 @@ replace aego => ../engine // local engine
 replace (
     example.com/a v1.2.3 => ./vendor/a
     example.com/b => example.com/b v1.0.0
-    example.com/c => /abs/c
+    example.com/c => %s
 )
-`)
+`, absolute))
 	got, err := LocalReplaces(root)
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +119,7 @@ replace (
 	want := map[string]bool{
 		filepath.Clean(filepath.Join(root, "../engine")):   true,
 		filepath.Clean(filepath.Join(root, "vendor", "a")): true,
-		filepath.Clean("/abs/c"):                           true,
+		filepath.Clean(absolute):                           true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("replaces = %v", got)

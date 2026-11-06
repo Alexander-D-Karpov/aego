@@ -78,11 +78,21 @@ type Bundle struct {
 func sanitizer() func(string) string {
 	home, _ := os.UserHomeDir()
 	return func(s string) string {
-		if home != "" {
-			s = strings.ReplaceAll(s, home, "~")
-		}
+		return hideHome(s, home)
+	}
+}
+
+func hideHome(s, home string) string {
+	if home == "" {
 		return s
 	}
+	// Windows paths can appear with either separator in stack traces and logs.
+	for _, prefix := range [2]string{home, strings.ReplaceAll(home, `\`, "/")} {
+		s = strings.ReplaceAll(s, prefix+`\`, "~/")
+		s = strings.ReplaceAll(s, prefix+"/", "~/")
+		s = strings.ReplaceAll(s, prefix, "~")
+	}
+	return s
 }
 
 func Write(b Bundle) (string, error) {

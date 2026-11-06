@@ -40,14 +40,21 @@ func TestPacerIsOutsideRenderAndNotCalledWhenMinimized(t *testing.T) {
 		t.Fatal("frame pacer was not resolved during application initialization")
 	}
 	f := e.Trace().Frame(0)
+	if f == nil {
+		t.Fatal("missing traced frame")
+	}
 	var renderEnd, swapStart, waitStart, waitEnd uint32
+	var hasRender, hasSwap, hasWait bool
 	for _, ev := range f.Events {
 		switch e.Trace().Name(ev.Zone) {
 		case SystemAppRender:
+			hasRender = true
 			renderEnd = ev.Start + ev.Dur
 		case "engine.swap":
+			hasSwap = true
 			swapStart = ev.Start
 		case ZoneIdleWait:
+			hasWait = true
 			if ev.Depth != 0 {
 				t.Fatalf("wait is nested in a render zone: %+v", ev)
 			}
@@ -55,7 +62,7 @@ func TestPacerIsOutsideRenderAndNotCalledWhenMinimized(t *testing.T) {
 			waitEnd = ev.Start + ev.Dur
 		}
 	}
-	if a.calls != 1 || a.renders != 1 || renderEnd == 0 || swapStart == 0 || waitStart < renderEnd || waitEnd > swapStart {
+	if a.calls != 1 || a.renders != 1 || !hasRender || !hasSwap || !hasWait || waitStart < renderEnd || waitEnd > swapStart {
 		t.Fatalf("calls=%d renders=%d render end=%d wait=%d..%d swap start=%d", a.calls, a.renders, renderEnd, waitStart, waitEnd, swapStart)
 	}
 	if e.Stats().RenderTime != 0 || f.PaceWaitNS != int64(70*time.Millisecond) || f.IdleWaitNS != int64(70*time.Millisecond) {
