@@ -16,6 +16,14 @@ runners that Gitea does not have. On GitHub, the actual native labels are used.
 macOS and Windows build the pinned GLSL reference validator from verified
 source, rather than depending on a changing package-manager version.
 
+To show native GitHub results on the Gitea commit, create the GitHub Actions
+secret `GITEA_STATUS_TOKEN` containing a Gitea API token with repository write
+permission. Prefer a non-admin bot that has access only to `sanspie/aego`:
+Gitea's repository-write token is broader than commit statuses. The reporter
+publishes pending and final statuses with links to the real GitHub jobs only
+for trusted `master` pushes or manual runs, never for pull requests. If the
+secret is missing, CI still runs but no Gitea statuses are published.
+
 Keep GitHub Actions disabled through the first mirror sync: historical tags
 can contain older workflows. Before enabling Actions, verify mirrored refs and
 restrict the allowed workflows so historical release jobs cannot run. Use a

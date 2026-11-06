@@ -11,7 +11,25 @@ permissions:
   contents: read
 
 jobs:
+  gitea-pending:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test status reporter
+        run: python3 -m unittest discover -s tools/ci -p gitea_status_test.py
+      - name: Report queued native jobs to Gitea
+        if: github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        env:
+          GITEA_STATUS_TOKEN: ${{ secrets.GITEA_STATUS_TOKEN }}
+        run: python3 tools/ci/gitea_status.py pending
+
   native:
+    needs: gitea-pending
     if: github.server_url == 'https://github.com'
     name: ${{ matrix.goos }} ${{ matrix.goarch }} native
     # Gitea may assign a runner before evaluating job-level `if`. Route its
@@ -166,3 +184,21 @@ jobs:
           path: .cache/github-ci/dist/linux/
           include-hidden-files: true
           if-no-files-found: error
+
+  gitea-result:
+    if: ${{ always() && github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Report actual native results to Gitea
+        env:
+          GITEA_STATUS_TOKEN: ${{ secrets.GITEA_STATUS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ci/gitea_status.py finished
