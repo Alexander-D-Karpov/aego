@@ -88,6 +88,9 @@ func artHooks(r *ext.Registry) error {
 	if err := registerArtCreate(r); err != nil {
 		return err
 	}
+	if err := registerAsepriteImport(r); err != nil {
+		return err
+	}
 	docks, err := newArtDocks(r)
 	if err != nil {
 		return err

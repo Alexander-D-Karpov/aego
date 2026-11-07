@@ -1313,6 +1313,21 @@ messages version=1 lang=en {
   msg "editor.art.animation_preview" {
     text="Animation Preview"
   }
+  msg "editor.art.ase_diagnostic" {
+    text="{code} (frame {frame}, chunk {chunk}): {message}"
+  }
+  msg "editor.art.ase_metadata" {
+    text="Metadata in this chunk is not imported."
+  }
+  msg "editor.art.ase_ninepatch" {
+    text="The nine-patch center is not retained; slice bounds and pivot are retained."
+  }
+  msg "editor.art.ase_repeat" {
+    text="A finite tag repeat count is not retained; the imported tag loops."
+  }
+  msg "editor.art.ase_uuid" {
+    text="Aseprite's layer UUID is replaced by an Art Document ID."
+  }
   msg "editor.art.asset_timeline" {
     text="Asset Timeline"
   }
@@ -1321,6 +1336,9 @@ messages version=1 lang=en {
   }
   msg "editor.art.canvas" {
     text="Canvas"
+  }
+  msg "editor.art.close" {
+    text="Close"
   }
   msg "editor.art.close_message" {
     text="Save changes to {path}?"
@@ -1396,6 +1414,42 @@ messages version=1 lang=en {
   }
   msg "editor.art.hide_layer" {
     text="Hide layer"
+  }
+  msg "editor.art.import_action" {
+    text="Import"
+  }
+  msg "editor.art.import_anyway" {
+    text="Import Anyway"
+  }
+  msg "editor.art.import_aseprite" {
+    text="Import Aseprite…"
+  }
+  msg "editor.art.import_aseprite_hint" {
+    text="The original file is not overwritten."
+  }
+  msg "editor.art.import_aseprite_input" {
+    text="Aseprite file path"
+  }
+  msg "editor.art.import_aseprite_output" {
+    text="New project source path"
+  }
+  msg "editor.art.import_aseprite_size" {
+    text="The input must be a regular Aseprite file within the import size limit."
+  }
+  msg "editor.art.import_aseprite_target" {
+    text="The new source must use .aeart."
+  }
+  msg "editor.art.import_aseprite_type" {
+    text="The input file must use .ase or .aseprite."
+  }
+  msg "editor.art.import_diagnostics" {
+    text="Import diagnostics"
+  }
+  msg "editor.art.import_loss_warning" {
+    text="Some metadata will not be retained. Review the diagnostics before creating the new source:"
+  }
+  msg "editor.art.import_project_changed" {
+    text="The project changed before the import completed."
   }
   msg "editor.art.lasso" {
     text="Lasso selection"
@@ -1939,6 +1993,9 @@ messages version=1 lang=en {
   }
   msg "editor.command.app.quit.tip" {
     text="Quit the editor, asking first about unsaved changes"
+  }
+  msg "editor.command.asset.import_aseprite" {
+    text="Import Aseprite…"
   }
   msg "editor.command.asset.new_art" {
     text="New Pixel Art…"
