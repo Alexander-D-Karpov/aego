@@ -882,6 +882,7 @@ func (b *builder) content(e *Entry, root string) string {
 		head.Body = ""
 		b.details(&c, &head, root)
 		c.WriteString(b.componentMeta(e, root))
+		c.WriteString(b.componentStudioLinks(e, root))
 	} else {
 		b.details(&c, e, root)
 	}

@@ -38,7 +38,8 @@ def main() -> int:
               'manifestSHA256': hashlib.sha256(raw).hexdigest(), 'checks': [],
               'transport': 'real-http', 'consoleErrors': [], 'limits': [
                   'OS save picker not tested; actual browser download/reimport is tested.',
-                  'Physical touch/pen, WebGL previews and native integration are separate gates.']}
+                  'Physical touch/pen, WebGL previews and native integration are separate gates.',
+                  'Blocking site data exercises unavailable recovery, not actual disk or quota exhaustion.']}
     def checked(name):
         report['checks'].append(name)
         print('PASS', name, flush=True)
@@ -206,6 +207,30 @@ def main() -> int:
                     assert summary(f)['buildID'] == manifest['buildID']
                     tutorial.close()
             checked('twelve-lessons-ru-en-real-editor')
+            if args.docs_prefix == 'asset-studio':
+                # Verify links from the real component registry pages, not a
+                # generated placeholder or a second component Try runtime.
+                component_lessons = {
+                    'engine.SpriteRenderer': 'first-sprite',
+                    'animation.AnimationPlayer': 'animation',
+                    'animation.Animator': 'character',
+                    'particles.ParticleSystem2D': 'explosion',
+                    'engine.MaterialOverride': 'surface-channels',
+                    'engine.Light2D': 'surface-channels',
+                    'engine.LightOccluder2D': 'surface-channels',
+                }
+                reference = context.new_page()
+                for language in ('ru', 'en'):
+                    for component, lesson in component_lessons.items():
+                        prefix = 'ru/' if language == 'ru' else ''
+                        response = reference.goto(docs+f'{prefix}ref/{component}.html')
+                        assert response and response.status == 200, (language, component)
+                        assert reference.locator(f'a[href$="/asset-studio/{language}/{lesson}/"]').count() > 0, (language, component, lesson)
+                        assert len(reference.frames) == 1, 'Component reference must not eagerly load Studio'
+                reference.close()
+                checked('real-component-docs-link-localized-lazy-lessons')
+            else:
+                report['limits'].append('Standalone preview does not contain the real generated component reference pages.')
             # Firefox can stop producing frames for a background tab while the
             # 24 lesson pages are exercised; the final capture must render it.
             full.bring_to_front()
@@ -215,6 +240,35 @@ def main() -> int:
             checked('390px-resize-controls-visible')
             assert not report['consoleErrors'], report['consoleErrors']
             context.close();browser.close()
+            if args.browser == 'firefox':
+                # Use a real browser privacy policy, not an injected fake
+                # IndexedDB, to verify the recovery-unavailable path.
+                blocked_options = {'headless': True, 'firefox_user_prefs': {'network.cookie.cookieBehavior': 2}}
+                if args.executable:
+                    blocked_options['executable_path'] = args.executable
+                blocked_browser = browser_type.launch(**blocked_options)
+                blocked_context = blocked_browser.new_context(viewport={'width':1440,'height':1000}, accept_downloads=True)
+                blocked_page = blocked_context.new_page()
+                blocked_page.on('pageerror', lambda error: report['consoleErrors'].append(str(error)))
+                dialogs = []
+                blocked_page.on('dialog', lambda dialog: (dialogs.append(dialog.type), dialog.accept()))
+                blocked_page.goto(app+'editor/?lang=en', wait_until='load')
+                blocked_page.wait_for_function('() => window.artStudioSurfaceReady === true', timeout=60000)
+                assert not blocked_page.evaluate('() => AegoStudioHost.storageAvailable()')
+                assert blocked_page.locator('.storage-warning').is_visible()
+                checked('site-data-blocked-shows-recovery-warning')
+                paint(blocked_page)
+                assert summary(blocked_page)['dirty']
+                with blocked_page.expect_download() as event:
+                    blocked_page.locator('#studio-download-source').click()
+                fallback = args.evidence/'storage-blocked.aeart'
+                event.value.save_as(fallback)
+                assert fallback.stat().st_size > 0 and summary(blocked_page)['dirty']
+                blocked_page.reload(timeout=60000)
+                assert 'beforeunload' in dialogs, f'Dirty unload guard not observed: {dialogs}'
+                checked('storage-blocked-download-remains-dirty-and-guards-unload')
+                assert not report['consoleErrors'], report['consoleErrors']
+                blocked_context.close();blocked_browser.close()
         report['status']='PASS'
         return 0
     except Exception as error:
