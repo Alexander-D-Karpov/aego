@@ -34,5 +34,12 @@ server's policy does not establish the policy of a production deployment.
 `make studio-web-test` runs the scoped tests. `make studio-web-ci` calls the
 strict release gate and requires its real native, browser, documentation,
 parity, full component Try and regression runners; missing runners are errors.
+By default its parity runner replays `tools/artstudio/tests/parity.json` on
+native Go and the served pinned WASM in Chromium and Firefox, checking every
+frame and the document topology after each operation. It records the intentionally
+different initial dirty state of a new web document. The runner requires the
+Python Playwright environment and both browser executables; an alternative
+real executable may be supplied with `AEGO_WASM_PARITY_RUNNER`. It does not
+replace the separate native UI scenario or test physical input and OS save.
 Passing a subset of tests does not authorize deployment. Production staging,
 activation and rollback remain separate explicit operations after all gates pass.

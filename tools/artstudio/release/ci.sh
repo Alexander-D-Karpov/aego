@@ -11,7 +11,9 @@ cd "$root"
 : "${AEGO_NATIVE_SCENARIO_RUNNER:?Existing executable for actual native UI/game scenario; API-only tests are insufficient}"
 : "${AEGO_COMPONENT_TRY_RUNNER:?Executable for all registry components in native/web; must fail below 100 percent}"
 : "${AEGO_DOCS_INTEGRATION_RUNNER:?Executable that builds/tests the existing Aego documentation with this pinned artifact}"
-: "${AEGO_WASM_PARITY_RUNNER:?Executable comparing identical native/WASM operation replays}"
+# The built-in runner compares the pinned WASM against native Go after every
+# replay operation. A caller may supply another real runner, never a stub.
+: "${AEGO_WASM_PARITY_RUNNER:=$root/tools/artstudio/release/tests/parity_e2e.py}"
 for runner in "$AEGO_NATIVE_SCENARIO_RUNNER" "$AEGO_COMPONENT_TRY_RUNNER" "$AEGO_WASM_PARITY_RUNNER" "$AEGO_DOCS_INTEGRATION_RUNNER"; do
   [[ -f "$runner" && -x "$runner" ]] || { printf 'Required executable missing: %s\n' "$runner" >&2; exit 2; }
 done
