@@ -59,7 +59,7 @@ func TestHTTPReferenceBytes(t *testing.T) {
 }
 func TestHTTPRejectsRedirect(t *testing.T) {
 	dir, _, sha := fixtureArtifact(t, "one")
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "https://example.com", 302) }))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "https://example.com", http.StatusFound) }))
 	defer s.Close()
 	if _, e := httpCheck(context.Background(), s.URL+"/", dir, sha); e == nil {
 		t.Fatal("followed redirect")

@@ -37,7 +37,7 @@ func staticSite(dir string, m buildManifest, docs bool) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.Method != "GET" && r.Method != "HEAD" {
 			w.Header().Set("Allow", "GET, HEAD")
-			http.Error(w, "method not allowed", 405)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		if strings.Contains(r.URL.EscapedPath(), "%") || strings.Contains(r.URL.Path, "\\") {
@@ -55,7 +55,7 @@ func staticSite(dir string, m buildManifest, docs bool) http.Handler {
 		}
 		if p == "" {
 			if docs {
-				http.Redirect(w, r, "/docs/ru/first-sprite/", 302)
+				http.Redirect(w, r, "/docs/ru/first-sprite/", http.StatusFound)
 				return
 			}
 			p = "index.html"
@@ -79,7 +79,7 @@ func staticSite(dir string, m buildManifest, docs bool) http.Handler {
 		if p == "manifest.json" && !docs {
 			b, e := os.ReadFile(filepath.Join(dir, p))
 			if e != nil {
-				http.Error(w, "manifest unavailable", 503)
+				http.Error(w, "manifest unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			w.Header().Set("Content-Type", mimeFor(p))
@@ -110,7 +110,7 @@ func staticSite(dir string, m buildManifest, docs bool) http.Handler {
 		w.Header().Set("ETag", `"`+f.SHA256+`"`)
 		b, e := readBounded(filepath.Join(dir, filepath.FromSlash(f.Path)), maxFileBytes)
 		if e != nil {
-			http.Error(w, "resource unavailable", 503)
+			http.Error(w, "resource unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		http.ServeContent(w, r, original.Path, time.Time{}, bytes.NewReader(b))
