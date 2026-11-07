@@ -64,6 +64,37 @@ func TestCacheSaltSeesTransitiveEngineIncludes(t *testing.T) {
 	}
 }
 
+func TestDisabledExternalValidatorDoesNotClaimReferenceValidation(t *testing.T) {
+	ctx := &pipeline.ImportContext{ID: ids.AssetID{Lo: 2}, Path: "safe.aeshader", Source: []byte("#pragma aego abi 1\nvoid fragment(){aego_out=vec4(1.0);}\n")}
+	i := shader.New()
+	i.Require = false
+	i.Validator = "aego-test-no-validator"
+	ordinarySalt, err := i.CacheSalt(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.DisableExternal = true
+	disabledSalt, err := i.CacheSalt(ctx)
+	if err != nil || bytes.Equal(ordinarySalt, disabledSalt) {
+		t.Fatalf("restricted mode reused a different cache key: %v", err)
+	}
+	result, err := i.Import(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := asset.DecodeShader(result.Artifacts[0].Data)
+	if err != nil || a.Validation != rshader.SchemaChecked {
+		t.Fatalf("disabled validator marked shader reference-checked: %+v, %v", a, err)
+	}
+	i.Require = true
+	if _, err := i.CacheSalt(ctx); err == nil {
+		t.Fatal("required reference validation silently passed with external tools disabled")
+	}
+	if _, err := i.Import(ctx); err == nil {
+		t.Fatal("direct import bypassed required reference validation")
+	}
+}
+
 func TestReferenceDiagnosticsKeepTargetStageIncludeAndRawLog(t *testing.T) {
 	if _, err := exec.LookPath("glslangValidator"); err != nil {
 		t.Skip("glslangValidator unavailable")

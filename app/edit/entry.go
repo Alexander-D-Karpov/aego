@@ -16,6 +16,7 @@ import (
 	"aego/app/updates"
 	"aego/editor/core/session"
 	"aego/editor/shell/launcher"
+	"aego/engine/i18n"
 	"aego/platform"
 	"aego/project"
 	"aego/sdk"
@@ -153,11 +154,15 @@ func Start(e Entry) error {
 	dir, file := resolveArg(e.Arg)
 	if e.Launcher != "" || (dir == "" && !hasProject(".")) {
 		cfg.LauncherTab = e.Launcher
-		root, err := Launch(cfg)
+		root, entry, remote, err := launchWithEntry(cfg)
 		if err != nil || root == "" {
 			return err
 		}
 		dir, file = root, ""
+		if remote {
+			cfg.OpenPath = entry
+			cfg.RemoteProject = true
+		}
 	}
 	if dir == "" {
 		dir = "."
@@ -166,9 +171,26 @@ func Start(e Entry) error {
 	if err != nil {
 		return err
 	}
+	copy, managed, err := (launcherRemote{}).existingProject(root)
+	if err != nil {
+		return err
+	}
+	if managed {
+		cfg.RemoteProject = true
+		if file == "" && cfg.OpenPath == "" {
+			entry, ok := relInside(root, copy.Entry)
+			if !ok {
+				return errors.New("remote example entry is outside its project")
+			}
+			cfg.OpenPath = entry
+		}
+	}
 	p, err := project.Load(root)
 	if err != nil {
 		return err
+	}
+	if cfg.RemoteProject && p.Native {
+		return errors.New(i18n.Tr("launcher.remote.native_blocked", "Remote examples cannot start a native Go project."))
 	}
 	if file != "" {
 		if rel, ok := relInside(p.Root, file); ok {

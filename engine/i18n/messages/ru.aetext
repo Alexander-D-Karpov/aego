@@ -6269,4 +6269,22 @@ messages version=1 lang=ru {
   msg "editor.shell.vfx" { text="Визуальные эффекты" }
   msg "editor.art.recover_action" { text="Восстановить" }
   msg "editor.art.discard_recovery_action" { text="Удалить" }
+  msg "launcher.remote.bad_entry" { text="Начальная сцена удалённого примера находится вне проекта или недоступна." }
+  msg "launcher.remote.native_blocked" { text="Удалённый пример не может запускать нативный Go-проект." }
+  msg "launcher.remote.canceled" { text="Отменено. Уже сохранённая локальная копия не удаляется." }
+  msg "launcher.remote.check" { text="Проверить обновления" }
+  msg "launcher.remote.clone" { text="Клонировать новую копию" }
+  msg "launcher.remote.confirm" { text="Подтвердить источник и продолжить" }
+  msg "launcher.remote.confirm_origin" { text="Разрешить обращение к этому источнику для данной операции: {origin}" }
+  msg "launcher.remote.explanation" { text="HTTPS-примеры проверяются и копируются локально. Aego не запускает проект автоматически; внешние средства импорта отключены." }
+  msg "launcher.remote.heading" { text="Удалённые примеры" }
+  msg "launcher.remote.no_copies" { text="Сохранённых удалённых примеров пока нет." }
+  msg "launcher.remote.open" { text="Открыть копию или клонировать" }
+  msg "launcher.remote.refresh" { text="Показать сохранённые примеры" }
+  msg "launcher.remote.reopen" { text="Открыть без сети" }
+  msg "launcher.remote.up_to_date" { text="Новой версии нет. Локальная копия не изменена." }
+  msg "launcher.remote.update_available" { text="Доступна версия {version}. Локальная копия не изменена." }
+  msg "launcher.remote.url" { text="HTTPS-адрес манифеста" }
+  msg "launcher.remote.working" { text="Проверка или скачивание примера…" }
+  msg "launcher.remote.cancel" { text="Отмена" }
 }

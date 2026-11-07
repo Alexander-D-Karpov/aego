@@ -1355,6 +1355,9 @@ messages version=1 lang=en {
   msg "editor.art.ellipse" {
     text="Ellipse"
   }
+  msg "editor.art.ellipse_selection" {
+    text="Ellipse selection"
+  }
   msg "editor.art.emission" {
     text="Emission"
   }
@@ -1363,6 +1366,9 @@ messages version=1 lang=en {
   }
   msg "editor.art.expand" {
     text="Enlarge this panel to display the canvas and controls."
+  }
+  msg "editor.art.eyedropper" {
+    text="Eyedropper (active layer)"
   }
   msg "editor.art.fill" {
     text="Fill"
@@ -1390,6 +1396,9 @@ messages version=1 lang=en {
   }
   msg "editor.art.hide_layer" {
     text="Hide layer"
+  }
+  msg "editor.art.lasso" {
+    text="Lasso selection"
   }
   msg "editor.art.layer" {
     text="Layer"
@@ -1430,21 +1439,6 @@ messages version=1 lang=en {
   msg "editor.art.pencil" {
     text="Pencil"
   }
-  msg "editor.art.eyedropper" {
-    text="Eyedropper (active layer)"
-  }
-  msg "editor.art.ellipse_selection" {
-    text="Ellipse selection"
-  }
-  msg "editor.art.lasso" {
-    text="Lasso selection"
-  }
-  msg "editor.art.selection_stale" {
-    text="The drawing changed during selection; select again."
-  }
-  msg "editor.art.selection_outline_simplified" {
-    text="Selection outline simplified"
-  }
   msg "editor.art.pixel_perfect" {
     text="Pixel perfect"
   }
@@ -1483,6 +1477,12 @@ messages version=1 lang=en {
   }
   msg "editor.art.selection" {
     text="Selection"
+  }
+  msg "editor.art.selection_outline_simplified" {
+    text="Selection outline simplified"
+  }
+  msg "editor.art.selection_stale" {
+    text="The drawing changed during selection; select again."
   }
   msg "editor.art.shared_sprite" {
     text="This is a shared asset; edits affect every object that uses it."
@@ -6280,6 +6280,60 @@ messages version=1 lang=en {
   }
   msg "launcher.recent_unreadable" {
     text="Recent projects are unreadable: {error}"
+  }
+  msg "launcher.remote.bad_entry" {
+    text="The remote entry scene is outside its project."
+  }
+  msg "launcher.remote.cancel" {
+    text="Cancel"
+  }
+  msg "launcher.remote.canceled" {
+    text="Canceled. A copy already saved locally is kept."
+  }
+  msg "launcher.remote.check" {
+    text="Check updates"
+  }
+  msg "launcher.remote.clone" {
+    text="Clone a new copy"
+  }
+  msg "launcher.remote.confirm" {
+    text="Confirm origin and continue"
+  }
+  msg "launcher.remote.confirm_origin" {
+    text="Allow network access to this origin for this operation: {origin}"
+  }
+  msg "launcher.remote.explanation" {
+    text="HTTPS examples are checked and copied locally. Aego does not run the project automatically; external import tools are disabled."
+  }
+  msg "launcher.remote.heading" {
+    text="Remote examples"
+  }
+  msg "launcher.remote.native_blocked" {
+    text="Remote examples cannot start a native Go project."
+  }
+  msg "launcher.remote.no_copies" {
+    text="No saved remote examples yet."
+  }
+  msg "launcher.remote.open" {
+    text="Open saved copy or clone"
+  }
+  msg "launcher.remote.refresh" {
+    text="Show saved remote examples"
+  }
+  msg "launcher.remote.reopen" {
+    text="Open offline"
+  }
+  msg "launcher.remote.up_to_date" {
+    text="No newer version. Your local copy was not changed."
+  }
+  msg "launcher.remote.update_available" {
+    text="Version {version} is available. Your local copy was not changed."
+  }
+  msg "launcher.remote.url" {
+    text="Manifest HTTPS URL"
+  }
+  msg "launcher.remote.working" {
+    text="Checking or downloading the example…"
   }
   msg "launcher.remove_from_list" {
     text="Remove from List"

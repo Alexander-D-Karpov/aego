@@ -444,6 +444,31 @@ func (s *Store) Reopen(id string) (Copy, error) {
 	}
 	c.Directory = dir
 	c.Entry = filepath.Join(dir, filepath.FromSlash(c.Manifest.EntryScene))
+	// A local copy is editable, so do not re-hash the user's changes. It must
+	// still be safe for the editor's asset scan and project/cache writes. A
+	// previously edited tree can otherwise contain links introduced after the
+	// archive was extracted (including project.aego and asset directories).
+	if e = noLinks(filepath.Join(dir, "project.aego")); e != nil {
+		return c, e
+	}
+	if e = filepath.WalkDir(dir, func(name string, item os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := item.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlink path rejected: %s", name)
+		}
+		if !info.IsDir() && !info.Mode().IsRegular() {
+			return fmt.Errorf("non-regular project resource rejected: %s", name)
+		}
+		return nil
+	}); e != nil {
+		return c, e
+	}
 	if e = noLinks(c.Entry); e != nil {
 		return c, e
 	}

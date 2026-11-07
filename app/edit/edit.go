@@ -52,6 +52,9 @@ type Config struct {
 	OpenPath    string
 	NativeNote  string
 	LauncherTab string
+	// RemoteProject is set by the confirmed remote-example launcher. It is
+	// retained for the session, even if project.aego changes after startup.
+	RemoteProject bool
 	// AgentBackend overrides the saved provider for tests/replay; headless nil means no panel.
 	AgentBackend backend.Backend
 }
@@ -132,6 +135,9 @@ func Run(p *project.Project, cfg Config, mods ...sdk.Module) error {
 }
 
 func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) {
+	if cfg.RemoteProject && p.Native {
+		return nil, errors.New(i18n.Tr("launcher.remote.native_blocked", "Remote examples cannot start a native Go project."))
+	}
 	platform.SetAppMetadata(platform.AppMetadata{Name: "Aego Editor", Version: engine.Version, Identifier: "ru.akarpov.aego.editor"})
 	if cfg.Width <= 0 {
 		cfg.Width = 1600
@@ -155,14 +161,15 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 			AppID:    p.Module + ".editor",
 			Trace:    true,
 		},
-		Logger:         cfg.Logger,
-		Debug:          cfg.Debug,
-		LoopScope:      engine.ScopeFrame,
-		LocateBindings: true,
-		Docs:           true,
-		Editor:         true,
-		Catalog:        cat,
-		Profile:        cfg.Profile,
+		Logger:                cfg.Logger,
+		Debug:                 cfg.Debug,
+		LoopScope:             engine.ScopeFrame,
+		LocateBindings:        true,
+		Docs:                  true,
+		Editor:                true,
+		Catalog:               cat,
+		Profile:               cfg.Profile,
+		NoExternalImportTools: cfg.RemoteProject,
 	}, sdk.AdaptAll(mods)...)
 	if err != nil {
 		return nil, err

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -366,6 +367,32 @@ func TestStoreAndOfflineSymlinksRejected(t *testing.T) {
 		t.Fatal("offline symlink entry accepted")
 	}
 }
+
+func TestOfflineProjectRejectsSymlinkedProjectOrAsset(t *testing.T) {
+	for _, target := range []string{"project.aego", "assets/nested-link", ".aego/cache-link"} {
+		t.Run(target, func(t *testing.T) {
+			f := newFixture(t)
+			c := f.clone(t)
+			link := filepath.Join(c.Directory, filepath.FromSlash(target))
+			if err := os.MkdirAll(filepath.Dir(link), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Lstat(link); err == nil {
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(t.TempDir(), "outside"), link); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			if _, err := f.store.Reopen(c.ID); err == nil {
+				t.Fatal("offline reopen accepted a symlink in the editable project tree")
+			}
+		})
+	}
+}
 func TestUpdateCheckNeverOverwritesEditedCopy(t *testing.T) {
 	f := newFixture(t)
 	local := f.clone(t)
@@ -467,5 +494,19 @@ func TestCopyIDCannotEscapeStore(t *testing.T) {
 		if _, e := f.store.Reopen(id); e == nil {
 			t.Fatal("invalid local ID", fmt.Sprint(id))
 		}
+	}
+}
+
+func TestManifestMustIncludeTheProjectFile(t *testing.T) {
+	f := newFixture(t)
+	m := f.m
+	m.Files = nil
+	for _, file := range f.m.Files {
+		if file.Path != "project.aego" {
+			m.Files = append(m.Files, file)
+		}
+	}
+	if err := m.Validate(f.url(), Limits{}); err == nil {
+		t.Fatal("manifest without project.aego was accepted")
 	}
 }

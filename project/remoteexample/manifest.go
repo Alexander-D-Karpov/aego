@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"aego/project"
 )
 
 const FormatVersion = 1
@@ -316,14 +318,20 @@ func (m Manifest) Validate(source string, lim Limits) error {
 			}
 		}
 	}
-	entry := false
+	entry, projectFile := false, false
 	for _, f := range m.Files {
 		if f.Path == m.EntryScene {
 			entry = true
 		}
+		if f.Path == project.FileName {
+			projectFile = true
+		}
 	}
 	if !entry || !strings.HasSuffix(m.EntryScene, ".aescene") {
 		return fmt.Errorf("entry scene is not a listed .aescene")
+	}
+	if !projectFile {
+		return fmt.Errorf("project.aego is not a listed project resource")
 	}
 	return nil
 }
