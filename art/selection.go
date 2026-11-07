@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"sort"
 )
 
 // Selection is a canvas-space mask, independent of the document's pixels.
@@ -11,13 +12,15 @@ import (
 type Selection struct {
 	Width, Height int
 	bits          []uint64
+	bounds        image.Rectangle
+	count         int
 }
 
 func NewSelection(w, h int) (*Selection, error) {
 	if w < 1 || h < 1 || w > 4096 || h > 4096 || int64(w)*int64(h) > 4194304 {
 		return nil, ErrLimit
 	}
-	return &Selection{w, h, make([]uint64, (w*h+63)/64)}, nil
+	return &Selection{Width: w, Height: h, bits: make([]uint64, (w*h+63)/64)}, nil
 }
 func (s *Selection) Contains(x, y int) bool {
 	if s == nil {
@@ -32,35 +35,25 @@ func (s *Selection) Contains(x, y int) bool {
 func (s *Selection) set(x, y int) {
 	if x >= 0 && y >= 0 && x < s.Width && y < s.Height {
 		i := y*s.Width + x
-		s.bits[i/64] |= 1 << uint(i%64)
+		mask := uint64(1) << uint(i%64)
+		if s.bits[i/64]&mask == 0 {
+			s.bits[i/64] |= mask
+			s.bounds = s.bounds.Union(image.Rect(x, y, x+1, y+1))
+			s.count++
+		}
 	}
 }
 func (s *Selection) Bounds() image.Rectangle {
 	if s == nil {
 		return image.Rectangle{}
 	}
-	r := image.Rectangle{}
-	for y := 0; y < s.Height; y++ {
-		for x := 0; x < s.Width; x++ {
-			if s.Contains(x, y) {
-				r = r.Union(image.Rect(x, y, x+1, y+1))
-			}
-		}
-	}
-	return r
+	return s.bounds
 }
 func (s *Selection) Count() int {
 	if s == nil {
 		return 0
 	}
-	n := 0
-	for _, w := range s.bits {
-		for w != 0 {
-			w &= w - 1
-			n++
-		}
-	}
-	return n
+	return s.count
 }
 func RectSelection(w, h int, r image.Rectangle, ellipse bool) (*Selection, error) {
 	s, err := NewSelection(w, h)
@@ -92,19 +85,26 @@ func LassoSelection(w, h int, points []image.Point) (*Selection, error) {
 			return nil, ErrLimit
 		}
 	}
+	// Scanline crossings preserve the same even/odd rule at pixel centers as
+	// the point-in-polygon test, without retesting every edge for every pixel.
+	// This matters for pointer lassos on large canvases.
+	crossings := make([]float64, 0, len(points))
 	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			inside := false
-			j := len(points) - 1
-			px, py := float64(x)+.5, float64(y)+.5
-			for i, p := range points {
-				q := points[j]
-				if (float64(p.Y) > py) != (float64(q.Y) > py) && px < float64(q.X-p.X)*(py-float64(p.Y))/float64(q.Y-p.Y)+float64(p.X) {
-					inside = !inside
-				}
-				j = i
+		crossings = crossings[:0]
+		py := float64(y) + .5
+		j := len(points) - 1
+		for i, p := range points {
+			q := points[j]
+			if (float64(p.Y) > py) != (float64(q.Y) > py) {
+				crossings = append(crossings, float64(q.X-p.X)*(py-float64(p.Y))/float64(q.Y-p.Y)+float64(p.X))
 			}
-			if inside {
+			j = i
+		}
+		sort.Float64s(crossings)
+		for i := 0; i+1 < len(crossings); i += 2 {
+			start := max(0, int(math.Ceil(crossings[i]-.5)))
+			end := min(w, int(math.Ceil(crossings[i+1]-.5)))
+			for x := start; x < end; x++ {
 				s.set(x, y)
 			}
 		}

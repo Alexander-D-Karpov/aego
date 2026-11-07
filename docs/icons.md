@@ -194,6 +194,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `tool.eyedropper` | engine | 16 | Pixel Art Studio: Eyedropper tool | ok |
 | `tool.fill` | engine | 16 | Pixel Art Studio: Fill tool | ok |
 | `tool.gradient` | engine | 16 | Pixel Art Studio: Gradient tool | ok |
+| `tool.lasso` | engine | 16 | Pixel Art Studio: lasso selection tool | ok |
 | `tool.line` | engine | 16 | Pixel Art Studio: Line tool | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |
 | `tool.pencil` | engine | 16 | Pixel Art Studio: Pencil tool | ok |
@@ -201,6 +202,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `tool.rotate` | engine | 16 | Scene View toolbar | ok |
 | `tool.scale` | engine | 16 | Scene View toolbar | ok |
 | `tool.select` | engine | 16 | Scene View toolbar | ok |
+| `tool.select_ellipse` | engine | 16 | Pixel Art Studio: elliptical selection tool | ok |
 | `tool.selection` | engine | 16 | Pixel Art Studio: rectangular selection tool | ok |
 | `tool.wand` | engine | 16 | Pixel Art Studio: Magic Wand tool | ok |
 | `tpl.ball` | engine | 16 | template physics.ball | ok |

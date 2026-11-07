@@ -28,6 +28,14 @@ import (
 
 const artHandlerID = "render2d.art"
 
+const (
+	artRectSelect = 7 + iota
+	artWand
+	artEyedropper
+	artEllipseSelect
+	artLasso
+)
+
 // The panel owns only presentation. ArtBinding.Model is canonical across tabs,
 // Inspector, recovery and confirmed agent operations; pixels never live in View.
 type artPanel struct {
@@ -61,6 +69,15 @@ type artView struct {
 	durationFrame                                                  art.ID
 	selecting                                                      bool
 	selectionStart                                                 image.Point
+	canvasStatus                                                   string
+	selectionTool                                                  int
+	selectionRevision                                              uint64
+	selectionLayer, selectionFrame                                 art.ID
+	selectionChannel                                               art.Channel
+	selectionPoints                                                []image.Point
+	outlineSelection                                               *art.Selection
+	outline                                                        []artSelectionEdge
+	outlineSimplified                                              bool
 }
 
 func artHooks(r *ext.Registry) error {
@@ -309,6 +326,8 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		{Icon: "tool.selection", Label: i18n.Tr("editor.art.selection", "Selection")},
 		{Icon: "tool.wand", Label: i18n.Tr("editor.art.wand", "Magic wand")},
 		{Icon: "tool.eyedropper", Label: i18n.Tr("editor.art.eyedropper", "Eyedropper (active layer)")},
+		{Icon: "tool.select_ellipse", Label: i18n.Tr("editor.art.ellipse_selection", "Ellipse selection")},
+		{Icon: "tool.lasso", Label: i18n.Tr("editor.art.lasso", "Lasso selection")},
 	}
 	widgets.IconCombo(ui, ui.ID("tool"), artCell(row, 0, 3), &v.tool, tools)
 	widgets.DragNumber(ui, ui.ID("brush-size"), artCell(row, 1, 3), &v.size, widgets.NumberOpts{Int: true, HasMin: true, Min: 1, HasMax: true, Max: 64, Speed: .3})
@@ -325,9 +344,14 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 	}
 	// Navigation and actions never steal keyboard input from a text field.
 	if f.Focused && !ui.WantsKeyboard() {
-		if ui.KeyPressed(input.KeyEscape) {
+		if ui.KeyPressed(input.KeyEscape) && !ui.AnyPopup() {
+			pending := info.Gesture || v.selecting
 			s.CancelGesture()
 			v.selecting = false
+			v.selectionPoints = nil
+			if !pending {
+				p.report(s.SetSelection("none", nil, 0))
+			}
 			v.refresh = true
 			ui.ReleaseMouse()
 		}
@@ -351,8 +375,10 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		}
 	}
 	// Finish a stroke even when the pointer leaves the panel or focus changes.
-	if !f.Focused && info.Gesture {
+	if !f.Focused && (info.Gesture || v.selecting) {
 		s.CancelGesture()
+		v.selecting = false
+		v.selectionPoints = nil
 		v.refresh = true
 		ui.ReleaseMouse()
 	}
@@ -379,7 +405,13 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		p.timeline(ui, timeline, editable)
 	}
 	status := mathx.Rect{X: area.X + 8, Y: area.Y + area.H - 24, W: area.W - 16, H: 20}
-	text := i18n.Tr("editor.art.navigation", "Wheel: zoom · middle/right drag: pan · Esc: cancel stroke")
+	text := i18n.Tr("editor.art.navigation", "Wheel: zoom · middle/right drag: pan · Esc: cancel gesture or clear selection")
+	if v.canvasStatus != "" && (docked || !narrow || v.pane == 0) {
+		text = v.canvasStatus + " · " + text
+	}
+	if v.outlineSimplified && s.Selection != nil {
+		text = i18n.Tr("editor.art.selection_outline_simplified", "Selection outline simplified") + " · " + text
+	}
 	if p.err != nil {
 		text = p.err.Error()
 	} else if p.doc.WorkingPreview.Error != "" {
@@ -428,18 +460,22 @@ func (p *artPanel) canvas(f *services.Frame, r mathx.Rect) {
 		brush.Paint.UseIndex = true
 		brush.Paint.Index = v.palette
 	}
-	if !v.playing && (v.tool == 9 || p.doc.Capabilities.Has(document.EditSource)) && ui.MouseOver(id, r) && ui.MousePressed(input.MouseLeft) {
+	if !v.playing && (v.tool == artEyedropper || p.doc.Capabilities.Has(document.EditSource)) && ui.MouseOver(id, r) && ui.MousePressed(input.MouseLeft) {
 		switch v.tool {
 		case 2:
 			p.execute(art.Operation{Kind: "fill", Points: []image.Point{point}, Brush: brush})
-		case 7:
+		case artRectSelect, artEllipseSelect, artLasso:
 			v.selecting = true
 			v.selectionStart = point
+			v.selectionTool = v.tool
+			v.selectionRevision = info.Document.Revision
+			v.selectionLayer, v.selectionFrame, v.selectionChannel = s.Layer, s.Frame, s.Channel
+			v.selectionPoints = append(v.selectionPoints[:0], point)
 			ui.CaptureMouse(id)
-		case 8:
+		case artWand:
 			p.report(s.SetSelection("wand", []image.Point{point}, 0))
 			v.refresh = true
-		case 9:
+		case artEyedropper:
 			if point.In(image.Rect(0, 0, info.Document.Canvas.Width, info.Document.Canvas.Height)) {
 				paint, err := s.SamplePaint(point)
 				if err == nil {
@@ -474,11 +510,34 @@ func (p *artPanel) canvas(f *services.Frame, r mathx.Rect) {
 			v.refresh = true
 		}
 	}
-	if v.selecting && !ui.MouseDown(input.MouseLeft) {
-		p.report(s.SetSelection("rectangle", []image.Point{v.selectionStart, point}, 0))
-		v.selecting = false
-		v.refresh = true
-		ui.ReleaseMouse()
+	if v.selecting {
+		if v.selectionTool == artLasso && (len(v.selectionPoints) == 0 || v.selectionPoints[len(v.selectionPoints)-1] != point) {
+			if len(v.selectionPoints) >= 2048 {
+				p.report(art.ErrLimit)
+				v.selecting = false
+				v.selectionPoints = nil
+				ui.ReleaseMouse()
+			} else {
+				v.selectionPoints = append(v.selectionPoints, point)
+			}
+		}
+		if v.selecting && !ui.MouseDown(input.MouseLeft) {
+			if s.Document.Revision() != v.selectionRevision || s.Layer != v.selectionLayer || s.Frame != v.selectionFrame || s.Channel != v.selectionChannel {
+				p.report(fmt.Errorf("%s", i18n.Tr("editor.art.selection_stale", "The drawing changed during selection; select again.")))
+			} else {
+				kind, points := "rectangle", []image.Point{v.selectionStart, point}
+				if v.selectionTool == artEllipseSelect {
+					kind = "ellipse"
+				} else if v.selectionTool == artLasso {
+					kind, points = "lasso", v.selectionPoints
+				}
+				p.report(s.SetSelection(kind, points, 0))
+			}
+			v.selecting = false
+			v.selectionPoints = nil
+			v.refresh = true
+			ui.ReleaseMouse()
+		}
 	}
 	info = s.Info()
 	if v.refresh || v.revision != info.Document.Revision || v.shownFrame != frame || v.shownChannel != s.Channel || v.shownOnion != v.onion {
@@ -496,8 +555,8 @@ func (p *artPanel) canvas(f *services.Frame, r mathx.Rect) {
 	}
 	// Separate paint capture keeps Image Viewer's middle/right navigation from
 	// interpreting a left stroke as a pan. It still owns texture presentation.
-	selection := info.Selection
-	drawImageCanvas(p.ctx, r, v.pixels, &v.display, &v.viewport, imageRGBA, 0, v.grid, [4]int{selection.Min.X, selection.Min.Y, selection.Dx(), selection.Dy()}, nil)
+	v.canvasStatus = drawImageCanvas(p.ctx, r, v.pixels, &v.display, &v.viewport, imageRGBA, 0, v.grid, [4]int{}, nil)
+	p.drawSelection(ui, r, point)
 }
 
 func (p *artPanel) properties(ui *core.Context, r mathx.Rect, editable bool) {

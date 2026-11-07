@@ -6229,11 +6229,15 @@ messages version=1 lang=ru {
   msg "editor.art.link" { text="Связать" }
   msg "editor.art.mirror_x" { text="Симметрия X" }
   msg "editor.art.mirror_y" { text="Симметрия Y" }
-  msg "editor.art.navigation" { text="Колесо: масштаб · средняя/правая кнопка: перемещение · Esc: отмена штриха" }
+  msg "editor.art.navigation" { text="Колесо: масштаб · средняя/правая кнопка: перемещение · Esc: отмена жеста или снятие выделения" }
   msg "editor.art.normal" { text="Нормали" }
   msg "editor.art.onion" { text="Соседние кадры" }
   msg "editor.art.pencil" { text="Карандаш" }
   msg "editor.art.eyedropper" { text="Пипетка (активный слой)" }
+  msg "editor.art.ellipse_selection" { text="Овальное выделение" }
+  msg "editor.art.lasso" { text="Выделение лассо" }
+  msg "editor.art.selection_stale" { text="Рисунок изменился во время выделения; выделите область заново." }
+  msg "editor.art.selection_outline_simplified" { text="Контур выделения упрощён" }
   msg "editor.art.pixel_perfect" { text="Пиксельная точность" }
   msg "editor.art.play" { text="Просмотр" }
   msg "editor.art.properties" { text="Инструменты / Слои" }

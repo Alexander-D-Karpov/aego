@@ -1410,7 +1410,7 @@ messages version=1 lang=en {
     text="Mirror Y"
   }
   msg "editor.art.navigation" {
-    text="Wheel: zoom · middle/right drag: pan · Esc: cancel stroke"
+    text="Wheel: zoom · middle/right drag: pan · Esc: cancel gesture or clear selection"
   }
   msg "editor.art.new" {
     text="New Pixel Art…"
@@ -1432,6 +1432,18 @@ messages version=1 lang=en {
   }
   msg "editor.art.eyedropper" {
     text="Eyedropper (active layer)"
+  }
+  msg "editor.art.ellipse_selection" {
+    text="Ellipse selection"
+  }
+  msg "editor.art.lasso" {
+    text="Lasso selection"
+  }
+  msg "editor.art.selection_stale" {
+    text="The drawing changed during selection; select again."
+  }
+  msg "editor.art.selection_outline_simplified" {
+    text="Selection outline simplified"
   }
   msg "editor.art.pixel_perfect" {
     text="Pixel perfect"

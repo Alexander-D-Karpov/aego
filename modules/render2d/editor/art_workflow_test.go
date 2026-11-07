@@ -5,6 +5,7 @@ import (
 	stdctx "context"
 	"image"
 	"os"
+	"strings"
 	"testing"
 
 	"aego/art"
@@ -124,7 +125,7 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	}
 	// Select Eyedropper and sample the just-painted pixel through the actual
 	// canvas widget. Picking a color is presentation state, not a document edit.
-	panelView := &artView{size: 1, grid: true, refresh: true, tool: 9, color: mathx.ColorRGBA8(255, 0, 0, 255)}
+	panelView := &artView{size: 1, grid: true, refresh: true, tool: artEyedropper, color: mathx.ColorRGBA8(255, 0, 0, 255)}
 	sampler := &artPanel{ctx: ed, reg: registry, doc: doc, model: model, view: panelView}
 	drawSampler := func() {
 		ed.UI.Begin(state, mathx.Vec2{X: 900, Y: 700}, 1)
@@ -143,6 +144,75 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	if panelView.color != mathx.White || model.History.Cursor() != 1 || !doc.Dirty() {
 		t.Fatalf("eyedropper did not pick the canvas pixel without an edit: color=%+v history=%d", panelView.color, model.History.Cursor())
 	}
+	dragSelection := func(tool int, points ...mathx.Vec2) {
+		t.Helper()
+		panelView.tool = tool
+		state.BeginFrame()
+		state.ApplyMouseMove(points[0], mathx.Vec2{})
+		state.ApplyMouseDown(points[0], input.MouseLeft)
+		drawSampler()
+		for i := 1; i < len(points); i++ {
+			state.BeginFrame()
+			state.ApplyMouseMove(points[i], points[i].Sub(points[i-1]))
+			drawSampler()
+		}
+		state.BeginFrame()
+		state.ApplyMouseUp(points[len(points)-1], input.MouseLeft)
+		drawSampler()
+	}
+	dragSelection(artEllipseSelect, mathx.Vec2{X: 300, Y: 210}, mathx.Vec2{X: 455, Y: 355})
+	selection := model.Session.Selection
+	if selection == nil || selection.Count() == 0 || selection.Count() >= selection.Bounds().Dx()*selection.Bounds().Dy() || model.History.Cursor() != 1 {
+		t.Fatalf("ellipse selection was not a non-rectangular mask without history: %+v", selection)
+	}
+	if edges, simplified := artSelectionOutline(selection); simplified || len(edges) <= 4 {
+		t.Fatalf("ellipse outline did not follow the mask: %d edges simplified=%v", len(edges), simplified)
+	}
+	dragSelection(artLasso, mathx.Vec2{X: 300, Y: 210}, mathx.Vec2{X: 455, Y: 210}, mathx.Vec2{X: 455, Y: 355}, mathx.Vec2{X: 300, Y: 355})
+	if selection = model.Session.Selection; selection == nil || selection.Count() == 0 || model.History.Cursor() != 1 {
+		t.Fatal("lasso selection did not create a mask without editing the document")
+	}
+	// An external edit during the drag must not publish a selection against a
+	// different frame or revision, and losing focus must cancel the draft.
+	panelView.tool = artRectSelect
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	drawSampler()
+	if !panelView.selecting {
+		t.Fatal("selection gesture did not start")
+	}
+	if _, err := model.Execute(stdctx.Background(), art.Operation{Kind: "duplicate-frame"}); err != nil {
+		t.Fatal(err)
+	}
+	state.BeginFrame()
+	state.ApplyMouseUp(mathx.Vec2{X: 455, Y: 355}, input.MouseLeft)
+	drawSampler()
+	if panelView.selecting || model.Session.Selection != selection || sampler.err == nil || !strings.Contains(sampler.err.Error(), "drawing changed") {
+		t.Fatal("a stale selection gesture was published after the document changed")
+	}
+	if err := ed.UndoAsset(doc); err != nil || model.History.Cursor() != 1 {
+		t.Fatalf("could not undo the external frame edit: %v", err)
+	}
+	sampler.err = nil
+	panelView.tool = artLasso
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	drawSampler()
+	state.BeginFrame()
+	ed.UI.Begin(state, mathx.Vec2{X: 900, Y: 700}, 1)
+	sampler.Draw(&services.Frame{UI: ed.UI, Focused: false}, mathx.Rect{W: 900, H: 700})
+	ed.UI.End()
+	if panelView.selecting || model.Session.Selection != selection || model.History.Cursor() != 1 {
+		t.Fatal("focus loss did not cancel the lasso draft")
+	}
+	state.BeginFrame()
+	state.ApplyMouseUp(point, input.MouseLeft)
+	drawSampler()
+	if err := model.Session.SetSelection("none", nil, 0); err != nil {
+		t.Fatal(err)
+	}
 	// Mid-tone UI color values must reach the canonical pixels unchanged; the
 	// ColorField's internal linear representation must not darken the stroke.
 	panelView.tool = 0
@@ -158,6 +228,11 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	colored, _, err := model.Capture(frame, art.Albedo)
 	if err != nil || model.History.Cursor() != 2 || !bytes.Contains(colored.Pix, []byte{127, 128, 200, 255}) {
 		t.Fatalf("canvas did not preserve the selected color bytes: history=%d, error=%v", model.History.Cursor(), err)
+	}
+	state.BeginFrame()
+	drawSampler()
+	if !strings.Contains(panelView.canvasStatus, "RGBA8 127 128 200 255") {
+		t.Fatalf("canvas did not show the pixel under the cursor: %q", panelView.canvasStatus)
 	}
 	if err := ed.UndoAsset(doc); err != nil {
 		t.Fatal(err)

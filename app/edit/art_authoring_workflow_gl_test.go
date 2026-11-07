@@ -14,6 +14,7 @@ import (
 	"aego/core/log"
 	"aego/editor/core/artedit"
 	"aego/editor/core/workspace"
+	"aego/platform/input"
 	"aego/platform/sdl"
 )
 
@@ -144,6 +145,51 @@ func TestArtSceneAuthoringWorkflowNative(t *testing.T) {
 			t.Fatal("native Eyedropper did not sample both colors without changing history")
 		}
 		capture("native-art-eyedropper")
+		selectTool := func(y float32) {
+			t.Helper()
+			for i := range 3 {
+				if !sdl.TestPointerEvent(100, 122, i) || !s.Step() {
+					t.Fatal("could not open the native selection tool menu")
+				}
+			}
+			for i := range 3 {
+				if !sdl.TestPointerEvent(50, y, i) || !s.Step() {
+					t.Fatal("could not choose the native selection tool")
+				}
+			}
+		}
+		selectTool(391) // Ellipse selection follows Eyedropper in the menu.
+		for _, e := range []struct {
+			x, y float32
+			kind int
+		}{{600, 400, 0}, {600, 400, 1}, {760, 540, 0}, {760, 540, 2}} {
+			if !sdl.TestPointerEvent(e.x, e.y, e.kind) || !s.Step() {
+				t.Fatal("native ellipse selection gesture failed")
+			}
+		}
+		if sel := model.Session.Selection; sel == nil || sel.Count() == 0 || sel.Count() >= sel.Bounds().Dx()*sel.Bounds().Dy() || model.History.Cursor() != 1 {
+			t.Fatal("native ellipse selection was not a non-rectangular mask without history")
+		}
+		capture("native-art-ellipse-selection")
+		selectTool(415) // Lasso follows elliptical selection.
+		for _, e := range []struct {
+			x, y float32
+			kind int
+		}{{600, 400, 0}, {600, 400, 1}, {760, 400, 0}, {680, 540, 0}, {680, 540, 2}} {
+			if !sdl.TestPointerEvent(e.x, e.y, e.kind) || !s.Step() {
+				t.Fatal("native lasso selection gesture failed")
+			}
+		}
+		if sel := model.Session.Selection; sel == nil || sel.Count() == 0 || sel.Count() >= sel.Bounds().Dx()*sel.Bounds().Dy() || model.History.Cursor() != 1 {
+			t.Fatal("native lasso selection was not a non-rectangular mask without history")
+		}
+		capture("native-art-lasso-selection")
+		if !sdl.TestEditKey(input.KeyEscape, true, false, false) || !s.Step() || !sdl.TestEditKey(input.KeyEscape, false, false, false) || !s.Step() {
+			t.Fatal("could not clear the native selection with Escape")
+		}
+		if model.Session.Selection != nil || model.History.Cursor() != 1 {
+			t.Fatal("Escape did not clear selection without changing history")
+		}
 		if os.Getenv("AEGO_ART_WORKFLOW_SHOTS") != "" {
 			ws.ToggleMaximize(panelID)
 			for range 3 {
