@@ -25,6 +25,11 @@ func remoteFixtureAt(t *testing.T, root string) (launcherRemote, string, string,
 	if _, err := remoteexample.NewStore(root, remoteexample.Limits{}); err != nil {
 		t.Fatal(err)
 	}
+	// The store may canonicalize a system-managed macOS /var alias.
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	const id = "example-000000000000000000000001"
 	dir := filepath.Join(root, "projects", id)
 	if _, err := project.Create(dir, "Offline example", false); err != nil {

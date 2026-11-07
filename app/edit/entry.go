@@ -177,6 +177,13 @@ func Start(e Entry) error {
 	}
 	if managed {
 		cfg.RemoteProject = true
+		if file != "" {
+			file, err = filepath.EvalSymlinks(file)
+			if err != nil {
+				return err
+			}
+		}
+		root = copy.Directory
 		if file == "" && cfg.OpenPath == "" {
 			entry, ok := relInside(root, copy.Entry)
 			if !ok {

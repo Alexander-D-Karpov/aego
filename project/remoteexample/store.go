@@ -44,6 +44,10 @@ func NewStore(root string, limits Limits) (*Store, error) {
 	if e != nil {
 		return nil, e
 	}
+	abs, e = platformStorePath(abs)
+	if e != nil {
+		return nil, e
+	}
 	if e = ensureDirectory(abs); e != nil {
 		return nil, e
 	}

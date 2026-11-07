@@ -203,6 +203,7 @@ type Registry struct {
 	evOwners map[string]string
 	problems []Problem
 	groupT   map[string]map[string]string
+	trySeen  map[string]bool
 }
 
 func StubPath(module string) string {
@@ -294,9 +295,14 @@ func Assemble(src Sources) *Registry {
 	r.codes(src.Diagnose)
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
+		// A component page may explicitly refer to the same Try scene that is
+		// also discovered by tries(). Read its sidecars once per source, while
+		// still rejecting separate competing contracts in different sources.
+		r.trySeen = make(map[string]bool)
 		r.pages(d)
 		r.tries(d)
 	}
+	r.trySeen = nil
 	r.checkCodes()
 	r.compileTries(src.CompileTry)
 	r.index()
@@ -979,6 +985,14 @@ var metaID = regexp.MustCompile(`\bid="([0-9a-f]{32})"`)
 
 // tryExtras reads the script X.aes and the prefabs X.<name>.aeprefab, ids from their .meta, next to the try scene X.aescene.
 func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
+	if r.trySeen == nil {
+		r.trySeen = make(map[string]bool)
+	}
+	key := e.ID + "\x00" + path.Clean(scenePath)
+	if r.trySeen[key] {
+		return
+	}
+	r.trySeen[key] = true
 	r.readDemoContract(e, src, scenePath)
 	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
 	if data, err := fs.ReadFile(src.FS, base+".aetry"); err == nil {
