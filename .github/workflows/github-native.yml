@@ -236,7 +236,13 @@ jobs:
       - name: Record Windows temporary directory ACL
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Get-Acl -LiteralPath $env:TEMP | Format-List Owner,AccessToString
+        run: |
+          $dir = Get-Item -LiteralPath $env:TEMP
+          while ($null -ne $dir) {
+            Write-Host "ACL $($dir.FullName)"
+            Get-Acl -LiteralPath $dir.FullName | Format-List Owner,AccessToString
+            $dir = $dir.Parent
+          }
       - name: Test exact Stage commit on native host
         shell: bash
         run: |
