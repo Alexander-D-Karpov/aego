@@ -124,12 +124,17 @@ jobs:
           test "$(go env GOARCH)" = "$EXPECT_GOARCH"
           test "$(go env CGO_ENABLED)" = 1
       - name: Build pinned SDL
+        id: native_sdl
         run: bash tools/bootstrap-native.sh 2>&1 | tee .cache/github-ci/logs/bootstrap.txt
       - name: Build all packages
+        id: native_build
         run: go build ./... 2>&1 | tee .cache/github-ci/logs/build.txt
       - name: Native platform tests
         if: runner.os != 'Linux'
-        run: go test -count=1 ./... 2>&1 | tee .cache/github-ci/logs/tests.txt
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then py=python; else py=python3; fi
+          "$py" -m unittest discover -s tools/ci -p native_test_groups_test.py
+          "$py" tools/ci/native_test_groups.py 2>&1 | tee .cache/github-ci/logs/tests.txt
       - name: Linux compatibility tests
         if: runner.os == 'Linux'
         run: go test -count=1 ./asset/... ./engine/... ./runtime/... ./update/... 2>&1 | tee .cache/github-ci/logs/tests.txt
@@ -138,10 +143,13 @@ jobs:
       - name: CLI and headless runtime smoke
         run: bash tools/ci/github-cli-smoke.sh 2>&1 | tee .cache/github-ci/logs/cli-smoke.txt
       - name: Build Windows portable and installer
-        if: runner.os == 'Windows'
+        # Collect installer diagnostics even if an unrelated test failed. A
+        # failed test still fails the job and prevents all artifact uploads.
+        if: ${{ runner.os == 'Windows' && (success() || failure()) && steps.native_sdl.conclusion == 'success' && steps.native_build.conclusion == 'success' }}
+        id: windows_package
         run: bash tools/ci/github-windows-package.sh 2>&1 | tee .cache/github-ci/logs/windows-package.txt
       - name: Native silent installer and uninstaller
-        if: runner.os == 'Windows'
+        if: ${{ runner.os == 'Windows' && (success() || failure()) && steps.windows_package.conclusion == 'success' }}
         shell: pwsh
         run: ./tools/ci/github-windows-installer-smoke.ps1
       - name: Build macOS app bundle
