@@ -97,7 +97,19 @@ try {
     & (Join-Path $install 'aego.exe') version
     if ($LASTEXITCODE -ne 0) { throw 'Installed CLI did not start with system-only PATH.' }
 } finally { $env:Path = $previousProcessPath }
-& (Join-Path $install 'aego.exe') run (Join-Path $workspace '.cache\github-ci\project') --headless --frames 60
+$installedCLI = Join-Path $install 'aego.exe'
+# This diagnostic runs even after an unrelated test failure, in which case the
+# earlier CLI-smoke step is skipped. Create a fresh project using the installed
+# binary instead of depending on that step's workspace or overwriting a project.
+$installedProject = Join-Path $env:RUNNER_TEMP 'aego-ci-installed-project'
+if (Test-Path $installedProject) { throw 'Installed CLI project directory already exists.' }
+& $installedCLI new $installedProject
+if ($LASTEXITCODE -ne 0) { throw 'Installed CLI could not create a project.' }
+& $installedCLI import $installedProject
+if ($LASTEXITCODE -ne 0) { throw 'Installed CLI could not import the project.' }
+& $installedCLI check $installedProject
+if ($LASTEXITCODE -ne 0) { throw 'Installed CLI could not check the project.' }
+& $installedCLI run $installedProject --headless --frames 60
 if ($LASTEXITCODE -ne 0) { throw 'Installed headless runtime failed.' }
 $userData = Join-Path $install 'user-data'
 New-Item -ItemType Directory -Path $userData | Out-Null

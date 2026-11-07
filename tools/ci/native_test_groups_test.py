@@ -80,6 +80,18 @@ class NativeTestGroups(unittest.TestCase):
             self.assertIn(f"grep -Fx {name}", art)
         self.assertNotIn("continue-on-error", art)
 
+    def test_installer_diagnostic_creates_its_own_guarded_project(self):
+        smoke = (Path(__file__).resolve().parent / "github-windows-installer-smoke.ps1").read_text(encoding="utf8")
+        self.assertIn("$installedProject = Join-Path $env:RUNNER_TEMP 'aego-ci-installed-project'", smoke)
+        self.assertIn("if (Test-Path $installedProject) { throw", smoke)
+        self.assertNotIn(".cache\\github-ci\\project", smoke)
+        steps = ("new $installedProject", "import $installedProject", "check $installedProject", "run $installedProject --headless --frames 60")
+        positions = [smoke.index("& $installedCLI " + step) for step in steps]
+        self.assertEqual(positions, sorted(positions))
+        for i, pos in enumerate(positions):
+            end = positions[i + 1] if i + 1 < len(positions) else smoke.index("$userData =", pos)
+            self.assertIn("if ($LASTEXITCODE -ne 0) { throw", smoke[pos:end])
+
 
 if __name__ == "__main__":
     unittest.main()

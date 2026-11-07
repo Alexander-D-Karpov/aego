@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,7 +104,7 @@ func openRoom(t *testing.T) *run.App {
 	if err := os.WriteFile(path, []byte(roomScene), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	app, err := run.Open(p, run.Config{Headless: true, Logger: log.Nop(), ScenePath: path}, rotator3DModule{})
+	app, err := run.Open(p, run.Config{Headless: true, FrameTime: 1.0 / 60, Logger: log.Nop(), ScenePath: path}, rotator3DModule{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,8 +125,11 @@ func TestRoomRendersAndRotates(t *testing.T) {
 		}
 	}
 	q := app.Scene.Local3D(cube).Rotation
-	if q.Y <= 0 || mathx.Abs(q.X) > 1e-6 || mathx.Abs(q.Z) > 1e-6 {
-		t.Fatalf("cube must rotate about +Y: %v", q)
+	// The first rendered frame has dt=0; the remaining 119 frames must each
+	// advance by 1/60 s, independent of host speed and timer resolution.
+	angle := 1.2 * 119.0 / 60.0
+	if math.Abs(float64(q.Y)-math.Sin(angle/2)) > 1e-4 || math.Abs(float64(q.W)-math.Cos(angle/2)) > 1e-4 || mathx.Abs(q.X) > 1e-6 || mathx.Abs(q.Z) > 1e-6 {
+		t.Fatalf("cube must rotate %.3f radians about +Y after 119 timed frames: %v", angle, q)
 	}
 	st := app.Runner.Stats()
 	if st.Views != 1 || st.Meshes != 3 {

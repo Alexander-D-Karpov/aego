@@ -7,6 +7,7 @@ import (
 
 	"aego/app/run"
 	"aego/core/log"
+	"aego/core/mathx"
 	"aego/modules/render2d"
 	"aego/project"
 	"aego/scene"
@@ -89,6 +90,7 @@ func TestNativeComponentDrivesTheScene(t *testing.T) {
 	p := newRotatorProject(t)
 	app, err := run.Open(p, run.Config{
 		Headless:  true,
+		FrameTime: 1.0 / 60,
 		Frames:    120,
 		Logger:    log.Nop(),
 		ScenePath: filepath.Join(p.ScenesDir(), "main.aescene"),
@@ -114,8 +116,9 @@ func TestNativeComponentDrivesTheScene(t *testing.T) {
 		}
 	}
 	after := app.Scene.Local(player).Rotation
-	if after <= before {
-		t.Fatalf("rotation did not advance: %v -> %v", before, after)
+	wantDelta := float32(1.5 * 119.0 / 60.0) // first frame has zero dt
+	if mathx.Abs((after-before)-wantDelta) > 1e-4 {
+		t.Fatalf("rotation did not advance by %.3f radians: %v -> %v", wantDelta, before, after)
 	}
 }
 
