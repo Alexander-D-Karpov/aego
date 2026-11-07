@@ -11,6 +11,11 @@ on:
         description: 'Optional full commit SHA for isolated Stage remote-store tests'
         required: false
         type: string
+      stage_art_checks:
+        description: 'Also test real Aseprite fixtures and editor import on native OS (headless)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -253,6 +258,18 @@ jobs:
           test "$(go env GOARCH)" = '${{ matrix.goarch }}'
           go version
           go test -count=1 -v ./project/remoteexample
+      - name: Test Stage Aseprite import without a GUI
+        if: ${{ inputs.stage_art_checks }}
+        shell: bash
+        run: |
+          set -o pipefail
+          # Check inventory explicitly: a missing test must not be reported as PASS.
+          go test -tags aego_nonative -list '^TestRealAsepriteFilesMatchLibreSpriteAndRoundTrip$' ./art | grep -Fx TestRealAsepriteFilesMatchLibreSpriteAndRoundTrip
+          go test -tags aego_nonative -list '^TestAsepriteImportCommandOpensEditableDocumentAndPreservesSource$' ./modules/render2d/editor | grep -Fx TestAsepriteImportCommandOpensEditableDocumentAndPreservesSource
+          go test -tags aego_nonative -list '^TestReadExternalFileIsBoundedAndRegular$' ./asset/pipeline | grep -Fx TestReadExternalFileIsBoundedAndRegular
+          go test -tags aego_nonative -count=1 -run '^TestRealAseprite' -v ./art
+          go test -tags aego_nonative -count=1 -run '^TestAsepriteImport' -v ./modules/render2d/editor
+          go test -tags aego_nonative -count=1 -run '^TestReadExternalFile' -v ./asset/pipeline
 
   gitea-result:
     if: ${{ always() && github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}

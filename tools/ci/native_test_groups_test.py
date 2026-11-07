@@ -64,6 +64,22 @@ class NativeTestGroups(unittest.TestCase):
         self.assertNotIn("continue-on-error", package + smoke)
         self.assertEqual(uploads.count("runner.os == 'Windows' && success()"), 2)
 
+    def test_optional_stage_art_checks_do_not_replace_native_ci(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/github-native.yml").read_text(encoding="utf8")
+        inputs = workflow.split("stage_art_checks:", 1)[1].split("permissions:", 1)[0]
+        self.assertIn("default: false", inputs)
+        self.assertIn("type: boolean", inputs)
+        native_job = workflow.split("  native:", 1)[1].split("  stage-remote-store:", 1)[0]
+        self.assertIn("steps.native_build.conclusion == 'success'", native_job)
+        stage = workflow.split("  stage-remote-store:", 1)[1].split("  gitea-result:", 1)[0]
+        self.assertIn('test "$(git rev-parse HEAD)" = "$STAGE_COMMIT"', stage)
+        art = stage.split("- name: Test Stage Aseprite import without a GUI", 1)[1]
+        self.assertIn("if: ${{ inputs.stage_art_checks }}", art)
+        for name in ("TestRealAsepriteFilesMatchLibreSpriteAndRoundTrip", "TestAsepriteImportCommandOpensEditableDocumentAndPreservesSource", "TestReadExternalFileIsBoundedAndRegular"):
+            self.assertIn(f"-list '^{name}$'", art)
+            self.assertIn(f"grep -Fx {name}", art)
+        self.assertNotIn("continue-on-error", art)
+
 
 if __name__ == "__main__":
     unittest.main()
