@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      stage_web_checks:
+        description: 'Also run isolated Stage Asset Studio build and protocol checks (no GUI)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -270,6 +275,59 @@ jobs:
           go test -tags aego_nonative -count=1 -run '^TestRealAseprite' -v ./art
           go test -tags aego_nonative -count=1 -run '^TestAsepriteImport' -v ./modules/render2d/editor
           go test -tags aego_nonative -count=1 -run '^TestReadExternalFile' -v ./asset/pipeline
+      - name: Build Stage Asset Studio release tool
+        if: ${{ inputs.stage_web_checks }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build -tags aego_nonative -o "$RUNNER_TEMP/aego-artstudio-release" ./tools/artstudio/release
+
+  stage-web:
+    if: github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && inputs.stage_commit != '' && inputs.stage_web_checks
+    name: stage Asset Studio web checks (headless)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GOFLAGS: '-mod=readonly'
+      STAGE_COMMIT: ${{ inputs.stage_commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.stage_commit }}
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check exact Stage tree and scoped tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$STAGE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$STAGE_COMMIT"
+          go version
+          node --version
+          go test -race -count=1 ./art ./tools/artstudio/host ./tools/artstudio/release
+          go vet ./art ./tools/artstudio/host ./tools/artstudio/release
+          node --test tools/artstudio/release/tests/*.test.cjs
+          (cd tools/gendocs && CGO_ENABLED=0 go test -tags aego_nonative -count=1 ./...)
+      - name: Build one snapshot and integrate real gendocs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/aego-artstudio-stage"
+          site="$RUNNER_TEMP/aego-artstudio-docs"
+          test ! -e "$out"
+          test ! -e "$site"
+          go run ./tools/artstudio/release build -id github-stage -out "$out" \
+            -app-origin http://127.0.0.1:8097 -docs-origin http://127.0.0.1:8098 > "$RUNNER_TEMP/aego-artstudio-build.json"
+          go run ./tools/artstudio/release verify -dir "$out"
+          go run ./tools/artstudio/release check-source -dir "$out" -root "$GITHUB_WORKSPACE"
+          CGO_ENABLED=0 ARTSTUDIO_ARTIFACT="$out" go run -tags aego_nonative ./cmd/aego docs build \
+            --out "$site" --engine "$GITHUB_WORKSPACE" --playground=false
+          test -f "$site/asset-studio/ru/first-sprite/index.html"
+          test -f "$site/asset-studio/en/first-sprite/index.html"
+          test ! -e "$site/studio/artstudio.wasm"
 
   gitea-result:
     if: ${{ always() && github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
