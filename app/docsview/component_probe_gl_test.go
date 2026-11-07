@@ -208,7 +208,7 @@ func TestComponentContractProbeRunsNativeAndRejectsUnrunWeb(t *testing.T) {
 	if full.Passed() || full.PublicComponents != len(p.Docs().ComponentDemos()) || full.VerifiedComponents >= full.PublicComponents {
 		t.Fatalf("the full inventory must not pass with a browser runner missing: %+v", full)
 	}
-	native := map[string]bool{"engine.Camera2D": false, "engine.Camera3D": false, "engine.Light2D": false, "engine.LightingEnvironment2D": false, "engine.LightOccluder2D": false, "engine.Mesh2D": false, "engine.MeshRenderer": false, "engine.SpriteRenderer": false}
+	native := map[string]bool{"engine.Camera2D": false, "engine.Camera3D": false, "engine.Light2D": false, "engine.LightingEnvironment2D": false, "engine.LightOccluder2D": false, "engine.Mesh2D": false, "engine.MeshRenderer": false, "engine.SpriteRenderer": false, "particles.ParticleSystem2D": false}
 	for _, result := range full.Results {
 		if _, want := native[result.ComponentID]; want {
 			native[result.ComponentID] = slices.Contains(result.Environments, "native") && strings.Contains(strings.Join(result.Errors, " "), "chromium runner unavailable")

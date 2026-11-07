@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "particles.ParticleSystem2D",
+  "demoID": "particles.ParticleSystem2D.rate",
+  "documentID": "particles.ParticleSystem2D",
+  "scene": "particles.ParticleSystem2D/try",
+  "identity": "c2930525e321ba7567c2a8d4c2b0f0f9216c266b763df325804719503c8e54f1",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000c01"],
+  "editableFields": ["particles.ParticleSystem2D.Rate"],
+  "actions": [{
+    "id": "start-emission", "field": "particles.ParticleSystem2D.Rate", "value": 40,
+    "expected": [
+      {"observable": "particles.ParticleSystem2D.Rate", "equals": 40, "changes": true},
+      {"observable": "particles.ParticleSystem2D.LiveParticles", "equals": 20, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Particle emission rate", "description": "A prewarmed emitter with Rate zero has no particles. Its capacity is 20.", "input": "Set Rate to 40 to fill the emitter. Reset stops emission and clears the particles."},
+    "ru": {"title": "Частота появления частиц", "description": "В прогретом источнике с нулевой частотой нет частиц. Его предел — 20.", "input": "Установите частоту 40, чтобы заполнить источник. «Сброс» остановит эмиссию и удалит частицы."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

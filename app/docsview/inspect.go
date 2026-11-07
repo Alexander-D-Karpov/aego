@@ -8,6 +8,7 @@ import (
 
 	"aego/asset"
 	"aego/core/ids"
+	"aego/modules/particles"
 	"aego/schema"
 )
 
@@ -88,6 +89,14 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 		}
 		if _, duplicate := out.Observables[observable]; duplicate {
 			return nil, fmt.Errorf("duplicate observable %s", observable)
+		}
+		if component == particles.NameSystem && field == "LiveParticles" {
+			s := particles.Of(a.session.Controller().World())
+			if s == nil {
+				return nil, fmt.Errorf("particle runtime is unavailable")
+			}
+			out.Observables[observable] = s.Count(h)
+			continue
 		}
 		var fd *schema.FieldDescriptor
 		for i := range td.Fields {
