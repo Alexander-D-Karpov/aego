@@ -73,6 +73,9 @@ func (m *Machine) Collect(r Roots) bool {
 			continue
 		}
 		h.bytes -= o.size
+		if !o.str {
+			h.sliceCount--
+		}
 		o.live, o.s, o.elems, o.size = false, "", nil, 0
 		h.free = append(h.free, uint32(i))
 		h.live--
