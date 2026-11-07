@@ -34,7 +34,7 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 	}
 	selected := a.session.Selected()
 	if len(selected) != 1 {
-		return nil, fmt.Errorf("Try does not have exactly one selected node")
+		return nil, fmt.Errorf("the Try scene does not have exactly one selected node")
 	}
 	h := sc.Handle(selected[0])
 	if h.IsZero() || !sc.IsAlive(h) {

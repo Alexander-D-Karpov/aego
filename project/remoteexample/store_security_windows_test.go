@@ -109,13 +109,20 @@ func TestWindowsNullDACLIsRejected(t *testing.T) {
 	if ok == 0 {
 		t.Fatalf("set null test DACL: %v", callErr)
 	}
+	// Preserve the null DACL instead of inheriting ACEs from the test parent.
+	setControl := securityDLL.NewProc("SetSecurityDescriptorControl")
+	const daclProtected = 0x1000 // SE_DACL_PROTECTED
+	ok, _, callErr = setControl.Call(uintptr(unsafe.Pointer(&sd)), daclProtected, daclProtected)
+	if ok == 0 {
+		t.Fatalf("protect null test DACL from inheritance: %v", callErr)
+	}
 	attrs := syscall.SecurityAttributes{SecurityDescriptor: uintptr(unsafe.Pointer(&sd))}
 	attrs.Length = uint32(unsafe.Sizeof(attrs))
 	if err := syscall.CreateDirectory(name, &attrs); err != nil {
 		t.Fatalf("create directory with null DACL: %v", err)
 	}
-	if _, err := NewStore(root, Limits{}); err == nil {
-		t.Fatal("null DACL (unrestricted access) was accepted")
+	if _, err := NewStore(root, Limits{}); err == nil || !strings.Contains(err.Error(), "null DACL") {
+		t.Fatalf("store did not reject a null DACL (unrestricted access): %v", err)
 	}
 }
 
