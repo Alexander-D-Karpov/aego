@@ -57,6 +57,16 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      # Run the fast, isolated registry checks before unrelated build/tests so
+      # their result is still visible when an earlier native test fails.
+      - name: Test PATH editing rules with Windows PowerShell
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tools/ci/windows-user-path-test.ps1
+      - name: Test PATH editing rules with PowerShell 7
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/ci/windows-user-path-test.ps1
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -130,14 +140,6 @@ jobs:
       - name: Build Windows portable and installer
         if: runner.os == 'Windows'
         run: bash tools/ci/github-windows-package.sh 2>&1 | tee .cache/github-ci/logs/windows-package.txt
-      - name: Test PATH editing rules with Windows PowerShell
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: ./tools/ci/windows-user-path-test.ps1
-      - name: Test PATH editing rules with PowerShell 7
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./tools/ci/windows-user-path-test.ps1
       - name: Native silent installer and uninstaller
         if: runner.os == 'Windows'
         shell: pwsh
