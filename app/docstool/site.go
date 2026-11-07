@@ -220,7 +220,7 @@ func (e *Env) artStudio(dir string) error {
 	}
 	wasm := filepath.Join(dir, "artstudio.wasm")
 	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./tools/artstudio/wasm"); err != nil {
-		return fmt.Errorf("Art Studio build failed: %w", err)
+		return fmt.Errorf("build Art Studio: %w", err)
 	}
 	if _, err := gzipCopy(wasm); err != nil {
 		return err
@@ -259,14 +259,14 @@ func packageStudioWeb(web, dir string, support []byte) error {
 	for _, entry := range []struct{ attr, name string }{{"href", "studio.css"}, {"src", "wasm_exec.js"}, {"src", "recovery.js"}, {"src", "studio.js"}} {
 		old := []byte(entry.attr + `="` + entry.name + `"`)
 		if bytes.Count(index, old) != 1 {
-			return fmt.Errorf("Art Studio index needs exactly one %s", old)
+			return fmt.Errorf("studio index needs exactly one %s", old)
 		}
 		index = bytes.Replace(index, old, []byte(entry.attr+`="`+entry.name+"?v="+version+`"`), 1)
 	}
 	js := data["studio.js"]
 	old := []byte(`fetch('artstudio.wasm')`)
 	if bytes.Count(js, old) != 1 {
-		return errors.New("Art Studio needs exactly one WASM fetch")
+		return errors.New("studio needs exactly one WASM fetch")
 	}
 	data["studio.js"] = bytes.Replace(js, old, []byte(`fetch('artstudio.wasm?v=`+version+`')`), 1)
 	data["index.html"], data["wasm_exec.js"] = index, support

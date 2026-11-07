@@ -176,7 +176,7 @@ type builder struct {
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
 	if opt.Studio && !isFile(filepath.Join(out, "studio", "index.html")) {
-		return Report{}, fmt.Errorf("Art Studio was requested but studio/index.html is missing")
+		return Report{}, fmt.Errorf("studio was requested but studio/index.html is missing")
 	}
 	exp.Entries = siteEntries(exp.Entries)
 	keep := make(map[string]bool, len(exp.Entries))
