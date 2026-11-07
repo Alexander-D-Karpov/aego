@@ -40,6 +40,7 @@ var ruChrome = map[string]string{
 	"Edit this page":                        "Править эту страницу",
 	"Edit the English page":                 "Править английскую страницу",
 	"Playground":                            "Песочница",
+	"Art Studio":                            "Студия рисунка",
 	"Functions":                             "Функции",
 	"Filter":                                "Найти среди",
 	"members of":                            "членов",

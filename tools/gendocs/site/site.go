@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	hexenc "encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html"
 	"html/template"
 	"io/fs"
@@ -68,6 +69,7 @@ func sectionTitle(s string) string {
 
 type Options struct {
 	Playground  bool
+	Studio      bool
 	Repo        string
 	Edit        string
 	Version     string
@@ -101,6 +103,7 @@ type layoutData struct {
 	Description string
 	Site        string
 	Playground  bool
+	Studio      bool
 	PlayVersion string
 	TryVersion  string
 	PlaySize    int64
@@ -172,6 +175,9 @@ type builder struct {
 }
 
 func Build(exp *Export, out string, opt Options) (Report, error) {
+	if opt.Studio && !isFile(filepath.Join(out, "studio", "index.html")) {
+		return Report{}, fmt.Errorf("Art Studio was requested but studio/index.html is missing")
+	}
 	exp.Entries = siteEntries(exp.Entries)
 	keep := make(map[string]bool, len(exp.Entries))
 	for _, e := range exp.Entries {
@@ -1093,6 +1099,7 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 		Description: b.tr(homeLead),
 		Site:        b.exp.Title,
 		Playground:  b.opt.Playground,
+		Studio:      b.opt.Studio,
 		PlayVersion: b.opt.PlayVersion,
 		TryVersion:  b.opt.TryVersion,
 		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
