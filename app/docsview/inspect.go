@@ -67,6 +67,10 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 			_, resolved = a.loader.Mesh(id)
 		case asset.ArtTexture, asset.ArtSpriteRegion, asset.ArtAtlasPage:
 			_, resolved = a.loader.Texture(id)
+		case asset.ArtMaterial:
+			_, resolved = a.loader.Material(id)
+		case asset.ArtShader:
+			_, resolved = a.loader.Shader(id)
 		case "":
 			return nil, fmt.Errorf("unresolved dependency %s", dep)
 		default:
