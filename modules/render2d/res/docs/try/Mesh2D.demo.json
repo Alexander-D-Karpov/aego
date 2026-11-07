@@ -15,7 +15,8 @@
       "id": "move-behind-sprite",
       "field": "engine.Mesh2D.Order",
       "value": 0,
-      "expected": [{"observable": "engine.Mesh2D.Order", "equals": 0, "changes": true}]
+      "expected": [{"observable": "engine.Mesh2D.Order", "equals": 0, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
     }
   ],
   "reset": "reset",

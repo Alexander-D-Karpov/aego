@@ -12,7 +12,8 @@
       "id": "move-behind-backdrop",
       "field": "engine.SpriteRenderer.Order",
       "value": -1,
-      "expected": [{"observable": "engine.SpriteRenderer.Order", "equals": -1, "changes": true}]
+      "expected": [{"observable": "engine.SpriteRenderer.Order", "equals": -1, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
     }
   ],
   "reset": "reset",

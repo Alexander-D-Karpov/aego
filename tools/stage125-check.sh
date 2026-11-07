@@ -4,9 +4,17 @@ set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 mode="${1:-core}"
-case "$mode" in core|native|ci) ;; *) printf 'Usage: %s [core|native|ci]\n' "$0" >&2; exit 2;; esac
+case "$mode" in core|native|try|ci) ;; *) printf 'Usage: %s [core|native|try|ci]\n' "$0" >&2; exit 2;; esac
 export GOFLAGS="${GOFLAGS:+$GOFLAGS }-mod=readonly"
 go version
+if [[ "$mode" == try ]]; then
+  : "${AEGO_TRY_SITE:?Set AEGO_TRY_SITE to a freshly built documentation site}"
+  [[ -f "$AEGO_TRY_SITE/index.html" && -f "$AEGO_TRY_SITE/try/aego-docs.wasm" ]] || { printf '%s\n' 'Try site or actual docs WASM is missing' >&2; exit 1; }
+  [[ "$(go env GOOS)" == linux && "$(go env CGO_ENABLED)" == 1 ]] || { printf '%s\n' 'Native OpenGL component gate needs Linux and CGO' >&2; exit 1; }
+  go test -tags 'aego_editor aego_gltest' -list '^TestComponentContractsAcrossNativeAndChromium$' ./app/docsview | grep -x 'TestComponentContractsAcrossNativeAndChromium'
+  AEGO_DEMOCHECK_ENFORCE=1 go test -tags 'aego_editor aego_gltest' -count=1 -run '^TestComponentContractsAcrossNativeAndChromium$' -v ./app/docsview
+  exit 0
+fi
 go test -race -count=1 ./art ./project/remoteexample ./tools/remoteexample ./tools/artstudio ./tools/artstudio/host ./engine/docs/democheck
 go vet ./art ./project/remoteexample ./tools/remoteexample ./tools/artstudio ./tools/artstudio/host ./engine/docs/democheck
 bash tools/artstudio/build.sh
@@ -23,5 +31,6 @@ go test -count=1 -run '^TestArt(SceneAuthoringWorkflowHeadless|AgentUsesLiveDocu
 go vet ./editor/core/artedit ./editor/core/context ./asset/pipeline ./asset/importers/artsource ./app/agent ./app/edit ./app/edit/agentbridge ./modules/render2d/editor ./editor/shell ./engine/docs
 if [[ "$mode" == ci ]]; then
   make ci
+  "$0" try
 fi
 printf '%s\n' 'Requested code checks completed. AS01-AS28, actual browser/UI scenarios and real all-component DemoContract probes still require their own evidence.'

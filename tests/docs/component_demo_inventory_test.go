@@ -58,7 +58,7 @@ func TestComponentDemoInventoryRequiresRuntimeProbe(t *testing.T) {
 		if len(result.Errors) == 0 {
 			t.Errorf("%s was reported without a missing probe or contract error", result.ComponentID)
 		}
-		if (result.ComponentID == "engine.Mesh2D" || result.ComponentID == "engine.SpriteRenderer") && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
+		if (result.ComponentID == "engine.Camera2D" || result.ComponentID == "engine.Camera3D" || result.ComponentID == "engine.Mesh2D" || result.ComponentID == "engine.SpriteRenderer") && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
 			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
 		}
 	}

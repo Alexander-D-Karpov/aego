@@ -165,3 +165,64 @@ func TestCancelledCoverageDoesNotRunProbe(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+type visualRunner struct{ fault string }
+type visualInstance struct {
+	fault, env string
+	contract   Contract
+	value      int
+	actions    int
+}
+
+func (r visualRunner) Open(_ context.Context, c Contract, env string) (Instance, error) {
+	return &visualInstance{contract: c, env: env, fault: r.fault}, nil
+}
+func (p *visualInstance) Observe(context.Context) (Observation, error) {
+	raw, _ := json.Marshal(p.value)
+	o := Observation{Identity: p.contract.Identity, Components: []string{p.contract.ComponentID}, Dependencies: p.contract.Dependencies, RuntimeExecuting: true, Observables: map[string]json.RawMessage{"count": raw}}
+	if p.fault == "missing" {
+		return o, nil
+	}
+	n := 1
+	if p.env == "chromium" {
+		n = 2
+	}
+	for i := 0; i < n; i++ {
+		pixel := byte(0)
+		if p.value == 2 || p.fault == "reset" && p.actions > 0 {
+			pixel = 255
+		}
+		if p.fault == "static" || p.fault == "one-language" && i == 1 {
+			pixel = 0
+		}
+		frame := Frame{Width: 1, Height: 1, Pixels: []byte{pixel, 0, 0, 255}}
+		if p.fault == "wrong-size" && p.value == 2 {
+			frame.Width = 2
+		}
+		o.Frames = append(o.Frames, frame)
+	}
+	return o, nil
+}
+func (p *visualInstance) Action(context.Context, Action) error { p.value = 2; p.actions++; return nil }
+func (p *visualInstance) Reset(context.Context, string) error  { p.value = 0; return nil }
+func (p *visualInstance) Close() error                         { return nil }
+
+func TestVisualEvidenceRequiresChangedAndResetGameViews(t *testing.T) {
+	c, d := fixture()
+	d.Actions[0].Visual = &VisualExpectation{MinChangedPixels: 1, MaxResetDifferencePixels: 0}
+	if r := Check(context.Background(), []Component{c}, []Contract{d}, visualRunner{}); !r.Passed() {
+		t.Fatalf("real changes in all frames should pass: %+v", r)
+	}
+	for _, fault := range []string{"missing", "static", "one-language", "wrong-size", "reset"} {
+		t.Run(fault, func(t *testing.T) {
+			r := Check(context.Background(), []Component{c}, []Contract{d}, visualRunner{fault})
+			if r.Passed() {
+				t.Fatalf("accepted bad Game View evidence: %+v", r)
+			}
+		})
+	}
+	d.Actions[0].Visual.MinChangedPixels = 0
+	if r := Check(context.Background(), []Component{c}, []Contract{d}, visualRunner{}); r.Passed() {
+		t.Fatalf("accepted a zero-pixel visual threshold: %+v", r)
+	}
+}

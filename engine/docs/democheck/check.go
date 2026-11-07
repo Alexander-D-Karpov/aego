@@ -38,6 +38,13 @@ type Action struct {
 	Field    string          `json:"field,omitempty"`
 	Value    json.RawMessage `json:"value,omitempty"`
 	Expected []Expectation   `json:"expected"`
+	// Visual is opt-in for actions whose result must be visible in Game View.
+	// The runner supplies actual rendered frames, not a synthetic thumbnail.
+	Visual *VisualExpectation `json:"visual,omitempty"`
+}
+type VisualExpectation struct {
+	MinChangedPixels         int `json:"minChangedPixels"`
+	MaxResetDifferencePixels int `json:"maxResetDifferencePixels"`
 }
 type Contract struct {
 	Version     int    `json:"version"`
@@ -70,6 +77,13 @@ type Observation struct {
 	// random IDs and whole-frame noise must not be used as reset assertions.
 	Observables      map[string]json.RawMessage
 	RuntimeExecuting bool
+	// Frames are RGBA Game View captures. Web probes include one per language.
+	Frames []Frame `json:"frames,omitempty"`
+}
+type Frame struct {
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Pixels []byte `json:"pixels"`
 }
 
 // Runner adapts the existing Try runtime. Open must use the provided entry's
@@ -233,6 +247,9 @@ func validate(component Component, c Contract) error {
 		if len(a.Expected) == 0 {
 			return fmt.Errorf("action has no observable result: %s", a.ID)
 		}
+		if a.Visual != nil && (a.Visual.MinChangedPixels <= 0 || a.Visual.MaxResetDifferencePixels < 0) {
+			return fmt.Errorf("invalid visual expectation: %s", a.ID)
+		}
 		changed := false
 		seen := map[string]bool{}
 		for _, e := range a.Expected {
@@ -315,6 +332,20 @@ func equalJSON(a, b json.RawMessage) bool {
 	}
 	return reflect.DeepEqual(x, y)
 }
+
+func frameDifference(a, b Frame) (int, error) {
+	if a.Width <= 0 || a.Height <= 0 || a.Width > 4096 || a.Height > 4096 || a.Width*a.Height > 4*1024*1024 || a.Width != b.Width || a.Height != b.Height || len(a.Pixels) != a.Width*a.Height*4 || len(b.Pixels) != len(a.Pixels) {
+		return 0, errors.New("missing, invalid or differently sized Game View frame")
+	}
+	changed := 0
+	for i := 0; i < len(a.Pixels); i += 4 {
+		if a.Pixels[i] != b.Pixels[i] || a.Pixels[i+1] != b.Pixels[i+1] || a.Pixels[i+2] != b.Pixels[i+2] || a.Pixels[i+3] != b.Pixels[i+3] {
+			changed++
+		}
+	}
+	return changed, nil
+}
+
 func probe(ctx context.Context, c Contract, env string, r Runner) (err error) {
 	if err = ctx.Err(); err != nil {
 		return err
@@ -349,6 +380,24 @@ func probe(ctx context.Context, c Contract, env string, r Runner) (err error) {
 		if e = checkObservation(c, env, after); e != nil {
 			return e
 		}
+		if action.Visual != nil {
+			wantFrames := 1
+			if env != "native" {
+				wantFrames = 2 // EN and RU must each have an actual browser frame.
+			}
+			if len(before.Frames) != wantFrames || len(after.Frames) != wantFrames {
+				return fmt.Errorf("action %s: missing Game View frames", action.ID)
+			}
+			for i := range before.Frames {
+				diff, e := frameDifference(before.Frames[i], after.Frames[i])
+				if e != nil {
+					return fmt.Errorf("action %s: %w", action.ID, e)
+				}
+				if diff < action.Visual.MinChangedPixels {
+					return fmt.Errorf("action %s: Game View changed %d pixels, need %d", action.ID, diff, action.Visual.MinChangedPixels)
+				}
+			}
+		}
 		for _, expect := range action.Expected {
 			a, ok := after.Observables[expect.Observable]
 			if !ok || !equalJSON(a, expect.Equals) {
@@ -371,6 +420,20 @@ func probe(ctx context.Context, c Contract, env string, r Runner) (err error) {
 		}
 		if e = checkObservation(c, env, reset); e != nil {
 			return e
+		}
+		if action.Visual != nil {
+			if len(reset.Frames) != len(before.Frames) {
+				return fmt.Errorf("reset after %s: missing Game View frames", action.ID)
+			}
+			for i := range before.Frames {
+				diff, e := frameDifference(before.Frames[i], reset.Frames[i])
+				if e != nil {
+					return fmt.Errorf("reset after %s: %w", action.ID, e)
+				}
+				if diff > action.Visual.MaxResetDifferencePixels {
+					return fmt.Errorf("reset after %s: Game View differs in %d pixels, maximum %d", action.ID, diff, action.Visual.MaxResetDifferencePixels)
+				}
+			}
 		}
 		for _, expect := range action.Expected {
 			if !equalJSON(before.Observables[expect.Observable], reset.Observables[expect.Observable]) {

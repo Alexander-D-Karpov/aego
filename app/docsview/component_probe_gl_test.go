@@ -6,16 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
 	"aego/app/playground"
-	"aego/asset"
-	"aego/core/ids"
 	"aego/engine/docs/democheck"
-	"aego/schema"
 )
 
 // nativeTryRunner drives the actual docsview load/set/reset bridge and renderer.
@@ -96,95 +94,45 @@ func (p *nativeTryInstance) Observe(ctx context.Context) (democheck.Observation,
 	if err := ctx.Err(); err != nil {
 		return democheck.Observation{}, err
 	}
-	sc := p.app.session.Controller().Scene()
-	if sc == nil {
-		return democheck.Observation{}, fmt.Errorf("Try scene is not running")
-	}
-	state := p.app.session.State()
-	o := democheck.Observation{Identity: p.identity, Observables: map[string]json.RawMessage{}, RuntimeExecuting: state.Running && !state.Paused && state.Frames > 0}
-	td, ok := sc.Registry().ByName(p.contract.ComponentID)
-	if !ok {
-		return o, fmt.Errorf("component is not registered in the Try runtime: %s", p.contract.ComponentID)
-	}
-	var found bool
-	for _, h := range sc.PreOrder() {
-		if _, found = sc.GetByType(h, td.ID); found {
-			o.Components = append(o.Components, td.FullName)
-			break
-		}
-	}
-	if !found {
-		return o, fmt.Errorf("runtime scene does not contain %s", p.contract.ComponentID)
-	}
-	for _, dep := range p.contract.Dependencies {
-		id, err := ids.ParseAssetID(dep)
-		if err != nil {
-			return o, fmt.Errorf("invalid dependency %s: %w", dep, err)
-		}
-		kind := asset.ArtifactKind("")
-		if builtin, ok := asset.LookupBuiltin(id); ok {
-			kind = builtin.Kind
-		} else if entry, ok := p.app.loader.Index().Lookup(id); ok && !entry.Missing {
-			kind = entry.Kind
-		}
-		resolved := false
-		switch kind {
-		case asset.ArtMesh:
-			_, resolved = p.app.loader.Mesh(id)
-		case asset.ArtTexture, asset.ArtSpriteRegion, asset.ArtAtlasPage:
-			_, resolved = p.app.loader.Texture(id)
-		case "":
-			return o, fmt.Errorf("unresolved dependency %s", dep)
-		default:
-			return o, fmt.Errorf("dependency kind %s is not supported by this probe", kind)
-		}
-		if !resolved {
-			return o, fmt.Errorf("unresolved dependency %s", dep)
-		}
-		o.Dependencies = append(o.Dependencies, dep)
-	}
+	var fields []string
+	seen := map[string]bool{}
+	visual := false
 	for _, action := range p.contract.Actions {
+		visual = visual || action.Visual != nil
 		for _, expected := range action.Expected {
-			name, field, ok := strings.Cut(expected.Observable, p.contract.ComponentID+".")
-			if !ok || name != "" || field == "" {
-				return o, fmt.Errorf("unsupported runtime observable %s", expected.Observable)
-			}
-			var fd *schema.FieldDescriptor
-			for i := range td.Fields {
-				if strings.EqualFold(td.Fields[i].Name, field) {
-					fd = &td.Fields[i]
-					break
-				}
-			}
-			if fd == nil {
-				return o, fmt.Errorf("observable field is missing: %s", expected.Observable)
-			}
-			for _, h := range sc.PreOrder() {
-				if _, ok := sc.GetByType(h, td.ID); !ok {
-					continue
-				}
-				v, err := sc.GetProperty(h, td.ID, fd.ID)
-				if err != nil {
-					return o, err
-				}
-				var raw any
-				switch v.Kind {
-				case schema.KindBool:
-					raw = v.I != 0
-				case schema.KindInt32, schema.KindInt64, schema.KindEnum:
-					raw = v.I
-				case schema.KindFloat32, schema.KindFloat64:
-					raw = v.F
-				default:
-					return o, fmt.Errorf("observable kind %v is not supported", v.Kind)
-				}
-				o.Observables[expected.Observable], err = json.Marshal(raw)
-				if err != nil {
-					return o, err
-				}
-				break
+			if !seen[expected.Observable] {
+				seen[expected.Observable] = true
+				fields = append(fields, expected.Observable)
 			}
 		}
+	}
+	inspection, err := p.app.inspectTry(p.contract.ComponentID, fields, p.contract.Dependencies)
+	if err != nil {
+		return democheck.Observation{}, err
+	}
+	o := democheck.Observation{Identity: p.identity, Components: inspection.Components, Dependencies: inspection.Dependencies, Observables: map[string]json.RawMessage{}, RuntimeExecuting: inspection.RuntimeExecuting}
+	for name, value := range inspection.Observables {
+		o.Observables[name], err = json.Marshal(value)
+		if err != nil {
+			return o, err
+		}
+	}
+	if visual {
+		var shot *image.RGBA
+		var shotErr error
+		p.app.e.CaptureFrame(func(img *image.RGBA, err error) { shot, shotErr = img, err })
+		if err := p.app.Step(1); err != nil {
+			return o, err
+		}
+		if shotErr != nil || shot == nil {
+			return o, fmt.Errorf("capture Game View: %v", shotErr)
+		}
+		area := shot.Bounds().Intersect(image.Rect(0, 30, shot.Bounds().Dx()/2, shot.Bounds().Dy()))
+		frame := democheck.Frame{Width: area.Dx(), Height: area.Dy(), Pixels: make([]byte, area.Dx()*area.Dy()*4)}
+		for y := 0; y < area.Dy(); y++ {
+			copy(frame.Pixels[y*frame.Width*4:(y+1)*frame.Width*4], shot.Pix[shot.PixOffset(area.Min.X, area.Min.Y+y):][:frame.Width*4])
+		}
+		o.Frames = append(o.Frames, frame)
 	}
 	return o, nil
 }
@@ -260,16 +208,20 @@ func TestComponentContractProbeRunsNativeAndRejectsUnrunWeb(t *testing.T) {
 	if full.Passed() || full.PublicComponents != len(p.Docs().ComponentDemos()) || full.VerifiedComponents >= full.PublicComponents {
 		t.Fatalf("the full inventory must not pass with a browser runner missing: %+v", full)
 	}
-	meshNative, spriteNative := false, false
+	native := map[string]bool{"engine.Camera2D": false, "engine.Camera3D": false, "engine.Mesh2D": false, "engine.SpriteRenderer": false}
 	for _, result := range full.Results {
-		if result.ComponentID == entry.ID {
-			meshNative = slices.Contains(result.Environments, "native") && strings.Contains(strings.Join(result.Errors, " "), "chromium runner unavailable")
-		} else if result.ComponentID == "engine.SpriteRenderer" {
-			spriteNative = slices.Contains(result.Environments, "native") && strings.Contains(strings.Join(result.Errors, " "), "chromium runner unavailable")
+		if _, want := native[result.ComponentID]; want {
+			native[result.ComponentID] = slices.Contains(result.Environments, "native") && strings.Contains(strings.Join(result.Errors, " "), "chromium runner unavailable")
+			t.Logf("%s environments=%v errors=%v", result.ComponentID, result.Environments, result.Errors)
 		}
 	}
-	if !meshNative || !spriteNative {
-		t.Fatalf("native registry probe: mesh=%v sprite=%v", meshNative, spriteNative)
+	for id, passed := range native {
+		if !passed {
+			t.Errorf("native registry probe failed for %s", id)
+		}
+	}
+	if t.Failed() {
+		t.Fatalf("native registry probe: %v", native)
 	}
 	t.Logf("full component inventory: %d/%d verified across every declared environment", full.VerifiedComponents, full.PublicComponents)
 	bad := *entry.Demo

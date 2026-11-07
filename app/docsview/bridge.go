@@ -15,26 +15,29 @@ import (
 )
 
 type request struct {
-	Scene     string            `json:"scene"`
-	Select    string            `json:"select"`
-	Code      string            `json:"code"`
-	Prefabs   map[string]string `json:"prefabs"`
-	Artifacts []byte            `json:"artifacts"`
-	Component string            `json:"component"`
-	Field     string            `json:"field"`
-	Value     float64           `json:"value"`
-	Node      string            `json:"node"`
-	Theme     string            `json:"theme"`
-	Lang      string            `json:"lang"`
+	Scene        string            `json:"scene"`
+	Select       string            `json:"select"`
+	Code         string            `json:"code"`
+	Prefabs      map[string]string `json:"prefabs"`
+	Artifacts    []byte            `json:"artifacts"`
+	Component    string            `json:"component"`
+	Field        string            `json:"field"`
+	Value        float64           `json:"value"`
+	Fields       []string          `json:"fields"`
+	Dependencies []string          `json:"dependencies"`
+	Node         string            `json:"node"`
+	Theme        string            `json:"theme"`
+	Lang         string            `json:"lang"`
 }
 
 type Reply struct {
-	Text   string            `json:"text,omitempty"`
-	Values map[string]string `json:"values,omitempty"`
-	Error  string            `json:"error,omitempty"`
-	State  *docsession.State `json:"state,omitempty"`
-	Log    []Line            `json:"log,omitempty"`
-	Pose   []float64         `json:"pose,omitempty"`
+	Text       string            `json:"text,omitempty"`
+	Values     map[string]string `json:"values,omitempty"`
+	Error      string            `json:"error,omitempty"`
+	State      *docsession.State `json:"state,omitempty"`
+	Log        []Line            `json:"log,omitempty"`
+	Pose       []float64         `json:"pose,omitempty"`
+	Inspection *Inspection       `json:"inspection,omitempty"`
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
@@ -92,6 +95,12 @@ func (a *App) Call(method string, payload []byte) Reply {
 		}
 		p := sc.WorldPosition(h)
 		return Reply{Pose: []float64{float64(p.X), float64(p.Y)}}
+	case "inspect":
+		inspection, err := a.inspectTry(req.Component, req.Fields, req.Dependencies)
+		if err != nil {
+			return Reply{Error: err.Error()}
+		}
+		return Reply{Inspection: inspection}
 	case "log":
 		out := Reply{Log: a.lines}
 		a.lines = nil
