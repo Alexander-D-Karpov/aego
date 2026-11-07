@@ -94,6 +94,56 @@ func TestArtSceneAuthoringWorkflowNative(t *testing.T) {
 		if s.App.Context().UI.AnyPopup() || model.History.Cursor() != 1 {
 			t.Fatal("selecting the current tool changed the document or left the menu open")
 		}
+		// Select Eyedropper in the real tool menu, sample transparent and then
+		// painted pixels with SDL events, and inspect the actual color swatch.
+		for i := range 3 {
+			if !sdl.TestPointerEvent(100, 122, i) || !s.Step() {
+				t.Fatal("could not reopen the native tool menu")
+			}
+		}
+		capture("native-art-eyedropper-menu")
+		for i := range 3 {
+			if !sdl.TestPointerEvent(50, 367, i) || !s.Step() {
+				t.Fatal("could not select the native Eyedropper")
+			}
+		}
+		if s.App.Context().UI.AnyPopup() {
+			t.Fatal("Eyedropper selection left the native menu open")
+		}
+		colorSwatch := func() []byte {
+			t.Helper()
+			var shot *image.RGBA
+			var shotErr error
+			s.Engine.CaptureFrame(func(img *image.RGBA, err error) { shot, shotErr = img, err })
+			if !s.Step() || shotErr != nil || shot == nil {
+				t.Fatalf("capture color swatch: %v", shotErr)
+			}
+			var pixels []byte
+			for y := 116; y < 130; y++ {
+				for x := 858; x < 875; x++ {
+					c := shot.RGBAAt(x, y)
+					pixels = append(pixels, c.R, c.G, c.B, c.A)
+				}
+			}
+			return pixels
+		}
+		white := colorSwatch()
+		for i := range 3 {
+			if !sdl.TestPointerEvent(600, 400, i) || !s.Step() {
+				t.Fatal("could not sample the transparent native canvas")
+			}
+		}
+		transparent := colorSwatch()
+		for i := range 3 {
+			if !sdl.TestPointerEvent(500, 400, i) || !s.Step() {
+				t.Fatal("could not sample the painted native canvas")
+			}
+		}
+		pickedWhite := colorSwatch()
+		if bytes.Equal(white, transparent) || !bytes.Equal(white, pickedWhite) || model.History.Cursor() != 1 {
+			t.Fatal("native Eyedropper did not sample both colors without changing history")
+		}
+		capture("native-art-eyedropper")
 		if os.Getenv("AEGO_ART_WORKFLOW_SHOTS") != "" {
 			ws.ToggleMaximize(panelID)
 			for range 3 {

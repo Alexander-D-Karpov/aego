@@ -214,6 +214,16 @@ func artButton(ui *core.Context, id string, r mathx.Rect, text string) bool {
 	return widgets.ButtonRect(ui, ui.ID(id), r, text)
 }
 
+// ColorField stores linear UI colors but displays and edits 8-bit sRGB
+// numbers. Recover those exact displayed bytes for the Art document, including
+// for data channels whose byte values must not be gamma-converted by Art Core.
+func artColorBytes(c mathx.Color) art.Color {
+	colorByte := func(v float32) uint8 {
+		return uint8(math.Round(float64(mathx.Clamp(mathx.LinearToSRGB(mathx.Clamp(v, 0, 1)), 0, 1)) * 255))
+	}
+	return art.Color{R: colorByte(c.R), G: colorByte(c.G), B: colorByte(c.B), A: uint8(math.Round(float64(mathx.Clamp(c.A, 0, 1)) * 255))}
+}
+
 func artIconAction(ui *core.Context, name string, r mathx.Rect, icon, tip string, enabled bool) bool {
 	id := ui.ID(name)
 	clicked := false
@@ -298,6 +308,7 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		{Icon: "tool.gradient", Label: i18n.Tr("editor.art.gradient", "Gradient")},
 		{Icon: "tool.selection", Label: i18n.Tr("editor.art.selection", "Selection")},
 		{Icon: "tool.wand", Label: i18n.Tr("editor.art.wand", "Magic wand")},
+		{Icon: "tool.eyedropper", Label: i18n.Tr("editor.art.eyedropper", "Eyedropper (active layer)")},
 	}
 	widgets.IconCombo(ui, ui.ID("tool"), artCell(row, 0, 3), &v.tool, tools)
 	widgets.DragNumber(ui, ui.ID("brush-size"), artCell(row, 1, 3), &v.size, widgets.NumberOpts{Int: true, HasMin: true, Min: 1, HasMax: true, Max: 64, Speed: .3})
@@ -410,14 +421,14 @@ func (p *artPanel) canvas(f *services.Frame, r mathx.Rect) {
 	pt := v.viewport.imagePoint(r, ui.Mouse())
 	point := image.Pt(int(math.Floor(float64(pt.X))), int(math.Floor(float64(pt.Y))))
 	brush := art.Brush{Size: int(v.size), Round: v.round, PixelPerfect: v.perfect, MirrorX: v.mirrorX, MirrorY: v.mirrorY,
-		Paint:      art.Paint{Color: art.Color{R: uint8(math.Round(float64(v.color.R) * 255)), G: uint8(math.Round(float64(v.color.G) * 255)), B: uint8(math.Round(float64(v.color.B) * 255)), A: uint8(math.Round(float64(v.color.A) * 255))}},
+		Paint:      art.Paint{Color: artColorBytes(v.color)},
 		Background: art.Paint{Color: art.Color{A: 0}},
 	}
 	if info.Document.Canvas.Mode == art.Indexed && s.Channel == art.Albedo {
 		brush.Paint.UseIndex = true
 		brush.Paint.Index = v.palette
 	}
-	if !v.playing && p.doc.Capabilities.Has(document.EditSource) && ui.MouseOver(id, r) && ui.MousePressed(input.MouseLeft) {
+	if !v.playing && (v.tool == 9 || p.doc.Capabilities.Has(document.EditSource)) && ui.MouseOver(id, r) && ui.MousePressed(input.MouseLeft) {
 		switch v.tool {
 		case 2:
 			p.execute(art.Operation{Kind: "fill", Points: []image.Point{point}, Brush: brush})
@@ -428,6 +439,17 @@ func (p *artPanel) canvas(f *services.Frame, r mathx.Rect) {
 		case 8:
 			p.report(s.SetSelection("wand", []image.Point{point}, 0))
 			v.refresh = true
+		case 9:
+			if point.In(image.Rect(0, 0, info.Document.Canvas.Width, info.Document.Canvas.Height)) {
+				paint, err := s.SamplePaint(point)
+				if err == nil {
+					v.color = mathx.ColorRGBA8(paint.Color.R, paint.Color.G, paint.Color.B, paint.Color.A)
+					if paint.UseIndex {
+						v.palette, v.palettePage = paint.Index, paint.Index/8
+					}
+				}
+				p.report(err)
+			}
 		default:
 			names := []string{"pencil", "eraser", "", "line", "rectangle", "ellipse", "gradient"}
 			if v.tool >= 0 && v.tool < len(names) {

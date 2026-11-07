@@ -46,6 +46,7 @@ var Editor = []module.IconUse{
 	use("tool.gradient", 16, "Pixel Art Studio: Gradient tool"),
 	use("tool.selection", 16, "Pixel Art Studio: rectangular selection tool"),
 	use("tool.wand", 16, "Pixel Art Studio: Magic Wand tool"),
+	use("tool.eyedropper", 16, "Pixel Art Studio: Eyedropper tool"),
 	use("ui.hidden", 16, "Pixel Art Studio: hidden layer"),
 	use("cat.engine", 14, "Agent panel: steps that read component types"),
 	use("cat.node", 16, "Search: node results; Add Component and Create: category"),

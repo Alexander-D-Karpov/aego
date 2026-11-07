@@ -1430,6 +1430,9 @@ messages version=1 lang=en {
   msg "editor.art.pencil" {
     text="Pencil"
   }
+  msg "editor.art.eyedropper" {
+    text="Eyedropper (active layer)"
+  }
   msg "editor.art.pixel_perfect" {
     text="Pixel perfect"
   }

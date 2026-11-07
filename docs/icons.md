@@ -191,6 +191,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `status.warning` | engine | 16 | Table and inspector issue rows; Assets: preview warnings | ok |
 | `tool.ellipse` | engine | 16 | Pixel Art Studio: Ellipse tool | ok |
 | `tool.eraser` | engine | 16 | Pixel Art Studio: Eraser tool | ok |
+| `tool.eyedropper` | engine | 16 | Pixel Art Studio: Eyedropper tool | ok |
 | `tool.fill` | engine | 16 | Pixel Art Studio: Fill tool | ok |
 | `tool.gradient` | engine | 16 | Pixel Art Studio: Gradient tool | ok |
 | `tool.line` | engine | 16 | Pixel Art Studio: Line tool | ok |

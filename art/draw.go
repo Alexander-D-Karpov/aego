@@ -58,6 +58,36 @@ func (d *Document) Pixel(cel ID, x, y int) (Color, error) {
 	c := d.current.Cels[i]
 	return decode(d.current.forChannel(c.Channel), d.current.Images[c.Image].at(x-c.X, y-c.Y)), nil
 }
+
+// SamplePaint reads one pixel from the active cel without changing history.
+// In indexed albedo, retain the actual index even when palette colors repeat.
+// An absent cel is transparent; coordinates outside the canvas are rejected.
+func (d *Document) SamplePaint(cel ID, ch Channel, x, y int) (Paint, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.closed {
+		return Paint{}, ErrClosed
+	}
+	if !validChannel(ch) || x < 0 || y < 0 || x >= d.current.Canvas.Width || y >= d.current.Canvas.Height {
+		return Paint{}, fmt.Errorf("art: sample is outside the canvas or channel")
+	}
+	s := d.current.forChannel(ch)
+	var value uint32
+	if cel != "" {
+		i, ok := d.current.cel(cel)
+		if !ok || d.current.Cels[i].Channel != ch {
+			return Paint{}, fmt.Errorf("art: missing cel in the selected channel")
+		}
+		c := d.current.Cels[i]
+		value = d.current.Images[c.Image].at(x-c.X, y-c.Y)
+	}
+	paint := Paint{Color: decode(s, value)}
+	if s.Canvas.Mode == Indexed {
+		paint.UseIndex = true
+		paint.Index = int(value)
+	}
+	return paint, nil
+}
 func (e *Edit) SetPixel(cel ID, x, y int, p Paint, sel *Selection, erase bool) error {
 	c, err := e.celForWrite(cel)
 	if err != nil {

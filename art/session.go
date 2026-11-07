@@ -224,6 +224,15 @@ func (s *Session) CancelGesture() {
 	s.draft = nil
 	s.gesture = nil
 }
+
+// SamplePaint samples the selected layer, frame and channel, not onion skin,
+// reference overlays or the other composited layers.
+func (s *Session) SamplePaint(p image.Point) (Paint, error) {
+	if s.draft != nil {
+		return Paint{}, fmt.Errorf("art: finish or cancel the current gesture")
+	}
+	return s.Document.SamplePaint(s.ActiveCel(), s.Channel, p.X, p.Y)
+}
 func (s *Session) Execute(ctx context.Context, op Operation) (ID, error) {
 	if s.draft != nil {
 		return "", fmt.Errorf("art: a gesture is active")

@@ -31,6 +31,15 @@ import (
 	"aego/ui/widgets"
 )
 
+func TestArtColorPickerPreservesDisplayedBytes(t *testing.T) {
+	for _, want := range []art.Color{{1, 50, 200, 128}, {127, 128, 255, 255}, {255, 0, 0, 0}} {
+		got := artColorBytes(mathx.ColorRGBA8(want.R, want.G, want.B, want.A))
+		if got != want {
+			t.Errorf("color picker bytes = %+v, want %+v", got, want)
+		}
+	}
+}
+
 // Exercises the native panel and real document/import pipeline with simulated
 // pointer events. This is not a replacement for an OS/GPU desktop smoke test.
 func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
@@ -112,6 +121,50 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	}
 	if bytes.Count(painted.Pix, []byte{255}) == 0 {
 		t.Fatal("native pointer stroke did not paint the canonical pixels")
+	}
+	// Select Eyedropper and sample the just-painted pixel through the actual
+	// canvas widget. Picking a color is presentation state, not a document edit.
+	panelView := &artView{size: 1, grid: true, refresh: true, tool: 9, color: mathx.ColorRGBA8(255, 0, 0, 255)}
+	sampler := &artPanel{ctx: ed, reg: registry, doc: doc, model: model, view: panelView}
+	drawSampler := func() {
+		ed.UI.Begin(state, mathx.Vec2{X: 900, Y: 700}, 1)
+		sampler.Draw(&services.Frame{UI: ed.UI, Focused: true}, mathx.Rect{W: 900, H: 700})
+		ed.UI.End()
+	}
+	state.BeginFrame()
+	drawSampler()
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	drawSampler()
+	state.BeginFrame()
+	state.ApplyMouseUp(point, input.MouseLeft)
+	drawSampler()
+	if panelView.color != mathx.White || model.History.Cursor() != 1 || !doc.Dirty() {
+		t.Fatalf("eyedropper did not pick the canvas pixel without an edit: color=%+v history=%d", panelView.color, model.History.Cursor())
+	}
+	// Mid-tone UI color values must reach the canonical pixels unchanged; the
+	// ColorField's internal linear representation must not darken the stroke.
+	panelView.tool = 0
+	panelView.color = mathx.ColorRGBA8(127, 128, 200, 255)
+	otherPoint := mathx.Vec2{X: 360, Y: 250}
+	state.BeginFrame()
+	state.ApplyMouseMove(otherPoint, mathx.Vec2{})
+	state.ApplyMouseDown(otherPoint, input.MouseLeft)
+	drawSampler()
+	state.BeginFrame()
+	state.ApplyMouseUp(otherPoint, input.MouseLeft)
+	drawSampler()
+	colored, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || model.History.Cursor() != 2 || !bytes.Contains(colored.Pix, []byte{127, 128, 200, 255}) {
+		t.Fatalf("canvas did not preserve the selected color bytes: history=%d, error=%v", model.History.Cursor(), err)
+	}
+	if err := ed.UndoAsset(doc); err != nil {
+		t.Fatal(err)
+	}
+	colored, _, err = model.Capture(frame, art.Albedo)
+	if err != nil || !bytes.Equal(colored.Pix, painted.Pix) || model.History.Cursor() != 1 {
+		t.Fatal("Undo did not restore the drawing after the colored stroke")
 	}
 	if disk, err := os.ReadFile(ed.Docs.Abs(doc.Path)); err != nil || !bytes.Equal(initial, disk) {
 		t.Fatal("drawing unexpectedly modified the file before Save")
