@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "componentID": "engine.MeshRenderer",
+  "demoID": "engine.MeshRenderer.double-sided",
+  "documentID": "engine.MeshRenderer",
+  "scene": "engine.MeshRenderer/try",
+  "identity": "e95cc7b989189db1e8a8c827c0a978d6cfc1279da45b6fd401f491d9adb69bec",
+  "dependencies": ["ae900000000000000000000000000002"],
+  "editableFields": ["engine.MeshRenderer.DoubleSided"],
+  "actions": [
+    {
+      "id": "show-back-face",
+      "field": "engine.MeshRenderer.DoubleSided",
+      "value": 1,
+      "expected": [{"observable": "engine.MeshRenderer.DoubleSided", "equals": true, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Double-sided mesh",
+      "description": "The camera faces the back of an orange plane. Its back face is culled while Double Sided is off.",
+      "input": "Enable Double Sided to show the back face. Reset restores one-sided rendering."
+    },
+    "ru": {
+      "title": "Двусторонняя сетка",
+      "description": "Камера смотрит на обратную сторону оранжевой плоскости. Без двусторонней отрисовки обратная сторона отсекается.",
+      "input": "Включите двустороннюю отрисовку, чтобы увидеть плоскость. «Сброс» восстановит одностороннюю отрисовку."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}
