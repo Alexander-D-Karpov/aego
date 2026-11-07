@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "componentID": "engine.Light2D",
+  "demoID": "engine.Light2D.intensity",
+  "documentID": "engine.Light2D",
+  "scene": "engine.Light2D/try",
+  "identity": "8ef298cd63436b89bbe39d02cf301b7c1873dfbab8f333eeb6c4b9b91bdf1184",
+  "dependencies": [
+    "ae900000000000000000000000000010",
+    "ae900000000000000000000000000c06",
+    "ae900000000000000000000000000c86"
+  ],
+  "editableFields": ["engine.Light2D.Intensity"],
+  "actions": [
+    {
+      "id": "turn-off-warm-light",
+      "field": "engine.Light2D.Intensity",
+      "value": 0,
+      "expected": [{"observable": "engine.Light2D.Intensity", "equals": 0, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Light intensity",
+      "description": "A warm point light and a cool spotlight illuminate a Lit surface and an occluder.",
+      "input": "Set the warm light's Intensity to 0 and watch its contribution disappear. Reset restores it."
+    },
+    "ru": {
+      "title": "Интенсивность света",
+      "description": "Тёплый точечный и холодный направленный источник освещают поверхность Lit и препятствие.",
+      "input": "Установите интенсивность тёплого света в 0 и посмотрите, как исчезнет его вклад. «Сброс» восстановит свет."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}

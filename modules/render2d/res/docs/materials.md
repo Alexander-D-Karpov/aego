@@ -108,7 +108,7 @@ Point lights illuminate a circle. Spot lights face local +X; `innerAngle` and `o
 
 `layers` selects receiver visibility layers. `shadowCasterMask` separately selects occluder layers; neither replaces collision filtering. Eight lights can contribute to one receiver set. Priority, estimated influence and stable ID decide which lights remain when a set exceeds that budget. Scene View highlights excluded source markers and the Profiler counts exclusions and lighting batch splits. Transparent Sprite/Mesh2D order is preserved.
 
-The Try scene moves a warm light beside a cool spotlight. Select the light's `height`, `range` or cone fields and compare the result. Pause the scene to edit without scripted motion.
+The Try scene places a warm light beside a cool spotlight. Change the warm light's intensity to compare its contribution, then use Reset to restore it. The lights remain still so the effect of each edit is easy to see.
 
 ---
 id: engine.LightOccluder2D

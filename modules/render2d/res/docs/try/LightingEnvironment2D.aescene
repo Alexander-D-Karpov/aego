@@ -27,9 +27,6 @@ scene version=1 {
       type=point color=#ffbd75ff intensity=3.8 range=8 height=2
       falloff=1.3 layers=1 shadowCasterMask=1 shadows=true shadowSoftness=1 priority=2
     }
-    component "engine.Script" version=1 {
-      script "game.demo.MovingLight" enabled=true {}
-    }
   }
   node "d5000000000000000000000000000025" name="Cool spotlight" enabled=true layers=1 {
     transform { position=[4, 1.2] rotation=3.1415927 scale=[1, 1] }

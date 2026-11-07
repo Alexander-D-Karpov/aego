@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "componentID": "engine.LightingEnvironment2D",
+  "demoID": "engine.LightingEnvironment2D.ambient",
+  "documentID": "engine.LightingEnvironment2D",
+  "scene": "engine.LightingEnvironment2D/try",
+  "identity": "9166e3b4518bf71ca300c8ca70bf4fcf235eef22a400a09d6fb493d6b3101ec7",
+  "dependencies": [
+    "ae900000000000000000000000000010",
+    "ae900000000000000000000000000c06",
+    "ae900000000000000000000000000c86"
+  ],
+  "editableFields": ["engine.LightingEnvironment2D.AmbientIntensity"],
+  "actions": [
+    {
+      "id": "increase-ambient-light",
+      "field": "engine.LightingEnvironment2D.AmbientIntensity",
+      "value": 1,
+      "expected": [{"observable": "engine.LightingEnvironment2D.AmbientIntensity", "equals": 1, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Ambient illumination",
+      "description": "The environment provides background light in addition to the local lights on the Lit surface.",
+      "input": "Increase Ambient Intensity from 0.12 to 1 to brighten the scene; Reset restores the darker ambient."
+    },
+    "ru": {
+      "title": "Фоновое освещение",
+      "description": "Окружение добавляет фоновый свет к локальным источникам на поверхности Lit.",
+      "input": "Увеличьте фоновую интенсивность с 0,12 до 1, чтобы осветлить сцену; «Сброс» вернёт прежний фон."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}
