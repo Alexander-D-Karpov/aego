@@ -259,6 +259,9 @@ func artSceneAuthoringWorkflow(t *testing.T, cfg Config, input func(*testing.T, 
 
 	// Extend the saved drawing without saving again. The existing AnimationPlayer
 	// must consume the newly prepared frame and clip through the same loader.
+	if observe != nil {
+		observe(t, s, panelID, "scene-first-frame-before")
+	}
 	previous = doc.WorkingPreview.Applied
 	secondFrame, err := model.Execute(context.Background(), art.Operation{Kind: "duplicate-frame"})
 	if err != nil {
@@ -271,6 +274,9 @@ func artSceneAuthoringWorkflow(t *testing.T, cfg Config, input func(*testing.T, 
 		t.Fatal(err)
 	}
 	waitPreview(previous)
+	if observe != nil {
+		observe(t, s, panelID, "scene-first-frame-after")
+	}
 	secondID := artsource.StableID(id, artsource.FrameName(secondFrame, art.Albedo))
 	if _, ok := ed.Loader.Index().Lookup(secondID); !ok {
 		t.Fatal("unsaved second frame did not reach the asset loader")

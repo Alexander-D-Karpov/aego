@@ -24,7 +24,13 @@ func (s panelStub) Draw(f *services.Frame, r mathx.Rect) {
 	f.UI.TextIn(r, string(s), f.UI.Theme.TextDim, core.AlignCenter)
 }
 
-func goldenWorkspace(t *testing.T) *workspace.Workspace {
+// Dynamic art documents use a shared scope; their AssetIDs are not panel IDs
+// baked into the factory workspace presets.
+type artDocumentStub struct{ panelStub }
+
+func (artDocumentStub) Scope() string { return "render2d.art" }
+
+func goldenWorkspace(t *testing.T, authoring bool) *workspace.Workspace {
 	t.Helper()
 	ws := workspace.New(t.TempDir(), nil)
 	ws.Tracer = trace.New(trace.Options{})
@@ -39,6 +45,17 @@ func goldenWorkspace(t *testing.T) *workspace.Workspace {
 		{Panel: panelStub(workspace.Profiler), Slot: workspace.SlotBottom, Order: 170},
 		{Panel: panelStub(events.ID), Slot: workspace.SlotBottom, Order: 175},
 		{Panel: panelStub(watch.ID), Slot: workspace.SlotBottom, Order: 176},
+	}
+	if authoring {
+		// Mirror the registered Art docks and an open art document when
+		// checking the new factory layouts; empty placeholder workspaces would
+		// not exercise the panels or the dynamic document scope at all.
+		descs = append(descs,
+			workspace.Desc{Panel: artDocumentStub{panelStub("render2d.art/fixture")}, Slot: workspace.SlotCenter},
+			workspace.Desc{Panel: panelStub("art.properties"), Slot: workspace.SlotRight},
+			workspace.Desc{Panel: panelStub("art.timeline"), Slot: workspace.SlotBottom},
+			workspace.Desc{Panel: panelStub("art.preview"), Slot: workspace.SlotCenter},
+		)
 	}
 	for _, d := range descs {
 		if err := ws.Register(d); err != nil {
@@ -61,11 +78,12 @@ func TestWorkspaceGolden(t *testing.T) {
 		t.Run(name, func(t *testing.T) { checkGolden(t, name, img, err) })
 	}
 	for _, p := range shell.BuiltinWorkspaces() {
-		ws := goldenWorkspace(t)
+		authoring := p.ID == workspace.Animation || p.ID == workspace.VFX || p.ID == workspace.Default
+		ws := goldenWorkspace(t, authoring)
 		ws.Switch(p.ID)
 		shot("editor_workspace_"+p.ID, ws)
 	}
-	ws := goldenWorkspace(t)
+	ws := goldenWorkspace(t, false)
 	ws.ToggleMaximize(workspace.Scene)
 	shot("editor_workspace_maximized", ws)
 }

@@ -6,6 +6,8 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"testing"
 
 	"aego/art"
@@ -13,6 +15,7 @@ import (
 	"aego/asset/importers/artsource"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
+	"aego/asset/silhouette"
 	"aego/core/log"
 	"aego/editor/core/artedit"
 	"aego/editor/core/document"
@@ -32,6 +35,7 @@ func TestArtWorkingSourcePreviewUndoStaleAndDiscard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	frame := drawing.Info().Frames[0].ID
 	source, err := drawing.Encode()
 	drawing.Close()
 	if err != nil {
@@ -85,6 +89,15 @@ func TestArtWorkingSourcePreviewUndoStaleAndDiscard(t *testing.T) {
 		t.Fatal(err)
 	}
 	baseline := f.pixels(t, doc)
+	frameID := artsource.StableID(id, artsource.FrameName(frame, art.Albedo))
+	checkShadow := func(want []silhouette.Rect) {
+		t.Helper()
+		shape, ok := load.SpriteShadow(frameID)
+		if !ok || shape.W != 8 || shape.H != 8 || !slices.Equal(shape.Parts, want) {
+			t.Fatalf("prepared frame %s shadow: got %+v, ok %v, want %v", frameID, shape, ok, want)
+		}
+	}
+	checkShadow(nil) // Populate the loader cache before publishing unsaved art.
 	entry, _ := pl.Entry(id)
 	artifact, _ := entry.Artifact(asset.ArtTexture)
 	persistentPath := artifact.Path
@@ -101,6 +114,7 @@ func TestArtWorkingSourcePreviewUndoStaleAndDiscard(t *testing.T) {
 	}
 	f.drain(t)
 	painted := f.pixels(t, doc)
+	checkShadow([]silhouette.Rect{{X: 1, Y: 1, W: 1, H: 1}})
 	if bytes.Equal(baseline, painted) || doc.WorkingPreview.Applied == 0 || doc.WorkingPreview.Error != "" {
 		t.Fatalf("unsaved pixels did not reach the existing loader: %+v", doc.WorkingPreview)
 	}
@@ -119,6 +133,7 @@ func TestArtWorkingSourcePreviewUndoStaleAndDiscard(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.drain(t)
+	checkShadow(nil)
 	if !bytes.Equal(baseline, f.pixels(t, doc)) {
 		t.Fatal("Undo did not restore the saved runtime pixels")
 	}
@@ -139,6 +154,39 @@ func TestArtWorkingSourcePreviewUndoStaleAndDiscard(t *testing.T) {
 	f.drain(t)
 	if bytes.Equal(baseline, f.pixels(t, doc)) || doc.WorkingPreview.Error != "" {
 		t.Fatalf("latest art preview did not recover: %+v", doc.WorkingPreview)
+	}
+	second, err := model.Execute(stdctx.Background(), art.Operation{Kind: "duplicate-frame"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stroke(5)
+	if err := f.ed.ApplyMetadataPreview(id); err != nil {
+		t.Fatal(err)
+	}
+	f.drain(t)
+	firstShadow, firstOK := load.SpriteShadow(frameID)
+	secondID := artsource.StableID(id, artsource.FrameName(second, art.Albedo))
+	secondShadow, secondOK := load.SpriteShadow(secondID)
+	rootShadow, rootOK := load.SpriteShadow(id)
+	rootRegion, rootRegionOK := load.Texture(id)
+	frameRegion, frameRegionOK := load.Texture(frameID)
+	if !rootRegionOK || !frameRegionOK || rootRegion != frameRegion {
+		t.Errorf("source SpriteRenderer region differs from its intended first frame: root=%+v/%v first=%+v/%v", rootRegion, rootRegionOK, frameRegion, frameRegionOK)
+	}
+	if info, ok := load.TextureMetadata(id); !ok || !info.Region || info.Width != 8 || info.Height != 8 {
+		t.Errorf("source sprite's prepared metadata must describe its first frame: %+v/%v", info, ok)
+	}
+	if _, ok := load.MaterialTexture(id); ok {
+		t.Error("a cropped first frame must not silently sample the whole sheet as a generic material texture")
+	}
+	if parameter, ok := load.MaterialParameterTexture(id); !ok || !parameter.RegionOnly || parameter.Region != rootRegion {
+		t.Errorf("sprite material parameter lost its own first-frame UVs: %+v/%v", parameter, ok)
+	}
+	if !firstOK || !secondOK || !rootOK || reflect.DeepEqual(firstShadow, secondShadow) {
+		t.Fatalf("missing or indistinguishable animated frame shadow: first=%+v/%v second=%+v/%v root=%+v/%v", firstShadow, firstOK, secondShadow, secondOK, rootShadow, rootOK)
+	}
+	if !reflect.DeepEqual(rootShadow, firstShadow) {
+		t.Fatalf("source sprite shows its first frame but its shadow uses the sheet: root=%+v first=%+v", rootShadow, firstShadow)
 	}
 	if err := f.ed.Docs.CloseAsset(id, true); err != nil {
 		t.Fatal(err)

@@ -242,6 +242,9 @@ func TestArtSceneAuthoringWorkflowNative(t *testing.T) {
 	if bytes.Equal(frames["scene-before"], frames["scene-painted"]) {
 		t.Fatal("Scene View did not visibly change after the unsaved stroke")
 	}
+	if len(frames["scene-first-frame-before"]) == 0 || !bytes.Equal(frames["scene-first-frame-before"], frames["scene-first-frame-after"]) {
+		t.Fatal("adding a second frame changed the unchanged source sprite in the native Scene View")
+	}
 	if ticks["game-painted"] != ticks["game-undo"] || ticks["game-painted"] != ticks["game-redo"] || bytes.Equal(frames["game-painted"], frames["game-undo"]) || !bytes.Equal(frames["game-painted"], frames["game-redo"]) {
 		t.Fatal("Game View did not visibly follow Undo and Redo at the same tick")
 	}
