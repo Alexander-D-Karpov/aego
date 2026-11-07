@@ -73,6 +73,12 @@ func (r *Registry) CheckComponentDemos(ctx context.Context, runner democheck.Run
 // The contract is a sidecar of the existing Try, not a new scene format. The
 // same Entry exports it to docs/native clients; prepared pixels remain .aetry.
 func (r *Registry) readDemoContract(e *Entry, src module.DocSource, scenePath string) {
+	// Guides may reuse a component's Try scene, script and artifacts. The
+	// behavioral sidecar belongs only to the component registry entry; a guide
+	// is not another owner and must neither attach nor reject that contract.
+	if e.Component == nil {
+		return
+	}
 	name := strings.TrimSuffix(path.Clean(scenePath), TryExt) + ".demo.json"
 	f, err := src.FS.Open(name)
 	if errors.Is(err, fs.ErrNotExist) {
