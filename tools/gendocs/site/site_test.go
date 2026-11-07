@@ -374,6 +374,46 @@ func TestTryBlock(t *testing.T) {
 	}
 }
 
+func TestTryDemoInstructionsAreLocalizedAndEscaped(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		if exp.Entries[i].ID == "engine.SpriteRenderer" {
+			exp.Entries[i].Try = "scene version=1 {}"
+			exp.Entries[i].TrySelect = "engine.SpriteRenderer"
+			exp.Entries[i].Demo = &DemoInfo{Languages: map[string]DemoText{
+				"en": {Title: "Sprite <demo>", Description: "Change & observe", Input: "Set order to 0"},
+				"ru": {Title: "Пример спрайта", Description: "Измените и проверьте", Input: "Установите порядок 0"},
+			}}
+		}
+	}
+	dir := t.TempDir()
+	if _, err := Build(exp, dir, Options{Playground: true}); err != nil {
+		t.Fatal(err)
+	}
+	enBytes, err := os.ReadFile(filepath.Join(dir, "ref", "engine.SpriteRenderer.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruBytes, err := os.ReadFile(filepath.Join(dir, "ru", "ref", "engine.SpriteRenderer.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	en, ru := string(enBytes), string(ruBytes)
+	for _, want := range []string{`Sprite &lt;demo&gt;`, `Change &amp; observe`, `Set order to 0`} {
+		if !strings.Contains(en, want) {
+			t.Errorf("English Try is missing escaped contract text %q", want)
+		}
+	}
+	for _, want := range []string{"Пример спрайта", "Измените и проверьте", "Установите порядок 0"} {
+		if !strings.Contains(ru, want) {
+			t.Errorf("Russian Try is missing contract text %q", want)
+		}
+	}
+	if strings.Contains(ru, "Set order to 0") || strings.Contains(en, "Sprite <demo>") {
+		t.Fatal("Try instructions used the wrong language or injected unescaped HTML")
+	}
+}
+
 func TestDownloadBlock(t *testing.T) {
 	rel := &Release{Tag: "v1.0", URL: "https://git.example/aego/releases/tag/v1.0", Assets: []Asset{
 		{Name: "aego-1.0-linux-amd64.tar.gz", URL: "https://git.example/l.tar.gz", Size: 12 << 20},

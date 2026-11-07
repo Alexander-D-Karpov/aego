@@ -726,6 +726,11 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 	default:
 		p.schematic(a, img)
 	}
+	if ok && !cell && assetIcon(a) == "file.art" {
+		badge := mathx.Rect{X: img.X + img.W - 16, Y: img.Y + img.H - 16, W: 16, H: 16}
+		ui.RoundRect(badge, th.Radius.Field, th.Panel)
+		widgets.IconIn(ui, badge, "file.art", th.Text)
+	}
 	if arrow.W != 0 {
 		icon := "ui.chevron_right"
 		if p.sheetOpen[a.ID] {

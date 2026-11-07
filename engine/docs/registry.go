@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"aego/asset"
+	"aego/engine/docs/democheck"
 	"aego/engine/module"
 	"aego/engine/res"
 	"aego/engine/settings"
@@ -107,6 +108,7 @@ type Entry struct {
 	Order     int
 	Field     *FieldInfo
 	Component *ComponentInfo
+	Demo      *democheck.Contract `json:",omitempty"`
 	Related   []string
 	Try       string
 	TrySelect string
@@ -977,6 +979,7 @@ var metaID = regexp.MustCompile(`\bid="([0-9a-f]{32})"`)
 
 // tryExtras reads the script X.aes and the prefabs X.<name>.aeprefab, ids from their .meta, next to the try scene X.aescene.
 func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
+	r.readDemoContract(e, src, scenePath)
 	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
 	if data, err := fs.ReadFile(src.FS, base+".aetry"); err == nil {
 		if _, err := asset.DecodeTryArtifacts(data); err != nil {

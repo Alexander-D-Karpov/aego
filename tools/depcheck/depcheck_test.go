@@ -94,6 +94,38 @@ func TestModuleGraph(t *testing.T) {
 	}
 }
 
+func TestArtAuthoringDependenciesStayOutOfRuntime(t *testing.T) {
+	if g, ok := groupOf("art"); !ok || g.kind != kKernel {
+		t.Fatal("art must have an explicit authoring-core group")
+	}
+	for _, pair := range [][2]string{
+		{"asset/importers/artsource", "art"},
+		{"asset/importers/artsource", "asset/importers/texture"},
+		{"asset/importers/artsource", "asset/importers/animclip"},
+		{"editor/core/artedit", "art"},
+		{"modules/render2d/editor", "art"},
+		{"engine/docs", "engine/docs/democheck"},
+	} {
+		if rule := layerRule(pair[0], pair[1]); rule != "" {
+			t.Errorf("required edge %s -> %s rejected by %s", pair[0], pair[1], rule)
+		}
+	}
+	for _, pair := range [][2]string{
+		{"art", "asset"},
+		{"art", "scene"},
+		{"scene", "art"},
+		{"asset/importers/texture", "art"},
+		{"engine/docs/democheck", "asset"},
+	} {
+		if layerRule(pair[0], pair[1]) == "" {
+			t.Errorf("unexpected authoring dependency %s -> %s allowed", pair[0], pair[1])
+		}
+	}
+	if !allowed(runtimeForbidden, "art") || !allowed(wasmDenied, "art") {
+		t.Fatal("authoring core must not enter game runtime builds")
+	}
+}
+
 func TestNoLegacyPackages(t *testing.T) {
 	root := filepath.Join("..", "..")
 	needles := []string{`"aego/scene/components"`, `"aego/scene/systems"`, "importers.All", "stdlib.Register("}

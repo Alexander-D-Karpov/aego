@@ -57,7 +57,7 @@ func imageHooks(r *ext.Registry) error {
 		}
 	}
 	r.Tick(s.tick)
-	return nil
+	return artHooks(r)
 }
 
 func (s *imagesEditor) state(d *document.AssetDocument) *imageState {

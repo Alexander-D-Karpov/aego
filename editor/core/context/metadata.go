@@ -31,6 +31,7 @@ type metadataRequest struct {
 	overlay                                  map[string][]byte
 	versions                                 map[string]metadataVersion
 	working                                  map[ids.AssetID]string
+	sources                                  sourcePreviewState
 	restore                                  bool
 }
 
@@ -47,6 +48,8 @@ type metadataCoordinator struct {
 	next           uint64
 	tracked        map[document.ID]*document.AssetDocument
 	working        map[ids.AssetID]string
+	sourceWorking  map[ids.AssetID]string
+	sourceVersions map[ids.AssetID]sourcePreviewVersion
 	published      []ids.AssetID
 	retry          *metadataRequest
 	rollback       error
@@ -182,7 +185,8 @@ func (e *Editor) queueMetadata(d *document.AssetDocument, restore bool) error {
 				continue
 			}
 			meta, ok := e.Pipeline.MetaOf(id)
-			if !ok || meta.Importer != "texture" {
+			structured := e.Docs.AssetDocument(id)
+			if !ok || (meta.Importer != "texture" && (structured == nil || structured.Binding.PreviewSnapshot == nil)) {
 				continue
 			}
 			r.overlay[other.Path] = bytes.Clone(other.Code.Bytes())
@@ -196,6 +200,9 @@ func (e *Editor) queueMetadata(d *document.AssetDocument, restore bool) error {
 		if d.Metadata.Dirty() {
 			r.working[d.Asset] = d.Path
 		}
+	}
+	if err := e.captureWorkingSources(q, r); err != nil {
+		return err
 	}
 	q.next++
 	r.token = q.next
@@ -218,6 +225,9 @@ func (e *Editor) queueMetadata(d *document.AssetDocument, restore bool) error {
 
 func (e *Editor) metadataCurrent(q *metadataCoordinator, r *metadataRequest) bool {
 	if q.closed || q.next != r.token || e.Pipeline.Revision() != r.pipeline {
+		return false
+	}
+	if !e.workingSourcesCurrent(r) {
 		return false
 	}
 	for path, v := range r.versions {
@@ -270,6 +280,7 @@ func (e *Editor) pumpMetadata(q *metadataCoordinator) {
 					q.files = files
 					q.rollback = nil
 					q.working = r.working
+					e.publishedWorkingSources(q, r)
 					q.published = q.published[:0]
 					for _, entry := range batch.Imported {
 						q.published = append(q.published, entry.ID)
@@ -398,7 +409,7 @@ func (e *Editor) restoreSavedMetadata(q *metadataCoordinator, cause error) error
 			return
 		}
 		switch entry.Kind {
-		case asset.ArtTexture, asset.ArtSpriteRegion, asset.ArtAtlasPage:
+		case asset.ArtTexture, asset.ArtSpriteRegion, asset.ArtAtlasPage, asset.ArtAnim:
 			batch.Imported = append(batch.Imported, *entry)
 		}
 	})
@@ -415,6 +426,8 @@ func (e *Editor) restoreSavedMetadata(q *metadataCoordinator, cause error) error
 	q.retry = nil
 	q.files = nil
 	clear(q.working)
+	clear(q.sourceWorking)
+	clear(q.sourceVersions)
 	q.published = q.published[:0]
 	message := fmt.Sprintf("working texture previews returned to the last saved artifacts after a discarded document failed to restore: %v; unsaved document edits are preserved", cause)
 	for _, d := range e.Docs.AssetDocuments() {
@@ -436,6 +449,8 @@ func (e *Editor) CloseAssetPreviews() {
 		q.queue = nil
 		clear(q.tracked)
 		clear(q.working)
+		clear(q.sourceWorking)
+		clear(q.sourceVersions)
 		q.published = nil
 		q.retry = nil
 		q.rollback = nil
@@ -475,6 +490,9 @@ func (e *Editor) RedoAsset(d *document.AssetDocument) error { return e.assetHist
 func (e *Editor) assetHistory(d *document.AssetDocument, redo bool) error {
 	if d == nil {
 		return nil
+	}
+	if handled, err := structuredAssetHistory(d, redo); handled {
+		return err
 	}
 	var source *document.ScriptDocument
 	if d.Metadata != nil {

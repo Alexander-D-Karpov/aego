@@ -90,6 +90,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `edit.select_all` | engine | 16 | Edit → Select All | ok |
 | `edit.set` | engine | 14 | Agent panel: steps and changes that set a field or edit a script | ok |
 | `edit.validate` | engine | 14 | Agent panel: checks of a scene or the project | ok |
+| `file.art` | engine | 16 | Pixel Art Studio: document tab, New Pixel Art command and Assets source badge | ok |
 | `file.audio` | engine | 16 | Documentation: sound clips page | ok |
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
@@ -127,6 +128,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `nav.forward` | engine | 16 | Documentation and code: forward | ok |
 | `node.empty` | engine | 16 | template engine.empty; template engine.empty3d | ok |
 | `panel.agent` | engine | 16 | Agent tab; Ask Agent in Hierarchy and Problems | ok |
+| `panel.art_timeline` | engine | 16 | Pixel Art Studio: asset timeline tab | ok |
+| `panel.art_tools` | engine | 16 | Pixel Art Studio: tools and layers tab | ok |
 | `panel.assets` | engine | 16 | Assets tab | ok |
 | `panel.console` | engine | 16 | Console tab | ok |
 | `panel.crashes` | engine | 16 | Crash Reports tab | ok |
@@ -186,10 +189,19 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `status.error` | engine | 14 | Agent panel: a step that failed | ok |
 | `status.ok` | engine | 14 | Task Center: finished task | ok |
 | `status.warning` | engine | 16 | Table and inspector issue rows; Assets: preview warnings | ok |
+| `tool.ellipse` | engine | 16 | Pixel Art Studio: Ellipse tool | ok |
+| `tool.eraser` | engine | 16 | Pixel Art Studio: Eraser tool | ok |
+| `tool.fill` | engine | 16 | Pixel Art Studio: Fill tool | ok |
+| `tool.gradient` | engine | 16 | Pixel Art Studio: Gradient tool | ok |
+| `tool.line` | engine | 16 | Pixel Art Studio: Line tool | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |
+| `tool.pencil` | engine | 16 | Pixel Art Studio: Pencil tool | ok |
+| `tool.rectangle` | engine | 16 | Pixel Art Studio: Rectangle tool | ok |
 | `tool.rotate` | engine | 16 | Scene View toolbar | ok |
 | `tool.scale` | engine | 16 | Scene View toolbar | ok |
 | `tool.select` | engine | 16 | Scene View toolbar | ok |
+| `tool.selection` | engine | 16 | Pixel Art Studio: rectangular selection tool | ok |
+| `tool.wand` | engine | 16 | Pixel Art Studio: Magic Wand tool | ok |
 | `tpl.ball` | engine | 16 | template physics.ball | ok |
 | `tpl.platform` | engine | 16 | template physics.platform | ok |
 | `tpl.static` | engine | 16 | template physics.static | ok |
@@ -200,6 +212,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `ui.chevron_up` | engine | 16 | Find: previous match; Table: sorted ascending | ok |
 | `ui.close` | engine | 16 | tabs, chips, dialogs, clear buttons of fields and lists | ok |
 | `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves | ok |
+| `ui.hidden` | engine | 16 | Pixel Art Studio: hidden layer | ok |
 | `ui.lock` | engine | 16 | Inspector: locked | ok |
 | `ui.minus` | engine | 16 | list editors: remove | ok |
 | `ui.more` | engine | 16 | card menus; reference field picker | ok |

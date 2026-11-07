@@ -41,6 +41,41 @@ func TestComboOpensWithTheMouse(t *testing.T) {
 	}
 }
 
+func TestIconComboMouseSelection(t *testing.T) {
+	r := mathx.Rect{X: 10, Y: 10, W: 120, H: 20}
+	id := core.IDOf("icon-combo")
+	cur := 0
+	c, in := core.New(nil), &input.State{}
+	options := []IconOption{{Icon: "tool.pencil", Label: "Pencil"}, {Icon: "tool.eraser", Label: "Eraser"}}
+	changed := false
+	step := func(at mathx.Vec2, press, release bool) {
+		in.BeginFrame()
+		in.ApplyMouseMove(at, mathx.Vec2{})
+		if press {
+			in.ApplyMouseDown(at, input.MouseLeft)
+		}
+		if release {
+			in.ApplyMouseUp(at, input.MouseLeft)
+		}
+		c.Begin(in, mathx.Vec2{X: 800, Y: 600}, 1)
+		changed = IconCombo(c, id, r, &cur, options) || changed
+		c.End()
+	}
+	field := mathx.Vec2{X: 50, Y: 20}
+	step(field, true, false)
+	step(field, false, true)
+	step(field, false, false) // establish the popup's measured bounds
+	if !c.PopupOpen(id) {
+		t.Fatal("icon combo did not open")
+	}
+	second := mathx.Vec2{X: r.X + c.Theme.Padding + 8, Y: r.Y + r.H + c.Theme.Padding + c.Theme.RowHeight + c.Theme.Spacing + c.Theme.RowHeight/2}
+	step(second, true, false)
+	step(second, false, true)
+	if !changed || cur != 1 || c.PopupOpen(id) {
+		t.Fatalf("selection failed: changed=%v index=%d open=%v", changed, cur, c.PopupOpen(id))
+	}
+}
+
 func TestContextMenuOpensWithTheMouse(t *testing.T) {
 	r := mathx.Rect{X: 0, Y: 0, W: 400, H: 300}
 	id := core.IDOf("menu")

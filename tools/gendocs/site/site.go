@@ -791,6 +791,23 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	}
 	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `" data-artifacts="` + esc(artifacts) + `"` + input + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">` + b.tr("Try it") + `</h2>` + "\n")
+	if e.Demo != nil {
+		lang := b.lang
+		if lang == "" {
+			lang = "en"
+		}
+		if text, ok := e.Demo.Languages[lang]; ok {
+			if text.Title != "" {
+				c.WriteString(`<h3 class="try-demo-title">` + esc(text.Title) + `</h3>` + "\n")
+			}
+			if text.Description != "" {
+				c.WriteString(`<p class="try-demo-description">` + esc(text.Description) + `</p>` + "\n")
+			}
+			if text.Input != "" {
+				c.WriteString(`<p class="try-demo-input">` + esc(text.Input) + `</p>` + "\n")
+			}
+		}
+	}
 	c.WriteString(`<p class="try-caption">` + esc(b.tr("A live scene with")) + ` ` + esc(e.Title) + `: ` + esc(b.tr("edit its fields in the Inspector on the right and the scene restarts with them.")) + `</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Runs this scene in the browser, with the Inspector next to it") + `</span></div>` + "\n")
 	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + b.tr(openLabel) + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")

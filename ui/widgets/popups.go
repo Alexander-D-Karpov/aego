@@ -64,6 +64,46 @@ func Combo(c *core.Context, id core.ID, r mathx.Rect, cur *int, opts []string, m
 	return changed
 }
 
+// IconOption retains a textual label alongside an icon, including when the
+// icon atlas is unavailable. The label is also used as the closed field's tip.
+type IconOption struct {
+	Icon  string
+	Label string
+}
+
+// IconCombo is a Combo whose selected value and menu entries include icons.
+func IconCombo(c *core.Context, id core.ID, r mathx.Rect, cur *int, opts []IconOption) bool {
+	togglePopup(c, id, r)
+	th := &c.Theme
+	c.Box(r, th.Radius.Field, c.WidgetColor(id), th.Border)
+	if *cur >= 0 && *cur < len(opts) {
+		inner := mathx.Rect{X: r.X, Y: r.Y, W: max(0, r.W-r.H), H: r.H}
+		c.PushClip(inner)
+		iconWidth := min(r.H, inner.W)
+		IconIn(c, mathx.Rect{X: inner.X, Y: inner.Y, W: iconWidth, H: inner.H}, opts[*cur].Icon, th.TextDim)
+		inner.X += iconWidth
+		inner.W -= iconWidth
+		c.TextIn(inner, opts[*cur].Label, th.Text, core.AlignLeft)
+		c.PopClip()
+		Tooltip(c, id, opts[*cur].Label)
+	}
+	Chevron(c, mathx.Rect{X: r.X + r.W - r.H, Y: r.Y, W: r.H, H: r.H}, true, th.TextDim)
+	changed := false
+	if c.BeginPopup(id, max(r.W, 140)) {
+		c.PushRawID(id)
+		for i, o := range opts {
+			if SelectableIcon(c, c.IDInt(i), o.Icon, o.Label, i == *cur) {
+				*cur = i
+				changed = true
+				c.ClosePopup(id)
+			}
+		}
+		c.PopID()
+		c.EndPopup()
+	}
+	return changed
+}
+
 func allBits(n int) uint64 {
 	if n >= 64 {
 		return ^uint64(0)

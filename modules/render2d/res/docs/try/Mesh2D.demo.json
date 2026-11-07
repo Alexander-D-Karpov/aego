@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "componentID": "engine.Mesh2D",
+  "demoID": "engine.Mesh2D.order",
+  "documentID": "engine.Mesh2D",
+  "scene": "engine.Mesh2D/try",
+  "identity": "d8a0044fcb34ab6619de26fbe462da69ed88b7614aa42a89651305a8aa6a2d05",
+  "dependencies": [
+    "ae900000000000000000000000000001",
+    "ae900000000000000000000000000010"
+  ],
+  "editableFields": ["engine.Mesh2D.Order"],
+  "actions": [
+    {
+      "id": "move-behind-sprite",
+      "field": "engine.Mesh2D.Order",
+      "value": 0,
+      "expected": [{"observable": "engine.Mesh2D.Order", "equals": 0, "changes": true}]
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Mesh 2D draw order",
+      "description": "The blue mesh overlaps the red sprite. Its Order controls which one is in front.",
+      "input": "Change Order from 2 to 0, then use Reset to restore it."
+    },
+    "ru": {
+      "title": "Порядок отрисовки Mesh 2D",
+      "description": "Синяя сетка перекрывает красный спрайт. Параметр «Порядок» (Order) определяет, что будет спереди.",
+      "input": "Измените «Порядок» с 2 на 0, затем нажмите «Сброс» для восстановления."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}

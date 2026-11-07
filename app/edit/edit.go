@@ -242,6 +242,11 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 						dirty = append(dirty, doc.Path)
 					}
 				}
+				for _, doc := range s.App.Context().Docs.AssetDocuments() {
+					if doc.Binding.Dirty != nil && doc.Binding.Dirty() {
+						dirty = append(dirty, doc.Path)
+					}
+				}
 			}
 			return dirty
 		}),

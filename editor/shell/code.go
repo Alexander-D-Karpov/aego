@@ -35,7 +35,7 @@ func (a *App) attachCode() {
 			return
 		}
 		switch strings.ToLower(path.Ext(ev.Path)) {
-		case ".aeshader", ".glsl", ".aemat":
+		case ".aeshader", ".glsl", ".aemat", ".aeart":
 		default:
 			return
 		}

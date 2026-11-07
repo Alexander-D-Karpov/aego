@@ -1,0 +1,317 @@
+package editor
+
+import (
+	"bytes"
+	stdctx "context"
+	"image"
+	"os"
+	"testing"
+
+	"aego/art"
+	"aego/asset/importers/artsource"
+	"aego/asset/pipeline"
+	"aego/core/ids"
+	"aego/core/log"
+	"aego/core/mathx"
+	"aego/editor/core/artedit"
+	"aego/editor/core/command"
+	"aego/editor/core/context"
+	"aego/editor/core/document"
+	"aego/editor/core/services"
+	"aego/editor/core/workspace"
+	"aego/editor/ext"
+	"aego/editor/ext/inspect"
+	"aego/engine/i18n"
+	"aego/modules/render2d"
+	"aego/platform/input"
+	"aego/project"
+	"aego/scene"
+	"aego/scene/sceneio"
+	"aego/ui/core"
+	"aego/ui/widgets"
+)
+
+// Exercises the native panel and real document/import pipeline with simulated
+// pointer events. This is not a replacement for an OS/GPU desktop smoke test.
+func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
+	p, err := project.Create(t.TempDir(), "Art workflow", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	importers := pipeline.NewImporterRegistry()
+	if err := importers.Register(artsource.New()); err != nil {
+		t.Fatal(err)
+	}
+	pl, err := pipeline.Open(p, importers, log.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pl.Close)
+	commands := command.New()
+	ed := &context.Editor{Pipeline: pl, Docs: document.NewManager(document.Options{Root: p.Root}), Commands: commands, UI: core.New(nil)}
+	ws := workspace.New(p.Root, nil)
+	registry := ext.New(ext.Deps{Editor: ed, Workspace: ws, Commands: commands})
+	if err := registry.Run("render2d", imageHooks); err != nil {
+		t.Fatal(err)
+	}
+	if err := commands.Run("asset.new_art"); err != nil {
+		t.Fatal(err)
+	}
+	questions := ed.TakeQuestions()
+	if len(questions) != 1 || questions[0].Submit == nil {
+		t.Fatal("new art command did not open the creation dialog")
+	}
+	questions[0].Submit([]string{"assets/hero.aeart", "16", "16", "rgba"})
+	if notice, ok := ed.LastNotice(); ok && notice.Level == context.LevelError {
+		t.Fatalf("creation failed: %s", notice.Text)
+	}
+	id, ok := pl.Lookup("assets/hero.aeart")
+	if !ok {
+		t.Fatal("created art source is not in the asset index")
+	}
+	doc := ed.Docs.AssetDocument(id)
+	if doc == nil || doc.Handler != artHandlerID || doc.Metadata == nil {
+		t.Fatalf("source did not open in the shared art document with metadata: %+v", doc)
+	}
+	model, ok := doc.Binding.Model.(*artedit.Document)
+	if !ok || model.Session == nil {
+		t.Fatal("panel did not bind the canonical art document")
+	}
+	panelID := artHandlerID + "/" + id.String()
+	panel, ok := ws.Panel(panelID)
+	if !ok || !ws.Visible(panelID) {
+		t.Fatal("art document did not open in the workspace")
+	}
+	initial, err := os.ReadFile(ed.Docs.Abs(doc.Path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := &input.State{}
+	draw := func() {
+		ed.UI.Begin(state, mathx.Vec2{X: 900, Y: 700}, 1)
+		panel.Draw(&services.Frame{UI: ed.UI, Focused: true}, mathx.Rect{W: 900, H: 700})
+		ed.UI.End()
+	}
+	state.BeginFrame()
+	draw()
+	point := mathx.Vec2{X: 320, Y: 250}
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(point, input.MouseLeft)
+	draw()
+	if !doc.Dirty() || model.History.Cursor() != 1 {
+		t.Fatalf("canvas stroke did not create one dirty history entry: dirty=%v cursor=%d", doc.Dirty(), model.History.Cursor())
+	}
+	frame := model.Session.Frame
+	painted, _, err := model.Capture(frame, art.Albedo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Count(painted.Pix, []byte{255}) == 0 {
+		t.Fatal("native pointer stroke did not paint the canonical pixels")
+	}
+	if disk, err := os.ReadFile(ed.Docs.Abs(doc.Path)); err != nil || !bytes.Equal(initial, disk) {
+		t.Fatal("drawing unexpectedly modified the file before Save")
+	}
+	if err := ed.UndoAsset(doc); err != nil || doc.Dirty() {
+		t.Fatalf("shared Undo did not restore saved document: %v", err)
+	}
+	undone, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || bytes.Equal(painted.Pix, undone.Pix) {
+		t.Fatalf("Undo did not restore pixels: %v", err)
+	}
+	if err := ed.RedoAsset(doc); err != nil {
+		t.Fatal(err)
+	}
+	redone, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || !bytes.Equal(painted.Pix, redone.Pix) {
+		t.Fatalf("Redo did not restore painted pixels: %v", err)
+	}
+	if _, err := model.Execute(stdctx.Background(), art.Operation{Kind: "duplicate-frame", Linked: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(model.Session.Document.Info().Frames) != 2 {
+		t.Fatal("linked frame was not added to the native document")
+	}
+	if err := ed.SaveAsset(doc); err != nil || doc.Dirty() {
+		t.Fatalf("Save failed or left the art document dirty: %v", err)
+	}
+	// This standalone panel fixture has no app-level save notification route.
+	if batch, err := pl.Reimport(id); err != nil || len(batch.Failed) != 0 {
+		t.Fatalf("fixture reimport failed: %v", err)
+	}
+	frames := model.Session.Document.Info().Frames
+	frameAsset := artsource.StableID(id, artsource.FrameName(frames[1].ID, art.Albedo))
+	openedFrame, err := ed.OpenAsset(frameAsset)
+	if err != nil || openedFrame != doc || model.Session.Frame != frames[1].ID {
+		t.Fatalf("frame AssetRef did not open its owning art document at the selected frame: %v", err)
+	}
+	if _, err := ed.OpenAsset(id); err != nil || model.Session.Frame != frames[1].ID {
+		t.Fatalf("opening the source reset the current frame: %v", err)
+	}
+	firstAsset := artsource.StableID(id, artsource.FrameName(frames[0].ID, art.Albedo))
+	cursor := model.History.Cursor()
+	if err := model.Session.BeginGesture("pencil", image.Pt(1, 1), art.Brush{Size: 1, Paint: art.Paint{Color: art.Color{R: 255, A: 255}}}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ed.OpenAsset(frameAsset); err != nil || !model.Session.Info().Gesture {
+		t.Fatalf("refocusing the current frame disrupted its in-progress gesture: %v", err)
+	}
+	if _, err := ed.OpenAsset(firstAsset); err == nil || model.Session.Frame != frames[1].ID || !model.Session.Info().Gesture {
+		t.Fatal("opening a different frame did not preserve the in-progress gesture")
+	}
+	model.Session.CancelGesture()
+	if _, err := ed.OpenAsset(firstAsset); err != nil || model.Session.Frame != frames[0].ID || model.History.Cursor() != cursor {
+		t.Fatalf("frame selection changed document history or failed after cancel: %v", err)
+	}
+	panel.(workspace.Closer).RequestClose()
+	if ed.Docs.AssetDocument(id) != nil || ws.Has(panelID) {
+		t.Fatal("closing a saved art document retained its view or model")
+	}
+	// Open the second frame from the real SpriteRenderer inspector. These input
+	// events are simulated at the widget boundary, not an OS/GPU acceptance run.
+	sc, _ := lightingFixture(t)
+	sceneDoc := ed.Docs.New("scenes/art-inspector.aescene", sc)
+	hero := sc.Create(sc.Root(), "Hero")
+	sprite := scene.Add[render2d.SpriteRenderer](sc, hero)
+	*sprite = render2d.DefaultSpriteRenderer()
+	sprite.Sprite.SetAssetRefID(frameAsset)
+	sc.Flush()
+	beforeScene := sceneio.Save(sc)
+	clickSpriteInspector(t, ed, sc, hero, i18n.Tr("editor.art.shared_sprite", "This is a shared asset; edits affect every object that uses it."))
+	reopened := ed.Docs.AssetDocument(id)
+	if reopened == nil || reopened.Handler != artHandlerID {
+		t.Fatal("inspector click did not open the art source")
+	}
+	if sceneDoc.History.Cursor() != 0 || !bytes.Equal(beforeScene, sceneio.Save(sc)) {
+		t.Fatal("opening the sprite from Inspector changed the scene")
+	}
+	again := reopened.Binding.Model.(*artedit.Document)
+	if again.Session.Frame != frames[1].ID {
+		t.Fatal("inspector did not select the referenced animation frame")
+	}
+	got, _, err := again.Capture(frame, art.Albedo)
+	if err != nil || !bytes.Equal(got.Pix, painted.Pix) || len(again.Session.Document.Info().Frames) != 2 || reopened.Dirty() {
+		t.Fatalf("reopened source did not retain pixels and timeline: %v", err)
+	}
+	// Layer icons remain actions on the canonical model and shared history.
+	// The read-only variant must not consume a click or mutate that model.
+	artPanel := &artPanel{ctx: ed, doc: reopened, model: again, view: &artView{}}
+	area := mathx.Rect{W: 240, H: 500}
+	clickLayerControl := func(x float32, editable bool) {
+		y := ed.UI.Theme.Padding + 6*(ed.UI.Theme.RowHeight+ed.UI.Theme.Spacing) + ed.UI.Theme.RowHeight/2
+		point := mathx.Vec2{X: x, Y: y}
+		for step := range 3 {
+			state.BeginFrame()
+			state.ApplyMouseMove(point, mathx.Vec2{})
+			if step == 1 {
+				state.ApplyMouseDown(point, input.MouseLeft)
+			} else if step == 2 {
+				state.ApplyMouseUp(point, input.MouseLeft)
+			}
+			ed.UI.Begin(state, mathx.Vec2{X: 900, Y: 700}, 1)
+			artPanel.properties(ed.UI, area, editable)
+			ed.UI.End()
+		}
+	}
+	visibleX := area.W - ed.UI.Theme.Padding - 43
+	lockX := area.W - ed.UI.Theme.Padding - 13
+	clickLayerControl(visibleX, false)
+	if !again.Session.Info().Document.Layers[0].Visible || again.History.Cursor() != 0 {
+		t.Fatal("read-only layer visibility button changed the document")
+	}
+	clickLayerControl(visibleX, true)
+	if again.Session.Info().Document.Layers[0].Visible || again.History.Cursor() != 1 {
+		t.Fatal("layer visibility icon did not update shared history")
+	}
+	clickLayerControl(lockX, true)
+	if !again.Session.Info().Document.Layers[0].Locked || again.History.Cursor() != 2 {
+		t.Fatal("layer lock icon did not update shared history")
+	}
+	if err := ed.UndoAsset(reopened); err != nil {
+		t.Fatal(err)
+	}
+	if err := ed.UndoAsset(reopened); err != nil {
+		t.Fatal(err)
+	}
+	if layer := again.Session.Info().Document.Layers[0]; !layer.Visible || layer.Locked || reopened.Dirty() {
+		t.Fatal("Undo did not restore the layer state and saved document")
+	}
+	if err := ed.Docs.CloseAsset(id, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func clickSpriteInspector(t *testing.T, ed *context.Editor, sc *scene.Scene, node scene.NodeHandle, message string) {
+	t.Helper()
+	inspectors := inspect.NewRegistry()
+	inspectors.SetEditor(ed)
+	if err := inspectors.Load(sc.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	inspectorExt := ext.New(ext.Deps{Editor: ed, Schema: sc.Registry(), Inspectors: inspectors})
+	if err := inspectorExt.Run("render2d-sprite", spriteInspectorHooks); err != nil {
+		t.Fatal(err)
+	}
+	td, ok := sc.Registry().ByName("engine.SpriteRenderer")
+	if !ok {
+		t.Fatal("sprite type was not registered")
+	}
+	custom, ok := inspectors.Custom(td.ID)
+	if !ok {
+		t.Fatal("sprite inspector was not registered")
+	}
+	nodes := []ids.NodeID{sc.ID(node)}
+	defaults := 0
+	state := &input.State{}
+	drawInspector := func() {
+		ed.UI.Begin(state, mathx.Vec2{X: 1000, Y: 500}, 1)
+		ed.UI.Region(mathx.Rect{W: 1000, H: 500})
+		inspectors.DrawCustom(custom, nodes, func() { defaults++ })
+		ed.UI.PopCursor()
+		ed.UI.End()
+	}
+	lines := len(widgets.WrapLines(ed.UI, message, 1000-2*ed.UI.Theme.Padding))
+	point := mathx.Vec2{X: 200, Y: ed.UI.Theme.Padding + float32(lines)*(ed.UI.Theme.RowHeight+ed.UI.Theme.Spacing) + ed.UI.Theme.RowHeight/2}
+	state.BeginFrame()
+	drawInspector()
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	drawInspector()
+	state.BeginFrame()
+	state.ApplyMouseUp(point, input.MouseLeft)
+	drawInspector()
+	if defaults != 3 {
+		t.Fatal("sprite inspector did not preserve default component controls")
+	}
+}
+
+func TestSpriteInspectorOpensPreparedImageWithoutChangingScene(t *testing.T) {
+	f := imageAuthoringFixture(t)
+	f.ed.UI = core.New(nil)
+	sc, _ := lightingFixture(t)
+	sceneDoc := f.ed.Docs.New("scenes/image-inspector.aescene", sc)
+	hero := sc.Create(sc.Root(), "Hero")
+	sprite := scene.Add[render2d.SpriteRenderer](sc, hero)
+	*sprite = render2d.DefaultSpriteRenderer()
+	sprite.Sprite.SetAssetRefID(f.frames[1])
+	sc.Flush()
+	beforeScene := sceneio.Save(sc)
+	beforeImage, err := os.ReadFile(f.ed.Docs.Abs("assets/surface.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	clickSpriteInspector(t, f.ed, sc, hero, i18n.Tr("editor.art.prepared_sprite", "This is not an editable .aeart source; it opens as a prepared asset."))
+	doc := f.ed.Docs.AssetDocument(f.albedo)
+	if doc == nil || doc.Handler != imageHandlerID || doc.Selected != f.frames[1] || doc.Capabilities.Has(document.EditSource) {
+		t.Fatal("the prepared frame did not open in the existing read-only Image Viewer")
+	}
+	afterImage, err := os.ReadFile(f.ed.Docs.Abs("assets/surface.png"))
+	if err != nil || !bytes.Equal(beforeImage, afterImage) || sceneDoc.History.Cursor() != 0 || !bytes.Equal(beforeScene, sceneio.Save(sc)) {
+		t.Fatal("opening a prepared image changed the scene or source")
+	}
+}

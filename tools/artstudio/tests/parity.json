@@ -1,0 +1,71 @@
+{
+  "width": 32,
+  "height": 32,
+  "mode": "rgba",
+  "operations": [
+    {
+      "kind": "rectangle",
+      "filled": true,
+      "points": [
+        {
+          "X": 2,
+          "Y": 3
+        },
+        {
+          "X": 23,
+          "Y": 17
+        }
+      ],
+      "brush": {
+        "size": 1,
+        "paint": {
+          "color": {
+            "R": 255,
+            "G": 105,
+            "B": 110,
+            "A": 255
+          }
+        }
+      }
+    },
+    {
+      "kind": "ellipse",
+      "filled": true,
+      "points": [
+        {
+          "X": 7,
+          "Y": 7
+        },
+        {
+          "X": 28,
+          "Y": 28
+        }
+      ],
+      "brush": {
+        "size": 1,
+        "paint": {
+          "color": {
+            "R": 77,
+            "G": 195,
+            "B": 209,
+            "A": 255
+          }
+        }
+      }
+    },
+    {
+      "kind": "duplicate-frame",
+      "linked": true
+    },
+    {
+      "kind": "unlink"
+    },
+    {
+      "kind": "flip-x"
+    },
+    {
+      "kind": "mode",
+      "mode": "indexed"
+    }
+  ]
+}

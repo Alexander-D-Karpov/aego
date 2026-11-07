@@ -102,7 +102,8 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
-	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset)AuthoringWorkflowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
+	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
+	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb)$$' ./app/docsview
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap

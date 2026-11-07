@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "componentID": "engine.SpriteRenderer",
+  "demoID": "engine.SpriteRenderer.order",
+  "documentID": "engine.SpriteRenderer",
+  "scene": "engine.SpriteRenderer/try",
+  "identity": "b08fae92e41273e6af3e249815bafa747286d6fa98cc15287c46cbb12a6fd99d",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["engine.SpriteRenderer.Order"],
+  "actions": [
+    {
+      "id": "move-behind-backdrop",
+      "field": "engine.SpriteRenderer.Order",
+      "value": -1,
+      "expected": [{"observable": "engine.SpriteRenderer.Order", "equals": -1, "changes": true}]
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Sprite draw order",
+      "description": "The blue sprite overlaps a red sprite. Order controls which one is in front.",
+      "input": "Change Order from 1 to -1, then use Reset to restore it."
+    },
+    "ru": {
+      "title": "Порядок отрисовки спрайта",
+      "description": "Синий спрайт перекрывает красный. Параметр «Порядок» определяет, какой из них находится спереди.",
+      "input": "Измените «Порядок» с 1 на -1, затем нажмите «Сброс» для восстановления."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}

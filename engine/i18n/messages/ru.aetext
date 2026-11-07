@@ -195,6 +195,13 @@ messages version=1 lang=ru {
   msg "cli.unknown_command" {
     text="неизвестная команда {name}"
   }
+  msg "cli.examples.usage" { text="  examples <clone|open|recent|reopen|check|link|inspect>  управление локальными копиями удалённых примеров" }
+  msg "editor.art.read_only" { text="Только чтение" }
+  msg "editor.art.show_layer" { text="Показать слой" }
+  msg "editor.art.hide_layer" { text="Скрыть слой" }
+  msg "editor.art.lock_layer" { text="Заблокировать слой" }
+  msg "editor.art.unlock_layer" { text="Разблокировать слой" }
+  msg "cli.examples.help" { text="Удалённые примеры (только данные; код не запускается)\n  remoteexample clone  -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample open   -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample recent [-root ПАПКА]\n  remoteexample reopen -id LOCAL_COPY_ID [-root ПАПКА]\n  remoteexample check  -id LOCAL_COPY_ID -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample link   -url HTTPS_MANIFEST [-mode project|scene]\n  remoteexample inspect -link AEGO_URL\n\nclone создаёт независимую редактируемую копию. open сначала открывает последнюю\nлокальную копию вместе с офлайн-правками. check только проверяет обновления,\nне перезаписывая файлы. inspect разбирает ссылку без выдачи разрешений.\nНет доверенных источников по умолчанию: -approve-origin требует точный HTTPS-источник." }
   msg "cli.usage" {
     text="aego <команда> [флаги]\n\n  new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native]\n                         создать проект из шаблона или примера движка\n  run [папка]            импортировать ассеты и запустить игру\n  edit [папка|файл] [--launcher recent|new]\n                         открыть проект или одну из его сцен в редакторе; без проекта открывается лаунчер\n  build [папка]          собрать нативный исполняемый файл\n  export [папка] [--target host|linux|windows|darwin] [--release|--development] [--out папка] [--check] [--json]\n                         собрать игру для распространения, которой не нужны Go и исходники проекта\n  bootstrap [папка]      перегенерировать .aego/generated для нативного модуля без сборки\n  import [папка] [--force] заново импортировать все ассеты\n  check [папка] [--manifest файл] [--explain] [--ensure-meta]  разобрать все документы, проверить файлы .meta и типы в скриптах\n  icons [check|list] [папка] [--json] [--out файл]  сверить используемые иконки с исходниками иконок или вывести манифест\n  test [папка] [-run имя] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene файл]]\n                         запустить тесты скриптов *_test.aes без окна или запустить игру дважды и сравнить хеши состояния\n  dump script <пакет|Тип> [--func имя]  дизассемблировать пакет скриптов с номерами строк\n  docs export|check|build|serve  реестр документации, сайт и песочница\n  mcp [--project папка] [--watch]   отдать проект ИИ-агенту по MCP (stdio)\n  update [status|check|apply|restore] [--channel stable|nightly]   проверить и поставить новую версию Aego или вернуться к предыдущей\n  release keygen|manifest ...     создать ключ подписи и подписанный release.json релиза\n  scene|prefab|data|refs|asset|schema|project <действие> ...   правка файлов проекта без редактора, см. aego scene help\n  version                вывести версию движка и коммит, из которого собрана программа\n"
   }
@@ -6192,4 +6199,69 @@ messages version=1 lang=ru {
   msg "editor.profiler.runtime_mapped" {
     text="Память, выделенная Go {mapped}   Горутины {count}   Циклы GC {cycles}"
   }
+  msg "editor.art.add_frame" { text="+ Кадр" }
+  msg "editor.art.open_sprite_source" { text="Открыть исходник спрайта" }
+  msg "editor.art.edit_sprite" { text="Редактировать спрайт" }
+  msg "editor.art.shared_sprite" { text="Это общий ресурс: изменения затронут все использующие его объекты." }
+  msg "editor.art.prepared_sprite" { text="Это не редактируемый исходник .aeart; он откроется как подготовленный ресурс." }
+  msg "editor.art.frame_unavailable" { text="Выбранный кадр рисунка больше недоступен." }
+  msg "editor.command.asset.new_art" { text="Новый пиксельный рисунок…" }
+  msg "editor.art.add_layer" { text="+ Слой" }
+  msg "editor.art.albedo" { text="Основной цвет" }
+  msg "editor.art.cancel" { text="Отмена" }
+  msg "editor.art.canvas" { text="Холст" }
+  msg "editor.art.close_message" { text="Сохранить изменения в {path}?" }
+  msg "editor.art.discard" { text="Не сохранять" }
+  msg "editor.art.document" { text="Пиксельный рисунок / Покадровая анимация" }
+  msg "editor.art.duplicate" { text="Копия" }
+  msg "editor.art.ellipse" { text="Эллипс" }
+  msg "editor.art.emission" { text="Свечение" }
+  msg "editor.art.eraser" { text="Ластик" }
+  msg "editor.art.expand" { text="Увеличьте панель, чтобы показать холст и инструменты." }
+  msg "editor.art.fill" { text="Заливка" }
+  msg "editor.art.filled" { text="Заливка фигур" }
+  msg "editor.art.fit" { text="Вписать" }
+  msg "editor.art.gradient" { text="Градиент" }
+  msg "editor.art.grid" { text="Пиксельная сетка" }
+  msg "editor.art.height" { text="Высота" }
+  msg "editor.art.layer" { text="Слой" }
+  msg "editor.art.line" { text="Линия" }
+  msg "editor.art.link" { text="Связать" }
+  msg "editor.art.mirror_x" { text="Симметрия X" }
+  msg "editor.art.mirror_y" { text="Симметрия Y" }
+  msg "editor.art.navigation" { text="Колесо: масштаб · средняя/правая кнопка: перемещение · Esc: отмена штриха" }
+  msg "editor.art.normal" { text="Нормали" }
+  msg "editor.art.onion" { text="Соседние кадры" }
+  msg "editor.art.pencil" { text="Карандаш" }
+  msg "editor.art.pixel_perfect" { text="Пиксельная точность" }
+  msg "editor.art.play" { text="Просмотр" }
+  msg "editor.art.properties" { text="Инструменты / Слои" }
+  msg "editor.art.rectangle" { text="Прямоугольник" }
+  msg "editor.art.redo" { text="Повторить" }
+  msg "editor.art.round" { text="Круглая кисть" }
+  msg "editor.art.save" { text="Сохранить" }
+  msg "editor.art.selection" { text="Выделение" }
+  msg "editor.art.tag" { text="Метка кадров" }
+  msg "editor.art.timeline" { text="Кадры" }
+  msg "editor.art.undo" { text="Отменить" }
+  msg "editor.art.unlink" { text="Отвязать" }
+  msg "editor.art.unsaved" { text="Рисунок не сохранён" }
+  msg "editor.art.wand" { text="Волшебная палочка" }
+  msg "editor.art.asset_timeline" { text="Кадры рисунка" }
+  msg "editor.art.animation_preview" { text="Просмотр анимации" }
+  msg "editor.art.open_hint" { text="Откройте документ .aeart в панели ресурсов, чтобы начать рисовать." }
+  msg "editor.art.new" { text="Новый пиксельный рисунок…" }
+  msg "editor.art.source_path" { text="Путь к исходнику" }
+  msg "editor.art.width" { text="Ширина" }
+  msg "editor.art.height_pixels" { text="Высота в пикселях" }
+  msg "editor.art.color_mode" { text="Режим цвета: rgba / grayscale / indexed" }
+  msg "editor.art.create" { text="Создать" }
+  msg "editor.art.recover" { text="Восстановить несохранённый рисунок" }
+  msg "editor.art.recover_confirm" { text="Заменить открытый рисунок восстановленной копией? Файл исходника не изменится." }
+  msg "editor.art.discard_recovery" { text="Удалить копию восстановления" }
+  msg "editor.art.discard_recovery_confirm" { text="Безвозвратно удалить копию восстановления?" }
+  msg "editor.shell.animation" { text="Анимация" }
+  msg "editor.shell.vfx" { text="Визуальные эффекты" }
+  msg "editor.art.recover_action" { text="Восстановить" }
+  msg "editor.art.discard_recovery_action" { text="Удалить" }
 }

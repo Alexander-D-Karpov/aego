@@ -1,40 +1,4 @@
 messages version=1 lang=en {
-  msg "editor.shell.contact_telegram" {
-    text="Telegram: @sanspie"
-  }
-  msg "editor.shell.created_by" {
-    text="Created by: sanspie"
-  }
-  msg "editor.shell.open_website" {
-    text="Open website"
-  }
-  msg "editor.shell.report_issue" {
-    text="Create an issue…"
-  }
-  msg "editor.particles.invalid_field" {
-    text="Invalid value; check the allowed range and related fields."
-  }
-  msg "editor.particles.invalid_life_curve" {
-    text="Keys must be finite, ordered and within the 0–1 lifetime."
-  }
-  msg "editor.widgets.curve.delete_key" {
-    text="Delete Key"
-  }
-  msg "editor.widgets.curve.drag_preset" {
-    text="Drag a point or the line to edit this preset"
-  }
-  msg "editor.widgets.curve.key_help" {
-    text="Drag points · Double-click to add · Right-click to delete"
-  }
-  msg "editor.widgets.curve.keys" {
-    text="Keys"
-  }
-  msg "launcher.invalid_project_name" {
-    text="Enter a project name without path separators."
-  }
-  msg "launcher.project_folder_exists" {
-    text="A file or folder with this name already exists."
-  }
   msg "cli.bootstrap.not_native" {
     text="project has native=false, nothing to bootstrap"
   }
@@ -93,6 +57,12 @@ messages version=1 lang=en {
   }
   msg "cli.edit.flag.profile" {
     text="player settings profile, default when empty"
+  }
+  msg "cli.examples.help" {
+    text="Remote examples (data only; no code execution)\n  remoteexample clone  -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample open   -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample recent [-root DIR]\n  remoteexample reopen -id LOCAL_COPY_ID [-root DIR]\n  remoteexample check  -id LOCAL_COPY_ID -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample link   -url HTTPS_MANIFEST [-mode project|scene]\n  remoteexample inspect -link AEGO_URL\n\nclone always creates an independent editable copy. open reuses the most recent\nlocal copy, including offline edits, before attempting HTTPS. check only reports\nupdates; it never replaces files. inspect parses a deep link but grants no trust.\nNo origin is implicitly trusted. -approve-origin must be an exact HTTPS origin."
+  }
+  msg "cli.examples.usage" {
+    text="  examples <clone|open|recent|reopen|check|link|inspect>  manage remote example copies"
   }
   msg "cli.export.flag.base_url" {
     text="where the archive is downloaded from; update.url/<channel> by default"
@@ -251,14 +221,14 @@ messages version=1 lang=en {
   msg "editor.agent.agent_2" {
     text="Agent"
   }
-  msg "editor.agent.allow_native_playtests" {
-    text="Allow playtests with this project's native Go modules? Native code can change between runs."
-  }
   msg "editor.agent.allow_always" {
     text="Allow always"
   }
   msg "editor.agent.allow_conversation" {
     text="Allow session"
+  }
+  msg "editor.agent.allow_native_playtests" {
+    text="Allow playtests with this project's native Go modules? Native code can change between runs."
   }
   msg "editor.agent.allow_once" {
     text="Allow once"
@@ -268,33 +238,6 @@ messages version=1 lang=en {
   }
   msg "editor.agent.allow_session_scope" {
     text="Allow session"
-  }
-  msg "editor.agent.revoke_playtest" {
-    text="Revoke always-allowed playtests"
-  }
-  msg "editor.agent.queue_send" {
-    text="Queue"
-  }
-  msg "editor.agent.queue_full" {
-    text="The message queue is full."
-  }
-  msg "editor.agent.queue_clear_first" {
-    text="Send or clear queued messages before starting a new session."
-  }
-  msg "editor.agent.queue_clear" {
-    text="Clear"
-  }
-  msg "editor.agent.queue_resume" {
-    text="Resume"
-  }
-  msg "editor.agent.queue_count" {
-    text="Queued: {n}"
-  }
-  msg "editor.agent.queue_image" {
-    text="Image"
-  }
-  msg "editor.agent.queue_more" {
-    text="+{n} more queued"
   }
   msg "editor.agent.answer" {
     text="Answer"
@@ -524,6 +467,15 @@ messages version=1 lang=en {
   msg "editor.agent.deny" {
     text="Deny"
   }
+  msg "editor.agent.document_redo" {
+    text="Redo one step in {file}?"
+  }
+  msg "editor.agent.document_save" {
+    text="Save the open document {file}?"
+  }
+  msg "editor.agent.document_undo" {
+    text="Undo one step in {file}?"
+  }
   msg "editor.agent.dry_run" {
     text="Dry-run"
   }
@@ -720,6 +672,30 @@ messages version=1 lang=en {
   msg "editor.agent.provider_unavailable" {
     text="This agent provider is not available"
   }
+  msg "editor.agent.queue_clear" {
+    text="Clear"
+  }
+  msg "editor.agent.queue_clear_first" {
+    text="Send or clear queued messages before starting a new session."
+  }
+  msg "editor.agent.queue_count" {
+    text="Queued: {n}"
+  }
+  msg "editor.agent.queue_full" {
+    text="The message queue is full."
+  }
+  msg "editor.agent.queue_image" {
+    text="Image"
+  }
+  msg "editor.agent.queue_more" {
+    text="+{n} more queued"
+  }
+  msg "editor.agent.queue_resume" {
+    text="Resume"
+  }
+  msg "editor.agent.queue_send" {
+    text="Queue"
+  }
   msg "editor.agent.quick_code_errors" {
     text="Fix current script errors…"
   }
@@ -756,17 +732,11 @@ messages version=1 lang=en {
   msg "editor.agent.retry_text" {
     text="Try the step that failed again: {title}"
   }
+  msg "editor.agent.revoke_playtest" {
+    text="Revoke always-allowed playtests"
+  }
   msg "editor.agent.save_documents" {
     text="Save all open project documents?"
-  }
-  msg "editor.agent.document_save" {
-    text="Save the open document {file}?"
-  }
-  msg "editor.agent.document_undo" {
-    text="Undo one step in {file}?"
-  }
-  msg "editor.agent.document_redo" {
-    text="Redo one step in {file}?"
   }
   msg "editor.agent.seconds" {
     text="{n} s"
@@ -1331,6 +1301,207 @@ messages version=1 lang=en {
   msg "editor.animedit.this_node" {
     text="This node"
   }
+  msg "editor.art.add_frame" {
+    text="+ Frame"
+  }
+  msg "editor.art.add_layer" {
+    text="+ Layer"
+  }
+  msg "editor.art.albedo" {
+    text="Albedo"
+  }
+  msg "editor.art.animation_preview" {
+    text="Animation Preview"
+  }
+  msg "editor.art.asset_timeline" {
+    text="Asset Timeline"
+  }
+  msg "editor.art.cancel" {
+    text="Cancel"
+  }
+  msg "editor.art.canvas" {
+    text="Canvas"
+  }
+  msg "editor.art.close_message" {
+    text="Save changes to {path}?"
+  }
+  msg "editor.art.color_mode" {
+    text="Color mode: rgba / grayscale / indexed"
+  }
+  msg "editor.art.create" {
+    text="Create"
+  }
+  msg "editor.art.discard" {
+    text="Discard"
+  }
+  msg "editor.art.discard_recovery" {
+    text="Discard recovery"
+  }
+  msg "editor.art.discard_recovery_action" {
+    text="Discard"
+  }
+  msg "editor.art.discard_recovery_confirm" {
+    text="Permanently discard the recovery copy?"
+  }
+  msg "editor.art.document" {
+    text="Pixel Art / Frame Animation"
+  }
+  msg "editor.art.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.art.edit_sprite" {
+    text="Edit Sprite"
+  }
+  msg "editor.art.ellipse" {
+    text="Ellipse"
+  }
+  msg "editor.art.emission" {
+    text="Emission"
+  }
+  msg "editor.art.eraser" {
+    text="Eraser"
+  }
+  msg "editor.art.expand" {
+    text="Enlarge this panel to display the canvas and controls."
+  }
+  msg "editor.art.fill" {
+    text="Fill"
+  }
+  msg "editor.art.filled" {
+    text="Filled shapes"
+  }
+  msg "editor.art.fit" {
+    text="Fit"
+  }
+  msg "editor.art.frame_unavailable" {
+    text="The selected art frame is no longer available."
+  }
+  msg "editor.art.gradient" {
+    text="Gradient"
+  }
+  msg "editor.art.grid" {
+    text="Pixel grid"
+  }
+  msg "editor.art.height" {
+    text="Height"
+  }
+  msg "editor.art.height_pixels" {
+    text="Height"
+  }
+  msg "editor.art.hide_layer" {
+    text="Hide layer"
+  }
+  msg "editor.art.layer" {
+    text="Layer"
+  }
+  msg "editor.art.line" {
+    text="Line"
+  }
+  msg "editor.art.link" {
+    text="Link"
+  }
+  msg "editor.art.lock_layer" {
+    text="Lock layer"
+  }
+  msg "editor.art.mirror_x" {
+    text="Mirror X"
+  }
+  msg "editor.art.mirror_y" {
+    text="Mirror Y"
+  }
+  msg "editor.art.navigation" {
+    text="Wheel: zoom · middle/right drag: pan · Esc: cancel stroke"
+  }
+  msg "editor.art.new" {
+    text="New Pixel Art…"
+  }
+  msg "editor.art.normal" {
+    text="Normals"
+  }
+  msg "editor.art.onion" {
+    text="Onion skin"
+  }
+  msg "editor.art.open_hint" {
+    text="Open an .aeart document in Assets to start drawing."
+  }
+  msg "editor.art.open_sprite_source" {
+    text="Open Sprite Source"
+  }
+  msg "editor.art.pencil" {
+    text="Pencil"
+  }
+  msg "editor.art.pixel_perfect" {
+    text="Pixel perfect"
+  }
+  msg "editor.art.play" {
+    text="Play"
+  }
+  msg "editor.art.prepared_sprite" {
+    text="This is not an editable .aeart source; it opens as a prepared asset."
+  }
+  msg "editor.art.properties" {
+    text="Tools / Layers"
+  }
+  msg "editor.art.read_only" {
+    text="Read-only"
+  }
+  msg "editor.art.recover" {
+    text="Recover unsaved drawing"
+  }
+  msg "editor.art.recover_action" {
+    text="Recover"
+  }
+  msg "editor.art.recover_confirm" {
+    text="Replace this open document with the recovered drawing? The source file is not overwritten."
+  }
+  msg "editor.art.rectangle" {
+    text="Rectangle"
+  }
+  msg "editor.art.redo" {
+    text="Redo"
+  }
+  msg "editor.art.round" {
+    text="Round brush"
+  }
+  msg "editor.art.save" {
+    text="Save"
+  }
+  msg "editor.art.selection" {
+    text="Selection"
+  }
+  msg "editor.art.shared_sprite" {
+    text="This is a shared asset; edits affect every object that uses it."
+  }
+  msg "editor.art.show_layer" {
+    text="Show layer"
+  }
+  msg "editor.art.source_path" {
+    text="Source path"
+  }
+  msg "editor.art.tag" {
+    text="Tag frames"
+  }
+  msg "editor.art.timeline" {
+    text="Timeline"
+  }
+  msg "editor.art.undo" {
+    text="Undo"
+  }
+  msg "editor.art.unlink" {
+    text="Unlink"
+  }
+  msg "editor.art.unlock_layer" {
+    text="Unlock layer"
+  }
+  msg "editor.art.unsaved" {
+    text="Unsaved drawing"
+  }
+  msg "editor.art.wand" {
+    text="Magic wand"
+  }
+  msg "editor.art.width" {
+    text="Width"
+  }
   msg "editor.assetops.attach_script" {
     text="Attach script"
   }
@@ -1753,6 +1924,9 @@ messages version=1 lang=en {
   }
   msg "editor.command.app.quit.tip" {
     text="Quit the editor, asking first about unsaved changes"
+  }
+  msg "editor.command.asset.new_art" {
+    text="New Pixel Art…"
   }
   msg "editor.command.assets.copy" {
     text="Copy Asset"
@@ -4145,6 +4319,12 @@ messages version=1 lang=en {
   msg "editor.particles.initial" {
     text="Initial"
   }
+  msg "editor.particles.invalid_field" {
+    text="Invalid value; check the allowed range and related fields."
+  }
+  msg "editor.particles.invalid_life_curve" {
+    text="Keys must be finite, ordered and within the 0–1 lifetime."
+  }
   msg "editor.particles.life" {
     text="Over Life"
   }
@@ -5296,6 +5476,9 @@ messages version=1 lang=en {
   msg "editor.shell.an_autosave_of_path_from" {
     text="An autosave of {path} from {v} was found."
   }
+  msg "editor.shell.animation" {
+    text="Animation"
+  }
   msg "editor.shell.apply" {
     text="Apply"
   }
@@ -5350,6 +5533,9 @@ messages version=1 lang=en {
   msg "editor.shell.close_scene" {
     text="Close scene"
   }
+  msg "editor.shell.contact_telegram" {
+    text="Telegram: @sanspie"
+  }
   msg "editor.shell.continue" {
     text="Continue"
   }
@@ -5361,6 +5547,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.create_a_project" {
     text="Create a project"
+  }
+  msg "editor.shell.created_by" {
+    text="Created by: sanspie"
   }
   msg "editor.shell.created_examplepath_to_get_you" {
     text="Created {examplepath} to get you started"
@@ -5483,6 +5672,9 @@ messages version=1 lang=en {
   msg "editor.shell.open_recent_n" {
     text="Open Recent {n}"
   }
+  msg "editor.shell.open_website" {
+    text="Open website"
+  }
   msg "editor.shell.padding_x" {
     text="Padding X"
   }
@@ -5566,6 +5758,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.repaired_n_meta_issue_s" {
     text="Repaired {n} meta issue(s)"
+  }
+  msg "editor.shell.report_issue" {
+    text="Create an issue…"
   }
   msg "editor.shell.restore" {
     text="Restore"
@@ -5695,6 +5890,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.unsaved_changes" {
     text="Unsaved changes"
+  }
+  msg "editor.shell.vfx" {
+    text="VFX"
   }
   msg "editor.shell.workspace_v" {
     text="Workspace {v}"
@@ -5897,8 +6095,20 @@ messages version=1 lang=en {
   msg "editor.widgets.curve.clamp" {
     text="Clamp"
   }
+  msg "editor.widgets.curve.delete_key" {
+    text="Delete Key"
+  }
+  msg "editor.widgets.curve.drag_preset" {
+    text="Drag a point or the line to edit this preset"
+  }
   msg "editor.widgets.curve.free" {
     text="Free"
+  }
+  msg "editor.widgets.curve.key_help" {
+    text="Drag points · Double-click to add · Right-click to delete"
+  }
+  msg "editor.widgets.curve.keys" {
+    text="Keys"
   }
   msg "editor.widgets.curve.linear" {
     text="Linear"
@@ -6002,6 +6212,9 @@ messages version=1 lang=en {
   msg "launcher.get_go" {
     text="Get Go"
   }
+  msg "launcher.invalid_project_name" {
+    text="Enter a project name without path separators."
+  }
   msg "launcher.language" {
     text="Language"
   }
@@ -6046,6 +6259,9 @@ messages version=1 lang=en {
   }
   msg "launcher.project" {
     text="Project"
+  }
+  msg "launcher.project_folder_exists" {
+    text="A file or folder with this name already exists."
   }
   msg "launcher.recent_unreadable" {
     text="Recent projects are unreadable: {error}"

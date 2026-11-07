@@ -1730,6 +1730,15 @@ messages version=1 lang=en {
   msg "cli.agent.anim.set-key" {
     text="set a key; a new track needs --kind"
   }
+  msg "cli.agent.art.apply" {
+    text="Propose one atomic graphics edit at the revision returned by art.read. Agent panel edits require approval; CLI and external agents follow the editor's confirmation setting. All use the document's common Undo. Name new entities with as and refer to them as $name later."
+  }
+  msg "cli.agent.art.capture" {
+    text="Capture unsaved CPU pixels with document/frame/channel identity and revision. MCP returns a PNG image; the CLI writes it only with --out to a new file."
+  }
+  msg "cli.agent.art.read" {
+    text="Read the current art document, not its last saved file. Lists are paginated; revision is a decimal string for art.apply."
+  }
   msg "cli.agent.asset.delete" {
     text="delete an asset; refuses while it is referenced unless --force"
   }

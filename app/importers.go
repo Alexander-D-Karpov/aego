@@ -4,6 +4,7 @@ import (
 	"aego/asset/importers/preset"
 	"sort"
 
+	"aego/asset/importers/artsource"
 	"aego/asset/importers/atlas"
 	matImporter "aego/asset/importers/material"
 	"aego/asset/importers/scenefile"
@@ -21,6 +22,7 @@ func CoreImporters() (*pipeline.ImporterRegistry, error) {
 	reg := pipeline.NewImporterRegistry()
 	for _, imp := range []pipeline.Importer{
 		atlas.Wrap(texImporter.New()),
+		artsource.New(),
 		scenefile.NewScene(),
 		scenefile.NewPrefab(),
 		preset.New(),

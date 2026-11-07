@@ -75,6 +75,8 @@ func dispatch(args []string) int {
 		return cmdCheck(args[1:])
 	case "icons":
 		return cmdIcons(args[1:])
+	case "examples":
+		return cmdRemoteExamples(args[1:])
 	case "mcp":
 		return cmdMcp(args[1:])
 	case "docs":
@@ -132,6 +134,7 @@ func usage() {
   scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
   version                print the engine version and the commit it was built from
 `))
+	fmt.Fprintln(os.Stderr, i18n.Tr("cli.examples.usage", "  examples <clone|open|recent|reopen|check|link|inspect>  manage remote example copies"))
 }
 
 func openProject(dir string) (*project.Project, error) {

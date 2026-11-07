@@ -28,7 +28,7 @@ type group struct {
 }
 
 var lowRoots = []string{"core", "platform", "gpu", "format", "vfs", "update"}
-var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save", "audio", "anim"}
+var kernelRoots = []string{"schema", "scene", "render", "asset", "engine", "script", "ui", "project", "contracts", "data", "save", "audio", "anim", "art"}
 
 func groupOf(p string) (group, bool) {
 	seg := strings.Split(p, "/")
@@ -171,16 +171,16 @@ func groupRule(from, to group) string {
 }
 
 // runtimeForbidden lists what the aego_runtime build must never reach.
-var runtimeForbidden = with(scriptCompilerOnly, "render/shaderx", "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
+var runtimeForbidden = with(scriptCompilerOnly, "art", "render/shaderx", "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
 	"app", "app/agent/...", "app/agentui/...", "app/bootstrap", "app/docstool", "app/edit", "app/edit/...", "app/export", "app/export/...", "app/playground",
 	"app/projects", "app/run", "app/supervise", "app/assembly/editors", "app/assembly/playground",
-	"engine/docs", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",
+	"engine/docs", "engine/docs/...", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",
 	"demos/...", "tests/...", "tools/...", "examples/...",
 	"modules/*/editor/...", "modules/*/dev/...", "scene/prefab/author")
 
 // wasmDenied lists what the web builds (js/wasm) must not reach.
 var wasmDenied = []string{
-	"gpu/gl33/...", "platform/sdl", "asset/pipeline", "asset/importers/...",
+	"art", "gpu/gl33/...", "platform/sdl", "asset/pipeline", "asset/importers/...",
 	"modules/*/editor/...", "modules/*/dev/...",
 	"update", // the self-update core: net/http, TLS and archives the browser never runs
 }

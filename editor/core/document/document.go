@@ -835,6 +835,18 @@ func (m *Manager) WriteRecovery() (int, error) {
 		}
 		n++
 	}
+	for _, d := range m.assets {
+		if d.Binding.Recovery == nil || !d.Dirty() {
+			continue
+		}
+		if err := m.WriteAssetRecovery(d); err != nil {
+			if first == nil {
+				first = err
+			}
+		} else {
+			n++
+		}
+	}
 	sn, err := m.writeScriptRecovery()
 	if first == nil {
 		first = err

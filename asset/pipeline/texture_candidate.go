@@ -20,8 +20,8 @@ func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func
 	if owner == nil {
 		owner = p.subs[id]
 	}
-	if owner == nil || owner.importer.ID() != "texture" {
-		return nil, nil, errs.New(errs.AssetBadImporter, "working metadata candidates require an imported texture source")
+	if owner == nil || !workingSourceCompatible(owner.importer) {
+		return nil, nil, errs.New(errs.AssetBadImporter, "working metadata candidates require a registered working-source importer")
 	}
 	target, err := ParseMeta(metadata, owner.path+MetaSuffix)
 	if err != nil {
@@ -63,7 +63,7 @@ func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func
 	failures := map[ids.AssetID]error{}
 	list := make([]ids.AssetID, 0, len(p.byID))
 	for source, r := range p.byID {
-		if r.importer.ID() != "texture" {
+		if !workingSourceCompatible(r.importer) {
 			continue
 		}
 		copyRecord := *r
@@ -74,7 +74,7 @@ func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func
 		if readErr == nil {
 			m, readErr = ParseMeta(encoded, r.path+MetaSuffix)
 		}
-		if readErr == nil && (m.ID != source || m.Importer != "texture") {
+		if readErr == nil && (m.ID != source || m.Importer != r.importer.ID()) {
 			readErr = errs.New(errs.AssetBadMeta, "candidate metadata changes source identity/importer")
 		}
 		if readErr != nil {
@@ -139,6 +139,9 @@ func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func
 		}
 		r := candidate.byID[source]
 		data, err := read(r.path)
+		if fromOverlay[r.path] {
+			working[source] = true
+		}
 		if err != nil {
 			failures[source] = err
 			continue
@@ -160,7 +163,7 @@ func (p *Pipeline) PreviewMetadata(id ids.AssetID, metadata []byte, overlay func
 			continue
 		}
 		if result == nil {
-			failures[source] = fmt.Errorf("texture importer returned no candidate")
+			failures[source] = fmt.Errorf("working-source importer returned no candidate")
 			continue
 		}
 		results[source] = result
