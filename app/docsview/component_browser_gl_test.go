@@ -260,7 +260,7 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 			t.Logf("%s environments=%v errors=%v", result.ComponentID, result.Environments, result.Errors)
 		}
 	}
-	for _, id := range []string{"camera.VirtualCamera2D", "engine.Camera2D", "engine.Camera3D", "engine.Light2D", "engine.LightingEnvironment2D", "engine.LightOccluder2D", "engine.Mesh2D", "engine.MeshRenderer", "engine.SpriteRenderer", "particles.ParticleSystem2D", "render2d.PostProcess"} {
+	for _, id := range []string{"camera.CameraFollow2D", "camera.CameraZone2D", "camera.VirtualCamera2D", "engine.Camera2D", "engine.Camera3D", "engine.Light2D", "engine.LightingEnvironment2D", "engine.LightOccluder2D", "engine.Mesh2D", "engine.MeshRenderer", "engine.SpriteRenderer", "particles.ParticleSystem2D", "physics.Body2D", "render2d.PostProcess"} {
 		if !verified[id] {
 			t.Errorf("%s did not pass native and Chromium", id)
 		}

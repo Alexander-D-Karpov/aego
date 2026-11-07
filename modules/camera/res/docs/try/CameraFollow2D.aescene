@@ -198,13 +198,13 @@ scene version=1 {
       type=dynamic
       massMode=auto
       mass=0
-      gravityScale=1
+      gravityScale=0
       linearDamping=0
       angularDamping=0
       fixedRotation=false
       bullet=false
       allowSleep=true
-      interpolate=true
+      interpolate=false
       layer=0
       mask=-1
     }
@@ -215,6 +215,10 @@ scene version=1 {
       restitution=0.1
       density=1
       radius=0.5
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.Launch" enabled=true {
+      }
     }
   }
   node "d5000000000000000000000000000009" name="Camera" enabled=true layers=1 {
@@ -248,8 +252,8 @@ scene version=1 {
     component "camera.CameraFollow2D" version=1 {
       target=node("d5000000000000000000000000000008")
       deadzone=[0.4, 0.4, 0.2, 0.2]
-      damping=[4, 4]
-      lookahead=[0.3, 0]
+      damping=[0.0001, 0.0001]
+      lookahead=[0, 0]
       maxLookahead=[3, 1]
       lookaheadSmoothing=3
       snapDistance=20

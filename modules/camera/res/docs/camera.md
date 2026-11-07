@@ -1,6 +1,6 @@
 ---
 id: camera
-try: try/CameraFollow2D.aescene
+try: CameraFollowRolling.aescene
 try_select: camera.CameraFollow2D
 icon: comp.vcam
 group: camera
@@ -72,7 +72,7 @@ In Try it, the minimap in the corner is a second Camera 2D with a small Viewport
 
 ---
 id: camera/follow
-try: try/CameraFollow2D.aescene
+try: CameraFollowRolling.aescene
 try_select: camera.CameraFollow2D
 icon: comp.follow
 parent: camera
@@ -97,7 +97,7 @@ In Try it, the ball rolls down a long ramp. Set Damping to 0 for a rigid camera,
 
 ---
 id: camera/zones
-try: try/CameraZone2D.aescene
+try: CameraZoneRolling.aescene
 try_select: camera.CameraZone2D
 icon: comp.zone
 parent: camera

@@ -21,13 +21,13 @@ scene version=1 {
       type=dynamic
       massMode=auto
       mass=0
-      gravityScale=1
+      gravityScale=0
       linearDamping=0
       angularDamping=0
       fixedRotation=false
       bullet=false
       allowSleep=true
-      interpolate=true
+      interpolate=false
       layer=0
       mask=-1
     }

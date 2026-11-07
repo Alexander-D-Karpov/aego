@@ -1,6 +1,6 @@
 ---
 id: physics
-try: try/Body2D.aescene
+try: BodyFalling.aescene
 try_select: physics.Body2D
 icon: cat.physics
 group: physics
@@ -304,4 +304,3 @@ Check both bodies' masks and the layer matrix, and that the node is 2D and not u
 ## Motion feels floaty
 
 Gravity 9.81 assumes a unit is about a metre. A 64-pixel sprite at zoom 64 is one unit.
-

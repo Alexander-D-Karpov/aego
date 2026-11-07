@@ -1,0 +1,16 @@
+package demo
+
+import "aego/physics"
+
+// The ball teleports once, after the camera has followed its starting pose.
+script Launch {
+    var frames int
+    func Update(dt float) {
+        frames++
+        if frames == 2 {
+            body := node.Get<Body2D>()
+            body.Teleport(Vec2{-18, -2}, 0)
+            body.SetVelocity(Vec2{0, 0})
+        }
+    }
+}
