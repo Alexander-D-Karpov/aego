@@ -71,6 +71,9 @@ func noLinks(name string) error {
 		if st.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symlink path rejected: %s", current)
 		}
+		if e = rejectReparse(current); e != nil {
+			return e
+		}
 		parent := filepath.Dir(current)
 		if parent == current {
 			break
@@ -106,10 +109,10 @@ func ensureDirectory(name string) error {
 	if e != nil {
 		return e
 	}
-	if !st.IsDir() || st.Mode().Perm()&0022 != 0 {
+	if !st.IsDir() {
 		return fmt.Errorf("example store must be a non-writable-by-others directory: %s", name)
 	}
-	return nil
+	return secureStoreDirectory(name, st)
 }
 func nonce() (string, error) {
 	var b [12]byte
@@ -118,8 +121,30 @@ func nonce() (string, error) {
 	}
 	return hex.EncodeToString(b[:]), nil
 }
+
+// Recheck the storage roots before each operation. A store that was private at
+// startup must not remain trusted after its permissions or path have changed.
+func (s *Store) verifyDirectories() error {
+	for _, dir := range []string{s.root, filepath.Join(s.root, "cache"), filepath.Join(s.root, "projects")} {
+		if err := noLinks(dir); err != nil {
+			return err
+		}
+		info, err := os.Stat(dir)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("example store path is not a directory: %s", dir)
+		}
+		if err := secureStoreDirectory(dir, info); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) lock() (func(), error) {
-	if e := noLinks(s.root); e != nil {
+	if e := s.verifyDirectories(); e != nil {
 		return nil, e
 	}
 	p := filepath.Join(s.root, ".install-lock")
@@ -382,6 +407,9 @@ func extract(ctx context.Context, archive, dst string, m Manifest, l Limits) err
 }
 
 func (s *Store) Copies() ([]Copy, error) {
+	if e := s.verifyDirectories(); e != nil {
+		return nil, e
+	}
 	root := filepath.Join(s.root, "projects")
 	if e := noLinks(root); e != nil {
 		return nil, e
@@ -398,7 +426,7 @@ func (s *Store) Copies() ([]Copy, error) {
 		if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 			continue
 		}
-		c, e := s.Reopen(entry.Name())
+		c, e := s.reopenVerified(entry.Name())
 		if e != nil {
 			continue
 		}
@@ -408,6 +436,13 @@ func (s *Store) Copies() ([]Copy, error) {
 	return out, nil
 }
 func (s *Store) Reopen(id string) (Copy, error) {
+	if e := s.verifyDirectories(); e != nil {
+		return Copy{}, e
+	}
+	return s.reopenVerified(id)
+}
+
+func (s *Store) reopenVerified(id string) (Copy, error) {
 	var c Copy
 	if !copyIDRE.MatchString(id) {
 		return c, fmt.Errorf("invalid local copy ID")
@@ -455,6 +490,10 @@ func (s *Store) Reopen(id string) (Copy, error) {
 	if e = noLinks(filepath.Join(dir, "project.aego")); e != nil {
 		return c, e
 	}
+	checkEntry, e := newSecureTreeChecker()
+	if e != nil {
+		return c, e
+	}
 	if e = filepath.WalkDir(dir, func(name string, item os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -466,10 +505,13 @@ func (s *Store) Reopen(id string) (Copy, error) {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symlink path rejected: %s", name)
 		}
+		if err := rejectReparse(name); err != nil {
+			return err
+		}
 		if !info.IsDir() && !info.Mode().IsRegular() {
 			return fmt.Errorf("non-regular project resource rejected: %s", name)
 		}
-		return nil
+		return checkEntry(name, info)
 	}); e != nil {
 		return c, e
 	}
