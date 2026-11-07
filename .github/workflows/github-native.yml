@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      stage_commit:
+        description: 'Optional full commit SHA for isolated Stage remote-store tests'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,7 +35,7 @@ jobs:
 
   native:
     needs: gitea-pending
-    if: github.server_url == 'https://github.com'
+    if: github.server_url == 'https://github.com' && !(github.event_name == 'workflow_dispatch' && inputs.stage_commit != '')
     name: ${{ matrix.goos }} ${{ matrix.goarch }} native
     # Gitea may assign a runner before evaluating job-level `if`. Route its
     # skipped matrix entries to the available Linux runner instead of leaving
@@ -202,6 +207,46 @@ jobs:
           path: .cache/github-ci/dist/linux/
           include-hidden-files: true
           if-no-files-found: error
+
+  stage-remote-store:
+    if: github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && inputs.stage_commit != ''
+    name: stage remote store ${{ matrix.goos }} ${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-2025, goos: windows, goarch: amd64 }
+          - { runner: macos-15, goos: darwin, goarch: arm64 }
+          - { runner: macos-15-intel, goos: darwin, goarch: amd64 }
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: '-mod=readonly'
+      STAGE_COMMIT: ${{ inputs.stage_commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.stage_commit }}
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Record Windows temporary directory ACL
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-Acl -LiteralPath $env:TEMP | Format-List Owner,AccessToString
+      - name: Test exact Stage commit on native host
+        shell: bash
+        run: |
+          set -o pipefail
+          [[ "$STAGE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$STAGE_COMMIT"
+          test "$(go env GOOS)" = '${{ matrix.goos }}'
+          test "$(go env GOARCH)" = '${{ matrix.goarch }}'
+          go version
+          go test -count=1 -v ./project/remoteexample
 
   gitea-result:
     if: ${{ always() && github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
