@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"unsafe"
 )
 
 func grantEveryone(t *testing.T, name, rights string) {
@@ -86,23 +87,32 @@ func TestWindowsTrustedInstallerOwnerIsNotAnArbitraryService(t *testing.T) {
 
 func TestWindowsNullDACLIsRejected(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "store")
-	if _, err := NewStore(root, Limits{}); err != nil {
-		t.Fatal(err)
-	}
 	name, err := syscall.UTF16PtrFromString(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := syscall.CreateFile(name, writeDAC, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
-		nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	if err != nil {
-		t.Fatal(err)
+	// Create the fixture with a null DACL from the outset. Attempting to
+	// replace an inherited DACL can require extra privileges on hosted runners.
+	var sd struct {
+		revision, reserved uint8
+		control            uint16
+		owner, group       *syscall.SID
+		sacl, dacl         unsafe.Pointer
 	}
-	setSecurityInfo := securityDLL.NewProc("SetSecurityInfo")
-	code, _, _ := setSecurityInfo.Call(uintptr(h), seFileObject, daclSecurityInfo, 0, 0, 0, 0)
-	syscall.CloseHandle(h)
-	if code != 0 {
-		t.Fatalf("could not set null test DACL: %v", syscall.Errno(code))
+	initialize := securityDLL.NewProc("InitializeSecurityDescriptor")
+	ok, _, callErr := initialize.Call(uintptr(unsafe.Pointer(&sd)), 1)
+	if ok == 0 {
+		t.Fatalf("initialize test descriptor: %v", callErr)
+	}
+	setDACL := securityDLL.NewProc("SetSecurityDescriptorDacl")
+	ok, _, callErr = setDACL.Call(uintptr(unsafe.Pointer(&sd)), 1, 0, 0)
+	if ok == 0 {
+		t.Fatalf("set null test DACL: %v", callErr)
+	}
+	attrs := syscall.SecurityAttributes{SecurityDescriptor: uintptr(unsafe.Pointer(&sd))}
+	attrs.Length = uint32(unsafe.Sizeof(attrs))
+	if err := syscall.CreateDirectory(name, &attrs); err != nil {
+		t.Fatalf("create directory with null DACL: %v", err)
 	}
 	if _, err := NewStore(root, Limits{}); err == nil {
 		t.Fatal("null DACL (unrestricted access) was accepted")

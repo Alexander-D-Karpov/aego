@@ -33,7 +33,7 @@ import (
 )
 
 func TestArtColorPickerPreservesDisplayedBytes(t *testing.T) {
-	for _, want := range []art.Color{{1, 50, 200, 128}, {127, 128, 255, 255}, {255, 0, 0, 0}} {
+	for _, want := range []art.Color{{R: 1, G: 50, B: 200, A: 128}, {R: 127, G: 128, B: 255, A: 255}, {R: 255, G: 0, B: 0, A: 0}} {
 		got := artColorBytes(mathx.ColorRGBA8(want.R, want.G, want.B, want.A))
 		if got != want {
 			t.Errorf("color picker bytes = %+v, want %+v", got, want)
