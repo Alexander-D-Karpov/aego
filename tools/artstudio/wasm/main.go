@@ -41,14 +41,15 @@ type request struct {
 	ExpectedRevision uint64        `json:"expectedRevision"`
 }
 type response struct {
-	Active   string          `json:"active"`
-	Tabs     []host.Tab      `json:"tabs"`
-	State    art.SessionInfo `json:"state"`
-	ID       art.ID          `json:"id,omitempty"`
-	Color    *art.Color      `json:"color,omitempty"`
-	Error    string          `json:"error,omitempty"`
-	Hash     string          `json:"hash,omitempty"`
-	Warnings []string        `json:"warnings,omitempty"`
+	Active            string          `json:"active"`
+	Tabs              []host.Tab      `json:"tabs"`
+	State             art.SessionInfo `json:"state"`
+	ID                art.ID          `json:"id,omitempty"`
+	Color             *art.Color      `json:"color,omitempty"`
+	Error             string          `json:"error,omitempty"`
+	Hash              string          `json:"hash,omitempty"`
+	Warnings          []string        `json:"warnings,omitempty"`
+	NeedsConfirmation bool            `json:"needsConfirmation,omitempty"`
 }
 
 var documents = host.New()
@@ -278,6 +279,9 @@ func importCall(_ js.Value, args []js.Value) any {
 			js.CopyBytesToGo(data, args[0])
 			var d *art.Document
 			var err error
+			// Lossy imports require a separate explicit confirmation. The same
+			// bytes are parsed again on confirmation; no tab is opened here.
+			confirmLoss := len(args) > 4 && args[4].Type() == js.TypeBoolean && args[4].Bool()
 			switch args[1].String() {
 			case "aeart":
 				d, err = art.Decode(data, art.Limits{})
@@ -292,7 +296,15 @@ func importCall(_ js.Value, args []js.Value) any {
 			default:
 				err = fmt.Errorf("art: unsupported import")
 			}
-			if err == nil {
+			if err == nil && d == nil {
+				err = fmt.Errorf("art: importer returned no document")
+			}
+			if err == nil && len(out.Warnings) > 0 && !confirmLoss {
+				d.Close()
+				d = nil
+				out.NeedsConfirmation = true
+			}
+			if err == nil && d != nil {
 				name := "Imported.aeart"
 				if len(args) > 3 && args[3].Type() == js.TypeString {
 					name = args[3].String()

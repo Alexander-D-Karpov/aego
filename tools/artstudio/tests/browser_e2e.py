@@ -155,13 +155,41 @@ def authoring_extensions(page):
     passed('Stale file-picker confirmation is rejected before opening the writer (writer mock)')
     page.screenshot(path=str(OUT/'studio-documents-ranges-palettes.png'),full_page=True)
 
+def aseprite_loss_confirmation(page, dialogs):
+    """Actual browser modal: a warned import must not publish before consent."""
+    source=ROOT/'art/testdata/aseprite/upstream/tags3x123reps.aseprite'
+    before=request(page,{'action':'state'});pixels=hash_(page)
+    dialogs['reject_confirm']=True
+    count=len(dialogs['confirm_messages'])
+    page.locator('#file-input').set_input_files(str(source))
+    page.wait_for_function("() => document.querySelector('#file-input').value === ''")
+    after=request(page,{'action':'state'})
+    assert len(dialogs['confirm_messages'])==count+1, dialogs
+    assert after['active']==before['active'] and after['tabs']==before['tabs'] and hash_(page)==pixels, after
+    dialogs['reject_confirm']=False
+    page.locator('#file-input').set_input_files(str(source))
+    page.wait_for_function("() => document.querySelector('#file-input').value === ''")
+    after=request(page,{'action':'state'})
+    assert len(dialogs['confirm_messages'])==count+2, dialogs
+    assert len(after['tabs'])==len(before['tabs'])+1 and after['active']!=before['active'], after
+    assert after['state']['document']['frames'] and after['state']['document']['tags'], after
+    assert page.locator('#status').inner_text(), 'import diagnostics were not shown'
+    passed('Aseprite metadata-loss warning is confirmed before opening a new document; Cancel preserves the current tabs')
+
 def run():
  with sync_playwright() as p:
   browser=p.chromium.launch(executable_path=args.chromium,headless=True,chromium_sandbox=not args.no_sandbox,args=['--no-sandbox'] if args.no_sandbox else [])
   context=browser.new_context(viewport={'width':1440,'height':1000},has_touch=True)
   page=context.new_page();errors=[]
   page.on('pageerror',lambda e:errors.append(str(e)))
-  page.on('dialog',lambda d:d.accept('Effects' if d.type=='prompt' else None))
+  dialogs={'reject_confirm':False,'confirm_messages':[]}
+  def on_dialog(dialog):
+   if dialog.type=='confirm':
+    dialogs['confirm_messages'].append(dialog.message)
+    if dialogs['reject_confirm']:
+     dialog.dismiss();return
+   dialog.accept('Effects' if dialog.type=='prompt' else None)
+  page.on('dialog',on_dialog)
   install(page);passed('WASM boot and UI initialization')
   new(page);assert state(page)['document']['canvas']['width']==32;passed('New document dialog')
   tool(page,'rectangle');page.locator('#filled').check();color(page,'#4dc3d1')
@@ -224,6 +252,7 @@ def run():
   page.locator('#toggle-side').click();page.set_viewport_size({'width':1440,'height':1000});page.locator('#fit').click()
   passed('Narrow layout, sidebar access and resize')
   authoring_extensions(page)
+  aseprite_loss_confirmation(page,dialogs)
   # Identical typed commands replay on native CPU and in the real browser WASM.
   fixture={'width':32,'height':32,'mode':'rgba','operations':[{'kind':'rectangle','filled':True,'points':[{'X':2,'Y':3},{'X':23,'Y':17}],'brush':{'size':1,'paint':{'color':{'R':255,'G':105,'B':110,'A':255}}}},{'kind':'ellipse','filled':True,'points':[{'X':7,'Y':7},{'X':28,'Y':28}],'brush':{'size':1,'paint':{'color':{'R':77,'G':195,'B':209,'A':255}}}},{'kind':'duplicate-frame','linked':True},{'kind':'unlink'},{'kind':'flip-x'},{'kind':'mode','mode':'indexed'}]}
   fixture_path=OUT/'parity-replay.json';fixture_path.write_text(json.dumps(fixture,indent=2))

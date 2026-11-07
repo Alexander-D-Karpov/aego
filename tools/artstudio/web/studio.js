@@ -252,7 +252,12 @@ async function openFile(file) {
   const format = /\.(ase|aseprite)$/i.test(file.name) ? 'aseprite' : /\.png$/i.test(file.name) ? 'png' : 'aeart';
   const bytes = new Uint8Array(await file.arrayBuffer());
   const name = file.name.replace(/\.(png|ase|aseprite)$/i, '.aeart');
-  const res = JSON.parse(api.importBytes(bytes, format, false, name));
+  let res = JSON.parse(api.importBytes(bytes, format, false, name));
+  if (res.needsConfirmation) {
+    const message = lang === 'ru' ? 'Некоторые метаданные не будут сохранены. Импортировать после просмотра предупреждений?' : 'Some metadata will not be retained. Import after reviewing these warnings?';
+    if (!confirm(message + '\n\n' + (res.warnings || []).join('\n'))) return;
+    res = JSON.parse(api.importBytes(bytes, format, false, name, true));
+  }
   if (res.error) throw new Error(res.error);
   adopt(res); renderUI(); restoreView(); paint(); scheduleRecovery();
   say(res.warnings?.length ? res.warnings.join(' · ') : t('imported'));
