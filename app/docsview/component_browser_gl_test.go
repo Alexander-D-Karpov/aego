@@ -24,6 +24,7 @@ import (
 type browserProcess struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
+	stdout io.ReadCloser
 	encode *json.Encoder
 	decode *json.Decoder
 	next   int
@@ -45,19 +46,44 @@ func startBrowserProcess(ctx context.Context, site, script string) (*browserProc
 		in.Close()
 		return nil, err
 	}
-	return &browserProcess{cmd: cmd, stdin: in, encode: json.NewEncoder(in), decode: json.NewDecoder(out)}, nil
+	return &browserProcess{cmd: cmd, stdin: in, stdout: out, encode: json.NewEncoder(in), decode: json.NewDecoder(out)}, nil
 }
 
 func (p *browserProcess) call(ctx context.Context, method string, values map[string]any, result any) error {
+	// A single language may need up to 120 seconds to boot; an open request
+	// checks both languages. A wedged subprocess must not hang the entire gate.
+	timeout := 5 * time.Minute
+	if method == "close" {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	finished := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		// Close both pipes as well as the process: descendants could otherwise
+		// keep an inherited stdout open and leave Decode blocked indefinitely.
+		_ = p.cmd.Process.Kill()
+		_ = p.stdin.Close()
+		_ = p.stdout.Close()
+		close(finished)
+	})
+	defer func() {
+		if !stop() {
+			<-finished
+		}
+	}()
 	if values == nil {
 		values = map[string]any{}
 	}
 	p.next++
 	values["id"], values["method"] = p.next, method
 	if err := p.encode.Encode(values); err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("browser %s request: %w", method, ctx.Err())
+		}
 		return fmt.Errorf("browser %s request: %w", method, err)
 	}
 	var reply struct {
@@ -66,6 +92,12 @@ func (p *browserProcess) call(ctx context.Context, method string, values map[str
 		Result json.RawMessage `json:"result"`
 	}
 	if err := p.decode.Decode(&reply); err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("browser %s reply: %w", method, ctx.Err())
+		}
+		return fmt.Errorf("browser %s reply: %w", method, err)
+	}
+	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("browser %s reply: %w", method, err)
 	}
 	if reply.ID != p.next {
@@ -190,7 +222,7 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 	if script == "" {
 		script = filepath.Join("..", "..", "tools", "websmoke", "try-contract.mjs")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
 	process, err := startBrowserProcess(ctx, site, script)
 	if err != nil {

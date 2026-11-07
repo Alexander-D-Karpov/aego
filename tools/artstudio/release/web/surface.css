@@ -1,0 +1,28 @@
+body:not(.landing){grid-template-rows:44px 36px auto minmax(0,1fr) 25px;}
+[hidden]{display:none!important}
+/* Reuses the shipped Aego theme; no separate pixel-editor styling system. */
+.release-toolbar { display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 10px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap; }
+.release-toolbar a {color:var(--text);text-decoration:none;padding:5px 10px;}
+.release-toolbar button {white-space:normal;}
+.release-version {color:var(--muted);margin-left:auto;font-size:10px;}
+.transfer-status {max-width:56ch;color:var(--muted);}
+.storage-warning {background:#483820;color:#fff1cf;padding:7px 12px;border-bottom:1px solid var(--border);}
+.studio-embedded .app-name,.studio-embedded .privacy,.studio-embedded .build-badge,.studio-embedded .workspaces,.studio-embedded .release-version {display:none;}
+.studio-embedded .statusbar > [data-i18n="hints"] {display:none;}
+.studio-embedded {--timeline:170px;--side:220px;--tools:46px;}
+body.landing {display:block;overflow:auto;height:auto;min-height:100vh;}
+.welcome {max-width:1120px;margin:5vw auto;padding:0 24px 64px;}
+.welcome h1 {font-size:clamp(26px,5vw,52px);letter-spacing:-.04em;margin:18px 0;}
+.welcome p {line-height:1.7;color:var(--muted);font-size:15px;}
+.eyebrow {font-size:12px!important;letter-spacing:.16em;color:var(--accent)!important;}
+.welcome-actions {display:flex;flex-wrap:wrap;gap:12px;margin:28px 0;}
+.welcome-actions a {display:inline-block;padding:13px 18px;border:1px solid var(--border);background:var(--panel);border-radius:6px;color:var(--text);text-decoration:none;}
+.welcome a {color:var(--text);}
+.example-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+.example-card {display:grid;grid-template-columns:64px 1fr;gap:4px 16px;align-items:center;min-height:106px;padding:16px;border:1px solid var(--border);border-radius:6px;background:var(--panel);text-decoration:none;}
+.example-card img {grid-row:1/3;width:64px;height:64px;image-rendering:pixelated;background:var(--field);}
+.example-card span {color:var(--muted);}
+.release-note {margin-top:32px;max-width:80ch;}
+@media(max-width:700px){.release-toolbar{gap:4px;}.transfer-status{width:100%;}.release-version{display:none;}.studio-embedded .tool-options{overflow-x:auto;white-space:nowrap;}.studio-embedded .timeline-toolbar,.studio-embedded .timeline-range-toolbar{overflow-x:auto;flex-wrap:nowrap;}.studio-embedded .timeline-toolbar button{flex-shrink:0;}.studio-embedded{--timeline:180px;}.welcome{margin-top:28px;}}
+
+.storage-warning{width:100%;}

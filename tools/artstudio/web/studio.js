@@ -380,7 +380,7 @@ document.addEventListener('keydown', e => {
 window.addEventListener('beforeunload', e => { if (tabs.some(v => v.dirty) || state?.gesture) { e.preventDefault(); e.returnValue = '' } });
 window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', async e => { e.preventDefault(); if (api && e.dataTransfer.files.length) try { await openFile(e.dataTransfer.files[0]) } catch (error) { say(error.message, true) } });
 function queueRecovery(job) {
-  recoveryWrites = recoveryWrites.then(job).catch(error => say(t('recoveryError') + ': ' + error.message, true));
+  recoveryWrites = recoveryWrites.then(job).catch(error => { say(t('recoveryError') + ': ' + error.message, true); window.dispatchEvent(new Event('aego-art-recovery-error')); });
   return recoveryWrites;
 }
 function scheduleRecovery() {
@@ -423,4 +423,4 @@ $('dismiss-recovery').onclick = async () => {
   await queueRecovery(() => recoveryStore.remove(key)); await showRecovery();
 };
 window.addEventListener('pagehide', flushRecovery);
-(async () => { translate(); try { const go = new Go(); const response = await fetch('artstudio.wasm'); if (!response.ok) throw new Error(`WASM HTTP ${response.status}`); let instance; try { ({ instance } = await WebAssembly.instantiateStreaming(response.clone(), go.importObject)) } catch { ({ instance } = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject)) } go.run(instance).catch(error => say(error.message, true)); api = window.aegoArt; if (!api) throw new Error('Go bridge did not initialize'); adopt(JSON.parse(api.request('{"action":"state"}'))); $('loading').classList.add('hidden'); renderUI(); fitZoom(); paint(); say(t('ready')); try { recoveryStore = await AegoRecoveryStore.open(); await showRecovery() } catch (error) { say(t('storageUnavailable'), true) } window.artStudioReady = true } catch (error) { $('loading').textContent = error.message; say(error.message, true) } })();
+(async () => { translate(); try { const go = new Go(); const response = await fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm'); if (!response.ok) throw new Error(`WASM HTTP ${response.status}`); let instance; try { ({ instance } = await WebAssembly.instantiateStreaming(response.clone(), go.importObject)) } catch { ({ instance } = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject)) } go.run(instance).catch(error => say(error.message, true)); api = window.aegoArt; if (!api) throw new Error('Go bridge did not initialize'); adopt(JSON.parse(api.request('{"action":"state"}'))); $('loading').classList.add('hidden'); renderUI(); fitZoom(); paint(); say(t('ready')); try { recoveryStore = await AegoRecoveryStore.open(); await showRecovery() } catch (error) { say(t('storageUnavailable'), true) } window.artStudioReady = true } catch (error) { $('loading').textContent = error.message; say(error.message, true) } })();

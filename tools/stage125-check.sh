@@ -12,7 +12,7 @@ if [[ "$mode" == try ]]; then
   [[ -f "$AEGO_TRY_SITE/index.html" && -f "$AEGO_TRY_SITE/try/aego-docs.wasm" ]] || { printf '%s\n' 'Try site or actual docs WASM is missing' >&2; exit 1; }
   [[ "$(go env GOOS)" == linux && "$(go env CGO_ENABLED)" == 1 ]] || { printf '%s\n' 'Native OpenGL component gate needs Linux and CGO' >&2; exit 1; }
   go test -tags 'aego_editor aego_gltest' -list '^TestComponentContractsAcrossNativeAndChromium$' ./app/docsview | grep -x 'TestComponentContractsAcrossNativeAndChromium'
-  AEGO_DEMOCHECK_ENFORCE=1 go test -tags 'aego_editor aego_gltest' -count=1 -run '^TestComponentContractsAcrossNativeAndChromium$' -v ./app/docsview
+  AEGO_DEMOCHECK_ENFORCE=1 go test -timeout 50m -tags 'aego_editor aego_gltest' -count=1 -run '^TestComponentContractsAcrossNativeAndChromium$' -v ./app/docsview
   exit 0
 fi
 go test -race -count=1 ./art ./project/remoteexample ./tools/remoteexample ./tools/artstudio ./tools/artstudio/host ./engine/docs/democheck

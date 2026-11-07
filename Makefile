@@ -47,6 +47,7 @@ MODULE_BENCH_COMPARE := ./tests/integration:RewindScrub
 BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
+include tools/artstudio/release/release.mk
 
 .PHONY: materials materials-check dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
@@ -103,7 +104,7 @@ test-nonative:
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
 	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|ArtWorkingAlphaShadowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
-	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb)$$' ./app/docsview
+	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb|TestBrowserProcessDeadlineFailsClosed)$$' ./app/docsview
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
@@ -384,6 +385,7 @@ web-visibility-lifecycle-test:
 	node --test tools/websmoke/visibility-browser.test.mjs
 
 ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+ci: studio-web-test
 	@sh tools/ci-clean-root.sh
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).

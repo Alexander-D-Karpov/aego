@@ -39,7 +39,8 @@
     <nav class="links" aria-label="{{call .T "Site"}}">
         <a href="{{.Root}}index.html">{{call .T "Docs"}}</a>
         {{if .Playground}}<a href="{{.Root}}play/">{{call .T "Playground"}}</a>{{end}}
-        {{if .Studio}}<a href="{{.Root}}studio/">{{call .T "Art Studio"}}</a>{{end}}
+        {{if .Studio}}<a href="{{if .StudioURL}}{{.StudioURL}}editor/{{else}}{{.Root}}studio/{{end}}">{{call .T "Art Studio"}}</a>{{end}}
+        {{if .StudioGuides}}<a href="{{.Root}}asset-studio/{{.Lang}}/first-sprite/">{{call .T "Art Studio lessons"}}</a>{{end}}
         {{if .Demo}}<a href="{{.Root}}demo/">{{call .T "Demo"}}</a>{{end}}
         {{if .Repo}}<a class="repo" href="{{.Repo}}" title="{{call .T "Source code"}}" aria-label="{{call .T "Source code"}}"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M23.546 10.93 13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.658 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.525a1.838 1.838 0 1 1-1.512-.054V8.826a1.838 1.838 0 0 1-.998-2.41L7.636 3.7.45 10.881a1.55 1.55 0 0 0 0 2.189l10.48 10.477a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.187"/></svg></a>{{end}}
     </nav>
@@ -49,7 +50,7 @@
 </header>
 <div class="shell">
     <nav class="side" id="side" aria-label="{{call .T "Documentation"}}">
-        <div class="side-links"><a href="{{.Root}}index.html">{{call .T "Docs"}}</a>{{if .Playground}}<a href="{{.Root}}play/">{{call .T "Playground"}}</a>{{end}}{{if .Studio}}<a href="{{.Root}}studio/">{{call .T "Art Studio"}}</a>{{end}}{{if .Demo}}<a href="{{.Root}}demo/">{{call .T "Demo"}}</a>{{end}}{{if .Repo}}<a href="{{.Repo}}">{{call .T "Source"}}</a>{{end}}</div>
+        <div class="side-links"><a href="{{.Root}}index.html">{{call .T "Docs"}}</a>{{if .Playground}}<a href="{{.Root}}play/">{{call .T "Playground"}}</a>{{end}}{{if .Studio}}<a href="{{if .StudioURL}}{{.StudioURL}}editor/{{else}}{{.Root}}studio/{{end}}">{{call .T "Art Studio"}}</a>{{end}}{{if .StudioGuides}}<a href="{{.Root}}asset-studio/{{.Lang}}/first-sprite/">{{call .T "Art Studio lessons"}}</a>{{end}}{{if .Demo}}<a href="{{.Root}}demo/">{{call .T "Demo"}}</a>{{end}}{{if .Repo}}<a href="{{.Repo}}">{{call .T "Source"}}</a>{{end}}</div>
         {{.Nav}}
     </nav>
     <script>(function () { const side = document.getElementById("side"); try { const st = JSON.parse(localStorage.getItem("aego.docs.groups")) || {}; for (const d of side.querySelectorAll("details.group")) if (!d.dataset.current && d.dataset.group in st) d.open = !!st[d.dataset.group]; } catch (_) {} let y = null; try { y = sessionStorage.getItem("aego.docs.side"); } catch (_) {} if (y !== null) side.scrollTop = +y; const cur = side.querySelector("a.current"); if (cur) { const top = cur.offsetTop - side.offsetTop; if (top < side.scrollTop || top > side.scrollTop + side.clientHeight - 40) side.scrollTop = Math.max(0, top - side.clientHeight / 2); } })();</script>

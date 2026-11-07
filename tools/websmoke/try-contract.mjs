@@ -50,6 +50,9 @@ async function invoke(page, method, params = {}) {
     return reply;
 }
 async function running(page, restartAfter = -1) {
+    // Chromium may suspend requestAnimationFrame in the background page. Each
+    // language must really render its own runtime before its state is checked.
+    await page.bringToFront();
     await page.waitForFunction(n => {
         const status = document.querySelector(".try .try-status");
         if (status?.classList.contains("error")) throw new Error(status.textContent);
@@ -100,7 +103,18 @@ async function open(req) {
     }
 }
 async function frame(page) {
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.bringToFront();
+    // Do not accept stale pixels when a page is not rendering. A timeout is a
+    // failed probe, never a substitute screenshot or a successful environment.
+    let timer;
+    try {
+        await Promise.race([
+            page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Game View did not render two animation frames within 30s")), 30000); }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
     const shot = pngjs.PNG.sync.read(await page.locator(".try canvas").screenshot());
     // Exclude the changing Inspector and toolbar. This is the Game View.
     const width = Math.floor(shot.width / 2), height = shot.height - 30;
@@ -115,6 +129,7 @@ async function observe() {
     let observed;
     const frames = [];
     for (const { page, lang, errors } of pages) {
+        await page.bringToFront();
         if (errors.length) throw new Error(`${lang}: browser error: ${errors.join("; ")}`);
         const log = await invoke(page, "log");
         const faults = (log.log || []).filter(line => line.error).map(line => line.text);
@@ -133,6 +148,7 @@ async function action(req) {
     const prefix = contract.componentID + ".";
     if (!field?.startsWith(prefix) || typeof req.action.value !== "number") throw new Error("unsupported action or value");
     for (const { page } of pages) {
+        await page.bringToFront();
         const previous = (await invoke(page, "state")).state.restarts;
         await invoke(page, "set", { component: contract.componentID, field: field.slice(prefix.length), value: req.action.value });
         await running(page, previous);
@@ -141,6 +157,7 @@ async function action(req) {
 async function reset(req) {
     if (req.action !== "reset") throw new Error("unsupported reset");
     for (const { page } of pages) {
+        await page.bringToFront();
         await invoke(page, "reset");
         await running(page);
     }

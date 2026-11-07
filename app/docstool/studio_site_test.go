@@ -39,8 +39,8 @@ func TestStudioWebPackageVersionsEveryBridgeResource(t *testing.T) {
 				t.Fatalf("%s is not bound to %s", item, version)
 			}
 		}
-		if !strings.Contains(string(js), "fetch('artstudio.wasm?v="+version+"')") {
-			t.Fatal("WASM fetch is not bound to the same build")
+		if !strings.Contains(string(js), "fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm?v="+version+"')") {
+			t.Fatal("WASM fetch lost the release override or the versioned local fallback")
 		}
 		actual, err := os.ReadFile(filepath.Join(dir, "wasm_exec.js"))
 		if err != nil || string(actual) != string(support) {
@@ -75,5 +75,25 @@ func TestStudioWebPackageRejectsUnknownEntryPoints(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "index.html")); !os.IsNotExist(err) {
 		t.Fatalf("invalid index was published: %v", err)
+	}
+}
+
+func TestStudioWebPackageRejectsAmbiguousWASMFetch(t *testing.T) {
+	web, dir := t.TempDir(), t.TempDir()
+	index := `<link href="studio.css"><script src="wasm_exec.js"></script><script src="recovery.js"></script><script src="studio.js"></script>`
+	fetch := `fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm')`
+	for name, contents := range map[string]string{"index.html": index, "studio.css": "css", "studio.js": fetch + ";" + fetch, "recovery.js": "js"} {
+		if err := os.WriteFile(filepath.Join(web, name), []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "artstudio.wasm"), []byte("wasm"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := packageStudioWeb(web, dir, []byte("support")); err == nil {
+		t.Fatal("ambiguous WASM fetch was silently packaged")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "index.html")); !os.IsNotExist(err) {
+		t.Fatalf("ambiguous page was published: %v", err)
 	}
 }

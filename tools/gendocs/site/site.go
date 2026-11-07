@@ -68,21 +68,23 @@ func sectionTitle(s string) string {
 }
 
 type Options struct {
-	Playground  bool
-	Studio      bool
-	Repo        string
-	Edit        string
-	Version     string
-	Commit      string
-	Hero        string
-	Poster      string
-	Shots       string
-	Demo        bool
-	PlayVersion string
-	TryVersion  string
-	Release     *Release
-	Icons       []string
-	Time        time.Time
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	Repo         string
+	Edit         string
+	Version      string
+	Commit       string
+	Hero         string
+	Poster       string
+	Shots        string
+	Demo         bool
+	PlayVersion  string
+	TryVersion   string
+	Release      *Release
+	Icons        []string
+	Time         time.Time
 }
 
 type Report struct {
@@ -93,32 +95,34 @@ type Report struct {
 }
 
 type layoutData struct {
-	AssetV      string
-	Background  template.CSS
-	LightBack   template.CSS
-	CSS         template.CSS
-	Root        string
-	Title       string
-	PageTitle   string
-	Description string
-	Site        string
-	Playground  bool
-	Studio      bool
-	PlayVersion string
-	TryVersion  string
-	PlaySize    int64
-	TrySize     int64
-	PlayGzip    int64
-	TryGzip     int64
-	Repo        string
-	Demo        bool
-	Home        bool
-	Lang        string
-	Nav         template.HTML
-	Content     template.HTML
-	Toc         template.HTML
-	Pager       template.HTML
-	Footer      template.HTML
+	AssetV       string
+	Background   template.CSS
+	LightBack    template.CSS
+	CSS          template.CSS
+	Root         string
+	Title        string
+	PageTitle    string
+	Description  string
+	Site         string
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	PlayVersion  string
+	TryVersion   string
+	PlaySize     int64
+	TrySize      int64
+	PlayGzip     int64
+	TryGzip      int64
+	Repo         string
+	Demo         bool
+	Home         bool
+	Lang         string
+	Nav          template.HTML
+	Content      template.HTML
+	Toc          template.HTML
+	Pager        template.HTML
+	Footer       template.HTML
 	// Markdown is the page's Markdown copy, for rel="alternate".
 	Markdown string
 	// T translates the layout's own text; Search is the search index; HrefEN and HrefRU are the page in both languages, Alt the other one.
@@ -174,7 +178,36 @@ type builder struct {
 	en  *builder
 }
 
+var pinnedStudioPath = regexp.MustCompile(`^/r/[A-Za-z0-9][A-Za-z0-9._-]{0,79}/$`)
+
+func validStudioURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" || u.RawPath != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.String() != raw || !pinnedStudioPath.MatchString(u.Path) {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	return u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
+}
+
 func Build(exp *Export, out string, opt Options) (Report, error) {
+	if opt.Studio && opt.StudioURL != "" {
+		return Report{}, fmt.Errorf("choose either local Studio or a pinned release URL")
+	}
+	if opt.StudioURL != "" && !validStudioURL(opt.StudioURL) {
+		return Report{}, fmt.Errorf("invalid pinned Studio URL")
+	}
+	if opt.StudioGuides {
+		if opt.StudioURL == "" {
+			return Report{}, fmt.Errorf("Studio guides require a pinned release URL")
+		}
+		for _, lang := range []string{"en", "ru"} {
+			if !isFile(filepath.Join(out, "asset-studio", lang, "first-sprite", "index.html")) {
+				return Report{}, fmt.Errorf("Studio guide is missing for %s", lang)
+			}
+		}
+	}
 	if opt.Studio && !isFile(filepath.Join(out, "studio", "index.html")) {
 		return Report{}, fmt.Errorf("studio was requested but studio/index.html is missing")
 	}
@@ -1089,30 +1122,32 @@ func (b *builder) firstOf(section string) string {
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
-		AssetV:      b.assetV,
-		Background:  template.CSS(pageBackground()),
-		LightBack:   template.CSS(pageBackgroundLight()),
-		CSS:         template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
-		Root:        root,
-		Title:       title,
-		PageTitle:   title + " · " + b.exp.Title,
-		Description: b.tr(homeLead),
-		Site:        b.exp.Title,
-		Playground:  b.opt.Playground,
-		Studio:      b.opt.Studio,
-		PlayVersion: b.opt.PlayVersion,
-		TryVersion:  b.opt.TryVersion,
-		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
-		TrySize:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
-		PlayGzip:    fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
-		TryGzip:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
-		Repo:        b.opt.Repo,
-		Demo:        b.opt.Demo,
-		Home:        current == "",
-		Lang:        b.pageLang(),
-		Nav:         template.HTML(b.nav(root, current)),
-		Content:     template.HTML(content),
-		Footer:      template.HTML(b.footer(e, root)),
+		AssetV:       b.assetV,
+		Background:   template.CSS(pageBackground()),
+		LightBack:    template.CSS(pageBackgroundLight()),
+		CSS:          template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
+		Root:         root,
+		Title:        title,
+		PageTitle:    title + " · " + b.exp.Title,
+		Description:  b.tr(homeLead),
+		Site:         b.exp.Title,
+		Playground:   b.opt.Playground,
+		Studio:       b.opt.Studio || b.opt.StudioURL != "",
+		StudioURL:    b.opt.StudioURL,
+		StudioGuides: b.opt.StudioGuides,
+		PlayVersion:  b.opt.PlayVersion,
+		TryVersion:   b.opt.TryVersion,
+		PlaySize:     fileSize(filepath.Join(b.out, "play", "aego.wasm")),
+		TrySize:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
+		PlayGzip:     fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
+		TryGzip:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
+		Repo:         b.opt.Repo,
+		Demo:         b.opt.Demo,
+		Home:         current == "",
+		Lang:         b.pageLang(),
+		Nav:          template.HTML(b.nav(root, current)),
+		Content:      template.HTML(content),
+		Footer:       template.HTML(b.footer(e, root)),
 	}
 	data.T = b.tr
 	data.Search = b.langPath("search.json")
