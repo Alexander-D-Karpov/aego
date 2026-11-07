@@ -49,6 +49,16 @@ func TestWindowsStoreACLRejectsUntrustedWriters(t *testing.T) {
 			t.Fatalf("changed cache ACL was not rechecked: %v", err)
 		}
 	})
+	t.Run("replaceable parent", func(t *testing.T) {
+		parent := filepath.Join(t.TempDir(), "parent")
+		if err := os.Mkdir(parent, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		grantEveryone(t, parent, "(DC)")
+		if _, err := NewStore(filepath.Join(parent, "store"), Limits{}); err == nil || !strings.Contains(err.Error(), "untrusted write") {
+			t.Fatalf("parent with DELETE_CHILD grant was accepted: %v", err)
+		}
+	})
 	t.Run("editable scene", func(t *testing.T) {
 		f := newFixture(t)
 		c := f.clone(t)
@@ -57,6 +67,21 @@ func TestWindowsStoreACLRejectsUntrustedWriters(t *testing.T) {
 			t.Fatalf("writable local scene was accepted: %v", err)
 		}
 	})
+}
+
+func TestWindowsTrustedInstallerOwnerIsNotAnArbitraryService(t *testing.T) {
+	trusted, err := storeTrustedSIDs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	installer, err := syscall.StringToSid("S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464")
+	if err != nil || !trusted.owner(installer) {
+		t.Fatalf("Windows TrustedInstaller was not recognized: %v", err)
+	}
+	other, err := syscall.StringToSid("S-1-5-80-1-2-3-4-5")
+	if err != nil || trusted.owner(other) {
+		t.Fatalf("an arbitrary service SID was trusted: %v", err)
+	}
 }
 
 func TestWindowsNullDACLIsRejected(t *testing.T) {

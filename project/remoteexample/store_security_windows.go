@@ -72,8 +72,8 @@ func rejectReparse(name string) error {
 }
 
 type trustedSIDs struct {
-	user, system, administrators, creatorOwner, ownerRights *syscall.SID
-	tokenUser                                               *syscall.Tokenuser
+	user, system, administrators, trustedInstaller, creatorOwner, ownerRights *syscall.SID
+	tokenUser                                                                 *syscall.Tokenuser
 }
 
 func storeTrustedSIDs() (trustedSIDs, error) {
@@ -91,7 +91,15 @@ func storeTrustedSIDs() (trustedSIDs, error) {
 	for _, item := range []struct {
 		target **syscall.SID
 		value  string
-	}{{&trusted.system, "S-1-5-18"}, {&trusted.administrators, "S-1-5-32-544"}, {&trusted.creatorOwner, "S-1-3-0"}, {&trusted.ownerRights, "S-1-3-4"}} {
+	}{
+		{&trusted.system, "S-1-5-18"},
+		{&trusted.administrators, "S-1-5-32-544"},
+		// The Windows Modules Installer owns the system volume root on normal
+		// installations. This exact service SID is not an arbitrary service.
+		{&trusted.trustedInstaller, "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"},
+		{&trusted.creatorOwner, "S-1-3-0"},
+		{&trusted.ownerRights, "S-1-3-4"},
+	} {
 		*item.target, err = syscall.StringToSid(item.value)
 		if err != nil {
 			return trusted, err
@@ -109,7 +117,7 @@ func sameSID(a, b *syscall.SID) bool {
 }
 
 func (t trustedSIDs) owner(sid *syscall.SID) bool {
-	return sameSID(sid, t.user) || sameSID(sid, t.system) || sameSID(sid, t.administrators)
+	return sameSID(sid, t.user) || sameSID(sid, t.system) || sameSID(sid, t.administrators) || sameSID(sid, t.trustedInstaller)
 }
 
 func secureStoreDirectory(name string, _ os.FileInfo) error {
@@ -177,7 +185,11 @@ func inspectACL(name string, trusted trustedSIDs, store, directory bool) error {
 	}
 	valid, _, _ := isValidSID.Call(uintptr(unsafe.Pointer(owner)))
 	if valid == 0 || !trusted.owner(owner) {
-		return fmt.Errorf("example store has an untrusted owner: %s", name)
+		who := "invalid SID"
+		if valid != 0 {
+			who, _ = owner.String()
+		}
+		return fmt.Errorf("example store has an untrusted owner %s: %s", who, name)
 	}
 	valid, _, _ = isValidACL.Call(uintptr(acl))
 	if valid == 0 {
