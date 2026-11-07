@@ -56,7 +56,7 @@ func (m *Module) Register(r *module.Registry) error {
 	if err := module.Struct[ColorKey](r, schema.Name(ID+".ColorKey"), schema.Doc("A normalized age and its straight linear color."), schema.FieldDoc("time", "Normalized age from zero to one."), schema.FieldDoc("color", "Straight linear color, including opacity.")); err != nil {
 		return err
 	}
-	b := module.Component[ParticleSystem2D](r, schema.Name(NameSystem), schema.Space(schema.Space2D),
+	b := module.Component[ParticleSystem2D](r, schema.Name(NameSystem), schema.Space(schema.Space2D), schema.FullClone(cloneParticleSystem),
 		schema.Doc("Emits visual sprites from a bounded CPU pool. World-space particles stay at their birth location when the emitter moves."),
 		schema.FieldDoc("playOnStart", "Starts the emission schedule when this emitter becomes active."),
 		schema.FieldDoc("rate", "Continuous births per second. Zero allows manual bursts without a continuous stream."),
