@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "camera.CameraBrain2D",
+  "demoID": "camera.CameraBrain2D.output",
+  "documentID": "camera.CameraBrain2D",
+  "scene": "camera.CameraBrain2D/try",
+  "identity": "8db95923749dbd0a9bb0e1c289a9d9131fa4bb99fd0748ba6b217d827dd4a5df",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["camera.CameraBrain2D.Output"],
+  "actions": [{
+    "id": "select-main-output", "field": "camera.CameraBrain2D.Output", "value": "",
+    "expected": [{"observable": "camera.CameraBrain2D.Output", "equals": "", "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Choose a camera output", "description": "The inset camera initially shows the named map output; the main output has a different zoom.", "input": "Clear Output to switch the inset camera from map to the main output. Reset restores map."},
+    "ru": {"title": "Выбор выхода камеры", "description": "Встроенная камера сначала показывает именованный выход map; у основного выхода другой масштаб.", "input": "Очистите Output, чтобы переключить встроенную камеру с map на основной выход. Сброс вернёт map."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

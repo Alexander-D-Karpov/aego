@@ -28,7 +28,7 @@ Cameras run during Play and in `aego run`. In edit mode the Scene View shows the
 
 ---
 id: camera/virtual
-try: try/VirtualCamera2D.aescene
+try: CameraVirtualDirector.aescene
 try_select: camera.VirtualCamera2D
 icon: comp.vcam
 parent: camera
@@ -57,7 +57,7 @@ When another camera becomes active, the view blends from the pose it shows now t
 
 ---
 id: camera/outputs
-try: try/CameraBrain2D.aescene
+try: CameraOutputsOriginal.aescene
 try_select: camera.CameraBrain2D
 icon: comp.camera2d
 parent: camera

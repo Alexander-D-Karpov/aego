@@ -4,7 +4,7 @@
   "demoID": "camera.VirtualCamera2D.priority",
   "documentID": "camera.VirtualCamera2D",
   "scene": "camera.VirtualCamera2D/try",
-  "identity": "2de8fd1218c0f548ce5446af8903b2efab394ac233c268e8483ad8e2cc1ab3dc",
+  "identity": "81e3608feeba8e870921ebc5299bf697fc1230034eea4e3b2a81dd718c795565",
   "dependencies": ["ae900000000000000000000000000010"],
   "editableFields": ["camera.VirtualCamera2D.Priority"],
   "actions": [{
@@ -14,8 +14,8 @@
   }],
   "reset": "reset",
   "languages": {
-    "en": {"title": "Select a virtual camera", "description": "The director blends between virtual cameras. Priority determines which camera controls the output.", "input": "Change the selected Close camera's Priority from -1 to 5 to take over the view until the director changes it again. Reset restores the original sequence."},
-    "ru": {"title": "Выбор виртуальной камеры", "description": "Режиссёр переключает виртуальные камеры с плавным переходом. Приоритет определяет камеру, управляющую выходом.", "input": "Измените Priority выбранной камеры Close с -1 на 5, чтобы она управляла изображением до следующего переключения режиссёра. Сброс вернёт исходную последовательность."}
+    "en": {"title": "Select a virtual camera", "description": "Priority determines which virtual camera controls the output. This focused scene cuts immediately so the change is clear.", "input": "Change the selected Close camera's Priority from -1 to 5 to take over the view. Reset restores the original camera."},
+    "ru": {"title": "Выбор виртуальной камеры", "description": "Приоритет определяет виртуальную камеру, управляющую выходом. В этом примере вид переключается сразу, чтобы изменение было заметно.", "input": "Измените Priority выбранной камеры Close с -1 на 5, чтобы она управляла изображением. Сброс вернёт исходную камеру."}
   },
   "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
 }

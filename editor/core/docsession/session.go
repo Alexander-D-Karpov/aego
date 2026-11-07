@@ -288,6 +288,31 @@ func (s *Session) Redo() error {
 }
 
 func (s *Session) Set(component, field string, v float64) error {
+	return s.set(component, field, func(fd *schema.FieldDescriptor) (schema.Value, error) {
+		val := schema.Value{Kind: fd.Kind}
+		switch fd.Kind {
+		case schema.KindFloat32, schema.KindFloat64:
+			val.F = v
+		case schema.KindInt32, schema.KindInt64, schema.KindBool, schema.KindEnum:
+			val.I = int64(v)
+		default:
+			return schema.Value{}, errs.New(errs.EditorCommand, field+" is not a number field")
+		}
+		return val, nil
+	})
+}
+
+// SetString routes string edits through the same property history as the UI.
+func (s *Session) SetString(component, field, value string) error {
+	return s.set(component, field, func(fd *schema.FieldDescriptor) (schema.Value, error) {
+		if fd.Kind != schema.KindString {
+			return schema.Value{}, errs.New(errs.EditorCommand, field+" is not a string field")
+		}
+		return schema.String(value), nil
+	})
+}
+
+func (s *Session) set(component, field string, value func(*schema.FieldDescriptor) (schema.Value, error)) error {
 	if s.doc == nil {
 		return errs.New(errs.EditorDocument, "no scene is loaded")
 	}
@@ -305,14 +330,9 @@ func (s *Session) Set(component, field string, v float64) error {
 	if fd == nil {
 		return errs.New(errs.SchemaUnknownType, component+" has no field "+field)
 	}
-	val := schema.Value{Kind: fd.Kind}
-	switch fd.Kind {
-	case schema.KindFloat32, schema.KindFloat64:
-		val.F = v
-	case schema.KindInt32, schema.KindInt64, schema.KindBool, schema.KindEnum:
-		val.I = int64(v)
-	default:
-		return errs.New(errs.EditorCommand, field+" is not a number field")
+	val, err := value(fd)
+	if err != nil {
+		return err
 	}
 	nodes := append([]ids.NodeID(nil), s.Selected()...)
 	if len(nodes) == 0 {

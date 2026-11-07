@@ -119,6 +119,8 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 			out.Observables[observable] = v.I
 		case schema.KindFloat32, schema.KindFloat64:
 			out.Observables[observable] = v.F
+		case schema.KindString:
+			out.Observables[observable] = v.S
 		default:
 			return nil, fmt.Errorf("observable kind %v is not supported", v.Kind)
 		}

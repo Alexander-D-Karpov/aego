@@ -146,7 +146,7 @@ async function observe() {
 async function action(req) {
     const field = req.action.field;
     const prefix = contract.componentID + ".";
-    if (!field?.startsWith(prefix) || typeof req.action.value !== "number") throw new Error("unsupported action or value");
+    if (!field?.startsWith(prefix) || !["number", "string"].includes(typeof req.action.value)) throw new Error("unsupported action or value");
     for (const { page } of pages) {
         await page.bringToFront();
         const previous = (await invoke(page, "state")).state.restarts;

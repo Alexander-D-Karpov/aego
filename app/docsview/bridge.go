@@ -3,7 +3,9 @@
 package docsview
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	playmods "aego/app/assembly/playground"
@@ -22,7 +24,7 @@ type request struct {
 	Artifacts    []byte            `json:"artifacts"`
 	Component    string            `json:"component"`
 	Field        string            `json:"field"`
-	Value        float64           `json:"value"`
+	Value        json.RawMessage   `json:"value"`
 	Fields       []string          `json:"fields"`
 	Dependencies []string          `json:"dependencies"`
 	Node         string            `json:"node"`
@@ -80,7 +82,20 @@ func (a *App) Call(method string, payload []byte) Reply {
 	case "redo":
 		err = s.Redo()
 	case "set":
-		err = s.Set(req.Component, req.Field, req.Value)
+		value := bytes.TrimSpace(req.Value)
+		if len(value) == 0 || bytes.Equal(value, []byte("null")) {
+			err = fmt.Errorf("set needs a number or string value")
+		} else if value[0] == '"' {
+			var text string
+			if err = json.Unmarshal(value, &text); err == nil {
+				err = s.SetString(req.Component, req.Field, text)
+			}
+		} else {
+			var number float64
+			if err = json.Unmarshal(value, &number); err == nil {
+				err = s.Set(req.Component, req.Field, number)
+			}
+		}
 	case "state":
 		st := s.State()
 		return Reply{State: &st}

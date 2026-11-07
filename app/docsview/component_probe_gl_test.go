@@ -145,11 +145,16 @@ func (p *nativeTryInstance) Action(ctx context.Context, action democheck.Action)
 	if !ok || field == "" {
 		return fmt.Errorf("unsupported action field: %s", action.Field)
 	}
-	var number float64
-	if err := json.Unmarshal(action.Value, &number); err != nil {
-		return fmt.Errorf("action value is not a number: %w", err)
+	var value any
+	if err := json.Unmarshal(action.Value, &value); err != nil {
+		return fmt.Errorf("invalid action value: %w", err)
 	}
-	request, err := json.Marshal(map[string]any{"component": p.contract.ComponentID, "field": field, "value": number})
+	switch value.(type) {
+	case float64, string:
+	default:
+		return fmt.Errorf("action value is not a number or string")
+	}
+	request, err := json.Marshal(map[string]any{"component": p.contract.ComponentID, "field": field, "value": value})
 	if err != nil {
 		return err
 	}
