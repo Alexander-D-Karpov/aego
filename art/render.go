@@ -112,6 +112,17 @@ func renderRegion(s *state, frame ID, dst *image.NRGBA, r image.Rectangle, o Ren
 			}
 			composite := func(x, y int, src Color) {
 				if src.A == 0 {
+					// Normal, height and emission textures retain RGB independently
+					// of alpha. When the composite is also transparent, the
+					// topmost nonzero data pixel supplies its hidden RGB. This
+					// must not cover any pixel with alpha. Albedo retains normal
+					// transparent compositing semantics.
+					if o.Channel != Albedo && (group != nil || cel.Opacity != 0) && (src.R != 0 || src.G != 0 || src.B != 0) {
+						i := target.PixOffset(x, y)
+						if target.Pix[i+3] == 0 {
+							target.Pix[i], target.Pix[i+1], target.Pix[i+2] = src.R, src.G, src.B
+						}
+					}
 					return
 				}
 				i := target.PixOffset(x, y)
