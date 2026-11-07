@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "componentID": "render2d.PostProcess",
+  "demoID": "render2d.PostProcess.enabled",
+  "documentID": "render2d.PostProcess",
+  "scene": "render2d.PostProcess/try",
+  "identity": "93678351223a4b34a7a5f0f3d914799e80e2423fddb572aa64b1beb3430df8fc",
+  "dependencies": [
+    "ae900000000000000000000000000010",
+    "45e397813812442d994a810000000001",
+    "45e397813812442d994a810000000002",
+    "45e397813812442d994a810000000003"
+  ],
+  "editableFields": ["render2d.PostProcess.Enabled"],
+  "actions": [{
+    "id": "disable-output-stack", "field": "render2d.PostProcess.Enabled", "value": 0,
+    "expected": [{"observable": "render2d.PostProcess.Enabled", "equals": false, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Enable camera post-processing", "description": "The camera starts with Bloom enabled. Its output stack changes the bright cards before the UI is drawn.", "input": "Disable the Post Process component to see the unprocessed output; Reset restores the stack."},
+    "ru": {"title": "Включение постобработки камеры", "description": "Камера запускается с эффектом Bloom. Стек меняет яркие карточки до отрисовки интерфейса.", "input": "Выключите компонент Post Process, чтобы увидеть исходное изображение; «Сброс» восстановит стек."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}
