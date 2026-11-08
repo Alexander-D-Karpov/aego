@@ -35,9 +35,8 @@ var imageSettingLabels = map[string]i18n.Text{
 	"auto_emission":   i18n.T("editor.image.auto_emission", "Discover matching emission"),
 }
 
-func (s *imagesEditor) metadataControls(d *document.AssetDocument, v *imageState) {
+func (s *imagesEditor) metadataControls(d *document.AssetDocument, v *imageState, sections *imageSections) {
 	ed, ui := s.ctx, s.ctx.UI
-	widgets.LabelWrapped(ui, i18n.Tr("editor.image.channels", "Surface channels and import settings"), false)
 	if v.message != "" {
 		widgets.LabelWrapped(ui, v.message, true)
 	}
@@ -85,7 +84,7 @@ func (s *imagesEditor) metadataControls(d *document.AssetDocument, v *imageState
 	if v.candidate.good != nil && v.candidate.goodRevision != v.inputRevision {
 		widgets.LabelWrapped(ui, i18n.Tr("editor.image.candidate_previous", "The displayed generated normal belongs to a previous metadata revision."), false)
 	}
-	if v.role == asset.RoleColor {
+	if v.role == asset.RoleColor && imageSection(ui, "image.section.channels", i18n.Tr("editor.image.section_channels", "Surface channels"), &sections.channels) {
 		if widgets.Button(ui, i18n.Tr("editor.image.albedo_open", "Albedo · open this source/frame")) {
 			_, _ = ed.OpenAsset(d.Selected)
 		}
@@ -93,42 +92,44 @@ func (s *imagesEditor) metadataControls(d *document.AssetDocument, v *imageState
 			s.channelField(d, v, channel)
 		}
 	}
-	for _, spec := range asset.TextureSettings() {
-		label, known := imageSettingLabels[spec.Name]
-		if !known || (len(spec.Roles) > 0 && !slices.Contains(spec.Roles, v.role)) {
-			continue
-		}
-		if spec.Name == "colorspace" && v.role != asset.RoleColor && v.role != asset.RoleEmissionRGB {
-			continue
-		}
-		if (spec.Name == "padding" || spec.Name == "extrude" || spec.Name == "trim") && v.meta.Settings.String("atlas", "") == "" {
-			continue
-		}
-		s.settingField(d, v, spec, label.String())
-	}
-	if v.role == asset.RoleHeight {
-		widgets.LabelWrapped(ui, i18n.Tr("editor.image.height_shared", "These generation settings belong to this height source and affect all of its consumers after Save. Preview controls above are local only."), false)
-		if v.meta.Settings.Bool("generate_normal", false) && widgets.Button(ui, i18n.Tr("editor.image.prepare", "Prepare normal candidate")) {
-			if err := v.prepare(ed, d); err != nil {
-				v.message = err.Error()
+	if imageSection(ui, "image.section.settings", i18n.Tr("editor.image.section_settings", "Import settings"), &sections.settings) {
+		for _, spec := range asset.TextureSettings() {
+			label, known := imageSettingLabels[spec.Name]
+			if !known || (len(spec.Roles) > 0 && !slices.Contains(spec.Roles, v.role)) {
+				continue
 			}
+			if spec.Name == "colorspace" && v.role != asset.RoleColor && v.role != asset.RoleEmissionRGB {
+				continue
+			}
+			if (spec.Name == "padding" || spec.Name == "extrude" || spec.Name == "trim") && v.meta.Settings.String("atlas", "") == "" {
+				continue
+			}
+			s.settingField(d, v, spec, label.String())
+		}
+		if v.role == asset.RoleHeight {
+			widgets.LabelWrapped(ui, i18n.Tr("editor.image.height_shared", "These generation settings belong to this height source and affect all of its consumers after Save. Preview controls above are local only."), false)
+			if v.meta.Settings.Bool("generate_normal", false) && widgets.Button(ui, i18n.Tr("editor.image.prepare", "Prepare normal candidate")) {
+				if err := v.prepare(ed, d); err != nil {
+					v.message = err.Error()
+				}
+			}
+		}
+		var unknown []string
+		for key, value := range v.meta.Settings {
+			_, registered := asset.TextureSetting(key)
+			if !registered && key != "normal" && key != "height" && key != "emission" && !strings.HasSuffix(key, "_frames") {
+				unknown = append(unknown, key+" = "+aetext.FormatValue(value))
+			}
+		}
+		slices.Sort(unknown)
+		for _, value := range unknown {
+			widgets.LabelDim(ui, i18n.Tr("editor.image.unknown", "Preserved metadata: {value}", i18n.Str("value", value)))
 		}
 	}
 	if env, err := ed.TextureAuthoringEnv(d.Asset); err == nil {
 		for _, p := range asset.ValidateTextureSource(v.meta, d.Path, env.Width, env.Height, env.Resolve) {
 			widgets.LabelWrapped(ui, p.Code+": "+p.Field+": "+p.Message, p.Error)
 		}
-	}
-	var unknown []string
-	for key, value := range v.meta.Settings {
-		_, registered := asset.TextureSetting(key)
-		if !registered && key != "normal" && key != "height" && key != "emission" && !strings.HasSuffix(key, "_frames") {
-			unknown = append(unknown, key+" = "+aetext.FormatValue(value))
-		}
-	}
-	slices.Sort(unknown)
-	for _, value := range unknown {
-		widgets.LabelDim(ui, i18n.Tr("editor.image.unknown", "Preserved metadata: {value}", i18n.Str("value", value)))
 	}
 }
 

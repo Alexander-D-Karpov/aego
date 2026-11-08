@@ -374,6 +374,163 @@ func TestTryBlock(t *testing.T) {
 	}
 }
 
+func TestComponentSectionsKeepOrderAndAnchorsInBothLanguages(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		e := &exp.Entries[i]
+		switch e.ID {
+		case "engine.SpriteRenderer":
+			e.Component = &ComponentInfo{Create: "Create → Sprite"}
+			e.Try = "scene version=1 {}"
+			e.Body = "Draws a sprite.\n\n## From a script\n\nExample script."
+			e.Translations = map[string]Translation{"ru": {Body: "Рисует спрайт.\n\n## Из скрипта\n\nПример скрипта."}}
+		case "engine.SpriteRenderer.Tint":
+			e.Field = &FieldInfo{Type: "Color"}
+		}
+	}
+	dir := t.TempDir()
+	if _, err := Build(exp, dir, Options{Playground: true}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		lang, usage, try, fields, script string
+	}{
+		{"en", "Usage", "Try it", "Fields", "From a script"},
+		{"ru", "Использование", "Попробовать", "Поля", "Из скрипта"},
+	} {
+		t.Run(tc.lang, func(t *testing.T) {
+			name := filepath.Join(dir, "ref", "engine.SpriteRenderer.html")
+			if tc.lang == "ru" {
+				name = filepath.Join(dir, "ru", "ref", "engine.SpriteRenderer.html")
+			}
+			data, err := os.ReadFile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			page := string(data)
+			last := -1
+			for _, heading := range []string{
+				`<h2 id="engine.SpriteRenderer-usage">` + tc.usage + `</h2>`,
+				`<h2 id="engine.SpriteRenderer-try">` + tc.try + `</h2>`,
+				`<h2 id="engine.SpriteRenderer-fields">` + tc.fields + `</h2>`,
+				`<h2 id="from-a-script">` + tc.script + `</h2>`,
+			} {
+				at := strings.Index(page, heading)
+				if at < 0 || at <= last {
+					t.Fatalf("heading missing, has the wrong anchor or is out of order: %q", heading)
+				}
+				last = at
+			}
+		})
+	}
+}
+
+func TestSameIDsPreservesExplicitAnchorsWhenTranslationsReorderSections(t *testing.T) {
+	en := `<h1 id="example">Example</h1><h2 id="example-usage">Usage</h2><h2 id="example-try">Try it</h2><h2 id="from-a-script">From a script</h2>`
+	ru := `<h1 id="example">Пример</h1><h2 id="section">Из скрипта</h2><h2 id="example-usage">Использование</h2><h2 id="example-try">Попробовать</h2>`
+	got := sameIDs(ru, en)
+	for _, want := range []string{
+		`<h2 id="from-a-script">Из скрипта</h2>`,
+		`<h2 id="example-usage">Использование</h2>`,
+		`<h2 id="example-try">Попробовать</h2>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("translation changed or lost a stable anchor %q: %s", want, got)
+		}
+	}
+}
+
+func TestComponentScriptHeadingIgnoresFencedCode(t *testing.T) {
+	body := "Description.\n\n```text\n## Из скрипта\n```\n\n## Из скрипта\n\nExample."
+	lead, script := componentScript(body)
+	if !strings.Contains(lead, "```text\n## Из скрипта\n```") || !strings.HasPrefix(script, "## Из скрипта\n\nExample.") {
+		t.Fatalf("unexpected split: lead=%q script=%q", lead, script)
+	}
+}
+
+func TestPlatformerFloorNodeDoesNotLinkToMathFunction(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		if exp.Entries[i].ID == "welcome" {
+			exp.Entries[i].Body = "# Getting started\n\nName the node **Floor**.\n\n```aescene\nscene version=1 {\n  node \"a\" name=\"Floor\" {}\n}\n```"
+		}
+	}
+	exp.Entries = append(exp.Entries, Entry{ID: "aego/math.Floor", Parent: "aego/math", Kind: KindFunction, Group: "ref-script", Title: "Floor"})
+	exp.Aliases = map[string]string{"Floor": "aego/math.Floor"}
+	for i := range exp.Groups {
+		if exp.Groups[i].ID == "ref-script" {
+			exp.Groups[i].Nav[0].Children = append(exp.Groups[i].Nav[0].Children, Node{ID: "aego/math.Floor"})
+		}
+	}
+	_, _, pages := build(t, exp, Options{})
+	p := pages["welcome.html"]
+	if !strings.Contains(p, "<strong>Floor</strong>") || strings.Contains(p, `class="code-ref" href="ref/aego/math#aego/math.Floor"`) {
+		t.Fatal("the platformer node name was linked to the math function")
+	}
+}
+
+func TestReferenceAndLandingIconsExist(t *testing.T) {
+	dirs, err := filepath.Glob("../../../modules/*/res/icons/src")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dirs = append(dirs, "../../../engine/res/icons/src")
+	icons := loadIcons(dirs)
+	for entry, icon := range refIcons {
+		if !icons.names[icon] {
+			t.Errorf("reference %s uses missing icon %s", entry, icon)
+		}
+	}
+	for _, icon := range landingCardIcons {
+		if !icons.names[icon] {
+			t.Errorf("landing card uses missing icon %s", icon)
+		}
+	}
+	if refIcons["section/animation"] != "animation.player" || landingCardIcons[5] != "file.export" || refIcons["aego/timer"] != "code.timer" {
+		t.Fatal("animation settings, export or timer uses the wrong icon")
+	}
+}
+
+func TestTryDemoInstructionsAreLocalizedAndEscaped(t *testing.T) {
+	exp := fixture()
+	for i := range exp.Entries {
+		if exp.Entries[i].ID == "engine.SpriteRenderer" {
+			exp.Entries[i].Try = "scene version=1 {}"
+			exp.Entries[i].TrySelect = "engine.SpriteRenderer"
+			exp.Entries[i].Demo = &DemoInfo{Languages: map[string]DemoText{
+				"en": {Title: "Sprite <demo>", Description: "Change & observe", Input: "Set order to 0"},
+				"ru": {Title: "Пример спрайта", Description: "Измените и проверьте", Input: "Установите порядок 0"},
+			}}
+		}
+	}
+	dir := t.TempDir()
+	if _, err := Build(exp, dir, Options{Playground: true}); err != nil {
+		t.Fatal(err)
+	}
+	enBytes, err := os.ReadFile(filepath.Join(dir, "ref", "engine.SpriteRenderer.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruBytes, err := os.ReadFile(filepath.Join(dir, "ru", "ref", "engine.SpriteRenderer.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	en, ru := string(enBytes), string(ruBytes)
+	for _, want := range []string{`Sprite &lt;demo&gt;`, `Change &amp; observe`, `Set order to 0`} {
+		if !strings.Contains(en, want) {
+			t.Errorf("English Try is missing escaped contract text %q", want)
+		}
+	}
+	for _, want := range []string{"Пример спрайта", "Измените и проверьте", "Установите порядок 0"} {
+		if !strings.Contains(ru, want) {
+			t.Errorf("Russian Try is missing contract text %q", want)
+		}
+	}
+	if strings.Contains(ru, "Set order to 0") || strings.Contains(en, "Sprite <demo>") {
+		t.Fatal("Try instructions used the wrong language or injected unescaped HTML")
+	}
+}
+
 func TestDownloadBlock(t *testing.T) {
 	rel := &Release{Tag: "v1.0", URL: "https://git.example/aego/releases/tag/v1.0", Assets: []Asset{
 		{Name: "aego-1.0-linux-amd64.tar.gz", URL: "https://git.example/l.tar.gz", Size: 12 << 20},

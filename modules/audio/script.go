@@ -96,6 +96,15 @@ func installScript(m *bind.Module, mod *Module) {
 		return ClipRef{ID: id}
 	}, bind.Doc("Builtin returns a clip that ships with the engine: Beep, Click, Hum (loopable) or Melody (loopable)."),
 		bind.Params("name"), bind.Example(`audio.Play(audio.Builtin("Beep"))`))
+	bind.Func0(m, "ListenerPosition", func(c *bind.Ctx) mathx.Vec2 {
+		if s := live(c); s != nil {
+			return s.Listener()
+		}
+		return mathx.Vec2{}
+	}, bind.Doc("ListenerPosition returns the last effective listener position in world space, or zero outside Play. It includes the camera fallback when no listener is active."))
+	bind.Func1(m, "WorldBusGain", func(c *bind.Ctx, bus Bus) float32 {
+		return live(c).WorldBusGain(bus)
+	}, bind.Doc("WorldBusGain returns the last zone-selected world-layer target for a bus, or 1 outside Play. It is not the ramped mixer output or the player's settings."), bind.Params("bus"))
 	bind.Proc1(m, "Pause", func(c *bind.Ctx, on bool) {
 		if s := live(c); s != nil {
 			s.PauseAll(on)

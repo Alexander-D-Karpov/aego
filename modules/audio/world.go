@@ -218,6 +218,16 @@ func (s *Service) Listener() mathx.Vec2 {
 	return s.listen
 }
 
+// WorldBusGain returns the last zone-selected world-layer target. This is not
+// the ramped, combined mixer output, which also includes session and settings.
+// A missing world or invalid bus has the neutral target 1.
+func (s *Service) WorldBusGain(bus Bus) float32 {
+	if s == nil || int(bus) >= len(s.worldG) {
+		return 1
+	}
+	return s.worldG[bus]
+}
+
 func (s *Service) EachVoice(fn func(VoiceInfo)) {
 	for i := range s.recs {
 		r := &s.recs[i]

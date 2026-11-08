@@ -1,0 +1,35 @@
+package demo
+
+import (
+    "aego/audio"
+    "aego/physics"
+)
+
+// Roller rolls the humming ball from wall to wall and clicks on every wall hit; tick Replay to start the hum again.
+script Roller {
+    @export var Speed float = 6
+    @export var Bump AssetRef<Clip>
+    @export(tip="Tick to start the sound of the ball again")
+    var Replay bool
+
+    var dir float = 1
+
+    func Update(dt float) {
+        if Replay {
+            Replay = false
+            src := node.Get<AudioSource2D>()
+            if src != nil {
+                src.Play()
+            }
+        }
+        body := node.Get<Body2D>()
+        body.SetVelocity(Vec2{dir * Speed, body.Velocity.Y})
+    }
+
+    func OnCollisionEnter(other NodeRef, c physics.Contact) {
+        if c.Normal.X > 0.5 || c.Normal.X < -0.5 {
+            dir = -dir
+            audio.PlayAt(Bump, node.Position())
+        }
+    }
+}

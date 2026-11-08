@@ -14,7 +14,10 @@ import (
 	"aego/platform/input"
 )
 
-const captureFlip = true
+// View render targets are projected for direct sampling by the editor UI;
+// their readback already follows the displayed top-to-bottom order. The window
+// backbuffer has a different convention and is handled separately by Engine.
+const captureFlip = false
 
 type sceneCapture struct {
 	tex  gpu.TextureHandle

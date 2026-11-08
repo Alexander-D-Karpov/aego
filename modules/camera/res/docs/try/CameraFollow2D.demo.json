@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "camera.CameraFollow2D",
+  "demoID": "camera.CameraFollow2D.snap-distance",
+  "documentID": "camera.CameraFollow2D",
+  "scene": "camera.CameraFollow2D/try",
+  "identity": "afb508696771bace4efc2f5939b55a0625d4f44dc537b295e9edaf97872be428",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["camera.CameraFollow2D.SnapDistance"],
+  "actions": [{
+    "id": "snap-after-teleport", "field": "camera.CameraFollow2D.SnapDistance", "value": 1,
+    "expected": [{"observable": "camera.CameraFollow2D.SnapDistance", "equals": 1, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Snap after a teleport", "description": "The target teleports eight world units; very slow damping makes the camera's response easy to see.", "input": "Change Snap Distance from 20 to 1: the camera snaps to the teleported target. Reset restores the original slow follow."},
+    "ru": {"title": "Скачок камеры при телепортации", "description": "Цель телепортируется на восемь единиц мира; медленное демпфирование делает реакцию камеры заметной.", "input": "Уменьшите расстояние скачка с 20 до 1: камера сразу переместится к цели после телепортации. Сброс вернёт исходное медленное слежение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

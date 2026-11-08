@@ -236,7 +236,15 @@ func (l *Loader) Texture(id ids.AssetID) (texture.Region, bool) {
 	switch e.Kind {
 	case asset.ArtSpriteRegion:
 		return l.loadRegion(id, e)
-	case asset.ArtTexture, asset.ArtAtlasPage:
+	case asset.ArtTexture:
+		// An editable multi-frame source has both a sheet texture and a
+		// prepared first-frame region on its stable source AssetID. Ordinary
+		// PNG sources carry a whole-page region and retain their old behavior.
+		if _, hasRegion := e.Artifact(asset.ArtSpriteRegion); hasRegion {
+			return l.loadRegion(id, e)
+		}
+		fallthrough
+	case asset.ArtAtlasPage:
 		page, ok := l.loadPage(id, e)
 		if !ok {
 			return texture.Region{}, false
@@ -277,6 +285,10 @@ func (l *Loader) loadRegion(id ids.AssetID, e *asset.Entry) (texture.Region, boo
 		if !ok {
 			return texture.Region{}, false
 		}
+	}
+	if page.width != ra.PageW || page.height != ra.PageH {
+		l.fail(id, "sprite region page dimensions do not match its texture", nil)
+		return texture.Region{}, false
 	}
 	whole := texture.Whole(page.handle, page.width, page.height)
 	reg := whole.Sub(ra.X, ra.Y, ra.W, ra.H)
@@ -599,18 +611,24 @@ func (l *Loader) prepare(e *asset.Entry) (staged, bool, error) {
 		if err != nil {
 			return staged{}, false, err
 		}
-		if region, found := e.Artifact(asset.ArtSpriteRegion); found {
-			encoded, err := l.read(region)
+		var region *asset.RegionArtifact
+		if artifact, found := e.Artifact(asset.ArtSpriteRegion); found {
+			encoded, err := l.read(artifact)
 			if err != nil {
 				return staged{}, false, err
 			}
-			if _, err := asset.DecodeRegion(encoded); err != nil {
+			region, err = asset.DecodeRegion(encoded)
+			if err != nil {
 				return staged{}, false, err
 			}
 		}
 		p, err := l.uploadTexture(data)
 		if err != nil {
 			return staged{}, false, err
+		}
+		if region != nil && region.Page == e.ID && (region.PageW != p.width || region.PageH != p.height) {
+			l.dev.DestroyTexture(p.handle)
+			return staged{}, false, errs.New(errs.AssetBadArtifact, "sprite region page dimensions do not match its texture", log.F("asset", e.ID.String()))
 		}
 		return staged{id: e.ID, kind: e.Kind, page: p, isTex: true}, true, nil
 	case asset.ArtMesh:

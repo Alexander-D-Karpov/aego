@@ -28,6 +28,9 @@ func (p *Pipeline) MetaOf(id ids.AssetID) (Meta, bool) {
 func (p *Pipeline) SetSubs(id ids.AssetID, subs []SubAsset) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
 	if p.shared {
 		return errs.New(errs.AssetBadMeta, "another process holds the asset index, slice the sheet there")
 	}
@@ -49,6 +52,9 @@ func (p *Pipeline) SetSubs(id ids.AssetID, subs []SubAsset) error {
 func (p *Pipeline) SetSettings(id ids.AssetID, s Settings) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
 	if p.shared {
 		return errs.New(errs.AssetBadMeta, "another process holds the asset index, change the import settings there")
 	}
@@ -73,6 +79,9 @@ func (p *Pipeline) SetSettings(id ids.AssetID, s Settings) error {
 func (p *Pipeline) ReloadMetadata(id ids.AssetID) (*Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return nil, err
+	}
 	if p.shared {
 		return nil, errs.New(errs.AssetBadMeta, "another process holds the asset index")
 	}

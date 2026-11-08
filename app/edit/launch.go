@@ -242,6 +242,7 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		RecentPath:  cfg.Recent,
 		Home:        projectsHome(),
 		Image:       d.image,
+		Remote:      launcherRemote{},
 		Theme:       func() theme.Mode { return d.prefs.Theme },
 		SetTheme:    d.setTheme,
 		Language:    func() string { return d.prefs.Language },
@@ -285,24 +286,36 @@ func (ls *LaunchSession) Step() bool {
 }
 
 func (ls *LaunchSession) Close() {
+	if ls.UI != nil {
+		ls.UI.Close()
+	}
 	ls.Engine.Close()
 }
 
 func Launch(cfg Config) (string, error) {
+	root, _, remote, err := launchWithEntry(cfg)
+	if err == nil && remote {
+		return "", errors.New("remote examples require the entry-aware editor launch path")
+	}
+	return root, err
+}
+
+func launchWithEntry(cfg Config) (root, entry string, remote bool, err error) {
 	ls, err := OpenLauncher(cfg)
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
 	if cfg.Frames > 0 {
 		for i := 0; i < cfg.Frames && ls.Step(); i++ {
 		}
 	} else if err := ls.Engine.Run(ls.driver); err != nil {
 		ls.Close()
-		return "", err
+		return "", "", false, err
 	}
 	ls.Close()
-	root, _ := ls.UI.Result()
-	return root, nil
+	root, _ = ls.UI.Result()
+	entry, remote = ls.UI.ResultEntry()
+	return root, entry, remote, nil
 }
 
 func touchRecent(cfg Config, root, name string, lg *log.ChannelLogger) {

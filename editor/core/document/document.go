@@ -2,6 +2,7 @@ package document
 
 import (
 	"encoding/hex"
+	"errors"
 	"os"
 	"path"
 	"path/filepath"
@@ -155,21 +156,22 @@ type subscriber struct {
 }
 
 type Manager struct {
-	opt       Options
-	log       *log.ChannelLogger
-	docs      []*SceneDocument
-	scripts   []*ScriptDocument
-	assets    []*AssetDocument
-	handlers  HandlerRegistry
-	active    ID
-	next      ID
-	subs      []subscriber
-	nextSub   uint64
-	playDoc   *SceneDocument
-	playWorld *engine.World
-	origin    map[ID]ID
-	back      map[ID]ID
-	guard     func(*SceneDocument) func()
+	opt             Options
+	log             *log.ChannelLogger
+	docs            []*SceneDocument
+	scripts         []*ScriptDocument
+	assets          []*AssetDocument
+	handlers        HandlerRegistry
+	active          ID
+	next            ID
+	subs            []subscriber
+	nextSub         uint64
+	playDoc         *SceneDocument
+	playWorld       *engine.World
+	origin          map[ID]ID
+	back            map[ID]ID
+	guard           func(*SceneDocument) func()
+	recoveryWritten map[string][32]byte
 }
 
 func (m *Manager) SetSaveGuard(fn func(*SceneDocument) func()) {
@@ -228,13 +230,13 @@ func (m *Manager) Renamed(oldRel, newRel string) {
 	}
 	for _, d := range m.scripts {
 		if d.Path == oldRel+".meta" {
-			os.Remove(m.scriptRecoveryFile(d.Path))
+			m.clearScriptRecovery(d.Path)
 			d.Path = newRel + ".meta"
 			m.statScript(d)
 			continue
 		}
 		if np, ok := movedPath(d.Path, oldRel, newRel); ok {
-			os.Remove(m.scriptRecoveryFile(d.Path))
+			m.clearScriptRecovery(d.Path)
 			d.Path = np
 			m.statScript(d)
 		}
@@ -827,13 +829,26 @@ func (m *Manager) WriteRecovery() (int, error) {
 			m.ClearRecovery(d.Path)
 			continue
 		}
-		if err := WriteAtomic(m.recoveryFile(d.Path), m.guarded(d, recoveryBytes)); err != nil {
+		name, data := m.recoveryFile(d.Path), m.guarded(d, recoveryBytes)
+		if err := m.writeRecoveryFile(name, data); err != nil {
 			if first == nil {
 				first = errs.Wrap(err, errs.EditorDocument, "cannot write the recovery file")
 			}
 			continue
 		}
 		n++
+	}
+	for _, d := range m.assets {
+		if d.Binding.Recovery == nil || !d.Dirty() {
+			continue
+		}
+		if err := m.WriteAssetRecovery(d); err != nil {
+			if first == nil {
+				first = err
+			}
+		} else {
+			n++
+		}
 	}
 	sn, err := m.writeScriptRecovery()
 	if first == nil {
@@ -867,7 +882,7 @@ func (m *Manager) FindRecovery() []Recovery {
 		}
 		full := filepath.Join(m.recoveryDir(), name)
 		if st, err := os.Stat(m.Abs(rel)); err == nil && !st.ModTime().Before(info.ModTime()) {
-			os.Remove(full)
+			// A newer source does not authorize deleting the older recovery.
 			continue
 		}
 		out = append(out, Recovery{Path: rel, File: full, Time: info.ModTime()})
@@ -881,7 +896,11 @@ func (m *Manager) RestoreRecovery(r Recovery) (*SceneDocument, error) {
 	if err != nil {
 		return nil, errs.Wrap(err, errs.EditorDocument, "cannot read the recovery file")
 	}
-	return m.OpenData(r.Path, data, true)
+	d, err := m.OpenData(r.Path, data, true)
+	if err == nil && filepath.Clean(r.File) == filepath.Clean(m.recoveryFile(r.Path)) {
+		m.trackRecovery(r.File, data)
+	}
+	return d, err
 }
 
 func (m *Manager) DiscardRecovery(r Recovery) {
@@ -889,11 +908,37 @@ func (m *Manager) DiscardRecovery(r Recovery) {
 }
 
 func (m *Manager) ClearRecovery(rel string) {
-	os.Remove(m.recoveryFile(rel))
+	if err := m.discardOwnedRecovery(m.recoveryFile(rel)); err != nil {
+		m.log.Warn("cannot clear changed recovery file", log.F("path", rel), log.F("err", err.Error()))
+	}
 }
 
-func (m *Manager) ClearAllRecovery() {
-	os.RemoveAll(m.recoveryDir())
+// DiscardOpenRecovery removes only recovery snapshots belonging to the dirty
+// documents the user is discarding. Unopened recovery files and an asset's
+// unresolved prior recovery are not covered by that confirmation.
+func (m *Manager) DiscardOpenRecovery() error {
+	var failures []error
+	remove := func(name string) {
+		if err := m.discardOwnedRecovery(name); err != nil {
+			failures = append(failures, errs.Wrap(err, errs.EditorDocument, "cannot discard the recovery file").With(log.F("path", name)))
+		}
+	}
+	for _, d := range m.docs {
+		if d.Dirty() {
+			remove(m.recoveryFile(d.Path))
+		}
+	}
+	for _, d := range m.scripts {
+		if d.Dirty() {
+			remove(m.scriptRecoveryFile(d.Path))
+		}
+	}
+	for _, d := range m.assets {
+		if d.Binding.Recovery != nil && d.Binding.Dirty != nil && d.Binding.Dirty() && (d.Binding.PendingRecovery == nil || !d.Binding.PendingRecovery()) {
+			remove(m.assetRecoveryPath(d))
+		}
+	}
+	return errors.Join(failures...)
 }
 
 func (d *SceneDocument) PreviewBytes() []byte { return encode(d) }

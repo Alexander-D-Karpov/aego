@@ -1,0 +1,50 @@
+package demo
+
+import (
+    "aego/debug"
+    "aego/input"
+)
+
+// Player takes checkpoints; after a fall it comes back at the last one.
+script Player {
+    func Update(dt float) {
+        m := node.Get<Motion2D>()
+        x := 0.0
+        if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
+            x -= 1
+        }
+        if input.Down(input.KeyD) || input.Down(input.KeyRight) {
+            x += 1
+        }
+        m.Move(x)
+        if input.KeyPressed(input.KeySpace) || input.KeyPressed(input.KeyW) || input.KeyPressed(input.KeyUp) {
+            m.Jump()
+        }
+        if input.KeyReleased(input.KeySpace) || input.KeyReleased(input.KeyW) || input.KeyReleased(input.KeyUp) {
+            m.JumpReleased()
+        }
+    }
+}
+
+// Flag says which checkpoint was taken.
+script Flag {
+    @export var Number int
+    var shown float
+    var conn Connection
+
+    func Ready() {
+        conn = node.Get<Checkpoint2D>().Reached.Connect(OnReached)
+    }
+
+    func OnReached(by NodeRef) {
+        shown = 2
+    }
+
+    func Update(dt float) {
+        p := node.WorldPosition()
+        if shown > 0 {
+            shown -= dt
+            debug.Text(Vec2{p.X - 1, p.Y - 2}, "checkpoint " + string(Number), Color{0.4, 1, 0.5, 1})
+        }
+    }
+}

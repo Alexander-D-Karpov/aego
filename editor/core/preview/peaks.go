@@ -30,6 +30,27 @@ type peakItem struct {
 	task *tasks.Task
 }
 
+// CachedPeaks returns a current in-memory waveform without scheduling work.
+// Small folder previews can use this without decoding an unopened audio file.
+func (s *Service) CachedPeaks(id ids.AssetID, cols int) []float32 {
+	if cols <= 0 {
+		return nil
+	}
+	e, ok := s.entry(id)
+	if !ok || e.Kind != asset.ArtAudio {
+		return nil
+	}
+	key, ok := s.Key(e)
+	if !ok {
+		return nil
+	}
+	it := s.peaks[peakKey{id, cols}]
+	if it == nil || !it.done || it.key != key+"-"+strconv.Itoa(cols) {
+		return nil
+	}
+	return it.data
+}
+
 func (s *Service) Peaks(id ids.AssetID, cols int) ([]float32, bool) {
 	e, ok := s.entry(id)
 	if !ok || e.Kind != asset.ArtAudio || s.d.Tasks == nil || cols <= 0 {

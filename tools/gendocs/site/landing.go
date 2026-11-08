@@ -14,7 +14,7 @@ type landingText struct {
 	switchLabel               string
 }
 
-var landingCardIcons = [6]string{"panel.inspector", "file.script", "cat.gameplay", "play.step_back", "panel.agent", "file.package"}
+var landingCardIcons = [6]string{"panel.inspector", "file.script", "cat.gameplay", "play.step_back", "panel.agent", "file.export"}
 
 var landingEntryIcons = [3]string{"file.download", "help.book", "panel.find"}
 

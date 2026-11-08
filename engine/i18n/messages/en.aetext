@@ -1,40 +1,4 @@
 messages version=1 lang=en {
-  msg "editor.shell.contact_telegram" {
-    text="Telegram: @sanspie"
-  }
-  msg "editor.shell.created_by" {
-    text="Created by: sanspie"
-  }
-  msg "editor.shell.open_website" {
-    text="Open website"
-  }
-  msg "editor.shell.report_issue" {
-    text="Create an issue…"
-  }
-  msg "editor.particles.invalid_field" {
-    text="Invalid value; check the allowed range and related fields."
-  }
-  msg "editor.particles.invalid_life_curve" {
-    text="Keys must be finite, ordered and within the 0–1 lifetime."
-  }
-  msg "editor.widgets.curve.delete_key" {
-    text="Delete Key"
-  }
-  msg "editor.widgets.curve.drag_preset" {
-    text="Drag a point or the line to edit this preset"
-  }
-  msg "editor.widgets.curve.key_help" {
-    text="Drag points · Double-click to add · Right-click to delete"
-  }
-  msg "editor.widgets.curve.keys" {
-    text="Keys"
-  }
-  msg "launcher.invalid_project_name" {
-    text="Enter a project name without path separators."
-  }
-  msg "launcher.project_folder_exists" {
-    text="A file or folder with this name already exists."
-  }
   msg "cli.bootstrap.not_native" {
     text="project has native=false, nothing to bootstrap"
   }
@@ -93,6 +57,12 @@ messages version=1 lang=en {
   }
   msg "cli.edit.flag.profile" {
     text="player settings profile, default when empty"
+  }
+  msg "cli.examples.help" {
+    text="Remote examples (data only; no code execution)\n  remoteexample clone  -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample open   -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample recent [-root DIR]\n  remoteexample reopen -id LOCAL_COPY_ID [-root DIR]\n  remoteexample check  -id LOCAL_COPY_ID -approve-origin HTTPS_ORIGIN [-root DIR]\n  remoteexample link   -url HTTPS_MANIFEST [-mode project|scene]\n  remoteexample inspect -link AEGO_URL\n\nclone always creates an independent editable copy. open reuses the most recent\nlocal copy, including offline edits, before attempting HTTPS. check only reports\nupdates; it never replaces files. inspect parses a deep link but grants no trust.\nNo origin is implicitly trusted. -approve-origin must be an exact HTTPS origin."
+  }
+  msg "cli.examples.usage" {
+    text="  examples <clone|open|recent|reopen|check|link|inspect>  manage remote example copies"
   }
   msg "cli.export.flag.base_url" {
     text="where the archive is downloaded from; update.url/<channel> by default"
@@ -190,6 +160,33 @@ messages version=1 lang=en {
   msg "cli.run.restarted" {
     text="game restarted with the new build"
   }
+  msg "cli.source_recovery.confirm_required" {
+    text="recovery requires --confirm; inspect status first"
+  }
+  msg "cli.source_recovery.finished" {
+    text="The transaction was already resolved; restore --confirm only finishes recovery-file cleanup."
+  }
+  msg "cli.source_recovery.flag.confirm" {
+    text="explicitly resolve the interrupted transaction"
+  }
+  msg "cli.source_recovery.none" {
+    text="No interrupted source transaction was found."
+  }
+  msg "cli.source_recovery.prepared" {
+    text="Inspect these files and close the editor. Restore with --confirm only if you want the previous source generation."
+  }
+  msg "cli.source_recovery.resolved" {
+    text="Source recovery was resolved."
+  }
+  msg "cli.source_recovery.status" {
+    text="Source recovery {id}: {state}"
+  }
+  msg "cli.source_recovery.usage" {
+    text="usage: aego source-recovery status [dir] | restore [dir] --confirm"
+  }
+  msg "cli.source_recovery.usage_line" {
+    text="  source-recovery <status|restore>  inspect or explicitly recover interrupted source edits"
+  }
   msg "cli.unknown_command" {
     text="unknown command {name}"
   }
@@ -251,14 +248,14 @@ messages version=1 lang=en {
   msg "editor.agent.agent_2" {
     text="Agent"
   }
-  msg "editor.agent.allow_native_playtests" {
-    text="Allow playtests with this project's native Go modules? Native code can change between runs."
-  }
   msg "editor.agent.allow_always" {
     text="Allow always"
   }
   msg "editor.agent.allow_conversation" {
     text="Allow session"
+  }
+  msg "editor.agent.allow_native_playtests" {
+    text="Allow playtests with this project's native Go modules? Native code can change between runs."
   }
   msg "editor.agent.allow_once" {
     text="Allow once"
@@ -268,33 +265,6 @@ messages version=1 lang=en {
   }
   msg "editor.agent.allow_session_scope" {
     text="Allow session"
-  }
-  msg "editor.agent.revoke_playtest" {
-    text="Revoke always-allowed playtests"
-  }
-  msg "editor.agent.queue_send" {
-    text="Queue"
-  }
-  msg "editor.agent.queue_full" {
-    text="The message queue is full."
-  }
-  msg "editor.agent.queue_clear_first" {
-    text="Send or clear queued messages before starting a new session."
-  }
-  msg "editor.agent.queue_clear" {
-    text="Clear"
-  }
-  msg "editor.agent.queue_resume" {
-    text="Resume"
-  }
-  msg "editor.agent.queue_count" {
-    text="Queued: {n}"
-  }
-  msg "editor.agent.queue_image" {
-    text="Image"
-  }
-  msg "editor.agent.queue_more" {
-    text="+{n} more queued"
   }
   msg "editor.agent.answer" {
     text="Answer"
@@ -524,6 +494,15 @@ messages version=1 lang=en {
   msg "editor.agent.deny" {
     text="Deny"
   }
+  msg "editor.agent.document_redo" {
+    text="Redo one step in {file}?"
+  }
+  msg "editor.agent.document_save" {
+    text="Save the open document {file}?"
+  }
+  msg "editor.agent.document_undo" {
+    text="Undo one step in {file}?"
+  }
   msg "editor.agent.dry_run" {
     text="Dry-run"
   }
@@ -720,6 +699,30 @@ messages version=1 lang=en {
   msg "editor.agent.provider_unavailable" {
     text="This agent provider is not available"
   }
+  msg "editor.agent.queue_clear" {
+    text="Clear"
+  }
+  msg "editor.agent.queue_clear_first" {
+    text="Send or clear queued messages before starting a new session."
+  }
+  msg "editor.agent.queue_count" {
+    text="Queued: {n}"
+  }
+  msg "editor.agent.queue_full" {
+    text="The message queue is full."
+  }
+  msg "editor.agent.queue_image" {
+    text="Image"
+  }
+  msg "editor.agent.queue_more" {
+    text="+{n} more queued"
+  }
+  msg "editor.agent.queue_resume" {
+    text="Resume"
+  }
+  msg "editor.agent.queue_send" {
+    text="Queue"
+  }
   msg "editor.agent.quick_code_errors" {
     text="Fix current script errors…"
   }
@@ -756,17 +759,11 @@ messages version=1 lang=en {
   msg "editor.agent.retry_text" {
     text="Try the step that failed again: {title}"
   }
+  msg "editor.agent.revoke_playtest" {
+    text="Revoke always-allowed playtests"
+  }
   msg "editor.agent.save_documents" {
     text="Save all open project documents?"
-  }
-  msg "editor.agent.document_save" {
-    text="Save the open document {file}?"
-  }
-  msg "editor.agent.document_undo" {
-    text="Undo one step in {file}?"
-  }
-  msg "editor.agent.document_redo" {
-    text="Redo one step in {file}?"
   }
   msg "editor.agent.seconds" {
     text="{n} s"
@@ -1217,6 +1214,39 @@ messages version=1 lang=en {
   msg "editor.animation.title_rec" {
     text="Animation (Rec)"
   }
+  msg "editor.animation_settings.add_event" {
+    text="Add event"
+  }
+  msg "editor.animation_settings.built_in" {
+    text="Built in: Footstep (none), Hit (float)"
+  }
+  msg "editor.animation_settings.built_in_readonly" {
+    text="Built-in events cannot be overridden"
+  }
+  msg "editor.animation_settings.delete_event" {
+    text="Delete event"
+  }
+  msg "editor.animation_settings.duplicate" {
+    text="Event {name} is declared twice"
+  }
+  msg "editor.animation_settings.empty_name" {
+    text="An event needs a name"
+  }
+  msg "editor.animation_settings.events" {
+    text="Animation Events"
+  }
+  msg "editor.animation_settings.invalid_payload" {
+    text="Event {name} has an unknown payload"
+  }
+  msg "editor.animation_settings.name" {
+    text="Name"
+  }
+  msg "editor.animation_settings.none" {
+    text="None"
+  }
+  msg "editor.animation_settings.payload" {
+    text="Payload"
+  }
   msg "editor.animator.add_a_parameter" {
     text="Add a parameter"
   }
@@ -1331,6 +1361,348 @@ messages version=1 lang=en {
   msg "editor.animedit.this_node" {
     text="This node"
   }
+  msg "editor.art.add_frame" {
+    text="+ Frame"
+  }
+  msg "editor.art.add_layer" {
+    text="+ Layer"
+  }
+  msg "editor.art.albedo" {
+    text="Albedo"
+  }
+  msg "editor.art.animation_preview" {
+    text="Animation Preview"
+  }
+  msg "editor.art.ase_diagnostic" {
+    text="{code} (frame {frame}, chunk {chunk}): {message}"
+  }
+  msg "editor.art.ase_metadata" {
+    text="Metadata in this chunk is not imported."
+  }
+  msg "editor.art.ase_ninepatch" {
+    text="The nine-patch center is not retained; slice bounds and pivot are retained."
+  }
+  msg "editor.art.ase_repeat" {
+    text="A finite tag repeat count is not retained; the imported tag loops."
+  }
+  msg "editor.art.ase_uuid" {
+    text="Aseprite's layer UUID is replaced by an Art Document ID."
+  }
+  msg "editor.art.asset_timeline" {
+    text="Asset Timeline"
+  }
+  msg "editor.art.blank_backup_saved" {
+    text="Original text saved at {path}"
+  }
+  msg "editor.art.cancel" {
+    text="Cancel"
+  }
+  msg "editor.art.canvas" {
+    text="Canvas"
+  }
+  msg "editor.art.close" {
+    text="Close"
+  }
+  msg "editor.art.close_message" {
+    text="Save changes to {path}?"
+  }
+  msg "editor.art.color_mode" {
+    text="Color mode: rgba / grayscale / indexed"
+  }
+  msg "editor.art.create" {
+    text="Create"
+  }
+  msg "editor.art.create_category" {
+    text="Assets"
+  }
+  msg "editor.art.create_help" {
+    text="Create an editable pixel art and animation source."
+  }
+  msg "editor.art.discard" {
+    text="Discard"
+  }
+  msg "editor.art.discard_recovery" {
+    text="Discard recovery"
+  }
+  msg "editor.art.discard_recovery_action" {
+    text="Discard"
+  }
+  msg "editor.art.discard_recovery_confirm" {
+    text="Permanently discard the recovery copy?"
+  }
+  msg "editor.art.document" {
+    text="Pixel Art / Frame Animation"
+  }
+  msg "editor.art.duplicate" {
+    text="Duplicate"
+  }
+  msg "editor.art.edit_sprite" {
+    text="Edit Sprite"
+  }
+  msg "editor.art.ellipse" {
+    text="Ellipse"
+  }
+  msg "editor.art.ellipse_selection" {
+    text="Ellipse selection"
+  }
+  msg "editor.art.emission" {
+    text="Emission"
+  }
+  msg "editor.art.empty_source_hint" {
+    text="This file has no drawing. Initialize it, or create a separate drawing from the Create menu."
+  }
+  msg "editor.art.eraser" {
+    text="Eraser"
+  }
+  msg "editor.art.expand" {
+    text="Enlarge this panel to display the canvas and controls."
+  }
+  msg "editor.art.eyedropper" {
+    text="Eyedropper (active layer)"
+  }
+  msg "editor.art.fill" {
+    text="Fill"
+  }
+  msg "editor.art.filled" {
+    text="Filled shapes"
+  }
+  msg "editor.art.fit" {
+    text="Fit"
+  }
+  msg "editor.art.frame_unavailable" {
+    text="The selected art frame is no longer available."
+  }
+  msg "editor.art.gradient" {
+    text="Gradient"
+  }
+  msg "editor.art.grid" {
+    text="Pixel grid"
+  }
+  msg "editor.art.height" {
+    text="Height"
+  }
+  msg "editor.art.height_pixels" {
+    text="Height"
+  }
+  msg "editor.art.hide_layer" {
+    text="Hide layer"
+  }
+  msg "editor.art.import_action" {
+    text="Import"
+  }
+  msg "editor.art.import_anyway" {
+    text="Import Anyway"
+  }
+  msg "editor.art.import_aseprite" {
+    text="Import Aseprite…"
+  }
+  msg "editor.art.import_aseprite_hint" {
+    text="The original file is not overwritten."
+  }
+  msg "editor.art.import_aseprite_input" {
+    text="Aseprite file path"
+  }
+  msg "editor.art.import_aseprite_output" {
+    text="New project source path"
+  }
+  msg "editor.art.import_aseprite_size" {
+    text="The input must be a regular Aseprite file within the import size limit."
+  }
+  msg "editor.art.import_aseprite_target" {
+    text="The new source must use .aeart."
+  }
+  msg "editor.art.import_aseprite_type" {
+    text="The input file must use .ase or .aseprite."
+  }
+  msg "editor.art.import_copy_created" {
+    text="Created editable copy: {path}"
+  }
+  msg "editor.art.import_diagnostics" {
+    text="Import diagnostics"
+  }
+  msg "editor.art.import_loss_warning" {
+    text="Some metadata will not be retained. Review the diagnostics before creating the new source:"
+  }
+  msg "editor.art.import_project_changed" {
+    text="The project changed before the import completed."
+  }
+  msg "editor.art.import_source_changed" {
+    text="The Aseprite source changed before import completed."
+  }
+  msg "editor.art.initialize_blank_backup" {
+    text="The original text will be backed up in .aego."
+  }
+  msg "editor.art.initialize_empty" {
+    text="Initialize empty drawing…"
+  }
+  msg "editor.art.initialize_empty_confirm" {
+    text="Create a drawing in this blank file?"
+  }
+  msg "editor.art.lasso" {
+    text="Lasso selection"
+  }
+  msg "editor.art.layer" {
+    text="Layer"
+  }
+  msg "editor.art.line" {
+    text="Line"
+  }
+  msg "editor.art.link" {
+    text="Link"
+  }
+  msg "editor.art.lock_layer" {
+    text="Lock layer"
+  }
+  msg "editor.art.mirror_x" {
+    text="Mirror X"
+  }
+  msg "editor.art.mirror_y" {
+    text="Mirror Y"
+  }
+  msg "editor.art.navigation" {
+    text="Wheel: zoom · middle/right drag: pan · Esc: cancel gesture or clear selection"
+  }
+  msg "editor.art.new" {
+    text="New Pixel Art…"
+  }
+  msg "editor.art.new_file" {
+    text="Pixel Art (.aeart)…"
+  }
+  msg "editor.art.normal" {
+    text="Normals"
+  }
+  msg "editor.art.onion" {
+    text="Onion skin"
+  }
+  msg "editor.art.open_hint" {
+    text="Open an .aeart document in Assets to start drawing."
+  }
+  msg "editor.art.open_sprite_source" {
+    text="Open Sprite Source"
+  }
+  msg "editor.art.pencil" {
+    text="Pencil"
+  }
+  msg "editor.art.pixel_perfect" {
+    text="Pixel perfect"
+  }
+  msg "editor.art.play" {
+    text="Play"
+  }
+  msg "editor.art.png_copy_notice" {
+    text="Whole PNG only; the original and scene stay unchanged."
+  }
+  msg "editor.art.png_edit_copy" {
+    text="Edit as .aeart copy…"
+  }
+  msg "editor.art.png_frames_changed" {
+    text="The project, image document or its metadata changed; start the copy again."
+  }
+  msg "editor.art.png_frames_copy" {
+    text="Create animation from PNG slices…"
+  }
+  msg "editor.art.png_frames_duration" {
+    text="Frame duration (ms)"
+  }
+  msg "editor.art.png_frames_invalid_duration" {
+    text="Frame duration must be an integer from 1 to 600000 ms."
+  }
+  msg "editor.art.png_frames_invalid_rect" {
+    text="A saved slice is empty or outside the PNG."
+  }
+  msg "editor.art.png_frames_no_metadata" {
+    text="A project PNG with saved slice metadata is required."
+  }
+  msg "editor.art.png_frames_notice" {
+    text="Creates a separate .aeart from saved slices in metadata order. Choose one duration for all frames. Only color pixels are copied: frame names, IDs, pivots, normal/height/emission channels, materials and existing animations are not transferred. Original PNG, metadata and scene references stay unchanged; assign the new resources explicitly."
+  }
+  msg "editor.art.png_frames_save_metadata" {
+    text="Save or resolve the image metadata before copying its slices."
+  }
+  msg "editor.art.png_file" {
+    text="Blank PNG (.png, view only)…"
+  }
+  msg "editor.art.png_help" {
+    text="Create a blank PNG. Choose Pixel Art to edit pixels in Aego."
+  }
+  msg "editor.art.png_prompt" {
+    text="For editable pixels, choose Pixel Art."
+  }
+  msg "editor.art.prepared_sprite" {
+    text="Open the image or sprite in the asset viewer."
+  }
+  msg "editor.art.properties" {
+    text="Tools / Layers"
+  }
+  msg "editor.art.read_only" {
+    text="Read-only"
+  }
+  msg "editor.art.recover" {
+    text="Recover unsaved drawing"
+  }
+  msg "editor.art.recover_action" {
+    text="Recover"
+  }
+  msg "editor.art.recover_confirm" {
+    text="Replace this open document with the recovered drawing? The source file is not overwritten."
+  }
+  msg "editor.art.recovery_pending_edit" {
+    text="Recover or discard the previous recovery before editing this drawing."
+  }
+  msg "editor.art.rectangle" {
+    text="Rectangle"
+  }
+  msg "editor.art.redo" {
+    text="Redo"
+  }
+  msg "editor.art.round" {
+    text="Round brush"
+  }
+  msg "editor.art.save" {
+    text="Save"
+  }
+  msg "editor.art.selection" {
+    text="Selection"
+  }
+  msg "editor.art.selection_outline_simplified" {
+    text="Selection outline simplified"
+  }
+  msg "editor.art.selection_stale" {
+    text="The drawing changed during selection; select again."
+  }
+  msg "editor.art.shared_sprite" {
+    text="This is a shared asset; edits affect every object that uses it."
+  }
+  msg "editor.art.show_layer" {
+    text="Show layer"
+  }
+  msg "editor.art.source_path" {
+    text="Source path"
+  }
+  msg "editor.art.tag" {
+    text="Tag frames"
+  }
+  msg "editor.art.timeline" {
+    text="Timeline"
+  }
+  msg "editor.art.undo" {
+    text="Undo"
+  }
+  msg "editor.art.unlink" {
+    text="Unlink"
+  }
+  msg "editor.art.unlock_layer" {
+    text="Unlock layer"
+  }
+  msg "editor.art.unsaved" {
+    text="Unsaved drawing"
+  }
+  msg "editor.art.wand" {
+    text="Magic wand"
+  }
+  msg "editor.art.width" {
+    text="Width"
+  }
   msg "editor.assetops.attach_script" {
     text="Attach script"
   }
@@ -1373,6 +1745,12 @@ messages version=1 lang=en {
   msg "editor.assets.add_to_favorites" {
     text="Add to Favorites"
   }
+  msg "editor.assets.animation_clip" {
+    text="Animation Clip (.aeanim)…"
+  }
+  msg "editor.assets.animation_controller" {
+    text="Animation Controller (.aectrl)…"
+  }
   msg "editor.assets.asset_pipeline_is_not_available" {
     text="Asset pipeline is not available"
   }
@@ -1403,6 +1781,9 @@ messages version=1 lang=en {
   msg "editor.assets.create" {
     text="Create"
   }
+  msg "editor.assets.create_category" {
+    text="Files"
+  }
   msg "editor.assets.create_variant" {
     text="Create Variant"
   }
@@ -1414,6 +1795,9 @@ messages version=1 lang=en {
   }
   msg "editor.assets.data_asset" {
     text="Data Asset"
+  }
+  msg "editor.assets.data_file" {
+    text="Data: {type} (.aedata)…"
   }
   msg "editor.assets.data_table" {
     text="Data Table"
@@ -1454,6 +1838,12 @@ messages version=1 lang=en {
   msg "editor.assets.duplicate" {
     text="Duplicate"
   }
+  msg "editor.assets.empty_art_import" {
+    text="empty .aeart; open the copied file to initialize it, or create a new drawing"
+  }
+  msg "editor.assets.external_file_path" {
+    text="File path"
+  }
   msg "editor.assets.find_instances" {
     text="Find Instances"
   }
@@ -1465,6 +1855,21 @@ messages version=1 lang=en {
   }
   msg "editor.assets.folder" {
     text="Folder"
+  }
+  msg "editor.assets.glsl_extension" {
+    text="include path must end with .glsl"
+  }
+  msg "editor.assets.import_file" {
+    text="Import File…"
+  }
+  msg "editor.assets.import_incomplete" {
+    text="Some files could not be imported; any copied files were kept"
+  }
+  msg "editor.assets.import_project_changed" {
+    text="The project changed before import completed."
+  }
+  msg "editor.assets.import_retry" {
+    text="source changed during import; retry"
   }
   msg "editor.assets.imported_created_file_s_into" {
     text="Imported {created} file(s) into {dir}"
@@ -1486,6 +1891,12 @@ messages version=1 lang=en {
   }
   msg "editor.assets.new" {
     text="New"
+  }
+  msg "editor.assets.new_animation_clip" {
+    text="New animation clip"
+  }
+  msg "editor.assets.new_animation_controller" {
+    text="New animation controller"
   }
   msg "editor.assets.new_folder" {
     text="New Folder"
@@ -1535,6 +1946,9 @@ messages version=1 lang=en {
   msg "editor.assets.prefab" {
     text="Prefab…"
   }
+  msg "editor.assets.prefab_file" {
+    text="Prefab (.aeprefab)…"
+  }
   msg "editor.assets.preview_problems" {
     text="Preview problems"
   }
@@ -1565,8 +1979,14 @@ messages version=1 lang=en {
   msg "editor.assets.scene" {
     text="Scene…"
   }
+  msg "editor.assets.scene_file" {
+    text="Scene (.aescene)…"
+  }
   msg "editor.assets.script" {
     text="Script…"
+  }
+  msg "editor.assets.script_file" {
+    text="Script (.aes)…"
   }
   msg "editor.assets.script_name" {
     text="Script name"
@@ -1580,6 +2000,12 @@ messages version=1 lang=en {
   msg "editor.assets.set_as_startup_scene" {
     text="Set as Startup Scene"
   }
+  msg "editor.assets.shader_file" {
+    text="Shader (.aeshader)…"
+  }
+  msg "editor.assets.shader_include" {
+    text="Shader Include (.glsl)…"
+  }
   msg "editor.assets.show_material_on_object" {
     text="Show on scene object"
   }
@@ -1588,6 +2014,9 @@ messages version=1 lang=en {
   }
   msg "editor.assets.still_referenced_by_join_deleting" {
     text="Still referenced by:\n{join}\n\nDeleting them leaves these references missing."
+  }
+  msg "editor.assets.table_file" {
+    text="Table: {type} (.aetable)…"
   }
   msg "editor.assets.the_clipboard_has_no_image" {
     text="The clipboard has no image or files to paste"
@@ -1753,6 +2182,12 @@ messages version=1 lang=en {
   }
   msg "editor.command.app.quit.tip" {
     text="Quit the editor, asking first about unsaved changes"
+  }
+  msg "editor.command.asset.import_aseprite" {
+    text="Import Aseprite…"
+  }
+  msg "editor.command.asset.new_art" {
+    text="New Pixel Art…"
   }
   msg "editor.command.assets.copy" {
     text="Copy Asset"
@@ -3263,6 +3698,10 @@ messages version=1 lang=en {
   msg "editor.image.role" {
     text="Source role"
   }
+  msg "editor.image.section_channels" { text="Surface channels" }
+  msg "editor.image.section_details" { text="Details" }
+  msg "editor.image.section_references" { text="References" }
+  msg "editor.image.section_settings" { text="Import settings" }
   msg "editor.image.save" {
     text="Save settings"
   }
@@ -4121,6 +4560,9 @@ messages version=1 lang=en {
   msg "editor.particles.close" {
     text="Unsaved particle preset"
   }
+  msg "editor.particles.create_preset_file" {
+    text="Particle Preset (.aepreset)…"
+  }
   msg "editor.particles.culling" {
     text="Visible / culled emitters"
   }
@@ -4130,6 +4572,19 @@ messages version=1 lang=en {
   msg "editor.particles.discard" {
     text="Discard changes"
   }
+  msg "editor.particles.drawing" { text="Drawing" }
+  msg "editor.particles.drawing_assign" { text="Use drawing frames" }
+  msg "editor.particles.drawing_changed" { text="The drawing or its preview changed; try again." }
+  msg "editor.particles.drawing_choose" { text="Choose an open drawing" }
+  msg "editor.particles.drawing_closed" { text="The selected drawing is no longer open." }
+  msg "editor.particles.drawing_finish" { text="Finish the drawing gesture before assigning frames." }
+  msg "editor.particles.drawing_fps_hint" { text="Particles use constant FPS, not individual frame durations. Save new frames before assigning them. For multiple frames, zero FPS becomes 12." }
+  msg "editor.particles.drawing_frame_limit" { text="A particle flipbook requires 1–1024 frames." }
+  msg "editor.particles.drawing_metadata" { text="Save or resolve the drawing's metadata before assigning frames." }
+  msg "editor.particles.drawing_open" { text="Open a drawing to use its frames." }
+  msg "editor.particles.drawing_preview_pending" { text="Wait for the current drawing preview before assigning frames." }
+  msg "editor.particles.drawing_reimport" { text="Reimport the saved drawing before assigning frames" }
+  msg "editor.particles.drawing_save_frames" { text="Save the drawing and wait for import before assigning new frames." }
   msg "editor.particles.emission" {
     text="Emission"
   }
@@ -4144,6 +4599,12 @@ messages version=1 lang=en {
   }
   msg "editor.particles.initial" {
     text="Initial"
+  }
+  msg "editor.particles.invalid_field" {
+    text="Invalid value; check the allowed range and related fields."
+  }
+  msg "editor.particles.invalid_life_curve" {
+    text="Keys must be finite, ordered and within the 0–1 lifetime."
   }
   msg "editor.particles.life" {
     text="Over Life"
@@ -4169,6 +4630,13 @@ messages version=1 lang=en {
   msg "editor.particles.preset" {
     text="Particle preset"
   }
+  msg "editor.particles.preset_unavailable" { text="The particle preset is closed, read-only or in conflict." }
+  msg "editor.particles.preset_extension" {
+    text="Preset path must end with .aepreset."
+  }
+  msg "editor.particles.preset_template" {
+    text="Template: Dust / Spark / Smoke / Rain / Explosion"
+  }
   msg "editor.particles.preview_options" {
     text="Preview settings"
   }
@@ -4190,6 +4658,7 @@ messages version=1 lang=en {
   msg "editor.particles.save" {
     text="Save preset"
   }
+  msg "editor.particles.scene_changed" { text="The selected particle system is no longer editable." }
   msg "editor.particles.shape" {
     text="Shape"
   }
@@ -5302,6 +5771,9 @@ messages version=1 lang=en {
   msg "editor.shell.an_autosave_of_path_from" {
     text="An autosave of {path} from {v} was found."
   }
+  msg "editor.shell.animation" {
+    text="Animation"
+  }
   msg "editor.shell.apply" {
     text="Apply"
   }
@@ -5356,6 +5828,9 @@ messages version=1 lang=en {
   msg "editor.shell.close_scene" {
     text="Close scene"
   }
+  msg "editor.shell.contact_telegram" {
+    text="Telegram: @sanspie"
+  }
   msg "editor.shell.continue" {
     text="Continue"
   }
@@ -5367,6 +5842,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.create_a_project" {
     text="Create a project"
+  }
+  msg "editor.shell.created_by" {
+    text="Created by: sanspie"
   }
   msg "editor.shell.created_examplepath_to_get_you" {
     text="Created {examplepath} to get you started"
@@ -5483,11 +5961,15 @@ messages version=1 lang=en {
   msg "editor.shell.open_project" {
     text="Open project"
   }
+  msg "editor.shell.open_recent" { text="Open Recent" }
   msg "editor.shell.open_recent_item" {
     text="Open {name}"
   }
   msg "editor.shell.open_recent_n" {
     text="Open Recent {n}"
+  }
+  msg "editor.shell.open_website" {
+    text="Open website"
   }
   msg "editor.shell.padding_x" {
     text="Padding X"
@@ -5573,6 +6055,9 @@ messages version=1 lang=en {
   msg "editor.shell.repaired_n_meta_issue_s" {
     text="Repaired {n} meta issue(s)"
   }
+  msg "editor.shell.report_issue" {
+    text="Create an issue…"
+  }
   msg "editor.shell.restore" {
     text="Restore"
   }
@@ -5615,6 +6100,9 @@ messages version=1 lang=en {
   msg "editor.shell.saved_all_scenes" {
     text="Saved all scenes"
   }
+  msg "editor.shell.saved_import_failed" { text="Saved source has {count} failed imports; see the import diagnostics." }
+  msg "editor.shell.saved_import_missing" { text="Saved source did not produce an import result." }
+  msg "editor.shell.saved_import_retry" { text="Saved source has {count} pending imports; reimport the asset after the source settles." }
   msg "editor.shell.saved_path" {
     text="Saved {path}"
   }
@@ -5701,6 +6189,9 @@ messages version=1 lang=en {
   }
   msg "editor.shell.unsaved_changes" {
     text="Unsaved changes"
+  }
+  msg "editor.shell.vfx" {
+    text="VFX"
   }
   msg "editor.shell.workspace_v" {
     text="Workspace {v}"
@@ -5903,8 +6394,20 @@ messages version=1 lang=en {
   msg "editor.widgets.curve.clamp" {
     text="Clamp"
   }
+  msg "editor.widgets.curve.delete_key" {
+    text="Delete Key"
+  }
+  msg "editor.widgets.curve.drag_preset" {
+    text="Drag a point or the line to edit this preset"
+  }
   msg "editor.widgets.curve.free" {
     text="Free"
+  }
+  msg "editor.widgets.curve.key_help" {
+    text="Drag points · Double-click to add · Right-click to delete"
+  }
+  msg "editor.widgets.curve.keys" {
+    text="Keys"
   }
   msg "editor.widgets.curve.linear" {
     text="Linear"
@@ -6008,6 +6511,9 @@ messages version=1 lang=en {
   msg "launcher.get_go" {
     text="Get Go"
   }
+  msg "launcher.invalid_project_name" {
+    text="Enter a project name without path separators."
+  }
   msg "launcher.language" {
     text="Language"
   }
@@ -6053,8 +6559,65 @@ messages version=1 lang=en {
   msg "launcher.project" {
     text="Project"
   }
+  msg "launcher.project_folder_exists" {
+    text="A file or folder with this name already exists."
+  }
   msg "launcher.recent_unreadable" {
     text="Recent projects are unreadable: {error}"
+  }
+  msg "launcher.remote.bad_entry" {
+    text="The remote entry scene is outside its project."
+  }
+  msg "launcher.remote.cancel" {
+    text="Cancel"
+  }
+  msg "launcher.remote.canceled" {
+    text="Canceled. A copy already saved locally is kept."
+  }
+  msg "launcher.remote.check" {
+    text="Check updates"
+  }
+  msg "launcher.remote.clone" {
+    text="Clone a new copy"
+  }
+  msg "launcher.remote.confirm" {
+    text="Confirm origin and continue"
+  }
+  msg "launcher.remote.confirm_origin" {
+    text="Allow network access to this origin for this operation: {origin}"
+  }
+  msg "launcher.remote.explanation" {
+    text="HTTPS examples are checked and copied locally. Aego does not run the project automatically; external import tools are disabled."
+  }
+  msg "launcher.remote.heading" {
+    text="Remote examples"
+  }
+  msg "launcher.remote.native_blocked" {
+    text="Remote examples cannot start a native Go project."
+  }
+  msg "launcher.remote.no_copies" {
+    text="No saved remote examples yet."
+  }
+  msg "launcher.remote.open" {
+    text="Open saved copy or clone"
+  }
+  msg "launcher.remote.refresh" {
+    text="Show saved remote examples"
+  }
+  msg "launcher.remote.reopen" {
+    text="Open offline"
+  }
+  msg "launcher.remote.up_to_date" {
+    text="No newer version. Your local copy was not changed."
+  }
+  msg "launcher.remote.update_available" {
+    text="Version {version} is available. Your local copy was not changed."
+  }
+  msg "launcher.remote.url" {
+    text="Manifest HTTPS URL"
+  }
+  msg "launcher.remote.working" {
+    text="Checking or downloading the example…"
   }
   msg "launcher.remove_from_list" {
     text="Remove from List"

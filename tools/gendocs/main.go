@@ -26,6 +26,9 @@ func main() {
 	out := flag.String("out", "site", "output directory")
 	title := flag.String("title", "", "site title, defaults to the export title")
 	play := flag.Bool("playground", false, "add Run buttons that load play/aego.wasm")
+	studio := flag.Bool("studio", false, "link an already-built Art Studio in studio/")
+	studioURL := flag.String("studio-url", "", "link a verified, version-pinned standalone Studio release")
+	studioGuides := flag.Bool("studio-guides", false, "link pre-integrated Studio guides in asset-studio/")
 	repo := flag.String("repo", "", "source repository linked from the header and footer")
 	edit := flag.String("edit", "", "base URL of Edit this page links, defaults to <repo>/src/branch/main")
 	version := flag.String("version", "", "engine version shown in the footer")
@@ -68,7 +71,7 @@ func main() {
 		}
 	}
 	rep, err := site.Build(exp, *out, site.Options{
-		Playground: *play, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Release: rel, Icons: splitList(*icons), Time: time.Now(),
+		Playground: *play, Studio: *studio, StudioURL: *studioURL, StudioGuides: *studioGuides, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Release: rel, Icons: splitList(*icons), Time: time.Now(),
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gendocs:", err)

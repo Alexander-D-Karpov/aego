@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "engine.Script",
+  "demoID": "engine.Script.attachment-enabled",
+  "documentID": "engine.Script",
+  "scene": "engine.Script/try",
+  "identity": "1430ad8741452dcd475d602a9abe891d6ea8aa2dee42012b172b5ea448efcc8a",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": [],
+  "actions": [{
+    "id": "enable-script", "scriptToggle": {"script": "game.demo.MoveOnReady", "enabled": true},
+    "expected": [
+      {"observable": "engine.Script.AttachmentEnabled", "equals": true, "changes": true},
+      {"observable": "engine.Script.PositionX", "equals": 2, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Enable a script attachment", "description": "The target has a disabled Move On Ready script and stays at the gray mark.", "input": "Enable the Move On Ready attachment in the Inspector. The scene restarts, its real Ready method runs and moves the target to the blue mark. Reset disables it again."},
+    "ru": {"title": "Включение прикреплённого скрипта", "description": "У цели выключен прикреплённый скрипт Move On Ready, поэтому она остаётся у серой отметки.", "input": "Включите скрипт Move On Ready в Инспекторе. Сцена перезапустится, его настоящий метод Ready выполнится и переместит цель к голубой отметке. «Сброс» снова выключит скрипт."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

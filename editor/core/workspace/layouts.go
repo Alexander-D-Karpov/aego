@@ -29,6 +29,8 @@ type Preset struct {
 	Title       string
 	Order       int
 	Slots       map[string]Slot
+	// Scopes place dynamic document tabs only in factory/reset layouts.
+	Scopes      map[string]Slot
 	HideToolbar bool
 	// Explicit prescribes a default layout, without affecting existing saved layouts.
 	Explicit bool
@@ -65,6 +67,11 @@ func slotIn(p *Preset, d Desc) Slot {
 		if s, ok := p.Slots[d.Panel.ID()]; ok {
 			return s
 		}
+		if sc, ok := d.Panel.(Scoped); ok {
+			if slot, ok := p.Scopes[sc.Scope()]; ok {
+				return slot
+			}
+		}
 		if p.Explicit {
 			return SlotNone
 		}
@@ -83,6 +90,7 @@ func (w *Workspace) RegisterPreset(p Preset) error {
 		p.Title = p.ID
 	}
 	p.Slots = maps.Clone(p.Slots)
+	p.Scopes = maps.Clone(p.Scopes)
 	p.Front = slices.Clone(p.Front)
 	p.Splits = slices.Clone(p.Splits)
 	w.presets = append(w.presets, p)
@@ -296,7 +304,7 @@ func (w *Workspace) SaveAs(title string) (string, error) {
 		id = UserPrefix + slug(title) + "_" + strconv.Itoa(n)
 	}
 	toolbar := w.Toolbar()
-	p := Preset{ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, Explicit: cur.Explicit, Front: cur.Front, HideToolbar: !toolbar, User: true, Base: base}
+	p := Preset{ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, Scopes: cur.Scopes, Explicit: cur.Explicit, Front: cur.Front, Splits: cur.Splits, HideToolbar: !toolbar, User: true, Base: base}
 	if err := w.RegisterPreset(p); err != nil {
 		return "", err
 	}
@@ -418,6 +426,8 @@ func (w *Workspace) restoreUser(n *aetext.Node) *Preset {
 	}
 	if base := w.preset(p.Base); base != nil {
 		p.Slots = base.Slots
+		p.Scopes = base.Scopes
+		p.Splits = slices.Clone(base.Splits)
 		p.Explicit, p.Front = base.Explicit, slices.Clone(base.Front)
 	}
 	if w.RegisterPreset(p) != nil {

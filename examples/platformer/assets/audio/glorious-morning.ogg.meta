@@ -1,0 +1,12 @@
+meta version=1 {
+  id="173c7db1e5dc5922da00f5427536495d"
+  importer="audio"
+  importerVersion=1
+  settings {
+    bus=music
+    gain=0.7
+    loopEnd=-1
+    loopStart=-1
+    stream=on
+  }
+}

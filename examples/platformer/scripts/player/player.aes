@@ -82,10 +82,17 @@ script PlayerController {
 
 	func OnStomp(target NodeRef, damage int) {
 		m := node.Get<Motion2D>()
-		if !stompBouncing && m.Velocity.Y >= 0 {
-			stompBouncing = true
-			m.AddVelocity(Vec2{0, Bounce.Y - m.Velocity.Y})
+		if target == nil || !target.IsAlive() || damage <= 0 || stompBouncing || m.Velocity.Y <= 0 {
+			return
 		}
+		playerPos := node.WorldPosition()
+		targetPos := target.WorldPosition()
+		// The player's feet must be above the enemy, with the player centered over its body.
+		if playerPos.Y > targetPos.Y - 0.8 || math.Abs(playerPos.X - targetPos.X) > 0.45 {
+			return
+		}
+		stompBouncing = true
+		m.AddVelocity(Vec2{0, Bounce.Y - m.Velocity.Y})
 	}
 
 	func OnJumped() {
@@ -149,6 +156,9 @@ script PlayerController {
 		}
 		node.Get<Hitbox2D>().Active = !m.Grounded && m.Velocity.Y > 0
 		a := node.Get<Animator>()
+		if a.State != "Hurt" {
+			node.Get<MaterialOverride>().Reset("Flash")
+		}
 		a.SetFloat("Speed", math.Abs(m.Velocity.X))
 		a.SetBool("Grounded", m.Grounded)
 		a.SetFloat("VerticalSpeed", m.Velocity.Y)

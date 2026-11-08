@@ -30,6 +30,10 @@ import (
 // EnvShots makes the editor write the documentation screenshots to this directory and exit.
 const EnvShots = "AEGO_SHOTS"
 
+// EnvShotsEditorOnly captures the first, edit-only workspace shot without
+// starting Play or running the remaining screenshot scenarios.
+const EnvShotsEditorOnly = "AEGO_SHOTS_EDITOR_ONLY"
+
 // Screenshot mode uses a synthetic context meter and this sessionless backend, avoiding dependence on an installed or signed-in agent.
 type screenshotAgent struct{}
 
@@ -49,11 +53,12 @@ func screenshotConfig(cfg Config, dir string) Config {
 }
 
 type shot struct {
-	name   string
-	frames int
-	inset  int
-	bottom int
-	setup  func(s *Session) error
+	name          string
+	frames        int
+	inset         int
+	bottom        int
+	fullInspector bool
+	setup         func(s *Session) error
 }
 
 func (s *Session) shots(dir string) error {
@@ -98,7 +103,7 @@ func (s *Session) shots(dir string) error {
 			ctx.Select()
 			return nil
 		}},
-		{name: "hitbox-gizmo", frames: 60, setup: func(s *Session) error {
+		{name: "hitbox-gizmo", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			s.App.Follow().SetOn(false)
 			s.App.Presence().Clear()
 			s.App.AgentSelection().Clear()
@@ -116,7 +121,7 @@ func (s *Session) shots(dir string) error {
 			}
 			return selectNamed(ctx, "EnemyLeft")
 		}},
-		{name: "camera-follow", frames: 60, setup: func(s *Session) error {
+		{name: "camera-follow", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			sc := ctx.Scene()
 			ctx.Select(sc.ID(sc.Find(sc.Root(), "Camera")), sc.ID(sc.Find(sc.Root(), "Player")))
 			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
@@ -125,9 +130,13 @@ func (s *Session) shots(dir string) error {
 			for i := 0; i < 30; i++ {
 				s.Step()
 			}
-			return selectNamed(ctx, "Camera")
+			if err := selectNamed(ctx, "Camera"); err != nil {
+				return err
+			}
+			s.App.Inspector().ScrollTo("camera.CameraFollow2D")
+			return nil
 		}},
-		{name: "camera-zone", frames: 60, setup: func(s *Session) error {
+		{name: "camera-zone", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			sc := ctx.Scene()
 			ctx.Select(sc.ID(sc.Find(sc.Root(), "ArenaZone")), sc.ID(sc.Find(sc.Root(), "PatrolA2")), sc.ID(sc.Find(sc.Root(), "PatrolB2")), sc.ID(sc.Find(sc.Root(), "GroundRight")))
 			if err := ctx.Commands.Run(command.SceneFrame); err != nil {
@@ -136,9 +145,13 @@ func (s *Session) shots(dir string) error {
 			for i := 0; i < 30; i++ {
 				s.Step()
 			}
-			return selectNamed(ctx, "ArenaZone")
+			if err := selectNamed(ctx, "ArenaZone"); err != nil {
+				return err
+			}
+			s.App.Inspector().ScrollTo("camera.CameraZone2D")
+			return nil
 		}},
-		{name: "clip-inspector", frames: 60, setup: func(s *Session) error {
+		{name: "clip-inspector", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			id, ok := s.Pipeline.Lookup("assets/audio/music.ogg")
 			if !ok {
 				return fmt.Errorf("no assets/audio/music.ogg")
@@ -167,25 +180,27 @@ func (s *Session) shots(dir string) error {
 			ctx.UI.CloseAllPopups()
 			return selectNamed(ctx, "Player")
 		}},
-		{name: "prefab", frames: 60, setup: func(s *Session) error {
+		{name: "prefab", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			return selectNamed(ctx, "EnemyLeft")
 		}},
-		{name: "settings-input", frames: 60, setup: func(s *Session) error {
+		{name: "settings-input", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			ctx.Open(context.SettingsAt("input"))
 			return nil
 		}},
-		{name: "settings-physics", frames: 60, setup: func(s *Session) error {
+		{name: "settings-physics", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			ctx.Open(context.SettingsAt("physics"))
 			return nil
 		}},
-		{name: "animator", frames: 60, setup: func(s *Session) error {
+		{name: "animator", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			scene()
 			s.App.Workspace().Switch(workspace.Design)
+			s.App.Workspace().Show(workspace.Inspector)
 			s.App.Workspace().Show(animator.ID)
 			return selectNamed(ctx, "Player")
 		}},
-		{name: "attack-preview", frames: 30, setup: func(s *Session) error {
+		{name: "attack-preview", frames: 30, fullInspector: true, setup: func(s *Session) error {
 			scene()
+			s.App.Workspace().Show(workspace.Inspector)
 			if err := selectNamed(ctx, "Player"); err != nil {
 				return err
 			}
@@ -207,7 +222,7 @@ func (s *Session) shots(dir string) error {
 			svc.SetTime(0.17)
 			return nil
 		}},
-		{name: "slicer", frames: 60, setup: func(s *Session) error {
+		{name: "slicer", frames: 60, fullInspector: true, setup: func(s *Session) error {
 			svc := ctx.Anim.For(ctx.Doc())
 			svc.SetMode(animedit.Normal)
 			for range 3 {
@@ -237,7 +252,7 @@ func (s *Session) shots(dir string) error {
 			scene()
 			return ctx.Commands.Run(command.PlayStart)
 		}},
-		{name: "motion-play", frames: 30, setup: func(s *Session) error {
+		{name: "motion-play", frames: 30, fullInspector: true, setup: func(s *Session) error {
 			s.App.Workspace().Show(workspace.Inspector)
 			s.App.Inspector().ScrollTo("gameplay.Motion2D")
 			return selectNamed(ctx, "Player")
@@ -279,6 +294,9 @@ func (s *Session) shots(dir string) error {
 			return nil
 		}},
 	}
+	if os.Getenv(EnvShotsEditorOnly) == "1" {
+		list = list[:1]
+	}
 	if s.App.ThemeMode() == theme.ModeLight {
 		for i := range list {
 			list[i].name += "-light"
@@ -288,8 +306,21 @@ func (s *Session) shots(dir string) error {
 		if err := sh.setup(s); err != nil {
 			return fmt.Errorf("%s: %w", sh.name, err)
 		}
+		var restore func() error
+		if sh.fullInspector {
+			var err error
+			restore, err = expandScreenshotInspector(s.App.Workspace().Tree)
+			if err != nil {
+				return fmt.Errorf("%s: %w", sh.name, err)
+			}
+		}
 		if err := s.capture(sh, filepath.Join(dir, sh.name+".png")); err != nil {
 			return fmt.Errorf("%s: %w", sh.name, err)
+		}
+		if restore != nil {
+			if err := restore(); err != nil {
+				return fmt.Errorf("%s: %w", sh.name, err)
+			}
 		}
 	}
 	return nil
@@ -313,16 +344,45 @@ func (s *Session) capture(sh shot, path string) error {
 		if !s.Step() {
 			return fmt.Errorf("the editor quit")
 		}
+		if _, err := screenshotStatus(s.App.Context().Notices(), s.App.Context().UI.Time); err != nil {
+			return err
+		}
 	}
 	var img *image.RGBA
 	var err error
-	s.Engine.CaptureFrame(func(got *image.RGBA, e error) { img, err = got, e })
-	s.Step()
-	if err != nil {
-		return err
-	}
-	if img == nil {
-		return fmt.Errorf("no frame was presented")
+	ctx := s.App.Context()
+	deadline := ctx.Now() + 30
+	for {
+		wait, statusErr := screenshotStatus(ctx.Notices(), ctx.UI.Time)
+		if statusErr != nil {
+			return statusErr
+		}
+		if ctx.Now() > deadline {
+			return fmt.Errorf("a warning remained visible for 30 seconds during screenshot capture")
+		}
+		requested := !wait
+		if requested {
+			s.Engine.CaptureFrame(func(got *image.RGBA, e error) { img, err = got, e })
+		}
+		if !s.Step() {
+			return fmt.Errorf("the editor quit")
+		}
+		if err != nil {
+			return err
+		}
+		if requested && img == nil {
+			return fmt.Errorf("no frame was presented")
+		}
+		// A warning can appear in the frame just captured. Discard that frame
+		// and retry; do not suppress profiler diagnostics in the editor.
+		wait, statusErr = screenshotStatus(ctx.Notices(), ctx.UI.Time)
+		if statusErr != nil {
+			return statusErr
+		}
+		if img != nil && !wait {
+			break
+		}
+		img = nil
 	}
 	b := img.Bounds()
 	crop := img.SubImage(image.Rect(b.Min.X+sh.inset, b.Min.Y+sh.inset, b.Max.X-sh.inset, b.Max.Y-sh.inset-sh.bottom))

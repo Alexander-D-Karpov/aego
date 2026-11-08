@@ -136,6 +136,7 @@ scene version=1 {
     }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000b00")
+      material=asset("ae900000000000000000000000000c02")
       layer=0
       order=2
       tint=#4aa3ffff
@@ -159,6 +160,9 @@ scene version=1 {
       interpolate=true
       layer=2
       mask=-1
+    }
+    component "engine.MaterialOverride" version=1 {
+      values=[]
     }
     component "engine.Tags" version=1 {
       tags=["Player", "Saved"]

@@ -27,49 +27,14 @@ func (r *resolver) textureInfo(id ids.AssetID) (preparedTexture, bool) {
 		}
 		return preparedTexture{w: tex.Width, h: tex.Height, semantic: semantic}, true
 	}
-	e, ok := r.s.idx.Lookup(id)
-	if !ok || e.Missing || e.Error != "" || r.s.files == nil {
+	if r.s.files == nil {
 		return preparedTexture{}, false
 	}
-	page := e
-	var region *asset.RegionArtifact
-	if e.Kind == asset.ArtSpriteRegion {
-		data, ok := r.blob(id, e.Kind)
-		if !ok {
-			return preparedTexture{}, false
-		}
-		var err error
-		region, err = asset.DecodeRegion(data)
-		if err != nil || region.Page == id {
-			return preparedTexture{}, false
-		}
-		page, ok = r.s.idx.Lookup(region.Page)
-		if !ok || page.Missing || page.Error != "" {
-			return preparedTexture{}, false
-		}
-	}
-	if page.Kind != asset.ArtTexture && page.Kind != asset.ArtAtlasPage {
-		return preparedTexture{}, false
-	}
-	data, ok := r.blob(page.ID, page.Kind)
-	if !ok {
-		return preparedTexture{}, false
-	}
-	tex, err := asset.DecodeTexture(data)
-	if err != nil {
-		return preparedTexture{}, false
-	}
-	info := preparedTexture{semantic: tex.Semantic, w: tex.Width, h: tex.Height}
-	if region != nil {
-		if region.PageW != tex.Width || region.PageH != tex.Height {
-			return preparedTexture{}, false
-		}
-		info.region, info.w, info.h = true, region.W, region.H
-		if region.SourceW != 0 {
-			info.w, info.h = region.SourceW, region.SourceH
-		}
-	}
-	return info, true
+	info, ok := asset.ReadTextureMetadata(id, func(id ids.AssetID) (*asset.Entry, bool) {
+		e, ok := r.s.idx.Lookup(id)
+		return e, ok && !e.Missing && e.Error == ""
+	}, func(a asset.Artifact) ([]byte, error) { return r.s.files.ReadFile(a.Path) })
+	return preparedTexture{semantic: info.Semantic, region: info.Region, w: info.Width, h: info.Height}, ok
 }
 
 func (r *resolver) TextureMetadata(id ids.AssetID) (asset.TextureMetadata, bool) {

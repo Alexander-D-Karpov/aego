@@ -76,6 +76,9 @@ func (c *Comp) Set(name string, v schema.Value) {
 
 func (c Comp) Clone() Comp {
 	c.Fields = slices.Clone(c.Fields)
+	for i := range c.Fields {
+		c.Fields[i].Value = c.Fields[i].Value.Clone()
+	}
 	return c
 }
 

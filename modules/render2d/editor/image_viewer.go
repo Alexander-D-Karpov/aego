@@ -34,6 +34,18 @@ type imagePanel struct {
 	doc   *document.AssetDocument
 }
 
+type imageSections struct {
+	channels, settings, details, references bool
+}
+
+// The sections are view state only; opening them never mutates source metadata.
+func imageSection(ui *core.Context, id, label string, open *bool) bool {
+	if widgets.TreeNode(ui, ui.ID(id), label, open, false) {
+		*open = !*open
+	}
+	return *open
+}
+
 func imageHooks(r *ext.Registry) error {
 	ed := r.Editor()
 	if ed == nil || ed.Docs == nil {
@@ -57,7 +69,7 @@ func imageHooks(r *ext.Registry) error {
 		}
 	}
 	r.Tick(s.tick)
-	return nil
+	return artHooks(r)
 }
 
 func (s *imagesEditor) state(d *document.AssetDocument) *imageState {
@@ -185,6 +197,16 @@ func (p *imagePanel) Draw(f *services.Frame, area mathx.Rect) {
 	if len(v.content.Frames) > 0 {
 		s.frameField(d, v)
 	}
+	if canCopyPNGToArt(s.ctx, d) && widgets.Button(ui, i18n.Tr("editor.art.png_edit_copy", "Edit as .aeart copy…")) {
+		if err := askPNGArtCopy(s.ctx, d); err != nil {
+			s.ctx.Notify(context.LevelError, err.Error())
+		}
+	}
+	if canCopyPNGToArt(s.ctx, d) && v.meta != nil && len(v.meta.Subs) > 1 && widgets.Button(ui, i18n.Tr("editor.art.png_frames_copy", "Create animation from PNG slices…")) {
+		if err := askPNGFramesArtCopy(s.ctx, d); err != nil {
+			s.ctx.Notify(context.LevelError, err.Error())
+		}
+	}
 	widgets.LabelDim(ui, i18n.Tr("editor.image.navigation", "Wheel: zoom under cursor · middle/right drag: pan · pixel values are original bytes"))
 	top, bottom := cur.Y, area.Y+area.H-28
 	sideWidth := min(float32(300), max(210, area.W*.34))
@@ -237,8 +259,8 @@ func (p *imagePanel) Draw(f *services.Frame, area mathx.Rect) {
 		v.preview.draw(s.ctx, previewArea, v.surface(s.ctx, d), candidate, v.content.SourceRect)
 		v.preview.fields(s.ctx)
 	}
-	s.metadataControls(d, v)
-	s.info(d, v)
+	s.metadataControls(d, v, &v.sections[0])
+	s.info(d, v, &v.sections[0])
 }
 
 func (s *imagesEditor) frameField(d *document.AssetDocument, v *imageState) {
@@ -329,56 +351,20 @@ func (s *imagesEditor) inspect(ed *context.Editor, id ids.AssetID) {
 	if len(v.content.Frames) > 0 {
 		s.frameField(d, v)
 	}
-	s.metadataControls(d, v)
-	s.info(d, v)
+	s.metadataControls(d, v, &v.sections[1])
+	s.info(d, v, &v.sections[1])
 }
 
-func (s *imagesEditor) info(d *document.AssetDocument, v *imageState) {
+func (s *imagesEditor) info(d *document.AssetDocument, v *imageState, sections *imageSections) {
 	ui := s.ctx.UI
-	widgets.LabelDim(ui, d.Path)
-	widgets.LabelDim(ui, "AssetID: "+d.Selected.String())
 	if v.content.Source != nil {
 		widgets.LabelDim(ui, fmt.Sprintf("%d × %d · %s", v.content.Source.data.Width, v.content.Source.data.Height, v.role))
-	}
-	if v.meta != nil {
-		srgb, err := asset.TextureSRGB(v.role, v.meta.Settings)
-		space := "linear"
-		if srgb {
-			space = "sRGB"
-		}
-		if err == nil {
-			widgets.LabelDim(ui, i18n.Tr("editor.image.colorspace_info", "Imported RGB: {space} · alpha remains linear", i18n.Str("space", space)))
-		}
-		pivot := v.meta.EffectivePivot()
-		if f, found := v.meta.Frame(d.Selected); found {
-			pivot = f.EffectivePivot()
-		}
-		widgets.LabelWrapped(ui, i18n.Tr("editor.image.pivot_info", "Source/frame pivot: {x}, {y}. The surface preview uses a local center origin; node origins are unchanged.", i18n.Str("x", fmt.Sprintf("%.3g", pivot[0])), i18n.Str("y", fmt.Sprintf("%.3g", pivot[1]))), false)
-	}
-	if !v.content.Page.IsZero() {
-		r := v.content.Region
-		logicalW, logicalH := r.SourceW, r.SourceH
-		if logicalW == 0 || logicalH == 0 {
-			logicalW, logicalH = r.W, r.H
-		}
-		widgets.LabelWrapped(ui, i18n.Tr("editor.image.region_info", "Atlas pixels: {rect} · logical {size} · trim {trim}", i18n.Str("rect", fmt.Sprintf("%d,%d %d×%d", r.X, r.Y, r.W, r.H)), i18n.Str("size", fmt.Sprintf("%d×%d", logicalW, logicalH)), i18n.Str("trim", fmt.Sprintf("%d,%d", r.TrimX, r.TrimY))), false)
-		if v.content.Page != d.Asset && widgets.Button(ui, i18n.Tr("editor.image.open_atlas", "Open Atlas · highlight region")) {
-			page, err := s.ctx.OpenAsset(v.content.Page)
-			if err == nil {
-				pv := s.state(page)
-				pv.mode, pv.highlight, pv.viewport.Ready = 1, imageRegionRect(v.content.Region), false
-			} else {
-				v.message = err.Error()
-			}
-		}
 	}
 	if d.Note != "" {
 		widgets.LabelWrapped(ui, d.Note, true)
 	}
 	if v.content.ImportedError != "" {
 		widgets.LabelWrapped(ui, v.content.ImportedError, true)
-	} else if v.content.Imported != nil {
-		widgets.LabelDim(ui, i18n.Tr("editor.image.import_committed", "Imported view: committed runtime artifact"))
 	}
 	if s.ctx.Pipeline != nil {
 		for _, info := range s.ctx.Pipeline.Assets() {
@@ -387,6 +373,54 @@ func (s *imagesEditor) info(d *document.AssetDocument, v *imageState) {
 				break
 			}
 		}
+	}
+	if imageSection(ui, "image.section.details", i18n.Tr("editor.image.section_details", "Details"), &sections.details) {
+		widgets.LabelDim(ui, d.Path)
+		widgets.LabelDim(ui, "AssetID: "+d.Selected.String())
+		if v.meta != nil {
+			srgb, err := asset.TextureSRGB(v.role, v.meta.Settings)
+			space := "linear"
+			if srgb {
+				space = "sRGB"
+			}
+			if err == nil {
+				widgets.LabelDim(ui, i18n.Tr("editor.image.colorspace_info", "Imported RGB: {space} · alpha remains linear", i18n.Str("space", space)))
+			}
+			pivot := v.meta.EffectivePivot()
+			if f, found := v.meta.Frame(d.Selected); found {
+				pivot = f.EffectivePivot()
+			}
+			widgets.LabelWrapped(ui, i18n.Tr("editor.image.pivot_info", "Source/frame pivot: {x}, {y}. The surface preview uses a local center origin; node origins are unchanged.", i18n.Str("x", fmt.Sprintf("%.3g", pivot[0])), i18n.Str("y", fmt.Sprintf("%.3g", pivot[1]))), false)
+		}
+		if !v.content.Page.IsZero() {
+			r := v.content.Region
+			logicalW, logicalH := r.SourceW, r.SourceH
+			if logicalW == 0 || logicalH == 0 {
+				logicalW, logicalH = r.W, r.H
+			}
+			widgets.LabelWrapped(ui, i18n.Tr("editor.image.region_info", "Atlas pixels: {rect} · logical {size} · trim {trim}", i18n.Str("rect", fmt.Sprintf("%d,%d %d×%d", r.X, r.Y, r.W, r.H)), i18n.Str("size", fmt.Sprintf("%d×%d", logicalW, logicalH)), i18n.Str("trim", fmt.Sprintf("%d,%d", r.TrimX, r.TrimY))), false)
+			if v.content.Page != d.Asset && widgets.Button(ui, i18n.Tr("editor.image.open_atlas", "Open Atlas · highlight region")) {
+				page, err := s.ctx.OpenAsset(v.content.Page)
+				if err == nil {
+					pv := s.state(page)
+					pv.mode, pv.highlight, pv.viewport.Ready = 1, imageRegionRect(v.content.Region), false
+				} else {
+					v.message = err.Error()
+				}
+			}
+		}
+		if v.content.ImportedError == "" && v.content.Imported != nil {
+			widgets.LabelDim(ui, i18n.Tr("editor.image.import_committed", "Imported view: committed runtime artifact"))
+		}
+		if s.ctx.RevealPath != nil && d.Capabilities.Has(document.RevealSource) && widgets.Button(ui, i18n.Tr("editor.document.reveal_source", "Reveal Source")) {
+			s.ctx.RevealPath(d.Path)
+		}
+	}
+	if len(v.content.Dependencies) == 0 && len(v.content.Consumers) == 0 {
+		return
+	}
+	if !imageSection(ui, "image.section.references", i18n.Tr("editor.image.section_references", "References"), &sections.references) {
+		return
 	}
 	for _, group := range []struct {
 		label string
@@ -411,9 +445,6 @@ func (s *imagesEditor) info(d *document.AssetDocument, v *imageState) {
 			}
 		}
 		ui.PopID()
-	}
-	if s.ctx.RevealPath != nil && d.Capabilities.Has(document.RevealSource) && widgets.Button(ui, i18n.Tr("editor.document.reveal_source", "Reveal Source")) {
-		s.ctx.RevealPath(d.Path)
 	}
 }
 

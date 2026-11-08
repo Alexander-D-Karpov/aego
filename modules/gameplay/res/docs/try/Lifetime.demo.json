@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Lifetime",
+  "demoID": "gameplay.Lifetime.countdown",
+  "documentID": "gameplay.Lifetime",
+  "scene": "gameplay.Lifetime/try",
+  "identity": "3bfb9fa636fae2059efc36f72dde50b99c2f4251d91b41d0af0eae2d555da39a",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.Lifetime.Seconds"],
+  "actions": [{
+    "id": "shorten-lifetime", "field": "gameplay.Lifetime.Seconds", "value": 8,
+    "expected": [{"observable": "gameplay.Lifetime.Seconds", "equals": 8, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "A node with a lifetime", "description": "The bar reads the running Lifetime's Remaining value: it is long above 30 seconds and short below. The node disappears at zero.", "input": "Change Seconds from 60 to 8. The bar becomes short and its node disappears after eight game seconds. Reset restores the original node."},
+    "ru": {"title": "Узел с ограниченным временем жизни", "description": "Полоса читает текущее Remaining компонента Lifetime: она длинная выше 30 секунд и короткая ниже. При нуле узел исчезает.", "input": "Измените Seconds с 60 на 8. Полоса станет короткой, а через восемь игровых секунд её узел исчезнет. «Сброс» восстановит исходный узел."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

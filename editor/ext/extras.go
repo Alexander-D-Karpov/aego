@@ -2,6 +2,7 @@ package ext
 
 import (
 	"fmt"
+	"strings"
 
 	"aego/core/errs"
 	"aego/core/ids"
@@ -163,6 +164,55 @@ func (r *Registry) CreateAction(a context.CreateAction) error {
 	ext := r.ext()
 	run := a.Run
 	a.Run = func(parent ids.NodeID) (err error) { Safe(ext, r, func() { err = run(parent) }); return }
+	if runInFolder := a.RunInFolder; runInFolder != nil {
+		a.RunInFolder = func(dir string) (err error) { Safe(ext, r, func() { err = runInFolder(dir) }); return }
+	}
 	ed.CreateActions = append(ed.CreateActions, a)
+	r.own(ext).createActions = append(r.own(ext).createActions, a.Key)
+	return nil
+}
+
+// ExternalFileImport registers a module-owned external source converter.
+func (r *Registry) ExternalFileImport(h context.ExternalFileImport) error {
+	ed := r.deps.Editor
+	if ed == nil {
+		return nil
+	}
+	if h.Key == "" || len(h.Extensions) == 0 || h.Import == nil {
+		return errs.New(errs.EditorPanel, "external file import needs a key, extensions and handler")
+	}
+	seen := map[string]bool{}
+	for _, ext := range h.Extensions {
+		if len(ext) < 2 || !strings.HasPrefix(ext, ".") || strings.ContainsAny(ext, "/\\") {
+			return errs.New(errs.EditorPanel, "invalid external file extension "+ext)
+		}
+		key := strings.ToLower(ext)
+		if seen[key] {
+			return errs.New(errs.EditorPanel, "duplicate external file extension "+ext)
+		}
+		seen[key] = true
+		for _, old := range ed.ExternalFileImports {
+			if old.Key == h.Key {
+				return errs.New(errs.EditorPanel, "duplicate external file import "+h.Key)
+			}
+			for _, existing := range old.Extensions {
+				if strings.EqualFold(existing, ext) {
+					return errs.New(errs.EditorPanel, "external file extension is already registered "+ext)
+				}
+			}
+		}
+	}
+	owner, run := r.ext(), h.Import
+	h.Extensions = append([]string(nil), h.Extensions...)
+	h.Import = func(source, dir string) (id ids.AssetID, pending bool, err error) {
+		finished := false
+		Safe(owner, r, func() { id, pending, err = run(source, dir); finished = true })
+		if !finished {
+			err = errs.New(errs.EditorPanel, "external file import failed in extension "+owner)
+		}
+		return
+	}
+	ed.ExternalFileImports = append(ed.ExternalFileImports, h)
+	r.own(owner).externalImports = append(r.own(owner).externalImports, h.Key)
 	return nil
 }

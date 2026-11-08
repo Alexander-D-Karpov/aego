@@ -7,7 +7,22 @@ order: 1
 
 # The aego command
 
-Every command takes the project directory as its first argument and looks for `project.aego` upwards from the current directory when it is left out. Commands print diagnostics with file, line and code and exit with a non-zero status on any error, so they run unchanged in CI.
+Project-oriented commands take the project directory as their first argument and look for `project.aego` upwards from the current directory when it is left out. Commands report errors with a non-zero status, so they can run in CI.
+
+## aego examples
+
+Manages local copies of data-only remote example projects without Git. `aego examples help` lists the operations. For example:
+
+```text
+aego examples clone --url https://example.org/example.json --approve-origin https://example.org
+aego examples recent
+aego examples reopen --id LOCAL_COPY_ID
+aego examples check --id LOCAL_COPY_ID --approve-origin https://example.org
+```
+
+Cloning requires an explicitly approved exact HTTPS origin, checks the actual engine version and built-in modules, and verifies the manifest, archive, paths, sizes and SHA-256 hashes. `open` first reuses a local copy, including offline edits; `clone` creates a new copy; `check` reports updates without overwriting files. Results include the local directory and entry scene. These commands do not run the project or open the editor: invoke `aego edit <directory>` separately after reviewing the example. `link` and `inspect` only generate or parse a link; they do not register a protocol handler or grant trust.
+
+The local store currently rejects writable Windows directories because its private-directory check does not yet validate Windows ACLs. Windows storage support is not yet available; link inspection remains data-only.
 
 ## aego new
 
@@ -100,6 +115,21 @@ Regenerates `.aego/generated` for the native module without building it.
 
 Reimports every asset; `--force` ignores the artifact cache.
 
+## aego source-recovery
+
+If a source edit was interrupted, `aego source-recovery status [dir]` lists the
+affected paths without changing them. Close the editor and other project
+processes, inspect the files, then use `aego source-recovery restore [dir]
+--confirm` to restore the previous source and metadata. If the transaction had
+already committed or been restored, the command only finishes its recovery-file
+cleanup. A changed source, sidecar or backup is not overwritten: resolve the
+conflict deliberately and retain the files in `.aego/source-transactions/active`
+while investigating. Recovery is not automatic, and content checks are not an
+atomic compare-and-swap against other processes. An unreadable or incomplete
+journal needs manual inspection; do not discard it blindly. This journal covers
+guarded source transactions, not every multi-file editor operation. Power-loss
+durability has not been verified; directory fsync is unavailable here on Windows.
+
 ## aego icons
 
 `aego icons check` compares icon use with the icon sources and fails on missing or unused icons; `aego icons list [--json] [--out file]` prints the manifest.
@@ -153,6 +183,9 @@ These commands read and change scenes, prefabs, data assets and references witho
 | `aego anim remove-track <file> <target> <prop> [--dry-run]` | remove a track with all its keys |
 | `aego anim set <file> <attr> [<value>] [--dry-run]` | set length, loop or fps of a clip; no value clears loop or fps |
 | `aego anim set-key <file> <target> <prop> <time> <value> [--kind v] [--interp v] [--tangent v] [--dry-run]` | set a key; a new track needs --kind |
+| `aego art apply <file> [--revision v] [--label v] [--operations v] [--dry-run]` | Propose one atomic graphics edit at the revision returned by art.read. Agent panel edits require approval; CLI and external agents follow the editor's confirmation setting. All use the document's common Undo. Name new entities with as and refer to them as $name later. |
+| `aego art capture <file> [--frame v] [--channel v] [--out path]` | Capture unsaved CPU pixels with document/frame/channel identity and revision. MCP returns a PNG image; the CLI writes it only with --out to a new file. |
+| `aego art read <file> [--section v] [--offset v] [--limit v]` | Read the current art document, not its last saved file. Lists are paginated; revision is a decimal string for art.apply. |
 | `aego asset delete <asset> [--force] [--dry-run]` | delete an asset; refuses while it is referenced unless --force |
 | `aego asset import-variant [--variant v] [--path v] [--replace] [--dry-run]` | Import an inspected generated PNG variant from this editor conversation as a stable project source asset |
 | `aego asset list [--kind v]` | assets with their ids and kinds |

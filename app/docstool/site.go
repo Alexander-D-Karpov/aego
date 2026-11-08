@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -158,6 +159,14 @@ func (e *Env) Build(out string, play bool) error {
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return err
 	}
+	var studioURL string
+	if artifact := os.Getenv("ARTSTUDIO_ARTIFACT"); artifact != "" {
+		var err error
+		studioURL, err = e.integrateStudioGuides(artifact, abs)
+		if err != nil {
+			return err
+		}
+	}
 	var playV, tryV string
 	if play {
 		if playV, err = e.playground(filepath.Join(abs, "play")); err != nil {
@@ -165,6 +174,11 @@ func (e *Env) Build(out string, play bool) error {
 		}
 		if tryV, err = e.tryApp(filepath.Join(abs, "try")); err != nil {
 			return err
+		}
+		if studioURL == "" {
+			if err = e.artStudio(filepath.Join(abs, "studio")); err != nil {
+				return err
+			}
 		}
 	}
 	tmp, err := os.CreateTemp("", "aego-docs-*.json")
@@ -179,6 +193,12 @@ func (e *Env) Build(out string, play bool) error {
 	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs, "-version", engine.Version}
 	if play {
 		args = append(args, "-playground", "-play-version", playV, "-try-version", tryV)
+		if studioURL == "" {
+			args = append(args, "-studio")
+		}
+	}
+	if studioURL != "" {
+		args = append(args, "-studio-url", studioURL, "-studio-guides")
 	}
 	if e.Demo {
 		args = append(args, "-demo")
@@ -205,6 +225,97 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	if err := e.goCmd(filepath.Join(e.Engine, "tools", "gendocs"), nil, args...); err != nil {
 		return fmt.Errorf("gendocs failed: %w", err)
+	}
+	return nil
+}
+
+// integrateStudioGuides consumes one verified release artifact. It copies only
+// its pinned lesson pages and host scripts, never another copy of the WASM.
+func (e *Env) integrateStudioGuides(artifact, out string) (string, error) {
+	args := []string{"run", "./tools/artstudio/release", "integrate-docs", "-dir", artifact, "-out", out}
+	if hash := os.Getenv("ARTSTUDIO_MANIFEST_SHA256"); hash != "" {
+		args = append(args, "-sha256", hash)
+	}
+	cmd := exec.Command("go", args...)
+	cmd.Dir, cmd.Stderr = e.Engine, e.Stderr
+	data, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("integrate pinned Art Studio guides: %w", err)
+	}
+	var result struct {
+		Status, EditorURL, ManifestSHA256 string
+	}
+	if err := json.Unmarshal(data, &result); err != nil || result.Status != "PASS" || result.EditorURL == "" || result.ManifestSHA256 == "" {
+		return "", fmt.Errorf("invalid Art Studio guide integration response")
+	}
+	if e.Stdout != nil {
+		fmt.Fprintf(e.Stdout, "Art Studio guides: %s (manifest %s)\n", result.EditorURL, result.ManifestSHA256)
+	}
+	return result.EditorURL, nil
+}
+
+// artStudio packages the existing authoring core as a separate, lazy page.
+// It does not load its WASM on documentation pages.
+func (e *Env) artStudio(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	wasm := filepath.Join(dir, "artstudio.wasm")
+	if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm"}, "build", "-trimpath", "-ldflags", "-s -w", "-o", wasm, "./tools/artstudio/wasm"); err != nil {
+		return fmt.Errorf("build Art Studio: %w", err)
+	}
+	if _, err := gzipCopy(wasm); err != nil {
+		return err
+	}
+	root, err := goRoot()
+	if err != nil {
+		return err
+	}
+	support, err := os.ReadFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"))
+	if err != nil {
+		return err
+	}
+	return packageStudioWeb(filepath.Join(e.Engine, "tools", "artstudio", "web"), dir, support)
+}
+
+// Each entry carries the same digest, so static caches cannot mix a new WASM
+// with an old JavaScript bridge. The source UI also works unmodified on the
+// loopback development host; only these exact relative URLs are versioned.
+func packageStudioWeb(web, dir string, support []byte) error {
+	wasm, err := os.ReadFile(filepath.Join(dir, "artstudio.wasm"))
+	if err != nil {
+		return err
+	}
+	names := []string{"index.html", "studio.css", "studio.js", "recovery.js"}
+	data := make(map[string][]byte, len(names))
+	parts := [][]byte{wasm, support}
+	for _, name := range names {
+		data[name], err = os.ReadFile(filepath.Join(web, name))
+		if err != nil {
+			return err
+		}
+		parts = append(parts, data[name])
+	}
+	version := versionOf(parts...)
+	index := data["index.html"]
+	for _, entry := range []struct{ attr, name string }{{"href", "studio.css"}, {"src", "wasm_exec.js"}, {"src", "recovery.js"}, {"src", "studio.js"}} {
+		old := []byte(entry.attr + `="` + entry.name + `"`)
+		if bytes.Count(index, old) != 1 {
+			return fmt.Errorf("studio index needs exactly one %s", old)
+		}
+		index = bytes.Replace(index, old, []byte(entry.attr+`="`+entry.name+"?v="+version+`"`), 1)
+	}
+	js := data["studio.js"]
+	old := []byte(`fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm')`)
+	if bytes.Count(js, old) != 1 {
+		return errors.New("studio needs exactly one WASM fetch")
+	}
+	data["studio.js"] = bytes.Replace(js, old, []byte(`fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm?v=`+version+`')`), 1)
+	data["index.html"], data["wasm_exec.js"] = index, support
+	for _, name := range append(names, "wasm_exec.js") {
+		if err := os.WriteFile(filepath.Join(dir, name), data[name], 0o644); err != nil {
+			return err
+		}
 	}
 	return nil
 }

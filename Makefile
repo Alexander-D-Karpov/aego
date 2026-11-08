@@ -32,6 +32,7 @@ WEB_THEME = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node theme.mjs --site=$(CU
 WEB_BENCH_BROWSERS ?= chromium,firefox
 WEB_BENCH_ARGS ?=
 WEB_BENCH_BASELINE ?= $(CURDIR)/.cache/web-bench.base.json
+WEB_STAGE12_BENCH_RUNS ?= 1
 WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
 	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
 	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(WEB_BENCH_BASELINE)
@@ -47,6 +48,7 @@ MODULE_BENCH_COMPARE := ./tests/integration:RewindScrub
 BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
+include tools/artstudio/release/release.mk
 
 .PHONY: materials materials-check dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
@@ -102,7 +104,8 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
-	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset)AuthoringWorkflowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
+	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|ArtWorkingAlphaShadowNative|AuthoredFlipbookParticleGameViewNative|VFXCanvasAndParticlePresetNative|PlatformerSlicedPNGCopyNative|PlatformerSlicedPNGGameUndoExportNative|CreateMenuFilePromptKeepsNativeKeyboardFocus|CreatePixelArtNativeEnterWaitsForConfirmation|AssetsEmptyGridContextMenuSDL|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative|SceneViewCaptureAfterEndFrameGL|SceneViewCaptureOrientationMatchesDisplayGL|SceneView3DShows2DSpritePixels)$$'
+	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb|TestPhysicsBackedComponentDemosNative|TestCameraShakeComponentDemoDrivesRealCamera|TestBrowserProcessDeadlineFailsClosed)$$' ./app/docsview
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
@@ -279,6 +282,16 @@ web-smoke: site
 	$(WEB_THEME)
 	$(WEB_BENCH) --browsers=chromium --runs=1 --gate
 
+# The old Stage 12 workload remains a separate gate against its unchanged
+# baseline.  A single CI sample checks counts/allocations; use five to compare
+# timing as well, just like web-bench.  It never changes the user's project.
+.PHONY: web-bench-stage12 web-stage12-fixture-test
+web-bench-stage12: cli
+	python3 tools/websmoke/stage12_bench.py --runs=$(WEB_STAGE12_BENCH_RUNS)
+
+web-stage12-fixture-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/websmoke -p stage12_bench_test.py
+
 web-bench: site
 	cd tools/websmoke && npm ci --no-audit --no-fund
 	$(WEB_BENCH) --browsers=$(WEB_BENCH_BROWSERS) --gate $(WEB_BENCH_ARGS)
@@ -365,7 +378,9 @@ ci: export AEGO_REQUIRE_GLSLANG := 1
 # direct web-smoke and stage12-release-check runs stay strict by default.
 ci: export AEGO_CI_WEB_WARN := 1
 ci: export AEGO_CI_REQUIRE_WEB_BASELINE := 1
-ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-stage12-baseline.json
+# The present platformer is a different workload than the Stage 12 fixture.
+# Gate both independently; never compare changed content to the old counts.
+ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-platformer-head-baseline.json
 .PHONY: web-warning-policy-test
 web-warning-policy-test:
 	node --test tools/websmoke/ci-warning-policy.test.mjs
@@ -382,7 +397,16 @@ web-audio-policy-test:
 web-visibility-lifecycle-test:
 	node --test tools/websmoke/visibility-browser.test.mjs
 
-ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+.PHONY: web-private-xvfb-test
+web-private-xvfb-test:
+	node --test tools/websmoke/private-xvfb.test.mjs
+
+.PHONY: web-try-pulse-test
+web-try-pulse-test:
+	node --test tools/websmoke/try-pulse.test.mjs
+
+ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+ci: studio-web-test
 	@sh tools/ci-clean-root.sh
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
@@ -464,7 +488,7 @@ web-materials:
 	cp tests/webmaterials/index.html .cache/web-materials/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-materials/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
 
 ci: web-materials
 
@@ -483,7 +507,7 @@ web-gpu-smoke:
 	cp tests/webgpu/index.html .cache/web-gpu/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-gpu/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
 
 ci: gpu-smoke web-gpu-smoke image-gpu-smoke
 
@@ -502,7 +526,7 @@ web-lighting:
 	cp tests/weblighting/index.html .cache/web-lighting/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-lighting/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
 
 ci: lighting-smoke web-lighting
 
@@ -519,7 +543,7 @@ web-particle-goldens: cli
 	go run ./tools/genparticlefixtures -out .cache/particle-goldens/project
 	.cache/bin/aego export .cache/particle-goldens/project --target web --release --out .cache/particle-goldens/web
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
 
 ci: web-particle-goldens
 

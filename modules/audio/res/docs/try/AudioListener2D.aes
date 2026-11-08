@@ -1,21 +1,11 @@
 package demo
 
-// Walker rolls the listening ball past the humming box and back; the hum pans as the ball passes it.
-script Walker {
-    @export var Speed float = 5
-    @export var Every float = 4
+import "aego/audio"
 
-    var t float = 4
-    var dir float = 1
-
+// The marker shows the position returned by the real audio service, including
+// camera fallback. It does not change the listener or start a sound.
+script ListenerIndicator {
     func Update(dt float) {
-        t += dt
-        if t < Every {
-            return
-        }
-        t = 0
-        body := node.Get<Body2D>()
-        body.SetVelocity(Vec2{dir * Speed, 0})
-        dir = -dir
+        node.SetPosition(audio.ListenerPosition())
     }
 }

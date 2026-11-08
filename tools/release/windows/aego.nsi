@@ -55,6 +55,7 @@ Section "Aego" SecMain
   File "${SRC}\aego-editor.exe"
   File "${SRC}\VERSION"
   File "${SRC}\README.txt"
+  File /oname=aego-path.ps1 "${__FILEDIR__}/path.ps1"
   WriteUninstaller "$INSTDIR\uninstall.exe"
   ; the next update keeps this installer in updates\previous, so Restore Previous Version can run it again
   StrCmp "$EXEPATH" "$INSTDIR\setup.exe" +2
@@ -65,8 +66,13 @@ Section "Aego" SecMain
   CreateShortcut "$SMPROGRAMS\Aego\Uninstall Aego.lnk" "$INSTDIR\uninstall.exe"
   CreateShortcut "$DESKTOP\Aego.lnk" "$INSTDIR\aego-editor.exe"
 
-  ; put aego.exe on the user PATH once
-  nsExec::Exec `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$d='$INSTDIR'; $$p=[Environment]::GetEnvironmentVariable('Path','User'); if (-not $$p) { $$p='' }; if (($$p -split ';') -notcontains $$d) { [Environment]::SetEnvironmentVariable('Path', ($$p.TrimEnd(';') + ';' + $$d).TrimStart(';'), 'User') }"`
+  ; Claim only an entry we add; preserve an existing user PATH verbatim.
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\aego-path.ps1" -Action Install -Directory "$INSTDIR"'
+  Pop $0
+  StrCmp $0 "0" path_installed
+  MessageBox MB_ICONSTOP "Could not safely update the user PATH. See installation details."
+  Abort
+  path_installed:
 
   !insertmacro Assoc ".aego" "Aego.Project" "Aego Project"
   !insertmacro Assoc ".aescene" "Aego.Scene" "Aego Scene"
@@ -96,7 +102,12 @@ SectionEnd
 
 Section "Uninstall"
   nsExec::Exec 'taskkill /IM aego-editor.exe /F'
-  nsExec::Exec `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$d='$INSTDIR'; $$p=[Environment]::GetEnvironmentVariable('Path','User'); if ($$p) { [Environment]::SetEnvironmentVariable('Path', (($$p -split ';') | Where-Object { $$_ -and $$_ -ne $$d }) -join ';', 'User') }"`
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\aego-path.ps1" -Action Uninstall -Directory "$INSTDIR"'
+  Pop $0
+  StrCmp $0 "0" path_removed
+  MessageBox MB_ICONSTOP "Could not safely restore the user PATH. See uninstall details."
+  Abort
+  path_removed:
   !insertmacro Unassoc ".aego" "Aego.Project"
   !insertmacro Unassoc ".aescene" "Aego.Scene"
   !insertmacro Unassoc ".aeprefab" "Aego.Prefab"
@@ -107,6 +118,7 @@ Section "Uninstall"
   Delete "$INSTDIR\aego-editor.exe"
   Delete "$INSTDIR\VERSION"
   Delete "$INSTDIR\README.txt"
+  Delete "$INSTDIR\aego-path.ps1"
   Delete "$INSTDIR\uninstall.exe"
   Delete "$INSTDIR\setup.exe"
   RMDir "$INSTDIR"

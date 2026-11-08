@@ -40,6 +40,14 @@ var ruChrome = map[string]string{
 	"Edit this page":                        "Править эту страницу",
 	"Edit the English page":                 "Править английскую страницу",
 	"Playground":                            "Песочница",
+	"Art Studio":                            "Студия рисунка",
+	"Art Studio lessons":                    "Уроки студии рисунка",
+	"Draw your first sprite":                "Первый спрайт",
+	"Frame-by-frame animation":              "Покадровая анимация",
+	"Character animation":                   "Анимация персонажа",
+	"Explosion flipbook":                    "Покадровый взрыв",
+	"Emission and normal channels":          "Emission и normal-каналы",
+	"Export and use in Aego":                "Экспорт и использование в Aego",
 	"Functions":                             "Функции",
 	"Filter":                                "Найти среди",
 	"members of":                            "членов",
@@ -291,16 +299,39 @@ func (b *builder) pageLang() string {
 
 var headingID = regexp.MustCompile(`(<h[1-6][^>]* id=")([^"]*)(")`)
 
-// sameIDs gives the headings of a translated page the ids of the English page, so links to a section work in both languages.
+// sameIDs gives translated prose headings the English ids, so links to a
+// section work in both languages. Explicit ids already present in both pages
+// must not be reassigned just because translated sections have moved.
 func sameIDs(page, en string) string {
-	ids := headingID.FindAllStringSubmatch(en, -1)
-	if len(headingID.FindAllStringIndex(page, -1)) != len(ids) {
+	english := headingID.FindAllStringSubmatch(en, -1)
+	translated := headingID.FindAllStringSubmatch(page, -1)
+	if len(translated) != len(english) {
 		return page
+	}
+	enCount, translatedCount := map[string]int{}, map[string]int{}
+	for _, h := range english {
+		enCount[h[2]]++
+	}
+	for _, h := range translated {
+		translatedCount[h[2]]++
+	}
+	stable := map[string]bool{}
+	for id, count := range enCount {
+		stable[id] = count == 1 && translatedCount[id] == 1
+	}
+	var remaining []string
+	for _, h := range english {
+		if !stable[h[2]] {
+			remaining = append(remaining, h[2])
+		}
 	}
 	i := 0
 	return headingID.ReplaceAllStringFunc(page, func(m string) string {
 		sub := headingID.FindStringSubmatch(m)
-		out := sub[1] + ids[i][2] + sub[3]
+		if stable[sub[2]] {
+			return m
+		}
+		out := sub[1] + remaining[i] + sub[3]
 		i++
 		return out
 	})

@@ -7,19 +7,20 @@ import (
 )
 
 type State struct {
-	objs   []object
-	elems  []Value
-	lens   []int32
-	caps   []int32
-	free   []uint32
-	live   int
-	bytes  int
-	since  int
-	cos    []coroutine
-	regs   []Value
-	rlens  []int32
-	cofree []uint32
-	colive int
+	objs       []object
+	elems      []Value
+	lens       []int32
+	caps       []int32
+	free       []uint32
+	live       int
+	sliceCount int
+	bytes      int
+	since      int
+	cos        []coroutine
+	regs       []Value
+	rlens      []int32
+	cofree     []uint32
+	colive     int
 
 	hostStrings [hostStringCacheSize]Value
 	hostNext    uint8
@@ -37,12 +38,17 @@ func (m *Machine) Capture(dst *State) {
 	dst.hostStrings, dst.hostNext = m.hostStrings, m.hostNext
 	dst.objs = append(dst.objs[:0], h.objs...)
 	dst.elems, dst.lens, dst.caps = dst.elems[:0], dst.lens[:0], dst.caps[:0]
-	for i := range dst.objs {
-		o := &dst.objs[i]
-		dst.lens = append(dst.lens, int32(len(o.elems)))
-		dst.caps = append(dst.caps, int32(cap(o.elems)))
-		dst.elems = append(dst.elems, o.elems...)
-		o.elems = nil
+	dst.sliceCount = h.sliceCount
+	// String-only heaps have no mutable slice payloads to detach. In particular,
+	// dead objects have nil elems because collection clears them before reuse.
+	if h.sliceCount != 0 {
+		for i := range dst.objs {
+			o := &dst.objs[i]
+			dst.lens = append(dst.lens, int32(len(o.elems)))
+			dst.caps = append(dst.caps, int32(cap(o.elems)))
+			dst.elems = append(dst.elems, o.elems...)
+			o.elems = nil
+		}
 	}
 	dst.free = append(dst.free[:0], h.free...)
 	dst.live, dst.bytes, dst.since = h.live, h.bytes, h.since
@@ -70,24 +76,29 @@ func (m *Machine) Restore(src *State) {
 		objs = objs[:n]
 	}
 	off := 0
-	for i := range src.objs {
-		prev := objs[i].elems
-		objs[i] = src.objs[i]
-		ln, c := int(src.lens[i]), int(src.caps[i])
-		if c > 0 {
-			e := prev
-			if cap(e) != c {
-				e = make([]Value, ln, c)
-			} else {
-				e = e[:ln]
+	if src.sliceCount == 0 {
+		copy(objs, src.objs)
+	} else {
+		for i := range src.objs {
+			prev := objs[i].elems
+			objs[i] = src.objs[i]
+			ln, c := int(src.lens[i]), int(src.caps[i])
+			if c > 0 {
+				e := prev
+				if cap(e) != c {
+					e = make([]Value, ln, c)
+				} else {
+					e = e[:ln]
+				}
+				copy(e, src.elems[off:off+ln])
+				objs[i].elems = e
 			}
-			copy(e, src.elems[off:off+ln])
-			objs[i].elems = e
+			off += ln
 		}
-		off += ln
 	}
 	clear(objs[n:cap(objs)])
 	h.objs = objs
+	h.sliceCount = src.sliceCount
 	h.free = append(h.free[:0], src.free...)
 	h.live, h.bytes, h.since = src.live, src.bytes, src.since
 	cn := len(src.cos)

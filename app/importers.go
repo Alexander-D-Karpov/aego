@@ -4,7 +4,9 @@ import (
 	"aego/asset/importers/preset"
 	"sort"
 
+	"aego/asset/importers/artsource"
 	"aego/asset/importers/atlas"
+	audioImporter "aego/asset/importers/audio"
 	matImporter "aego/asset/importers/material"
 	"aego/asset/importers/scenefile"
 	scriptImporter "aego/asset/importers/script"
@@ -21,6 +23,7 @@ func CoreImporters() (*pipeline.ImporterRegistry, error) {
 	reg := pipeline.NewImporterRegistry()
 	for _, imp := range []pipeline.Importer{
 		atlas.Wrap(texImporter.New()),
+		artsource.New(),
 		scenefile.NewScene(),
 		scenefile.NewPrefab(),
 		preset.New(),
@@ -51,6 +54,21 @@ func DevImporters(ws *workspace.Workspace, man *module.Manifest) (*pipeline.Impo
 		}
 	}
 	return imps, nil
+}
+
+// disableExternalImportTools affects the existing importers for the entire
+// editor session, including later reimports, not only the initial scan.
+func disableExternalImportTools(imps *pipeline.ImporterRegistry) {
+	if imp, ok := imps.ByID("shader"); ok {
+		if shader, ok := imp.(*shaderImporter.Importer); ok {
+			shader.DisableExternal = true
+		}
+	}
+	if imp, ok := imps.ByID("audio"); ok {
+		if audio, ok := imp.(*audioImporter.Importer); ok {
+			audio.DisableExternal = true
+		}
+	}
 }
 
 func ScriptErrors(pl *pipeline.Pipeline) []string {

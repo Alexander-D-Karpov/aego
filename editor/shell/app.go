@@ -151,6 +151,7 @@ type App struct {
 	recentNext     float64
 	recentLoaded   bool
 	recentLabels   []string
+	recentScroll   float32
 	testsRunning   bool
 	data           *dataedit.Service
 	tablePanel     *datatable.Panel
@@ -526,6 +527,8 @@ func (a *App) Init(e *engine.Engine) error {
 		ShowReferences: a.showReferences,
 		BatchRename:    a.batchRenameAssets,
 		Compare:        compare,
+		CreateActions:  func() []context.CreateAction { return a.ctx.CreateActions },
+		ImportFile:     a.importAssetFile,
 		Schema:         a.opt.Types.Schema(),
 		Inspect:        a.ctx.InspectAsset,
 		Viewable:       a.viewable,
@@ -544,6 +547,15 @@ func (a *App) Init(e *engine.Engine) error {
 		Prefabs:        a.prefabs,
 	})
 	a.assetsPanel.Instantiate = a.instantiatePrefab
+	a.ctx.AssetFolder = func() string {
+		dir := a.assetsPanel.Folder()
+		for _, root := range []string{"assets", "scenes", "scripts", "prefabs"} {
+			if dir == root || assetops.Under(dir, root) {
+				return dir
+			}
+		}
+		return "assets"
+	}
 	a.hierarchy = hierarchy.New(hierarchy.Deps{
 		Templates: a.templates,
 		Docs:      a.ctx,
@@ -1173,7 +1185,9 @@ func (a *App) Shutdown() {
 		a.log.Warn("cannot save the layout", log.F("err", err.Error()))
 	}
 	if a.discard {
-		a.ctx.Docs.ClearAllRecovery()
+		if err := a.ctx.Docs.DiscardOpenRecovery(); err != nil {
+			a.log.Warn("cannot discard recovery files", log.F("err", err.Error()))
+		}
 	} else if _, err := a.ctx.Docs.WriteRecovery(); err != nil {
 		a.log.Warn("cannot write recovery files", log.F("err", err.Error()))
 	}

@@ -19,7 +19,7 @@ func TestMaterialTryCompilesItsQualifiedScriptAndAnimatesFlash(t *testing.T) {
 		t.Fatal(err)
 	}
 	entries := p.TryScenes()
-	for _, id := range []string{"render2d/materials", "engine.MaterialOverride"} {
+	for _, id := range []string{"render2d/materials"} {
 		t.Run(id, func(t *testing.T) {
 			var entry docs.Entry
 			for _, e := range entries {

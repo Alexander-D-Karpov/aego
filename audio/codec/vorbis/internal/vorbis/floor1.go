@@ -66,13 +66,16 @@ func (f *floor1) ReadFrom(r *bitReader) error {
 	return nil
 }
 
-func (f *floor1) Decode(r *bitReader, books []codebook, n uint32) interface{} {
+func (f *floor1) Decode(r *bitReader, books []codebook, n uint32, data *floorData) bool {
 	if !r.ReadBool() {
-		return nil
+		return false
 	}
 
 	range_ := [4]uint32{256, 128, 86, 64}[f.multiplier-1]
-	y := make([]uint32, 0, len(f.xList))
+	y := data.y[:0]
+	if cap(y) < len(f.xList) {
+		y = make([]uint32, 0, len(f.xList))
+	}
 	y = append(y, r.Read32(ilog(int(range_)-1)), r.Read32(ilog(int(range_)-1)))
 	for _, classIndex := range f.partitionClassList {
 		class := f.classes[classIndex]
@@ -93,11 +96,12 @@ func (f *floor1) Decode(r *bitReader, books []codebook, n uint32) interface{} {
 			}
 		}
 	}
-	return y
+	data.y = y
+	return true
 }
 
-func (f *floor1) Apply(out []float32, data interface{}) {
-	y := data.([]uint32)
+func (f *floor1) Apply(out []float32, data *floorData) {
+	y := data.y
 	n := uint32(len(out))
 	range_ := [4]uint32{256, 128, 86, 64}[f.multiplier-1]
 

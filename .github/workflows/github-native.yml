@@ -130,6 +130,10 @@ jobs:
       - name: Build Windows portable and installer
         if: runner.os == 'Windows'
         run: bash tools/ci/github-windows-package.sh 2>&1 | tee .cache/github-ci/logs/windows-package.txt
+      - name: Test user PATH preservation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/release/windows/path_test.ps1
       - name: Native silent installer and uninstaller
         if: runner.os == 'Windows'
         shell: pwsh

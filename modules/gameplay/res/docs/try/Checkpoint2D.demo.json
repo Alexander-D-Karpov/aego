@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Checkpoint2D",
+  "demoID": "gameplay.Checkpoint2D.priority",
+  "documentID": "gameplay.Checkpoint2D",
+  "scene": "gameplay.Checkpoint2D/try",
+  "identity": "e17e3e01afa4cb396393f26d101575d84fac28b2f4566b3957a4b7e55e1d7d8e",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["gameplay.Checkpoint2D.Priority"],
+  "actions": [{
+    "id": "prefer-blue-checkpoint", "field": "gameplay.Checkpoint2D.Priority", "value": 10,
+    "expected": [{"observable": "gameplay.Checkpoint2D.Priority", "equals": 10, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Choose a checkpoint by priority", "description": "The target starts inside two checkpoint areas and immediately requests a respawn. The gray checkpoint's priority 5 beats the blue checkpoint's priority 0.", "input": "Set the blue checkpoint's Priority to 10. The scene restarts and the real Respawn moves the target to the higher-priority blue checkpoint. Reset chooses gray again."},
+    "ru": {"title": "Выбор контрольной точки по приоритету", "description": "Цель начинает внутри двух контрольных точек и сразу запрашивает возрождение. Приоритет серой точки 5 выше приоритета голубой точки 0.", "input": "Установите Priority голубой точки в 10. Сцена перезапустится, и настоящий Respawn перенесёт цель к голубой точке с большим приоритетом. «Сброс» снова выберет серую."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

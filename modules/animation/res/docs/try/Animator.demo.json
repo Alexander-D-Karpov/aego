@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "componentID": "animation.Animator",
+  "demoID": "animation.Animator.run-state",
+  "documentID": "animation.Animator",
+  "scene": "animation.Animator/try",
+  "identity": "bdc517b5b4377fd63a5d7a788c3bd8e3af4115314bec2da445de61e7beb6d701",
+  "dependencies": [
+    "ae900000000000000000000000000010", "ae900000000000000000000000000b20",
+    "ae900000000000000000000000000b10", "ae900000000000000000000000000b12", "ae900000000000000000000000000b13",
+    "ae900000000000000000000000000b00", "ae900000000000000000000000000b01",
+    "ae900000000000000000000000000b02", "ae900000000000000000000000000b03",
+    "ae900000000000000000000000000b04", "ae900000000000000000000000000b05",
+    "ae900000000000000000000000000b06", "ae900000000000000000000000000b07"
+  ],
+  "editableFields": ["animation.Animator.Speed"],
+  "actions": [{
+    "id": "advance-run-state", "field": "animation.Animator.Speed", "value": 8,
+    "expected": [{"observable": "animation.Animator.Speed", "equals": 8, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Advance an Animator state", "description": "A script sets the controller's Speed parameter to select Run. The separate Animator Speed field starts at 0, holding the state time.", "input": "Change Animator Speed from 0 to 8. The real Run clip advances and the runner turns orange after its state time moves. Reset holds it again."},
+    "ru": {"title": "Воспроизведение состояния аниматора", "description": "Скрипт задаёт параметр Speed контроллера, выбирая Run. Отдельное поле Speed аниматора сначала равно 0 и удерживает время состояния.", "input": "Измените Speed аниматора с 0 на 8. Настоящий клип Run начнёт идти, а бегун станет оранжевым после изменения времени состояния. «Сброс» снова остановит время."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

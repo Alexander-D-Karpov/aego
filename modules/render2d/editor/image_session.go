@@ -53,6 +53,7 @@ type imageState struct {
 	scroll              [3]float32
 	scrollHeight        [3]float32
 	scrollBar           [3]widgets.ScrollState
+	sections            [2]imageSections // separate state for the document and Inspector
 	seen                bool
 	viewSeen            bool
 	closed              bool

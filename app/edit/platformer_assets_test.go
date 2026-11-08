@@ -89,6 +89,54 @@ func platformerAuthoringProject(t *testing.T) *project.Project {
 	return p
 }
 
+func TestPlatformerMusicImportsWithoutPlaying(t *testing.T) {
+	p := platformerAuthoringProject(t)
+	oldPath := filepath.Join(p.Root, "assets/audio/music.ogg")
+	old, err := os.ReadFile(oldPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(p, headless(), platformerAuthoringModule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	// Import and inspect only: do not start Play or trigger audio.
+	const newPath = "assets/audio/glorious-morning.ogg"
+	id, ok := s.Pipeline.Lookup(newPath)
+	if !ok || id.String() != "173c7db1e5dc5922da00f5427536495d" {
+		t.Fatalf("music asset ID = %s, present=%v", id, ok)
+	}
+	batch, err := s.Pipeline.Reimport(id)
+	if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+		t.Fatalf("music import failed or needs a retry: %+v, %v", batch, err)
+	}
+	entry, ok := s.Pipeline.Index().Lookup(id)
+	if !ok {
+		t.Fatal("music is absent from the imported index")
+	}
+	artifact, ok := entry.Artifact(asset.ArtAudio)
+	if !ok {
+		t.Fatal("music has no audio artifact")
+	}
+	raw, err := s.Pipeline.Artifacts().ReadFile(artifact.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audio, err := asset.DecodeAudio(raw)
+	if err != nil || audio.Format != asset.AudioOgg || audio.Rate != 44100 || audio.Channels != 2 || !audio.Stream || audio.Bus != "music" {
+		t.Fatalf("unexpected imported music: %+v, %v", audio, err)
+	}
+	scene, err := os.ReadFile(filepath.Join(p.Root, "scenes/main.aescene"))
+	if err != nil || !bytes.Contains(scene, []byte(`Theme=asset("173c7db1e5dc5922da00f5427536495d")`)) {
+		t.Fatalf("platformer does not reference the new music: %v", err)
+	}
+	after, err := os.ReadFile(oldPath)
+	if err != nil || !bytes.Equal(old, after) {
+		t.Fatalf("original music was changed: %v", err)
+	}
+}
+
 // gpu/null proves the canonical authoring and live resource transaction. The
 // actual displayed Lit pixels are covered separately by the GL/browser route.
 func TestPlatformerAssetSaveAndUndoDuringPlay(t *testing.T) {

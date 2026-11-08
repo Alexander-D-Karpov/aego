@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.PolygonCollider2D",
+  "demoID": "physics.PolygonCollider2D.bounce",
+  "documentID": "physics.PolygonCollider2D",
+  "scene": "physics.PolygonCollider2D/try",
+  "identity": "8d1f0f3e05e51a9f12a76520f70386b706e49c5fa18e215947fdb9819135cff0",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["physics.PolygonCollider2D.Restitution"],
+  "actions": [{
+    "id": "bounce-on-contact", "field": "physics.PolygonCollider2D.Restitution", "value": 1,
+    "expected": [{"observable": "physics.PolygonCollider2D.Restitution", "equals": 1, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Polygon collider bounce", "description": "The outline follows the triangle collider. With gravity off and Restitution 0, the triangle stops when it strikes the floor.", "input": "Change Restitution from 0 to 1 to make the same collision bounce. Reset restores the original contact."},
+    "ru": {"title": "Отскок многоугольного коллайдера", "description": "Контур повторяет треугольный коллайдер. При выключенной гравитации и Restitution 0 треугольник останавливается у пола.", "input": "Измените Restitution с 0 на 1, чтобы треугольник отскочил при том же столкновении. «Сброс» вернёт исходное столкновение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -21,19 +21,22 @@ func windowsPathComponent(name string) bool {
 		}
 	}
 	base, _, _ := strings.Cut(name, ".")
-	base = strings.ToUpper(base)
+	base = strings.ToUpper(strings.TrimRight(base, " "))
 	switch base {
 	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
 		return false
 	}
-	if len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9' {
-		return false
+	if strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT") {
+		suffix := base[3:]
+		if len(suffix) == 1 && suffix[0] >= '1' && suffix[0] <= '9' || suffix == "¹" || suffix == "²" || suffix == "³" {
+			return false
+		}
 	}
 	return true
 }
 
 func TestWindowsPathComponents(t *testing.T) {
-	for _, name := range []string{"aux.go", "CON", "lpt1.txt", "COM9", "bad.", "bad ", `bad:name`} {
+	for _, name := range []string{"aux.go", "CON", "lpt1.txt", "COM9", "COM¹.txt", "LPT²", "bad.", "bad ", `bad:name`} {
 		if windowsPathComponent(name) {
 			t.Errorf("%q should not be portable", name)
 		}

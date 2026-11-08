@@ -159,8 +159,8 @@ func TestDiagnosticComposerConsoleProfilerNative(t *testing.T) {
 		t.Fatal("SDL clipboard rejected window screenshot")
 	}
 	key(input.KeyV, true, false)
-	if panel.Input() != "draft line" {
-		t.Fatalf("screenshot paste changed text: %q", panel.Input())
+	if panel.Input() != "draft line[Image 1]" {
+		t.Fatalf("screenshot paste lost draft or marker: %q", panel.Input())
 	}
 	key(input.KeyA, true, false)
 	long := "line 01\nline 02\nline 03\nline 04\nline 05\nline 06\nline 07\nline 08\nlast visible line"
@@ -168,6 +168,19 @@ func TestDiagnosticComposerConsoleProfilerNative(t *testing.T) {
 	key(input.KeyV, true, false)
 	if panel.Input() != long {
 		t.Fatalf("text not editable after clipboard image: %q", panel.Input())
+	}
+	// Replacing the marker removes its attachment. Reattach the screenshot so
+	// the remainder also exercises thumbnail layout and the unsent draft.
+	if thumbs := s.App.UIList().TestDrawnItems(screen, ed.UI.Font(), "", 512, height*512/width); len(thumbs) != 0 {
+		t.Fatalf("replacing image marker left an orphan attachment: %+v", thumbs)
+	}
+	if !ed.Clipboard.SetData(clip.MimePNG, original.Bytes(), "") {
+		t.Fatal("SDL clipboard rejected screenshot on reattach")
+	}
+	key(input.KeyV, true, false)
+	long += "[Image 1]"
+	if panel.Input() != long {
+		t.Fatalf("reattaching screenshot lost multiline draft or marker: %q", panel.Input())
 	}
 	last := text("last visible line")
 	if !inside(last) || last.Clip.H < small.H+3*ed.UI.LineHeight() {

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Pickup2D",
+  "demoID": "gameplay.Pickup2D.tag-filter",
+  "documentID": "gameplay.Pickup2D",
+  "scene": "gameplay.Pickup2D/try",
+  "identity": "db1ecc7f7c51f4cfc3096615bb864588c326b807218dec0c838696e0dcc7eb46",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["gameplay.Pickup2D.Tag"],
+  "actions": [{
+    "id": "match-tag", "field": "gameplay.Pickup2D.Tag", "value": "Player",
+    "expected": [{"observable": "gameplay.Pickup2D.Tag", "equals": "Player", "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Collect with a matching tag", "description": "The blue node tagged Player is inside the yellow pickup area. Tag Other does not match, so Collected does not fire.", "input": "Set Tag to Player. After the scene restarts, the real pickup emits Collected and its area turns green. Once is off so the pickup stays visible. Reset restores the mismatched tag."},
+    "ru": {"title": "Подбор с подходящим тегом", "description": "Синий узел с тегом Player находится внутри жёлтой области предмета. Тег Other ему не соответствует, поэтому сигнал Collected не отправляется.", "input": "Установите Tag в Player. После перезапуска сцены настоящий предмет отправит Collected, и его область станет зелёной. Once выключен, поэтому предмет останется видимым. «Сброс» вернёт другой тег."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

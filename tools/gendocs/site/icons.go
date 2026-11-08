@@ -91,9 +91,10 @@ var refIcons = map[string]string{
 	"aego/camera": "cat.camera", "aego/curve": "ui.curve", "aego/data": "file.data", "aego/debug": "panel.debug_draw",
 	"aego/input": "panel.input_devices", "aego/log": "panel.console", "aego/math": "cat.transform", "aego/physics": "cat.physics",
 	"aego/rand": "shape.dice", "aego/save": "panel.saves", "aego/scene": "file.scene", "aego/settings": "cat.settings",
-	"aego/testing": "status.ok", "aego/time": "play.speed", "aego/timer": "file.autosave", "aego/tween": "vec.velocity",
+	"aego/testing": "status.ok", "aego/time": "play.speed", "aego/timer": "code.timer", "aego/tween": "vec.velocity",
 	"section/engine": "panel.settings", "section/input": "panel.input_devices", "section/render2d": "cat.rendering",
 	"section/physics": "cat.physics", "section/debug": "panel.debug_draw", "section/player": "play.start", "section/audio": "cat.audio",
+	"section/animation": "animation.player", "section/art": "file.art", "section/update": "file.download",
 }
 
 func (b *builder) entryIcon(e *Entry) string {

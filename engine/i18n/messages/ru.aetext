@@ -192,9 +192,43 @@ messages version=1 lang=ru {
   msg "cli.run.restarted" {
     text="игра перезапущена с новой сборкой"
   }
+  msg "cli.source_recovery.confirm_required" {
+    text="для восстановления нужен --confirm; сначала проверьте status"
+  }
+  msg "cli.source_recovery.finished" {
+    text="Транзакция уже завершена; restore --confirm только закончит очистку файлов восстановления."
+  }
+  msg "cli.source_recovery.flag.confirm" {
+    text="явно разрешить восстановление прерванной транзакции"
+  }
+  msg "cli.source_recovery.none" {
+    text="Прерванных транзакций исходников не найдено."
+  }
+  msg "cli.source_recovery.prepared" {
+    text="Проверьте эти файлы и закройте редактор. Используйте restore --confirm, только если хотите вернуть прежние исходники."
+  }
+  msg "cli.source_recovery.resolved" {
+    text="Восстановление исходников завершено."
+  }
+  msg "cli.source_recovery.status" {
+    text="Восстановление исходников {id}: {state}"
+  }
+  msg "cli.source_recovery.usage" {
+    text="использование: aego source-recovery status [папка] | restore [папка] --confirm"
+  }
+  msg "cli.source_recovery.usage_line" {
+    text="  source-recovery <status|restore>  проверить или явно восстановить прерванную запись исходников"
+  }
   msg "cli.unknown_command" {
     text="неизвестная команда {name}"
   }
+  msg "cli.examples.usage" { text="  examples <clone|open|recent|reopen|check|link|inspect>  управление локальными копиями удалённых примеров" }
+  msg "editor.art.read_only" { text="Только чтение" }
+  msg "editor.art.show_layer" { text="Показать слой" }
+  msg "editor.art.hide_layer" { text="Скрыть слой" }
+  msg "editor.art.lock_layer" { text="Заблокировать слой" }
+  msg "editor.art.unlock_layer" { text="Разблокировать слой" }
+  msg "cli.examples.help" { text="Удалённые примеры (только данные; код не запускается)\n  remoteexample clone  -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample open   -url HTTPS_MANIFEST -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample recent [-root ПАПКА]\n  remoteexample reopen -id LOCAL_COPY_ID [-root ПАПКА]\n  remoteexample check  -id LOCAL_COPY_ID -approve-origin HTTPS_ORIGIN [-root ПАПКА]\n  remoteexample link   -url HTTPS_MANIFEST [-mode project|scene]\n  remoteexample inspect -link AEGO_URL\n\nclone создаёт независимую редактируемую копию. open сначала открывает последнюю\nлокальную копию вместе с офлайн-правками. check только проверяет обновления,\nне перезаписывая файлы. inspect разбирает ссылку без выдачи разрешений.\nНет доверенных источников по умолчанию: -approve-origin требует точный HTTPS-источник." }
   msg "cli.usage" {
     text="aego <команда> [флаги]\n\n  new <папка> [--template empty|2d|2.5d|3d] [--module m] [--example имя] [--native]\n                         создать проект из шаблона или примера движка\n  run [папка]            импортировать ассеты и запустить игру\n  edit [папка|файл] [--launcher recent|new]\n                         открыть проект или одну из его сцен в редакторе; без проекта открывается лаунчер\n  build [папка]          собрать нативный исполняемый файл\n  export [папка] [--target host|linux|windows|darwin] [--release|--development] [--out папка] [--check] [--json]\n                         собрать игру для распространения, которой не нужны Go и исходники проекта\n  bootstrap [папка]      перегенерировать .aego/generated для нативного модуля без сборки\n  import [папка] [--force] заново импортировать все ассеты\n  check [папка] [--manifest файл] [--explain] [--ensure-meta]  разобрать все документы, проверить файлы .meta и типы в скриптах\n  icons [check|list] [папка] [--json] [--out файл]  сверить используемые иконки с исходниками иконок или вывести манифест\n  test [папка] [-run имя] [-v] [--determinism [--frames n] [--every n] [--seed s] [--scene файл]]\n                         запустить тесты скриптов *_test.aes без окна или запустить игру дважды и сравнить хеши состояния\n  dump script <пакет|Тип> [--func имя]  дизассемблировать пакет скриптов с номерами строк\n  docs export|check|build|serve  реестр документации, сайт и песочница\n  mcp [--project папка] [--watch]   отдать проект ИИ-агенту по MCP (stdio)\n  update [status|check|apply|restore] [--channel stable|nightly]   проверить и поставить новую версию Aego или вернуться к предыдущей\n  release keygen|manifest ...     создать ключ подписи и подписанный release.json релиза\n  scene|prefab|data|refs|asset|schema|project <действие> ...   правка файлов проекта без редактора, см. aego scene help\n  version                вывести версию движка и коммит, из которого собрана программа\n"
   }
@@ -1145,6 +1179,39 @@ messages version=1 lang=ru {
   }
   msg "editor.animation.title_rec" {
     text="Анимация (запись)"
+  }
+  msg "editor.animation_settings.add_event" {
+    text="Добавить событие"
+  }
+  msg "editor.animation_settings.built_in" {
+    text="Встроены: Footstep (без данных), Hit (float)"
+  }
+  msg "editor.animation_settings.built_in_readonly" {
+    text="Встроенные события нельзя переопределить"
+  }
+  msg "editor.animation_settings.delete_event" {
+    text="Удалить событие"
+  }
+  msg "editor.animation_settings.duplicate" {
+    text="Событие {name} объявлено дважды"
+  }
+  msg "editor.animation_settings.empty_name" {
+    text="Укажите имя события"
+  }
+  msg "editor.animation_settings.events" {
+    text="События анимации"
+  }
+  msg "editor.animation_settings.invalid_payload" {
+    text="У события {name} неизвестный тип данных"
+  }
+  msg "editor.animation_settings.name" {
+    text="Имя"
+  }
+  msg "editor.animation_settings.none" {
+    text="Нет"
+  }
+  msg "editor.animation_settings.payload" {
+    text="Данные"
   }
   msg "editor.animator.add_a_parameter" {
     text="Добавить параметр"
@@ -3633,6 +3700,19 @@ messages version=1 lang=ru {
   msg "editor.particles.discard" {
     text="Отбросить изменения"
   }
+  msg "editor.particles.drawing" { text="Рисунок" }
+  msg "editor.particles.drawing_assign" { text="Использовать кадры рисунка" }
+  msg "editor.particles.drawing_changed" { text="Рисунок или его предпросмотр изменился; повторите действие." }
+  msg "editor.particles.drawing_choose" { text="Выберите открытый рисунок" }
+  msg "editor.particles.drawing_closed" { text="Выбранный рисунок уже закрыт." }
+  msg "editor.particles.drawing_finish" { text="Завершите рисование перед назначением кадров." }
+  msg "editor.particles.drawing_fps_hint" { text="Частицы используют постоянный FPS, а не длительности кадров. Сохраните новые кадры перед назначением. Для нескольких кадров нулевой FPS станет равен 12." }
+  msg "editor.particles.drawing_frame_limit" { text="Анимация частиц должна содержать от 1 до 1024 кадров." }
+  msg "editor.particles.drawing_metadata" { text="Сохраните метаданные рисунка или разрешите их конфликт перед назначением кадров." }
+  msg "editor.particles.drawing_open" { text="Откройте рисунок, чтобы использовать его кадры." }
+  msg "editor.particles.drawing_preview_pending" { text="Дождитесь актуального предпросмотра рисунка перед назначением кадров." }
+  msg "editor.particles.drawing_reimport" { text="Повторно импортируйте сохранённый рисунок перед назначением кадров" }
+  msg "editor.particles.drawing_save_frames" { text="Сохраните рисунок и дождитесь импорта перед назначением новых кадров." }
   msg "editor.particles.emission" {
     text="Эмиссия"
   }
@@ -3669,6 +3749,7 @@ messages version=1 lang=ru {
   msg "editor.particles.preset" {
     text="Пресет частиц"
   }
+  msg "editor.particles.preset_unavailable" { text="Пресет частиц закрыт, доступен только для чтения или находится в конфликте." }
   msg "editor.particles.profiler" {
     text="Частицы"
   }
@@ -3684,6 +3765,7 @@ messages version=1 lang=ru {
   msg "editor.particles.save" {
     text="Сохранить пресет"
   }
+  msg "editor.particles.scene_changed" { text="Выбранную систему частиц больше нельзя редактировать." }
   msg "editor.particles.shape" {
     text="Форма"
   }
@@ -4968,6 +5050,7 @@ messages version=1 lang=ru {
   msg "editor.shell.open_project" {
     text="Открыть проект"
   }
+  msg "editor.shell.open_recent" { text="Недавние проекты" }
   msg "editor.shell.open_recent_item" {
     text="Открыть {name}"
   }
@@ -5100,6 +5183,9 @@ messages version=1 lang=ru {
   msg "editor.shell.saved_all_scenes" {
     text="Все сцены сохранены"
   }
+  msg "editor.shell.saved_import_failed" { text="Не удалось импортировать сохранённый источник: ошибок — {count}. См. диагностику импорта." }
+  msg "editor.shell.saved_import_missing" { text="Сохранённый источник не вернул результат импорта." }
+  msg "editor.shell.saved_import_retry" { text="Для сохранённого источника ожидается повторный импорт: {count}. Повторите импорт ассета, когда файл перестанет изменяться." }
   msg "editor.shell.saved_path" {
     text="{path} сохранён"
   }
@@ -5997,6 +6083,10 @@ messages version=1 lang=ru {
   msg "editor.image.role" {
     text="Роль исходника"
   }
+  msg "editor.image.section_channels" { text="Каналы поверхности" }
+  msg "editor.image.section_details" { text="Подробности" }
+  msg "editor.image.section_references" { text="Связи" }
+  msg "editor.image.section_settings" { text="Настройки импорта" }
   msg "editor.image.save" {
     text="Сохранить настройки"
   }
@@ -6198,4 +6288,157 @@ messages version=1 lang=ru {
   msg "editor.profiler.runtime_mapped" {
     text="Память, выделенная Go {mapped}   Горутины {count}   Циклы GC {cycles}"
   }
+  msg "editor.art.add_frame" { text="+ Кадр" }
+  msg "editor.art.open_sprite_source" { text="Открыть исходник спрайта" }
+  msg "editor.art.edit_sprite" { text="Редактировать спрайт" }
+  msg "editor.art.shared_sprite" { text="Это общий ресурс: изменения затронут все использующие его объекты." }
+  msg "editor.art.prepared_sprite" { text="Открыть изображение или спрайт в просмотрщике ассетов." }
+  msg "editor.art.frame_unavailable" { text="Выбранный кадр рисунка больше недоступен." }
+  msg "editor.command.asset.new_art" { text="Новый пиксельный рисунок…" }
+  msg "editor.art.add_layer" { text="+ Слой" }
+  msg "editor.art.albedo" { text="Основной цвет" }
+  msg "editor.art.cancel" { text="Отмена" }
+  msg "editor.art.canvas" { text="Холст" }
+  msg "editor.art.close_message" { text="Сохранить изменения в {path}?" }
+  msg "editor.art.discard" { text="Не сохранять" }
+  msg "editor.art.document" { text="Пиксельный рисунок / Покадровая анимация" }
+  msg "editor.art.duplicate" { text="Копия" }
+  msg "editor.art.ellipse" { text="Эллипс" }
+  msg "editor.art.emission" { text="Свечение" }
+  msg "editor.art.eraser" { text="Ластик" }
+  msg "editor.art.expand" { text="Увеличьте панель, чтобы показать холст и инструменты." }
+  msg "editor.art.fill" { text="Заливка" }
+  msg "editor.art.filled" { text="Заливка фигур" }
+  msg "editor.art.fit" { text="Вписать" }
+  msg "editor.art.gradient" { text="Градиент" }
+  msg "editor.art.grid" { text="Пиксельная сетка" }
+  msg "editor.art.height" { text="Высота" }
+  msg "editor.art.layer" { text="Слой" }
+  msg "editor.art.line" { text="Линия" }
+  msg "editor.art.link" { text="Связать" }
+  msg "editor.art.mirror_x" { text="Симметрия X" }
+  msg "editor.art.mirror_y" { text="Симметрия Y" }
+  msg "editor.art.navigation" { text="Колесо: масштаб · средняя/правая кнопка: перемещение · Esc: отмена жеста или снятие выделения" }
+  msg "editor.art.normal" { text="Нормали" }
+  msg "editor.art.onion" { text="Соседние кадры" }
+  msg "editor.art.pencil" { text="Карандаш" }
+  msg "editor.art.eyedropper" { text="Пипетка (активный слой)" }
+  msg "editor.art.ellipse_selection" { text="Овальное выделение" }
+  msg "editor.art.lasso" { text="Выделение лассо" }
+  msg "editor.art.selection_stale" { text="Рисунок изменился во время выделения; выделите область заново." }
+  msg "editor.art.selection_outline_simplified" { text="Контур выделения упрощён" }
+  msg "editor.art.pixel_perfect" { text="Пиксельная точность" }
+  msg "editor.art.play" { text="Просмотр" }
+  msg "editor.art.properties" { text="Инструменты / Слои" }
+  msg "editor.art.rectangle" { text="Прямоугольник" }
+  msg "editor.art.redo" { text="Повторить" }
+  msg "editor.art.round" { text="Круглая кисть" }
+  msg "editor.art.save" { text="Сохранить" }
+  msg "editor.art.selection" { text="Выделение" }
+  msg "editor.art.tag" { text="Метка кадров" }
+  msg "editor.art.timeline" { text="Кадры" }
+  msg "editor.art.undo" { text="Отменить" }
+  msg "editor.art.unlink" { text="Отвязать" }
+  msg "editor.art.unsaved" { text="Рисунок не сохранён" }
+  msg "editor.art.wand" { text="Волшебная палочка" }
+  msg "editor.art.asset_timeline" { text="Кадры рисунка" }
+  msg "editor.art.animation_preview" { text="Просмотр анимации" }
+  msg "editor.art.open_hint" { text="Откройте документ .aeart в панели ресурсов, чтобы начать рисовать." }
+  msg "editor.art.new" { text="Новый пиксельный рисунок…" }
+  msg "editor.art.new_file" { text="Пиксельный рисунок (.aeart)…" }
+  msg "editor.art.png_file" { text="Пустой PNG (.png, только просмотр)…" }
+  msg "editor.art.png_help" { text="Создать пустой PNG. Для рисования в Aego выберите пиксельный рисунок." }
+  msg "editor.art.png_prompt" { text="Для рисования выберите пиксельный рисунок." }
+  msg "editor.art.png_edit_copy" { text="Редактировать как копию .aeart…" }
+  msg "editor.art.png_copy_notice" { text="Копируется весь PNG. Исходник и сцена не изменятся." }
+  msg "editor.art.png_frames_changed" { text="Проект, документ изображения или его метаданные изменились; начните копирование заново." }
+  msg "editor.art.png_frames_copy" { text="Создать анимацию из нарезки PNG…" }
+  msg "editor.art.png_frames_duration" { text="Длительность кадра (мс)" }
+  msg "editor.art.png_frames_invalid_duration" { text="Длительность кадра должна быть целым числом от 1 до 600000 мс." }
+  msg "editor.art.png_frames_invalid_rect" { text="Сохранённая область пуста или выходит за границы PNG." }
+  msg "editor.art.png_frames_no_metadata" { text="Нужен PNG проекта с сохранёнными метаданными нарезки." }
+  msg "editor.art.png_frames_notice" { text="Будет создан отдельный .aeart из сохранённых областей в порядке метаданных. Выберите общую длительность кадров. Копируются только цветные пиксели: имена и ID кадров, опорные точки, каналы normal/height/emission, материалы и существующие анимации не переносятся. Исходный PNG, метаданные и ссылки сцены не изменятся; новые ресурсы нужно назначить явно." }
+  msg "editor.art.png_frames_save_metadata" { text="Сохраните или разрешите конфликт метаданных изображения перед копированием областей." }
+  msg "editor.art.create_category" { text="Ресурсы" }
+  msg "editor.art.create_help" { text="Создать редактируемый рисунок и покадровую анимацию." }
+  msg "editor.art.empty_source_hint" { text="В файле нет рисунка. Создайте его здесь или создайте отдельный рисунок через меню Create." }
+  msg "editor.art.initialize_empty" { text="Создать рисунок в пустом файле…" }
+  msg "editor.art.initialize_empty_confirm" { text="Создать рисунок в этом пустом файле?" }
+  msg "editor.art.initialize_blank_backup" { text="Исходный текст сохранится в .aego." }
+  msg "editor.art.blank_backup_saved" { text="Исходный текст сохранён: {path}" }
+  msg "editor.assets.import_retry" { text="файл изменился во время импорта; повторите попытку" }
+  msg "editor.assets.empty_art_import" { text="пустой .aeart; откройте скопированный файл и создайте в нём рисунок или создайте новый рисунок" }
+  msg "editor.assets.create_category" { text="Файлы" }
+  msg "editor.assets.import_file" { text="Импортировать файл…" }
+  msg "editor.assets.external_file_path" { text="Путь к файлу" }
+  msg "editor.assets.import_project_changed" { text="До завершения импорта проект изменился." }
+  msg "editor.assets.scene_file" { text="Сцена (.aescene)…" }
+  msg "editor.assets.prefab_file" { text="Префаб (.aeprefab)…" }
+  msg "editor.assets.script_file" { text="Скрипт (.aes)…" }
+  msg "editor.assets.animation_clip" { text="Клип анимации (.aeanim)…" }
+  msg "editor.assets.animation_controller" { text="Контроллер анимации (.aectrl)…" }
+  msg "editor.assets.new_animation_clip" { text="Новый клип анимации" }
+  msg "editor.assets.new_animation_controller" { text="Новый контроллер анимации" }
+  msg "editor.assets.data_file" { text="Данные: {type} (.aedata)…" }
+  msg "editor.assets.table_file" { text="Таблица: {type} (.aetable)…" }
+  msg "editor.assets.shader_file" { text="Шейдер (.aeshader)…" }
+  msg "editor.assets.shader_include" { text="Подключаемый шейдер (.glsl)…" }
+  msg "editor.assets.glsl_extension" { text="путь подключаемого шейдера должен оканчиваться на .glsl" }
+  msg "editor.particles.create_preset_file" { text="Пресет частиц (.aepreset)…" }
+  msg "editor.particles.preset_template" { text="Шаблон: Dust / Spark / Smoke / Rain / Explosion" }
+  msg "editor.particles.preset_extension" { text="Путь пресета должен оканчиваться на .aepreset." }
+  msg "editor.assets.import_incomplete" { text="Некоторые файлы не удалось импортировать; скопированные файлы сохранены" }
+  msg "editor.art.import_source_changed" { text="Исходный файл Aseprite изменился до завершения импорта." }
+  msg "editor.art.import_copy_created" { text="Создана редактируемая копия: {path}" }
+  msg "editor.art.source_path" { text="Путь к исходнику" }
+  msg "editor.art.width" { text="Ширина" }
+  msg "editor.art.height_pixels" { text="Высота в пикселях" }
+  msg "editor.art.color_mode" { text="Режим цвета: rgba / grayscale / indexed" }
+  msg "editor.art.create" { text="Создать" }
+  msg "editor.art.recover" { text="Восстановить несохранённый рисунок" }
+  msg "editor.art.recover_confirm" { text="Заменить открытый рисунок восстановленной копией? Файл исходника не изменится." }
+  msg "editor.art.recovery_pending_edit" { text="Прежде чем редактировать рисунок, восстановите или удалите предыдущую копию восстановления." }
+  msg "editor.art.discard_recovery" { text="Удалить копию восстановления" }
+  msg "editor.art.discard_recovery_confirm" { text="Безвозвратно удалить копию восстановления?" }
+  msg "editor.art.ase_diagnostic" { text="{code} (кадр {frame}, блок {chunk}): {message}" }
+  msg "editor.art.ase_metadata" { text="Метаданные этого блока не импортируются." }
+  msg "editor.art.ase_ninepatch" { text="Центр nine-patch не сохраняется; границы и опорная точка области сохраняются." }
+  msg "editor.art.ase_repeat" { text="Ограниченное число повторов не сохраняется; импортированная метка зациклена." }
+  msg "editor.art.ase_uuid" { text="UUID слоя Aseprite заменяется идентификатором документа рисунка." }
+  msg "editor.art.close" { text="Закрыть" }
+  msg "editor.art.import_action" { text="Импорт" }
+  msg "editor.art.import_anyway" { text="Импортировать" }
+  msg "editor.art.import_aseprite" { text="Импорт Aseprite…" }
+  msg "editor.art.import_aseprite_hint" { text="Исходный файл не перезаписывается." }
+  msg "editor.art.import_aseprite_input" { text="Путь к файлу Aseprite" }
+  msg "editor.art.import_aseprite_output" { text="Путь к новому исходнику в проекте" }
+  msg "editor.art.import_aseprite_size" { text="Нужен обычный файл Aseprite в пределах допустимого размера импорта." }
+  msg "editor.art.import_aseprite_target" { text="Новый исходник должен иметь расширение .aeart." }
+  msg "editor.art.import_aseprite_type" { text="Входной файл должен иметь расширение .ase или .aseprite." }
+  msg "editor.art.import_diagnostics" { text="Диагностика импорта" }
+  msg "editor.art.import_loss_warning" { text="Некоторые метаданные не сохранятся. Проверьте диагностику до создания исходника:" }
+  msg "editor.art.import_project_changed" { text="До завершения импорта проект изменился." }
+  msg "editor.command.asset.import_aseprite" { text="Импорт Aseprite…" }
+  msg "editor.shell.animation" { text="Анимация" }
+  msg "editor.shell.vfx" { text="Визуальные эффекты" }
+  msg "editor.art.recover_action" { text="Восстановить" }
+  msg "editor.art.discard_recovery_action" { text="Удалить" }
+  msg "launcher.remote.bad_entry" { text="Начальная сцена удалённого примера находится вне проекта или недоступна." }
+  msg "launcher.remote.native_blocked" { text="Удалённый пример не может запускать нативный Go-проект." }
+  msg "launcher.remote.canceled" { text="Отменено. Уже сохранённая локальная копия не удаляется." }
+  msg "launcher.remote.check" { text="Проверить обновления" }
+  msg "launcher.remote.clone" { text="Клонировать новую копию" }
+  msg "launcher.remote.confirm" { text="Подтвердить источник и продолжить" }
+  msg "launcher.remote.confirm_origin" { text="Разрешить обращение к этому источнику для данной операции: {origin}" }
+  msg "launcher.remote.explanation" { text="HTTPS-примеры проверяются и копируются локально. Aego не запускает проект автоматически; внешние средства импорта отключены." }
+  msg "launcher.remote.heading" { text="Удалённые примеры" }
+  msg "launcher.remote.no_copies" { text="Сохранённых удалённых примеров пока нет." }
+  msg "launcher.remote.open" { text="Открыть копию или клонировать" }
+  msg "launcher.remote.refresh" { text="Показать сохранённые примеры" }
+  msg "launcher.remote.reopen" { text="Открыть без сети" }
+  msg "launcher.remote.up_to_date" { text="Новой версии нет. Локальная копия не изменена." }
+  msg "launcher.remote.update_available" { text="Доступна версия {version}. Локальная копия не изменена." }
+  msg "launcher.remote.url" { text="HTTPS-адрес манифеста" }
+  msg "launcher.remote.working" { text="Проверка или скачивание примера…" }
+  msg "launcher.remote.cancel" { text="Отмена" }
 }

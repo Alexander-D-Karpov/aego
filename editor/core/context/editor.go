@@ -207,20 +207,22 @@ type Editor struct {
 	// CreateAsset uses the shared Assets history for source creation.
 	CreateAsset      func(rel string, source []byte) (ids.AssetID, error)
 	AssetTransaction func(fn func() error) error
+	AssetFolder      func() string
 	InspectAsset     func(ids.AssetID)
 	FallbackAsset    func(*document.AssetDocument) error
 
-	FocusedPanel  string
-	SceneLighting LightingViewBridge
-	AssetRev      uint64
-	RenderStats   func() render.Stats
-	Play          PlayBridge
-	Collapsed     map[string]bool
-	Pages         []SettingsPage
-	Vectors       []VectorLayer
-	Profiler      []ProfilerSection
-	CreateActions []CreateAction
-	AssetViews    map[string]AssetView
+	FocusedPanel        string
+	SceneLighting       LightingViewBridge
+	AssetRev            uint64
+	RenderStats         func() render.Stats
+	Play                PlayBridge
+	Collapsed           map[string]bool
+	Pages               []SettingsPage
+	Vectors             []VectorLayer
+	Profiler            []ProfilerSection
+	CreateActions       []CreateAction
+	ExternalFileImports []ExternalFileImport
+	AssetViews          map[string]AssetView
 	// DrawSpriteSlicer draws the existing grid/alpha tools using the image
 	// document's current source metadata, including uncommitted frame edits.
 	DrawSpriteSlicer func(ids.AssetID, *asset.SourceMeta)
@@ -234,6 +236,16 @@ type Editor struct {
 	notices        []Notice
 	scratch        []ids.NodeID
 	metadata       *metadataCoordinator
+}
+
+// AssetCreateDirectory uses the selected project folder when available.
+func (e *Editor) AssetCreateDirectory(fallback string) string {
+	if e != nil && e.AssetFolder != nil {
+		if dir := e.AssetFolder(); dir != "" {
+			return dir
+		}
+	}
+	return fallback
 }
 
 func (e *Editor) Now() float64 {

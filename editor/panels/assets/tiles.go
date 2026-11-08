@@ -70,6 +70,13 @@ func kindIcon(k asset.ArtifactKind) string {
 	return "file.unknown"
 }
 
+func assetIcon(a *pipeline.AssetInfo) string {
+	if a.Kind == asset.ArtTexture && strings.EqualFold(path.Ext(a.Path), ".aeart") {
+		return "file.art"
+	}
+	return kindIcon(a.Kind)
+}
+
 func (p *Panel) kindColor(k asset.ArtifactKind) mathx.Color {
 	th := &p.f.UI.Theme
 	c := th.TextDim
@@ -140,7 +147,7 @@ func (p *Panel) schematic(a *pipeline.AssetInfo, img mathx.Rect) {
 		ui.PopFont()
 		cy -= small / 2
 	}
-	widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: cy, W: icon, H: icon}, kindIcon(a.Kind), tint)
+	widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: cy, W: icon, H: icon}, assetIcon(a), tint)
 	if showSub {
 		ui.PushFont(ui.FontAt(11))
 		sr := mathx.Rect{X: card.X + 3, Y: cy + icon + 2, W: card.W - 6, H: small}
@@ -198,6 +205,10 @@ func (p *Panel) thumb(a *pipeline.AssetInfo, r mathx.Rect) bool {
 
 func (p *Panel) wave(a *pipeline.AssetInfo, r mathx.Rect) bool {
 	peaks, _ := p.d.Thumbs.Peaks(a.ID, waveCols)
+	return p.drawWave(a, r, peaks)
+}
+
+func (p *Panel) drawWave(a *pipeline.AssetInfo, r mathx.Rect, peaks []float32) bool {
 	if len(peaks) == 0 {
 		return false
 	}
@@ -239,9 +250,17 @@ func (p *Panel) folderStack(dir string, img mathx.Rect) {
 		// The front of the folder covers the lower part of each sheet. Use
 		// the visible portion for the preview instead of a thin strip.
 		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: max(1, cr.H*0.72-2)}
-		if !p.thumb(it, in) {
+		ready := false
+		if it.Kind == asset.ArtAudio {
+			// A tiny folder sheet must not decode a potentially long track.
+			// Reuse an already displayed waveform, or show the audio icon.
+			ready = p.drawWave(it, in, p.d.Thumbs.CachedPeaks(it.ID, waveCols))
+		} else {
+			ready = p.thumb(it, in)
+		}
+		if !ready {
 			ic := cs * 0.4
-			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, kindIcon(it.Kind), p.kindColor(it.Kind))
+			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, assetIcon(it), p.kindColor(it.Kind))
 		}
 		ui.Outline(cr, border)
 	}

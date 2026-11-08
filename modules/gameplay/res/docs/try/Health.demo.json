@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Health",
+  "demoID": "gameplay.Health.starting-hit-points",
+  "documentID": "gameplay.Health",
+  "scene": "gameplay.Health/try",
+  "identity": "6a405cde1337a8ee6b4d84ea773b45d5e105f665e21afb226a1c0f9023a52b65",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.Health.Max"],
+  "actions": [{
+    "id": "raise-starting-hit-points", "field": "gameplay.Health.Max", "value": 9,
+    "expected": [
+      {"observable": "gameplay.Health.Max", "equals": 9, "changes": true},
+      {"observable": "gameplay.Health.Current", "equals": 9, "changes": true}
+    ]
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Starting hit points", "description": "The dummy starts with five hit points; the running Health component initializes Current from Max.", "input": "Change Max from 5 to 9. Use A/D to approach and J to strike the dummy; its health bar shows damage. Reset restores the original five."},
+    "ru": {"title": "Начальный запас здоровья", "description": "Манекен начинает с пятью очками здоровья; работающий компонент Health устанавливает текущее значение по максимуму.", "input": "Измените Max с 5 на 9. Подойдите клавишами A/D и ударьте манекен клавишей J: полоска покажет урон. «Сброс» вернёт исходные пять."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

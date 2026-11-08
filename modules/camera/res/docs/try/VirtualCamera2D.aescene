@@ -9,7 +9,7 @@ scene version=1 {
       priority=-1
       output=""
       zoom=110
-      blendTime=1
+      blendTime=0
       blendCurve={ ease=inOutQuad }
       timeDomain=unscaled
       useBounds=false
@@ -176,20 +176,6 @@ scene version=1 {
       flipY=false
       blend=premultiplied
       filter=nearest
-    }
-  }
-  node "d5200000000000000000000000000010" name="Director" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.Script" version=1 {
-      script "game.demo.Director" enabled=true {
-        Close=node("d5200000000000000000000000000001")
-        Tilt=node("d5200000000000000000000000000009")
-        Hold=2
-      }
     }
   }
 }

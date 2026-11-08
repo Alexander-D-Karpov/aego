@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.RevoluteJoint2D",
+  "demoID": "physics.RevoluteJoint2D.motor-speed",
+  "documentID": "physics.RevoluteJoint2D",
+  "scene": "physics.RevoluteJoint2D/try",
+  "identity": "4e2824d83b4094c5b41586ad1ea7c50ff8e307c6d46afc9e1a98e848aea1e491",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["physics.RevoluteJoint2D.Speed"],
+  "actions": [{
+    "id": "turn-motor", "field": "physics.RevoluteJoint2D.Speed", "value": 6,
+    "expected": [{"observable": "physics.RevoluteJoint2D.Speed", "equals": 6, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Drive a revolute joint", "description": "The cyan arm is a dynamic body pinned to the gray static pivot. Its enabled motor initially targets zero speed.", "input": "Set Speed to 6 radians per second. The real joint motor rotates the body around the pivot. Reset returns it to rest."},
+    "ru": {"title": "Мотор вращательного шарнира", "description": "Голубой рычаг — динамическое тело, прикреплённое к серой неподвижной опоре. Включённый мотор сначала поддерживает нулевую скорость.", "input": "Установите Speed в 6 радиан в секунду. Настоящий мотор шарнира повернёт тело вокруг опоры. «Сброс» вернёт его в покой."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

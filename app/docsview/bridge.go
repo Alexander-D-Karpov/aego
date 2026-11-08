@@ -3,7 +3,9 @@
 package docsview
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	playmods "aego/app/assembly/playground"
@@ -15,26 +17,31 @@ import (
 )
 
 type request struct {
-	Scene     string            `json:"scene"`
-	Select    string            `json:"select"`
-	Code      string            `json:"code"`
-	Prefabs   map[string]string `json:"prefabs"`
-	Artifacts []byte            `json:"artifacts"`
-	Component string            `json:"component"`
-	Field     string            `json:"field"`
-	Value     float64           `json:"value"`
-	Node      string            `json:"node"`
-	Theme     string            `json:"theme"`
-	Lang      string            `json:"lang"`
+	Scene        string            `json:"scene"`
+	Select       string            `json:"select"`
+	Code         string            `json:"code"`
+	Prefabs      map[string]string `json:"prefabs"`
+	Artifacts    []byte            `json:"artifacts"`
+	Component    string            `json:"component"`
+	Field        string            `json:"field"`
+	Script       string            `json:"script"`
+	Enabled      *bool             `json:"enabled"`
+	Value        json.RawMessage   `json:"value"`
+	Fields       []string          `json:"fields"`
+	Dependencies []string          `json:"dependencies"`
+	Node         string            `json:"node"`
+	Theme        string            `json:"theme"`
+	Lang         string            `json:"lang"`
 }
 
 type Reply struct {
-	Text   string            `json:"text,omitempty"`
-	Values map[string]string `json:"values,omitempty"`
-	Error  string            `json:"error,omitempty"`
-	State  *docsession.State `json:"state,omitempty"`
-	Log    []Line            `json:"log,omitempty"`
-	Pose   []float64         `json:"pose,omitempty"`
+	Text       string            `json:"text,omitempty"`
+	Values     map[string]string `json:"values,omitempty"`
+	Error      string            `json:"error,omitempty"`
+	State      *docsession.State `json:"state,omitempty"`
+	Log        []Line            `json:"log,omitempty"`
+	Pose       []float64         `json:"pose,omitempty"`
+	Inspection *Inspection       `json:"inspection,omitempty"`
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
@@ -76,8 +83,55 @@ func (a *App) Call(method string, payload []byte) Reply {
 		err = s.Undo()
 	case "redo":
 		err = s.Redo()
+	case "scriptEnabled":
+		if req.Enabled == nil {
+			err = fmt.Errorf("scriptEnabled needs a boolean enabled value")
+		} else {
+			err = s.SetScriptEnabled(req.Script, *req.Enabled)
+		}
 	case "set":
-		err = s.Set(req.Component, req.Field, req.Value)
+		value := bytes.TrimSpace(req.Value)
+		if len(value) == 0 || bytes.Equal(value, []byte("null")) {
+			err = fmt.Errorf("set needs a number, string or string-list value")
+		} else if value[0] == '"' {
+			var text string
+			if err = json.Unmarshal(value, &text); err == nil {
+				err = s.SetString(req.Component, req.Field, text)
+			}
+		} else if value[0] == '[' {
+			// A bounded raw JSON budget also limits allocations before decoding.
+			if len(value) > docsession.MaxStringListBytes*8 {
+				err = fmt.Errorf("string list exceeds its encoded byte budget")
+				break
+			}
+			var entries []json.RawMessage
+			if err = json.Unmarshal(value, &entries); err != nil {
+				break
+			}
+			if len(entries) > docsession.MaxStringListItems {
+				err = fmt.Errorf("string list exceeds its item budget")
+				break
+			}
+			values := make([]string, len(entries))
+			for i, entry := range entries {
+				entry = bytes.TrimSpace(entry)
+				if len(entry) == 0 || entry[0] != '"' {
+					err = fmt.Errorf("string list contains a non-string value")
+					break
+				}
+				if err = json.Unmarshal(entry, &values[i]); err != nil {
+					break
+				}
+			}
+			if err == nil {
+				err = s.SetStringList(req.Component, req.Field, values)
+			}
+		} else {
+			var number float64
+			if err = json.Unmarshal(value, &number); err == nil {
+				err = s.Set(req.Component, req.Field, number)
+			}
+		}
 	case "state":
 		st := s.State()
 		return Reply{State: &st}
@@ -92,6 +146,12 @@ func (a *App) Call(method string, payload []byte) Reply {
 		}
 		p := sc.WorldPosition(h)
 		return Reply{Pose: []float64{float64(p.X), float64(p.Y)}}
+	case "inspect":
+		inspection, err := a.inspectTry(req.Component, req.Fields, req.Dependencies)
+		if err != nil {
+			return Reply{Error: err.Error()}
+		}
+		return Reply{Inspection: inspection}
 	case "log":
 		out := Reply{Log: a.lines}
 		a.lines = nil

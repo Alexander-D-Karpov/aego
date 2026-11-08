@@ -65,6 +65,13 @@ type Importer interface {
 	Import(ctx *ImportContext) (*Result, error)
 }
 
+// SourceEditLimiter lets a trusted registered importer request a specific
+// bound for guarded source transactions. It does not change the limit for
+// metadata or unrelated formats. The pipeline applies its own maximum too.
+type SourceEditLimiter interface {
+	SourceEditLimit() int64
+}
+
 // CacheSalter adds artifact-less inputs (e.g. embedded includes and validator version) before cache lookup; errors must not reuse older successful artifacts.
 type CacheSalter interface {
 	CacheSalt(ctx *ImportContext) ([]byte, error)

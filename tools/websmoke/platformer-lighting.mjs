@@ -5,7 +5,7 @@ import http from "node:http";
 import path from "node:path";
 import crypto from "node:crypto";
 import { releaseBloom } from "./release-bloom.mjs";
-import { releaseScenario } from "./release-scenarios.mjs";
+import { finish, finishTick, player, releaseScenario } from "./release-scenarios.mjs";
 import { PNG } from "pngjs";
 const { chromium, firefox } = await import(process.env.PLAYWRIGHT_MODULE ?? "playwright-core");
 
@@ -56,6 +56,18 @@ function disabledRoute(source) {
 function exactFrames(replay) {
     const canonicalStart = typeof replay === "object";
     globalThis.aegoReplay = canonicalStart ? replay.data : replay;
+    if (canonicalStart) {
+        // Bench mode normally enables lockstep before the first frame, but the
+        // recording starts at tick 0. Preserve the loader callback and select
+        // the recorded clock before Run, then switch to lockstep at frame 1.
+        let started;
+        const wrapped = function (...args) {
+            if (typeof started === "function") started.apply(this, args);
+            if (!globalThis.aegoGame || globalThis.aegoGame.frames() !== 0) throw new Error("player startup did not expose frame 0");
+            globalThis.aegoGame.lockstep(false);
+        };
+        Object.defineProperty(globalThis, "aegoStarted", { configurable: true, get: () => wrapped, set: value => { started = value; } });
+    }
     const original = requestAnimationFrame.bind(window);
     const state = globalThis.__lightingReplay = { hold: false, held: [] };
     window.requestAnimationFrame = callback => {
@@ -162,8 +174,8 @@ try {
                         if (message.type() === "error" || /\bERROR\b|panic:|WebGL:.*INVALID_/.test(message.text())) result.failures.push(`${mode}: ${message.text()}`);
                     });
                     page.on("requestfailed", req => result.failures.push(`${mode}: ${req.url()} ${req.failure()?.errorText}`));
-                    await page.addInitScript(exactFrames, Buffer.from(enabled ? route : disabledRoute(route)).toString("base64"));
-                    await page.goto(`${base}/?seed=42&bench=1`);
+                    await page.addInitScript(exactFrames, { data: Buffer.from(enabled ? route : disabledRoute(route)).toString("base64") });
+                    await page.goto(`${base}/?seed=42&bench=1&observeCheckpoint=${finish}`);
                     console.log(`${name} ${mode}: export loaded; waiting for runtime`);
                     try {
                         await page.waitForFunction(() => {
@@ -176,8 +188,10 @@ try {
                         throw new Error(`${error.message}; boot state ${JSON.stringify(state)}`);
                     }
                     console.log(`${name} ${mode}: runtime ready at frame ${await page.evaluate(() => globalThis.aegoGame.frames())}`);
+                    await page.waitForFunction(() => globalThis.__lightingReplay.firstFrame, null, { timeout: 120000, polling: 100 });
+                    const first = await page.evaluate(() => globalThis.__lightingReplay.firstFrame);
+                    if (first.frames !== 1 || first.ticks !== 0) throw new Error(`canonical replay must start at frame 1, tick 0: ${JSON.stringify(first)}`);
                     await page.evaluate(() => {
-                        globalThis.aegoGame.lockstep(true);
                         document.getElementById("fullscreen").style.display = "none";
                         document.getElementById("mute").style.display = "none";
                     });
@@ -185,7 +199,13 @@ try {
                         console.log(`${name} ${mode}: replay to ${frame}`);
                         await advance(page, frame);
                         const c = await capture(page, `${name}-${mode}-${String(frame).padStart(4, "0")}.png`);
-                        if (c.stats.frames !== frame || c.stats.ticks < frame - 1) throw new Error(`unexpected replay clock at ${frame}`);
+                        if (c.stats.frames !== frame || c.stats.ticks !== frame - 1) throw new Error(`unexpected replay clock at ${frame}`);
+                        const checkpoint = c.stats.checkpoint;
+                        if (!checkpoint || checkpoint.node !== finish || (c.stats.ticks < finishTick
+                            ? checkpoint.count !== 0 || checkpoint.tick !== 0
+                            : checkpoint.count !== 1 || checkpoint.tick !== finishTick || checkpoint.by !== player)) {
+                            throw new Error(`unexpected Finish checkpoint at ${frame}: ${JSON.stringify(checkpoint)}`);
+                        }
                         result.renderer = c.stats.renderer;
                         result.captures.push({ lighting: enabled, frame, ...c });
                         console.log(`${name} ${mode} frame=${frame} ticks=${c.stats.ticks} pixels=${c.pixelSHA256.slice(0, 12)}`);

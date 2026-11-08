@@ -1,26 +1,8 @@
 package demo
 
-import "aego/math"
-
-// Spin turns its node and bobs it up and down; edit the fields in the Inspector.
-script Spin {
-    @export(unit="rad/s")
-    var Speed float = 2
-    @export var Bob float = 1
-    @export var Rate float = 3
-
-    var t float
-    var base Vec2
-
+// Ready runs only when this actual script attachment is enabled.
+script MoveOnReady {
     func Ready() {
-        base = node.Transform2D().Position
-    }
-
-    func Update(dt float) {
-        t += dt
-        tr := node.Transform2D()
-        tr.Rotation += Speed * dt
-        tr.Position = base + Vec2{0, -math.Abs(math.Sin(t * Rate)) * Bob}
-        node.SetTransform2D(tr)
+        node.SetPosition(Vec2{2, 0})
     }
 }

@@ -14,6 +14,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/history/commands"
 	"aego/editor/core/play"
 	"aego/editor/core/selection"
 	"aego/editor/core/shape"
@@ -24,6 +25,7 @@ import (
 	"aego/render"
 	"aego/scene"
 	"aego/scene/sceneio"
+	"aego/scene/scriptcomp"
 	"aego/schema"
 	"aego/ui/core"
 	"aego/ui/dnd"
@@ -32,6 +34,10 @@ import (
 const (
 	MaxNodes  = 10_000
 	ScenePath = "try.aescene"
+	// Limits apply to string-list bridge edits, not to existing scene files.
+	MaxStringListItems = 64
+	MaxStringBytes     = 4096
+	MaxStringListBytes = 16 << 10
 )
 
 const channel log.Channel = "docs"
@@ -288,6 +294,95 @@ func (s *Session) Redo() error {
 }
 
 func (s *Session) Set(component, field string, v float64) error {
+	return s.set(component, field, func(fd *schema.FieldDescriptor) (schema.Value, error) {
+		val := schema.Value{Kind: fd.Kind}
+		switch fd.Kind {
+		case schema.KindFloat32, schema.KindFloat64:
+			val.F = v
+		case schema.KindInt32, schema.KindInt64, schema.KindBool, schema.KindEnum:
+			val.I = int64(v)
+		default:
+			return schema.Value{}, errs.New(errs.EditorCommand, field+" is not a number field")
+		}
+		return val, nil
+	})
+}
+
+// SetString routes string edits through the same property history as the UI.
+func (s *Session) SetString(component, field, value string) error {
+	return s.set(component, field, func(fd *schema.FieldDescriptor) (schema.Value, error) {
+		if fd.Kind != schema.KindString {
+			return schema.Value{}, errs.New(errs.EditorCommand, field+" is not a string field")
+		}
+		return schema.String(value), nil
+	})
+}
+
+// SetStringList uses the same property history as the Inspector. Bound bridge
+// input independently of scene loading, and never accept malformed tag names
+// which would be silently ignored by the runtime tag index.
+func (s *Session) SetStringList(component, field string, values []string) error {
+	return s.set(component, field, func(fd *schema.FieldDescriptor) (schema.Value, error) {
+		if fd.Kind != schema.KindList || fd.Elem != schema.KindString {
+			return schema.Value{}, errs.New(errs.EditorCommand, field+" is not a string-list field")
+		}
+		if len(values) > MaxStringListItems {
+			return schema.Value{}, errs.New(errs.EditorCommand, "string list exceeds its item budget")
+		}
+		items := make([]schema.Value, len(values))
+		bytes := 0
+		for i, value := range values {
+			bytes += len(value)
+			if len(value) > MaxStringBytes || bytes > MaxStringListBytes {
+				return schema.Value{}, errs.New(errs.EditorCommand, "string list exceeds its byte budget")
+			}
+			if component == scene.TagsName && strings.EqualFold(fd.Name, "tags") && !scene.ValidTag(value) {
+				return schema.Value{}, errs.New(errs.EditorCommand, "malformed tag name")
+			}
+			items[i] = schema.String(value)
+		}
+		return schema.List(items...), nil
+	})
+}
+
+// SetScriptEnabled performs the same undoable operation as the Inspector's
+// attachment switch, on the single selected node and an existing script only.
+func (s *Session) SetScriptEnabled(name string, enabled bool) error {
+	if s.doc == nil {
+		return errs.New(errs.EditorDocument, "no scene is loaded")
+	}
+	if name == "" || len(name) > 256 {
+		return errs.New(errs.EditorCommand, "invalid script name")
+	}
+	selected := s.Selected()
+	if len(selected) != 1 {
+		return errs.New(errs.EditorCommand, "exactly one node must be selected")
+	}
+	sc := s.doc.Scene()
+	h := sc.Handle(selected[0])
+	if h.IsZero() || !sc.IsAlive(h) {
+		return errs.New(errs.EditorCommand, "selected node is absent")
+	}
+	td, ok := sc.Registry().ByName(name)
+	if !ok || td.Kind != schema.TypeScript {
+		return errs.New(errs.EditorCommand, "unknown script "+name)
+	}
+	scripts, ok := scriptcomp.ScriptsOf(sc, h)
+	if !ok {
+		return errs.New(errs.EditorCommand, "selected node has no scripts")
+	}
+	i := scripts.Index(name)
+	if i < 0 {
+		return errs.New(errs.EditorCommand, "script is not attached to the selected node")
+	}
+	before := scripts.Attachments[i].Enabled
+	if before == enabled {
+		return nil
+	}
+	return s.doc.History.Exec(&commands.SetScriptEnabled{Node: selected[0], TypeName: name, Before: before, After: enabled})
+}
+
+func (s *Session) set(component, field string, value func(*schema.FieldDescriptor) (schema.Value, error)) error {
 	if s.doc == nil {
 		return errs.New(errs.EditorDocument, "no scene is loaded")
 	}
@@ -305,14 +400,9 @@ func (s *Session) Set(component, field string, v float64) error {
 	if fd == nil {
 		return errs.New(errs.SchemaUnknownType, component+" has no field "+field)
 	}
-	val := schema.Value{Kind: fd.Kind}
-	switch fd.Kind {
-	case schema.KindFloat32, schema.KindFloat64:
-		val.F = v
-	case schema.KindInt32, schema.KindInt64, schema.KindBool, schema.KindEnum:
-		val.I = int64(v)
-	default:
-		return errs.New(errs.EditorCommand, field+" is not a number field")
+	val, err := value(fd)
+	if err != nil {
+		return err
 	}
 	nodes := append([]ids.NodeID(nil), s.Selected()...)
 	if len(nodes) == 0 {

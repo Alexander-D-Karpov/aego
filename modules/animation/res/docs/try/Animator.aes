@@ -1,60 +1,18 @@
 package demo
 
-import (
-	"aego/debug"
-	"aego/input"
-)
+// The graph's Speed parameter selects Run independently of the Animator's
+// playback Speed field. The color marks actual advancement in that state.
+script RunIndicator {
+    var advanced bool
 
-// Runner walks with A/D on the built-in platformer controller; Space jumps (Grounded is false in the air), J triggers Hit.
-script Runner {
-	var vy float
-	var floor float
-	var air bool
-
-	func Update(dt float) {
-		a := node.Get<Animator>()
-		dir := 0.0
-		if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
-			dir -= 1
-		}
-		if input.Down(input.KeyD) || input.Down(input.KeyRight) {
-			dir += 1
-		}
-		speed := dir
-		if speed < 0 {
-			speed = -speed
-			node.Get<SpriteRenderer>().FlipX = true
-		} else if speed > 0 {
-			node.Get<SpriteRenderer>().FlipX = false
-		}
-		a.SetFloat("Speed", speed * 3)
-		p := node.Position()
-		if !air {
-			floor = p.Y
-			if input.KeyPressed(input.KeySpace) {
-				air = true
-				vy = -7
-				a.SetBool("Grounded", false)
-			}
-		}
-		if air {
-			vy += 20 * dt
-			p.Y += vy * dt
-			if p.Y >= floor {
-				p.Y = floor
-				air = false
-				a.SetBool("Grounded", true)
-			}
-		}
-		if input.KeyPressed(input.KeyJ) {
-			a.SetTrigger("Attack")
-		}
-		node.SetPosition(Vec2{p.X + dir * 3 * dt, p.Y})
-		label := a.State
-		if a.Blending {
-			label = label + " (blending)"
-		}
-		debug.Text(Vec2{p.X - 2, p.Y - 1.4}, label + "   " + string(a.Progress), Color{0.85, 0.85, 0.85, 1})
-		debug.Text(Vec2{-4.5, 2}, "A/D walk   Space jump   J hit", Color{0.6, 0.6, 0.6, 1})
-	}
+    func FixedUpdate(dt float) {
+        a := node.Get<Animator>()
+        a.SetFloat("Speed", 3)
+        if a.State == "Run" && a.Time > 0.05 {
+            advanced = true
+        }
+        if advanced {
+            node.Get<SpriteRenderer>().Tint = Color{1, 0.2, 0.1, 1}
+        }
+    }
 }

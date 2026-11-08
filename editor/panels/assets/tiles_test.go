@@ -58,3 +58,21 @@ func TestFolderStackIncludesScriptsAndData(t *testing.T) {
 		t.Fatalf("data previews = %v", got)
 	}
 }
+
+func TestArtSourceHasDistinctIcon(t *testing.T) {
+	for _, tc := range []struct {
+		path string
+		kind asset.ArtifactKind
+		want string
+	}{
+		{"assets/hero.aeart", asset.ArtTexture, "file.art"},
+		{"assets/HERO.AEART", asset.ArtTexture, "file.art"},
+		{"assets/hero.png", asset.ArtTexture, "file.texture"},
+		{"assets/hero.aeart", asset.ArtAnim, "file.unknown"},
+	} {
+		a := &pipeline.AssetInfo{Path: tc.path, Kind: tc.kind}
+		if got := assetIcon(a); got != tc.want {
+			t.Errorf("assetIcon(%q, %q) = %q, want %q", tc.path, tc.kind, got, tc.want)
+		}
+	}
+}

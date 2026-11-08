@@ -51,16 +51,25 @@ func (r *Registry) Export(title string) Export {
 	for _, e := range r.Roots() {
 		exp.Nav = append(exp.Nav, r.node(e.ID, 0))
 	}
+	exp.Groups = r.GroupNavigation()
+	return exp
+}
+
+// GroupNavigation builds the same grouped tree as Export without exporting
+// every entry or running documentation diagnostics. The editor's reference
+// panel only needs this tree; full exports still perform all checks.
+func (r *Registry) GroupNavigation() []GroupNav {
+	var out []GroupNav
 	for _, g := range r.Groups() {
 		gn := GroupNav{Group: g}
 		for _, e := range r.GroupRoots(g.ID) {
 			gn.Nav = append(gn.Nav, r.node(e.ID, 0))
 		}
 		if len(gn.Nav) > 0 {
-			exp.Groups = append(exp.Groups, gn)
+			out = append(out, gn)
 		}
 	}
-	return exp
+	return out
 }
 
 func (r *Registry) node(id string, depth int) Node {

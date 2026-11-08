@@ -1,44 +1,27 @@
 scene version=1 {
   node "d3000000000000000000000000000001" name="Ball" enabled=true layers=1 {
     transform {
-      position=[-2, -4]
+      position=[0, 3.19]
       rotation=0
       scale=[1, 1]
     }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000d00")
+      order=1
+      tint=#f59e0bff
+      size=[1, 1]
+    }
     component "physics.Body2D" version=1 {
       type=dynamic
+      gravityScale=0
+      fixedRotation=true
     }
     component "physics.CircleCollider2D" version=1 {
       radius=0.5
-      restitution=0.7
+      restitution=0
     }
-  }
-  node "d3000000000000000000000000000002" name="Small" enabled=true layers=1 {
-    transform {
-      position=[0, -6]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "physics.Body2D" version=1 {
-      type=dynamic
-    }
-    component "physics.CircleCollider2D" version=1 {
-      radius=0.3
-      restitution=0.4
-    }
-  }
-  node "d3000000000000000000000000000003" name="Large" enabled=true layers=1 {
-    transform {
-      position=[2.5, -3]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "physics.Body2D" version=1 {
-      type=dynamic
-    }
-    component "physics.CircleCollider2D" version=1 {
-      radius=0.9
-      restitution=0.2
+    component "engine.Script" version=1 {
+      script "game.demo.CircleImpact" enabled=true {}
     }
   }
   node "d3000000000000000000000000000004" name="Floor" enabled=true layers=1 {

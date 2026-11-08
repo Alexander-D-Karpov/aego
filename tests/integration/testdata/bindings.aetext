@@ -1,5 +1,5 @@
 manifest version=6 {
-  abi="5a92183858aa1a9364dd32952195e01356d16a6480c58ff6fb53252869e2abea"
+  abi="bcc9a6fcfceb5081d07aca8e74e13f84d4550bf5c2396751025908c518e9d5d9"
   module "aego/action" {
     func "Parallel" {
       params=[]
@@ -54,6 +54,11 @@ manifest version=6 {
       result="float"
       names=["bus"]
       doc="BusVolume returns the session volume of a bus set by SetBusVolume; the player's settings are separate."
+    }
+    func "ListenerPosition" {
+      params=[]
+      result="Vec2"
+      doc="ListenerPosition returns the last effective listener position in world space, or zero outside Play. It includes the camera fallback when no listener is active."
     }
     func "Music" {
       params=["AssetRef<audio>", "float"]
@@ -118,6 +123,12 @@ manifest version=6 {
       result="void"
       names=["seconds"]
       doc="StopMusic fades the music out over seconds."
+    }
+    func "WorldBusGain" {
+      params=["enum:aego/audio.Bus"]
+      result="float"
+      names=["bus"]
+      doc="WorldBusGain returns the last zone-selected world-layer target for a bus, or 1 outside Play. It is not the ramped mixer output or the player's settings."
     }
   }
   module "aego/camera" {

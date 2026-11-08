@@ -66,6 +66,40 @@ func TestDiagnosticsPage(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsContentsUsesPhasesInsteadOfRepeatedDetails(t *testing.T) {
+	exp := diagFixture()
+	for _, id := range []string{"PHY001", "PHY002"} {
+		exp.Entries = append(exp.Entries, Entry{
+			ID: id, Parent: "diagnostics", Kind: KindCode, Group: "diagnostics", Title: id,
+			Body:         "## Details\n\nDetailed explanation.",
+			Diag:         &DiagInfo{Phase: "scene"},
+			Translations: map[string]Translation{"ru": {Body: "## Подробности\n\nОписание."}},
+		})
+	}
+	for i := range exp.Groups {
+		if exp.Groups[i].ID == "diagnostics" {
+			exp.Groups[i].Nav[0].Children = append(exp.Groups[i].Nav[0].Children, Node{ID: "PHY001"}, Node{ID: "PHY002"})
+		}
+	}
+	_, _, pages := build(t, exp, Options{})
+	for _, name := range []string{"diagnostics.html", "ru/diagnostics.html"} {
+		p := pages[name]
+		start, end := strings.Index(p, `<aside class="toc">`), strings.Index(p, `</aside>`)
+		if start < 0 || end < start {
+			t.Fatalf("%s: no table of contents", name)
+		}
+		toc := p[start:end]
+		if !strings.Contains(toc, `href="#phase-scene"`) || strings.Contains(toc, `href="#details"`) {
+			t.Errorf("%s: table of contents should list phases, not repeated Details: %s", name, toc)
+		}
+		for _, id := range []string{"PHY001-details", "PHY002-details"} {
+			if n := strings.Count(p, `id="`+id+`"`); n != 1 {
+				t.Errorf("%s: expected one unique detail heading %s, got %d", name, id, n)
+			}
+		}
+	}
+}
+
 func TestHighlightMarked(t *testing.T) {
 	got := highlightMarked("a := \"жx\"\nb := 1\n", 1, 8, 1, 9)
 	if !strings.HasPrefix(got, `<span class="hl-line">`) || !strings.Contains(got, `&#34;ж</span><span class="hl-span"><span class="t-str">x</span></span>`) {

@@ -166,6 +166,9 @@ func (p *Pipeline) audit() {
 func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return 0, err
+	}
 	if p.shared {
 		return 0, errs.New(errs.AssetBadMeta, "another process holds the asset index, repair the meta files there")
 	}
@@ -206,7 +209,7 @@ func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 }
 
 func Audit(pr *project.Project, imps *ImporterRegistry, mode MetaMode) ([]MetaIssue, error) {
-	p := newPipeline(pr, imps, nil)
+	p := newPipeline(pr.Root, imps, nil)
 	p.mode, p.shared = mode, true
 	if _, _, err := p.scan(); err != nil {
 		return nil, err

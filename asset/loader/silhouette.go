@@ -37,7 +37,7 @@ func (l *Loader) readShadowFrame(id ids.AssetID) (silhouette.Shape, error) {
 	}
 	var reg *asset.RegionArtifact
 	page := id
-	if e, ok := l.entry(id); ok && e.Kind == asset.ArtSpriteRegion {
+	if e, ok := l.entry(id); ok && (e.Kind == asset.ArtSpriteRegion || e.Kind == asset.ArtTexture && hasSpriteRegion(e)) {
 		b, err := read(id, asset.ArtSpriteRegion)
 		if err != nil {
 			return silhouette.Shape{}, err
@@ -79,4 +79,9 @@ func (l *Loader) readShadowFrame(id ids.AssetID) (silhouette.Shape, error) {
 		}
 	}
 	return silhouette.Trace(t.Pixels, t.Width, t.Height, cut, cw, ch, dx, dy)
+}
+
+func hasSpriteRegion(e *asset.Entry) bool {
+	_, ok := e.Artifact(asset.ArtSpriteRegion)
+	return ok
 }

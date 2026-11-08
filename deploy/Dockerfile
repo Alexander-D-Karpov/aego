@@ -10,8 +10,21 @@ COPY tools/gendocs/go.mod tools/gendocs/go.sum tools/gendocs/
 RUN go mod download && cd tools/gendocs && go mod download
 COPY . .
 ARG AEGO_COMMIT=""
+ARG ARTSTUDIO_MANIFEST_SHA256=""
 ENV AEGO_COMMIT=$AEGO_COMMIT
-RUN bash tools/check-glslang.sh && make site-headless
+# The build context must contain the *already built* immutable release at
+# studio-artifact/. Fail closed rather than silently packaging local /studio.
+# The caller must separately verify the full context against the commit and run
+# all release gates against the same staged artifact and finished site image.
+RUN go run ./tools/artstudio/release verify-site-input \
+      -dir /src/studio-artifact -root /src -sha256 "$ARTSTUDIO_MANIFEST_SHA256" \
+      -commit "$AEGO_COMMIT" -app-origin https://aeditor.akarpov.ru -docs-origin https://aego.akarpov.ru \
+ && bash tools/check-glslang.sh \
+ && ARTSTUDIO_ARTIFACT=/src/studio-artifact ARTSTUDIO_MANIFEST_SHA256="$ARTSTUDIO_MANIFEST_SHA256" make site-headless \
+ && test -f site/asset-studio/integration.json && test ! -e site/studio \
+ && go run ./tools/artstudio/release verify-site-input \
+      -dir /src/studio-artifact -root /src -sha256 "$ARTSTUDIO_MANIFEST_SHA256" \
+      -commit "$AEGO_COMMIT" -app-origin https://aeditor.akarpov.ru -docs-origin https://aego.akarpov.ru
 RUN find site -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.svg' \) -exec gzip -9 -k -f {} \;
 RUN find site -type f -name '*.wasm' | while read -r f; do [ -f "$f.gz" ] || gzip -9 -k -f "$f"; [ -f "$f.br" ] || brotli -q 11 -k -f "$f"; done
 COPY tools/release/install.sh tools/release/install.ps1 site/

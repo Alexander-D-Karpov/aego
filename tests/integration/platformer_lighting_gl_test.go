@@ -18,6 +18,7 @@ import (
 
 	"aego/app/run"
 	"aego/core/log"
+	"aego/modules/gameplay"
 	"aego/project"
 	"aego/render"
 	"aego/render/lighting"
@@ -59,6 +60,7 @@ func TestPlatformerLightingGLRoute(t *testing.T) {
 	frames := []int{400, 1039, 1216, 1840}
 	before := map[int]capture{}
 	beforePixels := map[int][]byte{}
+	var beforeHits []checkpointReached
 	for _, enabled := range []bool{true, false} {
 		name := "off"
 		if enabled {
@@ -78,12 +80,14 @@ func TestPlatformerLightingGLRoute(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer a.Close()
-			// Match the exported browser's bench/replay clock, including the
-			// first fixed tick, instead of relying on the hidden-window delta.
-			a.Engine.SetLockstep(true)
+			// The recording starts with a zero-delta frame. Enable lockstep
+			// after that frame so its input samples land on the recorded ticks.
 			report.Renderer = a.Engine.Caps().Renderer
 			pf := &platformer{app: a, root: root, player: a.Scene.Find(a.Scene.Root(), "Player")}
 			pf.pid, _ = a.Scripts.InstanceOf(pf.player, playerType)
+			var hits []checkpointReached
+			stop := observePlayerCheckpoints(t, pf, &hits)
+			defer stop()
 			a.Runner.SetLightingView(enabled, lighting.DebugLighting)
 			if _, err := actionsOf(t, pf).Replay(data); err != nil {
 				t.Fatal(err)
@@ -98,6 +102,12 @@ func TestPlatformerLightingGLRoute(t *testing.T) {
 				}
 				if !a.Engine.Step(driver) {
 					t.Fatalf("route stopped at %d: %v\n%s", frame, a.Engine.Err(), logs.String())
+				}
+				if tick := a.Engine.MainWorld().Time.Tick(); tick != uint64(frame-1) {
+					t.Fatalf("recorded replay clock mismatch at frame %d: tick=%d, want %d", frame, tick, frame-1)
+				}
+				if frame == 1 {
+					a.Engine.SetLockstep(true)
 				}
 				if !captureNow {
 					continue
@@ -134,9 +144,22 @@ func TestPlatformerLightingGLRoute(t *testing.T) {
 				t.Logf("%s frame=%d player=%v drawCalls=%d lights=%d shadowMasks=%d outputBytes=%d", name, frame, a.Scene.WorldPosition(pf.player), c.Stats.DrawCalls, c.Stats.SelectedLights, c.Stats.DirtyShadowMasks, c.Stats.LightingTargetBytes)
 			}
 			pf.noFaults(t)
-			if at := a.Scene.WorldPosition(pf.player); at.X < 66.45 {
+			if at := a.Scene.WorldPosition(pf.player); at.X < 66.5 || !pf.motion().Grounded {
 				t.Fatalf("native GPU replay missed Finish: %v", at)
 			}
+			finish := a.Scene.Find(a.Scene.Root(), "Finish")
+			if len(hits) < 2 || hits[len(hits)-1].point != a.Scene.ID(finish) || hits[len(hits)-1].by != a.Scene.ID(pf.player) || hits[len(hits)-1].tick != lightingFinishTick {
+				t.Fatalf("native GPU replay did not activate intermediate checkpoints and Finish at tick %d: %+v", lightingFinishTick, hits)
+			}
+			if stats := gameplay.Of(a.Engine.MainWorld()).Stats(); stats.Respawns != 0 {
+				t.Fatalf("native GPU replay respawned: %+v", stats)
+			}
+			if enabled {
+				beforeHits = slices.Clone(hits)
+			} else if !slices.Equal(beforeHits, hits) {
+				t.Fatalf("lighting changed actual checkpoint activation: %v != %v", beforeHits, hits)
+			}
+			t.Logf("native checkpoints=%+v", hits)
 		})
 	}
 	encoded, err := json.MarshalIndent(report, "", "  ")

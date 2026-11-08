@@ -1,6 +1,6 @@
 ---
 id: save
-try: try/Persist.aescene
+try: PersistGuideOriginal.aescene
 try_select: save.Persist
 icon: panel.saves
 group: gameplay

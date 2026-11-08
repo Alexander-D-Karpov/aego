@@ -16,6 +16,58 @@ func (p defaultLayoutPanel) ID() string                       { return string(p)
 func (p defaultLayoutPanel) Title() string                    { return string(p) }
 func (p defaultLayoutPanel) Draw(*services.Frame, mathx.Rect) {}
 
+type scopedLayoutPanel struct {
+	defaultLayoutPanel
+	scope string
+}
+
+func (p scopedLayoutPanel) Scope() string { return p.scope }
+
+func TestVFXKeepsCanvasAndParticlePresetVisible(t *testing.T) {
+	w := workspace.New(t.TempDir(), nil)
+	for i, id := range []string{workspace.Assets, workspace.Scene, workspace.Inspector, "art.properties", "art.timeline", "art.preview"} {
+		if err := w.Register(workspace.Desc{Panel: defaultLayoutPanel(id), Order: i}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range BuiltinWorkspaces() {
+		if err := w.RegisterPreset(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.LoadLayout()
+	if !w.Switch(workspace.VFX) {
+		t.Fatal("VFX workspace unavailable")
+	}
+	const canvas, effect = "render2d.art/test", "particles.preset/test"
+	for _, panel := range []scopedLayoutPanel{{defaultLayoutPanel(canvas), "render2d.art"}, {defaultLayoutPanel(effect), "particles.preset"}} {
+		if err := w.Register(workspace.Desc{Panel: panel, Slot: workspace.SlotCenter}); err != nil {
+			t.Fatal(err)
+		}
+		w.Focus(panel.ID())
+	}
+	canvasNode := w.Tree.FindPanel(canvas)
+	effectNode := w.Tree.FindPanel(effect)
+	if canvasNode == 0 || effectNode == 0 || canvasNode == effectNode {
+		t.Fatal("opening a particle preset hid the editable canvas in the same tab group")
+	}
+	if effectNode != w.Tree.FindPanel(workspace.Inspector) {
+		t.Fatal("particle preset is not docked with the inspector")
+	}
+	for _, item := range []struct {
+		id   string
+		node dock.NodeID
+	}{{canvas, canvasNode}, {effect, effectNode}} {
+		node, ok := w.Tree.Node(item.node)
+		if !ok {
+			t.Fatalf("missing tab group for %s", item.id)
+		}
+		if active, _ := node.ActivePanel(); active != item.id {
+			t.Fatalf("%s is not visible: active tab is %s", item.id, active)
+		}
+	}
+}
+
 func TestDesignDefaultAgentAndSavedLayouts(t *testing.T) {
 	root := t.TempDir()
 	makeWorkspace := func(withAgent bool) *workspace.Workspace {

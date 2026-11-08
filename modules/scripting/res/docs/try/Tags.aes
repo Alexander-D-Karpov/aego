@@ -1,49 +1,12 @@
 package demo
 
-import (
-    "aego/math"
-    "aego/scene"
-)
-
-// Spotlight pulses every enabled node with Tag; it cycles through three tags every few seconds.
-script Spotlight {
-    @export var Tag string = "Enemy"
-    @export var Every float = 1.5
-
-    var found []NodeRef
-    var tags []string
-    var t float
-    var pick int
-
-    func Ready() {
-        for i := 0; i < 16; i++ {
-            found = append(found, nil)
-        }
-        tags = append(tags, Tag)
-        tags = append(tags, "Enemy")
-        tags = append(tags, "Pickup")
-    }
-
+// HasTag queries the scene index, including dot-separated parent tags.
+script TagIndicator {
     func Update(dt float) {
-        t += dt
-        if t >= Every {
-            t = 0
-            pick = (pick + 1) % len(tags)
-        }
-        for k := 0; k < len(tags); k++ {
-            s := 1.0
-            if k == pick {
-                s = 1 + 0.4 * math.Abs(math.Sin(t * 6))
-            }
-            n := scene.WithTag(tags[k], found)
-            for i := 0; i < n; i++ {
-                if k != pick && found[i].HasTag(tags[pick]) {
-                    continue
-                }
-                tr := found[i].Transform2D()
-                tr.Scale = Vec2{s, s}
-                found[i].SetTransform2D(tr)
-            }
+        if node.HasTag("Enemy") {
+            node.Get<SpriteRenderer>().Tint = Color{0.05, 0.8, 0.25, 1}
+        } else {
+            node.Get<SpriteRenderer>().Tint = Color{1, 0.5, 0.05, 1}
         }
     }
 }

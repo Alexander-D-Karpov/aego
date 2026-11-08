@@ -36,9 +36,12 @@ const (
 type Importer struct {
 	Validator string
 	Require   bool
-	mu        sync.Mutex
-	diags     map[string][]shaderx.Diag
-	rev       uint64
+	// DisableExternal prevents validator processes in untrusted remote projects.
+	// Schema parsing still runs, but the result is never marked reference-checked.
+	DisableExternal bool
+	mu              sync.Mutex
+	diags           map[string][]shaderx.Diag
+	rev             uint64
 }
 
 func New() *Importer {
@@ -167,6 +170,13 @@ func (i *Importer) CacheSalt(ctx *pipeline.ImportContext) ([]byte, error) {
 	if i.Require {
 		h.Write([]byte("required"))
 	}
+	if i.DisableExternal {
+		if i.Require {
+			return nil, fmt.Errorf("shader reference validation is required but external tools are disabled")
+		}
+		h.Write([]byte("external-tools-disabled"))
+		return h.Sum(nil), nil
+	}
 	bin, err := exec.LookPath(i.Validator)
 	if err != nil {
 		h.Write([]byte("unavailable"))
@@ -214,6 +224,15 @@ type job struct {
 }
 
 func (i *Importer) validate(ctx *pipeline.ImportContext, u *shaderx.Unit) ([]shaderx.Diag, bool) {
+	if i.DisableExternal {
+		if i.Require {
+			return []shaderx.Diag{{Code: shaderx.SHD001, File: ctx.Path, Msg: "shader reference validation is required but external tools are disabled"}}, false
+		}
+		if ctx.Log != nil {
+			ctx.Log.Warn("external shader validation is disabled; shader schema checked, reference and GPU linking are unverified", log.F("path", ctx.Path))
+		}
+		return nil, false
+	}
 	bin, err := exec.LookPath(i.Validator)
 	if err != nil {
 		if i.Require {

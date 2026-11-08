@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "audio.AudioSource2D",
+  "demoID": "audio.AudioSource2D.start-silent-voice",
+  "documentID": "audio.AudioSource2D",
+  "scene": "audio.AudioSource2D/try",
+  "identity": "9a7288b4b4a10ea35e878463e5ddf841a1138d6cddc48c89313933724f4b729f",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000a03"],
+  "editableFields": ["audio.AudioSource2D.PlayOnStart"],
+  "actions": [{
+    "id": "start-loop", "field": "audio.AudioSource2D.PlayOnStart", "value": 1,
+    "expected": [
+      {"observable": "audio.AudioSource2D.PlayOnStart", "equals": true, "changes": true},
+      {"observable": "audio.AudioSource2D.Playing", "equals": true, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Start an audio source", "description": "The source contains a looping built-in Hum clip, but Play On Start is off. Volume is deliberately 0, so this example makes no audible sound.", "input": "Enable Play On Start. After the scene restarts, the real audio service starts a silent voice and the indicator turns green when IsPlaying reports it. Reset stops the voice."},
+    "ru": {"title": "Запуск источника звука", "description": "Источник содержит зацикленный встроенный звук Hum, но Play On Start выключен. Громкость намеренно равна 0, поэтому пример не издаёт слышимого звука.", "input": "Включите Play On Start. После перезапуска настоящий аудиосервис запустит беззвучный голос, а индикатор станет зелёным, когда IsPlaying его обнаружит. «Сброс» остановит голос."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

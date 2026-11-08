@@ -1,0 +1,50 @@
+# Include inside the existing nginx http{} context after substituting reviewed
+# values. Independent root only. Do not replace the existing Docs/Demo server.
+map $uri $aeditor_cache {
+    default "no-cache";
+    "~\.[a-f0-9]{16}\.(js|css|wasm)(\.gz)?$" "public, max-age=31536000, immutable";
+}
+map $uri $aeditor_csp {
+    default "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    ~^/(r/[A-Za-z0-9._-]+/)?embed/ "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors @DOCS_ORIGIN@ @APP_ORIGIN@";
+    ~^/(r/[A-Za-z0-9._-]+/)?docs/ "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; frame-src @APP_ORIGIN@; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+}
+server {
+    listen @LISTEN@;
+    server_name @SERVER_NAME@;
+    @TLS_DIRECTIVES@
+    root @ROOT@/current;
+    index index.html;
+    autoindex off;
+    server_tokens off;
+    # Do not log query strings (transfer session tokens) or any user documents.
+    access_log off;
+    client_max_body_size 1k;
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    gzip on;
+    gzip_static on;
+    gzip_types application/wasm application/json text/javascript application/javascript text/css;
+    add_header Content-Security-Policy $aeditor_csp always;
+    add_header Cache-Control $aeditor_cache always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    error_page 404 = @aeditor_not_found;
+    location ~ (^|/)\. { return 404; }
+    location /r/ {
+        alias @ROOT@/releases/;
+        limit_except GET HEAD { deny all; }
+    }
+    location / {
+        try_files $uri $uri/index.html =404;
+        limit_except GET HEAD { deny all; }
+    }
+    location @aeditor_not_found {
+        types {}
+        default_type text/plain;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options nosniff always;
+        return 404 "Asset Studio resource not found\n";
+    }
+}

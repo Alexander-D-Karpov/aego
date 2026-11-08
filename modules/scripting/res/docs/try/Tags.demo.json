@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "engine.Tags",
+  "demoID": "engine.Tags.parent-queries",
+  "documentID": "engine.Tags",
+  "scene": "engine.Tags/try",
+  "identity": "63cd722f249853ead537ea1945a75c9b5174e08cd843e1099b94b1506f09a73b",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["engine.Tags.Tags"],
+  "actions": [{
+    "id": "replace-enemy-tag", "field": "engine.Tags.Tags", "value": ["Ally"],
+    "expected": [
+      {"observable": "engine.Tags.Tags", "equals": ["Ally"], "changes": true},
+      {"observable": "engine.Tags.HasEnemy", "equals": false, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Find a parent tag", "description": "The target has the tag Enemy.Flying. A query for Enemy also finds it, so the marker is green.", "input": "Expand Tags in the Inspector and replace Enemy.Flying with Ally. The scene restarts and the actual Enemy query no longer finds the target; the marker turns orange. Reset restores Enemy.Flying."},
+    "ru": {"title": "Поиск родительского тега", "description": "У цели есть тег Enemy.Flying. Запрос Enemy тоже её находит, поэтому метка зелёная.", "input": "Раскройте список Tags в Инспекторе и замените Enemy.Flying на Ally. Сцена перезапустится, настоящий запрос Enemy больше не найдёт цель, и метка станет оранжевой. «Сброс» восстановит Enemy.Flying."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -1,6 +1,8 @@
 package render2d
 
 import (
+	"slices"
+
 	"aego/asset"
 	"aego/core/mathx"
 	"aego/render/lighting"
@@ -41,6 +43,11 @@ type LightOccluder2D struct {
 	Layers    int64             `aego:"layers"`
 	ShapeNode scene.NodeRef     `aego:"shapeNode,omitempty"`
 	Shape     string            `aego:"shape,omitempty"`
+}
+
+func cloneLightOccluder(dst, src *LightOccluder2D) {
+	*dst = *src
+	dst.Polygon = slices.Clone(src.Polygon)
 }
 
 type LightingEnvironment2D struct {

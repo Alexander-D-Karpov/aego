@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "audio.AudioZone2D",
+  "demoID": "audio.AudioZone2D.world-gain",
+  "documentID": "audio.AudioZone2D",
+  "scene": "audio.AudioZone2D/try",
+  "identity": "98948791dc33ea264072a9ee851d3aa8d4fc6e1a523f1604dc38a9da819c7431",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["audio.AudioZone2D.Gain"],
+  "actions": [{
+    "id": "raise-zone-gain", "field": "audio.AudioZone2D.Gain", "value": 0.75,
+    "expected": [
+      {"observable": "audio.AudioZone2D.Gain", "equals": 0.75, "changes": true},
+      {"observable": "audio.AudioZone2D.WorldGain", "equals": 0.75, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Change a zone's bus gain", "description": "The listener is inside the purple zone, which selects a world-layer target of 0.25 for the music bus. The marker reads that target from the audio service. No sound is played.", "input": "Set Gain to 0.75. After the scene restarts, the real zone changes the world's music-bus target and the marker turns green. Fade is zero; Reset returns the target to 0.25."},
+    "ru": {"title": "Изменение уровня шины в зоне", "description": "Слушатель находится внутри фиолетовой зоны, которая выбирает целевое значение слоя мира 0,25 для шины музыки. Индикатор читает его из аудиосервиса. Звук не воспроизводится.", "input": "Установите Gain в 0,75. После перезапуска настоящая зона изменит целевой уровень шины музыки для мира, а индикатор станет зелёным. Переход равен нулю; «Сброс» вернёт уровень 0,25."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

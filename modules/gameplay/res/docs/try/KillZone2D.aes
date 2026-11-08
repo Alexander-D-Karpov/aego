@@ -1,30 +1,14 @@
 package demo
 
-import (
-    "aego/debug"
-    "aego/input"
-)
+// The indicator reports the tagged target's actual Health state.
+script ZoneIndicator {
+    @export var Target NodeRef
 
-// Player falls into the pit, dies and respawns at the start.
-script Player {
     func Update(dt float) {
-        m := node.Get<Motion2D>()
-        x := 0.0
-        if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
-            x -= 1
+        if Target.Get<Health>().Dead {
+            node.Get<SpriteRenderer>().Tint = Color{1, 0.5, 0.05, 1}
+        } else {
+            node.Get<SpriteRenderer>().Tint = Color{0.05, 0.8, 0.25, 1}
         }
-        if input.Down(input.KeyD) || input.Down(input.KeyRight) {
-            x += 1
-        }
-        m.Move(x)
-        if input.KeyPressed(input.KeySpace) || input.KeyPressed(input.KeyW) || input.KeyPressed(input.KeyUp) {
-            m.Jump()
-        }
-        if input.KeyReleased(input.KeySpace) || input.KeyReleased(input.KeyW) || input.KeyReleased(input.KeyUp) {
-            m.JumpReleased()
-        }
-        hp := node.Get<Health>()
-        p := node.WorldPosition()
-        debug.Text(Vec2{p.X - 0.6, p.Y - 1}, "hp " + string(hp.Current), Color{1, 1, 1, 1})
     }
 }

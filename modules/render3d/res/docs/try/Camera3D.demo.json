@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "componentID": "engine.Camera3D",
+  "demoID": "engine.Camera3D.fov",
+  "documentID": "engine.Camera3D",
+  "scene": "engine.Camera3D/try",
+  "identity": "6dd3dec9401359e52f852ce92762bd3f66877a1e5592e9a1cfaba205926f8313",
+  "dependencies": [
+    "ae900000000000000000000000000001",
+    "ae900000000000000000000000000002",
+    "ae900000000000000000000000000003",
+    "ae900000000000000000000000000004"
+  ],
+  "editableFields": ["engine.Camera3D.Fov"],
+  "actions": [
+    {
+      "id": "narrow-field-of-view",
+      "field": "engine.Camera3D.Fov",
+      "value": 40,
+      "expected": [{"observable": "engine.Camera3D.Fov", "equals": 40, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Camera 3D field of view",
+      "description": "The camera looks at three meshes. A narrower field of view changes their apparent size and framing.",
+      "input": "Change FOV from 70 to 40 degrees and watch the Game View; Reset restores the original view."
+    },
+    "ru": {
+      "title": "Поле зрения камеры 3D",
+      "description": "Камера смотрит на три сетки. Более узкое поле зрения меняет их видимый размер и кадрирование.",
+      "input": "Измените поле зрения (FOV) с 70 до 40 градусов и посмотрите на вид игры; «Сброс» вернёт исходный вид."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}

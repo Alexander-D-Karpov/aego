@@ -41,6 +41,18 @@ type Snippet struct {
 	Line  int
 }
 
+// DemoText is the user-facing part of the existing component demo contract.
+// The behavioral gate remains in the engine; the site only presents its hints.
+type DemoText struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Input       string `json:"input"`
+}
+
+type DemoInfo struct {
+	Languages map[string]DemoText `json:"languages"`
+}
+
 type Entry struct {
 	ID           string
 	Parent       string
@@ -61,6 +73,7 @@ type Entry struct {
 	Order        int
 	Field        *FieldInfo
 	Component    *ComponentInfo
+	Demo         *DemoInfo
 	Related      []string
 	Try          string
 	TrySelect    string

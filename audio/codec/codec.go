@@ -177,6 +177,8 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 	buf := make([]float32, chunk*ch)
 	var pending []float32
 	pos := int64(0)
+	var seekTo int64
+	needsSeek := false
 	empty := 0
 	for {
 		select {
@@ -188,14 +190,18 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			k := min(sk, int64(len(pending)/ch))
 			pending = pending[int(k)*ch:]
 			if sk -= k; sk > 0 {
-				to, ok := skipTo(d, o, pos+sk)
+				// A held stream can advance repeatedly while its output is muted.
+				// Keep its logical target current, but defer expensive decoder
+				// seeks until the mixer actually releases the stream.
+				from := pos
+				if needsSeek {
+					from = seekTo
+				}
+				to, ok := skipTo(d, o, from+sk)
 				if !ok {
 					return nil
 				}
-				if err := d.SeekFrame(to); err != nil {
-					return err
-				}
-				pos = to
+				seekTo, needsSeek = to, true
 			}
 		}
 		if st.Held() {
@@ -204,6 +210,15 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 				return nil
 			case <-st.Wake():
 			}
+			continue
+		}
+		if needsSeek {
+			if err := d.SeekFrame(seekTo); err != nil {
+				return err
+			}
+			pos, needsSeek = seekTo, false
+			// A new skip can arrive while the decoder is seeking. Handle it
+			// before reading or publishing samples from the old position.
 			continue
 		}
 		if len(pending) == 0 {
@@ -235,6 +250,9 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			empty = 0
 			pos += int64(n)
 			pending = buf[:n*ch]
+			// Decoding may also overlap a new hold/skip. Let the next
+			// iteration discard superseded samples before writing the ring.
+			continue
 		}
 		w := st.Ring.Write(pending)
 		pending = pending[w*ch:]

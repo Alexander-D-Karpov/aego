@@ -63,6 +63,8 @@ A clip that does not import keeps its last good version, and the error is in Pro
 
 ---
 id: animation/player
+try: AnimationPlayerOriginal.aescene
+try_select: animation.AnimationPlayer
 icon: play.start
 parent: animation
 order: 2
@@ -71,6 +73,8 @@ title: Animation Player
 # Animation Player
 
 [Animation Player](ref:animation.AnimationPlayer) plays its Clip, from the start of Play when Play On Start is set. Speed scales time; a negative speed plays backwards. Loop overrides the loop mode of the clip.
+
+In Try it, the runner plays the built-in run clip and the pendulum plays a separate bob clip. Press R to replay the runner or B to reverse it; their scripts show presentation and gameplay events.
 
 | Method | |
 |---|---|
@@ -142,8 +146,27 @@ An event in a clip has a mode:
 The scripts of the player's node get `OnAnimEvent(id int, payload float)`, and the player emits its `Event(id, payload)` signal. An event at time 0 runs when the clip starts and on every new cycle; an event at the end runs once per cycle. A step that covers several cycles runs each event once per cycle, in order. `Seek` fires nothing.
 
 ---
+id: section/animation
+icon: animation.player
+---
+## Animation events
+
+Declare project-specific animation event names in the `animation` block. `Footstep` and `Hit` are built in; redeclaring either does not replace the built-in event. Each project event needs a unique, nonempty name. `payload` is optional and can be `none`, `int`, `float` or `bool`; its default is `none`.
+
+```aetext
+animation {
+  event "Land" payload=float {}
+  event "OpenDoor" {}
+}
+```
+
+In **Project Settings → Animation**, add, rename or remove project events and choose their payload. Changes stay in the settings draft until **Apply**; Undo and Redo work on that draft. The new declarations take effect on the next Play. Renaming or removing a declaration does not rewrite animation clips: update their event names too.
+
+Animation clips refer to these names. Scripts receive `OnAnimEvent(id, payload)` and can resolve names with `anim.EventName` and `anim.EventID`; see [Animation events](ref:animation/events). The same block can also be edited in `project.aego`.
+
+---
 id: animation/animator
-try: try/Animator.aescene
+try: AnimatorOriginal.aescene
 try_select: animation.Animator
 icon: play.start
 parent: animation
@@ -153,6 +176,8 @@ title: Animator
 # Animator
 
 An [Animator](ref:animation.Animator) plays the states of a controller, an `.aectrl` file: each state has a clip, and transitions switch between states when parameters change. Scripts set the parameters; the graph does the rest.
+
+In Try it, use A/D to walk, Space to jump and J to trigger Hit. The script sets controller parameters and shows the current state.
 
     func FixedUpdate(dt float) {
       m := node.Get<Motion2D>()

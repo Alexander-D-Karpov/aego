@@ -1,0 +1,12 @@
+package demo
+
+import "aego/physics"
+
+// The visible capsule matches the collider's dimensions. It strikes the
+// floor at a fixed speed so Restitution changes the real contact response.
+script CapsuleImpact {
+    func Ready() {
+        body := node.Get<Body2D>()
+        body.SetVelocity(Vec2{0, 15})
+    }
+}

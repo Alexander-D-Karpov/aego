@@ -47,7 +47,7 @@ The editor has three themes: **System**, **Dark** and **Light**. System, the def
 ![The Design workspace in the light theme](shots/editor-light.png)
 
 - Pick a theme in **Window → Theme**, in the command palette (**Theme: System**, **Theme: Dark**, **Theme: Light**) or with the **Theme** box at the bottom of the launcher. It changes at once, without a restart.
-- The Scene View, the Game View, previews and thumbnails keep the same colors in both themes, so a scene looks the same in either.
+- The Scene View background and grid follow the editor theme; changing the theme does not change the scene or the running game.
 - The theme is your choice, not the project's: it applies to every project and to the launcher. `AEGO_EDITOR_THEME=system|dark|light` overrides it for one run.
 
 ## Projects, scenes and previews

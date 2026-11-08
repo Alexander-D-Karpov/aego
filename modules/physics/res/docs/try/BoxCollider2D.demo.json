@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.BoxCollider2D",
+  "demoID": "physics.BoxCollider2D.bounce",
+  "documentID": "physics.BoxCollider2D",
+  "scene": "physics.BoxCollider2D/try",
+  "identity": "acda5985eee5cbb0f7e514d6539eb4a421951b7f0bfa023731d53b81e05c9f72",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["physics.BoxCollider2D.Restitution"],
+  "actions": [{
+    "id": "bounce-on-contact", "field": "physics.BoxCollider2D.Restitution", "value": 1,
+    "expected": [{"observable": "physics.BoxCollider2D.Restitution", "equals": 1, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Box collider bounce", "description": "A box is launched toward the floor with gravity off. At Restitution 0 it stops when it hits.", "input": "Change Restitution from 0 to 1 to make the box bounce on the same contact. Reset restores the original collision."},
+    "ru": {"title": "Отскок прямоугольного коллайдера", "description": "Ящик движется к полу при выключенной гравитации. При Restitution 0 он останавливается при ударе.", "input": "Измените Restitution с 0 на 1, чтобы ящик отскочил при том же столкновении. Сброс вернёт исходное столкновение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

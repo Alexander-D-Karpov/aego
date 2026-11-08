@@ -1,11 +1,17 @@
 package assetfiles
 
 import (
+	"fmt"
 	"image"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"aego/core/ids"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
+	"aego/engine/i18n"
 )
 
 type Files struct {
@@ -122,9 +128,84 @@ func (f *Files) PackageOf(dir string) string {
 }
 
 func (f *Files) ImportExternal(files []string, dir string) ([]ids.AssetID, error) {
-	created, batch, err := f.ctx.Pipeline.ImportExternal(files, dir)
-	f.ctx.ApplyBatch(batch)
-	return created, err
+	type routedFile struct {
+		name    string
+		handler context.ExternalFileImport
+	}
+	var ordinary []string
+	var routed []routedFile
+	for _, file := range files {
+		var found bool
+		for _, handler := range f.ctx.ExternalFileImports {
+			for _, ext := range handler.Extensions {
+				if strings.EqualFold(filepath.Ext(file), ext) {
+					routed = append(routed, routedFile{file, handler})
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			ordinary = append(ordinary, file)
+		}
+	}
+	var created []ids.AssetID
+	var failures []string
+	if len(ordinary) > 0 {
+		ids, batch, err := f.ctx.Pipeline.ImportExternal(ordinary, dir)
+		created = append(created, ids...)
+		f.ctx.ApplyBatch(batch)
+		if err != nil {
+			failures = append(failures, err.Error())
+		}
+		if batch != nil {
+			for id, cause := range batch.Failed {
+				name, ok := f.ctx.Pipeline.PathOf(id)
+				if !ok {
+					name = id.String()
+				}
+				failures = append(failures, name+": "+cause.Error())
+			}
+			for _, id := range batch.Retry {
+				name, ok := f.ctx.Pipeline.PathOf(id)
+				if !ok {
+					name = id.String()
+				}
+				reason := i18n.Tr("editor.assets.import_retry", "source changed during import; retry")
+				if strings.EqualFold(path.Ext(name), ".aeart") {
+					if data, readErr := f.ctx.Pipeline.SourceBytes(name); readErr == nil && data != nil && len(data) == 0 {
+						reason = i18n.Tr("editor.assets.empty_art_import", "empty .aeart; open the copied file to initialize it, or create a new drawing")
+					}
+				}
+				failures = append(failures, name+": "+reason)
+			}
+		}
+	}
+	for _, source := range routed {
+		id, pending, err := source.handler.Import(source.name, dir)
+		if err != nil {
+			failures = append(failures, filepath.Base(source.name)+": "+err.Error())
+		} else if pending && !id.IsZero() {
+			failures = append(failures, filepath.Base(source.name)+": import returned an asset while awaiting confirmation")
+		} else if pending {
+			continue
+		} else if id.IsZero() {
+			failures = append(failures, filepath.Base(source.name)+": import did not create an asset")
+		} else {
+			created = append(created, id)
+		}
+	}
+	if len(failures) > 0 {
+		sort.Strings(failures)
+		return created, fmt.Errorf("%s: %s", i18n.Tr("editor.assets.import_incomplete", "Some files could not be imported; any copied files were kept"), strings.Join(failures, "; "))
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no files selected for import")
+	}
+	return created, nil
 }
 
 func (f *Files) Reimport(id ids.AssetID) error {

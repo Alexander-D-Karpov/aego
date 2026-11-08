@@ -31,3 +31,23 @@ func TestSiteImageRequiresPinnedShaderValidator(t *testing.T) {
 		t.Fatal("site image must make the installer scripts publicly readable")
 	}
 }
+
+func TestProductionSiteImageRequiresVerifiedStudioArtifact(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../deploy/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := string(dockerfile)
+	for _, part := range []string{
+		"ARTSTUDIO_MANIFEST_SHA256", "studio-artifact", "verify-site-input",
+		"ARTSTUDIO_ARTIFACT=", "https://aeditor.akarpov.ru", "https://aego.akarpov.ru",
+		"site/asset-studio/integration.json",
+	} {
+		if !strings.Contains(build, part) {
+			t.Fatalf("site image does not require pinned release input %q", part)
+		}
+	}
+	if strings.Index(build, "verify-site-input") > strings.Index(build, "make site-headless") {
+		t.Fatal("site input must be verified before the build")
+	}
+}

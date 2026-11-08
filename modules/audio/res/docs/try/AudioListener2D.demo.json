@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "audio.AudioListener2D",
+  "demoID": "audio.AudioListener2D.active-listener",
+  "documentID": "audio.AudioListener2D",
+  "scene": "audio.AudioListener2D/try",
+  "identity": "c10972d4a2ddaf52b9f3ee924423312fdd6f63db7e9b593682363285e568466f",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["audio.AudioListener2D.Active"],
+  "actions": [{
+    "id": "use-camera-fallback", "field": "audio.AudioListener2D.Active", "value": 0,
+    "expected": [
+      {"observable": "audio.AudioListener2D.Active", "equals": false, "changes": true},
+      {"observable": "audio.AudioListener2D.ListenerX", "equals": 0, "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Choose the effective listener", "description": "The blue mark is an active listener at x=2; the gray mark is the camera at x=0. The orange marker reads the effective position from the real audio service. No sound is played.", "input": "Disable Active. After the scene restarts, the service uses the camera fallback and the orange marker moves to x=0. Reset restores the active listener."},
+    "ru": {"title": "Выбор действующего слушателя", "description": "Голубая отметка — активный слушатель при x=2, серая — камера при x=0. Оранжевый индикатор читает действующую позицию из настоящего аудиосервиса. Звук не воспроизводится.", "input": "Выключите Active. После перезапуска сервис возьмёт запасной вариант с камерой, и оранжевый индикатор перейдёт к x=0. «Сброс» восстановит активного слушателя."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

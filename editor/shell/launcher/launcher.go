@@ -80,6 +80,8 @@ type Options struct {
 	RecentPath      string
 	Home            string
 	Image           func(key string, load func() ([]byte, error)) (texture.Region, bool)
+	// Remote is data-only transport; the launcher asks before network access.
+	Remote RemoteExamples
 	// Theme and SetTheme read and change the editor theme preference; nil hides the Theme combo (D345).
 	Theme    func() theme.Mode
 	SetTheme func(theme.Mode)
@@ -99,24 +101,27 @@ func languageNames() []string {
 }
 
 type Launcher struct {
-	opt      Options
-	recent   []Entry
-	tab      Tab
-	name     string
-	dir      string
-	module   string
-	open     string
-	tmpl     int
-	example  int
-	ws       int
-	native   bool
-	autoName bool
-	menu     string
-	notes    bool
-	err      string
-	result   string
-	scroll   float32
-	content  float32
+	opt          Options
+	recent       []Entry
+	tab          Tab
+	name         string
+	dir          string
+	module       string
+	open         string
+	tmpl         int
+	example      int
+	ws           int
+	native       bool
+	autoName     bool
+	menu         string
+	notes        bool
+	err          string
+	result       string
+	scroll       float32
+	content      float32
+	remote       remoteState
+	resultEntry  string
+	resultRemote bool
 }
 
 func New(opt Options) *Launcher {
@@ -186,6 +191,10 @@ func (l *Launcher) Result() (string, bool) {
 	return l.result, l.result != ""
 }
 
+// ResultEntry identifies a remote manifest's entry scene. Local projects keep
+// their existing startup behavior; opening a remote project never starts Play.
+func (l *Launcher) ResultEntry() (string, bool) { return l.resultEntry, l.resultRemote }
+
 func (l *Launcher) Recent() []Entry {
 	return l.recent
 }
@@ -246,7 +255,8 @@ func (l *Launcher) create(req CreateRequest) (string, error) {
 			l.err = i18n.Tr("launcher.workspace_not_saved", "The project was created, but its workspace was not saved: {error}", i18n.Str("error", err.Error()))
 		}
 	}
-	l.result = root
+	l.cancelRemote()
+	l.result, l.resultEntry, l.resultRemote = root, "", false
 	return root, nil
 }
 
@@ -259,7 +269,8 @@ func (l *Launcher) Open(dir string) error {
 		l.err = i18n.Tr("launcher.no_project_file", "No {file} in {dir}", i18n.Str("file", project.FileName), i18n.Str("dir", dir))
 		return errors.New(l.err)
 	}
-	l.err, l.result = "", abs
+	l.cancelRemote()
+	l.err, l.result, l.resultEntry, l.resultRemote = "", abs, "", false
 	return nil
 }
 
@@ -291,6 +302,7 @@ func (l *Launcher) image(key string, load func() ([]byte, error)) (texture.Regio
 }
 
 func (l *Launcher) Draw(ui *core.Context, r mathx.Rect) {
+	l.pollRemote()
 	th := &ui.Theme
 	ui.Rect(r, th.Background)
 	if ui.MouseOver(ui.ID("launcher.scroll"), r) {
@@ -736,25 +748,26 @@ func (l *Launcher) location(ui *core.Context) {
 func (l *Launcher) examplesTab(ui *core.Context) {
 	if len(l.opt.Examples) == 0 {
 		widgets.LabelWrapped(ui, i18n.Tr("launcher.examples_come_from_the_engine", "Examples come from the engine source tree; set AEGO_ROOT to its folder."), true)
-		return
-	}
-	l.grid(ui, len(l.opt.Examples), func(i int, r mathx.Rect) {
-		name := l.opt.Examples[i]
-		var load func() ([]byte, error)
-		if l.opt.ExamplePreview != nil {
-			load = func() ([]byte, error) { return l.opt.ExamplePreview(name) }
+	} else {
+		l.grid(ui, len(l.opt.Examples), func(i int, r mathx.Rect) {
+			name := l.opt.Examples[i]
+			var load func() ([]byte, error)
+			if l.opt.ExamplePreview != nil {
+				load = func() ([]byte, error) { return l.opt.ExamplePreview(name) }
+			}
+			spec := cardSpec{title: name, sub: "examples/" + name, icon: "file.scene", key: "example:" + name, load: load, selected: i == l.example}
+			if l.card(ui, ui.ID("example/"+name), r, spec) {
+				l.example = i
+			}
+		})
+		l.heading(ui, i18n.Tr("launcher.copy_to", "Copy to"))
+		l.location(ui)
+		ex := l.opt.Examples[min(l.example, len(l.opt.Examples)-1)]
+		target := filepath.Join(l.dir, ex)
+		widgets.LabelDim(ui, target)
+		if widgets.Button(ui, i18n.Tr("launcher.create_from", "Create from {example}", i18n.Str("example", ex))) {
+			l.Create(target, "", strings.TrimSpace(l.module), ex)
 		}
-		spec := cardSpec{title: name, sub: "examples/" + name, icon: "file.scene", key: "example:" + name, load: load, selected: i == l.example}
-		if l.card(ui, ui.ID("example/"+name), r, spec) {
-			l.example = i
-		}
-	})
-	l.heading(ui, i18n.Tr("launcher.copy_to", "Copy to"))
-	l.location(ui)
-	ex := l.opt.Examples[min(l.example, len(l.opt.Examples)-1)]
-	target := filepath.Join(l.dir, ex)
-	widgets.LabelDim(ui, target)
-	if widgets.Button(ui, i18n.Tr("launcher.create_from", "Create from {example}", i18n.Str("example", ex))) {
-		l.Create(target, "", strings.TrimSpace(l.module), ex)
 	}
+	l.remoteTab(ui)
 }

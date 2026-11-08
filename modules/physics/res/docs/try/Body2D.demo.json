@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.Body2D",
+  "demoID": "physics.Body2D.gravity-scale",
+  "documentID": "physics.Body2D",
+  "scene": "physics.Body2D/try",
+  "identity": "a3208b5edcb3d1c8e66374af4d9833c7b985584ca41613d1197ba958579228dd",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["physics.Body2D.GravityScale"],
+  "actions": [{
+    "id": "increase-gravity", "field": "physics.Body2D.GravityScale", "value": 50,
+    "expected": [{"observable": "physics.Body2D.GravityScale", "equals": 50, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Gravity on a rigid body", "description": "The dynamic box starts with Gravity Scale 0 and stays suspended; the floor has a static collider.", "input": "Set Gravity Scale to 50 to exaggerate gravity and make the box fall. Reset restores the floating starting state."},
+    "ru": {"title": "Гравитация твёрдого тела", "description": "Динамический ящик начинает с масштабом гравитации 0 и остаётся в воздухе; у пола статический коллайдер.", "input": "Установите масштаб гравитации 50: усиленная гравитация заставит ящик падать. Сброс вернёт исходное положение в воздухе."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

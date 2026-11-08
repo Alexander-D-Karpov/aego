@@ -1,6 +1,6 @@
 ---
 id: camera
-try: try/CameraFollow2D.aescene
+try: CameraFollowRolling.aescene
 try_select: camera.CameraFollow2D
 icon: comp.vcam
 group: camera
@@ -28,7 +28,7 @@ Cameras run during Play and in `aego run`. In edit mode the Scene View shows the
 
 ---
 id: camera/virtual
-try: try/VirtualCamera2D.aescene
+try: CameraVirtualDirector.aescene
 try_select: camera.VirtualCamera2D
 icon: comp.vcam
 parent: camera
@@ -57,7 +57,7 @@ When another camera becomes active, the view blends from the pose it shows now t
 
 ---
 id: camera/outputs
-try: try/CameraBrain2D.aescene
+try: CameraOutputsOriginal.aescene
 try_select: camera.CameraBrain2D
 icon: comp.camera2d
 parent: camera
@@ -72,7 +72,7 @@ In Try it, the minimap in the corner is a second Camera 2D with a small Viewport
 
 ---
 id: camera/follow
-try: try/CameraFollow2D.aescene
+try: CameraFollowRolling.aescene
 try_select: camera.CameraFollow2D
 icon: comp.follow
 parent: camera
@@ -97,7 +97,7 @@ In Try it, the ball rolls down a long ramp. Set Damping to 0 for a rigid camera,
 
 ---
 id: camera/zones
-try: try/CameraZone2D.aescene
+try: CameraZoneRolling.aescene
 try_select: camera.CameraZone2D
 icon: comp.zone
 parent: camera
@@ -120,7 +120,7 @@ In Try it, the purple area in the middle of the ramp is the zone: the view blend
 
 ---
 id: camera/shake
-try: try/CameraShake2D.aescene
+try: CameraShakeLandingOriginal.aescene
 try_select: camera.CameraShake2D
 icon: comp.shake
 parent: camera

@@ -1,42 +1,14 @@
 package demo
 
-import (
-    "aego/debug"
-    "aego/scene"
-)
-
-// Spawner drops a ball every 0.3 s; each ball goes back to the pool two seconds later and is reused.
-script Spawner {
-    @export var Ball AssetRef<Prefab>
-
-    var t float
-    var k int
-
+// The bar reads the actual runtime Remaining value, not the configured field.
+// It disappears with the node when Lifetime reaches zero.
+script TimerDisplay {
     func Update(dt float) {
-        t += dt
-        if t >= 0.3 {
-            t = 0
-            k++
-            x := float(k % 7) - 3
-            scene.Spawn(Ball, node.WorldPosition() + Vec2{x * 0.6, 0})
+        remaining := node.Get<Lifetime>().Remaining
+        if remaining > 30 {
+            node.Get<SpriteRenderer>().Size = Vec2{6, 1.5}
+        } else {
+            node.Get<SpriteRenderer>().Size = Vec2{2, 1.5}
         }
-    }
-}
-
-// Drift sinks a ball faster the longer it lives.
-script Drift {
-    func Update(dt float) {
-        age := 2 - node.Get<Lifetime>().Remaining
-        tr := node.Transform2D()
-        tr.Position.Y += 6 * age * dt
-        node.SetTransform2D(tr)
-    }
-}
-
-// Fuse shows the seconds left before its node is destroyed.
-script Fuse {
-    func Update(dt float) {
-        p := node.WorldPosition()
-        debug.Text(Vec2{p.X - 1, p.Y - 0.8}, "destroyed in " + string(int(node.Get<Lifetime>().Remaining)) + " s", Color{1, 1, 1, 1})
     }
 }

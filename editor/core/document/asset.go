@@ -48,8 +48,20 @@ type MetadataPreviewState struct {
 }
 
 type AssetBinding struct {
+	// Model owns structured source state; AssetDocument.View remains presentation-only.
+	Model    any
+	CanUndo  func() bool
+	CanRedo  func() bool
+	Close    func()
+	Recovery func() ([]byte, error)
+	// PendingRecovery is a previously saved recovery awaiting an explicit
+	// user decision. Discarding the current document must not erase it.
+	PendingRecovery func() bool
 	PreviewRevision func() uint64
 	PreviewSource   func() []byte
+	// PreviewSnapshot captures immutable bytes; PreviewCurrent guards publication.
+	PreviewSnapshot func() ([]byte, uint64, error)
+	PreviewCurrent  func(uint64) bool
 	Dirty           func() bool
 	Save            func() error
 	Undo            func() error
@@ -165,6 +177,9 @@ func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
 }
 
 func (d *AssetDocument) CanUndo() bool {
+	if d.Binding.CanUndo != nil {
+		return d.Binding.CanUndo()
+	}
 	if d.Metadata != nil {
 		return d.Metadata.Code.CanUndo()
 	}
@@ -178,6 +193,9 @@ func (d *AssetDocument) CanUndo() bool {
 }
 
 func (d *AssetDocument) CanRedo() bool {
+	if d.Binding.CanRedo != nil {
+		return d.Binding.CanRedo()
+	}
 	if d.Metadata != nil {
 		return d.Metadata.Code.CanRedo()
 	}
@@ -243,8 +261,16 @@ func (m *Manager) CloseAsset(id ids.AssetID, force bool) error {
 				}
 			}
 		}
+		if force && d.Binding.Recovery != nil && (d.Binding.PendingRecovery == nil || !d.Binding.PendingRecovery()) {
+			if err := m.ClearOwnedAssetRecovery(d); err != nil {
+				return err
+			}
+		}
 		if force && d.Binding.Discard != nil {
 			d.Binding.Discard()
+		}
+		if d.Binding.Close != nil {
+			d.Binding.Close()
 		}
 		m.assets = append(m.assets[:i], m.assets[i+1:]...)
 		for _, s := range []*ScriptDocument{d.Source, d.Metadata} {

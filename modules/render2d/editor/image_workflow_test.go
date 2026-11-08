@@ -142,6 +142,113 @@ func imageAuthoringFixture(t *testing.T) *imageFixture {
 	return f
 }
 
+func TestImageInspectorStartsCompactWithoutChangingMetadata(t *testing.T) {
+	f := imageAuthoringFixture(t)
+	f.ed.UI = core.New(nil)
+	doc, err := f.ed.DocumentForAsset(f.albedo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := bytes.Clone(doc.Metadata.Code.Bytes())
+	ui, in := f.ed.UI, &input.State{}
+	in.BeginFrame()
+	ui.Begin(in, mathx.Vec2{X: 300, Y: 1200}, 1)
+	ui.Region(mathx.Rect{W: 300, H: 1200})
+	entry, ok := f.ed.Pipeline.Entry(f.albedo)
+	if !ok {
+		t.Fatal("missing source image")
+	}
+	f.ed.AssetViews[string(entry.Kind)](f.ed, f.albedo)
+	height := ui.Cursor().Y - ui.Theme.Padding
+	ui.PopCursor()
+	ui.End()
+	if maxHeight := 10 * (ui.Theme.RowHeight + ui.Theme.Spacing); height > maxHeight {
+		t.Fatalf("image inspector starts with %.0f pixels of controls, want at most %.0f before expanding sections", height, maxHeight)
+	}
+	if doc.Dirty() || !bytes.Equal(before, doc.Metadata.Code.Bytes()) {
+		t.Fatal("viewing the compact inspector changed metadata")
+	}
+}
+
+func TestImageInspectorSectionsAreInteractiveAndKeepErrorsVisible(t *testing.T) {
+	f := imageAuthoringFixture(t)
+	f.ed.UI = core.New(nil)
+	doc, err := f.ed.DocumentForAsset(f.albedo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := bytes.Clone(doc.Metadata.Code.Bytes())
+	ui, in := f.ed.UI, &input.State{}
+	entry, _ := f.ed.Pipeline.Entry(f.albedo)
+	draw := func() float32 {
+		r := mathx.Rect{W: 800, H: 1000}
+		ui.Begin(in, mathx.Vec2{X: r.W, Y: r.H}, 1)
+		ui.PushClip(r)
+		ui.Region(r)
+		f.ed.AssetViews[string(entry.Kind)](f.ed, f.albedo)
+		height := ui.Cursor().Y
+		ui.PopCursor()
+		ui.PopClip()
+		ui.End()
+		return height
+	}
+	step := func(p mathx.Vec2, down bool) {
+		in.BeginFrame()
+		in.ApplyMouseMove(p, mathx.Vec2{})
+		if down {
+			in.ApplyMouseDown(p, input.MouseLeft)
+		} else {
+			in.ApplyMouseUp(p, input.MouseLeft)
+		}
+		draw()
+	}
+	click := func(p mathx.Vec2) { step(p, true); step(p, false) }
+	row := func(n int) mathx.Vec2 {
+		return mathx.Vec2{X: 40, Y: ui.Theme.Padding + float32(n)*(ui.Theme.RowHeight+ui.Theme.Spacing) + ui.Theme.RowHeight/2}
+	}
+	in.BeginFrame()
+	draw()
+	v := doc.View.(*imageState)
+	click(row(4)) // Surface channels
+	if !v.sections[1].channels || v.sections[0].channels {
+		t.Fatal("channels did not open only in the Inspector")
+	}
+	click(row(4))
+	if v.sections[1].channels {
+		t.Fatal("channels did not close")
+	}
+	click(row(5)) // Import settings
+	if !v.sections[1].settings {
+		t.Fatal("import settings did not open")
+	}
+	if doc.Dirty() || !bytes.Equal(before, doc.Metadata.Code.Bytes()) {
+		t.Fatal("expanding sections changed metadata")
+	}
+	// Change the role through the visible settings combo.
+	role := row(6)
+	role.X = 200
+	click(role)
+	in.BeginFrame()
+	draw() // measure popup bounds before selecting the first item
+	choice := mathx.Vec2{X: role.X + 10, Y: role.Y + ui.Theme.RowHeight/2 + ui.Theme.Padding + ui.Theme.RowHeight/2}
+	click(choice)
+	if !doc.Dirty() || bytes.Equal(before, doc.Metadata.Code.Bytes()) {
+		t.Fatal("the setting inside the expanded section could not be edited")
+	}
+	if err := f.ed.UndoAsset(doc); err != nil || !bytes.Equal(before, doc.Metadata.Code.Bytes()) {
+		t.Fatalf("Undo did not restore metadata: %v", err)
+	}
+	// Status/error messages stay visible even while every section is collapsed.
+	v.sections[1] = imageSections{}
+	in.BeginFrame()
+	compact := draw()
+	v.message = "Visible error"
+	in.BeginFrame()
+	if got := draw(); got <= compact {
+		t.Fatal("an error was hidden with the collapsed sections")
+	}
+}
+
 func TestSourceInspectorSwitchesSlicingAndChannelsAgainstWorkingMetadata(t *testing.T) {
 	f := imageAuthoringFixture(t)
 	f.ed.UI = core.New(nil)

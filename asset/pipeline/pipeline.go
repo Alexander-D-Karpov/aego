@@ -56,7 +56,10 @@ type record struct {
 }
 
 type Pipeline struct {
-	project      *project.Project
+	// Paths belong to the opened pipeline, not to the mutable Project value
+	// that Project Settings can replace while preview workers are running.
+	root         string
+	cacheDir     string
 	imps         *ImporterRegistry
 	log          *log.ChannelLogger
 	watcher      Watcher
@@ -83,14 +86,24 @@ type Pipeline struct {
 	rev          uint64
 	graves       []Grave
 	gravesDirty  bool
+	// Non-nil only while ApplySources holds mu. Resolver writes must be chained
+	// from these exact sidecar bytes and update them after publication.
+	sourceTransactionMetas         map[string][]byte
+	sourceTransactionReadOnlyMetas map[string]bool
+	sourceJournal                  *sourceJournal
+	sourceJournalRoot              *os.Root
+	// A synchronous seam for deterministic interruption tests; nil in normal use.
+	sourceTransactionCheckpoint func(stage, rel string)
 }
 
-func newPipeline(p *project.Project, imps *ImporterRegistry, lg *log.Logger) *Pipeline {
+func newPipeline(root string, imps *ImporterRegistry, lg *log.Logger) *Pipeline {
 	if lg == nil {
 		lg = log.Nop()
 	}
+	p := &project.Project{Root: root}
 	return &Pipeline{
-		project:      p,
+		root:         root,
+		cacheDir:     p.CacheDir(),
 		imps:         imps,
 		log:          lg.With(log.Asset),
 		watcher:      PollWatcher{},
@@ -133,7 +146,7 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger, opts ...Op
 	if err != nil {
 		return nil, err
 	}
-	pl := newPipeline(p, imps, lg)
+	pl := newPipeline(p.Root, imps, lg)
 	pl.artifacts = files
 	unlock, owner := acquireIndexLock(cacheDir)
 	pl.unlock = unlock
@@ -144,6 +157,13 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger, opts ...Op
 			say = pl.log.Debug
 		}
 		say("another process holds the asset index, .meta files and the index are read-only here", log.F("lock", filepath.Join(cacheDir, indexLock)))
+	}
+	if pending, err := sourceJournalPresent(pl.root); err != nil {
+		unlock()
+		return nil, err
+	} else if pending {
+		unlock()
+		return nil, sourceRecoveryRequired()
 	}
 	if data, err := os.ReadFile(pl.indexPath()); err == nil {
 		if idx, err := asset.ReadIndex(data, "index.aetext"); err == nil {
@@ -185,7 +205,7 @@ func (p *Pipeline) Revision() uint64 {
 }
 
 func (p *Pipeline) indexPath() string {
-	return filepath.Join(p.project.CacheDir(), "index.aetext")
+	return filepath.Join(p.cacheDir, "index.aetext")
 }
 
 func (p *Pipeline) saveIndex() error {
@@ -316,6 +336,9 @@ func (p *Pipeline) Scan() (added, removed []ids.AssetID, err error) {
 }
 
 func (p *Pipeline) scan() (added, removed []ids.AssetID, err error) {
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return nil, nil, err
+	}
 	w := newWalk()
 	for _, root := range p.roots {
 		if err := p.scanRoot(root, w, &added); err != nil {
@@ -396,6 +419,12 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 		}
 		r := &record{path: rel, meta: meta, importer: imp}
 		switch {
+		case created && p.sourceTransactionMetas != nil:
+			// A scan invoked by ApplySources must not create a sidecar for a
+			// newly discovered source outside the caller's history. Edited
+			// new sources already have their guarded sidecar before this scan;
+			// otherwise leave this source for the next ordinary scan.
+			return nil
 		case created && p.mode == MetaReadOnly:
 			r.derived = true
 			meta.ID = derivedID(rel)
@@ -426,7 +455,7 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 }
 
 func (p *Pipeline) rel(path string) string {
-	r, err := filepath.Rel(p.project.Root, path)
+	r, err := filepath.Rel(p.root, path)
 	if err != nil {
 		return filepath.ToSlash(path)
 	}
@@ -434,7 +463,7 @@ func (p *Pipeline) rel(path string) string {
 }
 
 func (p *Pipeline) abs(rel string) string {
-	return filepath.Join(p.project.Root, filepath.FromSlash(rel))
+	return filepath.Join(p.root, filepath.FromSlash(rel))
 }
 
 func (p *Pipeline) loadOrCreateMeta(path string, imp Importer) (*Meta, bool, error) {
@@ -481,6 +510,9 @@ func (p *Pipeline) Import(list ...ids.AssetID) (*Batch, error) {
 }
 
 func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return nil, err
+	}
 	batch := &Batch{Failed: map[ids.AssetID]error{}}
 	groupsTouched := map[string]bool{}
 	for g := range p.stale {
@@ -783,7 +815,10 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 		pending = map[string]ChangeKind{}
 		p.pmu.Unlock()
 
-		batch := p.applyChanges(paths)
+		batch, err := p.applyChanges(paths)
+		if err != nil {
+			p.log.Error("import batch failed", log.F("err", err.Error()))
+		}
 		if batch == nil {
 			return
 		}
@@ -821,7 +856,7 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 		timer = time.AfterFunc(quiet, fire)
 	}
 
-	stop, err := p.watcher.Start(p.project.Root, []string{".aego", ".git", "exports", "native"}, interval, func(changes []Change) {
+	stop, err := p.watcher.Start(p.root, []string{".aego", ".git", "exports", "native"}, interval, func(changes []Change) {
 		p.pmu.Lock()
 		for _, c := range changes {
 			pending[strings.TrimSuffix(c.Path, MetaSuffix)] = c.Kind
@@ -842,13 +877,13 @@ func (p *Pipeline) Watch(quiet time.Duration, fn func(*Batch)) (func(), error) {
 	}, nil
 }
 
-func (p *Pipeline) applyChanges(paths map[string]ChangeKind) *Batch {
+func (p *Pipeline) applyChanges(paths map[string]ChangeKind) (*Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.applyChangesLocked(paths)
 }
 
-func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
+func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) (*Batch, error) {
 	// Remember dependencies before scan removes a source from byPath. Removing
 	// an include must invalidate consumers just as writing an include does.
 	dirty := map[ids.AssetID]bool{}
@@ -861,8 +896,7 @@ func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
 	}
 	_, removed, err := p.scan()
 	if err != nil {
-		p.log.Error("rescan failed", log.F("err", err.Error()))
-		return nil
+		return nil, err
 	}
 	// Missing supplemental inputs have no prior AssetID dependency, so recheck keys on file events to repair failures.
 	// Unchanged keys still avoid compilation and artifact writes.
@@ -891,7 +925,7 @@ func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
 		}
 	}
 	if len(dirty) == 0 && len(removed) == 0 && len(p.stale) == 0 {
-		return nil
+		return nil, nil
 	}
 	metadataFailed := map[ids.AssetID]error{}
 	for name := range paths {
@@ -916,16 +950,13 @@ func (p *Pipeline) applyChangesLocked(paths map[string]ChangeKind) *Batch {
 		return p.byID[list[i]].path < p.byID[list[j]].path
 	})
 	batch, err := p.importIDs(list...)
-	if err != nil {
-		p.log.Error("import batch failed", log.F("err", err.Error()))
-	}
 	if batch != nil {
 		for id, err := range metadataFailed {
 			batch.Failed[id] = err
 		}
 		batch.Removed = append(batch.Removed, removed...)
 	}
-	return batch
+	return batch, err
 }
 
 func (p *Pipeline) Close() {

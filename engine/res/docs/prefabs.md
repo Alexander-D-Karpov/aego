@@ -11,6 +11,8 @@ order: 1
 
 A prefab is a reusable piece of a scene stored in an `.aeprefab` file. Every copy in a scene is an instance: it shows the prefab and keeps its own changes, the overrides. When the prefab changes, every instance follows it, and its overrides stay.
 
+Try the [lamp instances](ref:prefabs/example) to see several copies with different overrides.
+
 ## Create and place
 
 ![Prefab mode: the prefab opens on its own, with a breadcrumb back to the scene](shots/prefab-mode.png)

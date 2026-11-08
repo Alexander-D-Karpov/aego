@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"slices"
 	"testing"
 
 	"aego/app/edit"
@@ -8,6 +9,7 @@ import (
 	"aego/core/mathx"
 	"aego/editor/panels/projectsettings"
 	"aego/engine/module"
+	"aego/modules/animation"
 	"aego/modules/physics"
 	physset "aego/modules/physics/settings"
 	"aego/project"
@@ -32,6 +34,86 @@ func settingsPanel(t *testing.T) (*edit.Session, *projectsettings.Panel) {
 		t.Fatal("no project settings panel")
 	}
 	return s, pn.(*projectsettings.Panel)
+}
+
+func TestAnimationSettingsPageRegistered(t *testing.T) {
+	t.Setenv("AEGO_LANG", "en")
+	s, panel := settingsPanel(t)
+	if !slices.ContainsFunc(panel.Index(), func(r projectsettings.Ref) bool {
+		return r.Page == animation.ID && r.Label == "Animation Events"
+	}) {
+		t.Fatal("Animation Events is not available in Project Settings search")
+	}
+	s.App.Context().ShowSettings(animation.ID)
+	if !s.Step() {
+		t.Fatal("the editor quit while drawing Animation settings")
+	}
+}
+
+func TestAnimationSettingsEditUndoRedoAndApply(t *testing.T) {
+	t.Setenv("AEGO_LANG", "en")
+	s, panel := settingsPanel(t)
+	s.App.Context().ShowSettings(animation.ID)
+	if !s.App.Workspace().Tree.Maximize(projectsettings.ID) || !s.Step() {
+		t.Fatal("could not show the Animation settings page")
+	}
+	r, ok := s.App.Workspace().Tree.PanelRect(projectsettings.ID)
+	if !ok || r.W < 500 {
+		t.Fatalf("settings panel is not visible and wide enough: %+v", r)
+	}
+	th := s.App.Context().UI.Theme
+	left := min(float32(180), max(float32(120), r.W*0.24))
+	bodyW := max(float32(0), r.W-left-8-th.ScrollbarW-2)
+	innerW := bodyW - 2*th.Padding
+	x := r.X + left + 8 + th.Padding
+	y := r.Y + th.Padding + th.RowHeight + th.Spacing + th.Padding
+	// Three explanatory rows precede the add button.
+	click(t, s, mathx.Vec2{X: x + innerW/2, Y: y + 3*(th.RowHeight+th.Spacing) + th.RowHeight/2})
+	s.Step()
+	if panel.Title() != "Project Settings *" || !panel.CanUndo() {
+		t.Fatalf("adding an event did not create an undoable draft: %q", panel.Title())
+	}
+	// The separator after Add consumes two spacings; the name field is live.
+	fieldX := x + mathx.Clamp(innerW*0.38, 60, 160) + 12
+	fieldY := y + 4*(th.RowHeight+th.Spacing) + 2*th.Spacing + th.RowHeight/2
+	click(t, s, mathx.Vec2{X: fieldX, Y: fieldY})
+	push(t, s, typed("Land")...)
+	s.Step()
+	panel.Undo()
+	if !panel.CanRedo() {
+		t.Fatal("renaming an event did not produce redo history")
+	}
+	panel.Redo()
+	// Pick float in the real payload dropdown and exercise its own history step.
+	comboY := fieldY + th.RowHeight + th.Spacing
+	click(t, s, mathx.Vec2{X: fieldX, Y: comboY})
+	s.Step()
+	floatY := comboY + th.RowHeight/2 + th.Padding + 2*(th.RowHeight+th.Spacing) + th.RowHeight/2
+	click(t, s, mathx.Vec2{X: fieldX + th.Padding, Y: floatY})
+	s.Step()
+	panel.Undo()
+	if !panel.CanRedo() {
+		t.Fatal("changing the payload did not produce redo history")
+	}
+	panel.Redo()
+	click(t, s, mathx.Vec2{X: r.X + th.Padding + 45, Y: r.Y + th.Padding + th.RowHeight/2})
+	s.Step()
+	got, ok := module.SectionValue[animation.Settings](s.Host.Sections, animation.ID)
+	if !ok || !slices.Equal(got.Events, []animation.EventDesc{{Name: "Land", Payload: animation.PayloadFloat}}) {
+		t.Fatalf("applied events = %+v, ok=%v", got, ok)
+	}
+	loaded, err := project.Load(s.Host.Project.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := s.Host.Sections.Decode(animation.ID, loaded.Block(animation.ID))
+	if err != nil || !slices.Equal(decoded.(*animation.Settings).Events, got.Events) {
+		t.Fatalf("reopened animation settings = %+v, err=%v", decoded, err)
+	}
+	invalid := &animation.Settings{Events: []animation.EventDesc{{Name: "Land"}, {Name: "Land"}}}
+	if _, err := s.Host.Sections.Node(animation.ID, invalid); err == nil {
+		t.Fatal("duplicate event names must not be saved")
+	}
 }
 
 func TestSettingsSearchIndex(t *testing.T) {

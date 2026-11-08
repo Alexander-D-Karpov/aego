@@ -1,0 +1,81 @@
+scene version=1 {
+  node "a5100000000000000000000000000001" name="Floor" enabled=true layers=1 {
+    transform {
+      position=[0, 1.1]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      tint=#4b5563ff
+      origin=[0.5, 0.5]
+      size=[12, 0.2]
+    }
+  }
+  node "a5100000000000000000000000000002" name="Runner" enabled=true layers=1 {
+    transform {
+      position=[-2, 0.5]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000b00")
+      tint=#7dd3fcff
+      origin=[0.5, 0.5]
+      size=[1, 1]
+      filter=nearest
+    }
+    component "animation.AnimationPlayer" version=1 {
+      clip=asset("ae900000000000000000000000000b10")
+      playOnStart=true
+      speed=1
+      loop=clip
+      timeDomain=game
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.Runner" enabled=true {
+      }
+    }
+  }
+  node "a5100000000000000000000000000003" name="Pendulum" enabled=true layers=1 {
+    transform {
+      position=[2.5, -1.2]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      tint=#f59e0bff
+      origin=[0.5, 0]
+      size=[0.15, 1.8]
+    }
+    component "animation.AnimationPlayer" version=1 {
+      clip=asset("ae900000000000000000000000000b11")
+      playOnStart=true
+      speed=1
+      loop=clip
+      timeDomain=game
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.Pendulum" enabled=true {
+      }
+    }
+  }
+  node "a5100000000000000000000000000004" name="Camera" enabled=true layers=1 {
+    transform {
+      position=[0, 0]
+      rotation=0
+      scale=[1, 1]
+    }
+    component "engine.Camera2D" version=1 {
+      zoom=64
+      viewport=[0, 0, 1, 1]
+      mask=-1
+      clear=true
+      clearColor=#111827ff
+      scale=fitVirtual
+      virtual=[960, 540]
+      active=true
+    }
+  }
+}

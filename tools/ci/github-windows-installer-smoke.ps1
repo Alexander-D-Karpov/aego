@@ -28,6 +28,45 @@ if ((Test-Path $install) -or (Test-Path $startMenu) -or (Test-Path $desktop)) {
     throw 'Install directory or shortcuts already exist.'
 }
 $beforePath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$envKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment', $true)
+$rawPresent = @($envKey.GetValueNames()) -icontains 'Path'
+$rawBefore = if ($rawPresent) { [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) } else { '' }
+$rawKind = if ($rawPresent) { $envKey.GetValueKind('Path') } else { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+$pathScript = Join-Path $env:GITHUB_WORKSPACE 'tools\release\windows\path.ps1'
+$testDir = Join-Path $env:RUNNER_TEMP "aego-path-test's"
+try {
+    # The runner is ephemeral. Exercise the actual registry adapter before the
+    # installer, including empty segments, external edits and an existing entry.
+    $fixture = 'C:\Tools;;%LOCALAPPDATA%\Example;'
+    $envKey.SetValue('Path', $fixture, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+    & $pathScript -Action Install -Directory $testDir
+    $added = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    if ($added -cne "$fixture;$testDir") { throw 'PATH installation changed existing segments.' }
+    $envKey.SetValue('Path', "$added;C:\AddedLater;;", [Microsoft.Win32.RegistryValueKind]::ExpandString)
+    & $pathScript -Action Uninstall -Directory $testDir
+    $after = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    if ($after -cne "$fixture;C:\AddedLater;;" -or $envKey.GetValueKind('Path') -ne [Microsoft.Win32.RegistryValueKind]::ExpandString) {
+        throw 'PATH uninstall changed unrelated entries or its registry type.'
+    }
+    $preexisting = "C:\Tools;$testDir;"
+    $envKey.SetValue('Path', $preexisting, [Microsoft.Win32.RegistryValueKind]::String)
+    & $pathScript -Action Install -Directory $testDir
+    & $pathScript -Action Uninstall -Directory $testDir
+    $after = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    if ($after -cne $preexisting -or $envKey.GetValueKind('Path') -ne [Microsoft.Win32.RegistryValueKind]::String) {
+        throw 'Uninstall changed a pre-existing user PATH entry.'
+    }
+    $envKey.DeleteValue('Path', $false)
+    & $pathScript -Action Install -Directory $testDir
+    & $pathScript -Action Uninstall -Directory $testDir
+    if (@($envKey.GetValueNames()) -icontains 'Path') { throw 'An originally absent PATH was recreated.' }
+} finally {
+    if ($rawPresent) { $envKey.SetValue('Path', $rawBefore, $rawKind) } else { $envKey.DeleteValue('Path', $false) }
+    $envKey.Dispose()
+    # The safety check above established that this key did not exist. Refuse
+    # recursive deletion if anything unexpected was created under it.
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKey('Software\Aego', $false)
+}
 $workspace = $env:GITHUB_WORKSPACE
 $portableZip = Join-Path $workspace '.cache\github-ci\dist\portable\aego-windows-amd64-portable.zip'
 $portableDir = Join-Path $env:RUNNER_TEMP 'aego-ci-portable'
@@ -45,7 +84,7 @@ try {
 $setup = Join-Path $workspace '.cache\github-ci\dist\installer\aego-windows-amd64-setup.exe'
 $proc = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$install") -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "Installer returned $($proc.ExitCode)" }
-foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'setup.exe', 'uninstall.exe')) {
+foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'aego-path.ps1', 'setup.exe', 'uninstall.exe')) {
     if (-not (Test-Path (Join-Path $install $file) -PathType Leaf)) { throw "Missing installed $file" }
 }
 foreach ($shortcut in @((Join-Path $startMenu 'Aego.lnk'), (Join-Path $startMenu 'Uninstall Aego.lnk'), $desktop)) {
@@ -78,7 +117,7 @@ Set-Content -Path (Join-Path $userData 'keep.txt') -Value 'keep user data'
 $proc = Start-Process -FilePath (Join-Path $install 'uninstall.exe') -ArgumentList '/S' -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "Uninstaller returned $($proc.ExitCode)" }
 for ($i = 0; $i -lt 30 -and (Test-Path (Join-Path $install 'uninstall.exe')); $i++) { Start-Sleep -Seconds 1 }
-foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'setup.exe', 'uninstall.exe')) {
+foreach ($file in @('aego.exe', 'aego-editor.exe', 'VERSION', 'README.txt', 'aego-path.ps1', 'setup.exe', 'uninstall.exe')) {
     if (Test-Path (Join-Path $install $file)) { throw "Uninstaller left $file" }
 }
 if (-not (Test-Path (Join-Path $userData 'keep.txt'))) { throw 'Uninstaller removed user data.' }

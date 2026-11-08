@@ -3,8 +3,8 @@ package vorbis
 import "errors"
 
 type floor interface {
-	Decode(*bitReader, []codebook, uint32) interface{}
-	Apply(out []float32, data interface{})
+	Decode(*bitReader, []codebook, uint32, *floorData) bool
+	Apply(out []float32, data *floorData)
 }
 
 type mapping struct {

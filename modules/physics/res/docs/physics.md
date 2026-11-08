@@ -1,6 +1,6 @@
 ---
 id: physics
-try: try/Body2D.aescene
+try: BodyFalling.aescene
 try_select: physics.Body2D
 icon: cat.physics
 group: physics
@@ -37,7 +37,7 @@ Axes follow the 2D scene: +X right, +Y down, positive angles turn clockwise. Def
 
 ---
 id: physics/components
-try: try/CircleCollider2D.aescene
+try: CircleComponentsOriginal.aescene
 try_select: physics.CircleCollider2D
 icon: comp.rigidbody
 parent: physics
@@ -173,7 +173,7 @@ Tall free-standing stacks and fast motors need the stiff profile: `substeps=8` a
 
 ---
 id: physics/editor
-try: try/EdgeCollider2D.aescene
+try: EdgeColliderRampOriginal.aescene
 try_select: physics.EdgeCollider2D
 icon: tool.move
 parent: physics
@@ -304,4 +304,3 @@ Check both bodies' masks and the layer matrix, and that the node is 2D and not u
 ## Motion feels floaty
 
 Gravity 9.81 assumes a unit is about a metre. A 64-pixel sprite at zoom 64 is one unit.
-

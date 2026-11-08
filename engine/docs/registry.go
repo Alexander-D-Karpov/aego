@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"aego/asset"
+	"aego/engine/docs/democheck"
 	"aego/engine/module"
 	"aego/engine/res"
 	"aego/engine/settings"
@@ -107,6 +108,7 @@ type Entry struct {
 	Order     int
 	Field     *FieldInfo
 	Component *ComponentInfo
+	Demo      *democheck.Contract `json:",omitempty"`
 	Related   []string
 	Try       string
 	TrySelect string
@@ -201,6 +203,7 @@ type Registry struct {
 	evOwners map[string]string
 	problems []Problem
 	groupT   map[string]map[string]string
+	trySeen  map[string]bool
 }
 
 func StubPath(module string) string {
@@ -292,9 +295,14 @@ func Assemble(src Sources) *Registry {
 	r.codes(src.Diagnose)
 	r.scripts(src.Project, src.Scripts)
 	for _, d := range src.Docs {
+		// A component page may explicitly refer to the same Try scene that is
+		// also discovered by tries(). Read its sidecars once per source, while
+		// still rejecting separate competing contracts in different sources.
+		r.trySeen = make(map[string]bool)
 		r.pages(d)
 		r.tries(d)
 	}
+	r.trySeen = nil
 	r.checkCodes()
 	r.compileTries(src.CompileTry)
 	r.index()
@@ -620,6 +628,19 @@ func (r *Registry) page(owner, file, source string, rec record) {
 	if i, ok := r.byID[rec.id]; ok {
 		e := &r.entries[i]
 		if e.Kind == Page {
+			// A module may document the project section generated from its own
+			// registered settings. A second or unrelated page is still a conflict.
+			if strings.HasPrefix(rec.id, SectionsPrefix) && e.Owner == owner && e.Location.Path == "" {
+				e.Body = joinBody(e.Body, rec.body)
+				e.Location = Location{Path: owner + ":" + file, Line: rec.line, Source: source}
+				if rec.icon != "" {
+					e.Icon = rec.icon
+				}
+				if rec.summary != "" {
+					e.Summary = rec.summary
+				}
+				return
+			}
 			r.problems = append(r.problems, Problem{ID: rec.id, Error: true, Message: "page declared twice, again in " + owner + ":" + file})
 			return
 		}
@@ -768,9 +789,13 @@ func (r *Registry) index() {
 			r.keys[k] = i
 		}
 	}
-	for _, list := range r.children {
+	for parent, list := range r.children {
+		p := r.entries[r.byID[parent]]
 		sort.SliceStable(list, func(a, b int) bool {
 			x, y := &r.entries[list[a]], &r.entries[list[b]]
+			if p.Kind == Module && p.Group == GroupScriptAPI {
+				return alphabetical(x.Title, x.ID, y.Title, y.ID)
+			}
 			if x.Order != y.Order {
 				return x.Order < y.Order
 			}
@@ -839,6 +864,13 @@ func (r *Registry) Children(id string) []Entry {
 	return out
 }
 
+func alphabetical(a, aid, b, bid string) bool {
+	if a, b := strings.ToLower(a), strings.ToLower(b); a != b {
+		return a < b
+	}
+	return aid < bid
+}
+
 func sortRoots(out []Entry) {
 	sort.SliceStable(out, func(a, b int) bool {
 		if out[a].Order != out[b].Order {
@@ -866,7 +898,26 @@ func (r *Registry) GroupRoots(group string) []Entry {
 			out = append(out, *e)
 		}
 	}
-	sortRoots(out)
+	if group == GroupScriptAPI {
+		rank := func(id string) int {
+			switch id {
+			case BuiltinID:
+				return 0
+			case EventsID:
+				return 1
+			default:
+				return 2
+			}
+		}
+		sort.SliceStable(out, func(i, j int) bool {
+			if a, b := rank(out[i].ID), rank(out[j].ID); a != b {
+				return a < b
+			}
+			return alphabetical(out[i].Title, out[i].ID, out[j].Title, out[j].ID)
+		})
+	} else {
+		sortRoots(out)
+	}
 	return out
 }
 
@@ -977,6 +1028,15 @@ var metaID = regexp.MustCompile(`\bid="([0-9a-f]{32})"`)
 
 // tryExtras reads the script X.aes and the prefabs X.<name>.aeprefab, ids from their .meta, next to the try scene X.aescene.
 func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
+	if r.trySeen == nil {
+		r.trySeen = make(map[string]bool)
+	}
+	key := e.ID + "\x00" + path.Clean(scenePath)
+	if r.trySeen[key] {
+		return
+	}
+	r.trySeen[key] = true
+	r.readDemoContract(e, src, scenePath)
 	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
 	if data, err := fs.ReadFile(src.FS, base+".aetry"); err == nil {
 		if _, err := asset.DecodeTryArtifacts(data); err != nil {

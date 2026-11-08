@@ -55,6 +55,8 @@ var editorAllow = []string{
 
 var rules = []rule{
 	{"core/...", []string{"core/..."}, nil},
+	// Authoring core is standalone (desktop and Studio WASM), not a runtime dependency.
+	{"art", nil, nil},
 	{"schema", []string{"core/...", "engine/i18n"}, nil},
 	{"format/pixelart", []string{"core/...", "format/svg"}, nil},
 	{"format/...", []string{"core/...", "schema"}, nil},
@@ -100,6 +102,8 @@ var rules = []rule{
 	{"asset/importers/material", []string{"core/...", "asset", "asset/pipeline", "format/...", "render/shader", "render/material"}, nil},
 	{"asset/importers/animctrl", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim"}, nil},
 	{"asset/importers/animclip", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim", "schema"}, nil},
+	// Structured art prepares the existing texture and animation artifacts.
+	{"asset/importers/artsource", []string{"art", "anim", "schema", "core/...", "format/...", "gpu", "asset", "asset/pipeline", "asset/importers/animclip", "asset/importers/texture"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh", "audio/..."}, nil},
 	{"data", []string{"core/...", "asset", "format/aetext", "schema", "scene/sceneio", "scene/prefab"}, nil},
 	{"save", []string{"core/...", "format/aetext", "scene", "platform"}, nil},
@@ -122,6 +126,7 @@ var rules = []rule{
 	{"audio/codec/vorbis/internal/vorbis", nil, nil},
 	{"audio/pump", []string{"core/...", "audio/mix"}, nil},
 	{"modules/animation", []string{"core/...", "anim", "asset", "asset/pipeline", "asset/importers/animclip", "asset/importers/animctrl", "contracts/...", "engine", "engine/module", "engine/problems", "engine/recorder", "format/aetext", "scene", "scene/propclaim", "scene/propref", "schema", "script/abi", "script/bind", "script/vm"}, nil},
+	{"modules/animation/editor", with(editorAllow, "modules/animation"), nil},
 	{"modules/audio", []string{"core/...", "audio/...", "asset", "asset/pipeline", "asset/importers/audio", "contracts/...", "data", "engine", "engine/module", "engine/problems", "engine/recorder", "engine/settings", "platform", "platform/headless", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/gameplay", []string{"core/...", "asset", "contracts/...", "engine", "engine/module", "engine/problems", "engine/recorder", "format/aetext", "save", "scene", "scene/propclaim", "scene/propref", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/gameplay/editor", with(editorAllow, "modules/gameplay", "contracts/..."), nil},
@@ -129,12 +134,13 @@ var rules = []rule{
 	{"modules/camera", []string{"core/...", "contracts/...", "engine", "engine/module", "engine/problems", "engine/settings", "render/view", "scene", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/camera/editor", with(editorAllow, "modules/camera", "contracts/..."), nil},
 	{"modules/render2d", []string{"core/...", "asset", "asset/silhouette", "engine", "engine/module", "engine/problems", "engine/settings", "gpu", "render/...", "scene", "scene/frame", "schema", "script/bind", "contracts/camera2d", "contracts/shapes2d"}, nil},
-	{"modules/render2d/editor", with(editorAllow, "modules/render2d", "contracts/shapes2d"), nil},
+	{"modules/render2d/editor", with(editorAllow, "art", "modules/render2d", "contracts/shapes2d"), nil},
 	{"modules/render3d", []string{"core/...", "asset", "asset/pipeline", "asset/importers/obj", "engine", "engine/module", "gpu", "render", "render/...", "scene", "scene/frame", "schema"}, nil},
 	{"modules/render3d/editor", with(editorAllow, "modules/render3d"), nil},
 	{"ui", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
 	{"ui/...", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
 	{"editor/core/animedit", with(editorAllow, "anim"), nil},
+	{"editor/core/artedit", with(editorAllow, "art"), nil},
 	// The metadata coordinator passes a private prepared-artifact VFS to the
 	// existing runtime loader. Source file access stays in Document Manager.
 	{"editor/core/context", with(editorAllow, "vfs"), nil},
@@ -184,11 +190,12 @@ var rules = []rule{
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
 	// Docs validate prepared Try payloads with the runtime artifact decoder;
 	// importer/pipeline packages remain outside this layer.
-	{"engine/docs", []string{"engine/settings", "format/...", "core/...", "schema", "engine/module", "engine/res", "asset", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/types"}, nil},
+	{"engine/docs", []string{"engine/settings", "engine/docs/democheck", "format/...", "core/...", "schema", "engine/module", "engine/res", "asset", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/types"}, nil},
+	{"engine/docs/democheck", nil, nil},
 	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "render/postfx", "render/shader", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm", "data"}, nil},
 	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},
 	{"app/run", []string{"..."}, nil},
-	{"app/playground", []string{"core/...", "asset", "asset/loader", "engine", "engine/base", "engine/module", "engine/recorder", "engine/problems",
+	{"app/playground", []string{"core/...", "asset", "asset/loader", "contracts/persistence", "engine", "engine/base", "engine/module", "engine/recorder", "engine/problems",
 		"engine/docs", "format/...", "app/assembly", "app/assembly/playground", "modules/scripting/systems", "modules/render2d",
 		"platform", "platform/input", "render", "render/...", "scene", "scene/...", "schema", "script/...", "vfs"}, nil},
 	{"demos/...", []string{"..."}, nil},

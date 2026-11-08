@@ -279,7 +279,7 @@ scene version=1 {
         Bounce=[0, -9]
         JumpSound=asset("a0d10000000000000000000000000011")
         HitSound=asset("a0d10000000000000000000000000012")
-        Theme=asset("a0d10000000000000000000000000005")
+        Theme=asset("173c7db1e5dc5922da00f5427536495d")
         Slash=node("c0000000000000000000000000000010")
         Dust=node("7fa413367cfee5d132ef9a89fa50083d")
         Sparks=node("dddfe80ace7b4904d1ba81b4ac9a0c42")
@@ -1228,7 +1228,7 @@ scene version=1 {
   node "19add20cdccbaeee623958a79caa4d15" name="Sun" enabled=true layers=1 {
     transform {
       position=[0, -8]
-      rotation=0.5
+      rotation=0.5235988
       scale=[1, 1]
     }
     component "engine.Light2D" version=1 {

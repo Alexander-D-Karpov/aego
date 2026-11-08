@@ -2,25 +2,29 @@ package demo
 
 import "aego/save"
 
-// Checkpoint saves once, then keeps loading that save: the green ball has Persist and comes back
-// to where it was saved, the grey one has not and starts over from the scene file.
-script Checkpoint {
-    @export var SaveAt float = 1
-    @export var LoadEvery float = 2.5
-
-    var t float
+// Perform one real in-memory save and reload. OnLoad removes the temporary
+// slot, so Reset and another Try run begin independently.
+script PersistenceProbe {
+    var requested bool
+    var finished bool
 
     func Update(dt float) {
-        t += dt
-        if !save.Exists("demo") {
-            if t >= SaveAt {
-                save.Save("demo")
-                t = 0
-            }
+        if finished {
             return
         }
-        if t >= LoadEvery {
-            save.Load("demo")
+        if !save.Exists("persist-demo") {
+            if !requested {
+                node.SetPosition(Vec2{2, 0})
+                save.Save("persist-demo")
+                requested = true
+            }
+        } else {
+            save.Load("persist-demo")
         }
+    }
+
+    func OnLoad() {
+        finished = true
+        save.Delete("persist-demo")
     }
 }

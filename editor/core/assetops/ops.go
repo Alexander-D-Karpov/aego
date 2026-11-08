@@ -3,9 +3,11 @@ package assetops
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -398,6 +400,14 @@ func CreateFile(ctx *context.Editor, rel string, data []byte) (ids.AssetID, erro
 	}
 	batch, err := ctx.Pipeline.Import(id)
 	ctx.ApplyBatch(batch)
+	if err == nil && batch != nil {
+		if cause := batch.Failed[id]; cause != nil {
+			return id, fmt.Errorf("%s was created, but import failed: %w", rel, cause)
+		}
+		if slices.Contains(batch.Retry, id) {
+			return id, fmt.Errorf("%s was created, but import must be retried because the source is unstable", rel)
+		}
+	}
 	return id, err
 }
 

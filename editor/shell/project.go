@@ -107,6 +107,22 @@ func recentName(e launcher.Entry) string {
 	return filepath.Base(e.Path)
 }
 
+// Include the path when names collide, both in the menu and command search.
+func recentNames(list []launcher.Entry) []string {
+	counts := make(map[string]int, len(list))
+	for _, e := range list {
+		counts[recentName(e)]++
+	}
+	names := make([]string, len(list))
+	for i, e := range list {
+		names[i] = recentName(e)
+		if counts[names[i]] > 1 {
+			names[i] += " — " + e.Path
+		}
+	}
+	return names
+}
+
 func (a *App) recentList() []launcher.Entry {
 	if a.opt.Recent == "" {
 		return nil
@@ -124,8 +140,8 @@ func (a *App) recentList() []launcher.Entry {
 	}
 	a.recent, a.recentNext, a.recentLoaded = out, now+2, true
 	a.recentLabels = a.recentLabels[:0]
-	for _, e := range out {
-		a.recentLabels = append(a.recentLabels, i18n.Tr("editor.shell.open_recent_item", "Open {name}", i18n.Str("name", recentName(e))))
+	for _, name := range recentNames(out) {
+		a.recentLabels = append(a.recentLabels, i18n.Tr("editor.shell.open_recent_item", "Open {name}", i18n.Str("name", name)))
 	}
 	return a.recent
 }
@@ -220,6 +236,41 @@ func (a *App) pickFolder(start string, done func(string)) {
 	if pick := sysopen.Picker(a.eng.Window(), platform.DialogFolder, "", ""); pick != nil {
 		pick(start, done)
 	}
+}
+
+func (a *App) importAssetFile(dir string) {
+	project, pipeline := a.ctx.Project, a.ctx.Pipeline
+	apply := func(file string) {
+		if a.ctx.Project != project || a.ctx.Pipeline != pipeline {
+			a.ctx.Notify(context.LevelError, i18n.Tr("editor.assets.import_project_changed", "The project changed before import completed."))
+			return
+		}
+		if file != "" {
+			a.assetsPanel.ImportFiles([]string{file}, dir)
+		}
+	}
+	if win := a.eng.Window(); win != nil {
+		if picker, ok := win.(platform.FileDialogs); ok {
+			err := picker.ShowFileDialog(platform.FileDialog{Kind: platform.DialogOpenFile, Start: a.opt.Project.Root}, func(file string, ok bool) {
+				if ok {
+					apply(file)
+				}
+			})
+			if err == nil {
+				return
+			}
+		}
+	}
+	a.ctx.Ask(context.Question{
+		Title:   i18n.Tr("editor.assets.import_file", "Import File…"),
+		Fields:  []string{i18n.Tr("editor.assets.external_file_path", "File path")},
+		Buttons: []string{i18n.Tr("editor.art.import_action", "Import"), i18n.Tr("editor.art.cancel", "Cancel")},
+		Submit: func(values []string) {
+			if len(values) > 0 {
+				apply(strings.TrimSpace(values[0]))
+			}
+		},
+	})
 }
 
 func (a *App) bugURL() string {

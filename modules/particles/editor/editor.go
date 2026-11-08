@@ -227,6 +227,14 @@ func Hook(r *ext.Registry) error {
 	if err := r.DocumentHandler(document.Handler{ID: "particles.preset", Name: i18n.T("editor.particles.preset", "Particle preset"), Icon: "file.preset", Kinds: []asset.ArtifactKind{asset.ArtPreset}, Roles: []string{particles.NameSystem}, TextSource: true, Capabilities: document.View | document.EditSource | document.Preview | document.RevealSource, Open: open}); err != nil {
 		return err
 	}
+	if err := r.CreateAction(context.CreateAction{
+		Key: "particles.create-preset", Name: i18n.Tr("editor.particles.create_preset_file", "Particle Preset (.aepreset)…"),
+		Category: i18n.Tr("editor.assets.create_category", "Files"), Icon: "file.preset",
+		Run:         func(ids.NodeID) error { return askCreatePreset(ed, ed.AssetCreateDirectory("assets")) },
+		RunInFolder: func(dir string) error { return askCreatePreset(ed, dir) },
+	}); err != nil {
+		return err
+	}
 	return r.Thumbnail(asset.ArtPreset, preview.Handler{Component: particles.NameSystem, ReadSource: true, Version: "particles.v2", Render: p.thumbnail, Build: p.card})
 }
 func (p *adapter) tick() {

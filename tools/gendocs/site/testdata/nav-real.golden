@@ -4,6 +4,8 @@ Getting started
     Your first project -> quickstart.html
     Platformer from scratch -> platformer.html
     Recipes -> recipes.html
+    Platformer lighting and effects -> platformer-effects.html
+    Credits and acknowledgements -> credits.html
 Guides
   Editor -> editor.html
     Add Component and Create -> editor/add-component.html
@@ -16,6 +18,7 @@ Guides
     Types -> language/types.html
     Declarations and statements -> language/declarations-and-statements.html
     Scripts and lifecycle -> language/scripts-and-lifecycle.html
+      Animated script example -> language/script-example.html
     Attributes -> language/attributes.html
     Nodes, components and references -> language/nodes-components-and-references.html
     Standard library -> language/standard-library.html
@@ -34,10 +37,12 @@ Guides
     Scripts -> ref/engine.Script.html
   Scenes & Prefabs
     Prefabs -> prefabs.html
+      Lamp instances -> prefabs/example.html
     Tags and queries -> tags.html
       Tag names -> tags/names.html
       In scripts -> tags/scripts.html
       In Go -> tags/go.html
+      Query example -> tags/example.html
   Gameplay
     Input -> input.html
     Gameplay kit -> gameplay.html
@@ -128,6 +133,7 @@ Guides
     Materials and shaders -> render2d/materials.html
     Normal mapping with a moving light -> render2d/normal-mapping.html
     Image and Sprite authoring -> render2d/image-viewer.html
+    Pixel art and Aseprite import -> render2d/art.html
   Native extensions -> extensions.html
   Tools & Agents
     Debug Draw -> debug.html
@@ -137,34 +143,34 @@ Reference
   Script API
     Builtin types -> ref/aego/builtin.html
     Script events -> ref/events.html
-    aego/curve -> ref/aego/curve.html
-    aego/log -> ref/aego/log.html
-    aego/math -> ref/aego/math.html
-    aego/rand -> ref/aego/rand.html
-    aego/testing -> ref/aego/testing.html
-    aego/time -> ref/aego/time.html
-    aego/input -> ref/aego/input.html
-    aego/physics -> ref/aego/physics.html
-    aego/lighting -> ref/aego/lighting.html
-    aego/material -> ref/aego/material.html
-    aego/camera -> ref/aego/camera.html
-      Blend -> ref/aego/camera.Blend.html
-    aego/anim -> ref/aego/anim.html
-    aego/particles -> ref/aego/particles.html
     aego/action -> ref/aego/action.html
       Action -> ref/aego/action.Action.html
+    aego/anim -> ref/aego/anim.html
+    aego/audio -> ref/aego/audio.html
+      Sound -> ref/aego/audio.Sound.html
+    aego/camera -> ref/aego/camera.html
+      Blend -> ref/aego/camera.Blend.html
+    aego/curve -> ref/aego/curve.html
+    aego/data -> ref/aego/data.html
+    aego/debug -> ref/aego/debug.html
+    aego/input -> ref/aego/input.html
+    aego/lighting -> ref/aego/lighting.html
+    aego/log -> ref/aego/log.html
+    aego/material -> ref/aego/material.html
+    aego/math -> ref/aego/math.html
+    aego/particles -> ref/aego/particles.html
+    aego/physics -> ref/aego/physics.html
+    aego/rand -> ref/aego/rand.html
+    aego/save -> ref/aego/save.html
+    aego/scene -> ref/aego/scene.html
+    aego/settings -> ref/aego/settings.html
+    aego/testing -> ref/aego/testing.html
+    aego/time -> ref/aego/time.html
     aego/timer -> ref/aego/timer.html
       Timer -> ref/aego/timer.Timer.html
     aego/tween -> ref/aego/tween.html
       Tween -> ref/aego/tween.Tween.html
-    aego/scene -> ref/aego/scene.html
-    aego/save -> ref/aego/save.html
-    aego/data -> ref/aego/data.html
-    aego/debug -> ref/aego/debug.html
-    aego/settings -> ref/aego/settings.html
     aego/update -> ref/aego/update.html
-    aego/audio -> ref/aego/audio.html
-      Sound -> ref/aego/audio.Sound.html
   Components
     Core -> ref/module/engine.html
       Prefab Instance -> ref/engine.PrefabInstance.html
@@ -231,5 +237,6 @@ Reference
   Diagnostics -> diagnostics.html
   The aego command -> cli.html
   File formats
+    Formats overview -> formats/overview.html
     .aeanim clips -> formats/aeanim.html
     .aectrl controllers -> formats/aectrl.html

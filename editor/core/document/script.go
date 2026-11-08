@@ -134,7 +134,7 @@ func (m *Manager) SaveScript(d *ScriptDocument) error {
 	d.diskHash, d.diskTracked = sha256.Sum256(d.Code.Bytes()), true
 	m.statScript(d)
 	d.removedAck = false
-	os.Remove(m.scriptRecoveryFile(d.Path))
+	m.clearScriptRecovery(d.Path)
 	m.emit(Event{Kind: EvSourceSaved, Doc: d.ID, Path: d.Path})
 	return nil
 }
@@ -149,7 +149,7 @@ func (m *Manager) CloseScript(d *ScriptDocument) {
 			break
 		}
 	}
-	os.Remove(m.scriptRecoveryFile(d.Path))
+	m.clearScriptRecovery(d.Path)
 }
 
 // DiscardScript is explicit and shared by all views. Hiding a Code tab alone
@@ -164,7 +164,7 @@ func (m *Manager) DiscardScript(d *ScriptDocument) error {
 		d.Code.GLSL = shaderText(d.Path)
 		d.Conflict, d.OnDisk, d.removedAck = false, false, true
 		d.diskHash, d.diskTracked = sha256.Sum256(nil), true
-		os.Remove(m.scriptRecoveryFile(d.Path))
+		m.clearScriptRecovery(d.Path)
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func (m *Manager) ReloadScript(d *ScriptDocument) error {
 	d.Code.GLSL = shaderText(d.Path)
 	m.statScript(d)
 	d.removedAck = false
-	os.Remove(m.scriptRecoveryFile(d.Path))
+	m.clearScriptRecovery(d.Path)
 	return nil
 }
 
@@ -248,15 +248,22 @@ func (m *Manager) scriptRecoveryFile(rel string) string {
 	return filepath.Join(m.recoveryDir(), hex.EncodeToString([]byte(rel))+ScriptExt)
 }
 
+func (m *Manager) clearScriptRecovery(rel string) {
+	if err := m.discardOwnedRecovery(m.scriptRecoveryFile(rel)); err != nil {
+		m.log.Warn("cannot clear changed script recovery file", log.F("path", rel), log.F("err", err.Error()))
+	}
+}
+
 func (m *Manager) writeScriptRecovery() (int, error) {
 	n := 0
 	var first error
 	for _, d := range m.scripts {
 		if !d.Dirty() {
-			os.Remove(m.scriptRecoveryFile(d.Path))
+			m.clearScriptRecovery(d.Path)
 			continue
 		}
-		if err := WriteAtomic(m.scriptRecoveryFile(d.Path), d.Code.Bytes()); err != nil {
+		name, data := m.scriptRecoveryFile(d.Path), d.Code.Bytes()
+		if err := m.writeRecoveryFile(name, data); err != nil {
 			if first == nil {
 				first = errs.Wrap(err, errs.EditorDocument, "cannot write the script recovery file")
 			}
@@ -292,7 +299,7 @@ func (m *Manager) FindScriptRecovery() []Recovery {
 		}
 		full := filepath.Join(m.recoveryDir(), name)
 		if st, err := os.Stat(m.Abs(rel)); err == nil && !st.ModTime().Before(info.ModTime()) {
-			os.Remove(full)
+			// Do not delete an old copy merely because the source is newer.
 			continue
 		}
 		out = append(out, Recovery{Path: rel, File: full, Time: info.ModTime()})
@@ -313,6 +320,9 @@ func (m *Manager) RestoreScriptRecovery(r Recovery) (*ScriptDocument, error) {
 	disk, _ := os.ReadFile(m.Abs(r.Path))
 	d.Code.SetSaved(disk)
 	d.diskHash, d.diskTracked = sha256.Sum256(disk), true
+	if filepath.Clean(r.File) == filepath.Clean(m.scriptRecoveryFile(r.Path)) {
+		m.trackRecovery(r.File, data)
+	}
 	return d, nil
 }
 

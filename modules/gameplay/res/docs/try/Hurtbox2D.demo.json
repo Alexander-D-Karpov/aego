@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Hurtbox2D",
+  "demoID": "gameplay.Hurtbox2D.damage-multiplier",
+  "documentID": "gameplay.Hurtbox2D",
+  "scene": "gameplay.Hurtbox2D/try",
+  "identity": "346eb51fee3424144e61f69e3d14634958d511e44cb27034e62c363339327105",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.Hurtbox2D.Multiplier"],
+  "actions": [{
+    "id": "double-damage", "field": "gameplay.Hurtbox2D.Multiplier", "value": 2,
+    "expected": [{"observable": "gameplay.Hurtbox2D.Multiplier", "equals": 2, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Scale damage with a hurtbox", "description": "The red attack deals 2 base damage where it overlaps the green target. Multiplier 0 prevents that hit from reducing its 10 health points.", "input": "Set Multiplier to 2. The scene restarts and the real hit deals 4 damage: the target has 6 health points and turns orange. Reset restores the zero multiplier."},
+    "ru": {"title": "Множитель урона хёртбокса", "description": "Красная атака наносит 2 единицы базового урона при пересечении с зелёной целью. Multiplier 0 не даёт удару уменьшить её 10 очков здоровья.", "input": "Установите Multiplier в 2. Сцена перезапустится, и настоящий удар нанесёт 4 единицы урона: у цели останется 6 очков здоровья, и она станет оранжевой. «Сброс» вернёт нулевой множитель."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

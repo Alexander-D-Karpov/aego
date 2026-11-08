@@ -11,10 +11,23 @@ import (
 )
 
 func (a *App) wirePalette(sops *sceneops.Ops) {
-	a.addPal = addpalette.New(addpalette.Deps{Ctx: a.ctx, Meta: a.inspectors, Templates: a.templates, Root: a.opt.Project.Root, Actions: a.animActions})
+	a.addPal = addpalette.New(addpalette.Deps{Ctx: a.ctx, Meta: a.inspectors, Templates: a.templates, Root: a.opt.Project.Root, Actions: a.createActions})
 	sops.SetCreate(func(parent ids.NodeID, pl templates.Place, at *mathx.Vec2, created func([]ids.NodeID)) {
 		a.addPal.CreateNode(parent, pl, at, created)
 	})
+}
+
+func (a *App) createActions() []addpalette.Action {
+	var actions []addpalette.Action
+	if a.ctx.Doc() != nil {
+		actions = append(actions, a.animActions()...)
+	}
+	if a.assetsPanel != nil {
+		for _, action := range a.assetsPanel.FileCreateActions() {
+			actions = append(actions, addpalette.Action{Key: action.Key, Name: action.Name, Category: action.Category, Icon: action.Icon, Doc: action.Doc, Run: action.Run})
+		}
+	}
+	return actions
 }
 
 // AddPalette is the Add Component and Create palette, for tests and screenshots.

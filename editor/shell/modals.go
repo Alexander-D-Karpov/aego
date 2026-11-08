@@ -244,15 +244,19 @@ func (a *App) drawPrompt(id core.ID) {
 	}
 	base := ui.ID("prompt")
 	submit, escape := false, false
+	// The key that selected a Create action must not also submit the newly
+	// opened prompt or remove focus from its text field in the same frame.
+	opening := md.focus
+	openingEnter := opening && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
 	for i, f := range q.Fields {
 		widgets.LabelDim(ui, f)
 		fid := core.IDSeq(base, i)
-		if md.focus && i == 0 {
+		if md.focus && i == 0 && !openingEnter {
 			ui.SetFocus(fid)
 			ui.EditBuffer(fid, md.vals[i]).SelectAll()
 			md.focus = false
 		}
-		if ui.Focus() == fid {
+		if !opening && ui.Focus() == fid {
 			submit = submit || ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter)
 			escape = escape || ui.KeyPressed(input.KeyEscape)
 		}

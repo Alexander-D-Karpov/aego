@@ -165,12 +165,22 @@ func TestHeldPauseIdles(t *testing.T) {
 		t.Fatal("the pause button does not hold the game")
 	}
 	time.Sleep(1100 * time.Millisecond)
+	for _, task := range s.App.Tasks().Tasks() {
+		t.Logf("task at start of idle wait: kind=%q title=%q state=%v lane=%v", task.Kind, task.Title, task.State(), task.Lane())
+	}
+	start := time.Now()
 	for deadline := time.Now().Add(10 * time.Second); !s.App.Idle(); time.Sleep(10 * time.Millisecond) {
 		if time.Now().After(deadline) {
+			t.Logf("play state=%v held=%v now=%g drag-and-drop=%v workspace-drag=%v tasks-busy=%v",
+				pc.State(), pc.Held(), s.App.Context().Now(), s.App.Context().DnD.Active(), s.App.Workspace().Dragging(), s.App.Tasks().Busy())
+			for _, task := range s.App.Tasks().Tasks() {
+				t.Logf("unfinished task: kind=%q title=%q state=%v lane=%v canceled=%v", task.Kind, task.Title, task.State(), task.Lane(), task.Canceled())
+			}
 			t.Fatal("a held pause without input does not idle once background tasks end")
 		}
 		s.Step()
 	}
+	t.Logf("idle reached after %v", time.Since(start))
 	pc.Pause()
 	s.Step()
 	if s.App.Idle() {

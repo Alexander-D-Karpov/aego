@@ -55,7 +55,7 @@ func New(reg *regdocs.Registry, nav services.Navigation, notes services.Notices)
 	p := &Panel{reg: reg, nav: nav, notes: notes, open: map[string]bool{}, split: 0.3, dirty: true}
 	p.text.Highlight = Highlight
 	if reg != nil {
-		p.groups = reg.Export("").Groups
+		p.groups = reg.GroupNavigation()
 	}
 	return p
 }

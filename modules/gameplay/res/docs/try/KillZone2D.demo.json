@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.KillZone2D",
+  "demoID": "gameplay.KillZone2D.tag-filter",
+  "documentID": "gameplay.KillZone2D",
+  "scene": "gameplay.KillZone2D/try",
+  "identity": "41833601960443d22d1caa7790a13312f48775858ca0c8fb9d990796ad2ff872",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.KillZone2D.Tag"],
+  "actions": [{
+    "id": "match-tag", "field": "gameplay.KillZone2D.Tag", "value": "Player",
+    "expected": [{"observable": "gameplay.KillZone2D.Tag", "equals": "Player", "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Filter a kill zone by tag", "description": "The target tagged Player is inside the red zone. Tag Other does not match it, so its Health remains alive.", "input": "Set Tag to Player. After the scene restarts, the real kill zone kills the target; its Health indicator turns orange. Reset restores the mismatched tag and a living target."},
+    "ru": {"title": "Фильтр тега смертельной зоны", "description": "Цель с тегом Player находится внутри красной зоны. Тег Other ей не соответствует, поэтому её здоровье остаётся живым.", "input": "Установите Tag в Player. После перезапуска сцены настоящая смертельная зона убьёт цель, а индикатор её здоровья станет оранжевым. «Сброс» вернёт другой тег и живую цель."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

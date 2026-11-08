@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "componentID": "engine.PrefabInstance",
+  "demoID": "engine.PrefabInstance.independent-copy",
+  "documentID": "engine.PrefabInstance",
+  "scene": "engine.PrefabInstance/try",
+  "identity": "ee8736e6c4aad8916b8767c9ae2eff192b77e0434ef7f642fda2285ec01161fc",
+  "dependencies": ["d5600000000000000000000000000f02", "ae900000000000000000000000000010"],
+  "editableFields": [],
+  "actions": [{
+    "id": "enable-one-instance-script", "scriptToggle": {"script": "game.demo.MovePrefab", "enabled": true},
+    "expected": [
+      {"observable": "engine.PrefabInstance.PositionX", "equals": -1, "changes": true},
+      {"observable": "engine.PrefabInstance.ReferencePositionX", "equals": 2, "changes": false},
+      {"observable": "engine.PrefabInstance.LinkedPrefab", "equals": "d5600000000000000000000000000f02", "changes": false},
+      {"observable": "engine.PrefabInstance.ReferencePrefab", "equals": "d5600000000000000000000000000f02", "changes": false}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Change one prefab instance", "description": "Both markers are linked to the same prefab; its Move Prefab script is initially disabled.", "input": "Enable the selected instance's Move Prefab script in the Inspector. This creates an instance override; after restart Ready checks the prefab link and moves only that copy. Reset removes the edit."},
+    "ru": {"title": "Изменение одного экземпляра префаба", "description": "Обе метки связаны с одним префабом; его скрипт Move Prefab изначально выключен.", "input": "Включите скрипт Move Prefab у выбранного экземпляра в Инспекторе. Так создаётся переопределение экземпляра; после перезапуска Ready проверяет связь с префабом и перемещает только эту копию. «Сброс» отменяет изменение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.CircleCollider2D",
+  "demoID": "physics.CircleCollider2D.bounce",
+  "documentID": "physics.CircleCollider2D",
+  "scene": "physics.CircleCollider2D/try",
+  "identity": "a0422ba8c42ec0a9a6e7e0e32ec0e97cb6dd6890266cd8e5ee0a6b0a88a44754",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["physics.CircleCollider2D.Restitution"],
+  "actions": [{
+    "id": "bounce-on-contact", "field": "physics.CircleCollider2D.Restitution", "value": 1,
+    "expected": [{"observable": "physics.CircleCollider2D.Restitution", "equals": 1, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Circle collider bounce", "description": "A round body moves toward the floor with gravity off. At Restitution 0 it stops on contact.", "input": "Change Restitution from 0 to 1 to make the same collision bounce. Reset restores the original contact."},
+    "ru": {"title": "Отскок круглого коллайдера", "description": "Круглое тело движется к полу при выключенной гравитации. При Restitution 0 оно останавливается при столкновении.", "input": "Измените Restitution с 0 на 1, чтобы тело отскочило при том же столкновении. «Сброс» вернёт исходное столкновение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

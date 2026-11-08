@@ -45,6 +45,9 @@ type Config struct {
 	Platform           platform.Platform
 	Profile            string
 	NoProfile          bool
+	// NoExternalImportTools prevents project assets from starting external
+	// converters and validators, including on later reimport.
+	NoExternalImportTools bool
 	// SharedIndex opens the asset index read-only without a warning when another process, the editor, holds it.
 	SharedIndex bool
 }
@@ -133,6 +136,9 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	builder.Use(h.Modules.Engine())
 	if h.Importers, err = DevImporters(h.Workspace, h.Modules); err != nil {
 		return err
+	}
+	if cfg.NoExternalImportTools {
+		disableExternalImportTools(h.Importers)
 	}
 	if err = h.Types.Schema().Freeze(); err != nil {
 		return err

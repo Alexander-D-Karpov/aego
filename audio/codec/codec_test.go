@@ -159,6 +159,64 @@ func TestVorbis(t *testing.T) {
 	}
 }
 
+// Reference samples were captured with the original decoder. Verify stereo
+// channels, variable packet boundaries and seeks without playing audio.
+func TestVorbisStereoReferenceAndSeek(t *testing.T) {
+	data, err := os.ReadFile("../../examples/platformer/assets/audio/glorious-morning.ogg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := open(t, data, "glorious-morning.ogg")
+	defer d.Close()
+	if info := d.Info(); info.Channels != 2 || info.SampleRate != 44100 {
+		t.Fatalf("stereo fixture info: %+v", info)
+	}
+	points := []struct {
+		frame       int
+		left, right float32
+	}{
+		{4095, 0.0285796504, 0.0286629312},
+		{10000, -0.0201380588, 0.0249671303},
+		{22050, 0.0366908014, 0.00348297134},
+		{32768, -0.0461792313, -0.094924286},
+		{44099, 0.066936411, -0.0957364514},
+		{44100, 0.0647553205, -0.0836402252},
+		{66000, -0.0251118988, -0.0219217911},
+		{88200, 0.0169980302, 0.0236014258},
+		{130000, 0.00625682622, -0.0760344565},
+		{200000, 0.0560458116, 0.0119513068},
+	}
+	const frames = 201000
+	pcm := make([]float32, 0, frames*2)
+	buf := make([]float32, 4096*2)
+	for len(pcm) < frames*2 {
+		n, err := d.Read(buf)
+		if err != nil || n == 0 {
+			t.Fatalf("reading stereo fixture: %d, %v", n, err)
+		}
+		pcm = append(pcm, buf[:n*2]...)
+	}
+	for _, p := range points {
+		if math.Abs(float64(pcm[2*p.frame]-p.left)) > 1e-5 || math.Abs(float64(pcm[2*p.frame+1]-p.right)) > 1e-5 {
+			t.Fatalf("frame %d = [%g, %g], want [%g, %g]", p.frame, pcm[2*p.frame], pcm[2*p.frame+1], p.left, p.right)
+		}
+	}
+	for _, frame := range []int64{4095, 44100, 88200, 176400} {
+		if err := d.SeekFrame(frame); err != nil {
+			t.Fatal(err)
+		}
+		n, err := d.Read(buf[:512])
+		if err != nil || n == 0 {
+			t.Fatalf("seek %d: read %d, %v", frame, n, err)
+		}
+		for i, v := range buf[:n*2] {
+			if math.Abs(float64(v-pcm[int(frame)*2+i])) > 1e-3 {
+				t.Fatalf("seek %d sample %d = %g, want %g", frame, i, v, pcm[int(frame)*2+i])
+			}
+		}
+	}
+}
+
 func drain(d codec.Decoder, err error) {
 	if err != nil {
 		return

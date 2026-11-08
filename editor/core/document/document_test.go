@@ -2,6 +2,7 @@ package document
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -139,6 +140,130 @@ func TestRecovery(t *testing.T) {
 	}
 	if len(NewManager(m.opt).FindRecovery()) != 0 {
 		t.Fatal("save must drop the recovery file")
+	}
+}
+
+func TestDiscardOpenRecoveryPreservesUnrelatedCopies(t *testing.T) {
+	m := newManager(t)
+	d := m.New("scenes/open.aescene", sampleScene(m, 4))
+	if err := os.MkdirAll(m.Abs("scripts"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(m.Abs("scripts/open.aes"), []byte("package old\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	script, err := m.OpenScript("scripts/open.aes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script.Code.ReplaceSnapshot([]byte("package changed\n"), false)
+	if n, err := m.WriteRecovery(); err != nil || n != 2 {
+		t.Fatalf("cannot create an open document recovery: %d, %v", n, err)
+	}
+	unrelated := filepath.Join(m.recoveryDir(), "asset-unopened.recovery")
+	if err := os.WriteFile(unrelated, []byte("unrelated recovery"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.DiscardOpenRecovery(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(m.recoveryFile(d.Path)); !os.IsNotExist(err) {
+		t.Fatalf("discarded open document retained its recovery: %v", err)
+	}
+	if _, err := os.Stat(m.scriptRecoveryFile(script.Path)); !os.IsNotExist(err) {
+		t.Fatalf("discarded open script retained its recovery: %v", err)
+	}
+	if got, err := os.ReadFile(unrelated); err != nil || string(got) != "unrelated recovery" {
+		t.Fatal("discarding open documents erased an unrelated recovery")
+	}
+}
+
+func TestDiscardOpenRecoveryPreservesUnownedOrChangedCopies(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		name := "preexisting"
+		if changed {
+			name = "changed after write"
+		}
+		t.Run(name, func(t *testing.T) {
+			m := newManager(t)
+			d := m.New("scenes/open.aescene", sampleScene(m, 4))
+			if changed {
+				if _, err := m.WriteRecovery(); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.MkdirAll(m.recoveryDir(), 0755); err != nil {
+				t.Fatal(err)
+			}
+			file := m.recoveryFile(d.Path)
+			if err := os.WriteFile(file, []byte("other recovery"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err := m.DiscardOpenRecovery()
+			if (!changed && err != nil) || (changed && err == nil) {
+				t.Fatalf("unexpected conflict result: %v", err)
+			}
+			if got, err := os.ReadFile(file); err != nil || string(got) != "other recovery" {
+				t.Fatal("discard removed a recovery not owned by this editor session")
+			}
+		})
+	}
+}
+
+func TestPeriodicRecoveryDoesNotReplaceEarlierOrChangedCopies(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		name := "earlier session"
+		if changed {
+			name = "external modification"
+		}
+		t.Run(name, func(t *testing.T) {
+			m := newManager(t)
+			d := m.New("scenes/open.aescene", sampleScene(m, 4))
+			if changed {
+				if _, err := m.WriteRecovery(); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.MkdirAll(m.recoveryDir(), 0755); err != nil {
+				t.Fatal(err)
+			}
+			file := m.recoveryFile(d.Path)
+			if err := os.WriteFile(file, []byte("other recovery"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := m.WriteRecovery(); err == nil {
+				t.Fatal("periodic write did not report the recovery conflict")
+			}
+			if got, err := os.ReadFile(file); err != nil || string(got) != "other recovery" {
+				t.Fatal("periodic recovery replaced another copy")
+			}
+		})
+	}
+}
+
+func TestDiscardOpenRecoveryDoesNotFollowReplacedSymlink(t *testing.T) {
+	m := newManager(t)
+	d := m.New("scenes/open.aescene", sampleScene(m, 4))
+	if _, err := m.WriteRecovery(); err != nil {
+		t.Fatal(err)
+	}
+	file := m.recoveryFile(d.Path)
+	target := m.Abs("outside")
+	if err := os.WriteFile(target, []byte("outside bytes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, file); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := m.DiscardOpenRecovery(); err == nil {
+		t.Fatal("discard did not report the replaced recovery")
+	}
+	if st, err := os.Lstat(file); err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("discard removed the replacement symlink")
+	}
+	if got, err := os.ReadFile(target); err != nil || string(got) != "outside bytes" {
+		t.Fatal("discard changed a symlink target")
 	}
 }
 

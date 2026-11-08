@@ -1,40 +1,13 @@
 package demo
 
-import (
-    "aego/debug"
-    "aego/input"
-)
-
-// Player walks over three spikes and shows its hit points.
-script Player {
+// The target changes color only after its actual Health takes damage.
+script DamageIndicator {
     func Update(dt float) {
-        m := node.Get<Motion2D>()
-        x := 0.0
-        if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
-            x -= 1
-        }
-        if input.Down(input.KeyD) || input.Down(input.KeyRight) {
-            x += 1
-        }
-        m.Move(x)
-        if input.KeyPressed(input.KeySpace) || input.KeyPressed(input.KeyW) || input.KeyPressed(input.KeyUp) {
-            m.Jump()
-        }
-        if input.KeyReleased(input.KeySpace) || input.KeyReleased(input.KeyW) || input.KeyReleased(input.KeyUp) {
-            m.JumpReleased()
-        }
         hp := node.Get<Health>()
-        p := node.WorldPosition()
-        debug.Text(Vec2{p.X - 0.6, p.Y - 1}, "hp " + string(hp.Current), Color{1, 1, 1, 1})
-    }
-}
-
-// Label writes Text above its node.
-script Label {
-    @export var Text string
-
-    func Update(dt float) {
-        p := node.WorldPosition()
-        debug.Text(Vec2{p.X - 0.8, p.Y - 1}, Text, Color{0.85, 0.85, 0.85, 1})
+        if hp.Current < hp.Max {
+            node.Get<SpriteRenderer>().Tint = Color{1, 0.5, 0.05, 1}
+        } else {
+            node.Get<SpriteRenderer>().Tint = Color{0.05, 0.8, 0.25, 1}
+        }
     }
 }

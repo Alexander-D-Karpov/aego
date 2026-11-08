@@ -11,6 +11,7 @@ import (
 	"aego/asset"
 	"aego/core/ids"
 	"aego/data"
+	"aego/editor/core/animedit"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
@@ -176,6 +177,19 @@ func (p *Panel) dirItems(dir string) {
 		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.prefab", "Prefab…"), "", "file.prefab", p.d.Files.CanNewPrefab(), false) {
 			p.newDoc(dir, i18n.Tr("editor.assets.new_prefab", "New prefab"), assetops.PrefabExt, p.d.Files.NewPrefab)
 		}
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.animation_clip", "Animation Clip (.aeanim)…"), "", "anim.key", true, false) {
+			p.newAnimationFile(dir, false)
+		}
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.animation_controller", "Animation Controller (.aectrl)…"), "", "anim.graph", true, false) {
+			p.newAnimationFile(dir, true)
+		}
+		if p.d.CreateActions != nil {
+			for _, action := range p.d.CreateActions() {
+				if action.RunInFolder != nil && widgets.MenuItemIcon(ui, action.Name, "", action.Icon, true, false) {
+					p.report(action.RunInFolder(dir))
+				}
+			}
+		}
 		widgets.Separator(ui)
 		if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.script", "Script…"), "", "file.script", true, false) {
 			p.newScript(dir)
@@ -185,6 +199,9 @@ func (p *Panel) dirItems(dir string) {
 		}
 		p.dataItems(dir)
 		widgets.EndSubMenu(ui)
+	}
+	if p.d.ImportFile != nil && widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.import_file", "Import File…"), "", "file.open", true, false) {
+		p.d.ImportFile(dir)
 	}
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.paste", "Paste"), reg.Shortcut(CommandPaste), "edit.paste", p.d.Files.CanPaste(), false) {
 		p.report(p.Paste(dir))
@@ -205,6 +222,71 @@ func (p *Panel) dirItems(dir string) {
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.copy_path", "Copy Path"), "", "edit.copy_path", true, false) {
 		p.copyText(dir)
 	}
+}
+
+// FileCreateActions exposes the same valid file creators in the main Create
+// palette, independently of scene-node templates.
+func (p *Panel) FileCreateActions() []context.CreateAction {
+	category := i18n.Tr("editor.assets.create_category", "Files")
+	folder := func() string {
+		if p.folder == "" || sourceFolder(p.folder) {
+			return "assets"
+		}
+		return p.folder
+	}
+	var actions []context.CreateAction
+	add := func(key, name, icon string, run func(string)) {
+		actions = append(actions, context.CreateAction{
+			Key: key, Name: name, Category: category, Icon: icon,
+			Run: func(ids.NodeID) error { run(folder()); return nil },
+		})
+	}
+	if p.d.Files.CanNewScene() {
+		add("file.scene", i18n.Tr("editor.assets.scene_file", "Scene (.aescene)…"), "file.scene", func(dir string) {
+			p.newDoc(dir, i18n.Tr("editor.assets.new_scene", "New scene"), document.SceneExt, p.d.Files.NewScene)
+		})
+	}
+	if p.d.Files.CanNewPrefab() {
+		add("file.prefab", i18n.Tr("editor.assets.prefab_file", "Prefab (.aeprefab)…"), "file.prefab", func(dir string) {
+			p.newDoc(dir, i18n.Tr("editor.assets.new_prefab", "New prefab"), assetops.PrefabExt, p.d.Files.NewPrefab)
+		})
+	}
+	add("file.script", i18n.Tr("editor.assets.script_file", "Script (.aes)…"), "file.script", p.newScript)
+	add("file.script_package", i18n.Tr("editor.assets.script_package", "Script Package…"), "file.package", p.newPackage)
+	add("file.animation", i18n.Tr("editor.assets.animation_clip", "Animation Clip (.aeanim)…"), "anim.key", func(dir string) { p.newAnimationFile(dir, false) })
+	add("file.controller", i18n.Tr("editor.assets.animation_controller", "Animation Controller (.aectrl)…"), "anim.graph", func(dir string) { p.newAnimationFile(dir, true) })
+	if p.d.ImportFile != nil {
+		add("file.import", i18n.Tr("editor.assets.import_file", "Import File…"), "file.open", p.d.ImportFile)
+	}
+	for _, td := range p.dataTypes() {
+		add("file.data."+td.FullName, i18n.Tr("editor.assets.data_file", "Data: {type} (.aedata)…", i18n.Str("type", typeShort(td.FullName))), "file.data", func(dir string) { p.newData(dir, td, false) })
+		add("file.table."+td.FullName, i18n.Tr("editor.assets.table_file", "Table: {type} (.aetable)…", i18n.Str("type", typeShort(td.FullName))), "file.table", func(dir string) { p.newData(dir, td, true) })
+	}
+	return actions
+}
+
+func (p *Panel) newAnimationFile(dir string, controller bool) {
+	title, ext := i18n.Tr("editor.assets.new_animation_clip", "New animation clip"), ".aeanim"
+	if controller {
+		title, ext = i18n.Tr("editor.assets.new_animation_controller", "New animation controller"), ".aectrl"
+	}
+	p.newDoc(dir, title, ext, func(rel string) error {
+		data := animedit.NewClipText()
+		if controller {
+			var err error
+			data, err = animedit.NewControllerText()
+			if err != nil {
+				return err
+			}
+		}
+		if _, err := p.d.Files.CreateFile(rel, data); err != nil {
+			return err
+		}
+		if p.d.Nav != nil {
+			p.d.Nav.Open(context.AssetDocumentAt(rel))
+		}
+		return nil
+	})
 }
 
 func (p *Panel) dataTypes() []*schema.TypeDescriptor {
@@ -237,6 +319,9 @@ func (p *Panel) newData(dir string, td *schema.TypeDescriptor, table bool) {
 			b = data.WriteDoc(&data.Doc{Type: td.FullName})
 		}
 		_, err := p.d.Files.CreateFile(rel, b)
+		if err == nil && p.d.Nav != nil {
+			p.d.Nav.Open(context.AssetDocumentAt(rel))
+		}
 		return err
 	})
 }

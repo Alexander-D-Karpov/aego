@@ -2,6 +2,7 @@ package site
 
 import (
 	"html"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -14,6 +15,26 @@ const defaultDiagFile = "demo/main.aes"
 type diagGroup struct {
 	id, title string
 	codes     []string
+}
+
+var diagHeading = regexp.MustCompile(`(?s)<h([2-6]) id="([^"]+)"([^>]*)>(.*?)</h[2-6]>`)
+
+// Each diagnostic is already nested under a phase and a code heading. Keep its
+// own prose headings below those levels and give them per-code anchors, rather
+// than adding dozens of duplicate "Details" entries to the page contents.
+func diagnosticBody(id, body string) string {
+	section := 0
+	return diagHeading.ReplaceAllStringFunc(body, func(heading string) string {
+		parts := diagHeading.FindStringSubmatch(heading)
+		level, _ := strconv.Atoi(parts[1])
+		level = min(level+2, 6)
+		section++
+		anchor := esc(id) + "-details"
+		if section > 1 {
+			anchor += "-" + strconv.Itoa(section)
+		}
+		return `<h` + strconv.Itoa(level) + ` id="` + anchor + `"` + parts[3] + `>` + parts[4] + `</h` + strconv.Itoa(level) + `>`
+	})
 }
 
 // diagnostics renders the code entries under e grouped by phase; false when e has none with examples.
@@ -115,7 +136,7 @@ func (b *builder) diagCode(c *strings.Builder, e *Entry, root string) {
 		}
 	}
 	if d.Phase == "scene" || d.Phase == "asset" || d.Phase == "play" {
-		c.WriteString(b.markdown(root, e.ID, e.Body))
+		c.WriteString(diagnosticBody(e.ID, b.markdown(root, e.ID, e.Body)))
 		if d.Example != "" {
 			c.WriteString(`<p class="label">Example: ` + esc(d.ExampleFile) + "</p>\n")
 			c.WriteString(b.sceneTree(d.Example, root))

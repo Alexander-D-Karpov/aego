@@ -1,6 +1,6 @@
 ---
 id: audio
-try: try/AudioSource2D.aescene
+try: AudioSourceGuideOriginal.aescene
 try_select: audio.AudioSource2D
 icon: cat.audio
 group: audio
@@ -87,7 +87,7 @@ Like every data asset, an event can have a base and override a few fields. An ev
 
 ---
 id: audio/spatial
-try: try/AudioListener2D.aescene
+try: AudioListenerGuideOriginal.aescene
 try_select: audio.AudioListener2D
 icon: audio.listener
 parent: audio
@@ -97,6 +97,8 @@ title: Spatial sound
 # Spatial sound
 
 A spatial sound fades and pans with its distance to the listener. The listener is the first enabled, active [Audio Listener 2D](ref:audio.AudioListener2D) in the hierarchy; another active one later in the hierarchy is ignored ([AUD005](ref:AUD005)). Without a listener the camera of the main output listens, and [AUD004](ref:AUD004) reminds you of it on spatial sources; without a camera, the origin.
+
+`audio.ListenerPosition()` returns the last effective listener position, including the camera fallback, in world space during Play.
 
 A spatial source plays at full volume up to **Min Distance** and is silent from **Max Distance**, both in world units. **Rolloff** is the curve of the volume between them: time 0 is Min Distance, time 1 is Max Distance. **Pan Width**, from 0 to 1, says how far a sound at Max Distance to the side is panned.
 
@@ -110,7 +112,7 @@ In Try it, the ball carries the listener and the camera follows it. The box in t
 
 ---
 id: audio/zones
-try: try/AudioZone2D.aescene
+try: AudioZoneGuideOriginal.aescene
 try_select: audio.AudioZone2D
 icon: audio.zone
 parent: audio
@@ -120,6 +122,8 @@ title: Zones
 # Zones
 
 While the listener is inside the [Area](ref:audio.AudioZone2D.Area) of an [Audio Zone 2D](ref:audio.AudioZone2D), the zone's Bus is turned to its Gain over Fade Time. The area is a rectangle in the zone node's space.
+
+`audio.WorldBusGain(bus)` reports the last world-layer target selected by zones. The actual mixer also applies fade, session volume and player settings.
 
 - Among overlapping zones on one bus the highest Priority wins, then the zone entered later. Leaving one zone leaves the others in place.
 - Zones act on the world layer of the mixer, under the player's settings and the session, and end with the world.

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Respawn",
+  "demoID": "gameplay.Respawn.delay",
+  "documentID": "gameplay.Respawn",
+  "scene": "gameplay.Respawn/try",
+  "identity": "30664a21da5ccd6c3e7afefd8284149a29b854dba49c6e1740d6f844be18d35b",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["gameplay.Respawn.Delay"],
+  "actions": [{
+    "id": "respawn-now", "field": "gameplay.Respawn.Delay", "value": 0,
+    "expected": [{"observable": "gameplay.Respawn.Delay", "equals": 0, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Change the respawn delay", "description": "The target requests a respawn to the blue marker. At Delay 60 it waits at its starting position for 60 game seconds.", "input": "Set Delay to 0. The scene restarts and the real Respawn immediately teleports the target to the marker. Reset restores the 60-second wait."},
+    "ru": {"title": "Изменение задержки возрождения", "description": "Цель запрашивает возрождение к голубой отметке. При Delay 60 она ждёт в исходном положении 60 игровых секунд.", "input": "Установите Delay в 0. Сцена перезапустится, и настоящий Respawn сразу перенесёт цель к отметке. «Сброс» вернёт ожидание в 60 секунд."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -63,4 +63,6 @@ engine/settings/settingsui -> "settings*", semantic, the settings view texts are
 editor/core/play/play.go -> "update", semantic, the frame's update phase, not the update module (11i4)
 editor/panels/profiler/profiler.go -> "update", semantic, the profiler's update zone, not the update module (11i4)
 editor/core/workspace/layouts.go -> "art", semantic, the Art workspace, not the art module (11b8)
+editor/core/workspace/authoring.go -> "animation", semantic, the Animation workspace ID is a layout name and does not reference the animation module
+asset/importers/artsource/artsource.go -> "animation", semantic, the stable default clip subasset name is source data and does not reference the animation module
 render/shaderx/unit.go -> "display", semantic, @display is the shader annotation that names a parameter in the Inspector, not the display module (D367)

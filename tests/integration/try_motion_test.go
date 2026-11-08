@@ -21,16 +21,52 @@ import (
 
 // TestTryScenesNeverTrapThePlayer mashes keys in every docs try scene with a Motion 2D player and checks it never ends up inside a collider or unable to move.
 func TestTryScenesNeverTrapThePlayer(t *testing.T) {
-	scenes, _ := filepath.Glob(filepath.Join("..", "..", "modules", "gameplay", "res", "docs", "try", "*.aescene"))
+	docs := filepath.Join("..", "..", "modules", "gameplay", "res", "docs")
+	scenes, err := filepath.Glob(filepath.Join(docs, "try", "*.aescene"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Personal component demos may be distinct from the original interactive
+	// guides. Keep exercising those original Player scenes with all the same
+	// seeds and frames rather than losing coverage when a guide is moved.
+	guides, err := filepath.Glob(filepath.Join(docs, "*GuideOriginal.aescene"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes = append(scenes, guides...)
+	for _, name := range []string{
+		"MotionGuideOriginal", "HitboxGuideOriginal", "HurtboxGuideOriginal",
+		"KillZoneGuideOriginal", "CheckpointGuideOriginal", "RespawnGuideOriginal", "PickupGuideOriginal",
+	} {
+		path := filepath.Join(docs, name+".aescene")
+		data, err := os.ReadFile(path)
+		if err != nil || !strings.Contains(string(data), `"gameplay.Motion2D"`) || !strings.Contains(string(data), `name="Player"`) {
+			t.Fatalf("original playable guide %s is missing or changed: %v", name, err)
+		}
+	}
 	for _, path := range scenes {
-		data, _ := os.ReadFile(path)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if !strings.Contains(string(data), `"gameplay.Motion2D"`) {
+			continue
+		}
+		// This component-specific demo has a deliberately input-free kinematic
+		// marker, not a controllable Player. Its actual movement and Reset are
+		// covered separately by TestMotionTryMovesRealBodyAndResets.
+		if filepath.Dir(path) == filepath.Join(docs, "try") && filepath.Base(path) == "Motion2D.aescene" {
+			if !strings.Contains(string(data), `name="Motion marker"`) || strings.Contains(string(data), `name="Player"`) {
+				t.Fatal("Motion2D component demo changed; review the movement stress test")
+			}
 			continue
 		}
 		name := strings.TrimSuffix(filepath.Base(path), ".aescene")
 		t.Run(name, func(t *testing.T) {
 			for seed := int64(1); seed <= 12; seed++ {
-				mash(t, openAt(t, tryProject(t, path)), "Player", platformerKeys, seed)
+				t.Run(fmt.Sprintf("seed-%d", seed), func(t *testing.T) {
+					mash(t, openAt(t, tryProject(t, path)), "Player", platformerKeys, seed)
+				})
 			}
 		})
 	}
@@ -57,7 +93,9 @@ func TestGuideScenesNeverTrapThePlayer(t *testing.T) {
 					root := t.TempDir()
 					writeProject(t, root, b[1], files)
 					for seed := int64(1); seed <= 4; seed++ {
-						mash(t, openAt(t, root), "Player", platformerKeys, seed)
+						t.Run(fmt.Sprintf("seed-%d", seed), func(t *testing.T) {
+							mash(t, openAt(t, root), "Player", platformerKeys, seed)
+						})
 					}
 				})
 			}
@@ -115,10 +153,19 @@ func tryProject(t *testing.T, scenePath string) string {
 // TestExamplesNeverTrapThePlayer does the same in the platformer and top-down examples, enemies, pits and checkpoints included.
 func TestExamplesNeverTrapThePlayer(t *testing.T) {
 	for seed := int64(1); seed <= 8; seed++ {
-		pf := openPlatformer(t)
-		mash(t, pf.app, "Player", append(platformerKeys, input.KeyJ), seed)
-		app, _ := openExample(t, "topdown")
-		mash(t, app, "Hero", append(topDownKeys, input.KeyJ), seed)
+		t.Run(fmt.Sprintf("seed-%d", seed), func(t *testing.T) {
+			// openAt registers cleanup with its owning test. Close each engine
+			// before opening the next instead of retaining all worker pools until
+			// the entire 16-case stress test has completed.
+			t.Run("platformer", func(t *testing.T) {
+				pf := openPlatformer(t)
+				mash(t, pf.app, "Player", append(platformerKeys, input.KeyJ), seed)
+			})
+			t.Run("topdown", func(t *testing.T) {
+				app, _ := openExample(t, "topdown")
+				mash(t, app, "Hero", append(topDownKeys, input.KeyJ), seed)
+			})
+		})
 	}
 }
 

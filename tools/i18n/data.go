@@ -107,7 +107,9 @@ func Data() (map[string]*Key, error) {
 				add(docs.APIKey(e.ID), e.Body, "api "+e.ID)
 			}
 		case docs.Page:
-			if e.Location.Source == "" {
+			// A generated project section may also have module-authored prose.
+			// Its generated title and introduction still use the data catalog.
+			if e.Location.Source == "" || strings.HasPrefix(e.ID, docs.SectionsPrefix) {
 				lead, _, _ := strings.Cut(e.Body, "\n\n")
 				add("docs.page."+e.ID, e.Title, "generated page")
 				add("docs.page."+e.ID+".doc", lead, "generated page")

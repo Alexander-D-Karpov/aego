@@ -11,6 +11,6 @@ Thank you to the artists, contributors and communities whose work inspires Aego 
 
 ## Music
 
-- **Glorious Morning** — Waterflame. [Track link supplied for the project](https://new.akarpov.ru/media/music/glorious-morning-waterflame.mp3).
+- **Glorious Morning** — Waterflame. Used as background music in the platformer example; [source recording](https://new.akarpov.ru/media/music/glorious-morning-waterflame.mp3).
 
-The track remains the property of its rights holders. This acknowledgement and link do not grant permission to distribute or use the recording; confirm the applicable licence before including it in a project or release.
+The project owner confirmed permission to include this recording in the Aego repository and distributed platformer builds. The track remains the property of its rights holders; this acknowledgement does not grant third parties a separate licence.

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "physics.EdgeCollider2D",
+  "demoID": "physics.EdgeCollider2D.bounce",
+  "documentID": "physics.EdgeCollider2D",
+  "scene": "physics.EdgeCollider2D/try",
+  "identity": "dccbd577021c6913e397096c67cfc13405e37cfaea796ebd43ef21c3e8f645ad",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000d00"],
+  "editableFields": ["physics.EdgeCollider2D.Restitution"],
+  "actions": [{
+    "id": "bounce-on-edge", "field": "physics.EdgeCollider2D.Restitution", "value": 1,
+    "expected": [{"observable": "physics.EdgeCollider2D.Restitution", "equals": 1, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Bounce on an edge", "description": "The grey line marks a real edge collider. With gravity off and Restitution 0, the ball stops on contact.", "input": "Change the edge's Restitution from 0 to 1 to make the same impact bounce. Reset restores the original contact."},
+    "ru": {"title": "Отскок от ребра", "description": "Серая линия обозначает настоящий коллайдер-ребро. При выключенной гравитации и Restitution 0 шар останавливается при столкновении.", "input": "Измените Restitution ребра с 0 на 1, чтобы шар отскочил при том же ударе. «Сброс» вернёт исходное столкновение."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -28,13 +28,28 @@ func (p *Pipeline) resolveMetadata(r *record, ctx *ImportContext) error {
 	if bytes.Equal(canonicalSettings(settings), canonicalSettings(r.meta.Settings)) {
 		return nil
 	}
+	if p.sourceTransactionReadOnlyMetas[r.path+MetaSuffix] {
+		return errs.New(errs.AssetSourceUnstable, "metadata needs changes but is a read-only source guard", log.F("path", r.path))
+	}
 	if p.shared || p.mode == MetaReadOnly {
 		return errs.New(errs.AssetBadMeta, "automatic asset references need a writable metadata owner", log.F("path", r.path))
+	}
+	transactionPath := r.path + MetaSuffix
+	if p.sourceTransactionMetas != nil {
+		if _, guarded := p.sourceTransactionMetas[transactionPath]; !guarded {
+			// Dependencies and cache-salted sources are also reimported during
+			// ApplySources. Their sidecars are not automatically part of the
+			// caller's history or rollback: never silently normalize one here.
+			return errs.New(errs.AssetBadMeta, "dependent metadata needs an explicit source transaction guard before references can be resolved", log.F("path", transactionPath))
+		}
 	}
 	path := p.abs(r.path) + MetaSuffix
 	before, err := os.ReadFile(path)
 	if err != nil {
 		return errs.Wrap(err, errs.AssetBadMeta, "cannot read metadata before resolving references")
+	}
+	if expected, guarded := p.sourceTransactionMetas[transactionPath]; guarded && !sameSource(before, expected) {
+		return errs.New(errs.AssetSourceUnstable, "metadata changed during source transaction; resolve before retrying", log.F("path", r.path))
 	}
 	disk, err := ParseMeta(before, r.path+MetaSuffix)
 	if err != nil {
@@ -56,8 +71,26 @@ func (p *Pipeline) resolveMetadata(r *record, ctx *ImportContext) error {
 	if err != nil || !bytes.Equal(before, after) {
 		return errs.New(errs.AssetSourceUnstable, "metadata is still being written", log.F("path", r.path))
 	}
-	if err := project.WriteAtomic(path, WriteMeta(&copyMeta)); err != nil {
+	published := WriteMeta(&copyMeta)
+	if p.sourceJournal != nil {
+		checked, err := p.sourceBytes(p.sourceJournalRoot, transactionPath)
+		if err != nil || !sameSource(checked, before) {
+			return errs.New(errs.AssetSourceUnstable, "metadata changed before reference publication", log.F("path", r.path))
+		}
+		if err := p.sourceJournal.authorize(transactionPath, published); err != nil {
+			return errs.Wrap(err, errs.VFSIO, "cannot protect resolved asset references")
+		}
+		if err := replaceSource(p.sourceJournalRoot, transactionPath, published); err != nil {
+			return errs.Wrap(err, errs.VFSIO, "cannot persist resolved asset references")
+		}
+	} else if err := project.WriteAtomic(path, published); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot persist resolved asset references")
+	}
+	if _, guarded := p.sourceTransactionMetas[transactionPath]; guarded {
+		p.sourceTransactionMetas[transactionPath] = published
+	}
+	if p.sourceJournal != nil && p.sourceTransactionCheckpoint != nil {
+		p.sourceTransactionCheckpoint("metadata", transactionPath)
 	}
 	r.meta = &copyMeta
 	ctx.Meta = r.meta

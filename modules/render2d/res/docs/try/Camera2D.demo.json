@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "componentID": "engine.Camera2D",
+  "demoID": "engine.Camera2D.zoom",
+  "documentID": "engine.Camera2D",
+  "scene": "engine.Camera2D/try",
+  "identity": "32f5d1cbdc4f75784b682d064c2e48344b4e6b645667d1acbad77b0c96416bc1",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["engine.Camera2D.Zoom"],
+  "actions": [
+    {
+      "id": "zoom-in",
+      "field": "engine.Camera2D.Zoom",
+      "value": 64,
+      "expected": [{"observable": "engine.Camera2D.Zoom", "equals": 64, "changes": true}],
+      "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+    }
+  ],
+  "reset": "reset",
+  "languages": {
+    "en": {
+      "title": "Camera 2D zoom",
+      "description": "The camera frames a row of colored sprites. A higher zoom makes them appear larger.",
+      "input": "Change Zoom from 32 to 64 and watch the Game View; Reset restores the original framing."
+    },
+    "ru": {
+      "title": "Масштаб камеры 2D",
+      "description": "Камера показывает ряд цветных спрайтов. При увеличении масштаба они становятся крупнее.",
+      "input": "Измените масштаб (Zoom) с 32 на 64 и посмотрите на вид игры; «Сброс» восстановит исходный кадр."
+    }
+  },
+  "environments": {
+    "native": {"mode": "runtime"},
+    "chromium": {"mode": "runtime"}
+  }
+}

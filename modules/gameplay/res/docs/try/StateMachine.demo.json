@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "componentID": "gameplay.StateMachine",
+  "demoID": "gameplay.StateMachine.initial-state",
+  "documentID": "gameplay.StateMachine",
+  "scene": "gameplay.StateMachine/try",
+  "identity": "6bf7b2c367d617e657f23c7e91c770ee217b25f516837035752ac5f682875f7e",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.StateMachine.Initial"],
+  "actions": [{
+    "id": "start-in-run", "field": "gameplay.StateMachine.Initial", "value": "Run",
+    "expected": [
+      {"observable": "gameplay.StateMachine.Initial", "equals": "Run", "changes": true},
+      {"observable": "gameplay.StateMachine.Current", "equals": "Run", "changes": true}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Choose the initial state", "description": "The State Machine enters Idle and calls its EnterIdle script hook, coloring the marker orange.", "input": "Change Initial from Idle to Run. The restarted machine enters Run and calls EnterRun, coloring the marker green. Reset restores Idle."},
+    "ru": {"title": "Выбор начального состояния", "description": "Машина состояний входит в Idle и вызывает метод скрипта EnterIdle, окрашивая метку в оранжевый.", "input": "Измените Initial с Idle на Run. Перезапущенная машина войдёт в Run и вызовет EnterRun, окрашивая метку в зелёный. «Сброс» вернёт Idle."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

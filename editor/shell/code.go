@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aego/asset/pipeline"
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
@@ -24,9 +25,7 @@ func (a *App) attachCode() {
 			if id, ok := a.ctx.Pipeline.Lookup(source); ok {
 				batch, err := a.ctx.Pipeline.ReloadMetadata(id)
 				a.ctx.ApplyBatch(batch)
-				if err != nil {
-					a.ctx.Notify(context.LevelError, err.Error())
-				}
+				a.reportSavedImport(batch, err)
 			}
 			return
 		}
@@ -35,15 +34,13 @@ func (a *App) attachCode() {
 			return
 		}
 		switch strings.ToLower(path.Ext(ev.Path)) {
-		case ".aeshader", ".glsl", ".aemat":
+		case ".aeshader", ".glsl", ".aemat", ".aeart", ".aepreset":
 		default:
 			return
 		}
 		batch, err := a.ctx.Pipeline.Reimport(id)
 		a.ctx.ApplyBatch(batch)
-		if err != nil {
-			a.ctx.Notify(context.LevelError, err.Error())
-		}
+		a.reportSavedImport(batch, err)
 	})
 	a.consolePanel.OnOpen = func(rel string, line int) {
 		a.ctx.Open(context.At(rel, line, 1))
@@ -68,6 +65,21 @@ func (a *App) attachCode() {
 		Presence:  a.presence,
 	}, a.ws)
 	a.ctx.OpenScript = a.opt.Code.Open
+}
+
+// Save publishes bytes before importing. Do not silently describe the result
+// as current when the pipeline asks to retry or reports failed subassets.
+func (a *App) reportSavedImport(batch *pipeline.Batch, err error) {
+	if batch != nil && len(batch.Retry) != 0 {
+		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.shell.saved_import_retry", "Saved source has {count} pending imports; reimport the asset after the source settles.", i18n.Str("count", strconv.Itoa(len(batch.Retry)))))
+	}
+	if err != nil {
+		a.ctx.Notify(context.LevelError, err.Error())
+	} else if batch == nil {
+		a.ctx.Notify(context.LevelError, i18n.Tr("editor.shell.saved_import_missing", "Saved source did not produce an import result."))
+	} else if len(batch.Failed) != 0 {
+		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.saved_import_failed", "Saved source has {count} failed imports; see the import diagnostics.", i18n.Str("count", strconv.Itoa(len(batch.Failed)))))
+	}
 }
 
 func (a *App) drawScriptsBanner(body mathx.Rect) {

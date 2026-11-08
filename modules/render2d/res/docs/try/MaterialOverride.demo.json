@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "componentID": "engine.MaterialOverride",
+  "demoID": "engine.MaterialOverride.script-instance-flash",
+  "documentID": "engine.MaterialOverride",
+  "scene": "engine.MaterialOverride/try",
+  "identity": "7a8b3910e3db88ba23705b255aa9edc9587b60a959727a4ddce49fa40cdaa10e",
+  "dependencies": ["ae900000000000000000000000000010", "ae900000000000000000000000000c02"],
+  "editableFields": [],
+  "actions": [{
+    "id": "enable-instance-flash", "scriptToggle": {"script": "game.demo.SetFlash", "enabled": true},
+    "expected": [
+      {"observable": "engine.MaterialOverride.FlashValue", "equals": 1, "changes": true},
+      {"observable": "engine.MaterialOverride.FlashExplicit", "equals": true, "changes": true},
+      {"observable": "engine.MaterialOverride.ReferenceFlash", "equals": 0, "changes": false}
+    ],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Override one material instance", "description": "Both sprites share the Flash material and inherit Flash 0. The selected sprite has a disabled Set Flash script.", "input": "Enable the Set Flash script in the Inspector. After the scene restarts its Ready method sets the selected node's actual Flash override to 1; the other sprite remains unchanged. Reset disables the script and restores inheritance."},
+    "ru": {"title": "Переопределение одного экземпляра материала", "description": "Оба спрайта используют общий материал Flash и наследуют Flash 0. У выбранного спрайта выключен скрипт Set Flash.", "input": "Включите скрипт Set Flash в Инспекторе. После перезапуска его метод Ready установит настоящее переопределение Flash выбранного узла в 1; второй спрайт не изменится. «Сброс» выключит скрипт и восстановит наследование."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

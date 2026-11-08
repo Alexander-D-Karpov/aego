@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Motion2D",
+  "demoID": "gameplay.Motion2D.speed-limit",
+  "documentID": "gameplay.Motion2D",
+  "scene": "gameplay.Motion2D/try",
+  "identity": "ab2dbb3bf7d6a7904500e0b9db4e85e47a7a7fb251c4aa8035bb8e2a21c41cf9",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.Motion2D.MaxSpeed"],
+  "actions": [{
+    "id": "allow-movement", "field": "gameplay.Motion2D.MaxSpeed", "value": 6,
+    "expected": [{"observable": "gameplay.Motion2D.MaxSpeed", "equals": 6, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Limit movement speed", "description": "A script continuously requests rightward movement. At Max Speed 0 the kinematic body cannot move, and the marker stays orange.", "input": "Set Max Speed to 6. Motion 2D accelerates and moves the actual body; the marker turns green when its runtime velocity is positive. Reset stops it again."},
+    "ru": {"title": "Ограничение скорости движения", "description": "Скрипт непрерывно запрашивает движение вправо. При Max Speed 0 кинематическое тело не движется, а метка остаётся оранжевой.", "input": "Установите Max Speed в 6. Motion 2D ускорит и переместит настоящее тело; метка станет зелёной, когда его скорость станет положительной. «Сброс» снова остановит тело."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

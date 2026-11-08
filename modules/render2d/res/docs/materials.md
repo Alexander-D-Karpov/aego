@@ -4,7 +4,7 @@ icon: comp.sprite
 group: rendering
 order: 3
 title: Materials and shaders
-try: try/MaterialOverride.aescene
+try: MaterialOverrideGuideOriginal.aescene
 ---
 # Materials and shaders
 
@@ -108,7 +108,7 @@ Point lights illuminate a circle. Spot lights face local +X; `innerAngle` and `o
 
 `layers` selects receiver visibility layers. `shadowCasterMask` separately selects occluder layers; neither replaces collision filtering. Eight lights can contribute to one receiver set. Priority, estimated influence and stable ID decide which lights remain when a set exceeds that budget. Scene View highlights excluded source markers and the Profiler counts exclusions and lighting batch splits. Transparent Sprite/Mesh2D order is preserved.
 
-The Try scene moves a warm light beside a cool spotlight. Select the light's `height`, `range` or cone fields and compare the result. Pause the scene to edit without scripted motion.
+The Try scene places a warm light beside a cool spotlight. Change the warm light's intensity to compare its contribution, then use Reset to restore it. The lights remain still so the effect of each edit is easy to see.
 
 ---
 id: engine.LightOccluder2D
@@ -138,7 +138,7 @@ LDR uses a linear RGBA8 scene target. HDR uses a verified renderable RGBA16F tar
 
 Scene View has its own output, not the identity of a game camera. Select **Preview in Scene View** in an environment's Inspector to preview that environment explicitly. Changes to its fields become visible immediately. **Use scene environment defaults** clears the preview selection. The selection is per document and does not alter camera references, prefabs, Play state or Undo history. Deleting or disabling the selected environment preserves its preview ID and reports a diagnostic until it is restored or the selection is reset.
 
-The Scene View toolbar can bypass lighting or display transformed normals and shadow visibility. Turning scene lighting off also exits either debug display; selecting a debug display turns lighting preview on, and selecting it again returns to the ordinary lit view. These controls affect that view only, not the scene or Play. For a transparent HDR output, resolve preserves the premultiplied colour contract. Additive emission must first be composed into an opaque backdrop, or retained in a linear RGBA16F intermediate, before a display image is produced. Additive RGB preserves destination alpha.
+The Scene View toolbar can bypass lighting or display transformed normals and shadow visibility. These controls affect that view only. For a transparent HDR output, resolve preserves the premultiplied colour contract. Additive emission must first be composed into an opaque backdrop, or retained in a linear RGBA16F intermediate, before a display image is produced. Additive RGB preserves destination alpha.
 
 ---
 id: aego/lighting

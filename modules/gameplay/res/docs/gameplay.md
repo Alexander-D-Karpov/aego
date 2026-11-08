@@ -1,6 +1,6 @@
 ---
 id: gameplay
-try: try/Motion2D.aescene
+try: MotionGuideOriginal.aescene
 try_select: gameplay.Motion2D
 icon: cat.gameplay
 group: gameplay
@@ -12,6 +12,8 @@ order: 2
 The gameplay module adds the parts most 2D games rebuild by hand: a character controller, hit points, hitboxes and hurtboxes, kill zones, checkpoints with respawn, pickups and timed removal. They are components, so they are set up in the Inspector, saved with the scene and driven from scripts with a few calls.
 
 Quick start: Create → Gameplay → Platformer Character gives a node with a kinematic Rigid Body 2D, a collider, Motion 2D, Health, Hurtbox 2D and Respawn. Give it a script that calls `Move` and `Jump`, add a floor and press Play.
+
+In the interactive guide, walk with A/D or the arrow keys and jump with Space, W or Up.
 
 Two complete games use the kit: `aego new mygame --example platformer` (stomping enemies with a foot hitbox, a pit with a kill zone, a checkpoint, a persisted respawn point and an Animator for the player's look, with a slash on a hit frame) and `aego new mygame --example topdown` (a sword swung towards the stick, the mouse or the walking direction, enemies whose State Machine switches between Patrol and Chase while their Animator shows it, a lunge by root motion, coins and lava). The launcher offers both under **Examples**.
 
@@ -32,7 +34,7 @@ Everything runs during Play and in `aego run`, in the fixed step, and allocates 
 
 ---
 id: gameplay/motion
-try: try/Motion2D.aescene
+try: MotionGuideOriginal.aescene
 try_select: gameplay.Motion2D
 icon: gameplay.motion
 parent: gameplay
@@ -42,6 +44,8 @@ title: Character motion
 # Character motion
 
 [Motion 2D](ref:gameplay.Motion2D) moves a character with a kinematic [Rigid Body 2D](ref:physics.Body2D). Each fixed step it casts the body's colliders along the move, slides along what it hits and moves the body to the result, so the character never sinks into walls and still pushes crates.
+
+Try walking with A/D or the arrow keys and jumping with Space, W or Up; the lift, slope and walls use the real physics system.
 
     m := node.Get<Motion2D>()
     m.Move(input.Axis("Move"))
@@ -120,7 +124,7 @@ In the scene press J next to the dummy to strike it; it shows its hit points and
 
 ---
 id: gameplay/hurtbox
-try: try/Hurtbox2D.aescene
+try: HurtboxGuideOriginal.aescene
 try_select: gameplay.Hurtbox2D
 icon: gameplay.hurtbox
 parent: gameplay
@@ -137,7 +141,7 @@ The dummy has a head hurtbox with Multiplier 2: jump and strike to hit it.
 
 ---
 id: gameplay/hitbox
-try: try/Hitbox2D.aescene
+try: HitboxGuideOriginal.aescene
 try_select: gameplay.Hitbox2D
 icon: gameplay.hitbox
 parent: gameplay
@@ -171,7 +175,7 @@ Walk over the three spikes in the scene to compare the policies.
 
 ---
 id: gameplay/lifetime
-try: try/Lifetime.aescene
+try: LifetimePoolOriginal.aescene
 try_select: gameplay.Lifetime
 icon: gameplay.lifetime
 parent: gameplay
@@ -186,7 +190,7 @@ The balls in the scene are spawned from a prefab with `scene.Spawn`, return to t
 
 ---
 id: gameplay/killzone
-try: try/KillZone2D.aescene
+try: KillZoneGuideOriginal.aescene
 try_select: gameplay.KillZone2D
 icon: gameplay.killzone
 parent: gameplay
@@ -201,7 +205,7 @@ Walk into the pit in the scene: the character dies and comes back at the start.
 
 ---
 id: gameplay/checkpoint
-try: try/Checkpoint2D.aescene
+try: CheckpointGuideOriginal.aescene
 try_select: gameplay.Checkpoint2D
 icon: gameplay.checkpoint
 parent: gameplay
@@ -214,7 +218,7 @@ A [Checkpoint 2D](ref:gameplay.Checkpoint2D) moves the respawn point of a node w
 
 ---
 id: gameplay/respawn
-try: try/Respawn.aescene
+try: RespawnGuideOriginal.aescene
 try_select: gameplay.Respawn
 icon: gameplay.respawn
 parent: gameplay
@@ -231,7 +235,7 @@ Press R in the scene to respawn on purpose.
 
 ---
 id: gameplay/pickup
-try: try/Pickup2D.aescene
+try: PickupGuideOriginal.aescene
 try_select: gameplay.Pickup2D
 icon: gameplay.pickup
 parent: gameplay
@@ -254,7 +258,7 @@ The counter in the corner of the scene connects to every coin.
 
 ---
 id: gameplay/statemachine
-try: try/StateMachine.aescene
+try: StateMachineGuideOriginal.aescene
 try_select: gameplay.StateMachine
 icon: gameplay.fsm
 parent: gameplay

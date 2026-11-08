@@ -71,10 +71,14 @@ func dispatch(args []string) int {
 		return cmdBootstrap(args[1:])
 	case "import":
 		return cmdImport(args[1:])
+	case "source-recovery":
+		return cmdSourceRecovery(args[1:])
 	case "check":
 		return cmdCheck(args[1:])
 	case "icons":
 		return cmdIcons(args[1:])
+	case "examples":
+		return cmdRemoteExamples(args[1:])
 	case "mcp":
 		return cmdMcp(args[1:])
 	case "docs":
@@ -132,6 +136,8 @@ func usage() {
   scene|prefab|data|refs|asset|schema|project <verb> ...   edit project files without the editor, see aego scene help
   version                print the engine version and the commit it was built from
 `))
+	fmt.Fprintln(os.Stderr, i18n.Tr("cli.examples.usage", "  examples <clone|open|recent|reopen|check|link|inspect>  manage remote example copies"))
+	fmt.Fprintln(os.Stderr, i18n.Tr("cli.source_recovery.usage_line", "  source-recovery <status|restore>  inspect or explicitly recover interrupted source edits"))
 }
 
 func openProject(dir string) (*project.Project, error) {

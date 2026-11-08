@@ -169,6 +169,11 @@ func copyFile(src, dst string) error {
 }
 
 func (p *Pipeline) Mkdir(rel string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return err
+	}
 	rel = cleanRel(rel)
 	if !p.inRoots(rel) {
 		return badPath(rel, "folder must be inside assets or scenes")
@@ -176,15 +181,16 @@ func (p *Pipeline) Mkdir(rel string) error {
 	if err := os.MkdirAll(p.abs(rel), 0o755); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot create the folder")
 	}
-	p.mu.Lock()
 	p.rev++
-	p.mu.Unlock()
 	return nil
 }
 
 func (p *Pipeline) Move(id ids.AssetID, newRel string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return err
+	}
 	r, ok := p.byID[id]
 	if !ok {
 		return errs.New(errs.AssetNotFound, "asset is not known to the pipeline", log.F("asset", id.String()))
@@ -237,6 +243,9 @@ func (p *Pipeline) relocate(r *record, newRel string) {
 func (p *Pipeline) MoveDir(oldRel, newRel string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return err
+	}
 	oldRel, newRel = cleanRel(oldRel), cleanRel(newRel)
 	if oldRel == newRel {
 		return nil
@@ -270,6 +279,11 @@ func (p *Pipeline) MoveDir(oldRel, newRel string) error {
 }
 
 func (p *Pipeline) RemoveDir(rel string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return err
+	}
 	rel = cleanRel(rel)
 	if p.isRoot(rel) || !p.inRoots(rel) {
 		return badPath(rel, "only folders inside assets or scenes can be removed")
@@ -277,15 +291,16 @@ func (p *Pipeline) RemoveDir(rel string) error {
 	if err := os.Remove(p.abs(rel)); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "folder is not empty or cannot be removed")
 	}
-	p.mu.Lock()
 	p.rev++
-	p.mu.Unlock()
 	return nil
 }
 
 func (p *Pipeline) Duplicate(id ids.AssetID) (ids.AssetID, *Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return ids.AssetID{}, nil, err
+	}
 	r, ok := p.byID[id]
 	if !ok {
 		return ids.AssetID{}, nil, errs.New(errs.AssetNotFound, "asset is not known to the pipeline", log.F("asset", id.String()))
@@ -310,6 +325,9 @@ func (p *Pipeline) Duplicate(id ids.AssetID) (ids.AssetID, *Batch, error) {
 func (p *Pipeline) Delete(id ids.AssetID) (*Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return nil, err
+	}
 	r, ok := p.byID[id]
 	if !ok {
 		return nil, errs.New(errs.AssetNotFound, "asset is not known to the pipeline", log.F("asset", id.String()))
@@ -333,6 +351,9 @@ func (p *Pipeline) Delete(id ids.AssetID) (*Batch, error) {
 func (p *Pipeline) Reimport(list ...ids.AssetID) (*Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return nil, err
+	}
 	for _, id := range list {
 		if r := p.byID[id]; r != nil {
 			r.key = ""
@@ -377,6 +398,9 @@ func convertToPNG(src, dst string) error {
 func (p *Pipeline) ImportExternal(srcs []string, dstDir string) ([]ids.AssetID, *Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireWritableSources(); err != nil {
+		return nil, nil, err
+	}
 	dstDir = cleanRel(dstDir)
 	if !p.inRoots(dstDir) {
 		return nil, nil, badPath(dstDir, "files can only be imported into assets or scenes")

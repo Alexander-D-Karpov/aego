@@ -10,6 +10,7 @@ type residue struct {
 	classbook       uint8
 	cascade         []uint8
 	books           [][8]int16
+	classScratch    []uint32
 }
 
 func (x *residue) ReadFrom(r *bitReader) error {
@@ -78,7 +79,14 @@ func (x *residue) Decode(r *bitReader, doNotDecode []bool, n uint32, books []cod
 		return
 	}
 	cs := (partitionsToRead + classWordsPerCodeword)
-	classifications := make([]uint32, ch*cs)
+	needed := int(ch * cs)
+	if cap(x.classScratch) < needed {
+		x.classScratch = make([]uint32, needed)
+	} else {
+		x.classScratch = x.classScratch[:needed]
+		clear(x.classScratch)
+	}
+	classifications := x.classScratch
 	for pass := 0; pass < 8; pass++ {
 		partitionCount := uint32(0)
 		for partitionCount < partitionsToRead {

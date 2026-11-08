@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	hexenc "encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html"
 	"html/template"
 	"io/fs"
@@ -67,20 +68,23 @@ func sectionTitle(s string) string {
 }
 
 type Options struct {
-	Playground  bool
-	Repo        string
-	Edit        string
-	Version     string
-	Commit      string
-	Hero        string
-	Poster      string
-	Shots       string
-	Demo        bool
-	PlayVersion string
-	TryVersion  string
-	Release     *Release
-	Icons       []string
-	Time        time.Time
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	Repo         string
+	Edit         string
+	Version      string
+	Commit       string
+	Hero         string
+	Poster       string
+	Shots        string
+	Demo         bool
+	PlayVersion  string
+	TryVersion   string
+	Release      *Release
+	Icons        []string
+	Time         time.Time
 }
 
 type Report struct {
@@ -91,31 +95,34 @@ type Report struct {
 }
 
 type layoutData struct {
-	AssetV      string
-	Background  template.CSS
-	LightBack   template.CSS
-	CSS         template.CSS
-	Root        string
-	Title       string
-	PageTitle   string
-	Description string
-	Site        string
-	Playground  bool
-	PlayVersion string
-	TryVersion  string
-	PlaySize    int64
-	TrySize     int64
-	PlayGzip    int64
-	TryGzip     int64
-	Repo        string
-	Demo        bool
-	Home        bool
-	Lang        string
-	Nav         template.HTML
-	Content     template.HTML
-	Toc         template.HTML
-	Pager       template.HTML
-	Footer      template.HTML
+	AssetV       string
+	Background   template.CSS
+	LightBack    template.CSS
+	CSS          template.CSS
+	Root         string
+	Title        string
+	PageTitle    string
+	Description  string
+	Site         string
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	PlayVersion  string
+	TryVersion   string
+	PlaySize     int64
+	TrySize      int64
+	PlayGzip     int64
+	TryGzip      int64
+	Repo         string
+	Demo         bool
+	Home         bool
+	Lang         string
+	Nav          template.HTML
+	Content      template.HTML
+	Toc          template.HTML
+	Pager        template.HTML
+	Footer       template.HTML
 	// Markdown is the page's Markdown copy, for rel="alternate".
 	Markdown string
 	// T translates the layout's own text; Search is the search index; HrefEN and HrefRU are the page in both languages, Alt the other one.
@@ -171,7 +178,39 @@ type builder struct {
 	en  *builder
 }
 
+var pinnedStudioPath = regexp.MustCompile(`^/r/[A-Za-z0-9][A-Za-z0-9._-]{0,79}/$`)
+
+func validStudioURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" || u.RawPath != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.String() != raw || !pinnedStudioPath.MatchString(u.Path) {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	return u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
+}
+
 func Build(exp *Export, out string, opt Options) (Report, error) {
+	if opt.Studio && opt.StudioURL != "" {
+		return Report{}, fmt.Errorf("choose either local Studio or a pinned release URL")
+	}
+	if opt.StudioURL != "" && !validStudioURL(opt.StudioURL) {
+		return Report{}, fmt.Errorf("invalid pinned Studio URL")
+	}
+	if opt.StudioGuides {
+		if opt.StudioURL == "" {
+			return Report{}, fmt.Errorf("Studio guides require a pinned release URL")
+		}
+		for _, lang := range []string{"en", "ru"} {
+			if !isFile(filepath.Join(out, "asset-studio", lang, "first-sprite", "index.html")) {
+				return Report{}, fmt.Errorf("Studio guide is missing for %s", lang)
+			}
+		}
+	}
+	if opt.Studio && !isFile(filepath.Join(out, "studio", "index.html")) {
+		return Report{}, fmt.Errorf("studio was requested but studio/index.html is missing")
+	}
 	exp.Entries = siteEntries(exp.Entries)
 	keep := make(map[string]bool, len(exp.Entries))
 	for _, e := range exp.Entries {
@@ -791,6 +830,23 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	}
 	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `" data-artifacts="` + esc(artifacts) + `"` + input + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">` + b.tr("Try it") + `</h2>` + "\n")
+	if e.Demo != nil {
+		lang := b.lang
+		if lang == "" {
+			lang = "en"
+		}
+		if text, ok := e.Demo.Languages[lang]; ok {
+			if text.Title != "" {
+				c.WriteString(`<h3 class="try-demo-title">` + esc(text.Title) + `</h3>` + "\n")
+			}
+			if text.Description != "" {
+				c.WriteString(`<p class="try-demo-description">` + esc(text.Description) + `</p>` + "\n")
+			}
+			if text.Input != "" {
+				c.WriteString(`<p class="try-demo-input">` + esc(text.Input) + `</p>` + "\n")
+			}
+		}
+	}
 	c.WriteString(`<p class="try-caption">` + esc(b.tr("A live scene with")) + ` ` + esc(e.Title) + `: ` + esc(b.tr("edit its fields in the Inspector on the right and the scene restarts with them.")) + `</p>` + "\n")
 	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Runs this scene in the browser, with the Inspector next to it") + `</span></div>` + "\n")
 	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + b.tr(openLabel) + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
@@ -803,6 +859,29 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	c.WriteString("</section>\n")
 }
 
+// componentScript separates the optional script example from the lead in both
+// supported languages. A heading-looking line inside a fenced example is not a
+// section boundary.
+func componentScript(body string) (string, string) {
+	offset := 0
+	fence := ""
+	for _, line := range strings.SplitAfter(body, "\n") {
+		text := strings.TrimSpace(line)
+		if strings.HasPrefix(text, "```") || strings.HasPrefix(text, "~~~") {
+			marker := text[:3]
+			if fence == "" {
+				fence = marker
+			} else if marker == fence {
+				fence = ""
+			}
+		} else if fence == "" && (text == scriptSection || text == "## Из скрипта") {
+			return body[:offset], body[offset:]
+		}
+		offset += len(line)
+	}
+	return body, ""
+}
+
 func (b *builder) content(e *Entry, root string) string {
 	var c strings.Builder
 	c.WriteString(b.crumbs(e, root))
@@ -812,11 +891,9 @@ func (b *builder) content(e *Entry, root string) string {
 	}
 	scripted := ""
 	if e.Component != nil {
-		if i := strings.Index(e.Body, scriptSection); i >= 0 {
-			head := *e
-			head.Body, scripted = e.Body[:i], e.Body[i:]
-			e = &head
-		}
+		head := *e
+		head.Body, scripted = componentScript(e.Body)
+		e = &head
 	}
 	if e.Component != nil {
 		head := *e
@@ -826,6 +903,7 @@ func (b *builder) content(e *Entry, root string) string {
 		head.Body = ""
 		b.details(&c, &head, root)
 		c.WriteString(b.componentMeta(e, root))
+		c.WriteString(b.componentStudioLinks(e, root))
 	} else {
 		b.details(&c, e, root)
 	}
@@ -1066,29 +1144,32 @@ func (b *builder) firstOf(section string) string {
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
 	data := layoutData{
-		AssetV:      b.assetV,
-		Background:  template.CSS(pageBackground()),
-		LightBack:   template.CSS(pageBackgroundLight()),
-		CSS:         template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
-		Root:        root,
-		Title:       title,
-		PageTitle:   title + " · " + b.exp.Title,
-		Description: b.tr(homeLead),
-		Site:        b.exp.Title,
-		Playground:  b.opt.Playground,
-		PlayVersion: b.opt.PlayVersion,
-		TryVersion:  b.opt.TryVersion,
-		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
-		TrySize:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
-		PlayGzip:    fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
-		TryGzip:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
-		Repo:        b.opt.Repo,
-		Demo:        b.opt.Demo,
-		Home:        current == "",
-		Lang:        b.pageLang(),
-		Nav:         template.HTML(b.nav(root, current)),
-		Content:     template.HTML(content),
-		Footer:      template.HTML(b.footer(e, root)),
+		AssetV:       b.assetV,
+		Background:   template.CSS(pageBackground()),
+		LightBack:    template.CSS(pageBackgroundLight()),
+		CSS:          template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
+		Root:         root,
+		Title:        title,
+		PageTitle:    title + " · " + b.exp.Title,
+		Description:  b.tr(homeLead),
+		Site:         b.exp.Title,
+		Playground:   b.opt.Playground,
+		Studio:       b.opt.Studio || b.opt.StudioURL != "",
+		StudioURL:    b.opt.StudioURL,
+		StudioGuides: b.opt.StudioGuides,
+		PlayVersion:  b.opt.PlayVersion,
+		TryVersion:   b.opt.TryVersion,
+		PlaySize:     fileSize(filepath.Join(b.out, "play", "aego.wasm")),
+		TrySize:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
+		PlayGzip:     fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
+		TryGzip:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
+		Repo:         b.opt.Repo,
+		Demo:         b.opt.Demo,
+		Home:         current == "",
+		Lang:         b.pageLang(),
+		Nav:          template.HTML(b.nav(root, current)),
+		Content:      template.HTML(content),
+		Footer:       template.HTML(b.footer(e, root)),
 	}
 	data.T = b.tr
 	data.Search = b.langPath("search.json")

@@ -1,9 +1,11 @@
 package integration
 
 import (
+	"strings"
 	"testing"
 
 	"aego/app/edit"
+	"aego/asset"
 	"aego/core/mathx"
 	"aego/editor/shell"
 	"aego/modules/animation"
@@ -159,7 +161,8 @@ func TestCreateMenuMouseAndKeepOpen(t *testing.T) {
 	}
 }
 
-func TestCreateMenuClosesOnDocumentChangeAndIsDisabledWithoutOne(t *testing.T) {
+func TestCreateMenuClosesOnDocumentChangeAndCreatesFilesWithoutScene(t *testing.T) {
+	t.Setenv("AEGO_LANG", "en")
 	s := workspaceSession(t)
 	ctx := s.App.Context()
 	openCreateMenu(t, s)
@@ -178,16 +181,55 @@ func TestCreateMenuClosesOnDocumentChangeAndIsDisabledWithoutOne(t *testing.T) {
 	if ctx.Doc() != nil {
 		t.Fatal("expected no active document")
 	}
-	click(t, s, createMenuPoint(s))
-	if s.App.AddPalette().Active() || ctx.UI.PopupOpen(ctx.UI.ID("menu/Create")) {
-		t.Fatal("Create must remain disabled without a document")
+	s.App.AssetsPanel().SetFolder("assets")
+	openCreateMenu(t, s)
+	items := s.App.AddPalette().Palette().Items()
+	want := map[string]bool{"act:file.animation": false, "act:render2d.pixel_art": false, "act:render2d.shader": false}
+	for _, item := range items {
+		if !strings.HasPrefix(item.Key, "act:") {
+			t.Fatalf("scene template or component is available without a scene: %s", item.Key)
+		}
+		if _, ok := want[item.Key]; ok {
+			want[item.Key] = true
+		}
 	}
+	for key, found := range want {
+		if !found {
+			t.Errorf("file action %s is missing without a scene", key)
+		}
+	}
+	push(t, s, key(input.KeyEscape, 0)...)
+	if s.App.AddPalette().Active() || ctx.UI.AnyPopup() || ctx.UI.Focus() != 0 {
+		t.Fatal("closing the file-only Create menu must release the popup and focus")
+	}
+	// Hover switching must work with a file-only Create menu as well.
 	click(t, s, mathx.Vec2{X: 8, Y: ctx.UI.Theme.BarHeight / 2})
 	s.Step()
 	push(t, s, platform.Event{Kind: platform.EvMouseMove, Mouse: input.MouseEvent{Pos: createMenuPoint(s)}})
 	s.Step()
-	if !ctx.UI.PopupOpen(ctx.UI.ID("menu/File")) || ctx.UI.PopupOpen(ctx.UI.ID("menu/Create")) {
-		t.Fatal("hovering disabled Create must not replace the open File menu")
+	if ctx.UI.PopupOpen(ctx.UI.ID("menu/File")) || !ctx.UI.PopupOpen(ctx.UI.ID("menu/Create")) || !s.App.AddPalette().Active() {
+		t.Fatal("hovering Create must replace File when project file actions are available")
+	}
+	push(t, s, typed("animation clip")...)
+	pal := s.App.AddPalette().Palette()
+	if i := pal.Selected(); i < 0 || pal.Item(i).Key != "act:file.animation" {
+		t.Fatalf("animation file action was not selected: %d", i)
+	}
+	push(t, s, key(input.KeyEnter, 0)...)
+	s.Step()
+	if !ctx.UI.ModalActive() || ctx.UI.Focus() == 0 {
+		t.Fatalf("file creation prompt did not take keyboard focus: modal=%v popup=%v focus=%v", ctx.UI.ModalActive(), ctx.UI.AnyPopup(), ctx.UI.Focus())
+	}
+	push(t, s, typed("no-scene-clip")...)
+	push(t, s, key(input.KeyEnter, 0)...)
+	id, ok := ctx.Pipeline.Lookup("assets/no-scene-clip.aeanim")
+	if !ok {
+		notice, _ := ctx.LastNotice()
+		t.Fatalf("Create did not create an animation file without an open scene: notice=%+v modal=%v focus=%v", notice, ctx.UI.ModalActive(), ctx.UI.Focus())
+	}
+	entry, ok := ctx.Pipeline.Entry(id)
+	if !ok || entry.Kind != asset.ArtAnim || ctx.Pipeline.VerifyCurrent(id) != nil || ctx.Doc() != nil {
+		t.Fatalf("file-only creation did not import the clip or unexpectedly opened a scene: %+v", entry)
 	}
 }
 

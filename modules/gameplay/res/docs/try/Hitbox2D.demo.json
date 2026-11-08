@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "componentID": "gameplay.Hitbox2D",
+  "demoID": "gameplay.Hitbox2D.damage",
+  "documentID": "gameplay.Hitbox2D",
+  "scene": "gameplay.Hitbox2D/try",
+  "identity": "aae11eb5d533003a40534080eeb25c96712bcb301fcc2bbef3e7f3e45dfd809d",
+  "dependencies": ["ae900000000000000000000000000010"],
+  "editableFields": ["gameplay.Hitbox2D.Damage"],
+  "actions": [{
+    "id": "damage-target", "field": "gameplay.Hitbox2D.Damage", "value": 3,
+    "expected": [{"observable": "gameplay.Hitbox2D.Damage", "equals": 3, "changes": true}],
+    "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
+  }],
+  "reset": "reset",
+  "languages": {
+    "en": {"title": "Damage an overlapping target", "description": "The red hitbox overlaps the green target's hurtbox. With Damage 0 the target keeps all 10 health points.", "input": "Set Damage to 3. The scene restarts and the real hitbox deals one hit: the target has 7 health points and turns orange. Reset restores the zero-damage attack."},
+    "ru": {"title": "Урон пересекающейся цели", "description": "Красный хитбокс пересекает хёртбокс зелёной цели. При Damage 0 цель сохраняет все 10 очков здоровья.", "input": "Установите Damage в 3. Сцена перезапустится, и настоящий хитбокс нанесёт один удар: у цели останется 7 очков здоровья, и она станет оранжевой. «Сброс» вернёт нулевой урон."}
+  },
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+}

@@ -37,15 +37,17 @@ type thumbnailRegistration struct {
 }
 
 type owned struct {
-	imageGenerator bool
-	panels         []string
-	commands       []string
-	gizmos         []schema.TypeID
-	inspectors     []schema.TypeID
-	assets         []string
-	players        []string
-	documents      []string
-	thumbs         []thumbnailRegistration
+	imageGenerator  bool
+	panels          []string
+	commands        []string
+	gizmos          []schema.TypeID
+	inspectors      []schema.TypeID
+	assets          []string
+	players         []string
+	documents       []string
+	thumbs          []thumbnailRegistration
+	createActions   []string
+	externalImports []string
 }
 
 type pending struct {
@@ -176,6 +178,22 @@ func (r *Registry) disableNow(id, reason string) {
 			r.deps.Inspectors.Disable(t, reason)
 		}
 		if ed := r.deps.Editor; ed != nil {
+			for _, key := range o.createActions {
+				for i := range ed.CreateActions {
+					if ed.CreateActions[i].Key == key {
+						ed.CreateActions = append(ed.CreateActions[:i], ed.CreateActions[i+1:]...)
+						break
+					}
+				}
+			}
+			for _, key := range o.externalImports {
+				for i := range ed.ExternalFileImports {
+					if ed.ExternalFileImports[i].Key == key {
+						ed.ExternalFileImports = append(ed.ExternalFileImports[:i], ed.ExternalFileImports[i+1:]...)
+						break
+					}
+				}
+			}
 			if thumbs, ok := ed.Thumbs.(interface {
 				UnregisterComponent(asset.ArtifactKind, string)
 			}); ok {

@@ -1,13 +1,17 @@
 package playground
 
 import (
+	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 
 	playmods "aego/app/assembly/playground"
 
 	"aego/asset"
 	"aego/asset/loader"
+	"aego/contracts/persistence"
+	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/engine"
@@ -104,6 +108,8 @@ type Game struct {
 	frames   uint64
 	frameMs  float64
 	bench    bench
+	source   []byte
+	modules  []*bytecode.Module
 	running  bool
 	looping  bool
 	overflow bool
@@ -160,6 +166,7 @@ func newGame(cfg GameConfig, types *scene.Types, reg *bind.Registry, man *module
 	playmods.UseMemorySaves(e)
 	e.SetService(renderhost.ServiceID, g.renderer)
 	e.SetView(frame.ServiceID, g.runner)
+	e.SetView(persistence.HostID, g)
 	e.MainWorld().Recorder = recorder.New(recordDepth)
 	g.problems = problems.New()
 	if err := man.Init(&module.InitContext{Engine: e, Assets: g.loader, Log: g.log, Sections: sections, Problems: g.problems}); err != nil {
@@ -219,6 +226,20 @@ func (g *Game) Scene() *scene.Scene {
 	return g.scene
 }
 
+// Playground scenes are ephemeral, not project assets. A save may reload
+// the currently running source only; it must not select arbitrary asset IDs.
+func (g *Game) SceneID() ids.AssetID { return ids.AssetID{} }
+
+func (g *Game) LoadScene(id ids.AssetID) error {
+	if !id.IsZero() {
+		return fmt.Errorf("playground cannot load a different scene asset")
+	}
+	if !g.running || g.source == nil {
+		return fmt.Errorf("playground has no running scene to reload")
+	}
+	return g.Play(g.example, g.source, g.modules)
+}
+
 func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 	g.Stop()
 	rt := scriptruntime.New(scriptruntime.Options{Bindings: g.reg, Schema: g.types.Schema(), Log: g.log, VM: playmods.SandboxVM()})
@@ -251,6 +272,7 @@ func (g *Game) Play(name string, src []byte, mods []*bytecode.Module) error {
 		return err
 	}
 	g.detach = d
+	g.source, g.modules = bytes.Clone(src), slices.Clone(mods)
 	g.example, g.running, g.faults, g.overflow = name, true, 0, false
 	g.start()
 	return nil
@@ -292,6 +314,7 @@ func (g *Game) Stop() {
 	g.renderer.PinClock(nil)
 	g.running = false
 	g.example = ""
+	g.source, g.modules = nil, nil
 }
 
 func (g *Game) LoseContext(lose bool) bool {
