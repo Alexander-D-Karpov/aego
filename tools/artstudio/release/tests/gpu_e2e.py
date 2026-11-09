@@ -367,7 +367,11 @@ def main():
             # shared Go FrameAt drives the presentation's frame configuration.
             page.locator('#gpu-bloom').uncheck()
             page.locator('#add-frame').click()
-            page.locator('#duration').fill('1500');page.locator('#duration').press('Tab')
+            # A screenshot can take longer than a short animation frame on a
+            # loaded software renderer. Keep playback running, but use the
+            # supported maximum duration so the expected frame cannot normally
+            # wrap back while Playwright captures it.
+            page.locator('#duration').fill('600000');page.locator('#duration').press('Tab')
             paint(6,7,24,25,tool='rectangle')
             plain_frame=state()['state']['frame']
             page.wait_for_function('(frame)=>{const s=JSON.parse(aegoArtPreview.status()).status;return s.frame===frame&&!s.hasEmission&&s.revision===AegoStudioHost.summary().revision}',arg=plain_frame)
@@ -376,13 +380,54 @@ def main():
             assert plain_frame_high==plain_frame_zero, 'Previous frame emission leaked into an albedo-only frame'
             page.locator('#first-frame').click();settle_gpu()
             assert status()['hasEmission']
+            emissive_frame_high=capture('mixed-frame-emission-maximum')
+            assert emissive_frame_high!=plain_frame_high, 'Playback fixture does not distinguish its emissive and plain frames'
             before_play=state()['state']
             programs=status()['stats']['MaterialPrograms']
             generations=status()['stats']['MaterialReloadGenerations']
             page.locator('#play').click()
-            page.wait_for_function('(frame)=>{const s=JSON.parse(aegoArtPreview.status()).status;return s.frame===frame&&!s.hasEmission}',arg=plain_frame)
+            page.wait_for_function('''(frame)=>{
+              const s=JSON.parse(aegoArtPreview.status()).status;
+              const active=document.querySelector('#timeline-table th button[data-frame].active');
+              return s.frame===frame&&!s.hasEmission&&active?.dataset.frame===frame;
+            }''',arg=plain_frame)
+            # Observe timeline changes, not just status at either endpoint: a
+            # slow capture might otherwise wrap away and back to this frame.
+            page.evaluate('''() => {
+              const changes=[];
+              const observer=new MutationObserver(records=>{
+                for(const r of records)if(r.target.matches('th button[data-frame]'))
+                  changes.push({frame:r.target.dataset.frame,oldClass:r.oldValue});
+              });
+              observer.observe(document.getElementById('timeline-table'),
+                {subtree:true,attributes:true,attributeFilter:['class'],attributeOldValue:true});
+              window.gpuPlaybackCapture={changes,observer,started:performance.now()};
+            }''')
             settle_gpu()
-            assert capture('playback-no-emission-frame')==plain_frame_high, 'Automatic playback retained the emissive frame material'
+            # Regression: exceed the old 1500ms frame duration while playback
+            # remains live. This models a delayed screenshot consumer without
+            # retrying or relaxing the pixel comparison.
+            page.wait_for_timeout(1700)
+            playback_before=status()
+            playing_before=page.locator('#play').evaluate('(button)=>button.classList.contains("active")')
+            playback_pixels=capture('playback-no-emission-frame')
+            playback_after=status()
+            playing_after=page.locator('#play').evaluate('(button)=>button.classList.contains("active")')
+            playback_observation=page.evaluate('''() => {
+              const {observer,changes,started}=window.gpuPlaybackCapture;
+              for(const r of observer.takeRecords())if(r.target.matches('th button[data-frame]'))
+                changes.push({frame:r.target.dataset.frame,oldClass:r.oldValue});
+              observer.disconnect();delete window.gpuPlaybackCapture;
+              return {changes,elapsedMS:performance.now()-started};
+            }''')
+            report['playbackCapture']=dict(before=playback_before,after=playback_after,
+                playingBefore=playing_before,playingAfter=playing_after,**playback_observation)
+            assert playback_observation['elapsedMS']>=1500, 'Playback capture did not exercise the delayed-consumer regression'
+            assert playing_before and playing_after, 'Playback stopped during the GPU capture'
+            assert not playback_observation['changes'], ('Playback changed frames during the GPU capture',playback_observation)
+            for observed in (playback_before,playback_after):
+                assert observed['frame']==plain_frame and not observed['hasEmission'], ('GPU capture observed a different playback frame',observed)
+            assert playback_pixels==plain_frame_high, 'Automatic playback retained the emissive frame material'
             page.locator('#play').click();settle_gpu()
             assert state()['state']==before_play, 'Playback changed the authoring frame or document'
             assert status()['stats']['MaterialPrograms']==programs and status()['stats']['MaterialReloadGenerations']==generations, 'Playback recompiled or recreated the material'
