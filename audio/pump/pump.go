@@ -144,9 +144,9 @@ func (p *Pump) Fill() int {
 	}
 	n := 0
 	for q < target {
-		t := time.Now()
+		t := startMixTimer()
 		p.m.Mix(p.buf)
-		d := time.Since(t)
+		d := t.elapsed()
 		w := p.out.Write(p.buf)
 		p.record(d)
 		n++
