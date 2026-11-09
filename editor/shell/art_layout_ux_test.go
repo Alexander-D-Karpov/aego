@@ -61,8 +61,8 @@ func TestArtFactorySeparatesToolsCanvasLayersAndPalette(t *testing.T) {
 		if rects[4].Y < rects[1].Y+rects[1].H {
 			t.Fatalf("%v: Assets must be below the canvas: %+v", size, rects)
 		}
-		if rects[4].Y != rects[8].Y || rects[4].H != rects[8].H || rects[4].X+rects[4].W > rects[8].X || rects[4].W < size.X*.12 || rects[8].W < rects[4].W*1.5 {
-			t.Fatalf("%v: Timeline must be spacious and visible to the right of Assets: %+v", size, rects)
+		if rects[4].Y != rects[8].Y || rects[4].H != rects[8].H || rects[4].X+rects[4].W > rects[8].X || rects[4].W < size.X*.12 || rects[8].W < min(320, size.X*.35) {
+			t.Fatalf("%v: Timeline and Assets must remain usable beside each other: %+v", size, rects)
 		}
 		if rects[8].H > size.Y*.22 {
 			t.Fatalf("%v: Timeline takes too much vertical space from the canvas: %+v", size, rects[8])

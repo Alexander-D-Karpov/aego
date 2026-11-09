@@ -53,7 +53,9 @@ func BuiltinWorkspaces() []workspace.Preset {
 			Splits: []workspace.PanelSplit{
 				{Panel: "art.options", Anchor: "art.tools", Side: dock.SideBottom, Ratio: .30},
 				{Panel: "art.timeline", Anchor: workspace.Scene, Side: dock.SideBottom, Ratio: .78},
-				{Panel: workspace.Assets, Anchor: "art.timeline", Side: dock.SideLeft, Ratio: .32},
+				// Eight 48px cel columns, layer labels and scrollbars fit at
+				// normal sizes; on narrow windows keep room for Assets too.
+				{Panel: workspace.Assets, Anchor: "art.timeline", Side: dock.SideLeft, Ratio: .32, AnchorSize: 544, AnchorMaxShare: .68},
 				{Panel: "art.palette", Anchor: "art.layers", Side: dock.SideBottom, Ratio: .27},
 				{Panel: "art.color", Anchor: "art.palette", Side: dock.SideBottom, Ratio: .27},
 				{Panel: "art.preview", Anchor: "art.color", Side: dock.SideBottom, Ratio: .72},

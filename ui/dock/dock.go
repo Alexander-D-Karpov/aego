@@ -1,6 +1,8 @@
 package dock
 
 import (
+	"math"
+
 	"aego/core/errs"
 	"aego/core/log"
 	"aego/core/mathx"
@@ -39,16 +41,24 @@ const (
 )
 
 type Node struct {
-	ID     NodeID
-	Kind   Kind
-	Axis   Axis
-	Ratio  float32
-	First  NodeID
-	Second NodeID
-	Tabs   []string
-	Active int
-	Parent NodeID
-	Rect   mathx.Rect
+	ID      NodeID
+	Kind    Kind
+	Axis    Axis
+	Ratio   float32
+	First   NodeID
+	Second  NodeID
+	Tabs    []string
+	Active  int
+	Parent  NodeID
+	Rect    mathx.Rect
+	initial *initialSplitSize
+}
+
+// An initial size is consumed on the first usable layout. Thereafter the
+// splitter is an ordinary ratio, including when the tree is saved or resized.
+type initialSplitSize struct {
+	size, maxShare float32
+	first          bool
 }
 
 func (n *Node) ActivePanel() (string, bool) {
@@ -156,6 +166,20 @@ func (t *Tree) Root() NodeID {
 func (t *Tree) Node(id NodeID) (*Node, bool) {
 	n, ok := t.nodes[id]
 	return n, ok
+}
+
+// SetInitialSplitSize requests a preferred logical-pixel size for one child
+// of a new split. maxShare leaves space for its sibling in narrow windows.
+// It is a one-time factory hint, not a minimum imposed on subsequent drags.
+func (t *Tree) SetInitialSplitSize(split, child NodeID, size, maxShare float32) bool {
+	n := t.nodes[split]
+	if n == nil || n.Kind != KindSplit || (child != n.First && child != n.Second) ||
+		!(size > 0) || math.IsInf(float64(size), 0) || !(maxShare >= .5 && maxShare < 1) {
+		return false
+	}
+	n.initial = &initialSplitSize{size: size, maxShare: maxShare, first: child == n.First}
+	t.changed = true
+	return true
 }
 
 func (t *Tree) Changed() bool {
@@ -399,6 +423,26 @@ func (t *Tree) layout(id NodeID, r mathx.Rect) {
 	if n.Kind != KindSplit {
 		return
 	}
+	if hint := n.initial; hint != nil && r.W > 0 && r.H > 0 {
+		extent := r.W - t.gap
+		if n.Axis == AxisY {
+			extent = r.H - t.gap
+		}
+		// A minimized or not-yet-sized window must not consume the hint.
+		if extent >= 2*t.MinSize && extent > 0 {
+			size := min(hint.size, extent*hint.maxShare, extent-t.MinSize)
+			size = max(size, t.MinSize)
+			n.Ratio = size / extent
+			if !hint.first {
+				n.Ratio = 1 - n.Ratio
+			}
+			// Keep the result within the same bounds used when loading a
+			// saved ratio, even on an exceptionally wide or tall display.
+			n.Ratio = mathx.Clamp(n.Ratio, .05, .95)
+			n.initial = nil
+			t.changed = true
+		}
+	}
 	a, b := t.childRects(n)
 	t.layout(n.First, a)
 	t.layout(n.Second, b)
@@ -532,6 +576,9 @@ func (t *Tree) drawSplitter(ui *core.Context, n *Node) {
 			size, d = n.Rect.H-t.gap, delta.Y
 		}
 		if size > 0 && d != 0 {
+			// A user drag wins even if the window was too small to resolve a
+			// pending factory hint on its first layout.
+			n.initial = nil
 			lim := min(float32(0.45), t.MinSize/size)
 			n.Ratio = mathx.Clamp(n.Ratio+d/size, lim, 1-lim)
 			t.changed = true
@@ -737,6 +784,15 @@ func (t *Tree) saveNode(id NodeID) *aetext.Node {
 			aetext.Field{Name: "axis", Value: aetext.Ident(axis)},
 			aetext.Field{Name: "ratio", Value: aetext.Float32(n.Ratio)},
 		)
+		// Preserve a not-yet-laid-out factory tree across workspace switches
+		// and early saves. Already laid out/user splits only store their ratio.
+		if hint := n.initial; hint != nil {
+			out.Attrs = append(out.Attrs,
+				aetext.Field{Name: "initial_size", Value: aetext.Float32(hint.size)},
+				aetext.Field{Name: "initial_max_share", Value: aetext.Float32(hint.maxShare)},
+				aetext.Field{Name: "initial_first", Value: aetext.Bool(hint.first)},
+			)
+		}
 		out.Blocks = append(out.Blocks, t.saveNode(n.First), t.saveNode(n.Second))
 		return out
 	}
@@ -806,7 +862,19 @@ func (t *Tree) load(n *aetext.Node, seen map[string]bool) (NodeID, error) {
 		if v, ok := n.Attr("ratio"); ok {
 			ratio = float32(v.AsFloat())
 		}
-		return t.newSplit(axis, mathx.Clamp(ratio, 0.05, 0.95), a, b), nil
+		id := t.newSplit(axis, mathx.Clamp(ratio, 0.05, 0.95), a, b)
+		if size, ok := n.Attr("initial_size"); ok {
+			share, hasShare := n.Attr("initial_max_share")
+			first, hasFirst := n.Attr("initial_first")
+			if hasShare && hasFirst {
+				child := b
+				if first.Bool {
+					child = a
+				}
+				t.SetInitialSplitSize(id, child, float32(size.AsFloat()), float32(share.AsFloat()))
+			}
+		}
+		return id, nil
 	case "tabs":
 		var panels []string
 		if v, ok := n.Field("panels"); ok {

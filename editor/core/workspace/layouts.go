@@ -54,6 +54,10 @@ type PanelSplit struct {
 	Panel, Anchor string
 	Side          dock.Side
 	Ratio         float32
+	// AnchorSize optionally sizes the anchor once, in logical pixels, on the
+	// first usable layout. AnchorMaxShare protects the adjacent panel when
+	// space is tight; subsequent splitter drags use the ordinary dock rules.
+	AnchorSize, AnchorMaxShare float32
 }
 
 type layout struct {
@@ -190,9 +194,14 @@ func (w *Workspace) layoutFor(p *Preset) *dock.Tree {
 				continue
 			}
 			t.DockPanel(split.Panel, t.FindPanel(split.Anchor), split.Side)
-			if node, ok := t.Node(t.FindPanel(split.Panel)); ok && split.Side != dock.SideCenter && node.Parent != 0 && split.Ratio > 0 && split.Ratio < 1 {
+			if node, ok := t.Node(t.FindPanel(split.Panel)); ok && split.Side != dock.SideCenter && node.Parent != 0 {
 				if parent, ok := t.Node(node.Parent); ok && parent.Kind == dock.KindSplit {
-					parent.Ratio = split.Ratio
+					if split.Ratio > 0 && split.Ratio < 1 {
+						parent.Ratio = split.Ratio
+					}
+					if split.AnchorSize > 0 {
+						t.SetInitialSplitSize(parent.ID, t.FindPanel(split.Anchor), split.AnchorSize, split.AnchorMaxShare)
+					}
 				}
 			}
 		}
