@@ -55,7 +55,8 @@ Section "Aego" SecMain
   File "${SRC}\aego-editor.exe"
   File "${SRC}\VERSION"
   File "${SRC}\README.txt"
-  File /oname=aego-path.ps1 "${__FILEDIR__}/path.ps1"
+  ; Use a native separator: Windows makensis does not resolve mixed paths.
+  File /oname=aego-path.ps1 "${__FILEDIR__}\path.ps1"
   WriteUninstaller "$INSTDIR\uninstall.exe"
   ; the next update keeps this installer in updates\previous, so Restore Previous Version can run it again
   StrCmp "$EXEPATH" "$INSTDIR\setup.exe" +2
