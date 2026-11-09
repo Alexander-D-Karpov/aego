@@ -151,7 +151,9 @@ test('Restore cannot run twice during the async list refresh or again in the sam
   await page.show();const release=page.pauseList();
   const restoring=page.restore();
   assert.equal(page.imports,1);assert.equal(page.elements.get('restore').disabled,true);
+  assert.equal(page.elements.get('dismiss-recovery').disabled,true,'discard is guarded while restore is refreshing');
   await page.restore();assert.equal(page.imports,1);
+  await page.discard();assert(shared.has(record.key),'busy restore must not discard the original');
   release();await restoring;
   page.choose(record.key);await page.restore();assert.equal(page.imports,1);
   assert.equal(page.elements.get('restore').disabled,true);

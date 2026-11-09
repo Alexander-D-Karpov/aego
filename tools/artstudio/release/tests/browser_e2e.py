@@ -193,7 +193,7 @@ def main() -> int:
         with urllib.request.urlopen(app+'manifest.json', timeout=20) as response:
             assert response.read() == raw, 'HTTP manifest differs from tested artifact'
         checked('served-manifest-matches-artifact')
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import expect, sync_playwright
         with sync_playwright() as p:
             browser_type = getattr(p, args.browser)
             options = {'headless': True}
@@ -371,7 +371,15 @@ def main() -> int:
             # snapshot. Restoring it must create separate writable copies, and
             # closing one document must not remove the other window's backup.
             peer = context.new_page()
-            peer.on('dialog', lambda dialog: dialog.accept() if dialog.type in ('confirm','beforeunload') else dialog.dismiss())
+            peer_dialogs = []
+            accept_peer_confirm = {'value': True}
+            def answer_peer_dialog(dialog):
+                peer_dialogs.append({'type':dialog.type, 'message':dialog.message})
+                if dialog.type == 'beforeunload' or (dialog.type == 'confirm' and accept_peer_confirm['value']):
+                    dialog.accept()
+                else:
+                    dialog.dismiss()
+            peer.on('dialog', answer_peer_dialog)
             peer.goto(app+'editor/?lang=en', wait_until='load')
             peer.wait_for_function('() => window.artStudioSurfaceReady === true')
             peer.locator('#recovery-choice').select_option(recovery_source)
@@ -405,10 +413,47 @@ def main() -> int:
             peer.locator('#restore').click()
             assert summary(peer)['pixelHash'] == peer_hash
             peer.locator('#recovery-choice').select_option(peer_key)
+            # Restore installs the document synchronously, then refreshes the
+            # IndexedDB list asynchronously. is_enabled/is_disabled are only
+            # instantaneous snapshots and can observe the busy guard instead
+            # of the completed restore. Wait for the actual discard action to
+            # become available before checking the restored-source guard.
+            expect(peer.locator('#dismiss-recovery'), 'Original snapshot has no explicit discard action').to_be_enabled(timeout=30000)
+            assert peer.locator('#recovery-choice').input_value() == peer_key
             assert peer.locator('#restore').is_disabled(), 'Same recovery source can be restored repeatedly in one page'
-            assert peer.locator('#dismiss-recovery').is_enabled(), 'Original snapshot has no explicit discard action'
             peer.screenshot(path=str(args.evidence/'independent-recovery.png'),full_page=True)
             checked('same-origin-recovery-copies-remain-independent-through-close-and-reload')
+            # Exercise the real explicit discard, including a rejected
+            # confirmation, without losing the active copy or its history.
+            restored_key = peer.evaluate('() => recoveryKeys.get(AegoStudioHost.summary().handle)')
+            assert len({restored_key,peer_key,recovery_source}) == 3
+            peer.locator('#hex-color').fill('#31cf72')
+            peer.locator('#hex-color').press('Tab')
+            paint(peer,3,8)
+            edited_hash = summary(peer)['pixelHash']
+            assert edited_hash != peer_hash and summary(peer)['dirty']
+            wait_recovery(peer,restored_key)
+            restored_recovery = recovery_digests(peer)[restored_key]
+            accept_peer_confirm['value'] = False
+            dialogs_before = len(peer_dialogs)
+            peer.locator('#dismiss-recovery').click()
+            assert len(peer_dialogs) == dialogs_before+1 and peer_dialogs[-1]['type'] == 'confirm'
+            records = recovery_digests(peer)
+            assert records[peer_key] == peer_recovery, 'Cancelling discard changed the selected backup'
+            assert records[restored_key] == restored_recovery and records[recovery_source] == original_recovery
+            accept_peer_confirm['value'] = True
+            peer.locator('#dismiss-recovery').click()
+            assert len(peer_dialogs) == dialogs_before+2 and peer_dialogs[-1]['type'] == 'confirm'
+            wait_async_condition(peer, 'async key => !(await recoveryStore.list()).some(record=>record.key===key)',
+                                 peer_key, 'Explicitly discarded recovery removal')
+            records = recovery_digests(peer)
+            assert records[restored_key] == restored_recovery and records[recovery_source] == original_recovery
+            assert summary(peer)['pixelHash'] == edited_hash and summary(peer)['dirty']
+            peer.locator('#undo').click()
+            assert summary(peer)['pixelHash'] == peer_hash
+            peer.locator('#redo').click()
+            assert summary(peer)['pixelHash'] == edited_hash
+            checked('explicit-recovery-discard-requires-confirmation-and-preserves-active-copy-and-history')
             peer.close()
             # CSP and cross-origin iframe are exercised by ordinary HTTP navigation.
             doc = context.new_page()
