@@ -66,6 +66,95 @@ func artHSVColor(hue, saturation, value float32, alpha uint8) art.Color {
 
 func artPickerColor(c art.Color) mathx.Color { return mathx.ColorRGBA8(c.R, c.G, c.B, c.A) }
 
+// The marker stays inside the bar at both endpoints, leaving enough room to
+// click exactly 0 and 255 even though Rect.Contains excludes the right edge.
+func artAlphaAt(bar mathx.Rect, x float32) uint8 {
+	travel := max(1, bar.W-4)
+	t := mathx.Clamp((x-bar.X-2)/travel, 0, 1)
+	return uint8(math.Round(float64(t * 255)))
+}
+
+func artAlphaRects(ui *core.Context) (mathx.Rect, mathx.Rect) {
+	label := i18n.Tr("editor.art.color_alpha", "Alpha")
+	if ui.Cursor().W < 230 {
+		label = widgets.Elide(ui, label, ui.Cursor().W)
+	}
+	field := widgets.Field(ui, label)
+	const numberWidth, gap, maxBarWidth = float32(54), float32(6), float32(240)
+	if field.W < 120 {
+		// Keep the track usable in a narrow dock instead of squeezing both
+		// controls into an unreadable row.
+		number := ui.Cursor().Next(0)
+		number.W = min(number.W, numberWidth)
+		return field, number
+	}
+	bar := field
+	bar.W = min(maxBarWidth, field.W-numberWidth-gap)
+	number := mathx.Rect{X: bar.X + bar.W + gap, Y: bar.Y, W: numberWidth, H: bar.H}
+	return bar, number
+}
+
+func (p *artPanel) alphaPicker(ui *core.Context) {
+	bar, number := artAlphaRects(ui)
+	v := p.view
+	id := ui.ID("color-alpha-bar")
+	if ui.MouseOver(id, bar) {
+		ui.SetCursorShape(core.CursorResizeEW)
+	}
+	alpha := float64(artColorBytes(v.color).A)
+	numberID := ui.ID("color-alpha")
+	edit := widgets.DragNumber(ui, numberID, number, &alpha, widgets.NumberOpts{Int: true, HasMin: true, Min: 0, HasMax: true, Max: 255, Speed: 1})
+	if edit.Changed || edit.End {
+		color := v.color
+		color.A = float32(alpha) / 255
+		p.setForegroundColor(color, edit.End)
+		v.pickerLast = artColorBytes(v.color)
+	}
+	// The track supersedes uncommitted text in this same alpha field. Cancel
+	// it explicitly: a focus-loss commit is otherwise delivered next frame,
+	// after a press and release that can both occur in this frame.
+	if _, active := ui.Drag(id, bar); active {
+		if ui.MousePressed(input.MouseLeft) && ui.Focus() == numberID {
+			ui.CancelFocus()
+		}
+		color := v.color
+		color.A = float32(artAlphaAt(bar, ui.Mouse().X)) / 255
+		p.setForegroundColor(color, ui.MouseReleased(input.MouseLeft))
+		v.pickerLast = artColorBytes(v.color)
+	}
+
+	// Draw the same checker colors as a normal color swatch, then composite
+	// the selected RGB over it from transparent to opaque. Rectangles are
+	// bounded; the renderer does not currently have a gradient primitive.
+	ui.PushClip(bar)
+	const cell = float32(8)
+	for y := float32(0); y < bar.H; y += cell {
+		for x := float32(0); x < bar.W; x += cell {
+			shade := float32(.8)
+			if (int(x/cell)+int(y/cell))%2 != 0 {
+				shade = .45
+			}
+			ui.Rect(mathx.Rect{X: bar.X + x, Y: bar.Y + y, W: min(cell, bar.W-x), H: min(cell, bar.H-y)}, mathx.Color{R: shade, G: shade, B: shade, A: 1})
+		}
+	}
+	// Subpixel-width UI sprites can disappear on narrow tracks. Keep each
+	// segment at least one logical pixel wide, while bounding draw commands.
+	steps := max(2, min(64, int(bar.W)))
+	for i := 0; i < steps; i++ {
+		x0, x1 := bar.X+bar.W*float32(i)/float32(steps), bar.X+bar.W*float32(i+1)/float32(steps)
+		color := v.color
+		color.A = float32(i) / float32(steps-1)
+		ui.Rect(mathx.Rect{X: x0, Y: bar.Y, W: x1 - x0, H: bar.H}, color)
+	}
+	ui.Outline(bar, ui.Theme.Border)
+	t := float32(artColorBytes(v.color).A) / 255
+	marker := mathx.Rect{X: bar.X + t*(bar.W-4), Y: bar.Y + 2, W: 4, H: max(0, bar.H-4)}
+	ui.Rect(marker, mathx.Color{A: 1})
+	ui.Rect(mathx.Rect{X: marker.X + 1, Y: marker.Y + 1, W: 2, H: max(0, marker.H-2)}, mathx.White)
+	ui.PopClip()
+	widgets.Tooltip(ui, id, i18n.Tr("editor.art.color_alpha", "Alpha"))
+}
+
 // The picker changes the active foreground only. Palette changes continue to
 // use the existing explicit, undoable actions in the shared Art session.
 func (p *artPanel) colorPicker(ui *core.Context) {
@@ -123,12 +212,5 @@ func (p *artPanel) colorPicker(ui *core.Context) {
 	ui.Outline(mathx.Rect{X: bar.X, Y: hy, W: bar.W, H: min(4, bar.H)}, mathx.White)
 	widgets.Tooltip(ui, ui.ID("color-sv"), i18n.Tr("editor.art.color_sv_hint", "Drag to choose saturation and brightness"))
 	widgets.Tooltip(ui, ui.ID("color-hue"), i18n.Tr("editor.art.color_hue_hint", "Drag to choose hue"))
-	alpha := float64(artColorBytes(v.color).A)
-	edit := widgets.DragNumber(ui, ui.ID("color-alpha"), widgets.Field(ui, i18n.Tr("editor.art.color_alpha", "Alpha")), &alpha, widgets.NumberOpts{Int: true, HasMin: true, Min: 0, HasMax: true, Max: 255, Speed: 1})
-	if edit.Changed || edit.End {
-		color := v.color
-		color.A = float32(alpha) / 255
-		p.setForegroundColor(color, edit.End)
-		v.pickerLast = artColorBytes(v.color)
-	}
+	p.alphaPicker(ui)
 }
