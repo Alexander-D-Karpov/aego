@@ -162,7 +162,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `particles.rain` | engine | 16 | template particles.rain | ok |
 | `particles.smoke` | engine | 16 | template particles.smoke | ok |
 | `particles.spark` | engine | 16 | template particles.spark | ok |
-| `particles.system` | engine | 16 | component particles.ParticleSystem2D; template particles.fire; template particles.hitflash; template particles.magicprojectile; template particles.particle system; template particles.trail | ok |
+| `particles.system` | engine | 16 | Assets: New Effect command and Create palette; component particles.ParticleSystem2D; template particles.fire; template particles.hitflash; template particles.magicprojectile; template particles.particle system; template particles.trail | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
 | `play.speed` | engine | 16 | Play → Time Scale… | ok |

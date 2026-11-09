@@ -149,7 +149,6 @@ var Editor = []module.IconUse{
 	use("agent.context", 16, "Context button and popup of the Agent panel"),
 	use("agent.pin", 16, "Pin in the Agent panel's Context popup"),
 	use("panel.welcome", 16, "Getting Started tab"),
-	use("particles.system", 16, "Assets: New Effect command and Create palette"),
 	use("anim.event", 16, "Animation panel: event lane"),
 	use("anim.graph", 16, "Create palette: Animation → Controller; Animator panel tab and Auto Layout"),
 	use("anim.key", 16, "Animation panel tab and Auto Key; Create palette: Animation → Clip"),

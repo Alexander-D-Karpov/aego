@@ -42,6 +42,7 @@ func TestIconsIncludeModuleToolbarUses(t *testing.T) {
 		"render2d.normals":     "Scene View: surface normals",
 		"render2d.point_light": "Scene View: lighting preview",
 		"render2d.shadow_view": "Scene View: shadow visibility",
+		"particles.system":     "Assets: New Effect command and Create palette",
 	}
 	for _, row := range report.Rows() {
 		if by, ok := want[row.ID]; ok && slices.Contains(row.UsedBy, by) {
