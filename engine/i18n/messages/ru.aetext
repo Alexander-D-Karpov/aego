@@ -1879,19 +1879,19 @@ messages version=1 lang=ru {
     text="Копировать"
   }
   msg "editor.command.edit.copy.tip" {
-    text="Копировать выбранные узлы в буфер обмена"
+    text="Копировать выделенное содержимое в буфер обмена"
   }
   msg "editor.command.edit.cut" {
     text="Вырезать"
   }
   msg "editor.command.edit.cut.tip" {
-    text="Копировать выбранные узлы и удалить их"
+    text="Копировать выделенное содержимое и удалить его"
   }
   msg "editor.command.edit.delete" {
     text="Удалить"
   }
   msg "editor.command.edit.delete.tip" {
-    text="Удалить выбранные узлы вместе с дочерними"
+    text="Удалить выделенное содержимое активного документа"
   }
   msg "editor.command.edit.duplicate" {
     text="Дублировать"
@@ -1903,7 +1903,7 @@ messages version=1 lang=ru {
     text="Вставить"
   }
   msg "editor.command.edit.paste.tip" {
-    text="Вставить узлы из буфера обмена под выделение"
+    text="Вставить содержимое буфера обмена в активный документ"
   }
   msg "editor.command.edit.redo" {
     text="Повторить"
@@ -1921,7 +1921,7 @@ messages version=1 lang=ru {
     text="Выделить всё"
   }
   msg "editor.command.edit.select_all.tip" {
-    text="Выделить все узлы активной сцены"
+    text="Выделить всё содержимое активного документа"
   }
   msg "editor.command.edit.selection_back" {
     text="Предыдущее выделение"
@@ -1933,7 +1933,7 @@ messages version=1 lang=ru {
     text="Отменить"
   }
   msg "editor.command.edit.undo.tip" {
-    text="Отменить последнее изменение активной сцены"
+    text="Отменить последнее изменение активного документа"
   }
   msg "editor.command.editor.proxy.confirm" {
     text="Подтверждать изменения внешних агентов"
@@ -1990,19 +1990,19 @@ messages version=1 lang=ru {
     text="Сохранить"
   }
   msg "editor.command.file.save.tip" {
-    text="Сохранить активную сцену или префаб"
+    text="Сохранить активный документ"
   }
   msg "editor.command.file.save_all" {
     text="Сохранить всё"
   }
   msg "editor.command.file.save_all.tip" {
-    text="Сохранить все сцены, префабы и скрипты с несохранёнными изменениями"
+    text="Сохранить все документы с несохранёнными изменениями"
   }
   msg "editor.command.file.save_as" {
     text="Сохранить как…"
   }
   msg "editor.command.file.save_as.tip" {
-    text="Сохранить активную сцену по новому пути"
+    text="Сохранить активный документ по новому пути"
   }
   msg "editor.command.help.about" {
     text="Об Aego"
@@ -6397,7 +6397,6 @@ messages version=1 lang=ru {
   msg "editor.art.unlink" { text="Отвязать" }
   msg "editor.art.unsaved" { text="Рисунок не сохранён" }
   msg "editor.art.wand" { text="Волшебная палочка" }
-  msg "editor.art.asset_timeline" { text="Кадры рисунка" }
   msg "editor.art.animation_preview" { text="Просмотр анимации" }
   msg "editor.art.open_hint" { text="Дважды нажмите на PNG или .aeart в панели ресурсов, чтобы начать рисовать." }
   msg "editor.art.new" { text="Новый пиксельный рисунок…" }
@@ -6529,7 +6528,6 @@ messages version=1 lang=ru {
   msg "editor.art.foreground_color" { text="Основной цвет" }
   msg "editor.art.background_color_short" { text="Фоновый цвет" }
   msg "editor.art.swap_colors" { text="Поменять основной и фоновый цвета" }
-  msg "editor.art.indexed_color_hint" { text="В индексированном режиме используются выбранные цвета палитры. Выберите ячейки в панели «Палитра»." }
   msg "editor.art.indexed_add_to_paint" { text="В индексированном режиме рисование использует выбранную ячейку. Добавьте этот цвет в палитру, чтобы рисовать им." }
   msg "editor.art.color_sv_hint" { text="Перетаскивайте для выбора насыщенности и яркости" }
   msg "editor.art.color_hue_hint" { text="Перетаскивайте для выбора оттенка" }

@@ -80,6 +80,9 @@ messages version=1 lang=ru {
   msg "api.aego/audio.PlayEventAt" {
     text="Проигрывает звуковое событие в точке мира."
   }
+  msg "api.aego/audio.PlayOptions" {
+    text="PlayOptions задаёт параметры одного воспроизведения. Значение 0 для Volume и Pitch означает 1; Bus Master использует шину клипа; Unscaled продолжает воспроизведение на паузе игры."
+  }
   msg "api.aego/audio.PlayWith" {
     text="Проигрывает звук с параметрами."
   }
@@ -248,6 +251,9 @@ messages version=1 lang=ru {
   msg "api.aego/camera.LogicalPose" {
     text="Возвращает положение основного вывода без тряски и привязки к пикселям."
   }
+  msg "api.aego/camera.Pose" {
+    text="Pose задаёт положение камеры в мировых единицах, поворот в радианах и масштаб в пикселях на единицу."
+  }
   msg "api.aego/camera.Release" {
     text="Отменяет BlendTo или Cut на основном выводе; снова решают приоритеты, переход длится seconds секунд или «Время перехода» камеры."
   }
@@ -349,6 +355,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/curve.OutSine" {
     text="OutSine начинает быстро и замедляется к концу, мягче всех кривых."
+  }
+  msg "api.aego/data.AudioEvent" {
+    text="AudioEvent — ассет звукового события."
   }
   msg "api.aego/debug.Arrow" {
     text="Рисует стрелку от одной точки к другой."
@@ -785,6 +794,9 @@ messages version=1 lang=ru {
   msg "api.aego/material.Shader" {
     text="Возвращает ссылку на подготовленный шейдер встроенного материала по имени."
   }
+  msg "api.aego/material.Vec4" {
+    text="Четыре числовые компоненты без преобразования цветового пространства."
+  }
   msg "api.aego/math.Abs" {
     text="Возвращает модуль x."
   }
@@ -935,6 +947,9 @@ messages version=1 lang=ru {
   msg "api.aego/particles.SetEnabled" {
     text="Включает или выключает эффекты частиц в этом игровом мире. При выключении живые частицы удаляются."
   }
+  msg "api.aego/physics.Contact" {
+    text="Contact описывает касание двух коллайдеров со стороны получателя.\nNormal направлена от другого тела к этому, RelativeVelocity — скорость этого тела относительно другого в точке Point."
+  }
   msg "api.aego/physics.Gravity" {
     text="Возвращает гравитацию мира в единицах в секунду за секунду. +Y направлен вниз."
   }
@@ -955,6 +970,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/physics.OverlapPoint" {
     text="Записывает в out тела, коллайдеры которых содержат p, и возвращает их число."
+  }
+  msg "api.aego/physics.RayHit" {
+    text="RayHit — результат запроса лучом. Hit равно false, если ничего не найдено; Node — тело, Collider — узел формы, в которую попал луч."
   }
   msg "api.aego/physics.Raycast" {
     text="Возвращает ближайшее попадание вдоль dir в пределах maxDist. Собственное тело вызывающего не учитывается, триггеры пропускаются."
@@ -1463,6 +1481,9 @@ messages version=1 lang=ru {
   msg "api.engine.MaterialOverride.SetVec4" {
     text="Устанавливает четыре числовые компоненты экземпляра через material.Vec4 без преобразования цвета."
   }
+  msg "api.engine.MaterialParameter" {
+    text="Хранит одно явное типизированное переопределение материала узла. Это запись внутри MaterialOverride, а не добавляемый компонент или ассет материала."
+  }
   msg "api.events.OnAnimEvent" {
     text="Вызывается в скриптах узла, Проигрыватель анимации которого доходит до события своего клипа; anim.EventName(id) даёт имя."
   }
@@ -1607,6 +1628,9 @@ messages version=1 lang=ru {
   msg "api.gameplay.StateMachine.TimeIn" {
     text="Возвращает секунды, проведённые в текущем состоянии."
   }
+  msg "api.particles.ColorKey" {
+    text="Нормализованный возраст и соответствующий ему линейный цвет без предварительного умножения на альфу."
+  }
   msg "api.particles.ParticleSystem2D.Burst" {
     text="Запрашивает однократное рождение count частиц. Автоматическая эмиссия при этом не запускается."
   }
@@ -1672,6 +1696,12 @@ messages version=1 lang=ru {
   }
   msg "api.physics.Body2D.WakeUp" {
     text="Снова включает симуляцию спящего тела."
+  }
+  msg "api.render2d.PostEffect" {
+    text="Независимо адресуемый эффект в стеке вывода камеры."
+  }
+  msg "api.render2d.PostParameter" {
+    text="Типизированный параметр эффекта. Отсутствующие значения наследуются из значений описания по умолчанию."
   }
   msg "api.render2d.PostProcess.SetBool" {
     text="Задаёт логический параметр по адресу instanceID:Field."

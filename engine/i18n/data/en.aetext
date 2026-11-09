@@ -80,6 +80,9 @@ messages version=1 lang=en {
   msg "api.aego/audio.PlayEventAt" {
     text="Plays an audio event at a world position."
   }
+  msg "api.aego/audio.PlayOptions" {
+    text="PlayOptions tune one play. Volume and Pitch 0 mean 1; Bus Master plays on the bus of the clip; Unscaled keeps playing while the game is paused."
+  }
   msg "api.aego/audio.PlayWith" {
     text="Plays a clip with options."
   }
@@ -248,6 +251,9 @@ messages version=1 lang=en {
   msg "api.aego/camera.LogicalPose" {
     text="Returns the pose of the main output without shake and pixel snapping."
   }
+  msg "api.aego/camera.Pose" {
+    text="Pose is a camera position in world units, a rotation in radians and a zoom in pixels per unit."
+  }
   msg "api.aego/camera.Release" {
     text="Ends BlendTo or Cut on the main output; priorities decide again, blending over seconds or the camera's Blend Time."
   }
@@ -349,6 +355,9 @@ messages version=1 lang=en {
   }
   msg "api.aego/curve.OutSine" {
     text="OutSine starts fast and slows down to the end, the softest of the curves."
+  }
+  msg "api.aego/data.AudioEvent" {
+    text="AudioEvent is an audio event asset."
   }
   msg "api.aego/debug.Arrow" {
     text="Draws an arrow from one point to another."
@@ -797,6 +806,9 @@ messages version=1 lang=en {
   msg "api.aego/material.Shader" {
     text="Returns the prepared shader reference for a named built-in material."
   }
+  msg "api.aego/material.Vec4" {
+    text="Four numeric lanes, with no color-space conversion."
+  }
   msg "api.aego/math.Abs" {
     text="Returns the absolute value of x."
   }
@@ -947,6 +959,9 @@ messages version=1 lang=en {
   msg "api.aego/particles.SetEnabled" {
     text="Turns particles on or off in this Play world. Turning them off clears current effects."
   }
+  msg "api.aego/physics.Contact" {
+    text="Contact describes a touch between two colliders from the receiver's side.\nNormal points from the other body into this one, RelativeVelocity is this body's velocity relative to the other at Point."
+  }
   msg "api.aego/physics.Gravity" {
     text="Returns the world gravity in units per second squared. +Y points down."
   }
@@ -967,6 +982,9 @@ messages version=1 lang=en {
   }
   msg "api.aego/physics.OverlapPoint" {
     text="Writes the bodies whose colliders contain p into out and returns the count."
+  }
+  msg "api.aego/physics.RayHit" {
+    text="RayHit is the result of a ray query. Hit is false when nothing was found; Node is the body, Collider the node of the shape that was hit."
   }
   msg "api.aego/physics.Raycast" {
     text="Returns the closest hit along dir within maxDist. The caller's own body is ignored, triggers are skipped."
@@ -1428,52 +1446,55 @@ messages version=1 lang=en {
     text="Reports whether this virtual camera drives its output now."
   }
   msg "api.engine.MaterialOverride.GetBool" {
-    text="Reads the effective bool parameter."
+    text="Reads the effective bool parameter.\n\nReturns the effective typed boolean. This does not treat a numerical zero or nonzero shader parameter as a bool."
   }
   msg "api.engine.MaterialOverride.GetColor" {
-    text="Reads the effective linear Color of a parameter declared with the color hint."
+    text="Reads the effective linear Color of a parameter declared with the color hint.\n\nReturns the effective linear Color of a parameter declared with the colour hint. This is not a colour conversion for an ordinary vec4."
   }
   msg "api.engine.MaterialOverride.GetFloat" {
-    text="Reads the effective float after shader default, material value and node override."
+    text="Reads the effective float after shader default, material value and node override.\n\n`name` selects a declared float parameter. The result includes inheritance when this node has no explicit value; an unresolved material or incompatible type faults the script."
   }
   msg "api.engine.MaterialOverride.GetInt" {
-    text="Reads the exact signed int32 effective parameter."
+    text="Reads the exact signed int32 effective parameter.\n\nReturns the effective signed int32 value as a script `int`, without a floating-point round trip. The declared parameter must have integer type."
   }
   msg "api.engine.MaterialOverride.GetVec2" {
-    text="Reads the effective vec2 parameter."
+    text="Reads the effective vec2 parameter.\n\nReturns the two effective components of a declared vec2. The getter does not truncate a larger vector."
   }
   msg "api.engine.MaterialOverride.GetVec3" {
-    text="Reads the effective vec3 parameter."
+    text="Reads the effective vec3 parameter.\n\nReturns the three effective components of a declared vec3. The getter does not truncate a larger vector."
   }
   msg "api.engine.MaterialOverride.GetVec4" {
-    text="Reads four numerical effective lanes as material.Vec4, without color conversion."
+    text="Reads four numerical effective lanes as material.Vec4, without color conversion.\n\nReturns a numerical [material.Vec4](ref:aego/material.Vec4). A parameter with the colour hint requires GetColor instead."
   }
   msg "api.engine.MaterialOverride.GetVec4Lane" {
-    text="Reads one lane from an ordinary vec4 parameter. The lane index must be from 0 through 3."
+    text="Reads one lane from an ordinary vec4 parameter. The lane index must be from 0 through 3.\n\n`lane` is 0 for X, 1 for Y, 2 for Z or 3 for W of an ordinary vec4. An out-of-range lane or colour parameter faults the script."
   }
   msg "api.engine.MaterialOverride.Reset" {
-    text="Removes the explicit instance value and inherits the shared material value. Returns whether an explicit value existed."
+    text="Removes the explicit instance value and inherits the shared material value. Returns whether an explicit value existed.\n\nRemoves this node's explicit value for `name`, including a retained value for a removed shader parameter. Returns false when no explicit value was stored; it does not zero the shared material."
   }
   msg "api.engine.MaterialOverride.SetBool" {
-    text="Sets an instance bool parameter on this node."
+    text="Sets an instance bool parameter on this node.\n\n`name` selects a bool parameter marked `@instance`. This is a typed boolean assignment, not an integer or float conversion."
   }
   msg "api.engine.MaterialOverride.SetColor" {
-    text="Sets a linear Color instance parameter declared with the color hint."
+    text="Sets a linear Color instance parameter declared with the color hint.\n\n`value` is a linear Color for a vec4 parameter with the colour hint and `@instance`. The call does not interpret numerical Vec4 values as colours."
   }
   msg "api.engine.MaterialOverride.SetFloat" {
-    text="Sets an instance float parameter on this node. Type mismatch leaves its previous value unchanged."
+    text="Sets an instance float parameter on this node. Type mismatch leaves its previous value unchanged.\n\n`name` selects a float parameter marked `@instance`. `value` must be finite; the call writes only this node's override and does not save the scene or shared material."
   }
   msg "api.engine.MaterialOverride.SetInt" {
-    text="Sets an exact signed int32 instance parameter. Values outside the int32 range are rejected."
+    text="Sets an exact signed int32 instance parameter. Values outside the int32 range are rejected.\n\n`value` must fit signed int32, even though the script's `int` is wider. A range or type error leaves the old override unchanged."
   }
   msg "api.engine.MaterialOverride.SetVec2" {
-    text="Sets an instance vec2 parameter on this node."
+    text="Sets an instance vec2 parameter on this node.\n\n`value` supplies two finite components for a declared instance vec2. A different vector size is a type error."
   }
   msg "api.engine.MaterialOverride.SetVec3" {
-    text="Sets an instance vec3 parameter on this node."
+    text="Sets an instance vec3 parameter on this node.\n\n`value` supplies three finite components for a declared instance vec3. A different vector size is a type error."
   }
   msg "api.engine.MaterialOverride.SetVec4" {
-    text="Sets four numerical instance lanes using material.Vec4 without color conversion."
+    text="Sets four numerical instance lanes using material.Vec4 without color conversion.\n\n`value` is a numerical [material.Vec4](ref:aego/material.Vec4). Use SetColor instead when the shader declares a colour parameter; these types are not interchangeable."
+  }
+  msg "api.engine.MaterialParameter" {
+    text="Stores one explicit, typed per-node material override. This is a data record inside MaterialOverride, not an addable component or a material asset."
   }
   msg "api.events.OnAnimEvent" {
     text="Runs on the scripts of a node whose Animation Player reaches an event of its clip; anim.EventName(id) gives the name."
@@ -1619,6 +1640,9 @@ messages version=1 lang=en {
   msg "api.gameplay.StateMachine.TimeIn" {
     text="Returns the seconds spent in the current state."
   }
+  msg "api.particles.ColorKey" {
+    text="A normalized age and its straight linear color."
+  }
   msg "api.particles.ParticleSystem2D.Burst" {
     text="Requests count births at the emitter. Does not start automatic emission."
   }
@@ -1685,26 +1709,32 @@ messages version=1 lang=en {
   msg "api.physics.Body2D.WakeUp" {
     text="Makes a sleeping body simulate again."
   }
+  msg "api.render2d.PostEffect" {
+    text="An independently addressable effect in a camera output stack."
+  }
+  msg "api.render2d.PostParameter" {
+    text="A typed effect parameter. Missing values inherit the descriptor default."
+  }
   msg "api.render2d.PostProcess.SetBool" {
-    text="Sets a boolean parameter by instanceID:Field."
+    text="Sets a boolean parameter by instanceID:Field.\n\n`key` is `instanceID:Field`; the target must be a boolean parameter. Unknown targets or incompatible field kinds report a script error before assignment."
   }
   msg "api.render2d.PostProcess.SetEffectEnabled" {
-    text="Enables or disables an effect by its stable instance ID."
+    text="Enables or disables an effect by its stable instance ID.\n\n`instanceID` is the stable ID of an existing effect, not its type or position in the stack. A missing instance reports a script error before changing it. This changes the instance switch; the component must also be enabled."
   }
   msg "api.render2d.PostProcess.SetFloat" {
-    text="Sets a float parameter using instanceID:Field, without changing any shared material."
+    text="Sets a float parameter using instanceID:Field, without changing any shared material.\n\n`key` is `instanceID:Field`, for example the Bloom instance ID followed by `:Intensity`. `value` must match the descriptor's floating-point field and constraints. An unresolved instance, missing field or incompatible value reports a script error without applying that assignment. This edits the instance, not a shared material."
   }
   msg "api.render2d.PostProcess.SetInt" {
-    text="Sets a signed int32 parameter by instanceID:Field."
+    text="Sets a signed int32 parameter by instanceID:Field.\n\n`key` is `instanceID:Field`. The integer must fit signed int32 and match the field descriptor; an out-of-range integer or unresolved target reports a script error before assignment."
   }
   msg "api.render2d.PostProcess.SetVec2" {
-    text="Sets a vec2 parameter using instanceID:Field."
+    text="Sets a vec2 parameter using instanceID:Field.\n\n`key` is `instanceID:Field`; `value` supplies two lanes. The field descriptor must accept that value. An unresolved target or type mismatch reports a script error before assignment."
   }
   msg "api.render2d.PostProcess.SetVec3" {
-    text="Sets a vec3 parameter by instanceID:Field."
+    text="Sets a vec3 parameter by instanceID:Field.\n\n`key` is `instanceID:Field`; `value` supplies three lanes. The field descriptor must accept that value. An unresolved target or type mismatch reports a script error before assignment."
   }
   msg "api.render2d.PostProcess.SetVec4" {
-    text="Sets a vec4 parameter by instanceID:Field."
+    text="Sets a vec4 parameter by instanceID:Field.\n\n`key` is `instanceID:Field`; `value` is [material.Vec4](ref:aego/material.Vec4), with X, Y, Z and W lanes. The field descriptor must accept that value. An unresolved target or type mismatch reports a script error before assignment."
   }
   msg "cli.agent.anim.add-event" {
     text="add an event; the name must be declared in Project Settings → Animation"

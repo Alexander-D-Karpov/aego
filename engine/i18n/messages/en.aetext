@@ -1435,9 +1435,6 @@ messages version=1 lang=en {
   msg "editor.art.ase_uuid" {
     text="Aseprite's layer UUID is replaced by an Art Document ID."
   }
-  msg "editor.art.asset_timeline" {
-    text="Asset Timeline"
-  }
   msg "editor.art.blank_backup_saved" {
     text="Original text saved at {path}"
   }
@@ -2318,19 +2315,19 @@ messages version=1 lang=en {
     text="Copy"
   }
   msg "editor.command.edit.copy.tip" {
-    text="Copy the selected nodes to the clipboard"
+    text="Copy the selected content to the clipboard"
   }
   msg "editor.command.edit.cut" {
     text="Cut"
   }
   msg "editor.command.edit.cut.tip" {
-    text="Copy the selected nodes and delete them"
+    text="Copy the selected content and delete it"
   }
   msg "editor.command.edit.delete" {
     text="Delete"
   }
   msg "editor.command.edit.delete.tip" {
-    text="Delete the selected nodes and their children"
+    text="Delete the selected content of the active document"
   }
   msg "editor.command.edit.duplicate" {
     text="Duplicate"
@@ -2342,7 +2339,7 @@ messages version=1 lang=en {
     text="Paste"
   }
   msg "editor.command.edit.paste.tip" {
-    text="Paste nodes from the clipboard under the selection"
+    text="Paste clipboard content into the active document"
   }
   msg "editor.command.edit.redo" {
     text="Redo"
@@ -2360,7 +2357,7 @@ messages version=1 lang=en {
     text="Select All"
   }
   msg "editor.command.edit.select_all.tip" {
-    text="Select every node of the active scene"
+    text="Select all content of the active document"
   }
   msg "editor.command.edit.selection_back" {
     text="Previous Selection"
@@ -2372,7 +2369,7 @@ messages version=1 lang=en {
     text="Undo"
   }
   msg "editor.command.edit.undo.tip" {
-    text="Undo the last change of the active scene"
+    text="Undo the last change of the active document"
   }
   msg "editor.command.editor.proxy.confirm" {
     text="Confirm Changes from Outside Agents"
@@ -2429,19 +2426,19 @@ messages version=1 lang=en {
     text="Save"
   }
   msg "editor.command.file.save.tip" {
-    text="Save the active scene or prefab"
+    text="Save the active document"
   }
   msg "editor.command.file.save_all" {
     text="Save All"
   }
   msg "editor.command.file.save_all.tip" {
-    text="Save every scene, prefab and script with unsaved changes"
+    text="Save all documents with unsaved changes"
   }
   msg "editor.command.file.save_as" {
     text="Save As…"
   }
   msg "editor.command.file.save_as.tip" {
-    text="Save the active scene under a new path"
+    text="Save the active document under a new path"
   }
   msg "editor.command.help.about" {
     text="About Aego"
@@ -6844,7 +6841,6 @@ messages version=1 lang=en {
   msg "editor.art.foreground_color" { text="Foreground" }
   msg "editor.art.background_color_short" { text="Background" }
   msg "editor.art.swap_colors" { text="Swap foreground / background" }
-  msg "editor.art.indexed_color_hint" { text="Indexed painting uses the selected palette entries. Choose swatches in Palette." }
   msg "editor.art.indexed_add_to_paint" { text="Indexed painting still uses the selected swatch. Add this color to the palette to paint with it." }
   msg "editor.art.color_sv_hint" { text="Drag to choose saturation and brightness" }
   msg "editor.art.color_hue_hint" { text="Drag to choose hue" }

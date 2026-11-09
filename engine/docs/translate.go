@@ -125,7 +125,12 @@ func (r *Registry) Localize(lang string, tr func(key, en string) string) {
 				f.Title = t.Title
 			}
 			if e.Kind == Type {
-				f.Body = joinBody(t.Body, f.Body)
+				// A value type may be documented entirely by a localized file.
+				// Its catalog entry then translates the same body, not a second
+				// paragraph to prepend to the file's existing translation.
+				if strings.TrimSpace(t.Body) != strings.TrimSpace(f.Body) {
+					f.Body = joinBody(t.Body, f.Body)
+				}
 				if f.Summary == "" {
 					f.Summary = t.Summary
 				}
