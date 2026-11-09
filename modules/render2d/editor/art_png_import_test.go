@@ -32,8 +32,11 @@ func TestPNGEditableCopyPreservesOriginalAndGuardsChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			doc, err := ed.OpenAsset(id)
-			if err != nil || doc.Handler != imageHandlerID || !canCopyPNGToArt(ed, doc) {
-				t.Fatalf("PNG did not open in Image Viewer: %+v, %v", doc, err)
+			if err != nil || doc.Handler != artPNGHandlerID || !canCopyPNGToArt(ed, doc) {
+				t.Fatalf("PNG did not open as an editable draft: %+v, %v", doc, err)
+			}
+			if model, ok := doc.Binding.Model.(*artedit.Document); !ok || !model.Draft || doc.Dirty() {
+				t.Fatal("opening the original PNG did not retain a clean in-memory drawing")
 			}
 			meta := filepath.Join(p.Root, "assets", "source.png.meta")
 			metaBefore, err := os.ReadFile(meta)

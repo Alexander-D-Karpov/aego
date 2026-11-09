@@ -17,5 +17,5 @@
     "en": {"title": "Drive a revolute joint", "description": "The cyan arm is a dynamic body pinned to the gray static pivot. Its enabled motor initially targets zero speed.", "input": "Set Speed to 6 radians per second. The real joint motor rotates the body around the pivot. Reset returns it to rest."},
     "ru": {"title": "Мотор вращательного шарнира", "description": "Голубой рычаг — динамическое тело, прикреплённое к серой неподвижной опоре. Включённый мотор сначала поддерживает нулевую скорость.", "input": "Установите Speed в 6 радиан в секунду. Настоящий мотор шарнира повернёт тело вокруг опоры. «Сброс» вернёт его в покой."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

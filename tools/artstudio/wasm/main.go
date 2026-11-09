@@ -19,6 +19,7 @@ type request struct {
 	Frames           []art.ID      `json:"frames"`
 	Handle           string        `json:"handle"`
 	Name             string        `json:"name"`
+	Template         string        `json:"template"`
 	Receipt          string        `json:"receipt"`
 	Action           string        `json:"action"`
 	Tool             string        `json:"tool"`
@@ -41,15 +42,17 @@ type request struct {
 	ExpectedRevision uint64        `json:"expectedRevision"`
 }
 type response struct {
-	Active            string          `json:"active"`
-	Tabs              []host.Tab      `json:"tabs"`
-	State             art.SessionInfo `json:"state"`
-	ID                art.ID          `json:"id,omitempty"`
-	Color             *art.Color      `json:"color,omitempty"`
-	Error             string          `json:"error,omitempty"`
-	Hash              string          `json:"hash,omitempty"`
-	Warnings          []string        `json:"warnings,omitempty"`
-	NeedsConfirmation bool            `json:"needsConfirmation,omitempty"`
+	Active            string               `json:"active"`
+	Tabs              []host.Tab           `json:"tabs"`
+	State             art.SessionInfo      `json:"state"`
+	ID                art.ID               `json:"id,omitempty"`
+	Color             *art.Color           `json:"color,omitempty"`
+	Paint             *art.Paint           `json:"paint,omitempty"`
+	Error             string               `json:"error,omitempty"`
+	Hash              string               `json:"hash,omitempty"`
+	Warnings          []string             `json:"warnings,omitempty"`
+	NeedsConfirmation bool                 `json:"needsConfirmation,omitempty"`
+	Templates         []art.EffectTemplate `json:"templates,omitempty"`
 }
 
 var documents = host.New()
@@ -72,14 +75,21 @@ func currentResponse(out response) response {
 	out.Active, out.Tabs = documents.Active(), documents.Tabs()
 	return out
 }
-func invoke(r request) (art.ID, *art.Color, error) {
+func invoke(r request) (art.ID, *art.Paint, error) {
 	if r.ExpectedRevision != 0 && session.Document.Revision() != r.ExpectedRevision {
 		return "", nil, art.ErrConflict
 	}
 	switch r.Action {
-	case "state":
+	case "state", "templates":
 		return "", nil, nil
 	case "new":
+		if r.Template != "" {
+			_, err := documents.NewEffect(r.Template, r.Name)
+			if err == nil {
+				session, _ = documents.Session("")
+			}
+			return "", nil, err
+		}
 		d, err := art.New(r.Width, r.Height, r.Mode, art.Limits{})
 		if err != nil {
 			return "", nil, err
@@ -116,6 +126,8 @@ func invoke(r request) (art.ID, *art.Color, error) {
 		return "", nil, nil
 	case "select":
 		return "", nil, session.Select(r.Layer, r.Frame, r.Channel)
+	case "isolate":
+		return "", nil, session.SetIsolation(r.Layer)
 	case "begin":
 		if len(r.Points) != 1 {
 			return "", nil, fmt.Errorf("art: begin needs one point")
@@ -123,6 +135,8 @@ func invoke(r request) (art.ID, *art.Color, error) {
 		return "", nil, session.BeginGesture(r.Tool, r.Points[0], r.Brush, r.Filled)
 	case "move":
 		return "", nil, session.MoveGesture(r.Points)
+	case "shape-preview":
+		return "", nil, session.PreviewGesturePoints(r.Points)
 	case "end":
 		return "", nil, session.EndGesture()
 	case "cancel":
@@ -143,6 +157,11 @@ func invoke(r request) (art.ID, *art.Color, error) {
 		return "", nil, documents.PasteAnimation("")
 	case "copy":
 		return "", nil, documents.Copy("")
+	case "capture-brush":
+		return "", nil, session.CaptureBrush()
+	case "clear-brush":
+		session.ClearBrush()
+		return "", nil, nil
 	case "paste":
 		if len(r.Points) != 1 {
 			return "", nil, fmt.Errorf("art: paste needs one point")
@@ -152,7 +171,7 @@ func invoke(r request) (art.ID, *art.Color, error) {
 		if len(r.Points) != 1 {
 			return "", nil, fmt.Errorf("art: sample needs one point")
 		}
-		c, err := session.Document.Pixel(session.ActiveCel(), r.Points[0].X, r.Points[0].Y)
+		c, err := session.SamplePaint(r.Points[0])
 		return "", &c, err
 	case "frame-at":
 		id, err := session.Document.FrameAt(r.Tag, r.TimeMS)
@@ -177,9 +196,15 @@ func jsonCall(_ js.Value, args []js.Value) any {
 		out.Error = err.Error()
 	} else {
 		id, c, err := invoke(req)
-		out.ID, out.Color = id, c
+		out.ID, out.Paint = id, c
+		if c != nil {
+			out.Color = &c.Color
+		}
 		if err != nil {
 			out.Error = err.Error()
+		}
+		if err == nil && req.Action == "templates" {
+			out.Templates = art.EffectTemplates()
 		}
 	}
 	out = currentResponse(out)
@@ -238,6 +263,22 @@ func exportCall(_ js.Value, args []js.Value) any {
 	v := js.Global().Get("Uint8Array").New(len(result.Bytes))
 	js.CopyBytesToJS(v, result.Bytes)
 	return js.ValueOf(map[string]any{"bytes": v, "revision": float64(result.Revision), "handle": result.Key, "receipt": result.Receipt})
+}
+
+// snapshotCall is read-only: preview must not create save receipts, mark a
+// document clean or publish a stale version back into the authoring session.
+func snapshotCall(_ js.Value, _ []js.Value) any {
+	snapshot, err := session.Document.Snapshot()
+	if err != nil {
+		return js.ValueOf(map[string]any{"error": err.Error()})
+	}
+	b, err := snapshot.Encode()
+	if err != nil {
+		return js.ValueOf(map[string]any{"error": err.Error()})
+	}
+	v := js.Global().Get("Uint8Array").New(len(b))
+	js.CopyBytesToJS(v, b)
+	return js.ValueOf(map[string]any{"bytes": v, "handle": documents.Active(), "revision": float64(snapshot.Revision())})
 }
 func paletteCall(_ js.Value, args []js.Value) any {
 	out := response{}
@@ -325,7 +366,11 @@ func hashCall(_ js.Value, args []js.Value) any {
 	if len(args) > 0 && args[0].Type() == js.TypeString && args[0].String() != "" {
 		frame = art.ID(args[0].String())
 	}
-	im, err := session.Document.Render(frame, art.RenderOptions{Channel: session.Channel})
+	channel := session.Channel
+	if len(args) > 1 && args[1].Type() == js.TypeString && args[1].String() != "" {
+		channel = art.Channel(args[1].String())
+	}
+	im, err := session.Document.Render(frame, art.RenderOptions{Channel: channel})
 	if err != nil {
 		return ""
 	}
@@ -344,7 +389,7 @@ func main() {
 	for _, v := range []struct {
 		name string
 		fn   func(js.Value, []js.Value) any
-	}{{"request", jsonCall}, {"pixels", pixelsCall}, {"thumbnail", thumbnailCall}, {"exportBytes", exportCall}, {"importPalette", paletteCall}, {"importBytes", importCall}, {"hash", hashCall}} {
+	}{{"request", jsonCall}, {"pixels", pixelsCall}, {"thumbnail", thumbnailCall}, {"exportBytes", exportCall}, {"snapshotBytes", snapshotCall}, {"importPalette", paletteCall}, {"importBytes", importCall}, {"hash", hashCall}} {
 		f := js.FuncOf(v.fn)
 		callbacks = append(callbacks, f)
 		obj.Set(v.name, f)

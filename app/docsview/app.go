@@ -85,6 +85,8 @@ type App struct {
 	textOn   bool
 	shown    *engine.World
 	closed   bool
+	control  ControlState
+	viewport Viewport
 }
 
 func noBlock(string) *aetext.Node {
@@ -346,7 +348,7 @@ func (a *App) showPhysics() {
 func (a *App) Update(dt float64) {
 	e := a.e
 	now := e.Platform().Now()
-	a.session.Tick(dt)
+	a.tickSession(dt)
 	a.showPhysics()
 	ui := a.ui
 	ui.Time = now
@@ -361,6 +363,7 @@ func (a *App) Update(dt float64) {
 	a.toolbar(bar)
 	body := mathx.Rect{Y: bar.H, W: size.X, H: max(0, size.Y-bar.H)}
 	gameR, inspR := layout(body, 1)
+	a.viewport = Viewport{X: gameR.X, Y: gameR.Y, Width: gameR.W, Height: gameR.H, CanvasWidth: m.LogicalW, CanvasHeight: m.LogicalH}
 	a.panel(&frame, gameR, a.game.Draw)
 	a.panel(&frame, inspR, a.insp.Draw)
 	ctx.DnD.Frame(ui)

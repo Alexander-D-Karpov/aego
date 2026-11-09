@@ -13,6 +13,12 @@ The capture scene’s player has a tinted sprite. Its matching pre-Flash
 resolve the Hurt track during Play. The playable example uses its own
 per-character Flash material and clip.
 
+The current fixture also has an explicit Player material and an empty
+`engine.MaterialOverride`. The copied platformer controller uses that component;
+removing it can make Play fail even when a screenshot is produced. Check Play
+for script errors as well as comparing images. The historical screenshot evidence
+below applies only to the exact earlier fixture and cannot certify later edits.
+
 The supplied Stage 12a worktree already contained unfinished platformer edits:
 the scene had a longer level and an untracked platform script. Capturing that
 worktree directly changed documentation images for reasons unrelated to

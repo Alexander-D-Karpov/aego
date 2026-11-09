@@ -12,6 +12,9 @@ import (
 	"testing"
 
 	"aego/art"
+	"aego/asset"
+	"aego/asset/importers/artsource"
+	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/editor/core/artedit"
 	"aego/modules/render2d"
@@ -22,7 +25,7 @@ import (
 )
 
 // The example project is copied to a temporary directory. Project/scene and
-// image opening use the Go API; confirmation and drawing use SDL events. This
+// image opening use the Go API; first Save and drawing use SDL events. This
 // is an offscreen/software-runner workflow, not physical OS acceptance.
 func TestPlatformerSlicedPNGCopyNative(t *testing.T) {
 	platformerSlicedPNGCopyNative(t, false)
@@ -37,6 +40,7 @@ func TestPlatformerSlicedPNGGameUndoExportNative(t *testing.T) {
 func platformerSlicedPNGCopyNative(t *testing.T, fullWorkflow bool) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	t.Setenv("SDL_AUDIODRIVER", "dummy")
 	p := platformerAuthoringProject(t)
 	if fullWorkflow {
 		preparePlatformerNativeExportProject(t, p)
@@ -64,10 +68,6 @@ func platformerSlicedPNGCopyNative(t *testing.T, fullWorkflow bool) {
 		t.Fatal("the real platformer Player has no sprite")
 	}
 	beforeSprite := sprite.Sprite.ID
-	imageDoc, err := ed.OpenAsset(beforeSprite)
-	if err != nil || imageDoc == nil || imageDoc.Path != "assets/surfaces/runner.png" {
-		t.Fatalf("Player sprite did not open its PNG source: %+v, %v", imageDoc, err)
-	}
 	paths := []string{"assets/surfaces/runner.png", "assets/surfaces/runner.png.meta", "assets/surfaces/runner_n.png", "assets/surfaces/runner_n.png.meta", "scenes/main.aescene"}
 	before := make(map[string][]byte, len(paths))
 	for _, rel := range paths {
@@ -76,15 +76,33 @@ func platformerSlicedPNGCopyNative(t *testing.T, fullWorkflow bool) {
 			t.Fatal(err)
 		}
 	}
+	metaBefore, err := pipeline.ParseMeta(before[paths[1]], paths[1])
+	if err != nil || len(metaBefore.Subs) != 8 {
+		t.Fatal("the original runner needs eight indexed frames", err)
+	}
+	imageDoc, err := ed.OpenAsset(beforeSprite)
+	if err != nil || imageDoc == nil || imageDoc.Path != "assets/surfaces/runner.png" {
+		t.Fatalf("Player sprite did not open its PNG source: %+v, %v", imageDoc, err)
+	}
+	model, ok := imageDoc.Binding.Model.(*artedit.Document)
+	if !ok || !model.Draft || imageDoc.Dirty() || len(model.Session.Document.Info().Frames) != 8 {
+		t.Fatal("Player sprite did not open as eight editable frames in memory")
+	}
+	for _, rel := range paths {
+		after, err := os.ReadFile(filepath.Join(p.Root, rel))
+		if err != nil || !bytes.Equal(before[rel], after) {
+			t.Fatalf("opening the PNG changed %s: %v", rel, err)
+		}
+	}
 	ws := s.App.Workspace()
-	panelID := "render2d.image/" + imageDoc.Asset.String()
+	panelID := "render2d.art/" + imageDoc.Asset.String()
 	ws.Focus(panelID)
 	if ws.Tree.Maximized() != panelID && !ws.ToggleMaximize(panelID) {
-		t.Fatal("could not maximize Image Viewer")
+		t.Fatal("could not maximize the Art Canvas")
 	}
 	for range 4 {
 		if !s.Step() {
-			t.Fatal("editor stopped before conversion")
+			t.Fatal("editor stopped before first Save")
 		}
 	}
 	capture := func(name string) {
@@ -112,44 +130,64 @@ func platformerSlicedPNGCopyNative(t *testing.T, fullWorkflow bool) {
 			t.Fatalf("write %s: %v, %v", name, err, closeErr)
 		}
 	}
-	capture("image-viewer")
-	for i := range 3 {
-		if !sdl.TestPointerEvent(400, 195, i) || !s.Step() {
-			t.Fatal("could not click the sliced-PNG animation action")
-		}
-	}
-	for range 2 {
-		s.Step()
-	}
-	if !ed.UI.ModalActive() {
-		t.Fatal("the loss warning did not open")
-	}
-	capture("loss-warning")
+	capture("art-draft")
 	key := func(k input.Scancode, ctrl bool) {
 		t.Helper()
 		if !sdl.TestEditKey(k, true, ctrl, false) || !s.Step() || !sdl.TestEditKey(k, false, false, false) || !s.Step() {
 			t.Fatal("native keyboard event failed")
 		}
 	}
-	key(input.KeyEnter, false)
+	key(input.KeyS, true)
 	if !ed.UI.ModalActive() {
-		t.Fatal("confirmation did not open the path and duration prompt")
+		t.Fatal("first Save did not ask before linking the source")
 	}
-	capture("path-duration")
+	capture("first-save")
+	const copyPath = "assets/surfaces/runner.aeart"
+	if data, err := s.Pipeline.SourceBytes(copyPath); err != nil || data != nil {
+		t.Fatal("the editable source appeared before confirmation", err)
+	}
+	if current, err := os.ReadFile(filepath.Join(p.Root, paths[1])); err != nil || !bytes.Equal(current, before[paths[1]]) {
+		t.Fatal("the PNG metadata changed before confirmation", err)
+	}
 	key(input.KeyEnter, false)
-	const copyPath = "assets/surfaces/runner-animation.aeart"
 	id, ok := s.Pipeline.Lookup(copyPath)
 	if !ok {
 		notice, _ := ed.LastNotice()
-		t.Fatalf("confirmed animation copy was not imported: %+v", notice)
+		t.Fatalf("confirmed editable source was not imported: %+v", notice)
 	}
 	copyDoc := ed.Docs.AssetDocument(id)
 	if copyDoc == nil {
-		t.Fatal("animation copy was not opened")
+		t.Fatal("the linked drawing was not opened")
 	}
-	model, ok := copyDoc.Binding.Model.(*artedit.Document)
-	if !ok || len(model.Session.Document.Info().Frames) != 8 {
-		t.Fatal("animation copy did not open as an editable eight-frame document")
+	if copyDoc.Binding.Model != model || model.Draft || copyDoc.Dirty() || len(model.Session.Document.Info().Frames) != 8 {
+		t.Fatal("first Save did not transfer the same clean eight-frame session")
+	}
+	metaAfter, ok := s.Pipeline.MetaOf(imageDoc.Asset)
+	link, err := artsource.TextureLinkOf(&metaAfter)
+	if !ok || err != nil || link == nil || link.Source != id || len(link.Frames) != len(metaBefore.Subs) || len(metaAfter.Subs) != len(metaBefore.Subs) {
+		t.Fatal("first Save did not create the guarded PNG frame link", err)
+	}
+	for i, original := range metaBefore.Subs {
+		current := metaAfter.Subs[i]
+		if original.ID != current.ID || original.Name != current.Name || original.Rect != current.Rect || original.Pivot != current.Pivot || original.HasPivot != current.HasPivot || link.Frames[i].Asset != original.ID {
+			t.Fatalf("frame %d lost its source identity, slicing or pivot", i)
+		}
+		for _, channel := range []string{"normal", "height", "emission"} {
+			oldID, oldExplicit, oldErr := asset.TextureChannel(metaBefore, original.ID, channel)
+			newID, newExplicit, newErr := asset.TextureChannel(&metaAfter, current.ID, channel)
+			if oldErr != nil || newErr != nil || oldID != newID || oldExplicit != newExplicit {
+				t.Fatalf("frame %d lost its %s association: %v, %v", i, channel, oldErr, newErr)
+			}
+		}
+		if _, present := s.Pipeline.Entry(original.ID); !present {
+			t.Fatalf("the original runtime frame %s disappeared", original.ID)
+		}
+	}
+	// Subsequent checks compare against the explicitly confirmed sidecar, while
+	// all PNG bytes, surface sources and scene bytes remain unchanged.
+	before[paths[1]], err = os.ReadFile(filepath.Join(p.Root, paths[1]))
+	if err != nil {
+		t.Fatal(err)
 	}
 	artPanel := "render2d.art/" + id.String()
 	if current := ws.Tree.Maximized(); current != "" && current != artPanel {
@@ -162,7 +200,10 @@ func platformerSlicedPNGCopyNative(t *testing.T, fullWorkflow bool) {
 	for range 3 {
 		s.Step()
 	}
-	first := model.Session.Frame
+	first := model.Session.Document.Info().Frames[0].ID
+	if err := model.Session.Select("", first, art.Albedo); err != nil {
+		t.Fatal(err)
+	}
 	original, _, err := model.Capture(first, art.Albedo)
 	if err != nil {
 		t.Fatal(err)

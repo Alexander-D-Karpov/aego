@@ -4,6 +4,7 @@ package edit
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
@@ -420,18 +421,26 @@ func TestAuthoredFlipbookParticleGameViewNative(t *testing.T) {
 	defer d.Close()
 	info := d.Info()
 	first := info.Frames[0].ID
+	colors := []art.Color{
+		{R: 255, A: 255}, {G: 255, A: 255}, {B: 255, A: 255},
+		{R: 255, G: 255, A: 255}, {R: 255, B: 255, A: 255},
+		{G: 255, B: 255, A: 255}, {R: 255, G: 255, B: 255, A: 255},
+		{R: 128, G: 128, B: 128, A: 255},
+	}
 	e, err := d.Begin(d.Revision(), "Draw particle frames")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i, color := range []art.Color{{R: 255, A: 255}, {G: 255, A: 255}} {
+	last := first
+	for i, color := range colors {
 		f := first
 		if i != 0 {
-			f, err = e.AddFrame(first, 100)
+			f, err = e.AddFrame(last, 100)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
+		last = f
 		cel, err := e.EnsureCel(info.Layers[0].ID, f, art.Albedo)
 		if err != nil {
 			t.Fatal(err)
@@ -467,8 +476,13 @@ func TestAuthoredFlipbookParticleGameViewNative(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(p.Root, artPath+".meta"), asset.MarshalSourceMeta(meta), 0644); err != nil {
 		t.Fatal(err)
 	}
-	frame0 := artsource.StableID(sourceID, artsource.FrameName(frames[0].ID, art.Albedo))
-	frame1 := artsource.StableID(sourceID, artsource.FrameName(frames[1].ID, art.Albedo))
+	var frameIDs []ids.AssetID
+	var frameRefs []asset.Ref[asset.Texture]
+	for _, frame := range frames {
+		id := artsource.StableID(sourceID, artsource.FrameName(frame.ID, art.Albedo))
+		frameIDs = append(frameIDs, id)
+		frameRefs = append(frameRefs, asset.NewRef[asset.Texture](id))
+	}
 	const scenePath = "scenes/fx.aescene"
 	writeScene(t, p, scenePath, func(sc *scene.Scene) {
 		cam := sc.Create(sc.Root(), "Camera")
@@ -476,7 +490,7 @@ func TestAuthoredFlipbookParticleGameViewNative(t *testing.T) {
 		h := sc.Create(sc.Root(), "Authored particle")
 		c := scene.Add[particles.ParticleSystem2D](sc, h)
 		*c = particles.DefaultParticleSystem2D()
-		c.Frames = []asset.Ref[asset.Texture]{asset.NewRef[asset.Texture](frame0), asset.NewRef[asset.Texture](frame1)}
+		c.Frames = frameRefs
 		c.FrameFPS, c.FrameLoop = 4, false
 		c.Rate, c.PlayOnStart = 0, false
 		c.Speed, c.Lifetime, c.Size = mathx.V2(0, 0), mathx.V2(5, 5), mathx.V2(2, 2)
@@ -493,7 +507,7 @@ func TestAuthoredFlipbookParticleGameViewNative(t *testing.T) {
 		t.Fatal("editor stopped at startup")
 	}
 	ed := s.App.Context()
-	for _, id := range []ids.AssetID{sourceID, frame0, frame1} {
+	for _, id := range append([]ids.AssetID{sourceID}, frameIDs...) {
 		if err := ed.Pipeline.VerifyCurrent(id); err != nil {
 			t.Fatalf("authored asset %s is not current: %v", id, err)
 		}
@@ -562,31 +576,61 @@ func TestAuthoredFlipbookParticleGameViewNative(t *testing.T) {
 		}
 		return img, tick
 	}
-	red, redTick := capture("red-frame")
-	s.App.Play().Pause()
-	for range 20 {
-		if !s.Step() {
-			t.Fatal("editor stopped while particle flipbook advanced")
-		}
-	}
-	s.App.Play().Pause()
-	green, greenTick := capture("green-frame")
-	if greenTick <= redTick {
-		t.Fatalf("particle simulation did not advance: %d -> %d", redTick, greenTick)
-	}
-	count := func(img image.Image, red bool) int {
+	count := func(img image.Image, color art.Color) int {
 		n := 0
 		for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
 			for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
 				r, g, b, _ := img.At(x, y).RGBA()
-				if red && r > 40000 && g < 16000 && b < 16000 || !red && g > 40000 && r < 16000 && b < 16000 {
+				close := func(v uint32, want byte) bool {
+					delta := int(v>>8) - int(want)
+					return delta >= -12 && delta <= 12
+				}
+				if close(r, color.R) && close(g, color.G) && close(b, color.B) {
 					n++
 				}
 			}
 		}
 		return n
 	}
-	if a, b := count(red, true), count(green, false); a < 100 || b < 100 {
-		t.Fatalf("visible Game View pixels do not show the authored frames: red=%d green=%d", a, b)
+	var previous image.Image
+	var previousTick uint64
+	for i, color := range colors {
+		if i != 0 {
+			s.App.Play().Pause()
+			// At four frames per second, fifteen lockstep ticks advance one
+			// authored frame. Capture is paused, so UI work cannot skip frames.
+			for range 15 {
+				if !s.Step() {
+					t.Fatal("editor stopped while particle flipbook advanced")
+				}
+			}
+			s.App.Play().Pause()
+		}
+		pixels, tick := capture(fmt.Sprintf("frame-%02d", i+1))
+		if i != 0 && tick <= previousTick {
+			t.Fatalf("particle simulation did not advance at frame %d: %d -> %d", i+1, previousTick, tick)
+		}
+		if visible := count(pixels, color); visible < 100 {
+			t.Fatalf("Game View did not render authored frame %d (%s, %+v): %d matching pixels", i+1, frameIDs[i], color, visible)
+		}
+		if previous != nil {
+			if previous.Bounds() != pixels.Bounds() {
+				t.Fatal("Game View capture geometry changed during playback")
+			}
+			changed := 0
+			for y := pixels.Bounds().Min.Y; y < pixels.Bounds().Max.Y; y++ {
+				for x := pixels.Bounds().Min.X; x < pixels.Bounds().Max.X; x++ {
+					r1, g1, b1, a1 := previous.At(x, y).RGBA()
+					r2, g2, b2, a2 := pixels.At(x, y).RGBA()
+					if r1 != r2 || g1 != g2 || b1 != b2 || a1 != a2 {
+						changed++
+					}
+				}
+			}
+			if changed < 100 {
+				t.Fatalf("Game View did not visibly advance to frame %d: %d changed pixels", i+1, changed)
+			}
+		}
+		previous, previousTick = pixels, tick
 	}
 }

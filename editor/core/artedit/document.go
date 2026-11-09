@@ -1,16 +1,18 @@
 package artedit
 
 import (
-	"aego/art"
-	"aego/editor/core/document"
-	"aego/editor/core/history"
-	"aego/engine/i18n"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"os"
+
+	"aego/art"
+	"aego/editor/core/document"
+	"aego/editor/core/history"
+	"aego/engine/i18n"
 )
 
 // Document is owned by AssetBinding.Model. View panels, Inspector and agents
@@ -24,6 +26,9 @@ type Document struct {
 	source                              *document.BinarySource
 	limits                              art.Limits
 	closed                              bool
+	Draft                               bool
+	recoveryHash                        string
+	recoveryCheck                       func() error
 	PendingRecovery                     bool
 	previewDocument                     *art.Document
 	previewArtRevision, previewRevision uint64
@@ -45,7 +50,57 @@ func Bind(m *document.Manager, d *document.AssetDocument) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Document{Asset: d, manager: m, source: source, limits: lim}
+	return bindPixels(m, d, source, pixels, "", nil)
+}
+
+// BindImported takes ownership of pixels, including on error. The original
+// source is only a baseline for recovery/conflict checks, never a save target.
+// inputHash covers all importer inputs; verify guards them before recovery.
+func BindImported(m *document.Manager, d *document.AssetDocument, pixels *art.Document, expected []byte, inputHash string, verify func() error) (*Document, error) {
+	if pixels == nil {
+		return nil, fmt.Errorf("art: imported pixels are required")
+	}
+	if m == nil || d == nil || d.Binding.Model != nil || inputHash == "" || verify == nil {
+		pixels.Close()
+		return nil, fmt.Errorf("art: invalid imported document binding")
+	}
+	source, data, err := m.OpenBinarySource(d, art.DefaultLimits().MaxFileBytes)
+	if err != nil || !bytes.Equal(data, expected) {
+		pixels.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("art: source changed during import")
+	}
+	if err := verify(); err != nil {
+		pixels.Close()
+		return nil, err
+	}
+	return bindPixels(m, d, source, pixels, inputHash, verify)
+}
+
+// BindNew takes ownership of an in-memory document. Its stable recovery key
+// and read-only validation belong to the host; there is no disk source to read
+// or overwrite before an explicit first Save.
+func BindNew(m *document.Manager, d *document.AssetDocument, pixels *art.Document, recoveryKey string, verify func() error) (*Document, error) {
+	if pixels == nil {
+		return nil, fmt.Errorf("art: new pixels are required")
+	}
+	if m == nil || d == nil || !d.Transient || m.AssetDocument(d.Asset) != d || d.Binding.Model != nil || recoveryKey == "" || verify == nil {
+		pixels.Close()
+		return nil, fmt.Errorf("art: invalid new document binding")
+	}
+	if err := verify(); err != nil {
+		pixels.Close()
+		return nil, err
+	}
+	return bindPixels(m, d, nil, pixels, recoveryKey, verify)
+}
+
+func bindPixels(m *document.Manager, d *document.AssetDocument, source *document.BinarySource, pixels *art.Document, inputHash string, verify func() error) (*Document, error) {
+	lim := art.DefaultLimits()
+	b := &Document{Asset: d, manager: m, source: source, limits: lim, Draft: inputHash != "", recoveryHash: inputHash, recoveryCheck: verify}
+	var err error
 	if err = b.install(pixels, false); err != nil {
 		pixels.Close()
 		return nil, err
@@ -56,22 +111,103 @@ func Bind(m *document.Manager, d *document.AssetDocument) (*Document, error) {
 		b.Close()
 		return nil, recoveryErr
 	}
+	b.attachBinding()
+	return b, nil
+}
+
+func (b *Document) attachBinding() {
+	d := b.Asset
 	d.Binding = document.AssetBinding{
-		Model:           b,
-		PreviewRevision: b.PreviewRevision,
-		PreviewSnapshot: b.PreviewSnapshot,
-		PreviewCurrent:  b.PreviewCurrent,
-		PreviewSource:   func() []byte { data, _, _ := b.PreviewSnapshot(); return data },
-		Dirty:           func() bool { return b.Session.Info().Dirty },
-		Save:            b.Save, Undo: b.SessionUndo, Redo: b.SessionRedo,
+		Model:   b,
+		Actions: b.editActions(),
+		Dirty:   func() bool { return b.Session.Info().Dirty },
+		Save:    b.Save, Undo: b.SessionUndo, Redo: b.SessionRedo,
 		CanUndo:         func() bool { return b.History.CanUndo() || b.Session.Info().Gesture },
 		CanRedo:         func() bool { return b.History.CanRedo() },
 		Close:           b.Close,
 		Recovery:        b.Recovery,
 		PendingRecovery: func() bool { return b.PendingRecovery },
 	}
-	return b, nil
+	if !b.Draft {
+		d.Binding.PreviewRevision = b.PreviewRevision
+		d.Binding.PreviewSnapshot = b.PreviewSnapshot
+		d.Binding.PreviewCurrent = b.PreviewCurrent
+		d.Binding.PreviewSource = func() []byte { data, _, _ := b.PreviewSnapshot(); return data }
+	}
 }
+
+// RebindSaved moves the same session and history to a newly published source.
+// It does not write or remove any file. Callers retain the old binding if any
+// guard fails, even if the preceding transaction already published a copy.
+func (b *Document) RebindSaved(dst *document.AssetDocument, snapshot *art.Snapshot) error {
+	if b.closed || !b.Draft || b.PendingRecovery || b.Session.Info().Gesture || dst == nil || b.manager.AssetDocument(dst.Asset) != dst || dst.Binding.Model != nil || !dst.Capabilities.Has(document.EditSource) {
+		return fmt.Errorf("art: cannot transfer the imported drawing to this source")
+	}
+	if _, err := b.manager.ReadAssetRecovery(dst, b.limits.MaxFileBytes*2); err == nil {
+		return fmt.Errorf("art: the destination has a pending recovery")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	want, err := snapshot.Encode()
+	if err != nil {
+		return err
+	}
+	source, data, err := b.manager.OpenBinarySource(dst, b.limits.MaxFileBytes)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(data, want) {
+		return fmt.Errorf("art: the new source changed before the drawing was transferred")
+	}
+	if err := b.Session.Document.Publish(snapshot, source.Check); err != nil {
+		return err
+	}
+	if err := b.Session.MarkSnapshotSaved(snapshot); err != nil {
+		return err
+	}
+	old := b.Asset
+	old.Binding = document.AssetBinding{}
+	b.Asset, b.source, b.Draft, b.recoveryHash, b.recoveryCheck = dst, source, false, "", nil
+	b.attachBinding()
+	b.History.MarkSaved()
+	return nil
+}
+
+func (b *Document) editActions() map[document.EditAction]func() error {
+	actions := make(map[document.EditAction]func() error)
+	for _, action := range []document.EditAction{document.ActionCopy, document.ActionCut, document.ActionPaste, document.ActionDelete, document.ActionSelectAll} {
+		actions[action] = func() error {
+			if b.closed {
+				return art.ErrClosed
+			}
+			if action == document.ActionSelectAll {
+				return b.Session.SetSelection("all", nil, 0)
+			}
+			if action == document.ActionCopy {
+				return b.Session.Copy()
+			}
+			if err := b.checkEdit(); err != nil {
+				return err
+			}
+			if action == document.ActionPaste {
+				at := image.Point{}
+				if b.Session.Selection != nil {
+					at = b.Session.Selection.Bounds().Min
+				}
+				return b.Session.Paste(at)
+			}
+			if action == document.ActionCut {
+				if err := b.Session.Copy(); err != nil {
+					return err
+				}
+			}
+			_, err := b.Execute(context.Background(), art.Operation{Kind: "clear"})
+			return err
+		}
+	}
+	return actions
+}
+
 func (b *Document) install(d *art.Document, dirty bool) error {
 	h := history.New(nil)
 	h.SetLimit(b.limits.MaxHistorySteps)
@@ -80,6 +216,13 @@ func (b *Document) install(d *art.Document, dirty bool) error {
 		return err
 	}
 	if b.Session != nil {
+		// Recovery replaces the pixel document, not the user's navigation.
+		// A layer or frame may legitimately have been deleted in the recovered
+		// copy; retain each still-valid selection independently and otherwise
+		// keep the new session's safe default.
+		_ = s.Select(b.Session.Layer, "", "")
+		_ = s.Select("", b.Session.Frame, "")
+		_ = s.Select("", "", b.Session.Channel)
 		b.Session.CancelGesture()
 		b.Session.Document.Close()
 		b.History.Clear()
@@ -110,9 +253,24 @@ func (b *Document) checkEdit() error {
 	}
 	return nil
 }
+
+// CheckDraftInputs is read-only. It allows other authoring workflows to reject
+// a draft whose original image, slicing or surface inputs have changed.
+func (b *Document) CheckDraftInputs() error {
+	if b.closed {
+		return art.ErrClosed
+	}
+	if b.Draft && b.recoveryCheck != nil {
+		return b.recoveryCheck()
+	}
+	return nil
+}
 func (b *Document) Save() error {
 	if err := b.checkEdit(); err != nil {
 		return err
+	}
+	if b.Draft {
+		return fmt.Errorf("art: an imported image needs an explicit destination before saving")
 	}
 	if b.Session.Info().Gesture {
 		return fmt.Errorf("art: finish or cancel the current gesture before saving")
@@ -235,7 +393,14 @@ func (b *Document) Recovery() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(recovery{1, b.source.SHA256(), data})
+	hash := b.recoveryHash
+	if hash == "" {
+		if b.source == nil {
+			return nil, fmt.Errorf("art: recovery has no source identity")
+		}
+		hash = b.source.SHA256()
+	}
+	return json.Marshal(recovery{1, hash, data})
 }
 
 // Recover rejects disk conflicts; the UI must explicitly ask before calling it.
@@ -251,11 +416,27 @@ func (b *Document) Recover() error {
 	if err = json.Unmarshal(data, &r); err != nil {
 		return err
 	}
-	if r.Version != 1 || r.SourceSHA != b.source.SHA256() {
+	hash := b.recoveryHash
+	if hash == "" {
+		if b.source == nil {
+			return fmt.Errorf("art: recovery has no source identity")
+		}
+		hash = b.source.SHA256()
+	}
+	if r.Version != 1 || r.SourceSHA != hash {
 		return fmt.Errorf("art: recovery conflicts with source on disk")
 	}
-	if err = b.source.Check(); err != nil {
-		return err
+	if b.source != nil {
+		if err = b.source.Check(); err != nil {
+			return err
+		}
+	} else if !b.Draft || !b.Asset.Transient {
+		return fmt.Errorf("art: recovery source is unavailable")
+	}
+	if b.recoveryCheck != nil {
+		if err := b.recoveryCheck(); err != nil {
+			return err
+		}
 	}
 	d, err := art.Decode(r.Data, b.limits)
 	if err != nil {

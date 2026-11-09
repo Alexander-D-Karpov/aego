@@ -34,6 +34,9 @@ type AssetDocument struct {
 	Scene                *SceneDocument
 	View                 any
 	Note                 string
+	// Transient documents have no indexed source yet. Path is a display name,
+	// not a filesystem path; their binding must provide an explicit first Save.
+	Transient            bool
 	WorkingPreview       MetadataPreviewState
 	// Bindings adapt an already existing structured editor without duplicating
 	// its mutable document model or introducing another tab manager.
@@ -47,9 +50,24 @@ type MetadataPreviewState struct {
 	Error    string
 }
 
+// EditAction routes shared Edit commands to the focused structured document.
+// A missing action must not fall through to a scene behind that document.
+type EditAction uint8
+
+const (
+	ActionCopy EditAction = iota
+	ActionCut
+	ActionPaste
+	ActionDelete
+	ActionSelectAll
+	ActionDuplicate
+	ActionSaveAs
+)
+
 type AssetBinding struct {
 	// Model owns structured source state; AssetDocument.View remains presentation-only.
 	Model    any
+	Actions  map[EditAction]func() error
 	CanUndo  func() bool
 	CanRedo  func() bool
 	Close    func()
@@ -63,11 +81,20 @@ type AssetBinding struct {
 	PreviewSnapshot func() ([]byte, uint64, error)
 	PreviewCurrent  func(uint64) bool
 	Dirty           func() bool
-	Save            func() error
-	Undo            func() error
-	Redo            func() error
-	Discard         func()
+	// BeforeSave must not write; it protects structured inputs before metadata
+	// or source buffers are saved. SaveUnchanged supports an explicit first Save
+	// for an in-memory source without falsely marking the document dirty.
+	BeforeSave    func() error
+	SaveUnchanged bool
+	Save          func() error
+	Undo          func() error
+	Redo          func() error
+	Discard       func()
 }
+
+// ErrSavePending means a user decision is required and no save has completed.
+// In particular, Save All / Quit must not treat a queued path prompt as success.
+var ErrSavePending = errors.New("save is waiting for a user decision")
 
 func (d *AssetDocument) Dirty() bool {
 	return (d.Source != nil && d.Source.Dirty()) || (d.Metadata != nil && d.Metadata.Dirty()) ||
@@ -98,6 +125,20 @@ func validProjectPath(p string) bool {
 	return p != "" && p != "." && !strings.HasPrefix(p, "/") && p != ".." && !strings.HasPrefix(p, "../") && !strings.Contains(p, ":")
 }
 
+// NewTransientAsset registers an in-memory document in the normal manager so
+// dirty state, history, close and recovery are not bypassed. It creates no
+// source or metadata file. The caller owns the binding and its Save workflow.
+func (m *Manager) NewTransientAsset(id ids.AssetID, title, handler string, kind asset.ArtifactKind, capabilities Capabilities) (*AssetDocument, error) {
+	if m == nil || id.IsZero() || title == "" || handler == "" || !capabilities.Has(View|EditSource) || m.AssetDocument(id) != nil {
+		return nil, fmt.Errorf("invalid or already open in-memory asset document")
+	}
+	m.next++
+	d := &AssetDocument{ID: m.next, Asset: id, Selected: id, Path: title, Handler: handler, Kind: kind,
+		Capabilities: capabilities, Transient: true, Icon: "file.art"}
+	m.assets = append(m.assets, d)
+	return d, nil
+}
+
 // AcquireAsset loads the shared model without activating its presentation.
 // Inspectors use it as well as OpenAsset; neither creates a private file cache.
 func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
@@ -118,6 +159,8 @@ func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
 	fresh := d == nil
 	if fresh {
 		d = &AssetDocument{Asset: req.Asset}
+	} else if d.Transient {
+		return nil, fmt.Errorf("asset identity belongs to an open in-memory document")
 	} else if d.Path != req.Path && !req.ReadOnly {
 		// AssetID is authoritative after external moves/index refreshes: preserve dirty buffers and disk baselines at new paths without letting another open file steal their history.
 		for _, move := range []struct {
@@ -226,6 +269,11 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 	if d == nil {
 		return fmt.Errorf("no asset document")
 	}
+	if d.Binding.BeforeSave != nil {
+		if err := d.Binding.BeforeSave(); err != nil {
+			return err
+		}
+	}
 	for _, s := range []*ScriptDocument{d.Source, d.Metadata} {
 		if s != nil && s.Dirty() {
 			if err := m.SaveScript(s); err != nil {
@@ -238,7 +286,7 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 			return err
 		}
 	}
-	if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
+	if d.Binding.Save != nil && (d.Binding.SaveUnchanged || d.Binding.Dirty != nil && d.Binding.Dirty()) {
 		return d.Binding.Save()
 	}
 	return nil

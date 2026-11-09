@@ -119,6 +119,18 @@ func (p *Panel) ID() string {
 	return ID
 }
 
+// RefreshLanguage updates text without resetting checklist state or callbacks.
+func (p *Panel) RefreshLanguage(entry func(string) (string, string)) {
+	if entry == nil {
+		return
+	}
+	p.Heading, _ = entry("welcome")
+	_, p.Outro = entry("welcome/done")
+	for i := range p.checks {
+		p.checks[i].Title, p.checks[i].Hint = entry("welcome/" + p.checks[i].ID)
+	}
+}
+
 func (p *Panel) Title() string {
 	return i18n.Tr("editor.welcome.title", "Getting Started")
 }

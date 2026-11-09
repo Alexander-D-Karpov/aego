@@ -7,19 +7,38 @@ import (
 	"testing"
 )
 
+// Keep this list independent of sourceHash so additions to its production source
+// inventory require an explicit fixture update rather than being silently lost.
+var siteInputSourceDirs = []string{
+	"art", "tools/artstudio", "anim", "asset", "contracts", "core", "engine", "format", "gpu",
+	"modules/render2d", "modules/particles", "platform", "render", "save", "scene", "schema", "script", "vfs",
+}
+
+func siteInputSourceFixture(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, name := range siteInputSourceDirs {
+		dir := filepath.Join(root, name)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "input.go"), []byte("source for "+name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"go.mod", "go.sum"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("source for "+name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
+}
+
 func TestProductionSiteInputRequiresPinnedRelease(t *testing.T) {
 	const app = "https://aeditor.akarpov.ru"
 	const docs = "https://aego.akarpov.ru"
 	commit := strings.Repeat("a", 40)
-	root := t.TempDir()
-	for _, name := range []string{"art", "tools/artstudio"} {
-		if err := os.MkdirAll(filepath.Join(root, name), 0755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(root, "art", "input.go"), []byte("source"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	root := siteInputSourceFixture(t)
 	source, err := sourceHash(root)
 	if err != nil {
 		t.Fatal(err)
@@ -80,6 +99,71 @@ func TestProductionSiteInputRequiresPinnedRelease(t *testing.T) {
 			_, _, err := verifySiteInput(dir, root, sha, wantCommit, wantApp, wantDocs)
 			if (err == nil) != (name == "valid") {
 				t.Fatalf("verification error = %v", err)
+			}
+		})
+	}
+}
+
+func TestSiteInputSourceFixtureIsHashed(t *testing.T) {
+	inputs := []string{"go.mod", "go.sum"}
+	for _, dir := range siteInputSourceDirs {
+		inputs = append(inputs, filepath.Join(dir, "input.go"))
+	}
+	for _, name := range inputs {
+		t.Run(name, func(t *testing.T) {
+			root := siteInputSourceFixture(t)
+			before, err := sourceHash(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, name), []byte("modified "+name), 0644); err != nil {
+				t.Fatal(err)
+			}
+			after, err := sourceHash(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if before == after {
+				t.Fatalf("sourceHash ignored %s", name)
+			}
+		})
+	}
+}
+
+func TestProductionSiteInputRejectsChangedSource(t *testing.T) {
+	const app = "https://aeditor.akarpov.ru"
+	const docs = "https://aego.akarpov.ru"
+	commit := strings.Repeat("a", 40)
+	root := siteInputSourceFixture(t)
+	source, err := sourceHash(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, m, _ := fixtureArtifact(t, "changed-site-source")
+	m.Release, m.Commit, m.SourceSHA256 = true, commit, source
+	m.AppOrigin, m.DocsOrigins = app, []string{docs, app}
+	manifest := jsonBytes(m)
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), manifest, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range siteInputSourceDirs {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(root, name, "input.go")
+			original, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := os.WriteFile(path, original, 0644); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := os.WriteFile(path, []byte("changed"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = verifySiteInput(dir, root, digest(manifest), commit, app, docs)
+			if err == nil || !strings.Contains(err.Error(), "site source subset differs from the artifact") {
+				t.Fatalf("changed %s accepted or wrong failure: %v", name, err)
 			}
 		})
 	}

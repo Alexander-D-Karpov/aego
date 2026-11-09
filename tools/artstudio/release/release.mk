@@ -8,8 +8,8 @@ ARTSTUDIO_DOCS_ORIGIN ?= http://127.0.0.1:8098
 studio-web-build:
 	go run ./tools/artstudio/release build -out '$(ARTSTUDIO_OUT)' -id '$(ARTSTUDIO_ID)' -app-origin '$(ARTSTUDIO_APP_ORIGIN)' -docs-origin '$(ARTSTUDIO_DOCS_ORIGIN)'
 studio-web-test:
-	go test -race -count=1 ./art ./tools/artstudio/host ./tools/artstudio/release
-	go vet ./art ./tools/artstudio/host ./tools/artstudio/release
+	go test -race -count=1 ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release
+	go vet ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release
 	node --test tools/artstudio/release/tests/*.test.cjs
 studio-web-verify:
 	go run ./tools/artstudio/release verify -dir '$(ARTSTUDIO_OUT)'

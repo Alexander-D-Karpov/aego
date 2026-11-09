@@ -113,11 +113,41 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 	}
 	for _, observable := range fields {
 		field, ok := strings.CutPrefix(observable, component+".")
-		if !ok || field == "" {
+		target, targetComponent := h, component
+		if path, crossNode := strings.CutPrefix(observable, "node:"); crossNode {
+			name, property, valid := strings.Cut(path, ":")
+			if !valid || name == "" || len(name) > 256 {
+				return nil, fmt.Errorf("invalid target node observable %s", observable)
+			}
+			target = sc.Find(sc.Root(), name)
+			if target.IsZero() || !sc.IsAlive(target) {
+				return nil, fmt.Errorf("observable node %s is absent", name)
+			}
+			field, ok = property, strings.HasPrefix(property, "Node.")
+			if !ok {
+				for _, typ := range sc.Registry().Components() {
+					if suffix, has := strings.CutPrefix(property, typ.FullName+"."); has {
+						targetComponent, field, ok = typ.FullName, suffix, true
+						break
+					}
+				}
+			}
+		}
+		if !ok || field == "" || len(observable) > 512 {
 			return nil, fmt.Errorf("unsupported observable %s", observable)
 		}
 		if _, duplicate := out.Observables[observable]; duplicate {
 			return nil, fmt.Errorf("duplicate observable %s", observable)
+		}
+		// Cross-node observations must use that node and its component, never
+		// the selected node handled by the legacy component-specific cases.
+		if target != h || targetComponent != component {
+			value, err := a.observeValue(sc, target, targetComponent, field)
+			if err != nil {
+				return nil, err
+			}
+			out.Observables[observable] = value
+			continue
 		}
 		if component == particles.NameSystem && field == "LiveParticles" {
 			s := particles.Of(a.session.Controller().World())
@@ -220,7 +250,12 @@ func (a *App) inspectTry(component string, fields, dependencies []string) (*Insp
 			}
 		}
 		if fd == nil {
-			return nil, fmt.Errorf("observable field is missing: %s", observable)
+			value, err := a.observeValue(sc, target, targetComponent, field)
+			if err != nil {
+				return nil, err
+			}
+			out.Observables[observable] = value
+			continue
 		}
 		v, err := sc.GetProperty(h, td.ID, fd.ID)
 		if err != nil {

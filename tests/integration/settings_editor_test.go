@@ -1,6 +1,9 @@
 package integration
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -12,6 +15,7 @@ import (
 	"aego/modules/animation"
 	"aego/modules/physics"
 	physset "aego/modules/physics/settings"
+	"aego/platform/input"
 	"aego/project"
 )
 
@@ -113,6 +117,71 @@ func TestAnimationSettingsEditUndoRedoAndApply(t *testing.T) {
 	invalid := &animation.Settings{Events: []animation.EventDesc{{Name: "Land"}, {Name: "Land"}}}
 	if _, err := s.Host.Sections.Node(animation.ID, invalid); err == nil {
 		t.Fatal("duplicate event names must not be saved")
+	}
+
+	// Continue through the real controls after the first Apply. Changes remain
+	// drafts until Apply, and invalid input must not overwrite the project file.
+	apply := func() {
+		t.Helper()
+		click(t, s, mathx.Vec2{X: r.X + th.Padding + 45, Y: r.Y + th.Padding + th.RowHeight/2})
+		s.Step()
+	}
+	name := func(value string) {
+		t.Helper()
+		click(t, s, mathx.Vec2{X: fieldX, Y: fieldY})
+		push(t, s, key(input.KeyA, input.PrimaryMod())...)
+		if value == "" {
+			push(t, s, key(input.KeyBackspace, 0)...)
+		} else {
+			push(t, s, typed(value)...)
+		}
+		push(t, s, key(input.KeyEnter, 0)...)
+		s.Step()
+	}
+	name("TouchDown")
+	apply()
+	file := filepath.Join(s.Host.Project.Root, "project.aego")
+	saved, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = project.Load(s.Host.Project.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err = s.Host.Sections.Decode(animation.ID, loaded.Block(animation.ID))
+	if err != nil || !slices.Equal(decoded.(*animation.Settings).Events, []animation.EventDesc{{Name: "TouchDown", Payload: animation.PayloadFloat}}) {
+		t.Fatalf("renamed event was not saved: %+v, err=%v", decoded, err)
+	}
+	name("")
+	apply()
+	afterInvalid, err := os.ReadFile(file)
+	if err != nil || !bytes.Equal(saved, afterInvalid) || panel.Title() != "Project Settings *" {
+		t.Fatalf("invalid event name changed saved project or cleared the draft: %v", err)
+	}
+	panel.Undo()
+	s.Step()
+	removeY := fieldY + 2*(th.RowHeight+th.Spacing)
+	click(t, s, mathx.Vec2{X: x + innerW/2, Y: removeY})
+	s.Step()
+	if !panel.CanUndo() {
+		t.Fatal("deleting an event did not create shared history")
+	}
+	panel.Undo()
+	s.Step()
+	if !panel.CanRedo() {
+		t.Fatal("event deletion could not be redone")
+	}
+	panel.Redo()
+	s.Step()
+	apply()
+	loaded, err = project.Load(s.Host.Project.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err = s.Host.Sections.Decode(animation.ID, loaded.Block(animation.ID))
+	if err != nil || len(decoded.(*animation.Settings).Events) != 0 {
+		t.Fatalf("event deletion was not persisted: %+v, err=%v", decoded, err)
 	}
 }
 

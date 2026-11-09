@@ -20,5 +20,5 @@
     "en": {"title": "Save a node's position", "description": "The target moves from the gray mark to the blue one, then saves and loads once. Persist normally restores its saved position; the temporary save stays in memory.", "input": "Enable No Transform. The scene restarts, saves and loads again: the omitted transform comes from the scene at the gray mark instead. Reset restores transform persistence."},
     "ru": {"title": "Сохранение позиции узла", "description": "Цель перемещается от серой к голубой отметке, затем один раз сохраняет и загружает игру. Обычно Persist восстанавливает сохранённую позицию; временное сохранение остаётся в памяти.", "input": "Включите No Transform. Сцена перезапустится и снова выполнит сохранение и загрузку: исключённая позиция возьмётся из сцены у серой отметки. «Сброс» вернёт сохранение позиции."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

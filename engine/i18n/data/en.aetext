@@ -3357,7 +3357,7 @@ messages version=1 lang=en {
     text="Among overlapping zones on one bus the highest priority wins, then the one entered later."
   }
   msg "schema.camera.CameraBrain2D" {
-    text="Camera Brain 2D"
+    text="Camera Output Selector 2D"
   }
   msg "schema.camera.CameraBrain2D.doc" {
     text="Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."
@@ -3528,7 +3528,7 @@ messages version=1 lang=en {
     text="Output"
   }
   msg "schema.camera.VirtualCamera2D.output.doc" {
-    text="Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Brain 2D."
+    text="Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Output Selector 2D."
   }
   msg "schema.camera.VirtualCamera2D.priority" {
     text="Priority"

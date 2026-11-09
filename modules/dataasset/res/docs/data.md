@@ -41,12 +41,12 @@ Fields use the same tags and hints as component fields. Short type names (`Enemy
 `.aedata` holds one record:
 
 ```
-data version=1 type="mygame.EnemyStats" base=asset("…") {
+data version=1 type="mygame.EnemyStats" {
   speed=5
 }
 ```
 
-A record starts from the type defaults, copies its base when it has one and applies its own fields. Only fields that differ from the base are written. A base must have the same type; a chain that comes back to itself or is deeper than 16 is an error.
+A record starts from the type defaults, copies its base when it has one and applies its own fields. Only fields that differ from the base are written. To inherit another record, add a `base` attribute containing that record's real AssetID; an ellipsis or file path is not a valid asset reference. A base must have the same type; a chain that comes back to itself or is deeper than 16 is an error.
 
 In the editor, select a `.aedata` asset to edit it in the Inspector. Fields the asset sets are marked on the left; right-click one to revert it to the base. Save writes the file and reimports it.
 

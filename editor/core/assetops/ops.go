@@ -35,6 +35,10 @@ type FileOp struct {
 	Created bool
 	Source  []byte
 	Meta    []byte
+	// A source group is one durable Pipeline transaction, including metadata.
+	// Only CreateSources constructs it; the existing asset undo stack owns it.
+	createdSources []pipeline.SourceEdit
+	createdAssets  map[string]ids.AssetID
 }
 
 type Ops struct {
@@ -133,6 +137,11 @@ func (o *Ops) Redo(ctx *context.Editor) error {
 func runOps(ctx *context.Editor, ops []FileOp, back bool) ([]FileOp, error) {
 	done := make([]FileOp, 0, len(ops))
 	for _, op := range ops {
+		if len(op.createdSources) > 0 {
+			if err := op.checkCreatedSources(ctx, back); err != nil {
+				return nil, err
+			}
+		}
 		if op.Created {
 			if err := op.checkCreated(ctx, back); err != nil {
 				return nil, err
@@ -153,6 +162,9 @@ func runOps(ctx *context.Editor, ops []FileOp, back bool) ([]FileOp, error) {
 }
 
 func (f FileOp) apply(ctx *context.Editor, back bool) error {
+	if len(f.createdSources) > 0 {
+		return f.applyCreatedSources(ctx, back)
+	}
 	if f.Created {
 		return f.created(ctx, back)
 	}

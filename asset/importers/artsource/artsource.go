@@ -192,11 +192,9 @@ func (*Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
 			name := FrameName(f.ID, ch)
 			id := sourceID(ctx.Meta, ctx.ID, name)
 			region := &asset.RegionArtifact{Page: p.page, X: f.Rect.Min.X, Y: f.Rect.Min.Y, W: f.Rect.Dx(), H: f.Rect.Dy(), PageW: p.sheet.Width, PageH: p.sheet.Height, Filter: filter, Pivot: ctx.Meta.Pivot, HasPivot: ctx.Meta.HasPivot}
-			for _, sl := range info.Slices {
-				if sl.Name == "pivot" && (sl.Frame == "" || sl.Frame == f.ID) {
-					region.Pivot = [2]float32{float32(sl.Pivot.X) / float32(info.Canvas.Width), float32(sl.Pivot.Y) / float32(info.Canvas.Height)}
-					region.HasPivot = true
-				}
+			if pivot, ok := info.FramePivot(f.ID); ok {
+				region.Pivot = pixelPivotToNormalized(pivot, info.Canvas.Width, info.Canvas.Height)
+				region.HasPivot = true
 			}
 			deps := []ids.AssetID{p.page}
 			if ch == art.Albedo {

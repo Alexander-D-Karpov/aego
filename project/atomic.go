@@ -1,10 +1,16 @@
 package project
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
+// WriteAtomic writes a complete temporary file before publishing it with a
+// rename. On native systems it flushes the temporary file before publication.
+// This does not sync the containing directory, provide a compare-and-swap, or
+// guarantee power-loss durability of the renamed directory entry.
 func WriteAtomic(abs string, data []byte) error {
 	dir := filepath.Dir(abs)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -25,7 +31,12 @@ func WriteAtomic(abs string, data []byte) error {
 		os.Remove(name)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	var syncErr error
+	// Browser/WASI storage adapters do not offer a portable native file flush.
+	if runtime.GOOS != "js" && runtime.GOOS != "wasip1" {
+		syncErr = tmp.Sync()
+	}
+	if err := errors.Join(syncErr, tmp.Close()); err != nil {
 		os.Remove(name)
 		return err
 	}

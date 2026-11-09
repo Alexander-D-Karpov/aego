@@ -19,5 +19,5 @@
     "en": {"title": "Starting hit points", "description": "The dummy starts with five hit points; the running Health component initializes Current from Max.", "input": "Change Max from 5 to 9. Use A/D to approach and J to strike the dummy; its health bar shows damage. Reset restores the original five."},
     "ru": {"title": "Начальный запас здоровья", "description": "Манекен начинает с пятью очками здоровья; работающий компонент Health устанавливает текущее значение по максимуму.", "input": "Измените Max с 5 на 9. Подойдите клавишами A/D и ударьте манекен клавишей J: полоска покажет урон. «Сброс» вернёт исходные пять."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

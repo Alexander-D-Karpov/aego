@@ -27,6 +27,11 @@ func pollArtSourcePreviews(ed *context.Editor, stamps map[document.ID]artPreview
 		if !ok {
 			continue
 		}
+		// A PNG draft is not an .aeart source. Publishing its ZIP bytes through
+		// the texture importer would be incorrect; wait for explicit linking.
+		if b.Draft {
+			continue
+		}
 		live[d.ID] = true
 		revision := b.PreviewRevision()
 		if revision == 0 {

@@ -17,5 +17,5 @@
     "en": {"title": "Zoom inside a camera zone", "description": "The target is inside the purple zone, so its virtual camera uses the zone's Zoom.", "input": "Change Zoom from 70 to 140 to zoom in while the target remains in the zone. Reset restores 70."},
     "ru": {"title": "Масштаб в зоне камеры", "description": "Цель находится внутри фиолетовой зоны, поэтому виртуальная камера использует масштаб зоны.", "input": "Измените Zoom с 70 на 140, чтобы приблизить изображение, пока цель находится в зоне. Сброс вернёт 70."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

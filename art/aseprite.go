@@ -1,14 +1,12 @@
 package art
 
 import (
-	"bytes"
-	"compress/zlib"
 	"encoding/binary"
 	"fmt"
 	"image"
-	"io"
 	"reflect"
-	"unicode/utf8"
+
+	"aego/art/internal/aseprite"
 )
 
 // ImportDiagnostic identifies discarded non-pixel metadata. Unsupported visual
@@ -19,55 +17,18 @@ type ImportDiagnostic struct {
 	Chunk   uint16 `json:"chunk"`
 	Message string `json:"message"`
 }
-type aseReader struct {
-	b   []byte
-	at  int
-	err error
-}
 
-func (r *aseReader) take(n int) []byte {
-	if r.err != nil {
-		return nil
-	}
-	if n < 0 || n > len(r.b)-r.at {
-		r.err = io.ErrUnexpectedEOF
-		return nil
-	}
-	v := r.b[r.at : r.at+n]
-	r.at += n
-	return v
-}
-func (r *aseReader) u8() uint8 {
-	b := r.take(1)
-	if b == nil {
-		return 0
-	}
-	return b[0]
-}
-func (r *aseReader) u16() uint16 {
-	b := r.take(2)
-	if b == nil {
-		return 0
-	}
-	return binary.LittleEndian.Uint16(b)
-}
-func (r *aseReader) u32() uint32 {
-	b := r.take(4)
-	if b == nil {
-		return 0
-	}
-	return binary.LittleEndian.Uint32(b)
-}
-func (r *aseReader) i16() int { return int(int16(r.u16())) }
-func (r *aseReader) i32() int { return int(int32(r.u32())) }
-func (r *aseReader) text() string {
-	n := int(r.u16())
-	b := r.take(n)
-	if !utf8.Valid(b) {
-		r.err = fmt.Errorf("invalid UTF-8")
-	}
-	return string(b)
-}
+// Keep parsing vocabulary local to the Art adapter while wire mechanics live
+// in the internal codec; no Art document or state crosses that boundary.
+type aseReader struct{ *aseprite.Reader }
+
+func (r *aseReader) take(n int) []byte { return r.Take(n) }
+func (r *aseReader) u8() uint8         { return r.U8() }
+func (r *aseReader) u16() uint16       { return r.U16() }
+func (r *aseReader) u32() uint32       { return r.U32() }
+func (r *aseReader) i16() int          { return r.I16() }
+func (r *aseReader) i32() int          { return r.I32() }
+func (r *aseReader) text() string      { return r.Text() }
 
 type aseLayer struct {
 	flags       uint16
@@ -89,10 +50,11 @@ type aseTag struct {
 	direction Direction
 }
 type aseSlice struct {
-	name  string
-	frame int
-	rect  image.Rectangle
-	pivot image.Point
+	name   string
+	frame  int
+	rect   image.Rectangle
+	pivot  image.Point
+	global bool
 }
 type aseImport struct {
 	layers        []aseLayer
@@ -129,7 +91,7 @@ func ImportAseprite(data []byte, limits Limits) (*Document, []ImportDiagnostic, 
 	if len(data) < 128 || int64(len(data)) > l.MaxFileBytes {
 		return fail(ErrLimit)
 	}
-	h := aseReader{b: data[:128]}
+	h := aseReader{aseprite.NewReader(data[:128])}
 	size := h.u32()
 	magic := h.u16()
 	frames := int(h.u16())
@@ -168,60 +130,10 @@ func ImportAseprite(data []byte, limits Limits) (*Document, []ImportDiagnostic, 
 	for i := range a.palette {
 		a.palette[i].Color.A = 255
 	}
-	off := 128
-	totalChunks := uint64(0)
-	for frame := 0; frame < frames; frame++ {
-		if off > len(data)-16 {
-			return fail(io.ErrUnexpectedEOF)
-		}
-		r := aseReader{b: data[off:]}
-		frameSize := int64(r.u32())
-		fm := r.u16()
-		oldCount := r.u16()
-		duration := int(r.u16())
-		r.take(2)
-		newCount := r.u32()
-		if frameSize < 16 || frameSize > int64(len(data)-off) || fm != 0xf1fa {
-			return fail(fmt.Errorf("invalid frame %d", frame))
-		}
-		count := uint32(oldCount)
-		if newCount != 0 {
-			count = newCount
-		}
-		totalChunks += uint64(count)
-		if totalChunks > 65536 || uint64(count) > uint64(frameSize-16)/6 {
-			return fail(fmt.Errorf("invalid chunk count"))
-		}
-		if duration == 0 {
-			duration = speed
-		}
-		if duration < 1 {
-			duration = 100
-		}
+	if err := aseprite.ReadFrames(data, frames, speed, func(duration int) {
 		a.frames = append(a.frames, duration)
-		end := off + int(frameSize)
-		pos := off + 16
-		for ci := uint32(0); ci < count; ci++ {
-			if pos > end-6 {
-				return fail(io.ErrUnexpectedEOF)
-			}
-			n := int64(binary.LittleEndian.Uint32(data[pos:]))
-			kind := binary.LittleEndian.Uint16(data[pos+4:])
-			if n < 6 || n > int64(end-pos) {
-				return fail(fmt.Errorf("invalid chunk size at frame %d", frame))
-			}
-			if err := a.chunk(frame, kind, data[pos+6:pos+int(n)]); err != nil {
-				return fail(fmt.Errorf("frame %d chunk %#x: %w", frame, kind, err))
-			}
-			pos += int(n)
-		}
-		if pos != end {
-			return fail(fmt.Errorf("trailing frame bytes"))
-		}
-		off = end
-	}
-	if off != len(data) {
-		return fail(fmt.Errorf("trailing file bytes"))
+	}, a.chunk); err != nil {
+		return fail(err)
 	}
 	if len(a.layers) == 0 {
 		return fail(fmt.Errorf("no layers"))
@@ -359,7 +271,11 @@ func ImportAseprite(data []byte, limits Limits) (*Document, []ImportDiagnostic, 
 		if v.frame < 0 || v.frame >= len(s.Frames) {
 			return fail(fmt.Errorf("invalid slice frame"))
 		}
-		s.Slices = append(s.Slices, Slice{d.allocate(), v.name, s.Frames[v.frame].ID, v.rect, v.pivot})
+		frame := ID("")
+		if !v.global {
+			frame = s.Frames[v.frame].ID
+		}
+		s.Slices = append(s.Slices, Slice{d.allocate(), v.name, frame, v.rect, v.pivot})
 	}
 	if err = s.validate(l); err != nil {
 		return fail(err)
@@ -368,7 +284,7 @@ func ImportAseprite(data []byte, limits Limits) (*Document, []ImportDiagnostic, 
 	return d, a.diagnostics, nil
 }
 func (a *aseImport) chunk(frame int, kind uint16, b []byte) error {
-	r := aseReader{b: b}
+	r := aseReader{aseprite.NewReader(b)}
 	switch kind {
 	case 0x2004:
 		if frame != 0 {
@@ -431,31 +347,20 @@ func (a *aseImport) chunk(frame int, kind uint16, b []byte) error {
 				return ErrLimit
 			}
 			a.decoded += n
-			if r.err != nil {
-				return r.err
+			if r.Err() != nil {
+				return r.Err()
 			}
-			raw := r.take(len(b) - r.at)
+			raw := r.take(len(b) - r.Offset())
 			if typ == 0 {
 				if int64(len(raw)) != n {
 					return fmt.Errorf("raw cel size mismatch")
 				}
 				c.raw = append([]byte(nil), raw...)
 			} else {
-				source := bytes.NewReader(raw)
-				z, err := zlib.NewReader(source)
+				var err error
+				c.raw, err = aseprite.InflateExact(raw, n)
 				if err != nil {
 					return err
-				}
-				c.raw, err = io.ReadAll(io.LimitReader(z, n+1))
-				closeErr := z.Close()
-				if err != nil {
-					return err
-				}
-				if closeErr != nil {
-					return closeErr
-				}
-				if int64(len(c.raw)) != n || source.Len() != 0 {
-					return fmt.Errorf("compressed cel size mismatch or trailing data")
 				}
 			}
 		default:
@@ -566,6 +471,7 @@ func (a *aseImport) chunk(frame int, kind uint16, b []byte) error {
 		}
 		for i := int64(0); i < count; i++ {
 			v := aseSlice{name: name, frame: int(r.u32())}
+			v.global = count == 1 && v.frame == 0
 			x, y := r.i32(), r.i32()
 			w, h := int64(r.u32()), int64(r.u32())
 			if w > int64(a.lim.MaxDimension) || h > int64(a.lim.MaxDimension) || x < -a.lim.MaxDimension || y < -a.lim.MaxDimension || x > a.lim.MaxDimension || y > a.lim.MaxDimension {
@@ -576,9 +482,19 @@ func (a *aseImport) chunk(frame int, kind uint16, b []byte) error {
 				r.take(16)
 			}
 			if flags&2 != 0 {
-				v.pivot = image.Pt(r.i32(), r.i32())
+				// Aseprite pivots are relative to the slice origin; Aego's
+				// frame pivot is in canvas coordinates. Bound the sum even on
+				// 32-bit hosts before converting it back to an int.
+				px, py := int64(x)+int64(r.i32()), int64(y)+int64(r.i32())
+				if px < -1<<31 || px > 1<<31-1 || py < -1<<31 || py > 1<<31-1 {
+					return ErrLimit
+				}
+				v.pivot = image.Pt(int(px), int(py))
 			}
 			a.slices = append(a.slices, v)
+		}
+		if count > 1 || count == 1 && a.slices[len(a.slices)-1].frame != 0 {
+			a.note(frame, kind, "slice-keyframe-timing", "Aseprite slice keys persist until the next key; Aego currently retains each key only on its specified frame")
 		}
 		if flags&1 != 0 {
 			a.note(frame, kind, "slice-ninepatch", "Nine-patch center is not retained; slice bounds and pivot are retained")
@@ -592,10 +508,10 @@ func (a *aseImport) chunk(frame int, kind uint16, b []byte) error {
 	default:
 		return fmt.Errorf("unsupported chunk %#x", kind)
 	}
-	if r.err != nil {
-		return r.err
+	if r.Err() != nil {
+		return r.Err()
 	}
-	if r.at != len(b) {
+	if r.Offset() != len(b) {
 		return fmt.Errorf("unexpected chunk trailing data")
 	}
 	return nil

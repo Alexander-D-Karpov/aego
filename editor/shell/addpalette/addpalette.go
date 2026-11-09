@@ -256,7 +256,7 @@ func (s *Service) components() {
 		e := entry{kind: kindComp, td: td}
 		why := s.fit(sc, td, &e)
 		s.entries = append(s.entries, e)
-		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Category: paletteCategory(meta.Category), Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
+		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Keywords: schema.SearchNames(td), Category: paletteCategory(meta.Category), Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
 	}
 }
 

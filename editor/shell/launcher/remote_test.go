@@ -9,12 +9,93 @@ import (
 	"time"
 
 	"aego/project"
+	"aego/project/remoteexample"
 )
 
 type remoteCall struct {
 	kind, source, origin, id string
 	clone                    bool
 }
+
+func TestProtocolLinkRequiresConfirmationAndCannotReplacePendingRequest(t *testing.T) {
+	copy := remoteTestCopy(t, false)
+	fake := &fakeRemote{calls: make(chan remoteCall, 4), copy: copy}
+	l := New(Options{Remote: fake})
+	defer l.Close()
+	for _, raw := range []string{
+		"aego://example?manifest=http%3A%2F%2Fexample.com%2Fx",
+		"aego://example?manifest=https%3A%2F%2Fexample.com%2Fx&command=rm",
+		"aego://example?manifest=https%3A%2F%2Fexample.com%2Fx&path=%2Ftmp%2Fproject",
+		"aego://example?manifest=https%3A%2F%2Fexample.com%2Fx&mode=play",
+	} {
+		if err := l.RequestExampleLink(raw); err == nil || l.remote.pending != nil {
+			t.Fatalf("unsafe OS request was accepted: %s", raw)
+		}
+	}
+	raw, err := remoteexample.MakeLink(copy.Source, "scene")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.RequestExampleLink(raw); err != nil {
+		t.Fatal(err)
+	}
+	if l.Tab() != TabExamples || !l.remote.fromLink || l.remote.pending == nil || l.remote.pending.origin != "https://example.com" || l.remote.pending.source != copy.Source {
+		t.Fatal("OS request did not show the frozen source confirmation")
+	}
+	if _, ok := l.Result(); ok {
+		t.Fatal("OS request selected a project without confirmation")
+	}
+	select {
+	case <-fake.calls:
+		t.Fatal("OS request accessed the network before confirmation")
+	default:
+	}
+	other, _ := remoteexample.MakeLink("https://other.example/project.json", "project")
+	if err := l.RequestExampleLink(other); err == nil || l.remote.pending.source != copy.Source {
+		t.Fatal("second OS request replaced an unconfirmed source")
+	}
+	req := *l.remote.pending
+	l.remote.pending = nil
+	l.startRemote(req)
+	call := <-fake.calls
+	if call.source != copy.Source || call.origin != "https://example.com" {
+		t.Fatal("confirmation changed its origin")
+	}
+	waitRemote(t, l)
+	if root, ok := l.Result(); !ok || root != copy.Directory {
+		t.Fatal("confirmed protocol request did not open local project")
+	}
+}
+
+func TestDroppedProtocolLinkWaitsForConfirmation(t *testing.T) {
+	copy := remoteTestCopy(t, false)
+	fake := &fakeRemote{calls: make(chan remoteCall, 1), copy: copy}
+	l := New(Options{Remote: fake})
+	defer l.Close()
+	link, err := remoteexample.MakeLink(copy.Source, "scene")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !l.Drop(link) || l.remote.pending == nil || l.remote.pending.origin != "https://example.com" {
+		t.Fatal("dropped URL did not prepare the source confirmation")
+	}
+	if _, ok := l.Result(); ok {
+		t.Fatal("dropped URL chose a project before confirmation")
+	}
+	select {
+	case call := <-fake.calls:
+		t.Fatalf("dropped URL started a remote operation before confirmation: %+v", call)
+	default:
+	}
+	other, err := remoteexample.MakeLink("https://other.example/other.json", "project")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.Drop(other) || l.remote.pending == nil || l.remote.pending.source != copy.Source {
+		t.Fatal("second dropped URL replaced the unconfirmed request")
+	}
+}
+
 type fakeRemote struct {
 	calls chan remoteCall
 	copy  RemoteCopy

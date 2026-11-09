@@ -38,7 +38,10 @@ func command(root string, env []string, args ...string) ([]byte, error) {
 }
 func sourceHash(root string) (string, error) {
 	var paths []string
-	for _, dir := range []string{"art", "tools/artstudio"} {
+	// Include renderer/module dependencies and their embedded resources too:
+	// the lazy preview belongs to this exact artifact, not to a separately
+	// versioned or silently changing runtime.
+	for _, dir := range []string{"art", "tools/artstudio", "anim", "asset", "contracts", "core", "engine", "format", "gpu", "modules/render2d", "modules/particles", "platform", "render", "save", "scene", "schema", "script", "vfs"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d fs.DirEntry, e error) error {
 			if e != nil {
 				return e
@@ -83,12 +86,26 @@ func asset(out, name string, b []byte) (string, error) {
 	p := "assets/" + name
 	return p, writeNew(filepath.Join(out, filepath.FromSlash(p)), b)
 }
+
+func standaloneDependencyAllowed(p string) bool {
+	switch p {
+	case "aego/art", "aego/art/internal/aseprite", "aego/tools/artstudio/host", "aego/tools/artstudio/wasm":
+		return true
+	default:
+		return !strings.HasPrefix(p, "aego/")
+	}
+}
+
 func build(o buildOptions) (buildManifest, error) {
 	var m buildManifest
 	if !identifier.MatchString(o.ID) || !validOrigin(o.Origin, o.Release) || !validOrigin(o.DocsOrigin, o.Release) {
 		return m, fmt.Errorf("invalid build ID/origins")
 	}
 	root, e := filepath.Abs(o.Root)
+	if e != nil {
+		return m, e
+	}
+	engineVersion, e := sourceEngineVersion(root)
 	if e != nil {
 		return m, e
 	}
@@ -137,13 +154,27 @@ func build(o buildOptions) (buildManifest, error) {
 			o.Epoch = time.Now().Unix()
 		}
 	}
-	deps, e := command(root, []string{"GOOS=js", "GOARCH=wasm"}, "go", "list", "-deps", "./tools/artstudio/wasm")
+	deps, e := command(root, []string{"GOOS=js", "GOARCH=wasm"}, "go", "list", "-buildvcs=false", "-deps", "./tools/artstudio/wasm")
 	if e != nil {
 		return m, e
 	}
 	for _, p := range strings.Fields(string(deps)) {
-		if strings.HasPrefix(p, "aego/") && p != "aego/art" && p != "aego/tools/artstudio/host" && p != "aego/tools/artstudio/wasm" {
+		if !standaloneDependencyAllowed(p) {
 			return m, fmt.Errorf("unexpected engine dependency in standalone WASM: %s", p)
+		}
+	}
+	previewDeps, e := command(root, []string{"GOOS=js", "GOARCH=wasm"}, "go", "list", "-buildvcs=false", "-deps", "./tools/artstudio/previewwasm")
+	if e != nil {
+		return m, e
+	}
+	for _, p := range strings.Fields(string(previewDeps)) {
+		for _, forbidden := range []string{"aego/app/", "aego/editor/", "aego/project/", "aego/asset/pipeline", "aego/asset/importers/"} {
+			if strings.HasPrefix(p, forbidden) {
+				return m, fmt.Errorf("desktop/import dependency in preview WASM: %s", p)
+			}
+		}
+		if strings.HasPrefix(p, "aego/modules/") && p != "aego/modules/render2d" && p != "aego/modules/particles" {
+			return m, fmt.Errorf("unneeded runtime module in preview WASM: %s", p)
 		}
 	}
 	if e = os.MkdirAll(filepath.Dir(out), 0755); e != nil {
@@ -172,6 +203,24 @@ func build(o buildOptions) (buildManifest, error) {
 	if e != nil {
 		return m, e
 	}
+	previewFile := filepath.Join(tmp, "preview.wasm")
+	if _, e = command(root, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, "go", "build", "-buildvcs=false", "-trimpath", "-o", previewFile, "./tools/artstudio/previewwasm"); e != nil {
+		return m, e
+	}
+	preview, e := os.ReadFile(previewFile)
+	if e != nil {
+		return m, e
+	}
+	if e = os.Remove(previewFile); e != nil {
+		return m, e
+	}
+	if len(preview) > 32<<20 {
+		return m, fmt.Errorf("lazy GPU preview WASM exceeds 32 MiB budget")
+	}
+	previewName, e := asset(tmp, "preview.wasm", preview)
+	if e != nil {
+		return m, e
+	}
 	goroot, e := command(root, nil, "go", "env", "GOROOT")
 	if e != nil {
 		return m, e
@@ -189,7 +238,7 @@ func build(o buildOptions) (buildManifest, error) {
 	if e != nil {
 		return m, e
 	}
-	for _, name := range []string{"studio.js", "studio.css", "recovery.js"} {
+	for _, name := range []string{"studio.js", "studio.css", "recovery.js", "gpu-preview.js"} {
 		b, e := os.ReadFile(filepath.Join(root, "tools/artstudio/web", name))
 		if e != nil {
 			return m, e
@@ -213,10 +262,23 @@ func build(o buildOptions) (buildManifest, error) {
 	if e != nil {
 		return m, e
 	}
-	config := map[string]any{"protocol": embedProtocolVersion, "documentVersion": art.FormatVersion, "buildID": o.ID, "commit": commit, "snapshot": !o.Release, "sourceSHA256": source, "appOrigin": o.Origin, "docsOrigins": []string{o.DocsOrigin, o.Origin}, "wasmPath": wasmName, "examples": examples, "maxDocumentBytes": 64 << 20}
+	templates, e := writeEffectTemplates(tmp, filepath.Join(root, "art/res/effects"))
+	if e != nil {
+		return m, e
+	}
+	for _, pair := range [][2]string{{"upstream/point4frames.aseprite", "point4frames.aseprite"}, {"LICENSE.txt", "LICENSE.txt"}, {"README.md", "PROVENANCE.md"}} {
+		b, err := os.ReadFile(filepath.Join(root, "art/testdata/aseprite", pair[0]))
+		if err != nil {
+			return m, err
+		}
+		if err = writeNew(filepath.Join(tmp, "examples/aseprite", pair[1]), b); err != nil {
+			return m, err
+		}
+	}
+	config := map[string]any{"protocol": embedProtocolVersion, "documentVersion": art.FormatVersion, "buildID": o.ID, "commit": commit, "snapshot": !o.Release, "sourceSHA256": source, "appOrigin": o.Origin, "docsOrigins": []string{o.DocsOrigin, o.Origin}, "wasmPath": wasmName, "previewWasmPath": previewName, "examples": examples, "maxDocumentBytes": 64 << 20}
 	cb := jsonBytes(config)
 	configJS := append([]byte("'use strict';\nwindow.AegoStudioRelease = "), cb...)
-	configJS = append(configJS, []byte(";\nwindow.AegoStudioRelease.baseURL = new URL('../', document.currentScript.src).href;\nwindow.AegoStudioRelease.wasmURL = new URL(window.AegoStudioRelease.wasmPath, window.AegoStudioRelease.baseURL).href;\nObject.freeze(window.AegoStudioRelease);\n")...)
+	configJS = append(configJS, []byte(";\nwindow.AegoStudioRelease.baseURL = new URL('../', document.currentScript.src).href;\nwindow.AegoStudioRelease.wasmURL = new URL(window.AegoStudioRelease.wasmPath, window.AegoStudioRelease.baseURL).href;\nwindow.AegoStudioRelease.previewWasmURL = new URL(window.AegoStudioRelease.previewWasmPath, window.AegoStudioRelease.baseURL).href;\nObject.freeze(window.AegoStudioRelease);\n")...)
 	names["config.js"], e = asset(tmp, "config.js", configJS)
 	if e != nil {
 		return m, e
@@ -238,13 +300,16 @@ func build(o buildOptions) (buildManifest, error) {
 			return m, e
 		}
 	}
-	if e = writeLanding(tmp, names, examples, o.ID, !o.Release); e != nil {
+	if e = writeLanding(tmp, names, examples, templates, o.ID, !o.Release); e != nil {
 		return m, e
 	}
 	if e = writeGuides(tmp, names, examples, o); e != nil {
 		return m, e
 	}
 	if e = writeNew(filepath.Join(tmp, "dependency-audit.txt"), deps); e != nil {
+		return m, e
+	}
+	if e = writeNew(filepath.Join(tmp, "preview-dependency-audit.txt"), previewDeps); e != nil {
 		return m, e
 	}
 	// Precompression is deterministic; both encoded and decoded bytes are inventoried.
@@ -272,6 +337,9 @@ func build(o buildOptions) (buildManifest, error) {
 		if f.Path == wasmName && gz.Len() > 3<<20 {
 			return m, fmt.Errorf("compressed WASM exceeds 3 MiB budget")
 		}
+		if f.Path == previewName && gz.Len() > 10<<20 {
+			return m, fmt.Errorf("compressed lazy GPU preview WASM exceeds 10 MiB budget")
+		}
 		if e = writeNew(filepath.Join(tmp, filepath.FromSlash(f.Path+".gz")), gz.Bytes()); e != nil {
 			return m, e
 		}
@@ -281,6 +349,9 @@ func build(o buildOptions) (buildManifest, error) {
 		return m, e
 	}
 	m = buildManifest{Schema: manifestVersion, AegoVersion: o.AegoVersion, StudioVersion: "12.5-integration", DocumentVersion: art.FormatVersion, ProtocolVersion: embedProtocolVersion, BuildID: o.ID, Commit: commit, SourceSHA256: source, BuiltAt: time.Unix(o.Epoch, 0).UTC().Format(time.RFC3339), Toolchain: runtime.Version(), Release: o.Release, AppOrigin: o.Origin, DocsOrigins: []string{o.DocsOrigin, o.Origin}, WASM: resource{wasmName, int64(len(wasm)), digest(wasm), mimeFor(wasmName)}, Examples: examples, Files: files}
+	m.PreviewWASM = &resource{previewName, int64(len(preview)), digest(preview), mimeFor(previewName)}
+	m.EngineSourceVersion = engineVersion
+	m.Templates = templates
 	if e = writeNew(filepath.Join(tmp, "manifest.json"), jsonBytes(m)); e != nil {
 		return m, e
 	}

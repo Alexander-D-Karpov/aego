@@ -11,7 +11,6 @@ import (
 	"aego/asset/importers/scenefile"
 	scriptImporter "aego/asset/importers/script"
 	shaderImporter "aego/asset/importers/shader"
-	texImporter "aego/asset/importers/texture"
 	"aego/asset/pipeline"
 	"aego/core/errs"
 	"aego/core/log"
@@ -22,7 +21,7 @@ import (
 func CoreImporters() (*pipeline.ImporterRegistry, error) {
 	reg := pipeline.NewImporterRegistry()
 	for _, imp := range []pipeline.Importer{
-		atlas.Wrap(texImporter.New()),
+		atlas.Wrap(artsource.NewTexture()),
 		artsource.New(),
 		scenefile.NewScene(),
 		scenefile.NewPrefab(),

@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"strconv"
@@ -40,6 +41,7 @@ type modal struct {
 	ask     context.Question
 	vals    []string
 	focus   bool
+	scroll  widgets.ScrollState
 }
 
 func (a *App) push(m modal) {
@@ -121,7 +123,9 @@ func (a *App) drawModals() {
 		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.quit_aego_editor", "Quit Aego Editor"), msg, i18n.Tr("editor.shell.save_all", "Save All"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.cancel", "Cancel")) {
 		case 0:
 			if err := docs.SaveAll(); err != nil {
-				a.ctx.Notify(context.LevelError, err.Error())
+				if !errors.Is(err, document.ErrSavePending) {
+					a.ctx.Notify(context.LevelError, err.Error())
+				}
 				a.pop()
 				return
 			}
@@ -220,6 +224,86 @@ func (a *App) drawAbout(id core.ID) {
 	}
 }
 
+type promptLayout struct {
+	window, body mathx.Rect
+	content      float32
+	fields       []float32
+	buttons      [2]mathx.Rect
+}
+
+// Prompts share the existing modal, wrapping and scroll widgets. Keep actions
+// outside the scrollable content so a long warning or translated label never
+// hides confirmation, cancellation or a field below the window.
+func layoutPrompt(ui *core.Context, q context.Question, labels [2]string) promptLayout {
+	th, size := &ui.Theme, ui.Size()
+	preferred := float32(460)
+	buttonWidth := [2]float32{}
+	for i, label := range labels {
+		buttonWidth[i] = max(float32(88), ui.TextSize(label).X+28)
+	}
+	preferred = max(preferred, min(float32(680), ui.TextSize(q.Title).X+2*th.Padding), min(float32(680), buttonWidth[0]+buttonWidth[1]+th.Spacing+2*th.Padding))
+	w := max(float32(1), min(preferred, size.X-40))
+	inner := max(float32(1), w-2*th.Padding)
+	buttonHeight := [2]float32{}
+	for i, label := range labels {
+		buttonWidth[i] = min(inner, buttonWidth[i])
+		buttonHeight[i] = float32(max(1, len(widgets.WrapLines(ui, label, max(float32(1), buttonWidth[i]-28))))) * th.RowHeight
+	}
+	stacked := buttonWidth[0]+th.Spacing+buttonWidth[1] > inner
+	buttonsH := max(buttonHeight[0], buttonHeight[1])
+	if stacked {
+		buttonsH = buttonHeight[0] + th.Spacing + buttonHeight[1]
+	}
+	contentSize := func(width float32) (float32, []float32) {
+		rows := len(widgets.WrapLines(ui, q.Title, width)) + len(widgets.WrapLines(ui, q.Message, width))
+		fields := make([]float32, len(q.Fields))
+		for i, field := range q.Fields {
+			rows += len(widgets.WrapLines(ui, field, width))
+			fields[i] = float32(rows) * (th.RowHeight + th.Spacing)
+			rows++
+		}
+		return max(float32(0), float32(rows)*(th.RowHeight+th.Spacing)-th.Spacing), fields
+	}
+	bodyW := inner
+	content, fields := contentSize(bodyW)
+	available := max(float32(0), size.Y-40-2*th.Padding-th.Spacing-buttonsH)
+	if content > available {
+		bodyW = max(float32(1), inner-th.ScrollbarW-th.Spacing)
+		content, fields = contentSize(bodyW)
+	}
+	visible := min(content, available)
+	h := 2*th.Padding + visible + th.Spacing + buttonsH
+	window := mathx.Rect{X: (size.X - w) / 2, Y: max(float32(0), (size.Y-h)/3), W: w, H: h}
+	l := promptLayout{window: window, body: mathx.Rect{X: window.X + th.Padding, Y: window.Y + th.Padding, W: bodyW, H: visible}, content: content, fields: fields}
+	right, bottom := window.X+w-th.Padding, window.Y+h-th.Padding
+	l.buttons[1] = mathx.Rect{X: right - buttonWidth[1], Y: bottom - buttonHeight[1], W: buttonWidth[1], H: buttonHeight[1]}
+	l.buttons[0] = mathx.Rect{X: l.buttons[1].X - th.Spacing - buttonWidth[0], Y: bottom - buttonsH, W: buttonWidth[0], H: buttonHeight[0]}
+	if stacked {
+		l.buttons[0].X = right - buttonWidth[0]
+	}
+	return l
+}
+
+func promptButton(ui *core.Context, id core.ID, r mathx.Rect, label string, destructive bool) bool {
+	textColor := ui.Theme.Text
+	var clicked bool
+	if destructive {
+		clicked = ui.Clicked(id, r)
+		bg := ui.Theme.DestructiveButton(ui.Hot() == id, ui.Active() == id)
+		ui.Box(r, ui.Theme.Radius.Button, bg, ui.Theme.Border)
+		textColor = mathx.White
+	} else {
+		clicked = widgets.ButtonRect(ui, id, r, "")
+	}
+	lines := widgets.WrapLines(ui, label, max(float32(1), r.W-28))
+	y := r.Y + (r.H-float32(len(lines))*ui.Theme.RowHeight)/2
+	for _, line := range lines {
+		ui.TextIn(mathx.Rect{X: r.X, Y: y, W: r.W, H: ui.Theme.RowHeight}, line, textColor, core.AlignCenter)
+		y += ui.Theme.RowHeight
+	}
+	return clicked
+}
+
 func (a *App) drawPrompt(id core.ID) {
 	ui := a.ui
 	th := &ui.Theme
@@ -228,19 +312,20 @@ func (a *App) drawPrompt(id core.ID) {
 	for len(md.vals) < len(q.Fields) {
 		md.vals = append(md.vals, "")
 	}
-	rows := 2 + 2*len(q.Fields)
-	if q.Message != "" {
-		rows++
+	labels := [2]string{i18n.Tr("editor.common.ok", "OK"), i18n.Tr("editor.common.cancel", "Cancel")}
+	for i := range min(len(q.Buttons), len(labels)) {
+		labels[i] = q.Buttons[i]
 	}
-	sz := ui.Size()
-	w := min(float32(460), sz.X-40)
-	r := mathx.Rect{X: (sz.X - w) / 2, Y: sz.Y / 3, W: w, H: float32(rows)*(th.RowHeight+th.Spacing) + th.Padding*4}
-	if !ui.BeginModal(id, r) {
+	// Reserve room for either label before drawing the input. The callback is
+	// evaluated again after text input so the red action follows the typed path
+	// in the same frame, including when Enter submits it.
+	layoutLabels := labels
+	if q.DestructiveLabel != "" && ui.TextSize(q.DestructiveLabel).X > ui.TextSize(layoutLabels[0]).X {
+		layoutLabels[0] = q.DestructiveLabel
+	}
+	l := layoutPrompt(ui, q, layoutLabels)
+	if !ui.BeginModal(id, l.window) {
 		return
-	}
-	widgets.Label(ui, q.Title)
-	if q.Message != "" {
-		widgets.LabelDim(ui, q.Message)
 	}
 	base := ui.ID("prompt")
 	submit, escape := false, false
@@ -248,13 +333,95 @@ func (a *App) drawPrompt(id core.ID) {
 	// opened prompt or remove focus from its text field in the same frame.
 	opening := md.focus
 	openingEnter := opening && (ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter))
+	// Choice prompts support Tab and arrow selection without changing the
+	// established submission behavior of existing text-only questions.
+	if len(q.Choices) > 0 && !opening && ui.KeyPressed(input.KeyTab) && len(q.Fields) > 0 {
+		at := 0
+		for i := range q.Fields {
+			if ui.Focus() == core.IDSeq(base, i) {
+				at = i
+				break
+			}
+		}
+		delta := 1
+		if ui.Mods().Has(input.ModShift) {
+			delta = -1
+		}
+		ui.CloseAllPopups()
+		ui.SetFocus(core.IDSeq(base, (at+delta+len(q.Fields))%len(q.Fields)))
+	}
+	scroll := ui.ModalScroll()
+	if opening {
+		*scroll = 0
+	}
+	maxScroll := max(float32(0), l.content-l.body.H)
+	*scroll = mathx.Clamp(*scroll, 0, maxScroll)
+	if ui.MouseOver(ui.ID("prompt.scroll"), l.body) {
+		*scroll = mathx.Clamp(*scroll-ui.ScrollY(th.RowHeight*3), 0, maxScroll)
+	}
+	// Keyboard navigation and typing keep the active field reachable, while
+	// opening a prompt initially shows the complete start of its warning.
+	if !opening && (ui.KeyPressed(input.KeyTab) || len(ui.TextInput()) > 0) {
+		for i, top := range l.fields {
+			if ui.Focus() != core.IDSeq(base, i) {
+				continue
+			}
+			if top < *scroll {
+				*scroll = top
+			} else if top+th.RowHeight > *scroll+l.body.H {
+				*scroll = top + th.RowHeight - l.body.H
+			}
+			*scroll = mathx.Clamp(*scroll, 0, maxScroll)
+		}
+	}
+	ui.PushClip(l.body)
+	*ui.Cursor() = core.Cursor{X: l.body.X, Y: l.body.Y - *scroll, W: l.body.W, RowH: th.RowHeight, Space: th.Spacing}
+	widgets.LabelWrapped(ui, q.Title, false)
+	widgets.LabelWrapped(ui, q.Message, true)
 	for i, f := range q.Fields {
-		widgets.LabelDim(ui, f)
+		widgets.LabelWrapped(ui, f, true)
 		fid := core.IDSeq(base, i)
+		var choices []string
+		if i < len(q.Choices) {
+			choices = q.Choices[i]
+		}
 		if md.focus && i == 0 && !openingEnter {
 			ui.SetFocus(fid)
-			ui.EditBuffer(fid, md.vals[i]).SelectAll()
+			if len(choices) == 0 {
+				ui.EditBuffer(fid, md.vals[i]).SelectAll()
+			}
 			md.focus = false
+		}
+		if len(choices) > 0 {
+			selected := 0
+			for n, value := range choices {
+				if value == md.vals[i] {
+					selected = n
+					break
+				}
+			}
+			if !opening && ui.Focus() == fid {
+				if ui.KeyPressed(input.KeyDown) || ui.KeyPressed(input.KeyRight) {
+					selected = (selected + 1) % len(choices)
+				}
+				if ui.KeyPressed(input.KeyUp) || ui.KeyPressed(input.KeyLeft) {
+					selected = (selected + len(choices) - 1) % len(choices)
+				}
+				if ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter) {
+					if ui.PopupOpen(fid) {
+						ui.ClosePopup(fid)
+					} else {
+						submit = true
+					}
+				}
+				escape = escape || (ui.KeyPressed(input.KeyEscape) && !ui.PopupOpen(fid))
+			}
+			widgets.Combo(ui, fid, ui.Cursor().Next(0), &selected, choices, false)
+			if ui.Active() == fid {
+				ui.SetFocus(fid)
+			}
+			md.vals[i] = choices[selected]
+			continue
 		}
 		if !opening && ui.Focus() == fid {
 			submit = submit || ui.KeyPressed(input.KeyEnter) || ui.KeyPressed(input.KeyKPEnter)
@@ -262,16 +429,17 @@ func (a *App) drawPrompt(id core.ID) {
 		}
 		widgets.TextFieldRect(ui, fid, ui.Cursor().Next(0), &md.vals[i], true)
 	}
-	row := ui.Cursor().Next(0)
-	okLabel, cancelLabel := i18n.Tr("editor.common.ok", "OK"), i18n.Tr("editor.common.cancel", "Cancel")
-	if len(q.Buttons) > 0 {
-		okLabel = q.Buttons[0]
+	ui.PopClip()
+	if maxScroll > 0 {
+		track := mathx.Rect{X: l.body.X + l.body.W + th.Spacing, Y: l.body.Y, W: th.ScrollbarW, H: l.body.H}
+		widgets.ScrollBar(ui, ui.ID("prompt.scrollbar"), track, scroll, l.content, l.body.H, &md.scroll)
 	}
-	if len(q.Buttons) > 1 {
-		cancelLabel = q.Buttons[1]
+	destructive := q.DestructiveWhen != nil && q.DestructiveLabel != "" && q.DestructiveWhen(md.vals)
+	if destructive {
+		labels[0] = q.DestructiveLabel
 	}
-	ok := widgets.ButtonRect(ui, ui.ID("prompt.ok"), mathx.Rect{X: row.X + row.W - 184, Y: row.Y, W: 88, H: row.H}, okLabel)
-	cancel := widgets.ButtonRect(ui, ui.ID("prompt.cancel"), mathx.Rect{X: row.X + row.W - 90, Y: row.Y, W: 88, H: row.H}, cancelLabel)
+	ok := promptButton(ui, ui.ID("prompt.ok"), l.buttons[0], labels[0], destructive)
+	cancel := promptButton(ui, ui.ID("prompt.cancel"), l.buttons[1], labels[1], false)
 	ui.EndModal()
 	switch {
 	case ok || submit:

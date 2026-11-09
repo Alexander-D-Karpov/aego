@@ -136,13 +136,16 @@ type Service struct {
 	fades   [busCount]float32
 	music   mix.VoiceID
 	listen  mathx.Vec2
-	time    float64
-	seq     uint64
-	born    uint64
-	ready   bool
-	paused  bool
-	all     bool
-	lib     *data.Library
+	// listenerNode records the node selected by the last listener update; a
+	// zero handle means the camera or default-position fallback was used.
+	listenerNode scene.NodeHandle
+	time         float64
+	seq          uint64
+	born         uint64
+	ready        bool
+	paused       bool
+	all          bool
+	lib          *data.Library
 }
 
 func NewService(m *Module, s *scene.Scene, w *engine.World) *Service {
@@ -216,6 +219,11 @@ func (s *Service) Scene() *scene.Scene {
 
 func (s *Service) Listener() mathx.Vec2 {
 	return s.listen
+}
+
+// ListenerNode returns the actual selected listener, not an inferred position.
+func (s *Service) ListenerNode() scene.NodeHandle {
+	return s.listenerNode
 }
 
 // WorldBusGain returns the last zone-selected world-layer target. This is not
@@ -667,6 +675,7 @@ func (s *Service) startOnPlay() {
 }
 
 func (s *Service) listener() mathx.Vec2 {
+	s.listenerNode = scene.NodeHandle{}
 	found := false
 	var pos mathx.Vec2
 	scene.Query1[AudioListener2D](s.scene).Each(func(h scene.NodeHandle, l *AudioListener2D) {
@@ -674,6 +683,7 @@ func (s *Service) listener() mathx.Vec2 {
 			return
 		}
 		found, pos = true, translation(s.scene.RenderWorld(h))
+		s.listenerNode = h
 	})
 	if found {
 		return pos

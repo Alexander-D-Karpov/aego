@@ -49,15 +49,17 @@ var (
 )
 
 type Deps struct {
-	Anim      *animedit.Registry
-	Docs      services.Documents
-	Selection services.Selection
-	Notices   services.Notices
-	Files     animedit.Files
-	PathOf    func(ids.AssetID) (string, bool)
-	Events    func() []string
-	Thumbs    context.ThumbSource
-	AssetRev  func() uint64
+	Anim             *animedit.Registry
+	Docs             services.Documents
+	Selection        services.Selection
+	Notices          services.Notices
+	Files            animedit.Files
+	PathOf           func(ids.AssetID) (string, bool)
+	Events           func() []string
+	Thumbs           context.ThumbSource
+	AssetRev         func() uint64
+	EditSourceArt    func(ids.AssetID) error
+	CanEditSourceArt func(ids.AssetID) bool
 }
 
 type candKey struct {
@@ -773,6 +775,11 @@ func (p *Panel) keyMenu() {
 		return
 	}
 	has := len(p.sel) > 0
+	if id := p.selectedSprite(); !id.IsZero() && p.d.EditSourceArt != nil && p.d.CanEditSourceArt != nil && p.d.CanEditSourceArt(id) {
+		if widgets.MenuItem(ui, i18n.Tr("editor.art.edit_source", "Edit Source Art"), "", true, false) {
+			p.notify(p.d.EditSourceArt(id))
+		}
+	}
 	if widgets.MenuItem(ui, i18n.Tr("editor.animation.copy_keys", "Copy Keys"), "Ctrl+C", has, false) {
 		p.CopyKeys()
 	}
@@ -792,6 +799,25 @@ func (p *Panel) keyMenu() {
 		}
 	}
 	widgets.EndContextMenu(ui)
+}
+
+func (p *Panel) selectedSprite() ids.AssetID {
+	if len(p.sel) != 1 {
+		return ids.AssetID{}
+	}
+	for key := range p.sel {
+		for _, row := range p.view.Rows {
+			if row.Track != key.Track {
+				continue
+			}
+			for i, t := range row.Keys {
+				if t == key.T && i < len(row.Assets) {
+					return row.Assets[i]
+				}
+			}
+		}
+	}
+	return ids.AssetID{}
 }
 
 // Select replaces the key selection, for tests and other tools.

@@ -1,0 +1,28 @@
+prefab version=1 {
+  node "1ea94ed080214be99c9dd40df4c101a3" name="Magic Projectile" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      playOnStart=true
+      loop=true
+      duration=1
+      rate=8
+      maxParticles=24
+      shape=point
+      lifetime=[0.65, 0.85]
+      speed=[1.5, 2.2]
+      size=[0.28, 0.4]
+      direction=0
+      spread=0.08
+      colorOverLife=[{ time=0 color=#eeffffff }, { time=0.65 color=#b3f5ffff }, { time=1 color=#9b8aff00 }]
+      sizeOverLife={ keys=[[0, 0.8, 0, 0, bezier, linear], [0.3, 1, 0, 0, bezier, linear], [1, 0.55, 0, 0, bezier, linear]] }
+      space=world
+      sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c01")
+      frameFPS=10
+      frameLoop=true
+      order=4
+      reducedMotion=reduce
+      reducedRate=0.5
+    }
+  }
+}

@@ -1,5 +1,6 @@
 ---
 id: cli
+search_names: [export to browser, web export, build game, command line]
 title: The aego command
 group: ref-cli
 order: 1
@@ -90,7 +91,7 @@ Builds a distributable game that runs without Go and without the project sources
 
 | Flag | Meaning |
 |---|---|
-| `--target host\|linux\|windows\|darwin` | target platform, `host` by default |
+| `--target host\|linux\|windows\|darwin[/amd64\|/arm64]\|web` | target platform, `host` by default; `web` produces a browser build |
 | `--release`, `--development` | build profile |
 | `--out dir` | output directory |
 | `--check` | run the pre-export checks only |

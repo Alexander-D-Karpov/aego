@@ -51,29 +51,31 @@ type dirRow struct {
 }
 
 type Deps struct {
-	Files          *assetfiles.Files
-	Pipeline       *pipeline.Pipeline
-	Thumbs         *preview.Service
-	Docs           services.Documents
-	Selection      services.Selection
-	Scenes         services.SceneOps
-	Prefabs        services.Prefabs
-	Commands       *command.Registry
-	Notices        services.Notices
-	Nav            services.Navigation
-	Project        *project.Project
-	Schema         *schema.Registry
-	Inspect        func(id ids.AssetID)
-	Viewable       func(kind asset.ArtifactKind) bool
-	OpenTable      func(id ids.AssetID)
-	DataType       func(id ids.AssetID) (string, bool)
-	Favorites      *favs.Store
-	Refs           *refs.Service
-	ShowReferences func(id ids.AssetID, deleting []ids.AssetID)
-	BatchRename    func(list []ids.AssetID)
-	Compare        func(rel string)
-	CreateActions  func() []context.CreateAction
-	ImportFile     func(dir string)
+	Files            *assetfiles.Files
+	Pipeline         *pipeline.Pipeline
+	Thumbs           *preview.Service
+	Docs             services.Documents
+	Selection        services.Selection
+	Scenes           services.SceneOps
+	Prefabs          services.Prefabs
+	Commands         *command.Registry
+	Notices          services.Notices
+	Nav              services.Navigation
+	Project          *project.Project
+	Schema           *schema.Registry
+	Inspect          func(id ids.AssetID)
+	Viewable         func(kind asset.ArtifactKind) bool
+	OpenTable        func(id ids.AssetID)
+	DataType         func(id ids.AssetID) (string, bool)
+	Favorites        *favs.Store
+	Refs             *refs.Service
+	ShowReferences   func(id ids.AssetID, deleting []ids.AssetID)
+	BatchRename      func(list []ids.AssetID)
+	Compare          func(rel string)
+	CreateActions    func() []context.CreateAction
+	ImportFile       func(dir string)
+	EditSourceArt    func(ids.AssetID) error
+	CanEditSourceArt func(ids.AssetID) bool
 }
 
 type Panel struct {
@@ -691,6 +693,10 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		p.press(a.ID)
 		if ui.DoubleClicked(id) {
 			p.selectOnly(a.ID)
+			// Opening is the final action for a double-click. Do not reveal the
+			// Inspector on release and hide the Assets tab again afterwards.
+			p.pending = ids.AssetID{}
+			p.inspectPending = false
 			p.open(a)
 		}
 	}

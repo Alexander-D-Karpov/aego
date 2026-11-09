@@ -20,5 +20,5 @@
     "en": {"title": "Find a parent tag", "description": "The target has the tag Enemy.Flying. A query for Enemy also finds it, so the marker is green.", "input": "Expand Tags in the Inspector and replace Enemy.Flying with Ally. The scene restarts and the actual Enemy query no longer finds the target; the marker turns orange. Reset restores Enemy.Flying."},
     "ru": {"title": "Поиск родительского тега", "description": "У цели есть тег Enemy.Flying. Запрос Enemy тоже её находит, поэтому метка зелёная.", "input": "Раскройте список Tags в Инспекторе и замените Enemy.Flying на Ally. Сцена перезапустится, настоящий запрос Enemy больше не найдёт цель, и метка станет оранжевой. «Сброс» восстановит Enemy.Flying."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

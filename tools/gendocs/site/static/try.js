@@ -220,7 +220,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        status(b, b.dataset.artifacts ? t("Scene saved. It needs the source assets from the complete example project linked in this guide.", "Сцена сохранена. Ей нужны исходные ресурсы полного проекта примера, указанного в руководстве.") : (ru ? "Сохранено " + a.download + "; откройте его в панели Сцены редактора или через Файл → Открыть" : "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open"));
+        status(b, t("Edited scene saved. Keep it with the scripts, prefabs and source assets from Download example project.", "Изменённая сцена сохранена. Используйте её вместе со скриптами, префабами и ресурсами из «Скачать проект примера»."));
     }
 
     for (const b of blocks) {
@@ -233,7 +233,20 @@
             if (res.error) status(b, res.error, true);
             else show(b, res.text, res.values);
         });
-        b.querySelector(".try-open").addEventListener("click", () => download(b));
+        b.querySelector(".try-download").addEventListener("click", () => download(b));
+        const open = b.querySelector(".try-open");
+        if (open) open.addEventListener("click", (event) => {
+            // Links carry only the validated manifest URL and operation. A
+            // local/staging preview must not silently open production data.
+            const here = new URL(b.dataset.exampleManifest, location.href);
+            const link = new URL(open.href);
+            if (here.protocol !== "https:" || link.protocol !== "aego:" || link.hostname !== "example" || link.searchParams.get("manifest") !== here.href) {
+                event.preventDefault();
+                status(b, t("This is a local preview. Download the complete project, extract it and open project.aego in Aego.", "Это локальный предпросмотр. Скачайте полный проект, распакуйте его и откройте project.aego в Aego."));
+                return;
+            }
+            status(b, t("Aego will ask before downloading the original example. If Aego is not installed, use Download example project. Browser field edits stay here; download the edited scene to keep them.", "Aego запросит разрешение перед загрузкой исходного примера. Если редактор не установлен, скачайте проект примера. Изменения полей остаются здесь — скачайте изменённую сцену, чтобы сохранить их."));
+        });
         const sound = b.querySelector(".try-sound");
         if (sound) sound.addEventListener("click", () => {
             const st = audio();
@@ -244,7 +257,7 @@
         b.querySelector(".try-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(texts.get(b));
-                status(b, b.dataset.artifacts ? t("Scene copied. Its source assets belong to the complete example project described in this guide.", "Сцена скопирована. Её исходные ресурсы находятся в полном проекте примера, описанном в руководстве.") : t("Copied; paste it into a .aescene file in your project", "Скопировано; вставьте в файл .aescene в своём проекте"));
+                status(b, t("Scene copied. The complete example download includes its scripts, prefabs and source assets.", "Сцена скопирована. Скрипты, префабы и ресурсы включены в полный проект примера."));
             } catch (_) {
                 status(b, t("The browser blocked the clipboard", "Браузер заблокировал буфер обмена"), true);
             }

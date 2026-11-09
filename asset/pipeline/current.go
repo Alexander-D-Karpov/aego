@@ -11,6 +11,9 @@ import (
 func (p *Pipeline) VerifyCurrent(id ids.AssetID) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return fmt.Errorf("cannot verify an asset while source recovery is pending: %w", err)
+	}
 	if r := p.byID[id]; r != nil {
 		return p.verifyCurrent(r)
 	}

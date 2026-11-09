@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"aego/art"
+	"aego/asset/importers/artsource"
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/editor/core/artedit"
@@ -262,6 +263,7 @@ func TestInitializeBlankTextArtInNativeEditor(t *testing.T) {
 func TestPNGEditableCopyNative(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	t.Setenv("SDL_AUDIODRIVER", "dummy")
 	p := newProject(t)
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	want := color.NRGBA{R: 200, G: 120, B: 80, A: 200}
@@ -286,18 +288,33 @@ func TestPNGEditableCopyNative(t *testing.T) {
 	if !ok {
 		t.Fatal("PNG source was not indexed")
 	}
-	if _, err := s.App.Context().OpenAsset(id); err != nil {
+	ed := s.App.Context()
+	doc, err := ed.OpenAsset(id)
+	if err != nil {
 		t.Fatal(err)
 	}
-	panelID := "render2d.image/" + id.String()
+	model, ok := doc.Binding.Model.(*artedit.Document)
+	if !ok || !model.Draft || doc.Dirty() {
+		t.Fatal("PNG did not open directly as a clean in-memory drawing")
+	}
+	metaBefore, err := os.ReadFile(source + ".meta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := model.Session.Frame
+	pixels, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || pixels.NRGBAAt(1, 1) != want {
+		t.Fatalf("PNG pixels were not preserved on open: %v", err)
+	}
+	panelID := "render2d.art/" + id.String()
 	ws := s.App.Workspace()
 	ws.Focus(panelID)
 	if ws.Tree.Maximized() != panelID && !ws.ToggleMaximize(panelID) {
-		t.Fatal("could not maximize Image Viewer")
+		t.Fatal("could not maximize Art Canvas")
 	}
 	for range 3 {
 		if !s.Step() {
-			t.Fatal("editor stopped before copying PNG")
+			t.Fatal("editor stopped before painting PNG")
 		}
 	}
 	if name := os.Getenv("AEGO_PNG_COPY_SHOT"); name != "" {
@@ -305,7 +322,7 @@ func TestPNGEditableCopyNative(t *testing.T) {
 		var shotErr error
 		s.Engine.CaptureFrame(func(img *image.RGBA, err error) { shot, shotErr = img, err })
 		if !s.Step() || shotErr != nil || shot == nil {
-			t.Fatalf("could not capture Image Viewer: %v", shotErr)
+			t.Fatalf("could not capture Art Canvas: %v", shotErr)
 		}
 		file, err := os.Create(name)
 		if err != nil {
@@ -320,36 +337,50 @@ func TestPNGEditableCopyNative(t *testing.T) {
 		}
 	}
 	for i := range 3 {
-		if !sdl.TestPointerEvent(400, 147, i) || !s.Step() {
-			t.Fatal("could not click the native editable-copy action")
+		if !sdl.TestPointerEvent(640, 460, i) || !s.Step() {
+			t.Fatal("could not paint on the native Art Canvas")
 		}
 	}
-	if !s.App.Context().UI.ModalActive() {
-		t.Fatal("editable-copy action did not open a native confirmation")
+	painted, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || bytes.Equal(painted.Pix, pixels.Pix) || model.History.Cursor() != 1 || !doc.Dirty() {
+		t.Fatal("native stroke did not update the in-memory draft once", err)
+	}
+	interopKey(t, s, input.KeyS, true)
+	if !ed.UI.ModalActive() {
+		t.Fatal("first Save did not request a linked source path")
 	}
 	if _, ok := s.Pipeline.Lookup("assets/sheet.aeart"); ok {
-		t.Fatal("copy was created before confirmation")
+		t.Fatal("source was created before confirmation")
+	}
+	if data, err := os.ReadFile(source + ".meta"); err != nil || !bytes.Equal(data, metaBefore) {
+		t.Fatal("PNG metadata changed before confirmation", err)
 	}
 	if !sdl.TestEditKey(input.KeyEnter, true, false, false) || !s.Step() ||
 		!sdl.TestEditKey(input.KeyEnter, false, false, false) || !s.Step() {
-		t.Fatal("could not confirm the editable copy")
+		t.Fatal("could not confirm the linked source")
 	}
 	copyID, ok := s.Pipeline.Lookup("assets/sheet.aeart")
 	if !ok || copyID == id {
 		t.Fatal("native confirmation did not create a separate source")
 	}
-	doc := s.App.Context().Docs.AssetDocument(copyID)
-	if doc == nil {
-		t.Fatal("copy did not open in Art Studio")
+	saved := ed.Docs.AssetDocument(copyID)
+	if saved == nil || saved.Binding.Model != model || model.Draft || saved.Dirty() || model.History.Cursor() != 1 {
+		t.Fatal("Save did not retain the same drawing and its history")
 	}
-	model, ok := doc.Binding.Model.(*artedit.Document)
-	if !ok {
-		t.Fatal("copy is not editable")
+	meta, ok := s.Pipeline.MetaOf(id)
+	link, err := artsource.TextureLinkOf(&meta)
+	if !ok || err != nil || link == nil || link.Source != copyID || len(link.Frames) != 1 || link.Frames[0].Asset != id || link.Frames[0].Frame != frame {
+		t.Fatal("confirmed Save changed the original image identity or frame mapping", err)
 	}
-	frame := model.Session.Document.Info().Frames[0].ID
-	pixels, _, err := model.Capture(frame, art.Albedo)
-	if err != nil || pixels.NRGBAAt(1, 1) != want {
-		t.Fatalf("PNG pixels were not preserved: %v", err)
+	if err := model.SessionUndo(); err != nil {
+		t.Fatal("Undo after the first Save failed", err)
+	}
+	undone, _, err := model.Capture(frame, art.Albedo)
+	if err != nil || !bytes.Equal(undone.Pix, pixels.Pix) || !saved.Dirty() {
+		t.Fatal("Undo after Save did not restore the PNG pixels", err)
+	}
+	if err := model.SessionRedo(); err != nil || saved.Dirty() {
+		t.Fatal("Redo after Save did not restore the saved drawing", err)
 	}
 	if data, err := os.ReadFile(source); err != nil || !bytes.Equal(data, original.Bytes()) {
 		t.Fatalf("the original PNG was modified: %v", err)

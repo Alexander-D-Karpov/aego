@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 
 	"aego/asset"
@@ -30,15 +31,17 @@ func streamLabels() [3]string {
 }
 
 type clipEdit struct {
-	id     ids.AssetID
-	drag   int
-	orig   int64
-	acc    float32
-	start  int64
-	end    int64
-	gain   float64
-	gainOn bool
-	loop   bool
+	id           ids.AssetID
+	drag         int
+	orig         int64
+	acc          float32
+	start        int64
+	end          int64
+	loopSettings pipeline.Settings
+	gain         float64
+	gainOn       bool
+	gainSettings pipeline.Settings
+	loop         bool
 }
 
 type peakSource interface {
@@ -106,6 +109,10 @@ func loopOf(v ClipView) (int64, int64) {
 }
 
 func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
+	p.clipInspectorView(ed, id, false)
+}
+
+func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentView bool) {
 	ui := ed.UI
 	pl := ed.Pipeline
 	var mod *audio.Module
@@ -144,7 +151,11 @@ func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
 	if mod.PreviewClip() == id {
 		v.Position, v.Playing = mod.PreviewPosition()
 	}
-	p.drawClip(ed, mod, v)
+	if documentView {
+		p.drawClipDocument(ed, mod, v)
+	} else {
+		p.drawClip(ed, mod, v)
+	}
 }
 
 func (p *plugin) drawClip(ed *context.Editor, mod *audio.Module, v ClipView) {
@@ -159,6 +170,30 @@ func (p *plugin) drawClip(ed *context.Editor, mod *audio.Module, v ClipView) {
 	p.transport(ed, mod, v)
 	p.importFields(ed, v.Settings)
 	p.history(ed, v.Settings)
+}
+
+// The centre document already provides the source path and the shared
+// Save/Undo/Redo toolbar. Keep the useful waveform and controls without
+// rendering another copy of those actions across the full window width.
+func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipView) {
+	ui := ed.UI
+	ui.PushID("clip/" + v.ID.String())
+	defer ui.PopID()
+	cur := ui.Cursor()
+	width := cur.W
+	defer func() { cur.W = width }()
+	waveWidth, controlsWidth := clipDocumentWidths(width)
+	cur.W = waveWidth
+	widgets.Labelf(ui, "%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds))
+	p.wave(ed, v)
+	cur.W = controlsWidth
+	p.transport(ed, mod, v)
+	p.importFields(ed, v.Settings)
+	p.metadataConflict(ed)
+}
+
+func clipDocumentWidths(width float32) (wave, controls float32) {
+	return min(max(width, 0), 900), min(max(width, 0), 440)
 }
 
 func (p *plugin) peaks(ed *context.Editor, id ids.AssetID) ([]float32, bool) {
@@ -210,6 +245,7 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		if d, ok := ui.Drag(hid[i], hr); ok {
 			if p.clip.drag != i {
 				p.clip.drag, p.clip.start, p.clip.end, p.clip.acc = i, ls, le, 0
+				p.clip.loopSettings = v.Settings.Clone()
 				p.clip.orig = ls
 				if i == 1 {
 					p.clip.orig = le
@@ -238,13 +274,19 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 
 func (p *plugin) commitLoop(ed *context.Editor, v ClipView) {
 	start, end := p.clip.start, p.clip.end
+	before := p.clip.loopSettings
 	p.clip.drag = -1
+	p.clip.loopSettings = nil
 	if ls, le := loopOf(v); ls == start && le == end {
 		return
 	}
-	n := v.Settings.Clone()
+	if before == nil {
+		// There was no captured handle gesture; never infer an old preimage.
+		return
+	}
+	n := before.Clone()
 	n["loopStart"], n["loopEnd"] = aetext.Int(start), aetext.Int(end)
-	p.write(ed, v.Settings, n)
+	p.write(ed, before, n)
 }
 
 func (p *plugin) write(ed *context.Editor, old, n pipeline.Settings) {
@@ -262,25 +304,91 @@ func (p *plugin) write(ed *context.Editor, old, n pipeline.Settings) {
 		p.notify(err)
 		return
 	}
-	// Keep source identity, frames and unknown metadata. Only existing audio
-	// fields are changed by this adapter; no second undo stack or serializer.
-	for _, key := range []string{"loopStart", "loopEnd", "stream", "gain", "bus"} {
-		if v, ok := n[key]; ok {
-			m.Settings[key] = v.Clone()
+	changed, err := mergeClipSettings(m.Settings, old, n)
+	if err != nil {
+		p.notify(err)
+		return
+	}
+	if changed {
+		// Keep source identity, frames and unknown metadata. All changed fields
+		// are applied as one step in the existing shared metadata history.
+		d.Metadata.Code.ReplaceSnapshot(asset.MarshalSourceMeta(m), false)
+	}
+}
+
+// The Inspector and a centre tab may edit the same metadata in one frame.
+// Change only fields touched by this control and reject a stale write to the
+// same field. Validate all fields before mutating the parsed snapshot.
+func mergeClipSettings(current, before, after pipeline.Settings) (bool, error) {
+	keys := []string{"loopStart", "loopEnd", "stream", "gain", "bus"}
+	var changed []string
+	for _, key := range keys {
+		old, oldOK := before[key]
+		next, nextOK := after[key]
+		if equalClipSetting(old, oldOK, next, nextOK) {
+			continue
+		}
+		now, nowOK := current[key]
+		if !equalClipSetting(old, oldOK, now, nowOK) {
+			return false, fmt.Errorf("%s", i18n.Tr("editor.audio.setting_changed", "This audio setting changed in another view. Review it before editing again."))
+		}
+		changed = append(changed, key)
+	}
+	if slices.Contains(changed, "loopStart") || slices.Contains(changed, "loopEnd") {
+		// The handles are constrained as a pair. A concurrently moved opposite
+		// handle can invalidate this drag even if its own field was not edited.
+		for _, key := range []string{"loopStart", "loopEnd"} {
+			old, oldOK := before[key]
+			now, nowOK := current[key]
+			if !equalClipSetting(old, oldOK, now, nowOK) {
+				return false, fmt.Errorf("%s", i18n.Tr("editor.audio.setting_changed", "This audio setting changed in another view. Review it before editing again."))
+			}
 		}
 	}
-	d.Metadata.Code.ReplaceSnapshot(asset.MarshalSourceMeta(m), false)
+	for _, key := range changed {
+		if value, ok := after[key]; ok {
+			current[key] = value.Clone()
+		} else {
+			delete(current, key)
+		}
+	}
+	return len(changed) != 0, nil
+}
+
+func equalClipSetting(a aetext.Value, aOK bool, b aetext.Value, bOK bool) bool {
+	if aOK != bOK {
+		return false
+	}
+	if !aOK {
+		return true
+	}
+	// Serialization may parse 1.0 as integer 1. Limit cross-kind comparison
+	// to exactly representable integers rather than rounding large frame values.
+	if a.Kind == aetext.VInt && b.Kind == aetext.VFloat {
+		return a.Int >= -(1<<53) && a.Int <= 1<<53 && float64(a.Int) == b.Float
+	}
+	if a.Kind == aetext.VFloat && b.Kind == aetext.VInt {
+		return b.Int >= -(1<<53) && b.Int <= 1<<53 && a.Float == float64(b.Int)
+	}
+	if a.Kind == aetext.VFloat && b.Kind == aetext.VFloat {
+		return a.Float == b.Float
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	ui := ed.UI
 	row := ui.Cursor().Next(0)
-	w := (row.W - 8) / 3
+	w := max(0, (row.W-8)/3)
 	at := func(i int) mathx.Rect {
 		return mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}
 	}
 	if widgets.ButtonRect(ui, ui.ID("play"), at(0), i18n.Tr("i18n.audio.play", "Play")) && mod != nil {
-		p.aud = audition{}
+		owner := p
+		if p.auditionOwner != nil {
+			owner = p.auditionOwner
+		}
+		owner.aud = audition{}
 		p.notify(mod.Preview(ed.Loader, v.ID, p.clip.loop))
 	}
 	if widgets.ButtonRect(ui, ui.ID("stop"), at(1), i18n.Tr("i18n.audio.stop", "Stop")) && mod != nil {
@@ -295,7 +403,7 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	widgets.LabelDim(ui, i18n.Tr("i18n.audio.import", "Import"))
 	cur := streamMode(s)
 	r := widgets.Field(ui, i18n.Tr("i18n.audio.stream", "Stream"))
-	w := (r.W - 8) / 3
+	w := max(0, (r.W-8)/3)
 	for i, m := range streamModes {
 		on := cur == m[0]
 		br := mathx.Rect{X: r.X + float32(i)*(w+4), Y: r.Y, W: w, H: r.H}
@@ -311,14 +419,19 @@ func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {
 	}
 	e := widgets.DragNumber(ui, ui.ID("gain"), widgets.Field(ui, i18n.Tr("i18n.audio.gain", "Gain")), &g, widgets.NumberOpts{Speed: 0.01, Prec: 2})
 	if e.Changed {
+		if !p.clip.gainOn {
+			p.clip.gainSettings = s.Clone()
+		}
 		p.clip.gain, p.clip.gainOn = min(max(g, 0), maxGain), true
 	}
 	if e.End && p.clip.gainOn {
 		p.clip.gainOn = false
-		if p.clip.gain != s.Float("gain", 1) {
-			n := s.Clone()
+		before := p.clip.gainSettings
+		p.clip.gainSettings = nil
+		if before != nil && p.clip.gain != s.Float("gain", 1) {
+			n := before.Clone()
 			n["gain"] = aetext.Float64(p.clip.gain)
-			p.write(ed, s, n)
+			p.write(ed, before, n)
 		}
 	}
 	names := audio.Buses[1:]
@@ -344,6 +457,18 @@ func (p *plugin) history(ed *context.Editor, s pipeline.Settings) {
 	if widgets.ButtonRect(ui, ui.ID("redo"), redo, i18n.Tr("i18n.audio.redo", "Redo")) {
 		p.notify(ed.RedoAsset(d))
 	}
+	p.metadataConflict(ed)
+	if d.Dirty() && widgets.Button(ui, i18n.Tr("editor.document.save_metadata", "Save Metadata")) {
+		p.notify(ed.SaveAsset(d))
+	}
+}
+
+func (p *plugin) metadataConflict(ed *context.Editor) {
+	ui := ed.UI
+	d, err := ed.DocumentForAsset(p.clip.id)
+	if err != nil || d.Metadata == nil {
+		return
+	}
 	if d.Metadata.Conflict {
 		widgets.LabelWrapped(ui, i18n.Tr("editor.document.metadata_conflict", "Metadata changed on disk. Reload it or explicitly keep your changes before saving."), true)
 		if widgets.Button(ui, i18n.Tr("editor.scripteditor.reload", "Reload")) {
@@ -352,8 +477,5 @@ func (p *plugin) history(ed *context.Editor, s pipeline.Settings) {
 		if widgets.Button(ui, i18n.Tr("editor.scripteditor.keep_mine", "Keep mine")) {
 			ed.Docs.KeepScript(d.Metadata)
 		}
-	}
-	if d.Dirty() && widgets.Button(ui, i18n.Tr("editor.document.save_metadata", "Save Metadata")) {
-		p.notify(ed.SaveAsset(d))
 	}
 }

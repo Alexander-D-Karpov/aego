@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"aego/art"
 )
 
 const manifestVersion = 1
@@ -43,23 +45,30 @@ type example struct {
 	SHA256      string            `json:"sha256"`
 	Bytes       int               `json:"bytes"`
 }
+type effectTemplate struct {
+	example
+	ParticlePreset string `json:"particlePreset"`
+}
 type buildManifest struct {
-	Schema          int        `json:"schema"`
-	AegoVersion     string     `json:"aegoVersion"`
-	StudioVersion   string     `json:"studioVersion"`
-	DocumentVersion int        `json:"documentVersion"`
-	ProtocolVersion int        `json:"protocolVersion"`
-	BuildID         string     `json:"buildID"`
-	Commit          string     `json:"commit,omitempty"`
-	SourceSHA256    string     `json:"sourceSHA256"`
-	BuiltAt         string     `json:"builtAt"`
-	Toolchain       string     `json:"toolchain"`
-	Release         bool       `json:"release"`
-	AppOrigin       string     `json:"appOrigin"`
-	DocsOrigins     []string   `json:"docsOrigins"`
-	WASM            resource   `json:"wasm"`
-	Examples        []example  `json:"examples"`
-	Files           []resource `json:"files"`
+	Schema              int              `json:"schema"`
+	AegoVersion         string           `json:"aegoVersion"`
+	EngineSourceVersion string           `json:"engineSourceVersion,omitempty"`
+	StudioVersion       string           `json:"studioVersion"`
+	DocumentVersion     int              `json:"documentVersion"`
+	ProtocolVersion     int              `json:"protocolVersion"`
+	BuildID             string           `json:"buildID"`
+	Commit              string           `json:"commit,omitempty"`
+	SourceSHA256        string           `json:"sourceSHA256"`
+	BuiltAt             string           `json:"builtAt"`
+	Toolchain           string           `json:"toolchain"`
+	Release             bool             `json:"release"`
+	AppOrigin           string           `json:"appOrigin"`
+	DocsOrigins         []string         `json:"docsOrigins"`
+	WASM                resource         `json:"wasm"`
+	PreviewWASM         *resource        `json:"previewWasm,omitempty"`
+	Examples            []example        `json:"examples"`
+	Templates           []effectTemplate `json:"templates,omitempty"`
+	Files               []resource       `json:"files"`
 }
 
 func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
@@ -117,6 +126,9 @@ func decodeManifest(b []byte) (buildManifest, error) {
 	if m.Release && !commitPattern.MatchString(m.Commit) {
 		return m, errors.New("release requires exact Git commit")
 	}
+	if m.EngineSourceVersion != "" && !engineSourceVersionPattern.MatchString(m.EngineSourceVersion) {
+		return m, errors.New("invalid engine source version")
+	}
 	if !validOrigin(m.AppOrigin, m.Release) || len(m.DocsOrigins) == 0 || len(m.DocsOrigins) > 8 {
 		return m, errors.New("invalid origins")
 	}
@@ -151,6 +163,13 @@ func decodeManifest(b []byte) (buildManifest, error) {
 	if f, ok := seen[m.WASM.Path]; !ok || f != m.WASM || !strings.HasSuffix(f.Path, ".wasm") {
 		return m, errors.New("WASM manifest mismatch")
 	}
+	// Optional for previously published artifacts, so rollback verification
+	// remains compatible. Every current build includes the lazy GPU runtime.
+	if p := m.PreviewWASM; p != nil {
+		if f, ok := seen[p.Path]; !ok || f != *p || !strings.HasSuffix(f.Path, ".wasm") || p.Path == m.WASM.Path {
+			return m, errors.New("preview WASM manifest mismatch")
+		}
+	}
 	ex := map[string]bool{}
 	for _, e := range m.Examples {
 		f, ok := seen[e.File]
@@ -160,6 +179,23 @@ func decodeManifest(b []byte) (buildManifest, error) {
 		ex[e.ID] = true
 		if _, ok := seen[e.Thumbnail]; !ok {
 			return m, errors.New("missing thumbnail")
+		}
+	}
+	// Older manifests intentionally omit this additive catalog for rollback.
+	// A present catalog must cover the same shared templates as the Go host.
+	if len(m.Templates) != 0 && len(m.Templates) != len(art.EffectTemplates()) {
+		return m, errors.New("incomplete effect template catalog")
+	}
+	templates := map[string]bool{}
+	for _, e := range m.Templates {
+		known, ok := art.EffectTemplateOf(e.ID)
+		f, found := seen[e.File]
+		if !ok || templates[e.ID] || e.ParticlePreset != known.ParticlePreset || e.Version < 1 || !found || f.SHA256 != e.SHA256 || f.Bytes != int64(e.Bytes) || e.Title["en"] == "" || e.Title["ru"] == "" {
+			return m, errors.New("invalid effect template")
+		}
+		templates[e.ID] = true
+		if _, ok := seen[e.Thumbnail]; !ok {
+			return m, errors.New("missing effect template thumbnail")
 		}
 	}
 	return m, nil

@@ -203,6 +203,76 @@ func TestCannotSwitchMidGestureOrShareMutableSession(t *testing.T) {
 	}
 }
 
+func TestNewAndImportedTabsCannotOrphanAnActiveGesture(t *testing.T) {
+	for _, imported := range []bool{false, true} {
+		name := "new"
+		if imported {
+			name = "imported"
+		}
+		t.Run(name, func(t *testing.T) {
+			h := New()
+			key := document(t, h, "drawing.aeart")
+			s := session(t, h, key)
+			next, err := art.New(8, 8, art.RGBA, art.Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if imported {
+				next.Close()
+				out, err := h.Export(key, "recovery", 1)
+				if err != nil {
+					t.Fatal(err)
+				}
+				next, err = art.Decode(out.Bytes, art.Limits{})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			defer next.Close()
+			revision := s.Document.Revision()
+			brush := art.Brush{Size: 1, Paint: art.Paint{Color: art.Color{R: 220, A: 255}}}
+			if err := s.BeginGesture("pencil", image.Pt(1, 1), brush, false); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := h.Open(next, name+".aeart", !imported); err == nil {
+				t.Fatal("opened a tab underneath the active stroke")
+			}
+			if h.Active() != key || len(h.Tabs()) != 1 || !s.Info().Gesture || s.Info().Undo != 0 || s.Document.Revision() != revision {
+				t.Fatal("rejected open changed the active session, gesture or history")
+			}
+			if err := s.MoveGesture([]image.Point{image.Pt(3, 1)}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.EndGesture(); err != nil {
+				t.Fatal(err)
+			}
+			for x := 1; x <= 3; x++ {
+				pixel, err := s.Document.Pixel(s.ActiveCel(), x, 1)
+				if err != nil || pixel != brush.Paint.Color {
+					t.Fatalf("remaining stroke was redirected at %d: %v, %v", x, pixel, err)
+				}
+			}
+			if s.Info().Undo != 1 {
+				t.Fatal("one stroke did not remain one undo operation")
+			}
+			opened, err := h.Open(next, name+".aeart", !imported)
+			if err != nil || opened == key || h.Active() != opened {
+				t.Fatal("opening after a completed gesture failed", err)
+			}
+			if imported && session(t, h, opened).Document.Info().ID != s.Document.Info().ID {
+				t.Fatal("imported document identity was unexpectedly rewritten")
+			}
+			if err := s.Undo(); err != nil {
+				t.Fatal(err)
+			}
+			pixel, err := s.Document.Pixel(s.ActiveCel(), 1, 1)
+			if err != nil || pixel.A != 0 || session(t, h, opened).Info().Undo != 0 {
+				t.Fatal("history crossed the opened document boundary", err)
+			}
+		})
+	}
+}
+
 func TestDeferredSaveRefusesStalePickerAndClosedDocument(t *testing.T) {
 	h := New()
 	key := document(t, h, "A")

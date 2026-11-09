@@ -13,8 +13,14 @@ if not w['bytes'] <= 8 * 1024 * 1024:
     raise RuntimeError('WASM > 8 MiB')
 if not files[w['path'] + '.gz']['bytes'] <= 3 * 1024 * 1024:
     raise RuntimeError('WASM gzip > 3 MiB')
-allowed = {'aego/art', 'aego/tools/artstudio/host', 'aego/tools/artstudio/wasm'}
+allowed = {'aego/art', 'aego/art/internal/aseprite', 'aego/tools/artstudio/host', 'aego/tools/artstudio/wasm'}
 for dep in (a.artifact / 'dependency-audit.txt').read_text().splitlines():
     if not (not dep.startswith('aego/') or dep in allowed):
         raise RuntimeError(f'unexpected engine dependency: {dep}')
-print(json.dumps({'standaloneBudget': 'PASS', 'wasmBytes': w['bytes'], 'gzipBytes': files[w['path'] + '.gz']['bytes'], 'previousDemoPlaygroundBudget': 'Required in separate full make ci gate; not inferred here.'}))
+preview = m.get('previewWasm')
+if not preview or preview['bytes'] > 32 * 1024 * 1024 or files[preview['path'] + '.gz']['bytes'] > 10 * 1024 * 1024:
+    raise RuntimeError('Missing or oversized lazy GPU preview')
+for dep in (a.artifact / 'preview-dependency-audit.txt').read_text().splitlines():
+    if dep.startswith(('aego/app/', 'aego/editor/', 'aego/project/', 'aego/asset/pipeline', 'aego/asset/importers/')):
+        raise RuntimeError(f'unexpected desktop dependency in GPU preview: {dep}')
+print(json.dumps({'standaloneBudget': 'PASS', 'wasmBytes': w['bytes'], 'gzipBytes': files[w['path'] + '.gz']['bytes'], 'previewWasmBytes': preview['bytes'], 'previewGzipBytes': files[preview['path'] + '.gz']['bytes'], 'previousDemoPlaygroundBudget': 'Required in separate full make ci gate; not inferred here.'}))

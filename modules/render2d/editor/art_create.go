@@ -38,9 +38,9 @@ func registerArtCreate(r *ext.Registry) error {
 		return err
 	}
 	return r.CreateAction(context.CreateAction{
-		Key: "render2d.png", Name: i18n.Tr("editor.art.png_file", "Blank PNG (.png, view only)…"),
+		Key: "render2d.png", Name: i18n.Tr("editor.art.png_file", "Blank PNG (.png)…"),
 		Category: i18n.Tr("editor.assets.create_category", "Files"), Icon: "file.texture",
-		Doc:         i18n.Tr("editor.art.png_help", "Create a blank PNG. Choose Pixel Art to edit pixels in Aego."),
+		Doc:         i18n.Tr("editor.art.png_help", "Create a blank PNG and open it for drawing. The first Save asks before creating a linked source."),
 		Run:         func(ids.NodeID) error { return askNewPNG(ed, ed.AssetCreateDirectory("assets")) },
 		RunInFolder: func(dir string) error { return askNewPNG(ed, dir) },
 	})
@@ -109,8 +109,8 @@ func askNewPNG(ed *context.Editor, dir string) error {
 		return fmt.Errorf("image: project asset services are unavailable")
 	}
 	ed.Ask(context.Question{
-		Title:   i18n.Tr("editor.art.png_file", "Blank PNG (.png, view only)…"),
-		Message: i18n.Tr("editor.art.png_prompt", "For editable pixels, choose Pixel Art."),
+		Title:   i18n.Tr("editor.art.png_file", "Blank PNG (.png)…"),
+		Message: i18n.Tr("editor.art.png_prompt", "The PNG opens for drawing. The first Save asks before creating a linked editable source."),
 		Fields:  []string{i18n.Tr("editor.art.source_path", "Source path"), i18n.Tr("editor.art.width", "Width"), i18n.Tr("editor.art.height_pixels", "Height")},
 		Values:  []string{assetops.UniqueFile(ed, dir, "image", ".png"), "32", "32"},
 		Buttons: []string{i18n.Tr("editor.art.create", "Create"), i18n.Tr("editor.art.cancel", "Cancel")},

@@ -339,6 +339,18 @@ func validID(id ID) bool {
 	n, err := strconv.ParseUint(string(id), 16, 64)
 	return err == nil && n > 0
 }
+
+// CheckPNGPrecision refuses source channels that the eight-bit Art model
+// cannot represent. Callers can offer a separate, explicitly lossy conversion
+// rather than treating this as a lossless open or source migration.
+func CheckPNGPrecision(cfg image.Config) error {
+	switch cfg.ColorModel {
+	case color.Gray16Model, color.RGBA64Model, color.NRGBA64Model:
+		return fmt.Errorf("art: 16-bit PNG channels cannot be preserved in an 8-bit Art Document")
+	}
+	return nil
+}
+
 func ImportPNG(data []byte, limits Limits) (*Document, error) {
 	l := limitsOrDefault(limits)
 	if int64(len(data)) > l.MaxFileBytes {
@@ -346,6 +358,9 @@ func ImportPNG(data []byte, limits Limits) (*Document, error) {
 	}
 	cfg, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
+		return nil, err
+	}
+	if err := CheckPNGPrecision(cfg); err != nil {
 		return nil, err
 	}
 	if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > l.MaxDimension || cfg.Height > l.MaxDimension || int64(cfg.Width)*int64(cfg.Height) > int64(l.MaxCanvasPixels) {

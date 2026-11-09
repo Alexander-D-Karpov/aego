@@ -13,16 +13,22 @@ type Paint struct {
 	UseIndex bool  `json:"useIndex"`
 }
 type Brush struct {
-	Paint        Paint      `json:"paint"`
-	Background   Paint      `json:"background"`
-	Size         int        `json:"size"`
-	Round        bool       `json:"round"`
-	Erase        bool       `json:"erase"`
-	PixelPerfect bool       `json:"pixelPerfect"`
-	MirrorX      bool       `json:"mirrorX"`
-	MirrorY      bool       `json:"mirrorY"`
-	Dither       int        `json:"dither"`
-	Pattern      *Clipboard `json:"-"`
+	Paint      Paint `json:"paint"`
+	Background Paint `json:"background"`
+	Size       int   `json:"size"`
+	Round      bool  `json:"round"`
+	Erase      bool  `json:"erase"`
+	// EraseStrength 0 preserves the historical full-strength eraser for old
+	// clients; 1–255 controls partial erasing or directional smudging.
+	EraseStrength uint8      `json:"eraseStrength,omitempty"`
+	Smudge        bool       `json:"smudge,omitempty"`
+	PixelPerfect  bool       `json:"pixelPerfect"`
+	MirrorX       bool       `json:"mirrorX"`
+	MirrorY       bool       `json:"mirrorY"`
+	Dither        int        `json:"dither"`
+	Source        string     `json:"source,omitempty"`
+	Stamp         bool       `json:"-"`
+	Pattern       *Clipboard `json:"-"`
 }
 
 func paintValue(s *state, p Paint) (uint32, error) {
@@ -38,7 +44,7 @@ func (e *Edit) Pixel(cel ID, x, y int) (Color, error) {
 	if err := e.check(); err != nil {
 		return Color{}, err
 	}
-	i, ok := e.work.cel(cel)
+	i, ok := e.celIndex(cel)
 	if !ok {
 		return Color{}, fmt.Errorf("art: missing cel")
 	}
@@ -105,7 +111,7 @@ func (e *Edit) SetPixel(cel ID, x, y int, p Paint, sel *Selection, erase bool) e
 func (e *Edit) write(c Cel, x, y int, v uint32, sel *Selection, erase bool) error {
 	// Growing a cropped image shifts every linked cel's origin. Long-running
 	// gestures keep stable IDs, never cached offsets from an earlier draft.
-	ci, ok := e.work.cel(c.ID)
+	ci, ok := e.celIndex(c.ID)
 	if !ok {
 		return fmt.Errorf("art: missing cel")
 	}
@@ -155,6 +161,15 @@ func (e *Edit) write(c Cel, x, y int, v uint32, sel *Selection, erase bool) erro
 var bayer4 = [16]int{0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5}
 
 func validateBrush(b Brush) error {
+	if b.Smudge && (!b.Erase || b.Pattern != nil || b.Stamp || b.PixelPerfect || b.Dither != 0 || b.Source != "" && b.Source != "solid") {
+		return fmt.Errorf("art: smudge requires an eraser with a solid brush")
+	}
+	if b.Source != "" && b.Source != "solid" && b.Source != "pattern" && b.Source != "stamp" {
+		return fmt.Errorf("art: invalid brush source")
+	}
+	if (b.Source == "stamp" || b.Source == "pattern") && b.Pattern == nil {
+		return fmt.Errorf("art: capture a brush from a selection first")
+	}
 	if b.Size < 1 || b.Size > 128 || b.Dither < 0 || b.Dither > 16 {
 		return fmt.Errorf("art: invalid brush")
 	}
@@ -224,6 +239,13 @@ func (g *Gesture) Point(p image.Point) error {
 }
 func (g *Gesture) add(p image.Point) error {
 	n := len(g.path)
+	if g.brush.Erase && g.brush.Smudge {
+		g.path = append(g.path, p)
+		if n == 0 {
+			return nil // The first dab picks up pixels without changing them.
+		}
+		return g.smudge(g.path[n-1], p)
+	}
 	if g.brush.PixelPerfect && g.brush.Size == 1 && n >= 2 {
 		a, b := g.path[n-2], g.path[n-1]
 		if abs(a.X-p.X) == 1 && abs(a.Y-p.Y) == 1 && abs(a.X-b.X)+abs(a.Y-b.Y) == 1 && abs(b.X-p.X)+abs(b.Y-p.Y) == 1 {
@@ -261,11 +283,22 @@ func (g *Gesture) stamp(p image.Point, delta int) error {
 					}
 				}
 				v := image.Pt(center.X+bx-b.Size/2, center.Y+by-b.Size/2)
+				patternIndex := -1
+				if b.Stamp && b.Pattern != nil {
+					x, y := v.X-center.X+b.Pattern.Width/2, v.Y-center.Y+b.Pattern.Height/2
+					if x < 0 || y < 0 || x >= b.Pattern.Width || y >= b.Pattern.Height {
+						continue
+					}
+					patternIndex = y*b.Pattern.Width + x
+					if b.Pattern.Pixels[patternIndex].A == 0 {
+						continue
+					}
+				}
 				if unique[v] || v.X < 0 || v.Y < 0 || v.X >= s.Canvas.Width || v.Y >= s.Canvas.Height || !g.selection.Contains(v.X, v.Y) {
 					continue
 				}
 				unique[v] = true
-				ci, ok := e.work.cel(g.cel.ID)
+				ci, ok := e.celIndex(g.cel.ID)
 				if !ok {
 					return fmt.Errorf("art: missing cel")
 				}
@@ -280,17 +313,43 @@ func (g *Gesture) stamp(p image.Point, delta int) error {
 					continue
 				}
 				g.hits[v]++
-				if g.hits[v] > 1 {
+				if g.hits[v] > 1 && !b.Stamp {
 					continue
 				}
-				g.originals[v] = s.Images[g.cel.Image].at(v.X-g.cel.X, v.Y-g.cel.Y)
+				if g.hits[v] == 1 {
+					g.originals[v] = s.Images[g.cel.Image].at(v.X-g.cel.X, v.Y-g.cel.Y)
+				}
 				color := g.fg
 				if b.Dither > 0 && bayer4[(v.Y&3)*4+(v.X&3)] >= b.Dither {
 					color = g.bg
 				}
 				if b.Pattern != nil {
 					i := (v.Y%b.Pattern.Height)*b.Pattern.Width + v.X%b.Pattern.Width
+					if patternIndex >= 0 {
+						i = patternIndex
+					}
 					color = encode(s.forChannel(g.cel.Channel), b.Pattern.Pixels[i])
+				}
+				if b.Erase && b.EraseStrength != 0 && b.EraseStrength != 255 {
+					li, _ := s.layer(g.cel.Layer)
+					if s.Layers[li].AlphaLock {
+						continue
+					}
+					old := g.originals[v]
+					channel := s.forChannel(g.cel.Channel)
+					original := decode(channel, old)
+					soft := original
+					soft.A = uint8((uint32(original.A)*uint32(255-b.EraseStrength) + 127) / 255)
+					value := encode(channel, soft)
+					// Duplicate indexed swatches must not change their stored index
+					// when the quantized color has not changed.
+					if decode(channel, value) == original {
+						value = old
+					}
+					if err := e.write(g.cel, v.X, v.Y, value, g.selection, false); err != nil {
+						return err
+					}
+					continue
 				}
 				if err := e.write(g.cel, v.X, v.Y, color, g.selection, b.Erase); err != nil {
 					return err
@@ -299,6 +358,90 @@ func (g *Gesture) stamp(p image.Point, delta int) error {
 		}
 	}
 	return nil
+}
+
+// smudge moves the previous dab into the current one. All samples are read
+// before writing a dab, so brush size, direction and mirrored overlaps do not
+// depend on iteration order. Each completed drag is one normal history change.
+func (g *Gesture) smudge(previous, current image.Point) error {
+	e, s, b := g.edit, g.edit.work, g.brush
+	ci, ok := e.celIndex(g.cel.ID)
+	if !ok {
+		return fmt.Errorf("art: missing cel")
+	}
+	g.cel = s.Cels[ci]
+	channel := s.forChannel(g.cel.Channel)
+	pixels := s.Images[g.cel.Image]
+	type move struct{ from, to image.Point }
+	centers := []move{{previous, current}}
+	if b.MirrorX {
+		centers = append(centers, move{image.Pt(s.Canvas.Width-1-previous.X, previous.Y), image.Pt(s.Canvas.Width-1-current.X, current.Y)})
+	}
+	if b.MirrorY {
+		for _, pair := range append([]move(nil), centers...) {
+			centers = append(centers, move{image.Pt(pair.from.X, s.Canvas.Height-1-pair.from.Y), image.Pt(pair.to.X, s.Canvas.Height-1-pair.to.Y)})
+		}
+	}
+	strength := b.EraseStrength
+	if strength == 0 {
+		strength = 255
+	}
+	type pixel struct {
+		point image.Point
+		value uint32
+	}
+	var changes []pixel
+	seen := make(map[image.Point]bool, b.Size*b.Size*len(centers))
+	bounds := image.Rect(0, 0, s.Canvas.Width, s.Canvas.Height)
+	for _, pair := range centers {
+		for y := 0; y < b.Size; y++ {
+			for x := 0; x < b.Size; x++ {
+				if b.Round {
+					dx, dy := 2*x-b.Size+1, 2*y-b.Size+1
+					if dx*dx+dy*dy > b.Size*b.Size {
+						continue
+					}
+				}
+				offset := image.Pt(x-b.Size/2, y-b.Size/2)
+				from, to := pair.from.Add(offset), pair.to.Add(offset)
+				if seen[to] || !from.In(bounds) || !to.In(bounds) || !g.selection.Contains(from.X, from.Y) || !g.selection.Contains(to.X, to.Y) {
+					continue
+				}
+				seen[to] = true
+				old := pixels.at(to.X-g.cel.X, to.Y-g.cel.Y)
+				picked := pixels.at(from.X-g.cel.X, from.Y-g.cel.Y)
+				value := picked
+				if strength != 255 {
+					mixed := mixSmudge(decode(channel, old), decode(channel, picked), strength)
+					value = encode(channel, mixed)
+					if decode(channel, value) == decode(channel, old) {
+						value = old
+					}
+				}
+				changes = append(changes, pixel{to, value})
+			}
+		}
+	}
+	for _, change := range changes {
+		if err := e.write(g.cel, change.point.X, change.point.Y, change.value, g.selection, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Interpolate premultiplied channels to avoid dark fringes against transparent
+// pixels, then return the straight-alpha bytes used by Art Core.
+func mixSmudge(dst, src Color, strength uint8) Color {
+	a, b := uint32(255-strength), uint32(strength)
+	weight := uint32(dst.A)*a + uint32(src.A)*b
+	if weight == 0 {
+		return dst
+	}
+	mix := func(d, s uint8) uint8 {
+		return uint8((uint32(d)*uint32(dst.A)*a + uint32(s)*uint32(src.A)*b + weight/2) / weight)
+	}
+	return Color{mix(dst.R, src.R), mix(dst.G, src.G), mix(dst.B, src.B), uint8((weight + 127) / 255)}
 }
 func line(a, b image.Point, visit func(image.Point) error) error {
 	if !clampPoint(a) || !clampPoint(b) {

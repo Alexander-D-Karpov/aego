@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"errors"
 	"strings"
 
 	"aego/core/ids"
@@ -48,6 +49,25 @@ func (a *App) registerCommands() error {
 	inAssets := func() bool { return a.ws.Focused() == workspace.Assets }
 	assetSel := func() bool { return inAssets() && a.assetsPanel.HasSelection() }
 	hasSel := func() bool { return ctx.Doc() != nil && len(ctx.Selected()) > 0 }
+	editEnabled := func(action document.EditAction, sceneEnabled func() bool) func() bool {
+		return func() bool {
+			if d := a.focusedAsset(); d != nil {
+				return d.Binding.Actions[action] != nil
+			}
+			return sceneEnabled()
+		}
+	}
+	editRun := func(action document.EditAction, sceneRun func() error) func() error {
+		return func() error {
+			if d := a.focusedAsset(); d != nil {
+				if run := d.Binding.Actions[action]; run != nil {
+					return run()
+				}
+				return nil
+			}
+			return sceneRun()
+		}
+	}
 	playing := func() bool { return a.play.State() != play.Stopped }
 	historyLabel := func(undo bool) func() string {
 		return func() string {
@@ -79,11 +99,11 @@ func (a *App) registerCommands() error {
 		{ID: CommandNewScene3D, Name: "New 3D Scene", Category: "File", Order: 110, Run: a.newScene3D},
 		{ID: command.FileOpen, Name: "Open Scene…", Category: "File", Order: 120, Run: a.openScene},
 		{ID: command.FileSave, Name: "Save", Category: "File", Order: 200, Enabled: func() bool { return hasDoc() || a.focusedAsset() != nil }, Run: a.save},
-		{ID: command.FileSaveAs, Name: "Save As…", Category: "File", Order: 205, Enabled: hasDoc,
-			Run: func() error {
+		{ID: command.FileSaveAs, Name: "Save As…", Category: "File", Order: 205, Enabled: editEnabled(document.ActionSaveAs, hasDoc),
+			Run: editRun(document.ActionSaveAs, func() error {
 				assetops.PromptSaveAs(ctx, ctx.Doc())
 				return nil
-			}},
+			})},
 		{ID: command.FileSaveAll, Name: "Save All", Category: "File", Order: 210, Enabled: ctx.Docs.Dirty, Run: a.saveAll},
 		{ID: CommandCloseScene, Name: "Close Document", Category: "File", Order: 300,
 			Shortcut: command.Key(input.KeyW, command.ModPrimary), Enabled: func() bool { return hasDoc() || a.focusedAsset() != nil }, Run: a.closeActive},
@@ -109,19 +129,19 @@ func (a *App) registerCommands() error {
 				h := ctx.History()
 				return h != nil && h.CanRedo()
 			}, Run: a.redoDocument},
-		{ID: command.EditCut, Name: "Cut", Category: "Edit", Order: 200, Enabled: hasSel, Run: func() error { return edclip.Cut(ctx) }},
-		{ID: command.EditCopy, Name: "Copy", Category: "Edit", Order: 210, Enabled: hasSel, Run: func() error { return edclip.Copy(ctx) }},
-		{ID: command.EditPaste, Name: "Paste", Category: "Edit", Order: 220, Enabled: hasDoc, Run: func() error { return edclip.Paste(ctx) }},
-		{ID: command.EditDuplicate, Name: "Duplicate", Category: "Edit", Order: 230, Enabled: hasSel, Run: func() error { return edclip.Duplicate(ctx) }},
-		{ID: command.EditDelete, Name: "Delete", Category: "Edit", Order: 240, Enabled: hasSel, Run: func() error { return edclip.Delete(ctx) }},
-		{ID: command.EditRename, Name: "Rename", Category: "Edit", Order: 300, Enabled: hasSel, Run: func() error {
+		{ID: command.EditCut, Name: "Cut", Category: "Edit", Order: 200, Enabled: editEnabled(document.ActionCut, hasSel), Run: editRun(document.ActionCut, func() error { return edclip.Cut(ctx) })},
+		{ID: command.EditCopy, Name: "Copy", Category: "Edit", Order: 210, Enabled: editEnabled(document.ActionCopy, hasSel), Run: editRun(document.ActionCopy, func() error { return edclip.Copy(ctx) })},
+		{ID: command.EditPaste, Name: "Paste", Category: "Edit", Order: 220, Enabled: editEnabled(document.ActionPaste, hasDoc), Run: editRun(document.ActionPaste, func() error { return edclip.Paste(ctx) })},
+		{ID: command.EditDuplicate, Name: "Duplicate", Category: "Edit", Order: 230, Enabled: editEnabled(document.ActionDuplicate, hasSel), Run: editRun(document.ActionDuplicate, func() error { return edclip.Duplicate(ctx) })},
+		{ID: command.EditDelete, Name: "Delete", Category: "Edit", Order: 240, Enabled: editEnabled(document.ActionDelete, hasSel), Run: editRun(document.ActionDelete, func() error { return edclip.Delete(ctx) })},
+		{ID: command.EditRename, Name: "Rename", Category: "Edit", Order: 300, Enabled: func() bool { return a.focusedAsset() == nil && hasSel() }, Run: func() error {
 			if it, ok := ctx.Selection.Active(); ok {
 				a.ws.Show(workspace.Hierarchy)
 				a.hierarchy.StartRename(it.Node)
 			}
 			return nil
 		}},
-		{ID: command.EditSelectAll, Name: "Select All", Category: "Edit", Order: 310, Enabled: hasDoc, Run: a.selectAll},
+		{ID: command.EditSelectAll, Name: "Select All", Category: "Edit", Order: 310, Enabled: editEnabled(document.ActionSelectAll, hasDoc), Run: editRun(document.ActionSelectAll, a.selectAll)},
 
 		{ID: command.SceneToolSelect, Name: "Select Tool", Category: "Scene", Order: 100, Checked: tool(context.ToolSelect), Run: a.setTool(context.ToolSelect)},
 		{ID: command.SceneToolMove, Name: "Move Tool", Category: "Scene", Order: 110, Checked: tool(context.ToolMove), Run: a.setTool(context.ToolMove)},
@@ -418,6 +438,9 @@ func (a *App) saveDoc(d *document.SceneDocument) error {
 func (a *App) save() error {
 	if d := a.focusedAsset(); d != nil {
 		if err := a.ctx.SaveAsset(d); err != nil {
+			if errors.Is(err, document.ErrSavePending) {
+				return nil
+			}
 			return err
 		}
 		a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_path", "Saved {path}", i18n.Str("path", d.Path)))
@@ -438,32 +461,44 @@ func (a *App) save() error {
 }
 
 func (a *App) saveAll() error {
+	for _, d := range a.ctx.Docs.AssetDocuments() {
+		if d.Dirty() && d.Binding.BeforeSave != nil {
+			if err := d.Binding.BeforeSave(); err != nil {
+				return err
+			}
+		}
+	}
 	var first error
+	pending := false
+	record := func(err error) {
+		if errors.Is(err, document.ErrSavePending) {
+			pending = true
+		} else if err != nil && first == nil {
+			first = err
+		}
+	}
 	for _, d := range a.ctx.Docs.Docs() {
 		if !d.Dirty() {
 			continue
 		}
-		if err := a.saveDoc(d); err != nil && first == nil {
-			first = err
-		}
+		record(a.saveDoc(d))
 	}
 	for _, d := range a.ctx.Docs.Scripts() {
 		if !d.Dirty() {
 			continue
 		}
-		if err := a.ctx.Docs.SaveScript(d); err != nil && first == nil {
-			first = err
-		}
+		record(a.ctx.Docs.SaveScript(d))
 	}
 	for _, d := range a.ctx.Docs.AssetDocuments() {
 		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
-			if err := d.Binding.Save(); err != nil && first == nil {
-				first = err
-			}
+			record(d.Binding.Save())
 		}
 	}
 	if first != nil {
 		return first
+	}
+	if pending {
+		return nil
 	}
 	a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.saved_all_scenes", "Saved all scenes"))
 	return nil

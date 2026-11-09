@@ -55,8 +55,9 @@ var editorAllow = []string{
 
 var rules = []rule{
 	{"core/...", []string{"core/..."}, nil},
-	// Authoring core is standalone (desktop and Studio WASM), not a runtime dependency.
-	{"art", nil, nil},
+	// Authoring core and its wire codec are standalone, not runtime dependencies.
+	{"art", []string{"art/internal/aseprite"}, nil},
+	{"art/internal/aseprite", nil, nil},
 	{"schema", []string{"core/...", "engine/i18n"}, nil},
 	{"format/pixelart", []string{"core/...", "format/svg"}, nil},
 	{"format/...", []string{"core/...", "schema"}, nil},
@@ -188,9 +189,9 @@ var rules = []rule{
 	{"engine/settings/settingsui", []string{"core/...", "engine/i18n", "engine/settings", "platform/input", "schema", "ui/..."}, nil},
 	{"engine/module", []string{"core/...", "engine", "engine/res", "engine/problems", "engine/settings", "format/...", "schema", "scene", "asset", "script/abi", "script/bind", "contracts/scriptevents", "contracts/signals", "contracts/persistence", "vfs"}, nil},
 	{"engine/base", []string{"core/...", "engine", "engine/module", "schema", "scene", "scene/...", "engine/problems"}, nil},
-	// Docs validate prepared Try payloads with the runtime artifact decoder;
-	// importer/pipeline packages remain outside this layer.
-	{"engine/docs", []string{"engine/settings", "engine/docs/democheck", "format/...", "core/...", "schema", "engine/module", "engine/res", "asset", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/types"}, nil},
+	// Docs validate prepared Try payloads and parse source packages at build time;
+	// importer/pipeline and the compiler remain outside this layer.
+	{"engine/docs", []string{"engine/settings", "engine/docs/democheck", "format/...", "core/...", "schema", "engine/module", "engine/res", "asset", "script/abi", "script/bind", "script/bind/manifest", "script/diag", "script/parser", "script/source", "script/types"}, nil},
 	{"engine/docs/democheck", nil, nil},
 	{"sdk", []string{"core/...", "engine", "engine/module", "engine/problems", "engine/settings", "schema", "scene", "asset", "asset/...", "render", "render/host", "render/postfx", "render/shader", "modules/...", "platform/input", "script/bind", "contracts/...", "script/vm", "data"}, nil},
 	{"app/crash", []string{"core/...", "engine", "engine/recorder", "format/..."}, nil},

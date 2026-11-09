@@ -358,6 +358,21 @@ func (b *Bundle) Catalog(lang string) *Catalog {
 	return b.cats[lang]
 }
 
+// Translations returns loaded labels for search without switching the UI
+// language or exposing a mutable catalog. Output order is deterministic.
+func (b *Bundle) Translations(key string) []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var out []string
+	for _, catalog := range b.cats {
+		if text := catalog.Msgs[key].Text; text != "" {
+			out = append(out, text)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (b *Bundle) lookup(key string) (Message, bool) {
 	msgs := b.cur.Load()
 	if msgs == nil {

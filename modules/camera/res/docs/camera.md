@@ -22,7 +22,7 @@ Quick start: Create → Follow Camera gives a node with Camera 2D, Virtual Camer
 | Camera Follow 2D | moves its virtual camera after a target |
 | Camera Shake 2D | tunes the shake of its virtual camera |
 | Camera Zone 2D | lifts a camera while a target is inside an area |
-| Camera Brain 2D | makes a Camera 2D show another output |
+| Camera Output Selector 2D | makes a Camera 2D show another output |
 
 Cameras run during Play and in `aego run`. In edit mode the Scene View shows the camera frame, the deadzone, the bounds and the zones.
 
@@ -66,9 +66,9 @@ title: Outputs
 ---
 # Outputs
 
-Virtual cameras drive the main output unless [Output](ref:camera.VirtualCamera2D.Output) names another one. A Camera 2D shows the main output; add [Camera Brain 2D](ref:camera.CameraBrain2D) with the same Output to make it show another, such as a minimap. Each output has its own active camera, blends and shake. A Camera 2D whose output has no virtual cameras is left as it is.
+Virtual cameras drive the main output unless [Output](ref:camera.VirtualCamera2D.Output) names another one. A Camera 2D shows the main output; add [Camera Output Selector 2D](ref:camera.CameraBrain2D) with the same Output to make it show another, such as a minimap. Each output has its own active camera, blends and shake. A Camera 2D whose output has no virtual cameras is left as it is.
 
-In Try it, the minimap in the corner is a second Camera 2D with a small Viewport and Camera Brain 2D set to `map`; its own virtual camera follows the ball from far away.
+In Try it, the minimap in the corner is a second Camera 2D with a small Viewport and Camera Output Selector 2D set to `map`; its own virtual camera follows the ball from far away.
 
 ---
 id: camera/follow

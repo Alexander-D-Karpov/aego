@@ -52,6 +52,8 @@ func imageHooks(r *ext.Registry) error {
 		return nil
 	}
 	ed.ImageContent = func(id ids.AssetID, mode string) (image.Image, string, error) { return contentPixels(ed, id, mode) }
+	ed.EditSourceArt = func(id ids.AssetID) error { return editSourceArt(ed, id) }
+	ed.CanEditSourceArt = func(id ids.AssetID) bool { return canEditSourceArt(ed, id) }
 	s := &imagesEditor{ctx: ed, reg: r, states: map[document.ID]*imageState{}}
 	open := r.DocumentPanelFactory(func(d *document.AssetDocument) workspace.Panel {
 		s.state(d).closed = false
@@ -94,7 +96,7 @@ func (p *imagePanel) Document() *document.AssetDocument { return p.doc }
 func (s *imagesEditor) tick() {
 	live := map[document.ID]*document.AssetDocument{}
 	for _, d := range s.ctx.Docs.AssetDocuments() {
-		if d.Handler == imageHandlerID {
+		if d.Handler == imageHandlerID || d.Handler == artPNGHandlerID {
 			live[d.ID] = d
 		}
 	}
@@ -204,6 +206,11 @@ func (p *imagePanel) Draw(f *services.Frame, area mathx.Rect) {
 	}
 	if canCopyPNGToArt(s.ctx, d) && v.meta != nil && len(v.meta.Subs) > 1 && widgets.Button(ui, i18n.Tr("editor.art.png_frames_copy", "Create animation from PNG slices…")) {
 		if err := askPNGFramesArtCopy(s.ctx, d); err != nil {
+			s.ctx.Notify(context.LevelError, err.Error())
+		}
+	}
+	if s.ctx.EditSourceArt != nil && s.ctx.CanEditSourceArt != nil && s.ctx.CanEditSourceArt(d.Selected) && widgets.Button(ui, i18n.Tr("editor.art.edit_source", "Edit Source Art")) {
+		if err := s.ctx.EditSourceArt(d.Selected); err != nil {
 			s.ctx.Notify(context.LevelError, err.Error())
 		}
 	}

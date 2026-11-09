@@ -75,7 +75,7 @@
     const info=importSnapshot(example.bytes,{unsaved:false,name:tab.name});
     const close=call({action:'document-close',handle:tab.key,confirm:true});
     if(!close)throw new Error('Reset copy opened, but the original document could not be closed');
-    const key=recoveryKeys.get(tab.key);recoveryKeys.delete(tab.key);views.delete(tab.key);
+    const key=recoveryKeys.get(tab.key);recoveryKeys.delete(tab.key);recoveryVersions.delete(tab.key);views.delete(tab.key);
     if(key&&recoveryStore)queueRecovery(()=>recoveryStore.remove(key));
     renderUI();paint();example.info=info;return info;
   }
@@ -86,9 +86,10 @@
   function language(value) { if(!['ru','en'].includes(value))return;lang=value;translate(); }
   const capabilities=Object.freeze({documentVersion:config.documentVersion,protocol:protocol.VERSION,
     operations:['summary','load-example','reset-example','download','open-full'],transfer:['import'],maxDocumentBytes:maxBytes,
-    sceneAssignment:false,litPreview:false,particlePreview:false,storage:'best-effort',formats:['aeart','png','ase','aseprite']});
+    sceneAssignment:false,litPreview:!!config.previewWasmPath,particlePreview:!!config.previewWasmPath,previewBackend:'aego-webgl2-lazy',storage:'best-effort',formats:['aeart','png','ase','aseprite']});
   window.AegoStudioHost=Object.freeze({ready,capabilities,summary,capture,importSnapshot,loadExample,resetExample,downloadSource,language,
     notice:(message,error=false)=>say(message,error),newDocument:()=>document.getElementById('new').click(),openFile:()=>document.getElementById('open').click(),
     setNewSize:(w,h)=>{const f=document.getElementById('new-dialog').querySelector('form');f.elements.width.value=w;f.elements.height.value=h;},
+    setNewTemplate:id=>setNewTemplate(id),effectTemplates:()=>JSON.parse(window.aegoArt.request('{"action":"templates"}')).templates,
     storageAvailable:()=>!!recoveryStore&&recoveryHealthy,initializationMS:()=>readyMS});
 })();

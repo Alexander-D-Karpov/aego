@@ -24,5 +24,5 @@
     "en": {"title": "Advance an Animator state", "description": "A script sets the controller's Speed parameter to select Run. The separate Animator Speed field starts at 0, holding the state time.", "input": "Change Animator Speed from 0 to 8. The real Run clip advances and the runner turns orange after its state time moves. Reset holds it again."},
     "ru": {"title": "Воспроизведение состояния аниматора", "description": "Скрипт задаёт параметр Speed контроллера, выбирая Run. Отдельное поле Speed аниматора сначала равно 0 и удерживает время состояния.", "input": "Измените Speed аниматора с 0 на 8. Настоящий клип Run начнёт идти, а бегун станет оранжевым после изменения времени состояния. «Сброс» снова остановит время."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

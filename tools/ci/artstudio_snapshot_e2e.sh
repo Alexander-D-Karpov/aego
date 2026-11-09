@@ -121,6 +121,9 @@ for browser in chromium firefox; do
   run_gate "$browser" env -u GOMAXPROCS "$python" tools/artstudio/release/tests/browser_e2e.py \
     --artifact "$artifact" --app-url "$app_origin/" --docs-url "$docs_origin/" \
     --docs-prefix asset-studio --browser "$browser" --evidence "$dir/$browser-browser" "${args[@]}"
+  run_gate "$browser-gpu" env -u GOMAXPROCS ARTSTUDIO_PYTHON="$python" ARTSTUDIO_GPU_BROWSER="$browser" \
+    bash tools/stage125-check.sh artstudio-gpu --artifact "$artifact" --app-url "$app_origin/" \
+    --evidence "$dir/$browser-gpu-browser" "${args[@]}"
 done
 run_gate parity env -u GOMAXPROCS ARTSTUDIO_ARTIFACT="$artifact" ARTSTUDIO_APP_URL="$app_origin/" \
   ARTSTUDIO_EVIDENCE="$dir" "$python" tools/artstudio/release/tests/parity_e2e.py

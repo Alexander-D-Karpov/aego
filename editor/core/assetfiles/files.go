@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/editor/core/assetops"
 	"aego/editor/core/context"
@@ -220,6 +221,10 @@ func (f *Files) SetStartup(id ids.AssetID, rel string) {
 
 func (f *Files) CreateFile(rel string, data []byte) (ids.AssetID, error) {
 	return f.ops.CreateFile(f.ctx, rel, data)
+}
+
+func (f *Files) CreateSources(edits []pipeline.SourceEdit) ([]ids.AssetID, error) {
+	return f.ops.CreateSources(f.ctx, edits)
 }
 
 func (f *Files) Transaction(fn func() error) error { return f.ops.Transaction(f.ctx, fn) }

@@ -25,6 +25,9 @@ type SourceEdit struct {
 	// ReadOnlyGuard forbids pipeline metadata normalization as well as an
 	// explicit write. Before and After must be identical, including nilness.
 	ReadOnlyGuard bool
+	// Auxiliary is a non-imported companion that shares the source journal and
+	// history but must not suppress an importer or create an asset identity.
+	Auxiliary bool
 }
 
 const (
@@ -207,9 +210,17 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		return e.Before, e.After
 	}
 	paths := map[string]ChangeKind{}
+	auxiliary := map[string]bool{}
 	seen := map[string]bool{}
 	explicit := make(map[string]SourceEdit, len(edits))
 	for _, e := range edits {
+		if e.Auxiliary {
+			_, imported := p.imps.ForPath(e.Path)
+			if imported || strings.EqualFold(filepath.Ext(e.Path), MetaSuffix) || p.byPath[e.Path] != nil {
+				return nil, fmt.Errorf("%s cannot bypass an importer, indexed asset or metadata validation as an auxiliary file", e.Path)
+			}
+			auxiliary[e.Path] = true
+		}
 		if seen[e.Path] {
 			return nil, fmt.Errorf("duplicate source edit %s", e.Path)
 		}
@@ -245,7 +256,7 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 	for _, e := range callerEdits {
 		was, want := source(e)
 		metaPath := e.Path + MetaSuffix
-		if strings.HasSuffix(e.Path, MetaSuffix) || sameSource(was, want) {
+		if e.Auxiliary || strings.HasSuffix(e.Path, MetaSuffix) || sameSource(was, want) {
 			continue
 		}
 		if metaEdit, supplied := explicit[metaPath]; supplied {
@@ -437,6 +448,9 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		}
 		clear(paths)
 		for _, name := range restored {
+			if auxiliary[name] {
+				continue
+			}
 			paths[strings.TrimSuffix(name, MetaSuffix)] = ChangeWrite
 		}
 		_, e := refresh()
@@ -477,6 +491,9 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		done = append(done, e)
 		if p.sourceTransactionCheckpoint != nil {
 			p.sourceTransactionCheckpoint("published", e.Path)
+		}
+		if e.Auxiliary {
+			continue
 		}
 		if want == nil {
 			paths[rel] = ChangeRemove

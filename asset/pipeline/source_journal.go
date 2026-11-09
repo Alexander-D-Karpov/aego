@@ -160,6 +160,37 @@ func (p *Pipeline) requireWritableSources() error {
 	return p.requireNoPendingSourceRecovery()
 }
 
+// CheckSourceRecovery waits for this pipeline's active source transaction and
+// rejects a pending journal without modifying it. It is a point-in-time check,
+// not a lock across subsequent reads or a guard against external processes.
+// Callers collecting multiple inputs must also validate their exact preimages.
+func (p *Pipeline) CheckSourceRecovery() error {
+	if p == nil {
+		return errors.New("source recovery check needs an active pipeline")
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.requireNoPendingSourceRecovery()
+}
+
+// GuardSourceWrite serializes an ordinary editor save with this pipeline's
+// source transactions and refuses the save while a recovery journal is
+// pending. The callback must only perform its file preimage check and write;
+// it must not call back into Pipeline. Notifications and imports run after the
+// callback returns. Other/older processes and external editors do not share
+// this mutex, so this is not an atomic CAS or a universal filesystem lock.
+func (p *Pipeline) GuardSourceWrite(write func() error) error {
+	if p == nil || write == nil {
+		return errors.New("source write needs an active pipeline and callback")
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
+	return write()
+}
+
 func startSourceJournal(root *os.Root, edits []SourceEdit, back bool) (*sourceJournal, error) {
 	if len(edits) > maxJournalEdits {
 		return nil, fmt.Errorf("source transaction exceeds %d files", maxJournalEdits)
@@ -534,6 +565,12 @@ func SourceRecoveryStatus(prj *project.Project) (*SourceRecovery, error) {
 // cleans a previously completed recovery. It refuses external changes and
 // never starts while another pipeline owns the project's index lock.
 func RestoreSourceRecovery(prj *project.Project) error {
+	return restoreSourceRecovery(prj, nil)
+}
+
+// checkpoint is an internal per-call test seam; ordinary recovery always
+// passes nil and still requires the caller's explicit action.
+func restoreSourceRecovery(prj *project.Project, checkpoint func(stage, rel string)) error {
 	if prj == nil {
 		return errors.New("source recovery needs a project")
 	}
@@ -552,6 +589,7 @@ func RestoreSourceRecovery(prj *project.Project) error {
 	if err != nil {
 		return err
 	}
+	j.checkpoint = checkpoint
 	if j.state != "prepared" {
 		return j.cleanup()
 	}
@@ -571,6 +609,9 @@ func RestoreSourceRecovery(prj *project.Project) error {
 		if err != nil || !slices.Contains(j.allowed[e.Path], sourceVersionOf(got)) {
 			return fmt.Errorf("%s changed outside the interrupted transaction; refusing recovery", e.Path)
 		}
+	}
+	if checkpoint != nil {
+		checkpoint("recovery-validated", "")
 	}
 	for _, e := range slices.Backward(j.entries) {
 		if err := j.checkDirectory(); err != nil {
@@ -595,6 +636,9 @@ func RestoreSourceRecovery(prj *project.Project) error {
 		}
 		if err := replaceSource(root, e.Path, before); err != nil {
 			return fmt.Errorf("cannot restore %s: %w", e.Path, err)
+		}
+		if checkpoint != nil {
+			checkpoint("recovery-restored", e.Path)
 		}
 	}
 	return j.finish("restored")

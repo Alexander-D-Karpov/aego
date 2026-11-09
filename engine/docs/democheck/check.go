@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -32,6 +33,13 @@ type Expectation struct {
 	// Changes prevents a no-op action or a permanently painted preview from
 	// satisfying the acceptance test merely by starting in its expected state.
 	Changes bool `json:"changes"`
+	// Tolerance is an explicit absolute bound for numeric simulation values.
+	// Nonnumeric values are always compared exactly.
+	Tolerance float64 `json:"tolerance,omitempty"`
+}
+type InputStep struct {
+	Keys   []string `json:"keys,omitempty"`
+	Frames int      `json:"frames"`
 }
 type Action struct {
 	ID    string          `json:"id"`
@@ -41,6 +49,10 @@ type Action struct {
 	// component's node, not a synthetic field on the demonstrated component.
 	ScriptToggle *ScriptToggle `json:"scriptToggle,omitempty"`
 	Expected     []Expectation `json:"expected"`
+	// Gameplay input advances the actual Try world in bounded fixed steps.
+	Keys   []string    `json:"keys,omitempty"`
+	Frames int         `json:"frames,omitempty"`
+	Inputs []InputStep `json:"inputs,omitempty"`
 	// Visual is opt-in for actions whose result must be visible in Game View.
 	// The runner supplies actual rendered frames, not a synthetic thumbnail.
 	Visual *VisualExpectation `json:"visual,omitempty"`
@@ -68,6 +80,7 @@ type Contract struct {
 	Reset          string                 `json:"reset"`
 	Languages      map[string]Text        `json:"languages"`
 	Environments   map[string]Environment `json:"environments"`
+	WarmupFrames   int                    `json:"warmupFrames,omitempty"`
 }
 
 // Component is derived from real Component Registry entries, never from all
@@ -235,6 +248,9 @@ func validate(component Component, c Contract) error {
 	if c.Reset == "" || len(c.Actions) == 0 || len(c.Actions) > 256 {
 		return errors.New("reset and 1..256 actions are required")
 	}
+	if c.WarmupFrames < 0 || c.WarmupFrames > 600 {
+		return errors.New("warmup exceeds the 600 frame budget")
+	}
 	actionIDs := map[string]bool{}
 	modified := map[string]bool{}
 	for _, a := range c.Actions {
@@ -242,6 +258,28 @@ func validate(component Component, c Contract) error {
 			return errors.New("empty or duplicate action ID")
 		}
 		actionIDs[a.ID] = true
+		if a.Frames < 0 || a.Frames > 600 || len(a.Keys) > 8 || len(a.Inputs) > 8 {
+			return fmt.Errorf("action exceeds its frame or key budget: %s", a.ID)
+		}
+		if _, err := unique(a.Keys); err != nil {
+			return fmt.Errorf("action input: %w", err)
+		}
+		inputFrames := a.Frames
+		if inputFrames == 0 && len(a.Keys) != 0 {
+			inputFrames = c.WarmupFrames
+			if inputFrames == 0 {
+				inputFrames = 4
+			}
+		}
+		for _, step := range a.Inputs {
+			inputFrames += step.Frames
+			if step.Frames < 1 || step.Frames > 600 || inputFrames > 600 || len(step.Keys) > 8 {
+				return fmt.Errorf("input sequence exceeds its frame or key budget: %s", a.ID)
+			}
+			if _, err := unique(step.Keys); err != nil {
+				return fmt.Errorf("input sequence: %w", err)
+			}
+		}
 		if a.ScriptToggle != nil {
 			if a.Field != "" || len(a.Value) != 0 || a.ScriptToggle.Enabled == nil || strings.TrimSpace(a.ScriptToggle.Script) != a.ScriptToggle.Script || a.ScriptToggle.Script == "" || len(a.ScriptToggle.Script) > 256 {
 				return fmt.Errorf("invalid script attachment action: %s", a.ID)
@@ -254,7 +292,7 @@ func validate(component Component, c Contract) error {
 				return fmt.Errorf("invalid action value: %s", a.ID)
 			}
 			modified[a.Field] = true
-		} else {
+		} else if len(a.Value) != 0 || (len(a.Keys) == 0 && len(a.Inputs) == 0) {
 			return fmt.Errorf("action has no supported operation: %s", a.ID)
 		}
 		if len(a.Expected) == 0 {
@@ -266,7 +304,7 @@ func validate(component Component, c Contract) error {
 		changed := false
 		seen := map[string]bool{}
 		for _, e := range a.Expected {
-			if e.Observable == "" || seen[e.Observable] || !json.Valid(e.Equals) {
+			if e.Observable == "" || seen[e.Observable] || !json.Valid(e.Equals) || e.Tolerance < 0 || math.IsNaN(e.Tolerance) || math.IsInf(e.Tolerance, 0) {
 				return fmt.Errorf("invalid/duplicate expectation in %s", a.ID)
 			}
 			seen[e.Observable] = true
@@ -307,6 +345,31 @@ func validate(component Component, c Contract) error {
 	}
 	return nil
 }
+
+func matches(a, b json.RawMessage, tolerance float64) bool {
+	if !json.Valid(a) || !json.Valid(b) {
+		return false
+	}
+	if tolerance == 0 {
+		return equalJSON(a, b)
+	}
+	var x, y any
+	da, db := json.NewDecoder(bytes.NewReader(a)), json.NewDecoder(bytes.NewReader(b))
+	da.UseNumber()
+	db.UseNumber()
+	if da.Decode(&x) != nil || db.Decode(&y) != nil {
+		return false
+	}
+	xn, xok := x.(json.Number)
+	yn, yok := y.(json.Number)
+	if !xok || !yok {
+		return equalJSON(a, b)
+	}
+	xf, xe := xn.Float64()
+	yf, ye := yn.Float64()
+	return xe == nil && ye == nil && math.Abs(xf-yf) <= tolerance
+}
+
 func checkObservation(c Contract, env string, o Observation) error {
 	if o.Identity != c.Identity {
 		return errors.New("probe loaded a different or stale Try payload")
@@ -413,14 +476,14 @@ func probe(ctx context.Context, c Contract, env string, r Runner) (err error) {
 		}
 		for _, expect := range action.Expected {
 			a, ok := after.Observables[expect.Observable]
-			if !ok || !equalJSON(a, expect.Equals) {
-				return fmt.Errorf("action %s: unexpected observable %s", action.ID, expect.Observable)
+			if !ok || !matches(a, expect.Equals, expect.Tolerance) {
+				return fmt.Errorf("action %s: unexpected observable %s: got %s, want %s (tolerance %g)", action.ID, expect.Observable, a, expect.Equals, expect.Tolerance)
 			}
 			b, ok := before.Observables[expect.Observable]
 			if !ok || !json.Valid(b) {
 				return fmt.Errorf("action %s: baseline observable missing: %s", action.ID, expect.Observable)
 			}
-			if expect.Changes && equalJSON(a, b) {
+			if expect.Changes && matches(a, b, expect.Tolerance) {
 				return fmt.Errorf("action %s: observable did not change: %s", action.ID, expect.Observable)
 			}
 		}
@@ -449,7 +512,7 @@ func probe(ctx context.Context, c Contract, env string, r Runner) (err error) {
 			}
 		}
 		for _, expect := range action.Expected {
-			if !equalJSON(before.Observables[expect.Observable], reset.Observables[expect.Observable]) {
+			if !matches(before.Observables[expect.Observable], reset.Observables[expect.Observable], expect.Tolerance) {
 				return fmt.Errorf("reset did not restore observable: %s", expect.Observable)
 			}
 		}

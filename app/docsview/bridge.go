@@ -32,6 +32,8 @@ type request struct {
 	Node         string            `json:"node"`
 	Theme        string            `json:"theme"`
 	Lang         string            `json:"lang"`
+	Frames       int               `json:"frames"`
+	Keys         []string          `json:"keys"`
 }
 
 type Reply struct {
@@ -42,6 +44,8 @@ type Reply struct {
 	Log        []Line            `json:"log,omitempty"`
 	Pose       []float64         `json:"pose,omitempty"`
 	Inspection *Inspection       `json:"inspection,omitempty"`
+	Control    *ControlState     `json:"control,omitempty"`
+	Viewport   *Viewport         `json:"viewport,omitempty"`
 }
 
 func (a *App) Call(method string, payload []byte) Reply {
@@ -134,7 +138,22 @@ func (a *App) Call(method string, payload []byte) Reply {
 		}
 	case "state":
 		st := s.State()
-		return Reply{State: &st}
+		control := a.control
+		return Reply{State: &st, Control: &control}
+	case "control":
+		if req.Enabled == nil {
+			err = fmt.Errorf("control needs a boolean enabled value")
+		} else {
+			err = a.setControl(*req.Enabled)
+		}
+	case "viewport":
+		viewport := a.viewport
+		if _, err := viewport.pixelRect(viewport.CanvasWidth, viewport.CanvasHeight); err != nil {
+			return Reply{Error: err.Error()}
+		}
+		return Reply{Viewport: &viewport}
+	case "advance":
+		err = a.advanceControl(req.Frames, req.Keys)
 	case "pose":
 		sc := s.Controller().Scene()
 		if sc == nil {
@@ -161,6 +180,12 @@ func (a *App) Call(method string, payload []byte) Reply {
 	}
 	if err != nil {
 		return Reply{Error: err.Error()}
+	}
+	// A document/world change must not leave a previously queued synthetic
+	// gesture pressed or continue applying it to the replacement world.
+	switch method {
+	case "load", "reset", "play", "undo", "redo", "scriptEnabled", "set":
+		a.cancelControlAdvance()
 	}
 	st := s.State()
 	return Reply{Text: string(s.Text()), Values: Values(s.Text()), State: &st}

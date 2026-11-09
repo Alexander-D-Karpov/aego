@@ -23,7 +23,7 @@ func TestStudioIsOptionalLazyAndMustExist(t *testing.T) {
 	}
 	for _, spec := range []struct{ page, link, label string }{
 		{"index.html", `href="studio/"`, "Art Studio"},
-		{"ru/index.html", `href="../studio/"`, "Студия рисунка"},
+		{"ru/index.html", `href="../studio/"`, "Art Studio"},
 	} {
 		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(spec.page)))
 		if err != nil {
@@ -57,7 +57,7 @@ func TestPinnedStudioLinksUseIntegratedGuidesWithoutLocalWASM(t *testing.T) {
 	}
 	for _, spec := range []struct{ page, guide, label string }{
 		{"index.html", `href="asset-studio/en/first-sprite/"`, "Art Studio lessons"},
-		{"ru/index.html", `href="../asset-studio/ru/first-sprite/"`, "Уроки студии рисунка"},
+		{"ru/index.html", `href="../asset-studio/ru/first-sprite/"`, "Уроки Art Studio"},
 	} {
 		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(spec.page)))
 		if err != nil {

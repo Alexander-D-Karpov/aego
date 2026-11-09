@@ -235,6 +235,9 @@ func Hook(r *ext.Registry) error {
 	}); err != nil {
 		return err
 	}
+	if err := p.registerEffectCreate(); err != nil {
+		return err
+	}
 	return r.Thumbnail(asset.ArtPreset, preview.Handler{Component: particles.NameSystem, ReadSource: true, Version: "particles.v2", Render: p.thumbnail, Build: p.card})
 }
 func (p *adapter) tick() {

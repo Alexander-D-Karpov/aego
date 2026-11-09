@@ -9,6 +9,9 @@ import (
 type RenderOptions struct {
 	Channel    Channel
 	References bool
+	// Isolate limits presentation to a layer/group and its ancestors. It never
+	// changes serialized visibility, and normal exports leave this empty.
+	Isolate ID
 }
 
 func options(o RenderOptions) RenderOptions {
@@ -85,12 +88,44 @@ func renderRegion(s *state, frame ID, dst *image.NRGBA, r image.Rectangle, o Ren
 			cels[c.Layer] = c
 		}
 	}
+	var isolated map[ID]bool
+	if o.Isolate != "" {
+		index, found := s.layer(o.Isolate)
+		if !found {
+			return fmt.Errorf("art: missing isolated layer")
+		}
+		isolated = map[ID]bool{o.Isolate: true}
+		// Include descendants of an isolated group, but not siblings of any
+		// ancestor. Ancestors still supply their existing opacity and blend.
+		for changed := true; changed; {
+			changed = false
+			for _, layer := range s.Layers {
+				if layer.Parent != "" && isolated[layer.Parent] && !isolated[layer.ID] {
+					isolated[layer.ID], changed = true, true
+				}
+			}
+		}
+		for parent := s.Layers[index].Parent; parent != ""; {
+			if isolated[parent] {
+				return fmt.Errorf("art: cyclic isolated groups")
+			}
+			isolated[parent] = true
+			index, found = s.layer(parent)
+			if !found {
+				return fmt.Errorf("art: missing isolated group")
+			}
+			parent = s.Layers[index].Parent
+		}
+	}
 	var layers func(ID, *image.NRGBA, int) error
 	layers = func(parent ID, target *image.NRGBA, depth int) error {
 		if depth > len(s.Layers) {
 			return fmt.Errorf("art: cyclic groups")
 		}
 		for _, l := range s.Layers {
+			if isolated != nil && !isolated[l.ID] {
+				continue
+			}
 			if l.Parent != parent || !l.Visible || l.Opacity == 0 || (l.Kind == Reference && !o.References) {
 				continue
 			}

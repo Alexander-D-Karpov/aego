@@ -1,4 +1,64 @@
 ---
+id: aego/physics.Contact.Point
+---
+Stores the world-space contact point in world units, averaged when the manifold has several points. Exit events retain the last known point.
+
+---
+id: aego/physics.Contact.Normal
+---
+Points from the other body into the body receiving the collision callback; the opposite receiver gets the negated direction.
+
+---
+id: aego/physics.Contact.NormalImpulse
+---
+Stores the summed normal impulse at the contact, in mass×world-units/second. An exit event reports zero.
+
+---
+id: aego/physics.Contact.RelativeVelocity
+---
+Stores this body's velocity relative to the other at Point, in world units per second, including angular motion at that point.
+
+---
+id: aego/physics.Contact.SelfCollider
+---
+References the receiving side's collider node; it can differ from the rigid-body node when the collider is a child.
+
+---
+id: aego/physics.Contact.OtherCollider
+---
+References the other side's collider node, not necessarily its rigid-body node. Check validity if that node may have been destroyed.
+
+---
+id: aego/physics.RayHit.Hit
+---
+Reports whether the query found a collider. Check this before using the other result fields; a miss returns an empty result.
+
+---
+id: aego/physics.RayHit.Point
+---
+Stores the hit position in world coordinates and world units when Hit is true.
+
+---
+id: aego/physics.RayHit.Normal
+---
+Stores the surface normal at the hit point in world space when Hit is true.
+
+---
+id: aego/physics.RayHit.Distance
+---
+Stores distance from the query origin to the hit in world units, not a normalised fraction of the query length.
+
+---
+id: aego/physics.RayHit.Node
+---
+References the rigid-body node that owns the hit shape; Collider identifies the actual shape node.
+
+---
+id: aego/physics.RayHit.Collider
+---
+References the node containing the collider shape that was hit; it may be a child of the body returned in Node.
+
+---
 id: aego/physics
 summary: Ray, line and overlap queries against the 2D physics world, layer lookups and world gravity.
 ---

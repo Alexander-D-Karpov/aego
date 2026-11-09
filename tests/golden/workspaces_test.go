@@ -52,6 +52,7 @@ func goldenWorkspace(t *testing.T, authoring bool) *workspace.Workspace {
 		// not exercise the panels or the dynamic document scope at all.
 		descs = append(descs,
 			workspace.Desc{Panel: artDocumentStub{panelStub("render2d.art/fixture")}, Slot: workspace.SlotCenter},
+			workspace.Desc{Panel: panelStub("art.tools"), Slot: workspace.SlotLeft},
 			workspace.Desc{Panel: panelStub("art.properties"), Slot: workspace.SlotRight},
 			workspace.Desc{Panel: panelStub("art.timeline"), Slot: workspace.SlotBottom},
 			workspace.Desc{Panel: panelStub("art.preview"), Slot: workspace.SlotCenter},
@@ -78,7 +79,7 @@ func TestWorkspaceGolden(t *testing.T) {
 		t.Run(name, func(t *testing.T) { checkGolden(t, name, img, err) })
 	}
 	for _, p := range shell.BuiltinWorkspaces() {
-		authoring := p.ID == workspace.Animation || p.ID == workspace.VFX || p.ID == workspace.Default
+		authoring := p.ID == workspace.Art || p.ID == workspace.Animation || p.ID == workspace.VFX || p.ID == workspace.Default
 		ws := goldenWorkspace(t, authoring)
 		ws.Switch(p.ID)
 		shot("editor_workspace_"+p.ID, ws)

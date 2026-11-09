@@ -65,14 +65,16 @@ func (s *BinarySource) Commit(data []byte) error {
 	if int64(len(data)) > s.limit {
 		return fmt.Errorf("binary source exceeds size limit")
 	}
-	if err := s.Check(); err != nil {
-		return err
-	}
-	if err := WriteAtomic(s.manager.Abs(s.doc.Path), data); err != nil {
-		return err
-	}
-	s.hash = sha256.Sum256(data)
-	return nil
+	return s.manager.writeSource(func() error {
+		if err := s.Check(); err != nil {
+			return err
+		}
+		if err := WriteAtomic(s.manager.Abs(s.doc.Path), data); err != nil {
+			return err
+		}
+		s.hash = sha256.Sum256(data)
+		return nil
+	})
 }
 func (s *BinarySource) NotifySaved() {
 	s.manager.emit(Event{Kind: EvSourceSaved, Doc: s.doc.ID, Path: s.doc.Path})

@@ -47,6 +47,14 @@ func (r *Registry) Export(title string) Export {
 	exp := Export{Version: ExportVersion, Title: title, Entries: r.All(), Problems: r.Check(false), Aliases: r.Aliases()}
 	for i := range exp.Entries {
 		hideChecks(&exp.Entries[i])
+		if loc, ok := r.trySources[exp.Entries[i].ID]; ok && exp.Entries[i].Try != "" {
+			source, err := r.exportTrySource(exp.Entries[i], loc)
+			if err != nil {
+				exp.Problems = append(exp.Problems, Problem{ID: exp.Entries[i].ID, Error: true, Message: "Try source project: " + err.Error()})
+			} else {
+				exp.Entries[i].TrySource = source
+			}
+		}
 	}
 	for _, e := range r.Roots() {
 		exp.Nav = append(exp.Nav, r.node(e.ID, 0))

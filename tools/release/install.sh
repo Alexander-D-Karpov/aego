@@ -209,6 +209,18 @@ check_glibc() {
 }
 
 install_desktop() {
+	# Both desktop entries contain the prefix in Exec. Refuse ambiguous field
+	# codes, quoting or control characters rather than emit a broken command.
+	case "$prefix" in
+	*\"*|*\\*|*\$*|*\`*|*%*)
+		printf '%s\n' 'install.sh: desktop registration skipped for an unsafe Exec path' >&2
+		return 0 ;;
+	esac
+	# grep treats newlines as record separators, so count control bytes instead.
+	if [ "$(printf '%s' "$prefix" | LC_ALL=C tr -cd '\001-\037\177' | wc -c)" -ne 0 ]; then
+		printf '%s\n' 'install.sh: desktop registration skipped for an Exec path containing control characters' >&2
+		return 0
+	fi
 	data="${XDG_DATA_HOME:-$HOME/.local/share}"
 	mkdir -p "$data/applications" "$data/icons/hicolor/256x256/apps" "$data/mime/packages"
 	[ -f "$root/current/share/aego.png" ] && cp "$root/current/share/aego.png" "$data/icons/hicolor/256x256/apps/aego.png"
@@ -223,6 +235,37 @@ Categories=Development;IDE;
 MimeType=application/x-aego-project;application/x-aego-scene;
 Terminal=false
 EOF
+	# Keep file associations separate from the single untrusted protocol URL.
+	protocol_ready=0
+	protocol_tmp=$(mktemp "$data/applications/.aego-example.XXXXXXXX")
+	cat > "$protocol_tmp" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Aego
+Comment=Game engine and editor
+Exec="$prefix/bin/aego" edit --example-link %u
+Icon=aego
+Categories=Development;IDE;
+MimeType=x-scheme-handler/aego;
+NoDisplay=true
+Terminal=false
+EOF
+	protocol_file="$data/applications/aego-example.desktop"
+	if [ -L "$protocol_file" ]; then
+		printf '%s\n' 'install.sh: existing protocol desktop symlink preserved' >&2
+	elif [ -e "$protocol_file" ]; then
+		if [ -f "$protocol_file" ] && cmp -s "$protocol_tmp" "$protocol_file"; then
+			protocol_ready=1
+		else
+			printf '%s\n' 'install.sh: existing protocol desktop file preserved' >&2
+		fi
+	elif ln "$protocol_tmp" "$protocol_file" 2>/dev/null; then
+		# Hard-link publication fails instead of replacing a newly appeared file.
+		protocol_ready=1
+	else
+		printf '%s\n' 'install.sh: could not safely create protocol desktop file' >&2
+	fi
+	rm -f "$protocol_tmp"
 	cat > "$data/mime/packages/aego.xml" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
@@ -241,6 +284,13 @@ EOF
 	command -v update-mime-database >/dev/null 2>&1 && update-mime-database "$data/mime" >/dev/null 2>&1 || true
 	command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$data/applications" >/dev/null 2>&1 || true
 	command -v xdg-mime >/dev/null 2>&1 && xdg-mime default aego.desktop application/x-aego-project application/x-aego-scene >/dev/null 2>&1 || true
+	if [ "$protocol_ready" = 1 ] && command -v xdg-mime >/dev/null 2>&1; then
+		current=$(xdg-mime query default x-scheme-handler/aego 2>/dev/null || true)
+		case "$current" in
+		"" | aego-example.desktop) xdg-mime default aego-example.desktop x-scheme-handler/aego >/dev/null 2>&1 || true ;;
+		*) printf '%s\n' "install.sh: existing aego: handler preserved: $current" >&2 ;;
+		esac
+	fi
 }
 
 check_glibc

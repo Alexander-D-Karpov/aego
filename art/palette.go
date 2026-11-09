@@ -116,6 +116,22 @@ func DecodePalette(data []byte, format string) ([]Swatch, error) {
 	return p, nil
 }
 
+// AddPaletteEntry appends a swatch without remapping existing indexed pixels.
+// Replacing an otherwise identical palette can coalesce duplicate colors, so
+// that operation is not suitable for this seemingly simple edit.
+func (e *Edit) AddPaletteEntry(value Swatch) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	next := append(append([]Swatch(nil), e.work.Palette...), value)
+	if err := validatePalette(next); err != nil {
+		return err
+	}
+	e.work.Palette = next
+	e.structural = true
+	return nil
+}
+
 // ReplacePalette preserves existing indexed colors by default, rejecting an
 // insufficient replacement rather than silently recoloring art. Quantize is an
 // explicit lossy operation; data channels are never quantized with albedo.

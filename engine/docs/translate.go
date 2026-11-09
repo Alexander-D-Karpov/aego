@@ -67,6 +67,9 @@ func (r *Registry) translations(src module.DocSource, files []string) {
 				continue
 			}
 			e := &r.entries[i]
+			// Search aliases are shared, just like public component labels: an
+			// English UI name must also find the translated article and vice versa.
+			e.SearchNames = append(e.SearchNames, rec.searchNames...)
 			if e.Translations == nil {
 				e.Translations = map[string]Translation{}
 			}

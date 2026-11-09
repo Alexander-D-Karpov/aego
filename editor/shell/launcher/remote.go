@@ -47,12 +47,42 @@ type remoteJob struct {
 	canceled bool
 }
 type remoteState struct {
-	url     string
-	copies  []RemoteCopy
-	pending *remoteRequest
-	job     *remoteJob
-	status  string
-	closed  bool
+	url      string
+	copies   []RemoteCopy
+	pending  *remoteRequest
+	job      *remoteJob
+	status   string
+	closed   bool
+	fromLink bool
+}
+
+// RequestExampleLink routes an OS URL request to the ordinary, explicit remote
+// confirmation. Both scene and project links open an isolated editable project;
+// neither imports into the current project nor starts Play. No URL parameter
+// can choose a filesystem path, invoke a command or approve its own origin.
+func (l *Launcher) RequestExampleLink(raw string) error {
+	link, err := remoteexample.ParseLink(raw)
+	if err != nil {
+		return err
+	}
+	if l.opt.Remote == nil || l.remote.closed || l.remote.job != nil || l.remote.pending != nil {
+		return fmt.Errorf("remote example request cannot replace an active operation")
+	}
+	l.SetTab(TabExamples)
+	l.remote.url = link.ManifestURL
+	l.remote.fromLink = true
+	l.confirmRemote("open", link.ManifestURL, "")
+	if l.remote.pending == nil {
+		return fmt.Errorf("remote example confirmation could not be prepared")
+	}
+	return nil
+}
+
+// AwaitingExampleConfirmation lets the host defer unrelated automatic network
+// work for a freshly opened protocol request. Explicit user actions remain
+// separate, and an already running job cannot be canceled retroactively.
+func (l *Launcher) AwaitingExampleConfirmation() bool {
+	return l.remote.fromLink && l.remote.pending != nil
 }
 
 // Close cancels in-flight HTTPS before the launcher is destroyed. The worker

@@ -4,7 +4,7 @@
   "demoID": "render2d.PostProcess.enabled",
   "documentID": "render2d.PostProcess",
   "scene": "render2d.PostProcess/try",
-  "identity": "93678351223a4b34a7a5f0f3d914799e80e2423fddb572aa64b1beb3430df8fc",
+  "identity": "c8236ff86b9fa4b3d3e873fc0ca2cce135d4a518acdf37a5f5b824c54d2ee94a",
   "dependencies": [
     "ae900000000000000000000000000010",
     "45e397813812442d994a810000000001",
@@ -22,5 +22,5 @@
     "en": {"title": "Enable camera post-processing", "description": "The camera starts with Bloom enabled. Its output stack changes the bright cards before the UI is drawn.", "input": "Disable the Post Process component to see the unprocessed output; Reset restores the stack."},
     "ru": {"title": "Включение постобработки камеры", "description": "Камера запускается с эффектом Bloom. Стек меняет яркие карточки до отрисовки интерфейса.", "input": "Выключите компонент Post Process, чтобы увидеть исходное изображение; «Сброс» восстановит стек."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

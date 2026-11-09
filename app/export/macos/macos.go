@@ -29,6 +29,8 @@ type Info struct {
 	Category   string
 	Copyright  string
 	Documents  []DocType
+	// URLSchemes belong to the host application, not exported games.
+	URLSchemes []string
 }
 
 var icnsTypes = []struct {
@@ -87,6 +89,15 @@ func Plist(i Info, iconFile string) []byte {
 	str("LSMinimumSystemVersion", i.MinOS)
 	str("LSApplicationCategoryType", i.Category)
 	str("NSHumanReadableCopyright", i.Copyright)
+	if len(i.URLSchemes) > 0 {
+		b.WriteString("\t<key>CFBundleURLTypes</key>\n\t<array><dict>\n")
+		str("CFBundleURLName", i.ID+".examples")
+		b.WriteString("\t\t<key>CFBundleURLSchemes</key>\n\t\t<array>\n")
+		for _, scheme := range i.URLSchemes {
+			b.WriteString("\t\t\t<string>" + esc(scheme) + "</string>\n")
+		}
+		b.WriteString("\t\t</array>\n\t</dict></array>\n")
+	}
 	if len(i.Documents) > 0 {
 		b.WriteString("\t<key>CFBundleDocumentTypes</key>\n\t<array>\n")
 		for _, d := range i.Documents {

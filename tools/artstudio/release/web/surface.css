@@ -1,12 +1,12 @@
-body:not(.landing){grid-template-rows:44px 36px auto minmax(0,1fr) 25px;}
+body:not(.landing){grid-template-rows:minmax(44px,max-content) 36px auto minmax(0,1fr) 25px;}
 [hidden]{display:none!important}
 /* Reuses the shipped Aego theme; no separate pixel-editor styling system. */
-.release-toolbar { display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 10px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap; }
+.release-toolbar { display:flex;align-items:center;gap:8px;min-width:0;min-height:34px;padding:4px 10px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap; }
 .release-toolbar a {color:var(--text);text-decoration:none;padding:5px 10px;}
 .release-toolbar button {white-space:normal;}
 .release-version {color:var(--muted);margin-left:auto;font-size:10px;}
-.transfer-status {max-width:56ch;color:var(--muted);}
-.storage-warning {background:#483820;color:#fff1cf;padding:7px 12px;border-bottom:1px solid var(--border);}
+.transfer-status {min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--muted);}
+.storage-warning {min-width:0;overflow-wrap:anywhere;background:#483820;color:#fff1cf;padding:7px 12px;border-bottom:1px solid var(--border);}
 .studio-embedded .app-name,.studio-embedded .privacy,.studio-embedded .build-badge,.studio-embedded .workspaces,.studio-embedded .release-version {display:none;}
 .studio-embedded .statusbar > [data-i18n="hints"] {display:none;}
 .studio-embedded {--timeline:170px;--side:220px;--tools:46px;}
@@ -23,6 +23,11 @@ body.landing {display:block;overflow:auto;height:auto;min-height:100vh;}
 .example-card img {grid-row:1/3;width:64px;height:64px;image-rendering:pixelated;background:var(--field);}
 .example-card span {color:var(--muted);}
 .release-note {margin-top:32px;max-width:80ch;}
-@media(max-width:700px){.release-toolbar{gap:4px;}.transfer-status{width:100%;}.release-version{display:none;}.studio-embedded .tool-options{overflow-x:auto;white-space:nowrap;}.studio-embedded .timeline-toolbar,.studio-embedded .timeline-range-toolbar{overflow-x:auto;flex-wrap:nowrap;}.studio-embedded .timeline-toolbar button{flex-shrink:0;}.studio-embedded{--timeline:180px;}.welcome{margin-top:28px;}}
+/* Compact embeds keep one locally scrolling tool row. Wrapping this
+   non-shrinking flex item can spill its controls into the Timeline's grid row. */
+@media(max-width:700px){.release-toolbar{gap:4px;}.transfer-status{width:100%;}.release-version{display:none;}.studio-embedded .tool-options{overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;}.studio-embedded .tool-options>*{flex-shrink:0;}.studio-embedded .timeline-toolbar,.studio-embedded .timeline-range-toolbar{overflow-x:auto;flex-wrap:nowrap;}.studio-embedded .timeline-toolbar button{flex-shrink:0;}.studio-embedded{--timeline:180px;}.welcome{margin-top:28px;}}
+/* A hidden sidebar must not retain the desktop embed's 220px grid track. */
+@media(max-width:760px){.studio-embedded{--side:0px;}}
+@media(max-width:480px){.studio-embedded .sidebar.open{top:80px;}}
 
 .storage-warning{width:100%;}

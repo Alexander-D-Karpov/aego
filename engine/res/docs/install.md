@@ -14,7 +14,7 @@ Aego is one program: the editor, the command line and the runtime. Install it on
 The buttons above take the files of the [latest release](https://git.akarpov.ru/sanspie/aego/releases/latest); every file has its SHA-256 sum in `SHA256SUMS.txt`. The [nightly pre-release](https://git.akarpov.ru/sanspie/aego/releases/tag/nightly) is rebuilt from every green commit.
 
 - **Windows** — run the installer. It installs for your user only, adds `aego` to PATH, puts Aego in the Start menu and opens `.aego` projects on double click.
-- **macOS** — open the disk image and drag Aego to Applications. The app is not notarized yet: on first launch, right-click → Open, or allow it in System Settings → Privacy & Security. A release may come without a disk image, because it is built on a Mac separately.
+- **macOS** — first check that the selected release actually includes a macOS download. If it includes a disk image, open it and drag Aego to Applications. The app is not notarized yet: on first launch, right-click → Open, or allow it in System Settings → Privacy & Security. A missing download is not an available installer; use the source-build instructions below instead.
 - **Linux** — download the AppImage, make it executable and run it. Gear Lever or AppImageLauncher add it to your menu; the install script below does that by itself. A tarball is also available.
 
 ## Command line
@@ -72,7 +72,7 @@ make bootstrap && make cli
 
 ## Requirements
 
-OpenGL 3.3 or WebGL2. Any computer from the last ten years qualifies; virtual machines and remote desktops often don't. If Aego stops with a message about OpenGL, update the graphics driver or run it on real hardware.
+The desktop renderer requires OpenGL 3.3 and a driver that exposes it to the application. Browser builds require WebGL2 enabled in the browser. Hardware age alone does not establish compatibility: virtual machines, remote desktops and disabled browser acceleration may not provide the required API. Check the release's OS and CPU architecture before downloading. If startup reports an OpenGL error, check the driver and graphics environment; do not assume the project is damaged.
 
 ## Native Go extensions
 

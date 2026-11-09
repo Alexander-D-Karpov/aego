@@ -17,6 +17,7 @@ var update = flag.Bool("update", false, "rewrite the navigation goldens")
 var (
 	hrefRe = regexp.MustCompile(`href="([^"]*)"`)
 	idRe   = regexp.MustCompile(`id="([^"]*)"`)
+	h1Re   = regexp.MustCompile(`<h1(?:\s|>)`)
 )
 
 func fixture() *Export {
@@ -101,9 +102,15 @@ func crawl(t *testing.T, dir string) map[string]string {
 					file = path.Join(file, "index.html")
 				}
 			}
-			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") || strings.HasSuffix(file, ".png") || strings.HasSuffix(file, ".txt") || strings.HasSuffix(file, ".md") {
+			if strings.HasSuffix(file, ".css") || strings.HasSuffix(file, ".js") || strings.HasSuffix(file, ".woff2") || strings.HasSuffix(file, ".png") || strings.HasSuffix(file, ".txt") || strings.HasSuffix(file, ".md") || strings.HasSuffix(file, ".json") {
 				if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
 					t.Errorf("%s: missing asset %s", p, href)
+				}
+				if strings.HasSuffix(file, ".json") {
+					data, err := os.ReadFile(filepath.Join(dir, file))
+					if err != nil || !json.Valid(data) {
+						t.Errorf("%s: invalid JSON resource %s", p, href)
+					}
 				}
 				continue
 			}
@@ -295,7 +302,29 @@ func TestRealExport(t *testing.T) {
 	if len(exp.Groups) == 0 {
 		t.Fatal("the export has no groups, rebuild the aego CLI")
 	}
-	_, rep, _ := build(t, exp, Options{})
+	ids := make(map[string]bool, len(exp.Entries))
+	for _, e := range exp.Entries {
+		ids[e.ID] = true
+	}
+	for id := range taskIcons {
+		if !ids[id] {
+			t.Errorf("documentation task icon targets an unregistered page: %s", id)
+		}
+	}
+	_, rep, pages := build(t, exp, Options{})
+	for name, body := range pages {
+		if count := len(h1Re.FindAllString(body, -1)); count != 1 {
+			t.Errorf("%s: expected one page heading, got %d", name, count)
+		}
+		seen := map[string]bool{}
+		for _, match := range idRe.FindAllStringSubmatch(body, -1) {
+			id := html.UnescapeString(match[1])
+			if seen[id] {
+				t.Errorf("%s: duplicate anchor %s", name, id)
+			}
+			seen[id] = true
+		}
+	}
 	golden(t, "nav-real.golden", rep.Outline)
 }
 

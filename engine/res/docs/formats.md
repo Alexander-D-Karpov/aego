@@ -13,26 +13,31 @@ Aego projects contain editable source files; the importer prepares separate runt
 
 | File | Purpose |
 |---|---|
-| `project.aego` | Project identity, startup scene and module settings. See [Project settings](ref:section/engine). |
-| `.aescene` | A scene with nodes, transforms and components. |
-| `.aeprefab` | A reusable node hierarchy; see [Prefabs](ref:prefabs). |
-| `.aes` | Aego Script source. |
-| `.aeart` | Aego's editable drawing container, including its frames and layers. It is not an Aseprite file; see [Pixel art](ref:render2d/art). |
+| [project.aego](ref:formats/aego) | Project identity, startup scene and module settings. |
+| [.aescene](ref:formats/aescene) | A scene with nodes, transforms and components. |
+| [.aeprefab](ref:formats/aeprefab) | A reusable node hierarchy and instance overrides. |
+| [.aes](ref:formats/aes) | Aego Script source. |
+| [.aeart](ref:formats/aeart) | Aego's editable drawing container; not an Aseprite file. |
 | `.aeanim` | [Animation clip](ref:formats/aeanim) with tracks, sprite frames and events. |
 | `.aectrl` | [Animation controller](ref:formats/aectrl) with parameters, states and transitions. |
-| `.aepreset` | Saved component or script values. |
-| `.aedata`, `.aetable` | Typed data assets and tables; see [Data](ref:data). |
-| `.aemat`, `.aeshader` | Material parameters and shader source. |
+| [.aepreset](ref:formats/aepreset) | Saved component or script values. |
+| [.aedata](ref:formats/aedata), [.aetable](ref:formats/aetable) | Typed data records and tables. |
+| [.aemat](ref:formats/aemat), [.aeshader](ref:formats/aeshader) | Material parameters and shader source. |
 | `.glsl` | Shader include source. |
-| `.meta` | Sidecar containing an asset's stable ID and import settings. Keep it with its source when moving or renaming files. |
+| [.meta](ref:formats/meta) | Stable asset identity and import settings; keep with its source. |
+| [.aetext](ref:formats/aetext) | Shared structured-text syntax; each consuming format defines its own schema. |
 
 ## External inputs
 
 | File | Import behavior |
 |---|---|
-| `.png` | Imported as a texture; sprite slices and settings are stored separately. The image viewer can create a new editable `.aeart` copy without replacing the PNG or changing scene references. |
+| `.png` | Imported as a texture with separate sprite metadata. See [Art Studio](ref:render2d/art) for the development in-memory drawing workflow and first Save; opening alone must not overwrite the PNG. |
 | `.ase`, `.aseprite` | Explicit Aseprite import creates a separate `.aeart` copy. Unsupported data can require confirmation or prevent import; the original is not overwritten. |
 | `.wav`, `.ogg`, `.mp3` | Audio clips. WAV and Ogg Vorbis are supported directly; MP3 conversion requires FFmpeg. See [Audio clips](ref:audio/clips). |
 | `.obj` | Mesh import when the 3D rendering module is enabled. |
 
-Importing audio or OBJ does not mean Aego includes full audio or 3D-model editors. Cache and export artifacts are generated outputs, not substitutes for the original source and its `.meta` file.
+An accepted import extension does not establish a complete audio or 3D-modelling editor. Follow the relevant guide for the actual authoring capabilities of this build.
+
+## Generated files and game saves
+
+[Prepared artifacts](ref:formats/artifacts), [.aetry documentation bundles](ref:formats/aetry) and [.aesave game save slots](ref:formats/aesave) have separate roles. They appear under [Generated and runtime files](ref:formats/runtime), not among artist-editable sources. Import caches, prepared binary signatures and export manifests must not be edited as replacements for source files.

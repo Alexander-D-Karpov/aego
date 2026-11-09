@@ -17,5 +17,5 @@
     "en": {"title": "Polygon collider bounce", "description": "The outline follows the triangle collider. With gravity off and Restitution 0, the triangle stops when it strikes the floor.", "input": "Change Restitution from 0 to 1 to make the same collision bounce. Reset restores the original contact."},
     "ru": {"title": "Отскок многоугольного коллайдера", "description": "Контур повторяет треугольный коллайдер. При выключенной гравитации и Restitution 0 треугольник останавливается у пола.", "input": "Измените Restitution с 0 на 1, чтобы треугольник отскочил при том же столкновении. «Сброс» вернёт исходное столкновение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

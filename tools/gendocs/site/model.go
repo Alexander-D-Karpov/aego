@@ -50,7 +50,15 @@ type DemoText struct {
 }
 
 type DemoInfo struct {
+	DemoID    string              `json:"demoID"`
 	Languages map[string]DemoText `json:"languages"`
+}
+
+type TrySource struct {
+	EntryScene string
+	Files      map[string][]byte
+	Modules    []string
+	AssetRefs  []string
 }
 
 type Entry struct {
@@ -68,11 +76,13 @@ type Entry struct {
 	Location     Location
 	Links        []string
 	Keys         []string
+	SearchNames  []string
 	Requires     []string
 	Snippets     []Snippet
 	Order        int
 	Field        *FieldInfo
 	Component    *ComponentInfo
+	ValueType    bool
 	Demo         *DemoInfo
 	Related      []string
 	Try          string
@@ -83,6 +93,7 @@ type Entry struct {
 	TryKeys      []string
 	TryPrefabs   map[string]string
 	TryArtifacts []byte
+	TrySource    *TrySource
 	Icon         string
 	EditorOnly   bool
 	Diag         *DiagInfo

@@ -24,6 +24,9 @@ func ImportPNGFrames(data []byte, rects []image.Rectangle, durationMS int, limit
 	if err != nil {
 		return nil, err
 	}
+	if err := CheckPNGPrecision(cfg); err != nil {
+		return nil, err
+	}
 	// Bound the complete decoded image, not only the output rectangles.
 	if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > l.MaxDimension || cfg.Height > l.MaxDimension || int64(cfg.Width)*int64(cfg.Height) > int64(l.MaxCanvasPixels) {
 		return nil, ErrLimit

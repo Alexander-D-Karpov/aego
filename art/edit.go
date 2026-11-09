@@ -19,6 +19,8 @@ type Edit struct {
 	dirty      image.Rectangle
 	structural bool
 	allocated  int64
+	lastCelID  ID
+	lastCel    int
 }
 
 func (d *Document) Begin(expected uint64, label string) (*Edit, error) {
@@ -50,6 +52,18 @@ func (e *Edit) DirtyRect() image.Rectangle { return e.dirty }
 func (e *Edit) touch(r image.Rectangle) {
 	e.dirty = e.dirty.Union(r.Intersect(image.Rect(0, 0, e.work.Canvas.Width, e.work.Canvas.Height)))
 }
+// celIndex caches only a checked slot within this draft, never cel content.
+func (e *Edit) celIndex(id ID) (int, bool) {
+	if id == e.lastCelID && e.lastCel >= 0 && e.lastCel < len(e.work.Cels) && e.work.Cels[e.lastCel].ID == id {
+		return e.lastCel, true
+	}
+	i, ok := e.work.cel(id)
+	if ok {
+		e.lastCelID, e.lastCel = id, i
+	}
+	return i, ok
+}
+
 func (e *Edit) raw(im ID, x, y int, v uint32) error {
 	p := e.work.Images[im]
 	if p == nil {
@@ -156,7 +170,7 @@ func (e *Edit) celForWrite(id ID) (Cel, error) {
 	if err := e.check(); err != nil {
 		return Cel{}, err
 	}
-	i, ok := e.work.cel(id)
+	i, ok := e.celIndex(id)
 	if !ok {
 		return Cel{}, fmt.Errorf("art: missing cel")
 	}
@@ -525,6 +539,21 @@ func (e *Edit) SetSlice(v Slice) (ID, error) {
 	e.structural = true
 	return v.ID, nil
 }
+
+func (e *Edit) DeleteSlice(id ID) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	for i, slice := range e.work.Slices {
+		if slice.ID == id {
+			e.work.Slices = append(e.work.Slices[:i], e.work.Slices[i+1:]...)
+			e.structural = true
+			return nil
+		}
+	}
+	return fmt.Errorf("art: missing slice")
+}
+
 func (e *Edit) collect() {
 	used := make(map[ID]bool)
 	for _, c := range e.work.Cels {

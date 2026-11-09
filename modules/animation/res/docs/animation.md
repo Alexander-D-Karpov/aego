@@ -400,6 +400,7 @@ In Preview and Record the Scene View draws the path of the node's `transform.pos
 
 ---
 id: animation/sheets
+search_names: [slice sprites, sprite slicing, spritesheet, flipbook]
 icon: anim.slice
 parent: animation
 order: 12

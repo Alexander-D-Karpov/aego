@@ -81,7 +81,7 @@ func staticHandler(dir string) http.Handler {
 			name = "index.html"
 		}
 		switch name {
-		case "index.html", "studio.css", "studio.js", "recovery.js", "wasm_exec.js", "artstudio.wasm":
+		case "index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "wasm_exec.js", "artstudio.wasm", "preview.wasm":
 		default:
 			http.NotFound(w, r)
 			return
@@ -142,5 +142,18 @@ func runReplay(path string) error {
 		return err
 	}
 	hash := sha256.Sum256(im.Pix)
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"pixelSHA256": hex.EncodeToString(hash[:]), "state": s.Info()})
+	frames := make(map[art.ID]map[art.Channel]string)
+	for _, frame := range d.Info().Frames {
+		channels := make(map[art.Channel]string)
+		for _, channel := range []art.Channel{art.Albedo, art.Normal, art.Height, art.Emission} {
+			pixels, err := d.Render(frame.ID, art.RenderOptions{Channel: channel})
+			if err != nil {
+				return err
+			}
+			sum := sha256.Sum256(pixels.Pix)
+			channels[channel] = hex.EncodeToString(sum[:])
+		}
+		frames[frame.ID] = channels
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"pixelSHA256": hex.EncodeToString(hash[:]), "frameSHA256": frames, "state": s.Info()})
 }

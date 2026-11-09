@@ -9,7 +9,10 @@
   "editableFields": ["camera.CameraShake2D.MaxAngle"],
   "actions": [{
     "id": "enable-camera-rotation", "field": "camera.CameraShake2D.MaxAngle", "value": 0.5,
-    "expected": [{"observable": "camera.CameraShake2D.MaxAngle", "equals": 0.5, "changes": true}],
+    "expected": [
+      {"observable": "camera.CameraShake2D.MaxAngle", "equals": 0.5, "changes": true},
+      {"observable": "camera.CameraShake2D.Camera.Trauma", "equals": 1, "changes": false, "tolerance": 0.001}
+    ],
     "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
   }],
   "reset": "reset",
@@ -17,5 +20,5 @@
     "en": {"title": "Rotate the shaken view", "description": "A single full hit is held with zero Decay. The landmarks stay still; the camera's zero Max Angle initially prevents rotation.", "input": "Change Max Angle from 0 to 0.5 radians to see the view shake. Reset restores the still view. Reduced-motion settings can suppress shake."},
     "ru": {"title": "Поворот вида при тряске", "description": "Один сильный удар сохраняется при нулевом затухании. Ориентиры неподвижны; нулевой Max Angle сначала не даёт камере вращаться.", "input": "Измените Max Angle с 0 до 0,5 радиана, чтобы увидеть тряску вида. «Сброс» вернёт неподвижный вид. Настройка уменьшения движения может отключить тряску."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

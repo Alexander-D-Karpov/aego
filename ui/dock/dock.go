@@ -111,10 +111,22 @@ func Standard(left, center, bottom, right []string) *Tree {
 }
 
 func Columns(left, leftBottom, center, bottom, right []string) *Tree {
+	return ColumnsWithRatios(left, leftBottom, center, bottom, right, 0.22, 0.78)
+}
+
+// ColumnsWithRatios changes only factory geometry; restored trees retain their
+// saved split positions. centerRatio is the center's share after the left dock.
+func ColumnsWithRatios(left, leftBottom, center, bottom, right []string, leftRatio, centerRatio float32) *Tree {
+	if !(leftRatio > 0 && leftRatio < 1) {
+		leftRatio = 0.22
+	}
+	if !(centerRatio > 0 && centerRatio < 1) {
+		centerRatio = 0.78
+	}
 	t := newTree()
 	l := t.newSplit(AxisY, 0.6, t.newTabs(left), t.newTabs(leftBottom))
 	c := t.newSplit(AxisY, 0.78, t.newTabs(center), t.newTabs(bottom))
-	t.root = t.newSplit(AxisX, 0.22, l, t.newSplit(AxisX, 0.78, c, t.newTabs(right)))
+	t.root = t.newSplit(AxisX, leftRatio, l, t.newSplit(AxisX, centerRatio, c, t.newTabs(right)))
 	t.normalize()
 	return t
 }

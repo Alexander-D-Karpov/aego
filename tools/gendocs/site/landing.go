@@ -9,12 +9,17 @@ type landingText struct {
 	lang, tagline, lead       string
 	entries                   [3][2]string
 	insideTitle               string
-	cards                     [6][2]string
+	cards                     [landingCardCount][2]string
 	demo, demoPlay, unrelated string
 	switchLabel               string
 }
 
-var landingCardIcons = [6]string{"panel.inspector", "file.script", "cat.gameplay", "play.step_back", "panel.agent", "file.export"}
+const landingCardCount = 14
+
+var landingCardIcons = [landingCardCount]string{
+	"panel.inspector", "file.script", "cat.gameplay", "play.step_back", "panel.agent", "file.export",
+	"file.art", "render2d.point_light", "cat.camera", "animation.player", "particles.system", "cat.audio", "panel.assets", "help.book",
+}
 
 var landingEntryIcons = [3]string{"file.download", "help.book", "panel.find"}
 
@@ -28,13 +33,21 @@ var landingEN = landingText{
 		{"Reference", "Every component, every script function, every file format, with a live example."},
 	},
 	insideTitle: "What's inside",
-	cards: [6][2]string{
-		{"Editor", "Scenes, prefabs, Play mode with rewind, multi-object editing, workspaces, light and dark themes, English and Russian."},
-		{"Aego Script", "Statically typed, hot-reloaded, with coroutines and signals. Every example in these docs compiles and runs."},
-		{"Gameplay kit", "Physics, a character controller, cameras, audio, animation, health and hitboxes. A platformer needs about fifty lines of script."},
-		{"Determinism", "Fixed-step simulation, replay from recorded input, rewind to any frame. If it happened once, it happens again."},
+	cards: [landingCardCount][2]string{
+		{"Editor", "Build scenes from nodes, components and prefabs. Edit several objects together, arrange dockable panels into workspaces, and switch between light and dark themes in English or Russian."},
+		{"Aego Script", "Statically typed scripts with hot reload during Play, coroutines and signals. Write gameplay in the editor's code workspace and extend the engine with native Go modules when needed."},
+		{"Gameplay kit", "2D bodies and colliders, character motion, input actions, health, hitboxes, checkpoints and respawns. Combine reusable components for common interactions instead of rebuilding each system from scratch."},
+		{"Determinism", "Fixed-step gameplay, recorded input and frame-by-frame rewind. Pause, step and revisit a recorded moment to inspect movement, animation and events instead of restarting every experiment."},
 		{"Agents", "`aego mcp` gives an AI agent the same scene operations the editor uses: read, change, validate, run headless, undo."},
-		{"Export", "Linux, Windows, macOS and the browser. The demo on this page is the platformer example, exported as-is."},
+		{"Export", "Build saved projects for Linux, Windows, macOS and the browser. Run a web export through a local server, then deploy its complete output folder; native cross-builds use the target toolchain."},
+		{"Art Studio", "Pixel-art source documents with layers, palettes, frames, onion skin and surface channels. Desktop authoring and browser-based Art Studio have separate workflows, with source saving distinct from preparing game assets."},
+		{"2D lighting and materials", "Point, spot and directional lights, shadows, normal maps and emission. Combine sprites with built-in or custom shader materials, and change per-instance parameters without editing the shared material."},
+		{"Cameras and post-processing", "Camera follow, zones, shake and named virtual-camera outputs for separate views. Add Bloom, colour grading, vignette, pixelation, CRT or a custom post-process material to a camera output."},
+		{"Animation", "Sprite-frame and property clips, timeline editing, animation events and Animator state machines. Use curves and tweens for transitions, and animate transforms, colours, script fields or material parameters."},
+		{"Particles and VFX", "Seeded CPU particles with bursts, continuous emission, local or world space and sprite flipbooks. Shape size, velocity and alpha over life with editable curves; start effects from gameplay or animation events."},
+		{"Audio", "Clip waveforms and previews, streamed music, spatial sources and listeners, mixer buses and audio zones. Audio events add clip variants, pitch and volume variation, cooldowns and voice limits."},
+		{"Assets and data", "A dependency-aware import pipeline keeps editable sources separate from runtime artifacts. Stable AssetIDs, reference searches, missing-reference checks and reusable typed data assets help keep a growing project organized."},
+		{"Interactive documentation", "Run and reset component examples, edit script snippets in the playground, and search English or Russian guides and API reference. Browse source file formats separately from the artifacts generated for the runtime."},
 	},
 	demo:        "This is `examples/platformer`, exported to the web. Arrows or WASD, Space to jump, J to attack.",
 	demoPlay:    "Play the demo · runs in the browser",
@@ -52,13 +65,21 @@ var landingRU = landingText{
 		{"Справочник", "Каждый компонент, каждая функция скриптов, каждый формат файлов — с живым примером."},
 	},
 	insideTitle: "Что внутри",
-	cards: [6][2]string{
-		{"Редактор", "Сцены, префабы, режим игры с перемоткой, правка нескольких объектов, раскладки, светлая и тёмная темы, английский и русский."},
-		{"Aego Script", "Статическая типизация, горячая перезагрузка, корутины и сигналы. Каждый пример в этой документации компилируется и запускается."},
-		{"Набор для геймплея", "Физика, контроллер персонажа, камеры, звук, анимация, здоровье и хитбоксы. Платформеру хватает примерно пятидесяти строк скрипта."},
-		{"Детерминизм", "Симуляция с фиксированным шагом, повтор по записанному вводу, перемотка к любому кадру. Если что-то случилось один раз, это случится снова."},
+	cards: [landingCardCount][2]string{
+		{"Редактор", "Собирайте сцены из узлов, компонентов и префабов. Правьте несколько объектов вместе, размещайте стыкуемые панели в рабочих раскладках и выбирайте светлую или тёмную тему, английский или русский язык."},
+		{"Aego Script", "Статическая типизация, горячая перезагрузка во время игры, корутины и сигналы. Пишите игровую логику в рабочем пространстве для кода, а при необходимости расширяйте движок нативными модулями на Go."},
+		{"Набор для геймплея", "2D-тела и коллайдеры, движение персонажа, действия ввода, здоровье, хитбоксы, контрольные точки и возрождение. Собирайте типичные взаимодействия из готовых компонентов, не создавая каждую систему заново."},
+		{"Детерминизм", "Игровая симуляция с фиксированным шагом, запись ввода и покадровая перемотка. Ставьте игру на паузу, выполняйте отдельные шаги и возвращайтесь к записанному моменту, чтобы изучить движение, анимацию и события."},
 		{"Агенты", "`aego mcp` даёт ИИ-агенту те же операции над сценой, что и редактору: прочитать, изменить, проверить, запустить без окна, отменить."},
-		{"Экспорт", "Linux, Windows, macOS и браузер. Демо на этой странице — пример платформера, экспортированный как есть."},
+		{"Экспорт", "Собирайте сохранённые проекты для Linux, Windows, macOS и браузера. Проверяйте веб-экспорт через локальный сервер и переносите всю выходную папку; нативная кросс-сборка использует инструменты целевой платформы."},
+		{"Art Studio", "Исходные документы пиксельной графики: слои, палитры, кадры, луковая калька и каналы поверхности. Настольный редактор и браузерная Art Studio работают раздельно; сохранение исходника отличается от подготовки игровых ресурсов."},
+		{"2D-свет и материалы", "Точечный, направленный свет и прожекторы, тени, карты нормалей и свечение поверхностей. Используйте встроенные или собственные шейдерные материалы и меняйте параметры отдельного объекта, не правя общий материал."},
+		{"Камеры и постобработка", "Слежение, зоны, тряска и именованные выходы виртуальных камер для отдельных видов. Добавляйте к выходу камеры Bloom, цветокоррекцию, виньетку, пикселизацию, CRT или собственный материал постобработки."},
+		{"Анимация", "Клипы кадров и свойств, редактирование на временной шкале, события анимации и машины состояний Animator. Настраивайте переходы кривыми и твинами, анимируйте трансформации, цвета, поля скриптов и параметры материалов."},
+		{"Частицы и VFX", "CPU-частицы с собственным seed: всплески, непрерывное испускание, локальные и мировые координаты, покадровые спрайты. Редактируйте кривые размера, скорости и прозрачности; запускайте эффекты из игровой логики или событий анимации."},
+		{"Звук", "Форма волны и предпросмотр клипов, потоковая музыка, пространственные источники и слушатели, шины микшера и звуковые зоны. Аудиособытия задают варианты клипов, разброс высоты тона и громкости, интервалы и ограничения голосов."},
+		{"Ассеты и данные", "Импорт с учётом зависимостей отделяет редактируемые исходники от файлов для выполнения игры. Стабильные AssetID, поиск использований, проверка потерянных ссылок и типизированные ресурсы данных помогают поддерживать порядок в растущем проекте."},
+		{"Интерактивная документация", "Запускайте и сбрасывайте примеры компонентов, редактируйте скрипты в песочнице, ищите руководства и API на русском или английском. Изучайте исходные форматы отдельно от файлов, которые генерируются для выполнения игры."},
 	},
 	demo:        "Это `examples/platformer`, экспортированный для веба. Стрелки или WASD, пробел — прыжок, J — атака.",
 	demoPlay:    "Играть в демо · работает в браузере",

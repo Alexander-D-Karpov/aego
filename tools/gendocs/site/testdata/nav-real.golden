@@ -1,15 +1,16 @@
 Getting started
-  Getting started
-    Install Aego -> install.html
-    Your first project -> quickstart.html
-    Platformer from scratch -> platformer.html
-    Recipes -> recipes.html
-    Platformer lighting and effects -> platformer-effects.html
-    Credits and acknowledgements -> credits.html
+  Install Aego -> install.html
+  Your first project -> quickstart.html
+  Platformer from scratch -> platformer.html
+  Recipes -> recipes.html
+  Platformer lighting and effects -> platformer-effects.html
+  Credits and acknowledgements -> credits.html
 Guides
   Editor -> editor.html
     Add Component and Create -> editor/add-component.html
     The Agent panel -> editor/agent.html
+    Icon catalog -> editor/icons.html
+  Art Studio: drawing, frames and source files -> render2d/art.html
   Aego Script -> language.html
     Overview -> language/overview.html
     Files and packages -> language/files-and-packages.html
@@ -98,7 +99,7 @@ Guides
     Units and axes -> physics/units.html
     Components -> physics/components.html
     Bodies and hierarchy -> physics/hierarchy.html
-    Layers -> physics/layers.html
+    Collision layers -> physics/layers.html
     Events -> physics/events.html
     Scripting -> physics/scripting.html
     Settings -> physics/settings.html
@@ -133,7 +134,6 @@ Guides
     Materials and shaders -> render2d/materials.html
     Normal mapping with a moving light -> render2d/normal-mapping.html
     Image and Sprite authoring -> render2d/image-viewer.html
-    Pixel art and Aseprite import -> render2d/art.html
   Native extensions -> extensions.html
   Tools & Agents
     Debug Draw -> debug.html
@@ -147,19 +147,25 @@ Reference
       Action -> ref/aego/action.Action.html
     aego/anim -> ref/aego/anim.html
     aego/audio -> ref/aego/audio.html
+      PlayOptions -> ref/aego/audio.PlayOptions.html
       Sound -> ref/aego/audio.Sound.html
     aego/camera -> ref/aego/camera.html
       Blend -> ref/aego/camera.Blend.html
+      Pose -> ref/aego/camera.Pose.html
     aego/curve -> ref/aego/curve.html
     aego/data -> ref/aego/data.html
+      AudioEvent -> ref/aego/data.AudioEvent.html
     aego/debug -> ref/aego/debug.html
     aego/input -> ref/aego/input.html
     aego/lighting -> ref/aego/lighting.html
     aego/log -> ref/aego/log.html
     aego/material -> ref/aego/material.html
+      Vec4 -> ref/aego/material.Vec4.html
     aego/math -> ref/aego/math.html
     aego/particles -> ref/aego/particles.html
     aego/physics -> ref/aego/physics.html
+      Contact -> ref/aego/physics.Contact.html
+      RayHit -> ref/aego/physics.RayHit.html
     aego/rand -> ref/aego/rand.html
     aego/save -> ref/aego/save.html
     aego/scene -> ref/aego/scene.html
@@ -194,8 +200,8 @@ Reference
       Post Process -> ref/render2d.PostProcess.html
       Sprite Renderer -> ref/engine.SpriteRenderer.html
     Cameras 2D -> ref/module/camera.html
-      Camera Brain 2D -> ref/camera.CameraBrain2D.html
       Camera Follow 2D -> ref/camera.CameraFollow2D.html
+      Camera Output Selector 2D -> ref/camera.CameraBrain2D.html
       Camera Shake 2D -> ref/camera.CameraShake2D.html
       Camera Zone 2D -> ref/camera.CameraZone2D.html
       Virtual Camera 2D -> ref/camera.VirtualCamera2D.html
@@ -238,5 +244,22 @@ Reference
   The aego command -> cli.html
   File formats
     Formats overview -> formats/overview.html
-    .aeanim clips -> formats/aeanim.html
-    .aectrl controllers -> formats/aectrl.html
+    Project and authoring files -> formats/source.html
+      project.aego — project configuration -> formats/aego.html
+      .aescene — scenes -> formats/aescene.html
+      .aeprefab — reusable hierarchies -> formats/aeprefab.html
+      .aes — Aego Script -> formats/aes.html
+      .aeart — drawing documents -> formats/aeart.html
+      .aeanim clips -> formats/aeanim.html
+      .aectrl controllers -> formats/aectrl.html
+      .aepreset — component and script presets -> formats/aepreset.html
+      .aedata — typed data records -> formats/aedata.html
+      .aetable — typed data tables -> formats/aetable.html
+      .aemat — materials -> formats/aemat.html
+      .aeshader — shader sources -> formats/aeshader.html
+      .meta — asset identity and import settings -> formats/meta.html
+      .aetext — structured text -> formats/aetext.html
+    Generated and runtime files -> formats/runtime.html
+      Prepared asset artifacts -> formats/artifacts.html
+      .aetry — prepared documentation examples -> formats/aetry.html
+      .aesave — game save slots -> formats/aesave.html

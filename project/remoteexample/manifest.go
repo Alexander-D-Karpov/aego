@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aego/core/ids"
 	"aego/project"
 )
 
@@ -75,10 +76,13 @@ type Manifest struct {
 	Engine     Compatibility `json:"engine"`
 	EntryScene string        `json:"entryScene"`
 	Modules    []string      `json:"requiredModules"`
-	Files      []File        `json:"files"`
-	Archive    Archive       `json:"archive"`
-	License    string        `json:"license"`
-	Origin     string        `json:"origin"`
+	// AssetRefs inventories source dependencies, including stable built-ins.
+	// Older manifests can omit it; files and hashes remain authoritative.
+	AssetRefs []string `json:"assetRefs,omitempty"`
+	Files     []File   `json:"files"`
+	Archive   Archive  `json:"archive"`
+	License   string   `json:"license"`
+	Origin    string   `json:"origin"`
 }
 
 var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
@@ -243,44 +247,6 @@ func digestOK(s string) bool {
 	return e == nil && len(b) == 32 && s == strings.ToLower(s)
 }
 
-// The transport profile deliberately permits only portable ASCII relative
-// paths. This prevents Windows device names, alternate data streams, case-only
-// collisions and Unicode-normalization aliases across supported desktops.
-func cleanPath(name string) error {
-	if len(name) == 0 || len(name) > 240 || name != path.Clean(name) || strings.HasPrefix(name, "/") || strings.ContainsAny(name, "\\:\x00<>\"|?*") {
-		return fmt.Errorf("unsafe package path %q", name)
-	}
-	for _, c := range name {
-		if c < 32 || c > 126 {
-			return fmt.Errorf("non-portable package path %q", name)
-		}
-	}
-	for _, part := range strings.Split(name, "/") {
-		low := strings.ToLower(part)
-		if part == "." || part == ".." || part == "" || strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") || strings.HasPrefix(part, " ") {
-			return fmt.Errorf("unsafe path component %q", part)
-		}
-		base := strings.SplitN(low, ".", 2)[0]
-		if base == "con" || base == "prn" || base == "aux" || base == "nul" || base == "clock$" || (len(base) == 4 && (strings.HasPrefix(base, "com") || strings.HasPrefix(base, "lpt")) && base[3] >= '0' && base[3] <= '9') {
-			return fmt.Errorf("reserved path component %q", part)
-		}
-		if low == ".git" || low == ".hg" || low == ".svn" || low == ".aego" || low == "node_modules" || low == ".env" || strings.HasPrefix(low, ".env.") {
-			return fmt.Errorf("forbidden package directory/file %q", part)
-		}
-	}
-	return nil
-}
-func allowedFile(name string) bool {
-	switch strings.ToLower(path.Ext(name)) {
-	case ".aego", ".aetext", ".aeproj", ".aeproject", ".aescene", ".aeprefab", ".aes", ".aeanim", ".aeanimator", ".aemat", ".aeshader", ".aeshaderinc", ".aepreset", ".aetry", ".aeart", ".aemixer", ".png", ".jpg", ".jpeg", ".webp", ".ogg", ".wav", ".mp3", ".flac", ".ttf", ".otf", ".json", ".meta", ".txt", ".md", ".atlas", ".ase", ".aseprite", ".glsl", ".frag", ".vert", ".lut", ".cube", ".csv":
-		return true
-	}
-	switch strings.ToLower(path.Base(name)) {
-	case "license", "copying", "notice":
-		return true
-	}
-	return false
-}
 func (m Manifest) Validate(source string, lim Limits) error {
 	l := normalizeLimits(lim)
 	if m.Format != FormatVersion || !slugRE.MatchString(m.ExampleID) {
@@ -331,15 +297,23 @@ func (m Manifest) Validate(source string, lim Limits) error {
 	if len(m.Modules) > 256 {
 		return fmt.Errorf("too many required modules")
 	}
+	if len(m.AssetRefs) > l.Files*8 {
+		return fmt.Errorf("too many asset references")
+	}
+	assetIDs := map[string]bool{}
+	for _, raw := range m.AssetRefs {
+		id, err := ids.ParseAssetID(raw)
+		if err != nil || raw != id.String() || id == (ids.AssetID{}) || assetIDs[raw] {
+			return fmt.Errorf("invalid or duplicate asset reference")
+		}
+		assetIDs[raw] = true
+	}
 	names := map[string]bool{}
 	spelling := map[string]string{}
 	var total int64
 	for _, f := range m.Files {
-		if e := cleanPath(f.Path); e != nil {
+		if e := validateResourcePath(f.Path); e != nil {
 			return e
-		}
-		if !allowedFile(f.Path) || f.Path == "remote-example.receipt.json" {
-			return fmt.Errorf("not an allowed project resource: %s", f.Path)
 		}
 		for p := f.Path; p != "."; p = path.Dir(p) {
 			key := strings.ToLower(p)

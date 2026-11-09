@@ -5,12 +5,13 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
 (function () {
     const root = document.querySelector('meta[name="aego-root"]').content;
     const ru = document.documentElement.lang === "ru";
-    const input = document.getElementById("search");
+    const input = document.getElementById("docs-search");
     const results = document.getElementById("results");
     const NAV_KEY = "aego.docs.groups";
-    const SECTIONS = { start: "Getting started", guides: "Guides", reference: "Reference" };
-    const RANK = { start: 0, guides: 1, reference: 2 };
-    let index = null;
+    const SECTIONS = ru
+        ? { start: "Начало работы", guides: "Руководства", reference: "Справочник" }
+        : { start: "Getting started", guides: "Guides", reference: "Reference" };
+    let indexRequest = null;
     let active = 0;
     let shown = [];
 
@@ -41,7 +42,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
     // The theme switch cycles Auto, Dark and Light; Auto follows the system (D345).
     const THEME_KEY = "aego.docs.theme";
     const MODES = ["auto", "dark", "light"];
-    const LABELS = { auto: "Auto", dark: "Dark", light: "Light" };
+    const LABELS = ru ? { auto: "Системная", dark: "Тёмная", light: "Светлая" } : { auto: "Auto", dark: "Dark", light: "Light" };
     const prefersLight = matchMedia("(prefers-color-scheme: light)");
     const themeButton = document.querySelector(".theme");
     const effective = () => document.documentElement.dataset.theme || (prefersLight.matches ? "light" : "dark");
@@ -49,7 +50,7 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         if (mode === "auto") delete document.documentElement.dataset.theme;
         else document.documentElement.dataset.theme = mode;
         themeButton.dataset.mode = mode;
-        themeButton.title = themeButton.ariaLabel = "Theme: " + LABELS[mode];
+        themeButton.title = themeButton.ariaLabel = (ru ? "Тема: " : "Theme: ") + LABELS[mode];
         globalThis.aegoTheme = effective();
         const media = mode === "auto" ? "(prefers-color-scheme: light)" : mode === "light" ? "all" : "not all";
         for (const s of document.querySelectorAll("picture.themed source")) s.media = media;
@@ -136,20 +137,6 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         }
     }
 
-    function score(item, q) {
-        const t = item.t.toLowerCase();
-        const id = item.i.toLowerCase();
-        if (t === q) return 1000;
-        if (t.startsWith(q)) return 800 - t.length;
-        const at = t.indexOf(q);
-        if (at >= 0) return 600 - at;
-        const ai = id.indexOf(q);
-        if (ai >= 0) return 400 - ai;
-        let j = 0;
-        for (let i = 0; i < t.length && j < q.length; i++) if (t[i] === q[j]) j++;
-        return j === q.length ? 100 : 0;
-    }
-
     function escapeHTML(s) {
         return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     }
@@ -159,14 +146,14 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
         let last = null;
         items.forEach((it, i) => {
             if (it.c !== last) {
-                html += `<li class="cat">${escapeHTML(SECTIONS[it.c] || "Other")}</li>`;
+                html += `<li class="cat">${escapeHTML(SECTIONS[it.c] || (ru ? "Другое" : "Other"))}</li>`;
                 last = it.c;
             }
             const ic = it.ic ? `<svg width="16" height="16" class="ic" aria-hidden="true"><use href="${root}assets/icons.svg?v=${assetV}#${it.ic}"/></svg>` : "<span></span>";
-            html += `<li${i === active ? ' class="active"' : ""}><a href="${root}${it.u}">${ic}<span>${escapeHTML(it.t)}</span><span class="kind">${escapeHTML(it.g || it.k)}</span>${it.s ? `<span class="summary">${escapeHTML(it.s)}</span>` : ""}</a></li>`;
+            html += `<li${i === active ? ' class="active"' : ""}><a href="${root}${it.u}">${ic}<span>${escapeHTML(it.t)}</span><span class="kind">${escapeHTML(it.l || it.k)}</span><span class="search-context">${escapeHTML([it.g, it.v].filter(Boolean).join(" · "))}</span>${it.s ? `<span class="summary">${escapeHTML(it.s)}</span>` : ""}</a></li>`;
         });
-        results.innerHTML = html;
-        results.hidden = items.length === 0;
+        results.innerHTML = html || `<li class="cat">${ru ? "Ничего не найдено. Попробуйте название, ID или описание задачи." : "No results. Try a name, ID or task description."}</li>`;
+        results.hidden = false;
     }
 
     async function search() {
@@ -175,14 +162,26 @@ const assetV = (document.querySelector('meta[name="aego-assets"]') || {}).conten
             results.hidden = true;
             return;
         }
-        if (!index) index = await (await fetch((document.querySelector('meta[name="aego-search"]') || {}).content || root + "search.json")).json();
-        const top = index
-            .map((it) => [score(it, q), it])
-            .filter((p) => p[0] > 0)
-            .sort((a, b) => b[0] - a[0] || a[1].t.length - b[1].t.length)
-            .slice(0, 30)
-            .map((p) => p[1]);
-        shown = top.map((it, i) => [it, i]).sort((a, b) => (RANK[a[0].c] ?? 3) - (RANK[b[0].c] ?? 3) || a[1] - b[1]).map((p) => p[0]);
+        let index;
+        try {
+            if (!indexRequest) indexRequest = fetch((document.querySelector('meta[name="aego-search"]') || {}).content || root + "search.json").then((response) => {
+                if (!response.ok) throw new Error("Search index: " + response.status);
+                return response.json();
+            });
+            index = await indexRequest;
+        } catch (_) {
+            indexRequest = null;
+            if (input.value.trim().toLowerCase() !== q) return;
+            shown = [];
+            results.innerHTML = `<li class="cat">${ru ? "Не удалось загрузить поиск. Проверьте соединение и повторите запрос." : "Search could not load. Check your connection and try again."}</li>`;
+            results.hidden = false;
+            return;
+        }
+        const top = AegoDocsSearch.rank(index, q);
+        if (input.value.trim().toLowerCase() !== q) return;
+        // Preserve relevance: a technical ID/error code must not move below
+        // unrelated guides merely because its navigation category is Reference.
+        shown = top;
         active = 0;
         render(shown);
     }

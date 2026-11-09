@@ -2,7 +2,9 @@ package macos
 
 import (
 	"encoding/binary"
+	"encoding/xml"
 	"image"
+	"io"
 	"strings"
 	"testing"
 )
@@ -14,6 +16,30 @@ func TestICNSHeader(t *testing.T) {
 	}
 	if string(data[:4]) != "icns" || int(binary.BigEndian.Uint32(data[4:])) != len(data) {
 		t.Fatal("bad icns header")
+	}
+}
+
+func TestPlistURLSchemesAreExplicitAndEscaped(t *testing.T) {
+	game := string(Plist(Info{Name: "Game", ID: "dev.aego.game"}, ""))
+	if strings.Contains(game, "CFBundleURLTypes") {
+		t.Fatal("a game without explicit schemes registered a URL handler")
+	}
+	data := Plist(Info{Name: "Editor", ID: "dev.aego.editor", URLSchemes: []string{"aego", "example&test"}}, "")
+	out := string(data)
+	for _, want := range []string{"<key>CFBundleURLTypes</key>", "<key>CFBundleURLName</key>", "dev.aego.editor.examples", "<key>CFBundleURLSchemes</key>", "<string>aego</string>", "<string>example&amp;test</string>"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("plist has no %s:\n%s", want, out)
+		}
+	}
+	decoder := xml.NewDecoder(strings.NewReader(out))
+	for {
+		_, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("URL plist is not XML: %v", err)
+		}
 	}
 }
 

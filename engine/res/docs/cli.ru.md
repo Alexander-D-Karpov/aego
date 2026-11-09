@@ -1,5 +1,6 @@
 ---
 id: cli
+search_names: [экспорт в браузер, сборка игры, веб экспорт, командная строка]
 title: Команда aego
 ---
 
@@ -88,7 +89,7 @@ aego examples check --id LOCAL_COPY_ID --approve-origin https://example.org
 
 | Флаг | Значение |
 |---|---|
-| `--target host\|linux\|windows\|darwin` | целевая платформа, по умолчанию `host` |
+| `--target host\|linux\|windows\|darwin[/amd64\|/arm64]\|web` | целевая платформа, по умолчанию `host`; `web` создаёт браузерную сборку |
 | `--release`, `--development` | профиль сборки |
 | `--out dir` | папка вывода |
 | `--check` | только выполнить проверки перед экспортом |

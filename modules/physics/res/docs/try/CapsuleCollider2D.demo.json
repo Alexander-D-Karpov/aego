@@ -17,5 +17,5 @@
     "en": {"title": "Capsule collider bounce", "description": "The visible horizontal capsule moves toward the floor with gravity off. At Restitution 0 it stops on contact.", "input": "Change Restitution from 0 to 1 to make the same collision bounce. Reset restores the original contact."},
     "ru": {"title": "Отскок коллайдера-капсулы", "description": "Видимая горизонтальная капсула движется к полу при выключенной гравитации. При Restitution 0 она останавливается при столкновении.", "input": "Измените Restitution с 0 на 1, чтобы капсула отскочила при том же столкновении. «Сброс» вернёт исходное столкновение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

@@ -222,6 +222,28 @@ type Info struct {
 	Slices     []Slice           `json:"slices"`
 	Properties map[string]string `json:"properties"`
 }
+
+// FramePivot resolves the existing named pivot slices. A frame-specific pivot
+// overrides the document-wide pivot regardless of their serialized order.
+func (i Info) FramePivot(frame ID) (image.Point, bool) {
+	var global, specific image.Point
+	hasGlobal, hasSpecific := false, false
+	for _, slice := range i.Slices {
+		if slice.Name != "pivot" {
+			continue
+		}
+		if slice.Frame == "" {
+			global, hasGlobal = slice.Pivot, true
+		} else if slice.Frame == frame {
+			specific, hasSpecific = slice.Pivot, true
+		}
+	}
+	if hasSpecific {
+		return specific, true
+	}
+	return global, hasGlobal
+}
+
 type Document struct {
 	mu       sync.Mutex
 	id       string

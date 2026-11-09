@@ -24,7 +24,8 @@ type fakeRunner struct {
 }
 
 func (r *fakeRunner) Open(_ context.Context, c Contract, env string) (Instance, error) {
-	return &fakeInstance{r: r, c: c, env: env}, nil
+	// The gate must reset before observing its settled baseline.
+	return &fakeInstance{r: r, c: c, env: env, value: -1}, nil
 }
 
 type fakeInstance struct {
@@ -267,5 +268,50 @@ func TestVisualEvidenceRequiresChangedAndResetGameViews(t *testing.T) {
 	d.Actions[0].Visual.MinChangedPixels = 0
 	if r := Check(context.Background(), []Component{c}, []Contract{d}, visualRunner{}); r.Passed() {
 		t.Fatalf("accepted a zero-pixel visual threshold: %+v", r)
+	}
+}
+
+func TestGameplayInputContractsAreBoundedAndCanDemonstrateFieldlessComponents(t *testing.T) {
+	c, d := fixture()
+	c.Fields, d.EditableFields = nil, nil
+	d.Actions[0].Field, d.Actions[0].Value = "", nil
+	d.Actions[0].Inputs = []InputStep{{Keys: []string{"D"}, Frames: 30}, {Keys: []string{"J"}, Frames: 4}}
+	if err := validate(c, d); err != nil {
+		t.Fatalf("fieldless input demonstration rejected: %v", err)
+	}
+	for _, inputs := range [][]InputStep{
+		{{Frames: 0}}, {{Frames: 601}}, {{Frames: 400}, {Frames: 201}},
+		{{Frames: 1, Keys: []string{"D", "D"}}},
+	} {
+		d.Actions[0].Inputs = inputs
+		if err := validate(c, d); err == nil {
+			t.Fatalf("unbounded or invalid input accepted: %+v", inputs)
+		}
+	}
+	d.Actions[0].Inputs = []InputStep{{Frames: 600}}
+	d.Actions[0].Keys = []string{"D"}
+	if err := validate(c, d); err == nil {
+		t.Fatal("implicit key warmup exceeded the frame budget")
+	}
+	d.Actions[0].Inputs, d.Actions[0].Keys = nil, nil
+	if err := validate(c, d); err == nil {
+		t.Fatal("fieldless component accepted without any input action")
+	}
+}
+
+func TestSimulationToleranceRemainsAnExplicitFiniteNumericBound(t *testing.T) {
+	if !matches(json.RawMessage("0.699999988"), json.RawMessage("0.7"), 0.0001) {
+		t.Fatal("32-bit simulation precision rejected")
+	}
+	if matches(json.RawMessage("0.6"), json.RawMessage("0.7"), 0.0001) ||
+		matches(json.RawMessage(`"Run"`), json.RawMessage(`"Idle"`), 1) ||
+		matches(json.RawMessage("null"), json.RawMessage("0"), 1) ||
+		matches(json.RawMessage("0 trailing"), json.RawMessage("0"), 1) {
+		t.Fatal("tolerance accepted a materially different or nonnumeric value")
+	}
+	c, d := fixture()
+	d.Actions[0].Expected[0].Tolerance = -1
+	if err := validate(c, d); err == nil {
+		t.Fatal("negative tolerance accepted")
 	}
 }

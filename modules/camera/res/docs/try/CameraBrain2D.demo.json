@@ -17,5 +17,5 @@
     "en": {"title": "Choose a camera output", "description": "The inset camera initially shows the named map output; the main output has a different zoom.", "input": "Clear Output to switch the inset camera from map to the main output. Reset restores map."},
     "ru": {"title": "Выбор выхода камеры", "description": "Встроенная камера сначала показывает именованный выход map; у основного выхода другой масштаб.", "input": "Очистите Output, чтобы переключить встроенную камеру с map на основной выход. Сброс вернёт map."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

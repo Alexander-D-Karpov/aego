@@ -106,6 +106,9 @@ func (a *App) SetLanguagePref(pref string) {
 	}
 	a.prefs.Language = pref
 	a.applyLanguage()
+	if a.welcome != nil {
+		a.welcome.RefreshLanguage(a.helpEntry)
+	}
 	if err := prefs.Save(a.opt.PrefsDir, a.prefs); err != nil {
 		a.ctx.Notify(context.LevelWarn, i18n.Note("editor.prefs.save_failed", "Cannot save the editor preferences: {err}", i18n.Str("err", err.Error())))
 	}

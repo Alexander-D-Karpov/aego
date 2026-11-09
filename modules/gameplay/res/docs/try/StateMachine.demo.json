@@ -20,5 +20,5 @@
     "en": {"title": "Choose the initial state", "description": "The State Machine enters Idle and calls its EnterIdle script hook, coloring the marker orange.", "input": "Change Initial from Idle to Run. The restarted machine enters Run and calls EnterRun, coloring the marker green. Reset restores Idle."},
     "ru": {"title": "Выбор начального состояния", "description": "Машина состояний входит в Idle и вызывает метод скрипта EnterIdle, окрашивая метку в оранжевый.", "input": "Измените Initial с Idle на Run. Перезапущенная машина войдёт в Run и вызовет EnterRun, окрашивая метку в зелёный. «Сброс» вернёт Idle."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

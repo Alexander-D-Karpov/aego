@@ -65,27 +65,47 @@ func (a *App) groups(cat string) []menuGroup {
 	if cat != "Window" {
 		return []menuGroup{{items: reg.Category(cat)}}
 	}
-	gs := []menuGroup{{title: i18n.Tr("editor.menu.workspace_group", "Workspaces")}, {title: i18n.Tr("editor.menu.author_group", "Scene and assets")}, {title: i18n.Tr("editor.menu.debug_group", "Run and diagnose")}, {title: i18n.Tr("editor.menu.utility_group", "Other panels")}, {title: i18n.Tr("editor.menu.agent_group", "Agent")}, {title: i18n.Tr("editor.menu.layout_group", "Layout")}}
+	const (
+		workspaceGroup = iota
+		authorGroup
+		artGroup
+		debugGroup
+		utilityGroup
+		agentGroup
+		layoutGroup
+	)
+	gs := []menuGroup{
+		{title: i18n.Tr("editor.menu.workspace_group", "Workspaces")},
+		{title: i18n.Tr("editor.menu.author_group", "Scene and assets")},
+		{title: i18n.Tr("editor.menu.art_group", "Art")},
+		{title: i18n.Tr("editor.menu.debug_group", "Run and diagnose")},
+		{title: i18n.Tr("editor.menu.utility_group", "Other panels")},
+		{title: i18n.Tr("editor.menu.agent_group", "Agent")},
+		{title: i18n.Tr("editor.menu.layout_group", "Layout")},
+	}
 	for _, d := range reg.Category(cat) {
-		group := 5
+		group := layoutGroup
 		id, win := strings.CutPrefix(d.ID, command.WindowPrefix)
 		_, panel := a.ws.Panel(id)
 		switch {
 		case strings.HasPrefix(d.ID, "agent.") || d.ID == CommandProxyConfirm:
-			group = 4
+			group = agentGroup
 		case win && panel:
 			switch id {
 			case workspace.Hierarchy, workspace.Scene, workspace.Game, workspace.Assets, workspace.Inspector, "animation", "animator", workspace.Mixer, "scenes", "favorites":
-				group = 1
+				group = authorGroup
 			case workspace.Console, workspace.Problems, workspace.Profiler, "watch", "events", "crashes", "tasks", "health":
-				group = 2
+				group = debugGroup
 			case "agent":
-				group = 4
+				group = agentGroup
 			default:
-				group = 3
+				group = utilityGroup
+				if strings.HasPrefix(id, "art.") {
+					group = artGroup
+				}
 			}
 		case strings.HasPrefix(d.ID, CommandWorkspacePrefix) || d.ID == CommandWorkspaceSaveAs || d.ID == CommandWorkspaceRename || d.ID == CommandWorkspaceDelete:
-			group = 0
+			group = workspaceGroup
 		}
 		gs[group].items = append(gs[group].items, d)
 	}

@@ -129,7 +129,11 @@ func TestArtAgentUsesLiveDocumentApprovalAndHistory(t *testing.T) {
 		return revision
 	}
 	args := func(revision string) agent.Args {
-		return agent.Args{"file": path, "revision": revision, "label": "Add animation frame", "operations": []art.Operation{{Kind: "add-frame", Frame: model.Session.Frame, DurationMS: 90}}}
+		operations := make([]art.Operation, 7)
+		for i := range operations {
+			operations[i] = art.Operation{Kind: "add-frame", Frame: model.Session.Frame, DurationMS: 90 + i*10}
+		}
+		return agent.Args{"file": path, "revision": revision, "label": "Create eight-frame animation", "operations": operations}
 	}
 	approved := false
 	result1 := call("art.apply", args(readRevision()), func(p *agentbridge.Proposal) {
@@ -138,10 +142,25 @@ func TestArtAgentUsesLiveDocumentApprovalAndHistory(t *testing.T) {
 		}
 		approved = bridge.Decide(p.ID, true)
 	})
-	if !approved || result1.err != nil || len(model.Session.Document.Info().Frames) != 2 || model.History.Cursor() != 2 {
+	if !approved || result1.err != nil || len(model.Session.Document.Info().Frames) != 8 || model.History.Cursor() != 2 {
 		t.Fatalf("approved proposal did not use the common history: %+v", result1)
 	}
+	if err := model.Session.Select("", model.Session.Document.Info().Frames[4].ID, art.Albedo); err != nil {
+		t.Fatal(err)
+	}
 	paint(image.Pt(3, 3))
+	corrected := call("art.capture", agent.Args{"file": path}, nil)
+	if corrected.err != nil || corrected.out == nil || len(corrected.out.Images) != 1 {
+		t.Fatalf("capture after user correction: %+v", corrected)
+	}
+	correctedPixels, err := png.Decode(bytes.NewReader(corrected.out.Images[0].Data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _, _, a = correctedPixels.At(3, 3).RGBA()
+	if r != 0xffff || a != 0xffff || corrected.out.Value.(map[string]any)["frame"] != model.Session.Frame {
+		t.Fatal("agent did not read the user's current unsaved fifth frame")
+	}
 	if err := ed.UndoAsset(doc); err != nil {
 		t.Fatal(err)
 	}

@@ -17,5 +17,5 @@
     "en": {"title": "Change joint distance", "description": "The cyan dynamic body is four units from the gray static anchor. The gray line is a fixed reference, not a simulated rope.", "input": "Set Length to 2. The real distance joint pulls the body to two units from the anchor. Reset restores the four-unit distance."},
     "ru": {"title": "Изменение длины шарнира", "description": "Голубое динамическое тело находится в четырёх единицах от серой неподвижной опоры. Серая линия — неподвижная отметка, а не симуляция верёвки.", "input": "Установите Length в 2. Настоящий шарнир расстояния подтянет тело до двух единиц от опоры. «Сброс» восстановит расстояние в четыре единицы."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

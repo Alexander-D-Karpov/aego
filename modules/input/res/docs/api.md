@@ -5,6 +5,20 @@ summary: Reads actions, raw keys, the mouse and gamepads, manages input contexts
 
 Prefer actions (`Pressed("Jump")`, `Axis2("Move")`) to raw keys: actions are bound in the project, can be rebound by players and work with every device. The `P` variants read one player. The documentation sandbox has no devices, so the example reads zero values and reports that no device was used; in a game the same code moves the node. See [Input](ref:input).
 
+## Choose an operation
+
+| Task | Start with |
+|---|---|
+| React to an action | Pressed for an edge, Down for holding, Axis/Axis2 for movement |
+| Read one player | The matching `P` variant and the player index |
+| Control overlapping UI/game bindings | Input contexts and action consumption |
+| Offer rebinding | Rebind operations and glyphs, not hard-coded keyboard labels |
+| Inspect a device | ActiveDevice and low-level key, mouse or gamepad operations |
+
+Action-based Pressed is delivered to the first fixed step after a press, including a press on a render frame with no fixed step. Subsequent fixed steps do not repeat that edge. Check input contexts if another consumer handles it first. Raw KeyPressed describes a frame edge; do not assume that every low-level operation has the action queue's contract.
+
+The Run button below demonstrates script execution and zero-device results only. To test movement with real input, follow the [Input guide](ref:input) in a desktop project. Resetting a script playground is not a reset of a physics world.
+
 ## Example
 
 ```aes run

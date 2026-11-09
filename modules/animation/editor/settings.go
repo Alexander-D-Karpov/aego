@@ -14,9 +14,24 @@ import (
 
 // Hook adds the custom event list to the module's project section.
 func Hook(r *ext.Registry) error {
-	if err := r.SettingsPage(animation.ID, draw,
+	labels := []i18n.Text{
 		i18n.T("editor.animation_settings.events", "Animation Events"),
-		i18n.T("editor.animation_settings.payload", "Payload")); err != nil {
+		i18n.T("editor.animation_settings.payload", "Payload"),
+	}
+	// Search by either language or the technical section ID, independently of
+	// the UI language. Values are snapshots, so no global language switch is
+	// needed and no mutable translation catalog is retained.
+	keywords := []i18n.Text{{En: animation.ID}}
+	seen := map[string]bool{animation.ID: true}
+	for _, label := range labels {
+		for _, text := range append(i18n.Default().Translations(label.Key), label.En) {
+			if text != "" && !seen[text] {
+				keywords = append(keywords, i18n.Text{En: text})
+				seen[text] = true
+			}
+		}
+	}
+	if err := r.SettingsPage(animation.ID, draw, keywords...); err != nil {
 		return err
 	}
 	for i := range r.Editor().Pages {

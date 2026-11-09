@@ -19,6 +19,7 @@ import (
 	"aego/engine/i18n"
 	"aego/platform"
 	"aego/project"
+	"aego/project/remoteexample"
 	"aego/sdk"
 )
 
@@ -45,6 +46,12 @@ func Main(mods ...sdk.Module) {
 		os.Exit(code)
 	}
 	defer confirm()
+	if len(os.Args) > 1 && os.Args[1] == "--example-link" {
+		if err := StartExampleLink(os.Args[2:]); err != nil {
+			fail(err)
+		}
+		return
+	}
 	fs := flag.NewFlagSet("aego-editor", flag.ExitOnError)
 	debug := fs.Bool("debug", false, "verbose logging and gpu debug output")
 	hidden := fs.Bool("hidden", false, "create the window without showing it")
@@ -69,6 +76,29 @@ func Main(mods ...sdk.Module) {
 	if err != nil {
 		fail(err)
 	}
+}
+
+// StartExampleLink is the restricted OS-handler entry. It deliberately does
+// not run the general flag parser: injected quotes or extra arguments cannot
+// turn a remote link into --tool, --open, a project path or another operation.
+func StartExampleLink(args []string) error {
+	return startExampleLink(args, "")
+}
+
+// StartCLIExampleLink keeps the CLI verb when the editor later relaunches
+// itself. Standalone editor bundles do not need a verb.
+func StartCLIExampleLink(args []string) error {
+	return startExampleLink(args, "edit")
+}
+
+func startExampleLink(args []string, verb string) error {
+	if len(args) != 1 {
+		return errors.New("an example protocol request requires exactly one URL")
+	}
+	if _, err := remoteexample.ParseLink(args[0]); err != nil {
+		return err
+	}
+	return Start(Entry{Arg: args[0], Verb: verb})
 }
 
 // tool runs a project tool in the project of the working directory, as the game binary's --tool does.
@@ -151,8 +181,15 @@ func Start(e Entry) error {
 	}
 	logs := attachLogs(&cfg)
 	defer logs.close()
+	if strings.HasPrefix(strings.ToLower(e.Arg), "aego:") {
+		if _, err := remoteexample.ParseLink(e.Arg); err != nil {
+			return err
+		}
+		cfg.ExampleLink = e.Arg
+		e.Arg = ""
+	}
 	dir, file := resolveArg(e.Arg)
-	if e.Launcher != "" || (dir == "" && !hasProject(".")) {
+	if cfg.ExampleLink != "" || e.Launcher != "" || (dir == "" && !hasProject(".")) {
 		cfg.LauncherTab = e.Launcher
 		root, entry, remote, err := launchWithEntry(cfg)
 		if err != nil || root == "" {

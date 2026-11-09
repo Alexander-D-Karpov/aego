@@ -8,6 +8,7 @@ package sdl
 
 // SDL_Event is a union. Clear the whole object, including fields of the
 // selected event variant, before pushing a synthetic event.
+static float test_pointer_x, test_pointer_y;
 static bool push_pointer(float x,float y,int kind,int button) {
 	SDL_Event e;
 	SDL_zero(e);
@@ -15,6 +16,8 @@ static bool push_pointer(float x,float y,int kind,int button) {
 		e.type = SDL_EVENT_MOUSE_MOTION;
 		e.motion.x = x;
 		e.motion.y = y;
+		e.motion.xrel = x - test_pointer_x;
+		e.motion.yrel = y - test_pointer_y;
 	} else {
 		e.type = kind == 1 ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
 		e.button.x = x;
@@ -23,7 +26,12 @@ static bool push_pointer(float x,float y,int kind,int button) {
 		e.button.down = kind == 1;
 		e.button.clicks = 1;
 	}
-	return SDL_PushEvent(&e);
+	bool pushed = SDL_PushEvent(&e);
+	if (pushed) {
+		test_pointer_x = x;
+		test_pointer_y = y;
+	}
+	return pushed;
 }
 static bool push_edit_key(int scan, bool down, bool ctrl, bool shift) {
 	SDL_Event e;

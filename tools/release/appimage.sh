@@ -23,6 +23,10 @@ cp "$root/app/brand/png/aego-256.png" "$app/aego.png"
 cat > "$app/AppRun" <<'RUN'
 #!/bin/sh
 here=$(dirname "$(readlink -f "$0")")
+case "${1:-}" in
+	aego:*) exec "$here/usr/bin/aego" edit --example-link "$@" ;;
+	file:*) exec "$here/usr/bin/aego" edit --file-link "$@" ;;
+esac
 exec "$here/usr/bin/aego" edit "$@"
 RUN
 chmod +x "$app/AppRun"
@@ -31,10 +35,10 @@ cat > "$app/aego.desktop" <<'DESKTOP'
 Type=Application
 Name=Aego
 Comment=Game engine and editor
-Exec=aego %f
+Exec=aego %u
 Icon=aego
 Categories=Development;IDE;
-MimeType=application/x-aego-project;application/x-aego-scene;
+MimeType=application/x-aego-project;application/x-aego-scene;x-scheme-handler/aego;
 Terminal=false
 DESKTOP
 APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$tool" --no-appstream "$app" "$out"

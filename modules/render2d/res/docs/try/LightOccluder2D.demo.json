@@ -35,6 +35,7 @@
   },
   "environments": {
     "native": {"mode": "runtime"},
-    "chromium": {"mode": "runtime"}
+    "chromium": {"mode": "runtime"},
+    "firefox": {"mode": "runtime"}
   }
 }

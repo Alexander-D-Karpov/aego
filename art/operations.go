@@ -31,6 +31,7 @@ type Operation struct {
 	LayerKind    LayerKind     `json:"layerKind,omitempty"`
 	LayerValue   *Layer        `json:"layerValue,omitempty"`
 	Tag          *Tag          `json:"tag,omitempty"`
+	Slice        *Slice        `json:"slice,omitempty"`
 	Points       []image.Point `json:"points,omitempty"`
 	Brush        Brush         `json:"brush,omitempty"`
 	Filled       bool          `json:"filled,omitempty"`
@@ -72,6 +73,8 @@ func (e *Edit) Execute(ctx context.Context, op Operation, selection *Selection) 
 		return "", e.DeleteLayer(op.Layer)
 	case "duplicate-layer":
 		return e.DuplicateLayer(op.Layer)
+	case "merge-down":
+		return e.MergeDown(ctx, op.Layer)
 	case "move-layer":
 		return "", e.MoveLayer(op.Layer, op.Offset)
 	case "add-frame":
@@ -93,6 +96,16 @@ func (e *Edit) Execute(ctx context.Context, op Operation, selection *Selection) 
 			return "", fmt.Errorf("art: tag is required")
 		}
 		return e.SetTag(*op.Tag)
+	case "slice":
+		if op.Slice == nil {
+			return "", fmt.Errorf("art: slice value is required")
+		}
+		return e.SetSlice(*op.Slice)
+	case "delete-slice":
+		if op.Slice == nil {
+			return "", fmt.Errorf("art: slice value is required")
+		}
+		return "", e.DeleteSlice(op.Slice.ID)
 	case "frame-order":
 		return "", e.ReorderFrames(op.FrameOrder)
 	case "cel-range":
@@ -104,6 +117,11 @@ func (e *Edit) Execute(ctx context.Context, op Operation, selection *Selection) 
 		return "", e.DeleteTag(op.Tag.ID)
 	case "palette-load":
 		return "", e.ReplacePalette(op.Palette, op.Quantize)
+	case "palette-add":
+		if op.Swatch == nil {
+			return "", fmt.Errorf("art: swatch is required")
+		}
+		return "", e.AddPaletteEntry(*op.Swatch)
 	case "palette-extract":
 		return "", e.PaletteFromFrame(ctx, op.Frame, op.ColorLimit, op.Quantize)
 	case "ramp-shade":

@@ -4,18 +4,14 @@
 package host
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"image"
-	"image/png"
 
 	"aego/art"
 )
 
 const MaxDocuments = 16
-const MaxPendingSaves = 8
 
 type Tab struct {
 	Key      string `json:"key"`
@@ -27,19 +23,6 @@ type entry struct {
 	key, name string
 	session   *art.Session
 }
-type receipt struct {
-	key      string
-	snapshot *art.Snapshot
-	writing  bool
-}
-
-type Export struct {
-	Bytes    []byte
-	Revision uint64
-	Key      string
-	Receipt  string
-}
-
 type Documents struct {
 	entries   []*entry
 	active    string
@@ -81,9 +64,32 @@ func (d *Documents) Tabs() []Tab {
 	}
 	return out
 }
+
+// NewEffect opens a fresh editable instance of the shared native/web template.
+// Open retains the usual gesture, tab limit, dirty state and History contract.
+func (d *Documents) NewEffect(id, name string) (string, error) {
+	doc, err := art.NewEffectDocument(id, art.Limits{})
+	if err != nil {
+		return "", err
+	}
+	if name == "" {
+		name = id + ".aeart"
+	}
+	key, err := d.Open(doc, name, true)
+	if err != nil {
+		doc.Close()
+	}
+	return key, err
+}
+
 func (d *Documents) Open(doc *art.Document, name string, unsaved bool) (string, error) {
 	if doc == nil {
 		return "", fmt.Errorf("artstudio: nil document")
+	}
+	// New and deferred imports share this entry point. Like Select, opening a
+	// tab must not orphan the active gesture or redirect its remaining events.
+	if current, err := d.Session(""); err == nil && current.Info().Gesture {
+		return "", fmt.Errorf("artstudio: finish or cancel the active gesture before opening another document")
 	}
 	if len(d.entries) >= MaxDocuments {
 		return "", fmt.Errorf("artstudio: close a document before opening another (maximum %d)", MaxDocuments)
@@ -172,111 +178,6 @@ func (d *Documents) Close(key string, discard bool) error {
 	return nil
 }
 
-// Export captures bytes, frame metadata and the save checkpoint together.
-// Recovery exports must use a receipt-free format ("recovery"). A receipt is
-// acknowledged only after a durable writer succeeds or a user confirms a
-// completed download; merely clicking an <a download> is not proof of saving.
-func (d *Documents) Export(key, format string, columns int) (Export, error) {
-	e, err := d.lookup(key)
-	if err != nil {
-		return Export{}, err
-	}
-	if e.session.Info().Gesture {
-		return Export{}, fmt.Errorf("artstudio: finish the gesture before export")
-	}
-	if format == "aeart" && len(d.receipts) >= MaxPendingSaves {
-		return Export{}, fmt.Errorf("artstudio: too many unconfirmed saves")
-	}
-	snapshot, err := e.session.Document.Snapshot()
-	if err != nil {
-		return Export{}, err
-	}
-	var data []byte
-	switch format {
-	case "aeart", "recovery":
-		data, err = snapshot.Encode()
-	case "palette":
-		data, err = art.EncodePalette(snapshot.Info().Palette)
-	case "png":
-		var im *image.NRGBA
-		im, err = snapshot.Render(e.session.Frame, art.RenderOptions{Channel: e.session.Channel})
-		if err == nil {
-			var out bytes.Buffer
-			err = png.Encode(&out, im)
-			data = out.Bytes()
-		}
-	case "sheet", "sheet-json":
-		var sheet art.Sheet
-		sheet, err = snapshot.ExportSheet(columns, e.session.Channel)
-		if err == nil {
-			if format == "sheet" {
-				data = sheet.PNG
-			} else {
-				data, err = json.MarshalIndent(sheet, "", "  ")
-			}
-		}
-	default:
-		return Export{}, fmt.Errorf("artstudio: unsupported export format %q", format)
-	}
-	if err != nil {
-		return Export{}, err
-	}
-	result := Export{Bytes: data, Revision: snapshot.Revision(), Key: e.key}
-	if format == "aeart" {
-		result.Receipt = d.next("save-")
-		d.receipts[result.Receipt] = receipt{key: e.key, snapshot: snapshot}
-	}
-	return result, nil
-}
-
-// BeginWrite validates a deferred file-picker result before opening its output.
-// The receipt pins this document until Saved or CancelSave. Editing may continue;
-// completion records exactly this snapshot rather than clearing newer changes.
-func (d *Documents) BeginWrite(token string) error {
-	r, ok := d.receipts[token]
-	if !ok {
-		return fmt.Errorf("artstudio: expired save receipt")
-	}
-	e, err := d.lookup(r.key)
-	if err != nil {
-		return err
-	}
-	if e.session.Info().Gesture {
-		return fmt.Errorf("artstudio: finish the active gesture before saving")
-	}
-	for _, other := range d.receipts {
-		if other.key == r.key && other.writing {
-			return fmt.Errorf("artstudio: another write is in progress")
-		}
-	}
-	if e.session.Document.Info().Revision != r.snapshot.Revision() {
-		return art.ErrConflict
-	}
-	r.writing = true
-	d.receipts[token] = r
-	return nil
-}
-
-func (d *Documents) Saved(token string) error {
-	r, ok := d.receipts[token]
-	if !ok {
-		return fmt.Errorf("artstudio: save receipt has expired")
-	}
-	if !r.writing {
-		return fmt.Errorf("artstudio: a completed write is required before acknowledging a save")
-	}
-	e, err := d.lookup(r.key)
-	if err != nil {
-		delete(d.receipts, token)
-		return err
-	}
-	if err = e.session.MarkSnapshotSaved(r.snapshot); err != nil {
-		return err
-	}
-	delete(d.receipts, token)
-	return nil
-}
-func (d *Documents) CancelSave(token string) { delete(d.receipts, token) }
 func (d *Documents) Copy(key string) error {
 	s, err := d.Session(key)
 	if err != nil {

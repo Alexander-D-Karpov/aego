@@ -22,5 +22,5 @@
     "en": {"title": "Change one prefab instance", "description": "Both markers are linked to the same prefab; its Move Prefab script is initially disabled.", "input": "Enable the selected instance's Move Prefab script in the Inspector. This creates an instance override; after restart Ready checks the prefab link and moves only that copy. Reset removes the edit."},
     "ru": {"title": "Изменение одного экземпляра префаба", "description": "Обе метки связаны с одним префабом; его скрипт Move Prefab изначально выключен.", "input": "Включите скрипт Move Prefab у выбранного экземпляра в Инспекторе. Так создаётся переопределение экземпляра; после перезапуска Ready проверяет связь с префабом и перемещает только эту копию. «Сброс» отменяет изменение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

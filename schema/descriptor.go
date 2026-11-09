@@ -97,16 +97,18 @@ type ScriptMethod struct {
 }
 
 type TypeDescriptor struct {
-	ID            TypeID
-	FullName      string
-	Former        []string
-	Version       uint32
-	Size          uintptr
-	Kind          TypeKind
-	Space         SpaceKind
-	Doc           string
-	Hidden        bool
-	DisplayName   string
+	ID          TypeID
+	FullName    string
+	Former      []string
+	Version     uint32
+	Size        uintptr
+	Kind        TypeKind
+	Space       SpaceKind
+	Doc         string
+	Hidden      bool
+	DisplayName string
+	// SearchAliases are display-name aliases only; they never rename serialized types.
+	SearchAliases []string
 	Category      string
 	Icon          string
 	NodeIcon      int

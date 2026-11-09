@@ -32,7 +32,7 @@ type gateReport struct {
 	Gates          []gateResult `json:"gates"`
 }
 
-var requiredGates = []string{"core", "native-build", "native-user-scenario", "wasm-parity", "chromium", "firefox", "docs", "component-try", "budgets", "regression", "source-check", "http-bytes"}
+var requiredGates = []string{"core", "native-build", "native-user-scenario", "file-interoperability", "remote-examples", "wasm-parity", "chromium", "firefox", "chromium-gpu", "firefox-gpu", "docs", "component-try", "budgets", "regression", "source-check", "http-bytes"}
 
 func validateGate(b []byte, m buildManifest, hash string) error {
 	var g gateReport

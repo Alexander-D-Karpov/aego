@@ -83,7 +83,7 @@ id: physics/layers
 icon: view.overlays
 parent: physics
 order: 4
-title: Layers
+title: Collision layers
 ---
 # Layers
 
@@ -283,7 +283,7 @@ Moving a dynamic body with `SetPosition` from `Update` fights the solver. Use `S
 
 ## A jump is sometimes missed
 
-`input.Pressed` is true for one frame, and a frame may have zero or two fixed steps. Read it in `Update` and act in `FixedUpdate`, or use `input.Down`.
+Read action-based `input.Pressed("Jump")` directly in `FixedUpdate`. A press is queued until the first fixed step, even when the rendering frame has no fixed steps, and is not repeated by subsequent steps. `input.Down` means held, not newly pressed: it is not a substitute for a jump edge. If another input context consumes the action, check that context and its bindings. See [Input: frames and fixed steps](ref:input).
 
 ## A circle collider reports a problem
 

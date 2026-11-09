@@ -1,13 +1,20 @@
 package edit
 
 import (
+	"bytes"
+	stdctx "context"
+	"errors"
+	"image"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"aego/art"
 	"aego/asset"
+	"aego/asset/importers/artsource"
 	"aego/core/ids"
+	"aego/editor/core/artedit"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/schema"
@@ -146,8 +153,43 @@ func TestCreateFileActionsProduceImportedSources(t *testing.T) {
 			if decodeErr != nil || cfg.Width != 21 || cfg.Height != 13 {
 				t.Fatalf("created PNG is invalid: %+v, %v", cfg, decodeErr)
 			}
-			if doc := ed.Docs.AssetDocument(id); doc == nil || doc.Capabilities.Has(document.EditSource) {
-				t.Fatal("PNG creation must open the existing viewer without claiming pixel editing")
+			doc := ed.Docs.AssetDocument(id)
+			if doc == nil || !doc.Capabilities.Has(document.EditSource) || doc.Dirty() {
+				t.Fatal("new PNG did not open as a clean editable document")
+			}
+			model, ok := doc.Binding.Model.(*artedit.Document)
+			if !ok || !model.Draft {
+				t.Fatal("new PNG did not open as an in-memory Art draft")
+			}
+			original, err := ed.Pipeline.SourceBytes(tc.rel)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := model.Execute(stdctx.Background(), art.Operation{Kind: "stroke", Points: []image.Point{{X: 1, Y: 1}}, Brush: art.Brush{Size: 1, Paint: art.Paint{Color: art.Color{R: 255, A: 255}}}}); err != nil || !doc.Dirty() {
+				t.Fatal("the new image could not be painted in memory", err)
+			}
+			if current, err := ed.Pipeline.SourceBytes(tc.rel); err != nil || !bytes.Equal(current, original) {
+				t.Fatal("painting changed the original PNG before Save", err)
+			}
+			if err := ed.SaveAsset(doc); !errors.Is(err, document.ErrSavePending) {
+				t.Fatal("the first Save did not require an explicit destination", err)
+			}
+			questions := ed.TakeQuestions()
+			if len(questions) != 1 || questions[0].Submit == nil {
+				t.Fatal("the first Save did not offer a linked source path")
+			}
+			questions[0].Submit([]string{"assets/blank.aeart"})
+			artID, ok := ed.Pipeline.Lookup("assets/blank.aeart")
+			if !ok || ed.Docs.AssetDocument(artID) == nil || ed.Docs.AssetDocument(artID).Binding.Model != model || model.Draft || model.Asset.Dirty() {
+				t.Fatal("confirmed Save did not transfer the drawing to the new source")
+			}
+			meta, ok := ed.Pipeline.MetaOf(id)
+			link, err := artsource.TextureLinkOf(&meta)
+			if !ok || err != nil || link == nil || link.Source != artID {
+				t.Fatal("confirmed Save did not preserve the PNG's linked identity", err)
+			}
+			if current, err := ed.Pipeline.SourceBytes(tc.rel); err != nil || !bytes.Equal(current, original) {
+				t.Fatal("confirmed Save overwrote the original PNG", err)
 			}
 		}
 	}

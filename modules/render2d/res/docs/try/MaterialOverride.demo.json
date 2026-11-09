@@ -21,5 +21,5 @@
     "en": {"title": "Override one material instance", "description": "Both sprites share the Flash material and inherit Flash 0. The selected sprite has a disabled Set Flash script.", "input": "Enable the Set Flash script in the Inspector. After the scene restarts its Ready method sets the selected node's actual Flash override to 1; the other sprite remains unchanged. Reset disables the script and restores inheritance."},
     "ru": {"title": "Переопределение одного экземпляра материала", "description": "Оба спрайта используют общий материал Flash и наследуют Flash 0. У выбранного спрайта выключен скрипт Set Flash.", "input": "Включите скрипт Set Flash в Инспекторе. После перезапуска его метод Ready установит настоящее переопределение Flash выбранного узла в 1; второй спрайт не изменится. «Сброс» выключит скрипт и восстановит наследование."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

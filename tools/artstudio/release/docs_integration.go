@@ -111,6 +111,20 @@ func integrateDocs(dir, site, expected string) (map[string]any, error) {
 			items[path.Join("asset-studio", language, example.ID, "index.html")] = b
 		}
 	}
+	manuals := 0
+	for _, file := range m.Files {
+		if (strings.HasPrefix(file.Path, "docs/en/guide/") || strings.HasPrefix(file.Path, "docs/ru/guide/")) && strings.HasSuffix(file.Path, "/index.html") {
+			b, err := readVerified(file.Path)
+			if err != nil {
+				return nil, err
+			}
+			if !bytes.Contains(b, []byte("../../../../"+style)) {
+				return nil, fmt.Errorf("manual missing verified style: %s", file.Path)
+			}
+			items["asset-studio/"+strings.TrimPrefix(file.Path, "docs/")] = b
+			manuals++
+		}
+	}
 	items["asset-studio/integration.json"] = jsonBytes(map[string]any{"buildID": m.BuildID, "editorURL": editor, "protocol": m.ProtocolVersion, "manifestSHA256": hash})
 	if err := noSymlinkPath(site); err != nil {
 		return nil, err
@@ -189,5 +203,5 @@ func integrateDocs(dir, site, expected string) (map[string]any, error) {
 			return nil, closeErr
 		}
 	}
-	return map[string]any{"status": "PASS", "buildID": m.BuildID, "editorURL": editor, "manifestSHA256": hash, "guides": len(m.Examples) * 2}, nil
+	return map[string]any{"status": "PASS", "buildID": m.BuildID, "editorURL": editor, "manifestSHA256": hash, "guides": len(m.Examples) * 2, "manuals": manuals}, nil
 }

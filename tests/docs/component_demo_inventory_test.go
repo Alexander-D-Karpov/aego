@@ -23,7 +23,7 @@ func TestComponentDemoInventoryRequiresRuntimeProbe(t *testing.T) {
 		if e.Try != "" {
 			withTry++
 		} else {
-			t.Logf("component without a Try scene: %s", e.ID)
+			t.Errorf("component without a Try scene: %s", e.ID)
 		}
 		if e.Demo != nil {
 			withContract++
@@ -50,6 +50,9 @@ func TestComponentDemoInventoryRequiresRuntimeProbe(t *testing.T) {
 	if len(seen) != len(want) {
 		t.Fatalf("component inventory contains %d of %d actual entries", len(seen), len(want))
 	}
+	if withContract != len(want) {
+		t.Errorf("only %d of %d public components have a behavioral contract", withContract, len(want))
+	}
 	report := r.CheckComponentDemos(context.Background(), nil)
 	if report.Passed() || report.VerifiedComponents != 0 || report.PublicComponents != len(want) {
 		t.Fatalf("a missing runtime probe must never count as acceptance: %+v", report)
@@ -58,20 +61,8 @@ func TestComponentDemoInventoryRequiresRuntimeProbe(t *testing.T) {
 		if len(result.Errors) == 0 {
 			t.Errorf("%s was reported without a missing probe or contract error", result.ComponentID)
 		}
-		if result.ComponentID == "engine.Tags" && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
-			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
-		}
-		if result.ComponentID == "engine.Script" && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
-			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
-		}
-		if result.ComponentID == "engine.MaterialOverride" && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
-			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
-		}
-		if result.ComponentID == "engine.PrefabInstance" && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
-			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
-		}
-		if (result.ComponentID == "animation.AnimationPlayer" || result.ComponentID == "animation.Animator" || result.ComponentID == "audio.AudioSource2D" || result.ComponentID == "audio.AudioListener2D" || result.ComponentID == "audio.AudioZone2D" || result.ComponentID == "camera.CameraShake2D" || result.ComponentID == "engine.Camera2D" || result.ComponentID == "engine.Camera3D" || result.ComponentID == "engine.LightOccluder2D" || result.ComponentID == "engine.Mesh2D" || result.ComponentID == "engine.SpriteRenderer" || result.ComponentID == "gameplay.Lifetime" || result.ComponentID == "gameplay.StateMachine" || result.ComponentID == "gameplay.Motion2D" || result.ComponentID == "gameplay.Hitbox2D" || result.ComponentID == "gameplay.Hurtbox2D" || result.ComponentID == "gameplay.KillZone2D" || result.ComponentID == "gameplay.Pickup2D" || result.ComponentID == "gameplay.Checkpoint2D" || result.ComponentID == "gameplay.Respawn" || result.ComponentID == "physics.CircleCollider2D" || result.ComponentID == "physics.CapsuleCollider2D" || result.ComponentID == "physics.PolygonCollider2D" || result.ComponentID == "physics.EdgeCollider2D" || result.ComponentID == "physics.RevoluteJoint2D" || result.ComponentID == "physics.DistanceJoint2D" || result.ComponentID == "save.Persist") && (len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent")) {
-			t.Errorf("%s contract is invalid or stale: %v", result.ComponentID, result.Errors)
+		if len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "runtime probe is absent") {
+			t.Errorf("%s contract is invalid, missing or stale: %v", result.ComponentID, result.Errors)
 		}
 	}
 	t.Logf("registry entries=%d public components=%d existing Try scenes=%d demo contracts=%d verified without runner=%d",

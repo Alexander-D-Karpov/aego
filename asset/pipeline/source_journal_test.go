@@ -93,6 +93,12 @@ func TestSourceJournalCrashWorker(t *testing.T) {
 			}
 		}
 	}
+	if mode == "auxiliary" {
+		edits = append(edits, SourceEdit{
+			Path: "assets/a.frames.json", Before: []byte("old companion"),
+			After: []byte("new companion"), Auxiliary: true,
+		})
+	}
 	want := os.Getenv("AEGO_TEST_SOURCE_JOURNAL_BOUNDARY")
 	pl.sourceTransactionCheckpoint = func(stage, rel string) {
 		if stage+":"+rel != want {
@@ -183,6 +189,73 @@ func killSourceJournalWorkerMode(t *testing.T, p *project.Project, boundary stri
 		t.Fatalf("race detector reported an error before interruption: %s", stderr.String())
 	}
 	t.Logf("worker killed at %s", boundary)
+}
+
+func TestSourceJournalAuxiliarySIGKILLRequiresExplicitRecovery(t *testing.T) {
+	for _, tc := range []struct {
+		name, boundary string
+		committed      bool
+	}{
+		{"after-source", "published:assets/a.txt", false},
+		{"after-companion", "published:assets/a.frames.json", false},
+		{"after-commit", "committed:", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newProject(t)
+			source := write(t, p, "assets/a.txt", "old")
+			companion := write(t, p, "assets/a.frames.json", "old companion")
+			pl := recoveryTestPipeline(t, p)
+			pl.Close()
+			originalMeta, err := os.ReadFile(source + MetaSuffix)
+			if err != nil {
+				t.Fatal(err)
+			}
+			killSourceJournalWorkerMode(t, p, tc.boundary, false, "auxiliary")
+			status, err := SourceRecoveryStatus(p)
+			if err != nil || status == nil {
+				t.Fatalf("missing pending recovery: %+v, %v", status, err)
+			}
+			beforeSource, sourceErr := os.ReadFile(source)
+			beforeCompanion, companionErr := os.ReadFile(companion)
+			if sourceErr != nil || companionErr != nil {
+				t.Fatalf("cannot inspect interrupted files: %v, %v", sourceErr, companionErr)
+			}
+			if opened, err := Open(p, NewImporterRegistry(), log.Nop()); err == nil {
+				opened.Close()
+				t.Fatal("opening silently accepted or applied recovery")
+			}
+			if after, err := os.ReadFile(source); err != nil || !bytes.Equal(after, beforeSource) {
+				t.Fatal("opening altered the interrupted source")
+			}
+			if after, err := os.ReadFile(companion); err != nil || !bytes.Equal(after, beforeCompanion) {
+				t.Fatal("opening altered the interrupted companion")
+			}
+			if err := RestoreSourceRecovery(p); err != nil {
+				t.Fatalf("explicit recovery: %v", err)
+			}
+			wantSource, wantCompanion := "old", "old companion"
+			if tc.committed {
+				wantSource, wantCompanion = "candidate", "new companion"
+			}
+			if data, err := os.ReadFile(source); err != nil || string(data) != wantSource {
+				t.Fatalf("source after recovery = %q, %v", data, err)
+			}
+			if data, err := os.ReadFile(companion); err != nil || string(data) != wantCompanion {
+				t.Fatalf("companion after recovery = %q, %v", data, err)
+			}
+			if !tc.committed {
+				if data, err := os.ReadFile(source + MetaSuffix); err != nil || !bytes.Equal(data, originalMeta) {
+					t.Fatalf("metadata was not restored: %v", err)
+				}
+			}
+			if _, err := os.Stat(companion + MetaSuffix); !os.IsNotExist(err) {
+				t.Fatalf("recovery created auxiliary metadata: %v", err)
+			}
+			if status, err := SourceRecoveryStatus(p); err != nil || status != nil {
+				t.Fatalf("recovery remains pending: %+v, %v", status, err)
+			}
+		})
+	}
 }
 
 func TestSourceJournalSIGKILLDuringUndo(t *testing.T) {

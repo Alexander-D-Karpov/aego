@@ -148,6 +148,10 @@ type Options struct {
 	Resolver asset.Resolver
 	Log      *log.Logger
 	OnChange func(*module.ChangeSet)
+	// SourceWrite serializes the immediate disk check/write with the host's
+	// source transaction guard. It must invoke the callback synchronously; the
+	// callback itself must not publish events or reenter the guard.
+	SourceWrite func(write func() error) error
 }
 
 type subscriber struct {
@@ -499,6 +503,13 @@ func WriteAtomic(abs string, data []byte) error {
 	return project.WriteAtomic(abs, data)
 }
 
+func (m *Manager) writeSource(write func() error) error {
+	if m.opt.SourceWrite != nil {
+		return m.opt.SourceWrite(write)
+	}
+	return write()
+}
+
 func encode(d *SceneDocument) []byte {
 	if strings.HasSuffix(d.Path, PrefabExt) {
 		return sceneio.SavePrefab(d.scene)
@@ -513,7 +524,8 @@ func (m *Manager) Save(id ID) error {
 	if d == nil {
 		return errs.New(errs.EditorDocument, "no such document")
 	}
-	if err := WriteAtomic(m.Abs(d.Path), m.guarded(d, encode)); err != nil {
+	data := m.guarded(d, encode)
+	if err := m.writeSource(func() error { return WriteAtomic(m.Abs(d.Path), data) }); err != nil {
 		return errs.Wrap(err, errs.EditorDocument, "cannot save the scene").With(log.F("path", d.Path))
 	}
 	m.stat(d)
@@ -551,29 +563,42 @@ func (m *Manager) SaveAs(id ID, rel string) error {
 }
 
 func (m *Manager) SaveAll() error {
+	// Check structured inputs before saving a related dirty metadata buffer.
+	for _, d := range m.assets {
+		if d.Binding.BeforeSave != nil && d.Dirty() {
+			if err := d.Binding.BeforeSave(); err != nil {
+				return err
+			}
+		}
+	}
 	var first error
+	pending := false
+	record := func(err error) {
+		if errors.Is(err, ErrSavePending) {
+			pending = true
+		} else if err != nil && first == nil {
+			first = err
+		}
+	}
 	for _, d := range m.docs {
 		if !d.Dirty() {
 			continue
 		}
-		if err := m.Save(d.ID); err != nil && first == nil {
-			first = err
-		}
+		record(m.Save(d.ID))
 	}
 	for _, d := range m.scripts {
 		if !d.Dirty() {
 			continue
 		}
-		if err := m.SaveScript(d); err != nil && first == nil {
-			first = err
-		}
+		record(m.SaveScript(d))
 	}
 	for _, d := range m.assets {
 		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
-			if err := d.Binding.Save(); err != nil && first == nil {
-				first = err
-			}
+			record(d.Binding.Save())
 		}
+	}
+	if first == nil && pending {
+		return ErrSavePending
 	}
 	return first
 }

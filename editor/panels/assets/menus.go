@@ -49,6 +49,11 @@ func (p *Panel) assetItems() {
 	if widgets.MenuItemIcon(ui, i18n.Tr("editor.assets.open", "Open"), "", "file.open", single && p.d.Nav != nil, false) {
 		p.open(a)
 	}
+	if single && p.d.EditSourceArt != nil && p.d.CanEditSourceArt != nil && p.d.CanEditSourceArt(a.ID) {
+		if widgets.MenuItemIcon(ui, i18n.Tr("editor.art.edit_source", "Edit Source Art"), "", "file.art", true, false) {
+			p.report(p.d.EditSourceArt(a.ID))
+		}
+	}
 	if a.Kind == preview.SourceKind {
 		return
 	}

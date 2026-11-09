@@ -17,5 +17,5 @@
     "en": {"title": "Select a virtual camera", "description": "Priority determines which virtual camera controls the output. This focused scene cuts immediately so the change is clear.", "input": "Change the selected Close camera's Priority from -1 to 5 to take over the view. Reset restores the original camera."},
     "ru": {"title": "Выбор виртуальной камеры", "description": "Приоритет определяет виртуальную камеру, управляющую выходом. В этом примере вид переключается сразу, чтобы изменение было заметно.", "input": "Измените Priority выбранной камеры Close с -1 на 5, чтобы она управляла изображением. Сброс вернёт исходную камеру."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

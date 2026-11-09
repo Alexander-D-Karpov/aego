@@ -15,7 +15,7 @@ func TestArtIconsAreBakedAtBothScales(t *testing.T) {
 	ids := []string{
 		"file.art", "panel.art_tools", "panel.art_timeline", "ui.hidden",
 		"tool.pencil", "tool.eraser", "tool.fill", "tool.line", "tool.rectangle",
-		"tool.ellipse", "tool.gradient", "tool.selection", "tool.wand", "tool.eyedropper", "tool.select_ellipse", "tool.lasso",
+		"tool.ellipse", "tool.gradient", "tool.selection", "tool.wand", "tool.eyedropper", "tool.select_ellipse", "tool.lasso", "ui.curve", "comp.polygon",
 	}
 	data, err := fs.ReadFile(res.FS(), "icons/icons.json")
 	if err != nil {

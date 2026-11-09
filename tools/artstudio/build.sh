@@ -5,9 +5,10 @@ cd "$root"
 out="${1:-.cache/artstudio}"
 mkdir -p -- "$out"
 GOOS=js GOARCH=wasm go build -buildvcs=false -trimpath -o "$out/artstudio.wasm" ./tools/artstudio/wasm
+GOOS=js GOARCH=wasm go build -buildvcs=false -trimpath -o "$out/preview.wasm" ./tools/artstudio/previewwasm
 wasm_exec="$(go env GOROOT)/lib/wasm/wasm_exec.js"
 [[ -f "$wasm_exec" ]] || wasm_exec="$(go env GOROOT)/misc/wasm/wasm_exec.js"
 cp -- "$wasm_exec" "$out/wasm_exec.js"
-cp -- tools/artstudio/web/index.html tools/artstudio/web/studio.css tools/artstudio/web/studio.js tools/artstudio/web/recovery.js "$out/"
+cp -- tools/artstudio/web/index.html tools/artstudio/web/studio.css tools/artstudio/web/studio.js tools/artstudio/web/recovery.js tools/artstudio/web/gpu-preview.js "$out/"
 printf 'Built %s\n' "$out"
 wc -c "$out/artstudio.wasm"

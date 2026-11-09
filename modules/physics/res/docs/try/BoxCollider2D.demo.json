@@ -17,5 +17,5 @@
     "en": {"title": "Box collider bounce", "description": "A box is launched toward the floor with gravity off. At Restitution 0 it stops when it hits.", "input": "Change Restitution from 0 to 1 to make the box bounce on the same contact. Reset restores the original collision."},
     "ru": {"title": "Отскок прямоугольного коллайдера", "description": "Ящик движется к полу при выключенной гравитации. При Restitution 0 он останавливается при ударе.", "input": "Измените Restitution с 0 на 1, чтобы ящик отскочил при том же столкновении. Сброс вернёт исходное столкновение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

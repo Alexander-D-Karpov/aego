@@ -17,5 +17,5 @@
     "en": {"title": "Circle collider bounce", "description": "A round body moves toward the floor with gravity off. At Restitution 0 it stops on contact.", "input": "Change Restitution from 0 to 1 to make the same collision bounce. Reset restores the original contact."},
     "ru": {"title": "Отскок круглого коллайдера", "description": "Круглое тело движется к полу при выключенной гравитации. При Restitution 0 оно останавливается при столкновении.", "input": "Измените Restitution с 0 на 1, чтобы тело отскочило при том же столкновении. «Сброс» вернёт исходное столкновение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

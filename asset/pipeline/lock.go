@@ -7,11 +7,69 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const indexLock = "index.lock"
 
+// index.guard is persistent: unlinking a held advisory lock would let another
+// process lock a different inode. Retain index.lock as the PID marker used by
+// older editors. These checks reject a visible replacement, but cannot provide
+// atomic compare-and-open against a hostile process changing the directory.
+func openIndexGuard(path string) (*os.File, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if os.IsExist(err) {
+		info, statErr := os.Lstat(path)
+		if statErr != nil || !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("index guard is not a regular file")
+		}
+		f, err = os.OpenFile(path, os.O_RDWR, 0)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := checkIndexGuard(path, f); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+func checkIndexGuard(path string, f *os.File) error {
+	held, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	current, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !held.Mode().IsRegular() || !current.Mode().IsRegular() || !os.SameFile(held, current) {
+		return fmt.Errorf("index guard changed or is not a regular file")
+	}
+	return nil
+}
+
 func acquireIndexLock(dir string) (func(), bool) {
+	guardPath := filepath.Join(dir, "index.guard")
+	guard, err := openIndexGuard(guardPath)
+	if err != nil {
+		return func() {}, false
+	}
+	if err := lockIndexGuard(guard); err != nil {
+		guard.Close()
+		return func() {}, false
+	}
+	retained := false
+	defer func() {
+		if !retained {
+			unlockIndexGuard(guard)
+			guard.Close()
+		}
+	}()
+	if err := checkIndexGuard(guardPath, guard); err != nil {
+		return func() {}, false
+	}
 	path := filepath.Join(dir, indexLock)
 	for range 2 {
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
@@ -26,7 +84,15 @@ func acquireIndexLock(dir string) (func(), bool) {
 				// manual inspection; never remove an unknown replacement here.
 				return func() {}, false
 			}
-			return func() { removeUnchangedLock(path, info, data) }, true
+			retained = true
+			var once sync.Once
+			return func() {
+				once.Do(func() {
+					removeUnchangedLock(path, info, data)
+					unlockIndexGuard(guard)
+					guard.Close()
+				})
+			}, true
 		}
 		if !os.IsExist(err) {
 			// Failure to create a lock is not ownership. In particular, recovery

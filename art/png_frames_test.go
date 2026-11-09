@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,41 @@ func TestImportPNGFramesPreservesPixelsAndIndependentFrames(t *testing.T) {
 	defer reopened.Close()
 	if got := reopened.Info(); len(got.Frames) != 2 || got.Frames[0].ID != info.Frames[0].ID || got.Frames[1].ID != info.Frames[1].ID {
 		t.Fatal("saved import did not retain frame identities")
+	}
+}
+
+func TestPNGImportsRejectSixteenBitInsteadOfSilentlyReducingPrecision(t *testing.T) {
+	gray := image.NewGray16(image.Rect(0, 0, 2, 1))
+	gray.SetGray16(0, 0, color.Gray16{Y: 0x1234})
+	rgba := image.NewRGBA64(image.Rect(0, 0, 2, 1))
+	rgba.SetRGBA64(0, 0, color.RGBA64{R: 0x1234, G: 0x4567, B: 0x789a, A: 0xffff})
+	nrgba := image.NewNRGBA64(image.Rect(0, 0, 2, 1))
+	nrgba.SetNRGBA64(0, 0, color.NRGBA64{R: 0x1234, G: 0x4567, B: 0x789a, A: 0xabcd})
+	for _, tc := range []struct {
+		name string
+		im   image.Image
+	}{{"gray", gray}, {"rgba", rgba}, {"nrgba", nrgba}} {
+		t.Run(tc.name, func(t *testing.T) {
+			var encoded bytes.Buffer
+			if err := png.Encode(&encoded, tc.im); err != nil {
+				t.Fatal(err)
+			}
+			before := bytes.Clone(encoded.Bytes())
+			for _, open := range []func([]byte) (*Document, error){
+				func(data []byte) (*Document, error) { return ImportPNG(data, Limits{}) },
+				func(data []byte) (*Document, error) {
+					return ImportPNGFrames(data, []image.Rectangle{image.Rect(0, 0, 1, 1)}, 100, Limits{})
+				},
+			} {
+				doc, err := open(encoded.Bytes())
+				if doc != nil {
+					doc.Close()
+				}
+				if err == nil || !strings.Contains(err.Error(), "16-bit") || !bytes.Equal(before, encoded.Bytes()) {
+					t.Fatalf("16-bit PNG was accepted or modified: %v", err)
+				}
+			}
+		})
 	}
 }
 

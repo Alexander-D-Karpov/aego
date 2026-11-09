@@ -7,7 +7,7 @@ map $uri $aeditor_cache {
 map $uri $aeditor_csp {
     default "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
     ~^/(r/[A-Za-z0-9._-]+/)?embed/ "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors @DOCS_ORIGIN@ @APP_ORIGIN@";
-    ~^/(r/[A-Za-z0-9._-]+/)?docs/ "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; frame-src @APP_ORIGIN@; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    ~^/(r/[A-Za-z0-9._-]+/)?docs/ "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; frame-src @APP_ORIGIN@ blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 }
 server {
     listen @LISTEN@;

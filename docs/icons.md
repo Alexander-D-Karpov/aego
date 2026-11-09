@@ -58,7 +58,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.joint_revolute` | engine | 16 | Revolute Joint 2D component; Joints debug overlay; component physics.RevoluteJoint2D | ok |
 | `comp.mesh` | engine | 16 | component engine.LightOccluder2D; component engine.Mesh2D; component engine.MeshRenderer; template render2d.light occluder; template render2d.mesh 2d | ok |
 | `comp.persist` | engine | 16 | component save.Persist | ok |
-| `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; component physics.PolygonCollider2D | ok |
+| `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; Pixel Art Studio: polygon tool; component physics.PolygonCollider2D | ok |
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
 | `comp.script` | engine | 16 | Scripts component and Add Component entries; Assets menu: Attach to Selected; component engine.Script | ok |
 | `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
@@ -162,7 +162,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `particles.rain` | engine | 16 | template particles.rain | ok |
 | `particles.smoke` | engine | 16 | template particles.smoke | ok |
 | `particles.spark` | engine | 16 | template particles.spark | ok |
-| `particles.system` | engine | 16 | component particles.ParticleSystem2D; template particles.particle system | ok |
+| `particles.system` | engine | 16 | component particles.ParticleSystem2D; template particles.fire; template particles.hitflash; template particles.magicprojectile; template particles.particle system; template particles.trail | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
 | `play.speed` | engine | 16 | Play → Time Scale… | ok |
@@ -214,7 +214,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `ui.chevron_right` | engine | 16 | trees and submenus | ok |
 | `ui.chevron_up` | engine | 16 | Find: previous match; Table: sorted ascending | ok |
 | `ui.close` | engine | 16 | tabs, chips, dialogs, clear buttons of fields and lists | ok |
-| `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves | ok |
+| `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves; Pixel Art Studio: curve tool | ok |
 | `ui.hidden` | engine | 16 | Pixel Art Studio: hidden layer | ok |
 | `ui.lock` | engine | 16 | Inspector: locked | ok |
 | `ui.minus` | engine | 16 | list editors: remove | ok |

@@ -23,7 +23,10 @@ var componentStudioLessons = map[string][]studioLesson{
 }
 
 func (b *builder) componentStudioLinks(e *Entry, root string) string {
-	if !b.opt.StudioGuides || e.Component == nil {
+	if actions := b.componentStudioActions(e, root); actions != "" {
+		return actions
+	}
+	if !b.opt.StudioGuides || e == nil || e.Component == nil {
 		return ""
 	}
 	var links []string

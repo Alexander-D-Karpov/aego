@@ -11,8 +11,9 @@ import (
 
 	"aego/art"
 	"aego/asset"
+	"aego/asset/importers/animclip"
+	"aego/asset/importers/animctrl"
 	"aego/asset/importers/artsource"
-	textureimport "aego/asset/importers/texture"
 	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/editor/core/artedit"
@@ -35,8 +36,13 @@ func importTestEditor(t *testing.T) (*context.Editor, *command.Registry, *projec
 	if err := importers.Register(artsource.New()); err != nil {
 		t.Fatal(err)
 	}
-	if err := importers.Register(textureimport.New()); err != nil {
+	if err := importers.Register(artsource.NewTexture()); err != nil {
 		t.Fatal(err)
+	}
+	for _, importer := range []pipeline.Importer{animclip.New(), animctrl.New()} {
+		if err := importers.Register(importer); err != nil {
+			t.Fatal(err)
+		}
 	}
 	pl, err := pipeline.Open(p, importers, log.Nop())
 	if err != nil {

@@ -159,6 +159,28 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	if panelView.color != mathx.White || model.History.Cursor() != 1 || !doc.Dirty() {
 		t.Fatalf("eyedropper did not pick the canvas pixel without an edit: color=%+v history=%d", panelView.color, model.History.Cursor())
 	}
+	// The Color Picker button uses a one-shot eyedropper and must restore the
+	// exact previous tool without adding another painting history entry.
+	panelView.chooseTool(1)
+	sampler.toggleOneShotPicker()
+	if panelView.tool != artEyedropper || !panelView.pickOnce {
+		t.Fatal("Color Picker did not start the temporary eyedropper")
+	}
+	state.BeginFrame()
+	state.ApplyMouseMove(point, mathx.Vec2{})
+	state.ApplyMouseDown(point, input.MouseLeft)
+	drawSampler()
+	state.BeginFrame()
+	state.ApplyMouseUp(point, input.MouseLeft)
+	drawSampler()
+	if panelView.tool != 1 || panelView.pickOnce || model.History.Cursor() != 1 {
+		t.Fatal("sampling did not return to the eraser without editing the document")
+	}
+	sampler.toggleOneShotPicker()
+	panelView.chooseTool(0)
+	if panelView.tool != 0 || panelView.pickOnce {
+		t.Fatal("explicit tool selection did not cancel the temporary eyedropper")
+	}
 	dragSelection := func(tool int, points ...mathx.Vec2) {
 		t.Helper()
 		panelView.tool = tool
@@ -345,7 +367,7 @@ func TestArtCreateDrawHistorySaveAndReopen(t *testing.T) {
 	artPanel := &artPanel{ctx: ed, doc: reopened, model: again, view: &artView{}}
 	area := mathx.Rect{W: 240, H: 500}
 	clickLayerControl := func(x float32, editable bool) {
-		y := ed.UI.Theme.Padding + 6*(ed.UI.Theme.RowHeight+ed.UI.Theme.Spacing) + ed.UI.Theme.RowHeight/2
+		y := ed.UI.Theme.Padding + 7*(ed.UI.Theme.RowHeight+ed.UI.Theme.Spacing) + ed.UI.Theme.RowHeight/2
 		point := mathx.Vec2{X: x, Y: y}
 		for step := range 3 {
 			state.BeginFrame()
@@ -435,7 +457,7 @@ func clickSpriteInspector(t *testing.T, ed *context.Editor, sc *scene.Scene, nod
 	}
 }
 
-func TestSpriteInspectorOpensPreparedImageWithoutChangingScene(t *testing.T) {
+func TestSpriteInspectorOpensPreparedImageForEditingWithoutChangingScene(t *testing.T) {
 	f := imageAuthoringFixture(t)
 	f.ed.UI = core.New(nil)
 	sc, _ := lightingFixture(t)
@@ -450,13 +472,28 @@ func TestSpriteInspectorOpensPreparedImageWithoutChangingScene(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	beforeMeta, err := os.ReadFile(f.ed.Docs.Abs("assets/surface.png.meta"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	clickSpriteInspector(t, f.ed, sc, hero)
 	doc := f.ed.Docs.AssetDocument(f.albedo)
-	if doc == nil || doc.Handler != imageHandlerID || doc.Selected != f.frames[1] || doc.Capabilities.Has(document.EditSource) {
-		t.Fatal("the prepared frame did not open in the existing read-only Image Viewer")
+	if doc == nil || doc.Handler != artPNGHandlerID || doc.Selected != f.frames[1] || !doc.Capabilities.Has(document.EditSource) || doc.Dirty() {
+		t.Fatal("the prepared frame did not open as a clean editable PNG draft")
+	}
+	model, ok := doc.Binding.Model.(*artedit.Document)
+	if !ok || !model.Draft {
+		t.Fatal("the source did not share an in-memory Art document")
+	}
+	frames := model.Session.Document.Info().Frames
+	if len(frames) != 2 || model.Session.Frame != frames[1].ID {
+		t.Fatal("the SpriteRenderer's existing frame did not select its corresponding canvas frame")
 	}
 	afterImage, err := os.ReadFile(f.ed.Docs.Abs("assets/surface.png"))
 	if err != nil || !bytes.Equal(beforeImage, afterImage) || sceneDoc.History.Cursor() != 0 || !bytes.Equal(beforeScene, sceneio.Save(sc)) {
 		t.Fatal("opening a prepared image changed the scene or source")
+	}
+	if afterMeta, err := os.ReadFile(f.ed.Docs.Abs("assets/surface.png.meta")); err != nil || !bytes.Equal(beforeMeta, afterMeta) {
+		t.Fatal("opening a prepared image changed its metadata", err)
 	}
 }

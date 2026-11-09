@@ -19,14 +19,21 @@ func mdURL(rel string) string {
 func (b *builder) pageMD(e *Entry) string {
 	var c strings.Builder
 	body := strings.TrimSpace(e.Body)
-	if !strings.HasPrefix(body, "# ") {
-		c.WriteString("# " + e.Title + "\n\n")
-	}
+	c.WriteString("# " + e.Title + "\n\n")
+	body = stripTitle(body)
+	body = nestArticleHeadings(body)
+	c.WriteString(b.markdownBuildNote() + "\n\n")
 	if e.Signature != "" && e.Kind != "page" {
 		c.WriteString("```\n" + e.Signature + "\n```\n\n")
 	}
 	if body != "" {
 		c.WriteString(b.mdLinks(body) + "\n")
+	}
+	if e.ID == "editor/icons" {
+		c.WriteString("\n")
+		for _, name := range b.iconNames() {
+			c.WriteString("- `" + name + "`\n")
+		}
 	}
 	var fields, members []*Entry
 	for _, k := range b.kids[e.ID] {
@@ -67,6 +74,28 @@ func (b *builder) pageMD(e *Entry) string {
 	return c.String()
 }
 
+// The outer Markdown page, like HTML, owns its only level-one heading.
+func nestArticleHeadings(body string) string {
+	lines := strings.Split(body, "\n")
+	fence := false
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			fence = !fence
+		}
+		if fence {
+			continue
+		}
+		n := len(line) - len(strings.TrimLeft(line, "#"))
+		if n < 1 || n > 6 || n >= len(line) || line[n] != ' ' {
+			continue
+		}
+		if n == 1 {
+			lines[i] = ""
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 func backticked(s string) string {
 	if s == "" {
 		return ""
@@ -94,7 +123,7 @@ func (b *builder) mdLinks(md string) string {
 // writeMarkdown writes page.md next to every page and llms-full.txt with all of them in navigation order.
 func (b *builder) writeMarkdown() error {
 	var full strings.Builder
-	full.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n")
+	full.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n\n" + b.markdownBuildNote() + "\n")
 	for _, id := range b.order {
 		e := b.byID[id]
 		rel := b.langPath(mdURL(b.urls[id]))

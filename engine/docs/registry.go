@@ -103,11 +103,15 @@ type Entry struct {
 	Location  Location
 	Links     []string
 	Keys      []string
-	Requires  []string
-	Snippets  []Snippet
-	Order     int
-	Field     *FieldInfo
-	Component *ComponentInfo
+	// SearchNames are public UI labels, separate from scripting keyword hover keys.
+	SearchNames []string `json:",omitempty"`
+	Requires    []string
+	Snippets    []Snippet
+	Order       int
+	Field       *FieldInfo
+	Component   *ComponentInfo
+	// ValueType describes data, not an addable scene component.
+	ValueType bool                `json:",omitempty"`
 	Demo      *democheck.Contract `json:",omitempty"`
 	Related   []string
 	Try       string
@@ -124,7 +128,10 @@ type Entry struct {
 	// TryArtifacts contains a bounded AETB payload prepared by the docs build.
 	// JSON encodes it as base64; browser runtimes only decode runtime artifacts.
 	TryArtifacts []byte `json:",omitempty"`
-	Icon         string
+	// TrySource is populated only by Export. Runtime Try sessions retain only
+	// prepared artifacts, while a downloadable example contains real sources.
+	TrySource *TrySource `json:",omitempty"`
+	Icon      string
 	// EditorOnly pages are shown in the editor's docs panel and left out of the site.
 	EditorOnly bool `json:",omitempty"`
 	Diag       *DiagInfo
@@ -191,19 +198,20 @@ type pageMeta struct {
 }
 
 type Registry struct {
-	entries  []Entry
-	byID     map[string]int
-	children map[string][]int
-	keys     map[string]int
-	alias    map[string]string
-	builtin  map[string]bool
-	mods     map[string]module.Info
-	meta     map[string]pageMeta
-	extra    []Group
-	evOwners map[string]string
-	problems []Problem
-	groupT   map[string]map[string]string
-	trySeen  map[string]bool
+	entries    []Entry
+	byID       map[string]int
+	children   map[string][]int
+	keys       map[string]int
+	alias      map[string]string
+	builtin    map[string]bool
+	mods       map[string]module.Info
+	meta       map[string]pageMeta
+	extra      []Group
+	evOwners   map[string]string
+	problems   []Problem
+	groupT     map[string]map[string]string
+	trySeen    map[string]bool
+	trySources map[string]trySourceLocation
 }
 
 func StubPath(module string) string {
@@ -279,12 +287,14 @@ func Assemble(src Sources) *Registry {
 		Body: "Every code the compiler, the script runtime and the engine report, with what it means and how to fix it."})
 	if src.Bindings != nil {
 		r.bindings(src.Bindings, src.Owners)
+		r.valueTypes(src.Bindings, src.Owners)
 		r.handles(src.Bindings, src.Owners)
 		r.hostSignals(src.Bindings, src.Owners)
 	}
 	r.evOwners = src.EventOwners
 	if src.Schema != nil {
 		r.components(src.Schema, src.Bindings)
+		r.componentValueTypes(src.Schema)
 	}
 	if src.Bindings != nil {
 		r.compMethods(src.Bindings)
@@ -328,6 +338,9 @@ func (r *Registry) moduleTitle(owner string) string {
 const componentGuideOrder = 1000
 
 func (r *Registry) modulePage(owner string) string {
+	if owner == "" {
+		owner = EngineOwner
+	}
 	id := ModulePrefix + owner
 	if _, ok := r.byID[id]; !ok {
 		title := r.moduleTitle(owner)
@@ -420,7 +433,7 @@ func params(s abi.Signature, names []string) []Param {
 		if i < len(names) {
 			n = names[i]
 		}
-		out[i] = Param{Name: n, Type: p.String()}
+		out[i] = Param{Name: n, Type: publicType(p.String())}
 	}
 	return out
 }
@@ -437,7 +450,7 @@ func signature(head string, ps []Param, result abi.TypeRef) string {
 	}
 	b.WriteByte(')')
 	if result.Kind != abi.Void {
-		b.WriteString(" " + result.String())
+		b.WriteString(" " + publicType(result.String()))
 	}
 	return b.String()
 }
@@ -513,7 +526,8 @@ func (r *Registry) components(s *schema.Registry, m *manifest.Manifest) {
 		}
 		r.add(Entry{
 			ID: td.FullName, Parent: parent, Group: group, Order: order, Kind: Type, Owner: owner, Title: title,
-			Signature: "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner), Icon: td.Icon,
+			SearchNames: schema.SearchNames(td),
+			Signature:   "component " + td.FullName, Body: td.Doc, Component: r.componentInfo(td, owner), Icon: td.Icon,
 			Location: Location{Stub: stub, Symbol: "component:" + td.FullName},
 		})
 		base := defaultsOf(td)
@@ -627,6 +641,10 @@ func (r *Registry) pages(src module.DocSource) {
 func (r *Registry) page(owner, file, source string, rec record) {
 	if i, ok := r.byID[rec.id]; ok {
 		e := &r.entries[i]
+		e.SearchNames = append(e.SearchNames, rec.searchNames...)
+		if len(rec.params) > 0 {
+			r.documentParams(e, rec.params)
+		}
 		if e.Kind == Page {
 			// A module may document the project section generated from its own
 			// registered settings. A second or unrelated page is still a conflict.
@@ -654,6 +672,10 @@ func (r *Registry) page(owner, file, source string, rec record) {
 		}
 		return
 	}
+	if len(rec.params) > 0 {
+		r.problems = append(r.problems, Problem{ID: rec.id, Error: true, Message: "params refers to a method or function that is not registered"})
+		return
+	}
 	title := rec.title
 	if title == "" {
 		title = heading(rec.body)
@@ -663,7 +685,7 @@ func (r *Registry) page(owner, file, source string, rec record) {
 	}
 	r.add(Entry{
 		ID: rec.id, Parent: rec.parent, Kind: Page, Owner: owner, Group: rec.group, Title: title, Summary: rec.summary,
-		Body: rec.body, Keys: rec.keys, Requires: rec.requires, Order: rec.order, Icon: rec.icon, EditorOnly: rec.editorOnly,
+		Body: rec.body, Keys: rec.keys, SearchNames: rec.searchNames, Requires: rec.requires, Order: rec.order, Icon: rec.icon, EditorOnly: rec.editorOnly,
 		Location: Location{Path: owner + ":" + file, Line: rec.line, Source: source},
 	})
 	r.meta[rec.id] = pageMeta{group: rec.group, ordered: rec.ordered, allow: rec.styleAllow}
@@ -714,13 +736,15 @@ func (r *Registry) codePage(src module.DocSource, file, source string, rec recor
 	}
 	r.add(Entry{
 		ID: rec.code, Parent: DiagnosticsID, Kind: Code, Owner: src.Owner, Title: rec.code, Summary: rec.title,
-		Body: rec.body, Diag: d, Location: Location{Path: src.Owner + ":" + file, Line: rec.line, Source: source},
+		Body: rec.body, SearchNames: rec.searchNames, Diag: d, Location: Location{Path: src.Owner + ":" + file, Line: rec.line, Source: source},
 	})
 }
 
 // checkCodes matches the codes modules declare in Info.Codes with their pages.
 func (r *Registry) checkCodes() {
-	declared := map[string]string{}
+	// Renderer/asset diagnostics are emitted below the module layer. Their
+	// documentation belongs to EngineDocs, not to a fake runtime module.
+	declared := map[string]string{"SHD009": EngineOwner, "MAT004": EngineOwner}
 	for id, mi := range r.mods {
 		for _, c := range mi.Codes {
 			declared[c] = id
@@ -1036,6 +1060,10 @@ func (r *Registry) tryExtras(e *Entry, src module.DocSource, scenePath string) {
 		return
 	}
 	r.trySeen[key] = true
+	if r.trySources == nil {
+		r.trySources = make(map[string]trySourceLocation)
+	}
+	r.trySources[e.ID] = trySourceLocation{src: src, scene: path.Clean(scenePath)}
 	r.readDemoContract(e, src, scenePath)
 	base := strings.TrimSuffix(path.Clean(scenePath), TryExt)
 	if data, err := fs.ReadFile(src.FS, base+".aetry"); err == nil {

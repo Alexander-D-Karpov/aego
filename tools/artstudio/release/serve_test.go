@@ -59,7 +59,9 @@ func TestHTTPReferenceBytes(t *testing.T) {
 }
 func TestHTTPRejectsRedirect(t *testing.T) {
 	dir, _, sha := fixtureArtifact(t, "one")
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "https://example.com", http.StatusFound) }))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://example.com", http.StatusFound)
+	}))
 	defer s.Close()
 	if _, e := httpCheck(context.Background(), s.URL+"/", dir, sha); e == nil {
 		t.Fatal("followed redirect")
@@ -72,6 +74,12 @@ func TestDocsPreviewDoesNotExposeEditor(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest("GET", "/editor/", nil))
 	if w.Code != 404 {
 		t.Fatal(w.Code)
+	}
+	policy := csp(m, "docs/ru/export/index.html", true)
+	if !strings.Contains(policy, "frame-src "+m.AppOrigin+" blob:;") ||
+		!strings.Contains(policy, "form-action 'none'") ||
+		!strings.Contains(policy, "frame-ancestors 'none'") || strings.Contains(policy, "*") {
+		t.Fatalf("docs must support sandboxed local downloads without broadening network or form access: %s", policy)
 	}
 }
 

@@ -17,5 +17,5 @@
     "en": {"title": "Bounce on an edge", "description": "The grey line marks a real edge collider. With gravity off and Restitution 0, the ball stops on contact.", "input": "Change the edge's Restitution from 0 to 1 to make the same impact bounce. Reset restores the original contact."},
     "ru": {"title": "Отскок от ребра", "description": "Серая линия обозначает настоящий коллайдер-ребро. При выключенной гравитации и Restitution 0 шар останавливается при столкновении.", "input": "Измените Restitution ребра с 0 на 1, чтобы шар отскочил при том же ударе. «Сброс» вернёт исходное столкновение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

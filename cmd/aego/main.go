@@ -316,6 +316,27 @@ func absTraceArg(args []string, path string) []string {
 }
 
 func cmdEdit(args []string) int {
+	// A protocol handler accepts exactly one untrusted URL, never general
+	// editor flags or a project path supplied by the URL launcher.
+	if len(args) > 0 && args[0] == "--example-link" {
+		if err := edit.StartCLIExampleLink(args[1:]); err != nil {
+			return fail(err)
+		}
+		return 0
+	}
+	// AppImage desktops use %u for both protocol links and ordinary project
+	// files. A file URI gets its own exact-argument entry; it is never parsed
+	// as editor flags or accepted as a remote filesystem location.
+	if len(args) > 0 && args[0] == "--file-link" {
+		file, err := desktopFileArg(args[1:])
+		if err != nil {
+			return fail(err)
+		}
+		if err := edit.Start(edit.Entry{Arg: file, Verb: "edit"}); err != nil {
+			return fail(err)
+		}
+		return 0
+	}
 	fs := flag.NewFlagSet("edit", flag.ContinueOnError)
 	debug := fs.Bool("debug", false, i18n.Tr("cli.edit.flag.debug", "verbose logging and gpu debug output"))
 	hidden := fs.Bool("hidden", false, i18n.Tr("cli.edit.flag.hidden", "create the window without showing it"))

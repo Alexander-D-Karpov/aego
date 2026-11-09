@@ -95,6 +95,22 @@ func TestThemeContrast(t *testing.T) {
 	}
 }
 
+func TestDestructiveButtonUsesReadableThemeColors(t *testing.T) {
+	for name, th := range map[string]Theme{"dark": Editor(), "light": Light()} {
+		normal := th.DestructiveButton(false, false)
+		hot := th.DestructiveButton(true, false)
+		active := th.DestructiveButton(false, true)
+		for state, bg := range map[string]mathx.Color{"normal": normal, "hot": hot, "active": active} {
+			if bg.A != 1 || bg.R <= bg.G || bg.R <= bg.B || Contrast(mathx.White, bg) < 4.5 {
+				t.Errorf("%s %s destructive action is not legible red: %+v, contrast %.2f", name, state, bg, Contrast(mathx.White, bg))
+			}
+		}
+		if !(Luminance(active) < Luminance(normal) && Luminance(normal) < Luminance(hot)) || th.DestructiveButton(true, true) != active {
+			t.Errorf("%s destructive button states do not preserve active priority", name)
+		}
+	}
+}
+
 func TestModeRoundTrip(t *testing.T) {
 	for _, m := range []Mode{ModeSystem, ModeDark, ModeLight} {
 		if ParseMode(m.String()) != m {

@@ -17,5 +17,5 @@
     "en": {"title": "Gravity on a rigid body", "description": "The dynamic box starts with Gravity Scale 0 and stays suspended; the floor has a static collider.", "input": "Set Gravity Scale to 50 to exaggerate gravity and make the box fall. Reset restores the floating starting state."},
     "ru": {"title": "Гравитация твёрдого тела", "description": "Динамический ящик начинает с масштабом гравитации 0 и остаётся в воздухе; у пола статический коллайдер.", "input": "Установите масштаб гравитации 50: усиленная гравитация заставит ящик падать. Сброс вернёт исходное положение в воздухе."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

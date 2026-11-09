@@ -23,6 +23,82 @@ type scopedLayoutPanel struct {
 
 func (p scopedLayoutPanel) Scope() string { return p.scope }
 
+func TestArtFactoryToolsAndLayersAreSeparateWithoutResettingOverrides(t *testing.T) {
+	root := t.TempDir()
+	makeWorkspace := func() *workspace.Workspace {
+		w := workspace.New(root, nil)
+		for _, id := range []string{workspace.Assets, workspace.Hierarchy, workspace.Scene, workspace.Inspector, "art.tools", "art.properties", "art.timeline", "art.preview"} {
+			if err := w.Register(workspace.Desc{Panel: defaultLayoutPanel(id)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, p := range BuiltinWorkspaces() {
+			if err := w.RegisterPreset(p); err != nil {
+				t.Fatal(err)
+			}
+		}
+		w.LoadLayout()
+		w.Switch(workspace.Art)
+		return w
+	}
+	w := makeWorkspace()
+	if !w.Tree.Has("art.tools") || !w.Tree.Has("art.properties") || !w.Tree.Has("art.timeline") || w.Tree.Has(workspace.Hierarchy) {
+		t.Fatal("Art factory composition is not the dedicated authoring layout")
+	}
+	tools, layers := w.Tree.FindPanel("art.tools"), w.Tree.FindPanel("art.properties")
+	if tools == 0 || layers == 0 || tools == layers {
+		t.Fatal("Tools and Palette/Layers share a tab group")
+	}
+	w.Tree.Undock("art.tools")
+	if err := w.SaveLayout(); err != nil {
+		t.Fatal(err)
+	}
+	if makeWorkspace().Tree.Has("art.tools") {
+		t.Fatal("factory update overwrote a saved layout")
+	}
+	w.ResetLayout()
+	if !w.Tree.Has("art.tools") {
+		t.Fatal("Reset Workspace did not restore factory Tools")
+	}
+}
+
+func TestAnimationFactoryShowsFocusedCanvasBesidePreview(t *testing.T) {
+	w := workspace.New(t.TempDir(), nil)
+	for _, id := range []string{workspace.Scene, "art.tools", "art.properties", "art.timeline", "art.preview"} {
+		if err := w.Register(workspace.Desc{Panel: defaultLayoutPanel(id)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []string{"first", "second"} {
+		if err := w.Register(workspace.Desc{Panel: scopedLayoutPanel{defaultLayoutPanel("render2d.art/" + id), "render2d.art"}, Slot: workspace.SlotCenter}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range BuiltinWorkspaces() {
+		if err := w.RegisterPreset(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.LoadLayout()
+	w.Focus("render2d.art/first")
+	w.Switch(workspace.Animation)
+	canvas, ok := w.Tree.Node(w.Tree.FindPanel("render2d.art/first"))
+	if !ok {
+		t.Fatal("focused art document is absent")
+	}
+	active, _ := canvas.ActivePanel()
+	if active != "render2d.art/first" || canvas.ID == w.Tree.FindPanel("art.preview") {
+		t.Fatal("factory Animation did not show focused canvas beside preview", active)
+	}
+	w.Focus(workspace.Scene)
+	w.Switch(workspace.Design)
+	w.Switch(workspace.Animation)
+	canvas, _ = w.Tree.Node(w.Tree.FindPanel(workspace.Scene))
+	if active, _ := canvas.ActivePanel(); active != workspace.Scene {
+		t.Fatal("factory preference replaced a user's saved active tab", active)
+	}
+}
+
 func TestVFXKeepsCanvasAndParticlePresetVisible(t *testing.T) {
 	w := workspace.New(t.TempDir(), nil)
 	for i, id := range []string{workspace.Assets, workspace.Scene, workspace.Inspector, "art.properties", "art.timeline", "art.preview"} {

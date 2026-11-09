@@ -1,4 +1,39 @@
 messages version=1 lang=ru {
+  msg "editor.art.blank_title" { text="Рисунок без названия" }
+  msg "editor.art.blank_hint" { text="Рисунок пока в памяти. Сохраните его, чтобы создать ресурс проекта." }
+  msg "editor.art.save_blank" { text="Сохранить рисунок как ресурс" }
+  msg "editor.art.save_blank_notice" { text="Выберите путь к исходнику проекта. Замена существующего рисунка требует подтверждения." }
+  msg "editor.art.blank_saved" { text="Рисунок сохранён: {path}" }
+  msg "editor.art.replace" { text="Заменить" }
+  msg "editor.art.replace_title" { text="Заменить существующий рисунок?" }
+  msg "editor.art.replace_notice" { text="Заменить {path}? Его текущий рисунок будет перезаписан. Идентификатор ресурса сохранится, поэтому изменятся все использующие его объекты." }
+  msg "editor.art.replace_missing_meta" { text="У существующего рисунка нет метаданных. Восстановите его идентификатор перед заменой." }
+  msg "editor.art.replace_invalid_meta" { text="Метаданные существующего рисунка неверны или несовместимы. Он не был заменён." }
+  msg "editor.art.replace_invalid_source" { text="Не удалось прочитать существующий рисунок; он не был заменён" }
+  msg "editor.art.replace_orphan_meta" { text="Для этого пути уже есть метаданные без исходника. Исправьте это или выберите другое имя." }
+  msg "editor.art.replace_incompatible" { text="Замена рисунка удалит существующие ссылки на кадры, анимации или каналы. Выберите другое имя." }
+  msg "editor.art.replace_changed" { text="Файл назначения изменился во время сохранения. Проверьте его и повторите попытку." }
+  msg "editor.art.pick_canvas_color" { text="Взять цвет с холста" }
+  msg "editor.art.pick_canvas_hint" { text="Возьмите пиксель активного слоя и вернитесь к прежнему инструменту. Для отмены нажмите кнопку ещё раз или Escape." }
+  msg "editor.art.eraser_mode" { text="Режим ластика" }
+  msg "editor.art.eraser_erase" { text="Стирание" }
+  msg "editor.art.eraser_smudge" { text="Размазывание" }
+  msg "editor.art.eraser_strength" { text="Сила (%)" }
+  msg "editor.art.eraser_indexed" { text="В индексном режиме промежуточные цвета ограничены существующей палитрой." }
+  msg "editor.shell.recovery_write_failed" { text="Не удалось сохранить восстановление" }
+  msg "editor.shell.recovery_write_failed_notice" { text="Не удалось обновить один или несколько файлов восстановления: {error}. Не закрывайте редактор: последние изменения могут быть только в памяти. Освободите место, исправьте доступ или сохраните копию на другом диске. Старые файлы восстановления могут быть неактуальны." }
+  msg "editor.shell.recovery_retry" { text="Повторить сохранение" }
+  msg "editor.shell.continue_editing" { text="Продолжить работу" }
+  msg "editor.shell.recovery_copy_action" { text="Сохранить копию восстановления…" }
+  msg "editor.shell.recovery_copy_title" { text="Сохранить аварийные копии восстановления" }
+  msg "editor.shell.recovery_copy_notice" { text="Выберите существующую папку на файловой системе со свободным местом. В новой закрытой папке будут копии текущих несохранённых документов; ресурсы проекта и существующие файлы восстановления не заменяются. Предыдущие файлы восстановления, ожидающие решения, в копию не включаются. Это не обычное сохранение, восстановление не выполняется автоматически. Временное хранилище может очиститься после перезагрузки." }
+  msg "editor.shell.recovery_copy_directory" { text="Абсолютный путь к папке назначения" }
+  msg "editor.shell.recovery_copy_save" { text="Сохранить копии" }
+  msg "editor.shell.recovery_copy_project_changed" { text="Проект изменился до сохранения копии восстановления." }
+  msg "editor.shell.recovery_copy_partial" { text="Копия восстановления в {path} неполная: {error}. Не закрывайте редактор и попробуйте другое место." }
+  msg "editor.shell.recovery_copy_failed" { text="Не удалось сохранить копии восстановления: {error}. Не закрывайте редактор и попробуйте другое место." }
+  msg "editor.shell.recovery_copy_saved" { text="Аварийные копии восстановления ({count}) сохранены в {path}. Это не сохранённые ресурсы проекта; автоматического восстановления не будет." }
+  msg "editor.audio.setting_changed" { text="Этот параметр звука изменился в другой панели. Проверьте его перед повторным редактированием." }
   msg "editor.shell.contact_telegram" {
     text="Телеграм: @sanspie"
   }
@@ -74,6 +109,18 @@ messages version=1 lang=ru {
   }
   msg "cli.dump.usage" {
     text="использование: aego dump script <пакет|Тип> [--func имя] [--project папка]"
+  }
+  msg "cli.edit.desktop.absolute_path" {
+    text="URI файла должен содержать абсолютный путь."
+  }
+  msg "cli.edit.desktop.invalid_uri" {
+    text="URI файла некорректен или указывает на удалённый ресурс."
+  }
+  msg "cli.edit.desktop.local_drive" {
+    text="URI файла должен указывать на локальный диск."
+  }
+  msg "cli.edit.desktop.one_uri" {
+    text="Для открытия файла нужен ровно один локальный URI."
   }
   msg "cli.edit.flag.cpuprofile" {
     text="записать профиль процессора в этот файл"
@@ -4960,6 +5007,12 @@ messages version=1 lang=ru {
     few="{n} ошибки"
     many="{n} ошибок"
   }
+  msg "editor.shell.example_link_single" {
+    text="Откройте ссылку на пример отдельно от других перетаскиваемых элементов."
+  }
+  msg "editor.shell.example_link_unavailable" {
+    text="В этом редакторе открытие ссылок на примеры недоступно."
+  }
   msg "editor.shell.export_message" {
     text="Экспорт: {message}"
   }
@@ -6171,6 +6224,9 @@ messages version=1 lang=ru {
   msg "editor.menu.author_group" {
     text="Сцена и ассеты"
   }
+  msg "editor.menu.art_group" {
+    text="Рисование"
+  }
   msg "editor.menu.debug_group" {
     text="Запуск и диагностика"
   }
@@ -6318,7 +6374,7 @@ messages version=1 lang=ru {
   msg "editor.art.link" { text="Связать" }
   msg "editor.art.mirror_x" { text="Симметрия X" }
   msg "editor.art.mirror_y" { text="Симметрия Y" }
-  msg "editor.art.navigation" { text="Колесо: масштаб · средняя/правая кнопка: перемещение · Esc: отмена жеста или снятие выделения" }
+  msg "editor.art.navigation" { text="Колесо: масштаб · пробел и перетаскивание или средняя/правая кнопка: перемещение · Esc: отмена жеста или снятие выделения" }
   msg "editor.art.normal" { text="Нормали" }
   msg "editor.art.onion" { text="Соседние кадры" }
   msg "editor.art.pencil" { text="Карандаш" }
@@ -6343,12 +6399,12 @@ messages version=1 lang=ru {
   msg "editor.art.wand" { text="Волшебная палочка" }
   msg "editor.art.asset_timeline" { text="Кадры рисунка" }
   msg "editor.art.animation_preview" { text="Просмотр анимации" }
-  msg "editor.art.open_hint" { text="Откройте документ .aeart в панели ресурсов, чтобы начать рисовать." }
+  msg "editor.art.open_hint" { text="Дважды нажмите на PNG или .aeart в панели ресурсов, чтобы начать рисовать." }
   msg "editor.art.new" { text="Новый пиксельный рисунок…" }
   msg "editor.art.new_file" { text="Пиксельный рисунок (.aeart)…" }
-  msg "editor.art.png_file" { text="Пустой PNG (.png, только просмотр)…" }
-  msg "editor.art.png_help" { text="Создать пустой PNG. Для рисования в Aego выберите пиксельный рисунок." }
-  msg "editor.art.png_prompt" { text="Для рисования выберите пиксельный рисунок." }
+  msg "editor.art.png_file" { text="Пустой PNG (.png)…" }
+  msg "editor.art.png_help" { text="Создать пустой PNG и открыть его для рисования. При первом сохранении редактор предложит создать связанный исходник." }
+  msg "editor.art.png_prompt" { text="PNG откроется для рисования. При первом сохранении редактор предложит создать связанный редактируемый исходник." }
   msg "editor.art.png_edit_copy" { text="Редактировать как копию .aeart…" }
   msg "editor.art.png_copy_notice" { text="Копируется весь PNG. Исходник и сцена не изменятся." }
   msg "editor.art.png_frames_changed" { text="Проект, документ изображения или его метаданные изменились; начните копирование заново." }
@@ -6441,4 +6497,202 @@ messages version=1 lang=ru {
   msg "launcher.remote.url" { text="HTTPS-адрес манифеста" }
   msg "launcher.remote.working" { text="Проверка или скачивание примера…" }
   msg "launcher.remote.cancel" { text="Отмена" }
+  msg "editor.art.source_unavailable" { text="У этого ассета нет редактируемого изображения в проекте." }
+  msg "editor.art.metadata_required" { text="Исправьте метаданные изображения перед созданием редактируемого исходника." }
+  msg "editor.art.save_image_settings" { text="Сохраните настройки импорта изображения или устраните их конфликт перед созданием связанного исходника." }
+  msg "editor.art.linked_frame_unavailable" { text="Кадр связанного рисунка недоступен. Исправьте ошибку импорта перед редактированием." }
+  msg "editor.art.legacy_link_geometry" { text="Старая связь PNG не позволяет обнаружить изменение нарезки. Не меняйте прямоугольники исходника и проверьте их перед импортом." }
+  msg "editor.art.resolve_source_settings" { text="Сохраните настройки исходника или устраните их конфликт перед связыванием: {path}" }
+  msg "editor.art.external_source_conflict" { text="Изображение или его метаданные изменены вне редактора. Устраните конфликт перед связыванием." }
+  msg "editor.art.create_linked_source" { text="Создать связанный исходник" }
+  msg "editor.art.linked_source_notice" { text="Будет создан редактируемый исходник для {path}, а в метаданные импорта изображения добавится связь. ID спрайтов и анимаций сохранятся; правки отразятся на всех объектах, использующих общий ассет. Исходный PNG сохранится." }
+  msg "editor.art.create_linked" { text="Создать связанный исходник" }
+  msg "editor.art.link_target_changed" { text="Проект, изображение или настройки импорта изменились. Снова выберите «Редактировать изображение»." }
+  msg "editor.art.link_extension" { text="Редактируемый исходник должен иметь расширение .aeart." }
+  msg "editor.art.edit_source" { text="Редактировать изображение" }
+  msg "editor.art.action_stale" { text="Документ или выделение изменились. Откройте действие заново." }
+  msg "editor.art.all_frames" { text="Воспроизводить все кадры" }
+  msg "editor.art.apply" { text="Применить" }
+  msg "editor.art.background_color" { text="Фоновый цвет для градиента и дизеринга" }
+  msg "editor.art.blend_mode" { text="Смешивание: normal / multiply / screen / add" }
+  msg "editor.art.capture_brush" { text="Взять" }
+  msg "editor.art.capture_brush_hint" { text="Создать собственную кисть из выделенных пикселей" }
+  msg "editor.art.panel_tool_options" { text="Параметры инструмента" }
+  msg "editor.art.panel_palette" { text="Палитра" }
+  msg "editor.art.panel_color" { text="Выбор цвета" }
+  msg "editor.art.panel_layers" { text="Слои" }
+  msg "editor.art.panel_channels" { text="Каналы поверхности" }
+  msg "editor.art.panel_selection" { text="Выделение и преобразование" }
+  msg "editor.art.panel_info" { text="Свойства рисунка" }
+  msg "editor.art.panel_animation_timeline" { text="Шкала анимации" }
+  msg "editor.art.panel_asset_preview" { text="Предпросмотр ассета в Aego" }
+  msg "editor.art.foreground_color" { text="Основной цвет" }
+  msg "editor.art.background_color_short" { text="Фоновый цвет" }
+  msg "editor.art.swap_colors" { text="Поменять основной и фоновый цвета" }
+  msg "editor.art.indexed_color_hint" { text="В индексированном режиме используются выбранные цвета палитры. Выберите ячейки в панели «Палитра»." }
+  msg "editor.art.indexed_add_to_paint" { text="В индексированном режиме рисование использует выбранную ячейку. Добавьте этот цвет в палитру, чтобы рисовать им." }
+  msg "editor.art.color_sv_hint" { text="Перетаскивайте для выбора насыщенности и яркости" }
+  msg "editor.art.color_hue_hint" { text="Перетаскивайте для выбора оттенка" }
+  msg "editor.art.color_alpha" { text="Прозрачность" }
+  msg "editor.art.stroke_preview" { text="Образец штриха" }
+  msg "editor.art.stroke_preview_hint" { text="Пример на пустом слое; выделение, смешивание и блокировка слоя не учитываются." }
+  msg "editor.art.tool_no_stroke" { text="Этот инструмент не рисует штрих." }
+  msg "editor.art.deselect_shortcut" { text="Снять выделение (Ctrl/Cmd+D)" }
+  msg "editor.art.frame_duration_hint" { text="Длительность выбранного кадра в миллисекундах" }
+  msg "editor.art.save_png_draft" { text="Сохранить редактируемый исходник" }
+  msg "editor.art.save_png_draft_notice" { text="Сохранить рисунок в исходнике .aeart и связать его в метаданных импорта PNG. Для замены существующего рисунка потребуется подтверждение. Сам PNG не перезаписывается; изменения затрагивают всех пользователей общего изображения." }
+  msg "editor.art.png_draft_saved" { text="Связанный рисунок сохранён: {path}" }
+  msg "editor.art.png_draft_hint" { text="PNG открыт в памяти. Сохраните рисунок, чтобы выбрать связанный исходник и опубликовать его в игре; сам PNG не перезаписывается." }
+  msg "editor.art.png_draft_preview" { text="Сохраните рисунок для предпросмотра игрового ассета." }
+  msg "editor.art.canvas_size_info" { text="Холст: {width} × {height}" }
+  msg "editor.art.color_mode_info" { text="Цветовой режим: {mode}" }
+  msg "editor.art.color_mode_gray" { text="Оттенки серого" }
+  msg "editor.art.color_mode_indexed" { text="Индексированный" }
+  msg "editor.art.frame_count_info" { text="Кадров: {count}" }
+  msg "editor.art.status_context" { text="Слой: {layer} · Кадр {frame}/{total} · {mode}" }
+  msg "editor.art.brush_size" { text="Размер кисти" }
+  msg "editor.art.fill_current_mode" { text="Связная заливка активного слоя с нулевым допуском." }
+  msg "editor.art.dither" { text="Дизеринг" }
+  msg "editor.art.aseprite_export_extension" { text="Копия для обмена должна иметь расширение .aseprite." }
+  msg "editor.art.aseprite_export_open_target" { text="Перед экспортом закройте открытый файл назначения и его метаданные." }
+  msg "editor.art.aseprite_export_unavailable" { text="Сначала решите вопрос с восстановлением и откройте рисунок проекта." }
+  msg "editor.art.aseprite_export_unsupported" { text="Нельзя экспортировать этот рисунок без потери данных" }
+  msg "editor.art.aseprite_export_warning" { text="Это неиндексированная копия для обмена, а не замена исходника. Идентификаторы Aego и связи ассетов в неё не переносятся; оригинал и его связи остаются без изменений. Перед использованием проверьте копию в Aseprite." }
+  msg "editor.art.aseprite_exported" { text="Создана копия для обмена: {path}" }
+  msg "editor.art.cel_actions" { text="Ячейки…" }
+  msg "editor.art.cel_selection_hint" { text="Щелчок выбирает ячейку. Shift выделяет прямоугольник, Ctrl/Cmd добавляет или убирает отдельные ячейки. В этом меню можно переместить, копировать или связать выделение." }
+  msg "editor.art.clear_brush" { text="Сброс" }
+  msg "editor.art.clear_brush_hint" { text="Сбросить собственную кисть и вернуть сплошную" }
+  msg "editor.art.clear_pixels" { text="Очистить выделенные пиксели" }
+  msg "editor.art.color_count" { text="Максимум цветов (2–256)" }
+  msg "editor.art.copy" { text="Копировать пиксели" }
+  msg "editor.art.copy_animation" { text="Копировать диапазон анимации…" }
+  msg "editor.art.copy_cels" { text="Копировать выделенные ячейки…" }
+  msg "editor.art.curve" { text="Кривая" }
+  msg "editor.art.curve_hint" { text="Кривая: укажите начало, конец и две управляющие точки. Esc отменяет." }
+  msg "editor.art.custom_brush" { text="Своя кисть" }
+  msg "editor.art.delete_frame" { text="Удалить текущий кадр" }
+  msg "editor.art.delete_layer" { text="Удалить слой" }
+  msg "editor.art.delete_tag" { text="Удалить выбранный тег" }
+  msg "editor.art.deselect" { text="Снять выделение" }
+  msg "editor.art.dither_level" { text="Дизеринг: 0 — выключен, 1–16 — доля цвета кисти" }
+  msg "editor.art.edit_pivot" { text="Точка привязки кадра…" }
+  msg "editor.art.edit_tag" { text="Изменить выбранный тег…" }
+  msg "editor.art.export_actions" { text="Сохранение…" }
+  msg "editor.art.export_aseprite" { text="Экспортировать копию для обмена с Aseprite…" }
+  msg "editor.art.export_copy" { text="Экспортировать копию" }
+  msg "editor.art.export_palette" { text="Экспортировать палитру…" }
+  msg "editor.art.export_png" { text="Экспортировать текущий кадр в PNG…" }
+  msg "editor.art.export_sheet" { text="Экспортировать спрайт-лист и анимацию…" }
+  msg "editor.art.exported" { text="Экспортировано: {path}" }
+  msg "editor.art.flip_x" { text="Отразить по горизонтали" }
+  msg "editor.art.flip_y" { text="Отразить по вертикали" }
+  msg "editor.art.frame_back" { text="Сдвинуть кадр к началу" }
+  msg "editor.art.frame_forward" { text="Сдвинуть кадр к концу" }
+  msg "editor.art.frame_offset" { text="Сдвиг по кадрам" }
+  msg "editor.art.frames_tags" { text="Кадры и теги…" }
+  msg "editor.art.group" { text="Группа" }
+  msg "editor.art.independent_cel" { text="Независимая ячейка" }
+  msg "editor.art.isolate" { text="Показать только выбранный слой / Показать все" }
+  msg "editor.art.layer_actions" { text="Слой…" }
+  msg "editor.art.layer_down" { text="Переместить слой вниз" }
+  msg "editor.art.layer_name" { text="Название" }
+  msg "editor.art.layer_offset" { text="Сдвиг по слоям" }
+  msg "editor.art.layer_settings" { text="Свойства слоя…" }
+  msg "editor.art.layer_up" { text="Переместить слой вверх" }
+  msg "editor.art.link_cels" { text="Связать выделенные ячейки…" }
+  msg "editor.art.linked_cel" { text="Связанная ячейка: общие пиксели" }
+  msg "editor.art.merge_down" { text="Объединить с нижним слоем" }
+  msg "editor.art.merge_hint" { text="Объединяются соседние видимые незаблокированные слои одного типа с обычным смешиванием. Другие сочетания отклоняются без скрытого изменения пикселей." }
+  msg "editor.art.mode_grayscale" { text="Преобразовать в оттенки серого" }
+  msg "editor.art.mode_indexed" { text="Преобразовать в индексированную палитру" }
+  msg "editor.art.mode_rgba" { text="Преобразовать в RGBA" }
+  msg "editor.art.move_cels" { text="Переместить выделенные ячейки…" }
+  msg "editor.art.move_pixels" { text="Переместить пиксели…" }
+  msg "editor.art.new_export_path" { text="Новый путь в проекте (существующие файлы не заменяются)" }
+  msg "editor.art.new_group" { text="Новая группа" }
+  msg "editor.art.new_reference" { text="Новый вспомогательный слой" }
+  msg "editor.art.new_tag" { text="Новый тег анимации…" }
+  msg "editor.art.next_frame" { text="Следующий кадр" }
+  msg "editor.art.next_tags" { text="Следующие теги" }
+  msg "editor.art.opacity" { text="Непрозрачность (0–255)" }
+  msg "editor.art.overwrite_cels" { text="Заменить заполненные ячейки: yes / no" }
+  msg "editor.art.palette_actions" { text="Палитра…" }
+  msg "editor.art.palette_add_foreground" { text="Добавить цвет кисти в палитру" }
+  msg "editor.art.palette_extract" { text="Извлечь палитру из кадра…" }
+  msg "editor.art.palette_file" { text="Файл палитры (.json или .gpl)" }
+  msg "editor.art.palette_from" { text="Исходный индекс" }
+  msg "editor.art.palette_import" { text="Импортировать палитру…" }
+  msg "editor.art.palette_layers" { text="Палитра / Слои" }
+  msg "editor.art.palette_left" { text="Сдвинуть цвет влево, сохранив рисунок" }
+  msg "editor.art.palette_pointer_hint" { text="Левая кнопка — цвет рисования, правая — фоновый цвет. X меняет их местами." }
+  msg "editor.art.palette_remap" { text="Заменить индекс палитры…" }
+  msg "editor.art.palette_right" { text="Сдвинуть цвет вправо, сохранив рисунок" }
+  msg "editor.art.palette_set_fg" { text="Задать выбранной ячейке цвет кисти" }
+  msg "editor.art.palette_to" { text="Целевой индекс" }
+  msg "editor.art.parent_group" { text="Имя группы (пусто — без группы)" }
+  msg "editor.art.paste" { text="Вставить пиксели" }
+  msg "editor.art.paste_animation" { text="Вставить анимацию" }
+  msg "editor.art.pattern_brush" { text="Узор" }
+  msg "editor.art.pixel_actions" { text="Пиксели…" }
+  msg "editor.art.pixel_preview" { text="Пиксельный просмотр" }
+  msg "editor.art.polygon" { text="Многоугольник" }
+  msg "editor.art.polygon_hint" { text="Многоугольник: укажите вершины, затем Enter или первую вершину. Esc отменяет." }
+  msg "editor.art.preparing_preview" { text="Подготовка обновлённого кадра…" }
+  msg "editor.art.preview_context_lost" { text="Графический контекст потерян. Просмотр возобновится после его восстановления." }
+  msg "editor.art.preview_emission_strength" { text="Яркость свечения только для просмотра. Материалы проекта не изменяются." }
+  msg "editor.art.previous_frame" { text="Предыдущий кадр" }
+  msg "editor.art.previous_tags" { text="Предыдущие теги" }
+  msg "editor.art.recent_colors" { text="Недавние цвета" }
+  msg "editor.art.recent_indexed_unavailable" { text="Чтобы использовать этот цвет в индексированном режиме, сначала добавьте его в палитру." }
+  msg "editor.art.ramp_first" { text="Первый индекс палитры" }
+  msg "editor.art.ramp_last" { text="Последний индекс палитры" }
+  msg "editor.art.ramp_shade" { text="Сдвинуть оттенки по палитре…" }
+  msg "editor.art.ramp_step" { text="Шаг (отрицательный — к началу диапазона)" }
+  msg "editor.art.reference" { text="Вспомогательный слой" }
+  msg "editor.art.rotate_ccw" { text="Повернуть на 90° против часовой" }
+  msg "editor.art.rotate_cw" { text="Повернуть на 90° по часовой" }
+  msg "editor.art.save_copy" { text="Сохранить редактируемую копию…" }
+  msg "editor.art.scale_pixels" { text="Масштабировать пиксели…" }
+  msg "editor.art.select_all" { text="Выделить всё" }
+  msg "editor.art.solid_brush" { text="Сплошная" }
+  msg "editor.art.tag_direction" { text="Направление: forward / reverse / ping-pong" }
+  msg "editor.art.tag_from" { text="Первый кадр (начиная с 1)" }
+  msg "editor.art.tag_settings" { text="Тег анимации" }
+  msg "editor.art.tag_to" { text="Последний кадр (начиная с 1)" }
+  msg "editor.art.tiled_preview" { text="Повтор" }
+  msg "editor.art.toggle_alpha_lock" { text="Переключить блокировку прозрачности" }
+  msg "editor.art.tools" { text="Инструменты рисования" }
+  msg "editor.particles.effect_component" {
+    text="Компонент системы частиц недоступен."
+  }
+  msg "editor.particles.effect_extension" {
+    text="Путь к рисунку эффекта должен оканчиваться на .aeart."
+  }
+  msg "editor.particles.effect_pair" {
+    text="Рядом с рисунком будет создан связанный пресет частиц."
+  }
+  msg "editor.particles.effect_services" {
+    text="В этом режиме недоступно атомарное создание эффекта."
+  }
+  msg "editor.particles.effect_template" {
+    text="Шаблон эффекта"
+  }
+  msg "editor.particles.effect_unknown" {
+    text="Неизвестный шаблон эффекта: {id}"
+  }
+  msg "editor.particles.new_effect" {
+    text="Новый эффект…"
+  }
+  msg "editor.particles.new_effect_file" {
+    text="Анимированный эффект (.aeart + .aepreset)…"
+  }
+  msg "editor.particles.new_effect_help" {
+    text="Создать редактируемый рисунок из восьми кадров и связанный пресет частиц."
+  }
+  msg "editor.command.asset.new_effect" { text="Новый эффект…" }
+  msg "editor.art.duplicate_edit_scene" { text="Создать отдельную копию для объекта можно только в редактируемой сцене с изображением из проекта." }
+  msg "editor.art.duplicate_for_object" { text="Создать копию для объекта" }
+  msg "editor.art.duplicate_notice" { text="Будет создан независимый исходник с текущими пикселями и копии связанных клипов и контроллера для этого объекта. Другие объекты сохранят общий ассет. Отмена восстановит ссылки объекта; новые файлы останутся в разделе «Ассеты»." }
+  msg "editor.art.duplicate_selection_changed" { text="Спрайт выбранного объекта изменился. Вызовите действие снова." }
 }

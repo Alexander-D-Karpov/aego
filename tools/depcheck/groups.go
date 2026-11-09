@@ -171,7 +171,7 @@ func groupRule(from, to group) string {
 }
 
 // runtimeForbidden lists what the aego_runtime build must never reach.
-var runtimeForbidden = with(scriptCompilerOnly, "art", "render/shaderx", "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
+var runtimeForbidden = with(scriptCompilerOnly, "art/...", "render/shaderx", "asset/pipeline", "asset/importers/...", "project", "project/...", "editor/...",
 	"app", "app/agent/...", "app/agentui/...", "app/bootstrap", "app/docstool", "app/edit", "app/edit/...", "app/export", "app/export/...", "app/playground",
 	"app/projects", "app/run", "app/supervise", "app/assembly/editors", "app/assembly/playground",
 	"engine/docs", "engine/docs/...", "cmd/aego", "cmd/aego-editor", "cmd/aego-playground", "cmd/sandbox",
@@ -180,7 +180,7 @@ var runtimeForbidden = with(scriptCompilerOnly, "art", "render/shaderx", "asset/
 
 // wasmDenied lists what the web builds (js/wasm) must not reach.
 var wasmDenied = []string{
-	"art", "gpu/gl33/...", "platform/sdl", "asset/pipeline", "asset/importers/...",
+	"art/...", "gpu/gl33/...", "platform/sdl", "asset/pipeline", "asset/importers/...",
 	"modules/*/editor/...", "modules/*/dev/...",
 	"update", // the self-update core: net/http, TLS and archives the browser never runs
 }

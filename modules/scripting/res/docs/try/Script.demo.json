@@ -20,5 +20,5 @@
     "en": {"title": "Enable a script attachment", "description": "The target has a disabled Move On Ready script and stays at the gray mark.", "input": "Enable the Move On Ready attachment in the Inspector. The scene restarts, its real Ready method runs and moves the target to the blue mark. Reset disables it again."},
     "ru": {"title": "Включение прикреплённого скрипта", "description": "У цели выключен прикреплённый скрипт Move On Ready, поэтому она остаётся у серой отметки.", "input": "Включите скрипт Move On Ready в Инспекторе. Сцена перезапустится, его настоящий метод Ready выполнится и переместит цель к голубой отметке. «Сброс» снова выключит скрипт."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

@@ -328,4 +328,7 @@ func artSceneAuthoringWorkflow(t *testing.T, cfg Config, input func(*testing.T, 
 	if !doc.Dirty() || sceneDoc.Dirty() || !bytes.Equal(sceneio.Save(sceneDoc.Scene()), beforeScene) {
 		t.Fatal("working animation was saved implicitly or modified its scene")
 	}
+	if observe != nil {
+		observe(t, s, panelID, "interop-source")
+	}
 }

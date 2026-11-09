@@ -19,6 +19,7 @@ import (
 	"aego/core/ids"
 	"aego/core/log"
 	"aego/core/mathx"
+	"aego/editor/core/artedit"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/editor/core/workspace"
@@ -313,12 +314,19 @@ func TestImageOpeningSharesDocumentFrameHistoryAndWorkspaceTab(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := d.View.(*imageState)
+	model, ok := d.Binding.Model.(*artedit.Document)
+	if !ok || !model.Draft || len(model.Session.Document.Info().Frames) != 2 {
+		t.Fatal("the sliced PNG did not open as an editable drawing")
+	}
+	// Image import settings remain an independent view over the same metadata,
+	// rather than the presentation selected by the default PNG open action.
+	inspector := &imagesEditor{ctx: f.ed, reg: f.ext, states: map[document.ID]*imageState{}}
+	v := inspector.state(d)
 	if d.Asset != f.albedo || d.Selected != f.frames[0] || d.Source != nil || d.Metadata == nil || !d.Metadata.ExplicitSave {
 		t.Fatal("binary source or frame identity bypassed the shared document")
 	}
-	if !f.ws.Visible(imagePanelID(d)) {
-		t.Fatal("image did not open in the normal workspace tab")
+	if !f.ws.Visible(artHandlerID + "/" + d.Asset.String()) {
+		t.Fatal("image did not open in the Art workspace tab")
 	}
 	inspected, err := f.ed.DocumentForAsset(f.frames[0])
 	if err != nil || inspected != d {
@@ -327,6 +335,10 @@ func TestImageOpeningSharesDocumentFrameHistoryAndWorkspaceTab(t *testing.T) {
 	second, err := f.ed.OpenAsset(f.frames[1])
 	if err != nil || second != d || second.View != v || second.Metadata != d.Metadata {
 		t.Fatal("another source frame opened another metadata/history document")
+	}
+	inspector.state(second)
+	if model.Session.Frame != model.Session.Document.Info().Frames[1].ID {
+		t.Fatal("the selected source frame did not switch the Art session")
 	}
 	if v.source.data.Width != 4 || v.source.data.Height != 8 || v.content.SourceRect[0] != 4 {
 		t.Fatal("frame selection did not use source pixels")
@@ -417,7 +429,8 @@ func TestImageChannelMutationRetainsUnknownReferencesAndRejectsDataMisuse(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := d.View.(*imageState)
+	inspector := &imagesEditor{ctx: f.ed, reg: f.ext, states: map[document.ID]*imageState{}}
+	v := inspector.state(d)
 	env, err := f.ed.TextureAuthoringEnv(d.Asset)
 	if err != nil {
 		t.Fatal(err)

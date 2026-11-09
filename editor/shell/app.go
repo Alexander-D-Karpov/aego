@@ -127,11 +127,14 @@ type Options struct {
 	Crash       func(where string, rec any, stack []byte)
 	Exporter    services.Exporter
 	Relaunch    func(target, tab string) error
-	OpenPath    string
-	NativeNote  string
-	RunTests    func(done func(out string, failed bool)) error
-	Recent      string
-	LogsDir     string
+	// OpenExampleLink opens a separate confirmation launcher; it must not close
+	// or replace this project's open documents.
+	OpenExampleLink func(raw string) error
+	OpenPath        string
+	NativeNote      string
+	RunTests        func(done func(out string, failed bool)) error
+	Recent          string
+	LogsDir         string
 	// PrefsDir holds prefs.aetext, the preferences shared by every project (D345).
 	PrefsDir string
 	// Agent runs the Agent panel; nil leaves the panel and its menu items out (D343).
@@ -171,6 +174,7 @@ type App struct {
 	captured       bool
 	checkAt        float64
 	recoverAt      float64
+	recoveryAlert  bool
 	discard        bool
 	quitting       bool
 	templates      *templates.Registry
@@ -357,6 +361,10 @@ func (a *App) Init(e *engine.Engine) error {
 	}
 	p := a.opt.Project
 	a.shapes = shape.NewRegistry()
+	var sourceWrite func(func() error) error
+	if a.opt.Pipeline != nil {
+		sourceWrite = a.opt.Pipeline.GuardSourceWrite
+	}
 	a.ctx = &context.Editor{
 		Engine:      e,
 		Renderer:    r,
@@ -364,7 +372,7 @@ func (a *App) Init(e *engine.Engine) error {
 		Pipeline:    a.opt.Pipeline,
 		Loader:      a.opt.Loader,
 		Types:       a.opt.Types,
-		Docs:        document.NewManager(document.Options{Root: p.Root, Types: a.opt.Types, Resolver: res, Log: lg, OnChange: module.RunChanged}),
+		Docs:        document.NewManager(document.Options{Root: p.Root, Types: a.opt.Types, Resolver: res, Log: lg, OnChange: module.RunChanged, SourceWrite: sourceWrite}),
 		Selection:   selection.New(),
 		Commands:    command.New(),
 		UI:          ui,
@@ -443,20 +451,22 @@ func (a *App) Init(e *engine.Engine) error {
 	a.files = assetfiles.New(a.ctx)
 	a.ctx.CreateAsset = a.files.CreateFile
 	a.ctx.AssetTransaction = a.files.Transaction
+	a.ctx.CreateAssetSources = a.files.CreateSources
 	a.prefabs = prefabs.New(a.ctx)
 	a.ctx.BeforeSwap = a.prefabs.External
 	a.data = dataedit.New(a.ctx)
-	a.ctx.InspectAsset = func(id ids.AssetID) {
+	inspectAsset := func(id ids.AssetID, reveal bool) {
 		if !id.IsZero() {
 			// Selection and double-click share one model; selecting never changes
 			// the active document presentation or writes metadata.
 			_, _ = a.ctx.DocumentForAsset(id)
 		}
 		a.data.Inspect(id)
-		if !id.IsZero() {
+		if !id.IsZero() && reveal {
 			a.ws.Show(workspace.Inspector)
 		}
 	}
+	a.ctx.InspectAsset = func(id ids.AssetID) { inspectAsset(id, true) }
 	a.data.OnLive = func() { a.play.Invalidate("a data asset was tuned during Play") }
 	a.ctx.Selection.Subscribe(a.data.Clear)
 	a.tablePanel = datatable.New(datatable.Deps{Data: a.data, Notices: a.ctx})
@@ -497,6 +507,7 @@ func (a *App) Init(e *engine.Engine) error {
 		ShowHierarchy: func() { a.ws.Show(workspace.Hierarchy) },
 	}
 	a.refsPanel = references.New(rd)
+	a.ctx.FindAssetUses = func(id ids.AssetID) { a.showReferences(id, nil) }
 	a.missing = references.NewMissing(rd)
 	a.renameDlg = batchrename.New(batchrename.Deps{
 		Pipeline: a.opt.Pipeline,
@@ -529,22 +540,36 @@ func (a *App) Init(e *engine.Engine) error {
 		Compare:        compare,
 		CreateActions:  func() []context.CreateAction { return a.ctx.CreateActions },
 		ImportFile:     a.importAssetFile,
-		Schema:         a.opt.Types.Schema(),
-		Inspect:        a.ctx.InspectAsset,
-		Viewable:       a.viewable,
-		OpenTable:      a.openTable,
-		DataType:       a.data.TypeOf,
-		Files:          a.files,
-		Pipeline:       a.opt.Pipeline,
-		Thumbs:         a.thumbs,
-		Docs:           a.ctx,
-		Selection:      a.ctx,
-		Scenes:         sops,
-		Commands:       a.ctx.Commands,
-		Notices:        a.ctx,
-		Nav:            a.ctx,
-		Project:        p,
-		Prefabs:        a.prefabs,
+		EditSourceArt: func(id ids.AssetID) error {
+			if a.ctx.EditSourceArt != nil {
+				return a.ctx.EditSourceArt(id)
+			}
+			return nil
+		},
+		CanEditSourceArt: func(id ids.AssetID) bool {
+			return a.ctx.CanEditSourceArt != nil && a.ctx.CanEditSourceArt(id)
+		},
+		Schema: a.opt.Types.Schema(),
+		Inspect: func(id ids.AssetID) {
+			// Updating the inspected model is harmless, but activating an
+			// Inspector tab in the same group would hide Assets between the two
+			// clicks. Preserve the existing selection in that dock instead.
+			inspectAsset(id, assetClickMayRevealInspector(a.ws))
+		},
+		Viewable:  a.viewable,
+		OpenTable: a.openTable,
+		DataType:  a.data.TypeOf,
+		Files:     a.files,
+		Pipeline:  a.opt.Pipeline,
+		Thumbs:    a.thumbs,
+		Docs:      a.ctx,
+		Selection: a.ctx,
+		Scenes:    sops,
+		Commands:  a.ctx.Commands,
+		Notices:   a.ctx,
+		Nav:       a.ctx,
+		Project:   p,
+		Prefabs:   a.prefabs,
 	})
 	a.assetsPanel.Instantiate = a.instantiatePrefab
 	a.ctx.AssetFolder = func() string {
@@ -927,6 +952,24 @@ func (a *App) Init(e *engine.Engine) error {
 	return nil
 }
 
+func assetClickMayRevealInspector(w *workspace.Workspace) bool {
+	if w == nil || w.Tree == nil || w.Tree.Maximized() != "" {
+		return false
+	}
+	current := w.Current()
+	if current.ID == workspace.Art || current.User && current.Base == workspace.Art {
+		// Art follows the selection if the Inspector is already visible, but
+		// ordinary browsing must not open it over Layers or change dock tabs.
+		return false
+	}
+	assets := w.Tree.FindPanel(workspace.Assets)
+	inspector := w.Tree.FindPanel(workspace.Inspector)
+	// Opening a previously closed Inspector can also resize the dock and move
+	// the tile between clicks. Its model still follows the selection; showing
+	// the closed panel remains an explicit Window action.
+	return inspector != 0 && (assets == 0 || assets != inspector)
+}
+
 func (a *App) openMainScene() {
 	p := a.opt.Project
 	if p.MainScene.IsZero() || a.opt.Pipeline == nil {
@@ -963,7 +1006,16 @@ func (a *App) Event(ev platform.Event) {
 	case platform.EvDropFile:
 		a.drops = append(a.drops, ev.Str)
 		a.dropPos = ev.Mouse.Pos
+	case platform.EvDropText:
+		if hasExampleScheme(ev.Str) {
+			a.drops = append(a.drops, ev.Str)
+			a.dropPos = ev.Mouse.Pos
+		}
 	case platform.EvDropComplete:
+		if a.dropExampleLink() {
+			a.drops = nil
+			break
+		}
 		if a.dropProject() {
 			a.drops = nil
 			break
@@ -1275,6 +1327,24 @@ func (a *App) periodic(now float64) {
 		a.recoverAt = now + 30
 		if _, err := a.ctx.Docs.WriteRecovery(); err != nil {
 			a.log.Warn("cannot write recovery files", log.F("err", err.Error()))
+			if !a.recoveryAlert {
+				a.recoveryAlert = true
+				a.ctx.Ask(context.Question{
+					Title:   i18n.Tr("editor.shell.recovery_write_failed", "Could not save recovery"),
+					Message: i18n.Tr("editor.shell.recovery_write_failed_notice", "One or more recovery files could not be updated: {error}. Keep the editor open; recent changes may exist only in memory. Free space or resolve the access problem, or save a copy to another filesystem. Earlier recovery files may be out of date.", i18n.Str("error", err.Error())),
+					Buttons: []string{i18n.Tr("editor.shell.recovery_copy_action", "Save recovery copy…"), i18n.Tr("editor.shell.recovery_retry", "Retry recovery"), i18n.Tr("editor.shell.continue_editing", "Continue editing")},
+					Then: func(choice int) {
+						if choice == 0 {
+							a.askRecoveryCopy()
+						} else if choice == 1 {
+							a.recoveryAlert = false
+							a.recoverAt = 0
+						}
+					},
+				})
+			}
+		} else {
+			a.recoveryAlert = false
 		}
 	}
 	a.ws.Tick(now)

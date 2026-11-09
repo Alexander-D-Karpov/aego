@@ -29,9 +29,14 @@ func main() {
 	studio := flag.Bool("studio", false, "link an already-built Art Studio in studio/")
 	studioURL := flag.String("studio-url", "", "link a verified, version-pinned standalone Studio release")
 	studioGuides := flag.Bool("studio-guides", false, "link pre-integrated Studio guides in asset-studio/")
+	examplesURL := flag.String("examples-url", "https://aego.akarpov.ru/", "canonical HTTPS docs root for complete source example packages; empty disables packaging")
+	examplesVersion := flag.String("examples-version", "1.0.0", "release version of the example catalog; increment when publishing changed sources")
+	examplesLicense := flag.String("examples-license", "NOASSERTION", "actual SPDX/source license of documentation examples; never inferred from dependencies")
+	examplesProduction := flag.Bool("examples-production", false, "require an explicit known license for official example publication")
 	repo := flag.String("repo", "", "source repository linked from the header and footer")
 	edit := flag.String("edit", "", "base URL of Edit this page links, defaults to <repo>/src/branch/main")
 	version := flag.String("version", "", "engine version shown in the footer")
+	channel := flag.String("channel", "development", "documentation status, for example stable or development; not an engine feature guarantee")
 	commit := flag.String("commit", "", "commit shown in the footer")
 	hero := flag.String("hero", "", "screenshot shown on the landing page")
 	shots := flag.String("shots", "", "directory of editor screenshots that pages show as shots/<name>.png")
@@ -71,6 +76,7 @@ func main() {
 		}
 	}
 	rep, err := site.Build(exp, *out, site.Options{
+		ExamplesURL: *examplesURL, ExamplesVersion: *examplesVersion, ExamplesLicense: *examplesLicense, ExamplesProduction: *examplesProduction, Channel: *channel,
 		Playground: *play, Studio: *studio, StudioURL: *studioURL, StudioGuides: *studioGuides, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Release: rel, Icons: splitList(*icons), Time: time.Now(),
 	})
 	if err != nil {

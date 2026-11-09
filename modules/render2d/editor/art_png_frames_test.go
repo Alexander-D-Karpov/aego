@@ -48,8 +48,11 @@ func TestSlicedPNGAnimationCopyPreservesRealRunnerAndGuardsChanges(t *testing.T)
 				t.Fatal("real runner PNG was not indexed")
 			}
 			doc, err := ed.OpenAsset(id)
-			if err != nil || doc.Handler != imageHandlerID {
-				t.Fatalf("runner did not open in Image Viewer: %v", err)
+			if err != nil || doc.Handler != artPNGHandlerID {
+				t.Fatalf("runner did not open as an Art draft: %v", err)
+			}
+			if model, ok := doc.Binding.Model.(*artedit.Document); !ok || !model.Draft || doc.Dirty() || len(model.Session.Document.Info().Frames) != 8 {
+				t.Fatal("the original sliced runner did not open as eight clean editable frames")
 			}
 			pngPath := filepath.Join(p.AssetsDir(), "runner.png")
 			metaPath := pngPath + pipeline.MetaSuffix

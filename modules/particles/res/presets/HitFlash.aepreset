@@ -1,0 +1,28 @@
+prefab version=1 {
+  node "1ea94ed080214be99c9dd40df4c101a2" name="Hit Flash" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      playOnStart=true
+      loop=false
+      duration=0.25
+      rate=0
+      maxParticles=6
+      bursts=[[0, 3]]
+      shape=point
+      lifetime=[0.16, 0.25]
+      speed=[0, 0]
+      size=[0.7, 1.1]
+      rotation=[-0.3, 0.3]
+      colorOverLife=[{ time=0 color=#ffffeaff }, { time=0.3 color=#ffdb8fff }, { time=1 color=#ff934800 }]
+      sizeOverLife={ keys=[[0, 0.45, 0, 0, bezier, linear], [0.18, 1.2, 0, 0, bezier, linear], [1, 0.15, 0, 0, bezier, linear]] }
+      space=world
+      sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c01")
+      frameFPS=32
+      frameLoop=false
+      order=5
+      reducedMotion=reduce
+      reducedRate=0.4
+    }
+  }
+}

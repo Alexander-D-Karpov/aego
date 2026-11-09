@@ -16,7 +16,7 @@ import subprocess
 
 
 def git(root, *args):
-    return subprocess.check_output(['git', '-C', str(root), *args])
+    return subprocess.check_output(['git', '-C', str(root), *args], stderr=subprocess.PIPE)
 
 
 def fingerprint(info):
@@ -24,9 +24,21 @@ def fingerprint(info):
             info.st_mtime_ns, info.st_ctime_ns)
 
 
-def inventory(root):
+def inventory(root, *, allow_unborn=False):
     root = Path(root).resolve(strict=True)
-    head = git(root, 'rev-parse', 'HEAD').decode('ascii').strip()
+    try:
+        head = git(root, 'rev-parse', '--verify', 'HEAD').decode('ascii').strip()
+    except subprocess.CalledProcessError:
+        if not allow_unborn:
+            raise
+        # Only an explicitly allowed unborn branch qualifies, not a detached
+        # or corrupt HEAD. The resulting inventory records a null commit.
+        branch = git(root, 'symbolic-ref', '-q', 'HEAD').decode('ascii').strip()
+        if not branch.startswith('refs/heads/'):
+            raise RuntimeError('allow_unborn requires an unborn branch')
+        if subprocess.run(['git', '-C', str(root), 'show-ref', '--verify', '--quiet', branch]).returncode != 1:
+            raise RuntimeError('HEAD is not an unborn branch')
+        head = None
     names = git(root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z')
     paths = sorted(set(filter(None, names.split(b'\0'))))
     records = []

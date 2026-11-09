@@ -16,7 +16,10 @@
   "editableFields": ["animation.AnimationPlayer.Speed"],
   "actions": [{
     "id": "play-run-clip", "field": "animation.AnimationPlayer.Speed", "value": 8,
-    "expected": [{"observable": "animation.AnimationPlayer.Speed", "equals": 8, "changes": true}],
+    "expected": [
+      {"observable": "animation.AnimationPlayer.Speed", "equals": 8, "changes": true},
+      {"observable": "animation.AnimationPlayer.Time", "equals": 0.5333333, "changes": true, "tolerance": 0.01}
+    ],
     "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
   }],
   "reset": "reset",
@@ -24,5 +27,5 @@
     "en": {"title": "Play the run clip", "description": "The real Animation Player starts the eight-frame run clip at speed 0. Loop is set to once, so the last frame remains after playback.", "input": "Change Speed from 0 to 8 to play the clip quickly. Reset restores the first frame and speed 0."},
     "ru": {"title": "Воспроизведение клипа бега", "description": "Настоящий проигрыватель запускает восьмикадровый клип бега со скоростью 0. Режим once оставляет последний кадр после воспроизведения.", "input": "Измените Speed с 0 на 8, чтобы быстро воспроизвести клип. «Сброс» вернёт первый кадр и скорость 0."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

@@ -1,4 +1,54 @@
 ---
+id: aego/material.Vec4.X
+---
+Stores the first floating-point lane of a numerical vec4 material value; it is not automatically a red colour channel.
+
+---
+id: aego/material.Vec4.Y
+---
+Stores the second floating-point lane of a numerical vec4 material value; its meaning is defined by the shader parameter.
+
+---
+id: aego/material.Vec4.Z
+---
+Stores the third floating-point lane of a numerical vec4 material value; its meaning is defined by the shader parameter.
+
+---
+id: aego/material.Vec4.W
+---
+Stores the fourth floating-point lane; it is not treated as alpha unless the consumer explicitly gives it that meaning.
+
+---
+id: engine.MaterialParameter
+---
+Stores one explicit, typed per-node material override. This is a data record inside MaterialOverride, not an addable component or a material asset.
+
+---
+id: engine.MaterialParameter.Name
+---
+Identifies the declared shader parameter by its exact name, not its position in the material layout.
+
+---
+id: engine.MaterialParameter.Kind
+---
+Preserves the parameter's declared type so removal or a later type change cannot silently reinterpret the saved value.
+
+---
+id: engine.MaterialParameter.Value
+---
+Stores floating-point, vector or colour lanes according to Kind. Integer and Boolean keep their values in separate fields.
+
+---
+id: engine.MaterialParameter.Integer
+---
+Stores an integer override as an exact signed 32-bit value instead of converting it through floating-point lanes.
+
+---
+id: engine.MaterialParameter.Boolean
+---
+Stores the explicit true/false value for a boolean parameter; the parameter's Kind determines whether this field is used.
+
+---
 id: render2d/materials
 icon: comp.sprite
 group: rendering
@@ -12,7 +62,12 @@ A material is a shared asset. Assign it to [SpriteRenderer](ref:engine.SpriteRen
 
 ## Create and edit
 
-Open the searchable Create palette and choose **Shader**, **Material**, or **Material from Shader**. A shader source is `.aeshader`; a material source is `.aemat`. Select the material in Assets to choose its shader, variant, blend, parameters and textures. The source and Inspector share one undo history. Dragging one parameter produces one undo step. Reset restores inheritance, including when the previous explicit value happened to equal the default.
+1. Choose **Shader**, **Material**, or **Material from Shader** in the searchable **Create** palette. The editable sources are [.aeshader](ref:formats/aeshader) and [.aemat](ref:formats/aemat).
+2. Select the material in **Assets** and choose its shader, variant, blend, parameters and textures. Saving a shared material affects every consumer of that asset.
+3. Assign it to the intended SpriteRenderer or Mesh2D. Save the material source and the scene containing that assignment separately.
+4. Add **Material Override** when only this node should differ. Change a declared instance parameter, compare a second node using the same material, then use **Reset** to restore inheritance.
+
+The material source and its Inspector share one undo history. Dragging one parameter produces one undo step. Reset restores inheritance even when an explicit value happened to equal the inherited value; it is not an assignment of zero.
 
 Select a sprite, assign its Material field and add **Material Override**. Only numerical parameters marked `@instance` can be overridden. Textures, variants and blend belong to the material asset. Removed fields remain serialized as unknown values; unresolved references keep their AssetID.
 
@@ -91,7 +146,154 @@ summary: Explicit, typed per-node material values that inherit from one shared m
 try: try/MaterialOverride.aescene
 ---
 
-The component belongs to a SpriteRenderer or Mesh2D node. Its Inspector shows the declared instance parameters and their inherited values. Reset removes the explicit value. Changes in Play affect the play copy of the scene. Removed parameters remain in `values` for later restoration and never enter the current GPU layout.
+Use this component when two nodes share a material but need different numerical values. Its Inspector shows declared instance parameters and their inherited values. Save edit-mode overrides with the scene; changes in Play affect the play copy, not the shared `.aemat` source.
+
+Setters take the shader parameter's exact `name`, such as `Flash`, not an AssetID or a post-processing instance key. The declared type must match the setter and the parameter must allow `@instance` overrides. Floating-point lanes must be finite, integers must fit int32, and a node supports at most eight active explicit parameters. A shader's Inspector range is not a promise that script setters clamp values into that range.
+
+Getters read the effective value after shader defaults, material values and this node's overrides. Reset removes an explicit value instead of storing the current inherited value. Removed shader parameters remain in `values` for restoration, but are not submitted as active shader values. [PostProcess](ref:render2d.PostProcess) uses a different, effect-instance scope.
+
+## One-node Flash example
+
+Attach this script to a SpriteRenderer node with MaterialOverride, then start Play. It assigns the built-in Flash material, writes one override and resets it. The log shows the inherited value, the override, whether Reset removed a value, and the inherited value again. Without that node setup, the script reports the missing components instead of silently skipping the example.
+
+```aes check
+package demo
+
+import (
+    "aego/log"
+    "aego/material"
+)
+
+script FlashProbe {
+    func Ready() {
+        sprite := node.Get<SpriteRenderer>()
+        values := node.Get<MaterialOverride>()
+        if sprite == nil || values == nil {
+            log.Error("FlashProbe needs SpriteRenderer and MaterialOverride")
+            return
+        }
+        material.Assign(node, material.Builtin("Flash"))
+        inherited := values.GetFloat("Flash")
+        values.SetFloat("Flash", 0.65)
+        log.Info("inherited=" + string(inherited) + ", explicit=" + string(values.GetFloat("Flash")))
+        removed := values.Reset("Flash")
+        log.Info("reset=" + string(removed) + ", inherited=" + string(values.GetFloat("Flash")))
+    }
+}
+```
+
+```aescene check
+scene version=1 {
+  node "d3400000000000000000000000000001" name="Flash probe" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010") size=[2, 2] tint=#ffffffff
+    }
+    component "engine.MaterialOverride" version=1 { values=[] }
+    component "engine.Script" version=1 { script "game.demo.FlashProbe" enabled=true {} }
+  }
+  node "d3400000000000000000000000000002" name="Camera" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.Camera2D" version=1 { zoom=40 active=true }
+  }
+}
+```
+
+---
+id: engine.MaterialOverride.SetFloat
+params: [name, value]
+---
+`name` selects a float parameter marked `@instance`. `value` must be finite; the call writes only this node's override and does not save the scene or shared material.
+
+---
+id: engine.MaterialOverride.SetInt
+params: [name, value]
+---
+`value` must fit signed int32, even though the script's `int` is wider. A range or type error leaves the old override unchanged.
+
+---
+id: engine.MaterialOverride.SetBool
+params: [name, value]
+---
+`name` selects a bool parameter marked `@instance`. This is a typed boolean assignment, not an integer or float conversion.
+
+---
+id: engine.MaterialOverride.SetVec2
+params: [name, value]
+---
+`value` supplies two finite components for a declared instance vec2. A different vector size is a type error.
+
+---
+id: engine.MaterialOverride.SetVec3
+params: [name, value]
+---
+`value` supplies three finite components for a declared instance vec3. A different vector size is a type error.
+
+---
+id: engine.MaterialOverride.SetVec4
+params: [name, value]
+---
+`value` is a numerical [material.Vec4](ref:aego/material.Vec4). Use SetColor instead when the shader declares a colour parameter; these types are not interchangeable.
+
+---
+id: engine.MaterialOverride.SetColor
+params: [name, value]
+---
+`value` is a linear Color for a vec4 parameter with the colour hint and `@instance`. The call does not interpret numerical Vec4 values as colours.
+
+---
+id: engine.MaterialOverride.GetFloat
+params: [name]
+---
+`name` selects a declared float parameter. The result includes inheritance when this node has no explicit value; an unresolved material or incompatible type faults the script.
+
+---
+id: engine.MaterialOverride.GetInt
+params: [name]
+---
+Returns the effective signed int32 value as a script `int`, without a floating-point round trip. The declared parameter must have integer type.
+
+---
+id: engine.MaterialOverride.GetBool
+params: [name]
+---
+Returns the effective typed boolean. This does not treat a numerical zero or nonzero shader parameter as a bool.
+
+---
+id: engine.MaterialOverride.GetVec2
+params: [name]
+---
+Returns the two effective components of a declared vec2. The getter does not truncate a larger vector.
+
+---
+id: engine.MaterialOverride.GetVec3
+params: [name]
+---
+Returns the three effective components of a declared vec3. The getter does not truncate a larger vector.
+
+---
+id: engine.MaterialOverride.GetVec4
+params: [name]
+---
+Returns a numerical [material.Vec4](ref:aego/material.Vec4). A parameter with the colour hint requires GetColor instead.
+
+---
+id: engine.MaterialOverride.GetVec4Lane
+params: [name, lane]
+---
+`lane` is 0 for X, 1 for Y, 2 for Z or 3 for W of an ordinary vec4. An out-of-range lane or colour parameter faults the script.
+
+---
+id: engine.MaterialOverride.GetColor
+params: [name]
+---
+Returns the effective linear Color of a parameter declared with the colour hint. This is not a colour conversion for an ordinary vec4.
+
+---
+id: engine.MaterialOverride.Reset
+params: [name]
+---
+Removes this node's explicit value for `name`, including a retained value for a removed shader parameter. Returns false when no explicit value was stored; it does not zero the shared material.
 
 ---
 id: engine.Light2D

@@ -8,6 +8,8 @@
     <link rel="alternate" hreflang="en" href="{{.Root}}{{.HrefEN}}">
     <link rel="alternate" hreflang="ru" href="{{.Root}}{{.HrefRU}}">
     <meta name="aego-assets" content="{{.AssetV}}">
+    <meta name="aego-docs-build" content="{{.BuildID}}">
+    <meta name="aego-docs-version" content="{{.DocsVersion}}">
     {{if .Playground}}<meta name="aego-play" content="{{.PlayVersion}}"><meta name="aego-try" content="{{.TryVersion}}"><meta name="aego-play-size" content="{{.PlaySize}}"><meta name="aego-try-size" content="{{.TrySize}}"><meta name="aego-play-gzip" content="{{.PlayGzip}}"><meta name="aego-try-gzip" content="{{.TryGzip}}">{{end}}
     <title>{{.PageTitle}}</title>
     <meta name="description" content="{{.Description}}">
@@ -32,9 +34,9 @@
     <a class="brand" href="{{.Root}}index.html">{{.Site}}</a>
     <div class="search">
         {{icon .Root "ui.search"}}
-        <input id="search" type="search" placeholder="{{call .T "Search the docs"}}" autocomplete="off" aria-label="{{call .T "Search"}}">
+        <input id="docs-search" type="search" placeholder="{{call .T "Search the docs"}}" autocomplete="off" aria-label="{{call .T "Search"}}">
         <kbd>/</kbd>
-        <ul id="results" hidden></ul>
+        <ul id="results" aria-live="polite" hidden></ul>
     </div>
     <nav class="links" aria-label="{{call .T "Site"}}">
         <a href="{{.Root}}index.html">{{call .T "Docs"}}</a>
@@ -59,6 +61,7 @@
 </div>
 <div class="scrim" hidden></div>
 {{.Footer}}
+<script src="{{.Root}}assets/search.js?v={{.AssetV}}"></script>
 <script src="{{.Root}}assets/site.js?v={{.AssetV}}"></script>
 {{if .Playground}}<script src="{{.Root}}assets/loader.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/run.js?v={{.AssetV}}"></script><script src="{{.Root}}assets/try.js?v={{.AssetV}}"></script>{{end}}
 </body>

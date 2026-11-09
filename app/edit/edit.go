@@ -52,6 +52,9 @@ type Config struct {
 	OpenPath    string
 	NativeNote  string
 	LauncherTab string
+	// ExampleLink is an untrusted OS protocol request. The launcher displays
+	// the parsed HTTPS origin and waits for confirmation before any network IO.
+	ExampleLink string
 	// RemoteProject is set by the confirmed remote-example launcher. It is
 	// retained for the session, even if project.aego changes after startup.
 	RemoteProject bool
@@ -212,35 +215,36 @@ func Open(p *project.Project, cfg Config, mods ...sdk.Module) (*Session, error) 
 		}
 	})
 	s.App = shell.New(shell.Options{
-		Project:     p,
-		Pipeline:    h.Pipeline,
-		Loader:      h.Loader,
-		Types:       h.Types,
-		Renderer:    h.Renderer,
-		Log:         h.Log,
-		Modules:     h.Modules,
-		Sections:    h.Sections,
-		Problems:    h.Problems,
-		Settings:    h.Settings,
-		Hooks:       h.Modules.Editor,
-		RenderStats: h.RenderStats,
-		Supervised:  cfg.Supervised,
-		Paced:       !cfg.Headless,
-		Scripts:     s.Scripts,
-		Code:        scripteditor.NewHost(lang),
-		CreatedDirs: made,
-		Help:        h.Docs,
-		RunSnippet:  snippets(),
-		DirsErr:     dirsErr,
-		NewProject:  func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
-		Relaunch:    Relaunch,
-		OpenPath:    cfg.OpenPath,
-		NativeNote:  cfg.NativeNote,
-		RunTests:    s.runTests,
-		Recent:      cfg.Recent,
-		PrefsDir:    prefsDir(cfg),
-		LogsDir:     LogsDir(),
-		Crash:       func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
+		Project:         p,
+		Pipeline:        h.Pipeline,
+		Loader:          h.Loader,
+		Types:           h.Types,
+		Renderer:        h.Renderer,
+		Log:             h.Log,
+		Modules:         h.Modules,
+		Sections:        h.Sections,
+		Problems:        h.Problems,
+		Settings:        h.Settings,
+		Hooks:           h.Modules.Editor,
+		RenderStats:     h.RenderStats,
+		Supervised:      cfg.Supervised,
+		Paced:           !cfg.Headless,
+		Scripts:         s.Scripts,
+		Code:            scripteditor.NewHost(lang),
+		CreatedDirs:     made,
+		Help:            h.Docs,
+		RunSnippet:      snippets(),
+		DirsErr:         dirsErr,
+		NewProject:      func(dir, template string) (string, error) { return CreateProject(dir, template, "", "") },
+		Relaunch:        Relaunch,
+		OpenExampleLink: OpenExampleLink,
+		OpenPath:        cfg.OpenPath,
+		NativeNote:      cfg.NativeNote,
+		RunTests:        s.runTests,
+		Recent:          cfg.Recent,
+		PrefsDir:        prefsDir(cfg),
+		LogsDir:         LogsDir(),
+		Crash:           func(where string, rec any, stack []byte) { s.crash("panic", where, rec, stack, "") },
 		Exporter: newExporter(p, h.Pipeline, func() []string {
 			var dirty []string
 			if s.App != nil {

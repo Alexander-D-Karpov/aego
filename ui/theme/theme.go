@@ -179,6 +179,19 @@ func Mix(a, b mathx.Color, t float32) mathx.Color {
 	return mathx.Color{R: ch(a.R, b.R), G: ch(a.G, b.G), B: ch(a.B, b.B), A: 1}
 }
 
+// DestructiveButton derives the button states from the theme's error colour.
+// Darkening in linear colour space keeps white action text readable in both
+// editor themes, while preserving the active-over-hover state priority.
+func (t Theme) DestructiveButton(hot, active bool) mathx.Color {
+	darken := float32(0.5)
+	if active {
+		darken = 0.7
+	} else if hot {
+		darken = 0.35
+	}
+	return t.Error.Lerp(mathx.Color{A: 1}, darken)
+}
+
 func mixAll(bg mathx.Color, cs [6]mathx.Color, t float32) [6]mathx.Color {
 	var out [6]mathx.Color
 	for i, c := range cs {

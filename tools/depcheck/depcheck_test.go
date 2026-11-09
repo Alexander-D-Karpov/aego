@@ -99,12 +99,15 @@ func TestArtAuthoringDependenciesStayOutOfRuntime(t *testing.T) {
 		t.Fatal("art must have an explicit authoring-core group")
 	}
 	for _, pair := range [][2]string{
+		{"art", "art/internal/aseprite"},
 		{"asset/importers/artsource", "art"},
 		{"asset/importers/artsource", "asset/importers/texture"},
 		{"asset/importers/artsource", "asset/importers/animclip"},
 		{"editor/core/artedit", "art"},
 		{"modules/render2d/editor", "art"},
 		{"engine/docs", "engine/docs/democheck"},
+		{"engine/docs", "script/parser"},
+		{"engine/docs", "script/source"},
 	} {
 		if rule := layerRule(pair[0], pair[1]); rule != "" {
 			t.Errorf("required edge %s -> %s rejected by %s", pair[0], pair[1], rule)
@@ -113,16 +116,23 @@ func TestArtAuthoringDependenciesStayOutOfRuntime(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"art", "asset"},
 		{"art", "scene"},
+		{"art", "art/internal/unrelated"},
+		{"art/internal/aseprite", "art"},
+		{"art/internal/aseprite", "asset"},
 		{"scene", "art"},
 		{"asset/importers/texture", "art"},
 		{"engine/docs/democheck", "asset"},
+		{"engine/docs", "script/compiler"},
+		{"engine/docs", "asset/pipeline"},
 	} {
 		if layerRule(pair[0], pair[1]) == "" {
 			t.Errorf("unexpected authoring dependency %s -> %s allowed", pair[0], pair[1])
 		}
 	}
-	if !allowed(runtimeForbidden, "art") || !allowed(wasmDenied, "art") {
-		t.Fatal("authoring core must not enter game runtime builds")
+	for _, pkg := range []string{"art", "art/internal/aseprite", "art/internal/future"} {
+		if !allowed(runtimeForbidden, pkg) || !allowed(wasmDenied, pkg) {
+			t.Fatalf("authoring package %s must not enter game runtime builds", pkg)
+		}
 	}
 }
 

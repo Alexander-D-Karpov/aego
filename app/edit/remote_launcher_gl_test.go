@@ -209,6 +209,14 @@ func (r trackedLauncherRemote) Check(ctx context.Context, id, origin string) (la
 }
 
 func TestRemoteLauncherNativeConfirmation(t *testing.T) {
+	testRemoteLauncherNativeConfirmation(t, false)
+}
+
+func TestRemoteProtocolLauncherNativeConfirmation(t *testing.T) {
+	testRemoteLauncherNativeConfirmation(t, true)
+}
+
+func testRemoteLauncherNativeConfirmation(t *testing.T, protocol bool) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	host, _, source, entryFile := remoteFixture(t)
@@ -225,6 +233,15 @@ func TestRemoteLauncherNativeConfirmation(t *testing.T) {
 	}()
 	ls.UI = launcher.New(launcher.Options{Remote: tracked})
 	ls.UI.SetTab(launcher.TabExamples)
+	if protocol {
+		link, err := remoteexample.MakeLink(source, "scene")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ls.UI.RequestExampleLink(link); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for range 3 {
 		if !ls.Step() {
 			t.Fatal("launcher stopped")
@@ -235,6 +252,9 @@ func TestRemoteLauncherNativeConfirmation(t *testing.T) {
 		dir := os.Getenv("AEGO_REMOTE_LAUNCH_SHOTS")
 		if dir == "" {
 			return
+		}
+		if protocol {
+			name = "protocol-" + name
 		}
 		var shot *image.RGBA
 		var shotErr error
@@ -272,22 +292,28 @@ func TestRemoteLauncherNativeConfirmation(t *testing.T) {
 			}
 		}
 	}
-	click(300, 199)
-	for len(source) > 0 {
-		n := min(20, len(source))
-		if !sdl.TestTextInput(source[:n]) || !ls.Step() {
-			t.Fatal("launcher text input failed")
+	if !protocol {
+		click(300, 199)
+		for len(source) > 0 {
+			n := min(20, len(source))
+			if !sdl.TestTextInput(source[:n]) || !ls.Step() {
+				t.Fatal("launcher text input failed")
+			}
+			source = source[n:]
 		}
-		source = source[n:]
+		click(400, 223)
 	}
-	click(400, 223)
 	select {
 	case call := <-tracked.calls:
 		t.Fatalf("service was called before the origin confirmation: %s", call)
 	default:
 	}
 	capture("remote-confirmation")
-	click(400, 271)
+	if protocol {
+		click(400, 247)
+	} else {
+		click(400, 271)
+	}
 	select {
 	case call := <-tracked.calls:
 		if call != "open" {

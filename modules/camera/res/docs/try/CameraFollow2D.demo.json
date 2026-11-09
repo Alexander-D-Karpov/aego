@@ -17,5 +17,5 @@
     "en": {"title": "Snap after a teleport", "description": "The target teleports eight world units; very slow damping makes the camera's response easy to see.", "input": "Change Snap Distance from 20 to 1: the camera snaps to the teleported target. Reset restores the original slow follow."},
     "ru": {"title": "Скачок камеры при телепортации", "description": "Цель телепортируется на восемь единиц мира; медленное демпфирование делает реакцию камеры заметной.", "input": "Уменьшите расстояние скачка с 20 до 1: камера сразу переместится к цели после телепортации. Сброс вернёт исходное медленное слежение."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

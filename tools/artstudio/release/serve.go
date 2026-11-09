@@ -18,7 +18,10 @@ import (
 func csp(m buildManifest, p string, docs bool) string {
 	common := "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; "
 	if docs || strings.HasPrefix(p, "docs/") {
-		return common + "frame-src " + m.AppOrigin + "; frame-ancestors 'none'"
+		// Firefox checks a sandboxed iframe's blob download against the
+		// parent's frame-src. Permit local blob URLs without admitting another
+		// network origin; form submission and script policies stay restricted.
+		return common + "frame-src " + m.AppOrigin + " blob:; frame-ancestors 'none'"
 	}
 	if strings.HasPrefix(p, "embed/") {
 		return common + "frame-ancestors " + strings.Join(m.DocsOrigins, " ")

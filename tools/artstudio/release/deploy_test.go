@@ -87,9 +87,15 @@ func TestProductionRejectsSnapshotAndMissingGates(t *testing.T) {
 	if e := validateGate(jsonBytes(g), m, h); e != nil {
 		t.Fatal(e)
 	}
-	g.Gates = g.Gates[:len(g.Gates)-1]
-	if e := validateGate(jsonBytes(g), m, h); e == nil {
-		t.Fatal("partial CI accepted")
+	for missing := range g.Gates {
+		t.Run("missing_"+g.Gates[missing].Name, func(t *testing.T) {
+			partial := g
+			partial.Gates = append([]gateResult(nil), g.Gates[:missing]...)
+			partial.Gates = append(partial.Gates, g.Gates[missing+1:]...)
+			if e := validateGate(jsonBytes(partial), m, h); e == nil {
+				t.Fatal("partial CI accepted")
+			}
+		})
 	}
 }
 func TestDeploymentNeverTouchesSiblingAndRefusesSharedRoot(t *testing.T) {

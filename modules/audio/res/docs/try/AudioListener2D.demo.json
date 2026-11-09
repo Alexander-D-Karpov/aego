@@ -11,7 +11,8 @@
     "id": "use-camera-fallback", "field": "audio.AudioListener2D.Active", "value": 0,
     "expected": [
       {"observable": "audio.AudioListener2D.Active", "equals": false, "changes": true},
-      {"observable": "audio.AudioListener2D.ListenerX", "equals": 0, "changes": true}
+      {"observable": "audio.AudioListener2D.ListenerX", "equals": 0, "changes": true},
+      {"observable": "audio.AudioListener2D.Audio.ListenerIsSelected", "equals": false, "changes": true}
     ],
     "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
   }],
@@ -20,5 +21,5 @@
     "en": {"title": "Choose the effective listener", "description": "The blue mark is an active listener at x=2; the gray mark is the camera at x=0. The orange marker reads the effective position from the real audio service. No sound is played.", "input": "Disable Active. After the scene restarts, the service uses the camera fallback and the orange marker moves to x=0. Reset restores the active listener."},
     "ru": {"title": "Выбор действующего слушателя", "description": "Голубая отметка — активный слушатель при x=2, серая — камера при x=0. Оранжевый индикатор читает действующую позицию из настоящего аудиосервиса. Звук не воспроизводится.", "input": "Выключите Active. После перезапуска сервис возьмёт запасной вариант с камерой, и оранжевый индикатор перейдёт к x=0. «Сброс» восстановит активного слушателя."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

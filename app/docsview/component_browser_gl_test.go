@@ -149,14 +149,14 @@ func (r *browserTryRunner) payload(c democheck.Contract) (map[string]any, error)
 }
 
 func (r *browserTryRunner) Open(ctx context.Context, c democheck.Contract, env string) (democheck.Instance, error) {
-	if env != "chromium" || c.Environments[env].Mode != "runtime" {
+	if (env != "chromium" && env != "firefox") || c.Environments[env].Mode != "runtime" {
 		return nil, fmt.Errorf("%s runner unavailable: NOT RUN", env)
 	}
 	payload, err := r.payload(c)
 	if err != nil {
 		return nil, err
 	}
-	if err := r.process.call(ctx, "open", map[string]any{"contract": c, "payload": payload}, nil); err != nil {
+	if err := r.process.call(ctx, "open", map[string]any{"contract": c, "payload": payload, "environment": env}, nil); err != nil {
 		return nil, err
 	}
 	return &browserTryInstance{process: r.process, identity: c.Identity}, nil
@@ -203,10 +203,10 @@ func (r combinedTryRunner) Open(ctx context.Context, c democheck.Contract, env s
 }
 
 // AEGO_TRY_SITE must name a freshly built docs site. Without it this test does
-// not run and does not claim coverage. Set AEGO_DEMOCHECK_ENFORCE=1 to fail on
-// every missing contract or failed environment, not only on the implemented
-// browser/native probe regression cases.
+// not run and does not claim coverage. When provided, the entire public
+// registry must pass all declared environments, not just a selected subset.
 func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
+	initializeTryEvidence(t)
 	site := os.Getenv("AEGO_TRY_SITE")
 	if site == "" {
 		if os.Getenv("AEGO_DEMOCHECK_ENFORCE") == "1" {
@@ -239,9 +239,17 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	writeComponentRegistryEvidence(t, p, site)
 	browser := &browserTryRunner{p: p, process: process}
 	runner := combinedTryRunner{native: &nativeTryRunner{p: p}, browser: browser}
 	report := p.Docs().CheckComponentDemos(ctx, runner)
+	var versions map[string]any
+	if err := process.call(ctx, "versions", nil, &versions); err != nil {
+		t.Errorf("runtime versions: %v", err)
+	}
+	if err := writeTryEvidence("versions.json", versions); err != nil {
+		t.Errorf("version evidence: %v", err)
+	}
 	if name := os.Getenv("AEGO_DEMOCHECK_REPORT"); name != "" {
 		data, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
@@ -253,7 +261,7 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 	}
 	verified := map[string]bool{}
 	for _, result := range report.Results {
-		if len(result.Errors) == 0 && slices.Contains(result.Environments, "native") && slices.Contains(result.Environments, "chromium") {
+		if len(result.Errors) == 0 && slices.Contains(result.Environments, "native") && slices.Contains(result.Environments, "chromium") && slices.Contains(result.Environments, "firefox") {
 			verified[result.ComponentID] = true
 		}
 		if result.DemoID != "" {
@@ -262,7 +270,12 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 	}
 	for _, id := range []string{"animation.AnimationPlayer", "animation.Animator", "audio.AudioListener2D", "audio.AudioSource2D", "audio.AudioZone2D", "camera.CameraBrain2D", "camera.CameraFollow2D", "camera.CameraShake2D", "camera.CameraZone2D", "camera.VirtualCamera2D", "engine.Camera2D", "engine.Camera3D", "engine.Light2D", "engine.LightingEnvironment2D", "engine.LightOccluder2D", "engine.Mesh2D", "engine.MeshRenderer", "engine.SpriteRenderer", "gameplay.Lifetime", "gameplay.StateMachine", "gameplay.Motion2D", "gameplay.Hitbox2D", "gameplay.Hurtbox2D", "gameplay.KillZone2D", "gameplay.Pickup2D", "gameplay.Checkpoint2D", "gameplay.Respawn", "particles.ParticleSystem2D", "physics.Body2D", "physics.BoxCollider2D", "physics.CircleCollider2D", "physics.CapsuleCollider2D", "physics.PolygonCollider2D", "physics.EdgeCollider2D", "physics.RevoluteJoint2D", "physics.DistanceJoint2D", "render2d.PostProcess", "save.Persist"} {
 		if !verified[id] {
-			t.Errorf("%s did not pass native and Chromium", id)
+			t.Errorf("%s did not pass native, Chromium and Firefox", id)
+		}
+	}
+	for _, component := range p.Docs().ComponentDemos() {
+		if !verified[component.ID] {
+			t.Errorf("%s did not pass native, Chromium and Firefox", component.ID)
 		}
 	}
 	if !verified["engine.Tags"] {
@@ -278,7 +291,7 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 		t.Error("engine.PrefabInstance did not pass native and Chromium")
 	}
 	if t.Failed() {
-		t.Fatalf("implemented contracts did not pass native and Chromium: %v", verified)
+		t.Fatalf("full component registry did not pass native, Chromium and Firefox: %v", verified)
 	}
 	t.Logf("actual component Try coverage: %d/%d", report.VerifiedComponents, report.PublicComponents)
 	entry, _ := p.Docs().Get("engine.Mesh2D")
@@ -289,12 +302,25 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 		}
 	}
 	wrong := *entry.Demo
+	wrong.DemoID += ".negative-observable"
 	wrong.Actions = slices.Clone(wrong.Actions)
 	wrong.Actions[0].Expected = slices.Clone(wrong.Actions[0].Expected)
 	wrong.Actions[0].Expected[0].Equals = json.RawMessage("999")
 	bad := democheck.Check(ctx, []democheck.Component{component}, []democheck.Contract{wrong}, runner)
-	if bad.Passed() || len(bad.Results) != 1 || len(bad.Results[0].Environments) != 0 || !strings.Contains(strings.Join(bad.Results[0].Errors, " "), "unexpected observable") {
+	if err := saveNegativeTryReport(bad); err != nil {
+		t.Fatalf("negative control evidence: %v", err)
+	}
+	if bad.Passed() || len(bad.Results) != 1 || len(bad.Results[0].Environments) != 0 {
 		t.Fatalf("false expectations were accepted: %+v", bad)
+	}
+	// A crashed or unavailable browser is not evidence that the negative
+	// assertion worked. Every environment must reject the wrong observation.
+	for _, env := range []string{"native", "chromium", "firefox"} {
+		if !slices.ContainsFunc(bad.Results[0].Errors, func(message string) bool {
+			return strings.HasPrefix(message, env+": ") && strings.Contains(message, "unexpected observable")
+		}) {
+			t.Errorf("%s did not reject the deliberately false observation: %+v", env, bad.Results[0])
+		}
 	}
 	badPayload, err := browser.payload(*entry.Demo)
 	if err != nil {
@@ -304,7 +330,7 @@ func TestComponentContractsAcrossNativeAndChromium(t *testing.T) {
 	if err := process.call(ctx, "open", map[string]any{"contract": *entry.Demo, "payload": badPayload}, nil); err == nil || !strings.Contains(err.Error(), "payload does not match") {
 		t.Fatalf("stale published Try payload was accepted: %v", err)
 	}
-	if os.Getenv("AEGO_DEMOCHECK_ENFORCE") == "1" && !report.Passed() {
+	if !report.Passed() {
 		t.Fatalf("full component gate failed: %v", report.Error())
 	}
 }

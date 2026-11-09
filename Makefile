@@ -52,6 +52,23 @@ include tools/artstudio/release/release.mk
 
 .PHONY: materials materials-check dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
 
+# Run in a protected snapshot: site and npm ci replace generated output.
+COMPONENT_TRY_SITE ?= $(CURDIR)/site
+COMPONENT_TRY_REPORT ?= $(CURDIR)/.cache/component-try.json
+COMPONENT_TRY_EVIDENCE ?= $(CURDIR)/.cache/component-try-evidence
+.PHONY: component-try
+component-try: site
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	CHROMIUM=$(CHROMIUM) AEGO_TRY_SITE=$(COMPONENT_TRY_SITE) AEGO_DEMOCHECK_REPORT=$(COMPONENT_TRY_REPORT) AEGO_DEMOCHECK_EVIDENCE=$(COMPONENT_TRY_EVIDENCE) $(GL_ENV) bash tools/stage125-check.sh component-try
+
+# Real Linux GIO dispatch, in a temporary HOME/XDG profile, without confirming
+# or installing a remote project. The native UI confirmation is a separate gate.
+REMOTE_EXAMPLES_OUT ?= $(CURDIR)/.cache/remote-examples/os
+.PHONY: remote-examples-check
+remote-examples-check: cli
+	python3 -B -m unittest discover -s tools/ci -p test_protocol_install.py
+	$(GL_ENV) python3 -B tools/ci/remote_protocol_linux.py --binary "$(CURDIR)/.cache/bin/aego" --out "$(REMOTE_EXAMPLES_OUT)"
+
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
 ifneq ($(XVFB),)
@@ -76,8 +93,26 @@ RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
 WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
 WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
 
-test: bootstrap
-	go test -race -timeout 30m ./...
+# The full integration package can exceed a cumulative 30-minute -race limit
+# on smaller runners. Keep that timeout per sequential group, compile once,
+# and verify every ordinary top-level test/Example/Fuzz seed is selected once.
+.PHONY: test-race-packages test-race-integration
+.NOTPARALLEL: test
+test: export SDL_AUDIO_DRIVER := dummy
+test: export SDL_AUDIODRIVER := dummy
+test: test-race-packages test-race-integration
+
+test-race-packages: bootstrap
+	@set -eu; \
+	packages="$$(go list ./...)"; \
+	printf '%s\n' "$$packages" | grep -qx 'aego/tests/integration'; \
+	others="$$(printf '%s\n' "$$packages" | grep -vx 'aego/tests/integration')"; \
+	[ -n "$$others" ]; \
+	go test -race -timeout 30m $$others
+
+test-race-integration: bootstrap
+	python3 -B -m unittest discover -s tools/ci -p test_integration_race.py
+	python3 -B tools/ci/integration_race.py $(if $(filter 1,$(AEGO_INTEGRATION_ALLOW_UNBORN)),--allow-unborn,)
 
 test-editor: bootstrap
 	go build -tags aego_editor ./...
@@ -104,8 +139,8 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
-	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|ArtWorkingAlphaShadowNative|AuthoredFlipbookParticleGameViewNative|VFXCanvasAndParticlePresetNative|PlatformerSlicedPNGCopyNative|PlatformerSlicedPNGGameUndoExportNative|CreateMenuFilePromptKeepsNativeKeyboardFocus|CreatePixelArtNativeEnterWaitsForConfirmation|AssetsEmptyGridContextMenuSDL|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative|SceneViewCaptureAfterEndFrameGL|SceneViewCaptureOrientationMatchesDisplayGL|SceneView3DShows2DSpritePixels)$$'
-	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb|TestPhysicsBackedComponentDemosNative|TestCameraShakeComponentDemoDrivesRealCamera|TestBrowserProcessDeadlineFailsClosed)$$' ./app/docsview
+	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|ArtTimelineDurationNative|ArtEffectTemplateNative|ArtWorkingAlphaShadowNative|AuthoredFlipbookParticleGameViewNative|VFXCanvasAndParticlePresetNative|PlatformerEditSourceArtNative|ArtPNGDoubleClickWithInspectorInAssetsDock|LinkedSourcePromptNativeLayout|PlatformerSlicedPNGCopyNative|PlatformerSlicedPNGGameUndoExportNative|RemoteProtocolLauncherNativeConfirmation|RemoteLauncherNativeConfirmation|RemoteLauncherClonesOverLocalTLS|CreateMenuFilePromptKeepsNativeKeyboardFocus|CreatePixelArtNativeEnterWaitsForConfirmation|AssetsEmptyGridContextMenuSDL|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative|SceneViewCaptureAfterEndFrameGL|SceneViewCaptureOrientationMatchesDisplayGL|SceneView3DShows2DSpritePixels)$$'
+	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb|TestComponentContractObservationWarmupNative|TestTryGameViewportExcludesInspectorNative|TestPhysicsBackedComponentDemosNative|TestCameraShakeComponentDemoDrivesRealCamera|TestBrowserProcessDeadlineFailsClosed|TestControlledGuideRealNativeViewportAndReset)$$' ./app/docsview
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
@@ -374,6 +409,8 @@ pkgsize:
 
 # ci requires glslangValidator: shader imports and the shader tests fail without it instead of skipping (D367).
 ci: export AEGO_REQUIRE_GLSLANG := 1
+ci: export SDL_AUDIO_DRIVER := dummy
+ci: export SDL_AUDIODRIVER := dummy
 # Two known environment-sensitive web checks remain visible as warnings in CI;
 # direct web-smoke and stage12-release-check runs stay strict by default.
 ci: export AEGO_CI_WEB_WARN := 1
@@ -573,3 +610,7 @@ stage12-release-check: cli
 	cat "$$checks/visibility.log"; exit $$failed
 
 ci: stage12-release-check
+
+# Full public registry gate; preserve the separate Stage 12 and platformer
+# benchmark workloads and all pre-existing CI prerequisites above.
+ci: component-try

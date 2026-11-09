@@ -24,6 +24,7 @@ var kindIcons = map[string]string{
 var (
 	svgOpen  = regexp.MustCompile(`(?s)<svg[^>]*?viewBox="([^"]+)"[^>]*>(.*)</svg>`)
 	svgWhite = regexp.MustCompile(`(?i)(fill|stroke)="#(fff|ffffff|white)"`)
+	iconID   = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 )
 
 type iconSet struct {
@@ -46,6 +47,9 @@ func loadIcons(dirs []string) iconSet {
 				continue
 			}
 			name := strings.TrimSuffix(filepath.Base(f), ".svg")
+			if !iconID.MatchString(name) {
+				continue
+			}
 			inner := svgWhite.ReplaceAllString(m[2], `$1="currentColor"`)
 			body[name] = `<symbol id="` + name + `" viewBox="` + m[1] + `">` + inner + "</symbol>"
 		}
@@ -64,6 +68,31 @@ func loadIcons(dirs []string) iconSet {
 	b.WriteString("</svg>\n")
 	set.sprite = b.String()
 	return set
+}
+
+func (b *builder) iconNames() []string {
+	names := make([]string, 0, len(b.icons.names))
+	for name := range b.icons.names {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// The catalog is generated from the same sprite the site actually serves,
+// rather than maintaining a separate list that can become stale.
+func (b *builder) iconCatalog(root string) string {
+	var c strings.Builder
+	names := b.iconNames()
+	if len(names) == 0 {
+		return `<p>` + esc(b.tr("No icon sources are available in this build.")) + `</p>`
+	}
+	c.WriteString(`<ul class="icon-catalog">`)
+	for _, name := range names {
+		c.WriteString(`<li>` + b.icon(root, name, "") + `<code>` + esc(name) + `</code></li>`)
+	}
+	c.WriteString(`</ul>`)
+	return c.String()
 }
 
 func (b *builder) icon(root, name, cls string) string {
@@ -97,7 +126,27 @@ var refIcons = map[string]string{
 	"section/animation": "animation.player", "section/art": "file.art", "section/update": "file.download",
 }
 
+// Documentation tasks are not component instances. Use the symbol for the
+// task itself rather than repeating a generic tutorial/play/sprite icon.
+var taskIcons = map[string]string{
+	"install": "file.download", "quickstart": "doc.project", "platformer": "doc.tutorial",
+	"platformer-effects": "render2d.point_light", "credits": "help.about", "recipes": "doc.recipe",
+	"editor": "view.dock", "editor/agent": "panel.agent", "agents": "panel.agent",
+	"editor/icons": "view.grid", "cli": "panel.console", "diagnostics": "panel.problems",
+	"curves": "ui.curve", "tween": "code.timer", "animation": "animation.player",
+	"animation/animator": "animation.animator", "animation/controller": "anim.graph",
+	"animation/clips": "anim.key", "animation/events": "anim.event", "animation/time": "play.speed",
+	"tween/timers":       "code.timer",
+	"render2d/materials": "file.preset", "render2d/normal-mapping": "render2d.normals",
+	"render2d/art": "file.art", "render2d/image-viewer": "file.texture",
+	"render2d.PostProcess": "view.overlays", "camera.CameraBrain2D": "view.split",
+	"formats/overview": "file.data", "formats/aeanim": "anim.key", "formats/aectrl": "anim.graph",
+}
+
 func (b *builder) entryIcon(e *Entry) string {
+	if ic := taskIcons[e.ID]; ic != "" {
+		return ic
+	}
 	if e.Icon != "" {
 		return e.Icon
 	}
@@ -114,6 +163,16 @@ func (b *builder) entryIcon(e *Entry) string {
 	}
 	if e.Kind == KindModule && strings.HasPrefix(e.ID, "aego/") {
 		return "code.block"
+	}
+	if e.Kind == KindPage && e.Parent != "" {
+		if parent := b.byID[e.Parent]; parent != nil && parent.ID != e.ID {
+			if ic := taskIcons[parent.ID]; ic != "" {
+				return ic
+			}
+			if parent.Icon != "" {
+				return parent.Icon
+			}
+		}
 	}
 	return kindIcons[e.Kind]
 }

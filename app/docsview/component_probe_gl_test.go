@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/png"
+	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -14,6 +17,7 @@ import (
 
 	"aego/app/playground"
 	"aego/engine/docs/democheck"
+	"aego/gpu"
 )
 
 // nativeTryRunner drives the actual docsview load/set/reset bridge and renderer.
@@ -57,6 +61,10 @@ func (r *nativeTryRunner) Open(ctx context.Context, c democheck.Contract, env st
 	// Keep the real SDL/OpenGL renderer, but use the existing lockstep clock
 	// so actual physics steps do not depend on wall time between test frames.
 	a.e.SetLockstep(true)
+	if reply := a.Call("control", []byte(`{"enabled":true}`)); reply.Error != "" {
+		a.Close()
+		return nil, fmt.Errorf("control: %s", reply.Error)
+	}
 	request, err := json.Marshal(map[string]any{"scene": entry.Try, "select": entry.TrySelect, "code": code, "prefabs": entry.TryPrefabs, "artifacts": entry.TryArtifacts})
 	if err != nil {
 		a.Close()
@@ -67,7 +75,8 @@ func (r *nativeTryRunner) Open(ctx context.Context, c democheck.Contract, env st
 		return nil, fmt.Errorf("load: %s", reply.Error)
 	}
 	instance := &nativeTryInstance{app: a, contract: c, identity: identity}
-	if err := instance.step(ctx); err != nil {
+	// The gate resets and performs the contract warmup before observing.
+	if err := instance.advance(ctx, 4, nil); err != nil {
 		a.Close()
 		return nil, err
 	}
@@ -75,17 +84,36 @@ func (r *nativeTryRunner) Open(ctx context.Context, c democheck.Contract, env st
 }
 
 type nativeTryInstance struct {
-	app      *App
-	contract democheck.Contract
-	identity string
+	app          *App
+	contract     democheck.Contract
+	identity     string
+	captures     int
+	observations int
 }
 
-func (p *nativeTryInstance) step(ctx context.Context) error {
+func warmupFrames(c democheck.Contract) int {
+	if c.WarmupFrames > 0 {
+		return c.WarmupFrames
+	}
+	return 4
+}
+
+func (p *nativeTryInstance) advance(ctx context.Context, frames int, keys []string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := p.app.Step(4); err != nil {
+	request, err := json.Marshal(map[string]any{"frames": frames, "keys": keys})
+	if err != nil {
 		return err
+	}
+	if reply := p.app.Call("advance", request); reply.Error != "" {
+		return fmt.Errorf("advance: %s", reply.Error)
+	}
+	if err := p.app.Step(frames); err != nil {
+		return err
+	}
+	if p.app.control.Remaining != 0 {
+		return fmt.Errorf("controlled input sequence did not complete")
 	}
 	world := p.app.session.Controller().World()
 	if world == nil || world.Time.Tick() < 2 {
@@ -134,13 +162,42 @@ func (p *nativeTryInstance) Observe(ctx context.Context) (democheck.Observation,
 		if shotErr != nil || shot == nil {
 			return o, fmt.Errorf("capture Game View: %v", shotErr)
 		}
-		area := shot.Bounds().Intersect(image.Rect(0, 30, shot.Bounds().Dx()/2, shot.Bounds().Dy()))
+		area, err := p.app.viewport.pixelRect(shot.Bounds().Dx(), shot.Bounds().Dy())
+		if err != nil {
+			return o, err
+		}
 		frame := democheck.Frame{Width: area.Dx(), Height: area.Dy(), Pixels: make([]byte, area.Dx()*area.Dy()*4)}
 		for y := 0; y < area.Dy(); y++ {
 			copy(frame.Pixels[y*frame.Width*4:(y+1)*frame.Width*4], shot.Pix[shot.PixOffset(area.Min.X, area.Min.Y+y):][:frame.Width*4])
 		}
+		dir, _, err := tryEvidenceDir(p.contract, "native")
+		if err != nil {
+			return o, err
+		}
+		if dir != "" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return o, err
+			}
+			file, err := os.Create(filepath.Join(dir, fmt.Sprintf("game-%03d.png", p.captures)))
+			if err != nil {
+				return o, err
+			}
+			err = png.Encode(file, &image.RGBA{Pix: frame.Pixels, Stride: frame.Width * 4, Rect: image.Rect(0, 0, frame.Width, frame.Height)})
+			closeErr := file.Close()
+			if err != nil {
+				return o, err
+			}
+			if closeErr != nil {
+				return o, closeErr
+			}
+			p.captures++
+		}
 		o.Frames = append(o.Frames, frame)
 	}
+	if err := saveNativeTryObservation(p.contract, p.observations, o); err != nil {
+		return o, err
+	}
+	p.observations++
 	return o, nil
 }
 
@@ -159,35 +216,55 @@ func (p *nativeTryInstance) Action(ctx context.Context, action democheck.Action)
 		if reply := p.app.Call("scriptEnabled", payload); reply.Error != "" {
 			return fmt.Errorf("scriptEnabled: %s", reply.Error)
 		}
-		return p.step(ctx)
-	}
-	field, ok := strings.CutPrefix(action.Field, p.contract.ComponentID+".")
-	if !ok || field == "" {
-		return fmt.Errorf("unsupported action field: %s", action.Field)
-	}
-	var value any
-	if err := json.Unmarshal(action.Value, &value); err != nil {
-		return fmt.Errorf("invalid action value: %w", err)
-	}
-	switch value := value.(type) {
-	case float64, string:
-	case []any:
-		for _, item := range value {
-			if _, ok := item.(string); !ok {
-				return fmt.Errorf("action list contains a non-string value")
-			}
+	} else if action.Field != "" {
+		field, ok := strings.CutPrefix(action.Field, p.contract.ComponentID+".")
+		if !ok || field == "" {
+			return fmt.Errorf("unsupported action field: %s", action.Field)
 		}
-	default:
-		return fmt.Errorf("action value is not a number, string or string list")
+		var value any
+		if err := json.Unmarshal(action.Value, &value); err != nil {
+			return fmt.Errorf("invalid action value: %w", err)
+		}
+		switch value := value.(type) {
+		case float64, string:
+		case []any:
+			if len(value) > 64 {
+				return fmt.Errorf("action string list is too long")
+			}
+			for _, item := range value {
+				if _, ok := item.(string); !ok {
+					return fmt.Errorf("action list contains a non-string value")
+				}
+			}
+		default:
+			return fmt.Errorf("action value is not a number, string or string list")
+		}
+		request, err := json.Marshal(map[string]any{"component": p.contract.ComponentID, "field": field, "value": value})
+		if err != nil {
+			return err
+		}
+		if reply := p.app.Call("set", request); reply.Error != "" {
+			return fmt.Errorf("set: %s", reply.Error)
+		}
 	}
-	request, err := json.Marshal(map[string]any{"component": p.contract.ComponentID, "field": field, "value": value})
-	if err != nil {
-		return err
+	if (action.Field != "" || action.ScriptToggle != nil) && (len(action.Keys) != 0 || len(action.Inputs) != 0) {
+		if err := p.advance(ctx, warmupFrames(p.contract), nil); err != nil {
+			return err
+		}
 	}
-	if reply := p.app.Call("set", request); reply.Error != "" {
-		return fmt.Errorf("set: %s", reply.Error)
+	for _, step := range action.Inputs {
+		if err := p.advance(ctx, step.Frames, step.Keys); err != nil {
+			return err
+		}
 	}
-	return p.step(ctx)
+	if len(action.Inputs) != 0 && action.Frames == 0 && len(action.Keys) == 0 {
+		return nil
+	}
+	frames := action.Frames
+	if frames == 0 {
+		frames = warmupFrames(p.contract)
+	}
+	return p.advance(ctx, frames, action.Keys)
 }
 
 func (p *nativeTryInstance) Reset(ctx context.Context, action string) error {
@@ -200,11 +277,17 @@ func (p *nativeTryInstance) Reset(ctx context.Context, action string) error {
 	if reply := p.app.Call("reset", nil); reply.Error != "" {
 		return fmt.Errorf("reset: %s", reply.Error)
 	}
-	return p.step(ctx)
+	return p.advance(ctx, warmupFrames(p.contract), nil)
 }
 
 func (p *nativeTryInstance) Close() error {
+	reporter, reports := p.app.e.GPU().(gpu.ResourceReporter)
 	p.app.Close()
+	if reports {
+		if remaining := reporter.ResourceStats(); remaining != (gpu.ResourceStats{}) {
+			return fmt.Errorf("Try close retained GPU resources: %+v", remaining)
+		}
+	}
 	return nil
 }
 

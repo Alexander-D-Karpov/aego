@@ -9,7 +9,11 @@
   "editableFields": ["gameplay.Respawn.Delay"],
   "actions": [{
     "id": "respawn-now", "field": "gameplay.Respawn.Delay", "value": 0,
-    "expected": [{"observable": "gameplay.Respawn.Delay", "equals": 0, "changes": true}],
+    "expected": [
+      {"observable": "gameplay.Respawn.Delay", "equals": 0, "changes": true},
+      {"observable": "gameplay.Respawn.Node.X", "equals": 2, "changes": true, "tolerance": 0.001},
+      {"observable": "gameplay.Respawn.Gameplay.Respawns", "equals": 1, "changes": true}
+    ],
     "visual": {"minChangedPixels": 100, "maxResetDifferencePixels": 99}
   }],
   "reset": "reset",
@@ -17,5 +21,5 @@
     "en": {"title": "Change the respawn delay", "description": "The target requests a respawn to the blue marker. At Delay 60 it waits at its starting position for 60 game seconds.", "input": "Set Delay to 0. The scene restarts and the real Respawn immediately teleports the target to the marker. Reset restores the 60-second wait."},
     "ru": {"title": "Изменение задержки возрождения", "description": "Цель запрашивает возрождение к голубой отметке. При Delay 60 она ждёт в исходном положении 60 игровых секунд.", "input": "Установите Delay в 0. Сцена перезапустится, и настоящий Respawn сразу перенесёт цель к отметке. «Сброс» вернёт ожидание в 60 секунд."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

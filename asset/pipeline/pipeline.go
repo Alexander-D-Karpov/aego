@@ -212,7 +212,9 @@ func (p *Pipeline) saveIndex() error {
 	if p.shared {
 		return nil
 	}
-	if err := os.WriteFile(p.indexPath(), asset.WriteIndex(p.index), 0o644); err != nil {
+	// Do not truncate the last usable index if writing a newer generation fails.
+	// The asset index lock is still required; this replacement is not a CAS.
+	if err := project.WriteAtomic(p.indexPath(), asset.WriteIndex(p.index)); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write the asset index")
 	}
 	return nil

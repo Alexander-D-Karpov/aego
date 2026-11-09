@@ -56,7 +56,7 @@ type launchDriver struct {
 	prefsDir string
 	prefs    *prefs.Prefs
 	retheme  bool
-	updates  *updateManager
+	updates  interface{ Tick(time.Time) }
 }
 
 type launchImage struct {
@@ -254,6 +254,13 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 	case TabRecent:
 		ls.UI.SetTab(launcher.TabRecent)
 	}
+	if cfg.ExampleLink != "" {
+		if err := ls.UI.RequestExampleLink(cfg.ExampleLink); err != nil {
+			ls.UI.Close()
+			e.Close()
+			return nil, err
+		}
+	}
 	ls.driver = d
 	return ls, nil
 }
@@ -355,6 +362,10 @@ func (d *launchDriver) Event(ev platform.Event) {
 		d.ui.SetComposition("", 0)
 	case platform.EvDropFile:
 		d.s.UI.Drop(ev.Str)
+	case platform.EvDropText:
+		if strings.HasPrefix(strings.ToLower(ev.Str), "aego:") {
+			d.s.UI.Drop(ev.Str)
+		}
 	case platform.EvSystemTheme:
 		if d.prefs.Theme == theme.ModeSystem {
 			d.retheme = true
@@ -412,10 +423,14 @@ func prefsDir(cfg Config) string {
 
 func (d *launchDriver) FixedUpdate(float64) {}
 
+func (d *launchDriver) automaticUpdatesAllowed() bool {
+	return d.s != nil && d.s.UI != nil && !d.s.UI.AwaitingExampleConfirmation()
+}
+
 func (d *launchDriver) Update(float64) {
 	e, ui := d.eng, d.ui
 	ui.Time = e.Platform().Now()
-	if d.updates != nil {
+	if d.updates != nil && d.automaticUpdatesAllowed() {
 		d.updates.Tick(time.Now())
 	}
 	if d.retheme {

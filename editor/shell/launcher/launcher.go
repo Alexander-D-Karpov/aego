@@ -288,6 +288,13 @@ func ProjectRoot(path string) (string, bool) {
 
 func (l *Launcher) Drop(path string) bool {
 	p := strings.TrimSpace(path)
+	if strings.HasPrefix(strings.ToLower(p), "aego:") {
+		if err := l.RequestExampleLink(p); err != nil {
+			l.err = err.Error()
+			return false
+		}
+		return true
+	}
 	if filepath.Base(p) == project.FileName {
 		p = filepath.Dir(p)
 	}
@@ -746,6 +753,12 @@ func (l *Launcher) location(ui *core.Context) {
 }
 
 func (l *Launcher) examplesTab(ui *core.Context) {
+	// A protocol request must show its origin immediately, even when many
+	// installed example cards would otherwise push the confirmation offscreen.
+	if l.remote.fromLink && (l.remote.pending != nil || l.remote.job != nil) {
+		l.remoteTab(ui)
+		return
+	}
 	if len(l.opt.Examples) == 0 {
 		widgets.LabelWrapped(ui, i18n.Tr("launcher.examples_come_from_the_engine", "Examples come from the engine source tree; set AEGO_ROOT to its folder."), true)
 	} else {

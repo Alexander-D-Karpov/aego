@@ -91,6 +91,35 @@ Section "Aego" SecMain
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
 
+; Optional rather than silently taking an existing URL scheme from another
+; installation. The CLI still validates the single untrusted URL and asks for
+; confirmation before network/project activity.
+Section /o "Handle aego: example links" SecProtocol
+  ReadRegStr $0 HKCU "${CLASSES}\aego\shell\open\command" ""
+  StrCmp $0 '"$INSTDIR\aego-editor.exe" --example-link "%1"' protocol_write
+  StrCmp $0 "" 0 protocol_occupied
+  ; A key with unrelated values/children is not ours, even if it has no command.
+  ClearErrors
+  EnumRegValue $1 HKCU "${CLASSES}\aego" 0
+  IfErrors protocol_no_values protocol_occupied
+  protocol_no_values:
+  ClearErrors
+  EnumRegKey $1 HKCU "${CLASSES}\aego" 0
+  IfErrors protocol_no_user_keys protocol_occupied
+  protocol_no_user_keys:
+  ; Do not shadow an existing machine-wide handler either.
+  ReadRegStr $1 HKLM "${CLASSES}\aego\shell\open\command" ""
+  StrCmp $1 "" protocol_write protocol_occupied
+  protocol_write:
+  WriteRegStr HKCU "${CLASSES}\aego" "" "URL:Aego Example"
+  WriteRegStr HKCU "${CLASSES}\aego" "URL Protocol" ""
+  WriteRegStr HKCU "${CLASSES}\aego\shell\open\command" "" '"$INSTDIR\aego-editor.exe" --example-link "%1"'
+  Goto protocol_done
+  protocol_occupied:
+  DetailPrint "Existing aego: handler preserved; register Aego manually if desired."
+  protocol_done:
+SectionEnd
+
 Section "Open with Aego in folder menus" SecFolder
   WriteRegStr HKCU "${CLASSES}\Directory\shell\Aego" "" "Open with Aego"
   WriteRegStr HKCU "${CLASSES}\Directory\shell\Aego" "Icon" '"$INSTDIR\aego-editor.exe",0'
@@ -111,6 +140,20 @@ Section "Uninstall"
   !insertmacro Unassoc ".aego" "Aego.Project"
   !insertmacro Unassoc ".aescene" "Aego.Scene"
   !insertmacro Unassoc ".aeprefab" "Aego.Prefab"
+  ReadRegStr $0 HKCU "${CLASSES}\aego\shell\open\command" ""
+  StrCmp $0 '"$INSTDIR\aego-editor.exe" --example-link "%1"' 0 protocol_uninstall_done
+  DeleteRegValue HKCU "${CLASSES}\aego\shell\open\command" ""
+  DeleteRegKey /ifempty HKCU "${CLASSES}\aego\shell\open\command"
+  DeleteRegKey /ifempty HKCU "${CLASSES}\aego\shell\open"
+  DeleteRegKey /ifempty HKCU "${CLASSES}\aego\shell"
+  ReadRegStr $0 HKCU "${CLASSES}\aego" ""
+  StrCmp $0 "URL:Aego Example" 0 +2
+  DeleteRegValue HKCU "${CLASSES}\aego" ""
+  ReadRegStr $0 HKCU "${CLASSES}\aego" "URL Protocol"
+  StrCmp $0 "" 0 +2
+  DeleteRegValue HKCU "${CLASSES}\aego" "URL Protocol"
+  DeleteRegKey /ifempty HKCU "${CLASSES}\aego"
+  protocol_uninstall_done:
   DeleteRegKey HKCU "${CLASSES}\Directory\shell\Aego"
   DeleteRegKey HKCU "${CLASSES}\Directory\Background\shell\Aego"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'

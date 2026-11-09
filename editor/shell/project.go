@@ -17,6 +17,7 @@ import (
 	"aego/engine/i18n"
 	"aego/platform"
 	"aego/project"
+	"aego/project/remoteexample"
 )
 
 const (
@@ -214,6 +215,40 @@ func (a *App) openProject() error {
 		Submit:  func(v []string) { open(v[0]) },
 	})
 	return nil
+}
+
+func hasExampleScheme(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	return len(raw) >= len("aego:") && strings.EqualFold(raw[:len("aego:")], "aego:")
+}
+
+// SDL on macOS delivers URL events as dropped files. Keep them out of the
+// filesystem importer even when malformed, or mixed with ordinary drops.
+func (a *App) dropExampleLink() bool {
+	found := false
+	for _, raw := range a.drops {
+		found = found || hasExampleScheme(raw)
+	}
+	if !found {
+		return false
+	}
+	if len(a.drops) != 1 {
+		a.ctx.Notify(context.LevelError, i18n.Tr("editor.shell.example_link_single", "Open an example link separately from other dropped items."))
+		return true
+	}
+	raw := strings.TrimSpace(a.drops[0])
+	if _, err := remoteexample.ParseLink(raw); err != nil {
+		a.ctx.Notify(context.LevelError, err.Error())
+		return true
+	}
+	if a.opt.OpenExampleLink == nil {
+		a.ctx.Notify(context.LevelError, i18n.Tr("editor.shell.example_link_unavailable", "Opening example links is unavailable in this editor."))
+		return true
+	}
+	if err := a.opt.OpenExampleLink(raw); err != nil {
+		a.ctx.Notify(context.LevelError, i18n.Note("editor.shell.cannot_start_the_editor_again", "cannot start the editor again: {error}", i18n.Str("error", err.Error())))
+	}
+	return true
 }
 
 func (a *App) dropProject() bool {

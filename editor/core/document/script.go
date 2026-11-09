@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -122,12 +123,17 @@ func (m *Manager) SaveScript(d *ScriptDocument) error {
 			return err
 		}
 	}
-	if d.Conflict || !m.scriptMatchesDisk(d) {
-		d.Conflict = true
-		return errs.New(errs.EditorDocument, "source changed on disk; reload or explicitly keep your changes before saving").With(log.F("path", d.Path))
-	}
-	if err := WriteAtomic(m.Abs(d.Path), d.Code.Bytes()); err != nil {
-		return errs.Wrap(err, errs.EditorDocument, "cannot save the script").With(log.F("path", d.Path))
+	if err := m.writeSource(func() error {
+		if d.Conflict || !m.scriptMatchesDisk(d) {
+			d.Conflict = true
+			return errs.New(errs.EditorDocument, "source changed on disk; reload or explicitly keep your changes before saving").With(log.F("path", d.Path))
+		}
+		if err := WriteAtomic(m.Abs(d.Path), d.Code.Bytes()); err != nil {
+			return errs.Wrap(err, errs.EditorDocument, "cannot save the script").With(log.F("path", d.Path))
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	d.Code.MarkSaved()
 	d.SavedEdits++
@@ -184,6 +190,44 @@ func (m *Manager) ReloadScript(d *ScriptDocument) error {
 	d.removedAck = false
 	m.clearScriptRecovery(d.Path)
 	return nil
+}
+
+// AcceptSavedScript adopts a source transaction already committed to disk. It
+// retains the document history and any recovery file, and refuses a different
+// buffer or postimage. As with other filesystem guards, this is not atomic CAS.
+func (m *Manager) AcceptSavedScript(d *ScriptDocument, before, after []byte) error {
+	if d == nil || m.Script(d.Path) != d || d.ReadOnly || d.Dirty() || d.Conflict ||
+		!d.OnDisk || !d.diskTracked || sha256.Sum256(before) != d.diskHash ||
+		!bytes.Equal(d.Code.Bytes(), normalizeScriptText(before)) {
+		return errs.New(errs.EditorDocument, "source document changed before accepting the saved transaction")
+	}
+	if !utf8.Valid(after) || bytes.IndexByte(after, 0) >= 0 {
+		return errs.New(errs.EditorDocument, "saved source cannot replace a text document")
+	}
+	f, err := m.OpenSource(d.Path)
+	if err != nil {
+		return err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(f, int64(len(after))+1))
+	if err := errors.Join(readErr, f.Close()); err != nil {
+		return err
+	}
+	if !bytes.Equal(data, after) {
+		return errs.New(errs.EditorDocument, "saved source no longer matches the accepted transaction")
+	}
+	d.Code.ReplaceSnapshot(after, false)
+	d.Code.MarkSaved()
+	d.SavedEdits++
+	d.diskHash, d.diskTracked = sha256.Sum256(after), true
+	d.removedAck = false
+	m.statScript(d)
+	return nil
+}
+
+// The text editor normalizes line endings but the guarded disk checkpoint must
+// continue to describe the exact original file bytes.
+func normalizeScriptText(b []byte) []byte {
+	return bytes.ReplaceAll(bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n")), []byte("\r"), []byte("\n"))
 }
 
 func (m *Manager) KeepScript(d *ScriptDocument) {

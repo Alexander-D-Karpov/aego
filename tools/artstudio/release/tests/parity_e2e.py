@@ -59,12 +59,9 @@ def main() -> int:
             path.write_text(json.dumps(prefix,ensure_ascii=False,indent=2)+'\n')
             data = json.loads(subprocess.check_output([str(native),'-replay',str(path)],cwd=ROOT,text=True))
             state = data['state']
-            frames = {}
-            for frame in state['document']['frames']:
-                prefix['frame'] = frame['id']
-                path.write_text(json.dumps(prefix,ensure_ascii=False,indent=2)+'\n')
-                rendered = json.loads(subprocess.check_output([str(native),'-replay',str(path)],cwd=ROOT,text=True))
-                frames[frame['id']] = rendered['pixelSHA256']
+            # The native replay returns every frame and all four channels in
+            # this one generation; never compare only the current albedo.
+            frames = data['frameSHA256']
             native_steps.append({'state':state,'frames':frames})
         result['nativeSteps'] = native_steps
         from playwright.sync_api import sync_playwright
@@ -75,7 +72,11 @@ def main() -> int:
                 if executable:
                     browser_options['executable_path'] = executable
                 if name == 'chromium':
-                    browser_options['args'] = ['--no-sandbox','--disable-dev-shm-usage']
+                    browser_options['args'] = ['--mute-audio','--no-sandbox','--disable-dev-shm-usage']
+                else:
+                    browser_options['firefox_user_prefs'] = {'media.volume_scale': '0.0'}
+                    if os.environ.get('MOZ_DISABLE_CONTENT_SANDBOX') == '1':
+                        browser_options['firefox_user_prefs']['security.sandbox.content.level'] = 0
                 browser = getattr(playwright,name).launch(**browser_options)
                 browser_result = {'name':name,'version':browser.version,'steps':[]}
                 result['browsers'].append(browser_result)
@@ -119,12 +120,13 @@ def main() -> int:
                             raise RuntimeError(f'{name} prefix {count}: native/WASM state differs\nnative={json.dumps(expected_state,sort_keys=True)}\nwasm={json.dumps(actual_state,sort_keys=True)}')
                         hashes = page.evaluate('''() => {
                             const state = JSON.parse(aegoArt.request('{"action":"state"}')).state;
-                            return Object.fromEntries(state.document.frames.map(frame => [frame.id,aegoArt.hash(frame.id)]));
+                            return Object.fromEntries(state.document.frames.map(frame => [frame.id,
+                                Object.fromEntries(['albedo','normal','height','emission'].map(channel=>[channel,aegoArt.hash(frame.id,channel)]))]));
                         }''')
                         if hashes != expected['frames']:
                             raise RuntimeError(f'{name} prefix {count}: frame pixel mismatch: native={expected["frames"]} wasm={hashes}')
                         browser_result['steps'].append({'prefix':count,'frameHashes':hashes,'nativeDirty':native_dirty,'webDirty':web_dirty})
-                        print(f'PASS {name} prefix={count} frames={len(hashes)} topology+pixels',flush=True)
+                        print(f'PASS {name} prefix={count} frames={len(hashes)} topology+four-channel-pixels',flush=True)
                     if errors:
                         raise RuntimeError(f'{name} page errors: {errors}')
                 finally:

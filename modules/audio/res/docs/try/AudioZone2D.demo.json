@@ -20,5 +20,5 @@
     "en": {"title": "Change a zone's bus gain", "description": "The listener is inside the purple zone, which selects a world-layer target of 0.25 for the music bus. The marker reads that target from the audio service. No sound is played.", "input": "Set Gain to 0.75. After the scene restarts, the real zone changes the world's music-bus target and the marker turns green. Fade is zero; Reset returns the target to 0.25."},
     "ru": {"title": "Изменение уровня шины в зоне", "description": "Слушатель находится внутри фиолетовой зоны, которая выбирает целевое значение слоя мира 0,25 для шины музыки. Индикатор читает его из аудиосервиса. Звук не воспроизводится.", "input": "Установите Gain в 0,75. После перезапуска настоящая зона изменит целевой уровень шины музыки для мира, а индикатор станет зелёным. Переход равен нулю; «Сброс» вернёт уровень 0,25."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

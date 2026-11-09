@@ -1,4 +1,39 @@
 messages version=1 lang=en {
+  msg "editor.art.blank_title" { text="Untitled drawing" }
+  msg "editor.art.blank_hint" { text="Untitled drawing in memory. Save to create a project asset." }
+  msg "editor.art.save_blank" { text="Save drawing as an asset" }
+  msg "editor.art.save_blank_notice" { text="Choose a project source. Replacing an existing drawing requires confirmation." }
+  msg "editor.art.blank_saved" { text="Saved drawing: {path}" }
+  msg "editor.art.replace" { text="Replace" }
+  msg "editor.art.replace_title" { text="Replace existing drawing?" }
+  msg "editor.art.replace_notice" { text="Replace {path}? Its current drawing will be overwritten. The asset identity is kept, so all users of this shared asset can change." }
+  msg "editor.art.replace_missing_meta" { text="The existing drawing has no metadata. Resolve its identity before replacing it." }
+  msg "editor.art.replace_invalid_meta" { text="The existing drawing has invalid or incompatible metadata. It was not replaced." }
+  msg "editor.art.replace_invalid_source" { text="The existing drawing could not be read; it was not replaced" }
+  msg "editor.art.replace_orphan_meta" { text="The destination already has metadata but no source. Resolve it or choose another name." }
+  msg "editor.art.replace_incompatible" { text="Replacing this drawing would remove existing frame, animation, or surface references. Choose a new name instead." }
+  msg "editor.art.replace_changed" { text="The destination changed while saving. Review it and try again." }
+  msg "editor.art.pick_canvas_color" { text="Pick color from canvas" }
+  msg "editor.art.pick_canvas_hint" { text="Pick a pixel from the active layer, then return to the previous tool. Click again or press Escape to cancel." }
+  msg "editor.art.eraser_mode" { text="Eraser mode" }
+  msg "editor.art.eraser_erase" { text="Erase" }
+  msg "editor.art.eraser_smudge" { text="Smudge" }
+  msg "editor.art.eraser_strength" { text="Strength (%)" }
+  msg "editor.art.eraser_indexed" { text="In indexed mode, partial results are limited to the existing palette." }
+  msg "editor.shell.recovery_write_failed" { text="Could not save recovery" }
+  msg "editor.shell.recovery_write_failed_notice" { text="One or more recovery files could not be updated: {error}. Keep the editor open; recent changes may exist only in memory. Free space or resolve the access problem, or save a copy to another filesystem. Earlier recovery files may be out of date." }
+  msg "editor.shell.recovery_retry" { text="Retry recovery" }
+  msg "editor.shell.continue_editing" { text="Continue editing" }
+  msg "editor.shell.recovery_copy_action" { text="Save recovery copy…" }
+  msg "editor.shell.recovery_copy_title" { text="Save emergency recovery copies" }
+  msg "editor.shell.recovery_copy_notice" { text="Choose an existing directory on a filesystem with free space. A new private folder will contain copies of current unsaved documents; project assets and existing recovery files are not replaced. Earlier pending recovery files are not included. This is not Save, and recovery is never automatic. Temporary storage may disappear after reboot." }
+  msg "editor.shell.recovery_copy_directory" { text="Absolute destination directory" }
+  msg "editor.shell.recovery_copy_save" { text="Save copies" }
+  msg "editor.shell.recovery_copy_project_changed" { text="The project changed before the recovery copy was saved." }
+  msg "editor.shell.recovery_copy_partial" { text="Recovery copy is incomplete in {path}: {error}. Keep the editor open and try another location." }
+  msg "editor.shell.recovery_copy_failed" { text="Could not save recovery copies: {error}. Keep the editor open and try another location." }
+  msg "editor.shell.recovery_copy_saved" { text="Saved {count} emergency recovery copies in {path}. These are not saved project assets and will not restore automatically." }
+  msg "editor.audio.setting_changed" { text="This audio setting changed in another view. Review it before editing again." }
   msg "cli.bootstrap.not_native" {
     text="project has native=false, nothing to bootstrap"
   }
@@ -36,6 +71,18 @@ messages version=1 lang=en {
   }
   msg "cli.dump.usage" {
     text="usage: aego dump script <package|Type> [--func name] [--project dir]"
+  }
+  msg "cli.edit.desktop.absolute_path" {
+    text="The desktop file URI must have an absolute path."
+  }
+  msg "cli.edit.desktop.invalid_uri" {
+    text="The desktop file URI is invalid or nonlocal."
+  }
+  msg "cli.edit.desktop.local_drive" {
+    text="The desktop file URI must name a local drive."
+  }
+  msg "cli.edit.desktop.one_uri" {
+    text="A desktop file request requires exactly one local URI."
   }
   msg "cli.edit.flag.cpuprofile" {
     text="write a cpu profile to this file"
@@ -1560,7 +1607,7 @@ messages version=1 lang=en {
     text="Mirror Y"
   }
   msg "editor.art.navigation" {
-    text="Wheel: zoom · middle/right drag: pan · Esc: cancel gesture or clear selection"
+    text="Wheel: zoom · Space+drag or middle/right drag: pan · Esc: cancel gesture or clear selection"
   }
   msg "editor.art.new" {
     text="New Pixel Art…"
@@ -1575,7 +1622,7 @@ messages version=1 lang=en {
     text="Onion skin"
   }
   msg "editor.art.open_hint" {
-    text="Open an .aeart document in Assets to start drawing."
+    text="Double-click a PNG or .aeart file in Assets to start drawing."
   }
   msg "editor.art.open_sprite_source" {
     text="Open Sprite Source"
@@ -1620,13 +1667,13 @@ messages version=1 lang=en {
     text="Save or resolve the image metadata before copying its slices."
   }
   msg "editor.art.png_file" {
-    text="Blank PNG (.png, view only)…"
+    text="Blank PNG (.png)…"
   }
   msg "editor.art.png_help" {
-    text="Create a blank PNG. Choose Pixel Art to edit pixels in Aego."
+    text="Create a blank PNG and open it for drawing. The first Save asks before creating a linked source."
   }
   msg "editor.art.png_prompt" {
-    text="For editable pixels, choose Pixel Art."
+    text="The PNG opens for drawing. The first Save asks before creating a linked editable source."
   }
   msg "editor.art.prepared_sprite" {
     text="Open the image or sprite in the asset viewer."
@@ -4455,6 +4502,9 @@ messages version=1 lang=en {
   msg "editor.menu.animation" {
     text="Animation"
   }
+  msg "editor.menu.art_group" {
+    text="Art"
+  }
   msg "editor.menu.assets" {
     text="Assets"
   }
@@ -5871,6 +5921,12 @@ messages version=1 lang=en {
     one="{n} error"
     other="{n} errors"
   }
+  msg "editor.shell.example_link_single" {
+    text="Open an example link separately from other dropped items."
+  }
+  msg "editor.shell.example_link_unavailable" {
+    text="Opening example links is unavailable in this editor."
+  }
   msg "editor.shell.export_message" {
     text="Export: {message}"
   }
@@ -6759,5 +6815,447 @@ messages version=1 lang=en {
   }
   msg "settings.title" {
     text="Settings"
+  }
+  msg "editor.art.source_unavailable" { text="This asset has no editable project image source." }
+  msg "editor.art.metadata_required" { text="Repair the image metadata before creating an editable source." }
+  msg "editor.art.save_image_settings" { text="Save or resolve the image import settings before creating a linked art source." }
+  msg "editor.art.linked_frame_unavailable" { text="The linked art frame is unavailable. Resolve its import error before editing." }
+  msg "editor.art.legacy_link_geometry" { text="This older PNG link cannot detect slicing changes. Keep its source rectangles unchanged and review them before importing." }
+  msg "editor.art.resolve_source_settings" { text="Save or resolve unsaved source settings before linking: {path}" }
+  msg "editor.art.external_source_conflict" { text="The image source or its metadata changed outside the editor. Resolve the conflict before linking." }
+  msg "editor.art.create_linked_source" { text="Create linked art source" }
+  msg "editor.art.linked_source_notice" { text="Create an editable source for {path} and store a link in its image import metadata. Sprite and animation IDs stay the same; edits affect every consumer of this shared asset. The original PNG is preserved." }
+  msg "editor.art.create_linked" { text="Create linked source" }
+  msg "editor.art.link_target_changed" { text="The project, image or import settings changed before linking. Open Edit Source Art again." }
+  msg "editor.art.link_extension" { text="The editable source must use .aeart." }
+  msg "editor.art.edit_source" { text="Edit Source Art" }
+  msg "editor.art.action_stale" {
+    text="The document or selection changed. Open the action again."
+  }
+  msg "editor.art.panel_tool_options" { text="Tool Options" }
+  msg "editor.art.panel_palette" { text="Palette" }
+  msg "editor.art.panel_color" { text="Color Picker" }
+  msg "editor.art.panel_layers" { text="Layers" }
+  msg "editor.art.panel_channels" { text="Surface Channels" }
+  msg "editor.art.panel_selection" { text="Selection & Transform" }
+  msg "editor.art.panel_info" { text="Art Properties" }
+  msg "editor.art.panel_animation_timeline" { text="Animation Timeline" }
+  msg "editor.art.panel_asset_preview" { text="Asset Preview in Aego" }
+  msg "editor.art.foreground_color" { text="Foreground" }
+  msg "editor.art.background_color_short" { text="Background" }
+  msg "editor.art.swap_colors" { text="Swap foreground / background" }
+  msg "editor.art.indexed_color_hint" { text="Indexed painting uses the selected palette entries. Choose swatches in Palette." }
+  msg "editor.art.indexed_add_to_paint" { text="Indexed painting still uses the selected swatch. Add this color to the palette to paint with it." }
+  msg "editor.art.color_sv_hint" { text="Drag to choose saturation and brightness" }
+  msg "editor.art.color_hue_hint" { text="Drag to choose hue" }
+  msg "editor.art.color_alpha" { text="Alpha" }
+  msg "editor.art.stroke_preview" { text="Stroke preview" }
+  msg "editor.art.stroke_preview_hint" { text="Example on an empty layer; selection, layer blending and locks are not shown." }
+  msg "editor.art.tool_no_stroke" { text="This tool does not paint a stroke." }
+  msg "editor.art.deselect_shortcut" { text="Deselect (Ctrl/Cmd+D)" }
+  msg "editor.art.frame_duration_hint" { text="Selected frame duration in milliseconds" }
+  msg "editor.art.save_png_draft" { text="Save editable image source" }
+  msg "editor.art.save_png_draft_notice" { text="Save the drawing as an .aeart source and link it in the PNG import metadata. Replacing an existing drawing requires confirmation. The PNG itself is not overwritten; changes affect all users of this shared image." }
+  msg "editor.art.png_draft_saved" { text="Saved linked drawing: {path}" }
+  msg "editor.art.png_draft_hint" { text="PNG is open in memory. Save to choose a linked editable source and publish the drawing; the PNG itself is not overwritten." }
+  msg "editor.art.png_draft_preview" { text="Save the drawing before previewing it as a game asset." }
+  msg "editor.art.canvas_size_info" { text="Canvas: {width} × {height}" }
+  msg "editor.art.color_mode_info" { text="Color mode: {mode}" }
+  msg "editor.art.color_mode_gray" { text="Grayscale" }
+  msg "editor.art.color_mode_indexed" { text="Indexed" }
+  msg "editor.art.frame_count_info" { text="Frames: {count}" }
+  msg "editor.art.status_context" { text="Layer: {layer} · Frame {frame}/{total} · {mode}" }
+  msg "editor.art.brush_size" { text="Brush size" }
+  msg "editor.art.fill_current_mode" { text="Contiguous fill on the active layer, with zero tolerance." }
+  msg "editor.art.dither" { text="Dither" }
+  msg "editor.art.all_frames" {
+    text="Play all frames"
+  }
+  msg "editor.art.apply" {
+    text="Apply"
+  }
+  msg "editor.art.aseprite_export_extension" {
+    text="The interchange copy must use .aseprite."
+  }
+  msg "editor.art.aseprite_export_open_target" {
+    text="Close the open destination or its metadata before exporting."
+  }
+  msg "editor.art.aseprite_export_unavailable" {
+    text="Resolve pending recovery and open a project drawing before exporting."
+  }
+  msg "editor.art.aseprite_export_unsupported" {
+    text="Cannot export this drawing without losing data"
+  }
+  msg "editor.art.aseprite_export_warning" {
+    text="This is an unindexed interchange copy, not a replacement for your source. Aego identities and asset links are not carried into the copy. Your original and its links remain unchanged. Verify the copy in Aseprite before using it."
+  }
+  msg "editor.art.aseprite_exported" {
+    text="Created interchange copy: {path}"
+  }
+  msg "editor.art.background_color" {
+    text="Background color for gradient and dithering"
+  }
+  msg "editor.art.blend_mode" {
+    text="Blend: normal / multiply / screen / add"
+  }
+  msg "editor.art.capture_brush" {
+    text="Capture"
+  }
+  msg "editor.art.capture_brush_hint" {
+    text="Capture a custom brush from the selected pixels"
+  }
+  msg "editor.art.cel_actions" {
+    text="Cels…"
+  }
+  msg "editor.art.cel_selection_hint" {
+    text="Click a cel to select it. Shift selects a rectangle; Ctrl/Cmd toggles individual cels. Move, copy or link the selection from this menu."
+  }
+  msg "editor.art.clear_brush" {
+    text="Clear"
+  }
+  msg "editor.art.clear_brush_hint" {
+    text="Clear the custom brush and return to a solid brush"
+  }
+  msg "editor.art.clear_pixels" {
+    text="Clear selected pixels"
+  }
+  msg "editor.art.color_count" {
+    text="Maximum colors (2–256)"
+  }
+  msg "editor.art.copy" {
+    text="Copy pixels"
+  }
+  msg "editor.art.copy_animation" {
+    text="Copy animation range…"
+  }
+  msg "editor.art.copy_cels" {
+    text="Copy selected cels…"
+  }
+  msg "editor.art.curve" {
+    text="Curve"
+  }
+  msg "editor.art.curve_hint" {
+    text="Curve: click start, end, then two control points. Esc cancels."
+  }
+  msg "editor.art.custom_brush" {
+    text="Custom"
+  }
+  msg "editor.art.delete_frame" {
+    text="Delete current frame"
+  }
+  msg "editor.art.delete_layer" {
+    text="Delete layer"
+  }
+  msg "editor.art.delete_tag" {
+    text="Delete selected tag"
+  }
+  msg "editor.art.deselect" {
+    text="Deselect"
+  }
+  msg "editor.art.dither_level" {
+    text="Dithering: 0 off, 1–16 foreground coverage"
+  }
+  msg "editor.art.edit_pivot" {
+    text="Frame pivot…"
+  }
+  msg "editor.art.edit_tag" {
+    text="Edit selected tag…"
+  }
+  msg "editor.art.export_actions" {
+    text="Save / Export…"
+  }
+  msg "editor.art.export_aseprite" {
+    text="Export Aseprite interchange copy…"
+  }
+  msg "editor.art.export_copy" {
+    text="Export copy"
+  }
+  msg "editor.art.export_palette" {
+    text="Export palette…"
+  }
+  msg "editor.art.export_png" {
+    text="Export current frame PNG…"
+  }
+  msg "editor.art.export_sheet" {
+    text="Export sprite sheet and animation…"
+  }
+  msg "editor.art.exported" {
+    text="Exported: {path}"
+  }
+  msg "editor.art.flip_x" {
+    text="Flip horizontally"
+  }
+  msg "editor.art.flip_y" {
+    text="Flip vertically"
+  }
+  msg "editor.art.frame_back" {
+    text="Move frame earlier"
+  }
+  msg "editor.art.frame_forward" {
+    text="Move frame later"
+  }
+  msg "editor.art.frame_offset" {
+    text="Frame offset"
+  }
+  msg "editor.art.frames_tags" {
+    text="Frames / Tags…"
+  }
+  msg "editor.art.group" {
+    text="Group"
+  }
+  msg "editor.art.independent_cel" {
+    text="Independent cel"
+  }
+  msg "editor.art.isolate" {
+    text="Isolate selected layer / Show all"
+  }
+  msg "editor.art.layer_actions" {
+    text="Layer…"
+  }
+  msg "editor.art.layer_down" {
+    text="Move layer down"
+  }
+  msg "editor.art.layer_name" {
+    text="Name"
+  }
+  msg "editor.art.layer_offset" {
+    text="Layer offset"
+  }
+  msg "editor.art.layer_settings" {
+    text="Layer properties…"
+  }
+  msg "editor.art.layer_up" {
+    text="Move layer up"
+  }
+  msg "editor.art.link_cels" {
+    text="Link selected cels…"
+  }
+  msg "editor.art.linked_cel" {
+    text="Linked cel: shared pixels"
+  }
+  msg "editor.art.merge_down" {
+    text="Merge down"
+  }
+  msg "editor.art.merge_hint" {
+    text="Merge adjacent visible, unlocked layers of the same kind using Normal blend. Other combinations are rejected; pixels are never silently approximated."
+  }
+  msg "editor.art.mode_grayscale" {
+    text="Convert to grayscale"
+  }
+  msg "editor.art.mode_indexed" {
+    text="Convert to indexed palette"
+  }
+  msg "editor.art.mode_rgba" {
+    text="Convert to RGBA"
+  }
+  msg "editor.art.move_cels" {
+    text="Move selected cels…"
+  }
+  msg "editor.art.move_pixels" {
+    text="Move pixels…"
+  }
+  msg "editor.art.new_export_path" {
+    text="New project path (existing files are not overwritten)"
+  }
+  msg "editor.art.new_group" {
+    text="New group"
+  }
+  msg "editor.art.new_reference" {
+    text="New reference layer"
+  }
+  msg "editor.art.new_tag" {
+    text="New animation tag…"
+  }
+  msg "editor.art.next_frame" {
+    text="Next frame"
+  }
+  msg "editor.art.next_tags" {
+    text="Next tags"
+  }
+  msg "editor.art.opacity" {
+    text="Opacity (0–255)"
+  }
+  msg "editor.art.overwrite_cels" {
+    text="Replace occupied destination: yes / no"
+  }
+  msg "editor.art.palette_actions" {
+    text="Palette…"
+  }
+  msg "editor.art.palette_add_foreground" {
+    text="Add foreground to palette"
+  }
+  msg "editor.art.palette_extract" {
+    text="Extract palette from frame…"
+  }
+  msg "editor.art.palette_file" {
+    text="Palette file (.json or .gpl)"
+  }
+  msg "editor.art.palette_from" {
+    text="Source index"
+  }
+  msg "editor.art.palette_import" {
+    text="Import palette…"
+  }
+  msg "editor.art.palette_layers" {
+    text="Palette / Layers"
+  }
+  msg "editor.art.palette_left" {
+    text="Move swatch left (preserve pixels)"
+  }
+  msg "editor.art.palette_pointer_hint" {
+    text="Left click: foreground. Right click: background. X swaps them."
+  }
+  msg "editor.art.palette_remap" {
+    text="Remap palette index…"
+  }
+  msg "editor.art.palette_right" {
+    text="Move swatch right (preserve pixels)"
+  }
+  msg "editor.art.palette_set_fg" {
+    text="Set selected swatch to foreground"
+  }
+  msg "editor.art.palette_to" {
+    text="Destination index"
+  }
+  msg "editor.art.parent_group" {
+    text="Parent group name (empty = root)"
+  }
+  msg "editor.art.paste" {
+    text="Paste pixels"
+  }
+  msg "editor.art.paste_animation" {
+    text="Paste animation"
+  }
+  msg "editor.art.pattern_brush" {
+    text="Pattern"
+  }
+  msg "editor.art.pixel_actions" {
+    text="Pixels…"
+  }
+  msg "editor.art.pixel_preview" {
+    text="Pixel preview"
+  }
+  msg "editor.art.polygon" {
+    text="Polygon"
+  }
+  msg "editor.art.polygon_hint" {
+    text="Polygon: click vertices, then Enter or the first vertex to finish. Esc cancels."
+  }
+  msg "editor.art.preparing_preview" {
+    text="Preparing the latest authored frame…"
+  }
+  msg "editor.art.preview_context_lost" {
+    text="The graphics context was lost. Preview will resume when it is restored."
+  }
+  msg "editor.art.preview_emission_strength" {
+    text="Preview emission intensity; source materials remain unchanged"
+  }
+  msg "editor.art.previous_frame" {
+    text="Previous frame"
+  }
+  msg "editor.art.previous_tags" {
+    text="Previous tags"
+  }
+  msg "editor.art.recent_colors" {
+    text="Recent colors"
+  }
+  msg "editor.art.recent_indexed_unavailable" {
+    text="Add this color to the palette before using it in indexed mode."
+  }
+  msg "editor.art.ramp_first" {
+    text="First palette index"
+  }
+  msg "editor.art.ramp_last" {
+    text="Last palette index"
+  }
+  msg "editor.art.ramp_shade" {
+    text="Shade using palette ramp…"
+  }
+  msg "editor.art.ramp_step" {
+    text="Step (negative = darker)"
+  }
+  msg "editor.art.reference" {
+    text="Reference"
+  }
+  msg "editor.art.rotate_ccw" {
+    text="Rotate 90° counterclockwise"
+  }
+  msg "editor.art.rotate_cw" {
+    text="Rotate 90° clockwise"
+  }
+  msg "editor.art.save_copy" {
+    text="Save editable copy…"
+  }
+  msg "editor.art.scale_pixels" {
+    text="Scale pixels…"
+  }
+  msg "editor.art.select_all" {
+    text="Select all"
+  }
+  msg "editor.art.solid_brush" {
+    text="Solid"
+  }
+  msg "editor.art.tag_direction" {
+    text="Direction: forward / reverse / ping-pong"
+  }
+  msg "editor.art.tag_from" {
+    text="First frame (1-based)"
+  }
+  msg "editor.art.tag_settings" {
+    text="Animation tag"
+  }
+  msg "editor.art.tag_to" {
+    text="Last frame (1-based)"
+  }
+  msg "editor.art.tiled_preview" {
+    text="Tiled preview"
+  }
+  msg "editor.art.toggle_alpha_lock" {
+    text="Toggle alpha lock"
+  }
+  msg "editor.art.tools" {
+    text="Art Tools"
+  }
+  msg "editor.particles.effect_component" {
+    text="The particle component is unavailable."
+  }
+  msg "editor.particles.effect_extension" {
+    text="Effect drawing path must end with .aeart."
+  }
+  msg "editor.particles.effect_pair" {
+    text="Creates a drawing and a linked particle preset beside it."
+  }
+  msg "editor.particles.effect_services" {
+    text="This host does not support atomic effect creation."
+  }
+  msg "editor.particles.effect_template" {
+    text="Effect template"
+  }
+  msg "editor.particles.effect_unknown" {
+    text="Unknown effect template: {id}"
+  }
+  msg "editor.particles.new_effect" {
+    text="New Effect…"
+  }
+  msg "editor.particles.new_effect_file" {
+    text="Animated Effect (.aeart + .aepreset)…"
+  }
+  msg "editor.particles.new_effect_help" {
+    text="Create an editable eight-frame drawing and its linked particle preset."
+  }
+  msg "editor.command.asset.new_effect" {
+    text="New Effect…"
+  }
+  msg "editor.art.duplicate_edit_scene" {
+    text="Duplicate for This Object requires an editable scene and a project image."
+  }
+  msg "editor.art.duplicate_for_object" {
+    text="Duplicate for This Object"
+  }
+  msg "editor.art.duplicate_notice" {
+    text="Create an independent art source from the current pixels, and copy any affected clips and controller for this object. Other objects keep the shared asset. Undo restores this object's references; the new files remain available in Assets."
+  }
+  msg "editor.art.duplicate_selection_changed" {
+    text="The selected object's sprite changed. Open the action again."
   }
 }

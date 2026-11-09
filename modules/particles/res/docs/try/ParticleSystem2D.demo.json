@@ -20,5 +20,5 @@
     "en": {"title": "Particle emission rate", "description": "A prewarmed emitter with Rate zero has no particles. Its capacity is 20.", "input": "Set Rate to 40 to fill the emitter. Reset stops emission and clears the particles."},
     "ru": {"title": "Частота появления частиц", "description": "В прогретом источнике с нулевой частотой нет частиц. Его предел — 20.", "input": "Установите частоту 40, чтобы заполнить источник. «Сброс» остановит эмиссию и удалит частицы."}
   },
-  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}}
+  "environments": {"native": {"mode": "runtime"}, "chromium": {"mode": "runtime"}, "firefox": {"mode": "runtime"}}
 }

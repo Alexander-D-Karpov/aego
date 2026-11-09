@@ -33,4 +33,8 @@ Effects/Spark
 Effects/Smoke
 Effects/Rain
 Effects/Explosion
+Effects/Fire
+Effects/Hit Flash
+Effects/Magic Projectile
+Effects/Trail
 rotator/Rotator

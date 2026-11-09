@@ -71,6 +71,15 @@ func cmdDocs(args []string) int {
 	engineDir := fs.String("engine", "", "path to the aego source tree")
 	repo := fs.String("repo", "", "source repository linked from the site header")
 	demo := fs.Bool("demo", false, "link the web demo at demo/ from the landing page")
+	var examplesURL string
+	var examplesURLSet bool
+	fs.Func("examples-url", "canonical HTTPS root for example packages; empty disables them outside production", func(value string) error {
+		examplesURL, examplesURLSet = value, true
+		return nil
+	})
+	examplesVersion := fs.String("examples-version", "", "release version for the example catalog; default is set by gendocs")
+	examplesLicense := fs.String("examples-license", "", "reviewed license of packaged example sources; local default is NOASSERTION")
+	examplesProduction := fs.Bool("examples-production", false, "require an explicit reviewed example license for official publication")
 	dir := fs.String("project", "", "project directory")
 	asJSON := fs.Bool("json", false, "report as JSON")
 	if err := fs.Parse(args[1:]); err != nil {
@@ -82,6 +91,12 @@ func cmdDocs(args []string) int {
 	}
 	env.Repo = *repo
 	env.Demo = *demo
+	if examplesURLSet {
+		env.ExamplesURL = &examplesURL
+	}
+	env.ExamplesVersion = *examplesVersion
+	env.ExamplesLicense = *examplesLicense
+	env.ExamplesProduction = *examplesProduction
 	site := func(def string) string {
 		if *out != "" {
 			return *out

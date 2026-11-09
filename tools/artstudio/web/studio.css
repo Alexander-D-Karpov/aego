@@ -16,6 +16,46 @@
   font-family: Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
   font-size: 12px;
 }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --raised: #e5e9ef;
+  --border: #b8c1cd;
+  --text: #202a36;
+  --muted: #536172;
+  --accent: #aa501b;
+  --active: #315d8e;
+  --field: #eef1f5;
+  --red: #a31d2b;
+}
+:root[data-theme="light"] .build-badge { color: var(--muted); }
+:root[data-theme="light"] .brand-mark { color: #fff; }
+:root[data-theme="light"] .preview-space { background: var(--field); }
+:root[data-theme="light"] .layer-row.selected { color: #fff; }
+:root[data-theme="light"] #timeline-table td button.linked { color: #24536d; }
+:root[data-theme="light"] #timeline-table td button.active.linked { color: #fff; }
+:root[data-theme="light"] #timeline-table td button.range-selected.linked { color: #fff; }
+:root[data-theme="light"] .statusbar.error #status { color: var(--red); }
+:root[data-theme="light"] .recovery { background: #dce8f5; }
+:root[data-theme="light"] .recovery button { border-color: #8ca9c7; }
+/* Landing pages have no script-driven choice; follow the system there. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --raised: #e5e9ef;
+    --border: #b8c1cd;
+    --text: #202a36;
+    --muted: #536172;
+    --accent: #aa501b;
+    --active: #315d8e;
+    --field: #eef1f5;
+  }
+  :root:not([data-theme]) .build-badge { color: var(--muted); }
+  :root:not([data-theme]) .brand-mark { color: #fff; }
+}
 * {
   box-sizing: border-box;
 }
@@ -24,7 +64,8 @@ body {
   background: var(--bg);
   color: var(--text);
   display: grid;
-  grid-template-rows: 44px 36px minmax(0,1fr) 25px;
+  grid-template-columns: minmax(0,1fr);
+  grid-template-rows: minmax(44px,max-content) 36px minmax(0,1fr) 25px;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -100,6 +141,7 @@ input[type=range] {
 }
 .appbar {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
@@ -148,6 +190,7 @@ input[type=range] {
 }
 .app-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 5px;
 }
@@ -155,8 +198,24 @@ input[type=range] {
   font-size: 20px;
   padding: 0 7px;
 }
+/* Keep the two compact button boxes independent of font glyph coverage. */
+#fullscreen, #duplicate-layer { position:relative; padding:0; }
+#fullscreen { width:28px; }
+#duplicate-layer { width:25px; }
+#fullscreen svg, #duplicate-layer svg {
+  position:absolute;
+  inset:0;
+  margin:auto;
+  width:14px;
+  height:14px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.55;
+  pointer-events:none;
+}
 .menubar {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 2px;
   padding: 0 10px;
@@ -173,6 +232,7 @@ input[type=range] {
 .studio {
   display: grid;
   min-height: 0;
+  min-width: 0;
   grid-template-columns: var(--tools) minmax(0,1fr) var(--side);
   grid-template-rows: minmax(0,1fr) var(--timeline);
 }
@@ -347,7 +407,7 @@ canvas {
   color: var(--muted);
 }
 .canvas-footer {
-  height: 31px;
+  min-height: 31px;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   display: flex;
@@ -357,6 +417,10 @@ canvas {
   background: var(--panel);
   white-space: nowrap;
   font-size: 11px;
+  overflow-x: auto;
+}
+.canvas-footer > * {
+  flex-shrink: 0;
 }
 #zoom {
   min-width: 43px;
@@ -415,7 +479,7 @@ canvas {
 }
 .color-controls>div {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 110px;
 }
 .color-controls>div>span {
   display: block;
@@ -564,9 +628,10 @@ canvas {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  overflow: auto;
 }
 .timeline-toolbar {
-  height: 36px;
+  min-height: 36px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -576,6 +641,9 @@ canvas {
   overflow-x: auto;
   white-space: nowrap;
   font-size: 11px;
+}
+.timeline-toolbar > *, .timeline-footer > * {
+  flex-shrink: 0;
 }
 .timeline-toolbar>strong {
   font-size: 10px;
@@ -696,6 +764,8 @@ canvas {
 }
 .recovery {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 10px;
   padding: 5px 12px;
@@ -715,7 +785,7 @@ dialog {
   border: 1px solid #555e6e;
   border-radius: 8px;
   padding: 24px;
-  min-width: 300px;
+  min-width: min(300px,calc(100vw - 24px));
   box-shadow: 0 25px 100px #0009;
 }
 dialog::backdrop {
@@ -727,12 +797,14 @@ dialog h2 {
 }
 dialog form>label {
   justify-content: space-between;
+  flex-wrap: wrap;
   margin: 12px 0;
   gap: 25px;
 }
 dialog input,dialog select {
   width: 130px !important;
 }
+#new-dialog select[name=template] { width:240px !important; min-width:0; max-width:100%; }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -746,7 +818,9 @@ dialog input,dialog select {
 .primary {
   background: var(--active);
   border-color: var(--accent) !important;
+  color: #fff;
 }
+.primary:hover { background: var(--active); filter: brightness(1.12); }
 .workspace-animation {
   --timeline: 290px;
 }
@@ -886,10 +960,10 @@ dialog input,dialog select {
 .color-alpha input { width:45px; }
 .timeline-range-toolbar { border-bottom:1px solid var(--border); flex-shrink:0; }
 .timeline-range-toolbar button { font-size:11px; }
-#timeline-table button.range-selected { background:var(--active); outline:1px solid var(--accent); outline-offset:-2px; }
+#timeline-table button.range-selected { background:var(--active); color:#fff; outline:1px solid var(--accent); outline-offset:-2px; }
 #timeline-table button.active { outline:2px solid var(--accent); outline-offset:-2px; }
-#palette-order-dialog textarea { width:100%; min-width:220px; resize:vertical; color:var(--text); background:var(--bg); }
-dialog p { max-width:390px; line-height:1.5; font-size:12px; color:var(--muted); }
+#palette-order-dialog textarea { width:100%; min-width:0; resize:vertical; color:var(--text); background:var(--bg); }
+dialog p { max-width:390px; overflow-wrap:anywhere; line-height:1.5; font-size:12px; color:var(--muted); }
 #recovery-choice { min-width:80px; max-width:40%; }
 @media (max-width:800px) { .color-controls { flex-wrap:wrap; } .timeline-range-toolbar .muted { display:none; } .timeline-range-toolbar { max-height:84px; overflow:auto; } }
 
@@ -899,3 +973,46 @@ dialog p { max-width:390px; line-height:1.5; font-size:12px; color:var(--muted);
 dialog input[type=checkbox] { width:auto !important; min-width:16px; flex:none; }
 dialog label { white-space:normal; }
 dialog { max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); overflow:auto; }
+
+/* GPU presentation is a sibling of the art canvas, never an editing surface. */
+.preview-panel { min-width: 0; }
+.preview-panel .panel-heading select { max-width: 165px; }
+.preview-space { position: relative; }
+#gpu-preview { width:100%; height:100%; min-height:160px; display:block; }
+#gpu-preview.hidden { display:none; }
+#gpu-preview.gpu-failed { visibility:hidden; }
+.has-gpu-preview .preview-space { min-height:180px; }
+.gpu-controls { padding:8px 12px; display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; }
+.gpu-controls label { display:flex; align-items:center; gap:4px; font-size:11px; min-width:0; }
+.gpu-controls input[type=range] { width:70px; min-width:25px; flex:1; }
+.gpu-status { margin:0; padding:4px 12px 8px; font-size:10px; overflow-wrap:anywhere; }
+.gpu-status.error { color:var(--red,#ff8997); }
+.workspace-vfx .sidebar { width:auto; }
+.workspace-vfx .preview-space { min-height:260px; }
+.workspace-vfx .palette-panel,.workspace-vfx .layers-panel { flex:0 1 auto; max-height:200px; overflow:auto; }
+.gpu-controls.hidden { display:none; }
+@media(max-width:760px) { .gpu-controls { grid-template-columns:1fr 1fr; } .workspace-vfx .preview-space { min-height:180px; } }
+
+.layer-settings>div,.preview-controls { flex-wrap:wrap; }
+.layer-settings>div button { font-size:10px; padding:4px 6px; }
+#stage[data-background=light] { background-image:none; background-color:#f1f1f1; }
+#stage[data-background=dark] { background-image:none; background-color:#111318; }
+#canvas-background { max-width:108px; font-size:11px; }
+
+/* The root never scrolls horizontally. Small screens keep app actions on the
+   first row; workspace tabs use a second row and existing docks scroll locally. */
+@media (max-width:480px) {
+  .appbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:6px 8px; }
+  .appbar .brand { grid-column:1; grid-row:1; }
+  .appbar .app-actions { grid-column:2; grid-row:1; }
+  .appbar .workspaces { grid-column:1 / -1; grid-row:2; min-width:0; }
+  .workspaces button { min-width:0; flex:1; }
+  .sidebar.open { top:113px; max-width:calc(100vw - var(--tools)); }
+  .recovery { gap:6px; }
+  .recovery > span { flex:1 1 100%; overflow-wrap:anywhere; }
+  .recovery #recovery-choice { flex:1 1 120px; min-width:0; max-width:100%; }
+  dialog { padding:16px; }
+  dialog form>label { gap:8px; }
+}
+
+#pivot-overlay { position:absolute; width:15px; height:15px; line-height:13px; text-align:center; transform:translate(-50%,-50%); color:#fff; text-shadow:0 0 2px #000,0 0 3px #000; border:1px solid #f6bb54; border-radius:50%; pointer-events:none; z-index:4; }

@@ -11,6 +11,8 @@ permissions:
 
 env:
   GLSLANG_APT_VERSION: 15.1.0-2~ubuntu0.24.04.2
+  SDL_AUDIO_DRIVER: dummy
+  SDL_AUDIODRIVER: dummy
   LINUX_PKGS: >-
     build-essential cmake ninja-build pkg-config openssl
     libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev
@@ -27,6 +29,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - name: system packages
         run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
       - uses: actions/cache@v4
@@ -40,10 +45,14 @@ jobs:
       - run: make lint
       - run: make depcheck
       - name: Test worktree evidence inventory
-        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p worktree_manifest_test.py
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p worktree_manifest_test.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_component_try_evidence.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_integration_race.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_protocol_install.py
       - name: Install isolated Asset Studio browser test environment
         run: |
-          sudo apt-get install -y python3-venv
+          sudo apt-get install -y python3-venv xvfb xauth xdotool
           python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
           "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
           PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
@@ -74,7 +83,71 @@ jobs:
             ${{ runner.temp }}/aego-artstudio-evidence/site/asset-studio/**
             ${{ runner.temp }}/aego-artstudio-evidence/chromium-browser/**
             ${{ runner.temp }}/aego-artstudio-evidence/firefox-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/chromium-gpu-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/firefox-gpu-browser/**
             ${{ runner.temp }}/aego-artstudio-evidence/parity-replay/*.json
+      - name: Full Aego regression and component Try
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
+          AEGO_TRY_FIREFOX_HEADED: "1"
+        run: |
+          set -euo pipefail
+          (cd tools/websmoke && npm ci --no-audit --no-fund)
+          chromium="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").chromium.executablePath())')"
+          export ARTSTUDIO_ARTIFACT="$RUNNER_TEMP/aego-artstudio-evidence/artifact"
+          export ARTSTUDIO_MANIFEST_SHA256="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
+          mkdir -p "$RUNNER_TEMP/aego-full-ci"
+          set +e
+          xvfb-run -a -s '-screen 0 1440x1050x24' make ci XVFB= CHROMIUM="$chromium" \
+            >"$RUNNER_TEMP/aego-full-ci/make-ci.log" 2>&1
+          result=$?
+          set -e
+          printf '%s\n' "$result" >"$RUNNER_TEMP/aego-full-ci/make-ci.exit"
+          tail -n 100 "$RUNNER_TEMP/aego-full-ci/make-ci.log"
+          if [ "$result" -ne 0 ]; then exit "$result"; fi
+          python3 -B tools/ci/component_try_evidence.py verify --root "$PWD" \
+            --report .cache/component-try.json --evidence .cache/component-try-evidence \
+            --wasm site/try/aego-docs.wasm --output "$RUNNER_TEMP/aego-full-ci/component-try-verified.json"
+      - name: Native authoring and installed Linux protocol
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
+        run: |
+          set -euo pipefail
+          run_gate() {
+            local name="$1"; shift
+            set +e
+            "$@" >"$RUNNER_TEMP/aego-full-ci/$name.log" 2>&1
+            local code=$?
+            set -e
+            printf '%s\n' "$code" >"$RUNNER_TEMP/aego-full-ci/$name.exit"
+            tail -n 100 "$RUNNER_TEMP/aego-full-ci/$name.log"
+            return "$code"
+          }
+          run_gate native-user-scenario env SDL_VIDEODRIVER=offscreen \
+            AEGO_NATIVE_SCENARIO_EVIDENCE="$RUNNER_TEMP/aego-full-ci/native-sdl" \
+            bash tools/stage125-check.sh artstudio-native
+          run_gate file-interoperability env SDL_VIDEODRIVER=offscreen \
+            "$RUNNER_TEMP/aego-artstudio-python/bin/python" tools/artstudio/release/tests/file_interop_e2e.py \
+            --artifact "$RUNNER_TEMP/aego-artstudio-evidence/artifact" \
+            --native-evidence "$RUNNER_TEMP/aego-full-ci/native-sdl" \
+            --evidence "$RUNNER_TEMP/aego-full-ci/file-interop" \
+            --app-url http://127.0.0.1:8097/ --serve-artifact
+          run_gate remote-examples make remote-examples-check XVFB= \
+            REMOTE_EXAMPLES_OUT="$RUNNER_TEMP/aego-full-ci/remote-protocol"
+      - name: Preserve full CI and component evidence
+        if: ${{ always() }}
+        uses: https://github.com/ChristopherHX/gitea-upload-artifact@81f940d004763f986ba3582c007fd842dd5cb0d7
+        with:
+          name: aego-full-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/aego-full-ci/**
+            .cache/component-try.json*
+            .cache/component-try-evidence/**
+            .cache/component-try-evidence-negative/**
+            .cache/integration-race/**
+            site/try/aego-docs.wasm
       - name: packaging tools
         run: sudo apt-get install -y nsis squashfs-tools
       - name: installer dry run

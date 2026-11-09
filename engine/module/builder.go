@@ -98,6 +98,14 @@ func (b *ComponentBuilder[T]) Display(name string) *ComponentBuilder[T] {
 	return b
 }
 
+// SearchAliases retains former public names without changing the technical ID.
+func (b *ComponentBuilder[T]) SearchAliases(names ...string) *ComponentBuilder[T] {
+	if d := b.edit(); d != nil {
+		d.SearchAliases = append(d.SearchAliases, names...)
+	}
+	return b
+}
+
 func (b *ComponentBuilder[T]) Icon(name string) *ComponentBuilder[T] {
 	if d := b.edit(); d != nil {
 		d.Icon = name

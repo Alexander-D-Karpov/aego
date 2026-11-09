@@ -65,6 +65,95 @@ func TestIndexedPaletteReplacementPreservesPixelsAndLinks(t *testing.T) {
 	}
 	e.Cancel()
 }
+
+func TestAddPaletteEntryPreservesIndexedIdentityAndUndo(t *testing.T) {
+	d, layer, frame, cel := doc(t, Indexed)
+	defer d.Close()
+	e := edit(t, d)
+	duplicate := e.Info().Palette[1]
+	duplicate.Name = "second instance"
+	if err := e.SetPaletteEntry(2, duplicate); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.SetPixel(cel, 2, 3, Paint{UseIndex: true, Index: 2}, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	frame2, err := e.AddFrame(frame, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	linked, err := e.CopyCel(cel, layer, frame2, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	normal, err := e.EnsureCel(layer, frame, Normal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalColor := Color{128, 129, 255, 255}
+	if err := e.SetPixel(normal, 2, 3, Paint{Color: normalColor}, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	done(t, e)
+	before := d.Info()
+	s, err := NewSession(d, NewJournal(DefaultLimits()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	added := Swatch{Name: "extra", Color: Color{31, 91, 151, 190}}
+	if _, err := s.Execute(context.Background(), Operation{Kind: "palette-add", Swatch: &added}); err != nil {
+		t.Fatal(err)
+	}
+	check := func(wantCount int) {
+		t.Helper()
+		info := d.Info()
+		if len(info.Palette) != wantCount || info.Palette[0] != before.Palette[0] || !reflect.DeepEqual(info.Cels, before.Cels) {
+			t.Fatal("palette append changed transparent entry or cel links")
+		}
+		for _, id := range []ID{cel, linked} {
+			value, err := d.SamplePaint(id, Albedo, 2, 3)
+			if err != nil || !value.UseIndex || value.Index != 2 {
+				t.Fatalf("duplicate palette index was remapped: %+v, %v", value, err)
+			}
+		}
+		pixel(t, d, normal, 2, 3, normalColor)
+	}
+	check(len(before.Palette) + 1)
+	if !s.Info().Dirty || d.Info().Palette[len(before.Palette)] != added {
+		t.Fatal("palette append did not create a dirty swatch")
+	}
+	if err := s.Undo(); err != nil {
+		t.Fatal(err)
+	}
+	check(len(before.Palette))
+	if s.Info().Dirty {
+		t.Fatal("one Undo did not restore the saved state")
+	}
+	if err := s.Redo(); err != nil {
+		t.Fatal(err)
+	}
+	check(len(before.Palette) + 1)
+}
+
+func TestAddPaletteEntryRejectsLimitWithoutMutation(t *testing.T) {
+	d, _, _, _ := doc(t, Indexed)
+	defer d.Close()
+	e := edit(t, d)
+	for len(e.Info().Palette) < 256 {
+		if err := e.AddPaletteEntry(Swatch{Color: red}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := e.Info().Palette
+	if err := e.AddPaletteEntry(Swatch{Color: blue}); err == nil {
+		t.Fatal("palette exceeded its 256-entry limit")
+	}
+	if !reflect.DeepEqual(before, e.Info().Palette) {
+		t.Fatal("rejected palette append changed the pending edit")
+	}
+	e.Cancel()
+}
+
 func TestPaletteExtractionQuantizationAndDataChannels(t *testing.T) {
 	d, l, f, c := doc(t, RGBA)
 	defer d.Close()
