@@ -3,6 +3,9 @@
 # PR/development check, not the strict release gate or production deployment.
 # ARTSTUDIO_SNAPSHOT_DIR must name a new evidence directory outside the repo.
 set -euo pipefail
+# Browser checks import local helper modules. Keep Python from writing
+# __pycache__ into the worktree after the before-inventory is captured.
+export PYTHONDONTWRITEBYTECODE=1
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$root"
 : "${ARTSTUDIO_SNAPSHOT_DIR:?Set an absolute, new evidence directory outside the repository}"
@@ -137,6 +140,13 @@ with open(sys.argv[1], encoding='utf-8') as f:
 with open(sys.argv[2], encoding='utf-8') as f:
     after = json.load(f)
 if before['head'] != after['head'] or before['worktreeSHA256'] != after['worktreeSHA256']:
+    print(f"HEAD: {before['head']} -> {after['head']}")
+    print(f"Worktree SHA-256: {before['worktreeSHA256']} -> {after['worktreeSHA256']}")
+    before_files = {record['path']: record for record in before['files']}
+    after_files = {record['path']: record for record in after['files']}
+    for path in sorted(before_files.keys() | after_files.keys()):
+        if before_files.get(path) != after_files.get(path):
+            print(f"Changed path: {path!r}")
     raise SystemExit('worktree changed during snapshot checks; results do not identify one tree')
 print('Identical tracked/non-ignored worktree inventories before and after:', before['worktreeSHA256'])
 PY
