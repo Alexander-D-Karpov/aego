@@ -79,6 +79,7 @@ func cmdDocs(args []string) int {
 	})
 	examplesVersion := fs.String("examples-version", "", "release version for the example catalog; default is set by gendocs")
 	examplesLicense := fs.String("examples-license", "", "reviewed license of packaged example sources; local default is NOASSERTION")
+	examplesLicenseFile := fs.String("examples-license-file", "", "file containing reviewed terms for every example archive")
 	examplesProduction := fs.Bool("examples-production", false, "require an explicit reviewed example license for official publication")
 	dir := fs.String("project", "", "project directory")
 	asJSON := fs.Bool("json", false, "report as JSON")
@@ -96,6 +97,7 @@ func cmdDocs(args []string) int {
 	}
 	env.ExamplesVersion = *examplesVersion
 	env.ExamplesLicense = *examplesLicense
+	env.ExamplesLicenseFile = *examplesLicenseFile
 	env.ExamplesProduction = *examplesProduction
 	site := func(def string) string {
 		if *out != "" {

@@ -81,6 +81,7 @@ class NginxFixture(unittest.TestCase):
         write_file(release / "releases/old/editor/index.html", cls.old_body)
         write_file(release / "releases/new/editor/index.html", cls.new_body)
         write_file(release / "releases/old/embed/index.html", b"embedded editor")
+        write_file(release / "releases/old/docs/ru/first-sprite/index.html", b"studio lesson")
         write_file(release / "releases/old/assets/core.0123456789abcdef.wasm", cls.wasm)
         write_file(release / "releases/old/assets/core.0123456789abcdef.wasm.gz", cls.gz)
         write_file(release / "releases/.incoming-secret/private", b"not public")
@@ -199,12 +200,23 @@ class NginxFixture(unittest.TestCase):
                 self.assertEqual(self.request(port, "/editor/", method="POST")[0], 403)
         self.assertEqual(self.request(self.bad_edge, "/editor/")[0], 502, "edge must reject an origin with the wrong TLS name")
 
+    def test_studio_guide_csp_allows_only_the_editor_and_local_blob_frames(self):
+        for port in (self.origin, self.edge):
+            with self.subTest(port=port):
+                status, headers, body = self.request(port, "/r/old/docs/ru/first-sprite/")
+                self.assertEqual((status, body), (200, b"studio lesson"))
+                policy = headers["Content-Security-Policy"]
+                self.assertIn("frame-src https://aeditor.akarpov.ru blob:;", policy)
+                self.assertIn("script-src 'self';", policy)
+                self.assertIn("frame-ancestors 'none'", policy)
+                self.assertNotIn("'unsafe-inline'", policy)
+
     def test_docs_guide_csp(self):
         for port in (self.docs, self.docs_edge):
             with self.subTest(port=port):
                 status, headers, body = self.request(port, "/asset-studio/ru/first-sprite/")
                 self.assertEqual((status, body), (200, b"pinned lesson"))
-                self.assertIn("frame-src https://aeditor.akarpov.ru", headers["Content-Security-Policy"])
+                self.assertIn("frame-src https://aeditor.akarpov.ru blob:;", headers["Content-Security-Policy"])
                 self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
                 self.assertNotIn("'unsafe-inline'", headers["Content-Security-Policy"])
 

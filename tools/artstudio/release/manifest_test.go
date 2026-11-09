@@ -10,7 +10,7 @@ import (
 
 func fixtureArtifact(t *testing.T, id string) (string, buildManifest, string) {
 	t.Helper()
-	dir := filepath.Join(t.TempDir(), "artifact")
+	dir := filepath.Join(physicalTempDir(t), "artifact")
 	if e := os.Mkdir(dir, 0755); e != nil {
 		t.Fatal(e)
 	}
@@ -51,28 +51,46 @@ func TestManifestIntegrity(t *testing.T) {
 	}
 }
 func TestManifestRejectsExtraMissingAndSymlink(t *testing.T) {
-	for _, kind := range []string{"extra", "missing", "symlink", "parent-link"} {
+	for _, kind := range []string{"extra", "missing", "symlink", "parent-link", "ancestor-link"} {
 		t.Run(kind, func(t *testing.T) {
 			dir, _, h := fixtureArtifact(t, "one")
+			if _, _, err := verify(dir, h); err != nil {
+				t.Fatalf("valid fixture rejected before mutation: %v", err)
+			}
+			var wantError string
 			switch kind {
 			case "extra":
-				_ = os.WriteFile(filepath.Join(dir, "secret.txt"), []byte("not published"), 0644)
+				if err := os.WriteFile(filepath.Join(dir, "secret.txt"), []byte("not published"), 0644); err != nil {
+					t.Fatal(err)
+				}
 			case "missing":
-				_ = os.Remove(filepath.Join(dir, "index.html"))
+				if err := os.Remove(filepath.Join(dir, "index.html")); err != nil {
+					t.Fatal(err)
+				}
 			case "symlink":
-				_ = os.Remove(filepath.Join(dir, "index.html"))
-				if e := os.Symlink("editor/index.html", filepath.Join(dir, "index.html")); e != nil {
-					t.Skip(e)
+				link := filepath.Join(dir, "index.html")
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
 				}
-			case "parent-link":
-				link := filepath.Join(t.TempDir(), "link")
-				if e := os.Symlink(dir, link); e != nil {
-					t.Skip(e)
+				fixtureSymlink(t, "editor/index.html", link)
+				wantError = "symlink refused: " + link
+			case "parent-link", "ancestor-link":
+				link := filepath.Join(physicalTempDir(t), "link")
+				target := dir
+				if kind == "ancestor-link" {
+					target = filepath.Dir(dir)
 				}
+				fixtureSymlink(t, target, link)
 				dir = link
+				if kind == "ancestor-link" {
+					dir = filepath.Join(link, "artifact")
+				}
+				wantError = "symlink path refused: " + link
 			}
 			if _, _, e := verify(dir, h); e == nil {
 				t.Fatal("invalid artifact accepted")
+			} else if wantError != "" && e.Error() != wantError {
+				t.Fatalf("verification error = %v; want %s", e, wantError)
 			}
 		})
 	}

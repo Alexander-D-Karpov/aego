@@ -79,8 +79,9 @@ SDL input through the real editor and GL/game scenarios) and
 with the pinned artifact). The latter creates a new
 `$ARTSTUDIO_EVIDENCE/docs-site`, or the explicit `ARTSTUDIO_DOCS_SITE`; arrange
 for the CI docs host at `ARTSTUDIO_DOCS_URL` to serve that directory. Production
-example packages additionally require `AEGO_EXAMPLE_LICENSE` with the reviewed
-source license; dependency licenses do not establish the examples' license.
+example packages additionally require `AEGO_EXAMPLE_LICENSE` and
+`AEGO_EXAMPLE_LICENSE_FILE` with the reviewed source license and its full terms;
+dependency licenses do not establish the examples' license.
 For a staging or alternate HTTPS host, set `AEGO_EXAMPLES_URL` to its exact
 documentation root ending in `/`; `AEGO_EXAMPLES_VERSION` selects the catalog
 version. An explicitly empty URL disables packages only for non-production

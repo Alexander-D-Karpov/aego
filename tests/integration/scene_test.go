@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -86,36 +87,64 @@ func newRotatorProject(t *testing.T) *project.Project {
 }
 
 func TestNativeComponentDrivesTheScene(t *testing.T) {
-	p := newRotatorProject(t)
-	app, err := run.Open(p, run.Config{
-		Headless:  true,
-		Frames:    120,
-		Logger:    log.Nop(),
-		ScenePath: filepath.Join(p.ScenesDir(), "main.aescene"),
-	}, rotatorModule{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer app.Close()
+	const frames = 120
+	const speed = 1.5 // the speed in rotatorScene
+	for _, tc := range []struct {
+		name      string
+		frameTime float64
+	}{
+		{"120fps", 1.0 / 120},
+		{"60fps", 1.0 / 60},
+		{"30fps", 1.0 / 30},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newRotatorProject(t)
+			app, err := run.Open(p, run.Config{
+				Headless:  true,
+				FrameTime: tc.frameTime, // Use the headless simulated clock, not the host's wall clock.
+				Frames:    frames,
+				Logger:    log.Nop(),
+				ScenePath: filepath.Join(p.ScenesDir(), "main.aescene"),
+			}, rotatorModule{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer app.Close()
 
-	player := app.Scene.Find(app.Scene.Root(), "Player")
-	if player.IsZero() {
-		t.Fatal("player node missing")
-	}
-	if _, ok := scene.Get[Rotator](app.Scene, player); !ok {
-		t.Fatal("rotator component was not loaded")
-	}
-	before := app.Scene.Local(player).Rotation
+			player := app.Scene.Find(app.Scene.Root(), "Player")
+			if player.IsZero() {
+				t.Fatal("player node missing")
+			}
+			rotator, ok := scene.Get[Rotator](app.Scene, player)
+			if !ok {
+				t.Fatal("rotator component was not loaded")
+			}
+			if rotator.Speed != speed {
+				t.Fatalf("rotator speed = %v, want %v", rotator.Speed, speed)
+			}
+			before := app.Scene.Local(player).Rotation
 
-	driver := app.Driver()
-	for i := 0; i < 120; i++ {
-		if !app.Engine.Step(driver) {
-			t.Fatalf("engine stopped at frame %d: %v", i, app.Engine.Err())
-		}
-	}
-	after := app.Scene.Local(player).Rotation
-	if after <= before {
-		t.Fatalf("rotation did not advance: %v -> %v", before, after)
+			driver := app.Driver()
+			for i := 0; i < frames; i++ {
+				if !app.Engine.Step(driver) {
+					t.Fatalf("engine stopped at frame %d: %v", i, app.Engine.Err())
+				}
+				// The engine starts with a zero-delta frame; subsequent frames use
+				// the simulated clock even when no fixed update is due.
+				wantDelta := tc.frameTime
+				if i == 0 {
+					wantDelta = 0
+				}
+				if got := app.Engine.Stats().FrameTime; !(math.Abs(got-wantDelta) <= 1e-12) {
+					t.Fatalf("frame %d delta = %.12g, want %.12g", i, got, wantDelta)
+				}
+				want := float64(before) + float64(i)*speed*tc.frameTime
+				got := float64(app.Scene.Local(player).Rotation)
+				if !(math.Abs(got-want) <= 1e-5) {
+					t.Fatalf("frame %d rotation = %.9g, want %.9g", i, got, want)
+				}
+			}
+		})
 	}
 }
 

@@ -74,24 +74,26 @@ type Options struct {
 	StudioGuides bool
 	// ExamplesURL is the canonical HTTPS site root for remote example links.
 	// Empty disables packaging for small fixture/preview builds.
-	ExamplesURL        string
-	ExamplesVersion    string
-	ExamplesLicense    string
-	ExamplesProduction bool
-	Repo               string
-	Edit               string
-	Version            string
-	Channel            string
-	Commit             string
-	Hero               string
-	Poster             string
-	Shots              string
-	Demo               bool
-	PlayVersion        string
-	TryVersion         string
-	Release            *Release
-	Icons              []string
-	Time               time.Time
+	ExamplesURL     string
+	ExamplesVersion string
+	ExamplesLicense string
+	// ExamplesLicenseText is the reviewed notice included in each source package.
+	ExamplesLicenseText string
+	ExamplesProduction  bool
+	Repo                string
+	Edit                string
+	Version             string
+	Channel             string
+	Commit              string
+	Hero                string
+	Poster              string
+	Shots               string
+	Demo                bool
+	PlayVersion         string
+	TryVersion          string
+	Release             *Release
+	Icons               []string
+	Time                time.Time
 }
 
 type Report struct {
@@ -1047,6 +1049,7 @@ func (b *builder) footer(e *Entry, root string) string {
 	if !o.Time.IsZero() {
 		left = append(left, b.tr("built")+" "+o.Time.UTC().Format("2006-01-02"))
 	}
+	left = append(left, `Copyleft 2026 <a href="https://about.akarpov.ru/">akarpov</a>`)
 	var right []string
 	if e != nil && e.Location.Source != "" && o.Edit != "" {
 		u := strings.TrimRight(o.Edit, "/") + "/" + e.Location.Source

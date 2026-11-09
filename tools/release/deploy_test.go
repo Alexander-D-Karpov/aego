@@ -51,3 +51,27 @@ func TestProductionSiteImageRequiresVerifiedStudioArtifact(t *testing.T) {
 		t.Fatal("site input must be verified before the build")
 	}
 }
+
+func TestProductionSiteImagePackagesReviewedExampleLicense(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../deploy/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	makefile, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, recipe, ok := strings.Cut(string(makefile), "site-headless:\n")
+	if !ok {
+		t.Fatal("missing site-headless recipe")
+	}
+	recipe, _, _ = strings.Cut(recipe, "\n\n")
+	if !strings.Contains(recipe, "docs build") || !strings.Contains(recipe, "$(DOCS_BUILD_ARGS)") {
+		t.Fatal("site-headless does not forward documentation build arguments")
+	}
+	for _, part := range []string{"DOCS_BUILD_ARGS=", "--examples-production", "--examples-license MIT", "--examples-license-file /src/docs/try-examples-license.txt"} {
+		if !strings.Contains(string(dockerfile), part) {
+			t.Fatalf("site image does not require reviewed example license input %q", part)
+		}
+	}
+}

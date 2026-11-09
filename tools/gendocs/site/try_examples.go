@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"aego/asset"
 	"aego/project"
@@ -47,6 +48,12 @@ func (b *builder) writeTryExamples() error {
 	if b.opt.ExamplesProduction && strings.EqualFold(license, "NOASSERTION") {
 		return fmt.Errorf("official example publication requires an explicit verified --examples-license")
 	}
+	if b.opt.ExamplesProduction && strings.TrimSpace(b.opt.ExamplesLicenseText) == "" {
+		return fmt.Errorf("official example publication requires the reviewed license text")
+	}
+	if text := b.opt.ExamplesLicenseText; text != "" && (len(text) > 64<<10 || !utf8.ValidString(text) || strings.TrimSpace(text) == "") {
+		return fmt.Errorf("example license text is empty, invalid UTF-8, or larger than 64 KiB")
+	}
 	b.examples = map[string]tryExample{}
 	for _, e := range b.exp.Entries {
 		if e.Try == "" {
@@ -76,6 +83,15 @@ func (b *builder) writeTryExamples() error {
 		for name, data := range s.Files {
 			files[name] = data
 		}
+		if b.opt.ExamplesLicenseText != "" {
+			const licenseFile = "AEGO-EXAMPLE-LICENSE.txt"
+			for name := range files {
+				if strings.EqualFold(name, licenseFile) {
+					return fmt.Errorf("%s reserves %s", identity, licenseFile)
+				}
+			}
+			files[licenseFile] = []byte(b.opt.ExamplesLicenseText)
+		}
 		if _, exists := files[project.FileName]; !exists {
 			meta, err := asset.ParseSourceMeta(files[s.EntryScene+".meta"], s.EntryScene+".meta")
 			if err != nil {
@@ -95,6 +111,9 @@ func (b *builder) writeTryExamples() error {
 		notice += "Documentation fingerprints identify the exported inputs, not a Git worktree or a runtime acceptance result.\n"
 		if license == "NOASSERTION" {
 			notice += "No license was declared in this source snapshot. This package does not add or change any permissions.\n"
+		}
+		if b.opt.ExamplesLicenseText != "" {
+			notice += "Reviewed license text: AEGO-EXAMPLE-LICENSE.txt\n"
 		}
 		if _, exists := files["EXAMPLE-NOTICE.txt"]; exists {
 			return fmt.Errorf("%s reserves EXAMPLE-NOTICE.txt", identity)

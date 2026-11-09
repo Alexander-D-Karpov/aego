@@ -21,6 +21,7 @@ RUN go run ./tools/artstudio/release verify-site-input \
       -commit "$AEGO_COMMIT" -app-origin https://aeditor.akarpov.ru -docs-origin https://aego.akarpov.ru \
  && bash tools/check-glslang.sh \
  && ARTSTUDIO_ARTIFACT=/src/studio-artifact ARTSTUDIO_MANIFEST_SHA256="$ARTSTUDIO_MANIFEST_SHA256" make site-headless \
+      DOCS_BUILD_ARGS='--examples-production --examples-license MIT --examples-license-file /src/docs/try-examples-license.txt' \
  && test -f site/asset-studio/integration.json && test ! -e site/studio \
  && go run ./tools/artstudio/release verify-site-input \
       -dir /src/studio-artifact -root /src -sha256 "$ARTSTUDIO_MANIFEST_SHA256" \

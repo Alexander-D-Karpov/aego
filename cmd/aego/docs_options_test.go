@@ -30,3 +30,15 @@ func TestDocsCLIRecognizesExampleOriginAndVersionFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestDocsCLIRejectsMissingProductionLicenseFile(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "site")
+	missing := filepath.Join(t.TempDir(), "missing-license.txt")
+	code := cmdDocs([]string{"build", "--engine", "../..", "--out", out, "--playground=false", "--examples-license", "MIT", "--examples-license-file", missing, "--examples-production"})
+	if code != 1 {
+		t.Fatalf("missing license file did not fail the production preflight: exit %d", code)
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatal("missing license file created a site")
+	}
+}

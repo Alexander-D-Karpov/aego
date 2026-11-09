@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,9 +11,12 @@ import (
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/project"
+	"aego/scene"
 	"aego/scene/sceneio"
 	"aego/sdk"
 )
+
+const roomFrameTime = 1.0 / 60
 
 const roomScene = `scene version=1 space="3d" {
   node "4a5b6c7d8e9f00112233445566778899" name="Camera" enabled=true layers=1 space="3d" {
@@ -103,7 +107,7 @@ func openRoom(t *testing.T) *run.App {
 	if err := os.WriteFile(path, []byte(roomScene), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	app, err := run.Open(p, run.Config{Headless: true, Logger: log.Nop(), ScenePath: path}, rotator3DModule{})
+	app, err := run.Open(p, run.Config{Headless: true, FrameTime: roomFrameTime, Logger: log.Nop(), ScenePath: path}, rotator3DModule{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,13 +116,22 @@ func openRoom(t *testing.T) *run.App {
 }
 
 func TestRoomRendersAndRotates(t *testing.T) {
+	const frames = 120
+	const speed = 1.2 // the speed in roomScene
 	app := openRoom(t)
 	cube := app.Scene.Find(app.Scene.Root(), "Cube")
 	if cube.IsZero() {
 		t.Fatal("cube missing")
 	}
+	rotator, ok := scene.Get[Rotator3D](app.Scene, cube)
+	if !ok || rotator.Axis != (mathx.Vec3{Y: 1}) || rotator.Speed != speed {
+		t.Fatalf("cube rotator = %v, want +Y axis and speed %v", rotator, speed)
+	}
+	if got := app.Scene.Local3D(cube).Rotation; got != mathx.QuatIdentity() {
+		t.Fatalf("initial cube rotation = %v, want identity", got)
+	}
 	driver := app.Driver()
-	for i := 0; i < 120; i++ {
+	for i := 0; i < frames; i++ {
 		if !app.Engine.Step(driver) {
 			t.Fatalf("engine stopped at frame %d: %v", i, app.Engine.Err())
 		}
@@ -126,6 +139,13 @@ func TestRoomRendersAndRotates(t *testing.T) {
 	q := app.Scene.Local3D(cube).Rotation
 	if q.Y <= 0 || mathx.Abs(q.X) > 1e-6 || mathx.Abs(q.Z) > 1e-6 {
 		t.Fatalf("cube must rotate about +Y: %v", q)
+	}
+	// The first engine frame has zero delta; compare against the analytical
+	// quaternion after the remaining variable updates.
+	halfAngle := (frames - 1) * speed * roomFrameTime / 2
+	wantY, wantW := math.Sin(halfAngle), math.Cos(halfAngle)
+	if !(math.Abs(float64(q.Y)-wantY) <= 1e-5 && math.Abs(float64(q.W)-wantW) <= 1e-5) {
+		t.Fatalf("cube rotation = %v, want Y=%v W=%v", q, wantY, wantW)
 	}
 	st := app.Runner.Stats()
 	if st.Views != 1 || st.Meshes != 3 {

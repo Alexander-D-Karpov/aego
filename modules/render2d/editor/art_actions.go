@@ -73,10 +73,6 @@ func (p *artPanel) actionMenu(ui *core.Context, r mathx.Rect, id, title string, 
 	ui.EndPopup()
 }
 
-func (p *artPanel) authoringActions(ui *core.Context, editable bool) {
-	p.authoringActionsFor(ui, editable, artActionsAll)
-}
-
 type artActionGroups uint8
 
 const (
@@ -84,7 +80,6 @@ const (
 	artActionsPixels
 	artActionsPalette
 	artActionsDocument
-	artActionsAll = artActionsLayer | artActionsPixels | artActionsPalette | artActionsDocument
 )
 
 // Independent dock panels expose the same commands against the same document;

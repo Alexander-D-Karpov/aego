@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aego/app/assembly/builtin"
 	"aego/engine"
@@ -37,8 +38,9 @@ type Env struct {
 	Demo    bool
 	// ExamplesLicense is the reviewed license of packaged example sources.
 	// An empty local value leaves gendocs' honest NOASSERTION default intact.
-	ExamplesLicense    string
-	ExamplesProduction bool
+	ExamplesLicense     string
+	ExamplesLicenseFile string
+	ExamplesProduction  bool
 	// Nil preserves gendocs' canonical default; a pointer to an empty string
 	// deliberately disables source example packages for a non-production build.
 	ExamplesURL     *string
@@ -182,6 +184,21 @@ func (e *Env) Build(out string, play bool) error {
 			}
 		}
 	}
+	licenseFile := e.ExamplesLicenseFile
+	if licenseFile == "" && e.ExamplesProduction {
+		return errors.New("official example publication requires --examples-license-file")
+	}
+	if licenseFile != "" {
+		var err error
+		licenseFile, err = filepath.Abs(licenseFile)
+		if err != nil {
+			return fmt.Errorf("example license file: %w", err)
+		}
+		data, err := os.ReadFile(licenseFile)
+		if err != nil || len(data) == 0 || len(data) > 64<<10 || !utf8.Valid(data) || strings.TrimSpace(string(data)) == "" {
+			return errors.New("example license file is unreadable, empty, invalid UTF-8, or larger than 64 KiB")
+		}
+	}
 	abs, err := filepath.Abs(out)
 	if err != nil {
 		return err
@@ -229,6 +246,9 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	if license != "" {
 		args = append(args, "-examples-license", license)
+	}
+	if licenseFile != "" {
+		args = append(args, "-examples-license-file", licenseFile)
 	}
 	if e.ExamplesProduction {
 		args = append(args, "-examples-production")

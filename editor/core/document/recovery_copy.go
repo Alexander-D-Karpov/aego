@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 
@@ -33,15 +32,25 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 	defer root.Close()
 	name := "aego-recovery-" + ids.NewAssetID().String()
 	var output string
+	var copyDir *privateRecoveryDir
+	defer func() {
+		if copyDir != nil {
+			_ = copyDir.Close()
+		}
+	}()
 	count := 0
 	write := func(file string, data []byte) error {
-		if output == "" {
-			if err := root.Mkdir(name, 0700); err != nil {
+		if copyDir == nil {
+			var created bool
+			copyDir, created, err = createPrivateRecoveryDir(root, name)
+			if created {
+				output = filepath.Join(directory, name)
+			}
+			if err != nil {
 				return err
 			}
-			output = filepath.Join(directory, name)
 		}
-		f, err := root.OpenFile(path.Join(name, file), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		f, err := copyDir.CreateFile(file)
 		if err != nil {
 			return err
 		}

@@ -26,8 +26,12 @@ func TestDocsBuildForwardsReviewedExampleLicenseToGendocs(t *testing.T) {
 	t.Setenv("AEGO_DOCS_TEST_ARGUMENTS", record)
 	t.Setenv("ARTSTUDIO_ARTIFACT", "")
 	rootURL := "https://staging.example.invalid/docs/"
+	licenseFile := filepath.Join(t.TempDir(), "example-license.txt")
+	if err := os.WriteFile(licenseFile, []byte("Reviewed example terms\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	env := Env{Engine: engine, Stdout: io.Discard, Stderr: io.Discard,
-		ExamplesLicense: "LicenseRef-Reviewed-Test-Example", ExamplesProduction: true,
+		ExamplesLicense: "LicenseRef-Reviewed-Test-Example", ExamplesLicenseFile: licenseFile, ExamplesProduction: true,
 		ExamplesURL: &rootURL, ExamplesVersion: "1.2.3",
 		Native: func(args ...string) error {
 			if len(args) != 4 || args[0] != "docs" || args[1] != "export" || args[2] != "--out" {
@@ -47,10 +51,23 @@ func TestDocsBuildForwardsReviewedExampleLicenseToGendocs(t *testing.T) {
 	if len(args) < 2 || args[0] != "run" || args[1] != "." || index < 0 || index+1 >= len(args) || args[index+1] != env.ExamplesLicense || !slices.Contains(args, "-examples-production") {
 		t.Fatalf("actual gendocs subprocess lost the reviewed license policy: %v", args)
 	}
-	for flag, value := range map[string]string{"-examples-url": rootURL, "-examples-version": env.ExamplesVersion} {
+	for flag, value := range map[string]string{"-examples-url": rootURL, "-examples-version": env.ExamplesVersion, "-examples-license-file": licenseFile} {
 		index := slices.Index(args, flag)
 		if index < 0 || index+1 >= len(args) || args[index+1] != value {
 			t.Fatalf("actual gendocs subprocess lost %s: %v", flag, args)
+		}
+	}
+}
+
+func TestDocsBuildRejectsMissingProductionLicenseTextBeforeWriting(t *testing.T) {
+	for _, file := range []string{"", filepath.Join(t.TempDir(), "missing.txt")} {
+		out := filepath.Join(t.TempDir(), "site")
+		env := Env{Engine: t.TempDir(), ExamplesLicense: "MIT", ExamplesLicenseFile: file, ExamplesProduction: true}
+		if err := env.Build(out, false); err == nil || !strings.Contains(err.Error(), "license") {
+			t.Fatalf("accepted missing reviewed license text: %v", err)
+		}
+		if _, err := os.Stat(out); !os.IsNotExist(err) {
+			t.Fatal("missing production license text created a site")
 		}
 	}
 }

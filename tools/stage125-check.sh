@@ -204,6 +204,7 @@ PY
   "$builder/aego" docs check --strict --lang ru
   extra=()
   if [[ -n "${AEGO_EXAMPLE_LICENSE:-}" ]]; then extra+=(--examples-license "$AEGO_EXAMPLE_LICENSE"); fi
+  if [[ -n "${AEGO_EXAMPLE_LICENSE_FILE:-}" ]]; then extra+=(--examples-license-file "$AEGO_EXAMPLE_LICENSE_FILE"); fi
   if [[ ${AEGO_EXAMPLES_URL+x} ]]; then extra+=(--examples-url "$AEGO_EXAMPLES_URL"); fi
   if [[ -n "${AEGO_EXAMPLES_VERSION:-}" ]]; then extra+=(--examples-version "$AEGO_EXAMPLES_VERSION"); fi
   if python3 - "$ARTSTUDIO_ARTIFACT/manifest.json" <<'PY'
@@ -213,6 +214,7 @@ raise SystemExit(0 if json.loads(Path(sys.argv[1]).read_text())['release'] else 
 PY
   then
     : "${AEGO_EXAMPLE_LICENSE:?Production examples require their reviewed source license}"
+    : "${AEGO_EXAMPLE_LICENSE_FILE:?Production examples require the reviewed license text}"
     extra+=(--examples-production)
   fi
   ARTSTUDIO_MANIFEST_SHA256="$manifest_sha" "$builder/aego" docs build --out "$site" --engine "$root" "${extra[@]}"

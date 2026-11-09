@@ -9,7 +9,7 @@ import (
 
 func docsArtifact(t *testing.T, guideOrigin string) (string, string) {
 	t.Helper()
-	dir := t.TempDir()
+	dir := physicalTempDir(t)
 	names := map[string]string{
 		"docs.css":      "assets/docs.0123456789abcdef.css",
 		"protocol.js":   "assets/protocol.0123456789abcdef.js",
@@ -52,7 +52,7 @@ func docsArtifact(t *testing.T, guideOrigin string) (string, string) {
 
 func TestIntegrateDocsPinsArtifactAndPreservesDestination(t *testing.T) {
 	dir, sha := docsArtifact(t, "http://127.0.0.1:8097")
-	site := t.TempDir()
+	site := physicalTempDir(t)
 	result, err := integrateDocs(dir, site, sha)
 	if err != nil || result["guides"] != 2 || result["editorURL"] != "http://127.0.0.1:8097/r/test-build/" {
 		t.Fatalf("integration: %+v %v", result, err)
@@ -68,7 +68,7 @@ func TestIntegrateDocsPinsArtifactAndPreservesDestination(t *testing.T) {
 	if _, err := integrateDocs(dir, site, sha); err != nil {
 		t.Fatalf("identical repeated integration failed: %v", err)
 	}
-	conflict := filepath.Join(t.TempDir(), "site")
+	conflict := filepath.Join(physicalTempDir(t), "site")
 	if err := os.MkdirAll(filepath.Join(conflict, "asset-studio/ru/first-sprite"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -92,20 +92,20 @@ func TestIntegrateDocsPinsArtifactAndPreservesDestination(t *testing.T) {
 
 func TestIntegrateDocsRejectsMismatchedAndUnsafeArtifact(t *testing.T) {
 	dir, sha := docsArtifact(t, "http://127.0.0.1:8099")
-	if _, err := integrateDocs(dir, t.TempDir(), sha); err == nil {
-		t.Fatal("mismatched pinned origin was accepted")
+	if _, err := integrateDocs(dir, physicalTempDir(t), sha); err == nil || err.Error() != "documentation metadata does not match manifest" {
+		t.Fatalf("mismatched pinned origin refusal = %v", err)
 	}
 	dir, sha = docsArtifact(t, "http://127.0.0.1:8097")
-	site := t.TempDir()
-	if _, err := integrateDocs(dir, site, strings.Repeat("0", 64)); err == nil {
-		t.Fatal("wrong trusted manifest hash accepted")
+	site := physicalTempDir(t)
+	if _, err := integrateDocs(dir, site, strings.Repeat("0", 64)); err == nil || err.Error() != "manifest SHA-256 mismatch" {
+		t.Fatalf("wrong trusted manifest hash refusal = %v", err)
 	}
-	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(site, "asset-studio")); err != nil {
-		t.Skipf("cannot create symlink: %v", err)
-	}
+	outside := physicalTempDir(t)
+	fixtureSymlink(t, outside, filepath.Join(site, "asset-studio"))
 	if _, err := integrateDocs(dir, site, sha); err == nil {
 		t.Fatal("site symlink accepted")
+	} else if err.Error() != "unsafe site parent: asset-studio" {
+		t.Fatalf("site symlink rejected for the wrong reason: %v", err)
 	}
 	if entries, err := os.ReadDir(outside); err != nil || len(entries) != 0 {
 		t.Fatal("symlink target was modified")

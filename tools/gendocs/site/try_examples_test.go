@@ -130,6 +130,80 @@ func TestTryLinksDownloadCompleteSourceProjectInBothLanguages(t *testing.T) {
 	}
 }
 
+func TestProductionTryArchiveIncludesReviewedLicenseText(t *testing.T) {
+	const reviewed = "MIT License\n\nCopyright (c) 2026 Example owner\n\nReviewed terms.\n"
+	dir := t.TempDir()
+	_, err := Build(sourceExampleFixture(), dir, Options{
+		ExamplesURL: "https://docs.example/", ExamplesLicense: "MIT",
+		ExamplesLicenseText: reviewed, ExamplesProduction: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifests, err := filepath.Glob(filepath.Join(dir, "examples", "*", "manifest.json"))
+	if err != nil || len(manifests) != 1 {
+		t.Fatalf("production manifest missing: %v %v", manifests, err)
+	}
+	manifest, err := os.ReadFile(manifests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata struct {
+		License string `json:"license"`
+	}
+	if err := json.Unmarshal(manifest, &metadata); err != nil || metadata.License != "MIT" {
+		t.Fatalf("production manifest lost the reviewed license: %+v %v", metadata, err)
+	}
+	archives, err := filepath.Glob(filepath.Join(dir, "examples", "*", "project-*.zip"))
+	if err != nil || len(archives) != 1 {
+		t.Fatalf("production archive missing: %v %v", archives, err)
+	}
+	z, err := zip.OpenReader(archives[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	var terms, notice []byte
+	for _, file := range z.File {
+		if file.Name != "AEGO-EXAMPLE-LICENSE.txt" && file.Name != "EXAMPLE-NOTICE.txt" {
+			continue
+		}
+		r, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(r)
+		r.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if file.Name == "AEGO-EXAMPLE-LICENSE.txt" {
+			terms = data
+		} else {
+			notice = data
+		}
+	}
+	if string(terms) != reviewed || !bytes.Contains(notice, []byte("License: MIT\n")) || !bytes.Contains(notice, []byte("AEGO-EXAMPLE-LICENSE.txt")) {
+		t.Fatal("archive lost the reviewed license text or its notice")
+	}
+}
+
+func TestReviewedExampleLicenseContainsMITTermsAndAttribution(t *testing.T) {
+	text, err := os.ReadFile(filepath.Join("..", "..", "..", "docs", "try-examples-license.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"MIT License", "Copyright (c) 2026 Alexander Karpov",
+		"Permission is hereby granted, free of charge", "The above copyright notice and this permission notice",
+		`THE SOFTWARE IS PROVIDED "AS IS"`,
+	} {
+		if !bytes.Contains(text, []byte(required)) {
+			t.Errorf("reviewed example license is missing %q", required)
+		}
+	}
+}
+
 func TestTrySourcePackagingFailsOnMissingDependenciesAndUnknownProductionLicense(t *testing.T) {
 	opt := Options{ExamplesURL: "https://docs.example/"}
 	for _, test := range []struct {
@@ -140,6 +214,13 @@ func TestTrySourcePackagingFailsOnMissingDependenciesAndUnknownProductionLicense
 		{"missing entry", func(e *Export, _ *Options) { delete(e.Entries[0].TrySource.Files, "scenes/main.aescene") }},
 		{"unsafe file", func(e *Export, _ *Options) { e.Entries[0].TrySource.Files["../outside.txt"] = []byte("bad") }},
 		{"unknown production license", func(_ *Export, o *Options) { o.ExamplesProduction = true }},
+		{"missing production license text", func(_ *Export, o *Options) { o.ExamplesLicense, o.ExamplesProduction = "MIT", true }},
+		{"license path collision", func(e *Export, o *Options) {
+			e.Entries[0].TrySource.Files["aego-example-license.TXT"] = []byte("existing source")
+			o.ExamplesLicenseText = "reviewed terms"
+		}},
+		{"invalid license text", func(_ *Export, o *Options) { o.ExamplesLicenseText = string([]byte{0xff}) }},
+		{"blank license text", func(_ *Export, o *Options) { o.ExamplesLicenseText = "\n\t" }},
 		{"disabled production examples", func(_ *Export, o *Options) {
 			o.ExamplesURL, o.ExamplesLicense, o.ExamplesProduction = "", "LicenseRef-Reviewed-Test-Example", true
 		}},

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aego/tools/gendocs/site"
 	"aego/tools/gendocs/tryassets"
@@ -32,6 +33,7 @@ func main() {
 	examplesURL := flag.String("examples-url", "https://aego.akarpov.ru/", "canonical HTTPS docs root for complete source example packages; empty disables packaging")
 	examplesVersion := flag.String("examples-version", "1.0.0", "release version of the example catalog; increment when publishing changed sources")
 	examplesLicense := flag.String("examples-license", "NOASSERTION", "actual SPDX/source license of documentation examples; never inferred from dependencies")
+	examplesLicenseFile := flag.String("examples-license-file", "", "file containing reviewed terms to include in every example archive")
 	examplesProduction := flag.Bool("examples-production", false, "require an explicit known license for official example publication")
 	repo := flag.String("repo", "", "source repository linked from the header and footer")
 	edit := flag.String("edit", "", "base URL of Edit this page links, defaults to <repo>/src/branch/main")
@@ -69,6 +71,15 @@ func main() {
 	if *title != "" {
 		exp.Title = *title
 	}
+	var licenseText string
+	if *examplesLicenseFile != "" {
+		data, err := os.ReadFile(*examplesLicenseFile)
+		if err != nil || len(data) == 0 || len(data) > 64<<10 || !utf8.Valid(data) || strings.TrimSpace(string(data)) == "" {
+			fmt.Fprintln(os.Stderr, "gendocs: example license file is unreadable, empty, invalid UTF-8, or larger than 64 KiB")
+			os.Exit(1)
+		}
+		licenseText = string(data)
+	}
 	var rel *site.Release
 	if *repo != "" {
 		if rel, err = site.FetchRelease(*repo); err != nil {
@@ -76,7 +87,7 @@ func main() {
 		}
 	}
 	rep, err := site.Build(exp, *out, site.Options{
-		ExamplesURL: *examplesURL, ExamplesVersion: *examplesVersion, ExamplesLicense: *examplesLicense, ExamplesProduction: *examplesProduction, Channel: *channel,
+		ExamplesURL: *examplesURL, ExamplesVersion: *examplesVersion, ExamplesLicense: *examplesLicense, ExamplesLicenseText: licenseText, ExamplesProduction: *examplesProduction, Channel: *channel,
 		Playground: *play, Studio: *studio, StudioURL: *studioURL, StudioGuides: *studioGuides, Repo: *repo, Edit: *edit, Version: *version, Commit: *commit, Hero: *hero, Poster: *poster, Shots: *shots, Demo: *demo, PlayVersion: *playVersion, TryVersion: *tryVersion, Release: rel, Icons: splitList(*icons), Time: time.Now(),
 	})
 	if err != nil {

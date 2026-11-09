@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,7 @@ func requirePOSIXDeployment(t *testing.T) {
 func developmentRoot(t *testing.T) string {
 	requirePOSIXDeployment(t)
 	t.Helper()
-	root := filepath.Join(t.TempDir(), "asset-studio")
+	root := filepath.Join(physicalTempDir(t), "asset-studio")
 	if e := initDeployment(root, true); e != nil {
 		t.Fatal(e)
 	}
@@ -63,22 +64,24 @@ func TestAtomicPromotionRollbackAndImmutableVersions(t *testing.T) {
 }
 func TestProductionRejectsSnapshotAndMissingGates(t *testing.T) {
 	requirePOSIXDeployment(t)
-	root := filepath.Join(t.TempDir(), "production")
+	root := filepath.Join(physicalTempDir(t), "production")
 	if e := initDeployment(root, false); e != nil {
 		t.Fatal(e)
 	}
 	dir, m, h := fixtureArtifact(t, "release")
-	if e := stageArtifact(root, dir, h, ""); e == nil {
-		t.Fatal("snapshot deployed")
+	if e := stageArtifact(root, dir, h, ""); e == nil || e.Error() != "snapshot artifacts cannot be deployed to a production root" {
+		t.Fatalf("snapshot refusal = %v", e)
 	}
 	m.Release = true
 	m.Commit = strings.Repeat("a", 40)
 	m.AppOrigin = "https://aeditor.akarpov.ru"
 	m.DocsOrigins = []string{"https://aego.akarpov.ru"}
-	_ = os.WriteFile(filepath.Join(dir, "manifest.json"), jsonBytes(m), 0644)
+	if e := os.WriteFile(filepath.Join(dir, "manifest.json"), jsonBytes(m), 0644); e != nil {
+		t.Fatal(e)
+	}
 	h = digest(jsonBytes(m))
-	if e := stageArtifact(root, dir, h, ""); e == nil {
-		t.Fatal("release deployed without gates")
+	if e := stageArtifact(root, dir, h, ""); !errors.Is(e, os.ErrNotExist) {
+		t.Fatalf("missing gate refusal = %v", e)
 	}
 	g := gateReport{Schema: 1, BuildID: m.BuildID, Commit: m.Commit, SourceSHA256: m.SourceSHA256, ManifestSHA256: h}
 	for _, name := range requiredGates {
@@ -100,7 +103,7 @@ func TestProductionRejectsSnapshotAndMissingGates(t *testing.T) {
 }
 func TestDeploymentNeverTouchesSiblingAndRefusesSharedRoot(t *testing.T) {
 	requirePOSIXDeployment(t)
-	parent := t.TempDir()
+	parent := physicalTempDir(t)
 	sibling := filepath.Join(parent, "docs.txt")
 	_ = os.WriteFile(sibling, []byte("keep"), 0644)
 	if e := initDeployment(parent, true); e == nil {
@@ -125,23 +128,47 @@ func TestDeploymentNeverTouchesSiblingAndRefusesSharedRoot(t *testing.T) {
 func TestDeploymentLocksSymlinksAndWrongHashes(t *testing.T) {
 	root := developmentRoot(t)
 	dir, _, h := fixtureArtifact(t, "one")
-	if e := stageArtifact(root, dir, strings.Repeat("0", 64), ""); e == nil {
-		t.Fatal("bad SHA accepted")
+	if e := stageArtifact(root, dir, strings.Repeat("0", 64), ""); e == nil || e.Error() != "manifest SHA-256 mismatch" {
+		t.Fatalf("bad SHA refusal = %v", e)
 	}
 	unlock, e := lockDeployment(root)
 	if e != nil {
 		t.Fatal(e)
 	}
 	defer unlock()
-	if e = stageArtifact(root, dir, h, ""); e == nil {
-		t.Fatal("concurrent stage accepted")
+	if e = stageArtifact(root, dir, h, ""); e == nil || !strings.HasPrefix(e.Error(), "deployment locked;") {
+		t.Fatalf("concurrent stage refusal = %v", e)
 	}
-	link := filepath.Join(t.TempDir(), "root-link")
-	if e = os.Symlink(root, link); e != nil {
-		t.Skip(e)
-	}
+	link := filepath.Join(physicalTempDir(t), "root-link")
+	fixtureSymlink(t, root, link)
 	if _, e = openDeployment(link); e == nil {
 		t.Fatal("symlink root accepted")
+	} else if want := "symlink path refused: " + link; e.Error() != want {
+		t.Fatalf("root symlink error = %v; want %s", e, want)
+	}
+}
+
+func TestDeploymentRejectsSymlinkAncestors(t *testing.T) {
+	requirePOSIXDeployment(t)
+	parent := physicalTempDir(t)
+	real := filepath.Join(parent, "real")
+	if err := os.Mkdir(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(parent, "link")
+	fixtureSymlink(t, real, link)
+	want := "symlink path refused: " + link
+	if err := initDeployment(filepath.Join(link, "new-root"), true); err == nil || err.Error() != want {
+		t.Fatalf("initialization through symlink = %v; want %s", err, want)
+	}
+	if _, err := os.Lstat(filepath.Join(real, "new-root")); !os.IsNotExist(err) {
+		t.Fatalf("initialization touched symlink target: %v", err)
+	}
+	if err := initDeployment(filepath.Join(real, "existing-root"), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openDeployment(filepath.Join(link, "existing-root")); err == nil || err.Error() != want {
+		t.Fatalf("open through symlink = %v; want %s", err, want)
 	}
 }
 
@@ -161,7 +188,7 @@ func TestBadAuditPathDoesNotSwitchCurrent(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "deployments.jsonl")); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(t.TempDir(), "unrelated")
+	target := filepath.Join(physicalTempDir(t), "unrelated")
 	if err := os.WriteFile(target, []byte("keep"), 0644); err != nil {
 		t.Fatal(err)
 	}

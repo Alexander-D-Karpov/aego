@@ -11,6 +11,11 @@ the artifact bytes, commit, Studio source subset, and exact public origins both
 before and after building the site. The generated guides point to that release;
 the image does not build a second local `/studio`.
 
+The official site build also requires production example packaging with the
+reviewed MIT terms in `docs/try-examples-license.txt`; the license notice is
+included in each complete example archive. Local preview builds may instead
+report `NOASSERTION` and are not production artifacts.
+
 Prepare a dedicated build context outside the working checkout from the exact
 clean commit, add only the checked artifact at `studio-artifact/`, and verify
 the entire context against that commit. The source-subset check in the image

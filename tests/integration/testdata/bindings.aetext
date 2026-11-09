@@ -5023,7 +5023,7 @@ manifest version=6 {
     field "Output" {
       type="string"
       readonly=false
-      doc="Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Brain 2D."
+      doc="Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Output Selector 2D."
     }
     field "Zoom" {
       type="float"
