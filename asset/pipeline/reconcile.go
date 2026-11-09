@@ -53,7 +53,7 @@ func (i MetaIssue) Message() string {
 	case MetaDuplicate:
 		return i.Path + " uses the same asset id as " + i.Other + ", it was probably copied together with its .meta"
 	}
-	return "the asset index lists " + i.Path + ", which no longer exists"
+	return "the asset index lists an asset for " + i.Path + " whose source or identity could not be matched"
 }
 
 func (i MetaIssue) Action() string {
@@ -65,7 +65,7 @@ func (i MetaIssue) Action() string {
 	case MetaDuplicate:
 		return "give " + i.Path + " a new asset id"
 	}
-	return "drop " + i.Path + " from the asset index"
+	return "drop the indexed asset ID for " + i.Path
 }
 
 type walk struct {
@@ -148,6 +148,18 @@ func (p *Pipeline) audit() {
 	p.index.Each(func(e *asset.Entry) {
 		if e.Missing || strings.Contains(e.Source, ":") || p.byID[e.ID] != nil {
 			return
+		}
+		// putSubs records the owning source as the first dependency. Some
+		// importers derive sub-asset IDs without listing them in .meta, so a
+		// fresh scan cannot know all of them until the owner has been imported.
+		// After import, only its registered sub-assets qualify at the next audit.
+		// A path match alone is insufficient: the source's identity might have
+		// changed, or its metadata might no longer be readable.
+		if p.files[e.Source] && len(e.Deps) > 0 {
+			owner := p.byID[e.Deps[0]]
+			if owner != nil && owner.path == e.Source && (owner.key == "" || p.subs[e.ID] == owner) {
+				return
+			}
 		}
 		out = append(out, MetaIssue{Kind: MetaStale, Path: e.Source, ID: e.ID})
 	})
