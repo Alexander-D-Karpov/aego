@@ -548,7 +548,7 @@ func (p *artPanel) askSaveAs() {
 							}
 						}
 						// The normal save checks the original BinarySource generation,
-						// marks this same history saved and leaves metadata untouched.
+						// marks this same history saved and emits its usual import event.
 						p.report(model.Save())
 						p.view.refresh = true
 					},

@@ -16,7 +16,7 @@ import (
 // not an OS/GPU or screenshot acceptance test.
 func TestArtTimelineResponsiveControlsAndCelGrid(t *testing.T) {
 	for _, light := range []bool{false, true} {
-		for _, width := range []float32{160, 240, 640} {
+		for _, width := range []float32{80, 160, 240, 640} {
 			t.Run(fmt.Sprintf("light=%v/width=%.0f", light, width), func(t *testing.T) {
 				panel, state, _, area := artDurationFixture(t)
 				ui, model, session := panel.ctx.UI, panel.model, panel.model.Session
@@ -93,10 +93,13 @@ func TestArtTimelineResponsiveControlsAndCelGrid(t *testing.T) {
 				state.BeginFrame()
 				draw()
 				labelW := min(float32(150), max(float32(86), contentW*.24))
-				labelW = min(labelW, max(float32(40), contentW-ui.Theme.ScrollbarW-48))
+				labelW = min(labelW, max(float32(24), contentW-ui.Theme.ScrollbarW-32))
 				columns := max(1, panel.view.timelineColumns)
 				cellW := (contentW - labelW - ui.Theme.ScrollbarW) / float32(columns)
 				gridY := pad + 4*(row+gap)
+				if contentW < 140 {
+					gridY += row + gap
+				}
 				click(mathx.Vec2{X: pad + labelW + (cellW-2)/2, Y: gridY + row + gap + row/2})
 				if len(panel.view.timelineCells) != 1 || panel.view.timelineCells[0].Frame != first || model.History.Cursor() != before || panel.err != nil {
 					t.Fatal("cel grid did not select the canonical frame without editing", panel.err)
@@ -129,7 +132,7 @@ func TestArtTimelineShortDockScrollsToCelGrid(t *testing.T) {
 	pad, row, gap := ui.Theme.Padding, ui.Theme.RowHeight, ui.Theme.Spacing
 	contentW := area.W - 2*pad - ui.Theme.ScrollbarW - gap
 	labelW := min(float32(150), max(float32(86), contentW*.24))
-	labelW = min(labelW, max(float32(40), contentW-ui.Theme.ScrollbarW-48))
+	labelW = min(labelW, max(float32(24), contentW-ui.Theme.ScrollbarW-32))
 	cellW := (contentW - labelW - ui.Theme.ScrollbarW) / float32(max(1, panel.view.timelineColumns))
 	gridY := pad + 4*(row+gap) - panel.view.timelinePanelScroll
 	point := mathx.Vec2{X: pad + labelW + (cellW-2)/2, Y: gridY + row + gap + row/2}
