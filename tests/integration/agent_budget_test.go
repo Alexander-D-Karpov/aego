@@ -33,12 +33,21 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 		id, ok := n.ActivePanel()
 		return ok && id == agentpanel.ID
 	}
-	frame := func(n int) time.Duration {
+	type frameTiming struct{ wall, cpu time.Duration }
+	frame := func(n int) frameTiming {
+		cpu := cpuTime()
 		start := time.Now()
 		for range n {
 			s.Step()
 		}
-		return time.Since(start) / time.Duration(n)
+		wall := time.Since(start) / time.Duration(n)
+		used := cpuTime()
+		if cpu != 0 && used >= cpu {
+			used = (used - cpu) / time.Duration(n)
+		} else {
+			used = 0 // CPU time is unavailable on some platforms.
+		}
+		return frameTiming{wall: wall, cpu: used}
 	}
 	for range 30 {
 		s.Step()
@@ -47,7 +56,8 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 	if !activePanel() {
 		t.Fatal("the empty Agent panel is not the active tab")
 	}
-	empty := frame(60)
+	emptyTiming := frame(60)
+	empty := emptyTiming.wall
 	emptyAllocs := testing.AllocsPerRun(30, func() { s.Step() })
 	panel.Submit("explain the player")
 	stepUntil(t, s, func() bool { return !panel.Busy() })
@@ -58,10 +68,26 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 	if !activePanel() {
 		t.Fatal("the Agent transcript is not the active tab")
 	}
-	full := frame(120)
+	fullTiming := frame(120)
+	full := fullTiming.wall
 	t.Logf("frame: %v with an empty panel, %v with 500 messages", empty, full)
 	if extra := full - empty; extra > 3*time.Millisecond {
 		t.Errorf("a 500-message transcript costs %v a frame over an empty panel (%v vs %v); the budget is 3 ms", extra, full, empty)
+		// Diagnostic only: the original wall-clock measurement above decides
+		// the result. CPU includes every process thread and may be unavailable.
+		t.Logf("process CPU per frame: empty %v, transcript %v (0 means unavailable)", emptyTiming.cpu, fullTiming.cpu)
+		var slowest time.Duration
+		var over3ms int
+		for range 120 {
+			start := time.Now()
+			s.Step()
+			d := time.Since(start)
+			slowest = max(slowest, d)
+			if d > 3*time.Millisecond {
+				over3ms++
+			}
+		}
+		t.Logf("subsequent 120 transcript frames: max %v, %d frames over 3 ms absolute", slowest, over3ms)
 	}
 	// a few allocations of noise are allowed; a transcript that allocates per message adds hundreds
 	a := testing.AllocsPerRun(30, func() { s.Step() })

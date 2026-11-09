@@ -119,7 +119,7 @@ jobs:
         run: go build ./... 2>&1 | tee .cache/github-ci/logs/build.txt
       - name: Native platform tests
         if: runner.os != 'Linux'
-        run: go test -count=1 ./... 2>&1 | tee .cache/github-ci/logs/tests.txt
+        run: go run ./tools/ci/nativetests 2>&1 | tee .cache/github-ci/logs/tests.txt
       - name: Linux compatibility tests
         if: runner.os == 'Linux'
         run: go test -count=1 ./asset/... ./engine/... ./runtime/... ./update/... 2>&1 | tee .cache/github-ci/logs/tests.txt
