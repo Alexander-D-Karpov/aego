@@ -8,6 +8,7 @@ import (
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
+	"aego/app/docicons"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
 	"aego/contracts/persistence"
@@ -153,6 +154,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 			ch.Warn("cannot describe the script bindings", log.F("err", derr.Error()))
 		} else {
 			h.Docs = docs.FromManifest(m, h.Types.Schema(), h.Modules)
+			h.Docs.SetNavigationIcons(docicons.Builtin())
 			m.Keywords = h.Docs.Keywords()
 			h.Workspace.SetDocs(m)
 			for _, p := range h.Docs.Problems() {

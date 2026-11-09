@@ -212,6 +212,10 @@ type Registry struct {
 	groupT     map[string]map[string]string
 	trySeen    map[string]bool
 	trySources map[string]trySourceLocation
+	// The application supplies optional presentation overrides; the registry
+	// and editor remain independent of any particular module's identifiers.
+	navTasks      map[string]string
+	navReferences map[string]string
 }
 
 func StubPath(module string) string {

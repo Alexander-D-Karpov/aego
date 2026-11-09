@@ -25,13 +25,17 @@ func iconsUsage() string {
 
 func editorIcons() []module.IconUse {
 	out := iconuse.Uses()
-	// Module-provided toolbar icons belong in the application composition, not
+	// Module-provided editor icons belong in the application composition, not
 	// in the module-independent editor's icon registry.
 	out = append(out,
 		module.IconUse{ID: "render2d.normals", Owner: iconuse.Owner, Size: 16, By: "Scene View: surface normals"},
 		module.IconUse{ID: "render2d.point_light", Owner: iconuse.Owner, Size: 16, By: "Scene View: lighting preview"},
 		module.IconUse{ID: "render2d.shadow_view", Owner: iconuse.Owner, Size: 16, By: "Scene View: shadow visibility"},
 		module.IconUse{ID: "particles.system", Owner: iconuse.Owner, Size: 16, By: "Assets: New Effect command and Create palette"},
+		module.IconUse{ID: "render2d.normals", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: normal mapping"},
+		module.IconUse{ID: "render2d.point_light", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: platformer effects"},
+		module.IconUse{ID: "animation.animator", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: animator"},
+		module.IconUse{ID: "animation.player", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: animation guide and settings"},
 	)
 	for _, t := range projects.Templates {
 		if t.Icon != "" {

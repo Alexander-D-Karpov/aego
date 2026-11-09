@@ -26,6 +26,7 @@ type row struct {
 	id    string
 	depth int
 	title string
+	icon  string
 	kids  bool
 	group bool
 	head  bool
@@ -38,6 +39,7 @@ type Panel struct {
 	notes   services.Notices
 	query   string
 	shown   string
+	lang    string
 	rows    []row
 	open    map[string]bool
 	current string
@@ -256,7 +258,8 @@ func (p *Panel) rebuild() {
 	p.rows = p.rows[:0]
 	if q := strings.TrimSpace(p.query); q != "" {
 		for _, e := range p.reg.Search(q, 200) {
-			p.rows = append(p.rows, row{id: e.ID, title: e.Title + "  ·  " + e.Kind.String()})
+			localized, _ := p.get(e.ID)
+			p.rows = append(p.rows, row{id: e.ID, title: localized.Title + "  ·  " + e.Kind.String(), icon: p.entryIcon(e)})
 		}
 		return
 	}
@@ -267,7 +270,7 @@ func (p *Panel) rebuild() {
 			if !ok {
 				continue
 			}
-			p.rows = append(p.rows, row{id: n.ID, depth: depth, title: e.Title, kids: len(n.Children) > 0})
+			p.rows = append(p.rows, row{id: n.ID, depth: depth, title: e.Title, icon: p.entryIcon(e), kids: len(n.Children) > 0})
 			if len(n.Children) > 0 && p.open[n.ID] {
 				walk(n.Children, depth+1)
 			}
@@ -280,7 +283,11 @@ func (p *Panel) rebuild() {
 			p.rows = append(p.rows, row{title: sectionTitle(section), head: true})
 		}
 		key := groupKey(g.ID)
-		p.rows = append(p.rows, row{id: key, title: g.Title, kids: true, group: true})
+		title := g.Title
+		if translated := g.Titles[i18n.Default().Language()]; translated != "" {
+			title = translated
+		}
+		p.rows = append(p.rows, row{id: key, title: title, icon: g.Icon, kids: true, group: true})
 		if p.open[key] {
 			walk(g.Nav, 1)
 		}
@@ -334,6 +341,13 @@ func (p *Panel) Draw(f *services.Frame, r mathx.Rect) {
 		widgets.LabelWrapped(ui, i18n.Tr("editor.docs.documentation_is_not_loaded", "Documentation is not loaded."), true)
 		return
 	}
+	if lang := i18n.Default().Language(); lang != p.lang {
+		p.lang, p.dirty = lang, true
+		if e, ok := p.get(p.current); ok {
+			// Keep the current page and scroll position when changing language.
+			p.text.Replace(p.page(e))
+		}
+	}
 	if p.current == "" {
 		p.navigate(Language, false)
 	}
@@ -370,7 +384,7 @@ func (p *Panel) drawTree(ui *core.Context, r mathx.Rect) {
 		}
 		ev := widgets.TreeRowRect(ui, core.IDSeq(base, i), rr, widgets.TreeRow{
 			Depth: rw.depth, Label: rw.title, HasChildren: rw.kids, Open: p.open[rw.id],
-			Selected: rw.id == p.current, Focused: true,
+			Selected: rw.id == p.current, Focused: true, Icon: treeIcon(ui, rr.W, rw.depth, rw.icon),
 		})
 		switch {
 		case ev.Toggled, ev.Pressed && rw.group:
