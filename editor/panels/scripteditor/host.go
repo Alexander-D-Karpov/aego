@@ -570,6 +570,12 @@ func (h *Host) Tick(now float64) {
 	}
 }
 
+// Refreshing reports whether the language workspace refresh is still in
+// flight, including its queued main-thread completion. Call on the UI thread.
+func (h *Host) Refreshing() bool {
+	return h.refreshing
+}
+
 func (h *Host) refresh(now float64) {
 	if h.refreshing || now < h.refreshAt {
 		return

@@ -11,6 +11,7 @@ import (
 	"aego/core/log"
 	"aego/editor/core/agentui"
 	"aego/editor/core/tasks"
+	"aego/editor/core/workspace"
 	agentpanel "aego/editor/panels/agent"
 	"aego/project"
 )
@@ -46,10 +47,13 @@ func stepUntil(t *testing.T, s *edit.Session, done func() bool) {
 	}
 }
 
-// Allocation budgets measure a settled editor, not background preview or
-// agent-availability work.
+// Allocation budgets measure a settled editor, not background preview,
+// language refresh or agent-availability work.
 func editorSettled(s *edit.Session) bool {
 	panel := s.App.Agent()
+	if code, ok := s.App.Context().Code.(interface{ Refreshing() bool }); ok && code.Refreshing() {
+		return false
+	}
 	return s.App.Idle() && !s.App.Previews().Busy() &&
 		(panel == nil || (panel.Checked() && !panel.Busy()))
 }
@@ -70,6 +74,43 @@ func waitEditorSettled(t *testing.T, s *edit.Session) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
+}
+
+// Measure ordinary idle frames just after the real Assets maintenance scan.
+// The scan remains enabled; if another scan interrupts the window, fail rather
+// than silently counting unrelated filesystem allocations against a panel.
+func editorFrameAllocs(t *testing.T, s *edit.Session, step func()) float64 {
+	t.Helper()
+	waitEditorSettled(t, s)
+	assets := s.App.AssetsPanel()
+	if assets == nil {
+		t.Fatal("the editor has no Assets panel")
+	}
+	stamp := assets.DirectoryRefreshes()
+	if _, visible := s.App.Workspace().Tree.PanelRect(workspace.Assets); visible {
+		deadline := time.Now().Add(30 * time.Second)
+		seen, stable := false, 0
+		for stable < 10 {
+			s.Step()
+			if next := assets.DirectoryRefreshes(); next != stamp {
+				stamp, seen, stable = next, true, 0
+			}
+			if seen && editorSettled(s) {
+				stable++
+			} else {
+				stable = 0
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("Assets maintenance or the editor did not settle before measuring allocations")
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	allocs := testing.AllocsPerRun(30, step)
+	if assets.DirectoryRefreshes() != stamp {
+		t.Fatal("Assets maintenance interrupted the allocation measurement")
+	}
+	return allocs
 }
 
 type delayedAvailabilityBackend struct {
@@ -218,8 +259,7 @@ func TestAgentPanelIdleAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
-		waitEditorSettled(t, s)
-		return testing.AllocsPerRun(30, func() { s.Step() })
+		return editorFrameAllocs(t, s, func() { s.Step() })
 	}
 	without := measure(nil)
 	with := measure(&backend.Fake{})

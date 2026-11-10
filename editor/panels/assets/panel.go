@@ -92,6 +92,7 @@ type Panel struct {
 	subdirs        []string
 	rev            uint64
 	dirsAt         float64
+	dirRefreshes   uint64
 	sel            map[ids.AssetID]bool
 	active         ids.AssetID
 	anchor         ids.AssetID
@@ -211,6 +212,12 @@ func (p *Panel) invalidate() {
 	p.rev = ^uint64(0)
 }
 
+// DirectoryRefreshes counts completed directory and source-list refreshes.
+// Like the rest of the panel state, it is read on the UI thread.
+func (p *Panel) DirectoryRefreshes() uint64 {
+	return p.dirRefreshes
+}
+
 func (p *Panel) refresh() {
 	pl := p.d.Pipeline
 	rev := pl.Revision()
@@ -241,6 +248,7 @@ func (p *Panel) refresh() {
 			p.stacks = nil
 			p.prune()
 		}
+		p.dirRefreshes++
 	}
 
 	found := false

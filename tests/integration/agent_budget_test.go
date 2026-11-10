@@ -58,7 +58,7 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 	}
 	emptyTiming := frame(60)
 	empty := emptyTiming.wall
-	emptyAllocs := testing.AllocsPerRun(30, func() { s.Step() })
+	emptyAllocs := editorFrameAllocs(t, s, func() { s.Step() })
 	panel.Submit("explain the player")
 	stepUntil(t, s, func() bool { return !panel.Busy() })
 	for range 30 {
@@ -90,7 +90,7 @@ func TestAgentPanelBudgetOn500Messages(t *testing.T) {
 		t.Logf("subsequent 120 transcript frames: max %v, %d frames over 3 ms absolute", slowest, over3ms)
 	}
 	// a few allocations of noise are allowed; a transcript that allocates per message adds hundreds
-	a := testing.AllocsPerRun(30, func() { s.Step() })
+	a := editorFrameAllocs(t, s, func() { s.Step() })
 	t.Logf("allocations per frame: %v empty, %v with 500 messages", emptyAllocs, a)
 	if a > emptyAllocs+16 {
 		t.Errorf("an idle frame allocates %v times with a 500-message transcript, %v with an empty panel", a, emptyAllocs)

@@ -35,8 +35,7 @@ func TestAnimationPanelFrameAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
-		waitEditorSettled(t, s)
-		return testing.AllocsPerRun(30, func() { s.Step() })
+		return editorFrameAllocs(t, s, func() { s.Step() })
 	}
 	empty := measure("Camera")
 	timeline := measure("Player")
@@ -44,15 +43,13 @@ func TestAnimationPanelFrameAllocs(t *testing.T) {
 		t.Fatal("the panel did not open a clip of the Player")
 	}
 	ctx.Anim.For(d).SetMode(animedit.Preview)
-	waitEditorSettled(t, s)
-	preview := testing.AllocsPerRun(30, func() { s.Step() })
+	preview := editorFrameAllocs(t, s, func() { s.Step() })
 	ctx.Anim.For(d).SetMode(animedit.Normal)
 	s.App.AnimationPanel().ShowCurves(true, -1, 0)
 	for range 10 {
 		s.Step()
 	}
-	waitEditorSettled(t, s)
-	curves := testing.AllocsPerRun(30, func() { s.Step() })
+	curves := editorFrameAllocs(t, s, func() { s.Step() })
 	s.App.AnimationPanel().ShowCurves(false, -1, 0)
 	if timeline > empty || preview > empty || curves > empty {
 		t.Fatalf("frame allocations: empty panel %v, timeline %v, preview %v, curves %v; the timeline must not allocate", empty, timeline, preview, curves)

@@ -55,13 +55,20 @@ func TestCameraShakeComponentDemoDrivesRealCamera(t *testing.T) {
 	if err := instance.Action(ctx, entry.Demo.Actions[0]); err != nil {
 		t.Fatal(err)
 	}
+	world := instance.app.session.Controller().World()
+	startTick := world.Time.Tick()
 	var peak float64
 	for range 60 {
-		if err := instance.app.Step(1); err != nil {
+		// Presentation frames do not advance a controlled Try world. Advance
+		// each simulation frame explicitly before sampling its camera pose.
+		if err := instance.advance(ctx, 1, nil); err != nil {
 			t.Fatal(err)
 		}
 		s := service()
 		peak = max(peak, math.Abs(float64(s.Render("").Rotation-s.Logical("").Rotation)))
+	}
+	if world.Time.Tick() <= startTick {
+		t.Fatal("camera samples did not advance the Try simulation")
 	}
 	if peak < 0.01 {
 		t.Fatalf("changing Max Angle did not move the real camera pose: peak %g", peak)
