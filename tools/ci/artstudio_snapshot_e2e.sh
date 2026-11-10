@@ -118,12 +118,32 @@ chromium_args=()
 firefox_args=()
 if [[ -n "${ARTSTUDIO_CHROMIUM_EXECUTABLE:-}" ]]; then chromium_args=(--executable "$ARTSTUDIO_CHROMIUM_EXECUTABLE"); fi
 if [[ -n "${ARTSTUDIO_FIREFOX_EXECUTABLE:-}" ]]; then firefox_args=(--executable "$ARTSTUDIO_FIREFOX_EXECUTABLE"); fi
+wasm="$("$python" -B - "$artifact" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve(strict=True)
+path = Path(json.loads((root / 'manifest.json').read_text())['wasm']['path'])
+if path.is_absolute() or '..' in path.parts:
+    raise SystemExit('invalid artifact WASM path')
+wasm = (root / path).resolve(strict=True)
+if root not in wasm.parents or not wasm.is_file():
+    raise SystemExit('artifact WASM is not a file inside the artifact')
+print(wasm)
+PY
+)"
 for browser in chromium firefox; do
   args=()
   if [[ "$browser" == chromium ]]; then args=("${chromium_args[@]}"); else args=("${firefox_args[@]}"); fi
   run_gate "$browser" env -u GOMAXPROCS "$python" tools/artstudio/release/tests/browser_e2e.py \
     --artifact "$artifact" --app-url "$app_origin/" --docs-url "$docs_origin/" \
     --docs-prefix asset-studio --browser "$browser" --evidence "$dir/$browser-browser" "${args[@]}"
+  file_args=()
+  if [[ "$browser" == chromium && -n "${ARTSTUDIO_CHROMIUM_EXECUTABLE:-}" ]]; then file_args=(--chromium "$ARTSTUDIO_CHROMIUM_EXECUTABLE"); fi
+  if [[ "$browser" == firefox && -n "${ARTSTUDIO_FIREFOX_EXECUTABLE:-}" ]]; then file_args=(--firefox "$ARTSTUDIO_FIREFOX_EXECUTABLE"); fi
+  run_gate "$browser-workspace-files" env -u GOMAXPROCS "$python" -B tools/artstudio/tests/workspace_files_browser.py \
+    --wasm "$wasm" --engine "$browser" "${file_args[@]}"
+  run_gate "$browser-pending-fields" env -u GOMAXPROCS "$python" -B tools/artstudio/tests/pending_fields_browser.py \
+    --wasm "$wasm" --engine "$browser" "${file_args[@]}"
   run_gate "$browser-gpu" env -u GOMAXPROCS ARTSTUDIO_PYTHON="$python" ARTSTUDIO_GPU_BROWSER="$browser" \
     bash tools/stage125-check.sh artstudio-gpu --artifact "$artifact" --app-url "$app_origin/" \
     --evidence "$dir/$browser-gpu-browser" "${args[@]}"

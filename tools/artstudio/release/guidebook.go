@@ -84,6 +84,7 @@ func writeGuidebook(out string, names map[string]string, o buildOptions) error {
 				other = "en"
 			}
 			h := `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + esc(title) + ` — Asset Studio</title><link rel="stylesheet" href="../../../../` + names["docs.css"] + `"></head><body><header><a href="` + esc(o.Origin+"/r/"+o.ID+"/") + `">AEGO · Asset Studio</a><a href="../../../` + other + `/guide/` + g.ID + `/">` + strings.ToUpper(other) + `</a></header><main><nav>` + nav.String() + `</nav><article><h1>` + esc(title) + `</h1>` + body.String() + `<p><a href="../../` + g.Lesson + `/">` + esc(learn) + ` →</a></p></article></main></body></html>`
+			h = strings.Replace(h, "</head>", studioFavicon+"</head>", 1)
 			if err := writeNew(filepath.Join(out, "docs", lang, "guide", g.ID, "index.html"), []byte(h)); err != nil {
 				return err
 			}

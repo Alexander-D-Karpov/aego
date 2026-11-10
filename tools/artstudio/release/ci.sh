@@ -11,6 +11,7 @@ cd "$root"
 # This gate can open real game scenes; never send their audio to a physical
 # output. Browser processes additionally request their own muted audio modes.
 export SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
+export PYTHONDONTWRITEBYTECODE=1
 : "${AEGO_NATIVE_SCENARIO_EVIDENCE:=$ARTSTUDIO_EVIDENCE/native-sdl}"
 export AEGO_NATIVE_SCENARIO_EVIDENCE
 native_runner=(bash "$root/tools/stage125-check.sh" artstudio-native)
@@ -64,6 +65,19 @@ run_gate remote-examples make remote-examples-check "REMOTE_EXAMPLES_OUT=$ARTSTU
 run_gate wasm-parity "$AEGO_WASM_PARITY_RUNNER"
 # Build and verify the actual integrated documentation before browsers use it.
 run_gate docs "${docs_runner[@]}"
+wasm="$(python3 -B - "$ARTSTUDIO_ARTIFACT" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve(strict=True)
+path = Path(json.loads((root / 'manifest.json').read_text())['wasm']['path'])
+if path.is_absolute() or '..' in path.parts:
+    raise SystemExit('invalid artifact WASM path')
+wasm = (root / path).resolve(strict=True)
+if root not in wasm.parents or not wasm.is_file():
+    raise SystemExit('artifact WASM is not a file inside the artifact')
+print(wasm)
+PY
+)"
 for browser in chromium firefox; do
   executable=()
   if [[ "$browser" == chromium && -n "${ARTSTUDIO_CHROMIUM_EXECUTABLE:-}" ]]; then executable=(--executable "$ARTSTUDIO_CHROMIUM_EXECUTABLE"); fi
@@ -71,6 +85,13 @@ for browser in chromium firefox; do
   run_gate "$browser" python3 tools/artstudio/release/tests/browser_e2e.py \
     --artifact "$ARTSTUDIO_ARTIFACT" --app-url "$ARTSTUDIO_APP_URL" --docs-url "$ARTSTUDIO_DOCS_URL" \
     --docs-prefix asset-studio --browser "$browser" --evidence "$ARTSTUDIO_EVIDENCE/$browser-browser" "${executable[@]}"
+  file_args=()
+  if [[ "$browser" == chromium && -n "${ARTSTUDIO_CHROMIUM_EXECUTABLE:-}" ]]; then file_args=(--chromium "$ARTSTUDIO_CHROMIUM_EXECUTABLE"); fi
+  if [[ "$browser" == firefox && -n "${ARTSTUDIO_FIREFOX_EXECUTABLE:-}" ]]; then file_args=(--firefox "$ARTSTUDIO_FIREFOX_EXECUTABLE"); fi
+  run_gate "$browser-workspace-files" python3 -B tools/artstudio/tests/workspace_files_browser.py \
+    --wasm "$wasm" --engine "$browser" "${file_args[@]}"
+  run_gate "$browser-pending-fields" python3 -B tools/artstudio/tests/pending_fields_browser.py \
+    --wasm "$wasm" --engine "$browser" "${file_args[@]}"
   run_gate "$browser-gpu" env ARTSTUDIO_GPU_BROWSER="$browser" bash tools/stage125-check.sh artstudio-gpu \
     --artifact "$ARTSTUDIO_ARTIFACT" --app-url "$ARTSTUDIO_APP_URL" \
     --evidence "$ARTSTUDIO_EVIDENCE/$browser-gpu-browser" "${executable[@]}"

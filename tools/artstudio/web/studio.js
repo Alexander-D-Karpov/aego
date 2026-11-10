@@ -72,6 +72,48 @@ Object.assign(translations.en, {
   'cel-linked':'linked cel','zoom-out-label':'Zoom out','zoom-in-label':'Zoom in',
   'add-tag-label':'Add tag','discard-recovery-label':'Discard selected recovery copy'
 });
+Object.assign(translations.ru, {
+  'art-tools':'Инструменты','tool-options':'Параметры инструмента','color-picker':'Цвет','save-as':'Сохранить как…',
+  'save-cancelled':'Сохранение отменено; несохранённая работа сохранена в редакторе.',
+  'save-download':'Загрузка подготовлена; браузер не подтверждает запись на диск, поэтому документ остаётся несохранённым.',
+  'save-complete':'Исходник .aeart записан.', 'save-busy':'Дождитесь завершения текущего сохранения.',
+  'file-conflict':'Файл изменён извне. Сохранение остановлено; используйте «Сохранить как…» для отдельной копии.',
+  'file-permission':'Нет разрешения на запись. Выберите «Сохранить как…» или предоставьте доступ заново.',
+  'file-format':'Поддерживаются только .aeart, .png, .ase и .aseprite.',
+  'file-already-open':'Файл уже открыт; показана существующая вкладка.',
+  'file-save-format':'Редактируемый исходник можно сохранить только как .aeart.',
+  'file-overwrite':'Заменить содержимое выбранного файла?',
+  'finish-gesture':'Завершите или отмените текущий жест перед сохранением.',
+  'field-duration-invalid':'Длительность должна быть целым числом от 1 до 600000 мс. Ввод не применён.',
+  'field-opacity-invalid':'Непрозрачность должна быть целым числом от 0 до 255. Ввод не применён.',
+  'field-unapplied':'Не удалось применить ввод в поле.',
+  'field-conflict':'Документ или редактируемое поле изменились. Ввод не применён; Esc в поле отменяет его.',
+  'field-dialog-open':'Сначала примените или отмените открытый диалог.',
+  'field-cancelled':'Ввод в поле отменён.',
+  'save-stale-field':'Документ изменился во время сохранения. Сохраните ещё раз.',
+  'save-written-pending':'Предыдущая версия уже записана, но новый ввод не применён и не сохранён.'
+});
+Object.assign(translations.en, {
+  'art-tools':'Art Tools','tool-options':'Tool Options','color-picker':'Color Picker','save-as':'Save As…',
+  'save-cancelled':'Save cancelled; your work remains in the editor.',
+  'save-download':'Download started; the browser cannot confirm a disk write, so the document remains unsaved.',
+  'save-complete':'.aeart source written.', 'save-busy':'Wait for the current save to finish.',
+  'file-conflict':'The file changed outside the editor. Save stopped; use Save As… for a separate copy.',
+  'file-permission':'Write permission is unavailable. Use Save As… or grant access again.',
+  'file-format':'Only .aeart, .png, .ase and .aseprite are supported.',
+  'file-already-open':'File already open; showing its existing tab.',
+  'file-save-format':'Editable source can only be saved as .aeart.',
+  'file-overwrite':'Replace the contents of the selected file?',
+  'finish-gesture':'Finish or cancel the current gesture before saving.',
+  'field-duration-invalid':'Duration must be a whole number from 1 to 600000 ms. The edit was not applied.',
+  'field-opacity-invalid':'Opacity must be a whole number from 0 to 255. The edit was not applied.',
+  'field-unapplied':'Could not apply the field edit.',
+  'field-conflict':'The document or edited field changed. The edit was not applied; press Esc in the field to discard it.',
+  'field-dialog-open':'Apply or cancel the open dialog first.',
+  'field-cancelled':'Field edit cancelled.',
+  'save-stale-field':'The document changed during save. Save again.',
+  'save-written-pending':'The previous version was already written, but the new field edit was not applied or saved.'
+});
 let editingPivot = null;
 let tiledPreview = false;
 const icons = {
@@ -91,6 +133,23 @@ const icons = {
   polygon: '<path d="m3 8 7-6 11 7-5 12L2 18 3 8Z"/>',
   curve: '<path d="M2 20C3-3 21 27 22 3"/><path d="M2 20 6 3M22 3l-4 18" stroke-dasharray="2 2"/>'
 };
+// Paths from engine/res/icons/src/tool.*.svg, rendered with the current theme
+// color. The web-only move tool and the larger curve/polygon icons keep their
+// existing presentation; no editor/runtime icon assets are changed.
+const nativeToolPaths = {
+  pencil:'M1.5 14.5L2.4 10.5L10.5 2.4L13.6 5.5L5.5 13.6ZM3.5 11.2L3.1 12.9L4.8 12.5ZM11.3 1.6L12.2 0.8Q12.8 0.2 13.4 0.8L15.2 2.6Q15.8 3.2 15.2 3.8L14.4 4.7Z',
+  eraser:'M8.3 1.5Q8.9 0.9 9.5 1.5L14.5 6.5Q15.1 7.1 14.5 7.7L9 13.2H14.5V14.7H5L1.4 11.1Q0.8 10.5 1.4 9.9ZM3.2 10.5L5.9 13.2H7L9.6 10.6L6.3 7.4Z',
+  fill:'M1.1 7.4L5.6 2.9L4.2 1.5L5.2 0.5L6.7 2L7.4 1.3L12.9 6.8Q13.5 7.4 12.9 8L8 12.9Q7.4 13.5 6.8 12.9L1.1 7.4ZM3.4 7H10.7L7.3 3.6ZM13.5 9.2Q15.4 11.3 15.4 12.7Q15.4 14.3 13.9 14.3Q12.3 14.3 12.3 12.7Q12.3 11.3 13.5 9.2Z',
+  eyedropper:'M10.4 1.1Q11.9 -0.1 13.2 1.2L14.8 2.8Q16.1 4.1 14.9 5.6L13.7 6.8L12.8 5.9L7.1 11.6L5.9 11.8L3.6 14.1L1 15L1.9 12.4L4.2 10.1L4.4 8.9L10.1 3.2L9.2 2.3ZM11.2 4.3L5.9 9.6L5.7 11.1L4.7 12.1L5.1 12.5L6.1 11.5L7.6 11.3L12.9 6ZM2.8 12.9L2.4 13.6L3.1 13.2Z',
+  line:'M2 11H4.2L11 4.2V2H14V5H12.2L5 12.2V14H2ZM3 12V13H4V12ZM12 3V4H13V3Z',
+  rectangle:'M2 3H14V13H2ZM3.7 4.7V11.3H12.3V4.7Z',
+  ellipse:'M15 8C15 11.3 11.9 13.7 8 13.7C4.1 13.7 1 11.3 1 8C1 4.7 4.1 2.3 8 2.3C11.9 2.3 15 4.7 15 8ZM13.2 8C13.2 5.8 10.9 4 8 4C5.1 4 2.8 5.8 2.8 8C2.8 10.2 5.1 12 8 12C10.9 12 13.2 10.2 13.2 8Z',
+  gradient:'M2 2H14V14H2ZM3.5 3.5V12.5H12.5V3.5ZM4.5 4.5H6V11.5H4.5ZM7 4.5H8.5V10H7ZM9.5 4.5H11V7.5H9.5ZM7 11H8.5V11.5H7ZM9.5 9H11V10.5H9.5Z',
+  'select-rect':'M2 2H5V3.5H3.5V5H2ZM6.5 2H9.5V3.5H6.5ZM11 2H14V5H12.5V3.5H11ZM2 6.5H3.5V9.5H2ZM12.5 6.5H14V9.5H12.5ZM2 11H3.5V12.5H5V14H2ZM6.5 12.5H9.5V14H6.5ZM12.5 11H14V14H11V12.5H12.5Z',
+  'select-ellipse':'M6 1H10V2.5H6ZM2.5 3.2L4.5 1.9L5.3 3.2L3.3 4.5ZM1 6H2.5V10H1ZM2.5 12.8L3.3 11.5L5.3 12.8L4.5 14.1ZM6 13.5H10V15H6ZM10.7 12.8L12.7 11.5L13.5 12.8L11.5 14.1ZM13.5 6H15V10H13.5ZM10.7 3.2L11.5 1.9L13.5 3.2L12.7 4.5Z',
+  lasso:'M8 1C4.1 1 1.5 2.8 1.5 5.4C1.5 7.8 3.9 9.5 7 9.7L6.1 11.1C2.5 10.6 0 8.5 0 5.4C0 2.1 3.3 -0.5 8 -0.5C12.7 -0.5 16 2.1 16 5.4C16 8.4 13 10.7 9 11L7.7 13L10 15H7.7L5.5 13L7.9 9.5C11.8 9.5 14.5 7.7 14.5 5.4C14.5 2.8 11.9 1 8 1Z',
+  wand:'M1 13.5L8.3 6.2L9.8 7.7L2.5 15ZM9.3 5.2L11.1 3.4L12.6 4.9L10.8 6.7ZM6.6 0.8L7.3 2.5L9 3.2L7.3 3.9L6.6 5.6L5.9 3.9L4.2 3.2L5.9 2.5ZM12.5 8.7L13 9.9L14.2 10.4L13 10.9L12.5 12.1L12 10.9L10.8 10.4L12 9.9ZM13.3 0.5L13.8 1.7L15 2.2L13.8 2.7L13.3 3.9L12.8 2.7L11.6 2.2L12.8 1.7Z'
+};
 const toolKeys = { pencil: 'B', eraser: 'E', fill: 'G', eyedropper: 'I', line: 'L', rectangle: 'R', ellipse: 'O', gradient: 'D', 'select-rect': 'M', 'select-ellipse': '', lasso: 'Q', wand: 'W', move: 'V', polygon: 'P', curve: 'C' };
 let lang = safeGet('aego.art.language') || 'ru';
 let api, state, tool = 'pencil', zoom = 8, fg = { R: 255, G: 105, B: 110, A: 255 }, bg = { R: 24, G: 28, B: 42, A: 255 }, fgIndex = 6, bgIndex = 1;
@@ -100,6 +159,14 @@ const touches = new Map();
 let recoveryTimer, recoveryData = [], recoveryStore = null, filename = 'Untitled.aeart';
 let tabs = [], activeDocument = '', pendingView = null;
 const views = new Map(), recoveryKeys = new Map(), recoveryVersions = new Map();
+// Handles are deliberately session-only: no persistent permissions or automatic
+// recovery/writeback. A baseline belongs to one particular document tab.
+const sourceHandles = new Map();
+let saveBusy = false;
+// Drafts belong to a specific tab and frame/layer. Do not replace the DOM value
+// during redraw: number inputs can contain browser-managed badInput text.
+const pendingFields = new Map();
+let flushingFields = false;
 const restoredRecoverySources = new Set();
 let recoveryBusy = false;
 const browserSession = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -111,7 +178,7 @@ let effectTemplates = [];
 // Bounded DOM caches only. Go remains the sole source of document/pixel data.
 // A stroke does not rebuild an unchanged layers × frames table.
 const uiCache = {tabs:'',palette:'',layers:'',timeline:'',tags:'',thumbnails:'',
-  layerRows:new Map(),celButtons:new Map(),cellHighlights:new Map()};
+  documentButtons:new Map(),layerRows:new Map(),celButtons:new Map(),cellHighlights:new Map()};
 function captureView() {
   if (!activeDocument) return;
   views.set(activeDocument, { zoom, left: $('viewport').scrollLeft, top: $('viewport').scrollTop,
@@ -133,28 +200,35 @@ function restoreView() {
   pendingView = null; renderTimeline();
 }
 function renderTabs() {
-  const key=JSON.stringify([activeDocument,lang,tabs.map(tab=>[tab.key,tab.name,tab.dirty])]);
-  if(uiCache.tabs===key)return;uiCache.tabs=key;
-  const target = $('document-tabs'); target.replaceChildren();
-  for (const tab of tabs) {
-    const group = document.createElement('span'); group.className = 'document-tab';
-    group.classList.toggle('active', tab.key === activeDocument);
-    const b = makeButton(`${tab.dirty ? '• ' : ''}${tab.name}`, tab.name, () => {
-      cancelPointer(); stopPlayback(); captureView();
-      if (call({ action: 'document-select', handle: tab.key })) { renderUI(); restoreView(); paint(); }
-    });
-    b.dataset.document = tab.key; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(tab.key === activeDocument));
-    const close = makeButton('×', lang === 'ru' ? 'Закрыть документ' : 'Close document', () => closeDocument(tab));
-    close.className = 'close-document'; close.dataset.closeDocument = tab.key;
-    group.append(b, close); target.append(group);
+  const key=JSON.stringify([activeDocument,lang,tabs.map(tab=>[tab.key,tab.name])]);
+  if(uiCache.tabs!==key){
+    uiCache.tabs=key; uiCache.documentButtons.clear();
+    const target = $('document-tabs'); target.replaceChildren();
+    for (const tab of tabs) {
+      const group = document.createElement('span'); group.className = 'document-tab';
+      group.classList.toggle('active', tab.key === activeDocument);
+      const b = makeButton(tab.name, tab.name, () => {
+        if (!finishPendingFields()) return;
+        cancelPointer(); stopPlayback(); captureView();
+        if (call({ action: 'document-select', handle: tab.key })) { renderUI(); restoreView(); paint(); }
+      });
+      b.dataset.document = tab.key; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(tab.key === activeDocument));
+      const close = makeButton('×', lang === 'ru' ? 'Закрыть документ' : 'Close document', () => closeDocument(tab));
+      close.className = 'close-document'; close.dataset.closeDocument = tab.key;
+      group.append(b, close); target.append(group); uiCache.documentButtons.set(tab.key,b);
+    }
   }
+  // Dirty indicators may change on blur between pointerdown and click. Updating
+  // the existing button avoids discarding that pending user click.
+  for (const tab of tabs) uiCache.documentButtons.get(tab.key).textContent = `${tab.dirty || hasPendingFields(tab.key) ? '• ' : ''}${tab.name}`;
 }
 function closeDocument(tab) {
-  if (tab.dirty && !confirm(t('unsaved'))) return;
+  if (!finishPendingFields()) return;
+  if (tabs.find(v => v.key === tab.key)?.dirty && !confirm(t('unsaved'))) return;
   cancelPointer(); stopPlayback();
   const key = recoveryKeys.get(tab.key);
   if (!call({ action: 'document-close', handle: tab.key, confirm: true })) return;
-  views.delete(tab.key); recoveryKeys.delete(tab.key); recoveryVersions.delete(tab.key);
+  views.delete(tab.key); recoveryKeys.delete(tab.key); recoveryVersions.delete(tab.key); sourceHandles.delete(tab.key);
   if (key && recoveryStore) queueRecovery(() => recoveryStore.remove(key));
   renderUI(); restoreView(); paint();
 }
@@ -186,7 +260,7 @@ function translate() {
     button.setAttribute('aria-label', label);
   }
   const labels = {
-    '.workspaces':'workspace-label','#toggle-side':'sidebar-label','#tools':'tools-label','#document-tabs':'documents-label',
+    '.workspaces':'workspace-label','#toggle-side':'sidebar-label','#toggle-tools':'tool-options','#tools':'tools-label','#document-tabs':'documents-label',
     '#brush-source':'brush-source-label','#mirror-x':'symmetry-x','#mirror-y':'symmetry-y','#recovery-choice':'recovery-choice-label',
     '#canvas':'canvas-label','#canvas-background':'background-label','#mode':'mode-label','#fg-color':'foreground-label','#hex-color':'hex-label',
     '#fg-alpha':'alpha-label','#swap-colors':'swap-label','#add-layer':'add-layer-label','#layer-properties':'layer-properties-label',
@@ -231,13 +305,117 @@ function translate() {
   $('theme').title = t('theme'); $('theme').setAttribute('aria-label', t('theme'));
   buildTools(); renderTemplateOptions(); if (state) renderUI(); safeSet('aego.art.language', lang);
 }
-function buildTools() { const target = $('tools'); target.replaceChildren(); for (const [name, path] of Object.entries(icons)) { const b = makeButton('', `${t(name)}${toolKeys[name] ? ' · ' + toolKeys[name] : ''}`, () => selectTool(name), 'tool'); b.dataset.tool = name; b.setAttribute('aria-label', t(name)); b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg><span class="shortcut">${toolKeys[name]}</span>`; b.classList.toggle('active', name === tool); target.append(b) } $('tool-name').textContent = t(tool) }
+function buildTools() { const target = $('tools'); target.replaceChildren(); for (const [name, path] of Object.entries(icons)) { const b = makeButton('', `${t(name)}${toolKeys[name] ? ' · ' + toolKeys[name] : ''}`, () => selectTool(name), 'tool'); b.dataset.tool = name; b.setAttribute('aria-label', t(name)); b.setAttribute('aria-pressed', String(name === tool)); const native = nativeToolPaths[name]; b.innerHTML = `<svg viewBox="${native ? '0 0 16 16' : '0 0 24 24'}" aria-hidden="true">${native ? `<path fill="currentColor" stroke="none" d="${native}"/>` : path}</svg><span class="shortcut">${toolKeys[name]}</span>`; b.classList.toggle('active', name === tool); target.append(b) } $('tool-name').textContent = t(tool); updateToolOptions() }
+function updateToolOptions() {
+  const brushTools = ['pencil','eraser','line','rectangle','ellipse','curve','polygon'];
+  const paintTools = [...brushTools,'fill','gradient'];
+  const visible = (id, yes, label = false) => (label ? $(id).closest('label') : $(id)).classList.toggle('hidden', !yes);
+  visible('brush-size', brushTools.includes(tool), true);
+  visible('pixel-perfect', tool === 'pencil', true);
+  visible('filled', ['rectangle','ellipse','polygon'].includes(tool), true);
+  visible('brush-shape', brushTools.includes(tool), true);
+  visible('brush-dither', paintTools.includes(tool), true);
+  visible('brush-source', paintTools.includes(tool));
+  visible('capture-brush', paintTools.includes(tool) || ['select-rect','select-ellipse','lasso','wand'].includes(tool));
+  document.querySelector('.symmetry-controls').classList.toggle('hidden', !paintTools.includes(tool));
+}
 function selectTool(name) { if (!api) return; cancelPointer(); construction = []; tool = name; buildTools(); if (name === 'polygon') say(t('polyHint')); else if (name === 'curve') say(t('curveHint')); else say(t('ready')) }
-function call(req, { quiet = false, update = true } = {}) { if (!api) return null; const res = JSON.parse(api.request(JSON.stringify(req))); if (update) adopt(res); if (res.error) { say(res.error, true); return null } if (!quiet) say(t('ready')); return res }
+const documentFieldDefs = {
+  duration: {
+    target: s => s.frame,
+    value: (s, id) => s.document.frames.find(v => v.id === id)?.durationMS,
+    parse: el => el.value !== '' && !el.validity.badInput && Number.isInteger(Number(el.value)) && Number(el.value) >= 1 && Number(el.value) <= 600000 ? Number(el.value) : null,
+    apply: value => commit({kind:'duration', durationMS:value}), invalid:'field-duration-invalid'
+  },
+  opacity: {
+    target: s => s.layer,
+    value: (s, id) => s.document.layers.find(v => v.id === id)?.opacity,
+    parse: el => el.value !== '' && Number.isInteger(Number(el.value)) && Number(el.value) >= 0 && Number(el.value) <= 255 ? Number(el.value) : null,
+    apply: value => setLayer({opacity:value}), invalid:'field-opacity-invalid'
+  }
+};
+function hasPendingFields(key = activeDocument) { return [...pendingFields.values()].some(v => v.owner === key); }
+function pendingIndicators() {
+  if (!state) return;
+  renderTabs();
+  document.title = `${state.dirty || hasPendingFields() ? '• ' : ''}${filename} — Aego Asset Studio`;
+}
+function noteFieldInput(id) {
+  if (!state) return;
+  if (!pendingFields.has(id)) {
+    const def = documentFieldDefs[id], target = def.target(state);
+    pendingFields.set(id, {id, owner:activeDocument, target, original:def.value(state, target)});
+  }
+  $(id).removeAttribute('aria-invalid');
+  pendingIndicators();
+}
+function fieldError(id, message) { $(id).setAttribute('aria-invalid','true'); say(t(message), true); return false; }
+function finishPendingFields() {
+  if (flushingFields) return true;
+  // Dialogs are explicit transactions; do not silently submit their fields.
+  if (document.querySelector('dialog[open]')) { say(t('field-dialog-open'), true); return false; }
+  if (!pendingFields.size) return true;
+  const drafts = [...pendingFields.values()].map(draft => ({...draft, value:documentFieldDefs[draft.id].parse($(draft.id))}));
+  for (const draft of drafts) if (draft.value === null) return fieldError(draft.id, documentFieldDefs[draft.id].invalid);
+  let current;
+  try { current = JSON.parse(api.request('{"action":"state"}')); }
+  catch (error) { say(t('field-unapplied') + ' ' + (error.message || String(error)), true); return false; }
+  if (current.error) { say(current.error, true); return false; }
+  for (const draft of drafts) {
+    const def = documentFieldDefs[draft.id];
+    if (current.active !== draft.owner || def.target(current.state) !== draft.target ||
+        draft.original === undefined || def.value(current.state, draft.target) !== draft.original) {
+      return fieldError(draft.id, 'field-conflict');
+    }
+  }
+  // Validate all drafts first, then apply each at most once via ordinary Go
+  // history. A later browser change event sees the already-applied value.
+  adopt(current); flushingFields = true;
+  try {
+    for (const draft of drafts) {
+      if (draft.value !== draft.original && !documentFieldDefs[draft.id].apply(draft.value)) {
+        $(draft.id).setAttribute('aria-invalid','true'); say(t('field-unapplied') + ' ' + $('status').textContent, true); return false;
+      }
+      pendingFields.delete(draft.id); $(draft.id).removeAttribute('aria-invalid');
+    }
+  } catch (error) {
+    say(t('field-unapplied') + ' ' + (error.message || String(error)), true); return false;
+  } finally { flushingFields = false; }
+  renderUI(); say(t('ready'));
+  return true;
+}
+function cancelFieldInput(id) {
+  if (!pendingFields.has(id)) return;
+  let current;
+  try { current = JSON.parse(api.request('{"action":"state"}')); }
+  catch (error) { say(t('field-unapplied') + ' ' + (error.message || String(error)), true); return; }
+  if (current.error) { say(current.error, true); return; }
+  adopt(current); pendingFields.delete(id); $(id).removeAttribute('aria-invalid');
+  renderUI(); paint(); say(t('field-cancelled'));
+}
+function installDocumentField(id) {
+  const el = $(id), def = documentFieldDefs[id];
+  el.addEventListener('input', () => noteFieldInput(id));
+  el.addEventListener('change', () => {
+    if (!state) return;
+    const value = def.parse(el), target = def.target(state);
+    if (!pendingFields.has(id) && value !== def.value(state, target)) noteFieldInput(id);
+    if (pendingFields.has(id)) finishPendingFields();
+  });
+  el.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && pendingFields.has(id)) { event.preventDefault(); event.stopPropagation(); cancelFieldInput(id); }
+  });
+}
+const guardedFieldActions = new Set(['new','document-select','document-close','select','begin','undo','redo','copy','copy-animation','paste','paste-animation','capture-brush','isolate']);
+function call(req, { quiet = false, update = true } = {}) {
+  if (!api) return null;
+  if (!flushingFields && pendingFields.size && guardedFieldActions.has(req.action) && !finishPendingFields()) return null;
+  const res = JSON.parse(api.request(JSON.stringify(req))); if (update) adopt(res); if (res.error) { say(res.error, true); return null } if (!quiet) say(t('ready')); return res;
+}
 function brush() { return { source:$('brush-source').value, paint: { color: fg, index: fgIndex, useIndex: state.document.canvas.mode === 'indexed' && state.channel === 'albedo' }, background: { color: bg, index: bgIndex, useIndex: state.document.canvas.mode === 'indexed' && state.channel === 'albedo' }, size: Number($('brush-size').value) || 1, pixelPerfect: $('pixel-perfect').checked, round: $('brush-shape').value === 'round', mirrorX, mirrorY, dither: Number($('brush-dither').value) } }
 $('capture-brush').onclick=()=>{cancelPointer();if(call({action:'capture-brush'})){call({action:'selection',tool:'none'});$('brush-source').value='stamp';selectTool('pencil');renderUI();paint();}};
 function activeCel() { return state.document.cels.find(c => c.layer === state.layer && c.frame === state.frame && c.channel === state.channel) }
-function commit(op, expectedRevision = state.document.revision) { stopPlayback(); const res = call({ action: 'apply', operation: op, expectedRevision }); if (res) { renderUI(); paint(); scheduleRecovery() } return res }
+function commit(op, expectedRevision) { if (!flushingFields && !finishPendingFields()) return null; expectedRevision ??= state.document.revision; stopPlayback(); const res = call({ action: 'apply', operation: op, expectedRevision }); if (res) { renderUI(); paint(); scheduleRecovery() } return res }
 function colorHex(c) { return '#' + [c.R, c.G, c.B].map(v => v.toString(16).padStart(2, '0')).join('') }
 function parseColor(v) { if (!/^#[0-9a-f]{6}$/i.test(v)) return null; return { R: parseInt(v.slice(1, 3), 16), G: parseInt(v.slice(3, 5), 16), B: parseInt(v.slice(5, 7), 16), A: 255 } }
 function colorsUI() { $('fg-alpha').value = fg.A; $('fg-color').value = colorHex(fg); $('hex-color').value = colorHex(fg); $('swatches').querySelectorAll('button').forEach((b, i) => b.classList.toggle('selected', i === fgIndex)); $('palette-info').textContent = `${state.document.palette.length} ${t('colors')}` }
@@ -249,7 +427,7 @@ function renderPalette() {
   const target = $('swatches'); target.replaceChildren();
   state.document.palette.forEach((sw, i) => { const b = makeButton('', `${i}: ${sw.name || colorHex(sw.color)}`, () => { fgIndex = i; fg = { ...sw.color }; colorsUI() }, 'swatch'); b.style.backgroundColor = `rgba(${sw.color.R},${sw.color.G},${sw.color.B},${sw.color.A / 255})`; if (sw.color.A === 0) b.classList.add('transparent'); b.addEventListener('contextmenu', e => { e.preventDefault(); bgIndex = i; bg = { ...sw.color }; colorsUI() }); target.append(b) }); colorsUI();
 }
-function setLayer(partial) { const layer = state.document.layers.find(v => v.id === state.layer); if (layer) commit({ kind: 'set-layer', layerValue: { ...layer, ...partial } }) }
+function setLayer(partial) { if (!flushingFields && !finishPendingFields()) return null; const layer = state.document.layers.find(v => v.id === state.layer); return layer ? commit({ kind: 'set-layer', layerValue: { ...layer, ...partial } }) : null }
 function renderLayers() {
   const key=JSON.stringify([activeDocument,lang,state.document.layers]);
   if(uiCache.layers!==key){
@@ -268,7 +446,7 @@ function renderLayers() {
     if(uiCache.thumbnails!==thumbnailKey){const preview=api.thumbnail(id);if(preview)sw.getContext('2d').putImageData(new ImageData(preview,32,32),0,0);}
   }
   uiCache.thumbnails=thumbnailKey;
-  const layer = state.document.layers.find(v => v.id === state.layer); if (layer) { $('opacity').value = layer.opacity; $('opacity-value').value = Math.round(layer.opacity / 255 * 100) + '%'; $('blend').value = layer.blend; $('alpha-lock').classList.toggle('active', layer.alphaLock); $('isolate-layer').classList.toggle('active', state.isolation === layer.id) }
+  const layer = state.document.layers.find(v => v.id === state.layer); if (layer) { if (!pendingFields.has('opacity')) { $('opacity').value = layer.opacity; $('opacity-value').value = Math.round(layer.opacity / 255 * 100) + '%' } $('blend').value = layer.blend; $('alpha-lock').classList.toggle('active', layer.alphaLock); $('isolate-layer').classList.toggle('active', state.isolation === layer.id) }
 }
 function cellKey(cell) { return JSON.stringify([cell.layer, cell.frame, cell.channel]); }
 function selectedCells() {
@@ -278,6 +456,7 @@ function selectedCells() {
   return rangeCells.size ? [...rangeCells.values()] : (layers.has(state.layer) ? [{layer: state.layer, frame: state.frame, channel: state.channel}] : []);
 }
 function selectTimelineCell(layer, frame, event) {
+  if (!finishPendingFields()) return;
   stopPlayback(); cancelPointer();
   const cell = {layer, frame, channel: state.channel};
   const extend = event.shiftKey && rangeAnchor;
@@ -326,7 +505,7 @@ function renderTimeline() {
     const b=uiCache.celButtons.get(key);if(b){b.classList.toggle('active',!!(flags&1));b.classList.toggle('range-selected',!!(flags&2));b.setAttribute('aria-selected',String(!!(flags&2)));}
   }
   uiCache.cellHighlights=highlights;
-  const index = frames.findIndex(f => f.id === state.frame); $('duration').value = frames[index]?.durationMS || 100;
+  const index = frames.findIndex(f => f.id === state.frame); if (!pendingFields.has('duration')) $('duration').value = frames[index]?.durationMS || 100;
   $('frame-info').textContent = `${index + 1} / ${frames.length} · ${frames.reduce((n, f) => n + f.durationMS, 0)} ms`;
   const tagKey=JSON.stringify([activeDocument,lang,state.document.tags]);
   if(uiCache.tags!==tagKey){uiCache.tags=tagKey;const value=$('tags').value,tags=$('tags');tags.replaceChildren(new Option(t('all-frames'),''));(state.document.tags||[]).forEach(tag=>tags.add(new Option(`${tag.name} · ${t('direction-'+tag.direction)}`,tag.id)));if([...tags.options].some(v=>v.value===value))tags.value=value;}
@@ -334,7 +513,7 @@ function renderTimeline() {
   $('frame-left').disabled = index === 0; $('frame-right').disabled = index === frames.length - 1;
   $('edit-tag').disabled = $('delete-tag').disabled = !$('tags').value;
 }
-function renderUI() { if (!state) return; renderTabs(); const c = state.document.canvas; $('document-info').textContent = `${c.width} × ${c.height} · ${c.mode.toUpperCase()}`; $('mode').value = c.mode; $('channel').value = state.channel; $('undo').disabled = state.undo === 0 && !state.gesture; $('redo').disabled = state.redo === 0; $('selection-info').textContent = state.selectedPixels ? `${state.selectedPixels} ${t('selected')}` : ''; renderPalette(); renderLayers(); renderTimeline(); selectionOverlay(); document.title = `${state.dirty ? '• ' : ''}${filename} — Aego Asset Studio` }
+function renderUI() { if (!state) return; renderTabs(); const c = state.document.canvas; $('document-info').textContent = `${c.width} × ${c.height} · ${c.mode.toUpperCase()}`; $('mode').value = c.mode; $('channel').value = state.channel; $('undo').disabled = state.undo === 0 && !state.gesture; $('redo').disabled = state.redo === 0; $('selection-info').textContent = state.selectedPixels ? `${state.selectedPixels} ${t('selected')}` : ''; renderPalette(); renderLayers(); renderTimeline(); selectionOverlay(); pendingIndicators() }
 function fitZoom() { const c = state.document.canvas; const v = $('viewport'); setZoom(Math.max(1, Math.floor(Math.min((v.clientWidth - 70) / c.width, (v.clientHeight - 70) / c.height)))) }
 function setZoom(value, anchor = null) {
   const viewport=$('viewport'), before=$('canvas').getBoundingClientRect(), oldZoom=zoom;
@@ -356,7 +535,7 @@ if (!api || !state) return; const c = state.document.canvas; const bytes = api.p
 }
 function chooseFrame(id) { stopPlayback(); if (call({ action: 'select', frame: id })) { renderUI(); paint() } }
 function stopPlayback() { playing = false; playFrame = ''; $('play').textContent = '▶'; $('play').classList.remove('active') }
-function togglePlay() { if (!api) return; cancelPointer(); if (playing) { stopPlayback(); renderTimeline(); paint(); return } playing = true; playStart = performance.now(); $('play').textContent = 'Ⅱ'; $('play').classList.add('active'); requestAnimationFrame(tick) }
+function togglePlay() { if (!api || !finishPendingFields()) return; cancelPointer(); if (playing) { stopPlayback(); renderTimeline(); paint(); return } playing = true; playStart = performance.now(); $('play').textContent = 'Ⅱ'; $('play').classList.add('active'); requestAnimationFrame(tick) }
 function tick(now) { if (!playing) return; if (now - lastDraw >= 12) { const res = call({ action: 'frame-at', tag: $('tags').value, timeMS: Math.floor(now - playStart) }, { quiet: true, update: false }); if (res && res.id !== playFrame) { playFrame = res.id; paint(playFrame); $('timeline-table').querySelectorAll('th button[data-frame]').forEach(b => b.classList.toggle('active', b.dataset.frame === playFrame)) } lastDraw = now } requestAnimationFrame(tick) }
 function point(e) { const r = $('canvas').getBoundingClientRect(); return { X: Math.floor((e.clientX - r.left) / zoom), Y: Math.floor((e.clientY - r.top) / zoom) } }
 function showCursor(p) { lastPoint = p; $('coordinates').textContent = `${p.X}, ${p.Y}`; const cur = $('cursor'); const size = Number($('brush-size').value) || 1; cur.classList.remove('hidden'); cur.style.width = size * zoom + 'px'; cur.style.height = size * zoom + 'px'; cur.style.left = (p.X - Math.floor(size / 2)) * zoom + 'px'; cur.style.top = (p.Y - Math.floor(size / 2)) * zoom + 'px' }
@@ -376,7 +555,7 @@ function finishConstruction() {
 }
 const canvas = $('canvas');
 canvas.addEventListener('pointerdown', e => {
-  if (!api) return; e.preventDefault(); canvas.focus({preventScroll:true}); const p = point(e); showCursor(p);
+  if (!api) return; e.preventDefault(); if (!finishPendingFields()) return; canvas.focus({preventScroll:true}); const p = point(e); showCursor(p);
   if (e.pointerType === 'touch') { touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 2) { cancelPointer(); const [a, b] = [...touches.values()]; pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom }; return } }
   if (pointer !== null || pinch) return; pointer = e.pointerId; pointerStart = p; canvas.setPointerCapture(pointer); stopPlayback();
   if (e.button === 1 || e.button === 2 && e.altKey) { pan = { x: e.clientX, y: e.clientY, left: $('viewport').scrollLeft, top: $('viewport').scrollTop }; return }
@@ -421,46 +600,141 @@ function undo() { cancelPointer(); stopPlayback(); if (call({ action: 'undo' }))
 function redo() { cancelPointer(); stopPlayback(); if (call({ action: 'redo' })) { renderUI(); paint(); scheduleRecovery() } }
 function download(bytes, name, type) { const url = URL.createObjectURL(new Blob([bytes], { type })); const link = document.createElement('a'); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) }
 function stem() { return filename.replace(/\.[^.]+$/, '') }
-async function save() {
-  cancelPointer();
+const localTypes = [
+  {description:'Aego Art Document', accept:{'application/octet-stream':['.aeart','.ase','.aseprite']}},
+  {description:'PNG image', accept:{'image/png':['.png']}}
+];
+function canUseHandles() { return window.top === window && window.isSecureContext && !!window.crypto?.subtle; }
+async function digestBytes(bytes) {
+  const hash = await window.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hash), v => v.toString(16).padStart(2, '0')).join('');
+}
+async function fileDigest(file) {
+  if (file.size > 64 * 1024 * 1024) throw new Error(t('fileLimit'));
+  return digestBytes(await file.arrayBuffer());
+}
+async function sameFile(a, b) {
+  if (a === b) return true;
+  return typeof a.isSameEntry === 'function' ? await a.isSameEntry(b) : false;
+}
+async function knownSource(handle) {
+  for (const [key, source] of sourceHandles) if (await sameFile(source.handle, handle)) return {key, ...source};
+  return null;
+}
+async function ensureWritePermission(handle) {
+  // Requesting permission is triggered only by the user's Save action.
+  if (typeof handle.requestPermission === 'function' && await handle.requestPermission({mode:'readwrite'}) !== 'granted') {
+    throw new Error(t('file-permission'));
+  }
+}
+function snapshotReadyForWrite(snapshot) {
+  if (!finishPendingFields()) return false;
+  const current = JSON.parse(api.request('{"action":"state"}'));
+  if (current.error) { say(current.error, true); return false; }
+  const owner = current.tabs.find(tab => tab.key === snapshot.handle);
+  if (!owner || owner.revision !== snapshot.revision || (current.active === snapshot.handle && current.state.gesture)) {
+    say(t('save-stale-field'), true); return false;
+  }
+  return true;
+}
+async function save(saveAs = false) {
+  if (saveBusy) { say(t('save-busy'), true); return; }
+  if (!finishPendingFields()) return;
+  if (state?.gesture || pointer !== null) { say(t('finish-gesture'), true); return; }
+  saveBusy = true;
   const savedName = filename;
-  const res = api.exportBytes('aeart');
-  if (res.error) { say(res.error, true); return; }
-  let receipt = res.receipt;
+  let receipt = '';
   try {
-    // File System Access is a top-level enhancement. A cross-origin lesson
-    // must retain its ordinary download path even when the API is exposed.
-    if (window.top === window && window.isSecureContext && typeof window.showSaveFilePicker === 'function') {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: savedName,
-        types: [{ description: 'Aego Art Document', accept: { 'application/octet-stream': ['.aeart'] } }]
-      });
-      // No late publication after Close or a stale file-picker result. While
-      // writing, this tab is pinned; new edits remain dirty after completion.
-      if (!call({ action: 'begin-save', receipt }, { quiet: true })) return;
-      const writable = await handle.createWritable();
-      try { await writable.write(res.bytes); await writable.close(); }
-      catch (error) { await writable.abort().catch(() => {}); throw error; }
-      if (!call({ action: 'saved', receipt }, { quiet: true })) return;
-      receipt = '';
-      call({ action: 'document-name', handle: res.handle, name: handle.name || savedName }, { quiet: true });
-    } else {
+    const res = api.exportBytes('aeart');
+    if (res.error) { say(res.error, true); return; }
+    receipt = res.receipt;
+    let source = !saveAs && canUseHandles() ? sourceHandles.get(res.handle) : null;
+    if (!source && (!canUseHandles() || typeof window.showSaveFilePicker !== 'function')) {
       download(res.bytes, savedName, 'application/octet-stream');
-      // Browsers do not acknowledge whether an anchor download reached disk.
-      // Keep dirty and recovery until an actual write acknowledgement exists.
+      // An anchor download cannot acknowledge a completed write. Keep dirty.
+      say(t('save-download')); return;
     }
-    renderUI(); say(t('saved')); scheduleRecovery();
-  } catch (error) { if (error.name !== 'AbortError') say(error.message, true); }
-  finally { if (receipt) call({ action: 'cancel-save', receipt }, { quiet: true }); }
+    let handle, baseline;
+    if (source) {
+      handle = source.handle;
+      // Start the permission request directly from the explicit Save gesture.
+      await ensureWritePermission(handle);
+      baseline = source.digest;
+    } else {
+      handle = await window.showSaveFilePicker({
+        suggestedName: savedName,
+        types: [{description:'Aego Art Document', accept:{'application/octet-stream':['.aeart']}}]
+      });
+      if (!/\.aeart$/i.test(handle.name || '')) throw new Error(t('file-save-format'));
+      // If Save As selects an already-open source, do not replace an externally
+      // changed version. Otherwise the picker is the explicit overwrite choice;
+      // observe its target now, and check it again immediately before writing.
+      source = await knownSource(handle);
+      const target = await handle.getFile();
+      if (target.size && source?.key !== res.handle && !confirm(t('file-overwrite') + '\n\n' + handle.name)) {
+        say(t('save-cancelled')); return;
+      }
+      baseline = source ? source.digest : await fileDigest(target);
+      await ensureWritePermission(handle);
+    }
+    if (await fileDigest(await handle.getFile()) !== baseline) throw new Error(t('file-conflict'));
+    const writtenDigest = await digestBytes(res.bytes);
+    // Validate the original snapshot after all deferred picker/read operations.
+    // The host pins its tab while writing; later edits remain dirty.
+    if (!snapshotReadyForWrite(res)) return;
+    if (!call({ action:'begin-save', receipt }, { quiet:true })) return;
+    if (await fileDigest(await handle.getFile()) !== baseline) throw new Error(t('file-conflict'));
+    if (!snapshotReadyForWrite(res)) return;
+    // This content check is not an atomic CAS: another process can still write
+    // between getFile() and close(). The browser exposes no filesystem CAS.
+    const writable = await handle.createWritable();
+    try {
+      if (!snapshotReadyForWrite(res)) { await writable.abort(); return; }
+      await writable.write(res.bytes);
+      if (!snapshotReadyForWrite(res)) { await writable.abort(); return; }
+      await writable.close();
+    }
+    catch (error) { try { await writable.abort(); } catch {} throw error; }
+    // close() is already in flight during its await. A later draft cannot undo
+    // that write; keep it visible and do not acknowledge it as saved on error.
+    if (!finishPendingFields()) { say(t('save-written-pending') + ' ' + $('status').textContent, true); return; }
+    if (!call({ action:'saved', receipt }, { quiet:true })) return;
+    receipt = '';
+    sourceHandles.set(res.handle, {handle, digest:writtenDigest});
+    call({action:'document-name', handle:res.handle, name:handle.name || savedName}, {quiet:true});
+    renderUI(); say(t('save-complete')); scheduleRecovery();
+  } catch (error) {
+    if (error.name === 'AbortError') say(t('save-cancelled'));
+    else say(error.message || String(error), true);
+  } finally {
+    try { if (receipt) call({action:'cancel-save', receipt}, {quiet:true}); }
+    catch (error) { say(error.message || String(error), true); }
+    saveBusy = false;
+  }
 }
 
-function exportPNG() { cancelPointer(); const res = api.exportBytes('png'); if (res.error) { say(res.error, true); return } download(res.bytes, stem() + '.png', 'image/png'); say(t('exported')) }
-function exportSheet() { cancelPointer(); const columns = Math.min(8, state.document.frames.length); const png = api.exportBytes('sheet', columns); const meta = api.exportBytes('sheet-json', columns); if (png.error || meta.error) { say(png.error || meta.error, true); return } download(png.bytes, stem() + '-sheet.png', 'image/png'); download(meta.bytes, stem() + '-sheet.json', 'application/json'); say(t('exported')) }
-async function openFile(file) {
+function exportPNG() { if (!finishPendingFields()) return; cancelPointer(); const res = api.exportBytes('png'); if (res.error) { say(res.error, true); return } download(res.bytes, stem() + '.png', 'image/png'); say(t('exported')) }
+function exportSheet() { if (!finishPendingFields()) return; cancelPointer(); const columns = Math.min(8, state.document.frames.length); const png = api.exportBytes('sheet', columns); const meta = api.exportBytes('sheet-json', columns); if (png.error || meta.error) { say(png.error || meta.error, true); return } download(png.bytes, stem() + '-sheet.png', 'image/png'); download(meta.bytes, stem() + '-sheet.json', 'application/json'); say(t('exported')) }
+async function openFile(file, handle = null) {
+  if (!file) return;
+  if (!finishPendingFields()) return false;
+  if (!/\.(aeart|png|ase|aseprite)$/i.test(file.name)) throw new Error(t('file-format'));
   if (file.size > 64 * 1024 * 1024) throw new Error(t('fileLimit'));
-  cancelPointer(); stopPlayback(); captureView();
+  if (state?.gesture || pointer !== null) throw new Error(t('open-busy'));
   const format = /\.(ase|aseprite)$/i.test(file.name) ? 'aseprite' : /\.png$/i.test(file.name) ? 'png' : 'aeart';
+  if (format === 'aeart' && handle && canUseHandles()) {
+    const previous = await knownSource(handle);
+    if (previous) {
+      if (!finishPendingFields()) return false;
+      if (state?.gesture || pointer !== null) throw new Error(t('open-busy'));
+      stopPlayback(); captureView();
+      if (call({action:'document-select', handle:previous.key})) { renderUI(); restoreView(); paint(); say(t('file-already-open')); }
+      return true;
+    }
+  }
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const digest = format === 'aeart' && handle && canUseHandles() ? await digestBytes(bytes) : '';
+  if (!finishPendingFields()) return false;
   // Reading a local file yields to input. Do not switch the active session
   // underneath a gesture started after the file picker returned.
   const current = JSON.parse(api.request('{"action":"state"}'));
@@ -471,14 +745,34 @@ async function openFile(file) {
   let res = JSON.parse(api.importBytes(bytes, format, false, name));
   if (res.needsConfirmation) {
     const message = lang === 'ru' ? 'Некоторые метаданные не будут сохранены. Импортировать после просмотра предупреждений?' : 'Some metadata will not be retained. Import after reviewing these warnings?';
-    if (!confirm(message + '\n\n' + (res.warnings || []).join('\n'))) return;
+    if (!confirm(message + '\n\n' + (res.warnings || []).join('\n'))) return false;
     res = JSON.parse(api.importBytes(bytes, format, false, name, true));
   }
   if (res.error) throw new Error(res.error);
-  adopt(res); renderUI(); restoreView(); paint(); scheduleRecovery();
+  adopt(res);
+  // Imported PNG/Aseprite is an independent .aeart document, never a writeback
+  // handle for the original raster/foreign format.
+  if (digest) sourceHandles.set(res.active, {handle, digest});
+  renderUI(); restoreView(); paint(); scheduleRecovery();
   say(res.warnings?.length ? res.warnings.join(' · ') : t('imported'));
+  return true;
 }
-$('file-input').addEventListener('change', async e => { try { await openFile(e.target.files[0]) } catch (error) { say(error.message, true) } e.target.value = '' });
+async function openFiles(entries) {
+  for (const entry of entries) {
+    try { if (await openFile(entry.file || await entry.handle.getFile(), entry.handle || null) === false) return; }
+    catch (error) { say(error.message || String(error), true); return; }
+  }
+}
+async function chooseFiles() {
+  if (!api || !finishPendingFields()) return;
+  if (canUseHandles() && typeof window.showOpenFilePicker === 'function') {
+    try {
+      const handles = await window.showOpenFilePicker({multiple:true, types:localTypes});
+      await openFiles(handles.map(handle => ({handle})));
+    } catch (error) { if (error.name !== 'AbortError') say(error.message || String(error), true); }
+  } else $('file-input').click();
+}
+$('file-input').addEventListener('change', async e => { const files = Array.from(e.target.files); e.target.value = ''; await openFiles(files.map(file => ({file}))); });
 function renderTemplateOptions() {
   const select = $('new-dialog').querySelector('[name=template]'), selected = select.value;
   select.replaceChildren(new Option(t('blank-document'), ''));
@@ -493,7 +787,7 @@ function setNewTemplate(id = '') {
   $('template-help').hidden = !id;
 }
 $('new').onclick = () => {
-  if (!api) return;
+  if (!api || !finishPendingFields()) return;
   cancelPointer(); stopPlayback();
   const result = call({action:'templates'}, {quiet:true, update:false});
   if (!result) return;
@@ -509,16 +803,17 @@ $('new-dialog').addEventListener('close', () => {
   const res = call({action:'new', template, name, width:Number(form.elements.width.value), height:Number(form.elements.height.value), mode:form.elements.mode.value, confirm:true});
   if (res) { renderUI(); restoreView(); paint(); scheduleRecovery(); if (template) workspace('vfx'); }
 });
-$('open').onclick = () => api && $('file-input').click(); $('save').onclick = () => api && save(); $('undo').onclick = undo; $('redo').onclick = redo; $('export-png').onclick = exportPNG; $('export-sheet').onclick = exportSheet;
+$('open').onclick = chooseFiles; $('save').onclick = () => api && save(); $('save-as').onclick = () => api && save(true); $('undo').onclick = undo; $('redo').onclick = redo; $('export-png').onclick = exportPNG; $('export-sheet').onclick = exportSheet;
 $('zoom-in').onclick = () => setZoom(zoom + 1); $('zoom-out').onclick = () => setZoom(zoom - 1); $('fit').onclick = fitZoom; $('grid').onclick = () => { grid = !grid; $('grid').classList.toggle('active', grid); setZoom(zoom) };
 $('mirror-x').onclick = () => { mirrorX = !mirrorX; $('mirror-x').classList.toggle('active', mirrorX) }; $('mirror-y').onclick = () => { mirrorY = !mirrorY; $('mirror-y').classList.toggle('active', mirrorY) };
-$('channel').onchange = e => { if (call({ action: 'select', channel: e.target.value })) { renderUI(); paint() } }; $('mode').onchange = e => commit({ kind: 'mode', mode: e.target.value });
+$('channel').onchange = e => { if (call({ action: 'select', channel: e.target.value })) { renderUI(); paint() } else e.target.value = state.channel }; $('mode').onchange = e => { if (!commit({ kind: 'mode', mode: e.target.value })) e.target.value = state.document.canvas.mode };
 $('fg-color').oninput = e => { fg = {...parseColor(e.target.value), A: fg.A}; colorsUI() }; $('hex-color').onchange = e => { const c = parseColor(e.target.value); if (c) { fg = {...c, A: fg.A}; colorsUI() } else { say(t('badColor'), true); colorsUI() } };
 $('swap-colors').onclick = () => { [fg, bg] = [bg, fg];[fgIndex, bgIndex] = [bgIndex, fgIndex]; colorsUI() }; $('palette-edit').onclick = () => commit({ kind: 'palette-color', index: fgIndex, swatch: { color: fg, name: state.document.palette[fgIndex]?.name || '' } });
 $('add-layer').onclick = () => openLayerDialog(null);
 $('layer-properties').onclick = () => openLayerDialog(state.document.layers.find(v => v.id === state.layer));
 $('duplicate-layer').onclick = () => commit({ kind: 'duplicate-layer' }); $('delete-layer').onclick = () => commit({ kind: 'delete-layer' }); $('layer-up').onclick = () => commit({ kind: 'move-layer', offset: 1 }); $('layer-down').onclick = () => commit({ kind: 'move-layer', offset: -1 });
-$('opacity').oninput = e => $('opacity-value').value = Math.round(Number(e.target.value) / 255 * 100) + '%'; $('opacity').onchange = e => setLayer({ opacity: Number(e.target.value) }); $('blend').onchange = e => setLayer({ blend: e.target.value }); $('alpha-lock').onclick = () => { const l = state.document.layers.find(v => v.id === state.layer); setLayer({ alphaLock: !l.alphaLock }) };
+$('opacity').oninput = e => $('opacity-value').value = Math.round(Number(e.target.value) / 255 * 100) + '%'; $('blend').onchange = e => setLayer({ blend: e.target.value }); $('alpha-lock').onclick = () => { const l = state.document.layers.find(v => v.id === state.layer); setLayer({ alphaLock: !l.alphaLock }) };
+installDocumentField('opacity'); installDocumentField('duration');
 function activePivot(frame=state.frame){let global=null,specific=null;for(const slice of state.document.slices||[]){if(slice.name!=='pivot')continue;if(!slice.frame)global=slice;else if(slice.frame===frame)specific=slice;}return specific||global;}
 $('pivot').onclick=()=>{
   editingPivot=(state.document.slices||[]).find(s=>s.name==='pivot'&&s.frame===state.frame)||null;
@@ -565,7 +860,7 @@ $('tile-preview').onclick=()=>{tiledPreview=!tiledPreview;$('tile-preview').clas
 $('gpu-mode').addEventListener('change',updateTiledPreview);
 $('flip-x').onclick = () => commit({ kind: 'flip-x' }); $('rotate').onclick = () => commit({ kind: 'rotate-cw' }); $('onion').onchange = e => { onion = e.target.checked; paint() }; $('play').onclick = togglePlay;
 $('first-frame').onclick = () => chooseFrame(state.document.frames[0].id); $('next-frame').onclick = () => { const f = state.document.frames; chooseFrame(f[(f.findIndex(v => v.id === state.frame) + 1) % f.length].id) };
-$('add-frame').onclick = () => commit({ kind: 'add-frame', durationMS: Number($('duration').value) }); $('duplicate-frame').onclick = () => commit({ kind: 'duplicate-frame', linked: false }); $('link-frame').onclick = () => commit({ kind: 'duplicate-frame', linked: true }); $('unlink').onclick = () => commit({ kind: 'unlink' }); $('delete-frame').onclick = () => commit({ kind: 'delete-frame' }); $('duration').onchange = e => commit({ kind: 'duration', durationMS: Number(e.target.value) });
+$('add-frame').onclick = () => commit({ kind: 'add-frame', durationMS: Number($('duration').value) }); $('duplicate-frame').onclick = () => commit({ kind: 'duplicate-frame', linked: false }); $('link-frame').onclick = () => commit({ kind: 'duplicate-frame', linked: true }); $('unlink').onclick = () => commit({ kind: 'unlink' }); $('delete-frame').onclick = () => commit({ kind: 'delete-frame' });
 function openTagDialog(tag) {
   cancelPointer(); editingTag = tag || null; const f = $('tag-dialog').querySelector('form'), frames = state.document.frames;
   f.elements.name.value = tag?.name || 'Idle'; f.elements.from.value = tag ? frames.findIndex(v => v.id === tag.from)+1 : 1;
@@ -584,6 +879,7 @@ $('tag-dialog').addEventListener('close', () => {
   if (res) { $('tags').value = res.id; renderTimeline(); }
 });
 function openVersionedDialog(id) {
+  if (!finishPendingFields()) return;
   cancelPointer(); stopPlayback(); dialogRevisions.set(id,{handle:activeDocument,revision:state.document.revision});
   $(id).returnValue = ''; $(id).showModal();
 }
@@ -594,6 +890,8 @@ function dialogCurrent(id) {
   return true;
 }
 function openLayerDialog(layer) {
+  if (!finishPendingFields()) return;
+  if (layer) { layer = state.document.layers.find(v => v.id === layer.id); if (!layer) return; }
   const f = $('layer-dialog').querySelector('form'); editingLayer = layer || null;
   f.elements.name.value = layer?.name || `${t('layer')} ${state.document.layers.length+1}`;
   f.elements.kind.value = layer?.kind || 'raster'; f.elements.kind.disabled = !!layer;
@@ -607,17 +905,19 @@ $('layer-dialog').addEventListener('close',() => {
   commit(editingLayer ? {kind:'set-layer',layerValue:{...editingLayer,name:f.elements.name.value,parent:f.elements.parent.value}} : {kind:'add-layer',name:f.elements.name.value,layerKind:f.elements.kind.value,parent:f.elements.parent.value});
 });
 $('fg-alpha').onchange = e => { fg.A = Math.max(0,Math.min(255,Number(e.target.value))); colorsUI(); };
-$('palette-import').onclick = () => $('palette-input').click();
+$('palette-import').onclick = () => { if (finishPendingFields()) $('palette-input').click(); };
 $('palette-input').onchange = async e => {
-  const file = e.target.files[0], handle = activeDocument, revision = state.document.revision; e.target.value = ''; if (!file) return;
+  const file = e.target.files[0]; e.target.value = ''; if (!file || !finishPendingFields()) return;
+  const handle = activeDocument, revision = state.document.revision;
   try {
     if (file.size > 128*1024) throw Error('Palette exceeds 128 KiB');
     const bytes = new Uint8Array(await file.arrayBuffer()), format = /\.gpl$/i.test(file.name) ? 'gpl' : 'json';
+    if (!finishPendingFields()) return;
     const res = JSON.parse(api.importPalette(bytes,format,false,handle,revision));
     if (res.error) { say(res.error,true); return; } adopt(res); renderUI(); paint(); scheduleRecovery(); say(t('palette-loaded'));
   } catch (error) { say(error.message,true); }
 };
-$('palette-export').onclick = () => { const out = api.exportBytes('palette'); if (out.error) say(out.error,true); else download(out.bytes,stem()+'-palette.json','application/json'); };
+$('palette-export').onclick = () => { if (!finishPendingFields()) return; const out = api.exportBytes('palette'); if (out.error) say(out.error,true); else download(out.bytes,stem()+'-palette.json','application/json'); };
 $('palette-extract').onclick = () => openVersionedDialog('palette-dialog');
 $('palette-dialog').addEventListener('close',() => {
   if ($('palette-dialog').returnValue !== 'apply' || !dialogCurrent('palette-dialog')) return;
@@ -654,19 +954,40 @@ function shiftFrame(offset) {
 }
 $('frame-left').onclick = () => shiftFrame(-1); $('frame-right').onclick = () => shiftFrame(1);
 $('language').onclick = () => { lang = lang === 'ru' ? 'en' : 'ru'; translate() }; $('fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen() } catch (error) { say(error.message, true) } };
-$('toggle-side').onclick = () => $('sidebar').classList.toggle('open');
+$('toggle-side').onclick = () => { const open = $('sidebar').classList.toggle('open'); $('toggle-side').setAttribute('aria-expanded', String(open)); };
+$('toggle-tools').onclick = () => { const open = document.querySelector('.left-dock').classList.toggle('open'); $('toggle-tools').setAttribute('aria-expanded', String(open)); };
 function workspace(name) { document.body.classList.toggle('workspace-vfx', name === 'vfx'); if (name === 'vfx') window.AegoGPUPreview?.select('particles'); document.body.classList.toggle('workspace-animation', name === 'animation'); document.querySelectorAll('[data-workspace]').forEach(b => b.classList.toggle('active', b.dataset.workspace === name)); safeSet('aego.art.workspace', name) }
 document.querySelectorAll('[data-workspace]').forEach(b => b.onclick = () => workspace(b.dataset.workspace)); workspace(safeGet('aego.art.workspace') || 'art');
 document.addEventListener('keydown', e => {
-  if (!api || e.target.matches('input,textarea,select') || document.querySelector('dialog[open]')) return; const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (!api || document.querySelector('dialog[open]')) return; const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  // Save/Open remain available while a numeric or color field has focus; other
+  // editing shortcuts must continue to belong to that field.
+  if (mod && k === 's') { e.preventDefault(); save(e.shiftKey); return; }
+  if (mod && k === 'o') { e.preventDefault(); chooseFiles(); return; }
+  if (e.target.matches('input,textarea,select')) return;
   if (e.key === 'Escape') { e.preventDefault(); construction = []; cancelPointer(); call({ action: 'selection', tool: 'none' }); renderUI(); paint(); return }
-  if (mod) { if (k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo() } else if (k === 'y') { e.preventDefault(); redo() } else if (k === 's') { e.preventDefault(); save() } else if (k === 'o') { e.preventDefault(); $('file-input').click() } else if (k === 'c') { e.preventDefault(); if (call({ action: 'copy' })) say(t('copy')) } else if (k === 'v') { e.preventDefault(); if (call({ action: 'paste', points: [lastPoint] })) { renderUI(); paint(); scheduleRecovery() } } else if (k === 'a') { e.preventDefault(); call({ action: 'selection', tool: 'all' }); renderUI(); paint() } else if (k === 'd') { e.preventDefault(); call({ action: 'selection', tool: 'none' }); renderUI(); paint() } return }
+  if (mod) { if (k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo() } else if (k === 'y') { e.preventDefault(); redo() } else if (k === 'c') { e.preventDefault(); if (call({ action: 'copy' })) say(t('copy')) } else if (k === 'v') { e.preventDefault(); if (call({ action: 'paste', points: [lastPoint] })) { renderUI(); paint(); scheduleRecovery() } } else if (k === 'a') { e.preventDefault(); call({ action: 'selection', tool: 'all' }); renderUI(); paint() } else if (k === 'd') { e.preventDefault(); call({ action: 'selection', tool: 'none' }); renderUI(); paint() } return }
   if (e.key === 'Enter') { e.preventDefault(); if (tool === 'polygon' && construction.length) finishConstruction(); else togglePlay(); return }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); commit({ kind: 'clear' }); return }
   if (k === 'x') { $('swap-colors').click(); return } const entry = Object.entries(toolKeys).find(([, key]) => key.toLowerCase() === k); if (entry) { e.preventDefault(); selectTool(entry[0]) }
 });
-window.addEventListener('beforeunload', e => { if (tabs.some(v => v.dirty) || state?.gesture) { e.preventDefault(); e.returnValue = '' } });
-window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', async e => { e.preventDefault(); if (api && e.dataTransfer.files.length) try { await openFile(e.dataTransfer.files[0]) } catch (error) { say(error.message, true) } });
+window.addEventListener('beforeunload', e => { if (tabs.some(v => v.dirty) || state?.gesture || pendingFields.size) { e.preventDefault(); e.returnValue = '' } });
+window.addEventListener('dragover', e => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });
+window.addEventListener('drop', async e => {
+  if (!e.dataTransfer?.types.includes('Files')) return;
+  e.preventDefault(); if (!api) return;
+  // Capture File objects and request handles while the drop event is live.
+  // Some browsers expose only File; those documents use the download fallback.
+  const items = Array.from(e.dataTransfer.items).filter(item => item.kind === 'file');
+  const pending = items.map(item => {
+    let handle = Promise.resolve(null);
+    try { if (canUseHandles() && item.getAsFileSystemHandle) handle = item.getAsFileSystemHandle().catch(() => null); } catch { /* File fallback */ }
+    return {file:item.getAsFile(), handle};
+  });
+  if (!pending.length) { await openFiles(Array.from(e.dataTransfer.files).map(file => ({file}))); return; }
+  const entries = await Promise.all(pending.map(async item => ({file:item.file, handle:await item.handle})));
+  await openFiles(entries.filter(item => item.file && (!item.handle || item.handle.kind === 'file')));
+});
 function queueRecovery(job) {
   recoveryWrites = recoveryWrites.then(job).catch(error => { say(t('recoveryError') + ': ' + error.message, true); window.dispatchEvent(new Event('aego-art-recovery-error')); });
   return recoveryWrites;
@@ -718,7 +1039,7 @@ function updateRecoveryActions() {
 }
 $('recovery-choice').addEventListener('change', updateRecoveryActions);
 $('restore').onclick = async () => {
-  if (recoveryBusy) return;
+  if (recoveryBusy || !finishPendingFields()) return;
   const record = recoveryData.find(v => v.key === $('recovery-choice').value);
   if (!record) return;
   if (restoredRecoverySources.has(record.key)) { say(t('recovery-already')); return; }

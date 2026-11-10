@@ -11,7 +11,7 @@ raw = (a.artifact / 'manifest.json').read_bytes()
 m = json.loads(raw)
 if not m['release']:
     raise RuntimeError('A snapshot cannot produce production gate evidence')
-names = ['core', 'native-build', 'native-user-scenario', 'file-interoperability', 'remote-examples', 'wasm-parity', 'chromium', 'firefox', 'chromium-gpu', 'firefox-gpu', 'docs', 'component-try', 'budgets', 'regression', 'source-check', 'http-bytes']
+names = ['core', 'native-build', 'native-user-scenario', 'file-interoperability', 'remote-examples', 'wasm-parity', 'chromium', 'firefox', 'chromium-workspace-files', 'firefox-workspace-files', 'chromium-pending-fields', 'firefox-pending-fields', 'chromium-gpu', 'firefox-gpu', 'docs', 'component-try', 'budgets', 'regression', 'source-check', 'http-bytes']
 gates = []
 for name in names:
     code = int((a.evidence / (name + '.exit')).read_text())

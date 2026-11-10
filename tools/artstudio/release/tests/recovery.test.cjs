@@ -84,7 +84,7 @@ assert(restoreCode.includes("$('restore').onclick") && closeCode.includes('docum
 function copyRecord(record) { return {...record,bytes:new Uint8Array(record.bytes)}; }
 function restoringPage(shared, browserSession) {
   const elements = new Map(), messages = [], documents = new Map([['document-1',new Uint8Array([0])]]);
-  let serial = 1, imports = 0, readGate = null;
+  let serial = 1, imports = 0, readGate = null, fieldReady = true;
   function element(id) {
     if (!elements.has(id)) elements.set(id, {value:'',disabled:false,
       classList:{toggle(){}},addEventListener(type,fn){this[type]=fn;},
@@ -94,12 +94,13 @@ function restoringPage(shared, browserSession) {
   const status = {active:'document-1',state:{gesture:false},tabs:[{key:'document-1',name:'Untitled.aeart',revision:1,dirty:false}]};
   const context = vm.createContext({
     Uint8Array, Map, Set, Promise, Event, browserSession, recoveryData:[], recoveryBusy:false,
-    restoredRecoverySources:new Set(),recoveryKeys:new Map(),recoveryVersions:new Map(),views:new Map(),
+    restoredRecoverySources:new Set(),recoveryKeys:new Map(),recoveryVersions:new Map(),views:new Map(),sourceHandles:new Map(),
     recoveryWrites:Promise.resolve(),recoveryTimer:undefined,activeDocument:status.active,
     state:status.state,tabs:status.tabs,lang:'en',$:element,
     Option:class {constructor(text,value){this.text=text;this.value=value;}},
     setTimeout:()=>0,clearTimeout(){},window:{dispatchEvent(){}},
     t:key=>key,say:(text,error=false)=>messages.push({text,error}),confirm:()=>true,
+    finishPendingFields:()=>fieldReady,
     cancelPointer(){status.state.gesture=false;},stopPlayback(){},renderUI(){},restoreView(){},paint(){},
     adopt(response){context.activeDocument=response.active;context.state=response.state;context.tabs=response.tabs;},
     call(request){
@@ -137,9 +138,22 @@ function restoringPage(shared, browserSession) {
     key:handle=>context.recoveryKeys.get(handle),
     edit(value){documents.set(status.active,new Uint8Array([value]));const tab=status.tabs.find(tab=>tab.key===status.active);tab.revision++;tab.dirty=true;},
     pauseList(){let release;readGate=new Promise(resolve=>release=resolve);return ()=>{readGate=null;release();};},
+    fieldReady(value){fieldReady=value;},
     get imports(){return imports;}
   };
 }
+
+test('restore and close refuse an unapplied document field',async()=>{
+  const {record,shared}=recoveryFixture(),page=restoringPage(shared,'page-a');
+  await page.show();page.fieldReady(false);
+  await page.restore();
+  assert.equal(page.imports,0,'restore replaced a document with unapplied input');
+  await page.close('document-1');
+  assert.equal(page.status.tabs.length,1,'close removed a document with unapplied input');
+  assert(shared.has(record.key),'refused recovery changed the original');
+  page.fieldReady(true);await page.restore();
+  assert.equal(page.imports,1,'restore could not proceed after the field was resolved');
+});
 
 function recoveryFixture() {
   const record={key:'original/session-document',bytes:new Uint8Array([7]),filename:'Original.aeart',revision:1,dirty:true,at:1};
@@ -181,14 +195,14 @@ test('two pages restoring one snapshot own separate recovery records through edi
 test('a deferred file read cannot cancel or redirect a newly started gesture',async()=>{
   let finishRead,gesture=false,imports=0,cancels=0;
   const read=new Promise(resolve=>finishRead=resolve);
-  const context=vm.createContext({Uint8Array,pointer:null,t:key=>key,
+  const context=vm.createContext({Uint8Array,pointer:null,state:{gesture:false},t:key=>key,finishPendingFields:()=>true,
     api:{request:()=>JSON.stringify({state:{gesture}}),importBytes(){imports++;return '{}';}},
     cancelPointer(){gesture=false;cancels++;},stopPlayback(){},captureView(){},adopt(){},renderUI(){},restoreView(){},paint(){},scheduleRecovery(){},say(){}});
   vm.runInContext(openCode,context);
   const opening=context.openFile({size:3,name:'Other.aeart',arrayBuffer:()=>read});
   gesture=true;context.pointer=9;finishRead(new Uint8Array([1,2,3]).buffer);
   await assert.rejects(opening,/open-busy/);
-  assert.equal(imports,0);assert.equal(cancels,1);assert.equal(gesture,true);assert.equal(context.pointer,9);
+  assert.equal(imports,0);assert.equal(cancels,0);assert.equal(gesture,true);assert.equal(context.pointer,9);
   gesture=false;context.pointer=null;
   await context.openFile({size:3,name:'Other.aeart',arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer});
   assert.equal(imports,1);
@@ -197,7 +211,7 @@ test('a deferred file read cannot cancel or redirect a newly started gesture',as
 test('a deferred file read also preserves an unfinished pointer selection',async()=>{
   let finishRead,imports=0;
   const read=new Promise(resolve=>finishRead=resolve);
-  const context=vm.createContext({Uint8Array,pointer:null,t:key=>key,
+  const context=vm.createContext({Uint8Array,pointer:null,state:{gesture:false},t:key=>key,finishPendingFields:()=>true,
     api:{request:()=>JSON.stringify({state:{gesture:false}}),importBytes(){imports++;return '{}';}},
     cancelPointer(){},stopPlayback(){},captureView(){}});
   vm.runInContext(openCode,context);

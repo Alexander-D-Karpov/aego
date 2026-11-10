@@ -33,6 +33,7 @@
       pixelHash:window.aegoArt.hash(), buildID:config.buildID, documentVersion:config.documentVersion};
   }
   function capture(handle = '') {
+    if (!finishPendingFields()) throw new Error(document.getElementById('status').textContent);
     const r = status(); if (r.state.gesture) throw new Error('Finish or cancel the current gesture first');
     const exp = window.aegoArt.exportBytes('recovery',8,handle);
     if (exp.error) throw new Error(exp.error);
@@ -43,7 +44,9 @@
   }
   function importSnapshot(bytes, {unsaved = true, name = 'Transferred.aeart', selection = null} = {}) {
     if (!(bytes instanceof Uint8Array) || bytes.length < 1 || bytes.length > maxBytes) throw new Error('Invalid snapshot size');
-    cancelPointer(); stopPlayback(); captureView();
+    if (!finishPendingFields()) throw new Error(document.getElementById('status').textContent);
+    const before=status(); if (before.state.gesture || pointer !== null) throw new Error(t('open-busy'));
+    stopPlayback(); captureView();
     const r = JSON.parse(window.aegoArt.importBytes(bytes,'aeart',false,name));
     if (r.error) throw new Error(r.error); redraw(r);
     if (unsaved) call({action:'recovered'});
@@ -68,6 +71,7 @@
   function resetExample(example) {
     // A reset never guesses that the current tab is the example. The exact
     // original handle must still be open, and confirmation is required if dirty.
+    if (!finishPendingFields()) throw new Error(document.getElementById('status').textContent);
     const r=status(),tab=r.tabs.find(t=>t.key===example.info.handle);
     if(!tab)throw new Error('The example document was closed. Load it as a new document.');
     if(tab.dirty && !window.confirm(lang==='ru'?'Сбросить только этот пример? Его несохранённые изменения будут потеряны.':'Reset only this example and discard its unsaved changes?')) return null;

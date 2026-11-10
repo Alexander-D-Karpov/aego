@@ -37,7 +37,7 @@ def main() -> int:
     report = {'schema': 1, 'status': 'FAIL', 'browser': args.browser,
               'buildID': manifest['buildID'], 'sourceSHA256': manifest['sourceSHA256'],
               'manifestSHA256': hashlib.sha256(raw).hexdigest(), 'checks': [], 'tutorials': [], 'layouts': [],
-              'transport': 'real-http', 'consoleErrors': [], 'limits': [
+              'transport': 'real-http', 'consoleErrors': [], 'httpErrors': [], 'limits': [
                   'OS save picker not tested; actual browser download/reimport is tested.',
                   'Physical touch/pen, WebGL previews and native integration are separate gates.',
                   'Blocking site data exercises unavailable recovery, not actual disk or quota exhaustion.']}
@@ -123,13 +123,22 @@ def main() -> int:
         page.locator('#fg-alpha').press('Tab')
         page.locator('#toggle-side').click()
         assert 'open' not in page.locator('#sidebar').get_attribute('class').split()
-        for selector in ('#brush-size','#channel','#canvas-background','#grid','#zoom-out','#zoom-in','#fit',
+        # On narrow screens Tool Options are a separately opened left dock.
+        # Exercise its real toggle and hit-test the same brush control before
+        # returning to the canvas; do not treat the hidden control as a skip.
+        assert_reachable(page,'#toggle-tools',samples)
+        page.locator('#toggle-tools').click()
+        assert page.locator('#toggle-tools').get_attribute('aria-expanded') == 'true'
+        assert_reachable(page,'#brush-size',samples)
+        page.locator('#brush-size').fill('1')
+        page.locator('#brush-size').press('Tab')
+        page.locator('#toggle-tools').click()
+        assert page.locator('#toggle-tools').get_attribute('aria-expanded') == 'false'
+        for selector in ('#channel','#canvas-background','#grid','#zoom-out','#zoom-in','#fit',
                          '#play','#onion','#add-frame','#duplicate-frame','#link-frame','#unlink','#delete-frame',
                          '#frame-left','#frame-right','#duration','#tags','#add-tag','#pivot','#delete-tag'):
             assert_reachable(page,selector,samples)
         page.locator('#channel').select_option('albedo')
-        page.locator('#brush-size').fill('1')
-        page.locator('#brush-size').press('Tab')
         page.locator('#fit').click()
         prior=frame_hashes(page)
         paint(page,10 if width==390 else 18,10)
@@ -212,7 +221,10 @@ def main() -> int:
             # each lesson, rather than only the two initially opened tabs.
             def observe_page(opened):
                 opened.on('pageerror', lambda error: report['consoleErrors'].append(str(error)))
-                opened.on('console', lambda message: report['consoleErrors'].append(message.text) if message.type == 'error' else None)
+                opened.on('console', lambda message: report['consoleErrors'].append(
+                    f'{message.text} ({message.location})') if message.type == 'error' else None)
+                opened.on('response', lambda response: report['httpErrors'].append(
+                    {'status':response.status, 'url':response.url}) if response.status >= 400 else None)
             context.on('page', observe_page)
             page = context.new_page()
             # Accept only the explicit reset and the dirty-document unload
@@ -501,6 +513,10 @@ def main() -> int:
             assert summary(frame)['pixelHash'] == first_hash
             assert summary(full)['pixelHash'] == transferred['pixelHash']
             checked('reset-does-not-touch-transferred-document')
+            # The transferred editor is a real popup and can leave the docs
+            # page backgrounded. Bring it forward before capturing evidence,
+            # just as the later narrow-layout captures do.
+            doc.bring_to_front()
             doc.screenshot(path=str(args.evidence/'docs-transfer.png'), full_page=True)
             # Load each lesson in both languages, using the one shared artifact.
             for language in ('ru','en'):

@@ -137,7 +137,7 @@ def authoring_extensions(page):
     page.evaluate("""() => {
       Object.defineProperty(window,'isSecureContext',{configurable:true,value:true});
       window.createCalls=0;window.written=null;
-      window.showSaveFilePicker=()=>new Promise(resolve=>{window.chooseFile=()=>resolve({name:'Saved-original.aeart',createWritable:async()=>{window.createCalls++;return {write:async bytes=>{window.written=bytes},close:()=>new Promise(r=>window.finishWrite=r),abort:async()=>{}}}})});
+      window.showSaveFilePicker=()=>new Promise(resolve=>{window.chooseFile=()=>resolve({name:'Saved-original.aeart',getFile:async()=>new File([],'Saved-original.aeart'),createWritable:async()=>{window.createCalls++;return {write:async bytes=>{window.written=bytes},close:()=>new Promise(r=>window.finishWrite=r),abort:async()=>{}}}})});
     }""")
     # Synchronize stale presentation after the injected intervening edit.
     page.locator('[data-document]').last.click()
@@ -150,7 +150,7 @@ def authoring_extensions(page):
     assert response['active']==first and owner_tab['dirty'] and owner_tab['name']=='Saved-original.aeart', response
     tab(page,owner);assert hash_(page)==after_edit
     passed('Async save completion belongs to original tab, pins close, and keeps later edits dirty (writer mock)')
-    page.locator('#save').click();page.mouse.click(*xy(page,13,13));page.evaluate('window.chooseFile()');page.wait_for_timeout(60)
+    page.locator('#save-as').click();page.mouse.click(*xy(page,13,13));page.evaluate('window.chooseFile()');page.wait_for_timeout(60)
     assert page.evaluate('window.createCalls')==1 and state(page)['dirty']
     passed('Stale file-picker confirmation is rejected before opening the writer (writer mock)')
     page.screenshot(path=str(OUT/'studio-documents-ranges-palettes.png'),full_page=True)
