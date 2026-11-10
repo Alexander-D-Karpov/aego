@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -351,6 +352,10 @@ func (p *Pipeline) Delete(id ids.AssetID) (*Batch, error) {
 func (p *Pipeline) Reimport(list ...ids.AssetID) (*Batch, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.reimport(list...)
+}
+
+func (p *Pipeline) reimport(list ...ids.AssetID) (*Batch, error) {
 	if err := p.requireNoPendingSourceRecovery(); err != nil {
 		return nil, err
 	}
@@ -363,6 +368,35 @@ func (p *Pipeline) Reimport(list ...ids.AssetID) (*Batch, error) {
 		}
 	}
 	return p.importIDs(list...)
+}
+
+// ReimportWithDependents imports the source first, then checks the existing
+// keys of its direct dependents under the same pipeline lock. A failed or
+// unstable source never triggers dependent publication. This is not a
+// recursive dependency traversal or an atomic artifact transaction.
+func (p *Pipeline) ReimportWithDependents(id ids.AssetID) (*Batch, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	batch, err := p.reimport(id)
+	if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+		return batch, err
+	}
+	list := p.dependents(id)
+	list = slices.DeleteFunc(list, func(dependent ids.AssetID) bool { return dependent == id })
+	sort.Slice(list, func(i, j int) bool { return p.byID[list[i]].path < p.byID[list[j]].path })
+	if len(list) == 0 {
+		return batch, nil
+	}
+	dependentBatch, err := p.importIDs(list...)
+	if dependentBatch != nil {
+		batch.Imported = append(batch.Imported, dependentBatch.Imported...)
+		batch.Removed = append(batch.Removed, dependentBatch.Removed...)
+		batch.Retry = append(batch.Retry, dependentBatch.Retry...)
+		for id, failure := range dependentBatch.Failed {
+			batch.Failed[id] = failure
+		}
+	}
+	return batch, err
 }
 
 func convertible(ext string) bool {

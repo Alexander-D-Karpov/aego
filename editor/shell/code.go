@@ -38,7 +38,15 @@ func (a *App) attachCode() {
 		default:
 			return
 		}
-		batch, err := a.ctx.Pipeline.Reimport(id)
+		var batch *pipeline.Batch
+		var err error
+		if strings.EqualFold(path.Ext(ev.Path), ".aeart") {
+			// Linked PNGs depend on the saved art source even without a file
+			// watcher. Publish them only after the art import succeeds.
+			batch, err = a.ctx.Pipeline.ReimportWithDependents(id)
+		} else {
+			batch, err = a.ctx.Pipeline.Reimport(id)
+		}
 		a.ctx.ApplyBatch(batch)
 		a.reportSavedImport(batch, err)
 	})
