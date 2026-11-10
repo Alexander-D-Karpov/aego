@@ -154,7 +154,10 @@ jobs:
         run: make nsis-check
 
   build:
-    if: github.server_url != 'https://github.com'
+    # Both jobs are heavy on the shared Gitea runner. Run build afterwards,
+    # including when checks failed, so neither gate is dropped on failure.
+    needs: checks
+    if: ${{ always() && github.server_url != 'https://github.com' }}
     strategy:
       fail-fast: false
       matrix:

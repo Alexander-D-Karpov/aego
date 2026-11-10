@@ -10,6 +10,7 @@ import (
 	"aego/app/edit"
 	"aego/core/log"
 	"aego/editor/core/agentui"
+	"aego/editor/core/tasks"
 	agentpanel "aego/editor/panels/agent"
 	"aego/project"
 )
@@ -47,19 +48,19 @@ func stepUntil(t *testing.T, s *edit.Session, done func() bool) {
 
 // Allocation budgets measure a settled editor, not background preview or
 // agent-availability work.
-func agentEditorIdle(s *edit.Session) bool {
+func editorSettled(s *edit.Session) bool {
 	panel := s.App.Agent()
 	return s.App.Idle() && !s.App.Previews().Busy() &&
 		(panel == nil || (panel.Checked() && !panel.Busy()))
 }
 
-func waitAgentEditorIdle(t *testing.T, s *edit.Session) {
+func waitEditorSettled(t *testing.T, s *edit.Session) {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	stable := 0
 	for stable < 10 {
 		s.Step()
-		if agentEditorIdle(s) {
+		if editorSettled(s) {
 			stable++
 		} else {
 			stable = 0
@@ -101,13 +102,32 @@ func TestAgentEditorIdleWaitsForAvailability(t *testing.T) {
 			return false
 		}
 	})
-	if agentEditorIdle(s) || s.App.Agent().Checked() {
+	if editorSettled(s) || s.App.Agent().Checked() {
 		t.Fatal("editor was considered idle while agent availability was still running")
 	}
 	b.unblock()
-	waitAgentEditorIdle(t, s)
+	waitEditorSettled(t, s)
 	if !s.App.Agent().Checked() || s.App.Agent().Missing() != nil {
 		t.Fatal("agent availability did not settle successfully")
+	}
+}
+
+func TestEditorSettledWaitsPastFixedFrameWarmup(t *testing.T) {
+	s := workspaceSession(t)
+	steps := 0
+	s.App.Tasks().Step(tasks.Spec{Title: "delayed test task"}, tasks.LaneMain, func(*tasks.Task) (bool, error) {
+		steps++
+		return steps >= 180, nil
+	})
+	for range 60 {
+		s.Step()
+	}
+	if !s.App.Tasks().Busy() || editorSettled(s) {
+		t.Fatal("a fixed 60-frame warmup did not leave the delayed task active")
+	}
+	waitEditorSettled(t, s)
+	if s.App.Tasks().Busy() || steps < 180 {
+		t.Fatal("the editor was considered settled before the delayed task finished")
 	}
 }
 
@@ -198,7 +218,7 @@ func TestAgentPanelIdleAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
-		waitAgentEditorIdle(t, s)
+		waitEditorSettled(t, s)
 		return testing.AllocsPerRun(30, func() { s.Step() })
 	}
 	without := measure(nil)

@@ -189,6 +189,7 @@ func TestAnimatorPanelFrameAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
+		waitEditorSettled(t, s)
 		return testing.AllocsPerRun(30, func() { s.Step() })
 	}
 	empty := measure("Camera")
@@ -200,6 +201,7 @@ func TestAnimatorPanelFrameAllocs(t *testing.T) {
 	for range 5 {
 		s.Step()
 	}
+	waitEditorSettled(t, s)
 	inspector := testing.AllocsPerRun(30, func() { s.Step() })
 	if graph > empty || inspector > empty {
 		t.Fatalf("frame allocations: empty panel %v, graph %v, transition inspector %v; the graph must not allocate", empty, graph, inspector)
