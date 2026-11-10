@@ -238,7 +238,8 @@ func TestArtEffectTemplateNative(t *testing.T) {
 		}
 	}
 	// Click the real canvas toolbar's Undo once to remove the single stroke.
-	click(canvas.X+canvas.W*.375, canvas.Y+ed.UI.Theme.RowHeight/2)
+	pad, row := ed.UI.Theme.Padding, ed.UI.Theme.RowHeight
+	click(canvas.X+pad+row+4+row/2, canvas.Y+pad+row/2)
 	if doc.Dirty() || model.History.Cursor() != 0 {
 		t.Fatal("document Undo did not undo exactly the native gesture")
 	}

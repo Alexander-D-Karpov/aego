@@ -12,6 +12,15 @@ func (r *Registry) CommandsAvailable() bool {
 func (r *Registry) PanelVisible(id string) bool {
 	return r.deps.Workspace != nil && r.deps.Workspace.Visible(id)
 }
+
+// MaximizedPanel identifies the only panel drawn while a workspace is
+// maximized. PanelVisible still reports panels present in the saved layout.
+func (r *Registry) MaximizedPanel() string {
+	if r.deps.Workspace == nil {
+		return ""
+	}
+	return r.deps.Workspace.Tree.Maximized()
+}
 func (r *Registry) CurrentWorkspace() workspace.Preset {
 	if r.deps.Workspace == nil {
 		return workspace.Preset{}

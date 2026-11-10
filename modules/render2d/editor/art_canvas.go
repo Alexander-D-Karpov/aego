@@ -104,7 +104,7 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		p.deselect()
 	}
 	widgets.Tooltip(ui, ui.ID("deselect"), i18n.Tr("editor.art.deselect_shortcut", "Deselect (Ctrl/Cmd+D)"))
-	if p.reg == nil || !p.reg.PanelVisible("art.tools") {
+	if p.inlineTools() {
 		row = cur.Next(0)
 		tools := artToolOptions()
 		if widgets.IconCombo(ui, ui.ID("tool"), artCell(row, 0, 3), &v.tool, tools) {
@@ -229,6 +229,12 @@ func (p *artPanel) Draw(f *services.Frame, area mathx.Rect) {
 		text = p.doc.WorkingPreview.Error
 	}
 	ui.TextIn(status, text, ui.Theme.TextDim, core.AlignLeft)
+}
+
+// A maximized canvas hides the separate Tools dock even though the dock still
+// belongs to the layout. Keep the inline selector available until restored.
+func (p *artPanel) inlineTools() bool {
+	return p.reg == nil || !p.reg.PanelVisible("art.tools") || p.reg.MaximizedPanel() == p.ID()
 }
 
 // In authoring workspaces the canvas must not recreate a panel the user has

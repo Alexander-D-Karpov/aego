@@ -326,7 +326,7 @@ func TestVFXCanvasAndParticlePresetNative(t *testing.T) {
 	if !ok || !strings.Contains(notice.Text, "Save the drawing") || !bytes.Equal(beforeRejected, presetDoc.Source.Code.Bytes()) {
 		t.Fatalf("unsaved frame was not safely rejected: notice=%+v", notice)
 	}
-	click(canvas.X+pad+(canvas.W-2*pad)/8, canvas.Y+pad+row/2)
+	click(canvas.X+pad+row/2, canvas.Y+pad+row/2)
 	if artDoc.Dirty() {
 		t.Fatal("drawing did not save through its native toolbar")
 	}

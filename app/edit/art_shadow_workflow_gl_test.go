@@ -178,6 +178,12 @@ func TestArtWorkingAlphaShadowNative(t *testing.T) {
 	read := func(name string) ([]byte, []mathx.Vec2) {
 		t.Helper()
 		ws.Focus(workspace.Scene)
+		// Opening an Art asset switches workspaces and restores the previously
+		// maximized Scene View. Compare the same actual view and target size on
+		// every capture rather than an old target against the new docked view.
+		if ws.Tree.Maximized() != workspace.Scene && !ws.ToggleMaximize(workspace.Scene) {
+			t.Fatal("cannot maximize Scene View for shadow capture")
+		}
 		for range 4 {
 			if !s.Step() {
 				t.Fatal("scene stopped")
@@ -196,6 +202,7 @@ func TestArtWorkingAlphaShadowNative(t *testing.T) {
 			t.Fatalf("scene lighting not active: %+v", input)
 		}
 		target, w, h := runner.Target()
+		t.Logf("shadow capture %s: target=%dx%d", name, w, h)
 		pixels := make([]byte, w*h*4)
 		if target.IsZero() || ed.Renderer.Device().ReadPixels(target, 0, 0, w, h, pixels) != nil {
 			t.Fatal("cannot read rendered Scene View")

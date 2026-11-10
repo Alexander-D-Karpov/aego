@@ -135,6 +135,34 @@ func TestArtToolsDoNotDuplicateDedicatedFields(t *testing.T) {
 	}
 }
 
+func TestMaximizedArtCanvasKeepsInlineToolSelector(t *testing.T) {
+	p := artActionFixture(t)
+	w := workspace.New(t.TempDir(), nil)
+	for _, panel := range []workspace.Panel{p, &artDockPanel{id: "art.tools"}} {
+		if err := w.Register(workspace.Desc{Panel: panel, Slot: workspace.SlotCenter}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.LoadLayout()
+	w.Show(p.ID())
+	w.Show("art.tools")
+	p.reg = ext.New(ext.Deps{Workspace: w})
+	if p.inlineTools() {
+		t.Fatal("visible Tools dock duplicated its inline selector")
+	}
+	if !w.Tree.Maximize(p.ID()) || !p.inlineTools() || !w.Visible("art.tools") {
+		t.Fatal("maximized canvas lost its tool selector or changed the saved layout")
+	}
+	w.Tree.Restore()
+	if p.inlineTools() {
+		t.Fatal("restoring the Tools dock kept the duplicate selector")
+	}
+	w.Toggle("art.tools")
+	if !p.inlineTools() {
+		t.Fatal("closing the Tools dock lost the inline selector")
+	}
+}
+
 func TestColorPickerDoesNotDuplicatePaletteGrid(t *testing.T) {
 	p := artActionFixture(t)
 	panel := &artDockPanel{d: &artDocks{active: p}, id: "art.color"}
