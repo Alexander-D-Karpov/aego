@@ -2,6 +2,7 @@ package integration
 
 import (
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,22 +45,69 @@ func stepUntil(t *testing.T, s *edit.Session, done func() bool) {
 	}
 }
 
-// Allocation budgets measure a settled editor, not background preview work.
+// Allocation budgets measure a settled editor, not background preview or
+// agent-availability work.
+func agentEditorIdle(s *edit.Session) bool {
+	panel := s.App.Agent()
+	return s.App.Idle() && !s.App.Previews().Busy() &&
+		(panel == nil || (panel.Checked() && !panel.Busy()))
+}
+
 func waitAgentEditorIdle(t *testing.T, s *edit.Session) {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	stable := 0
 	for stable < 10 {
 		s.Step()
-		if s.App.Idle() && !s.App.Previews().Busy() {
+		if agentEditorIdle(s) {
 			stable++
 		} else {
 			stable = 0
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("editor previews did not settle before measuring allocations")
+			t.Fatal("editor or agent did not settle before measuring allocations")
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+type delayedAvailabilityBackend struct {
+	backend.Fake
+	started chan struct{}
+	release chan struct{}
+	start   sync.Once
+	finish  sync.Once
+}
+
+func (b *delayedAvailabilityBackend) Available(backend.Config) (string, error) {
+	b.start.Do(func() { close(b.started) })
+	<-b.release
+	return "fake", nil
+}
+
+func (b *delayedAvailabilityBackend) unblock() {
+	b.finish.Do(func() { close(b.release) })
+}
+
+func TestAgentEditorIdleWaitsForAvailability(t *testing.T) {
+	b := &delayedAvailabilityBackend{started: make(chan struct{}), release: make(chan struct{})}
+	defer b.unblock()
+	s, _ := agentSession(t, b)
+	stepUntil(t, s, func() bool {
+		select {
+		case <-b.started:
+			return s.App.Idle() && !s.App.Previews().Busy()
+		default:
+			return false
+		}
+	})
+	if agentEditorIdle(s) || s.App.Agent().Checked() {
+		t.Fatal("editor was considered idle while agent availability was still running")
+	}
+	b.unblock()
+	waitAgentEditorIdle(t, s)
+	if !s.App.Agent().Checked() || s.App.Agent().Missing() != nil {
+		t.Fatal("agent availability did not settle successfully")
 	}
 }
 
