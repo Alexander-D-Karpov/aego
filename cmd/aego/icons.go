@@ -32,6 +32,7 @@ func editorIcons() []module.IconUse {
 		module.IconUse{ID: "render2d.point_light", Owner: iconuse.Owner, Size: 16, By: "Scene View: lighting preview"},
 		module.IconUse{ID: "render2d.shadow_view", Owner: iconuse.Owner, Size: 16, By: "Scene View: shadow visibility"},
 		module.IconUse{ID: "particles.system", Owner: iconuse.Owner, Size: 16, By: "Assets: New Effect command and Create palette"},
+		module.IconUse{ID: "cat.physics", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: physics group, script API and settings"},
 		module.IconUse{ID: "render2d.normals", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: normal mapping"},
 		module.IconUse{ID: "render2d.point_light", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: platformer effects"},
 		module.IconUse{ID: "animation.animator", Owner: iconuse.Owner, Size: 16, By: "Documentation navigation: animator"},

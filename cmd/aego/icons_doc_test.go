@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"aego/app/docicons"
+	"aego/editor/core/iconuse"
 	"aego/engine/module"
 )
 
@@ -51,5 +53,34 @@ func TestIconsIncludeModuleToolbarUses(t *testing.T) {
 	}
 	if len(want) != 0 {
 		t.Fatalf("module toolbar icons missing from the audit: %v", want)
+	}
+}
+
+func TestPhysicsDocumentationIconIsComposedAtApplicationBoundary(t *testing.T) {
+	const id = "cat.physics"
+	const by = "Documentation navigation: physics group, script API and settings"
+	for _, use := range iconuse.Uses() {
+		if use.ID == id {
+			t.Fatalf("module icon %q must not be registered by editor core", id)
+		}
+	}
+	matches := 0
+	for _, use := range editorIcons() {
+		if use.ID != id {
+			continue
+		}
+		matches++
+		if use.Owner != iconuse.Owner || use.Size != 16 || use.By != by {
+			t.Errorf("unexpected application icon use: %+v", use)
+		}
+	}
+	if matches != 1 {
+		t.Fatalf("application composition has %d matching documentation icon uses, want 1", matches)
+	}
+	_, refs := docicons.Builtin()
+	for _, key := range []string{"aego/physics", "section/physics"} {
+		if got := refs[key]; got != id {
+			t.Errorf("documentation icon for %q = %q, want %q", key, got, id)
+		}
 	}
 }

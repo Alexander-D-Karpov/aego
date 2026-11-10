@@ -54,7 +54,6 @@ var Editor = []module.IconUse{
 	use("cat.engine", 14, "Agent panel: steps that read component types"),
 	use("cat.node", 16, "Search: node results; Add Component and Create: category"),
 	use("cat.particles", 16, "Add Component and Create: Effects category"),
-	use("cat.physics", 16, "Documentation navigation: physics group, script API and settings"),
 	use("cat.render2d", 16, "Add Component and Create: Lights category"),
 	use("cat.rendering", 16, "Search: mesh assets; Add Component and Create: category"),
 	use("cat.scripts", 16, "Search: script symbols; Add Component and Create: category"),
