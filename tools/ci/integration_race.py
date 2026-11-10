@@ -91,7 +91,7 @@ def digest(path):
     return h.hexdigest()
 
 
-def command(argv, cwd, log, timeout=None, stdin=None):
+def command(argv, cwd, log, timeout=None, stdin=None, check=True):
     write_json(log.with_suffix('.command.json'), {'argv': argv, 'cwd': str(cwd)})
     with log.open('xb') as output:
         proc = subprocess.Popen(argv, cwd=cwd, stdin=stdin, stdout=output, stderr=subprocess.STDOUT)
@@ -112,8 +112,9 @@ def command(argv, cwd, log, timeout=None, stdin=None):
                 raise RuntimeError(f'owned process exceeded deadline: {argv[0]}') from error
             raise
     log.with_suffix('.exit').write_text(str(code) + '\n')
-    if code != 0:
+    if code != 0 and check:
         raise RuntimeError(f'command exited {code}: {argv[0]}; see {log}')
+    return code
 
 
 def run_group(binary, names, cwd, directory):
@@ -123,7 +124,9 @@ def run_group(binary, names, cwd, directory):
     result = {'selected': names, 'status': 'FAIL', 'timeout': GO_TIMEOUT}
     start = time.monotonic()
     try:
-        command(argv, cwd, directory / 'test.log', timeout=30 * 60 + 45)
+        # Convert the output even on failure: otherwise the artifact contains
+        # the raw log but the report loses the identity of the failed test.
+        test_exit = command(argv, cwd, directory / 'test.log', timeout=30 * 60 + 45, check=False)
         with (directory / 'test.log').open('rb') as raw, (directory / 'events.jsonl').open('xb') as output, (directory / 'converter.log').open('xb') as errors:
             converted = subprocess.run(['go', 'tool', 'test2json', '-t', '-p', PACKAGE], cwd=cwd,
                                        stdin=raw, stdout=output, stderr=errors, timeout=60)
@@ -132,8 +135,10 @@ def run_group(binary, names, cwd, directory):
             raise RuntimeError('go tool test2json failed')
         with (directory / 'events.jsonl').open(encoding='utf-8') as stream:
             result.update(check_events((json.loads(line) for line in stream), names))
-        if result['coverageComplete'] and not result['failures']:
+        if test_exit == 0 and result['coverageComplete'] and not result['failures']:
             result['status'] = 'COMPLETED_WITH_SKIPS' if result['skipped'] else 'PASS'
+        elif test_exit != 0:
+            result['error'] = f'test binary exited {test_exit}; see {directory / "test.log"}'
     except Exception as error:
         result['error'] = f'{type(error).__name__}: {error}'
         result['traceback'] = traceback.format_exc()
@@ -205,7 +210,12 @@ def main():
         for i, group in enumerate(groups, 1):
             result = run_group(binary, group, root / 'tests/integration', evidence / f'group-{i:02d}')
             report['groups'].append(result)
-            print(f'group {i}/{len(groups)}: {result["status"]}; tests={len(group)}', flush=True)
+            detail = ''
+            if result.get('failures'):
+                detail = '; failed=' + ', '.join(result['failures'])
+            elif result['status'] == 'FAIL':
+                detail = '; ' + result.get('error', 'incomplete test coverage')
+            print(f'group {i}/{len(groups)}: {result["status"]}; tests={len(group)}{detail}', flush=True)
         after = inventory(root, allow_unborn=args.allow_unborn)
         write_json(evidence / 'source-after.json', after)
         report['sourceUnchanged'] = before == after
