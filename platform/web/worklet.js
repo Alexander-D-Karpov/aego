@@ -17,17 +17,40 @@ class AegoOut extends AudioWorkletProcessor {
         this.queued = 0;
         this.refillAt = o.refillAt || 0;
         this.refillArmed = false;
+        this.refillSequence = 0;
+        this.refillPending = 0;
         this.consumed = 0;
         this.underruns = 0;
         this.sum = 0;
         this.count = 0;
         this.since = 0;
+        this.producer = null;
+        const enqueue = data => {
+            if (!(data instanceof Float32Array) || data.length % this.ch !== 0) throw new Error('invalid audio PCM block');
+            this.queued += data.length / this.ch;
+            this.blocks.push(data);
+        };
         this.port.onmessage = ({data}) => {
-            if (typeof data.refillAt === "number") {
+            if (data && data.producerPort) {
+                if (this.producer) throw new Error('audio producer already attached');
+                this.producer = data.producerPort;
+                this.producer.onmessage = ({data}) => {
+                    if (data && Number.isSafeInteger(data.refilled) && data.refilled > 0) {
+                        if (data.refilled === this.refillPending) {
+                            this.refillPending = 0;
+                            this.refillArmed = true;
+                        }
+                    } else {
+                        enqueue(data);
+                    }
+                };
+                if (this.producer.start) this.producer.start();
+                this.producer.postMessage({ready:true});
+            } else if (data && typeof data.refillAt === "number") {
                 this.refillAt = data.refillAt;
             } else {
-                this.queued += data.length / this.ch;
-                this.blocks.push(data);
+                if (this.producer) throw new Error('audio PCM has multiple producers');
+                enqueue(data);
             }
         };
     }
@@ -87,12 +110,18 @@ class AegoOut extends AudioWorkletProcessor {
         this.since += n;
         // Keep the regular reports. If the producer misses its usual frame,
         // request the next fill before silence, only once per threshold crossing.
-        if (remaining > this.refillAt) this.refillArmed = true;
-        const need = this.refillAt > 0 && this.refillArmed && remaining <= this.refillAt;
+        if (remaining > this.refillAt && !this.refillPending) this.refillArmed = true;
+        const need = this.refillAt > 0 && this.refillArmed && !this.refillPending && remaining <= this.refillAt;
         if (need) this.refillArmed = false;
         if (this.since >= this.report || need) {
             this.since = 0;
-            this.port.postMessage({ consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count });
+            const report = { consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count };
+            if (need && this.producer) {
+                this.refillPending = ++this.refillSequence;
+                report.refill = this.refillPending;
+            }
+            this.port.postMessage(report);
+            if (this.producer) this.producer.postMessage(report);
         }
         return true;
     }

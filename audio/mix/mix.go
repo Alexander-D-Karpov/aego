@@ -108,6 +108,10 @@ type Mixer struct {
 	applied uint64
 	active  atomic.Int32
 	refused atomic.Uint64
+	// A remote consumer records handle releases independently of the bounded
+	// public event queue, whose notifications are allowed to overflow.
+	onRelease func(VoiceID)
+	remote    bool
 }
 
 func New(cfg Config) (*Mixer, error) {

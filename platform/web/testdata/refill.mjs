@@ -7,7 +7,7 @@ for (const shared of [false, true]) {
     const messages = [];
     let Worklet;
     const env = {
-        sampleRate: 48000, currentTime: 0,
+        sampleRate: 48000, currentTime: 0, Float32Array,
         AudioWorkletProcessor: class {
             constructor() { this.port = { postMessage: data => messages.push(data) }; }
         },
@@ -68,4 +68,95 @@ for (const shared of [false, true]) {
     const previous = messages.length;
     while (sent - worklet.consumed > 960) read();
     assert.ok(messages.length > previous);
+}
+
+// The direct producer port receives the same real consumption reports as the
+// main page. A stalled or disconnected producer still causes real underruns.
+for (const shared of [false, true]) {
+    let Worklet;
+    const mainReports = [], workerReports = [];
+    const env = {
+        sampleRate: 48000, currentTime: 0, Float32Array,
+        AudioWorkletProcessor: class { constructor() { this.port = {postMessage:data=>mainReports.push(data)}; } },
+        registerProcessor(_name, Class) { Worklet = Class; },
+    };
+    vm.runInNewContext(source, env);
+    const options = {channels:2, report:256, refillAt:128};
+    if (shared) {
+        options.data = new SharedArrayBuffer(8192 * 2 * 4);
+        options.index = new SharedArrayBuffer(16);
+    }
+    const worklet = new Worklet({processorOptions:options});
+    const producer = {postMessage:data=>workerReports.push(data),start(){this.started=true;}};
+    worklet.port.onmessage({data:{producerPort:producer}});
+    assert.equal(producer.started,true);
+    assert.equal(workerReports[0].ready,true);
+    assert.throws(()=>worklet.port.onmessage({data:{producerPort:producer}}), /already attached/);
+    const pcm = new Float32Array(512 * 2).fill(.25);
+    if (shared) {
+        new Float32Array(options.data).set(pcm);
+        Atomics.store(new Int32Array(options.index),1,512);
+    } else {
+        producer.onmessage({data:pcm});
+    }
+    assert.throws(()=>worklet.port.onmessage({data:pcm}), /multiple producers/);
+    const channels = [[new Float32Array(128),new Float32Array(128)]];
+    for (let i=0;i<8;i++) {
+        worklet.process([],channels);
+        env.currentTime += 128/48000;
+    }
+    assert.equal(worklet.consumed,512);
+    assert.equal(worklet.underruns,4);
+    assert.equal(mainReports.at(-1).underruns,3);
+    assert.equal(workerReports.at(-1).underruns,3);
+    assert.equal(workerReports.at(-1).consumed,mainReports.at(-1).consumed);
+}
+
+// If a late refill arrives when the queue is already below the threshold, it
+// may never cross above that threshold. The acknowledgement must re-arm the
+// request without flooding a stalled producer or concealing real underruns.
+for (const shared of [false, true]) {
+    let Worklet;
+    const workerReports = [];
+    const env = {
+        sampleRate:48000, currentTime:0, Float32Array,
+        AudioWorkletProcessor:class {constructor(){this.port={postMessage(){}};}},
+        registerProcessor(_name, Class){Worklet=Class;},
+    };
+    vm.runInNewContext(source,env);
+    const options={channels:2,report:2048,refillAt:1024};
+    if(shared){options.data=new SharedArrayBuffer(8192*2*4);options.index=new SharedArrayBuffer(16);}
+    const worklet=new Worklet({processorOptions:options});
+    const producer={postMessage:data=>workerReports.push(data),start(){}};
+    worklet.port.onmessage({data:{producerPort:producer}});
+    let tail=0;
+    function publish(frames){
+        const pcm=new Float32Array(frames*2).fill(.25);
+        if(shared){
+            new Float32Array(options.data).set(pcm,tail*2);
+            tail+=frames;
+            Atomics.store(new Int32Array(options.index),1,tail);
+        }else producer.onmessage({data:pcm});
+    }
+    const channels=[[new Float32Array(128),new Float32Array(128)]];
+    function step(n){for(let i=0;i<n;i++){worklet.process([],channels);env.currentTime+=128/48000;}}
+    const requests=()=>workerReports.filter(report=>report.refill).map(report=>report.refill);
+    publish(1536);
+    step(4);
+    assert.deepEqual(requests(),[1]);
+    step(4);
+    assert.deepEqual(requests(),[1], 'a pending request was repeated before its acknowledgement');
+    publish(512); // The queue is only back to the threshold, not above it.
+    producer.onmessage({data:{refilled:1}});
+    step(1);
+    assert.deepEqual(requests(),[1,2], 'a late refill lost the next threshold request');
+    step(16);
+    assert.deepEqual(requests(),[1,2], 'a stalled producer was flooded');
+    assert.ok(worklet.underruns>0, 'real starvation was hidden');
+    producer.onmessage({data:{refilled:1}}); // A stale acknowledgement cannot re-arm request 2.
+    step(1);
+    assert.deepEqual(requests(),[1,2]);
+    producer.onmessage({data:{refilled:2}});
+    step(1);
+    assert.deepEqual(requests(),[1,2,3]);
 }

@@ -96,15 +96,33 @@ type CommandQueue struct {
 	q       *spsc[Command]
 	dropped atomic.Uint64
 	wake    chan struct{}
+	// Set only before a remote consumer starts. This counts queued and
+	// transferred-but-not-yet-applied commands against the same capacity.
+	remote *atomic.Int32
 }
 
 func (c *CommandQueue) Push(cmd Command) bool {
+	if c.remote != nil {
+		for {
+			n := c.remote.Load()
+			if n >= int32(len(c.q.buf)) {
+				c.dropped.Add(1)
+				return false
+			}
+			if c.remote.CompareAndSwap(n, n+1) {
+				break
+			}
+		}
+	}
 	if c.q.push(cmd) {
 		select {
 		case c.wake <- struct{}{}:
 		default:
 		}
 		return true
+	}
+	if c.remote != nil {
+		c.remote.Add(-1)
 	}
 	c.dropped.Add(1)
 	return false
@@ -149,6 +167,11 @@ type Ring struct {
 	head atomic.Uint64
 	_    [56]byte
 	tail atomic.Uint64
+	// A remote stream can suspend its producer before reconciling a skip.
+	// The writer counter makes attaching that guard safe even if a producer
+	// was already in Write; the audio consumer never waits on this counter.
+	remote  atomic.Pointer[Stream]
+	writing atomic.Int32
 }
 
 func NewRing(frames, channels int) *Ring {
@@ -179,6 +202,14 @@ func (r *Ring) Free() int {
 }
 
 func (r *Ring) Write(p []float32) int {
+	if len(p) == 0 {
+		return 0
+	}
+	r.writing.Add(1)
+	defer r.writing.Add(-1)
+	if s := r.remote.Load(); s != nil && (s.hold.Load() || s.skipped.Load() > 0) {
+		return 0
+	}
 	t := r.tail.Load()
 	n := min(len(p), len(r.buf)-int(t-r.head.Load()))
 	n -= n % r.ch
@@ -193,14 +224,15 @@ func (r *Ring) Write(p []float32) int {
 
 // Discard drops up to frames frames from the read side and returns how many it dropped.
 func (r *Ring) Discard(frames int64) int64 {
-	h := r.head.Load()
-	n := min(frames*int64(r.ch), int64(r.tail.Load()-h))
-	n -= n % int64(r.ch)
-	if n <= 0 {
+	if frames <= 0 {
 		return 0
 	}
-	r.head.Store(h + uint64(n))
-	return n / int64(r.ch)
+	h := r.head.Load()
+	// Bound by the number of complete frames before multiplying by channels:
+	// a long skip must not overflow and leave the buffered prefix behind.
+	n := min(frames, int64((r.tail.Load()-h)/uint64(r.ch)))
+	r.head.Store(h + uint64(n)*uint64(r.ch))
+	return n
 }
 
 func (r *Ring) Read(p []float32) int {

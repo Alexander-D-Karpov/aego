@@ -210,6 +210,9 @@ func (m *Mixer) take(prio int32) int {
 
 func (m *Mixer) release(h uint32) {
 	hd := &m.handles[h]
+	if m.onRelease != nil {
+		m.onRelease(VoiceID{Index: h, Gen: hd.gen.Load()})
+	}
 	hd.voice = -1
 	hd.pos.Store(0)
 	hd.gain.Store(0)
