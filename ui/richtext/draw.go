@@ -1,6 +1,8 @@
 package richtext
 
 import (
+	"math"
+
 	"aego/core/mathx"
 	"aego/render/text"
 	"aego/ui/core"
@@ -45,12 +47,32 @@ type Action struct {
 type Text struct {
 	Highlight  Highlighter
 	RunButtons bool
-	Scroll     float32
-	blocks     []Block
-	doc        *Doc
-	width      float32
-	key        *text.Font
-	fs         fonts
+	// CullClipped avoids submitting lines wholly outside the current parent clip.
+	// The document layout, scrolling and link identities remain unchanged.
+	CullClipped bool
+	Scroll      float32
+	blocks      []Block
+	doc         *Doc
+	width       float32
+	key         *text.Font
+	fs          fonts
+}
+
+// clipMargins bounds paint extending above or below a line. Glyph bounds are
+// conservative across each font, including fallback and later replacements;
+// the half-line allowance accounts for the centering of fonts within a line.
+func clipMargins(fs *fonts, rowHeight float32) (float32, float32) {
+	top, bottom := float32(CodePad), max(float32(CodePad), rowHeight+2)
+	for _, f := range fs.face {
+		if f == nil || f.Scale <= 0 {
+			return float32(math.Inf(1)), float32(math.Inf(1))
+		}
+		lo, hi := f.GlyphVerticalBounds()
+		snap := 0.5 / f.Scale
+		top = max(top, f.LineHeight/2-lo+snap)
+		bottom = max(bottom, hi-f.LineHeight/2+snap)
+	}
+	return top, bottom
 }
 
 // fonts are the faces of the current UI font, picked again only when the UI font changes.
@@ -201,14 +223,21 @@ func (t *Text) Draw(ui *core.Context, id core.ID, r mathx.Rect) Action {
 	t.Scroll = mathx.Clamp(t.Scroll, 0, maxOff)
 	ox, oy := r.X+pad, r.Y+pad-t.Scroll
 	ui.PushClip(r)
+	visible, topMargin, bottomMargin := r, float32(CodePad), float32(CodePad)
+	// An active link or Run button must still see its release even when the
+	// parent clip moves away between press and release.
+	if t.CullClipped && ui.Active() == 0 {
+		visible, _ = ui.ClipRect()
+		topMargin, bottomMargin = clipMargins(fs, th.RowHeight)
+	}
 	link := 0
 	for i := range d.Lines {
 		l := &d.Lines[i]
 		y := oy + l.Y
-		if y-CodePad > r.Y+r.H {
+		if y-CodePad > r.Y+r.H || y-topMargin > visible.Y+visible.H {
 			break
 		}
-		if y+l.H+CodePad < r.Y {
+		if y+l.H+CodePad < r.Y || y+l.H+bottomMargin < visible.Y {
 			for j := range l.Runs {
 				if l.Runs[j].Target != "" {
 					link++

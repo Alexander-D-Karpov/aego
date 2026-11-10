@@ -33,6 +33,8 @@ type Font struct {
 	kern       map[uint64]float32
 	space      float32
 	fallback   rune
+	minGlyphY  float32
+	maxGlyphY  float32
 }
 
 func NewFont(size, scale, lineHeight, ascent float32) *Font {
@@ -55,6 +57,9 @@ func kernKey(a, b rune) uint64 {
 }
 
 func (f *Font) SetGlyph(r rune, g FontGlyph) {
+	// Keep conservative extents even if an existing glyph is later replaced.
+	f.minGlyphY = min(f.minGlyphY, g.Offset.Y)
+	f.maxGlyphY = max(f.maxGlyphY, g.Offset.Y+g.Size.Y)
 	if r >= 0 && r < 128 {
 		f.ascii[r] = g
 		f.asciiOK[r] = true
@@ -64,6 +69,12 @@ func (f *Font) SetGlyph(r rune, g FontGlyph) {
 	if r == ' ' {
 		f.space = g.Advance
 	}
+}
+
+// GlyphVerticalBounds returns conservative glyph bounds relative to a text
+// origin. They include the fallback glyph and any glyphs subsequently added.
+func (f *Font) GlyphVerticalBounds() (float32, float32) {
+	return f.minGlyphY, f.maxGlyphY
 }
 
 func (f *Font) SetKern(a, b rune, k float32) {

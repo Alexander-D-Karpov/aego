@@ -146,7 +146,7 @@ func (p *Panel) measure(ui *core.Context, b *block, w float32) float32 {
 
 func (p *Panel) parse(b *block) {
 	if b.md == nil {
-		b.md = &richtext.Text{Highlight: p.d.Highlight}
+		b.md = &richtext.Text{Highlight: p.d.Highlight, CullClipped: true}
 	}
 	if b.parsed != b.text {
 		b.md.Set(richtext.Parse(b.text))
