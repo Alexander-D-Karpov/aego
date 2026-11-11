@@ -21,7 +21,7 @@ func TestAudioWorkerTransport(t *testing.T) {
 	if err != nil {
 		t.Skip("Node is unavailable")
 	}
-	if out, err := exec.Command(node, "--test", "audio_worker_test.cjs").CombinedOutput(); err != nil {
+	if out, err := exec.Command(node, "--test", "audio_worker_test.cjs", "audio_worker_host_test.cjs").CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
 }
