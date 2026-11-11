@@ -92,7 +92,7 @@ build: bootstrap
 # Every package minus the dev-only ones, as defined by depcheck runtimeForbidden.
 RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
 WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
-WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
+WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate ./audio/workerproto
 
 # The full integration package can exceed a cumulative 30-minute -race limit
 # on smaller runners. Keep that timeout per sequential group, compile once,
