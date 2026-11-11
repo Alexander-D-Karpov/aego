@@ -40,6 +40,7 @@ type RemoteSourceCommand struct {
 type RemoteStreamStatus struct {
 	Buffered int    `json:"buffered"`
 	Free     int    `json:"free"`
+	Consumed uint64 `json:"consumed,string"`
 	Held     bool   `json:"held"`
 	Skip     int64  `json:"skip,string"`
 	Control  uint32 `json:"control"`
@@ -135,7 +136,7 @@ func (r *RemoteSources) CommitMemory(id uint64) error {
 }
 
 // RegisterStream allocates a bounded worker-side ring and interpolation cache.
-// The sender must retain and acknowledge PCM until the remote ring accepts it.
+// The sender must retain accepted PCM until remote consumption is reconciled.
 func (r *RemoteSources) RegisterStream(id uint64, rate, channels, frames int) error {
 	if rate <= 0 || (channels != 1 && channels != 2) || frames <= 0 || frames > maxRemoteStreamFrames {
 		return ErrRemoteSource
@@ -235,7 +236,8 @@ func (r *RemoteSources) StreamStatus(id uint64) (RemoteStreamStatus, error) {
 		held = s.controlHeld
 	}
 	return RemoteStreamStatus{Buffered: s.stream.Ring.Len(), Free: s.stream.Ring.Free(),
-		Held: held, Skip: s.controlSkip, Control: s.control, EOF: s.ended}, nil
+		Consumed: s.stream.Ring.head.Load() / uint64(s.stream.Channels),
+		Held:     held, Skip: s.controlSkip, Control: s.control, EOF: s.ended}, nil
 }
 
 // AckStreamControl admits new data only after the sender has applied the

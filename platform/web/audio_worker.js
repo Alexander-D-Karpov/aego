@@ -6,7 +6,7 @@
 (() => {
     const OP_INIT = 1, OP_BEGIN_MEMORY = 2, OP_COMMIT_MEMORY = 3;
     const OP_STREAM_WRITE = 5, OP_DROP = 9, OP_DRAIN = 10, OP_SKIP = 11, OP_SET_SAMPLE_RATE = 13;
-    const ABI_VERSION = 2, MAX_JSON = 1 << 20, MAX_TRANSFER = 1 << 16;
+    const ABI_VERSION = 3, MAX_JSON = 1 << 20, MAX_TRANSFER = 1 << 16;
     const encoder = new TextEncoder(), decoder = new TextDecoder();
     let exports, port, shared, ring, index, block = 0, target = 0, rate = 0;
     let tail = 0, sent = 0, consumed = 0, started = false, failed = false;

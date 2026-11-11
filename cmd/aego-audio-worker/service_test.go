@@ -375,8 +375,8 @@ func TestStreamSenderReconcilesStaleEOFWithService(t *testing.T) {
 	}
 	apply(next(opStreamStatus))
 	apply(next(opStreamWrite))
-	if source.Ring.Len() != 0 {
-		t.Fatal("worker PCM acknowledgement did not consume the source")
+	if source.Ring.Len() != 8 {
+		t.Fatal("worker accepted but had not yet consumed the source")
 	}
 	call(t, service, opCommand, request{Command: commandRequest{Sequence: 1, Kind: mix.CmdPlay, Gen: 1,
 		Source: 3, GainBits: math.Float32bits(1), PitchBits: math.Float32bits(1)}})
@@ -414,9 +414,116 @@ func TestStreamSenderReconcilesStaleEOFWithService(t *testing.T) {
 	if err := json.Unmarshal(call(t, service, opDrain, request{}), &batch); err != nil || len(batch.Released) != 1 {
 		t.Fatalf("held EOF did not release the voice: %+v, %v", batch, err)
 	}
+	if err := sender.FinishAfterStop(); err != nil {
+		t.Fatal(err)
+	}
+	apply(next(opStreamStatus))
+	if step, ok, err := sender.Next(); err != nil {
+		t.Fatal(err)
+	} else if ok {
+		if step.Op != opStreamControlAck {
+			t.Fatalf("unexpected final step: %+v", step)
+		}
+		apply(step)
+	}
+	if !sender.ReadyToClose() {
+		t.Fatal("final stream status was not reconciled")
+	}
 	call(t, service, opDrop, request{Source: 3})
 	if err := sender.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// EOF acceptance must not stop consumption accounting. This drives the real
+// service and compares the stopped stream with the local mixer, without a
+// browser transport or physical audio output.
+func TestStreamSenderReconcilesAfterEOFAndBeforeReuse(t *testing.T) {
+	service := initService(t, 2<<20)
+	source := mix.NewStream(48000, 1, 8)
+	referenceSource := mix.NewStream(48000, 1, 8)
+	pcm := []float32{.1, .2, .3, .4, .5, .6, .7, .8}
+	source.Ring.Write(pcm)
+	referenceSource.Ring.Write(pcm)
+	source.SetEOF()
+	referenceSource.SetEOF()
+	sender, err := workerproto.NewStreamSender(3, source, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := func(op int32) workerproto.StreamStep {
+		t.Helper()
+		step, ok, err := sender.Next()
+		if err != nil || !ok || step.Op != op {
+			t.Fatalf("step = %+v, %v, %v; want %d", step, ok, err, op)
+		}
+		return step
+	}
+	apply := func(step workerproto.StreamStep) {
+		t.Helper()
+		if step.Op == opStreamWrite {
+			buf, err := service.streamBuffer(len(step.PCM))
+			if err != nil {
+				t.Fatal(err)
+			}
+			copy(buf, step.PCM)
+		}
+		if err := sender.Ack(step.Token, call(t, service, step.Op, step.Request)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply(next(opStream))
+	if err := sender.Poll(); err != nil {
+		t.Fatal(err)
+	}
+	apply(next(opStreamStatus))
+	apply(next(opStreamWrite))
+	if err := sender.Poll(); err != nil {
+		t.Fatal(err)
+	}
+	apply(next(opStreamStatus))
+	apply(next(opTryStreamEnd))
+	if !sender.Ended() || source.Ring.Len() != 8 {
+		t.Fatal("EOF consumed PCM before the voice began")
+	}
+	reference, err := mix.New(mix.Config{SampleRate: 48000, Channels: 2, Voices: 4, Block: 512})
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice := reference.Play(mix.PlayParams{Stream: referenceSource, Gain: 1})
+	call(t, service, opCommand, request{Command: commandRequest{Sequence: 1, Kind: mix.CmdPlay, Gen: 1,
+		Source: 3, GainBits: math.Float32bits(1), PitchBits: math.Float32bits(1)}})
+	reference.Mix(make([]float32, 2))
+	if _, err := service.render(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := sender.Poll(); err != nil {
+		t.Fatal(err)
+	}
+	apply(next(opStreamStatus))
+	if source.Ring.Len() != referenceSource.Ring.Len() {
+		t.Fatalf("after-EOF consumption differs: worker=%d native=%d", source.Ring.Len(), referenceSource.Ring.Len())
+	}
+	reference.Kill(voice)
+	reference.Mix(make([]float32, 2))
+	call(t, service, opCommand, request{Command: commandRequest{Sequence: 2, Kind: mix.CmdKill, Gen: 1}})
+	if _, err := service.render(1); err != nil {
+		t.Fatal(err)
+	}
+	var batch wireBatch
+	if err := json.Unmarshal(call(t, service, opDrain, request{}), &batch); err != nil || len(batch.Released) != 1 {
+		t.Fatalf("stopped worker voice was not released: %+v, %v", batch, err)
+	}
+	if err := sender.FinishAfterStop(); err != nil {
+		t.Fatal(err)
+	}
+	apply(next(opStreamStatus))
+	if !sender.ReadyToClose() {
+		t.Fatal("source can be dropped only after final reconciliation")
+	}
+	call(t, service, opDrop, request{Source: 3})
+	if err := sender.Close(); err != nil || source.Ring.Len() != referenceSource.Ring.Len() {
+		t.Fatalf("reused stream differs from native: worker=%d native=%d, %v", source.Ring.Len(), referenceSource.Ring.Len(), err)
 	}
 }
 

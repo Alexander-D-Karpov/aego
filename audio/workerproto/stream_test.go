@@ -8,9 +8,13 @@ import (
 	"aego/audio/mix"
 )
 
-func streamStatusBytes(t *testing.T, buffered, free int) []byte {
+func streamStatusBytes(t *testing.T, buffered, free int, consumed ...uint64) []byte {
 	t.Helper()
-	b, err := json.Marshal(mix.RemoteStreamStatus{Buffered: buffered, Free: free})
+	var n uint64
+	if len(consumed) != 0 {
+		n = consumed[0]
+	}
+	b, err := json.Marshal(mix.RemoteStreamStatus{Buffered: buffered, Free: free, Consumed: n})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +72,8 @@ func TestStreamSenderPartialWritesAndDeferredEOF(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if source.Ring.Len() != 0 {
-		t.Fatal("acknowledged PCM remained in the producer ring")
+	if source.Ring.Len() != 8 {
+		t.Fatal("accepted but unconsumed PCM was removed from the producer ring")
 	}
 	for _, accepted := range []bool{false, true} {
 		if err := s.Poll(); err != nil {
@@ -93,6 +97,44 @@ func TestStreamSenderPartialWritesAndDeferredEOF(t *testing.T) {
 	if _, ok, err := s.Next(); err != nil || ok {
 		t.Fatalf("ended stream produced a step: %v, %v", ok, err)
 	}
+	// EOF means no more input, not that the worker has already consumed its
+	// buffered audio. Polling must continue to reconcile the producer ring.
+	for _, tc := range []struct {
+		consumed      uint64
+		buffered, len int
+	}{{3, 5, 5}, {8, 0, 0}} {
+		if err := s.Poll(); err != nil {
+			t.Fatalf("cannot poll after EOF was accepted: %v", err)
+		}
+		if !s.Ended() {
+			t.Fatal("polling consumption forgot that EOF was accepted")
+		}
+		status := streamStep(t, s, StreamStatus)
+		reply, err := json.Marshal(mix.RemoteStreamStatus{Buffered: tc.buffered, Free: 8 - tc.buffered, Consumed: tc.consumed, EOF: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Ack(status.Token, reply); err != nil || source.Ring.Len() != tc.len || !s.Ended() {
+			t.Fatalf("after-EOF consumption was not reconciled: len=%d, %v", source.Ring.Len(), err)
+		}
+		if _, ok, err := s.Next(); err != nil || ok {
+			t.Fatalf("ended stream attempted another write or EOF: %v, %v", ok, err)
+		}
+	}
+	if err := s.Close(); err == nil {
+		t.Fatal("closed without a final status after the voice stopped")
+	}
+	if err := s.FinishAfterStop(); err != nil || s.ReadyToClose() {
+		t.Fatalf("final status did not start safely: %v", err)
+	}
+	status := streamStep(t, s, StreamStatus)
+	final, err := json.Marshal(mix.RemoteStreamStatus{Free: 8, Consumed: 8, EOF: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ack(status.Token, final); err != nil || !s.ReadyToClose() {
+		t.Fatalf("final status did not complete: %v", err)
+	}
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +150,8 @@ func TestStreamSenderPartialWritesAndDeferredEOF(t *testing.T) {
 func TestStreamSenderRejectsMalformedWorkerReplies(t *testing.T) {
 	for _, raw := range [][]byte{[]byte(`{}`), []byte(`{"buffered":0,"free":8}`),
 		[]byte(`{"buffered":0,"free":8,"held":false,"skip":1,"control":0,"eof":false}`),
-		[]byte(`{"buffered":9,"free":0,"held":false,"skip":"0","control":0,"eof":false}`)} {
+		[]byte(`{"buffered":9,"free":0,"held":false,"skip":"0","control":0,"eof":false}`),
+		[]byte(`{"buffered":0,"free":8,"consumed":"0","held":false,"skip":"0","control":0,"eof":true}`)} {
 		s, err := NewStreamSender(1, mix.NewStream(48000, 1, 8), 4)
 		if err != nil {
 			t.Fatal(err)
@@ -130,6 +173,47 @@ func TestStreamSenderRejectsMalformedWorkerReplies(t *testing.T) {
 		if err := s.AbortAfterTermination(); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestStreamSenderFinalStatusReconcilesControlBeforeClosing(t *testing.T) {
+	source := mix.NewStream(48000, 1, 8)
+	source.Ring.Write([]float32{1, 2, 3, 4, 5, 6, 7, 8})
+	s, err := NewStreamSender(1, source, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := streamStep(t, s, Stream)
+	if err := s.Ack(reg.Token, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.FinishAfterStop(); err != nil {
+		t.Fatal(err)
+	}
+	status := streamStep(t, s, StreamStatus)
+	reply, err := json.Marshal(mix.RemoteStreamStatus{Free: 8, Held: true, Skip: 3, Control: 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ack(status.Token, reply); err != nil {
+		t.Fatal(err)
+	}
+	if s.ReadyToClose() || !source.Held() || source.Ring.Len() != 5 || s.Close() == nil {
+		t.Fatal("closed before acknowledging final skip/hold")
+	}
+	control := streamStep(t, s, StreamControlAck)
+	if control.Request.Control != 7 || s.ReadyToClose() {
+		t.Fatal("final control was not sent exactly once")
+	}
+	if err := s.Ack(control.Token, nil); err != nil || !s.ReadyToClose() {
+		t.Fatalf("final control was not acknowledged: %v", err)
+	}
+	if err := s.Close(); err != nil || source.Held() {
+		t.Fatalf("closing the reconciled stream did not release its hold: %v", err)
+	}
+	got := make([]float32, 5)
+	if n := source.Ring.Read(got); n != 5 || !reflect.DeepEqual(got, []float32{4, 5, 6, 7, 8}) {
+		t.Fatalf("final skip changed the wrong PCM: %v (%d frames)", got, n)
 	}
 }
 
@@ -201,8 +285,18 @@ func TestStreamSenderStereoPartialWriteUsesFramesNotSamples(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if source.Ring.Len() != 4 {
+		t.Fatal("accepted stereo PCM was removed before consumption")
+	}
+	if err := s.Poll(); err != nil {
+		t.Fatal(err)
+	}
+	status := streamStep(t, s, StreamStatus)
+	if err := s.Ack(status.Token, streamStatusBytes(t, 0, 8, 4)); err != nil {
+		t.Fatal(err)
+	}
 	if source.Ring.Len() != 0 {
-		t.Fatal("stereo acknowledgements did not consume exactly the accepted frames")
+		t.Fatal("stereo consumption did not release exactly four frames")
 	}
 	if err := s.AbortAfterTermination(); err != nil {
 		t.Fatal(err)

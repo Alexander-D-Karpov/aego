@@ -54,14 +54,14 @@ func TestRemoteStreamTransferAcknowledgesOnlyAcceptedFrames(t *testing.T) {
 	if err := sender.Ack(5); err == nil || s.Ring.Len() != 8 {
 		t.Fatal("invalid acknowledgement changed the ring")
 	}
-	if err := sender.Ack(2); err != nil || s.Ring.Len() != 6 {
+	if err := sender.Ack(2); err != nil || s.Ring.Len() != 8 {
 		t.Fatalf("partial acknowledgement: len=%d err=%v", s.Ring.Len(), err)
 	}
 	n, eof, err = sender.Peek(buf)
 	if err != nil || n != 4 || eof || buf[0] != input[4] {
 		t.Fatalf("retry began at %v, frames=%d eof=%v err=%v", buf[0], n, eof, err)
 	}
-	if err := sender.Ack(0); err != nil || s.Ring.Len() != 6 {
+	if err := sender.Ack(0); err != nil || s.Ring.Len() != 8 {
 		t.Fatal("zero acknowledgement discarded data")
 	}
 	all := make([]float32, 16)
@@ -75,6 +75,15 @@ func TestRemoteStreamTransferAcknowledgesOnlyAcceptedFrames(t *testing.T) {
 	n, eof, err = sender.Peek(all)
 	if err != nil || n != 0 || !eof {
 		t.Fatalf("final frames=%d eof=%v err=%v", n, eof, err)
+	}
+	if err := sender.Reconcile(3, 5); err != nil || s.Ring.Len() != 5 {
+		t.Fatalf("consumption acknowledgement: len=%d, %v", s.Ring.Len(), err)
+	}
+	if err := sender.Reconcile(4, 3); err == nil || s.Ring.Len() != 5 {
+		t.Fatal("fabricated buffered count consumed local PCM")
+	}
+	if err := sender.Reconcile(8, 0); err != nil || s.Ring.Len() != 0 {
+		t.Fatalf("final consumption: len=%d, %v", s.Ring.Len(), err)
 	}
 }
 
@@ -95,6 +104,12 @@ func TestRemoteStreamSkipPreservesUnacknowledgedData(t *testing.T) {
 		t.Fatal("skip crossed an unacknowledged transfer")
 	}
 	if err := sender.Ack(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := sender.BeginControl(8, true); err == nil {
+		t.Fatal("skip crossed worker-accepted but unconsumed PCM")
+	}
+	if err := sender.Reconcile(4, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := sender.BeginControl(8, true); err != nil {
@@ -214,7 +229,7 @@ func TestRemoteStreamCloseReleasesProducerAndGuard(t *testing.T) {
 	}
 }
 
-func TestRemoteStreamAcknowledgementWakesBlockedFeeder(t *testing.T) {
+func TestRemoteStreamConsumptionWakesBlockedFeeder(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := NewStream(rate, 1, 8)
 		s.Ring.Write(make([]float32, 8))
@@ -238,12 +253,21 @@ func TestRemoteStreamAcknowledgementWakesBlockedFeeder(t *testing.T) {
 		}
 		synctest.Wait()
 		select {
+		case <-done:
+			t.Fatal("accepted but unconsumed PCM woke the feeder")
+		default:
+		}
+		if err := sender.Reconcile(2, 0); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		select {
 		case ok := <-done:
 			if !ok {
 				t.Fatal("feeder reported cancellation")
 			}
 		default:
-			t.Fatal("accepted frames did not wake the feeder")
+			t.Fatal("consumed frames did not wake the feeder")
 		}
 	})
 }

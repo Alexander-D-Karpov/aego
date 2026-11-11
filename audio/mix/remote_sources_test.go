@@ -269,6 +269,94 @@ func TestRemoteSourcesStreamPCMAndEOF(t *testing.T) {
 	}
 }
 
+func TestRemoteSourcesReuseStreamKeepsUnconsumedPCM(t *testing.T) {
+	cfg := Config{SampleRate: rate, Voices: 4, Block: 64}
+	local, _ := New(cfg)
+	reference, _ := New(cfg)
+	client, err := NewRemoteClient(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker, err := NewRemoteSources(cfg, 2<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, refStream := NewStream(rate, 1, 8), NewStream(rate, 1, 8)
+	pcm := []float32{.1, .2, .3, .4, .5, .6, .7, .8}
+	stream.Ring.Write(pcm)
+	refStream.Ring.Write(pcm)
+	if err := worker.RegisterStream(3, rate, 1, 8); err != nil {
+		t.Fatal(err)
+	}
+	sender, err := NewRemoteStreamSender(stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]float32, 8)
+	n, _, err := sender.Peek(buf)
+	if err != nil || n != 8 {
+		t.Fatalf("peek = %d, %v", n, err)
+	}
+	written, err := worker.WriteStream(3, buf[:n])
+	if err != nil || written != n {
+		t.Fatalf("write = %d, %v", written, err)
+	}
+	if err := sender.Ack(written); err != nil {
+		t.Fatal(err)
+	}
+	id, wantID := local.Play(PlayParams{Stream: stream, Gain: 1}), reference.Play(PlayParams{Stream: refStream, Gain: 1})
+	if id != wantID || !id.Valid() {
+		t.Fatalf("voice IDs = %v, %v", id, wantID)
+	}
+	if err := worker.Accept(sourcePacket(t, client, 3)); err != nil {
+		t.Fatal(err)
+	}
+	got, want := make([]float32, 2), make([]float32, 2)
+	reference.Mix(want)
+	if err := worker.Mix(got); err != nil {
+		t.Fatal(err)
+	}
+	batch, err := worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Apply(batch); err != nil {
+		t.Fatal(err)
+	}
+	local.Kill(id)
+	reference.Kill(wantID)
+	if err := worker.Accept(sourcePacket(t, client, 0)); err != nil {
+		t.Fatal(err)
+	}
+	reference.Mix(want)
+	if err := worker.Mix(got); err != nil {
+		t.Fatal(err)
+	}
+	batch, err = worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Apply(batch); err != nil {
+		t.Fatal(err)
+	}
+	status, err := worker.StreamStatus(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sender.Reconcile(status.Consumed, status.Buffered); err != nil {
+		t.Fatal(err)
+	}
+	if err := worker.Drop(3); err != nil {
+		t.Fatal(err)
+	}
+	if err := sender.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if stream.Ring.Len() != refStream.Ring.Len() {
+		t.Fatalf("stopped stream lost prefetched frames: local %d, native %d", stream.Ring.Len(), refStream.Ring.Len())
+	}
+}
+
 func TestRemoteSourcesStreamControlRequiresAcknowledgement(t *testing.T) {
 	cfg := Config{SampleRate: rate, Channels: 2, Voices: 4, Block: 64}
 	local, _ := New(cfg)
@@ -461,6 +549,9 @@ func TestRemoteSourcesStreamSkipThenResumeMatchesNative(t *testing.T) {
 	if err != nil || held.Control == 0 || !held.Held || held.Skip != 17 {
 		t.Fatalf("skip status = %+v, %v", held, err)
 	}
+	if err := sender.Reconcile(held.Consumed, held.Buffered); err != nil {
+		t.Fatal(err)
+	}
 	if err := sender.BeginControl(held.Skip, held.Held); err != nil {
 		t.Fatal(err)
 	}
@@ -475,6 +566,9 @@ func TestRemoteSourcesStreamSkipThenResumeMatchesNative(t *testing.T) {
 	resume, err := worker.StreamStatus(9)
 	if err != nil || resume.Control == 0 || resume.Held || resume.Skip != 0 {
 		t.Fatalf("resume status = %+v, %v", resume, err)
+	}
+	if err := sender.Reconcile(resume.Consumed, resume.Buffered); err != nil {
+		t.Fatal(err)
 	}
 	if err := sender.BeginControl(resume.Skip, resume.Held); err != nil {
 		t.Fatal(err)
@@ -543,6 +637,9 @@ func TestRemoteSourcesHeldStreamEOFReleasesVoiceWhileMuted(t *testing.T) {
 	control, err := worker.StreamStatus(4)
 	if err != nil || control.Control == 0 || !control.Held || control.Skip == 0 {
 		t.Fatalf("skip control: %+v, %v", control, err)
+	}
+	if err := sender.Reconcile(control.Consumed, control.Buffered); err != nil {
+		t.Fatal(err)
 	}
 	if err := sender.BeginControl(control.Skip, control.Held); err != nil {
 		t.Fatal(err)

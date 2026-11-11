@@ -18,8 +18,8 @@ const (
 	streamClosed
 )
 
-// StreamStep is one ordered operation. PCM belongs to the sender until its
-// reply is acknowledged; the transport must copy it before sending.
+// StreamStep is one ordered operation. The transport must copy PCM before
+// sending; the source retains accepted frames until consumption is reconciled.
 type StreamStep struct {
 	Token   uint64
 	Op      int32
@@ -42,6 +42,9 @@ type StreamSender struct {
 	serial  uint64
 	pending uint64
 	broken  bool
+	ended   bool
+	closing bool
+	final   bool
 }
 
 func NewStreamSender(id uint64, source *mix.Stream, chunkFrames int) (*StreamSender, error) {
@@ -57,21 +60,40 @@ func NewStreamSender(id uint64, source *mix.Stream, chunkFrames int) (*StreamSen
 	return &StreamSender{id: id, source: source, sender: sender, buffer: make([]float32, chunkFrames*source.Channels)}, nil
 }
 
-// Poll begins one status/transfer cycle. It does not install a timer or spin
-// while the decoder has no PCM. Finish any steps from this cycle before the
-// next poll. A busy producer can delay control reconciliation without blocking.
+// Poll begins one status/transfer cycle, including after EOF so consumed PCM
+// can still be reconciled. It does not install a timer or spin while the
+// decoder has no PCM. Finish the current cycle before polling again.
 func (s *StreamSender) Poll() error {
-	if s == nil || s.broken || s.state != streamIdle || s.pending != 0 {
+	if s == nil || s.broken || s.closing || (s.state != streamIdle && s.state != streamEnded) || s.pending != 0 {
 		return ErrTransfer
 	}
 	s.state = streamStatus
 	return nil
 }
 
+// FinishAfterStop requests a final status after the owner has stopped all
+// voices using this stream and drained their releases. No further worker mix,
+// writes or source removal may occur until the resulting steps are acknowledged.
+// The caller must then drop the worker source before Close. This explicit
+// quiescence contract prevents an orderly stop from replaying consumed PCM.
+func (s *StreamSender) FinishAfterStop() error {
+	if s == nil || s.broken || s.closing || (s.state != streamIdle && s.state != streamEnded) || s.pending != 0 {
+		return ErrTransfer
+	}
+	s.closing, s.state = true, streamStatus
+	return nil
+}
+
+// ReadyToClose reports that the final status and any resulting control have
+// been reconciled. The owner must still drop the quiescent worker source first.
+func (s *StreamSender) ReadyToClose() bool {
+	return s != nil && !s.broken && s.closing && s.final && s.pending == 0
+}
+
 // Ended means the worker accepted EOF; it does not mean its queued audio was
 // played or that the source is safe to drop while a voice still references it.
 func (s *StreamSender) Ended() bool {
-	return s != nil && !s.broken && s.state == streamEnded
+	return s != nil && !s.broken && s.ended && s.state != streamClosed
 }
 
 func (s *StreamSender) Next() (step StreamStep, ok bool, err error) {
@@ -122,21 +144,25 @@ func (s *StreamSender) status(raw []byte) error {
 	var wire struct {
 		Buffered *int    `json:"buffered"`
 		Free     *int    `json:"free"`
+		Consumed *uint64 `json:"consumed,string"`
 		Held     *bool   `json:"held"`
 		Skip     *int64  `json:"skip,string"`
 		Control  *uint32 `json:"control"`
 		EOF      *bool   `json:"eof"`
 	}
-	if err := decode(raw, &wire); err != nil || wire.Buffered == nil || wire.Free == nil || wire.Held == nil ||
+	if err := decode(raw, &wire); err != nil || wire.Buffered == nil || wire.Free == nil || wire.Consumed == nil || wire.Held == nil ||
 		wire.Skip == nil || wire.Control == nil || wire.EOF == nil {
 		return ErrTransfer
 	}
-	status := mix.RemoteStreamStatus{Buffered: *wire.Buffered, Free: *wire.Free, Held: *wire.Held,
+	status := mix.RemoteStreamStatus{Buffered: *wire.Buffered, Free: *wire.Free, Consumed: *wire.Consumed, Held: *wire.Held,
 		Skip: *wire.Skip, Control: *wire.Control, EOF: *wire.EOF}
 	if status.Buffered < 0 || status.Free < 0 || status.Buffered > s.source.Ring.Cap() ||
 		status.Free != s.source.Ring.Cap()-status.Buffered || status.Skip < 0 ||
-		(status.Control == 0 && status.Skip != 0) || status.EOF {
+		(status.Skip != 0 && (status.Control == 0 || status.Buffered != 0)) || status.EOF != s.ended {
 		return ErrTransfer
+	}
+	if err := s.sender.Reconcile(status.Consumed, status.Buffered); err != nil {
+		return err
 	}
 	if status.Control != 0 {
 		s.control = status.Control
@@ -149,6 +175,17 @@ func (s *StreamSender) status(raw []byte) error {
 			return err
 		}
 		s.state = streamControlAck
+		return nil
+	}
+	if s.ended || s.closing {
+		if s.closing {
+			s.final = true
+		}
+		if s.ended {
+			s.state = streamEnded
+		} else {
+			s.state = streamIdle
+		}
 		return nil
 	}
 	capacity := min(len(s.buffer), status.Free*s.source.Channels)
@@ -168,8 +205,8 @@ func (s *StreamSender) status(raw []byte) error {
 }
 
 // Ack accepts only a successful reply for the outstanding step. A partial
-// stream write consumes only its accepted frames. A stale-status EOF may be
-// deferred by the worker and retried after another control/status cycle.
+// stream write acknowledges only its accepted frames, which remain in the
+// source until consumption is reconciled. Stale-status EOF may be deferred.
 func (s *StreamSender) Ack(token uint64, result []byte) error {
 	if s == nil || s.broken || token == 0 || token != s.pending {
 		return ErrTransfer
@@ -180,7 +217,15 @@ func (s *StreamSender) Ack(token uint64, result []byte) error {
 		if len(result) != 0 {
 			err = ErrTransfer
 		} else {
-			s.control, s.state = 0, streamIdle
+			s.control = 0
+			if s.ended {
+				s.state = streamEnded
+			} else {
+				s.state = streamIdle
+			}
+			if s.closing {
+				s.final = true
+			}
 		}
 	case streamStatus:
 		err = s.status(result)
@@ -206,7 +251,7 @@ func (s *StreamSender) Ack(token uint64, result []byte) error {
 		}
 		if err == nil {
 			if *reply.Ended {
-				s.state = streamEnded
+				s.ended, s.state = true, streamEnded
 			} else {
 				s.state = streamIdle
 			}
@@ -222,11 +267,11 @@ func (s *StreamSender) Ack(token uint64, result []byte) error {
 	return nil
 }
 
-// Close relinquishes the source only after all operations complete and the
-// owner has dropped the worker source or terminated its transport. It cannot
-// reconstruct PCM or playback position after an uncertain worker failure.
+// Close relinquishes an unregistered source, or a quiescent source after
+// FinishAfterStop and after the owner dropped it from the worker. For uncertain
+// worker failure, terminate the transport and use AbortAfterTermination.
 func (s *StreamSender) Close() error {
-	if s == nil || s.broken || s.pending != 0 || (s.state != streamRegister && s.state != streamIdle && s.state != streamEnded) {
+	if s == nil || s.broken || s.pending != 0 || (s.state != streamRegister && !s.ReadyToClose()) {
 		return ErrTransfer
 	}
 	if err := s.sender.Close(); err != nil {

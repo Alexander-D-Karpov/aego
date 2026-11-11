@@ -7,13 +7,16 @@ var (
 	ErrRemoteStreamBusy = errors.New("mix: remote stream producer is finishing a write")
 )
 
-// RemoteStreamSender transfers one stream to another mixer without consuming
-// decoded frames until the worker acknowledges them. It is the sole consumer
-// of the source ring. The producer may continue writing concurrently.
+// RemoteStreamSender transfers one stream to another mixer. Frames accepted by
+// the worker remain in the producer ring until the worker reports consuming
+// them, so an orderly stop does not lose prefetched PCM. It is the sole
+// consumer of the source ring; the producer may continue writing concurrently.
 type RemoteStreamSender struct {
 	source         *Stream
 	pending        int
 	pendingHead    uint64
+	sent           uint64
+	consumed       uint64
 	controlPending bool
 	controlSkip    int64
 	controlHeld    bool
@@ -33,40 +36,63 @@ func NewRemoteStreamSender(s *Stream) (*RemoteStreamSender, error) {
 
 // Peek copies up to len(dst) samples without advancing the ring. Only one
 // transfer may be outstanding. EOF is reported only after every frame has been
-// acknowledged; the transport must deliver EOF after all prior PCM messages.
+// accepted by the worker; the transport must deliver EOF after prior PCM.
 func (r *RemoteStreamSender) Peek(dst []float32) (frames int, eof bool, err error) {
 	if r == nil || r.closed || r.pending != 0 || r.controlPending {
 		return 0, false, ErrRemoteStream
 	}
 	s := r.source
+	head := s.Ring.head.Load()
+	tail := s.Ring.tail.Load()
+	available := (tail - head) / uint64(s.Channels)
+	if r.sent > available {
+		return 0, false, ErrRemoteStream
+	}
 	if s.Held() {
 		// A completed decoder with no queued PCM must still publish EOF while
 		// held, or a voice skipped beyond the end can remain live while muted.
-		return 0, s.EOF() && s.Ring.Len() == 0, nil
+		return 0, s.EOF() && r.sent == available, nil
 	}
-	head := s.Ring.head.Load()
-	n := min(len(dst), int(s.Ring.tail.Load()-head))
+	start := head + r.sent*uint64(s.Channels)
+	n := min(len(dst), int(tail-start))
 	n -= n % s.Channels
 	if n == 0 {
-		return 0, s.EOF() && s.Ring.Len() == 0, nil
+		return 0, s.EOF() && r.sent == available, nil
 	}
-	k := copy(dst[:n], s.Ring.buf[int(head&s.Ring.mask):])
+	k := copy(dst[:n], s.Ring.buf[int(start&s.Ring.mask):])
 	copy(dst[k:n], s.Ring.buf)
 	r.pending, r.pendingHead = n/s.Channels, head
 	return r.pending, false, nil
 }
 
-// Ack advances only the accepted prefix. The unaccepted suffix remains in the
-// source ring for a later transfer; Ack(0) is a valid refusal of the chunk.
+// Ack records the accepted prefix without consuming it locally. The
+// unaccepted suffix remains available for a later transfer; Ack(0) is valid.
 func (r *RemoteStreamSender) Ack(frames int) error {
 	if r == nil || r.closed || r.controlPending || r.pending == 0 || frames < 0 || frames > r.pending ||
 		r.source.Ring.head.Load() != r.pendingHead {
 		return ErrRemoteStream
 	}
-	if got := r.source.Ring.Discard(int64(frames)); got != int64(frames) {
+	r.sent += uint64(frames)
+	r.pending = 0
+	return nil
+}
+
+// Reconcile consumes only frames that the worker has actually read from its
+// ring. The cumulative count and current buffered frames must agree with the
+// ordered write acknowledgements; a stale or fabricated report changes nothing.
+func (r *RemoteStreamSender) Reconcile(consumed uint64, buffered int) error {
+	if r == nil || r.closed || r.pending != 0 || r.controlPending || buffered < 0 || consumed < r.consumed {
 		return ErrRemoteStream
 	}
-	r.pending = 0
+	delta := consumed - r.consumed
+	if delta > r.sent || uint64(buffered) != r.sent-delta || delta > uint64(r.source.Ring.Len()) {
+		return ErrRemoteStream
+	}
+	if got := r.source.Ring.Discard(int64(delta)); got != int64(delta) {
+		return ErrRemoteStream
+	}
+	r.sent -= delta
+	r.consumed = consumed
 	r.source.drained()
 	return nil
 }
@@ -87,7 +113,7 @@ func (r *RemoteStreamSender) AbortTransfer() error {
 // its current write has returned. The worker transport must reject stale
 // in-flight PCM after a skip before delivering this control to the sender.
 func (r *RemoteStreamSender) BeginControl(skip int64, held bool) error {
-	if r == nil || r.closed || r.pending != 0 || r.controlPending || skip < 0 {
+	if r == nil || r.closed || r.pending != 0 || r.controlPending || skip < 0 || (skip > 0 && r.sent != 0) {
 		return ErrRemoteStream
 	}
 	r.controlPending, r.controlSkip, r.controlHeld = true, skip, held

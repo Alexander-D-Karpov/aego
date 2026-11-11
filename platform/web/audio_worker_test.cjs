@@ -12,7 +12,7 @@ const {webcrypto} = require('node:crypto');
 
 const code = fs.readFileSync(path.join(__dirname, 'audio_worker.js'), 'utf8');
 
-function harness({shared = false, target = 3072, version = 2} = {}) {
+function harness({shared = false, target = 3072, version = 3} = {}) {
     const memory = new WebAssembly.Memory({initial:32});
     const enc = new TextEncoder(), dec = new TextDecoder();
     const messages = [], calls = [], output = [], errors = [];
@@ -76,7 +76,7 @@ function harness({shared = false, target = 3072, version = 2} = {}) {
 }
 
 test('a mismatched reactor ABI fails before the output is attached', () => {
-    const h=harness({version:1});
+    const h=harness({version:2});
     assert.equal(h.messages.length,1);
     assert.equal(h.messages[0].type,'fatal');
     assert.match(h.messages[0].error,/ABI version mismatch/);

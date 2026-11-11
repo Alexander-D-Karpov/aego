@@ -32,7 +32,7 @@ const (
 
 // Version changes whenever the JS transport and reactor cease to be wire/ABI
 // compatible. It is checked before a worker can be selected for playback.
-const Version = 2
+const Version = 3
 
 const MaxJSON = 1 << 20
 
