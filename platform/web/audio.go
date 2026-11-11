@@ -80,6 +80,10 @@ type Audio struct {
 	primeMax  int
 	priming   bool
 	sentAudio bool
+	// A claimed worklet must never receive PCM from the main-thread pump.
+	// The owner stops the Worker before cancelling an uncommitted claim.
+	workerReserved bool
+	workerAttached bool
 }
 
 func (p *Platform) OpenAudio(want platform.AudioSpec) (platform.AudioOutput, error) {
@@ -343,7 +347,7 @@ func floatBytes(s []float32) []byte {
 // BeginAudioPrime buffers only the first pump fill. The worklet still counts
 // every shortage after playback begins; no silence is reclassified as audio.
 func (a *Audio) BeginAudioPrime(frames int) {
-	if a.sentAudio || a.priming || !a.Running() || frames <= 0 || a.spec.Channels <= 0 {
+	if a.workerReserved || a.sentAudio || a.priming || !a.Running() || frames <= 0 || a.spec.Channels <= 0 {
 		return
 	}
 	a.primeMax = min(frames, ringFrames)
@@ -369,7 +373,7 @@ func (a *Audio) EndAudioPrime() {
 func (a *Audio) Write(s []float32) int {
 	ch := a.spec.Channels
 	frames := len(s) / ch
-	if frames == 0 || a.closed {
+	if frames == 0 || a.closed || a.workerReserved {
 		return 0
 	}
 	if !a.Running() {
@@ -408,6 +412,10 @@ const maxViews = 64
 // SetRefill permits the worklet's existing consumption reports to service the
 // same mixer between visual frames. No additional browser timer is installed.
 func (a *Audio) SetRefill(fill func() int) {
+	if a.workerReserved && fill != nil {
+		a.failed = "the audio output is reserved by a worker"
+		return
+	}
 	a.refill = fill
 	if a.port.Truthy() {
 		a.port.Call("postMessage", map[string]any{"refillAt": a.refillThreshold()})
@@ -415,7 +423,7 @@ func (a *Audio) SetRefill(fill func() int) {
 }
 
 func (a *Audio) refillThreshold() int {
-	if a.refill == nil {
+	if a.refill == nil && !a.workerReserved {
 		return 0
 	}
 	return min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
