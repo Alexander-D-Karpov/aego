@@ -82,8 +82,10 @@ func (a *App) drawModals() {
 		msg := i18n.Tr("editor.shell.an_autosave_of_path_from", "An autosave of {path} from {v} was found.", i18n.Str("path", md.rec.Path), i18n.Str("v", md.rec.Time.Format("2006-01-02 15:04")))
 		switch widgets.Confirm(ui, id, i18n.Tr("editor.shell.recover_unsaved_changes", "Recover unsaved changes"), msg, i18n.Tr("editor.shell.restore", "Restore"), i18n.Tr("editor.shell.discard", "Discard"), i18n.Tr("editor.shell.later", "Later")) {
 		case 0:
-			if _, err := docs.RestoreRecovery(md.rec); err != nil {
+			if restored, err := docs.RestoreRecovery(md.rec); err != nil {
 				a.ctx.Notify(context.LevelError, err.Error())
+			} else if docs.Active() != restored {
+				a.ctx.Notify(context.LevelInfo, i18n.Note("editor.shell.recovered_scene_in_background", "Recovered {path} without changing the current scene. Select it from the Scene menu to inspect its unsaved changes.", i18n.Str("path", restored.Path)))
 			}
 			a.pop()
 		case 1:

@@ -423,10 +423,12 @@ func (m *Manager) newDoc(rel string, s *scene.Scene) *SceneDocument {
 	return d
 }
 
-func (m *Manager) add(d *SceneDocument) {
+func (m *Manager) add(d *SceneDocument, activate bool) {
 	m.docs = append(m.docs, d)
 	m.emit(Event{Kind: EvOpened, Doc: d.ID})
-	m.SetActive(d.ID)
+	if activate {
+		m.SetActive(d.ID)
+	}
 }
 
 func (m *Manager) stat(d *SceneDocument) {
@@ -458,11 +460,15 @@ func (m *Manager) Open(rel string) (*SceneDocument, error) {
 	m.stat(d)
 	d.History.MarkSaved()
 	m.noteBack(d, prev)
-	m.add(d)
+	m.add(d, true)
 	return d, nil
 }
 
 func (m *Manager) OpenData(rel string, data []byte, dirty bool) (*SceneDocument, error) {
+	return m.openData(rel, data, dirty, true)
+}
+
+func (m *Manager) openData(rel string, data []byte, dirty, activate bool) (*SceneDocument, error) {
 	rel = Clean(rel)
 	if m.Find(rel) != nil {
 		return nil, errs.New(errs.EditorDocument, "scene is already open", log.F("path", rel))
@@ -474,14 +480,14 @@ func (m *Manager) OpenData(rel string, data []byte, dirty bool) (*SceneDocument,
 	d := m.newDoc(rel, s)
 	m.stat(d)
 	d.forced = dirty
-	m.add(d)
+	m.add(d, activate)
 	return d, nil
 }
 
 func (m *Manager) New(rel string, s *scene.Scene) *SceneDocument {
 	d := m.newDoc(Clean(rel), s)
 	d.forced = true
-	m.add(d)
+	m.add(d, true)
 	return d
 }
 
@@ -921,7 +927,9 @@ func (m *Manager) RestoreRecovery(r Recovery) (*SceneDocument, error) {
 	if err != nil {
 		return nil, errs.Wrap(err, errs.EditorDocument, "cannot read the recovery file")
 	}
-	d, err := m.OpenData(r.Path, data, true)
+	// Recovering another scene must not steal the scene already selected in
+	// the editor. With no active scene, keep the recovered scene visible.
+	d, err := m.openData(r.Path, data, true, m.Active() == nil)
 	if err == nil && filepath.Clean(r.File) == filepath.Clean(m.recoveryFile(r.Path)) {
 		m.trackRecovery(r.File, data)
 	}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"aego/art"
@@ -177,6 +178,37 @@ func TestArtTimelineDurationNative(t *testing.T) {
 	key(input.KeyZ, true, true)
 	if frames = model.Session.Info().Document.Frames; len(frames) != 2 || frames[0].DurationMS != 275 || frames[1].DurationMS != 100 {
 		t.Fatalf("SDL Redo did not restore both durations: %+v", frames)
+	}
+	// The visible trash button removes the current frame, protects the final
+	// frame, and participates in the same keyboard Undo history as Add Frame.
+	beforeDelete := slices.Clone(frames)
+	deletedID := model.Session.Frame
+	remaining := slices.DeleteFunc(slices.Clone(frames), func(f art.Frame) bool { return f.ID == deletedID })
+	contentWidth := timeline.W - 2*pad
+	minimumHeight := 2*pad + 6*(row+gap) + 2*gap
+	if timeline.H < minimumHeight {
+		contentWidth -= ed.UI.Theme.ScrollbarW + gap
+	}
+	if contentWidth < 140 {
+		t.Fatal("the factory timeline is unexpectedly narrow for the native delete test")
+	}
+	controlsWidth := min(contentWidth, 480)
+	buttonWidth := (controlsWidth - 16) / 5
+	deleteX := timeline.X + pad + 4*(buttonWidth+4) + buttonWidth/2
+	deleteY := timeline.Y + pad + 2*(row+gap) + row/2
+	beforeCursor := model.History.Cursor()
+	click(deleteX, deleteY)
+	if got := model.Session.Info().Document.Frames; !slices.Equal(got, remaining) || model.History.Cursor() != beforeCursor+1 {
+		t.Fatalf("native Delete Frame did not remove the selected frame once: %+v", got)
+	}
+	click(deleteX, deleteY)
+	if got := model.Session.Info().Document.Frames; !slices.Equal(got, remaining) || model.History.Cursor() != beforeCursor+1 {
+		t.Fatalf("native Delete Frame did not protect the last frame: %+v", got)
+	}
+	ws.Focus("render2d.art/" + id.String())
+	key(input.KeyZ, true, false)
+	if got := model.Session.Info().Document.Frames; !slices.Equal(got, beforeDelete) || model.History.Cursor() != beforeCursor {
+		t.Fatalf("native Undo did not restore the deleted frame: %+v", got)
 	}
 	// Seed a pixel through the fixture API, then exercise only real SDL
 	// shortcuts for Copy/Cut/Paste. Each mutation must reach one history stack.

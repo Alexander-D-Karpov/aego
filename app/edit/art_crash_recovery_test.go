@@ -6,11 +6,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +20,18 @@ import (
 	"aego/art"
 	"aego/asset"
 	"aego/asset/importers/artsource"
+	"aego/asset/importers/scenefile"
 	"aego/core/ids"
 	"aego/editor/core/artedit"
+	"aego/editor/core/document"
+	"aego/editor/core/selection"
+	"aego/editor/core/state"
+	"aego/editor/core/workspace"
+	"aego/modules/animation"
+	"aego/modules/render2d"
 	"aego/project"
+	"aego/scene"
+	"aego/scene/sceneio"
 )
 
 const artCrashReady = "AEGO_ART_RECOVERY_WRITTEN"
@@ -63,6 +74,46 @@ func TestArtRecoveryAfterForcedProcessTermination(t *testing.T) {
 			meta := asset.NewSourceMeta(imp.ID(), imp.Version(), imp.Defaults())
 			meta.ID = id
 			if err := os.WriteFile(file+".meta", asset.MarshalSourceMeta(meta), 0644); err != nil {
+				t.Fatal(err)
+			}
+			const scenePath = "scenes/recovery.aescene"
+			sceneID := ids.NewAssetID()
+			var selectedNode ids.NodeID
+			writeScene(t, p, scenePath, func(sc *scene.Scene) {
+				node := sc.Create(sc.Root(), "Selected hero")
+				selectedNode = sc.ID(node)
+				*scene.Add[render2d.SpriteRenderer](sc, node) = render2d.DefaultSpriteRenderer()
+				sprite, _ := scene.Get[render2d.SpriteRenderer](sc, node)
+				sprite.Sprite.ID = id
+				player := animation.DefaultPlayer()
+				player.Clip.ID = artsource.StableID(id, artsource.ClipName(""))
+				*scene.Add[animation.AnimationPlayer](sc, node) = player
+			})
+			sceneFile := filepath.Join(p.Root, filepath.FromSlash(scenePath))
+			sceneImporter := scenefile.NewScene()
+			sceneMeta := asset.NewSourceMeta(sceneImporter.ID(), sceneImporter.Version(), sceneImporter.Defaults())
+			sceneMeta.ID = sceneID
+			if err := os.WriteFile(sceneFile+".meta", asset.MarshalSourceMeta(sceneMeta), 0644); err != nil {
+				t.Fatal(err)
+			}
+			p.MainScene = sceneID
+			if err := p.Save(); err != nil {
+				t.Fatal(err)
+			}
+			// Represent the last saved editor session, as on reopening a project
+			// after a crash. Recovery must not replace its scene selection.
+			editorState := state.Default()
+			editorState.Workspace, editorState.Active = workspace.Art, scenePath
+			editorState.Docs = []state.Doc{{Path: scenePath, Selection: []ids.NodeID{selectedNode}}}
+			if err := state.Save(p.Root, editorState); err != nil {
+				t.Fatal(err)
+			}
+			sceneDisk, err := os.ReadFile(sceneFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			projectDisk, err := os.ReadFile(filepath.Join(p.Root, project.FileName))
+			if err != nil {
 				t.Fatal(err)
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -113,6 +164,13 @@ func TestArtRecoveryAfterForcedProcessTermination(t *testing.T) {
 			if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, original) {
 				t.Fatal("the unsaved drawing changed the source before recovery")
 			}
+			// An older, unrelated scene recovery may be offered alongside the
+			// Art recovery. It must not become the active scene on restore.
+			const otherScenePath = "scenes/unknown.aescene"
+			otherRecoveryFile := filepath.Join(p.Root, document.RecoveryDir, hex.EncodeToString([]byte(otherScenePath))+document.SceneExt)
+			if err := os.WriteFile(otherRecoveryFile, sceneDisk, 0600); err != nil {
+				t.Fatal(err)
+			}
 			if conflict {
 				other, err := art.New(8, 8, art.RGBA, art.DefaultLimits())
 				if err != nil {
@@ -135,7 +193,49 @@ func TestArtRecoveryAfterForcedProcessTermination(t *testing.T) {
 			if !s.Step() {
 				t.Fatal("editor stopped on reopen")
 			}
-			doc, err := s.App.Context().OpenAsset(id)
+			ed := s.App.Context()
+			sceneDoc := ed.Docs.Edit()
+			if sceneDoc == nil || sceneDoc.Path != scenePath {
+				t.Fatalf("startup scene was not opened: %+v", sceneDoc)
+			}
+			sc := sceneDoc.Scene()
+			hero := sc.Find(sc.Root(), "Selected hero")
+			item := selection.Item{Doc: sceneDoc.ID, Node: sc.ID(hero)}
+			if item.Node != selectedNode {
+				t.Fatal("the selected scene node did not keep its identity across restart")
+			}
+			sceneBefore := sceneio.Save(sc)
+			historyBefore := sceneDoc.History.Cursor()
+			assertScenePreserved := func(stage string) {
+				t.Helper()
+				selected, ok := ed.Selection.Active()
+				if !ok || selected != item || ed.Docs.Edit() != sceneDoc || sceneDoc.Scene() != sc ||
+					sceneDoc.Path != scenePath || sceneDoc.Dirty() || sceneDoc.History.Cursor() != historyBefore ||
+					!bytes.Equal(sceneBefore, sceneio.Save(sc)) {
+					t.Fatalf("%s changed the active scene, selection, history or scene contents", stage)
+				}
+				sprite, spriteOK := scene.Get[render2d.SpriteRenderer](sc, hero)
+				player, playerOK := scene.Get[animation.AnimationPlayer](sc, hero)
+				if !spriteOK || sprite.Sprite.ID != id || !playerOK || player.Clip.ID != artsource.StableID(id, artsource.ClipName("")) {
+					t.Fatalf("%s changed the selected hero's art references", stage)
+				}
+				if unknown, ok := scene.Get[sceneio.Unknown](sc, hero); ok && len(unknown.Components) != 0 {
+					t.Fatalf("%s turned a known component into Unknown: %+v", stage, unknown.Components)
+				}
+				entry, ok := ed.Pipeline.Entry(sceneID)
+				loaderEntry, loaded := ed.Loader.Index().Lookup(sceneID)
+				if p.MainScene != sceneID || !ok || entry.Kind != asset.ArtScene || !loaded || loaderEntry.Kind != asset.ArtScene {
+					t.Fatalf("%s lost the startup scene or its imported type", stage)
+				}
+				if disk, err := os.ReadFile(sceneFile); err != nil || !bytes.Equal(disk, sceneDisk) {
+					t.Fatalf("%s changed the scene on disk: %v", stage, err)
+				}
+				if disk, err := os.ReadFile(filepath.Join(p.Root, project.FileName)); err != nil || !bytes.Equal(disk, projectDisk) {
+					t.Fatalf("%s changed the project on disk: %v", stage, err)
+				}
+			}
+			assertScenePreserved("startup")
+			doc, err := ed.OpenAsset(id)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -143,6 +243,21 @@ func TestArtRecoveryAfterForcedProcessTermination(t *testing.T) {
 			if !ok || !model.PendingRecovery || doc.Dirty() {
 				t.Fatal("recovery was not offered explicitly or was applied automatically")
 			}
+			recoveryFile := filepath.Join(p.Root, document.RecoveryDir, "asset-"+id.String()+".recovery")
+			recoveryBefore, err := os.ReadFile(recoveryFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertScenePreserved("opening the pending drawing")
+			sceneRecoveries := ed.Docs.FindRecovery()
+			if len(sceneRecoveries) != 1 || sceneRecoveries[0].Path != otherScenePath {
+				t.Fatalf("unrelated scene recovery was not offered: %+v", sceneRecoveries)
+			}
+			restoredScene, err := ed.Docs.RestoreRecovery(sceneRecoveries[0])
+			if err != nil || restoredScene == nil || !restoredScene.Dirty() {
+				t.Fatalf("explicit unrelated scene recovery failed: %v", err)
+			}
+			assertScenePreserved("recovering the unrelated scene")
 			err = model.Recover() // This explicit call represents consent in the test.
 			if conflict {
 				if err == nil || !strings.Contains(err.Error(), "conflict") || !model.PendingRecovery {
@@ -156,6 +271,26 @@ func TestArtRecoveryAfterForcedProcessTermination(t *testing.T) {
 				if err != nil || img.NRGBAAt(4, 4).R != 255 || img.NRGBAAt(4, 4).A != 255 {
 					t.Fatalf("recovered pixels differ: %v", err)
 				}
+				// Let the real editor's live-source coordinator publish the dirty
+				// generation, not just the in-memory recovery call.
+				deadline := time.Now().Add(8 * time.Second)
+				for doc.WorkingPreview.Applied == 0 && doc.WorkingPreview.Error == "" && time.Now().Before(deadline) {
+					if !s.Step() {
+						t.Fatal("editor stopped while publishing recovered art")
+					}
+					runtime.Gosched()
+					time.Sleep(time.Millisecond)
+				}
+				if doc.WorkingPreview.Applied == 0 || doc.WorkingPreview.Pending || doc.WorkingPreview.Error != "" {
+					t.Fatalf("recovered art preview was not published: %+v", doc.WorkingPreview)
+				}
+			}
+			assertScenePreserved("recovering the drawing and publishing its preview")
+			if got, err := os.ReadFile(recoveryFile); err != nil || !bytes.Equal(got, recoveryBefore) {
+				t.Fatalf("recovery changed its recovery copy without a save: %v", err)
+			}
+			if got, err := os.ReadFile(otherRecoveryFile); err != nil || !bytes.Equal(got, sceneDisk) {
+				t.Fatalf("scene recovery changed its recovery copy without a save: %v", err)
 			}
 			if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, original) {
 				t.Fatal("recovery or conflict handling overwrote the source")

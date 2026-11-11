@@ -352,6 +352,24 @@ func artTimelineTransport(ui *core.Context, name string, r mathx.Rect, icon, lab
 	return clicked
 }
 
+func artTimelineDeleteFrame(ui *core.Context, r mathx.Rect, editable, multiple bool) bool {
+	tip := i18n.Tr("editor.art.delete_frame", "Delete current frame")
+	if editable && multiple {
+		return artIconAction(ui, "frame-delete", r, "edit.delete", tip, true)
+	}
+	id := ui.ID("frame-delete")
+	ui.MouseOver(id, r)
+	ui.Box(r, ui.Theme.Radius.Button, ui.Theme.Widget, ui.Theme.Border)
+	widgets.IconIn(ui, r, "edit.delete", ui.Theme.TextDisabled)
+	if !editable {
+		tip += " · " + i18n.Tr("editor.art.read_only", "Read-only")
+	} else {
+		tip += " · " + i18n.Tr("editor.art.last_frame_required", "A drawing must keep at least one frame")
+	}
+	widgets.Tooltip(ui, id, tip)
+	return false
+}
+
 func (p *artPanel) timeline(ui *core.Context, r mathx.Rect, editable bool) {
 	ui.Region(r)
 	defer ui.PopCursor()
@@ -402,8 +420,15 @@ func (p *artPanel) timeline(ui *core.Context, r mathx.Rect, editable bool) {
 		}
 	}
 	durationField, tagField, tagActions := artCell(details, 0, 3), artCell(details, 1, 3), artCell(details, 2, 3)
+	var deleteFrame mathx.Rect
 	if narrow {
-		durationField, tagField, tagActions = artCell(details, 0, 2), artCell(details, 1, 2), narrowActions
+		durationField, tagField = artCell(details, 0, 2), artCell(details, 1, 2)
+		// Keep the existing four frame controls usable in narrow docks. Place
+		// the delete icon beside the tag menu on the existing second row.
+		deleteW := min(narrowActions.H, narrowActions.W)
+		deleteFrame = mathx.Rect{X: narrowActions.X + narrowActions.W - deleteW, Y: narrowActions.Y, W: deleteW, H: narrowActions.H}
+		tagActions = narrowActions
+		tagActions.W = max(0, narrowActions.W-deleteW-ui.Theme.Spacing)
 	}
 	if _, commit := widgets.TextFieldRect(ui, ui.ID("duration"), durationField, &v.duration, false); commit && editable {
 		var ms int
@@ -472,17 +497,27 @@ func (p *artPanel) timeline(ui *core.Context, r mathx.Rect, editable bool) {
 		}
 	}
 	row = controls
-	if artButton(ui, "frame-add", artCell(row, 0, 4), i18n.Tr("editor.art.add_frame", "+ Frame")) && editable {
+	controlCount := 5
+	if narrow {
+		controlCount = 4
+	} else {
+		deleteFrame = artCell(row, 4, controlCount)
+	}
+	if artButton(ui, "frame-add", artCell(row, 0, controlCount), i18n.Tr("editor.art.add_frame", "+ Frame")) && editable {
 		p.execute(art.Operation{Kind: "add-frame", DurationMS: 100})
 	}
-	if artButton(ui, "frame-copy", artCell(row, 1, 4), i18n.Tr("editor.art.duplicate", "Duplicate")) && editable {
+	if artButton(ui, "frame-copy", artCell(row, 1, controlCount), i18n.Tr("editor.art.duplicate", "Duplicate")) && editable {
 		p.execute(art.Operation{Kind: "duplicate-frame"})
 	}
-	if artButton(ui, "frame-link", artCell(row, 2, 4), i18n.Tr("editor.art.link", "Link")) && editable {
+	if artButton(ui, "frame-link", artCell(row, 2, controlCount), i18n.Tr("editor.art.link", "Link")) && editable {
 		p.execute(art.Operation{Kind: "duplicate-frame", Linked: true})
 	}
-	if artButton(ui, "cel-unlink", artCell(row, 3, 4), i18n.Tr("editor.art.unlink", "Unlink")) && editable {
+	if artButton(ui, "cel-unlink", artCell(row, 3, controlCount), i18n.Tr("editor.art.unlink", "Unlink")) && editable {
 		p.execute(art.Operation{Kind: "unlink"})
+	}
+	if artTimelineDeleteFrame(ui, deleteFrame, editable, len(info.Document.Frames) > 1) {
+		v.playing = false
+		p.execute(art.Operation{Kind: "delete-frame"})
 	}
 	widgets.TextFieldRect(ui, ui.ID("tag-name"), tagField, &v.tagName, false)
 	p.timelineActions(ui, tagActions, editable)

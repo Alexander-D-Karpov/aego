@@ -23,6 +23,7 @@ messages version=1 lang=en {
   msg "editor.shell.recovery_write_failed" { text="Could not save recovery" }
   msg "editor.shell.recovery_write_failed_notice" { text="One or more recovery files could not be updated: {error}. Keep the editor open; recent changes may exist only in memory. Free space or resolve the access problem, or save a copy to another filesystem. Earlier recovery files may be out of date." }
   msg "editor.shell.recovery_retry" { text="Retry recovery" }
+  msg "editor.shell.recovered_scene_in_background" { text="Recovered {path} without changing the current scene. Select it from the Scene menu to inspect its unsaved changes." }
   msg "editor.shell.continue_editing" { text="Continue editing" }
   msg "editor.shell.recovery_copy_action" { text="Save recovery copy…" }
   msg "editor.shell.recovery_copy_title" { text="Save emergency recovery copies" }
@@ -6938,6 +6939,9 @@ messages version=1 lang=en {
   }
   msg "editor.art.delete_frame" {
     text="Delete current frame"
+  }
+  msg "editor.art.last_frame_required" {
+    text="A drawing must keep at least one frame"
   }
   msg "editor.art.delete_layer" {
     text="Delete layer"

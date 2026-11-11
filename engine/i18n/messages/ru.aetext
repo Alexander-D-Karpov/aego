@@ -23,6 +23,7 @@ messages version=1 lang=ru {
   msg "editor.shell.recovery_write_failed" { text="Не удалось сохранить восстановление" }
   msg "editor.shell.recovery_write_failed_notice" { text="Не удалось обновить один или несколько файлов восстановления: {error}. Не закрывайте редактор: последние изменения могут быть только в памяти. Освободите место, исправьте доступ или сохраните копию на другом диске. Старые файлы восстановления могут быть неактуальны." }
   msg "editor.shell.recovery_retry" { text="Повторить сохранение" }
+  msg "editor.shell.recovered_scene_in_background" { text="Сцена {path} восстановлена, текущая сцена не изменена. Выберите её в меню «Сцена», чтобы посмотреть несохранённые изменения." }
   msg "editor.shell.continue_editing" { text="Продолжить работу" }
   msg "editor.shell.recovery_copy_action" { text="Сохранить копию восстановления…" }
   msg "editor.shell.recovery_copy_title" { text="Сохранить аварийные копии восстановления" }
@@ -6570,6 +6571,7 @@ messages version=1 lang=ru {
   msg "editor.art.curve_hint" { text="Кривая: укажите начало, конец и две управляющие точки. Esc отменяет." }
   msg "editor.art.custom_brush" { text="Своя кисть" }
   msg "editor.art.delete_frame" { text="Удалить текущий кадр" }
+  msg "editor.art.last_frame_required" { text="В рисунке должен оставаться хотя бы один кадр" }
   msg "editor.art.delete_layer" { text="Удалить слой" }
   msg "editor.art.delete_tag" { text="Удалить выбранный тег" }
   msg "editor.art.deselect" { text="Снять выделение" }

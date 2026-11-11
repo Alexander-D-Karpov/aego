@@ -147,3 +147,85 @@ func TestArtTimelineShortDockScrollsToCelGrid(t *testing.T) {
 		t.Fatal("scrolling did not make the cel grid interactive", panel.err)
 	}
 }
+
+func TestArtTimelineDeleteFrameButtonUsesSharedHistory(t *testing.T) {
+	for _, light := range []bool{false, true} {
+		for _, width := range []float32{80, 160, 240, 480, 640} {
+			t.Run(fmt.Sprintf("light=%v/width=%.0f", light, width), func(t *testing.T) {
+				panel, state, _, area := artDurationFixture(t)
+				model, session, ui := panel.model, panel.model.Session, panel.ctx.UI
+				if light {
+					ui.Theme = theme.Light()
+				} else {
+					ui.Theme = theme.Editor()
+				}
+				area.W = width
+				for i := 0; i < 2; i++ {
+					if _, err := model.Execute(stdctx.Background(), art.Operation{Kind: "add-frame", DurationMS: 100 + i}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				frames := session.Document.Info().Frames
+				if err := session.Select("", frames[1].ID, ""); err != nil {
+					t.Fatal(err)
+				}
+				draw := func(editable bool) {
+					ui.Begin(state, mathx.Vec2{X: width, Y: area.H}, 1)
+					panel.timeline(ui, area, editable)
+					ui.End()
+				}
+				click := func(editable bool) {
+					t.Helper()
+					pad, row, gap := ui.Theme.Padding, ui.Theme.RowHeight, ui.Theme.Spacing
+					controls := mathx.Rect{X: pad, Y: pad + 2*(row+gap), W: min(width-2*pad, 480), H: row}
+					point := artCell(controls, 4, 5).Center()
+					if width-2*pad < 140 {
+						buttonW := min(row, width-2*pad)
+						point = mathx.Rect{X: width - pad - buttonW, Y: pad + 4*(row+gap), W: buttonW, H: row}.Center()
+					}
+					state.BeginFrame()
+					state.ApplyMouseMove(point, mathx.Vec2{})
+					state.ApplyMouseDown(point, input.MouseLeft)
+					draw(editable)
+					state.BeginFrame()
+					state.ApplyMouseUp(point, input.MouseLeft)
+					draw(editable)
+				}
+				state.BeginFrame()
+				draw(true)
+				before := model.History.Cursor()
+				panel.view.playing = true
+				click(false)
+				if len(session.Document.Info().Frames) != 3 || model.History.Cursor() != before || !panel.view.playing {
+					t.Fatal("read-only delete changed the drawing")
+				}
+				click(true)
+				got := session.Document.Info().Frames
+				if panel.err != nil || panel.view.playing || len(got) != 2 || got[0].ID != frames[0].ID || got[1].ID != frames[2].ID || model.History.Cursor() != before+1 {
+					t.Fatalf("delete did not remove exactly the selected frame: %+v, %v", got, panel.err)
+				}
+				if err := model.SessionUndo(); err != nil {
+					t.Fatal(err)
+				}
+				got = session.Document.Info().Frames
+				if len(got) != 3 || got[1].ID != frames[1].ID || got[1].DurationMS != frames[1].DurationMS {
+					t.Fatalf("Undo did not restore the original frame: %+v", got)
+				}
+				if err := model.SessionRedo(); err != nil {
+					t.Fatal(err)
+				}
+				if len(session.Document.Info().Frames) != 2 {
+					t.Fatal("Redo did not remove the frame again")
+				}
+				if _, err := model.Execute(stdctx.Background(), art.Operation{Kind: "delete-frame"}); err != nil {
+					t.Fatal(err)
+				}
+				cursor := model.History.Cursor()
+				click(true)
+				if len(session.Document.Info().Frames) != 1 || model.History.Cursor() != cursor || panel.err != nil {
+					t.Fatalf("last frame was not protected: %v", panel.err)
+				}
+			})
+		}
+	}
+}

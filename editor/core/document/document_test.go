@@ -1,6 +1,7 @@
 package document
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -140,6 +141,76 @@ func TestRecovery(t *testing.T) {
 	}
 	if len(NewManager(m.opt).FindRecovery()) != 0 {
 		t.Fatal("save must drop the recovery file")
+	}
+}
+
+func TestRecoveryDoesNotSwitchAnExistingActiveScene(t *testing.T) {
+	previous := newManager(t)
+	selected := previous.New("scenes/selected.aescene", sampleScene(previous, 5))
+	if err := previous.Save(selected.ID); err != nil {
+		t.Fatal(err)
+	}
+	other := previous.New("scenes/unknown.aescene", sampleScene(previous, 9))
+	if n, err := previous.WriteRecovery(); err != nil || n != 1 {
+		t.Fatalf("cannot create unrelated scene recovery: n=%d, %v", n, err)
+	}
+	for _, dirty := range []bool{false, true} {
+		name := "clean active scene"
+		if dirty {
+			name = "dirty active scene"
+		}
+		t.Run(name, func(t *testing.T) {
+			fresh := NewManager(previous.opt)
+			active, err := fresh.Open(selected.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if dirty {
+				active.Scene().Create(active.Scene().Root(), "Unsaved node")
+				active.Scene().Flush()
+				active.MarkDirty()
+			}
+			before := sceneio.Save(active.Scene())
+			recoveries := fresh.FindRecovery()
+			if len(recoveries) != 1 || recoveries[0].Path != other.Path {
+				t.Fatalf("found recovery = %+v", recoveries)
+			}
+			recoveryBytes, err := os.ReadFile(recoveries[0].File)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var events []Event
+			fresh.Subscribe(func(e Event) { events = append(events, e) })
+			restored, err := fresh.RestoreRecovery(recoveries[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fresh.Active() != active || !bytes.Equal(sceneio.Save(active.Scene()), before) || active.Dirty() != dirty {
+				t.Fatal("restoring another scene changed the previously active scene")
+			}
+			if fresh.Find(other.Path) != restored || !restored.Dirty() || restored.Scene().Find(restored.Scene().Root(), "A").IsZero() {
+				t.Fatal("the unrelated recovery did not remain open and dirty")
+			}
+			for _, e := range events {
+				if e.Kind == EvActivated {
+					t.Fatalf("recovery temporarily activated another scene: %+v", events)
+				}
+			}
+			if got, err := os.ReadFile(recoveries[0].File); err != nil || !bytes.Equal(got, recoveryBytes) {
+				t.Fatal("restoring the scene changed the recovery copy", err)
+			}
+		})
+	}
+	// With no previously selected scene, the explicitly recovered scene is
+	// still activated so it does not disappear into an empty workspace.
+	empty := NewManager(previous.opt)
+	recoveries := empty.FindRecovery()
+	if len(recoveries) != 1 {
+		t.Fatalf("found recovery = %+v", recoveries)
+	}
+	first, err := empty.RestoreRecovery(recoveries[0])
+	if err != nil || empty.Active() != first {
+		t.Fatalf("first recovered scene was not activated: %v", err)
 	}
 }
 
