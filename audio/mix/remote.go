@@ -54,7 +54,7 @@ type RemoteClient struct {
 	applied uint64
 	serial  uint64
 	dropped uint64
-	live    map[VoiceID]struct{}
+	live    map[VoiceID]uint64
 	scratch []uint8
 }
 
@@ -62,7 +62,7 @@ func NewRemoteClient(m *Mixer) (*RemoteClient, error) {
 	if m == nil || m.remote || m.applied != 0 || m.clock != 0 {
 		return nil, errRemoteProtocol
 	}
-	c := &RemoteClient{m: m, live: make(map[VoiceID]struct{}), scratch: make([]uint8, len(m.handles))}
+	c := &RemoteClient{m: m, live: make(map[VoiceID]uint64), scratch: make([]uint8, len(m.handles))}
 	c.pending.Store(int32(m.cmds.Len()))
 	m.cmds.remote = &c.pending
 	m.remote = true
@@ -111,7 +111,7 @@ func (c *RemoteClient) Next() (RemoteCommand, bool, error) {
 		if _, exists := c.live[cmd.Voice]; exists {
 			return RemoteCommand{}, false, errRemoteProtocol
 		}
-		c.live[cmd.Voice] = struct{}{}
+		c.live[cmd.Voice] = c.sent + 1
 	}
 	c.sent++
 	return RemoteCommand{Sequence: c.sent, Command: cmd}, true, nil
@@ -134,7 +134,7 @@ func (c *RemoteClient) Apply(b RemoteBatch) error {
 	}
 	clear(c.scratch)
 	for _, id := range b.Released {
-		if _, ok := c.live[id]; !ok || !c.m.Live(id) || c.scratch[id.Index]&1 != 0 {
+		if sequence, ok := c.live[id]; !ok || sequence > b.Applied || !c.m.Live(id) || c.scratch[id.Index]&1 != 0 {
 			return errRemoteProtocol
 		}
 		c.scratch[id.Index] |= 1
@@ -143,7 +143,7 @@ func (c *RemoteClient) Apply(b RemoteBatch) error {
 		if e.Kind < EvFinished || e.Kind > EvStarved {
 			return errRemoteProtocol
 		}
-		if _, ok := c.live[e.Voice]; !ok {
+		if sequence, ok := c.live[e.Voice]; !ok || sequence > b.Applied {
 			return errRemoteProtocol
 		}
 		if e.Kind != EvStarved && c.scratch[e.Voice.Index]&1 == 0 {
@@ -151,7 +151,7 @@ func (c *RemoteClient) Apply(b RemoteBatch) error {
 		}
 	}
 	for _, v := range b.Voices {
-		if _, ok := c.live[v.ID]; !ok || !c.m.Live(v.ID) || c.scratch[v.ID.Index] != 0 {
+		if sequence, ok := c.live[v.ID]; !ok || sequence > b.Applied || !c.m.Live(v.ID) || c.scratch[v.ID.Index] != 0 {
 			return errRemoteProtocol
 		}
 		c.scratch[v.ID.Index] = 2

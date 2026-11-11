@@ -527,6 +527,104 @@ func TestStreamSenderReconcilesAfterEOFAndBeforeReuse(t *testing.T) {
 	}
 }
 
+// Drive the producer coordinator through the actual service request decoder,
+// staging buffers and batch encoding. This does not attach a browser output.
+func TestControllerRoundTripWithWorkerService(t *testing.T) {
+	service := initService(t, 2<<20)
+	cfg := mix.Config{SampleRate: 48000, Channels: 2, Voices: 4, Block: 512}
+	mixer, err := mix.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := workerproto.NewController(mixer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := mix.NewStream(48000, 1, 8)
+	stream.Ring.Write([]float32{.1, .2, .3, .4, .5, .6, .7, .8})
+	stream.SetEOF()
+	streamVoice := mixer.Play(mix.PlayParams{Stream: stream, Gain: 1})
+	mem := &mix.Memory{PCM: make([]float32, workerproto.MaxTransferSamples+9), Rate: 48000, Channels: 1, Loop: true}
+	for i := range mem.PCM {
+		mem.PCM[i] = .2
+	}
+	memoryVoice := mixer.Play(mix.PlayParams{Memory: mem, Gain: 1})
+	drive := func() {
+		t.Helper()
+		for i := 0; i < 1000; i++ {
+			step, ok, err := controller.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !ok {
+				return
+			}
+			var result []byte
+			if step.Chunk {
+				if step.Offset < 0 || step.Offset+len(step.PCM) > len(service.memory) {
+					t.Fatal("staged memory chunk is out of bounds")
+				}
+				copy(service.memory[step.Offset:], step.PCM)
+			} else {
+				if step.Op == opStreamWrite {
+					buf, err := service.streamBuffer(len(step.PCM))
+					if err != nil {
+						t.Fatal(err)
+					}
+					copy(buf, step.PCM)
+				}
+				result = call(t, service, step.Op, step.Request)
+			}
+			if err := controller.Ack(step.Token, result); err != nil {
+				t.Fatalf("ack %+v: %v", step, err)
+			}
+		}
+		t.Fatal("controller did not become idle")
+	}
+	render := func(frames int) workerproto.Batch {
+		t.Helper()
+		if _, err := service.render(frames); err != nil {
+			t.Fatal(err)
+		}
+		batch, err := workerproto.DecodeBatch(call(t, service, opDrain, request{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := controller.ApplyBatch(batch.Mix()); err != nil {
+			t.Fatal(err)
+		}
+		return batch
+	}
+	drive()
+	if err := controller.PollStreams(); err != nil {
+		t.Fatal(err)
+	}
+	drive() // Publish EOF after the initial stream PCM was accepted.
+	render(1)
+	if err := controller.PollStreams(); err != nil {
+		t.Fatal(err)
+	}
+	drive()
+	if stream.Ring.Len() == 8 {
+		t.Fatal("service consumption was not reconciled after EOF")
+	}
+	mixer.Kill(streamVoice)
+	mixer.Kill(memoryVoice)
+	drive()
+	batch := render(1)
+	if len(batch.Released) != 2 {
+		t.Fatalf("service did not release both source lifetimes: %+v", batch.Released)
+	}
+	drive()
+	claim, err := mix.NewRemoteStreamSender(stream)
+	if err != nil {
+		t.Fatalf("controller retained the stopped stream: %v", err)
+	}
+	if err := claim.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestServiceRejectsMalformedRequestsWithoutReplacingState(t *testing.T) {
 	s := initService(t, 1<<20)
 	for _, raw := range [][]byte{

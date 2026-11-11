@@ -419,6 +419,39 @@ func TestRemoteClientRequiresUnrenderedMixer(t *testing.T) {
 	}
 }
 
+func TestRemoteClientRejectsVoiceStateBeforePlayApplied(t *testing.T) {
+	for _, kind := range []string{"release", "event", "voice"} {
+		t.Run(kind, func(t *testing.T) {
+			m, err := New(Config{SampleRate: rate, Voices: 4, Block: 64})
+			if err != nil {
+				t.Fatal(err)
+			}
+			id := m.Play(PlayParams{Memory: dc(.2, 64), Gain: 1})
+			client, err := NewRemoteClient(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			command, ok, err := client.Next()
+			if err != nil || !ok || command.Sequence != 1 {
+				t.Fatalf("play was not queued: %+v, %v, %v", command, ok, err)
+			}
+			batch := RemoteBatch{Serial: 1, Applied: 0, Buses: make([]RemoteBus, m.BusCount())}
+			switch kind {
+			case "release":
+				batch.Released = []VoiceID{id}
+			case "event":
+				batch.Events = []Event{{Kind: EvStarved, Voice: id}}
+			case "voice":
+				batch.Active = 1
+				batch.Voices = []RemoteVoice{{ID: id, Position: 1, Gain: .5}}
+			}
+			if err := client.Apply(batch); err == nil || !m.Live(id) || m.Position(id) != 0 || m.Active() != 0 {
+				t.Fatal("accepted voice state from before its Play command was applied")
+			}
+		})
+	}
+}
+
 func TestRemoteCancelUnsentRestoresLocalQueueAndVoice(t *testing.T) {
 	cfg := Config{SampleRate: rate, Voices: 4, Block: 64}
 	local, _ := New(cfg)

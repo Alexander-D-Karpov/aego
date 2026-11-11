@@ -71,9 +71,17 @@ func (s *StreamSender) Poll() error {
 	return nil
 }
 
+// Idle reports that a transfer cycle has completed. In particular, a false
+// return from Next while a producer is finishing a write is not idle: the
+// caller must retry the pending control before polling or closing the source.
+func (s *StreamSender) Idle() bool {
+	return s != nil && !s.broken && s.pending == 0 && (s.state == streamIdle || s.state == streamEnded)
+}
+
 // FinishAfterStop requests a final status after the owner has stopped all
-// voices using this stream and drained their releases. No further worker mix,
-// writes or source removal may occur until the resulting steps are acknowledged.
+// voices using this stream and drained their releases. No further worker voice
+// may use this stream, and no writes or source removal may occur until the
+// resulting steps are acknowledged. Other independent voices may still mix.
 // The caller must then drop the worker source before Close. This explicit
 // quiescence contract prevents an orderly stop from replaying consumed PCM.
 func (s *StreamSender) FinishAfterStop() error {
