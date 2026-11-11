@@ -160,3 +160,48 @@ for (const shared of [false, true]) {
     step(1);
     assert.deepEqual(requests(),[1,2,3]);
 }
+
+// Quiescing is explicit silence, not a counter reset: old PCM is discarded,
+// new PCM waits until resume, and genuine underruns before and after remain.
+for (const shared of [false, true]) {
+    let Worklet;
+    const pageReports=[],workerReports=[];
+    const env={sampleRate:48000,currentTime:0,Float32Array,
+        AudioWorkletProcessor:class {constructor(){this.port={postMessage:data=>pageReports.push(data)};}},
+        registerProcessor(_name,Class){Worklet=Class;}};
+    vm.runInNewContext(source,env);
+    const options={channels:2,report:2048,refillAt:128};
+    if(shared){options.data=new SharedArrayBuffer(8192*2*4);options.index=new SharedArrayBuffer(16);}
+    const worklet=new Worklet({processorOptions:options});
+    const producer={postMessage:data=>workerReports.push(data),start(){}};
+    worklet.port.onmessage({data:{producerPort:producer}});
+    let tail=0;
+    function publish(frames,value){
+        const pcm=new Float32Array(frames*2).fill(value);
+        if(shared){new Float32Array(options.data).set(pcm,tail*2);tail+=frames;Atomics.store(new Int32Array(options.index),1,tail);}
+        else producer.onmessage({data:pcm});
+    }
+    const channels=[[new Float32Array(128),new Float32Array(128)]];
+    function read(){worklet.process([],channels);env.currentTime+=128/48000;return channels[0][0][0];}
+    publish(128,.25);
+    assert.equal(read(),.25);
+    assert.equal(read(),0);
+    assert.equal(worklet.underruns,1,'negative control did not record a real underrun');
+    publish(512,.25);
+    producer.onmessage({data:{quiesce:7}});
+    assert.equal(workerReports.at(-1).quiesced,7);
+    assert.equal(pageReports.at(-1).underruns,1,'quiesce lost the final worklet counters');
+    assert.equal(pageReports.at(-1).quiet,true);
+    publish(512,.75);
+    const consumed=worklet.consumed;
+    for(let i=0;i<4;i++)assert.equal(read(),0,'quiesced output emitted PCM');
+    assert.equal(worklet.consumed,consumed,'quiesced output consumed newly primed PCM');
+    assert.equal(worklet.underruns,1,'intentional silence changed previous counters');
+    producer.onmessage({data:{resume:8}});
+    assert.equal(workerReports.at(-1).resumed,8);
+    assert.equal(pageReports.at(-1).quiet,false);
+    assert.equal(pageReports.at(-1).suppressed,512);
+    for(let i=0;i<4;i++)assert.equal(read(),.75,'old PCM played or new PCM was lost');
+    assert.equal(read(),0);
+    assert.equal(worklet.underruns,2,'real starvation after resume was hidden');
+}

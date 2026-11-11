@@ -12,6 +12,7 @@
     let tail = 0, sent = 0, consumed = 0, started = false, failed = false;
     let staging = null, lastID = 0, blocks = 0, maxMixMS = 0;
     let batchPending = '', batchDirty = false;
+    let outputState = 'unbound', controlID = 0;
     class ReactorFailure extends Error {}
 
     function reactor(fn) {
@@ -98,6 +99,7 @@
         if (!Number.isInteger(message.op) || message.op < OP_BEGIN_MEMORY || message.op > 14 || message.op === OP_DRAIN) {
             throw new Error('unsupported audio operation');
         }
+        if (message.op === OP_SKIP && outputState !== 'quiet') throw new Error('audio output must be quiesced before skip');
         const r = request(message.input);
         if (message.op === OP_BEGIN_MEMORY) {
             if (staging || !sourceID(r.source) || !Number.isSafeInteger(r.samples) || r.samples < 0) {
@@ -192,8 +194,32 @@
         if (boundPort !== port) return;
         try {
             const data = event.data;
-            if (data && data.ready === true) {
-                started = true;
+            if (data && data.quiesced !== undefined) {
+                if (outputState !== 'quiescing' || data.quiesced !== controlID ||
+                    !Number.isSafeInteger(data.consumed) || data.consumed < consumed || data.consumed > sent) {
+                    throw new Error('invalid audio quiescence acknowledgement');
+                }
+                // Discarded PCM is not reported as consumed. Reset only the
+                // Worker's queue accounting; worklet statistics remain intact.
+                consumed = sent = data.consumed;
+                const id = controlID;
+                controlID = 0;
+                outputState = 'quiet';
+                postMessage({type:'reply', id, result:''});
+                return;
+            } else if (data && data.resumed !== undefined) {
+                if (outputState !== 'resuming' || data.resumed !== controlID ||
+                    !Number.isSafeInteger(data.consumed) || data.consumed < consumed || data.consumed > sent) {
+                    throw new Error('invalid audio resume acknowledgement');
+                }
+                consumed = data.consumed;
+                const id = controlID;
+                controlID = 0;
+                outputState = 'bound';
+                postMessage({type:'reply', id, result:''});
+                return;
+            } else if (data && data.ready === true) {
+                if (outputState === 'bound') started = true;
             } else {
                 if (!data || !Number.isSafeInteger(data.consumed) || data.consumed < consumed || data.consumed > sent) {
                     throw new Error('invalid audio consumption report');
@@ -207,7 +233,7 @@
             // Acknowledge after publishing PCM. The worklet can request again
             // even if a delayed refill did not rise above its threshold, with
             // at most one threshold request outstanding while we are stalled.
-            if (data && data.refill !== undefined) boundPort.postMessage({refilled:data.refill});
+            if (data && data.refill !== undefined && outputState === 'bound') boundPort.postMessage({refilled:data.refill});
         } catch (error) { fail(error); }
     }
     function outputConfig(data) {
@@ -242,13 +268,35 @@
         target = out.target;
         tail = sent = consumed = 0;
         started = false;
+        outputState = 'bound';
+        controlID = 0;
         const boundPort = port;
         port.onmessage = event => onOutput(boundPort, event);
         if (port.start) port.start();
     }
+    function quiesce(id) {
+        if (!port || outputState !== 'bound' || controlID) throw new Error('audio output cannot be quiesced');
+        started = false;
+        outputState = 'quiescing';
+        controlID = id;
+        try { port.postMessage({quiesce:id}); }
+        catch (error) { fail(error); }
+    }
+    function resume(id) {
+        if (!port || outputState !== 'quiet' || controlID) throw new Error('audio output is not quiesced');
+        outputState = 'resuming';
+        controlID = id;
+        started = true;
+        // Publish fresh PCM before telling the worklet to consume again. Both
+        // messages use the same port, so pre-quiescence PCM cannot return.
+        try {
+            fill();
+            port.postMessage({resume:id});
+        } catch (error) { fail(error); }
+    }
     function rebind(data) {
         const next = outputConfig(data);
-        if (next.port === port || !Number.isInteger(data.rate) || data.rate <= 0 || data.rate > 768000) {
+        if (controlID || next.port === port || !Number.isInteger(data.rate) || data.rate <= 0 || data.rate > 768000) {
             throw new Error('invalid audio worker rebind');
         }
         // The caller must disconnect the old AudioWorklet first. Validate the
@@ -256,8 +304,10 @@
         reactor(() => {
             if (data.rate !== rate) call(OP_SET_SAMPLE_RATE, JSON.stringify({rate:data.rate}));
             rate = data.rate;
-            port.onmessage = null;
-            port.close();
+            if (port) {
+                port.onmessage = null;
+                port.close();
+            }
             bindOutput(next);
         });
     }
@@ -299,9 +349,12 @@
             if (!exports || failed || message.type !== 'rpc' || !Number.isSafeInteger(message.id) || message.id !== lastID + 1) {
                 throw new Error('invalid audio worker request order');
             }
+            if (controlID) throw new Error('audio output transition is in flight');
             lastID = message.id;
             let result;
             try {
+                if (message.op === 'quiesce') { quiesce(message.id); return; }
+                if (message.op === 'resume') { resume(message.id); return; }
                 result = invoke(message);
             } catch (error) {
                 postMessage({type:'reply', id:message.id, error:String(error && error.message || error)});

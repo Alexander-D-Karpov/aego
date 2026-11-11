@@ -27,15 +27,17 @@ var currentAudio *Audio
 var workletSource string
 
 type AudioStats struct {
-	Running   bool    `json:"running"`
-	Shared    bool    `json:"shared"`
-	Muted     bool    `json:"muted"`
-	Underruns int     `json:"underruns"`
-	RMS       float64 `json:"rms"`
-	Out       float64 `json:"out"`
-	Consumed  int64   `json:"consumed"`
-	Rate      int     `json:"rate"`
-	Error     string  `json:"error,omitempty"`
+	Running    bool    `json:"running"`
+	Shared     bool    `json:"shared"`
+	Muted      bool    `json:"muted"`
+	Underruns  int     `json:"underruns"`
+	RMS        float64 `json:"rms"`
+	Out        float64 `json:"out"`
+	Consumed   int64   `json:"consumed"`
+	Rate       int     `json:"rate"`
+	Quiet      bool    `json:"quiet"`
+	Suppressed int64   `json:"suppressed"`
+	Error      string  `json:"error,omitempty"`
 }
 
 type Audio struct {
@@ -84,6 +86,10 @@ type Audio struct {
 	// The owner stops the Worker before cancelling an uncommitted claim.
 	workerReserved bool
 	workerAttached bool
+	workerQuiet    bool
+	suppressed     int64
+	workerGate     bool
+	workerState    func()
 }
 
 func (p *Platform) OpenAudio(want platform.AudioSpec) (platform.AudioOutput, error) {
@@ -160,6 +166,7 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 	}
 	a.hook(ctx, "statechange", func(js.Value) {
 		a.state = ctx.Get("state").String()
+		a.notifyWorkerState()
 		a.fillRunning()
 	})
 	if doc := g.Get("document"); doc.Truthy() {
@@ -280,6 +287,7 @@ func (a *Audio) attach() {
 	node.Call("connect", a.gain)
 	a.gain.Call("connect", a.ctx.Get("destination"))
 	a.ready = true
+	a.notifyWorkerState()
 }
 
 func (a *Audio) report(d js.Value) {
@@ -291,6 +299,12 @@ func (a *Audio) report(d js.Value) {
 		a.count.at = t.Float()
 	}
 	a.underruns = d.Get("underruns").Int()
+	if quiet := d.Get("quiet"); quiet.Type() == js.TypeBoolean {
+		a.workerQuiet = quiet.Bool()
+	}
+	if suppressed := d.Get("suppressed"); suppressed.Type() == js.TypeNumber {
+		a.suppressed = int64(suppressed.Float())
+	}
 	a.sum = d.Get("sum").Float()
 	a.samples = d.Get("count").Float()
 	a.fillRunning()
@@ -313,6 +327,7 @@ func (a *Audio) gesture(js.Value) {
 
 func (a *Audio) visibility(hidden bool) {
 	a.hidden = hidden
+	a.notifyWorkerState()
 	switch {
 	case hidden:
 		a.fillRunning()
@@ -475,6 +490,7 @@ func (a *Audio) Queued() int {
 
 func (a *Audio) Pause(on bool) {
 	a.paused = on
+	a.notifyWorkerState()
 	switch {
 	case on:
 		a.fillRunning()
@@ -485,7 +501,7 @@ func (a *Audio) Pause(on bool) {
 }
 
 func (a *Audio) Stats() AudioStats {
-	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: a.underruns, Consumed: a.count.consumed, Rate: a.spec.SampleRate, Error: a.failed}
+	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: a.underruns, Consumed: a.count.consumed, Rate: a.spec.SampleRate, Error: a.failed, Quiet: a.workerQuiet, Suppressed: a.suppressed}
 	if a.samples > 0 {
 		s.RMS = math.Sqrt(a.sum / a.samples)
 	}
@@ -499,6 +515,7 @@ func (a *Audio) Close() {
 	}
 	a.closed = true
 	a.refill = nil
+	a.workerState = nil
 	if a.node.Truthy() {
 		a.port.Set("onmessage", js.Null())
 		a.node.Call("disconnect")
@@ -578,7 +595,7 @@ func activated(g js.Value) (on bool) {
 }
 
 func (a *Audio) level() float64 {
-	if a.muted {
+	if a.muted || a.workerGate {
 		return 0
 	}
 	return 1
@@ -590,6 +607,7 @@ func (a *Audio) Muted() bool {
 
 func (a *Audio) SetMuted(on bool) {
 	a.muted = on
+	a.notifyWorkerState()
 	a.fillRunning()
 	if a.gain.Truthy() {
 		a.gain.Get("gain").Call("setTargetAtTime", a.level(), a.ctx.Get("currentTime"), 0.01)

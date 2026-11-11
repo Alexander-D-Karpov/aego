@@ -2,6 +2,8 @@ package workerproto
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
@@ -85,6 +87,8 @@ func (f *controllerFixture) invoke(step ControllerStep) []byte {
 		err = f.worker.AckStreamControl(r.Source, r.Control)
 	case Command:
 		err = f.worker.Accept(r.Command.Mix())
+	case Skip:
+		err = f.worker.Skip(r.Frames)
 	case Drop:
 		err = f.worker.Drop(r.Source)
 	default:
@@ -94,6 +98,235 @@ func (f *controllerFixture) invoke(step ControllerStep) []byte {
 		f.t.Fatalf("worker operation %+v: %v", step, err)
 	}
 	return result
+}
+
+func TestControllerSkipMatchesLocalMixerAndBoundsCalls(t *testing.T) {
+	f := newControllerFixture(t)
+	reference, err := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := &mix.Memory{PCM: make([]float32, 4800), Rate: 48000, Channels: 1, Loop: true}
+	voice := f.mixer.Play(mix.PlayParams{Memory: source, Gain: 1, Loop: true})
+	refVoice := reference.Play(mix.PlayParams{Memory: source, Gain: 1, Loop: true})
+	// The zero skip must drain a queued Play before any output is rendered.
+	if err := f.client.QueueSkip(0); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	reference.Skip(0)
+	batch, err := f.worker.Drain()
+	if err != nil || f.client.ApplyBatch(batch) != nil || f.mixer.Active() != reference.Active() {
+		t.Fatalf("zero skip did not apply the pending play: %v", err)
+	}
+	const frames = 2*maxSkipFrames + 37
+	start := len(f.steps)
+	if err := f.client.QueueSkip(frames); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	reference.Skip(frames)
+	batch, err = f.worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.ApplyBatch(batch); err != nil {
+		t.Fatal(err)
+	}
+	var chunks []int
+	for _, step := range f.steps[start:] {
+		if step.Op == Skip {
+			chunks = append(chunks, step.Request.Frames)
+		}
+	}
+	if !reflect.DeepEqual(chunks, []int{maxSkipFrames, maxSkipFrames, 37}) {
+		t.Fatalf("skip was not bounded: %v", chunks)
+	}
+	if !f.mixer.Live(voice) || math.Abs(float64(f.mixer.Position(voice)-reference.Position(refVoice))) > 1e-5 {
+		t.Fatalf("remote skip diverged: remote %v local %v", f.mixer.Position(voice), reference.Position(refVoice))
+	}
+}
+
+func TestControllerSkipReleasesFinishedVoice(t *testing.T) {
+	f := newControllerFixture(t)
+	voice := f.mixer.Play(mix.PlayParams{Memory: &mix.Memory{PCM: make([]float32, 8), Rate: 48000, Channels: 1}, Gain: 1})
+	if err := f.client.QueueSkip(16); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	batch, err := f.worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.ApplyBatch(batch); err != nil {
+		t.Fatal(err)
+	}
+	if f.mixer.Live(voice) || !reflect.DeepEqual(batch.Released, []mix.VoiceID{voice}) || len(batch.Events) != 1 || batch.Events[0].Kind != mix.EvFinished {
+		t.Fatalf("skip did not publish the finished voice: %+v", batch)
+	}
+	f.drive()
+	if len(f.client.sources) != 0 {
+		t.Fatal("skip retained a released source")
+	}
+}
+
+func TestControllerSkipReconcilesStreamHoldAndFrames(t *testing.T) {
+	f := newControllerFixture(t)
+	reference, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 64})
+	source, refSource := mix.NewStream(48000, 1, 64), mix.NewStream(48000, 1, 64)
+	pcm := []float32{.1, .2, .3, .4, .5, .6, .7, .8}
+	source.Ring.Write(pcm)
+	refSource.Ring.Write(pcm)
+	voice := f.mixer.Play(mix.PlayParams{Stream: source, Gain: 1})
+	refVoice := reference.Play(mix.PlayParams{Stream: refSource, Gain: 1})
+	if err := f.client.QueueSkip(100); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	reference.Skip(100)
+	batch, err := f.worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.ApplyBatch(batch); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.PollStreams(); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	if !source.Held() || source.Held() != refSource.Held() || source.Ring.Len() != refSource.Ring.Len() ||
+		source.TakeSkip() != refSource.TakeSkip() || f.mixer.Position(voice) != reference.Position(refVoice) {
+		t.Fatal("remote skip did not reconcile stream hold, consumption and position")
+	}
+}
+
+func TestControllerSkipPreservesCommandTimeBoundaries(t *testing.T) {
+	f := newControllerFixture(t)
+	reference, err := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := &mix.Memory{PCM: make([]float32, 256), Rate: 48000, Channels: 1}
+	if err := f.client.QueueSkip(10); err != nil {
+		t.Fatal(err)
+	}
+	voice := f.mixer.Play(mix.PlayParams{Memory: source, Gain: 1})
+	if !voice.Valid() || f.client.QueueSkip(20) != nil || !f.mixer.Stop(voice, 0) || f.client.QueueSkip(30) != nil {
+		t.Fatal("could not prepare the ordered timeline")
+	}
+	f.drive()
+	var timeline []string
+	for _, step := range f.steps {
+		switch step.Op {
+		case Skip:
+			timeline = append(timeline, fmt.Sprintf("skip:%d", step.Request.Frames))
+		case Command:
+			timeline = append(timeline, fmt.Sprintf("command:%d", step.Request.Command.Mix().Command.Kind))
+		}
+	}
+	want := []string{"skip:10", fmt.Sprintf("command:%d", mix.CmdPlay), "skip:20", fmt.Sprintf("command:%d", mix.CmdStop), "skip:30"}
+	if !reflect.DeepEqual(timeline, want) {
+		t.Fatalf("commands crossed skip boundaries: got %v, want %v", timeline, want)
+	}
+	reference.Skip(10)
+	refVoice := reference.Play(mix.PlayParams{Memory: source, Gain: 1})
+	reference.Skip(20)
+	reference.Stop(refVoice, 0)
+	reference.Skip(30)
+	batch, err := f.worker.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.ApplyBatch(batch); err != nil {
+		t.Fatal(err)
+	}
+	if f.mixer.Live(voice) != reference.Live(refVoice) || f.mixer.Position(voice) != reference.Position(refVoice) ||
+		f.mixer.VoiceGain(voice) != reference.VoiceGain(refVoice) {
+		t.Fatalf("ordered timeline diverged from the local mixer: remote %+v, local position=%v gain=%v", batch,
+			reference.Position(refVoice), reference.VoiceGain(refVoice))
+	}
+}
+
+func TestControllerSkipWaitsForAlreadyTransferredCommand(t *testing.T) {
+	f := newControllerFixture(t)
+	voice := f.mixer.Play(mix.PlayParams{Memory: &mix.Memory{PCM: make([]float32, 256), Rate: 48000, Channels: 1}, Gain: 1})
+	step, ok, err := f.client.Next()
+	if err != nil || !ok || step.Op != BeginMemory {
+		t.Fatalf("expected an in-flight source registration: %+v %v", step, err)
+	}
+	if err := f.client.QueueSkip(20); err != nil || !f.mixer.Stop(voice, 0) {
+		t.Fatalf("could not schedule skip and stop: %v", err)
+	}
+	if err := f.client.Ack(step.Token, f.invoke(step)); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	var timeline []int32
+	for _, step := range f.steps {
+		if step.Op == Command || step.Op == Skip {
+			timeline = append(timeline, step.Op)
+		}
+	}
+	if !reflect.DeepEqual(timeline, []int32{Command, Skip, Command}) {
+		t.Fatalf("in-flight command or later stop crossed skip: %v", timeline)
+	}
+}
+
+func TestControllerSkipLimitsBoundariesAndPreservesRejectedWork(t *testing.T) {
+	f := newControllerFixture(t)
+	for i := 0; i < maxSkipBoundaries; i++ {
+		if !f.mixer.SetBusGain(0, .5) || f.client.QueueSkip(1) != nil {
+			t.Fatalf("could not schedule boundary %d", i)
+		}
+	}
+	if !f.mixer.SetBusGain(0, 1) {
+		t.Fatal("could not queue the extra command")
+	}
+	if err := f.client.QueueSkip(1); err == nil {
+		t.Fatal("accepted an unbounded number of time boundaries")
+	}
+	f.drive()
+	var skips int
+	for _, step := range f.steps {
+		if step.Op == Skip {
+			skips++
+		}
+	}
+	if skips != maxSkipBoundaries {
+		t.Fatalf("lost previously accepted skips: %d", skips)
+	}
+	if err := f.client.QueueSkip(1); err != nil {
+		t.Fatalf("could not retry the rejected skip after draining: %v", err)
+	}
+	f.drive()
+}
+
+func TestControllerSkipCannotFallbackAfterAcknowledgement(t *testing.T) {
+	f := newControllerFixture(t)
+	if err := f.client.QueueSkip(0); err != nil {
+		t.Fatal(err)
+	}
+	f.drive()
+	if err := f.client.CancelUnsent(); err == nil {
+		t.Fatal("allowed local fallback after sending a skip")
+	}
+}
+
+func TestControllerSkipRejectsInvalidAndOverflow(t *testing.T) {
+	f := newControllerFixture(t)
+	if err := f.client.QueueSkip(-1); err == nil {
+		t.Fatal("accepted a negative skip")
+	}
+	if err := f.client.QueueSkip(math.MaxInt64); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.client.QueueSkip(1); err == nil {
+		t.Fatal("accepted an overflowing skip queue")
+	}
+	if err := f.client.CancelUnsent(); err == nil {
+		t.Fatal("allowed fallback while skip work was queued")
+	}
 }
 
 func (f *controllerFixture) drive() {

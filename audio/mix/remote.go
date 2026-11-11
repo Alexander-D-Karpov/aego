@@ -90,6 +90,17 @@ func (c *RemoteClient) CancelUnsent() error {
 	return nil
 }
 
+// Queued returns the number of commands published to the local queue but not
+// yet transferred. Only the remote consumer may take this snapshot and call
+// Next; a concurrent producer may continue to append commands. This permits
+// an owner to put a time boundary after precisely the commands already queued.
+func (c *RemoteClient) Queued() int {
+	if c == nil || c.m == nil {
+		return -1
+	}
+	return c.m.cmds.q.len()
+}
+
 // Next transfers one command while preserving its place in the bounded queue
 // until the remote mixer actually applies it. Commands must be delivered in
 // order and acknowledgements must not be fabricated by the transport.

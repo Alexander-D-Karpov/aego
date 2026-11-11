@@ -19,6 +19,8 @@ func browserFixture(t *testing.T, m *mix.Mixer, opts BrowserOptions) (*Browser, 
 		constructor(worker, notify) { this.worker=worker;this.notify=notify;this.sent=[];this.acks=[];this.id=0;globalThis.aegoTestWorkerHost=this; }
 		start(options) { this.options=options; }
 		send(op,input,pcm,offset) { const id=++this.id;this.sent.push({id,op,input,pcm,offset});return id; }
+		quiesce() { const id=++this.id;this.sent.push({id,op:'quiesce'});return id; }
+		resume() { const id=++this.id;this.sent.push({id,op:'resume'});return id; }
 		rebind(output) { this.output=output;return ++this.id; }
 		ackBatch(serial) { this.acks.push(serial); }
 		emit(value) { this.notify(value); }
@@ -222,6 +224,104 @@ func TestBrowserSendFailureStopsAfterAttachment(t *testing.T) {
 	}
 	if err := b.AbortAfterTermination(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBrowserSkipIsOrderedAndBounded(t *testing.T) {
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	var quiesced, resumed int
+	b, host := browserFixture(t, m, BrowserOptions{OnQuiesced: func() { quiesced++ }, OnResume: func() { resumed++ }})
+	defer b.Terminate()
+	if err := b.QueueSkip(1); err == nil {
+		t.Fatal("skip was accepted before startup")
+	}
+	host.Call("emit", map[string]any{"type": "ready"})
+	if err := b.QueueSkip(1); err == nil {
+		t.Fatal("skip was accepted while output could still play old PCM")
+	}
+	if err := b.Quiesce(); err != nil || !b.quiescing {
+		t.Fatalf("could not quiesce output: %v", err)
+	}
+	if err := b.QueueSkip(0); err != nil || host.Get("sent").Length() != 1 {
+		t.Fatal("skip was not held until quiesce acknowledgement", err)
+	}
+	browserReply(host)
+	if quiesced != 1 || !b.quiesced {
+		t.Fatal("quiesce was not acknowledged")
+	}
+	if err := b.QueueSkip(int64(maxSkipFrames + 2)); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []int{0, maxSkipFrames, 2} {
+		sent := host.Get("sent")
+		if sent.Length() != i+2 || sent.Index(i+1).Get("op").Int() != int(Skip) {
+			t.Fatalf("skip %d was not serialized", i)
+		}
+		var request Request
+		if err := json.Unmarshal([]byte(sent.Index(i+1).Get("input").String()), &request); err != nil || request.Frames != want {
+			t.Fatalf("skip %d frames=%d want=%d error=%v", i, request.Frames, want, err)
+		}
+		browserReply(host)
+	}
+	if err := b.QueueSkip(-1); err == nil || b.err != nil {
+		t.Fatal("invalid skip was not rejected without damaging the transport")
+	}
+	if err := b.Resume(); err != nil || !b.resuming {
+		t.Fatalf("resume did not start: %v", err)
+	}
+	if err := b.QueueSkip(1); err == nil {
+		t.Fatal("accepted a skip while the output was resuming")
+	}
+	browserReply(host)
+	if resumed != 1 || b.quiesced || b.resuming || b.err != nil {
+		t.Fatal("resume did not wait for worklet acknowledgement")
+	}
+}
+
+func TestBrowserQuiesceWaitsForRPCAndBlocksQueuedSkipOnRebind(t *testing.T) {
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	m.Play(mix.PlayParams{Memory: &mix.Memory{PCM: []float32{1}, Rate: 48000, Channels: 1}, Gain: 1})
+	var quiesced int
+	b, host := browserFixture(t, m, BrowserOptions{OnQuiesced: func() { quiesced++ }})
+	defer b.Terminate()
+	host.Call("emit", map[string]any{"type": "ready"})
+	if err := b.Quiesce(); err != nil || !b.quiesceReq || b.quiescing {
+		t.Fatalf("quiesce did not wait for pending source transfer: %v", err)
+	}
+	if host.Get("sent").Length() != 1 {
+		t.Fatal("quiesce overtook the in-flight request")
+	}
+	browserReply(host)
+	if sent := host.Get("sent"); sent.Length() != 2 || sent.Index(1).Get("op").String() != "quiesce" {
+		t.Fatal("source transfer continued before quiescence")
+	}
+	browserReply(host)
+	if quiesced != 1 || !b.quiesced || host.Get("sent").Length() != 3 {
+		t.Fatal("quiescence did not resume the source transfer")
+	}
+	if err := b.QueueSkip(10); err != nil {
+		t.Fatal(err)
+	}
+	output := BrowserOutput{Node: js.Global().Get("Object").New(), Block: 512, Target: 3072, Rate: 48000}
+	for i := 0; i < 3; i++ {
+		if err := b.Rebind(output); err == nil {
+			t.Fatal("rebind overtook source transfer or queued skip")
+		}
+		browserReply(host)
+	}
+	if sent := host.Get("sent"); sent.Length() != 6 || sent.Index(5).Get("op").Int() != int(Skip) {
+		t.Fatal("skip did not follow the preceding play")
+	}
+	if err := b.Rebind(output); err == nil {
+		t.Fatal("rebind overtook an in-flight skip")
+	}
+	browserReply(host)
+	if err := b.Rebind(output); err != nil {
+		t.Fatalf("rebind did not follow the acknowledged skip: %v", err)
+	}
+	host.Call("emit", map[string]any{"type": "reply", "id": 7, "result": ""})
+	if b.quiesced || b.rebinding || b.err != nil {
+		t.Fatal("replacement output was not attached")
 	}
 }
 

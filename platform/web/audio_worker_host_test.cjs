@@ -144,6 +144,21 @@ test('rebind attaches the new producer only after the ordered reply', () => {
     assert.throws(() => h.host.rebind({node, block:512, target:3072, rate:44100}), /rebind/);
 });
 
+test('quiesce is serialized with RPCs and reports only the Worker reply', () => {
+    const h=harness();h.start();h.receive({type:'ready'});
+    const id=h.host.send(8,'{}');
+    assert.throws(()=>h.host.quiesce(),/in flight/);
+    h.receive({type:'reply',id,result:''});
+    const next=h.host.quiesce();
+    assert.equal(next,2);
+    assert.equal(h.sent.at(-1).message.op,'quiesce');
+    assert.equal(h.events.filter(event=>event.type==='reply').length,1);
+    assert.throws(()=>h.host.send(11,'{}'),/in flight/);
+    h.receive({type:'reply',id:next,result:''});
+    assert.equal(h.events.filter(event=>event.type==='reply').length,2);
+    assert.equal(h.host.send(11,'{"frames":1}'),3);
+});
+
 test('bad transport messages and consumer failures stop rather than replay', () => {
     for (const bad of [{type:'reply',id:1,result:''},{type:'batch',batch:'{"serial":3}'},null]) {
         const h = harness(); h.start(); h.receive({type:'ready'}); h.receive(bad);

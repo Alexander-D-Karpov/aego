@@ -2,6 +2,7 @@ package workerproto
 
 import (
 	"errors"
+	"math"
 
 	"aego/audio/mix"
 )
@@ -55,7 +56,23 @@ const (
 	flightStream
 	flightCommand
 	flightDrop
+	flightSkip
 )
+
+// Limit one reactor call even when the output has been silent for hours. The
+// remaining frame count stays in the fixed-size coordinator and is sent in
+// further acknowledged calls, without increasing any audio buffer.
+const (
+	maxSkipFrames     = 1 << 20
+	maxSkipBoundaries = 128
+)
+
+// before counts commands already published when this time boundary was taken.
+// Later commands must not move ahead of the corresponding silent advancement.
+type skipBoundary struct {
+	before int
+	frames int64
+}
 
 // Controller coordinates commands, bounded source transfers, batches and
 // source release. It does not create a worker, attach an output or install a
@@ -77,6 +94,11 @@ type Controller struct {
 	nextID       uint64
 	serial       uint64
 	streamCursor int
+	skipFrames   int64
+	skips        [maxSkipBoundaries]skipBoundary
+	skipHead     int
+	skipCount    int
+	skipped      bool
 	failed       bool
 }
 
@@ -93,13 +115,46 @@ func NewController(m *mix.Mixer) (*Controller, error) {
 // has crossed this controller. The owner must first stop the worker and exclude
 // concurrent mixer producers, as required by mix.RemoteClient.CancelUnsent.
 func (c *Controller) CancelUnsent() error {
-	if c == nil || c.failed || c.client == nil || c.command != nil || c.flight.step.Token != 0 || len(c.sources) != 0 {
+	if c == nil || c.failed || c.client == nil || c.command != nil || c.flight.step.Token != 0 || c.skipCount != 0 || c.skipped || len(c.sources) != 0 {
 		return ErrController
 	}
 	if err := c.client.CancelUnsent(); err != nil {
 		return err
 	}
 	c.client = nil
+	return nil
+}
+
+// QueueSkip schedules silent advancement of the remote mixer. The owner must
+// first quiesce the output and ensure that old queued PCM cannot be presented
+// after resuming; this method does not suspend, flush or replace a worklet.
+// Commands published before the call are applied before this skip; commands
+// published afterwards cannot overtake it, even while an RPC is in flight.
+// Calls must be serialized with Next and Ack. Zero requests a drain without
+// advancing time, matching mix.Mixer.Skip(0).
+func (c *Controller) QueueSkip(frames int64) error {
+	if c == nil || c.failed || c.client == nil || frames < 0 || frames > math.MaxInt64-c.skipFrames {
+		return ErrController
+	}
+	before := c.client.Queued()
+	if before < 0 {
+		return ErrController
+	}
+	if c.skipCount > 0 {
+		last := (c.skipHead + c.skipCount - 1) % len(c.skips)
+		if c.skips[last].before == before {
+			c.skips[last].frames += frames
+			c.skipFrames += frames
+			return nil
+		}
+	}
+	if c.skipCount == len(c.skips) {
+		return ErrController
+	}
+	at := (c.skipHead + c.skipCount) % len(c.skips)
+	c.skips[at] = skipBoundary{before: before, frames: frames}
+	c.skipCount++
+	c.skipFrames += frames
 	return nil
 }
 
@@ -167,6 +222,22 @@ func (c *Controller) PollStreams() error {
 	return nil
 }
 
+// Idle reports whether all requested controller work has been acknowledged.
+// The owner must serialize this snapshot with Next, Ack and QueueSkip. A
+// producer may append another command afterwards, as with any queue snapshot.
+func (c *Controller) Idle() bool {
+	if c == nil || c.failed || c.client == nil || c.flight.step.Token != 0 || c.command != nil ||
+		c.cleanup != nil || c.skipCount != 0 || c.client.Queued() != 0 {
+		return false
+	}
+	for _, s := range c.sources {
+		if s.poll || s.polling || (s.registered && s.refs == 0) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Controller) issue(kind uint8, s *controlledSource, sub uint64, step ControllerStep) (ControllerStep, bool, error) {
 	if c.serial == ^uint64(0) {
 		return ControllerStep{}, false, c.fail(ErrController)
@@ -229,12 +300,36 @@ func (c *Controller) Next() (ControllerStep, bool, error) {
 		if step, ok, err := c.beginCleanup(); ok || err != nil || c.cleanup != nil {
 			return step, ok, err
 		}
+		if c.skipCount > 0 && c.skips[c.skipHead].before == 0 {
+			skip := &c.skips[c.skipHead]
+			frames := min(skip.frames, int64(maxSkipFrames))
+			skip.frames -= frames
+			c.skipFrames -= frames
+			if skip.frames == 0 {
+				*skip = skipBoundary{}
+				c.skipHead = (c.skipHead + 1) % len(c.skips)
+				c.skipCount--
+			}
+			// Once sent, even an empty skip makes startup-only fallback unsafe.
+			c.skipped = true
+			return c.issue(flightSkip, nil, 0, ControllerStep{Op: Skip, Request: Request{Frames: int(frames)}})
+		}
 		command, ok, err := c.client.Next()
 		if err != nil {
 			return ControllerStep{}, false, c.fail(err)
 		}
 		if !ok {
+			if c.skipCount > 0 {
+				return ControllerStep{}, false, c.fail(ErrController)
+			}
 			return ControllerStep{}, false, nil
+		}
+		for n := 0; n < c.skipCount; n++ {
+			i := (c.skipHead + n) % len(c.skips)
+			if c.skips[i].before <= 0 {
+				return ControllerStep{}, false, c.fail(ErrController)
+			}
+			c.skips[i].before--
 		}
 		c.command = &command
 		if command.Command.Kind == mix.CmdPlay {
@@ -338,6 +433,10 @@ func (c *Controller) Ack(token uint64, result []byte) error {
 			err = ErrController
 		} else {
 			c.command = nil
+		}
+	case flightSkip:
+		if len(result) != 0 {
+			err = ErrController
 		}
 	case flightDrop:
 		if len(result) != 0 || c.cleanup != f.source || f.source.refs != 0 {

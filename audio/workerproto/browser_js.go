@@ -25,6 +25,8 @@ type BrowserOptions struct {
 	Block, Target        int
 	OnReady              func()
 	OnRebind             func()
+	OnQuiesced           func()
+	OnResume             func()
 	OnBatch              func()
 	OnFailure            func(error, bool)
 }
@@ -47,6 +49,10 @@ type Browser struct {
 	options    BrowserOptions
 	pending    uint64
 	rebinding  bool
+	quiesceReq bool
+	quiescing  bool
+	quiesced   bool
+	resuming   bool
 	ready      bool
 	attached   bool
 	terminated bool
@@ -154,9 +160,33 @@ func (b *Browser) event(event js.Value) {
 				b.fail(ErrBrowserTransport, b.attached)
 				return
 			}
-			b.rebinding = false
+			b.rebinding, b.quiesced = false, false
 			if b.options.OnRebind != nil {
 				b.options.OnRebind()
+			}
+			_ = b.Pump()
+			return
+		}
+		if b.quiescing {
+			if event.Get("result").String() != "" {
+				b.fail(ErrBrowserTransport, b.attached)
+				return
+			}
+			b.quiescing, b.quiesced = false, true
+			if b.options.OnQuiesced != nil {
+				b.options.OnQuiesced()
+			}
+			_ = b.Pump()
+			return
+		}
+		if b.resuming {
+			if event.Get("result").String() != "" {
+				b.fail(ErrBrowserTransport, b.attached)
+				return
+			}
+			b.resuming, b.quiesced = false, false
+			if b.options.OnResume != nil {
+				b.options.OnResume()
 			}
 			_ = b.Pump()
 			return
@@ -209,7 +239,7 @@ func (b *Browser) Pump() (err error) {
 	if b.err != nil {
 		return b.err
 	}
-	if !b.ready || b.pending != 0 || b.rebinding {
+	if !b.ready || b.pending != 0 || b.rebinding || b.quiescing || b.resuming {
 		return nil
 	}
 	defer func() {
@@ -218,6 +248,11 @@ func (b *Browser) Pump() (err error) {
 			b.fail(err, b.attached)
 		}
 	}()
+	if b.quiesceReq {
+		b.quiesceReq, b.quiescing = false, true
+		b.host.Call("quiesce")
+		return b.err
+	}
 	step, ok, err := b.controller.Next()
 	if err != nil {
 		b.fail(err, b.attached)
@@ -255,7 +290,7 @@ func (b *Browser) Pump() (err error) {
 // the new worklet has been attached. The caller owns the previous output's
 // disconnection and the producer-side mixer sample-rate bookkeeping.
 func (b *Browser) Rebind(output BrowserOutput) (err error) {
-	if b == nil || b.terminated || b.err != nil || !b.ready || b.pending != 0 || b.rebinding {
+	if b == nil || b.terminated || b.err != nil || !b.ready || b.pending != 0 || b.rebinding || b.quiesceReq || b.quiescing || b.resuming || !b.controller.Idle() {
 		return ErrBrowserTransport
 	}
 	defer func() {
@@ -267,6 +302,53 @@ func (b *Browser) Rebind(output BrowserOutput) (err error) {
 	b.rebinding = true
 	b.host.Call("rebind", map[string]any{"node": output.Node, "data": output.Data, "index": output.Index,
 		"block": output.Block, "target": output.Target, "rate": output.Rate})
+	return b.err
+}
+
+// Quiesce stops the Worker and discards previously queued PCM in the worklet
+// after any in-flight RPC. The owner must suppress audible output while the
+// asynchronous transition is pending, because old PCM can play before the
+// acknowledgement. Completion is reported through OnQuiesced. Commands
+// submitted while it is pending continue once the Worker is quiesced.
+func (b *Browser) Quiesce() error {
+	if b == nil || b.terminated || b.err != nil || !b.ready || b.rebinding || b.resuming {
+		return ErrBrowserTransport
+	}
+	if b.quiesced || b.quiesceReq || b.quiescing {
+		return nil
+	}
+	b.quiesceReq = true
+	return b.Pump()
+}
+
+// QueueSkip requests silent mixer advancement after Quiesce has been requested.
+// It can queue work while quiescence is in flight but sends no skip until the
+// worklet acknowledges its flush. Commands retain their publication order.
+func (b *Browser) QueueSkip(frames int64) error {
+	if b == nil || b.terminated || b.err != nil || !b.ready || (!b.quiesced && !b.quiesceReq && !b.quiescing) || b.rebinding || b.resuming {
+		return ErrBrowserTransport
+	}
+	if err := b.controller.QueueSkip(frames); err != nil {
+		return err
+	}
+	return b.Pump()
+}
+
+// Resume requires all queued skips, commands and stream reconciliation to have
+// completed. The Worker primes new PCM before the worklet resumes consumption;
+// the owner must wait for OnResume before making the output audible again.
+func (b *Browser) Resume() (err error) {
+	if b == nil || b.terminated || b.err != nil || !b.ready || !b.quiesced || b.rebinding || b.quiesceReq || b.quiescing || b.resuming || b.pending != 0 || !b.controller.Idle() {
+		return ErrBrowserTransport
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: %v", ErrBrowserTransport, r)
+			b.fail(err, b.attached)
+		}
+	}()
+	b.resuming = true
+	b.host.Call("resume")
 	return b.err
 }
 

@@ -167,6 +167,10 @@ function installAudioTiming() {
     }
 }
 
+function checkAudibleWorklet(stats, label) {
+    if (stats.quiet !== false) fail(`${label}: worklet is intentionally silent while the game should be audible`);
+}
+
 async function demo(browser, label, headers, wantShared) {
     if (!fs.existsSync(path.join(site, "demo", "index.html"))) {
         fail(`${label}: site/demo is missing`);
@@ -209,6 +213,7 @@ async function demo(browser, label, headers, wantShared) {
         if (!pump || !Number.isInteger(pump.underruns) || pump.underruns < 0) fail(`${label}: invalid game pump underrun count`);
         else if (pump.underruns > 0) fail(`${label}: ${pump.underruns} predicted pump underruns in the game`);
         if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in the game, which fills audio from the frame loop`);
+        checkAudibleWorklet(s, label);
         if (!s.running || s.rms < 0.01) fail(`${label}: music is silent: ${JSON.stringify(s)}`);
         console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns} (pump ${pump?.underruns})`);
         if (s.underruns > 0 || pump?.underruns > 0) {

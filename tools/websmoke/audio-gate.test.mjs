@@ -65,3 +65,20 @@ test('invalid worklet and pump counts fail closed',async()=>{
     assert((await evaluate({underruns:-1})).some(x=>x.includes('invalid worklet underrun count')));
     assert((await evaluate({pumpUnderruns:-1})).some(x=>x.includes('invalid pump underrun count')));
 });
+
+test('audible demo rejects a quiet or unreported worklet',()=>{
+    for(const quiet of [true,undefined]) {
+        const failures=[];
+        const scope={fail:message=>failures.push(message)};
+        vm.createContext(scope);
+        vm.runInContext(code,scope,{filename:file});
+        scope.checkAudibleWorklet({quiet},'demo');
+        assert(failures.some(message=>message.includes('intentionally silent')));
+    }
+    const failures=[];
+    const scope={fail:message=>failures.push(message)};
+    vm.createContext(scope);
+    vm.runInContext(code,scope,{filename:file});
+    scope.checkAudibleWorklet({quiet:false},'demo');
+    assert.deepEqual(failures,[]);
+});

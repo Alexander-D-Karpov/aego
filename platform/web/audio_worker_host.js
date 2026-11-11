@@ -151,6 +151,27 @@
             return id;
         }
 
+        // Completion means the worklet has discarded the old queue and the
+        // Worker has stopped refilling it. Existing worklet statistics remain.
+        quiesce() {
+            const id = this.nextID();
+            this.pending = {id};
+            try {
+                this.worker.postMessage({type:'rpc', id, op:'quiesce'});
+            } catch (error) { this.fail(error && error.message || error); }
+            return id;
+        }
+
+        // The Worker primes fresh PCM before the worklet resumes consumption.
+        resume() {
+            const id = this.nextID();
+            this.pending = {id};
+            try {
+                this.worker.postMessage({type:'rpc', id, op:'resume'});
+            } catch (error) { this.fail(error && error.message || error); }
+            return id;
+        }
+
         // Disconnect the old worklet first. The caller must serialize this
         // operation with commands and retain the same live mixer and Worker.
         rebind({node, block, target, data, index, rate}) {

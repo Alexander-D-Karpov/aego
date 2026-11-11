@@ -74,6 +74,63 @@ func (a *Audio) CancelWorkerOutput() bool {
 		a.failed = "the worker refill threshold could not be cleared"
 		return false
 	}
+	if !a.SetWorkerGate(false) {
+		return false
+	}
+	a.workerState = nil
 	a.workerReserved = false
+	return true
+}
+
+// WorkerSilent describes the requested lifecycle, including a pending context
+// suspension. A transition owner may keep the gain gated beyond this becoming
+// false until fresh PCM has been primed and acknowledged by the worklet.
+func (a *Audio) WorkerSilent() bool {
+	return a == nil || a.muted || a.hidden || a.paused || !a.Running()
+}
+
+// SetWorkerStateListener observes output readiness, mute, visibility, pause
+// and context-state transitions. Calls run on the page thread. It is valid only
+// for a reserved output and is detached on cancellation or close.
+func (a *Audio) SetWorkerStateListener(fn func()) bool {
+	if a == nil || a.closed || !a.workerReserved {
+		return false
+	}
+	a.workerState = fn
+	return true
+}
+
+func (a *Audio) notifyWorkerState() {
+	if a.workerState != nil && !a.closed {
+		a.workerState()
+	}
+}
+
+// SetWorkerGate controls a separate immediate output gate. In particular,
+// unmuting must not make stale PCM audible during quiesce or re-prime. It does
+// not change the user's mute preference or worklet underrun counters.
+func (a *Audio) SetWorkerGate(on bool) (ok bool) {
+	if a == nil || a.closed || !a.workerReserved {
+		return false
+	}
+	defer func() {
+		if recover() != nil {
+			a.failed = "the worker output gate could not be changed"
+			func() {
+				defer func() { _ = recover() }()
+				if a.ctx.Truthy() {
+					a.quiet(try(a.ctx, "suspend"))
+				}
+			}()
+			ok = false
+		}
+	}()
+	a.workerGate = on
+	if a.gain.Truthy() {
+		param := a.gain.Get("gain")
+		now := a.ctx.Get("currentTime")
+		param.Call("cancelScheduledValues", now)
+		param.Call("setValueAtTime", a.level(), now)
+	}
 	return true
 }

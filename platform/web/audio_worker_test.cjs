@@ -130,14 +130,72 @@ test('page stalls retain one outstanding batch while audio keeps refilling', () 
 
 test('silent skip publishes state even when the worklet has not started', () => {
     const h=harness();
-    h.rpc(1,11,{frames:512});
+    h.rpc(1,'quiesce',{});
+    assert.equal(h.output.at(-1).quiesce,1);
+    h.port.onmessage({data:{quiesced:1,consumed:0}});
+    h.rpc(2,11,{frames:512});
     const batch=h.messages.find(value=>value.type==='batch');
     assert.equal(JSON.parse(batch.batch).serial,'1');
-    assert.equal(h.output.length,0);
-    h.rpc(2,11,{frames:512});
+    assert.equal(h.output.filter(value=>value instanceof Float32Array).length,0);
+    h.rpc(3,11,{frames:512});
     assert.equal(h.messages.filter(value=>value.type==='batch').length,1);
     h.ack('1');
     assert.equal(JSON.parse(h.messages.at(-1).batch).serial,'2');
+});
+
+test('quiescence stops old refills and is required before silent skip', () => {
+    for (const shared of [false,true]) {
+        const h=harness({shared});
+        h.start();
+        h.ack('1');
+        const oldReport=h.port.onmessage;
+        const tail=shared ? Atomics.load(new Int32Array(h.index),1) : h.output.filter(value=>value instanceof Float32Array).length;
+        h.rpc(1,11,{frames:128});
+        assert.match(h.messages.at(-1).error,/quiesced/);
+        assert.equal(h.calls.filter(call=>call.op===11).length,0);
+        h.rpc(2,'quiesce',{});
+        assert.equal(h.output.at(-1).quiesce,2);
+        assert.notEqual(h.messages.at(-1).id,2,'quiesce replied before the worklet discarded old PCM');
+        oldReport({data:{consumed:512}});
+        if(shared)Atomics.store(new Int32Array(h.index),0,tail);
+        h.port.onmessage({data:{quiesced:2,consumed:512}});
+        assert.equal(h.messages.at(-1).id,2);
+        h.rpc(3,11,{frames:128});
+        assert.deepEqual(h.calls.filter(call=>call.op===11).map(call=>call.value.frames),[128]);
+        assert.equal(shared ? Atomics.load(new Int32Array(h.index),1) : h.output.filter(value=>value instanceof Float32Array).length,tail);
+        const batch=h.messages.findLast(value=>value.type==='batch');
+        h.ack(JSON.parse(batch.batch).serial);
+        h.rpc(4,'resume',{});
+        assert.equal(h.output.at(-1).resume,4);
+        assert.notEqual(h.messages.at(-1).id,4,'resume replied before the worklet accepted fresh PCM');
+        assert.equal(shared ? Atomics.load(new Int32Array(h.index),1) : h.output.filter(value=>value instanceof Float32Array).length,
+            shared ? tail+3072 : tail+1);
+        h.port.onmessage({data:{resumed:4,consumed:512}});
+        assert.equal(h.messages.at(-1).id,4);
+    }
+});
+
+test('invalid or overlapping output transitions fail without resuming audio', () => {
+    const wrong=harness();
+    wrong.start();
+    wrong.rpc(1,'quiesce',{});
+    wrong.port.onmessage({data:{quiesced:2,consumed:0}});
+    assert.equal(wrong.messages.at(-1).type,'fatal');
+    assert.match(wrong.messages.at(-1).error,/quiescence acknowledgement/);
+    assert.equal(wrong.messages.filter(value=>value.type==='reply'&&value.id===1).length,0);
+
+    const overlap=harness();
+    overlap.start();
+    overlap.rpc(1,'quiesce',{});
+    overlap.rpc(2,11,{frames:512});
+    assert.equal(overlap.messages.at(-1).type,'fatal');
+    assert.match(overlap.messages.at(-1).error,/transition is in flight/);
+    assert.equal(overlap.calls.filter(call=>call.op===11).length,0);
+
+    const resume=harness();
+    resume.start();
+    resume.rpc(1,'resume',{});
+    assert.match(resume.messages.at(-1).error,/not quiesced/);
 });
 
 test('shared transport publishes a bounded ring and does not overrun it', () => {

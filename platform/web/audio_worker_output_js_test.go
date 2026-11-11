@@ -131,3 +131,57 @@ func TestWebAudioWorkerReservationFailsClosedOnPortError(t *testing.T) {
 		t.Fatal("a failed threshold reset incorrectly returned local ownership")
 	}
 }
+
+func TestWebAudioWorkerGatePreservesUserMuteAndHoldsUnmute(t *testing.T) {
+	g := js.Global()
+	ctx := g.Get("Function").New(`return {currentTime:5,suspend(){},resume(){}}`).Invoke()
+	param := g.Get("Function").New(`return {value:1,cancelScheduledValues(){},
+		setValueAtTime(v){this.value=v},setTargetAtTime(v){this.value=v}}`).Invoke()
+	gain := g.Get("Object").New()
+	gain.Set("gain", param)
+	a := &Audio{g: g, ctx: ctx, gain: gain, state: "running", ready: true}
+	if a.SetWorkerStateListener(func() {}) || a.SetWorkerGate(true) || !a.ReserveWorkerOutput() {
+		t.Fatal("worker controls ignored reservation ownership")
+	}
+	var states []bool
+	if !a.SetWorkerStateListener(func() {
+		states = append(states, a.WorkerSilent())
+		if !a.SetWorkerGate(true) {
+			t.Error("could not gate output on a lifecycle transition")
+		}
+	}) {
+		t.Fatal("could not observe reserved output")
+	}
+	a.SetMuted(true)
+	if !a.Muted() || param.Get("value").Float() != 0 {
+		t.Fatal("mute did not silence the gain")
+	}
+	a.SetMuted(false)
+	if a.Muted() || param.Get("value").Float() != 0 || len(states) != 2 || !states[0] || states[1] {
+		t.Fatal("unmute escaped the worker gate or lost the user's preference")
+	}
+	if !a.SetWorkerGate(false) || param.Get("value").Float() != 1 {
+		t.Fatal("acknowledged resume did not restore the user's level")
+	}
+	a.visibility(true)
+	if !a.WorkerSilent() || param.Get("value").Float() != 0 {
+		t.Fatal("pending visibility suspension was not immediately gated")
+	}
+	a.visibility(false)
+	if a.WorkerSilent() || param.Get("value").Float() != 0 {
+		t.Fatal("visibility resume escaped the gate before the worker was ready")
+	}
+	if !a.CancelWorkerOutput() || param.Get("value").Float() != 1 || a.workerState != nil {
+		t.Fatal("safe startup cancellation did not restore the local output")
+	}
+}
+
+func TestWebAudioWorkerGateFailureRequestsSuspension(t *testing.T) {
+	g := js.Global()
+	ctx := g.Get("Function").New(`return {currentTime:0,stopped:false,suspend(){this.stopped=true}}`).Invoke()
+	gain := g.Get("Function").New(`return {gain:{cancelScheduledValues(){},setValueAtTime(){throw Error('gate failed')}}}`).Invoke()
+	a := &Audio{g: g, ctx: ctx, gain: gain, workerReserved: true}
+	if a.SetWorkerGate(true) || a.failed == "" || !ctx.Get("stopped").Bool() {
+		t.Fatal("gate failure did not stop the output and report an error")
+	}
+}
