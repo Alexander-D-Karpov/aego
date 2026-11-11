@@ -248,10 +248,12 @@ def main():
                 page.locator('#gpu-mode').select_option('pixels')
                 page.locator('.document-tab.active .close-document').click()
                 page.wait_for_function('(handle)=>AegoStudioHost.summary().handle===handle',arg=original_snapshot['handle'])
+                # Tool options are contextual: select the original tool before
+                # restoring its size, which is hidden for the flood-fill tool.
+                page.locator(f'[data-tool="{original_controls["tool"]}"]').click()
                 page.locator('#fg-color').fill(original_controls['color'])
                 page.locator('#fg-alpha').fill(original_controls['alpha']);page.locator('#fg-alpha').press('Tab')
                 page.locator('#brush-size').fill(original_controls['size'])
-                page.locator(f'[data-tool="{original_controls["tool"]}"]').click()
                 select('sprite')
                 page.wait_for_function('(id)=>JSON.parse(aegoArtPreview.status()).status.document===id',arg=original_state['document']['id'])
                 page.evaluate('''() => new Promise(resolve=>{
@@ -267,6 +269,9 @@ def main():
                 page.evaluate('() => {for(const name of Object.keys(artGPUScreens))if(name.startsWith("configure-"))delete artGPUScreens[name];}')
                 witness['status']='PASS'
                 checked('configure-frame-and-channel-pixels-without-republication')
+            # Filled is a shape option, not a pencil option. Use the real tool
+            # selector before interacting with the visible checkbox.
+            page.locator('[data-tool="rectangle"]').click()
             page.locator('#filled').check()
             paint(6,7,24,25,tool='rectangle')
             select('sprite')
