@@ -442,6 +442,19 @@ func (m *Mixer) renderStream(v *voice, acc []float32, n int) bool {
 		i := int64(v.pos)
 		if i+2 >= end {
 			if !drained {
+				if v.stopping {
+					// No samples are available to render, but a requested Stop
+					// must still consume its remaining fade in output time. In
+					// particular, a cancelled producer may not publish EOF until
+					// after this callback. Leave the source position unchanged.
+					for ; f < n; f++ {
+						if v.ramp == 0 {
+							return true
+						}
+						v.next()
+					}
+					return false
+				}
 				m.starve(v)
 				return false
 			}

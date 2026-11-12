@@ -153,30 +153,45 @@ func (m *Module) Worlds() []*Service {
 }
 
 func (m *Module) Preview(res asset.Resolver, id ids.AssetID, loop bool) error {
-	m.StopPreview()
 	c, err := m.clip(res, id)
 	if err != nil {
 		return err
 	}
+	if err := m.StopPreview(); err != nil {
+		return err
+	}
 	p := mix.PlayParams{Bus: int(BusUI), Gain: c.Gain, Pitch: 1, Loop: loop, Priority: musicPriority}
+	var cancel chan struct{}
 	if c.Mem != nil {
 		p.Memory = c.Mem
 	} else {
-		st, cancel, err := c.stream(loop)
+		var st *mix.Stream
+		st, cancel, err = c.stream(loop)
 		if err != nil {
 			return err
 		}
-		p.Stream, m.previewCancel = st, cancel
+		p.Stream = st
 	}
-	m.preview, m.previewID = m.mixer.Play(p), id
+	voice := m.mixer.Play(p)
+	if !voice.Valid() {
+		if cancel != nil {
+			close(cancel)
+		}
+		return errors.New("audio: could not queue preview playback")
+	}
+	m.preview, m.previewID, m.previewCancel = voice, id, cancel
 	return nil
 }
 
-func (m *Module) StopPreview() {
-	if m.preview.Valid() && m.mixer != nil {
-		m.mixer.Stop(m.preview, 0)
+// StopPreview relinquishes ownership only after Stop has been queued, or the
+// voice is already dead. If the bounded queue is full the caller can retry;
+// a live stream is not cancelled while its voice is still playing.
+func (m *Module) StopPreview() error {
+	if m.mixer != nil && m.mixer.Live(m.preview) && !m.mixer.Stop(m.preview, 0) {
+		return errors.New("audio: preview command queue is full")
 	}
 	m.endPreview()
+	return nil
 }
 
 func (m *Module) endPreview() {
@@ -185,6 +200,7 @@ func (m *Module) endPreview() {
 		m.previewCancel = nil
 	}
 	m.preview, m.previewID = mix.VoiceID{}, ids.AssetID{}
+	m.previewPaused = false
 }
 
 func (m *Module) PreviewClip() ids.AssetID {
@@ -196,6 +212,34 @@ func (m *Module) PreviewPosition() (float32, bool) {
 		return 0, false
 	}
 	return m.mixer.Position(m.preview), true
+}
+
+// SetPreviewPaused queues a pause or resume for the preview voice only. The
+// state represents an accepted command, not confirmation that previously
+// buffered output has drained. Scene and game voices are unaffected.
+func (m *Module) SetPreviewPaused(paused bool) error {
+	if m.mixer == nil || !m.mixer.Live(m.preview) {
+		return errors.New("audio: there is no active preview to pause or resume")
+	}
+	if m.previewPaused == paused {
+		return nil
+	}
+	var queued bool
+	if paused {
+		queued = m.mixer.Pause(m.preview)
+	} else {
+		queued = m.mixer.Resume(m.preview)
+	}
+	if !queued {
+		return errors.New("audio: preview command queue is full")
+	}
+	m.previewPaused = paused
+	return nil
+}
+
+// PreviewPaused reports the requested state of a still-live preview voice.
+func (m *Module) PreviewPaused() bool {
+	return m.mixer != nil && m.mixer.Live(m.preview) && m.previewPaused
 }
 
 func (m *Module) Clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {

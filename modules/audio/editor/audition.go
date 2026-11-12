@@ -37,8 +37,11 @@ func (p *plugin) playClip(ed *context.Editor, id ids.AssetID) error {
 	if err != nil {
 		return err
 	}
-	p.aud = audition{}
-	return mod.Preview(ed.Loader, id, false)
+	err = mod.Preview(ed.Loader, id, false)
+	if err == nil || mod.PreviewClip().IsZero() {
+		p.aud = audition{}
+	}
+	return err
 }
 
 func (p *plugin) playEvent(ed *context.Editor, id ids.AssetID) error {
@@ -73,7 +76,10 @@ func (p *plugin) playEvent(ed *context.Editor, id ids.AssetID) error {
 
 func (p *plugin) stopAudition(ed *context.Editor) {
 	if mod, err := previewModule(ed); err == nil {
-		mod.StopPreview()
+		if err := mod.StopPreview(); err != nil {
+			p.notify(err)
+			return
+		}
 	}
 	p.aud = audition{}
 }

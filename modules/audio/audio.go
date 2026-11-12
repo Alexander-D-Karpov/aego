@@ -115,6 +115,7 @@ type Module struct {
 	warned        map[ids.AssetID]bool
 	preview       mix.VoiceID
 	previewCancel chan struct{}
+	previewPaused bool
 	solo          [busCount]bool
 	previewID     ids.AssetID
 }

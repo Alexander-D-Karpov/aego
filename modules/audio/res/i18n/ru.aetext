@@ -35,6 +35,9 @@ messages version=1 lang=ru {
   msg "i18n.audio.ogg_vorbis" {
     text="Ogg Vorbis"
   }
+  msg "i18n.audio.pause" {
+    text="Пауза"
+  }
   msg "i18n.audio.play" {
     text="Воспроизвести"
   }
@@ -55,6 +58,9 @@ messages version=1 lang=ru {
   }
   msg "i18n.audio.reset_session" {
     text="Сбросить сеанс"
+  }
+  msg "i18n.audio.resume" {
+    text="Продолжить"
   }
   msg "i18n.audio.save_to_profile" {
     text="Сохранить в профиль"
