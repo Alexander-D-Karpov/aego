@@ -104,6 +104,7 @@ var rules = []rule{
 	{"asset/importers/material", []string{"core/...", "asset", "asset/pipeline", "format/...", "render/shader", "render/material"}, nil},
 	{"asset/importers/animctrl", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim"}, nil},
 	{"asset/importers/animclip", []string{"core/...", "format/...", "asset", "asset/pipeline", "anim", "schema"}, nil},
+	{"asset/importers/audio", []string{"core/...", "asset", "asset/audiosidecar", "asset/pipeline", "format/...", "audio/..."}, nil},
 	// Structured art prepares the existing texture and animation artifacts.
 	{"asset/importers/artsource", []string{"art", "anim", "schema", "core/...", "format/...", "gpu", "asset", "asset/pipeline", "asset/importers/animclip", "asset/importers/texture"}, nil},
 	{"asset/importers/...", []string{"core/...", "gpu", "asset", "asset/pipeline", "format/...", "render/texture", "render/mesh", "audio/..."}, nil},

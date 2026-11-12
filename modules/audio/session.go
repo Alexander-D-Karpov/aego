@@ -157,6 +157,10 @@ func (m *Module) Preview(res asset.Resolver, id ids.AssetID, loop bool) error {
 	if err != nil {
 		return err
 	}
+	return m.previewClip(c, loop)
+}
+
+func (m *Module) previewClip(c *Clip, loop bool) error {
 	if err := m.StopPreview(); err != nil {
 		return err
 	}
@@ -166,6 +170,7 @@ func (m *Module) Preview(res asset.Resolver, id ids.AssetID, loop bool) error {
 		p.Memory = c.Mem
 	} else {
 		var st *mix.Stream
+		var err error
 		st, cancel, err = c.stream(loop)
 		if err != nil {
 			return err
@@ -179,7 +184,7 @@ func (m *Module) Preview(res asset.Resolver, id ids.AssetID, loop bool) error {
 		}
 		return errors.New("audio: could not queue preview playback")
 	}
-	m.preview, m.previewID, m.previewCancel = voice, id, cancel
+	m.preview, m.previewID, m.previewCancel = voice, c.ID, cancel
 	return nil
 }
 

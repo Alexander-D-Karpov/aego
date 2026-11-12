@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
@@ -88,6 +89,16 @@ type SourceDependencySalter interface {
 // The pipeline owns atomic persistence and checks concurrent edits; Preview calls the hook on a private copy without writing files.
 type MetadataResolver interface {
 	ResolveMetadata(ctx *ImportContext) (Settings, error)
+}
+
+// GuardedMetadataPreviewer can interpret a newer metadata format only for a
+// private preview; it does not authorize normal import or persistence. The
+// pipeline verifies that Source matches the indexed disk source before and
+// after the call. The caller must separately guard document revision and
+// generation when using an asynchronously produced result.
+type GuardedMetadataPreviewer interface {
+	GuardedMetadataCandidate(path string, metadata []byte) (bool, error)
+	PreviewGuardedMetadata(ctx context.Context, input *ImportContext, metadata []byte) (*Result, error)
 }
 
 type GroupMember struct {

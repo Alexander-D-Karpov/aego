@@ -1,5 +1,5 @@
 // Package audiosidecar defines an in-memory, fail-closed audio edit metadata
-// envelope. It does not write files or enable EDL in the importer or editor.
+// envelope. It does not write files or enable saved EDL in the importer or editor.
 // Existing metadata parsers reject its version 2 marker when they read it.
 // That marker does not protect against an already-open older process using a
 // cached version-1 record or writing stale metadata. Integration must not
@@ -26,6 +26,7 @@ const (
 	editField        = "audioEdit"
 	maxMetadataBytes = 16 << 20
 	maxNesting       = 64
+	maxSyntaxItems   = 65536
 )
 
 type parsed struct {
@@ -48,6 +49,61 @@ func Decode(raw []byte, sourcePath string) (doc audioedit.Document, present bool
 		return audioedit.Document{}, false, err
 	}
 	return p.edit.Clone(), p.present, nil
+}
+
+// DecodePreview also returns cloned import settings for a private, in-memory
+// candidate. The settings are not a writable SourceMeta: writing them through a
+// version-1 serializer would erase the compatibility marker. The caller must
+// verify the actual source digest and must not publish this envelope to disk.
+func DecodePreview(raw []byte, sourcePath string) (audioedit.Document, asset.ImportSettings, bool, error) {
+	p, err := parse(raw, sourcePath)
+	if err != nil {
+		return audioedit.Document{}, nil, false, err
+	}
+	return p.edit.Clone(), p.meta.Settings.Clone(), p.present, nil
+}
+
+// NeedsGuardedPreview performs a bounded syntax check before the ordinary
+// metadata parser sees a private audio candidate. Plain v1 metadata remains on
+// the usual import path; any version marker other than v1 or reserved edit
+// field is routed through the strict envelope decoder and cannot fall back.
+func NeedsGuardedPreview(raw []byte, sourcePath string) (bool, error) {
+	if err := validSourcePath(sourcePath); err != nil {
+		return false, err
+	}
+	if len(raw) > maxMetadataBytes || !utf8.Valid(raw) {
+		return false, errors.New("audio sidecar is oversized or not UTF-8")
+	}
+	if err := boundedSyntax(raw); err != nil {
+		return false, err
+	}
+	root, err := aetext.Parse(raw, sourcePath+asset.MetaSuffix)
+	if err != nil {
+		return false, err
+	}
+	for _, field := range root.Attrs {
+		if field.Name == "version" && (field.Value.Kind != aetext.VInt || field.Value.Int != 1) {
+			return true, nil
+		}
+	}
+	for _, block := range root.Blocks {
+		if block.Head != asset.SourceSettingsBlock {
+			continue
+		}
+		for _, fields := range [][]aetext.Field{block.Attrs, block.Fields} {
+			for _, field := range fields {
+				if field.Name == editField {
+					return true, nil
+				}
+			}
+		}
+		for _, nested := range block.Blocks {
+			if nested.Head == editField {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Encode produces a candidate only in memory. It preserves unknown metadata,
@@ -84,6 +140,9 @@ func Encode(raw []byte, sourcePath string, doc audioedit.Document) ([]byte, erro
 	out := aetext.Write(p.root)
 	if len(out) > maxMetadataBytes {
 		return nil, errors.New("encoded audio sidecar exceeds metadata budget")
+	}
+	if err := boundedSyntax(out); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
@@ -234,7 +293,7 @@ func setVersion(root *aetext.Node, version int64) {
 
 func boundedSyntax(raw []byte) error {
 	var stack [maxNesting]byte
-	depth := 0
+	depth, items := 0, 0
 	quoted, escaped := false, false
 	for _, c := range raw {
 		if quoted {
@@ -251,6 +310,10 @@ func boundedSyntax(raw []byte) error {
 		case '"':
 			quoted = true
 		case '{', '[', '(':
+			items++
+			if items > maxSyntaxItems {
+				return errors.New("audio sidecar structure budget exceeded")
+			}
 			if depth == len(stack) {
 				return errors.New("audio sidecar nesting budget exceeded")
 			}
@@ -264,6 +327,11 @@ func boundedSyntax(raw []byte) error {
 			open := stack[depth]
 			if (c == '}' && open != '{') || (c == ']' && open != '[') || (c == ')' && open != '(') {
 				return errors.New("invalid audio sidecar nesting")
+			}
+		case '=', ',':
+			items++
+			if items > maxSyntaxItems {
+				return errors.New("audio sidecar structure budget exceeded")
 			}
 		}
 	}

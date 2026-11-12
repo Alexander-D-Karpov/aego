@@ -55,6 +55,7 @@ func decodeClip(id ids.AssetID, raw []byte, rate int) (*Clip, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer d.Close()
 	mem, err := codec.DecodeAll(d, rate)
 	if err != nil {
 		return nil, err

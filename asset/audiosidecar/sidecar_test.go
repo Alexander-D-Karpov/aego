@@ -56,6 +56,15 @@ func TestSidecarRoundTripPreservesMetadataAndOldReadersRefuse(t *testing.T) {
 	if err != nil || !present || !reflect.DeepEqual(decoded, doc) {
 		t.Fatalf("EDL round-trip mismatch: present=%v error=%v", present, err)
 	}
+	preview, settings, present, err := DecodePreview(encoded, path)
+	if err != nil || !present || !reflect.DeepEqual(preview, doc) || settings.String("stream", "") != "auto" {
+		t.Fatalf("EDL preview settings mismatch: present=%v error=%v", present, err)
+	}
+	settings["stream"] = aetext.Ident("off")
+	_, freshSettings, present, err := DecodePreview(encoded, path)
+	if err != nil || !present || freshSettings.String("stream", "") != "auto" {
+		t.Fatal("preview settings were not independent", err)
+	}
 	n, err := aetext.Parse(encoded, path+asset.MetaSuffix)
 	if err != nil {
 		t.Fatal(err)
@@ -197,5 +206,47 @@ func TestSidecarHandlesMissingSettingsAndQuotedBrackets(t *testing.T) {
 	}
 	if _, err := asset.ParseSourceMeta(encoded, path+asset.MetaSuffix); err == nil {
 		t.Fatal("legacy parser accepted newly created edit settings")
+	}
+}
+
+func TestGuardedPreviewProbeIsBoundedAndDoesNotMisroutePlainMetadata(t *testing.T) {
+	meta, path, doc := sidecarFixture(t)
+	edited, err := Encode(meta, path, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		data    []byte
+		guarded bool
+		bad     bool
+	}{
+		{"ordinary-v1", meta, false, false},
+		{"edited-v2", edited, true, false},
+		{"reserved-on-v1", bytes.Replace(edited, []byte("version=2"), []byte("version=1"), 1), true, false},
+		{"future-version", bytes.Replace(edited, []byte("version=2"), []byte("version=3"), 1), true, false},
+		{"deep-nesting", []byte("meta version=2 { x=" + strings.Repeat("[", 80) + "0" + strings.Repeat("]", 80) + " }"), false, true},
+		{"too-many-items", []byte("meta version=2 { x=[" + strings.Repeat("0,", maxSyntaxItems) + "0] }"), false, true},
+		{"invalid-utf8", []byte{'m', 'e', 't', 'a', ' ', 0xff}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			guarded, err := NeedsGuardedPreview(tc.data, path)
+			if (err != nil) != tc.bad || (!tc.bad && guarded != tc.guarded) {
+				t.Fatalf("probe = %v, %v", guarded, err)
+			}
+		})
+	}
+}
+
+func TestSidecarEncodeDoesNotProduceUnparseableStructureBudget(t *testing.T) {
+	_, path, doc := sidecarFixture(t)
+	count := maxSyntaxItems - 6
+	raw := []byte(fmt.Sprintf(`meta version=1 { id="%s" importer="audio" settings {} extra=[%s0] }`,
+		doc.Source.AssetID, strings.Repeat("0,", count-1)))
+	if err := boundedSyntax(raw); err != nil {
+		t.Fatal("fixture must fit before adding the edit", err)
+	}
+	if output, err := Encode(raw, path, doc); err == nil || output != nil {
+		t.Fatal("encoding accepted metadata that exceeds the structure budget after adding the edit")
 	}
 }
