@@ -93,6 +93,7 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 					v.Playing, v.Position = true, 101
 					v.Settings = pipeline.Settings{"loopStart": aetext.Int(100 * 48000), "loopEnd": aetext.Int(102 * 48000)}
 					p.waveNavigation(ed, v)
+					drawAudioRuler(ui, v)
 				}
 				p.wave(ed, v)
 				ui.PopClip()
@@ -118,6 +119,31 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 						}
 						if !found {
 							t.Fatalf("%s: waveform range line %q was not drawn", tc.name, line)
+						}
+					}
+					ticks, tickCount, step := audioRulerTicks(v.WaveStart, v.WaveEnd, v.Rate, tc.width-2*ui.Theme.Padding)
+					if tickCount == 0 {
+						t.Fatalf("%s: no ruler ticks", tc.name)
+					}
+					lastRight := float32(-1)
+					for _, tick := range ticks[:tickCount] {
+						label := audioRulerLabel(tick.Seconds, step)
+						items := list.TestDrawnItems(mathx.Rect{W: width / tc.scale, H: height / tc.scale}, ui.Font(), label, 0, 0)
+						found := false
+						for _, item := range items {
+							if item.Text != label {
+								continue
+							}
+							found = true
+							if item.Bounds.X < item.Clip.X || item.Bounds.X+item.Bounds.W > item.Clip.X+item.Clip.W+.01 ||
+								item.Bounds.Y < item.Clip.Y || item.Bounds.Y+item.Bounds.H > item.Clip.Y+item.Clip.H+.01 ||
+								item.Bounds.X < lastRight {
+								t.Fatalf("%s: ruler label is clipped or overlaps: %+v", tc.name, item)
+							}
+							lastRight = item.Bounds.X + item.Bounds.W
+						}
+						if !found {
+							t.Fatalf("%s: ruler label %q was not drawn", tc.name, label)
 						}
 					}
 				}

@@ -227,6 +227,7 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 	widgets.Labelf(ui, "%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds))
 	if v.WaveNav {
 		p.waveNavigation(ed, v)
+		drawAudioRuler(ui, v)
 	}
 	p.wave(ed, v)
 	cur.W = controlsWidth
