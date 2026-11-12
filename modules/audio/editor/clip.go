@@ -64,6 +64,10 @@ type stereoWindowPeakSource interface {
 	StereoPeaksWindow(ids.AssetID, int64, int64, int) ([]float32, bool)
 }
 
+type monoWindowPeakSource interface {
+	MonoPeaksWindow(ids.AssetID, int64, int64, int) ([]float32, bool)
+}
+
 func formatName(f uint8) string {
 	if f == asset.AudioOgg {
 		return i18n.Tr("i18n.audio.ogg_vorbis", "Ogg Vorbis")
@@ -186,7 +190,20 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 
 func (p *plugin) clipPeaks(ed *context.Editor, v *ClipView, documentView bool) {
 	v.WaveSelect = false
-	if documentView && v.Channels == 2 {
+	if documentView && v.Channels == 1 {
+		if src, ok := ed.Thumbs.(monoWindowPeakSource); ok {
+			start, end := audioWaveBounds(p.clip.waveStart, p.clip.waveEnd, v.Frames)
+			v.Peaks, v.PeaksDone = src.MonoPeaksWindow(v.ID, start, end, peakCols)
+			if len(v.Peaks) > 0 {
+				v.WaveStart, v.WaveEnd, v.WaveNav = start, end, true
+			}
+			if v.PeaksDone && len(v.Peaks) == 0 {
+				v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+			}
+		} else {
+			v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+		}
+	} else if documentView && v.Channels == 2 {
 		if src, ok := ed.Thumbs.(stereoWindowPeakSource); ok {
 			start, end := audioWaveBounds(p.clip.waveStart, p.clip.waveEnd, v.Frames)
 			v.StereoPeaks, v.PeaksDone = src.StereoPeaksWindow(v.ID, start, end, peakCols)

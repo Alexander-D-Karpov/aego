@@ -19,6 +19,8 @@ import (
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/preview"
+	"aego/editor/core/tasks"
 	"aego/engine"
 	"aego/engine/base"
 	"aego/engine/i18n"
@@ -188,6 +190,65 @@ func (f *workingAudioFixture) checkFiles(t *testing.T, source, meta []byte) {
 	if got, err := f.ed.Pipeline.Artifacts().ReadFile(f.oldArtifact.Path); err != nil || !bytes.Equal(got, f.oldArtifactRaw) {
 		t.Fatal("working preview changed the saved artifact", err)
 	}
+}
+
+func TestMonoDocumentNavigatesImportedWaveformWithoutPublishing(t *testing.T) {
+	f := newWorkingAudioFixture(t, ".wav", false)
+	var workers []func()
+	queue := tasks.New(tasks.Deps{Submit: func(fn func()) { workers = append(workers, fn) }, OnMain: func(fn func()) { fn() }})
+	previews := preview.New(preview.Deps{Pipeline: f.ed.Pipeline, Docs: f.ed.Docs, Tasks: queue})
+	t.Cleanup(previews.Close)
+	f.ed.Thumbs = previews
+	journal, revision := bytes.Clone(f.doc.Metadata.Code.Bytes()), f.doc.Metadata.Code.Rev()
+	v := ClipView{ID: f.id, Channels: 1, Frames: 48000, Rate: 48000}
+	f.plugin.clipPeaks(f.ed, &v, true)
+	if v.PeaksDone || v.WaveNav {
+		t.Fatal("mono waveform did not prepare asynchronously")
+	}
+	queue.Tick()
+	if len(workers) != 1 {
+		t.Fatal("mono waveform worker was not submitted")
+	}
+	workers[0]()
+	v = ClipView{ID: f.id, Channels: 1, Frames: 48000, Rate: 48000}
+	f.plugin.clipPeaks(f.ed, &v, true)
+	if !v.WaveNav || v.WaveStart != 0 || v.WaveEnd != v.Frames || len(v.Peaks) != peakCols {
+		t.Fatal("mono artifact did not provide a navigable full waveform")
+	}
+	f.plugin.clip.waveStart, f.plugin.clip.waveEnd = adjustAudioWave(v.WaveStart, v.WaveEnd, v.Frames, waveZoomIn)
+	v = ClipView{ID: f.id, Channels: 1, Frames: 48000, Rate: 48000}
+	f.plugin.clipPeaks(f.ed, &v, true)
+	if !v.WaveNav || v.WaveStart != 12000 || v.WaveEnd != 36000 || len(v.Peaks) != peakCols {
+		t.Fatal("zoom did not request the mono artifact's viewport")
+	}
+	state := &input.State{}
+	ui := f.ed.UI
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + waveH/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		f.plugin.wave(f.ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width / 2}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(delta), input.MouseLeft)
+	draw()
+	if a, b, ok := f.plugin.clip.waveSelection(v.Frames); !ok || a != 18000 || b != 30000 {
+		t.Fatalf("zoomed mono selection = %d..%d, valid=%v", a, b, ok)
+	}
+	if !f.doc.Dirty() || !f.doc.CanUndo() || f.doc.Metadata.Code.Rev() != revision || !bytes.Equal(f.doc.Metadata.Code.Bytes(), journal) {
+		t.Fatal("mono navigation modified the shared dirty journal")
+	}
+	f.checkFiles(t, f.source, f.meta)
 }
 
 func waitWorkingAudio(t *testing.T, f *workingAudioFixture) {

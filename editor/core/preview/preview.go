@@ -101,7 +101,8 @@ type Service struct {
 	dir            string
 	items          map[ids.AssetID]*item
 	peaks          map[peakKey]*peakItem
-	stereoPeaks    map[peakKey]*stereoPeakItem
+	stereoPeaks    map[peakKey]*wavePeakItem
+	monoWavePeaks  map[peakKey]*wavePeakItem
 	frame          int64
 	gpuOK          bool
 	pool           *rt.Pool
@@ -699,14 +700,16 @@ func (s *Service) Forget(id ids.AssetID) {
 		}
 		delete(s.peaks, k)
 	}
-	for k, pk := range s.stereoPeaks {
-		if k.id != id {
-			continue
+	for _, cache := range []map[peakKey]*wavePeakItem{s.stereoPeaks, s.monoWavePeaks} {
+		for k, pk := range cache {
+			if k.id != id {
+				continue
+			}
+			if pk.task != nil {
+				pk.task.Cancel()
+			}
+			delete(cache, k)
 		}
-		if pk.task != nil {
-			pk.task.Cancel()
-		}
-		delete(s.stereoPeaks, k)
 	}
 	it, ok := s.items[id]
 	if !ok {
@@ -740,11 +743,13 @@ func (s *Service) Close() {
 	for id := range s.items {
 		s.Forget(id)
 	}
-	for key, it := range s.stereoPeaks {
-		if it.task != nil {
-			it.task.Cancel()
+	for _, cache := range []map[peakKey]*wavePeakItem{s.stereoPeaks, s.monoWavePeaks} {
+		for key, it := range cache {
+			if it.task != nil {
+				it.task.Cancel()
+			}
+			delete(cache, key)
 		}
-		delete(s.stereoPeaks, key)
 	}
 	if s.pool != nil {
 		s.pool.Close()

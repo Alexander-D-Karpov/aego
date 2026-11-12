@@ -102,6 +102,20 @@ func TestStereoPeaksFollowImportedGenerationAndPreserveSource(t *testing.T) {
 	if !done || len(again) == 0 || &again[0] != &window[0] || len(workers) != 2 {
 		t.Fatal("unchanged viewport decoded or allocated again")
 	}
+	// A cached viewport must not bypass a failed current-artifact lookup.
+	for _, unavailable := range []string{"queue", "pipeline"} {
+		if unavailable == "queue" {
+			s.d.Tasks = nil
+		} else {
+			s.d.Pipeline = nil
+		}
+		for _, bounds := range [][2]int64{{512, 1536}, {1024, 2048}} {
+			if data, done := s.StereoPeaksWindow(id, bounds[0], bounds[1], 32); !done || data != nil {
+				t.Fatalf("stale stereo viewport returned with unavailable %s: %v, %v", unavailable, data, done)
+			}
+		}
+		s.d.Tasks, s.d.Pipeline = q, pl
+	}
 	if data, done := s.StereoPeaksWindow(id, 0, 4097, 32); !done || data != nil {
 		t.Fatal("accepted a viewport beyond the source")
 	}
@@ -154,6 +168,167 @@ func TestStereoPeaksFollowImportedGenerationAndPreserveSource(t *testing.T) {
 	}
 }
 
+func TestMonoPeaksWindowTracksImportedGenerationAndPreservesFiles(t *testing.T) {
+	pj, err := project.Create(t.TempDir(), "Mono", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(pj.AssetsDir(), "tone.wav")
+	write := func(first, second float32) []byte {
+		t.Helper()
+		pcm := make([]float32, 4096)
+		for i := range pcm {
+			if i < len(pcm)/2 {
+				pcm[i] = first
+			} else {
+				pcm[i] = second
+			}
+		}
+		raw := wav.Encode(pcm, 48000, 1, wav.EncodeOptions{Float: true})
+		if err := os.WriteFile(source, raw, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	write(.125, .75)
+	reg := pipeline.NewImporterRegistry()
+	if err := reg.Register(audioimport.New()); err != nil {
+		t.Fatal(err)
+	}
+	pl, err := pipeline.Open(pj, reg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pl.Close)
+	if _, _, err := pl.Scan(); err != nil {
+		t.Fatal(err)
+	}
+	importAll := func() {
+		t.Helper()
+		batch, err := pl.ImportAll()
+		if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+			t.Fatalf("mono import: batch=%+v error=%v", batch, err)
+		}
+	}
+	importAll()
+	id, ok := pl.Lookup("assets/tone.wav")
+	if !ok {
+		t.Fatal("fixture did not import")
+	}
+	meta, err := os.ReadFile(source + asset.MetaSuffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workers []func()
+	q := tasks.New(tasks.Deps{Submit: func(fn func()) { workers = append(workers, fn) }, OnMain: func(fn func()) { fn() }})
+	s := New(Deps{Pipeline: pl, Tasks: q})
+	t.Cleanup(s.Close)
+	if data, done := s.MonoPeaksWindow(id, 0, 4096, 4); done || data != nil {
+		t.Fatal("mono waveform did not schedule asynchronously")
+	}
+	q.Tick()
+	if len(workers) != 1 {
+		t.Fatal("mono waveform job was not submitted")
+	}
+	// A completed older job must not publish after the imported source changes.
+	latest := write(.25, .5)
+	importAll()
+	art, ok := pl.PrimaryArtifact(id)
+	if !ok {
+		t.Fatal("mono artifact disappeared")
+	}
+	before, err := pl.Artifacts().ReadFile(art.Path)
+	if err != nil || len(before) == 0 {
+		t.Fatal("cannot read mono artifact", err)
+	}
+	workers[0]()
+	if data, done := s.MonoPeaksWindow(id, 0, 4096, 4); done || data != nil {
+		t.Fatalf("stale mono waveform escaped: done=%v data=%v", done, data)
+	}
+	q.Tick()
+	if len(workers) != 2 {
+		t.Fatal("new mono artifact did not schedule a fresh job")
+	}
+	workers[1]()
+	full, done := s.MonoPeaksWindow(id, 0, 4096, 4)
+	if !done || !slices.Equal(full, []float32{.25, .25, .5, .5}) {
+		t.Fatalf("mono waveform = %v, done %v", full, done)
+	}
+	window, done := s.MonoPeaksWindow(id, 2048, 4096, 4)
+	if !done || !slices.Equal(window, []float32{.5, .5, .5, .5}) {
+		t.Fatalf("mono viewport = %v, done %v", window, done)
+	}
+	again, done := s.MonoPeaksWindow(id, 2048, 4096, 4)
+	if !done || len(again) == 0 || &again[0] != &window[0] || len(workers) != 2 {
+		t.Fatal("unchanged mono viewport decoded or allocated again")
+	}
+	for _, unavailable := range []string{"queue", "pipeline"} {
+		if unavailable == "queue" {
+			s.d.Tasks = nil
+		} else {
+			s.d.Pipeline = nil
+		}
+		for _, bounds := range [][2]int64{{2048, 4096}, {1024, 3072}} {
+			if data, done := s.MonoPeaksWindow(id, bounds[0], bounds[1], 4); !done || data != nil {
+				t.Fatalf("stale mono viewport returned with unavailable %s: %v, %v", unavailable, data, done)
+			}
+		}
+		s.d.Tasks, s.d.Pipeline = q, pl
+	}
+	if data, done := s.MonoPeaksWindow(id, 0, 4097, 4); !done || data != nil {
+		t.Fatal("accepted a mono viewport beyond the source")
+	}
+	if got, err := os.ReadFile(source); err != nil || !bytes.Equal(got, latest) {
+		t.Fatal("mono waveform changed the source", err)
+	}
+	if got, err := os.ReadFile(source + asset.MetaSuffix); err != nil || !bytes.Equal(got, meta) {
+		t.Fatal("mono waveform changed metadata", err)
+	}
+	if after, err := pl.Artifacts().ReadFile(art.Path); err != nil || !bytes.Equal(after, before) {
+		t.Fatal("mono waveform changed the imported artifact", err)
+	}
+	s.Forget(id)
+	if data, done := s.MonoPeaksWindow(id, 0, 4096, 4); done || data != nil {
+		t.Fatal("forgotten mono waveform did not reschedule")
+	}
+	q.Tick()
+	if len(workers) != 3 {
+		t.Fatal("mono close fixture did not submit a worker")
+	}
+	s.Close()
+	workers[2]()
+	if len(s.monoWavePeaks) != 0 {
+		t.Fatal("closed preview service published a pending mono waveform")
+	}
+	if after, err := pl.Artifacts().ReadFile(art.Path); err != nil || !bytes.Equal(after, before) {
+		t.Fatal("mono waveform changed the imported artifact", err)
+	}
+	// A corrupted artifact cannot be published under its earlier generation key.
+	corrupted := bytes.Clone(before)
+	corrupted[len(corrupted)-1] ^= 1
+	if err := pl.Artifacts().WriteFile(art.Path, corrupted); err != nil {
+		t.Fatal(err)
+	}
+	var corruptWorkers []func()
+	corruptQueue := tasks.New(tasks.Deps{Submit: func(fn func()) { corruptWorkers = append(corruptWorkers, fn) }, OnMain: func(fn func()) { fn() }})
+	corruptService := New(Deps{Pipeline: pl, Tasks: corruptQueue})
+	defer corruptService.Close()
+	if data, done := corruptService.MonoPeaksWindow(id, 0, 4096, 4); done || data != nil {
+		t.Fatal("corrupted mono artifact was not checked asynchronously")
+	}
+	corruptQueue.Tick()
+	if len(corruptWorkers) != 1 {
+		t.Fatal("corrupt mono artifact did not schedule")
+	}
+	corruptWorkers[0]()
+	if data, done := corruptService.MonoPeaksWindow(id, 0, 4096, 4); !done || data != nil {
+		t.Fatal("corrupted mono artifact produced a trusted waveform")
+	}
+	if after, err := pl.Artifacts().ReadFile(art.Path); err != nil || !bytes.Equal(after, corrupted) {
+		t.Fatal("mono waveform changed the externally corrupted artifact", err)
+	}
+}
+
 type unexpectedPeakReader struct{}
 
 func (unexpectedPeakReader) ReadFrames(context.Context, int64, int) ([]float32, error) {
@@ -161,14 +336,42 @@ func (unexpectedPeakReader) ReadFrames(context.Context, int64, int) ([]float32, 
 }
 
 func TestStereoPeaksRejectInvalidOrExcessiveRequests(t *testing.T) {
-	for _, frames := range []int64{0, int64(stereoPeakBuckets)*65536 + 1} {
-		if _, err := buildStereoPyramid(unexpectedPeakReader{}, frames); err == nil {
+	for _, frames := range []int64{0, int64(wavePeakBuckets)*65536 + 1} {
+		if _, err := buildWavePyramid(unexpectedPeakReader{}, frames, 2); err == nil {
 			t.Fatalf("accepted %d frames", frames)
 		}
 	}
 	for _, cols := range []int{0, 4097} {
-		if _, err := stereoPeakColumns(audioedit.Pyramid{Channels: 2}, 0, 100, cols); err == nil {
+		if _, err := wavePeakColumns(audioedit.Pyramid{Channels: 2}, 0, 100, cols, 2); err == nil {
 			t.Fatalf("accepted %d columns", cols)
+		}
+	}
+}
+
+func TestMonoPeakColumnsRespectWindowAndRejectInvalidChannels(t *testing.T) {
+	pyramid := audioedit.Pyramid{Channels: 1, TotalFrames: 1024, Levels: []audioedit.Level{{
+		FramesPerBucket: 512,
+		Samples: []audioedit.Peak{
+			{Min: -.9, Max: .9, Frames: 512},
+			{Min: -.1, Max: .1, Frames: 512},
+		},
+	}}}
+	got, err := wavePeakColumns(pyramid, 500, 1012, 128, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, value := range got {
+		want := float32(.1)
+		if i < 3 {
+			want = .9
+		}
+		if value != want {
+			t.Fatalf("mono column %d = %v, want %v", i, value, want)
+		}
+	}
+	for _, channels := range []int{0, 2, 3} {
+		if _, err := wavePeakColumns(pyramid, 0, 1024, 32, channels); err == nil {
+			t.Fatalf("accepted %d channels for a mono pyramid", channels)
 		}
 	}
 }
@@ -185,7 +388,7 @@ func TestStereoPeakColumnsFollowTheRequestedFrameRange(t *testing.T) {
 		start, end int64
 		want       []float32
 	}{{0, 1024, []float32{.1, .2, .3, .4}}, {1024, 2048, []float32{.5, .6, .7, .8}}} {
-		got, err := stereoPeakColumns(pyramid, tc.start, tc.end, 2)
+		got, err := wavePeakColumns(pyramid, tc.start, tc.end, 2, 2)
 		if err != nil || !slices.Equal(got, tc.want) {
 			t.Fatalf("viewport %d..%d: %v, %v", tc.start, tc.end, got, err)
 		}
@@ -203,7 +406,7 @@ func TestStereoPeakColumnsRespectUnalignedBucketEdges(t *testing.T) {
 	// Only the first 12 of the 512 visible frames belong to the first bucket.
 	// Scaling the two whole buckets uniformly would incorrectly show that
 	// transient across half of the viewport instead of just its left edge.
-	got, err := stereoPeakColumns(pyramid, 500, 1012, 128)
+	got, err := wavePeakColumns(pyramid, 500, 1012, 128, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +432,7 @@ func TestStereoPeakColumnsHandleShortAndVeryLargeRanges(t *testing.T) {
 	} {
 		pyramid := audioedit.Pyramid{Channels: 2, TotalFrames: tc.total,
 			Levels: []audioedit.Level{{FramesPerBucket: tc.bucket, Samples: peak}}}
-		got, err := stereoPeakColumns(pyramid, tc.start, tc.end, tc.cols)
+		got, err := wavePeakColumns(pyramid, tc.start, tc.end, tc.cols, 2)
 		if err != nil || len(got) != tc.cols*2 {
 			t.Fatalf("range %d..%d: len=%d, error=%v", tc.start, tc.end, len(got), err)
 		}

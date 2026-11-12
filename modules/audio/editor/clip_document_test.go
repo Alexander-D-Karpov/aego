@@ -47,6 +47,61 @@ func (p *testAudioPeaks) StereoPeaksWindow(_ ids.AssetID, start, end int64, _ in
 	return p.stereo, p.stereoDone
 }
 
+type testMonoWavePeaks struct {
+	testAudioPeaks
+	mono        []float32
+	monoDone    bool
+	windowCalls int
+	start, end  int64
+}
+
+func (p *testMonoWavePeaks) MonoPeaksWindow(_ ids.AssetID, start, end int64, _ int) ([]float32, bool) {
+	p.windowCalls++
+	p.start, p.end = start, end
+	return p.mono, p.monoDone
+}
+
+func TestMonoDocumentUsesNavigableWaveformWhenAvailable(t *testing.T) {
+	peaks := &testMonoWavePeaks{mono: []float32{.3, .7}, monoDone: true}
+	ed := &context.Editor{Thumbs: peaks}
+	p := &plugin{}
+	v := ClipView{ID: ids.NewAssetID(), Channels: 1, Frames: 48000, Rate: 48000}
+	p.clipPeaks(ed, &v, true)
+	if !v.WaveNav || v.WaveStart != 0 || v.WaveEnd != v.Frames || !slices.Equal(v.Peaks, peaks.mono) ||
+		peaks.windowCalls != 1 || peaks.monoCalls != 0 {
+		t.Fatalf("mono document did not use its navigable waveform: %+v", v)
+	}
+	p.clip.waveStart, p.clip.waveEnd = 12000, 36000
+	v = ClipView{ID: v.ID, Channels: 1, Frames: 48000, Rate: 48000}
+	p.clipPeaks(ed, &v, true)
+	if !v.WaveNav || peaks.start != 12000 || peaks.end != 36000 || v.WaveStart != 12000 || v.WaveEnd != 36000 {
+		t.Fatalf("mono document did not request the selected viewport: %+v", v)
+	}
+	inspector := ClipView{ID: v.ID, Channels: 1, Frames: 48000}
+	p.clipPeaks(ed, &inspector, false)
+	if inspector.WaveNav || peaks.windowCalls != 2 || peaks.monoCalls != 1 {
+		t.Fatal("Inspector unexpectedly used the document viewport")
+	}
+}
+
+func TestMonoDocumentPendingAndUnavailableWaveformFallsBackSafely(t *testing.T) {
+	peaks := &testMonoWavePeaks{}
+	ed := &context.Editor{Thumbs: peaks}
+	p := &plugin{}
+	id := ids.NewAssetID()
+	v := ClipView{ID: id, Channels: 1, Frames: 48000}
+	p.clipPeaks(ed, &v, true)
+	if v.PeaksDone || v.WaveNav || v.WaveSelect || peaks.monoCalls != 0 {
+		t.Fatal("pending mono pyramid was presented as a complete waveform")
+	}
+	peaks.monoDone = true
+	v = ClipView{ID: id, Channels: 1, Frames: 48000}
+	p.clipPeaks(ed, &v, true)
+	if !v.PeaksDone || v.WaveNav || !v.WaveSelect || peaks.monoCalls != 1 {
+		t.Fatal("unavailable mono pyramid did not preserve the full-wave fallback")
+	}
+}
+
 func TestClipPeaksSelectsStereoOnlyForTheDocument(t *testing.T) {
 	for _, tc := range []struct {
 		name                 string

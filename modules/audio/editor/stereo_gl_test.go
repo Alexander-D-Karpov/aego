@@ -235,6 +235,8 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 			monoRect := waveRect
 			zoomed := draw(.9, .1, false, true, false)
 			selected := draw(.9, .1, false, true, true)
+			monoZoomed := draw(.9, .1, true, true, false)
+			monoZoomedSelected := draw(.9, .1, true, true, true)
 			if bytes.Equal(stereo, swapped) || bytes.Equal(stereo, before) || bytes.Equal(stereo, zoomed) {
 				t.Fatalf("%s: channel swap, mono, or zoom view produced identical pixels", tc.name)
 			}
@@ -262,8 +264,20 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 			if changed < 10 {
 				t.Fatalf("%s: mono selection did not change the waveform pixels (%d)", tc.name, changed)
 			}
+			changed = 0
+			for y := max(0, int(waveRect.Y*tc.scale)); y < min(height, int((waveRect.Y+waveRect.H)*tc.scale)); y++ {
+				for x := max(0, int(waveRect.X*tc.scale)); x < min(width, int((waveRect.X+waveRect.W)*tc.scale)); x++ {
+					i := (y*width + x) * 4
+					if !bytes.Equal(monoZoomed[i:i+4], monoZoomedSelected[i:i+4]) {
+						changed++
+					}
+				}
+			}
+			if changed < 10 {
+				t.Fatalf("%s: zoomed mono selection did not change waveform pixels (%d)", tc.name, changed)
+			}
 			if out := os.Getenv("AEGO_AUDIO_WAVE_SHOTS"); out != "" {
-				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before, tc.name + "-mono-selection.png": monoSelected, tc.name + "-zoom.png": zoomed, tc.name + "-selection.png": selected} {
+				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before, tc.name + "-mono-selection.png": monoSelected, tc.name + "-zoom.png": zoomed, tc.name + "-selection.png": selected, tc.name + "-mono-zoom.png": monoZoomed, tc.name + "-mono-zoom-selection.png": monoZoomedSelected} {
 					f, err := os.OpenFile(filepath.Join(out, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 					if err != nil {
 						t.Fatal(err)

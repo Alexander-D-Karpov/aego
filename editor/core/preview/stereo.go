@@ -21,13 +21,13 @@ import (
 )
 
 const (
-	stereoArtifactLimit = 16 << 20
-	stereoPeakBuckets   = 16000
+	waveArtifactLimit = 16 << 20
+	wavePeakBuckets   = 16000
 )
 
-type stereoPeakItem struct {
+type wavePeakItem struct {
 	key       string
-	data      []float32 // interleaved left/right peak amplitudes, one pair per column
+	data      []float32 // one peak per mono column or interleaved L/R peaks per stereo column
 	pyramid   audioedit.Pyramid
 	view      []float32
 	viewStart int64
@@ -42,6 +42,13 @@ type stereoPeakItem struct {
 // A failed or unsupported request returns nil with done=true so the caller can
 // retain its existing mono fallback.
 func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
+	return s.channelPeaks(id, cols, 2)
+}
+
+func (s *Service) channelPeaks(id ids.AssetID, cols, channels int) ([]float32, bool) {
+	if channels != 1 && channels != 2 {
+		return nil, true
+	}
 	e, ok := s.entry(id)
 	if !ok || e.Kind != asset.ArtAudio || s.d.Tasks == nil || s.d.Pipeline == nil || cols <= 0 || cols > 4096 {
 		return nil, true
@@ -54,20 +61,25 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 	if !ok {
 		return nil, true
 	}
-	key += "-stereo-" + strconv.Itoa(cols)
-	pk := peakKey{id, cols}
-	if s.stereoPeaks == nil {
-		s.stereoPeaks = make(map[peakKey]*stereoPeakItem)
+	cache, suffix := &s.stereoPeaks, "-stereo-"
+	if channels == 1 {
+		cache, suffix = &s.monoWavePeaks, "-mono-"
 	}
-	old := s.stereoPeaks[pk]
+	key += suffix + strconv.Itoa(cols)
+	pk := peakKey{id, cols}
+	if *cache == nil {
+		*cache = make(map[peakKey]*wavePeakItem)
+	}
+	items := *cache
+	old := items[pk]
 	if old != nil && old.key == key {
 		return old.data, old.done
 	}
 	if old != nil && old.task != nil {
 		old.task.Cancel()
 	}
-	it := &stereoPeakItem{key: key}
-	s.stereoPeaks[pk] = it
+	it := &wavePeakItem{key: key}
+	items[pk] = it
 	files := s.d.Pipeline.Artifacts()
 	var out []float32
 	var pyramid audioedit.Pyramid
@@ -77,7 +89,7 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 		if err != nil {
 			return err
 		}
-		raw, err := readStereoArtifact(f, art)
+		raw, err := readWaveArtifact(f, art)
 		if err != nil || t.Canceled() {
 			return err
 		}
@@ -91,31 +103,31 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 		}
 		defer d.Close()
 		info := d.Info()
-		if info.Channels != 2 || info.Channels != a.Channels || info.SampleRate != a.Rate || info.Frames != a.Frames {
-			return errors.New("stereo waveform does not match its imported artifact")
+		if info.Channels != channels || info.Channels != a.Channels || info.SampleRate != a.Rate || info.Frames != a.Frames {
+			return errors.New("waveform does not match its imported artifact")
 		}
 		reader, err := codecsource.New(d)
 		if err != nil {
 			return err
 		}
-		pyramid, err = buildStereoPyramid(taskPeakReader{reader: reader, task: t}, info.Frames)
+		pyramid, err = buildWavePyramid(taskPeakReader{reader: reader, task: t}, info.Frames, channels)
 		if err == nil {
-			out, err = stereoPeakColumns(pyramid, 0, info.Frames, cols)
+			out, err = wavePeakColumns(pyramid, 0, info.Frames, cols, channels)
 		}
 		return err
 	}).Then(func(t *tasks.Task) {
-		if s.stereoPeaks[pk] != it {
+		if items[pk] != it {
 			return
 		}
 		it.task, it.done = nil, true
 		current, ok := s.entry(id)
 		if !ok {
-			delete(s.stereoPeaks, pk)
+			delete(items, pk)
 			return
 		}
 		currentKey, ok := s.Key(current)
-		if !ok || currentKey+"-stereo-"+strconv.Itoa(cols) != it.key {
-			delete(s.stereoPeaks, pk)
+		if !ok || currentKey+suffix+strconv.Itoa(cols) != it.key {
+			delete(items, pk)
 			return
 		}
 		if t.State() == tasks.Done {
@@ -131,14 +143,28 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 // Edge buckets can include samples outside the exact range; these amplitudes
 // are a display approximation, not a sample-accurate editing selection.
 func (s *Service) StereoPeaksWindow(id ids.AssetID, start, end int64, cols int) ([]float32, bool) {
+	return s.channelPeaksWindow(id, start, end, cols, 2)
+}
+
+// MonoPeaksWindow is the equivalent bounded imported-artifact view for a mono
+// document. It does not change the compact Inspector's existing peak cache.
+func (s *Service) MonoPeaksWindow(id ids.AssetID, start, end int64, cols int) ([]float32, bool) {
+	return s.channelPeaksWindow(id, start, end, cols, 1)
+}
+
+func (s *Service) channelPeaksWindow(id ids.AssetID, start, end int64, cols, channels int) ([]float32, bool) {
 	if start < 0 || end <= start {
 		return nil, true
 	}
-	full, done := s.StereoPeaks(id, cols)
-	if !done {
-		return nil, false
+	full, done := s.channelPeaks(id, cols, channels)
+	if !done || len(full) == 0 {
+		return nil, done
 	}
-	it := s.stereoPeaks[peakKey{id, cols}]
+	items := s.stereoPeaks
+	if channels == 1 {
+		items = s.monoWavePeaks
+	}
+	it := items[peakKey{id, cols}]
 	if it == nil || len(it.pyramid.Levels) == 0 || end > it.pyramid.TotalFrames {
 		return nil, true
 	}
@@ -148,7 +174,7 @@ func (s *Service) StereoPeaksWindow(id ids.AssetID, start, end int64, cols int) 
 	if it.view != nil && it.viewStart == start && it.viewEnd == end {
 		return it.view, true
 	}
-	data, err := stereoPeakColumns(it.pyramid, start, end, cols)
+	data, err := wavePeakColumns(it.pyramid, start, end, cols, channels)
 	if err != nil {
 		return nil, true
 	}
@@ -156,25 +182,25 @@ func (s *Service) StereoPeaksWindow(id ids.AssetID, start, end int64, cols int) 
 	return it.view, true
 }
 
-func readStereoArtifact(f interface {
+func readWaveArtifact(f interface {
 	io.Reader
 	io.Closer
 	Size() int64
 }, art asset.Artifact) ([]byte, error) {
 	defer f.Close()
-	if f.Size() < 0 || f.Size() > stereoArtifactLimit || art.Size > stereoArtifactLimit {
-		return nil, errors.New("stereo waveform artifact exceeds its memory limit")
+	if f.Size() < 0 || f.Size() > waveArtifactLimit || art.Size > waveArtifactLimit {
+		return nil, errors.New("waveform artifact exceeds its memory limit")
 	}
-	raw, err := io.ReadAll(io.LimitReader(f, stereoArtifactLimit+1))
+	raw, err := io.ReadAll(io.LimitReader(f, waveArtifactLimit+1))
 	if err != nil {
 		return nil, err
 	}
-	if len(raw) > stereoArtifactLimit || int64(len(raw)) != f.Size() || (art.Size > 0 && int64(len(raw)) != art.Size) {
-		return nil, errors.New("stereo waveform artifact changed during read")
+	if len(raw) > waveArtifactLimit || int64(len(raw)) != f.Size() || (art.Size > 0 && int64(len(raw)) != art.Size) {
+		return nil, errors.New("waveform artifact changed during read")
 	}
 	sum := sha256.Sum256(raw)
 	if art.Hash == "" || hex.EncodeToString(sum[:8]) != art.Hash {
-		return nil, errors.New("stereo waveform artifact hash changed")
+		return nil, errors.New("waveform artifact hash changed")
 	}
 	return raw, nil
 }
@@ -195,29 +221,29 @@ func (r taskPeakReader) ReadFrames(ctx context.Context, start int64, frames int)
 	return data, err
 }
 
-func buildStereoPyramid(reader audioedit.Reader, frames int64) (audioedit.Pyramid, error) {
-	if reader == nil || frames <= 0 {
-		return audioedit.Pyramid{}, errors.New("invalid stereo waveform request")
+func buildWavePyramid(reader audioedit.Reader, frames int64, channels int) (audioedit.Pyramid, error) {
+	if reader == nil || frames <= 0 || (channels != 1 && channels != 2) {
+		return audioedit.Pyramid{}, errors.New("invalid waveform request")
 	}
 	base := 512
-	for (frames-1)/int64(base)+1 > stereoPeakBuckets && base < 65536 {
+	for (frames-1)/int64(base)+1 > wavePeakBuckets && base < 65536 {
 		base *= 2
 	}
-	if (frames-1)/int64(base)+1 > stereoPeakBuckets {
-		return audioedit.Pyramid{}, errors.New("stereo waveform is too long")
+	if (frames-1)/int64(base)+1 > wavePeakBuckets {
+		return audioedit.Pyramid{}, errors.New("waveform is too long")
 	}
-	return audioedit.BuildPyramid(context.Background(), reader, frames, 2, base)
+	return audioedit.BuildPyramid(context.Background(), reader, frames, channels, base)
 }
 
-func stereoPeakColumns(pyramid audioedit.Pyramid, start, end int64, cols int) ([]float32, error) {
-	if cols <= 0 || cols > 4096 || pyramid.Channels != 2 {
-		return nil, errors.New("invalid stereo waveform viewport")
+func wavePeakColumns(pyramid audioedit.Pyramid, start, end int64, cols, channels int) ([]float32, error) {
+	if cols <= 0 || cols > 4096 || (channels != 1 && channels != 2) || pyramid.Channels != channels {
+		return nil, errors.New("invalid waveform viewport")
 	}
 	level, _, _, err := pyramid.Visible(start, end, cols)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]float32, cols*2)
+	out := make([]float32, cols*channels)
 	span := end - start
 	width := int64(cols)
 	whole, remainder := span/width, span%width
@@ -236,10 +262,10 @@ func stereoPeakColumns(pyramid audioedit.Pyramid, start, end int64, cols int) ([
 		lo := int(left / level.FramesPerBucket)
 		hi := int((right-1)/level.FramesPerBucket) + 1
 		for i := lo; i < hi; i++ {
-			for ch := range 2 {
-				p := level.Samples[i*2+ch]
+			for ch := range channels {
+				p := level.Samples[i*channels+ch]
 				v := float32(math.Max(math.Abs(float64(p.Min)), math.Abs(float64(p.Max))))
-				out[col*2+ch] = max(out[col*2+ch], v)
+				out[col*channels+ch] = max(out[col*channels+ch], v)
 			}
 		}
 	}
