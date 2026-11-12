@@ -18,7 +18,8 @@ script PersistenceProbe {
                 save.Save("persist-demo")
                 requested = true
             }
-        } else {
+        } else if requested {
+            // A newly loaded world waits for OnLoad instead of loading again.
             save.Load("persist-demo")
         }
     }

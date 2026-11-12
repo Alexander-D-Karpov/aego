@@ -265,3 +265,36 @@ func TestPersistTryDelayedSaveIsIsolatedAfterRestart(t *testing.T) {
 		})
 	}
 }
+
+// A newly loaded world can see the slot before its queued OnLoad event runs.
+// It must not ask to load that slot again just before OnLoad deletes it.
+func TestPersistTryDoesNotReloadBeforeOnLoad(t *testing.T) {
+	a := loadPersistTry(t)
+	world := a.session.Controller().World()
+	service := savegame.Of(world)
+	store, ok := engine.Service[*save.Store](a.e, persistence.StoreID)
+	if service == nil || !ok || store == nil {
+		t.Fatal("save service or memory store is unavailable")
+	}
+	doc, err := service.Capture("persist-demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Write("persist-demo", save.Encode(doc), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Step(4); err != nil {
+		t.Fatal(err)
+	}
+	if a.session.Controller().World() != world {
+		t.Fatal("newly created world reloaded the existing slot before OnLoad")
+	}
+	if !store.Exists("persist-demo") {
+		t.Fatal("the slot changed before OnLoad")
+	}
+	for _, line := range a.lines {
+		if line.Error {
+			t.Fatalf("Try runtime error: %s", line.Text)
+		}
+	}
+}
