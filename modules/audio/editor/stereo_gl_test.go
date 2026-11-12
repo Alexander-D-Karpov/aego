@@ -32,7 +32,7 @@ import (
 func TestStereoWaveRenderedPixels(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	const width, height = 360, 240
+	const width, height = 360, 320
 	e, err := engine.NewBuilder(engine.Config{Title: "audio-wave-test", Width: width, Height: height, Hidden: true,
 		ResRoot: t.TempDir(), UserRoot: t.TempDir(), AppID: "audio-wave-test"}).WithLogger(log.Nop()).Build()
 	if err != nil {
@@ -70,7 +70,12 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 			state := &input.State{}
 			p := &plugin{clip: clipEdit{drag: -1}}
 			ed := &context.Editor{UI: ui}
-			draw := func(left, right float32, mono, zoom bool) []byte {
+			var waveRect mathx.Rect
+			draw := func(left, right float32, mono, zoom, selected bool) []byte {
+				p.clip.selectAnchor, p.clip.selectEnd = 0, 0
+				if selected {
+					p.clip.selectAnchor, p.clip.selectEnd = 100*48000+24000, 101*48000+24000
+				}
 				state.BeginFrame()
 				ui.Begin(state, mathx.Vec2{X: width / tc.scale, Y: height / tc.scale}, tc.scale)
 				ui.Region(mathx.Rect{W: tc.width, H: height / tc.scale})
@@ -94,8 +99,13 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 					v.Settings = pipeline.Settings{"loopStart": aetext.Int(100 * 48000), "loopEnd": aetext.Int(102 * 48000)}
 					p.waveNavigation(ed, v)
 					drawAudioRuler(ui, v)
+					cur := ui.Cursor()
+					waveRect = mathx.Rect{X: cur.X, Y: cur.Y, W: cur.W, H: waveH}
 				}
 				p.wave(ed, v)
+				if selected {
+					p.waveSelectionLabel(ui, v)
+				}
 				ui.PopClip()
 				ui.PopCursor()
 				list := ui.End()
@@ -119,6 +129,29 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 						}
 						if !found {
 							t.Fatalf("%s: waveform range line %q was not drawn", tc.name, line)
+						}
+					}
+					if selected {
+						start, end, ok := p.clip.waveSelection(v.Frames)
+						if !ok {
+							t.Fatalf("%s: missing selection", tc.name)
+						}
+						for _, line := range widgets.WrapLines(ui, formatWaveSelection(v, start, end), tc.width-2*ui.Theme.Padding) {
+							items := list.TestDrawnItems(mathx.Rect{W: width / tc.scale, H: height / tc.scale}, ui.Font(), line, 0, 0)
+							found := false
+							for _, item := range items {
+								if item.Text != line {
+									continue
+								}
+								found = true
+								if item.Bounds.X < item.Clip.X || item.Bounds.X+item.Bounds.W > item.Clip.X+item.Clip.W+.01 ||
+									item.Bounds.Y < item.Clip.Y || item.Bounds.Y+item.Bounds.H > item.Clip.Y+item.Clip.H+.01 {
+									t.Fatalf("%s: selection label is clipped: %+v", tc.name, item)
+								}
+							}
+							if !found {
+								t.Fatalf("%s: selection line %q was not drawn", tc.name, line)
+							}
 						}
 					}
 					ticks, tickCount, step := audioRulerTicks(v.WaveStart, v.WaveEnd, v.Rate, tc.width-2*ui.Theme.Padding)
@@ -166,15 +199,28 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 				}
 				return pixels
 			}
-			stereo := draw(.9, .1, false, false)
-			swapped := draw(.1, .9, false, false)
-			before := draw(.9, .1, true, false)
-			zoomed := draw(.9, .1, false, true)
+			stereo := draw(.9, .1, false, false, false)
+			swapped := draw(.1, .9, false, false, false)
+			before := draw(.9, .1, true, false, false)
+			zoomed := draw(.9, .1, false, true, false)
+			selected := draw(.9, .1, false, true, true)
 			if bytes.Equal(stereo, swapped) || bytes.Equal(stereo, before) || bytes.Equal(stereo, zoomed) {
 				t.Fatalf("%s: channel swap, mono, or zoom view produced identical pixels", tc.name)
 			}
+			changed := 0
+			for y := max(0, int(waveRect.Y*tc.scale)); y < min(height, int((waveRect.Y+waveRect.H)*tc.scale)); y++ {
+				for x := max(0, int(waveRect.X*tc.scale)); x < min(width, int((waveRect.X+waveRect.W)*tc.scale)); x++ {
+					i := (y*width + x) * 4
+					if !bytes.Equal(zoomed[i:i+4], selected[i:i+4]) {
+						changed++
+					}
+				}
+			}
+			if changed < 10 {
+				t.Fatalf("%s: selection did not change the waveform pixels (%d)", tc.name, changed)
+			}
 			if out := os.Getenv("AEGO_AUDIO_WAVE_SHOTS"); out != "" {
-				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before, tc.name + "-zoom.png": zoomed} {
+				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before, tc.name + "-zoom.png": zoomed, tc.name + "-selection.png": selected} {
 					f, err := os.OpenFile(filepath.Join(out, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 					if err != nil {
 						t.Fatal(err)

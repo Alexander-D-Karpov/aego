@@ -104,6 +104,9 @@ messages version=1 lang=ru {
   msg "i18n.audio.wave_pan_right" {
     text="Сдвинуть волну вправо"
   }
+  msg "i18n.audio.wave_selection" {
+    text="Выделено {frames} кадров: {start} - {end} с"
+  }
   msg "i18n.audio.wave_time" {
     text="{time} с"
   }

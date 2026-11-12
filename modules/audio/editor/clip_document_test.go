@@ -178,6 +178,9 @@ func TestZoomedWaveLoopDragUsesVisibleFrameRange(t *testing.T) {
 	if p.clip.drag != 0 || p.clip.start < want-2 || p.clip.start > want+2 || p.clip.end != 102*rate {
 		t.Fatalf("zoomed drag = %d..%d, want start %d", p.clip.start, p.clip.end, want)
 	}
+	if _, _, ok := p.clip.waveSelection(v.Frames); ok || p.clip.selecting {
+		t.Fatal("loop-handle drag also started a selection")
+	}
 	if settings.Int("loopStart", -1) != int(100*rate) || ed.Docs != nil {
 		t.Fatal("an unfinished drag changed shared metadata")
 	}
@@ -218,6 +221,129 @@ func TestZoomedLoopDragCanReturnFromOutsideViewport(t *testing.T) {
 	want := int64(99*rate) + rate/2
 	if p.clip.start < want-2 || p.clip.start > want+2 {
 		t.Fatalf("loop handle did not track cursor back into viewport: got %d, want %d", p.clip.start, want)
+	}
+}
+
+func TestAudioWaveSelectionIsPerTabAndDoesNotEditMetadata(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	p := &plugin{clip: clipEdit{drag: -1}}
+	other := &plugin{clip: clipEdit{drag: -1}}
+	ed := &context.Editor{UI: ui}
+	const rate int64 = 48000
+	settings := pipeline.Settings{"loopStart": aetext.Int(100 * rate), "loopEnd": aetext.Int(102 * rate)}
+	v := ClipView{Frames: 5313600, Rate: int(rate), WaveStart: 99 * rate, WaveEnd: 103 * rate,
+		Settings: settings, StereoPeaks: []float32{.5, .25}, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/8, Y: ui.Theme.Padding + waveH/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.wave(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width / 2}
+	state.ApplyMouseMove(at.Add(delta), delta) // Cross the loop-start handle while captured.
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(delta), input.MouseLeft)
+	draw()
+	start, end, ok := p.clip.waveSelection(v.Frames)
+	if !ok || start != 99*rate+rate/2 || end != 101*rate+rate/2 || p.clip.selecting {
+		t.Fatalf("selection = %d..%d, active=%v", start, end, p.clip.selecting)
+	}
+	if _, _, ok := other.clip.waveSelection(v.Frames); ok {
+		t.Fatal("selection leaked into another document view")
+	}
+	if settings.Int("loopStart", -1) != int(100*rate) || settings.Int("loopEnd", -1) != int(102*rate) || ed.Docs != nil {
+		t.Fatal("view-only selection changed metadata or document history")
+	}
+	// A viewport change must not convert the selection to view-relative frames.
+	v.WaveStart, v.WaveEnd = 100*rate, 102*rate
+	state.BeginFrame()
+	draw()
+	if a, b, valid := p.clip.waveSelection(v.Frames); !valid || a != start || b != end {
+		t.Fatalf("selection changed when zooming: %d..%d", a, b)
+	}
+	// Reverse-drag past the left edge clamps to the viewport without disturbing
+	// the loop handles; a later click without dragging clears that view state.
+	v.WaveStart, v.WaveEnd = 99*rate, 103*rate
+	at = mathx.Vec2{X: ui.Theme.Padding + width*7/8, Y: ui.Theme.Padding + waveH/2}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta = mathx.Vec2{X: -width}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(delta), input.MouseLeft)
+	draw()
+	if a, b, valid := p.clip.waveSelection(v.Frames); !valid || a != 99*rate || b != 102*rate+rate/2 || p.clip.selecting {
+		t.Fatalf("reverse selection = %d..%d, active=%v", a, b, p.clip.selecting)
+	}
+	at = mathx.Vec2{X: ui.Theme.Padding + width/2, Y: ui.Theme.Padding + waveH/2}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at, input.MouseLeft)
+	draw()
+	if _, _, valid := p.clip.waveSelection(v.Frames); valid {
+		t.Fatal("click did not clear the previous selection")
+	}
+	if settings.Int("loopStart", -1) != int(100*rate) || settings.Int("loopEnd", -1) != int(102*rate) {
+		t.Fatal("selection gesture changed loop metadata")
+	}
+}
+
+func TestAudioWaveFrameClampsAndRejectsInvalidGeometry(t *testing.T) {
+	r := mathx.Rect{X: 10, W: 200}
+	for _, tc := range []struct {
+		x    float32
+		want int64
+	}{{-1, 100}, {10, 100}, {60, 200}, {110, 300}, {210, 500}, {300, 500}} {
+		got, ok := audioWaveFrame(tc.x, r, 100, 500)
+		if !ok || got != tc.want {
+			t.Errorf("x=%v: got %d,%v want %d", tc.x, got, ok, tc.want)
+		}
+	}
+	for _, tc := range []struct {
+		x          float32
+		r          mathx.Rect
+		start, end int64
+	}{
+		{0, r, -1, 10}, {0, r, 0, 0}, {0, r, 0, 1<<53 + 1},
+		{0, mathx.Rect{}, 0, 10}, {float32(math.NaN()), r, 0, 10},
+		{0, mathx.Rect{X: math.MaxFloat32, W: math.MaxFloat32}, 0, 10},
+	} {
+		if _, ok := audioWaveFrame(tc.x, tc.r, tc.start, tc.end); ok {
+			t.Errorf("accepted invalid pointer geometry %+v", tc)
+		}
+	}
+}
+
+func TestAudioWaveSelectionRectClipsToVisibleRange(t *testing.T) {
+	r := mathx.Rect{X: 10, Y: 20, W: 200, H: 72}
+	for _, tc := range []struct {
+		a, b int64
+		want mathx.Rect
+		ok   bool
+	}{
+		{0, 150, mathx.Rect{X: 10, Y: 20, W: 25, H: 72}, true},
+		{200, 400, mathx.Rect{X: 60, Y: 20, W: 100, H: 72}, true},
+		{400, 600, mathx.Rect{X: 160, Y: 20, W: 50, H: 72}, true},
+		{0, 100, mathx.Rect{}, false}, {500, 600, mathx.Rect{}, false},
+	} {
+		got, ok := audioWaveSelectionRect(r, 100, 500, tc.a, tc.b)
+		if ok != tc.ok || got != tc.want {
+			t.Errorf("selection %d..%d: got %+v,%v want %+v,%v", tc.a, tc.b, got, ok, tc.want, tc.ok)
+		}
 	}
 }
 
@@ -281,7 +407,6 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 	wave := ClipView{ID: meta.ID, Frames: 16, Rate: 8000, WaveStart: 4, WaveEnd: 12,
 		Settings: meta.Settings.Clone(), StereoPeaks: []float32{.5, .25}, WaveNav: true}
 	width := float32(320) - 2*ui.Theme.Padding
-	at := mathx.Vec2{X: ui.Theme.Padding + width/8, Y: ui.Theme.Padding + waveH/2}
 	drawWave := func() {
 		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
 		ui.Region(mathx.Rect{W: 320, H: 180})
@@ -289,6 +414,31 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 		ui.PopCursor()
 		ui.End()
 	}
+	d, err := ed.DocumentForAsset(meta.ID)
+	if err != nil || d.Metadata == nil || d.Dirty() {
+		t.Fatal("cannot open clean audio metadata", err)
+	}
+	selectAt := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + waveH/2}
+	state.BeginFrame()
+	state.ApplyMouseDown(selectAt, input.MouseLeft)
+	drawWave()
+	state.BeginFrame()
+	selectDelta := mathx.Vec2{X: width / 2}
+	state.ApplyMouseMove(selectAt.Add(selectDelta), selectDelta)
+	drawWave()
+	state.BeginFrame()
+	state.ApplyMouseUp(selectAt.Add(selectDelta), input.MouseLeft)
+	drawWave()
+	if a, b, ok := p.clip.waveSelection(wave.Frames); !ok || a != 6 || b != 10 || d.Dirty() || d.CanUndo() {
+		t.Fatalf("view selection changed the shared document: %d..%d dirty=%v", a, b, d.Dirty())
+	}
+	if raw, err := os.ReadFile(ed.Docs.Abs(path + ".meta")); err != nil || !bytes.Equal(raw, encoded) {
+		t.Fatal("view selection wrote metadata to disk", err)
+	}
+	if raw, err := os.ReadFile(ed.Docs.Abs(path)); err != nil || !bytes.Equal(raw, wav) {
+		t.Fatal("view selection changed encoded audio", err)
+	}
+	at := mathx.Vec2{X: ui.Theme.Padding + width/8, Y: ui.Theme.Padding + waveH/2}
 	state.BeginFrame()
 	state.ApplyMouseDown(at, input.MouseLeft)
 	drawWave()
@@ -305,7 +455,7 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 	drawWave()
 	state.BeginFrame()
 	drawWave() // Finish the released gesture on the next frame.
-	d := ed.Docs.AssetDocument(meta.ID)
+	d = ed.Docs.AssetDocument(meta.ID)
 	if d == nil || d.Metadata == nil || !d.Dirty() {
 		t.Fatal("zoomed loop drag did not create a shared metadata edit")
 	}
@@ -318,6 +468,9 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 	}
 	if err := ed.UndoAsset(d); err != nil || d.Dirty() {
 		t.Fatal("zoomed loop drag did not undo as one shared step", err)
+	}
+	if a, b, ok := p.clip.waveSelection(wave.Frames); !ok || a != 6 || b != 10 {
+		t.Fatal("loop drag or undo changed the independent view selection")
 	}
 	after := meta.Settings.Clone()
 	after["gain"] = aetext.Float32(2)

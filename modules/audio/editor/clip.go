@@ -5,6 +5,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strconv"
 
 	"aego/asset"
 	"aego/asset/pipeline"
@@ -45,6 +46,9 @@ type clipEdit struct {
 	loop         bool
 	waveStart    int64
 	waveEnd      int64
+	selectAnchor int64
+	selectEnd    int64
+	selecting    bool
 }
 
 type peakSource interface {
@@ -230,6 +234,9 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 		drawAudioRuler(ui, v)
 	}
 	p.wave(ed, v)
+	if v.WaveNav {
+		p.waveSelectionLabel(ui, v)
+	}
 	cur.W = controlsWidth
 	p.transport(ed, mod, v)
 	p.importFields(ed, v.Settings)
@@ -325,6 +332,70 @@ func (p *plugin) waveNavigation(ed *context.Editor, v ClipView) {
 	}
 }
 
+// audioWaveFrame maps a pointer to a source-relative frame boundary. It never
+// moves the playhead or modifies source data, metadata, or document history.
+func audioWaveFrame(x float32, r mathx.Rect, start, end int64) (int64, bool) {
+	if start < 0 || end <= start || end > 1<<53 || r.W <= 0 ||
+		math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) ||
+		math.IsNaN(float64(r.X)) || math.IsInf(float64(r.X), 0) ||
+		math.IsNaN(float64(r.W)) || math.IsInf(float64(r.W), 0) || math.IsInf(float64(r.X+r.W), 0) {
+		return 0, false
+	}
+	if x <= r.X {
+		return start, true
+	}
+	if x >= r.X+r.W {
+		return end, true
+	}
+	fraction := float64(x-r.X) / float64(r.W)
+	return min(start+int64(math.Round(fraction*float64(end-start))), end), true
+}
+
+func (c *clipEdit) waveSelection(total int64) (int64, int64, bool) {
+	// View state only: an eventual edit must additionally bind the selection
+	// to the imported generation and guarded source digest before using it.
+	if total <= 0 {
+		return 0, 0, false
+	}
+	start := min(max(min(c.selectAnchor, c.selectEnd), 0), total)
+	end := min(max(max(c.selectAnchor, c.selectEnd), 0), total)
+	return start, end, end > start
+}
+
+func audioWaveSelectionRect(r mathx.Rect, start, end, a, b int64) (mathx.Rect, bool) {
+	if start < 0 || end <= start || a < 0 || b <= a || r.W <= 0 || r.H <= 0 ||
+		math.IsNaN(float64(r.X)) || math.IsInf(float64(r.X), 0) ||
+		math.IsNaN(float64(r.Y)) || math.IsInf(float64(r.Y), 0) ||
+		math.IsNaN(float64(r.W)) || math.IsInf(float64(r.W), 0) || math.IsInf(float64(r.X+r.W), 0) ||
+		math.IsNaN(float64(r.H)) || math.IsInf(float64(r.H), 0) || math.IsInf(float64(r.Y+r.H), 0) {
+		return mathx.Rect{}, false
+	}
+	left, right := max(a, start), min(b, end)
+	if right <= left {
+		return mathx.Rect{}, false
+	}
+	scale := float64(r.W) / float64(end-start)
+	x0 := min(max(r.X+float32(float64(left-start)*scale), r.X), r.X+r.W)
+	x1 := min(max(r.X+float32(float64(right-start)*scale), x0), r.X+r.W)
+	return mathx.Rect{X: x0, Y: r.Y, W: x1 - x0, H: r.H}, x1 > x0
+}
+
+func formatWaveSelection(v ClipView, start, end int64) string {
+	time := func(frame int64) string {
+		return strconv.FormatFloat(float64(frame)/float64(v.Rate), 'f', 3, 64)
+	}
+	return i18n.Tr("i18n.audio.wave_selection", "Selected {frames} frames: {start} - {end} s",
+		i18n.Str("frames", strconv.FormatInt(end-start, 10)), i18n.Str("start", time(start)), i18n.Str("end", time(end)))
+}
+
+func (p *plugin) waveSelectionLabel(ui *core.Context, v ClipView) {
+	start, end, ok := p.clip.waveSelection(v.Frames)
+	if !ok || v.Rate <= 0 {
+		return
+	}
+	widgets.LabelWrapped(ui, formatWaveSelection(v, start, end), true)
+}
+
 func (p *plugin) wave(ed *context.Editor, v ClipView) {
 	ui := ed.UI
 	th := &ui.Theme
@@ -347,6 +418,17 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		left, right := max(ls, start), min(le, end)
 		if right > left {
 			ui.Rect(mathx.Rect{X: r.X + float32(left-start)*k, Y: r.Y, W: float32(right-left) * k, H: r.H}, band)
+		}
+	}
+	selection := mathx.Rect{}
+	if v.WaveNav {
+		if a, b, ok := p.clip.waveSelection(v.Frames); ok {
+			if visible, ok := audioWaveSelectionRect(r, start, end, a, b); ok {
+				selection = visible
+				col := th.Selection
+				col.A = .22
+				ui.Rect(selection, col)
+			}
 		}
 	}
 	mid := r.Y + r.H/2
@@ -381,6 +463,10 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 			label = i18n.Tr("i18n.audio.no_waveform", "No waveform")
 		}
 		ui.TextIn(r, label, th.TextDim, core.AlignCenter)
+	}
+	if selection.W > 0 {
+		ui.Rect(mathx.Rect{X: selection.X, Y: selection.Y, W: selection.W, H: 1}, th.Selection)
+		ui.Rect(mathx.Rect{X: selection.X, Y: selection.Y + selection.H - 1, W: selection.W, H: 1}, th.Selection)
 	}
 	if v.Frames <= 0 || r.W <= 0 {
 		return
@@ -423,6 +509,22 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		}
 		ui.Rect(mathx.Rect{X: hx - 1, Y: r.Y, W: 2, H: r.H}, col)
 		ui.Rect(mathx.Rect{X: hx - handleW/2, Y: r.Y, W: handleW, H: 6}, col)
+	}
+	if v.WaveNav {
+		id := ui.ID("wave-selection")
+		if _, active := ui.Drag(id, r); active {
+			if frame, ok := audioWaveFrame(ui.Mouse().X, r, start, end); ok {
+				if !p.clip.selecting {
+					p.clip.selectAnchor = frame
+				}
+				p.clip.selectEnd = frame
+				p.clip.selecting = ui.Active() == id
+			}
+		} else {
+			p.clip.selecting = false
+		}
+	} else {
+		p.clip.selecting = false
 	}
 	if v.Playing && v.Rate > 0 {
 		position := float64(v.Position) * float64(v.Rate)

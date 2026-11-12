@@ -104,6 +104,9 @@ messages version=1 lang=en {
   msg "i18n.audio.wave_pan_right" {
     text="Pan waveform right"
   }
+  msg "i18n.audio.wave_selection" {
+    text="Selected {frames} frames: {start} - {end} s"
+  }
   msg "i18n.audio.wave_time" {
     text="{time} s"
   }
