@@ -5,6 +5,7 @@
   "documentID": "camera.CameraShake2D",
   "scene": "camera.CameraShake2D/try",
   "identity": "40c540791b5fac0378e6afe3cfda4a4a0353f0e4ef30bf652626b134ccabca09",
+  "warmupFrames": 12,
   "dependencies": ["ae900000000000000000000000000010"],
   "editableFields": ["camera.CameraShake2D.MaxAngle"],
   "actions": [{

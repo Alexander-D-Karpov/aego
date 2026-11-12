@@ -55,6 +55,12 @@ func TestCameraShakeComponentDemoDrivesRealCamera(t *testing.T) {
 	if err := instance.Action(ctx, entry.Demo.Actions[0]); err != nil {
 		t.Fatal(err)
 	}
+	// The contract captures immediately after this warmup. A zero crossing of
+	// the real shake noise must not make the changed view look stationary.
+	current := service()
+	if delta := math.Abs(float64(current.Render("").Rotation - current.Logical("").Rotation)); delta < 0.05 {
+		t.Fatalf("camera barely rotated at the contract capture: %g radians", delta)
+	}
 	world := instance.app.session.Controller().World()
 	startTick := world.Time.Tick()
 	var peak float64
