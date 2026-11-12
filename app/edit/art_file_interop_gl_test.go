@@ -265,14 +265,12 @@ func artFileInteropSourceNative(t *testing.T, s *Session, panelID string) {
 	if len(model.Session.Document.Info().Frames) != 1 {
 		t.Fatal("common Undo did not return to the SDL-painted source frame")
 	}
-	r := interopMaximize(t, s, "art.timeline")
-	ui := s.App.Context().UI
-	pad, row, gap := ui.Theme.Padding, ui.Theme.RowHeight, ui.Theme.Spacing
-	width, y := r.W-2*pad, r.Y+pad+(row+gap)+row/2
+	interopMaximize(t, s, "art.timeline")
+	controls := &artControlsArtUI{t: t, s: s, model: model, panel: panelID}
 	for range 6 {
-		interopClick(t, s, r.X+pad+width*3/8, y) // Duplicate: independent image.
+		controls.clickLabel("Duplicate") // Independent image.
 	}
-	interopClick(t, s, r.X+pad+width*5/8, y) // Link: shared image.
+	controls.clickLabel("Link") // Shared image.
 	info := model.Session.Document.Info()
 	if len(info.Frames) != 8 {
 		t.Fatal("native Timeline did not create eight frames")

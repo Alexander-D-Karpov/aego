@@ -125,6 +125,7 @@ if [[ "$mode" == artstudio-native ]]; then
   printf '%s\n' "$test_status" > "$evidence/tests.exit"
   "${snapshot[@]}" --output "$evidence/source-after.json"
   python3 -B - "$evidence" <<'PY'
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -149,6 +150,45 @@ before = json.loads(path.joinpath('source-before.json').read_text())
 after = json.loads(path.joinpath('source-after.json').read_text())
 same_source = before == after
 missing = [name for name in required if results.get(name) != ['pass']]
+producer_ok = False
+producer_error = ''
+try:
+    producer = path / 'interoperability' / 'native-source.json'
+    if producer.is_symlink() or not producer.is_file():
+        raise ValueError('native interoperability producer evidence is missing')
+    witness = json.loads(producer.read_text())
+    files = witness['projectFiles']
+    source = witness['sourcePath']
+    scene = witness['scenePath']
+    if (witness['schema'] != 1 or source != 'assets/hero.aeart' or
+            scene != 'scenes/art-workflow.aescene' or
+            len(witness['state']['document']['frames']) != 8 or len(witness['clipFrames']) != 8 or
+            not witness['sourceAsset'] or witness['sceneRefs']['SpriteRenderer.sprite'] != witness['sourceAsset'] or
+            not witness['sceneRefs']['AnimationPlayer.clip'] or not isinstance(files, dict) or
+            not {source, source + '.meta', scene, scene + '.meta', 'project.aego'} <= files.keys()):
+        raise ValueError('native interoperability witness is incomplete')
+    project = path / 'interoperability' / 'project'
+    if project.is_symlink() or not project.is_dir():
+        raise ValueError('native interoperability project is missing or a symlink')
+    for name, expected in files.items():
+        relative = Path(name)
+        if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+            raise ValueError('invalid native interoperability project path')
+        candidate = project
+        for part in relative.parts:
+            candidate = candidate / part
+            if candidate.is_symlink():
+                raise ValueError('native interoperability project contains a symlink')
+        if not candidate.is_file() or hashlib.sha256(candidate.read_bytes()).hexdigest() != expected:
+            raise ValueError('native interoperability project bytes do not match their witness')
+    if files[source] != witness['state']['sourceSHA256']:
+        raise ValueError('native interoperability source bytes do not match their witness')
+    screenshot = path / 'interoperability' / 'native-source.png'
+    if screenshot.is_symlink() or not screenshot.is_file() or not screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'):
+        raise ValueError('native interoperability screenshot is missing')
+    producer_ok = True
+except (OSError, ValueError, TypeError, KeyError) as error:
+    producer_error = str(error)
 summary = {
     'schema': 1,
     'runner': 'Linux SDL / GL33 with synthetic input; see environment.txt for driver and audio',
@@ -156,8 +196,9 @@ summary = {
     'sourceUnchanged': same_source,
     'required': {name: results.get(name, ['NOT_RUN'])[0].upper() for name in required},
     'skipped': skipped, 'testExit': int(path.joinpath('tests.exit').read_text()),
+    'fileInteropProducer': {'passed': producer_ok, 'error': producer_error},
 }
-summary['passed'] = not missing and not skipped and same_source and summary['testExit'] == 0
+summary['passed'] = not missing and not skipped and same_source and summary['testExit'] == 0 and producer_ok
 path.joinpath('native.log').write_text(''.join(output))
 path.joinpath('summary.json').write_text(json.dumps(summary, indent=2) + '\n')
 print(json.dumps(summary, indent=2))

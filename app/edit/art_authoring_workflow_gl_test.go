@@ -21,6 +21,13 @@ import (
 func TestArtSceneAuthoringWorkflowNative(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	if root := os.Getenv("AEGO_ART_INTEROP_RETURN"); root != "" {
+		if os.Getenv("AEGO_ART_INTEROP_OUT") != "" {
+			t.Fatal("cannot produce and reopen interoperability evidence in the same run")
+		}
+		artFileInteropReturnNative(t, root)
+		return
+	}
 	cfg := Config{Hidden: true, NoWatch: true, Width: 1280, Height: 900, Logger: log.Nop()}
 	frames := map[string][]byte{}
 	ticks := map[string]uint64{}
@@ -260,6 +267,9 @@ func TestArtSceneAuthoringWorkflowNative(t *testing.T) {
 		}
 		ws.ToggleMaximize(target)
 		ws.Focus(panelID)
+		if stage == "interop-source" && os.Getenv("AEGO_ART_INTEROP_OUT") != "" {
+			artFileInteropSourceNative(t, s, panelID)
+		}
 	})
 	if bytes.Equal(frames["scene-before"], frames["scene-painted"]) {
 		t.Fatal("Scene View did not visibly change after the unsaved stroke")

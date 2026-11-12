@@ -49,6 +49,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p worktree_manifest_test.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_component_try_evidence.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_integration_race.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_artstudio_native_evidence.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_protocol_install.py
       - name: Install isolated Asset Studio browser test environment
         run: |
