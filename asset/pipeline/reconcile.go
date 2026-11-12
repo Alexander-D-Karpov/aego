@@ -194,7 +194,21 @@ func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 			if r == nil || !r.derived {
 				continue
 			}
-			if err = os.WriteFile(p.abs(r.path)+MetaSuffix, WriteMeta(r.meta), 0o644); err == nil {
+			candidate := WriteMeta(r.meta)
+			if err = p.checkMetadataSnapshot(r); err == nil {
+				var root *os.Root
+				root, err = os.OpenRoot(p.root)
+				if err == nil {
+					if err = p.checkMetadataSnapshot(r); err == nil {
+						err = replaceSource(root, r.path+MetaSuffix, candidate)
+					}
+					if closeErr := root.Close(); err == nil {
+						err = closeErr
+					}
+				}
+			}
+			if err == nil {
+				r.captureMetadata(candidate)
 				r.derived, r.dup = false, ""
 				p.metas[r.path+MetaSuffix] = true
 			}

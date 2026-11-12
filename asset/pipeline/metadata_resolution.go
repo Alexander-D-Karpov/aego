@@ -43,6 +43,9 @@ func (p *Pipeline) resolveMetadata(r *record, ctx *ImportContext) error {
 			return errs.New(errs.AssetBadMeta, "dependent metadata needs an explicit source transaction guard before references can be resolved", log.F("path", transactionPath))
 		}
 	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
 	path := p.abs(r.path) + MetaSuffix
 	before, err := os.ReadFile(path)
 	if err != nil {
@@ -80,12 +83,21 @@ func (p *Pipeline) resolveMetadata(r *record, ctx *ImportContext) error {
 		if err := p.sourceJournal.authorize(transactionPath, published); err != nil {
 			return errs.Wrap(err, errs.VFSIO, "cannot protect resolved asset references")
 		}
+		if err := p.checkMetadataSnapshot(r); err != nil {
+			return err
+		}
 		if err := replaceSource(p.sourceJournalRoot, transactionPath, published); err != nil {
 			return errs.Wrap(err, errs.VFSIO, "cannot persist resolved asset references")
 		}
-	} else if err := project.WriteAtomic(path, published); err != nil {
-		return errs.Wrap(err, errs.VFSIO, "cannot persist resolved asset references")
+	} else {
+		if err := p.checkMetadataSnapshot(r); err != nil {
+			return err
+		}
+		if err := project.WriteAtomic(path, published); err != nil {
+			return errs.Wrap(err, errs.VFSIO, "cannot persist resolved asset references")
+		}
 	}
+	r.captureMetadata(published)
 	if _, guarded := p.sourceTransactionMetas[transactionPath]; guarded {
 		p.sourceTransactionMetas[transactionPath] = published
 	}

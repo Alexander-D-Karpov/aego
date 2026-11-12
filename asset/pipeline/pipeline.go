@@ -3,6 +3,7 @@ package pipeline
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -42,17 +43,19 @@ type subRef struct {
 }
 
 type record struct {
-	subs     []subRef
-	id       ids.AssetID
-	path     string
-	meta     *Meta
-	importer Importer
-	key      string
-	group    string
-	deps     []ids.AssetID
-	err      string
-	derived  bool
-	dup      string
+	subs                     []subRef
+	id                       ids.AssetID
+	path                     string
+	meta                     *Meta
+	metaHash                 [sha256.Size]byte
+	metaPresent, metaTracked bool
+	importer                 Importer
+	key                      string
+	group                    string
+	deps                     []ids.AssetID
+	err                      string
+	derived                  bool
+	dup                      string
 }
 
 type Pipeline struct {
@@ -92,6 +95,8 @@ type Pipeline struct {
 	sourceTransactionReadOnlyMetas map[string]bool
 	sourceJournal                  *sourceJournal
 	sourceJournalRoot              *os.Root
+	// A synchronous seam for testing sidecars appearing during a scan.
+	metadataCreateCheckpoint func(rel string)
 	// A synchronous seam for deterministic interruption tests; nil in normal use.
 	sourceTransactionCheckpoint func(stage, rel string)
 }
@@ -414,7 +419,7 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 			existing.importer = imp
 			return nil
 		}
-		meta, created, err := p.loadOrCreateMeta(path, imp)
+		meta, sourceMeta, created, err := p.loadOrCreateMeta(path, imp)
 		if err != nil {
 			p.log.Error("cannot read the meta file", log.F("path", rel), log.F("err", err.Error()))
 			return nil
@@ -431,10 +436,21 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 			r.derived = true
 			meta.ID = derivedID(rel)
 		case created:
-			if err := os.WriteFile(path+MetaSuffix, WriteMeta(meta), 0o644); err != nil {
+			sourceMeta = WriteMeta(meta)
+			if p.metadataCreateCheckpoint != nil {
+				p.metadataCreateCheckpoint(rel + MetaSuffix)
+			}
+			if err := createNewMetadata(path+MetaSuffix, sourceMeta); err != nil {
+				if os.IsExist(err) {
+					// A different writer won the creation race. Never index bytes
+					// we did not read; a later scan can load that sidecar.
+					p.log.Warn("metadata appeared during scan; retrying on the next scan", log.F("path", rel))
+					return nil
+				}
 				p.log.Error("cannot write the meta file", log.F("path", rel), log.F("err", err.Error()))
 				r.derived = true
 				meta.ID = derivedID(rel)
+				sourceMeta = nil
 			} else {
 				w.metas[rel+MetaSuffix] = true
 			}
@@ -443,6 +459,7 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 				p.settle(r, other, added)
 			}
 		}
+		r.captureMetadata(sourceMeta)
 		r.id = meta.ID
 		p.byPath[rel] = r
 		p.byID[r.id] = r
@@ -454,6 +471,15 @@ func (p *Pipeline) scanRoot(root string, w *walk, added *[]ids.AssetID) error {
 		*added = append(*added, r.id)
 		return nil
 	})
+}
+
+func createNewMetadata(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	_, writeErr := f.Write(data)
+	return errors.Join(writeErr, f.Close())
 }
 
 func (p *Pipeline) rel(path string) string {
@@ -468,13 +494,13 @@ func (p *Pipeline) abs(rel string) string {
 	return filepath.Join(p.root, filepath.FromSlash(rel))
 }
 
-func (p *Pipeline) loadOrCreateMeta(path string, imp Importer) (*Meta, bool, error) {
+func (p *Pipeline) loadOrCreateMeta(path string, imp Importer) (*Meta, []byte, bool, error) {
 	metaPath := path + MetaSuffix
 	data, err := os.ReadFile(metaPath)
 	if err == nil {
 		m, err := ParseMeta(data, p.rel(metaPath))
 		if err != nil {
-			return nil, false, err
+			return nil, nil, false, err
 		}
 		if m.Importer == "" {
 			m.Importer = imp.ID()
@@ -484,12 +510,12 @@ func (p *Pipeline) loadOrCreateMeta(path string, imp Importer) (*Meta, bool, err
 				m.Settings[key] = def
 			}
 		}
-		return m, false, nil
+		return m, data, false, nil
 	}
 	if !os.IsNotExist(err) {
-		return nil, false, err
+		return nil, nil, false, err
 	}
-	return NewMeta(imp.ID(), imp.Version(), imp.Defaults()), true, nil
+	return NewMeta(imp.ID(), imp.Version(), imp.Defaults()), nil, true, nil
 }
 
 func (p *Pipeline) ImportAll() (*Batch, error) {
@@ -610,6 +636,9 @@ func (p *Pipeline) importIDs(list ...ids.AssetID) (*Batch, error) {
 }
 
 func (p *Pipeline) importOne(r *record) (*Result, string, error) {
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return nil, "", err
+	}
 	full := p.abs(r.path)
 	before, err := os.Stat(full)
 	if err != nil {
@@ -653,6 +682,9 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 	key := p.cacheKey(r, source, r.deps, salt)
 	if key == r.key && r.group == "" {
 		if e, ok := p.index.Lookup(r.id); ok && !e.Missing {
+			if err := p.checkMetadataSnapshot(r); err != nil {
+				return nil, "", err
+			}
 			return nil, key, nil
 		}
 	}
@@ -662,6 +694,9 @@ func (p *Pipeline) importOne(r *record) (*Result, string, error) {
 	}
 	if res == nil {
 		return nil, "", errs.New(errs.AssetImportFailed, "importer returned no result", log.F("path", r.path))
+	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return nil, "", err
 	}
 	return res, p.cacheKey(r, source, res.Deps, salt), nil
 }

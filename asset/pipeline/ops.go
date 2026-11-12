@@ -130,6 +130,19 @@ func exists(abs string) bool {
 	return err == nil
 }
 
+// checkSidecarDestination preserves an existing orphan or symlinked sidecar.
+// As with the surrounding asset operations, the check is not an atomic CAS.
+func (p *Pipeline) checkSidecarDestination(rel string) error {
+	_, err := os.Lstat(p.abs(rel) + MetaSuffix)
+	if err == nil {
+		return badPath(rel, "destination metadata already exists")
+	}
+	if !os.IsNotExist(err) {
+		return errs.Wrap(err, errs.VFSIO, "cannot check destination metadata").With(log.F("path", rel))
+	}
+	return nil
+}
+
 func (p *Pipeline) unique(rel string) string {
 	ext := path.Ext(rel)
 	base := strings.TrimSuffix(rel, ext)
@@ -209,6 +222,12 @@ func (p *Pipeline) Move(id ids.AssetID, newRel string) error {
 	if _, taken := p.byPath[newRel]; taken || exists(p.abs(newRel)) {
 		return badPath(newRel, "destination already exists")
 	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
+	if err := p.checkSidecarDestination(newRel); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(p.abs(newRel)), 0o755); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot create the destination folder")
 	}
@@ -260,17 +279,23 @@ func (p *Pipeline) MoveDir(oldRel, newRel string) error {
 	if exists(p.abs(newRel)) {
 		return badPath(newRel, "destination already exists")
 	}
-	if err := os.MkdirAll(filepath.Dir(p.abs(newRel)), 0o755); err != nil {
-		return errs.Wrap(err, errs.VFSIO, "cannot create the destination folder")
-	}
-	if err := os.Rename(p.abs(oldRel), p.abs(newRel)); err != nil {
-		return errs.Wrap(err, errs.VFSIO, "cannot move the folder")
-	}
 	var moved []*record
 	for _, r := range p.byID {
 		if strings.HasPrefix(r.path, oldRel+"/") {
 			moved = append(moved, r)
 		}
+	}
+	sort.Slice(moved, func(i, j int) bool { return moved[i].path < moved[j].path })
+	for _, r := range moved {
+		if err := p.checkMetadataSnapshot(r); err != nil {
+			return err
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(p.abs(newRel)), 0o755); err != nil {
+		return errs.Wrap(err, errs.VFSIO, "cannot create the destination folder")
+	}
+	if err := os.Rename(p.abs(oldRel), p.abs(newRel)); err != nil {
+		return errs.Wrap(err, errs.VFSIO, "cannot move the folder")
 	}
 	for _, r := range moved {
 		p.relocate(r, newRel+strings.TrimPrefix(r.path, oldRel))
@@ -306,8 +331,14 @@ func (p *Pipeline) Duplicate(id ids.AssetID) (ids.AssetID, *Batch, error) {
 	if !ok {
 		return ids.AssetID{}, nil, errs.New(errs.AssetNotFound, "asset is not known to the pipeline", log.F("asset", id.String()))
 	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return ids.AssetID{}, nil, err
+	}
 	ext := path.Ext(r.path)
 	dst := p.unique(strings.TrimSuffix(r.path, ext) + " copy" + ext)
+	if err := p.checkSidecarDestination(dst); err != nil {
+		return ids.AssetID{}, nil, err
+	}
 	if err := copyFile(p.abs(r.path), p.abs(dst)); err != nil {
 		return ids.AssetID{}, nil, errs.Wrap(err, errs.VFSIO, "cannot copy the asset")
 	}
@@ -332,6 +363,9 @@ func (p *Pipeline) Delete(id ids.AssetID) (*Batch, error) {
 	r, ok := p.byID[id]
 	if !ok {
 		return nil, errs.New(errs.AssetNotFound, "asset is not known to the pipeline", log.F("asset", id.String()))
+	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return nil, err
 	}
 	full := p.abs(r.path)
 	if err := os.Remove(full); err != nil && !os.IsNotExist(err) {

@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"os"
 	"slices"
 	"strings"
 
@@ -38,11 +40,19 @@ func (p *Pipeline) SetSubs(id ids.AssetID, subs []SubAsset) error {
 	if r == nil || r.meta == nil {
 		return errs.New(errs.AssetNotFound, "the asset is not in the project", log.F("asset", id.String()))
 	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
 	m := *r.meta
 	m.Subs = slices.Clone(subs)
-	if err := project.WriteAtomic(p.abs(r.path)+MetaSuffix, WriteMeta(&m)); err != nil {
+	candidate := WriteMeta(&m)
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
+	if err := project.WriteAtomic(p.abs(r.path)+MetaSuffix, candidate); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write "+r.path+MetaSuffix).With(log.F("path", r.path))
 	}
+	r.captureMetadata(candidate)
 	r.meta, r.derived, r.dup, r.key = &m, false, "", ""
 	p.metas[r.path+MetaSuffix] = true
 	p.rev++
@@ -62,15 +72,68 @@ func (p *Pipeline) SetSettings(id ids.AssetID, s Settings) error {
 	if r == nil || r.meta == nil {
 		return errs.New(errs.AssetNotFound, "the asset is not in the project", log.F("asset", id.String()))
 	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
 	m := *r.meta
 	m.Settings = s.Clone()
 	m.Subs = slices.Clone(r.meta.Subs)
-	if err := project.WriteAtomic(p.abs(r.path)+MetaSuffix, WriteMeta(&m)); err != nil {
+	candidate := WriteMeta(&m)
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
+	if err := project.WriteAtomic(p.abs(r.path)+MetaSuffix, candidate); err != nil {
 		return errs.Wrap(err, errs.VFSIO, "cannot write "+r.path+MetaSuffix).With(log.F("path", r.path))
 	}
+	r.captureMetadata(candidate)
 	r.meta, r.derived, r.dup, r.key = &m, false, "", ""
 	p.metas[r.path+MetaSuffix] = true
 	p.rev++
+	return nil
+}
+
+func (r *record) captureMetadata(data []byte) {
+	r.metaPresent, r.metaTracked = data != nil, true
+	r.metaHash = sha256.Sum256(data)
+}
+
+// checkMetadataSnapshot refuses to use or overwrite a cached record when its
+// disk metadata no longer describes the same source generation. Missing and
+// duplicate metadata retain their existing derived-ID behavior. This is a
+// best-effort preimage check, not a CAS against other or older processes.
+// The caller holds p.mu for reading or writing.
+func (p *Pipeline) checkMetadataSnapshot(r *record) error {
+	if r == nil || r.meta == nil || r.importer == nil || !r.metaTracked {
+		return errs.New(errs.AssetBadMeta, "asset has no metadata snapshot")
+	}
+	root, err := os.OpenRoot(p.root)
+	if err != nil {
+		return errs.Wrap(err, errs.AssetBadMeta, "cannot check current metadata").With(log.F("path", r.path))
+	}
+	defer root.Close()
+	data, err := p.sourceBytes(root, r.path+MetaSuffix)
+	if err != nil {
+		return errs.Wrap(err, errs.AssetBadMeta, "cannot check current metadata").With(log.F("path", r.path))
+	}
+	if data == nil {
+		if !r.metaPresent && r.derived && r.dup == "" {
+			return nil
+		}
+		return errs.New(errs.AssetSourceUnstable, "metadata disappeared after this asset was indexed; rescan before editing", log.F("path", r.path))
+	}
+	if !r.metaPresent {
+		return errs.New(errs.AssetSourceUnstable, "metadata appeared after this asset was indexed; rescan before editing", log.F("path", r.path))
+	}
+	if sha256.Sum256(data) != r.metaHash {
+		// Unsupported or corrupt metadata is a failure, not merely a retry.
+		if _, err := ParseMeta(data, r.path+MetaSuffix); err != nil {
+			return err
+		}
+		return errs.New(errs.AssetSourceUnstable, "metadata changed on disk; reload it before importing or editing", log.F("path", r.path))
+	}
+	if r.meta.ID != r.id || r.meta.Importer != r.importer.ID() {
+		return errs.New(errs.AssetBadMeta, "cached metadata identity or importer is inconsistent", log.F("path", r.path))
+	}
 	return nil
 }
 
@@ -144,9 +207,11 @@ func (p *Pipeline) reloadMetadata(r *record) error {
 		seen[sub.ID] = true
 	}
 	if bytes.Equal(WriteMeta(r.meta), WriteMeta(m)) {
+		r.captureMetadata(data)
 		return nil
 	}
 	r.meta, r.key, r.derived = m, "", false
+	r.captureMetadata(data)
 	if r.group != "" {
 		p.groupKey[r.group] = ""
 	}

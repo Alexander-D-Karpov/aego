@@ -106,3 +106,92 @@ func TestUnsupportedEditedSidecarCannotPublishThroughCurrentImporter(t *testing.
 		})
 	}
 }
+
+func TestOpenPipelineRejectsExternallyPublishedEditedSidecar(t *testing.T) {
+	for _, changedSource := range []bool{false, true} {
+		name := "unchanged-source"
+		if changedSource {
+			name = "changed-source"
+		}
+		t.Run(name, func(t *testing.T) {
+			pj, err := project.Create(t.TempDir(), "CachedAudioMetadata", false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			const rel = "assets/tone.wav"
+			file := filepath.Join(pj.Root, filepath.FromSlash(rel))
+			original := wav.Encode([]float32{.1, .2, .3, .4}, 8000, 1, wav.EncodeOptions{Float: true})
+			external := wav.Encode([]float32{.4, .3, .2, .1}, 8000, 1, wav.EncodeOptions{Float: true})
+			imp := audioimport.New()
+			meta := asset.NewSourceMeta(imp.ID(), imp.Version(), imp.Defaults())
+			before := asset.MarshalSourceMeta(meta)
+			doc, err := audioedit.New(audioedit.Source{AssetID: meta.ID.String(), Path: rel,
+				SHA256: fmt.Sprintf("%x", sha256.Sum256(original)), Codec: "wav", SampleRate: 8000, Channels: 1, Frames: 4})
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc.Operations = []audioedit.Operation{{Kind: audioedit.Gain, Region: audioedit.Range{Start: 0, End: 4}, Value: .5}}
+			edited, err := audiosidecar.Encode(before, rel, doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, original, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file+asset.MetaSuffix, before, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			registry := pipeline.NewImporterRegistry()
+			if err := registry.Register(imp); err != nil {
+				t.Fatal(err)
+			}
+			pl, err := pipeline.Open(pj, registry, log.Nop())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer pl.Close()
+			if _, _, err := pl.Scan(); err != nil {
+				t.Fatal(err)
+			}
+			batch, err := pl.ImportAll()
+			if err != nil || batch == nil || len(batch.Imported) != 1 || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+				t.Fatalf("initial import: %+v %v", batch, err)
+			}
+			artifact, ok := pl.PrimaryArtifact(meta.ID)
+			if !ok {
+				t.Fatal("initial audio artifact is missing")
+			}
+			artifactPath := filepath.Join(pj.CacheDir(), "artifacts", filepath.Base(artifact.Path))
+			artifactBefore, err := os.ReadFile(artifactPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file+asset.MetaSuffix, edited, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			wantSource := original
+			if changedSource {
+				if err := os.WriteFile(file, external, 0o644); err != nil {
+					t.Fatal(err)
+				}
+				wantSource = external
+			}
+			batch, err = pl.Import(meta.ID)
+			if err != nil || batch == nil || batch.Failed[meta.ID] == nil || len(batch.Imported) != 0 || len(batch.Retry) != 0 {
+				t.Fatalf("open pipeline accepted unsupported edited metadata: %+v %v", batch, err)
+			}
+			if err := pl.VerifyCurrent(meta.ID); err == nil {
+				t.Fatal("strict verification accepted unsupported edited metadata")
+			}
+			if got, err := os.ReadFile(artifactPath); err != nil || !bytes.Equal(got, artifactBefore) {
+				t.Fatal("stale import replaced the last audio artifact", err)
+			}
+			if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, wantSource) {
+				t.Fatal("stale import changed source bytes", err)
+			}
+			if got, err := os.ReadFile(file + asset.MetaSuffix); err != nil || !bytes.Equal(got, edited) {
+				t.Fatal("stale import changed the external metadata", err)
+			}
+		})
+	}
+}

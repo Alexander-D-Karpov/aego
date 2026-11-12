@@ -31,7 +31,12 @@ func (p *Pipeline) preview(rel string, source, metadata []byte, overlay func(str
 		return nil, errs.New(errs.AssetBadImporter, "no importer for this source", log.F("path", rel))
 	}
 	ctx := &ImportContext{Path: rel, Source: source, Log: p.log, Lookup: p.lookup, SourcePath: p.pathOf}
+	var cached *record
 	if r, exists := p.byPath[rel]; exists {
+		if err := p.checkMetadataSnapshot(r); err != nil {
+			return nil, err
+		}
+		cached = r
 		meta := *r.meta
 		meta.Settings = r.meta.Settings.Clone()
 		meta.Subs = append([]SubAsset(nil), r.meta.Subs...)
@@ -80,5 +85,14 @@ func (p *Pipeline) preview(rel string, source, metadata []byte, overlay func(str
 			ctx.Meta.Settings = settings
 		}
 	}
-	return imp.Import(ctx)
+	result, err := imp.Import(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cached != nil {
+		if err := p.checkMetadataSnapshot(cached); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
