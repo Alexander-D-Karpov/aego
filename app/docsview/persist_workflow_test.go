@@ -4,13 +4,17 @@ package docsview
 
 import (
 	"encoding/json"
+	"runtime"
+	"sync"
 	"testing"
+	"time"
 
 	"aego/app/playground"
 	"aego/modules/savegame"
 )
 
-func TestPersistTryActuallySavesLoadsAndResets(t *testing.T) {
+func loadPersistTry(t *testing.T) *App {
+	t.Helper()
 	p, err := playground.New()
 	if err != nil {
 		t.Fatal(err)
@@ -31,44 +35,105 @@ func TestPersistTryActuallySavesLoadsAndResets(t *testing.T) {
 	if r := a.Call("load", req); r.Error != "" {
 		t.Fatal(r.Error)
 	}
-	check := func(want float64) {
-		t.Helper()
-		if err := a.Step(20); err != nil {
+	return a
+}
+
+// The save is encoded on a worker, while the load and OnLoad callback run on
+// the main thread. A fixed number of headless frames is not a completion signal.
+func checkPersistCycle(t *testing.T, a *App, want float64) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	var logs []Line
+	saved, loaded, cleaned := false, false, false
+	for time.Now().Before(deadline) {
+		if err := a.Step(4); err != nil {
 			t.Fatal(err)
 		}
-		sc := a.session.Controller().Scene()
-		h := sc.Find(sc.Root(), "Saved target")
-		if !sc.IsAlive(h) || float64(sc.WorldPosition(h).X) != want {
-			t.Fatalf("loaded target did not have expected position %v", want)
-		}
-		s := savegame.Of(a.session.Controller().World())
-		if s == nil || s.Exists("persist-demo") {
-			t.Fatal("save service was absent or the temporary in-memory slot was not removed")
-		}
-		logs := a.Call("log", nil).Log
-		saved, loaded := false, false
-		for _, line := range logs {
+		for _, line := range a.Call("log", nil).Log {
+			if len(logs) < 256 {
+				logs = append(logs, line)
+			}
 			if line.Error {
 				t.Fatalf("save Try error: %s", line.Text)
 			}
 			saved = saved || line.Text == "game saved"
 			loaded = loaded || line.Text == "game loaded"
 		}
-		if !saved || !loaded {
-			t.Fatalf("real save/load did not complete: %+v", logs)
+		s := savegame.Of(a.session.Controller().World())
+		cleaned = loaded && s != nil && !s.Exists("persist-demo")
+		if saved && loaded && cleaned {
+			break
 		}
-		r := a.Call("inspect", []byte(`{"component":"save.Persist","fields":["save.Persist.PositionX"]}`))
-		if r.Error != "" || r.Inspection == nil || r.Inspection.Observables["save.Persist.PositionX"] != want {
-			t.Fatalf("loaded position is not observable: %+v", r)
-		}
+		runtime.Gosched()
 	}
-	check(2)
+	if !saved || !loaded || !cleaned {
+		t.Fatalf("real save/load did not complete: saved=%v loaded=%v slot removed=%v logs=%+v", saved, loaded, cleaned, logs)
+	}
+	sc := a.session.Controller().Scene()
+	h := sc.Find(sc.Root(), "Saved target")
+	if !sc.IsAlive(h) {
+		t.Fatal("loaded target is missing")
+	}
+	if got := float64(sc.WorldPosition(h).X); got != want {
+		t.Fatalf("loaded target position=%v, want %v", got, want)
+	}
+	r := a.Call("inspect", []byte(`{"component":"save.Persist","fields":["save.Persist.PositionX"]}`))
+	if r.Error != "" || r.Inspection == nil || r.Inspection.Observables["save.Persist.PositionX"] != want {
+		t.Fatalf("loaded position is not observable: %+v", r)
+	}
+}
+
+func TestPersistTryActuallySavesLoadsAndResets(t *testing.T) {
+	a := loadPersistTry(t)
+	checkPersistCycle(t, a, 2)
 	if r := a.Call("set", []byte(`{"component":"save.Persist","field":"NoTransform","value":1}`)); r.Error != "" {
 		t.Fatal(r.Error)
 	}
-	check(-2)
+	checkPersistCycle(t, a, -2)
 	if r := a.Call("reset", nil); r.Error != "" {
 		t.Fatal(r.Error)
 	}
-	check(2)
+	checkPersistCycle(t, a, 2)
+}
+
+func TestPersistTryWaitsForDelayedSaveWorker(t *testing.T) {
+	a := loadPersistTry(t)
+	checkPersistCycle(t, a, 2)
+	if r := a.Call("set", []byte(`{"component":"save.Persist","field":"NoTransform","value":1}`)); r.Error != "" {
+		t.Fatal(r.Error)
+	}
+	jobs := a.e.Jobs()
+	entered := make(chan struct{}, jobs.Workers())
+	gate := make(chan struct{})
+	var once sync.Once
+	release := func() { once.Do(func() { close(gate) }) }
+	t.Cleanup(release) // Release workers even when an assertion aborts the test.
+	for range jobs.Workers() {
+		jobs.Submit(func() { entered <- struct{}{}; <-gate })
+	}
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
+	for range jobs.Workers() {
+		select {
+		case <-entered:
+		case <-timer.C:
+			t.Fatal("could not hold the save worker")
+		}
+	}
+	if err := a.Step(24); err != nil {
+		t.Fatal(err)
+	}
+	sc := a.session.Controller().Scene()
+	h := sc.Find(sc.Root(), "Saved target")
+	s := savegame.Of(a.session.Controller().World())
+	if !sc.IsAlive(h) || sc.WorldPosition(h).X != 2 || s == nil || s.Exists("persist-demo") {
+		t.Fatal("fixture did not hold the save beyond the original 20-frame wait")
+	}
+	for _, line := range a.lines {
+		if line.Text == "game saved" || line.Text == "game loaded" {
+			t.Fatal("save/load finished while its worker was held")
+		}
+	}
+	release()
+	checkPersistCycle(t, a, -2)
 }
