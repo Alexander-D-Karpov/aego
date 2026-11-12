@@ -13,9 +13,9 @@ import (
 
 	"aego/asset"
 	"aego/audio/codec"
+	"aego/audio/edit"
+	"aego/audio/edit/codecsource"
 	"aego/core/ids"
-	"aego/editor/core/audioedit"
-	"aego/editor/core/audioedit/codecsource"
 	"aego/editor/core/tasks"
 	"aego/engine/i18n"
 )

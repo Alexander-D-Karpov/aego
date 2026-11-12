@@ -14,7 +14,7 @@ import (
 	audioimport "aego/asset/importers/audio"
 	"aego/asset/pipeline"
 	"aego/audio/codec/wav"
-	"aego/editor/core/audioedit"
+	"aego/audio/edit"
 	"aego/editor/core/tasks"
 	"aego/project"
 )

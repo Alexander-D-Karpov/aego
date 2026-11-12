@@ -193,7 +193,7 @@ func TestReadFramesWithActualWAVAndOggDecoders(t *testing.T) {
 	for i := range pcm {
 		pcm[i] = float32(i%37-18) / 32
 	}
-	ogg, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "audio", "codec", "testdata", "tone.ogg"))
+	ogg, err := os.ReadFile(filepath.Join("..", "..", "codec", "testdata", "tone.ogg"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,5 @@
-// Package audioedit owns non-destructive audio authoring data. It has no dependency
-// on a decoder, UI, mixer, or file system: those remain supplied by Aego's host.
+// Package audioedit owns non-destructive audio authoring data shared by editor
+// and asset processing. Decoders, UI, mixer and file access remain host-owned.
 package audioedit
 
 import (

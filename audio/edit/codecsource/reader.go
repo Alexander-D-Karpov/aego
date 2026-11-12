@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"aego/audio/codec"
-	"aego/editor/core/audioedit"
+	"aego/audio/edit"
 )
 
 // maxSamples bounds the PCM allocated by one request to 8 MiB. Decoder-owned

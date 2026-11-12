@@ -125,6 +125,9 @@ var rules = []rule{
 	{"audio/codec/vorbis", []string{"core/...", "audio/codec", "audio/codec/vorbis/internal/oggvorbis"}, nil},
 	{"audio/codec/vorbis/internal/oggvorbis", []string{"audio/codec/vorbis/internal/vorbis"}, nil},
 	{"audio/codec/vorbis/internal/vorbis", nil, nil},
+	// Shared bounded audio authoring kernel: no editor or device dependencies.
+	{"audio/edit", nil, nil},
+	{"audio/edit/codecsource", []string{"audio/codec", "audio/edit"}, nil},
 	{"audio/pump", []string{"core/...", "audio/mix"}, nil},
 	{"modules/animation", []string{"core/...", "anim", "asset", "asset/pipeline", "asset/importers/animclip", "asset/importers/animctrl", "contracts/...", "engine", "engine/module", "engine/problems", "engine/recorder", "format/aetext", "scene", "scene/propclaim", "scene/propref", "schema", "script/abi", "script/bind", "script/vm"}, nil},
 	{"modules/animation/editor", with(editorAllow, "modules/animation"), nil},
@@ -142,6 +145,7 @@ var rules = []rule{
 	{"ui/...", []string{"core/...", "gpu", "platform/input", "render", "render/...", "schema", "scene", "asset", "format/...", "ui/..."}, nil},
 	{"editor/core/animedit", with(editorAllow, "anim"), nil},
 	{"editor/core/artedit", with(editorAllow, "art"), nil},
+	{"editor/core/preview", with(editorAllow, "audio/edit", "audio/edit/codecsource"), nil},
 	// The metadata coordinator passes a private prepared-artifact VFS to the
 	// existing runtime loader. Source file access stays in Document Manager.
 	{"editor/core/context", with(editorAllow, "vfs"), nil},
