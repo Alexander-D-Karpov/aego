@@ -205,6 +205,9 @@ func TestDropAsepriteNativeWarningsNeedConsent(t *testing.T) {
 func TestInitializeBlankTextArtInNativeEditor(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	t.Setenv("AEGO_LANG", "en")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	p := newProject(t)
 	const rel = "assets/test.aeart"
 	file := filepath.Join(p.Root, filepath.FromSlash(rel))
@@ -231,10 +234,14 @@ func TestInitializeBlankTextArtInNativeEditor(t *testing.T) {
 			t.Fatal("editor stopped before initialization")
 		}
 	}
-	for i := range 3 {
-		if !sdl.TestPointerEvent(600, 122, i) || !s.Step() {
-			t.Fatal("could not select initialize in the native art panel")
-		}
+	controls := &artControlsArtUI{t: t, s: s}
+	controls.maximize("render2d.art/" + id.String())
+	controls.clickLabel("Initialize empty drawing…")
+	for range 2 {
+		controls.step()
+	}
+	if !s.App.Context().UI.ModalActive() {
+		t.Fatal("native Initialize action did not open a confirmation")
 	}
 	if data, err := os.ReadFile(file); err != nil || !bytes.Equal(data, []byte("\n")) {
 		t.Fatalf("source changed before confirmation: %q, %v", data, err)

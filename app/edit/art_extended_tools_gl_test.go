@@ -388,8 +388,9 @@ func TestArtExtendedToolsNative(t *testing.T) {
 	}
 	capture("extended-tools-complete")
 	timeline := maximize("art.timeline")
+	controls := &artControlsArtUI{t: t, s: s, model: model, panel: canvasID}
 	width := timeline.W - 2*pad
-	click(timeline.X+pad+width*5/8, timeline.Y+pad+(row+gap)+row/2)
+	controls.clickLabel("Link")
 	info = model.Session.Document.Info()
 	if len(info.Frames) != 2 {
 		t.Fatal("SDL Link did not create a linked frame")
@@ -411,11 +412,11 @@ func TestArtExtendedToolsNative(t *testing.T) {
 	labelW := min(float32(150), max(float32(86), width*.24))
 	columns := min(32, max(1, int((width-labelW-ui.Theme.ScrollbarW)/48)))
 	cellW := (width - labelW - ui.Theme.ScrollbarW) / float32(columns)
-	click(timeline.X+pad+labelW+cellW/2, timeline.Y+pad+4*(row+gap)+row/2)
+	click(timeline.X+pad+labelW+cellW/2, timeline.Y+pad+5*(row+gap)+row/2)
 	if model.Session.Frame != first || model.Session.Layer != info.Layers[0].ID {
 		t.Fatal("cel grid did not select the real layer/frame")
 	}
-	click(timeline.X+pad+width*7/8, timeline.Y+pad+(row+gap)+row/2)
+	controls.clickLabel("Unlink")
 	if celImage(first) == celImage(second) {
 		t.Fatal("SDL Unlink did not make an independent image")
 	}
@@ -424,12 +425,7 @@ func TestArtExtendedToolsNative(t *testing.T) {
 		t.Fatal("common Undo did not restore linked identity")
 	}
 	// Frame pivot is a typed core operation through the real properties prompt.
-	menuY := timeline.Y + pad + 2*(row+gap)
-	click(timeline.X+pad+width*5/6, menuY+row/2)
-	if !ui.AnyPopup() {
-		t.Fatal("frame properties menu did not open")
-	}
-	click(timeline.X+pad+width*2/3+50, menuY+row+pad+7*(row+gap)+row/2)
+	controls.menu("art.timeline", "Frames / Tags…", "Frame pivot…")
 	typeText("3")
 	promptField("Y", "8", "12")
 	cursor = model.History.Cursor()

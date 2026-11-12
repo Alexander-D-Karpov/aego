@@ -164,14 +164,34 @@ func (f *artControlsArtUI) menu(panel, title, item string) {
 
 func (f *artControlsArtUI) tool(name string) {
 	f.t.Helper()
-	f.maximize("art.tools")
-	f.clickLabel(name)
+	// The Tools dock renders icons, not text buttons. Click the corresponding
+	// real grid cell and verify its name in the separate Tool Options panel;
+	// the subsequent pixel assertions also exercise the selected tool itself.
+	indices := map[string]int{"Pencil": 0, "Fill": 2, "Rectangle": 4, "Selection": 7}
+	index, ok := indices[name]
+	if !ok {
+		f.t.Fatalf("no native tool target for %q", name)
+	}
+	r := f.maximize("art.tools")
+	ui := f.s.App.Context().UI
+	width := r.W - 2*ui.Theme.Padding
+	preferred := max(float32(32), ui.Theme.RowHeight*1.5)
+	columns := max(1, min(14, int((width+4)/(preferred+4))))
+	size := min(max(float32(44), ui.Theme.RowHeight*2), max(0, (width-float32(columns-1)*4)/float32(columns)))
+	point := mathx.V2(r.X+ui.Theme.Padding+float32(index%columns)*(size+4)+size/2,
+		r.Y+ui.Theme.Padding+float32(index/columns)*(size+ui.Theme.Spacing)+size/2)
+	if !r.Contains(point) {
+		f.t.Fatalf("native tool %q is outside the Tools panel", name)
+	}
+	f.click(point)
+	f.maximize("art.options")
+	f.label(name)
 	f.maximize(f.panel)
 }
 
 func (f *artControlsArtUI) brushToggle(label string) {
 	f.t.Helper()
-	f.maximize("art.tools")
+	f.maximize("art.options")
 	f.clickLabel(label)
 	f.maximize(f.panel)
 }
@@ -577,12 +597,15 @@ func (f *artControlsArtUI) selectFrame(index, duration int) {
 	f.t.Helper()
 	f.maximize("art.timeline")
 	// The real grid intentionally elides duration labels in its ~48px cells.
-	// Locate the rendered frame-number prefix, never an assumed old tile point.
+	// The frame strip above can have the same prefix, so pair the header with
+	// the actual Cels menu on the grid row rather than choosing either by index.
 	ui := f.s.App.Context().UI
 	prefix := fmt.Sprintf("%d · ", index)
+	gridLabel := f.label("Cels…")
 	var headers []draw.TestDrawnItem
 	for _, item := range f.s.App.UIList().TestDrawnItems(mathx.Rect{W: ui.Size().X, H: ui.Size().Y}, ui.Font(), prefix, 0, 0) {
-		if strings.HasPrefix(item.Text, prefix) && artControlsInside(item.Bounds, item.Clip) {
+		if strings.HasPrefix(item.Text, prefix) && artControlsInside(item.Bounds, item.Clip) &&
+			item.Bounds.Center().Y >= gridLabel.Bounds.Center().Y-1 && item.Bounds.Center().Y <= gridLabel.Bounds.Center().Y+1 {
 			headers = append(headers, item)
 		}
 	}
