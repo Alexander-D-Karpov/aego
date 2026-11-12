@@ -95,7 +95,10 @@ type MetadataResolver interface {
 // private preview; it does not authorize normal import or persistence. The
 // pipeline verifies that Source matches the indexed disk source before and
 // after the call. The caller must separately guard document revision and
-// generation when using an asynchronously produced result.
+// generation when using an asynchronously produced result. The renderer runs
+// without the pipeline lock: it receives only ID, Path, Source and Log, and
+// must treat Source and metadata as immutable. Meta and pipeline callbacks
+// are unavailable; dependent assets require a separate guarded snapshot.
 type GuardedMetadataPreviewer interface {
 	GuardedMetadataCandidate(path string, metadata []byte) (bool, error)
 	PreviewGuardedMetadata(ctx context.Context, input *ImportContext, metadata []byte) (*Result, error)

@@ -136,7 +136,7 @@ func (p *Pipeline) preview(request context.Context, rel string, source, metadata
 // changes an index or file. Its source and metadata checks are best-effort,
 // not CAS or a substitute for the editor's asynchronous generation guard.
 func (p *Pipeline) previewGuardedMetadata(request context.Context, previewer GuardedMetadataPreviewer, ctx *ImportContext, cached *record, metadata []byte) (*Result, error) {
-	if cached == nil || ctx.ID.IsZero() || int64(len(ctx.Source)) > MaxSourceFingerprintBytes {
+	if cached == nil || ctx.ID.IsZero() || p.unlock == nil || int64(len(ctx.Source)) > MaxSourceFingerprintBytes {
 		return nil, errs.New(errs.AssetBadMeta, "guarded metadata preview needs an indexed bounded source", log.F("path", ctx.Path))
 	}
 	if err := p.requireNoPendingSourceRecovery(); err != nil {
@@ -188,7 +188,16 @@ func (p *Pipeline) previewGuardedMetadata(request context.Context, previewer Gua
 	if err := checkSource(); err != nil {
 		return nil, err
 	}
-	result, err := previewer.PreviewGuardedMetadata(request, ctx, metadata)
+	// The source, metadata and renderer are immutable snapshots. Do not hand
+	// the unlocked worker callbacks into the mutable pipeline index.
+	input := &ImportContext{ID: ctx.ID, Path: ctx.Path, Source: ctx.Source, Log: ctx.Log}
+	meta, key, metaHash := cached.meta, cached.key, cached.metaHash
+	present, tracked := cached.metaPresent, cached.metaTracked
+	result, err := func() (*Result, error) {
+		p.mu.RUnlock()
+		defer p.mu.RLock()
+		return previewer.PreviewGuardedMetadata(request, input, metadata)
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +206,11 @@ func (p *Pipeline) previewGuardedMetadata(request context.Context, previewer Gua
 	}
 	if result == nil {
 		return nil, errs.New(errs.AssetImportFailed, "guarded preview returned no result", log.F("path", ctx.Path))
+	}
+	if p.unlock == nil || p.byID[ctx.ID] != cached || p.byPath[ctx.Path] != cached ||
+		cached.meta != meta || cached.key != key || cached.metaHash != metaHash ||
+		cached.metaPresent != present || cached.metaTracked != tracked {
+		return nil, errs.New(errs.AssetSourceUnstable, "asset changed during guarded preview", log.F("path", ctx.Path))
 	}
 	if err := p.requireNoPendingSourceRecovery(); err != nil {
 		return nil, err
