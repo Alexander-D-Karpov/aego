@@ -49,10 +49,10 @@ func NewEditedDecoder(ctx context.Context, decoder codec.Decoder, doc audioedit.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	doc = doc.Clone()
 	if err := doc.Validate(); err != nil {
 		return nil, err
 	}
+	doc = doc.Clone()
 	r, err := New(decoder)
 	if err != nil {
 		return nil, err

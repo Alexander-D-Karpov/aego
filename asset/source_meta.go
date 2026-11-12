@@ -15,6 +15,9 @@ const MetaVersion = 1
 
 const MetaSuffix = ".meta"
 
+// SourceSettingsBlock is the metadata node shared by source codecs.
+const SourceSettingsBlock = "settings"
+
 type ImportSettings map[string]aetext.Value
 
 func (s ImportSettings) Clone() ImportSettings {
@@ -121,7 +124,7 @@ func ParseSourceMeta(src []byte, name string) (*SourceMeta, error) {
 	if v, ok := doc.Field("importerVersion"); ok {
 		m.Version = int(v.AsInt())
 	}
-	if s := doc.Block("settings", ""); s != nil {
+	if s := doc.Block(SourceSettingsBlock, ""); s != nil {
 		for _, f := range s.Fields {
 			m.Settings[f.Name] = f.Value
 		}
@@ -166,9 +169,9 @@ func MarshalSourceMeta(m *SourceMeta) []byte {
 	setSourceField(&root.Fields, "importer", aetext.String(m.Importer))
 	setSourceField(&root.Fields, "importerVersion", aetext.Int(int64(m.Version)))
 	writeSourcePivot(root, m.Pivot, m.HasPivot)
-	settings := root.Block("settings", "").Clone()
+	settings := root.Block(SourceSettingsBlock, "").Clone()
 	if settings == nil {
-		settings = &aetext.Node{Head: "settings"}
+		settings = &aetext.Node{Head: SourceSettingsBlock}
 	}
 	settings.Fields = nil
 	for _, key := range sourceSettingKeys(m.Settings) {
@@ -176,7 +179,7 @@ func MarshalSourceMeta(m *SourceMeta) []byte {
 	}
 	var blocks []*aetext.Node
 	for _, b := range root.Blocks {
-		if b.Head != "settings" && b.Head != "sub" {
+		if b.Head != SourceSettingsBlock && b.Head != "sub" {
 			blocks = append(blocks, b)
 		}
 	}
@@ -207,7 +210,7 @@ func MarshalSourceFrames(subs []SourceFrame) []byte {
 	return aetext.Write(&aetext.Node{Head: "subs", Blocks: sourceFrameBlocks(subs)})
 }
 func MarshalImportSettings(s ImportSettings) []byte {
-	n := &aetext.Node{Head: "settings"}
+	n := &aetext.Node{Head: SourceSettingsBlock}
 	for _, key := range sourceSettingKeys(s) {
 		n.Fields = append(n.Fields, aetext.Field{Name: key, Value: sourceSettingValue(s[key])})
 	}

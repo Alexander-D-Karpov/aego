@@ -426,6 +426,11 @@ func TestEditedDecoderRejectsInvalidInputAndPropagatesCancellation(t *testing.T)
 	if _, err := NewEditedDecoder(context.Background(), base, wrong); err == nil {
 		t.Fatal("accepted a decoder with different channels")
 	}
+	wrong = doc.Clone()
+	wrong.Operations = make([]audioedit.Operation, 4097)
+	if _, err := NewEditedDecoder(context.Background(), base, wrong); err == nil {
+		t.Fatal("accepted an edit document over its operation budget")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	w, err := NewEditedDecoder(ctx, base, doc)
 	if err != nil {

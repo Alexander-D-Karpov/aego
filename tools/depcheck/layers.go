@@ -97,6 +97,7 @@ var rules = []rule{
 	{"render/material", []string{"core/...", "gpu", "render/shader", "render/texture"}, nil}, // never render: the renderer hands it a pipeline template (D368)
 	{"render/...", []string{"core/...", "gpu", "vfs", "render/..."}, nil},
 	{"asset", []string{"core/...", "gpu", "format/...", "render/texture", "render/mesh", "render/shader", "render/material", "render/shaderx"}, nil},
+	{"asset/audiosidecar", []string{"asset", "audio/edit", "format/aetext"}, nil},
 	{"asset/loader", []string{"core/...", "anim", "gpu", "vfs", "asset", "asset/silhouette", "format/aetext", "render/texture", "render/mesh", "render/shader", "render/material"}, nil},
 	{"asset/pipeline", []string{"core/...", "asset", "format/...", "project", "vfs", "render/texture", "engine/res"}, nil},
 	{"asset/importers/shader", []string{"core/...", "asset", "asset/pipeline", "render/shader", "render/shaderx", "render/material"}, nil},
