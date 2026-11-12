@@ -68,6 +68,10 @@ func TestAudioTransportRenderedLayout(t *testing.T) {
 		if language == i18n.Russian && previewPlayLabel(ClipView{}) != "Воспроизвести" {
 			t.Fatal("Russian audio catalog was not loaded")
 		}
+		if language == i18n.Russian && (previewPlayLabel(ClipView{Preparing: true}) != "Отмена" ||
+			i18n.Tr("editor.audio.preview_preparing", "Preparing preview...") != "Подготовка прослушивания...") {
+			t.Fatal("Russian working-preview controls were not translated")
+		}
 		for _, tc := range []struct {
 			name  string
 			width float32
@@ -78,9 +82,9 @@ func TestAudioTransportRenderedLayout(t *testing.T) {
 			{"narrow", 132, 1, false}, {"hidpi", 180, 1.5, false},
 		} {
 			for _, state := range []struct {
-				name           string
-				playing, pause bool
-			}{{"play", false, false}, {"pause", true, false}, {"resume", true, true}} {
+				name                      string
+				playing, pause, preparing bool
+			}{{"play", false, false, false}, {"pause", true, false, false}, {"resume", true, true, false}, {"preparing", false, false, true}} {
 				func() {
 					caseName := fmt.Sprintf("%s/%s/%s", language, tc.name, state.name)
 					ui := core.New(nil)
@@ -98,8 +102,13 @@ func TestAudioTransportRenderedLayout(t *testing.T) {
 					}
 					ui.Region(mathx.Rect{W: tc.width, H: height / tc.scale})
 					ui.PushClip(mathx.Rect{W: tc.width, H: height / tc.scale})
-					v := ClipView{Playing: state.playing, Paused: state.pause, Position: 100, Seconds: 110.7}
+					v := ClipView{Playing: state.playing, Paused: state.pause, Preparing: state.preparing, Position: 100, Seconds: 110.7}
 					p := &plugin{}
+					if state.preparing {
+						p.workingAudio.sequence = 1
+						p.workingAudio.running = &workingAudioRequest{sequence: 1, id: v.ID, current: func() bool { return true }, cancel: func() {}}
+						p.workingAudio.result = make(chan workingAudioResult)
+					}
 					p.transport(&context.Editor{UI: ui}, nil, v)
 					ui.PopClip()
 					ui.PopCursor()
@@ -129,6 +138,9 @@ func TestAudioTransportRenderedLayout(t *testing.T) {
 					}
 					position := i18n.Tr("i18n.audio.position_s_of_seconds_s", "{position} s of {seconds} s",
 						i18n.Str("position", seconds(v.Position)), i18n.Str("seconds", seconds(v.Seconds)))
+					if state.preparing {
+						position = i18n.Tr("editor.audio.preview_preparing", "Preparing preview...")
+					}
 					for _, line := range widgets.WrapLines(ui, position, tc.width-2*ui.Theme.Padding) {
 						items := list.TestDrawnItems(mathx.Rect{W: width / tc.scale, H: height / tc.scale}, ui.Font(), line, 0, 0)
 						found := false

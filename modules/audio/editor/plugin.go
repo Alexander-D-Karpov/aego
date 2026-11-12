@@ -44,6 +44,7 @@ type plugin struct {
 	clip          clipEdit
 	aud           audition
 	auditionOwner *plugin // document views share the registered player's audition state
+	workingAudio  workingAudioQueue
 }
 
 func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
@@ -81,6 +82,12 @@ func Hook(e *ext.Registry) error {
 		return err
 	}
 	if p.ed != nil && p.ed.Docs != nil {
+		docs := p.ed.Docs
+		docs.Subscribe(func(ev document.Event) {
+			if ev.Kind == document.EvClosed {
+				p.closeWorkingAudio(docs, ev.Doc)
+			}
+		})
 		openClip := e.DocumentView(func(d *document.AssetDocument) func(*services.Frame, mathx.Rect) {
 			// Per-tab interaction state prevents a different Inspector selection
 			// from resetting a dragged loop handle or an in-progress gain edit.

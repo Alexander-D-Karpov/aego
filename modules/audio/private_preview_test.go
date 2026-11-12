@@ -2,7 +2,9 @@ package audio
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"math"
 	"testing"
 	"time"
@@ -131,5 +133,123 @@ func TestPrivatePreviewInvalidCandidateKeepsExistingVoice(t *testing.T) {
 	}
 	if err := m.StopPreview(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPreparedPrivatePreviewRejectsChangedOutputWithoutStoppingVoice(t *testing.T) {
+	mx, err := mix.New(mix.Config{SampleRate: 48000, Channels: 2, Buses: BusDescs()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &Module{mixer: mx}
+	oldID, newID := ids.NewAssetID(), ids.NewAssetID()
+	old := &previewLifecycleResolver{id: oldID, raw: privatePreviewArtifact(.5, false)}
+	if err := m.Preview(old, oldID, true); err != nil {
+		t.Fatal(err)
+	}
+	mx.Mix(make([]float32, 512))
+	if err := m.SetPreviewPaused(true); err != nil {
+		t.Fatal(err)
+	}
+	voice := m.preview
+	raw := privatePreviewArtifact(-.5, false)
+	type preparedResult struct {
+		value *PreparedPreview
+		err   error
+	}
+	done := make(chan preparedResult, 1)
+	go func() {
+		value, err := PreparePreviewArtifact(context.Background(), newID, raw, 48000)
+		done <- preparedResult{value, err}
+	}()
+	got := <-done
+	if got.err != nil || got.value == nil {
+		t.Fatal("worker could not prepare private audio", got.err)
+	}
+	for i := range raw {
+		raw[i] = 0
+	}
+	mx.SetSampleRate(44100)
+	if err := m.PreviewPrepared(got.value, true); err == nil {
+		t.Fatal("accepted preview prepared for the wrong output sample rate")
+	}
+	if m.preview != voice || m.PreviewClip() != oldID || !m.PreviewPaused() || !mx.Live(voice) {
+		t.Fatal("rejected prepared preview displaced the existing voice")
+	}
+	mx.SetSampleRate(48000)
+	if err := m.PreviewPrepared(got.value, true); err != nil || m.PreviewClip() != newID || m.PreviewPaused() {
+		t.Fatal("valid prepared preview could not replace the old voice", err)
+	}
+	out := make([]float32, 512)
+	mx.Mix(out)
+	var sum float64
+	for _, sample := range out {
+		sum += float64(sample)
+	}
+	if sum >= 0 {
+		t.Fatalf("prepared preview used mutated or old audio: %v", sum)
+	}
+	if err := m.StopPreview(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPreparePrivatePreviewRejectsCancelledContext(t *testing.T) {
+	id := ids.NewAssetID()
+	raw := privatePreviewArtifact(-.5, false)
+	request, cancel := context.WithCancel(context.Background())
+	cancel()
+	if prepared, err := PreparePreviewArtifact(request, id, raw, 48000); prepared != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled preparation: %+v %v", prepared, err)
+	}
+	if prepared, err := PreparePreviewArtifact(nil, id, raw, 48000); prepared != nil || err == nil {
+		t.Fatalf("accepted a nil context: %+v %v", prepared, err)
+	}
+}
+
+func TestPreviewEpochTracksOnlyAcceptedControlChanges(t *testing.T) {
+	mx, err := mix.New(mix.Config{SampleRate: 48000, Channels: 2, Buses: BusDescs()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &Module{mixer: mx}
+	id := ids.NewAssetID()
+	resolver := &previewLifecycleResolver{id: id, raw: privatePreviewArtifact(.5, false)}
+	initial := m.PreviewEpoch()
+	if err := m.Preview(resolver, id, true); err != nil || m.PreviewEpoch() <= initial {
+		t.Fatal("accepted play did not change the preview epoch", err)
+	}
+	before := m.PreviewEpoch()
+	if err := m.SetPreviewPaused(true); err != nil || m.PreviewEpoch() <= before {
+		t.Fatal("accepted pause did not change the preview epoch", err)
+	}
+	before = m.PreviewEpoch()
+	if err := m.SetPreviewPaused(true); err != nil || m.PreviewEpoch() != before {
+		t.Fatal("a redundant pause changed the preview epoch", err)
+	}
+	queue := mx.Commands()
+	count := 0
+	for count < 4096 && queue.Push(mix.Command{Kind: mix.CmdBusMute, Bus: -1}) {
+		count++
+	}
+	if count == 4096 {
+		t.Fatal("fixture did not fill the command queue")
+	}
+	if err := m.SetPreviewPaused(false); err == nil || m.PreviewEpoch() != before {
+		t.Fatal("rejected resume changed the preview epoch")
+	}
+	mx.Mix(make([]float32, 512))
+	if err := m.SetPreviewPaused(false); err != nil || m.PreviewEpoch() <= before {
+		t.Fatal("accepted resume did not change the preview epoch", err)
+	}
+	before = m.PreviewEpoch()
+	if err := m.StopPreview(); err != nil || m.PreviewEpoch() <= before {
+		t.Fatal("accepted stop did not change the preview epoch", err)
+	}
+	m.previewEpoch = ^uint64(0) - 1
+	m.bumpPreviewEpoch()
+	m.bumpPreviewEpoch()
+	if m.PreviewEpoch() != ^uint64(0) {
+		t.Fatal("preview epoch wrapped instead of failing closed")
 	}
 }

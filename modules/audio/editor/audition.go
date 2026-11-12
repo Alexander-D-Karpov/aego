@@ -33,6 +33,7 @@ func previewModule(ed *context.Editor) (*audio.Module, error) {
 }
 
 func (p *plugin) playClip(ed *context.Editor, id ids.AssetID) error {
+	p.cancelWorkingAudio()
 	mod, err := previewModule(ed)
 	if err != nil {
 		return err
@@ -45,6 +46,7 @@ func (p *plugin) playClip(ed *context.Editor, id ids.AssetID) error {
 }
 
 func (p *plugin) playEvent(ed *context.Editor, id ids.AssetID) error {
+	p.cancelWorkingAudio()
 	mod, err := previewModule(ed)
 	if err != nil {
 		return err
@@ -75,6 +77,7 @@ func (p *plugin) playEvent(ed *context.Editor, id ids.AssetID) error {
 }
 
 func (p *plugin) stopAudition(ed *context.Editor) {
+	p.cancelWorkingAudio()
 	if mod, err := previewModule(ed); err == nil {
 		if err := mod.StopPreview(); err != nil {
 			p.notify(err)

@@ -206,6 +206,9 @@ func (p *Pipeline) RefreshMetadataSnapshot(id ids.AssetID, expected []byte) erro
 	if err != nil {
 		return err
 	}
+	if p.rootInfo == nil || !os.SameFile(p.rootInfo, opened) {
+		return fmt.Errorf("project root changed since the pipeline was opened")
+	}
 	check := func() error {
 		if err := p.requireNoPendingSourceRecovery(); err != nil {
 			return err

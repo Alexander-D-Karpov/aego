@@ -185,6 +185,7 @@ func (m *Module) previewClip(c *Clip, loop bool) error {
 		return errors.New("audio: could not queue preview playback")
 	}
 	m.preview, m.previewID, m.previewCancel = voice, c.ID, cancel
+	m.bumpPreviewEpoch()
 	return nil
 }
 
@@ -206,6 +207,23 @@ func (m *Module) endPreview() {
 	}
 	m.preview, m.previewID = mix.VoiceID{}, ids.AssetID{}
 	m.previewPaused = false
+	m.bumpPreviewEpoch()
+}
+
+func (m *Module) bumpPreviewEpoch() {
+	if m.previewEpoch < ^uint64(0) {
+		m.previewEpoch++
+	}
+}
+
+// PreviewEpoch changes when accepted preview ownership/commands or output
+// reopen change. It is read on the module owner thread. The saturated value
+// ^uint64(0) cannot guard asynchronous work and must be treated as stale.
+func (m *Module) PreviewEpoch() uint64 {
+	if m == nil {
+		return ^uint64(0)
+	}
+	return m.previewEpoch
 }
 
 func (m *Module) PreviewClip() ids.AssetID {
@@ -239,6 +257,7 @@ func (m *Module) SetPreviewPaused(paused bool) error {
 		return errors.New("audio: preview command queue is full")
 	}
 	m.previewPaused = paused
+	m.bumpPreviewEpoch()
 	return nil
 }
 

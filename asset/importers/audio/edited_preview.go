@@ -35,8 +35,9 @@ func (i *Importer) GuardedMetadataCandidate(sourcePath string, metadata []byte) 
 	}
 }
 
-// PreviewGuardedMetadata renders a private candidate into the existing AEAU v1
-// format, so the normal memory and stream playback paths hear edited samples.
+// PreviewGuardedMetadata renders a private edit candidate into the existing
+// AEAU v1 format, or privately imports ordinary working settings unchanged.
+// The normal memory and stream playback paths can consume either result.
 // It neither changes the original source nor makes version-2 sidecars writable.
 // The pipeline guards the source and metadata around this call; the caller must
 // still guard asynchronous document/generation changes before using the result.
@@ -54,7 +55,32 @@ func (i *Importer) PreviewGuardedMetadata(request context.Context, ctx *pipeline
 	if err := request.Err(); err != nil {
 		return nil, err
 	}
-	if !present || doc.Source.AssetID != ctx.ID.String() {
+	if !present {
+		meta, err := asset.ParseSourceMeta(metadata, ctx.Path+asset.MetaSuffix)
+		if err != nil || meta.ID != ctx.ID || meta.Importer != i.ID() {
+			return nil, fail(ctx, "audio preview metadata does not match the indexed asset", err)
+		}
+		for key, value := range i.Defaults() {
+			if _, ok := meta.Settings[key]; !ok {
+				meta.Settings[key] = value
+			}
+		}
+		gain := float32(meta.Settings.Float("gain", 1))
+		if math.IsNaN(float64(gain)) || math.IsInf(float64(gain), 0) || len(meta.Settings.String("bus", "sfx")) > 255 {
+			return nil, fail(ctx, "invalid audio preview settings", nil)
+		}
+		private := *ctx
+		private.Meta = meta
+		result, err := i.Import(&private)
+		if err != nil {
+			return nil, err
+		}
+		if err := request.Err(); err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	if doc.Source.AssetID != ctx.ID.String() {
 		return nil, fail(ctx, "audio edit does not match the indexed asset", nil)
 	}
 	if int64(len(ctx.Source)) > pipeline.MaxSourceFingerprintBytes ||

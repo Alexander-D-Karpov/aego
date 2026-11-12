@@ -116,6 +116,7 @@ type Module struct {
 	preview       mix.VoiceID
 	previewCancel chan struct{}
 	previewPaused bool
+	previewEpoch  uint64
 	solo          [busCount]bool
 	previewID     ids.AssetID
 }
@@ -339,6 +340,7 @@ func (m *Module) Reopen(want platform.AudioSpec) error {
 	if m.mixer == nil {
 		return nil
 	}
+	m.bumpPreviewEpoch()
 	if m.worker != nil {
 		return m.worker.Reopen(want)
 	}

@@ -62,6 +62,7 @@ type Pipeline struct {
 	// Paths belong to the opened pipeline, not to the mutable Project value
 	// that Project Settings can replace while preview workers are running.
 	root         string
+	rootInfo     os.FileInfo
 	cacheDir     string
 	imps         *ImporterRegistry
 	log          *log.ChannelLogger
@@ -153,6 +154,14 @@ func Open(p *project.Project, imps *ImporterRegistry, lg *log.Logger, opts ...Op
 	}
 	pl := newPipeline(p.Root, imps, lg)
 	pl.artifacts = files
+	rootInfo, err := os.Stat(pl.root)
+	if err != nil {
+		return nil, errs.Wrap(err, errs.VFSIO, "cannot identify project root")
+	}
+	if !rootInfo.IsDir() {
+		return nil, errs.New(errs.VFSBadPath, "project root is not a directory")
+	}
+	pl.rootInfo = rootInfo
 	unlock, owner := acquireIndexLock(cacheDir)
 	pl.unlock = unlock
 	if !owner {

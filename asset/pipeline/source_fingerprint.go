@@ -11,6 +11,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"aego/core/ids"
 )
 
 // MaxSourceFingerprintBytes bounds a single optional streaming fingerprint.
@@ -48,6 +50,71 @@ func (p *Pipeline) FingerprintSource(ctx context.Context, rel string, limit int6
 	}
 	defer root.Close()
 	return p.fingerprintSource(ctx, root, rel, limit, nil)
+}
+
+// VerifyGuardedPreviewSource rechecks one private preview's indexed source,
+// metadata and original project root after background preparation. It does not
+// publish or modify anything. The caller must still check its document and
+// playback generations; external file checks are best-effort, not atomic CAS.
+func (p *Pipeline) VerifyGuardedPreviewSource(ctx context.Context, id ids.AssetID, rel string, expected SourceFingerprint) error {
+	if p == nil || ctx == nil || id.IsZero() || !expected.Exists || expected.Size < 0 || expected.Size > MaxSourceFingerprintBytes {
+		return errors.New("guarded preview needs a bounded indexed source fingerprint")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.unlock == nil {
+		return errors.New("guarded preview pipeline is closed")
+	}
+	r := p.byID[id]
+	if r == nil || r.path != rel || p.byPath[rel] != r {
+		return errors.New("guarded preview source identity changed")
+	}
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(p.root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	opened, err := root.Stat(".")
+	if err != nil {
+		return err
+	}
+	checkRoot := func() error {
+		current, err := os.Stat(p.root)
+		if err != nil || p.rootInfo == nil || !opened.IsDir() || !current.IsDir() ||
+			!os.SameFile(p.rootInfo, opened) || !os.SameFile(opened, current) {
+			return errors.New("guarded preview project root changed")
+		}
+		return nil
+	}
+	if err := checkRoot(); err != nil {
+		return err
+	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
+	got, err := p.fingerprintSource(ctx, root, rel, expected.Size, nil)
+	if err != nil {
+		return err
+	}
+	if got != expected {
+		return errors.New("guarded preview source changed")
+	}
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
+	if err := p.checkMetadataSnapshot(r); err != nil {
+		return err
+	}
+	if err := checkRoot(); err != nil {
+		return err
+	}
+	return ctx.Err()
 }
 
 // The test checkpoint runs only after the stream has been read, allowing tests

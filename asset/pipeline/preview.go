@@ -14,23 +14,35 @@ import (
 
 // Preview imports in-memory source with the registered importer without changing files, index or cached artifacts; overlay supplies unsaved includes, falling back to the VFS on false.
 func (p *Pipeline) Preview(rel string, source []byte, overlay func(string) ([]byte, bool)) (*Result, error) {
-	return p.preview(context.Background(), rel, source, nil, overlay)
+	return p.preview(context.Background(), rel, source, nil, overlay, false)
 }
 
 // PreviewWithMetadata imports one private authoring candidate; metadata and source
 // are immutable snapshots and never enter the global index or GPU loader.
 func (p *Pipeline) PreviewWithMetadata(rel string, source, metadata []byte, overlay func(string) ([]byte, bool)) (*Result, error) {
-	return p.preview(context.Background(), rel, source, metadata, overlay)
+	return p.preview(context.Background(), rel, source, metadata, overlay, false)
 }
 
 // PreviewWithMetadataContext permits cancellation of a guarded private
 // preview. Cancellation is cooperative and cannot interrupt a mutex wait,
 // parser, importer, or decoder call already in progress.
 func (p *Pipeline) PreviewWithMetadataContext(ctx context.Context, rel string, source, metadata []byte, overlay func(string) ([]byte, bool)) (*Result, error) {
-	return p.preview(ctx, rel, source, metadata, overlay)
+	return p.preview(ctx, rel, source, metadata, overlay, false)
 }
 
-func (p *Pipeline) preview(request context.Context, rel string, source, metadata []byte, overlay func(string) ([]byte, bool)) (*Result, error) {
+// PreviewGuardedWithMetadataContext requires the registered importer to render
+// a private metadata snapshot against the exact current indexed disk source.
+// Unlike the ordinary preview, this also guards legacy metadata candidates;
+// it cannot publish files or artifacts, and the caller must check owner and
+// generation before using the result. Checks are best-effort, not CAS.
+func (p *Pipeline) PreviewGuardedWithMetadataContext(ctx context.Context, rel string, source, metadata []byte) (*Result, error) {
+	if metadata == nil {
+		return nil, errs.New(errs.AssetBadMeta, "guarded preview needs a metadata snapshot")
+	}
+	return p.preview(ctx, rel, source, metadata, nil, true)
+}
+
+func (p *Pipeline) preview(request context.Context, rel string, source, metadata []byte, overlay func(string) ([]byte, bool), requireGuard bool) (*Result, error) {
 	if request == nil {
 		return nil, fmt.Errorf("preview needs a context")
 	}
@@ -86,9 +98,11 @@ func (p *Pipeline) preview(request context.Context, rel string, source, metadata
 			if err := request.Err(); err != nil {
 				return nil, err
 			}
-			if guarded {
+			if guarded || requireGuard {
 				return p.previewGuardedMetadata(request, previewer, ctx, cached, metadata)
 			}
+		} else if requireGuard {
+			return nil, errs.New(errs.AssetBadImporter, "importer does not support guarded metadata preview", log.F("path", rel))
 		}
 		m, err := ParseMeta(metadata, rel+MetaSuffix)
 		if err != nil {
@@ -150,6 +164,9 @@ func (p *Pipeline) previewGuardedMetadata(request context.Context, previewer Gua
 	openedRoot, err := root.Stat(".")
 	if err != nil {
 		return nil, fmt.Errorf("cannot identify guarded preview project root: %w", err)
+	}
+	if p.rootInfo == nil || !os.SameFile(p.rootInfo, openedRoot) {
+		return nil, fmt.Errorf("project root changed since the pipeline was opened: %s", p.root)
 	}
 	checkRoot := func() error {
 		current, err := os.Stat(p.root)

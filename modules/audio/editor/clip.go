@@ -12,6 +12,7 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
+	"aego/editor/core/document"
 	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/modules/audio"
@@ -110,6 +111,7 @@ type ClipView struct {
 	Position   float32
 	Playing    bool
 	Paused     bool
+	Preparing  bool
 }
 
 func DrawClip(ed *context.Editor, v ClipView) {
@@ -664,6 +666,9 @@ func equalClipSetting(a aetext.Value, aOK bool, b aetext.Value, bOK bool) bool {
 
 func previewPlayLabel(v ClipView) string {
 	play := i18n.Tr("i18n.audio.play", "Play")
+	if v.Preparing {
+		return i18n.Tr("editor.audio.preview_cancel", "Cancel")
+	}
 	if v.Playing {
 		play = i18n.Tr("i18n.audio.pause", "Pause")
 		if v.Paused {
@@ -675,6 +680,9 @@ func previewPlayLabel(v ClipView) string {
 
 func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	ui := ed.UI
+	owner := p.audioPreviewOwner()
+	owner.pollWorkingAudio(mod)
+	v.Preparing = owner.workingAudioPending(v.ID)
 	play := previewPlayLabel(v)
 	stop := i18n.Tr("i18n.audio.stop", "Stop")
 	loop := i18n.Tr("i18n.audio.loop", "Loop")
@@ -682,7 +690,8 @@ func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	// controls. Narrow panels wrap buttons rather than overlapping translations.
 	playWidth := max(ui.TextSize(i18n.Tr("i18n.audio.play", "Play")).X,
 		ui.TextSize(i18n.Tr("i18n.audio.pause", "Pause")).X,
-		ui.TextSize(i18n.Tr("i18n.audio.resume", "Resume")).X)
+		ui.TextSize(i18n.Tr("i18n.audio.resume", "Resume")).X,
+		ui.TextSize(i18n.Tr("editor.audio.preview_cancel", "Cancel")).X)
 	row := ui.Cursor().Next(0)
 	x := row.X
 	at := func(textWidth float32) mathx.Rect {
@@ -707,32 +716,49 @@ func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	clickedPlay := widgets.ButtonRect(ui, playID, playRect, fit(play, playRect))
 	widgets.Tooltip(ui, playID, play)
 	if clickedPlay && mod != nil {
-		if v.Playing {
+		if v.Preparing {
+			owner.cancelWorkingAudio()
+		} else if v.Playing {
+			owner.cancelWorkingAudio()
 			p.notify(mod.SetPreviewPaused(!v.Paused))
 		} else {
-			owner := p
-			if p.auditionOwner != nil {
-				owner = p.auditionOwner
+			var d *document.AssetDocument
+			if ed.Docs != nil {
+				d = ed.Docs.AssetDocument(v.ID)
 			}
-			err := mod.Preview(ed.Loader, v.ID, p.clip.loop)
-			if err == nil || mod.PreviewClip().IsZero() {
-				owner.aud = audition{}
+			if d != nil && d.Metadata != nil && d.Metadata.Dirty() {
+				p.notify(owner.prepareWorkingAudio(ed, mod, d, p.clip.loop))
+			} else {
+				owner.cancelWorkingAudio()
+				err := mod.Preview(ed.Loader, v.ID, p.clip.loop)
+				if err == nil || mod.PreviewClip().IsZero() {
+					owner.aud = audition{}
+				}
+				p.notify(err)
 			}
-			p.notify(err)
 		}
 	}
 	stopRect := at(ui.TextSize(stop).X)
 	stopID := ui.ID("stop")
 	clickedStop := widgets.ButtonRect(ui, stopID, stopRect, fit(stop, stopRect))
 	widgets.Tooltip(ui, stopID, stop)
-	if clickedStop && mod != nil {
-		p.notify(mod.StopPreview())
+	if clickedStop {
+		owner.cancelWorkingAudio()
+		if mod != nil {
+			p.notify(mod.StopPreview())
+		}
 	}
 	loopRect := at(ui.TextSize(loop).X)
 	loopID := ui.ID("looping")
-	widgets.ToggleButton(ui, loopID, loopRect, fit(loop, loopRect), &p.clip.loop)
+	if widgets.ToggleButton(ui, loopID, loopRect, fit(loop, loopRect), &p.clip.loop) && v.Preparing {
+		owner.cancelWorkingAudio()
+	}
 	widgets.Tooltip(ui, loopID, loop)
-	widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.position_s_of_seconds_s", "{position} s of {seconds} s", i18n.Str("position", seconds(v.Position)), i18n.Str("seconds", seconds(v.Seconds))), true)
+	if v.Preparing {
+		widgets.LabelWrapped(ui, i18n.Tr("editor.audio.preview_preparing", "Preparing preview..."), true)
+	} else {
+		widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.position_s_of_seconds_s", "{position} s of {seconds} s", i18n.Str("position", seconds(v.Position)), i18n.Str("seconds", seconds(v.Seconds))), true)
+	}
 }
 
 func (p *plugin) importFields(ed *context.Editor, s pipeline.Settings) {

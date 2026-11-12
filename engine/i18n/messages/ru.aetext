@@ -35,6 +35,10 @@ messages version=1 lang=ru {
   msg "editor.shell.recovery_copy_failed" { text="Не удалось сохранить копии восстановления: {error}. Не закрывайте редактор и попробуйте другое место." }
   msg "editor.shell.recovery_copy_saved" { text="Аварийные копии восстановления ({count}) сохранены в {path}. Это не сохранённые ресурсы проекта; автоматического восстановления не будет." }
   msg "editor.audio.setting_changed" { text="Этот параметр звука изменился в другой панели. Проверьте его перед повторным редактированием." }
+  msg "editor.audio.preview_cancel" { text="Отмена" }
+  msg "editor.audio.preview_preparing" { text="Подготовка прослушивания..." }
+  msg "editor.audio.preview_save_required" { text="Сохраните настройки импорта звука перед прослушиванием." }
+  msg "editor.audio.preview_stale" { text="Звук или прослушивание изменились во время подготовки. Нажмите Play ещё раз, чтобы услышать текущую версию." }
   msg "editor.shell.contact_telegram" {
     text="Телеграм: @sanspie"
   }

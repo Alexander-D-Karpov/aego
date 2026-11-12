@@ -35,6 +35,10 @@ messages version=1 lang=en {
   msg "editor.shell.recovery_copy_failed" { text="Could not save recovery copies: {error}. Keep the editor open and try another location." }
   msg "editor.shell.recovery_copy_saved" { text="Saved {count} emergency recovery copies in {path}. These are not saved project assets and will not restore automatically." }
   msg "editor.audio.setting_changed" { text="This audio setting changed in another view. Review it before editing again." }
+  msg "editor.audio.preview_cancel" { text="Cancel" }
+  msg "editor.audio.preview_preparing" { text="Preparing preview..." }
+  msg "editor.audio.preview_save_required" { text="Save this audio's import settings before previewing it." }
+  msg "editor.audio.preview_stale" { text="The audio or preview changed while preparing. Play again to use the current version." }
   msg "cli.bootstrap.not_native" {
     text="project has native=false, nothing to bootstrap"
   }

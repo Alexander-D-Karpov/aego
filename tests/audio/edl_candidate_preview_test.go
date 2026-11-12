@@ -2,6 +2,7 @@ package audio
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"math"
@@ -251,6 +252,92 @@ func TestEditedMetadataPreviewProducesRealPlaybackWithoutPublishing(t *testing.T
 				}
 				if err := f.pipe.VerifyCurrent(id); err != nil {
 					t.Fatal("private preview invalidated the saved artifact", err)
+				}
+			})
+		}
+	}
+}
+
+func TestGuardedAudioPreviewUsesWorkingLegacySettingsWithoutPublishing(t *testing.T) {
+	for _, ext := range []string{".wav", ".ogg"} {
+		for _, streamed := range []bool{false, true} {
+			name := ext + "/memory"
+			if streamed {
+				name = ext + "/stream"
+			}
+			t.Run(name, func(t *testing.T) {
+				f := newEditedPreviewFixture(t, ext, streamed)
+				id, ok := f.pipe.Lookup(f.path)
+				if !ok {
+					t.Fatal("source was not indexed")
+				}
+				old, ok := f.pipe.PrimaryArtifact(id)
+				if !ok {
+					t.Fatal("original artifact is missing")
+				}
+				oldBytes, err := f.pipe.Artifacts().ReadFile(old.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				meta, err := asset.ParseSourceMeta(f.meta, f.path+asset.MetaSuffix)
+				if err != nil {
+					t.Fatal(err)
+				}
+				meta.Settings["gain"] = aetext.Float64(1.5)
+				meta.Settings["bus"] = aetext.Ident("voice")
+				meta.Settings["loopStart"] = aetext.Int(10)
+				meta.Settings["loopEnd"] = aetext.Int(100)
+				candidate := asset.MarshalSourceMeta(meta)
+				result, err := f.pipe.PreviewGuardedWithMetadataContext(context.Background(), f.path, f.source, candidate)
+				if err != nil || result == nil || len(result.Artifacts) != 1 {
+					t.Fatalf("guarded legacy preview: %+v %v", result, err)
+				}
+				art, err := asset.DecodeAudio(result.Artifacts[0].Data)
+				if err != nil || art.Gain != 1.5 || art.Bus != "voice" || art.LoopStart != 10 || art.LoopEnd != 100 ||
+					art.Stream != streamed || !bytes.Equal(art.Data, f.source) {
+					t.Fatalf("preview lost working settings or source: %+v %v", art, err)
+				}
+				r := newRig(t)
+				resolver := &previewPauseResolver{id: id, raw: oldBytes}
+				original, err := r.mod.Clip(resolver, id)
+				if err != nil || original == nil {
+					t.Fatal("could not cache saved clip", err)
+				}
+				if err := r.mod.PreviewArtifact(id, result.Artifacts[0].Data, true); err != nil {
+					t.Fatal("runtime rejected guarded working settings", err)
+				}
+				if cached, err := r.mod.Clip(resolver, id); err != nil || cached != original {
+					t.Fatal("working preview changed the saved clip cache", err)
+				}
+				started := false
+				for range 100 {
+					r.frames(1)
+					if position, live := r.mod.PreviewPosition(); live && position > 0 {
+						started = true
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if !started {
+					t.Fatal("runtime did not start working-settings preview")
+				}
+				if err := r.mod.StopPreview(); err != nil {
+					t.Fatal(err)
+				}
+				changed := bytes.Clone(f.source)
+				changed[len(changed)-1] ^= 1
+				if result, err := f.pipe.PreviewGuardedWithMetadataContext(context.Background(), f.path, changed, candidate); result != nil || err == nil {
+					t.Fatal("guarded legacy preview accepted changed source bytes")
+				}
+				if got, err := f.pipe.Artifacts().ReadFile(old.Path); err != nil || !bytes.Equal(got, oldBytes) {
+					t.Fatal("guarded preview changed the saved artifact", err)
+				}
+				file := filepath.Join(f.project.Root, filepath.FromSlash(f.path))
+				if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, f.source) {
+					t.Fatal("guarded preview changed the source", err)
+				}
+				if got, err := os.ReadFile(file + asset.MetaSuffix); err != nil || !bytes.Equal(got, f.meta) {
+					t.Fatal("guarded preview wrote working metadata", err)
 				}
 			})
 		}
