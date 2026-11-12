@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"aego/asset"
 	audioimport "aego/asset/importers/audio"
 	"aego/asset/pipeline"
 	"aego/audio/codec/wav"
+	"aego/editor/core/audioedit"
 	"aego/editor/core/tasks"
 	"aego/project"
 )
@@ -91,6 +94,17 @@ func TestStereoPeaksFollowImportedGenerationAndPreserveSource(t *testing.T) {
 			t.Fatalf("channels mixed at column %d: %v", col, data[col*2:col*2+2])
 		}
 	}
+	window, done := s.StereoPeaksWindow(id, 512, 1536, 32)
+	if !done || len(window) != 64 || window[0] != .125 || window[1] != .5 {
+		t.Fatal("waveform viewport did not use the imported stereo pyramid")
+	}
+	again, done := s.StereoPeaksWindow(id, 512, 1536, 32)
+	if !done || len(again) == 0 || &again[0] != &window[0] || len(workers) != 2 {
+		t.Fatal("unchanged viewport decoded or allocated again")
+	}
+	if data, done := s.StereoPeaksWindow(id, 0, 4097, 32); !done || data != nil {
+		t.Fatal("accepted a viewport beyond the source")
+	}
 	actual, err := os.ReadFile(source)
 	if err != nil || !bytes.Equal(actual, latest) {
 		t.Fatal("waveform analysis changed its source", err)
@@ -147,14 +161,82 @@ func (unexpectedPeakReader) ReadFrames(context.Context, int64, int) ([]float32, 
 }
 
 func TestStereoPeaksRejectInvalidOrExcessiveRequests(t *testing.T) {
+	for _, frames := range []int64{0, int64(stereoPeakBuckets)*65536 + 1} {
+		if _, err := buildStereoPyramid(unexpectedPeakReader{}, frames); err == nil {
+			t.Fatalf("accepted %d frames", frames)
+		}
+	}
+	for _, cols := range []int{0, 4097} {
+		if _, err := stereoPeakColumns(audioedit.Pyramid{Channels: 2}, 0, 100, cols); err == nil {
+			t.Fatalf("accepted %d columns", cols)
+		}
+	}
+}
+
+func TestStereoPeakColumnsFollowTheRequestedFrameRange(t *testing.T) {
+	samples := []audioedit.Peak{
+		{Min: -.1, Max: .1, Frames: 512}, {Min: -.2, Max: .2, Frames: 512},
+		{Min: -.3, Max: .3, Frames: 512}, {Min: -.4, Max: .4, Frames: 512},
+		{Min: -.5, Max: .5, Frames: 512}, {Min: -.6, Max: .6, Frames: 512},
+		{Min: -.7, Max: .7, Frames: 512}, {Min: -.8, Max: .8, Frames: 512},
+	}
+	pyramid := audioedit.Pyramid{Channels: 2, TotalFrames: 2048, Levels: []audioedit.Level{{FramesPerBucket: 512, Samples: samples}}}
 	for _, tc := range []struct {
-		frames int64
-		cols   int
+		start, end int64
+		want       []float32
+	}{{0, 1024, []float32{.1, .2, .3, .4}}, {1024, 2048, []float32{.5, .6, .7, .8}}} {
+		got, err := stereoPeakColumns(pyramid, tc.start, tc.end, 2)
+		if err != nil || !slices.Equal(got, tc.want) {
+			t.Fatalf("viewport %d..%d: %v, %v", tc.start, tc.end, got, err)
+		}
+	}
+}
+
+func TestStereoPeakColumnsRespectUnalignedBucketEdges(t *testing.T) {
+	pyramid := audioedit.Pyramid{Channels: 2, TotalFrames: 1024, Levels: []audioedit.Level{{
+		FramesPerBucket: 512,
+		Samples: []audioedit.Peak{
+			{Min: -.9, Max: .9, Frames: 512}, {Min: -.8, Max: .8, Frames: 512},
+			{Min: -.1, Max: .1, Frames: 512}, {Min: -.2, Max: .2, Frames: 512},
+		},
+	}}}
+	// Only the first 12 of the 512 visible frames belong to the first bucket.
+	// Scaling the two whole buckets uniformly would incorrectly show that
+	// transient across half of the viewport instead of just its left edge.
+	got, err := stereoPeakColumns(pyramid, 500, 1012, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 128 {
+		want := []float32{.1, .2}
+		if i < 3 {
+			want = []float32{.9, .8}
+		}
+		if !slices.Equal(got[2*i:2*i+2], want) {
+			t.Fatalf("column %d: got %v, want %v", i, got[2*i:2*i+2], want)
+		}
+	}
+}
+
+func TestStereoPeakColumnsHandleShortAndVeryLargeRanges(t *testing.T) {
+	peak := []audioedit.Peak{{Min: -.5, Max: .5, Frames: 1}, {Min: -.25, Max: .25, Frames: 1}}
+	for _, tc := range []struct {
+		total, bucket, start, end int64
+		cols                      int
 	}{
-		{0, 32}, {100, 0}, {100, 4097}, {int64(stereoPeakBuckets)*65536 + 1, 32},
+		{1, 512, 0, 1, 256},
+		{math.MaxInt64, math.MaxInt64, math.MaxInt64 - 4096, math.MaxInt64, 127},
 	} {
-		if _, err := buildStereoPeaks(unexpectedPeakReader{}, tc.frames, tc.cols); err == nil {
-			t.Fatalf("accepted %+v", tc)
+		pyramid := audioedit.Pyramid{Channels: 2, TotalFrames: tc.total,
+			Levels: []audioedit.Level{{FramesPerBucket: tc.bucket, Samples: peak}}}
+		got, err := stereoPeakColumns(pyramid, tc.start, tc.end, tc.cols)
+		if err != nil || len(got) != tc.cols*2 {
+			t.Fatalf("range %d..%d: len=%d, error=%v", tc.start, tc.end, len(got), err)
+		}
+		for i := range tc.cols {
+			if got[2*i] != .5 || got[2*i+1] != .25 {
+				t.Fatalf("range %d..%d, column %d: %v", tc.start, tc.end, i, got[2*i:2*i+2])
+			}
 		}
 	}
 }

@@ -26,10 +26,14 @@ const (
 )
 
 type stereoPeakItem struct {
-	key  string
-	data []float32 // interleaved left/right peak amplitudes, one pair per column
-	done bool
-	task *tasks.Task
+	key       string
+	data      []float32 // interleaved left/right peak amplitudes, one pair per column
+	pyramid   audioedit.Pyramid
+	view      []float32
+	viewStart int64
+	viewEnd   int64
+	done      bool
+	task      *tasks.Task
 }
 
 // StereoPeaks builds the imported stereo artifact's waveform on the existing
@@ -66,6 +70,7 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 	s.stereoPeaks[pk] = it
 	files := s.d.Pipeline.Artifacts()
 	var out []float32
+	var pyramid audioedit.Pyramid
 	spec := tasks.Spec{Title: i18n.Tr("editor.preview.waveform_name", "Waveform {name}", i18n.Str("name", filepath.Base(e.Name))), Kind: "preview", Priority: s.frame}
 	it.task = s.d.Tasks.Work(spec, func(t *tasks.Task) error {
 		f, err := files.Open(art.Path)
@@ -93,7 +98,10 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 		if err != nil {
 			return err
 		}
-		out, err = buildStereoPeaks(taskPeakReader{reader: reader, task: t}, info.Frames, cols)
+		pyramid, err = buildStereoPyramid(taskPeakReader{reader: reader, task: t}, info.Frames)
+		if err == nil {
+			out, err = stereoPeakColumns(pyramid, 0, info.Frames, cols)
+		}
 		return err
 	}).Then(func(t *tasks.Task) {
 		if s.stereoPeaks[pk] != it {
@@ -111,10 +119,41 @@ func (s *Service) StereoPeaks(id ids.AssetID, cols int) ([]float32, bool) {
 			return
 		}
 		if t.State() == tasks.Done {
-			it.data = out
+			it.data, it.pyramid = out, pyramid
 		}
 	})
 	return nil, false
+}
+
+// StereoPeaksWindow returns a read-only view of the same imported artifact's
+// bounded pyramid. The initial request schedules the same background work as
+// StereoPeaks; changing a viewport never decodes or writes the source again.
+// Edge buckets can include samples outside the exact range; these amplitudes
+// are a display approximation, not a sample-accurate editing selection.
+func (s *Service) StereoPeaksWindow(id ids.AssetID, start, end int64, cols int) ([]float32, bool) {
+	if start < 0 || end <= start {
+		return nil, true
+	}
+	full, done := s.StereoPeaks(id, cols)
+	if !done {
+		return nil, false
+	}
+	it := s.stereoPeaks[peakKey{id, cols}]
+	if it == nil || len(it.pyramid.Levels) == 0 || end > it.pyramid.TotalFrames {
+		return nil, true
+	}
+	if start == 0 && end == it.pyramid.TotalFrames {
+		return full, true
+	}
+	if it.view != nil && it.viewStart == start && it.viewEnd == end {
+		return it.view, true
+	}
+	data, err := stereoPeakColumns(it.pyramid, start, end, cols)
+	if err != nil {
+		return nil, true
+	}
+	it.viewStart, it.viewEnd, it.view = start, end, data
+	return it.view, true
 }
 
 func readStereoArtifact(f interface {
@@ -156,33 +195,49 @@ func (r taskPeakReader) ReadFrames(ctx context.Context, start int64, frames int)
 	return data, err
 }
 
-func buildStereoPeaks(reader audioedit.Reader, frames int64, cols int) ([]float32, error) {
-	if reader == nil || frames <= 0 || cols <= 0 || cols > 4096 {
-		return nil, errors.New("invalid stereo waveform request")
+func buildStereoPyramid(reader audioedit.Reader, frames int64) (audioedit.Pyramid, error) {
+	if reader == nil || frames <= 0 {
+		return audioedit.Pyramid{}, errors.New("invalid stereo waveform request")
 	}
 	base := 512
 	for (frames-1)/int64(base)+1 > stereoPeakBuckets && base < 65536 {
 		base *= 2
 	}
 	if (frames-1)/int64(base)+1 > stereoPeakBuckets {
-		return nil, errors.New("stereo waveform is too long")
+		return audioedit.Pyramid{}, errors.New("stereo waveform is too long")
 	}
-	pyramid, err := audioedit.BuildPyramid(context.Background(), reader, frames, 2, base)
+	return audioedit.BuildPyramid(context.Background(), reader, frames, 2, base)
+}
+
+func stereoPeakColumns(pyramid audioedit.Pyramid, start, end int64, cols int) ([]float32, error) {
+	if cols <= 0 || cols > 4096 || pyramid.Channels != 2 {
+		return nil, errors.New("invalid stereo waveform viewport")
+	}
+	level, _, _, err := pyramid.Visible(start, end, cols)
 	if err != nil {
 		return nil, err
 	}
-	level, first, last, err := pyramid.Visible(0, frames, cols)
-	if err != nil {
-		return nil, err
-	}
-	n := last - first
 	out := make([]float32, cols*2)
+	span := end - start
+	width := int64(cols)
+	whole, remainder := span/width, span%width
+	// Calculate pixel boundaries without multiplying the entire frame span by
+	// the column number. That also preserves a partial first/last bucket in
+	// its actual position, rather than stretching both buckets equally.
+	offset := func(col int64) int64 {
+		return whole*col + remainder*col/width
+	}
 	for col := range cols {
-		lo := int(int64(col) * int64(n) / int64(cols))
-		hi := max(lo+1, int(int64(col+1)*int64(n)/int64(cols)))
-		for i := lo; i < hi && i < n; i++ {
+		left := start + offset(int64(col))
+		right := start + offset(int64(col+1))
+		if right == left {
+			right++ // More columns than frames: repeat the visible frame.
+		}
+		lo := int(left / level.FramesPerBucket)
+		hi := int((right-1)/level.FramesPerBucket) + 1
+		for i := lo; i < hi; i++ {
 			for ch := range 2 {
-				p := level.Samples[(first+i)*2+ch]
+				p := level.Samples[i*2+ch]
 				v := float32(math.Max(math.Abs(float64(p.Min)), math.Abs(float64(p.Max))))
 				out[col*2+ch] = max(out[col*2+ch], v)
 			}

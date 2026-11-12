@@ -18,14 +18,18 @@ import (
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/format/aetext"
+	"aego/platform/input"
 	"aego/project"
+	"aego/render/text"
 	"aego/render/texture"
+	"aego/ui/core"
 )
 
 type testAudioPeaks struct {
 	stereo           []float32
 	stereoDone       bool
 	monoCalls, calls int
+	start, end       int64
 }
 
 func (*testAudioPeaks) ByID(ids.AssetID) (texture.Region, bool) { return texture.Region{}, false }
@@ -35,6 +39,11 @@ func (p *testAudioPeaks) Peaks(ids.AssetID, int) ([]float32, bool) {
 }
 func (p *testAudioPeaks) StereoPeaks(ids.AssetID, int) ([]float32, bool) {
 	p.calls++
+	return p.stereo, p.stereoDone
+}
+func (p *testAudioPeaks) StereoPeaksWindow(_ ids.AssetID, start, end int64, _ int) ([]float32, bool) {
+	p.calls++
+	p.start, p.end = start, end
 	return p.stereo, p.stereoDone
 }
 
@@ -57,7 +66,7 @@ func TestClipPeaksSelectsStereoOnlyForTheDocument(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			peaks := &testAudioPeaks{stereo: tc.stereo, stereoDone: tc.stereoDone}
 			ed := &context.Editor{Thumbs: peaks}
-			v := ClipView{ID: ids.NewAssetID(), Channels: tc.channels}
+			v := ClipView{ID: ids.NewAssetID(), Channels: tc.channels, Frames: 48000}
 			(&plugin{}).clipPeaks(ed, &v, tc.document)
 			if (peaks.calls > 0) != tc.wantStereo || (peaks.monoCalls > 0) != tc.wantMono || v.PeaksDone != tc.wantDone {
 				t.Fatalf("wrong waveform route: stereo=%d mono=%d done=%v", peaks.calls, peaks.monoCalls, v.PeaksDone)
@@ -65,7 +74,150 @@ func TestClipPeaksSelectsStereoOnlyForTheDocument(t *testing.T) {
 			if len(tc.stereo) > 0 && tc.wantStereo && !slices.Equal(v.StereoPeaks, tc.stereo) {
 				t.Fatal("stereo amplitudes were not forwarded")
 			}
+			if tc.document && tc.channels == 2 && len(tc.stereo) > 0 && (!v.WaveNav || peaks.start != 0 || peaks.end != v.Frames) {
+				t.Fatal("stereo document did not request its full viewport")
+			}
 		})
+	}
+}
+
+func TestAudioWaveNavigationClampsAndReachesLateAudio(t *testing.T) {
+	const total int64 = 5313600
+	start, end := int64(0), total
+	for range 5 {
+		start, end = adjustAudioWave(start, end, total, waveZoomIn)
+	}
+	if end-start >= total || end-start < 512 {
+		t.Fatalf("invalid zoom span %d..%d", start, end)
+	}
+	reached100 := false
+	for range 100 {
+		start, end = adjustAudioWave(start, end, total, wavePanRight)
+		reached100 = reached100 || start <= 100*48000 && end >= 100*48000
+	}
+	if end != total || !reached100 {
+		t.Fatalf("could not reach 100 seconds: %d..%d", start, end)
+	}
+	for range 100 {
+		start, end = adjustAudioWave(start, end, total, wavePanLeft)
+	}
+	if start != 0 {
+		t.Fatalf("left pan escaped its bound: %d", start)
+	}
+	for range 100 {
+		start, end = adjustAudioWave(start, end, total, waveZoomOut)
+	}
+	if start != 0 || end != total {
+		t.Fatalf("zoom out did not restore full range: %d..%d", start, end)
+	}
+	start, end = adjustAudioWave(0, math.MaxInt64, math.MaxInt64, waveZoomOut)
+	if start != 0 || end != math.MaxInt64 {
+		t.Fatal("large frame count overflowed")
+	}
+}
+
+func TestAudioWaveZoomButtonUpdatesOnlyViewState(t *testing.T) {
+	ui := core.New(nil)
+	font := text.NewFont(14, 1, 16, 12)
+	for r := rune(32); r < 127; r++ {
+		font.SetGlyph(r, text.FontGlyph{Advance: 8})
+	}
+	ui.SetFont(font)
+	state := &input.State{}
+	p := &plugin{}
+	ed := &context.Editor{UI: ui}
+	v := ClipView{Frames: 48000, Rate: 48000, WaveStart: 0, WaveEnd: 48000, WaveNav: true}
+	at := mathx.Vec2{X: ui.Theme.Padding + 2*(28+4) + 14, Y: ui.Theme.Padding + ui.Theme.RowHeight/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.waveNavigation(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at, input.MouseLeft)
+	draw()
+	if p.clip.waveStart != 12000 || p.clip.waveEnd != 36000 {
+		t.Fatalf("zoom button produced %d..%d", p.clip.waveStart, p.clip.waveEnd)
+	}
+	if ed.Docs != nil {
+		t.Fatal("navigation created or modified a document")
+	}
+}
+
+func TestZoomedWaveLoopDragUsesVisibleFrameRange(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	p := &plugin{clip: clipEdit{drag: -1}}
+	ed := &context.Editor{UI: ui}
+	const rate int64 = 48000
+	settings := pipeline.Settings{"loopStart": aetext.Int(100 * rate), "loopEnd": aetext.Int(102 * rate)}
+	v := ClipView{Frames: 5313600, Rate: int(rate), WaveStart: 99 * rate, WaveEnd: 103 * rate,
+		Settings: settings, StereoPeaks: []float32{.5, .25}, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + waveH/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.wave(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width / 10}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	want := int64(100*rate) + int64(float64(delta.X/width)*float64(v.WaveEnd-v.WaveStart))
+	if p.clip.drag != 0 || p.clip.start < want-2 || p.clip.start > want+2 || p.clip.end != 102*rate {
+		t.Fatalf("zoomed drag = %d..%d, want start %d", p.clip.start, p.clip.end, want)
+	}
+	if settings.Int("loopStart", -1) != int(100*rate) || ed.Docs != nil {
+		t.Fatal("an unfinished drag changed shared metadata")
+	}
+}
+
+func TestZoomedLoopDragCanReturnFromOutsideViewport(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	p := &plugin{clip: clipEdit{drag: -1}}
+	ed := &context.Editor{UI: ui}
+	const rate int64 = 48000
+	v := ClipView{Frames: 5313600, Rate: int(rate), WaveStart: 99 * rate, WaveEnd: 103 * rate,
+		Settings:    pipeline.Settings{"loopStart": aetext.Int(100 * rate), "loopEnd": aetext.Int(102 * rate)},
+		StereoPeaks: []float32{.5, .25}, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + waveH/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.wave(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	outside := mathx.Vec2{X: -width * 3 / 8}
+	state.ApplyMouseMove(at.Add(outside), outside)
+	draw()
+	if p.clip.start >= v.WaveStart {
+		t.Fatalf("loop handle did not move outside viewport: %d", p.clip.start)
+	}
+	state.BeginFrame()
+	back := mathx.Vec2{X: width / 4}
+	state.ApplyMouseMove(at.Add(outside).Add(back), back)
+	draw()
+	want := int64(99*rate) + rate/2
+	if p.clip.start < want-2 || p.clip.start > want+2 {
+		t.Fatalf("loop handle did not track cursor back into viewport: got %d, want %d", p.clip.start, want)
 	}
 }
 
@@ -94,6 +246,7 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 	}
 	imp := audioimport.New()
 	meta := asset.NewSourceMeta("audio", imp.Version(), imp.Defaults())
+	meta.Settings["loopStart"], meta.Settings["loopEnd"] = aetext.Int(5), aetext.Int(11)
 	meta.Settings["extension_note"] = aetext.String("keep")
 	encoded := asset.MarshalSourceMeta(meta)
 	if err := os.WriteFile(filepath.Join(pj.Root, path+".meta"), encoded, 0644); err != nil {
@@ -112,18 +265,64 @@ func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) 
 		t.Fatal(err)
 	}
 	batch, err := pl.ImportAll()
-	if err != nil || len(batch.Failed) != 0 {
-		t.Fatal("audio fixture import", err, batch.Failed)
+	if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+		t.Fatalf("audio fixture import: batch=%+v error=%v", batch, err)
 	}
 	ed := &context.Editor{Pipeline: pl, Docs: document.NewManager(document.Options{Root: pj.Root})}
 	if err := ed.Docs.Handlers().Register(document.Handler{ID: "audio.clip", Kinds: []asset.ArtifactKind{asset.ArtAudio}, Capabilities: document.View | document.EditMetadata}); err != nil {
 		t.Fatal(err)
 	}
-	p := &plugin{ed: ed, clip: clipEdit{id: meta.ID}}
+	p := &plugin{ed: ed, clip: clipEdit{id: meta.ID, drag: -1}}
+	// Drive the real handle out of a zoomed viewport and back, then release.
+	// This must create one shared metadata edit, not touch disk or source PCM.
+	ui := core.New(nil)
+	ed.UI = ui
+	state := &input.State{}
+	wave := ClipView{ID: meta.ID, Frames: 16, Rate: 8000, WaveStart: 4, WaveEnd: 12,
+		Settings: meta.Settings.Clone(), StereoPeaks: []float32{.5, .25}, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/8, Y: ui.Theme.Padding + waveH/2}
+	drawWave := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.wave(ed, wave)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	drawWave()
+	state.BeginFrame()
+	outside := mathx.Vec2{X: -width / 4}
+	state.ApplyMouseMove(at.Add(outside), outside)
+	drawWave()
+	state.BeginFrame()
+	back := mathx.Vec2{X: width * 3 / 8}
+	state.ApplyMouseMove(at.Add(outside).Add(back), back)
+	drawWave()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(outside).Add(back), input.MouseLeft)
+	drawWave()
+	state.BeginFrame()
+	drawWave() // Finish the released gesture on the next frame.
+	d := ed.Docs.AssetDocument(meta.ID)
+	if d == nil || d.Metadata == nil || !d.Dirty() {
+		t.Fatal("zoomed loop drag did not create a shared metadata edit")
+	}
+	dragged, err := asset.ParseSourceMeta(d.Metadata.Code.Bytes(), d.Metadata.Path)
+	if err != nil || dragged.Settings.Int("loopStart", -1) != 6 || dragged.Settings.Int("loopEnd", -1) != 11 {
+		t.Fatalf("zoomed loop drag produced unexpected metadata: %+v, %v", dragged, err)
+	}
+	if raw, err := os.ReadFile(ed.Docs.Abs(path + ".meta")); err != nil || !bytes.Equal(raw, encoded) {
+		t.Fatal("zoomed loop drag wrote metadata to disk", err)
+	}
+	if err := ed.UndoAsset(d); err != nil || d.Dirty() {
+		t.Fatal("zoomed loop drag did not undo as one shared step", err)
+	}
 	after := meta.Settings.Clone()
 	after["gain"] = aetext.Float32(2)
 	p.write(ed, meta.Settings, after)
-	d := ed.Docs.AssetDocument(meta.ID)
+	d = ed.Docs.AssetDocument(meta.ID)
 	if d == nil || d.Metadata == nil || d.Source != nil || !d.Dirty() || !d.Metadata.ExplicitSave {
 		t.Fatal("audio metadata has a private history or binary text source")
 	}

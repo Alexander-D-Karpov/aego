@@ -98,4 +98,19 @@ messages version=1 lang=en {
   msg "i18n.audio.undo" {
     text="Undo"
   }
+  msg "i18n.audio.wave_pan_left" {
+    text="Pan waveform left"
+  }
+  msg "i18n.audio.wave_pan_right" {
+    text="Pan waveform right"
+  }
+  msg "i18n.audio.wave_visible" {
+    text="Visible: {start} - {end} s"
+  }
+  msg "i18n.audio.wave_zoom_in" {
+    text="Zoom waveform in"
+  }
+  msg "i18n.audio.wave_zoom_out" {
+    text="Zoom waveform out"
+  }
 }

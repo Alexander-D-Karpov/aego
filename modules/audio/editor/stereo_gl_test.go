@@ -11,16 +11,20 @@ import (
 	"runtime"
 	"testing"
 
+	"aego/asset/pipeline"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/engine"
+	"aego/engine/i18n"
+	"aego/format/aetext"
 	"aego/gpu"
 	"aego/platform/input"
 	"aego/render"
 	"aego/render/view"
 	"aego/ui/core"
 	"aego/ui/theme"
+	"aego/ui/widgets"
 )
 
 // Synthetic UI rendered through the normal GPU path. This is not a physical
@@ -28,7 +32,7 @@ import (
 func TestStereoWaveRenderedPixels(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	const width, height = 360, 120
+	const width, height = 360, 240
 	e, err := engine.NewBuilder(engine.Config{Title: "audio-wave-test", Width: width, Height: height, Hidden: true,
 		ResRoot: t.TempDir(), UserRoot: t.TempDir(), AppID: "audio-wave-test"}).WithLogger(log.Nop()).Build()
 	if err != nil {
@@ -66,7 +70,7 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 			state := &input.State{}
 			p := &plugin{clip: clipEdit{drag: -1}}
 			ed := &context.Editor{UI: ui}
-			draw := func(left, right float32, mono bool) []byte {
+			draw := func(left, right float32, mono, zoom bool) []byte {
 				state.BeginFrame()
 				ui.Begin(state, mathx.Vec2{X: width / tc.scale, Y: height / tc.scale}, tc.scale)
 				ui.Region(mathx.Rect{W: tc.width, H: height / tc.scale})
@@ -83,10 +87,40 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 						v.StereoPeaks[i*2], v.StereoPeaks[i*2+1] = left, right
 					}
 				}
+				if zoom {
+					v.Frames, v.Rate = 5313600, 48000
+					v.WaveStart, v.WaveEnd, v.WaveNav = 99*48000, 103*48000, true
+					v.Playing, v.Position = true, 101
+					v.Settings = pipeline.Settings{"loopStart": aetext.Int(100 * 48000), "loopEnd": aetext.Int(102 * 48000)}
+					p.waveNavigation(ed, v)
+				}
 				p.wave(ed, v)
 				ui.PopClip()
 				ui.PopCursor()
 				list := ui.End()
+				if zoom {
+					label := i18n.Tr("i18n.audio.wave_visible", "Visible: {start} - {end} s",
+						i18n.Str("start", seconds(float32(v.WaveStart)/float32(v.Rate))),
+						i18n.Str("end", seconds(float32(v.WaveEnd)/float32(v.Rate))))
+					lines := widgets.WrapLines(ui, label, tc.width-2*ui.Theme.Padding)
+					for _, line := range lines {
+						items := list.TestDrawnItems(mathx.Rect{W: width / tc.scale, H: height / tc.scale}, ui.Font(), line, 0, 0)
+						found := false
+						for _, item := range items {
+							if item.Text != line {
+								continue
+							}
+							found = true
+							if item.Bounds.X < item.Clip.X || item.Bounds.X+item.Bounds.W > item.Clip.X+item.Clip.W+.01 ||
+								item.Bounds.Y < item.Clip.Y || item.Bounds.Y+item.Bounds.H > item.Clip.Y+item.Clip.H+.01 {
+								t.Fatalf("%s: waveform range label is clipped: %+v", tc.name, item)
+							}
+						}
+						if !found {
+							t.Fatalf("%s: waveform range line %q was not drawn", tc.name, line)
+						}
+					}
+				}
 				if err := r.BeginFrame(e.GPU().BeginFrame(width, height), width, height, tc.scale); err != nil {
 					t.Fatal(err)
 				}
@@ -106,14 +140,15 @@ func TestStereoWaveRenderedPixels(t *testing.T) {
 				}
 				return pixels
 			}
-			stereo := draw(.9, .1, false)
-			swapped := draw(.1, .9, false)
-			before := draw(.9, .1, true)
-			if bytes.Equal(stereo, swapped) || bytes.Equal(stereo, before) {
-				t.Fatalf("%s: channel swap or old mono view produced identical pixels", tc.name)
+			stereo := draw(.9, .1, false, false)
+			swapped := draw(.1, .9, false, false)
+			before := draw(.9, .1, true, false)
+			zoomed := draw(.9, .1, false, true)
+			if bytes.Equal(stereo, swapped) || bytes.Equal(stereo, before) || bytes.Equal(stereo, zoomed) {
+				t.Fatalf("%s: channel swap, mono, or zoom view produced identical pixels", tc.name)
 			}
 			if out := os.Getenv("AEGO_AUDIO_WAVE_SHOTS"); out != "" {
-				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before} {
+				for name, pixels := range map[string][]byte{tc.name + "-stereo.png": stereo, tc.name + "-mono.png": before, tc.name + "-zoom.png": zoomed} {
 					f, err := os.OpenFile(filepath.Join(out, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 					if err != nil {
 						t.Fatal(err)

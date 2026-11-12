@@ -43,6 +43,8 @@ type clipEdit struct {
 	gainOn       bool
 	gainSettings pipeline.Settings
 	loop         bool
+	waveStart    int64
+	waveEnd      int64
 }
 
 type peakSource interface {
@@ -51,6 +53,10 @@ type peakSource interface {
 
 type stereoPeakSource interface {
 	StereoPeaks(ids.AssetID, int) ([]float32, bool)
+}
+
+type stereoWindowPeakSource interface {
+	StereoPeaksWindow(ids.AssetID, int64, int64, int) ([]float32, bool)
 }
 
 func formatName(f uint8) string {
@@ -90,6 +96,9 @@ type ClipView struct {
 	Peaks     []float32
 	// StereoPeaks interleaves left and right amplitudes for each column.
 	StereoPeaks []float32
+	WaveStart   int64
+	WaveEnd     int64
+	WaveNav     bool
 	PeaksDone   bool
 	Settings    pipeline.Settings
 	Position    float32
@@ -167,7 +176,16 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 
 func (p *plugin) clipPeaks(ed *context.Editor, v *ClipView, documentView bool) {
 	if documentView && v.Channels == 2 {
-		if src, ok := ed.Thumbs.(stereoPeakSource); ok {
+		if src, ok := ed.Thumbs.(stereoWindowPeakSource); ok {
+			start, end := audioWaveBounds(p.clip.waveStart, p.clip.waveEnd, v.Frames)
+			v.StereoPeaks, v.PeaksDone = src.StereoPeaksWindow(v.ID, start, end, peakCols)
+			if len(v.StereoPeaks) > 0 {
+				v.WaveStart, v.WaveEnd, v.WaveNav = start, end, true
+			}
+			if v.PeaksDone && len(v.StereoPeaks) == 0 {
+				v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+			}
+		} else if src, ok := ed.Thumbs.(stereoPeakSource); ok {
 			v.StereoPeaks, v.PeaksDone = src.StereoPeaks(v.ID, peakCols)
 			if v.PeaksDone && len(v.StereoPeaks) == 0 {
 				v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
@@ -207,6 +225,9 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 	waveWidth, controlsWidth := clipDocumentWidths(width)
 	cur.W = waveWidth
 	widgets.Labelf(ui, "%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds))
+	if v.WaveNav {
+		p.waveNavigation(ed, v)
+	}
 	p.wave(ed, v)
 	cur.W = controlsWidth
 	p.transport(ed, mod, v)
@@ -225,12 +246,91 @@ func (p *plugin) peaks(ed *context.Editor, id ids.AssetID) ([]float32, bool) {
 	return nil, true
 }
 
+type audioWaveAction uint8
+
+const (
+	waveZoomIn audioWaveAction = iota
+	waveZoomOut
+	wavePanLeft
+	wavePanRight
+)
+
+func audioWaveBounds(start, end, total int64) (int64, int64) {
+	if total <= 0 {
+		return 0, 0
+	}
+	if start < 0 || end <= start || end > total {
+		return 0, total
+	}
+	return start, end
+}
+
+func adjustAudioWave(start, end, total int64, action audioWaveAction) (int64, int64) {
+	start, end = audioWaveBounds(start, end, total)
+	if total <= 0 {
+		return 0, 0
+	}
+	span := end - start
+	switch action {
+	case wavePanLeft:
+		start -= min(start, max(span/2, 1))
+		return start, start + span
+	case wavePanRight:
+		start += min(total-span-start, max(span/2, 1))
+		return start, start + span
+	case waveZoomIn, waveZoomOut:
+		size := span
+		if action == waveZoomIn {
+			size = min(span, max(span/2, min(total, 512)))
+		} else if span > total-span {
+			size = total
+		} else {
+			size = span * 2
+		}
+		center := start + span/2
+		start = max(center-size/2, 0)
+		start = min(start, total-size)
+		return start, start + size
+	default:
+		return start, end
+	}
+}
+
+func (p *plugin) waveNavigation(ed *context.Editor, v ClipView) {
+	ui := ed.UI
+	row := ui.Cursor().Next(0)
+	w := min(max((row.W-12)/4, 0), 28)
+	buttons := []struct {
+		label, tooltip string
+		action         audioWaveAction
+	}{
+		{"<", i18n.Tr("i18n.audio.wave_pan_left", "Pan waveform left"), wavePanLeft},
+		{"-", i18n.Tr("i18n.audio.wave_zoom_out", "Zoom waveform out"), waveZoomOut},
+		{"+", i18n.Tr("i18n.audio.wave_zoom_in", "Zoom waveform in"), waveZoomIn},
+		{">", i18n.Tr("i18n.audio.wave_pan_right", "Pan waveform right"), wavePanRight},
+	}
+	for i, button := range buttons {
+		id := core.IDSeq(ui.ID("wave-nav"), i)
+		r := mathx.Rect{X: row.X + float32(i)*(w+4), Y: row.Y, W: w, H: row.H}
+		if widgets.ButtonRect(ui, id, r, button.label) {
+			p.clip.waveStart, p.clip.waveEnd = adjustAudioWave(v.WaveStart, v.WaveEnd, v.Frames, button.action)
+		}
+		widgets.Tooltip(ui, id, button.tooltip)
+	}
+	if v.Rate > 0 {
+		widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.wave_visible", "Visible: {start} - {end} s",
+			i18n.Str("start", seconds(float32(v.WaveStart)/float32(v.Rate))),
+			i18n.Str("end", seconds(float32(v.WaveEnd)/float32(v.Rate)))), true)
+	}
+}
+
 func (p *plugin) wave(ed *context.Editor, v ClipView) {
 	ui := ed.UI
 	th := &ui.Theme
 	r := ui.Cursor().Next(waveH)
 	ui.Box(r, th.Radius.Button, th.Background, th.Border)
-	k := r.W / float32(max(v.Frames, 1))
+	start, end := audioWaveBounds(v.WaveStart, v.WaveEnd, v.Frames)
+	k := r.W / float32(max(end-start, 1))
 	hid := [2]core.ID{core.IDSeq(ui.ID("loop"), 0), core.IDSeq(ui.ID("loop"), 1)}
 	if p.clip.drag >= 0 && ui.Active() != hid[p.clip.drag] {
 		p.commitLoop(ed, v)
@@ -241,9 +341,12 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 	}
 	band := th.Accent
 	band.A = 0.16
-	xs := [2]float32{r.X + float32(ls)*k, r.X + float32(le)*k}
+	xs := [2]float32{r.X + float32(ls-start)*k, r.X + float32(le-start)*k}
 	if v.Frames > 0 {
-		ui.Rect(mathx.Rect{X: xs[0], Y: r.Y, W: xs[1] - xs[0], H: r.H}, band)
+		left, right := max(ls, start), min(le, end)
+		if right > left {
+			ui.Rect(mathx.Rect{X: r.X + float32(left-start)*k, Y: r.Y, W: float32(right-left) * k, H: r.H}, band)
+		}
 	}
 	mid := r.Y + r.H/2
 	if len(v.StereoPeaks) > 0 && len(v.StereoPeaks)%2 == 0 {
@@ -251,7 +354,7 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		for ch := range 2 {
 			for i := range cols {
 				if peak, ok := stereoWaveRect(r, cols, i, ch, v.StereoPeaks[i*2+ch]); ok {
-					ui.Rect(peak, th.AccentDim)
+					ui.Rect(peak, th.Accent)
 				}
 			}
 			label := "L"
@@ -259,7 +362,10 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 				label = "R"
 			}
 			if width := min(max(r.W-3, 0), 14); width > 0 {
-				ui.TextIn(mathx.Rect{X: r.X + 3, Y: r.Y + float32(ch)*r.H/2, W: width, H: r.H / 2}, label, th.Text, core.AlignLeft)
+				height := min(th.RowHeight, r.H/2)
+				box := mathx.Rect{X: r.X + 3, Y: r.Y + float32(ch)*r.H/2 + (r.H/2-height)/2, W: width, H: height}
+				ui.Rect(box, th.Background)
+				ui.TextIn(box, label, th.Text, core.AlignLeft)
 			}
 		}
 	} else if len(v.Peaks) > 0 {
@@ -279,6 +385,16 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		return
 	}
 	for i, hx := range xs {
+		frame := ls
+		if i == 1 {
+			frame = le
+		}
+		visible := frame >= start && frame <= end
+		// An already captured handle must continue receiving deltas and its
+		// release even after it is dragged beyond the visible range.
+		if !visible && ui.Active() != hid[i] {
+			continue
+		}
 		hr := mathx.Rect{X: hx - handleW/2, Y: r.Y, W: handleW, H: r.H}
 		if d, ok := ui.Drag(hid[i], hr); ok {
 			if p.clip.drag != i {
@@ -297,6 +413,9 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 				p.clip.end = min(max(x, p.clip.start+1), v.Frames)
 			}
 		}
+		if !visible {
+			continue
+		}
 		col := th.AccentDim
 		if ui.Active() == hid[i] || ui.Hot() == hid[i] {
 			col = th.Accent
@@ -304,9 +423,12 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		ui.Rect(mathx.Rect{X: hx - 1, Y: r.Y, W: 2, H: r.H}, col)
 		ui.Rect(mathx.Rect{X: hx - handleW/2, Y: r.Y, W: handleW, H: 6}, col)
 	}
-	if v.Playing && v.Seconds > 0 {
-		px := r.X + min(max(v.Position/v.Seconds, 0), 1)*r.W
-		ui.Rect(mathx.Rect{X: px, Y: r.Y, W: 1, H: r.H}, th.Text)
+	if v.Playing && v.Rate > 0 {
+		position := float64(v.Position) * float64(v.Rate)
+		if position >= float64(start) && position <= float64(end) {
+			px := r.X + float32(position-float64(start))*k
+			ui.Rect(mathx.Rect{X: px, Y: r.Y, W: 1, H: r.H}, th.Text)
+		}
 	}
 }
 

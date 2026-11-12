@@ -98,4 +98,19 @@ messages version=1 lang=ru {
   msg "i18n.audio.undo" {
     text="Отменить"
   }
+  msg "i18n.audio.wave_pan_left" {
+    text="Сдвинуть волну влево"
+  }
+  msg "i18n.audio.wave_pan_right" {
+    text="Сдвинуть волну вправо"
+  }
+  msg "i18n.audio.wave_visible" {
+    text="Видно: {start} - {end} с"
+  }
+  msg "i18n.audio.wave_zoom_in" {
+    text="Приблизить волну"
+  }
+  msg "i18n.audio.wave_zoom_out" {
+    text="Отдалить волну"
+  }
 }
