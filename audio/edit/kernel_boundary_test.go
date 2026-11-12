@@ -217,17 +217,18 @@ func (shortKernelReader) ReadFrames(context.Context, int64, int) ([]float32, err
 
 func TestKernelInvalidInputsFailWithoutPanics(t *testing.T) {
 	ctx := context.Background()
+	var absent context.Context // Exercise the APIs' explicit nil-context rejection.
 	d, _ := New(kernelSource(32, 1))
 	r := fakePCM{channels: 1, samples: make([]float32, 32)}
 	checks := []struct {
 		name string
 		call func() error
 	}{
-		{"nil peak context", func() error { _, e := BuildPyramid(nil, r, 32, 1, 32); return e }},
+		{"nil peak context", func() error { _, e := BuildPyramid(absent, r, 32, 1, 32); return e }},
 		{"nil peak reader", func() error { _, e := BuildPyramid(ctx, nil, 32, 1, 32); return e }},
 		{"short peak reader", func() error { _, e := BuildPyramid(ctx, shortKernelReader{}, 32, 1, 32); return e }},
 		{"negative peak frames", func() error { _, e := BuildPyramid(ctx, r, -1, 1, 32); return e }},
-		{"nil render context", func() error { _, e := RenderWindow(nil, r, d, Range{0, 2}, 2); return e }},
+		{"nil render context", func() error { _, e := RenderWindow(absent, r, d, Range{0, 2}, 2); return e }},
 		{"nil render reader", func() error { _, e := RenderWindow(ctx, nil, d, Range{0, 2}, 2); return e }},
 		{"short render reader", func() error { _, e := RenderWindow(ctx, shortKernelReader{}, d, Range{0, 2}, 2); return e }},
 		{"negative range", func() error { _, e := RenderWindow(ctx, r, d, Range{-1, 2}, 3); return e }},

@@ -410,7 +410,8 @@ func TestEditedDecoderRejectsInvalidInputAndPropagatesCancellation(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewEditedDecoder(nil, base, doc); err == nil {
+	var absent context.Context // Exercise the API's explicit nil-context rejection.
+	if _, err := NewEditedDecoder(absent, base, doc); err == nil {
 		t.Fatal("accepted a nil context")
 	}
 	if _, err := NewEditedDecoder(context.Background(), nil, doc); err == nil {

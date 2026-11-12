@@ -109,7 +109,8 @@ func TestReadFramesRejectsBadRangesAndDecoderResults(t *testing.T) {
 			t.Fatalf("accepted bad range %+v", tc)
 		}
 	}
-	if _, err := r.ReadFrames(nil, 0, 1); err == nil {
+	var absent context.Context // Exercise the API's explicit nil-context rejection.
+	if _, err := r.ReadFrames(absent, 0, 1); err == nil {
 		t.Fatal("accepted a nil context")
 	}
 	if _, err := r.ReadFrames(context.Background(), 0, 2); !errors.Is(err, io.ErrUnexpectedEOF) {

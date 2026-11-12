@@ -16,7 +16,8 @@ func TestFingerprintSourceBoundsAndDistinguishesMissingFromEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := newPipeline(root, nil, nil)
-	if _, err := p.FingerprintSource(nil, "assets/empty.wav", 0); err == nil {
+	var absent context.Context // Exercise the API's explicit nil-context rejection.
+	if _, err := p.FingerprintSource(absent, "assets/empty.wav", 0); err == nil {
 		t.Fatal("accepted a nil context")
 	}
 	var missingPipeline *Pipeline

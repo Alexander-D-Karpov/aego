@@ -136,7 +136,10 @@ func TestDirtyScriptTransactionAdoptsWithoutReplacingHistoryOrRecovery(t *testin
 	if !d.Code.Undo() || !bytes.Equal(d.Code.Bytes(), normalizeScriptText(before)) {
 		t.Fatal("adoption lost the original undo history")
 	}
-	if !d.Code.Redo() || !d.Code.Redo() || d.Dirty() || !bytes.Equal(d.Code.Bytes(), after) {
+	if !d.Code.Redo() || !d.Dirty() || !bytes.Equal(d.Code.Bytes(), []byte("meta { value=2 }\n")) {
+		t.Fatal("first Redo did not restore the preceding dirty edit")
+	}
+	if !d.Code.Redo() || d.Dirty() || !bytes.Equal(d.Code.Bytes(), after) {
 		t.Fatal("Redo did not return to the published checkpoint")
 	}
 	if raw, err := os.ReadFile(m.Abs(d.Path)); err != nil || !bytes.Equal(raw, after) {

@@ -274,7 +274,8 @@ func TestGuardedMetadataPreviewRejectsCancelledContext(t *testing.T) {
 	if result, err := pl.PreviewWithMetadataContext(request, "assets/a.txt", []byte("original"), candidate, nil); result != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled preview: %+v %v", result, err)
 	}
-	if result, err := pl.PreviewWithMetadataContext(nil, "assets/a.txt", []byte("original"), candidate, nil); result != nil || err == nil {
+	var absent context.Context // Exercise the API's explicit nil-context rejection.
+	if result, err := pl.PreviewWithMetadataContext(absent, "assets/a.txt", []byte("original"), candidate, nil); result != nil || err == nil {
 		t.Fatalf("nil context was accepted: %+v %v", result, err)
 	}
 	if imp.calls != 0 {

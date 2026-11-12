@@ -202,7 +202,8 @@ func TestPreparePrivatePreviewRejectsCancelledContext(t *testing.T) {
 	if prepared, err := PreparePreviewArtifact(request, id, raw, 48000); prepared != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled preparation: %+v %v", prepared, err)
 	}
-	if prepared, err := PreparePreviewArtifact(nil, id, raw, 48000); prepared != nil || err == nil {
+	var absent context.Context // Exercise the API's explicit nil-context rejection.
+	if prepared, err := PreparePreviewArtifact(absent, id, raw, 48000); prepared != nil || err == nil {
 		t.Fatalf("accepted a nil context: %+v %v", prepared, err)
 	}
 }
