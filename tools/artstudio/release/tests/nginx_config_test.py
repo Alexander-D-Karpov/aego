@@ -123,6 +123,22 @@ class NginxFixture(unittest.TestCase):
         bad_dir.mkdir()
         cls.processes.append(start_nginx(args.nginx, bad_dir, cls.wrapper(bad_dir, upstream + bad_edge), cls.bad_edge))
 
+        # The static edge is an alternative to the proxy above. Test the same
+        # release tree without requiring any changes to the installed nginx.
+        static_edge = args.static_edge_conf.read_text()
+        static_edge = replace_once(static_edge, redirect, "")
+        static_edge = replace_once(static_edge, '    include snippets/maintenance.conf;\n', '')
+        static_edge = replace_once(static_edge, '    listen 127.0.0.1:18443 ssl proxy_protocol;\n'
+                                   '    listen 443 quic;\n    listen [::]:443 quic;\n',
+                                   f'    listen 127.0.0.1:{args.static_edge_port} ssl;\n')
+        static_edge = replace_once(static_edge, '/etc/letsencrypt/live/akarpov-wildcard/fullchain.pem', str(cert))
+        static_edge = replace_once(static_edge, '/etc/letsencrypt/live/akarpov-wildcard/privkey.pem', str(key))
+        static_edge = static_edge.replace('/var/www/aego-asset-studio', str(release))
+        cls.static_edge = args.static_edge_port
+        static_dir = cls.root / "static-edge"
+        static_dir.mkdir()
+        cls.processes.append(start_nginx(args.nginx, static_dir, cls.wrapper(static_dir, static_edge), cls.static_edge))
+
         docs = args.docs_conf.read_text()
         docs = replace_once(docs, '    listen 80;\n', f'    listen 127.0.0.1:{args.docs_port};\n')
         site = cls.root / "site"
@@ -180,7 +196,7 @@ class NginxFixture(unittest.TestCase):
         return result
 
     def test_routes_headers_and_immutable_bytes_on_origin_and_edge(self):
-        for port in (self.origin, self.edge):
+        for port in (self.origin, self.edge, self.static_edge):
             with self.subTest(port=port):
                 status, _, body = self.request(port, "/editor/")
                 self.assertEqual((status, body), (200, self.new_body))
@@ -196,12 +212,15 @@ class NginxFixture(unittest.TestCase):
                 self.assertEqual(headers["Content-Encoding"], "gzip")
                 self.assertIn("immutable", headers["Cache-Control"])
                 self.assertEqual(self.request(port, "/r/.incoming-secret/private")[0], 404)
+                self.assertEqual(self.request(port, "/r/%2eincoming-secret/private")[0], 404)
                 self.assertEqual(self.request(port, "/no-such-file")[0], 404)
                 self.assertEqual(self.request(port, "/editor/", method="POST")[0], 403)
+                status, _, body = self.request(port, "/r/old/editor/", method="HEAD")
+                self.assertEqual((status, body), (200, b""))
         self.assertEqual(self.request(self.bad_edge, "/editor/")[0], 502, "edge must reject an origin with the wrong TLS name")
 
     def test_studio_guide_csp_allows_only_the_editor_and_local_blob_frames(self):
-        for port in (self.origin, self.edge):
+        for port in (self.origin, self.edge, self.static_edge):
             with self.subTest(port=port):
                 status, headers, body = self.request(port, "/r/old/docs/ru/first-sprite/")
                 self.assertEqual((status, body), (200, b"studio lesson"))
@@ -233,11 +252,12 @@ if __name__ == "__main__":
     p.add_argument("--nginx", default="nginx")
     p.add_argument("--app-conf", type=Path, required=True)
     p.add_argument("--edge-conf", type=Path, required=True)
+    p.add_argument("--static-edge-conf", type=Path, default=Path(__file__).resolve().parent / "../../../../deploy/edge/aeditor-static.conf")
     p.add_argument("--docs-conf", type=Path, required=True)
     p.add_argument("--docs-edge-conf", type=Path, required=True)
     args = p.parse_args()
     ports = set()
-    while len(ports) < 5:
+    while len(ports) < 6:
         ports.add(free_port())
-    args.origin_port, args.edge_port, args.bad_edge_port, args.docs_port, args.docs_edge_port = ports
+    args.origin_port, args.edge_port, args.bad_edge_port, args.docs_port, args.docs_edge_port, args.static_edge_port = ports
     unittest.main(argv=[__file__], verbosity=2)
