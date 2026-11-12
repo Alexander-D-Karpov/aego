@@ -3,19 +3,71 @@ package editor
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"aego/asset"
 	audioimport "aego/asset/importers/audio"
 	"aego/asset/pipeline"
+	"aego/core/ids"
 	"aego/core/log"
+	"aego/core/mathx"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
 	"aego/format/aetext"
 	"aego/project"
+	"aego/render/texture"
 )
+
+type testAudioPeaks struct {
+	stereo           []float32
+	stereoDone       bool
+	monoCalls, calls int
+}
+
+func (*testAudioPeaks) ByID(ids.AssetID) (texture.Region, bool) { return texture.Region{}, false }
+func (p *testAudioPeaks) Peaks(ids.AssetID, int) ([]float32, bool) {
+	p.monoCalls++
+	return []float32{.3}, true
+}
+func (p *testAudioPeaks) StereoPeaks(ids.AssetID, int) ([]float32, bool) {
+	p.calls++
+	return p.stereo, p.stereoDone
+}
+
+func TestClipPeaksSelectsStereoOnlyForTheDocument(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		document             bool
+		channels             int
+		stereo               []float32
+		stereoDone           bool
+		wantStereo, wantMono bool
+		wantDone             bool
+	}{
+		{"stereo document", true, 2, []float32{.8, .2}, true, true, false, true},
+		{"pending document", true, 2, nil, false, true, false, false},
+		{"unsupported fallback", true, 2, nil, true, true, true, true},
+		{"stereo inspector", false, 2, []float32{.8, .2}, true, false, true, true},
+		{"mono document", true, 1, []float32{.8, .2}, true, false, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			peaks := &testAudioPeaks{stereo: tc.stereo, stereoDone: tc.stereoDone}
+			ed := &context.Editor{Thumbs: peaks}
+			v := ClipView{ID: ids.NewAssetID(), Channels: tc.channels}
+			(&plugin{}).clipPeaks(ed, &v, tc.document)
+			if (peaks.calls > 0) != tc.wantStereo || (peaks.monoCalls > 0) != tc.wantMono || v.PeaksDone != tc.wantDone {
+				t.Fatalf("wrong waveform route: stereo=%d mono=%d done=%v", peaks.calls, peaks.monoCalls, v.PeaksDone)
+			}
+			if len(tc.stereo) > 0 && tc.wantStereo && !slices.Equal(v.StereoPeaks, tc.stereo) {
+				t.Fatal("stereo amplitudes were not forwarded")
+			}
+		})
+	}
+}
 
 func TestAudioMetadataUsesSharedJournalWithoutEditingBinarySource(t *testing.T) {
 	pj, err := project.Create(t.TempDir(), "Audio", false)
@@ -152,6 +204,30 @@ func TestClipDocumentWidthsStayCompactAndFitNarrowPanels(t *testing.T) {
 		if wave != tc.wave || controls != tc.controls {
 			t.Errorf("width %v: got waveform %v and controls %v, want %v and %v", tc.available, wave, controls, tc.wave, tc.controls)
 		}
+	}
+}
+
+func TestStereoWaveRectKeepsChannelsAndColumnsInsideTheWaveform(t *testing.T) {
+	for _, width := range []float32{1, 180, 320, 900} {
+		r := mathx.Rect{X: 10, Y: 20, W: width, H: 72}
+		for ch := range 2 {
+			for col := range 256 {
+				peak, ok := stereoWaveRect(r, 256, col, ch, 1)
+				if !ok || peak.X < r.X || peak.X+peak.W > r.X+r.W+.0001 ||
+					peak.Y < r.Y+float32(ch)*r.H/2 || peak.Y+peak.H > r.Y+float32(ch+1)*r.H/2 {
+					t.Fatalf("width %v channel %d column %d escaped: %+v", width, ch, col, peak)
+				}
+			}
+		}
+	}
+	r := mathx.Rect{W: 100, H: 72}
+	for _, bad := range []float32{float32(math.NaN()), float32(math.Inf(1))} {
+		if _, ok := stereoWaveRect(r, 2, 0, 0, bad); ok {
+			t.Fatal("accepted a non-finite waveform amplitude")
+		}
+	}
+	if _, ok := stereoWaveRect(mathx.Rect{}, 2, 0, 0, 1); ok {
+		t.Fatal("accepted an empty waveform")
 	}
 }
 

@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 
@@ -48,6 +49,10 @@ type peakSource interface {
 	Peaks(ids.AssetID, int) ([]float32, bool)
 }
 
+type stereoPeakSource interface {
+	StereoPeaks(ids.AssetID, int) ([]float32, bool)
+}
+
 func formatName(f uint8) string {
 	if f == asset.AudioOgg {
 		return i18n.Tr("i18n.audio.ogg_vorbis", "Ogg Vorbis")
@@ -83,10 +88,12 @@ type ClipView struct {
 	LoopStart int64
 	LoopEnd   int64
 	Peaks     []float32
-	PeaksDone bool
-	Settings  pipeline.Settings
-	Position  float32
-	Playing   bool
+	// StereoPeaks interleaves left and right amplitudes for each column.
+	StereoPeaks []float32
+	PeaksDone   bool
+	Settings    pipeline.Settings
+	Position    float32
+	Playing     bool
 }
 
 func DrawClip(ed *context.Editor, v ClipView) {
@@ -147,7 +154,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 		LoopStart: a.LoopStart, LoopEnd: a.LoopEnd, Settings: meta.Settings,
 	}
 	v.Path, _ = pl.PathOf(id)
-	v.Peaks, v.PeaksDone = p.peaks(ed, id)
+	p.clipPeaks(ed, &v, documentView)
 	if mod.PreviewClip() == id {
 		v.Position, v.Playing = mod.PreviewPosition()
 	}
@@ -155,6 +162,21 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 		p.drawClipDocument(ed, mod, v)
 	} else {
 		p.drawClip(ed, mod, v)
+	}
+}
+
+func (p *plugin) clipPeaks(ed *context.Editor, v *ClipView, documentView bool) {
+	if documentView && v.Channels == 2 {
+		if src, ok := ed.Thumbs.(stereoPeakSource); ok {
+			v.StereoPeaks, v.PeaksDone = src.StereoPeaks(v.ID, peakCols)
+			if v.PeaksDone && len(v.StereoPeaks) == 0 {
+				v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+			}
+		} else {
+			v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+		}
+	} else {
+		v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
 	}
 }
 
@@ -224,7 +246,23 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		ui.Rect(mathx.Rect{X: xs[0], Y: r.Y, W: xs[1] - xs[0], H: r.H}, band)
 	}
 	mid := r.Y + r.H/2
-	if len(v.Peaks) > 0 {
+	if len(v.StereoPeaks) > 0 && len(v.StereoPeaks)%2 == 0 {
+		cols := len(v.StereoPeaks) / 2
+		for ch := range 2 {
+			for i := range cols {
+				if peak, ok := stereoWaveRect(r, cols, i, ch, v.StereoPeaks[i*2+ch]); ok {
+					ui.Rect(peak, th.AccentDim)
+				}
+			}
+			label := "L"
+			if ch == 1 {
+				label = "R"
+			}
+			if width := min(max(r.W-3, 0), 14); width > 0 {
+				ui.TextIn(mathx.Rect{X: r.X + 3, Y: r.Y + float32(ch)*r.H/2, W: width, H: r.H / 2}, label, th.Text, core.AlignLeft)
+			}
+		}
+	} else if len(v.Peaks) > 0 {
 		w := r.W / float32(len(v.Peaks))
 		for i, x := range v.Peaks {
 			h := max(min(x, 1)*(r.H/2-3), 0.5)
@@ -270,6 +308,19 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		px := r.X + min(max(v.Position/v.Seconds, 0), 1)*r.W
 		ui.Rect(mathx.Rect{X: px, Y: r.Y, W: 1, H: r.H}, th.Text)
 	}
+}
+
+func stereoWaveRect(r mathx.Rect, cols, col, channel int, amplitude float32) (mathx.Rect, bool) {
+	if r.W <= 0 || r.H <= 0 || cols <= 0 || col < 0 || col >= cols || channel < 0 || channel >= 2 ||
+		math.IsNaN(float64(amplitude)) || math.IsInf(float64(amplitude), 0) {
+		return mathx.Rect{}, false
+	}
+	w := r.W / float32(cols)
+	x := r.X + float32(col)*w
+	width := min(max(w, 1), r.X+r.W-x)
+	half := min(max(min(max(amplitude, 0), 1)*max(r.H/4-3, 0), .5), r.H/4)
+	center := r.Y + (float32(channel)+.5)*r.H/2
+	return mathx.Rect{X: x, Y: center - half, W: max(width, 0), H: 2 * half}, true
 }
 
 func (p *plugin) commitLoop(ed *context.Editor, v ClipView) {
