@@ -57,6 +57,32 @@ func transactionScriptError(message string) error {
 	return errs.New(errs.EditorDocument, message)
 }
 
+// TrackedScriptSnapshot returns the exact saved bytes backing a clean, open
+// journal, including original line endings. It neither saves nor changes the
+// journal or recovery. Disk identity/content checks are best-effort, not CAS.
+func (m *Manager) TrackedScriptSnapshot(d *ScriptDocument) ([]byte, error) {
+	if m == nil || d == nil || d.Code == nil || m.Script(d.Path) != d ||
+		!d.OnDisk || !d.diskTracked || d.Conflict || d.Dirty() || d.Code.Len() > maxTransactionScriptBytes {
+		return nil, transactionScriptError("source document has no current clean disk snapshot")
+	}
+	journal, revision, hash := d.Code, d.Code.Rev(), d.diskHash
+	f, err := m.OpenSource(d.Path)
+	if err != nil {
+		return nil, err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(f, maxTransactionScriptBytes+1))
+	if err := errors.Join(readErr, f.Close()); err != nil {
+		return nil, err
+	}
+	if len(data) > maxTransactionScriptBytes || sha256.Sum256(data) != hash ||
+		m.Script(d.Path) != d || d.Code != journal || d.Code.Rev() != revision ||
+		!d.OnDisk || !d.diskTracked || d.diskHash != hash || d.Conflict || d.Dirty() ||
+		!bytes.Equal(normalizeScriptText(data), d.Code.Bytes()) {
+		return nil, transactionScriptError("source document changed while reading its disk snapshot")
+	}
+	return data, nil
+}
+
 // PrepareDirtyScriptTransaction captures a dirty document only when before is
 // both its tracked disk checkpoint and the current exact disk content. before
 // must be non-nil even for an empty file: source transactions use nil to mean

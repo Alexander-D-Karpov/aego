@@ -478,6 +478,15 @@ func (e *Editor) ReloadMetadata(d *document.AssetDocument) error {
 	if err := e.Docs.ReloadScript(d.Metadata); err != nil {
 		return err
 	}
+	if e.Pipeline != nil {
+		snapshot, err := e.Docs.TrackedScriptSnapshot(d.Metadata)
+		if err != nil {
+			return err
+		}
+		if err := e.Pipeline.RefreshMetadataSnapshot(d.Asset, snapshot); err != nil {
+			return err
+		}
+	}
 	if wasWorking && (d.Kind == asset.ArtTexture || d.Kind == asset.ArtSpriteRegion) {
 		return e.ApplyMetadataPreview(d.Asset)
 	}

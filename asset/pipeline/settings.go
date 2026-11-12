@@ -3,6 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -174,6 +175,61 @@ func (p *Pipeline) reloadMetadata(r *record) error {
 	if err != nil {
 		return err
 	}
+	return p.reloadMetadataData(r, data, nil)
+}
+
+// RefreshMetadataSnapshot adopts an explicitly reloaded, exact disk snapshot
+// into the in-memory index only. It does not import, write metadata, publish
+// artifacts or mark them current. External changes remain best-effort checks,
+// not CAS. Callers must guard the owning document, preserve dirty work and not
+// mutate expected while this call captures it.
+func (p *Pipeline) RefreshMetadataSnapshot(id ids.AssetID, expected []byte) error {
+	if expected == nil || len(expected) > maxSourceBytes {
+		return errs.New(errs.AssetBadMeta, "metadata refresh needs a bounded disk snapshot")
+	}
+	expected = bytes.Clone(expected)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return err
+	}
+	r := p.byID[id]
+	if r == nil || r.meta == nil || r.importer == nil {
+		return errs.New(errs.AssetNotFound, "metadata source is not in this project")
+	}
+	root, err := os.OpenRoot(p.root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	opened, err := root.Stat(".")
+	if err != nil {
+		return err
+	}
+	check := func() error {
+		if err := p.requireNoPendingSourceRecovery(); err != nil {
+			return err
+		}
+		current, err := os.Stat(p.root)
+		if err != nil || !opened.IsDir() || !current.IsDir() || !os.SameFile(opened, current) {
+			return fmt.Errorf("project root changed while refreshing metadata")
+		}
+		data, err := p.sourceBytes(root, r.path+MetaSuffix)
+		if err != nil {
+			return err
+		}
+		if data == nil || !bytes.Equal(data, expected) {
+			return errs.New(errs.AssetSourceUnstable, "metadata changed while refreshing its snapshot", log.F("path", r.path))
+		}
+		return nil
+	}
+	if err := check(); err != nil {
+		return err
+	}
+	return p.reloadMetadataData(r, expected, check)
+}
+
+func (p *Pipeline) reloadMetadataData(r *record, data []byte, check func() error) error {
 	m, err := ParseMeta(data, r.path+MetaSuffix)
 	if err != nil {
 		return err
@@ -205,6 +261,11 @@ func (p *Pipeline) reloadMetadata(r *record) error {
 			}
 		}
 		seen[sub.ID] = true
+	}
+	if check != nil {
+		if err := check(); err != nil {
+			return err
+		}
 	}
 	if bytes.Equal(WriteMeta(r.meta), WriteMeta(m)) {
 		r.captureMetadata(data)

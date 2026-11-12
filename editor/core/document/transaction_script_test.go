@@ -26,6 +26,61 @@ func dirtyTransactionFixture(t *testing.T) (*Manager, *ScriptDocument, []byte, [
 	return m, d, before, after
 }
 
+func TestTrackedScriptSnapshotPreservesExactDiskBytes(t *testing.T) {
+	for _, reason := range []string{"none", "dirty", "external-same-text", "external-content", "missing", "conflict", "closed"} {
+		t.Run(reason, func(t *testing.T) {
+			m := newManager(t)
+			const path = "assets/snapshot.meta"
+			before := []byte("meta { value=1 }\r\n")
+			if err := WriteAtomic(m.Abs(path), before); err != nil {
+				t.Fatal(err)
+			}
+			d, err := m.OpenScript(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch reason {
+			case "dirty":
+				d.Code.ReplaceSnapshot([]byte("owner edit\n"), false)
+			case "external-same-text":
+				if err := WriteAtomic(m.Abs(path), normalizeScriptText(before)); err != nil {
+					t.Fatal(err)
+				}
+			case "external-content":
+				if err := WriteAtomic(m.Abs(path), []byte("external\n")); err != nil {
+					t.Fatal(err)
+				}
+			case "missing":
+				if err := os.Remove(m.Abs(path)); err != nil {
+					t.Fatal(err)
+				}
+			case "conflict":
+				d.Conflict = true
+			case "closed":
+				m.CloseScript(d)
+			}
+			diskBefore, diskErr := os.ReadFile(m.Abs(path))
+			journal, rev, working := d.Code, d.Code.Rev(), bytes.Clone(d.Code.Bytes())
+			got, err := m.TrackedScriptSnapshot(d)
+			if reason == "none" {
+				if err != nil || !bytes.Equal(got, before) {
+					t.Fatal("did not retain exact disk line endings", err)
+				}
+				got[0] = 'X'
+			} else if err == nil || got != nil {
+				t.Fatalf("accepted %s snapshot", reason)
+			}
+			if d.Code != journal || d.Code.Rev() != rev || !bytes.Equal(d.Code.Bytes(), working) {
+				t.Fatal("snapshot read changed the owner's journal")
+			}
+			onDisk, err := os.ReadFile(m.Abs(path))
+			if (diskErr != nil) != (err != nil) || !bytes.Equal(onDisk, diskBefore) {
+				t.Fatal("snapshot read changed the source", err)
+			}
+		})
+	}
+}
+
 func TestDirtyScriptTransactionAdoptsWithoutReplacingHistoryOrRecovery(t *testing.T) {
 	m, d, before, after := dirtyTransactionFixture(t)
 	journal, revision := d.Code, d.Code.Rev()
