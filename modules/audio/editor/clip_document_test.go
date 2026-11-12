@@ -81,6 +81,48 @@ func TestClipPeaksSelectsStereoOnlyForTheDocument(t *testing.T) {
 	}
 }
 
+func TestMonoDocumentWaveSelectionDoesNotModifyMetadata(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	p := &plugin{clip: clipEdit{drag: -1}}
+	ed := &context.Editor{UI: ui, Thumbs: &testAudioPeaks{}}
+	v := ClipView{ID: ids.NewAssetID(), Channels: 1, Frames: 48000, Rate: 48000}
+	p.clipPeaks(ed, &v, true)
+	if len(v.Peaks) == 0 || v.WaveNav {
+		t.Fatal("fixture needs a mono waveform without stereo navigation")
+	}
+	inspector := ClipView{ID: v.ID, Channels: v.Channels, Frames: v.Frames}
+	p.clipPeaks(ed, &inspector, false)
+	if inspector.WaveSelect || inspector.WaveNav {
+		t.Fatal("compact Inspector must not acquire document-selection controls")
+	}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + waveH/2}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.wave(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width / 2}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(delta), input.MouseLeft)
+	draw()
+	if start, end, ok := p.clip.waveSelection(v.Frames); !ok || start != 12000 || end != 36000 {
+		t.Fatalf("mono waveform selection = %d..%d, valid=%v", start, end, ok)
+	}
+	if ed.Docs != nil {
+		t.Fatal("view-only selection created or modified document history")
+	}
+}
+
 func TestAudioWaveNavigationClampsAndReachesLateAudio(t *testing.T) {
 	const total int64 = 5313600
 	start, end := int64(0), total

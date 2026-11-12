@@ -103,11 +103,13 @@ type ClipView struct {
 	WaveStart   int64
 	WaveEnd     int64
 	WaveNav     bool
-	PeaksDone   bool
-	Settings    pipeline.Settings
-	Position    float32
-	Playing     bool
-	Paused      bool
+	// WaveSelect allows view-only selection without promising zoom support.
+	WaveSelect bool
+	PeaksDone  bool
+	Settings   pipeline.Settings
+	Position   float32
+	Playing    bool
+	Paused     bool
 }
 
 func DrawClip(ed *context.Editor, v ClipView) {
@@ -181,6 +183,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 }
 
 func (p *plugin) clipPeaks(ed *context.Editor, v *ClipView, documentView bool) {
+	v.WaveSelect = false
 	if documentView && v.Channels == 2 {
 		if src, ok := ed.Thumbs.(stereoWindowPeakSource); ok {
 			start, end := audioWaveBounds(p.clip.waveStart, p.clip.waveEnd, v.Frames)
@@ -201,6 +204,11 @@ func (p *plugin) clipPeaks(ed *context.Editor, v *ClipView, documentView bool) {
 		}
 	} else {
 		v.Peaks, v.PeaksDone = p.peaks(ed, v.ID)
+	}
+	// The mono/fallback waveform has no viewport pyramid, but can still select
+	// source frames across its full displayed range without modifying the clip.
+	if documentView && !v.WaveNav && len(v.Peaks) > 0 && v.Frames > 0 {
+		v.WaveSelect = true
 	}
 }
 
@@ -236,7 +244,7 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 		drawAudioRuler(ui, v)
 	}
 	p.wave(ed, v)
-	if v.WaveNav {
+	if v.WaveNav || v.WaveSelect {
 		p.waveSelectionLabel(ui, v)
 	}
 	cur.W = controlsWidth
@@ -423,7 +431,7 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		}
 	}
 	selection := mathx.Rect{}
-	if v.WaveNav {
+	if v.WaveNav || v.WaveSelect {
 		if a, b, ok := p.clip.waveSelection(v.Frames); ok {
 			if visible, ok := audioWaveSelectionRect(r, start, end, a, b); ok {
 				selection = visible
@@ -512,7 +520,7 @@ func (p *plugin) wave(ed *context.Editor, v ClipView) {
 		ui.Rect(mathx.Rect{X: hx - 1, Y: r.Y, W: 2, H: r.H}, col)
 		ui.Rect(mathx.Rect{X: hx - handleW/2, Y: r.Y, W: handleW, H: 6}, col)
 	}
-	if v.WaveNav {
+	if v.WaveNav || v.WaveSelect {
 		id := ui.ID("wave-selection")
 		if _, active := ui.Drag(id, r); active {
 			if frame, ok := audioWaveFrame(ui.Mouse().X, r, start, end); ok {
