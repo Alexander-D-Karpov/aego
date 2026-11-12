@@ -2,6 +2,7 @@ package editor
 
 import (
 	"bytes"
+	stdcontext "context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,12 +30,17 @@ type audioTransactionFixture struct {
 
 func newAudioTransactionFixture(t *testing.T) audioTransactionFixture {
 	t.Helper()
+	source := wav.Encode([]float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8}, 8000, 1, wav.EncodeOptions{Float: true})
+	return newAudioTransactionFixtureWithSource(t, source)
+}
+
+func newAudioTransactionFixtureWithSource(t *testing.T, source []byte) audioTransactionFixture {
+	t.Helper()
 	pj, err := project.Create(t.TempDir(), "AudioTransaction", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	const path = "assets/tone.wav"
-	source := wav.Encode([]float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8}, 8000, 1, wav.EncodeOptions{Float: true})
 	if err := os.WriteFile(filepath.Join(pj.Root, path), source, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +87,47 @@ func newAudioTransactionFixture(t *testing.T) audioTransactionFixture {
 		t.Fatal(err)
 	}
 	return audioTransactionFixture{project: pj, pipe: pl, ed: ed, doc: doc, source: source, before: before, tx: tx}
+}
+
+func TestDirtyAudioMetadataAdoptsLargeFingerprintGuardedTransaction(t *testing.T) {
+	// Approximately 87 seconds of synthetic mono float WAV, just above the
+	// ordinary 16 MiB source-transaction limit; no physical audio is used.
+	pcm := make([]float32, (16<<20)/4+1)
+	source := wav.Encode(pcm, 48000, 1, wav.EncodeOptions{Float: true})
+	f := newAudioTransactionFixtureWithSource(t, source)
+	const path = "assets/tone.wav"
+	guard, err := f.pipe.FingerprintSource(stdcontext.Background(), path, pipeline.MaxSourceFingerprintBytes)
+	if err != nil || !guard.Exists || guard.Size <= 16<<20 {
+		t.Fatal("cannot fingerprint synthetic long WAV", err)
+	}
+	before, after, err := f.tx.Images()
+	if err != nil {
+		t.Fatal(err)
+	}
+	edits := []pipeline.SourceEdit{
+		{Path: path, ReadOnlyGuard: true, Fingerprint: &guard},
+		{Path: path + ".meta", Before: before, After: after},
+	}
+	batch, err := f.pipe.ApplySources(edits, false)
+	if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+		t.Fatalf("large guarded WAV transaction: %+v %v", batch, err)
+	}
+	if err := f.ed.Docs.AcceptDirtyScriptTransaction(f.tx); err != nil || f.doc.Dirty() {
+		t.Fatal("could not adopt the shared metadata checkpoint", err)
+	}
+	if err := f.ed.UndoAsset(f.doc); err != nil || !f.doc.Dirty() {
+		t.Fatal("Undo lost the shared metadata edit", err)
+	}
+	if err := f.ed.RedoAsset(f.doc); err != nil || f.doc.Dirty() {
+		t.Fatal("Redo did not restore the published checkpoint", err)
+	}
+	got, err := f.pipe.FingerprintSource(stdcontext.Background(), path, pipeline.MaxSourceFingerprintBytes)
+	if err != nil || got != guard {
+		t.Fatal("transaction changed the long WAV", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(f.project.Root, path+".meta")); err != nil || !bytes.Equal(got, after) {
+		t.Fatal("Undo or Redo changed saved metadata", err)
+	}
 }
 
 func TestDirtyAudioMetadataAdoptsActualGuardedPipelineTransaction(t *testing.T) {

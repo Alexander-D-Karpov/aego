@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,12 @@ type SourceEdit struct {
 	// ReadOnlyGuard forbids pipeline metadata normalization as well as an
 	// explicit write. Before and After must be identical, including nilness.
 	ReadOnlyGuard bool
+	// Fingerprint is an optional bounded streaming guard for an existing source.
+	// It requires ReadOnlyGuard and nil Before/After bytes. Such a transaction
+	// must contain exactly this source and its own sidecar: it cannot write the
+	// source, include other edits, or automatically normalize the sidecar during
+	// import. Its checks are not an atomic CAS against other processes.
+	Fingerprint *SourceFingerprint
 	// Auxiliary is a non-imported companion that shares the source journal and
 	// history but must not suppress an importer or create an asset identity.
 	Auxiliary bool
@@ -203,11 +210,77 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		return nil, err
 	}
 	defer root.Close()
+	fingerprintIndex := -1
+	for i := range edits {
+		if edits[i].Fingerprint == nil {
+			continue
+		}
+		if fingerprintIndex >= 0 {
+			return nil, errors.New("a fingerprint transaction supports only one source guard")
+		}
+		fingerprintIndex = i
+	}
+	if fingerprintIndex >= 0 {
+		if len(edits) != 2 {
+			return nil, errors.New("a fingerprint transaction needs exactly one source and its metadata")
+		}
+		guard := edits[fingerprintIndex]
+		meta := edits[1-fingerprintIndex]
+		if p.imps == nil || !guard.ReadOnlyGuard || guard.Auxiliary ||
+			strings.EqualFold(filepath.Ext(guard.Path), MetaSuffix) || guard.Before != nil || guard.After != nil ||
+			!guard.Fingerprint.Exists || guard.Fingerprint.Size < 0 || guard.Fingerprint.Size > MaxSourceFingerprintBytes ||
+			meta.Path != guard.Path+MetaSuffix || meta.Auxiliary || meta.Fingerprint != nil {
+			return nil, fmt.Errorf("invalid read-only fingerprint transaction for %s", guard.Path)
+		}
+		if _, imported := p.imps.ForPath(guard.Path); !imported {
+			return nil, fmt.Errorf("no importer for fingerprint guard %s", guard.Path)
+		}
+		limit := p.sourceEditLimit(meta.Path)
+		if int64(len(meta.Before)) > limit || int64(len(meta.After)) > limit {
+			return nil, fmt.Errorf("%s exceeds %d bytes", meta.Path, limit)
+		}
+	}
+	// Copy caller-owned guards before any checkpoint or import can run.
+	callerEdits := edits
+	edits = slices.Clone(edits)
+	if fingerprintIndex >= 0 {
+		guard := *edits[fingerprintIndex].Fingerprint
+		edits[fingerprintIndex].Fingerprint = &guard
+		// Capture caller-owned sidecar bytes too; a checkpoint or importer must
+		// not be able to alter the preimage or requested publication in flight.
+		for i := range edits {
+			edits[i].Before = bytes.Clone(edits[i].Before)
+			edits[i].After = bytes.Clone(edits[i].After)
+		}
+	}
 	source := func(e SourceEdit) ([]byte, []byte) {
 		if back {
 			return e.After, e.Before
 		}
 		return e.Before, e.After
+	}
+	matches := func(e SourceEdit, expected []byte) (bool, error) {
+		if e.Fingerprint != nil {
+			got, err := p.fingerprintSource(context.Background(), root, e.Path, e.Fingerprint.Size, nil)
+			return err == nil && got == *e.Fingerprint, err
+		}
+		got, err := p.sourceBytes(root, e.Path)
+		return err == nil && sameSource(expected, got), err
+	}
+	checkFingerprintGuards := func() error {
+		for _, e := range edits {
+			if e.Fingerprint == nil {
+				continue
+			}
+			matched, err := matches(e, nil)
+			if err != nil {
+				return fmt.Errorf("cannot check fingerprint for %s: %w", e.Path, err)
+			}
+			if !matched {
+				return fmt.Errorf("%s changed since this edit was prepared", e.Path)
+			}
+		}
+		return nil
 	}
 	paths := map[string]ChangeKind{}
 	auxiliary := map[string]bool{}
@@ -236,11 +309,11 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 			return nil, fmt.Errorf("%s exceeds %d bytes", e.Path, limit)
 		}
 		was, _ := source(e)
-		got, err := p.sourceBytes(root, e.Path)
+		matched, err := matches(e, was)
 		if err != nil {
 			return nil, err
 		}
-		if !sameSource(was, got) {
+		if !matched {
 			return nil, fmt.Errorf("%s changed since this edit was prepared", e.Path)
 		}
 	}
@@ -251,9 +324,7 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 	// imported source gets its sidecar in this transaction rather than leaving
 	// an untracked sidecar behind if its first import fails.
 	// Clone the slice: callers own their transaction and history entries.
-	callerEdits := edits
-	edits = slices.Clone(edits)
-	for _, e := range callerEdits {
+	for _, e := range edits {
 		was, want := source(e)
 		metaPath := e.Path + MetaSuffix
 		if e.Auxiliary || strings.HasSuffix(e.Path, MetaSuffix) || sameSource(was, want) {
@@ -322,7 +393,9 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		if strings.HasSuffix(e.Path, MetaSuffix) {
 			_, want := source(e)
 			p.sourceTransactionMetas[e.Path] = want
-			p.sourceTransactionReadOnlyMetas[e.Path] = e.ReadOnlyGuard
+			// The explicit sidecar write is allowed, but automatic resolution
+			// during import would add another write outside the guard checks.
+			p.sourceTransactionReadOnlyMetas[e.Path] = e.ReadOnlyGuard || fingerprintIndex >= 0
 		}
 	}
 	defer func() {
@@ -385,13 +458,29 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 			published[e.Path] = true
 		}
 		var restored []string
+		guardFailed := false
+		if err := checkFingerprintGuards(); err != nil {
+			conflict, guardFailed = true, true
+			cause = errors.Join(cause, err)
+		}
 		for _, e := range slices.Backward(edits) {
+			if guardFailed {
+				break
+			}
 			if err := journal.checkDirectory(); err != nil {
 				conflict = true
 				cause = errors.Join(cause, err)
 				break
 			}
 			was, want := source(e)
+			if e.Fingerprint != nil {
+				matched, err := matches(e, nil)
+				if err != nil || !matched {
+					conflict = true
+					cause = errors.Join(cause, fmt.Errorf("%s changed during this edit; refusing recovery", e.Path))
+				}
+				continue
+			}
 			wrote := published[e.Path]
 			expected := was
 			if wrote || sameSource(was, want) {
@@ -416,6 +505,22 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 			}
 			if !wrote || sameSource(got, was) {
 				continue
+			}
+			if fingerprintIndex >= 0 {
+				if err := checkFingerprintGuards(); err != nil {
+					conflict = true
+					cause = errors.Join(cause, err)
+					break
+				}
+				if p.sourceTransactionCheckpoint != nil {
+					p.sourceTransactionCheckpoint("rollback-fingerprint-checked", e.Path)
+				}
+				current, err := p.sourceBytes(root, e.Path)
+				if err != nil || !sameSource(current, expected) {
+					conflict = true
+					cause = errors.Join(cause, fmt.Errorf("%s changed before rollback; refusing to overwrite it", e.Path))
+					continue
+				}
 			}
 			if err := replaceSource(root, e.Path, was); err != nil {
 				conflict = true
@@ -459,8 +564,8 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		}
 		for _, edit := range edits {
 			was, _ := source(edit)
-			got, err := p.sourceBytes(root, edit.Path)
-			if err != nil || !sameSource(was, got) {
+			matched, err := matches(edit, was)
+			if err != nil || !matched {
 				return errors.Join(cause, fmt.Errorf("%s was not fully restored; source recovery is still available", edit.Path))
 			}
 		}
@@ -471,18 +576,30 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 			return nil, restore(err, true)
 		}
 		was, want := source(e)
-		got, err := p.sourceBytes(root, e.Path)
+		matched, err := matches(e, was)
 		if err != nil {
 			return nil, restore(fmt.Errorf("%s changed or cannot be checked before publication: %w", e.Path, err), true)
 		}
-		if !sameSource(was, got) {
+		if !matched {
 			return nil, restore(fmt.Errorf("%s changed while this edit was being prepared", e.Path), true)
 		}
 		if sameSource(was, want) {
 			continue
 		}
+		if err := checkFingerprintGuards(); err != nil {
+			return nil, restore(err, true)
+		}
+		if fingerprintIndex >= 0 && p.sourceTransactionCheckpoint != nil {
+			p.sourceTransactionCheckpoint("fingerprint-checked", e.Path)
+		}
 		if err := journal.checkDirectory(); err != nil {
 			return nil, restore(err, true)
+		}
+		if fingerprintIndex >= 0 {
+			matched, err := matches(e, was)
+			if err != nil || !matched {
+				return nil, restore(fmt.Errorf("%s changed before publication", e.Path), true)
+			}
 		}
 		rel := strings.TrimSuffix(e.Path, MetaSuffix)
 		if err := replaceSource(root, e.Path, want); err != nil {
@@ -501,6 +618,9 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 			paths[rel] = ChangeWrite
 		}
 	}
+	if err := checkFingerprintGuards(); err != nil {
+		return nil, restore(err, true)
+	}
 	batch, err := refresh()
 	if err != nil {
 		return nil, restore(err, false)
@@ -511,15 +631,29 @@ func (p *Pipeline) ApplySources(edits []SourceEdit, back bool) (*Batch, error) {
 		if expected, tracked := p.sourceTransactionMetas[e.Path]; tracked {
 			want = expected
 		}
-		got, readErr := p.sourceBytes(root, e.Path)
+		matched, readErr := matches(e, want)
 		if readErr != nil {
 			return nil, restore(fmt.Errorf("%s changed or cannot be checked after import: %w", e.Path, readErr), true)
 		}
-		if !sameSource(want, got) {
+		if !matched {
 			return nil, restore(fmt.Errorf("%s changed during import", e.Path), true)
 		}
 		if strings.HasSuffix(e.Path, MetaSuffix) {
+			got, readErr := p.sourceBytes(root, e.Path)
+			if readErr != nil || !sameSource(want, got) {
+				return nil, restore(fmt.Errorf("%s changed while checking published metadata", e.Path), true)
+			}
 			publishedMetas[i] = got
+		}
+	}
+	if fingerprintIndex >= 0 {
+		if err := checkFingerprintGuards(); err != nil {
+			return nil, restore(err, true)
+		}
+		i := 1 - fingerprintIndex
+		e := edits[i]
+		if matched, err := matches(e, publishedMetas[i]); err != nil || !matched {
+			return nil, restore(fmt.Errorf("%s changed before transaction completion", e.Path), true)
 		}
 	}
 	// Reference discovery during import may canonicalize a sidecar. History

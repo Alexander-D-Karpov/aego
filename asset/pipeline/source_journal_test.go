@@ -74,6 +74,15 @@ func TestSourceJournalCrashWorker(t *testing.T) {
 		}
 		manual.Settings["mode"] = aetext.Ident("manual")
 		switch mode {
+		case "fingerprint":
+			fingerprint, err := pl.FingerprintSource(context.Background(), name, MaxSourceFingerprintBytes)
+			if err != nil || !fingerprint.Exists {
+				t.Fatal("cannot fingerprint crash fixture", err)
+			}
+			edits = []SourceEdit{
+				{Path: name, ReadOnlyGuard: true, Fingerprint: &fingerprint},
+				{Path: name + MetaSuffix, Before: meta, After: WriteMeta(manual)},
+			}
 		case "undo":
 			back = true
 			edits = []SourceEdit{

@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -55,10 +56,12 @@ func (v sourceVersion) valid() bool {
 }
 
 type sourceJournalEntry struct {
-	Path   string        `json:"path"`
-	Before sourceVersion `json:"before"`
-	After  sourceVersion `json:"after"`
-	Backup string        `json:"backup,omitempty"`
+	Path      string        `json:"path"`
+	Before    sourceVersion `json:"before"`
+	After     sourceVersion `json:"after"`
+	Backup    string        `json:"backup,omitempty"`
+	ReadOnly  bool          `json:"readOnly,omitempty"`
+	GuardSize int64         `json:"guardSize,omitempty"`
 }
 
 type sourceJournalRecord struct {
@@ -214,6 +217,7 @@ func startSourceJournal(root *os.Root, edits []SourceEdit, back bool) (*sourceJo
 		return nil, errors.New("source recovery directory changed during preparation")
 	}
 	j := &sourceJournal{root: root, dirInfo: info, id: ids.NewAssetID().String(), allowed: make(map[string][]sourceVersion), state: "prepared"}
+	version := 1
 	for i, e := range edits {
 		if err := j.checkDirectory(); err != nil {
 			return nil, err
@@ -223,7 +227,12 @@ func startSourceJournal(root *os.Root, edits []SourceEdit, back bool) (*sourceJo
 			before, after = after, before
 		}
 		entry := sourceJournalEntry{Path: e.Path, Before: sourceVersionOf(before), After: sourceVersionOf(after)}
-		if before != nil {
+		if e.Fingerprint != nil {
+			version = 2
+			entry.ReadOnly, entry.GuardSize = true, e.Fingerprint.Size
+			entry.Before = sourceVersion{Exists: true, SHA256: hex.EncodeToString(e.Fingerprint.SHA256[:])}
+			entry.After = entry.Before
+		} else if before != nil {
 			entry.Backup = fmt.Sprintf("before-%04d", i)
 			f, err := root.OpenFile(path.Join(sourceJournalDir, entry.Backup), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 			if err != nil {
@@ -238,7 +247,7 @@ func startSourceJournal(root *os.Root, edits []SourceEdit, back bool) (*sourceJo
 		j.entries = append(j.entries, entry)
 		j.allowed[e.Path] = []sourceVersion{entry.Before, entry.After}
 	}
-	header := sourceJournalRecord{Kind: "prepared", Version: 1, ID: j.id, Entries: j.entries}
+	header := sourceJournalRecord{Kind: "prepared", Version: version, ID: j.id, Entries: j.entries}
 	data, err := json.Marshal(header)
 	if err != nil || len(data)+1 > maxJournalBytes {
 		return nil, errors.New("source recovery journal is too large")
@@ -416,7 +425,7 @@ func loadSourceJournal(root *os.Root, p *Pipeline) (*sourceJournal, error) {
 	}
 	lines := bytes.Split(data[:last], []byte{'\n'})
 	header, err := decodeJournalRecord(lines[0])
-	if err != nil || header.Kind != "prepared" || header.Version != 1 || len(header.ID) != 32 || len(header.Entries) > maxJournalEdits {
+	if err != nil || header.Kind != "prepared" || (header.Version != 1 && header.Version != 2) || len(header.ID) != 32 || len(header.Entries) > maxJournalEdits {
 		return nil, errors.New("invalid source recovery header")
 	}
 	if _, err := ids.ParseAssetID(header.ID); err != nil {
@@ -426,6 +435,7 @@ func loadSourceJournal(root *os.Root, p *Pipeline) (*sourceJournal, error) {
 	if err := j.checkDirectory(); err != nil {
 		return nil, err
 	}
+	guardPath := ""
 	for i, e := range header.Entries {
 		if !fs.ValidPath(e.Path) || !filepath.IsLocal(e.Path) || strings.ContainsAny(e.Path, "\\:#") || !p.inRoots(e.Path) || !e.Before.valid() || !e.After.valid() || j.allowed[e.Path] != nil {
 			return nil, fmt.Errorf("invalid source recovery entry: %s", e.Path)
@@ -435,6 +445,18 @@ func loadSourceJournal(root *os.Root, p *Pipeline) (*sourceJournal, error) {
 				return nil, fmt.Errorf("hidden source recovery path: %s", e.Path)
 			}
 		}
+		if e.ReadOnly {
+			if header.Version != 2 || !e.Before.Exists || e.Before != e.After || e.Backup != "" ||
+				e.GuardSize < 0 || e.GuardSize > MaxSourceFingerprintBytes || strings.EqualFold(filepath.Ext(e.Path), MetaSuffix) || guardPath != "" {
+				return nil, fmt.Errorf("invalid read-only recovery guard for %s", e.Path)
+			}
+			guardPath = e.Path
+			j.allowed[e.Path] = []sourceVersion{e.Before}
+			continue
+		}
+		if e.GuardSize != 0 {
+			return nil, fmt.Errorf("invalid recovery guard size for %s", e.Path)
+		}
 		wantBackup := ""
 		if e.Before.Exists {
 			wantBackup = fmt.Sprintf("before-%04d", i)
@@ -443,6 +465,14 @@ func loadSourceJournal(root *os.Root, p *Pipeline) (*sourceJournal, error) {
 			return nil, fmt.Errorf("invalid recovery backup for %s", e.Path)
 		}
 		j.allowed[e.Path] = []sourceVersion{e.Before, e.After}
+	}
+	if header.Version == 2 {
+		if len(header.Entries) != 2 || guardPath == "" {
+			return nil, errors.New("source recovery version 2 needs one guarded source and its metadata")
+		}
+		if _, ok := j.allowed[guardPath+MetaSuffix]; !ok {
+			return nil, errors.New("source recovery version 2 has unrelated metadata")
+		}
 	}
 	for _, line := range lines[1:] {
 		r, err := decodeJournalRecord(line)
@@ -593,11 +623,39 @@ func restoreSourceRecovery(prj *project.Project, checkpoint func(stage, rel stri
 	if j.state != "prepared" {
 		return j.cleanup()
 	}
+	hasFingerprintGuard := false
+	for _, e := range j.entries {
+		hasFingerprintGuard = hasFingerprintGuard || e.ReadOnly
+	}
+	guardMatches := func(e sourceJournalEntry) (bool, error) {
+		fingerprint, err := p.fingerprintSource(context.Background(), root, e.Path, e.GuardSize, nil)
+		if err != nil || !fingerprint.Exists || fingerprint.Size != e.GuardSize {
+			return false, err
+		}
+		return e.Before.SHA256 == hex.EncodeToString(fingerprint.SHA256[:]), nil
+	}
+	checkGuards := func() error {
+		for _, e := range j.entries {
+			if !e.ReadOnly {
+				continue
+			}
+			if matched, err := guardMatches(e); err != nil || !matched {
+				return fmt.Errorf("%s changed during recovery; refusing recovery", e.Path)
+			}
+		}
+		return nil
+	}
 	// Check every backup and source before changing any of them. Check again
 	// immediately before each write; these are conflict guards, not OS CAS.
 	for _, e := range j.entries {
 		if err := j.checkDirectory(); err != nil {
 			return err
+		}
+		if e.ReadOnly {
+			if matched, err := guardMatches(e); err != nil || !matched {
+				return fmt.Errorf("%s changed outside the interrupted transaction; refusing recovery", e.Path)
+			}
+			continue
 		}
 		if e.Backup != "" {
 			backup, err := readJournalFile(root, path.Join(sourceJournalDir, e.Backup), recoverySourceLimit(e.Path))
@@ -617,12 +675,24 @@ func restoreSourceRecovery(prj *project.Project, checkpoint func(stage, rel stri
 		if err := j.checkDirectory(); err != nil {
 			return err
 		}
+		if e.ReadOnly {
+			if matched, err := guardMatches(e); err != nil || !matched {
+				return fmt.Errorf("%s changed during recovery; refusing recovery", e.Path)
+			}
+			continue
+		}
 		got, err := p.recoverySourceBytes(root, e.Path)
 		if err != nil || !slices.Contains(j.allowed[e.Path], sourceVersionOf(got)) {
 			return fmt.Errorf("%s changed during recovery; refusing to overwrite it", e.Path)
 		}
 		if sourceVersionOf(got) == e.Before {
 			continue
+		}
+		if err := checkGuards(); err != nil {
+			return err
+		}
+		if hasFingerprintGuard && checkpoint != nil {
+			checkpoint("recovery-fingerprint-checked", e.Path)
 		}
 		var before []byte
 		if e.Backup != "" {
@@ -634,12 +704,21 @@ func restoreSourceRecovery(prj *project.Project, checkpoint func(stage, rel stri
 		if err := j.checkDirectory(); err != nil {
 			return err
 		}
+		if hasFingerprintGuard {
+			current, err := p.recoverySourceBytes(root, e.Path)
+			if err != nil || !sameSource(current, got) {
+				return fmt.Errorf("%s changed before recovery publication; refusing to overwrite it", e.Path)
+			}
+		}
 		if err := replaceSource(root, e.Path, before); err != nil {
 			return fmt.Errorf("cannot restore %s: %w", e.Path, err)
 		}
 		if checkpoint != nil {
 			checkpoint("recovery-restored", e.Path)
 		}
+	}
+	if err := checkGuards(); err != nil {
+		return err
 	}
 	return j.finish("restored")
 }
