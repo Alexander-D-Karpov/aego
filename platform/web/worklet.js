@@ -35,6 +35,8 @@ class AegoOut extends AudioWorkletProcessor {
         this.port.onmessage = ({data}) => {
             if (data && data.producerPort) {
                 if (this.producer) throw new Error('audio producer already attached');
+                if (data.quiet !== undefined && typeof data.quiet !== 'boolean') throw new Error('invalid initial audio state');
+                this.quiesced = data.quiet === true;
                 this.producer = data.producerPort;
                 this.producer.onmessage = ({data}) => {
                     if (data && Number.isSafeInteger(data.quiesce) && data.quiesce > 0) {
@@ -51,7 +53,7 @@ class AegoOut extends AudioWorkletProcessor {
                         // Preserve the counters, including any real underruns
                         // since the last periodic page report.
                         this.port.postMessage({consumed:this.consumed, time:currentTime, underruns:this.underruns,
-                            sum:this.sum, count:this.count, quiet:true, suppressed:this.suppressed});
+                            sum:this.sum, count:this.count, quiet:true, quietToken:data.quiesce, suppressed:this.suppressed});
                         this.producer.postMessage({quiesced:data.quiesce, consumed:this.consumed});
                     } else if (data && Number.isSafeInteger(data.resume) && data.resume > 0) {
                         if (!this.quiesced) throw new Error('audio output is not quiesced');
@@ -69,7 +71,9 @@ class AegoOut extends AudioWorkletProcessor {
                     }
                 };
                 if (this.producer.start) this.producer.start();
-                this.producer.postMessage({ready:true});
+                if (this.quiesced) this.port.postMessage({consumed:this.consumed, time:currentTime, underruns:this.underruns,
+                    sum:this.sum, count:this.count, quiet:true, quietToken:0, suppressed:this.suppressed});
+                this.producer.postMessage({ready:true, quiet:this.quiesced});
             } else if (data && typeof data.refillAt === "number") {
                 this.refillAt = data.refillAt;
             } else {

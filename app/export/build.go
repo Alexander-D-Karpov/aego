@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"aego/app/export/icon"
+	"aego/app/export/webaudio"
 	"aego/app/export/winres"
 	"aego/app/proc"
 	"aego/core/errs"
@@ -198,6 +199,11 @@ func (j *job) build() error {
 	}
 	j.rep.Binary = j.rel(bin)
 	j.rep.BinarySize = st.Size()
+	if j.t.Web() {
+		if err := webaudio.Build(j.opt.Engine, j.out, j.profile == bundle.Release); err != nil {
+			return errs.Wrap(err, errs.BuildFailed, "cannot build the web audio worker")
+		}
+	}
 	return nil
 }
 

@@ -12,7 +12,7 @@ const {webcrypto} = require('node:crypto');
 
 const code = fs.readFileSync(path.join(__dirname, 'audio_worker.js'), 'utf8');
 
-function harness({shared = false, target = 3072, version = 3} = {}) {
+function harness({shared = false, target = 3072, version = 3, active = 0} = {}) {
     const memory = new WebAssembly.Memory({initial:32});
     const enc = new TextEncoder(), dec = new TextDecoder();
     const messages = [], calls = [], output = [], errors = [];
@@ -33,7 +33,7 @@ function harness({shared = false, target = 3072, version = 3} = {}) {
             const value = JSON.parse(input);
             calls.push({op,value});
             let result = '';
-            if (op === 10) result = JSON.stringify({serial:String(++serial)});
+            if (op === 10) result = JSON.stringify({serial:String(++serial),active});
             if (op === 5) result = JSON.stringify({frames:value.samples});
             resultLength = write(8192, result);
             return 1;
@@ -126,6 +126,31 @@ test('page stalls retain one outstanding batch while audio keeps refilling', () 
     assert.equal(JSON.parse(batches[1].batch).serial,'2');
     h.ack('1');
     assert.equal(h.messages.at(-1).type,'fatal');
+});
+
+test('worker mixer statistics retain bounded queue-empty diagnostics', () => {
+    const h=harness({active:1});
+    h.start();
+    let batch=h.messages.findLast(value=>value.type==='batch');
+    assert.equal(batch.stats.blocks,6);
+    assert.equal(batch.stats.underruns,0);
+    assert(batch.stats.maxMixMS>=0 && batch.stats.totalMixMS>=batch.stats.maxMixMS);
+    h.ack('1');
+    h.consume(3072);
+    batch=h.messages.findLast(value=>value.type==='batch');
+    assert.equal(batch.stats.blocks,12);
+    assert.equal(batch.stats.underruns,1,'an empty active queue was not reported');
+    h.ack('2');
+    h.rpc(1,'quiesce',{});
+    h.port.onmessage({data:{quiesced:1,consumed:3072}});
+    h.rpc(2,11,{frames:1024});
+    batch=h.messages.findLast(value=>value.type==='batch');
+    assert.equal(batch.stats.underruns,1,'intentional quiet changed previous diagnostics');
+    h.ack('3');
+    h.rpc(3,'resume',{});
+    h.port.onmessage({data:{resumed:3,consumed:3072}});
+    batch=h.messages.findLast(value=>value.type==='batch');
+    assert.equal(batch.stats.underruns,1,'fresh priming was counted as a shortage');
 });
 
 test('silent skip publishes state even when the worklet has not started', () => {
@@ -286,6 +311,32 @@ test('device rebind preserves the mixer and ignores old worklet reports', () => 
         const count = h.messages.length;
         oldReport({data:{consumed:999999999}});
         assert.equal(h.messages.length, count, 'stale reports affected the replacement output');
+    }
+});
+
+test('quiet rebind accepts ordered skips before replacement starts mixing', () => {
+    for(const shared of [false,true]) {
+        const h=harness();
+        h.start();h.ack('1');
+        const nextOutput=[];
+        const nextPort={onmessage:null,start(){},close(){this.closed=true;},postMessage:value=>nextOutput.push(value)};
+        const data=shared ? new SharedArrayBuffer(8192*2*4) : null;
+        const index=shared ? new SharedArrayBuffer(16) : null;
+        h.send({type:'rpc',id:1,op:'rebind',port:nextPort,block:512,target:3072,rate:44100,data,index,quiet:true});
+        assert.equal(h.messages.at(-1).id,1);
+        h.rpc(2,11,{frames:480});
+        const skipBatch=h.messages.findLast(value=>value.type==='batch');
+        assert.equal(JSON.parse(skipBatch.batch).serial,'2');
+        h.ack('2');
+        nextPort.onmessage({data:{ready:true,quiet:true}});
+        assert.equal(nextOutput.length,0,'quiet replacement was mixed before resume');
+        if(shared)assert.equal(Atomics.load(new Int32Array(index),1),0);
+        h.rpc(3,'resume',{});
+        assert.equal(nextOutput.at(-1).resume,3);
+        if(shared)assert.equal(Atomics.load(new Int32Array(index),1),3072);
+        else assert.equal(nextOutput[0].length,3072*2);
+        nextPort.onmessage({data:{resumed:3,consumed:0}});
+        assert.equal(h.messages.at(-1).id,3);
     }
 });
 

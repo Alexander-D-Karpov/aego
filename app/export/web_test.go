@@ -43,9 +43,21 @@ func TestPackWeb(t *testing.T) {
 		t.Skip(err)
 	}
 	out := t.TempDir()
+	engine := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(engine, "platform", "web"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{"audio_worker_host.js": []byte("host"), "audio_worker.js": []byte("worker")} {
+		if err := os.WriteFile(filepath.Join(engine, "platform", "web", name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(out, "audio-mixer.wasm"), []byte("\x00asm-fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	wasm := bytes.Repeat([]byte("wasm"), 4096)
 	j := &job{
-		p: &project.Project{Name: `<Game & "Co">`, Module: "game"}, t: webTarget, out: out, goroot: root,
+		opt: Options{Engine: engine}, p: &project.Project{Name: `<Game & "Co">`, Module: "game"}, t: webTarget, out: out, goroot: root,
 		rep:   &Report{Hash: strings.Repeat("ab", 32), BinarySize: int64(len(wasm))},
 		files: []webFile{{Path: "artifacts/a.tex", Size: 3}}, manifestSize: 8,
 	}
@@ -84,7 +96,7 @@ func TestPackWeb(t *testing.T) {
 	if list.Wasm != int64(len(wasm)) || list.Manifest.Size != 8 || len(list.Files) != 1 || list.Files[0].Path != "artifacts/a.tex" {
 		t.Fatalf("files.json %+v", list)
 	}
-	for _, f := range []string{webExec, webLoader, WebWasm + ".gz"} {
+	for _, f := range []string{webExec, webLoader, WebWasm + ".gz", "audio-mixer.wasm", "audio-worker.js", "audio-worker-host.js"} {
 		if _, err := os.Stat(filepath.Join(out, f)); err != nil {
 			t.Errorf("%s is missing", f)
 		}

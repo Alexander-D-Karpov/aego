@@ -192,6 +192,7 @@ for (const shared of [false, true]) {
     assert.equal(workerReports.at(-1).quiesced,7);
     assert.equal(pageReports.at(-1).underruns,1,'quiesce lost the final worklet counters');
     assert.equal(pageReports.at(-1).quiet,true);
+    assert.equal(pageReports.at(-1).quietToken,7);
     publish(512,.75);
     const consumed=worklet.consumed;
     for(let i=0;i<4;i++)assert.equal(read(),0,'quiesced output emitted PCM');
@@ -204,4 +205,34 @@ for (const shared of [false, true]) {
     for(let i=0;i<4;i++)assert.equal(read(),.75,'old PCM played or new PCM was lost');
     assert.equal(read(),0);
     assert.equal(worklet.underruns,2,'real starvation after resume was hidden');
+}
+
+// A replacement is quiet from its very first producer attachment. Skips and
+// re-priming may finish before it consumes any output, even on a running context.
+for (const shared of [false,true]) {
+    let Worklet;
+    const pageReports=[],workerReports=[];
+    const env={sampleRate:48000,currentTime:0,Float32Array,
+        AudioWorkletProcessor:class {constructor(){this.port={postMessage:data=>pageReports.push(data)};}},
+        registerProcessor(_name,Class){Worklet=Class;}};
+    vm.runInNewContext(source,env);
+    const options={channels:2,report:2048,refillAt:128};
+    if(shared){options.data=new SharedArrayBuffer(8192*2*4);options.index=new SharedArrayBuffer(16);}
+    const worklet=new Worklet({processorOptions:options});
+    const producer={postMessage:data=>workerReports.push(data),start(){}};
+    worklet.port.onmessage({data:{producerPort:producer,quiet:true}});
+    assert.equal(pageReports.at(-1).quiet,true);
+    assert.equal(pageReports.at(-1).quietToken,0);
+    assert.equal(workerReports.at(-1).quiet,true);
+    const pcm=new Float32Array(512*2).fill(.5);
+    if(shared){new Float32Array(options.data).set(pcm);Atomics.store(new Int32Array(options.index),1,512);}
+    else producer.onmessage({data:pcm});
+    const channels=[[new Float32Array(128),new Float32Array(128)]];
+    worklet.process([],channels);
+    assert.equal(channels[0][0][0],0);
+    assert.equal(worklet.consumed,0);
+    producer.onmessage({data:{resume:1}});
+    worklet.process([],channels);
+    assert.equal(channels[0][0][0],.5);
+    assert.equal(worklet.consumed,128);
 }

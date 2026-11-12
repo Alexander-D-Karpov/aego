@@ -1,6 +1,6 @@
 // Main-thread half of the audio Worker transport. It owns one Worker and one
 // outstanding RPC. The caller owns the mixer and startup/RPC deadlines, applies
-// batches before acking them and handles failures. Audio does not select it yet.
+// batches before acking them and handles failures.
 'use strict';
 
 (() => {
@@ -74,13 +74,13 @@
             }
         }
 
-        attach(node) {
+        attach(node, quiet = false) {
             if (!this.port || !node || !node.port || typeof node.port.postMessage !== 'function') {
                 throw new Error('invalid audio output attachment');
             }
             const port = this.port;
             this.attached = true;
-            node.port.postMessage({producerPort:port}, [port]);
+            node.port.postMessage({producerPort:port, quiet}, [port]);
             this.port = null;
             this.node = node;
         }
@@ -107,7 +107,7 @@
                         throw new Error('invalid audio batch serial');
                     }
                     this.batch = value.serial;
-                    this.emit({type:'batch', batch:message.batch});
+                    this.emit({type:'batch', batch:message.batch, stats:message.stats});
                     return;
                 }
                 if (message.type !== 'reply' || !this.pending || message.id !== this.pending.id ||
@@ -115,7 +115,7 @@
                     throw new Error(message.error || 'invalid audio worker reply');
                 }
                 const pending = this.pending;
-                if (pending.node) this.attach(pending.node);
+                if (pending.node) this.attach(pending.node, pending.quiet);
                 this.pending = null;
                 this.emit({type:'reply', id:message.id, result:message.result});
             } catch (error) { this.fail(error && error.message || error); }
@@ -174,18 +174,19 @@
 
         // Disconnect the old worklet first. The caller must serialize this
         // operation with commands and retain the same live mixer and Worker.
-        rebind({node, block, target, data, index, rate}) {
+        rebind({node, block, target, data, index, rate, quiet = false}) {
             if (!node || node === this.node || !node.port || typeof node.port.postMessage !== 'function') {
                 throw new Error('invalid audio output rebind');
             }
+            if (typeof quiet !== 'boolean') throw new Error('invalid audio output quiet state');
             const id = this.nextID();
             let channel;
             try { channel = new this.Channel(); }
             catch (error) { this.fail(error && error.message || error); return id; }
             this.port = channel.port2;
-            this.pending = {id, node};
+            this.pending = {id, node, quiet};
             try {
-                this.worker.postMessage({type:'rpc', id, op:'rebind', port:channel.port1, block, target, data, index, rate}, [channel.port1]);
+                this.worker.postMessage({type:'rpc', id, op:'rebind', port:channel.port1, block, target, data, index, rate, quiet}, [channel.port1]);
             } catch (error) {
                 try { channel.port1.close(); } catch (_) { /* No ownership remains. */ }
                 this.fail(error && error.message || error);
@@ -214,5 +215,67 @@
         }
     }
 
+    // The page loads this before Go starts. Failure leaves the existing local
+    // backend available; no mixer or output ownership has been transferred.
+    async function prepareAudioWorker(reactorURL, workerURL, timeoutMS = 8000) {
+        if (typeof Worker !== 'function' || typeof WebAssembly !== 'object' || typeof WebAssembly.compile !== 'function' ||
+            typeof AbortController !== 'function' || !Number.isSafeInteger(timeoutMS) || timeoutMS <= 0 || timeoutMS > 60000) return null;
+        let timer, controller;
+        try {
+            const reactor = new URL(reactorURL, location.href), worker = new URL(workerURL, location.href);
+            if (!['http:', 'https:'].includes(reactor.protocol) || !['http:', 'https:'].includes(worker.protocol) ||
+                reactor.origin !== location.origin || worker.origin !== location.origin ||
+                reactor.username || reactor.password || worker.username || worker.password) {
+                throw new Error('audio worker must be same-origin');
+            }
+            controller = new AbortController();
+            const timeout = new Promise((_, reject) => {
+                timer = setTimeout(() => { controller.abort(); reject(new Error('audio reactor timed out')); }, timeoutMS);
+            });
+            const load = async () => {
+                // No cross-origin redirects, credentials in URLs, or opaque
+                // responses may expand the page's Worker trust boundary.
+                const response = await fetch(reactor.href, {signal:controller.signal, mode:'same-origin', redirect:'error'});
+                if (!response.ok) throw new Error(`audio reactor HTTP ${response.status}`);
+                if (response.redirected || (response.url && new URL(response.url).origin !== location.origin)) {
+                    throw new Error('audio reactor must not redirect');
+                }
+                const limit = 32 << 20;
+                const declared = Number(response.headers && response.headers.get('Content-Length'));
+                if (Number.isFinite(declared) && declared > limit) throw new Error('audio reactor exceeds its size limit');
+                let bytes;
+                if (response.body && typeof response.body.getReader === 'function') {
+                    const reader = response.body.getReader(), parts = [];
+                    let size = 0;
+                    for (;;) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        if (!(value instanceof Uint8Array) || value.byteLength > limit - size) throw new Error('audio reactor exceeds its size limit');
+                        size += value.byteLength;
+                        parts.push(value);
+                    }
+                    if (!size) throw new Error('audio reactor is empty');
+                    bytes = new Uint8Array(size);
+                    let at = 0;
+                    for (const part of parts) { bytes.set(part, at); at += part.byteLength; }
+                } else {
+                    if (!Number.isSafeInteger(declared) || declared <= 0 || declared > limit) throw new Error('audio reactor size is unavailable');
+                    bytes = await response.arrayBuffer();
+                    if (!bytes.byteLength || bytes.byteLength > limit) throw new Error('audio reactor exceeds its size limit');
+                }
+                const module = await WebAssembly.compile(bytes);
+                return {module, url:worker.href};
+            };
+            return await Promise.race([load(), timeout]);
+        } catch (error) {
+            if (controller) controller.abort();
+            if (globalThis.console && console.warn) console.warn('Aego audio worker unavailable; using local audio:', error);
+            return null;
+        } finally {
+            if (timer !== undefined) clearTimeout(timer);
+        }
+    }
+
     globalThis.AegoAudioWorkerHost = AegoAudioWorkerHost;
+    globalThis.AegoPrepareAudioWorker = prepareAudioWorker;
 })();

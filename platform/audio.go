@@ -36,6 +36,16 @@ type Audioer interface {
 	OpenAudio(want AudioSpec) (AudioOutput, error)
 }
 
+// AudioCounters are cumulative output measurements. Sum is the sum of squared
+// channel samples; Samples is its denominator for an RMS calculation.
+type AudioCounters struct {
+	Underruns  int
+	Consumed   int64
+	Sum        float64
+	Samples    float64
+	Suppressed int64
+}
+
 type AudioDevice struct {
 	ID      uint32
 	Default bool

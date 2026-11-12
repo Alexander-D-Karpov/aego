@@ -169,6 +169,7 @@ function installAudioTiming() {
 
 function checkAudibleWorklet(stats, label) {
     if (stats.quiet !== false) fail(`${label}: worklet is intentionally silent while the game should be audible`);
+    if (stats.backend !== "worker") fail(`${label}: demo is not using the audio Worker`);
 }
 
 async function demo(browser, label, headers, wantShared) {
@@ -224,6 +225,31 @@ async function demo(browser, label, headers, wantShared) {
                 console.log(`${label}: underrun timing unavailable`);
             }
         }
+        // The product mixer must keep feeding its worklet while a genuine
+        // page-thread stall exceeds either transport's unchanged reserve.
+        const stallMS = await js(`(() => {
+            const start = performance.now();
+            while (performance.now() - start < 500) {}
+            return performance.now() - start;
+        })()`);
+        await sleep(300);
+        const afterStall = await stats();
+        const pumpAfterStall = await js("globalThis.aegoGame?.mixStats?.() ?? null");
+        if (!Number.isFinite(stallMS) || stallMS < 500) fail(`${label}: the main-thread stall did not run`);
+        if (afterStall.error) fail(`${label}: ${afterStall.error}`);
+        if (!afterStall.running || afterStall.rms < 0.01) fail(`${label}: music stopped after the main-thread stall`);
+        checkAudibleWorklet(afterStall, label);
+        if (!Number.isSafeInteger(s.consumed) || !Number.isSafeInteger(afterStall.consumed) || afterStall.consumed <= s.consumed ||
+            !Number.isSafeInteger(pump?.blocks) || !Number.isSafeInteger(pumpAfterStall?.blocks) || pumpAfterStall.blocks <= pump.blocks) {
+            fail(`${label}: Worker output did not advance after the main-thread stall`);
+        }
+        if (!Number.isInteger(afterStall.underruns) || afterStall.underruns < 0 || afterStall.underruns > 0) {
+            fail(`${label}: worklet underruns after the main-thread stall: ${afterStall.underruns}`);
+        }
+        if (!Number.isInteger(pumpAfterStall?.underruns) || pumpAfterStall.underruns < 0 || pumpAfterStall.underruns > 0) {
+            fail(`${label}: predicted pump underruns after the main-thread stall: ${pumpAfterStall?.underruns}`);
+        }
+        console.log(`${label}: ${stallMS.toFixed(1)} ms injected main-thread stall, worklet underruns ${afterStall.underruns} (pump ${pumpAfterStall?.underruns})`);
         if (await page.isHidden("#mute")) fail(`${label}: the mute button is hidden`);
         await page.click("#mute");
         await sleep(300);

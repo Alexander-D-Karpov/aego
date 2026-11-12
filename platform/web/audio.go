@@ -35,6 +35,7 @@ type AudioStats struct {
 	Out        float64 `json:"out"`
 	Consumed   int64   `json:"consumed"`
 	Rate       int     `json:"rate"`
+	Backend    string  `json:"backend"`
 	Quiet      bool    `json:"quiet"`
 	Suppressed int64   `json:"suppressed"`
 	Error      string  `json:"error,omitempty"`
@@ -87,7 +88,9 @@ type Audio struct {
 	workerReserved bool
 	workerAttached bool
 	workerQuiet    bool
+	quietToken     uint64
 	suppressed     int64
+	prior          platform.AudioCounters
 	workerGate     bool
 	workerState    func()
 }
@@ -207,6 +210,7 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 			if len(args) > 0 {
 				a.failed += ": " + args[0].Call("toString").String()
 			}
+			a.notifyWorkerState()
 		}
 		return nil
 	})
@@ -272,6 +276,7 @@ func (a *Audio) attach() {
 	node, err := newNode(a.ctx, po)
 	if err != nil {
 		a.failed = err.Error()
+		a.notifyWorkerState()
 		return
 	}
 	a.node = node
@@ -298,8 +303,19 @@ func (a *Audio) report(d js.Value) {
 	if t := d.Get("time"); t.Type() == js.TypeNumber {
 		a.count.at = t.Float()
 	}
+	wasQuiet, oldToken := a.workerQuiet, a.quietToken
 	a.underruns = d.Get("underruns").Int()
 	if quiet := d.Get("quiet"); quiet.Type() == js.TypeBoolean {
+		if quiet.Bool() {
+			token := d.Get("quietToken")
+			if token.Type() != js.TypeNumber || math.IsNaN(token.Float()) || math.IsInf(token.Float(), 0) ||
+				token.Float() < 0 || token.Float() > 1<<53-1 || math.Trunc(token.Float()) != token.Float() {
+				a.failed = "the audio worklet reported an invalid quiet token"
+				a.notifyWorkerState()
+				return
+			}
+			a.quietToken = uint64(token.Float())
+		}
 		a.workerQuiet = quiet.Bool()
 	}
 	if suppressed := d.Get("suppressed"); suppressed.Type() == js.TypeNumber {
@@ -307,6 +323,9 @@ func (a *Audio) report(d js.Value) {
 	}
 	a.sum = d.Get("sum").Float()
 	a.samples = d.Get("count").Float()
+	if a.workerQuiet != wasQuiet || (a.workerQuiet && a.quietToken != oldToken) {
+		a.notifyWorkerState()
+	}
 	a.fillRunning()
 }
 
@@ -501,9 +520,16 @@ func (a *Audio) Pause(on bool) {
 }
 
 func (a *Audio) Stats() AudioStats {
-	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: a.underruns, Consumed: a.count.consumed, Rate: a.spec.SampleRate, Error: a.failed, Quiet: a.workerQuiet, Suppressed: a.suppressed}
-	if a.samples > 0 {
-		s.RMS = math.Sqrt(a.sum / a.samples)
+	c := a.audioCounters()
+	backend := "local"
+	if a.workerAttached {
+		backend = "worker"
+	} else if a.workerReserved {
+		backend = "worker-starting"
+	}
+	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: c.Underruns, Consumed: c.Consumed, Rate: a.spec.SampleRate, Error: a.failed, Quiet: a.workerQuiet, Suppressed: c.Suppressed, Backend: backend}
+	if c.Samples > 0 {
+		s.RMS = math.Sqrt(c.Sum / c.Samples)
 	}
 	s.Out = s.RMS * a.level()
 	return s

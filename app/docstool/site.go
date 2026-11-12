@@ -21,6 +21,7 @@ import (
 	"unicode/utf8"
 
 	"aego/app/assembly/builtin"
+	"aego/app/export/webaudio"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/project"
@@ -502,6 +503,20 @@ func (e *Env) playground(dir string) (string, error) {
 	if err := copyFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js")); err != nil {
 		return "", err
 	}
+	if err := webaudio.Build(e.Engine, dir, true); err != nil {
+		return "", fmt.Errorf("playground audio worker build failed: %w", err)
+	}
+	host, worker, err := webaudio.Scripts(e.Engine, dir)
+	if err != nil {
+		return "", err
+	}
+	reactor, err := os.ReadFile(filepath.Join(dir, webaudio.Reactor))
+	if err != nil {
+		return "", err
+	}
+	if _, err := gzipCopy(filepath.Join(dir, webaudio.Reactor)); err != nil {
+		return "", err
+	}
 	web := filepath.Join(e.Engine, "cmd", "aego-playground", "web")
 	files, err := os.ReadDir(web)
 	if err != nil {
@@ -515,7 +530,7 @@ func (e *Env) playground(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	parts := [][]byte{blob}
+	parts := [][]byte{blob, host, worker, reactor}
 	for _, f := range files {
 		if f.IsDir() {
 			continue

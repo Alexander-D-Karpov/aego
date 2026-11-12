@@ -406,10 +406,15 @@ async function boot() {
     const go = new Go();
     const ready = new Promise((resolve) => (globalThis.aegoReady = resolve));
     loading("Loading engine…");
-    const resp = await fetchWasm(`aego.wasm?v=${loaderEl.dataset.version || ""}`);
+    const version = loaderEl.dataset.version || "";
+    const audio = typeof globalThis.AegoPrepareAudioWorker === "function"
+        ? globalThis.AegoPrepareAudioWorker(`audio-mixer.wasm?v=${version}`, `audio-worker.js?v=${version}`)
+        : Promise.resolve(null);
+    const resp = await fetchWasm(`aego.wasm?v=${version}`);
     const { instance } = WebAssembly.instantiateStreaming
         ? await WebAssembly.instantiateStreaming(resp, go.importObject)
         : await WebAssembly.instantiate(await resp.arrayBuffer(), go.importObject);
+    globalThis.aegoAudioWorkerConfig = await audio;
     go.run(instance);
     await ready;
     if (globalThis.aego.error) throw new Error(globalThis.aego.error);

@@ -9,7 +9,7 @@ const {test} = require('node:test');
 const vm = require('node:vm');
 
 const code = fs.readFileSync(path.join(__dirname, 'audio_worker_host.js'), 'utf8');
-const scope = {Float32Array, Number, JSON, Error};
+const scope = {Float32Array, Uint8Array, Number, JSON, Error, URL, AbortController, setTimeout, clearTimeout};
 vm.createContext(scope);
 vm.runInContext(code, scope, {filename:'audio_worker_host.js'});
 
@@ -114,8 +114,10 @@ test('RPCs are single-flight, preserve PCM and reject stale replies', () => {
 test('batch acknowledgements retain exact uint64 serials and apply backpressure', () => {
     const h = harness(); h.start(); h.receive({type:'ready'});
     const serial = '9007199254740993';
-    h.receive({type:'batch', batch:JSON.stringify({serial})});
+    const stats={blocks:7,underruns:1,maxMixMS:.1,totalMixMS:.3};
+    h.receive({type:'batch', batch:JSON.stringify({serial}),stats});
     assert.equal(h.events.at(-1).type, 'batch');
+    assert.equal(h.events.at(-1).stats,stats);
     h.host.ackBatch(serial);
     assert.equal(h.sent.at(-1).message.serial, serial);
     h.receive({type:'batch', batch:JSON.stringify({serial:'9007199254740994'})});
@@ -133,12 +135,14 @@ test('batch acknowledgements retain exact uint64 serials and apply backpressure'
 test('rebind attaches the new producer only after the ordered reply', () => {
     const h = harness(); h.start(); h.receive({type:'ready'});
     const node = {port:{sent:[],postMessage(message, transfer){this.sent.push({message, transfer});}}};
-    const id = h.host.rebind({node, block:512, target:3072, rate:44100});
+    const id = h.host.rebind({node, block:512, target:3072, rate:44100, quiet:true});
     assert.equal(h.sent.at(-1).message.op, 'rebind');
+    assert.equal(h.sent.at(-1).message.quiet, true);
     assert.equal(h.sent.at(-1).message.port, h.channels[1].port1);
     assert.equal(node.port.sent.length, 0);
     h.receive({type:'reply', id, result:''});
     assert.equal(node.port.sent[0].message.producerPort, h.channels[1].port2);
+    assert.equal(node.port.sent[0].message.quiet, true);
     assert.equal(h.host.node, node);
     assert.equal(h.events.at(-1).type, 'reply');
     assert.throws(() => h.host.rebind({node, block:512, target:3072, rate:44100}), /rebind/);
@@ -171,4 +175,38 @@ test('bad transport messages and consumer failures stop rather than replay', () 
     h.receive({type:'batch',batch:'{"serial":"1"}'});
     assert.equal(h.host.state, 'failed');
     assert.equal(h.worker.stopped, 1);
+});
+
+test('reactor preparation is same-origin and leaves fallback on failure', async () => {
+    const module={compiled:true},fetched=[];
+    scope.location={href:'https://example.test/demo/index.html',origin:'https://example.test'};
+    scope.Worker=function(){};
+    scope.WebAssembly={compile:async bytes=>{assert.equal(bytes.byteLength,3);return module;}};
+    scope.fetch=async (url, options)=>{fetched.push({url,options});return {ok:true,headers:{get:()=>3},arrayBuffer:async()=>new ArrayBuffer(3)};};
+    const ready=await scope.AegoPrepareAudioWorker('audio-mixer.wasm?v=123','audio-worker.js?v=123');
+    assert.equal(ready.module,module);
+    assert.equal(ready.url,'https://example.test/demo/audio-worker.js?v=123');
+    assert.equal(fetched[0].url,'https://example.test/demo/audio-mixer.wasm?v=123');
+    assert(fetched[0].options.signal instanceof AbortSignal);
+    assert.equal(fetched[0].options.mode,'same-origin');
+    assert.equal(fetched[0].options.redirect,'error');
+    assert.equal(await scope.AegoPrepareAudioWorker('https://foreign.test/audio.wasm','audio-worker.js'),null);
+    assert.equal(await scope.AegoPrepareAudioWorker('https://user@example.test/audio.wasm','audio-worker.js'),null);
+    assert.equal(fetched.length,1,'cross-origin reactor was fetched');
+    scope.fetch=async()=>({ok:false,status:404});
+    assert.equal(await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js'),null);
+    let redirected;
+    scope.fetch=async(_url,options)=>{redirected=options.signal;return {ok:true,redirected:true,url:'https://foreign.test/audio.wasm'};};
+    assert.equal(await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js'),null);
+    assert.equal(redirected.aborted,true,'rejected response left its fetch active');
+    scope.fetch=async()=>({ok:true,headers:{get:()=>String(33<<20)}});
+    assert.equal(await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js'),null);
+    scope.fetch=async()=>({ok:true,headers:{get:()=>null},body:{getReader(){
+        let done=false;return {async read(){if(done)return {done:true};done=true;return {done:false,value:new Uint8Array([1,2,3])};}};
+    }}});
+    assert.equal((await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js')).module,module);
+    scope.WebAssembly={compile:()=>new Promise(()=>{})};
+    assert.equal(await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js',5),null,'hung compilation did not time out');
+    scope.Worker=undefined;
+    assert.equal(await scope.AegoPrepareAudioWorker('audio-mixer.wasm','audio-worker.js'),null);
 });

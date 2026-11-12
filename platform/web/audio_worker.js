@@ -10,7 +10,8 @@
     const encoder = new TextEncoder(), decoder = new TextDecoder();
     let exports, port, shared, ring, index, block = 0, target = 0, rate = 0;
     let tail = 0, sent = 0, consumed = 0, started = false, failed = false;
-    let staging = null, lastID = 0, blocks = 0, maxMixMS = 0;
+    let staging = null, lastID = 0, blocks = 0, maxMixMS = 0, totalMixMS = 0;
+    let estimatedUnderruns = 0, knownActive = 0, primed = false;
     let batchPending = '', batchDirty = false;
     let outputState = 'unbound', controlID = 0;
     class ReactorFailure extends Error {}
@@ -145,17 +146,23 @@
         if (batchPending || !batchDirty) return;
         const batch = call(OP_DRAIN, '{}');
         if (!batch) throw new Error('audio batch missing');
-        const serial = JSON.parse(batch).serial;
+        const value = JSON.parse(batch), serial = value.serial;
         if (typeof serial !== 'string' || !/^[1-9][0-9]*$/.test(serial)) throw new Error('invalid audio batch serial');
+        if (!Number.isSafeInteger(value.active) || value.active < 0 || value.active > 1024) throw new Error('invalid audio active count');
+        knownActive = value.active;
         batchPending = serial;
         batchDirty = false;
-        postMessage({type:'batch', batch});
+        postMessage({type:'batch', batch, stats:{blocks, underruns:estimatedUnderruns, maxMixMS, totalMixMS}});
     }
     function fill() {
         if (!started || failed) return;
         const q = queued();
         const capacity = shared ? ring.length / 2 : target + block;
         if (!Number.isSafeInteger(q) || q < 0 || q > capacity) throw new Error('invalid audio queue state');
+        // Like the local pump this is a prediction, not a substitute for the
+        // worklet's actual underrun counter. The last acknowledged batch is a
+        // bounded, possibly stale observation of active voices.
+        if (outputState === 'bound' && primed && q === 0 && knownActive > 0) estimatedUnderruns++;
         let count = Math.max(0, Math.ceil((target - q) / block));
         if (shared) count = Math.min(count, Math.floor((capacity - q) / block));
         if (!count) return;
@@ -163,7 +170,10 @@
         for (let i = 0; i < count; i++) {
             const before = performance.now(), ptr = exports.aego_render(block);
             if (!ptr) throw new Error(reactorError() || 'audio render failed');
-            maxMixMS = Math.max(maxMixMS, performance.now() - before);
+            const elapsed = performance.now() - before;
+            if (!Number.isFinite(elapsed) || elapsed < 0) throw new Error('invalid audio mixer timing');
+            maxMixMS = Math.max(maxMixMS, elapsed);
+            totalMixMS += elapsed;
             pcm.set(new Float32Array(exports.memory.buffer, ptr, block * 2), i * block * 2);
         }
         if (shared) {
@@ -181,6 +191,10 @@
         }
         sent += count * block;
         blocks += count;
+        if (!Number.isSafeInteger(blocks) || !Number.isSafeInteger(estimatedUnderruns) || !Number.isFinite(totalMixMS)) {
+            throw new Error('audio worker statistics overflow');
+        }
+        primed = true;
         // Keep mixing while the page is blocked, but never queue an
         // unbounded series of state batches for it. Until the one outstanding
         // batch is acknowledged, the mixer retains its bounded event and
@@ -219,7 +233,12 @@
                 postMessage({type:'reply', id, result:''});
                 return;
             } else if (data && data.ready === true) {
-                if (outputState === 'bound') started = true;
+                if (outputState === 'bound') {
+                    if (data.quiet === true) throw new Error('unexpected quiet audio output');
+                    started = true;
+                } else if (outputState === 'quiet' && data.quiet !== true) {
+                    throw new Error('replacement audio output is not quiet');
+                }
             } else {
                 if (!data || !Number.isSafeInteger(data.consumed) || data.consumed < consumed || data.consumed > sent) {
                     throw new Error('invalid audio consumption report');
@@ -259,7 +278,7 @@
         }
         return {port:data.port, shared:nextShared, ring:nextRing, index:nextIndex, block:data.block, target:data.target};
     }
-    function bindOutput(out) {
+    function bindOutput(out, quiet = false) {
         port = out.port;
         shared = out.shared;
         ring = out.ring;
@@ -268,7 +287,8 @@
         target = out.target;
         tail = sent = consumed = 0;
         started = false;
-        outputState = 'bound';
+        primed = false;
+        outputState = quiet ? 'quiet' : 'bound';
         controlID = 0;
         const boundPort = port;
         port.onmessage = event => onOutput(boundPort, event);
@@ -277,6 +297,7 @@
     function quiesce(id) {
         if (!port || outputState !== 'bound' || controlID) throw new Error('audio output cannot be quiesced');
         started = false;
+        primed = false;
         outputState = 'quiescing';
         controlID = id;
         try { port.postMessage({quiesce:id}); }
@@ -296,7 +317,8 @@
     }
     function rebind(data) {
         const next = outputConfig(data);
-        if (controlID || next.port === port || !Number.isInteger(data.rate) || data.rate <= 0 || data.rate > 768000) {
+        if (controlID || (data.quiet !== undefined && typeof data.quiet !== 'boolean') || next.port === port ||
+            !Number.isInteger(data.rate) || data.rate <= 0 || data.rate > 768000) {
             throw new Error('invalid audio worker rebind');
         }
         // The caller must disconnect the old AudioWorklet first. Validate the
@@ -308,7 +330,7 @@
                 port.onmessage = null;
                 port.close();
             }
-            bindOutput(next);
+            bindOutput(next, !!data.quiet);
         });
     }
     function init(data) {

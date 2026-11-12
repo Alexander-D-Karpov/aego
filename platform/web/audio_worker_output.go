@@ -2,7 +2,12 @@
 
 package web
 
-import "syscall/js"
+import (
+	"math"
+	"syscall/js"
+
+	"aego/platform"
+)
 
 // ReserveWorkerOutput claims an untouched Web Audio output before either the
 // local pump or a Worker publishes PCM. The owner must also keep the mixer
@@ -87,6 +92,72 @@ func (a *Audio) CancelWorkerOutput() bool {
 // false until fresh PCM has been primed and acknowledged by the worklet.
 func (a *Audio) WorkerSilent() bool {
 	return a == nil || a.muted || a.hidden || a.paused || !a.Running()
+}
+
+// WorkerError exposes asynchronous worklet and ownership failures to the
+// backend. It does not authorize replay through the local mixer.
+func (a *Audio) WorkerError() string {
+	if a == nil {
+		return "the audio output is missing"
+	}
+	return a.failed
+}
+
+// WorkerQuiet matches the final page-side report to the exact quiesce request;
+// an earlier quiet report cannot authorize a later output replacement.
+func (a *Audio) WorkerQuiet(token uint64) bool {
+	return a != nil && !a.closed && a.workerQuiet && a.quietToken == token
+}
+
+func (a *Audio) audioCounters() platform.AudioCounters {
+	return platform.AudioCounters{Underruns: a.prior.Underruns + a.underruns,
+		Consumed: a.prior.Consumed + a.count.consumed, Sum: a.prior.Sum + a.sum,
+		Samples: a.prior.Samples + a.samples, Suppressed: a.prior.Suppressed + a.suppressed}
+}
+
+// WorkerCounters captures the latest page-side worklet report, including any
+// previously inherited device counters. Require WorkerQuiet before rebind.
+func (a *Audio) WorkerCounters() platform.AudioCounters { return a.audioCounters() }
+
+// SetWorkerBaseline preserves old output measurements on an untouched
+// replacement. It must be called before attaching the replacement Worker.
+func (a *Audio) SetWorkerBaseline(c platform.AudioCounters) bool {
+	if a == nil || a.closed || !a.workerReserved || a.workerAttached || a.sentAudio || a.underruns != 0 ||
+		a.count.consumed != 0 || a.sum != 0 || a.samples != 0 || a.suppressed != 0 ||
+		c.Underruns < 0 || c.Consumed < 0 || c.Suppressed < 0 || c.Sum < 0 || c.Samples < 0 ||
+		math.IsNaN(c.Sum) || math.IsInf(c.Sum, 0) || math.IsNaN(c.Samples) || math.IsInf(c.Samples, 0) {
+		return false
+	}
+	a.prior = c
+	return true
+}
+
+// SelectWorkerOutput makes a reserved output the page's published mute and
+// statistics target. During reopen the old output can remain selected until
+// the replacement is ready, without changing the user's mute preference.
+func (a *Audio) SelectWorkerOutput() bool {
+	if a == nil || a.closed || !a.workerReserved {
+		return false
+	}
+	if currentAudio != a {
+		a.publish()
+	}
+	return true
+}
+
+// FailWorkerOutput stops audible output and publishes an attached Worker's
+// failure through the existing audio statistics. It cannot restore ownership.
+func (a *Audio) FailWorkerOutput(message string) {
+	if a == nil || a.closed || !a.workerReserved {
+		return
+	}
+	if !a.SetWorkerGate(true) {
+		return
+	}
+	if message == "" {
+		message = "the audio worker failed"
+	}
+	a.failed = message
 }
 
 // SetWorkerStateListener observes output readiness, mute, visibility, pause

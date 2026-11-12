@@ -4,8 +4,10 @@ package workerproto
 
 import (
 	"encoding/json"
+	"math"
 	"syscall/js"
 	"testing"
+	"time"
 
 	"aego/audio/mix"
 )
@@ -207,6 +209,50 @@ func TestBrowserRejectsMalformedBatchBeforeAcknowledgement(t *testing.T) {
 	}
 }
 
+func TestBrowserRequiresValidatedMonotonicWorkerStats(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		stats any
+	}{
+		{"missing", nil},
+		{"negative", map[string]any{"blocks": -1, "underruns": 0, "maxMixMS": 0, "totalMixMS": 0}},
+		{"noninteger", map[string]any{"blocks": .5, "underruns": 0, "maxMixMS": 0, "totalMixMS": 0}},
+		{"nonfinite", map[string]any{"blocks": 1, "underruns": 0, "maxMixMS": math.Inf(1), "totalMixMS": 1}},
+		{"inconsistent time", map[string]any{"blocks": 1, "underruns": 0, "maxMixMS": 2, "totalMixMS": 1}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+			b, host := browserFixture(t, m, BrowserOptions{RequireStats: true})
+			defer b.Terminate()
+			host.Call("emit", map[string]any{"type": "ready"})
+			raw, _ := json.Marshal(BatchFromMix(mix.RemoteBatch{Serial: 1, Buses: make([]mix.RemoteBus, m.BusCount())}))
+			host.Call("emit", map[string]any{"type": "batch", "batch": string(raw), "stats": tt.stats})
+			if b.err == nil || host.Get("acks").Length() != 0 {
+				t.Fatal("accepted or acknowledged a batch with invalid statistics")
+			}
+		})
+	}
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	b, host := browserFixture(t, m, BrowserOptions{RequireStats: true})
+	defer b.Terminate()
+	host.Call("emit", map[string]any{"type": "ready"})
+	raw, _ := json.Marshal(BatchFromMix(mix.RemoteBatch{Serial: 1, Buses: make([]mix.RemoteBus, m.BusCount())}))
+	host.Call("emit", map[string]any{"type": "batch", "batch": string(raw), "stats": map[string]any{
+		"blocks": 12, "underruns": 1, "maxMixMS": .25, "totalMixMS": .5,
+	}})
+	stats, ok := b.Stats()
+	if !ok || stats.Blocks != 12 || stats.Underruns != 1 || stats.MixMax != 250*time.Microsecond || stats.MixTotal != 500*time.Microsecond || host.Get("acks").Length() != 1 {
+		t.Fatalf("worker stats were not retained: %+v available=%v", stats, ok)
+	}
+	raw, _ = json.Marshal(BatchFromMix(mix.RemoteBatch{Serial: 2, Buses: make([]mix.RemoteBus, m.BusCount())}))
+	host.Call("emit", map[string]any{"type": "batch", "batch": string(raw), "stats": map[string]any{
+		"blocks": 13, "underruns": 0, "maxMixMS": .25, "totalMixMS": .5,
+	}})
+	if b.err == nil || host.Get("acks").Length() != 1 {
+		t.Fatal("accepted a backwards underrun count")
+	}
+}
+
 func TestBrowserSendFailureStopsAfterAttachment(t *testing.T) {
 	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
 	voice := m.Play(mix.PlayParams{Memory: &mix.Memory{PCM: []float32{1}, Rate: 48000, Channels: 1}, Gain: 1})
@@ -325,6 +371,74 @@ func TestBrowserQuiesceWaitsForRPCAndBlocksQueuedSkipOnRebind(t *testing.T) {
 	}
 }
 
+func TestBrowserRequiescesAfterPendingResumeBeforeNextSkip(t *testing.T) {
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	b, host := browserFixture(t, m, BrowserOptions{})
+	defer b.Terminate()
+	host.Call("emit", map[string]any{"type": "ready"})
+	if err := b.Quiesce(); err != nil {
+		t.Fatal(err)
+	}
+	browserReply(host)
+	if err := b.Resume(); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.QueueSkip(10); err == nil {
+		t.Fatal("accepted a skip during resume without a new quiesce")
+	}
+	if err := b.Quiesce(); err != nil || !b.quiesceReq {
+		t.Fatal("could not request a subsequent quiesce", err)
+	}
+	if err := b.QueueSkip(10); err != nil || host.Get("sent").Length() != 2 {
+		t.Fatal("skip overtook the pending resume", err)
+	}
+	browserReply(host)
+	if sent := host.Get("sent"); sent.Length() != 3 || sent.Index(2).Get("op").String() != "quiesce" {
+		t.Fatal("second quiesce did not follow resume")
+	}
+	browserReply(host)
+	if sent := host.Get("sent"); sent.Length() != 4 || sent.Index(3).Get("op").Int() != int(Skip) {
+		t.Fatal("skip was not held until the new flush completed")
+	}
+	browserReply(host)
+	if !b.quiesced || !b.Idle() {
+		t.Fatal("transport did not become quietly idle")
+	}
+}
+
+func TestBrowserIdleCallbackAfterAcknowledgedWorkDoesNotRecurse(t *testing.T) {
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	var b *Browser
+	var idle int
+	b, host := browserFixture(t, m, BrowserOptions{OnIdle: func() {
+		idle++
+		if !b.Idle() {
+			t.Error("idle callback ran before acknowledgement")
+		}
+		if err := b.Pump(); err != nil {
+			t.Error(err)
+		}
+	}})
+	defer b.Terminate()
+	if b.Idle() {
+		t.Fatal("transport reported idle before readiness")
+	}
+	host.Call("emit", map[string]any{"type": "ready"})
+	if idle != 1 || !b.Idle() {
+		t.Fatal("ready transport did not notify idle exactly once")
+	}
+	if !m.SetBusGain(0, .5) || b.Idle() {
+		t.Fatal("published command did not make the controller busy")
+	}
+	if err := b.Pump(); err != nil || b.Idle() {
+		t.Fatal("in-flight command was reported idle", err)
+	}
+	browserReply(host)
+	if idle != 2 || !b.Idle() {
+		t.Fatal("command acknowledgement did not notify idle")
+	}
+}
+
 func TestBrowserRebindSerializesWithWorkerOperations(t *testing.T) {
 	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
 	voice := m.Play(mix.PlayParams{Memory: &mix.Memory{PCM: []float32{1}, Rate: 48000, Channels: 1}, Gain: 1})
@@ -359,5 +473,35 @@ func TestBrowserRebindSerializesWithWorkerOperations(t *testing.T) {
 	}
 	if sent := host.Get("sent"); sent.Length() != 5 || sent.Index(4).Get("op").Int() != int(Command) {
 		t.Fatal("queued command did not resume after rebind")
+	}
+}
+
+func TestBrowserQuietRebindAllowsSkipBeforeResume(t *testing.T) {
+	m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+	var rebound int
+	b, host := browserFixture(t, m, BrowserOptions{OnRebind: func() { rebound++ }})
+	defer b.Terminate()
+	host.Call("emit", map[string]any{"type": "ready"})
+	output := BrowserOutput{Node: js.Global().Get("Object").New(), Block: 512, Target: 3072, Rate: 44100, Quiet: true}
+	if err := b.Rebind(output); err != nil || !host.Get("output").Get("quiet").Bool() {
+		t.Fatalf("quiet rebind did not start: %v", err)
+	}
+	host.Call("emit", map[string]any{"type": "reply", "id": 1, "result": ""})
+	if rebound != 1 || !b.quiesced || b.rebinding {
+		t.Fatal("replacement did not remain quiet")
+	}
+	if err := b.QueueSkip(441); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Resume(); err == nil {
+		t.Fatal("resume overtook the quiet skip")
+	}
+	browserReply(host)
+	if err := b.Resume(); err != nil {
+		t.Fatal(err)
+	}
+	browserReply(host)
+	if b.quiesced || b.resuming || b.err != nil {
+		t.Fatal("replacement did not resume")
 	}
 }

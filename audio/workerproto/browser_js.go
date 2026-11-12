@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"syscall/js"
+	"time"
 	"unsafe"
 
 	"aego/audio/mix"
@@ -23,12 +25,22 @@ type BrowserOptions struct {
 	Data, Index          js.Value
 	Init                 Request
 	Block, Target        int
+	RequireStats         bool
 	OnReady              func()
 	OnRebind             func()
 	OnQuiesced           func()
 	OnResume             func()
 	OnBatch              func()
+	OnIdle               func()
 	OnFailure            func(error, bool)
+}
+
+// BrowserStats are the Worker's queue-empty estimates and measured mixer time.
+// Underruns is an estimate based on the latest published active-voice batch;
+// actual AudioWorklet underruns are reported separately by the output.
+type BrowserStats struct {
+	Blocks, Underruns uint64
+	MixMax, MixTotal  time.Duration
 }
 
 // BrowserOutput describes an already-created replacement output. The caller
@@ -37,26 +49,33 @@ type BrowserOutput struct {
 	Node, Data, Index js.Value
 	Block, Target     int
 	Rate              int
+	// Quiet starts the replacement worklet quiesced, before it can consume PCM.
+	Quiet bool
 }
 
 // Browser connects Controller to AegoAudioWorkerHost in a js/wasm page. It is
 // explicitly driven by its owner; it does not select the backend, open a
 // device, fetch a reactor, install timers, or recover uncertain playback.
 type Browser struct {
-	controller *Controller
-	host       js.Value
-	callback   js.Func
-	options    BrowserOptions
-	pending    uint64
-	rebinding  bool
-	quiesceReq bool
-	quiescing  bool
-	quiesced   bool
-	resuming   bool
-	ready      bool
-	attached   bool
-	terminated bool
-	err        error
+	controller  *Controller
+	host        js.Value
+	callback    js.Func
+	options     BrowserOptions
+	pending     uint64
+	rebinding   bool
+	rebindQuiet bool
+	quiesceReq  bool
+	quiescing   bool
+	quiesced    bool
+	quietToken  uint64
+	resuming    bool
+	notifyIdle  bool
+	ready       bool
+	attached    bool
+	terminated  bool
+	err         error
+	stats       BrowserStats
+	hasStats    bool
 }
 
 // NewBrowser attaches a fresh producer-side mixer before it renders. The host
@@ -160,7 +179,9 @@ func (b *Browser) event(event js.Value) {
 				b.fail(ErrBrowserTransport, b.attached)
 				return
 			}
-			b.rebinding, b.quiesced = false, false
+			b.rebinding, b.quiesced = false, b.rebindQuiet
+			b.rebindQuiet = false
+			b.quietToken = 0
 			if b.options.OnRebind != nil {
 				b.options.OnRebind()
 			}
@@ -206,13 +227,28 @@ func (b *Browser) event(event js.Value) {
 			b.fail(ErrBrowserTransport, b.attached)
 			return
 		}
-		batch, err := DecodeBatch([]byte(event.Get("batch").String()))
+		value := event.Get("stats")
+		present := value.Type() != js.TypeUndefined && value.Type() != js.TypeNull
+		next := b.stats
+		var err error
+		if present {
+			next, err = browserStats(value, b.stats)
+		} else if b.options.RequireStats || b.hasStats {
+			err = ErrBrowserTransport
+		}
+		var batch Batch
+		if err == nil {
+			batch, err = DecodeBatch([]byte(event.Get("batch").String()))
+		}
 		if err == nil {
 			err = b.controller.ApplyBatch(batch.Mix())
 		}
 		if err != nil {
 			b.fail(err, b.attached)
 			return
+		}
+		if present {
+			b.stats, b.hasStats = next, true
 		}
 		b.host.Call("ackBatch", strconv.FormatUint(batch.Serial, 10))
 		if b.err != nil {
@@ -228,6 +264,46 @@ func (b *Browser) event(event js.Value) {
 	default:
 		b.fail(ErrBrowserTransport, b.attached)
 	}
+}
+
+func browserStats(value js.Value, old BrowserStats) (BrowserStats, error) {
+	if value.Type() != js.TypeObject || !value.Truthy() {
+		return BrowserStats{}, ErrBrowserTransport
+	}
+	read := func(name string) (float64, bool) {
+		v := value.Get(name)
+		if v.Type() != js.TypeNumber {
+			return 0, false
+		}
+		n := v.Float()
+		return n, !math.IsNaN(n) && !math.IsInf(n, 0) && n >= 0
+	}
+	blocks, bok := read("blocks")
+	underruns, uok := read("underruns")
+	maxMS, mok := read("maxMixMS")
+	totalMS, tok := read("totalMixMS")
+	const maxSafeInteger = float64(1<<53 - 1)
+	maxDurationMS := float64(math.MaxInt64) / float64(time.Millisecond)
+	if !bok || !uok || !mok || !tok || blocks > maxSafeInteger || underruns > maxSafeInteger ||
+		math.Trunc(blocks) != blocks || math.Trunc(underruns) != underruns || maxMS > totalMS ||
+		maxMS >= maxDurationMS || totalMS >= maxDurationMS {
+		return BrowserStats{}, ErrBrowserTransport
+	}
+	next := BrowserStats{Blocks: uint64(blocks), Underruns: uint64(underruns),
+		MixMax: time.Duration(maxMS * float64(time.Millisecond)), MixTotal: time.Duration(totalMS * float64(time.Millisecond))}
+	if next.Blocks < old.Blocks || next.Underruns < old.Underruns || next.MixMax < old.MixMax || next.MixTotal < old.MixTotal {
+		return BrowserStats{}, ErrBrowserTransport
+	}
+	return next, nil
+}
+
+// Stats returns the last validated Worker measurements, if the transport has
+// received them. They never replace the output's real underrun measurements.
+func (b *Browser) Stats() (BrowserStats, bool) {
+	if b == nil || b.terminated || b.err != nil {
+		return BrowserStats{}, false
+	}
+	return b.stats, b.hasStats
 }
 
 // Pump sends at most one operation. Further steps follow successful replies;
@@ -250,7 +326,12 @@ func (b *Browser) Pump() (err error) {
 	}()
 	if b.quiesceReq {
 		b.quiesceReq, b.quiescing = false, true
-		b.host.Call("quiesce")
+		id := b.host.Call("quiesce")
+		if id.Type() != js.TypeNumber || id.Float() < 1 || id.Float() > 1<<53-1 || math.Trunc(id.Float()) != id.Float() {
+			b.fail(ErrBrowserTransport, b.attached)
+			return ErrBrowserTransport
+		}
+		b.quietToken = uint64(id.Float())
 		return b.err
 	}
 	step, ok, err := b.controller.Next()
@@ -259,6 +340,11 @@ func (b *Browser) Pump() (err error) {
 		return err
 	}
 	if !ok {
+		if b.controller.Idle() && b.options.OnIdle != nil && !b.notifyIdle {
+			b.notifyIdle = true
+			defer func() { b.notifyIdle = false }()
+			b.options.OnIdle()
+		}
 		return nil
 	}
 	raw, err := json.Marshal(step.Request)
@@ -285,6 +371,22 @@ func (b *Browser) Pump() (err error) {
 	return b.err
 }
 
+// Idle is a snapshot of an open, acknowledged transport and controller. It
+// does not prevent a producer from publishing another command afterwards.
+func (b *Browser) Idle() bool {
+	return b != nil && !b.terminated && b.err == nil && b.ready && b.pending == 0 && !b.rebinding &&
+		!b.quiesceReq && !b.quiescing && !b.resuming && b.controller.Idle()
+}
+
+// QuietToken identifies the acknowledged worklet flush. A quiet replacement
+// starts at token zero; the page must match its final report before rebind.
+func (b *Browser) QuietToken() (uint64, bool) {
+	if b == nil || b.terminated || b.err != nil || !b.ready || !b.quiesced || b.rebinding || b.quiescing || b.resuming {
+		return 0, false
+	}
+	return b.quietToken, true
+}
+
 // Rebind changes the output while retaining the Worker and its live mixer. It
 // is asynchronous and requires an idle RPC channel; OnRebind runs only after
 // the new worklet has been attached. The caller owns the previous output's
@@ -300,19 +402,24 @@ func (b *Browser) Rebind(output BrowserOutput) (err error) {
 		}
 	}()
 	b.rebinding = true
+	b.rebindQuiet = output.Quiet
 	b.host.Call("rebind", map[string]any{"node": output.Node, "data": output.Data, "index": output.Index,
-		"block": output.Block, "target": output.Target, "rate": output.Rate})
+		"block": output.Block, "target": output.Target, "rate": output.Rate, "quiet": output.Quiet})
 	return b.err
 }
 
 // Quiesce stops the Worker and discards previously queued PCM in the worklet
-// after any in-flight RPC. The owner must suppress audible output while the
-// asynchronous transition is pending, because old PCM can play before the
-// acknowledgement. Completion is reported through OnQuiesced. Commands
-// submitted while it is pending continue once the Worker is quiesced.
+// after any in-flight RPC, including a pending Resume. The owner must suppress
+// audible output while the asynchronous transition is pending, because old
+// PCM can play before the acknowledgement. Completion is reported through
+// OnQuiesced. Commands continue once the Worker is quiesced.
 func (b *Browser) Quiesce() error {
-	if b == nil || b.terminated || b.err != nil || !b.ready || b.rebinding || b.resuming {
+	if b == nil || b.terminated || b.err != nil || !b.ready || b.rebinding {
 		return ErrBrowserTransport
+	}
+	if b.resuming {
+		b.quiesceReq = true
+		return nil
 	}
 	if b.quiesced || b.quiesceReq || b.quiescing {
 		return nil
@@ -325,7 +432,7 @@ func (b *Browser) Quiesce() error {
 // It can queue work while quiescence is in flight but sends no skip until the
 // worklet acknowledges its flush. Commands retain their publication order.
 func (b *Browser) QueueSkip(frames int64) error {
-	if b == nil || b.terminated || b.err != nil || !b.ready || (!b.quiesced && !b.quiesceReq && !b.quiescing) || b.rebinding || b.resuming {
+	if b == nil || b.terminated || b.err != nil || !b.ready || (!b.quiesced && !b.quiesceReq && !b.quiescing) || b.rebinding || (b.resuming && !b.quiesceReq) {
 		return ErrBrowserTransport
 	}
 	if err := b.controller.QueueSkip(frames); err != nil {

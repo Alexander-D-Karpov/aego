@@ -185,3 +185,32 @@ func TestWebAudioWorkerGateFailureRequestsSuspension(t *testing.T) {
 		t.Fatal("gate failure did not stop the output and report an error")
 	}
 }
+
+func TestWebAudioWorkerBaselinePreservesCountersAndFinalQuietReport(t *testing.T) {
+	g := js.Global()
+	a := &Audio{g: g, workerReserved: true, ready: true, state: "running",
+		prior: platform.AudioCounters{Underruns: 2, Consumed: 500, Sum: 4, Samples: 16, Suppressed: 32}}
+	var signals int
+	a.SetWorkerStateListener(func() { signals++ })
+	a.report(js.ValueOf(map[string]any{"time": 1, "consumed": 128, "underruns": 1, "sum": 1, "count": 4,
+		"quiet": true, "quietToken": 7, "suppressed": 64}))
+	if !a.WorkerQuiet(7) || a.WorkerQuiet(6) || signals != 1 {
+		t.Fatal("final worklet report did not publish quiet state")
+	}
+	want := platform.AudioCounters{Underruns: 3, Consumed: 628, Sum: 5, Samples: 20, Suppressed: 96}
+	if got := a.WorkerCounters(); got != want {
+		t.Fatalf("old output counters = %+v, want %+v", got, want)
+	}
+	b := &Audio{g: g, workerReserved: true, ready: true, state: "running"}
+	if !b.SetWorkerBaseline(want) {
+		t.Fatal("replacement rejected valid baseline")
+	}
+	b.report(js.ValueOf(map[string]any{"time": 2, "consumed": 256, "underruns": 1, "sum": 3, "count": 12}))
+	stats := b.Stats()
+	if stats.Underruns != 4 || stats.Consumed != 884 || stats.Suppressed != 96 || stats.RMS != .5 {
+		t.Fatalf("replacement lost cumulative measurements: %+v", stats)
+	}
+	if b.SetWorkerBaseline(want) {
+		t.Fatal("baseline could be replaced after the new worklet reported audio")
+	}
+}

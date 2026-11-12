@@ -18,7 +18,7 @@ async function evaluate(rms, isDemo, depth = 0, overrides = {}, diagnostics = {}
     const logs = [];
     const expressions = [];
     let install;
-    const stats = {running:true, queued:2048, shared:false, rms, out:rms, muted:false, quiet:false,
+    const stats = {running:true, queued:2048, shared:false, rms, out:rms, muted:false, quiet:false, backend:'worker', consumed:1000, blocks:10,
         underruns:0, pumpUnderruns:0, targetBlocks:depth || 6, blockFrames:512, rate:48000, mixMaxUs:50, ...overrides};
     const page = {on(){}, goto:async()=>{}, close:async()=>{}, reload:async()=>{},
         addInitScript:async fn=>{install=fn; if (diagnostics.initError) throw new Error('observer unavailable');},
@@ -38,7 +38,14 @@ async function evaluate(rms, isDemo, depth = 0, overrides = {}, diagnostics = {}
             if (expression==='globalThis.aegoAudio.stop()' || expression.includes('globalThis.aegoAudioMute(false)')) return undefined;
             if (expression==="document.documentElement.dataset.sound === 'off'") return false;
             if (expression.includes('navigator.userActivation && navigator.userActivation.hasBeenActive')) return false;
-            if (expression==='globalThis.aegoGame?.mixStats?.() ?? null') return {underruns:stats.pumpUnderruns};
+            if (expression==='globalThis.aegoGame?.mixStats?.() ?? null') return {underruns:stats.pumpUnderruns, blocks:stats.blocks};
+            if (expression.includes('while (performance.now() - start < 500)')) {
+                if (!diagnostics.stallNoProgress) { stats.consumed+=24000;stats.blocks+=48; }
+                if (diagnostics.stallUnderruns !== undefined) stats.underruns=diagnostics.stallUnderruns;
+                if (diagnostics.stallPumpUnderruns !== undefined) stats.pumpUnderruns=diagnostics.stallPumpUnderruns;
+                if (diagnostics.stallSilent) stats.quiet=true;
+                return diagnostics.stallDuration ?? 500;
+            }
             if (expression==='JSON.stringify({now:performance.now(), timing:globalThis.__aegoAudioSmokeTiming ?? null})') {
                 if (diagnostics.readError) throw new Error('timing unavailable');
                 return JSON.stringify({now:123, timing:{available:true, count:1, maxMS:160, tasks:[{startMS:50,durationMS:160}]}});
@@ -65,6 +72,23 @@ test('a quiet or unreported worklet fails the actual demo gate even with audible
     for(const quiet of [true,undefined]) {
         const result=await evaluate(0.09,true,0,{quiet});
         assert(result.failures.some(x=>x.includes('worklet is intentionally silent')));
+    }
+});
+test('a local backend fails the actual demo gate',async()=>{
+    const result=await evaluate(0.09,true,0,{backend:'local'});
+    assert(result.failures.some(x=>x.includes('not using the audio Worker')));
+});
+test('the actual demo gate rejects stalled, quiet, or unreported worker output',async()=>{
+    const cases=[
+        [{stallNoProgress:true},'did not advance'],
+        [{stallUnderruns:1},'worklet underruns after'],
+        [{stallPumpUnderruns:1},'predicted pump underruns after'],
+        [{stallSilent:true},'worklet is intentionally silent'],
+        [{stallDuration:499},'stall did not run'],
+    ];
+    for(const [fault,expected] of cases) {
+        const result=await evaluate(0.09,true,0,{},fault);
+        assert(result.failures.some(x=>x.includes(expected)),`${expected}: ${result.failures}`);
     }
 });
 test('audible samples and zero underruns do not fail the fake checks',async()=>{

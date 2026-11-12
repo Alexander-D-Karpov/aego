@@ -72,13 +72,24 @@ test('audible demo rejects a quiet or unreported worklet',()=>{
         const scope={fail:message=>failures.push(message)};
         vm.createContext(scope);
         vm.runInContext(code,scope,{filename:file});
-        scope.checkAudibleWorklet({quiet},'demo');
+        scope.checkAudibleWorklet({quiet,backend:'worker'},'demo');
         assert(failures.some(message=>message.includes('intentionally silent')));
     }
     const failures=[];
     const scope={fail:message=>failures.push(message)};
     vm.createContext(scope);
     vm.runInContext(code,scope,{filename:file});
-    scope.checkAudibleWorklet({quiet:false},'demo');
+    scope.checkAudibleWorklet({quiet:false,backend:'worker'},'demo');
     assert.deepEqual(failures,[]);
+});
+
+test('audible demo requires the Worker rather than the old local backend',()=>{
+    for(const backend of ['local','worker-starting',undefined]) {
+        const failures=[];
+        const scope={fail:message=>failures.push(message)};
+        vm.createContext(scope);
+        vm.runInContext(code,scope,{filename:file});
+        scope.checkAudibleWorklet({quiet:false,backend},'demo');
+        assert(failures.some(message=>message.includes('not using the audio Worker')));
+    }
 });
