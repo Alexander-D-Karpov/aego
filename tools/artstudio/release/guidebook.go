@@ -61,7 +61,7 @@ var guidebook = []guideChapter{
 		[]string{"WASM не загрузился: прочитайте статус и повторите при стабильном соединении. Сервер должен отдавать application/wasm и подходящую CSP, а не HTML вместо отсутствующего бинарника. Несовпадающие версии обновляются одним проверенным артефактом. GPU-модуль запрашивается только при выборе GPU-режима.", "Нет канала или ошибка GPU: выберите нужные кадр и канал, нарисуйте данные и повторите выбор preview. Потеря контекста отображается, пока Aego восстанавливает GPU-ресурсы из CPU-данных. Сбой предпросмотра не означает потерю исходника. Экспортируйте исходник, если recovery тоже недоступно.", "Импорт отклонён: сохраните оригинал и прочитайте конкретную ошибку формата/лимита. Неподдерживаемые chunks Aseprite не дают обещания lossless-импорта. Сцена не обновилась: проверьте связь источника, кадр, общее/индивидуальное назначение и диагностику импортёра. При внешнем конфликте сохраняйте обе версии и разрешайте его явно. Старое приложение не должно молча открывать неподдерживаемую новую версию документа."}},
 }
 
-func writeGuidebook(out string, names map[string]string, o buildOptions) error {
+func writeGuidebook(out string, names map[string]string, o buildOptions, favicon string) error {
 	for _, lang := range []string{"en", "ru"} {
 		for _, g := range guidebook {
 			title, paragraphs, learn := g.EN, g.English, "Interactive lesson"
@@ -84,7 +84,7 @@ func writeGuidebook(out string, names map[string]string, o buildOptions) error {
 				other = "en"
 			}
 			h := `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + esc(title) + ` — Asset Studio</title><link rel="stylesheet" href="../../../../` + names["docs.css"] + `"></head><body><header><a href="` + esc(o.Origin+"/r/"+o.ID+"/") + `">AEGO · Asset Studio</a><a href="../../../` + other + `/guide/` + g.ID + `/">` + strings.ToUpper(other) + `</a></header><main><nav>` + nav.String() + `</nav><article><h1>` + esc(title) + `</h1>` + body.String() + `<p><a href="../../` + g.Lesson + `/">` + esc(learn) + ` →</a></p></article></main></body></html>`
-			h = strings.Replace(h, "</head>", studioFavicon+"</head>", 1)
+			h = strings.Replace(h, "</head>", favicon+"</head>", 1)
 			if err := writeNew(filepath.Join(out, "docs", lang, "guide", g.ID, "index.html"), []byte(h)); err != nil {
 				return err
 			}

@@ -360,7 +360,7 @@ func packageStudioWeb(web, dir string, support []byte) error {
 	if err != nil {
 		return err
 	}
-	names := []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js"}
+	names := []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "aego.png"}
 	data := make(map[string][]byte, len(names))
 	parts := [][]byte{wasm, preview, support}
 	for _, name := range names {
@@ -372,7 +372,7 @@ func packageStudioWeb(web, dir string, support []byte) error {
 	}
 	version := versionOf(parts...)
 	index := data["index.html"]
-	for _, entry := range []struct{ attr, name string }{{"href", "studio.css"}, {"src", "wasm_exec.js"}, {"src", "recovery.js"}, {"src", "gpu-preview.js"}, {"src", "studio.js"}} {
+	for _, entry := range []struct{ attr, name string }{{"href", "studio.css"}, {"href", "aego.png"}, {"src", "aego.png"}, {"src", "wasm_exec.js"}, {"src", "recovery.js"}, {"src", "gpu-preview.js"}, {"src", "studio.js"}} {
 		old := []byte(entry.attr + `="` + entry.name + `"`)
 		if bytes.Count(index, old) != 1 {
 			return fmt.Errorf("studio index needs exactly one %s", old)

@@ -30,3 +30,25 @@ func TestFooterAuthorNoticeOnEveryPage(t *testing.T) {
 		})
 	}
 }
+
+func TestFooterShortensGitHashButKeepsFullLink(t *testing.T) {
+	const commit = "5fd892c50fb6950b609bbe86ef887cb80887d689"
+	_, _, pages := build(t, fixture(), Options{Repo: "https://git.example/aego", Commit: commit})
+	want := `<a href="https://git.example/aego/commit/` + commit + `">5fd892c</a>`
+	for name, page := range pages {
+		if !strings.Contains(page, want) {
+			t.Errorf("%s: footer must link the full commit but display seven characters", name)
+		}
+	}
+}
+
+func TestShortCommitPreservesNonHashLabels(t *testing.T) {
+	for input, want := range map[string]string{
+		"": "", "abc1234": "abc1234", "abcdef012345": "abcdef0", "ABCDEF012345": "ABCDEF0",
+		"example-dirty": "example-dirty", "1234567-unsafe": "1234567-unsafe",
+	} {
+		if got := shortCommit(input); got != want {
+			t.Errorf("shortCommit(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

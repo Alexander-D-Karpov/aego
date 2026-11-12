@@ -23,7 +23,7 @@ WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROM
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
-WEB_DEMO_EXPORT = sh tools/site-demo.sh site/demo
+WEB_DEMO_EXPORT = sh tools/site-demo.sh site/demo $(if $(filter examples/platformer,$(WEB_DEMO_PROJECT)),--fix-checkpoint-gap,)
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760
@@ -447,7 +447,12 @@ web-try-pulse-test:
 	node --test tools/websmoke/try-pulse.test.mjs
 
 ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+ci: site-demo-prepare-test
 ci: studio-web-test
+
+.PHONY: site-demo-prepare-test
+site-demo-prepare-test:
+	python3 -B -m unittest discover -s tools/ci -p test_site_demo_prepare.py
 	@sh tools/ci-clean-root.sh
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).

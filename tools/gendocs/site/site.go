@@ -1040,7 +1040,7 @@ func (b *builder) footer(e *Entry, root string) string {
 	}
 	left := []string{esc(name)}
 	if o.Commit != "" {
-		c := esc(o.Commit)
+		c := esc(shortCommit(o.Commit))
 		if o.Repo != "" {
 			c = `<a href="` + esc(strings.TrimRight(o.Repo, "/")+"/commit/"+o.Commit) + `">` + c + "</a>"
 		}
@@ -1074,6 +1074,20 @@ func (b *builder) footer(e *Entry, root string) string {
 	}
 	right = append(right, `<a href="`+root+b.langPath("llms.txt")+`" title="`+esc(b.tr("These docs as Markdown, for AI agents"))+`">llms.txt</a>`)
 	return `<footer class="foot"><span>` + strings.Join(left, " · ") + `</span><span class="links">` + strings.Join(right, "") + "</span></footer>"
+}
+
+// Keep the complete revision in links and build metadata, but use a compact
+// Git hash in the visible footer. Non-hash revision labels remain intact.
+func shortCommit(commit string) string {
+	if len(commit) <= 7 {
+		return commit
+	}
+	for _, c := range commit {
+		if !('0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F') {
+			return commit
+		}
+	}
+	return commit[:7]
 }
 
 func (b *builder) navTree(c *strings.Builder, ids []string, root, current string, open map[string]bool) {

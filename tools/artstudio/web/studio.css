@@ -155,14 +155,10 @@ input[type=range] {
   min-width: 0;
 }
 .brand-mark {
-  background: var(--accent);
-  color: #141b28;
   width: 25px;
   height: 25px;
-  display: grid;
-  place-items: center;
-  font-weight: 850;
-  border-radius: 6px;
+  flex: none;
+  object-fit: contain;
 }
 .brand strong {
   letter-spacing: 2px;

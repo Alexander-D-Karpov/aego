@@ -15,6 +15,7 @@ func docsArtifact(t *testing.T, guideOrigin string) (string, string) {
 		"protocol.js":   "assets/protocol.0123456789abcdef.js",
 		"docs-embed.js": "assets/docs-embed.0123456789abcdef.js",
 	}
+	writeTestStudioIcon(t, dir, names)
 	for name, data := range map[string]string{
 		"index.html": "home", "editor/index.html": "editor", "embed/index.html": "embed",
 		"assets/core.0123456789abcdef.wasm": "wasm", names["docs.css"]: "css",

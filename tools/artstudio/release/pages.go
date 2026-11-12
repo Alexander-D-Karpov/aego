@@ -1,23 +1,34 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"html"
+	"os"
 	"path/filepath"
 	"strings"
 )
 
 func esc(v string) string { return html.EscapeString(v) }
 
-// The icon is embedded so a versioned app or a copied guide never requests an
-// unrelated /favicon.ico from the hosting site. Keep the development shell's
-// matching icon in sync; favicon_test.go checks both.
-const studioFavicon = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%23e07b39'/%3E%3Cpath%20fill='%2315171b'%20fill-rule='evenodd'%20d='M4%2027L12%205h8l8%2022h-6l-1.2-4H11.2L10%2027H4zm9-9h6l-3-9z'/%3E%3C/svg%3E">`
+// Guides may be copied to a different origin, so embed the exact icon from
+// this selected build rather than requesting that origin's /favicon.ico.
+func studioFavicon(out string, names map[string]string) (string, error) {
+	name := names["aego.png"]
+	if !validPath(name) || !strings.HasPrefix(name, "assets/") {
+		return "", fmt.Errorf("missing studio icon")
+	}
+	b, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(name)))
+	if err != nil {
+		return "", err
+	}
+	return `<link rel="icon" type="image/png" href="data:image/png;base64,` + base64.StdEncoding.EncodeToString(b) + `">`, nil
+}
 
 func writeEditorPage(out, route, original string, names map[string]string, id string) error {
 	prefix := "/r/" + id + "/"
 	h := original
-	for _, n := range []string{"studio.css", "wasm_exec.js", "recovery.js", "gpu-preview.js", "studio.js"} {
+	for _, n := range []string{"studio.css", "aego.png", "wasm_exec.js", "recovery.js", "gpu-preview.js", "studio.js"} {
 		h = strings.ReplaceAll(h, `"`+n+`"`, `"`+prefix+names[n]+`"`)
 	}
 	h = strings.Replace(h, "</head>", `<link rel="stylesheet" href="`+prefix+names["surface.css"]+`"></head>`, 1)
@@ -27,6 +38,10 @@ func writeEditorPage(out, route, original string, names map[string]string, id st
 	return writeNew(filepath.Join(out, filepath.FromSlash(route), "index.html"), []byte(h))
 }
 func writeLanding(out string, names map[string]string, examples []example, templates []effectTemplate, id string, snapshot bool) error {
+	favicon, err := studioFavicon(out, names)
+	if err != nil {
+		return err
+	}
 	var cards strings.Builder
 	for _, e := range examples {
 		fmt.Fprintf(&cards, `<a class="example-card" href="examples/%s/"><img src="%s" width="96" height="96" alt=""><strong>%s</strong><span>%s</span></a>`, esc(e.ID), esc(e.Thumbnail), esc(e.Title["ru"]), esc(e.Title["en"]))
@@ -39,8 +54,8 @@ func writeLanding(out string, names map[string]string, examples []example, templ
 	if snapshot {
 		badge += " · snapshot / не production"
 	}
-	h := `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aego Asset Studio</title><link rel="stylesheet" href="` + names["studio.css"] + `"><link rel="stylesheet" href="` + names["surface.css"] + `"></head><body class="landing"><header class="appbar"><div class="brand"><span class="brand-mark">A</span><strong>AEGO</strong><span>Asset Studio</span></div><span class="build-badge">` + esc(badge) + `</span></header><main class="welcome"><p class="eyebrow">PIXEL ART · FRAME ANIMATION</p><h1>Нарисуйте. Оживите. Сохраните.</h1><p>Draw, animate and export. Без регистрации и загрузки рисунков на сервер.</p><div class="welcome-actions"><a href="editor/?new=sprite">Новый спрайт / New Sprite</a><a href="editor/?new=animation">Новая анимация / New Animation</a><a href="editor/?new=effect">Новый эффект / New Effect</a><a href="editor/?open=1">Открыть файл / Open File</a><a href="editor/?recent=1">Локальные черновики / Local Drafts</a></div><p><a href="docs/ru/first-sprite/">Руководство RU</a> · <a href="docs/en/first-sprite/">Guide EN</a></p><h2>Шаблоны эффектов / Effect templates</h2><div class="example-grid">` + templateCards.String() + `</div><h2>Примеры и уроки / Examples & tutorials</h2><div class="example-grid">` + cards.String() + `</div><p class="release-note">В GPU Preview доступны Lit, normal/emission, alpha-тени, Flash/Dissolve, Bloom и ParticleSystem2D. Они используют изолированную сцену Aego. Назначение объекту проекта выполняется в native Aego.</p></main></body></html>`
-	h = strings.Replace(h, "</head>", studioFavicon+"</head>", 1)
+	h := `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aego Asset Studio</title><link rel="stylesheet" href="` + names["studio.css"] + `"><link rel="stylesheet" href="` + names["surface.css"] + `"></head><body class="landing"><header class="appbar"><div class="brand"><img class="brand-mark" src="` + esc(names["aego.png"]) + `" alt=""><strong>AEGO</strong><span>Asset Studio</span></div><span class="build-badge">` + esc(badge) + `</span></header><main class="welcome"><p class="eyebrow">PIXEL ART · FRAME ANIMATION</p><h1>Нарисуйте. Оживите. Сохраните.</h1><p>Draw, animate and export. Без регистрации и загрузки рисунков на сервер.</p><div class="welcome-actions"><a href="editor/?new=sprite">Новый спрайт / New Sprite</a><a href="editor/?new=animation">Новая анимация / New Animation</a><a href="editor/?new=effect">Новый эффект / New Effect</a><a href="editor/?open=1">Открыть файл / Open File</a><a href="editor/?recent=1">Локальные черновики / Local Drafts</a></div><p><a href="docs/ru/first-sprite/">Руководство RU</a> · <a href="docs/en/first-sprite/">Guide EN</a></p><h2>Шаблоны эффектов / Effect templates</h2><div class="example-grid">` + templateCards.String() + `</div><h2>Примеры и уроки / Examples & tutorials</h2><div class="example-grid">` + cards.String() + `</div><p class="release-note">В GPU Preview доступны Lit, normal/emission, alpha-тени, Flash/Dissolve, Bloom и ParticleSystem2D. Они используют изолированную сцену Aego. Назначение объекту проекта выполняется в native Aego.</p></main></body></html>`
+	h = strings.Replace(h, "</head>", favicon+"</head>", 1)
 	for _, attr := range []string{"href", "src"} {
 		h = strings.ReplaceAll(h, attr+`="assets/`, attr+`="/r/`+id+`/assets/`)
 		for _, route := range []string{"editor/", "examples/", "templates/", "docs/"} {
@@ -50,6 +65,10 @@ func writeLanding(out string, names map[string]string, examples []example, templ
 	return writeNew(filepath.Join(out, "index.html"), []byte(h))
 }
 func writeGuides(out string, names map[string]string, examples []example, o buildOptions) error {
+	favicon, err := studioFavicon(out, names)
+	if err != nil {
+		return err
+	}
 	for _, lang := range []string{"ru", "en"} {
 		for _, l := range lessons {
 			title, text, action := l.EN, l.ENText, l.ENAction
@@ -70,7 +89,7 @@ func writeGuides(out string, names map[string]string, examples []example, o buil
 			// Relative URL resolves on the actual app origin, including a pinned /r/<id>/ prefix.
 			editor := o.Origin + "/r/" + o.ID + "/"
 			h := `<!doctype html><html lang="` + lang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + esc(title) + ` — Aego Asset Studio</title><link rel="stylesheet" href="../../../` + names["docs.css"] + `"></head><body><header><a href="` + esc(editor) + `">AEGO · Asset Studio</a><a href="../../` + map[string]string{"ru": "en", "en": "ru"}[lang] + `/` + l.ID + `/">` + map[string]string{"ru": "EN", "en": "RU"}[lang] + `</a></header><main><nav>` + nav.String() + `</nav><article><h1>` + esc(title) + `</h1><p>` + esc(text) + `</p><p>` + esc(labels["intro"]) + `</p><section class="aego-studio-embed" data-editor="` + esc(editor) + `" data-build="` + esc(o.ID) + `" data-example="` + esc(l.ID) + `" data-lang="` + lang + `" data-check="` + esc(l.Check) + `"><div class="embed-actions"><button data-action="start">` + esc(labels["start"]) + `</button><button data-action="check" disabled>` + esc(labels["check"]) + `</button><button data-action="reset" disabled>` + esc(labels["reset"]) + `</button><button data-action="download" disabled>` + esc(labels["download"]) + `</button></div><p class="exercise">` + esc(action) + `</p><p class="embed-status" role="status"></p><div class="embed-mount"></div><p>` + esc(labels["full"]) + ` — ` + map[string]string{"ru": "кнопка внутри редактора переносит несохранённый документ в новую вкладку.", "en": "the button inside the editor transfers your unsaved document to a new tab."}[lang] + `</p></section><h2>` + esc(labels["limits"]) + `</h2><p>` + esc(labels["trouble"]) + `</p><p class="scope-note">` + esc(labels["manual"]) + `</p></article></main><script src="../../../` + names["protocol.js"] + `"></script><script src="../../../` + names["docs-embed.js"] + `"></script></body></html>`
-			h = strings.Replace(h, "</head>", studioFavicon+"</head>", 1)
+			h = strings.Replace(h, "</head>", favicon+"</head>", 1)
 			if l.ID == "aseprite" {
 				sample := o.Origin + "/r/" + o.ID + "/examples/aseprite/"
 				links := `<p><a download href="` + esc(sample+"point4frames.aseprite") + `">point4frames.aseprite</a> · <a href="` + esc(sample+"LICENSE.txt") + `">License</a> · <a href="` + esc(sample+"PROVENANCE.md") + `">Provenance</a></p>`
@@ -81,7 +100,7 @@ func writeGuides(out string, names map[string]string, examples []example, o buil
 			}
 		}
 	}
-	if err := writeGuidebook(out, names, o); err != nil {
+	if err := writeGuidebook(out, names, o, favicon); err != nil {
 		return err
 	}
 	return writeNew(filepath.Join(out, "docs", "integration.json"), jsonBytes(map[string]any{"buildID": o.ID, "protocol": embedProtocolVersion, "editorURL": o.Origin + "/r/" + o.ID + "/", "embedScript": names["docs-embed.js"], "protocolScript": names["protocol.js"], "note": "Copy guide pages and their referenced scripts/styles into the existing docs generator; do not copy or rebuild the editor. Preserve the pinned editorURL."}))

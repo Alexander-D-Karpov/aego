@@ -11,7 +11,7 @@ import (
 func TestStudioWebPackageVersionsEveryBridgeResource(t *testing.T) {
 	sharedWeb := filepath.Join("..", "..", "tools", "artstudio", "web")
 	web := t.TempDir()
-	for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js"} {
+	for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "aego.png"} {
 		data, err := os.ReadFile(filepath.Join(sharedWeb, name))
 		if err != nil {
 			t.Fatal(err)
@@ -53,6 +53,9 @@ func TestStudioWebPackageVersionsEveryBridgeResource(t *testing.T) {
 				t.Fatalf("%s is not bound to %s", item, version)
 			}
 		}
+		if strings.Count(string(index), "aego.png?v="+version) != 2 {
+			t.Fatal("the favicon and brand mark do not use the versioned Aego icon")
+		}
 		if !strings.Contains(string(js), "fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm?v="+version+"')") {
 			t.Fatal("WASM fetch lost the release override or the versioned local fallback")
 		}
@@ -62,7 +65,7 @@ func TestStudioWebPackageVersionsEveryBridgeResource(t *testing.T) {
 		}
 		// The fallback must use the same editor and preview adapter, with only
 		// its exact asset URLs versioned. It is not a reduced docs canvas.
-		for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js"} {
+		for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "aego.png"} {
 			source, err := os.ReadFile(filepath.Join(web, name))
 			if err != nil {
 				t.Fatal(err)
@@ -110,7 +113,7 @@ func TestStudioWebPackageVersionsEveryBridgeResource(t *testing.T) {
 
 func TestStudioWebPackageRejectsUnknownEntryPoints(t *testing.T) {
 	web, dir := t.TempDir(), t.TempDir()
-	for name, contents := range map[string]string{"index.html": "unexpected index", "studio.css": "css", "studio.js": "fetch('artstudio.wasm')", "recovery.js": "js", "gpu-preview.js": "gpu"} {
+	for name, contents := range map[string]string{"index.html": "unexpected index", "studio.css": "css", "studio.js": "fetch('artstudio.wasm')", "recovery.js": "js", "gpu-preview.js": "gpu", "aego.png": "icon"} {
 		if err := os.WriteFile(filepath.Join(web, name), []byte(contents), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -131,9 +134,9 @@ func TestStudioWebPackageRejectsUnknownEntryPoints(t *testing.T) {
 
 func TestStudioWebPackageRejectsAmbiguousWASMFetch(t *testing.T) {
 	web, dir := t.TempDir(), t.TempDir()
-	index := `<link href="studio.css"><script src="wasm_exec.js"></script><script src="recovery.js"></script><script src="gpu-preview.js"></script><script src="studio.js"></script>`
+	index := `<link href="studio.css"><link href="aego.png"><img src="aego.png"><script src="wasm_exec.js"></script><script src="recovery.js"></script><script src="gpu-preview.js"></script><script src="studio.js"></script>`
 	fetch := `fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm')`
-	for name, contents := range map[string]string{"index.html": index, "studio.css": "css", "studio.js": fetch + ";" + fetch, "recovery.js": "js", "gpu-preview.js": `fetch(window.AegoStudioRelease?.previewWasmURL || 'preview.wasm')`} {
+	for name, contents := range map[string]string{"index.html": index, "studio.css": "css", "studio.js": fetch + ";" + fetch, "recovery.js": "js", "gpu-preview.js": `fetch(window.AegoStudioRelease?.previewWasmURL || 'preview.wasm')`, "aego.png": "icon"} {
 		if err := os.WriteFile(filepath.Join(web, name), []byte(contents), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -156,7 +159,7 @@ func TestStudioWebPackageRejectsMissingOrAmbiguousGPU(t *testing.T) {
 	for _, scenario := range []string{"missing-wasm", "missing-adapter", "ambiguous-fetch"} {
 		t.Run(scenario, func(t *testing.T) {
 			web, dir := t.TempDir(), t.TempDir()
-			for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js"} {
+			for _, name := range []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "aego.png"} {
 				data, err := os.ReadFile(filepath.Join("..", "..", "tools", "artstudio", "web", name))
 				if err != nil {
 					t.Fatal(err)

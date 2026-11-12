@@ -5,6 +5,7 @@ out=$1
 shift
 parent=$(dirname "$out")
 stage=$(mktemp -d "$parent/.site-demo.XXXXXX")
+stage=$(cd "$stage" && pwd -P)
 cleanup() {
     if [ -d "$stage/previous" ] && [ ! -e "$out" ]; then
         mv "$stage/previous" "$out"
@@ -13,7 +14,20 @@ cleanup() {
 }
 trap cleanup 0
 trap 'exit 1' HUP INT TERM
-"$@" --out "$stage/new"
+if [ "${1:-}" = --fix-checkpoint-gap ]; then
+    shift
+    cli=$1
+    verb=$2
+    project=$3
+    shift 3
+    [ "$verb" = export ] || { echo 'expected export command' >&2; exit 1; }
+    python3 -B tools/site_demo_prepare.py "$project" "$stage/project"
+    engine=$(pwd -P)
+    (cd "$stage" && GOWORK=off go work init "$engine" "$stage/project")
+    GOWORK="$stage/go.work" "$cli" "$verb" "$stage/project" "$@" --out "$stage/new"
+else
+    "$@" --out "$stage/new"
+fi
 
 # Mute only the site's launcher; generate all representations from the final HTML, omit gzip name/time, and rename on the same filesystem.
 page="$stage/new/index.html"

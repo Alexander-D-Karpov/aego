@@ -79,7 +79,9 @@ func TestReleaseEffectCatalogUsesSharedEditableSourcesAndRealThumbnails(t *testi
 	if err != nil || !bytes.Equal(jsonBytes(items), jsonBytes(other)) {
 		t.Fatal("template release catalog is not reproducible")
 	}
-	if err = writeLanding(out, map[string]string{"studio.css": "assets/studio.css", "surface.css": "assets/surface.css"}, nil, items, "template-build", true); err != nil {
+	names := map[string]string{"studio.css": "assets/studio.css", "surface.css": "assets/surface.css"}
+	writeTestStudioIcon(t, out, names)
+	if err = writeLanding(out, names, nil, items, "template-build", true); err != nil {
 		t.Fatal(err)
 	}
 	page, err := os.ReadFile(filepath.Join(out, "index.html"))

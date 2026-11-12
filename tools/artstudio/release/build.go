@@ -238,7 +238,7 @@ func build(o buildOptions) (buildManifest, error) {
 	if e != nil {
 		return m, e
 	}
-	for _, name := range []string{"studio.js", "studio.css", "recovery.js", "gpu-preview.js"} {
+	for _, name := range []string{"studio.js", "studio.css", "recovery.js", "gpu-preview.js", "aego.png"} {
 		b, e := os.ReadFile(filepath.Join(root, "tools/artstudio/web", name))
 		if e != nil {
 			return m, e
