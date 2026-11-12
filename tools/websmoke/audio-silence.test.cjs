@@ -18,7 +18,7 @@ async function evaluate(rms, isDemo, depth = 0, overrides = {}, diagnostics = {}
     const logs = [];
     const expressions = [];
     let install;
-    const stats = {running:true, queued:2048, shared:false, rms, out:rms, muted:false,
+    const stats = {running:true, queued:2048, shared:false, rms, out:rms, muted:false, quiet:false,
         underruns:0, pumpUnderruns:0, targetBlocks:depth || 6, blockFrames:512, rate:48000, mixMaxUs:50, ...overrides};
     const page = {on(){}, goto:async()=>{}, close:async()=>{}, reload:async()=>{},
         addInitScript:async fn=>{install=fn; if (diagnostics.initError) throw new Error('observer unavailable');},
@@ -60,6 +60,12 @@ test('tone silence fails even when both underrun counters are zero',async()=>{
 });
 test('game silence fails even when both underrun counters are zero',async()=>{
     assert((await evaluate(0,true)).failures.some(x=>x.includes('music is silent')));
+});
+test('a quiet or unreported worklet fails the actual demo gate even with audible history',async()=>{
+    for(const quiet of [true,undefined]) {
+        const result=await evaluate(0.09,true,0,{quiet});
+        assert(result.failures.some(x=>x.includes('worklet is intentionally silent')));
+    }
 });
 test('audible samples and zero underruns do not fail the fake checks',async()=>{
     assert.deepEqual((await evaluate(0.354,false)).failures,[]);
