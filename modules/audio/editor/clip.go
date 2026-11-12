@@ -50,6 +50,9 @@ type clipEdit struct {
 	selectAnchor int64
 	selectEnd    int64
 	selecting    bool
+	docScroll    float32
+	docContent   float32
+	docScrollBar widgets.ScrollState
 }
 
 type peakSource interface {
@@ -138,10 +141,10 @@ func loopOf(v ClipView) (int64, int64) {
 }
 
 func (p *plugin) clipInspector(ed *context.Editor, id ids.AssetID) {
-	p.clipInspectorView(ed, id, false)
+	p.clipInspectorView(ed, id, false, mathx.Rect{})
 }
 
-func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentView bool) {
+func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentView bool, documentArea mathx.Rect) {
 	ui := ed.UI
 	pl := ed.Pipeline
 	var mod *audio.Module
@@ -182,7 +185,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 		v.Paused = v.Playing && mod.PreviewPaused()
 	}
 	if documentView {
-		p.drawClipDocument(ed, mod, v)
+		p.drawClipDocument(ed, mod, v, documentArea)
 	} else {
 		p.drawClip(ed, mod, v)
 	}
@@ -248,21 +251,37 @@ func (p *plugin) drawClip(ed *context.Editor, mod *audio.Module, v ClipView) {
 // The centre document already provides the source path and the shared
 // Save/Undo/Redo toolbar. Keep the useful waveform and controls without
 // rendering another copy of those actions across the full window width.
-func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipView) {
+func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipView, area mathx.Rect) {
 	ui := ed.UI
 	ui.PushID("clip/" + v.ID.String())
 	defer ui.PopID()
 	cur := ui.Cursor()
+	top, fullWidth := cur.Y, cur.W
+	viewport := mathx.Rect{X: cur.X, Y: top, W: max(fullWidth, 0), H: max(0, area.Y+area.H-top)}
+	if p.clip.drag < 0 && !p.clip.selecting && ui.MouseOver(ui.ID("document-scroll"), viewport) {
+		p.clip.docScroll -= ui.ScrollY(ui.Theme.RowHeight * 3)
+	}
+	p.clip.docScroll = mathx.Clamp(p.clip.docScroll, 0, max(0, p.clip.docContent-viewport.H))
+	cur.Y -= p.clip.docScroll
+	if p.clip.docContent > viewport.H {
+		cur.W = max(0, cur.W-ui.Theme.ScrollbarW)
+	}
+	defer func() {
+		p.clip.docContent = max(0, cur.Y+p.clip.docScroll-top)
+		p.clip.docScroll = mathx.Clamp(p.clip.docScroll, 0, max(0, p.clip.docContent-viewport.H))
+		cur.W = fullWidth
+		track := mathx.Rect{X: viewport.X + viewport.W - ui.Theme.ScrollbarW, Y: viewport.Y, W: ui.Theme.ScrollbarW, H: viewport.H}
+		widgets.ScrollBar(ui, ui.ID("document-scrollbar"), track, &p.clip.docScroll, p.clip.docContent, viewport.H, &p.clip.docScrollBar)
+	}()
 	width := cur.W
-	defer func() { cur.W = width }()
 	waveWidth, controlsWidth := clipDocumentWidths(width)
 	cur.W = waveWidth
-	widgets.Labelf(ui, "%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds))
+	widgets.LabelWrapped(ui, fmt.Sprintf("%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds)), false)
 	if v.WaveNav {
 		p.waveNavigation(ed, v)
 		drawAudioRuler(ui, v)
 	}
-	p.wave(ed, v)
+	p.drawWave(ed, v, clipDocumentWaveHeight(viewport.H, width, cur.RowH, cur.Space))
 	if v.WaveNav || v.WaveSelect {
 		p.waveSelectionLabel(ui, v)
 	}
@@ -274,6 +293,23 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 
 func clipDocumentWidths(width float32) (wave, controls float32) {
 	return min(max(width, 0), 900), min(max(width, 0), 440)
+}
+
+// Keep room for the transport and import fields while giving a tall document
+// a larger waveform than the compact Inspector. Very small areas retain the
+// compact waveform and the enclosing document scroll keeps controls reachable.
+func clipDocumentWaveHeight(height, width, rowHeight, spacing float32) float32 {
+	if math.IsNaN(float64(height)) || math.IsInf(float64(height), 0) || height <= 0 ||
+		math.IsNaN(float64(width)) || math.IsInf(float64(width), 0) ||
+		math.IsNaN(float64(rowHeight)) || math.IsInf(float64(rowHeight), 0) || rowHeight <= 0 ||
+		math.IsNaN(float64(spacing)) || math.IsInf(float64(spacing), 0) || spacing < 0 {
+		return waveH
+	}
+	rows := float32(15)
+	if width < 220 {
+		rows = 20 // wrapped translated labels need more vertical space
+	}
+	return min(max(height-rows*(rowHeight+spacing), waveH), 260)
 }
 
 func (p *plugin) peaks(ed *context.Editor, id ids.AssetID) ([]float32, bool) {
@@ -426,9 +462,13 @@ func (p *plugin) waveSelectionLabel(ui *core.Context, v ClipView) {
 }
 
 func (p *plugin) wave(ed *context.Editor, v ClipView) {
+	p.drawWave(ed, v, waveH)
+}
+
+func (p *plugin) drawWave(ed *context.Editor, v ClipView, height float32) {
 	ui := ed.UI
 	th := &ui.Theme
-	r := ui.Cursor().Next(waveH)
+	r := ui.Cursor().Next(height)
 	ui.Box(r, th.Radius.Button, th.Background, th.Border)
 	start, end := audioWaveBounds(v.WaveStart, v.WaveEnd, v.Frames)
 	k := r.W / float32(max(end-start, 1))

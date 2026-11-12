@@ -92,7 +92,7 @@ func Hook(e *ext.Registry) error {
 			// Per-tab interaction state prevents a different Inspector selection
 			// from resetting a dragged loop handle or an in-progress gain edit.
 			view := &plugin{ed: p.ed, clip: clipEdit{id: d.Asset, drag: -1}, auditionOwner: p}
-			return func(_ *services.Frame, _ mathx.Rect) { view.clipInspectorView(p.ed, d.Selected, true) }
+			return func(_ *services.Frame, area mathx.Rect) { view.clipInspectorView(p.ed, d.Selected, true, area) }
 		})
 		if err := e.DocumentHandler(document.Handler{ID: "audio.clip", Name: i18n.T("editor.document.audio", "Audio Clip"), Icon: "file.audio", Kinds: []asset.ArtifactKind{asset.ArtAudio}, Extensions: []string{".wav", ".ogg", ".mp3"}, Capabilities: document.View | document.EditMetadata | document.Preview | document.RevealSource, Open: openClip}); err != nil {
 			return err

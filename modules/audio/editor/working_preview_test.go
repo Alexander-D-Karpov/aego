@@ -251,6 +251,95 @@ func TestMonoDocumentNavigatesImportedWaveformWithoutPublishing(t *testing.T) {
 	f.checkFiles(t, f.source, f.meta)
 }
 
+func TestTallWaveLoopDragUsesSharedHistoryAndPreservesFiles(t *testing.T) {
+	f := newWorkingAudioFixture(t, ".wav", false)
+	meta, err := asset.ParseSourceMeta(f.doc.Metadata.Code.Bytes(), f.doc.Metadata.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := meta.Settings.Clone()
+	settings["loopStart"], settings["loopEnd"] = aetext.Int(12000), aetext.Int(36000)
+	f.plugin.write(f.ed, meta.Settings, settings)
+	before := bytes.Clone(f.doc.Metadata.Code.Bytes())
+	v := ClipView{ID: f.id, Frames: 48000, Rate: 48000, WaveStart: 0, WaveEnd: 48000,
+		WaveNav: true, Settings: settings, Peaks: []float32{.3, .5}}
+	const height = 240
+	ui, state := f.ed.UI, &input.State{}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width/4, Y: ui.Theme.Padding + height*3/4}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 280}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 280})
+		f.plugin.drawWave(f.ed, v, height)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width / 8}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(delta), input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	draw()
+	after, err := asset.ParseSourceMeta(f.doc.Metadata.Code.Bytes(), f.doc.Metadata.Path)
+	if err != nil || after.Settings.Int("loopStart", -1) != 18000 || after.Settings.Int("loopEnd", -1) != 36000 {
+		t.Fatalf("tall waveform loop drag = %+v, %v", after, err)
+	}
+	if err := f.ed.UndoAsset(f.doc); err != nil || !bytes.Equal(f.doc.Metadata.Code.Bytes(), before) || !f.doc.Dirty() {
+		t.Fatal("tall waveform drag was not one shared undoable edit", err)
+	}
+	f.checkFiles(t, f.source, f.meta)
+}
+
+func TestAudioDocumentScrollingIsViewOnlyAndClampsOnResize(t *testing.T) {
+	f := newWorkingAudioFixture(t, ".wav", false)
+	meta, err := asset.ParseSourceMeta(f.doc.Metadata.Code.Bytes(), f.doc.Metadata.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, revision := bytes.Clone(f.doc.Metadata.Code.Bytes()), f.doc.Metadata.Code.Rev()
+	f.plugin.clip.selectAnchor, f.plugin.clip.selectEnd = 12000, 24000
+	v := ClipView{ID: f.id, Frames: 48000, Rate: 48000, Channels: 1, Seconds: 1,
+		WaveStart: 0, WaveEnd: 48000, WaveNav: true, Settings: meta.Settings, Peaks: []float32{.3, .5}}
+	ui, state := f.ed.UI, &input.State{}
+	area := mathx.Rect{W: 180, H: 220}
+	draw := func() {
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 700}, 1)
+		ui.Region(area)
+		ui.PushClip(area)
+		f.plugin.drawClipDocument(f.ed, nil, v, area)
+		ui.PopClip()
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	draw()
+	state.BeginFrame()
+	state.ApplyWheel(mathx.Vec2{X: 90, Y: 100}, mathx.Vec2{Y: -100})
+	draw()
+	if f.plugin.clip.docScroll <= 0 {
+		t.Fatal("small audio document did not scroll")
+	}
+	if a, b, ok := f.plugin.clip.waveSelection(v.Frames); !ok || a != 12000 || b != 24000 {
+		t.Fatal("scrolling changed the source-frame selection")
+	}
+	if f.doc.Metadata.Code.Rev() != revision || !bytes.Equal(f.doc.Metadata.Code.Bytes(), before) || !f.doc.Dirty() {
+		t.Fatal("scrolling changed the shared dirty journal")
+	}
+	area.H = 640
+	state.BeginFrame()
+	draw()
+	if f.plugin.clip.docScroll != 0 {
+		t.Fatal("resizing a document did not clamp its scroll position")
+	}
+	f.checkFiles(t, f.source, f.meta)
+}
+
 func waitWorkingAudio(t *testing.T, f *workingAudioFixture) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)

@@ -656,6 +656,22 @@ func TestClipDocumentWidthsStayCompactAndFitNarrowPanels(t *testing.T) {
 	}
 }
 
+func TestClipDocumentWaveHeightFitsAndRejectsInvalidGeometry(t *testing.T) {
+	for _, tc := range []struct {
+		height, width, row, spacing, want float32
+	}{
+		{600, 800, 22, 2, 240}, {540, 320, 22, 2, 180},
+		{320, 180, 22, 2, waveH}, {1000, 800, 22, 2, 260},
+		{0, 800, 22, 2, waveH}, {600, 800, 0, 2, waveH},
+		{600, 800, 22, -1, waveH}, {float32(math.NaN()), 800, 22, 2, waveH},
+		{600, float32(math.Inf(1)), 22, 2, waveH},
+	} {
+		if got := clipDocumentWaveHeight(tc.height, tc.width, tc.row, tc.spacing); got != tc.want {
+			t.Errorf("height=%v width=%v row=%v spacing=%v: got %v, want %v", tc.height, tc.width, tc.row, tc.spacing, got, tc.want)
+		}
+	}
+}
+
 func TestStereoWaveRectKeepsChannelsAndColumnsInsideTheWaveform(t *testing.T) {
 	for _, width := range []float32{1, 180, 320, 900} {
 		r := mathx.Rect{X: 10, Y: 20, W: width, H: 72}
