@@ -163,6 +163,11 @@ func New(opt Options) (*App, error) {
 		Clipboard: a.clip,
 		Log:       a.log,
 		Bare:      true,
+		BeforeStart: func() {
+			// Each Try run owns its ephemeral saves. A worker from a previous
+			// run can finish without writing into the replacement scene's store.
+			playmods.UseMemorySaves(a.e)
+		},
 		OnChange: func(t []byte) {
 			if a.OnChange != nil {
 				a.OnChange(string(t))

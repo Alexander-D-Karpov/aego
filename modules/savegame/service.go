@@ -231,8 +231,14 @@ func (s *Service) read(slot string) {
 	}
 	doc.Meta.Name = slot
 	m := s.m
-	m.pending = doc
 	call := func() {
+		// The load is deferred until the main thread. The requesting play world
+		// may have been stopped or replaced in the meantime; it must not apply
+		// its save to the new world or consume a later world's pending load.
+		if m.eng != nil && Of(s.world) != s {
+			return
+		}
+		m.pending = doc
 		if err := host.LoadScene(doc.Meta.Scene); err != nil {
 			m.pending = nil
 			m.finish(Result{Slot: slot, Load: true, Err: err})

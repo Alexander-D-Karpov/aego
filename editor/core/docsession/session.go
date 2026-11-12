@@ -53,7 +53,9 @@ type Options struct {
 	Clipboard context.DataClipboard
 	Log       *log.Logger
 	OnChange  func(text []byte)
-	Bare      bool
+	// BeforeStart can isolate run-local services when a Try scene is restarted.
+	BeforeStart func()
+	Bare        bool
 }
 
 type State struct {
@@ -240,6 +242,9 @@ func (s *Session) emit() {
 func (s *Session) start() {
 	if s.run == nil {
 		return
+	}
+	if s.opt.BeforeStart != nil {
+		s.opt.BeforeStart()
 	}
 	if err := s.play.Start(s.run); err != nil {
 		s.ctx.Notify(context.LevelError, err.Error())

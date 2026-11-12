@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"aego/app/playground"
+	"aego/contracts/persistence"
+	"aego/engine"
 	"aego/modules/savegame"
+	"aego/save"
 )
 
 func loadPersistTry(t *testing.T) *App {
@@ -136,4 +139,129 @@ func TestPersistTryWaitsForDelayedSaveWorker(t *testing.T) {
 	}
 	release()
 	checkPersistCycle(t, a, -2)
+}
+
+// Reset must not let a pending load from the old play world apply its save to
+// the freshly reset scene, even if the worker completed between two frames.
+func TestPersistTryResetBeforeQueuedLoad(t *testing.T) {
+	a := loadPersistTry(t)
+	jobs := a.e.Jobs()
+	entered := make(chan struct{}, jobs.Workers())
+	gate := make(chan struct{})
+	var once sync.Once
+	release := func() { once.Do(func() { close(gate) }) }
+	t.Cleanup(release)
+	for range jobs.Workers() {
+		jobs.Submit(func() { entered <- struct{}{}; <-gate })
+	}
+	for range jobs.Workers() {
+		select {
+		case <-entered:
+		case <-time.After(10 * time.Second):
+			t.Fatal("could not hold the save worker")
+		}
+	}
+	if err := a.Step(4); err != nil {
+		t.Fatal(err)
+	}
+	store := savegame.Of(a.session.Controller().World())
+	if store == nil || store.Exists("persist-demo") {
+		t.Fatal("save was not held")
+	}
+	release()
+	deadline := time.Now().Add(10 * time.Second)
+	for !store.Exists("persist-demo") && time.Now().Before(deadline) {
+		runtime.Gosched()
+	}
+	if !store.Exists("persist-demo") {
+		t.Fatal("save did not complete")
+	}
+	if err := a.Step(1); err != nil {
+		t.Fatal(err)
+	}
+	if r := a.Call("reset", nil); r.Error != "" {
+		t.Fatal(r.Error)
+	}
+	sc := a.session.Controller().Scene()
+	h := sc.Find(sc.Root(), "Saved target")
+	if !sc.IsAlive(h) || sc.WorldPosition(h).X != -2 {
+		t.Fatalf("Reset restored stale save instead of the original scene: position=%v", sc.WorldPosition(h))
+	}
+	checkPersistCycle(t, a, 2)
+}
+
+func TestPersistTryDelayedSaveIsIsolatedAfterRestart(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		call string
+		args []byte
+		want float64
+	}{
+		{name: "reset", call: "reset", want: 2},
+		{name: "field change", call: "set", args: []byte(`{"component":"save.Persist","field":"NoTransform","value":1}`), want: -2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := loadPersistTry(t)
+			jobs := a.e.Jobs()
+			entered := make(chan struct{}, jobs.Workers())
+			gate := make(chan struct{})
+			var once sync.Once
+			release := func() { once.Do(func() { close(gate) }) }
+			t.Cleanup(release)
+			for range jobs.Workers() {
+				jobs.Submit(func() { entered <- struct{}{}; <-gate })
+			}
+			for range jobs.Workers() {
+				select {
+				case <-entered:
+				case <-time.After(10 * time.Second):
+					t.Fatal("could not hold the save worker")
+				}
+			}
+			old, ok := engine.Service[*save.Store](a.e, persistence.StoreID)
+			if !ok || old == nil {
+				t.Fatal("old memory store is unavailable")
+			}
+			if err := a.Step(4); err != nil {
+				t.Fatal(err)
+			}
+			if old.Exists("persist-demo") {
+				t.Fatal("save was not held")
+			}
+			if tc.call == "set" {
+				// Keep the replacement world paused until the old write completes,
+				// so its own legitimate first save cannot obscure the assertion.
+				if r := a.Call("play", nil); r.Error != "" {
+					t.Fatal(r.Error)
+				}
+			}
+			if r := a.Call(tc.call, tc.args); r.Error != "" {
+				t.Fatal(r.Error)
+			}
+			if tc.call == "set" {
+				// Field edits are applied at the next editor tick.
+				if err := a.Step(1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			current, ok := engine.Service[*save.Store](a.e, persistence.StoreID)
+			if !ok || current == nil || current == old {
+				t.Fatal("restart did not create a separate memory store")
+			}
+			release()
+			deadline := time.Now().Add(10 * time.Second)
+			for !old.Exists("persist-demo") && time.Now().Before(deadline) {
+				runtime.Gosched()
+			}
+			if oldSaved, newSaved := old.Exists("persist-demo"), current.Exists("persist-demo"); !oldSaved || newSaved {
+				t.Fatalf("old worker crossed stores: old=%v current=%v", oldSaved, newSaved)
+			}
+			if tc.call == "set" {
+				if r := a.Call("play", nil); r.Error != "" {
+					t.Fatal(r.Error)
+				}
+			}
+			checkPersistCycle(t, a, tc.want)
+		})
+	}
 }
