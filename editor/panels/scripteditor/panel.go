@@ -60,6 +60,17 @@ type mark struct {
 	snap   *workspace.Snapshot
 }
 
+// requestEpoch is deliberately non-zero-sized: a pending callback retains its
+// identity even when the same document and revision are reset and reused.
+type requestEpoch struct{ _ byte }
+
+type panelRequest struct {
+	doc   *document.ScriptDocument
+	code  *code.Doc
+	path  string
+	epoch *requestEpoch
+}
+
 type Panel struct {
 	followLine int
 	agentMarks []agentMark
@@ -78,11 +89,14 @@ type Panel struct {
 	scrollY    float32
 	lastRev    uint64
 	sentRev    uint64
+	sentCode   *code.Doc
+	sentPath   string
 	editedAt   float64
 	askedAt    float64
 	waiting    bool
 	snap       *workspace.Snapshot
 	snapRev    uint64
+	epoch      *requestEpoch
 	semAt      uint64
 	semVer     uint64
 	marksAt    uint64
@@ -188,8 +202,18 @@ func (p *Panel) synced() bool {
 	return p.snap != nil && p.snapRev == p.doc.Code.Rev()
 }
 
+func (p *Panel) request() panelRequest {
+	return panelRequest{doc: p.doc, code: p.doc.Code, path: p.doc.Path, epoch: p.epoch}
+}
+
+func (p *Panel) requestCurrent(r panelRequest) bool {
+	return p.doc == r.doc && p.doc != nil && p.doc.Code == r.code && p.doc.Path == r.path && p.epoch == r.epoch
+}
+
 func (p *Panel) resync() {
+	p.epoch = &requestEpoch{}
 	p.lastRev, p.sentRev, p.marksAt = ^uint64(0), ^uint64(0), ^uint64(0)
+	p.sentCode, p.sentPath = nil, ""
 	p.snap, p.diags, p.sem = nil, nil, nil
 	p.clearOcc()
 	p.occT = settle{}
@@ -199,6 +223,7 @@ func (p *Panel) resync() {
 	p.inlayVer++
 	p.semVer++
 	clear(p.views)
+	p.hover = hoverState{off: -1}
 	p.comp.open = false
 	p.peek.open = false
 	p.sig.open = false
@@ -208,10 +233,10 @@ func (p *Panel) resync() {
 
 func (p *Panel) push() uint64 {
 	c := p.doc.Code
-	if c.Rev() == p.sentRev {
+	if c == p.sentCode && p.doc.Path == p.sentPath && c.Rev() == p.sentRev {
 		return p.host.lang.Current()
 	}
-	p.sentRev = c.Rev()
+	p.sentCode, p.sentPath, p.sentRev = c, p.doc.Path, c.Rev()
 	if p.foreignSource() {
 		return p.host.lang.Current()
 	}
@@ -222,12 +247,17 @@ func (p *Panel) push() uint64 {
 func (p *Panel) ask(now float64) {
 	p.waiting, p.askedAt = false, now
 	gen := p.push()
+	request := p.request()
 	rev := p.sentRev
 	file, ok := p.file()
 	if !ok {
 		return
 	}
-	p.host.lang.Analyze(gen, file, func(r langsvc.Result) { p.receive(rev, r) })
+	p.host.lang.Analyze(gen, file, func(r langsvc.Result) {
+		if p.requestCurrent(request) {
+			p.receive(rev, r)
+		}
+	})
 }
 
 func (p *Panel) receive(rev uint64, r langsvc.Result) {
