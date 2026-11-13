@@ -22,7 +22,6 @@
   const progress=document.createElement('span');progress.className='transfer-status';progress.setAttribute('role','status');bar.append(progress);
   const badge=document.createElement('span');badge.className='release-version';badge.textContent=cfg.buildID+(cfg.snapshot?' · SNAPSHOT':'');bar.append(badge);
   document.querySelector('.menubar').after(bar);document.body.classList.toggle('studio-embedded',embedded);
-  document.querySelector('.build-badge').textContent=cfg.buildID+(cfg.snapshot?' · snapshot':'');
   function showStorageWarning(){
     let warning=bar.querySelector('.storage-warning');
     if(!warning){warning=document.createElement('div');warning.className='storage-warning';bar.append(warning)}

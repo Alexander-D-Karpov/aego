@@ -219,6 +219,22 @@ input[type=range] {
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
+.menubar .export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.export-button svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
 .privacy {
   font-size: 11px;
   color: var(--muted);

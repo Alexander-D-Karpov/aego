@@ -93,7 +93,7 @@ def main() -> int:
         assert all(measured['hits']), (selector,'control clipped/covered by a panel',measured)
     def narrow_authoring(page, width, surface):
         samples=[]
-        for selector in ('#toggle-side','#theme','#language','#fullscreen','#studio-download-source','#new','#open','#save'):
+        for selector in ('#toggle-side','#theme','#language','#fullscreen','#studio-download-source','#new','#open','#save','#export-png','#export-sheet'):
             assert_reachable(page,selector,samples)
         if surface=='standalone':
             for selector in ('[data-workspace=art]','[data-workspace=animation]','[data-workspace=vfx]'):
@@ -242,6 +242,10 @@ def main() -> int:
             page.wait_for_function('(old) => AegoStudioHost.summary().handle !== old',arg=initial_handle)
             assert summary(page)['width'] == 32
             checked('create-32x32-via-ui')
+            from authoring_ui import exercise_export_controls
+            source_before_exports = document_snapshot(page)
+            exercise_export_controls(page, checked)
+            assert document_snapshot(page) == source_before_exports, 'export control presentation changed the editable source'
             # Theme and language are presentation preferences, never artwork
             # edits. Exercise both explicit themes, system-following mode and
             # persistence in another real same-origin page.

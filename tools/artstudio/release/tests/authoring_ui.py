@@ -6,6 +6,47 @@ import json
 from pathlib import Path
 
 
+def exercise_export_controls(page, checked):
+    """Check the actual localized controls without modifying the document."""
+    original_language = page.locator('html').get_attribute('lang')
+    original_theme = page.locator('#theme').input_value()
+    assert page.locator('.appbar .build-badge').count() == 0
+    expected = {
+        'ru': (('PNG', 'Экспорт PNG'), ('Спрайт-лист', 'Экспорт спрайт-листа')),
+        'en': (('PNG', 'Export PNG'), ('Sprite sheet', 'Export sprite sheet')),
+    }
+    for theme in ('light', 'dark'):
+        page.locator('#theme').select_option(theme)
+        for language in ('ru', 'en'):
+            if page.locator('html').get_attribute('lang') != language:
+                page.locator('#language').click()
+            for selector, (text, label) in zip(('#export-png', '#export-sheet'), expected[language]):
+                button = page.locator(selector)
+                assert button.inner_text() == text
+                assert button.get_attribute('aria-label') == button.get_attribute('title') == label
+                assert page.get_by_role('button', name=label, exact=True).count() == 1
+                icon = button.locator('svg')
+                assert icon.count() == 1 and icon.get_attribute('aria-hidden') == 'true'
+                measured = icon.evaluate('''icon => {
+                    const i=icon.getBoundingClientRect(), b=icon.parentElement.getBoundingClientRect();
+                    const style=getComputedStyle(icon), buttonStyle=getComputedStyle(icon.parentElement);
+                    return {width:i.width,height:i.height,inside:i.left>=b.left && i.right<=b.right &&
+                        i.top>=b.top && i.bottom<=b.bottom,stroke:style.stroke,color:buttonStyle.color};
+                }''')
+                assert measured['width'] == 14 and measured['height'] == 14 and measured['inside'], measured
+                assert measured['stroke'] == measured['color'], measured
+    if page.locator('html').get_attribute('lang') != original_language:
+        page.locator('#language').click()
+    page.locator('#theme').select_option(original_theme)
+    # Enter still controls playback when focus is on the canvas, not a button.
+    page.locator('#canvas').focus()
+    page.keyboard.press('Enter')
+    assert page.locator('#play').evaluate('element => element.classList.contains("active")')
+    page.keyboard.press('Enter')
+    assert not page.locator('#play').evaluate('element => element.classList.contains("active")')
+    checked('export-icons-and-accessible-labels-in-both-languages-and-themes')
+
+
 def exercise_authoring(page, checked, browser_name, evidence):
     def state():
         return page.evaluate('() => JSON.parse(aegoArt.request(\'{"action":"state"}\')).state')
@@ -201,14 +242,22 @@ def exercise_authoring(page, checked, browser_name, evidence):
     assert page.evaluate('() => aegoArt.hash("","albedo")') == albedo
     assert page.evaluate('() => Array.from(aegoArt.pixels("",false,false)).slice((12*32+11)*4,(12*32+12)*4)') == [128,128,128,255]
     with page.expect_download() as height_download:
-        page.locator('#export-png').click()
+        page.locator('#export-png').focus()
+        page.keyboard.press('Enter')
     height_path = exports / 'height-channel.png'
     height_download.value.save_as(height_path)
     assert height_download.value.failure() is None
+    assert not page.locator('#play').evaluate('element => element.classList.contains("active")')
     height_image = decode_png(height_path)
     assert (height_image['width'],height_image['height']) == (32,32)
     assert height_image['pixels'][(12*32+11)*4:(12*32+12)*4] == [128,128,128,255]
     assert hashlib.sha256(bytes(height_image['pixels'])).hexdigest() == height_hash
+    with page.expect_download() as space_download:
+        page.locator('#export-png').focus()
+        page.keyboard.press('Space')
+    space_path = exports / 'height-channel-space.png'
+    space_download.value.save_as(space_path)
+    assert space_download.value.failure() is None and space_path.read_bytes() == height_path.read_bytes()
     page.locator('#undo').click();assert image_hash() == before_height
     page.locator('#redo').click();assert image_hash() == height_hash
     checked('height-channel-pointer-undo-redo-and-real-png-download')
@@ -257,11 +306,13 @@ def exercise_authoring(page, checked, browser_name, evidence):
     assert len(set(value for _,value in expected_hashes)) > 1
     with page.expect_download(predicate=lambda item: item.suggested_filename.endswith('-sheet.png')) as png_download, \
          page.expect_download(predicate=lambda item: item.suggested_filename.endswith('-sheet.json')) as metadata_download:
-        page.locator('#export-sheet').click()
+        page.locator('#export-sheet').focus()
+        page.keyboard.press('Enter')
     sheet_path, metadata_path = exports / 'animation-sheet.png', exports / 'animation-sheet.json'
     png_download.value.save_as(sheet_path)
     metadata_download.value.save_as(metadata_path)
     assert png_download.value.failure() is None and metadata_download.value.failure() is None
+    assert not page.locator('#play').evaluate('element => element.classList.contains("active")')
     metadata = json.loads(metadata_path.read_text())
     sheet = decode_png(sheet_path)
     assert (sheet['width'],sheet['height']) == (256,32)
