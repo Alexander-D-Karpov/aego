@@ -34,6 +34,7 @@ WEB_BENCH_BROWSERS ?= chromium,firefox
 WEB_BENCH_ARGS ?=
 WEB_BENCH_BASELINE ?= $(CURDIR)/.cache/web-bench.base.json
 WEB_STAGE12_BENCH_RUNS ?= 1
+WEB_PLATFORMER_BENCH_RUNS ?= 1
 WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
 	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
 	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(WEB_BENCH_BASELINE)
@@ -324,12 +325,21 @@ web-smoke: site
 # The old Stage 12 workload remains a separate gate against its unchanged
 # baseline.  A single CI sample checks counts/allocations; use five to compare
 # timing as well, just like web-bench.  It never changes the user's project.
-.PHONY: web-bench-stage12 web-stage12-fixture-test
+.PHONY: web-bench-stage12 web-stage12-fixture-test web-bench-platformer web-platformer-fixture-test
 web-bench-stage12: cli
 	python3 tools/websmoke/stage12_bench.py --runs=$(WEB_STAGE12_BENCH_RUNS)
 
 web-stage12-fixture-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/websmoke -p stage12_bench_test.py
+
+# Keep the tracked platformer on its original baseline independently of the
+# website's intentionally modified floor; never copy untracked user assets.
+web-bench-platformer: cli
+	python3 -B tools/websmoke/platformer_bench.py --runs=$(WEB_PLATFORMER_BENCH_RUNS)
+
+web-platformer-fixture-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p platformer_bench_test.py
+	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p benchmark_workloads_test.py
 
 web-bench: site
 	cd tools/websmoke && npm ci --no-audit --no-fund
@@ -419,9 +429,9 @@ ci: export SDL_AUDIODRIVER := dummy
 # direct web-smoke and stage12-release-check runs stay strict by default.
 ci: export AEGO_CI_WEB_WARN := 1
 ci: export AEGO_CI_REQUIRE_WEB_BASELINE := 1
-# The present platformer is a different workload than the Stage 12 fixture.
-# Gate both independently; never compare changed content to the old counts.
-ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-platformer-head-baseline.json
+# The website demo has its own floor edit. Gate it against its own reference;
+# the original platformer and Stage 12 remain independent required workloads.
+ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-site-demo-baseline.json
 .PHONY: web-warning-policy-test
 web-warning-policy-test:
 	node --test tools/websmoke/ci-warning-policy.test.mjs
@@ -449,11 +459,13 @@ web-try-pulse-test:
 ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
 ci: site-demo-prepare-test
 ci: studio-web-test
+ci: web-platformer-fixture-test web-bench-platformer
+	@sh tools/ci-clean-root.sh
 
 .PHONY: site-demo-prepare-test
 site-demo-prepare-test:
 	python3 -B -m unittest discover -s tools/ci -p test_site_demo_prepare.py
-	@sh tools/ci-clean-root.sh
+	python3 -B -m unittest discover -s tools/ci -p test_ci_clean_root_order.py
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
 test-update: bootstrap

@@ -41,6 +41,21 @@ The optional probe reports calls, timer-query calls, actual draw calls, buffer u
 
 For a paired performance conclusion, retain the same browser, driver, build flags, scene, viewport, DPR, replay and measurement windows. Run software GPU workloads sequentially. Do not infer a before/after speedup from these three different profile scenes.
 
+### Distinct benchmark workloads
+
+The website-only demo extends the floor at the checkpoint; its WebGL counters
+are not comparable to the original platformer reference. In `make ci`, the
+website export uses the separate `bench-site-demo-baseline.json`. The same
+unchanged allocation, frame-byte and WebGL gates apply.
+
+`make web-bench-platformer` separately exports the original tracked platformer
+and compares it to the unchanged `bench-platformer-head-baseline.json`. It pins
+the original project inputs and replay, rejects modified tracked inputs,
+excludes untracked assets and recovery, and verifies the WASM/manifest bytes
+received by Chromium. `make web-bench-stage12` remains a separate gate using
+its historical fixture and reference. Run both in a protected checkout with
+dummy or muted audio; neither writes to the user's platformer project.
+
 ## Screenshot stability
 
 Playground and Try canvas captures align only the CSS origin to a physical pixel. This avoids a fractional document position expanding an otherwise exact 351-pixel drawing buffer into a 352-pixel screenshot. The capture does not resize the canvas, resample its pixels or relax the image threshold.
