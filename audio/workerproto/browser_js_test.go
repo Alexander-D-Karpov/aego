@@ -21,6 +21,7 @@ func browserFixture(t *testing.T, m *mix.Mixer, opts BrowserOptions) (*Browser, 
 		constructor(worker, notify) { this.worker=worker;this.notify=notify;this.sent=[];this.acks=[];this.id=0;globalThis.aegoTestWorkerHost=this; }
 		start(options) { this.options=options; }
 		send(op,input,pcm,offset) { const id=++this.id;this.sent.push({id,op,input,pcm,offset});return id; }
+		skip(frames) { return this.send(11,frames===0?'{}':JSON.stringify({frames})); }
 		quiesce() { const id=++this.id;this.sent.push({id,op:'quiesce'});return id; }
 		resume() { const id=++this.id;this.sent.push({id,op:'resume'});return id; }
 		rebind(output) { this.output=output;return ++this.id; }
@@ -321,6 +322,41 @@ func TestBrowserSkipIsOrderedAndBounded(t *testing.T) {
 	browserReply(host)
 	if resumed != 1 || b.quiesced || b.resuming || b.err != nil {
 		t.Fatal("resume did not wait for worklet acknowledgement")
+	}
+}
+
+func TestBrowserSkipHostFailureRetainsAttachedOwnership(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		name := "throws"
+		if missing {
+			name = "missing"
+		}
+		t.Run(name, func(t *testing.T) {
+			m, _ := mix.New(mix.Config{SampleRate: 48000, Voices: 4, Block: 512})
+			var failures int
+			var attached bool
+			b, host := browserFixture(t, m, BrowserOptions{OnFailure: func(_ error, v bool) { failures++; attached = v }})
+			host.Call("emit", map[string]any{"type": "ready"})
+			if err := b.Quiesce(); err != nil {
+				t.Fatal(err)
+			}
+			browserReply(host)
+			if missing {
+				host.Set("skip", js.Undefined())
+			} else {
+				host.Set("skip", js.Global().Get("Function").New(`throw Error('injected skip failure')`))
+			}
+			if err := b.QueueSkip(10); err == nil || failures != 1 || !attached || !host.Get("closed").Bool() {
+				t.Fatal("failed skip did not stop the attached transport")
+			}
+			b.Terminate()
+			if err := b.CancelUnsent(); err == nil {
+				t.Fatal("failed skip incorrectly allowed local fallback")
+			}
+			if err := b.AbortAfterTermination(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

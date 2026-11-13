@@ -151,6 +151,16 @@
             return id;
         }
 
+        // A quiet mixer can advance once per game frame. Keep the bounded
+        // integer on the JS side instead of allocating a Go JSON string for
+        // every skip; send() retains the same ordering and failure handling.
+        skip(frames) {
+            if (!Number.isInteger(frames) || frames < 0 || frames > 1 << 20) {
+                throw new Error('invalid audio worker skip');
+            }
+            return this.send(11, frames === 0 ? '{}' : `{"frames":${frames}}`);
+        }
+
         // Completion means the worklet has discarded the old queue and the
         // Worker has stopped refilling it. Existing worklet statistics remain.
         quiesce() {

@@ -113,6 +113,7 @@ func testBrowserWorker(t *testing.T) (*Module, *browserWorker, *testBrowserOutpu
 		constructor(worker,notify){this.worker=worker;this.notify=notify;this.sent=[];this.acks=[];this.id=0;globalThis.aegoBackendHost=this;}
 		start(options){this.options=options;}
 		send(op,input){this.sent.push({id:++this.id,op,input});}
+		skip(frames){this.send(11,frames===0?'{}':JSON.stringify({frames}));}
 		quiesce(){const id=++this.id;this.sent.push({id,op:'quiesce'});return id;}
 		resume(){const id=++this.id;this.sent.push({id,op:'resume'});return id;}
 		rebind(output){const id=++this.id;this.output=output;this.sent.push({id,op:'rebind'});return id;}

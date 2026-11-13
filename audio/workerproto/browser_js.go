@@ -347,6 +347,15 @@ func (b *Browser) Pump() (err error) {
 		}
 		return nil
 	}
+	if step.Op == Skip && !step.Chunk {
+		// Skip is the hot path while output is quiet. Its only input is the
+		// bounded frame count; serialize it in the host instead of building a
+		// Go JSON object and string on every engine frame. The host still uses
+		// the normal single-flight RPC and the Worker validates the request.
+		b.pending = step.Token
+		b.host.Call("skip", step.Request.Frames)
+		return b.err
+	}
 	raw, err := json.Marshal(step.Request)
 	if err != nil {
 		b.fail(err, b.attached)

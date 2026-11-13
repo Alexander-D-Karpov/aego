@@ -163,6 +163,24 @@ test('quiesce is serialized with RPCs and reports only the Worker reply', () => 
     assert.equal(h.host.send(11,'{"frames":1}'),3);
 });
 
+test('bounded quiet skips use the same single-flight ordered RPC', () => {
+    const h=harness();h.start();h.receive({type:'ready'});
+    for (const bad of [-1, 1.5, (1 << 20) + 1, Infinity, NaN, '3']) {
+        assert.throws(()=>h.host.skip(bad),/invalid audio worker skip/);
+    }
+    assert.equal(h.sent.length,1,'invalid skips must not cross the transport');
+    const zero=h.host.skip(0);
+    assert.equal(h.sent.at(-1).message.op,11);
+    assert.deepEqual(JSON.parse(h.sent.at(-1).message.input),{});
+    assert.throws(()=>h.host.skip(1),/in flight/);
+    h.receive({type:'reply',id:zero,result:''});
+    const max=h.host.skip(1<<20);
+    assert.equal(max,2);
+    assert.equal(JSON.parse(h.sent.at(-1).message.input).frames,1<<20);
+    h.receive({type:'reply',id:max,result:''});
+    assert.equal(h.host.state,'ready');
+});
+
 test('bad transport messages and consumer failures stop rather than replay', () => {
     for (const bad of [{type:'reply',id:1,result:''},{type:'batch',batch:'{"serial":3}'},null]) {
         const h = harness(); h.start(); h.receive({type:'ready'}); h.receive(bad);
