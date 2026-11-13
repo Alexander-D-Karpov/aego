@@ -86,7 +86,7 @@ func (m *Manager) assetRecoveryPath(d *AssetDocument) string {
 	return filepath.Join(m.recoveryDir(), "asset-"+d.Asset.String()+".recovery")
 }
 func (m *Manager) WriteAssetRecovery(d *AssetDocument) error {
-	if d.volatileDirty() {
+	if d.volatileHistory() {
 		return errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
 	}
 	if d.Binding.Recovery == nil || !d.Dirty() {
@@ -96,7 +96,7 @@ func (m *Manager) WriteAssetRecovery(d *AssetDocument) error {
 	if err != nil {
 		return err
 	}
-	if d.volatileDirty() {
+	if d.volatileHistory() {
 		return errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
 	}
 	name := m.assetRecoveryPath(d)

@@ -45,6 +45,26 @@ func (d *Doc) VolatileDirty() bool {
 	return d != nil && d.volatile != nil && len(d.volatile.current) != 0
 }
 
+// HasVolatileHistory also reports structured states reachable through Undo or
+// Redo when the current value is empty. A text-only recovery cannot preserve
+// those states. This is owner-thread inspection, not validation or a save guard.
+func (d *Doc) HasVolatileHistory() bool {
+	if d == nil || d.volatile == nil {
+		return false
+	}
+	if d.VolatileDirty() {
+		return true
+	}
+	for _, groups := range [][]group{d.undo, d.redo} {
+		for _, g := range groups {
+			if g.volatile {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // ReplaceVolatile creates one undo step in the text document's existing log.
 // expectedRev guards both text and volatile changes since the caller captured
 // its snapshot. It does not check external files or grant permission to save.

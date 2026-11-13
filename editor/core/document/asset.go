@@ -106,6 +106,11 @@ func (d *AssetDocument) volatileDirty() bool {
 		(d.Metadata != nil && d.Metadata.Code.VolatileDirty()))
 }
 
+func (d *AssetDocument) volatileHistory() bool {
+	return d != nil && ((d.Source != nil && d.Source.Code.HasVolatileHistory()) ||
+		(d.Metadata != nil && d.Metadata.Code.HasVolatileHistory()))
+}
+
 // A text view may save one member of an asset directly. It must not publish
 // that member while another member carries unsupported structured changes.
 func (m *Manager) relatedVolatile(d *ScriptDocument) bool {

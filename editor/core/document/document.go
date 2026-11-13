@@ -886,6 +886,12 @@ func (m *Manager) WriteRecovery() (int, error) {
 		n++
 	}
 	for _, d := range m.assets {
+		if d.volatileHistory() {
+			if first == nil {
+				first = errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
+			}
+			continue
+		}
 		if d.Binding.Recovery == nil || !d.Dirty() {
 			continue
 		}
@@ -900,6 +906,12 @@ func (m *Manager) WriteRecovery() (int, error) {
 	sn, err := m.writeScriptRecovery()
 	if first == nil {
 		first = err
+	}
+	// A later asset callback may have changed an earlier asset-owned journal.
+	// Earlier successful writes cannot be rolled back, but must not be reported
+	// as a complete recovery when a structured history is now unsupported.
+	if first == nil && m.volatileRecoveryScript() != nil {
+		first = errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
 	}
 	return n + sn, first
 }

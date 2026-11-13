@@ -134,6 +134,22 @@ func (m *Manager) volatileScript() *ScriptDocument {
 	return nil
 }
 
+func (m *Manager) volatileRecoveryScript() *ScriptDocument {
+	for _, d := range m.scripts {
+		if d.Code.HasVolatileHistory() {
+			return d
+		}
+	}
+	for _, a := range m.assets {
+		for _, d := range []*ScriptDocument{a.Source, a.Metadata} {
+			if d != nil && d.Code.HasVolatileHistory() {
+				return d
+			}
+		}
+	}
+	return nil
+}
+
 // CheckVolatileSave refuses Save All while an open structured document has
 // unsupported in-memory edits. It does not make multiple file saves atomic.
 // The manager and its callbacks use the owner thread.
@@ -226,7 +242,7 @@ func (m *Manager) ReloadScript(d *ScriptDocument) error {
 }
 
 func (m *Manager) reloadScript(d *ScriptDocument, discardVolatile bool) error {
-	if !discardVolatile && d.Code.VolatileDirty() {
+	if !discardVolatile && d.Code.HasVolatileHistory() {
 		return errs.New(errs.EditorDocument, "discard in-memory structured changes explicitly before reloading")
 	}
 	data, err := os.ReadFile(m.Abs(d.Path))
@@ -332,7 +348,7 @@ func (m *Manager) CheckExternalScripts() ([]*ScriptDocument, []*ScriptDocument) 
 		if st.ModTime().Equal(d.DiskAt) && st.Size() == d.DiskSize {
 			continue
 		}
-		if !d.Dirty() {
+		if !d.Dirty() && !d.Code.HasVolatileHistory() {
 			if err := m.ReloadScript(d); err == nil {
 				reloaded = append(reloaded, d)
 			}
@@ -359,7 +375,7 @@ func (m *Manager) writeScriptRecovery() (int, error) {
 	n := 0
 	var first error
 	for _, d := range m.scripts {
-		if d.Code.VolatileDirty() {
+		if d.Code.HasVolatileHistory() {
 			if first == nil {
 				first = errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
 			}

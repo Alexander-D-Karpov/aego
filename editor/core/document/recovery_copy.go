@@ -20,7 +20,7 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 	if m == nil || !filepath.IsAbs(directory) {
 		return "", 0, fmt.Errorf("choose an existing absolute backup directory")
 	}
-	if d := m.volatileScript(); d != nil {
+	if d := m.volatileRecoveryScript(); d != nil {
 		return "", 0, fmt.Errorf("%s has in-memory changes without a recovery format", d.Path)
 	}
 	for _, d := range m.assets {
@@ -84,7 +84,7 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 		if err != nil {
 			return output, count, err
 		}
-		if changed := m.volatileScript(); changed != nil {
+		if changed := m.volatileRecoveryScript(); changed != nil {
 			return output, count, fmt.Errorf("%s has in-memory changes without a recovery format", changed.Path)
 		}
 		if err := write(filepath.Base(m.assetRecoveryPath(d)), data); err != nil {
@@ -96,7 +96,7 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 		if !d.Dirty() {
 			continue
 		}
-		if changed := m.volatileScript(); changed != nil {
+		if changed := m.volatileRecoveryScript(); changed != nil {
 			return output, count, fmt.Errorf("%s has in-memory changes without a recovery format", changed.Path)
 		}
 		if err := write(filepath.Base(m.scriptRecoveryFile(d.Path)), d.Code.Bytes()); err != nil {
