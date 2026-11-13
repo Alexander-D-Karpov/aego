@@ -569,6 +569,9 @@ func (m *Manager) SaveAs(id ID, rel string) error {
 }
 
 func (m *Manager) SaveAll() error {
+	if err := m.CheckVolatileSave(); err != nil {
+		return err
+	}
 	// Check structured inputs before saving a related dirty metadata buffer.
 	for _, d := range m.assets {
 		if d.Binding.BeforeSave != nil && d.Dirty() {
@@ -576,6 +579,9 @@ func (m *Manager) SaveAll() error {
 				return err
 			}
 		}
+	}
+	if err := m.CheckVolatileSave(); err != nil {
+		return err
 	}
 	var first error
 	pending := false
@@ -600,8 +606,15 @@ func (m *Manager) SaveAll() error {
 	}
 	for _, d := range m.assets {
 		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
+			if err := m.CheckVolatileSave(); err != nil {
+				record(err)
+				break
+			}
 			record(d.Binding.Save())
 		}
+	}
+	if err := m.CheckVolatileSave(); err != nil {
+		record(err)
 	}
 	if first == nil && pending {
 		return ErrSavePending

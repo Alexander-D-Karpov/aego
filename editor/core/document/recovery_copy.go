@@ -20,6 +20,9 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 	if m == nil || !filepath.IsAbs(directory) {
 		return "", 0, fmt.Errorf("choose an existing absolute backup directory")
 	}
+	if d := m.volatileScript(); d != nil {
+		return "", 0, fmt.Errorf("%s has in-memory changes without a recovery format", d.Path)
+	}
 	for _, d := range m.assets {
 		if d.Binding.Dirty != nil && d.Binding.Dirty() && d.Binding.Recovery == nil {
 			return "", 0, fmt.Errorf("%s cannot be exported as a recovery copy", d.Path)
@@ -81,6 +84,9 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 		if err != nil {
 			return output, count, err
 		}
+		if changed := m.volatileScript(); changed != nil {
+			return output, count, fmt.Errorf("%s has in-memory changes without a recovery format", changed.Path)
+		}
 		if err := write(filepath.Base(m.assetRecoveryPath(d)), data); err != nil {
 			return output, count, err
 		}
@@ -89,6 +95,9 @@ func (m *Manager) WriteRecoveryCopy(directory string) (string, int, error) {
 	for _, d := range m.scripts {
 		if !d.Dirty() {
 			continue
+		}
+		if changed := m.volatileScript(); changed != nil {
+			return output, count, fmt.Errorf("%s has in-memory changes without a recovery format", changed.Path)
 		}
 		if err := write(filepath.Base(m.scriptRecoveryFile(d.Path)), d.Code.Bytes()); err != nil {
 			return output, count, err

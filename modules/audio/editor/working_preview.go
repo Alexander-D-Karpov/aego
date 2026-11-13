@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"aego/asset"
+	"aego/asset/audiosidecar"
 	"aego/asset/pipeline"
+	"aego/audio/edit"
 	"aego/core/ids"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
@@ -41,6 +43,7 @@ type workingAudioRequest struct {
 	pipeline *pipeline.Pipeline
 	source   []byte
 	metadata []byte
+	edit     []byte
 	module   *audio.Module
 	rate     int
 	loop     bool
@@ -120,9 +123,10 @@ func (p *plugin) prepareWorkingAudio(ed *context.Editor, mod *audio.Module, d *d
 	id, path := d.Asset, d.Path
 	revision, saved, assetRevision, pipelineRevision := journal.Rev(), metadata.SavedEdits, ed.AssetRev, pipe.Revision()
 	epoch, rate := mod.PreviewEpoch(), mod.Mixer().SampleRate()
+	edit, _ := journal.Volatile()
 	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
 	r := &workingAudioRequest{ctx: ctx, cancel: cancel, sequence: p.workingAudio.sequence, id: id, docID: d.ID, docs: docs, path: path,
-		pipeline: pipe, source: bytes.Clone(clip.Art.Data), metadata: bytes.Clone(journal.Bytes()), module: mod, rate: rate, loop: loop}
+		pipeline: pipe, source: bytes.Clone(clip.Art.Data), metadata: bytes.Clone(journal.Bytes()), edit: edit, module: mod, rate: rate, loop: loop}
 	r.current = func() bool {
 		return ed.Pipeline == pipe && ed.Docs == docs && ed.Loader == loader && ed.Engine == eng && ed.Project == project &&
 			ed.AssetRev == assetRevision && pipe.Revision() == pipelineRevision && docs.AssetDocument(id) == d &&
@@ -165,11 +169,37 @@ func (q *workingAudioQueue) launch(r *workingAudioRequest) {
 					result.err = err
 				}
 			}
-			r.source, r.metadata = nil, nil
+			r.source, r.metadata, r.edit = nil, nil, nil
 			r.cancel()
 			out <- result
 		}()
-		candidate, err := r.pipeline.PreviewGuardedWithMetadataContext(r.ctx, r.path, r.source, r.metadata)
+		metadata := r.metadata
+		if len(r.edit) != 0 {
+			doc, err := audioedit.Decode(r.edit)
+			if err != nil {
+				result.err = fmt.Errorf("audio: invalid in-memory edit: %w", err)
+				return
+			}
+			if err := r.ctx.Err(); err != nil {
+				result.err = err
+				return
+			}
+			_, present, err := audiosidecar.Decode(metadata, r.path)
+			if err != nil {
+				result.err = err
+				return
+			}
+			if present {
+				result.err = errors.New("audio: working metadata already contains an audio edit")
+				return
+			}
+			metadata, err = audiosidecar.Encode(metadata, r.path, doc)
+			if err != nil {
+				result.err = err
+				return
+			}
+		}
+		candidate, err := r.pipeline.PreviewGuardedWithMetadataContext(r.ctx, r.path, r.source, metadata)
 		if err != nil {
 			result.err = err
 			return

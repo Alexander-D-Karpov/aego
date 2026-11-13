@@ -36,8 +36,8 @@ type AssetDocument struct {
 	Note                 string
 	// Transient documents have no indexed source yet. Path is a display name,
 	// not a filesystem path; their binding must provide an explicit first Save.
-	Transient            bool
-	WorkingPreview       MetadataPreviewState
+	Transient      bool
+	WorkingPreview MetadataPreviewState
 	// Bindings adapt an already existing structured editor without duplicating
 	// its mutable document model or introducing another tab manager.
 	Binding AssetBinding
@@ -99,6 +99,22 @@ var ErrSavePending = errors.New("save is waiting for a user decision")
 func (d *AssetDocument) Dirty() bool {
 	return (d.Source != nil && d.Source.Dirty()) || (d.Metadata != nil && d.Metadata.Dirty()) ||
 		(d.Scene != nil && d.Scene.Dirty()) || (d.Binding.Dirty != nil && d.Binding.Dirty())
+}
+
+func (d *AssetDocument) volatileDirty() bool {
+	return d != nil && ((d.Source != nil && d.Source.Code.VolatileDirty()) ||
+		(d.Metadata != nil && d.Metadata.Code.VolatileDirty()))
+}
+
+// A text view may save one member of an asset directly. It must not publish
+// that member while another member carries unsupported structured changes.
+func (m *Manager) relatedVolatile(d *ScriptDocument) bool {
+	for _, a := range m.assets {
+		if (a.Source == d || a.Metadata == d) && a.volatileDirty() {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *AssetDocument) Caption() string {
@@ -269,10 +285,16 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 	if d == nil {
 		return fmt.Errorf("no asset document")
 	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
 	if d.Binding.BeforeSave != nil {
 		if err := d.Binding.BeforeSave(); err != nil {
 			return err
 		}
+	}
+	if d.volatileDirty() {
+		return volatileSaveError()
 	}
 	for _, s := range []*ScriptDocument{d.Source, d.Metadata} {
 		if s != nil && s.Dirty() {
@@ -281,13 +303,24 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 			}
 		}
 	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
 	if d.Scene != nil && d.Scene.Dirty() {
 		if err := m.Save(d.Scene.ID); err != nil {
 			return err
 		}
 	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
 	if d.Binding.Save != nil && (d.Binding.SaveUnchanged || d.Binding.Dirty != nil && d.Binding.Dirty()) {
-		return d.Binding.Save()
+		if err := d.Binding.Save(); err != nil {
+			return err
+		}
+		if d.volatileDirty() {
+			return volatileSaveError()
+		}
 	}
 	return nil
 }
@@ -302,7 +335,7 @@ func (m *Manager) CloseAsset(id ids.AssetID, force bool) error {
 		}
 		if force {
 			for _, source := range []*ScriptDocument{d.Source, d.Metadata} {
-				if source != nil && source.views > 0 && source.Dirty() {
+				if source != nil && source.Dirty() && (source.views > 0 || source.Code.VolatileDirty()) {
 					if err := m.DiscardScript(source); err != nil {
 						return err
 					}

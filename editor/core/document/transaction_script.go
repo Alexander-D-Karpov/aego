@@ -62,7 +62,7 @@ func transactionScriptError(message string) error {
 // journal or recovery. Disk identity/content checks are best-effort, not CAS.
 func (m *Manager) TrackedScriptSnapshot(d *ScriptDocument) ([]byte, error) {
 	if m == nil || d == nil || d.Code == nil || m.Script(d.Path) != d ||
-		!d.OnDisk || !d.diskTracked || d.Conflict || d.Dirty() || d.Code.Len() > maxTransactionScriptBytes {
+		!d.OnDisk || !d.diskTracked || d.Conflict || d.Dirty() || m.relatedVolatile(d) || d.Code.Len() > maxTransactionScriptBytes {
 		return nil, transactionScriptError("source document has no current clean disk snapshot")
 	}
 	journal, revision, hash := d.Code, d.Code.Rev(), d.diskHash
@@ -76,7 +76,7 @@ func (m *Manager) TrackedScriptSnapshot(d *ScriptDocument) ([]byte, error) {
 	}
 	if len(data) > maxTransactionScriptBytes || sha256.Sum256(data) != hash ||
 		m.Script(d.Path) != d || d.Code != journal || d.Code.Rev() != revision ||
-		!d.OnDisk || !d.diskTracked || d.diskHash != hash || d.Conflict || d.Dirty() ||
+		!d.OnDisk || !d.diskTracked || d.diskHash != hash || d.Conflict || d.Dirty() || m.relatedVolatile(d) ||
 		!bytes.Equal(normalizeScriptText(data), d.Code.Bytes()) {
 		return nil, transactionScriptError("source document changed while reading its disk snapshot")
 	}
@@ -88,7 +88,7 @@ func (m *Manager) TrackedScriptSnapshot(d *ScriptDocument) ([]byte, error) {
 // must be non-nil even for an empty file: source transactions use nil to mean
 // an absent path. No source is published, recovery removed, or journal changed.
 func (m *Manager) PrepareDirtyScriptTransaction(d *ScriptDocument, before []byte) (*DirtyScriptTransaction, error) {
-	if m == nil || d == nil || d.Code == nil || d.ReadOnly || d.Conflict || !d.OnDisk || !d.diskTracked ||
+	if m == nil || d == nil || d.Code == nil || d.Code.VolatileDirty() || m.relatedVolatile(d) || d.ReadOnly || d.Conflict || !d.OnDisk || !d.diskTracked ||
 		m.Script(d.Path) != d || before == nil || len(before) > maxTransactionScriptBytes || d.Code.Len() > maxTransactionScriptBytes || !d.Dirty() ||
 		sha256.Sum256(before) != d.diskHash {
 		return nil, transactionScriptError("source document cannot prepare a dirty transaction")
@@ -116,7 +116,7 @@ func (t *DirtyScriptTransaction) current() bool {
 	}
 	d := t.doc
 	return d.ID == t.id && d.Path == t.path && t.owner.Script(t.path) == d && d.Code == t.journal &&
-		!d.ReadOnly && !d.Conflict && d.OnDisk && d.diskTracked && d.diskHash == sha256.Sum256(t.before) &&
+		!d.ReadOnly && !d.Conflict && !t.owner.relatedVolatile(d) && d.OnDisk && d.diskTracked && d.diskHash == sha256.Sum256(t.before) &&
 		d.SavedEdits == t.savedEdits && d.Code.Rev() == t.revision && d.Dirty() && bytes.Equal(d.Code.Bytes(), t.after)
 }
 

@@ -62,13 +62,13 @@ type record struct {
 }
 
 type group struct {
-	kind     Kind
-	at       time.Time
-	recs     []record
-	before   Selection
-	after    Selection
-	sealed   bool
-	snapshot bool
+	kind                          Kind
+	at                            time.Time
+	recs                          []record
+	before, after                 Selection
+	sealed, snapshot              bool
+	volatile                      bool
+	volatileBefore, volatileAfter []byte
 }
 
 type Doc struct {
@@ -85,6 +85,7 @@ type Doc struct {
 	undo     []group
 	redo     []group
 	batch    *group
+	volatile *volatileState
 	rev      uint64
 	saved    uint64
 	hash     uint64
@@ -186,7 +187,7 @@ func (d *Doc) SetSaved(disk []byte) {
 }
 
 func (d *Doc) Dirty() bool {
-	return d.contentHash() != d.saved
+	return d.VolatileDirty() || d.contentHash() != d.saved
 }
 
 func (d *Doc) seal() {
@@ -218,7 +219,7 @@ func (d *Doc) edit(kind Kind, off, n int, ins []byte, after Selection) {
 }
 
 func (d *Doc) push(kind Kind, rec record, before, after Selection) {
-	d.redo = d.redo[:0]
+	d.clearRedo()
 	now := d.Now()
 	if n := len(d.undo); n > 0 && kind != KindOther && bytes.IndexByte(rec.inserted, '\n') < 0 {
 		g := &d.undo[n-1]
@@ -229,9 +230,21 @@ func (d *Doc) push(kind Kind, rec record, before, after Selection) {
 		}
 	}
 	d.undo = append(d.undo, group{kind: kind, at: now, recs: []record{rec}, before: before, after: after})
+	d.trimUndo()
+}
+
+func (d *Doc) trimUndo() {
 	if over := len(d.undo) - historyLimit; over > 0 {
-		d.undo = append(d.undo[:0], d.undo[over:]...)
+		n := len(d.undo) - over
+		copy(d.undo, d.undo[over:])
+		clear(d.undo[n:])
+		d.undo = d.undo[:n]
 	}
+}
+
+func (d *Doc) clearRedo() {
+	clear(d.redo)
+	d.redo = d.redo[:0]
 }
 
 func shift(pos, off, n, ins int) int {
@@ -263,7 +276,7 @@ func (d *Doc) commit() {
 	}
 	g.at, g.after, g.sealed = d.Now(), d.Sel, true
 	d.goal = -1
-	d.redo = d.redo[:0]
+	d.clearRedo()
 	d.seal()
 	d.undo = append(d.undo, *g)
 }
@@ -274,10 +287,19 @@ func (d *Doc) Undo() bool {
 		return false
 	}
 	g := d.undo[n-1]
+	if g.volatile && d.rev == ^uint64(0) {
+		return false
+	}
+	d.undo[n-1] = group{}
 	d.undo = d.undo[:n-1]
-	for i := len(g.recs) - 1; i >= 0; i-- {
-		r := g.recs[i]
-		d.apply(r.off, len(r.inserted), r.removed)
+	if g.volatile {
+		d.volatile.current = g.volatileBefore
+		d.advanceVolatile()
+	} else {
+		for i := len(g.recs) - 1; i >= 0; i-- {
+			r := g.recs[i]
+			d.apply(r.off, len(r.inserted), r.removed)
+		}
 	}
 	d.Sel, d.goal = g.before, -1
 	g.sealed = true
@@ -292,9 +314,18 @@ func (d *Doc) Redo() bool {
 		return false
 	}
 	g := d.redo[n-1]
+	if g.volatile && d.rev == ^uint64(0) {
+		return false
+	}
+	d.redo[n-1] = group{}
 	d.redo = d.redo[:n-1]
-	for _, r := range g.recs {
-		d.apply(r.off, len(r.removed), r.inserted)
+	if g.volatile {
+		d.volatile.current = g.volatileAfter
+		d.advanceVolatile()
+	} else {
+		for _, r := range g.recs {
+			d.apply(r.off, len(r.removed), r.inserted)
+		}
 	}
 	d.Sel, d.goal = g.after, -1
 	d.undo = append(d.undo, g)
@@ -691,7 +722,7 @@ func (d *Doc) ReplaceSnapshot(src []byte, continuing bool) {
 		d.Sel = Selection{Anchor: len(src), Head: len(src)}
 		g.after = d.Sel
 		g.at = d.Now()
-		d.redo = d.redo[:0]
+		d.clearRedo()
 		return
 	}
 	d.Replace(0, d.Len(), string(src))

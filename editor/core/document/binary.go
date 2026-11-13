@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"aego/core/errs"
 )
 
 // BinarySource tracks disk ownership for an existing AssetDocument. It does not
@@ -84,12 +86,18 @@ func (m *Manager) assetRecoveryPath(d *AssetDocument) string {
 	return filepath.Join(m.recoveryDir(), "asset-"+d.Asset.String()+".recovery")
 }
 func (m *Manager) WriteAssetRecovery(d *AssetDocument) error {
+	if d.volatileDirty() {
+		return errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
+	}
 	if d.Binding.Recovery == nil || !d.Dirty() {
 		return nil
 	}
 	data, err := d.Binding.Recovery()
 	if err != nil {
 		return err
+	}
+	if d.volatileDirty() {
+		return errs.New(errs.EditorDocument, "in-memory structured changes have no recovery format")
 	}
 	name := m.assetRecoveryPath(d)
 	return m.writeRecoveryFile(name, data)

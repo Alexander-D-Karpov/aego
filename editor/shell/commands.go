@@ -461,12 +461,18 @@ func (a *App) save() error {
 }
 
 func (a *App) saveAll() error {
+	if err := a.ctx.Docs.CheckVolatileSave(); err != nil {
+		return err
+	}
 	for _, d := range a.ctx.Docs.AssetDocuments() {
 		if d.Dirty() && d.Binding.BeforeSave != nil {
 			if err := d.Binding.BeforeSave(); err != nil {
 				return err
 			}
 		}
+	}
+	if err := a.ctx.Docs.CheckVolatileSave(); err != nil {
+		return err
 	}
 	var first error
 	pending := false
@@ -491,8 +497,15 @@ func (a *App) saveAll() error {
 	}
 	for _, d := range a.ctx.Docs.AssetDocuments() {
 		if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
+			if err := a.ctx.Docs.CheckVolatileSave(); err != nil {
+				record(err)
+				break
+			}
 			record(d.Binding.Save())
 		}
+	}
+	if err := a.ctx.Docs.CheckVolatileSave(); err != nil {
+		record(err)
 	}
 	if first != nil {
 		return first
