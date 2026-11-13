@@ -1,4 +1,25 @@
 messages version=1 lang=ru {
+  msg "i18n.audio.analysis_cancel" {
+    text="Отменить анализ"
+  }
+  msg "i18n.audio.analysis_channel" {
+    text="Канал {channel}: пик {peak}, RMS {rms}, кадров на полной шкале {count}"
+  }
+  msg "i18n.audio.analysis_failed" {
+    text="Не удалось проанализировать источник"
+  }
+  msg "i18n.audio.analysis_pending" {
+    text="Анализ загруженного источника..."
+  }
+  msg "i18n.audio.analysis_scope" {
+    text="Загруженный источник до усиления импорта и воспроизведения; значения на полной шкале могут означать клиппинг."
+  }
+  msg "i18n.audio.analysis_start" {
+    text="Анализировать выделение источника"
+  }
+  msg "i18n.audio.analysis_unavailable" {
+    text="Для анализа нужно выделение WAV или OGG размером не более 64 МиБ."
+  }
   msg "i18n.audio.bus" {
     text="Шина"
   }

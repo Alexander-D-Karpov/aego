@@ -370,6 +370,7 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 		p.waveSelectionLabel(ui, v)
 	}
 	cur.W = controlsWidth
+	p.sourceAnalysisUI(ed, v)
 	p.transport(ed, mod, v)
 	p.importFields(ed, v.Settings)
 	p.metadataConflict(ed)

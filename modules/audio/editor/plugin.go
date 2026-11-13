@@ -45,6 +45,7 @@ type plugin struct {
 	aud           audition
 	auditionOwner *plugin // document views share the registered player's audition state
 	workingAudio  workingAudioQueue
+	analysis      sourceAnalysisQueue
 }
 
 func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
@@ -86,6 +87,7 @@ func Hook(e *ext.Registry) error {
 		docs.Subscribe(func(ev document.Event) {
 			if ev.Kind == document.EvClosed {
 				p.closeWorkingAudio(docs, ev.Doc)
+				p.closeSourceAnalysis(docs, ev.Doc)
 			}
 		})
 		openClip := e.DocumentView(func(d *document.AssetDocument) func(*services.Frame, mathx.Rect) {

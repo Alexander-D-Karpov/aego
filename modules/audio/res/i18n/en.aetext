@@ -1,4 +1,25 @@
 messages version=1 lang=en {
+  msg "i18n.audio.analysis_cancel" {
+    text="Cancel analysis"
+  }
+  msg "i18n.audio.analysis_channel" {
+    text="Channel {channel}: peak {peak}, RMS {rms}, full-scale frames {count}"
+  }
+  msg "i18n.audio.analysis_failed" {
+    text="Source analysis failed"
+  }
+  msg "i18n.audio.analysis_pending" {
+    text="Analyzing loaded source..."
+  }
+  msg "i18n.audio.analysis_scope" {
+    text="Loaded source before import and playback gain; full-scale samples may indicate clipping."
+  }
+  msg "i18n.audio.analysis_start" {
+    text="Analyze source selection"
+  }
+  msg "i18n.audio.analysis_unavailable" {
+    text="Analysis requires a selected WAV or OGG source of at most 64 MiB."
+  }
   msg "i18n.audio.bus" {
     text="Bus"
   }
