@@ -16,6 +16,7 @@ import (
 	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/modules/audio"
+	"aego/platform/input"
 	"aego/ui/core"
 	"aego/ui/widgets"
 )
@@ -55,6 +56,73 @@ type clipEdit struct {
 	docScroll    float32
 	docContent   float32
 	docScrollBar widgets.ScrollState
+	waveSource   audioWaveSource
+	waveBound    bool
+	waveBlocked  bool
+}
+
+// A waveform's frame coordinates belong to the displayed clip generation, not
+// just its AssetID. The audio module exposes clips as owner-thread, read-only
+// views; this identity check intentionally does not hash mutable bytes or guard
+// the disk. Decoder-cache eviction can recreate Clip/AudioArtifact wrappers
+// around the same loader-owned bytes; it must not discard an unchanged view.
+// A replacement backing buffer conservatively clears source-relative state even
+// if it was produced by reimporting the same encoded audio.
+type audioWaveSource struct {
+	docs     *document.Manager
+	id       ids.AssetID
+	first    *byte
+	length   int
+	format   uint8
+	rate     int
+	channels int
+	frames   int64
+	present  bool
+}
+
+func (c *clipEdit) bindWaveSource(docs *document.Manager, clip *audio.Clip) {
+	next := audioWaveSource{docs: docs}
+	if clip != nil && clip.Art != nil {
+		a := clip.Art
+		next.id, next.present = clip.ID, true
+		next.format, next.rate, next.channels, next.frames = a.Format, a.Rate, a.Channels, a.Frames
+		next.length = len(a.Data)
+		if next.length > 0 {
+			next.first = &a.Data[0]
+		}
+	}
+	if c.waveBound && c.waveSource != next {
+		c.waveBlocked = c.waveBlocked || c.drag >= 0 || c.selecting || c.navigating
+		c.drag, c.loopSettings = -1, nil
+		c.start, c.end, c.orig, c.acc = 0, 0, 0, 0
+		c.waveStart, c.waveEnd, c.navGrab = 0, 0, 0
+		c.selectAnchor, c.selectEnd = 0, 0
+		c.selecting, c.navigating = false, false
+	}
+	c.waveSource, c.waveBound = next, true
+}
+
+// Drop only this clip's captured waveform gesture; another control may own the
+// mouse. Do not start a new gesture until the old press has been released.
+func (c *clipEdit) cancelStaleWaveCapture(ui *core.Context) {
+	if !c.waveBlocked {
+		return
+	}
+	active := ui.Active()
+	if active == ui.ID("wave-selection") || active == ui.ID("wave-navigator") ||
+		active == core.IDSeq(ui.ID("loop"), 0) || active == core.IDSeq(ui.ID("loop"), 1) {
+		ui.ReleaseMouse()
+	}
+	if !ui.MouseDown(input.MouseLeft) {
+		c.waveBlocked = false
+	}
+}
+
+func (c *clipEdit) waveDrag(ui *core.Context, id core.ID, r mathx.Rect) (mathx.Vec2, bool) {
+	if c.waveBlocked {
+		return mathx.Vec2{}, false
+	}
+	return ui.Drag(id, r)
 }
 
 type peakSource interface {
@@ -155,6 +223,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 		mod = audio.ModuleOf(ed.Engine)
 	}
 	if mod == nil || pl == nil || ed.Loader == nil {
+		p.clip.bindWaveSource(ed.Docs, nil)
 		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_audio_output_is_not", "The audio output is not open"))
 		return
 	}
@@ -166,6 +235,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 	}
 	doc, err := ed.DocumentForAsset(id)
 	if err != nil || doc.Metadata == nil {
+		p.clip.bindWaveSource(ed.Docs, nil)
 		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_sound_is_not_imported", "The sound is not imported yet"))
 		return
 	}
@@ -176,9 +246,11 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 	}
 	c, err := mod.Clip(ed.Loader, id)
 	if err != nil {
+		p.clip.bindWaveSource(ed.Docs, nil)
 		widgets.LabelWrapped(ui, err.Error(), true)
 		return
 	}
+	p.clip.bindWaveSource(ed.Docs, c)
 	a := c.Art
 	v := ClipView{
 		ID: id, source: c, Format: a.Format, Rate: a.Rate, Channels: a.Channels, Frames: a.Frames, Seconds: c.Seconds,
@@ -244,6 +316,7 @@ func (p *plugin) drawClip(ed *context.Editor, mod *audio.Module, v ClipView) {
 	ui := ed.UI
 	ui.PushID("clip/" + v.ID.String())
 	defer ui.PopID()
+	p.clip.cancelStaleWaveCapture(ui)
 	if v.Path != "" {
 		widgets.LabelDim(ui, v.Path)
 	}
@@ -261,6 +334,7 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 	ui := ed.UI
 	ui.PushID("clip/" + v.ID.String())
 	defer ui.PopID()
+	p.clip.cancelStaleWaveCapture(ui)
 	cur := ui.Cursor()
 	top, fullWidth := cur.Y, cur.W
 	viewport := mathx.Rect{X: cur.X, Y: top, W: max(fullWidth, 0), H: max(0, area.Y+area.H-top)}
@@ -433,7 +507,7 @@ func (p *plugin) waveNavigator(ui *core.Context, v ClipView) {
 	ui.Box(r, ui.Theme.Radius.Button, ui.Theme.Widget, ui.Theme.Border)
 	ui.Box(mathx.Rect{X: visualX, Y: r.Y, W: visualWidth, H: r.H}, ui.Theme.Radius.Button, ui.Theme.AccentDim, ui.Theme.Accent)
 	id := ui.ID("wave-navigator")
-	if _, active := ui.Drag(id, r); active {
+	if _, active := p.clip.waveDrag(ui, id, r); active {
 		if frame, ok := audioWaveFrame(ui.Mouse().X, r, 0, v.Frames); ok {
 			if !p.clip.navigating {
 				p.clip.navGrab = span / 2
@@ -608,7 +682,7 @@ func (p *plugin) drawWave(ed *context.Editor, v ClipView, height float32) {
 			continue
 		}
 		hr := mathx.Rect{X: hx - handleW/2, Y: r.Y, W: handleW, H: r.H}
-		if d, ok := ui.Drag(hid[i], hr); ok {
+		if d, ok := p.clip.waveDrag(ui, hid[i], hr); ok {
 			if p.clip.drag != i {
 				p.clip.drag, p.clip.start, p.clip.end, p.clip.acc = i, ls, le, 0
 				p.clip.loopSettings = v.Settings.Clone()
@@ -637,7 +711,7 @@ func (p *plugin) drawWave(ed *context.Editor, v ClipView, height float32) {
 	}
 	if v.WaveNav || v.WaveSelect {
 		id := ui.ID("wave-selection")
-		if _, active := ui.Drag(id, r); active {
+		if _, active := p.clip.waveDrag(ui, id, r); active {
 			if frame, ok := audioWaveFrame(ui.Mouse().X, r, start, end); ok {
 				if !p.clip.selecting {
 					p.clip.selectAnchor = frame
