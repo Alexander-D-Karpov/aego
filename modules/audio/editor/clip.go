@@ -47,6 +47,8 @@ type clipEdit struct {
 	loop         bool
 	waveStart    int64
 	waveEnd      int64
+	navGrab      int64
+	navigating   bool
 	selectAnchor int64
 	selectEnd    int64
 	selecting    bool
@@ -97,6 +99,7 @@ func streamMode(s pipeline.Settings) string {
 
 type ClipView struct {
 	ID        ids.AssetID
+	source    *audio.Clip
 	Path      string
 	Format    uint8
 	Rate      int
@@ -155,6 +158,9 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 		widgets.LabelDim(ui, i18n.Tr("i18n.audio.the_audio_output_is_not", "The audio output is not open"))
 		return
 	}
+	if err := mod.TakePreviewStreamSeekError(); err != nil {
+		p.notify(localizeAudioSeekError(err))
+	}
 	if p.clip.id != id {
 		p.clip = clipEdit{id: id, drag: -1}
 	}
@@ -175,7 +181,7 @@ func (p *plugin) clipInspectorView(ed *context.Editor, id ids.AssetID, documentV
 	}
 	a := c.Art
 	v := ClipView{
-		ID: id, Format: a.Format, Rate: a.Rate, Channels: a.Channels, Frames: a.Frames, Seconds: c.Seconds,
+		ID: id, source: c, Format: a.Format, Rate: a.Rate, Channels: a.Channels, Frames: a.Frames, Seconds: c.Seconds,
 		LoopStart: a.LoopStart, LoopEnd: a.LoopEnd, Settings: meta.Settings,
 	}
 	v.Path, _ = pl.PathOf(id)
@@ -258,7 +264,10 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 	cur := ui.Cursor()
 	top, fullWidth := cur.Y, cur.W
 	viewport := mathx.Rect{X: cur.X, Y: top, W: max(fullWidth, 0), H: max(0, area.Y+area.H-top)}
-	if p.clip.drag < 0 && !p.clip.selecting && ui.MouseOver(ui.ID("document-scroll"), viewport) {
+	if !v.WaveNav {
+		p.clip.navigating = false
+	}
+	if p.clip.drag < 0 && !p.clip.selecting && !p.clip.navigating && ui.MouseOver(ui.ID("document-scroll"), viewport) {
 		p.clip.docScroll -= ui.ScrollY(ui.Theme.RowHeight * 3)
 	}
 	p.clip.docScroll = mathx.Clamp(p.clip.docScroll, 0, max(0, p.clip.docContent-viewport.H))
@@ -279,7 +288,8 @@ func (p *plugin) drawClipDocument(ed *context.Editor, mod *audio.Module, v ClipV
 	widgets.LabelWrapped(ui, fmt.Sprintf("%s, %d Hz, %s, %s s", formatName(v.Format), v.Rate, channels(v.Channels), seconds(v.Seconds)), false)
 	if v.WaveNav {
 		p.waveNavigation(ed, v)
-		drawAudioRuler(ui, v)
+		r := drawAudioRuler(ui, v)
+		p.seekRuler(ui, mod, v, r)
 	}
 	p.drawWave(ed, v, clipDocumentWaveHeight(viewport.H, width, cur.RowH, cur.Space))
 	if v.WaveNav || v.WaveSelect {
@@ -390,11 +400,57 @@ func (p *plugin) waveNavigation(ed *context.Editor, v ClipView) {
 		}
 		widgets.Tooltip(ui, id, button.tooltip)
 	}
+	p.waveNavigator(ui, v)
 	if v.Rate > 0 {
 		widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.wave_visible", "Visible: {start} - {end} s",
 			i18n.Str("start", seconds(float32(v.WaveStart)/float32(v.Rate))),
 			i18n.Str("end", seconds(float32(v.WaveEnd)/float32(v.Rate)))), true)
 	}
+}
+
+// waveNavigator is a view-only map of the full source duration. Moving the
+// highlighted interval changes the displayed range, not the playback position
+// or selection. Its frame mapping follows the same bounds as the waveform.
+func (p *plugin) waveNavigator(ui *core.Context, v ClipView) {
+	if v.Frames <= 0 || v.Frames > 1<<53 {
+		p.clip.navigating = false
+		return
+	}
+	r := ui.Cursor().Next(16)
+	if r.W <= 0 || math.IsNaN(float64(r.W)) || math.IsInf(float64(r.W), 0) ||
+		math.IsNaN(float64(r.X)) || math.IsInf(float64(r.X), 0) || math.IsInf(float64(r.X+r.W), 0) ||
+		math.IsNaN(float64(r.Y)) || math.IsInf(float64(r.Y), 0) {
+		p.clip.navigating = false
+		return
+	}
+	start, end := audioWaveBounds(v.WaveStart, v.WaveEnd, v.Frames)
+	span := end - start
+	left := r.X + float32(float64(start)/float64(v.Frames)*float64(r.W))
+	right := r.X + float32(float64(end)/float64(v.Frames)*float64(r.W))
+	// Keep a short interval visible even when zoomed far into a long clip.
+	visualWidth := min(max(right-left, 3), r.W)
+	visualX := min(max(left+(right-left-visualWidth)/2, r.X), r.X+r.W-visualWidth)
+	ui.Box(r, ui.Theme.Radius.Button, ui.Theme.Widget, ui.Theme.Border)
+	ui.Box(mathx.Rect{X: visualX, Y: r.Y, W: visualWidth, H: r.H}, ui.Theme.Radius.Button, ui.Theme.AccentDim, ui.Theme.Accent)
+	id := ui.ID("wave-navigator")
+	if _, active := ui.Drag(id, r); active {
+		if frame, ok := audioWaveFrame(ui.Mouse().X, r, 0, v.Frames); ok {
+			if !p.clip.navigating {
+				p.clip.navGrab = span / 2
+				if ui.Mouse().X >= visualX && ui.Mouse().X <= visualX+visualWidth {
+					p.clip.navGrab = min(max(frame-start, 0), span)
+				}
+			}
+			next := min(max(frame-p.clip.navGrab, 0), v.Frames-span)
+			p.clip.waveStart, p.clip.waveEnd = next, next+span
+			p.clip.navigating = ui.Active() == id
+		} else if ui.Active() != id {
+			p.clip.navigating = false
+		}
+	} else {
+		p.clip.navigating = false
+	}
+	widgets.Tooltip(ui, id, i18n.Tr("i18n.audio.wave_navigator", "Drag to navigate the waveform; playback position is unchanged"))
 }
 
 // audioWaveFrame maps a pointer to a source-relative frame boundary. It never
@@ -787,7 +843,7 @@ func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 				p.notify(owner.prepareWorkingAudio(ed, mod, d, p.clip.loop))
 			} else {
 				owner.cancelWorkingAudio()
-				err := mod.Preview(ed.Loader, v.ID, p.clip.loop)
+				err := localizeAudioSeekError(mod.Preview(ed.Loader, v.ID, p.clip.loop))
 				if err == nil || mod.PreviewClip().IsZero() {
 					owner.aud = audition{}
 				}
@@ -813,6 +869,8 @@ func (p *plugin) transport(ed *context.Editor, mod *audio.Module, v ClipView) {
 	widgets.Tooltip(ui, loopID, loop)
 	if v.Preparing {
 		widgets.LabelWrapped(ui, i18n.Tr("editor.audio.preview_preparing", "Preparing preview..."), true)
+	} else if v.Playing && mod != nil && mod.PreviewStreamSeekPending() {
+		widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.seek_preparing", "Seeking preview..."), true)
 	} else {
 		widgets.LabelWrapped(ui, i18n.Tr("i18n.audio.position_s_of_seconds_s", "{position} s of {seconds} s", i18n.Str("position", seconds(v.Position)), i18n.Str("seconds", seconds(v.Seconds))), true)
 	}

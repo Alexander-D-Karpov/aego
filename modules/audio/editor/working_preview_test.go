@@ -340,6 +340,56 @@ func TestAudioDocumentScrollingIsViewOnlyAndClampsOnResize(t *testing.T) {
 	f.checkFiles(t, f.source, f.meta)
 }
 
+func TestAudioNavigatorPreservesPreviewAndSharedDirtyHistory(t *testing.T) {
+	f := newWorkingAudioFixture(t, ".wav", false)
+	if err := f.module.Preview(f.ed.Loader, f.id, false); err != nil {
+		t.Fatal(err)
+	}
+	f.module.Mixer().Mix(make([]float32, 2048))
+	position, playing := f.module.PreviewPosition()
+	if !playing || position <= 0 {
+		t.Fatal("fixture did not start preview playback")
+	}
+	epoch := f.module.PreviewEpoch()
+	journal, revision := bytes.Clone(f.doc.Metadata.Code.Bytes()), f.doc.Metadata.Code.Rev()
+	f.plugin.clip.waveStart, f.plugin.clip.waveEnd = 12000, 24000
+	f.plugin.clip.selectAnchor, f.plugin.clip.selectEnd = 1000, 2000
+	ui, state := f.ed.UI, &input.State{}
+	v := ClipView{ID: f.id, Frames: 48000, Rate: 48000, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width*.9, Y: ui.Theme.Padding + ui.Theme.RowHeight + ui.Theme.Spacing + 8}
+	draw := func() {
+		v.WaveStart, v.WaveEnd = f.plugin.clip.waveStart, f.plugin.clip.waveEnd
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		f.plugin.waveNavigation(f.ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at, input.MouseLeft)
+	draw()
+	if f.plugin.clip.waveStart <= 24000 || f.plugin.clip.waveEnd-f.plugin.clip.waveStart != 12000 {
+		t.Fatal("navigator did not move the current viewport")
+	}
+	if f.module.PreviewEpoch() != epoch || f.module.PreviewClip() != f.id {
+		t.Fatal("view navigation changed preview playback ownership or sent a command")
+	}
+	if got, active := f.module.PreviewPosition(); !active || got != position {
+		t.Fatalf("view navigation changed preview position: %v -> %v", position, got)
+	}
+	if a, b, ok := f.plugin.clip.waveSelection(v.Frames); !ok || a != 1000 || b != 2000 {
+		t.Fatal("view navigation changed selection")
+	}
+	if !f.doc.Dirty() || f.doc.Metadata.Code.Rev() != revision || !bytes.Equal(f.doc.Metadata.Code.Bytes(), journal) {
+		t.Fatal("view navigation changed the dirty shared history")
+	}
+	f.checkFiles(t, f.source, f.meta)
+}
+
 func waitWorkingAudio(t *testing.T, f *workingAudioFixture) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)

@@ -14,12 +14,14 @@ import (
 	"time"
 
 	"aego/audio/codec/wav"
+	"aego/audio/mix"
 	"aego/core/log"
 	"aego/core/mathx"
 	"aego/editor/core/assetops"
 	"aego/editor/core/document"
 	"aego/editor/core/workspace"
 	"aego/engine/i18n"
+	"aego/modules/audio"
 )
 
 // Exercise the real document factory and workspace with synthetic PCM and
@@ -107,27 +109,70 @@ func TestAudioDocumentWaveNative(t *testing.T) {
 	if right.Y-left.Y < 100 {
 		t.Fatalf("central stereo waveform did not use its available height: L=%+v R=%+v", left, right)
 	}
-	var beforeVisible string
-	for _, item := range s.App.UIList().TestDrawnItems(mathx.Rect{W: ed.UI.Size().X, H: ed.UI.Size().Y}, ed.UI.Font(), "Visible:", 0, 0) {
-		if strings.HasPrefix(item.Text, "Visible:") {
-			beforeVisible = item.Text
-			break
+	visible := func() string {
+		for _, item := range s.App.UIList().TestDrawnItems(mathx.Rect{W: ed.UI.Size().X, H: ed.UI.Size().Y}, ed.UI.Font(), "Visible:", 0, 0) {
+			if strings.HasPrefix(item.Text, "Visible:") {
+				return item.Text
+			}
 		}
+		return ""
 	}
+	beforeVisible := visible()
 	plus, ok := findText("+")
 	if !ok || beforeVisible == "" {
 		t.Fatal("wave navigation controls are unavailable")
 	}
 	interopClick(t, s, plus.Center().X, plus.Center().Y)
 	interopStep(t, s)
-	changed := false
-	for _, item := range s.App.UIList().TestDrawnItems(mathx.Rect{W: ed.UI.Size().X, H: ed.UI.Size().Y}, ed.UI.Font(), "Visible:", 0, 0) {
-		if strings.HasPrefix(item.Text, "Visible:") && item.Text != beforeVisible {
-			changed = true
+	zoomed := visible()
+	if zoomed == "" || zoomed == beforeVisible {
+		t.Fatal("zoom did not change the visible frame range")
+	}
+	// The navigator spans the full 900-pixel waveform below the button row in
+	// this maximized layout. Click near its end after zooming and verify the
+	// real document route updates without changing files or shared history.
+	leftButton, ok := findText("<")
+	if !ok {
+		t.Fatal("wave navigation buttons are unavailable")
+	}
+	x := leftButton.Center().X - 14 + 900*.9
+	y := leftButton.Center().Y + ed.UI.Theme.RowHeight/2 + ed.UI.Theme.Spacing + 8
+	interopClick(t, s, x, y)
+	interopStep(t, s)
+	if got := visible(); got == "" || got == zoomed {
+		t.Fatalf("navigator did not move the visible range: %q", got)
+	}
+	mod := audio.ModuleOf(s.Engine)
+	if mod == nil || mod.Mixer() == nil {
+		t.Fatal("audio preview module is unavailable")
+	}
+	game := mod.Play(&mix.Memory{PCM: make([]float32, 48000), Rate: 48000, Channels: 1}, "sfx", audio.PlayOptions{Loop: true})
+	if !game.Valid() || mod.Preview(ed.Loader, id, true) != nil || mod.SetPreviewPaused(true) != nil {
+		t.Fatal("could not prepare a paused preview and game voice")
+	}
+	interopStep(t, s)
+	visibleRect, ok := findText(visible())
+	if !ok {
+		t.Fatal("visible-range label is unavailable")
+	}
+	// The ruler is the row immediately after the visible-range label. Clicking
+	// its centre seeks to the middle of the zoomed 0.5..1.0 s viewport.
+	rulerX := leftButton.Center().X - 14 + 900*.5
+	rulerY := visibleRect.Center().Y + ed.UI.Theme.RowHeight + ed.UI.Theme.Spacing
+	interopClick(t, s, rulerX, rulerY)
+	seekDeadline := time.Now().Add(5 * time.Second)
+	var position float32
+	var live bool
+	for time.Now().Before(seekDeadline) {
+		interopStep(t, s)
+		position, live = mod.PreviewPosition()
+		if live && position > .72 && position < .78 {
+			break
 		}
 	}
-	if !changed {
-		t.Fatal("zoom did not change the visible frame range")
+	if !live || position <= .72 || position >= .78 || !mod.PreviewPaused() || !mod.Mixer().Live(game) {
+		t.Fatalf("ruler did not seek only the paused preview: position=%v live=%v paused=%v game=%v",
+			position, live, mod.PreviewPaused(), mod.Mixer().Live(game))
 	}
 	again, err := ed.OpenAsset(id)
 	if err != nil || again != doc || doc.Dirty() || doc.CanUndo() || ed.Docs.AssetDocument(id) != doc {

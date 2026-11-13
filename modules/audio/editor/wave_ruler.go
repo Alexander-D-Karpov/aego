@@ -20,7 +20,7 @@ type audioRulerTick struct {
 }
 
 // audioRulerTicks uses source time, not pyramid bucket indices. Its bounded
-// result is only a visual guide; seeking and sample editing are not implied.
+// result is only a visual guide; input handling is separate from tick layout.
 func audioRulerTicks(start, end int64, rate int, width float32) ([audioRulerMaxTicks]audioRulerTick, int, float64) {
 	var ticks [audioRulerMaxTicks]audioRulerTick
 	if start < 0 || end <= start || end > 1<<53 || rate <= 0 || width <= 0 ||
@@ -65,12 +65,12 @@ func audioRulerLabel(seconds, step float64) string {
 	return i18n.Tr("i18n.audio.wave_time", "{time} s", i18n.Str("time", strconv.FormatFloat(seconds, 'f', precision, 64)))
 }
 
-func drawAudioRuler(ui *core.Context, v ClipView) {
+func drawAudioRuler(ui *core.Context, v ClipView) mathx.Rect {
 	r := ui.Cursor().Next(ui.Theme.RowHeight)
 	start, end := audioWaveBounds(v.WaveStart, v.WaveEnd, v.Frames)
 	ticks, n, step := audioRulerTicks(start, end, v.Rate, r.W)
 	if n == 0 || r.H <= 0 {
-		return
+		return r
 	}
 	lineY := r.Y + r.H - 1
 	ui.Rect(mathx.Rect{X: r.X, Y: lineY, W: r.W, H: 1}, ui.Theme.Separator)
@@ -90,4 +90,5 @@ func drawAudioRuler(ui *core.Context, v ClipView) {
 		ui.Text(label, mathx.Vec2{X: left, Y: ui.TextY(mathx.Rect{Y: r.Y, H: max(r.H-5, 0)})}, ui.Theme.TextDim)
 		lastRight = left + size.X
 	}
+	return r
 }

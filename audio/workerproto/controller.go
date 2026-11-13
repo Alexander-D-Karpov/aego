@@ -332,7 +332,7 @@ func (c *Controller) Next() (ControllerStep, bool, error) {
 			c.skips[i].before--
 		}
 		c.command = &command
-		if command.Command.Kind == mix.CmdPlay {
+		if command.Command.Kind == mix.CmdPlay || command.Command.Kind == mix.CmdReplaceStream {
 			s, err := c.newSource(command.Command)
 			if err != nil {
 				return ControllerStep{}, false, c.fail(err)
@@ -348,7 +348,7 @@ func (c *Controller) Next() (ControllerStep, bool, error) {
 	}
 	cmd := *c.command
 	var s *controlledSource
-	if cmd.Command.Kind == mix.CmdPlay {
+	if cmd.Command.Kind == mix.CmdPlay || cmd.Command.Kind == mix.CmdReplaceStream {
 		s = c.voices[cmd.Command.Voice].source
 	}
 	if s != nil && !s.registered {

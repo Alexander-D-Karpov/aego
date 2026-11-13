@@ -2,18 +2,23 @@ package audio
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"slices"
 	"strconv"
 
 	"aego/asset"
 	"aego/audio/codec"
+	"aego/audio/codec/wav"
 	"aego/audio/mix"
 	"aego/core/errs"
 	"aego/core/ids"
 	"aego/core/log"
 )
 
-const clipKey = "audio.clip@"
+const (
+	clipKey        = "audio.clip@"
+	previewClipKey = "audio.preview.clip@"
+)
 
 var (
 	errNoClip   = errs.New(errs.AssetNotFound, "audio: the clip is nil")
@@ -21,6 +26,10 @@ var (
 	errNoSource = errs.New(errs.AssetNotMounted, "audio: clips need a mounted asset loader")
 )
 
+// Clip exposes the decoded clip for inspection. Its artifact, encoded bytes,
+// memory and PCM are read-only to callers, and are accessed on the module
+// owner thread. Preview checks some accidental changes, not concurrent writes
+// or in-place PCM mutations.
 type Clip struct {
 	ID      ids.AssetID
 	Art     *asset.AudioArtifact
@@ -28,11 +37,40 @@ type Clip struct {
 	Bus     int
 	Gain    float32
 	Seconds float32
+	proof   memoryPreviewProof
+}
+
+// memoryPreviewProof binds a cached memory decode to the encoded source and
+// the structural memory view from which it was made. It does not protect
+// against in-place changes to PCM or concurrent mutation of public slices.
+type memoryPreviewProof struct {
+	checked bool
+	valid   bool
+	digest  [sha256.Size]byte
+	id      ids.AssetID
+	source  asset.AudioArtifact // Data is not retained a second time.
+	memory  *mix.Memory
+	state   mix.Memory
+}
+
+func (p *memoryPreviewProof) matches(c *Clip, a *asset.AudioArtifact, digest [sha256.Size]byte) bool {
+	if !p.valid || c == nil || c.ID != p.id || a == nil || digest != p.digest || c.Mem != p.memory || c.Mem == nil {
+		return false
+	}
+	want, mem := &p.source, c.Mem
+	if a.Format != want.Format || a.Rate != want.Rate || a.Channels != want.Channels || a.Frames != want.Frames ||
+		a.Stream != want.Stream || a.Loop != want.Loop || a.LoopStart != want.LoopStart || a.LoopEnd != want.LoopEnd ||
+		mem.Rate != p.state.Rate || mem.Channels != p.state.Channels || mem.Loop != p.state.Loop ||
+		mem.LoopStart != p.state.LoopStart || mem.LoopEnd != p.state.LoopEnd || len(mem.PCM) != len(p.state.PCM) {
+		return false
+	}
+	return len(mem.PCM) == 0 || &mem.PCM[0] == &p.state.PCM[0]
 }
 
 type clipCacheKey struct {
-	id   ids.AssetID
-	rate int
+	id      ids.AssetID
+	rate    int
+	preview bool
 }
 
 func busIndex(name string) int {
@@ -43,6 +81,10 @@ func busIndex(name string) int {
 }
 
 func decodeClip(id ids.AssetID, raw []byte, rate int) (*Clip, error) {
+	return decodeClipMode(id, raw, rate, true)
+}
+
+func decodeClipMode(id ids.AssetID, raw []byte, rate int, withProof bool) (*Clip, error) {
 	a, err := asset.DecodeAudio(raw)
 	if err != nil {
 		return nil, err
@@ -56,6 +98,7 @@ func decodeClip(id ids.AssetID, raw []byte, rate int) (*Clip, error) {
 		return nil, err
 	}
 	defer d.Close()
+	info := d.Info()
 	mem, err := codec.DecodeAll(d, rate)
 	if err != nil {
 		return nil, err
@@ -66,6 +109,18 @@ func decodeClip(id ids.AssetID, raw []byte, rate int) (*Clip, error) {
 	}
 	mem.Loop = a.Loop
 	c.Mem = mem
+	if withProof {
+		c.proof.checked = true
+		validFormat := a.Format == asset.AudioWAV && wav.Match(a.Data) ||
+			a.Format == asset.AudioOgg && len(a.Data) >= 4 && string(a.Data[:4]) == "OggS"
+		if validFormat && info.SampleRate == a.Rate && info.Channels == a.Channels && info.Frames == a.Frames &&
+			info.Frames > 0 && len(a.Data) <= MaxPrivatePreviewPayloadBytes {
+			// Hash only editor/private-preview decodes, not ordinary game loads.
+			// The bounded hash is synchronous and must precede public access.
+			c.proof = memoryPreviewProof{checked: true, valid: true, digest: sha256.Sum256(a.Data), id: id, source: *a, memory: mem, state: *mem}
+			c.proof.source.Data = nil
+		}
+	}
 	return c, nil
 }
 
@@ -96,16 +151,31 @@ func (m *Module) cacheKey(rate int) string {
 	return m.key
 }
 
-func buildClip(src asset.AudioSource, id ids.AssetID, rate int) (any, error) {
+func (m *Module) previewCacheKey(rate int) string {
+	if rate != m.previewKeyRate || m.previewKey == "" {
+		m.previewKeyRate, m.previewKey = rate, previewClipKey+strconv.Itoa(rate)
+	}
+	return m.previewKey
+}
+
+func buildClip(src asset.AudioSource, id ids.AssetID, rate int, withProof bool) (any, error) {
 	raw, ok := src.Audio(id)
 	if !ok {
 		return nil, errs.New(errs.AssetNotFound, "audio: "+id.Short()+" is not an imported sound", log.F("asset", id.String()))
 	}
-	return decodeClip(id, raw, rate)
+	return decodeClipMode(id, raw, rate, withProof)
 }
 
-func (m *Module) decode(dec asset.Decoder, src asset.AudioSource, id ids.AssetID, rate int, key string) (*Clip, error) {
-	v, err := dec.Decoded(id, key, func() (any, error) { return buildClip(src, id, rate) })
+func (m *Module) decode(dec asset.Decoder, src asset.AudioSource, id ids.AssetID, rate int, key string, withProof bool) (*Clip, error) {
+	if cache, ok := dec.(cachedDecoder); ok {
+		if v, hit, err := cache.Cached(id, key); hit {
+			if err != nil {
+				return nil, err
+			}
+			return v.(*Clip), nil
+		}
+	}
+	v, err := dec.Decoded(id, key, func() (any, error) { return buildClip(src, id, rate, withProof) })
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +183,13 @@ func (m *Module) decode(dec asset.Decoder, src asset.AudioSource, id ids.AssetID
 }
 
 func (m *Module) clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {
+	return m.clipMode(res, id, false)
+}
+
+// A game-cached memory clip has no decode-time proof. If the editor opens it
+// later, prepare a separate saved-source clip under the same loader's normal
+// invalidation lifecycle; never replace the memory used by existing voices.
+func (m *Module) clipMode(res asset.Resolver, id ids.AssetID, withProof bool) (*Clip, error) {
 	switch {
 	case id.IsZero():
 		return nil, errNoClip
@@ -121,7 +198,11 @@ func (m *Module) clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {
 	}
 	rate := m.mixer.SampleRate()
 	if raw, ok := asset.BuiltinAudio(id); ok {
-		return m.cached(id, rate, func() (any, error) { return decodeClip(id, raw, rate) })
+		c, err := m.cached(id, rate, false, func() (any, error) { return decodeClipMode(id, raw, rate, withProof) })
+		if err != nil || !withProof || c.Mem == nil || c.proof.checked {
+			return c, err
+		}
+		return m.cached(id, rate, true, func() (any, error) { return decodeClipMode(id, raw, rate, true) })
 	}
 	src, ok := res.(asset.AudioSource)
 	if !ok {
@@ -129,22 +210,21 @@ func (m *Module) clip(res asset.Resolver, id ids.AssetID) (*Clip, error) {
 	}
 	dec, ok := res.(asset.Decoder)
 	if !ok {
-		return m.cached(id, rate, func() (any, error) { return buildClip(src, id, rate) })
-	}
-	key := m.cacheKey(rate)
-	if c, ok := dec.(cachedDecoder); ok {
-		if v, hit, err := c.Cached(id, key); hit {
-			if err != nil {
-				return nil, err
-			}
-			return v.(*Clip), nil
+		c, err := m.cached(id, rate, false, func() (any, error) { return buildClip(src, id, rate, withProof) })
+		if err != nil || !withProof || c.Mem == nil || c.proof.checked {
+			return c, err
 		}
+		return m.cached(id, rate, true, func() (any, error) { return buildClip(src, id, rate, true) })
 	}
-	return m.decode(dec, src, id, rate, key)
+	c, err := m.decode(dec, src, id, rate, m.cacheKey(rate), withProof)
+	if err != nil || !withProof || c.Mem == nil || c.proof.checked {
+		return c, err
+	}
+	return m.decode(dec, src, id, rate, m.previewCacheKey(rate), true)
 }
 
-func (m *Module) cached(id ids.AssetID, rate int, build func() (any, error)) (*Clip, error) {
-	k := clipCacheKey{id: id, rate: rate}
+func (m *Module) cached(id ids.AssetID, rate int, preview bool, build func() (any, error)) (*Clip, error) {
+	k := clipCacheKey{id: id, rate: rate, preview: preview}
 	if c, ok := m.clips[k]; ok {
 		return c, nil
 	}

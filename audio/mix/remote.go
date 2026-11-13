@@ -115,7 +115,7 @@ func (c *RemoteClient) Next() (RemoteCommand, bool, error) {
 	if c.sent == ^uint64(0) {
 		return RemoteCommand{}, false, errRemoteProtocol
 	}
-	if cmd.Kind == CmdPlay {
+	if cmd.Kind == CmdPlay || cmd.Kind == CmdReplaceStream {
 		if !c.m.Live(cmd.Voice) {
 			return RemoteCommand{}, false, errRemoteProtocol
 		}
@@ -180,6 +180,7 @@ func (c *RemoteClient) Apply(b RemoteBatch) error {
 		h := &c.m.handles[v.ID.Index]
 		h.pos.Store(math.Float32bits(v.Position))
 		h.gain.Store(math.Float32bits(v.Gain))
+		h.started.Store(true)
 	}
 	for i, b := range b.Buses {
 		c.m.buses[i].level.Store(math.Float32bits(b.Gain))
@@ -230,7 +231,7 @@ func (r *RemoteMixer) Accept(p RemoteCommand) error {
 	if r == nil || r.m == nil || r.overflow || r.broken || p.Sequence != r.received+1 || r.m.cmds.Len() == len(r.m.cmds.q.buf) {
 		return errRemoteProtocol
 	}
-	if p.Command.Kind == CmdPlay {
+	if p.Command.Kind == CmdPlay || p.Command.Kind == CmdReplaceStream {
 		id := r.m.Reserve()
 		if !id.Valid() || id != p.Command.Voice {
 			r.broken = true

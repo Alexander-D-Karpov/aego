@@ -19,6 +19,9 @@ const (
 	CmdResumeAll
 	CmdBusLayer
 	CmdKill
+	CmdSeekMemory
+	CmdReplaceStream
+	CmdStopPair
 )
 
 type Command struct {
@@ -34,6 +37,9 @@ type Command struct {
 	Fade     float32
 	Priority int32
 	Flag     bool
+	Frame    int64
+	Previous VoiceID
+	Paused   bool
 }
 
 type EventKind uint8

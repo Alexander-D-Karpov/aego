@@ -65,6 +65,18 @@ messages version=1 lang=ru {
   msg "i18n.audio.save_to_profile" {
     text="Сохранить в профиль"
   }
+  msg "i18n.audio.seek_preparing" {
+    text="Переход в прослушивании..."
+  }
+  msg "i18n.audio.seek_range" {
+    text="Запрошенная позиция находится вне диапазона воспроизведения."
+  }
+  msg "i18n.audio.seek_stale" {
+    text="Источник прослушивания отличается или не может быть проверен."
+  }
+  msg "i18n.audio.seek_tooltip" {
+    text="Нажмите, чтобы перейти к позиции в прослушиваемом звуке"
+  }
   msg "i18n.audio.stats.mix" {
     text="Микширование: макс. {max} мс, в среднем {avg} мс"
   }
@@ -103,6 +115,9 @@ messages version=1 lang=ru {
   }
   msg "i18n.audio.undo" {
     text="Отменить"
+  }
+  msg "i18n.audio.wave_navigator" {
+    text="Перетащите для навигации по волне; позиция воспроизведения не изменится"
   }
   msg "i18n.audio.wave_pan_left" {
     text="Сдвинуть волну влево"

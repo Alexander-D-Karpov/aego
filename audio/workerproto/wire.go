@@ -32,7 +32,7 @@ const (
 
 // Version changes whenever the JS transport and reactor cease to be wire/ABI
 // compatible. It is checked before a worker can be selected for playback.
-const Version = 3
+const Version = 4
 
 const MaxJSON = 1 << 20
 
@@ -55,6 +55,10 @@ type CommandMessage struct {
 	FadeBits  uint32          `json:"fadeBits,omitempty"`
 	Priority  int32           `json:"priority,omitempty"`
 	Flag      bool            `json:"flag,omitempty"`
+	Frame     int64           `json:"frame,string,omitempty"`
+	PrevIndex uint32          `json:"prevIndex,omitempty"`
+	PrevGen   uint32          `json:"prevGen,omitempty"`
+	Paused    bool            `json:"paused,omitempty"`
 }
 
 type Request struct {
@@ -145,7 +149,8 @@ func CommandFromMix(p mix.RemoteSourceCommand) CommandMessage {
 	return CommandMessage{Sequence: p.Sequence, Kind: c.Kind, Index: c.Voice.Index, Gen: c.Voice.Gen,
 		Bus: c.Bus, Layer: c.Layer, Source: p.Source, GainBits: math.Float32bits(c.Gain),
 		PanBits: math.Float32bits(c.Pan), PitchBits: math.Float32bits(c.Pitch), FadeBits: math.Float32bits(c.Fade),
-		Priority: c.Priority, Flag: c.Flag}
+		Priority: c.Priority, Flag: c.Flag, Frame: c.Frame,
+		PrevIndex: c.Previous.Index, PrevGen: c.Previous.Gen, Paused: c.Paused}
 }
 
 func (c CommandMessage) Mix() mix.RemoteSourceCommand {
@@ -153,7 +158,8 @@ func (c CommandMessage) Mix() mix.RemoteSourceCommand {
 		Kind: c.Kind, Voice: mix.VoiceID{Index: c.Index, Gen: c.Gen}, Bus: c.Bus, Layer: c.Layer,
 		Gain: math.Float32frombits(c.GainBits), Pan: math.Float32frombits(c.PanBits),
 		Pitch: math.Float32frombits(c.PitchBits), Fade: math.Float32frombits(c.FadeBits),
-		Priority: c.Priority, Flag: c.Flag}}, Source: c.Source}
+		Priority: c.Priority, Flag: c.Flag, Frame: c.Frame,
+		Previous: mix.VoiceID{Index: c.PrevIndex, Gen: c.PrevGen}, Paused: c.Paused}}, Source: c.Source}
 }
 
 func BatchFromMix(b mix.RemoteBatch) Batch {

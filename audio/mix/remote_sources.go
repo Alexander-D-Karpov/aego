@@ -257,7 +257,7 @@ func (r *RemoteSources) Accept(p RemoteSourceCommand) error {
 		return ErrRemoteSource
 	}
 	var source *remoteSource
-	if p.Command.Kind == CmdPlay {
+	if p.Command.Kind == CmdPlay || p.Command.Kind == CmdReplaceStream {
 		if p.Source != 0 {
 			var ok bool
 			source, ok = r.sources[p.Source]
@@ -275,7 +275,7 @@ func (r *RemoteSources) Accept(p RemoteSourceCommand) error {
 	if err := r.mixer.Accept(p.RemoteCommand); err != nil {
 		return err
 	}
-	if p.Command.Kind == CmdPlay {
+	if p.Command.Kind == CmdPlay || p.Command.Kind == CmdReplaceStream {
 		if source != nil {
 			source.refs++
 		}

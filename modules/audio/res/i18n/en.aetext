@@ -65,6 +65,18 @@ messages version=1 lang=en {
   msg "i18n.audio.save_to_profile" {
     text="Save to Profile"
   }
+  msg "i18n.audio.seek_preparing" {
+    text="Seeking preview..."
+  }
+  msg "i18n.audio.seek_range" {
+    text="The requested preview position is outside the playable range."
+  }
+  msg "i18n.audio.seek_stale" {
+    text="The preview source is different or cannot be verified."
+  }
+  msg "i18n.audio.seek_tooltip" {
+    text="Click to seek the playing preview"
+  }
   msg "i18n.audio.stats.mix" {
     text="Mix {max} ms max, {avg} ms average"
   }
@@ -103,6 +115,9 @@ messages version=1 lang=en {
   }
   msg "i18n.audio.undo" {
     text="Undo"
+  }
+  msg "i18n.audio.wave_navigator" {
+    text="Drag to navigate the waveform; playback position is unchanged"
   }
   msg "i18n.audio.wave_pan_left" {
     text="Pan waveform left"

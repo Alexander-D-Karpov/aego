@@ -3,6 +3,7 @@ package codec
 import (
 	"errors"
 	"io"
+	"math"
 	"path"
 	"strings"
 
@@ -38,6 +39,10 @@ type StreamOptions struct {
 	LoopStart int64
 	LoopEnd   int64
 	Chunk     int
+	// StartFrame starts a fresh decoder at this source frame before publishing
+	// PCM. The returned Stream completion reports validation or seek errors.
+	// The stream/mixer position remains relative to this new start.
+	StartFrame int64
 }
 
 const (
@@ -170,15 +175,23 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			}
 		}
 	}
+	if o.StartFrame < 0 {
+		return errors.New("codec: the starting frame cannot be negative")
+	}
+	if o.StartFrame > 0 {
+		info := d.Info()
+		if info.Frames > 0 && o.StartFrame >= info.Frames || o.Loop && o.LoopEnd > 0 && o.StartFrame >= o.LoopEnd {
+			return errors.New("codec: the starting frame is outside the playable range")
+		}
+	}
 	chunk := o.Chunk
 	if chunk <= 0 {
 		chunk = readFrames
 	}
 	buf := make([]float32, chunk*ch)
 	var pending []float32
-	pos := int64(0)
-	var seekTo int64
-	needsSeek := false
+	pos, seekTo := o.StartFrame, o.StartFrame
+	needsSeek := o.StartFrame > 0
 	empty := 0
 	for {
 		select {
@@ -196,6 +209,9 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 				from := pos
 				if needsSeek {
 					from = seekTo
+				}
+				if from > math.MaxInt64-sk {
+					return errors.New("codec: the skipped frame position overflows")
 				}
 				to, ok := skipTo(d, o, from+sk)
 				if !ok {

@@ -13,12 +13,13 @@ import (
 func TestCommandWireRoundTripPreservesBitsAndWideIdentifiers(t *testing.T) {
 	for _, kind := range []mix.CommandKind{mix.CmdPlay, mix.CmdStop, mix.CmdSetGain, mix.CmdSetPan,
 		mix.CmdSetPitch, mix.CmdPause, mix.CmdResume, mix.CmdBusGain, mix.CmdBusMute, mix.CmdBusSolo,
-		mix.CmdPauseAll, mix.CmdResumeAll, mix.CmdBusLayer, mix.CmdKill} {
+		mix.CmdPauseAll, mix.CmdResumeAll, mix.CmdBusLayer, mix.CmdKill, mix.CmdSeekMemory, mix.CmdReplaceStream, mix.CmdStopPair} {
 		packet := mix.RemoteSourceCommand{Source: 1<<53 + 19, RemoteCommand: mix.RemoteCommand{
 			Sequence: math.MaxUint64, Command: mix.Command{Kind: kind, Voice: mix.VoiceID{Index: math.MaxUint32, Gen: 9},
 				Bus: -3, Layer: 2, Memory: &mix.Memory{}, Gain: math.Float32frombits(0x7fc01234),
 				Pan: math.Float32frombits(0x80000000), Pitch: math.Float32frombits(0x7f800000),
-				Fade: math.Float32frombits(0xff800000), Priority: -7, Flag: true}}}
+				Fade: math.Float32frombits(0xff800000), Priority: -7, Flag: true, Frame: 1<<53 + 19,
+				Previous: mix.VoiceID{Index: 17, Gen: 29}, Paused: true}}}
 		want := CommandFromMix(packet)
 		raw, err := json.Marshal(Request{Command: want})
 		if err != nil {
@@ -26,6 +27,9 @@ func TestCommandWireRoundTripPreservesBitsAndWideIdentifiers(t *testing.T) {
 		}
 		if !bytes.Contains(raw, []byte(`"18446744073709551615"`)) || !bytes.Contains(raw, []byte(`"9007199254741011"`)) {
 			t.Fatalf("wide integers lost their decimal string encoding: %s", raw)
+		}
+		if !bytes.Contains(raw, []byte(`"frame":"9007199254741011"`)) {
+			t.Fatalf("frame lost its decimal string encoding: %s", raw)
 		}
 		got, err := DecodeRequest(raw)
 		if err != nil || got.Command != want {
@@ -65,7 +69,8 @@ func TestBatchWireRoundTripPreservesOrderAndBits(t *testing.T) {
 func TestDecodeRejectsInvalidOrImpreciseJSON(t *testing.T) {
 	for _, raw := range [][]byte{
 		[]byte(``), []byte(`null`), []byte(`[]`), []byte(`{} {}`), []byte(`{"source":7}`),
-		[]byte(`{"command":{"sequence":9007199254740993}}`), []byte(`{"command":{"bad":1}}`),
+		[]byte(`{"command":{"sequence":9007199254740993}}`), []byte(`{"command":{"frame":9007199254740993}}`),
+		[]byte(`{"command":{"bad":1}}`),
 		[]byte(`{"unknown":1}`), []byte(`{"source":"18446744073709551616"}`),
 		bytes.Repeat([]byte{' '}, MaxJSON+1),
 	} {

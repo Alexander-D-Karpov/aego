@@ -134,6 +134,7 @@ test-wasm:
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -run "^TestWebAudio" ./platform/web
+	GOOS=js GOARCH=wasm go test -tags aego_nonative -exec=$(WASM_EXEC) -count=1 -run '^(TestGuardedPreviewSeek|TestGuardedMemorySeek|TestGuardedPreviewMemorySeek|TestPreviewRejectsChangedCachedMemorySource|TestPreviewAcceptsRestoredCachedMemorySource|TestPreviewMemoryWithoutDecodeProof|TestPreviewProof)' ./modules/audio
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)

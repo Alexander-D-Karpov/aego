@@ -60,10 +60,11 @@ const (
 )
 
 type handle struct {
-	gen   atomic.Uint32
-	pos   atomic.Uint32
-	gain  atomic.Uint32
-	voice int32
+	gen     atomic.Uint32
+	pos     atomic.Uint32
+	gain    atomic.Uint32
+	started atomic.Bool
+	voice   int32
 }
 
 type bus struct {
@@ -250,6 +251,17 @@ func (m *Mixer) Stop(id VoiceID, fade float32) bool {
 	return m.cmds.Push(Command{Kind: CmdStop, Voice: id, Fade: fade})
 }
 
+// StopPair queues one stop command for up to two caller-owned voices. This is
+// useful while a replacement is pending: regardless of whether it succeeds,
+// the old and new handles are both stopped without a partial queue write.
+// Stale IDs are ignored, as with Stop. A true result only confirms enqueueing.
+func (m *Mixer) StopPair(first, second VoiceID, fade float32) bool {
+	if !first.Valid() && !second.Valid() {
+		return false
+	}
+	return m.cmds.Push(Command{Kind: CmdStopPair, Voice: first, Previous: second, Fade: fade})
+}
+
 func (m *Mixer) SetGain(id VoiceID, gain, fade float32) bool {
 	return m.cmds.Push(Command{Kind: CmdSetGain, Voice: id, Gain: gain, Fade: fade})
 }
@@ -268,6 +280,47 @@ func (m *Mixer) Pause(id VoiceID) bool {
 
 func (m *Mixer) Resume(id VoiceID) bool {
 	return m.cmds.Push(Command{Kind: CmdResume, Voice: id})
+}
+
+// SeekMemory queues a source-frame position for a memory voice. It does not
+// seek streams. A true result means only that the command was queued: a stale,
+// stopping, non-memory or out-of-range voice ignores the command. Frames at or
+// beyond an enabled loop's end are outside the playable range. Output already
+// buffered by the device is not discarded.
+func (m *Mixer) SeekMemory(id VoiceID, frame int64) bool {
+	// Voice positions are float64; keep every requested frame exactly
+	// representable even for commands constructed outside the audio editor.
+	if !id.Valid() || frame < 0 || frame > 1<<53 {
+		return false
+	}
+	return m.cmds.Push(Command{Kind: CmdSeekMemory, Voice: id, Frame: frame})
+}
+
+// ReplaceStream queues a single mixer-boundary replacement of an owned voice
+// with a fresh stream. initialFrame is 0, or 1 when the stream begins with a
+// preceding interpolation frame. The new stream must not already be in use.
+// A valid returned ID means the command was queued, not that it was applied;
+// an invalid/stale old voice or an unusable stream rejects the new ID without
+// stopping the old voice. Callers own and must retire both feeder lifetimes.
+func (m *Mixer) ReplaceStream(previous VoiceID, p PlayParams, initialFrame int64, paused bool) VoiceID {
+	if !previous.Valid() || p.Stream == nil || p.Memory != nil || initialFrame < 0 || initialFrame > 1 {
+		return VoiceID{}
+	}
+	id := m.Reserve()
+	if !id.Valid() {
+		return id
+	}
+	pitch := p.Pitch
+	if pitch == 0 {
+		pitch = 1
+	}
+	if !m.cmds.Push(Command{Kind: CmdReplaceStream, Voice: id, Previous: previous, Stream: p.Stream,
+		Bus: int32(p.Bus), Gain: p.Gain, Pan: p.Pan, Pitch: pitch, Fade: p.FadeIn, Priority: p.Priority,
+		Flag: p.Loop, Frame: initialFrame, Paused: paused}) {
+		m.spare = append(m.spare, id.Index)
+		return VoiceID{}
+	}
+	return id
 }
 
 func (m *Mixer) SetBusGain(b int, gain float32) bool {
@@ -368,6 +421,18 @@ func (m *Mixer) Kill(id VoiceID) bool {
 
 func (m *Mixer) Live(id VoiceID) bool {
 	return id.Gen != 0 && int(id.Index) < len(m.handles) && m.handles[id.Index].gen.Load() == id.Gen
+}
+
+// Started reports that the mixer has applied Play or ReplaceStream and the
+// voice has not been released. A queued voice is Live but not yet Started. A
+// remote mixer reports this only after its next validated state batch arrives;
+// a voice that starts and finishes between batches may never be observed here.
+func (m *Mixer) Started(id VoiceID) bool {
+	if id.Gen == 0 || int(id.Index) >= len(m.handles) {
+		return false
+	}
+	h := &m.handles[id.Index]
+	return h.gen.Load() == id.Gen && h.started.Load() && h.gen.Load() == id.Gen
 }
 
 func (m *Mixer) Position(id VoiceID) float32 {

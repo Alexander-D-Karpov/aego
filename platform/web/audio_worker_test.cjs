@@ -12,7 +12,7 @@ const {webcrypto} = require('node:crypto');
 
 const code = fs.readFileSync(path.join(__dirname, 'audio_worker.js'), 'utf8');
 
-function harness({shared = false, target = 3072, version = 3, active = 0} = {}) {
+function harness({shared = false, target = 3072, version = 4, active = 0} = {}) {
     const memory = new WebAssembly.Memory({initial:32});
     const enc = new TextEncoder(), dec = new TextDecoder();
     const messages = [], calls = [], output = [], errors = [];
@@ -76,12 +76,21 @@ function harness({shared = false, target = 3072, version = 3, active = 0} = {}) 
 }
 
 test('a mismatched reactor ABI fails before the output is attached', () => {
-    const h=harness({version:2});
+    const h=harness({version:3});
     assert.equal(h.messages.length,1);
     assert.equal(h.messages[0].type,'fatal');
     assert.match(h.messages[0].error,/ABI version mismatch/);
     assert.equal(h.port.onmessage,null);
     assert.equal(h.calls.length,0);
+});
+
+test('replacement commands preserve exact frame and previous voice fields', () => {
+    const h = harness();
+    const command = {sequence:'1', kind:16, index:1, gen:2, source:'7',
+        frame:'9007199254741011', prevIndex:3, prevGen:4, paused:true};
+    h.rpc(1, 8, {command});
+    assert.deepEqual(h.calls.at(-1).value.command, command);
+    assert.notEqual(h.messages.at(-1).type, 'fatal');
 });
 
 test('startup primes bounded PCM and refills without the page thread', () => {

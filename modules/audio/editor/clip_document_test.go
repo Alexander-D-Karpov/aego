@@ -246,6 +246,113 @@ func TestAudioWaveZoomButtonUpdatesOnlyViewState(t *testing.T) {
 	}
 }
 
+func TestAudioWaveNavigatorReachesLateFramesWithoutEditing(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	const rate, total int64 = 48000, 5313600 // 110.7 seconds
+	p := &plugin{clip: clipEdit{drag: -1, waveStart: 0, waveEnd: 2 * rate, selectAnchor: 10, selectEnd: 20}}
+	other := &plugin{clip: clipEdit{drag: -1}}
+	ed := &context.Editor{UI: ui}
+	v := ClipView{Frames: total, Rate: int(rate), WaveStart: p.clip.waveStart, WaveEnd: p.clip.waveEnd, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	// The bar follows the four navigation buttons; it maps the whole clip,
+	// not the currently zoomed interval.
+	at := mathx.Vec2{X: ui.Theme.Padding + width*float32(101*rate)/float32(total), Y: ui.Theme.Padding + ui.Theme.RowHeight + ui.Theme.Spacing + 8}
+	draw := func() {
+		v.WaveStart, v.WaveEnd = p.clip.waveStart, p.clip.waveEnd
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.waveNavigation(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	state.BeginFrame()
+	state.ApplyMouseUp(at, input.MouseLeft)
+	draw()
+	start, end := p.clip.waveStart, p.clip.waveEnd
+	if end-start != 2*rate || start < 100*rate-4 || start > 100*rate+4 {
+		t.Fatalf("navigator did not center 100–102 seconds: %d..%d", start, end)
+	}
+	if a, b, ok := p.clip.waveSelection(total); !ok || a != 10 || b != 20 {
+		t.Fatal("navigator changed the independent selection")
+	}
+	if other.clip.waveStart != 0 || other.clip.waveEnd != 0 || ed.Docs != nil {
+		t.Fatal("navigator modified another tab or created document history")
+	}
+}
+
+func TestAudioWaveNavigatorDragPreservesGrabAndClamps(t *testing.T) {
+	ui := core.New(nil)
+	state := &input.State{}
+	const total int64 = 10000
+	p := &plugin{clip: clipEdit{drag: -1, waveStart: 2000, waveEnd: 4000}}
+	ed := &context.Editor{UI: ui}
+	v := ClipView{Frames: total, Rate: 8000, WaveNav: true}
+	width := float32(320) - 2*ui.Theme.Padding
+	at := mathx.Vec2{X: ui.Theme.Padding + width*.25, Y: ui.Theme.Padding + ui.Theme.RowHeight + ui.Theme.Spacing + 8}
+	draw := func() {
+		v.WaveStart, v.WaveEnd = p.clip.waveStart, p.clip.waveEnd
+		ui.Begin(state, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.Region(mathx.Rect{W: 320, H: 180})
+		p.waveNavigation(ed, v)
+		ui.PopCursor()
+		ui.End()
+	}
+	state.BeginFrame()
+	state.ApplyMouseDown(at, input.MouseLeft)
+	draw()
+	if p.clip.waveStart != 2000 || p.clip.waveEnd != 4000 {
+		t.Fatal("grabbing inside the viewport jumped its position")
+	}
+	state.BeginFrame()
+	delta := mathx.Vec2{X: width * 2}
+	state.ApplyMouseMove(at.Add(delta), delta)
+	draw()
+	if p.clip.waveStart != 8000 || p.clip.waveEnd != total {
+		t.Fatalf("drag did not clamp at the right edge: %d..%d", p.clip.waveStart, p.clip.waveEnd)
+	}
+	state.BeginFrame()
+	delta = mathx.Vec2{X: -width * 3}
+	state.ApplyMouseMove(at.Add(mathx.Vec2{X: -width}), delta)
+	draw()
+	if p.clip.waveStart != 0 || p.clip.waveEnd != 2000 {
+		t.Fatalf("captured drag did not clamp at the left edge: %d..%d", p.clip.waveStart, p.clip.waveEnd)
+	}
+	state.BeginFrame()
+	state.ApplyMouseUp(at.Add(mathx.Vec2{X: -width}), input.MouseLeft)
+	draw()
+	if p.clip.waveStart != 0 || p.clip.waveEnd != 2000 {
+		t.Fatal("releasing outside the bar lost the captured drag")
+	}
+}
+
+func TestAudioWaveNavigatorRejectsInvalidGeometry(t *testing.T) {
+	for _, tc := range []struct {
+		frames int64
+		cursor core.Cursor
+	}{
+		{0, core.Cursor{W: 100}}, {-1, core.Cursor{W: 100}}, {1<<53 + 1, core.Cursor{W: 100}},
+		{100, core.Cursor{W: 0}}, {100, core.Cursor{W: -1}},
+		{100, core.Cursor{W: float32(math.NaN())}}, {100, core.Cursor{W: float32(math.Inf(1))}},
+		{100, core.Cursor{X: float32(math.Inf(1)), W: 100}},
+		{100, core.Cursor{Y: float32(math.NaN()), W: 100}},
+	} {
+		ui := core.New(nil)
+		ui.Begin(&input.State{}, mathx.Vec2{X: 320, Y: 180}, 1)
+		ui.PushCursor(tc.cursor)
+		p := &plugin{clip: clipEdit{waveStart: 10, waveEnd: 20, navigating: true}}
+		p.waveNavigator(ui, ClipView{Frames: tc.frames, WaveStart: 10, WaveEnd: 20})
+		ui.PopCursor()
+		ui.End()
+		if p.clip.waveStart != 10 || p.clip.waveEnd != 20 || p.clip.navigating {
+			t.Errorf("navigator accepted invalid geometry: frames=%d cursor=%+v", tc.frames, tc.cursor)
+		}
+	}
+}
+
 func TestZoomedWaveLoopDragUsesVisibleFrameRange(t *testing.T) {
 	ui := core.New(nil)
 	state := &input.State{}
