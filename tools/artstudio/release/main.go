@@ -4,13 +4,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -87,19 +85,8 @@ func run(args []string) error {
 			return fmt.Errorf("source tree differs from built artifact")
 		}
 		if m.Release {
-			b, e := command(*root, nil, "git", "rev-parse", "HEAD")
-			if e != nil {
+			if e := verifyReleaseSource(*root, m.Commit); e != nil {
 				return e
-			}
-			if strings.TrimSpace(string(b)) != m.Commit {
-				return fmt.Errorf("HEAD changed since build")
-			}
-			b, e = command(*root, nil, "git", "status", "--porcelain=v1", "--untracked-files=all")
-			if e != nil {
-				return e
-			}
-			if len(bytes.TrimSpace(b)) != 0 {
-				return fmt.Errorf("release source no longer clean")
 			}
 		}
 		return json.NewEncoder(os.Stdout).Encode(map[string]any{"status": "PASS", "sourceSHA256": h, "commit": m.Commit})

@@ -36,6 +36,12 @@ go run ./tools/artstudio/release serve -dir /absolute/new/output
 The server prints the standalone and documentation preview URLs. It is a
 development static server; the distributable directory needs no Go server in
 production. `/editor/`, `/embed/` and `/examples/<id>/` use the same resources.
+Release builds additionally require a clean Git checkout without ignored or
+untracked files inside the Studio source inputs, hidden Git index entries, or an
+active Go workspace. The builder and `check-source` compare those input bytes
+with the pinned commit; ordinary snapshot builds retain their working-tree
+behavior. These checks are not atomic or a substitute for an isolated checkout
+and controlled CI environment. Ignored outputs outside the inputs are allowed.
 The core WASM is limited to 8 MiB raw / 3 MiB gzip. GPU Preview is loaded only
 when selected, from a separate 32 MiB raw / 10 MiB gzip budget in the same
 manifest. It uses the existing renderer, materials, alpha shadows, Bloom and

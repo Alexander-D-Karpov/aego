@@ -24,6 +24,10 @@ type buildOptions struct {
 	Epoch                                          int64
 }
 
+// These directories contain the standalone and GPU-preview source inputs.
+// Keep the corresponding test fixture independent so omissions are visible.
+var studioSourceDirs = []string{"art", "tools/artstudio", "anim", "asset", "contracts", "core", "engine", "format", "gpu", "modules/render2d", "modules/particles", "platform", "render", "save", "scene", "schema", "script", "vfs"}
+
 func command(root string, env []string, args ...string) ([]byte, error) {
 	c := exec.Command(args[0], args[1:]...)
 	c.Dir = root
@@ -41,7 +45,7 @@ func sourceHash(root string) (string, error) {
 	// Include renderer/module dependencies and their embedded resources too:
 	// the lazy preview belongs to this exact artifact, not to a separately
 	// versioned or silently changing runtime.
-	for _, dir := range []string{"art", "tools/artstudio", "anim", "asset", "contracts", "core", "engine", "format", "gpu", "modules/render2d", "modules/particles", "platform", "render", "save", "scene", "schema", "script", "vfs"} {
+	for _, dir := range studioSourceDirs {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d fs.DirEntry, e error) error {
 			if e != nil {
 				return e
@@ -133,12 +137,8 @@ func build(o buildOptions) (buildManifest, error) {
 		if !commitPattern.MatchString(commit) {
 			return m, fmt.Errorf("release requires Git checkout")
 		}
-		status, e := command(root, nil, "git", "status", "--porcelain=v1", "--untracked-files=all")
-		if e != nil {
+		if e := verifyReleaseSource(root, commit); e != nil {
 			return m, e
-		}
-		if len(bytes.TrimSpace(status)) != 0 {
-			return m, fmt.Errorf("release build requires an exact clean tree; use snapshot build for uncommitted work")
 		}
 	}
 	if o.Epoch <= 0 {
@@ -366,9 +366,8 @@ func build(o buildOptions) (buildManifest, error) {
 		return m, fmt.Errorf("sources changed during build")
 	}
 	if o.Release {
-		b, e := command(root, nil, "git", "status", "--porcelain=v1", "--untracked-files=all")
-		if e != nil || len(bytes.TrimSpace(b)) != 0 {
-			return m, fmt.Errorf("tree changed during release build")
+		if e := verifyReleaseSource(root, commit); e != nil {
+			return m, fmt.Errorf("release source changed during build: %w", e)
 		}
 	}
 	if e = os.Rename(tmp, out); e != nil {
