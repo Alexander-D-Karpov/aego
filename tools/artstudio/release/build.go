@@ -100,6 +100,17 @@ func standaloneDependencyAllowed(p string) bool {
 	}
 }
 
+// Release graph checks and both builds must use the same module mode. An
+// ambient vendor selection must not make a different set of files feed WASM.
+// Snapshots intentionally keep the Go command's existing behavior.
+func studioGoArgs(release bool, subcommand string, args ...string) []string {
+	cmd := []string{"go", subcommand}
+	if release {
+		cmd = append(cmd, "-mod=readonly")
+	}
+	return append(cmd, args...)
+}
+
 func build(o buildOptions) (buildManifest, error) {
 	var m buildManifest
 	if !identifier.MatchString(o.ID) || !validOrigin(o.Origin, o.Release) || !validOrigin(o.DocsOrigin, o.Release) {
@@ -154,7 +165,11 @@ func build(o buildOptions) (buildManifest, error) {
 			o.Epoch = time.Now().Unix()
 		}
 	}
-	deps, e := command(root, []string{"GOOS=js", "GOARCH=wasm"}, "go", "list", "-buildvcs=false", "-deps", "./tools/artstudio/wasm")
+	goEnv := []string{"GOOS=js", "GOARCH=wasm"}
+	if o.Release {
+		goEnv = append(goEnv, "CGO_ENABLED=0")
+	}
+	deps, e := command(root, goEnv, studioGoArgs(o.Release, "list", "-buildvcs=false", "-deps", "./tools/artstudio/wasm")...)
 	if e != nil {
 		return m, e
 	}
@@ -163,7 +178,7 @@ func build(o buildOptions) (buildManifest, error) {
 			return m, fmt.Errorf("unexpected engine dependency in standalone WASM: %s", p)
 		}
 	}
-	previewDeps, e := command(root, []string{"GOOS=js", "GOARCH=wasm"}, "go", "list", "-buildvcs=false", "-deps", "./tools/artstudio/previewwasm")
+	previewDeps, e := command(root, goEnv, studioGoArgs(o.Release, "list", "-buildvcs=false", "-deps", "./tools/artstudio/previewwasm")...)
 	if e != nil {
 		return m, e
 	}
@@ -186,7 +201,7 @@ func build(o buildOptions) (buildManifest, error) {
 	}
 	defer os.RemoveAll(tmp)
 	wasmFile := filepath.Join(tmp, "core.wasm")
-	if _, e = command(root, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, "go", "build", "-buildvcs=false", "-trimpath", "-o", wasmFile, "./tools/artstudio/wasm"); e != nil {
+	if _, e = command(root, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, studioGoArgs(o.Release, "build", "-buildvcs=false", "-trimpath", "-o", wasmFile, "./tools/artstudio/wasm")...); e != nil {
 		return m, e
 	}
 	wasm, e := os.ReadFile(wasmFile)
@@ -204,7 +219,7 @@ func build(o buildOptions) (buildManifest, error) {
 		return m, e
 	}
 	previewFile := filepath.Join(tmp, "preview.wasm")
-	if _, e = command(root, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, "go", "build", "-buildvcs=false", "-trimpath", "-o", previewFile, "./tools/artstudio/previewwasm"); e != nil {
+	if _, e = command(root, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, studioGoArgs(o.Release, "build", "-buildvcs=false", "-trimpath", "-o", previewFile, "./tools/artstudio/previewwasm")...); e != nil {
 		return m, e
 	}
 	preview, e := os.ReadFile(previewFile)

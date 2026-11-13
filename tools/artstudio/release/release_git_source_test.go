@@ -29,6 +29,7 @@ func releaseGitFixture(t *testing.T) (string, string) {
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_OPTIONAL_LOCKS", "0")
+	t.Setenv("GOWORK", "off")
 	for _, name := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"} {
 		if value, present := os.LookupEnv(name); present {
 			if err := os.Unsetenv(name); err != nil {
@@ -38,12 +39,20 @@ func releaseGitFixture(t *testing.T) (string, string) {
 		}
 	}
 	for name, data := range map[string]string{
-		".gitignore":       "*.key\n__pycache__/\n",
-		"art/empty.bin":    "",
-		"art/large.bin":    strings.Repeat("\x00\x91fixture\n", 8192),
-		"engine/config.go": "package engine\nvar Version = \"0.12.5-dev\"\n",
+		".gitignore":                          "*.key\n__pycache__/\n",
+		"art/empty.bin":                       "",
+		"art/large.bin":                       strings.Repeat("\x00\x91fixture\n", 8192),
+		"engine/config.go":                    "package engine\nvar Version = \"0.12.5-dev\"\n",
+		"go.mod":                              "module aego\n\ngo 1.27\n",
+		"go.sum":                              "",
+		"tools/artstudio/wasm/main.go":        "package main\nfunc main() {}\n",
+		"tools/artstudio/previewwasm/main.go": "package main\nfunc main() {}\n",
 	} {
-		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(name)), []byte(data), 0o644); err != nil {
+		file := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(data), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

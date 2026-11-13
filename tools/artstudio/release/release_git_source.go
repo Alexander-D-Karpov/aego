@@ -123,7 +123,10 @@ func verifyReleaseSource(root, commit string) error {
 	if !seen["go.mod"] || !seen["go.sum"] {
 		return fmt.Errorf("release source Git tree is missing module inputs")
 	}
-	return verifyReleaseBlobs(root, blobs)
+	if err := verifyReleaseBlobs(root, blobs); err != nil {
+		return err
+	}
+	return verifyStudioDependencyCoverage(root)
 }
 
 // Compare bytes directly to Git objects through one batch process. The SHA-256
