@@ -373,35 +373,12 @@ func (s *Session) Dirty() bool {
 func (s *Session) Mutate(expectedRevision uint64, fn func(*Document) error) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if fn == nil {
-		return s.revision, errors.New("audio mutation is nil")
-	}
-	if s.revision != expectedRevision {
-		return s.revision, fmt.Errorf("audio document changed: have revision %d, expected %d", s.revision, expectedRevision)
-	}
-	next := s.doc.Clone()
-	if err := fn(&next); err != nil {
-		return s.revision, err
-	}
-	if next.Source != s.doc.Source {
-		return s.revision, errors.New("audio mutation cannot replace the source identity")
-	}
-	if err := next.Validate(); err != nil {
-		return s.revision, err
-	}
-	before, err := s.doc.stableBytes()
+	next, changed, err := PrepareMutation(s.doc, expectedRevision, fn)
 	if err != nil {
 		return s.revision, err
 	}
-	after, err := next.stableBytes()
-	if err != nil {
-		return s.revision, err
-	}
-	if string(before) == string(after) {
+	if !changed {
 		return s.revision, nil // no-op is not a new undo step
-	}
-	if s.revision == ^uint64(0) {
-		return s.revision, errors.New("audio revision exhausted")
 	}
 	if len(s.undo) == s.historyLimit {
 		copy(s.undo, s.undo[1:])
@@ -409,11 +386,8 @@ func (s *Session) Mutate(expectedRevision uint64, fn func(*Document) error) (uin
 	}
 	s.undo = append(s.undo, s.doc.Clone())
 	s.redo = nil
-	s.revision++
-	next.Revision = s.revision
-	// The callback may retain its argument; never expose session-owned slices
-	// or pointers through that retained value.
-	s.doc = next.Clone()
+	s.revision = next.Revision
+	s.doc = next
 	return s.revision, nil
 }
 func (s *Session) Undo() error {
