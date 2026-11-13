@@ -216,6 +216,7 @@ func (m *Manager) DiscardScript(d *ScriptDocument) error {
 		d.Conflict, d.OnDisk, d.removedAck = false, false, true
 		d.diskHash, d.diskTracked = sha256.Sum256(nil), true
 		m.clearScriptRecovery(d.Path)
+		m.emit(Event{Kind: EvScriptReplaced, Doc: d.ID, Path: d.Path})
 	}
 	return nil
 }
@@ -241,6 +242,7 @@ func (m *Manager) reloadScript(d *ScriptDocument, discardVolatile bool) error {
 	m.statScript(d)
 	d.removedAck = false
 	m.clearScriptRecovery(d.Path)
+	m.emit(Event{Kind: EvScriptReplaced, Doc: d.ID, Path: d.Path})
 	return nil
 }
 

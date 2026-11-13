@@ -121,6 +121,9 @@ const (
 	EvActivated
 	EvSourceSaved
 	EvRenamed
+	// EvScriptReplaced means the shared Code pointer has been replaced, not
+	// merely edited. Subscribers must discard source-relative cached state.
+	EvScriptReplaced
 )
 
 type Event struct {

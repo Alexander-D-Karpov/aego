@@ -97,6 +97,7 @@ type Host struct {
 	live       []context.ScriptProblem
 	liveRev    uint64
 	liveSnap   *workspace.Snapshot
+	replacedAt uint64
 	symSnap    *workspace.Snapshot
 	syms       []context.SearchItem
 	counts     map[string]int
@@ -143,8 +144,13 @@ func (h *Host) Attach(d Deps, w *edws.Workspace) {
 	}
 	h.d, h.dock = d, w
 	h.offDocs = h.docs().Subscribe(func(ev document.Event) {
-		if ev.Kind == document.EvRenamed {
+		switch ev.Kind {
+		case document.EvRenamed:
 			h.Renamed(ev.OldPath, ev.Path)
+		case document.EvScriptReplaced:
+			if doc := h.docs().Script(ev.Path); doc != nil && doc.ID == ev.Doc {
+				h.scriptReplaced(doc)
+			}
 		}
 	})
 	if err := w.Register(edws.Desc{Panel: h.find, Near: edws.Console, Order: 240}); err != nil {
@@ -533,12 +539,66 @@ func (h *Host) close(p *Panel) {
 }
 
 func (h *Host) eachView(d *document.ScriptDocument, fn func(*Panel)) {
-	if p := h.panels[d.Path]; p != nil {
+	if p := h.panels[d.Path]; p != nil && p.doc == d {
 		fn(p)
 	}
 	for _, c := range h.clones {
 		if c.doc == d {
 			fn(c)
+		}
+	}
+}
+
+// A shared Code journal may be replaced outside the Code tab, for example when
+// an asset is discarded. Invalidate every open view before accepting results
+// from the replacement. This is owner-thread state, not a filesystem guard.
+func (h *Host) scriptReplaced(d *document.ScriptDocument) {
+	// Replace All can leave a working overlay without opening a Code panel.
+	// An existing workspace entry may also come from a non-script text view.
+	_, known := h.ws.FileID(d.Path)
+	seen, language := false, known || strings.HasSuffix(d.Path, workspace.Ext)
+	h.eachView(d, func(p *Panel) {
+		seen = true
+		language = language || !p.foreignSource()
+		p.resync()
+		p.ownSet = false
+	})
+	delete(h.edits, d)
+	if language {
+		if seen {
+			h.ws.SetOverlay(d.Path, d.Code.Bytes())
+		} else {
+			// A clean document with no Code view no longer needs an overlay;
+			// keeping one would mask subsequent file-watcher updates.
+			h.ws.ClearOverlay(d.Path)
+			if d.OnDisk {
+				h.ws.Changed([]string{d.Path})
+			} else {
+				h.ws.Removed([]string{d.Path})
+			}
+		}
+		h.replacedAt = h.ws.Version()
+		h.lang.Invalidate()
+		h.find.sourceReplaced()
+		// Every language snapshot describes the workspace, not just the panel's
+		// own file. Keep unrelated conflicts and per-view selections intact.
+		invalidate := func(p *Panel) {
+			if p.doc == d || p.foreignSource() {
+				return
+			}
+			conflict := p.conflict
+			p.resync()
+			p.conflict = conflict
+		}
+		for _, p := range h.panels {
+			invalidate(p)
+		}
+		for _, p := range h.clones {
+			invalidate(p)
+		}
+		if h.liveSnap != nil {
+			h.live, h.liveSnap = nil, nil
+			h.liveRev++
 		}
 	}
 }
@@ -613,7 +673,9 @@ func (h *Host) buildStatus() (string, bool) {
 }
 
 func (h *Host) ensure() {
-	if h.lang.Latest() == nil {
+	// Ordinary edits retain their asynchronous refresh behavior. A workspace
+	// query must not, however, return a snapshot from before a replacement.
+	if snap := h.lang.Latest(); snap == nil || snap.Gen < h.replacedAt {
 		h.lang.Refresh()
 	}
 }

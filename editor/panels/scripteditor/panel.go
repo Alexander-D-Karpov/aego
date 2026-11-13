@@ -223,6 +223,7 @@ func (p *Panel) resync() {
 	p.inlayVer++
 	p.semVer++
 	clear(p.views)
+	p.mini.ready = false
 	p.hover = hoverState{off: -1}
 	p.comp.open = false
 	p.peek.open = false
@@ -516,8 +517,10 @@ func (p *Panel) drawConflict(ui *core.Context, r mathx.Rect) {
 	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 2), reload, i18n.Tr("editor.scripteditor.reload", "Reload")) {
 		if err := p.host.docs().ReloadScript(p.doc); err != nil {
 			p.host.d.Notices.Notify(context.LevelError, err.Error())
+			return
 		}
 		p.resync()
+		p.ownSet = false
 	}
 	if widgets.ButtonRect(ui, core.IDSeq(p.fid, 3), keep, i18n.Tr("editor.scripteditor.keep_mine", "Keep mine")) {
 		p.host.docs().KeepScript(p.doc)

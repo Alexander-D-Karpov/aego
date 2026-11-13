@@ -81,6 +81,18 @@ func (f *FindPanel) changed(now float64) {
 	f.editedAt = now
 }
 
+// A replaced source invalidates both displayed locations and a search whose
+// owner-thread callback may still be queued. Ordinary searches are restarted;
+// usages must be requested again against a fresh analysis snapshot.
+func (f *FindPanel) sourceReplaced() {
+	f.gen++
+	f.running, f.truncated = false, false
+	f.matches, f.rows = nil, nil
+	f.files, f.sel, f.scroll = 0, -1, 0
+	f.err, f.title = "", ""
+	f.changed(-1)
+}
+
 func (f *FindPanel) showUsages(title string, ms []workspace.Match) {
 	f.gen++
 	f.usages, f.title = true, title
