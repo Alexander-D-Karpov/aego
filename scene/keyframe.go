@@ -63,6 +63,9 @@ func (s *Scene) Capture(reuse rewind.Key) rewind.Key {
 	k.free3 = append(k.free3[:0], s.free3...)
 	k.pres = append(k.pres[:0], s.pres...)
 	k.space = s.defaultSpace
+	if len(k.stores) > len(s.storeList) {
+		clear(k.stores[len(s.storeList):])
+	}
 	k.stores = keySlots(k.stores, len(s.storeList))
 	k.size = int(unsafe.Sizeof(*k)) +
 		k.nodes.Slots()*int(unsafe.Sizeof(nodeData{})) +
