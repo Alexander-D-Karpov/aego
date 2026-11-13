@@ -8,6 +8,7 @@ the replay/API boundary, not the native UI or an OS save handle.
 """
 from __future__ import annotations
 
+from contextlib import ExitStack
 import copy
 import hashlib
 import json
@@ -18,6 +19,8 @@ import sys
 import traceback
 import urllib.parse
 import urllib.request
+
+from browser_context import browser_context
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -65,7 +68,7 @@ def main() -> int:
             native_steps.append({'state':state,'frames':frames})
         result['nativeSteps'] = native_steps
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as playwright:
+        with sync_playwright() as playwright, ExitStack() as browsers:
             for name in ('chromium','firefox'):
                 browser_options = {'headless':True}
                 executable = os.environ.get('ARTSTUDIO_CHROMIUM_EXECUTABLE','') if name == 'chromium' else os.environ.get('ARTSTUDIO_FIREFOX_EXECUTABLE','')
@@ -77,11 +80,12 @@ def main() -> int:
                     browser_options['firefox_user_prefs'] = {'media.volume_scale': '0.0'}
                     if os.environ.get('MOZ_DISABLE_CONTENT_SANDBOX') == '1':
                         browser_options['firefox_user_prefs']['security.sandbox.content.level'] = 0
-                browser = getattr(playwright,name).launch(**browser_options)
-                browser_result = {'name':name,'version':browser.version,'steps':[]}
+                context, version = browsers.enter_context(browser_context(
+                    playwright,name,browser_options,{'viewport':{'width':1440,'height':1000}},urls=[app]))
+                browser_result = {'name':name,'version':version,'steps':[]}
                 result['browsers'].append(browser_result)
                 try:
-                    page = browser.new_page(viewport={'width':1440,'height':1000})
+                    page = context.new_page()
                     errors = []
                     wasm_responses = []
                     page.on('pageerror',lambda error:errors.append(str(error)))
@@ -130,7 +134,7 @@ def main() -> int:
                     if errors:
                         raise RuntimeError(f'{name} page errors: {errors}')
                 finally:
-                    browser.close()
+                    browsers.close()
         result['status']='PASS'
     except Exception as error:
         result['error']=f'{type(error).__name__}: {error}'

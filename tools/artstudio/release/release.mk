@@ -11,6 +11,8 @@ studio-web-test:
 	go test -race -count=1 ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release
 	go vet ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release
 	node --test tools/artstudio/release/tests/*.test.cjs
+	PYTHONDONTWRITEBYTECODE=1 "$${ARTSTUDIO_PYTHON:-python3}" -B -m unittest discover -s tools/artstudio/release/tests -p test_browser_context.py
+	PYTHONDONTWRITEBYTECODE=1 "$${ARTSTUDIO_PYTHON:-python3}" -B -m unittest discover -s tools/artstudio/release/tests -p test_release_ci.py
 studio-web-verify:
 	go run ./tools/artstudio/release verify -dir '$(ARTSTUDIO_OUT)'
 studio-web-run:

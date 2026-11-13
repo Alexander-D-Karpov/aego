@@ -9,6 +9,7 @@ Each return project retains the producer's exact .meta, scene and AssetRefs.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -22,6 +23,8 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from browser_context import browser_context
 
 ROOT = Path(__file__).resolve().parents[4]
 NATIVE_TEST = 'TestArtSceneAuthoringWorkflowNative'
@@ -150,7 +153,7 @@ def main():
         report['nativeWitnessSHA256']=digest(producer_raw)
 
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as playwright:
+        with sync_playwright() as playwright, ExitStack() as browsers:
             for name in ('chromium','firefox'):
                 directory=out/name
                 directory.mkdir()
@@ -170,10 +173,10 @@ def main():
                     options['firefox_user_prefs']={'media.volume_scale':'0.0'}
                     if os.environ.get('MOZ_DISABLE_CONTENT_SANDBOX')=='1':
                         options['firefox_user_prefs']['security.sandbox.content.level']=0
-                browser=getattr(playwright,name).launch(**options)
-                browser_report['browserVersion']=browser.version
+                context,browser_report['browserVersion']=browsers.enter_context(browser_context(
+                    playwright,name,options,{'viewport':{'width':1440,'height':1000},'accept_downloads':True},
+                    urls=[app]))
                 try:
-                    context=browser.new_context(viewport={'width':1440,'height':1000},accept_downloads=True)
                     page=context.new_page()
                     page.on('pageerror',lambda error:browser_report['consoleErrors'].append(str(error)))
                     page.on('console',lambda message:browser_report['consoleErrors'].append(message.text) if message.type=='error' else None)
@@ -230,7 +233,7 @@ def main():
                     browser_report.update({'status':'PASS','state':returned,'downloadSHA256':digest(downloaded.read_bytes()),
                                            'changedFrames':sorted(changed),'oneGestureUndoRedo':True})
                 finally:
-                    browser.close()
+                    browsers.close()
                     (directory/'browser.json').write_text(json.dumps(browser_report,indent=2)+'\n')
                 # Only the normal local-file return is installed in a disposable
                 # copy. Original .meta and scene bytes are copied verbatim.

@@ -96,8 +96,11 @@ native Go and the served pinned WASM in Chromium and Firefox, checking every
 frame's albedo, normal, height and emission channels and the document topology
 after each operation. It records the intentionally
 different initial dirty state of a new web document. The runner requires the
-Python Playwright environment and both browser executables; an alternative
-real executable may be supplied with `AEGO_WASM_PARITY_RUNNER`. It does not
+Python Playwright environment and both browser executables. Set
+`ARTSTUDIO_PYTHON` to that environment's Python when it is not the default
+`python3`; the gate uses it for its built-in Python checks. An alternative
+real executable may be supplied with `AEGO_WASM_PARITY_RUNNER` and remains
+responsible for selecting its own interpreter. The parity runner does not
 replace the separate native UI scenario or test physical input and OS save.
 Passing a subset of tests does not authorize deployment. Production staging,
 activation and rollback remain separate explicit operations after all gates pass.
@@ -121,6 +124,19 @@ The workflow uploads the snapshot and diagnostic evidence with a pinned
 Gitea-compatible artifact action. The remote runner and artifact service must
 still be checked by an actual CI run. This snapshot job never creates a release
 gate report or deploys anything.
+
+For a separately isolated HTTPS fixture, the release browser runners support
+`AEGO_STUDIO_FIXTURE_CA`, `AEGO_STUDIO_FIXTURE_CA_SHA256`, and
+`AEGO_STUDIO_FIXTURE_PROFILE_ROOT`. Set all three or none: the CA is a single
+PEM file, the SHA-256 must come from the fixture setup, and the profile root is
+an existing private directory. The runners require loopback-resolved HTTPS
+origins and `certutil` from `libnss3-tools`, and seed a fresh browser-owned NSS
+database for each context. They do not add a system certificate or disable TLS
+verification. The caller must independently isolate and verify the network,
+configure trust for the other HTTPS clients, and demonstrate rejection of an
+unrelated CA; checking DNS addresses alone is not a network boundary. This mode
+is test infrastructure, not evidence of production TLS or a passed release
+gate. With the variables unset the ordinary browser launch is unchanged.
 
 The GPU E2E gate performs real HTTP/WASM hashing, lighting and alpha-shadow
 checks, authored normal/emission updates, Bloom, Flash/Dissolve, CPU particle

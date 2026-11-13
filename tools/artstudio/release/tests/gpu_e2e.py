@@ -5,12 +5,15 @@ No mock canvas, shader fixture substitution or updated golden images.
 from __future__ import annotations
 import argparse
 import base64
+from contextlib import ExitStack
 import hashlib
 import json
 import os
 from pathlib import Path
 import sys
 import traceback
+
+from browser_context import browser_context
 
 
 def main():
@@ -35,7 +38,7 @@ def main():
         print('PASS', name, flush=True)
     try:
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as pw:
+        with sync_playwright() as pw, ExitStack() as browsers:
             options = dict(headless=not args.headed)
             if args.executable:
                 options['executable_path'] = args.executable
@@ -45,9 +48,9 @@ def main():
                 options['firefox_user_prefs'] = {'webgl.force-enabled': True, 'webgl.disabled': False, 'media.volume_scale': '0.0'}
                 if os.environ.get('MOZ_DISABLE_CONTENT_SANDBOX') == '1':
                     options['firefox_user_prefs']['security.sandbox.content.level'] = 0
-            browser = getattr(pw,args.browser).launch(**options)
-            report['browserVersion'] = browser.version
-            ctx = browser.new_context(viewport={'width':1440,'height':1050},device_scale_factor=2)
+            ctx, report['browserVersion'] = browsers.enter_context(browser_context(
+                pw,args.browser,options,{'viewport':{'width':1440,'height':1050},'device_scale_factor':2},
+                urls=[args.app_url]))
             page = ctx.new_page()
             page.on('pageerror',lambda e:report['consoleErrors'].append(str(e)))
             page.on('dialog',lambda d:d.accept() if d.type in ('confirm','beforeunload') else d.dismiss())
@@ -502,7 +505,7 @@ def main():
             assert not report['consoleErrors'],report['consoleErrors']
             assert status()['stats']['MaterialCompileFailures']==0
             page.screenshot(path=str(args.evidence/'final.png'))
-            ctx.close();browser.close()
+            browsers.close()
         report['status']='PASS'
         return 0
     except Exception as e:

@@ -6,6 +6,7 @@ physical pen/touch devices are separate acceptance gates.
 """
 from __future__ import annotations
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -15,6 +16,8 @@ import time
 import traceback
 import urllib.parse
 import urllib.request
+
+from browser_context import browser_context
 
 
 def main() -> int:
@@ -203,8 +206,7 @@ def main() -> int:
             assert response.read() == raw, 'HTTP manifest differs from tested artifact'
         checked('served-manifest-matches-artifact')
         from playwright.sync_api import expect, sync_playwright
-        with sync_playwright() as p:
-            browser_type = getattr(p, args.browser)
+        with sync_playwright() as p, ExitStack() as browsers:
             options = {'headless': True}
             if args.executable:
                 options['executable_path'] = args.executable
@@ -214,9 +216,10 @@ def main() -> int:
                 options['firefox_user_prefs'] = {'media.volume_scale': '0.0'}
                 if os.environ.get('MOZ_DISABLE_CONTENT_SANDBOX') == '1':
                     options['firefox_user_prefs']['security.sandbox.content.level'] = 0
-            browser = browser_type.launch(**options)
-            report['browserVersion'] = browser.version
-            context = browser.new_context(viewport={'width':1440,'height':1000}, accept_downloads=True, has_touch=True)
+            context, report['browserVersion'] = browsers.enter_context(browser_context(
+                p, args.browser, options,
+                {'viewport':{'width':1440,'height':1000}, 'accept_downloads':True, 'has_touch':True},
+                urls=[app, docs]))
             # Observe every actual page, including the transferred editor and
             # each lesson, rather than only the two initially opened tabs.
             def observe_page(opened):
@@ -718,7 +721,7 @@ def main() -> int:
                 checked(f'embedded-{width}px-open-full-real-popup-preserves-complete-dirty-source')
             checked('390px-resize-controls-visible')
             assert not report['consoleErrors'], report['consoleErrors']
-            context.close();browser.close()
+            browsers.close()
             if args.browser == 'firefox':
                 # Use a real browser privacy policy, not an injected fake
                 # IndexedDB, to verify the recovery-unavailable path.
@@ -727,8 +730,9 @@ def main() -> int:
                     blocked_options['firefox_user_prefs']['security.sandbox.content.level'] = 0
                 if args.executable:
                     blocked_options['executable_path'] = args.executable
-                blocked_browser = browser_type.launch(**blocked_options)
-                blocked_context = blocked_browser.new_context(viewport={'width':1440,'height':1000}, accept_downloads=True)
+                blocked_context, _ = browsers.enter_context(browser_context(
+                    p, args.browser, blocked_options,
+                    {'viewport':{'width':1440,'height':1000}, 'accept_downloads':True}, urls=[app, docs]))
                 blocked_page = blocked_context.new_page()
                 blocked_page.on('pageerror', lambda error: report['consoleErrors'].append(str(error)))
                 blocked_page.on('console', lambda message: report['consoleErrors'].append(message.text) if message.type == 'error' else None)
@@ -750,7 +754,7 @@ def main() -> int:
                 assert 'beforeunload' in dialogs, f'Dirty unload guard not observed: {dialogs}'
                 checked('storage-blocked-download-remains-dirty-and-guards-unload')
                 assert not report['consoleErrors'], report['consoleErrors']
-                blocked_context.close();blocked_browser.close()
+                browsers.close()
         report['status']='PASS'
         return 0
     except Exception as error:
