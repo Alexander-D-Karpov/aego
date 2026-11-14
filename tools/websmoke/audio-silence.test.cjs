@@ -103,6 +103,20 @@ test('game underruns still fail and report the browser timing diagnostic',async(
     assert(failures.some(x=>x.includes('1 predicted pump underruns')));
     assert(logs.some(x=>x.includes('underrun timing') && x.includes('160')));
 });
+test('tone underruns still fail and report the browser timing diagnostic',async()=>{
+    const {failures,logs,install}=await evaluate(0.354,false,0,{underruns:1,pumpUnderruns:1});
+    assert(failures.some(x=>x.includes('1 underruns in')));
+    assert(failures.some(x=>x.includes('1 predicted pump underruns')));
+    assert(logs.some(x=>x.includes('underrun timing') && x.includes('160')));
+    assert(logs.some(x=>x.includes('before-click audio counters') && x.includes('pumpUnderruns')));
+    assert.equal(typeof install,'function');
+});
+test('unavailable tone timing never hides an underrun or fails a healthy tone',async()=>{
+    const failed=await evaluate(0.354,false,0,{pumpUnderruns:1},{readError:true});
+    assert(failed.failures.some(x=>x.includes('1 predicted pump underruns')));
+    assert(failed.logs.some(x=>x.includes('underrun timing') && x.includes('unavailable')));
+    assert.deepEqual((await evaluate(0.354,false,0,{}, {initError:true})).failures,[]);
+});
 test('timing marks preserve the unmute and pre-click activation checks',async()=>{
     const {expressions}=await evaluate(0.09,true);
     const unmute=expressions.find(x=>x.includes('globalThis.aegoAudioMute(false)'));

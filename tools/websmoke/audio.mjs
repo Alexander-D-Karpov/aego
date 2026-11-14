@@ -80,6 +80,8 @@ async function run(browser, label, headers, wantShared, depth = 0) {
     const { js, until } = await scriptWithoutGesture(page);
     const stats = async () => JSON.parse(await js("globalThis.aegoAudio.stats()"));
     try {
+        try { await page.addInitScript(installAudioTiming); }
+        catch { /* Timing is diagnostic only; keep the audio assertions strict. */ }
         await page.goto(`http://127.0.0.1:${srv.address().port}/play/`);
         await until("!!(globalThis.aegoAudio && globalThis.aegoAudio.start)", 120000);
         const isolated = await js("globalThis.crossOriginIsolated === true");
@@ -109,6 +111,17 @@ async function run(browser, label, headers, wantShared, depth = 0) {
         if (!Number.isInteger(s.underruns) || s.underruns < 0) fail(`${label}: invalid worklet underrun count`);
         if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in ${seconds} s at ${used} blocks`);
         if (s.pumpUnderruns > 0) fail(`${label}: ${s.pumpUnderruns} predicted pump underruns in ${seconds} s at ${used} blocks`);
+        if (s.underruns > 0 || s.pumpUnderruns > 0) {
+            console.log(`${label}: before-click audio counters (diagnostic only): ${JSON.stringify({
+                running: before.running, queued: before.queued, underruns: before.underruns, pumpUnderruns: before.pumpUnderruns,
+            })}`);
+            try {
+                const timing = await js("JSON.stringify({now:performance.now(), timing:globalThis.__aegoAudioSmokeTiming ?? null})");
+                console.log(`${label}: underrun timing (main-thread long tasks and timer gaps, ms since navigation; diagnostic only): ${timing}`);
+            } catch {
+                console.log(`${label}: underrun timing unavailable`);
+            }
+        }
         await js("globalThis.aegoAudio.stop()");
     } catch (e) {
         fail(`${label}: ${e.message}`);
@@ -118,7 +131,7 @@ async function run(browser, label, headers, wantShared, depth = 0) {
     }
 }
 
-// Installed before the demo loads. Long tasks and timer gaps are main-thread
+// Installed before the tone/demo loads. Long tasks and timer gaps are main-thread
 // diagnostics, not proof of an audio stall's cause.
 function installAudioTiming() {
     const timing = {
