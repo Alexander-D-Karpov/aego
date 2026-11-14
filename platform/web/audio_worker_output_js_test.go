@@ -34,10 +34,7 @@ func TestWebAudioWorkerOutputReservation(t *testing.T) {
 			a.index = g.Get("Int32Array").New(indexBuffer)
 		}
 		node, data, index, block, target, ok := a.WorkerOutput()
-		wantTarget := 3072 // The existing message transport keeps six blocks.
-		if shared {
-			wantTarget = 1536
-		}
+		wantTarget := 3072 // Both transports reserve six blocks for this spec.
 		if !ok || !node.Equal(a.node) || block != 512 || target != wantTarget {
 			t.Fatalf("unexpected worker endpoint: shared=%v block=%d target=%d ready=%v", shared, block, target, ok)
 		}
@@ -112,6 +109,84 @@ func TestWebAudioWorkerReservationConfiguresWorkletRefills(t *testing.T) {
 	loading := &Audio{spec: a.spec}
 	if !loading.ReserveWorkerOutput() || loading.refillThreshold() != 1152 {
 		t.Fatal("worklet loading after reservation would not receive its refill threshold")
+	}
+}
+
+func TestWebAudioWorkerSharedReserveAndRefillBoundaries(t *testing.T) {
+	g := js.Global()
+	oldBlocks := g.Get("aegoAudioBlocks")
+	g.Set("aegoAudioBlocks", 0)
+	t.Cleanup(func() { g.Set("aegoAudioBlocks", oldBlocks) })
+	for _, tt := range []struct {
+		name                                   string
+		shared                                 bool
+		rate, frames, baseTarget, workerTarget int
+		workerRefill, localRefill              int
+	}{
+		{"shared default", true, 48000, 512, 3, 6, 2560, 1152},
+		{"shared 44.1 kHz", true, 44100, 512, 3, 6, 2560, 1059},
+		{"shared small block", true, 48000, 256, 3, 6, 1280, 768},
+		{"shared larger block", true, 48000, 1024, 3, 6, 5120, 1152},
+		{"shared ring bound", true, 48000, 2048, 3, 4, 6144, 1152},
+		{"shared larger existing target", true, 48000, 512, 8, 8, 2560, 1152},
+		{"message unchanged", false, 48000, 512, 3, 6, 1152, 1152},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			port := g.Get("Function").New(`return {messages:[],postMessage(m){this.messages.push(m)}}`).Invoke()
+			a := &Audio{g: g, port: port, node: g.Get("Object").New(), ready: true,
+				shared: tt.shared, target: tt.baseTarget,
+				spec: platform.AudioSpec{SampleRate: tt.rate, Channels: 2, Frames: tt.frames}}
+			if tt.shared {
+				sab := g.Get("SharedArrayBuffer")
+				a.data = g.Get("Uint8Array").New(sab.New(ringFrames * 2 * 4))
+				a.index = g.Get("Int32Array").New(sab.New(16))
+				if a.TargetBlocks() != tt.baseTarget {
+					t.Fatal("the local shared target changed before reservation")
+				}
+			}
+			if !a.ReserveWorkerOutput() {
+				t.Fatal("could not reserve the worker output")
+			}
+			if got := a.refillThreshold(); got != tt.workerRefill {
+				t.Errorf("worker refill threshold = %d, want %d", got, tt.workerRefill)
+			}
+			_, _, _, block, target, ok := a.WorkerOutput()
+			if !ok || block != tt.frames || target != tt.workerTarget*tt.frames {
+				t.Errorf("worker endpoint: block=%d target=%d ready=%v, want target %d", block, target, ok, tt.workerTarget*tt.frames)
+			}
+			if port.Get("messages").Index(0).Get("refillAt").Int() != tt.workerRefill {
+				t.Error("worker refill threshold was not sent to the worklet")
+			}
+			if !a.CancelWorkerOutput() || a.refillThreshold() != 0 ||
+				port.Get("messages").Index(1).Get("refillAt").Int() != 0 {
+				t.Fatal("cancellation left the worker refill threshold enabled")
+			}
+			if tt.shared && a.TargetBlocks() != tt.baseTarget {
+				t.Fatal("cancelling the worker reservation changed the local shared target")
+			}
+			a.SetRefill(func() int { return 0 })
+			if a.refillThreshold() != tt.localRefill || port.Get("messages").Index(2).Get("refillAt").Int() != tt.localRefill {
+				t.Fatal("local refill did not recover its original threshold")
+			}
+			a.SetRefill(nil)
+		})
+	}
+
+	loading := &Audio{g: g, shared: true, target: 3,
+		spec: platform.AudioSpec{SampleRate: 48000, Channels: 2, Frames: 512}}
+	if !loading.ReserveWorkerOutput() || loading.refillThreshold() != 2560 {
+		t.Fatal("a shared worklet loaded after reservation would miss the worker threshold")
+	}
+
+	g.Set("aegoAudioBlocks", 4)
+	message := &Audio{g: g, target: 6, ready: true, node: g.Get("Object").New(),
+		spec: platform.AudioSpec{SampleRate: 48000, Channels: 2, Frames: 512}}
+	if !message.ReserveWorkerOutput() {
+		t.Fatal("could not reserve message output with a diagnostic override")
+	}
+	_, _, _, _, target, ok := message.WorkerOutput()
+	if !ok || target != 2048 || message.refillThreshold() != 1152 {
+		t.Fatal("message diagnostic override or refill threshold changed")
 	}
 }
 

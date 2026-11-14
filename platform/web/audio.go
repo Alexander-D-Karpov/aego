@@ -460,7 +460,14 @@ func (a *Audio) refillThreshold() int {
 	if a.refill == nil && !a.workerReserved {
 		return 0
 	}
-	return min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
+	threshold := min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
+	if a.workerReserved && a.shared && a.spec.Frames > 0 {
+		// Request a refill earlier, leaving room for a complete block when
+		// the target allows it. Never lower the existing threshold.
+		blocks := min(sharedWorkerMinimumBlocks-1, a.workerTargetBlocks()-1)
+		threshold = max(threshold, blocks*a.spec.Frames)
+	}
+	return threshold
 }
 
 func (a *Audio) FrameDriven() bool {

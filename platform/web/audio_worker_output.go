@@ -9,6 +9,8 @@ import (
 	"aego/platform"
 )
 
+const sharedWorkerMinimumBlocks = 6
+
 // ReserveWorkerOutput claims an untouched Web Audio output before either the
 // local pump or a Worker publishes PCM. The owner must also keep the mixer
 // unrendered and must not start the local pump while this claim is held.
@@ -40,6 +42,18 @@ func (a *Audio) workerRefillThreshold(frames int) (ok bool) {
 	return true
 }
 
+// workerTargetBlocks gives the shared Worker additional scheduling headroom
+// without changing the local pump or the message transport. At 48 kHz with
+// 512-frame blocks, the minimum reserve adds 32 ms of queued audio compared
+// with the three-block shared minimum; device latency is additional.
+func (a *Audio) workerTargetBlocks() int {
+	target := a.TargetBlocks()
+	if a.shared && a.spec.Frames > 0 {
+		target = max(target, min(sharedWorkerMinimumBlocks, ringFrames/a.spec.Frames))
+	}
+	return target
+}
+
 // WorkerOutput returns a claimed output only after the real worklet is ready.
 // data and index are undefined for the message transport and are the original
 // SharedArrayBuffers for the shared transport. This does not attach a Worker.
@@ -47,7 +61,7 @@ func (a *Audio) WorkerOutput() (node, data, index js.Value, block, target int, r
 	if a == nil || a.closed || !a.workerReserved || a.workerAttached || !a.ready || a.failed != "" || !a.node.Truthy() {
 		return
 	}
-	node, block, target = a.node, a.spec.Frames, a.TargetBlocks()*a.spec.Frames
+	node, block, target = a.node, a.spec.Frames, a.workerTargetBlocks()*a.spec.Frames
 	if a.shared {
 		if !a.data.Truthy() || !a.index.Truthy() {
 			return js.Value{}, js.Value{}, js.Value{}, 0, 0, false

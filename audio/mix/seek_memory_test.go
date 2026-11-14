@@ -14,9 +14,12 @@ func TestSeekMemoryRendersRequestedFrameWithoutMovingOtherVoices(t *testing.T) {
 	game := dc(.1, 256)
 	m, reference := newMixer(t), newMixer(t)
 	preview := m.Play(PlayParams{Memory: src, Gain: 1})
+	// Match voice order so each mixer performs the same floating-point operations.
+	wantPreview := reference.Play(PlayParams{Memory: &Memory{PCM: pcm[79:], Rate: rate, Channels: 1}, Gain: 1})
 	other := m.Play(PlayParams{Memory: game, Gain: 1})
 	wantOther := reference.Play(PlayParams{Memory: game, Gain: 1})
-	if !preview.Valid() || !other.Valid() || !wantOther.Valid() || !m.Pause(preview) {
+	if !preview.Valid() || !wantPreview.Valid() || !other.Valid() || !wantOther.Valid() ||
+		!m.Pause(preview) || !reference.Pause(wantPreview) {
 		t.Fatal("could not prepare voices")
 	}
 	render(m, 11)
@@ -31,9 +34,7 @@ func TestSeekMemoryRendersRequestedFrameWithoutMovingOtherVoices(t *testing.T) {
 	if m.Position(other) != reference.Position(wantOther) {
 		t.Fatal("seeking the preview moved another voice")
 	}
-	if !m.Resume(preview) || !reference.Play(PlayParams{
-		Memory: &Memory{PCM: pcm[79:], Rate: rate, Channels: 1}, Gain: 1,
-	}).Valid() {
+	if !m.Resume(preview) || !reference.Resume(wantPreview) {
 		t.Fatal("could not resume the comparison")
 	}
 	got, want := render(m, 32), render(reference, 32)
