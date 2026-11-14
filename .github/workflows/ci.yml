@@ -121,6 +121,11 @@ jobs:
           set -euo pipefail
           (cd tools/websmoke && npm ci --no-audit --no-fund)
           chromium="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").chromium.executablePath())')"
+          firefox="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").firefox.executablePath())')"
+          [[ -f "$firefox" && -x "$firefox" ]] || { echo "Playwright Firefox executable is missing: $firefox" >&2; exit 1; }
+          # The visibility gate launches a real headed browser without a
+          # Playwright connection, so it cannot discover the cached binary.
+          export FIREFOX="$firefox"
           export ARTSTUDIO_ARTIFACT="$RUNNER_TEMP/aego-artstudio-evidence/artifact"
           export ARTSTUDIO_MANIFEST_SHA256="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
           export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"

@@ -44,12 +44,23 @@ class RegressionStreamTest(unittest.TestCase):
         self.bin.mkdir()
         self.marker = self.root / 'verified'
         self.make_call = self.root / 'make-call'
+        self.firefox = self.root / 'browsers with spaces' / 'firefox'
+        self.firefox.parent.mkdir()
+        self.firefox.write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
+        self.firefox.chmod(0o755)
         self._stub('npm', '#!/bin/sh\nexit 0\n')
-        self._stub('node', '#!/bin/sh\nprintf "%s\\n" /fake/chromium\n')
+        self._stub('node', '''#!/bin/sh
+case "$*" in
+  *chromium.executablePath*) printf '%s\\n' /fake/chromium ;;
+  *firefox.executablePath*) printf '%s\\n' "$MOCK_FIREFOX_EXECUTABLE" ;;
+  *) exit 9 ;;
+esac
+''')
         self._stub('xvfb-run', '#!/bin/sh\nshift 3\nexec "$@"\n')
         self._stub('make', '''#!/bin/sh
 printf '%s\\n' "$*" >"$MOCK_MAKE_CALL"
 printf '%s\\n' "$ARTSTUDIO_PYTHON" >>"$MOCK_MAKE_CALL"
+printf '%s\\n' "${FIREFOX-<unset>}" >>"$MOCK_MAKE_CALL"
 printf 'make stdout\\n'
 printf 'make stderr\\n' >&2
 if [ -n "${MOCK_RELEASE_FILE:-}" ]; then
@@ -71,8 +82,8 @@ exec "{tee}" "$@"
         self.env = os.environ.copy()
         self.env.update(PATH=str(self.bin) + os.pathsep + self.env['PATH'],
                         RUNNER_TEMP=str(self.runner), MOCK_VERIFY_MARKER=str(self.marker),
-                        MOCK_MAKE_CALL=str(self.make_call))
-        for name in ('MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE'):
+                        MOCK_MAKE_CALL=str(self.make_call), MOCK_FIREFOX_EXECUTABLE=str(self.firefox))
+        for name in ('FIREFOX', 'MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE'):
             self.env.pop(name, None)
 
     def _stub(self, name, content):
@@ -102,7 +113,18 @@ exec "{tee}" "$@"
         self.assertEqual(self.make_call.read_text().splitlines(), [
             'ci XVFB= CHROMIUM=/fake/chromium',
             str(self.runner / 'aego-artstudio-python/bin/python'),
+            str(self.firefox),
         ])
+
+    def test_invalid_firefox_never_runs_make(self):
+        for executable in ('', str(self.root / 'missing'), str(self.root / 'not-executable'), str(self.root)):
+            with self.subTest(executable=executable):
+                (self.root / 'not-executable').write_text('not executable\n', encoding='utf-8')
+                self.env['MOCK_FIREFOX_EXECUTABLE'] = executable
+                result = self._run()
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertFalse(self.make_call.exists())
+                self.assertFalse(self.marker.exists())
 
     def test_missing_or_wrong_deferred_marker_never_runs_make(self):
         marker = self.runner / 'aego-artstudio-evidence/core-deferred.txt'
