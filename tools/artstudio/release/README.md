@@ -130,10 +130,13 @@ both on loopback, and runs the browser, WebGL and parity suites. Optional
 `ARTSTUDIO_CHROMIUM_EXECUTABLE` and `ARTSTUDIO_FIREFOX_EXECUTABLE` select the
 local environment. It records tracked and non-ignored worktree inventories
 before and after the run; this is not a Git commit or proof of ignored files.
-The workflow uploads the snapshot and diagnostic evidence with a pinned
-Gitea-compatible artifact action. The remote runner and artifact service must
-still be checked by an actual CI run. This snapshot job never creates a release
-gate report or deploys anything.
+The workflow runs these checks in the same job as the full regression, then
+uses a fresh checkout for native authoring and uploads evidence with a pinned
+Gitea-compatible artifact action. It defers the snapshot's core suite to the required `make ci`, which
+runs the same `studio-web-test` target once. The standalone command above still
+runs that target itself. The remote runner and artifact service must still be
+checked by an actual CI run. A snapshot never creates a release gate report or
+deploys anything.
 
 For a separately isolated HTTPS fixture, the release browser runners support
 `AEGO_STUDIO_FIXTURE_CA`, `AEGO_STUDIO_FIXTURE_CA_SHA256`, and

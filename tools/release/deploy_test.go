@@ -50,6 +50,37 @@ func TestProductionSiteImageRequiresVerifiedStudioArtifact(t *testing.T) {
 	if strings.Index(build, "verify-site-input") > strings.Index(build, "make site-headless") {
 		t.Fatal("site input must be verified before the build")
 	}
+	if strings.Count(build, "-app-origin https://aeditor.akarpov.ru") != 2 ||
+		strings.Contains(build, "https://aestudio.akarpov.ru") || !strings.Contains(build, "test ! -e site/studio") {
+		t.Fatal("site must verify the dedicated Studio origin both before and after the build, without a local copy")
+	}
+}
+
+func TestStudioDeploymentUsesDedicatedOrigin(t *testing.T) {
+	configs := map[string][]string{
+		"../../deploy/aeditor.akarpov.ru.conf":  {"server_name aeditor.akarpov.ru;", "return 301 https://aeditor.akarpov.ru$request_uri;", "root /var/www/aego-asset-studio/current;", "frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aeditor-static.conf": {"server_name aeditor.akarpov.ru;", "root /var/www/aego-asset-studio/current;", "frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aeditor-edge.conf":   {"server_name aeditor.akarpov.ru;", "proxy_ssl_name aeditor.akarpov.ru;", "proxy_ssl_verify on;", "proxy_set_header Host aeditor.akarpov.ru;"},
+		"../../deploy/nginx.conf":               {"frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aego-edge.conf":      {"frame-src https://aeditor.akarpov.ru blob:;"},
+	}
+	for name, required := range configs {
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := string(data)
+			for _, want := range required {
+				if !strings.Contains(config, want) {
+					t.Errorf("%s lacks %q", name, want)
+				}
+			}
+			if strings.Contains(config, "aestudio.akarpov.ru") {
+				t.Errorf("%s references the wrong Studio origin", name)
+			}
+		})
+	}
 }
 
 func TestProductionSiteImagePackagesReviewedExampleLicense(t *testing.T) {

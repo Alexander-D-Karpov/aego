@@ -113,6 +113,9 @@ func (b *builder) home(t landingText) string {
 		c.WriteString(`<p class="lead">` + inlineMD(para) + "</p>")
 	}
 	c.WriteString(b.downloadBlock(root))
+	if b.opt.StudioURL != "" {
+		c.WriteString(`<div class="actions"><a class="button" href="` + esc(b.opt.StudioURL+"editor/") + `">` + esc(b.tr("Open Art Studio")) + `</a></div>`)
+	}
 	other := "ru/"
 	if t.lang != "en" {
 		other = "../"

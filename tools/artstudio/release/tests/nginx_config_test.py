@@ -75,11 +75,13 @@ class NginxFixture(unittest.TestCase):
         # the production hostname against the test CA and certificate.
         cls.client_tls.check_hostname = False
         cls.old_body, cls.new_body = b"old pinned editor", b"current editor"
+        cls.home_body = b"current Studio home"
         cls.wasm = b"\x00asm" + bytes(range(200))
         cls.gz = gzip.compress(cls.wasm, mtime=0)
         release = cls.root / "release"
         write_file(release / "releases/old/editor/index.html", cls.old_body)
         write_file(release / "releases/new/editor/index.html", cls.new_body)
+        write_file(release / "releases/new/index.html", cls.home_body)
         write_file(release / "releases/old/embed/index.html", b"embedded editor")
         write_file(release / "releases/old/docs/ru/first-sprite/index.html", b"studio lesson")
         write_file(release / "releases/old/examples/aseprite/PROVENANCE.md", b"provenance")
@@ -199,6 +201,8 @@ class NginxFixture(unittest.TestCase):
     def test_routes_headers_and_immutable_bytes_on_origin_and_edge(self):
         for port in (self.origin, self.edge, self.static_edge):
             with self.subTest(port=port):
+                status, _, body = self.request(port, "/")
+                self.assertEqual((status, body), (200, self.home_body))
                 status, _, body = self.request(port, "/editor/")
                 self.assertEqual((status, body), (200, self.new_body))
                 status, headers, body = self.request(port, "/r/old/editor/?session=private")
@@ -207,6 +211,7 @@ class NginxFixture(unittest.TestCase):
                 status, headers, _ = self.request(port, "/r/old/embed/")
                 self.assertEqual(status, 200)
                 self.assertIn("frame-ancestors https://aego.akarpov.ru https://aeditor.akarpov.ru", headers["Content-Security-Policy"])
+                self.assertNotIn("https://aestudio.akarpov.ru", headers["Content-Security-Policy"])
                 status, headers, body = self.request(port, "/r/old/assets/core.0123456789abcdef.wasm", headers={"Accept-Encoding": "gzip"})
                 self.assertEqual((status, body), (200, self.gz))
                 self.assertEqual(headers["Content-Type"], "application/wasm")
@@ -230,6 +235,7 @@ class NginxFixture(unittest.TestCase):
                 self.assertEqual((status, body), (200, b"studio lesson"))
                 policy = headers["Content-Security-Policy"]
                 self.assertIn("frame-src https://aeditor.akarpov.ru blob:;", policy)
+                self.assertNotIn("https://aestudio.akarpov.ru", policy)
                 self.assertIn("script-src 'self';", policy)
                 self.assertIn("frame-ancestors 'none'", policy)
                 self.assertNotIn("'unsafe-inline'", policy)
@@ -240,6 +246,7 @@ class NginxFixture(unittest.TestCase):
                 status, headers, body = self.request(port, "/asset-studio/ru/first-sprite/")
                 self.assertEqual((status, body), (200, b"pinned lesson"))
                 self.assertIn("frame-src https://aeditor.akarpov.ru blob:;", headers["Content-Security-Policy"])
+                self.assertNotIn("https://aestudio.akarpov.ru", headers["Content-Security-Policy"])
                 self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
                 self.assertNotIn("'unsafe-inline'", headers["Content-Security-Policy"])
 

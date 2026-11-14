@@ -10,6 +10,11 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$root"
 : "${ARTSTUDIO_SNAPSHOT_DIR:?Set an absolute, new evidence directory outside the repository}"
 python="${ARTSTUDIO_PYTHON:-python3}"
+core_mode="${ARTSTUDIO_SNAPSHOT_CORE:-required}"
+case "$core_mode" in
+  required|defer-to-make-ci) ;;
+  *) printf 'Invalid ARTSTUDIO_SNAPSHOT_CORE: %s\n' "$core_mode" >&2; exit 2 ;;
+esac
 app_port="${ARTSTUDIO_APP_PORT:-8097}"
 docs_port="${ARTSTUDIO_DOCS_PORT:-8098}"
 for port in "$app_port" "$docs_port"; do
@@ -73,7 +78,14 @@ go version >"$dir/go-version.txt"
 "$python" -m playwright --version >"$dir/playwright-version.txt"
 run_gate worktree-before "$python" tools/ci/worktree_manifest.py --root "$root" --output "$dir/worktree-before.json"
 
-run_gate core make studio-web-test
+if [[ "$core_mode" == required ]]; then
+  run_gate core make studio-web-test
+else
+  # The combined CI job runs the same core target once, as part of make ci.
+  # This snapshot alone must not be mistaken for having run that target.
+  printf '%s\n' 'Deferred: required make ci must run studio-web-test.' >"$dir/core-deferred.txt"
+  cat "$dir/core-deferred.txt"
+fi
 run_gate build-tool go build -o "$dir/artstudio-release" ./tools/artstudio/release
 run_gate build-snapshot "$dir/artstudio-release" build -root "$root" -out "$artifact" \
   -id "$build_id" -app-origin "$app_origin" -docs-origin "$docs_origin"

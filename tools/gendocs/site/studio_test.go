@@ -55,9 +55,9 @@ func TestPinnedStudioLinksUseIntegratedGuidesWithoutLocalWASM(t *testing.T) {
 	if _, err := Build(fixture(), dir, Options{StudioURL: pinned, StudioGuides: true}); err != nil {
 		t.Fatal(err)
 	}
-	for _, spec := range []struct{ page, guide, label string }{
-		{"index.html", `href="asset-studio/en/first-sprite/"`, "Art Studio lessons"},
-		{"ru/index.html", `href="../asset-studio/ru/first-sprite/"`, "Уроки Art Studio"},
+	for _, spec := range []struct{ page, guide, label, action string }{
+		{"index.html", `href="asset-studio/en/first-sprite/"`, "Art Studio lessons", "Open Art Studio"},
+		{"ru/index.html", `href="../asset-studio/ru/first-sprite/"`, "Уроки Art Studio", "Открыть Art Studio"},
 	} {
 		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(spec.page)))
 		if err != nil {
@@ -65,6 +65,12 @@ func TestPinnedStudioLinksUseIntegratedGuidesWithoutLocalWASM(t *testing.T) {
 		}
 		if !strings.Contains(string(b), `href="`+pinned+`editor/"`) || !strings.Contains(string(b), spec.guide) || !strings.Contains(string(b), spec.label) {
 			t.Fatalf("%s does not link pinned editor and localized guide", spec.page)
+		}
+		if !strings.Contains(string(b), `<a class="button" href="`+pinned+`editor/">`+spec.action+`</a>`) {
+			t.Fatalf("%s does not show a localized Studio launch button", spec.page)
+		}
+		if strings.Contains(string(b), `href="studio/"`) || strings.Contains(string(b), `href="../studio/"`) {
+			t.Fatalf("%s links to the legacy local Studio", spec.page)
 		}
 		for _, eager := range []string{"artstudio.wasm", "docs-embed.", "protocol."} {
 			if strings.Contains(string(b), eager) {

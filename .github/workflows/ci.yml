@@ -21,11 +21,12 @@ env:
     libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
 
 jobs:
-  # Keep the tested Studio snapshot and the full regression in separate,
-  # sequential jobs: the shared Gitea runner limits the lifetime of each job.
-  studio-snapshot:
+  # Build and test one Studio snapshot in the same job as the full regression.
+  # Native authoring uses a separate clean checkout; build runs even on failure.
+  checks:
     if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
+    timeout-minutes: 165
     outputs:
       manifest_sha256: ${{ steps.snapshot_pin.outputs.sha256 }}
     steps:
@@ -44,10 +45,6 @@ jobs:
           path: .cache/native
           key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
       - run: bash tools/bootstrap-native.sh
-      - run: go vet -cgocall=false -unsafeptr=false $(go list ./... | grep -v '/gpu/gl33/gl$')
-      - run: go vet ./platform/sdl
-      - run: make lint
-      - run: make depcheck
       - name: Test worktree evidence inventory
         run: |
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p worktree_manifest_test.py
@@ -66,6 +63,8 @@ jobs:
             "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
       - name: Asset Studio snapshot and real browser integration
         id: artstudio_snapshot
+        env:
+          ARTSTUDIO_SNAPSHOT_CORE: defer-to-make-ci
         run: |
           export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
           export ARTSTUDIO_SNAPSHOT_DIR="$RUNNER_TEMP/aego-artstudio-evidence"
@@ -102,41 +101,9 @@ jobs:
             ${{ runner.temp }}/aego-artstudio-evidence/firefox-gpu-browser/**
             ${{ runner.temp }}/aego-artstudio-evidence/parity-replay/*.json
 
-  checks:
-    needs: studio-snapshot
-    if: github.server_url != 'https://github.com'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - name: system packages
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
-      - uses: actions/cache@v4
-        continue-on-error: true
-        with:
-          path: .cache/native
-          key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
-      - run: bash tools/bootstrap-native.sh
-      - name: Install isolated Asset Studio browser test environment
-        run: |
-          sudo apt-get install -y python3-venv xvfb xauth xdotool
-          python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
-          "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
-          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
-            "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
-      - name: Download the tested Studio snapshot
-        uses: https://github.com/ChristopherHX/gitea-download-artifact@75635f32b4c1c41c4b3d64e8f85210112ed4c9c7
-        with:
-          name: asset-studio-snapshot-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/aego-artstudio-evidence
-      - name: Verify the tested Studio snapshot
+      - name: Verify Studio snapshot before regression
         env:
-          EXPECTED_STUDIO_MANIFEST: ${{ needs.studio-snapshot.outputs.manifest_sha256 }}
+          EXPECTED_STUDIO_MANIFEST: ${{ steps.snapshot_pin.outputs.sha256 }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/aego-artstudio-evidence"
@@ -156,6 +123,8 @@ jobs:
           chromium="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").chromium.executablePath())')"
           export ARTSTUDIO_ARTIFACT="$RUNNER_TEMP/aego-artstudio-evidence/artifact"
           export ARTSTUDIO_MANIFEST_SHA256="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
+          export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
+          [[ "$(cat "$RUNNER_TEMP/aego-artstudio-evidence/core-deferred.txt")" == 'Deferred: required make ci must run studio-web-test.' ]]
           mkdir -p "$RUNNER_TEMP/aego-full-ci"
           set +e
           # Stream as well as save the log: a runner timeout can terminate the
@@ -190,7 +159,7 @@ jobs:
             site/try/aego-docs.wasm
 
   native-authoring:
-    needs: [studio-snapshot, checks]
+    needs: checks
     if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
     steps:
@@ -221,9 +190,9 @@ jobs:
         with:
           name: asset-studio-snapshot-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/aego-artstudio-evidence
-      - name: Verify the tested Studio snapshot
+      - name: Verify Studio snapshot before native authoring
         env:
-          EXPECTED_STUDIO_MANIFEST: ${{ needs.studio-snapshot.outputs.manifest_sha256 }}
+          EXPECTED_STUDIO_MANIFEST: ${{ needs.checks.outputs.manifest_sha256 }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/aego-artstudio-evidence"
@@ -353,7 +322,7 @@ jobs:
           /tmp/aego run examples/native-rotator --headless --frames 60
 
   release:
-    needs: [studio-snapshot, checks, native-authoring, build]
+    needs: [checks, native-authoring, build]
     # Pause all automatic releases until the reviewed nightly/stable pipeline
     # enforces native gates and preserves existing tags and release assets.
     if: ${{ false }}

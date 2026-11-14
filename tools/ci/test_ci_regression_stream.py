@@ -39,13 +39,17 @@ class RegressionStreamTest(unittest.TestCase):
         artifact = self.runner / 'aego-artstudio-evidence'
         (artifact / 'artifact').mkdir(parents=True)
         (artifact / 'manifest.sha256').write_text('fake-manifest\n', encoding='utf-8')
+        (artifact / 'core-deferred.txt').write_text('Deferred: required make ci must run studio-web-test.\n', encoding='utf-8')
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         self.marker = self.root / 'verified'
+        self.make_call = self.root / 'make-call'
         self._stub('npm', '#!/bin/sh\nexit 0\n')
         self._stub('node', '#!/bin/sh\nprintf "%s\\n" /fake/chromium\n')
         self._stub('xvfb-run', '#!/bin/sh\nshift 3\nexec "$@"\n')
         self._stub('make', '''#!/bin/sh
+printf '%s\\n' "$*" >"$MOCK_MAKE_CALL"
+printf '%s\\n' "$ARTSTUDIO_PYTHON" >>"$MOCK_MAKE_CALL"
 printf 'make stdout\\n'
 printf 'make stderr\\n' >&2
 if [ -n "${MOCK_RELEASE_FILE:-}" ]; then
@@ -66,7 +70,8 @@ exec "{tee}" "$@"
 ''')
         self.env = os.environ.copy()
         self.env.update(PATH=str(self.bin) + os.pathsep + self.env['PATH'],
-                        RUNNER_TEMP=str(self.runner), MOCK_VERIFY_MARKER=str(self.marker))
+                        RUNNER_TEMP=str(self.runner), MOCK_VERIFY_MARKER=str(self.marker),
+                        MOCK_MAKE_CALL=str(self.make_call))
         for name in ('MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE'):
             self.env.pop(name, None)
 
@@ -94,6 +99,23 @@ exec "{tee}" "$@"
         self.assertEqual(self._log(), 'make stdout\nmake stderr\n')
         self.assertIn(self._log(), result.stdout)
         self.assertTrue(self.marker.is_file())
+        self.assertEqual(self.make_call.read_text().splitlines(), [
+            'ci XVFB= CHROMIUM=/fake/chromium',
+            str(self.runner / 'aego-artstudio-python/bin/python'),
+        ])
+
+    def test_missing_or_wrong_deferred_marker_never_runs_make(self):
+        marker = self.runner / 'aego-artstudio-evidence/core-deferred.txt'
+        for value in (None, 'core passed', ''):
+            with self.subTest(value=value):
+                if value is None:
+                    marker.unlink(missing_ok=True)
+                else:
+                    marker.write_text(value, encoding='utf-8')
+                result = self._run()
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertFalse(self.make_call.exists())
+                self.assertFalse(self.marker.exists())
 
     def test_make_failure_is_not_masked_by_tee(self):
         self.env['MOCK_MAKE_EXIT'] = '17'

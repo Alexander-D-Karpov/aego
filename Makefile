@@ -80,6 +80,7 @@ GL_ENV = env SDL_VIDEODRIVER=offscreen SDL_AUDIO_DRIVER=dummy LIBGL_ALWAYS_SOFTW
 endif
 
 NONATIVE_PKGS = $$(go list ./... | grep -v -e '/platform/sdl$$' -e '/gpu/gl33$$' -e '/gpu/gl33/gl$$')
+VET_PKGS = $$(go list ./... | grep -v -e '/gpu/gl33/gl$$')
 LINT_PKGS = $$(go list ./... | grep -v -e '/gpu/gl33/gl$$' -e '/audio/codec/vorbis/internal/')
 
 bootstrap: $(STAMP)
@@ -151,7 +152,7 @@ test-gl: bootstrap
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
-	go vet -cgocall=false -unsafeptr=false $(LINT_PKGS)
+	go vet -cgocall=false -unsafeptr=false $(VET_PKGS)
 	go vet ./platform/sdl
 
 lint: bootstrap

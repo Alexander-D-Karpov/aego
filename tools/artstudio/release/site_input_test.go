@@ -49,14 +49,15 @@ func TestProductionSiteInputRequiresPinnedRelease(t *testing.T) {
 		change                 func(string, *buildManifest)
 	}
 	tests := map[string]request{
-		"valid":             {},
-		"missing hash":      {sha: "missing"},
-		"wrong hash":        {sha: strings.Repeat("0", 64)},
-		"short commit":      {commit: "abcd"},
-		"wrong commit":      {commit: strings.Repeat("b", 40)},
-		"wrong app origin":  {app: "https://unexpected.example"},
-		"wrong docs origin": {docs: "https://unexpected.example"},
-		"snapshot":          {change: func(_ string, m *buildManifest) { m.Release = false }},
+		"valid":               {},
+		"missing hash":        {sha: "missing"},
+		"wrong hash":          {sha: strings.Repeat("0", 64)},
+		"short commit":        {commit: "abcd"},
+		"wrong commit":        {commit: strings.Repeat("b", 40)},
+		"wrong app origin":    {app: "https://unexpected.example"},
+		"wrong studio origin": {app: "https://aestudio.akarpov.ru"},
+		"wrong docs origin":   {docs: "https://unexpected.example"},
+		"snapshot":            {change: func(_ string, m *buildManifest) { m.Release = false }},
 		"extra parent origin": {change: func(_ string, m *buildManifest) {
 			m.DocsOrigins = append(m.DocsOrigins, "https://unexpected.example")
 		}},

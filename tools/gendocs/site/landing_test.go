@@ -16,6 +16,9 @@ func TestLandingInsideCoversNewFeaturesInBothLanguages(t *testing.T) {
 	} {
 		t.Run(test.text.lang, func(t *testing.T) {
 			page := pages[test.page]
+			if strings.Contains(page, "Open Art Studio") || strings.Contains(page, "Открыть Art Studio") {
+				t.Fatal("home page linked Studio without a verified release URL")
+			}
 			_, section, ok := strings.Cut(page, `<section class="inside">`)
 			if !ok {
 				t.Fatal("home page lost What's inside")

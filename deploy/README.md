@@ -11,6 +11,12 @@ the artifact bytes, commit, Studio source subset, and exact public origins both
 before and after building the site. The generated guides point to that release;
 the image does not build a second local `/studio`.
 
+The production Studio origin is `https://aeditor.akarpov.ru/`, with versioned
+editor and guide links rooted at the same hostname. The dedicated origin and
+edge vhost examples are `aeditor.akarpov.ru.conf`,
+`edge/aeditor-static.conf`, and `edge/aeditor-edge.conf`; only one edge
+serving strategy should be installed. These files do not deploy the site.
+
 The official site build also requires production example packaging with the
 reviewed MIT terms in `docs/try-examples-license.txt`; the license notice is
 included in each complete example archive. Local preview builds may instead
