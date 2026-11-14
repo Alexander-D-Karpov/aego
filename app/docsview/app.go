@@ -25,6 +25,7 @@ import (
 	"aego/modules/physics"
 	scriptsystems "aego/modules/scripting/systems"
 	"aego/platform"
+	"aego/platform/input"
 	"aego/render"
 	renderhost "aego/render/host"
 	"aego/render/icons"
@@ -288,7 +289,35 @@ func (a *App) Event(ev platform.Event) {
 		a.ui.SetComposition("", 0)
 	case platform.EvWindowFocusLost:
 		a.game.Release()
+	case platform.EvMouseDown:
+		if ev.Mouse.Button == input.MouseLeft {
+			a.captureGameOnPointerDown(ev.Mouse.Pos)
+		}
 	}
+}
+
+// Capture a click on the already presented game view before the next scene
+// tick. A short key tap can arrive in the same platform frame as the click;
+// waiting for game.Draw to capture would otherwise discard its edge. Leave
+// focused text and active UI interactions to their normal commit/routing path.
+func (a *App) captureGameOnPointerDown(pos mathx.Vec2) {
+	if a.ui == nil || a.session == nil || a.session.Controller().Captured() ||
+		a.ui.Focus() != 0 || a.ui.Active() != 0 || a.ui.Captured() != 0 ||
+		a.ui.ModalActive() || a.ui.AnyPopup() {
+		return
+	}
+	m := a.e.Metrics()
+	if a.viewport.CanvasWidth != m.LogicalW || a.viewport.CanvasHeight != m.LogicalH {
+		return
+	}
+	barHeight := a.ui.Theme.BarHeight
+	body := mathx.Rect{Y: barHeight, W: float32(m.LogicalW), H: max(0, float32(m.LogicalH)-barHeight)}
+	game, _ := layout(body, 1)
+	if game.W <= 0 || game.H <= 0 || a.viewport.X != game.X || a.viewport.Y != game.Y ||
+		a.viewport.Width != game.W || a.viewport.Height != game.H || !game.Contains(pos) {
+		return
+	}
+	a.session.Controller().SetCapture(true, mathx.Vec2{X: game.X, Y: game.Y}, mathx.Vec2{X: game.W, Y: game.H})
 }
 
 func (a *App) FixedUpdate(float64) {}

@@ -459,7 +459,11 @@ web-private-xvfb-test:
 web-try-pulse-test:
 	node --test tools/websmoke/try-pulse.test.mjs
 
-ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+.PHONY: web-try-input-test
+web-try-input-test:
+	node --test tools/websmoke/try-input-hint.test.mjs
+
+ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-try-input-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
 ci: site-demo-prepare-test
 ci: studio-web-test
 ci: web-platformer-fixture-test web-bench-platformer

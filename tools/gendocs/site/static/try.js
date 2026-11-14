@@ -11,6 +11,7 @@
     let api = null;
     let active = null;
     let canvas = null;
+    let clearInputHint = null;
 
     function boot(report) {
         return globalThis.aegoRuntime("try", "aego-docs.wasm", "aegoDocsReady", "aegoDocs", report);
@@ -122,6 +123,7 @@
 
     function release(b) {
         clearInterval(soundTimer);
+        if (clearInputHint) clearInputHint();
         const sound = b.querySelector(".try-sound");
         if (sound) sound.hidden = true;
         b.classList.remove("active");
@@ -137,7 +139,8 @@
         status(b, "");
     }
 
-    // inputHint covers the canvas of a scene that reads the keyboard until the first click or focus on it.
+    // The canvas also contains the Inspector and toolbar: only a primary click
+    // in the actual Game View gives the scene keyboard input.
     function inputHint(stage) {
         if (stage.querySelector(".try-input")) return;
         const hint = document.createElement("div");
@@ -147,11 +150,26 @@
         stage.appendChild(hint);
         const done = () => {
             hint.remove();
-            canvas.removeEventListener("pointerdown", done);
-            canvas.removeEventListener("focus", done);
+            canvas.removeEventListener("pointerdown", onPointerDown);
+            clearInputHint = null;
         };
-        canvas.addEventListener("pointerdown", done);
-        canvas.addEventListener("focus", done);
+        const onPointerDown = (event) => {
+            if (event.button !== 0 || event.isPrimary === false) return;
+            let v;
+            try {
+                v = call("viewport").viewport;
+            } catch (_) {
+                return;
+            }
+            const r = canvas.getBoundingClientRect();
+            if (!v || ![v.x, v.y, v.width, v.height, v.canvasWidth, v.canvasHeight, r.width, r.height].every(Number.isFinite) ||
+                v.width <= 0 || v.height <= 0 || v.canvasWidth <= 0 || v.canvasHeight <= 0 || r.width <= 0 || r.height <= 0) return;
+            const x = (event.clientX - r.left) * v.canvasWidth / r.width;
+            const y = (event.clientY - r.top) * v.canvasHeight / r.height;
+            if (x >= v.x && x < v.x + v.width && y >= v.y && y < v.y + v.height) done();
+        };
+        clearInputHint = done;
+        canvas.addEventListener("pointerdown", onPointerDown);
     }
 
     // unlockAudio runs inside the click on Try it: a context made here starts running, while one made after the runtime boots would wait for another click.

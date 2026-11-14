@@ -80,6 +80,19 @@ async function clickTryCanvas() {
     await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
 }
 
+async function clickTryInspector() {
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.x + viewport.width + 20 >= viewport.canvasWidth || viewport.y + 10 >= viewport.canvasHeight)
+        throw new Error("Try Inspector is not beside the Game View");
+    await canvas.click({ position: {
+        x: (viewport.x + viewport.width + 20) * box.width / viewport.canvasWidth,
+        y: (viewport.y + 10) * box.height / viewport.canvasHeight,
+    } });
+}
+
 async function runningAfterRestart(previous = -1, frames = 30) {
     await page.waitForFunction(({ previous, frames }) => {
         const status = document.querySelector(".try .try-status");
@@ -176,6 +189,17 @@ async function motion() {
     if (!(await page.locator(".try[data-input]").count())) fail("the Motion 2D try block does not ask for input");
     if (!(await page.locator(".try .try-input").count())) fail("the Motion 2D try scene shows no input hint");
     const from = (await call("pose", { node: "Player" })).pose;
+    // The Inspector and game share one canvas. Clicking the Inspector focuses
+    // that canvas but must not dismiss the hint or route keys into the game.
+    await clickTryInspector();
+    if (!(await page.locator(".try .try-input").count())) fail("clicking the Inspector hid the game input hint");
+    await page.keyboard.down("ArrowRight");
+    const beforeInspectorKey = await frameNow();
+    await page.waitForFunction((n) => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n, beforeInspectorKey + 20, { timeout: 30000, polling: 16 });
+    await page.keyboard.up("ArrowRight");
+    const beforeGameFocus = (await call("pose", { node: "Player" })).pose;
+    if (!from || !beforeGameFocus || Math.abs(beforeGameFocus[0] - from[0]) > 0.1)
+        fail(`the Inspector click routed keyboard input into the game: ${JSON.stringify(from)} -> ${JSON.stringify(beforeGameFocus)}`);
     await clickTryCanvas();
     if (await page.locator(".try .try-input").count()) fail("the input hint stays after a click on the canvas");
     await page.keyboard.down("ArrowRight");
@@ -220,6 +244,48 @@ async function motion() {
     }
     if (opts.shot) fs.writeFileSync(opts.shot, shot);
     await golden("try-motion2d", PNG.sync.read(shot));
+}
+
+// A real pointerdown and a key tap in the same browser task must reach the
+// freshly focused game. Holding B or injecting input after several frames
+// would miss the first-frame routing regression this checks.
+async function focusAndTap() {
+    await startTry("/animation/player.html");
+    const component = "animation.AnimationPlayer", field = `${component}.Speed`;
+    const speed = async () => {
+        const reply = await call("inspect", { component, fields: [field] });
+        if (reply.error || !reply.inspection?.runtimeExecuting || typeof reply.inspection.observables?.[field] !== "number")
+            throw new Error(`try Animation Player speed is unavailable: ${JSON.stringify(reply)}`);
+        return reply.inspection.observables[field];
+    };
+    const before = await speed();
+    if (before === 0) throw new Error("try Animation Player started with zero speed");
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.width <= 50 || viewport.height <= 30)
+        throw new Error("try Animation Player Game View is unavailable");
+    await canvas.evaluate((element) => {
+        globalThis.__aegoFocusProbe = null;
+        element.addEventListener("pointerdown", (event) => {
+            globalThis.__aegoFocusProbe = { trusted: event.isTrusted, primary: event.isPrimary, button: event.button };
+            element.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, code: "KeyB", key: "b" }));
+            element.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, cancelable: true, code: "KeyB", key: "b" }));
+        }, { once: true });
+    });
+    await canvas.click({ position: {
+        x: (viewport.x + 50) * box.width / viewport.canvasWidth,
+        y: (viewport.y + 30) * box.height / viewport.canvasHeight,
+    } });
+    const pointer = await page.evaluate(() => globalThis.__aegoFocusProbe);
+    if (!pointer?.trusted || !pointer.primary || pointer.button !== 0)
+        throw new Error(`try Animation Player pointer was not a trusted primary click: ${JSON.stringify(pointer)}`);
+    await page.waitForFunction(({ component, field, expected }) => {
+        const reply = JSON.parse(globalThis.aegoDocs.call("inspect", JSON.stringify({ component, fields: [field] })));
+        return reply.inspection?.runtimeExecuting && reply.inspection.observables?.[field] === expected;
+    }, { component, field, expected: -before }, { timeout: 15000, polling: 50 });
+    console.log(`try: Animation Player first focused tap reversed speed ${before} -> ${await speed()}`);
 }
 
 // Exercise the published guide's albedo/normal/material bundle and moving-light script; static HTML cannot prove the docs WASM runtime can mount and play it.
@@ -458,6 +524,7 @@ try {
     else console.log("try: edit, restart, reset and runtime reuse work");
     await sound();
     await motion();
+    await focusAndTap();
     await normalMapping();
     await normalMapping("/ru/render2d/normal-mapping.html");
     await lightingAndMaterials();
