@@ -646,6 +646,15 @@ func (c *Context) CancelFocus() {
 	c.comp, c.compCursor = "", 0
 }
 
+// DiscardTextEdit abandons the active edit and any queued focus-loss commits.
+// Use it only when an explicit action replaces the document being edited.
+func (c *Context) DiscardTextEdit() {
+	c.CancelFocus()
+	c.lost, c.lostText, c.lostHasText = 0, "", false
+	c.lostNext, c.lostNextText, c.lostNextHas = 0, "", false
+	c.wantsText = false
+}
+
 func (c *Context) LostFocus(id ID) bool {
 	return id != 0 && c.lost == id
 }

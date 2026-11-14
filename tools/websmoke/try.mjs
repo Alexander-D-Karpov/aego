@@ -288,6 +288,115 @@ async function focusAndTap() {
     console.log(`try: Animation Player first focused tap reversed speed ${before} -> ${await speed()}`);
 }
 
+// The Inspector is drawn inside the canvas. A real click can be followed by
+// text, Backspace and Enter before the next frame; exercise their ordering,
+// then use the visible Undo, Redo and Reset controls on the actual guide.
+async function inspectorQuickText() {
+    await startTry("/ru/gameplay/health.html");
+    const component = "gameplay.Health";
+    const field = '.try .st-fields .v[data-k$="component:gameplay.Health/max"]';
+    const expected = (value) => ({ [`${component}.Max`]: value, [`${component}.Current`]: value });
+    const waitValue = async (value, previous, history) => {
+        const h = await page.waitForFunction(({ field, component, value, previous, history }) => {
+            const invoke = (method, payload = {}) => JSON.parse(globalThis.aegoDocs.call(method, JSON.stringify(payload)));
+            const state = invoke("state").state;
+            const inspection = invoke("inspect", { component, fields: [`${component}.Max`, `${component}.Current`] }).inspection;
+            if (document.querySelector(field)?.textContent !== String(value) || !state?.running || state.paused ||
+                state.restarts <= previous || !inspection?.runtimeExecuting ||
+                inspection.observables?.[`${component}.Max`] !== value || inspection.observables?.[`${component}.Current`] !== value) return false;
+            if (history === "undo" && !state.canRedo || history === "redo" && !state.canUndo) return false;
+            if (history === "reset" && (state.canUndo || state.canRedo)) return false;
+            return state;
+        }, { field, component, value, previous, history }, { timeout: 30000, polling: 50 });
+        const state = await h.jsonValue();
+        await h.dispose();
+        return state;
+    };
+    await inspect(component, expected(5));
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.canvasWidth - viewport.x - viewport.width < 350 || viewport.canvasHeight < 500)
+        throw new Error("try Health Inspector has an unexpected desktop layout");
+    const point = (x, y) => ({ x: x * box.width / viewport.canvasWidth, y: y * box.height / viewport.canvasHeight });
+    const scroll = point(viewport.x + viewport.width + 300, viewport.y + viewport.height * 0.7);
+    await page.mouse.move(box.x + scroll.x, box.y + scroll.y);
+    for (let i = 0; i < 2; i++) {
+        const before = await frameNow();
+        await page.mouse.wheel(0, 400);
+        await page.waitForFunction(n => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n + 2,
+            before, { timeout: 30000, polling: 16 });
+    }
+    const before = (await call("state")).state.restarts;
+    await canvas.evaluate(element => {
+        globalThis.__aegoInspectorProbe = null;
+        element.addEventListener("pointerup", event => {
+            globalThis.__aegoInspectorProbe = { trusted: event.isTrusted, primary: event.isPrimary, button: event.button };
+            for (const [key, code] of [["9", "Digit9"], ["Backspace", "Backspace"], ["2", "Digit2"], ["Enter", "Enter"]])
+                for (const type of ["keydown", "keyup"])
+                    element.dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key, code }));
+        }, { once: true });
+    });
+    await canvas.click({ position: point(viewport.x + viewport.width + 270, 137) });
+    const pointer = await page.evaluate(() => globalThis.__aegoInspectorProbe);
+    if (!pointer?.trusted || !pointer.primary || pointer.button !== 0)
+        throw new Error(`try Inspector pointer was not a trusted primary click: ${JSON.stringify(pointer)}`);
+    const edited = await waitValue(2, before, "redo");
+    await canvas.click({ position: point(180, 15) }); // Отменить
+    const undone = await waitValue(5, edited.restarts, "undo");
+    await canvas.click({ position: point(260, 15) }); // Повторить
+    await waitValue(2, undone.restarts, "redo");
+    const reset = page.locator(".try .try-reset");
+    await reset.evaluate(button => {
+        globalThis.__aegoInspectorReset = null;
+        button.addEventListener("click", event => {
+            globalThis.__aegoInspectorReset = { trusted: event.isTrusted, state: JSON.parse(globalThis.aegoDocs.call("state", "{}")).state };
+        }, { once: true });
+    });
+    await reset.click();
+    const receipt = await page.evaluate(() => globalThis.__aegoInspectorReset);
+    if (!receipt?.trusted || receipt.state?.frames !== 0 || receipt.state.canUndo || receipt.state.canRedo)
+        throw new Error(`try Inspector Reset was not a fresh trusted reset: ${JSON.stringify(receipt)}`);
+    await waitValue(5, -1, "reset");
+    const waitFrames = async count => {
+        const frame = await frameNow();
+        await page.waitForFunction(n => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n,
+            frame + count, { timeout: 30000, polling: 50 });
+    };
+    const startPendingEdit = async value => {
+        await canvas.click({ position: point(viewport.x + viewport.width + 270, 137) });
+        await waitFrames(3);
+        await page.keyboard.type(String(value));
+        await waitFrames(4);
+    };
+    // Reset must discard a focused, uncommitted edit, even if the canvas is
+    // later focused and Enter is pressed. Actions here use real browser input.
+    await startPendingEdit(9);
+    if ((await page.locator(field).textContent()) !== "5") throw new Error("try Inspector edit committed before Reset");
+    await reset.click();
+    await canvas.focus();
+    await page.keyboard.press("Enter");
+    await waitFrames(30);
+    await waitValue(5, -1, "reset");
+
+    // Repeat with the in-canvas Reset button, starting from a real committed
+    // edit so a missed toolbar click cannot pass as a successful reset.
+    const beforeToolbarEdit = (await call("state")).state.restarts;
+    await startPendingEdit(2);
+    await page.keyboard.press("Enter");
+    await waitValue(2, beforeToolbarEdit, "redo");
+    await startPendingEdit(9);
+    if ((await page.locator(field).textContent()) !== "2") throw new Error("try Inspector second edit committed early");
+    await canvas.click({ position: point(100, 15) }); // Сбросить
+    await waitValue(5, -1, "reset");
+    await waitFrames(30);
+    await waitValue(5, -1, "reset");
+    const errors = (await call("log")).log?.filter(line => line.error) || [];
+    if (errors.length) throw new Error(`try Inspector runtime errors: ${JSON.stringify(errors)}`);
+    console.log("try: ordered Inspector text, Undo, Redo and both dirty-field Resets work");
+}
+
 // Exercise the published guide's albedo/normal/material bundle and moving-light script; static HTML cannot prove the docs WASM runtime can mount and play it.
 async function normalMapping(url = "/render2d/normal-mapping.html") {
     await startTry(url);
@@ -525,6 +634,7 @@ try {
     await sound();
     await motion();
     await focusAndTap();
+    await inspectorQuickText();
     await normalMapping();
     await normalMapping("/ru/render2d/normal-mapping.html");
     await lightingAndMaterials();

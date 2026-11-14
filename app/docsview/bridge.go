@@ -184,8 +184,14 @@ func (a *App) Call(method string, payload []byte) Reply {
 	// A document/world change must not leave a previously queued synthetic
 	// gesture pressed or continue applying it to the replacement world.
 	switch method {
-	case "load", "reset", "play", "undo", "redo", "scriptEnabled", "set":
+	case "load", "reset":
 		a.cancelControlAdvance()
+		a.discardDocumentText()
+	case "play", "undo", "redo", "scriptEnabled", "set":
+		a.cancelControlAdvance()
+		a.cancelTextInputFence()
+	case "theme", "lang":
+		a.cancelTextInputFence()
 	}
 	st := s.State()
 	return Reply{Text: string(s.Text()), Values: Values(s.Text()), State: &st}
