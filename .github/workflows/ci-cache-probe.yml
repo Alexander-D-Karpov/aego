@@ -2,7 +2,7 @@ name: isolated-cache-transport-probe
 
 on:
   push:
-    branches: [ci/cache-restore-84d4886d3967beffa21e]
+    branches: [ci/prepared-env-c21408b93fc1c68e75a7]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
-      image: sha256:3fbc899075feac5abe75f2f473d5dcb5ab2e1768f55b90a2bc83dcd4c62338f3
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
       options: --memory=3g --memory-swap=3g --cpus=2 --shm-size=1g
     defaults:
       run:
@@ -24,12 +24,6 @@ jobs:
       GOTELEMETRY: 'off'
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - name: Install probe compression in disposable container
-        run: |
-          set -euo pipefail
-          apt-get update
-          apt-get install -y --no-install-recommends zstd=1.5.5+dfsg2-2build1.1
-          command -v zstdmt
       - name: Require a fresh restore directory
         run: |
           set -eu
@@ -59,6 +53,7 @@ jobs:
           export GOTELEMETRY=off PYTHONDONTWRITEBYTECODE=1
           python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
           python3 -B tools/ci/env/preflight.py --root "$PWD"
+          python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
           python3 -B tools/ci/prepared_web_deps.py --root "$PWD"
           python3 -B tools/ci/staticcheck_runner.py v0.8.2 -- -version
           make bootstrap

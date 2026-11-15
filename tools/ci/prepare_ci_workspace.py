@@ -19,11 +19,15 @@ SPEC.loader.exec_module(PREFLIGHT)
 IMAGE = Path('/opt/aego')
 
 
+def fail_walk(error):
+    raise error
+
+
 def tree(root):
     if root.is_symlink() or not root.is_dir():
         raise ValueError('expected a real SDL directory: ' + str(root))
     records = []
-    for directory, dirs, files in os.walk(root, followlinks=False):
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=fail_walk):
         for name in sorted(dirs + files):
             path = Path(directory) / name
             info = path.lstat()

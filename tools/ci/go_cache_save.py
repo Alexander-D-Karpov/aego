@@ -12,6 +12,10 @@ MAX_BYTES = 3 * 1024**3
 MIN_FREE_BYTES = 50 * 1024**3
 
 
+def fail_walk(error):
+    raise error
+
+
 def assess(paths, max_bytes=MAX_BYTES, min_free=MIN_FREE_BYTES):
     roots = []
     for value in paths:
@@ -31,7 +35,7 @@ def assess(paths, max_bytes=MAX_BYTES, min_free=MIN_FREE_BYTES):
             continue
         if shutil.disk_usage(root).free < min_free:
             return False, size, 'insufficient free storage'
-        for directory, dirs, files in os.walk(root, followlinks=False):
+        for directory, dirs, files in os.walk(root, followlinks=False, onerror=fail_walk):
             for name in dirs + files:
                 path = Path(directory) / name
                 info = path.lstat()

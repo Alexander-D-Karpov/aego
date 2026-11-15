@@ -34,7 +34,7 @@ APT_PACKAGES = (
     'libwayland-dev', 'wayland-protocols', 'libdecor-0-dev',
     'libasound2-dev', 'libpulse-dev', 'libdrm-dev', 'libgbm-dev', 'libudev-dev',
     'libdbus-1-dev', 'libibus-1.0-dev', 'glslang-tools',
-    'fonts-dejavu-core', 'fonts-liberation', 'nsis', 'squashfs-tools',
+    'fonts-dejavu-core', 'fonts-liberation', 'nsis', 'squashfs-tools', 'zstd',
 )
 
 
@@ -140,7 +140,14 @@ def check_apt(lock):
     return installed
 
 
+def check_cache_tools():
+    for name in ('zstd', 'zstdmt'):
+        if not shutil.which(name):
+            fail('missing required cache compression tool: ' + name)
+
+
 def check_tools(lock):
+    check_cache_tools()
     expected = lock['tools']
     require(os.environ.get('GOTOOLCHAIN'), 'local', 'GOTOOLCHAIN')
     require(os.environ.get('PLAYWRIGHT_BROWSERS_PATH'), '/ms-playwright', 'PLAYWRIGHT_BROWSERS_PATH')

@@ -45,6 +45,9 @@ RUN cd /opt/aego/seed && GOOS=linux GOARCH=amd64 bash tools/bootstrap-native.sh 
 COPY tools/websmoke/package.json tools/websmoke/package-lock.json /opt/aego/websmoke/
 RUN cd /opt/aego/websmoke && npm ci --no-audit --no-fund
 
+# Match the standard runner's cache compression so cache versions agree.
+RUN apt-get update && apt-get install -y --no-install-recommends zstd && rm -rf /var/lib/apt/lists/*
+
 COPY tools/ci/env/Dockerfile tools/ci/env/lock.json tools/ci/env/preflight.py tools/ci/env/browser_smoke.py /opt/aego/ci-env/
 RUN python3 -B /opt/aego/ci-env/preflight.py --image-only && \
     timeout --kill-after=10s 180s xvfb-run -a -s '-screen 0 1440x1050x24' \

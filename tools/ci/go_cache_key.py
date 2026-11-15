@@ -38,11 +38,15 @@ def file_hash(path):
     return digest.hexdigest()
 
 
+def fail_walk(error):
+    raise error
+
+
 def native_tree(root):
     if root.is_symlink() or not root.is_dir():
         raise ValueError('native SDL prefix is missing or linked')
     records = []
-    for directory, dirs, files in os.walk(root, followlinks=False):
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=fail_walk):
         for name in sorted(dirs + files):
             path = Path(directory) / name
             info = path.lstat()
