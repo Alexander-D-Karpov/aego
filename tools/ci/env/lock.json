@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "platform": "linux/amd64",
+  "base_image": "mcr.microsoft.com/playwright/python@sha256:330d401ae23c905896a0c26c66c36fc971b621519e7b11b435a8328d7bf6e031",
+  "go_image": "golang@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61",
+  "node_image": "node@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9",
+  "tools": {
+    "go": "go1.27.2",
+    "node": "v24.22.2",
+    "npm": "11.19.1",
+    "python": "3.12",
+    "playwright": "1.64.1",
+    "pyee": "14.0.0",
+    "greenlet": "3.5.6",
+    "typing-extensions": "4.16.0",
+    "sdl": "3.2.24",
+    "glslang": "15.1.0",
+    "glslang_apt": "15.1.0-2~ubuntu0.24.04.2",
+    "staticcheck": "v0.8.2"
+  },
+  "inputs": {
+    "third_party/sdl/version.txt": "960cbf708fe41790fa779f7855787edaa668733490ae0d36f95ffc13adcd9bc0",
+    "tools/bootstrap-native.sh": "15e1d2ce94b202c2749c435d59f643ca2b65fe98e78721df56c34c6bbccc0feb",
+    "tools/websmoke/package.json": "9b18d33742f7910d102461aa5fa71a00c7620735eff8f61ca1cb93311cf06f57",
+    "tools/websmoke/package-lock.json": "7bd9077253747fbf7c37b03ee55417424aee9d70f69178bddbb7cf8087cc6e49",
+    "tools/ci/env/Dockerfile": "85a49c2077409ce50b1cc9cb45e9f1c9e98e2fe83c3a3f695826caf5e5a68eb4",
+    "tools/ci/env/requirements.txt": "1e5241a3542bf595bc535d99138407f142b09f3240639c9354bf209653179639",
+    "tools/ci/env/preflight.py": "83f13da0952b0afc28b20dcc5433aa963c132df4cec7a58f497f4748573e0a2c",
+    "tools/ci/env/browser_smoke.py": "b84e7af01a64384276365195f4a45d0a1f954f2a5abbab84f57b7ba9c1046527"
+  }
+}

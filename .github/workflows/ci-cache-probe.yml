@@ -1,0 +1,101 @@
+name: isolated-cache-transport-probe
+
+on:
+  push:
+    branches: [ci/cache-transport-ce586c48237f0282cf71]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  save:
+    if: github.server_url != 'https://github.com' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Prepare unique synthetic content
+        run: |
+          set -eu
+          dir="$RUNNER_TEMP/aego-cache-probe-ce586c48237f0282cf71"
+          test -n "$RUNNER_TEMP" && test ! -e "$dir" && test ! -L "$dir"
+          mkdir -m 700 "$dir"
+          printf '%s\n' 'aego-cache-synthetic-f2df9f37f3bce8282aef3d771631a4edb531565e735babd0' > "$dir/value.txt"
+      - name: Save synthetic cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/aego-cache-probe-ce586c48237f0282cf71
+          key: aego-probe-ce586c48237f0282cf71
+
+  restore:
+    needs: save
+    if: ${{ always() && github.server_url != 'https://github.com' && (github.event_name == 'workflow_dispatch' || needs.save.result == 'success') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: sha256:3fbc899075feac5abe75f2f473d5dcb5ab2e1768f55b90a2bc83dcd4c62338f3
+      options: --memory=3g --memory-swap=3g --cpus=2 --shm-size=1g
+    steps:
+      - name: Require a fresh restore directory
+        run: |
+          set -eu
+          dir="$RUNNER_TEMP/aego-cache-probe-ce586c48237f0282cf71"
+          test -n "$RUNNER_TEMP" && test ! -e "$dir" && test ! -L "$dir"
+      - name: Restore synthetic cache
+        id: restored
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/aego-cache-probe-ce586c48237f0282cf71
+          key: aego-probe-ce586c48237f0282cf71
+          fail-on-cache-miss: true
+      - name: Verify restored content
+        env:
+          EXACT_HIT: ${{ steps.restored.outputs.cache-hit }}
+        run: |
+          set -eu
+          test "$EXACT_HIT" = true
+          file="$RUNNER_TEMP/aego-cache-probe-ce586c48237f0282cf71/value.txt"
+          test -f "$file" && test ! -L "$file"
+          test "$(cat "$file")" = 'aego-cache-synthetic-f2df9f37f3bce8282aef3d771631a4edb531565e735babd0'
+          printf '%s\n' 'Synthetic cache restored and verified; this is not full CI.'
+      - uses: actions/checkout@v4
+      - name: Verify prepared workspace
+        run: |
+          set -eu
+          export GOTELEMETRY=off PYTHONDONTWRITEBYTECODE=1
+          python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
+          python3 -B tools/ci/env/preflight.py --root "$PWD"
+          python3 -B tools/ci/prepared_web_deps.py --root "$PWD"
+          python3 -B tools/ci/staticcheck_runner.py v0.8.2 -- -version
+          make bootstrap
+          test ! -e "$RUNNER_TEMP/aego-cache-key-output"
+          touch "$RUNNER_TEMP/aego-cache-key-output"
+          GITHUB_OUTPUT="$RUNNER_TEMP/aego-cache-key-output" python3 -B tools/ci/go_cache_key.py
+          grep -Eq '^fingerprint=[0-9a-f]{64}$' "$RUNNER_TEMP/aego-cache-key-output"
+      - name: Headed browser environment
+        run: |
+          set -eu
+          timeout --kill-after=5s 180s xvfb-run -a -s '-screen 0 1440x1050x24' \
+            /opt/aego/python/bin/python -u -B /opt/aego/ci-env/browser_smoke.py
+      - name: Native GL readback
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOTELEMETRY=off
+          export SDL_VIDEODRIVER=offscreen SDL_VIDEO_DRIVER=offscreen SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
+          export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
+          go test -count=1 -json -tags aego_gltest -run '^TestReadPixelsOrientation$' ./tests/gl/ | tee "$RUNNER_TEMP/aego-native-gl.jsonl"
+          python3 -B - "$RUNNER_TEMP/aego-native-gl.jsonl" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding='utf-8') as stream:
+              events = [json.loads(line) for line in stream]
+          actions = [item['Action'] for item in events if item.get('Test') == 'TestReadPixelsOrientation']
+          if actions.count('run') != 1 or actions.count('pass') != 1 or any(x in actions for x in ('skip', 'fail')):
+              raise SystemExit('native GL test did not run and pass: ' + repr(actions))
+          print('Native GL test ran and passed without skips')
+          PY
+          test ! -e "$RUNNER_TEMP/aego-cache-save-output"
+          touch "$RUNNER_TEMP/aego-cache-save-output"
+          GITHUB_OUTPUT="$RUNNER_TEMP/aego-cache-save-output" GO_BUILD_CACHE_PATH="$(go env GOCACHE)" \
+            GO_MODULE_CACHE_PATH="$(go env GOMODCACHE)" python3 -B tools/ci/go_cache_save.py
+          grep -qx 'save=yes' "$RUNNER_TEMP/aego-cache-save-output"
+          test -z "$(git status --porcelain --untracked-files=all)"
