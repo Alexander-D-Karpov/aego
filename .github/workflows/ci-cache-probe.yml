@@ -2,40 +2,34 @@ name: isolated-cache-transport-probe
 
 on:
   push:
-    branches: [ci/cache-transport-ce586c48237f0282cf71]
+    branches: [ci/cache-restore-84d4886d3967beffa21e]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  save:
-    if: github.server_url != 'https://github.com' && github.event_name == 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Prepare unique synthetic content
-        run: |
-          set -eu
-          dir="$RUNNER_TEMP/aego-cache-probe-ce586c48237f0282cf71"
-          test -n "$RUNNER_TEMP" && test ! -e "$dir" && test ! -L "$dir"
-          mkdir -m 700 "$dir"
-          printf '%s\n' 'aego-cache-synthetic-f2df9f37f3bce8282aef3d771631a4edb531565e735babd0' > "$dir/value.txt"
-      - name: Save synthetic cache
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/aego-cache-probe-ce586c48237f0282cf71
-          key: aego-probe-ce586c48237f0282cf71
-
   restore:
-    needs: save
-    if: ${{ always() && github.server_url != 'https://github.com' && (github.event_name == 'workflow_dispatch' || needs.save.result == 'success') }}
+    if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     container:
       image: sha256:3fbc899075feac5abe75f2f473d5dcb5ab2e1768f55b90a2bc83dcd4c62338f3
       options: --memory=3g --memory-swap=3g --cpus=2 --shm-size=1g
+    defaults:
+      run:
+        shell: bash
+    env:
+      AEGO_CI_PREPARED: '1'
+      GOTELEMETRY: 'off'
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
+      - name: Install probe compression in disposable container
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends zstd=1.5.5+dfsg2-2build1.1
+          command -v zstdmt
       - name: Require a fresh restore directory
         run: |
           set -eu

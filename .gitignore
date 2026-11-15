@@ -17,6 +17,8 @@ tools/genicons/genicons
 
 /tests/golden/testdata/actual-*
 tools/websmoke/node_modules/
+# Prepared CI uses a link to the same generated dependency directory.
+tools/websmoke/node_modules
 /tools/websmoke/__pycache__/
 tools/websmoke/golden/actual-*.png
 
