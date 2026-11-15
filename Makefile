@@ -10,6 +10,7 @@ DOCS_REPO ?= https://git.akarpov.ru/sanspie/aego
 DOCS_BUILD_ARGS ?=
 FUZZTIME ?= 15s
 STATICCHECK_VERSION ?= v0.8.2
+STATICCHECK = python3 -B tools/ci/staticcheck_runner.py $(STATICCHECK_VERSION) --
 # Benchmarks run pinned to one CPU.
 BENCH_COUNT ?= 10
 BENCH_CPU ?= 2
@@ -19,7 +20,7 @@ EDITOR_ICON ?= app/brand/png
 EXPORT_SMOKE = $(CURDIR)/.cache/export-smoke
 EXPORT_HOME = $(CURDIR)/.cache/export-home
 CHROMIUM ?= $(shell command -v chromium || command -v chromium-browser || command -v google-chrome)
-WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROMIUM) node smoke.mjs --site=$(CURDIR)/site
+WEB_SMOKE = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node smoke.mjs --site=$(CURDIR)/site
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
@@ -58,10 +59,16 @@ include tools/artstudio/release/release.mk
 COMPONENT_TRY_SITE ?= $(CURDIR)/site
 COMPONENT_TRY_REPORT ?= $(CURDIR)/.cache/component-try.json
 COMPONENT_TRY_EVIDENCE ?= $(CURDIR)/.cache/component-try-evidence
-.PHONY: component-try
-component-try: site
-	cd tools/websmoke && npm ci --no-audit --no-fund
-	CHROMIUM=$(CHROMIUM) AEGO_TRY_SITE=$(COMPONENT_TRY_SITE) AEGO_DEMOCHECK_REPORT=$(COMPONENT_TRY_REPORT) AEGO_DEMOCHECK_EVIDENCE=$(COMPONENT_TRY_EVIDENCE) $(GL_ENV) bash tools/stage125-check.sh component-try
+.PHONY: component-try web-deps
+web-deps:
+	@case "$${AEGO_CI_PREPARED:-0}" in \
+	  0) cd tools/websmoke && npm ci --no-audit --no-fund ;; \
+	  1) python3 -B tools/ci/prepared_web_deps.py --root "$(CURDIR)" ;; \
+	  *) echo "Invalid AEGO_CI_PREPARED value" >&2; exit 2 ;; \
+	esac
+
+component-try: site web-deps
+	CHROMIUM=$(CHROMIUM) AEGO_TRY_SITE=$(COMPONENT_TRY_SITE) AEGO_DEMOCHECK_REPORT=$(COMPONENT_TRY_REPORT) AEGO_DEMOCHECK_EVIDENCE=$(COMPONENT_TRY_EVIDENCE) $(GL_ENV) bash tools/acceptance-check.sh component-try
 
 # Real Linux GIO dispatch, in a temporary HOME/XDG profile, without confirming
 # or installing a remote project. The native UI confirmation is a separate gate.
@@ -111,7 +118,7 @@ test-race-packages: bootstrap
 	printf '%s\n' "$$packages" | grep -qx 'aego/tests/integration'; \
 	others="$$(printf '%s\n' "$$packages" | grep -vx 'aego/tests/integration')"; \
 	[ -n "$$others" ]; \
-	go test -race -timeout 30m $$others
+	go test -race -count=1 -timeout 30m $$others
 
 test-race-integration: bootstrap
 	python3 -B -m unittest discover -s tools/ci -p test_integration_race.py
@@ -119,11 +126,11 @@ test-race-integration: bootstrap
 
 test-editor: bootstrap
 	go build -tags aego_editor ./...
-	go test -tags aego_editor ./editor/... ./app/... ./sdk/... ./modules/...
+	go test -count=1 -tags aego_editor ./editor/... ./app/... ./sdk/... ./modules/...
 
 test-runtime: bootstrap
 	go build -tags aego_runtime $(RUNTIME_PKGS)
-	go test -tags aego_runtime $(RUNTIME_PKGS)
+	go test -count=1 -tags aego_runtime $(RUNTIME_PKGS)
 
 # Engine on gpu/null under Node, plus the js packages compile (D289).
 test-wasm:
@@ -133,8 +140,8 @@ test-wasm:
 	GOOS=js GOARCH=wasm go build -tags aego_editor -o /dev/null ./cmd/aego-try
 	@if GOOS=js GOARCH=wasm go list -tags aego_editor -deps ./cmd/aego-try | grep -E '^aego/(platform/sdl|gpu/gl33|editor/shell|editor/panels/|asset/importers/script)' | grep -vE '^aego/editor/panels/(inspector|gameview)$$'; then echo "the docs runtime pulls a native, shell or extra panel package"; exit 1; fi
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
-	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
-	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -run "^TestWebAudio" ./platform/web
+	GOOS=js GOARCH=wasm go test -count=1 -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
+	GOOS=js GOARCH=wasm go test -count=1 -exec=$(WASM_EXEC) -run "^TestWebAudio" ./platform/web
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^(TestInputFence|TestFencedWeb)' ./platform/web
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^TestDiscardTextEdit' ./ui/core
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^TestValidateVolatileStates' ./editor/core/code
@@ -142,11 +149,11 @@ test-wasm:
 	GOOS=js GOARCH=wasm go test -tags aego_nonative -exec=$(WASM_EXEC) -count=1 -run '^TestSourceAnalysisUnavailableLocalized$$' ./modules/audio/editor
 
 test-nonative:
-	go test -tags aego_nonative $(NONATIVE_PKGS)
+	go test -count=1 -tags aego_nonative $(NONATIVE_PKGS)
 
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
-	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
+	$(GL_ENV) go test -count=1 -tags aego_gltest ./tests/gl/
 	$(GL_ENV) go test -tags aego_gltest -count=1 ./ui/richtext ./editor/panels/agent
 	$(GL_ENV) go test -tags aego_gltest ./modules/render2d/editor -run '^TestArtAlphaPickerRenderedPixels$$' -count=1 -v
 	$(GL_ENV) go test -tags aego_gltest ./modules/audio/editor -run '^Test(StereoWaveRenderedPixels|AudioTransportRenderedLayout|AudioDocumentWaveLayout)$$' -count=1 -v
@@ -159,8 +166,8 @@ vet: bootstrap
 	go vet ./platform/sdl
 
 lint: bootstrap
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) $(LINT_PKGS)
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) -tags aego_editor ./editor/... ./app/... ./tests/...
+	$(STATICCHECK) $(LINT_PKGS)
+	$(STATICCHECK) -tags aego_editor ./editor/... ./app/... ./tests/...
 
 # All graph variants, the semantic pass and the negative rule tests.
 depcheck:
@@ -203,7 +210,7 @@ genicons:
 	cd tools/genicons && go mod tidy && go run . -init -src "$$(cd ../.. && go run ./tools/iconsrc)"
 
 golden: bootstrap
-	$(GL_ENV) go test -tags aego_golden ./tests/golden/...
+	$(GL_ENV) go test -count=1 -tags aego_golden ./tests/golden/...
 
 golden-update: bootstrap
 	$(GL_ENV) go test -tags aego_golden ./tests/golden/... -update
@@ -281,7 +288,14 @@ bench-profile:
 	$(BENCH_PIN) $(BENCH_DIR)/head-bin/runtime.test -test.run '^$$' -test.bench 'Update2k$$' -test.benchtime 20000x -test.cpuprofile $(BENCH_DIR)/head.prof
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
-site: cli
+# Every site consumer shares the same generation and its playground graph guard.
+.PHONY: playground-graph-check
+playground-graph-check:
+	@deps=$$(GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground) || exit $$?; \
+	printf '%s\n' "$$deps" | grep -Fxq 'aego/cmd/aego-playground' || { echo "playground dependency graph is incomplete"; exit 1; }; \
+	if printf '%s\n' "$$deps" | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
+
+site: playground-graph-check cli
 	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo $(DOCS_BUILD_ARGS)
 	$(WEB_DEMO_EXPORT) .cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
@@ -289,9 +303,7 @@ site: cli
 	$(WEB_DEMO_BUDGET)
 	@$(TRY_SIZE_CHECK)
 
-playground:
-	@if GOOS=js GOARCH=wasm go list -deps ./cmd/aego-playground | grep -E '^aego/(platform/sdl|gpu/gl33|asset/pipeline|asset/importers)'; then echo "playground graph pulls a native or pipeline package"; exit 1; fi
-	$(MAKE) site
+playground: site
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
@@ -319,7 +331,7 @@ try-size:
 	go run ./tools/wasmsize -top 40 .cache/aego-try.wasm
 	go run ./tools/wasmsize -top 15 -depth 2 -prev .cache/aego-try.size.json .cache/aego-try.wasm
 
-web-smoke: site
+web-smoke: site web-deps
 	sh tools/webbudget.sh site
 	$(WEB_SMOKE) --report=$(CURDIR)/.cache/web-sprites.json
 	$(WEB_DEMO)
@@ -332,7 +344,7 @@ web-smoke: site
 # baseline.  A single CI sample checks counts/allocations; use five to compare
 # timing as well, just like web-bench.  It never changes the user's project.
 .PHONY: web-bench-stage12 web-stage12-fixture-test web-bench-platformer web-platformer-fixture-test
-web-bench-stage12: cli
+web-bench-stage12: cli web-deps
 	python3 tools/websmoke/stage12_bench.py --runs=$(WEB_STAGE12_BENCH_RUNS)
 
 web-stage12-fixture-test:
@@ -340,22 +352,20 @@ web-stage12-fixture-test:
 
 # Keep the tracked platformer on its original baseline independently of the
 # website's intentionally modified floor; never copy untracked user assets.
-web-bench-platformer: cli
+web-bench-platformer: cli web-deps
 	python3 -B tools/websmoke/platformer_bench.py --runs=$(WEB_PLATFORMER_BENCH_RUNS)
 
 web-platformer-fixture-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p platformer_bench_test.py
 	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p benchmark_workloads_test.py
 
-web-bench: site
-	cd tools/websmoke && npm ci --no-audit --no-fund
+web-bench: site web-deps
 	$(WEB_BENCH) --browsers=$(WEB_BENCH_BROWSERS) --gate $(WEB_BENCH_ARGS)
 
-web-bench-baseline: site
-	cd tools/websmoke && npm ci --no-audit --no-fund
+web-bench-baseline: site web-deps
 	$(WEB_BENCH) --browsers=$(WEB_BENCH_BROWSERS) --update-baseline $(WEB_BENCH_ARGS)
 
-web-smoke-update: site
+web-smoke-update: site web-deps
 	$(WEB_SMOKE) --update
 	$(WEB_DEMO) --update
 	$(WEB_TRY) --update
@@ -395,11 +405,12 @@ fuzz:
 	go test -run '^$$' -fuzz '^FuzzVorbis$$' -fuzztime $(FUZZTIME) ./audio/codec
 
 
+affected quick: export AEGO_AFFECTED_BASE := $(if $(BASE),$(BASE),origin/master)
 affected:
-	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -z "$$pkgs" ]; then echo "nothing affected"; else go vet $$pkgs && go test $$pkgs; fi
+	@pkgs=$$(sh tools/affected.sh "$$AEGO_AFFECTED_BASE") || exit $$?; if [ -z "$$pkgs" ]; then echo "nothing affected"; else go vet $$pkgs && go test -count=1 $$pkgs; fi
 
 quick:
-	@pkgs=$$(sh tools/affected.sh $(BASE)); if [ -n "$$pkgs" ]; then go build -o $(CURDIR)/.cache/bin/affected/ $$pkgs && go test -short $$pkgs; fi
+	@pkgs=$$(sh tools/affected.sh "$$AEGO_AFFECTED_BASE") || exit $$?; if [ -n "$$pkgs" ]; then go build -o $(CURDIR)/.cache/bin/affected/ $$pkgs && go test -count=1 -short $$pkgs; fi
 
 check-camera:
 	go test ./modules/camera/... ./tests/camera/...
@@ -472,9 +483,69 @@ ci: studio-web-test
 ci: web-platformer-fixture-test web-bench-platformer
 	@sh tools/ci-clean-root.sh
 
+.PHONY: ci-infrastructure-test
+ci-infrastructure-test:
+	bash -n tools/acceptance-check.sh
+	bash -n tools/ci/artstudio_snapshot_e2e.sh
+	sh -n tools/affected.sh
+	python3 -B -m unittest discover -s tools/ci -p test_affected_packages.py
+	python3 -B -m unittest discover -s tools/ci -p test_change_plan.py
+	python3 -B -m unittest discover -s tools/ci -p test_acceptance_ci_wrapper.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_env_preflight.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_prepared_workflow.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_workspace.py
+	python3 -B -m unittest discover -s tools/ci -p test_prepared_web_deps.py
+	python3 -B -m unittest discover -s tools/ci -p test_staticcheck_runner.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_shortcuts.py
+	python3 -B -m unittest discover -s tools/ci -p test_go_test_freshness.py
+	python3 -B -m unittest discover -s tools/ci -p test_go_cache_key.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_cache_workflow.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_regression_stream.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_native_stream.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_snapshot_handoff.py
+
+ci: ci-infrastructure-test
+
+# Fast feedback is deliberately not a substitute for the complete CI gate.
+.PHONY: ci-fast ci-suite ci-full ci-plan
+ci-plan: export AEGO_CI_PLAN_BASE := $(if $(BASE),$(BASE),origin/master)
+ci-plan:
+	@python3 -B tools/ci/change_plan.py --base="$$AEGO_CI_PLAN_BASE"
+
+ci-fast: ci-infrastructure-test web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-try-input-test
+	@echo 'Fast checks passed; full Go, browser, native and release gates have not been run.'
+
+SUITE ?=
+ci-suite: export AEGO_CI_SUITE := $(SUITE)
+ci-suite:
+	@case "$$AEGO_CI_SUITE" in \
+	  infra) target=ci-infrastructure-test ;; \
+	  integration-race) target=test-race-integration ;; \
+	  studio-core) target=studio-web-test ;; \
+	  component-try) target=component-try ;; \
+	  editor) target=test-editor ;; \
+	  nonative) target=test-nonative ;; \
+	  gl) target=test-gl ;; \
+	  web) target=web-smoke ;; \
+	  web-materials) target=web-materials ;; \
+	  web-gpu) target=web-gpu-smoke ;; \
+	  web-lighting) target=web-lighting ;; \
+	  web-particles) target=web-particle-goldens ;; \
+	  stage12-release) target=stage12-release-check ;; \
+	  remote-examples) target=remote-examples-check ;; \
+	  lint) target=lint ;; \
+	  depcheck) target=depcheck ;; \
+	  *) echo "Unknown SUITE: $$AEGO_CI_SUITE" >&2; exit 2 ;; \
+	esac; \
+	printf 'Running focused suite %s; this is not full CI.\n' "$$AEGO_CI_SUITE"; \
+	exec make "$$target"
+
+ci-full: ci
+
 .PHONY: site-demo-prepare-test
 site-demo-prepare-test:
 	python3 -B -m unittest discover -s tools/ci -p test_site_demo_prepare.py
+	python3 -B -m unittest discover -s tools/ci -p test_site_build_graph.py
 	python3 -B -m unittest discover -s tools/ci -p test_ci_clean_root_order.py
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
@@ -549,13 +620,12 @@ clean:
 # Missing WebGL2 or WEBGL_lose_context is a failed/unavailable check, never a skip.
 WEB_MATERIAL_BROWSERS ?= chromium,firefox
 .PHONY: web-materials
-web-materials:
+web-materials: web-deps
 	go run ./tools/genwebmaterials/main.go
 	mkdir -p .cache/web-materials
 	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-materials/materials.wasm ./tests/webmaterials
 	cp tests/webmaterials/index.html .cache/web-materials/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-materials/wasm_exec.js
-	cd tools/websmoke && npm ci --no-audit --no-fund
 	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
 
 ci: web-materials
@@ -569,12 +639,11 @@ gpu-smoke: bootstrap
 image-gpu-smoke: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./modules/render2d/editor -run '^TestImagePreviewLitPixelsAndLifetime$$' -count=1 -v
 
-web-gpu-smoke:
+web-gpu-smoke: web-deps
 	mkdir -p .cache/web-gpu
 	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-gpu/gpu.wasm ./tests/webgpu
 	cp tests/webgpu/index.html .cache/web-gpu/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-gpu/wasm_exec.js
-	cd tools/websmoke && npm ci --no-audit --no-fund
 	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
 
 ci: gpu-smoke web-gpu-smoke image-gpu-smoke
@@ -587,13 +656,12 @@ lighting-smoke: bootstrap
 	go run ./tools/genweblighting/main.go
 	$(GL_ENV) AEGO_LIGHTING_REPORT_DIR=$(CURDIR)/.cache/lighting/native go test -tags aego_gltest ./tests/gl -run '^TestLightingGPUContractImages$$' -count=1 -v
 
-web-lighting:
+web-lighting: web-deps
 	go run ./tools/genweblighting/main.go
 	mkdir -p .cache/web-lighting
 	GOOS=js GOARCH=wasm go build -trimpath -o .cache/web-lighting/lighting.wasm ./tests/weblighting
 	cp tests/weblighting/index.html .cache/web-lighting/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-lighting/wasm_exec.js
-	cd tools/websmoke && npm ci --no-audit --no-fund
 	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
 
 ci: lighting-smoke web-lighting
@@ -607,10 +675,9 @@ ci site-check: try-artifacts-check
 
 WEB_PARTICLE_BROWSERS ?= chromium,firefox
 .PHONY: web-particle-goldens
-web-particle-goldens: cli
+web-particle-goldens: cli web-deps
 	go run ./tools/genparticlefixtures -out .cache/particle-goldens/project
 	.cache/bin/aego export .cache/particle-goldens/project --target web --release --out .cache/particle-goldens/web
-	cd tools/websmoke && npm ci --no-audit --no-fund
 	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
 
 ci: web-particle-goldens
@@ -626,10 +693,9 @@ particle-smoke-profile: bootstrap
 STAGE12_RELEASE_DIR = $(CURDIR)/.cache/stage12/releases
 STAGE12_WEB_BROWSERS ?= chromium,firefox
 .PHONY: stage12-release-check
-stage12-release-check: cli
+stage12-release-check: cli web-deps
 	.cache/bin/aego export examples/platformer --target web --release --out "$(STAGE12_RELEASE_DIR)/platformer"
 	.cache/bin/aego export examples/topdown --target web --release --out "$(STAGE12_RELEASE_DIR)/topdown"
-	cd tools/websmoke && npm ci --no-audit --no-fund
 	@cd tools/websmoke; failed=0; checks="$(STAGE12_RELEASE_DIR)/checks"; mkdir -p "$$checks"; \
 	for scenario in lighting finish restore topdown bloom; do \
 		project=platformer; if [ "$$scenario" = topdown ]; then project=topdown; fi; \

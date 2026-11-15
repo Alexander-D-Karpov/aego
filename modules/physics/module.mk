@@ -24,7 +24,7 @@ bench-allocs-physics:
 	$(BENCH_GATE) -time=false -base $(BENCH_BASE_DIR)/physics.base.txt -head $(BENCH_DIR)/physics.allocs.txt
 
 demo-physics: bootstrap
-	go test -run TestSceneRunsHeadless ./demos/physics2d
+	go test -count=1 -run TestSceneRunsHeadless ./demos/physics2d
 	go run ./cmd/sandbox --demo physics2d-headless --frames 600
 
 example-sandbox: cli

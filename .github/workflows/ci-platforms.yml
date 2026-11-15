@@ -67,23 +67,23 @@ jobs:
       - name: build
         run: go build ./...
       - name: test
-        run: go test ./...
+        run: go test -count=1 ./...
       - name: test without native backends
-        run: go test -tags aego_nonative $(go list ./... | grep -v -e '/platform/sdl$' -e '/gpu/gl33$' -e '/gpu/gl33/gl$')
+        run: go test -count=1 -tags aego_nonative $(go list ./... | grep -v -e '/platform/sdl$' -e '/gpu/gl33$' -e '/gpu/gl33/gl$')
       - name: gl tests (offscreen, llvmpipe)
         if: runner.os == 'Linux'
         env:
           SDL_VIDEODRIVER: offscreen
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
-        run: go test -tags aego_gltest ./tests/gl/
+        run: go test -count=1 -tags aego_gltest ./tests/gl/
       - name: golden
         if: runner.os == 'Linux'
         env:
           SDL_VIDEODRIVER: offscreen
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
-        run: go test -tags aego_golden ./tests/golden/...
+        run: go test -count=1 -tags aego_golden ./tests/golden/...
       - name: headless smoke
         run: go run ./cmd/sandbox --demo headless --frames 600 --strict-allocs
       - name: build the cli

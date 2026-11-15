@@ -43,12 +43,14 @@ class RegressionStreamTest(unittest.TestCase):
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         self.marker = self.root / 'verified'
+        self.deps_marker = self.root / 'prepared-deps'
+        self.npm_marker = self.root / 'npm-called'
         self.make_call = self.root / 'make-call'
         self.firefox = self.root / 'browsers with spaces' / 'firefox'
         self.firefox.parent.mkdir()
         self.firefox.write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
         self.firefox.chmod(0o755)
-        self._stub('npm', '#!/bin/sh\nexit 0\n')
+        self._stub('npm', '#!/bin/sh\nprintf called >"$MOCK_NPM_MARKER"\nexit 0\n')
         self._stub('node', '''#!/bin/sh
 case "$*" in
   *chromium.executablePath*) printf '%s\\n' /fake/chromium ;;
@@ -68,7 +70,12 @@ if [ -n "${MOCK_RELEASE_FILE:-}" ]; then
 fi
 exit "${MOCK_MAKE_EXIT:-0}"
 ''')
-        self._stub('python3', '#!/bin/sh\nprintf verified >"$MOCK_VERIFY_MARKER"\n')
+        self._stub('python3', '''#!/bin/sh
+case "$*" in
+  *prepared_web_deps.py*) printf checked >"$MOCK_PREPARED_MARKER"; exit "${MOCK_PREPARED_EXIT:-0}" ;;
+  *) printf verified >"$MOCK_VERIFY_MARKER" ;;
+esac
+''')
         tee = shutil.which('tee')
         if not tee:
             self.fail('tee is required for the CI logging test')
@@ -82,8 +89,10 @@ exec "{tee}" "$@"
         self.env = os.environ.copy()
         self.env.update(PATH=str(self.bin) + os.pathsep + self.env['PATH'],
                         RUNNER_TEMP=str(self.runner), MOCK_VERIFY_MARKER=str(self.marker),
-                        MOCK_MAKE_CALL=str(self.make_call), MOCK_FIREFOX_EXECUTABLE=str(self.firefox))
-        for name in ('FIREFOX', 'MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE'):
+                        MOCK_MAKE_CALL=str(self.make_call), MOCK_FIREFOX_EXECUTABLE=str(self.firefox),
+                        MOCK_PREPARED_MARKER=str(self.deps_marker), MOCK_NPM_MARKER=str(self.npm_marker))
+        for name in ('FIREFOX', 'MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE',
+                     'AEGO_CI_PREPARED', 'MOCK_PREPARED_EXIT'):
             self.env.pop(name, None)
 
     def _stub(self, name, content):
@@ -110,11 +119,32 @@ exec "{tee}" "$@"
         self.assertEqual(self._log(), 'make stdout\nmake stderr\n')
         self.assertIn(self._log(), result.stdout)
         self.assertTrue(self.marker.is_file())
+        self.assertTrue(self.npm_marker.is_file())
+        self.assertFalse(self.deps_marker.exists())
         self.assertEqual(self.make_call.read_text().splitlines(), [
             'ci XVFB= CHROMIUM=/fake/chromium',
             str(self.runner / 'aego-artstudio-python/bin/python'),
             str(self.firefox),
         ])
+
+    def test_prepared_dependencies_are_verified_without_npm_install(self):
+        self.env['AEGO_CI_PREPARED'] = '1'
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertTrue(self.deps_marker.is_file())
+        self.assertFalse(self.npm_marker.exists())
+        self.assertTrue(self.make_call.is_file())
+        self.assertTrue(self.marker.is_file())
+
+    def test_invalid_or_unverified_prepared_dependencies_stop_regression(self):
+        for mode, exit_code in (('1', '17'), ('unexpected', '0')):
+            with self.subTest(mode=mode):
+                self.env.update(AEGO_CI_PREPARED=mode, MOCK_PREPARED_EXIT=exit_code)
+                result = self._run()
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertFalse(self.make_call.exists())
+                self.assertFalse(self.npm_marker.exists())
+                self.assertFalse(self.marker.exists())
 
     def test_invalid_firefox_never_runs_make(self):
         for executable in ('', str(self.root / 'missing'), str(self.root / 'not-executable'), str(self.root)):

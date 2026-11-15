@@ -57,7 +57,7 @@ class NativeStudioEvidenceTests(unittest.TestCase):
         return source, witness
 
     def summarize(self):
-        shell = (ROOT / 'tools/stage125-check.sh').read_text()
+        shell = (ROOT / 'tools/acceptance-check.sh').read_text()
         marker = '  python3 -B - "$evidence" <<\'PY\'\n'
         self.assertEqual(shell.count(marker), 1)
         script = shell.split(marker, 1)[1].split('\nPY\n', 1)[0]

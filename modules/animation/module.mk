@@ -4,7 +4,7 @@ MODULE_BENCH_ALLOCS += bench-allocs-animation
 .PHONY: test-animation bench-animation bench-allocs-animation
 
 test-animation:
-	go test ./anim/... ./asset/importers/animclip/... ./asset/importers/animctrl/... ./modules/animation/... ./tests/animation/...
+	go test -count=1 ./anim/... ./asset/importers/animclip/... ./asset/importers/animctrl/... ./modules/animation/... ./tests/animation/...
 
 bench-animation:
 	$(BENCH_PIN) go test -run '^$$' -bench . -benchmem -count=$(BENCH_COUNT) ./anim ./tests/animation

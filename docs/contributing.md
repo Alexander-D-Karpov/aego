@@ -14,11 +14,13 @@ make cli
 
 | Level | When | Command |
 |---|---|---|
-| 1 | after an edit | `make quick`: build and short tests of the packages your change touches and everything that imports them |
+| 1 | after a Go edit | `make quick`: build and short tests selected from the current host's Go dependency graph |
 | 2 | before a commit | `make affected`, plus `make check-camera`, `check-audio`, `check-gameplay`, `check-mutate`, `check-editor`, `check-web` or `check-docs` for the areas you touched, and `make golden` after UI changes |
 | 3 | before a push or a tag | `make ci` |
 
-`tools/affected.sh [base]` lists the affected packages (default base `origin/master`, uncommitted files included). The CI server always runs the full `make ci`.
+`tools/affected.sh [base]` lists host Go packages (default base `origin/master`, uncommitted files included). It rejects non-Go changes, nested modules, deleted packages, shallow checkouts and incomplete dependency graphs instead of silently reporting success. It does not cover other platforms, build tags, browsers or asset-specific gates; run the relevant checks and the full `make ci` in a protected snapshot. The CI server always runs the full `make ci`.
+
+`make ci-fast` runs infrastructure and web-policy unit tests only. For one focused set, use `make ci-suite SUITE=integration-race`, `studio-core`, `component-try`, `gl`, `web`, `web-gpu`, `web-materials`, `web-lighting`, `web-particles`, `stage12-release`, `remote-examples`, `editor`, `nonative`, `lint`, `depcheck` or `infra`. Some suites generate files and must run in a protected snapshot. Neither shortcut is full acceptance; `make ci-full` is an alias for `make ci`.
 
 ## Rules for engine code
 

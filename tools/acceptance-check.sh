@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Explicitly separated checks: focused package tests are not Stage 12.5 acceptance.
+# Explicitly separated checks: focused package tests are not full acceptance.
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"

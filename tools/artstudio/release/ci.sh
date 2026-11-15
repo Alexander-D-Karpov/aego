@@ -15,8 +15,8 @@ export PYTHONDONTWRITEBYTECODE=1
 python="${ARTSTUDIO_PYTHON:-python3}"
 : "${AEGO_NATIVE_SCENARIO_EVIDENCE:=$ARTSTUDIO_EVIDENCE/native-sdl}"
 export AEGO_NATIVE_SCENARIO_EVIDENCE
-native_runner=(bash "$root/tools/stage125-check.sh" artstudio-native)
-docs_runner=(bash "$root/tools/stage125-check.sh" artstudio-docs)
+native_runner=(bash "$root/tools/acceptance-check.sh" artstudio-native)
+docs_runner=(bash "$root/tools/acceptance-check.sh" artstudio-docs)
 if [[ -n "${AEGO_NATIVE_SCENARIO_RUNNER:-}" ]]; then native_runner=("$AEGO_NATIVE_SCENARIO_RUNNER"); fi
 if [[ -n "${AEGO_DOCS_INTEGRATION_RUNNER:-}" ]]; then docs_runner=("$AEGO_DOCS_INTEGRATION_RUNNER"); fi
 # The built-in runner compares the pinned WASM against native Go after every
@@ -58,7 +58,7 @@ run_gate() {
   [[ "$status" == 0 ]]
 }
 run_gate core bash -c 'go test -race -count=1 ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release && go vet ./art ./tools/artstudio/host ./tools/artstudio/gpupreview ./tools/artstudio/release && node --test tools/artstudio/release/tests/*.test.cjs && "$1" -B -m unittest discover -s tools/artstudio/release/tests -p test_browser_context.py && "$1" -B -m unittest discover -s tools/artstudio/release/tests -p test_release_ci.py' _ "$python"
-run_gate native-build bash tools/stage125-check.sh native
+run_gate native-build bash tools/acceptance-check.sh native
 run_gate native-user-scenario "${native_runner[@]}"
 interop_executables=()
 if [[ -n "${ARTSTUDIO_CHROMIUM_EXECUTABLE:-}" ]]; then interop_executables+=(--chromium-executable "$ARTSTUDIO_CHROMIUM_EXECUTABLE"); fi
@@ -98,7 +98,7 @@ for browser in chromium firefox; do
     --wasm "$wasm" --engine "$browser" "${file_args[@]}"
   run_gate "$browser-pending-fields" "$python" -B tools/artstudio/tests/pending_fields_browser.py \
     --wasm "$wasm" --engine "$browser" "${file_args[@]}"
-  run_gate "$browser-gpu" env ARTSTUDIO_GPU_BROWSER="$browser" bash tools/stage125-check.sh artstudio-gpu \
+  run_gate "$browser-gpu" env ARTSTUDIO_GPU_BROWSER="$browser" bash tools/acceptance-check.sh artstudio-gpu \
     --artifact "$ARTSTUDIO_ARTIFACT" --app-url "$ARTSTUDIO_APP_URL" \
     --evidence "$ARTSTUDIO_EVIDENCE/$browser-gpu-browser" "${executable[@]}"
 done

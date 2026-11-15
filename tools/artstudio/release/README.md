@@ -83,9 +83,9 @@ server's policy does not establish the policy of a production deployment.
 `make studio-web-test` runs the scoped tests. `make studio-web-ci` calls the
 strict release gate and requires its real native, browser, documentation,
 parity, full component Try and regression runners; missing runners are errors.
-The supplied defaults are `tools/stage125-check.sh artstudio-native` (synthetic
+The supplied defaults are `tools/acceptance-check.sh artstudio-native` (synthetic
 SDL input through the real editor and GL/game scenarios) and
-`tools/stage125-check.sh artstudio-docs` (the ordinary registry/site builder
+`tools/acceptance-check.sh artstudio-docs` (the ordinary registry/site builder
 with the pinned artifact). The latter creates a new
 `$ARTSTUDIO_EVIDENCE/docs-site`, or the explicit `ARTSTUDIO_DOCS_SITE`; arrange
 for the CI docs host at `ARTSTUDIO_DOCS_URL` to serve that directory. Production

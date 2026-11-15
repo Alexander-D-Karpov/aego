@@ -27,23 +27,27 @@ jobs:
     if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
     timeout-minutes: 165
+    container:
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
+      options: --shm-size=1g
+    defaults:
+      run:
+        shell: bash
+    env:
+      AEGO_CI_PREPARED: "1"
+      ARTSTUDIO_PYTHON: /opt/aego/python/bin/python
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      GOTOOLCHAIN: local
     outputs:
       manifest_sha256: ${{ steps.snapshot_pin.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - name: system packages
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
-      - uses: actions/cache@v4
-        continue-on-error: true
-        with:
-          path: .cache/native
-          key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
+      - name: Verify prepared CI environment
+        run: |
+          set -euo pipefail
+          python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
+          python3 -B tools/ci/env/preflight.py --root "$PWD"
+          bash tools/check-glslang.sh
       - run: bash tools/bootstrap-native.sh
       - name: Test worktree evidence inventory
         run: |
@@ -53,23 +57,32 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_artstudio_native_evidence.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_protocol_install.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_ci_regression_stream.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_ci_native_stream.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_ci_snapshot_handoff.py
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_native_artifacts_guard.py
-      - name: Install isolated Asset Studio browser test environment
-        run: |
-          sudo apt-get install -y python3-venv xvfb xauth xdotool
-          python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
-          "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
-          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
-            "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
+      - name: Identify Go build cache
+        id: go_cache_key
+        continue-on-error: true
+        run: python3 -B tools/ci/go_cache_key.py
+      - name: Restore Go build cache
+        id: go_cache
+        if: ${{ steps.go_cache_key.outputs.fingerprint != '' }}
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
+          restore-keys: |
+            aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-
       - name: Asset Studio snapshot and real browser integration
         id: artstudio_snapshot
         env:
           ARTSTUDIO_SNAPSHOT_CORE: defer-to-make-ci
         run: |
-          export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
+          export ARTSTUDIO_PYTHON="${ARTSTUDIO_PYTHON:-$RUNNER_TEMP/aego-artstudio-python/bin/python}"
           export ARTSTUDIO_SNAPSHOT_DIR="$RUNNER_TEMP/aego-artstudio-evidence"
-          export PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers"
           bash tools/ci/artstudio_snapshot_e2e.sh
       - name: Pin the tested Studio snapshot
         id: snapshot_pin
@@ -116,11 +129,14 @@ jobs:
           go run ./tools/artstudio/release check-source -root "$PWD" -dir "$dir/artifact"
       - name: Full Aego regression and component Try
         env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
           AEGO_TRY_FIREFOX_HEADED: "1"
         run: |
           set -euo pipefail
-          (cd tools/websmoke && npm ci --no-audit --no-fund)
+          case "${AEGO_CI_PREPARED:-0}" in
+            0) (cd tools/websmoke && npm ci --no-audit --no-fund) ;;
+            1) python3 -B tools/ci/prepared_web_deps.py --root "$PWD" ;;
+            *) echo 'Invalid AEGO_CI_PREPARED value' >&2; exit 2 ;;
+          esac
           chromium="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").chromium.executablePath())')"
           firefox="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").firefox.executablePath())')"
           [[ -f "$firefox" && -x "$firefox" ]] || { echo "Playwright Firefox executable is missing: $firefox" >&2; exit 1; }
@@ -129,7 +145,7 @@ jobs:
           export FIREFOX="$firefox"
           export ARTSTUDIO_ARTIFACT="$RUNNER_TEMP/aego-artstudio-evidence/artifact"
           export ARTSTUDIO_MANIFEST_SHA256="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
-          export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
+          export ARTSTUDIO_PYTHON="${ARTSTUDIO_PYTHON:-$RUNNER_TEMP/aego-artstudio-python/bin/python}"
           [[ "$(cat "$RUNNER_TEMP/aego-artstudio-evidence/core-deferred.txt")" == 'Deferred: required make ci must run studio-web-test.' ]]
           mkdir -p "$RUNNER_TEMP/aego-full-ci"
           set +e
@@ -163,34 +179,64 @@ jobs:
             .cache/component-try-evidence-negative/**
             .cache/integration-race/**
             site/try/aego-docs.wasm
+      - name: Check optional Go cache upload
+        id: go_cache_size
+        if: ${{ success() && steps.go_cache_key.outputs.fingerprint != '' && steps.go_cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        env:
+          GO_BUILD_CACHE_PATH: ${{ steps.go_cache_key.outputs.path }}
+          GO_MODULE_CACHE_PATH: ${{ steps.go_cache_key.outputs.modules }}
+        run: python3 -B tools/ci/go_cache_save.py
+      - name: Save Go build cache
+        if: ${{ success() && steps.go_cache_size.outputs.save == 'yes' }}
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
 
   native-authoring:
     needs: checks
     if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
+    container:
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
+      options: --shm-size=1g
+    defaults:
+      run:
+        shell: bash
+    env:
+      AEGO_CI_PREPARED: "1"
+      ARTSTUDIO_PYTHON: /opt/aego/python/bin/python
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - name: system packages
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
-      - uses: actions/cache@v4
+      - name: Verify prepared CI environment
+        run: |
+          set -euo pipefail
+          python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
+          python3 -B tools/ci/env/preflight.py --root "$PWD"
+          bash tools/check-glslang.sh
+      - run: bash tools/bootstrap-native.sh
+      - name: Identify Go build cache
+        id: go_cache_key
+        continue-on-error: true
+        run: python3 -B tools/ci/go_cache_key.py
+      - name: Restore Go build cache
+        id: go_cache
+        if: ${{ steps.go_cache_key.outputs.fingerprint != '' }}
+        uses: actions/cache/restore@v4
         continue-on-error: true
         with:
-          path: .cache/native
-          key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
-      - run: bash tools/bootstrap-native.sh
-      - name: Install isolated Asset Studio browser test environment
-        run: |
-          sudo apt-get install -y python3-venv xvfb xauth xdotool
-          python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
-          "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
-          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
-            "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
+          restore-keys: |
+            aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-
       - name: Download the tested Studio snapshot
         uses: https://github.com/ChristopherHX/gitea-download-artifact@75635f32b4c1c41c4b3d64e8f85210112ed4c9c7
         with:
@@ -209,26 +255,39 @@ jobs:
           go run ./tools/artstudio/release verify -dir "$dir/artifact" -sha256 "$EXPECTED_STUDIO_MANIFEST"
           go run ./tools/artstudio/release check-source -root "$PWD" -dir "$dir/artifact"
       - name: Native authoring and installed Linux protocol
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/aego-full-ci"
           run_gate() {
             local name="$1"; shift
+            local started finished start_seconds elapsed code
+            local -a statuses
+            [[ "$name" =~ ^[a-z0-9-]+$ && "$GITHUB_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+            started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            start_seconds=$SECONDS
+            printf '%s\n' RUNNING >"$RUNNER_TEMP/aego-full-ci/$name.exit"
+            printf '%s: started %s (log: %s)\n' "$name" "$started" "$RUNNER_TEMP/aego-full-ci/$name.log"
             set +e
-            "$@" >"$RUNNER_TEMP/aego-full-ci/$name.log" 2>&1
-            local code=$?
+            "$@" 2>&1 | tee "$RUNNER_TEMP/aego-full-ci/$name.log"
+            statuses=("${PIPESTATUS[@]}")
             set -e
+            code="${statuses[0]}"
+            if ((code == 0 && statuses[1] != 0)); then code="${statuses[1]}"; fi
+            finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            elapsed=$((SECONDS - start_seconds))
+            printf '%s\n' "${statuses[0]}" >"$RUNNER_TEMP/aego-full-ci/$name.command.exit"
+            printf '%s\n' "${statuses[1]}" >"$RUNNER_TEMP/aego-full-ci/$name.stream.exit"
             printf '%s\n' "$code" >"$RUNNER_TEMP/aego-full-ci/$name.exit"
-            tail -n 100 "$RUNNER_TEMP/aego-full-ci/$name.log"
+            printf '{"suite_id":"%s","source_sha":"%s","environment_digest":null,"started_at":"%s","finished_at":"%s","duration_seconds":%s,"exit_code":%s,"command_exit_code":%s,"stream_exit_code":%s,"cache_status":"unmeasured"}\n' \
+              "$name" "$GITHUB_SHA" "$started" "$finished" "$elapsed" "$code" "${statuses[0]}" "${statuses[1]}" >"$RUNNER_TEMP/aego-full-ci/$name.timing.json"
+            printf '%s: exit %s after %ss (%s)\n' "$name" "$code" "$elapsed" "$RUNNER_TEMP/aego-full-ci/$name.log"
             return "$code"
           }
           run_gate native-user-scenario env SDL_VIDEODRIVER=offscreen \
             AEGO_NATIVE_SCENARIO_EVIDENCE="$RUNNER_TEMP/aego-full-ci/native-sdl" \
-            bash tools/stage125-check.sh artstudio-native
+            bash tools/acceptance-check.sh artstudio-native
           run_gate file-interoperability env SDL_VIDEODRIVER=offscreen \
-            "$RUNNER_TEMP/aego-artstudio-python/bin/python" tools/artstudio/release/tests/file_interop_e2e.py \
+            "${ARTSTUDIO_PYTHON:-$RUNNER_TEMP/aego-artstudio-python/bin/python}" tools/artstudio/release/tests/file_interop_e2e.py \
             --artifact "$RUNNER_TEMP/aego-artstudio-evidence/artifact" \
             --native-evidence "$RUNNER_TEMP/aego-full-ci/native-sdl" \
             --evidence "$RUNNER_TEMP/aego-full-ci/file-interop" \
@@ -244,9 +303,26 @@ jobs:
           retention-days: 14
           path: ${{ runner.temp }}/aego-full-ci/**
       - name: packaging tools
-        run: sudo apt-get install -y nsis squashfs-tools
+        run: command -v makensis && command -v mksquashfs
       - name: installer dry run
         run: make nsis-check
+      - name: Check optional Go cache upload
+        id: go_cache_size
+        if: ${{ success() && steps.go_cache_key.outputs.fingerprint != '' && steps.go_cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        env:
+          GO_BUILD_CACHE_PATH: ${{ steps.go_cache_key.outputs.path }}
+          GO_MODULE_CACHE_PATH: ${{ steps.go_cache_key.outputs.modules }}
+        run: python3 -B tools/ci/go_cache_save.py
+      - name: Save Go build cache
+        if: ${{ success() && steps.go_cache_size.outputs.save == 'yes' }}
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
 
   build:
     # Run after the other jobs even on failure, without overlapping heavy work.
@@ -258,19 +334,26 @@ jobs:
         include:
           - { os: ubuntu-24.04, goos: linux, goarch: amd64 }
     runs-on: ${{ matrix.os }}
+    container:
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
+      options: --shm-size=1g
     defaults:
       run:
         shell: bash
     env:
       CGO_ENABLED: "1"
+      AEGO_CI_PREPARED: "1"
+      ARTSTUDIO_PYTHON: /opt/aego/python/bin/python
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: linux packages
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
+      - name: Verify prepared CI environment
+        run: |
+          set -euo pipefail
+          python3 -B tools/ci/prepare_ci_workspace.py --root "$PWD"
+          python3 -B tools/ci/env/preflight.py --root "$PWD"
+          bash tools/check-glslang.sh
       - name: msys2
         if: runner.os == 'Windows'
         id: msys2
@@ -285,33 +368,44 @@ jobs:
       - name: macos tools
         if: runner.os == 'macOS'
         run: brew list ninja >/dev/null 2>&1 || brew install ninja
-      - uses: actions/cache@v4
-        continue-on-error: true
-        with:
-          path: .cache/native
-          key: native-${{ matrix.goos }}_${{ matrix.goarch }}-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
       - name: bootstrap native
         run: bash tools/bootstrap-native.sh
+      - name: Identify Go build cache
+        id: go_cache_key
+        continue-on-error: true
+        run: python3 -B tools/ci/go_cache_key.py
+      - name: Restore Go build cache
+        id: go_cache
+        if: ${{ steps.go_cache_key.outputs.fingerprint != '' }}
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
+          restore-keys: |
+            aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-
       - name: build
         run: go build ./...
       - name: test
-        run: go test ./...
+        run: go test -count=1 ./...
       - name: test without native backends
-        run: go test -tags aego_nonative $(go list ./... | grep -v -e '/platform/sdl$' -e '/gpu/gl33$' -e '/gpu/gl33/gl$')
+        run: go test -count=1 -tags aego_nonative $(go list ./... | grep -v -e '/platform/sdl$' -e '/gpu/gl33$' -e '/gpu/gl33/gl$')
       - name: gl tests (offscreen, llvmpipe)
         if: runner.os == 'Linux'
         env:
           SDL_VIDEODRIVER: offscreen
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
-        run: go test -tags aego_gltest ./tests/gl/
+        run: go test -count=1 -tags aego_gltest ./tests/gl/
       - name: golden
         if: runner.os == 'Linux'
         env:
           SDL_VIDEODRIVER: offscreen
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
-        run: go test -tags aego_golden ./tests/golden/...
+        run: go test -count=1 -tags aego_golden ./tests/golden/...
       - name: headless smoke
         run: go run ./cmd/sandbox --demo headless --frames 600 --strict-allocs
       - name: build the cli
@@ -326,6 +420,23 @@ jobs:
         run: |
           /tmp/aego check examples/native-rotator
           /tmp/aego run examples/native-rotator --headless --frames 60
+      - name: Check optional Go cache upload
+        id: go_cache_size
+        if: ${{ success() && steps.go_cache_key.outputs.fingerprint != '' && steps.go_cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        env:
+          GO_BUILD_CACHE_PATH: ${{ steps.go_cache_key.outputs.path }}
+          GO_MODULE_CACHE_PATH: ${{ steps.go_cache_key.outputs.modules }}
+        run: python3 -B tools/ci/go_cache_save.py
+      - name: Save Go build cache
+        if: ${{ success() && steps.go_cache_size.outputs.save == 'yes' }}
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
 
   release:
     needs: [checks, native-authoring, build]

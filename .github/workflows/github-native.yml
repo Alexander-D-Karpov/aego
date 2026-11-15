@@ -121,6 +121,27 @@ jobs:
           test "$(go env CGO_ENABLED)" = 1
       - name: Build pinned SDL
         run: bash tools/bootstrap-native.sh 2>&1 | tee .cache/github-ci/logs/bootstrap.txt
+      - name: Identify Go build cache
+        id: go_cache_key
+        continue-on-error: true
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            py -3 -B tools/ci/go_cache_key.py
+          else
+            python3 -B tools/ci/go_cache_key.py
+          fi
+      - name: Restore Go build cache
+        id: go_cache
+        if: ${{ steps.go_cache_key.outputs.fingerprint != '' }}
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
+          restore-keys: |
+            aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-
       - name: Build all packages
         run: go build ./... 2>&1 | tee .cache/github-ci/logs/build.txt
       - name: Native platform tests
@@ -158,6 +179,30 @@ jobs:
           cp .cache/github-ci/bin/aego .cache/github-ci/dist/linux/aego-linux-amd64
           cd .cache/github-ci/dist/linux
           sha256sum aego-linux-amd64 > SHA256SUMS.txt
+      - name: Check optional Go cache upload
+        id: go_cache_size
+        if: ${{ success() && steps.go_cache_key.outputs.fingerprint != '' && steps.go_cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        env:
+          GO_BUILD_CACHE_PATH: ${{ steps.go_cache_key.outputs.path }}
+          GO_MODULE_CACHE_PATH: ${{ steps.go_cache_key.outputs.modules }}
+          GO_CACHE_MAX_BYTES: '1288490188'
+          GO_CACHE_MIN_FREE_BYTES: '8589934592'
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            py -3 -B tools/ci/go_cache_save.py
+          else
+            python3 -B tools/ci/go_cache_save.py
+          fi
+      - name: Save Go build cache
+        if: ${{ success() && steps.go_cache_size.outputs.save == 'yes' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        continue-on-error: true
+        with:
+          path: |
+            ${{ steps.go_cache_key.outputs.path }}
+            ${{ steps.go_cache_key.outputs.modules }}
+          key: aego-go-v1-${{ steps.go_cache_key.outputs.fingerprint }}-${{ github.sha }}
       - name: Upload diagnostic logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

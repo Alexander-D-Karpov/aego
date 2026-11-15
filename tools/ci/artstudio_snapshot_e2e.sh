@@ -61,14 +61,32 @@ cleanup() {
 trap cleanup EXIT
 run_gate() {
   local name="$1"; shift
-  local code
+  local started finished elapsed start_seconds command_code stream_code code source_sha
+  local -a statuses
+  started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  start_seconds=$SECONDS
+  source_sha="$(cat "$dir/head.txt")"
+  [[ "$name" =~ ^[a-z0-9-]+$ && "$source_sha" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] || {
+    echo 'Invalid gate name or source revision' >&2; return 1;
+  }
+  printf '%s\n' RUNNING >"$dir/$name.exit"
+  printf '%s: started %s (log: %s)\n' "$name" "$started" "$dir/$name.log"
   set +e
-  "$@" >"$dir/$name.log" 2>&1
-  code=$?
+  "$@" 2>&1 | tee "$dir/$name.log"
+  statuses=("${PIPESTATUS[@]}")
   set -e
+  command_code="${statuses[0]}"
+  stream_code="${statuses[1]}"
+  code="$command_code"
+  if ((code == 0 && stream_code != 0)); then code="$stream_code"; fi
+  finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  elapsed=$((SECONDS - start_seconds))
+  printf '%s\n' "$command_code" >"$dir/$name.command.exit"
+  printf '%s\n' "$stream_code" >"$dir/$name.stream.exit"
   printf '%s\n' "$code" >"$dir/$name.exit"
-  printf '%s: exit %s (%s)\n' "$name" "$code" "$dir/$name.log"
-  if [[ "$code" != 0 ]]; then cat "$dir/$name.log"; fi
+  printf '{"suite_id":"%s","source_sha":"%s","environment_digest":null,"started_at":"%s","finished_at":"%s","duration_seconds":%s,"exit_code":%s,"command_exit_code":%s,"stream_exit_code":%s,"cache_status":"unmeasured"}\n' \
+    "$name" "$source_sha" "$started" "$finished" "$elapsed" "$code" "$command_code" "$stream_code" >"$dir/$name.timing.json"
+  printf '%s: exit %s after %ss (%s)\n' "$name" "$code" "$elapsed" "$dir/$name.log"
   return "$code"
 }
 
@@ -157,7 +175,7 @@ for browser in chromium firefox; do
   run_gate "$browser-pending-fields" env -u GOMAXPROCS "$python" -B tools/artstudio/tests/pending_fields_browser.py \
     --wasm "$wasm" --engine "$browser" "${file_args[@]}"
   run_gate "$browser-gpu" env -u GOMAXPROCS ARTSTUDIO_PYTHON="$python" ARTSTUDIO_GPU_BROWSER="$browser" \
-    bash tools/stage125-check.sh artstudio-gpu --artifact "$artifact" --app-url "$app_origin/" \
+    bash tools/acceptance-check.sh artstudio-gpu --artifact "$artifact" --app-url "$app_origin/" \
     --evidence "$dir/$browser-gpu-browser" "${args[@]}"
 done
 run_gate parity env -u GOMAXPROCS ARTSTUDIO_ARTIFACT="$artifact" ARTSTUDIO_APP_URL="$app_origin/" \

@@ -4,11 +4,13 @@ import json
 import os
 from pathlib import Path
 import re
+import select
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 
 
@@ -113,7 +115,7 @@ esac
         self.assertIn('asset-studio-snapshot-${{ github.run_id }}-${{ github.run_attempt }}', native)
         self.assertIn('make ci XVFB=', checks)
         self.assertIn('component_try_evidence.py verify', checks)
-        for gate in ('bash tools/stage125-check.sh artstudio-native', 'file_interop_e2e.py',
+        for gate in ('bash tools/acceptance-check.sh artstudio-native', 'file_interop_e2e.py',
                      'make remote-examples-check', 'make nsis-check'):
             self.assertIn(gate, native)
         steps = ('Asset Studio snapshot and real browser integration', 'Pin the tested Studio snapshot',
@@ -138,7 +140,7 @@ esac
         self.assertIn('go vet -cgocall=false -unsafeptr=false $(VET_PKGS)', makefile)
         self.assertIn('go vet ./platform/sdl', makefile)
         self.assertIn(' lint depcheck ', makefile)
-        for gate in ('go build ./...', 'go test ./...', 'aego_nonative', 'aego_gltest',
+        for gate in ('go build ./...', 'go test -count=1 ./...', 'aego_nonative', 'aego_gltest',
                      'aego_golden', '--demo headless', 'example project'):
             self.assertIn(gate, all_jobs['build'])
 
@@ -277,7 +279,67 @@ raise SystemExit(91)
         self.assertEqual(result.returncode, 41, result.stdout)
         self.assertEqual(self.marker.read_text().splitlines(), ['make studio-web-test'])
         self.assertEqual((self.snapshot / 'core.exit').read_text().strip(), '41')
+        self.assertEqual((self.snapshot / 'core.command.exit').read_text().strip(), '41')
+        self.assertEqual((self.snapshot / 'core.stream.exit').read_text().strip(), '0')
+        timing = json.loads((self.snapshot / 'core.timing.json').read_text())
+        self.assertEqual(timing['suite_id'], 'core')
+        self.assertEqual(timing['source_sha'], 'a' * 40)
+        self.assertIsNone(timing['environment_digest'])
+        self.assertEqual(timing['exit_code'], 41)
+        self.assertEqual(timing['command_exit_code'], 41)
+        self.assertEqual(timing['stream_exit_code'], 0)
+        self.assertGreaterEqual(timing['duration_seconds'], 0)
+        self.assertEqual(timing['cache_status'], 'unmeasured')
         self.assertFalse((self.snapshot / 'core-deferred.txt').exists())
+
+    def test_gate_streams_before_command_finishes_and_records_the_log(self):
+        self._stub('make', '''#!/bin/sh
+printf 'fixture output before completion\\n'
+IFS= read -r release
+printf 'fixture completed\\n'
+exit 41
+''')
+        proc = subprocess.Popen(['bash', str(self.runner)], env=self.env,
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        output = b''
+        try:
+            deadline = time.monotonic() + 8
+            while b'fixture output before completion' not in output:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not select.select([proc.stdout], [], [], remaining)[0]:
+                    break
+                chunk = os.read(proc.stdout.fileno(), 4096)
+                if not chunk:
+                    break
+                output += chunk
+            self.assertIn(b'fixture output before completion', output)
+            self.assertIsNone(proc.poll(), 'gate must still be waiting for its input')
+            self.assertEqual((self.snapshot / 'core.exit').read_text().strip(), 'RUNNING')
+            self.assertIn('fixture output before completion', (self.snapshot / 'core.log').read_text())
+        finally:
+            remaining_output, _ = proc.communicate(input=b'continue\n', timeout=10)
+            output += remaining_output
+        self.assertEqual(proc.returncode, 41, output.decode(errors='replace'))
+        self.assertIn(b'fixture completed', output)
+        self.assertEqual((self.snapshot / 'core.exit').read_text().strip(), '41')
+        self.assertIn('fixture completed', (self.snapshot / 'core.log').read_text())
+
+    def test_gate_fails_if_log_stream_fails_even_when_command_succeeds(self):
+        self._stub('make', '#!/bin/sh\nprintf "fixture successful command\\n"\nexit 0\n')
+        self._stub('tee', '''#!/bin/sh
+case "$1" in
+  */core.log) cat >"$1"; exit 73 ;;
+  *) exec /usr/bin/tee "$@" ;;
+esac
+''')
+        result = self._run()
+        self.assertEqual(result.returncode, 73, result.stdout)
+        self.assertEqual((self.snapshot / 'core.exit').read_text().strip(), '73')
+        self.assertEqual((self.snapshot / 'core.command.exit').read_text().strip(), '0')
+        self.assertEqual((self.snapshot / 'core.stream.exit').read_text().strip(), '73')
+        timing = json.loads((self.snapshot / 'core.timing.json').read_text())
+        self.assertEqual((timing['exit_code'], timing['command_exit_code'], timing['stream_exit_code']), (73, 0, 73))
 
     def test_combined_ci_explicitly_defers_core_without_a_fake_pass(self):
         self.env['ARTSTUDIO_SNAPSHOT_CORE'] = 'defer-to-make-ci'
