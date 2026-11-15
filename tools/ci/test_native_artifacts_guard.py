@@ -195,6 +195,106 @@ class ArtifactWorkflowTest(unittest.TestCase):
             self.assertEqual(self.workflow.count(expression), 1)
 
 
+class MacOSDMGFixtureTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="aego-macos-dmg-fixture-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.bin = self.root / "bin"
+        self.repo.mkdir()
+        self.bin.mkdir()
+        script = self.repo / "tools/ci/github-macos-package.sh"
+        script.parent.mkdir(parents=True)
+        script.write_text('''#!/bin/bash
+set -eu
+mkdir -p '.cache/github-ci/macos/Aego Editor.app' '.cache/github-ci/dist/macos'
+printf fixture > '.cache/github-ci/dist/macos/Aego-Editor-macos.zip'
+(cd .cache/github-ci/dist/macos && sha256sum Aego-Editor-macos.zip > SHA256SUMS.txt)
+''')
+        self.calls = self.root / "calls"
+        self.stub("du", '''#!/bin/bash
+set -eu
+[[ "${MOCK_DU_FAIL:-0}" != 1 ]] || exit 23
+printf '%s\\t%s\\n' "${MOCK_DU:-66944}" "$2"
+''')
+        self.stub("hdiutil", '''#!/bin/bash
+set -eu
+printf 'hdiutil %s\\n' "$*" >> "$MOCK_CALLS"
+if [[ "$1" == create ]]; then
+  [[ " $* " == *" -size "* && "${MOCK_CREATE_FAIL:-0}" != 1 ]] || exit 24
+  for arg in "$@"; do last="$arg"; done
+  printf dmg > "$last"
+elif [[ "$1" == verify ]]; then
+  [[ "${MOCK_VERIFY_FAIL:-0}" != 1 ]] || exit 25
+  [[ -f "$2" ]] || exit 26
+else
+  exit 27
+fi
+''')
+        self.stub("shasum", '''#!/bin/bash
+set -eu
+[[ "$1" == -a && "$2" == 256 ]] || exit 28
+exec sha256sum "$3"
+''')
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/native-artifacts.yml").read_text()
+        section = workflow.split("      - name: Package macOS app and DMG\n", 1)[1].split("\n      - ", 1)[0]
+        self.shell = textwrap.dedent(section.split("        run: |\n", 1)[1])
+        self.env = {"PATH": str(self.bin) + os.pathsep + os.defpath, "HOME": str(self.root),
+                    "TMPDIR": str(self.root), "LC_ALL": "C", "MOCK_CALLS": str(self.calls),
+                    "AEGO_CI_PACKAGE_VERSION": "0.12.5"}
+
+    def stub(self, name, source):
+        path = self.bin / name
+        path.write_text(source)
+        path.chmod(0o755)
+
+    def run_package(self, shell=None, **overrides):
+        return subprocess.run(["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", shell or self.shell],
+                              cwd=self.repo, env={**self.env, **overrides}, capture_output=True, text=True, timeout=20)
+
+    def calls_text(self):
+        return self.calls.read_text() if self.calls.exists() else ""
+
+    def test_explicit_headroom_and_verification(self):
+        result = self.run_package()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" -size 256m ", self.calls_text())
+        self.assertIn("hdiutil verify ", self.calls_text())
+        dist = self.repo / ".cache/github-ci/dist/macos"
+        checked = subprocess.run(["sha256sum", "-c", "SHA256SUMS.txt"], cwd=dist, capture_output=True, text=True)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        before = (dist / "Aego-Editor-macos.dmg").read_bytes()
+        self.assertNotEqual(self.run_package().returncode, 0)
+        self.assertEqual((dist / "Aego-Editor-macos.dmg").read_bytes(), before)
+
+    def test_larger_bundle_gets_more_than_minimum(self):
+        result = self.run_package(MOCK_DU="204800")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" -size 328m ", self.calls_text())
+
+    def test_invalid_or_failed_size_probes_are_rejected(self):
+        for value in ("bad", "0", "1234567890"):
+            with self.subTest(value=value):
+                result = self.run_package(MOCK_DU=value)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("hdiutil create", self.calls_text())
+        self.assertNotEqual(self.run_package(MOCK_DU_FAIL="1").returncode, 0)
+
+    def test_create_and_verify_failures_are_not_ignored(self):
+        self.assertNotEqual(self.run_package(MOCK_CREATE_FAIL="1").returncode, 0)
+        self.assertNotIn("hdiutil verify", self.calls_text())
+        self.assertNotEqual(self.run_package(MOCK_VERIFY_FAIL="1").returncode, 0)
+        self.assertIn("hdiutil verify", self.calls_text())
+        sums = self.repo / ".cache/github-ci/dist/macos/SHA256SUMS.txt"
+        self.assertNotIn("Aego-Editor-macos.dmg", sums.read_text())
+
+    def test_legacy_command_without_size_fails_control(self):
+        legacy = self.shell.replace(' -size "${size_mb}m"', "")
+        self.assertNotEqual(legacy, self.shell)
+        self.assertNotEqual(self.run_package(shell=legacy).returncode, 0)
+
+
 class LinuxPackageFixtureTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="aego-artifact-workflow-")

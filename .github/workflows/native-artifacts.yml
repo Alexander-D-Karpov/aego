@@ -154,7 +154,11 @@ jobs:
           dist="$PWD/.cache/github-ci/dist/macos"
           dmg="$dist/Aego-Editor-macos.dmg"
           [[ ! -e "$dmg" && ! -L "$dmg" ]]
-          hdiutil create -format UDZO -volname "Aego Editor $AEGO_CI_PACKAGE_VERSION" -srcfolder "$app" "$dmg"
+          app_kib="$(du -sk "$app" | awk '{print $1}')"
+          [[ "$app_kib" =~ ^[0-9]{1,9}$ && "$app_kib" -gt 0 ]]
+          size_mb=$(( (app_kib + 1023) / 1024 + 128 ))
+          if (( size_mb < 256 )); then size_mb=256; fi
+          hdiutil create -format UDZO -size "${size_mb}m" -volname "Aego Editor $AEGO_CI_PACKAGE_VERSION" -srcfolder "$app" "$dmg"
           hdiutil verify "$dmg"
           (cd "$dist" && shasum -a 256 Aego-Editor-macos.dmg >> SHA256SUMS.txt)
       - name: Upload Linux artifacts
