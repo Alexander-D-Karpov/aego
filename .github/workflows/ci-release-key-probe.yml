@@ -1,0 +1,110 @@
+name: aego-release-key-probe
+on:
+  push:
+    branches: [ci/release-key-46404dcd5fee67fe4874]
+permissions:
+  contents: read
+jobs:
+  key-pair-check:
+    if: github.server_url != 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    container:
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
+      options: --memory=256m --memory-swap=256m --cpus=0.5 --pids-limit=128
+    steps:
+      - name: Verify existing release key against stable
+        shell: bash
+        env:
+          AEGO_RELEASE_KEY: ${{ secrets.AEGO_RELEASE_KEY }}
+          AEGO_UPDATE_KEY: ${{ vars.AEGO_UPDATE_KEY || secrets.AEGO_UPDATE_KEY }}
+        run: |
+          set +x
+          python3 -B - <<'AEGO_PYTHON'
+          #!/usr/bin/env python3
+          """Check an injected Ed25519 key pair against the existing stable signature.
+
+          This check writes no private key file and prints neither key. It only retrieves
+          the already-public stable manifest and signature. It never publishes a release.
+          """
+          import base64
+          import hashlib
+          import hmac
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+          from urllib.request import Request, urlopen
+
+
+          URL = 'https://git.akarpov.ru/sanspie/aego/releases/download/stable/'
+          MANIFEST_SHA = 'f061e00684f7df97d47dd563fbad120a452a8831fb24fae3f71d042b9a207f75'
+          SIG_SHA = '9290362d9e79725400373f616887c6eb54038c359a7d6f06dd4637df64b39202'
+          PUBLIC_PREFIX = bytes.fromhex('302a300506032b6570032100')
+          PRIVATE_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
+          ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C'}
+
+
+          def require(value, message):
+              if not value:
+                  raise ValueError(message)
+
+
+          def fetch(name, expected):
+              url = URL + name
+              with urlopen(Request(url, headers={'Accept': 'application/octet-stream'}), timeout=25) as response:
+                  require(response.geturl() == url and response.status == 200, 'unexpected stable asset URL or status')
+                  value = response.read(1024 * 1024 + 1)
+              require(len(value) <= 1024 * 1024 and hashlib.sha256(value).hexdigest() == expected,
+                      'stable asset changed since preflight')
+              return value
+
+
+          def check(private_text, public_text, manifest, signature, scratch=None):
+              private = base64.b64decode(private_text.strip(), validate=True)
+              public = base64.b64decode(public_text.strip(), validate=True)
+              require(len(private) == 64 and len(public) == 32, 'invalid key lengths')
+              derived = subprocess.run(['/usr/bin/openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
+                                       input=PRIVATE_PREFIX + private[:32], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                       env=ENV, timeout=15)
+              require(derived.returncode == 0 and hmac.compare_digest(derived.stdout, PUBLIC_PREFIX + public) and
+                      hmac.compare_digest(private[32:], public), 'signing key and update key do not match')
+              raw_signature = base64.b64decode(signature.strip(), validate=True)
+              require(len(raw_signature) == 64, 'invalid stable signature length')
+              with tempfile.TemporaryDirectory(prefix='aego-release-key-public-', dir=scratch) as directory:
+                  root = Path(directory)
+                  (root / 'public.der').write_bytes(PUBLIC_PREFIX + public)
+                  (root / 'manifest').write_bytes(manifest)
+                  (root / 'signature').write_bytes(raw_signature)
+                  proc = subprocess.run(['/usr/bin/openssl', 'pkeyutl', '-verify', '-pubin', '-keyform', 'DER',
+                                         '-inkey', str(root / 'public.der'), '-rawin', '-in', str(root / 'manifest'),
+                                         '-sigfile', str(root / 'signature')], stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL, env=ENV, timeout=15)
+                  require(proc.returncode == 0, 'current stable signature does not verify with this update key')
+              return hashlib.sha256(public).hexdigest()
+
+
+          def main():
+              try:
+                  manifest = fetch('release.json', MANIFEST_SHA)
+                  signature = fetch('release.json.sig', SIG_SHA)
+                  details = json.loads(manifest)
+                  require(details.get('version') == '0.12.1' and details.get('channel') == 'stable',
+                          'stable manifest identity differs')
+                  private = os.environ.pop('AEGO_RELEASE_KEY', '')
+                  public = os.environ.pop('AEGO_UPDATE_KEY', '')
+                  fingerprint = check(private, public, manifest, signature)
+                  print(json.dumps({'result': 'PASS', 'public_key_sha256': fingerprint,
+                                    'stable_manifest_sha256': MANIFEST_SHA, 'stable_version': '0.12.1',
+                                    'scope': 'key pair and existing stable signature only; no release or channel change'}))
+                  return 0
+              except (ValueError, OSError, subprocess.SubprocessError, json.JSONDecodeError):
+                  print('Release key probe failed; no key value or signature data is displayed.', file=sys.stderr)
+                  return 1
+
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          AEGO_PYTHON
