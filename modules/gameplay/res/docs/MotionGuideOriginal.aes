@@ -1,0 +1,49 @@
+package demo
+
+import "aego/input"
+
+// Player walks with A/D or the arrows and jumps with Space, W or Up.
+script Player {
+    func Update(dt float) {
+        m := node.Get<Motion2D>()
+        x := 0.0
+        if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
+            x -= 1
+        }
+        if input.Down(input.KeyD) || input.Down(input.KeyRight) {
+            x += 1
+        }
+        m.Move(x)
+        if input.KeyPressed(input.KeySpace) || input.KeyPressed(input.KeyW) || input.KeyPressed(input.KeyUp) {
+            m.Jump()
+        }
+        if input.KeyReleased(input.KeySpace) || input.KeyReleased(input.KeyW) || input.KeyReleased(input.KeyUp) {
+            m.JumpReleased()
+        }
+    }
+}
+
+// Lift moves a kinematic platform up and down.
+script Lift {
+    @export var Travel Vec2 = Vec2{0, -3}
+    @export var Period float = 4
+
+    var t float
+    var start Vec2
+
+    func Ready() {
+        start = node.Transform2D().Position
+    }
+
+    func FixedUpdate(dt float) {
+        t += dt
+        phase := t / Period
+        k := phase - float(int(phase))
+        if k > 0.5 {
+            k = 1 - k
+        }
+        k *= 2
+        body := node.Get<Body2D>()
+        body.MoveTo(Vec2{start.X + Travel.X*k, start.Y + Travel.Y*k}, 0)
+    }
+}

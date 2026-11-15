@@ -145,7 +145,9 @@ func (p *Panel) pasteFiles(files []string, dir string) error {
 		p.folder, p.search = dir, ""
 		p.expanded[path.Dir(dir)] = true
 		p.selectList(made)
-		p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.pasted_made_file_s_into", "Pasted {made} file(s) into {dir}", i18n.Str("made", strconv.Itoa(len(made))), i18n.Str("dir", dir)))
+		if first == nil {
+			p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.pasted_made_file_s_into", "Pasted {made} file(s) into {dir}", i18n.Str("made", strconv.Itoa(len(made))), i18n.Str("dir", dir)))
+		}
 	}
 	p.invalidate()
 	return first

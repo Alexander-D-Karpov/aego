@@ -187,14 +187,17 @@ type Editor struct {
 	Log            *log.ChannelLogger
 	Settings       SceneSettings
 	ImageContent   func(ids.AssetID, string) (image.Image, string, error)
-	Thumbs         ThumbSource
-	Scripts        ScriptHost
-	Code           ScriptNav
-	Shapes         *shape.Registry
-	Problems       *problems.Service
-	Sections       *module.Sections
-	Anim           *animedit.Registry
-	AnimFiles      animedit.Files
+	// Explicit source editing is separate from viewing prepared image pixels.
+	EditSourceArt    func(ids.AssetID) error
+	CanEditSourceArt func(ids.AssetID) bool
+	Thumbs           ThumbSource
+	Scripts          ScriptHost
+	Code             ScriptNav
+	Shapes           *shape.Registry
+	Problems         *problems.Service
+	Sections         *module.Sections
+	Anim             *animedit.Registry
+	AnimFiles        animedit.Files
 
 	ShowProblems func(filter string)
 	RevealPath   func(rel string)
@@ -207,20 +210,25 @@ type Editor struct {
 	// CreateAsset uses the shared Assets history for source creation.
 	CreateAsset      func(rel string, source []byte) (ids.AssetID, error)
 	AssetTransaction func(fn func() error) error
-	InspectAsset     func(ids.AssetID)
-	FallbackAsset    func(*document.AssetDocument) error
+	// CreateAssetSources creates related sources in one guarded history entry.
+	CreateAssetSources func([]pipeline.SourceEdit) ([]ids.AssetID, error)
+	AssetFolder        func() string
+	InspectAsset       func(ids.AssetID)
+	FindAssetUses      func(ids.AssetID)
+	FallbackAsset      func(*document.AssetDocument) error
 
-	FocusedPanel  string
-	SceneLighting LightingViewBridge
-	AssetRev      uint64
-	RenderStats   func() render.Stats
-	Play          PlayBridge
-	Collapsed     map[string]bool
-	Pages         []SettingsPage
-	Vectors       []VectorLayer
-	Profiler      []ProfilerSection
-	CreateActions []CreateAction
-	AssetViews    map[string]AssetView
+	FocusedPanel        string
+	SceneLighting       LightingViewBridge
+	AssetRev            uint64
+	RenderStats         func() render.Stats
+	Play                PlayBridge
+	Collapsed           map[string]bool
+	Pages               []SettingsPage
+	Vectors             []VectorLayer
+	Profiler            []ProfilerSection
+	CreateActions       []CreateAction
+	ExternalFileImports []ExternalFileImport
+	AssetViews          map[string]AssetView
 	// DrawSpriteSlicer draws the existing grid/alpha tools using the image
 	// document's current source metadata, including uncommitted frame edits.
 	DrawSpriteSlicer func(ids.AssetID, *asset.SourceMeta)
@@ -234,6 +242,16 @@ type Editor struct {
 	notices        []Notice
 	scratch        []ids.NodeID
 	metadata       *metadataCoordinator
+}
+
+// AssetCreateDirectory uses the selected project folder when available.
+func (e *Editor) AssetCreateDirectory(fallback string) string {
+	if e != nil && e.AssetFolder != nil {
+		if dir := e.AssetFolder(); dir != "" {
+			return dir
+		}
+	}
+	return fallback
 }
 
 func (e *Editor) Now() float64 {
@@ -425,8 +443,14 @@ type Question struct {
 	Buttons []string
 	Fields  []string
 	Values  []string
-	Then    func(choice int)
-	Submit  func(values []string)
+	// Choices optionally supplies a bounded selector for a field.
+	Choices [][]string
+	// DestructiveWhen changes the primary prompt action's presentation only.
+	// The caller must still validate and explicitly confirm any destructive edit.
+	DestructiveWhen  func(values []string) bool
+	DestructiveLabel string
+	Then             func(choice int)
+	Submit           func(values []string)
 }
 
 func (e *Editor) Ask(q Question) {

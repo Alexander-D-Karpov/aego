@@ -1,8 +1,9 @@
 ---
 id: formats/aeanim
+parent: formats/source
 icon: file.data
 group: ref-formats
-order: 1
+order: 6
 title: .aeanim clips
 ---
 # .aeanim clips
@@ -86,9 +87,10 @@ A shorthand for a sprite track with step keys. The label is the target, as for `
 
 ---
 id: formats/aectrl
+parent: formats/source
 icon: anim.graph
 group: ref-formats
-order: 2
+order: 7
 title: .aectrl controllers
 ---
 # .aectrl controllers

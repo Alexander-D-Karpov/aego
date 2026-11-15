@@ -12,6 +12,7 @@ import (
 	"aego/platform/input"
 	"aego/render/lighting"
 	"aego/render/material"
+	"aego/render/postfx"
 	"aego/render/rt"
 	"aego/render/shader"
 	"aego/render/sprite"
@@ -26,6 +27,8 @@ import (
 // world or source material participates in this preview session.
 type imagePreviewControls struct {
 	Lit, Normal, Emission, FlipX, FlipY bool
+	Bloom                               bool
+	EmissionStrength                    float32
 	Position                            mathx.Vec2
 	Color                               mathx.Color
 	Height, Intensity, Ambient          float32
@@ -34,7 +37,7 @@ type imagePreviewControls struct {
 func defaultImagePreviewControls() imagePreviewControls {
 	return imagePreviewControls{Lit: true, Normal: true, Emission: true,
 		Position: mathx.Vec2{X: -1.5, Y: -1}, Color: mathx.White,
-		Height: 1.5, Intensity: 2, Ambient: .15}
+		Height: 1.5, Intensity: 2, Ambient: .15, EmissionStrength: 1}
 }
 
 type imageSurface struct {
@@ -59,6 +62,7 @@ type imagePreview struct {
 	input        lighting.Input
 	err          string
 	serial       uint64
+	bloom        postfx.Plan
 }
 
 func (p *imagePreview) init() {
@@ -72,6 +76,9 @@ func (p *imagePreview) lighting() *lighting.Input {
 	p.init()
 	p.input.Environment = lighting.DefaultEnvironment()
 	p.input.Environment.ColorMode = lighting.LDR
+	if p.controls.Bloom {
+		p.input.Environment.ColorMode = lighting.Auto
+	}
 	p.input.Environment.AmbientIntensity = p.controls.Ambient
 	p.input.Environment.MaxShadowedLights = 0
 	p.input.HasEnvironment = true
@@ -121,6 +128,16 @@ func (p *imagePreview) ensure(ed *context.Editor, w, h int) error {
 			return err
 		}
 	}
+	if p.controls.Bloom && len(p.bloom.Passes) == 0 {
+		registry := postfx.NewRegistry()
+		effect, err := registry.NewInstance(postfx.BloomID, "art-preview-bloom")
+		if err != nil {
+			return err
+		}
+		if err := registry.Build(&p.bloom, true, []postfx.Instance{effect}, postfx.Profile{}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -167,7 +184,7 @@ func (p *imagePreview) setSurface(surface imageSurface) {
 	}
 	if p.controls.Emission && surface.Emission.Mode != texture.EmissionNone && !surface.Emission.Region.IsZero() {
 		p.mat.SetTexture("EmissionMap", material.Tex{Texture: surface.Emission.Region.Texture, Region: surface.Emission.Region, EmissionMode: surface.Emission.Mode, RegionOnly: true})
-		p.mat.Set("EmissionIntensity", [4]float32{1})
+		p.mat.Set("EmissionIntensity", [4]float32{p.controls.EmissionStrength})
 	}
 }
 
@@ -228,9 +245,18 @@ func (p *imagePreview) draw(ed *context.Editor, area mathx.Rect, surface imageSu
 			surface.Emission = texture.Emission{}
 		}
 		r := ed.Renderer
+		clear := mathx.Color{}
+		if p.controls.Bloom {
+			// The engine's Bloom contract requires an opaque output. Preview it
+			// against a black stage, without changing source alpha or the scene.
+			clear.A = 1
+		}
 		f := r.View(view.View{ID: p.viewID, OutputID: p.viewID, Target: target.Texture, DepthTarget: target.Depth,
 			TargetW: target.BucketW, TargetH: target.BucketH, Viewport: mathx.Rect{W: float32(w), H: float32(h)},
-			PixelScale: 1, Camera: view.Camera2D{Zoom: zoom}, DoClear: true, Label: "Image Lit preview"})
+			PixelScale: 1, Camera: view.Camera2D{Zoom: zoom}, Clear: clear, DoClear: true, Label: "Image Lit preview"})
+		if p.controls.Bloom {
+			f.PostProcess(&p.bloom)
+		}
 		if err := f.Lighting(p.lighting()); err != nil {
 			p.err = err.Error()
 		}
@@ -238,6 +264,9 @@ func (p *imagePreview) draw(ed *context.Editor, area mathx.Rect, surface imageSu
 			Size: surface.Size, Origin: mathx.Vec2{X: .5, Y: .5}, Tint: mathx.White, Material: p.mat,
 			FlipX: p.controls.FlipX, FlipY: p.controls.FlipY})
 		f.End()
+		if p.controls.Bloom && r.PostProcessError() != nil {
+			p.err = r.PostProcessError().Error()
+		}
 		if !r.Materials().Ready(p.mat) {
 			p.err = i18n.Tr("editor.image.lit_failed", "The Lit preview program could not compile on this graphics device. See Problems.")
 		}

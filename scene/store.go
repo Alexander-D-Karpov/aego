@@ -255,7 +255,15 @@ func (c *ComponentStore[T]) swapRemove(slot int) {
 	if slot != last {
 		c.data[slot] = c.data[last]
 		c.nodes[slot] = c.nodes[last]
-		c.sparse.set(c.nodes[slot].Index, int32(slot))
+		moved := c.nodes[slot].Index
+		marker := c.sparse.get(moved)
+		// A later pending removal may itself be the last dense entry. Preserve
+		// its tombstone at the new slot rather than making it visible again.
+		if c.sparse.isTomb(marker) {
+			c.sparse.set(moved, c.sparse.tomb(int32(slot)))
+		} else {
+			c.sparse.set(moved, int32(slot))
+		}
 	}
 	var zero T
 	c.data[last] = zero

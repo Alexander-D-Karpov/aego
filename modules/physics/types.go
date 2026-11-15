@@ -2,6 +2,7 @@ package physics
 
 import (
 	"errors"
+	"slices"
 
 	"aego/engine/module"
 	"aego/modules/physics/components"
@@ -80,6 +81,7 @@ func registerTypes(r *module.Registry) error {
 			Category(Menu).Display("Polygon Collider 2D").Icon("comp.polygon").NodeIcon(70).Default(components.DefaultPolygon).
 			Validate(validator[components.PolygonCollider2D](components.KindPolygon)).Err(),
 		module.Component[components.EdgeCollider2D](r, shape(schema.Name(components.NameEdge),
+			schema.FullClone(cloneEdgeCollider),
 			schema.Doc("Polyline for level geometry. OneSided lets bodies pass from below."),
 			schema.FieldDoc("points", "Points of the line in node space, at least 2; edit them in the Scene View."),
 			schema.FieldDoc("loop", "Joins the last point to the first, for closed outlines; needs at least 3 points."),
@@ -111,4 +113,9 @@ func registerTypes(r *module.Registry) error {
 			schema.FieldDoc("collideConnected", "Lets the two connected bodies collide with each other.")).
 			Category(Menu).Display("Revolute Joint 2D").Icon("comp.joint_revolute").Default(components.DefaultRevolute).Err(),
 	)
+}
+
+func cloneEdgeCollider(dst, src *components.EdgeCollider2D) {
+	*dst = *src
+	dst.Points = slices.Clone(src.Points)
 }

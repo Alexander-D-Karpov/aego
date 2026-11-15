@@ -8,6 +8,7 @@ import (
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/editor/core/services"
 	"aego/editor/core/workspace"
 	"aego/editor/ext"
 	"aego/editor/ext/inspect"
@@ -38,10 +39,13 @@ var (
 )
 
 type plugin struct {
-	ed   *context.Editor
-	mod  *audio.Module
-	clip clipEdit
-	aud  audition
+	ed            *context.Editor
+	mod           *audio.Module
+	clip          clipEdit
+	aud           audition
+	auditionOwner *plugin // document views share the registered player's audition state
+	workingAudio  workingAudioQueue
+	analysis      sourceAnalysisQueue
 }
 
 func lookup(sr *schema.Registry, name string) (*schema.TypeDescriptor, error) {
@@ -79,7 +83,20 @@ func Hook(e *ext.Registry) error {
 		return err
 	}
 	if p.ed != nil && p.ed.Docs != nil {
-		if err := e.DocumentHandler(document.Handler{ID: "audio.clip", Name: i18n.T("editor.document.audio", "Audio Clip"), Icon: "file.audio", Kinds: []asset.ArtifactKind{asset.ArtAudio}, Extensions: []string{".wav", ".ogg", ".mp3"}, Capabilities: document.View | document.EditMetadata | document.Preview | document.RevealSource, Open: e.DocumentInspector()}); err != nil {
+		docs := p.ed.Docs
+		docs.Subscribe(func(ev document.Event) {
+			if ev.Kind == document.EvClosed {
+				p.closeWorkingAudio(docs, ev.Doc)
+				p.closeSourceAnalysis(docs, ev.Doc)
+			}
+		})
+		openClip := e.DocumentView(func(d *document.AssetDocument) func(*services.Frame, mathx.Rect) {
+			// Per-tab interaction state prevents a different Inspector selection
+			// from resetting a dragged loop handle or an in-progress gain edit.
+			view := &plugin{ed: p.ed, clip: clipEdit{id: d.Asset, drag: -1}, auditionOwner: p}
+			return func(_ *services.Frame, area mathx.Rect) { view.clipInspectorView(p.ed, d.Selected, true, area) }
+		})
+		if err := e.DocumentHandler(document.Handler{ID: "audio.clip", Name: i18n.T("editor.document.audio", "Audio Clip"), Icon: "file.audio", Kinds: []asset.ArtifactKind{asset.ArtAudio}, Extensions: []string{".wav", ".ogg", ".mp3"}, Capabilities: document.View | document.EditMetadata | document.Preview | document.RevealSource, Open: openClip}); err != nil {
 			return err
 		}
 	}

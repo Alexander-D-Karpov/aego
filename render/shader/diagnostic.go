@@ -30,7 +30,7 @@ func (d Diag) Error() string {
 	return fmt.Sprintf("%s: %s: %s", d.File, d.Code, d.Msg)
 }
 
-var reLog = regexp.MustCompile(`(?m)^\s*(?:ERROR:\s*|WARNING:\s*)?[^:\n]*:(\d+)(?:\(\d+\))?:\s*(.*)$`)
+var reLog = regexp.MustCompile(`(?m)^\s*(?:ERROR:\s*|WARNING:\s*)?(?:[A-Za-z]:)?[^:\n]*:(\d+)(?:\(\d+\))?:\s*(.*)$`)
 var reParenLog = regexp.MustCompile(`(?m)^\s*[^()\n]*\((\d+)\)\s*:\s*(.*)$`)
 
 func MapLog(log string, locs []Loc, files []string, code string) []Diag {

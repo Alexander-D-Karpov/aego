@@ -216,7 +216,7 @@ func TestImportWritesIndexAndArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(batch.Imported) != 1 || len(batch.Failed) != 0 {
+	if batch == nil || len(batch.Imported) != 1 || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
 		t.Fatalf("batch = %+v", batch)
 	}
 	entry := batch.Imported[0]
@@ -235,6 +235,52 @@ func TestImportWritesIndexAndArtifacts(t *testing.T) {
 	reopened := openPipeline(t, p, &fakeImporter{version: 1})
 	if reopened.Index().Len() != 1 {
 		t.Fatal("index was not reloaded on open")
+	}
+}
+
+func TestIndexReplacementPublishesCompleteGenerations(t *testing.T) {
+	p := newProject(t)
+	write(t, p, "assets/a.txt", "first")
+	pl := openPipeline(t, p, &fakeImporter{version: 1})
+	added, _, err := pl.Scan()
+	if err != nil || len(added) != 1 {
+		t.Fatalf("initial scan = %v, %v", added, err)
+	}
+	firstID := added[0]
+	readIndex := func(want int) *asset.Index {
+		t.Helper()
+		data, err := os.ReadFile(pl.indexPath())
+		if err != nil {
+			t.Fatal(err)
+		}
+		index, err := asset.ReadIndex(data, pl.indexPath())
+		if err != nil || index.Len() != want {
+			t.Fatalf("index is not a complete generation: count=%d, err=%v", want, err)
+		}
+		return index
+	}
+	importAll := func() {
+		t.Helper()
+		batch, err := pl.ImportAll()
+		if err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+			t.Fatalf("import: batch=%+v, err=%v", batch, err)
+		}
+	}
+	importAll()
+	if _, ok := readIndex(1).Lookup(firstID); !ok {
+		t.Fatal("first generation lost its asset identity")
+	}
+	write(t, p, "assets/b.txt", "second")
+	added, _, err = pl.Scan()
+	if err != nil || len(added) != 1 {
+		t.Fatalf("second scan = %v, %v", added, err)
+	}
+	importAll()
+	index := readIndex(2)
+	for _, id := range []ids.AssetID{firstID, added[0]} {
+		if _, ok := index.Lookup(id); !ok {
+			t.Fatalf("replacement index lost asset %s", id)
+		}
 	}
 }
 

@@ -53,6 +53,9 @@ messages version=1 lang=ru {
   msg "api.aego/audio.BusVolume" {
     text="Возвращает громкость шины на этот сеанс, заданную SetBusVolume; настройки игрока хранятся отдельно."
   }
+  msg "api.aego/audio.ListenerPosition" {
+    text="Возвращает последнюю вычисленную позицию слушателя в мировых координатах или ноль вне игры. Если активного слушателя нет, используется позиция камеры."
+  }
   msg "api.aego/audio.Music" {
     text="Зацикливает звук на шине музыки, плавно сменяя прежнюю музыку за seconds секунд."
   }
@@ -76,6 +79,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/audio.PlayEventAt" {
     text="Проигрывает звуковое событие в точке мира."
+  }
+  msg "api.aego/audio.PlayOptions" {
+    text="PlayOptions задаёт параметры одного воспроизведения. Значение 0 для Volume и Pitch означает 1; Bus Master использует шину клипа; Unscaled продолжает воспроизведение на паузе игры."
   }
   msg "api.aego/audio.PlayWith" {
     text="Проигрывает звук с параметрами."
@@ -124,6 +130,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/audio.StopMusic" {
     text="Плавно заглушает музыку за seconds секунд."
+  }
+  msg "api.aego/audio.WorldBusGain" {
+    text="Возвращает последнее целевое значение слоя мира для шины, выбранное зонами, или 1 вне игры. Это не уровень микшера с плавным переходом и не настройки игрока."
   }
   msg "api.aego/builtin.NodeRef.AddTag" {
     text="Добавляет тег; возвращает false, если тег записан неверно."
@@ -242,6 +251,9 @@ messages version=1 lang=ru {
   msg "api.aego/camera.LogicalPose" {
     text="Возвращает положение основного вывода без тряски и привязки к пикселям."
   }
+  msg "api.aego/camera.Pose" {
+    text="Pose задаёт положение камеры в мировых единицах, поворот в радианах и масштаб в пикселях на единицу."
+  }
   msg "api.aego/camera.Release" {
     text="Отменяет BlendTo или Cut на основном выводе; снова решают приоритеты, переход длится seconds секунд или «Время перехода» камеры."
   }
@@ -343,6 +355,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/curve.OutSine" {
     text="OutSine начинает быстро и замедляется к концу, мягче всех кривых."
+  }
+  msg "api.aego/data.AudioEvent" {
+    text="AudioEvent — ассет звукового события."
   }
   msg "api.aego/debug.Arrow" {
     text="Рисует стрелку от одной точки к другой."
@@ -779,6 +794,9 @@ messages version=1 lang=ru {
   msg "api.aego/material.Shader" {
     text="Возвращает ссылку на подготовленный шейдер встроенного материала по имени."
   }
+  msg "api.aego/material.Vec4" {
+    text="Четыре числовые компоненты без преобразования цветового пространства."
+  }
   msg "api.aego/math.Abs" {
     text="Возвращает модуль x."
   }
@@ -929,6 +947,9 @@ messages version=1 lang=ru {
   msg "api.aego/particles.SetEnabled" {
     text="Включает или выключает эффекты частиц в этом игровом мире. При выключении живые частицы удаляются."
   }
+  msg "api.aego/physics.Contact" {
+    text="Contact описывает касание двух коллайдеров со стороны получателя.\nNormal направлена от другого тела к этому, RelativeVelocity — скорость этого тела относительно другого в точке Point."
+  }
   msg "api.aego/physics.Gravity" {
     text="Возвращает гравитацию мира в единицах в секунду за секунду. +Y направлен вниз."
   }
@@ -949,6 +970,9 @@ messages version=1 lang=ru {
   }
   msg "api.aego/physics.OverlapPoint" {
     text="Записывает в out тела, коллайдеры которых содержат p, и возвращает их число."
+  }
+  msg "api.aego/physics.RayHit" {
+    text="RayHit — результат запроса лучом. Hit равно false, если ничего не найдено; Node — тело, Collider — узел формы, в которую попал луч."
   }
   msg "api.aego/physics.Raycast" {
     text="Возвращает ближайшее попадание вдоль dir в пределах maxDist. Собственное тело вызывающего не учитывается, триггеры пропускаются."
@@ -1457,6 +1481,9 @@ messages version=1 lang=ru {
   msg "api.engine.MaterialOverride.SetVec4" {
     text="Устанавливает четыре числовые компоненты экземпляра через material.Vec4 без преобразования цвета."
   }
+  msg "api.engine.MaterialParameter" {
+    text="Хранит одно явное типизированное переопределение материала узла. Это запись внутри MaterialOverride, а не добавляемый компонент или ассет материала."
+  }
   msg "api.events.OnAnimEvent" {
     text="Вызывается в скриптах узла, Проигрыватель анимации которого доходит до события своего клипа; anim.EventName(id) даёт имя."
   }
@@ -1601,6 +1628,9 @@ messages version=1 lang=ru {
   msg "api.gameplay.StateMachine.TimeIn" {
     text="Возвращает секунды, проведённые в текущем состоянии."
   }
+  msg "api.particles.ColorKey" {
+    text="Нормализованный возраст и соответствующий ему линейный цвет без предварительного умножения на альфу."
+  }
   msg "api.particles.ParticleSystem2D.Burst" {
     text="Запрашивает однократное рождение count частиц. Автоматическая эмиссия при этом не запускается."
   }
@@ -1667,6 +1697,12 @@ messages version=1 lang=ru {
   msg "api.physics.Body2D.WakeUp" {
     text="Снова включает симуляцию спящего тела."
   }
+  msg "api.render2d.PostEffect" {
+    text="Независимо адресуемый эффект в стеке вывода камеры."
+  }
+  msg "api.render2d.PostParameter" {
+    text="Типизированный параметр эффекта. Отсутствующие значения наследуются из значений описания по умолчанию."
+  }
   msg "api.render2d.PostProcess.SetBool" {
     text="Задаёт логический параметр по адресу instanceID:Field."
   }
@@ -1717,6 +1753,15 @@ messages version=1 lang=ru {
   }
   msg "cli.agent.anim.set-key" {
     text="задать ключ; для новой дорожки нужен --kind"
+  }
+  msg "cli.agent.art.apply" {
+    text="Предложить единое изменение рисунка для revision из art.read. Изменения панели Agent требуют подтверждения; CLI и внешние агенты следуют настройке подтверждений редактора. Все используют общую историю документа. Новым объектам можно назначить as и обращаться к ним как $name в последующих операциях."
+  }
+  msg "cli.agent.art.capture" {
+    text="Получить несохранённые пиксели с идентификаторами документа, кадра и канала и точной revision. MCP возвращает изображение PNG; CLI записывает его только с --out в новый файл."
+  }
+  msg "cli.agent.art.read" {
+    text="Прочитать текущий рисунок вместе с несохранёнными изменениями. Списки выдаются постранично; revision передаётся в art.apply десятичной строкой."
   }
   msg "cli.agent.asset.delete" {
     text="удалить ассет; если на него есть ссылки, отказывается без --force"
@@ -3267,7 +3312,7 @@ messages version=1 lang=ru {
     text="Из пересекающихся зон одной шины побеждает высший приоритет, затем та, в которую вошли позже."
   }
   msg "schema.camera.CameraBrain2D" {
-    text="Мозг камеры 2D"
+    text="Выбор выхода камеры 2D"
   }
   msg "schema.camera.CameraBrain2D.doc" {
     text="Выбирает, какой выход виртуальных камер управляет этой Камерой 2D. Без него камера показывает главный выход."
@@ -3438,7 +3483,7 @@ messages version=1 lang=ru {
     text="Выход"
   }
   msg "schema.camera.VirtualCamera2D.output.doc" {
-    text="Выход, которым управляет эта камера. Пусто — главный выход; Камера 2D выбирает другой через Мозг камеры 2D."
+    text="Выход, которым управляет эта камера. Пусто — главный выход; Камера 2D выбирает другой через Выбор выхода камеры 2D."
   }
   msg "schema.camera.VirtualCamera2D.priority" {
     text="Приоритет"

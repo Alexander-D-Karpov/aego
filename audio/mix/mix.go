@@ -60,10 +60,11 @@ const (
 )
 
 type handle struct {
-	gen   atomic.Uint32
-	pos   atomic.Uint32
-	gain  atomic.Uint32
-	voice int32
+	gen     atomic.Uint32
+	pos     atomic.Uint32
+	gain    atomic.Uint32
+	started atomic.Bool
+	voice   int32
 }
 
 type bus struct {
@@ -108,6 +109,9 @@ type Mixer struct {
 	applied uint64
 	active  atomic.Int32
 	refused atomic.Uint64
+	// Remote handle releases are independent of the bounded, lossy public event queue.
+	onRelease func(VoiceID)
+	remote    bool
 }
 
 func New(cfg Config) (*Mixer, error) {
@@ -246,6 +250,14 @@ func (m *Mixer) Stop(id VoiceID, fade float32) bool {
 	return m.cmds.Push(Command{Kind: CmdStop, Voice: id, Fade: fade})
 }
 
+// StopPair queues one stop for up to two owned voices, ignores stale IDs and reports enqueueing, not application.
+func (m *Mixer) StopPair(first, second VoiceID, fade float32) bool {
+	if !first.Valid() && !second.Valid() {
+		return false
+	}
+	return m.cmds.Push(Command{Kind: CmdStopPair, Voice: first, Previous: second, Fade: fade})
+}
+
 func (m *Mixer) SetGain(id VoiceID, gain, fade float32) bool {
 	return m.cmds.Push(Command{Kind: CmdSetGain, Voice: id, Gain: gain, Fade: fade})
 }
@@ -264,6 +276,37 @@ func (m *Mixer) Pause(id VoiceID) bool {
 
 func (m *Mixer) Resume(id VoiceID) bool {
 	return m.cmds.Push(Command{Kind: CmdResume, Voice: id})
+}
+
+// SeekMemory queues a memory-voice frame, not a stream seek; stale/stopping voices and out-of-range or loop-exceeding frames are ignored, and device buffers remain.
+func (m *Mixer) SeekMemory(id VoiceID, frame int64) bool {
+	// Keep requested frames exactly representable as float64, including non-editor commands.
+	if !id.Valid() || frame < 0 || frame > 1<<53 {
+		return false
+	}
+	return m.cmds.Push(Command{Kind: CmdSeekMemory, Voice: id, Frame: frame})
+}
+
+// ReplaceStream queues an unused stream with initialFrame 0 or 1 for a preceding interpolation frame; rejection preserves the old voice, and callers retire both feeders.
+func (m *Mixer) ReplaceStream(previous VoiceID, p PlayParams, initialFrame int64, paused bool) VoiceID {
+	if !previous.Valid() || p.Stream == nil || p.Memory != nil || initialFrame < 0 || initialFrame > 1 {
+		return VoiceID{}
+	}
+	id := m.Reserve()
+	if !id.Valid() {
+		return id
+	}
+	pitch := p.Pitch
+	if pitch == 0 {
+		pitch = 1
+	}
+	if !m.cmds.Push(Command{Kind: CmdReplaceStream, Voice: id, Previous: previous, Stream: p.Stream,
+		Bus: int32(p.Bus), Gain: p.Gain, Pan: p.Pan, Pitch: pitch, Fade: p.FadeIn, Priority: p.Priority,
+		Flag: p.Loop, Frame: initialFrame, Paused: paused}) {
+		m.spare = append(m.spare, id.Index)
+		return VoiceID{}
+	}
+	return id
 }
 
 func (m *Mixer) SetBusGain(b int, gain float32) bool {
@@ -364,6 +407,15 @@ func (m *Mixer) Kill(id VoiceID) bool {
 
 func (m *Mixer) Live(id VoiceID) bool {
 	return id.Gen != 0 && int(id.Index) < len(m.handles) && m.handles[id.Index].gen.Load() == id.Gen
+}
+
+// Started reports an applied, unreleased voice; queued voices are Live first, and remote voices may finish before a validated batch observes them.
+func (m *Mixer) Started(id VoiceID) bool {
+	if id.Gen == 0 || int(id.Index) >= len(m.handles) {
+		return false
+	}
+	h := &m.handles[id.Index]
+	return h.gen.Load() == id.Gen && h.started.Load() && h.gen.Load() == id.Gen
 }
 
 func (m *Mixer) Position(id VoiceID) float32 {

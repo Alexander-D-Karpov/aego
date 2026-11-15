@@ -1,0 +1,21 @@
+package demo
+
+// Walker rolls the listening ball through the zone and back; inside it the music bus drops to the zone's Gain.
+script Walker {
+    @export var Speed float = 5
+    @export var Every float = 4
+
+    var t float = 4
+    var dir float = 1
+
+    func Update(dt float) {
+        t += dt
+        if t < Every {
+            return
+        }
+        t = 0
+        body := node.Get<Body2D>()
+        body.SetVelocity(Vec2{dir * Speed, 0})
+        dir = -dir
+    }
+}

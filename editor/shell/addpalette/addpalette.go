@@ -148,9 +148,9 @@ func (s *Service) Close() {
 	s.doc = nil
 }
 
-// CanCreateMenu reports whether there is a document and template registry.
+// CanCreateMenu also permits creating project files when no scene is open.
 func (s *Service) CanCreateMenu() bool {
-	return s.d.Ctx.Doc() != nil && s.d.Templates != nil
+	return s.d.Ctx.Doc() != nil && s.d.Templates != nil || s.d.Ctx.Pipeline != nil
 }
 
 func (s *Service) createMenuCurrent() bool {
@@ -256,7 +256,7 @@ func (s *Service) components() {
 		e := entry{kind: kindComp, td: td}
 		why := s.fit(sc, td, &e)
 		s.entries = append(s.entries, e)
-		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Category: paletteCategory(meta.Category), Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
+		s.items = append(s.items, palette.Item{Key: "comp:" + td.FullName, Label: meta.DisplayName, Keywords: schema.SearchNames(td), Category: paletteCategory(meta.Category), Icon: meta.Icon, Detail: meta.Badge, Disabled: why})
 	}
 }
 
@@ -331,14 +331,16 @@ func (s *Service) scripts() {
 }
 
 func (s *Service) templates() {
-	for _, sec := range templates.Layout(s.d.Templates, s.place) {
-		cat := sec.Title
-		if cat == "" {
-			cat = "Node"
-		}
-		for _, t := range sec.Items {
-			s.entries = append(s.entries, entry{kind: kindTemplate, tpl: t})
-			s.items = append(s.items, palette.Item{Key: "tpl:" + t.ID, Label: t.Name, Category: paletteCategory(cat), Icon: t.Icon})
+	if s.doc != nil && s.d.Templates != nil {
+		for _, sec := range templates.Layout(s.d.Templates, s.place) {
+			cat := sec.Title
+			if cat == "" {
+				cat = "Node"
+			}
+			for _, t := range sec.Items {
+				s.entries = append(s.entries, entry{kind: kindTemplate, tpl: t})
+				s.items = append(s.items, palette.Item{Key: "tpl:" + t.ID, Label: t.Name, Category: paletteCategory(cat), Icon: t.Icon})
+			}
 		}
 	}
 	if s.place.At2 != nil || s.place.At3 != nil {

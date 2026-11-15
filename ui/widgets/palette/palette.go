@@ -13,8 +13,10 @@ import (
 )
 
 type Item struct {
-	Key      string
-	Label    string
+	Key   string
+	Label string
+	// Keywords are alternative names used only for search, never for display.
+	Keywords []string
 	Category string
 	Detail   string
 	Icon     string
@@ -74,6 +76,7 @@ type Palette struct {
 	reasons          []string
 	reasonW          float32
 	text             []Text
+	keywords         [][]Text
 	cats             []string
 	query            string
 	last             string
@@ -134,9 +137,15 @@ func (p *Palette) SetItems(items []Item) {
 	p.items = items
 	p.reasonW = -1
 	p.text = p.text[:0]
+	p.keywords = p.keywords[:0]
 	p.cats = p.cats[:0]
 	for i := range items {
 		p.text = append(p.text, Prepare(items[i].Label))
+		keywords := make([]Text, len(items[i].Keywords))
+		for j, keyword := range items[i].Keywords {
+			keywords[j] = Prepare(keyword)
+		}
+		p.keywords = append(p.keywords, keywords)
 		if c := items[i].Category; !slices.Contains(p.cats, c) {
 			p.cats = append(p.cats, c)
 		}
@@ -251,6 +260,15 @@ func (p *Palette) search() {
 		start := len(p.pos)
 		tier, pos := Match(p.q, &p.text[i], p.pos[start:])
 		if tier == TierNone {
+			for j := range p.keywords[i] {
+				if candidate, _ := Match(p.q, &p.keywords[i][j], nil); candidate < tier {
+					tier = candidate
+				}
+			}
+			// Alias offsets do not refer to the displayed label.
+			pos = nil
+		}
+		if tier == TierNone {
 			continue
 		}
 		p.pos = append(p.pos[:start], pos...)
@@ -270,8 +288,15 @@ func (p *Palette) search() {
 		if ia.Uses != ib.Uses {
 			return ib.Uses - ia.Uses
 		}
-		if p.pos[a.pos[0]] != p.pos[b.pos[0]] {
-			return p.pos[a.pos[0]] - p.pos[b.pos[0]]
+		pa, pb := 0, 0
+		if a.pos[0] < a.pos[1] {
+			pa = p.pos[a.pos[0]]
+		}
+		if b.pos[0] < b.pos[1] {
+			pb = p.pos[b.pos[0]]
+		}
+		if pa != pb {
+			return pa - pb
 		}
 		return len(ia.Label) - len(ib.Label)
 	})

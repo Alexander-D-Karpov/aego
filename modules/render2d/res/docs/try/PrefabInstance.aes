@@ -1,14 +1,10 @@
 package demo
 
-// Spin turns the Head child of a lamp; each instance overrides Speed.
-script Spin {
-    @export(unit="rad/s")
-    var Speed float = 2
-
-    func Update(dt float) {
-        head := node.Child("Head")
-        tr := head.Transform2D()
-        tr.Rotation += Speed * dt
-        head.SetTransform2D(tr)
+// Each copy gets its own attachment. Only a real prefab instance moves.
+script MovePrefab {
+    func Ready() {
+        if node.IsPrefabInstance() {
+            node.SetPosition(Vec2{-1, 0})
+        }
     }
 }

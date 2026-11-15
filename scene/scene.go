@@ -52,35 +52,36 @@ type nameKey struct {
 }
 
 type Scene struct {
-	types        *Types
-	registry     *schema.Registry
-	resolver     asset.Resolver
-	nodes        *handle.Arena[nodeData]
-	interner     *strs.Interner
-	root         NodeHandle
-	preOrder     []NodeHandle
-	orderDirty   bool
-	ops          []structuralOp
-	pendingOps   int
-	byID         map[ids.NodeID]NodeHandle
-	byName       map[nameKey]NodeHandle
-	storesByGo   map[reflect.Type]anyStore
-	storesByID   map[schema.TypeID]anyStore
-	storeList    []anyStore
-	events       Events
-	revision     uint64
-	savedRev     uint64
-	structureRev uint64
-	scratch      []NodeHandle
-	three        []node3
-	free3        []int32
-	defaultSpace Space
-	pres         []presEntry
-	render       []mathx.Mat3
-	presDirty    bool
-	presActive   bool
-	tags         *tagIndex
-	tagsChecked  bool
+	types         *Types
+	registry      *schema.Registry
+	resolver      asset.Resolver
+	nodes         *handle.Arena[nodeData]
+	interner      *strs.Interner
+	root          NodeHandle
+	preOrder      []NodeHandle
+	orderDirty    bool
+	ops           []structuralOp
+	pendingOps    int
+	byID          map[ids.NodeID]NodeHandle
+	byName        map[nameKey]NodeHandle
+	snapshotIndex *snapshotIndexCache // Invalidate before changing either index.
+	storesByGo    map[reflect.Type]anyStore
+	storesByID    map[schema.TypeID]anyStore
+	storeList     []anyStore
+	events        Events
+	revision      uint64
+	savedRev      uint64
+	structureRev  uint64
+	scratch       []NodeHandle
+	three         []node3
+	free3         []int32
+	defaultSpace  Space
+	pres          []presEntry
+	render        []mathx.Mat3
+	presDirty     bool
+	presActive    bool
+	tags          *tagIndex
+	tagsChecked   bool
 }
 
 func New(types *Types, res asset.Resolver, opt Options) *Scene {
@@ -88,20 +89,21 @@ func New(types *Types, res asset.Resolver, opt Options) *Scene {
 		opt.InitialNodes = 1024
 	}
 	s := &Scene{
-		types:        types,
-		registry:     types.Schema(),
-		resolver:     res,
-		nodes:        handle.NewArena[nodeData](opt.InitialNodes),
-		interner:     strs.NewInterner(),
-		byID:         make(map[ids.NodeID]NodeHandle, opt.InitialNodes),
-		byName:       make(map[nameKey]NodeHandle, opt.InitialNodes),
-		storesByGo:   map[reflect.Type]anyStore{},
-		storesByID:   map[schema.TypeID]anyStore{},
-		ops:          make([]structuralOp, 0, 64),
-		preOrder:     make([]NodeHandle, 0, opt.InitialNodes),
-		scratch:      make([]NodeHandle, 0, 64),
-		three:        make([]node3, 0, 16),
-		defaultSpace: opt.DefaultSpace,
+		types:         types,
+		registry:      types.Schema(),
+		resolver:      res,
+		nodes:         handle.NewArena[nodeData](opt.InitialNodes),
+		interner:      strs.NewInterner(),
+		byID:          make(map[ids.NodeID]NodeHandle, opt.InitialNodes),
+		byName:        make(map[nameKey]NodeHandle, opt.InitialNodes),
+		snapshotIndex: &snapshotIndexCache{},
+		storesByGo:    map[reflect.Type]anyStore{},
+		storesByID:    map[schema.TypeID]anyStore{},
+		ops:           make([]structuralOp, 0, 64),
+		preOrder:      make([]NodeHandle, 0, opt.InitialNodes),
+		scratch:       make([]NodeHandle, 0, 64),
+		three:         make([]node3, 0, 16),
+		defaultSpace:  opt.DefaultSpace,
 	}
 	h, n := s.nodes.Alloc()
 	*n = nodeData{
@@ -114,6 +116,7 @@ func New(types *Types, res asset.Resolver, opt Options) *Scene {
 		slot:   -1,
 	}
 	s.root = h
+	s.invalidateSnapshotIndex()
 	s.byID[n.id] = h
 	s.orderDirty = true
 	return s
@@ -251,6 +254,7 @@ func (s *Scene) create(parent NodeHandle, name string, id ids.NodeID, sp Space) 
 	if sp == Space3D {
 		n.slot = s.alloc3(h, IdentityTransform3D())
 	}
+	s.invalidateSnapshotIndex()
 	s.byID[id] = h
 	s.attach(h, parent, -1)
 	s.SetName(h, name)
@@ -479,6 +483,7 @@ func (s *Scene) finalizeDestroy(h NodeHandle) {
 		st.dropNode(h)
 	}
 	s.detach(h)
+	s.invalidateSnapshotIndex()
 	delete(s.byID, n.id)
 	if n.slot >= 0 {
 		s.release3(n.slot)

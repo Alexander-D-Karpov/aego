@@ -37,7 +37,7 @@ func TestParticleDataExportFrozenDesktopAndWeb(t *testing.T) {
 	}
 	write := func(path, src string) { writeMaterialExportSource(t, p.Root, path, src) }
 	write("scenes/main.aescene", "scene version=1 {}")
-	var names = []string{"Dust", "Spark", "Smoke", "Rain", "Explosion"}
+	var names = []string{"Dust", "Spark", "Smoke", "Rain", "Explosion", "Fire", "HitFlash", "MagicProjectile", "Trail"}
 	for _, n := range names {
 		raw, err := particles.PresetSource(n)
 		if err != nil {

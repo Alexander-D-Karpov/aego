@@ -53,7 +53,7 @@ func (i MetaIssue) Message() string {
 	case MetaDuplicate:
 		return i.Path + " uses the same asset id as " + i.Other + ", it was probably copied together with its .meta"
 	}
-	return "the asset index lists " + i.Path + ", which no longer exists"
+	return "the asset index lists an asset for " + i.Path + " whose source or identity could not be matched"
 }
 
 func (i MetaIssue) Action() string {
@@ -65,7 +65,7 @@ func (i MetaIssue) Action() string {
 	case MetaDuplicate:
 		return "give " + i.Path + " a new asset id"
 	}
-	return "drop " + i.Path + " from the asset index"
+	return "drop the indexed asset ID for " + i.Path
 }
 
 type walk struct {
@@ -149,6 +149,18 @@ func (p *Pipeline) audit() {
 		if e.Missing || strings.Contains(e.Source, ":") || p.byID[e.ID] != nil {
 			return
 		}
+		// putSubs records the owning source as the first dependency. Some
+		// importers derive sub-asset IDs without listing them in .meta, so a
+		// fresh scan cannot know all of them until the owner has been imported.
+		// After import, only its registered sub-assets qualify at the next audit.
+		// A path match alone is insufficient: the source's identity might have
+		// changed, or its metadata might no longer be readable.
+		if p.files[e.Source] && len(e.Deps) > 0 {
+			owner := p.byID[e.Deps[0]]
+			if owner != nil && owner.path == e.Source && (owner.key == "" || p.subs[e.ID] == owner) {
+				return
+			}
+		}
 		out = append(out, MetaIssue{Kind: MetaStale, Path: e.Source, ID: e.ID})
 	})
 	slices.SortFunc(out, func(a, b MetaIssue) int {
@@ -166,6 +178,9 @@ func (p *Pipeline) audit() {
 func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.requireNoPendingSourceRecovery(); err != nil {
+		return 0, err
+	}
 	if p.shared {
 		return 0, errs.New(errs.AssetBadMeta, "another process holds the asset index, repair the meta files there")
 	}
@@ -179,7 +194,21 @@ func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 			if r == nil || !r.derived {
 				continue
 			}
-			if err = os.WriteFile(p.abs(r.path)+MetaSuffix, WriteMeta(r.meta), 0o644); err == nil {
+			candidate := WriteMeta(r.meta)
+			if err = p.checkMetadataSnapshot(r); err == nil {
+				var root *os.Root
+				root, err = os.OpenRoot(p.root)
+				if err == nil {
+					if err = p.checkMetadataSnapshot(r); err == nil {
+						err = replaceSource(root, r.path+MetaSuffix, candidate)
+					}
+					if closeErr := root.Close(); err == nil {
+						err = closeErr
+					}
+				}
+			}
+			if err == nil {
+				r.captureMetadata(candidate)
 				r.derived, r.dup = false, ""
 				p.metas[r.path+MetaSuffix] = true
 			}
@@ -206,7 +235,7 @@ func (p *Pipeline) Repair(list []MetaIssue) (int, error) {
 }
 
 func Audit(pr *project.Project, imps *ImporterRegistry, mode MetaMode) ([]MetaIssue, error) {
-	p := newPipeline(pr, imps, nil)
+	p := newPipeline(pr.Root, imps, nil)
 	p.mode, p.shared = mode, true
 	if _, _, err := p.scan(); err != nil {
 		return nil, err

@@ -11,6 +11,8 @@ order: 2
 
 Tags group nodes by meaning: `Enemy`, `Enemy.Flying`, `Pickup.Coin`. Add the Tags component in the Inspector or call `node.AddTag` from a script; find nodes with `scene.WithTag`.
 
+See the [query example](ref:tags/example) for a scene that cycles between groups.
+
 ---
 id: tags/names
 icon: edit.rename

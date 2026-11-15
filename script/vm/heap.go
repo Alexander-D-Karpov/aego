@@ -25,13 +25,16 @@ func (f heapFull) Error() string {
 }
 
 type Heap struct {
-	objs  []object
-	free  []uint32
-	live  int
-	bytes int
-	since int
-	limit int
-	armed int
+	objs []object
+	free []uint32
+	live int
+	// Live slice objects, maintained by allocation, collection and restore.
+	// When zero, every object's elems is nil and snapshots need no slice scan.
+	sliceCount int
+	bytes      int
+	since      int
+	limit      int
+	armed      int
 }
 
 func (h *Heap) charge(size int) {
@@ -92,6 +95,7 @@ func (h *Heap) newSlice(width int, mask uint32, capacity int) Value {
 	o.str, o.s = false, ""
 	o.elems = make([]Value, 0, capacity*width)
 	o.width, o.mask = width, mask
+	h.sliceCount++
 	return Value{A: heapHandle(idx, o.gen)}
 }
 

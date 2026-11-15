@@ -64,7 +64,7 @@ func (p *Pipeline) Grave(id ids.AssetID) (Grave, bool) {
 }
 
 func (p *Pipeline) gravePath() string {
-	return filepath.Join(p.project.CacheDir(), graveFile)
+	return filepath.Join(p.cacheDir, graveFile)
 }
 
 func (p *Pipeline) loadGraves() {

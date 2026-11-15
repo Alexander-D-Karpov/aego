@@ -2,6 +2,8 @@ package edit
 
 import (
 	"bytes"
+	stdctx "context"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,13 +15,18 @@ import (
 	"time"
 
 	"aego/app/agent"
+	"aego/art"
 	"aego/asset"
+	"aego/asset/importers/artsource"
 	textureimport "aego/asset/importers/texture"
+	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/core/mathx"
+	"aego/editor/core/artedit"
 	"aego/editor/core/command"
 	"aego/editor/core/context"
 	"aego/editor/core/document"
+	"aego/engine/i18n"
 	"aego/format/aetext"
 	"aego/modules/render2d"
 	"aego/render/lighting"
@@ -306,9 +313,11 @@ func TestAssetDocumentHandlerCoverage(t *testing.T) {
 		{asset.ArtMaterial, "stone.aemat", "", "render2d.material", source | document.Preview},
 		{asset.ArtShader, "lit.aeshader", "", "render2d.shader", source},
 		{asset.ArtShaderInclude, "common.glsl", "", "render2d.shader-include", source},
-		{asset.ArtTexture, "stone.png", "color", "render2d.image", read | document.EditMetadata | document.Preview},
+		{asset.ArtTexture, "stone.png", "color", "render2d.art.png", source | document.EditMetadata | document.Preview},
 		{asset.ArtTexture, "stone_n.png", "normal", "render2d.image", read | document.EditMetadata | document.Preview},
-		{asset.ArtSpriteRegion, "sheet.png", "color", "render2d.image", read | document.EditMetadata | document.Preview},
+		{asset.ArtSpriteRegion, "sheet.png", "color", "render2d.art.png", source | document.EditMetadata | document.Preview},
+		{asset.ArtSpriteRegion, "sheet_n.png", "normal", "render2d.image", read | document.EditMetadata | document.Preview},
+		{asset.ArtTexture, "drawing.aeart", "color", "render2d.art", source | document.EditMetadata | document.Preview},
 		{asset.ArtAtlasPage, "atlas/page", "", "render2d.image", read | document.EditMetadata | document.Preview},
 		{asset.ArtAudio, "click.wav", "", "audio.clip", read | document.EditMetadata | document.Preview},
 		{asset.ArtAudio, "music.ogg", "", "audio.clip", read | document.EditMetadata | document.Preview},
@@ -322,9 +331,126 @@ func TestAssetDocumentHandlerCoverage(t *testing.T) {
 			if h.ID != tt.handler || h.Capabilities != tt.caps || h.Name.En == "" || h.Icon == "" {
 				t.Fatalf("handler contract: %+v", h)
 			}
-			if (tt.kind == asset.ArtTexture || tt.kind == asset.ArtAudio || tt.kind == asset.ArtMesh) && h.TextSource {
+			if (tt.kind == asset.ArtTexture || tt.kind == asset.ArtSpriteRegion || tt.kind == asset.ArtAudio || tt.kind == asset.ArtMesh) && h.TextSource {
 				t.Fatal("binary format was advertised as a text document")
 			}
 		})
+	}
+}
+
+// Color PNG editing owns the same metadata document used by the Inspector, but
+// EditSource applies to an in-memory draft rather than writing the PNG pixels.
+func TestColorPNGHandlerUsesDraftAndSharedMetadata(t *testing.T) {
+	p := newProject(t)
+	const pngPath = "assets/stone.png"
+	const artPath = "assets/stone.aeart"
+	imageSource := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	imageSource.SetNRGBA(0, 0, color.NRGBA{R: 17, G: 81, B: 144, A: 255})
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, imageSource); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.Root, filepath.FromSlash(pngPath)), encoded.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(p, headless())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.Step() {
+		t.Fatal("editor stopped during startup")
+	}
+	ed := s.App.Context()
+	id, ok := ed.Pipeline.Lookup(pngPath)
+	if !ok {
+		t.Fatal("PNG was not imported")
+	}
+	metaBefore, err := ed.Pipeline.SourceBytes(pngPath + ".meta")
+	if err != nil || len(metaBefore) == 0 {
+		t.Fatal("PNG metadata is missing", err)
+	}
+	doc, err := ed.DocumentForAsset(id)
+	if err != nil || doc == nil || doc.Handler != "render2d.art.png" || doc.Source != nil || doc.Metadata == nil ||
+		!doc.Capabilities.Has(document.View|document.EditSource|document.EditMetadata|document.Preview|document.RevealSource) {
+		t.Fatalf("PNG did not acquire its metadata-owning binary document: %+v, %v", doc, err)
+	}
+	metadata := doc.Metadata
+	opened, err := ed.OpenAsset(id)
+	if err != nil || opened != doc || doc.Metadata != metadata {
+		t.Fatal("opening PNG did not reuse the Inspector's metadata document", err)
+	}
+	model, ok := doc.Binding.Model.(*artedit.Document)
+	if !ok || !model.Draft || doc.Dirty() || len(ed.TakeQuestions()) != 0 {
+		t.Fatal("PNG did not open as a clean in-memory drawing without a conversion prompt")
+	}
+	pixels, _, err := model.Capture(model.Session.Frame, art.Albedo)
+	if err != nil || pixels.Bounds() != image.Rect(0, 0, 2, 2) || pixels.NRGBAAt(0, 0) != (color.NRGBA{R: 17, G: 81, B: 144, A: 255}) {
+		t.Fatalf("draft did not preserve the original pixels: %v", err)
+	}
+	_, err = model.Execute(stdctx.Background(), art.Operation{Kind: "stroke", Points: []image.Point{{X: 1, Y: 1}}, Brush: art.Brush{Size: 1, Paint: art.Paint{Color: art.Color{R: 255, A: 255}}}})
+	if err != nil || !doc.Dirty() || metadata.Dirty() {
+		t.Fatal("draft edit did not leave metadata clean", err)
+	}
+	assertUnchanged := func() {
+		t.Helper()
+		if got, err := ed.Pipeline.SourceBytes(pngPath); err != nil || !bytes.Equal(got, encoded.Bytes()) {
+			t.Fatal("draft editing changed the PNG source", err)
+		}
+		if got, err := ed.Pipeline.SourceBytes(pngPath + ".meta"); err != nil || !bytes.Equal(got, metaBefore) {
+			t.Fatal("draft editing changed the PNG metadata before confirmation", err)
+		}
+		for _, rel := range []string{artPath, artPath + ".meta"} {
+			if _, err := os.Stat(ed.Docs.Abs(rel)); !os.IsNotExist(err) {
+				t.Fatalf("draft editing created %s before confirmation: %v", rel, err)
+			}
+		}
+	}
+	assertUnchanged()
+	if err := ed.SaveAsset(doc); !errors.Is(err, document.ErrSavePending) {
+		t.Fatalf("first Save did not wait for an explicit source path: %v", err)
+	}
+	questions := ed.TakeQuestions()
+	if len(questions) != 1 || questions[0].Title != i18n.Tr("editor.art.save_png_draft", "Save editable image source") ||
+		questions[0].Message != i18n.Tr("editor.art.save_png_draft_notice", "Save the drawing as an .aeart source and link it in the PNG import metadata. Replacing an existing drawing requires confirmation. The PNG itself is not overwritten; changes affect all users of this shared image.") ||
+		len(questions[0].Values) != 1 || questions[0].Values[0] != artPath || questions[0].Submit == nil {
+		t.Fatalf("first Save did not explain the PNG metadata link: %+v", questions)
+	}
+	assertUnchanged()
+	batches := 0
+	previousBeforeSwap := ed.BeforeSwap
+	ed.BeforeSwap = func(batch *pipeline.Batch) func() {
+		batches++
+		if len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+			t.Errorf("PNG draft import failed or requires retry: failed=%v retry=%v", batch.Failed, batch.Retry)
+		}
+		if previousBeforeSwap != nil {
+			return previousBeforeSwap(batch)
+		}
+		return nil
+	}
+	questions[0].Submit([]string{artPath})
+	ed.BeforeSwap = previousBeforeSwap
+	if batches == 0 {
+		t.Fatal("confirmed first Save did not publish an import batch")
+	}
+	artID, ok := ed.Pipeline.Lookup(artPath)
+	if !ok || artID == id {
+		t.Fatal("confirmed first Save did not create a separate Art source")
+	}
+	saved := ed.Docs.AssetDocument(artID)
+	if saved == nil || saved.Binding.Model != model || model.Draft || saved.Dirty() || model.History.Cursor() != 1 {
+		t.Fatal("first Save did not transfer the drawing and its history")
+	}
+	meta, ok := ed.Pipeline.MetaOf(id)
+	if !ok || meta.ID != id {
+		t.Fatal("first Save lost the original PNG identity")
+	}
+	link, err := artsource.TextureLinkOf(&meta)
+	if err != nil || link == nil || link.Source != artID || doc.Metadata != metadata || metadata.Dirty() {
+		t.Fatalf("first Save did not synchronize the shared PNG metadata link: %v", err)
+	}
+	if got, err := ed.Pipeline.SourceBytes(pngPath); err != nil || !bytes.Equal(got, encoded.Bytes()) {
+		t.Fatal("confirmed first Save overwrote the PNG", err)
 	}
 }

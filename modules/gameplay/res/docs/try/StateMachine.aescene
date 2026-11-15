@@ -1,259 +1,27 @@
 scene version=1 {
-  node "d6900000000000000000000000000001" name="Floor" enabled=true layers=1 {
-    transform {
-      position=[0, 3]
-      rotation=0
-      scale=[1, 1]
-    }
+  node "d6900000000000000000000000000003" name="State indicator" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#4b5563ff
-      origin=[0.5, 0.5]
-      size=[40, 1]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=false
-      bullet=false
-      allowSleep=true
-      interpolate=false
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0.6
-      restitution=0
-      density=1
-      size=[40, 1]
-    }
-  }
-  node "d6900000000000000000000000000002" name="Wall" enabled=true layers=1 {
-    transform {
-      position=[-12, 0]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#4b5563ff
-      origin=[0.5, 0.5]
-      size=[1, 6]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=false
-      bullet=false
-      allowSleep=true
-      interpolate=false
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0.6
-      restitution=0
-      density=1
-      size=[1, 6]
-    }
-  }
-  node "d6900000000000000000000000000030" name="WallRight" enabled=true layers=1 {
-    transform {
-      position=[19.5, 0]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#4b5563ff
-      origin=[0.5, 0.5]
-      size=[1, 6]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=false
-      bullet=false
-      allowSleep=true
-      interpolate=false
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0.6
-      restitution=0
-      density=1
-      size=[1, 6]
-    }
-  }
-  node "d6900000000000000000000000000005" name="Step" enabled=true layers=1 {
-    transform {
-      position=[4, 2.4]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#6b7280ff
-      origin=[0.5, 0.5]
-      size=[3, 0.2]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=false
-      bullet=false
-      allowSleep=true
-      interpolate=false
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0.6
-      restitution=0
-      density=1
-      size=[3, 0.2]
-    }
-  }
-  node "d6900000000000000000000000000003" name="Player" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=1
       tint=#f59e0bff
-      origin=[0.5, 0.5]
-      size=[0.6, 1]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=kinematic
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=true
-      bullet=false
-      allowSleep=false
-      interpolate=true
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0
-      restitution=0
-      density=1
-      size=[0.6, 1]
-    }
-    component "gameplay.Motion2D" version=1 {
-      mode=platformer
-      maxSpeed=6
-      jumpHeight=2.2
-      stepHeight=0.25
+      size=[6, 3]
     }
     component "gameplay.StateMachine" version=1 {
-      states=["Idle", "Run", "Air"]
+      states=["Idle", "Run"]
       initial="Idle"
     }
     component "engine.Script" version=1 {
-      script "game.demo.Player" enabled=true {
-      }
+      script "game.demo.StateIndicator" enabled=true {}
     }
   }
   node "d6900000000000000000000000000004" name="Camera" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.Camera2D" version=1 {
-      zoom=36
-      viewport=[0, 0, 1, 1]
-      mask=-1
-      order=0
-      clear=true
+      zoom=40
       clearColor=#111827ff
       scale=fitVirtual
       virtual=[960, 540]
       active=true
-    }
-    component "camera.VirtualCamera2D" version=1 {
-      priority=0
-      output=""
-      zoom=0
-      blendTime=0.5
-      blendCurve={ ease=inOutQuad }
-      timeDomain=unscaled
-      useBounds=false
-      bounds=[0, 0, 0, 0]
-      snapToPixels=false
-    }
-    component "camera.CameraFollow2D" version=1 {
-      target=node("d6900000000000000000000000000003")
-      deadzone=[0.4, 0.4, 0.2, 0.2]
-      damping=[5, 5]
-      lookahead=[0.2, 0]
-      maxLookahead=[2, 1]
-      lookaheadSmoothing=3
-      snapDistance=20
     }
   }
 }

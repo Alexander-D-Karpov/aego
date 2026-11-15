@@ -1,0 +1,11 @@
+package demo
+
+import "aego/physics"
+
+// The ball hits the visible edge at a fixed speed. Its zero restitution makes
+// the edge's restitution determine whether this contact stops or bounces.
+script EdgeImpact {
+    func Ready() {
+        node.Get<Body2D>().SetVelocity(Vec2{0, 15})
+    }
+}

@@ -11,6 +11,8 @@ permissions:
 
 env:
   GLSLANG_APT_VERSION: 15.1.0-2~ubuntu0.24.04.2
+  SDL_AUDIO_DRIVER: dummy
+  SDL_AUDIODRIVER: dummy
   LINUX_PKGS: >-
     build-essential cmake ninja-build pkg-config openssl
     libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev
@@ -19,13 +21,22 @@ env:
     libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
 
 jobs:
+  # Build and test one Studio snapshot in the same job as the full regression.
+  # Native authoring uses a separate clean checkout; build runs even on failure.
   checks:
+    if: github.server_url != 'https://github.com'
     runs-on: ubuntu-24.04
+    timeout-minutes: 165
+    outputs:
+      manifest_sha256: ${{ steps.snapshot_pin.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - name: system packages
         run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
       - uses: actions/cache@v4
@@ -34,16 +45,213 @@ jobs:
           path: .cache/native
           key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
       - run: bash tools/bootstrap-native.sh
-      - run: go vet -cgocall=false -unsafeptr=false $(go list ./... | grep -v '/gpu/gl33/gl$')
-      - run: go vet ./platform/sdl
-      - run: make lint
-      - run: make depcheck
+      - name: Test worktree evidence inventory
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p worktree_manifest_test.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_component_try_evidence.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_integration_race.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_artstudio_native_evidence.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_protocol_install.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_ci_regression_stream.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_ci_snapshot_handoff.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/ci -p test_native_artifacts_guard.py
+      - name: Install isolated Asset Studio browser test environment
+        run: |
+          sudo apt-get install -y python3-venv xvfb xauth xdotool
+          python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
+          "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
+          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
+            "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
+      - name: Asset Studio snapshot and real browser integration
+        id: artstudio_snapshot
+        env:
+          ARTSTUDIO_SNAPSHOT_CORE: defer-to-make-ci
+        run: |
+          export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
+          export ARTSTUDIO_SNAPSHOT_DIR="$RUNNER_TEMP/aego-artstudio-evidence"
+          export PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers"
+          bash tools/ci/artstudio_snapshot_e2e.sh
+      - name: Pin the tested Studio snapshot
+        id: snapshot_pin
+        run: |
+          set -euo pipefail
+          [[ "$(cat "$RUNNER_TEMP/aego-artstudio-evidence/head.txt")" == "$GITHUB_SHA" ]]
+          sha="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
+          [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
+          printf 'sha256=%s\n' "$sha" >> "$GITHUB_OUTPUT"
+      # The stock v4 GitHub action may reject Gitea as GHES on older runners.
+      # This pinned Gitea-compatible fork uploads even a failed run's evidence.
+      - name: Preserve Asset Studio snapshot evidence
+        if: ${{ always() }}
+        uses: https://github.com/ChristopherHX/gitea-upload-artifact@81f940d004763f986ba3582c007fd842dd5cb0d7
+        with:
+          name: asset-studio-snapshot-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/aego-artstudio-evidence/*.log
+            ${{ runner.temp }}/aego-artstudio-evidence/*.exit
+            ${{ runner.temp }}/aego-artstudio-evidence/*.txt
+            ${{ runner.temp }}/aego-artstudio-evidence/*.json
+            ${{ runner.temp }}/aego-artstudio-evidence/*.sha256
+            ${{ runner.temp }}/aego-artstudio-evidence/artifact/**
+            ${{ runner.temp }}/aego-artstudio-evidence/site/asset-studio/**
+            ${{ runner.temp }}/aego-artstudio-evidence/chromium-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/firefox-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/chromium-gpu-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/firefox-gpu-browser/**
+            ${{ runner.temp }}/aego-artstudio-evidence/parity-replay/*.json
+
+      - name: Verify Studio snapshot before regression
+        env:
+          EXPECTED_STUDIO_MANIFEST: ${{ steps.snapshot_pin.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/aego-artstudio-evidence"
+          [[ "$EXPECTED_STUDIO_MANIFEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$(cat "$dir/manifest.sha256")" == "$EXPECTED_STUDIO_MANIFEST" ]]
+          [[ "$(cat "$dir/head.txt")" == "$GITHUB_SHA" && "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); sys.exit(0 if m.get("commit") == sys.argv[2] and m.get("release") is False else "snapshot identity mismatch")' "$dir/artifact/manifest.json" "$GITHUB_SHA"
+          go run ./tools/artstudio/release verify -dir "$dir/artifact" -sha256 "$EXPECTED_STUDIO_MANIFEST"
+          go run ./tools/artstudio/release check-source -root "$PWD" -dir "$dir/artifact"
+      - name: Full Aego regression and component Try
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
+          AEGO_TRY_FIREFOX_HEADED: "1"
+        run: |
+          set -euo pipefail
+          (cd tools/websmoke && npm ci --no-audit --no-fund)
+          chromium="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").chromium.executablePath())')"
+          firefox="$(cd tools/websmoke && node -e 'console.log(require("playwright-core").firefox.executablePath())')"
+          [[ -f "$firefox" && -x "$firefox" ]] || { echo "Playwright Firefox executable is missing: $firefox" >&2; exit 1; }
+          # The visibility gate launches a real headed browser without a
+          # Playwright connection, so it cannot discover the cached binary.
+          export FIREFOX="$firefox"
+          export ARTSTUDIO_ARTIFACT="$RUNNER_TEMP/aego-artstudio-evidence/artifact"
+          export ARTSTUDIO_MANIFEST_SHA256="$(cat "$RUNNER_TEMP/aego-artstudio-evidence/manifest.sha256")"
+          export ARTSTUDIO_PYTHON="$RUNNER_TEMP/aego-artstudio-python/bin/python"
+          [[ "$(cat "$RUNNER_TEMP/aego-artstudio-evidence/core-deferred.txt")" == 'Deferred: required make ci must run studio-web-test.' ]]
+          mkdir -p "$RUNNER_TEMP/aego-full-ci"
+          set +e
+          # Stream as well as save the log: a runner timeout can terminate the
+          # job before an always() artifact step or a final tail gets to run.
+          xvfb-run -a -s '-screen 0 1440x1050x24' make ci XVFB= CHROMIUM="$chromium" 2>&1 \
+            | tee "$RUNNER_TEMP/aego-full-ci/make-ci.log"
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          result="${pipeline_status[0]}"
+          printf '%s\n' "$result" >"$RUNNER_TEMP/aego-full-ci/make-ci.exit"
+          if [ "${pipeline_status[1]}" -ne 0 ]; then
+            echo "Failed to stream or save the full CI log (tee exit ${pipeline_status[1]})" >&2
+            exit "${pipeline_status[1]}"
+          fi
+          if [ "$result" -ne 0 ]; then exit "$result"; fi
+          python3 -B tools/ci/component_try_evidence.py verify --root "$PWD" \
+            --report .cache/component-try.json --evidence .cache/component-try-evidence \
+            --wasm site/try/aego-docs.wasm --output "$RUNNER_TEMP/aego-full-ci/component-try-verified.json"
+      - name: Preserve full CI and component evidence
+        if: ${{ always() }}
+        uses: https://github.com/ChristopherHX/gitea-upload-artifact@81f940d004763f986ba3582c007fd842dd5cb0d7
+        with:
+          name: aego-full-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/aego-full-ci/**
+            .cache/component-try.json*
+            .cache/component-try-evidence/**
+            .cache/component-try-evidence-negative/**
+            .cache/integration-race/**
+            site/try/aego-docs.wasm
+
+  native-authoring:
+    needs: checks
+    if: github.server_url != 'https://github.com'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: system packages
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_PKGS "glslang-tools=$GLSLANG_APT_VERSION" && bash tools/check-glslang.sh
+      - uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: .cache/native
+          key: native-linux_amd64-${{ hashFiles('third_party/sdl/version.txt', 'tools/bootstrap-native.sh') }}
+      - run: bash tools/bootstrap-native.sh
+      - name: Install isolated Asset Studio browser test environment
+        run: |
+          sudo apt-get install -y python3-venv xvfb xauth xdotool
+          python3 -m venv "$RUNNER_TEMP/aego-artstudio-python"
+          "$RUNNER_TEMP/aego-artstudio-python/bin/pip" install 'playwright==1.64.1'
+          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/aego-artstudio-browsers" \
+            "$RUNNER_TEMP/aego-artstudio-python/bin/python" -m playwright install --with-deps chromium firefox
+      - name: Download the tested Studio snapshot
+        uses: https://github.com/ChristopherHX/gitea-download-artifact@75635f32b4c1c41c4b3d64e8f85210112ed4c9c7
+        with:
+          name: asset-studio-snapshot-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aego-artstudio-evidence
+      - name: Verify Studio snapshot before native authoring
+        env:
+          EXPECTED_STUDIO_MANIFEST: ${{ needs.checks.outputs.manifest_sha256 }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/aego-artstudio-evidence"
+          [[ "$EXPECTED_STUDIO_MANIFEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$(cat "$dir/manifest.sha256")" == "$EXPECTED_STUDIO_MANIFEST" ]]
+          [[ "$(cat "$dir/head.txt")" == "$GITHUB_SHA" && "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); sys.exit(0 if m.get("commit") == sys.argv[2] and m.get("release") is False else "snapshot identity mismatch")' "$dir/artifact/manifest.json" "$GITHUB_SHA"
+          go run ./tools/artstudio/release verify -dir "$dir/artifact" -sha256 "$EXPECTED_STUDIO_MANIFEST"
+          go run ./tools/artstudio/release check-source -root "$PWD" -dir "$dir/artifact"
+      - name: Native authoring and installed Linux protocol
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/aego-artstudio-browsers
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aego-full-ci"
+          run_gate() {
+            local name="$1"; shift
+            set +e
+            "$@" >"$RUNNER_TEMP/aego-full-ci/$name.log" 2>&1
+            local code=$?
+            set -e
+            printf '%s\n' "$code" >"$RUNNER_TEMP/aego-full-ci/$name.exit"
+            tail -n 100 "$RUNNER_TEMP/aego-full-ci/$name.log"
+            return "$code"
+          }
+          run_gate native-user-scenario env SDL_VIDEODRIVER=offscreen \
+            AEGO_NATIVE_SCENARIO_EVIDENCE="$RUNNER_TEMP/aego-full-ci/native-sdl" \
+            bash tools/stage125-check.sh artstudio-native
+          run_gate file-interoperability env SDL_VIDEODRIVER=offscreen \
+            "$RUNNER_TEMP/aego-artstudio-python/bin/python" tools/artstudio/release/tests/file_interop_e2e.py \
+            --artifact "$RUNNER_TEMP/aego-artstudio-evidence/artifact" \
+            --native-evidence "$RUNNER_TEMP/aego-full-ci/native-sdl" \
+            --evidence "$RUNNER_TEMP/aego-full-ci/file-interop" \
+            --app-url http://127.0.0.1:8097/ --serve-artifact
+          run_gate remote-examples make remote-examples-check XVFB= \
+            REMOTE_EXAMPLES_OUT="$RUNNER_TEMP/aego-full-ci/remote-protocol"
+      - name: Preserve native authoring evidence
+        if: ${{ always() }}
+        uses: https://github.com/ChristopherHX/gitea-upload-artifact@81f940d004763f986ba3582c007fd842dd5cb0d7
+        with:
+          name: aego-native-authoring-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: ${{ runner.temp }}/aego-full-ci/**
       - name: packaging tools
         run: sudo apt-get install -y nsis squashfs-tools
       - name: installer dry run
         run: make nsis-check
 
   build:
+    # Run after the other jobs even on failure, without overlapping heavy work.
+    needs: [checks, native-authoring]
+    if: ${{ always() && github.server_url != 'https://github.com' }}
     strategy:
       fail-fast: false
       matrix:
@@ -120,8 +328,10 @@ jobs:
           /tmp/aego run examples/native-rotator --headless --frames 60
 
   release:
-    needs: [checks, build]
-    if: github.event_name == 'push'
+    needs: [checks, native-authoring, build]
+    # Pause all automatic releases until the reviewed nightly/stable pipeline
+    # enforces native gates and preserves existing tags and release assets.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

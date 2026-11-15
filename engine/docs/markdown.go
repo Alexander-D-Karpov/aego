@@ -11,29 +11,31 @@ import (
 )
 
 type record struct {
-	id         string
-	title      string
-	parent     string
-	summary    string
-	group      string
-	groupTitle string
-	groupIcon  string
-	groupOrder int
-	icon       string
-	editorOnly bool
-	order      int
-	ordered    bool
-	keys       []string
-	requires   []string
-	try        string
-	trySelect  string
-	code       string
-	example    string
-	scope      string
-	severity   string
-	body       string
-	line       int
-	styleAllow []string
+	id          string
+	title       string
+	parent      string
+	summary     string
+	group       string
+	groupTitle  string
+	groupIcon   string
+	groupOrder  int
+	icon        string
+	editorOnly  bool
+	order       int
+	ordered     bool
+	keys        []string
+	searchNames []string
+	params      []string
+	requires    []string
+	try         string
+	trySelect   string
+	code        string
+	example     string
+	scope       string
+	severity    string
+	body        string
+	line        int
+	styleAllow  []string
 }
 
 func isFence(l string) bool {
@@ -151,6 +153,10 @@ func (r *record) set(key, val string) error {
 		}
 	case "keys":
 		r.keys, err = list(val)
+	case "search_names":
+		r.searchNames, err = list(val)
+	case "params":
+		r.params, err = list(val)
 	case "requires":
 		r.requires, err = list(val)
 	case "try":
@@ -280,7 +286,7 @@ func summary(md string) string {
 			continue
 		}
 		t := strings.TrimSpace(l)
-		if fence || t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "|") || strings.HasPrefix(t, "![") && strings.HasSuffix(t, ")") {
+		if fence || t == "" || strings.HasPrefix(l, "    ") || strings.HasPrefix(l, "\t") || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "|") || strings.HasPrefix(t, "![") && strings.HasSuffix(t, ")") {
 			continue
 		}
 		return unwrap(trimMarker(t))

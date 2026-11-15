@@ -7,9 +7,11 @@ import (
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/command"
+	"aego/editor/core/context"
 	"aego/editor/core/play"
 	"aego/editor/core/workspace"
 	"aego/engine/i18n"
+	"aego/ui/core"
 	"aego/ui/widgets"
 )
 
@@ -63,27 +65,47 @@ func (a *App) groups(cat string) []menuGroup {
 	if cat != "Window" {
 		return []menuGroup{{items: reg.Category(cat)}}
 	}
-	gs := []menuGroup{{title: i18n.Tr("editor.menu.workspace_group", "Workspaces")}, {title: i18n.Tr("editor.menu.author_group", "Scene and assets")}, {title: i18n.Tr("editor.menu.debug_group", "Run and diagnose")}, {title: i18n.Tr("editor.menu.utility_group", "Other panels")}, {title: i18n.Tr("editor.menu.agent_group", "Agent")}, {title: i18n.Tr("editor.menu.layout_group", "Layout")}}
+	const (
+		workspaceGroup = iota
+		authorGroup
+		artGroup
+		debugGroup
+		utilityGroup
+		agentGroup
+		layoutGroup
+	)
+	gs := []menuGroup{
+		{title: i18n.Tr("editor.menu.workspace_group", "Workspaces")},
+		{title: i18n.Tr("editor.menu.author_group", "Scene and assets")},
+		{title: i18n.Tr("editor.menu.art_group", "Art")},
+		{title: i18n.Tr("editor.menu.debug_group", "Run and diagnose")},
+		{title: i18n.Tr("editor.menu.utility_group", "Other panels")},
+		{title: i18n.Tr("editor.menu.agent_group", "Agent")},
+		{title: i18n.Tr("editor.menu.layout_group", "Layout")},
+	}
 	for _, d := range reg.Category(cat) {
-		group := 5
+		group := layoutGroup
 		id, win := strings.CutPrefix(d.ID, command.WindowPrefix)
 		_, panel := a.ws.Panel(id)
 		switch {
 		case strings.HasPrefix(d.ID, "agent.") || d.ID == CommandProxyConfirm:
-			group = 4
+			group = agentGroup
 		case win && panel:
 			switch id {
 			case workspace.Hierarchy, workspace.Scene, workspace.Game, workspace.Assets, workspace.Inspector, "animation", "animator", workspace.Mixer, "scenes", "favorites":
-				group = 1
+				group = authorGroup
 			case workspace.Console, workspace.Problems, workspace.Profiler, "watch", "events", "crashes", "tasks", "health":
-				group = 2
+				group = debugGroup
 			case "agent":
-				group = 4
+				group = agentGroup
 			default:
-				group = 3
+				group = utilityGroup
+				if strings.HasPrefix(id, "art.") {
+					group = artGroup
+				}
 			}
 		case strings.HasPrefix(d.ID, CommandWorkspacePrefix) || d.ID == CommandWorkspaceSaveAs || d.ID == CommandWorkspaceRename || d.ID == CommandWorkspaceDelete:
-			group = 0
+			group = workspaceGroup
 		}
 		gs[group].items = append(gs[group].items, d)
 	}
@@ -104,6 +126,12 @@ func (a *App) commandItems(cat string) {
 				widgets.Separator(ui)
 			}
 			last = d.Order
+			if cat == "File" && strings.HasPrefix(d.ID, CommandRecentPrefix) {
+				if d.ID == CommandRecentPrefix+"1" {
+					a.recentMenu()
+				}
+				continue
+			}
 			if cat == "Help" && d.ID == CommandReportBug {
 				a.reportBugMenu(d.Title())
 				continue
@@ -116,6 +144,80 @@ func (a *App) commandItems(cat string) {
 			widgets.EndSubMenu(ui)
 		}
 	}
+}
+
+// Recent projects are kept in a single, scrollable submenu, not five File rows.
+func (a *App) recentMenu() {
+	ui := a.ui
+	width := min(float32(400), max(float32(100), ui.Size().X-2*ui.Theme.Padding))
+	if !widgets.SubMenu(ui, i18n.Tr("editor.shell.open_recent", "Open Recent"), width) {
+		return
+	}
+	defer widgets.EndSubMenu(ui)
+	list := a.recentList()
+	if len(list) == 0 {
+		widgets.MenuItem(ui, i18n.Tr("launcher.no_recent_projects_yet", "No recent projects yet"), "", false, false)
+		return
+	}
+	names := recentMenuLabels(ui, recentNames(list), max(20, width-52))
+	rowH := ui.Theme.RowHeight + ui.Theme.Spacing
+	height := min(float32(len(list))*rowH, max(rowH, ui.Size().Y-2*ui.Theme.Padding-4))
+	area := ui.Cursor().Next(height)
+	widgets.VirtualList(ui, ui.ID("recent.projects"), area, len(list), rowH, &a.recentScroll, func(i int, row mathx.Rect) {
+		e := list[i]
+		ui.PushID(e.Path)
+		ui.PushCursor(core.Cursor{X: row.X, Y: row.Y, W: row.W, RowH: ui.Theme.RowHeight, Space: ui.Theme.Spacing})
+		if widgets.Entry(ui, widgets.Item{Label: names[i], Tip: e.Path, Enabled: a.opt.Relaunch != nil}) {
+			if err := a.switchTo(e.Path, ""); err != nil {
+				a.ctx.Notify(context.LevelError, err.Error())
+			}
+		}
+		ui.PopCursor()
+		ui.PopID()
+	})
+}
+
+// Different paths can become identical after elision; keep their visible rows
+// distinct as well as giving each one its full path in a tooltip.
+func recentMenuLabels(ui *core.Context, names []string, width float32) []string {
+	labels := make([]string, len(names))
+	used := make(map[string]bool, len(names))
+	for i, name := range names {
+		label := fitRecentLabel(ui, name, width)
+		for n := 1; used[label]; n++ {
+			suffix := " #" + strconv.Itoa(i+1)
+			if n > 1 {
+				suffix += "." + strconv.Itoa(n)
+			}
+			label = fitRecentLabel(ui, name, max(0, width-ui.TextSize(suffix).X)) + suffix
+		}
+		labels[i] = label
+		used[label] = true
+	}
+	return labels
+}
+
+// Preserve both ends of a long path; the tooltip always contains the full path.
+func fitRecentLabel(ui *core.Context, label string, width float32) string {
+	if ui.TextSize(label).X <= width {
+		return label
+	}
+	runes := []rune(label)
+	shorten := func(kept int) string {
+		left := (kept + 1) / 2
+		right := kept / 2
+		return string(runes[:left]) + "…" + string(runes[len(runes)-right:])
+	}
+	low, high := 0, len(runes)-1
+	for low < high {
+		mid := (low + high + 1) / 2
+		if ui.TextSize(shorten(mid)).X <= width {
+			low = mid
+		} else {
+			high = mid - 1
+		}
+	}
+	return shorten(low)
 }
 
 func (a *App) reportBugMenu(title string) {
@@ -161,7 +263,7 @@ func (a *App) drawMenuBar(r mathx.Rect) {
 			label := menuTitle(cat)
 			if mb.MenuEnabled(label, min(280, ui.Size().X), a.addPal.CanCreateMenu()) {
 				parent := ids.NodeID{}
-				if it, ok := ctx.Selection.Active(); ok && it.Doc == ctx.Doc().ID {
+				if it, ok := ctx.Selection.Active(); ok && ctx.Doc() != nil && it.Doc == ctx.Doc().ID {
 					parent = it.Node
 				}
 				rowH := ui.Theme.RowHeight + 2

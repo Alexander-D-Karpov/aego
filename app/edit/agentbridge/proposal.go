@@ -40,6 +40,7 @@ type undoRef struct {
 	depth   int
 	script  *scriptUndo
 	drawing *drawingCommand
+	art     *artUndo
 }
 
 // Proposal is one write call from the model, previewed as a dry run and waiting for the user (D342).
@@ -145,7 +146,14 @@ func (b *Bridge) proposeVia(c *agent.Command, a agent.Args, via string, direct b
 func (b *Bridge) preview(c *agent.Command, a agent.Args, via string, direct bool) (*Proposal, error) {
 	dry := maps.Clone(a)
 	dry["dry-run"] = true
-	out, err := agent.Run(b.sess, c.Name, dry)
+	// Prepared transactions retain their history label from preview through
+	// approval, so record the external origin before constructing them.
+	out, err := func() (*agent.Output, error) {
+		previous := b.via
+		b.via = via
+		defer func() { b.via = previous }()
+		return agent.Run(b.sess, c.Name, dry)
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +193,10 @@ func (b *Bridge) apply(p *Proposal) (*agent.Output, error) {
 	defer func() { b.via = "" }()
 	var out *agent.Output
 	var err error
-	if p.Preview.Drawing != nil {
+	if p.Preview.Art != nil {
+		out, err = p.Preview.Art.Commit()
+		p.Preview.Art = nil
+	} else if p.Preview.Drawing != nil {
 		out, err = b.applyDrawing(p)
 	} else {
 		out, err = b.run(p.Command, p.Args)
@@ -211,6 +222,9 @@ func (b *Bridge) await(p *Proposal) (bool, error) {
 	if e := b.main(func() {
 		if p.State == Pending {
 			p.State, expired = Expired, true
+			if p.Preview != nil {
+				p.Preview.Art = nil
+			}
 		}
 	}); e != nil {
 		return false, e
@@ -254,6 +268,8 @@ func (b *Bridge) Decide(id int, apply bool) bool {
 	p.State = Rejected
 	if apply {
 		p.State = Approved
+	} else if p.Preview != nil {
+		p.Preview.Art = nil
 	}
 	p.decide <- apply
 	return true
@@ -270,6 +286,9 @@ func (b *Bridge) RejectAll() {
 	for _, p := range b.proposals {
 		if p.generation != 0 && p.State == Approved {
 			p.State, p.Err = Rejected, errCancelled.Error()
+			if p.Preview != nil {
+				p.Preview.Art = nil
+			}
 		}
 	}
 	b.dismissQuestions()
@@ -311,6 +330,9 @@ func (b *Bridge) CanUndo(id int) bool {
 	if p == nil || p.undo == nil || p.State != Applied {
 		return false
 	}
+	if p.undo.art != nil {
+		return b.canUndoArt(p.undo.art)
+	}
 	if p.undo.drawing != nil {
 		if p.undo.drawing.check(true) != nil {
 			return false
@@ -335,6 +357,13 @@ func (b *Bridge) Undo(id int) error {
 		return errors.New("this change is no longer the last step; undo it with Edit → Undo")
 	}
 	p := b.find(id)
+	if p.undo.art != nil {
+		if err := b.undoArt(p.undo.art); err != nil {
+			return err
+		}
+		p.State = Undone
+		return nil
+	}
 	if p.undo.drawing != nil && p.undo.doc == 0 {
 		if err := p.undo.drawing.Undo(nil); err != nil {
 			return err

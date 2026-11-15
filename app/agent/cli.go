@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"aego/project"
@@ -14,6 +15,7 @@ type cliFlags struct {
 	json   bool
 	quiet  bool
 	strict bool
+	artOut string
 }
 
 func Usage(w io.Writer) {
@@ -101,6 +103,22 @@ func parseArgs(c *Command, toks []string) (Args, cliFlags, error) {
 				i++
 			}
 			continue
+		case "out":
+			if c.Name != "art.capture" {
+				break
+			}
+			if !has {
+				if i+1 >= len(toks) {
+					return nil, f, fmt.Errorf("--out needs a value")
+				}
+				i++
+				val = toks[i]
+			}
+			if val == "" || f.artOut != "" {
+				return nil, f, fmt.Errorf("--out requires one non-empty path")
+			}
+			f.artOut = val
+			continue
 		}
 		x, ok := byName[name]
 		if !ok {
@@ -129,6 +147,9 @@ func parseArgs(c *Command, toks []string) (Args, cliFlags, error) {
 }
 
 func report(stdout, stderr io.Writer, f cliFlags, out *Output, err error) int {
+	if err == nil && f.artOut != "" {
+		err = writeArtCapture(f.artOut, out)
+	}
 	switch {
 	case f.json:
 		var v any = out
@@ -150,4 +171,32 @@ func report(stdout, stderr io.Writer, f cliFlags, out *Output, err error) int {
 		return 2
 	}
 	return 0
+}
+
+// An explicit output path never overwrites a user's existing file.
+func writeArtCapture(path string, out *Output) error {
+	if out == nil || len(out.Images) != 1 || out.Images[0].Mime != "image/png" {
+		return errors.New("art: editor did not return a PNG capture")
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fmt.Errorf("art: cannot create capture: %w", err)
+	}
+	return finishArtCapture(path, f, out.Images[0].Data)
+}
+
+// On failure leave the path alone: it may have been replaced while the opened
+// file was being written. The caller is told that an incomplete file may remain.
+func finishArtCapture(path string, f io.WriteCloser, data []byte) error {
+	n, err := f.Write(data)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("art: cannot write capture: %w; incomplete output may remain at %q", err, path)
+	}
+	return nil
 }

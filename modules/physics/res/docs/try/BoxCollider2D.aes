@@ -1,0 +1,12 @@
+package demo
+
+import "aego/physics"
+
+// Begin just above the floor, moving down. Collider restitution changes the
+// actual contact response; gravity is disabled so the stopped baseline holds.
+script Impact {
+    func Ready() {
+        body := node.Get<Body2D>()
+        body.SetVelocity(Vec2{0, 15})
+    }
+}

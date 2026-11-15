@@ -30,6 +30,21 @@ func TestRelaunchArgs(t *testing.T) {
 	}
 }
 
+func TestExampleLinkUsesRestrictedEntryForBothBinaries(t *testing.T) {
+	link := "aego://example?manifest=https%3A%2F%2Fexample.invalid%2Fa.json"
+	for _, tc := range []struct {
+		verb string
+		want []string
+	}{
+		{"", []string{"--example-link", link}},
+		{"edit", []string{"edit", "--example-link", link}},
+	} {
+		if got := exampleLinkArgs(tc.verb, link); !slices.Equal(got, tc.want) {
+			t.Fatalf("%q: got %q, want %q", tc.verb, got, tc.want)
+		}
+	}
+}
+
 func TestResolveArg(t *testing.T) {
 	root := t.TempDir()
 	os.WriteFile(filepath.Join(root, project.FileName), []byte("project version=1 {\n}\n"), 0o644)

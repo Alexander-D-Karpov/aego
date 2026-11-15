@@ -1,9 +1,9 @@
 // Independent checks on the same standalone platformer export.
 import assert from "node:assert/strict";
 
-const finish = "fb3a738501b6010f2a581840c6194e41";
-const player = "c0000000000000000000000000000003";
-const finishTick = 1810;
+export const finish = "fb3a738501b6010f2a581840c6194e41";
+export const player = "c0000000000000000000000000000003";
+export const finishTick = 1810;
 const stats = page => page.evaluate(() => JSON.parse(globalThis.aegoGame.stats()));
 const wait = (page, fn, arg) => page.waitForFunction(fn, arg, { polling: 100, timeout: 60000 });
 

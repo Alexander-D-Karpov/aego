@@ -30,6 +30,16 @@ func (m *Mixer) apply(c *Command) {
 	switch c.Kind {
 	case CmdPlay:
 		m.play(c)
+	case CmdReplaceStream:
+		m.replaceStream(c)
+	case CmdStopPair:
+		stop := *c
+		stop.Kind = CmdStop
+		m.voiceCmd(&stop)
+		if c.Previous != c.Voice {
+			stop.Voice = c.Previous
+			m.voiceCmd(&stop)
+		}
 	case CmdBusGain, CmdBusMute, CmdBusSolo, CmdBusLayer:
 		i := int(c.Bus)
 		if i < 0 || i >= len(m.buses) {
@@ -117,6 +127,13 @@ func (m *Mixer) voiceCmd(c *Command) {
 		if v.state == voicePaused {
 			v.state = voicePlaying
 		}
+	case CmdSeekMemory:
+		if v.mem != nil && !v.stopping && c.Frame >= 0 && c.Frame <= 1<<53 && c.Frame < v.frames &&
+			(!v.loop || c.Frame < v.le) {
+			v.pos = float64(c.Frame)
+			// Paused voices do not pass through chunk's normal publication.
+			m.publish(v)
+		}
 	}
 }
 
@@ -178,6 +195,39 @@ func (m *Mixer) play(c *Command) {
 		v.gain, v.target = g, g
 	}
 	h.voice = int32(vi)
+	if c.Kind != CmdReplaceStream {
+		h.started.Store(true)
+	}
+}
+
+func (m *Mixer) replaceStream(c *Command) {
+	id := c.Voice
+	if int(id.Index) >= len(m.handles) {
+		return
+	}
+	h := &m.handles[id.Index]
+	if h.gen.Load() != id.Gen || h.voice >= 0 {
+		return
+	}
+	old := m.find(c.Previous)
+	if old < 0 || c.Previous == id || m.voices[old].stopping || c.Memory != nil || c.Stream == nil ||
+		c.Frame < 0 || c.Frame > 1 || !m.playable(c) {
+		m.reject(id)
+		return
+	}
+	// Free only the replaced voice so allocation cannot steal an unrelated voice.
+	m.end(old, EvFinished)
+	m.play(c)
+	if vi := m.find(id); vi >= 0 {
+		v := &m.voices[vi]
+		v.pos = float64(c.Frame)
+		if c.Paused {
+			v.state = voicePaused
+		}
+		m.publish(v)
+		// Publish only after the offset and pause state are both installed.
+		h.started.Store(true)
+	}
 }
 
 func (m *Mixer) take(prio int32) int {
@@ -210,7 +260,11 @@ func (m *Mixer) take(prio int32) int {
 
 func (m *Mixer) release(h uint32) {
 	hd := &m.handles[h]
+	if m.onRelease != nil {
+		m.onRelease(VoiceID{Index: h, Gen: hd.gen.Load()})
+	}
 	hd.voice = -1
+	hd.started.Store(false)
 	hd.pos.Store(0)
 	hd.gain.Store(0)
 	if hd.gen.Add(1) == 0 {
@@ -439,6 +493,16 @@ func (m *Mixer) renderStream(v *voice, acc []float32, n int) bool {
 		i := int64(v.pos)
 		if i+2 >= end {
 			if !drained {
+				if v.stopping {
+					// Consume a starved Stop fade in output time without advancing the source, even before EOF arrives.
+					for ; f < n; f++ {
+						if v.ramp == 0 {
+							return true
+						}
+						v.next()
+					}
+					return false
+				}
 				m.starve(v)
 				return false
 			}

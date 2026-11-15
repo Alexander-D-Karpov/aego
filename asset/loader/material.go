@@ -121,7 +121,8 @@ func (l *Loader) materialTexture(id ids.AssetID) (material.Tex, bool) {
 		return material.Tex{}, false
 	}
 	page := l.pages[l.region[id].page]
-	return material.Tex{Texture: r.Texture, Region: r, RegionOnly: e.Kind == asset.ArtSpriteRegion, NormalMap: page.semantic == asset.TextureNormal, EmissionMode: emissionMode(page.semantic)}, true
+	regionOnly := e.Kind == asset.ArtSpriteRegion || l.region[id].page != id || r.UVMin.X != 0 || r.UVMin.Y != 0 || r.UVMax.X != 1 || r.UVMax.Y != 1 || r.Trimmed()
+	return material.Tex{Texture: r.Texture, Region: r, RegionOnly: regionOnly, NormalMap: page.semantic == asset.TextureNormal, EmissionMode: emissionMode(page.semantic)}, true
 }
 
 // MaterialTexture resolves a complete sampler texture for runtime and editor; sprite atlas regions cannot replace secondary noise or data textures.

@@ -56,7 +56,7 @@ type launchDriver struct {
 	prefsDir string
 	prefs    *prefs.Prefs
 	retheme  bool
-	updates  *updateManager
+	updates  interface{ Tick(time.Time) }
 }
 
 type launchImage struct {
@@ -242,6 +242,7 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		RecentPath:  cfg.Recent,
 		Home:        projectsHome(),
 		Image:       d.image,
+		Remote:      launcherRemote{},
 		Theme:       func() theme.Mode { return d.prefs.Theme },
 		SetTheme:    d.setTheme,
 		Language:    func() string { return d.prefs.Language },
@@ -252,6 +253,13 @@ func OpenLauncher(cfg Config) (*LaunchSession, error) {
 		ls.UI.SetTab(launcher.TabNew)
 	case TabRecent:
 		ls.UI.SetTab(launcher.TabRecent)
+	}
+	if cfg.ExampleLink != "" {
+		if err := ls.UI.RequestExampleLink(cfg.ExampleLink); err != nil {
+			ls.UI.Close()
+			e.Close()
+			return nil, err
+		}
 	}
 	ls.driver = d
 	return ls, nil
@@ -285,24 +293,36 @@ func (ls *LaunchSession) Step() bool {
 }
 
 func (ls *LaunchSession) Close() {
+	if ls.UI != nil {
+		ls.UI.Close()
+	}
 	ls.Engine.Close()
 }
 
 func Launch(cfg Config) (string, error) {
+	root, _, remote, err := launchWithEntry(cfg)
+	if err == nil && remote {
+		return "", errors.New("remote examples require the entry-aware editor launch path")
+	}
+	return root, err
+}
+
+func launchWithEntry(cfg Config) (root, entry string, remote bool, err error) {
 	ls, err := OpenLauncher(cfg)
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
 	if cfg.Frames > 0 {
 		for i := 0; i < cfg.Frames && ls.Step(); i++ {
 		}
 	} else if err := ls.Engine.Run(ls.driver); err != nil {
 		ls.Close()
-		return "", err
+		return "", "", false, err
 	}
 	ls.Close()
-	root, _ := ls.UI.Result()
-	return root, nil
+	root, _ = ls.UI.Result()
+	entry, remote = ls.UI.ResultEntry()
+	return root, entry, remote, nil
 }
 
 func touchRecent(cfg Config, root, name string, lg *log.ChannelLogger) {
@@ -342,6 +362,10 @@ func (d *launchDriver) Event(ev platform.Event) {
 		d.ui.SetComposition("", 0)
 	case platform.EvDropFile:
 		d.s.UI.Drop(ev.Str)
+	case platform.EvDropText:
+		if strings.HasPrefix(strings.ToLower(ev.Str), "aego:") {
+			d.s.UI.Drop(ev.Str)
+		}
 	case platform.EvSystemTheme:
 		if d.prefs.Theme == theme.ModeSystem {
 			d.retheme = true
@@ -399,10 +423,14 @@ func prefsDir(cfg Config) string {
 
 func (d *launchDriver) FixedUpdate(float64) {}
 
+func (d *launchDriver) automaticUpdatesAllowed() bool {
+	return d.s != nil && d.s.UI != nil && !d.s.UI.AwaitingExampleConfirmation()
+}
+
 func (d *launchDriver) Update(float64) {
 	e, ui := d.eng, d.ui
 	ui.Time = e.Platform().Now()
-	if d.updates != nil {
+	if d.updates != nil && d.automaticUpdatesAllowed() {
 		d.updates.Tick(time.Now())
 	}
 	if d.retheme {

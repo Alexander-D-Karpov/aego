@@ -69,9 +69,19 @@ func (p *pool[T]) handleAt(i int) handle.Handle[T] {
 }
 
 func (p *pool[T]) cloneInto(dst *pool[T], cp func(dst, src *T)) {
+	p.cloneWithReserve(dst, cp, cap(p.items))
+}
+
+// Snapshots only need the populated slots; the world's unused reserve is not
+// state and need not be allocated again for every independent keyframe.
+func (p *pool[T]) cloneSnapshotInto(dst *pool[T], cp func(dst, src *T)) {
+	p.cloneWithReserve(dst, cp, len(p.items))
+}
+
+func (p *pool[T]) cloneWithReserve(dst *pool[T], cp func(dst, src *T), reserve int) {
 	n := len(p.items)
 	if cap(dst.items) < n {
-		items := make([]T, n, max(cap(p.items), n))
+		items := make([]T, n, max(reserve, n))
 		copy(items, dst.items[:cap(dst.items)])
 		dst.items = items
 	} else {

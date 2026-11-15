@@ -27,15 +27,18 @@ var currentAudio *Audio
 var workletSource string
 
 type AudioStats struct {
-	Running   bool    `json:"running"`
-	Shared    bool    `json:"shared"`
-	Muted     bool    `json:"muted"`
-	Underruns int     `json:"underruns"`
-	RMS       float64 `json:"rms"`
-	Out       float64 `json:"out"`
-	Consumed  int64   `json:"consumed"`
-	Rate      int     `json:"rate"`
-	Error     string  `json:"error,omitempty"`
+	Running    bool    `json:"running"`
+	Shared     bool    `json:"shared"`
+	Muted      bool    `json:"muted"`
+	Underruns  int     `json:"underruns"`
+	RMS        float64 `json:"rms"`
+	Out        float64 `json:"out"`
+	Consumed   int64   `json:"consumed"`
+	Rate       int     `json:"rate"`
+	Backend    string  `json:"backend"`
+	Quiet      bool    `json:"quiet"`
+	Suppressed int64   `json:"suppressed"`
+	Error      string  `json:"error,omitempty"`
 }
 
 type Audio struct {
@@ -80,6 +83,16 @@ type Audio struct {
 	primeMax  int
 	priming   bool
 	sentAudio bool
+	// A claimed worklet must never receive PCM from the main-thread pump.
+	// The owner stops the Worker before cancelling an uncommitted claim.
+	workerReserved bool
+	workerAttached bool
+	workerQuiet    bool
+	quietToken     uint64
+	suppressed     int64
+	prior          platform.AudioCounters
+	workerGate     bool
+	workerState    func()
 }
 
 func (p *Platform) OpenAudio(want platform.AudioSpec) (platform.AudioOutput, error) {
@@ -156,6 +169,7 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 	}
 	a.hook(ctx, "statechange", func(js.Value) {
 		a.state = ctx.Get("state").String()
+		a.notifyWorkerState()
 		a.fillRunning()
 	})
 	if doc := g.Get("document"); doc.Truthy() {
@@ -196,6 +210,7 @@ func OpenAudio(want platform.AudioSpec) (*Audio, error) {
 			if len(args) > 0 {
 				a.failed += ": " + args[0].Call("toString").String()
 			}
+			a.notifyWorkerState()
 		}
 		return nil
 	})
@@ -261,6 +276,7 @@ func (a *Audio) attach() {
 	node, err := newNode(a.ctx, po)
 	if err != nil {
 		a.failed = err.Error()
+		a.notifyWorkerState()
 		return
 	}
 	a.node = node
@@ -276,6 +292,7 @@ func (a *Audio) attach() {
 	node.Call("connect", a.gain)
 	a.gain.Call("connect", a.ctx.Get("destination"))
 	a.ready = true
+	a.notifyWorkerState()
 }
 
 func (a *Audio) report(d js.Value) {
@@ -286,9 +303,29 @@ func (a *Audio) report(d js.Value) {
 	if t := d.Get("time"); t.Type() == js.TypeNumber {
 		a.count.at = t.Float()
 	}
+	wasQuiet, oldToken := a.workerQuiet, a.quietToken
 	a.underruns = d.Get("underruns").Int()
+	if quiet := d.Get("quiet"); quiet.Type() == js.TypeBoolean {
+		if quiet.Bool() {
+			token := d.Get("quietToken")
+			if token.Type() != js.TypeNumber || math.IsNaN(token.Float()) || math.IsInf(token.Float(), 0) ||
+				token.Float() < 0 || token.Float() > 1<<53-1 || math.Trunc(token.Float()) != token.Float() {
+				a.failed = "the audio worklet reported an invalid quiet token"
+				a.notifyWorkerState()
+				return
+			}
+			a.quietToken = uint64(token.Float())
+		}
+		a.workerQuiet = quiet.Bool()
+	}
+	if suppressed := d.Get("suppressed"); suppressed.Type() == js.TypeNumber {
+		a.suppressed = int64(suppressed.Float())
+	}
 	a.sum = d.Get("sum").Float()
 	a.samples = d.Get("count").Float()
+	if a.workerQuiet != wasQuiet || (a.workerQuiet && a.quietToken != oldToken) {
+		a.notifyWorkerState()
+	}
 	a.fillRunning()
 }
 
@@ -309,6 +346,7 @@ func (a *Audio) gesture(js.Value) {
 
 func (a *Audio) visibility(hidden bool) {
 	a.hidden = hidden
+	a.notifyWorkerState()
 	switch {
 	case hidden:
 		a.fillRunning()
@@ -343,7 +381,7 @@ func floatBytes(s []float32) []byte {
 // BeginAudioPrime buffers only the first pump fill. The worklet still counts
 // every shortage after playback begins; no silence is reclassified as audio.
 func (a *Audio) BeginAudioPrime(frames int) {
-	if a.sentAudio || a.priming || !a.Running() || frames <= 0 || a.spec.Channels <= 0 {
+	if a.workerReserved || a.sentAudio || a.priming || !a.Running() || frames <= 0 || a.spec.Channels <= 0 {
 		return
 	}
 	a.primeMax = min(frames, ringFrames)
@@ -369,7 +407,7 @@ func (a *Audio) EndAudioPrime() {
 func (a *Audio) Write(s []float32) int {
 	ch := a.spec.Channels
 	frames := len(s) / ch
-	if frames == 0 || a.closed {
+	if frames == 0 || a.closed || a.workerReserved {
 		return 0
 	}
 	if !a.Running() {
@@ -408,6 +446,10 @@ const maxViews = 64
 // SetRefill permits the worklet's existing consumption reports to service the
 // same mixer between visual frames. No additional browser timer is installed.
 func (a *Audio) SetRefill(fill func() int) {
+	if a.workerReserved && fill != nil {
+		a.failed = "the audio output is reserved by a worker"
+		return
+	}
 	a.refill = fill
 	if a.port.Truthy() {
 		a.port.Call("postMessage", map[string]any{"refillAt": a.refillThreshold()})
@@ -415,10 +457,17 @@ func (a *Audio) SetRefill(fill func() int) {
 }
 
 func (a *Audio) refillThreshold() int {
-	if a.refill == nil {
+	if a.refill == nil && !a.workerReserved {
 		return 0
 	}
-	return min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
+	threshold := min(3*a.spec.Frames, (a.spec.SampleRate*24+999)/1000)
+	if a.workerReserved && a.shared && a.spec.Frames > 0 {
+		// Request a refill earlier, leaving room for a complete block when
+		// the target allows it. Never lower the existing threshold.
+		blocks := min(sharedWorkerMinimumBlocks-1, a.workerTargetBlocks()-1)
+		threshold = max(threshold, blocks*a.spec.Frames)
+	}
+	return threshold
 }
 
 func (a *Audio) FrameDriven() bool {
@@ -467,6 +516,7 @@ func (a *Audio) Queued() int {
 
 func (a *Audio) Pause(on bool) {
 	a.paused = on
+	a.notifyWorkerState()
 	switch {
 	case on:
 		a.fillRunning()
@@ -477,9 +527,16 @@ func (a *Audio) Pause(on bool) {
 }
 
 func (a *Audio) Stats() AudioStats {
-	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: a.underruns, Consumed: a.count.consumed, Rate: a.spec.SampleRate, Error: a.failed}
-	if a.samples > 0 {
-		s.RMS = math.Sqrt(a.sum / a.samples)
+	c := a.audioCounters()
+	backend := "local"
+	if a.workerAttached {
+		backend = "worker"
+	} else if a.workerReserved {
+		backend = "worker-starting"
+	}
+	s := AudioStats{Running: a.Running(), Shared: a.shared, Muted: a.muted, Underruns: c.Underruns, Consumed: c.Consumed, Rate: a.spec.SampleRate, Error: a.failed, Quiet: a.workerQuiet, Suppressed: c.Suppressed, Backend: backend}
+	if c.Samples > 0 {
+		s.RMS = math.Sqrt(c.Sum / c.Samples)
 	}
 	s.Out = s.RMS * a.level()
 	return s
@@ -491,6 +548,7 @@ func (a *Audio) Close() {
 	}
 	a.closed = true
 	a.refill = nil
+	a.workerState = nil
 	if a.node.Truthy() {
 		a.port.Set("onmessage", js.Null())
 		a.node.Call("disconnect")
@@ -570,7 +628,7 @@ func activated(g js.Value) (on bool) {
 }
 
 func (a *Audio) level() float64 {
-	if a.muted {
+	if a.muted || a.workerGate {
 		return 0
 	}
 	return 1
@@ -582,6 +640,7 @@ func (a *Audio) Muted() bool {
 
 func (a *Audio) SetMuted(on bool) {
 	a.muted = on
+	a.notifyWorkerState()
 	a.fillRunning()
 	if a.gain.Truthy() {
 		a.gain.Get("gain").Call("setTargetAtTime", a.level(), a.ctx.Get("currentTime"), 0.01)

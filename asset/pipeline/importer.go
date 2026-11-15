@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
@@ -65,6 +66,13 @@ type Importer interface {
 	Import(ctx *ImportContext) (*Result, error)
 }
 
+// SourceEditLimiter lets a trusted registered importer request a specific
+// bound for guarded source transactions. It does not change the limit for
+// metadata or unrelated formats. The pipeline applies its own maximum too.
+type SourceEditLimiter interface {
+	SourceEditLimit() int64
+}
+
 // CacheSalter adds artifact-less inputs (e.g. embedded includes and validator version) before cache lookup; errors must not reuse older successful artifacts.
 type CacheSalter interface {
 	CacheSalt(ctx *ImportContext) ([]byte, error)
@@ -81,6 +89,20 @@ type SourceDependencySalter interface {
 // The pipeline owns atomic persistence and checks concurrent edits; Preview calls the hook on a private copy without writing files.
 type MetadataResolver interface {
 	ResolveMetadata(ctx *ImportContext) (Settings, error)
+}
+
+// GuardedMetadataPreviewer renders an indexed source with a private metadata
+// snapshot, including a newer format only for preview. It does not authorize
+// normal import or persistence. The pipeline verifies that Source matches the
+// indexed disk source before and after the call. The caller must separately
+// guard document revision and generation when using an asynchronously produced
+// result. The renderer runs without the pipeline lock: it receives only ID,
+// Path, Source and Log, and must treat Source and metadata as immutable. Meta
+// and pipeline callbacks are unavailable; dependent assets require a separate
+// guarded snapshot.
+type GuardedMetadataPreviewer interface {
+	GuardedMetadataCandidate(path string, metadata []byte) (bool, error)
+	PreviewGuardedMetadata(ctx context.Context, input *ImportContext, metadata []byte) (*Result, error)
 }
 
 type GroupMember struct {

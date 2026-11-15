@@ -29,7 +29,7 @@ type PrefabInstance struct {
 
 func RegisterPrefab(t *scene.Types) error {
 	if err := scene.RegisterComponent[PrefabInstance](t, schema.Name(PrefabName),
-		schema.Doc("Links a node to the prefab it was created from."), schema.Clone(clonePrefab)); err != nil {
+		schema.Doc("Links a node to the prefab it was created from."), schema.FullClone(clonePrefab)); err != nil {
 		return err
 	}
 	if td, ok := t.Schema().ByName(PrefabName); ok {
@@ -39,6 +39,7 @@ func RegisterPrefab(t *scene.Types) error {
 }
 
 func clonePrefab(dst, src *PrefabInstance) {
+	*dst = *src
 	dst.Keys = maps.Clone(src.Keys)
 	dst.Orphans = src.Orphans.Clone()
 	dst.Extra = cloneNodes(src.Extra)

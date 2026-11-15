@@ -1,15 +1,9 @@
 package demo
 
-import (
-    "aego/tween"
-    "aego/curve"
-)
-
-script MaterialPulse {
-    var pulse tween.Tween
-
+// Enabling this attachment writes the actual node-local shader parameter.
+// The other sprite retains the same shared material and inherits Flash 0.
+script SetFlash {
     func Ready() {
-        node.Get<MaterialOverride>().SetFloat("Flash", 0)
-        pulse = tween.ToFloat(node, "MaterialOverride.Flash", 1, 0.8, curve.InOutSine).PingPong(-1)
+        node.Get<MaterialOverride>().SetFloat("Flash", 1)
     }
 }

@@ -2,6 +2,7 @@ package profiler
 
 import (
 	"fmt"
+	"math"
 	"runtime/metrics"
 	"strconv"
 	"strings"
@@ -43,9 +44,18 @@ const (
 )
 
 type bucket struct {
-	avg    [metricCount]float32
-	peak   [metricCount]float32
-	frames int
+	avg       [metricCount]float32
+	peak      [metricCount]float32
+	frames    int
+	intervals int
+	elapsed   float64
+}
+
+func (b *bucket) fps() float64 {
+	if b.elapsed <= 0 {
+		return 0
+	}
+	return float64(b.intervals) / b.elapsed
 }
 
 type mark struct {
@@ -60,6 +70,8 @@ type Panel struct {
 	valid      [metricCount]int
 	acc        bucket
 	start      float64
+	lastSample float64
+	haveSample bool
 	interval   int
 	paused     bool
 	playing    bool
@@ -267,6 +279,7 @@ func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats
 		p.hasScripts = false
 	}
 	if p.paused || f == nil {
+		p.haveSample = false
 		return
 	}
 	p.materials = r
@@ -297,6 +310,14 @@ func (p *Panel) Record(now float64, f *stats.Frame, r render.Stats, g play.Stats
 	if p.acc.frames == 0 {
 		p.start = now
 	}
+	if p.haveSample {
+		dt := now - p.lastSample
+		if dt > 0 && !math.IsInf(dt, 0) {
+			p.acc.elapsed += dt
+			p.acc.intervals++
+		}
+	}
+	p.lastSample, p.haveSample = now, true
 	for i := range s {
 		p.acc.avg[i] += s[i]
 		p.acc.peak[i] = max(p.acc.peak[i], s[i])
@@ -473,11 +494,14 @@ func (p *Panel) toolbar(ui *core.Context, bar mathx.Rect) {
 	if p.n == 0 {
 		return
 	}
-	fps := float64(p.at(p.n-1).frames) / p.seconds()
+	fps := "—"
+	if v := p.at(p.n - 1).fps(); v > 0 {
+		fps = strconv.FormatFloat(v, 'f', 1, 64)
+	}
 	span := strconv.FormatFloat(p.seconds()*history, 'f', 0, 64)
 	info := mathx.Rect{X: bar.X + 176, Y: bar.Y, W: max(0, bar.W-176), H: bar.H}
 	ui.PushClip(info)
-	ui.Text(i18n.Tr("editor.profiler.fps_v_window_span_s", "fps {v}   window {span} s", i18n.Str("v", strconv.Itoa(int(fps+0.5))), i18n.Str("span", span)), mathx.Vec2{X: info.X, Y: ui.TextY(bar)}, th.Text)
+	ui.Text(i18n.Tr("editor.profiler.fps_v_window_span_s", "fps {v}   window {span} s", i18n.Str("v", fps), i18n.Str("span", span)), mathx.Vec2{X: info.X, Y: ui.TextY(bar)}, th.Text)
 	ui.PopClip()
 }
 

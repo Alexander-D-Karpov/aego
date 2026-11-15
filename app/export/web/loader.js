@@ -150,6 +150,11 @@
     }
 
     async function start() {
+        // Compile alongside the game download; a failure remains a startup-only
+        // local-audio fallback and cannot replay an attached Worker.
+        const audio = typeof globalThis.AegoPrepareAudioWorker === "function"
+            ? globalThis.AegoPrepareAudioWorker(`audio-mixer.wasm?v=${build}`, `audio-worker.js?v=${build}`)
+            : Promise.resolve(null);
         const list = await readJSON(`data/files.json?v=${build}`);
         got = 0;
         const data = list.manifest.size + list.files.reduce((s, f) => s + f.size, 0);
@@ -164,6 +169,7 @@
         });
         globalThis.aegoData = { manifest: await manifest, files };
         const bytes = await wasm;
+        globalThis.aegoAudioWorkerConfig = await audio;
         status.textContent = "Starting…";
         bar.style.width = "";
         bar.classList.add("indeterminate");

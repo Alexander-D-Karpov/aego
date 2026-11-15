@@ -9,8 +9,6 @@ import (
 	"aego/editor/core/play"
 	"aego/editor/core/workspace"
 	agentpanel "aego/editor/panels/agent"
-	animpanel "aego/editor/panels/animation"
-	"aego/editor/panels/animator"
 	edocs "aego/editor/panels/docs"
 	"aego/editor/panels/scripteditor"
 	"aego/editor/panels/watch"
@@ -31,7 +29,7 @@ const (
 	CommandFullscreenPlay   = "play.fullscreen"
 )
 
-var workspaceKeys = [...]input.Scancode{input.Key1, input.Key2, input.Key3, input.Key4}
+var workspaceKeys = [...]input.Scancode{input.Key1, input.Key2, input.Key3, input.Key4, input.Key5, input.Key6, input.Key7}
 
 func WorkspaceCommand(i int) string {
 	return CommandWorkspacePrefix + strconv.Itoa(i+1)
@@ -40,12 +38,31 @@ func WorkspaceCommand(i int) string {
 func BuiltinWorkspaces() []workspace.Preset {
 	left, browser, center, bottom, right := workspace.SlotLeft, workspace.SlotBrowser, workspace.SlotCenter, workspace.SlotBottom, workspace.SlotRight
 	// These are initial/reset layouts, not migrations. Preserve user tab and splitter state.
-	return []workspace.Preset{
+	return append([]workspace.Preset{
 		{ID: workspace.Design, Title: i18n.Tr("editor.shell.design", "Design"), Order: 0, Explicit: true, Slots: map[string]workspace.Slot{workspace.Hierarchy: left, workspace.Assets: browser, workspace.Scene: center, workspace.Game: center, workspace.Inspector: right, agentpanel.ID: right, workspace.Problems: bottom, workspace.Console: bottom}, Splits: []workspace.PanelSplit{{Panel: agentpanel.ID, Anchor: workspace.Inspector, Side: dock.SideBottom, Ratio: 0.55}}, Front: []string{workspace.Scene, workspace.Problems}},
 		{ID: workspace.Programming, Title: i18n.Tr("editor.shell.programming", "Programming"), Order: 10, Rev: 1, Explicit: true, Slots: map[string]workspace.Slot{workspace.Assets: left, edocs.ID: center, workspace.Game: center, workspace.Problems: bottom, workspace.Console: bottom, scripteditor.FindID: bottom, "agent": right, watch.ID: right}, Front: []string{edocs.ID, workspace.Problems, "agent"}},
-		{ID: workspace.Art, Title: i18n.Tr("editor.shell.art", "Art"), Order: 20, Explicit: true, Slots: map[string]workspace.Slot{workspace.Hierarchy: left, workspace.Assets: browser, workspace.Scene: center, workspace.Game: center, workspace.Inspector: right, animpanel.ID: bottom, animator.ID: bottom}, Front: []string{workspace.Scene, animpanel.ID}},
+		{ID: workspace.Art, Title: i18n.Tr("editor.shell.art", "Art"), Order: 20, Explicit: true,
+			Scopes: map[string]workspace.Slot{"render2d.art": center},
+			Slots: map[string]workspace.Slot{
+				"art.tools": left, "art.options": left, workspace.Scene: center, workspace.Game: center,
+				"art.timeline": bottom, workspace.Assets: bottom, "art.layers": right, "art.palette": right,
+				"art.color": right, "art.channels": right, "art.preview": right,
+				"art.properties": right, // legacy combined panel remains available
+			},
+			LeftRatio: .14, CenterRatio: .80,
+			Splits: []workspace.PanelSplit{
+				{Panel: "art.options", Anchor: "art.tools", Side: dock.SideBottom, Ratio: .30},
+				{Panel: "art.timeline", Anchor: workspace.Scene, Side: dock.SideBottom, Ratio: .78},
+				// Eight 48px cel columns, layer labels and scrollbars fit at
+				// normal sizes; on narrow windows keep room for Assets too.
+				{Panel: workspace.Assets, Anchor: "art.timeline", Side: dock.SideLeft, Ratio: .32, AnchorSize: 544, AnchorMaxShare: .68},
+				{Panel: "art.palette", Anchor: "art.layers", Side: dock.SideBottom, Ratio: .27},
+				{Panel: "art.color", Anchor: "art.palette", Side: dock.SideBottom, Ratio: .27},
+				{Panel: "art.preview", Anchor: "art.color", Side: dock.SideBottom, Ratio: .72},
+			},
+			Front: []string{"art.tools", "art.options", "art.layers", "art.palette", "art.color", "art.preview", workspace.Assets}, FrontScopes: []string{"render2d.art"}},
 		{ID: workspace.Audio, Title: i18n.Tr("editor.shell.audio", "Audio"), Order: 30, Explicit: true, Slots: map[string]workspace.Slot{workspace.Assets: left, workspace.Game: center, workspace.Scene: center, workspace.Inspector: right, workspace.Mixer: bottom, workspace.Console: bottom}, Front: []string{workspace.Game, workspace.Mixer}},
-	}
+	}, authoringWorkspaces()...)
 }
 
 func (a *App) presetAt(i int) (workspace.Preset, bool) {

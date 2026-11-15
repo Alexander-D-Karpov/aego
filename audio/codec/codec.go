@@ -3,6 +3,7 @@ package codec
 import (
 	"errors"
 	"io"
+	"math"
 	"path"
 	"strings"
 
@@ -38,6 +39,10 @@ type StreamOptions struct {
 	LoopStart int64
 	LoopEnd   int64
 	Chunk     int
+	// StartFrame starts a fresh decoder at this source frame before publishing
+	// PCM. The returned Stream completion reports validation or seek errors.
+	// The stream/mixer position remains relative to this new start.
+	StartFrame int64
 }
 
 const (
@@ -170,13 +175,23 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			}
 		}
 	}
+	if o.StartFrame < 0 {
+		return errors.New("codec: the starting frame cannot be negative")
+	}
+	if o.StartFrame > 0 {
+		info := d.Info()
+		if info.Frames > 0 && o.StartFrame >= info.Frames || o.Loop && o.LoopEnd > 0 && o.StartFrame >= o.LoopEnd {
+			return errors.New("codec: the starting frame is outside the playable range")
+		}
+	}
 	chunk := o.Chunk
 	if chunk <= 0 {
 		chunk = readFrames
 	}
 	buf := make([]float32, chunk*ch)
 	var pending []float32
-	pos := int64(0)
+	pos, seekTo := o.StartFrame, o.StartFrame
+	needsSeek := o.StartFrame > 0
 	empty := 0
 	for {
 		select {
@@ -188,14 +203,21 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			k := min(sk, int64(len(pending)/ch))
 			pending = pending[int(k)*ch:]
 			if sk -= k; sk > 0 {
-				to, ok := skipTo(d, o, pos+sk)
+				// A held stream can advance repeatedly while its output is muted.
+				// Keep its logical target current, but defer expensive decoder
+				// seeks until the mixer actually releases the stream.
+				from := pos
+				if needsSeek {
+					from = seekTo
+				}
+				if from > math.MaxInt64-sk {
+					return errors.New("codec: the skipped frame position overflows")
+				}
+				to, ok := skipTo(d, o, from+sk)
 				if !ok {
 					return nil
 				}
-				if err := d.SeekFrame(to); err != nil {
-					return err
-				}
-				pos = to
+				seekTo, needsSeek = to, true
 			}
 		}
 		if st.Held() {
@@ -204,6 +226,15 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 				return nil
 			case <-st.Wake():
 			}
+			continue
+		}
+		if needsSeek {
+			if err := d.SeekFrame(seekTo); err != nil {
+				return err
+			}
+			pos, needsSeek = seekTo, false
+			// A new skip can arrive while the decoder is seeking. Handle it
+			// before reading or publishing samples from the old position.
 			continue
 		}
 		if len(pending) == 0 {
@@ -235,6 +266,9 @@ func feed(d Decoder, st *mix.Stream, o StreamOptions, cancel <-chan struct{}) er
 			empty = 0
 			pos += int64(n)
 			pending = buf[:n*ch]
+			// Decoding may also overlap a new hold/skip. Let the next
+			// iteration discard superseded samples before writing the ring.
+			continue
 		}
 		w := st.Ring.Write(pending)
 		pending = pending[w*ch:]

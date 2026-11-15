@@ -70,6 +70,13 @@ func kindIcon(k asset.ArtifactKind) string {
 	return "file.unknown"
 }
 
+func assetIcon(a *pipeline.AssetInfo) string {
+	if a.Kind == asset.ArtTexture && strings.EqualFold(path.Ext(a.Path), ".aeart") {
+		return "file.art"
+	}
+	return kindIcon(a.Kind)
+}
+
 func (p *Panel) kindColor(k asset.ArtifactKind) mathx.Color {
 	th := &p.f.UI.Theme
 	c := th.TextDim
@@ -140,7 +147,7 @@ func (p *Panel) schematic(a *pipeline.AssetInfo, img mathx.Rect) {
 		ui.PopFont()
 		cy -= small / 2
 	}
-	widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: cy, W: icon, H: icon}, kindIcon(a.Kind), tint)
+	widgets.IconAt(ui, mathx.Rect{X: card.X + (card.W-icon)/2, Y: cy, W: icon, H: icon}, assetIcon(a), tint)
 	if showSub {
 		ui.PushFont(ui.FontAt(11))
 		sr := mathx.Rect{X: card.X + 3, Y: cy + icon + 2, W: card.W - 6, H: small}
@@ -198,6 +205,10 @@ func (p *Panel) thumb(a *pipeline.AssetInfo, r mathx.Rect) bool {
 
 func (p *Panel) wave(a *pipeline.AssetInfo, r mathx.Rect) bool {
 	peaks, _ := p.d.Thumbs.Peaks(a.ID, waveCols)
+	return p.drawWave(a, r, peaks)
+}
+
+func (p *Panel) drawWave(a *pipeline.AssetInfo, r mathx.Rect, peaks []float32) bool {
 	if len(peaks) == 0 {
 		return false
 	}
@@ -234,17 +245,37 @@ func (p *Panel) folderStack(dir string, img mathx.Rect) {
 		it := &p.items[list[k]]
 		lift := float32(k%2) * icon * 0.06
 		cr := mathx.Rect{X: x0 + float32(k)*step, Y: at.Y + icon*0.02 - lift, W: cs, H: cs}
-		ui.Rect(cr, th.CardBg)
-		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: cr.H * 0.42}
-		if !p.thumb(it, in) {
-			ic := cs * 0.4
-			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, kindIcon(it.Kind), p.kindColor(it.Kind))
+		fill, border := folderSheetColors(th)
+		ui.Rect(cr, fill)
+		// The front of the folder covers the lower part of each sheet. Use
+		// the visible portion for the preview instead of a thin strip.
+		in := mathx.Rect{X: cr.X + 2, Y: cr.Y + 2, W: cr.W - 4, H: max(1, cr.H*0.72-2)}
+		ready := false
+		if it.Kind == asset.ArtAudio {
+			// A tiny folder sheet must not decode a potentially long track.
+			// Reuse an already displayed waveform, or show the audio icon.
+			ready = p.drawWave(it, in, p.d.Thumbs.CachedPeaks(it.ID, waveCols))
+		} else {
+			ready = p.thumb(it, in)
 		}
-		ui.Outline(cr, th.Border)
+		if !ready {
+			ic := cs * 0.4
+			widgets.IconAt(ui, mathx.Rect{X: cr.X + (cs-ic)/2, Y: cr.Y + 2, W: ic, H: ic}, assetIcon(it), p.kindColor(it.Kind))
+		}
+		ui.Outline(cr, border)
 	}
 	front := mathx.Rect{X: at.X + icon*0.07, Y: at.Y + icon*0.43, W: icon * 0.86, H: icon * 0.43}
 	ui.RoundRect(front, icon*0.035, th.Accent)
 	ui.Rect(mathx.Rect{X: front.X, Y: front.Y, W: front.W, H: max(1, icon*0.025)}, back)
+}
+
+func folderSheetColors(th *core.Theme) (mathx.Color, mathx.Color) {
+	if th.Dark {
+		return th.CardBg, th.Border
+	}
+	border := th.TextDim
+	border.A = 0.55
+	return th.WidgetDown, border
 }
 
 func (p *Panel) code(lines []string, r mathx.Rect) {

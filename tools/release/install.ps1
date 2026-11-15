@@ -30,6 +30,8 @@ if ($want -ne $got) { Remove-Item -Recurse $dir; throw "checksum mismatch, refus
 Expand-Archive $zip -DestinationPath $dir
 $exe = Get-ChildItem $dir -Filter "*-setup.exe" | Select-Object -First 1
 Write-Host "Installing"
-Start-Process $exe.FullName -ArgumentList "/S" -Wait
+$process = Start-Process $exe.FullName -ArgumentList "/S" -Wait -PassThru
+if ($null -eq $process) { throw "The installer did not return a process status" }
+if ($process.ExitCode -ne 0) { throw "The installer failed with exit code $($process.ExitCode)" }
 Remove-Item -Recurse $dir
 Write-Host "Aego is installed: open it from the Start menu, or run 'aego' in a new terminal."

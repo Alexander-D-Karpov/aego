@@ -2,6 +2,8 @@ package editors
 
 import (
 	"aego/app/assembly"
+	"aego/modules/animation"
+	animationeditor "aego/modules/animation/editor"
 	"aego/modules/audio"
 	audioeditor "aego/modules/audio/editor"
 	"aego/modules/camera"
@@ -24,6 +26,7 @@ import (
 
 func With(c assembly.Catalog) assembly.Catalog {
 	return c.
+		With(animation.ID, animationeditor.Hook).
 		With(inputmod.ID, inputeditor.Hook).
 		With(particles.ID, particleseditor.Hook).
 		With(render2d.ID, render2deditor.Hook).

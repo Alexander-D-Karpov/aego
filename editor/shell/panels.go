@@ -56,6 +56,15 @@ func (a *App) panelCatalog() []workspace.Desc {
 			Selection: a.ctx,
 			Notices:   a.ctx,
 			Files:     a.ctx.AnimFiles,
+			EditSourceArt: func(id ids.AssetID) error {
+				if a.ctx.EditSourceArt != nil {
+					return a.ctx.EditSourceArt(id)
+				}
+				return nil
+			},
+			CanEditSourceArt: func(id ids.AssetID) bool {
+				return a.ctx.CanEditSourceArt != nil && a.ctx.CanEditSourceArt(id)
+			},
 			PathOf: func(id ids.AssetID) (string, bool) {
 				if a.opt.Pipeline == nil {
 					return "", false

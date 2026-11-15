@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import { test } from "node:test";
 import { requiredCIBaselineErrors, requiredCIGateOptionErrors, requiredCIMeasurementErrors } from "./bench-baseline.mjs";
 
@@ -19,6 +21,18 @@ function valid() {
 
 test("a complete CI benchmark baseline is accepted", () => {
     assert.deepEqual(requiredCIBaselineErrors(valid(), ["chromium"], config), []);
+});
+
+test("historical and current workload baselines remain complete and independently pinned", () => {
+    const cases = [
+        ["./bench-stage12-baseline.json", "9bcc3363b068d4552a82e5fae81c3f133c26e0366d62ddb39878ca10334916a7"],
+        ["./bench-platformer-head-baseline.json", "15eaf504785fb0b4c4468ee18a52a7fee4a6060dcce3091ceab64f2f38d6bea5"],
+    ];
+    for (const [file, expected] of cases) {
+        const raw = fs.readFileSync(new URL(file, import.meta.url));
+        assert.equal(createHash("sha256").update(raw).digest("hex"), expected, file);
+        assert.deepEqual(requiredCIBaselineErrors(JSON.parse(raw).swiftshader, ["chromium"], config), [], file);
+    }
 });
 
 test("missing, incompatible and partial baselines fail closed", () => {

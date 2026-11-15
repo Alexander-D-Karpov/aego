@@ -145,17 +145,17 @@ func TestPaletteFrameAllocs(t *testing.T) {
 	for range 30 {
 		s.Step()
 	}
-	closed := testing.AllocsPerRun(30, func() { s.Step() })
+	closed := editorFrameAllocs(t, s, func() { s.Step() })
 	push(t, s, key(input.KeyA, input.PrimaryMod()|input.ModShift)...)
 	for range 30 {
 		s.Step()
 	}
-	open := testing.AllocsPerRun(30, func() { s.Step() })
+	open := editorFrameAllocs(t, s, func() { s.Step() })
 	push(t, s, typed("box")...)
 	for range 10 {
 		s.Step()
 	}
-	query := testing.AllocsPerRun(30, func() { s.Step() })
+	query := editorFrameAllocs(t, s, func() { s.Step() })
 	if open > closed || query > closed {
 		t.Fatalf("frame allocations: closed %v, open %v, with a query %v", closed, open, query)
 	}

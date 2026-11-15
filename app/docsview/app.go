@@ -25,6 +25,7 @@ import (
 	"aego/modules/physics"
 	scriptsystems "aego/modules/scripting/systems"
 	"aego/platform"
+	"aego/platform/input"
 	"aego/render"
 	renderhost "aego/render/host"
 	"aego/render/icons"
@@ -85,6 +86,8 @@ type App struct {
 	textOn   bool
 	shown    *engine.World
 	closed   bool
+	control  ControlState
+	viewport Viewport
 }
 
 func noBlock(string) *aetext.Node {
@@ -161,6 +164,11 @@ func New(opt Options) (*App, error) {
 		Clipboard: a.clip,
 		Log:       a.log,
 		Bare:      true,
+		BeforeStart: func() {
+			// Each Try run owns its ephemeral saves. A worker from a previous
+			// run can finish without writing into the replacement scene's store.
+			playmods.UseMemorySaves(a.e)
+		},
 		OnChange: func(t []byte) {
 			if a.OnChange != nil {
 				a.OnChange(string(t))
@@ -242,6 +250,11 @@ func (a *App) initPanels() error {
 			e.RunPhase(w, engine.PhaseRender, engine.ScopeEditor, 0, 0)
 		},
 	})
+	if w, ok := e.Window().(interface {
+		FenceTextInputClicks(func(mathx.Vec2, bool) bool)
+	}); ok {
+		w.FenceTextInputClicks(a.fenceInspectorClick)
+	}
 	return nil
 }
 
@@ -281,7 +294,70 @@ func (a *App) Event(ev platform.Event) {
 		a.ui.SetComposition("", 0)
 	case platform.EvWindowFocusLost:
 		a.game.Release()
+	case platform.EvMouseDown:
+		if ev.Mouse.Button == input.MouseLeft {
+			a.captureGameOnPointerDown(ev.Mouse.Pos)
+		}
 	}
+}
+
+// Capture a click on the already presented game view before the next scene
+// tick. A short key tap can arrive in the same platform frame as the click;
+// waiting for game.Draw to capture would otherwise discard its edge. Leave
+// focused text and active UI interactions to their normal commit/routing path.
+func (a *App) captureGameOnPointerDown(pos mathx.Vec2) {
+	if a.ui == nil || a.session == nil || a.session.Controller().Captured() ||
+		a.ui.Focus() != 0 || a.ui.Active() != 0 || a.ui.Captured() != 0 ||
+		a.ui.ModalActive() || a.ui.AnyPopup() {
+		return
+	}
+	m := a.e.Metrics()
+	if a.viewport.CanvasWidth != m.LogicalW || a.viewport.CanvasHeight != m.LogicalH {
+		return
+	}
+	barHeight := a.ui.Theme.BarHeight
+	body := mathx.Rect{Y: barHeight, W: float32(m.LogicalW), H: max(0, float32(m.LogicalH)-barHeight)}
+	game, _ := layout(body, 1)
+	if game.W <= 0 || game.H <= 0 || a.viewport.X != game.X || a.viewport.Y != game.Y ||
+		a.viewport.Width != game.W || a.viewport.Height != game.H || !game.Contains(pos) {
+		return
+	}
+	a.session.Controller().SetCapture(true, mathx.Vec2{X: game.X, Y: game.Y}, mathx.Vec2{X: game.W, Y: game.H})
+}
+
+// Fence only clicks in the Inspector actually presented at the current size.
+// Keyboard input after a game-view click must not be delayed by this path.
+func (a *App) fenceInspectorClick(pos mathx.Vec2, release bool) bool {
+	if a.ui == nil || a.session == nil || !a.session.State().Loaded || a.ui.ModalActive() || a.ui.AnyPopup() ||
+		(!release && (a.ui.Active() != 0 || a.ui.Captured() != 0)) {
+		return false
+	}
+	m := a.e.Metrics()
+	if a.viewport.CanvasWidth != m.LogicalW || a.viewport.CanvasHeight != m.LogicalH {
+		return false
+	}
+	barHeight := a.ui.Theme.BarHeight
+	body := mathx.Rect{Y: barHeight, W: float32(m.LogicalW), H: max(0, float32(m.LogicalH)-barHeight)}
+	game, inspector := layout(body, 1)
+	return game.W > 0 && game.H > 0 && inspector.W > 0 && inspector.H > 0 &&
+		a.viewport.X == game.X && a.viewport.Y == game.Y && a.viewport.Width == game.W && a.viewport.Height == game.H &&
+		inspector.Contains(pos)
+}
+
+func (a *App) cancelTextInputFence() {
+	if a.e == nil {
+		return
+	}
+	if w, ok := a.e.Window().(interface{ CancelTextInputFence() }); ok {
+		w.CancelTextInputFence()
+	}
+}
+
+func (a *App) discardDocumentText() {
+	if a.ui != nil {
+		a.ui.DiscardTextEdit()
+	}
+	a.cancelTextInputFence()
 }
 
 func (a *App) FixedUpdate(float64) {}
@@ -320,6 +396,9 @@ func (a *App) toolbar(r mathx.Rect) {
 	if c, _ := tb.TextButton(ui.ID("reset"), i18n.Tr("editor.docsview.reset", "Reset"), i18n.Tr("editor.docsview.reset_tip", "Load the original scene again")); c {
 		if err := a.session.Reset(); err != nil {
 			a.session.Editor().Notify(context.LevelError, err.Error())
+		} else {
+			a.cancelControlAdvance()
+			a.discardDocumentText()
 		}
 	}
 	if c, _ := tb.TextButton(ui.ID("undo"), i18n.Tr("editor.docsview.undo", "Undo"), i18n.Tr("editor.docsview.undo_tip", "Undo the last change")); c && st.CanUndo {
@@ -346,7 +425,7 @@ func (a *App) showPhysics() {
 func (a *App) Update(dt float64) {
 	e := a.e
 	now := e.Platform().Now()
-	a.session.Tick(dt)
+	a.tickSession(dt)
 	a.showPhysics()
 	ui := a.ui
 	ui.Time = now
@@ -361,6 +440,7 @@ func (a *App) Update(dt float64) {
 	a.toolbar(bar)
 	body := mathx.Rect{Y: bar.H, W: size.X, H: max(0, size.Y-bar.H)}
 	gameR, inspR := layout(body, 1)
+	a.viewport = Viewport{X: gameR.X, Y: gameR.Y, Width: gameR.W, Height: gameR.H, CanvasWidth: m.LogicalW, CanvasHeight: m.LogicalH}
 	a.panel(&frame, gameR, a.game.Draw)
 	a.panel(&frame, inspR, a.insp.Draw)
 	ctx.DnD.Frame(ui)

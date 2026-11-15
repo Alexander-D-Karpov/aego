@@ -7,6 +7,7 @@ SMOKE_FRAMES ?= 600
 DEMO ?= basic
 UI_FONT ?= $(CURDIR)/third_party/fonts/Inter-Regular.ttf
 DOCS_REPO ?= https://git.akarpov.ru/sanspie/aego
+DOCS_BUILD_ARGS ?=
 FUZZTIME ?= 15s
 STATICCHECK_VERSION ?= v0.8.2
 # Benchmarks run pinned to one CPU.
@@ -22,7 +23,7 @@ WEB_SMOKE = cd tools/websmoke && npm ci --no-audit --no-fund && CHROMIUM=$(CHROM
 WASM_BUDGET = 8388608
 WEB_DEMO_PROJECT ?= examples/platformer
 WEB_DEMO = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node demo.mjs --site=$(CURDIR)/site
-WEB_DEMO_EXPORT = sh tools/site-demo.sh site/demo
+WEB_DEMO_EXPORT = sh tools/site-demo.sh site/demo $(if $(filter examples/platformer,$(WEB_DEMO_PROJECT)),--fix-checkpoint-gap,)
 WEB_DEMO_BUDGET = @size=$$(stat -c %s site/demo/game.wasm.gz); echo "demo game.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "the web demo is over the 8 MB gzip budget"; exit 1; fi
 TRY_BUDGET = 10485760
@@ -32,6 +33,8 @@ WEB_THEME = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node theme.mjs --site=$(CU
 WEB_BENCH_BROWSERS ?= chromium,firefox
 WEB_BENCH_ARGS ?=
 WEB_BENCH_BASELINE ?= $(CURDIR)/.cache/web-bench.base.json
+WEB_STAGE12_BENCH_RUNS ?= 1
+WEB_PLATFORMER_BENCH_RUNS ?= 1
 WEB_BENCH = cd tools/websmoke && CHROMIUM=$(CHROMIUM) node bench.mjs --site=$(CURDIR)/site \
 	--replay=$(CURDIR)/tests/integration/testdata/platformer_run.aeinput \
 	--out=$(CURDIR)/.cache/web-bench.json --baseline=$(WEB_BENCH_BASELINE)
@@ -47,8 +50,26 @@ MODULE_BENCH_COMPARE := ./tests/integration:RewindScrub
 BENCH_PHYSICS_PKGS :=
 .DEFAULT_GOAL := bootstrap
 -include modules/*/module.mk
+include tools/artstudio/release/release.mk
 
 .PHONY: materials materials-check dmg nsis-check test-update clean-root appimage bootstrap build test test-nonative test-editor test-runtime test-gl vet lint depcheck smoke run genfont genicons icons icons-doc res genpreviews golden golden-update site-headless bench bench-baseline bench-scripts bench-build bench-compare bench-profile bench-scripts-run bench-allocs playground playground-size site site-check cli example example-platformer check-all ci clean fuzz runtime export-smoke editor-app shaders test-wasm web-smoke web-smoke-update web-bench web-bench-baseline try-size shots shots-check affected quick check-camera check-audio check-gameplay check-mutate check-editor check-web check-docs i18n-check pkgsize
+
+# Run in a protected snapshot: site and npm ci replace generated output.
+COMPONENT_TRY_SITE ?= $(CURDIR)/site
+COMPONENT_TRY_REPORT ?= $(CURDIR)/.cache/component-try.json
+COMPONENT_TRY_EVIDENCE ?= $(CURDIR)/.cache/component-try-evidence
+.PHONY: component-try
+component-try: site
+	cd tools/websmoke && npm ci --no-audit --no-fund
+	CHROMIUM=$(CHROMIUM) AEGO_TRY_SITE=$(COMPONENT_TRY_SITE) AEGO_DEMOCHECK_REPORT=$(COMPONENT_TRY_REPORT) AEGO_DEMOCHECK_EVIDENCE=$(COMPONENT_TRY_EVIDENCE) $(GL_ENV) bash tools/stage125-check.sh component-try
+
+# Real Linux GIO dispatch, in a temporary HOME/XDG profile, without confirming
+# or installing a remote project. The native UI confirmation is a separate gate.
+REMOTE_EXAMPLES_OUT ?= $(CURDIR)/.cache/remote-examples/os
+.PHONY: remote-examples-check
+remote-examples-check: cli
+	python3 -B -m unittest discover -s tools/ci -p test_protocol_install.py
+	$(GL_ENV) python3 -B tools/ci/remote_protocol_linux.py --binary "$(CURDIR)/.cache/bin/aego" --out "$(REMOTE_EXAMPLES_OUT)"
 
 XVFB := $(shell command -v xvfb-run 2>/dev/null)
 GL_OVERRIDE = MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330
@@ -59,6 +80,7 @@ GL_ENV = env SDL_VIDEODRIVER=offscreen SDL_AUDIO_DRIVER=dummy LIBGL_ALWAYS_SOFTW
 endif
 
 NONATIVE_PKGS = $$(go list ./... | grep -v -e '/platform/sdl$$' -e '/gpu/gl33$$' -e '/gpu/gl33/gl$$')
+VET_PKGS = $$(go list ./... | grep -v -e '/gpu/gl33/gl$$')
 LINT_PKGS = $$(go list ./... | grep -v -e '/gpu/gl33/gl$$' -e '/audio/codec/vorbis/internal/')
 
 bootstrap: $(STAMP)
@@ -72,10 +94,28 @@ build: bootstrap
 # Every package minus the dev-only ones, as defined by depcheck runtimeForbidden.
 RUNTIME_PKGS = $$(go run -tags aego_nonative ./tools/depcheck -runtime-pkgs .)
 WASM_EXEC = $(shell go env GOROOT)/lib/wasm/go_js_wasm_exec
-WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate
+WASM_TEST_PKGS = ./tests/wasm ./platform/input ./gpu/internal/glstate ./audio/workerproto
 
-test: bootstrap
-	go test -race -timeout 30m ./...
+# The full integration package can exceed a cumulative 30-minute -race limit
+# on smaller runners. Keep that timeout per sequential group, compile once,
+# and verify every ordinary top-level test/Example/Fuzz seed is selected once.
+.PHONY: test-race-packages test-race-integration
+.NOTPARALLEL: test
+test: export SDL_AUDIO_DRIVER := dummy
+test: export SDL_AUDIODRIVER := dummy
+test: test-race-packages test-race-integration
+
+test-race-packages: bootstrap
+	@set -eu; \
+	packages="$$(go list ./...)"; \
+	printf '%s\n' "$$packages" | grep -qx 'aego/tests/integration'; \
+	others="$$(printf '%s\n' "$$packages" | grep -vx 'aego/tests/integration')"; \
+	[ -n "$$others" ]; \
+	go test -race -timeout 30m $$others
+
+test-race-integration: bootstrap
+	python3 -B -m unittest discover -s tools/ci -p test_integration_race.py
+	python3 -B tools/ci/integration_race.py $(if $(filter 1,$(AEGO_INTEGRATION_ALLOW_UNBORN)),--allow-unborn,)
 
 test-editor: bootstrap
 	go build -tags aego_editor ./...
@@ -95,6 +135,11 @@ test-wasm:
 	GOOS=js GOARCH=wasm go vet ./platform/web ./gpu/webgl2
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) $(WASM_TEST_PKGS)
 	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -run "^TestWebAudio" ./platform/web
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^(TestInputFence|TestFencedWeb)' ./platform/web
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^TestDiscardTextEdit' ./ui/core
+	GOOS=js GOARCH=wasm go test -exec=$(WASM_EXEC) -count=1 -run '^TestValidateVolatileStates' ./editor/core/code
+	GOOS=js GOARCH=wasm go test -tags aego_nonative -exec=$(WASM_EXEC) -count=1 -run '^(TestGuardedPreviewSeek|TestGuardedMemorySeek|TestGuardedPreviewMemorySeek|TestPreviewRejectsChangedCachedMemorySource|TestPreviewAcceptsRestoredCachedMemorySource|TestPreviewMemoryWithoutDecodeProof|TestPreviewProof)' ./modules/audio
+	GOOS=js GOARCH=wasm go test -tags aego_nonative -exec=$(WASM_EXEC) -count=1 -run '^TestSourceAnalysisUnavailableLocalized$$' ./modules/audio/editor
 
 test-nonative:
 	go test -tags aego_nonative $(NONATIVE_PKGS)
@@ -102,11 +147,15 @@ test-nonative:
 # Tests needing a real GL context (offscreen SDL + llvmpipe).
 test-gl: bootstrap
 	$(GL_ENV) go test -tags aego_gltest ./tests/gl/
-	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset)AuthoringWorkflowNative|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative)$$'
+	$(GL_ENV) go test -tags aego_gltest -count=1 ./ui/richtext ./editor/panels/agent
+	$(GL_ENV) go test -tags aego_gltest ./modules/render2d/editor -run '^TestArtAlphaPickerRenderedPixels$$' -count=1 -v
+	$(GL_ENV) go test -tags aego_gltest ./modules/audio/editor -run '^Test(StereoWaveRenderedPixels|AudioTransportRenderedLayout|AudioDocumentWaveLayout)$$' -count=1 -v
+	$(GL_ENV) go test -tags aego_gltest ./app/edit -count=1 -run '^Test((Material|Lighting|ImageAsset|ArtScene)AuthoringWorkflowNative|AudioDocumentWaveNative|AudioSourceAnalysisNative|ArtTimelineDurationNative|ArtEffectTemplateNative|ArtWorkingAlphaShadowNative|AuthoredFlipbookParticleGameViewNative|VFXCanvasAndParticlePresetNative|PlatformerEditSourceArtNative|ArtPNGDoubleClickWithInspectorInAssetsDock|LinkedSourcePromptNativeLayout|PlatformerSlicedPNGCopyNative|PlatformerSlicedPNGGameUndoExportNative|RemoteProtocolLauncherNativeConfirmation|RemoteLauncherNativeConfirmation|RemoteLauncherClonesOverLocalTLS|CreateMenuFilePromptKeepsNativeKeyboardFocus|CreatePixelArtNativeEnterWaitsForConfirmation|AssetsEmptyGridContextMenuSDL|PlatformerVignetteGameView|PostFXEditPreviewWithoutPlay|CameraInspectorShowsRenderedPostStatus|PostFXAndParticlePresetThumbnails|ColdPostMaterialPreviewAndThumbnail|DiagnosticComposerConsoleProfilerNative|SceneViewCaptureAfterEndFrameGL|SceneViewCaptureOrientationMatchesDisplayGL|SceneView3DShows2DSpritePixels)$$'
+	$(GL_ENV) go test -tags aego_editor,aego_gltest -count=1 -run '^(Test(Mesh2D|SpriteRenderer)TryNativeVisibleOrderAndReset|TestComponentContractProbeRunsNativeAndRejectsUnrunWeb|TestComponentContractObservationWarmupNative|TestNativePersistReadyRequiresLoadedWorldTicks|TestNativePersistComponentWaitsForDelayedWorker|TestNativePersistContractPreservesGate|TestTryGameViewportExcludesInspectorNative|TestPhysicsBackedComponentDemosNative|TestCameraShakeComponentDemoDrivesRealCamera|TestBrowserProcessDeadlineFailsClosed|TestControlledGuideRealNativeViewportAndReset)$$' ./app/docsview
 	$(GL_ENV) SDL_AUDIO_DRIVER=dummy AEGO_PLATFORMER_SHOTS=$(CURDIR)/.cache/stage12/lighting-route AEGO_PARTICLE_SHOTS=$(CURDIR)/.cache/stage12/particle-route AEGO_POSTFX_SHOTS=$(CURDIR)/.cache/stage12/postfx go test -tags aego_gltest -count=1 -run GL\|Screenshots ./tests/integration/
 
 vet: bootstrap
-	go vet -cgocall=false -unsafeptr=false $(LINT_PKGS)
+	go vet -cgocall=false -unsafeptr=false $(VET_PKGS)
 	go vet ./platform/sdl
 
 lint: bootstrap
@@ -233,7 +282,7 @@ bench-profile:
 	go tool pprof -top -nodecount 40 -diff_base $(BENCH_DIR)/base.prof $(BENCH_DIR)/head.prof
 
 site: cli
-	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo
+	.cache/bin/aego docs build --out site --repo $(DOCS_REPO) --demo $(DOCS_BUILD_ARGS)
 	$(WEB_DEMO_EXPORT) .cache/bin/aego export $(WEB_DEMO_PROJECT) --target web --release
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
@@ -246,7 +295,7 @@ playground:
 
 site-headless:
 	CGO_ENABLED=0 go build -tags aego_nonative -o .cache/bin/aego-docs ./cmd/aego
-	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo
+	.cache/bin/aego-docs docs build --out site --engine $(CURDIR) --repo $(DOCS_REPO) --demo $(DOCS_BUILD_ARGS)
 	$(WEB_DEMO_EXPORT) .cache/bin/aego-docs export $(WEB_DEMO_PROJECT) --target web --release --engine $(CURDIR)
 	@size=$$(stat -c %s site/play/aego.wasm.gz); echo "aego.wasm.gz: $$size bytes"; \
 	if [ $$size -gt $(WASM_BUDGET) ]; then echo "playground is over the 8 MB gzip budget, see make playground-size"; exit 1; fi
@@ -278,6 +327,25 @@ web-smoke: site
 	$(WEB_AUDIO)
 	$(WEB_THEME)
 	$(WEB_BENCH) --browsers=chromium --runs=1 --gate
+
+# The old Stage 12 workload remains a separate gate against its unchanged
+# baseline.  A single CI sample checks counts/allocations; use five to compare
+# timing as well, just like web-bench.  It never changes the user's project.
+.PHONY: web-bench-stage12 web-stage12-fixture-test web-bench-platformer web-platformer-fixture-test
+web-bench-stage12: cli
+	python3 tools/websmoke/stage12_bench.py --runs=$(WEB_STAGE12_BENCH_RUNS)
+
+web-stage12-fixture-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/websmoke -p stage12_bench_test.py
+
+# Keep the tracked platformer on its original baseline independently of the
+# website's intentionally modified floor; never copy untracked user assets.
+web-bench-platformer: cli
+	python3 -B tools/websmoke/platformer_bench.py --runs=$(WEB_PLATFORMER_BENCH_RUNS)
+
+web-platformer-fixture-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p platformer_bench_test.py
+	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tools/websmoke -p benchmark_workloads_test.py
 
 web-bench: site
 	cd tools/websmoke && npm ci --no-audit --no-fund
@@ -361,11 +429,15 @@ pkgsize:
 
 # ci requires glslangValidator: shader imports and the shader tests fail without it instead of skipping (D367).
 ci: export AEGO_REQUIRE_GLSLANG := 1
+ci: export SDL_AUDIO_DRIVER := dummy
+ci: export SDL_AUDIODRIVER := dummy
 # Two known environment-sensitive web checks remain visible as warnings in CI;
 # direct web-smoke and stage12-release-check runs stay strict by default.
 ci: export AEGO_CI_WEB_WARN := 1
 ci: export AEGO_CI_REQUIRE_WEB_BASELINE := 1
-ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-stage12-baseline.json
+# The website demo has its own floor edit. Gate it against its own reference;
+# the original platformer and Stage 12 remain independent required workloads.
+ci: WEB_BENCH_BASELINE := $(CURDIR)/tools/websmoke/bench-site-demo-baseline.json
 .PHONY: web-warning-policy-test
 web-warning-policy-test:
 	node --test tools/websmoke/ci-warning-policy.test.mjs
@@ -382,8 +454,28 @@ web-audio-policy-test:
 web-visibility-lifecycle-test:
 	node --test tools/websmoke/visibility-browser.test.mjs
 
-ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+.PHONY: web-private-xvfb-test
+web-private-xvfb-test:
+	node --test tools/websmoke/private-xvfb.test.mjs
+
+.PHONY: web-try-pulse-test
+web-try-pulse-test:
+	node --test tools/websmoke/try-pulse.test.mjs
+
+.PHONY: web-try-input-test
+web-try-input-test:
+	node --test tools/websmoke/try-input-hint.test.mjs tools/websmoke/persist-cycle.test.mjs tools/websmoke/try-capture.test.mjs
+
+ci: web-warning-policy-test web-bench-baseline-test web-audio-policy-test web-visibility-lifecycle-test web-private-xvfb-test web-try-pulse-test web-try-input-test web-stage12-fixture-test shader-validator materials-check build vet lint depcheck i18n-check test test-nonative test-editor test-runtime test-wasm runtime smoke fuzz golden shots-check test-gl cli playground web-smoke web-bench-stage12 site-check example example-platformer check-all export-smoke test-update $(MODULE_CI) bench-allocs
+ci: site-demo-prepare-test
+ci: studio-web-test
+ci: web-platformer-fixture-test web-bench-platformer
 	@sh tools/ci-clean-root.sh
+
+.PHONY: site-demo-prepare-test
+site-demo-prepare-test:
+	python3 -B -m unittest discover -s tools/ci -p test_site_demo_prepare.py
+	python3 -B -m unittest discover -s tools/ci -p test_ci_clean_root_order.py
 
 # test-update builds two versions of the CLI and updates one to the other through a release server on loopback (D362).
 test-update: bootstrap
@@ -464,7 +556,7 @@ web-materials:
 	cp tests/webmaterials/index.html .cache/web-materials/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-materials/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node materials.mjs --site=$(CURDIR)/.cache/web-materials --browsers=$(WEB_MATERIAL_BROWSERS) --report=$(CURDIR)/.cache/web-materials/results.json
 
 ci: web-materials
 
@@ -483,7 +575,7 @@ web-gpu-smoke:
 	cp tests/webgpu/index.html .cache/web-gpu/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-gpu/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node gpu.mjs --site=$(CURDIR)/.cache/web-gpu --browsers=$(WEB_GPU_BROWSERS) --report=$(CURDIR)/.cache/web-gpu/results.json
 
 ci: gpu-smoke web-gpu-smoke image-gpu-smoke
 
@@ -502,7 +594,7 @@ web-lighting:
 	cp tests/weblighting/index.html .cache/web-lighting/index.html
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .cache/web-lighting/wasm_exec.js
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node lighting.mjs --site=$(CURDIR)/.cache/web-lighting --browsers=$(WEB_LIGHTING_BROWSERS) --report=$(CURDIR)/.cache/web-lighting/results.json
 
 ci: lighting-smoke web-lighting
 
@@ -519,7 +611,7 @@ web-particle-goldens: cli
 	go run ./tools/genparticlefixtures -out .cache/particle-goldens/project
 	.cache/bin/aego export .cache/particle-goldens/project --target web --release --out .cache/particle-goldens/web
 	cd tools/websmoke && npm ci --no-audit --no-fund
-	cd tools/websmoke && CHROMIUM=$(CHROMIUM) node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
+	cd tools/websmoke && CHROMIUM=$(CHROMIUM) sh private-xvfb.sh node particle-goldens.mjs --root=$(CURDIR)/.cache/particle-goldens/web --browsers=$(WEB_PARTICLE_BROWSERS)
 
 ci: web-particle-goldens
 
@@ -549,3 +641,7 @@ stage12-release-check: cli
 	cat "$$checks/visibility.log"; exit $$failed
 
 ci: stage12-release-check
+
+# Full public registry gate; preserve the separate Stage 12 and platformer
+# benchmark workloads and all pre-existing CI prerequisites above.
+ci: component-try

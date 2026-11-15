@@ -125,6 +125,14 @@ func (a *App) helpEntry(id string) (string, string) {
 	if !ok {
 		return id, ""
 	}
+	if tr, has := e.Translations[i18n.Default().Language()]; has {
+		if tr.Title != "" && e.Field == nil {
+			e.Title = tr.Title
+		}
+		if tr.Body != "" {
+			e.Body = tr.Body
+		}
+	}
 	return e.Title, docs.Plain(e.Body)
 }
 

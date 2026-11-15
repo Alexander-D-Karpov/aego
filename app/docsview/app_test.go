@@ -4,12 +4,14 @@ package docsview
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
 	"aego/app/playground"
 	"aego/engine/docs"
 	"aego/engine/i18n"
+	"aego/modules/camera"
 )
 
 func newHeadless(t *testing.T) *App {
@@ -20,6 +22,46 @@ func newHeadless(t *testing.T) *App {
 	}
 	t.Cleanup(a.Close)
 	return a
+}
+
+// The component example has its own controlled setup; the guide must retain
+// its original falling-crate example and its collision-triggered shake.
+func TestCameraShakeGuideStillUsesFallingCrate(t *testing.T) {
+	p, err := playground.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok := p.Docs().Get("camera/shake")
+	if !ok || !strings.Contains(e.Try, `script "game.demo.Drop"`) || !strings.Contains(e.TryScript, "func OnCollisionEnter") {
+		t.Fatal("the camera guide lost its falling-crate scene or collision script")
+	}
+	code, err := p.TryCode(e.TryScript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newHeadless(t)
+	req, err := json.Marshal(map[string]any{"scene": e.Try, "select": e.TrySelect, "code": code, "prefabs": e.TryPrefabs, "artifacts": e.TryArtifacts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply := a.Call("load", req); reply.Error != "" {
+		t.Fatal(reply.Error)
+	}
+	var maxTrauma float32
+	for range 400 {
+		if err := a.Step(1); err != nil {
+			t.Fatal(err)
+		}
+		if s := camera.Of(a.session.Controller().World()); s != nil {
+			maxTrauma = max(maxTrauma, s.Trauma(""))
+		}
+	}
+	if maxTrauma < 0.1 {
+		t.Fatalf("the falling crate never triggered a camera shake: max trauma %g", maxTrauma)
+	}
+	if messages := errorsOf(a); len(messages) > 0 {
+		t.Fatalf("guide runtime errors: %v", messages)
+	}
 }
 
 func tries(t *testing.T) []docs.Entry {
@@ -76,6 +118,133 @@ func TestTryScenesRun(t *testing.T) {
 		for _, msg := range errorsOf(a) {
 			t.Errorf("%s: %s", e.ID, msg)
 		}
+	}
+}
+
+// At high render frame rates there may be several Update calls before the first
+// physics tick. The actual CameraFollow demo must not teleport an unbuilt body.
+// This deterministic headless timing check supplements, not replaces, the
+// separate SDL/OpenGL and browser rendering checks.
+func TestCameraFollowTryWaitsForPhysicsAtHighFrameRate(t *testing.T) {
+	p, err := playground.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := p.Docs().Get("camera.CameraFollow2D")
+	if !ok || entry.Try == "" || entry.TryScript == "" {
+		t.Fatal("CameraFollow2D Try scene or script is missing")
+	}
+	code, err := p.TryCode(entry.TryScript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := New(Options{Headless: true, FrameTime: 0.001})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	request, err := json.Marshal(map[string]any{"scene": entry.Try, "select": entry.TrySelect, "code": code, "prefabs": entry.TryPrefabs, "artifacts": entry.TryArtifacts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply := a.Call("load", request); reply.Error != "" {
+		t.Fatal(reply.Error)
+	}
+	if err := a.Step(4); err != nil {
+		t.Fatal(err)
+	}
+	world := a.session.Controller().World()
+	if world == nil || world.Time.Tick() != 0 {
+		t.Fatal("expected several render frames before the first physics step")
+	}
+	if messages := errorsOf(a); len(messages) != 0 {
+		t.Fatalf("before physics: %v", messages)
+	}
+	if err := a.Step(100); err != nil {
+		t.Fatal(err)
+	}
+	if world.Time.Tick() < 2 {
+		t.Fatal("physics did not advance")
+	}
+	if messages := errorsOf(a); len(messages) != 0 {
+		t.Fatalf("after physics: %v", messages)
+	}
+	sc := a.session.Controller().Scene()
+	if sc == nil {
+		t.Fatal("the Try scene stopped before the teleport")
+	}
+	ball := sc.Find(sc.Root(), "Ball")
+	if ball.IsZero() || math.Abs(float64(sc.Local(ball).Position.X+18)) > 0.01 {
+		t.Fatal("the ball did not teleport after physics initialized")
+	}
+}
+
+// A slow frame can contain several fixed updates. The camera must observe the
+// starting pose before the teleport so changing SnapDistance remains visible.
+func TestCameraFollowTrySnapsWithSeveralPhysicsStepsPerFrame(t *testing.T) {
+	p, err := playground.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := p.Docs().Get("camera.CameraFollow2D")
+	if !ok || entry.Try == "" || entry.TryScript == "" {
+		t.Fatal("CameraFollow2D Try scene or script is missing")
+	}
+	code, err := p.TryCode(entry.TryScript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := New(Options{Headless: true, FrameTime: 0.1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	request, err := json.Marshal(map[string]any{"scene": entry.Try, "select": entry.TrySelect, "code": code, "prefabs": entry.TryPrefabs, "artifacts": entry.TryArtifacts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply := a.Call("load", request); reply.Error != "" {
+		t.Fatal(reply.Error)
+	}
+	// The contract always begins from Reset, after the first engine frame.
+	if err := a.Step(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.session.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	position := func() float32 {
+		t.Helper()
+		if err := a.Step(8); err != nil {
+			t.Fatal(err)
+		}
+		if messages := errorsOf(a); len(messages) != 0 {
+			t.Fatalf("Try runtime: %v", messages)
+		}
+		world := a.session.Controller().World()
+		if world == nil || world.Time.Tick() <= world.Time.Frame() {
+			t.Fatal("expected more physics steps than rendered frames")
+		}
+		views := a.session.Controller().Views()
+		if len(views) != 1 {
+			t.Fatalf("expected one game view, got %d", len(views))
+		}
+		return views[0].Camera.Position.X
+	}
+	before := position()
+	if err := a.session.Set("camera.CameraFollow2D", "SnapDistance", 1); err != nil {
+		t.Fatal(err)
+	}
+	after := position()
+	if math.Abs(float64(after-before)) < 4 {
+		t.Fatalf("camera did not visibly snap to the teleported target: before=%g after=%g", before, after)
+	}
+	if err := a.session.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	reset := position()
+	if math.Abs(float64(reset-before)) > 0.01 {
+		t.Fatalf("Reset did not restore the camera: before=%g reset=%g", before, reset)
 	}
 }
 

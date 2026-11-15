@@ -3,6 +3,7 @@ package main
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,6 +95,48 @@ func TestModuleGraph(t *testing.T) {
 	}
 }
 
+func TestArtAuthoringDependenciesStayOutOfRuntime(t *testing.T) {
+	if g, ok := groupOf("art"); !ok || g.kind != kKernel {
+		t.Fatal("art must have an explicit authoring-core group")
+	}
+	for _, pair := range [][2]string{
+		{"art", "art/internal/aseprite"},
+		{"asset/importers/artsource", "art"},
+		{"asset/importers/artsource", "asset/importers/texture"},
+		{"asset/importers/artsource", "asset/importers/animclip"},
+		{"editor/core/artedit", "art"},
+		{"modules/render2d/editor", "art"},
+		{"engine/docs", "engine/docs/democheck"},
+		{"engine/docs", "script/parser"},
+		{"engine/docs", "script/source"},
+	} {
+		if rule := layerRule(pair[0], pair[1]); rule != "" {
+			t.Errorf("required edge %s -> %s rejected by %s", pair[0], pair[1], rule)
+		}
+	}
+	for _, pair := range [][2]string{
+		{"art", "asset"},
+		{"art", "scene"},
+		{"art", "art/internal/unrelated"},
+		{"art/internal/aseprite", "art"},
+		{"art/internal/aseprite", "asset"},
+		{"scene", "art"},
+		{"asset/importers/texture", "art"},
+		{"engine/docs/democheck", "asset"},
+		{"engine/docs", "script/compiler"},
+		{"engine/docs", "asset/pipeline"},
+	} {
+		if layerRule(pair[0], pair[1]) == "" {
+			t.Errorf("unexpected authoring dependency %s -> %s allowed", pair[0], pair[1])
+		}
+	}
+	for _, pkg := range []string{"art", "art/internal/aseprite", "art/internal/future"} {
+		if !allowed(runtimeForbidden, pkg) || !allowed(wasmDenied, pkg) {
+			t.Fatalf("authoring package %s must not enter game runtime builds", pkg)
+		}
+	}
+}
+
 func TestNoLegacyPackages(t *testing.T) {
 	root := filepath.Join("..", "..")
 	needles := []string{`"aego/scene/components"`, `"aego/scene/systems"`, "importers.All", "stdlib.Register("}
@@ -144,10 +187,37 @@ func TestRuntimePackagesExcludeDev(t *testing.T) {
 			t.Errorf("runtime list misses %s", want)
 		}
 	}
-	for _, dev := range []string{"app", "cmd/aego", "editor/core/context", "project", "script/compiler"} {
+	for _, dev := range []string{"app", "app/docsview", "cmd/aego", "editor/core/context", "project", "script/compiler"} {
 		if have[dev] {
 			t.Errorf("runtime list contains %s", dev)
 		}
+	}
+	for _, dev := range []string{"app/docsview", "app/docsview/internal"} {
+		if !allowed(runtimeForbidden, dev) {
+			t.Errorf("runtime must forbid %s", dev)
+		}
+	}
+}
+
+func TestRuntimePackagesHaveBuildFiles(t *testing.T) {
+	root := filepath.Join("..", "..")
+	pkgs, err := RuntimePackages(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) == 0 {
+		t.Fatal("runtime package list is empty")
+	}
+	args := []string{"list", "-tags=aego_runtime", "-f", "{{if not .GoFiles}}{{if not .CgoFiles}}{{.ImportPath}}{{end}}{{end}}"}
+	cmd := exec.Command("go", append(args, pkgs...)...)
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cannot list runtime packages: %v\n%s", err, output)
+	}
+	if missing := strings.Fields(string(output)); len(missing) != 0 {
+		t.Errorf("runtime packages have no buildable Go files: %v", missing)
 	}
 }
 

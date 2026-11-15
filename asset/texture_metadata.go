@@ -18,22 +18,24 @@ func ReadTextureMetadata(id ids.AssetID, entry func(ids.AssetID) (*Entry, bool),
 	}
 	page := e
 	var region *RegionArtifact
-	if e.Kind == ArtSpriteRegion {
-		art, found := e.Artifact(e.Kind)
-		if !found {
-			return TextureMetadata{}, false
-		}
+	art, hasRegion := e.Artifact(ArtSpriteRegion)
+	if e.Kind == ArtSpriteRegion && !hasRegion {
+		return TextureMetadata{}, false
+	}
+	if hasRegion && (e.Kind == ArtSpriteRegion || e.Kind == ArtTexture) {
 		data, err := read(art)
 		if err != nil {
 			return TextureMetadata{}, false
 		}
 		region, err = DecodeRegion(data)
-		if err != nil || region.Page == id {
+		if err != nil || (e.Kind == ArtSpriteRegion && region.Page == id) {
 			return TextureMetadata{}, false
 		}
-		page, ok = entry(region.Page)
-		if !ok {
-			return TextureMetadata{}, false
+		if region.Page != id {
+			page, ok = entry(region.Page)
+			if !ok {
+				return TextureMetadata{}, false
+			}
 		}
 	}
 	if page.Kind != ArtTexture && page.Kind != ArtAtlasPage {
@@ -56,7 +58,9 @@ func ReadTextureMetadata(id ids.AssetID, entry func(ids.AssetID) (*Entry, bool),
 		if region.PageW != tex.Width || region.PageH != tex.Height {
 			return TextureMetadata{}, false
 		}
-		info.Region, info.Width, info.Height = true, region.W, region.H
+		info.Region = e.Kind == ArtSpriteRegion || region.Page != id || region.X != 0 || region.Y != 0 || region.W != tex.Width || region.H != tex.Height ||
+			(region.SourceW > 0 && (region.SourceW != region.W || region.SourceH != region.H || region.TrimX != 0 || region.TrimY != 0))
+		info.Width, info.Height = region.W, region.H
 		if region.SourceW != 0 {
 			info.Width, info.Height = region.SourceW, region.SourceH
 		}

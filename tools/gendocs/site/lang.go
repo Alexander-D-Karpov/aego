@@ -22,6 +22,7 @@ var ruChrome = map[string]string{
 	"One per scene.":            "Один на сцену.",
 	"Usage":                     "Использование",
 	"Fields":                    "Поля",
+	"Data table":                "Таблица данных",
 	"Runtime state":             "Состояние во время игры",
 	"Values the component has while the game runs. They are not saved with the scene.": "Значения, которые есть у компонента во время игры. Они не сохраняются в сцене.",
 	"Name":        "Имя",
@@ -30,37 +31,49 @@ var ruChrome = map[string]string{
 	"Description": "Описание",
 	"Sound":       "Звук",
 	"Try it":      "Попробовать",
-	"Runs this scene in the browser, with the Inspector next to it": "Запускает эту сцену в браузере, рядом с Инспектором",
-	"Script":                                "Скрипт",
-	"Script events":                         "События скриптов",
-	"Related guides":                        "Связанные руководства",
-	"On this page":                          "На этой странице",
-	"Previous":                              "Назад",
-	"Next":                                  "Далее",
-	"Edit this page":                        "Править эту страницу",
-	"Edit the English page":                 "Править английскую страницу",
-	"Playground":                            "Песочница",
-	"Functions":                             "Функции",
-	"Filter":                                "Найти среди",
-	"members of":                            "членов",
-	"Filter members":                        "Найти член",
-	"Methods":                               "Методы",
-	"Signals":                               "Сигналы",
-	"No example":                            "Без примера",
-	"Fix:":                                  "Исправление:",
-	"Broken":                                "С ошибкой",
-	"Fixed":                                 "Исправлено",
-	"Download":                              "Скачать",
-	"Docs":                                  "Документация",
-	"Demo":                                  "Демо",
-	"Source":                                "Исходники",
-	"Source code":                           "Исходный код",
-	"Search the docs":                       "Поиск по документации",
-	"Search":                                "Поиск",
-	"Navigation":                            "Навигация",
-	"Documentation":                         "Документация",
-	"Site":                                  "Сайт",
-	"Theme":                                 "Тема",
+	"Change the example parameters and compare the result. Reset restores the initial scene.": "Измените параметры примера и сравните результат. Сброс восстанавливает исходную сцену.",
+	"Starts the scene; open the example parameters to experiment.":                            "Запускает сцену; для эксперимента откройте параметры примера.",
+	"Runs this scene in the browser, with the Inspector next to it":                           "Запускает эту сцену в браузере, рядом с Инспектором",
+	"Script":                       "Скрипт",
+	"Script events":                "События скриптов",
+	"Related guides":               "Связанные руководства",
+	"On this page":                 "На этой странице",
+	"Previous":                     "Назад",
+	"Next":                         "Далее",
+	"Edit this page":               "Править эту страницу",
+	"Edit the English page":        "Править английскую страницу",
+	"Playground":                   "Песочница",
+	"Art Studio":                   "Art Studio",
+	"Open Art Studio":              "Открыть Art Studio",
+	"Art Studio lessons":           "Уроки Art Studio",
+	"Draw your first sprite":       "Первый спрайт",
+	"Frame-by-frame animation":     "Покадровая анимация",
+	"Character animation":          "Анимация персонажа",
+	"Explosion flipbook":           "Покадровый взрыв",
+	"Emission and normal channels": "Emission и normal-каналы",
+	"Export and use in Aego":       "Экспорт и использование в Aego",
+	"Functions":                    "Функции",
+	"Filter":                       "Найти среди",
+	"members of":                   "членов",
+	"Filter members":               "Найти член",
+	"Methods":                      "Методы",
+	"Signals":                      "Сигналы",
+	"No example":                   "Без примера",
+	"Fix:":                         "Исправление:",
+	"Broken":                       "С ошибкой",
+	"Fixed":                        "Исправлено",
+	"Download":                     "Скачать",
+	"Docs":                         "Документация",
+	"Demo":                         "Демо",
+	"Source":                       "Исходники",
+	"Source code":                  "Исходный код",
+	"Search the docs":              "Поиск по документации",
+	"Search":                       "Поиск",
+	"Navigation":                   "Навигация",
+	"Documentation":                "Документация",
+	"Site":                         "Сайт",
+	"Theme":                        "Тема",
+	"No icon sources are available in this build.": "В этой сборке источники иконок недоступны.",
 	"Copy":                                  "Копировать",
 	"Copied":                                "Скопировано",
 	"Run":                                   "Запустить",
@@ -75,6 +88,7 @@ var ruChrome = map[string]string{
 	"Lexer":                                 "Лексер",
 	"Parser":                                "Парсер",
 	"Types":                                 "Типы",
+	"Builtin types":                         "Встроенные типы",
 	"Coroutines, signals and events":        "Корутины, сигналы и события",
 	"Attributes":                            "Атрибуты",
 	"Packages and imports":                  "Пакеты и импорт",
@@ -107,6 +121,8 @@ var ruChrome = map[string]string{
 	"one of %s":         "одно из %s",
 	"category %s":       "категория %s",
 	"component":         "компонент",
+	"page":              "статья",
+	"value type":        "структура данных",
 	"type":              "тип",
 	"field":             "поле",
 	"function":          "функция",
@@ -119,6 +135,8 @@ var ruChrome = map[string]string{
 	"A live scene with": "Живая сцена с компонентом",
 	"edit its fields in the Inspector on the right and the scene restarts with them.": "меняйте его поля в Инспекторе справа, и сцена перезапустится с ними.",
 	"Open in editor":              "Открыть в редакторе",
+	"Open in Aego":                "Открыть в Aego",
+	"Download example project":    "Скачать проект примера",
 	"Download scene only":         "Скачать только сцену",
 	"Copy as .aescene":            "Копировать как .aescene",
 	"Reset":                       "Сбросить",
@@ -151,6 +169,9 @@ func (b *builder) forLang(lang string) *builder {
 	rb.has = map[string]bool{}
 	for id, e := range b.byID {
 		cp := *e
+		if id == "aego/builtin" {
+			cp.Title = rb.tr(cp.Title)
+		}
 		if t, ok := e.Translations[lang]; ok {
 			rb.has[id] = true
 			if t.Title != "" {
@@ -250,9 +271,11 @@ func (b *builder) writeLang() error {
 			continue
 		}
 		e := b.byID[id]
-		item := searchItem{Title: e.Title, URL: cleanURL(b.lang + "/" + u), Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID, Icon: b.entryIcon(e)}
+		item := b.searchEntry(e, cleanURL(b.lang+"/"+u))
 		if gi, ok := b.groupOf[id]; ok {
-			item.Group, item.Section = b.groups[gi].Title, b.tr(sectionTitle(b.groups[gi].Section))
+			// Section is a stable search/ranking key; only its displayed label
+			// is translated by the page. Localizing the key loses its category.
+			item.Group, item.Section = b.groups[gi].Title, b.groups[gi].Section
 		}
 		search = append(search, item)
 	}
@@ -289,18 +312,41 @@ func (b *builder) pageLang() string {
 	return b.lang
 }
 
-var headingID = regexp.MustCompile(`(<h[1-6][^>]* id=")([^"]*)(")`)
+var headingID = regexp.MustCompile(`(<(?:h[1-6][^>]*|span class="legacy-anchor") id=")([^"]*)(")`)
 
-// sameIDs gives the headings of a translated page the ids of the English page, so links to a section work in both languages.
+// sameIDs gives translated prose headings the English ids, so links to a
+// section work in both languages. Explicit ids already present in both pages
+// must not be reassigned just because translated sections have moved.
 func sameIDs(page, en string) string {
-	ids := headingID.FindAllStringSubmatch(en, -1)
-	if len(headingID.FindAllStringIndex(page, -1)) != len(ids) {
+	english := headingID.FindAllStringSubmatch(en, -1)
+	translated := headingID.FindAllStringSubmatch(page, -1)
+	if len(translated) != len(english) {
 		return page
+	}
+	enCount, translatedCount := map[string]int{}, map[string]int{}
+	for _, h := range english {
+		enCount[h[2]]++
+	}
+	for _, h := range translated {
+		translatedCount[h[2]]++
+	}
+	stable := map[string]bool{}
+	for id, count := range enCount {
+		stable[id] = count == 1 && translatedCount[id] == 1
+	}
+	var remaining []string
+	for _, h := range english {
+		if !stable[h[2]] {
+			remaining = append(remaining, h[2])
+		}
 	}
 	i := 0
 	return headingID.ReplaceAllStringFunc(page, func(m string) string {
 		sub := headingID.FindStringSubmatch(m)
-		out := sub[1] + ids[i][2] + sub[3]
+		if stable[sub[2]] {
+			return m
+		}
+		out := sub[1] + remaining[i] + sub[3]
 		i++
 		return out
 	})

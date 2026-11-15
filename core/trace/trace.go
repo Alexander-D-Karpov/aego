@@ -24,16 +24,19 @@ type Event struct {
 }
 
 type Frame struct {
-	Index     uint64
-	Start     int64
-	Dur       int64
-	GC        uint32
-	Dropped   uint32
-	World     uint64
-	FrameID   uint64
-	FirstTick uint64
-	LastTick  uint64
-	Events    []Event
+	Index uint64
+	Start int64
+	Dur   int64
+	// PaceWaitNS is deliberate frame-limiter sleep; IdleWaitNS is its idle-mode part.
+	PaceWaitNS int64
+	IdleWaitNS int64
+	GC         uint32
+	Dropped    uint32
+	World      uint64
+	FrameID    uint64
+	FirstTick  uint64
+	LastTick   uint64
+	Events     []Event
 }
 
 func (f *Frame) Duration() time.Duration {
@@ -158,6 +161,7 @@ func (t *Tracer) BeginFrame() {
 	t.seq++
 	f := &t.frames[t.head]
 	f.Index, f.Start, f.Dur, f.GC, f.Dropped = t.seq, t.now(), 0, 0, 0
+	f.PaceWaitNS, f.IdleWaitNS = 0, 0
 	f.World, f.FrameID, f.FirstTick, f.LastTick = 0, 0, 0, 0
 	f.Events = f.Events[:0]
 	t.cur, t.depth = f, 0
@@ -169,6 +173,17 @@ func (t *Tracer) Mark(world, frame, first, last uint64) {
 	}
 	f := t.cur
 	f.World, f.FrameID, f.FirstTick, f.LastTick = world, frame, first, last
+}
+
+// AddPaceWait records intentional pacing independently of the event capacity.
+func (t *Tracer) AddPaceWait(d time.Duration, idle bool) {
+	if t == nil || t.cur == nil || d <= 0 {
+		return
+	}
+	t.cur.PaceWaitNS += int64(d)
+	if idle {
+		t.cur.IdleWaitNS += int64(d)
+	}
 }
 
 func (t *Tracer) EndFrame() {

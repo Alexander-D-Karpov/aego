@@ -1,0 +1,29 @@
+prefab version=1 {
+  node "1ea94ed080214be99c9dd40df4c101a4" name="Trail" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "particles.ParticleSystem2D" version=1 {
+      playOnStart=true
+      loop=true
+      duration=1
+      rate=25
+      maxParticles=48
+      shape=point
+      lifetime=[0.25, 0.5]
+      speed=[0.2, 0.5]
+      size=[0.35, 0.6]
+      direction=3.1415927
+      spread=0.16
+      drag=0.5
+      colorOverLife=[{ time=0 color=#cefff2ff }, { time=0.5 color=#83d8ffb0 }, { time=1 color=#7160c800 }]
+      sizeOverLife={ keys=[[0, 1, 0, 0, bezier, linear], [1, 0.1, 0, 0, bezier, linear]] }
+      space=world
+      sprite=asset("ae900000000000000000000000000010")
+      material=asset("ae900000000000000000000000000c01")
+      frameFPS=16
+      frameLoop=false
+      order=2
+      reducedMotion=reduce
+      reducedRate=0.4
+    }
+  }
+}

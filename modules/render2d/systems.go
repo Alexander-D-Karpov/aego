@@ -142,7 +142,8 @@ func collect(r *frame.Runner, b *frame.Bucket, mask uint64, ls *lightingState) {
 func collect3(r *frame.Runner, b *frame.Bucket, mask uint64) {
 	sc, res, st := r.Scene(), r.Resolver(), r.Counters()
 	scene.Query1[SpriteRenderer](sc).Each(func(h scene.NodeHandle, sr *SpriteRenderer) {
-		if !sc.Under3D(h) || sc.Layers(h)&mask == 0 || r.Hidden(h) {
+		under3D := sc.Under3D(h)
+		if (!under3D && !r.Preview2DIn3D()) || sc.Layers(h)&mask == 0 || r.Hidden(h) {
 			return
 		}
 		region, ok := sr.Sprite.Region(res)
@@ -150,9 +151,15 @@ func collect3(r *frame.Runner, b *frame.Bucket, mask uint64) {
 			st.MissingAssets++
 			return
 		}
+		world := sc.World4(h)
+		if !under3D {
+			// Mat4Lift converts the Y-down 2D presentation transform to the
+			// Y-up 3D sprite basis, including its translation and rotation.
+			world = mathx.Mat4Lift(sc.RenderWorld(h))
+		}
 		b.Sprites3D = append(b.Sprites3D, sprite.Draw3D{
 			Region: region,
-			World:  sc.World4(h),
+			World:  world,
 			Size:   Size(sr, region.Size()),
 			Origin: sr.Origin,
 			Tint:   sr.Tint,

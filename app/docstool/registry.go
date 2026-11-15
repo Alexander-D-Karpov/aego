@@ -10,6 +10,7 @@ import (
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
+	"aego/app/docicons"
 	"aego/app/playground"
 	"aego/engine/docs"
 	"aego/engine/module"
@@ -60,6 +61,7 @@ func build(p *project.Project, mods []module.Module, pg *playground.Playground) 
 		src.Project = p.Name
 	}
 	r := docs.Assemble(src)
+	r.SetNavigationIcons(docicons.Builtin())
 	localize(r)
 	bm.Keywords = r.Keywords()
 	if ws != nil {

@@ -5,29 +5,58 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$ROOT/third_party/sdl/version.txt"
 SDL_VERSION="$(awk -F= '$1=="version"{print $2}' "$VERSION_FILE" | tr -d '\r')"
 SDL_SHA256="$(awk -F= '$1=="sha256"{print $2}' "$VERSION_FILE" | tr -d '\r')"
+[[ "$SDL_VERSION" =~ ^[0-9]+(\.[0-9]+){2}([.+-][A-Za-z0-9._+-]+)?$ && ${#SDL_VERSION} -le 80 ]] || {
+  echo "invalid SDL version in $VERSION_FILE" >&2; exit 1;
+}
 
 GOOS="${GOOS:-$(go env GOOS)}"
 GOARCH="${GOARCH:-$(go env GOARCH)}"
+case "$GOOS" in linux|darwin|windows) ;; *) echo "unsupported GOOS $GOOS" >&2; exit 1 ;; esac
+[[ "$GOARCH" =~ ^[a-z0-9]+$ ]] || { echo "invalid GOARCH $GOARCH" >&2; exit 1; }
 TARGET="${GOOS}_${GOARCH}"
 PREFIX="$ROOT/.cache/native/$TARGET"
 STAMP="$PREFIX/.sdl-$SDL_VERSION"
+DOWNLOAD_DIR="$ROOT/.cache/download"
+WORK="$ROOT/.cache/build/sdl-$SDL_VERSION-$TARGET"
+TARBALL="$DOWNLOAD_DIR/SDL3-$SDL_VERSION.tar.gz"
+
+# Refuse symlinks in cache paths before any deletion.
+for path in "$ROOT/.cache" "$ROOT/.cache/native" "$PREFIX" "$ROOT/.cache/build" "$WORK" "$DOWNLOAD_DIR" "$TARBALL" "$TARBALL.part"; do
+  [[ ! -L "$path" ]] || { echo "bootstrap cache path is a symlink: $path" >&2; exit 1; }
+done
 
 if [[ -f "$STAMP" && "${FORCE:-0}" != "1" ]]; then
   echo "SDL $SDL_VERSION already installed in $PREFIX"
   exit 0
 fi
 
-DOWNLOAD_DIR="$ROOT/.cache/download"
-WORK="$ROOT/.cache/build/sdl-$SDL_VERSION-$TARGET"
-TARBALL="$DOWNLOAD_DIR/SDL3-$SDL_VERSION.tar.gz"
 URL="https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL3-$SDL_VERSION.tar.gz"
 
 mkdir -p "$DOWNLOAD_DIR" "$WORK"
 
+if [[ -e "$TARBALL" && ! -f "$TARBALL" ]]; then
+  echo "bootstrap archive path is not a regular file: $TARBALL" >&2; exit 1
+fi
 if [[ ! -f "$TARBALL" ]]; then
+  # Noclobber alone does not reject existing FIFOs and other special files.
+  [[ ! -e "$TARBALL.part" && ! -L "$TARBALL.part" ]] || {
+    echo "bootstrap partial already exists: $TARBALL.part" >&2; exit 1
+  }
+  # Reserve the partial without replacing an earlier download or user file.
+  if ! (set -C; : > "$TARBALL.part") 2>/dev/null; then
+    echo "bootstrap partial already exists or cannot be reserved: $TARBALL.part" >&2; exit 1
+  fi
   echo "downloading $URL"
-  curl -fsSL "$URL" -o "$TARBALL.part"
-  mv "$TARBALL.part" "$TARBALL"
+  if ! curl -fsSL "$URL" -o "$TARBALL.part"; then
+    echo "bootstrap incomplete download retained at $TARBALL.part" >&2; exit 1
+  fi
+  [[ ! -e "$TARBALL" && ! -L "$TARBALL" ]] || {
+    echo "bootstrap archive appeared during download; partial retained at $TARBALL.part" >&2; exit 1
+  }
+  mv -n "$TARBALL.part" "$TARBALL"
+  [[ ! -e "$TARBALL.part" && ! -L "$TARBALL.part" ]] || {
+    echo "bootstrap could not publish download; partial retained at $TARBALL.part" >&2; exit 1
+  }
 fi
 
 sha256_of() {
@@ -43,7 +72,7 @@ if [[ -z "$SDL_SHA256" ]]; then
   echo "warning: sha256 is not pinned in $VERSION_FILE, got $ACTUAL"
 elif [[ "$ACTUAL" != "$SDL_SHA256" ]]; then
   echo "sha256 mismatch for $TARBALL: expected $SDL_SHA256, got $ACTUAL" >&2
-  rm -f "$TARBALL"
+  echo "bootstrap archive retained for inspection: $TARBALL" >&2
   exit 1
 fi
 

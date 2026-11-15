@@ -233,10 +233,12 @@ func TestMapLogPointsIntoInclude(t *testing.T) {
 			line = i + 1
 		}
 	}
-	log := fmt.Sprintf("ERROR: 0:%d: 'undefinedThing' : undeclared identifier\n", line)
-	got := MapLog(log, locs, u.Files, SHD009)
-	if len(got) != 1 || got[0].File != "broken.glsl" || got[0].Line != 2 || got[0].Code != SHD009 {
-		t.Fatalf("mapped to %+v", got)
+	for _, source := range []string{"0", "/tmp/shader.frag", `C:\Users\runner\shader.frag`, "C:/Users/runner/shader.frag"} {
+		log := fmt.Sprintf("ERROR: %s:%d: 'undefinedThing' : undeclared identifier\n", source, line)
+		got := MapLog(log, locs, u.Files, SHD009)
+		if len(got) != 1 || got[0].File != "broken.glsl" || got[0].Line != 2 || got[0].Code != SHD009 {
+			t.Errorf("%s mapped to %+v", source, got)
+		}
 	}
 }
 

@@ -42,6 +42,7 @@ type Stream struct {
 	wake     chan struct{}
 	space    chan struct{}
 	waiting  atomic.Bool
+	remote   atomic.Bool
 	cache    []float32
 	start    int64
 	n        int

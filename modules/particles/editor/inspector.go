@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 
+	"aego/asset"
 	"aego/core/ids"
 	"aego/core/mathx"
 	"aego/editor/core/context"
@@ -44,6 +45,7 @@ type particleInspector struct {
 	section int
 	closed  [8]bool
 	grad    GradientEditor
+	drawing drawingPicker
 	doc     document.ID
 	node    ids.NodeID
 	td      *schema.TypeDescriptor
@@ -166,6 +168,11 @@ func (s *particleInspector) Draw(ctx *context.Editor, nodes []ids.NodeID, fields
 		}
 		if open {
 			fields()
+			if i == 6 && c != nil && !d.IsPlay() {
+				s.drawing.draw(ctx, func(source *document.AssetDocument) error {
+					return assignSceneDrawing(ctx, d, nodes[0], s.td, source)
+				})
+			}
 			if i == 4 && c != nil {
 				start := *ui.Cursor()
 				s.grad.Draw(ui, c.ColorOverLife, func(keys []particles.ColorKey) {
@@ -180,6 +187,67 @@ func (s *particleInspector) Draw(ctx *context.Editor, nodes []ids.NodeID, fields
 		}
 		ui.PopID()
 	}
+}
+
+func assignSceneDrawing(ed *context.Editor, d *document.SceneDocument, node ids.NodeID, td *schema.TypeDescriptor, source *document.AssetDocument) error {
+	if ed == nil || ed.Docs == nil || ed.Selection == nil || d == nil || td == nil || ed.Doc() != d || d.IsPlay() {
+		return fmt.Errorf("%s", i18n.Tr("editor.particles.scene_changed", "The selected particle system is no longer editable."))
+	}
+	selection := ed.Selected()
+	if len(selection) != 1 || selection[0] != node {
+		return fmt.Errorf("%s", i18n.Tr("editor.particles.scene_changed", "The selected particle system is no longer editable."))
+	}
+	sc := d.Scene()
+	h := sc.Handle(node)
+	component, ok := scene.Get[particles.ParticleSystem2D](sc, h)
+	if !ok || !sc.IsAlive(h) {
+		return fmt.Errorf("%s", i18n.Tr("editor.particles.scene_changed", "The selected particle system is no longer editable."))
+	}
+	revision, selectionRevision := sc.Revision(), ed.Selection.Revision()
+	frames, err := prepareDrawingFrames(ed, source)
+	if err != nil {
+		return err
+	}
+	candidate := *component
+	candidate.Frames = make([]asset.Ref[asset.Texture], len(frames.ids))
+	values := make([]schema.Value, len(frames.ids))
+	for i, id := range frames.ids {
+		candidate.Frames[i] = asset.NewRef[asset.Texture](id)
+		values[i] = schema.Asset(id)
+	}
+	if len(values) > 1 && candidate.FrameFPS == 0 {
+		candidate.FrameFPS = 12
+	}
+	if err := candidate.Validate(); err != nil {
+		return err
+	}
+	if err := particles.CheckResources(&candidate, resolver(ed)); err != nil {
+		return err
+	}
+	framesField, ok := td.Field("frames")
+	if !ok {
+		return fmt.Errorf("particle frames field is unavailable")
+	}
+	fpsField, ok := td.Field("frameFPS")
+	if !ok {
+		return fmt.Errorf("particle frame FPS field is unavailable")
+	}
+	if ed.Doc() != d || d.IsPlay() || d.Scene() != sc || sc.Revision() != revision || ed.Selection.Revision() != selectionRevision || !frames.current() {
+		return fmt.Errorf("%s", i18n.Tr("editor.particles.scene_changed", "The selected particle system is no longer editable."))
+	}
+	tx := d.History.Begin(i18n.Tr("editor.particles.drawing_assign", "Use drawing frames"))
+	if candidate.FrameFPS != component.FrameFPS {
+		if err := d.Props.Set(tx, []ids.NodeID{node}, td.ID, fpsField.ID, schema.Float32(candidate.FrameFPS)); err != nil {
+			tx.Abort()
+			return err
+		}
+	}
+	if err := d.Props.Set(tx, []ids.NodeID{node}, td.ID, framesField.ID, schema.List(values...)); err != nil {
+		tx.Abort()
+		return err
+	}
+	tx.Commit()
+	return nil
 }
 func setGradient(d *document.SceneDocument, td *schema.TypeDescriptor, nodes []ids.NodeID, keys []particles.ColorKey) error {
 	f, ok := td.Field("colorOverLife")

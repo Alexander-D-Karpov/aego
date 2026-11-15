@@ -1,119 +1,35 @@
 scene version=1 {
-  node "d6400000000000000000000000000001" name="Floor" enabled=true layers=1 {
-    transform {
-      position=[0, 3]
-      rotation=0
-      scale=[1, 1]
-    }
+  node "d6400000000000000000000000000003" name="Timer" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#4b5563ff
-      origin=[0.5, 0.5]
-      size=[40, 1]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-      massMode=auto
-      mass=0
-      gravityScale=1
-      linearDamping=0
-      angularDamping=0
-      fixedRotation=false
-      bullet=false
-      allowSleep=true
-      interpolate=false
-      layer=0
-      mask=-1
-    }
-    component "physics.BoxCollider2D" version=1 {
-      offset=[0, 0]
-      isTrigger=false
-      friction=0.6
-      restitution=0
-      density=1
-      size=[40, 1]
-    }
-  }
-  node "d6400000000000000000000000000002" name="Spawner" enabled=true layers=1 {
-    transform {
-      position=[0, -4]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.Script" version=1 {
-      script "game.demo.Spawner" enabled=true {
-        Ball=asset("d6400000000000000000000000000f01")
-      }
-    }
-  }
-  node "d6400000000000000000000000000003" name="Fuse" enabled=true layers=1 {
-    transform {
-      position=[-6, 1.5]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
       tint=#f59e0bff
-      origin=[0.5, 0.5]
-      size=[2, 0.3]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
+      size=[6, 1.5]
+      order=1
     }
     component "gameplay.Lifetime" version=1 {
-      seconds=20
+      seconds=60
     }
     component "engine.Script" version=1 {
-      script "game.demo.Fuse" enabled=true {
-      }
+      script "game.demo.TimerDisplay" enabled=true {}
+    }
+  }
+  node "d6400000000000000000000000000001" name="Track" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      tint=#374151ff
+      size=[7, 2]
     }
   }
   node "d6400000000000000000000000000004" name="Camera" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.Camera2D" version=1 {
-      zoom=36
-      viewport=[0, 0, 1, 1]
-      mask=-1
-      order=0
-      clear=true
+      zoom=40
       clearColor=#111827ff
       scale=fitVirtual
       virtual=[960, 540]
       active=true
-    }
-    component "camera.VirtualCamera2D" version=1 {
-      priority=0
-      output=""
-      zoom=0
-      blendTime=0.5
-      blendCurve={ ease=inOutQuad }
-      timeDomain=unscaled
-      useBounds=false
-      bounds=[0, 0, 0, 0]
-      snapToPixels=false
-    }
-    component "camera.CameraFollow2D" version=1 {
-      target=node("d6400000000000000000000000000002")
-      deadzone=[0.4, 0.4, 0.2, 0.2]
-      damping=[5, 5]
-      lookahead=[0.2, 0]
-      maxLookahead=[2, 1]
-      lookaheadSmoothing=3
-      snapDistance=20
     }
   }
 }

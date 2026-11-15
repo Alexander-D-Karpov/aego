@@ -4,7 +4,15 @@ import (
 	"testing"
 
 	"aego/editor/core/state"
+	"aego/ui/dock"
 )
+
+type scopedStub struct {
+	stub
+	scope string
+}
+
+func (s scopedStub) Scope() string { return s.scope }
 
 func standard() []Desc {
 	return []Desc{
@@ -64,6 +72,140 @@ func TestWorkspacesRoundTrip(t *testing.T) {
 	}
 	if !r.Switch(id) || r.Toolbar() || r.Tree.Has(Hierarchy) {
 		t.Fatal("user workspace must keep its tree and toolbar")
+	}
+}
+
+// The new factory split must not migrate a user's previously saved tab group.
+// Only a deliberate Reset selects the new factory geometry.
+func TestArtFactorySplitPreservesSavedLayout(t *testing.T) {
+	root := t.TempDir()
+	makeWorkspace := func() *Workspace {
+		w := New(root, nil)
+		register(t, w, []Desc{
+			{Panel: stub(Scene), Slot: SlotCenter},
+			{Panel: stub(Assets), Slot: SlotBottom},
+			{Panel: stub("art.timeline"), Slot: SlotBottom},
+		})
+		if err := w.RegisterPreset(Preset{
+			ID: Art, Explicit: true,
+			Slots: map[string]Slot{Scene: SlotCenter, Assets: SlotBottom, "art.timeline": SlotBottom},
+			Splits: []PanelSplit{
+				{Panel: "art.timeline", Anchor: Scene, Side: dock.SideBottom, Ratio: .72},
+				{Panel: Assets, Anchor: "art.timeline", Side: dock.SideLeft, Ratio: .32},
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		w.LoadLayout()
+		return w
+	}
+	w := makeWorkspace()
+	if w.Tree.FindPanel(Assets) == w.Tree.FindPanel("art.timeline") {
+		t.Fatal("new Art layout did not split Assets and Timeline")
+	}
+	w.Tree.DockPanel(Assets, w.Tree.FindPanel("art.timeline"), dock.SideCenter)
+	w.Tree.Activate(Assets)
+	if err := w.SaveLayout(); err != nil {
+		t.Fatal(err)
+	}
+	r := makeWorkspace()
+	if r.Tree.FindPanel(Assets) != r.Tree.FindPanel("art.timeline") {
+		t.Fatal("loading replaced the user's saved tab group")
+	}
+	group, ok := r.Tree.Node(r.Tree.FindPanel(Assets))
+	if !ok {
+		t.Fatal("saved Assets group is missing")
+	}
+	if active, _ := group.ActivePanel(); active != Assets {
+		t.Fatalf("loading changed the saved active tab: %q", active)
+	}
+	r.ResetLayout()
+	assets, timeline := r.Tree.FindPanel(Assets), r.Tree.FindPanel("art.timeline")
+	if assets == 0 || timeline == 0 || assets == timeline {
+		t.Fatal("explicit Reset did not restore separate factory docks")
+	}
+	a, _ := r.Tree.Node(assets)
+	b, _ := r.Tree.Node(timeline)
+	parent, ok := r.Tree.Node(a.Parent)
+	if !ok || a.Parent != b.Parent || parent.Axis != dock.AxisX || parent.First != assets || parent.Second != timeline || parent.Ratio != .32 {
+		t.Fatalf("unexpected Assets/Timeline split: %+v", parent)
+	}
+}
+
+// A named workspace keeps its saved tree. An explicit Reset uses the same
+// dynamic-document preference and factory proportions as its base, including
+// after reloading the named workspace from disk.
+func TestNamedWorkspaceResetInheritsAuthoringFactory(t *testing.T) {
+	root := t.TempDir()
+	makeWorkspace := func() *Workspace {
+		w := New(root, nil)
+		register(t, w, []Desc{
+			{Panel: stub("tools"), Slot: SlotLeft},
+			{Panel: stub(Scene), Slot: SlotCenter},
+			{Panel: scopedStub{stub("drawing-a"), "drawing"}, Slot: SlotCenter},
+			{Panel: scopedStub{stub("drawing-b"), "drawing"}, Slot: SlotCenter},
+			{Panel: stub("layers"), Slot: SlotRight},
+		})
+		if err := w.RegisterPreset(Preset{
+			ID: Art, Explicit: true,
+			Slots:  map[string]Slot{"tools": SlotLeft, Scene: SlotCenter, "layers": SlotRight},
+			Scopes: map[string]Slot{"drawing": SlotCenter}, Front: []string{Scene},
+			FrontScopes: []string{"drawing"}, LeftRatio: .1, CenterRatio: .7,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		w.LoadLayout()
+		return w
+	}
+	w := makeWorkspace()
+	w.Focus("drawing-a")
+	id, err := w.SaveAs("My Art")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkPreset := func(w *Workspace) {
+		t.Helper()
+		p := w.Current()
+		if p.LeftRatio != .1 || p.CenterRatio != .7 || len(p.FrontScopes) != 1 || p.FrontScopes[0] != "drawing" {
+			t.Fatalf("named workspace lost its base factory settings: %+v", p)
+		}
+	}
+	checkPreset(w)
+	w.Tree.Undock("tools")
+	w.Tree.Activate(Scene)
+	if err := w.SaveLayout(); err != nil {
+		t.Fatal(err)
+	}
+	r := makeWorkspace()
+	if !r.Switch(id) {
+		t.Fatal("named workspace did not reload")
+	}
+	checkPreset(r)
+	if r.Tree.Has("tools") {
+		t.Fatal("reloading replaced the saved user layout")
+	}
+	n, ok := r.Tree.Node(r.Tree.FindPanel(Scene))
+	if !ok {
+		t.Fatal("saved scene tab is missing")
+	}
+	if active, _ := n.ActivePanel(); active != Scene {
+		t.Fatalf("reloading replaced the saved active tab: %s", active)
+	}
+	r.Focus("drawing-a")
+	r.ResetLayout()
+	if !r.Tree.Has("tools") {
+		t.Fatal("explicit reset did not restore the base layout")
+	}
+	n, ok = r.Tree.Node(r.Tree.FindPanel("drawing-a"))
+	if !ok {
+		t.Fatal("focused drawing is missing after reset")
+	}
+	if active, _ := n.ActivePanel(); active != "drawing-a" {
+		t.Fatalf("reset did not preserve the focused drawing: %s", active)
+	}
+	rootNode, ok := r.Tree.Node(r.Tree.Root())
+	if !ok || rootNode.Ratio != .1 {
+		t.Fatalf("reset lost the base factory proportions: %+v", rootNode)
 	}
 }
 

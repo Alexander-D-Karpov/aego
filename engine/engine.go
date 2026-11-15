@@ -42,6 +42,8 @@ type Engine struct {
 	main       *World
 	wctx       Context
 	app        App
+	framePacer FramePacer
+	finisher   FrameFinisher
 	onEvent    func(platform.Event)
 	vsync      platform.VSyncMode
 	frameLimit float64

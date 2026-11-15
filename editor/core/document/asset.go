@@ -34,7 +34,10 @@ type AssetDocument struct {
 	Scene                *SceneDocument
 	View                 any
 	Note                 string
-	WorkingPreview       MetadataPreviewState
+	// Transient documents have no indexed source yet. Path is a display name,
+	// not a filesystem path; their binding must provide an explicit first Save.
+	Transient      bool
+	WorkingPreview MetadataPreviewState
 	// Bindings adapt an already existing structured editor without duplicating
 	// its mutable document model or introducing another tab manager.
 	Binding AssetBinding
@@ -47,19 +50,76 @@ type MetadataPreviewState struct {
 	Error    string
 }
 
+// EditAction routes shared Edit commands to the focused structured document.
+// A missing action must not fall through to a scene behind that document.
+type EditAction uint8
+
+const (
+	ActionCopy EditAction = iota
+	ActionCut
+	ActionPaste
+	ActionDelete
+	ActionSelectAll
+	ActionDuplicate
+	ActionSaveAs
+)
+
 type AssetBinding struct {
+	// Model owns structured source state; AssetDocument.View remains presentation-only.
+	Model    any
+	Actions  map[EditAction]func() error
+	CanUndo  func() bool
+	CanRedo  func() bool
+	Close    func()
+	Recovery func() ([]byte, error)
+	// PendingRecovery is a previously saved recovery awaiting an explicit
+	// user decision. Discarding the current document must not erase it.
+	PendingRecovery func() bool
 	PreviewRevision func() uint64
 	PreviewSource   func() []byte
+	// PreviewSnapshot captures immutable bytes; PreviewCurrent guards publication.
+	PreviewSnapshot func() ([]byte, uint64, error)
+	PreviewCurrent  func(uint64) bool
 	Dirty           func() bool
-	Save            func() error
-	Undo            func() error
-	Redo            func() error
-	Discard         func()
+	// BeforeSave must not write; it protects structured inputs before metadata
+	// or source buffers are saved. SaveUnchanged supports an explicit first Save
+	// for an in-memory source without falsely marking the document dirty.
+	BeforeSave    func() error
+	SaveUnchanged bool
+	Save          func() error
+	Undo          func() error
+	Redo          func() error
+	Discard       func()
 }
+
+// ErrSavePending means a user decision is required and no save has completed.
+// In particular, Save All / Quit must not treat a queued path prompt as success.
+var ErrSavePending = errors.New("save is waiting for a user decision")
 
 func (d *AssetDocument) Dirty() bool {
 	return (d.Source != nil && d.Source.Dirty()) || (d.Metadata != nil && d.Metadata.Dirty()) ||
 		(d.Scene != nil && d.Scene.Dirty()) || (d.Binding.Dirty != nil && d.Binding.Dirty())
+}
+
+func (d *AssetDocument) volatileDirty() bool {
+	return d != nil && ((d.Source != nil && d.Source.Code.VolatileDirty()) ||
+		(d.Metadata != nil && d.Metadata.Code.VolatileDirty()))
+}
+
+func (d *AssetDocument) volatileHistory() bool {
+	return d != nil && ((d.Source != nil && d.Source.Code.HasVolatileHistory()) ||
+		(d.Metadata != nil && d.Metadata.Code.HasVolatileHistory()))
+}
+
+// A text view may save one member of an asset directly. It must not publish
+// that member while another member carries unsupported structured changes.
+func (m *Manager) relatedVolatile(d *ScriptDocument) bool {
+	for _, a := range m.assets {
+		if (a.Source == d || a.Metadata == d) && a.volatileDirty() {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *AssetDocument) Caption() string {
@@ -86,6 +146,20 @@ func validProjectPath(p string) bool {
 	return p != "" && p != "." && !strings.HasPrefix(p, "/") && p != ".." && !strings.HasPrefix(p, "../") && !strings.Contains(p, ":")
 }
 
+// NewTransientAsset registers an in-memory document in the normal manager so
+// dirty state, history, close and recovery are not bypassed. It creates no
+// source or metadata file. The caller owns the binding and its Save workflow.
+func (m *Manager) NewTransientAsset(id ids.AssetID, title, handler string, kind asset.ArtifactKind, capabilities Capabilities) (*AssetDocument, error) {
+	if m == nil || id.IsZero() || title == "" || handler == "" || !capabilities.Has(View|EditSource) || m.AssetDocument(id) != nil {
+		return nil, fmt.Errorf("invalid or already open in-memory asset document")
+	}
+	m.next++
+	d := &AssetDocument{ID: m.next, Asset: id, Selected: id, Path: title, Handler: handler, Kind: kind,
+		Capabilities: capabilities, Transient: true, Icon: "file.art"}
+	m.assets = append(m.assets, d)
+	return d, nil
+}
+
 // AcquireAsset loads the shared model without activating its presentation.
 // Inspectors use it as well as OpenAsset; neither creates a private file cache.
 func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
@@ -106,6 +180,8 @@ func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
 	fresh := d == nil
 	if fresh {
 		d = &AssetDocument{Asset: req.Asset}
+	} else if d.Transient {
+		return nil, fmt.Errorf("asset identity belongs to an open in-memory document")
 	} else if d.Path != req.Path && !req.ReadOnly {
 		// AssetID is authoritative after external moves/index refreshes: preserve dirty buffers and disk baselines at new paths without letting another open file steal their history.
 		for _, move := range []struct {
@@ -165,6 +241,9 @@ func (m *Manager) AcquireAsset(req AssetRequest) (*AssetDocument, error) {
 }
 
 func (d *AssetDocument) CanUndo() bool {
+	if d.Binding.CanUndo != nil {
+		return d.Binding.CanUndo()
+	}
 	if d.Metadata != nil {
 		return d.Metadata.Code.CanUndo()
 	}
@@ -178,6 +257,9 @@ func (d *AssetDocument) CanUndo() bool {
 }
 
 func (d *AssetDocument) CanRedo() bool {
+	if d.Binding.CanRedo != nil {
+		return d.Binding.CanRedo()
+	}
 	if d.Metadata != nil {
 		return d.Metadata.Code.CanRedo()
 	}
@@ -208,6 +290,17 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 	if d == nil {
 		return fmt.Errorf("no asset document")
 	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
+	if d.Binding.BeforeSave != nil {
+		if err := d.Binding.BeforeSave(); err != nil {
+			return err
+		}
+	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
 	for _, s := range []*ScriptDocument{d.Source, d.Metadata} {
 		if s != nil && s.Dirty() {
 			if err := m.SaveScript(s); err != nil {
@@ -215,13 +308,24 @@ func (m *Manager) SaveAsset(d *AssetDocument) error {
 			}
 		}
 	}
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
 	if d.Scene != nil && d.Scene.Dirty() {
 		if err := m.Save(d.Scene.ID); err != nil {
 			return err
 		}
 	}
-	if d.Binding.Save != nil && d.Binding.Dirty != nil && d.Binding.Dirty() {
-		return d.Binding.Save()
+	if d.volatileDirty() {
+		return volatileSaveError()
+	}
+	if d.Binding.Save != nil && (d.Binding.SaveUnchanged || d.Binding.Dirty != nil && d.Binding.Dirty()) {
+		if err := d.Binding.Save(); err != nil {
+			return err
+		}
+		if d.volatileDirty() {
+			return volatileSaveError()
+		}
 	}
 	return nil
 }
@@ -236,15 +340,23 @@ func (m *Manager) CloseAsset(id ids.AssetID, force bool) error {
 		}
 		if force {
 			for _, source := range []*ScriptDocument{d.Source, d.Metadata} {
-				if source != nil && source.views > 0 && source.Dirty() {
+				if source != nil && source.Dirty() && (source.views > 0 || source.Code.VolatileDirty()) {
 					if err := m.DiscardScript(source); err != nil {
 						return err
 					}
 				}
 			}
 		}
+		if force && d.Binding.Recovery != nil && (d.Binding.PendingRecovery == nil || !d.Binding.PendingRecovery()) {
+			if err := m.ClearOwnedAssetRecovery(d); err != nil {
+				return err
+			}
+		}
 		if force && d.Binding.Discard != nil {
 			d.Binding.Discard()
+		}
+		if d.Binding.Close != nil {
+			d.Binding.Close()
 		}
 		m.assets = append(m.assets[:i], m.assets[i+1:]...)
 		for _, s := range []*ScriptDocument{d.Source, d.Metadata} {

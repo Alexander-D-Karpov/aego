@@ -1,0 +1,37 @@
+name: github-release-mirror
+
+on:
+  workflow_run:
+    workflows: [github-native]
+    types: [completed]
+    branches: [master]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-release-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/heads/master
+          persist-credentials: false
+      - name: Test release mirror
+        run: python3 -m unittest discover -s tools/ci -p mirror_releases_test.py -v
+      - name: Mirror published Gitea releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ci/mirror_releases.py --apply

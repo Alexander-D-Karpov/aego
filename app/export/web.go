@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"aego/app/export/icon"
+	"aego/app/export/webaudio"
 	"aego/asset"
 	"aego/core/errs"
 	"aego/core/log"
@@ -179,6 +180,14 @@ func (j *job) packWeb() error {
 	if err := writeFile(filepath.Join(j.out, webLoader), loader, webLoader); err != nil {
 		return err
 	}
+	host, worker, err := webaudio.Scripts(j.opt.Engine, j.out)
+	if err != nil {
+		return err
+	}
+	reactor, err := os.ReadFile(filepath.Join(j.out, webaudio.Reactor))
+	if err != nil || len(reactor) < 4 || len(reactor) > webaudio.MaxReactorBytes || string(reactor[:4]) != "\x00asm" {
+		return errs.New(errs.BuildFailed, "the web audio reactor is missing or invalid")
+	}
 	if j.icon != nil {
 		data, err := icon.PNG(icon.Sized(j.icon, webIconSize))
 		if err != nil {
@@ -198,7 +207,7 @@ func (j *job) packWeb() error {
 	if err := writeFile(filepath.Join(j.l.data, WebFiles), list, WebFiles); err != nil {
 		return err
 	}
-	build, err := j.webBuild(exec, loader)
+	build, err := j.webBuild(exec, loader, host, worker, reactor)
 	if err != nil {
 		return err
 	}

@@ -88,17 +88,25 @@ func TestImagePreviewLitPixelsAndLifetime(t *testing.T) {
 	if resources.ResourceStats().Textures == 0 {
 		t.Fatal("preview did not allocate a real GPU target")
 	}
+	// Exercise the private HDR/Bloom route before measuring the close baseline.
+	p.controls.Lit, p.controls.Bloom = true, true
+	capture()
+	if r.Stats().PostFXPasses < 4 {
+		t.Fatal("preview Bloom lifetime test did not execute the real PostFX stack")
+	}
 	p.close(ed)
 	// Warm shared renderer resources once; repeated isolated sessions must not
 	// retain old targets, normal candidates or output-scoped lighting textures.
 	baseline := resources.ResourceStats().Textures
-	for range 5 {
+	for i := range 30 {
 		p.controls.Lit = true
+		p.controls.Bloom = i%2 == 0
 		capture()
 		p.close(ed)
 		if got := resources.ResourceStats().Textures; got != baseline {
 			t.Fatalf("image tab close leaked textures: %d != %d", got, baseline)
 		}
 	}
-	t.Logf("real Lit image preview: %s; normal/flat/FlipX/Unlit/lifetime passed", e.Caps().Renderer)
+	exerciseArtThumbnailResources(t, e.GPU(), r)
+	t.Logf("GL image preview: %s; normal/flat/FlipX/Unlit/Bloom and 30 close cycles passed", e.Caps().Renderer)
 }

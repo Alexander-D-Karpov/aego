@@ -1,0 +1,19 @@
+# Integration fragment, not an installed competing workflow.
+# Merge into Aego's existing primary CI after inspecting its runner/secret names.
+# Reuse the artifact and gate.json. Do not rebuild on the deployment host.
+# PRs run build/test only. Deploy is protected main/tag/manual according to Aego policy.
+steps:
+  - name: Build independent Asset Studio artifact
+    shell: bash
+    run: |
+      set -euo pipefail
+      go run ./tools/artstudio/release build --release \
+        -id "$ARTSTUDIO_BUILD_ID" -out "$ARTSTUDIO_ARTIFACT" \
+        -app-origin https://aeditor.akarpov.ru -docs-origin https://aego.akarpov.ru
+  - name: Required native, standalone and documentation gates
+    shell: bash
+    run: bash tools/artstudio/release/ci.sh
+  # Existing trusted artifact upload/download mechanism goes here.
+  # Production activation must receive the expected manifest SHA from CI,
+  # independently of the uploaded archive. Only one primary deploy job owns the domain.
+  # Do not activate from uncommitted local source or from snapshot builds.

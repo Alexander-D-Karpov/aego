@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +22,9 @@ func (sourceImporter) Version() int                { return 1 }
 func (sourceImporter) Extensions() []string        { return []string{".aeshader", ".aemat"} }
 func (sourceImporter) Defaults() pipeline.Settings { return pipeline.Settings{} }
 func (sourceImporter) Import(c *pipeline.ImportContext) (*pipeline.Result, error) {
+	if bytes.Equal(c.Source, []byte("reject")) {
+		return nil, errors.New("invalid source")
+	}
 	return &pipeline.Result{Kind: asset.ArtShaderInclude, Artifacts: []pipeline.Produced{{Kind: asset.ArtShaderInclude, Data: c.Source}}}, nil
 }
 
@@ -110,5 +114,46 @@ func TestCreateTransactionRollsBackAndRejectsEscape(t *testing.T) {
 	}
 	if _, err = o.CreateFile(ctx, "../escape.aeshader", []byte("no")); err == nil {
 		t.Fatal("asset creation escaped project")
+	}
+}
+
+func TestCreateReportsImportFailureAndKeepsSourceForRepair(t *testing.T) {
+	ctx := sourceContext(t)
+	var o Ops
+	const rel = "assets/broken.aeshader"
+	id, err := o.CreateFile(ctx, rel, []byte("reject"))
+	if id.IsZero() || err == nil || !strings.Contains(err.Error(), "invalid source") {
+		t.Fatalf("expected an import error for the created asset: id=%v err=%v", id, err)
+	}
+	data, err := os.ReadFile(ctx.Pipeline.Abs(rel))
+	if err != nil || string(data) != "reject" {
+		t.Fatalf("failed import did not preserve the created source: %q, %v", data, err)
+	}
+	if !o.CanUndo() {
+		t.Fatal("failed import source was not recorded for undo")
+	}
+	if err := o.Undo(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if Exists(ctx, rel) {
+		t.Fatal("undo did not remove the unchanged source created by this operation")
+	}
+}
+
+func TestFailedImportRollsBackNewFilesInCreationTransaction(t *testing.T) {
+	ctx := sourceContext(t)
+	var o Ops
+	err := o.Transaction(ctx, func() error {
+		if _, err := o.CreateFile(ctx, "assets/good.aeshader", []byte("ok")); err != nil {
+			return err
+		}
+		_, err := o.CreateFile(ctx, "assets/bad.aemat", []byte("reject"))
+		return err
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid source") {
+		t.Fatalf("transaction hid the import failure: %v", err)
+	}
+	if Exists(ctx, "assets/good.aeshader") || Exists(ctx, "assets/bad.aemat") || o.CanUndo() {
+		t.Fatal("failed transaction left newly created sources or history")
 	}
 }

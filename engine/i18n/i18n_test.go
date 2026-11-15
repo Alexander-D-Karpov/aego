@@ -1,10 +1,36 @@
 package i18n
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 )
+
+func TestTranslationsAreSortedDetachedAndDoNotChangeLanguage(t *testing.T) {
+	b := bundle(t)
+	english := `messages version=1 lang=en { msg "editor.component.add" { text="Add Component" } }`
+	catalog, err := Parse([]byte(english), "en.aetext")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Add(catalog, ""); err != nil {
+		t.Fatal(err)
+	}
+	b.SetLanguage(Russian)
+	want := []string{"Add Component", "Добавить компонент"}
+	got := b.Translations("editor.component.add")
+	if !slices.Equal(got, want) || b.Language() != Russian {
+		t.Fatalf("translations or active language differ: %v, %s", got, b.Language())
+	}
+	got[0] = "changed by caller"
+	if again := b.Translations("editor.component.add"); !slices.Equal(again, want) {
+		t.Fatalf("caller changed catalog values: %v", again)
+	}
+	if got := b.Translations("missing"); len(got) != 0 {
+		t.Fatalf("missing key has translations: %v", got)
+	}
+}
 
 func TestRussianPlurals(t *testing.T) {
 	want := map[int64]Form{0: Many, 1: One, 2: Few, 5: Many, 11: Many, 21: One, 22: Few, 25: Many, 101: One, 111: Many, 12: Many, 14: Many, 104: Few}

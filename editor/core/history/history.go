@@ -185,11 +185,11 @@ func (h *History) push(e entry) {
 			h.savedLost = true
 		}
 	}
-	h.redo = h.redo[:0]
+	h.redo = nil
 	h.undo = append(h.undo, e)
 	if over := len(h.undo) - h.limit; over > 0 {
 		h.base = h.undo[over-1].seq
-		h.undo = append(h.undo[:0], h.undo[over:]...)
+		h.undo = append([]entry(nil), h.undo[over:]...)
 	}
 	h.notify()
 	h.publish(e.cmds, false)
@@ -207,6 +207,7 @@ func (h *History) Undo() error {
 		return nil
 	}
 	e := h.undo[n-1]
+	h.undo[n-1] = entry{}
 	h.undo = h.undo[:n-1]
 	var first error
 	h.before()
@@ -234,6 +235,7 @@ func (h *History) Redo() error {
 		return nil
 	}
 	e := h.redo[n-1]
+	h.redo[n-1] = entry{}
 	h.redo = h.redo[:n-1]
 	var first error
 	h.before()
@@ -303,8 +305,8 @@ func (h *History) Walk(fn func(Command)) {
 }
 
 func (h *History) Clear() {
-	h.undo = h.undo[:0]
-	h.redo = h.redo[:0]
+	h.undo = nil
+	h.redo = nil
 	h.base = h.seq
 	h.saved = h.seq
 	h.savedLost = false
@@ -334,7 +336,7 @@ func (h *History) Version() uint64 {
 }
 
 func (h *History) publish(cmds []Command, undo bool) {
-	if h.changed == nil {
+	if h.changed == nil || h.target == nil {
 		return
 	}
 	h.cs.Reset(h.target.Scene())

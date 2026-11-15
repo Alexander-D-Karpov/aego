@@ -125,11 +125,14 @@ type Theme struct {
 	Events [3]mathx.Color
 	// Agent colours the Agent panel: the user's messages, tool steps and the two sides of a change (11b5a).
 	Agent AgentTheme
-	// Viewport colours stay the same in every theme, like the scene they frame (D345).
+	// Game viewport colours stay the same in every theme. Scene colours follow
+	// the editor theme so the grid and gizmos remain visible on the canvas.
 	ViewportBg   mathx.Color
 	SceneBg      mathx.Color
 	ViewportText mathx.Color
 	ViewportLine mathx.Color
+	SceneText    mathx.Color
+	SceneLine    mathx.Color
 	GridMinor    mathx.Color
 	GridMajor    mathx.Color
 	Dark         bool
@@ -174,6 +177,19 @@ func Mix(a, b mathx.Color, t float32) mathx.Color {
 		return mathx.SRGBToLinear(s + (d-s)*t)
 	}
 	return mathx.Color{R: ch(a.R, b.R), G: ch(a.G, b.G), B: ch(a.B, b.B), A: 1}
+}
+
+// DestructiveButton derives the button states from the theme's error colour.
+// Darkening in linear colour space keeps white action text readable in both
+// editor themes, while preserving the active-over-hover state priority.
+func (t Theme) DestructiveButton(hot, active bool) mathx.Color {
+	darken := float32(0.5)
+	if active {
+		darken = 0.7
+	} else if hot {
+		darken = 0.35
+	}
+	return t.Error.Lerp(mathx.Color{A: 1}, darken)
 }
 
 func mixAll(bg mathx.Color, cs [6]mathx.Color, t float32) [6]mathx.Color {
@@ -357,13 +373,15 @@ func series() [8]mathx.Color {
 	}
 }
 
-// viewport sets the colours of what frames the scene; they are the same in every theme.
+// viewport sets the dark viewport and scene colours.
 func viewport(t *Theme) {
 	t.ViewportBg = mathx.Color{R: 0.02, G: 0.02, B: 0.03, A: 1}
 	t.SceneBg = mathx.ColorRGB8(0x15, 0x17, 0x1B)
 	t.ViewportText = mathx.ColorRGB8(0x93, 0x98, 0xA3)
 	t.ViewportText.A = 0.7
 	t.ViewportLine = mathx.ColorRGB8(0xE4, 0xE6, 0xEB)
+	t.SceneText = t.ViewportText
+	t.SceneLine = t.ViewportLine
 	t.GridMinor = mathx.Color{R: 1, G: 1, B: 1, A: 0.018}
 	t.GridMajor = mathx.Color{R: 1, G: 1, B: 1, A: 0.045}
 }

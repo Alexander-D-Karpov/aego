@@ -50,6 +50,7 @@ func pairs(t Theme) []pair {
 		{"Text/ButtonActive", t.Text, t.ButtonActive, 4.5},
 		{"Text/Widget", t.Text, t.Widget, 4.5},
 		{"TextDim/Panel", t.TextDim, t.Panel, 4.5},
+		{"TextDim/Header", t.TextDim, t.Header, 4.5},
 		{"TextDim/CardBg", t.TextDim, t.CardBg, 4.5},
 		{"TextDisabled/Panel", t.TextDisabled, t.Panel, 2},
 		{"Unit/CardBg", t.Unit, t.CardBg, 3},
@@ -94,6 +95,22 @@ func TestThemeContrast(t *testing.T) {
 	}
 }
 
+func TestDestructiveButtonUsesReadableThemeColors(t *testing.T) {
+	for name, th := range map[string]Theme{"dark": Editor(), "light": Light()} {
+		normal := th.DestructiveButton(false, false)
+		hot := th.DestructiveButton(true, false)
+		active := th.DestructiveButton(false, true)
+		for state, bg := range map[string]mathx.Color{"normal": normal, "hot": hot, "active": active} {
+			if bg.A != 1 || bg.R <= bg.G || bg.R <= bg.B || Contrast(mathx.White, bg) < 4.5 {
+				t.Errorf("%s %s destructive action is not legible red: %+v, contrast %.2f", name, state, bg, Contrast(mathx.White, bg))
+			}
+		}
+		if !(Luminance(active) < Luminance(normal) && Luminance(normal) < Luminance(hot)) || th.DestructiveButton(true, true) != active {
+			t.Errorf("%s destructive button states do not preserve active priority", name)
+		}
+	}
+}
+
 func TestModeRoundTrip(t *testing.T) {
 	for _, m := range []Mode{ModeSystem, ModeDark, ModeLight} {
 		if ParseMode(m.String()) != m {
@@ -102,5 +119,32 @@ func TestModeRoundTrip(t *testing.T) {
 	}
 	if !For(ModeSystem, true).Dark || For(ModeSystem, false).Dark || !For(ModeDark, false).Dark || For(ModeLight, true).Dark {
 		t.Fatal("For picks the wrong theme")
+	}
+}
+
+func TestSceneColorsFollowEditorTheme(t *testing.T) {
+	dark, light := Editor(), Light()
+	if dark.SceneBg != mathx.ColorRGB8(0x15, 0x17, 0x1B) {
+		t.Fatal("dark scene background changed")
+	}
+	if Luminance(light.SceneBg) < 0.5 || Luminance(light.SceneBg) <= Luminance(dark.SceneBg) {
+		t.Fatal("light scene background must be light")
+	}
+	if light.ViewportBg != dark.ViewportBg || light.ViewportText != dark.ViewportText {
+		t.Fatal("changing the scene must not change the game viewport frame")
+	}
+	for _, tc := range []struct {
+		name string
+		th   Theme
+	}{{"dark", dark}, {"light", light}} {
+		if Contrast(tc.th.SceneText, tc.th.SceneBg) < 2 || Contrast(tc.th.SceneLine, tc.th.SceneBg) < 3 {
+			t.Errorf("%s scene overlays are not readable", tc.name)
+		}
+		if Contrast(tc.th.GridMajor, tc.th.SceneBg) <= Contrast(tc.th.GridMinor, tc.th.SceneBg) {
+			t.Errorf("%s major grid must be more visible than minor grid", tc.name)
+		}
+	}
+	if For(ModeSystem, false).SceneBg != light.SceneBg || For(ModeSystem, true).SceneBg != dark.SceneBg {
+		t.Fatal("system scene theme must follow the system appearance")
 	}
 }

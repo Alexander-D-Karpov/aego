@@ -169,7 +169,7 @@ func registerTypes(r *module.Registry) error {
 	vc := module.Component[VirtualCamera2D](r, schema.Name(NameVirtual), space,
 		schema.Doc("A camera pose the brain can pick. The highest priority wins; switching blends from the current view."),
 		schema.FieldDoc("priority", "The enabled virtual camera with the highest priority drives its output."),
-		schema.FieldDoc("output", "Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Brain 2D."),
+		schema.FieldDoc("output", "Output this camera drives. Empty is the main output; a Camera 2D picks another one with Camera Output Selector 2D."),
 		schema.FieldDoc("zoom", "Pixels per world unit while this camera is active. 0 keeps the zoom of the Camera 2D."),
 		schema.FieldDoc("blendTime", "Seconds to blend into this camera when it becomes active. 0 cuts."),
 		schema.FieldDoc("blendCurve", "Shape of the blend; its time range is stretched over Blend Time."),
@@ -227,7 +227,7 @@ func registerTypes(r *module.Registry) error {
 	brain := module.Component[CameraBrain2D](r, schema.Name(NameBrain), space,
 		schema.Doc("Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."),
 		schema.FieldDoc("output", "Output name; virtual cameras with the same Output drive this camera."),
-	).Category(Category).Display("Camera Brain 2D").Icon("comp.camera2d")
+	).Category(Category).Display("Camera Output Selector 2D").SearchAliases("Camera Brain 2D", "Мозг камеры 2D").Icon("comp.camera2d")
 
 	r.Template(schema.TemplateDesc{ID: ID + ".follow", Name: "Follow Camera", Icon: "comp.follow", Category: Category, Space: schema.Space2D, Setup: followCamera})
 	return errors.Join(vc.Err(), follow.Err(), shake.Err(), zone.Err(), brain.Err())

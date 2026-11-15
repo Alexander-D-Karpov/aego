@@ -5,22 +5,27 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aego/app/assembly/builtin"
+	"aego/app/export/webaudio"
 	"aego/engine"
 	"aego/engine/module"
 	"aego/project"
+	"aego/project/remoteexample"
 )
 
 type Env struct {
@@ -32,6 +37,15 @@ type Env struct {
 	Stderr  io.Writer
 	Repo    string
 	Demo    bool
+	// ExamplesLicense is the reviewed license of packaged example sources.
+	// An empty local value leaves gendocs' honest NOASSERTION default intact.
+	ExamplesLicense     string
+	ExamplesLicenseFile string
+	ExamplesProduction  bool
+	// Nil preserves gendocs' canonical default; a pointer to an empty string
+	// deliberately disables source example packages for a non-production build.
+	ExamplesURL     *string
+	ExamplesVersion string
 	// Lang also checks the translations into this language (D348).
 	Lang string
 }
@@ -151,12 +165,55 @@ func (e *Env) Build(out string, play bool) error {
 	if e.Engine == "" {
 		return errors.New("cannot locate the aego source tree; pass --engine <dir> or set AEGO_ROOT")
 	}
+	license := strings.TrimSpace(e.ExamplesLicense)
+	if e.ExamplesProduction && (license == "" || strings.EqualFold(license, "NOASSERTION")) {
+		return errors.New("official example publication requires an explicit reviewed --examples-license")
+	}
+	if e.ExamplesURL != nil {
+		raw := *e.ExamplesURL
+		if raw == "" {
+			if e.ExamplesProduction {
+				return errors.New("official example publication cannot disable --examples-url")
+			}
+		} else {
+			u, err := url.Parse(raw)
+			if err != nil || u.RawQuery != "" || u.Fragment != "" || !strings.HasSuffix(u.Path, "/") {
+				return errors.New("--examples-url must be an HTTPS site root ending in / without a query or fragment")
+			}
+			if _, err := remoteexample.Origin(raw); err != nil {
+				return fmt.Errorf("invalid --examples-url: %w", err)
+			}
+		}
+	}
+	licenseFile := e.ExamplesLicenseFile
+	if licenseFile == "" && e.ExamplesProduction {
+		return errors.New("official example publication requires --examples-license-file")
+	}
+	if licenseFile != "" {
+		var err error
+		licenseFile, err = filepath.Abs(licenseFile)
+		if err != nil {
+			return fmt.Errorf("example license file: %w", err)
+		}
+		data, err := os.ReadFile(licenseFile)
+		if err != nil || len(data) == 0 || len(data) > 64<<10 || !utf8.Valid(data) || strings.TrimSpace(string(data)) == "" {
+			return errors.New("example license file is unreadable, empty, invalid UTF-8, or larger than 64 KiB")
+		}
+	}
 	abs, err := filepath.Abs(out)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return err
+	}
+	var studioURL string
+	if artifact := os.Getenv("ARTSTUDIO_ARTIFACT"); artifact != "" {
+		var err error
+		studioURL, err = e.integrateStudioGuides(artifact, abs)
+		if err != nil {
+			return err
+		}
 	}
 	var playV, tryV string
 	if play {
@@ -165,6 +222,11 @@ func (e *Env) Build(out string, play bool) error {
 		}
 		if tryV, err = e.tryApp(filepath.Join(abs, "try")); err != nil {
 			return err
+		}
+		if studioURL == "" {
+			if err = e.artStudio(filepath.Join(abs, "studio")); err != nil {
+				return err
+			}
 		}
 	}
 	tmp, err := os.CreateTemp("", "aego-docs-*.json")
@@ -177,8 +239,29 @@ func (e *Env) Build(out string, play bool) error {
 		return err
 	}
 	args := []string{"run", ".", "-in", tmp.Name(), "-out", abs, "-version", engine.Version}
+	if e.ExamplesURL != nil {
+		args = append(args, "-examples-url", *e.ExamplesURL)
+	}
+	if e.ExamplesVersion != "" {
+		args = append(args, "-examples-version", e.ExamplesVersion)
+	}
+	if license != "" {
+		args = append(args, "-examples-license", license)
+	}
+	if licenseFile != "" {
+		args = append(args, "-examples-license-file", licenseFile)
+	}
+	if e.ExamplesProduction {
+		args = append(args, "-examples-production")
+	}
 	if play {
 		args = append(args, "-playground", "-play-version", playV, "-try-version", tryV)
+		if studioURL == "" {
+			args = append(args, "-studio")
+		}
+	}
+	if studioURL != "" {
+		args = append(args, "-studio-url", studioURL, "-studio-guides")
 	}
 	if e.Demo {
 		args = append(args, "-demo")
@@ -205,6 +288,114 @@ func (e *Env) Build(out string, play bool) error {
 	}
 	if err := e.goCmd(filepath.Join(e.Engine, "tools", "gendocs"), nil, args...); err != nil {
 		return fmt.Errorf("gendocs failed: %w", err)
+	}
+	return nil
+}
+
+// integrateStudioGuides consumes one verified release artifact. It copies only
+// its pinned lesson pages and host scripts, never another copy of the WASM.
+func (e *Env) integrateStudioGuides(artifact, out string) (string, error) {
+	args := []string{"run", "./tools/artstudio/release", "integrate-docs", "-dir", artifact, "-out", out}
+	if hash := os.Getenv("ARTSTUDIO_MANIFEST_SHA256"); hash != "" {
+		args = append(args, "-sha256", hash)
+	}
+	cmd := exec.Command("go", args...)
+	cmd.Dir, cmd.Stderr = e.Engine, e.Stderr
+	data, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("integrate pinned Art Studio guides: %w", err)
+	}
+	var result struct {
+		Status, EditorURL, ManifestSHA256 string
+	}
+	if err := json.Unmarshal(data, &result); err != nil || result.Status != "PASS" || result.EditorURL == "" || result.ManifestSHA256 == "" {
+		return "", fmt.Errorf("invalid Art Studio guide integration response")
+	}
+	if e.Stdout != nil {
+		fmt.Fprintf(e.Stdout, "Art Studio guides: %s (manifest %s)\n", result.EditorURL, result.ManifestSHA256)
+	}
+	return result.EditorURL, nil
+}
+
+// artStudio packages the existing UI/core and its optional real GPU preview for
+// local docs without ARTSTUDIO_ARTIFACT. Production uses integrateStudioGuides
+// above and pins the already-verified standalone artifact instead of rebuilding.
+// Neither WASM is loaded by ordinary documentation pages.
+func (e *Env) artStudio(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	for _, entry := range []struct{ name, pkg string }{
+		{"artstudio.wasm", "./tools/artstudio/wasm"},
+		{"preview.wasm", "./tools/artstudio/previewwasm"},
+	} {
+		wasm := filepath.Join(dir, entry.name)
+		if err := e.goCmd(e.Engine, []string{"GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0"}, "build", "-buildvcs=false", "-trimpath", "-ldflags", "-s -w", "-o", wasm, entry.pkg); err != nil {
+			return fmt.Errorf("build Art Studio %s: %w", entry.name, err)
+		}
+		if _, err := gzipCopy(wasm); err != nil {
+			return err
+		}
+	}
+	root, err := goRoot()
+	if err != nil {
+		return err
+	}
+	support, err := os.ReadFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"))
+	if err != nil {
+		return err
+	}
+	return packageStudioWeb(filepath.Join(e.Engine, "tools", "artstudio", "web"), dir, support)
+}
+
+// Each entry carries the same digest, so static caches cannot mix a new WASM
+// with an old JavaScript bridge. The source UI also works unmodified on the
+// loopback development host; only these exact relative URLs are versioned.
+func packageStudioWeb(web, dir string, support []byte) error {
+	wasm, err := os.ReadFile(filepath.Join(dir, "artstudio.wasm"))
+	if err != nil {
+		return err
+	}
+	preview, err := os.ReadFile(filepath.Join(dir, "preview.wasm"))
+	if err != nil {
+		return err
+	}
+	names := []string{"index.html", "studio.css", "studio.js", "recovery.js", "gpu-preview.js", "aego.png"}
+	data := make(map[string][]byte, len(names))
+	parts := [][]byte{wasm, preview, support}
+	for _, name := range names {
+		data[name], err = os.ReadFile(filepath.Join(web, name))
+		if err != nil {
+			return err
+		}
+		parts = append(parts, data[name])
+	}
+	version := versionOf(parts...)
+	index := data["index.html"]
+	for _, entry := range []struct{ attr, name string }{{"href", "studio.css"}, {"href", "aego.png"}, {"src", "aego.png"}, {"src", "wasm_exec.js"}, {"src", "recovery.js"}, {"src", "gpu-preview.js"}, {"src", "studio.js"}} {
+		old := []byte(entry.attr + `="` + entry.name + `"`)
+		if bytes.Count(index, old) != 1 {
+			return fmt.Errorf("studio index needs exactly one %s", old)
+		}
+		index = bytes.Replace(index, old, []byte(entry.attr+`="`+entry.name+"?v="+version+`"`), 1)
+	}
+	js := data["studio.js"]
+	old := []byte(`fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm')`)
+	if bytes.Count(js, old) != 1 {
+		return errors.New("studio needs exactly one WASM fetch")
+	}
+	data["studio.js"] = bytes.Replace(js, old, []byte(`fetch(window.AegoStudioRelease?.wasmURL || 'artstudio.wasm?v=`+version+`')`), 1)
+	previewJS := data["gpu-preview.js"]
+	previewFetch := []byte(`fetch(window.AegoStudioRelease?.previewWasmURL || 'preview.wasm')`)
+	if bytes.Count(previewJS, previewFetch) != 1 {
+		return errors.New("studio needs exactly one GPU preview WASM fetch")
+	}
+	data["gpu-preview.js"] = bytes.Replace(previewJS, previewFetch, []byte(`fetch(window.AegoStudioRelease?.previewWasmURL || 'preview.wasm?v=`+version+`')`), 1)
+	data["index.html"], data["wasm_exec.js"] = index, support
+	for _, name := range append(names, "wasm_exec.js") {
+		if err := os.WriteFile(filepath.Join(dir, name), data[name], 0o644); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -312,6 +503,20 @@ func (e *Env) playground(dir string) (string, error) {
 	if err := copyFile(filepath.Join(root, "lib", "wasm", "wasm_exec.js"), filepath.Join(dir, "wasm_exec.js")); err != nil {
 		return "", err
 	}
+	if err := webaudio.Build(e.Engine, dir, true); err != nil {
+		return "", fmt.Errorf("playground audio worker build failed: %w", err)
+	}
+	host, worker, err := webaudio.Scripts(e.Engine, dir)
+	if err != nil {
+		return "", err
+	}
+	reactor, err := os.ReadFile(filepath.Join(dir, webaudio.Reactor))
+	if err != nil {
+		return "", err
+	}
+	if _, err := gzipCopy(filepath.Join(dir, webaudio.Reactor)); err != nil {
+		return "", err
+	}
 	web := filepath.Join(e.Engine, "cmd", "aego-playground", "web")
 	files, err := os.ReadDir(web)
 	if err != nil {
@@ -325,7 +530,7 @@ func (e *Env) playground(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	parts := [][]byte{blob}
+	parts := [][]byte{blob, host, worker, reactor}
 	for _, f := range files {
 		if f.IsDir() {
 			continue
@@ -442,5 +647,5 @@ func (e *Env) Serve(addr, out string, play bool) error {
 	}
 	go e.watch(out)
 	fmt.Fprintf(e.Stdout, "docs: serving %s on http://%s\n", out, addr)
-	return http.ListenAndServe(addr, noCache(http.FileServer(http.Dir(out))))
+	return http.ListenAndServe(addr, noCache(siteHandler(out)))
 }

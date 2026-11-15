@@ -120,6 +120,9 @@ func Prepare(source string) ([]byte, error) {
 		slices.Sort(messages)
 		return nil, fmt.Errorf("try source import failed: %s", strings.Join(messages, "; "))
 	}
+	if len(batch.Retry) > 0 {
+		return nil, fmt.Errorf("try source import requires retry for %d assets", len(batch.Retry))
+	}
 	bundle := asset.TryArtifacts{}
 	var buildErr error
 	builtins := map[ids.AssetID]bool{}

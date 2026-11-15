@@ -64,9 +64,9 @@ func (w *World) Snapshot() *Snapshot {
 
 func (w *World) SnapshotInto(s *Snapshot) {
 	s.cfg = w.cfg
-	w.bodies.cloneInto(&s.bodies, cloneBody)
-	w.shapes.cloneInto(&s.shapes, cloneShape)
-	w.joints.cloneInto(&s.joints, nil)
+	w.bodies.cloneSnapshotInto(&s.bodies, cloneBody)
+	w.shapes.cloneSnapshotInto(&s.shapes, cloneShape)
+	w.joints.cloneSnapshotInto(&s.joints, nil)
 	w.tree.cloneInto(&s.tree)
 	s.prox = append(s.prox[:0], w.prox...)
 	s.moveBuf = append(s.moveBuf[:0], w.moveBuf...)

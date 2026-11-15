@@ -65,6 +65,26 @@ func EnglishTitle(td *TypeDescriptor) string {
 	return Humanize(td.FullName[strings.LastIndexByte(td.FullName, '.')+1:])
 }
 
+// SearchNames is shared by the editor creation palette and documentation.
+// Technical IDs, all shipped translations and former display names remain
+// searchable regardless of the active UI language.
+func SearchNames(td *TypeDescriptor) []string {
+	names := []string{td.FullName, EnglishTitle(td)}
+	names = append(names, td.SearchAliases...)
+	names = append(names, i18n.Default().Translations(TypeKey(td))...)
+	out := make([]string, 0, len(names))
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		key := strings.ToLower(name)
+		if key != "" && !seen[key] {
+			seen[key] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // TypeDoc is a type's description in the current language.
 func TypeDoc(td *TypeDescriptor) string {
 	if td.Doc == "" || td.Kind == TypeScript {

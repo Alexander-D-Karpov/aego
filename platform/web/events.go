@@ -87,7 +87,15 @@ func (p *Platform) key(e js.Value, down bool) {
 	if down {
 		kind = platform.EvKeyDown
 	}
-	p.push(platform.Event{Kind: kind, Key: input.KeyEvent{Scan: scan, Key: keycodeOf(key, scan), Mods: mods, Repeat: down && e.Get("repeat").Truthy()}})
+	ev := platform.Event{Kind: kind, Key: input.KeyEvent{Scan: scan, Key: keycodeOf(key, scan), Mods: mods, Repeat: down && e.Get("repeat").Truthy()}}
+	if down && !w.textInput && w.fence.hit != nil {
+		// This is not an EvTextInput yet. A fenced Inspector click may enable
+		// text input before the event is delivered; only then can it be replayed.
+		if s, ok := textOf(key, mods); ok {
+			ev.TextN = uint8(copy(ev.Text[:], s))
+		}
+	}
+	p.push(ev)
 	if down && w.textInput {
 		if s, ok := textOf(key, mods); ok {
 			ev := platform.Event{Kind: platform.EvTextInput}

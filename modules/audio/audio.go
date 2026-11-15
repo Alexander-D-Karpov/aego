@@ -84,38 +84,54 @@ type EventCounts struct {
 }
 
 type Module struct {
-	st            *settings.Store
-	vol           []settings.Key
-	mute          []settings.Key
-	bufKey        settings.Key
-	rateKey       settings.Key
-	enabled       settings.Key
-	eng           *engine.Engine
-	log           *log.ChannelLogger
-	mixer         *mix.Mixer
-	pump          *pump.Pump
-	out           platform.AudioOutput
-	spec          platform.AudioSpec
-	requested     platform.AudioSpec
-	manual        bool
-	paced         bool
-	minBlocks     int
-	frameDt       float64
-	keyRate       int
-	key           string
-	listeners     []func(mix.Event)
-	counts        EventCounts
-	started       module.Signal0
-	finished      module.Signal1[bool]
-	worlds        []*Service
-	session       [busCount]float32
-	smute         [busCount]bool
-	clips         map[clipCacheKey]*Clip
-	warned        map[ids.AssetID]bool
-	preview       mix.VoiceID
-	previewCancel chan struct{}
-	solo          [busCount]bool
-	previewID     ids.AssetID
+	st              *settings.Store
+	vol             []settings.Key
+	mute            []settings.Key
+	bufKey          settings.Key
+	rateKey         settings.Key
+	enabled         settings.Key
+	eng             *engine.Engine
+	log             *log.ChannelLogger
+	mixer           *mix.Mixer
+	pump            *pump.Pump
+	worker          workerBackend
+	out             platform.AudioOutput
+	spec            platform.AudioSpec
+	requested       platform.AudioSpec
+	manual          bool
+	paced           bool
+	minBlocks       int
+	frameDt         float64
+	keyRate         int
+	key             string
+	previewKeyRate  int
+	previewKey      string
+	listeners       []func(mix.Event)
+	counts          EventCounts
+	started         module.Signal0
+	finished        module.Signal1[bool]
+	worlds          []*Service
+	session         [busCount]float32
+	smute           [busCount]bool
+	clips           map[clipCacheKey]*Clip
+	warned          map[ids.AssetID]bool
+	preview         mix.VoiceID
+	previewCancel   chan struct{}
+	previewPaused   bool
+	previewEpoch    uint64
+	previewFrames   int64
+	previewRate     int
+	previewArtifact *asset.AudioArtifact
+	previewDigest   [32]byte
+	previewGuard    bool
+	previewGain     float32
+	previewLoop     bool
+	previewClose    func()
+	previewDone     <-chan struct{}
+	previewTime     *streamSeekTimeline
+	streamSeek      previewStreamSeek
+	solo            [busCount]bool
+	previewID       ids.AssetID
 }
 
 func New() *Module {
@@ -275,7 +291,15 @@ func (m *Module) Init(ctx *module.InitContext) error {
 		m.syncBus(i)
 	}
 	m.syncEnabled()
-	m.startPump()
+	m.worker, err = m.newWorkerBackend()
+	if err != nil {
+		m.pump.Close()
+		m.pump, m.mixer, m.out = nil, nil, nil
+		return err
+	}
+	if m.worker == nil {
+		m.startPump()
+	}
 	m.log.Info("audio output", log.F("rate", spec.SampleRate), log.F("frames", spec.Frames), log.F("channels", spec.Channels))
 	return nil
 }
@@ -329,6 +353,10 @@ func (m *Module) Reopen(want platform.AudioSpec) error {
 	if m.mixer == nil {
 		return nil
 	}
+	m.bumpPreviewEpoch()
+	if m.worker != nil {
+		return m.worker.Reopen(want)
+	}
 	m.pump.Stop()
 	m.out.Close()
 	out := m.open(want)
@@ -350,6 +378,10 @@ func (m *Module) Shutdown() {
 		s.drop(true, 0)
 	}
 	m.worlds = nil
+	if m.worker != nil {
+		m.worker.Close()
+		m.worker = nil
+	}
 	if m.pump != nil {
 		m.pump.Close()
 		m.pump = nil
@@ -386,12 +418,15 @@ func (m *Module) update(dt float64) {
 	if m.mixer == nil {
 		return
 	}
-	if m.manual {
+	if m.worker != nil {
+		m.worker.Tick()
+	} else if m.manual {
 		if m.paced {
 			m.pace(dt)
 		}
 		m.pump.Fill()
 	}
+	m.pollStreamSeek()
 	q := m.mixer.Events()
 	for {
 		ev, ok := q.Pop()
@@ -409,7 +444,14 @@ func (m *Module) update(dt float64) {
 			m.counts.Starved++
 		}
 		if ev.Voice == m.preview && ev.Kind != mix.EvStarved {
-			m.endPreview()
+			m.reconcileStreamSeek()
+			if m.streamSeek.pending != nil {
+				if !m.mixer.Live(m.preview) {
+					m.closePreviewFeeder()
+				}
+			} else if ev.Voice == m.preview {
+				m.endPreview()
+			}
 		}
 		for _, s := range m.worlds {
 			if s.onEvent(ev) {
@@ -472,6 +514,9 @@ func (m *Module) Counts() EventCounts {
 }
 
 func (m *Module) Stats() pump.Stats {
+	if m.worker != nil {
+		return m.worker.Stats()
+	}
 	if m.pump == nil {
 		return pump.Stats{}
 	}

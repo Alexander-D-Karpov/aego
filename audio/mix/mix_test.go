@@ -301,6 +301,9 @@ func TestQueueRace(t *testing.T) {
 	buf := make([]float32, 256)
 	for m.applied < total {
 		m.Mix(buf)
+		if runtime.GOOS == "js" {
+			runtime.Gosched()
+		}
 	}
 	wg.Wait()
 }

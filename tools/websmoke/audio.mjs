@@ -80,6 +80,8 @@ async function run(browser, label, headers, wantShared, depth = 0) {
     const { js, until } = await scriptWithoutGesture(page);
     const stats = async () => JSON.parse(await js("globalThis.aegoAudio.stats()"));
     try {
+        try { await page.addInitScript(installAudioTiming); }
+        catch { /* Timing is diagnostic only; keep the audio assertions strict. */ }
         await page.goto(`http://127.0.0.1:${srv.address().port}/play/`);
         await until("!!(globalThis.aegoAudio && globalThis.aegoAudio.start)", 120000);
         const isolated = await js("globalThis.crossOriginIsolated === true");
@@ -109,6 +111,17 @@ async function run(browser, label, headers, wantShared, depth = 0) {
         if (!Number.isInteger(s.underruns) || s.underruns < 0) fail(`${label}: invalid worklet underrun count`);
         if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in ${seconds} s at ${used} blocks`);
         if (s.pumpUnderruns > 0) fail(`${label}: ${s.pumpUnderruns} predicted pump underruns in ${seconds} s at ${used} blocks`);
+        if (s.underruns > 0 || s.pumpUnderruns > 0) {
+            console.log(`${label}: before-click audio counters (diagnostic only): ${JSON.stringify({
+                running: before.running, queued: before.queued, underruns: before.underruns, pumpUnderruns: before.pumpUnderruns,
+            })}`);
+            try {
+                const timing = await js("JSON.stringify({now:performance.now(), timing:globalThis.__aegoAudioSmokeTiming ?? null})");
+                console.log(`${label}: underrun timing (main-thread long tasks and timer gaps, ms since navigation; diagnostic only): ${timing}`);
+            } catch {
+                console.log(`${label}: underrun timing unavailable`);
+            }
+        }
         await js("globalThis.aegoAudio.stop()");
     } catch (e) {
         fail(`${label}: ${e.message}`);
@@ -116,6 +129,60 @@ async function run(browser, label, headers, wantShared, depth = 0) {
         await page.close();
         srv.close();
     }
+}
+
+// Installed before the tone/demo loads. Long tasks and timer gaps are main-thread
+// diagnostics, not proof of an audio stall's cause.
+function installAudioTiming() {
+    const timing = {
+        available: false, count: 0, maxMS: 0, tasks: [],
+        heartbeatAvailable: false, gapCount: 0, maxGapMS: 0, gaps: [],
+        unmuteMS: null, beforeClickSampleMS: null, firstClickMS: null,
+    };
+    globalThis.__aegoAudioSmokeTiming = timing;
+    window.addEventListener("pointerdown", (e) => {
+        if (e.isTrusted && timing.firstClickMS === null) timing.firstClickMS = performance.now();
+    }, true);
+    const retain = (items, item) => {
+        // Keep the first and last 16 entries, even if startup is busy.
+        if (items.length === 32) items.splice(16, 1);
+        items.push(item);
+    };
+    try {
+        let last = performance.now();
+        setInterval(() => {
+            const now = performance.now();
+            const gap = now - last;
+            last = now;
+            if (gap < 100) return;
+            timing.gapCount++;
+            timing.maxGapMS = Math.max(timing.maxGapMS, gap);
+            retain(timing.gaps, { atMS: now, gapMS: gap });
+        }, 50);
+        timing.heartbeatAvailable = true;
+    } catch {
+        // Continue without timer diagnostics.
+    }
+    try {
+        if (!globalThis.PerformanceObserver?.supportedEntryTypes?.includes("longtask")) return;
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                const task = { startMS: entry.startTime, durationMS: entry.duration };
+                timing.count++;
+                timing.maxMS = Math.max(timing.maxMS, task.durationMS);
+                retain(timing.tasks, task);
+            }
+        });
+        observer.observe({ type: "longtask", buffered: true });
+        timing.available = true;
+    } catch {
+        // Lack of optional diagnostics must not change the audio assertions.
+    }
+}
+
+function checkAudibleWorklet(stats, label) {
+    if (stats.quiet !== false) fail(`${label}: worklet is intentionally silent while the game should be audible`);
+    if (stats.backend !== "worker") fail(`${label}: demo is not using the audio Worker`);
 }
 
 async function demo(browser, label, headers, wantShared) {
@@ -130,11 +197,13 @@ async function demo(browser, label, headers, wantShared) {
     const stats = async () => JSON.parse(await js("globalThis.aegoAudioStats()"));
     const base = `http://127.0.0.1:${srv.address().port}/demo/`;
     try {
+        try { await page.addInitScript(installAudioTiming); }
+        catch { /* The audio gate remains strict if timing diagnostics are unavailable. */ }
         await page.goto(base);
         await until("globalThis.aegoBoot !== undefined && typeof globalThis.aegoAudioStats === 'function'", 120000);
         const quiet = await js("document.documentElement.dataset.sound === 'off'");
         if (quiet && !(await stats()).muted) fail(`${label}: the page asks for silence, but the demo starts with sound`);
-        await js("globalThis.aegoAudioMute(false)");
+        await js("(globalThis.__aegoAudioSmokeTiming && (globalThis.__aegoAudioSmokeTiming.unmuteMS = performance.now()), globalThis.aegoAudioMute(false))");
         const enforced = await js(`(async () => {
             const c = new AudioContext();
             await new Promise((r) => setTimeout(r, 300));
@@ -143,7 +212,7 @@ async function demo(browser, label, headers, wantShared) {
             return s !== "running";
         })()`);
         const before = await stats();
-        const activated = await js("navigator.userActivation && navigator.userActivation.hasBeenActive");
+        const activated = await js("(globalThis.__aegoAudioSmokeTiming && (globalThis.__aegoAudioSmokeTiming.beforeClickSampleMS = performance.now()), navigator.userActivation && navigator.userActivation.hasBeenActive)");
         if (activated) fail(`${label}: the harness activated the page before the real click`);
         console.log(`${label}: before click running ${before.running}, underruns ${before.underruns}, consumed ${before.consumed}, page activated ${!!activated}`);
         if (!enforced) console.log(`${label}: this browser starts an AudioContext without a gesture, the gesture check is skipped`);
@@ -158,8 +227,42 @@ async function demo(browser, label, headers, wantShared) {
         if (!pump || !Number.isInteger(pump.underruns) || pump.underruns < 0) fail(`${label}: invalid game pump underrun count`);
         else if (pump.underruns > 0) fail(`${label}: ${pump.underruns} predicted pump underruns in the game`);
         if (s.underruns > 0) fail(`${label}: ${s.underruns} underruns in the game, which fills audio from the frame loop`);
+        checkAudibleWorklet(s, label);
         if (!s.running || s.rms < 0.01) fail(`${label}: music is silent: ${JSON.stringify(s)}`);
         console.log(`${label}: rate ${s.rate}, shared ${s.shared}, rms ${s.rms.toFixed(3)}, underruns ${s.underruns} (pump ${pump?.underruns})`);
+        if (s.underruns > 0 || pump?.underruns > 0) {
+            try {
+                const timing = await js("JSON.stringify({now:performance.now(), timing:globalThis.__aegoAudioSmokeTiming ?? null})");
+                console.log(`${label}: underrun timing (main-thread long tasks and timer gaps, ms since navigation; diagnostic only): ${timing}`);
+            } catch {
+                console.log(`${label}: underrun timing unavailable`);
+            }
+        }
+        // The product mixer must keep feeding its worklet while a genuine
+        // page-thread stall exceeds either transport's unchanged reserve.
+        const stallMS = await js(`(() => {
+            const start = performance.now();
+            while (performance.now() - start < 500) {}
+            return performance.now() - start;
+        })()`);
+        await sleep(300);
+        const afterStall = await stats();
+        const pumpAfterStall = await js("globalThis.aegoGame?.mixStats?.() ?? null");
+        if (!Number.isFinite(stallMS) || stallMS < 500) fail(`${label}: the main-thread stall did not run`);
+        if (afterStall.error) fail(`${label}: ${afterStall.error}`);
+        if (!afterStall.running || afterStall.rms < 0.01) fail(`${label}: music stopped after the main-thread stall`);
+        checkAudibleWorklet(afterStall, label);
+        if (!Number.isSafeInteger(s.consumed) || !Number.isSafeInteger(afterStall.consumed) || afterStall.consumed <= s.consumed ||
+            !Number.isSafeInteger(pump?.blocks) || !Number.isSafeInteger(pumpAfterStall?.blocks) || pumpAfterStall.blocks <= pump.blocks) {
+            fail(`${label}: Worker output did not advance after the main-thread stall`);
+        }
+        if (!Number.isInteger(afterStall.underruns) || afterStall.underruns < 0 || afterStall.underruns > 0) {
+            fail(`${label}: worklet underruns after the main-thread stall: ${afterStall.underruns}`);
+        }
+        if (!Number.isInteger(pumpAfterStall?.underruns) || pumpAfterStall.underruns < 0 || pumpAfterStall.underruns > 0) {
+            fail(`${label}: predicted pump underruns after the main-thread stall: ${pumpAfterStall?.underruns}`);
+        }
+        console.log(`${label}: ${stallMS.toFixed(1)} ms injected main-thread stall, worklet underruns ${afterStall.underruns} (pump ${pumpAfterStall?.underruns})`);
         if (await page.isHidden("#mute")) fail(`${label}: the mute button is hidden`);
         await page.click("#mute");
         await sleep(300);

@@ -7,6 +7,7 @@ import (
 	"aego/asset/pipeline"
 	"aego/core/ids"
 	"aego/editor/core/code/highlight"
+	"aego/ui/theme"
 )
 
 func TestDeclName(t *testing.T) {
@@ -30,6 +31,18 @@ func TestDeclName(t *testing.T) {
 	}
 }
 
+func TestLightFolderSheetsContrastWithPanel(t *testing.T) {
+	light, dark := theme.Light(), theme.Editor()
+	fill, border := folderSheetColors(&light)
+	if theme.Contrast(fill, light.Panel) < 1.2 || theme.Contrast(border, fill) < 1.5 {
+		t.Fatal("light folder sheets must be distinguishable from the panel and each other")
+	}
+	fill, border = folderSheetColors(&dark)
+	if fill != dark.CardBg || border != dark.Border {
+		t.Fatal("dark folder sheet colors changed")
+	}
+}
+
 func TestFolderStackIncludesScriptsAndData(t *testing.T) {
 	p := New(Deps{})
 	p.items = []pipeline.AssetInfo{
@@ -43,5 +56,23 @@ func TestFolderStackIncludesScriptsAndData(t *testing.T) {
 	}
 	if got := p.stack("assets/data"); len(got) != 2 || got[0] != 2 || got[1] != 3 {
 		t.Fatalf("data previews = %v", got)
+	}
+}
+
+func TestArtSourceHasDistinctIcon(t *testing.T) {
+	for _, tc := range []struct {
+		path string
+		kind asset.ArtifactKind
+		want string
+	}{
+		{"assets/hero.aeart", asset.ArtTexture, "file.art"},
+		{"assets/HERO.AEART", asset.ArtTexture, "file.art"},
+		{"assets/hero.png", asset.ArtTexture, "file.texture"},
+		{"assets/hero.aeart", asset.ArtAnim, "file.unknown"},
+	} {
+		a := &pipeline.AssetInfo{Path: tc.path, Kind: tc.kind}
+		if got := assetIcon(a); got != tc.want {
+			t.Errorf("assetIcon(%q, %q) = %q, want %q", tc.path, tc.kind, got, tc.want)
+		}
 	}
 }

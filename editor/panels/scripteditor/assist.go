@@ -130,12 +130,16 @@ func (p *Panel) typed(ui *core.Context, s string) {
 
 func (p *Panel) requestCompletion(ui *core.Context) {
 	gen := p.push()
+	request := p.request()
 	file, ok := p.file()
 	if !ok {
 		return
 	}
 	c := p.doc.Code
 	p.host.lang.Complete(gen, file, uint32(c.Cursor()), func(cm langsvc.Completion) {
+		if !p.requestCurrent(request) {
+			return
+		}
 		start := int(cm.Prefix.Start)
 		if start > p.doc.Code.Cursor() || len(cm.Items) == 0 {
 			return

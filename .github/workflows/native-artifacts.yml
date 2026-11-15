@@ -1,0 +1,191 @@
+name: aego-native-artifacts-only
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable source version to package
+        required: true
+        type: string
+      commit:
+        description: Exact tested master commit
+        required: true
+        type: string
+      gitea_run:
+        description: Successful Gitea CI run for this commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  AEGO_CI_PACKAGE_VERSION: ${{ inputs.version }}
+  AEGO_CI_PACKAGE_COMMIT: ${{ inputs.commit }}
+  AEGO_GITEA_RUN_ID: ${{ inputs.gitea_run }}
+
+jobs:
+  verify:
+    if: github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test artifact preflight
+        run: python3 -B -m unittest discover -s tools/ci -p test_native_artifacts_guard.py -v
+      - name: Require exact green CI and master refs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -B tools/ci/native_artifacts_guard.py --require-ci
+
+  package:
+    needs: verify
+    if: github.server_url == 'https://github.com' && github.repository == 'Alexander-D-Karpov/aego' && github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    name: ${{ matrix.goos }} ${{ matrix.goarch }} artifact
+    runs-on: ${{ github.server_url == 'https://github.com' && matrix.runner || 'ubuntu-24.04' }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, goos: linux, goarch: amd64 }
+          - { runner: windows-2025, goos: windows, goarch: amd64 }
+          - { runner: macos-15, goos: darwin, goarch: arm64 }
+          - { runner: macos-15-intel, goos: darwin, goarch: amd64 }
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: '1'
+      GOFLAGS: ''
+      GOWORK: 'off'
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify source before bootstrap
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            py -3 -B tools/ci/native_artifacts_guard.py --source-only
+          else
+            python3 -B tools/ci/native_artifacts_guard.py --source-only
+          fi
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Windows native toolchain
+        if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-nsis
+      - name: Windows toolchain path
+        if: runner.os == 'Windows'
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+      - name: macOS tools
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config openssl squashfs-tools \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libasound2-dev libpulse-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
+      - name: Build pinned SDL
+        run: bash tools/bootstrap-native.sh
+      - name: Verify source after bootstrap
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            py -3 -B tools/ci/native_artifacts_guard.py --source-only
+          else
+            python3 -B tools/ci/native_artifacts_guard.py --source-only
+          fi
+      - name: Package Linux archive and AppImage
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          [[ "$RUNNER_ARCH/$(go env GOOS)/$(go env GOARCH)" == X64/linux/amd64 ]]
+          root="$PWD/.cache/native-artifacts-linux"
+          [[ ! -L "$PWD/.cache" && ! -e "$root" && ! -L "$root" ]]
+          base="aego-${AEGO_CI_PACKAGE_VERSION}-linux-amd64"
+          stage="$root/$base"
+          dist="$root/dist"
+          mkdir -p "$stage/bin" "$stage/share" "$dist"
+          printf 'v%s\n%s\n' "$AEGO_CI_PACKAGE_VERSION" "$AEGO_CI_PACKAGE_COMMIT" > "$stage/VERSION"
+          cp tools/release/README.txt "$stage/README.txt"
+          cp app/brand/png/aego-256.png "$stage/share/aego.png"
+          go build -trimpath -ldflags '-s -w' -o "$stage/bin/aego" ./cmd/aego
+          reported="$("$stage/bin/aego" version)"
+          [[ "$reported" == "aego ${AEGO_CI_PACKAGE_VERSION} (${AEGO_CI_PACKAGE_COMMIT:0:12}"* && "$reported" != *-dirty* ]]
+          tar -C "$root" -czf "$dist/$base.tar.gz" "$base"
+          app="Aego-${AEGO_CI_PACKAGE_VERSION}-x86_64.AppImage"
+          env -u APPIMAGETOOL -u APPIMAGETOOL_SHA256 -u APPIMAGETOOL_URL \
+            -u APPIMAGE_RUNTIME -u APPIMAGE_RUNTIME_SHA256 -u APPIMAGE_RUNTIME_URL \
+            sh tools/release/appimage.sh "$stage" "$dist/$app"
+          (cd "$dist" && sha256sum "$base.tar.gz" "$app" > SHA256SUMS.txt)
+          printf 'version=%s\ncommit=%s\nstatus=unsigned artifact candidate\nupdate_key=not injected by this workflow\n' \
+            "$AEGO_CI_PACKAGE_VERSION" "$AEGO_CI_PACKAGE_COMMIT" > "$dist/CI-PROVENANCE.txt"
+      - name: Package Windows portable and installer
+        if: runner.os == 'Windows'
+        run: bash tools/ci/github-windows-package.sh
+      - name: Package macOS app and DMG
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          bash tools/ci/github-macos-package.sh
+          app="$PWD/.cache/github-ci/macos/Aego Editor.app"
+          dist="$PWD/.cache/github-ci/dist/macos"
+          dmg="$dist/Aego-Editor-macos.dmg"
+          [[ ! -e "$dmg" && ! -L "$dmg" ]]
+          hdiutil create -format UDZO -volname "Aego Editor $AEGO_CI_PACKAGE_VERSION" -srcfolder "$app" "$dmg"
+          hdiutil verify "$dmg"
+          (cd "$dist" && shasum -a 256 Aego-Editor-macos.dmg >> SHA256SUMS.txt)
+      - name: Upload Linux artifacts
+        if: runner.os == 'Linux' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-amd64-artifact-candidate
+          path: .cache/native-artifacts-linux/dist/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload Windows portable
+        if: runner.os == 'Windows' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-amd64-portable-unsigned-candidate
+          path: .cache/github-ci/dist/portable/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload Windows installer
+        if: runner.os == 'Windows' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-amd64-installer-unsigned-candidate
+          path: .cache/github-ci/dist/installer/
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Upload macOS artifacts
+        if: runner.os == 'macOS' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-${{ matrix.goarch }}-not-notarized-candidate
+          path: .cache/github-ci/dist/macos/
+          include-hidden-files: true
+          if-no-files-found: error

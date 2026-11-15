@@ -1,0 +1,26 @@
+package demo
+
+import "aego/save"
+
+// Checkpoint saves once, then keeps loading that save: the green ball has Persist and comes back
+// to where it was saved, the grey one has not and starts over from the scene file.
+script Checkpoint {
+    @export var SaveAt float = 1
+    @export var LoadEvery float = 2.5
+
+    var t float
+
+    func Update(dt float) {
+        t += dt
+        if !save.Exists("demo") {
+            if t >= SaveAt {
+                save.Save("demo")
+                t = 0
+            }
+            return
+        }
+        if t >= LoadEvery {
+            save.Load("demo")
+        }
+    }
+}

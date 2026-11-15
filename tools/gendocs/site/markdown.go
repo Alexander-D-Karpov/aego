@@ -19,13 +19,14 @@ import (
 )
 
 type pageCtx struct {
-	root     string
-	id       string
-	runs     int
-	examples int
-	play     bool
-	resolve  func(id string) (string, bool)
-	broken   func(target string)
+	root        string
+	id          string
+	runs        int
+	examples    int
+	play        bool
+	resolve     func(id string) (string, bool)
+	autoResolve func(id string) (string, bool)
+	broken      func(target string)
 }
 
 type converter struct {
@@ -63,8 +64,9 @@ func (c *converter) render(p *pageCtx, md string) (string, error) {
 }
 
 var (
-	tableCode  = regexp.MustCompile(`(?s)<table>.*?</table>`)
-	inlineCode = regexp.MustCompile(`<code>([^<]*)</code>`)
+	tableCode           = regexp.MustCompile(`(?s)<table>.*?</table>`)
+	inlineCode          = regexp.MustCompile(`<code>([^<]*)</code>`)
+	diagnosticReference = regexp.MustCompile(`^[A-Z]{2,}[0-9]{3,}$`)
 )
 
 type refTransformer struct {
@@ -85,11 +87,20 @@ func (t refTransformer) Transform(doc *ast.Document, reader text.Reader, _ parse
 	p := t.c.cur
 	src := reader.Source()
 	var spans []*ast.CodeSpan
+	var titles []*ast.Heading
+	// The page template owns h1. Registry entries can append a complete
+	// article after a schema comment, so removing only a leading title is
+	// insufficient. Keep its existing anchor without repeating the page title.
 	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 		switch x := n.(type) {
+		case *ast.Heading:
+			if x.Level == 1 {
+				titles = append(titles, x)
+				return ast.WalkSkipChildren, nil
+			}
 		case *ast.Link:
 			if id, ok := strings.CutPrefix(string(x.Destination), "ref:"); ok {
 				if u, ok := p.resolve(id); ok {
@@ -110,8 +121,24 @@ func (t refTransformer) Transform(doc *ast.Document, reader text.Reader, _ parse
 		}
 		return ast.WalkContinue, nil
 	})
+	for i, title := range titles {
+		id := p.id + "-article-" + strconv.Itoa(i+1)
+		if value, ok := title.AttributeString("id"); ok {
+			if raw, ok := value.([]byte); ok {
+				id = string(raw)
+			}
+		}
+		parent := title.Parent()
+		parent.ReplaceChild(parent, title, &pageAnchor{id: id})
+	}
 	for _, s := range spans {
-		u, ok := p.resolve(codeText(s, src))
+		name := strings.TrimSuffix(codeText(s, src), "()")
+		// A bare name may be a node, local variable, enum or field. Without
+		// symbol resolution, only explicit technical IDs are safe to link.
+		if !qualifiedReference(name) || p.autoResolve == nil {
+			continue
+		}
+		u, ok := p.autoResolve(name)
 		if !ok {
 			continue
 		}
@@ -123,13 +150,38 @@ func (t refTransformer) Transform(doc *ast.Document, reader text.Reader, _ parse
 	}
 }
 
+var kindPageAnchor = ast.NewNodeKind("PageAnchor")
+
+type pageAnchor struct {
+	ast.BaseBlock
+	id string
+}
+
+func (*pageAnchor) Kind() ast.NodeKind              { return kindPageAnchor }
+func (n *pageAnchor) Dump(source []byte, level int) { ast.DumpHelper(n, source, level, nil, nil) }
+
+func qualifiedReference(name string) bool {
+	if name == "" || strings.ContainsAny(name, " \t\n\"'<>[]{}") {
+		return false
+	}
+	return diagnosticReference.MatchString(name) || strings.Contains(name, "/") || strings.Contains(name, ".") && name[0] >= 'a' && name[0] <= 'z'
+}
+
 type codeRenderer struct {
 	c *converter
 }
 
 func (r codeRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
+	reg.Register(kindPageAnchor, r.anchor)
 	reg.Register(ast.KindFencedCodeBlock, r.fenced)
 	reg.Register(ast.KindCodeBlock, r.indented)
+}
+
+func (r codeRenderer) anchor(w util.BufWriter, _ []byte, n ast.Node, entering bool) (ast.WalkStatus, error) {
+	if entering {
+		w.WriteString(`<span class="legacy-anchor" id="` + html.EscapeString(n.(*pageAnchor).id) + `"></span>` + "\n")
+	}
+	return ast.WalkSkipChildren, nil
 }
 
 func (r codeRenderer) indented(w util.BufWriter, src []byte, n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -195,15 +247,10 @@ func snippet(p *pageCtx, lang, code string, run bool, anchor string) string {
 		body = highlightShell(code)
 	}
 	if kind == "aes" {
-		body = highlightLinked(code, func(name string) string {
-			if p.resolve == nil {
-				return ""
-			}
-			if u, ok := p.resolve(name); ok {
-				return p.root + u
-			}
-			return ""
-		})
+		// The lexer does not resolve imports, locals or shadowing. Highlight
+		// executable code without guessing links; authors can link API names
+		// explicitly in the explanation next to the unchanged source.
+		body = highlightAES(code)
 	}
 	attr := ""
 	if anchor != "" {

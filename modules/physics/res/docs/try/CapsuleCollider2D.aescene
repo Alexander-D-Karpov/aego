@@ -1,58 +1,61 @@
 scene version=1 {
   node "d3100000000000000000000000000001" name="Capsule" enabled=true layers=1 {
     transform {
-      position=[-1, -4]
-      rotation=0.6
-      scale=[1, 1]
-    }
-    component "physics.Body2D" version=1 {
-      type=dynamic
-    }
-    component "physics.CapsuleCollider2D" version=1 {
-      length=1.2
-      radius=0.4
-      restitution=0.2
-    }
-  }
-  node "d3100000000000000000000000000002" name="Upright" enabled=true layers=1 {
-    transform {
-      position=[2, -2]
+      position=[0, 3.29]
       rotation=0
       scale=[1, 1]
     }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000010")
+      order=1
+      tint=#f59e0bff
+      size=[0.8, 0.8]
+    }
     component "physics.Body2D" version=1 {
       type=dynamic
+      gravityScale=0
+      fixedRotation=true
     }
     component "physics.CapsuleCollider2D" version=1 {
-      length=1
-      radius=0.3
+      length=1.6
+      radius=0.4
+      restitution=0
+    }
+    component "engine.Script" version=1 {
+      script "game.demo.CapsuleImpact" enabled=true {}
+    }
+    node "d3100000000000000000000000000011" name="Left cap" enabled=true layers=1 {
+      transform { position=[-0.4, 0] rotation=0 scale=[1, 1] }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("ae900000000000000000000000000d00")
+        order=1
+        tint=#f59e0bff
+        size=[0.8, 0.8]
+      }
+    }
+    node "d3100000000000000000000000000012" name="Right cap" enabled=true layers=1 {
+      transform { position=[0.4, 0] rotation=0 scale=[1, 1] }
+      component "engine.SpriteRenderer" version=1 {
+        sprite=asset("ae900000000000000000000000000d00")
+        order=1
+        tint=#f59e0bff
+        size=[0.8, 0.8]
+      }
     }
   }
   node "d3100000000000000000000000000003" name="Floor" enabled=true layers=1 {
-    transform {
-      position=[0, 4]
-      rotation=0
-      scale=[1, 1]
-    }
+    transform { position=[0, 4] rotation=0 scale=[1, 1] }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
       order=0
       tint=#4b5563ff
       size=[18, 0.6]
     }
-    component "physics.Body2D" version=1 {
-      type=static
-    }
-    component "physics.BoxCollider2D" version=1 {
-      size=[18, 0.6]
-    }
+    component "physics.Body2D" version=1 { type=static }
+    component "physics.BoxCollider2D" version=1 { size=[18, 0.6] }
   }
   node "d3100000000000000000000000000004" name="Camera" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.Camera2D" version=1 {
       zoom=40
       clearColor=#111827ff

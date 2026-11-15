@@ -8,6 +8,7 @@ import (
 
 	"aego/app/assembly"
 	"aego/app/assembly/builtin"
+	"aego/app/docicons"
 	"aego/asset/loader"
 	"aego/asset/pipeline"
 	"aego/contracts/persistence"
@@ -45,6 +46,9 @@ type Config struct {
 	Platform           platform.Platform
 	Profile            string
 	NoProfile          bool
+	// NoExternalImportTools prevents project assets from starting external
+	// converters and validators, including on later reimport.
+	NoExternalImportTools bool
 	// SharedIndex opens the asset index read-only without a warning when another process, the editor, holds it.
 	SharedIndex bool
 }
@@ -134,6 +138,9 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 	if h.Importers, err = DevImporters(h.Workspace, h.Modules); err != nil {
 		return err
 	}
+	if cfg.NoExternalImportTools {
+		disableExternalImportTools(h.Importers)
+	}
 	if err = h.Types.Schema().Freeze(); err != nil {
 		return err
 	}
@@ -147,6 +154,7 @@ func (h *Host) build(cfg Config, mods []module.Module) error {
 			ch.Warn("cannot describe the script bindings", log.F("err", derr.Error()))
 		} else {
 			h.Docs = docs.FromManifest(m, h.Types.Schema(), h.Modules)
+			h.Docs.SetNavigationIcons(docicons.Builtin())
 			m.Keywords = h.Docs.Keywords()
 			h.Workspace.SetDocs(m)
 			for _, p := range h.Docs.Problems() {

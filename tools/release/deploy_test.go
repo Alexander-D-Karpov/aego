@@ -31,3 +31,99 @@ func TestSiteImageRequiresPinnedShaderValidator(t *testing.T) {
 		t.Fatal("site image must make the installer scripts publicly readable")
 	}
 }
+
+func TestSiteImageInstallsPythonForDemo(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../deploy/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, build, ok := strings.Cut(string(dockerfile), "FROM ubuntu:24.04 AS build\n")
+	if !ok {
+		t.Fatal("missing site image build stage")
+	}
+	install, _, ok := strings.Cut(build, "COPY --from=toolchain")
+	if !ok || !strings.Contains(install, "apt-get install") {
+		t.Fatal("missing build-stage package installation")
+	}
+	for _, field := range strings.Fields(strings.ReplaceAll(install, "\\\n", " ")) {
+		if field == "python3" {
+			return
+		}
+	}
+	t.Fatal("site image must install python3 for the demo preparation script")
+}
+
+func TestProductionSiteImageRequiresVerifiedStudioArtifact(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../deploy/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := string(dockerfile)
+	for _, part := range []string{
+		"ARTSTUDIO_MANIFEST_SHA256", "studio-artifact", "verify-site-input",
+		"ARTSTUDIO_ARTIFACT=", "https://aeditor.akarpov.ru", "https://aego.akarpov.ru",
+		"site/asset-studio/integration.json",
+	} {
+		if !strings.Contains(build, part) {
+			t.Fatalf("site image does not require pinned release input %q", part)
+		}
+	}
+	if strings.Index(build, "verify-site-input") > strings.Index(build, "make site-headless") {
+		t.Fatal("site input must be verified before the build")
+	}
+	if strings.Count(build, "-app-origin https://aeditor.akarpov.ru") != 2 ||
+		strings.Contains(build, "https://aestudio.akarpov.ru") || !strings.Contains(build, "test ! -e site/studio") {
+		t.Fatal("site must verify the dedicated Studio origin both before and after the build, without a local copy")
+	}
+}
+
+func TestStudioDeploymentUsesDedicatedOrigin(t *testing.T) {
+	configs := map[string][]string{
+		"../../deploy/aeditor.akarpov.ru.conf":  {"server_name aeditor.akarpov.ru;", "return 301 https://aeditor.akarpov.ru$request_uri;", "root /var/www/aego-asset-studio/current;", "frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aeditor-static.conf": {"server_name aeditor.akarpov.ru;", "root /var/www/aego-asset-studio/current;", "frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aeditor-edge.conf":   {"server_name aeditor.akarpov.ru;", "proxy_ssl_name aeditor.akarpov.ru;", "proxy_ssl_verify on;", "proxy_set_header Host aeditor.akarpov.ru;"},
+		"../../deploy/nginx.conf":               {"frame-src https://aeditor.akarpov.ru blob:;"},
+		"../../deploy/edge/aego-edge.conf":      {"frame-src https://aeditor.akarpov.ru blob:;"},
+	}
+	for name, required := range configs {
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := string(data)
+			for _, want := range required {
+				if !strings.Contains(config, want) {
+					t.Errorf("%s lacks %q", name, want)
+				}
+			}
+			if strings.Contains(config, "aestudio.akarpov.ru") {
+				t.Errorf("%s references the wrong Studio origin", name)
+			}
+		})
+	}
+}
+
+func TestProductionSiteImagePackagesReviewedExampleLicense(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../deploy/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	makefile, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, recipe, ok := strings.Cut(string(makefile), "site-headless:\n")
+	if !ok {
+		t.Fatal("missing site-headless recipe")
+	}
+	recipe, _, _ = strings.Cut(recipe, "\n\n")
+	if !strings.Contains(recipe, "docs build") || !strings.Contains(recipe, "$(DOCS_BUILD_ARGS)") {
+		t.Fatal("site-headless does not forward documentation build arguments")
+	}
+	for _, part := range []string{"DOCS_BUILD_ARGS=", "--examples-production", "--examples-license MIT", "--examples-license-file /src/docs/try-examples-license.txt"} {
+		if !strings.Contains(string(dockerfile), part) {
+			t.Fatalf("site image does not require reviewed example license input %q", part)
+		}
+	}
+}

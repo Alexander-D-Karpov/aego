@@ -1,0 +1,30 @@
+package demo
+
+import (
+    "aego/debug"
+    "aego/physics"
+)
+
+// The outline follows the three actual polygon corners. The fixed-speed
+// collision makes a change of restitution visible without changing the shape.
+script PolygonImpact {
+    func Ready() {
+        node.Get<Body2D>().SetVelocity(Vec2{0, 15})
+    }
+
+    func Update(dt float) {
+        p := node.WorldPosition()
+        top := Vec2{p.X, p.Y - 0.8}
+        right := Vec2{p.X + 0.8, p.Y + 0.6}
+        left := Vec2{p.X - 0.8, p.Y + 0.6}
+        color := Color{1, 0.65, 0.1, 1}
+        // Several closely spaced strokes keep the exact outline readable in
+        // the small embedded Game View as well as the native editor.
+        for i := -2; i <= 2; i++ {
+            x := float(i) * 0.08
+            debug.Line(Vec2{top.X + x, top.Y}, Vec2{right.X + x, right.Y}, color)
+            debug.Line(Vec2{right.X + x, right.Y}, Vec2{left.X + x, left.Y}, color)
+            debug.Line(Vec2{left.X + x, left.Y}, Vec2{top.X + x, top.Y}, color)
+        }
+    }
+}

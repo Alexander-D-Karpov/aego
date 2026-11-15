@@ -25,8 +25,10 @@ type LightingViewBridge interface {
 }
 
 type SettingsPage struct {
-	Section  string
-	Title    string
+	Section string
+	Title   string
+	// Label optionally localizes the title at draw time, including after a language change.
+	Label    i18n.Text
 	Order    int
 	Draw     func(draft any) bool
 	Keywords []i18n.Text

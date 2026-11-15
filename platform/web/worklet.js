@@ -17,17 +17,68 @@ class AegoOut extends AudioWorkletProcessor {
         this.queued = 0;
         this.refillAt = o.refillAt || 0;
         this.refillArmed = false;
+        this.refillSequence = 0;
+        this.refillPending = 0;
         this.consumed = 0;
         this.underruns = 0;
         this.sum = 0;
         this.count = 0;
         this.since = 0;
+        this.producer = null;
+        this.quiesced = false;
+        this.suppressed = 0;
+        const enqueue = data => {
+            if (!(data instanceof Float32Array) || data.length % this.ch !== 0) throw new Error('invalid audio PCM block');
+            this.queued += data.length / this.ch;
+            this.blocks.push(data);
+        };
         this.port.onmessage = ({data}) => {
-            if (typeof data.refillAt === "number") {
+            if (data && data.producerPort) {
+                if (this.producer) throw new Error('audio producer already attached');
+                if (data.quiet !== undefined && typeof data.quiet !== 'boolean') throw new Error('invalid initial audio state');
+                this.quiesced = data.quiet === true;
+                this.producer = data.producerPort;
+                this.producer.onmessage = ({data}) => {
+                    if (data && Number.isSafeInteger(data.quiesce) && data.quiesce > 0) {
+                        if (this.quiesced) throw new Error('audio output already quiesced');
+                        // Producer messages are ordered on this port. Everything
+                        // before this marker has arrived; discard only that PCM.
+                        this.quiesced = true;
+                        this.blocks.length = 0;
+                        this.block = null;
+                        this.at = this.queued = 0;
+                        this.refillArmed = false;
+                        this.refillPending = 0;
+                        if (this.shared) Atomics.store(this.index, 0, Atomics.load(this.index, 1));
+                        // Preserve the counters, including any real underruns
+                        // since the last periodic page report.
+                        this.port.postMessage({consumed:this.consumed, time:currentTime, underruns:this.underruns,
+                            sum:this.sum, count:this.count, quiet:true, quietToken:data.quiesce, suppressed:this.suppressed});
+                        this.producer.postMessage({quiesced:data.quiesce, consumed:this.consumed});
+                    } else if (data && Number.isSafeInteger(data.resume) && data.resume > 0) {
+                        if (!this.quiesced) throw new Error('audio output is not quiesced');
+                        this.quiesced = false;
+                        this.port.postMessage({consumed:this.consumed, time:currentTime, underruns:this.underruns,
+                            sum:this.sum, count:this.count, quiet:false, suppressed:this.suppressed});
+                        this.producer.postMessage({resumed:data.resume, consumed:this.consumed});
+                    } else if (data && Number.isSafeInteger(data.refilled) && data.refilled > 0) {
+                        if (data.refilled === this.refillPending) {
+                            this.refillPending = 0;
+                            this.refillArmed = true;
+                        }
+                    } else {
+                        enqueue(data);
+                    }
+                };
+                if (this.producer.start) this.producer.start();
+                if (this.quiesced) this.port.postMessage({consumed:this.consumed, time:currentTime, underruns:this.underruns,
+                    sum:this.sum, count:this.count, quiet:true, quietToken:0, suppressed:this.suppressed});
+                this.producer.postMessage({ready:true, quiet:this.quiesced});
+            } else if (data && typeof data.refillAt === "number") {
                 this.refillAt = data.refillAt;
             } else {
-                this.queued += data.length / this.ch;
-                this.blocks.push(data);
+                if (this.producer) throw new Error('audio PCM has multiple producers');
+                enqueue(data);
             }
         };
     }
@@ -44,6 +95,14 @@ class AegoOut extends AudioWorkletProcessor {
         const left = out[0];
         const right = out.length > 1 ? out[1] : null;
         const n = left.length;
+        if (this.quiesced) {
+            // An explicit silent lifecycle state is not an audible underrun.
+            // Keep all previous counters and do not consume newly primed PCM.
+            left.fill(0);
+            if (right) right.fill(0);
+            this.suppressed += n;
+            return true;
+        }
         const ch = this.ch;
         let got = 0;
         let remaining = 0;
@@ -87,12 +146,18 @@ class AegoOut extends AudioWorkletProcessor {
         this.since += n;
         // Keep the regular reports. If the producer misses its usual frame,
         // request the next fill before silence, only once per threshold crossing.
-        if (remaining > this.refillAt) this.refillArmed = true;
-        const need = this.refillAt > 0 && this.refillArmed && remaining <= this.refillAt;
+        if (remaining > this.refillAt && !this.refillPending) this.refillArmed = true;
+        const need = this.refillAt > 0 && this.refillArmed && !this.refillPending && remaining <= this.refillAt;
         if (need) this.refillArmed = false;
         if (this.since >= this.report || need) {
             this.since = 0;
-            this.port.postMessage({ consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count });
+            const report = { consumed: this.consumed, time: currentTime + n / sampleRate, underruns: this.underruns, sum: this.sum, count: this.count };
+            if (need && this.producer) {
+                this.refillPending = ++this.refillSequence;
+                report.refill = this.refillPending;
+            }
+            this.port.postMessage(report);
+            if (this.producer) this.producer.postMessage(report);
         }
         return true;
     }

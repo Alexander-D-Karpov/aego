@@ -42,9 +42,9 @@ func TestMaterialAndShaderCreationAndOverrideUseKeyboard(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Step()
-	for _, create := range []struct{ query, label, path string }{
-		{"shader", "Shader", "assets/shaders/keyboard.aeshader"},
-		{"material", "Material", "assets/materials/keyboard.aemat"},
+	for _, create := range []struct{ query, key, label, path string }{
+		{"shader", "act:render2d.shader", "Shader (.aeshader)…", "assets/shaders/keyboard.aeshader"},
+		{"material", "act:render2d.material", "Material (.aemat)…", "assets/materials/keyboard.aemat"},
 	} {
 		push(t, s, key(input.KeyN, input.PrimaryMod()|input.ModShift)...)
 		if !s.App.AddPalette().Active() {
@@ -52,8 +52,12 @@ func TestMaterialAndShaderCreationAndOverrideUseKeyboard(t *testing.T) {
 		}
 		push(t, s, typed(create.query)...)
 		pal := s.App.AddPalette().Palette()
-		if pal.Query() != create.query || pal.Selected() < 0 || pal.Item(pal.Selected()).Label != create.label {
-			t.Fatalf("immediate search focus/result: query %q, selected %d", pal.Query(), pal.Selected())
+		selected := pal.Selected()
+		if pal.Query() != create.query || selected < 0 {
+			t.Fatalf("immediate search focus/result: query %q, selected %d", pal.Query(), selected)
+		}
+		if item := pal.Item(selected); item.Key != create.key || item.Label != create.label {
+			t.Fatalf("search selected %q (%s), want %q (%s)", item.Label, item.Key, create.label, create.key)
 		}
 		push(t, s, key(input.KeyEnter, 0)...)
 		// The next frame displays the prompt with its existing path selected.
@@ -79,7 +83,7 @@ func TestMaterialAndShaderCreationAndOverrideUseKeyboard(t *testing.T) {
 		t.Fatal("Material Override search did not receive focus or select the component")
 	}
 	for _, item := range pal.Items() {
-		if item.Label == "Material" || item.Label == "Shader" || item.Label == "Material from Shader" {
+		if strings.HasPrefix(item.Key, "act:render2d.material") || strings.HasPrefix(item.Key, "act:render2d.shader") {
 			t.Fatal("asset creation appeared in Add Component", item.Label)
 		}
 	}

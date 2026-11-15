@@ -60,7 +60,7 @@ func (x *exporter) Prepare() any {
 	if x.dirtySources != nil {
 		for _, rel := range x.dirtySources() {
 			switch strings.ToLower(filepath.Ext(rel)) {
-			case ".aemat", ".aeshader", ".glsl", ".vert", ".frag", ".meta", ".aepreset":
+			case ".aemat", ".aeshader", ".glsl", ".vert", ".frag", ".meta", ".aepreset", ".aeart":
 				snapshot.DirtySources = append(snapshot.DirtySources, rel)
 			}
 		}

@@ -276,13 +276,23 @@ func TestKeyframeCaptureTime(t *testing.T) {
 	drive(s.Host.Engine, pc, 0, 300, nil)
 	pc.SetKeyEvery(1)
 	var times []time.Duration
+	cpuStart := cpuTime()
+	start := time.Now()
 	for range 100 {
 		pc.Tick(1.0 / 60)
 		times = append(times, pc.Timeline().KeyTime)
 	}
+	wall := time.Since(start)
+	cpuEnd := cpuTime()
 	slices.Sort(times)
 	med := times[len(times)/2]
+	p95 := times[(len(times)*95-1)/100]
 	t.Logf("median keyframe capture: %v", med)
+	if cpuStart != 0 && cpuEnd >= cpuStart {
+		t.Logf("100 ticks: wall %v, process CPU %v; capture p95 %v, max %v", wall, cpuEnd-cpuStart, p95, times[len(times)-1])
+	} else {
+		t.Logf("100 ticks: wall %v, process CPU unavailable; capture p95 %v, max %v", wall, p95, times[len(times)-1])
+	}
 	if med > time.Millisecond {
 		t.Fatalf("median keyframe capture took %v, want at most 1 ms", med)
 	}

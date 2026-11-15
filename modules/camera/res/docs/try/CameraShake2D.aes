@@ -1,34 +1,11 @@
 package demo
 
-import (
-    "aego/camera"
-    "aego/physics"
-)
+import "aego/camera"
 
-// Drop lifts the crate every few seconds; each landing shakes the camera.
-script Drop {
-    @export var Every float = 2
-    @export(min=0, max=1)
-    var Hit float = 0.9
-
-    var t float
-    var start Vec2
-
+// Hold one full hit so the editable Max Angle can be compared at any time.
+// Zero Decay in the scene keeps the hit; the camera service supplies the motion.
+script ShakeOnce {
     func Ready() {
-        start = node.Transform2D().Position
-    }
-
-    func Update(dt float) {
-        t += dt
-        if t >= Every {
-            t = 0
-            body := node.Get<Body2D>()
-            body.Teleport(start, 0)
-            body.SetVelocity(Vec2{0, 0})
-        }
-    }
-
-    func OnCollisionEnter(other NodeRef, c physics.Contact) {
-        camera.Shake(Hit)
+        camera.Shake(1)
     }
 }

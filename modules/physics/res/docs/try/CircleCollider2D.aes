@@ -1,0 +1,12 @@
+package demo
+
+import "aego/physics"
+
+// The round body starts just above the floor and collides at the same speed
+// in both versions. Restitution changes the actual physics contact response.
+script CircleImpact {
+    func Ready() {
+        body := node.Get<Body2D>()
+        body.SetVelocity(Vec2{0, 15})
+    }
+}

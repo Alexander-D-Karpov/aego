@@ -1,35 +1,13 @@
 package demo
 
-import (
-    "aego/audio"
-    "aego/physics"
-)
-
-// Roller rolls the humming ball from wall to wall and clicks on every wall hit; tick Replay to start the hum again.
-script Roller {
-    @export var Speed float = 6
-    @export var Bump AssetRef<Clip>
-    @export(tip="Tick to start the sound of the ball again")
-    var Replay bool
-
-    var dir float = 1
-
+// Query the audio service, not the editable PlayOnStart setting. Volume is
+// deliberately zero, so this example does not produce audible output.
+script VoiceIndicator {
     func Update(dt float) {
-        if Replay {
-            Replay = false
-            src := node.Get<AudioSource2D>()
-            if src != nil {
-                src.Play()
-            }
-        }
-        body := node.Get<Body2D>()
-        body.SetVelocity(Vec2{dir * Speed, body.Velocity.Y})
-    }
-
-    func OnCollisionEnter(other NodeRef, c physics.Contact) {
-        if c.Normal.X > 0.5 || c.Normal.X < -0.5 {
-            dir = -dir
-            audio.PlayAt(Bump, node.Position())
+        if node.Get<AudioSource2D>().IsPlaying() {
+            node.Get<SpriteRenderer>().Tint = Color{0.05, 0.8, 0.25, 1}
+        } else {
+            node.Get<SpriteRenderer>().Tint = Color{1, 0.5, 0.05, 1}
         }
     }
 }

@@ -47,6 +47,9 @@ func score(e *Entry, q string) int {
 	for _, k := range e.Keys {
 		best = max(best, match(strings.ToLower(k), q))
 	}
+	for _, name := range e.SearchNames {
+		best = max(best, match(strings.ToLower(name), q))
+	}
 	if s := match(strings.ToLower(e.ID), q); s > 0 {
 		best = max(best, s/2)
 	}

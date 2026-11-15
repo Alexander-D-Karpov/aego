@@ -25,16 +25,24 @@ const (
 )
 
 type Preset struct {
-	ID          string
-	Title       string
-	Order       int
-	Slots       map[string]Slot
+	ID    string
+	Title string
+	Order int
+	Slots map[string]Slot
+	// Scopes place dynamic document tabs only in factory/reset layouts.
+	Scopes      map[string]Slot
 	HideToolbar bool
 	// Explicit prescribes a default layout, without affecting existing saved layouts.
 	Explicit bool
 	Front    []string
+	// FrontScopes chooses an open dynamic document in factory/reset layouts.
+	// The previously focused document wins; saved tab selections are untouched.
+	FrontScopes []string
 	// Splits place default panels beside their anchors; saved layouts are unchanged.
 	Splits []PanelSplit
+	// Column ratios apply only to new/reset factory layouts. Zero keeps the
+	// standard workspace geometry; saved split positions are not migrated.
+	LeftRatio, CenterRatio float32
 	// Rev drops layouts saved for an older revision of a built-in preset.
 	Rev   int
 	Owner string
@@ -46,6 +54,10 @@ type PanelSplit struct {
 	Panel, Anchor string
 	Side          dock.Side
 	Ratio         float32
+	// AnchorSize optionally sizes the anchor once, in logical pixels, on the
+	// first usable layout. AnchorMaxShare protects the adjacent panel when
+	// space is tight; subsequent splitter drags use the ordinary dock rules.
+	AnchorSize, AnchorMaxShare float32
 }
 
 type layout struct {
@@ -65,6 +77,11 @@ func slotIn(p *Preset, d Desc) Slot {
 		if s, ok := p.Slots[d.Panel.ID()]; ok {
 			return s
 		}
+		if sc, ok := d.Panel.(Scoped); ok {
+			if slot, ok := p.Scopes[sc.Scope()]; ok {
+				return slot
+			}
+		}
 		if p.Explicit {
 			return SlotNone
 		}
@@ -83,7 +100,9 @@ func (w *Workspace) RegisterPreset(p Preset) error {
 		p.Title = p.ID
 	}
 	p.Slots = maps.Clone(p.Slots)
+	p.Scopes = maps.Clone(p.Scopes)
 	p.Front = slices.Clone(p.Front)
+	p.FrontScopes = slices.Clone(p.FrontScopes)
 	p.Splits = slices.Clone(p.Splits)
 	w.presets = append(w.presets, p)
 	slices.SortStableFunc(w.presets, func(a, b Preset) int { return a.Order - b.Order })
@@ -164,21 +183,44 @@ func (w *Workspace) layoutFor(p *Preset) *dock.Tree {
 			cols[s] = append(cols[s], d.Panel.ID())
 		}
 	}
-	t := dock.Columns(cols[SlotLeft], cols[SlotBrowser], cols[SlotCenter], cols[SlotBottom], cols[SlotRight])
+	left, center := float32(0), float32(0)
+	if p != nil {
+		left, center = p.LeftRatio, p.CenterRatio
+	}
+	t := dock.ColumnsWithRatios(cols[SlotLeft], cols[SlotBrowser], cols[SlotCenter], cols[SlotBottom], cols[SlotRight], left, center)
 	if p != nil {
 		for _, split := range p.Splits {
 			if !t.Has(split.Panel) || !t.Has(split.Anchor) || split.Panel == split.Anchor {
 				continue
 			}
 			t.DockPanel(split.Panel, t.FindPanel(split.Anchor), split.Side)
-			if node, ok := t.Node(t.FindPanel(split.Panel)); ok && split.Side != dock.SideCenter && node.Parent != 0 && split.Ratio > 0 && split.Ratio < 1 {
+			if node, ok := t.Node(t.FindPanel(split.Panel)); ok && split.Side != dock.SideCenter && node.Parent != 0 {
 				if parent, ok := t.Node(node.Parent); ok && parent.Kind == dock.KindSplit {
-					parent.Ratio = split.Ratio
+					if split.Ratio > 0 && split.Ratio < 1 {
+						parent.Ratio = split.Ratio
+					}
+					if split.AnchorSize > 0 {
+						t.SetInitialSplitSize(parent.ID, t.FindPanel(split.Anchor), split.AnchorSize, split.AnchorMaxShare)
+					}
 				}
 			}
 		}
 		for _, id := range p.Front {
 			t.Activate(id)
+		}
+		for _, scope := range p.FrontScopes {
+			id := ""
+			for _, d := range w.sorted() {
+				if scoped, ok := d.Panel.(Scoped); ok && scoped.Scope() == scope && t.Has(d.Panel.ID()) {
+					id = d.Panel.ID()
+					if id == w.focused {
+						break
+					}
+				}
+			}
+			if id != "" {
+				t.Activate(id)
+			}
 		}
 	}
 	return t
@@ -296,7 +338,12 @@ func (w *Workspace) SaveAs(title string) (string, error) {
 		id = UserPrefix + slug(title) + "_" + strconv.Itoa(n)
 	}
 	toolbar := w.Toolbar()
-	p := Preset{ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, Explicit: cur.Explicit, Front: cur.Front, HideToolbar: !toolbar, User: true, Base: base}
+	p := Preset{
+		ID: id, Title: title, Order: userOrder + w.users(), Slots: cur.Slots, Scopes: cur.Scopes,
+		Explicit: cur.Explicit, Front: cur.Front, FrontScopes: cur.FrontScopes, Splits: cur.Splits,
+		LeftRatio: cur.LeftRatio, CenterRatio: cur.CenterRatio,
+		HideToolbar: !toolbar, User: true, Base: base,
+	}
 	if err := w.RegisterPreset(p); err != nil {
 		return "", err
 	}
@@ -418,7 +465,11 @@ func (w *Workspace) restoreUser(n *aetext.Node) *Preset {
 	}
 	if base := w.preset(p.Base); base != nil {
 		p.Slots = base.Slots
+		p.Scopes = base.Scopes
+		p.Splits = slices.Clone(base.Splits)
 		p.Explicit, p.Front = base.Explicit, slices.Clone(base.Front)
+		p.FrontScopes = slices.Clone(base.FrontScopes)
+		p.LeftRatio, p.CenterRatio = base.LeftRatio, base.CenterRatio
 	}
 	if w.RegisterPreset(p) != nil {
 		return nil

@@ -1,0 +1,61 @@
+package demo
+
+import (
+    "aego/camera"
+    "aego/debug"
+    "aego/input"
+)
+
+// Player walks over the coins.
+script Player {
+    func Update(dt float) {
+        m := node.Get<Motion2D>()
+        x := 0.0
+        if input.Down(input.KeyA) || input.Down(input.KeyLeft) {
+            x -= 1
+        }
+        if input.Down(input.KeyD) || input.Down(input.KeyRight) {
+            x += 1
+        }
+        m.Move(x)
+        if input.KeyPressed(input.KeySpace) || input.KeyPressed(input.KeyW) || input.KeyPressed(input.KeyUp) {
+            m.Jump()
+        }
+        if input.KeyReleased(input.KeySpace) || input.KeyReleased(input.KeyW) || input.KeyReleased(input.KeyUp) {
+            m.JumpReleased()
+        }
+    }
+}
+
+// Counter adds up the coins taken and writes the count in the corner of the view.
+script Counter {
+    @export var C1 NodeRef
+    @export var C2 NodeRef
+    @export var C3 NodeRef
+    @export var C4 NodeRef
+    @export var C5 NodeRef
+
+    var coins int
+    var k1 Connection
+    var k2 Connection
+    var k3 Connection
+    var k4 Connection
+    var k5 Connection
+
+    func Ready() {
+        k1 = C1.Get<Pickup2D>().Collected.Connect(OnCollected)
+        k2 = C2.Get<Pickup2D>().Collected.Connect(OnCollected)
+        k3 = C3.Get<Pickup2D>().Collected.Connect(OnCollected)
+        k4 = C4.Get<Pickup2D>().Collected.Connect(OnCollected)
+        k5 = C5.Get<Pickup2D>().Collected.Connect(OnCollected)
+    }
+
+    func OnCollected(by NodeRef) {
+        coins++
+    }
+
+    func Update(dt float) {
+        p := camera.LogicalPose().Position
+        debug.Text(Vec2{p.X - 6, p.Y - 3.5}, "coins " + string(coins) + " / 5", Color{1, 0.85, 0.2, 1})
+    }
+}

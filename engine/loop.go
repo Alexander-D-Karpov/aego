@@ -23,6 +23,10 @@ func (e *Engine) Step(app App) bool {
 			e.err = errs.Wrap(err, errs.EngineInit, "app initialization failed")
 			return false
 		}
+		// Type-assertion cache updates can allocate; resolve this once before
+		// the per-frame hot path, even for apps without a pacer.
+		e.framePacer, _ = app.(FramePacer)
+		e.finisher, _ = app.(FrameFinisher)
 		e.appInit = true
 		e.lastTime = e.plat.Now()
 	}
@@ -297,17 +301,27 @@ func (e *Engine) frame() {
 	e.stats.UpdateTime = renderStart - updateStart
 
 	e.stats.ResetGPU()
-	if !e.minimized && e.metrics.PixelW > 0 && e.metrics.PixelH > 0 {
+	rendered := !e.minimized && e.metrics.PixelW > 0 && e.metrics.PixelH > 0
+	paceTime := 0.0
+	if rendered {
 		e.exec(&e.ctx, PhaseRenderPrepare, mask, plan.Paused)
 		am = e.allocMark()
 		e.curFrame = e.dev.BeginFrame(e.metrics.PixelW, e.metrics.PixelH)
 		e.allocSince(zoneGPU, am)
 		e.exec(&e.ctx, PhaseRender, mask, plan.Paused)
+		if e.framePacer != nil {
+			start := e.plat.Now()
+			e.framePacer.PaceFrame()
+			paceTime = max(0, e.plat.Now()-start)
+		}
 		e.exec(&e.ctx, PhaseRenderUI, mask, plan.Paused)
 		gs := e.curFrame.Stats()
 		am = e.allocMark()
 		e.dev.EndFrame()
 		e.curFrame = nil
+		if e.finisher != nil {
+			e.finisher.FrameFinished()
+		}
 		if e.capture != nil {
 			e.grab()
 		}
@@ -322,7 +336,7 @@ func (e *Engine) frame() {
 	} else if e.minimized {
 		time.Sleep(idleSleep)
 	}
-	e.stats.RenderTime = e.plat.Now() - renderStart
+	e.stats.RenderTime = max(0, e.plat.Now()-renderStart-paceTime)
 
 	if lim := e.frameLimit; lim > 0 && e.vsync == platform.VSyncOff && !e.cfg.Headless {
 		if wait := 1/lim - (e.plat.Now() - now); wait > 0 {

@@ -142,17 +142,24 @@ func TestMaterialExportChecksTextureMetaBeforeWatcher(t *testing.T) {
 	meta, _ := pl.MetaOf(members[0])
 	meta.Settings["filter"] = aetext.Ident("linear")
 	// Write only metadata on disk: the live record still has the old settings.
-	if err := os.WriteFile(filepath.Join(p.Root, "assets/noise.png.meta"), pipeline.WriteMeta(&meta), 0o644); err != nil {
+	metaPath := filepath.Join(p.Root, "assets/noise.png.meta")
+	external := pipeline.WriteMeta(&meta)
+	if err := os.WriteFile(metaPath, external, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if ds := Check(p, Take(pl), "release", false); !hasExportError(ds, CodeMaterial, "settings changed") {
 		t.Fatalf("changed import settings exported the old texture: %+v", ds)
 	}
-	if err := pl.SetSettings(members[0], meta.Settings); err != nil {
-		t.Fatal(err)
+	if err := pl.SetSettings(members[0], meta.Settings); err == nil {
+		t.Fatal("stale cached settings overwrote the external metadata")
 	}
-	if batch, err := pl.Import(members[0]); err != nil || len(batch.Failed) != 0 {
-		t.Fatalf("changed settings did not import: %v %+v", err, batch)
+	if got, err := os.ReadFile(metaPath); err != nil || !bytes.Equal(got, external) {
+		t.Fatalf("stale settings changed external metadata: %v", err)
+	}
+	// The watcher reconciles the already-written metadata and reimports it;
+	// SetSettings must not be used to overwrite a newer disk snapshot.
+	if batch, err := pl.ReloadMetadata(members[0]); err != nil || batch == nil || len(batch.Failed) != 0 || len(batch.Retry) != 0 {
+		t.Fatalf("reloaded settings did not import: %v %+v", err, batch)
 	}
 	if ds := Check(p, Take(pl), "release", false); Blocking(ds) != 0 {
 		t.Fatalf("reimported texture settings remain blocked: %+v", ds)

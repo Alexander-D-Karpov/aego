@@ -1,61 +1,46 @@
 scene version=1 {
   node "d3400000000000000000000000000001" name="Anchor" enabled=true layers=1 {
-    transform {
-      position=[0, -5]
-      rotation=0
-      scale=[1, 1]
+    transform { position=[-2, 0] rotation=0 scale=[1, 1] }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000d00")
+      tint=#d1d5dbff
+      size=[0.4, 0.4]
+      order=1
     }
-    component "physics.Body2D" version=1 {
-      type=static
-    }
-    component "physics.CircleCollider2D" version=1 {
-      radius=0.15
-    }
+    component "physics.Body2D" version=1 { type=static }
+    component "physics.CircleCollider2D" version=1 { radius=0.2 isTrigger=true }
   }
   node "d3400000000000000000000000000002" name="Bob" enabled=true layers=1 {
-    transform {
-      position=[3, -3]
-      rotation=0
-      scale=[1, 1]
+    transform { position=[2, 0] rotation=0 scale=[1, 1] }
+    component "engine.SpriteRenderer" version=1 {
+      sprite=asset("ae900000000000000000000000000d00")
+      tint=#38bdf8ff
+      size=[1.5, 1.5]
+      order=1
     }
     component "physics.Body2D" version=1 {
       type=dynamic
+      gravityScale=0
+      fixedRotation=true
+      allowSleep=false
+      interpolate=false
     }
-    component "physics.CircleCollider2D" version=1 {
-      radius=0.5
-    }
+    component "physics.CircleCollider2D" version=1 { radius=0.75 }
     component "physics.DistanceJoint2D" version=1 {
       target=node("d3400000000000000000000000000001")
       length=4
-      minLength=0
-      maxLength=4
     }
   }
-  node "d3400000000000000000000000000003" name="Floor" enabled=true layers=1 {
-    transform {
-      position=[0, 4]
-      rotation=0
-      scale=[1, 1]
-    }
+  node "d3400000000000000000000000000003" name="Reference line" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.SpriteRenderer" version=1 {
       sprite=asset("ae900000000000000000000000000010")
-      order=0
       tint=#4b5563ff
-      size=[18, 0.6]
-    }
-    component "physics.Body2D" version=1 {
-      type=static
-    }
-    component "physics.BoxCollider2D" version=1 {
-      size=[18, 0.6]
+      size=[4, 0.08]
     }
   }
   node "d3400000000000000000000000000004" name="Camera" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
     component "engine.Camera2D" version=1 {
       zoom=40
       clearColor=#111827ff

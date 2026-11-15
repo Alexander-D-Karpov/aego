@@ -13,11 +13,11 @@ Start with [Your first project](ref:quickstart) if you have not opened the edito
 
 The finished example is a separate, more detailed project at `examples/platformer`. Open it with `aego edit examples/platformer` and load its main scene to inspect the game used by the website demo. Move with A/D or the arrow keys, jump with Space, attack with J and open settings with Esc. F6 toggles lighting and F7 cycles its debug views.
 
-In the Hierarchy, inspect the player's Dust and Sparks emitters and the StartLantern's Smoke and Embers. The landing and attack events trigger bursts. The camera's Bloom adds a screen-space halo, while the lantern's Light2D illuminates nearby Lit surfaces and Light Occluder 2D contours cast shadows. See [particle effects](ref:particles), [materials and lighting](ref:render2d/materials) and [post-processing](ref:render2d.PostProcess) for editable examples and Try It scenes. This guide below starts from simpler shapes rather than reproducing every asset in the finished project.
+This guide starts from simpler shapes rather than reproducing every asset in the finished project. For its lighting, surface maps, particles and post-processing, see [Platformer lighting and effects](ref:platformer-effects).
 
 ## 1. Floor and player
 
-Create a project from the **2D** template. In the Hierarchy, create an empty node and name it `Floor`. Give it these components in the Inspector:
+Create a project from the **2D** template. In the Hierarchy, create an empty node and name it **Floor**. Give it these components in the Inspector:
 
 - **Sprite Renderer**, Size `30, 1`, a grey Tint;
 - **Rigid Body 2D**, Type `static`;
@@ -651,38 +651,5 @@ scene version=1 {
 - [Recipes](ref:recipes): double jump, one-way platforms, moving platforms, dash and more.
 - [Gameplay kit](ref:gameplay): every gameplay component in one place.
 - [Animation](ref:animation): sprite animation and state machines for the player.
+- [Platformer lighting and effects](ref:platformer-effects): surface maps, lights, particles and camera post-processing in the finished example.
 - `examples/platformer` in the engine source is this game grown further: animation, sound, stomping, saves, settings and 2D lighting.
-
-## Lighting and surface assets in the example
-
-Open the existing `examples/platformer` project to inspect the complete lighting example. Its level, collisions and controls remain the gameplay example; the added surface assets and lights make normal mapping, shadows and emission visible in that same level. F6 toggles lighting for the view. F7 cycles the lighting, normal and shadow views. Both keys are registered Input Actions and do not change materials or simulation state.
-
-| Existing asset | Surface association |
-|---|---|
-| `assets/surfaces/platform.png` | Its explicit Height source is `platform_height.png`, with import-time normal generation enabled. This generated normal is shared by the level's platforms. |
-| `ground.png` and `wall.png` | Explicit normal maps take priority; their height sources remain linked for authoring. |
-| `runner.png` | Each of the eight original animation frames has its own stable normal-frame association in `runner_n.png`. The source silhouette, frame size and gameplay origin are preserved. |
-| `lamp.png` | `lamp_em.png` is an emission mask. It brightens the lamp's core using `lamp_lit.aemat`; the nearby Point light illuminates other objects. The mask does not create Bloom. |
-| `window_cookie.png` | A linear cookie mask shapes the Sprite light without using the albedo atlas coordinates. |
-
-To edit the existing platform's surface, open `platform.png` from Assets and follow **Height source** to `platform_height.png`. Enable **Lit surface** and change the height strength in that shared height document. The generated-normal candidate and movable preview light show the result before Save. Press Play, keep the image tab open, and use **Save settings**: the running level receives the new prepared normal generation. Undo restores the earlier appearance while leaving the metadata document dirty and the saved file unchanged; Redo restores the saved result. Stop returns to the unchanged EditScene. An explicit Normal assignment would override this Height-generated normal.
-
-Open `runner.png`, select an existing frame and use the preview's Flip X/Y controls to check the paired normal. These controls affect only the preview; the actual player script sets FlipX when changing direction. The source image and frame pixels are edited in an external image tool, while channel links and import settings use the shared asset document and its Undo history.
-
-The player and enemy use separate `LightOccluder2D` polygons for their shadows. These approximate the head and legs of the shared runner sprite without changing the player's capsule or the enemy's box collider. The outlines are static: they do not follow individual animation frames.
-
-See [Image and Sprite authoring](ref:render2d/image-viewer) and [Materials and shaders](ref:render2d/materials) for role/color-space rules, missing-reference diagnostics and the lighting model. Native and web exports use this same project and include its normal, height-derived, emission and cookie artifacts. The site's demo is prepared from this export; preparation alone does not publish a new site version.
-
-## Dust and sparks in the example
-
-Open `examples/platformer`, jump and keep moving after landing. The dust starts at the player's feet and stays over the patch of floor where it was emitted. Select `Player/Dust` to change the effect: `rectSize` sets the width and depth of the emitting strip, and `lifetime` sets how long each puff lasts. In `scripts/player/player.aes`, `OnLanded` emits eight particles, `OnJumped` five and `OnClimbed` six. `playOnStart` is off and `rate` is zero, so the emitter produces particles only on these events. `Player/Slash/Sparks` emits a burst on the attack animation's Hit event.
-
-`space=world` fixes each particle's birth transform. Use `space=local` for an effect that should travel with its parent. To compare the same level with and without particles, change **Particle Effects** in the game's accessibility settings. Leave F6 and F7 unchanged: they control lighting.
-
-At `StartLantern`, select the `Smoke` or `Embers` child to inspect the two continuous emitters. Use the Inspector preview to pause the effect, lock its seed and compare changes before Play. Under **Over Life**, drag a gradient key, release it and use Undo to restore the previous color transition. See [CPU particle effects](ref:particles) for the five presets and the runnable example.
-
-## Camera PostFX in the example game
-
-Open the platformer in Game View and select **Camera → Post Process**. Bloom is enabled with Threshold 0.75, Intensity 0.22 and Radius 6. Watch the halo around the lantern while changing Intensity. Vignette, Color Grading and the Cold custom material are already in the stack and start disabled. Enable one to compare its effect. Open Settings during Play and compare the opaque menu with the component on and off. To restore the original world image, disable Post Process. F6 and F7 control lighting and its diagnostics.
-
-Center is relative to the camera output; (0.5, 0.5) is its centre. Intensity controls darkening, while Softness controls the width of the transition. The boundary is circular in physical viewport pixels even on a wide display.

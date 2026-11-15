@@ -1,0 +1,5 @@
+# Golden files and project sources are byte-stable across platforms.
+* text=auto eol=lf
+
+# Preserve the upstream font license exactly as committed (it uses CRLF).
+tools/gendocs/site/static/fonts/IBM-Plex-OFL.txt -text

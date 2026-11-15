@@ -95,8 +95,12 @@ func materialHooks(r *ext.Registry) error {
 		ed.Problems.Add(problems.Source{Revision: func() uint64 { return s.diagnosticRevision }, Append: func(dst []problems.Diagnostic) []problems.Diagnostic { return append(dst, s.diagnostics...) }})
 	}
 	for _, action := range []context.CreateAction{
-		{Key: "render2d.shader", Name: i18n.Tr("editor.material.shader", "Shader"), Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "file.script", Doc: i18n.Tr("editor.material.create_shader_help", "Create a portable Sprite shader and open it in the code editor."), Run: func(ids.NodeID) error { s.createShader(); return nil }},
-		{Key: "render2d.material", Name: i18n.Tr("editor.material.material", "Material"), Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "comp.sprite", Doc: i18n.Tr("editor.material.create_material_help", "Create a material together with its shader."), Run: func(ids.NodeID) error { s.createMaterial(false); return nil }},
+		{Key: "render2d.shader", Name: i18n.Tr("editor.assets.shader_file", "Shader (.aeshader)…"), Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "file.script", Doc: i18n.Tr("editor.material.create_shader_help", "Create a portable Sprite shader and open it in the code editor."), Run: func(ids.NodeID) error { s.createShaderIn(ed.AssetCreateDirectory("assets/shaders")); return nil }, RunInFolder: func(dir string) error { s.createShaderIn(dir); return nil }},
+		{Key: "render2d.shader-include", Name: i18n.Tr("editor.assets.shader_include", "Shader Include (.glsl)…"), Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "file.script", Run: func(ids.NodeID) error { s.createShaderInclude(ed.AssetCreateDirectory("assets/shaders")); return nil }, RunInFolder: func(dir string) error { s.createShaderInclude(dir); return nil }},
+		{Key: "render2d.material", Name: i18n.Tr("editor.material.material", "Material") + " (.aemat)…", Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "comp.sprite", Doc: i18n.Tr("editor.material.create_material_help", "Create a material together with its shader."), Run: func(ids.NodeID) error {
+			s.createMaterialIn(false, ed.AssetCreateDirectory("assets/materials"))
+			return nil
+		}, RunInFolder: func(dir string) error { s.createMaterialIn(false, dir); return nil }},
 		{Key: "render2d.material-from-shader", Name: i18n.Tr("editor.material.from_shader", "Material from Shader"), Category: i18n.Tr("editor.material.rendering", "Rendering"), Icon: "comp.sprite", Doc: i18n.Tr("editor.material.from_shader_help", "Create a material using the most recently inspected shader or a shader AssetID."), Run: func(ids.NodeID) error { s.createMaterial(true); return nil }},
 	} {
 		if err := r.CreateAction(action); err != nil {
@@ -571,13 +575,37 @@ func (s *materialsEditor) beginScroll(v *materialView) func() {
 	}
 }
 
-func (s *materialsEditor) createShader() {
+func (s *materialsEditor) createShaderInclude(dir string) {
 	ed := s.ctx
 	if ed.Pipeline == nil {
 		return
 	}
 	files := assetfiles.New(ed)
-	rel := files.UniqueFile("assets/shaders", "material", ".aeshader")
+	rel := files.UniqueFile(dir, "include", ".glsl")
+	ed.Ask(context.Question{Title: i18n.Tr("editor.assets.shader_include", "Shader Include (.glsl)…"), Fields: []string{i18n.Tr("editor.material.project_path", "Project path")}, Values: []string{rel}, Buttons: []string{i18n.Tr("editor.material.create", "Create"), i18n.Tr("editor.material.cancel", "Cancel")}, Submit: func(values []string) {
+		if len(values) == 0 {
+			return
+		}
+		name := strings.TrimSpace(values[0])
+		if !strings.EqualFold(path.Ext(name), ".glsl") {
+			s.report(errors.New(i18n.Tr("editor.assets.glsl_extension", "include path must end with .glsl")))
+			return
+		}
+		_, err := s.createSource(name, []byte("// Shared shader functions.\n"))
+		s.report(err)
+		if err == nil {
+			ed.Open(context.At(name, 1, 0))
+		}
+	}})
+}
+
+func (s *materialsEditor) createShaderIn(dir string) {
+	ed := s.ctx
+	if ed.Pipeline == nil {
+		return
+	}
+	files := assetfiles.New(ed)
+	rel := files.UniqueFile(dir, "material", ".aeshader")
 	ed.Ask(context.Question{Title: i18n.Tr("editor.material.create_shader", "Create Shader"), Fields: []string{i18n.Tr("editor.material.project_path", "Project path")}, Values: []string{rel}, Buttons: []string{i18n.Tr("editor.material.create", "Create"), i18n.Tr("editor.material.cancel", "Cancel")}, Submit: func(values []string) {
 		if len(values) == 0 {
 			return
@@ -597,12 +625,16 @@ func (s *materialsEditor) createShader() {
 }
 
 func (s *materialsEditor) createMaterial(existing bool) {
+	s.createMaterialIn(existing, "assets/materials")
+}
+
+func (s *materialsEditor) createMaterialIn(existing bool, dir string) {
 	ed := s.ctx
 	if ed.Pipeline == nil {
 		return
 	}
 	files := assetfiles.New(ed)
-	rel := files.UniqueFile("assets/materials", "material", ".aemat")
+	rel := files.UniqueFile(dir, "material", ".aemat")
 	fields := []string{i18n.Tr("editor.material.project_path", "Project path")}
 	values := []string{rel}
 	if existing {

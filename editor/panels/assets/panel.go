@@ -51,27 +51,31 @@ type dirRow struct {
 }
 
 type Deps struct {
-	Files          *assetfiles.Files
-	Pipeline       *pipeline.Pipeline
-	Thumbs         *preview.Service
-	Docs           services.Documents
-	Selection      services.Selection
-	Scenes         services.SceneOps
-	Prefabs        services.Prefabs
-	Commands       *command.Registry
-	Notices        services.Notices
-	Nav            services.Navigation
-	Project        *project.Project
-	Schema         *schema.Registry
-	Inspect        func(id ids.AssetID)
-	Viewable       func(kind asset.ArtifactKind) bool
-	OpenTable      func(id ids.AssetID)
-	DataType       func(id ids.AssetID) (string, bool)
-	Favorites      *favs.Store
-	Refs           *refs.Service
-	ShowReferences func(id ids.AssetID, deleting []ids.AssetID)
-	BatchRename    func(list []ids.AssetID)
-	Compare        func(rel string)
+	Files            *assetfiles.Files
+	Pipeline         *pipeline.Pipeline
+	Thumbs           *preview.Service
+	Docs             services.Documents
+	Selection        services.Selection
+	Scenes           services.SceneOps
+	Prefabs          services.Prefabs
+	Commands         *command.Registry
+	Notices          services.Notices
+	Nav              services.Navigation
+	Project          *project.Project
+	Schema           *schema.Registry
+	Inspect          func(id ids.AssetID)
+	Viewable         func(kind asset.ArtifactKind) bool
+	OpenTable        func(id ids.AssetID)
+	DataType         func(id ids.AssetID) (string, bool)
+	Favorites        *favs.Store
+	Refs             *refs.Service
+	ShowReferences   func(id ids.AssetID, deleting []ids.AssetID)
+	BatchRename      func(list []ids.AssetID)
+	Compare          func(rel string)
+	CreateActions    func() []context.CreateAction
+	ImportFile       func(dir string)
+	EditSourceArt    func(ids.AssetID) error
+	CanEditSourceArt func(ids.AssetID) bool
 }
 
 type Panel struct {
@@ -88,6 +92,7 @@ type Panel struct {
 	subdirs        []string
 	rev            uint64
 	dirsAt         float64
+	dirRefreshes   uint64
 	sel            map[ids.AssetID]bool
 	active         ids.AssetID
 	anchor         ids.AssetID
@@ -207,6 +212,12 @@ func (p *Panel) invalidate() {
 	p.rev = ^uint64(0)
 }
 
+// DirectoryRefreshes counts completed directory and source-list refreshes.
+// Like the rest of the panel state, it is read on the UI thread.
+func (p *Panel) DirectoryRefreshes() uint64 {
+	return p.dirRefreshes
+}
+
 func (p *Panel) refresh() {
 	pl := p.d.Pipeline
 	rev := pl.Revision()
@@ -237,6 +248,7 @@ func (p *Panel) refresh() {
 			p.stacks = nil
 			p.prune()
 		}
+		p.dirRefreshes++
 	}
 
 	found := false
@@ -583,6 +595,11 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 	rows := (count + cols - 1) / cols
 	p.scrollToTile(cols, tileH, r.H)
 	p.overDir = false
+	overTile := false
+	gridContent := r
+	if float32(rows)*tileH > r.H {
+		gridContent.W = max(0, gridContent.W-th.ScrollbarW)
+	}
 	widgets.VirtualList(ui, ui.ID("grid"), r, rows, tileH, &p.gridScroll, func(row int, rr mathx.Rect) {
 		for c := 0; c < cols; c++ {
 			i := row*cols + c
@@ -590,6 +607,9 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 				break
 			}
 			tr := mathx.Rect{X: rr.X + float32(c)*tw + 2, Y: rr.Y + 2, W: tw - 4, H: tileH - 4}
+			if gridContent.Contains(ui.Mouse()) && tr.Contains(ui.Mouse()) {
+				overTile = true
+			}
 			if i < len(p.subdirs) {
 				p.dirTile(p.subdirs[i], tr)
 				continue
@@ -615,15 +635,13 @@ func (p *Panel) drawGrid(r mathx.Rect) {
 			ui.TextIn(mathx.Rect{X: r.X, Y: y + float32(i)*lh, W: r.W, H: lh}, l, th.TextDisabled, core.AlignCenter)
 		}
 	}
-	used := mathx.Clamp(float32(rows)*tileH-p.gridScroll, 0, r.H)
-	empty := mathx.Rect{X: r.X, Y: r.Y + used, W: r.W, H: r.H - used}
 	id := ui.ID("gridbg")
-	if empty.H > 0 {
-		if ui.Pressed(id, empty) && !ui.Primary() && !ui.Mods().Has(input.ModShift) {
+	if !overTile {
+		if ui.Pressed(id, gridContent) && !ui.Primary() && !ui.Mods().Has(input.ModShift) {
 			p.selectOnly(ids.AssetID{})
 			p.selDir = ""
 		}
-		if ui.RightClicked(id, empty) {
+		if ui.RightClicked(id, gridContent) && !sourceFolder(p.folder) {
 			p.menuDir = p.folder
 			widgets.OpenContextMenu(ui, p.dirMenuID)
 		}
@@ -683,6 +701,10 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		p.press(a.ID)
 		if ui.DoubleClicked(id) {
 			p.selectOnly(a.ID)
+			// Opening is the final action for a double-click. Do not reveal the
+			// Inspector on release and hide the Assets tab again afterwards.
+			p.pending = ids.AssetID{}
+			p.inspectPending = false
 			p.open(a)
 		}
 	}
@@ -725,6 +747,11 @@ func (p *Panel) assetTile(a *pipeline.AssetInfo, r mathx.Rect) {
 		ui.List().Texture(reg, fitRect(img, reg.W, reg.H), mathx.White)
 	default:
 		p.schematic(a, img)
+	}
+	if ok && !cell && assetIcon(a) == "file.art" {
+		badge := mathx.Rect{X: img.X + img.W - 16, Y: img.Y + img.H - 16, W: 16, H: 16}
+		ui.RoundRect(badge, th.Radius.Field, th.Panel)
+		widgets.IconIn(ui, badge, "file.art", th.Text)
 	}
 	if arrow.W != 0 {
 		icon := "ui.chevron_right"
@@ -928,7 +955,15 @@ func (p *Panel) moveInto(items []context.AssetPayload, dirs []string, target str
 func (p *Panel) importFiles(files []string, dir string) {
 	created, err := p.d.Files.ImportExternal(files, dir)
 	if err != nil {
+		// A failed import can still leave copied source files in the project.
+		// Show them so the user can inspect or repair them instead of reporting success.
+		p.invalidate()
 		p.d.Notices.Notify(context.LevelError, err.Error())
+		return
+	}
+	if len(created) == 0 {
+		// A module can ask for consent before creating a converted source.
+		p.invalidate()
 		return
 	}
 	p.d.Notices.Notify(context.LevelInfo, i18n.Note("editor.assets.imported_created_file_s_into", "Imported {created} file(s) into {dir}", i18n.Str("created", strconv.Itoa(len(created))), i18n.Str("dir", dir)))
@@ -937,6 +972,11 @@ func (p *Panel) importFiles(files []string, dir string) {
 		p.folder = dir
 	}
 	p.invalidate()
+}
+
+// ImportFiles is also used by the editor's native file picker.
+func (p *Panel) ImportFiles(files []string, dir string) {
+	p.importFiles(files, dir)
 }
 
 func (p *Panel) open(a *pipeline.AssetInfo) {

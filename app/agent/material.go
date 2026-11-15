@@ -470,6 +470,23 @@ func (r sources) Material(id ids.AssetID) (*material.Material, bool) {
 		}
 		e, ok := r.pl.Entry(tid)
 		info, valid := r.pl.TextureSourceInfo(tid, nil)
+		if !valid && strings.EqualFold(path.Ext(e.Source), ".aeart") {
+			// The PNG source inspector cannot decode an art document. Use the
+			// same prepared frame semantics as the runtime instead of silently
+			// accepting its whole animation sheet as a generic sampler.
+			prepared, ready := r.TextureMetadata(tid)
+			if !ok || e.Missing || e.Error != "" || !ready {
+				return material.Tex{}, false
+			}
+			mode := texture.EmissionNone
+			switch prepared.Semantic {
+			case asset.TextureEmissionRGB:
+				mode = texture.EmissionRGB
+			case asset.TextureEmissionMask:
+				mode = texture.EmissionMask
+			}
+			return material.Tex{RegionOnly: prepared.Region, NormalMap: prepared.Semantic == asset.TextureNormal, EmissionMode: mode}, true
+		}
 		mode := texture.EmissionNone
 		switch info.Role {
 		case asset.RoleEmissionRGB:

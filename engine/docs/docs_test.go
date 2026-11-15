@@ -3,6 +3,7 @@
 package docs
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -62,6 +63,72 @@ func TestModuleDeclaresGuideGroup(t *testing.T) {
 	}
 	if problems["wings"] == "" || problems["lost"] == "" || problems["flight"] != "" {
 		t.Fatalf("problems %v", problems)
+	}
+}
+
+func TestGroupNavigationMatchesFullExport(t *testing.T) {
+	src := module.DocSource{Owner: "game", FS: fstest.MapFS{
+		"guide.md": page("---\nid: flight\ngroup: flight\ngroup_title: Flight\ngroup_order: 45\norder: 1\n---\n\n# Flight\n\nFly.\n\n---\nid: flight/wings\nparent: flight\n---\n\n# Wings\n\nFlap.\n"),
+	}}
+	r := Assemble(Sources{Docs: []module.DocSource{src}})
+	want := r.Export("x").Groups
+	got := r.GroupNavigation()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("navigation differs from full export: got %+v; want %+v", got, want)
+	}
+	if len(got) == 0 || got[0].ID != "flight" || len(got[0].Nav) != 1 || got[0].Nav[0].ID != "flight" || len(got[0].Nav[0].Children) != 1 || got[0].Nav[0].Children[0].ID != "flight/wings" {
+		t.Fatalf("navigation lost the declared group or its child: %+v", got)
+	}
+	got[0].Nav[0].ID = "changed"
+	if next := r.GroupNavigation(); next[0].Nav[0].ID != "flight" {
+		t.Fatal("a caller changed future navigation")
+	}
+}
+
+func TestScriptAPIIsAlphabeticalAcrossModulesAndMembers(t *testing.T) {
+	r := &Registry{byID: map[string]int{}, children: map[string][]int{}, keys: map[string]int{}}
+	for _, e := range []Entry{
+		{ID: BuiltinID, Kind: Module, Group: GroupScriptAPI, Order: -1, Title: "Builtin types"},
+		{ID: EventsID, Kind: Module, Group: GroupScriptAPI, Order: -1, Title: "Script events"},
+		{ID: "aego/zebra", Kind: Module, Group: GroupScriptAPI, Order: 1, Title: "aego/zebra"},
+		{ID: "aego/alpha", Kind: Module, Group: GroupScriptAPI, Order: 50, Title: "aego/alpha"},
+		{ID: "aego/alpha.Zebra", Parent: "aego/alpha", Kind: Function, Title: "Zebra"},
+		{ID: "aego/alpha.Apple", Parent: "aego/alpha", Kind: Type, Title: "Apple"},
+		{ID: "aego/alpha.banana", Parent: "aego/alpha", Kind: Function, Title: "banana"},
+	} {
+		r.add(e)
+	}
+	r.index()
+	ids := func(entries []Entry) []string {
+		out := make([]string, len(entries))
+		for i, e := range entries {
+			out[i] = e.ID
+		}
+		return out
+	}
+	if got, want := ids(r.GroupRoots(GroupScriptAPI)), []string{BuiltinID, EventsID, "aego/alpha", "aego/zebra"}; !slices.Equal(got, want) {
+		t.Errorf("script modules = %v, want %v", got, want)
+	}
+	if got, want := ids(r.Children("aego/alpha")), []string{"aego/alpha.Apple", "aego/alpha.banana", "aego/alpha.Zebra"}; !slices.Equal(got, want) {
+		t.Errorf("script members = %v, want %v", got, want)
+	}
+}
+
+func TestModuleCanDocumentItsGeneratedProjectSection(t *testing.T) {
+	r := &Registry{byID: map[string]int{}}
+	r.add(Entry{ID: "section/animation", Kind: Page, Owner: "animation", Group: GroupSettings, Body: "Generated introduction."})
+	rec := record{id: "section/animation", body: "## Events\n\nDeclare animation events.", icon: "animation.player", line: 3}
+	r.page("animation", "animation.md", "modules/animation/res/docs/animation.md", rec)
+	e, _ := r.Get("section/animation")
+	if !strings.Contains(e.Body, "Generated introduction.") || !strings.Contains(e.Body, "Declare animation events.") || e.Icon != "animation.player" {
+		t.Fatalf("section documentation not merged: %+v", e)
+	}
+	if len(r.Problems()) != 0 {
+		t.Fatalf("valid section documentation was rejected: %+v", r.Problems())
+	}
+	r.page("other", "other.md", "other.md", rec)
+	if len(r.Problems()) == 0 {
+		t.Fatal("a second or foreign declaration must not overwrite the section")
 	}
 }
 

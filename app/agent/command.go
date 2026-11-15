@@ -48,6 +48,7 @@ type Output struct {
 	// Images go to the model as image content, such as the screenshots of a run.
 	Images  []Image      `json:"-"`
 	Drawing *DrawingEdit `json:"-"`
+	Art     ArtProposal  `json:"-"`
 }
 
 // Image is a picture an answer carries.
@@ -73,6 +74,7 @@ func catalog() []*Command {
 	out = append(out, materialCommands()...)
 	out = append(out, postEffectCommands()...)
 	out = append(out, textureCommands()...)
+	out = append(out, artCommands()...)
 	out = append(out, schemaCommands()...)
 	out = append(out, projectCommands()...)
 	out = append(out, scriptCommands()...)
@@ -82,7 +84,7 @@ func catalog() []*Command {
 		if c.Name == "asset.import-variant" {
 			c.Look = ls["asset.pixels"]
 		}
-		if c.Look.Title == nil && (strings.HasPrefix(c.Name, "postfx.") || strings.HasPrefix(c.Name, "material.") || strings.HasPrefix(c.Name, "shader.") || strings.HasPrefix(c.Name, "texture.")) {
+		if c.Look.Title == nil && (strings.HasPrefix(c.Name, "postfx.") || strings.HasPrefix(c.Name, "material.") || strings.HasPrefix(c.Name, "shader.") || strings.HasPrefix(c.Name, "texture.") || strings.HasPrefix(c.Name, "art.")) {
 			name := strings.ReplaceAll(c.Name, ".", " ")
 			c.Look = Look{Icon: "comp.sprite", Title: func(a Args) string { return name + " " + file(a) }, Summary: changes}
 		}
@@ -142,6 +144,9 @@ func (c *Command) Usage() string {
 	}
 	if c.Write {
 		parts = append(parts, "[--dry-run]")
+	}
+	if c.Name == "art.capture" {
+		parts = append(parts, "[--out path]")
 	}
 	return strings.Join(parts, " ")
 }

@@ -3,6 +3,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,7 +92,7 @@ func proxyRun(addr, token string, c *Command, a Args) (*Output, error) {
 	var rep struct {
 		Result struct {
 			Content []struct {
-				Type, Text string
+				Type, Text, Data, MimeType string
 			} `json:"content"`
 			IsError bool `json:"isError"`
 		} `json:"result"`
@@ -122,6 +123,21 @@ func proxyRun(addr, token string, c *Command, a Args) (*Output, error) {
 		return &Output{OK: true, Text: text}, nil
 	}
 	o := out.Output
+	if c.Name == "art.capture" {
+		for _, part := range rep.Result.Content {
+			if part.Type != "image" || part.MimeType != "image/png" {
+				continue
+			}
+			if len(part.Data) > base64.StdEncoding.EncodedLen(16<<20) {
+				return nil, errors.New("art: PNG exceeds agent capture budget")
+			}
+			data, err := base64.StdEncoding.DecodeString(part.Data)
+			if err != nil {
+				return nil, fmt.Errorf("art: invalid PNG response: %w", err)
+			}
+			o.Images = append(o.Images, Image{Mime: part.MimeType, Data: data})
+		}
+	}
 	var s string
 	switch {
 	case c.Name == "scene.run":

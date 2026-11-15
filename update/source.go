@@ -121,15 +121,21 @@ func (s *Source) get(ctx context.Context, url, etag string) ([]byte, string, err
 }
 
 func transientCheckError(err error) bool {
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) ||
+		errors.Is(err, syscall.ECONNABORTED) || errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EINTR) {
 		return true
 	}
+	// Temporary DNS failures are retryable even when they are not timeouts.
 	var dns *net.DNSError
 	if errors.As(err, &dns) && dns.IsTemporary {
 		return true
 	}
-	var network net.Error
-	return errors.As(err, &network) && network.Timeout()
+	var timeout interface{ Timeout() bool }
+	return errors.As(err, &timeout) && timeout.Timeout()
 }
 
 func (s *Source) getOnce(ctx context.Context, url, etag string) ([]byte, string, bool, error) {

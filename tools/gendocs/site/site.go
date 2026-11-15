@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	hexenc "encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html"
 	"html/template"
 	"io/fs"
@@ -67,20 +68,32 @@ func sectionTitle(s string) string {
 }
 
 type Options struct {
-	Playground  bool
-	Repo        string
-	Edit        string
-	Version     string
-	Commit      string
-	Hero        string
-	Poster      string
-	Shots       string
-	Demo        bool
-	PlayVersion string
-	TryVersion  string
-	Release     *Release
-	Icons       []string
-	Time        time.Time
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	// ExamplesURL is the canonical HTTPS site root for remote example links.
+	// Empty disables packaging for small fixture/preview builds.
+	ExamplesURL     string
+	ExamplesVersion string
+	ExamplesLicense string
+	// ExamplesLicenseText is the reviewed notice included in each source package.
+	ExamplesLicenseText string
+	ExamplesProduction  bool
+	Repo                string
+	Edit                string
+	Version             string
+	Channel             string
+	Commit              string
+	Hero                string
+	Poster              string
+	Shots               string
+	Demo                bool
+	PlayVersion         string
+	TryVersion          string
+	Release             *Release
+	Icons               []string
+	Time                time.Time
 }
 
 type Report struct {
@@ -91,31 +104,36 @@ type Report struct {
 }
 
 type layoutData struct {
-	AssetV      string
-	Background  template.CSS
-	LightBack   template.CSS
-	CSS         template.CSS
-	Root        string
-	Title       string
-	PageTitle   string
-	Description string
-	Site        string
-	Playground  bool
-	PlayVersion string
-	TryVersion  string
-	PlaySize    int64
-	TrySize     int64
-	PlayGzip    int64
-	TryGzip     int64
-	Repo        string
-	Demo        bool
-	Home        bool
-	Lang        string
-	Nav         template.HTML
-	Content     template.HTML
-	Toc         template.HTML
-	Pager       template.HTML
-	Footer      template.HTML
+	AssetV       string
+	BuildID      string
+	DocsVersion  string
+	Background   template.CSS
+	LightBack    template.CSS
+	CSS          template.CSS
+	Root         string
+	Title        string
+	PageTitle    string
+	Description  string
+	Site         string
+	Playground   bool
+	Studio       bool
+	StudioURL    string
+	StudioGuides bool
+	PlayVersion  string
+	TryVersion   string
+	PlaySize     int64
+	TrySize      int64
+	PlayGzip     int64
+	TryGzip      int64
+	Repo         string
+	Demo         bool
+	Home         bool
+	Lang         string
+	Nav          template.HTML
+	Content      template.HTML
+	Toc          template.HTML
+	Pager        template.HTML
+	Footer       template.HTML
 	// Markdown is the page's Markdown copy, for rel="alternate".
 	Markdown string
 	// T translates the layout's own text; Search is the search index; HrefEN and HrefRU are the page in both languages, Alt the other one.
@@ -126,14 +144,19 @@ type layoutData struct {
 }
 
 type searchItem struct {
-	Title   string `json:"t"`
-	URL     string `json:"u"`
-	Summary string `json:"s,omitempty"`
-	Kind    string `json:"k"`
-	ID      string `json:"i"`
-	Group   string `json:"g,omitempty"`
-	Section string `json:"c,omitempty"`
-	Icon    string `json:"ic,omitempty"`
+	Title   string   `json:"t"`
+	Aliases []string `json:"a,omitempty"`
+	URL     string   `json:"u"`
+	Summary string   `json:"s,omitempty"`
+	Text    string   `json:"x,omitempty"`
+	Kind    string   `json:"k"`
+	Label   string   `json:"l"`
+	ID      string   `json:"i"`
+	Group   string   `json:"g,omitempty"`
+	Section string   `json:"c,omitempty"`
+	Icon    string   `json:"ic,omitempty"`
+	Version string   `json:"v,omitempty"`
+	BuildID string   `json:"b,omitempty"`
 }
 
 type navGroup struct {
@@ -142,28 +165,31 @@ type navGroup struct {
 }
 
 type builder struct {
+	examples map[string]tryExample
 	// lightShots names the screenshots that also come in the light theme, as name-light.png (D345).
-	lightShots map[string]bool
-	exp        *Export
-	out        string
-	assetV     string
-	missing    map[string]bool
-	opt        Options
-	byID       map[string]*Entry
-	kids       map[string][]string
-	groups     []navGroup
-	groupOf    map[string]int
-	own        map[string]bool
-	urls       map[string]string
-	order      []string
-	pos        map[string]int
-	hero       bool
-	poster     bool
-	icons      iconSet
-	conv       *converter
-	layout     *template.Template
-	css        string
-	report     Report
+	lightShots  map[string]bool
+	exp         *Export
+	out         string
+	assetV      string
+	buildID     string
+	registrySHA string
+	missing     map[string]bool
+	opt         Options
+	byID        map[string]*Entry
+	kids        map[string][]string
+	groups      []navGroup
+	groupOf     map[string]int
+	own         map[string]bool
+	urls        map[string]string
+	order       []string
+	pos         map[string]int
+	hero        bool
+	poster      bool
+	icons       iconSet
+	conv        *converter
+	layout      *template.Template
+	css         string
+	report      Report
 	// lang is the language the builder writes; "" and en are English, ru pages live under ru/ (D348).
 	lang string
 	// has lists the entries with a translation in lang; en is the English builder it was made from.
@@ -171,7 +197,39 @@ type builder struct {
 	en  *builder
 }
 
+var pinnedStudioPath = regexp.MustCompile(`^/r/[A-Za-z0-9][A-Za-z0-9._-]{0,79}/$`)
+
+func validStudioURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" || u.RawPath != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.String() != raw || !pinnedStudioPath.MatchString(u.Path) {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	return u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
+}
+
 func Build(exp *Export, out string, opt Options) (Report, error) {
+	if opt.Studio && opt.StudioURL != "" {
+		return Report{}, fmt.Errorf("choose either local Studio or a pinned release URL")
+	}
+	if opt.StudioURL != "" && !validStudioURL(opt.StudioURL) {
+		return Report{}, fmt.Errorf("invalid pinned Studio URL")
+	}
+	if opt.StudioGuides {
+		if opt.StudioURL == "" {
+			return Report{}, fmt.Errorf("Studio guides require a pinned release URL")
+		}
+		for _, lang := range []string{"en", "ru"} {
+			if !isFile(filepath.Join(out, "asset-studio", lang, "first-sprite", "index.html")) {
+				return Report{}, fmt.Errorf("Studio guide is missing for %s", lang)
+			}
+		}
+	}
+	if opt.Studio && !isFile(filepath.Join(out, "studio", "index.html")) {
+		return Report{}, fmt.Errorf("studio was requested but studio/index.html is missing")
+	}
 	exp.Entries = siteEntries(exp.Entries)
 	keep := make(map[string]bool, len(exp.Entries))
 	for _, e := range exp.Entries {
@@ -212,15 +270,24 @@ func Build(exp *Export, out string, opt Options) (Report, error) {
 	}
 	b.css = codeCSS() + string(style)
 	b.assetV = b.assetVersion()
+	if err := b.identifyBuild(); err != nil {
+		return Report{}, err
+	}
 	b.hero = isFile(opt.Hero)
 	b.poster = isFile(opt.Poster)
 	b.index()
 	b.route()
+	if err := b.writeTryExamples(); err != nil {
+		return Report{}, err
+	}
 	b.report.Outline = b.outline()
 	if err := b.write(); err != nil {
 		return Report{}, err
 	}
 	if err := b.writeBrand(); err != nil {
+		return Report{}, err
+	}
+	if err := b.writeBuildManifest(); err != nil {
 		return Report{}, err
 	}
 	return b.report, nil
@@ -435,22 +502,25 @@ func (b *builder) resolve(id string) (string, bool) {
 	return "", false
 }
 
+// autoResolve deliberately does not use short-name registry aliases. They are
+// useful for explicit ref: links, but are not a scope-aware symbol resolver.
+func (b *builder) autoResolve(id string) (string, bool) {
+	u, ok := b.urls[id]
+	return u, ok
+}
+
 func (b *builder) code(root, src string) string {
-	return highlightLinked(src, func(name string) string {
-		if u, ok := b.resolve(name); ok {
-			return root + u
-		}
-		return ""
-	})
+	return highlightAES(src)
 }
 
 func (b *builder) markdown(root, id, md string) string {
 	p := &pageCtx{
-		root:    root,
-		id:      id,
-		play:    b.opt.Playground,
-		resolve: b.resolve,
-		broken:  func(target string) { b.report.Broken = append(b.report.Broken, id+" -> ref:"+target) },
+		root:        root,
+		id:          id,
+		play:        b.opt.Playground,
+		resolve:     b.resolve,
+		autoResolve: b.autoResolve,
+		broken:      func(target string) { b.report.Broken = append(b.report.Broken, id+" -> ref:"+target) },
 	}
 	out, err := b.conv.render(p, md)
 	if err != nil {
@@ -486,6 +556,9 @@ func (b *builder) themedShots(html string) string {
 }
 
 func kindName(e *Entry) string {
+	if e.ValueType {
+		return "value type"
+	}
 	if e.Kind == KindType && e.Component != nil {
 		return "component"
 	}
@@ -613,7 +686,11 @@ func (b *builder) rows(c *strings.Builder, e *Entry, root string, rows []*Entry,
 			notes = append(notes, `<span class="note">`+esc(b.note(n))+"</span>")
 		}
 		c.WriteString(`<tr id="` + esc(f.ID) + `"><td class="fname"><a class="anchor" href="#` + esc(f.ID) + `">` + b.icon(root, b.entryIcon(f), "") + fieldName(f) + "</a></td>")
-		c.WriteString(`<td class="ftype"><code>` + esc(fi.Type) + `</code></td><td class="fdef">` + def + "</td>")
+		typeHTML := "<code>" + esc(fi.Type) + "</code>"
+		if u, ok := b.urls[strings.TrimPrefix(fi.Type, "[]")]; ok {
+			typeHTML = `<a href="` + esc(root+u) + `">` + typeHTML + `</a>`
+		}
+		c.WriteString(`<td class="ftype">` + typeHTML + `</td><td class="fdef">` + def + "</td>")
 		desc := ""
 		if strings.TrimSpace(f.Body) != "" {
 			desc = b.markdown(root, f.ID, f.Body)
@@ -780,7 +857,7 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 		prefabs = string(data)
 	}
 	artifacts := ""
-	openLabel := "Open in editor"
+	openLabel := "Download scene only"
 	if len(e.TryArtifacts) > 0 {
 		artifacts = base64.StdEncoding.EncodeToString(e.TryArtifacts)
 		openLabel = "Download scene only"
@@ -789,11 +866,35 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 	if e.Input {
 		input = ` data-input="` + esc(strings.Join(e.TryKeys, ", ")) + `"`
 	}
-	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `" data-artifacts="` + esc(artifacts) + `"` + input + `>` + "\n")
+	exampleAttrs, exampleButtons := "", ""
+	if example, ok := b.examples[e.ID]; ok {
+		exampleAttrs = ` data-example-manifest="` + esc(root+example.Manifest) + `" data-example-archive="` + esc(root+example.Archive) + `"`
+		exampleButtons = `<a class="try-open button" href="` + esc(example.Link) + `">` + b.icon(root, "file.open", "") + b.tr("Open in Aego") + `</a><a class="try-project button" href="` + esc(root+example.Archive) + `" download>` + b.icon(root, "file.save", "") + b.tr("Download example project") + `</a>`
+	}
+	c.WriteString(`<section class="try" data-select="` + esc(e.TrySelect) + `" data-name="` + esc(name) + `" data-scene="` + esc(e.Try) + `" data-code="` + esc(e.TryCode) + `" data-prefabs="` + esc(prefabs) + `" data-artifacts="` + esc(artifacts) + `"` + input + exampleAttrs + `>` + "\n")
 	c.WriteString(`<h2 id="` + esc(e.ID) + `-try">` + b.tr("Try it") + `</h2>` + "\n")
-	c.WriteString(`<p class="try-caption">` + esc(b.tr("A live scene with")) + ` ` + esc(e.Title) + `: ` + esc(b.tr("edit its fields in the Inspector on the right and the scene restarts with them.")) + `</p>` + "\n")
-	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Runs this scene in the browser, with the Inspector next to it") + `</span></div>` + "\n")
-	c.WriteString(`<div class="try-bar"><button type="button" class="try-open">` + b.icon(root, "file.save", "") + b.tr(openLabel) + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
+	if e.Demo != nil {
+		lang := b.lang
+		if lang == "" {
+			lang = "en"
+		}
+		if text, ok := e.Demo.Languages[lang]; ok {
+			if text.Title != "" {
+				c.WriteString(`<h3 class="try-demo-title">` + esc(text.Title) + `</h3>` + "\n")
+			}
+			if text.Description != "" {
+				c.WriteString(`<p class="try-demo-description">` + esc(text.Description) + `</p>` + "\n")
+			}
+			if text.Input != "" {
+				c.WriteString(`<p class="try-demo-input">` + esc(text.Input) + `</p>` + "\n")
+			}
+		}
+	}
+	if e.Demo == nil {
+		c.WriteString(`<p class="try-caption">` + esc(b.tr("Change the example parameters and compare the result. Reset restores the initial scene.")) + `</p>` + "\n")
+	}
+	c.WriteString(`<div class="try-stage"><button type="button" class="try-start">` + b.icon(root, "play.start", "") + b.tr("Try it") + `</button><span class="try-hint">` + b.tr("Starts the scene; open the example parameters to experiment.") + `</span></div>` + "\n")
+	c.WriteString(`<div class="try-bar">` + exampleButtons + `<button type="button" class="try-download">` + b.icon(root, "file.save", "") + b.tr(openLabel) + `</button><button type="button" class="try-copy">` + b.icon(root, "edit.copy", "") + b.tr("Copy as .aescene") + `</button><button type="button" class="try-reset" disabled>` + b.icon(root, "ui.reset", "") + b.tr("Reset") + `</button>` + b.soundButton(e, root) + `<span class="try-status" role="status"></span></div>` + "\n")
 	c.WriteString(b.sceneTree(e.Try, root))
 	if e.TryScript != "" {
 		c.WriteString(`<details class="scene-tree try-script"><summary>` + b.icon(root, "file.script", "") + `<span>` + b.tr("Script") + `</span><span class="count">main.aes</span>` + b.icon(root, "ui.chevron_right", "chev") + `</summary>`)
@@ -801,6 +902,29 @@ func (b *builder) tryBlock(c *strings.Builder, e *Entry, root string) {
 		c.WriteString("</details>\n")
 	}
 	c.WriteString("</section>\n")
+}
+
+// componentScript separates the optional script example from the lead in both
+// supported languages. A heading-looking line inside a fenced example is not a
+// section boundary.
+func componentScript(body string) (string, string) {
+	offset := 0
+	fence := ""
+	for _, line := range strings.SplitAfter(body, "\n") {
+		text := strings.TrimSpace(line)
+		if strings.HasPrefix(text, "```") || strings.HasPrefix(text, "~~~") {
+			marker := text[:3]
+			if fence == "" {
+				fence = marker
+			} else if marker == fence {
+				fence = ""
+			}
+		} else if fence == "" && (text == scriptSection || text == "## Из скрипта") {
+			return body[:offset], body[offset:]
+		}
+		offset += len(line)
+	}
+	return body, ""
 }
 
 func (b *builder) content(e *Entry, root string) string {
@@ -812,22 +936,24 @@ func (b *builder) content(e *Entry, root string) string {
 	}
 	scripted := ""
 	if e.Component != nil {
-		if i := strings.Index(e.Body, scriptSection); i >= 0 {
-			head := *e
-			head.Body, scripted = e.Body[:i], e.Body[i:]
-			e = &head
-		}
+		head := *e
+		head.Body, scripted = componentScript(e.Body)
+		e = &head
 	}
 	if e.Component != nil {
 		head := *e
 		if strings.TrimSpace(head.Body) != "" {
-			c.WriteString(`<div class="lead">` + b.markdown(root, e.ID, head.Body) + "</div>\n")
+			c.WriteString(strings.Replace(b.markdown(root, e.ID, head.Body), "<p>", `<p class="lead">`, 1))
 		}
 		head.Body = ""
 		b.details(&c, &head, root)
 		c.WriteString(b.componentMeta(e, root))
+		c.WriteString(b.componentStudioLinks(e, root))
 	} else {
 		b.details(&c, e, root)
+	}
+	if e.ID == "editor/icons" {
+		c.WriteString(b.iconCatalog(root))
 	}
 	if e.Try != "" && b.opt.Playground {
 		b.tryBlock(&c, e, root)
@@ -914,7 +1040,7 @@ func (b *builder) footer(e *Entry, root string) string {
 	}
 	left := []string{esc(name)}
 	if o.Commit != "" {
-		c := esc(o.Commit)
+		c := esc(shortCommit(o.Commit))
 		if o.Repo != "" {
 			c = `<a href="` + esc(strings.TrimRight(o.Repo, "/")+"/commit/"+o.Commit) + `">` + c + "</a>"
 		}
@@ -923,6 +1049,7 @@ func (b *builder) footer(e *Entry, root string) string {
 	if !o.Time.IsZero() {
 		left = append(left, b.tr("built")+" "+o.Time.UTC().Format("2006-01-02"))
 	}
+	left = append(left, `Copyleft 2026 <a href="https://about.akarpov.ru/">akarpov</a>`)
 	var right []string
 	if e != nil && e.Location.Source != "" && o.Edit != "" {
 		u := strings.TrimRight(o.Edit, "/") + "/" + e.Location.Source
@@ -949,11 +1076,25 @@ func (b *builder) footer(e *Entry, root string) string {
 	return `<footer class="foot"><span>` + strings.Join(left, " · ") + `</span><span class="links">` + strings.Join(right, "") + "</span></footer>"
 }
 
+// Keep the complete revision in links and build metadata, but use a compact
+// Git hash in the visible footer. Non-hash revision labels remain intact.
+func shortCommit(commit string) string {
+	if len(commit) <= 7 {
+		return commit
+	}
+	for _, c := range commit {
+		if !('0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F') {
+			return commit
+		}
+	}
+	return commit[:7]
+}
+
 func (b *builder) navTree(c *strings.Builder, ids []string, root, current string, open map[string]bool) {
 	c.WriteString(`<ul class="tree">`)
 	chev := b.icon(root, "ui.chevron_right", "chev")
 	for _, id := range ids {
-		if !b.own[id] {
+		if !b.navVisible(id) {
 			continue
 		}
 		sub := b.ownKids(id)
@@ -976,11 +1117,18 @@ func (b *builder) navTree(c *strings.Builder, ids []string, root, current string
 func (b *builder) ownKids(id string) []string {
 	var sub []string
 	for _, k := range b.kids[id] {
-		if b.own[k] {
+		if b.navVisible(k) {
 			sub = append(sub, k)
 		}
 	}
 	return sub
+}
+
+// Schema value structures remain addressable from field types, search and the
+// Markdown registry. They are not addable components in the workspace menu.
+func (b *builder) navVisible(id string) bool {
+	e := b.byID[id]
+	return e != nil && b.own[id] && !(e.ValueType && strings.HasPrefix(e.Parent, "module/"))
 }
 
 func (b *builder) navLink(id, root, current, ic string) string {
@@ -1032,6 +1180,10 @@ func (b *builder) nav(root, current string) string {
 		}
 		ic := b.icon(root, g.Icon, "")
 		head, list := b.head(g)
+		if head == "" && g.Title == b.tr(sectionTitle(g.Section)) {
+			b.navTree(&c, list, root, current, open)
+			continue
+		}
 		if head != "" && len(list) == 0 {
 			c.WriteString(strings.Replace(b.navLink(head, root, current, ic), `class="item`, `class="item head`, 1))
 			continue
@@ -1065,30 +1217,38 @@ func (b *builder) firstOf(section string) string {
 
 func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	root := rootOf(rel)
+	content = renderedTable.ReplaceAllStringFunc(content, func(table string) string {
+		return `<div class="table-scroll" role="region" tabindex="0" aria-label="` + esc(b.tr("Data table")) + `">` + table + `</div>`
+	})
 	data := layoutData{
-		AssetV:      b.assetV,
-		Background:  template.CSS(pageBackground()),
-		LightBack:   template.CSS(pageBackgroundLight()),
-		CSS:         template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
-		Root:        root,
-		Title:       title,
-		PageTitle:   title + " · " + b.exp.Title,
-		Description: b.tr(homeLead),
-		Site:        b.exp.Title,
-		Playground:  b.opt.Playground,
-		PlayVersion: b.opt.PlayVersion,
-		TryVersion:  b.opt.TryVersion,
-		PlaySize:    fileSize(filepath.Join(b.out, "play", "aego.wasm")),
-		TrySize:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
-		PlayGzip:    fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
-		TryGzip:     fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
-		Repo:        b.opt.Repo,
-		Demo:        b.opt.Demo,
-		Home:        current == "",
-		Lang:        b.pageLang(),
-		Nav:         template.HTML(b.nav(root, current)),
-		Content:     template.HTML(content),
-		Footer:      template.HTML(b.footer(e, root)),
+		AssetV:       b.assetV,
+		BuildID:      b.buildID,
+		DocsVersion:  b.docsVersion(),
+		Background:   template.CSS(pageBackground()),
+		LightBack:    template.CSS(pageBackgroundLight()),
+		CSS:          template.CSS(strings.ReplaceAll(b.css, "url(fonts/", "url("+root+"assets/fonts/")),
+		Root:         root,
+		Title:        title,
+		PageTitle:    title + " · " + b.exp.Title,
+		Description:  b.tr(homeLead),
+		Site:         b.exp.Title,
+		Playground:   b.opt.Playground,
+		Studio:       b.opt.Studio || b.opt.StudioURL != "",
+		StudioURL:    b.opt.StudioURL,
+		StudioGuides: b.opt.StudioGuides,
+		PlayVersion:  b.opt.PlayVersion,
+		TryVersion:   b.opt.TryVersion,
+		PlaySize:     fileSize(filepath.Join(b.out, "play", "aego.wasm")),
+		TrySize:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm")),
+		PlayGzip:     fileSize(filepath.Join(b.out, "play", "aego.wasm.gz")),
+		TryGzip:      fileSize(filepath.Join(b.out, "try", "aego-docs.wasm.gz")),
+		Repo:         b.opt.Repo,
+		Demo:         b.opt.Demo,
+		Home:         current == "",
+		Lang:         b.pageLang(),
+		Nav:          template.HTML(b.nav(root, current)),
+		Content:      template.HTML(content),
+		Footer:       template.HTML(b.footer(e, root)),
 	}
 	data.T = b.tr
 	data.Search = b.langPath("search.json")
@@ -1139,6 +1299,8 @@ func (b *builder) emit(rel, title, current, content string, e *Entry) error {
 	return os.WriteFile(dst, []byte(cleanLinks(page)), 0o644)
 }
 
+var renderedTable = regexp.MustCompile(`(?s)<table\b[^>]*>.*?</table>`)
+
 func (b *builder) walkOwn(ids []string, depth int, fn func(id string, depth int)) {
 	for _, id := range ids {
 		if !b.own[id] {
@@ -1151,6 +1313,16 @@ func (b *builder) walkOwn(ids []string, depth int, fn func(id string, depth int)
 
 func (b *builder) outline() string {
 	var c strings.Builder
+	var walk func([]string, int)
+	walk = func(ids []string, depth int) {
+		for _, id := range ids {
+			if !b.navVisible(id) {
+				continue
+			}
+			c.WriteString(strings.Repeat("  ", depth) + b.byID[id].Title + " -> " + b.urls[id] + "\n")
+			walk(b.kids[id], depth+1)
+		}
+	}
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
@@ -1158,21 +1330,23 @@ func (b *builder) outline() string {
 			last = g.Section
 		}
 		head, list := b.head(g)
+		if head == "" && g.Title == b.tr(sectionTitle(g.Section)) {
+			walk(list, 1)
+			continue
+		}
 		if head != "" {
 			c.WriteString("  " + b.byID[head].Title + " -> " + b.urls[head] + "\n")
 		} else {
 			c.WriteString("  " + g.Title + "\n")
 		}
-		b.walkOwn(list, 2, func(id string, depth int) {
-			c.WriteString(strings.Repeat("  ", depth) + b.byID[id].Title + " -> " + b.urls[id] + "\n")
-		})
+		walk(list, 2)
 	}
 	return c.String()
 }
 
 func (b *builder) llms() string {
 	var c strings.Builder
-	c.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n\n" + b.tr(llmsNote) + "\n")
+	c.WriteString("# " + b.exp.Title + "\n\n> " + b.tr(homeLead) + "\n\n" + b.markdownBuildNote() + "\n\n" + b.tr(llmsNote) + "\n")
 	last := ""
 	for _, g := range b.groups {
 		if g.Section != last {
@@ -1204,7 +1378,7 @@ func (b *builder) write() error {
 			continue
 		}
 		b.report.Entries++
-		item := searchItem{Title: e.Title, URL: cleanURL(u), Summary: plainMD(e.Summary), Kind: e.Kind, ID: e.ID, Icon: b.entryIcon(e)}
+		item := b.searchEntry(e, cleanURL(u))
 		if gi, ok := b.groupOf[e.ID]; ok {
 			item.Group, item.Section = b.groups[gi].Title, b.groups[gi].Section
 		}

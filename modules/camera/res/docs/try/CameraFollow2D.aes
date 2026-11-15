@@ -1,0 +1,23 @@
+package demo
+
+import "aego/physics"
+
+// Let physics create the body and the camera observe the initial pose, even
+// when several fixed steps happen in one rendered frame.
+script Launch {
+    var physicsReady bool
+    var frames int
+    func FixedUpdate(dt float) {
+        physicsReady = true
+    }
+    func Update(dt float) {
+        if physicsReady {
+            frames++
+            if frames == 2 {
+                body := node.Get<Body2D>()
+                body.Teleport(Vec2{-18, -2}, 0)
+                body.SetVelocity(Vec2{0, 0})
+            }
+        }
+    }
+}

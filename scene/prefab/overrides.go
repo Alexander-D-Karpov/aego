@@ -56,6 +56,9 @@ func (o Overrides) Clone() Overrides {
 		RemoveComps: slices.Clone(o.RemoveComps),
 		Remove:      slices.Clone(o.Remove),
 	}
+	for i := range out.Props {
+		out.Props[i].Value = out.Props[i].Value.Clone()
+	}
 	for _, a := range o.AddComps {
 		a.Comp = a.Comp.Clone()
 		out.AddComps = append(out.AddComps, a)

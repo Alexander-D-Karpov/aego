@@ -14,7 +14,7 @@ import (
 //go:embed res/presets/*.aepreset
 var sources embed.FS
 
-var presetNames = [...]string{"Dust", "Spark", "Smoke", "Rain", "Explosion"}
+var presetNames = [...]string{"Dust", "Spark", "Smoke", "Rain", "Explosion", "Fire", "HitFlash", "MagicProjectile", "Trail"}
 
 func PresetSource(name string) ([]byte, error) {
 	for _, p := range presetNames {

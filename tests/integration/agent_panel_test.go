@@ -2,6 +2,7 @@ package integration
 
 import (
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 	"aego/app/edit"
 	"aego/core/log"
 	"aego/editor/core/agentui"
+	"aego/editor/core/tasks"
+	"aego/editor/core/workspace"
 	agentpanel "aego/editor/panels/agent"
 	"aego/project"
 )
@@ -41,6 +44,131 @@ func stepUntil(t *testing.T, s *edit.Session, done func() bool) {
 			t.Fatal("timed out")
 		}
 		s.Step()
+	}
+}
+
+// Allocation budgets measure a settled editor, not background preview,
+// language refresh or agent-availability work.
+func editorSettled(s *edit.Session) bool {
+	panel := s.App.Agent()
+	if code, ok := s.App.Context().Code.(interface{ Refreshing() bool }); ok && code.Refreshing() {
+		return false
+	}
+	return s.App.Idle() && !s.App.Previews().Busy() &&
+		(panel == nil || (panel.Checked() && !panel.Busy()))
+}
+
+func waitEditorSettled(t *testing.T, s *edit.Session) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	stable := 0
+	for stable < 10 {
+		s.Step()
+		if editorSettled(s) {
+			stable++
+		} else {
+			stable = 0
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("editor or agent did not settle before measuring allocations")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// Measure ordinary idle frames just after the real Assets maintenance scan.
+// The scan remains enabled; if another scan interrupts the window, fail rather
+// than silently counting unrelated filesystem allocations against a panel.
+func editorFrameAllocs(t *testing.T, s *edit.Session, step func()) float64 {
+	t.Helper()
+	waitEditorSettled(t, s)
+	assets := s.App.AssetsPanel()
+	if assets == nil {
+		t.Fatal("the editor has no Assets panel")
+	}
+	stamp := assets.DirectoryRefreshes()
+	if _, visible := s.App.Workspace().Tree.PanelRect(workspace.Assets); visible {
+		deadline := time.Now().Add(30 * time.Second)
+		seen, stable := false, 0
+		for stable < 10 {
+			s.Step()
+			if next := assets.DirectoryRefreshes(); next != stamp {
+				stamp, seen, stable = next, true, 0
+			}
+			if seen && editorSettled(s) {
+				stable++
+			} else {
+				stable = 0
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("Assets maintenance or the editor did not settle before measuring allocations")
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	allocs := testing.AllocsPerRun(30, step)
+	if assets.DirectoryRefreshes() != stamp {
+		t.Fatal("Assets maintenance interrupted the allocation measurement")
+	}
+	return allocs
+}
+
+type delayedAvailabilityBackend struct {
+	backend.Fake
+	started chan struct{}
+	release chan struct{}
+	start   sync.Once
+	finish  sync.Once
+}
+
+func (b *delayedAvailabilityBackend) Available(backend.Config) (string, error) {
+	b.start.Do(func() { close(b.started) })
+	<-b.release
+	return "fake", nil
+}
+
+func (b *delayedAvailabilityBackend) unblock() {
+	b.finish.Do(func() { close(b.release) })
+}
+
+func TestAgentEditorIdleWaitsForAvailability(t *testing.T) {
+	b := &delayedAvailabilityBackend{started: make(chan struct{}), release: make(chan struct{})}
+	defer b.unblock()
+	s, _ := agentSession(t, b)
+	stepUntil(t, s, func() bool {
+		select {
+		case <-b.started:
+			return s.App.Idle() && !s.App.Previews().Busy()
+		default:
+			return false
+		}
+	})
+	if editorSettled(s) || s.App.Agent().Checked() {
+		t.Fatal("editor was considered idle while agent availability was still running")
+	}
+	b.unblock()
+	waitEditorSettled(t, s)
+	if !s.App.Agent().Checked() || s.App.Agent().Missing() != nil {
+		t.Fatal("agent availability did not settle successfully")
+	}
+}
+
+func TestEditorSettledWaitsPastFixedFrameWarmup(t *testing.T) {
+	s := workspaceSession(t)
+	steps := 0
+	s.App.Tasks().Step(tasks.Spec{Title: "delayed test task"}, tasks.LaneMain, func(*tasks.Task) (bool, error) {
+		steps++
+		return steps >= 180, nil
+	})
+	for range 60 {
+		s.Step()
+	}
+	if !s.App.Tasks().Busy() || editorSettled(s) {
+		t.Fatal("a fixed 60-frame warmup did not leave the delayed task active")
+	}
+	waitEditorSettled(t, s)
+	if s.App.Tasks().Busy() || steps < 180 {
+		t.Fatal("the editor was considered settled before the delayed task finished")
 	}
 }
 
@@ -131,7 +259,7 @@ func TestAgentPanelIdleAllocs(t *testing.T) {
 		for range 60 {
 			s.Step()
 		}
-		return testing.AllocsPerRun(30, func() { s.Step() })
+		return editorFrameAllocs(t, s, func() { s.Step() })
 	}
 	without := measure(nil)
 	with := measure(&backend.Fake{})

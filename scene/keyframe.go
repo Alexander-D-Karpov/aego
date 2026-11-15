@@ -1,7 +1,6 @@
 package scene
 
 import (
-	"slices"
 	"unsafe"
 
 	"aego/core/handle"
@@ -51,18 +50,15 @@ func (s *Scene) Capture(reuse rewind.Key) rewind.Key {
 		k = &sceneKey{}
 	}
 	s.nodes.CopyTo(&k.nodes)
-	k.byID = slices.Grow(k.byID[:0], len(s.byID))
-	for id, h := range s.byID {
-		k.byID = append(k.byID, idEntry{id: id, h: h})
-	}
-	k.byName = slices.Grow(k.byName[:0], len(s.byName))
-	for key, h := range s.byName {
-		k.byName = append(k.byName, nameEntry{key: key, h: h})
-	}
+	index := s.frozenSnapshotIndex()
+	k.byID, k.byName = index.byID, index.byName
 	k.three = append(k.three[:0], s.three...)
 	k.free3 = append(k.free3[:0], s.free3...)
 	k.pres = append(k.pres[:0], s.pres...)
 	k.space = s.defaultSpace
+	if len(k.stores) > len(s.storeList) {
+		clear(k.stores[len(s.storeList):])
+	}
 	k.stores = keySlots(k.stores, len(s.storeList))
 	k.size = int(unsafe.Sizeof(*k)) +
 		k.nodes.Slots()*int(unsafe.Sizeof(nodeData{})) +
@@ -79,6 +75,7 @@ func (s *Scene) Capture(reuse rewind.Key) rewind.Key {
 func (s *Scene) Restore(key rewind.Key) {
 	k := key.(*sceneKey)
 	s.nodes.RestoreFrom(&k.nodes)
+	s.invalidateSnapshotIndex()
 	clear(s.byID)
 	for _, e := range k.byID {
 		s.byID[e.id] = e.h
@@ -226,4 +223,36 @@ func (c *ComponentStore[T]) hash(h *rewind.Hasher) {
 		hashHandle(h, c.nodes[i])
 		schema.HashFields(h, c.desc, unsafe.Pointer(&c.data[i]))
 	}
+}
+
+// Frozen index slices are immutable; the holder is shared by shallow Scene copies.
+type snapshotIndex struct {
+	byID   []idEntry
+	byName []nameEntry
+}
+
+type snapshotIndexCache struct{ frozen *snapshotIndex }
+
+func (s *Scene) invalidateSnapshotIndex() {
+	if s.snapshotIndex != nil {
+		s.snapshotIndex.frozen = nil
+	}
+}
+
+func (s *Scene) frozenSnapshotIndex() *snapshotIndex {
+	if s.snapshotIndex == nil {
+		s.snapshotIndex = &snapshotIndexCache{}
+	}
+	if s.snapshotIndex.frozen != nil {
+		return s.snapshotIndex.frozen
+	}
+	index := &snapshotIndex{byID: make([]idEntry, 0, len(s.byID)), byName: make([]nameEntry, 0, len(s.byName))}
+	for id, h := range s.byID {
+		index.byID = append(index.byID, idEntry{id: id, h: h})
+	}
+	for key, h := range s.byName {
+		index.byName = append(index.byName, nameEntry{key: key, h: h})
+	}
+	s.snapshotIndex.frozen = index
+	return index
 }

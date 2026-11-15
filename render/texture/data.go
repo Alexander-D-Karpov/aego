@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"sync"
 
 	"aego/core/errs"
 	"aego/core/log"
@@ -18,6 +19,25 @@ type Data struct {
 	Premultiplied bool
 	// NonColor keeps noise, masks and other data channels unchanged.
 	NonColor bool
+}
+
+var premultipliedSRGB struct {
+	once sync.Once
+	data [256][256]byte // alpha, straight sRGB channel
+}
+
+func premultipliedSRGBTable() *[256][256]byte {
+	premultipliedSRGB.once.Do(func() {
+		for alpha := 1; alpha < 255; alpha++ {
+			for color := range 256 {
+				v := mathx.SRGBToLinear(float32(color) / 255)
+				v *= float32(alpha) / 255
+				v = mathx.LinearToSRGB(v)
+				premultipliedSRGB.data[alpha][color] = byte(mathx.Clamp(v, 0, 1)*255 + 0.5)
+			}
+		}
+	})
+	return &premultipliedSRGB.data
 }
 
 func New(w, h int, format gpu.TextureFormat) *Data {
@@ -64,20 +84,31 @@ func (d *Data) Premultiply() {
 	if d.Premultiplied || d.NonColor {
 		return
 	}
+	var table *[256][256]byte
 	for i := 0; i+3 < len(d.Pixels); i += 4 {
 		a := uint32(d.Pixels[i+3])
 		if a == 255 {
 			continue
 		}
+		if a == 0 {
+			// Every finite color becomes zero at zero alpha, including hidden
+			// RGB in transparent PNG pixels. Avoid costly sRGB conversions.
+			d.Pixels[i], d.Pixels[i+1], d.Pixels[i+2] = 0, 0, 0
+			continue
+		}
+		if d.Format == gpu.TexSRGBA8 {
+			if table == nil {
+				table = premultipliedSRGBTable()
+			}
+			row := &table[a]
+			d.Pixels[i] = row[d.Pixels[i]]
+			d.Pixels[i+1] = row[d.Pixels[i+1]]
+			d.Pixels[i+2] = row[d.Pixels[i+2]]
+			continue
+		}
 		for c := 0; c < 3; c++ {
 			v := float32(d.Pixels[i+c]) / 255
-			if d.Format == gpu.TexSRGBA8 {
-				v = mathx.SRGBToLinear(v)
-			}
 			v *= float32(a) / 255
-			if d.Format == gpu.TexSRGBA8 {
-				v = mathx.LinearToSRGB(v)
-			}
 			d.Pixels[i+c] = byte(mathx.Clamp(v, 0, 1)*255 + 0.5)
 		}
 	}

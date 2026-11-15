@@ -19,8 +19,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `anim.slice` | engine | 16 | Create palette: Animation → Flipbook from Selection; PNG inspector: Slicing section | ok |
 | `anim.to_end` | engine | 16 | Animation panel: go to end | ok |
 | `anim.to_start` | engine | 16 | Animation panel: go to start | ok |
-| `animation.animator` | engine | 16 | component animation.Animator | ok |
-| `animation.player` | engine | 16 | component animation.AnimationPlayer | ok |
+| `animation.animator` | engine | 16 | Documentation navigation: animator; component animation.Animator | ok |
+| `animation.player` | engine | 16 | Documentation navigation: animation guide and settings; component animation.AnimationPlayer | ok |
 | `app` | engine | 16 | launcher header; colored PNGs in app/brand are the window, installer and favicon icon | ok |
 | `app.quit` | engine | 16 | File → Quit | ok |
 | `audio.listener` | engine | 16 | component audio.AudioListener2D | ok |
@@ -31,18 +31,18 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `build.ok` | engine | 16 | menu bar: native build ok | ok |
 | `cat.3d` | engine | 16 | Create → 3D submenu; Add Component and Create: category | ok |
 | `cat.audio` | engine | 16 | Documentation: Audio group and module; Add Component and Create: category | ok |
-| `cat.camera` | engine | 24 | New Project: template 2.5d | ok |
+| `cat.camera` | engine | 24 | Documentation navigation: camera group and script API; New Project: template 2.5d | ok |
 | `cat.engine` | engine | 14 | Agent panel: steps that read component types | ok |
 | `cat.game` | engine | 16 | Inspector and Add Component: components of a project module without an icon of their own; Add Component and Create: category | ok |
 | `cat.gameplay` | engine | 16 | template menu Gameplay | ok |
 | `cat.node` | engine | 24 | New Project: template empty; Search: node results; Add Component and Create: category | ok |
 | `cat.particles` | engine | 16 | Add Component and Create: Effects category; template menu Effects | ok |
-| `cat.physics` | engine | 16 | template menu Physics | ok |
+| `cat.physics` | engine | 16 | Documentation navigation: physics group, script API and settings; template menu Physics | ok |
 | `cat.render2d` | engine | 16 | Add Component and Create: Lights category; template menu Lighting | ok |
 | `cat.rendering` | engine | 24 | New Project: template 2d; Search: mesh assets; Add Component and Create: category | ok |
 | `cat.scripts` | engine | 16 | Search: script symbols; Add Component and Create: category | ok |
 | `cat.settings` | engine | 16 | References: the project file; Add Component and Create: category | ok |
-| `cat.transform` | engine | 24 | New Project: template 3d | ok |
+| `cat.transform` | engine | 24 | Documentation navigation: math script API; New Project: template 3d | ok |
 | `code.block` | engine | 16 | Scripts → Highlight Current Block | ok |
 | `code.brackets` | engine | 16 | Scripts → Rainbow Brackets | ok |
 | `code.hints` | engine | 16 | Scripts → Parameter Name Hints | ok |
@@ -58,7 +58,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `comp.joint_revolute` | engine | 16 | Revolute Joint 2D component; Joints debug overlay; component physics.RevoluteJoint2D | ok |
 | `comp.mesh` | engine | 16 | component engine.LightOccluder2D; component engine.Mesh2D; component engine.MeshRenderer; template render2d.light occluder; template render2d.mesh 2d | ok |
 | `comp.persist` | engine | 16 | component save.Persist | ok |
-| `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; component physics.PolygonCollider2D | ok |
+| `comp.polygon` | engine | 16 | Polygon shape component; Shapes debug overlay; Pixel Art Studio: polygon tool; component physics.PolygonCollider2D | ok |
 | `comp.rigidbody` | engine | 16 | component physics.Body2D; template physics.rigidbody | ok |
 | `comp.script` | engine | 16 | Scripts component and Add Component entries; Assets menu: Attach to Selected; component engine.Script | ok |
 | `comp.shake` | engine | 16 | component camera.CameraShake2D | ok |
@@ -72,7 +72,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `dbg.islands` | engine | 16 | Islands debug overlay | ok |
 | `dbg.overlay` | engine | 16 | Debug Overlay toggle of the 2D bodies menu | ok |
 | `doc.page` | engine | 14 | Agent panel: a documentation page the agent read | ok |
-| `doc.project` | engine | 14 | Agent panel: steps that read or set project settings | ok |
+| `doc.project` | engine | 16 | Documentation navigation: Quick start; Agent panel: steps that read or set project settings | ok |
 | `doc.recipe` | engine | 16 | Documentation: Recipes page | ok |
 | `doc.search` | engine | 14 | Agent panel: a search of the documentation | ok |
 | `doc.tutorial` | engine | 16 | Documentation: Platformer from scratch page | ok |
@@ -90,6 +90,7 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `edit.select_all` | engine | 16 | Edit → Select All | ok |
 | `edit.set` | engine | 14 | Agent panel: steps and changes that set a field or edit a script | ok |
 | `edit.validate` | engine | 14 | Agent panel: checks of a scene or the project | ok |
+| `file.art` | engine | 16 | Pixel Art Studio: document tab, New Pixel Art command and Assets source badge | ok |
 | `file.audio` | engine | 16 | Documentation: sound clips page | ok |
 | `file.autosave` | engine | 16 | File → Autosave Scripts | ok |
 | `file.data` | engine | 24 | Assets: data asset tiles | ok |
@@ -125,8 +126,10 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `log.warn` | engine | 16 | Console: warnings | ok |
 | `nav.back` | engine | 16 | Documentation and code: back | ok |
 | `nav.forward` | engine | 16 | Documentation and code: forward | ok |
-| `node.empty` | engine | 16 | template engine.empty; template engine.empty3d | ok |
+| `node.empty` | engine | 16 | Documentation navigation: components group and node reference fields; template engine.empty; template engine.empty3d | ok |
 | `panel.agent` | engine | 16 | Agent tab; Ask Agent in Hierarchy and Problems | ok |
+| `panel.art_timeline` | engine | 16 | Pixel Art Studio: asset timeline tab | ok |
+| `panel.art_tools` | engine | 16 | Pixel Art Studio: tools and layers tab | ok |
 | `panel.assets` | engine | 16 | Assets tab | ok |
 | `panel.console` | engine | 16 | Console tab | ok |
 | `panel.crashes` | engine | 16 | Crash Reports tab | ok |
@@ -159,10 +162,10 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `particles.rain` | engine | 16 | template particles.rain | ok |
 | `particles.smoke` | engine | 16 | template particles.smoke | ok |
 | `particles.spark` | engine | 16 | template particles.spark | ok |
-| `particles.system` | engine | 16 | component particles.ParticleSystem2D; template particles.particle system | ok |
+| `particles.system` | engine | 16 | Assets: New Effect command and Create palette; component particles.ParticleSystem2D; template particles.fire; template particles.hitflash; template particles.magicprojectile; template particles.particle system; template particles.trail | ok |
 | `play.copy_back` | engine | 16 | Component menu during Play: Copy values to edit scene | ok |
 | `play.pause` | engine | 16 | toolbar: Pause; Animation panel: pause the clip | ok |
-| `play.speed` | engine | 16 | Play → Time Scale… | ok |
+| `play.speed` | engine | 16 | Play → Time Scale…; Documentation navigation: time and timer fallback | ok |
 | `play.start` | engine | 16 | toolbar: Play; Assets: startup scene mark; Animation panel: play the clip | ok |
 | `play.step` | engine | 16 | toolbar: Step | ok |
 | `play.step_back` | engine | 16 | Play → Step Back | ok |
@@ -172,8 +175,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `prefab.unpack` | engine | 16 | Hierarchy prefab menu: Unpack | ok |
 | `prefab.variant` | engine | 16 | Assets menu: Create Variant | ok |
 | `render2d.directional_light` | engine | 16 | template render2d.directional-light | ok |
-| `render2d.normals` | engine | 16 | Scene View: surface normals | ok |
-| `render2d.point_light` | engine | 16 | Scene View: lighting preview; component engine.Light2D; template render2d.point-light | ok |
+| `render2d.normals` | engine | 16 | Documentation navigation: normal mapping; Scene View: surface normals | ok |
+| `render2d.point_light` | engine | 16 | Documentation navigation: platformer effects; Scene View: lighting preview; component engine.Light2D; template render2d.point-light | ok |
 | `render2d.shadow_view` | engine | 16 | Scene View: shadow visibility | ok |
 | `render2d.spot_light` | engine | 16 | template render2d.spot-light | ok |
 | `render2d.sprite_light` | engine | 16 | template render2d.sprite-light | ok |
@@ -186,10 +189,22 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `status.error` | engine | 14 | Agent panel: a step that failed | ok |
 | `status.ok` | engine | 14 | Task Center: finished task | ok |
 | `status.warning` | engine | 16 | Table and inspector issue rows; Assets: preview warnings | ok |
+| `tool.ellipse` | engine | 16 | Pixel Art Studio: Ellipse tool | ok |
+| `tool.eraser` | engine | 16 | Pixel Art Studio: Eraser tool | ok |
+| `tool.eyedropper` | engine | 16 | Pixel Art Studio: Eyedropper tool | ok |
+| `tool.fill` | engine | 16 | Pixel Art Studio: Fill tool | ok |
+| `tool.gradient` | engine | 16 | Pixel Art Studio: Gradient tool | ok |
+| `tool.lasso` | engine | 16 | Pixel Art Studio: lasso selection tool | ok |
+| `tool.line` | engine | 16 | Pixel Art Studio: Line tool | ok |
 | `tool.move` | engine | 16 | Scene View toolbar | ok |
+| `tool.pencil` | engine | 16 | Pixel Art Studio: Pencil tool | ok |
+| `tool.rectangle` | engine | 16 | Pixel Art Studio: Rectangle tool | ok |
 | `tool.rotate` | engine | 16 | Scene View toolbar | ok |
 | `tool.scale` | engine | 16 | Scene View toolbar | ok |
 | `tool.select` | engine | 16 | Scene View toolbar | ok |
+| `tool.select_ellipse` | engine | 16 | Pixel Art Studio: elliptical selection tool | ok |
+| `tool.selection` | engine | 16 | Pixel Art Studio: rectangular selection tool | ok |
+| `tool.wand` | engine | 16 | Pixel Art Studio: Magic Wand tool | ok |
 | `tpl.ball` | engine | 16 | template physics.ball | ok |
 | `tpl.platform` | engine | 16 | template physics.platform | ok |
 | `tpl.static` | engine | 16 | template physics.static | ok |
@@ -199,7 +214,8 @@ Sources are `<id>.svg` files in `engine/res/icons/src` and `modules/<id>/res/ico
 | `ui.chevron_right` | engine | 16 | trees and submenus | ok |
 | `ui.chevron_up` | engine | 16 | Find: previous match; Table: sorted ascending | ok |
 | `ui.close` | engine | 16 | tabs, chips, dialogs, clear buttons of fields and lists | ok |
-| `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves | ok |
+| `ui.curve` | engine | 16 | Documentation: curves module; Animation panel: Curves; Pixel Art Studio: curve tool | ok |
+| `ui.hidden` | engine | 16 | Pixel Art Studio: hidden layer | ok |
 | `ui.lock` | engine | 16 | Inspector: locked | ok |
 | `ui.minus` | engine | 16 | list editors: remove | ok |
 | `ui.more` | engine | 16 | card menus; reference field picker | ok |

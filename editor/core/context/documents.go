@@ -26,6 +26,9 @@ func (e *Editor) assetRequest(id ids.AssetID) (document.AssetRequest, error) {
 	entry, known := e.Pipeline.Entry(id)
 	rel, source := e.Pipeline.PathOf(id)
 	if !known && !source {
+		if working, ok := e.workingPreviewAsset(id); ok {
+			return working, nil
+		}
 		if src, ok := e.Thumbs.(interface {
 			SourceFile(ids.AssetID) (pipeline.AssetInfo, bool)
 		}); ok {

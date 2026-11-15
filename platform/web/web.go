@@ -45,6 +45,7 @@ type Platform struct {
 	win             *Window
 	queue           []platform.Event
 	spare           []platform.Event
+	deferred        []platform.Event
 	listeners       []listener
 	noop            js.Func
 	start           float64
@@ -192,6 +193,25 @@ func (p *Platform) PollEvents(fn func(platform.Event)) {
 		w.refresh(true)
 	}
 	p.pollPads()
+	if w := p.win; w != nil && w.fence.hit != nil && (len(p.queue) != 0 || len(p.deferred) != 0 || w.fence.wait || w.fence.delayed) {
+		// Older deferred events precede anything produced during or after the
+		// last poll. Keep that order when a second pointer click is deferred.
+		if len(p.deferred) != 0 {
+			p.deferred = append(p.deferred, p.queue...)
+			p.queue = p.queue[:0]
+			focused := p.doc.Get("activeElement").Equal(w.canvas)
+			n := w.fence.dispatch(p.deferred, focused, w.textInput, fn)
+			copy(p.deferred, p.deferred[n:])
+			p.deferred = p.deferred[:len(p.deferred)-n]
+			return
+		}
+		p.spare, p.queue = p.queue, p.spare[:0]
+		focused := p.doc.Get("activeElement").Equal(w.canvas)
+		n := w.fence.dispatch(p.spare, focused, w.textInput, fn)
+		p.deferred = append(p.deferred[:0], p.spare[n:]...)
+		p.spare = p.spare[:0]
+		return
+	}
 	if len(p.queue) == 0 {
 		return
 	}
@@ -284,6 +304,7 @@ type Window struct {
 	maxDPR    float64
 	last      mathx.Vec2
 	textInput bool
+	fence     inputFence
 	cursor    platform.CursorShape
 	wantLock  bool
 	locked    bool
@@ -398,6 +419,31 @@ func (w *Window) StartTextInput() {
 
 func (w *Window) StopTextInput() {
 	w.textInput = false
+}
+
+// FenceTextInputClicks opts a canvas UI into preserving keyboard input that
+// arrives immediately after a click in one of its text-capable regions.
+// The predicate is evaluated against the last presented logical layout, with
+// release false for pointerdown and true for the matching pointerup.
+func (w *Window) FenceTextInputClicks(hit func(mathx.Vec2, bool) bool) {
+	w.CancelTextInputFence()
+	if hit == nil {
+		w.fence.hit = nil
+	} else {
+		w.fence.hit = func(pos mathx.Vec2, release bool) bool {
+			return !w.locked && hit(pos, release)
+		}
+	}
+}
+
+// CancelTextInputFence drops gestures already queued for the old document,
+// including input before the next poll, but retains release and system events.
+func (w *Window) CancelTextInputFence() {
+	if w.fence.hit != nil {
+		w.p.deferred = discardHeldInput(w.p.deferred)
+		w.p.queue = discardHeldInput(w.p.queue)
+	}
+	w.fence.reset()
 }
 
 func (w *Window) SetTextInputArea(mathx.Rect, int) {}

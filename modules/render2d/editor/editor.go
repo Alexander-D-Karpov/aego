@@ -26,6 +26,9 @@ func Hook(e *ext.Registry) error {
 	if err := imageHooks(e); err != nil {
 		return err
 	}
+	if err := spriteInspectorHooks(e); err != nil {
+		return err
+	}
 	if err := e.Bounds("engine.SpriteRenderer", SpriteShape); err != nil {
 		return err
 	}

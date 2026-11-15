@@ -23,6 +23,8 @@ The documentation site, the editor's documentation panel, hover text in the scri
 | `summary` | One sentence for lists and search, at most 160 characters. Without it the first sentence of the opening paragraph is used. |
 | `try`, `try_select` | A try scene for a guide page and the node it selects. |
 | `keys` | Keywords whose hover text this page provides. |
+| `search_names` | Search-only aliases, for example `[bloom, glow]`. Translated files can add local phrases; aliases work in both languages without changing script keyword hover keys. |
+| `params` | Documentation-only names for every parameter of an existing function or method, for example `[key, value]`. Count and names are validated; bindings and ABI are unchanged. |
 | `style_allow` | Lint patterns this page may match, such as `[agent]`. Say why in the review. |
 | `editor_only` | The page is shown only in the editor. |
 | `code`, `severity`, `scope`, `example` | Diagnostic pages only. |
@@ -50,6 +52,8 @@ The documentation site, the editor's documentation panel, hover text in the scri
 ## Links
 
 `[text](ref:<id>)` links a page, a component (`ref:gameplay.Motion2D`), a field or a script function. A broken `ref:` link is an error. A name in backticks that looks like a component, function or field must exist in the reference.
+
+The website only auto-links exact qualified technical IDs and registered diagnostic codes in prose. It does not guess links for bare names such as `Floor`, `State` or `Range`, or for identifiers inside executable snippets: the syntax highlighter cannot resolve local declarations or shadowing. Add an explicit `ref:` link in the explanation when a snippet uses an API. Code copying preserves the original source.
 
 ## Checking
 

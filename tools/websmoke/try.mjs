@@ -5,6 +5,7 @@ import { chromium } from "playwright-core";
 import pixelmatch from "pixelmatch";
 import pngjs from "pngjs";
 import { installTrafficProbe, summarizeTraffic, measureTrafficFrames } from "./traffic.mjs";
+import { pauseAtMaterialFlash } from "./try-pulse.mjs";
 
 const { PNG } = pngjs;
 
@@ -69,6 +70,47 @@ async function startTry(url) {
 
 const frameNow = async () => (await call("state")).state.frames;
 
+async function clickTryCanvas() {
+    const canvas = page.locator(".try canvas");
+    // Guide examples can be below the viewport. Pointer coordinates from an
+    // unscrolled bounding box do not represent a click on the canvas.
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("Try canvas has no clickable bounds");
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
+}
+
+async function clickTryInspector() {
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.x + viewport.width + 20 >= viewport.canvasWidth || viewport.y + 10 >= viewport.canvasHeight)
+        throw new Error("Try Inspector is not beside the Game View");
+    await canvas.click({ position: {
+        x: (viewport.x + viewport.width + 20) * box.width / viewport.canvasWidth,
+        y: (viewport.y + 10) * box.height / viewport.canvasHeight,
+    } });
+}
+
+async function runningAfterRestart(previous = -1, frames = 30) {
+    await page.waitForFunction(({ previous, frames }) => {
+        const status = document.querySelector(".try .try-status");
+        if (status?.classList.contains("error")) throw new Error(status.textContent);
+        const state = JSON.parse(globalThis.aegoDocs.call("state", "{}")).state;
+        return state?.running && !state.paused && state.frames >= frames && state.restarts > previous;
+    }, { previous, frames }, { timeout: 120000, polling: 100 });
+}
+
+async function inspect(component, expected) {
+    const result = await call("inspect", { component, fields: Object.keys(expected) });
+    if (result.error || !result.inspection?.runtimeExecuting) throw new Error(`${component} inspection: ${JSON.stringify(result)}`);
+    for (const [name, want] of Object.entries(expected)) {
+        if (result.inspection.observables?.[name] !== want)
+            throw new Error(`${name}: expected ${JSON.stringify(want)}, got ${JSON.stringify(result.inspection.observables?.[name])}`);
+    }
+}
+
 async function golden(name, shot) {
     const file = path.join(goldenDir, name + ".png");
     if (update) {
@@ -96,25 +138,69 @@ async function golden(name, shot) {
     console.log(`${name}: ${pct.toFixed(3)}% of pixels differ`);
 }
 
-// sound plays the Audio Source 2D try scene and expects the output to carry sound.
+// The component demo starts a deliberately silent voice; the original guide
+// still checks nonzero output through Chromium's muted virtual audio sink.
 async function sound() {
     await startTry("/ref/audio.AudioSource2D.html");
-    const box = await page.locator(".try canvas").boundingBox();
-    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
+    await clickTryCanvas();
+    const component = "audio.AudioSource2D";
+    const fields = (playing) => ({ [`${component}.PlayOnStart`]: playing, [`${component}.Playing`]: playing });
+    await inspect(component, fields(false));
+    const previous = (await call("state")).state.restarts;
+    const edited = await call("set", { component, field: "PlayOnStart", value: 1 });
+    if (edited.error) throw new Error("audio source edit: " + edited.error);
+    await runningAfterRestart(previous);
+    await inspect(component, fields(true));
+    const reset = await call("reset");
+    if (reset.error) throw new Error("audio source reset: " + reset.error);
+    await runningAfterRestart();
+    await inspect(component, fields(false));
+    console.log("try: AudioSource2D starts and resets its real silent voice");
+
+    await startTry("/audio.html");
+    await clickTryCanvas();
     await sleep(1500);
     const st = JSON.parse(await page.evaluate(() => globalThis.aegoAudioStats()));
-    if (!st.running || !(st.rms > 0)) fail(`try AudioSource2D is silent: ${JSON.stringify(st)}`);
-    else console.log(`try: AudioSource2D plays, rms ${st.rms.toFixed(3)}`);
+    if (!st.running || !(st.rms > 0)) fail(`audio guide is silent: ${JSON.stringify(st)}`);
+    else console.log(`try: original audio guide plays through muted browser, rms ${st.rms.toFixed(3)}`);
 }
 
-// motion holds ArrowRight for 60 frames in the Motion 2D try scene: the hint goes away on the click and the player moves right.
+// Check the focused component's actual body, then retain the original guide's
+// keyboard, input hint, Reset and golden-image checks.
 async function motion() {
     await startTry("/ref/gameplay.Motion2D.html");
+    const origin = (await call("pose", { node: "Motion marker" })).pose;
+    if (!origin || origin.length !== 2) throw new Error("the Motion 2D component marker is missing");
+    const previous = (await call("state")).state.restarts;
+    const edited = await call("set", { component: "gameplay.Motion2D", field: "MaxSpeed", value: 6 });
+    if (edited.error) throw new Error("motion component edit: " + edited.error);
+    await runningAfterRestart(previous);
+    const moved = (await call("pose", { node: "Motion marker" })).pose;
+    if (!moved || moved[0] <= origin[0] + 0.5) throw new Error(`Motion 2D component did not move: ${JSON.stringify(origin)} -> ${JSON.stringify(moved)}`);
+    const componentReset = await call("reset");
+    if (componentReset.error) throw new Error("motion component reset: " + componentReset.error);
+    await runningAfterRestart();
+    const restored = (await call("pose", { node: "Motion marker" })).pose;
+    if (!restored || restored.some((v, i) => Math.abs(v - origin[i]) > 1e-6))
+        throw new Error(`Motion 2D component did not reset: ${JSON.stringify(origin)} -> ${JSON.stringify(restored)}`);
+    console.log("try: Motion2D component moved its body and reset");
+
+    await startTry("/gameplay/motion.html");
     if (!(await page.locator(".try[data-input]").count())) fail("the Motion 2D try block does not ask for input");
     if (!(await page.locator(".try .try-input").count())) fail("the Motion 2D try scene shows no input hint");
     const from = (await call("pose", { node: "Player" })).pose;
-    const box = await page.locator(".try canvas").boundingBox();
-    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.5);
+    // The Inspector and game share one canvas. Clicking the Inspector focuses
+    // that canvas but must not dismiss the hint or route keys into the game.
+    await clickTryInspector();
+    if (!(await page.locator(".try .try-input").count())) fail("clicking the Inspector hid the game input hint");
+    await page.keyboard.down("ArrowRight");
+    const beforeInspectorKey = await frameNow();
+    await page.waitForFunction((n) => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n, beforeInspectorKey + 20, { timeout: 30000, polling: 16 });
+    await page.keyboard.up("ArrowRight");
+    const beforeGameFocus = (await call("pose", { node: "Player" })).pose;
+    if (!from || !beforeGameFocus || Math.abs(beforeGameFocus[0] - from[0]) > 0.1)
+        fail(`the Inspector click routed keyboard input into the game: ${JSON.stringify(from)} -> ${JSON.stringify(beforeGameFocus)}`);
+    await clickTryCanvas();
     if (await page.locator(".try .try-input").count()) fail("the input hint stays after a click on the canvas");
     await page.keyboard.down("ArrowRight");
     const start = await frameNow();
@@ -160,6 +246,157 @@ async function motion() {
     await golden("try-motion2d", PNG.sync.read(shot));
 }
 
+// A real pointerdown and a key tap in the same browser task must reach the
+// freshly focused game. Holding B or injecting input after several frames
+// would miss the first-frame routing regression this checks.
+async function focusAndTap() {
+    await startTry("/animation/player.html");
+    const component = "animation.AnimationPlayer", field = `${component}.Speed`;
+    const speed = async () => {
+        const reply = await call("inspect", { component, fields: [field] });
+        if (reply.error || !reply.inspection?.runtimeExecuting || typeof reply.inspection.observables?.[field] !== "number")
+            throw new Error(`try Animation Player speed is unavailable: ${JSON.stringify(reply)}`);
+        return reply.inspection.observables[field];
+    };
+    const before = await speed();
+    if (before === 0) throw new Error("try Animation Player started with zero speed");
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.width <= 50 || viewport.height <= 30)
+        throw new Error("try Animation Player Game View is unavailable");
+    await canvas.evaluate((element) => {
+        globalThis.__aegoFocusProbe = null;
+        element.addEventListener("pointerdown", (event) => {
+            globalThis.__aegoFocusProbe = { trusted: event.isTrusted, primary: event.isPrimary, button: event.button };
+            element.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, code: "KeyB", key: "b" }));
+            element.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, cancelable: true, code: "KeyB", key: "b" }));
+        }, { once: true });
+    });
+    await canvas.click({ position: {
+        x: (viewport.x + 50) * box.width / viewport.canvasWidth,
+        y: (viewport.y + 30) * box.height / viewport.canvasHeight,
+    } });
+    const pointer = await page.evaluate(() => globalThis.__aegoFocusProbe);
+    if (!pointer?.trusted || !pointer.primary || pointer.button !== 0)
+        throw new Error(`try Animation Player pointer was not a trusted primary click: ${JSON.stringify(pointer)}`);
+    await page.waitForFunction(({ component, field, expected }) => {
+        const reply = JSON.parse(globalThis.aegoDocs.call("inspect", JSON.stringify({ component, fields: [field] })));
+        return reply.inspection?.runtimeExecuting && reply.inspection.observables?.[field] === expected;
+    }, { component, field, expected: -before }, { timeout: 15000, polling: 50 });
+    console.log(`try: Animation Player first focused tap reversed speed ${before} -> ${await speed()}`);
+}
+
+// The Inspector is drawn inside the canvas. A real click can be followed by
+// text, Backspace and Enter before the next frame; exercise their ordering,
+// then use the visible Undo, Redo and Reset controls on the actual guide.
+async function inspectorQuickText() {
+    await startTry("/ru/gameplay/health.html");
+    const component = "gameplay.Health";
+    const field = '.try .st-fields .v[data-k$="component:gameplay.Health/max"]';
+    const expected = (value) => ({ [`${component}.Max`]: value, [`${component}.Current`]: value });
+    const waitValue = async (value, previous, history) => {
+        const h = await page.waitForFunction(({ field, component, value, previous, history }) => {
+            const invoke = (method, payload = {}) => JSON.parse(globalThis.aegoDocs.call(method, JSON.stringify(payload)));
+            const state = invoke("state").state;
+            const inspection = invoke("inspect", { component, fields: [`${component}.Max`, `${component}.Current`] }).inspection;
+            if (document.querySelector(field)?.textContent !== String(value) || !state?.running || state.paused ||
+                state.restarts <= previous || !inspection?.runtimeExecuting ||
+                inspection.observables?.[`${component}.Max`] !== value || inspection.observables?.[`${component}.Current`] !== value) return false;
+            if (history === "undo" && !state.canRedo || history === "redo" && !state.canUndo) return false;
+            if (history === "reset" && (state.canUndo || state.canRedo)) return false;
+            return state;
+        }, { field, component, value, previous, history }, { timeout: 30000, polling: 50 });
+        const state = await h.jsonValue();
+        await h.dispose();
+        return state;
+    };
+    await inspect(component, expected(5));
+    const canvas = page.locator(".try canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const viewport = (await call("viewport")).viewport;
+    if (!box || !viewport || viewport.canvasWidth - viewport.x - viewport.width < 350 || viewport.canvasHeight < 500)
+        throw new Error("try Health Inspector has an unexpected desktop layout");
+    const point = (x, y) => ({ x: x * box.width / viewport.canvasWidth, y: y * box.height / viewport.canvasHeight });
+    const scroll = point(viewport.x + viewport.width + 300, viewport.y + viewport.height * 0.7);
+    await page.mouse.move(box.x + scroll.x, box.y + scroll.y);
+    for (let i = 0; i < 2; i++) {
+        const before = await frameNow();
+        await page.mouse.wheel(0, 400);
+        await page.waitForFunction(n => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n + 2,
+            before, { timeout: 30000, polling: 16 });
+    }
+    const before = (await call("state")).state.restarts;
+    await canvas.evaluate(element => {
+        globalThis.__aegoInspectorProbe = null;
+        element.addEventListener("pointerup", event => {
+            globalThis.__aegoInspectorProbe = { trusted: event.isTrusted, primary: event.isPrimary, button: event.button };
+            for (const [key, code] of [["9", "Digit9"], ["Backspace", "Backspace"], ["2", "Digit2"], ["Enter", "Enter"]])
+                for (const type of ["keydown", "keyup"])
+                    element.dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key, code }));
+        }, { once: true });
+    });
+    await canvas.click({ position: point(viewport.x + viewport.width + 270, 137) });
+    const pointer = await page.evaluate(() => globalThis.__aegoInspectorProbe);
+    if (!pointer?.trusted || !pointer.primary || pointer.button !== 0)
+        throw new Error(`try Inspector pointer was not a trusted primary click: ${JSON.stringify(pointer)}`);
+    const edited = await waitValue(2, before, "redo");
+    await canvas.click({ position: point(180, 15) }); // Отменить
+    const undone = await waitValue(5, edited.restarts, "undo");
+    await canvas.click({ position: point(260, 15) }); // Повторить
+    await waitValue(2, undone.restarts, "redo");
+    const reset = page.locator(".try .try-reset");
+    await reset.evaluate(button => {
+        globalThis.__aegoInspectorReset = null;
+        button.addEventListener("click", event => {
+            globalThis.__aegoInspectorReset = { trusted: event.isTrusted, state: JSON.parse(globalThis.aegoDocs.call("state", "{}")).state };
+        }, { once: true });
+    });
+    await reset.click();
+    const receipt = await page.evaluate(() => globalThis.__aegoInspectorReset);
+    if (!receipt?.trusted || receipt.state?.frames !== 0 || receipt.state.canUndo || receipt.state.canRedo)
+        throw new Error(`try Inspector Reset was not a fresh trusted reset: ${JSON.stringify(receipt)}`);
+    await waitValue(5, -1, "reset");
+    const waitFrames = async count => {
+        const frame = await frameNow();
+        await page.waitForFunction(n => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n,
+            frame + count, { timeout: 30000, polling: 50 });
+    };
+    const startPendingEdit = async value => {
+        await canvas.click({ position: point(viewport.x + viewport.width + 270, 137) });
+        await waitFrames(3);
+        await page.keyboard.type(String(value));
+        await waitFrames(4);
+    };
+    // Reset must discard a focused, uncommitted edit, even if the canvas is
+    // later focused and Enter is pressed. Actions here use real browser input.
+    await startPendingEdit(9);
+    if ((await page.locator(field).textContent()) !== "5") throw new Error("try Inspector edit committed before Reset");
+    await reset.click();
+    await canvas.focus();
+    await page.keyboard.press("Enter");
+    await waitFrames(30);
+    await waitValue(5, -1, "reset");
+
+    // Repeat with the in-canvas Reset button, starting from a real committed
+    // edit so a missed toolbar click cannot pass as a successful reset.
+    const beforeToolbarEdit = (await call("state")).state.restarts;
+    await startPendingEdit(2);
+    await page.keyboard.press("Enter");
+    await waitValue(2, beforeToolbarEdit, "redo");
+    await startPendingEdit(9);
+    if ((await page.locator(field).textContent()) !== "2") throw new Error("try Inspector second edit committed early");
+    await canvas.click({ position: point(100, 15) }); // Сбросить
+    await waitValue(5, -1, "reset");
+    await waitFrames(30);
+    await waitValue(5, -1, "reset");
+    const errors = (await call("log")).log?.filter(line => line.error) || [];
+    if (errors.length) throw new Error(`try Inspector runtime errors: ${JSON.stringify(errors)}`);
+    console.log("try: ordered Inspector text, Undo, Redo and both dirty-field Resets work");
+}
+
 // Exercise the published guide's albedo/normal/material bundle and moving-light script; static HTML cannot prove the docs WASM runtime can mount and play it.
 async function normalMapping(url = "/render2d/normal-mapping.html") {
     await startTry(url);
@@ -189,15 +426,51 @@ async function lightingAndMaterials() {
         { name: "LightOccluder2D", node: "Manual occluder", field: "closed", value: 0, text: "false" },
         { name: "LightingEnvironment2D", node: "Lighting environment", field: "ambientIntensity", value: 0.37, text: "0.37" },
         { name: "MaterialOverride", node: "Flash instance", animated: true },
+        { name: "Mesh2D", node: "Mesh 2D", field: "order", value: 0, text: "0", initial: "2", visualOrder: true },
+        { name: "SpriteRenderer", node: "Sprite", field: "order", value: -1, text: "-1", initial: "1", visualOrder: true },
     ];
     for (const prefix of ["", "/ru"]) {
         for (const example of cases) {
+            if (opts["mesh-only"] === "true" && example.name !== "Mesh2D") continue;
+            if (opts["components-only"] === "true" && !example.visualOrder) continue;
             const component = `engine.${example.name}`;
             await startTry(`${prefix}/ref/${component}.html`);
             if (await page.locator(".try").first().getAttribute("data-select") !== component)
                 throw new Error(`try ${component}: incorrect component selection`);
             const pose = await call("pose", { node: example.node });
             if (!pose.pose || pose.pose.length !== 2) throw new Error(`try ${component}: missing ${example.node}`);
+            if (example.animated) {
+                const fields = (value, explicit) => ({
+                    "engine.MaterialOverride.FlashValue": value,
+                    "engine.MaterialOverride.FlashExplicit": explicit,
+                    "engine.MaterialOverride.ReferenceFlash": 0,
+                });
+                await inspect(component, fields(0, false));
+                const previous = (await call("state")).state.restarts;
+                const toggle = await call("scriptEnabled", { script: "game.demo.SetFlash", enabled: true });
+                if (toggle.error) throw new Error("try MaterialOverride action: " + toggle.error);
+                await runningAfterRestart(previous);
+                await inspect(component, fields(1, true));
+                const reset = await call("reset");
+                if (reset.error) throw new Error("try MaterialOverride reset: " + reset.error);
+                await runningAfterRestart();
+                await inspect(component, fields(0, false));
+                // The old scripted pulse remains on the materials guide; test
+                // it as well rather than losing this Stage 12 regression.
+                await startTry(`${prefix}/render2d/materials.html`);
+                const guidePose = await call("pose", { node: example.node });
+                if (!guidePose.pose || guidePose.pose.length !== 2) throw new Error("material guide is missing the pulse instance");
+            }
+            const gameImage = async () => {
+                await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+                const shot = PNG.sync.read(await page.locator(".try canvas").screenshot());
+                const width = Math.floor(shot.width / 2), height = shot.height - 30;
+                const data = Buffer.alloc(width * height * 4);
+                for (let y = 0; y < height; y++)
+                    shot.data.copy(data, y * width * 4, ((y + 30) * shot.width) * 4, ((y + 30) * shot.width + width) * 4);
+                return { width, height, data };
+            };
+            const beforeOrder = example.visualOrder ? await gameImage() : null;
             if (example.field) {
                 const previous = (await call("state")).state.restarts;
                 const result = await call("set", { component, field: example.field, value: example.value });
@@ -209,6 +482,22 @@ async function lightingAndMaterials() {
                     return cell?.textContent?.trim() === text && cell.classList.contains("changed") && state?.restarts > restarts;
                 }, [selector, example.text, previous], { timeout: 20000, polling: 100 });
             }
+            if (example.visualOrder) {
+                const edited = await gameImage();
+                if (edited.width !== beforeOrder.width || edited.height !== beforeOrder.height ||
+                    pixelmatch(beforeOrder.data, edited.data, null, edited.width, edited.height, { threshold: 0.05 }) < 100)
+                    throw new Error(`try ${component}: changing order did not visibly affect the Game View`);
+                const reset = await call("reset");
+                if (reset.error) throw new Error(`try ${component} reset: ` + reset.error);
+                await page.waitForFunction(([sel, value]) => {
+                    const cell = document.querySelector(sel);
+                    return cell?.textContent?.trim() === value && !cell.classList.contains("changed");
+                }, [`.try .st-fields .v[data-k$="component:${component}/${example.field}"]`, example.initial], { timeout: 20000 });
+                const restored = await gameImage();
+                if (restored.width !== beforeOrder.width || restored.height !== beforeOrder.height ||
+                    pixelmatch(beforeOrder.data, restored.data, null, restored.width, restored.height, { threshold: 0.05 }) > 99)
+                    throw new Error(`try ${component}: Reset did not restore the Game View`);
+            }
             if (example.animated) {
                 const reset = await page.evaluate(() => {
                     const invoke = (m) => JSON.parse(globalThis.aegoDocs.call(m, "{}"));
@@ -218,14 +507,31 @@ async function lightingAndMaterials() {
                 });
                 if (reset.error || !reset.state?.paused || reset.state.frames !== 0)
                     throw new Error("try MaterialOverride: could not pause the reset scene");
-                const sample = async (frame) => {
-                    await call("play");
-                    await page.waitForFunction((n) => JSON.parse(globalThis.aegoDocs.call("state", "{}")).state.frames >= n, frame, { timeout: 30000, polling: 16 });
-                    await call("play");
+                // A frame number is not an animation time: under different
+                // render pacing, frames 12 and 50 can show the same phase.
+                // Observe actual Flash and pause in the same page turn, then
+                // check the real Game View without reducing its pixel limit.
+                const sample = async (relation, threshold) => {
+                    const resumed = await call("play");
+                    if (resumed.error || !resumed.state?.running || resumed.state.paused)
+                        throw new Error("try MaterialOverride: could not resume the pulse");
+                    const handle = await page.waitForFunction(pauseAtMaterialFlash, { relation, threshold }, { timeout: 30000, polling: 16 });
+                    const observed = await handle.jsonValue();
+                    await handle.dispose();
                     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-                    return PNG.sync.read(await page.locator(".try canvas").screenshot());
+                    const image = PNG.sync.read(await page.locator(".try canvas").screenshot());
+                    const held = await call("state");
+                    const inspection = await call("inspect", { component, fields: ["engine.MaterialOverride.FlashValue"] });
+                    if (held.error || !held.state?.paused || held.state.frames !== observed.frames ||
+                        held.state.restarts !== observed.restarts || inspection.error ||
+                        inspection.inspection?.observables?.["engine.MaterialOverride.FlashValue"] !== observed.value)
+                        throw new Error("try MaterialOverride: pulse did not stay paused for its image");
+                    return { image, observed };
                 };
-                const before = await sample(12), after = await sample(50);
+                const low = await sample("atMost", 0.25), high = await sample("atLeast", 0.75);
+                if (high.observed.frames <= low.observed.frames || high.observed.restarts !== low.observed.restarts)
+                    throw new Error(`try MaterialOverride: pulse did not advance: ${JSON.stringify({ low: low.observed, high: high.observed })}`);
+                const before = low.image, after = high.image;
                 if (before.width !== after.width || before.height !== after.height)
                     throw new Error("try MaterialOverride: scene dimensions changed between samples");
                 // Compare the left-hand scene, excluding the changing Inspector/toolbar UI; subtle linear-to-display changes can fall below the golden's 0.1 threshold.
@@ -236,8 +542,10 @@ async function lightingAndMaterials() {
                         image.data.copy(data, y * width * 4, y * image.width * 4, (y * image.width + width) * 4);
                     return data;
                 };
-                if (pixelmatch(crop(before), crop(after), null, width, height, { threshold: 0.01 }) < 100)
-                    throw new Error("try MaterialOverride: the scripted pulse did not visibly change the scene");
+                const changed = pixelmatch(crop(before), crop(after), null, width, height, { threshold: 0.01 });
+                if (changed < 100)
+                    throw new Error(`try MaterialOverride: the scripted pulse did not visibly change the scene: ${changed} pixels, ${JSON.stringify({ low: low.observed, high: high.observed })}`);
+                console.log(`try: ${prefix || "/en"} MaterialOverride pulse ${low.observed.value.toFixed(3)} -> ${high.observed.value.toFixed(3)}, ${changed} changed pixels`);
             }
             console.log(`try: ${prefix || "/en"} ${component} runs${example.field ? " and edits" : " with animation"}`);
         }
@@ -259,6 +567,9 @@ const cell = '.try .st-fields .v[data-k$="component:physics.BoxCollider2D/restit
 const restitution = () => page.locator(cell).first().textContent();
 
 try {
+    if (opts["mesh-only"] === "true" || opts["components-only"] === "true") {
+        await lightingAndMaterials();
+    } else {
     let docsFetches = 0;
     page.on("request", (r) => {
         if (r.url().includes("/try/aego-docs.wasm")) docsFetches++;
@@ -322,9 +633,12 @@ try {
     else console.log("try: edit, restart, reset and runtime reuse work");
     await sound();
     await motion();
+    await focusAndTap();
+    await inspectorQuickText();
     await normalMapping();
     await normalMapping("/ru/render2d/normal-mapping.html");
     await lightingAndMaterials();
+    }
     }
 } catch (e) {
     fail(e.message);
@@ -336,4 +650,4 @@ if (failures.length) {
     console.error(`${failures.length} failure(s)`);
     process.exit(1);
 }
-console.log(measureOnly ? "web try measurement complete; functional gates not run" : "web try: ok");
+console.log(opts["mesh-only"] === "true" ? "web try Mesh2D only: ok; other scenarios not run" : opts["components-only"] === "true" ? "web try Mesh2D and SpriteRenderer only: ok; other scenarios not run" : measureOnly ? "web try measurement complete; functional gates not run" : "web try: ok");

@@ -1,4 +1,19 @@
 ---
+id: aego/camera.Pose.Position
+---
+Stores the camera's world-space centre in world units, not screen pixels.
+
+---
+id: aego/camera.Pose.Rotation
+---
+Stores the camera rotation in radians; blends use the shortest wrapped angular path.
+
+---
+id: aego/camera.Pose.Zoom
+---
+Stores the positive Camera2D zoom value. Increasing it magnifies the view and reduces the visible world area.
+
+---
 id: aego/camera
 summary: Picks and blends virtual cameras, shakes the view and converts between screen and world.
 ---

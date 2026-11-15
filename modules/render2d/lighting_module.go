@@ -50,7 +50,7 @@ func registerLighting(r *module.Registry) error {
 	).Category("Lighting").Display("Light 2D").Icon("render2d.point_light").NodeIcon(55).Default(DefaultLight2D).Validate(validateLight2D).Err(); err != nil {
 		return err
 	}
-	if err := module.Component[LightOccluder2D](r, schema.Name("engine.LightOccluder2D"), schema.Space(schema.Space2D),
+	if err := module.Component[LightOccluder2D](r, schema.Name("engine.LightOccluder2D"), schema.Space(schema.Space2D), schema.FullClone(cloneLightOccluder),
 		schema.Doc("A planar shadow contour. Manual polygons require no Physics module; ShapeProvider reads local geometry through the shapes2d contract."),
 		schema.FieldDoc("source", "Use a manual polygon/chain or a registered local-shape provider."),
 		schema.FieldDoc("polygon", "Simple local-space contour without holes; points follow the owner's presentation transform once."),

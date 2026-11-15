@@ -85,12 +85,14 @@ func (s *Scene) insertNameIndex(h NodeHandle, n *nodeData) {
 	if n.name == strs.Empty {
 		return
 	}
+	s.invalidateSnapshotIndex()
 	s.byName[nameKey{parent: n.parent, name: n.name}] = h
 }
 
 func (s *Scene) removeNameIndex(h NodeHandle, n *nodeData) {
 	key := nameKey{parent: n.parent, name: n.name}
 	if existing, ok := s.byName[key]; ok && existing == h {
+		s.invalidateSnapshotIndex()
 		delete(s.byName, key)
 	}
 }

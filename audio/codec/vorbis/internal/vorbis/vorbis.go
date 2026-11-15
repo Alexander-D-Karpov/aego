@@ -28,6 +28,9 @@ type Decoder struct {
 	residueBuffer [][]float32
 	floorBuffer   []floorData
 	rawBuffer     [][]float32
+	reader        bitReader
+	submapSkip    []bool
+	submapBuffers [][]float32
 }
 
 // The Bitrate of a vorbis stream.
@@ -111,7 +114,10 @@ func (d *Decoder) Decode(in []byte) ([]float32, error) {
 	if !d.HeadersRead() {
 		return nil, errors.New("vorbis: missing headers")
 	}
-	return d.decodePacket(newBitReader(in), nil)
+	d.reader = bitReader{data: in}
+	out, err := d.decodePacket(&d.reader, nil)
+	d.reader.data = nil
+	return out, err
 }
 
 // DecodeInto decodes a packet and stores the result in the given buffer.
@@ -124,7 +130,10 @@ func (d *Decoder) DecodeInto(in []byte, buffer []float32) ([]float32, error) {
 	if len(buffer) < d.BufferSize() {
 		return nil, errors.New("vorbis: buffer too short")
 	}
-	return d.decodePacket(newBitReader(in), buffer)
+	d.reader = bitReader{data: in}
+	out, err := d.decodePacket(&d.reader, buffer)
+	d.reader.data = nil
+	return out, err
 }
 
 // Clear must be called between decoding two non-consecutive packets.

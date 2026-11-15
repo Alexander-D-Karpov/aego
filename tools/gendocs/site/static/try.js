@@ -11,6 +11,7 @@
     let api = null;
     let active = null;
     let canvas = null;
+    let clearInputHint = null;
 
     function boot(report) {
         return globalThis.aegoRuntime("try", "aego-docs.wasm", "aegoDocsReady", "aegoDocs", report);
@@ -122,6 +123,7 @@
 
     function release(b) {
         clearInterval(soundTimer);
+        if (clearInputHint) clearInputHint();
         const sound = b.querySelector(".try-sound");
         if (sound) sound.hidden = true;
         b.classList.remove("active");
@@ -137,7 +139,8 @@
         status(b, "");
     }
 
-    // inputHint covers the canvas of a scene that reads the keyboard until the first click or focus on it.
+    // The canvas also contains the Inspector and toolbar: only a primary click
+    // in the actual Game View gives the scene keyboard input.
     function inputHint(stage) {
         if (stage.querySelector(".try-input")) return;
         const hint = document.createElement("div");
@@ -147,11 +150,26 @@
         stage.appendChild(hint);
         const done = () => {
             hint.remove();
-            canvas.removeEventListener("pointerdown", done);
-            canvas.removeEventListener("focus", done);
+            canvas.removeEventListener("pointerdown", onPointerDown);
+            clearInputHint = null;
         };
-        canvas.addEventListener("pointerdown", done);
-        canvas.addEventListener("focus", done);
+        const onPointerDown = (event) => {
+            if (event.button !== 0 || event.isPrimary === false) return;
+            let v;
+            try {
+                v = call("viewport").viewport;
+            } catch (_) {
+                return;
+            }
+            const r = canvas.getBoundingClientRect();
+            if (!v || ![v.x, v.y, v.width, v.height, v.canvasWidth, v.canvasHeight, r.width, r.height].every(Number.isFinite) ||
+                v.width <= 0 || v.height <= 0 || v.canvasWidth <= 0 || v.canvasHeight <= 0 || r.width <= 0 || r.height <= 0) return;
+            const x = (event.clientX - r.left) * v.canvasWidth / r.width;
+            const y = (event.clientY - r.top) * v.canvasHeight / r.height;
+            if (x >= v.x && x < v.x + v.width && y >= v.y && y < v.y + v.height) done();
+        };
+        clearInputHint = done;
+        canvas.addEventListener("pointerdown", onPointerDown);
     }
 
     // unlockAudio runs inside the click on Try it: a context made here starts running, while one made after the runtime boots would wait for another click.
@@ -220,7 +238,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        status(b, b.dataset.artifacts ? t("Scene saved. It needs the source assets from the complete example project linked in this guide.", "Сцена сохранена. Ей нужны исходные ресурсы полного проекта примера, указанного в руководстве.") : (ru ? "Сохранено " + a.download + "; откройте его в панели Сцены редактора или через Файл → Открыть" : "Saved " + a.download + "; open it from the editor's Scenes panel or File → Open"));
+        status(b, t("Edited scene saved. Keep it with the scripts, prefabs and source assets from Download example project.", "Изменённая сцена сохранена. Используйте её вместе со скриптами, префабами и ресурсами из «Скачать проект примера»."));
     }
 
     for (const b of blocks) {
@@ -233,7 +251,20 @@
             if (res.error) status(b, res.error, true);
             else show(b, res.text, res.values);
         });
-        b.querySelector(".try-open").addEventListener("click", () => download(b));
+        b.querySelector(".try-download").addEventListener("click", () => download(b));
+        const open = b.querySelector(".try-open");
+        if (open) open.addEventListener("click", (event) => {
+            // Links carry only the validated manifest URL and operation. A
+            // local/staging preview must not silently open production data.
+            const here = new URL(b.dataset.exampleManifest, location.href);
+            const link = new URL(open.href);
+            if (here.protocol !== "https:" || link.protocol !== "aego:" || link.hostname !== "example" || link.searchParams.get("manifest") !== here.href) {
+                event.preventDefault();
+                status(b, t("This is a local preview. Download the complete project, extract it and open project.aego in Aego.", "Это локальный предпросмотр. Скачайте полный проект, распакуйте его и откройте project.aego в Aego."));
+                return;
+            }
+            status(b, t("Aego will ask before downloading the original example. If Aego is not installed, use Download example project. Browser field edits stay here; download the edited scene to keep them.", "Aego запросит разрешение перед загрузкой исходного примера. Если редактор не установлен, скачайте проект примера. Изменения полей остаются здесь — скачайте изменённую сцену, чтобы сохранить их."));
+        });
         const sound = b.querySelector(".try-sound");
         if (sound) sound.addEventListener("click", () => {
             const st = audio();
@@ -244,7 +275,7 @@
         b.querySelector(".try-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(texts.get(b));
-                status(b, b.dataset.artifacts ? t("Scene copied. Its source assets belong to the complete example project described in this guide.", "Сцена скопирована. Её исходные ресурсы находятся в полном проекте примера, описанном в руководстве.") : t("Copied; paste it into a .aescene file in your project", "Скопировано; вставьте в файл .aescene в своём проекте"));
+                status(b, t("Scene copied. The complete example download includes its scripts, prefabs and source assets.", "Сцена скопирована. Скрипты, префабы и ресурсы включены в полный проект примера."));
             } catch (_) {
                 status(b, t("The browser blocked the clipboard", "Браузер заблокировал буфер обмена"), true);
             }

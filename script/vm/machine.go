@@ -25,6 +25,8 @@ const (
 	CodeHost        = diag.CodeHost
 )
 
+const hostStringCacheSize = 16
+
 type FrameInfo struct {
 	Function string
 	File     string
@@ -170,6 +172,10 @@ type Machine struct {
 	Scripts  Scripts
 	Signals  Signals
 	Co       CoHooks
+
+	// Recent host strings are weak handles: GC may collect them normally.
+	hostStrings [hostStringCacheSize]Value
+	hostNext    uint8
 }
 
 func New(opt Options) *Machine {
@@ -206,6 +212,23 @@ func (m *Machine) NewString(s string) Value {
 		return Value{}
 	}
 	return m.heap.newString(s)
+}
+
+// HostString reuses recent immutable strings read from host components. The
+// bounded cache is not a GC root, and stale handles are checked before reuse.
+func (m *Machine) HostString(s string) Value {
+	if s == "" {
+		return Value{}
+	}
+	for _, v := range m.hostStrings {
+		if o := m.heap.get(v.A); o != nil && o.str && o.s == s {
+			return v
+		}
+	}
+	v := m.heap.newString(s)
+	m.hostStrings[m.hostNext] = v
+	m.hostNext = (m.hostNext + 1) % uint8(len(m.hostStrings))
+	return v
 }
 
 func (m *Machine) Str(v Value) (string, bool) {

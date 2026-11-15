@@ -5,6 +5,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"aego/contracts/persistence"
@@ -19,10 +20,13 @@ func UseMemorySaves(e *engine.Engine) {
 }
 
 type memUser struct {
+	mu    sync.RWMutex
 	files map[string][]byte
 }
 
 func (m *memUser) ReadFile(p string) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	data, ok := m.files[path.Clean(p)]
 	if !ok {
 		return nil, fs.ErrNotExist
@@ -31,16 +35,22 @@ func (m *memUser) ReadFile(p string) ([]byte, error) {
 }
 
 func (m *memUser) WriteFile(p string, data []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.files[path.Clean(p)] = append([]byte(nil), data...)
 	return nil
 }
 
 func (m *memUser) Remove(p string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.files, path.Clean(p))
 	return nil
 }
 
 func (m *memUser) Stat(p string) (platform.UserEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	data, ok := m.files[path.Clean(p)]
 	if !ok {
 		return platform.UserEntry{}, fs.ErrNotExist
@@ -49,6 +59,8 @@ func (m *memUser) Stat(p string) (platform.UserEntry, error) {
 }
 
 func (m *memUser) List(dir string) ([]platform.UserEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	prefix := path.Clean(dir) + "/"
 	var out []platform.UserEntry
 	for p, data := range m.files {

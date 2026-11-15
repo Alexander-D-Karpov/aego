@@ -52,6 +52,7 @@ func main() {
 		img = set
 	}
 	info := macos.Info{Name: *name, Executable: exe, ID: *id, Version: *version, MinOS: "11.0", Category: "public.app-category.developer-tools",
+		URLSchemes: []string{"aego"},
 		Documents: []macos.DocType{
 			{Name: "Aego Project", Extensions: []string{"aego"}},
 			{Name: "Aego Scene", Extensions: []string{"aescene"}},

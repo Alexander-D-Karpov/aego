@@ -89,7 +89,7 @@ func (p *plugin) previewControls(ui *core.Context, s *scene.Scene, c *audio.Audi
 		p.notify(mod.Preview(s.Resolver(), c.Clip.ID, c.Loop))
 	}
 	if widgets.ButtonRect(ui, ui.ID("audio.unpreview"), stop, i18n.Tr("i18n.audio.stop", "Stop")) {
-		mod.StopPreview()
+		p.notify(mod.StopPreview())
 	}
 	clip, err := mod.Clip(s.Resolver(), c.Clip.ID)
 	if err != nil {

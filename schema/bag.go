@@ -40,6 +40,12 @@ func (b *PropertyBag) Delete(name string) bool {
 	return false
 }
 
+// Clone detaches nested lists, structs and curves from the original value.
+func (v Value) Clone() Value {
+	v.cloneReferences()
+	return v
+}
+
 func (b PropertyBag) Clone() PropertyBag {
 	out := PropertyBag{Props: slices.Clone(b.Props)}
 	for i := range out.Props {

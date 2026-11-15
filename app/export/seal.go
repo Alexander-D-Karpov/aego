@@ -43,18 +43,31 @@ func walkExport(dir string, dst *os.Root) ([32]byte, error) {
 	if err != nil {
 		return sum, err
 	}
+	info, err := os.Lstat(clean)
+	if err != nil {
+		return sum, err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return sum, errors.New("export directory was replaced by a symlink or is not a directory")
+	}
+	// System paths such as /var on macOS may have symlinked ancestors. Resolve
+	// them, but pin the final directory and still refuse links inside the export.
 	actual, err := filepath.EvalSymlinks(clean)
 	if err != nil {
 		return sum, err
 	}
-	if actual != clean {
-		return sum, errors.New("export directory was replaced by a symlink")
-	}
-	root, err := os.OpenRoot(clean)
+	root, err := os.OpenRoot(actual)
 	if err != nil {
 		return sum, err
 	}
 	defer root.Close()
+	opened, err := root.Stat(".")
+	if err != nil {
+		return sum, err
+	}
+	if !os.SameFile(info, opened) {
+		return sum, errors.New("export directory changed during verification")
+	}
 	const maxFiles = 32768
 	const maxBytes = 1 << 30
 	var count int

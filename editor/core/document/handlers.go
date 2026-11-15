@@ -46,6 +46,9 @@ type Handler struct {
 	Kinds        []asset.ArtifactKind
 	Extensions   []string
 	Roles        []string
+	// SourceExtensionsOnly specializes a source editor without claiming every
+	// prepared resource of the same kind (for example every PNG texture).
+	SourceExtensionsOnly bool
 	Capabilities Capabilities
 	TextSource   bool
 	Open         func(*AssetDocument) error
@@ -70,6 +73,12 @@ func (r *HandlerRegistry) Register(h Handler) error {
 		if slices.Equal(old.Roles, h.Roles) {
 			for _, k := range h.Kinds {
 				if slices.Contains(old.Kinds, k) {
+					if old.SourceExtensionsOnly != h.SourceExtensionsOnly {
+						continue
+					}
+					if old.SourceExtensionsOnly && !sourceExtensionsOverlap(old.Extensions, h.Extensions) {
+						continue
+					}
 					return fmt.Errorf("document kind %q already has handler %q", k, old.ID)
 				}
 			}
@@ -105,7 +114,12 @@ func (r *HandlerRegistry) Resolve(kind asset.ArtifactKind, name, role string) Ha
 	best, score := Handler{}, 0
 	for _, h := range r.entries {
 		s := 0
-		if slices.Contains(h.Kinds, kind) && kind != "" {
+		if h.SourceExtensionsOnly {
+			if !slices.Contains(h.Extensions, ext) || (kind != "" && !slices.Contains(h.Kinds, kind)) {
+				continue
+			}
+			s = 8
+		} else if slices.Contains(h.Kinds, kind) && kind != "" {
 			s = 2
 		} else if kind == "" && slices.Contains(h.Extensions, ext) {
 			s = 1

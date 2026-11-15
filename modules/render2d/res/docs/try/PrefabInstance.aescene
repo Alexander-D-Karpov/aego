@@ -1,65 +1,16 @@
 scene version=1 {
-  node "d5600000000000000000000000000001" prefab=asset("d5600000000000000000000000000f01") {
-    id "d5600000000000000000000000000101" node=node("d5600000000000000000000000000001") {}
-    override "d5600000000000000000000000000101" prop="node.name" value="Red" {}
-    override "d5600000000000000000000000000101" prop="transform.position" value=[-2, 0] {}
-    override "d5600000000000000000000000000103" prop="engine.SpriteRenderer.tint" value=#ef4444ff {}
-    override "d5600000000000000000000000000101" prop="script/game.demo.Spin.Speed" value=-3 {}
+  node "d5600000000000000000000000000201" prefab=asset("d5600000000000000000000000000f02") {
+    id "d5600000000000000000000000000301" node=node("d5600000000000000000000000000201") {}
+    override "d5600000000000000000000000000301" prop="node.name" value="Selected instance" {}
+    override "d5600000000000000000000000000301" prop="transform.position" value=[-2, 0] {}
   }
-  node "d5600000000000000000000000000002" prefab=asset("d5600000000000000000000000000f01") {
-    id "d5600000000000000000000000000101" node=node("d5600000000000000000000000000002") {}
-    override "d5600000000000000000000000000101" prop="node.name" value="Lamp" {}
-    override "d5600000000000000000000000000101" prop="transform.position" value=[-6, 0] {}
+  node "d5600000000000000000000000000202" prefab=asset("d5600000000000000000000000000f02") {
+    id "d5600000000000000000000000000301" node=node("d5600000000000000000000000000202") {}
+    override "d5600000000000000000000000000301" prop="node.name" value="Reference instance" {}
+    override "d5600000000000000000000000000301" prop="transform.position" value=[2, 0] {}
   }
-  node "d5600000000000000000000000000003" prefab=asset("d5600000000000000000000000000f01") {
-    id "d5600000000000000000000000000101" node=node("d5600000000000000000000000000003") {}
-    override "d5600000000000000000000000000101" prop="node.name" value="Big" {}
-    override "d5600000000000000000000000000101" prop="transform.position" value=[2, -0.6] {}
-    override "d5600000000000000000000000000101" prop="transform.scale" value=[1.5, 1.5] {}
-    override "d5600000000000000000000000000101" prop="script/game.demo.Spin.Speed" value=0.8 {}
-  }
-  node "d5600000000000000000000000000004" prefab=asset("d5600000000000000000000000000f01") {
-    id "d5600000000000000000000000000101" node=node("d5600000000000000000000000000004") {}
-    override "d5600000000000000000000000000101" prop="node.name" value="Blue" {}
-    override "d5600000000000000000000000000101" prop="transform.position" value=[6, 0] {}
-    override "d5600000000000000000000000000103" prop="engine.SpriteRenderer.tint" value=#3b82f6ff {}
-    override "d5600000000000000000000000000101" prop="script/game.demo.Spin.Speed" value=5 {}
-  }
-  node "d5600000000000000000000000000010" name="Floor" enabled=true layers=1 {
-    transform {
-      position=[0, 2.6]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.SpriteRenderer" version=1 {
-      sprite=asset("ae900000000000000000000000000010")
-      layer=0
-      order=0
-      tint=#374151ff
-      origin=[0.5, 0.5]
-      size=[18, 0.4]
-      flipX=false
-      flipY=false
-      blend=premultiplied
-      filter=nearest
-    }
-  }
-  node "d5600000000000000000000000000011" name="Camera" enabled=true layers=1 {
-    transform {
-      position=[0, 0]
-      rotation=0
-      scale=[1, 1]
-    }
-    component "engine.Camera2D" version=1 {
-      zoom=40
-      viewport=[0, 0, 1, 1]
-      mask=-1
-      order=0
-      clear=true
-      clearColor=#111827ff
-      scale=fitVirtual
-      virtual=[960, 540]
-      active=true
-    }
+  node "d5600000000000000000000000000203" name="Camera" enabled=true layers=1 {
+    transform { position=[0, 0] rotation=0 scale=[1, 1] }
+    component "engine.Camera2D" version=1 { zoom=40 clearColor=#111827ff scale=fitVirtual virtual=[960, 540] active=true }
   }
 }

@@ -31,14 +31,19 @@ func (f *floor0) ReadFrom(r *bitReader) error {
 	return nil
 }
 
-func (f *floor0) Decode(r *bitReader, books []codebook, n uint32) interface{} {
+func (f *floor0) Decode(r *bitReader, books []codebook, n uint32, data *floorData) bool {
 	amplitude := r.Read32(uint(f.amplitudeBits))
 	if amplitude == 0 {
-		return nil
+		return false
 	}
 	bookNumber := r.Read8(ilog(len(f.bookList)))
 	book := books[f.bookList[bookNumber]]
-	coefficients := make([]float32, f.order)
+	coefficients := data.floor0.coefficients
+	if cap(coefficients) < int(f.order) {
+		coefficients = make([]float32, f.order)
+	} else {
+		coefficients = coefficients[:f.order]
+	}
 	i := 0
 	last := float32(0)
 	for {
@@ -47,15 +52,16 @@ func (f *floor0) Decode(r *bitReader, books []codebook, n uint32) interface{} {
 			coefficients[i] = c + last
 			i++
 			if i >= len(coefficients) {
-				return floor0Data{amplitude, coefficients}
+				data.floor0 = floor0Data{amplitude, coefficients}
+				return true
 			}
 		}
 		last = tempVector[len(tempVector)-1]
 	}
 }
 
-func (f *floor0) Apply(out []float32, data interface{}) {
-	d := data.(floor0Data)
+func (f *floor0) Apply(out []float32, data *floorData) {
+	d := data.floor0
 	n := uint32(len(out))
 	i := uint32(0)
 	for i < n {
@@ -65,11 +71,11 @@ func (f *floor0) Apply(out []float32, data interface{}) {
 		var p, q float64
 		if f.order%2 == 1 {
 			p = 1 - cosw*cosw
-			for j := 0; j <= int(f.order-3)/2; j++ {
+			for j := 0; j <= (int(f.order)-3)/2; j++ {
 				tmp := math.Cos(float64(d.coefficients[2*j+1])) - cosw
 				p *= 4 * tmp * tmp
 			}
-			q = 1 / 4
+			q = 0.25
 			for j := 0; j <= int(f.order-1)/2; j++ {
 				tmp := math.Cos(float64(d.coefficients[2*j])) - cosw
 				q *= 4 * tmp * tmp

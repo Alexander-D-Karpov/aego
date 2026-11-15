@@ -72,21 +72,77 @@ fi
 [ "$want" = "$got" ] || { say "install.sh: checksum mismatch, refusing to install"; exit 1; }
 
 tar -C "$tmp" -xzf "$file"
-dir=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -name 'aego-*' | head -n 1)
+dir=""
+for candidate in "$tmp"/aego-*; do
+	[ -d "$candidate" ] || continue
+	[ ! -L "$candidate" ] && [ -z "$dir" ] || { say "install.sh: archive must contain one Aego directory"; exit 1; }
+	dir=$candidate
+done
+[ -n "$dir" ] || { say "install.sh: archive has no Aego directory"; exit 1; }
+[ -f "$dir/VERSION" ] && [ ! -L "$dir/VERSION" ] && [ "$(wc -c < "$dir/VERSION")" -le 512 ] || {
+	say "install.sh: archive has no valid VERSION file"; exit 1;
+}
+[ -d "$dir/bin" ] && [ ! -L "$dir/bin" ] && [ -f "$dir/bin/aego" ] && [ ! -L "$dir/bin/aego" ] && [ -x "$dir/bin/aego" ] || {
+	say "install.sh: archive has no executable Aego binary"; exit 1;
+}
+
+# Reject invalid version components before touching installation paths.
+tag=$(head -n 1 "$dir/VERSION")
+case "$tag" in
+nightly)
+	commit=$(sed -n 2p "$dir/VERSION")
+	case "$commit" in ''|*[!0123456789abcdef]*) say "install.sh: invalid nightly commit"; exit 1 ;; esac
+	[ "${#commit}" -eq 40 ] || [ "${#commit}" -eq 64 ] || { say "install.sh: invalid nightly commit length"; exit 1; }
+	ver="nightly-$(printf '%s' "$commit" | cut -c1-7)" ;;
+v[0-9]* | [0-9]*)
+	ver=${tag#v}
+	case "$ver" in *[!0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.+_-]*) say "install.sh: invalid release version"; exit 1 ;; esac ;;
+*) say "install.sh: invalid release version"; exit 1 ;;
+esac
+[ "${#ver}" -le 100 ] || { say "install.sh: release version is too long"; exit 1; }
+
 # share/aego holds one folder per version; current and previous point at them, so the editor can update itself and go back
 root="$prefix/share/aego"
+[ ! -L "$root" ] && { [ ! -e "$root" ] || [ -d "$root" ]; } || { say "install.sh: installation root is not a directory"; exit 1; }
+for link in "$root/current" "$root/previous"; do
+	[ ! -e "$link" ] || [ -L "$link" ] || { say "install.sh: existing entry is not a symlink: $link"; exit 1; }
+done
+if [ -L "$prefix/bin/aego" ]; then
+	case "$(readlink "$prefix/bin/aego")" in
+	"$root/current/bin/aego" | "$root/bin/aego") ;;
+	*) say "install.sh: existing aego command belongs to another installation"; exit 1 ;;
+	esac
+elif [ -e "$prefix/bin/aego" ]; then
+	say "install.sh: existing aego command is not a symlink"; exit 1
+fi
+if [ -d "$root/bin" ]; then
+	[ ! -e "$root.legacy" ] && [ ! -L "$root.legacy" ] || { say "install.sh: legacy backup already exists: $root.legacy"; exit 1; }
+fi
 mkdir -p "$prefix/bin" "$root"
 if [ -d "$root/bin" ]; then
-	rm -rf "$root.legacy" && mv "$root" "$root.legacy" && mkdir -p "$root" && mv "$root.legacy" "$root/legacy"
+	mv "$root" "$root.legacy"
+	if ! mkdir "$root"; then
+		say "install.sh: legacy installation remains at $root.legacy"; exit 1
+	fi
+	if ! mv "$root.legacy" "$root/legacy"; then
+		say "install.sh: legacy installation remains at $root.legacy"; exit 1
+	fi
 	ln -sfn legacy "$root/previous"
 fi
-ver=$(head -n 1 "$dir/VERSION" | sed 's/^v//')
-[ "$ver" = nightly ] && ver="nightly-$(sed -n 2p "$dir/VERSION" | cut -c1-7)"
-rm -rf "$root/$ver"
-mv "$dir" "$root/$ver"
+# Reserve a unique directory on reinstall instead of replacing previous versions.
+dest="$root/$ver"
+if ! mkdir "$dest" 2>/dev/null; then
+	if [ -e "$dest" ] || [ -L "$dest" ]; then
+		dest=$(mktemp -d "$root/$ver.reinstall.XXXXXXXX")
+	else
+		say "install.sh: cannot create installation directory: $dest"; exit 1
+	fi
+fi
+cp -a "$dir/." "$dest/"
+installed=${dest##*/}
 old=$(readlink "$root/current" 2>/dev/null || true)
-ln -sfn "$ver" "$root/current"
-[ -n "$old" ] && [ "$old" != "$ver" ] && ln -sfn "$old" "$root/previous"
+ln -sfn "$installed" "$root/current"
+[ -n "$old" ] && [ "$old" != "$installed" ] && ln -sfn "$old" "$root/previous"
 ln -sf "$root/current/bin/aego" "$prefix/bin/aego"
 
 # Runtime libraries: OpenGL with Mesa drivers, X11 and Wayland for the window, xkbcommon for keyboards.
@@ -209,6 +265,18 @@ check_glibc() {
 }
 
 install_desktop() {
+	# Both desktop entries contain the prefix in Exec. Refuse ambiguous field
+	# codes, quoting or control characters rather than emit a broken command.
+	case "$prefix" in
+	*\"*|*\\*|*\$*|*\`*|*%*)
+		printf '%s\n' 'install.sh: desktop registration skipped for an unsafe Exec path' >&2
+		return 0 ;;
+	esac
+	# grep treats newlines as record separators, so count control bytes instead.
+	if [ "$(printf '%s' "$prefix" | LC_ALL=C tr -cd '\001-\037\177' | wc -c)" -ne 0 ]; then
+		printf '%s\n' 'install.sh: desktop registration skipped for an Exec path containing control characters' >&2
+		return 0
+	fi
 	data="${XDG_DATA_HOME:-$HOME/.local/share}"
 	mkdir -p "$data/applications" "$data/icons/hicolor/256x256/apps" "$data/mime/packages"
 	[ -f "$root/current/share/aego.png" ] && cp "$root/current/share/aego.png" "$data/icons/hicolor/256x256/apps/aego.png"
@@ -223,6 +291,37 @@ Categories=Development;IDE;
 MimeType=application/x-aego-project;application/x-aego-scene;
 Terminal=false
 EOF
+	# Keep file associations separate from the single untrusted protocol URL.
+	protocol_ready=0
+	protocol_tmp=$(mktemp "$data/applications/.aego-example.XXXXXXXX")
+	cat > "$protocol_tmp" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Aego
+Comment=Game engine and editor
+Exec="$prefix/bin/aego" edit --example-link %u
+Icon=aego
+Categories=Development;IDE;
+MimeType=x-scheme-handler/aego;
+NoDisplay=true
+Terminal=false
+EOF
+	protocol_file="$data/applications/aego-example.desktop"
+	if [ -L "$protocol_file" ]; then
+		printf '%s\n' 'install.sh: existing protocol desktop symlink preserved' >&2
+	elif [ -e "$protocol_file" ]; then
+		if [ -f "$protocol_file" ] && cmp -s "$protocol_tmp" "$protocol_file"; then
+			protocol_ready=1
+		else
+			printf '%s\n' 'install.sh: existing protocol desktop file preserved' >&2
+		fi
+	elif ln "$protocol_tmp" "$protocol_file" 2>/dev/null; then
+		# Hard-link publication fails instead of replacing a newly appeared file.
+		protocol_ready=1
+	else
+		printf '%s\n' 'install.sh: could not safely create protocol desktop file' >&2
+	fi
+	rm -f "$protocol_tmp"
 	cat > "$data/mime/packages/aego.xml" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
@@ -241,6 +340,13 @@ EOF
 	command -v update-mime-database >/dev/null 2>&1 && update-mime-database "$data/mime" >/dev/null 2>&1 || true
 	command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$data/applications" >/dev/null 2>&1 || true
 	command -v xdg-mime >/dev/null 2>&1 && xdg-mime default aego.desktop application/x-aego-project application/x-aego-scene >/dev/null 2>&1 || true
+	if [ "$protocol_ready" = 1 ] && command -v xdg-mime >/dev/null 2>&1; then
+		current=$(xdg-mime query default x-scheme-handler/aego 2>/dev/null || true)
+		case "$current" in
+		"" | aego-example.desktop) xdg-mime default aego-example.desktop x-scheme-handler/aego >/dev/null 2>&1 || true ;;
+		*) printf '%s\n' "install.sh: existing aego: handler preserved: $current" >&2 ;;
+		esac
+	fi
 }
 
 check_glibc
@@ -250,7 +356,7 @@ if [ "$deps" = 1 ]; then
 fi
 [ "$desktop" = 1 ] && install_desktop
 
-say "Installed $(head -n 1 "$root/current/VERSION") to $root/$ver"
+say "Installed $(head -n 1 "$root/current/VERSION") to $dest"
 case ":$PATH:" in
 *":$prefix/bin:"*) ;;
 *) say "Add $prefix/bin to PATH, for example: export PATH=\"$prefix/bin:\$PATH\"" ;;

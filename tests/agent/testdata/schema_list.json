@@ -241,7 +241,7 @@
     {
       "name": "camera.CameraBrain2D",
       "kind": "component",
-      "display": "Camera Brain 2D",
+      "display": "Camera Output Selector 2D",
       "category": "Camera",
       "owner": "camera",
       "doc": "Picks which output of virtual cameras drives this Camera 2D. Without it the camera shows the main output."

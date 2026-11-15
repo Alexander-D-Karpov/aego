@@ -25,7 +25,8 @@ const (
 )
 
 type Importer struct {
-	FFmpeg string
+	FFmpeg          string
+	DisableExternal bool
 }
 
 func New() *Importer {
@@ -62,8 +63,16 @@ func fail(ctx *pipeline.ImportContext, msg string, cause error) error {
 }
 
 func (i *Importer) Import(ctx *pipeline.ImportContext) (*pipeline.Result, error) {
+	// A version-1 sidecar cannot safely carry this reserved edit payload:
+	// legacy importers would silently publish the original, unedited audio.
+	if _, hasEdit := ctx.Meta.Settings["audioEdit"]; hasEdit {
+		return nil, fail(ctx, "audio edit needs a supported versioned metadata envelope", nil)
+	}
 	src := ctx.Source
 	if strings.EqualFold(path.Ext(ctx.Path), ".mp3") {
+		if i.DisableExternal {
+			return nil, fail(ctx, "mp3 conversion is disabled for this project; use WAV or Ogg instead", nil)
+		}
 		ogg, err := i.convert(src)
 		if err != nil {
 			return nil, fail(ctx, "mp3 is converted with ffmpeg, which is not available; install it or convert the file: ffmpeg -i in.mp3 -c:a libvorbis out.ogg", err)

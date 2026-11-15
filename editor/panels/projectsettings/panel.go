@@ -103,6 +103,9 @@ func (p *Panel) pages() []page {
 		for _, sp := range custom {
 			if sp.Section == sec.ID {
 				pg.draw = sp.Draw
+				if sp.Label.Key != "" || sp.Label.En != "" {
+					pg.title = sp.Label.String()
+				}
 			}
 		}
 		if pg.draw == nil && sec.Type != nil {
