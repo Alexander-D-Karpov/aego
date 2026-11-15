@@ -57,7 +57,7 @@ exit 0
 ''')
         self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.defpath,
                         RUNNER_TEMP=str(self.runner), TRACE=str(self.trace), GITHUB_SHA='a' * 40)
-        for name in ('WAIT_NATIVE', 'NATIVE_EXIT'):
+        for name in ('WAIT_NATIVE', 'NATIVE_EXIT', 'ARTSTUDIO_PYTHON'):
             self.env.pop(name, None)
 
     def stub(self, path, text):
@@ -86,6 +86,18 @@ exit 0
                 self.assertEqual(timing['exit_code'], 0)
                 self.assertIsNone(timing['environment_digest'])
                 self.assertEqual(timing['cache_status'], 'unmeasured')
+
+    def test_configured_python_is_used_for_interoperability(self):
+        python = self.root / 'prepared python/bin/python'
+        self.stub(python, '''#!/bin/sh
+printf 'prepared-interop|%s\n' "$*" >> "$TRACE"
+exit 0
+''')
+        self.env['ARTSTUDIO_PYTHON'] = str(python)
+        result = self.run_step()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual([x.split('|', 1)[0] for x in self.trace.read_text().splitlines()],
+                         ['native', 'prepared-interop', 'make'])
 
     def test_command_failure_stops_later_gates(self):
         self.env['NATIVE_EXIT'] = '17'

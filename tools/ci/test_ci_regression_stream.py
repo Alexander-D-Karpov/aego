@@ -92,7 +92,7 @@ exec "{tee}" "$@"
                         MOCK_MAKE_CALL=str(self.make_call), MOCK_FIREFOX_EXECUTABLE=str(self.firefox),
                         MOCK_PREPARED_MARKER=str(self.deps_marker), MOCK_NPM_MARKER=str(self.npm_marker))
         for name in ('FIREFOX', 'MOCK_MAKE_EXIT', 'MOCK_TEE_FAIL', 'MOCK_RELEASE_FILE',
-                     'AEGO_CI_PREPARED', 'MOCK_PREPARED_EXIT'):
+                     'AEGO_CI_PREPARED', 'MOCK_PREPARED_EXIT', 'ARTSTUDIO_PYTHON'):
             self.env.pop(name, None)
 
     def _stub(self, name, content):
@@ -129,11 +129,13 @@ exec "{tee}" "$@"
 
     def test_prepared_dependencies_are_verified_without_npm_install(self):
         self.env['AEGO_CI_PREPARED'] = '1'
+        self.env['ARTSTUDIO_PYTHON'] = '/prepared python/bin/python'
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertTrue(self.deps_marker.is_file())
         self.assertFalse(self.npm_marker.exists())
         self.assertTrue(self.make_call.is_file())
+        self.assertEqual(self.make_call.read_text().splitlines()[1], '/prepared python/bin/python')
         self.assertTrue(self.marker.is_file())
 
     def test_invalid_or_unverified_prepared_dependencies_stop_regression(self):
