@@ -291,6 +291,7 @@ func TestPlatformerThirtyPlayStopCyclesGL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	s.Engine.SetLockstep(true)
 	s.Step()
 	ed := s.App.Context()
 	doc, err := ed.Docs.Open(bridgeScene)
@@ -311,17 +312,49 @@ func TestPlatformerThirtyPlayStopCyclesGL(t *testing.T) {
 		if err := pc.Start(doc); err != nil {
 			t.Fatal(err)
 		}
+		playScene, world := pc.Scene(), pc.World()
+		if playScene == nil || world == nil {
+			t.Fatal("Play did not create its scene and world")
+		}
+		fx := particles.Of(world)
+		lantern := playScene.Find(playScene.Root(), "StartLantern")
+		if fx == nil || lantern.IsZero() {
+			t.Fatal("Play did not attach the platformer particle service and lantern")
+		}
+		embers, smoke := playScene.Find(lantern, "Embers"), playScene.Find(lantern, "Smoke")
+		if embers.IsZero() || smoke.IsZero() {
+			t.Fatal("platformer particle emitters are missing")
+		}
+		emitter, ok := scene.Get[particles.ParticleSystem2D](playScene, embers)
+		if !ok {
+			t.Fatal("platformer embers component is missing")
+		}
+		mat, ok := emitter.Material.Material(playScene.Resolver())
+		if !ok || mat == nil || mat.Shader() == nil || mat.Shader().Name != "engine/shaders/additive" {
+			t.Fatal("platformer embers are missing their additive material")
+		}
+		for _, h := range []scene.NodeHandle{embers, smoke} {
+			fx.Burst(h, 1)
+			if fx.Count(h) != 1 {
+				t.Fatal("platformer particle burst failed")
+			}
+		}
 		for range 5 {
 			if !s.Step() {
 				t.Fatal("editor stopped")
 			}
+		}
+		if fx.Count(embers) == 0 || fx.Count(smoke) == 0 || fx.Stats().VisibleEmitters < 2 || fx.Stats().Submitted < 2 {
+			t.Fatalf("Play did not render both particle emitters: %+v", fx.Stats())
 		}
 		if ed.Renderer.Stats().PostFXPasses == 0 {
 			t.Fatal("Play did not exercise the camera output")
 		}
 		pc.Stop()
 		for range 5 {
-			s.Step()
+			if !s.Step() {
+				t.Fatal("editor stopped after Play stopped")
+			}
 		}
 		if pc.World() != nil || pc.Scene() != nil || doc.Dirty() || doc.History.Cursor() != cursor {
 			t.Fatal("play world or authoring state survived Stop")
