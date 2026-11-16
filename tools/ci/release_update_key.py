@@ -113,17 +113,22 @@ def verify_binary(path, key):
     path = Path(path)
     before = path.lstat()
     require(stat.S_ISREG(before.st_mode) and 0 < before.st_size <= MAX_BINARY, "binary is missing or unsafe")
+    identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+    shared = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns)
     found = False
     tail = b""
     with path.open("rb") as stream:
+        opened = os.fstat(stream.fileno())
+        require(stat.S_ISREG(opened.st_mode) and shared(before) == shared(opened), "binary changed before reading")
         while chunk := stream.read(CHUNK):
             data = tail + chunk
             found = found or key in data
             tail = data[-(len(key) - 1):]
         current = os.fstat(stream.fileno())
     after = path.lstat()
-    identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
-    require(found and identity(before) == identity(current) == identity(after), "binary lacks the trusted key or changed")
+    # Windows may report creation time for lstat ctime and change time for fstat ctime.
+    require(found and identity(before) == identity(after) and identity(opened) == identity(current) and
+            shared(current) == shared(after), "binary lacks the trusted key or changed")
 
 
 def stable_documents():

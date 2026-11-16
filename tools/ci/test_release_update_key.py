@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 import tarfile
 import tempfile
+import time
+import types
 import unittest
 from unittest import mock
 
@@ -82,6 +84,73 @@ class KeyTest(unittest.TestCase):
             binary.write_bytes(b"wrong")
             with self.assertRaises(ValueError):
                 key.verify_binary(binary, PUBLIC)
+
+    def test_binary_accepts_stable_path_and_handle_with_distinct_ctime_sources(self):
+        with tempfile.TemporaryDirectory(prefix="aego-release-key-test-") as temporary:
+            binary = Path(temporary) / "aego"
+            binary.write_bytes(b"binary:" + PUBLIC.encode())
+            original = os.fstat
+
+            def different_ctime(fd):
+                value = original(fd)
+                return types.SimpleNamespace(**{name: getattr(value, name) + (1 if name == "st_ctime_ns" else 0)
+                                                for name in ("st_mode", "st_dev", "st_ino", "st_size",
+                                                             "st_mtime_ns", "st_ctime_ns")})
+
+            with mock.patch.object(key.os, "fstat", side_effect=different_ctime):
+                key.verify_binary(binary, PUBLIC)
+
+    def test_binary_rejects_changed_handle_and_path_metadata(self):
+        with tempfile.TemporaryDirectory(prefix="aego-release-key-test-") as temporary:
+            binary = Path(temporary) / "aego"
+            binary.write_bytes(b"binary:" + PUBLIC.encode())
+            original = os.fstat
+            calls = 0
+
+            def changed_handle(fd):
+                nonlocal calls
+                calls += 1
+                value = original(fd)
+                return types.SimpleNamespace(**{name: getattr(value, name) +
+                                                (1 if calls > 1 and name == "st_ctime_ns" else 0)
+                                                for name in ("st_mode", "st_dev", "st_ino", "st_size",
+                                                             "st_mtime_ns", "st_ctime_ns")})
+
+            with mock.patch.object(key.os, "fstat", side_effect=changed_handle), self.assertRaises(ValueError):
+                key.verify_binary(binary, PUBLIC)
+
+            def wrong_inode(fd):
+                value = original(fd)
+                return types.SimpleNamespace(**{name: getattr(value, name) + (1 if name == "st_ino" else 0)
+                                                for name in ("st_mode", "st_dev", "st_ino", "st_size",
+                                                             "st_mtime_ns", "st_ctime_ns")})
+
+            with mock.patch.object(key.os, "fstat", side_effect=wrong_inode), self.assertRaises(ValueError):
+                key.verify_binary(binary, PUBLIC)
+
+            lstat = Path.lstat
+            calls = 0
+
+            def changed_path(path, *args, **kwargs):
+                nonlocal calls
+                value = lstat(path, *args, **kwargs)
+                if path == binary:
+                    calls += 1
+                return types.SimpleNamespace(**{name: getattr(value, name) +
+                                                (1 if calls > 1 and name == "st_ctime_ns" else 0)
+                                                for name in ("st_mode", "st_dev", "st_ino", "st_size",
+                                                             "st_mtime_ns", "st_ctime_ns")})
+
+            with mock.patch.object(Path, "lstat", new=changed_path), self.assertRaises(ValueError):
+                key.verify_binary(binary, PUBLIC)
+
+    def test_binary_accepts_an_unchanged_rewritten_file(self):
+        with tempfile.TemporaryDirectory(prefix="aego-release-key-test-") as temporary:
+            binary = Path(temporary) / "aego"
+            binary.write_bytes(b"first:" + PUBLIC.encode())
+            time.sleep(0.02)
+            binary.write_bytes(b"other:" + PUBLIC.encode())
+            key.verify_binary(binary, PUBLIC)
 
     def test_download_pins_url_size_and_hash(self):
         payload = b"fixture data"
