@@ -2,6 +2,7 @@
 
 These tests do not build a binary or establish Windows/macOS compatibility.
 """
+import base64
 import os
 from pathlib import Path
 import subprocess
@@ -15,6 +16,8 @@ SCRIPTS = {
     'windows': ROOT / 'tools/ci/github-windows-package.sh',
 }
 SHA = 'a' * 40
+PUBLIC = base64.b64encode(b'a' * 32).decode('ascii')
+FINGERPRINT = '06096a4da6dac0b1ee5a8aecc665700bb6a98066f2dffdb30e4d3096877da59e'
 
 
 class PackageVersionTest(unittest.TestCase):
@@ -42,6 +45,8 @@ class PackageVersionTest(unittest.TestCase):
             'MOCK_GOOS': 'darwin',
             'MOCK_GOARCH': 'arm64',
             'MOCK_PLIST_VERSION': '0.12.5',
+            'MOCK_UPDATE_KEY': PUBLIC,
+            'MOCK_UPDATE_FINGERPRINT': FINGERPRINT,
         }
         self.stub('git', '''#!/bin/bash
 set -eu
@@ -71,6 +76,25 @@ elif [[ "$1" == run && "$2" == ./tools/appbundle ]]; then
   mkdir -p "$MOCK_ROOT/.cache/github-ci/macos/Aego Editor.app/Contents"
   : > "$MOCK_ROOT/.cache/github-ci/macos/Aego Editor.app/Contents/Info.plist"
 fi
+''')
+        self.stub('python3', '''#!/bin/bash
+set -eu
+if [[ "${1:-}" == -B ]]; then shift; fi
+[[ "${1:-}" == tools/ci/release_update_key.py ]] || exit 31
+printf 'update-helper %s\n' "${2:-}" >> "$MOCK_CALLS"
+case "${2:-}" in
+  --value) [[ "${MOCK_KEY_FAIL:-0}" != 1 ]] || exit 32; printf '%s\n' "$MOCK_UPDATE_KEY" ;;
+  --fingerprint) [[ "${AEGO_CI_UPDATE_PUBLIC_KEY:-}" == "$MOCK_UPDATE_KEY" ]] || exit 33; printf '%s\n' "$MOCK_UPDATE_FINGERPRINT" ;;
+  --smoke|--check-binary)
+    [[ "${AEGO_CI_UPDATE_PUBLIC_KEY:-}" == "$MOCK_UPDATE_KEY" && -f "${3:-}" && "${MOCK_VERIFY_FAIL:-0}" != 1 ]] || exit 34 ;;
+  *) exit 35 ;;
+esac
+''')
+        self.stub('py', '''#!/bin/bash
+set -eu
+[[ "${1:-}" == -3 ]] || exit 36
+shift
+exec python3 "$@"
 ''')
         self.stub('plutil', '''#!/bin/bash
 set -eu
@@ -155,6 +179,7 @@ done
                 result = self.run_package(platform, versioned=False)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 calls = self.calls_text()
+                self.assertNotIn('update-helper', calls)
                 if platform == 'macos':
                     self.assertIn('-version 0.0.0', calls)
                     self.assertNotIn('plutil -extract', calls)
@@ -175,20 +200,45 @@ done
                 calls = self.calls_text()
                 self.assertIn('-version 0.12.5', calls)
                 self.assertIn('GOFLAGS= GOWORK=off', calls)
+                self.assertIn('-X=aego/update.PublicKey=' + PUBLIC, calls)
                 if platform == 'macos':
                     self.assertIn('plutil -extract CFBundleShortVersionString', calls)
                     self.assertIn('plutil -extract CFBundleVersion', calls)
                     paths = ['macos']
                     self.assertIn('not notarized', (self.repo / '.cache/github-ci/dist/macos/CI-PROVENANCE.txt').read_text())
+                    self.assertIn('update-helper --check-binary', calls)
                 else:
                     self.assertIn('-DVERSION=0.12.5', calls)
                     self.assertEqual((self.repo / '.cache/github-ci/windows-stage/VERSION').read_text(),
                                      '0.12.5\n' + SHA + '\n')
                     paths = ['portable', 'installer']
+                    self.assertIn('update-helper --smoke', calls)
+                    self.assertIn('update-helper --check-binary', calls)
                 for path in paths:
                     data = (self.repo / '.cache/github-ci/dist' / path / 'CI-PROVENANCE.txt').read_text()
                     self.assertIn('version=0.12.5\ncommit=' + SHA + '\n', data)
-                    self.assertIn('not injected by this script', data)
+                    self.assertIn('update_key=embedded\nupdate_key_sha256=' + FINGERPRINT + '\n', data)
+
+    def test_versioned_packaging_rejects_bad_key_before_build(self):
+        for platform in SCRIPTS:
+            for override in ({'MOCK_KEY_FAIL': '1'}, {'MOCK_UPDATE_KEY': 'bad'}):
+                with self.subTest(platform=platform, override=override):
+                    self.calls.unlink(missing_ok=True)
+                    result = self.run_package(platform, overrides=override)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertNotIn('go build ', self.calls_text())
+
+    def test_versioned_packaging_stops_when_binary_key_verification_fails(self):
+        for platform in SCRIPTS:
+            with self.subTest(platform=platform):
+                self.calls.unlink(missing_ok=True)
+                result = self.run_package(platform, overrides={'MOCK_VERIFY_FAIL': '1'})
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                calls = self.calls_text()
+                self.assertIn('go build ', calls)
+                self.assertNotIn('makensis ', calls)
+                self.assertNotIn('pwsh called', calls)
+                self.assertNotIn('go run ./tools/appbundle', calls)
 
     def test_macos_intel_target_is_accepted(self):
         result = self.run_package('macos', overrides={'RUNNER_ARCH': 'X64', 'MOCK_GOARCH': 'amd64'})

@@ -1,5 +1,6 @@
 """Offline checks for the manual, non-publishing artifact gate."""
 
+import base64
 import copy
 import os
 from pathlib import Path
@@ -14,6 +15,8 @@ import native_artifacts_guard as guard
 
 
 SHA = "a" * 40
+PUBLIC = base64.b64encode(b"a" * 32).decode("ascii")
+KEY_FINGERPRINT = "06096a4da6dac0b1ee5a8aecc665700bb6a98066f2dffdb30e4d3096877da59e"
 SOURCE = 'package engine\nvar Version = "0.12.5"\n'
 ENV = {
     "GITHUB_ACTIONS": "true",
@@ -177,6 +180,7 @@ class ArtifactWorkflowTest(unittest.TestCase):
         self.assertIn("\n  contents: read\n  actions: read\n", workflow)
         self.assertNotIn("contents: write", workflow)
         self.assertIn("native_artifacts_guard.py --require-ci", workflow)
+        self.assertIn("-p test_release_update_key.py", workflow)
         self.assertEqual(workflow.count("native_artifacts_guard.py --source-only"), 4)
         self.assertIn("\n    needs: verify\n", workflow)
         for runner in ("ubuntu-24.04", "windows-2025", "macos-15", "macos-15-intel"):
@@ -307,11 +311,13 @@ class LinuxPackageFixtureTest(unittest.TestCase):
         (self.repo / "app/brand/png").mkdir(parents=True)
         (self.repo / "tools/release/README.txt").write_text("fixture readme\n")
         (self.repo / "app/brand/png/aego-256.png").write_bytes(b"fixture icon")
+        self.calls = self.root / "calls"
         self.stub("go", '''#!/bin/bash
 set -eu
 if [[ "$1" == env ]]; then
   case "$2" in GOOS) echo linux ;; GOARCH) echo amd64 ;; *) exit 21 ;; esac
 elif [[ "$1" == build ]]; then
+  printf 'go %s\\n' "$*" >> "$MOCK_CALLS"
   while [[ $# -gt 0 && "$1" != -o ]]; do shift; done
   [[ $# -gt 1 ]] || exit 22
   cat > "$2" <<'END'
@@ -322,6 +328,17 @@ END
 else
   exit 23
 fi
+''')
+        self.stub("python3", '''#!/bin/bash
+set -eu
+[[ "$1" == -B && "$2" == tools/ci/release_update_key.py ]] || exit 26
+printf 'update-helper %s\\n' "$3" >> "$MOCK_CALLS"
+case "$3" in
+  --value) [[ "${MOCK_KEY_FAIL:-0}" != 1 ]] || exit 27; printf '%s\\n' "$MOCK_UPDATE_KEY" ;;
+  --fingerprint) [[ "${AEGO_CI_UPDATE_PUBLIC_KEY:-}" == "$MOCK_UPDATE_KEY" && "${MOCK_FINGERPRINT_FAIL:-0}" != 1 ]] || exit 28; printf '%s\\n' "$MOCK_UPDATE_FINGERPRINT" ;;
+  --smoke) [[ "${AEGO_CI_UPDATE_PUBLIC_KEY:-}" == "$MOCK_UPDATE_KEY" && -f "$4" && "${MOCK_SMOKE_FAIL:-0}" != 1 ]] || exit 29 ;;
+  *) exit 30 ;;
+esac
 ''')
         self.stub("sh", '''#!/bin/bash
 set -eu
@@ -340,6 +357,8 @@ printf 'synthetic AppImage fixture\\n' > "$3"
             "HOME": str(self.root), "TMPDIR": str(self.root), "LC_ALL": "C",
             "RUNNER_ARCH": "X64", "AEGO_CI_PACKAGE_VERSION": "0.12.5",
             "AEGO_CI_PACKAGE_COMMIT": SHA,
+            "MOCK_CALLS": str(self.calls), "MOCK_UPDATE_KEY": PUBLIC,
+            "MOCK_UPDATE_FINGERPRINT": KEY_FINGERPRINT,
             "APPIMAGETOOL": "/untrusted/tool", "APPIMAGETOOL_URL": "https://invalid/",
             "APPIMAGETOOL_SHA256": "untrusted", "APPIMAGE_RUNTIME": "/untrusted/runtime",
             "APPIMAGE_RUNTIME_URL": "https://invalid/", "APPIMAGE_RUNTIME_SHA256": "untrusted",
@@ -354,6 +373,9 @@ printf 'synthetic AppImage fixture\\n' > "$3"
         return subprocess.run(["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", self.shell],
                               cwd=self.repo, env={**self.env, **overrides}, capture_output=True, text=True, timeout=20)
 
+    def calls_text(self):
+        return self.calls.read_text() if self.calls.exists() else ""
+
     def test_creates_versioned_candidates_with_verified_checksums(self):
         result = self.run_package()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -363,7 +385,10 @@ printf 'synthetic AppImage fixture\\n' > "$3"
             self.assertEqual(archive.extractfile("aego-0.12.5-linux-amd64/VERSION").read(), ("v0.12.5\n" + SHA + "\n").encode())
             self.assertIn("aego-0.12.5-linux-amd64/bin/aego", archive.getnames())
         self.assertTrue((dist / "Aego-0.12.5-x86_64.AppImage").is_file())
-        self.assertIn("update_key=not injected", (dist / "CI-PROVENANCE.txt").read_text())
+        self.assertIn("update_key=embedded\nupdate_key_sha256=" + KEY_FINGERPRINT + "\n",
+                      (dist / "CI-PROVENANCE.txt").read_text())
+        self.assertIn("-X=aego/update.PublicKey=" + PUBLIC, self.calls_text())
+        self.assertIn("update-helper --smoke", self.calls_text())
         checked = subprocess.run(["sha256sum", "-c", "SHA256SUMS.txt"], cwd=dist, capture_output=True, text=True)
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         before = (dist / "SHA256SUMS.txt").read_bytes()
@@ -375,6 +400,21 @@ printf 'synthetic AppImage fixture\\n' > "$3"
         self.assertFalse((self.repo / ".cache/native-artifacts-linux").exists())
         self.assertNotEqual(self.run_package(MOCK_VERSION_SHA="bbbbbbbbbbbb").returncode, 0)
         self.assertFalse((self.repo / ".cache/native-artifacts-linux/dist/SHA256SUMS.txt").exists())
+
+    def test_refuses_key_failure_before_build(self):
+        for overrides in ({"MOCK_KEY_FAIL": "1"}, {"MOCK_UPDATE_KEY": "bad"}, {"MOCK_FINGERPRINT_FAIL": "1"}):
+            with self.subTest(overrides=overrides):
+                self.calls.unlink(missing_ok=True)
+                self.assertNotEqual(self.run_package(**overrides).returncode, 0)
+                self.assertNotIn("go build", self.calls_text())
+                self.assertFalse((self.repo / ".cache/native-artifacts-linux").exists())
+
+    def test_refuses_failed_signed_update_smoke_before_archives(self):
+        self.assertNotEqual(self.run_package(MOCK_SMOKE_FAIL="1").returncode, 0)
+        self.assertIn("update-helper --smoke", self.calls_text())
+        dist = self.repo / ".cache/native-artifacts-linux/dist"
+        self.assertFalse((dist / "aego-0.12.5-linux-amd64.tar.gz").exists())
+        self.assertFalse((dist / "SHA256SUMS.txt").exists())
 
 
 if __name__ == "__main__":

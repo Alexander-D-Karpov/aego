@@ -4,6 +4,8 @@ set -euo pipefail
 # Versioned packaging is manual GitHub-hosted only; normal CI uses 0.0.0.
 package_version=0.0.0
 package_commit=
+update_key=
+update_fingerprint=
 if [[ -n "${AEGO_CI_PACKAGE_VERSION+x}" || -n "${AEGO_CI_PACKAGE_COMMIT+x}" ]]; then
   package_version="${AEGO_CI_PACKAGE_VERSION:-}"
   package_commit="${AEGO_CI_PACKAGE_COMMIT:-}"
@@ -26,6 +28,9 @@ if [[ -n "${AEGO_CI_PACKAGE_VERSION+x}" || -n "${AEGO_CI_PACKAGE_COMMIT+x}" ]]; 
   ignored_sources="$(git ls-files --others --ignored --exclude-standard -- . ':(exclude).cache/**')"
   [[ -z "$source_status" && -z "$ignored_sources" ]] || { echo 'Package source is not clean.' >&2; exit 1; }
   export GOFLAGS='' GOWORK=off
+  update_key="$(python3 -B tools/ci/release_update_key.py --value)"
+  [[ "$update_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid trusted update key.' >&2; exit 1; }
+  update_fingerprint="$(AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" python3 -B tools/ci/release_update_key.py --fingerprint)"
 fi
 
 root="$PWD/.cache/github-ci"
@@ -38,7 +43,12 @@ if [[ -n "$package_commit" ]]; then
   done
 fi
 mkdir -p "$root/macos" "$root/dist/macos" "$root/logs"
-go build -trimpath -o "$root/macos/aego-editor" ./cmd/aego-editor
+if [[ -n "$package_commit" ]]; then
+  go build -trimpath -ldflags "-X=aego/update.PublicKey=$update_key" -o "$root/macos/aego-editor" ./cmd/aego-editor
+  AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" python3 -B tools/ci/release_update_key.py --check-binary "$root/macos/aego-editor"
+else
+  go build -trimpath -o "$root/macos/aego-editor" ./cmd/aego-editor
+fi
 go run ./tools/appbundle -bin "$root/macos/aego-editor" -out "$root/macos" \
   -version "$package_version" -icon app/brand/png/aego-256.png
 app="$root/macos/Aego Editor.app"
@@ -58,6 +68,6 @@ fi
 ditto -c -k --sequesterRsrc --keepParent "$app" "$root/dist/macos/Aego-Editor-macos.zip"
 (cd "$root/dist/macos" && shasum -a 256 Aego-Editor-macos.zip > SHA256SUMS.txt)
 if [[ -n "$package_commit" ]]; then
-  printf 'version=%s\ncommit=%s\nstatus=artifact candidate; ad-hoc signed, not notarized\nupdate_key=not injected by this script\n' \
-    "$package_version" "$package_commit" > "$root/dist/macos/CI-PROVENANCE.txt"
+  printf 'version=%s\ncommit=%s\nstatus=artifact candidate; ad-hoc signed, not notarized\nupdate_key=embedded\nupdate_key_sha256=%s\n' \
+    "$package_version" "$package_commit" "$update_fingerprint" > "$root/dist/macos/CI-PROVENANCE.txt"
 fi

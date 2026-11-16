@@ -35,7 +35,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Test artifact preflight
-        run: python3 -B -m unittest discover -s tools/ci -p test_native_artifacts_guard.py -v
+        run: |
+          python3 -B -m unittest discover -s tools/ci -p test_native_artifacts_guard.py -v
+          python3 -B -m unittest discover -s tools/ci -p test_release_update_key.py -v
       - name: Require exact green CI and master refs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,6 +126,9 @@ jobs:
           [[ "$RUNNER_ARCH/$(go env GOOS)/$(go env GOARCH)" == X64/linux/amd64 ]]
           root="$PWD/.cache/native-artifacts-linux"
           [[ ! -L "$PWD/.cache" && ! -e "$root" && ! -L "$root" ]]
+          update_key="$(python3 -B tools/ci/release_update_key.py --value)"
+          [[ "$update_key" =~ ^[A-Za-z0-9+/]{43}=$ ]]
+          update_fingerprint="$(AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" python3 -B tools/ci/release_update_key.py --fingerprint)"
           base="aego-${AEGO_CI_PACKAGE_VERSION}-linux-amd64"
           stage="$root/$base"
           dist="$root/dist"
@@ -131,17 +136,18 @@ jobs:
           printf 'v%s\n%s\n' "$AEGO_CI_PACKAGE_VERSION" "$AEGO_CI_PACKAGE_COMMIT" > "$stage/VERSION"
           cp tools/release/README.txt "$stage/README.txt"
           cp app/brand/png/aego-256.png "$stage/share/aego.png"
-          go build -trimpath -ldflags '-s -w' -o "$stage/bin/aego" ./cmd/aego
+          go build -trimpath -ldflags "-s -w -X=aego/update.PublicKey=$update_key" -o "$stage/bin/aego" ./cmd/aego
           reported="$("$stage/bin/aego" version)"
           [[ "$reported" == "aego ${AEGO_CI_PACKAGE_VERSION} (${AEGO_CI_PACKAGE_COMMIT:0:12}"* && "$reported" != *-dirty* ]]
+          AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" python3 -B tools/ci/release_update_key.py --smoke "$stage/bin/aego"
           tar -C "$root" -czf "$dist/$base.tar.gz" "$base"
           app="Aego-${AEGO_CI_PACKAGE_VERSION}-x86_64.AppImage"
           env -u APPIMAGETOOL -u APPIMAGETOOL_SHA256 -u APPIMAGETOOL_URL \
             -u APPIMAGE_RUNTIME -u APPIMAGE_RUNTIME_SHA256 -u APPIMAGE_RUNTIME_URL \
             sh tools/release/appimage.sh "$stage" "$dist/$app"
           (cd "$dist" && sha256sum "$base.tar.gz" "$app" > SHA256SUMS.txt)
-          printf 'version=%s\ncommit=%s\nstatus=unsigned artifact candidate\nupdate_key=not injected by this workflow\n' \
-            "$AEGO_CI_PACKAGE_VERSION" "$AEGO_CI_PACKAGE_COMMIT" > "$dist/CI-PROVENANCE.txt"
+          printf 'version=%s\ncommit=%s\nstatus=unsigned artifact candidate\nupdate_key=embedded\nupdate_key_sha256=%s\n' \
+            "$AEGO_CI_PACKAGE_VERSION" "$AEGO_CI_PACKAGE_COMMIT" "$update_fingerprint" > "$dist/CI-PROVENANCE.txt"
       - name: Package Windows portable and installer
         if: runner.os == 'Windows'
         run: bash tools/ci/github-windows-package.sh

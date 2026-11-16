@@ -4,6 +4,8 @@ set -euo pipefail
 # Versioned packaging is manual GitHub-hosted only; normal CI uses 0.0.0.
 package_version=0.0.0
 package_commit=
+update_key=
+update_fingerprint=
 if [[ -n "${AEGO_CI_PACKAGE_VERSION+x}" || -n "${AEGO_CI_PACKAGE_COMMIT+x}" ]]; then
   package_version="${AEGO_CI_PACKAGE_VERSION:-}"
   package_commit="${AEGO_CI_PACKAGE_COMMIT:-}"
@@ -23,6 +25,9 @@ if [[ -n "${AEGO_CI_PACKAGE_VERSION+x}" || -n "${AEGO_CI_PACKAGE_COMMIT+x}" ]]; 
   ignored_sources="$(git ls-files --others --ignored --exclude-standard -- . ':(exclude).cache/**')"
   [[ -z "$source_status" && -z "$ignored_sources" ]] || { echo 'Package source is not clean.' >&2; exit 1; }
   export GOFLAGS='' GOWORK=off
+  update_key="$(py -3 -B tools/ci/release_update_key.py --value)"
+  [[ "$update_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid trusted update key.' >&2; exit 1; }
+  update_fingerprint="$(AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" py -3 -B tools/ci/release_update_key.py --fingerprint)"
 fi
 
 root="$PWD/.cache/github-ci"
@@ -47,8 +52,21 @@ else
 fi
 cp tools/release/README.txt "$stage/README.txt"
 go run ./tools/brandres -ico "$root/aego.ico" -syso cmd/aego,cmd/aego-editor -version "$package_version"
-go build -trimpath -o "$stage/aego.exe" ./cmd/aego
-go build -trimpath -tags aego_editor -ldflags '-H=windowsgui' -o "$stage/aego-editor.exe" ./cmd/aego-editor
+update_ldflags=
+if [[ -n "$package_commit" ]]; then
+  update_ldflags="-X=aego/update.PublicKey=$update_key"
+  go build -trimpath -ldflags "$update_ldflags" -o "$stage/aego.exe" ./cmd/aego
+else
+  go build -trimpath -o "$stage/aego.exe" ./cmd/aego
+fi
+go build -trimpath -tags aego_editor -ldflags "-H=windowsgui${update_ldflags:+ $update_ldflags}" -o "$stage/aego-editor.exe" ./cmd/aego-editor
+if [[ -n "$package_commit" ]]; then
+  cli_check="$(cygpath -w "$stage/aego.exe")"
+  editor_check="$(cygpath -w "$stage/aego-editor.exe")"
+  [[ -n "$cli_check" && -n "$editor_check" ]] || { echo 'Windows update check path is empty.' >&2; exit 1; }
+  AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" py -3 -B tools/ci/release_update_key.py --smoke "$cli_check"
+  AEGO_CI_UPDATE_PUBLIC_KEY="$update_key" py -3 -B tools/ci/release_update_key.py --check-binary "$editor_check"
+fi
 objdump -p "$stage/aego.exe" > "$root/logs/windows-cli-pe.txt"
 objdump -p "$stage/aego-editor.exe" > "$root/logs/windows-editor-pe.txt"
 AEGO_CI_STAGE="$(cygpath -w "$stage")"
@@ -71,7 +89,7 @@ makensis -V2 "-DVERSION=$package_version" \
 (cd "$installer" && sha256sum aego-windows-amd64-setup.exe > SHA256SUMS.txt)
 if [[ -n "$package_commit" ]]; then
   for dir in "$portable" "$installer"; do
-    printf 'version=%s\ncommit=%s\nstatus=unsigned artifact candidate\nupdate_key=not injected by this script\n' \
-      "$package_version" "$package_commit" > "$dir/CI-PROVENANCE.txt"
+    printf 'version=%s\ncommit=%s\nstatus=unsigned artifact candidate\nupdate_key=embedded\nupdate_key_sha256=%s\n' \
+      "$package_version" "$package_commit" "$update_fingerprint" > "$dir/CI-PROVENANCE.txt"
   done
 fi
