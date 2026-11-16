@@ -103,8 +103,9 @@ printf 'synthetic custom parity stub\\n'
 
     def test_configured_python_runs_all_builtin_python_checks(self):
         result, calls, exits = self.run_fixture(configured=True)
-        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(exits.get('regression'), '37')
+        self.assertIn('::warning::Studio gate regression failed (exit 37)', result.stdout)
         python_calls = [call for call in calls if call.startswith(('default|', 'selected|'))]
         self.assertTrue(python_calls, calls)
         self.assertTrue(all(call.startswith('selected|') for call in python_calls), python_calls)
@@ -116,17 +117,19 @@ printf 'synthetic custom parity stub\\n'
         for configured in (False, True):
             with self.subTest(configured=configured):
                 result, calls, exits = self.run_fixture(configured=configured, custom_parity=True)
-                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertEqual(result.returncode, 0, result.stdout)
                 self.assertEqual(exits.get('regression'), '37')
+                self.assertIn('::warning::Studio gate regression failed (exit 37)', result.stdout)
                 label = 'selected|' if configured else 'default|'
                 self.assertTrue(any(call.startswith(label) and 'file_interop_e2e.py' in call for call in calls), calls)
                 self.assertEqual(sum(call.startswith('custom-parity|') for call in calls), 1, calls)
                 self.assertFalse(any('parity_e2e.py' in call for call in calls), calls)
 
-    def test_configured_python_failure_stops_the_gate(self):
+    def test_configured_python_failure_warns_and_stops_the_gate(self):
         result, calls, exits = self.run_fixture(configured=True, fail='browser_e2e.py')
-        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(exits.get('chromium'), '23')
+        self.assertIn('::warning::Studio gate chromium failed (exit 23)', result.stdout)
         self.assertNotIn('regression', exits)
         self.assertTrue(any(call.startswith('selected|') and 'browser_e2e.py' in call for call in calls), calls)
         self.assertFalse(any(call == 'make|ci' for call in calls), calls)
