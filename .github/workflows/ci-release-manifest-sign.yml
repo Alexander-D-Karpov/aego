@@ -1,0 +1,172 @@
+name: aego-release-manifest-sign-only
+on:
+  push:
+    branches: [ci/release-sign-cd9717cc1f2e267495e7]
+permissions:
+  contents: read
+jobs:
+  sign-manifest:
+    if: github.server_url != 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    container:
+      image: git.akarpov.ru/sanspie/aego-ci-env@sha256:333d35cd33c2813e4a4ed9c1499344e036d3c67b5e0818da87ad5717d1e14d50
+      options: --memory=256m --memory-swap=256m --cpus=0.5 --pids-limit=128
+    steps:
+      - name: Sign the exact prepared manifest without publishing
+        shell: bash
+        env:
+          AEGO_RELEASE_KEY: ${{ secrets.AEGO_RELEASE_KEY }}
+          AEGO_UPDATE_KEY: ${{ vars.AEGO_UPDATE_KEY || secrets.AEGO_UPDATE_KEY }}
+          AEGO_MANIFEST_SHA256: '33b7225497d14418979f440516dbb1921c520ecdd72e4ecfcb67a313878ade79'
+          AEGO_MANIFEST_B64: 'ewogICJ2ZXJzaW9uIjogIjAuMTIuNSIsCiAgImNoYW5uZWwiOiAic3RhYmxlIiwKICAicHVibGlzaGVkIjogIjIwMjYtMTEtMTdUMDI6MDg6MDJaIiwKICAibm90ZXMiOiAiQWVnbyAwLjEyLjUgYWRkcyBBcnQgV29ya3NwYWNlIGF1dGhvcmluZywgV2ViIEFzc2V0IFN0dWRpbyBhbmQgZXhwYW5kZWQgaW50ZXJhY3RpdmUgZG9jdW1lbnRhdGlvbi5cblxuKipBcnQgV29ya3NwYWNlLioqIERvY2thYmxlIGFydCB0b29scywgcGFsZXR0ZSBhbmQgY29sb3IgY29udHJvbHMsIGxheWVycywgYW4gYW5pbWF0aW9uIHRpbWVsaW5lIGFuZCBwcmV2aWV3cyBzaGFyZSB0aGUgZWRpdG9yJ3MgQXJ0IGRvY3VtZW50IGFuZCBoaXN0b3J5LiBFeGlzdGluZyB3b3Jrc3BhY2UgbGF5b3V0cyBhcmUgcHJlc2VydmVkLiBQTkcgYW5kIHNwcml0ZS1zaGVldCB3b3JrZmxvd3MgcmV0YWluIHRoZWlyIHNvdXJjZSBhbmQgbWV0YWRhdGEgZ3VhcmRzLlxuXG4qKldlYiBBc3NldCBTdHVkaW8uKiogVGhlIGJyb3dzZXIgd29ya3NwYWNlIHN1cHBvcnRzIGRyYXdpbmcsIGFuaW1hdGlvbiwgbG9jYWwgZmlsZSBvcGVyYXRpb25zLCBwcmV2aWV3cyBhbmQgUE5HIG9yIHNwcml0ZS1zaGVldCBleHBvcnQuIEl0IHVzZXMgdGhlIHNoYXJlZCBBcnQgQ29yZTsgYnJvd3NlciBmaWxlIGhhbmRsZXMgYXJlIHNlc3Npb24tb25seS5cblxuKipBdWRpby4qKiBDbGlwIGRvY3VtZW50cyBzaG93IHdhdmVmb3JtIG5hdmlnYXRpb24sIHNlbGVjdGlvbnMsIHRyYW5zcG9ydCBjb250cm9scyBhbmQgc291cmNlIGFuYWx5c2lzLiBXZWIgYXVkaW8gY2FuIHJlbmRlciB0aHJvdWdoIGEgV29ya2VyLiBUaGUgZWRpdCBrZXJuZWwgYW5kIHZvbGF0aWxlIGhpc3RvcnkgYXJlIGdyb3VuZHdvcms6IHBlcnNpc3RlbnQgQXVkaW8gRURMIGVkaXRpbmcgYW5kIHJlY292ZXJ5IGFyZSBub3QgY29tcGxldGUuXG5cbioqRG9jdW1lbnRhdGlvbiBhbmQgZXhhbXBsZXMuKiogRW5nbGlzaCBhbmQgUnVzc2lhbiByZWZlcmVuY2VzIGFuZCBndWlkZXMgaW5jbHVkZSBydW5uYWJsZSBUcnkgc2NlbmVzLCBzZWFyY2ggYW5kIHVwZGF0ZWQgZWRpdG9yIGd1aWRhbmNlLiBUaGUgcGxhdGZvcm1lciBkZW1vIGFuZCBmaWxlIGludGVyb3BlcmFiaWxpdHkgY2hlY2tzIGhhdmUgYWxzbyBiZWVuIHVwZGF0ZWQuXG5cbioqRm9ybWF0cyBhbmQgc2FmZXR5LioqIGAuYWVhcnRgIHJlbWFpbnMgdGhlIEFlZ28gYXV0aG9yaW5nIGZvcm1hdC4gQXNlcHJpdGUgaW50ZXJjaGFuZ2UgZXhwb3J0IGlzIG5vdCBhIGxvc3NsZXNzIGNhbm9uaWNhbCBTYXZlIG9yIGEgZ3VhcmFudGVlIHRoYXQgYWxsIEFzZXByaXRlIGZlYXR1cmVzIHJvdW5kLXRyaXAuIFNvdXJjZSB0cmFuc2FjdGlvbnMgYW5kIHJlY292ZXJ5IHJlcXVpcmUgZXhwbGljaXQgZGVjaXNpb25zOyB0aGVpciBmaWxlIGNoZWNrcyBhcmUgbm90IGFuIGF0b21pYyBjb21wYXJlLWFuZC1zd2FwLlxuXG4qKlJlbGVhc2UgYXJ0aWZhY3RzLioqIExpbnV4IGFuZCBXaW5kb3dzIGFydGlmYWN0cyBsYWNrIHRydXN0ZWQgY29kZSBzaWduYXR1cmVzOyBtYWNPUyBhcnRpZmFjdHMgYXJlIGFkLWhvYyBzaWduZWQgYW5kIGFyZSBub3Qgbm90YXJpemVkLiBUaGUgbmF0aXZlIGJpbmFyaWVzIGluY2x1ZGUgdGhlIHRydXN0ZWQgdXBkYXRlIHZlcmlmaWNhdGlvbiBrZXkuIFB1Ymxpc2hpbmcgdGhpcyBHaXQgcmVsZWFzZSBkb2VzIG5vdCBjaGFuZ2UgdGhlIHNlcGFyYXRlIHN0YWJsZSB1cGRhdGUgY2hhbm5lbC5cbiIsCiAgImFzc2V0cyI6IFsKICAgIHsKICAgICAgIm9zIjogImxpbnV4IiwKICAgICAgImFyY2giOiAiYW1kNjQiLAogICAgICAia2luZCI6ICJ0YXJiYWxsIiwKICAgICAgInVybCI6ICJodHRwczovL2dpdC5ha2FycG92LnJ1L3NhbnNwaWUvYWVnby9yZWxlYXNlcy9kb3dubG9hZC92MC4xMi41L2FlZ28tMC4xMi41LWxpbnV4LWFtZDY0LnRhci5neiIsCiAgICAgICJzaXplIjogMTg2MTAxMDMsCiAgICAgICJzaGEyNTYiOiAiOGZlZTA1ZmE0ZTBhYmU0NzE1N2Q5NDZlZDg3ODkzMjY2NDExNDY5ZTZmYTRjMGRmYTZkYjA4NTgxOGViYjg3YyIKICAgIH0sCiAgICB7CiAgICAgICJvcyI6ICJsaW51eCIsCiAgICAgICJhcmNoIjogImFtZDY0IiwKICAgICAgImtpbmQiOiAiYXBwaW1hZ2UiLAogICAgICAidXJsIjogImh0dHBzOi8vZ2l0LmFrYXJwb3YucnUvc2Fuc3BpZS9hZWdvL3JlbGVhc2VzL2Rvd25sb2FkL3YwLjEyLjUvQWVnby0wLjEyLjUteDg2XzY0LkFwcEltYWdlIiwKICAgICAgInNpemUiOiAxNzgzNjUzNiwKICAgICAgInNoYTI1NiI6ICI4OTBjYTljYTRkOWFmNDlmMWY1YTlkMDc1OWRhYWIxMmE4YjgzMTczMjgyZDczNTBlZWExNDc5YWVhYjQyY2QxIgogICAgfSwKICAgIHsKICAgICAgIm9zIjogIndpbmRvd3MiLAogICAgICAiYXJjaCI6ICJhbWQ2NCIsCiAgICAgICJraW5kIjogImluc3RhbGxlciIsCiAgICAgICJ1cmwiOiAiaHR0cHM6Ly9naXQuYWthcnBvdi5ydS9zYW5zcGllL2FlZ28vcmVsZWFzZXMvZG93bmxvYWQvdjAuMTIuNS9hZWdvLTAuMTIuNS13aW5kb3dzLWFtZDY0LXNldHVwLmV4ZSIsCiAgICAgICJzaXplIjogNDU5NzAwNjYsCiAgICAgICJzaGEyNTYiOiAiMzU3NTA3MDQ1MTQ2OTI3YmQxODliY2JmMmU4NDM3ZjVkOTM3OTA2Y2Y5MWM2MjY4YjU2NzE3ODMzYzdjNTk1NSIKICAgIH0sCiAgICB7CiAgICAgICJvcyI6ICJkYXJ3aW4iLAogICAgICAiYXJjaCI6ICJhbWQ2NCIsCiAgICAgICJraW5kIjogImFwcCIsCiAgICAgICJ1cmwiOiAiaHR0cHM6Ly9naXQuYWthcnBvdi5ydS9zYW5zcGllL2FlZ28vcmVsZWFzZXMvZG93bmxvYWQvdjAuMTIuNS9hZWdvLTAuMTIuNS1tYWNvcy1hbWQ2NC5hcHAuemlwIiwKICAgICAgInNpemUiOiAzNDQ2ODA0OSwKICAgICAgInNoYTI1NiI6ICJjMTZiNGU3OGM5NGExMTdhNjJiYjM5ODA5NTM2OTg2MjNjNTRlM2VjYzI4MmJhZGU0ZWU3ZjY3OWI2YTk2M2Q2IgogICAgfSwKICAgIHsKICAgICAgIm9zIjogImRhcndpbiIsCiAgICAgICJhcmNoIjogImFybTY0IiwKICAgICAgImtpbmQiOiAiYXBwIiwKICAgICAgInVybCI6ICJodHRwczovL2dpdC5ha2FycG92LnJ1L3NhbnNwaWUvYWVnby9yZWxlYXNlcy9kb3dubG9hZC92MC4xMi41L2FlZ28tMC4xMi41LW1hY29zLWFybTY0LmFwcC56aXAiLAogICAgICAic2l6ZSI6IDMxMTc1MjkzLAogICAgICAic2hhMjU2IjogIjNkNzc0YTJmOTAyMWI3MzBjYzg5Y2YxOGFkZDAwYWQ1YWRlNzQ3NGZlZjM0YzAxYjc1OTkwZTlhZGRmYzc0ZmQiCiAgICB9CiAgXQp9Cg=='
+        run: |
+          set +x
+          python3 -B - <<'AEGO_SIGNER'
+          #!/usr/bin/env python3
+          """Sign a validated non-published 0.12.5 manifest; never write private key bytes."""
+          import base64
+          from datetime import datetime
+          import hashlib
+          import hmac
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+          import tempfile
+
+          VERSION = '0.12.5'
+          BASE_URL = 'https://git.akarpov.ru/sanspie/aego/releases/download/v0.12.5'
+          FINGERPRINT = '06096a4da6dac0b1ee5a8aecc665700bb6a98066f2dffdb30e4d3096877da59e'
+          PUBLIC_PREFIX = bytes.fromhex('302a300506032b6570032100')
+          PRIVATE_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
+          REQUIRED = {
+              ('linux', 'amd64', 'tarball'): 'aego-0.12.5-linux-amd64.tar.gz',
+              ('linux', 'amd64', 'appimage'): 'Aego-0.12.5-x86_64.AppImage',
+              ('windows', 'amd64', 'installer'): 'aego-0.12.5-windows-amd64-setup.exe',
+              ('darwin', 'amd64', 'app'): 'aego-0.12.5-macos-amd64.app.zip',
+              ('darwin', 'arm64', 'app'): 'aego-0.12.5-macos-arm64.app.zip',
+          }
+          ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C'}
+
+
+          def require(value, message):
+              if not value:
+                  raise ValueError(message)
+
+
+          def unique_pairs(pairs):
+              output = {}
+              for key, value in pairs:
+                  require(key not in output, 'duplicate manifest field')
+                  output[key] = value
+              return output
+
+
+          def validate_manifest(data, expected_hash):
+              require(0 < len(data) <= 1024**2 and re.fullmatch(r'[0-9a-f]{64}', expected_hash) and
+                      hashlib.sha256(data).hexdigest() == expected_hash, 'manifest bytes differ')
+              manifest = json.loads(data, object_pairs_hook=unique_pairs)
+              require(isinstance(manifest, dict) and {'version', 'channel', 'published', 'assets'} <= set(manifest) and
+                      set(manifest) <= {'version', 'channel', 'published', 'assets', 'notes', 'minVersion'} and
+                      manifest['version'] == VERSION and manifest['channel'] == 'stable', 'manifest identity differs')
+              published = manifest['published']
+              require(isinstance(published, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', published),
+                      'invalid publication time')
+              datetime.fromisoformat(published.replace('Z', '+00:00'))
+              require(isinstance(manifest.get('notes', ''), str) and len(manifest.get('notes', '').encode()) <= 256 * 1024 and
+                      manifest.get('minVersion', '') == '', 'manifest notes or minimum version differ')
+              assets = manifest['assets']
+              require(isinstance(assets, list) and len(assets) == len(REQUIRED), 'manifest must have five updater assets')
+              seen = set()
+              for item in assets:
+                  require(isinstance(item, dict) and set(item) == {'os', 'arch', 'kind', 'url', 'size', 'sha256'},
+                          'invalid asset fields')
+                  identity = (item['os'], item['arch'], item['kind'])
+                  require(all(isinstance(part, str) for part in identity) and identity in REQUIRED and identity not in seen,
+                          'unexpected or duplicate asset')
+                  seen.add(identity)
+                  require(item['url'] == BASE_URL + '/' + REQUIRED[identity] and type(item['size']) is int and
+                          0 < item['size'] <= 1024**3 and isinstance(item['sha256'], str) and
+                          re.fullmatch(r'[0-9a-f]{64}', item['sha256']), 'invalid asset URL, size or checksum')
+              require(seen == set(REQUIRED), 'required updater asset is missing')
+              return manifest
+
+
+          def decoded(value, size):
+              raw = base64.b64decode(value.strip(), validate=True)
+              require(len(raw) == size, 'key encoding or length differs')
+              return raw
+
+
+          def sign(data, private_text, public_text):
+              private = decoded(private_text, 64)
+              public = decoded(public_text, 32)
+              require(hashlib.sha256(public).hexdigest() == FINGERPRINT and hmac.compare_digest(private[32:], public),
+                      'signing key does not match trusted public key')
+              derived = subprocess.run(['/usr/bin/openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
+                                       input=PRIVATE_PREFIX + private[:32], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                       timeout=15, env=ENV)
+              require(derived.returncode == 0 and hmac.compare_digest(derived.stdout, PUBLIC_PREFIX + public),
+                      'private seed does not match trusted public key')
+              with tempfile.TemporaryDirectory(prefix='aego-release-public-manifest-') as temporary:
+                  root = Path(temporary)
+                  message = root / 'manifest'
+                  pub = root / 'public.der'
+                  signed = root / 'signature'
+                  message.write_bytes(data)
+                  pub.write_bytes(PUBLIC_PREFIX + public)
+                  readfd, writefd = os.pipe()
+                  try:
+                      proc = subprocess.Popen(['/usr/bin/openssl', 'pkeyutl', '-sign', '-keyform', 'DER',
+                                               '-inkey', '/proc/self/fd/' + str(readfd), '-rawin', '-in', str(message)],
+                                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                              env=ENV, pass_fds=(readfd,))
+                      os.close(readfd)
+                      readfd = -1
+                      with os.fdopen(writefd, 'wb') as pipe:
+                          writefd = -1
+                          pipe.write(PRIVATE_PREFIX + private[:32])
+                      signature, _ = proc.communicate(timeout=15)
+                  finally:
+                      if readfd >= 0:
+                          os.close(readfd)
+                      if writefd >= 0:
+                          os.close(writefd)
+                      if 'proc' in locals() and proc.poll() is None:
+                          proc.kill()
+                          proc.wait()
+                  require(proc.returncode == 0 and len(signature) == 64, 'signature generation failed')
+                  signed.write_bytes(signature)
+                  checked = subprocess.run(['/usr/bin/openssl', 'pkeyutl', '-verify', '-pubin', '-keyform', 'DER',
+                                             '-inkey', str(pub), '-rawin', '-in', str(message), '-sigfile', str(signed)],
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15, env=ENV)
+                  require(checked.returncode == 0, 'new signature verification failed')
+              return base64.b64encode(signature) + b'\n'
+
+
+          def main():
+              private = os.environ.pop('AEGO_RELEASE_KEY', '')
+              public = os.environ.pop('AEGO_UPDATE_KEY', '')
+              expected = os.environ.pop('AEGO_MANIFEST_SHA256', '')
+              encoded = os.environ.pop('AEGO_MANIFEST_B64', '')
+              try:
+                  require(len(encoded) <= 2 * 1024**2, 'manifest encoding too large')
+                  data = base64.b64decode(encoded, validate=True)
+                  validate_manifest(data, expected)
+                  signature = sign(data, private, public)
+                  print('AEGO_SIGNED_MANIFEST=' + json.dumps({'version': VERSION, 'manifest_sha256': expected,
+                        'public_key_sha256': FINGERPRINT, 'manifest_base64': base64.b64encode(data).decode(),
+                        'signature_base64': signature.decode().strip(),
+                        'scope': 'signed offline manifest only; no release or channel publication'}, separators=(',', ':')))
+                  return 0
+              except (ValueError, OSError, subprocess.SubprocessError, json.JSONDecodeError):
+                  print('Manifest signing failed; no key material is displayed.', file=sys.stderr)
+                  return 1
+
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          AEGO_SIGNER
